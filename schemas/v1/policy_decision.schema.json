@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v1/policy_decision.schema.json",
+  "title": "PolicyDecision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dcp_version",
+    "intent_id",
+    "decision",
+    "risk_score",
+    "reasons"
+  ],
+  "properties": {
+    "dcp_version": {
+      "type": "string",
+      "pattern": "^1\\.0$"
+    },
+    "intent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "approve",
+        "escalate",
+        "block"
+      ]
+    },
+    "risk_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "reasons": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "required_confirmation": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "human_approve"
+          ]
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

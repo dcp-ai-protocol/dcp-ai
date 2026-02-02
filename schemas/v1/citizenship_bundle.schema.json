@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v1/citizenship_bundle.schema.json",
+  "title": "CitizenshipBundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "human_binding_record",
+    "agent_passport",
+    "intent",
+    "policy_decision",
+    "audit_entries"
+  ],
+  "properties": {
+    "human_binding_record": {
+      "$ref": "human_binding_record.schema.json"
+    },
+    "agent_passport": {
+      "$ref": "agent_passport.schema.json"
+    },
+    "intent": {
+      "$ref": "intent.schema.json"
+    },
+    "policy_decision": {
+      "$ref": "policy_decision.schema.json"
+    },
+    "audit_entries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "audit_entry.schema.json"
+      }
+    }
+  }
+}

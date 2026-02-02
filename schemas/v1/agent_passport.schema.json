@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v1/agent_passport.schema.json",
+  "title": "AgentPassport",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dcp_version",
+    "agent_id",
+    "public_key",
+    "human_binding_reference",
+    "created_at",
+    "status",
+    "signature"
+  ],
+  "properties": {
+    "dcp_version": {
+      "type": "string",
+      "pattern": "^1\\.0$"
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "public_key": {
+      "type": "string",
+      "minLength": 8
+    },
+    "human_binding_reference": {
+      "type": "string",
+      "minLength": 6
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "browse",
+          "api_call",
+          "email",
+          "calendar",
+          "payments",
+          "crm",
+          "file_write",
+          "code_exec"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "risk_tier": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "revoked",
+        "suspended"
+      ]
+    },
+    "signature": {
+      "type": "string",
+      "minLength": 8
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "dcp-ai",
+  "version": "0.1.0-genesis",
+  "type": "module",
+  "bin": {
+    "dcp": "./bin/dcp.js"
+  },
+  "scripts": {
+    "validate": "node tools/validate.js",
+    "conformance": "node tools/conformance.js"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "tweetnacl": "^1.0.3",
+    "tweetnacl-util": "^0.15.1",
+    "json-stable-stringify": "^1.1.1"
+  }
+}

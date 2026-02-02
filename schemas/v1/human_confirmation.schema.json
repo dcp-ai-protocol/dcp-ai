@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v1/human_confirmation.schema.json",
+  "title": "HumanConfirmation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dcp_version",
+    "intent_id",
+    "human_id",
+    "timestamp",
+    "decision",
+    "signature"
+  ],
+  "properties": {
+    "dcp_version": {
+      "type": "string",
+      "pattern": "^1\\.0$"
+    },
+    "intent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "human_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "approve",
+        "deny"
+      ]
+    },
+    "signature": {
+      "type": "string",
+      "minLength": 8
+    }
+  }
+}

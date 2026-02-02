@@ -1,0 +1,17 @@
+{
+  "dcp_version": "1.0",
+  "intent_id": "intent001",
+  "agent_id": "did:agent:agent123",
+  "human_id": "did:human:alice123",
+  "timestamp": "2026-01-01T01:00:00Z",
+  "action_type": "send_email",
+  "target": {
+    "channel": "email",
+    "to": "bob@example.com"
+  },
+  "data_classes": [
+    "contact_info"
+  ],
+  "estimated_impact": "medium",
+  "requires_consent": false
+}

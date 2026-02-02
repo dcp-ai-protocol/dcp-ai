@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v1/intent.schema.json",
+  "title": "Intent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dcp_version",
+    "intent_id",
+    "agent_id",
+    "human_id",
+    "timestamp",
+    "action_type",
+    "target",
+    "data_classes",
+    "estimated_impact"
+  ],
+  "properties": {
+    "dcp_version": {
+      "type": "string",
+      "pattern": "^1\\.0$"
+    },
+    "intent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "human_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "action_type": {
+      "type": "string",
+      "enum": [
+        "browse",
+        "api_call",
+        "send_email",
+        "create_calendar_event",
+        "initiate_payment",
+        "update_crm",
+        "write_file",
+        "execute_code"
+      ]
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "channel"
+      ],
+      "properties": {
+        "channel": {
+          "type": "string",
+          "enum": [
+            "web",
+            "api",
+            "email",
+            "calendar",
+            "payments",
+            "crm",
+            "filesystem",
+            "runtime"
+          ]
+        },
+        "to": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "domain": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "data_classes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "none",
+          "contact_info",
+          "pii",
+          "credentials",
+          "financial_data",
+          "health_data",
+          "children_data",
+          "company_confidential"
+        ]
+      }
+    },
+    "estimated_impact": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "requires_consent": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    }
+  }
+}

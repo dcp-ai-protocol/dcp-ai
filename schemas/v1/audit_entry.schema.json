@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v1/audit_entry.schema.json",
+  "title": "AuditEntry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dcp_version",
+    "audit_id",
+    "prev_hash",
+    "timestamp",
+    "agent_id",
+    "human_id",
+    "intent_id",
+    "intent_hash",
+    "policy_decision",
+    "outcome",
+    "evidence"
+  ],
+  "properties": {
+    "dcp_version": {
+      "type": "string",
+      "pattern": "^1\\.0$"
+    },
+    "audit_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "prev_hash": {
+      "type": "string",
+      "minLength": 1
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "human_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "intent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "intent_hash": {
+      "type": "string",
+      "minLength": 8
+    },
+    "policy_decision": {
+      "type": "string",
+      "enum": [
+        "approved",
+        "escalated",
+        "blocked"
+      ]
+    },
+    "outcome": {
+      "type": "string",
+      "minLength": 1
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "tool": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "result_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

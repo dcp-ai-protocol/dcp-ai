@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v1/human_binding_record.schema.json",
+  "title": "HumanBindingRecord",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dcp_version",
+    "human_id",
+    "legal_name",
+    "entity_type",
+    "jurisdiction",
+    "liability_mode",
+    "override_rights",
+    "issued_at",
+    "expires_at",
+    "signature"
+  ],
+  "properties": {
+    "dcp_version": {
+      "type": "string",
+      "pattern": "^1\\.0$"
+    },
+    "human_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "legal_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "entity_type": {
+      "type": "string",
+      "enum": [
+        "natural_person",
+        "organization"
+      ]
+    },
+    "jurisdiction": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 10
+    },
+    "liability_mode": {
+      "type": "string",
+      "enum": [
+        "owner_responsible"
+      ]
+    },
+    "override_rights": {
+      "type": "boolean"
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "contact": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "signature": {
+      "type": "string",
+      "minLength": 8
+    }
+  }
+}

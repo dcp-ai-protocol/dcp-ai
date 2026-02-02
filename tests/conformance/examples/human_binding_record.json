@@ -1,0 +1,12 @@
+{
+  "dcp_version": "1.0",
+  "human_id": "did:human:alice123",
+  "legal_name": "Alice Example",
+  "entity_type": "natural_person",
+  "jurisdiction": "CL",
+  "liability_mode": "owner_responsible",
+  "override_rights": true,
+  "issued_at": "2026-01-01T00:00:00Z",
+  "expires_at": null,
+  "signature": "sig_human_001"
+}

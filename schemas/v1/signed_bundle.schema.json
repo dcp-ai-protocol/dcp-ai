@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v1/signed_bundle.schema.json",
+  "title": "SignedBundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "bundle",
+    "signature"
+  ],
+  "properties": {
+    "bundle": {
+      "$ref": "citizenship_bundle.schema.json"
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "alg",
+        "created_at",
+        "signer",
+        "bundle_hash",
+        "sig_b64"
+      ],
+      "properties": {
+        "alg": {
+          "type": "string",
+          "enum": [
+            "ed25519"
+          ]
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "signer": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "id",
+            "public_key_b64"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "human",
+                "organization"
+              ]
+            },
+            "id": {
+              "type": "string",
+              "minLength": 6
+            },
+            "public_key_b64": {
+              "type": "string",
+              "minLength": 8
+            }
+          }
+        },
+        "bundle_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "merkle_root": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "sig_b64": {
+          "type": "string",
+          "minLength": 8
+        }
+      }
+    }
+  }
+}

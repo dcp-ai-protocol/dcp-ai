@@ -1,0 +1,16 @@
+{
+  "dcp_version": "1.0",
+  "audit_id": "audit001",
+  "prev_hash": "GENESIS",
+  "timestamp": "2026-01-01T01:01:00Z",
+  "agent_id": "did:agent:agent123",
+  "human_id": "did:human:alice123",
+  "intent_id": "intent001",
+  "intent_hash": "hash_intent001",
+  "policy_decision": "approved",
+  "outcome": "email_sent",
+  "evidence": {
+    "tool": "smtp",
+    "result_ref": "msg-7788"
+  }
+}

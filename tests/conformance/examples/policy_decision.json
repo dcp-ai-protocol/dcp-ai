@@ -1,0 +1,9 @@
+{
+  "dcp_version": "1.0",
+  "intent_id": "intent001",
+  "decision": "approve",
+  "risk_score": 0.21,
+  "reasons": [
+    "low_risk"
+  ]
+}
