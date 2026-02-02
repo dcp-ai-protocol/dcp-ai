@@ -13,16 +13,11 @@ function addAllSchemas(ajv, schemasDir) {
   for (const f of files) {
     const full = path.join(schemasDir, f);
     const schema = loadJson(full);
-
-    // Add by $id (preferred)
-    if (schema.$id) ajv.addSchema(schema, schema.$id);
-
-    // Also add by filename so $ref: "x.schema.json" resolves.
-    const id = schema.$id;
-    if (id && ajv.getSchema(id)) {
-      ajv.removeSchema(id);
+    if (schema.$id) {
+      ajv.addSchema(schema, schema.$id);
+    } else {
+      ajv.addSchema(schema);
     }
-    ajv.addSchema(schema);
   }
 }
 
@@ -37,14 +32,17 @@ if (!schemaPath || !jsonPath) {
 const ajv = new Ajv({ allErrors: true, strict: false });
 addFormats(ajv);
 
-addAllSchemas(ajv, path.join(process.cwd(), "schemas", "v1"));
+const schemasDir = path.join(process.cwd(), "schemas", "v1");
+addAllSchemas(ajv, schemasDir);
 
 const schema = loadJson(schemaPath);
 const data = loadJson(jsonPath);
 
+// Use getSchema when the schema was already added (by $id) so $refs resolve correctly
 let validate;
 try {
-  validate = ajv.compile(schema);
+  validate = schema.$id ? ajv.getSchema(schema.$id) : null;
+  if (!validate) validate = ajv.compile(schema);
 } catch (e) {
   console.error("Schema compile error:", e.message || e);
   process.exit(2);

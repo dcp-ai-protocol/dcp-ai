@@ -1,0 +1,87 @@
+{
+  "bundle": {
+    "human_binding_record": {
+      "dcp_version": "1.0",
+      "human_id": "did:human:alice123",
+      "legal_name": "Alice Example",
+      "entity_type": "natural_person",
+      "jurisdiction": "CL",
+      "liability_mode": "owner_responsible",
+      "override_rights": true,
+      "issued_at": "2026-01-01T00:00:00Z",
+      "expires_at": null,
+      "signature": "sig_human_001"
+    },
+    "agent_passport": {
+      "dcp_version": "1.0",
+      "agent_id": "did:agent:agent123",
+      "public_key": "agent_public_key_abc",
+      "human_binding_reference": "did:human:alice123",
+      "capabilities": [
+        "browse",
+        "email",
+        "api_call"
+      ],
+      "risk_tier": "medium",
+      "created_at": "2026-01-01T00:10:00Z",
+      "status": "active",
+      "signature": "sig_agent_001"
+    },
+    "intent": {
+      "dcp_version": "1.0",
+      "intent_id": "intent001",
+      "agent_id": "did:agent:agent123",
+      "human_id": "did:human:alice123",
+      "timestamp": "2026-01-01T01:00:00Z",
+      "action_type": "send_email",
+      "target": {
+        "channel": "email",
+        "to": "bob@example.com"
+      },
+      "data_classes": [
+        "contact_info"
+      ],
+      "estimated_impact": "medium",
+      "requires_consent": false
+    },
+    "policy_decision": {
+      "dcp_version": "1.0",
+      "intent_id": "intent001",
+      "decision": "approve",
+      "risk_score": 0.21,
+      "reasons": [
+        "low_risk"
+      ]
+    },
+    "audit_entries": [
+      {
+        "dcp_version": "1.0",
+        "audit_id": "audit001",
+        "prev_hash": "GENESIS",
+        "timestamp": "2026-01-01T01:01:00Z",
+        "agent_id": "did:agent:agent123",
+        "human_id": "did:human:alice123",
+        "intent_id": "intent001",
+        "intent_hash": "hash_intent001",
+        "policy_decision": "approved",
+        "outcome": "email_sent",
+        "evidence": {
+          "tool": "smtp",
+          "result_ref": "msg-7788"
+        }
+      }
+    ]
+  },
+  "signature": {
+    "alg": "ed25519",
+    "created_at": "2026-02-02T09:51:35.055Z",
+    "signer": {
+      "type": "human",
+      "id": "did:human:alice123",
+      "public_key_b64": "vW29UZE20iYCjuIOJg/grC/LyudweyysMV53QCHPJ7w="
+    },
+    "bundle_hash": "sha256:13ed1ef39441ca194e53cab56ad18239a3ab27bd339d1201c88547567bc342df",
+    "merkle_root": "sha256:e9ab93b4c88828ae881a46c7797ee3420ca3b69a598265f25660c9f29f4217fa",
+    "sig_b64": "ShkKhynFDS1nu8P8cmu52YZWWa9ZDvdZ4dhJayHEpe2wrQzAMQVBo6I+5YKBjf+xYutj4oPAwQomTKT0mx+8AA=="
+  }
+}
