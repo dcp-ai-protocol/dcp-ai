@@ -18,7 +18,11 @@ function addAllSchemas(ajv, schemasDir) {
     if (schema.$id) ajv.addSchema(schema, schema.$id);
 
     // Also add by filename so $ref: "x.schema.json" resolves.
-    ajv.addSchema(schema, f);
+    const id = schema.$id;
+    if (id && ajv.getSchema(id)) {
+      ajv.removeSchema(id);
+    }
+    ajv.addSchema(schema);
   }
 }
 

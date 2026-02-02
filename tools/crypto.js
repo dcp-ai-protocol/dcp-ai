@@ -1,5 +1,6 @@
 import nacl from "tweetnacl";
-import { decodeUTF8, encodeBase64, decodeBase64 } from "tweetnacl-util";
+import naclUtil from "tweetnacl-util";
+const { decodeUTF8, encodeBase64, decodeBase64 } = naclUtil;
 import stringify from "json-stable-stringify";
 
 export function canonicalize(obj) {
