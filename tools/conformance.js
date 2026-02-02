@@ -53,7 +53,7 @@ if (!fs.existsSync("tests/conformance/examples/citizenship_bundle.signed.json"))
   if (!fs.existsSync("keys")) fs.mkdirSync("keys");
 
   if (!fs.existsSync("keys/public_key.txt") || !fs.existsSync("keys/secret_key.txt")) {
-    execSync("dcp keygen keys", { stdio: "inherit" });
+    execSync("node bin/dcp.js keygen keys", { stdio: "inherit" });
   }
 
   execSync(
