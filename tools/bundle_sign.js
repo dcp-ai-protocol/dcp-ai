@@ -1,7 +1,11 @@
 import fs from "fs";
 import crypto from "crypto";
+import nacl from "tweetnacl";
+import naclUtil from "tweetnacl-util";
 import { signObject } from "./crypto.js";
 import { canonicalize, merkleRootForAuditEntries } from "./merkle.js";
+
+const { encodeBase64, decodeBase64 } = naclUtil;
 
 const bundlePath = process.argv[2];
 const secretKeyPath = process.argv[3];
@@ -14,6 +18,9 @@ if (!bundlePath || !secretKeyPath) {
 
 const bundle = JSON.parse(fs.readFileSync(bundlePath, "utf8"));
 const secretKeyB64 = fs.readFileSync(secretKeyPath, "utf8").trim();
+const secretKey = decodeBase64(secretKeyB64);
+const keyPair = nacl.sign.keyPair.fromSecretKey(secretKey);
+const publicKeyB64 = encodeBase64(keyPair.publicKey);
 
 // Deterministic bundle hash
 const bundleHashHex = crypto
@@ -37,7 +44,7 @@ const signed = {
     signer: {
       type: "human",
       id: bundle.human_binding_record?.human_id || null,
-      public_key_b64: null
+      public_key_b64: publicKeyB64
     },
     bundle_hash: `sha256:${bundleHashHex}`,
     merkle_root: merkleHex ? `sha256:${merkleHex}` : null,
