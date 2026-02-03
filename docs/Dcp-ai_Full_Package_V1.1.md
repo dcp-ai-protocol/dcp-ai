@@ -54,12 +54,16 @@ Normative specifications are in [spec/](../spec/). Index:
 
 A **Citizenship Bundle** brings together HBR, Agent Passport, Intent, Policy Decision, and Audit Entries in a portable packet. A **Signed Bundle** wraps it with an Ed25519 signature and deterministic hashes. Normative definition, schemas, and commands: [spec/BUNDLE.md](../spec/BUNDLE.md).
 
+- **Storage and anchoring:** [STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md) — P2P; optional anchoring via existing blockchain or third-party log; revocation as signed records (P2P or anchored).
+- **Agent creation and certification:** [AGENT_CREATION_AND_CERTIFICATION.md](AGENT_CREATION_AND_CERTIFICATION.md) — P2P certification flow, definition of DCP-certified (local + optional anchor), integration with agent-creation systems.
+
 ## 7. Implementation in this repo
 
 - **Schemas:** [schemas/v1/](../schemas/v1/) — JSON Schema draft 2020-12. Each artifact has its `.schema.json`.
-- **CLI:** `dcp` — validate, validate-bundle, conformance, keygen, sign-bundle, verify-bundle, bundle-hash, merkle-root. See `dcp help`.
+- **CLI:** `dcp` — validate, validate-bundle, conformance, keygen, sign-bundle, verify-bundle, bundle-hash, merkle-root, intent-hash. See `dcp help`.
+- **Verification checklist:** [spec/VERIFICATION.md](../spec/VERIFICATION.md) — normative steps to verify a Signed Bundle (schema, signature, expiry, revocation, intent_hash, audit chain, merkle; all local, no server).
 - **Conformance:** `npm run conformance` validates L3-OBJECTS + L3-BUNDLE + L3-SIGNED (individual objects, bundle, signed bundle, cryptographic verification).
-- **Fixtures:** [tests/conformance/examples/](../tests/conformance/examples/) — valid examples per schema.
+- **Fixtures:** [tests/conformance/examples/](../tests/conformance/examples/) — valid examples per schema. Regenerate with `npm run examples:generate`.
 
 ## 8. Why this Genesis Repo matters
 

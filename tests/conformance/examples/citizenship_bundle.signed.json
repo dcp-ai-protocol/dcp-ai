@@ -10,12 +10,12 @@
       "override_rights": true,
       "issued_at": "2026-01-01T00:00:00Z",
       "expires_at": null,
-      "signature": "sig_human_001"
+      "signature": "0gE71aGiuJe1I707GwRcmq99JV6K8rrD93DKnFukfzXHrd/HcV3+jBi6Ia53dcHcllKbCT/hJcTCAiOcFps/AA=="
     },
     "agent_passport": {
       "dcp_version": "1.0",
       "agent_id": "did:agent:agent123",
-      "public_key": "agent_public_key_abc",
+      "public_key": "ywFRKbf3N5DA6UetOjCjfGBNyOSuXtr0THTqRA9V0+g=",
       "human_binding_reference": "did:human:alice123",
       "capabilities": [
         "browse",
@@ -25,7 +25,7 @@
       "risk_tier": "medium",
       "created_at": "2026-01-01T00:10:00Z",
       "status": "active",
-      "signature": "sig_agent_001"
+      "signature": "1S/uJm+yLpPSOdd+sEXt5MlBuYZvqr5SKQnhNWzEbpkfLqXGWklScblEpkKAjpxCeWVm/2Kc/C+PIzmbo4hTAQ=="
     },
     "intent": {
       "dcp_version": "1.0",
@@ -62,7 +62,23 @@
         "agent_id": "did:agent:agent123",
         "human_id": "did:human:alice123",
         "intent_id": "intent001",
-        "intent_hash": "hash_intent001",
+        "intent_hash": "6f6acc1f4cfe6fdaf925bb28f70d2b218aabf0cd3485747dcb55702f4bf6e454",
+        "policy_decision": "approved",
+        "outcome": "policy_approved",
+        "evidence": {
+          "tool": "policy_engine",
+          "result_ref": null
+        }
+      },
+      {
+        "dcp_version": "1.0",
+        "audit_id": "audit002",
+        "prev_hash": "c38c1981665e57883e11376fea5f6f8dcc8bc6e5784fb7995c844e9f7b02e0ab",
+        "timestamp": "2026-01-01T01:02:00Z",
+        "agent_id": "did:agent:agent123",
+        "human_id": "did:human:alice123",
+        "intent_id": "intent001",
+        "intent_hash": "6f6acc1f4cfe6fdaf925bb28f70d2b218aabf0cd3485747dcb55702f4bf6e454",
         "policy_decision": "approved",
         "outcome": "email_sent",
         "evidence": {
@@ -74,14 +90,14 @@
   },
   "signature": {
     "alg": "ed25519",
-    "created_at": "2026-02-02T09:51:35.055Z",
+    "created_at": "2026-02-03T01:24:08.544Z",
     "signer": {
       "type": "human",
       "id": "did:human:alice123",
       "public_key_b64": "vW29UZE20iYCjuIOJg/grC/LyudweyysMV53QCHPJ7w="
     },
-    "bundle_hash": "sha256:13ed1ef39441ca194e53cab56ad18239a3ab27bd339d1201c88547567bc342df",
-    "merkle_root": "sha256:e9ab93b4c88828ae881a46c7797ee3420ca3b69a598265f25660c9f29f4217fa",
-    "sig_b64": "ShkKhynFDS1nu8P8cmu52YZWWa9ZDvdZ4dhJayHEpe2wrQzAMQVBo6I+5YKBjf+xYutj4oPAwQomTKT0mx+8AA=="
+    "bundle_hash": "sha256:15ca19d37e54d7fcd0be50f0f38ab63a7863aaf1a31a739e99ee8835194b64bf",
+    "merkle_root": "sha256:b80928bc53f1adf75227dbfd240fff4c63fbe6bdb8c3717a1752ac9fce3aadce",
+    "sig_b64": "ivefJ0iDUDMBvmaXeP4BSFtOICAT2z28EwrKVcsOX3qkjcnt64oLyR4UxRiRB1YbtCujgDNTl+0UQFP9TG4SDQ=="
   }
 }

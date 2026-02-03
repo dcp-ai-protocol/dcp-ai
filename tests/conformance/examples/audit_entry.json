@@ -6,11 +6,11 @@
   "agent_id": "did:agent:agent123",
   "human_id": "did:human:alice123",
   "intent_id": "intent001",
-  "intent_hash": "hash_intent001",
+  "intent_hash": "6f6acc1f4cfe6fdaf925bb28f70d2b218aabf0cd3485747dcb55702f4bf6e454",
   "policy_decision": "approved",
-  "outcome": "email_sent",
+  "outcome": "policy_approved",
   "evidence": {
-    "tool": "smtp",
-    "result_ref": "msg-7788"
+    "tool": "policy_engine",
+    "result_ref": null
   }
 }

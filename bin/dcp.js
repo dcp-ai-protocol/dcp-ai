@@ -19,6 +19,7 @@ Usage:
   dcp verify-bundle <bundle.signed.json> <public_key.txt>
   dcp bundle-hash <bundle.json>
   dcp merkle-root <bundle.json>
+  dcp intent-hash <intent.json>
 `);
 }
 
@@ -184,6 +185,18 @@ if (cmd === "merkle-root") {
   }
   const hex = merkleRootForAuditEntries(bundle.audit_entries);
   console.log(hex ? `sha256:${hex}` : "null");
+  process.exit(0);
+}
+
+if (cmd === "intent-hash") {
+  const intentPath = process.argv[3];
+  if (!intentPath) {
+    console.error("Usage: dcp intent-hash <intent.json>");
+    process.exit(2);
+  }
+  const { intentHash } = await import("../tools/merkle.js");
+  const intent = JSON.parse(fs.readFileSync(intentPath, "utf8"));
+  console.log(intentHash(intent));
   process.exit(0);
 }
 

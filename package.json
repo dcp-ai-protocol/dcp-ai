@@ -7,7 +7,8 @@
   },
   "scripts": {
     "validate": "node tools/validate.js",
-    "conformance": "node tools/conformance.js"
+    "conformance": "node tools/conformance.js",
+    "examples:generate": "node scripts/generate-production-examples.js"
   },
   "dependencies": {
     "ajv": "^8.17.1",

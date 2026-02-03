@@ -34,3 +34,20 @@ export function merkleRootForAuditEntries(auditEntries) {
   const leaves = auditEntries.map(hashObject);
   return merkleRootFromHexLeaves(leaves);
 }
+
+/**
+ * Compute intent_hash for an Intent object (DCP-02).
+ * intent_hash = SHA-256(canonical(intent)) as hex string.
+ */
+export function intentHash(intent) {
+  return hashObject(intent);
+}
+
+/**
+ * Compute prev_hash for audit entry chaining (DCP-03).
+ * For entry at index n (n >= 1): prev_hash = SHA-256(canonical(entry_{n-1})) as hex.
+ * For the first entry (n === 0): prev_hash must be "GENESIS".
+ */
+export function prevHashForEntry(prevEntry) {
+  return hashObject(prevEntry);
+}
