@@ -9,12 +9,12 @@
     "override_rights": true,
     "issued_at": "2026-01-01T00:00:00Z",
     "expires_at": null,
-    "signature": "sig_human_001"
+    "signature": "0gE71aGiuJe1I707GwRcmq99JV6K8rrD93DKnFukfzXHrd/HcV3+jBi6Ia53dcHcllKbCT/hJcTCAiOcFps/AA=="
   },
   "agent_passport": {
     "dcp_version": "1.0",
     "agent_id": "did:agent:agent123",
-    "public_key": "agent_public_key_abc",
+    "public_key": "ywFRKbf3N5DA6UetOjCjfGBNyOSuXtr0THTqRA9V0+g=",
     "human_binding_reference": "did:human:alice123",
     "capabilities": [
       "browse",
@@ -24,7 +24,7 @@
     "risk_tier": "medium",
     "created_at": "2026-01-01T00:10:00Z",
     "status": "active",
-    "signature": "sig_agent_001"
+    "signature": "1S/uJm+yLpPSOdd+sEXt5MlBuYZvqr5SKQnhNWzEbpkfLqXGWklScblEpkKAjpxCeWVm/2Kc/C+PIzmbo4hTAQ=="
   },
   "intent": {
     "dcp_version": "1.0",
@@ -61,7 +61,23 @@
       "agent_id": "did:agent:agent123",
       "human_id": "did:human:alice123",
       "intent_id": "intent001",
-      "intent_hash": "hash_intent001",
+      "intent_hash": "6f6acc1f4cfe6fdaf925bb28f70d2b218aabf0cd3485747dcb55702f4bf6e454",
+      "policy_decision": "approved",
+      "outcome": "policy_approved",
+      "evidence": {
+        "tool": "policy_engine",
+        "result_ref": null
+      }
+    },
+    {
+      "dcp_version": "1.0",
+      "audit_id": "audit002",
+      "prev_hash": "c38c1981665e57883e11376fea5f6f8dcc8bc6e5784fb7995c844e9f7b02e0ab",
+      "timestamp": "2026-01-01T01:02:00Z",
+      "agent_id": "did:agent:agent123",
+      "human_id": "did:human:alice123",
+      "intent_id": "intent001",
+      "intent_hash": "6f6acc1f4cfe6fdaf925bb28f70d2b218aabf0cd3485747dcb55702f4bf6e454",
       "policy_decision": "approved",
       "outcome": "email_sent",
       "evidence": {

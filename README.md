@@ -37,7 +37,10 @@ dcp verify-bundle tests/conformance/examples/citizenship_bundle.signed.json keys
 
 ## Documentation
 
-- **Normative:** [spec/](spec/) — DCP-01, DCP-02, DCP-03, [BUNDLE](spec/BUNDLE.md). Schemas in `schemas/v1/`, examples in `tests/conformance/examples/`.
+- **Normative:** [spec/](spec/) — DCP-01, DCP-02, DCP-03, [BUNDLE](spec/BUNDLE.md), [VERIFICATION](spec/VERIFICATION.md). Schemas in `schemas/v1/`, examples in `tests/conformance/examples/`.
+- **Production examples:** Regenerate with `npm run examples:generate`. Real Ed25519 signatures, intent_hash (SHA-256 canonical intent), chained prev_hash (GENESIS → hash(entry1)).
+- **Storage & anchoring (P2P):** [docs/STORAGE_AND_ANCHORING.md](docs/STORAGE_AND_ANCHORING.md) — no central service; verification is local; optional anchoring (hashes only) via existing blockchain or third-party log.
+- **Agent creation & certification:** [docs/AGENT_CREATION_AND_CERTIFICATION.md](docs/AGENT_CREATION_AND_CERTIFICATION.md) — P2P flow, DCP-certified (local + optional anchor), no central API.
 - **Vision & manifesto:** [docs/Dcp-ai_Full_Package_V1.1.md](docs/Dcp-ai_Full_Package_V1.1.md).
 - **Whitepaper (genesis):** [docs/GENESIS_PAPER.md](docs/GENESIS_PAPER.md).
 

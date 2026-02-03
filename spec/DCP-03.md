@@ -10,7 +10,9 @@ Every decision and every outcome is recorded. The audit chain links entries with
 
 **$id:** `https://dcp-ai.org/schemas/v1/audit_entry.schema.json`
 
-**Chaining:** `prev_hash` links to the previous entry; the first entry uses a GENESIS value (e.g. the literal string `"GENESIS"` or an agreed hash). The source of truth for the format of `prev_hash` is in the schema.
+**intent_hash:** For each AuditEntry, `intent_hash` MUST equal the SHA-256 hash of the canonical JSON form of the Intent that the entry refers to. Formally: `intent_hash = SHA-256(canonical(intent))` (hex string). The intent is identified by `intent_id`; the canonical form is the same as used for bundle hashing (e.g. `json-stable-stringify`). Use `dcp intent-hash <intent.json>` or the `intentHash()` helper from the reference implementation to compute it.
+
+**Chaining (prev_hash):** The first audit entry MUST have `prev_hash = "GENESIS"` (the literal string). For entry at index n (n ≥ 1), `prev_hash` MUST equal the SHA-256 hash of the canonical JSON form of the previous entry: `prev_hash = SHA-256(canonical(entry_{n-1}))` (hex string). This links entries in an immutable chain.
 
 **Merkle (optional):** Given an array of `audit_entries`, a Merkle root can be computed. The Signed Bundle may include `signature.merkle_root` as `sha256:<hex>` or `null`.
 

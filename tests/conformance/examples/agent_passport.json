@@ -1,7 +1,7 @@
 {
   "dcp_version": "1.0",
   "agent_id": "did:agent:agent123",
-  "public_key": "agent_public_key_abc",
+  "public_key": "ywFRKbf3N5DA6UetOjCjfGBNyOSuXtr0THTqRA9V0+g=",
   "human_binding_reference": "did:human:alice123",
   "capabilities": [
     "browse",
@@ -11,5 +11,5 @@
   "risk_tier": "medium",
   "created_at": "2026-01-01T00:10:00Z",
   "status": "active",
-  "signature": "sig_agent_001"
+  "signature": "1S/uJm+yLpPSOdd+sEXt5MlBuYZvqr5SKQnhNWzEbpkfLqXGWklScblEpkKAjpxCeWVm/2Kc/C+PIzmbo4hTAQ=="
 }

@@ -63,3 +63,9 @@ dcp keygen [out_dir]
 ```
 
 **Example:** [tests/conformance/examples/citizenship_bundle.signed.json](../tests/conformance/examples/citizenship_bundle.signed.json)
+
+---
+
+## Verification checklist
+
+For a normative, step-by-step verification checklist (schema, signature, expiry, revocation, intent_hash, audit chain, merkle, optional anchor), see [VERIFICATION.md](VERIFICATION.md). All steps are local; no server call is required.

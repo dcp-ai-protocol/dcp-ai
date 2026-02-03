@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { execSync } from "child_process";
 import fs from "fs";
+import { intentHash, hashObject } from "./merkle.js";
 
 const checks = [
   {
@@ -84,6 +85,33 @@ try {
 } catch {
   console.error("✖ L3-SIGNED Signature Verification");
   failures++;
+}
+
+// Intent hash and audit chain (production example bundle)
+let chainOk = true;
+const bundlePath = "tests/conformance/examples/citizenship_bundle.json";
+const bundle = JSON.parse(fs.readFileSync(bundlePath, "utf8"));
+const intent = bundle.intent;
+const expectedIntentHash = intentHash(intent);
+let prevHashExpected = "GENESIS";
+for (let i = 0; i < bundle.audit_entries.length; i++) {
+  const entry = bundle.audit_entries[i];
+  if (entry.intent_hash !== expectedIntentHash) {
+    console.error(`✖ L3-BUNDLE intent_hash (entry ${i}): expected ${expectedIntentHash}, got ${entry.intent_hash}`);
+    failures++;
+    chainOk = false;
+    break;
+  }
+  if (entry.prev_hash !== prevHashExpected) {
+    console.error(`✖ L3-BUNDLE prev_hash chain (entry ${i}): expected ${prevHashExpected}, got ${entry.prev_hash}`);
+    failures++;
+    chainOk = false;
+    break;
+  }
+  prevHashExpected = hashObject(entry);
+}
+if (chainOk && bundle.audit_entries.length > 0) {
+  console.log("✔ L3-BUNDLE intent_hash and prev_hash chain");
 }
 
 if (failures > 0) {
