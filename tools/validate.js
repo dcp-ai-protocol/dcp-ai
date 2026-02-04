@@ -54,6 +54,8 @@ if (ok) {
   process.exit(0);
 } else {
   console.error("❌ INVALID");
+  const schemaName = path.basename(schemaPath);
+  console.error(`Schema: ${schemaName}. See spec/ for required fields.`);
   for (const err of validate.errors || []) {
     console.error(`- ${err.instancePath || "/"} ${err.message}`);
   }
