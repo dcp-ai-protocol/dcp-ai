@@ -23,6 +23,7 @@ if (!signed.bundle || !signed.signature?.sig_b64) {
 const okSig = verifyObject(signed.bundle, signed.signature.sig_b64, publicKeyB64);
 if (!okSig) {
   console.error("❌ SIGNATURE INVALID");
+  console.error("Hint: Check that the public key (e.g. public_key.txt) is the one that signed this bundle.");
   process.exit(1);
 }
 
@@ -36,6 +37,7 @@ if (typeof signed.signature.bundle_hash === "string" && signed.signature.bundle_
   const got = signed.signature.bundle_hash.slice("sha256:".length);
   if (got !== expectedHex) {
     console.error("❌ BUNDLE HASH MISMATCH");
+    console.error("Hint: The bundle may have been modified after signing. Re-sign with dcp sign-bundle.");
     process.exit(1);
   }
 }
@@ -49,6 +51,7 @@ if (typeof signed.signature.merkle_root === "string" && signed.signature.merkle_
   const gotMerkle = signed.signature.merkle_root.slice("sha256:".length);
   if (!expectedMerkle || gotMerkle !== expectedMerkle) {
     console.error("❌ MERKLE ROOT MISMATCH");
+    console.error("Hint: audit_entries may have been reordered or modified after signing.");
     process.exit(1);
   }
 }

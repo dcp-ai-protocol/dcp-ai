@@ -50,7 +50,7 @@ const hbr = {
   human_id: "did:human:alice123",
   legal_name: "Alice Example",
   entity_type: "natural_person",
-  jurisdiction: "CL",
+  jurisdiction: "US",
   liability_mode: "owner_responsible",
   override_rights: true,
   issued_at: "2026-01-01T00:00:00Z",
