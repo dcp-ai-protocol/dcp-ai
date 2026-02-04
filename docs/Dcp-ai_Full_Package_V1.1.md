@@ -56,6 +56,7 @@ A **Citizenship Bundle** brings together HBR, Agent Passport, Intent, Policy Dec
 
 - **Storage and anchoring:** [STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md) — P2P; optional anchoring via existing blockchain or third-party log; revocation as signed records (P2P or anchored).
 - **Agent creation and certification:** [AGENT_CREATION_AND_CERTIFICATION.md](AGENT_CREATION_AND_CERTIFICATION.md) — P2P certification flow, definition of DCP-certified (local + optional anchor), integration with agent-creation systems.
+- **Operator guide — running a verification service:** [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md) — how to deploy an optional "agent verified" HTTP API (verify bundles, optional anchor); for third parties.
 
 ## 7. Implementation in this repo
 

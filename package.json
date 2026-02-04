@@ -2,13 +2,18 @@
   "name": "dcp-ai",
   "version": "0.1.0-genesis",
   "type": "module",
+  "main": "lib/verify.js",
+  "exports": {
+    ".": "./lib/verify.js"
+  },
   "bin": {
     "dcp": "./bin/dcp.js"
   },
   "scripts": {
     "validate": "node tools/validate.js",
     "conformance": "node tools/conformance.js",
-    "examples:generate": "node scripts/generate-production-examples.js"
+    "examples:generate": "node scripts/generate-production-examples.js",
+    "server": "node server/index.js"
   },
   "dependencies": {
     "ajv": "^8.17.1",
