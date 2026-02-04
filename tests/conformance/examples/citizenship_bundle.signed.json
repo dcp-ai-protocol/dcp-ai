@@ -10,7 +10,7 @@
       "override_rights": true,
       "issued_at": "2026-01-01T00:00:00Z",
       "expires_at": null,
-      "signature": "0gE71aGiuJe1I707GwRcmq99JV6K8rrD93DKnFukfzXHrd/HcV3+jBi6Ia53dcHcllKbCT/hJcTCAiOcFps/AA=="
+      "signature": "A9mOZnREgjvDXZ5fazUOxMuLmqSHIqxva6IZHYndKKyF31JBTDAnLJtd4R5VMf+Mx3unlm3FV7Pts6A3mhWFBA=="
     },
     "agent_passport": {
       "dcp_version": "1.0",
@@ -90,14 +90,14 @@
   },
   "signature": {
     "alg": "ed25519",
-    "created_at": "2026-02-03T01:24:08.544Z",
+    "created_at": "2026-02-04T02:45:34.013Z",
     "signer": {
       "type": "human",
       "id": "did:human:alice123",
       "public_key_b64": "vW29UZE20iYCjuIOJg/grC/LyudweyysMV53QCHPJ7w="
     },
-    "bundle_hash": "sha256:15ca19d37e54d7fcd0be50f0f38ab63a7863aaf1a31a739e99ee8835194b64bf",
+    "bundle_hash": "sha256:b470a1b389542d3475683fe42dd00d052548ee4612ed5737598f125bcf8e2030",
     "merkle_root": "sha256:b80928bc53f1adf75227dbfd240fff4c63fbe6bdb8c3717a1752ac9fce3aadce",
-    "sig_b64": "ivefJ0iDUDMBvmaXeP4BSFtOICAT2z28EwrKVcsOX3qkjcnt64oLyR4UxRiRB1YbtCujgDNTl+0UQFP9TG4SDQ=="
+    "sig_b64": "Ay6iatymp0l8G8s/6uJ5YU3q0hYUsOOHv8uNHeCR8nVpp7BzNo9PlU8h4JFIaD8JdYXVO6ZmZA0Z4A1VzHPuDw=="
   }
 }

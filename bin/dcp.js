@@ -76,45 +76,22 @@ if (cmd === "validate-bundle") {
   }
 
   const bundle = JSON.parse(fs.readFileSync(bundlePath, "utf8"));
+  const artifactNames = ["human_binding_record", "agent_passport", "intent", "policy_decision"];
+  for (const name of artifactNames) console.log(`Validating ${name}...`);
+  if (Array.isArray(bundle.audit_entries)) {
+    for (let i = 0; i < bundle.audit_entries.length; i++) console.log(`Validating audit_entries[${i}]...`);
+  }
 
-  const map = [
-    ["schemas/v1/human_binding_record.schema.json", bundle.human_binding_record, "human_binding_record"],
-    ["schemas/v1/agent_passport.schema.json", bundle.agent_passport, "agent_passport"],
-    ["schemas/v1/intent.schema.json", bundle.intent, "intent"],
-    ["schemas/v1/policy_decision.schema.json", bundle.policy_decision, "policy_decision"]
-  ];
-
-  let currentArtifact = "";
-  try {
-    for (const [schema, obj, artifact] of map) {
-      currentArtifact = artifact;
-      console.log(`Validating ${artifact}...`);
-      const tmp = ".dcp_tmp.json";
-      fs.writeFileSync(tmp, JSON.stringify(obj, null, 2));
-      execSync(`node tools/validate.js ${schema} ${tmp}`, { stdio: "inherit" });
-      fs.unlinkSync(tmp);
-    }
-
-    if (!Array.isArray(bundle.audit_entries) || bundle.audit_entries.length === 0) {
-      console.error("audit_entries must be a non-empty array");
-      process.exit(2);
-    }
-
-    for (let i = 0; i < bundle.audit_entries.length; i++) {
-      currentArtifact = `audit_entries[${i}]`;
-      console.log(`Validating ${currentArtifact}...`);
-      const tmp = ".dcp_tmp.json";
-      fs.writeFileSync(tmp, JSON.stringify(bundle.audit_entries[i], null, 2));
-      execSync(`node tools/validate.js schemas/v1/audit_entry.schema.json ${tmp}`, { stdio: "inherit" });
-      fs.unlinkSync(tmp);
-    }
-
+  const { validateBundle } = await import("../lib/verify.js");
+  const result = validateBundle(bundle);
+  if (result.valid) {
     console.log("\n✅ BUNDLE VALID (DCP-01/02/03)");
     process.exit(0);
-  } catch {
-    console.error(`\nBundle invalid: ${currentArtifact} failed. Fix the errors above and run dcp validate-bundle again.`);
-    process.exit(1);
   }
+  for (const e of result.errors || []) console.error(`- ${e}`);
+  const artifact = result.errors?.[0]?.includes(": ") ? result.errors[0].split(": ")[0] : "bundle";
+  console.error(`\nBundle invalid: ${artifact} failed. Fix the errors above and run dcp validate-bundle again.`);
+  process.exit(1);
 }
 
 if (cmd === "conformance") {
@@ -157,15 +134,19 @@ if (cmd === "verify-bundle") {
     process.exit(2);
   }
 
-  try {
-    execSync(`node tools/validate.js schemas/v1/signed_bundle.schema.json ${signedPath}`, { stdio: "inherit" });
-    execSync(`node tools/bundle_verify.js ${signedPath} ${publicKeyPath}`, { stdio: "inherit" });
+  const signedBundle = JSON.parse(fs.readFileSync(signedPath, "utf8"));
+  const publicKeyB64 = fs.readFileSync(publicKeyPath, "utf8").trim();
+  const { verifySignedBundle } = await import("../lib/verify.js");
+  const result = verifySignedBundle(signedBundle, publicKeyB64);
+  if (result.verified) {
+    console.log("✅ SIGNATURE VALID");
+    console.log("✅ BUNDLE INTEGRITY VALID");
     console.log("\n✅ VERIFIED (SCHEMA + SIGNATURE)");
     process.exit(0);
-  } catch {
-    console.error("\nVerification failed. See spec/VERIFICATION.md for the full checklist.");
-    process.exit(1);
   }
+  for (const e of result.errors || []) console.error(e);
+  console.error("\nVerification failed. See spec/VERIFICATION.md for the full checklist.");
+  process.exit(1);
 }
 
 if (cmd === "bundle-hash") {
