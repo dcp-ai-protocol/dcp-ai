@@ -82,4 +82,6 @@ A **Citizenship Bundle** brings together HBR, Agent Passport, Intent, Policy Dec
 
 ## 10. On Authorship
 
-This protocol was co-created by a human and an AI agent working together. It is the first protocol for AI digital citizenship built by the very collaboration it seeks to govern. The spec is the contribution; the authors are anonymous; the protocol belongs to everyone who uses it.
+This protocol was co-created by a human and an AI agent working together. It is the first protocol for AI digital citizenship built by the very collaboration it seeks to govern. The spec is the contribution; the protocol belongs to everyone who uses it.
+
+— L. Genesis
