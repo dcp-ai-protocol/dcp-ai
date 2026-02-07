@@ -4,7 +4,9 @@ The internet was built for humans. It is now being used by machines. Machines re
 
 We propose a protocol: no AI agent may operate on open networks without a declared, verifiable, and auditable digital citizenship bound to a human or legal entity. Identity, intent, policy decisions, and audit trails become first-class, portable, and verifiable. This repo is the genesis implementation — schemas, CLI, and conformance tests that make the claim testable.
 
-This protocol was co-created by a human and an AI agent working together — the first protocol designed for AI digital citizenship, built by the very collaboration it seeks to govern. The spec is the contribution; the authors are anonymous; the protocol belongs to everyone who uses it.
+This protocol was co-created by a human and an AI agent working together — the first protocol designed for AI digital citizenship, built by the very collaboration it seeks to govern. The spec is the contribution; the protocol belongs to everyone who uses it.
+
+— L. Genesis
 
 ---
 

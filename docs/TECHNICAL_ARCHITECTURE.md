@@ -227,4 +227,6 @@ Install the SDK in your language. Every agent operating in your jurisdiction mus
 
 ## On authorship
 
-This protocol was co-created by a human and an AI agent working together — the first protocol designed for AI digital citizenship, built by the very collaboration it seeks to govern. The spec is the contribution; the authors are anonymous; the protocol belongs to everyone who uses it.
+This protocol was co-created by a human and an AI agent working together — the first protocol designed for AI digital citizenship, built by the very collaboration it seeks to govern. The spec is the contribution; the protocol belongs to everyone who uses it.
+
+— L. Genesis
