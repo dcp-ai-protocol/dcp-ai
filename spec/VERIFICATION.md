@@ -33,10 +33,21 @@ When verifying a Signed Bundle, perform the following in order:
 
 11. **Optional — transparency log proof:** If the holder provides a log inclusion proof (`log_url`, `log_index`, `merkle_proof`), verify the Merkle inclusion of `bundle_hash` in the log's signed root. If the log root is anchored on-chain, optionally verify the anchor. See [docs/STORAGE_AND_ANCHORING.md](../docs/STORAGE_AND_ANCHORING.md) for log API and proof format.
 
+## Protocol integrity
+
+Before verifying bundles, a verifier SHOULD verify that its own schemas match the canonical protocol:
+
+```bash
+dcp integrity
+```
+
+This checks the SHA-256 hash of each local schema against the canonical fingerprints in `protocol_fingerprints.json`. If any schema has been modified (e.g. in a protocol fork), the check fails. See [docs/SECURITY_MODEL.md](../docs/SECURITY_MODEL.md) for the full security model.
+
 ## Reference
 
 - Bundle format: [BUNDLE.md](BUNDLE.md)
 - Audit chain and intent_hash: [DCP-03.md](DCP-03.md)
+- Security model: [docs/SECURITY_MODEL.md](../docs/SECURITY_MODEL.md)
 - Storage, anchoring, revocation lists, transparency logs: [docs/STORAGE_AND_ANCHORING.md](../docs/STORAGE_AND_ANCHORING.md)
 - Government deployment: [docs/GOVERNMENT_DEPLOYMENT.md](../docs/GOVERNMENT_DEPLOYMENT.md)
 - Full Package: [docs/Dcp-ai_Full_Package_V1.1.md](../docs/Dcp-ai_Full_Package_V1.1.md)
