@@ -20,6 +20,7 @@ Usage:
   dcp bundle-hash <bundle.json>
   dcp merkle-root <bundle.json>
   dcp intent-hash <intent.json>
+  dcp integrity
 `);
 }
 
@@ -189,6 +190,48 @@ if (cmd === "intent-hash") {
   const { intentHash } = await import("../tools/merkle.js");
   const intent = JSON.parse(fs.readFileSync(intentPath, "utf8"));
   console.log(intentHash(intent));
+  process.exit(0);
+}
+
+if (cmd === "integrity") {
+  const crypto = await import("crypto");
+  const fingerprintsPath = path.join(process.cwd(), "protocol_fingerprints.json");
+  if (!fs.existsSync(fingerprintsPath)) {
+    console.error("protocol_fingerprints.json not found in current directory.");
+    console.error("Run this command from the repo root.");
+    process.exit(2);
+  }
+  const fingerprints = JSON.parse(fs.readFileSync(fingerprintsPath, "utf8"));
+  const expected = fingerprints.schema_fingerprints;
+  const schemasDir = path.join(process.cwd(), "schemas", "v1");
+  let failures = 0;
+  let checked = 0;
+  for (const [name, expectedHash] of Object.entries(expected)) {
+    const filePath = path.join(schemasDir, `${name}.schema.json`);
+    if (!fs.existsSync(filePath)) {
+      console.error(`MISSING  ${name}.schema.json`);
+      failures++;
+      continue;
+    }
+    const content = fs.readFileSync(filePath);
+    const actualHash = "sha256:" + crypto.createHash("sha256").update(content).digest("hex");
+    if (actualHash === expectedHash) {
+      console.log(`✅ ${name}`);
+    } else {
+      console.error(`❌ ${name}`);
+      console.error(`   expected: ${expectedHash}`);
+      console.error(`   got:      ${actualHash}`);
+      failures++;
+    }
+    checked++;
+  }
+  console.log(`\nProtocol: ${fingerprints.protocol} v${fingerprints.version}`);
+  console.log(`Checked: ${checked} schemas`);
+  if (failures > 0) {
+    console.error(`\n❌ INTEGRITY CHECK FAILED (${failures} mismatch). Your schemas do not match the canonical protocol.`);
+    process.exit(1);
+  }
+  console.log("\n✅ PROTOCOL INTEGRITY VERIFIED — all schemas match canonical fingerprints.");
   process.exit(0);
 }
 

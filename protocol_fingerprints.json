@@ -1,0 +1,17 @@
+{
+  "protocol": "DCP-AI",
+  "version": "1.0",
+  "description": "Canonical SHA-256 fingerprints of each schema file. Any conforming implementation MUST use schemas that match these hashes. Use 'dcp integrity' to verify.",
+  "generated_at": "2026-02-07",
+  "schema_fingerprints": {
+    "agent_passport": "sha256:c6b61ca2d1d9dd287fd89d2c8367bcb5d85b3edf6c7ae3c2c4d1b2fd2ccd794f",
+    "audit_entry": "sha256:1d2a7c68975eea34b95f795b175fb2a5db2e0c3d321b4c55fe8b827ac27c07ab",
+    "citizenship_bundle": "sha256:6a8c469b2477dbed3995d7f9db3fbf464bbb7fd12ad0ecb73c584a4725d86134",
+    "human_binding_record": "sha256:8839ca736688c1784b2ce556f7147d536e5ea3ecfd603e589aafba5006200614",
+    "human_confirmation": "sha256:6c1d44ad2d40662ecdbfb5d154c9a8870ece20d568a2d13f03d053d3ac15a93a",
+    "intent": "sha256:c0449ed0508260f7380716af8b92458a8868f1cd4e37739e07615638ad5e5d83",
+    "policy_decision": "sha256:4fd8c4792a45e939d946a1abe4945351335ac9dc74dca6a08c9f626e16922bf4",
+    "revocation_record": "sha256:46419a775e1c2f42e28c9880cf4c95c9de0d6046b4359401cef613b3a21e7665",
+    "signed_bundle": "sha256:711b828ab943f36c9e81b5df7f2fc7dcdba06b0761f5156cb641aa7848681773"
+  }
+}

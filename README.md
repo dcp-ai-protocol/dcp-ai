@@ -44,6 +44,7 @@ dcp verify-bundle tests/conformance/examples/citizenship_bundle.signed.json keys
 - **Operator guide — running a verification service:** [docs/OPERATOR_GUIDE.md](docs/OPERATOR_GUIDE.md) — how to deploy an optional "agent verified" HTTP API (verify bundles, optional anchor); for third parties. Reference server: `npm run server` ([server/README.md](server/README.md)).
 - **Government deployment:** [docs/GOVERNMENT_DEPLOYMENT.md](docs/GOVERNMENT_DEPLOYMENT.md) — how a government adopts DCP: verification service, revocation list, transparency log, attestation, anchoring. Cost analysis included.
 - **Technical architecture (global scale):** [docs/TECHNICAL_ARCHITECTURE.md](docs/TECHNICAL_ARCHITECTURE.md) — SDK multi-language, transparency log, anchor service, middleware, repository structure for worldwide deployment.
+- **Security model:** [docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md) — attack vectors (forged bundles, stolen keys, protocol forks), protection layers (cryptography, attestation, revocation, protocol fingerprints, anchoring). Run `dcp integrity` to verify your schemas match the canonical protocol.
 - **Vision & manifesto:** [docs/Dcp-ai_Full_Package_V1.1.md](docs/Dcp-ai_Full_Package_V1.1.md).
 - **Whitepaper (genesis):** [docs/GENESIS_PAPER.md](docs/GENESIS_PAPER.md).
 
@@ -71,8 +72,9 @@ Full verification checklist: [spec/VERIFICATION.md](spec/VERIFICATION.md).
 - `bin/dcp.js` — reference CLI
 - `lib/verify.js` — programmatic API (`validateBundle`, `verifySignedBundle`) for use by CLI and verification services
 - `server/` — reference verification service (POST /verify); optional, for operators ([server/README.md](server/README.md))
+- `protocol_fingerprints.json` — canonical SHA-256 hashes of every schema (for `dcp integrity`)
 - `spec/` — normative specs (DCP-01, DCP-02, DCP-03, BUNDLE)
-- `docs/` — whitepaper + Full Package (vision)
+- `docs/` — whitepaper, security model, architecture, government guide
 
 ## License
 
