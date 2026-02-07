@@ -57,6 +57,8 @@ A **Citizenship Bundle** brings together HBR, Agent Passport, Intent, Policy Dec
 - **Storage and anchoring:** [STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md) — P2P; optional anchoring via existing blockchain or third-party log; revocation as signed records (P2P or anchored).
 - **Agent creation and certification:** [AGENT_CREATION_AND_CERTIFICATION.md](AGENT_CREATION_AND_CERTIFICATION.md) — P2P certification flow, definition of DCP-certified (local + optional anchor), integration with agent-creation systems.
 - **Operator guide — running a verification service:** [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md) — how to deploy an optional "agent verified" HTTP API (verify bundles, optional anchor); for third parties.
+- **Government deployment:** [GOVERNMENT_DEPLOYMENT.md](GOVERNMENT_DEPLOYMENT.md) — verification service, revocation lists, transparency log, jurisdiction attestation, blockchain anchoring. Cost analysis for national-scale deployment.
+- **Technical architecture (global scale):** [TECHNICAL_ARCHITECTURE.md](TECHNICAL_ARCHITECTURE.md) — SDK multi-language (Node/TS, Python, Go, Rust), transparency log, anchor service, middleware, repository structure for worldwide adoption.
 
 ## 7. Implementation in this repo
 
@@ -77,3 +79,7 @@ A **Citizenship Bundle** brings together HBR, Agent Passport, Intent, Policy Dec
 
 "The internet was built for humans. It is now being used by machines."
 "Machines require citizenship."
+
+## 10. On Authorship
+
+This protocol was co-created by a human and an AI agent working together. It is the first protocol for AI digital citizenship built by the very collaboration it seeks to govern. The spec is the contribution; the authors are anonymous; the protocol belongs to everyone who uses it.

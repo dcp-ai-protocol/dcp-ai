@@ -42,6 +42,8 @@ dcp verify-bundle tests/conformance/examples/citizenship_bundle.signed.json keys
 - **Storage & anchoring (P2P):** [docs/STORAGE_AND_ANCHORING.md](docs/STORAGE_AND_ANCHORING.md) — no central service; verification is local; optional anchoring (hashes only) via existing blockchain or third-party log.
 - **Agent creation & certification:** [docs/AGENT_CREATION_AND_CERTIFICATION.md](docs/AGENT_CREATION_AND_CERTIFICATION.md) — P2P flow, DCP-certified (local + optional anchor), no central API.
 - **Operator guide — running a verification service:** [docs/OPERATOR_GUIDE.md](docs/OPERATOR_GUIDE.md) — how to deploy an optional "agent verified" HTTP API (verify bundles, optional anchor); for third parties. Reference server: `npm run server` ([server/README.md](server/README.md)).
+- **Government deployment:** [docs/GOVERNMENT_DEPLOYMENT.md](docs/GOVERNMENT_DEPLOYMENT.md) — how a government adopts DCP: verification service, revocation list, transparency log, attestation, anchoring. Cost analysis included.
+- **Technical architecture (global scale):** [docs/TECHNICAL_ARCHITECTURE.md](docs/TECHNICAL_ARCHITECTURE.md) — SDK multi-language, transparency log, anchor service, middleware, repository structure for worldwide deployment.
 - **Vision & manifesto:** [docs/Dcp-ai_Full_Package_V1.1.md](docs/Dcp-ai_Full_Package_V1.1.md).
 - **Whitepaper (genesis):** [docs/GENESIS_PAPER.md](docs/GENESIS_PAPER.md).
 
