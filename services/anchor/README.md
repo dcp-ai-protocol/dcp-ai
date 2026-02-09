@@ -1,24 +1,24 @@
 # Anchoring Service
 
-Servicio HTTP para anclar hashes de Citizenship Bundles a blockchains L2 (Base, Arbitrum, Optimism). Soporta anclaje individual o por lotes (batch) con Merkle root.
+HTTP service for anchoring Citizenship Bundle hashes to L2 blockchains (Base, Arbitrum, Optimism). Supports individual anchoring or batch anchoring with a Merkle root.
 
 ## Quickstart
 
 ```bash
-# Iniciar el servicio
+# Start the service
 node index.js
 
-# O con Docker
+# Or with Docker
 docker compose up anchor
 ```
 
-El servicio escucha en `http://localhost:3001` por defecto.
+The service listens on `http://localhost:3001` by default.
 
 ## Endpoints
 
 ### `GET /health`
 
-Health check del servicio.
+Service health check.
 
 ```bash
 curl http://localhost:3001/health
@@ -36,7 +36,7 @@ curl http://localhost:3001/health
 
 ### `POST /anchor`
 
-Enviar un bundle hash para anclar.
+Submit a bundle hash for anchoring.
 
 ```bash
 curl -X POST http://localhost:3001/anchor \
@@ -44,7 +44,7 @@ curl -X POST http://localhost:3001/anchor \
   -d '{"bundle_hash": "sha256:abc123..."}'
 ```
 
-**Modo individual** — Ancla inmediatamente:
+**Individual mode** — Anchors immediately:
 
 ```json
 {
@@ -57,7 +57,7 @@ curl -X POST http://localhost:3001/anchor \
 }
 ```
 
-**Modo batch** — Acepta y encola (HTTP 202):
+**Batch mode** — Accepts and enqueues (HTTP 202):
 
 ```json
 {
@@ -70,7 +70,7 @@ curl -X POST http://localhost:3001/anchor \
 
 ### `GET /status/:hash`
 
-Consultar el estado de un hash anclado.
+Query the status of an anchored hash.
 
 ```bash
 curl http://localhost:3001/status/sha256:abc123...
@@ -87,7 +87,7 @@ curl http://localhost:3001/status/sha256:abc123...
 }
 ```
 
-Si no esta anclado pero esta pendiente:
+If not anchored but pending:
 
 ```json
 {
@@ -98,7 +98,7 @@ Si no esta anclado pero esta pendiente:
 
 ### `GET /anchored`
 
-Listar todos los registros anclados.
+List all anchored records.
 
 ```bash
 curl http://localhost:3001/anchored
@@ -114,7 +114,7 @@ curl http://localhost:3001/anchored
 
 ### `POST /flush`
 
-Forzar el flush del batch pendiente (solo en modo batch).
+Force a flush of the pending batch (batch mode only).
 
 ```bash
 curl -X POST http://localhost:3001/flush
@@ -124,48 +124,48 @@ curl -X POST http://localhost:3001/flush
 { "flushed": true }
 ```
 
-## Configuracion
+## Configuration
 
-### Variables de entorno
+### Environment Variables
 
-| Variable | Default | Descripcion |
+| Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | `3001` | Puerto HTTP |
-| `ANCHOR_MODE` | `"batch"` | Modo de anclaje: `"individual"` o `"batch"` |
-| `BATCH_INTERVAL_MS` | `60000` | Intervalo de flush automatico en ms (modo batch) |
-| `ANCHOR_RPC_URL` | — | URL JSON-RPC del nodo L2 |
-| `ANCHOR_PRIVATE_KEY` | — | Clave privada de la wallet para firmar transacciones |
-| `ANCHOR_CONTRACT` | — | Direccion del contrato DCPAnchor desplegado |
-| `ANCHOR_CHAIN` | `"base"` | Identificador de la cadena |
+| `PORT` | `3001` | HTTP port |
+| `ANCHOR_MODE` | `"batch"` | Anchoring mode: `"individual"` or `"batch"` |
+| `BATCH_INTERVAL_MS` | `60000` | Automatic flush interval in ms (batch mode) |
+| `ANCHOR_RPC_URL` | — | JSON-RPC URL of the L2 node |
+| `ANCHOR_PRIVATE_KEY` | — | Wallet private key for signing transactions |
+| `ANCHOR_CONTRACT` | — | Address of the deployed DCPAnchor contract |
+| `ANCHOR_CHAIN` | `"base"` | Chain identifier |
 
-### Modos de operacion
+### Operating Modes
 
-**Individual (`ANCHOR_MODE=individual`):** Cada hash se ancla inmediatamente en una transaccion on-chain independiente.
+**Individual (`ANCHOR_MODE=individual`):** Each hash is anchored immediately in an independent on-chain transaction.
 
-**Batch (`ANCHOR_MODE=batch`):** Los hashes se acumulan y se anclan periodicamente como un Merkle root, reduciendo costos de gas. El flush ocurre cada `BATCH_INTERVAL_MS` milisegundos o manualmente via `POST /flush`.
+**Batch (`ANCHOR_MODE=batch`):** Hashes are accumulated and periodically anchored as a Merkle root, reducing gas costs. The flush occurs every `BATCH_INTERVAL_MS` milliseconds or manually via `POST /flush`.
 
-## Integracion con DCPAnchor.sol
+## Integration with DCPAnchor.sol
 
-El servicio interactua con el smart contract `DCPAnchor.sol`:
+The service interacts with the `DCPAnchor.sol` smart contract:
 
-- **Modo individual:** Llama a `anchorBundle(bytes32 bundleHash)`
-- **Modo batch:** Calcula el Merkle root de los hashes pendientes y llama a `anchorBatch(bytes32 merkleRoot, uint256 count)`
+- **Individual mode:** Calls `anchorBundle(bytes32 bundleHash)`
+- **Batch mode:** Computes the Merkle root of pending hashes and calls `anchorBatch(bytes32 merkleRoot, uint256 count)`
 
-Ver [contracts/ethereum/README.md](../../contracts/ethereum/README.md) para detalles del contrato.
+See [contracts/ethereum/README.md](../../contracts/ethereum/README.md) for contract details.
 
-## Desarrollo
+## Development
 
 ```bash
-# Iniciar en modo desarrollo
+# Start in development mode
 PORT=3001 ANCHOR_MODE=batch node index.js
 
-# Test con curl
+# Test with curl
 curl http://localhost:3001/health
 curl -X POST http://localhost:3001/anchor \
   -H "Content-Type: application/json" \
   -d '{"bundle_hash": "sha256:test123"}'
 ```
 
-## Licencia
+## License
 
 Apache-2.0

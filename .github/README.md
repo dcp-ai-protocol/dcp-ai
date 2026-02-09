@@ -1,39 +1,39 @@
 # GitHub Actions & CI
 
-GitHub Actions reutilizables y workflow CI para el ecosistema DCP. Incluye acciones para verificar bundles y ejecutar tests de conformidad en pipelines de CI/CD.
+Reusable GitHub Actions and CI workflow for the DCP ecosystem. Includes actions to verify bundles and run conformance tests in CI/CD pipelines.
 
-## Actions disponibles
+## Available Actions
 
 ### `verify-bundle`
 
-Verifica un Signed Bundle DCP en un workflow de GitHub Actions.
+Verifies a DCP Signed Bundle in a GitHub Actions workflow.
 
 ```yaml
 - uses: ./.github/actions/verify-bundle
   with:
     bundle-path: "path/to/signed_bundle.json"
-    public-key-path: "keys/public_key.txt"  # Opcional
+    public-key-path: "keys/public_key.txt"  # Optional
     fail-on-invalid: "true"
     node-version: "20"
 ```
 
 #### Inputs
 
-| Input | Requerido | Default | Descripcion |
-|-------|-----------|---------|-------------|
-| `bundle-path` | Si | — | Ruta al archivo JSON del signed bundle |
-| `public-key-path` | No | — | Ruta a la clave publica Ed25519 |
-| `fail-on-invalid` | No | `"true"` | Falla el step si el bundle es invalido |
-| `node-version` | No | `"20"` | Version de Node.js |
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `bundle-path` | Yes | — | Path to the signed bundle JSON file |
+| `public-key-path` | No | — | Path to the Ed25519 public key |
+| `fail-on-invalid` | No | `"true"` | Fail the step if the bundle is invalid |
+| `node-version` | No | `"20"` | Node.js version |
 
 #### Outputs
 
-| Output | Descripcion |
+| Output | Description |
 |--------|-------------|
-| `verified` | `"true"` o `"false"` |
-| `errors` | Errores de verificacion (si los hay) |
+| `verified` | `"true"` or `"false"` |
+| `errors` | Verification errors (if any) |
 
-#### Ejemplo de uso
+#### Usage Example
 
 ```yaml
 name: Verify Agent Bundle
@@ -58,7 +58,7 @@ jobs:
 
 ### `conformance-test`
 
-Ejecuta los tests de conformidad DCP contra un directorio de ejemplos.
+Runs DCP conformance tests against a directory of examples.
 
 ```yaml
 - uses: ./.github/actions/conformance-test
@@ -69,19 +69,19 @@ Ejecuta los tests de conformidad DCP contra un directorio de ejemplos.
 
 #### Inputs
 
-| Input | Requerido | Default | Descripcion |
-|-------|-----------|---------|-------------|
-| `node-version` | No | `"20"` | Version de Node.js |
-| `test-dir` | No | `"tests/conformance/examples"` | Directorio con ejemplos de test |
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `node-version` | No | `"20"` | Node.js version |
+| `test-dir` | No | `"tests/conformance/examples"` | Directory with test examples |
 
 #### Outputs
 
-| Output | Descripcion |
+| Output | Description |
 |--------|-------------|
-| `passed` | Si todos los tests pasaron |
-| `summary` | Resumen de los tests |
+| `passed` | Whether all tests passed |
+| `summary` | Test summary |
 
-#### Ejemplo de uso
+#### Usage Example
 
 ```yaml
 name: DCP Conformance
@@ -103,28 +103,28 @@ jobs:
 
 ## CI Workflow
 
-El workflow `ci.yml` se ejecuta en push y pull requests a `main`. Incluye 5 jobs:
+The `ci.yml` workflow runs on push and pull requests to `main`. It includes 5 jobs:
 
 ### Jobs
 
 #### 1. `conformance`
 
-Tests de conformidad del protocolo con matrix de Node.js.
+Protocol conformance tests with a Node.js matrix.
 
 - **Matrix:** Node.js 18, 20, 22
 - **Steps:**
   1. Checkout
   2. Setup Node.js
   3. `npm install`
-  4. `npm run conformance` — Ejecuta tests de conformidad
-  5. Verifica signed bundle de ejemplo (si existe)
-  6. `node bin/dcp.js integrity` — Verifica integridad del protocolo
+  4. `npm run conformance` — Run conformance tests
+  5. Verify example signed bundle (if it exists)
+  6. `node bin/dcp.js integrity` — Verify protocol integrity
 
 #### 2. `typescript-sdk`
 
-Build y type-check del SDK TypeScript.
+Build and type-check of the TypeScript SDK.
 
-- **Directorio:** `sdks/typescript/`
+- **Directory:** `sdks/typescript/`
 - **Steps:**
   1. `npm install`
   2. `npx tsc --noEmit` — Type check
@@ -132,9 +132,9 @@ Build y type-check del SDK TypeScript.
 
 #### 3. `python-sdk`
 
-Tests del SDK Python.
+Python SDK tests.
 
-- **Directorio:** `sdks/python/`
+- **Directory:** `sdks/python/`
 - **Python:** 3.12
 - **Steps:**
   1. `pip install -e ".[dev]"`
@@ -142,9 +142,9 @@ Tests del SDK Python.
 
 #### 4. `go-sdk`
 
-Build y tests del SDK Go.
+Build and tests for the Go SDK.
 
-- **Directorio:** `sdks/go/`
+- **Directory:** `sdks/go/`
 - **Go:** 1.21
 - **Steps:**
   1. `go build ./...`
@@ -152,16 +152,16 @@ Build y tests del SDK Go.
 
 #### 5. `rust-sdk`
 
-Build, tests y WASM del SDK Rust.
+Build, tests, and WASM for the Rust SDK.
 
-- **Directorio:** `sdks/rust/`
+- **Directory:** `sdks/rust/`
 - **Rust:** stable
 - **Steps:**
   1. `cargo build`
   2. `cargo test`
   3. `cargo build --target wasm32-unknown-unknown --features wasm`
 
-### Usar el CI en tu proyecto
+### Using the CI in Your Project
 
 ```yaml
 # .github/workflows/dcp.yml
@@ -174,17 +174,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Verificar bundle de tu agente
+      # Verify your agent's bundle
       - uses: ./.github/actions/verify-bundle
         with:
           bundle-path: "my-agent/bundle.signed.json"
 
-      # Ejecutar conformance
+      # Run conformance
       - uses: ./.github/actions/conformance-test
         with:
           test-dir: "my-agent/test-fixtures"
 ```
 
-## Licencia
+## License
 
 Apache-2.0

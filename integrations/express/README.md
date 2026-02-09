@@ -1,14 +1,14 @@
 # @dcp-ai/express — Express Middleware
 
-Middleware de verificacion DCP para Express.js. Verifica Signed Bundles automaticamente en cada request e inyecta los datos del agente verificado.
+DCP verification middleware for Express.js. Automatically verifies Signed Bundles on each request and injects the verified agent data.
 
-## Instalacion
+## Installation
 
 ```bash
 npm install @dcp-ai/express @dcp-ai/sdk
 ```
 
-**Peer dependency:** Express 4.18+ o 5.x
+**Peer dependency:** Express 4.18+ or 5.x
 
 ## Quickstart
 
@@ -19,13 +19,13 @@ import { dcpVerify } from "@dcp-ai/express";
 const app = express();
 app.use(express.json());
 
-// Verificar DCP en todas las rutas
+// Verify DCP on all routes
 app.use(dcpVerify());
 
 app.post("/api/action", (req, res) => {
-  // El agente verificado esta disponible en req.dcpAgent
+  // The verified agent is available at req.dcpAgent
   const agent = req.dcpAgent;
-  console.log(`Agente ${agent.agentId} (humano: ${agent.humanId})`);
+  console.log(`Agent ${agent.agentId} (human: ${agent.humanId})`);
   console.log(`Capabilities: ${agent.capabilities}`);
   console.log(`Risk tier: ${agent.riskTier}`);
 
@@ -35,9 +35,9 @@ app.post("/api/action", (req, res) => {
 app.listen(3000);
 ```
 
-### Enviar un bundle desde el cliente
+### Sending a bundle from the client
 
-El bundle se envia como JSON en el header `X-DCP-Bundle` o en `req.body.signed_bundle`:
+The bundle is sent as JSON in the `X-DCP-Bundle` header or in `req.body.signed_bundle`:
 
 ```bash
 # Via header
@@ -56,7 +56,7 @@ curl -X POST http://localhost:3000/api/action \
 
 ### `dcpVerify(options?)`
 
-Funcion factory que retorna un middleware Express.
+Factory function that returns an Express middleware.
 
 ```typescript
 import { dcpVerify } from "@dcp-ai/express";
@@ -72,44 +72,44 @@ app.use(dcpVerify({
 }));
 ```
 
-### Opciones (`DCPVerifyOptions`)
+### Options (`DCPVerifyOptions`)
 
-| Opcion | Tipo | Default | Descripcion |
+| Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `requireBundle` | `boolean` | `true` | Requiere bundle en cada request. Si `false`, requests sin bundle pasan sin verificacion. |
-| `checkRevocation` | `boolean` | `false` | Verifica si el agente esta revocado (placeholder). |
-| `cacheTtlSeconds` | `number` | `0` | Segundos para cachear resultados de verificacion. `0` desactiva cache. |
-| `headerName` | `string` | `"x-dcp-bundle"` | Nombre del header HTTP donde se envia el bundle. |
-| `onFailure` | `function` | `undefined` | Handler custom para errores de verificacion. Recibe `(req, res, errors)`. |
+| `requireBundle` | `boolean` | `true` | Require a bundle on every request. If `false`, requests without a bundle pass through without verification. |
+| `checkRevocation` | `boolean` | `false` | Check if the agent is revoked (placeholder). |
+| `cacheTtlSeconds` | `number` | `0` | Seconds to cache verification results. `0` disables caching. |
+| `headerName` | `string` | `"x-dcp-bundle"` | Name of the HTTP header where the bundle is sent. |
+| `onFailure` | `function` | `undefined` | Custom handler for verification errors. Receives `(req, res, errors)`. |
 
 ### `req.dcpAgent`
 
-Despues de verificacion exitosa, `req.dcpAgent` contiene:
+After successful verification, `req.dcpAgent` contains:
 
 ```typescript
 interface DCPAgent {
-  agentId: string;      // ID del agente
-  humanId: string;      // ID del humano responsable
-  publicKey: string;    // Clave publica Ed25519
-  capabilities: string[];  // Capacidades declaradas
-  riskTier: string;     // Nivel de riesgo (low/medium/high)
-  status: string;       // Estado (active/suspended/revoked)
+  agentId: string;      // Agent ID
+  humanId: string;      // ID of the responsible human
+  publicKey: string;    // Ed25519 public key
+  capabilities: string[];  // Declared capabilities
+  riskTier: string;     // Risk level (low/medium/high)
+  status: string;       // Status (active/suspended/revoked)
 }
 ```
 
-### Comportamiento
+### Behavior
 
-1. Extrae el signed bundle del header `X-DCP-Bundle` (JSON) o de `req.body.signed_bundle`
-2. Verifica usando `verifySignedBundle()` del `@dcp-ai/sdk`
-3. Si es valido: inyecta `req.dcpAgent` y llama `next()`
-4. Si falla: responde `403` con errores (o usa `onFailure` si esta configurado)
-5. Si ocurre un error interno: responde `500`
+1. Extracts the signed bundle from the `X-DCP-Bundle` header (JSON) or from `req.body.signed_bundle`
+2. Verifies using `verifySignedBundle()` from `@dcp-ai/sdk`
+3. If valid: injects `req.dcpAgent` and calls `next()`
+4. If it fails: responds with `403` and errors (or uses `onFailure` if configured)
+5. If an internal error occurs: responds with `500`
 
 ### Cache
 
-Cuando `cacheTtlSeconds > 0`, los resultados se cachean usando `signature.sig_b64` como clave. Esto evita re-verificar el mismo bundle en requests consecutivos.
+When `cacheTtlSeconds > 0`, results are cached using `signature.sig_b64` as the key. This avoids re-verifying the same bundle on consecutive requests.
 
-## Ejemplo avanzado — Rutas protegidas selectivamente
+## Advanced Example — Selectively Protected Routes
 
 ```typescript
 import express from "express";
@@ -118,10 +118,10 @@ import { dcpVerify } from "@dcp-ai/express";
 const app = express();
 app.use(express.json());
 
-// Rutas publicas (sin verificacion)
+// Public routes (no verification)
 app.get("/health", (req, res) => res.json({ ok: true }));
 
-// Rutas protegidas (requieren DCP)
+// Protected routes (require DCP)
 const protected = express.Router();
 protected.use(dcpVerify({ cacheTtlSeconds: 60 }));
 
@@ -137,10 +137,10 @@ app.use("/api", protected);
 app.listen(3000);
 ```
 
-## Desarrollo
+## Development
 
 ```bash
-# Instalar dependencias
+# Install dependencies
 npm install
 
 # Build (ESM + CJS)
@@ -150,11 +150,11 @@ npx tsup src/index.ts --format esm,cjs --dts
 npx tsc --noEmit
 ```
 
-### Dependencias
+### Dependencies
 
-- `@dcp-ai/sdk` — SDK de verificacion DCP
-- `express` (peer) — Framework HTTP
+- `@dcp-ai/sdk` — DCP verification SDK
+- `express` (peer) — HTTP framework
 
-## Licencia
+## License
 
 Apache-2.0

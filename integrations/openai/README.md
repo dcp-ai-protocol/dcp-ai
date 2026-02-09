@@ -1,8 +1,8 @@
 # dcp_ai.openai — OpenAI Integration
 
-Wrapper de DCP para el cliente de OpenAI. Agrega gobernanza DCP automatica a llamadas de chat, function calling con herramientas DCP y audit trail con hash-chaining.
+DCP wrapper for the OpenAI client. Adds automatic DCP governance to chat calls, function calling with DCP tools, and audit trail with hash-chaining.
 
-## Instalacion
+## Installation
 
 ```bash
 pip install "dcp-ai[openai]"
@@ -40,7 +40,7 @@ hbr = {
     "expires_at": None,
 }
 
-# Envolver el cliente OpenAI
+# Wrap the OpenAI client
 dcp_client = DCPOpenAIClient(
     openai_client=client,
     passport=passport,
@@ -48,14 +48,14 @@ dcp_client = DCPOpenAIClient(
     secret_key=keys["secret_key_b64"],
 )
 
-# Usar como el cliente normal
+# Use like the normal client
 response = dcp_client.chat_completions_create(
     model="gpt-4",
-    messages=[{"role": "user", "content": "Resume las noticias de hoy"}],
+    messages=[{"role": "user", "content": "Summarize today's news"}],
 )
 print(response.choices[0].message.content)
 
-# Consultar audit trail
+# Query audit trail
 trail = dcp_client.get_audit_trail()
 for entry in trail:
     print(f"[{entry['timestamp']}] {entry['action_type']}")
@@ -65,41 +65,41 @@ for entry in trail:
 
 ### `DCPOpenAIClient`
 
-Wrapper del cliente OpenAI con gobernanza DCP automatica.
+Wrapper for the OpenAI client with automatic DCP governance.
 
 ```python
 DCPOpenAIClient(
-    openai_client: Any,           # Instancia de OpenAI()
-    passport: dict[str, Any],    # Agent Passport DCP
+    openai_client: Any,           # OpenAI() instance
+    passport: dict[str, Any],    # DCP Agent Passport
     hbr: dict[str, Any],         # Human Binding Record
-    secret_key: str = "",        # Clave secreta Ed25519 (base64)
-    auto_intent: bool = True,    # Auto-inyectar herramientas DCP
+    secret_key: str = "",        # Ed25519 secret key (base64)
+    auto_intent: bool = True,    # Auto-inject DCP tools
 )
 ```
 
-#### Metodos
+#### Methods
 
-| Metodo | Descripcion |
+| Method | Description |
 |--------|-------------|
-| `chat_completions_create(**kwargs)` | Crea chat completion con gobernanza DCP. Genera Intent y AuditEntry por cada llamada. |
-| `get_audit_trail()` | Retorna la lista completa de audit entries con hash-chaining. |
+| `chat_completions_create(**kwargs)` | Creates a chat completion with DCP governance. Generates an Intent and AuditEntry for each call. |
+| `get_audit_trail()` | Returns the full list of audit entries with hash-chaining. |
 
-#### Flujo de `chat_completions_create`
+#### `chat_completions_create` Flow
 
-1. Crea un `Intent` declarando la accion `api_call`
-2. Evalua una `PolicyDecision`
-3. Ejecuta `client.chat.completions.create()`
-4. Registra un `AuditEntry` con el resultado
-5. Encadena hashes automaticamente
+1. Creates an `Intent` declaring the `api_call` action
+2. Evaluates a `PolicyDecision`
+3. Executes `client.chat.completions.create()`
+4. Records an `AuditEntry` with the result
+5. Automatically chains hashes
 
 ### `DCP_TOOLS`
 
-Lista de definiciones de herramientas OpenAI function calling para DCP:
+List of OpenAI function calling tool definitions for DCP:
 
 ```python
 from dcp_ai.openai import DCP_TOOLS
 
-# Inyectar en una llamada de chat
+# Inject into a chat call
 response = client.chat.completions.create(
     model="gpt-4",
     messages=[...],
@@ -107,12 +107,12 @@ response = client.chat.completions.create(
 )
 ```
 
-#### Herramientas disponibles
+#### Available Tools
 
-| Herramienta | Parametros | Descripcion |
-|-------------|------------|-------------|
-| `dcp_verify_bundle` | `signed_bundle_json: string` | Verifica un Signed Bundle DCP |
-| `dcp_declare_intent` | `action_type: enum`, `target_channel: enum`, `data_classes?: string[]`, `estimated_impact?: enum` | Declara intent antes de una accion (DCP-02) |
+| Tool | Parameters | Description |
+|------|------------|-------------|
+| `dcp_verify_bundle` | `signed_bundle_json: string` | Verifies a DCP Signed Bundle |
+| `dcp_declare_intent` | `action_type: enum`, `target_channel: enum`, `data_classes?: string[]`, `estimated_impact?: enum` | Declares intent before an action (DCP-02) |
 
 **`action_type`**: `browse`, `api_call`, `send_email`, `create_calendar_event`, `initiate_payment`, `update_crm`, `write_file`, `execute_code`
 
@@ -122,22 +122,22 @@ response = client.chat.completions.create(
 
 ### `handle_dcp_tool_call(tool_name, arguments)`
 
-Procesa tool calls DCP retornadas por OpenAI.
+Processes DCP tool calls returned by OpenAI.
 
 ```python
 from dcp_ai.openai import handle_dcp_tool_call
 
-# Despues de recibir un tool_call del modelo
+# After receiving a tool_call from the model
 for tool_call in response.choices[0].message.tool_calls:
     if tool_call.function.name.startswith("dcp_"):
         result = handle_dcp_tool_call(
             tool_call.function.name,
             json.loads(tool_call.function.arguments),
         )
-        print(result)  # JSON con el resultado
+        print(result)  # JSON with the result
 ```
 
-## Ejemplo avanzado — Function calling con DCP
+## Advanced Example — Function Calling with DCP
 
 ```python
 from openai import OpenAI
@@ -152,15 +152,15 @@ dcp_client = DCPOpenAIClient(
     secret_key=keys["secret_key_b64"],
 )
 
-# Primera llamada: el modelo puede usar herramientas DCP
+# First call: the model can use DCP tools
 response = dcp_client.chat_completions_create(
     model="gpt-4",
     messages=[
-        {"role": "user", "content": "Declara tu intent para hacer una llamada API"},
+        {"role": "user", "content": "Declare your intent to make an API call"},
     ],
 )
 
-# Procesar tool calls
+# Process tool calls
 message = response.choices[0].message
 if message.tool_calls:
     for tc in message.tool_calls:
@@ -171,18 +171,18 @@ if message.tool_calls:
         print(f"Tool: {tc.function.name} -> {result}")
 ```
 
-## Desarrollo
+## Development
 
 ```bash
 pip install "dcp-ai[openai,dev]"
 pytest -v
 ```
 
-### Dependencias
+### Dependencies
 
-- `dcp-ai` — SDK DCP (crypto, merkle, verify, models)
-- `openai` — Cliente oficial de OpenAI
+- `dcp-ai` — DCP SDK (crypto, merkle, verify, models)
+- `openai` — Official OpenAI client
 
-## Licencia
+## License
 
 Apache-2.0

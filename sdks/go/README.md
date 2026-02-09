@@ -1,14 +1,14 @@
 # dcp-ai-go — Go SDK
 
-SDK oficial de Go para el Digital Citizenship Protocol (DCP). Tipos nativos Go, Ed25519, SHA-256 y verificacion completa de bundles.
+Official Go SDK for the Digital Citizenship Protocol (DCP). Native Go types, Ed25519, SHA-256, and full bundle verification.
 
-## Instalacion
+## Installation
 
 ```bash
 go get github.com/dcp-ai/dcp-ai-go/dcp
 ```
 
-**Requiere:** Go 1.21+
+**Requires:** Go 1.21+
 
 ## Quickstart
 
@@ -21,14 +21,14 @@ import (
 )
 
 func main() {
-    // 1. Generar keypair Ed25519
+    // 1. Generate Ed25519 keypair
     keys, err := dcp.GenerateKeypair()
     if err != nil {
         panic(err)
     }
     fmt.Println("Public Key:", keys.PublicKeyB64)
 
-    // 2. Firmar un objeto
+    // 2. Sign an object
     obj := map[string]interface{}{
         "agent_id": "agent-001",
         "action":   "api_call",
@@ -38,14 +38,14 @@ func main() {
         panic(err)
     }
 
-    // 3. Verificar firma
+    // 3. Verify signature
     ok, err := dcp.VerifyObject(obj, sig, keys.PublicKeyB64)
     if err != nil {
         panic(err)
     }
-    fmt.Println("Verificado:", ok) // true
+    fmt.Println("Verified:", ok) // true
 
-    // 4. Hash de un objeto
+    // 4. Hash an object
     hash, err := dcp.HashObject(obj)
     if err != nil {
         panic(err)
@@ -54,7 +54,7 @@ func main() {
 }
 ```
 
-### Verificar un Signed Bundle
+### Verify a Signed Bundle
 
 ```go
 package main
@@ -73,9 +73,9 @@ func main() {
     json.Unmarshal(data, &sb)
 
     result := dcp.VerifySignedBundle(&sb, "BASE64_PUBLIC_KEY")
-    fmt.Println("Verificado:", result.Verified)
+    fmt.Println("Verified:", result.Verified)
     if len(result.Errors) > 0 {
-        fmt.Println("Errores:", result.Errors)
+        fmt.Println("Errors:", result.Errors)
     }
 }
 ```
@@ -84,29 +84,29 @@ func main() {
 
 ### Crypto
 
-| Funcion | Firma | Descripcion |
-|---------|-------|-------------|
-| `GenerateKeypair()` | `() (*Keypair, error)` | Genera par de claves Ed25519 |
-| `SignObject(obj, secretKeyB64)` | `(interface{}, string) (string, error)` | Firma, retorna base64 |
-| `VerifyObject(obj, sigB64, pubKeyB64)` | `(interface{}, string, string) (bool, error)` | Verifica firma |
-| `Canonicalize(obj)` | `(interface{}) (string, error)` | JSON deterministico |
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `GenerateKeypair()` | `() (*Keypair, error)` | Generates an Ed25519 key pair |
+| `SignObject(obj, secretKeyB64)` | `(interface{}, string) (string, error)` | Signs, returns base64 |
+| `VerifyObject(obj, sigB64, pubKeyB64)` | `(interface{}, string, string) (bool, error)` | Verifies signature |
+| `Canonicalize(obj)` | `(interface{}) (string, error)` | Deterministic JSON |
 
 ### Hashing & Merkle
 
-| Funcion | Firma | Descripcion |
-|---------|-------|-------------|
-| `HashObject(obj)` | `(interface{}) (string, error)` | SHA-256 hex del JSON canonical |
-| `MerkleRootFromHexLeaves(leaves)` | `([]string) (string, error)` | Raiz Merkle desde hojas hex |
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `HashObject(obj)` | `(interface{}) (string, error)` | SHA-256 hex of canonical JSON |
+| `MerkleRootFromHexLeaves(leaves)` | `([]string) (string, error)` | Merkle root from hex leaves |
 
-### Verificacion
+### Verification
 
 ```go
 func VerifySignedBundle(sb *SignedBundle, publicKeyB64 string) *VerificationResult
 ```
 
-Verifica: firma Ed25519, `bundle_hash`, `merkle_root`, cadena `intent_hash`, cadena `prev_hash`.
+Verifies: Ed25519 signature, `bundle_hash`, `merkle_root`, `intent_hash` chain, `prev_hash` chain.
 
-Retorna `VerificationResult`:
+Returns `VerificationResult`:
 ```go
 type VerificationResult struct {
     Verified bool     `json:"verified"`
@@ -114,7 +114,7 @@ type VerificationResult struct {
 }
 ```
 
-### Tipos
+### Types
 
 ```go
 type Keypair struct {
@@ -136,9 +136,9 @@ type Signer struct { ... }
 type RevocationRecord struct { ... }
 ```
 
-Todos los structs tienen tags `json:` para serializar/deserializar correctamente.
+All structs have `json:` tags for correct serialization/deserialization.
 
-## Desarrollo
+## Development
 
 ```bash
 # Build
@@ -147,17 +147,17 @@ go build ./...
 # Tests
 go test ./...
 
-# Formatear
+# Format
 go fmt ./...
 
-# Verificar dependencias
+# Verify dependencies
 go mod tidy
 ```
 
-### Dependencias
+### Dependencies
 
 - `golang.org/x/crypto` — Ed25519
 
-## Licencia
+## License
 
 Apache-2.0

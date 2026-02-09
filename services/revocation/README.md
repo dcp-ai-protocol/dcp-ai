@@ -1,24 +1,24 @@
 # Revocation Service
 
-Servicio HTTP para publicar y consultar revocaciones de agentes DCP. Permite revocar el pasaporte de un agente y exponer un endpoint `.well-known` para consulta estandarizada.
+HTTP service for publishing and querying DCP agent revocations. Allows revoking an agent's passport and exposes a `.well-known` endpoint for standardized queries.
 
 ## Quickstart
 
 ```bash
-# Iniciar el servicio
+# Start the service
 node index.js
 
-# O con Docker
+# Or with Docker
 docker compose up revocation
 ```
 
-El servicio escucha en `http://localhost:3003` por defecto.
+The service listens on `http://localhost:3003` by default.
 
 ## Endpoints
 
 ### `GET /health`
 
-Health check del servicio.
+Service health check.
 
 ```bash
 curl http://localhost:3003/health
@@ -34,7 +34,7 @@ curl http://localhost:3003/health
 
 ### `POST /revoke`
 
-Publicar una revocacion de agente.
+Publish an agent revocation.
 
 ```bash
 curl -X POST http://localhost:3003/revoke \
@@ -49,14 +49,14 @@ curl -X POST http://localhost:3003/revoke \
 
 **Request body:**
 
-| Campo | Tipo | Requerido | Descripcion |
-|-------|------|-----------|-------------|
-| `agent_id` | `string` | Si | ID del agente a revocar |
-| `human_id` | `string` | No | ID del humano responsable |
-| `reason` | `string` | Si | Motivo de la revocacion |
-| `signature` | `string` | Si | Firma de la revocacion |
-| `dcp_version` | `string` | No | Version DCP (default: `"1.0"`) |
-| `timestamp` | `string` | No | ISO 8601 (default: ahora) |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `agent_id` | `string` | Yes | ID of the agent to revoke |
+| `human_id` | `string` | No | ID of the responsible human |
+| `reason` | `string` | Yes | Reason for revocation |
+| `signature` | `string` | Yes | Revocation signature |
+| `dcp_version` | `string` | No | DCP version (default: `"1.0"`) |
+| `timestamp` | `string` | No | ISO 8601 (default: now) |
 
 **Response (201):**
 
@@ -70,13 +70,13 @@ curl -X POST http://localhost:3003/revoke \
 
 ### `GET /check/:agent_id`
 
-Verificar si un agente esta revocado.
+Check if an agent is revoked.
 
 ```bash
 curl http://localhost:3003/check/agent-001
 ```
 
-**Agente revocado:**
+**Revoked agent:**
 
 ```json
 {
@@ -93,7 +93,7 @@ curl http://localhost:3003/check/agent-001
 }
 ```
 
-**Agente no revocado:**
+**Non-revoked agent:**
 
 ```json
 {
@@ -104,7 +104,7 @@ curl http://localhost:3003/check/agent-001
 
 ### `GET /.well-known/dcp-revocations.json`
 
-Endpoint estandarizado para consultar todas las revocaciones. Puede ser servido como archivo estatico o consumido por otros servicios.
+Standardized endpoint for querying all revocations. Can be served as a static file or consumed by other services.
 
 ```bash
 curl http://localhost:3003/.well-known/dcp-revocations.json
@@ -129,7 +129,7 @@ curl http://localhost:3003/.well-known/dcp-revocations.json
 
 ### `GET /list`
 
-Listar todas las revocaciones.
+List all revocations.
 
 ```bash
 curl http://localhost:3003/list
@@ -142,17 +142,17 @@ curl http://localhost:3003/list
 }
 ```
 
-## Configuracion
+## Configuration
 
-### Variables de entorno
+### Environment Variables
 
-| Variable | Default | Descripcion |
+| Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | `3003` | Puerto HTTP |
+| `PORT` | `3003` | HTTP port |
 
-## Formato de revocacion
+## Revocation Format
 
-Un `RevocationRecord` DCP contiene:
+A DCP `RevocationRecord` contains:
 
 ```json
 {
@@ -160,31 +160,31 @@ Un `RevocationRecord` DCP contiene:
   "agent_id": "agent-001",
   "human_id": "human-001",
   "timestamp": "2025-01-01T00:00:00.000Z",
-  "reason": "Motivo de la revocacion",
+  "reason": "Reason for revocation",
   "signature": "base64-ed25519-signature"
 }
 ```
 
-La revocacion debe estar firmada por el humano responsable (clave privada Ed25519). El campo `signature` permite verificar la autenticidad de la revocacion.
+The revocation must be signed by the responsible human (Ed25519 private key). The `signature` field allows verifying the authenticity of the revocation.
 
-## Integracion
+## Integration
 
-### Consultar desde middleware
+### Querying from middleware
 
-Los middlewares Express y FastAPI pueden usar `checkRevocation: true` para verificar automaticamente contra este servicio antes de aceptar un bundle.
+The Express and FastAPI middlewares can use `checkRevocation: true` to automatically verify against this service before accepting a bundle.
 
-### Endpoint `.well-known`
+### `.well-known` Endpoint
 
-El endpoint `/.well-known/dcp-revocations.json` sigue la convencion de [RFC 8615](https://tools.ietf.org/html/rfc8615) y puede ser:
+The `/.well-known/dcp-revocations.json` endpoint follows the [RFC 8615](https://tools.ietf.org/html/rfc8615) convention and can be:
 
-- Consultado por cualquier verificador
-- Cacheado por CDNs
-- Servido como archivo estatico en produccion
+- Queried by any verifier
+- Cached by CDNs
+- Served as a static file in production
 
-## Desarrollo
+## Development
 
 ```bash
-# Iniciar en modo desarrollo
+# Start in development mode
 PORT=3003 node index.js
 
 # Test
@@ -195,6 +195,6 @@ curl -X POST http://localhost:3003/revoke \
 curl http://localhost:3003/check/test-001
 ```
 
-## Licencia
+## License
 
 Apache-2.0

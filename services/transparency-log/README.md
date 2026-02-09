@@ -1,24 +1,24 @@
 # Transparency Log Service
 
-Servicio HTTP de log de transparencia estilo Certificate Transparency (CT). Almacena hashes de bundles en un Merkle tree append-only con inclusion proofs verificables.
+HTTP transparency log service inspired by Certificate Transparency (CT). Stores bundle hashes in an append-only Merkle tree with verifiable inclusion proofs.
 
 ## Quickstart
 
 ```bash
-# Iniciar el servicio
+# Start the service
 node index.js
 
-# O con Docker
+# Or with Docker
 docker compose up transparency-log
 ```
 
-El servicio escucha en `http://localhost:3002` por defecto.
+The service listens on `http://localhost:3002` by default.
 
 ## Endpoints
 
 ### `GET /health`
 
-Health check del servicio.
+Service health check.
 
 ```bash
 curl http://localhost:3002/health
@@ -34,7 +34,7 @@ curl http://localhost:3002/health
 
 ### `POST /add`
 
-Agregar un bundle hash al log.
+Add a bundle hash to the log.
 
 ```bash
 curl -X POST http://localhost:3002/add \
@@ -53,7 +53,7 @@ curl -X POST http://localhost:3002/add \
 
 ### `GET /root`
 
-Obtener el Merkle root actual del log.
+Get the current Merkle root of the log.
 
 ```bash
 curl http://localhost:3002/root
@@ -68,7 +68,7 @@ curl http://localhost:3002/root
 
 ### `GET /root/signed`
 
-Obtener el Merkle root firmado (placeholder para firma del operador).
+Get the signed Merkle root (placeholder for operator signature).
 
 ```bash
 curl http://localhost:3002/root/signed
@@ -85,7 +85,7 @@ curl http://localhost:3002/root/signed
 
 ### `GET /proof/:index`
 
-Obtener el Merkle inclusion proof para una entrada por indice.
+Get the Merkle inclusion proof for an entry by index.
 
 ```bash
 curl http://localhost:3002/proof/5
@@ -109,11 +109,11 @@ curl http://localhost:3002/proof/5
 }
 ```
 
-El proof permite verificar que la entrada esta incluida en el Merkle tree sin descargar todo el log.
+The proof allows verifying that an entry is included in the Merkle tree without downloading the entire log.
 
 ### `GET /entries`
 
-Listar todas las entradas del log.
+List all log entries.
 
 ```bash
 curl http://localhost:3002/entries
@@ -129,38 +129,38 @@ curl http://localhost:3002/entries
 }
 ```
 
-## Configuracion
+## Configuration
 
-### Variables de entorno
+### Environment Variables
 
-| Variable | Default | Descripcion |
+| Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | `3002` | Puerto HTTP |
+| `PORT` | `3002` | HTTP port |
 
-## Formato CT-style
+## CT-style Format
 
-El log sigue un formato inspirado en Certificate Transparency (RFC 6962):
+The log follows a format inspired by Certificate Transparency (RFC 6962):
 
-1. **Append-only:** Las entradas nunca se eliminan ni modifican
-2. **Merkle tree:** Cada entrada genera un `leaf_hash` (SHA-256) que se incorpora al arbol
-3. **Inclusion proofs:** Cualquiera puede verificar que una entrada existe en el log usando el proof
-4. **Signed root:** El root puede firmarse por el operador (placeholder actual)
+1. **Append-only:** Entries are never deleted or modified
+2. **Merkle tree:** Each entry generates a `leaf_hash` (SHA-256) that is incorporated into the tree
+3. **Inclusion proofs:** Anyone can verify that an entry exists in the log using the proof
+4. **Signed root:** The root can be signed by the operator (current placeholder)
 
-### Verificar un inclusion proof
+### Verifying an Inclusion Proof
 
-Para verificar que una entrada esta en el log:
+To verify that an entry is in the log:
 
-1. Obtener el proof con `GET /proof/:index`
-2. Calcular `leaf_hash = SHA-256(entry.hash)`
-3. Recombinar los nodos del proof:
-   - Si `direction == "left"`: `hash = SHA-256(proof_hash + current)`
-   - Si `direction == "right"`: `hash = SHA-256(current + proof_hash)`
-4. El resultado final debe coincidir con el `root` actual
+1. Get the proof with `GET /proof/:index`
+2. Compute `leaf_hash = SHA-256(entry.hash)`
+3. Recombine the proof nodes:
+   - If `direction == "left"`: `hash = SHA-256(proof_hash + current)`
+   - If `direction == "right"`: `hash = SHA-256(current + proof_hash)`
+4. The final result must match the current `root`
 
-## Desarrollo
+## Development
 
 ```bash
-# Iniciar en modo desarrollo
+# Start in development mode
 PORT=3002 node index.js
 
 # Test
@@ -172,6 +172,6 @@ curl http://localhost:3002/root
 curl http://localhost:3002/proof/0
 ```
 
-## Licencia
+## License
 
 Apache-2.0

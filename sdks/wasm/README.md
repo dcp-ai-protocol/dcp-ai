@@ -1,8 +1,8 @@
 # @dcp-ai/wasm — WebAssembly Module
 
-Modulo WebAssembly del Digital Citizenship Protocol (DCP), compilado desde el Rust SDK. Verifica bundles y calcula hashes directamente en el navegador sin servidor.
+WebAssembly module for the Digital Citizenship Protocol (DCP), compiled from the Rust SDK. Verify bundles and compute hashes directly in the browser without a server.
 
-## Instalacion
+## Installation
 
 ```bash
 npm install @dcp-ai/wasm
@@ -11,20 +11,20 @@ npm install @dcp-ai/wasm
 ## Build
 
 ```bash
-# Build para navegador (web target)
+# Build for browser (web target)
 npm run build
 
-# Build para Node.js
+# Build for Node.js
 npm run build:node
 ```
 
-Internamente usa `wasm-pack`:
+Internally uses `wasm-pack`:
 ```bash
 wasm-pack build --target web        # Browser
 wasm-pack build --target nodejs     # Node.js
 ```
 
-**Requisitos:** [wasm-pack](https://rustwasm.github.io/wasm-pack/installer/) y Rust toolchain con target `wasm32-unknown-unknown`.
+**Requirements:** [wasm-pack](https://rustwasm.github.io/wasm-pack/installer/) and the Rust toolchain with the `wasm32-unknown-unknown` target.
 
 ## Quickstart — Browser
 
@@ -35,9 +35,9 @@ wasm-pack build --target nodejs     # Node.js
   <title>DCP WASM Verification</title>
 </head>
 <body>
-  <textarea id="bundle" rows="10" cols="60" placeholder="Pega un signed bundle JSON aqui..."></textarea>
+  <textarea id="bundle" rows="10" cols="60" placeholder="Paste a signed bundle JSON here..."></textarea>
   <br/>
-  <button onclick="verify()">Verificar Bundle</button>
+  <button onclick="verify()">Verify Bundle</button>
   <pre id="result"></pre>
 
   <script type="module">
@@ -47,15 +47,15 @@ wasm-pack build --target nodejs     # Node.js
       wasm_generate_keypair,
     } from '@dcp-ai/wasm';
 
-    // Inicializar WASM
+    // Initialize WASM
     await init();
 
-    // Generar keypair
+    // Generate keypair
     const keypairJson = wasm_generate_keypair();
     const keypair = JSON.parse(keypairJson);
     console.log('Public Key:', keypair.public_key_b64);
 
-    // Verificar bundle
+    // Verify bundle
     window.verify = function() {
       const bundleJson = document.getElementById('bundle').value;
       const resultJson = wasm_verify_signed_bundle(bundleJson, null);
@@ -63,7 +63,7 @@ wasm-pack build --target nodejs     # Node.js
       document.getElementById('result').textContent = JSON.stringify(result, null, 2);
     };
 
-    // Hash de un objeto
+    // Hash an object
     const hash = wasm_hash_object('{"agent_id":"agent-001"}');
     console.log('SHA-256:', hash);
   </script>
@@ -71,32 +71,32 @@ wasm-pack build --target nodejs     # Node.js
 </html>
 ```
 
-Tambien se incluye un ejemplo funcional completo en `example.html`.
+A fully functional example is also included in `example.html`.
 
 ## API Reference
 
 ### `wasm_verify_signed_bundle(signed_bundle_json, public_key_b64?)`
 
-Verifica un Signed Bundle completo.
+Verifies a complete Signed Bundle.
 
-- **Parametros:**
-  - `signed_bundle_json: string` — JSON del signed bundle
-  - `public_key_b64: string | null` — Clave publica Ed25519 (base64). Si es `null`, usa la clave del bundle.
-- **Retorna:** `string` — JSON con `{ "verified": boolean, "errors": string[] }`
+- **Parameters:**
+  - `signed_bundle_json: string` — JSON of the signed bundle
+  - `public_key_b64: string | null` — Ed25519 public key (base64). If `null`, uses the key from the bundle.
+- **Returns:** `string` — JSON with `{ "verified": boolean, "errors": string[] }`
 
 ```javascript
 const result = JSON.parse(
   wasm_verify_signed_bundle(bundleJson, "BASE64_PUBLIC_KEY")
 );
-console.log(result.verified); // true o false
+console.log(result.verified); // true or false
 ```
 
 ### `wasm_hash_object(json_str)`
 
-Calcula el SHA-256 de un objeto JSON.
+Computes the SHA-256 hash of a JSON object.
 
-- **Parametros:** `json_str: string` — JSON a hashear
-- **Retorna:** `string` — Hash hex SHA-256
+- **Parameters:** `json_str: string` — JSON to hash
+- **Returns:** `string` — SHA-256 hex hash
 
 ```javascript
 const hash = wasm_hash_object('{"agent_id":"agent-001"}');
@@ -105,9 +105,9 @@ const hash = wasm_hash_object('{"agent_id":"agent-001"}');
 
 ### `wasm_generate_keypair()`
 
-Genera un par de claves Ed25519.
+Generates an Ed25519 key pair.
 
-- **Retorna:** `string` — JSON con `{ "public_key_b64": "...", "secret_key_b64": "..." }`
+- **Returns:** `string` — JSON with `{ "public_key_b64": "...", "secret_key_b64": "..." }`
 
 ```javascript
 const keys = JSON.parse(wasm_generate_keypair());
@@ -115,43 +115,43 @@ console.log(keys.public_key_b64);
 console.log(keys.secret_key_b64);
 ```
 
-## Ejemplo incluido
+## Included Example
 
-El archivo `example.html` contiene una demo interactiva completa que:
+The `example.html` file contains a complete interactive demo that:
 
-1. Inicializa el modulo WASM
-2. Permite pegar un signed bundle JSON
-3. Verifica el bundle en el navegador
-4. Muestra el resultado de la verificacion
+1. Initializes the WASM module
+2. Allows pasting a signed bundle JSON
+3. Verifies the bundle in the browser
+4. Displays the verification result
 
-Para usarlo, sirve el directorio con cualquier servidor HTTP:
+To use it, serve the directory with any HTTP server:
 
 ```bash
 npx serve .
-# Abre http://localhost:3000/example.html
+# Open http://localhost:3000/example.html
 ```
 
-## Desarrollo
+## Development
 
-### Requisitos previos
+### Prerequisites
 
 ```bash
-# Instalar wasm-pack
+# Install wasm-pack
 curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
-# Instalar target WASM para Rust
+# Install WASM target for Rust
 rustup target add wasm32-unknown-unknown
 ```
 
-### Build desde el Rust SDK
+### Build from the Rust SDK
 
-El modulo WASM se compila desde `sdks/rust/` con el feature `wasm` activado:
+The WASM module is compiled from `sdks/rust/` with the `wasm` feature enabled:
 
 ```bash
 cd ../rust
 wasm-pack build --target web --out-dir ../wasm/pkg
 ```
 
-## Licencia
+## License
 
 Apache-2.0
