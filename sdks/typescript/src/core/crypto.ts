@@ -11,7 +11,7 @@ const { decodeUTF8, encodeBase64, decodeBase64 } = naclUtil;
 
 /** Canonical JSON serialization (deterministic key ordering). */
 export function canonicalize(obj: unknown): string {
-  return stringify(obj);
+  return stringify(obj) ?? '';
 }
 
 /** Generate a new Ed25519 keypair. */
