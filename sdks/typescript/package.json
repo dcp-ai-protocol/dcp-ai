@@ -28,10 +28,11 @@
     "json-stable-stringify": "^1.1.1"
   },
   "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/json-stable-stringify": "^1.0.36",
     "tsup": "^8.0.0",
     "typescript": "^5.4.0",
-    "vitest": "^1.6.0",
-    "@types/json-stable-stringify": "^1.0.36"
+    "vitest": "^1.6.0"
   },
   "keywords": ["dcp", "ai", "agent", "citizenship", "protocol", "verification"],
   "license": "MIT"
