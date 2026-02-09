@@ -1,0 +1,38 @@
+{
+  "name": "@dcp-ai/sdk",
+  "version": "1.0.0",
+  "description": "TypeScript SDK for the Digital Citizenship Protocol for AI Agents",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "tweetnacl": "^1.0.3",
+    "tweetnacl-util": "^0.15.1",
+    "json-stable-stringify": "^1.1.1"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0",
+    "@types/json-stable-stringify": "^1.0.36"
+  },
+  "keywords": ["dcp", "ai", "agent", "citizenship", "protocol", "verification"],
+  "license": "MIT"
+}

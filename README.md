@@ -64,6 +64,105 @@ When validation fails, use the error message and schema name to fix the issue. C
 
 Full verification checklist: [spec/VERIFICATION.md](spec/VERIFICATION.md).
 
+## Ecosystem
+
+This repository includes a complete ecosystem of SDKs, framework integrations, infrastructure services, and tooling for implementing DCP at scale.
+
+```mermaid
+graph TB
+  subgraph sdks [SDKs]
+    TS["TypeScript SDK"]
+    PY["Python SDK"]
+    GO["Go SDK"]
+    RS["Rust SDK"]
+    WA["WASM Module"]
+  end
+
+  subgraph integrations [Integrations]
+    EX["Express Middleware"]
+    FA["FastAPI Middleware"]
+    LC["LangChain"]
+    OA["OpenAI"]
+    CR["CrewAI"]
+  end
+
+  subgraph services [Services]
+    VER["Verification Server"]
+    ANC["Anchoring Service"]
+    TL["Transparency Log"]
+    REV["Revocation Service"]
+  end
+
+  subgraph infra [Infrastructure]
+    SOL["Smart Contract L2"]
+    GH["GitHub Actions"]
+    DK["Docker Compose"]
+  end
+
+  TS --> EX
+  PY --> FA
+  PY --> LC
+  PY --> OA
+  PY --> CR
+  RS --> WA
+
+  EX --> VER
+  FA --> VER
+  VER --> ANC
+  VER --> TL
+  VER --> REV
+  ANC --> SOL
+  DK --> VER
+  DK --> ANC
+  DK --> TL
+  DK --> REV
+  GH --> VER
+```
+
+### SDKs
+
+Create, sign, and verify Citizenship Bundles in your preferred language.
+
+| SDK | Package | Features | Docs |
+|-----|---------|----------|------|
+| **TypeScript** | `@dcp-ai/sdk` | BundleBuilder, Ed25519, JSON Schema validation, Vitest | [sdks/typescript/](sdks/typescript/README.md) |
+| **Python** | `dcp-ai` | Pydantic v2 models, CLI (Typer), optional extras | [sdks/python/](sdks/python/README.md) |
+| **Go** | `github.com/dcp-ai/dcp-ai-go` | Native types, Ed25519, full verification | [sdks/go/](sdks/go/README.md) |
+| **Rust** | `dcp-ai` | serde, ed25519-dalek, optional WASM feature | [sdks/rust/](sdks/rust/README.md) |
+| **WASM** | `@dcp-ai/wasm` | Browser verification, compiled from Rust | [sdks/wasm/](sdks/wasm/README.md) |
+
+### Framework Integrations
+
+Drop-in DCP governance for popular AI and web frameworks.
+
+| Integration | Package | Pattern | Docs |
+|-------------|---------|---------|------|
+| **Express** | `@dcp-ai/express` | `dcpVerify()` middleware, `req.dcpAgent` | [integrations/express/](integrations/express/README.md) |
+| **FastAPI** | `dcp-ai[fastapi]` | `DCPVerifyMiddleware`, `Depends(require_dcp)` | [integrations/fastapi/](integrations/fastapi/README.md) |
+| **LangChain** | `dcp-ai[langchain]` | `DCPAgentWrapper`, `DCPTool`, `DCPCallback` | [integrations/langchain/](integrations/langchain/README.md) |
+| **OpenAI** | `dcp-ai[openai]` | `DCPOpenAIClient`, `DCP_TOOLS` function calling | [integrations/openai/](integrations/openai/README.md) |
+| **CrewAI** | `dcp-ai[crewai]` | `DCPCrewAgent`, `DCPCrew` multi-agent | [integrations/crewai/](integrations/crewai/README.md) |
+
+### Infrastructure Services
+
+Backend services for anchoring, transparency, and revocation.
+
+| Service | Port | Description | Docs |
+|---------|------|-------------|------|
+| **Verification** | 3000 | HTTP API for verifying Signed Bundles | [server/](server/README.md) |
+| **Anchoring** | 3001 | Anchor bundle hashes to L2 blockchains | [services/anchor/](services/anchor/README.md) |
+| **Transparency Log** | 3002 | CT-style Merkle log with inclusion proofs | [services/transparency-log/](services/transparency-log/README.md) |
+| **Revocation** | 3003 | Agent revocation registry + `.well-known` | [services/revocation/](services/revocation/README.md) |
+
+### Deployment & Tooling
+
+| Component | Description | Docs |
+|-----------|-------------|------|
+| **Smart Contract** | `DCPAnchor.sol` for EVM L2 (Base/Arbitrum/Optimism) | [contracts/ethereum/](contracts/ethereum/README.md) |
+| **Docker Compose** | All 4 services with health checks, one command | [docker/](docker/README.md) |
+| **API Definitions** | OpenAPI 3.1 + Protocol Buffers (gRPC) | [api/](api/README.md) |
+| **GitHub Actions** | `verify-bundle` and `conformance-test` actions + CI | [.github/](.github/README.md) |
+
 ## Repository Layout
 
 - `schemas/v1/` — JSON Schemas (draft 2020-12)
@@ -75,6 +174,13 @@ Full verification checklist: [spec/VERIFICATION.md](spec/VERIFICATION.md).
 - `protocol_fingerprints.json` — canonical SHA-256 hashes of every schema (for `dcp integrity`)
 - `spec/` — normative specs (DCP-01, DCP-02, DCP-03, BUNDLE)
 - `docs/` — whitepaper, security model, architecture, government guide
+- `sdks/` — TypeScript, Python, Go, Rust, WASM SDKs
+- `integrations/` — Express, FastAPI, LangChain, OpenAI, CrewAI
+- `services/` — Anchoring, Transparency Log, Revocation
+- `contracts/` — Ethereum/L2 smart contracts
+- `docker/` — Docker Compose + multi-stage Dockerfile
+- `api/` — OpenAPI spec + Protocol Buffers
+- `.github/` — CI workflows + reusable GitHub Actions
 
 ## License
 

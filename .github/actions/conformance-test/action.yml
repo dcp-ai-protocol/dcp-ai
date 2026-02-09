@@ -1,0 +1,55 @@
+name: "DCP Conformance Tests"
+description: "Run DCP conformance tests to validate protocol compliance"
+author: "DCP-AI"
+
+inputs:
+  node-version:
+    description: "Node.js version to use"
+    required: false
+    default: "20"
+  test-dir:
+    description: "Directory containing test fixtures"
+    required: false
+    default: "tests/conformance/examples"
+
+outputs:
+  passed:
+    description: "Whether all conformance tests passed"
+    value: ${{ steps.conformance.outputs.passed }}
+  summary:
+    description: "Test summary"
+    value: ${{ steps.conformance.outputs.summary }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Install dependencies
+      shell: bash
+      run: npm install --production 2>/dev/null || true
+
+    - name: Run Conformance Tests
+      id: conformance
+      shell: bash
+      run: |
+        set +e
+        OUTPUT=$(node tools/conformance.js 2>&1)
+        EXIT_CODE=$?
+        set -e
+
+        echo "$OUTPUT"
+
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "passed=true" >> $GITHUB_OUTPUT
+          echo "summary=All conformance tests passed" >> $GITHUB_OUTPUT
+          echo "::notice::DCP Conformance: All tests passed"
+        else
+          echo "passed=false" >> $GITHUB_OUTPUT
+          echo "summary=Some conformance tests failed" >> $GITHUB_OUTPUT
+          echo "::error::DCP Conformance: Some tests failed"
+          exit 1
+        fi

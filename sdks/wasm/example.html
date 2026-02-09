@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DCP-AI WASM Verification Demo</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; }
+    textarea { width: 100%; height: 200px; font-family: monospace; font-size: 13px; }
+    button { padding: 10px 24px; font-size: 16px; cursor: pointer; background: #2563eb; color: white; border: none; border-radius: 6px; }
+    button:hover { background: #1d4ed8; }
+    .result { margin-top: 16px; padding: 16px; border-radius: 8px; font-family: monospace; white-space: pre-wrap; }
+    .verified { background: #dcfce7; color: #166534; }
+    .failed { background: #fef2f2; color: #991b1b; }
+  </style>
+</head>
+<body>
+  <h1>DCP-AI WASM Verification</h1>
+  <p>Verify DCP signed bundles directly in the browser — no server required.</p>
+
+  <h3>Paste Signed Bundle JSON:</h3>
+  <textarea id="bundleInput" placeholder='{"bundle": {...}, "signature": {...}}'></textarea>
+
+  <br><br>
+  <button onclick="verifyBundle()">Verify Bundle</button>
+
+  <div id="result"></div>
+
+  <script type="module">
+    import init, { wasm_verify_signed_bundle, wasm_hash_object } from './pkg/dcp_ai.js';
+
+    await init();
+
+    window.verifyBundle = function() {
+      const input = document.getElementById('bundleInput').value.trim();
+      const resultDiv = document.getElementById('result');
+
+      if (!input) {
+        resultDiv.innerHTML = '<div class="result failed">Please paste a signed bundle JSON.</div>';
+        return;
+      }
+
+      try {
+        const resultJson = wasm_verify_signed_bundle(input, null);
+        const result = JSON.parse(resultJson);
+
+        if (result.verified) {
+          resultDiv.innerHTML = '<div class="result verified">VERIFIED — Bundle signature and integrity are valid.</div>';
+        } else {
+          const errors = (result.errors || ['Unknown error']).join('\n');
+          resultDiv.innerHTML = `<div class="result failed">FAILED\n${errors}</div>`;
+        }
+      } catch (e) {
+        resultDiv.innerHTML = `<div class="result failed">Error: ${e.message}</div>`;
+      }
+    };
+  </script>
+</body>
+</html>
