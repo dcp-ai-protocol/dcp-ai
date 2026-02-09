@@ -1,14 +1,14 @@
 # dcp-ai — Python SDK
 
-SDK oficial de Python para el Digital Citizenship Protocol (DCP). Modelos Pydantic v2, criptografia Ed25519, verificacion de bundles y CLI completa.
+Official Python SDK for the Digital Citizenship Protocol (DCP). Pydantic v2 models, Ed25519 cryptography, bundle verification, and a full-featured CLI.
 
-## Instalacion
+## Installation
 
 ```bash
 pip install dcp-ai
 ```
 
-### Extras opcionales
+### Optional extras
 
 ```bash
 pip install "dcp-ai[fastapi]"    # FastAPI middleware
@@ -32,10 +32,10 @@ from dcp_ai import (
     PolicyDecision,
 )
 
-# 1. Generar keypair Ed25519
+# 1. Generate Ed25519 keypair
 keys = generate_keypair()
 
-# 2. Construir un Citizenship Bundle
+# 2. Build a Citizenship Bundle
 bundle = (
     BundleBuilder()
     .human_binding_record(HumanBindingRecord(
@@ -51,7 +51,7 @@ bundle = (
         dcp_version="1.0",
         agent_id="agent-001",
         human_id="human-001",
-        agent_name="MiAgente",
+        agent_name="MyAgent",
         capabilities=["browse", "api_call"],
         risk_tier="medium",
         status="active",
@@ -79,41 +79,41 @@ bundle = (
     .build()
 )
 
-# 3. Firmar
+# 3. Sign
 signed = sign_bundle(bundle, keys["secret_key_b64"])
 
-# 4. Verificar
+# 4. Verify
 result = verify_signed_bundle(signed, keys["public_key_b64"])
 print(result)  # {"verified": True, "errors": []}
 ```
 
 ## CLI
 
-La SDK incluye un CLI con Typer. Disponible como `dcp` despues de instalar.
+The SDK includes a CLI built with Typer. Available as `dcp` after installation.
 
 ```bash
 # Version
 dcp version
 
-# Generar keypair Ed25519
+# Generate Ed25519 keypair
 dcp keygen [out_dir]
 
-# Validar un objeto contra un schema DCP
+# Validate an object against a DCP schema
 dcp validate <schema_name> <json_path>
 
-# Validar un Citizenship Bundle completo
+# Validate a complete Citizenship Bundle
 dcp validate-bundle <bundle_path>
 
-# Verificar un Signed Bundle
+# Verify a Signed Bundle
 dcp verify <signed_path> [public_key_path]
 
-# Calcular bundle hash (SHA-256)
+# Compute bundle hash (SHA-256)
 dcp bundle-hash <bundle_path>
 
-# Calcular Merkle root de audit entries
+# Compute Merkle root of audit entries
 dcp merkle-root <bundle_path>
 
-# Calcular intent_hash
+# Compute intent_hash
 dcp intent-hash-cmd <intent_path>
 ```
 
@@ -121,30 +121,30 @@ dcp intent-hash-cmd <intent_path>
 
 ### Crypto
 
-| Funcion | Firma | Descripcion |
-|---------|-------|-------------|
-| `generate_keypair()` | `() -> dict[str, str]` | Retorna `{"public_key_b64": ..., "secret_key_b64": ...}` |
-| `sign_object(obj, secret_key_b64)` | `(Any, str) -> str` | Firma, retorna base64 |
-| `verify_object(obj, signature_b64, public_key_b64)` | `(Any, str, str) -> bool` | Verifica firma |
-| `canonicalize(obj)` | `(Any) -> str` | JSON deterministico |
-| `public_key_from_secret(secret_key_b64)` | `(str) -> str` | Deriva clave publica |
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `generate_keypair()` | `() -> dict[str, str]` | Returns `{"public_key_b64": ..., "secret_key_b64": ...}` |
+| `sign_object(obj, secret_key_b64)` | `(Any, str) -> str` | Signs, returns base64 |
+| `verify_object(obj, signature_b64, public_key_b64)` | `(Any, str, str) -> bool` | Verifies signature |
+| `canonicalize(obj)` | `(Any) -> str` | Deterministic JSON |
+| `public_key_from_secret(secret_key_b64)` | `(str) -> str` | Derives public key |
 
 ### Merkle & Hashing
 
-| Funcion | Firma | Descripcion |
-|---------|-------|-------------|
-| `hash_object(obj)` | `(Any) -> str` | SHA-256 del JSON canonicalizado |
-| `merkle_root_from_hex_leaves(leaves)` | `(list[str]) -> str \| None` | Raiz Merkle |
-| `merkle_root_for_audit_entries(entries)` | `(list[Any]) -> str \| None` | Raiz Merkle de audit entries |
-| `intent_hash(intent)` | `(Any) -> str` | Hash del intent |
-| `prev_hash_for_entry(prev_entry)` | `(Any) -> str` | Hash de entrada anterior |
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `hash_object(obj)` | `(Any) -> str` | SHA-256 of canonicalized JSON |
+| `merkle_root_from_hex_leaves(leaves)` | `(list[str]) -> str \| None` | Merkle root |
+| `merkle_root_for_audit_entries(entries)` | `(list[Any]) -> str \| None` | Merkle root of audit entries |
+| `intent_hash(intent)` | `(Any) -> str` | Intent hash |
+| `prev_hash_for_entry(prev_entry)` | `(Any) -> str` | Previous entry hash |
 
 ### Schema Validation
 
-| Funcion | Firma | Descripcion |
-|---------|-------|-------------|
-| `validate_schema(schema_name, data)` | `(str, Any) -> dict` | Retorna `{"valid": bool, "errors": [...]}` |
-| `validate_bundle(bundle)` | `(dict) -> dict` | Valida bundle completo |
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `validate_schema(schema_name, data)` | `(str, Any) -> dict` | Returns `{"valid": bool, "errors": [...]}` |
+| `validate_bundle(bundle)` | `(dict) -> dict` | Validates a complete bundle |
 
 ### Bundle Builder
 
@@ -156,7 +156,7 @@ bundle = (
     .intent(intent)
     .policy_decision(policy)
     .add_audit_entry(entry)       # Manual
-    .create_audit_entry(...)      # Auto-computa hashes
+    .create_audit_entry(...)      # Auto-computes hashes
     .build()                      # => CitizenshipBundle
 )
 ```
@@ -181,34 +181,34 @@ verify_signed_bundle(
 ) -> dict[str, Any]  # {"verified": bool, "errors": [...]}
 ```
 
-Verifica: schema, firma Ed25519, `bundle_hash`, `merkle_root`, cadena de `intent_hash`, cadena de `prev_hash`.
+Verifies: schema, Ed25519 signature, `bundle_hash`, `merkle_root`, `intent_hash` chain, `prev_hash` chain.
 
-### Modelos Pydantic
+### Pydantic Models
 
-Todos los artefactos DCP v1 estan disponibles como modelos Pydantic v2 con validacion automatica:
+All DCP v1 artifacts are available as Pydantic v2 models with automatic validation:
 
 `HumanBindingRecord`, `AgentPassport`, `Intent`, `IntentTarget`, `PolicyDecision`, `AuditEntry`, `AuditEvidence`, `CitizenshipBundle`, `SignedBundle`, `BundleSignature`, `SignerInfo`, `RevocationRecord`, `HumanConfirmation`
 
-## Desarrollo
+## Development
 
 ```bash
-# Instalar en modo desarrollo
+# Install in development mode
 pip install -e ".[dev]"
 
-# Ejecutar tests
+# Run tests
 pytest -v
 
-# Tests async
+# Async tests
 pytest -v --asyncio-mode=auto
 ```
 
-### Dependencias
+### Dependencies
 
-- `pynacl` — Criptografia Ed25519
-- `jsonschema` — Validacion JSON Schema
-- `pydantic` v2 — Modelos de datos
+- `pynacl` — Ed25519 cryptography
+- `jsonschema` — JSON Schema validation
+- `pydantic` v2 — Data models
 - `typer` — CLI framework
 
-## Licencia
+## License
 
 Apache-2.0

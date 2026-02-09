@@ -1,92 +1,92 @@
 # API — OpenAPI & Protocol Buffers
 
-Definiciones formales de la API DCP: especificacion OpenAPI 3.1 para HTTP/REST y Protocol Buffers para gRPC. Usa estas definiciones para generar clientes en cualquier lenguaje.
+Formal DCP API definitions: OpenAPI 3.1 specification for HTTP/REST and Protocol Buffers for gRPC. Use these definitions to generate clients in any language.
 
-## Archivos
+## Files
 
-| Archivo | Formato | Descripcion |
-|---------|---------|-------------|
-| `openapi.yaml` | OpenAPI 3.1.0 | Spec REST completa con Swagger UI |
-| `proto/dcp.proto` | Protocol Buffers 3 | Definicion gRPC con 4 servicios |
+| File | Format | Description |
+|------|--------|-------------|
+| `openapi.yaml` | OpenAPI 3.1.0 | Full REST spec with Swagger UI |
+| `proto/dcp.proto` | Protocol Buffers 3 | gRPC definition with 4 services |
 
 ## OpenAPI Spec
 
-### Servidores
+### Servers
 
-| Entorno | URL |
-|---------|-----|
+| Environment | URL |
+|-------------|-----|
 | Local | `http://localhost:3000` |
-| Produccion | `https://api.dcp-ai.org` |
+| Production | `https://api.dcp-ai.org` |
 
 ### Endpoints
 
 #### Verification
 
-| Metodo | Path | Descripcion |
+| Method | Path | Description |
 |--------|------|-------------|
-| `POST /verify` | Verificar un Signed Bundle | Request: `{ signed_bundle, public_key_b64? }` → Response: `{ verified, errors }` |
+| `POST /verify` | Verify a Signed Bundle | Request: `{ signed_bundle, public_key_b64? }` → Response: `{ verified, errors }` |
 
 #### Anchoring
 
-| Metodo | Path | Descripcion |
+| Method | Path | Description |
 |--------|------|-------------|
-| `POST /anchor` | Anclar bundle hash | Request: `{ bundle_hash, chain? }` → Response: `{ anchored, chain, tx_hash, bundle_hash, timestamp }` |
+| `POST /anchor` | Anchor bundle hash | Request: `{ bundle_hash, chain? }` → Response: `{ anchored, chain, tx_hash, bundle_hash, timestamp }` |
 
 #### Revocation
 
-| Metodo | Path | Descripcion |
+| Method | Path | Description |
 |--------|------|-------------|
-| `GET /revocations` | Listar revocaciones | Response: lista de `RevocationRecord` |
-| `POST /revocations` | Publicar revocacion | Request: `RevocationRecord` |
-| `GET /revocations/{agent_id}` | Estado de revocacion | Response: `{ revoked, record? }` |
+| `GET /revocations` | List revocations | Response: list of `RevocationRecord` |
+| `POST /revocations` | Publish revocation | Request: `RevocationRecord` |
+| `GET /revocations/{agent_id}` | Revocation status | Response: `{ revoked, record? }` |
 
 #### Transparency Log
 
-| Metodo | Path | Descripcion |
+| Method | Path | Description |
 |--------|------|-------------|
-| `POST /transparency-log/add` | Agregar entrada | Request: `{ bundle_hash }` → Response: `{ index, leaf_hash, root, size }` |
-| `GET /transparency-log/root` | Merkle root actual | Response: `{ root, size }` |
+| `POST /transparency-log/add` | Add entry | Request: `{ bundle_hash }` → Response: `{ index, leaf_hash, root, size }` |
+| `GET /transparency-log/root` | Current Merkle root | Response: `{ root, size }` |
 | `GET /transparency-log/proof/{index}` | Inclusion proof | Response: `{ index, leaf_hash, root, proof }` |
 
 #### Health
 
-| Metodo | Path | Descripcion |
+| Method | Path | Description |
 |--------|------|-------------|
 | `GET /health` | Health check | Response: `{ ok, service }` |
 
-### Schemas principales
+### Main Schemas
 
-- `SignedBundle` — Bundle firmado con Ed25519
-- `CitizenshipBundle` — Bundle de ciudadania (HBR + Passport + Intent + Policy + Audit)
-- `VerificationResult` — Resultado de verificacion (`verified`, `errors`)
-- `AnchorReceipt` — Recibo de anclaje (`anchored`, `chain`, `tx_hash`)
-- `RevocationRecord` — Registro de revocacion
-- `InclusionProof` — Proof de inclusion en transparency log
-- `ErrorResponse` — Respuesta de error estandar
+- `SignedBundle` — Bundle signed with Ed25519
+- `CitizenshipBundle` — Citizenship bundle (HBR + Passport + Intent + Policy + Audit)
+- `VerificationResult` — Verification result (`verified`, `errors`)
+- `AnchorReceipt` — Anchoring receipt (`anchored`, `chain`, `tx_hash`)
+- `RevocationRecord` — Revocation record
+- `InclusionProof` — Transparency log inclusion proof
+- `ErrorResponse` — Standard error response
 
 ### Swagger UI
 
-Para visualizar la spec interactivamente:
+To view the spec interactively:
 
 ```bash
-# Con Swagger UI
+# With Swagger UI
 npx @redocly/cli preview-docs api/openapi.yaml
 
-# O con Docker
+# Or with Docker
 docker run -p 8080:8080 -e SWAGGER_JSON=/api/openapi.yaml \
   -v $(pwd)/api:/api swaggerapi/swagger-ui
 ```
 
 ## Protocol Buffers (gRPC)
 
-### Paquete
+### Package
 
 ```protobuf
 package dcp.v1;
 option go_package = "github.com/dcp-ai/dcp-ai-go/proto";
 ```
 
-### Servicios
+### Services
 
 #### VerificationService
 
@@ -120,7 +120,7 @@ option go_package = "github.com/dcp-ai/dcp-ai-go/proto";
 | `GetRoot` | `GetRootRequest` | `GetRootResponse` |
 | `GetProof` | `GetProofRequest` | `GetProofResponse` |
 
-### Generar clientes
+### Generate Clients
 
 #### Go
 
@@ -150,7 +150,7 @@ npx grpc_tools_node_protoc \
 
 #### Rust
 
-Con `tonic-build` en `build.rs`:
+With `tonic-build` in `build.rs`:
 
 ```rust
 fn main() {
@@ -158,19 +158,19 @@ fn main() {
 }
 ```
 
-## Desarrollo
+## Development
 
 ```bash
-# Validar OpenAPI spec
+# Validate OpenAPI spec
 npx @redocly/cli lint api/openapi.yaml
 
-# Generar clientes con OpenAPI Generator
+# Generate clients with OpenAPI Generator
 npx @openapitools/openapi-generator-cli generate \
   -i api/openapi.yaml \
   -g typescript-fetch \
   -o generated/ts-client
 ```
 
-## Licencia
+## License
 
 Apache-2.0

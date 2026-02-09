@@ -1,6 +1,6 @@
 # Docker — DCP Infrastructure
 
-Configuracion Docker Compose para desplegar todos los servicios DCP como contenedores. Incluye verificacion, anclaje, transparency log y revocacion.
+Docker Compose configuration for deploying all DCP services as containers. Includes verification, anchoring, transparency log, and revocation.
 
 ## Quickstart
 
@@ -9,16 +9,16 @@ cd docker
 docker compose up
 ```
 
-Esto levanta 4 servicios:
+This starts 4 services:
 
-| Servicio | Puerto | Descripcion |
-|----------|--------|-------------|
-| **verification** | `3000` | Servidor de verificacion de bundles |
-| **anchor** | `3001` | Servicio de anclaje a blockchain L2 |
-| **transparency-log** | `3002` | Log de transparencia con Merkle proofs |
-| **revocation** | `3003` | Servicio de revocacion de agentes |
+| Service | Port | Description |
+|---------|------|-------------|
+| **verification** | `3000` | Bundle verification server |
+| **anchor** | `3001` | Blockchain L2 anchoring service |
+| **transparency-log** | `3002` | Transparency log with Merkle proofs |
+| **revocation** | `3003` | Agent revocation service |
 
-### Verificar que todo funciona
+### Verify everything is running
 
 ```bash
 curl http://localhost:3000/health
@@ -27,14 +27,14 @@ curl http://localhost:3002/health
 curl http://localhost:3003/health
 ```
 
-## Servicios
+## Services
 
 ### verification (`:3000`)
 
-Servidor de verificacion de Signed Bundles DCP.
+Signed Bundle verification server for DCP.
 
 ```bash
-# Verificar un bundle
+# Verify a bundle
 curl -X POST http://localhost:3000/verify \
   -H "Content-Type: application/json" \
   -d @signed_bundle.json
@@ -42,54 +42,54 @@ curl -X POST http://localhost:3000/verify \
 
 ### anchor (`:3001`)
 
-Servicio de anclaje de bundle hashes a blockchain. Ver [services/anchor/README.md](../services/anchor/README.md).
+Bundle hash anchoring service for blockchain. See [services/anchor/README.md](../services/anchor/README.md).
 
 ### transparency-log (`:3002`)
 
-Log de transparencia append-only con inclusion proofs. Ver [services/transparency-log/README.md](../services/transparency-log/README.md).
+Append-only transparency log with inclusion proofs. See [services/transparency-log/README.md](../services/transparency-log/README.md).
 
 ### revocation (`:3003`)
 
-Servicio de publicacion y consulta de revocaciones. Ver [services/revocation/README.md](../services/revocation/README.md).
+Revocation publishing and querying service. See [services/revocation/README.md](../services/revocation/README.md).
 
-## Configuracion
+## Configuration
 
-### Variables de entorno
+### Environment Variables
 
-Cada servicio se configura via variables de entorno en `docker-compose.yml`:
+Each service is configured via environment variables in `docker-compose.yml`:
 
 #### verification
 
-| Variable | Default | Descripcion |
+| Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | `3000` | Puerto HTTP |
+| `PORT` | `3000` | HTTP port |
 
 #### anchor
 
-| Variable | Default | Descripcion |
+| Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | `3001` | Puerto HTTP |
-| `ANCHOR_MODE` | `batch` | `"individual"` o `"batch"` |
-| `BATCH_INTERVAL_MS` | `60000` | Intervalo de flush (ms) |
-| `ANCHOR_RPC_URL` | — | URL JSON-RPC del nodo L2 |
-| `ANCHOR_PRIVATE_KEY` | — | Clave privada de la wallet |
-| `ANCHOR_CONTRACT` | — | Direccion del contrato DCPAnchor |
+| `PORT` | `3001` | HTTP port |
+| `ANCHOR_MODE` | `batch` | `"individual"` or `"batch"` |
+| `BATCH_INTERVAL_MS` | `60000` | Flush interval (ms) |
+| `ANCHOR_RPC_URL` | — | JSON-RPC URL of the L2 node |
+| `ANCHOR_PRIVATE_KEY` | — | Wallet private key |
+| `ANCHOR_CONTRACT` | — | DCPAnchor contract address |
 
 #### transparency-log
 
-| Variable | Default | Descripcion |
+| Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | `3002` | Puerto HTTP |
+| `PORT` | `3002` | HTTP port |
 
 #### revocation
 
-| Variable | Default | Descripcion |
+| Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | `3003` | Puerto HTTP |
+| `PORT` | `3003` | HTTP port |
 
-### Configurar anclaje blockchain
+### Configure blockchain anchoring
 
-Descomentar y configurar en `docker-compose.yml`:
+Uncomment and configure in `docker-compose.yml`:
 
 ```yaml
 anchor:
@@ -101,7 +101,7 @@ anchor:
 
 ## Dockerfile
 
-El `Dockerfile` usa un build multi-stage con targets independientes:
+The `Dockerfile` uses a multi-stage build with independent targets:
 
 ```
 Base: node:20-alpine
@@ -111,17 +111,17 @@ Base: node:20-alpine
 └── revocation    → node services/revocation/index.js  (port 3003)
 ```
 
-### Build individual
+### Individual build
 
 ```bash
-# Build un servicio especifico
+# Build a specific service
 docker build -f docker/Dockerfile --target anchor -t dcp-anchor ..
 
-# Ejecutar
+# Run
 docker run -p 3001:3001 -e ANCHOR_MODE=batch dcp-anchor
 ```
 
-### Build todos
+### Build all
 
 ```bash
 docker compose build
@@ -129,27 +129,27 @@ docker compose build
 
 ## Health Checks
 
-Todos los servicios tienen health checks configurados:
+All services have health checks configured:
 
-- **Intervalo:** 30 segundos
-- **Timeout:** 5 segundos
-- **Reintentos:** 3
-- **Comando:** `wget -qO- http://localhost:PORT/health`
+- **Interval:** 30 seconds
+- **Timeout:** 5 seconds
+- **Retries:** 3
+- **Command:** `wget -qO- http://localhost:PORT/health`
 - **Restart policy:** `unless-stopped`
 
-## Ejemplo completo — Verificar un bundle
+## Full Example — Verify a Bundle
 
 ```bash
-# 1. Levantar servicios
+# 1. Start services
 cd docker
 docker compose up -d
 
-# 2. Verificar un signed bundle
+# 2. Verify a signed bundle
 curl -X POST http://localhost:3000/verify \
   -H "Content-Type: application/json" \
   -d @tests/conformance/examples/citizenship_bundle.signed.json
 
-# 3. Anclar el hash
+# 3. Anchor the hash
 HASH=$(curl -s http://localhost:3000/verify \
   -H "Content-Type: application/json" \
   -d @tests/conformance/examples/citizenship_bundle.signed.json \
@@ -158,15 +158,15 @@ curl -X POST http://localhost:3001/anchor \
   -H "Content-Type: application/json" \
   -d "{\"bundle_hash\": \"$HASH\"}"
 
-# 4. Agregar al transparency log
+# 4. Add to transparency log
 curl -X POST http://localhost:3002/add \
   -H "Content-Type: application/json" \
   -d "{\"bundle_hash\": \"$HASH\"}"
 
-# 5. Detener
+# 5. Stop
 docker compose down
 ```
 
-## Licencia
+## License
 
 Apache-2.0

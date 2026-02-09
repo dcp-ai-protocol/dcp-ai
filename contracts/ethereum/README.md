@@ -1,53 +1,53 @@
 # DCPAnchor.sol — Smart Contract
 
-Contrato inteligente Solidity para anclar hashes de Citizenship Bundles DCP en blockchains EVM L2 (Base, Arbitrum, Optimism). Soporta anclaje individual y por lotes (batch Merkle root).
+Solidity smart contract for anchoring DCP Citizenship Bundle hashes on EVM L2 blockchains (Base, Arbitrum, Optimism). Supports individual anchoring and batch anchoring (batch Merkle root).
 
 ## Overview
 
-El contrato `DCPAnchor` provee un registro inmutable on-chain de bundle hashes. Una vez anclado, un hash no puede ser modificado ni eliminado, proporcionando evidencia criptografica de la existencia de un bundle en un momento determinado.
+The `DCPAnchor` contract provides an immutable on-chain registry of bundle hashes. Once anchored, a hash cannot be modified or deleted, providing cryptographic evidence that a bundle existed at a given point in time.
 
-## Contrato
+## Contract
 
 **Solidity:** `^0.8.20`  
-**Licencia:** MIT  
-**Redes objetivo:** Base, Arbitrum, Optimism (u otra EVM L2)
+**License:** MIT  
+**Target networks:** Base, Arbitrum, Optimism (or any EVM L2)
 
 ## API
 
-### Funciones de escritura
+### Write Functions
 
 #### `anchorBundle(bytes32 bundleHash)`
 
-Ancla un hash de bundle individual.
+Anchors an individual bundle hash.
 
-- **Reverts** si `bundleHash` es cero
-- **Reverts** si el hash ya fue anclado
-- **Emite** `BundleAnchored(bundleHash, msg.sender, block.timestamp)`
+- **Reverts** if `bundleHash` is zero
+- **Reverts** if the hash has already been anchored
+- **Emits** `BundleAnchored(bundleHash, msg.sender, block.timestamp)`
 
 ```solidity
-// Ejemplo
+// Example
 dcpAnchor.anchorBundle(0xabc123...);
 ```
 
 #### `anchorBatch(bytes32 merkleRoot, uint256 count)`
 
-Ancla un Merkle root que representa un lote de bundles.
+Anchors a Merkle root representing a batch of bundles.
 
-- **Reverts** si `merkleRoot` es cero
-- **Reverts** si `count` es cero
-- **Reverts** si el Merkle root ya fue anclado
-- **Emite** `BatchAnchored(merkleRoot, count, msg.sender, block.timestamp)`
+- **Reverts** if `merkleRoot` is zero
+- **Reverts** if `count` is zero
+- **Reverts** if the Merkle root has already been anchored
+- **Emits** `BatchAnchored(merkleRoot, count, msg.sender, block.timestamp)`
 
 ```solidity
-// Ejemplo: anclar un batch de 50 bundles
+// Example: anchor a batch of 50 bundles
 dcpAnchor.anchorBatch(0xdef456..., 50);
 ```
 
-### Funciones de lectura
+### Read Functions
 
 #### `isAnchored(bytes32 bundleHash) → (bool exists, uint256 timestamp)`
 
-Consulta si un bundle hash esta anclado.
+Queries whether a bundle hash is anchored.
 
 ```solidity
 (bool exists, uint256 ts) = dcpAnchor.isAnchored(0xabc123...);
@@ -55,7 +55,7 @@ Consulta si un bundle hash esta anclado.
 
 #### `isBatchAnchored(bytes32 merkleRoot) → (bool exists, uint256 timestamp)`
 
-Consulta si un Merkle root de batch esta anclado.
+Queries whether a batch Merkle root is anchored.
 
 ```solidity
 (bool exists, uint256 ts) = dcpAnchor.isBatchAnchored(0xdef456...);
@@ -63,24 +63,24 @@ Consulta si un Merkle root de batch esta anclado.
 
 ### Storage
 
-| Variable | Tipo | Descripcion |
+| Variable | Type | Description |
 |----------|------|-------------|
-| `bundles` | `mapping(bytes32 => AnchorRecord)` | Registros de bundles individuales |
-| `batches` | `mapping(bytes32 => AnchorRecord)` | Registros de batch Merkle roots |
-| `totalAnchors` | `uint256` | Total de anclajes individuales |
-| `totalBatches` | `uint256` | Total de batch anclajes |
+| `bundles` | `mapping(bytes32 => AnchorRecord)` | Individual bundle records |
+| `batches` | `mapping(bytes32 => AnchorRecord)` | Batch Merkle root records |
+| `totalAnchors` | `uint256` | Total individual anchors |
+| `totalBatches` | `uint256` | Total batch anchors |
 
 ### Structs
 
 ```solidity
 struct AnchorRecord {
-    address submitter;   // Quien anclo el hash
-    uint256 timestamp;   // Cuando se anclo (block.timestamp)
-    bool exists;         // Si el registro existe
+    address submitter;   // Who anchored the hash
+    uint256 timestamp;   // When it was anchored (block.timestamp)
+    bool exists;         // Whether the record exists
 }
 ```
 
-### Eventos
+### Events
 
 ```solidity
 event BundleAnchored(
@@ -99,7 +99,7 @@ event BatchAnchored(
 
 ## Deploy
 
-### Con Hardhat
+### With Hardhat
 
 ```javascript
 const { ethers } = require("hardhat");
@@ -114,7 +114,7 @@ async function main() {
 main();
 ```
 
-### Con Foundry
+### With Foundry
 
 ```bash
 forge create --rpc-url $RPC_URL \
@@ -122,64 +122,64 @@ forge create --rpc-url $RPC_URL \
   src/DCPAnchor.sol:DCPAnchor
 ```
 
-### Redes L2 recomendadas
+### Recommended L2 Networks
 
-| Red | Tipo | Costo estimado por tx |
-|-----|------|----------------------|
+| Network | Type | Estimated cost per tx |
+|---------|------|----------------------|
 | **Base** | Optimistic Rollup | ~$0.001-0.01 |
 | **Arbitrum** | Optimistic Rollup | ~$0.001-0.01 |
 | **Optimism** | Optimistic Rollup | ~$0.001-0.01 |
 
-El uso de L2 reduce los costos de gas >100x comparado con Ethereum mainnet, manteniendo la seguridad de L1.
+Using L2 reduces gas costs >100x compared to Ethereum mainnet, while maintaining L1 security.
 
-## Ejemplo completo — Anclar y verificar
+## Full Example — Anchor and Verify
 
 ```javascript
 const { ethers } = require("ethers");
 
-// Conectar
+// Connect
 const provider = new ethers.JsonRpcProvider(process.env.ANCHOR_RPC_URL);
 const wallet = new ethers.Wallet(process.env.ANCHOR_PRIVATE_KEY, provider);
 const anchor = new ethers.Contract(CONTRACT_ADDRESS, ABI, wallet);
 
-// Anclar un bundle hash
+// Anchor a bundle hash
 const bundleHash = ethers.keccak256(ethers.toUtf8Bytes("bundle-content"));
 const tx = await anchor.anchorBundle(bundleHash);
 await tx.wait();
-console.log("Anclado en tx:", tx.hash);
+console.log("Anchored in tx:", tx.hash);
 
-// Verificar
+// Verify
 const [exists, timestamp] = await anchor.isAnchored(bundleHash);
-console.log("Existe:", exists);
+console.log("Exists:", exists);
 console.log("Timestamp:", new Date(Number(timestamp) * 1000));
 ```
 
-## Integracion con el Anchoring Service
+## Integration with the Anchoring Service
 
-El servicio HTTP `services/anchor/` interactua con este contrato automaticamente:
+The HTTP service at `services/anchor/` interacts with this contract automatically:
 
-- **Modo individual:** Llama a `anchorBundle()` por cada hash
-- **Modo batch:** Acumula hashes, calcula Merkle root y llama a `anchorBatch()`
+- **Individual mode:** Calls `anchorBundle()` for each hash
+- **Batch mode:** Accumulates hashes, computes the Merkle root, and calls `anchorBatch()`
 
-Configurar via variables de entorno:
+Configure via environment variables:
 ```bash
 ANCHOR_RPC_URL=https://mainnet.base.org
 ANCHOR_PRIVATE_KEY=0x...
 ANCHOR_CONTRACT=0x...
 ```
 
-## Desarrollo
+## Development
 
 ```bash
-# Con Hardhat
+# With Hardhat
 npx hardhat compile
 npx hardhat test
 
-# Con Foundry
+# With Foundry
 forge build
 forge test
 ```
 
-## Licencia
+## License
 
 MIT

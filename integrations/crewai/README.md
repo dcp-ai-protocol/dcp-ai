@@ -1,8 +1,8 @@
 # dcp_ai.crewai — CrewAI Integration
 
-Integracion de DCP con CrewAI para gobernanza multi-agente. Cada agente tiene su propio pasaporte DCP y audit trail, con soporte para combinar trails de toda la crew.
+DCP integration with CrewAI for multi-agent governance. Each agent has its own DCP passport and audit trail, with support for combining trails across the entire crew.
 
-## Instalacion
+## Installation
 
 ```bash
 pip install "dcp-ai[crewai]"
@@ -13,7 +13,7 @@ pip install "dcp-ai[crewai]"
 ```python
 from dcp_ai.crewai import DCPCrewAgent, DCPCrew
 
-# Definir agentes con pasaporte individual
+# Define agents with individual passports
 researcher = DCPCrewAgent(
     role="researcher",
     passport={
@@ -36,8 +36,8 @@ researcher = DCPCrewAgent(
         "created_at": "2025-01-01T00:00:00Z",
         "expires_at": None,
     },
-    goal="Investigar y recopilar informacion",
-    backstory="Experto en busqueda de informacion",
+    goal="Research and gather information",
+    backstory="Expert in information retrieval",
 )
 
 writer = DCPCrewAgent(
@@ -62,18 +62,18 @@ writer = DCPCrewAgent(
         "created_at": "2025-01-01T00:00:00Z",
         "expires_at": None,
     },
-    goal="Redactar contenido de calidad",
-    backstory="Escritor profesional con experiencia en IA",
+    goal="Produce high-quality content",
+    backstory="Professional writer with AI experience",
 )
 
-# Crear crew con gobernanza DCP
+# Create crew with DCP governance
 crew = DCPCrew(agents=[researcher, writer], verbose=True)
 
-# Ejecutar
-result = crew.kickoff(task="Investigar tendencias de IA y escribir un resumen")
+# Execute
+result = crew.kickoff(task="Research AI trends and write a summary")
 print(result)
 
-# Audit trail combinado (ordenado por timestamp)
+# Combined audit trail (ordered by timestamp)
 trail = crew.get_combined_audit_trail()
 for entry in trail:
     print(f"[{entry['agent_id']}] {entry['action_type']} -> {entry['outcome']}")
@@ -83,25 +83,25 @@ for entry in trail:
 
 ### `DCPCrewAgent`
 
-Agente compatible con CrewAI que incluye pasaporte DCP individual y audit trail.
+CrewAI-compatible agent that includes an individual DCP passport and audit trail.
 
 ```python
 DCPCrewAgent(
-    role: str,                     # Rol del agente en la crew
-    passport: dict[str, Any],     # Agent Passport DCP
+    role: str,                     # Agent role in the crew
+    passport: dict[str, Any],     # DCP Agent Passport
     hbr: dict[str, Any],          # Human Binding Record
-    secret_key: str = "",         # Clave secreta Ed25519 (base64)
-    goal: str = "",               # Objetivo del agente
-    backstory: str = "",          # Contexto/historia del agente
+    secret_key: str = "",         # Ed25519 secret key (base64)
+    goal: str = "",               # Agent goal
+    backstory: str = "",          # Agent context/backstory
 )
 ```
 
-#### Metodos
+#### Methods
 
-| Metodo | Firma | Descripcion |
-|--------|-------|-------------|
-| `log_action(action_type, outcome, evidence?)` | `(str, str, dict?) -> dict` | Registra una accion como DCP AuditEntry con hash-chaining |
-| `get_audit_trail()` | `() -> list[dict]` | Retorna el audit trail del agente |
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `log_action(action_type, outcome, evidence?)` | `(str, str, dict?) -> dict` | Records an action as a DCP AuditEntry with hash-chaining |
+| `get_audit_trail()` | `() -> list[dict]` | Returns the agent's audit trail |
 
 #### `log_action`
 
@@ -111,35 +111,35 @@ entry = researcher.log_action(
     outcome="success",
     evidence={"url": "https://api.example.com", "status": 200},
 )
-# entry contiene intent_hash y prev_hash encadenados
+# entry contains chained intent_hash and prev_hash
 ```
 
-Cada audit entry incluye:
-- `intent_hash`: SHA-256 del intent asociado
-- `prev_hash`: `"GENESIS"` para la primera entrada, SHA-256 de la entrada anterior para las siguientes
+Each audit entry includes:
+- `intent_hash`: SHA-256 of the associated intent
+- `prev_hash`: `"GENESIS"` for the first entry, SHA-256 of the previous entry for subsequent ones
 
 ### `DCPCrew`
 
-Crew multi-agente con gobernanza DCP.
+Multi-agent crew with DCP governance.
 
 ```python
 DCPCrew(
-    agents: list[DCPCrewAgent],   # Lista de agentes DCP
-    verbose: bool = False,        # Logging detallado
+    agents: list[DCPCrewAgent],   # List of DCP agents
+    verbose: bool = False,        # Verbose logging
 )
 ```
 
-#### Metodos
+#### Methods
 
-| Metodo | Firma | Descripcion |
-|--------|-------|-------------|
-| `kickoff(task)` | `(str) -> dict` | Ejecuta la crew con la tarea especificada |
-| `get_combined_audit_trail()` | `() -> list[dict]` | Trail combinado de todos los agentes, ordenado por timestamp |
-| `get_agent_bundles()` | `() -> dict[str, list[dict]]` | Trails individuales por `agent_id` |
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `kickoff(task)` | `(str) -> dict` | Executes the crew with the specified task |
+| `get_combined_audit_trail()` | `() -> list[dict]` | Combined trail from all agents, ordered by timestamp |
+| `get_agent_bundles()` | `() -> dict[str, list[dict]]` | Individual trails by `agent_id` |
 
 ### `get_combined_audit_trail()`
 
-Combina y ordena cronologicamente los audit trails de todos los agentes:
+Combines and chronologically orders the audit trails of all agents:
 
 ```python
 combined = crew.get_combined_audit_trail()
@@ -152,7 +152,7 @@ combined = crew.get_combined_audit_trail()
 
 ### `get_agent_bundles()`
 
-Retorna los trails separados por agente:
+Returns trails separated by agent:
 
 ```python
 bundles = crew.get_agent_bundles()
@@ -162,13 +162,13 @@ bundles = crew.get_agent_bundles()
 # }
 ```
 
-## Ejemplo avanzado — Crew con claves individuales
+## Advanced Example — Crew with Individual Keys
 
 ```python
 from dcp_ai import generate_keypair
 from dcp_ai.crewai import DCPCrewAgent, DCPCrew
 
-# Cada agente con su propia clave
+# Each agent with its own key
 keys_r = generate_keypair()
 keys_w = generate_keypair()
 
@@ -187,27 +187,27 @@ writer = DCPCrewAgent(
 )
 
 crew = DCPCrew(agents=[researcher, writer])
-crew.kickoff(task="Analizar mercado de IA")
+crew.kickoff(task="Analyze the AI market")
 
-# Cada agente tiene su propio trail verificable
+# Each agent has its own verifiable trail
 for agent_id, trail in crew.get_agent_bundles().items():
     print(f"\n--- {agent_id} ({len(trail)} entries) ---")
     for entry in trail:
         print(f"  {entry['action_type']}: {entry['outcome']}")
 ```
 
-## Desarrollo
+## Development
 
 ```bash
 pip install "dcp-ai[crewai,dev]"
 pytest -v
 ```
 
-### Dependencias
+### Dependencies
 
-- `dcp-ai` — SDK DCP (merkle, models, bundle)
-- `crewai` — Framework multi-agente
+- `dcp-ai` — DCP SDK (merkle, models, bundle)
+- `crewai` — Multi-agent framework
 
-## Licencia
+## License
 
 Apache-2.0

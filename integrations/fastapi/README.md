@@ -1,8 +1,8 @@
 # dcp_ai.fastapi — FastAPI Middleware
 
-Middleware de verificacion DCP para FastAPI. Verifica Signed Bundles automaticamente y provee dependency injection para rutas protegidas.
+DCP verification middleware for FastAPI. Automatically verifies Signed Bundles and provides dependency injection for protected routes.
 
-## Instalacion
+## Installation
 
 ```bash
 pip install "dcp-ai[fastapi]"
@@ -16,15 +16,15 @@ from dcp_ai.fastapi import DCPVerifyMiddleware, require_dcp, DCPAgentContext
 
 app = FastAPI()
 
-# Agregar middleware de verificacion
+# Add verification middleware
 app.add_middleware(DCPVerifyMiddleware, require_bundle=False)
 
-# Ruta publica (no requiere bundle)
+# Public route (no bundle required)
 @app.get("/health")
 async def health():
     return {"ok": True}
 
-# Ruta protegida (requiere bundle verificado)
+# Protected route (requires a verified bundle)
 @app.post("/api/action")
 async def agent_action(agent: DCPAgentContext = Depends(require_dcp)):
     return {
@@ -35,7 +35,7 @@ async def agent_action(agent: DCPAgentContext = Depends(require_dcp)):
     }
 ```
 
-### Enviar un bundle
+### Sending a bundle
 
 ```bash
 # Via header
@@ -44,7 +44,7 @@ curl -X POST http://localhost:8000/api/action \
   -H "x-dcp-bundle: $(cat signed_bundle.json)" \
   -d '{}'
 
-# Via body JSON
+# Via JSON body
 curl -X POST http://localhost:8000/api/action \
   -H "Content-Type: application/json" \
   -d '{"signed_bundle": {...}}'
@@ -54,35 +54,35 @@ curl -X POST http://localhost:8000/api/action \
 
 ### `DCPVerifyMiddleware`
 
-Middleware Starlette/FastAPI que intercepta requests y verifica bundles DCP.
+Starlette/FastAPI middleware that intercepts requests and verifies DCP bundles.
 
 ```python
 app.add_middleware(
     DCPVerifyMiddleware,
-    require_bundle=False,       # Si True, rechaza requests sin bundle
-    header_name="x-dcp-bundle", # Header donde se envia el bundle
+    require_bundle=False,       # If True, rejects requests without a bundle
+    header_name="x-dcp-bundle", # Header where the bundle is sent
 )
 ```
 
-#### Parametros del constructor
+#### Constructor Parameters
 
-| Parametro | Tipo | Default | Descripcion |
+| Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `app` | `Any` | (requerido) | Aplicacion ASGI |
-| `require_bundle` | `bool` | `False` | Rechaza requests sin bundle con 403 |
-| `header_name` | `str` | `"x-dcp-bundle"` | Nombre del header HTTP |
+| `app` | `Any` | (required) | ASGI application |
+| `require_bundle` | `bool` | `False` | Rejects requests without a bundle with 403 |
+| `header_name` | `str` | `"x-dcp-bundle"` | HTTP header name |
 
-#### Comportamiento
+#### Behavior
 
-1. Extrae el signed bundle del header o del body JSON (`signed_bundle`)
-2. Verifica usando `verify_signed_bundle()` del SDK Python
-3. Si es valido: almacena `DCPAgentContext` en `request.state.dcp_agent`
-4. Si falla y `require_bundle=True`: responde `403`
-5. Si no hay bundle y `require_bundle=False`: continua sin verificacion
+1. Extracts the signed bundle from the header or JSON body (`signed_bundle`)
+2. Verifies using `verify_signed_bundle()` from the Python SDK
+3. If valid: stores `DCPAgentContext` in `request.state.dcp_agent`
+4. If it fails and `require_bundle=True`: responds with `403`
+5. If no bundle and `require_bundle=False`: continues without verification
 
 ### `require_dcp(request)`
 
-FastAPI dependency que requiere un agente DCP verificado.
+FastAPI dependency that requires a verified DCP agent.
 
 ```python
 from fastapi import Depends
@@ -93,12 +93,12 @@ async def protected_route(agent: DCPAgentContext = Depends(require_dcp)):
     return {"agent_id": agent.agent_id}
 ```
 
-- **Retorna:** `DCPAgentContext`
-- **Lanza:** `HTTPException(403)` si no hay agente verificado
+- **Returns:** `DCPAgentContext`
+- **Raises:** `HTTPException(403)` if no verified agent is present
 
 ### `DCPAgentContext`
 
-Dataclass con los datos del agente verificado:
+Dataclass with the verified agent data:
 
 ```python
 @dataclass
@@ -114,7 +114,7 @@ class DCPAgentContext:
     intent: dict[str, Any] = field(default_factory=dict)
 ```
 
-## Ejemplo avanzado — Middleware global + rutas selectivas
+## Advanced Example — Global Middleware + Selective Routes
 
 ```python
 from fastapi import FastAPI, Depends, HTTPException
@@ -122,22 +122,22 @@ from dcp_ai.fastapi import DCPVerifyMiddleware, require_dcp, DCPAgentContext
 
 app = FastAPI()
 
-# Middleware global (no bloquea, solo verifica si hay bundle)
+# Global middleware (non-blocking, only verifies if a bundle is present)
 app.add_middleware(DCPVerifyMiddleware, require_bundle=False)
 
-# Ruta publica
+# Public route
 @app.get("/health")
 async def health():
     return {"ok": True}
 
-# Ruta que REQUIERE agente verificado
+# Route that REQUIRES a verified agent
 @app.post("/agent/execute")
 async def execute(agent: DCPAgentContext = Depends(require_dcp)):
     if "api_call" not in agent.capabilities:
         raise HTTPException(403, "Capability 'api_call' required")
     return {"executed_by": agent.agent_id, "risk": agent.risk_tier}
 
-# Ruta que usa agente si esta disponible
+# Route that uses the agent if available
 @app.get("/info")
 async def info(request):
     agent = getattr(request.state, "dcp_agent", None)
@@ -146,19 +146,19 @@ async def info(request):
     return {"mode": "anonymous"}
 ```
 
-## Desarrollo
+## Development
 
 ```bash
 pip install "dcp-ai[fastapi,dev]"
 pytest -v
 ```
 
-### Dependencias
+### Dependencies
 
-- `dcp-ai` — SDK de verificacion DCP
-- `fastapi` — Framework web
-- `starlette` — ASGI toolkit (incluido con FastAPI)
+- `dcp-ai` — DCP verification SDK
+- `fastapi` — Web framework
+- `starlette` — ASGI toolkit (included with FastAPI)
 
-## Licencia
+## License
 
 Apache-2.0

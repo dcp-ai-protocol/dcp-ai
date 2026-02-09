@@ -1,8 +1,8 @@
 # @dcp-ai/sdk — TypeScript SDK
 
-SDK oficial de TypeScript para el Digital Citizenship Protocol (DCP). Crea, firma y verifica Citizenship Bundles con Ed25519, SHA-256 y Merkle trees.
+Official TypeScript SDK for the Digital Citizenship Protocol (DCP). Create, sign, and verify Citizenship Bundles with Ed25519, SHA-256, and Merkle trees.
 
-## Instalacion
+## Installation
 
 ```bash
 npm install @dcp-ai/sdk
@@ -18,10 +18,10 @@ import {
   generateKeypair,
 } from "@dcp-ai/sdk";
 
-// 1. Generar keypair Ed25519
+// 1. Generate Ed25519 keypair
 const keys = generateKeypair();
 
-// 2. Construir un Citizenship Bundle
+// 2. Build a Citizenship Bundle
 const bundle = new BundleBuilder()
   .humanBindingRecord({
     dcp_version: "1.0",
@@ -36,7 +36,7 @@ const bundle = new BundleBuilder()
     dcp_version: "1.0",
     agent_id: "agent-001",
     human_id: "human-001",
-    agent_name: "MiAgente",
+    agent_name: "MyAgent",
     capabilities: ["browse", "api_call"],
     risk_tier: "medium",
     status: "active",
@@ -63,14 +63,14 @@ const bundle = new BundleBuilder()
   })
   .build();
 
-// 3. Firmar el bundle
+// 3. Sign the bundle
 const signed = signBundle(bundle, {
   secretKeyB64: keys.secretKeyB64,
   signerType: "human",
   signerId: "human-001",
 });
 
-// 4. Verificar
+// 4. Verify
 const result = verifySignedBundle(signed, keys.publicKeyB64);
 console.log(result); // { verified: true, errors: [] }
 ```
@@ -79,30 +79,30 @@ console.log(result); // { verified: true, errors: [] }
 
 ### Crypto
 
-| Funcion | Firma | Descripcion |
-|---------|-------|-------------|
-| `generateKeypair()` | `() => Keypair` | Genera un par de claves Ed25519 (`publicKeyB64`, `secretKeyB64`) |
-| `publicKeyFromSecret(secretKeyB64)` | `(string) => string` | Deriva la clave publica desde la clave secreta |
-| `signObject(obj, secretKeyB64)` | `(unknown, string) => string` | Firma un objeto, retorna base64 |
-| `verifyObject(obj, signatureB64, publicKeyB64)` | `(unknown, string, string) => boolean` | Verifica una firma |
-| `canonicalize(obj)` | `(unknown) => string` | JSON deterministico (canonical) |
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `generateKeypair()` | `() => Keypair` | Generates an Ed25519 key pair (`publicKeyB64`, `secretKeyB64`) |
+| `publicKeyFromSecret(secretKeyB64)` | `(string) => string` | Derives the public key from the secret key |
+| `signObject(obj, secretKeyB64)` | `(unknown, string) => string` | Signs an object, returns base64 |
+| `verifyObject(obj, signatureB64, publicKeyB64)` | `(unknown, string, string) => boolean` | Verifies a signature |
+| `canonicalize(obj)` | `(unknown) => string` | Deterministic (canonical) JSON |
 
 ### Merkle & Hashing
 
-| Funcion | Firma | Descripcion |
-|---------|-------|-------------|
-| `hashObject(obj)` | `(unknown) => string` | SHA-256 del JSON canonicalizado (hex) |
-| `merkleRootFromHexLeaves(leaves)` | `(string[]) => string \| null` | Raiz Merkle desde hojas hex |
-| `merkleRootForAuditEntries(entries)` | `(unknown[]) => string \| null` | Raiz Merkle de audit entries |
-| `intentHash(intent)` | `(unknown) => string` | Hash del intent (SHA-256 canonical) |
-| `prevHashForEntry(prevEntry)` | `(unknown) => string` | Hash de la entrada anterior para encadenar |
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `hashObject(obj)` | `(unknown) => string` | SHA-256 of the canonicalized JSON (hex) |
+| `merkleRootFromHexLeaves(leaves)` | `(string[]) => string \| null` | Merkle root from hex leaves |
+| `merkleRootForAuditEntries(entries)` | `(unknown[]) => string \| null` | Merkle root of audit entries |
+| `intentHash(intent)` | `(unknown) => string` | Intent hash (SHA-256 canonical) |
+| `prevHashForEntry(prevEntry)` | `(unknown) => string` | Hash of the previous entry for chaining |
 
 ### Schema Validation
 
-| Funcion | Firma | Descripcion |
-|---------|-------|-------------|
-| `validateSchema(schemaName, data)` | `(string, unknown) => ValidationResult` | Valida contra un schema DCP v1 |
-| `validateBundle(bundle)` | `(any) => ValidationResult` | Valida un Citizenship Bundle completo |
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `validateSchema(schemaName, data)` | `(string, unknown) => ValidationResult` | Validates against a DCP v1 schema |
+| `validateBundle(bundle)` | `(any) => ValidationResult` | Validates a complete Citizenship Bundle |
 
 ### Bundle Builder
 
@@ -112,8 +112,8 @@ const bundle = new BundleBuilder()
   .agentPassport(passport)   // AgentPassport
   .intent(intent)            // Intent
   .policyDecision(policy)    // PolicyDecision
-  .addAuditEntry(entry)      // AuditEntry manual
-  .createAuditEntry(fields)  // Auto-computa intent_hash y prev_hash
+  .addAuditEntry(entry)      // Manual AuditEntry
+  .createAuditEntry(fields)  // Auto-computes intent_hash and prev_hash
   .build();                  // => CitizenshipBundle
 ```
 
@@ -124,9 +124,9 @@ signBundle(bundle: CitizenshipBundle, options: SignOptions): SignedBundle
 ```
 
 `SignOptions`:
-- `secretKeyB64: string` — Clave secreta Ed25519 (base64)
-- `signerType: string` — `"human"` o `"agent"`
-- `signerId?: string` — ID del firmante
+- `secretKeyB64: string` — Ed25519 secret key (base64)
+- `signerType: string` — `"human"` or `"agent"`
+- `signerId?: string` — Signer ID
 
 ### Bundle Verification
 
@@ -134,30 +134,30 @@ signBundle(bundle: CitizenshipBundle, options: SignOptions): SignedBundle
 verifySignedBundle(signedBundle: SignedBundle, publicKeyB64?: string): VerificationResult
 ```
 
-Verifica:
-1. Validez del schema JSON
-2. Firma Ed25519
-3. `bundle_hash` (SHA-256 del bundle)
-4. `merkle_root` de las audit entries
-5. Cadena de `intent_hash` en audit entries
-6. Cadena de `prev_hash` (GENESIS → hash(entry anterior))
+Verifies:
+1. JSON schema validity
+2. Ed25519 signature
+3. `bundle_hash` (SHA-256 of the bundle)
+4. `merkle_root` of audit entries
+5. `intent_hash` chain in audit entries
+6. `prev_hash` chain (GENESIS → hash(previous entry))
 
-### Tipos exportados
+### Exported Types
 
 Enums: `EntityType`, `LiabilityMode`, `Capability`, `RiskTier`, `AgentStatus`, `ActionType`, `Channel`, `DataClass`, `Impact`, `PolicyDecisionType`, `SignerType`, `ConfirmationDecision`
 
 Interfaces: `HumanBindingRecord`, `AgentPassport`, `Intent`, `IntentTarget`, `PolicyDecision`, `AuditEntry`, `AuditEvidence`, `CitizenshipBundle`, `SignedBundle`, `BundleSignature`, `Signer`, `RevocationRecord`, `HumanConfirmation`, `ValidationResult`, `VerificationResult`, `Keypair`
 
-## Desarrollo
+## Development
 
 ```bash
-# Instalar dependencias
+# Install dependencies
 npm install
 
-# Build (ESM + CJS + tipos)
+# Build (ESM + CJS + types)
 npm run build
 
-# Tests con Vitest
+# Tests with Vitest
 npm test
 npm run test:watch
 
@@ -165,12 +165,12 @@ npm run test:watch
 npm run lint
 ```
 
-### Dependencias
+### Dependencies
 
-- `ajv` + `ajv-formats` — Validacion JSON Schema
-- `tweetnacl` + `tweetnacl-util` — Criptografia Ed25519
-- `json-stable-stringify` — JSON deterministico
+- `ajv` + `ajv-formats` — JSON Schema validation
+- `tweetnacl` + `tweetnacl-util` — Ed25519 cryptography
+- `json-stable-stringify` — Deterministic JSON
 
-## Licencia
+## License
 
 Apache-2.0

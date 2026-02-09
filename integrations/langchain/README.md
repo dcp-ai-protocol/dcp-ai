@@ -1,8 +1,8 @@
 # dcp_ai.langchain — LangChain Integration
 
-Integracion de DCP con LangChain. Envuelve agentes LangChain con ciudadania digital, genera audit trails con hash-chaining automatico y provee herramientas de verificacion.
+DCP integration with LangChain. Wraps LangChain agents with digital citizenship, generates audit trails with automatic hash-chaining, and provides verification tools.
 
-## Instalacion
+## Installation
 
 ```bash
 pip install "dcp-ai[langchain]"
@@ -14,10 +14,10 @@ pip install "dcp-ai[langchain]"
 from dcp_ai import generate_keypair
 from dcp_ai.langchain import DCPAgentWrapper
 
-# Keypair del humano responsable
+# Keypair of the responsible human
 keys = generate_keypair()
 
-# Datos DCP del agente
+# DCP agent data
 passport = {
     "dcp_version": "1.0",
     "agent_id": "langchain-agent-001",
@@ -39,19 +39,19 @@ hbr = {
     "expires_at": None,
 }
 
-# Envolver un agente LangChain existente
+# Wrap an existing LangChain agent
 wrapped = DCPAgentWrapper(
-    agent=my_langchain_agent,       # Tu agente LangChain
+    agent=my_langchain_agent,       # Your LangChain agent
     passport=passport,
     hbr=hbr,
     secret_key=keys["secret_key_b64"],
-    auto_intent=True,               # Genera intents automaticamente
+    auto_intent=True,               # Automatically generate intents
 )
 
-# Ejecutar con gobernanza DCP
-result = wrapped.invoke({"input": "Busca informacion sobre IA"})
+# Execute with DCP governance
+result = wrapped.invoke({"input": "Search for information about AI"})
 
-# Consultar audit trail
+# Query audit trail
 trail = wrapped.get_audit_trail()
 for entry in trail:
     print(f"[{entry['timestamp']}] {entry['action_type']} -> {entry['outcome']}")
@@ -61,67 +61,67 @@ for entry in trail:
 
 ### `DCPAgentWrapper`
 
-Envuelve un agente LangChain con ciudadania DCP completa.
+Wraps a LangChain agent with full DCP citizenship.
 
 ```python
 DCPAgentWrapper(
-    agent: Any,                    # Agente LangChain
-    passport: dict[str, Any],     # Agent Passport DCP
+    agent: Any,                    # LangChain agent
+    passport: dict[str, Any],     # DCP Agent Passport
     hbr: dict[str, Any],          # Human Binding Record
-    secret_key: str,              # Clave secreta Ed25519 (base64)
-    auto_intent: bool = True,     # Auto-generar intents
-    policy_engine: Any = None,    # Motor de politicas custom (opcional)
+    secret_key: str,              # Ed25519 secret key (base64)
+    auto_intent: bool = True,     # Auto-generate intents
+    policy_engine: Any = None,    # Custom policy engine (optional)
 )
 ```
 
-#### Metodos
+#### Methods
 
-| Metodo | Descripcion |
+| Method | Description |
 |--------|-------------|
-| `invoke(inputs, **kwargs)` | Ejecuta el agente con gobernanza DCP. Genera Intent, PolicyDecision y AuditEntry. |
-| `get_audit_trail()` | Retorna la lista de audit entries con hash-chaining. |
+| `invoke(inputs, **kwargs)` | Executes the agent with DCP governance. Generates Intent, PolicyDecision, and AuditEntry. |
+| `get_audit_trail()` | Returns the list of audit entries with hash-chaining. |
 
-#### Flujo de ejecucion
+#### Execution Flow
 
-1. Crea un `Intent` declarando la accion
-2. Evalua la `PolicyDecision` (allow/deny)
-3. Si es `allow`: ejecuta el agente LangChain
-4. Crea un `AuditEntry` con el resultado
-5. Encadena hashes: `intent_hash` y `prev_hash` (GENESIS → hash(entry anterior))
+1. Creates an `Intent` declaring the action
+2. Evaluates the `PolicyDecision` (allow/deny)
+3. If `allow`: executes the LangChain agent
+4. Creates an `AuditEntry` with the result
+5. Chains hashes: `intent_hash` and `prev_hash` (GENESIS → hash(previous entry))
 
 ### `DCPTool`
 
-Herramienta LangChain para verificar bundles DCP desde dentro de un agente.
+LangChain tool for verifying DCP bundles from within an agent.
 
 ```python
 from dcp_ai.langchain import DCPTool
 
 tool = DCPTool()
 
-# Usar en un agente LangChain
+# Use in a LangChain agent
 agent = initialize_agent(
     tools=[tool, ...other_tools],
     llm=llm,
 )
 ```
 
-#### Atributos
+#### Attributes
 
-| Atributo | Valor |
-|----------|-------|
+| Attribute | Value |
+|-----------|-------|
 | `name` | `"dcp_verify_bundle"` |
 | `description` | `"Verify a DCP signed bundle..."` |
 
-#### Metodos
+#### Methods
 
-| Metodo | Firma | Descripcion |
-|--------|-------|-------------|
-| `run(signed_bundle_json)` | `(str) -> str` | Verificacion sincrona |
-| `arun(signed_bundle_json)` | `(str) -> str` | Verificacion asincrona |
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `run(signed_bundle_json)` | `(str) -> str` | Synchronous verification |
+| `arun(signed_bundle_json)` | `(str) -> str` | Asynchronous verification |
 
 ### `DCPCallback`
 
-Callback handler para logging automatico de audit entries.
+Callback handler for automatic audit entry logging.
 
 ```python
 from dcp_ai.langchain import DCPCallback
@@ -131,30 +131,30 @@ callback = DCPCallback(
     human_id="human-001",
 )
 
-# Usar como callback en LangChain
+# Use as a callback in LangChain
 agent.invoke(
     {"input": "..."},
     callbacks=[callback],
 )
 
-# Obtener audit entries generadas
+# Get generated audit entries
 entries = callback.get_entries()
 ```
 
-#### Metodos
+#### Methods
 
-| Metodo | Descripcion |
+| Method | Description |
 |--------|-------------|
-| `on_chain_start(serialized, inputs, **kwargs)` | Registra inicio de cadena |
-| `on_chain_end(outputs, **kwargs)` | Registra fin de cadena |
-| `get_entries()` | Retorna lista de audit entries |
+| `on_chain_start(serialized, inputs, **kwargs)` | Records chain start |
+| `on_chain_end(outputs, **kwargs)` | Records chain end |
+| `get_entries()` | Returns list of audit entries |
 
-## Ejemplo avanzado — Agente con policy engine custom
+## Advanced Example — Agent with Custom Policy Engine
 
 ```python
 class MyPolicyEngine:
     def evaluate(self, intent):
-        # Rechazar acciones de alto impacto
+        # Deny high-impact actions
         if intent.get("estimated_impact") == "high":
             return {"decision": "deny", "matched_rules": ["no-high-impact"]}
         return {"decision": "allow", "matched_rules": ["default-allow"]}
@@ -168,18 +168,18 @@ wrapped = DCPAgentWrapper(
 )
 ```
 
-## Desarrollo
+## Development
 
 ```bash
 pip install "dcp-ai[langchain,dev]"
 pytest -v
 ```
 
-### Dependencias
+### Dependencies
 
-- `dcp-ai` — SDK DCP (crypto, merkle, verify, models)
-- `langchain` + `langchain-core` — Framework de agentes
+- `dcp-ai` — DCP SDK (crypto, merkle, verify, models)
+- `langchain` + `langchain-core` — Agent framework
 
-## Licencia
+## License
 
 Apache-2.0
