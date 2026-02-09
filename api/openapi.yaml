@@ -1,0 +1,386 @@
+openapi: "3.1.0"
+info:
+  title: DCP Verification API
+  description: |
+    HTTP API for the Digital Citizenship Protocol (DCP) for AI Agents.
+    Provides endpoints for verifying signed bundles, anchoring hashes,
+    checking revocations, and querying the transparency log.
+  version: "1.0.0"
+  contact:
+    name: DCP-AI
+    url: https://dcp-ai.org
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+  - url: https://api.dcp-ai.org
+    description: Production server
+
+tags:
+  - name: Verification
+    description: Verify DCP signed bundles
+  - name: Anchoring
+    description: Anchor bundle hashes to blockchain
+  - name: Revocation
+    description: Check and publish agent revocations
+  - name: Transparency
+    description: Append-only transparency log
+  - name: Health
+    description: Service health checks
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      operationId: healthCheck
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+                  service:
+                    type: string
+                    example: dcp-verification
+
+  /verify:
+    post:
+      tags: [Verification]
+      summary: Verify a signed bundle
+      operationId: verifyBundle
+      description: |
+        Performs full DCP verification:
+        1. Schema validation (signed_bundle + inner bundle)
+        2. Ed25519 signature verification
+        3. Bundle hash integrity check
+        4. Merkle root verification
+        5. Intent hash chain verification
+        6. Previous hash chain verification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [signed_bundle]
+              properties:
+                signed_bundle:
+                  $ref: "#/components/schemas/SignedBundle"
+                public_key_b64:
+                  type: string
+                  description: Optional Ed25519 public key (base64). Falls back to signer.public_key_b64.
+      responses:
+        "200":
+          description: Verification result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationResult"
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /anchor:
+    post:
+      tags: [Anchoring]
+      summary: Anchor a bundle hash to blockchain
+      operationId: anchorHash
+      description: |
+        Anchors a bundle hash (or batch of hashes) to an L2 blockchain.
+        Supports individual and batch (Merkle root) anchoring.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [bundle_hash]
+              properties:
+                bundle_hash:
+                  type: string
+                  pattern: "^sha256:[0-9a-f]{64}$"
+                  description: SHA-256 hash of the bundle to anchor
+                chain:
+                  type: string
+                  enum: [base, arbitrum, optimism]
+                  default: base
+                  description: Target L2 chain
+      responses:
+        "200":
+          description: Anchor receipt
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnchorReceipt"
+        "501":
+          description: Anchoring not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /revocations:
+    get:
+      tags: [Revocation]
+      summary: List all revocations
+      operationId: listRevocations
+      responses:
+        "200":
+          description: List of revocation records
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revocations:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/RevocationRecord"
+
+    post:
+      tags: [Revocation]
+      summary: Publish a revocation
+      operationId: publishRevocation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RevocationRecord"
+      responses:
+        "201":
+          description: Revocation published
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  agent_id:
+                    type: string
+
+  /revocations/{agent_id}:
+    get:
+      tags: [Revocation]
+      summary: Check revocation status of an agent
+      operationId: checkRevocation
+      parameters:
+        - name: agent_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Revocation status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revoked:
+                    type: boolean
+                  record:
+                    $ref: "#/components/schemas/RevocationRecord"
+
+  /transparency-log/add:
+    post:
+      tags: [Transparency]
+      summary: Add entry to transparency log
+      operationId: addToLog
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [bundle_hash]
+              properties:
+                bundle_hash:
+                  type: string
+      responses:
+        "200":
+          description: Log entry added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  index:
+                    type: integer
+                  root:
+                    type: string
+
+  /transparency-log/root:
+    get:
+      tags: [Transparency]
+      summary: Get current log root
+      operationId: getLogRoot
+      responses:
+        "200":
+          description: Current Merkle root of the transparency log
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  root:
+                    type: string
+                  size:
+                    type: integer
+
+  /transparency-log/proof/{index}:
+    get:
+      tags: [Transparency]
+      summary: Get Merkle inclusion proof
+      operationId: getLogProof
+      parameters:
+        - name: index
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Merkle inclusion proof
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InclusionProof"
+
+components:
+  schemas:
+    SignedBundle:
+      type: object
+      required: [bundle, signature]
+      properties:
+        bundle:
+          $ref: "#/components/schemas/CitizenshipBundle"
+        signature:
+          type: object
+          required: [alg, created_at, signer, bundle_hash, sig_b64]
+          properties:
+            alg:
+              type: string
+              enum: [ed25519]
+            created_at:
+              type: string
+              format: date-time
+            signer:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum: [human, organization]
+                id:
+                  type: string
+                public_key_b64:
+                  type: string
+            bundle_hash:
+              type: string
+              pattern: "^sha256:[0-9a-f]{64}$"
+            merkle_root:
+              type: [string, "null"]
+            sig_b64:
+              type: string
+
+    CitizenshipBundle:
+      type: object
+      required: [human_binding_record, agent_passport, intent, policy_decision, audit_entries]
+      properties:
+        human_binding_record:
+          type: object
+        agent_passport:
+          type: object
+        intent:
+          type: object
+        policy_decision:
+          type: object
+        audit_entries:
+          type: array
+          items:
+            type: object
+
+    RevocationRecord:
+      type: object
+      required: [dcp_version, agent_id, human_id, timestamp, reason, signature]
+      properties:
+        dcp_version:
+          type: string
+        agent_id:
+          type: string
+        human_id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        reason:
+          type: string
+        signature:
+          type: string
+
+    VerificationResult:
+      type: object
+      properties:
+        verified:
+          type: boolean
+        errors:
+          type: array
+          items:
+            type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        hint:
+          type: string
+
+    AnchorReceipt:
+      type: object
+      properties:
+        anchored:
+          type: boolean
+        chain:
+          type: string
+        tx_hash:
+          type: string
+        bundle_hash:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    InclusionProof:
+      type: object
+      properties:
+        index:
+          type: integer
+        leaf_hash:
+          type: string
+        root:
+          type: string
+        proof:
+          type: array
+          items:
+            type: object
+            properties:
+              hash:
+                type: string
+              direction:
+                type: string
+                enum: [left, right]

@@ -1,0 +1,86 @@
+name: "DCP Verify Bundle"
+description: "Verify a DCP signed bundle in CI/CD pipelines"
+author: "DCP-AI"
+
+inputs:
+  bundle-path:
+    description: "Path to the signed bundle JSON file"
+    required: true
+  public-key-path:
+    description: "Path to the Ed25519 public key file (optional if key is in bundle)"
+    required: false
+    default: ""
+  fail-on-invalid:
+    description: "Fail the action if the bundle is invalid (default: true)"
+    required: false
+    default: "true"
+  node-version:
+    description: "Node.js version to use"
+    required: false
+    default: "20"
+
+outputs:
+  verified:
+    description: "Whether the bundle was verified (true/false)"
+    value: ${{ steps.verify.outputs.verified }}
+  errors:
+    description: "Verification errors (if any)"
+    value: ${{ steps.verify.outputs.errors }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Install DCP dependencies
+      shell: bash
+      run: |
+        cd ${{ github.action_path }}/../../..
+        npm install --production 2>/dev/null || true
+
+    - name: Verify Bundle
+      id: verify
+      shell: bash
+      run: |
+        BUNDLE_PATH="${{ inputs.bundle-path }}"
+        PK_PATH="${{ inputs.public-key-path }}"
+        REPO_ROOT="${{ github.action_path }}/../../.."
+
+        if [ ! -f "$BUNDLE_PATH" ]; then
+          echo "verified=false" >> $GITHUB_OUTPUT
+          echo "errors=Bundle file not found: $BUNDLE_PATH" >> $GITHUB_OUTPUT
+          if [ "${{ inputs.fail-on-invalid }}" = "true" ]; then
+            echo "::error::Bundle file not found: $BUNDLE_PATH"
+            exit 1
+          fi
+          exit 0
+        fi
+
+        VERIFY_CMD="node -e \"
+          import { verifySignedBundle } from '${REPO_ROOT}/lib/verify.js';
+          import fs from 'fs';
+          const sb = JSON.parse(fs.readFileSync('${BUNDLE_PATH}', 'utf8'));
+          const pk = '${PK_PATH}' ? fs.readFileSync('${PK_PATH}', 'utf8').trim() : undefined;
+          const result = verifySignedBundle(sb, pk);
+          console.log(JSON.stringify(result));
+        \""
+
+        RESULT=$(eval "$VERIFY_CMD" 2>&1) || true
+        VERIFIED=$(echo "$RESULT" | node -e "process.stdin.on('data',d=>{try{console.log(JSON.parse(d).verified)}catch{console.log('false')}})")
+        ERRORS=$(echo "$RESULT" | node -e "process.stdin.on('data',d=>{try{const r=JSON.parse(d);console.log((r.errors||[]).join('; '))}catch{console.log(d.toString().trim())}})")
+
+        echo "verified=$VERIFIED" >> $GITHUB_OUTPUT
+        echo "errors=$ERRORS" >> $GITHUB_OUTPUT
+
+        if [ "$VERIFIED" = "true" ]; then
+          echo "::notice::DCP Bundle VERIFIED"
+        else
+          echo "::warning::DCP Bundle verification failed: $ERRORS"
+          if [ "${{ inputs.fail-on-invalid }}" = "true" ]; then
+            echo "::error::DCP Bundle verification failed: $ERRORS"
+            exit 1
+          fi
+        fi

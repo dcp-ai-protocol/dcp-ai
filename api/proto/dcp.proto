@@ -1,0 +1,208 @@
+syntax = "proto3";
+
+package dcp.v1;
+
+option go_package = "github.com/dcp-ai/dcp-ai-go/proto";
+
+// ── Verification Service ──
+
+service VerificationService {
+  // Verify a signed DCP bundle.
+  rpc VerifyBundle (VerifyBundleRequest) returns (VerifyBundleResponse);
+
+  // Validate a bundle against DCP schemas.
+  rpc ValidateBundle (ValidateBundleRequest) returns (ValidateBundleResponse);
+
+  // Health check.
+  rpc HealthCheck (HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+// ── Anchoring Service ──
+
+service AnchorService {
+  // Anchor a bundle hash to blockchain.
+  rpc AnchorHash (AnchorHashRequest) returns (AnchorHashResponse);
+
+  // Anchor a batch of hashes (Merkle root).
+  rpc AnchorBatch (AnchorBatchRequest) returns (AnchorBatchResponse);
+
+  // Check if a hash has been anchored.
+  rpc CheckAnchor (CheckAnchorRequest) returns (CheckAnchorResponse);
+}
+
+// ── Revocation Service ──
+
+service RevocationService {
+  // Publish a revocation record.
+  rpc Revoke (RevokeRequest) returns (RevokeResponse);
+
+  // Check if an agent has been revoked.
+  rpc CheckRevocation (CheckRevocationRequest) returns (CheckRevocationResponse);
+
+  // List all revocations.
+  rpc ListRevocations (ListRevocationsRequest) returns (ListRevocationsResponse);
+}
+
+// ── Transparency Log Service ──
+
+service TransparencyLogService {
+  // Add a hash to the transparency log.
+  rpc AddEntry (AddEntryRequest) returns (AddEntryResponse);
+
+  // Get the current log root.
+  rpc GetRoot (GetRootRequest) returns (GetRootResponse);
+
+  // Get a Merkle inclusion proof.
+  rpc GetProof (GetProofRequest) returns (GetProofResponse);
+}
+
+// ── Message Definitions ──
+
+// Verification
+
+message VerifyBundleRequest {
+  string signed_bundle_json = 1;  // JSON string of the signed bundle
+  string public_key_b64 = 2;      // Optional: Ed25519 public key (base64)
+}
+
+message VerifyBundleResponse {
+  bool verified = 1;
+  repeated string errors = 2;
+}
+
+message ValidateBundleRequest {
+  string bundle_json = 1;         // JSON string of the citizenship bundle
+}
+
+message ValidateBundleResponse {
+  bool valid = 1;
+  repeated string errors = 2;
+}
+
+message HealthCheckRequest {}
+
+message HealthCheckResponse {
+  bool ok = 1;
+  string service = 2;
+  string version = 3;
+}
+
+// Anchoring
+
+message AnchorHashRequest {
+  string bundle_hash = 1;         // sha256:... format
+  string chain = 2;               // Target L2: base, arbitrum, optimism
+}
+
+message AnchorHashResponse {
+  bool anchored = 1;
+  string tx_hash = 2;
+  string chain = 3;
+  string timestamp = 4;
+}
+
+message AnchorBatchRequest {
+  repeated string bundle_hashes = 1;
+  string chain = 2;
+}
+
+message AnchorBatchResponse {
+  bool anchored = 1;
+  string merkle_root = 2;
+  uint32 count = 3;
+  string tx_hash = 4;
+  string chain = 5;
+  string timestamp = 6;
+}
+
+message CheckAnchorRequest {
+  string hash = 1;
+}
+
+message CheckAnchorResponse {
+  bool anchored = 1;
+  string timestamp = 2;
+  string tx_hash = 3;
+  string chain = 4;
+}
+
+// Revocation
+
+message RevokeRequest {
+  string dcp_version = 1;
+  string agent_id = 2;
+  string human_id = 3;
+  string reason = 4;
+  string signature = 5;
+}
+
+message RevokeResponse {
+  bool ok = 1;
+  string agent_id = 2;
+  string revoked_at = 3;
+}
+
+message CheckRevocationRequest {
+  string agent_id = 1;
+}
+
+message CheckRevocationResponse {
+  bool revoked = 1;
+  RevocationRecord record = 2;
+}
+
+message ListRevocationsRequest {
+  uint32 limit = 1;
+  uint32 offset = 2;
+}
+
+message ListRevocationsResponse {
+  repeated RevocationRecord revocations = 1;
+  uint32 total = 2;
+}
+
+message RevocationRecord {
+  string dcp_version = 1;
+  string agent_id = 2;
+  string human_id = 3;
+  string timestamp = 4;
+  string reason = 5;
+  string signature = 6;
+}
+
+// Transparency Log
+
+message AddEntryRequest {
+  string bundle_hash = 1;
+}
+
+message AddEntryResponse {
+  uint64 index = 1;
+  string leaf_hash = 2;
+  string root = 3;
+  uint64 size = 4;
+}
+
+message GetRootRequest {}
+
+message GetRootResponse {
+  string root = 1;
+  uint64 size = 2;
+  string timestamp = 3;
+}
+
+message GetProofRequest {
+  uint64 index = 1;
+}
+
+message GetProofResponse {
+  uint64 index = 1;
+  string leaf_hash = 2;
+  string root = 3;
+  repeated ProofNode proof = 4;
+}
+
+message ProofNode {
+  string hash = 1;
+  string direction = 2;  // "left" or "right"
+}

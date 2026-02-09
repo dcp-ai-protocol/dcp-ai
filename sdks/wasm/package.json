@@ -1,0 +1,15 @@
+{
+  "name": "@dcp-ai/wasm",
+  "version": "1.0.0",
+  "description": "WebAssembly module for DCP verification — compiled from Rust SDK",
+  "type": "module",
+  "main": "./pkg/dcp_ai.js",
+  "types": "./pkg/dcp_ai.d.ts",
+  "files": ["pkg"],
+  "scripts": {
+    "build": "cd ../rust && wasm-pack build --target web --out-dir ../wasm/pkg -- --features wasm",
+    "build:node": "cd ../rust && wasm-pack build --target nodejs --out-dir ../wasm/pkg -- --features wasm"
+  },
+  "keywords": ["dcp", "ai", "wasm", "verification", "browser"],
+  "license": "MIT"
+}

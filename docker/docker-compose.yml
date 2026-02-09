@@ -1,0 +1,80 @@
+# DCP-AI Full Stack — docker compose up
+#
+# Services:
+#   - verification:     POST /verify          (port 3000)
+#   - anchor:           POST /anchor          (port 3001)
+#   - transparency-log: POST /add, GET /proof (port 3002)
+#   - revocation:       POST /revoke          (port 3003)
+
+version: "3.9"
+
+services:
+  verification:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: verification
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  anchor:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: anchor
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - ANCHOR_MODE=batch
+      - BATCH_INTERVAL_MS=60000
+      # Configure for production:
+      # - ANCHOR_RPC_URL=https://mainnet.base.org
+      # - ANCHOR_PRIVATE_KEY=0x...
+      # - ANCHOR_CONTRACT=0x...
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  transparency-log:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: transparency-log
+    ports:
+      - "3002:3002"
+    environment:
+      - PORT=3002
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  revocation:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: revocation
+    ports:
+      - "3003:3003"
+    environment:
+      - PORT=3003
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3003/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
