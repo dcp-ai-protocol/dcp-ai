@@ -84,6 +84,7 @@ graph TB
     LC["LangChain"]
     OA["OpenAI"]
     CR["CrewAI"]
+    OC["OpenClaw Plugin"]
   end
 
   subgraph services [Services]
@@ -100,6 +101,7 @@ graph TB
   end
 
   TS --> EX
+  TS --> OC
   PY --> FA
   PY --> LC
   PY --> OA
@@ -142,6 +144,7 @@ Drop-in DCP governance for popular AI and web frameworks.
 | **LangChain** | `dcp-ai[langchain]` | `DCPAgentWrapper`, `DCPTool`, `DCPCallback` | [integrations/langchain/](integrations/langchain/README.md) |
 | **OpenAI** | `dcp-ai[openai]` | `DCPOpenAIClient`, `DCP_TOOLS` function calling | [integrations/openai/](integrations/openai/README.md) |
 | **CrewAI** | `dcp-ai[crewai]` | `DCPCrewAgent`, `DCPCrew` multi-agent | [integrations/crewai/](integrations/crewai/README.md) |
+| **OpenClaw** | `@dcp-ai/openclaw` | Plugin + SKILL.md, 6 agent tools | [integrations/openclaw/](integrations/openclaw/README.md) |
 
 ### Infrastructure Services
 
@@ -175,7 +178,7 @@ Backend services for anchoring, transparency, and revocation.
 - `spec/` — normative specs (DCP-01, DCP-02, DCP-03, BUNDLE)
 - `docs/` — whitepaper, security model, architecture, government guide
 - `sdks/` — TypeScript, Python, Go, Rust, WASM SDKs
-- `integrations/` — Express, FastAPI, LangChain, OpenAI, CrewAI
+- `integrations/` — Express, FastAPI, LangChain, OpenAI, CrewAI, OpenClaw
 - `services/` — Anchoring, Transparency Log, Revocation
 - `contracts/` — Ethereum/L2 smart contracts
 - `docker/` — Docker Compose + multi-stage Dockerfile

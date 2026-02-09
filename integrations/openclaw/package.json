@@ -1,0 +1,39 @@
+{
+  "name": "@dcp-ai/openclaw",
+  "version": "1.0.0",
+  "description": "DCP integration plugin for OpenClaw — digital citizenship, intent declaration, and audit trail for AI agents",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist", "SKILL.md"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@dcp-ai/sdk": "^1.0.0",
+    "@sinclair/typebox": "^0.34.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0"
+  },
+  "keywords": [
+    "dcp",
+    "openclaw",
+    "ai",
+    "agent",
+    "citizenship",
+    "protocol",
+    "plugin"
+  ],
+  "license": "MIT"
+}
