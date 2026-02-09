@@ -161,7 +161,7 @@ Backend services for anchoring, transparency, and revocation.
 | **Smart Contract** | `DCPAnchor.sol` for EVM L2 (Base/Arbitrum/Optimism) | [contracts/ethereum/](contracts/ethereum/README.md) |
 | **Docker Compose** | All 4 services with health checks, one command | [docker/](docker/README.md) |
 | **API Definitions** | OpenAPI 3.1 + Protocol Buffers (gRPC) | [api/](api/README.md) |
-| **GitHub Actions** | `verify-bundle` and `conformance-test` actions + CI | [.github/](.github/README.md) |
+| **GitHub Actions** | `verify-bundle` and `conformance-test` actions + CI | [.github/](.github/CICD.md) |
 
 ## Repository Layout
 
