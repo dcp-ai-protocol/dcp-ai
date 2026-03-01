@@ -12,11 +12,7 @@ This protocol was co-created by a human and an AI agent working together — the
 
 **Specifications (normative):** [spec/](../spec/) — DCP-01 (Identity & Principal Binding), DCP-02 (Intent & Policy Gating), DCP-03 (Audit Chain), [BUNDLE](../spec/BUNDLE.md) (Citizenship Bundle & Signed Bundle).
 
-**Government deployment:** [GOVERNMENT_DEPLOYMENT.md](GOVERNMENT_DEPLOYMENT.md) — how governments adopt the protocol at national scale.
-
 **Technical architecture:** [TECHNICAL_ARCHITECTURE.md](TECHNICAL_ARCHITECTURE.md) — SDK, infrastructure, and deployment blueprint for global adoption.
-
-**Narrative & vision:** [Dcp-ai_Full_Package_V1.1.md](Dcp-ai_Full_Package_V1.1.md).
 
 ---
 

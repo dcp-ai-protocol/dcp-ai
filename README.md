@@ -72,7 +72,7 @@ See [spec/core/](spec/core/) for the core specification.
 | [DCP-04](spec/DCP-04.md) | Agent-to-Agent Communication | Authenticated inter-agent messaging, delegation, trust chains |
 | [DCP-AI v2.0](spec/DCP-AI-v2.0.md) | Post-Quantum Normative Specification | Complete v2.0 spec with hybrid PQ crypto, 4-tier security model |
 
-See also: [Core specification](spec/core/dcp-core.md) | [Profiles overview](spec/profiles/) | [IETF positioning](docs/ietf/positioning.md)
+See also: [Core specification](spec/core/dcp-core.md) | [Profiles overview](spec/profiles/) | [IETF Draft](docs/IETF_DRAFT.md)
 
 ---
 
@@ -321,7 +321,6 @@ cd docker && docker compose up -d
 |-------|-------------|
 | [AGENT_CREATION_AND_CERTIFICATION](docs/AGENT_CREATION_AND_CERTIFICATION.md) | P2P agent creation flow, DCP certification |
 | [OPERATOR_GUIDE](docs/OPERATOR_GUIDE.md) | Running a verification service |
-| [GOVERNMENT_DEPLOYMENT](docs/GOVERNMENT_DEPLOYMENT.md) | Government adoption playbook with cost analysis |
 | [MIGRATION_V1_V2](docs/MIGRATION_V1_V2.md) | Migrating from DCP v1.0 to v2.0 |
 
 ### Standards Alignment
@@ -329,7 +328,6 @@ cd docker && docker compose up -d
 | Document | Description |
 |----------|-------------|
 | [IETF_DRAFT](docs/IETF_DRAFT.md) | IETF Internet-Draft for DCP standardization |
-| [IETF Positioning](docs/ietf/positioning.md) | Strategy for IETF standardization of DCP Core |
 | [NIST_CONFORMITY](docs/NIST_CONFORMITY.md) | NIST post-quantum cryptography conformance |
 | [ROADMAP](ROADMAP.md) | Project evolution roadmap |
 
@@ -346,7 +344,6 @@ cd docker && docker compose up -d
 | Document | Description |
 |----------|-------------|
 | [GENESIS_PAPER](docs/GENESIS_PAPER.md) | Founding whitepaper |
-| [DCP-AI Full Package V1.1](docs/Dcp-ai_Full_Package_V1.1.md) | Original vision and manifesto |
 
 ---
 

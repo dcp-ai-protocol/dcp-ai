@@ -171,4 +171,3 @@ See [QUICKSTART.md](QUICKSTART.md) for code examples and [MIGRATION_V1_V2.md](MI
 
 - Storage and anchoring: [STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md)
 - Verification checklist: [spec/VERIFICATION.md](../spec/VERIFICATION.md)
-- Full Package: [Dcp-ai_Full_Package_V1.1.md](Dcp-ai_Full_Package_V1.1.md)

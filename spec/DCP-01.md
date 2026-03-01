@@ -122,4 +122,3 @@ A jurisdiction may publish a **signed revocation list** — a JSON file listing 
 
 - Verification checklist: [VERIFICATION.md](VERIFICATION.md)
 - Storage and anchoring (revocation lists, transparency log): [docs/STORAGE_AND_ANCHORING.md](../docs/STORAGE_AND_ANCHORING.md)
-- Government deployment guide: [docs/GOVERNMENT_DEPLOYMENT.md](../docs/GOVERNMENT_DEPLOYMENT.md)

@@ -29,7 +29,7 @@ See [DCP-AI v2.0](../../DCP-AI-v2.0.md) Section 14.
 
 Optional attestations by government or accredited authorities certifying the identity in a principal binding record for a specific jurisdiction.
 
-See [DCP-01](../../DCP-01.md) Section "Jurisdiction Attestation" and [Government Deployment Guide](../../../docs/GOVERNMENT_DEPLOYMENT.md).
+See [DCP-01](../../DCP-01.md) Section "Jurisdiction Attestation".
 
 ### Revocation
 
@@ -76,6 +76,5 @@ See [DCP-AI v2.0](../../DCP-AI-v2.0.md) Section 7.2.
 
 - [DCP-01](../../DCP-01.md) — Jurisdiction Attestation, Revocation Records
 - [DCP-AI v2.0](../../DCP-AI-v2.0.md) — Sections 7.2 (Verifier Policy), 11 (Key Management), 13 (Governance), 14 (Security Tiers)
-- [Government Deployment](../../../docs/GOVERNMENT_DEPLOYMENT.md) — Jurisdiction deployment playbook
 - [Storage and Anchoring](../../../docs/STORAGE_AND_ANCHORING.md) — Revocation lists, transparency logs
 - [Operator Guide](../../../docs/OPERATOR_GUIDE.md) — Running a verification service

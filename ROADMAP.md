@@ -58,12 +58,12 @@ Evaluate which parts of DCP are suitable for IETF standardization and prepare th
 
 - Identify the subset of DCP Core that could form an Internet-Draft
 - Document what should stay outside the IETF track (profiles, services, implementation details)
-- Review the existing `docs/IETF_DRAFT.md` and `docs/draft-dcp-ai-citizenship-00.*` for alignment with the core/profiles separation
-- Produce `docs/ietf/positioning.md` articulating the strategy
+- Review the existing `docs/IETF_DRAFT.md` for alignment with the core/profiles separation
+- Articulate the IETF standardization strategy
 
 ### Deliverables
 
-- `docs/ietf/positioning.md` — IETF standardization strategy
+- Updated `docs/IETF_DRAFT.md` aligned with stabilized core
 - Gap analysis between current IETF draft and the stabilized core
 
 ---

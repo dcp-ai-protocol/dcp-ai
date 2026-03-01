@@ -117,7 +117,7 @@ Layer 6: Blockchain anchor (Bitcoin / Ethereum)
   Provides immutable, public proof of bundle existence at a point in time.
 ```
 
-Layers 1–4 are available in this repo today. Layers 5–6 are documented and designed ([docs/STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md), [docs/GOVERNMENT_DEPLOYMENT.md](GOVERNMENT_DEPLOYMENT.md)); implementations are operator-specific.
+Layers 1–4 are available in this repo today. Layers 5–6 are documented and designed ([docs/STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md)); implementations are operator-specific.
 
 ---
 
@@ -260,5 +260,4 @@ For migration from V1.0 security model, see [MIGRATION_V1_V2.md](MIGRATION_V1_V2
 - Protocol fingerprints: [protocol_fingerprints.json](../protocol_fingerprints.json)
 - DCP-01 (attestation): [spec/DCP-01.md](../spec/DCP-01.md)
 - Storage, anchoring, revocation: [STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md)
-- Government deployment: [GOVERNMENT_DEPLOYMENT.md](GOVERNMENT_DEPLOYMENT.md)
 - Technical architecture: [TECHNICAL_ARCHITECTURE.md](TECHNICAL_ARCHITECTURE.md)

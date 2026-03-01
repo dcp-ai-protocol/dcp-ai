@@ -134,5 +134,4 @@ This checks the SHA-256 hash of each local schema against the canonical fingerpr
 - Audit chain and intent_hash: [DCP-03.md](DCP-03.md)
 - Security model: [docs/SECURITY_MODEL.md](../docs/SECURITY_MODEL.md)
 - Storage, anchoring, revocation lists, transparency logs: [docs/STORAGE_AND_ANCHORING.md](../docs/STORAGE_AND_ANCHORING.md)
-- Government deployment: [docs/GOVERNMENT_DEPLOYMENT.md](../docs/GOVERNMENT_DEPLOYMENT.md)
-- Full Package: [docs/Dcp-ai_Full_Package_V1.1.md](../docs/Dcp-ai_Full_Package_V1.1.md)
+- Operator guide: [docs/OPERATOR_GUIDE.md](../docs/OPERATOR_GUIDE.md)

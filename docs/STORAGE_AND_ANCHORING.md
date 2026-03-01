@@ -239,6 +239,4 @@ See [MIGRATION_V1_V2.md](MIGRATION_V1_V2.md) for migrating existing V1 anchored 
 
 - Verification checklist: [spec/VERIFICATION.md](../spec/VERIFICATION.md)
 - Bundle format: [spec/BUNDLE.md](../spec/BUNDLE.md)
-- Government deployment: [GOVERNMENT_DEPLOYMENT.md](GOVERNMENT_DEPLOYMENT.md)
 - Technical architecture: [TECHNICAL_ARCHITECTURE.md](TECHNICAL_ARCHITECTURE.md)
-- Full Package: [Dcp-ai_Full_Package_V1.1.md](Dcp-ai_Full_Package_V1.1.md)
