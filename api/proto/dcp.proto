@@ -7,62 +7,54 @@ option go_package = "github.com/dcp-ai/dcp-ai-go/proto";
 // ── Verification Service ──
 
 service VerificationService {
-  // Verify a signed DCP bundle.
   rpc VerifyBundle (VerifyBundleRequest) returns (VerifyBundleResponse);
-
-  // Validate a bundle against DCP schemas.
   rpc ValidateBundle (ValidateBundleRequest) returns (ValidateBundleResponse);
-
-  // Health check.
+  rpc VerifyBundleV2 (VerifyBundleV2Request) returns (VerifyBundleV2Response);
   rpc HealthCheck (HealthCheckRequest) returns (HealthCheckResponse);
 }
 
 // ── Anchoring Service ──
 
 service AnchorService {
-  // Anchor a bundle hash to blockchain.
   rpc AnchorHash (AnchorHashRequest) returns (AnchorHashResponse);
-
-  // Anchor a batch of hashes (Merkle root).
   rpc AnchorBatch (AnchorBatchRequest) returns (AnchorBatchResponse);
-
-  // Check if a hash has been anchored.
   rpc CheckAnchor (CheckAnchorRequest) returns (CheckAnchorResponse);
 }
 
 // ── Revocation Service ──
 
 service RevocationService {
-  // Publish a revocation record.
   rpc Revoke (RevokeRequest) returns (RevokeResponse);
-
-  // Check if an agent has been revoked.
+  rpc RevokeV2 (RevokeV2Request) returns (RevokeV2Response);
+  rpc EmergencyRevoke (EmergencyRevokeRequest) returns (EmergencyRevokeResponse);
   rpc CheckRevocation (CheckRevocationRequest) returns (CheckRevocationResponse);
-
-  // List all revocations.
+  rpc CheckRevocationByKid (CheckRevocationByKidRequest) returns (CheckRevocationByKidResponse);
   rpc ListRevocations (ListRevocationsRequest) returns (ListRevocationsResponse);
 }
 
 // ── Transparency Log Service ──
 
 service TransparencyLogService {
-  // Add a hash to the transparency log.
   rpc AddEntry (AddEntryRequest) returns (AddEntryResponse);
-
-  // Get the current log root.
   rpc GetRoot (GetRootRequest) returns (GetRootResponse);
-
-  // Get a Merkle inclusion proof.
   rpc GetProof (GetProofRequest) returns (GetProofResponse);
 }
 
-// ── Message Definitions ──
+// ── Key Service ──
 
-// Verification
+service KeyService {
+  rpc RegisterKeys (RegisterKeysRequest) returns (RegisterKeysResponse);
+  rpc LookupKey (LookupKeyRequest) returns (LookupKeyResponse);
+  rpc RotateKey (RotateKeyRequest) returns (RotateKeyResponse);
+}
+
+// ── V1 Message Definitions ──
+
+// Verification (V1)
 
 message VerifyBundleRequest {
-  string signed_bundle_json = 1;  // JSON string of the signed bundle
-  string public_key_b64 = 2;      // Optional: Ed25519 public key (base64)
+  string signed_bundle_json = 1;
+  string public_key_b64 = 2;
 }
 
 message VerifyBundleResponse {
@@ -71,7 +63,7 @@ message VerifyBundleResponse {
 }
 
 message ValidateBundleRequest {
-  string bundle_json = 1;         // JSON string of the citizenship bundle
+  string bundle_json = 1;
 }
 
 message ValidateBundleResponse {
@@ -90,8 +82,8 @@ message HealthCheckResponse {
 // Anchoring
 
 message AnchorHashRequest {
-  string bundle_hash = 1;         // sha256:... format
-  string chain = 2;               // Target L2: base, arbitrum, optimism
+  string bundle_hash = 1;
+  string chain = 2;
 }
 
 message AnchorHashResponse {
@@ -126,7 +118,7 @@ message CheckAnchorResponse {
   string chain = 4;
 }
 
-// Revocation
+// Revocation (V1)
 
 message RevokeRequest {
   string dcp_version = 1;
@@ -204,5 +196,288 @@ message GetProofResponse {
 
 message ProofNode {
   string hash = 1;
-  string direction = 2;  // "left" or "right"
+  string direction = 2;
+}
+
+// ── V2 Message Definitions ──
+
+// V2 Shared Types
+
+message KeyEntryV2 {
+  string kid = 1;
+  string alg = 2;
+  bytes public_key = 3;
+  string created_at = 4;
+  string expires_at = 5;
+  string status = 6;
+}
+
+message SignatureEntry {
+  string alg = 1;
+  string kid = 2;
+  bytes sig = 3;
+}
+
+message CompositeSignature {
+  SignatureEntry classical = 1;
+  SignatureEntry pq = 2;
+  string binding = 3;
+}
+
+message SignedPayload {
+  bytes payload = 1;
+  string payload_hash = 2;
+  CompositeSignature composite_sig = 3;
+}
+
+message BundleManifest {
+  string session_nonce = 1;
+  string rpr_hash = 2;
+  string passport_hash = 3;
+  string intent_hash = 4;
+  string policy_hash = 5;
+  string audit_merkle_root = 6;
+  string audit_merkle_root_secondary = 7;
+  int32 audit_count = 8;
+  repeated string pq_checkpoints = 9;
+}
+
+// V2 Artifacts
+
+message AgentPassportV2 {
+  string dcp_version = 1;
+  string agent_id = 2;
+  string session_nonce = 3;
+  repeated KeyEntryV2 keys = 4;
+  string principal_binding_reference = 5;
+  repeated string capabilities = 6;
+  string risk_tier = 7;
+  string created_at = 8;
+  string status = 9;
+  string emergency_revocation_token = 10;
+}
+
+message ResponsiblePrincipalRecordV2 {
+  string dcp_version = 1;
+  string human_id = 2;
+  string session_nonce = 3;
+  string legal_name = 4;
+  string entity_type = 5;
+  string jurisdiction = 6;
+  string liability_mode = 7;
+  bool override_rights = 8;
+  string issued_at = 9;
+  string expires_at = 10;
+  string contact = 11;
+  repeated KeyEntryV2 binding_keys = 12;
+}
+
+message IntentV2 {
+  string dcp_version = 1;
+  string intent_id = 2;
+  string session_nonce = 3;
+  string agent_id = 4;
+  string human_id = 5;
+  string timestamp = 6;
+  string action_type = 7;
+  IntentTargetV2 target = 8;
+  repeated string data_classes = 9;
+  string estimated_impact = 10;
+  bool requires_consent = 11;
+}
+
+message IntentTargetV2 {
+  string channel = 1;
+  string to = 2;
+  string domain = 3;
+  string url = 4;
+}
+
+message PolicyDecisionV2 {
+  string dcp_version = 1;
+  string intent_id = 2;
+  string session_nonce = 3;
+  string decision = 4;
+  int32 risk_score = 5;
+  repeated string reasons = 6;
+  string required_confirmation = 7;
+  string applied_policy_hash = 8;
+  string timestamp = 9;
+}
+
+message AuditEventV2 {
+  string dcp_version = 1;
+  string audit_id = 2;
+  string session_nonce = 3;
+  string prev_hash = 4;
+  string prev_hash_secondary = 5;
+  string hash_alg = 6;
+  string timestamp = 7;
+  string agent_id = 8;
+  string human_id = 9;
+  string intent_id = 10;
+  string intent_hash = 11;
+  string intent_hash_secondary = 12;
+  string policy_decision = 13;
+  string outcome = 14;
+  AuditEvidenceV2 evidence = 15;
+  string pq_checkpoint_ref = 16;
+}
+
+message AuditEvidenceV2 {
+  string tool = 1;
+  string result_ref = 2;
+  string evidence_hash = 3;
+}
+
+message PQCheckpoint {
+  string checkpoint_id = 1;
+  string session_nonce = 2;
+  EventRange event_range = 3;
+  string merkle_root = 4;
+  CompositeSignature composite_sig = 5;
+}
+
+message EventRange {
+  string from_audit_id = 1;
+  string to_audit_id = 2;
+  int32 count = 3;
+}
+
+// V2 Bundle
+
+message CitizenshipBundleV2 {
+  string dcp_bundle_version = 1;
+  BundleManifest manifest = 2;
+  SignedPayload responsible_principal_record = 3;
+  SignedPayload agent_passport = 4;
+  SignedPayload intent = 5;
+  SignedPayload policy_decision = 6;
+  repeated AuditEventV2 audit_entries = 7;
+  repeated PQCheckpoint pq_checkpoints = 8;
+}
+
+message BundleSignerV2 {
+  string type = 1;
+  string id = 2;
+  repeated string kids = 3;
+}
+
+message BundleSignatureV2 {
+  string hash_alg = 1;
+  string created_at = 2;
+  BundleSignerV2 signer = 3;
+  string manifest_hash = 4;
+  CompositeSignature composite_sig = 5;
+}
+
+message SignedBundleV2 {
+  CitizenshipBundleV2 bundle = 1;
+  BundleSignatureV2 signature = 2;
+}
+
+// V2 Verification
+
+message VerifyBundleV2Request {
+  oneof input {
+    string signed_bundle_json = 1;
+    bytes signed_bundle_cbor = 2;
+  }
+  string verifier_policy_json = 3;
+}
+
+message VerifyBundleV2Response {
+  bool verified = 1;
+  string dcp_version = 2;
+  repeated string errors = 3;
+  repeated string warnings = 4;
+  bool classical_valid = 5;
+  bool pq_valid = 6;
+  bool session_binding_valid = 7;
+  bool manifest_valid = 8;
+  bool hash_chain_valid = 9;
+}
+
+// V2 Revocation
+
+message RevokeV2Request {
+  string dcp_version = 1;
+  string agent_id = 2;
+  string human_id = 3;
+  string revoked_kid = 4;
+  string reason = 5;
+  string timestamp = 6;
+  CompositeSignature composite_sig = 7;
+}
+
+message RevokeV2Response {
+  bool ok = 1;
+  string agent_id = 2;
+  string revoked_kid = 3;
+  string revoked_at = 4;
+}
+
+message EmergencyRevokeRequest {
+  string agent_id = 1;
+  string human_id = 2;
+  string revocation_secret = 3;
+  string timestamp = 4;
+  string reason = 5;
+}
+
+message EmergencyRevokeResponse {
+  bool ok = 1;
+  string agent_id = 2;
+  string revoked_at = 3;
+  int32 keys_revoked = 4;
+}
+
+message CheckRevocationByKidRequest {
+  string kid = 1;
+}
+
+message CheckRevocationByKidResponse {
+  bool revoked = 1;
+  string agent_id = 2;
+  string kid = 3;
+  string revoked_at = 4;
+  string reason = 5;
+}
+
+// Key Service
+
+message RegisterKeysRequest {
+  string agent_id = 1;
+  repeated KeyEntryV2 keys = 2;
+  CompositeSignature proof_of_possession = 3;
+}
+
+message RegisterKeysResponse {
+  bool ok = 1;
+  repeated string registered_kids = 2;
+}
+
+message LookupKeyRequest {
+  string kid = 1;
+}
+
+message LookupKeyResponse {
+  bool found = 1;
+  KeyEntryV2 key = 2;
+  string agent_id = 3;
+}
+
+message RotateKeyRequest {
+  string old_kid = 1;
+  KeyEntryV2 new_key = 2;
+  CompositeSignature proof_of_possession = 3;
+  CompositeSignature authorization_sig = 4;
+  string timestamp = 5;
+}
+
+message RotateKeyResponse {
+  bool ok = 1;
+  string old_kid = 2;
+  string new_kid = 3;
+  string rotated_at = 4;
 }

@@ -3,9 +3,10 @@ info:
   title: DCP Verification API
   description: |
     HTTP API for the Digital Citizenship Protocol (DCP) for AI Agents.
-    Provides endpoints for verifying signed bundles, anchoring hashes,
-    checking revocations, and querying the transparency log.
-  version: "1.0.0"
+    Provides endpoints for verifying signed bundles (V1 and V2), anchoring hashes,
+    checking revocations, querying the transparency log, managing agent keys,
+    and governance operations.
+  version: "2.0.0"
   contact:
     name: DCP-AI
     url: https://dcp-ai.org
@@ -15,21 +16,47 @@ info:
 
 servers:
   - url: http://localhost:3000
-    description: Local development server
+    description: Local development server (gateway)
+  - url: http://localhost:3001
+    description: Local anchor service
+  - url: http://localhost:3002
+    description: Local transparency-log service
+  - url: http://localhost:3003
+    description: Local revocation service
   - url: https://api.dcp-ai.org
     description: Production server
 
 tags:
+  - name: Health
+    description: Service health checks
+  - name: Discovery
+    description: Capability and configuration discovery
   - name: Verification
-    description: Verify DCP signed bundles
+    description: Verify DCP signed bundles (V1 and V2)
   - name: Anchoring
     description: Anchor bundle hashes to blockchain
   - name: Revocation
     description: Check and publish agent revocations
   - name: Transparency
     description: Append-only transparency log
-  - name: Health
-    description: Service health checks
+  - name: Passport
+    description: V2 agent passport registration
+  - name: Intent
+    description: V2 intent declaration and policy
+  - name: Audit
+    description: V2 audit chain management
+  - name: Keys
+    description: V2 key registry and rotation
+  - name: Emergency
+    description: V2 emergency revocation
+  - name: MultiParty
+    description: V2 multi-party authorization
+  - name: Advisory
+    description: Algorithm advisories and crypto-agility
+  - name: Policy
+    description: Verifier policy management (Phase 3)
+  - name: Governance
+    description: Governance key management (Phase 3)
 
 paths:
   /health:
@@ -47,24 +74,87 @@ paths:
                 properties:
                   ok:
                     type: boolean
-                    example: true
                   service:
                     type: string
-                    example: dcp-verification
+                  supported_versions:
+                    type: array
+                    items:
+                      type: string
+                  registered_agents:
+                    type: integer
+                  registered_keys:
+                    type: integer
+              example:
+                ok: true
+                service: dcp-verification
+                supported_versions: ["1.0", "2.0"]
+                registered_agents: 0
+                registered_keys: 0
+
+  /.well-known/dcp-capabilities.json:
+    get:
+      tags: [Discovery]
+      summary: Capability discovery
+      operationId: getCapabilities
+      description: Returns supported DCP versions, algorithms, wire formats, and feature flags.
+      responses:
+        "200":
+          description: DCP capabilities
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DcpCapabilities"
+
+  /.well-known/algorithm-advisories.json:
+    get:
+      tags: [Advisory]
+      summary: List algorithm advisories
+      operationId: getAlgorithmAdvisories
+      responses:
+        "200":
+          description: Published algorithm advisories
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  advisories:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AlgorithmAdvisory"
+
+  /.well-known/governance-keys.json:
+    get:
+      tags: [Governance]
+      summary: Published governance keys
+      operationId: getGovernanceKeys
+      responses:
+        "200":
+          description: Governance key set
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GovernanceKeySet"
+        "404":
+          description: No governance key set registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /verify:
     post:
       tags: [Verification]
-      summary: Verify a signed bundle
+      summary: Verify a signed bundle (V1 or V2 auto-detect)
       operationId: verifyBundle
       description: |
-        Performs full DCP verification:
-        1. Schema validation (signed_bundle + inner bundle)
-        2. Ed25519 signature verification
-        3. Bundle hash integrity check
-        4. Merkle root verification
-        5. Intent hash chain verification
-        6. Previous hash chain verification
+        Performs full DCP verification with automatic version detection:
+
+        V1: Schema validation, Ed25519 signature, bundle hash integrity,
+        Merkle root, intent hash chain, and previous hash chain verification.
+
+        V2: Composite signature structure, session nonce consistency,
+        manifest integrity, tier-aware policy enforcement.
       requestBody:
         required: true
         content:
@@ -74,10 +164,42 @@ paths:
               required: [signed_bundle]
               properties:
                 signed_bundle:
-                  $ref: "#/components/schemas/SignedBundle"
+                  oneOf:
+                    - $ref: "#/components/schemas/SignedBundleV1"
+                    - $ref: "#/components/schemas/SignedBundleV2"
                 public_key_b64:
                   type: string
-                  description: Optional Ed25519 public key (base64). Falls back to signer.public_key_b64.
+                  description: Optional Ed25519 public key (base64) for V1. Falls back to signer.public_key_b64.
+            example:
+              signed_bundle:
+                bundle:
+                  dcp_bundle_version: "2.0"
+                  manifest:
+                    session_nonce: "a1b2c3..."
+                    rpr_hash: "sha256:..."
+                    passport_hash: "sha256:..."
+                    intent_hash: "sha256:..."
+                    policy_hash: "sha256:..."
+                    audit_merkle_root: "sha256:..."
+                    audit_count: 1
+                  responsible_principal_record:
+                    payload: {}
+                    composite_sig: {}
+                  agent_passport:
+                    payload: {}
+                    composite_sig: {}
+                  intent:
+                    payload: {}
+                    composite_sig: {}
+                  policy_decision:
+                    payload: {}
+                    composite_sig: {}
+                  audit_entries: []
+                signature:
+                  composite_sig:
+                    classical: { alg: ed25519, kid: "abc123", sig_b64: "..." }
+                    pq: { alg: ml-dsa-65, kid: "def456", sig_b64: "..." }
+                    binding: pq_over_classical
       responses:
         "200":
           description: Verification result
@@ -85,6 +207,13 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/VerificationResult"
+              example:
+                verified: true
+                dcp_version: "2.0"
+                errors: []
+                warnings: []
+                verifier_policy_hash: "sha256:abc123..."
+                resolved_tier: standard
         "400":
           description: Invalid request body
           content:
@@ -99,7 +228,7 @@ paths:
       operationId: anchorHash
       description: |
         Anchors a bundle hash (or batch of hashes) to an L2 blockchain.
-        Supports individual and batch (Merkle root) anchoring.
+        Returns 501 on the reference gateway; use the anchor service (port 3001) directly.
       requestBody:
         required: true
         content:
@@ -111,12 +240,13 @@ paths:
                 bundle_hash:
                   type: string
                   pattern: "^sha256:[0-9a-f]{64}$"
-                  description: SHA-256 hash of the bundle to anchor
                 chain:
                   type: string
                   enum: [base, arbitrum, optimism]
                   default: base
-                  description: Target L2 chain
+            example:
+              bundle_hash: "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              chain: base
       responses:
         "200":
           description: Anchor receipt
@@ -136,6 +266,7 @@ paths:
       tags: [Revocation]
       summary: List all revocations
       operationId: listRevocations
+      description: Available on the revocation service (port 3003).
       responses:
         "200":
           description: List of revocation records
@@ -153,6 +284,7 @@ paths:
       tags: [Revocation]
       summary: Publish a revocation
       operationId: publishRevocation
+      description: Available on the revocation service (port 3003).
       requestBody:
         required: true
         content:
@@ -177,6 +309,7 @@ paths:
       tags: [Revocation]
       summary: Check revocation status of an agent
       operationId: checkRevocation
+      description: Available on the revocation service (port 3003).
       parameters:
         - name: agent_id
           in: path
@@ -201,6 +334,7 @@ paths:
       tags: [Transparency]
       summary: Add entry to transparency log
       operationId: addToLog
+      description: Available on the transparency-log service (port 3002).
       requestBody:
         required: true
         content:
@@ -221,14 +355,19 @@ paths:
                 properties:
                   index:
                     type: integer
+                  leaf_hash:
+                    type: string
                   root:
                     type: string
+                  size:
+                    type: integer
 
   /transparency-log/root:
     get:
       tags: [Transparency]
       summary: Get current log root
       operationId: getLogRoot
+      description: Available on the transparency-log service (port 3002).
       responses:
         "200":
           description: Current Merkle root of the transparency log
@@ -247,12 +386,14 @@ paths:
       tags: [Transparency]
       summary: Get Merkle inclusion proof
       operationId: getLogProof
+      description: Available on the transparency-log service (port 3002).
       parameters:
         - name: index
           in: path
           required: true
           schema:
             type: integer
+            format: int64
       responses:
         "200":
           description: Merkle inclusion proof
@@ -261,14 +402,767 @@ paths:
               schema:
                 $ref: "#/components/schemas/InclusionProof"
 
+  /v2/passport/register:
+    post:
+      tags: [Passport]
+      summary: Register agent passport and keys
+      operationId: registerPassport
+      description: |
+        Registers a V2 agent passport with composite-signed keys.
+        Verifies deterministic kid derivation and stores keys in the registry.
+        Optionally registers an emergency revocation token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [signed_passport]
+              properties:
+                signed_passport:
+                  $ref: "#/components/schemas/SignedPayload"
+            example:
+              signed_passport:
+                payload:
+                  dcp_version: "2.0"
+                  agent_id: "agent-001"
+                  session_nonce: "a1b2c3d4..."
+                  keys:
+                    - kid: "abc123..."
+                      alg: ed25519
+                      public_key_b64: "..."
+                      created_at: "2026-03-01T00:00:00Z"
+                      status: active
+                  emergency_revocation_token: "sha256:..."
+                composite_sig:
+                  classical: { alg: ed25519, kid: "abc123", sig_b64: "..." }
+                  binding: classical_only
+      responses:
+        "201":
+          description: Passport registered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  agent_id:
+                    type: string
+                  registered_kids:
+                    type: array
+                    items:
+                      type: string
+              example:
+                ok: true
+                agent_id: agent-001
+                registered_kids: ["abc123..."]
+        "400":
+          description: Invalid passport data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v2/intent/declare:
+    post:
+      tags: [Intent]
+      summary: Declare intent and get policy decision
+      operationId: declareIntent
+      description: |
+        Submits a signed intent declaration. The server computes a risk score,
+        security tier, and policy decision (approve/escalate/block).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [signed_intent]
+              properties:
+                signed_intent:
+                  $ref: "#/components/schemas/SignedPayload"
+            example:
+              signed_intent:
+                payload:
+                  dcp_version: "2.0"
+                  intent_id: "intent-001"
+                  agent_id: "agent-001"
+                  session_nonce: "a1b2c3d4..."
+                  action_type: api_call
+                  estimated_impact: low
+                  data_classes: []
+                composite_sig:
+                  classical: { alg: ed25519, kid: "abc123", sig_b64: "..." }
+                  binding: classical_only
+      responses:
+        "200":
+          description: Policy decision
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  policy_decision:
+                    $ref: "#/components/schemas/PolicyDecisionV2"
+                  security_tier:
+                    type: string
+                    enum: [routine, standard, elevated, maximum]
+                  verification_mode:
+                    type: string
+                    enum: [classical_only, hybrid_preferred, hybrid_required, pq_only]
+                  checkpoint_interval:
+                    type: integer
+              example:
+                ok: true
+                policy_decision:
+                  dcp_version: "2.0"
+                  intent_id: intent-001
+                  decision: approve
+                  risk_score: 200
+                  reasons: ["Risk score within acceptable range."]
+                security_tier: standard
+                verification_mode: hybrid_preferred
+                checkpoint_interval: 10
+        "400":
+          description: Invalid intent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Agent revoked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v2/audit/append:
+    post:
+      tags: [Audit]
+      summary: Append audit event to chain
+      operationId: appendAudit
+      description: Appends a signed audit event to the agent's audit chain, verifying prev_hash continuity.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [audit_event]
+              properties:
+                audit_event:
+                  type: object
+                signature:
+                  type: object
+      responses:
+        "201":
+          description: Audit event appended
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  audit_id:
+                    type: string
+                  chain_length:
+                    type: integer
+        "400":
+          description: Invalid audit event
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v2/audit/compact:
+    post:
+      tags: [Audit]
+      summary: Compact audit trail
+      operationId: compactAudit
+      description: Submits an audit compaction with a Merkle root covering a range of events.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [compaction]
+              properties:
+                compaction:
+                  type: object
+                  required: [type, range, merkle_root, composite_sig, session_nonce]
+                  properties:
+                    type:
+                      type: string
+                      enum: [audit_compaction]
+                    session_nonce:
+                      type: string
+                    range:
+                      type: object
+                    merkle_root:
+                      type: string
+                    composite_sig:
+                      $ref: "#/components/schemas/CompositeSignature"
+      responses:
+        "201":
+          description: Compaction accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  compacted_range:
+                    type: object
+                  merkle_root:
+                    type: string
+        "400":
+          description: Invalid compaction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v2/bundle/verify:
+    post:
+      tags: [Verification]
+      summary: Full V2 bundle verification (tier-aware)
+      operationId: verifyBundleV2
+      description: |
+        Performs tier-aware V2 bundle verification including composite signature
+        validation, session binding, manifest integrity, and security tier enforcement.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                signed_bundle:
+                  $ref: "#/components/schemas/SignedBundleV2"
+      responses:
+        "200":
+          description: V2 verification result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  verified:
+                    type: boolean
+                  dcp_version:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: string
+                  warnings:
+                    type: array
+                    items:
+                      type: string
+                  verifier_policy_hash:
+                    type: string
+                  resolved_tier:
+                    type: [string, "null"]
+                    enum: [routine, standard, elevated, maximum, null]
+                  verification_mode:
+                    type: string
+                  session_binding_valid:
+                    type: boolean
+                  manifest_valid:
+                    type: boolean
+        "400":
+          description: Invalid bundle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v2/keys/{kid}:
+    get:
+      tags: [Keys]
+      summary: Key registry lookup
+      operationId: lookupKey
+      parameters:
+        - name: kid
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[0-9a-f]+$"
+      responses:
+        "200":
+          description: Key found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  found:
+                    type: boolean
+                  kid:
+                    type: string
+                  key:
+                    $ref: "#/components/schemas/KeyEntryV2"
+                  agent_id:
+                    type: string
+                  revoked:
+                    type: boolean
+                  expired:
+                    type: boolean
+        "404":
+          description: Key not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  found:
+                    type: boolean
+                  kid:
+                    type: string
+
+  /v2/keys/rotate:
+    post:
+      tags: [Keys]
+      summary: Key rotation with proof of possession
+      operationId: rotateKey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [old_kid, new_key, proof_of_possession]
+              properties:
+                old_kid:
+                  type: string
+                new_key:
+                  $ref: "#/components/schemas/KeyEntryV2"
+                proof_of_possession:
+                  type: object
+                authorization_sig:
+                  type: object
+      responses:
+        "200":
+          description: Key rotated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  old_kid:
+                    type: string
+                  new_kid:
+                    type: string
+                  agent_id:
+                    type: string
+                  rotated_at:
+                    type: string
+                    format: date-time
+        "400":
+          description: Invalid rotation request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Old key not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v2/emergency-revoke:
+    post:
+      tags: [Emergency]
+      summary: Emergency revocation (panic button)
+      operationId: emergencyRevoke
+      description: |
+        Revokes all keys for an agent using a pre-registered emergency revocation
+        secret. Rate-limited to 5 requests per minute per IP.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [agent_id, revocation_secret]
+              properties:
+                agent_id:
+                  type: string
+                human_id:
+                  type: string
+                revocation_secret:
+                  type: string
+                  pattern: "^[0-9a-f]{64}$"
+            example:
+              agent_id: agent-001
+              revocation_secret: "a1b2c3d4e5f6..."
+      responses:
+        "200":
+          description: Agent revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  agent_id:
+                    type: string
+                  revoked_at:
+                    type: string
+                    format: date-time
+                  keys_revoked:
+                    type: integer
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Invalid revocation secret
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No emergency token registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v2/multi-party/authorize:
+    post:
+      tags: [MultiParty]
+      summary: Multi-party M-of-N authorization
+      operationId: multiPartyAuthorize
+      description: |
+        Validates a multi-party authorization request. Requires at least the
+        threshold number of authorizations including an owner signature.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [authorization]
+              properties:
+                authorization:
+                  type: object
+                  required: [type, operation, authorizations]
+                  properties:
+                    type:
+                      type: string
+                      enum: [multi_party_authorization]
+                    operation:
+                      type: string
+                      enum: [revoke_agent, rotate_org_key, change_jurisdiction, modify_recovery_config]
+                    required_parties:
+                      type: integer
+                      default: 2
+                    authorizations:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          party_id:
+                            type: string
+                          role:
+                            type: string
+                          composite_sig:
+                            $ref: "#/components/schemas/CompositeSignature"
+      responses:
+        "200":
+          description: Authorization verified
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  operation:
+                    type: string
+                  parties_verified:
+                    type: integer
+                  threshold_met:
+                    type: boolean
+        "400":
+          description: Invalid authorization
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Insufficient authorizations or missing owner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v2/advisory/publish:
+    post:
+      tags: [Advisory]
+      summary: Publish algorithm advisory
+      operationId: publishAdvisory
+      description: Publishes a governance-signed algorithm advisory (deprecate/warn/revoke).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [advisory]
+              properties:
+                advisory:
+                  $ref: "#/components/schemas/AlgorithmAdvisory"
+      responses:
+        "201":
+          description: Advisory published
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  advisory_id:
+                    type: string
+                  affected_algorithms:
+                    type: array
+                    items:
+                      type: string
+                  action:
+                    type: string
+        "400":
+          description: Invalid advisory
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v2/advisory/check:
+    get:
+      tags: [Advisory]
+      summary: Check active advisories
+      operationId: checkAdvisories
+      responses:
+        "200":
+          description: Active advisory status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deprecated:
+                    type: array
+                    items:
+                      type: string
+                  warned:
+                    type: array
+                    items:
+                      type: string
+                  revoked:
+                    type: array
+                    items:
+                      type: string
+                  active_advisories:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        advisory_id:
+                          type: string
+                        severity:
+                          type: string
+                        action:
+                          type: string
+                        affected_algorithms:
+                          type: array
+                          items:
+                            type: string
+                        grace_period_expired:
+                          type: boolean
+
+  /v2/advisory/auto-apply:
+    post:
+      tags: [Advisory]
+      summary: Auto-apply advisories to verifier policy
+      operationId: autoApplyAdvisories
+      description: |
+        Scans active advisories and automatically updates the verifier policy
+        by removing deprecated/revoked algorithms and adding replacements.
+        May auto-switch to pq_only mode if all classical algorithms are removed.
+      responses:
+        "200":
+          description: Advisory auto-apply result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  policy_modified:
+                    type: boolean
+                  removed_classical:
+                    type: array
+                    items:
+                      type: string
+                  removed_pq:
+                    type: array
+                    items:
+                      type: string
+                  added_replacements:
+                    type: array
+                    items:
+                      type: string
+                  advisory_rejected_algs:
+                    type: array
+                    items:
+                      type: string
+                  warnings:
+                    type: array
+                    items:
+                      type: string
+                  current_mode:
+                    type: string
+                  policy_hash:
+                    type: string
+
+  /v2/policy:
+    get:
+      tags: [Policy]
+      summary: Get current verifier policy
+      operationId: getPolicy
+      responses:
+        "200":
+          description: Current verifier policy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  policy:
+                    $ref: "#/components/schemas/VerifierPolicy"
+                  policy_hash:
+                    type: string
+                  mode:
+                    type: string
+                  advisory_rejected_algs:
+                    type: array
+                    items:
+                      type: string
+                  policy_history_length:
+                    type: integer
+
+  /v2/policy/mode:
+    post:
+      tags: [Policy]
+      summary: Switch verifier mode
+      operationId: switchPolicyMode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mode]
+              properties:
+                mode:
+                  type: string
+                  enum: [classical_only, pq_only, hybrid_required, hybrid_preferred]
+            example:
+              mode: hybrid_required
+      responses:
+        "200":
+          description: Mode switched
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  previous_mode:
+                    type: string
+                  current_mode:
+                    type: string
+                  policy_hash:
+                    type: string
+        "400":
+          description: Invalid mode
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v2/governance/register:
+    post:
+      tags: [Governance]
+      summary: Register governance key set
+      operationId: registerGovernance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [governance_key_set]
+              properties:
+                governance_key_set:
+                  $ref: "#/components/schemas/GovernanceKeySet"
+      responses:
+        "201":
+          description: Governance key set registered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  governance_id:
+                    type: string
+                  threshold:
+                    type: integer
+                  key_count:
+                    type: integer
+                  registered_at:
+                    type: string
+                    format: date-time
+        "400":
+          description: Invalid governance key set
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
-    SignedBundle:
+    SignedBundleV1:
       type: object
       required: [bundle, signature]
       properties:
         bundle:
-          $ref: "#/components/schemas/CitizenshipBundle"
+          $ref: "#/components/schemas/CitizenshipBundleV1"
         signature:
           type: object
           required: [alg, created_at, signer, bundle_hash, sig_b64]
@@ -297,11 +1191,11 @@ components:
             sig_b64:
               type: string
 
-    CitizenshipBundle:
+    CitizenshipBundleV1:
       type: object
-      required: [human_binding_record, agent_passport, intent, policy_decision, audit_entries]
+      required: [responsible_principal_record, agent_passport, intent, policy_decision, audit_entries]
       properties:
-        human_binding_record:
+        responsible_principal_record:
           type: object
         agent_passport:
           type: object
@@ -313,6 +1207,197 @@ components:
           type: array
           items:
             type: object
+
+    SignedBundleV2:
+      type: object
+      required: [bundle, signature]
+      properties:
+        bundle:
+          $ref: "#/components/schemas/CitizenshipBundleV2"
+        signature:
+          type: object
+          required: [composite_sig]
+          properties:
+            hash_alg:
+              type: string
+              enum: [sha256, sha384]
+            created_at:
+              type: string
+              format: date-time
+            signer:
+              type: object
+              properties:
+                type:
+                  type: string
+                id:
+                  type: string
+                kids:
+                  type: array
+                  items:
+                    type: string
+            manifest_hash:
+              type: string
+            composite_sig:
+              $ref: "#/components/schemas/CompositeSignature"
+
+    CitizenshipBundleV2:
+      type: object
+      required: [dcp_bundle_version, manifest, responsible_principal_record, agent_passport, intent, policy_decision, audit_entries]
+      properties:
+        dcp_bundle_version:
+          type: string
+          enum: ["2.0"]
+        manifest:
+          $ref: "#/components/schemas/BundleManifest"
+        responsible_principal_record:
+          $ref: "#/components/schemas/SignedPayload"
+        agent_passport:
+          $ref: "#/components/schemas/SignedPayload"
+        intent:
+          $ref: "#/components/schemas/SignedPayload"
+        policy_decision:
+          $ref: "#/components/schemas/SignedPayload"
+        audit_entries:
+          type: array
+          items:
+            type: object
+        pq_checkpoints:
+          type: array
+          items:
+            type: object
+
+    BundleManifest:
+      type: object
+      required: [session_nonce, rpr_hash, passport_hash, intent_hash, policy_hash, audit_merkle_root, audit_count]
+      properties:
+        session_nonce:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        rpr_hash:
+          type: string
+        passport_hash:
+          type: string
+        intent_hash:
+          type: string
+        policy_hash:
+          type: string
+        audit_merkle_root:
+          type: string
+        audit_merkle_root_secondary:
+          type: string
+        audit_count:
+          type: integer
+        pq_checkpoints:
+          type: array
+          items:
+            type: string
+
+    SignedPayload:
+      type: object
+      required: [payload, composite_sig]
+      properties:
+        payload:
+          type: object
+        payload_hash:
+          type: string
+        composite_sig:
+          $ref: "#/components/schemas/CompositeSignature"
+
+    CompositeSignature:
+      type: object
+      properties:
+        classical:
+          type: object
+          properties:
+            alg:
+              type: string
+            kid:
+              type: string
+            sig_b64:
+              type: string
+        pq:
+          type: object
+          properties:
+            alg:
+              type: string
+            kid:
+              type: string
+            sig_b64:
+              type: string
+        binding:
+          type: string
+          enum: [pq_over_classical, classical_only, independent]
+
+    KeyEntryV2:
+      type: object
+      properties:
+        kid:
+          type: string
+        alg:
+          type: string
+          enum: [ed25519, ml-dsa-65, slh-dsa-192f]
+        public_key_b64:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [active, revoked, expired]
+
+    PolicyDecisionV2:
+      type: object
+      properties:
+        dcp_version:
+          type: string
+        intent_id:
+          type: string
+        session_nonce:
+          type: string
+        decision:
+          type: string
+          enum: [approve, escalate, block]
+        risk_score:
+          type: integer
+          minimum: 0
+          maximum: 1000
+        reasons:
+          type: array
+          items:
+            type: string
+        required_confirmation:
+          type: [object, "null"]
+        applied_policy_hash:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        resolved_tier:
+          type: string
+          enum: [routine, standard, elevated, maximum]
+
+    VerificationResult:
+      type: object
+      properties:
+        verified:
+          type: boolean
+        dcp_version:
+          type: string
+        errors:
+          type: array
+          items:
+            type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        verifier_policy_hash:
+          type: string
+        resolved_tier:
+          type: [string, "null"]
 
     RevocationRecord:
       type: object
@@ -332,16 +1417,6 @@ components:
         signature:
           type: string
 
-    VerificationResult:
-      type: object
-      properties:
-        verified:
-          type: boolean
-        errors:
-          type: array
-          items:
-            type: string
-
     ErrorResponse:
       type: object
       properties:
@@ -349,6 +1424,10 @@ components:
           type: string
         hint:
           type: string
+        details:
+          type: array
+          items:
+            type: string
 
     AnchorReceipt:
       type: object
@@ -370,6 +1449,7 @@ components:
       properties:
         index:
           type: integer
+          format: int64
         leaf_hash:
           type: string
         root:
@@ -384,3 +1464,113 @@ components:
               direction:
                 type: string
                 enum: [left, right]
+
+    DcpCapabilities:
+      type: object
+      properties:
+        supported_versions:
+          type: array
+          items:
+            type: string
+        supported_algs:
+          type: object
+          properties:
+            signing:
+              type: array
+              items:
+                type: string
+            kem:
+              type: array
+              items:
+                type: string
+            hash:
+              type: array
+              items:
+                type: string
+        supported_wire_formats:
+          type: array
+          items:
+            type: string
+        features:
+          type: object
+        verifier_policy_hash:
+          type: string
+        min_accepted_version:
+          type: string
+
+    VerifierPolicy:
+      type: object
+      properties:
+        default_mode:
+          type: string
+          enum: [classical_only, pq_only, hybrid_required, hybrid_preferred]
+        risk_overrides:
+          type: object
+        min_classical:
+          type: integer
+        min_pq:
+          type: integer
+        accepted_classical_algs:
+          type: array
+          items:
+            type: string
+        accepted_pq_algs:
+          type: array
+          items:
+            type: string
+        accepted_hash_algs:
+          type: array
+          items:
+            type: string
+        require_session_binding:
+          type: boolean
+        require_composite_binding:
+          type: boolean
+        max_key_age_days:
+          type: integer
+        allow_v1_bundles:
+          type: boolean
+
+    AlgorithmAdvisory:
+      type: object
+      required: [type, advisory_id, affected_algorithms, action]
+      properties:
+        type:
+          type: string
+          enum: [algorithm_advisory]
+        advisory_id:
+          type: string
+        affected_algorithms:
+          type: array
+          items:
+            type: string
+        action:
+          type: string
+          enum: [deprecate, warn, revoke]
+        severity:
+          type: string
+        effective_date:
+          type: string
+          format: date-time
+        grace_period_days:
+          type: integer
+        replacement_algorithms:
+          type: array
+          items:
+            type: string
+        composite_sig:
+          $ref: "#/components/schemas/CompositeSignature"
+
+    GovernanceKeySet:
+      type: object
+      required: [governance_id, keys, threshold]
+      properties:
+        governance_id:
+          type: string
+        keys:
+          type: array
+          items:
+            $ref: "#/components/schemas/KeyEntryV2"
+        threshold:
+          type: integer
+          minimum: 2

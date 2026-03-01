@@ -6,8 +6,8 @@ Formal DCP API definitions: OpenAPI 3.1 specification for HTTP/REST and Protocol
 
 | File | Format | Description |
 |------|--------|-------------|
-| `openapi.yaml` | OpenAPI 3.1.0 | Full REST spec with Swagger UI |
-| `proto/dcp.proto` | Protocol Buffers 3 | gRPC definition with 4 services |
+| `openapi.yaml` | OpenAPI 3.1.0 | Full REST spec (V1 + V2 + Phase 3) with Swagger UI |
+| `proto/dcp.proto` | Protocol Buffers 3 | gRPC definition with 5 services |
 
 ## OpenAPI Spec
 
@@ -20,19 +20,68 @@ Formal DCP API definitions: OpenAPI 3.1 specification for HTTP/REST and Protocol
 
 ### Endpoints
 
+#### Health & Discovery
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET /health` | Health check | Response: `{ ok, service, supported_versions, registered_agents, registered_keys }` |
+| `GET /.well-known/dcp-capabilities.json` | Capability discovery | Response: supported versions, algs, features |
+| `GET /.well-known/algorithm-advisories.json` | Algorithm advisories | Response: `{ advisories }` |
+| `GET /.well-known/governance-keys.json` | Governance keys | Response: governance key set |
+
 #### Verification
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST /verify` | Verify a Signed Bundle | Request: `{ signed_bundle, public_key_b64? }` → Response: `{ verified, errors }` |
+| `POST /verify` | Verify a Signed Bundle (V1/V2 auto-detect) | Request: `{ signed_bundle, public_key_b64? }` → Response: `{ verified, dcp_version, errors, warnings }` |
+| `POST /v2/bundle/verify` | Full V2 tier-aware verification | Response adds `resolved_tier`, `verification_mode`, `session_binding_valid` |
+
+#### V2 Passport & Keys
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST /v2/passport/register` | Register agent passport + keys | Request: `{ signed_passport }` |
+| `GET /v2/keys/{kid}` | Key registry lookup | Response: `{ found, kid, key, agent_id }` |
+| `POST /v2/keys/rotate` | Key rotation with PoP | Request: `{ old_kid, new_key, proof_of_possession }` |
+
+#### V2 Intent & Policy
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST /v2/intent/declare` | Declare intent, get policy | Response: `{ policy_decision, security_tier, verification_mode }` |
+| `GET /v2/policy` | Current verifier policy | Response: `{ policy, policy_hash, mode }` |
+| `POST /v2/policy/mode` | Switch verifier mode | Request: `{ mode }` (pq_only, hybrid_required, etc.) |
+
+#### V2 Audit
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST /v2/audit/append` | Append audit event | Request: `{ audit_event }` |
+| `POST /v2/audit/compact` | Compact audit trail | Request: `{ compaction }` |
+
+#### V2 Revocation & Emergency
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST /v2/emergency-revoke` | Emergency revocation (panic button) | Rate-limited, pre-image verification |
+| `POST /v2/multi-party/authorize` | Multi-party M-of-N authorization | Request: `{ authorization }` |
+
+#### V2 Advisory & Governance
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST /v2/advisory/publish` | Publish algorithm advisory | Request: `{ advisory }` |
+| `GET /v2/advisory/check` | Check active advisories | Response: `{ deprecated, warned, revoked }` |
+| `POST /v2/advisory/auto-apply` | Auto-apply advisories to policy | Removes deprecated algs, adds replacements |
+| `POST /v2/governance/register` | Register governance key set | Request: `{ governance_key_set }` |
 
 #### Anchoring
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST /anchor` | Anchor bundle hash | Request: `{ bundle_hash, chain? }` → Response: `{ anchored, chain, tx_hash, bundle_hash, timestamp }` |
+| `POST /anchor` | Anchor bundle hash | Request: `{ bundle_hash, chain? }` → Response: `{ anchored, chain, tx_hash }` or 501 |
 
-#### Revocation
+#### Revocation (service on port 3003)
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -40,7 +89,7 @@ Formal DCP API definitions: OpenAPI 3.1 specification for HTTP/REST and Protocol
 | `POST /revocations` | Publish revocation | Request: `RevocationRecord` |
 | `GET /revocations/{agent_id}` | Revocation status | Response: `{ revoked, record? }` |
 
-#### Transparency Log
+#### Transparency Log (service on port 3002)
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -48,18 +97,20 @@ Formal DCP API definitions: OpenAPI 3.1 specification for HTTP/REST and Protocol
 | `GET /transparency-log/root` | Current Merkle root | Response: `{ root, size }` |
 | `GET /transparency-log/proof/{index}` | Inclusion proof | Response: `{ index, leaf_hash, root, proof }` |
 
-#### Health
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET /health` | Health check | Response: `{ ok, service }` |
-
 ### Main Schemas
 
-- `SignedBundle` — Bundle signed with Ed25519
-- `CitizenshipBundle` — Citizenship bundle (HBR + Passport + Intent + Policy + Audit)
-- `VerificationResult` — Verification result (`verified`, `errors`)
-- `AnchorReceipt` — Anchoring receipt (`anchored`, `chain`, `tx_hash`)
+- `SignedBundleV1` / `SignedBundleV2` — Signed bundles (V1: Ed25519, V2: composite signatures)
+- `CitizenshipBundleV1` / `CitizenshipBundleV2` — Citizenship bundles with manifest and signed payloads
+- `CompositeSignature` — Classical + PQ signature with binding mode
+- `SignedPayload` — Individually signed artifact envelope
+- `BundleManifest` — V2 manifest with per-artifact hashes and session nonce
+- `VerificationResult` — Result with `verified`, `errors`, `warnings`, `verifier_policy_hash`, `resolved_tier`
+- `KeyEntryV2` — V2 key entry with kid, alg, status
+- `PolicyDecisionV2` — V2 policy decision with risk score and security tier
+- `VerifierPolicy` — Verifier policy configuration
+- `AlgorithmAdvisory` — Algorithm deprecation/revocation advisory
+- `GovernanceKeySet` — Governance key set with threshold
+- `AnchorReceipt` — Anchoring receipt
 - `RevocationRecord` — Revocation record
 - `InclusionProof` — Transparency log inclusion proof
 - `ErrorResponse` — Standard error response
@@ -94,6 +145,7 @@ option go_package = "github.com/dcp-ai/dcp-ai-go/proto";
 |-----|---------|----------|
 | `VerifyBundle` | `VerifyBundleRequest` | `VerifyBundleResponse` |
 | `ValidateBundle` | `ValidateBundleRequest` | `ValidateBundleResponse` |
+| `VerifyBundleV2` | `VerifyBundleV2Request` | `VerifyBundleV2Response` |
 | `HealthCheck` | `HealthCheckRequest` | `HealthCheckResponse` |
 
 #### AnchorService
@@ -109,7 +161,10 @@ option go_package = "github.com/dcp-ai/dcp-ai-go/proto";
 | RPC | Request | Response |
 |-----|---------|----------|
 | `Revoke` | `RevokeRequest` | `RevokeResponse` |
+| `RevokeV2` | `RevokeV2Request` | `RevokeV2Response` |
+| `EmergencyRevoke` | `EmergencyRevokeRequest` | `EmergencyRevokeResponse` |
 | `CheckRevocation` | `CheckRevocationRequest` | `CheckRevocationResponse` |
+| `CheckRevocationByKid` | `CheckRevocationByKidRequest` | `CheckRevocationByKidResponse` |
 | `ListRevocations` | `ListRevocationsRequest` | `ListRevocationsResponse` |
 
 #### TransparencyLogService
@@ -119,6 +174,14 @@ option go_package = "github.com/dcp-ai/dcp-ai-go/proto";
 | `AddEntry` | `AddEntryRequest` | `AddEntryResponse` |
 | `GetRoot` | `GetRootRequest` | `GetRootResponse` |
 | `GetProof` | `GetProofRequest` | `GetProofResponse` |
+
+#### KeyService
+
+| RPC | Request | Response |
+|-----|---------|----------|
+| `RegisterKeys` | `RegisterKeysRequest` | `RegisterKeysResponse` |
+| `LookupKey` | `LookupKeyRequest` | `LookupKeyResponse` |
+| `RotateKey` | `RotateKeyRequest` | `RotateKeyResponse` |
 
 ### Generate Clients
 
@@ -173,4 +236,4 @@ npx @openapitools/openapi-generator-cli generate \
 
 ## License
 
-Apache-2.0
+MIT
