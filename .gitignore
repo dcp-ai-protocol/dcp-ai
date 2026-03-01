@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+dist/
+.next/
+coverage/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Keys - NEVER commit private keys
+keys/secret_key.txt
+keys/agent_secret*.txt
+keys/*.pem
+keys/*.key
+keys/*_secret*
+keys/*_private*
+
+# Build artifacts
+*.min.js
+*.tgz
+
+# IDE
+.vscode/
+.idea/
+
+# Rust
+sdks/rust/target/
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+sdks/python/.pytest_cache/
+
+# WASM build
+sdks/wasm/pkg/
