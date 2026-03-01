@@ -1,0 +1,112 @@
+name: Publish Packages
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      package:
+        description: 'Package to publish'
+        required: true
+        type: choice
+        options:
+          - all
+          - sdk-typescript
+          - sdk-wasm
+          - cli
+          - sdk-python
+          - sdk-rust
+
+jobs:
+  publish-typescript-sdk:
+    name: Publish @dcp-ai/sdk to NPM
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'sdk-typescript'
+    defaults:
+      run:
+        working-directory: sdks/typescript
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run test
+      - run: npm run build
+      - run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-wasm-sdk:
+    name: Publish @dcp-ai/wasm to NPM
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'sdk-wasm'
+    defaults:
+      run:
+        working-directory: sdks/wasm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm run build
+      - run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-cli:
+    name: Publish @dcp-ai/cli to NPM
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'cli'
+    defaults:
+      run:
+        working-directory: cli
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm ci
+      - run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-python-sdk:
+    name: Publish dcp-ai to PyPI
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'sdk-python'
+    defaults:
+      run:
+        working-directory: sdks/python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install build twine
+      - run: python -m build
+      - run: twine upload dist/*
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+
+  publish-rust-sdk:
+    name: Publish dcp-ai to crates.io
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'sdk-rust'
+    defaults:
+      run:
+        working-directory: sdks/rust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}

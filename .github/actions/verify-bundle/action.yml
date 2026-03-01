@@ -1,5 +1,5 @@
 name: "DCP Verify Bundle"
-description: "Verify a DCP signed bundle in CI/CD pipelines"
+description: "Verify a DCP signed bundle (V1 or V2 composite) in CI/CD pipelines"
 author: "DCP-AI"
 
 inputs:

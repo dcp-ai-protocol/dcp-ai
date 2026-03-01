@@ -1,5 +1,5 @@
 name: "DCP Conformance Tests"
-description: "Run DCP conformance tests to validate protocol compliance"
+description: "Run DCP V1 + V2 conformance tests to validate protocol compliance (schemas, golden vectors, interop)"
 author: "DCP-AI"
 
 inputs:

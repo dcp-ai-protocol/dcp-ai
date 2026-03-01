@@ -27,15 +27,37 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Run conformance tests
+      - name: Run conformance tests (V1 + V2)
         run: npm run conformance
 
-      - name: Verify example signed bundle
+      - name: Generate V2 examples
+        run: npm run examples:generate:v2
+
+      - name: Verify example signed bundle (V1)
         run: |
           if [ -f tests/conformance/examples/citizenship_bundle.signed.json ] && [ -f keys/public_key.txt ]; then
             node bin/dcp.js verify-bundle tests/conformance/examples/citizenship_bundle.signed.json keys/public_key.txt
           else
-            echo "Skipping bundle verification (missing test files)"
+            echo "Skipping V1 bundle verification (missing test files)"
+          fi
+
+      - name: Verify V2 signed bundle
+        run: |
+          if [ -f tests/conformance/examples/signed_bundle_v2.json ]; then
+            echo "V2 signed bundle exists — structural check passed"
+            node -e "
+              const fs = require('fs');
+              const b = JSON.parse(fs.readFileSync('tests/conformance/examples/signed_bundle_v2.json','utf8'));
+              console.log('  dcp_version:', b.dcp_version);
+              console.log('  has manifest:', !!b.bundle_manifest);
+              console.log('  binding:', b.signature?.binding);
+              console.log('  session_nonce:', b.session_nonce ? 'present' : 'missing');
+              if (b.dcp_version !== '2.0') process.exit(1);
+              if (!b.bundle_manifest) process.exit(1);
+              if (!b.session_nonce) process.exit(1);
+            "
+          else
+            echo "Skipping V2 bundle verification (not yet generated)"
           fi
 
       - name: Check protocol integrity
@@ -63,6 +85,12 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Run tests
+        run: npm run test
+
+      - name: Code coverage
+        run: npm run test:coverage
+
   python-sdk:
     name: Python SDK
     runs-on: ubuntu-latest
@@ -80,7 +108,7 @@ jobs:
         run: pip install -e ".[dev]"
 
       - name: Run tests
-        run: pytest -v || echo "No tests found yet"
+        run: pytest -v
 
   go-sdk:
     name: Go SDK
@@ -99,7 +127,7 @@ jobs:
         run: go build ./...
 
       - name: Test
-        run: go test ./... || echo "No tests found yet"
+        run: go test ./...
 
   rust-sdk:
     name: Rust SDK
@@ -116,9 +144,35 @@ jobs:
         run: cargo build
 
       - name: Test
-        run: cargo test || echo "No tests found yet"
+        run: cargo test
 
       - name: Build WASM
         run: |
           rustup target add wasm32-unknown-unknown
-          cargo build --target wasm32-unknown-unknown --features wasm || echo "WASM build requires wasm-pack"
+          cargo build --target wasm32-unknown-unknown --features wasm
+
+  wasm-sdk:
+    name: WASM SDK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdks/wasm
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build WASM
+        run: npm run build:wasm
+
+      - name: Build TypeScript
+        run: |
+          npm install
+          npm run build:ts

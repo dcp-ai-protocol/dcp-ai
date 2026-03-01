@@ -1,10 +1,28 @@
-# DCP-AI Full Stack — docker compose up
+# DCP-AI v2.0 Full Stack — docker compose up
 #
 # Services:
-#   - verification:     POST /verify          (port 3000)
-#   - anchor:           POST /anchor          (port 3001)
-#   - transparency-log: POST /add, GET /proof (port 3002)
-#   - revocation:       POST /revoke          (port 3003)
+#   - verification:     V1/V2 bundle verification, passport register,
+#                       intent declare, audit, key rotation, emergency revoke,
+#                       multi-party auth, algorithm advisories, audit compaction
+#                       (port 3000)
+#   - anchor:           Blockchain anchoring service (port 3001)
+#   - transparency-log: Merkle transparency log (port 3002)
+#   - revocation:       Key/agent revocation service (port 3003)
+#
+# V2 Endpoints on verification service:
+#   POST /v2/passport/register          — Register agent passport + keys
+#   POST /v2/intent/declare             — Declare intent, get policy decision
+#   POST /v2/audit/append               — Append audit event
+#   POST /v2/audit/compact              — Audit trail compaction
+#   POST /v2/bundle/verify              — Full V2 composite verification
+#   GET  /v2/keys/:kid                  — Key registry lookup
+#   POST /v2/keys/rotate                — Key rotation with PoP
+#   POST /v2/emergency-revoke           — Panic button revocation
+#   POST /v2/multi-party/authorize      — Multi-party M-of-N auth
+#   POST /v2/advisory/publish           — Publish algorithm advisory
+#   GET  /v2/advisory/check             — Check active advisories
+#   GET  /.well-known/dcp-capabilities.json
+#   GET  /.well-known/algorithm-advisories.json
 
 version: "3.9"
 
@@ -18,6 +36,14 @@ services:
       - "3000:3000"
     environment:
       - PORT=3000
+      - DCP_VERSION=2.0
+      - VERIFIER_MODE=hybrid_required
+      - REQUIRE_SESSION_BINDING=true
+      - REQUIRE_COMPOSITE_BINDING=true
+      - MAX_KEY_AGE_DAYS=365
+      - ALLOW_V1_BUNDLES=true
+      - PQ_CHECKPOINT_INTERVAL=10
+      - ADVISORY_POLL_INTERVAL_MS=86400000
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
@@ -34,6 +60,7 @@ services:
       - "3001:3001"
     environment:
       - PORT=3001
+      - DCP_VERSION=2.0
       - ANCHOR_MODE=batch
       - BATCH_INTERVAL_MS=60000
       # Configure for production:
@@ -56,6 +83,7 @@ services:
       - "3002:3002"
     environment:
       - PORT=3002
+      - DCP_VERSION=2.0
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3002/health"]
@@ -72,6 +100,7 @@ services:
       - "3003:3003"
     environment:
       - PORT=3003
+      - DCP_VERSION=2.0
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3003/health"]

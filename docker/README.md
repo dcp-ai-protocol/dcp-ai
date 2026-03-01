@@ -31,13 +31,21 @@ curl http://localhost:3003/health
 
 ### verification (`:3000`)
 
-Signed Bundle verification server for DCP.
+Signed Bundle verification server for DCP (V1 + V2 + Phase 3).
 
 ```bash
-# Verify a bundle
+# V1 verification
 curl -X POST http://localhost:3000/verify \
   -H "Content-Type: application/json" \
-  -d @signed_bundle.json
+  -d '{"signed_bundle": {"bundle": {...}, "signature": {...}}, "public_key_b64": "..."}'
+
+# V2 composite verification
+curl -X POST http://localhost:3000/v2/bundle/verify \
+  -H "Content-Type: application/json" \
+  -d '{"signed_bundle": {"dcp_version":"2.0","bundle":{...},"signature":{...}}}'
+
+# Capability discovery
+curl http://localhost:3000/.well-known/dcp-capabilities.json
 ```
 
 ### anchor (`:3001`)
@@ -63,6 +71,11 @@ Each service is configured via environment variables in `docker-compose.yml`:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `3000` | HTTP port |
+| `VERIFIER_MODE` | `hybrid_required` | V2 verification mode |
+| `REQUIRE_SESSION_BINDING` | `true` | Enforce session nonce in V2 |
+| `REQUIRE_COMPOSITE_BINDING` | `true` | Require composite signatures |
+| `MAX_KEY_AGE_DAYS` | `365` | Max key age before rotation |
+| `ALLOW_V1_BUNDLES` | `true` | Accept V1 format bundles |
 
 #### anchor
 
@@ -144,15 +157,15 @@ All services have health checks configured:
 cd docker
 docker compose up -d
 
-# 2. Verify a signed bundle
+# 2. Verify a signed bundle (note: body must wrap in signed_bundle key)
 curl -X POST http://localhost:3000/verify \
   -H "Content-Type: application/json" \
-  -d @tests/conformance/examples/citizenship_bundle.signed.json
+  -d "{\"signed_bundle\": $(cat tests/conformance/examples/citizenship_bundle.signed.json)}"
 
 # 3. Anchor the hash
-HASH=$(curl -s http://localhost:3000/verify \
+HASH=$(curl -s -X POST http://localhost:3000/verify \
   -H "Content-Type: application/json" \
-  -d @tests/conformance/examples/citizenship_bundle.signed.json \
+  -d "{\"signed_bundle\": $(cat tests/conformance/examples/citizenship_bundle.signed.json)}" \
   | jq -r '.bundle_hash')
 curl -X POST http://localhost:3001/anchor \
   -H "Content-Type: application/json" \
