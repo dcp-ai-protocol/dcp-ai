@@ -30,12 +30,48 @@ export interface MultiPartyPolicy {
   requireOwner: boolean;
 }
 
+export interface MultiPartyConfig {
+  thresholds?: Partial<Record<MultiPartyOperation, number>>;
+  ownerRequirements?: Partial<Record<MultiPartyOperation, boolean>>;
+  roleOverrides?: Partial<Record<MultiPartyOperation, AuthorizationRole[]>>;
+}
+
+const MIN_THRESHOLD = 2;
+
 export const DEFAULT_MULTI_PARTY_POLICIES: Record<MultiPartyOperation, MultiPartyPolicy> = {
   revoke_agent: { requiredParties: 2, allowedRoles: ['owner', 'org_admin', 'recovery_contact'], requireOwner: true },
   rotate_org_key: { requiredParties: 2, allowedRoles: ['owner', 'org_admin'], requireOwner: true },
   change_jurisdiction: { requiredParties: 2, allowedRoles: ['owner', 'org_admin'], requireOwner: true },
   modify_recovery_config: { requiredParties: 2, allowedRoles: ['owner', 'org_admin', 'recovery_contact'], requireOwner: true },
 };
+
+/**
+ * Create custom multi-party policies from a configuration object.
+ * Thresholds are enforced to be >= MIN_THRESHOLD (2) for security.
+ */
+export function createMultiPartyPolicies(
+  config: MultiPartyConfig,
+): Record<MultiPartyOperation, MultiPartyPolicy> {
+  const operations: MultiPartyOperation[] = [
+    'revoke_agent', 'rotate_org_key', 'change_jurisdiction', 'modify_recovery_config',
+  ];
+
+  const result = { ...DEFAULT_MULTI_PARTY_POLICIES };
+
+  for (const op of operations) {
+    const threshold = config.thresholds?.[op];
+    const roles = config.roleOverrides?.[op];
+    const requireOwner = config.ownerRequirements?.[op];
+
+    result[op] = {
+      requiredParties: Math.max(MIN_THRESHOLD, threshold ?? result[op].requiredParties),
+      allowedRoles: roles ?? result[op].allowedRoles,
+      requireOwner: requireOwner ?? result[op].requireOwner,
+    };
+  }
+
+  return result;
+}
 
 /**
  * Create a single party's authorization signature for an operation.

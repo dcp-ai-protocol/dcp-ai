@@ -174,6 +174,8 @@ export interface BundleManifest {
   audit_merkle_root_secondary?: string;
   audit_count: number;
   pq_checkpoints?: string[];
+  session_expires_at?: string;
+  intended_verifier?: string;
 }
 
 export interface BundleSignerV2 {
@@ -226,6 +228,14 @@ export interface VerifierPolicy {
   warn_classical_only_deprecated?: boolean;
   /** Phase 3: rejected algorithms from advisory auto-response */
   advisory_rejected_algs?: string[];
+  /** Require bundles to include session_expires_at */
+  require_session_expiry?: boolean;
+  /** Max allowed session duration in seconds (0 = no limit) */
+  max_session_duration_seconds?: number;
+  /** Require bundles to include intended_verifier matching this verifier's ID */
+  require_audience_binding?: boolean;
+  /** This verifier's identity for audience binding checks */
+  verifier_id?: string;
 }
 
 // ── Governance Key Ceremony ──

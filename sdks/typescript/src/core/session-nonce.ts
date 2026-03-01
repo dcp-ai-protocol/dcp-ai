@@ -58,3 +58,26 @@ export function verifySessionBinding(
 
   return { valid: true, nonce: first };
 }
+
+const DEFAULT_SESSION_DURATIONS: Record<string, number> = {
+  routine: 86400,
+  standard: 14400,
+  elevated: 3600,
+  maximum: 900,
+};
+
+/**
+ * Generate an ISO 8601 session expiry timestamp.
+ * @param durationSeconds - how long the session is valid (default: 4 hours)
+ */
+export function generateSessionExpiry(durationSeconds?: number, tier?: string): string {
+  const duration = durationSeconds ?? (tier ? DEFAULT_SESSION_DURATIONS[tier] ?? 14400 : 14400);
+  return new Date(Date.now() + duration * 1000).toISOString();
+}
+
+/**
+ * Check whether a session_expires_at timestamp has passed.
+ */
+export function isSessionExpired(expiresAt: string): boolean {
+  return new Date(expiresAt) < new Date();
+}

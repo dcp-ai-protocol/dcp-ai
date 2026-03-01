@@ -45,6 +45,16 @@
     "pq_checkpoints": {
       "type": "array",
       "items": { "type": "string" }
+    },
+    "session_expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp after which this session/bundle should be considered expired."
+    },
+    "intended_verifier": {
+      "type": "string",
+      "maxLength": 256,
+      "description": "Audience binding — identifier of the intended verifier. Prevents relay attacks."
     }
   }
 }

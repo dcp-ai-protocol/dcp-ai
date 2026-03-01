@@ -51,11 +51,11 @@ if (isV2) {
         id: bundle.responsible_principal_record?.human_id || null,
         keys: [
           { kid, algorithm: "Ed25519", public_key_b64: publicKeyB64 },
-          { kid: hybrid.pq.kid, algorithm: "ML-DSA-65", public_key_b64: hybrid.pq.publicKeyB64, simulated: true },
+          { kid: hybrid.pq.kid, algorithm: "ML-DSA-65", public_key_b64: hybrid.pq.publicKeyB64 },
         ],
       },
     },
-    session_nonce: crypto.randomBytes(16).toString("hex"),
+    session_nonce: crypto.randomBytes(32).toString("hex"),
   };
 
   fs.writeFileSync(outPath, JSON.stringify(signed, null, 2));

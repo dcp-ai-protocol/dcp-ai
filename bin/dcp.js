@@ -1,8 +1,60 @@
 #!/usr/bin/env node
 import fs from "fs";
 import path from "path";
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 import crypto from "crypto";
+import { ml_dsa65 } from "@noble/post-quantum/ml-dsa";
+import nacl from "tweetnacl";
+
+const ALLOWED_BASE_DIRS = [process.cwd()];
+
+function safePath(userPath) {
+  const resolved = path.resolve(userPath);
+  const isAllowed = ALLOWED_BASE_DIRS.some(base => resolved.startsWith(path.resolve(base) + path.sep) || resolved === path.resolve(base));
+  if (!isAllowed) {
+    console.error(`Error: path '${userPath}' is outside the allowed working directory`);
+    process.exit(2);
+  }
+  return resolved;
+}
+
+function safeParseJSON(filePath, label) {
+  try {
+    return JSON.parse(fs.readFileSync(filePath, "utf8"));
+  } catch (err) {
+    console.error(`Error: failed to parse ${label || filePath}: ${err.message}`);
+    process.exit(2);
+  }
+}
+
+function safeParseInt(value, name) {
+  const n = parseInt(value, 10);
+  if (Number.isNaN(n) || !Number.isFinite(n)) {
+    console.error(`Error: ${name} must be a valid integer, got '${value}'`);
+    process.exit(2);
+  }
+  return n;
+}
+
+function writeSecretFile(filePath, contents) {
+  fs.writeFileSync(filePath, contents, { mode: 0o600 });
+}
+
+const ALLOWED_ENDPOINT_PATTERN = /^https?:\/\/[a-zA-Z0-9._-]+(:\d{1,5})?(\/[a-zA-Z0-9._/-]*)?$/;
+
+function safeEndpoint(url) {
+  if (!ALLOWED_ENDPOINT_PATTERN.test(url)) {
+    console.error(`Error: invalid endpoint URL '${url}'`);
+    process.exit(2);
+  }
+  const parsed = new URL(url);
+  const forbidden = ["169.254.169.254", "metadata.google.internal", "100.100.100.200"];
+  if (forbidden.includes(parsed.hostname)) {
+    console.error(`Error: endpoint '${url}' targets a forbidden host`);
+    process.exit(2);
+  }
+  return url;
+}
 
 function printHelp() {
   console.log(`
@@ -103,7 +155,7 @@ if (cmd === "validate") {
     console.error("Usage: dcp validate <schemaPath> <jsonPath>");
     process.exit(2);
   }
-  execSync(`node tools/validate.js ${schemaPath} ${jsonPath}`, { stdio: "inherit" });
+  execFileSync("node", ["tools/validate.js", safePath(schemaPath), safePath(jsonPath)], { stdio: "inherit" });
   process.exit(0);
 }
 
@@ -115,7 +167,7 @@ if (cmd === "validate-bundle") {
     process.exit(2);
   }
 
-  const bundle = JSON.parse(fs.readFileSync(bundlePath, "utf8"));
+  const bundle = safeParseJSON(safePath(bundlePath), "bundle");
   const artifactNames = ["responsible_principal_record", "agent_passport", "intent", "policy_decision"];
   for (const name of artifactNames) console.log(`Validating ${name}...`);
   if (Array.isArray(bundle.audit_entries)) {
@@ -137,7 +189,7 @@ if (cmd === "validate-bundle") {
 // ── Conformance ──
 if (cmd === "conformance") {
   try {
-    execSync("node tools/conformance.js", { stdio: "inherit" });
+    execFileSync("node", ["tools/conformance.js"], { stdio: "inherit" });
     process.exit(0);
   } catch { process.exit(1); }
 }
@@ -163,19 +215,18 @@ if (cmd === "keygen") {
     const { generateKeypair } = await import("../tools/crypto.js");
     const classicalKp = generateKeypair();
 
-    // For ML-DSA-65, generate a simulated keypair (actual PQ keygen requires SDK)
-    const pqSeed = crypto.randomBytes(32);
-    const pqPublicKey = crypto.randomBytes(1952);
-    const pqSecretKey = crypto.randomBytes(4032);
+    const pqKeys = ml_dsa65.keygen();
+    const pqPublicKey = Buffer.from(pqKeys.publicKey);
+    const pqSecretKey = Buffer.from(pqKeys.secretKey);
 
     const classicalKid = deriveKid("ed25519", Buffer.from(classicalKp.publicKeyB64, "base64"));
     const pqKid = deriveKid("ml-dsa-65", pqPublicKey);
 
     fs.writeFileSync(path.join(outDir, "ed25519_public_key.txt"), classicalKp.publicKeyB64 + "\n");
-    fs.writeFileSync(path.join(outDir, "ed25519_secret_key.txt"), classicalKp.secretKeyB64 + "\n");
+    writeSecretFile(path.join(outDir, "ed25519_secret_key.txt"), classicalKp.secretKeyB64 + "\n");
     fs.writeFileSync(path.join(outDir, "ed25519_kid.txt"), classicalKid + "\n");
     fs.writeFileSync(path.join(outDir, "ml_dsa_65_public_key.txt"), pqPublicKey.toString("base64") + "\n");
-    fs.writeFileSync(path.join(outDir, "ml_dsa_65_secret_key.txt"), pqSecretKey.toString("base64") + "\n");
+    writeSecretFile(path.join(outDir, "ml_dsa_65_secret_key.txt"), pqSecretKey.toString("base64") + "\n");
     fs.writeFileSync(path.join(outDir, "ml_dsa_65_kid.txt"), pqKid + "\n");
 
     console.log(`✅ Hybrid keypair written to ${outDir}/`);
@@ -196,24 +247,22 @@ if (cmd === "keygen") {
       const kp = generateKeypair();
       const kid = deriveKid("ed25519", Buffer.from(kp.publicKeyB64, "base64"));
       fs.writeFileSync(path.join(outDir, "public_key.txt"), kp.publicKeyB64 + "\n");
-      fs.writeFileSync(path.join(outDir, "secret_key.txt"), kp.secretKeyB64 + "\n");
+      writeSecretFile(path.join(outDir, "secret_key.txt"), kp.secretKeyB64 + "\n");
       fs.writeFileSync(path.join(outDir, "kid.txt"), kid + "\n");
       console.log(`✅ Ed25519 keypair written to ${outDir}/ (kid: ${kid})`);
-    } else {
-      // PQ algorithm — generate placeholder keys with correct sizes
-      const sizes = {
-        "ml-dsa-65": { pk: 1952, sk: 4032 },
-        "ml-dsa-87": { pk: 2592, sk: 4896 },
-        "slh-dsa-192f": { pk: 48, sk: 96 },
-      };
-      const s = sizes[specificAlg];
-      const pk = crypto.randomBytes(s.pk);
-      const sk = crypto.randomBytes(s.sk);
+    } else if (specificAlg === "ml-dsa-65") {
+      const pqKeys = ml_dsa65.keygen();
+      const pk = Buffer.from(pqKeys.publicKey);
+      const sk = Buffer.from(pqKeys.secretKey);
       const kid = deriveKid(specificAlg, pk);
       fs.writeFileSync(path.join(outDir, "public_key.txt"), pk.toString("base64") + "\n");
-      fs.writeFileSync(path.join(outDir, "secret_key.txt"), sk.toString("base64") + "\n");
+      writeSecretFile(path.join(outDir, "secret_key.txt"), sk.toString("base64") + "\n");
       fs.writeFileSync(path.join(outDir, "kid.txt"), kid + "\n");
       console.log(`✅ ${specificAlg} keypair written to ${outDir}/ (kid: ${kid})`);
+    } else {
+      console.error(`Algorithm ${specificAlg} keygen requires the corresponding SDK provider.`);
+      console.error("Supported for real keygen: ed25519, ml-dsa-65");
+      process.exit(2);
     }
     process.exit(0);
   }
@@ -222,7 +271,7 @@ if (cmd === "keygen") {
   const { generateKeypair } = await import("../tools/crypto.js");
   const kp = generateKeypair();
   fs.writeFileSync(path.join(outDir, "public_key.txt"), kp.publicKeyB64 + "\n");
-  fs.writeFileSync(path.join(outDir, "secret_key.txt"), kp.secretKeyB64 + "\n");
+  writeSecretFile(path.join(outDir, "secret_key.txt"), kp.secretKeyB64 + "\n");
   console.log(`✅ Keypair written to ${outDir}/public_key.txt and ${outDir}/secret_key.txt`);
   process.exit(0);
 }
@@ -238,7 +287,7 @@ if (cmd === "kid") {
     process.exit(2);
   }
 
-  const publicKeyB64 = fs.readFileSync(publicKeyPath, "utf8").trim();
+  const publicKeyB64 = fs.readFileSync(safePath(publicKeyPath), "utf8").trim();
   const pkBytes = Buffer.from(publicKeyB64, "base64");
   const kid = deriveKid(alg, pkBytes);
   console.log(kid);
@@ -262,9 +311,9 @@ if (cmd === "sign-bundle") {
       process.exit(2);
     }
 
-    const bundle = JSON.parse(fs.readFileSync(bundlePath, "utf8"));
-    const edSecret = fs.readFileSync(edSecretPath, "utf8").trim();
-    const pqSecret = fs.readFileSync(pqSecretPath, "utf8").trim();
+    const bundle = safeParseJSON(safePath(bundlePath), "bundle");
+    const edSecret = fs.readFileSync(safePath(edSecretPath), "utf8").trim();
+    const pqSecret = fs.readFileSync(safePath(pqSecretPath), "utf8").trim();
 
     // Compute manifest hash
     const manifestJson = JSON.stringify(bundle.manifest || bundle);
@@ -276,17 +325,17 @@ if (cmd === "sign-bundle") {
     const pqPkStub = crypto.createHash("sha256").update(Buffer.from(pqSecret, "base64")).digest();
     const pqKid = deriveKid("ml-dsa-65", pqPkStub);
 
-    // Sign with Ed25519 using domain separation
     const { signObject, canonicalize, domainSeparatedMessage } = await import("../tools/crypto.js");
     const domainMsg = domainSeparatedMessage("bundle", bundle.manifest || bundle);
     const canonicalManifest = canonicalize(bundle.manifest || bundle);
     const edSig = signObject(JSON.parse(canonicalManifest), edSecret);
 
-    // PQ signature: HMAC-based simulation (production: use real ML-DSA-65 via FIPS 204)
     const pqSecretBuf = Buffer.from(pqSecret, "base64");
-    const pqSigSimulated = crypto.createHmac("sha256", pqSecretBuf.subarray(0, 64))
-      .update(Buffer.from(domainMsg, "utf8"))
-      .digest("base64");
+    const msgBytes = Buffer.from(domainMsg, "utf8");
+    const edSigBytes = Buffer.from(edSig, "base64");
+    const bindingInput = Buffer.concat([msgBytes, edSigBytes]);
+    const pqSigReal = ml_dsa65.sign(pqSecretBuf, bindingInput);
+    const pqSigB64 = Buffer.from(pqSigReal).toString("base64");
 
     const signedBundle = {
       dcp_version: "2.0",
@@ -309,8 +358,7 @@ if (cmd === "sign-bundle") {
           pq: {
             alg: "ml-dsa-65",
             kid: pqKid,
-            sig_b64: pqSigSimulated,
-            simulated: true,
+            sig_b64: pqSigB64,
           },
           binding: "pq_over_classical",
         },
@@ -331,7 +379,7 @@ if (cmd === "sign-bundle") {
     console.error("Usage: dcp sign-bundle <bundle.json> <secret_key.txt> [out.json]");
     process.exit(2);
   }
-  execSync(`node tools/bundle_sign.js ${bundlePath} ${secretKeyPath} ${outPath}`, { stdio: "inherit" });
+  execFileSync("node", ["tools/bundle_sign.js", safePath(bundlePath), safePath(secretKeyPath), safePath(outPath)], { stdio: "inherit" });
   process.exit(0);
 }
 
@@ -354,7 +402,7 @@ if (cmd === "verify-bundle") {
     process.exit(2);
   }
 
-  const signedBundle = JSON.parse(fs.readFileSync(signedPath, "utf8"));
+  const signedBundle = safeParseJSON(safePath(signedPath), "signed bundle");
 
   // Detect version
   const isV2 = signedBundle.bundle?.dcp_bundle_version === "2.0" ||
@@ -379,6 +427,19 @@ if (cmd === "verify-bundle") {
         console.log(`✅ Session nonce: ${bundle.manifest.session_nonce.slice(0, 16)}...`);
       } else {
         errors.push("Invalid session_nonce");
+      }
+
+      if (bundle.manifest.session_expires_at) {
+        const expiresAt = new Date(bundle.manifest.session_expires_at);
+        if (expiresAt < new Date()) {
+          errors.push(`Session expired at ${bundle.manifest.session_expires_at}`);
+        } else {
+          console.log(`✅ Session valid until: ${bundle.manifest.session_expires_at}`);
+        }
+      }
+
+      if (bundle.manifest.intended_verifier) {
+        console.log(`✅ Intended verifier: ${bundle.manifest.intended_verifier}`);
       }
     } else {
       errors.push("Missing manifest");
@@ -441,7 +502,7 @@ if (cmd === "verify-bundle") {
     process.exit(2);
   }
 
-  const publicKeyB64 = fs.readFileSync(publicKeyPath, "utf8").trim();
+  const publicKeyB64 = fs.readFileSync(safePath(publicKeyPath), "utf8").trim();
   const { verifySignedBundle } = await import("../lib/verify.js");
   const result = verifySignedBundle(signedBundle, publicKeyB64);
   if (result.verified) {
@@ -463,7 +524,7 @@ if (cmd === "bundle-hash") {
     process.exit(2);
   }
   const { canonicalize } = await import("../tools/merkle.js");
-  const bundle = JSON.parse(fs.readFileSync(bundlePath, "utf8"));
+  const bundle = safeParseJSON(safePath(bundlePath), "bundle");
   const hex = crypto.createHash("sha256").update(canonicalize(bundle), "utf8").digest("hex");
   console.log(`sha256:${hex}`);
   process.exit(0);
@@ -477,7 +538,7 @@ if (cmd === "merkle-root") {
     process.exit(2);
   }
   const { merkleRootForAuditEntries } = await import("../tools/merkle.js");
-  const bundle = JSON.parse(fs.readFileSync(bundlePath, "utf8"));
+  const bundle = safeParseJSON(safePath(bundlePath), "bundle");
   if (!Array.isArray(bundle.audit_entries) || bundle.audit_entries.length === 0) {
     console.error("audit_entries must be a non-empty array");
     process.exit(2);
@@ -495,19 +556,20 @@ if (cmd === "intent-hash") {
     process.exit(2);
   }
   const { intentHash } = await import("../tools/merkle.js");
-  const intent = JSON.parse(fs.readFileSync(intentPath, "utf8"));
+  const intent = safeParseJSON(safePath(intentPath), "intent");
   console.log(intentHash(intent));
   process.exit(0);
 }
 
 // ── recovery-setup — Generate Shamir shares ──
 if (cmd === "recovery-setup") {
+  const secrets = (await import("secrets.js-grempe")).default;
+
   const thresholdIdx = args.indexOf("--threshold");
   const sharesIdx = args.indexOf("--shares");
-  const threshold = thresholdIdx >= 0 ? parseInt(args[thresholdIdx + 1]) : 2;
-  const totalShares = sharesIdx >= 0 ? parseInt(args[sharesIdx + 1]) : 3;
+  const threshold = thresholdIdx >= 0 ? safeParseInt(args[thresholdIdx + 1], "threshold") : 2;
+  const totalShares = sharesIdx >= 0 ? safeParseInt(args[sharesIdx + 1], "shares") : 3;
 
-  // Find output directory
   let outDir = "recovery";
   for (let i = 1; i < args.length; i++) {
     if (!args[i].startsWith("--") && !["--threshold", "--shares"].includes(args[i - 1]) && args[i] !== cmd) {
@@ -522,19 +584,21 @@ if (cmd === "recovery-setup") {
     process.exit(2);
   }
 
-  // Generate a master secret and split it
-  const masterSecret = crypto.randomBytes(64);
-  const shares = [];
+  if (totalShares > 255) {
+    console.error("Error: total shares must be <= 255");
+    process.exit(2);
+  }
 
-  for (let i = 1; i <= totalShares; i++) {
-    // WARNING: This uses random byte generation as a placeholder.
-    // Production deployments MUST use a proper Shamir Secret Sharing (SSS) library
-    // such as `shamir` or `secrets.js-grempe` to ensure threshold-correct reconstruction.
-    const shareData = crypto.randomBytes(masterSecret.length);
-    shares.push({ index: i, data: shareData.toString("hex") });
-    fs.writeFileSync(
-      path.join(outDir, `share_${i}.txt`),
-      JSON.stringify({ index: i, data: shareData.toString("hex"), note: "placeholder-requires-sss-library" }) + "\n"
+  const masterSecret = crypto.randomBytes(64);
+  const masterHex = secrets.str2hex(masterSecret.toString("hex"));
+  const rawShares = secrets.share(masterHex, totalShares, threshold);
+
+  const shares = [];
+  for (let i = 0; i < rawShares.length; i++) {
+    shares.push({ index: i + 1, data: rawShares[i] });
+    writeSecretFile(
+      path.join(outDir, `share_${i + 1}.txt`),
+      JSON.stringify({ index: i + 1, data: rawShares[i] }) + "\n"
     );
   }
 
@@ -555,6 +619,40 @@ if (cmd === "recovery-setup") {
   console.log(`✅ Recovery setup complete (${threshold}-of-${totalShares})`);
   console.log(`   Shares written to ${outDir}/share_*.txt`);
   console.log(`   Config written to ${outDir}/recovery_config.json`);
+  console.log(`   Shares use real Shamir Secret Sharing — any ${threshold} shares can reconstruct the secret.`);
+  process.exit(0);
+}
+
+// ── recovery-reconstruct — Reconstruct master secret from M shares ──
+if (cmd === "recovery-reconstruct") {
+  const secrets = (await import("secrets.js-grempe")).default;
+
+  const shareFiles = args.slice(1).filter(a => !a.startsWith("--"));
+  if (shareFiles.length < 2) {
+    console.error("Usage: dcp recovery-reconstruct <share1.txt> <share2.txt> [share3.txt ...]");
+    process.exit(2);
+  }
+
+  const shareData = [];
+  for (const sf of shareFiles) {
+    const content = safeParseJSON(safePath(sf), `share file ${sf}`);
+    if (!content.data) {
+      console.error(`Error: share file ${sf} missing 'data' field`);
+      process.exit(2);
+    }
+    shareData.push(content.data);
+  }
+
+  try {
+    const reconstructedHex = secrets.combine(shareData);
+    const masterHex = secrets.hex2str(reconstructedHex);
+    console.log(`✅ Master secret reconstructed from ${shareData.length} shares`);
+    console.log(`   Secret (hex): ${masterHex}`);
+  } catch (err) {
+    console.error(`❌ Failed to reconstruct secret: ${err.message}`);
+    console.error("   Ensure you have the minimum threshold number of valid shares.");
+    process.exit(1);
+  }
   process.exit(0);
 }
 
@@ -566,7 +664,7 @@ if (cmd === "emergency-revoke") {
 
   const agentId = agentIdx >= 0 ? args[agentIdx + 1] : null;
   const token = tokenIdx >= 0 ? args[tokenIdx + 1] : null;
-  const endpoint = endpointIdx >= 0 ? args[endpointIdx + 1] : "http://localhost:3000";
+  const endpoint = safeEndpoint(endpointIdx >= 0 ? args[endpointIdx + 1] : "http://localhost:3000");
 
   if (!agentId || !token) {
     console.error("Usage: dcp emergency-revoke --agent <agent_id> --token <revocation_secret> [--endpoint <url>]");
@@ -616,28 +714,27 @@ if (cmd === "rotate-key") {
 
   const oldKid = oldKidIdx >= 0 ? args[oldKidIdx + 1] : null;
   const newAlg = newAlgIdx >= 0 ? args[newAlgIdx + 1] : "ml-dsa-65";
-  const endpoint = endpointIdx >= 0 ? args[endpointIdx + 1] : "http://localhost:3000";
+  const endpoint = safeEndpoint(endpointIdx >= 0 ? args[endpointIdx + 1] : "http://localhost:3000");
 
   if (!oldKid) {
     console.error("Usage: dcp rotate-key --old-kid <kid> [--new-alg <alg>] [--endpoint <url>]");
     process.exit(2);
   }
 
-  // Generate a new key for the specified algorithm
-  const sizes = {
-    "ed25519": { pk: 32, sk: 64 },
-    "ml-dsa-65": { pk: 1952, sk: 4032 },
-    "ml-dsa-87": { pk: 2592, sk: 4896 },
-    "slh-dsa-192f": { pk: 48, sk: 96 },
-  };
-
-  const algSizes = sizes[newAlg];
-  if (!algSizes) {
-    console.error(`Unsupported algorithm: ${newAlg}`);
+  if (!["ed25519", "ml-dsa-65"].includes(newAlg)) {
+    console.error(`Unsupported algorithm for rotation: ${newAlg}. Supported: ed25519, ml-dsa-65`);
     process.exit(2);
   }
 
-  const newPk = crypto.randomBytes(algSizes.pk);
+  let newPk;
+  if (newAlg === "ml-dsa-65") {
+    const pqKeys = ml_dsa65.keygen();
+    newPk = Buffer.from(pqKeys.publicKey);
+  } else {
+    const { generateKeypair } = await import("../tools/crypto.js");
+    const kp = generateKeypair();
+    newPk = Buffer.from(kp.publicKeyB64, "base64");
+  }
   const newKid = deriveKid(newAlg, newPk);
 
   try {
@@ -684,7 +781,7 @@ if (cmd === "rotate-key") {
 
 // ── capabilities — Query server capabilities ──
 if (cmd === "capabilities") {
-  const endpoint = args[1] || "http://localhost:3000";
+  const endpoint = safeEndpoint(args[1] || "http://localhost:3000");
 
   try {
     const response = await fetch(`${endpoint}/.well-known/dcp-capabilities.json`);
@@ -783,17 +880,20 @@ if (cmd === "keys" && args[1] === "rotate") {
   console.log(`Old key kid:    ${oldKid}`);
   console.log(`New algorithm:  ${newAlg}`);
 
-  // Generate new keypair
-  const sizes = {
-    "ed25519": { pk: 32, sk: 64 },
-    "ml-dsa-65": { pk: 1952, sk: 4032 },
-    "ml-dsa-87": { pk: 2592, sk: 4896 },
-    "slh-dsa-192f": { pk: 48, sk: 96 },
-  };
-
-  const s = sizes[newAlg];
-  const newPk = crypto.randomBytes(s.pk);
-  const newSk = crypto.randomBytes(s.sk);
+  let newPk, newSk;
+  if (newAlg === "ml-dsa-65") {
+    const pqKeys = ml_dsa65.keygen();
+    newPk = Buffer.from(pqKeys.publicKey);
+    newSk = Buffer.from(pqKeys.secretKey);
+  } else if (newAlg === "ed25519") {
+    const { generateKeypair } = await import("../tools/crypto.js");
+    const kp = generateKeypair();
+    newPk = Buffer.from(kp.publicKeyB64, "base64");
+    newSk = Buffer.from(kp.secretKeyB64, "base64");
+  } else {
+    console.error(`Algorithm ${newAlg} keygen requires the corresponding SDK provider.`);
+    process.exit(2);
+  }
   const newKid = deriveKid(newAlg, newPk);
 
   // Create rotation record
@@ -823,7 +923,7 @@ if (cmd === "keys" && args[1] === "rotate") {
   ensureDir(rotDir);
 
   fs.writeFileSync(path.join(rotDir, "new_public_key.txt"), newPk.toString("base64") + "\n");
-  fs.writeFileSync(path.join(rotDir, "new_secret_key.txt"), newSk.toString("base64") + "\n");
+  writeSecretFile(path.join(rotDir, "new_secret_key.txt"), newSk.toString("base64") + "\n");
   fs.writeFileSync(path.join(rotDir, "new_kid.txt"), newKid + "\n");
   fs.writeFileSync(path.join(rotDir, "rotation_record.json"), JSON.stringify(rotationRecord, null, 2) + "\n");
 
@@ -841,7 +941,7 @@ if (cmd === "keys" && args[1] === "certify") {
   const endpointIdx = args.indexOf("--endpoint");
 
   const keyDir = keyDirIdx >= 0 ? args[keyDirIdx + 1] : "keys";
-  const endpoint = endpointIdx >= 0 ? args[endpointIdx + 1] : "http://localhost:3000";
+  const endpoint = safeEndpoint(endpointIdx >= 0 ? args[endpointIdx + 1] : "http://localhost:3000");
 
   const rotDir = path.join(keyDir, "rotation");
   const rotRecordPath = path.join(rotDir, "rotation_record.json");
@@ -852,7 +952,7 @@ if (cmd === "keys" && args[1] === "certify") {
     process.exit(2);
   }
 
-  const rotationRecord = JSON.parse(fs.readFileSync(rotRecordPath, "utf8"));
+  const rotationRecord = safeParseJSON(rotRecordPath, "rotation record");
 
   console.log("=== DCP Key Certification ===\n");
   console.log(`Gateway:  ${endpoint}`);
@@ -907,8 +1007,8 @@ if (cmd === "governance" && args[1] === "ceremony") {
   const thresholdIdx = args.indexOf("--threshold");
   const partiesIdx = args.indexOf("--parties");
 
-  const threshold = thresholdIdx >= 0 ? parseInt(args[thresholdIdx + 1]) : 2;
-  const totalParties = partiesIdx >= 0 ? parseInt(args[partiesIdx + 1]) : 3;
+  const threshold = thresholdIdx >= 0 ? safeParseInt(args[thresholdIdx + 1], "threshold") : 2;
+  const totalParties = partiesIdx >= 0 ? safeParseInt(args[partiesIdx + 1], "parties") : 3;
 
   let outDir = "governance";
   for (let i = 2; i < args.length; i++) {
@@ -936,14 +1036,14 @@ if (cmd === "governance" && args[1] === "ceremony") {
   for (let i = 1; i <= totalParties; i++) {
     const participantId = `governance-signer-${i}`;
 
-    // Generate Ed25519 key
-    const edPk = crypto.randomBytes(32);
-    const edSk = crypto.randomBytes(64);
+    const edKp = nacl.sign.keyPair();
+    const edPk = Buffer.from(edKp.publicKey);
+    const edSk = Buffer.from(edKp.secretKey);
     const edKid = deriveKid("ed25519", edPk);
 
-    // Generate ML-DSA-65 key
-    const pqPk = crypto.randomBytes(1952);
-    const pqSk = crypto.randomBytes(4032);
+    const pqKeys = ml_dsa65.keygen();
+    const pqPk = Buffer.from(pqKeys.publicKey);
+    const pqSk = Buffer.from(pqKeys.secretKey);
     const pqKid = deriveKid("ml-dsa-65", pqPk);
 
     const participant = {
@@ -964,8 +1064,8 @@ if (cmd === "governance" && args[1] === "ceremony") {
     // Write participant secrets to individual files
     const pDir = path.join(outDir, `participant_${i}`);
     ensureDir(pDir);
-    fs.writeFileSync(path.join(pDir, "ed25519_secret_key.txt"), edSk.toString("base64") + "\n");
-    fs.writeFileSync(path.join(pDir, "mldsa65_secret_key.txt"), pqSk.toString("base64") + "\n");
+    writeSecretFile(path.join(pDir, "ed25519_secret_key.txt"), edSk.toString("base64") + "\n");
+    writeSecretFile(path.join(pDir, "mldsa65_secret_key.txt"), pqSk.toString("base64") + "\n");
     fs.writeFileSync(path.join(pDir, "participant.json"), JSON.stringify(participant, null, 2) + "\n");
 
     console.log(`  Participant ${i}: ${participantId}`);
@@ -1032,7 +1132,7 @@ if (cmd === "governance" && args[1] === "sign-advisory") {
     process.exit(2);
   }
 
-  const advisory = JSON.parse(fs.readFileSync(advisoryPath, "utf8"));
+  const advisory = safeParseJSON(safePath(advisoryPath), "advisory");
   const participantPath = path.join(keyDir, "participant.json");
 
   if (!fs.existsSync(participantPath)) {
@@ -1040,7 +1140,7 @@ if (cmd === "governance" && args[1] === "sign-advisory") {
     process.exit(2);
   }
 
-  const participant = JSON.parse(fs.readFileSync(participantPath, "utf8"));
+  const participant = safeParseJSON(participantPath, "participant");
 
   console.log("=== Sign Algorithm Advisory ===\n");
   console.log(`Advisory:    ${advisory.advisory_id || "unknown"}`);
@@ -1060,6 +1160,25 @@ if (cmd === "governance" && args[1] === "sign-advisory") {
 
   const sigHash = crypto.createHash("sha256").update(advisoryPayload).digest("hex");
 
+  const edSkPath = path.join(keyDir, "ed25519_secret_key.txt");
+  const pqSkPath = path.join(keyDir, "mldsa65_secret_key.txt");
+  if (!fs.existsSync(edSkPath) || !fs.existsSync(pqSkPath)) {
+    console.error("Missing secret key files in key directory");
+    process.exit(2);
+  }
+  const edSkB64 = fs.readFileSync(edSkPath, "utf8").trim();
+  const pqSkB64 = fs.readFileSync(pqSkPath, "utf8").trim();
+
+  const payloadBytes = Buffer.from(advisoryPayload, "utf8");
+  const edSk = Buffer.from(edSkB64, "base64");
+  const edSig = nacl.sign.detached(payloadBytes, edSk);
+  const edSigB64 = Buffer.from(edSig).toString("base64");
+
+  const pqSk = Buffer.from(pqSkB64, "base64");
+  const bindingInput = Buffer.concat([payloadBytes, Buffer.from(edSig)]);
+  const pqSig = ml_dsa65.sign(pqSk, bindingInput);
+  const pqSigB64 = Buffer.from(pqSig).toString("base64");
+
   const governanceSig = {
     party_id: participant.participant_id,
     ed25519_kid: participant.ed25519_kid,
@@ -1069,12 +1188,12 @@ if (cmd === "governance" && args[1] === "sign-advisory") {
       classical: {
         alg: "ed25519",
         kid: participant.ed25519_kid,
-        sig_b64: crypto.randomBytes(64).toString("base64"),
+        sig_b64: edSigB64,
       },
       pq: {
         alg: "ml-dsa-65",
         kid: participant.mldsa65_kid,
-        sig_b64: crypto.randomBytes(3309).toString("base64"),
+        sig_b64: pqSigB64,
       },
       binding: "pq_over_classical",
     },
@@ -1103,12 +1222,18 @@ if (cmd === "governance" && args[1] === "verify-advisory") {
     process.exit(2);
   }
 
-  const advisory = JSON.parse(fs.readFileSync(advisoryPath, "utf8"));
-  const govKeys = JSON.parse(fs.readFileSync(keysPath, "utf8"));
+  const advisory = safeParseJSON(safePath(advisoryPath), "advisory");
+  const govKeys = safeParseJSON(safePath(keysPath), "governance keys");
 
   const threshold = govKeys.governance_key_set?.threshold || govKeys.threshold || 2;
+  const knownParticipants = new Set(
+    (govKeys.participants || govKeys.governance_key_set?.participants || []).map(p => p.participant_id)
+  );
+  const knownKids = new Set();
+  for (const p of (govKeys.participants || [])) {
+    for (const k of (p.keys || [])) knownKids.add(k.kid);
+  }
 
-  // Find signature files
   let sigFiles = [];
   if (sigsIdx >= 0) {
     sigFiles = args[sigsIdx + 1].split(",");
@@ -1127,14 +1252,45 @@ if (cmd === "governance" && args[1] === "verify-advisory") {
   console.log(`Threshold:   ${threshold}`);
   console.log(`Signatures:  ${sigFiles.length} found`);
 
+  const advisoryPayload = JSON.stringify({
+    advisory_id: advisory.advisory_id,
+    affected_algorithms: advisory.affected_algorithms,
+    action: advisory.action,
+    effective_date: advisory.effective_date,
+    issued_at: advisory.issued_at,
+  });
+  const expectedHash = "sha256:" + crypto.createHash("sha256").update(advisoryPayload).digest("hex");
+
   const validSigners = new Set();
   for (const sigFile of sigFiles) {
     if (!fs.existsSync(sigFile)) {
       console.log(`  ❌ ${sigFile}: file not found`);
       continue;
     }
-    const sig = JSON.parse(fs.readFileSync(sigFile, "utf8"));
-    console.log(`  ✅ ${sig.party_id} (${sig.ed25519_kid?.slice(0, 8)}...)`);
+    const sig = safeParseJSON(sigFile, "signature");
+
+    if (!sig.party_id || !sig.advisory_hash || !sig.composite_sig) {
+      console.log(`  ❌ ${sig.party_id || "unknown"}: malformed signature file`);
+      continue;
+    }
+
+    if (knownParticipants.size > 0 && !knownParticipants.has(sig.party_id)) {
+      console.log(`  ❌ ${sig.party_id}: not a registered governance participant`);
+      continue;
+    }
+
+    if (sig.advisory_hash !== expectedHash) {
+      console.log(`  ❌ ${sig.party_id}: advisory_hash mismatch (expected ${expectedHash.slice(0, 24)}..., got ${sig.advisory_hash?.slice(0, 24)}...)`);
+      continue;
+    }
+
+    if (!sig.composite_sig?.classical?.sig_b64) {
+      console.log(`  ❌ ${sig.party_id}: missing classical signature`);
+      continue;
+    }
+
+    console.log(`  ✅ ${sig.party_id} (${sig.ed25519_kid?.slice(0, 8)}...) — hash verified`);
+    console.log(`     ⚠️  Cryptographic signature verification requires DCP core SDK`);
     validSigners.add(sig.party_id);
   }
 
@@ -1142,9 +1298,10 @@ if (cmd === "governance" && args[1] === "verify-advisory") {
   console.log(`\nThreshold: ${validSigners.size}/${threshold} ${thresholdMet ? "✅ MET" : "❌ NOT MET"}`);
 
   if (thresholdMet) {
-    console.log("\n✅ Advisory governance signatures verified");
+    console.log("\n✅ Advisory governance signatures verified (structural + hash binding)");
+    console.log("   ⚠️  Full cryptographic verification requires DCP SDK integration");
   } else {
-    console.error(`\n❌ Need ${threshold - validSigners.size} more signature(s)`);
+    console.error(`\n❌ Need ${threshold - validSigners.size} more valid signature(s)`);
     process.exit(1);
   }
   process.exit(0);
@@ -1229,7 +1386,7 @@ if (cmd === "integrity") {
     console.error("protocol_fingerprints.json not found. Run from repo root.");
     process.exit(2);
   }
-  const fingerprints = JSON.parse(fs.readFileSync(fingerprintsPath, "utf8"));
+  const fingerprints = safeParseJSON(fingerprintsPath, "protocol fingerprints");
   const expected = fingerprints.schema_fingerprints;
   const schemasDir = path.join(process.cwd(), "schemas", "v1");
   let failures = 0;

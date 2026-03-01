@@ -23,7 +23,7 @@
     },
     "required_parties": {
       "type": "integer",
-      "minimum": 1
+      "minimum": 2
     },
     "authorizations": {
       "type": "array",

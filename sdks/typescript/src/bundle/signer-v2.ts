@@ -26,6 +26,8 @@ export interface SignBundleV2Options {
   signerId: string;
   keys: CompositeKeyPair;
   dualHash?: boolean;
+  sessionExpiresAt?: string;
+  intendedVerifier?: string;
 }
 
 export interface SignBundleV2ClassicalOnlyOptions {
@@ -42,7 +44,14 @@ export async function signBundleV2(
   bundle: CitizenshipBundleV2,
   options: SignBundleV2Options,
 ): Promise<SignedBundleV2> {
-  const { registry, signerType, signerId, keys, dualHash = false } = options;
+  const { registry, signerType, signerId, keys, dualHash = false, sessionExpiresAt, intendedVerifier } = options;
+
+  if (sessionExpiresAt) {
+    bundle.manifest.session_expires_at = sessionExpiresAt;
+  }
+  if (intendedVerifier) {
+    bundle.manifest.intended_verifier = intendedVerifier;
+  }
 
   const manifestCanonical = canonicalizeV2(bundle.manifest);
   const manifestBytes = new TextEncoder().encode(manifestCanonical);

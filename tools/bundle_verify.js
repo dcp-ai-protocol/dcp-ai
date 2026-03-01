@@ -10,19 +10,21 @@ import {
 
 const signedPath = process.argv[2];
 const publicKeyPath = process.argv[3];
+const pqPublicKeyPath = process.argv[4];
 
 if (!signedPath || !publicKeyPath) {
-  console.error("Usage: node tools/bundle_verify.js <bundle.signed.json> <public_key.txt>");
+  console.error("Usage: node tools/bundle_verify.js <bundle.signed.json> <public_key.txt> [pq_public_key.txt]");
   process.exit(2);
 }
 
 const signed = JSON.parse(fs.readFileSync(signedPath, "utf8"));
 const publicKeyB64 = fs.readFileSync(publicKeyPath, "utf8").trim();
+const pqPublicKeyB64 = pqPublicKeyPath ? fs.readFileSync(pqPublicKeyPath, "utf8").trim() : null;
 
-const isV2 = signed.dcp_version === "2.0" || signed.signature?.binding === "composite";
+const isV2 = signed.dcp_version === "2.0" || signed.signature?.binding === "pq_over_classical";
 
 if (isV2) {
-  verifyV2(signed, publicKeyB64);
+  verifyV2(signed, publicKeyB64, pqPublicKeyB64);
 } else {
   verifyV1(signed, publicKeyB64);
 }
@@ -69,7 +71,7 @@ function verifyV1(signed, publicKeyB64) {
   process.exit(0);
 }
 
-function verifyV2(signed, publicKeyB64) {
+function verifyV2(signed, publicKeyB64, pqPublicKeyB64) {
   if (!signed.bundle || !signed.signature) {
     console.error("Invalid V2 signed bundle format.");
     process.exit(2);
@@ -81,15 +83,23 @@ function verifyV2(signed, publicKeyB64) {
     process.exit(2);
   }
 
-  const result = verifyComposite(signed.bundle, compositeSig, publicKeyB64, "bundle");
-  if (!result.valid) {
-    console.error("❌ V2 COMPOSITE SIGNATURE INVALID (classical component failed)");
+  const signerPqKey = pqPublicKeyB64 ||
+    signed.signature?.signer?.keys?.find(k => k.algorithm === "ML-DSA-65")?.public_key_b64;
+
+  const result = verifyComposite(signed.bundle, compositeSig, publicKeyB64, signerPqKey, "bundle");
+  if (!result.classicalValid) {
+    console.error("❌ V2 CLASSICAL SIGNATURE INVALID");
     process.exit(1);
   }
-  console.log(`✅ V2 classical signature VALID`);
+  console.log("✅ V2 classical signature VALID");
 
-  if (result.pqValid === "skipped-simulated") {
-    console.log("⚠  V2 PQ signature skipped (simulated ML-DSA-65)");
+  if (result.pqValid === true) {
+    console.log("✅ V2 PQ signature VALID (ML-DSA-65)");
+  } else if (result.pqValid === false) {
+    console.error("❌ V2 PQ SIGNATURE INVALID");
+    process.exit(1);
+  } else if (result.pqValid === "missing") {
+    console.log("⚠️  V2 PQ signature not present (classical-only mode)");
   }
 
   if (signed.bundle_manifest) {

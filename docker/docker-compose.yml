@@ -74,7 +74,7 @@ services:
       timeout: 5s
       retries: 3
 
-  transparency-log:
+  transparency-log-a:
     build:
       context: ..
       dockerfile: docker/Dockerfile
@@ -84,9 +84,34 @@ services:
     environment:
       - PORT=3002
       - DCP_VERSION=2.0
+      - LOG_ID=log-alpha
+      - OPERATOR_KEY=alpha-operator-secret-replace-in-production
+      - GOSSIP_PEERS=http://transparency-log-b:3012
+      - GOSSIP_INTERVAL_MS=30000
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  transparency-log-b:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: transparency-log
+    ports:
+      - "3012:3012"
+    environment:
+      - PORT=3012
+      - DCP_VERSION=2.0
+      - LOG_ID=log-beta
+      - OPERATOR_KEY=beta-operator-secret-replace-in-production
+      - GOSSIP_PEERS=http://transparency-log-a:3002
+      - GOSSIP_INTERVAL_MS=30000
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3012/health"]
       interval: 30s
       timeout: 5s
       retries: 3

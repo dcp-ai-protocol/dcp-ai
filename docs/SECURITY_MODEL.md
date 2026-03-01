@@ -151,7 +151,7 @@ dcp integrity
 
 - **A malicious human behind a valid bundle.** DCP ensures that every agent is bound to a human. It does not ensure the human is ethical. That is the jurisdiction's domain (law enforcement, regulation).
 - **A compromised verifier accepting invalid bundles.** Each entity is responsible for running correct verification code. The protocol provides fingerprints and conformance tests; using them is the operator's responsibility.
-- **Denial of service.** The protocol does not include rate limiting or DDoS protection. These are infrastructure concerns, handled by the operator.
+- **Denial of service.** Rate limiting is specified per-endpoint in the API (see `x-ratelimit` in `openapi.yaml`). DDoS mitigation at the infrastructure level is the operator's responsibility.
 
 ---
 
@@ -253,6 +253,69 @@ Layer 9: Observability (V2.0)
 
 For NIST post-quantum compliance details, see [NIST_CONFORMITY.md](NIST_CONFORMITY.md).
 For migration from V1.0 security model, see [MIGRATION_V1_V2.md](MIGRATION_V1_V2.md).
+
+---
+
+## Operational Security Requirements
+
+### Private Key Storage
+
+| Security Tier | Requirement |
+|---|---|
+| **Routine** | Key files with 0600 permissions, encrypted at rest (OS-level) |
+| **Standard** | Passphrase-encrypted keystore (PKCS#8 or similar) |
+| **Elevated** | HSM/TPM integration (SHOULD). OS keychain integration |
+| **Maximum** | HSM/TPM integration (MUST). Air-gapped ceremony for key generation |
+
+All DCP CLI commands write secret key files with mode `0600` (owner-read-only). Operators MUST NOT relax these permissions.
+
+### Revocation Propagation SLAs
+
+| Security Tier | Maximum Acceptable Latency |
+|---|---|
+| **Routine** | 24 hours |
+| **Standard** | 1 hour |
+| **Elevated** | 15 minutes |
+| **Maximum** | Immediate (push notification + OCSP-like stapling) |
+
+Operators SHOULD configure revocation list cache TTL according to the highest tier they serve.
+
+### API Security
+
+All production deployments MUST:
+- Enforce TLS 1.3 (minimum TLS 1.2)
+- Require authentication on all mutating endpoints (Bearer token or API key)
+- Configure rate limiting per the `x-ratelimit` specifications in `openapi.yaml`
+- Set security headers: `Strict-Transport-Security`, `Content-Security-Policy`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`
+- Restrict CORS to trusted origins only
+- Use `Cache-Control: no-store` for verification responses
+
+### V1 to V2 Downgrade Prevention
+
+When an agent has V2 keys registered, verifiers SHOULD reject V1 bundles from that agent (capability pinning). The `allow_v1_bundles` policy flag defaults to `true` during migration but SHOULD be set to `false` once migration is complete.
+
+### Supply Chain Security
+
+Operators deploying DCP MUST:
+- Pin all cryptographic library versions in lock files
+- Verify integrity of dependencies using SRI hashes
+- Monitor for compromises in upstream libraries (`@noble/post-quantum`, `tweetnacl`, etc.)
+- Use reproducible builds for cryptographic components
+
+---
+
+## Known Limitations and Mitigations
+
+| Limitation | Mitigation |
+|---|---|
+| PQ crypto in CLI is simulated (HMAC placeholder) | Production: use real ML-DSA-65 via SDK (`@noble/post-quantum`, `pqcrypto`) |
+| Shamir SSS in CLI is placeholder (random shares) | Production: use proper SSS library (`shamir`, `secrets.js-grempe`) |
+| Self-declared identity at `routine` tier | Attestation required for `standard`+ tiers |
+| Verification cache may serve stale results | Cache MUST be invalidated on revocation list updates |
+| `agent_id` persistence enables tracking | Consider pseudonym rotation for high-privacy scenarios |
+| BlindedRPR exposes `entity_type` and `jurisdiction` | Future: ZKP-based credential presentation |
+
+---
 
 ## Reference
 

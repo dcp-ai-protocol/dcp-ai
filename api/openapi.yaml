@@ -16,15 +16,19 @@ info:
 
 servers:
   - url: http://localhost:3000
-    description: Local development server (gateway)
+    description: Local development server (gateway) — NOT for production
   - url: http://localhost:3001
-    description: Local anchor service
+    description: Local anchor service — NOT for production
   - url: http://localhost:3002
-    description: Local transparency-log service
+    description: Local transparency-log service — NOT for production
   - url: http://localhost:3003
-    description: Local revocation service
+    description: Local revocation service — NOT for production
   - url: https://api.dcp-ai.org
-    description: Production server
+    description: Production server (TLS 1.3 required)
+
+security:
+  - BearerAuth: []
+  - ApiKeyAuth: []
 
 tags:
   - name: Health
@@ -64,6 +68,7 @@ paths:
       tags: [Health]
       summary: Health check
       operationId: healthCheck
+      security: []
       responses:
         "200":
           description: Service is healthy
@@ -80,16 +85,10 @@ paths:
                     type: array
                     items:
                       type: string
-                  registered_agents:
-                    type: integer
-                  registered_keys:
-                    type: integer
               example:
                 ok: true
                 service: dcp-verification
                 supported_versions: ["1.0", "2.0"]
-                registered_agents: 0
-                registered_keys: 0
 
   /.well-known/dcp-capabilities.json:
     get:
@@ -147,6 +146,10 @@ paths:
       tags: [Verification]
       summary: Verify a signed bundle (V1 or V2 auto-detect)
       operationId: verifyBundle
+      x-ratelimit:
+        rate: 100/minute
+        burst: 20
+        by: ip
       description: |
         Performs full DCP verification with automatic version detection:
 
@@ -226,6 +229,10 @@ paths:
       tags: [Anchoring]
       summary: Anchor a bundle hash to blockchain
       operationId: anchorHash
+      x-ratelimit:
+        rate: 30/minute
+        burst: 5
+        by: api_key
       description: |
         Anchors a bundle hash (or batch of hashes) to an L2 blockchain.
         Returns 501 on the reference gateway; use the anchor service (port 3001) directly.
@@ -284,6 +291,10 @@ paths:
       tags: [Revocation]
       summary: Publish a revocation
       operationId: publishRevocation
+      x-ratelimit:
+        rate: 10/minute
+        burst: 3
+        by: api_key
       description: Available on the revocation service (port 3003).
       requestBody:
         required: true
@@ -334,6 +345,10 @@ paths:
       tags: [Transparency]
       summary: Add entry to transparency log
       operationId: addToLog
+      x-ratelimit:
+        rate: 60/minute
+        burst: 10
+        by: api_key
       description: Available on the transparency-log service (port 3002).
       requestBody:
         required: true
@@ -401,6 +416,136 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InclusionProof"
+
+  /transparency-log/root/signed:
+    get:
+      tags: [Transparency]
+      summary: Get signed tree head (STH)
+      operationId: getSignedTreeHead
+      description: |
+        Returns a Signed Tree Head — the current Merkle root signed by the log operator.
+        Used for gossip protocol cross-log verification.
+      responses:
+        "200":
+          description: Signed tree head
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SignedTreeHead"
+
+  /transparency-log/gossip/peers:
+    get:
+      tags: [Transparency]
+      summary: List gossip peers
+      operationId: getGossipPeers
+      description: List all known gossip peers and recent split-view alerts.
+      responses:
+        "200":
+          description: Gossip peers and alerts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  log_id:
+                    type: string
+                  peers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        peer_id:
+                          type: string
+                        endpoint:
+                          type: string
+                        last_seen:
+                          type: string
+                          format: date-time
+                          nullable: true
+                  alerts:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SplitViewAlert"
+    post:
+      tags: [Transparency]
+      summary: Add a gossip peer
+      operationId: addGossipPeer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [peer_id, endpoint]
+              properties:
+                peer_id:
+                  type: string
+                endpoint:
+                  type: string
+                  format: uri
+      responses:
+        "200":
+          description: Peer added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  added:
+                    type: string
+                  peers:
+                    type: integer
+
+  /transparency-log/gossip/exchange:
+    post:
+      tags: [Transparency]
+      summary: Gossip STH exchange
+      operationId: gossipExchange
+      description: |
+        Exchange signed tree heads between log instances for cross-verification.
+        Detects split-view attacks when roots differ for the same tree size.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sth:
+                  $ref: "#/components/schemas/SignedTreeHead"
+      responses:
+        "200":
+          description: Local STH and any detected alert
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sth:
+                    $ref: "#/components/schemas/SignedTreeHead"
+                  alert:
+                    $ref: "#/components/schemas/SplitViewAlert"
+                    nullable: true
+
+  /transparency-log/gossip/alerts:
+    get:
+      tags: [Transparency]
+      summary: Get split-view security alerts
+      operationId: getGossipAlerts
+      responses:
+        "200":
+          description: List of detected split-view alerts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  alerts:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SplitViewAlert"
+                  count:
+                    type: integer
 
   /v2/passport/register:
     post:
@@ -555,8 +700,11 @@ paths:
               properties:
                 audit_event:
                   type: object
+                  additionalProperties: false
+                  maxProperties: 50
                 signature:
                   type: object
+                  additionalProperties: false
       responses:
         "201":
           description: Audit event appended
@@ -879,13 +1027,16 @@ paths:
                       default: 2
                     authorizations:
                       type: array
+                      maxItems: 20
                       items:
                         type: object
                         properties:
                           party_id:
                             type: string
+                            maxLength: 256
                           role:
                             type: string
+                            maxLength: 64
                           composite_sig:
                             $ref: "#/components/schemas/CompositeSignature"
       responses:
@@ -922,6 +1073,10 @@ paths:
       tags: [Advisory]
       summary: Publish algorithm advisory
       operationId: publishAdvisory
+      x-ratelimit:
+        rate: 5/minute
+        burst: 1
+        by: api_key
       description: Publishes a governance-signed algorithm advisory (deprecate/warn/revoke).
       requestBody:
         required: true
@@ -1006,6 +1161,10 @@ paths:
       tags: [Advisory]
       summary: Auto-apply advisories to verifier policy
       operationId: autoApplyAdvisories
+      x-ratelimit:
+        rate: 5/minute
+        burst: 1
+        by: api_key
       description: |
         Scans active advisories and automatically updates the verifier policy
         by removing deprecated/revoked algorithms and adding replacements.
@@ -1078,6 +1237,10 @@ paths:
       tags: [Policy]
       summary: Switch verifier mode
       operationId: switchPolicyMode
+      x-ratelimit:
+        rate: 5/minute
+        burst: 2
+        by: api_key
       requestBody:
         required: true
         content:
@@ -1119,6 +1282,10 @@ paths:
       tags: [Governance]
       summary: Register governance key set
       operationId: registerGovernance
+      x-ratelimit:
+        rate: 5/minute
+        burst: 1
+        by: api_key
       requestBody:
         required: true
         content:
@@ -1156,6 +1323,21 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 
 components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Bearer token for authenticated API access.
+        Required for all mutating operations.
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-DCP-API-Key
+      description: |
+        API key for service-to-service authentication.
+        Issued by the DCP operator.
   schemas:
     SignedBundleV1:
       type: object
@@ -1259,10 +1441,12 @@ components:
           $ref: "#/components/schemas/SignedPayload"
         audit_entries:
           type: array
+          maxItems: 10000
           items:
             type: object
         pq_checkpoints:
           type: array
+          maxItems: 1000
           items:
             type: object
 
@@ -1291,6 +1475,14 @@ components:
           type: array
           items:
             type: string
+        session_expires_at:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp after which this session/bundle is expired.
+        intended_verifier:
+          type: string
+          maxLength: 256
+          description: Audience binding — identifier of the intended verifier to prevent relay attacks.
 
     SignedPayload:
       type: object
@@ -1333,11 +1525,13 @@ components:
       properties:
         kid:
           type: string
+          maxLength: 128
         alg:
           type: string
           enum: [ed25519, ml-dsa-65, slh-dsa-192f]
         public_key_b64:
           type: string
+          maxLength: 8192
         created_at:
           type: string
           format: date-time
@@ -1419,15 +1613,20 @@ components:
 
     ErrorResponse:
       type: object
+      additionalProperties: false
       properties:
         error:
           type: string
+          maxLength: 512
         hint:
           type: string
+          maxLength: 512
         details:
           type: array
+          maxItems: 50
           items:
             type: string
+            maxLength: 512
 
     AnchorReceipt:
       type: object
@@ -1530,6 +1729,20 @@ components:
           type: integer
         allow_v1_bundles:
           type: boolean
+        require_session_expiry:
+          type: boolean
+          description: Whether bundles must include session_expires_at.
+        max_session_duration_seconds:
+          type: integer
+          minimum: 0
+          description: Maximum session duration in seconds (0 = no limit).
+        require_audience_binding:
+          type: boolean
+          description: Whether bundles must include intended_verifier matching this verifier.
+        verifier_id:
+          type: string
+          maxLength: 256
+          description: This verifier's identity for audience binding checks.
 
     AlgorithmAdvisory:
       type: object
@@ -1574,3 +1787,47 @@ components:
         threshold:
           type: integer
           minimum: 2
+
+    SignedTreeHead:
+      type: object
+      required: [root, size, timestamp, log_id, signature, public_key]
+      properties:
+        root:
+          type: string
+          nullable: true
+          description: Hex-encoded SHA-256 Merkle root (null if log is empty).
+        size:
+          type: integer
+          minimum: 0
+        timestamp:
+          type: string
+          format: date-time
+        log_id:
+          type: string
+        signature:
+          type: string
+          description: HMAC-SHA256 signature over the STH payload, base64-encoded.
+        public_key:
+          type: string
+          description: Hex-encoded SHA-256 hash of the operator key (for verification).
+
+    SplitViewAlert:
+      type: object
+      required: [type, local_root, peer_root, tree_size, detected_at]
+      properties:
+        type:
+          type: string
+          const: split_view_detected
+        peer_id:
+          type: string
+        peer_log_id:
+          type: string
+        local_root:
+          type: string
+        peer_root:
+          type: string
+        tree_size:
+          type: integer
+        detected_at:
+          type: string
+          format: date-time

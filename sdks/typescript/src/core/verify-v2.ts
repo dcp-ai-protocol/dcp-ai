@@ -30,7 +30,7 @@ import { compositeVerify } from './composite-ops.js';
 import type { CompositeVerifyResult } from './composite-ops.js';
 import { AlgorithmRegistry } from './crypto-registry.js';
 import { DCP_CONTEXTS } from './domain-separation.js';
-import { verifySessionBinding } from './session-nonce.js';
+import { verifySessionBinding, isSessionExpired } from './session-nonce.js';
 import { verifyPayloadHash } from './signed-payload.js';
 
 export interface VerifyV2Result {
@@ -39,6 +39,8 @@ export interface VerifyV2Result {
   warnings: string[];
   details?: {
     session_nonce?: string;
+    session_expires_at?: string;
+    intended_verifier?: string;
     manifest_valid?: boolean;
     signature_valid?: boolean;
     policy_satisfied?: boolean;
@@ -206,6 +208,49 @@ export async function verifySignedBundleV2(
     }
 
     details.session_nonce = sessionResult.nonce;
+  }
+
+  // ── 3a. Session expiration check ──
+
+  if (bundle.manifest.session_expires_at) {
+    details.session_expires_at = bundle.manifest.session_expires_at;
+    if (isSessionExpired(bundle.manifest.session_expires_at)) {
+      errors.push(`Session expired at ${bundle.manifest.session_expires_at}`);
+      return { verified: false, errors, warnings, details };
+    }
+  } else if (policy.require_session_expiry) {
+    errors.push('Policy requires session_expires_at but manifest does not include it');
+    return { verified: false, errors, warnings, details };
+  }
+
+  if (policy.max_session_duration_seconds && policy.max_session_duration_seconds > 0 && bundle.manifest.session_expires_at) {
+    const created = signature.created_at ? new Date(signature.created_at).getTime() : Date.now();
+    const expires = new Date(bundle.manifest.session_expires_at).getTime();
+    const durationSec = (expires - created) / 1000;
+    if (durationSec > policy.max_session_duration_seconds) {
+      errors.push(
+        `Session duration ${durationSec}s exceeds policy max of ${policy.max_session_duration_seconds}s`,
+      );
+    }
+  }
+
+  // ── 3b. Audience binding check ──
+
+  if (bundle.manifest.intended_verifier) {
+    details.intended_verifier = bundle.manifest.intended_verifier;
+  }
+
+  if (policy.require_audience_binding) {
+    if (!bundle.manifest.intended_verifier) {
+      errors.push('Policy requires audience binding but manifest does not include intended_verifier');
+      return { verified: false, errors, warnings, details };
+    }
+    if (policy.verifier_id && bundle.manifest.intended_verifier !== policy.verifier_id) {
+      errors.push(
+        `Bundle intended for verifier '${bundle.manifest.intended_verifier}', not '${policy.verifier_id}'`,
+      );
+      return { verified: false, errors, warnings, details };
+    }
   }
 
   // ── 4. Manifest integrity ──
