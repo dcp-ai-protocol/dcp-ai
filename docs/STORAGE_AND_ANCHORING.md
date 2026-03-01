@@ -32,7 +32,7 @@ How to anchor DCP hashes on a blockchain. Users (or any third-party anchor servi
 
 - **bundle_hash** (e.g. `sha256:<hex>`) or **merkle_root** of audit_entries. One hash per anchor.
 - Optionally: **hash of a RevocationRecord** (so verifiers can pull a list of revocation hashes from chain and check locally).
-- **Nothing else:** no full bundle, no agent_id, no human_id, no HBR/AP payload. The chain only sees opaque hashes.
+- **Nothing else:** no full bundle, no agent_id, no human_id, no RPR/AP payload. The chain only sees opaque hashes.
 
 ### Implementation options
 
@@ -84,7 +84,7 @@ A jurisdiction (government, regulatory authority, or accredited issuer) may publ
 
 **Publication:** at a well-known URL, e.g. `https://<authority>/.well-known/dcp-revocations.json`. Not mandatory; this is a convention. Any URL works.
 
-**How verifiers use it:** the verifier fetches the list for the agent's jurisdiction (based on `human_binding_record.jurisdiction`), checks the issuer's signature, and looks up the bundle's `agent_id` or signer against the entries. If found, verification fails. The list is cacheable (use HTTP cache headers or a TTL).
+**How verifiers use it:** the verifier fetches the list for the agent's jurisdiction (based on `responsible_principal_record.jurisdiction`), checks the issuer's signature, and looks up the bundle's `agent_id` or signer against the entries. If found, verification fails. The list is cacheable (use HTTP cache headers or a TTL).
 
 **Cost:** a static JSON file served from any web server or CDN. Effectively zero.
 
@@ -128,6 +128,112 @@ For government-scale deployment, option 2 (log + Bitcoin batch) provides the bes
 - **No canonical URL:** The protocol does not point to a canonical "dcp.ai" or "DCP registry" URL. If someone runs a "DCP registry" or "dcp.ai" site, that is their choice; the protocol does not require it.
 - **Optional anchoring:** Users or third-party anchor services use **existing** public chains (Bitcoin, Ethereum).
 - **Summary:** The protocol is usable entirely from the repo (specs + schemas + CLI). Optional anchoring uses existing blockchain or third-party log. No central service is required.
+
+---
+
+## V2.0 Storage Extensions
+
+DCP v2.0 introduces dual hash chains, PQ checkpoints, and an extended bundle manifest for post-quantum readiness.
+
+### Dual Hash Chains
+
+V2.0 audit trails maintain two parallel hash chains for defense in depth:
+
+```
+Entry N:
+  primary_hash   = SHA-256(canonical(entry_N))
+  secondary_hash = SHA3-256(canonical(entry_N))
+  prev_hash      = SHA-256(canonical(entry_N-1))       // or "GENESIS"
+  prev_hash_secondary = SHA3-256(canonical(entry_N-1)) // or "GENESIS"
+```
+
+Both chains MUST be verified independently. If SHA-256 is ever compromised (e.g., by a quantum adversary), the SHA3-256 chain provides continuity. If SHA3-256 is compromised, SHA-256 provides continuity. An attacker must break both hash families simultaneously to tamper with the audit trail.
+
+The Merkle tree is computed over the primary (SHA-256) chain. A secondary Merkle root over SHA3-256 hashes is included in the bundle manifest as `audit_merkle_root_secondary`.
+
+### PQ Checkpoints
+
+V2.0 introduces post-quantum checkpoints in the audit trail — periodic entries signed with composite signatures (Ed25519 + ML-DSA-65):
+
+```json
+{
+  "type": "pq_checkpoint",
+  "checkpoint_index": 5,
+  "audit_state": {
+    "entry_count": 50,
+    "primary_merkle_root": "sha256:...",
+    "secondary_merkle_root": "sha3-256:...",
+    "last_primary_hash": "sha256:...",
+    "last_secondary_hash": "sha3-256:..."
+  },
+  "composite_sig": {
+    "classical": { "alg": "ed25519", "sig_b64": "..." },
+    "pq": { "alg": "ml-dsa-65", "sig_b64": "..." },
+    "binding": "pq_over_classical"
+  },
+  "timestamp": "2026-02-28T00:00:00Z"
+}
+```
+
+Checkpoint frequency depends on the security tier:
+
+| Tier | Checkpoint Interval | Purpose |
+|------|-------------------|---------|
+| Routine | Every 50 events | Lightweight assurance |
+| Standard | Every 10 events | Regular PQ validation |
+| Elevated | Every event | Continuous PQ integrity |
+| Maximum | Every event + verify | Immediate PQ verification |
+
+Checkpoints create PQ-secured snapshots of the audit state. Even if classical signatures are retroactively broken, checkpoints prove audit integrity up to the checkpoint timestamp.
+
+### V2.0 Bundle Manifest
+
+V2.0 bundles include a manifest that pre-computes hashes of all artifacts:
+
+```json
+{
+  "manifest": {
+    "dcp_bundle_version": "2.0",
+    "session_nonce": "a1b2c3d4e5f67890...",
+    "rpr_hash": "sha256:...",
+    "passport_hash": "sha256:...",
+    "intent_hash": "sha256:...",
+    "policy_hash": "sha256:...",
+    "audit_merkle_root": "sha256:...",
+    "audit_merkle_root_secondary": "sha3-256:...",
+    "checkpoint_count": 5,
+    "created_at": "2026-02-28T00:00:00Z"
+  }
+}
+```
+
+The `session_nonce` (256-bit random) binds all artifacts to a single session, preventing cross-session replay attacks. The manifest is included in the bundle signature, ensuring its integrity.
+
+### Bundle Size Considerations (V2.0)
+
+V2.0 bundles are larger than V1 due to composite signatures and dual hashes:
+
+| Component | V1 Size | V2 Size | Notes |
+|-----------|---------|---------|-------|
+| Ed25519 signature | 64 bytes | 64 bytes | Unchanged |
+| ML-DSA-65 signature | — | ~3,300 bytes | New in V2 |
+| SHA-256 hashes | ~32 bytes each | ~32 bytes each | Unchanged |
+| SHA3-256 hashes | — | ~32 bytes each | New in V2 |
+| PQ checkpoint | — | ~3,500 bytes | New in V2 |
+| Manifest | — | ~500 bytes | New in V2 |
+| **Typical bundle** | **~1–2 KB** | **~10–50 KB** | Depends on audit trail length |
+
+For bandwidth-constrained environments, V2.0 supports CBOR wire format (RFC 8949) which reduces size by ~30-40% compared to JSON.
+
+### Anchoring V2.0 Bundles
+
+The anchoring model remains the same (only hashes on-chain), but V2.0 adds:
+- **Dual hash anchoring**: Both `bundle_hash` (SHA-256) and `bundle_hash_secondary` (SHA3-256) can be anchored
+- **PQ-signed log roots**: Transparency log roots can be signed with composite signatures
+- **OP_RETURN format**: `dcp:v2:<sha256_hex>` (vs. V1's `dcp:v1:<sha256_hex>`)
+
+See [NIST_CONFORMITY.md](NIST_CONFORMITY.md) for post-quantum algorithm compliance details.
+See [MIGRATION_V1_V2.md](MIGRATION_V1_V2.md) for migrating existing V1 anchored data.
 
 ## Reference
 

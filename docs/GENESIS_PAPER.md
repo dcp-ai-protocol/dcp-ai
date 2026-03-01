@@ -10,10 +10,32 @@ This protocol was co-created by a human and an AI agent working together — the
 
 ---
 
-**Specifications (normative):** [spec/](../spec/) — DCP-01 (Identity & Human Binding), DCP-02 (Intent & Policy Gating), DCP-03 (Audit Chain), [BUNDLE](../spec/BUNDLE.md) (Citizenship Bundle & Signed Bundle).
+**Specifications (normative):** [spec/](../spec/) — DCP-01 (Identity & Principal Binding), DCP-02 (Intent & Policy Gating), DCP-03 (Audit Chain), [BUNDLE](../spec/BUNDLE.md) (Citizenship Bundle & Signed Bundle).
 
 **Government deployment:** [GOVERNMENT_DEPLOYMENT.md](GOVERNMENT_DEPLOYMENT.md) — how governments adopt the protocol at national scale.
 
 **Technical architecture:** [TECHNICAL_ARCHITECTURE.md](TECHNICAL_ARCHITECTURE.md) — SDK, infrastructure, and deployment blueprint for global adoption.
 
 **Narrative & vision:** [Dcp-ai_Full_Package_V1.1.md](Dcp-ai_Full_Package_V1.1.md).
+
+---
+
+## V2.0 Evolution
+
+The genesis vision — that every AI agent must carry verifiable, human-bound digital citizenship — remains the foundation. DCP v2.0 evolves the protocol to meet the threats and opportunities of a post-quantum world:
+
+- **Post-quantum cryptography**: Hybrid composite signatures (Ed25519 + ML-DSA-65, FIPS 204) protect against quantum adversaries and "harvest now, decrypt later" attacks. The classical signature ensures backward compatibility; the PQ signature provides future-proof security.
+- **Agent-to-agent communication (DCP-04)**: Agents can now discover, authenticate, and communicate securely with each other using mutual bundle verification and hybrid key exchange (X25519 + ML-KEM-768).
+- **Adaptive security tiers**: Four levels (routine, standard, elevated, maximum) allow the protocol to balance performance and security based on operational risk.
+- **Dual hash chains**: Audit trails use both SHA-256 and SHA3-256 for defense in depth.
+- **Production readiness**: Standardized error codes, rate limiting, circuit breakers, and observability make the protocol deployable at scale.
+- **Ecosystem bridges**: Interoperability with W3C DID/VC, Google A2A, Anthropic MCP, and Microsoft AutoGen.
+
+The protocol still belongs to everyone who uses it. The spec remains the contribution.
+
+**V2.0 Specifications:**
+- [DCP-04 (Agent-to-Agent)](../spec/DCP-04.md)
+- [DCP-AI v2.0 Specification](../spec/DCP-AI-v2.0.md)
+- [NIST Conformity](NIST_CONFORMITY.md)
+- [IETF Internet-Draft](IETF_DRAFT.md)
+- [Migration Guide (V1 → V2)](MIGRATION_V1_V2.md)

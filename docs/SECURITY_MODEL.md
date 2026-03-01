@@ -26,13 +26,13 @@ Security comes from **layers of protection**, each addressing a different attack
 
 **Strength:** cryptographic. Breaking Ed25519 requires solving the discrete logarithm problem on Curve25519; no known practical attack exists.
 
-### 2. Forged identity (fake HBR)
+### 2. Forged identity (fake RPR)
 
-**Attack:** an attacker creates a Human Binding Record claiming to be "Google" or "US Government" and signs a bundle with their own key. The signature is valid, but the identity is false.
+**Attack:** an attacker creates a Responsible Principal Record claiming to be "Google" or "US Government" and signs a bundle with their own key. The signature is valid, but the identity is false.
 
 **Protection:**
 
-- **Jurisdiction Attestation** (see [spec/DCP-01.md](../spec/DCP-01.md)): a government or accredited authority signs the HBR hash, certifying the identity. A verifier that requires attestation will reject bundles without it.
+- **Jurisdiction Attestation** (see [spec/DCP-01.md](../spec/DCP-01.md)): a government or accredited authority signs the RPR hash, certifying the identity. A verifier that requires attestation will reject bundles without it.
 - **Public key binding:** the verifier can require that the signer's public key is known (e.g. published by the entity). A fake "Google" bundle won't have Google's real public key.
 - **Transparency log:** if the real entity's `bundle_hash` is in the log and the fake one is not, the fake is detectable.
 
@@ -101,7 +101,7 @@ Security comes from **layers of protection**, each addressing a different attack
 Layer 1: Cryptography (Ed25519 + SHA-256)
   Forged bundles are detected by signature and hash checks.
 
-Layer 2: Attestation (jurisdiction signs HBR)
+Layer 2: Attestation (jurisdiction signs RPR)
   Fake identities are detected if attestation is required.
 
 Layer 3: Revocation (signed lists by jurisdiction)
@@ -130,7 +130,7 @@ The file `protocol_fingerprints.json` at the repo root contains the canonical SH
   "protocol": "DCP-AI",
   "version": "1.0",
   "schema_fingerprints": {
-    "human_binding_record": "sha256:<hex>",
+    "responsible_principal_record": "sha256:<hex>",
     "agent_passport": "sha256:<hex>",
     ...
   }
@@ -154,6 +154,105 @@ dcp integrity
 - **Denial of service.** The protocol does not include rate limiting or DDoS protection. These are infrastructure concerns, handled by the operator.
 
 ---
+
+---
+
+## V2.0 Security Enhancements
+
+DCP v2.0 significantly strengthens the security model with post-quantum cryptography, composite signatures, adaptive security tiers, and agent-to-agent security.
+
+### 7. Post-Quantum Threat Model
+
+**Attack:** A quantum adversary with access to a large-scale quantum computer (or a "harvest now, decrypt later" strategy) targets Ed25519 signatures and key exchanges.
+
+**Protection:**
+- **Hybrid composite signatures:** Every V2 signature is a composite of Ed25519 (classical) + ML-DSA-65 (post-quantum, FIPS 204). The PQ signature covers the classical signature (`pq_over_classical` binding), so breaking either alone is insufficient.
+- **Hybrid KEM:** Key exchange uses X25519 + ML-KEM-768 (FIPS 203). Session keys are secure if either component algorithm holds.
+- **Dual hash chains:** Audit trails use both SHA-256 and SHA3-256 in parallel. If one hash family is compromised, the other provides continuity.
+
+**Strength:** NIST Level 3 post-quantum security. An attacker must break both classical AND post-quantum algorithms simultaneously.
+
+### 8. Stripping Attacks (Composite Signature)
+
+**Attack:** An attacker intercepts a signed bundle and removes the post-quantum signature component, presenting only the classical signature.
+
+**Protection:** The `pq_over_classical` binding protocol ensures:
+1. `classical_sig = Ed25519.sign(context || 0x00 || payload)`
+2. `pq_sig = ML-DSA-65.sign(context || 0x00 || payload || classical_sig)`
+
+The PQ signature covers the classical signature. Removing either component causes verification to fail. A verifier with `hybrid_required` policy rejects bundles missing the PQ component.
+
+**Strength:** Cryptographic. The binding is tamper-evident; any modification to either signature component is detectable.
+
+### 9. Cross-Artifact Replay
+
+**Attack:** An attacker takes a valid intent from one session and replays it in a different session or with a different bundle.
+
+**Protection:**
+- **Domain separation:** Every signature includes a context tag (e.g., `DCP-AI.v2.Intent`, `DCP-AI.v2.Bundle`). Signatures for one artifact type cannot be replayed for another.
+- **Session nonce:** Each bundle includes a 256-bit random session nonce. The manifest binds all artifacts to this nonce. Replaying artifacts from one session into another session breaks the manifest hash.
+
+**Strength:** Cryptographic domain separation + session binding.
+
+### 10. Security Tier Downgrade
+
+**Attack:** A malicious agent declares a low security tier (e.g., `routine`) to avoid PQ signature requirements for a high-risk operation.
+
+**Protection:**
+- **Verifier-authoritative policy:** The verifier determines the minimum tier, not the agent. Verifiers can upgrade tiers but MUST NOT downgrade.
+- **Automatic tier computation:** The SDK computes tiers from risk_score, data_classes, and action_type. The agent cannot override the computed tier downward.
+- **Never-downgrade rule:** If the intent computes to `elevated` but the agent declares `routine`, the verifier resolves to `elevated`.
+
+**Strength:** Policy enforcement at the verifier level.
+
+### 11. A2A Session Security
+
+**Attack:** An attacker intercepts or hijacks an agent-to-agent communication session.
+
+**Protection:**
+- **Mutual bundle verification:** Both agents verify each other's bundles before establishing a session.
+- **Hybrid KEM key exchange:** Ephemeral keys provide forward secrecy. Compromising long-term keys does not reveal past session keys.
+- **AES-256-GCM encryption:** All session messages are encrypted with authenticated encryption.
+- **Monotonic sequence numbers:** Prevent replay and reordering within a session.
+- **Periodic rekeying:** Session keys are refreshed every N messages.
+- **Revocation awareness:** If either agent is revoked during a session, the session terminates immediately.
+
+**Strength:** Post-quantum forward secrecy + authenticated encryption.
+
+### Updated Protection Layers (V2.0)
+
+```
+Layer 1: Cryptography (Ed25519 + ML-DSA-65 composite, SHA-256 + SHA3-256 dual hash)
+  Forged bundles detected. Post-quantum resistant.
+
+Layer 2: Attestation (jurisdiction signs RPR)
+  Fake identities detected if attestation is required.
+
+Layer 3: Revocation (signed lists + emergency revocation via pre-image)
+  Stolen keys invalidated within revocation TTL.
+  Emergency revocation: reveal pre-image to instantly revoke all keys.
+
+Layer 4: Protocol integrity (fingerprints + dcp integrity)
+  Protocol forks detected by schema hash mismatch.
+
+Layer 5: Transparency log (append-only Merkle tree)
+  Retroactive modifications detected by log proof mismatch.
+
+Layer 6: Blockchain anchor (Bitcoin / Ethereum L2)
+  Immutable, public proof of bundle existence.
+
+Layer 7: Security Tiers (V2.0)
+  Risk-adaptive cryptographic requirements. High-risk = full PQ.
+
+Layer 8: A2A Security (DCP-04)
+  Mutual authentication + encrypted channels between agents.
+
+Layer 9: Observability (V2.0)
+  Telemetry, metrics, and alerting for anomalous behavior.
+```
+
+For NIST post-quantum compliance details, see [NIST_CONFORMITY.md](NIST_CONFORMITY.md).
+For migration from V1.0 security model, see [MIGRATION_V1_V2.md](MIGRATION_V1_V2.md).
 
 ## Reference
 

@@ -9,7 +9,7 @@ How a government or regulatory authority can adopt the Digital Citizenship Proto
 1. **Verification of every AI agent** operating in the jurisdiction: identity bound to a human or legal entity, declared intent, policy decision, and auditable trail — all in a single portable bundle.
 2. **Revocation power:** instant revocation of any agent via a signed revocation list published by the authority.
 3. **Transparency:** an append-only log of bundle hashes (no personal data) providing a tamper-evident record of all agents that have been verified.
-4. **Optional attestation:** the authority can sign ("attest") an agent's Human Binding Record, certifying it as valid in the jurisdiction.
+4. **Optional attestation:** the authority can sign ("attest") an agent's Responsible Principal Record, certifying it as valid in the jurisdiction.
 5. **Optional anchoring:** periodic publication of the log root to a public blockchain (Bitcoin) for immutability that does not depend on the authority's server.
 
 All of this runs locally or on the government's own infrastructure. No external API is required. No data leaves the jurisdiction unless the government chooses to anchor to a public chain (and even then, only opaque hashes are published).
@@ -43,7 +43,7 @@ All of this runs locally or on the government's own infrastructure. No external 
 │  ┌──────────────────────────────────┐        │
 │  │  Attestation service (optional)  │        │
 │  │  POST /attest                    │        │
-│  │  signs HBR hash with gov key     │        │
+│  │  signs RPR hash with gov key     │        │
 │  └──────────────────────────────────┘        │
 └──────────────────────────────────────────────┘
 ```
@@ -144,13 +144,13 @@ Publish the log's Merkle root to a public blockchain periodically for immutabili
 
 ### 5. Jurisdiction attestation (optional)
 
-The government signs the hash of an agent's Human Binding Record (HBR), certifying "this agent is registered in our jurisdiction."
+The government signs the hash of an agent's Responsible Principal Record (RPR), certifying "this agent is registered in our jurisdiction."
 
 **Setup:**
 
 1. Generate a government keypair: `dcp keygen gov-keys`.
 2. Publish the public key at `https://ai.gov.us/.well-known/dcp-attestation-keys.json`.
-3. When an agent is registered, sign the HBR hash: produce a `JurisdictionAttestation` object (see [spec/DCP-01.md](../spec/DCP-01.md)).
+3. When an agent is registered, sign the RPR hash: produce a `JurisdictionAttestation` object (see [spec/DCP-01.md](../spec/DCP-01.md)).
 4. The attestation is included in the Signed Bundle or presented alongside it.
 
 **Verification:** one Ed25519 signature check. Local, instantaneous, free. The verifier obtains the government's public key from the well-known URL (cached).
@@ -165,7 +165,7 @@ The government signs the hash of an agent's Human Binding Record (HBR), certifyi
 - **Store full bundles.** Only hashes are stored in the log and on-chain. Full bundles are held by agents/holders.
 - **Operate a central registry of all agents.** The revocation list contains only revoked agents. The log contains only hashes.
 - **Trust the protocol authors.** The protocol is open; the government runs its own infrastructure. Verification is local (SHA-256 + Ed25519).
-- **Expose personal data.** HBR content (human identity, jurisdiction) is in the bundle, revealed only to the verifier when the agent presents it. The log and chain see only opaque hashes.
+- **Expose personal data.** RPR content (human identity, jurisdiction) is in the bundle, revealed only to the verifier when the agent presents it. The log and chain see only opaque hashes.
 
 ---
 
@@ -173,10 +173,10 @@ The government signs the hash of an agent's Human Binding Record (HBR), certifyi
 
 | Data | Who sees it | Where stored |
 |------|-------------|--------------|
-| Full bundle (HBR, AP, intent, audit) | Only the verifier who receives it | Holder's device; presented at verification time |
+| Full bundle (RPR, AP, intent, audit) | Only the verifier who receives it | Holder's device; presented at verification time |
 | bundle_hash (SHA-256) | Log, optional blockchain | Government log, optional Bitcoin/Ethereum (opaque hash) |
 | Revoked agent_id | Public (revocation list) | Government well-known URL |
-| Attestation (signed HBR hash) | Verifier | In the bundle or alongside it |
+| Attestation (signed RPR hash) | Verifier | In the bundle or alongside it |
 
 No mass surveillance. No central database of all agents. The government sees only what it needs: hashes for transparency, revoked IDs for enforcement.
 
@@ -206,6 +206,116 @@ The protocol is designed to be referenced by regulation without being owned by a
 Total for a national deployment: on the order of **$1,000–2,000/year** plus existing server costs. Compared to any centralized registry or blockchain-native solution, this is orders of magnitude cheaper.
 
 ---
+
+---
+
+## V2.0 Government Deployment Extensions
+
+DCP v2.0 adds post-quantum cryptography, adaptive security tiers, and agent-to-agent communication — all critical for government deployments where long-term data protection and inter-agency coordination are essential.
+
+### Post-Quantum Compliance
+
+V2.0 aligns with NIST post-quantum standards, enabling government compliance with emerging PQ mandates:
+
+| Standard | Algorithm | DCP Usage |
+|----------|-----------|-----------|
+| FIPS 203 (ML-KEM) | ML-KEM-768 | Agent-to-agent key exchange |
+| FIPS 204 (ML-DSA) | ML-DSA-65/87 | Bundle signatures, attestation |
+| FIPS 205 (SLH-DSA) | SLH-DSA-192f/256f | Backup signatures (hash-based) |
+
+Government deployments SHOULD use `hybrid_required` verification mode to ensure all bundles carry post-quantum signatures. This protects against "harvest now, decrypt later" attacks on classified or sensitive agent operations.
+
+See [NIST_CONFORMITY.md](NIST_CONFORMITY.md) for detailed compliance mapping.
+
+### Security Tier Policies for Government
+
+Government deployments should enforce minimum security tiers based on sensitivity:
+
+| Government Context | Minimum Tier | Verification Mode | Notes |
+|-------------------|-------------|-------------------|-------|
+| Public services (info bots) | Standard | hybrid_preferred | Basic PQ protection |
+| Citizen data processing | Elevated | hybrid_required | PII protection |
+| Law enforcement | Elevated | hybrid_required | Sensitive operations |
+| National security | Maximum | hybrid_required + checkpoint verify | Full PQ, every-event checkpoints |
+| Inter-agency communication | Elevated | hybrid_required | Mutual authentication via A2A |
+| Critical infrastructure | Maximum | hybrid_required + checkpoint verify | Highest assurance |
+
+The verification service enforces tier minimums. Agents operating below the required tier are rejected.
+
+### Inter-Agency A2A Communication
+
+V2.0 introduces DCP-04 (Agent-to-Agent Communication) for secure inter-agency agent coordination:
+
+```
+Agency A                                    Agency B
+  Agent-A1                                   Agent-B1
+    │                                          │
+    │── Discover agents via directory ─────────>│
+    │── A2A_HELLO (bundle + ephemeral KEM) ───>│
+    │<── A2A_WELCOME (bundle + KEM ct) ────────│
+    │── A2A_CONFIRM (proof) ──────────────────>│
+    │<── A2A_ESTABLISHED ──────────────────────│
+    │                                          │
+    │══ Encrypted inter-agency messages ══════>│
+    │<═════════════════════════════════════════│
+```
+
+Key properties for government use:
+- **Mutual bundle verification**: Both agents verify each other's bundles (including jurisdiction attestation)
+- **Post-quantum key exchange**: X25519 + ML-KEM-768 hybrid KEM
+- **Forward secrecy**: Compromising long-term keys does not reveal past communications
+- **Audit trail**: Every inter-agency interaction generates audit entries in both agents' chains
+- **Trust levels**: Agencies can configure trust requirements per partner (e.g., require attestation from a specific authority)
+
+### Government Agent Directory
+
+Each agency publishes a discovery endpoint:
+
+```json
+// https://ai.agency-a.gov/.well-known/dcp-agent-directory.json
+{
+  "organization": "Agency A",
+  "agents": [
+    {
+      "agent_id": "agent-a1",
+      "capabilities": ["data-query", "report-generation"],
+      "endpoint": "https://agents.agency-a.gov/a1",
+      "bundle_url": "https://agents.agency-a.gov/a1/bundle",
+      "security_tier": "elevated"
+    }
+  ],
+  "policy": {
+    "min_peer_tier": "elevated",
+    "require_attestation": true,
+    "accepted_jurisdictions": ["US"]
+  }
+}
+```
+
+### Updated Cost Summary (V2.0)
+
+| Component | One-time | Ongoing | V2 Delta |
+|-----------|----------|---------|----------|
+| Verification service (PQ-enabled) | 1 server | ~$20–80/month | +~$10–30 (PQ compute) |
+| Revocation list (PQ-signed) | Static hosting | ~$0 | No change |
+| Transparency log (dual hash) | 1 server + DB | ~$30–120/month | +~$10–20 (dual hashing) |
+| Bitcoin anchoring (v2 format) | — | ~$2/day | No change |
+| Attestation service (composite sig) | 1 server | ~$20–80/month | +~$10–30 (PQ compute) |
+| A2A infrastructure | 1 server | ~$20–50/month | New in V2 |
+
+Total for a national V2.0 deployment: approximately **$2,000–4,000/year** plus existing server costs. The increase over V1 is modest relative to the post-quantum security gained.
+
+### Migration Path for Existing Government Deployments
+
+1. Update verification service to V2.0 SDK
+2. Start with `hybrid_preferred` mode (accepts both V1 and V2 bundles)
+3. Publish PQ-signed revocation lists alongside classical ones
+4. Enable dual hash chains in transparency log
+5. Deploy A2A infrastructure for inter-agency communication
+6. Transition to `hybrid_required` when all agencies are PQ-ready
+7. Update regulations to reference DCP v2.0
+
+See [MIGRATION_V1_V2.md](MIGRATION_V1_V2.md) for detailed migration steps.
 
 ## Reference
 

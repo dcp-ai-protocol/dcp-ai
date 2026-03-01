@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DCP-AI — Digital Citizenship Protocol for AI Agents</title>
+<meta name="description" content="Post-quantum secure identity, trust, and audit for the age of AI agents.">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0e17;--bg-card:#111827;--bg-card-hover:#1a2332;
+  --accent:#00d4aa;--accent-dim:#00d4aa33;--accent-glow:#00d4aa22;
+  --text:#e2e8f0;--text-dim:#94a3b8;--text-heading:#f1f5f9;
+  --border:#1e293b;--border-accent:#00d4aa44;
+  --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+  --mono:'SF Mono','Cascadia Code','Fira Code',Consolas,monospace;
+}
+html{scroll-behavior:smooth;font-size:16px}
+body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.7;overflow-x:hidden}
+a{color:var(--accent);text-decoration:none;transition:opacity .2s}
+a:hover{opacity:.85}
+h1,h2,h3{color:var(--text-heading);font-weight:700}
+
+/* Utilities */
+.container{max-width:1200px;margin:0 auto;padding:0 24px}
+.section{padding:100px 0}
+.section-label{font-size:.75rem;letter-spacing:.15em;text-transform:uppercase;color:var(--accent);font-weight:600;margin-bottom:12px}
+.section-title{font-size:2.25rem;margin-bottom:16px}
+.section-desc{color:var(--text-dim);font-size:1.1rem;max-width:640px}
+.grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px;margin-top:48px}
+.grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:24px;margin-top:48px}
+
+/* Animations */
+.reveal{opacity:0;transform:translateY(32px);transition:opacity .7s ease,transform .7s ease}
+.reveal.visible{opacity:1;transform:translateY(0)}
+
+/* Nav */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;backdrop-filter:blur(16px);background:rgba(10,14,23,.8);border-bottom:1px solid var(--border)}
+nav .inner{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;max-width:1200px;margin:0 auto}
+nav .logo{font-weight:800;font-size:1.1rem;color:var(--text-heading);display:flex;align-items:center;gap:8px}
+nav .logo span{color:var(--accent)}
+nav .links{display:flex;gap:28px;align-items:center}
+nav .links a{color:var(--text-dim);font-size:.875rem;font-weight:500;transition:color .2s}
+nav .links a:hover{color:var(--accent)}
+nav .links .btn-nav{background:var(--accent);color:var(--bg);padding:8px 18px;border-radius:8px;font-weight:600;font-size:.8rem}
+nav .links .btn-nav:hover{opacity:.9}
+.mobile-toggle{display:none;background:none;border:none;color:var(--text);font-size:1.5rem;cursor:pointer}
+
+/* Hero */
+.hero{min-height:100vh;display:flex;align-items:center;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:-200px;right:-200px;width:600px;height:600px;background:radial-gradient(circle,var(--accent-glow) 0%,transparent 70%);pointer-events:none}
+.hero::after{content:'';position:absolute;bottom:-100px;left:-100px;width:400px;height:400px;background:radial-gradient(circle,rgba(99,102,241,.08) 0%,transparent 70%);pointer-events:none}
+.hero-content{position:relative;z-index:1;padding-top:100px}
+.hero h1{font-size:clamp(2.5rem,5vw,4rem);line-height:1.15;margin-bottom:24px;max-width:800px}
+.hero h1 .highlight{background:linear-gradient(135deg,var(--accent),#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero .subtitle{font-size:1.25rem;color:var(--text-dim);max-width:640px;margin-bottom:40px;line-height:1.6}
+.hero .ctas{display:flex;gap:16px;flex-wrap:wrap}
+.btn-primary{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:var(--bg);padding:14px 32px;border-radius:12px;font-weight:700;font-size:1rem;border:none;cursor:pointer;transition:transform .15s,box-shadow .15s}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 32px var(--accent-dim)}
+.btn-secondary{display:inline-flex;align-items:center;gap:8px;background:transparent;color:var(--text);padding:14px 32px;border-radius:12px;font-weight:600;font-size:1rem;border:1px solid var(--border);cursor:pointer;transition:border-color .2s}
+.btn-secondary:hover{border-color:var(--accent)}
+.hero-badge{display:inline-block;background:var(--accent-dim);color:var(--accent);font-size:.8rem;font-weight:600;padding:6px 14px;border-radius:100px;margin-bottom:24px;letter-spacing:.02em}
+
+/* Cards */
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:32px;transition:border-color .3s,transform .2s}
+.card:hover{border-color:var(--border-accent);transform:translateY(-4px)}
+.card-icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;margin-bottom:20px;background:var(--accent-dim)}
+.card h3{font-size:1.15rem;margin-bottom:10px}
+.card p{color:var(--text-dim);font-size:.95rem;line-height:1.6}
+
+/* Flow */
+.flow{display:flex;align-items:center;justify-content:center;gap:0;margin-top:56px;flex-wrap:wrap}
+.flow-step{display:flex;flex-direction:column;align-items:center;text-align:center;padding:16px 12px;min-width:110px}
+.flow-step .icon{width:56px;height:56px;border-radius:14px;background:var(--bg-card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:1.4rem;margin-bottom:10px;transition:border-color .3s}
+.flow-step:hover .icon{border-color:var(--accent)}
+.flow-step .label{font-size:.8rem;font-weight:600;color:var(--text-dim)}
+.flow-arrow{color:var(--accent);font-size:1.2rem;padding:0 4px;opacity:.6}
+
+/* Code Block */
+.code-block{background:#0d1117;border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-top:36px;max-width:720px}
+.code-header{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--border);background:#161b22}
+.code-header .lang{font-size:.75rem;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:.08em}
+.code-header .dots{display:flex;gap:6px}
+.code-header .dot{width:10px;height:10px;border-radius:50%}
+.code-header .dot:nth-child(1){background:#ff5f57}
+.code-header .dot:nth-child(2){background:#febc2e}
+.code-header .dot:nth-child(3){background:#28c840}
+pre{padding:20px;overflow-x:auto;font-family:var(--mono);font-size:.875rem;line-height:1.65;color:#c9d1d9}
+pre .comment{color:#8b949e}
+pre .keyword{color:#ff7b72}
+pre .string{color:#a5d6ff}
+pre .func{color:#d2a8ff}
+pre .const{color:#79c0ff}
+pre .type{color:#ffa657}
+
+/* Framework logos */
+.fw-grid{display:flex;flex-wrap:wrap;gap:20px;margin-top:48px;justify-content:center}
+.fw-card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:24px 32px;display:flex;align-items:center;gap:14px;font-weight:600;font-size:1rem;transition:border-color .3s,transform .2s;min-width:180px;justify-content:center}
+.fw-card:hover{border-color:var(--border-accent);transform:translateY(-2px)}
+.fw-card .fw-icon{font-size:1.5rem}
+
+/* Tier table */
+.tier-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;margin-top:48px}
+.tier-card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:28px;position:relative;overflow:hidden}
+.tier-card.active{border-color:var(--accent)}
+.tier-card .tier-num{font-size:.7rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.15em;margin-bottom:8px}
+.tier-card h3{font-size:1.2rem;margin-bottom:12px}
+.tier-card ul{list-style:none;padding:0}
+.tier-card li{color:var(--text-dim);font-size:.875rem;padding:4px 0;display:flex;align-items:flex-start;gap:8px}
+.tier-card li::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--accent);margin-top:8px;flex-shrink:0}
+
+/* SDK grid */
+.sdk-grid{display:flex;flex-wrap:wrap;gap:16px;margin-top:48px;justify-content:center}
+.sdk-card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:24px 36px;text-align:center;transition:border-color .3s,transform .2s;min-width:140px}
+.sdk-card:hover{border-color:var(--border-accent);transform:translateY(-3px)}
+.sdk-card .sdk-icon{font-size:2rem;margin-bottom:8px}
+.sdk-card .sdk-name{font-weight:700;font-size:1rem;margin-bottom:4px}
+.sdk-card .sdk-status{font-size:.75rem;color:var(--text-dim)}
+
+/* Community */
+.comm-grid{display:flex;flex-wrap:wrap;gap:20px;margin-top:48px;justify-content:center}
+.comm-card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:28px 36px;text-align:center;min-width:200px;transition:border-color .3s,transform .2s}
+.comm-card:hover{border-color:var(--border-accent);transform:translateY(-2px)}
+.comm-card .comm-icon{font-size:2rem;margin-bottom:12px}
+.comm-card h3{font-size:1rem;margin-bottom:6px}
+.comm-card p{color:var(--text-dim);font-size:.85rem}
+
+/* Footer */
+footer{border-top:1px solid var(--border);padding:40px 0;text-align:center;color:var(--text-dim);font-size:.85rem;line-height:1.8}
+footer .accent{color:var(--accent)}
+
+/* Responsive */
+@media(max-width:768px){
+  nav .links{display:none;position:absolute;top:100%;left:0;right:0;flex-direction:column;background:rgba(10,14,23,.95);padding:16px 24px;gap:16px;border-bottom:1px solid var(--border)}
+  nav .links.open{display:flex}
+  .mobile-toggle{display:block}
+  .hero h1{font-size:2.2rem}
+  .section{padding:64px 0}
+  .flow-arrow{display:none}
+  .flow{gap:8px}
+  .flow-step{min-width:80px}
+}
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+  <div class="inner">
+    <a href="#" class="logo"><span>&#x25C6;</span> DCP-AI</a>
+    <button class="mobile-toggle" onclick="document.querySelector('.links').classList.toggle('open')" aria-label="Menu">&#9776;</button>
+    <div class="links">
+      <a href="#why">Why DCP?</a>
+      <a href="#how">How It Works</a>
+      <a href="#quickstart">Quick Start</a>
+      <a href="#sdks">SDKs</a>
+      <a href="#security">Security</a>
+      <a href="https://github.com/dcp-ai-protocol/dcp-ai" class="btn-nav" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="container hero-content">
+    <span class="hero-badge">Protocol v2.0 &mdash; Post-Quantum Ready</span>
+    <h1>Digital Citizenship Protocol for <span class="highlight">AI Agents</span></h1>
+    <p class="subtitle">Post-quantum secure identity, trust, and audit for the age of AI agents. Bind every AI action to a human principal with cryptographic proof.</p>
+    <div class="ctas">
+      <a href="#quickstart" class="btn-primary">Get Started &#8594;</a>
+      <a href="https://github.com/dcp-ai-protocol/dcp-ai" class="btn-secondary" target="_blank" rel="noopener">&#9733; View on GitHub</a>
+    </div>
+  </div>
+</section>
+
+<!-- Why DCP -->
+<section class="section" id="why">
+  <div class="container">
+    <div class="reveal">
+      <p class="section-label">Why DCP?</p>
+      <h2 class="section-title">Trust infrastructure for autonomous agents</h2>
+      <p class="section-desc">DCP provides the cryptographic identity, policy gating, and audit chain that every AI agent needs to operate responsibly in the real world.</p>
+    </div>
+    <div class="grid-3">
+      <div class="card reveal">
+        <div class="card-icon">&#128272;</div>
+        <h3>Post-Quantum Security</h3>
+        <p>Hybrid Ed25519 + ML-DSA-65 composite signatures with cryptographic binding. PQ signatures cover classical signatures, preventing stripping attacks. Ready for the quantum era today.</p>
+      </div>
+      <div class="card reveal">
+        <div class="card-icon">&#128279;</div>
+        <h3>P2P Verification</h3>
+        <p>No central authority required. Any party can verify a DCP bundle independently using the embedded keys and composite signatures. Decentralized trust by design.</p>
+      </div>
+      <div class="card reveal">
+        <div class="card-icon">&#128209;</div>
+        <h3>Full Audit Trail</h3>
+        <p>Dual-hash chains (SHA-256 + SHA3-256) with PQ checkpoints create an immutable, tamper-evident record of every AI action. Merkle roots seal each bundle.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- How It Works -->
+<section class="section" id="how" style="background:var(--bg-card)">
+  <div class="container">
+    <div class="reveal" style="text-align:center">
+      <p class="section-label">How It Works</p>
+      <h2 class="section-title">The DCP Pipeline</h2>
+      <p class="section-desc" style="margin:0 auto">Every AI action flows through a cryptographically signed pipeline from human principal to sealed audit record.</p>
+    </div>
+    <div class="flow reveal">
+      <div class="flow-step"><div class="icon">&#128100;</div><div class="label">Human</div></div>
+      <div class="flow-arrow">&#8594;</div>
+      <div class="flow-step"><div class="icon">&#128196;</div><div class="label">RPR</div></div>
+      <div class="flow-arrow">&#8594;</div>
+      <div class="flow-step"><div class="icon">&#129302;</div><div class="label">Passport</div></div>
+      <div class="flow-arrow">&#8594;</div>
+      <div class="flow-step"><div class="icon">&#127919;</div><div class="label">Intent</div></div>
+      <div class="flow-arrow">&#8594;</div>
+      <div class="flow-step"><div class="icon">&#128737;</div><div class="label">Policy</div></div>
+      <div class="flow-arrow">&#8594;</div>
+      <div class="flow-step"><div class="icon">&#128209;</div><div class="label">Audit</div></div>
+      <div class="flow-arrow">&#8594;</div>
+      <div class="flow-step"><div class="icon">&#128230;</div><div class="label">Bundle</div></div>
+    </div>
+    <div class="grid-2 reveal" style="margin-top:56px">
+      <div class="card">
+        <h3>1. Bind Identity</h3>
+        <p>A Responsible Principal Record (RPR) ties a real person to an Agent Passport using dual Ed25519 + ML-DSA-65 keypairs. This creates a non-repudiable chain of responsibility.</p>
+      </div>
+      <div class="card">
+        <h3>2. Declare Intent</h3>
+        <p>Before any sensitive action, the agent declares intent: what it wants to do, which data classes are involved, and the estimated impact. A policy engine gates the action.</p>
+      </div>
+      <div class="card">
+        <h3>3. Audit Everything</h3>
+        <p>Every action produces an audit entry with dual-hash chains. PQ checkpoints periodically seal the chain with full hybrid signatures for long-term integrity.</p>
+      </div>
+      <div class="card">
+        <h3>4. Seal the Bundle</h3>
+        <p>All artifacts are assembled into a Citizenship Bundle with a cryptographic manifest. The bundle is composite-signed, creating a portable proof of authorized AI activity.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Quick Start -->
+<section class="section" id="quickstart">
+  <div class="container">
+    <div class="reveal">
+      <p class="section-label">Quick Start</p>
+      <h2 class="section-title">Up and running in 60 seconds</h2>
+      <p class="section-desc">Initialize a DCP identity and create your first signed bundle with just a few commands.</p>
+    </div>
+    <div class="code-block reveal">
+      <div class="code-header">
+        <div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+        <div class="lang">Terminal</div>
+      </div>
+<pre><span class="comment"># Install and initialize</span>
+<span class="const">npx</span> @dcp-ai/cli init
+
+<span class="comment"># Creates: .dcp/config.json, .dcp/keys/, .dcp/identity.json, .dcp/passport.json</span></pre>
+    </div>
+    <div class="code-block reveal" style="margin-top:20px">
+      <div class="code-header">
+        <div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+        <div class="lang">TypeScript</div>
+      </div>
+<pre><span class="keyword">import</span> {
+  generateKeypair, signObject, verifyObject,
+  BundleBuilder, signBundle
+} <span class="keyword">from</span> <span class="string">'@dcp-ai/sdk'</span>;
+
+<span class="comment">// Generate an Ed25519 keypair</span>
+<span class="keyword">const</span> keys = <span class="func">generateKeypair</span>();
+
+<span class="comment">// Build a citizenship bundle</span>
+<span class="keyword">const</span> bundle = <span class="keyword">new</span> <span class="type">BundleBuilder</span>()
+  .<span class="func">responsiblePrincipalRecord</span>(rpr)
+  .<span class="func">agentPassport</span>(passport)
+  .<span class="func">intent</span>(intent)
+  .<span class="func">policyDecision</span>(policy)
+  .<span class="func">addAuditEntry</span>(audit)
+  .<span class="func">build</span>();
+
+<span class="comment">// Sign and verify</span>
+<span class="keyword">const</span> signed = <span class="func">signBundle</span>(bundle, keys.secretKeyB64);
+<span class="keyword">const</span> result = <span class="func">verifySignedBundle</span>(signed);
+console.<span class="func">log</span>(result.verified); <span class="comment">// true</span></pre>
+    </div>
+    <div style="margin-top:28px" class="reveal">
+      <a href="../QUICKSTART.md" class="btn-primary">Full Quick Start Guide &#8594;</a>
+    </div>
+  </div>
+</section>
+
+<!-- Frameworks -->
+<section class="section" style="background:var(--bg-card)" id="frameworks">
+  <div class="container">
+    <div class="reveal" style="text-align:center">
+      <p class="section-label">Integrations</p>
+      <h2 class="section-title">Works with your stack</h2>
+      <p class="section-desc" style="margin:0 auto">First-class integrations for popular AI frameworks and web servers. DCP fits into your existing workflow.</p>
+    </div>
+    <div class="fw-grid reveal">
+      <a href="../QUICKSTART_LANGCHAIN.md" class="fw-card"><span class="fw-icon">&#129302;</span> LangChain</a>
+      <a href="../QUICKSTART_CREWAI.md" class="fw-card"><span class="fw-icon">&#128101;</span> CrewAI</a>
+      <a href="../QUICKSTART_OPENAI.md" class="fw-card"><span class="fw-icon">&#9889;</span> OpenAI</a>
+      <a href="../QUICKSTART_EXPRESS.md" class="fw-card"><span class="fw-icon">&#128421;</span> Express</a>
+      <a href="#" class="fw-card" style="opacity:0.5;pointer-events:none"><span class="fw-icon">&#128640;</span> FastAPI (Coming Soon)</a>
+    </div>
+  </div>
+</section>
+
+<!-- Security Tiers -->
+<section class="section" id="security">
+  <div class="container">
+    <div class="reveal">
+      <p class="section-label">Adaptive Security</p>
+      <h2 class="section-title">Four tiers, zero configuration</h2>
+      <p class="section-desc">DCP automatically selects the appropriate cryptographic tier based on risk score, data classification, and action type.</p>
+    </div>
+    <div class="tier-grid reveal">
+      <div class="tier-card">
+        <div class="tier-num">Tier 0 &mdash; Routine</div>
+        <h3>Routine</h3>
+        <ul>
+          <li>Ed25519 classical signatures only</li>
+          <li>PQ checkpoint every 50 events</li>
+          <li>Low-risk browsing and reads</li>
+          <li>Score &lt; 200</li>
+        </ul>
+      </div>
+      <div class="tier-card">
+        <div class="tier-num">Tier 1 &mdash; Standard</div>
+        <h3>Standard</h3>
+        <ul>
+          <li>Ed25519 + hybrid preferred</li>
+          <li>PQ checkpoint every 10 events</li>
+          <li>API calls and general writes</li>
+          <li>Score 200&ndash;499</li>
+        </ul>
+      </div>
+      <div class="tier-card active">
+        <div class="tier-num">Tier 2 &mdash; Elevated</div>
+        <h3>Elevated</h3>
+        <ul>
+          <li>Full hybrid per-operation required</li>
+          <li>PQ checkpoint every event</li>
+          <li>PII, financial data, payments</li>
+          <li>Score 500&ndash;799</li>
+        </ul>
+      </div>
+      <div class="tier-card">
+        <div class="tier-num">Tier 3 &mdash; Maximum</div>
+        <h3>Maximum</h3>
+        <ul>
+          <li>Full hybrid + immediate verification</li>
+          <li>PQ checkpoint every event</li>
+          <li>Credentials, children's data</li>
+          <li>Score &ge; 800</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SDKs -->
+<section class="section" style="background:var(--bg-card)" id="sdks">
+  <div class="container">
+    <div class="reveal" style="text-align:center">
+      <p class="section-label">SDKs</p>
+      <h2 class="section-title">Your language, your choice</h2>
+      <p class="section-desc" style="margin:0 auto">DCP SDKs are available for every major language. Same protocol, same guarantees, everywhere.</p>
+    </div>
+    <div class="sdk-grid reveal">
+      <div class="sdk-card">
+        <div class="sdk-icon">&#128311;</div>
+        <div class="sdk-name">TypeScript</div>
+        <div class="sdk-status">Stable &mdash; v2.0</div>
+      </div>
+      <div class="sdk-card">
+        <div class="sdk-icon">&#128013;</div>
+        <div class="sdk-name">Python</div>
+        <div class="sdk-status">Stable &mdash; v2.0</div>
+      </div>
+      <div class="sdk-card">
+        <div class="sdk-icon">&#128049;</div>
+        <div class="sdk-name">Go</div>
+        <div class="sdk-status">Beta</div>
+      </div>
+      <div class="sdk-card">
+        <div class="sdk-icon">&#9881;</div>
+        <div class="sdk-name">Rust</div>
+        <div class="sdk-status">Beta</div>
+      </div>
+      <div class="sdk-card">
+        <div class="sdk-icon">&#127760;</div>
+        <div class="sdk-name">WASM</div>
+        <div class="sdk-status">Beta</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Community -->
+<section class="section" id="community">
+  <div class="container">
+    <div class="reveal" style="text-align:center">
+      <p class="section-label">Community</p>
+      <h2 class="section-title">Build with us</h2>
+      <p class="section-desc" style="margin:0 auto">DCP is open source and community-driven. Join us in building trust infrastructure for AI.</p>
+    </div>
+    <div class="comm-grid reveal">
+      <a href="https://github.com/dcp-ai-protocol/dcp-ai" class="comm-card" target="_blank" rel="noopener">
+        <div class="comm-icon">&#128187;</div>
+        <h3>GitHub</h3>
+        <p>Source code, issues, and releases</p>
+      </a>
+      <a href="https://discord.gg/dcp-ai" class="comm-card" target="_blank" rel="noopener">
+        <div class="comm-icon">&#128172;</div>
+        <h3>Discord</h3>
+        <p>Chat with the community</p>
+      </a>
+      <a href="../../CONTRIBUTING.md" class="comm-card">
+        <div class="comm-icon">&#129309;</div>
+        <h3>Contributing</h3>
+        <p>Contributor guide and process</p>
+      </a>
+      <a href="../API_REFERENCE.md" class="comm-card">
+        <div class="comm-icon">&#128218;</div>
+        <h3>API Reference</h3>
+        <p>Complete SDK documentation</p>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <div class="container">
+    <p><span class="accent">DCP-AI</span> &mdash; Digital Citizenship Protocol v2.0</p>
+    <p>Apache-2.0 License &bull; Co-created by human and AI</p>
+  </div>
+</footer>
+
+<script>
+// Intersection Observer for reveal animations
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+    }
+  });
+}, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+// Close mobile menu on link click
+document.querySelectorAll('nav .links a').forEach(link => {
+  link.addEventListener('click', () => {
+    document.querySelector('.links').classList.remove('open');
+  });
+});
+</script>
+</body>
+</html>

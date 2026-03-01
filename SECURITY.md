@@ -35,6 +35,15 @@ Include as much detail as possible:
 - HTTP service vulnerabilities (anchor, transparency-log, revocation)
 - Middleware bypass (Express, FastAPI integrations)
 - Protocol-level attacks (schema manipulation, hash chain breaks)
+- Post-quantum cryptographic flaws (ML-DSA-65/87 signatures, ML-KEM-768 KEM, SLH-DSA-192f)
+- Composite signature binding vulnerabilities (pq_over_classical stripping attacks)
+- Hybrid KEM key derivation weaknesses (X25519 + ML-KEM-768)
+- A2A handshake protocol vulnerabilities (session hijacking, replay)
+- Security tier downgrade attacks
+- Dual hash chain (SHA-256 + SHA3-256) inconsistencies
+- PQ checkpoint chain integrity
+- Domain separation tag bypass
+- Session nonce replay or splicing
 
 ### Out of scope
 
@@ -47,7 +56,8 @@ Include as much detail as possible:
 
 | Version | Supported |
 |---------|-----------|
-| 1.0.x   | Yes       |
+| 2.0.x   | Yes       |
+| 1.0.x   | Yes (maintenance) |
 | < 1.0   | No        |
 
 ## Disclosure Policy
@@ -56,9 +66,22 @@ Include as much detail as possible:
 - Reporters will be credited in the advisory (unless they prefer anonymity).
 - We will not pursue legal action against researchers who follow this policy.
 
+## Bug Bounty
+
+DCP-AI runs a bug bounty program for security vulnerabilities:
+
+| Severity | Reward |
+|----------|--------|
+| Critical (PQ crypto break, signature bypass) | $5,000 - $15,000 |
+| High (verification bypass, key leakage) | $1,000 - $5,000 |
+| Medium (tier downgrade, chain manipulation) | $500 - $1,000 |
+| Low (information disclosure, DoS) | $100 - $500 |
+
+See [docs/EARLY_ADOPTERS.md](docs/EARLY_ADOPTERS.md) for full program details.
+
 ## Security Model
 
-For a detailed analysis of the protocol's security architecture, attack vectors, and protection layers, see [docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md).
+For a detailed analysis of the protocol's security architecture, attack vectors, and protection layers, see [docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md) and [docs/NIST_CONFORMITY.md](docs/NIST_CONFORMITY.md).
 
 ## Protocol Integrity
 

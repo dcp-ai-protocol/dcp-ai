@@ -78,7 +78,7 @@ Not a framework. A library that does exactly what `lib/verify.js` does today, bu
     bundle.ts         # createBundle
     hash.ts           # intentHash, hashObject, canonicalize, merkleRoot
     revocation.ts     # createRevocationRecord
-    types.ts          # TypeScript types for HBR, AP, Intent, etc.
+    types.ts          # TypeScript types for RPR, AP, Intent, etc.
   package.json
   tsconfig.json
 ```
@@ -164,7 +164,7 @@ Receives `bundle_hash` (or log root) and publishes it to a blockchain.
 
 ### 4b. Jurisdiction attestation
 
-A jurisdiction authority (government or accredited issuer) signs the hash of an agent's HBR, certifying "this agent is registered in our jurisdiction."
+A jurisdiction authority (government or accredited issuer) signs the hash of an agent's RPR, certifying "this agent is registered in our jurisdiction."
 
 **Object:** See [spec/DCP-01.md](../spec/DCP-01.md) for the `JurisdictionAttestation` definition.
 
@@ -172,7 +172,7 @@ A jurisdiction authority (government or accredited issuer) signs the hash of an 
 
 **API (if the government runs a service):**
 
-- `POST /attest` — body: `{ hbr_hash, agent_id }`; response: `{ attestation: { issuer, jurisdiction, hbr_hash, signature, expires_at } }`.
+- `POST /attest` — body: `{ rpr_hash, agent_id }`; response: `{ attestation: { issuer, jurisdiction, rpr_hash, signature, expires_at } }`.
 
 The attestation is included in the Signed Bundle or presented alongside it. Verification is one Ed25519 check — local, instantaneous, free.
 
@@ -224,6 +224,126 @@ A government can use only `spec` + `sdk-python` and nothing else. Or deploy the 
 Install the SDK in your language. Every agent operating in your jurisdiction must present a Signed Bundle. Your verification service (a Docker container) validates it locally in microseconds, at no per-query cost. Your transparency log records bundle hashes (no personal data). Your signed revocation list lets you revoke agents instantly. Periodic Bitcoin anchoring provides public immutability for pennies per day. You do not depend on any central server or on the protocol authors.
 
 ---
+
+---
+
+## V2.0 Architecture Extensions
+
+DCP v2.0 extends the architecture with post-quantum cryptography, agent-to-agent communication, observability, and production hardening.
+
+### Crypto Provider Architecture
+
+V2.0 introduces an algorithm-agile crypto provider system:
+
+```
+CryptoProvider Interface
+├── Ed25519Provider (classical, RFC 8032)
+├── MlDsa65Provider (post-quantum, FIPS 204)
+├── SlhDsa192fProvider (hash-based backup, FIPS 205)
+└── HsmCryptoProvider (hardware security modules)
+
+KemProvider Interface
+├── X25519KemProvider (classical ECDH)
+├── MlKem768Provider (post-quantum, FIPS 203)
+└── HybridKemProvider (X25519 + ML-KEM-768)
+
+AlgorithmRegistry
+└── Maps algorithm names → provider instances (runtime selection)
+```
+
+Providers are registered at startup via `registerDefaultProviders()`. Custom providers (e.g., HSM-backed) implement the same interface.
+
+### A2A Infrastructure (DCP-04)
+
+Agent-to-agent communication adds a new infrastructure layer:
+
+```
+Agent A                                     Agent B
+  │                                           │
+  │── Discovery (.well-known/dcp-agent-directory.json)
+  │── A2A_HELLO (bundle + ephemeral KEM key) ──>│
+  │<── A2A_WELCOME (bundle + KEM ciphertext) ───│
+  │── A2A_CONFIRM (KEM ciphertext + proof) ────>│
+  │<── A2A_ESTABLISHED (session_id) ────────────│
+  │                                             │
+  │══ Encrypted messages (AES-256-GCM) ════════>│
+  │<═════════════════════════════════════════════│
+```
+
+Key components:
+- **Discovery**: `.well-known/dcp-agent-directory.json` per organization
+- **Handshake**: Mutual bundle verification + hybrid KEM (X25519 + ML-KEM-768)
+- **Session**: AES-256-GCM encrypted messages with monotonic sequence numbers
+- **Rekeying**: Automatic key refresh every N messages
+- **Audit**: Every A2A interaction generates audit entries in both chains
+
+See [spec/DCP-04.md](../spec/DCP-04.md) for the full specification.
+
+### Observability Stack
+
+V2.0 includes built-in observability via the `dcpTelemetry` module:
+
+- **Spans**: Per-operation tracing (sign, verify, KEM, checkpoint)
+- **Metrics**: Latency percentiles (p50/p95/p99) by operation and tier
+- **Counters**: Signatures created/verified, bundles verified, A2A sessions/messages
+- **Cache metrics**: Verification cache hit/miss ratio
+- **Error tracking**: Errors by DCP error code
+
+The telemetry module supports console output and is compatible with OpenTelemetry exporters. Operators can pipe metrics to Prometheus, Grafana, Datadog, etc.
+
+### Production Hardening
+
+V2.0 SDK includes production-ready infrastructure:
+
+**Error Codes**: 36 standardized DCP error codes (DCP-E001 through DCP-E902) covering schema, signature, hash chain, identity, policy, session, A2A, rate limiting, and internal errors. Each code includes retryability information.
+
+**Rate Limiting**: `AdaptiveRateLimiter` with per-tier limits:
+- Routine: 1000 req/min per agent
+- Standard: 500 req/min
+- Elevated: 100 req/min
+- Maximum: 50 req/min
+
+**Circuit Breaker**: Three-state circuit breaker (closed/open/half-open) for verification service resilience. Configurable failure threshold, reset timeout, and half-open probe count.
+
+**Retry with Backoff**: Exponential backoff with jitter for retryable operations. Respects DCP error retryability flags.
+
+### Ecosystem Bridges (V2.0)
+
+V2.0 adds bridge modules for interoperability with external ecosystems:
+
+| Bridge | Purpose |
+|--------|---------|
+| W3C DID/VC | Convert RPR to DID Document, Passport to Verifiable Credential |
+| Google A2A | Translate Agent Cards to DCP Passports, add PQ signatures |
+| Anthropic MCP | DCP tools for MCP servers, identity context in MCP sessions |
+| Microsoft AutoGen | DCP wrappers for AutoGen agents, group chat governance |
+
+### Updated Layer Architecture
+
+```
+┌──────────────────────────────────────────────────────┐
+│  Layer 7: Ecosystem Bridges                          │
+│  W3C DID/VC, Google A2A, Anthropic MCP, AutoGen     │
+├──────────────────────────────────────────────────────┤
+│  Layer 6: Observability + Hardening                  │
+│  Telemetry, metrics, error codes, rate limiting      │
+├──────────────────────────────────────────────────────┤
+│  Layer 5: Integration                                │
+│  Express, FastAPI, LangChain, OpenAI, CrewAI, etc.  │
+├──────────────────────────────────────────────────────┤
+│  Layer 4: Anchor + Attestation                       │
+│  Bitcoin/Ethereum anchor, jurisdiction attestation    │
+├──────────────────────────────────────────────────────┤
+│  Layer 3: Infrastructure services                    │
+│  Verification, transparency log, revocation, A2A     │
+├──────────────────────────────────────────────────────┤
+│  Layer 2: SDK (multi-language, PQ-ready)             │
+│  TS, Python, Go, Rust + composite sigs + hybrid KEM │
+├──────────────────────────────────────────────────────┤
+│  Layer 1: Spec + Schemas (normative)                 │
+│  DCP-01/02/03/04, v2.0 spec, schemas/v1/ + v2/      │
+└──────────────────────────────────────────────────────┘
+```
 
 ## On authorship
 

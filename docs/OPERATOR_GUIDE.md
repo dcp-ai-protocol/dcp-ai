@@ -87,6 +87,150 @@ Optional: use the reference server in `server/` (see [server/README.md](../serve
 - **Verify anchor_receipt:** If the client sends an `anchor_receipt` with the bundle, the service can optionally check that `bundle_hash` appears at the given chain/log index using **public data only** (e.g. fetch tx from block explorer). No central server of the protocol is involved.
 - **Anchor (write):** The operator runs a node or uses RPC and writes hashes to an existing chain; the service returns `anchor_receipt` to the client. This is optional and operator-specific.
 
+---
+
+## V2.0 Verification Service
+
+DCP v2.0 introduces post-quantum hybrid cryptography, adaptive security tiers, and composite signatures. Operators running verification services must update their configuration to support V2.
+
+### Verifier Policy Configuration
+
+The V2.0 verification server supports configurable policies via `VerifierPolicy`:
+
+```json
+{
+  "default_mode": "hybrid_preferred",
+  "risk_overrides": {
+    "low": "classical_only",
+    "medium": "hybrid_preferred",
+    "high": "hybrid_required"
+  },
+  "min_accepted_version": "1.0",
+  "accepted_algorithms": {
+    "signing": ["ed25519", "ml-dsa-65", "ml-dsa-87"],
+    "hash": ["sha256", "sha3-256"]
+  }
+}
+```
+
+Verification modes:
+- `classical_only` — Only Ed25519 signatures required (V1 compatibility)
+- `hybrid_preferred` — Ed25519 required, ML-DSA-65 checked if present
+- `hybrid_required` — Both Ed25519 and ML-DSA-65 composite signature required
+- `pq_only` — Only post-quantum signature required (future)
+
+### POST /verify (V2)
+
+V2 bundles include `composite_sig` with both classical and post-quantum components:
+
+```json
+{
+  "signed_bundle": {
+    "bundle": {
+      "dcp_bundle_version": "2.0",
+      "manifest": {
+        "session_nonce": "a1b2c3...",
+        "rpr_hash": "sha256:...",
+        "passport_hash": "sha256:...",
+        "intent_hash": "sha256:...",
+        "policy_hash": "sha256:...",
+        "audit_merkle_root": "sha256:...",
+        "audit_merkle_root_secondary": "sha3-256:..."
+      },
+      "responsible_principal_record": { "payload": {...}, "composite_sig": {...} },
+      "agent_passport": { "payload": {...}, "composite_sig": {...} },
+      "intent": { "payload": {...}, "composite_sig": {...} },
+      "policy_decision": { "payload": {...}, "composite_sig": {...} }
+    },
+    "signature": {
+      "composite_sig": {
+        "classical": { "alg": "ed25519", "kid": "...", "sig_b64": "..." },
+        "pq": { "alg": "ml-dsa-65", "kid": "...", "sig_b64": "..." },
+        "binding": "pq_over_classical"
+      }
+    }
+  }
+}
+```
+
+V2 response includes the resolved security tier:
+
+```json
+{
+  "verified": true,
+  "version": "2.0",
+  "resolved_tier": "elevated",
+  "checks": {
+    "schema": "pass",
+    "classical_sig": "pass",
+    "pq_sig": "pass",
+    "manifest_integrity": "pass",
+    "hash_chain": "pass",
+    "session_nonce": "pass"
+  }
+}
+```
+
+### Security Tiers in Verification
+
+The verification service respects and enforces security tiers:
+
+| Tier | Verification Mode | PQ Checkpoint | Bundle Size |
+|------|------------------|---------------|-------------|
+| Routine | `classical_only` | Every 50 events | ~1-2 KB |
+| Standard | `hybrid_preferred` | Every 10 events | ~2-5 KB |
+| Elevated | `hybrid_required` | Every event | ~10-15 KB |
+| Maximum | `hybrid_required` + verify checkpoint | Every event | ~15-25 KB |
+
+The verifier can **upgrade** a tier (e.g., force `elevated` for financial operations) but MUST NOT **downgrade** it.
+
+### Capabilities Endpoint (V2)
+
+V2 services expose `GET /.well-known/dcp-capabilities.json`:
+
+```json
+{
+  "supported_versions": ["1.0", "2.0"],
+  "supported_algs": {
+    "signing": ["ed25519", "ml-dsa-65", "ml-dsa-87", "slh-dsa-192f"],
+    "kem": ["x25519-ml-kem-768"],
+    "hash": ["sha256", "sha3-256"]
+  },
+  "supported_wire_formats": ["json", "cbor"],
+  "features": {
+    "composite_signatures": true,
+    "pq_checkpoints": true,
+    "dual_hash_chains": true,
+    "a2a_protocol": true,
+    "emergency_revocation": true
+  }
+}
+```
+
+### Observability
+
+V2 services should expose metrics for monitoring:
+
+- **Latency**: p50/p95/p99 verification latency by security tier
+- **Throughput**: Bundles verified per second
+- **Cache**: Verification cache hit/miss ratio
+- **PQ Checkpoints**: Number of PQ checkpoints verified
+- **Errors**: Error counts by DCP error code (DCP-E001 through DCP-E902)
+- **Tiers**: Distribution of verification requests by security tier
+
+Recommended: Use the SDK's built-in `dcpTelemetry` module with OpenTelemetry-compatible exporters.
+
+### Migration for Existing V1 Operators
+
+Existing V1 operators can upgrade incrementally:
+
+1. Update to DCP v2.0 SDK
+2. Set `default_mode: 'classical_only'` (identical to V1 behavior)
+3. Gradually enable `hybrid_preferred` for new agents
+4. Move to `hybrid_required` when PQ adoption is sufficient
+
+See [MIGRATION_V1_V2.md](MIGRATION_V1_V2.md) for detailed migration steps.
+
 ## Reference
 
 - Verification checklist: [spec/VERIFICATION.md](../spec/VERIFICATION.md)
