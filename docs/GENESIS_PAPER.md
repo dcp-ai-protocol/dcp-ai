@@ -33,5 +33,4 @@ The protocol still belongs to everyone who uses it. The spec remains the contrib
 - [DCP-04 (Agent-to-Agent)](../spec/DCP-04.md)
 - [DCP-AI v2.0 Specification](../spec/DCP-AI-v2.0.md)
 - [NIST Conformity](NIST_CONFORMITY.md)
-- [IETF Internet-Draft](IETF_DRAFT.md)
 - [Migration Guide (V1 → V2)](MIGRATION_V1_V2.md)

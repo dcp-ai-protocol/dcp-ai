@@ -58,13 +58,13 @@ Evaluate which parts of DCP are suitable for IETF standardization and prepare th
 
 - Identify the subset of DCP Core that could form an Internet-Draft
 - Document what should stay outside the IETF track (profiles, services, implementation details)
-- Review the existing `docs/IETF_DRAFT.md` for alignment with the core/profiles separation
+- Identify which spec sections map to a potential Internet-Draft
 - Articulate the IETF standardization strategy
 
 ### Deliverables
 
-- Updated `docs/IETF_DRAFT.md` aligned with stabilized core
-- Gap analysis between current IETF draft and the stabilized core
+- IETF Internet-Draft prepared for datatracker submission
+- Gap analysis between DCP Core spec and IETF requirements
 
 ---
 

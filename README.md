@@ -72,7 +72,7 @@ See [spec/core/](spec/core/) for the core specification.
 | [DCP-04](spec/DCP-04.md) | Agent-to-Agent Communication | Authenticated inter-agent messaging, delegation, trust chains |
 | [DCP-AI v2.0](spec/DCP-AI-v2.0.md) | Post-Quantum Normative Specification | Complete v2.0 spec with hybrid PQ crypto, 4-tier security model |
 
-See also: [Core specification](spec/core/dcp-core.md) | [Profiles overview](spec/profiles/) | [IETF Draft](docs/IETF_DRAFT.md)
+See also: [Core specification](spec/core/dcp-core.md) | [Profiles overview](spec/profiles/)
 
 ---
 
@@ -327,7 +327,6 @@ cd docker && docker compose up -d
 
 | Document | Description |
 |----------|-------------|
-| [IETF_DRAFT](docs/IETF_DRAFT.md) | IETF Internet-Draft for DCP standardization |
 | [NIST_CONFORMITY](docs/NIST_CONFORMITY.md) | NIST post-quantum cryptography conformance |
 | [ROADMAP](ROADMAP.md) | Project evolution roadmap |
 
@@ -402,7 +401,6 @@ dcp-ai-genesis/
 ├── docker/                  # Docker Compose + multi-stage Dockerfile
 ├── api/                     # OpenAPI 3.1 + Protocol Buffers (gRPC)
 ├── docs/                    # All documentation
-│   └── ietf/                # IETF standardization strategy
 └── .github/                 # CI/CD workflows + reusable GitHub Actions
 ```
 
