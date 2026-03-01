@@ -29,7 +29,7 @@ passport = {
     "created_at": "2025-01-01T00:00:00Z",
     "expires_at": None,
 }
-hbr = {
+rpr = {
     "dcp_version": "1.0",
     "human_id": "human-001",
     "entity_type": "natural_person",
@@ -43,7 +43,7 @@ hbr = {
 wrapped = DCPAgentWrapper(
     agent=my_langchain_agent,       # Your LangChain agent
     passport=passport,
-    hbr=hbr,
+    rpr=rpr,
     secret_key=keys["secret_key_b64"],
     auto_intent=True,               # Automatically generate intents
 )
@@ -67,7 +67,7 @@ Wraps a LangChain agent with full DCP citizenship.
 DCPAgentWrapper(
     agent: Any,                    # LangChain agent
     passport: dict[str, Any],     # DCP Agent Passport
-    hbr: dict[str, Any],          # Human Binding Record
+    rpr: dict[str, Any],          # Responsible Principal Record
     secret_key: str,              # Ed25519 secret key (base64)
     auto_intent: bool = True,     # Auto-generate intents
     policy_engine: Any = None,    # Custom policy engine (optional)
@@ -162,7 +162,7 @@ class MyPolicyEngine:
 wrapped = DCPAgentWrapper(
     agent=my_agent,
     passport=passport,
-    hbr=hbr,
+    rpr=rpr,
     secret_key=keys["secret_key_b64"],
     policy_engine=MyPolicyEngine(),
 )

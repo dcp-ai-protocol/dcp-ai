@@ -27,7 +27,7 @@ researcher = DCPCrewAgent(
         "created_at": "2025-01-01T00:00:00Z",
         "expires_at": None,
     },
-    hbr={
+    rpr={
         "dcp_version": "1.0",
         "human_id": "human-001",
         "entity_type": "natural_person",
@@ -53,7 +53,7 @@ writer = DCPCrewAgent(
         "created_at": "2025-01-01T00:00:00Z",
         "expires_at": None,
     },
-    hbr={
+    rpr={
         "dcp_version": "1.0",
         "human_id": "human-001",
         "entity_type": "natural_person",
@@ -89,7 +89,7 @@ CrewAI-compatible agent that includes an individual DCP passport and audit trail
 DCPCrewAgent(
     role: str,                     # Agent role in the crew
     passport: dict[str, Any],     # DCP Agent Passport
-    hbr: dict[str, Any],          # Human Binding Record
+    rpr: dict[str, Any],          # Responsible Principal Record
     secret_key: str = "",         # Ed25519 secret key (base64)
     goal: str = "",               # Agent goal
     backstory: str = "",          # Agent context/backstory
@@ -175,14 +175,14 @@ keys_w = generate_keypair()
 researcher = DCPCrewAgent(
     role="researcher",
     passport={...},
-    hbr={...},
+    rpr={...},
     secret_key=keys_r["secret_key_b64"],
 )
 
 writer = DCPCrewAgent(
     role="writer",
     passport={...},
-    hbr={...},
+    rpr={...},
     secret_key=keys_w["secret_key_b64"],
 )
 

@@ -15,7 +15,8 @@
   },
   "files": ["dist"],
   "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --dts --clean"
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
+    "test": "vitest run"
   },
   "dependencies": {
     "@dcp-ai/sdk": "^1.0.0"
@@ -26,7 +27,8 @@
   "devDependencies": {
     "tsup": "^8.0.0",
     "typescript": "^5.4.0",
-    "@types/express": "^4.17.21"
+    "@types/express": "^4.17.21",
+    "vitest": "^1.6.0"
   },
   "license": "MIT"
 }

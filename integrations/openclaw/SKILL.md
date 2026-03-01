@@ -24,7 +24,7 @@ dcp_identity_setup({
 })
 ```
 
-This generates an Ed25519 keypair, a Human Binding Record, and an Agent Passport.
+This generates an Ed25519 keypair, a Responsible Principal Record, and an Agent Passport.
 
 ## Before every sensitive action
 

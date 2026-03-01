@@ -4,7 +4,7 @@
 
 ## Features
 
-- **Identity (DCP-01)** — Ed25519 keypair generation, Human Binding Record, Agent Passport
+- **Identity (DCP-01)** — Ed25519 keypair generation, Responsible Principal Record, Agent Passport
 - **Intent Declaration (DCP-02)** — Risk scoring and policy gating before sensitive actions
 - **Audit Trail (DCP-03)** — Hash-chained, immutable action log with evidence references
 - **Bundle Verification** — Full schema + signature + hash verification of Signed Bundles
@@ -29,7 +29,7 @@ plugins:
 
 | Tool | Description | DCP Spec |
 |------|-------------|----------|
-| `dcp_identity_setup` | Generate keypair + HBR + AgentPassport | DCP-01 |
+| `dcp_identity_setup` | Generate keypair + RPR + AgentPassport | DCP-01 |
 | `dcp_declare_intent` | Declare intent, get policy decision (approve/escalate/block) | DCP-02 |
 | `dcp_verify_bundle` | Verify a Signed Bundle (schema + signature + hashes) | VERIFICATION |
 | `dcp_log_action` | Record action as AuditEntry with hash-chaining | DCP-03 |
@@ -87,7 +87,7 @@ integrations/openclaw/
 
 | OpenClaw Concept | DCP Equivalent |
 |---|---|
-| Owner (human) | `HumanBindingRecord` |
+| Owner (human) | `ResponsiblePrincipalRecord` |
 | Agent session | `AgentPassport` (capabilities mapped from allowed tools) |
 | Tool call | `Intent` (action_type derived from tool name) |
 | Tool allowlist/denylist | `PolicyDecision` |

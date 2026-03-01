@@ -110,7 +110,7 @@ class DCPAgentContext:
     risk_tier: str = "medium"
     status: str = "active"
     passport: dict[str, Any] = field(default_factory=dict)
-    hbr: dict[str, Any] = field(default_factory=dict)
+    rpr: dict[str, Any] = field(default_factory=dict)
     intent: dict[str, Any] = field(default_factory=dict)
 ```
 

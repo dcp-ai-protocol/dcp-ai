@@ -16,7 +16,8 @@
   "files": ["dist", "SKILL.md"],
   "scripts": {
     "build": "tsup src/index.ts --format esm,cjs --dts --clean",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@dcp-ai/sdk": "^1.0.0",
@@ -24,7 +25,8 @@
   },
   "devDependencies": {
     "tsup": "^8.0.0",
-    "typescript": "^5.4.0"
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0"
   },
   "keywords": [
     "dcp",
