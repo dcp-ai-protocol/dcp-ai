@@ -25,9 +25,19 @@ keys/*_private*
 *.min.js
 *.tgz
 
+# Logs
+*.log
+npm-debug.log*
+
+# Databases
+*.sqlite
+*.sqlite3
+*.db
+
 # IDE
 .vscode/
 .idea/
+.cursor/
 
 # Rust
 sdks/rust/target/
