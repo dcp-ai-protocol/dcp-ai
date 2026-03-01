@@ -10,9 +10,12 @@
     "dcp": "./bin/dcp.js"
   },
   "scripts": {
+    "test": "npm run conformance",
     "validate": "node tools/validate.js",
     "conformance": "node tools/conformance.js",
     "examples:generate": "node scripts/generate-production-examples.js",
+    "examples:generate:v2": "node scripts/generate-v2-examples.js",
+    "conformance:v2": "node tools/conformance.js",
     "server": "node server/index.js"
   },
   "dependencies": {
