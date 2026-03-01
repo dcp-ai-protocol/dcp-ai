@@ -16,9 +16,9 @@ export type AuditPolicyDecision = 'approved' | 'escalated' | 'blocked';
 export type SignerType = 'human' | 'organization';
 export type ConfirmationDecision = 'approve' | 'deny';
 
-// ── DCP-01: Identity & Human Binding ──
+// ── DCP-01: Identity & Responsible Principal ──
 
-export interface HumanBindingRecord {
+export interface ResponsiblePrincipalRecord {
   dcp_version: string;
   human_id: string;
   legal_name: string;
@@ -36,7 +36,7 @@ export interface AgentPassport {
   dcp_version: string;
   agent_id: string;
   public_key: string;
-  human_binding_reference: string;
+  principal_binding_reference: string;
   capabilities?: Capability[];
   risk_tier?: RiskTier;
   created_at: string;
@@ -106,7 +106,7 @@ export interface AuditEntry {
 // ── Bundle Types ──
 
 export interface CitizenshipBundle {
-  human_binding_record: HumanBindingRecord;
+  responsible_principal_record: ResponsiblePrincipalRecord;
   agent_passport: AgentPassport;
   intent: Intent;
   policy_decision: PolicyDecision;

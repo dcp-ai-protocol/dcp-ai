@@ -1,0 +1,9 @@
+__tests__
+*.test.ts
+*.test.js
+.eslintrc*
+.prettierrc*
+tsconfig.json
+vitest.config.*
+coverage
+.turbo

@@ -1,6 +1,6 @@
-# @dcp-ai/sdk — TypeScript SDK
+# @dcp-ai/sdk — TypeScript SDK for DCP-AI v2.0
 
-Official TypeScript SDK for the Digital Citizenship Protocol (DCP). Create, sign, and verify Citizenship Bundles with Ed25519, SHA-256, and Merkle trees.
+Official TypeScript SDK for the Digital Citizenship Protocol (DCP-AI). Create, sign, and verify Citizenship Bundles with post-quantum hybrid cryptography (Ed25519 + ML-DSA-65), composite signatures, adaptive security tiers, agent-to-agent (A2A) communication, built-in observability, and production hardening.
 
 ## Installation
 
@@ -8,7 +8,7 @@ Official TypeScript SDK for the Digital Citizenship Protocol (DCP). Create, sign
 npm install @dcp-ai/sdk
 ```
 
-## Quickstart
+## Quick Start (V1)
 
 ```typescript
 import {
@@ -16,137 +16,241 @@ import {
   signBundle,
   verifySignedBundle,
   generateKeypair,
-} from "@dcp-ai/sdk";
+} from '@dcp-ai/sdk';
 
-// 1. Generate Ed25519 keypair
 const keys = generateKeypair();
 
-// 2. Build a Citizenship Bundle
 const bundle = new BundleBuilder()
-  .humanBindingRecord({
-    dcp_version: "1.0",
-    human_id: "human-001",
-    entity_type: "natural_person",
-    jurisdiction: "ES",
-    liability_mode: "full",
-    created_at: new Date().toISOString(),
-    expires_at: null,
-  })
-  .agentPassport({
-    dcp_version: "1.0",
-    agent_id: "agent-001",
-    human_id: "human-001",
-    agent_name: "MyAgent",
-    capabilities: ["browse", "api_call"],
-    risk_tier: "medium",
-    status: "active",
-    created_at: new Date().toISOString(),
-    expires_at: null,
-  })
-  .intent({
-    dcp_version: "1.0",
-    agent_id: "agent-001",
-    human_id: "human-001",
-    timestamp: new Date().toISOString(),
-    action_type: "api_call",
-    target: { channel: "api", endpoint: "https://api.example.com/data" },
-    data_classes: ["public"],
-    estimated_impact: "low",
-  })
-  .policyDecision({
-    dcp_version: "1.0",
-    agent_id: "agent-001",
-    human_id: "human-001",
-    timestamp: new Date().toISOString(),
-    decision: "allow",
-    matched_rules: ["default-allow"],
-  })
+  .responsiblePrincipalRecord({ dcp_version: '1.0', human_id: 'human-001', /* ... */ })
+  .agentPassport({ dcp_version: '1.0', agent_id: 'agent-001', /* ... */ })
+  .intent({ dcp_version: '1.0', agent_id: 'agent-001', /* ... */ })
+  .policyDecision({ dcp_version: '1.0', agent_id: 'agent-001', /* ... */ })
   .build();
 
-// 3. Sign the bundle
 const signed = signBundle(bundle, {
   secretKeyB64: keys.secretKeyB64,
-  signerType: "human",
-  signerId: "human-001",
+  signerType: 'human',
+  signerId: 'human-001',
 });
 
-// 4. Verify
 const result = verifySignedBundle(signed, keys.publicKeyB64);
 console.log(result); // { verified: true, errors: [] }
 ```
 
+## Quick Start (V2)
+
+```typescript
+import {
+  BundleBuilderV2,
+  signBundleV2,
+  verifySignedBundleV2,
+  generateKeypair,
+  registerDefaultProviders,
+  getDefaultRegistry,
+  computeSecurityTier,
+} from '@dcp-ai/sdk';
+
+// Register PQ crypto providers
+registerDefaultProviders();
+const registry = getDefaultRegistry();
+
+// Generate Ed25519 keypair (for classical signing)
+const keys = generateKeypair();
+
+// Build a V2 bundle with session nonce and security tier
+const bundle = new BundleBuilderV2()
+  .responsiblePrincipalRecord({ /* V2 RPR with keys[] */ })
+  .agentPassport({ /* V2 passport with capabilities */ })
+  .intent({ /* V2 intent with risk_score and security_tier */ })
+  .policyDecision({ /* V2 policy with resolved_tier */ })
+  .addAuditEntry({ /* V2 audit with dual-hash chain */ })
+  .build();
+```
+
 ## API Reference
 
-### Crypto
+### Core Crypto (V1)
 
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `generateKeypair()` | `() => Keypair` | Generates an Ed25519 key pair (`publicKeyB64`, `secretKeyB64`) |
-| `publicKeyFromSecret(secretKeyB64)` | `(string) => string` | Derives the public key from the secret key |
-| `signObject(obj, secretKeyB64)` | `(unknown, string) => string` | Signs an object, returns base64 |
-| `verifyObject(obj, signatureB64, publicKeyB64)` | `(unknown, string, string) => boolean` | Verifies a signature |
-| `canonicalize(obj)` | `(unknown) => string` | Deterministic (canonical) JSON |
+| Function | Description |
+|----------|-------------|
+| `generateKeypair()` | Generates an Ed25519 key pair (`publicKeyB64`, `secretKeyB64`) |
+| `signObject(obj, secretKeyB64)` | Signs an object, returns base64 signature |
+| `verifyObject(obj, signatureB64, publicKeyB64)` | Verifies a signature against a public key |
+| `canonicalize(obj)` | Deterministic (canonical) JSON serialization |
+| `publicKeyFromSecret(secretKeyB64)` | Derives the public key from a secret key |
 
-### Merkle & Hashing
+### Crypto Providers (V2)
 
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `hashObject(obj)` | `(unknown) => string` | SHA-256 of the canonicalized JSON (hex) |
-| `merkleRootFromHexLeaves(leaves)` | `(string[]) => string \| null` | Merkle root from hex leaves |
-| `merkleRootForAuditEntries(entries)` | `(unknown[]) => string \| null` | Merkle root of audit entries |
-| `intentHash(intent)` | `(unknown) => string` | Intent hash (SHA-256 canonical) |
-| `prevHashForEntry(prevEntry)` | `(unknown) => string` | Hash of the previous entry for chaining |
+| Export | Description |
+|--------|-------------|
+| `Ed25519Provider` | Classical Ed25519 signing provider |
+| `MlDsa65Provider` | Post-quantum ML-DSA-65 signing provider |
+| `SlhDsa192fProvider` | Post-quantum SLH-DSA-192f signing provider |
+| `AlgorithmRegistry` | Registry managing available crypto algorithm providers |
+| `getDefaultRegistry()` | Returns the singleton algorithm registry |
+| `registerDefaultProviders()` | Registers Ed25519, ML-DSA-65, and SLH-DSA-192f providers |
+| `deriveKid(publicKey, algorithm)` | Derives a key identifier from a public key |
 
-### Schema Validation
+### Composite Signatures (V2)
 
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `validateSchema(schemaName, data)` | `(string, unknown) => ValidationResult` | Validates against a DCP v1 schema |
-| `validateBundle(bundle)` | `(any) => ValidationResult` | Validates a complete Citizenship Bundle |
+| Function | Description |
+|----------|-------------|
+| `compositeSign(payload, keys, registry)` | Creates a composite signature with classical + PQ algorithms |
+| `compositeVerify(payload, signature, registry)` | Verifies a composite signature |
+| `classicalOnlySign(payload, keys, registry)` | Signs with classical algorithm only (fallback mode) |
 
-### Bundle Builder
+### Security Tiers (V2)
+
+| Function | Description |
+|----------|-------------|
+| `computeSecurityTier(riskScore, flags)` | Computes a `SecurityTier` from a numeric risk score |
+| `maxTier(a, b)` | Returns the higher of two security tiers |
+| `tierToVerificationMode(tier)` | Maps a tier to the required verification mode |
+| `tierToCheckpointInterval(tier)` | Maps a tier to the PQ checkpoint interval |
+
+### Bundle Building
+
+| Export | Version | Description |
+|--------|---------|-------------|
+| `BundleBuilder` | V1 | Fluent builder for V1 Citizenship Bundles |
+| `BundleBuilderV2` | V2 | Fluent builder for V2 bundles with security tiers and dual hashing |
+| `signBundle(bundle, options)` | V1 | Signs a V1 bundle with Ed25519 |
+| `signBundleV2(bundle, keys, registry)` | V2 | Signs a V2 bundle with composite signatures |
+| `signBundleV2ClassicalOnly(bundle, keys, registry)` | V2 | Signs a V2 bundle with classical-only signatures |
+| `verifySignedBundle(signedBundle, publicKeyB64)` | V1 | Verifies a V1 signed bundle |
+| `verifySignedBundleV2(signedBundle, registry)` | V2 | Verifies a V2 signed bundle (composite or classical) |
+
+### Bundle Optimization (V2)
+
+| Export | Description |
+|--------|-------------|
+| `suggestPresentationMode(context)` | Recommends a presentation mode based on context |
+| `presentFull(bundle)` | Full bundle presentation (no omissions) |
+| `presentCompact(bundle)` | Compact presentation with pruned audit trail |
+| `presentReference(bundle)` | Reference-only presentation (hashes, no payloads) |
+| `presentIncremental(bundle, since)` | Incremental presentation (delta since a checkpoint) |
+| `VerificationCache` | Caches verification results to avoid redundant crypto work |
+
+### PQ Checkpoints (V2)
+
+| Export | Description |
+|--------|-------------|
+| `PQCheckpointManager` | Manages periodic post-quantum checkpoint creation |
+| `createPQCheckpoint(entries, keys, registry)` | Creates a PQ-signed checkpoint over audit entries |
+| `auditEventsMerkleRoot(entries)` | Computes a Merkle root from audit entries |
+
+### Dual Hash (V2)
+
+| Function | Description |
+|----------|-------------|
+| `sha256Hex(data)` | SHA-256 hash (hex string) |
+| `sha3_256Hex(data)` | SHA3-256 hash (hex string) |
+| `dualHash(data)` | Returns `{ sha256, sha3_256 }` for quantum-resistant dual hashing |
+| `dualMerkleRoot(leaves)` | Computes a Merkle root using dual-hash leaves |
+
+### A2A Protocol (DCP-04)
+
+| Function | Description |
+|----------|-------------|
+| `createAgentDirectory()` | Creates an in-memory agent directory |
+| `findAgentByCapability(dir, cap)` | Finds agents by capability in a directory |
+| `findAgentById(dir, id)` | Finds an agent by ID |
+| `createHello(agentId, capabilities)` | Creates an A2A Hello handshake message |
+| `createWelcome(agentId, capabilities)` | Creates an A2A Welcome response message |
+| `deriveSessionId(helloNonce, welcomeNonce)` | Derives a session ID from handshake nonces |
+| `createCloseMessage(sessionId, reason)` | Creates a session close message |
+| `createSession(id, key, local, remote, tier)` | Creates an encrypted A2A session |
+| `encryptMessage(session, payload)` | Encrypts a message within an A2A session |
+| `decryptMessage(session, encrypted)` | Decrypts a message within an A2A session |
+| `needsRekeying(session)` | Checks if a session needs key rotation |
+| `generateResumeProof(session)` | Generates a proof for session resumption |
+| `verifyResumeProof(session, proof)` | Verifies a session resumption proof |
+
+### Observability
+
+| Export | Description |
+|--------|-------------|
+| `dcpTelemetry` | Singleton telemetry instance |
+| `dcpTelemetry.init(config)` | Initializes telemetry with service name and exporter |
+| `dcpTelemetry.startSpan(name)` | Starts a named trace span |
+| `dcpTelemetry.endSpan(span)` | Ends a trace span |
+| `dcpTelemetry.recordSignLatency(ms)` | Records signing latency metric |
+| `dcpTelemetry.getMetricsSummary()` | Returns aggregated metrics summary |
+
+### Production Hardening
+
+| Export | Description |
+|--------|-------------|
+| `DcpErrorCode` | Enum of structured error codes |
+| `DcpProtocolError` | Typed error class for protocol-level failures |
+| `createDcpError(code, message, context)` | Factory for creating structured DCP errors |
+| `isDcpError(err)` | Type guard for `DcpProtocolError` |
+| `RateLimiter` | Fixed-window rate limiter |
+| `AdaptiveRateLimiter` | Rate limiter that adjusts based on load |
+| `CircuitBreaker` | Circuit breaker for external calls |
+| `withRetry(fn, options)` | Retries an async function with backoff |
+
+### Other V2
+
+| Export | Description |
+|--------|-------------|
+| `generateSessionNonce()` | Generates a cryptographic session nonce |
+| `domainSeparatedMessage(domain, message)` | Prefixes a message with a domain separator |
+| `generateEmergencyRevocationToken(keys)` | Generates a pre-signed emergency revocation token |
+| `buildEmergencyRevocation(token)` | Builds a full revocation record from a token |
+| `shamirSplit(secret, n, k)` | Splits a secret into `n` shares (threshold `k`) |
+| `shamirReconstruct(shares)` | Reconstructs a secret from `k` shares |
+| `CborEncoder` | CBOR encoder class |
+| `CborDecoder` | CBOR decoder class |
+| `cborEncode(value)` | Encodes a value to CBOR bytes |
+| `cborDecode(bytes)` | Decodes CBOR bytes to a value |
+
+## V2 Types
+
+Key types exported by the SDK:
+
+- `SignedPayload` — Wrapper for signed data with composite signature metadata
+- `CompositeSignature` — Contains classical + PQ signature components
+- `KeyEntry` — Public key entry with algorithm, kid, and key material
+- `SecurityTier` — `'basic' | 'elevated' | 'critical'`
+- `VerifierPolicy` — Policy specifying required verification mode per tier
+- `PQCheckpoint` — Post-quantum checkpoint over audit entries
+- `A2ASession` — Encrypted agent-to-agent session state
+- `A2AMessage` — Encrypted A2A message envelope
+- `TelemetryConfig` — Configuration for the observability subsystem
+
+## A2A Protocol
+
+Agent-to-agent encrypted communication:
 
 ```typescript
-const bundle = new BundleBuilder()
-  .humanBindingRecord(hbr)  // HumanBindingRecord
-  .agentPassport(passport)   // AgentPassport
-  .intent(intent)            // Intent
-  .policyDecision(policy)    // PolicyDecision
-  .addAuditEntry(entry)      // Manual AuditEntry
-  .createAuditEntry(fields)  // Auto-computes intent_hash and prev_hash
-  .build();                  // => CitizenshipBundle
+import { createSession, encryptMessage, decryptMessage } from '@dcp-ai/sdk';
+
+// Create encrypted A2A session
+const session = createSession(sessionId, sessionKey, 'agent:a', 'agent:b', 'elevated');
+const encrypted = encryptMessage(session, { action: 'negotiate', data: {...} });
+const decrypted = decryptMessage(remoteSession, encrypted);
 ```
 
-### Bundle Signing
+## Observability
+
+All crypto operations are automatically instrumented:
 
 ```typescript
-signBundle(bundle: CitizenshipBundle, options: SignOptions): SignedBundle
+import { dcpTelemetry } from '@dcp-ai/sdk';
+
+dcpTelemetry.init({ serviceName: 'my-agent', enabled: true, exporterType: 'console' });
+
+// All crypto operations are automatically instrumented
+const summary = dcpTelemetry.getMetricsSummary();
 ```
 
-`SignOptions`:
-- `secretKeyB64: string` — Ed25519 secret key (base64)
-- `signerType: string` — `"human"` or `"agent"`
-- `signerId?: string` — Signer ID
+## Dependencies
 
-### Bundle Verification
-
-```typescript
-verifySignedBundle(signedBundle: SignedBundle, publicKeyB64?: string): VerificationResult
-```
-
-Verifies:
-1. JSON schema validity
-2. Ed25519 signature
-3. `bundle_hash` (SHA-256 of the bundle)
-4. `merkle_root` of audit entries
-5. `intent_hash` chain in audit entries
-6. `prev_hash` chain (GENESIS → hash(previous entry))
-
-### Exported Types
-
-Enums: `EntityType`, `LiabilityMode`, `Capability`, `RiskTier`, `AgentStatus`, `ActionType`, `Channel`, `DataClass`, `Impact`, `PolicyDecisionType`, `SignerType`, `ConfirmationDecision`
-
-Interfaces: `HumanBindingRecord`, `AgentPassport`, `Intent`, `IntentTarget`, `PolicyDecision`, `AuditEntry`, `AuditEvidence`, `CitizenshipBundle`, `SignedBundle`, `BundleSignature`, `Signer`, `RevocationRecord`, `HumanConfirmation`, `ValidationResult`, `VerificationResult`, `Keypair`
+- `ajv` + `ajv-formats` — JSON Schema validation
+- `tweetnacl` + `tweetnacl-util` — Ed25519 cryptography
+- `json-stable-stringify` — Deterministic JSON
+- `@noble/post-quantum` — ML-DSA-65 and SLH-DSA post-quantum signatures
 
 ## Development
 
@@ -160,17 +264,12 @@ npm run build
 # Tests with Vitest
 npm test
 npm run test:watch
+npm run test:coverage
 
 # Type check
 npm run lint
 ```
 
-### Dependencies
-
-- `ajv` + `ajv-formats` — JSON Schema validation
-- `tweetnacl` + `tweetnacl-util` — Ed25519 cryptography
-- `json-stable-stringify` — Deterministic JSON
-
 ## License
 
-Apache-2.0
+MIT

@@ -1,6 +1,6 @@
 # dcp-ai-go — Go SDK
 
-Official Go SDK for the Digital Citizenship Protocol (DCP). Native Go types, Ed25519, SHA-256, and full bundle verification.
+Official Go SDK for the Digital Citizenship Protocol (DCP) v1.0 and v2.0. Supports Ed25519, ML-DSA-65, SLH-DSA-192f, ML-KEM-768, composite signatures, dual hash chains, and full bundle verification.
 
 ## Installation
 
@@ -10,7 +10,24 @@ go get github.com/dcp-ai/dcp-ai-go/dcp
 
 **Requires:** Go 1.21+
 
-## Quickstart
+## Features
+
+| Feature | V1 | V2 |
+|---------|----|----|
+| Ed25519 signatures | Yes | Yes |
+| ML-DSA-65 (FIPS 204) | — | Yes |
+| SLH-DSA-192f (FIPS 205) | — | Yes |
+| ML-KEM-768 (FIPS 203) | — | Yes |
+| Composite signatures (PQ over classical) | — | Yes |
+| Domain separation | — | Yes |
+| Dual hash (SHA-256 + SHA3-256) | — | Yes |
+| Bundle verification | Yes | Yes |
+| Bundle building & signing | — | Yes |
+| Security tier computation | — | Yes |
+| Proof of possession | — | Yes |
+| Key rotation | — | Yes |
+
+## Quickstart — V1
 
 ```go
 package main
@@ -21,40 +38,15 @@ import (
 )
 
 func main() {
-    // 1. Generate Ed25519 keypair
-    keys, err := dcp.GenerateKeypair()
-    if err != nil {
-        panic(err)
-    }
-    fmt.Println("Public Key:", keys.PublicKeyB64)
-
-    // 2. Sign an object
-    obj := map[string]interface{}{
-        "agent_id": "agent-001",
-        "action":   "api_call",
-    }
-    sig, err := dcp.SignObject(obj, keys.SecretKeyB64)
-    if err != nil {
-        panic(err)
-    }
-
-    // 3. Verify signature
-    ok, err := dcp.VerifyObject(obj, sig, keys.PublicKeyB64)
-    if err != nil {
-        panic(err)
-    }
+    keys, _ := dcp.GenerateKeypair()
+    obj := map[string]interface{}{"agent_id": "agent-001", "action": "api_call"}
+    sig, _ := dcp.SignObject(obj, keys.SecretKeyB64)
+    ok, _ := dcp.VerifyObject(obj, sig, keys.PublicKeyB64)
     fmt.Println("Verified:", ok) // true
-
-    // 4. Hash an object
-    hash, err := dcp.HashObject(obj)
-    if err != nil {
-        panic(err)
-    }
-    fmt.Println("SHA-256:", hash)
 }
 ```
 
-### Verify a Signed Bundle
+## Quickstart — V2
 
 ```go
 package main
@@ -62,101 +54,125 @@ package main
 import (
     "encoding/json"
     "fmt"
-    "os"
-    "github.com/dcp-ai/dcp-ai-go/dcp"
+
+    v2 "github.com/dcp-ai/dcp-ai-go/dcp/v2"
+    "github.com/dcp-ai/dcp-ai-go/dcp/providers"
 )
 
 func main() {
-    data, _ := os.ReadFile("citizenship_bundle.signed.json")
+    // Set up algorithm registry
+    reg := v2.NewAlgorithmRegistry()
+    reg.RegisterSigner(&providers.Ed25519Provider{})
+    reg.RegisterSigner(&providers.MlDsa65Provider{})
+    reg.RegisterKem(&providers.MlKem768Provider{})
 
-    var sb dcp.SignedBundle
-    json.Unmarshal(data, &sb)
+    // Generate keypairs
+    edKeys, _ := (&providers.Ed25519Provider{}).GenerateKeypair()
+    pqKeys, _ := (&providers.MlDsa65Provider{}).GenerateKeypair()
 
-    result := dcp.VerifySignedBundle(&sb, "BASE64_PUBLIC_KEY")
+    // Build a V2 bundle
+    bundle, _ := v2.BuildBundleV2(v2.BundleBuildInput{
+        RPR:          map[string]interface{}{"human_id": "h-1", "session_nonce": "nonce-1"},
+        Passport:     map[string]interface{}{"agent_id": "a-1", "session_nonce": "nonce-1"},
+        Intent:       map[string]interface{}{"intent_id": "i-1", "session_nonce": "nonce-1"},
+        Policy:       map[string]interface{}{"intent_id": "i-1", "session_nonce": "nonce-1", "risk_score": 200},
+        AuditEntries: []interface{}{},
+        SessionNonce: "nonce-1",
+    })
+
+    // Sign with composite (Ed25519 + ML-DSA-65)
+    pqKey := v2.CompositeKeyInfo{Kid: pqKeys.Kid, Alg: "ml-dsa-65", SecretKeyB64: pqKeys.SecretKeyB64}
+    signed, _ := v2.SignBundleV2(reg, bundle, v2.CompositeKeyInfo{
+        Kid: edKeys.Kid, Alg: "ed25519", SecretKeyB64: edKeys.SecretKeyB64,
+    }, &pqKey)
+
+    // Verify
+    data, _ := json.Marshal(signed)
+    result := v2.VerifySignedBundleV2(reg, data)
     fmt.Println("Verified:", result.Verified)
-    if len(result.Errors) > 0 {
-        fmt.Println("Errors:", result.Errors)
-    }
+    fmt.Println("Classical:", result.ClassicalValid, "PQ:", result.PQValid)
 }
 ```
 
-## API Reference
-
-### Crypto
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `GenerateKeypair()` | `() (*Keypair, error)` | Generates an Ed25519 key pair |
-| `SignObject(obj, secretKeyB64)` | `(interface{}, string) (string, error)` | Signs, returns base64 |
-| `VerifyObject(obj, sigB64, pubKeyB64)` | `(interface{}, string, string) (bool, error)` | Verifies signature |
-| `Canonicalize(obj)` | `(interface{}) (string, error)` | Deterministic JSON |
-
-### Hashing & Merkle
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `HashObject(obj)` | `(interface{}) (string, error)` | SHA-256 hex of canonical JSON |
-| `MerkleRootFromHexLeaves(leaves)` | `([]string) (string, error)` | Merkle root from hex leaves |
-
-### Verification
+### Security Tiers
 
 ```go
-func VerifySignedBundle(sb *SignedBundle, publicKeyB64 string) *VerificationResult
+tier := v2.ComputeSecurityTier(v2.SecurityTierInput{
+    RiskScore:   600,
+    DataClasses: []string{"financial"},
+    ActionType:  "payment",
+})
+fmt.Println(tier.Tier)               // "elevated"
+fmt.Println(tier.VerificationMode)   // "hybrid_required"
+fmt.Println(tier.CheckpointInterval) // 1
 ```
 
-Verifies: Ed25519 signature, `bundle_hash`, `merkle_root`, `intent_hash` chain, `prev_hash` chain.
-
-Returns `VerificationResult`:
-```go
-type VerificationResult struct {
-    Verified bool     `json:"verified"`
-    Errors   []string `json:"errors"`
-}
-```
-
-### Types
+### ML-KEM-768 Key Encapsulation
 
 ```go
-type Keypair struct {
-    PublicKeyB64  string
-    SecretKeyB64  string
-}
-
-type HumanBindingRecord struct { ... }
-type AgentPassport struct { ... }
-type Intent struct { ... }
-type IntentTarget struct { ... }
-type PolicyDecision struct { ... }
-type AuditEntry struct { ... }
-type AuditEvidence struct { ... }
-type CitizenshipBundle struct { ... }
-type SignedBundle struct { ... }
-type BundleSignature struct { ... }
-type Signer struct { ... }
-type RevocationRecord struct { ... }
+kem := &providers.MlKem768Provider{}
+kp, _ := kem.GenerateKeypair()
+result, _ := kem.Encapsulate(kp.PublicKeyB64)
+sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 ```
 
-All structs have `json:` tags for correct serialization/deserialization.
+## V2 API Reference
+
+### Bundle Building & Signing
+
+| Function | Description |
+|----------|-------------|
+| `v2.BuildBundleV2(input)` | Constructs a V2 bundle with manifest hashes and dual Merkle roots |
+| `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | Signs a bundle with composite or classical-only signature |
+| `v2.VerifySignedBundleV2(reg, jsonBytes)` | Full V2 bundle verification (structure, hashes, signatures, audit chain) |
+
+### Security Tiers
+
+| Function | Description |
+|----------|-------------|
+| `v2.ComputeSecurityTier(input)` | Computes adaptive security tier (routine/standard/elevated/maximum) |
+
+### Composite Signatures
+
+| Function | Description |
+|----------|-------------|
+| `v2.CompositeSign(reg, ctx, payload, classicalKey, pqKey)` | PQ-over-classical composite signature |
+| `v2.ClassicalOnlySign(reg, ctx, payload, key)` | Classical-only transition mode |
+| `v2.CompositeVerify(reg, ctx, payload, sig, classicalPK, pqPK)` | Verify composite signatures |
+
+### Crypto Providers
+
+| Provider | Algorithm | Type | Standard |
+|----------|-----------|------|----------|
+| `Ed25519Provider` | ed25519 | Signature | — |
+| `MlDsa65Provider` | ml-dsa-65 | Signature | FIPS 204 |
+| `SlhDsa192fProvider` | slh-dsa-192f | Signature | FIPS 205 |
+| `MlKem768Provider` | ml-kem-768 | KEM | FIPS 203 |
+
+### V1 API (unchanged)
+
+| Function | Description |
+|----------|-------------|
+| `dcp.GenerateKeypair()` | Ed25519 keypair |
+| `dcp.SignObject(obj, sk)` | Sign object |
+| `dcp.VerifyObject(obj, sig, pk)` | Verify signature |
+| `dcp.Canonicalize(obj)` | Deterministic JSON |
+| `dcp.HashObject(obj)` | SHA-256 of canonical JSON |
+| `dcp.VerifySignedBundle(sb, pk)` | V1 bundle verification |
 
 ## Development
 
 ```bash
-# Build
-go build ./...
-
-# Tests
-go test ./...
-
-# Format
-go fmt ./...
-
-# Verify dependencies
-go mod tidy
+go build ./...   # Build
+go test ./...    # Tests (conformance + interop + unit)
+go fmt ./...     # Format
+go mod tidy      # Verify dependencies
 ```
 
 ### Dependencies
 
-- `golang.org/x/crypto` — Ed25519
+- `github.com/cloudflare/circl` — ML-DSA-65, SLH-DSA-192f, ML-KEM-768
+- `golang.org/x/crypto` — SHA3-256
 
 ## License
 

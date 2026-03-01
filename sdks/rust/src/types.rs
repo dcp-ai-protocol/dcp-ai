@@ -2,9 +2,9 @@
 
 use serde::{Deserialize, Serialize};
 
-/// DCP-01: Human Binding Record.
+/// DCP-01: Responsible Principal Record.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HumanBindingRecord {
+pub struct ResponsiblePrincipalRecord {
     pub dcp_version: String,
     pub human_id: String,
     pub legal_name: String,
@@ -25,7 +25,7 @@ pub struct AgentPassport {
     pub dcp_version: String,
     pub agent_id: String,
     pub public_key: String,
-    pub human_binding_reference: String,
+    pub principal_binding_reference: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub capabilities: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -99,7 +99,7 @@ pub struct AuditEntry {
 /// Citizenship Bundle — contains all DCP artifacts.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CitizenshipBundle {
-    pub human_binding_record: HumanBindingRecord,
+    pub responsible_principal_record: ResponsiblePrincipalRecord,
     pub agent_passport: AgentPassport,
     pub intent: Intent,
     pub policy_decision: PolicyDecision,

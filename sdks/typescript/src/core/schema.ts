@@ -48,7 +48,7 @@ export function validateSchema(
 export function validateBundle(bundle: any): ValidationResult {
   const errors: string[] = [];
   const artifacts: [string, (b: any) => any, string][] = [
-    ['human_binding_record', (b) => b.human_binding_record, 'human_binding_record'],
+    ['responsible_principal_record', (b) => b.responsible_principal_record, 'responsible_principal_record'],
     ['agent_passport', (b) => b.agent_passport, 'agent_passport'],
     ['intent', (b) => b.intent, 'intent'],
     ['policy_decision', (b) => b.policy_decision, 'policy_decision'],

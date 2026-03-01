@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 
 # ── DCP-01: Identity & Human Binding ──
 
-class HumanBindingRecord(BaseModel):
+class ResponsiblePrincipalRecord(BaseModel):
     dcp_version: str = "1.0"
     human_id: str
     legal_name: str
@@ -29,7 +29,7 @@ class AgentPassport(BaseModel):
     dcp_version: str = "1.0"
     agent_id: str
     public_key: str
-    human_binding_reference: str
+    principal_binding_reference: str
     capabilities: Optional[list[str]] = None
     risk_tier: Optional[Literal["low", "medium", "high"]] = None
     created_at: str
@@ -104,7 +104,7 @@ class AuditEntry(BaseModel):
 # ── Bundle Types ──
 
 class CitizenshipBundle(BaseModel):
-    human_binding_record: HumanBindingRecord
+    responsible_principal_record: ResponsiblePrincipalRecord
     agent_passport: AgentPassport
     intent: Intent
     policy_decision: PolicyDecision

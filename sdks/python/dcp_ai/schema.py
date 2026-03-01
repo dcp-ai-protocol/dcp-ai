@@ -67,7 +67,7 @@ def validate_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
     """Validate a Citizenship Bundle (all artifacts + audit entries)."""
     errors: list[str] = []
     artifacts = [
-        ("human_binding_record", "human_binding_record"),
+        ("responsible_principal_record", "responsible_principal_record"),
         ("agent_passport", "agent_passport"),
         ("intent", "intent"),
         ("policy_decision", "policy_decision"),

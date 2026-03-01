@@ -12,7 +12,7 @@ from dcp_ai.crypto import canonicalize, sign_object, public_key_from_secret
 from dcp_ai.merkle import hash_object, intent_hash, merkle_root_for_audit_entries
 from dcp_ai.models import (
     CitizenshipBundle,
-    HumanBindingRecord,
+    ResponsiblePrincipalRecord,
     AgentPassport,
     Intent,
     PolicyDecision,
@@ -25,14 +25,14 @@ class BundleBuilder:
     """Fluent builder for DCP Citizenship Bundles."""
 
     def __init__(self) -> None:
-        self._hbr: HumanBindingRecord | None = None
+        self._rpr: ResponsiblePrincipalRecord | None = None
         self._passport: AgentPassport | None = None
         self._intent: Intent | None = None
         self._policy: PolicyDecision | None = None
         self._audit_entries: list[AuditEntry] = []
 
-    def human_binding_record(self, hbr: HumanBindingRecord) -> BundleBuilder:
-        self._hbr = hbr
+    def responsible_principal_record(self, rpr: ResponsiblePrincipalRecord) -> BundleBuilder:
+        self._rpr = rpr
         return self
 
     def agent_passport(self, passport: AgentPassport) -> BundleBuilder:
@@ -91,8 +91,8 @@ class BundleBuilder:
 
     def build(self) -> CitizenshipBundle:
         """Build the Citizenship Bundle. Raises ValueError if any required artifact is missing."""
-        if not self._hbr:
-            raise ValueError("Missing human_binding_record")
+        if not self._rpr:
+            raise ValueError("Missing responsible_principal_record")
         if not self._passport:
             raise ValueError("Missing agent_passport")
         if not self._intent:
@@ -103,7 +103,7 @@ class BundleBuilder:
             raise ValueError("At least one audit entry is required")
 
         return CitizenshipBundle(
-            human_binding_record=self._hbr,
+            responsible_principal_record=self._rpr,
             agent_passport=self._passport,
             intent=self._intent,
             policy_decision=self._policy,
@@ -136,7 +136,7 @@ def sign_bundle(
             "created_at": datetime.now(timezone.utc).isoformat(),
             "signer": {
                 "type": signer_type,
-                "id": signer_id or bundle.human_binding_record.human_id,
+                "id": signer_id or bundle.responsible_principal_record.human_id,
                 "public_key_b64": public_key_b64,
             },
             "bundle_hash": f"sha256:{bundle_hash_hex}",

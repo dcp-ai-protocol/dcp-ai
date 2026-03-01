@@ -114,6 +114,25 @@ func HashObject(obj interface{}) (string, error) {
 	return hex.EncodeToString(h[:]), nil
 }
 
+// DetectDCPVersion inspects a decoded JSON artifact and returns its DCP
+// version string ("1.0", "2.0") or "" if unrecognized.
+func DetectDCPVersion(artifact map[string]interface{}) string {
+	if v, ok := artifact["dcp_version"].(string); ok {
+		if v == "1.0" || v == "2.0" {
+			return v
+		}
+	}
+	if v, ok := artifact["dcp_bundle_version"].(string); ok && v == "2.0" {
+		return "2.0"
+	}
+	if bundle, ok := artifact["bundle"].(map[string]interface{}); ok {
+		if v, ok := bundle["dcp_bundle_version"].(string); ok && v == "2.0" {
+			return "2.0"
+		}
+	}
+	return ""
+}
+
 // MerkleRootFromHexLeaves computes Merkle root from hex leaf hashes.
 func MerkleRootFromHexLeaves(leaves []string) (string, error) {
 	if len(leaves) == 0 {

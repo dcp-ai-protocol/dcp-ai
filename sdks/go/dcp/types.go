@@ -1,8 +1,8 @@
 // Package dcp provides types and verification for the Digital Citizenship Protocol.
 package dcp
 
-// HumanBindingRecord represents DCP-01 Human Binding Record.
-type HumanBindingRecord struct {
+// ResponsiblePrincipalRecord represents DCP-01 Responsible Principal Record.
+type ResponsiblePrincipalRecord struct {
 	DCPVersion     string  `json:"dcp_version"`
 	HumanID        string  `json:"human_id"`
 	LegalName      string  `json:"legal_name"`
@@ -21,7 +21,7 @@ type AgentPassport struct {
 	DCPVersion            string   `json:"dcp_version"`
 	AgentID               string   `json:"agent_id"`
 	PublicKey             string   `json:"public_key"`
-	HumanBindingReference string   `json:"human_binding_reference"`
+	PrincipalBindingReference string   `json:"principal_binding_reference"`
 	Capabilities          []string `json:"capabilities,omitempty"`
 	RiskTier              string   `json:"risk_tier,omitempty"`
 	CreatedAt             string   `json:"created_at"`
@@ -83,7 +83,7 @@ type AuditEntry struct {
 
 // CitizenshipBundle represents a full DCP Citizenship Bundle.
 type CitizenshipBundle struct {
-	HumanBindingRecord HumanBindingRecord `json:"human_binding_record"`
+	ResponsiblePrincipalRecord ResponsiblePrincipalRecord `json:"responsible_principal_record"`
 	AgentPassport      AgentPassport      `json:"agent_passport"`
 	Intent             Intent             `json:"intent"`
 	PolicyDecision     PolicyDecision     `json:"policy_decision"`

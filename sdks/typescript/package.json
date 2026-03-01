@@ -18,22 +18,37 @@
     "build": "tsup src/index.ts --format esm,cjs --dts --clean",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
     "tweetnacl": "^1.0.3",
     "tweetnacl-util": "^0.15.1",
-    "json-stable-stringify": "^1.1.1"
+    "json-stable-stringify": "^1.1.1",
+    "@noble/post-quantum": "^0.5.4"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "@types/json-stable-stringify": "^1.0.36",
     "tsup": "^8.0.0",
     "typescript": "^5.4.0",
-    "vitest": "^1.6.0"
+    "vitest": "^1.6.0",
+    "@vitest/coverage-v8": "^1.6.0"
   },
   "keywords": ["dcp", "ai", "agent", "citizenship", "protocol", "verification"],
-  "license": "MIT"
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dcp-ai-protocol/dcp-ai"
+  },
+  "homepage": "https://dcp-ai.dev",
+  "bugs": {
+    "url": "https://github.com/dcp-ai-protocol/dcp-ai/issues"
+  },
+  "author": "DCP-AI Contributors",
+  "publishConfig": {
+    "access": "public"
+  }
 }

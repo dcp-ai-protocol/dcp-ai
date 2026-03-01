@@ -3,7 +3,7 @@
  */
 import type {
   CitizenshipBundle,
-  HumanBindingRecord,
+  ResponsiblePrincipalRecord,
   AgentPassport,
   Intent,
   PolicyDecision,
@@ -12,15 +12,15 @@ import type {
 import { hashObject, intentHash } from '../core/merkle.js';
 
 export class BundleBuilder {
-  private _hbr?: HumanBindingRecord;
+  private _rpr?: ResponsiblePrincipalRecord;
   private _passport?: AgentPassport;
   private _intent?: Intent;
   private _policy?: PolicyDecision;
   private _auditEntries: AuditEntry[] = [];
 
-  /** Set the Human Binding Record (DCP-01). */
-  humanBindingRecord(hbr: HumanBindingRecord): this {
-    this._hbr = hbr;
+  /** Set the Responsible Principal Record (DCP-01). */
+  responsiblePrincipalRecord(rpr: ResponsiblePrincipalRecord): this {
+    this._rpr = rpr;
     return this;
   }
 
@@ -73,14 +73,14 @@ export class BundleBuilder {
 
   /** Build the Citizenship Bundle. Throws if any required artifact is missing. */
   build(): CitizenshipBundle {
-    if (!this._hbr) throw new Error('Missing human_binding_record');
+    if (!this._rpr) throw new Error('Missing responsible_principal_record');
     if (!this._passport) throw new Error('Missing agent_passport');
     if (!this._intent) throw new Error('Missing intent');
     if (!this._policy) throw new Error('Missing policy_decision');
     if (this._auditEntries.length === 0) throw new Error('At least one audit entry is required');
 
     return {
-      human_binding_record: this._hbr,
+      responsible_principal_record: this._rpr,
       agent_passport: this._passport,
       intent: this._intent,
       policy_decision: this._policy,

@@ -4,10 +4,10 @@
  */
 
 export const SCHEMAS: Record<string, any> = {
-  human_binding_record: {
+  responsible_principal_record: {
     $schema: 'https://json-schema.org/draft/2020-12/schema',
-    $id: 'https://dcp-ai.org/schemas/v1/human_binding_record.schema.json',
-    title: 'HumanBindingRecord',
+    $id: 'https://dcp-ai.org/schemas/v1/responsible_principal_record.schema.json',
+    title: 'ResponsiblePrincipalRecord',
     type: 'object',
     additionalProperties: false,
     required: ['dcp_version','human_id','legal_name','entity_type','jurisdiction','liability_mode','override_rights','issued_at','expires_at','signature'],
@@ -31,12 +31,12 @@ export const SCHEMAS: Record<string, any> = {
     title: 'AgentPassport',
     type: 'object',
     additionalProperties: false,
-    required: ['dcp_version','agent_id','public_key','human_binding_reference','created_at','status','signature'],
+    required: ['dcp_version','agent_id','public_key','principal_binding_reference','created_at','status','signature'],
     properties: {
       dcp_version: { type: 'string', pattern: '^1\\.0$' },
       agent_id: { type: 'string', minLength: 6 },
       public_key: { type: 'string', minLength: 8 },
-      human_binding_reference: { type: 'string', minLength: 6 },
+      principal_binding_reference: { type: 'string', minLength: 6 },
       capabilities: { type: 'array', items: { type: 'string', enum: ['browse','api_call','email','calendar','payments','crm','file_write','code_exec'] }, uniqueItems: true },
       risk_tier: { type: 'string', enum: ['low','medium','high'] },
       created_at: { type: 'string', format: 'date-time' },
@@ -128,9 +128,9 @@ export const SCHEMAS: Record<string, any> = {
     title: 'CitizenshipBundle',
     type: 'object',
     additionalProperties: false,
-    required: ['human_binding_record','agent_passport','intent','policy_decision','audit_entries'],
+    required: ['responsible_principal_record','agent_passport','intent','policy_decision','audit_entries'],
     properties: {
-      human_binding_record: { $ref: 'https://dcp-ai.org/schemas/v1/human_binding_record.schema.json' },
+      responsible_principal_record: { $ref: 'https://dcp-ai.org/schemas/v1/responsible_principal_record.schema.json' },
       agent_passport: { $ref: 'https://dcp-ai.org/schemas/v1/agent_passport.schema.json' },
       intent: { $ref: 'https://dcp-ai.org/schemas/v1/intent.schema.json' },
       policy_decision: { $ref: 'https://dcp-ai.org/schemas/v1/policy_decision.schema.json' },

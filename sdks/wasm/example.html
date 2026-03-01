@@ -3,55 +3,306 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DCP-AI WASM Verification Demo</title>
+  <title>DCP-AI WASM v2.0 — Interactive Demo</title>
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; }
-    textarea { width: 100%; height: 200px; font-family: monospace; font-size: 13px; }
-    button { padding: 10px 24px; font-size: 16px; cursor: pointer; background: #2563eb; color: white; border: none; border-radius: 6px; }
-    button:hover { background: #1d4ed8; }
-    .result { margin-top: 16px; padding: 16px; border-radius: 8px; font-family: monospace; white-space: pre-wrap; }
-    .verified { background: #dcfce7; color: #166534; }
-    .failed { background: #fef2f2; color: #991b1b; }
+    :root { --bg: #0f172a; --surface: #1e293b; --border: #334155; --text: #e2e8f0; --muted: #94a3b8; --accent: #3b82f6; --green: #22c55e; --red: #ef4444; --yellow: #eab308; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace; background: var(--bg); color: var(--text); padding: 24px; line-height: 1.6; }
+    h1 { font-size: 1.5rem; margin-bottom: 4px; }
+    h2 { font-size: 1.1rem; color: var(--accent); margin: 24px 0 8px; }
+    .subtitle { color: var(--muted); font-size: 0.85rem; margin-bottom: 24px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+    .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+    button { padding: 8px 16px; font-size: 0.8rem; cursor: pointer; background: var(--accent); color: white; border: none; border-radius: 4px; font-family: inherit; }
+    button:hover { filter: brightness(1.15); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+    pre { background: #0c1222; border: 1px solid var(--border); border-radius: 4px; padding: 12px; font-size: 0.75rem; overflow-x: auto; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
+    .tag { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 0.7rem; font-weight: 600; }
+    .tag-ok { background: #166534; color: #bbf7d0; }
+    .tag-fail { background: #991b1b; color: #fecaca; }
+    .tag-warn { background: #854d0e; color: #fef08a; }
+    .tag-info { background: #1e3a5f; color: #93c5fd; }
+    .status { margin: 8px 0; }
+    #init-status { color: var(--muted); }
+    textarea { width: 100%; height: 120px; background: #0c1222; color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 8px; font-family: inherit; font-size: 0.75rem; resize: vertical; }
   </style>
 </head>
 <body>
-  <h1>DCP-AI WASM Verification</h1>
-  <p>Verify DCP signed bundles directly in the browser — no server required.</p>
+  <h1>DCP-AI WASM v2.0 — Interactive Demo</h1>
+  <p class="subtitle">Post-quantum composite signatures, ML-KEM-768, hybrid verification — all in the browser</p>
+  <p id="init-status">Initializing WASM module...</p>
 
-  <h3>Paste Signed Bundle JSON:</h3>
-  <textarea id="bundleInput" placeholder='{"bundle": {...}, "signature": {...}}'></textarea>
+  <div class="grid">
+    <!-- Keypair Generation -->
+    <div class="panel">
+      <h2>1. Keypair Generation</h2>
+      <div class="btn-row">
+        <button id="btn-hybrid" disabled>Generate Hybrid Keypair</button>
+        <button id="btn-kem" disabled>Generate ML-KEM-768</button>
+      </div>
+      <pre id="keygen-output">Waiting for initialization...</pre>
+    </div>
 
-  <br><br>
-  <button onclick="verifyBundle()">Verify Bundle</button>
+    <!-- Composite Signing -->
+    <div class="panel">
+      <h2>2. Composite Sign & Verify</h2>
+      <div class="btn-row">
+        <button id="btn-sign" disabled>Sign Test Payload</button>
+        <button id="btn-verify-sig" disabled>Verify Signature</button>
+      </div>
+      <pre id="sign-output">Generate a keypair first.</pre>
+    </div>
 
-  <div id="result"></div>
+    <!-- Bundle Build & Sign -->
+    <div class="panel">
+      <h2>3. Build & Sign V2 Bundle</h2>
+      <div class="btn-row">
+        <button id="btn-bundle" disabled>Build + Sign Bundle</button>
+        <button id="btn-verify-bundle" disabled>Verify Bundle</button>
+      </div>
+      <pre id="bundle-output">Generate a keypair first.</pre>
+    </div>
+
+    <!-- ML-KEM-768 -->
+    <div class="panel">
+      <h2>4. ML-KEM-768 Key Encapsulation</h2>
+      <div class="btn-row">
+        <button id="btn-encaps" disabled>Encapsulate + Decapsulate</button>
+      </div>
+      <pre id="kem-output">Generate an ML-KEM keypair first.</pre>
+    </div>
+
+    <!-- Security Tier -->
+    <div class="panel">
+      <h2>5. Security Tier Computation</h2>
+      <textarea id="tier-input">{"risk_score": 600, "data_classes": ["pii", "financial"], "action_type": "payment"}</textarea>
+      <div class="btn-row">
+        <button id="btn-tier" disabled>Compute Tier</button>
+      </div>
+      <pre id="tier-output"></pre>
+    </div>
+
+    <!-- Dual Hash -->
+    <div class="panel">
+      <h2>6. Dual Hash (SHA-256 + SHA3-256)</h2>
+      <textarea id="hash-input">Hello, DCP-AI v2.0!</textarea>
+      <div class="btn-row">
+        <button id="btn-hash" disabled>Compute Dual Hash</button>
+      </div>
+      <pre id="hash-output"></pre>
+    </div>
+
+    <!-- Bundle Verifier -->
+    <div class="panel" style="grid-column: 1 / -1;">
+      <h2>7. Verify Any Signed Bundle (paste JSON)</h2>
+      <textarea id="custom-bundle" rows="6" placeholder='Paste a SignedBundleV2 JSON here...'></textarea>
+      <div class="btn-row">
+        <button id="btn-custom-verify" disabled>Verify</button>
+      </div>
+      <pre id="custom-verify-output"></pre>
+    </div>
+  </div>
 
   <script type="module">
-    import init, { wasm_verify_signed_bundle, wasm_hash_object } from './pkg/dcp_ai.js';
+    import init, {
+      wasm_generate_keypair,
+      wasm_generate_hybrid_keypair,
+      wasm_generate_ml_dsa_65_keypair,
+      wasm_composite_sign,
+      wasm_composite_verify,
+      wasm_classical_only_sign,
+      wasm_build_bundle,
+      wasm_sign_bundle,
+      wasm_verify_signed_bundle_v2,
+      wasm_ml_kem_768_keygen,
+      wasm_ml_kem_768_encapsulate,
+      wasm_ml_kem_768_decapsulate,
+      wasm_dual_hash,
+      wasm_sha3_256,
+      wasm_compute_security_tier,
+      wasm_generate_session_nonce,
+      wasm_derive_kid,
+      wasm_prepare_payload,
+      wasm_canonicalize_v2,
+    } from './pkg/dcp_ai.js';
+
+    let hybridKeys = null;
+    let kemKeys = null;
+    let lastSig = null;
+    let lastSignedBundle = null;
 
     await init();
+    document.getElementById('init-status').innerHTML =
+      '<span class="tag tag-ok">WASM READY</span> All 30+ cryptographic functions loaded.';
+    document.querySelectorAll('button').forEach(b => b.disabled = false);
 
-    window.verifyBundle = function() {
-      const input = document.getElementById('bundleInput').value.trim();
-      const resultDiv = document.getElementById('result');
+    // -- Keypair Generation --
+    document.getElementById('btn-hybrid').onclick = () => {
+      const raw = wasm_generate_hybrid_keypair();
+      hybridKeys = JSON.parse(raw);
+      document.getElementById('keygen-output').textContent =
+        'Hybrid Keypair Generated:\n\n' +
+        `Classical (Ed25519):\n  kid: ${hybridKeys.classical.kid}\n  pk:  ${hybridKeys.classical.public_key_b64.slice(0,40)}...\n\n` +
+        `Post-Quantum (ML-DSA-65):\n  kid: ${hybridKeys.pq.kid}\n  pk:  ${hybridKeys.pq.public_key_b64.slice(0,40)}...\n  pk size: ${atob(hybridKeys.pq.public_key_b64).length} bytes`;
+      document.getElementById('sign-output').textContent = 'Ready to sign.';
+      document.getElementById('bundle-output').textContent = 'Ready to build bundles.';
+    };
 
-      if (!input) {
-        resultDiv.innerHTML = '<div class="result failed">Please paste a signed bundle JSON.</div>';
-        return;
+    document.getElementById('btn-kem').onclick = () => {
+      const raw = wasm_ml_kem_768_keygen();
+      kemKeys = JSON.parse(raw);
+      document.getElementById('keygen-output').textContent =
+        'ML-KEM-768 Keypair Generated:\n\n' +
+        `kid: ${kemKeys.kid}\n` +
+        `pk size: ${atob(kemKeys.public_key_b64).length} bytes\n` +
+        `sk size: ${atob(kemKeys.secret_key_b64).length} bytes`;
+    };
+
+    // -- Sign & Verify --
+    document.getElementById('btn-sign').onclick = () => {
+      if (!hybridKeys) { alert('Generate a hybrid keypair first.'); return; }
+      const payload = JSON.stringify({ action: 'transfer', amount: 500, recipient: 'bob', risk_score: 650 });
+      const sigJson = wasm_composite_sign(
+        'DCP-AI.v2.Intent', payload,
+        hybridKeys.classical.secret_key_b64, hybridKeys.classical.kid,
+        hybridKeys.pq.secret_key_b64, hybridKeys.pq.kid,
+      );
+      lastSig = { payload, sigJson };
+      const sig = JSON.parse(sigJson);
+      document.getElementById('sign-output').textContent =
+        `Composite Signature (pq_over_classical):\n\n` +
+        `binding: ${sig.binding}\n` +
+        `classical: ${sig.classical.alg} (kid: ${sig.classical.kid})\n` +
+        `  sig: ${sig.classical.sig_b64.slice(0,50)}...\n` +
+        `pq: ${sig.pq.alg} (kid: ${sig.pq.kid})\n` +
+        `  sig: ${sig.pq.sig_b64.slice(0,50)}...\n` +
+        `  sig size: ${atob(sig.pq.sig_b64).length} bytes`;
+    };
+
+    document.getElementById('btn-verify-sig').onclick = () => {
+      if (!lastSig || !hybridKeys) { alert('Sign a payload first.'); return; }
+      const result = wasm_composite_verify(
+        'DCP-AI.v2.Intent', lastSig.payload, lastSig.sigJson,
+        hybridKeys.classical.public_key_b64, hybridKeys.pq.public_key_b64,
+      );
+      const r = JSON.parse(result);
+      const tag = r.valid ? '<span class="tag tag-ok">VALID</span>' : '<span class="tag tag-fail">INVALID</span>';
+      document.getElementById('sign-output').innerHTML =
+        `${tag}\n\n` +
+        `classical_valid: ${r.classical_valid}\n` +
+        `pq_valid: ${r.pq_valid}\n` +
+        `overall: ${r.valid}`;
+    };
+
+    // -- Bundle Build & Sign --
+    document.getElementById('btn-bundle').onclick = () => {
+      if (!hybridKeys) { alert('Generate a hybrid keypair first.'); return; }
+      const nonce = wasm_generate_session_nonce();
+      const rpr = { dcp_version: '2.0', human_id: 'alice-demo', binding_method: 'oauth2', session_nonce: nonce, timestamp: new Date().toISOString() };
+      const passport = {
+        dcp_version: '2.0', agent_id: 'agent-demo-001', model: 'gpt-4o', session_nonce: nonce,
+        keys: [
+          { kid: hybridKeys.classical.kid, alg: 'ed25519', public_key_b64: hybridKeys.classical.public_key_b64 },
+          { kid: hybridKeys.pq.kid, alg: 'ml-dsa-65', public_key_b64: hybridKeys.pq.public_key_b64 },
+        ],
+      };
+      const intent = { action: 'transfer', amount: 500, risk_score: 650, session_nonce: nonce, data_classes: ['financial'] };
+      const policy = { decision: 'allow', reason: 'elevated tier verified', security_tier: 'elevated', session_nonce: nonce };
+
+      const bundleJson = wasm_build_bundle(
+        JSON.stringify(rpr), JSON.stringify(passport),
+        JSON.stringify(intent), JSON.stringify(policy),
+        '[]', nonce,
+      );
+
+      const signedJson = wasm_sign_bundle(
+        bundleJson,
+        hybridKeys.classical.secret_key_b64, hybridKeys.classical.kid,
+        hybridKeys.pq.secret_key_b64, hybridKeys.pq.kid,
+      );
+      lastSignedBundle = signedJson;
+      const sb = JSON.parse(signedJson);
+      document.getElementById('bundle-output').textContent =
+        `Bundle built & signed!\n\n` +
+        `version: ${sb.bundle.dcp_bundle_version}\n` +
+        `session_nonce: ${sb.bundle.manifest.session_nonce.slice(0,16)}...\n` +
+        `binding: ${sb.signature.composite_sig.binding}\n` +
+        `manifest_hash: ${sb.signature.manifest_hash.slice(0,50)}...\n\n` +
+        `Size: ${signedJson.length} bytes`;
+    };
+
+    document.getElementById('btn-verify-bundle').onclick = () => {
+      if (!lastSignedBundle) { alert('Build a bundle first.'); return; }
+      const resultJson = wasm_verify_signed_bundle_v2(lastSignedBundle);
+      const r = JSON.parse(resultJson);
+      const tag = r.verified ? '<span class="tag tag-ok">VERIFIED</span>' : '<span class="tag tag-fail">FAILED</span>';
+      const warnings = r.warnings.length ? `\nwarnings: ${r.warnings.join(', ')}` : '';
+      document.getElementById('bundle-output').innerHTML =
+        `${tag}\n\n` +
+        `dcp_version: ${r.dcp_version}\n` +
+        `classical_valid: ${r.classical_valid}\n` +
+        `pq_valid: ${r.pq_valid}\n` +
+        `session_binding: ${r.session_binding_valid}\n` +
+        `manifest_valid: ${r.manifest_valid}` +
+        (r.errors.length ? `\nerrors: ${r.errors.join(', ')}` : '') +
+        warnings;
+    };
+
+    // -- ML-KEM-768 --
+    document.getElementById('btn-encaps').onclick = () => {
+      if (!kemKeys) {
+        const raw = wasm_ml_kem_768_keygen();
+        kemKeys = JSON.parse(raw);
       }
+      const encResult = wasm_ml_kem_768_encapsulate(kemKeys.public_key_b64);
+      const enc = JSON.parse(encResult);
+      const ssDec = wasm_ml_kem_768_decapsulate(enc.ciphertext_b64, kemKeys.secret_key_b64);
+      const match = enc.shared_secret_hex === ssDec;
+      const tag = match ? '<span class="tag tag-ok">MATCH</span>' : '<span class="tag tag-fail">MISMATCH</span>';
+      document.getElementById('kem-output').innerHTML =
+        `ML-KEM-768 Encapsulate/Decapsulate ${tag}\n\n` +
+        `shared_secret (encaps): ${enc.shared_secret_hex.slice(0,32)}...\n` +
+        `shared_secret (decaps): ${ssDec.slice(0,32)}...\n` +
+        `ciphertext size: ${atob(enc.ciphertext_b64).length} bytes\n` +
+        `secrets match: ${match}`;
+    };
 
+    // -- Security Tier --
+    document.getElementById('btn-tier').onclick = () => {
+      const input = document.getElementById('tier-input').value;
+      const result = wasm_compute_security_tier(input);
+      const r = JSON.parse(result);
+      const colors = { routine: 'tag-info', standard: 'tag-info', elevated: 'tag-warn', maximum: 'tag-fail' };
+      document.getElementById('tier-output').innerHTML =
+        `<span class="tag ${colors[r.tier] || 'tag-info'}">${r.tier.toUpperCase()}</span>\n\n` +
+        `verification_mode: ${r.verification_mode}\n` +
+        `checkpoint_interval: ${r.checkpoint_interval}`;
+    };
+
+    // -- Dual Hash --
+    document.getElementById('btn-hash').onclick = () => {
+      const input = document.getElementById('hash-input').value;
+      const result = wasm_dual_hash(input);
+      const dh = JSON.parse(result);
+      document.getElementById('hash-output').textContent =
+        `SHA-256:   ${dh.sha256}\nSHA3-256:  ${dh.sha3_256}`;
+    };
+
+    // -- Custom Bundle Verifier --
+    document.getElementById('btn-custom-verify').onclick = () => {
+      const input = document.getElementById('custom-bundle').value.trim();
+      if (!input) { alert('Paste a signed bundle JSON.'); return; }
       try {
-        const resultJson = wasm_verify_signed_bundle(input, null);
-        const result = JSON.parse(resultJson);
-
-        if (result.verified) {
-          resultDiv.innerHTML = '<div class="result verified">VERIFIED — Bundle signature and integrity are valid.</div>';
-        } else {
-          const errors = (result.errors || ['Unknown error']).join('\n');
-          resultDiv.innerHTML = `<div class="result failed">FAILED\n${errors}</div>`;
-        }
+        const resultJson = wasm_verify_signed_bundle_v2(input);
+        const r = JSON.parse(resultJson);
+        const tag = r.verified ? '<span class="tag tag-ok">VERIFIED</span>' : '<span class="tag tag-fail">FAILED</span>';
+        document.getElementById('custom-verify-output').innerHTML =
+          `${tag}\n\n` + JSON.stringify(r, null, 2);
       } catch (e) {
-        resultDiv.innerHTML = `<div class="result failed">Error: ${e.message}</div>`;
+        document.getElementById('custom-verify-output').innerHTML =
+          `<span class="tag tag-fail">ERROR</span>\n\n${e.message}`;
       }
     };
   </script>

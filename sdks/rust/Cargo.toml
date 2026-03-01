@@ -3,7 +3,13 @@ name = "dcp-ai"
 version = "1.0.0"
 edition = "2021"
 description = "Rust SDK for the Digital Citizenship Protocol for AI Agents"
-license = "MIT"
+license = "Apache-2.0"
+authors = ["DCP-AI Contributors"]
+repository = "https://github.com/dcp-ai-protocol/dcp-ai"
+homepage = "https://dcp-ai.dev"
+keywords = ["dcp", "ai", "agent", "citizenship", "protocol"]
+categories = ["authentication", "cryptography"]
+readme = "README.md"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -16,11 +22,18 @@ ed25519-dalek = { version = "2.1", features = ["rand_core"] }
 rand = "0.8"
 base64 = "0.22"
 hex = "0.4"
+sha3 = "0.10"
+thiserror = "1"
+fips203 = "0.4"
+fips204 = "0.4"
+fips205 = "0.4"
+zeroize = { version = "1.8", features = ["derive"] }
+getrandom = { version = "0.2", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 
 [features]
 default = []
-wasm = ["wasm-bindgen"]
+wasm = ["wasm-bindgen", "getrandom/js"]
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"

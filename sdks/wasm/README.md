@@ -1,6 +1,6 @@
-# @dcp-ai/wasm — WebAssembly Module
+# @dcp-ai/wasm — WebAssembly SDK v2.0
 
-WebAssembly module for the Digital Citizenship Protocol (DCP), compiled from the Rust SDK. Verify bundles and compute hashes directly in the browser without a server.
+Full-featured WebAssembly module for the Digital Citizenship Protocol (DCP) v2.0, compiled from the Rust SDK. Provides post-quantum composite signatures, hybrid key generation, ML-KEM-768 key encapsulation, dual hashing, bundle building/verification, and security tier computation — all running directly in the browser or Node.js, no server required.
 
 ## Installation
 
@@ -11,125 +11,192 @@ npm install @dcp-ai/wasm
 ## Build
 
 ```bash
-# Build for browser (web target)
+# Build WASM + TypeScript wrapper
 npm run build
 
-# Build for Node.js
-npm run build:node
+# WASM only (browser target)
+npm run build:wasm
+
+# WASM only (Node.js target)
+npm run build:wasm:node
 ```
 
-Internally uses `wasm-pack`:
-```bash
-wasm-pack build --target web        # Browser
-wasm-pack build --target nodejs     # Node.js
+**Requirements:** [wasm-pack](https://rustwasm.github.io/wasm-pack/installer/) and the Rust toolchain with `wasm32-unknown-unknown` target.
+
+## Quickstart — TypeScript Wrapper
+
+The recommended way to use the SDK is through the ergonomic TypeScript wrapper:
+
+```typescript
+import { initDcp } from '@dcp-ai/wasm';
+
+const dcp = await initDcp();
+
+// Generate hybrid Ed25519 + ML-DSA-65 keypair
+const keys = dcp.generateHybridKeypair();
+
+// Build a V2 bundle
+const bundle = dcp.buildBundle({
+  rpr: { dcp_version: '2.0', human_id: 'alice', /* ... */ },
+  passport: { dcp_version: '2.0', agent_id: 'agent-001', keys: [/* ... */] },
+  intent: { action: 'read', risk_score: 100 },
+  policy: { decision: 'allow', reason: 'low risk' },
+  auditEntries: [],
+});
+
+// Sign the bundle with composite signature
+const signed = dcp.signBundle(
+  bundle,
+  keys.classical.secret_key_b64, keys.classical.kid,
+  keys.pq.secret_key_b64, keys.pq.kid,
+);
+
+// Verify the signed bundle
+const result = dcp.verifyBundle(signed);
+console.log(result.verified);       // true
+console.log(result.classical_valid); // true
+console.log(result.pq_valid);       // true
 ```
-
-**Requirements:** [wasm-pack](https://rustwasm.github.io/wasm-pack/installer/) and the Rust toolchain with the `wasm32-unknown-unknown` target.
-
-## Quickstart — Browser
-
-```html
-<!DOCTYPE html>
-<html>
-<head>
-  <title>DCP WASM Verification</title>
-</head>
-<body>
-  <textarea id="bundle" rows="10" cols="60" placeholder="Paste a signed bundle JSON here..."></textarea>
-  <br/>
-  <button onclick="verify()">Verify Bundle</button>
-  <pre id="result"></pre>
-
-  <script type="module">
-    import init, {
-      wasm_verify_signed_bundle,
-      wasm_hash_object,
-      wasm_generate_keypair,
-    } from '@dcp-ai/wasm';
-
-    // Initialize WASM
-    await init();
-
-    // Generate keypair
-    const keypairJson = wasm_generate_keypair();
-    const keypair = JSON.parse(keypairJson);
-    console.log('Public Key:', keypair.public_key_b64);
-
-    // Verify bundle
-    window.verify = function() {
-      const bundleJson = document.getElementById('bundle').value;
-      const resultJson = wasm_verify_signed_bundle(bundleJson, null);
-      const result = JSON.parse(resultJson);
-      document.getElementById('result').textContent = JSON.stringify(result, null, 2);
-    };
-
-    // Hash an object
-    const hash = wasm_hash_object('{"agent_id":"agent-001"}');
-    console.log('SHA-256:', hash);
-  </script>
-</body>
-</html>
-```
-
-A fully functional example is also included in `example.html`.
 
 ## API Reference
 
-### `wasm_verify_signed_bundle(signed_bundle_json, public_key_b64?)`
+### Initialization
 
-Verifies a complete Signed Bundle.
+#### `initDcp(wasmUrl?: string): Promise<DcpWasm>`
 
-- **Parameters:**
-  - `signed_bundle_json: string` — JSON of the signed bundle
-  - `public_key_b64: string | null` — Ed25519 public key (base64). If `null`, uses the key from the bundle.
-- **Returns:** `string` — JSON with `{ "verified": boolean, "errors": string[] }`
+Initialize the WASM module. Must be called once before using any API. Optionally pass a custom URL for the `.wasm` file.
+
+### Keypair Generation
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `generateEd25519Keypair()` | `KeypairResult` | Ed25519 classical keypair |
+| `generateMlDsa65Keypair()` | `KeypairResult` | ML-DSA-65 post-quantum signing keypair |
+| `generateSlhDsa192fKeypair()` | `KeypairResult` | SLH-DSA-192f stateless hash-based signing keypair |
+| `generateHybridKeypair()` | `HybridKeypairResult` | Ed25519 + ML-DSA-65 hybrid keypair in one call |
+
+### ML-KEM-768 Key Encapsulation
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `mlKem768Keygen()` | `KemKeypairResult` | Generate ML-KEM-768 encapsulation/decapsulation keypair |
+| `mlKem768Encapsulate(pk)` | `KemEncapsulateResult` | Encapsulate a shared secret using a public key |
+| `mlKem768Decapsulate(ct, sk)` | `string` | Decapsulate shared secret from ciphertext (returns hex) |
+
+### Composite Signing
+
+| Method | Description |
+|--------|-------------|
+| `compositeSign(context, payload, classicalSk, classicalKid, pqSk, pqKid)` | Full hybrid signature (Ed25519 + ML-DSA-65) with `pq_over_classical` binding |
+| `classicalOnlySign(context, payload, sk, kid)` | Classical-only Ed25519 signature (transition mode) |
+| `signPayload(context, payload, classicalSk, classicalKid, pqSk, pqKid)` | Sign and wrap in a `SignedPayload` envelope |
+
+### Verification
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `compositeVerify(context, payload, sig, classicalPk, pqPk?)` | `CompositeVerifyResult` | Cryptographic verification of a composite signature |
+| `verifyBundle(signedBundle)` | `V2VerificationResult` | Full V2 bundle verification (structure + crypto + hash chain) |
+
+### Hash Operations
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `dualHash(data)` | `DualHash` | SHA-256 + SHA3-256 dual hash |
+| `sha3_256(data)` | `string` | SHA3-256 hash (hex) |
+| `hashObject(obj)` | `string` | SHA-256 hash of a JSON object |
+| `dualMerkleRoot(leaves)` | `DualHash` | Dual Merkle root from an array of `DualHash` leaves |
+
+### Canonicalization & Domain Separation
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `canonicalize(value)` | `string` | RFC 8785 JCS canonicalization |
+| `domainSeparatedMessage(context, payloadHex)` | `string` | Domain-separated message (hex) |
+| `deriveKid(alg, publicKeyB64)` | `string` | Deterministic key ID from algorithm + public key |
+
+### Session & Security
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `generateSessionNonce()` | `string` | 256-bit random nonce (64 hex chars) |
+| `verifySessionBinding(artifacts)` | `SessionBindingResult` | Verify nonce consistency across artifacts |
+| `computeSecurityTier(intent)` | `SecurityTierResult` | Compute adaptive security tier (routine/standard/elevated/maximum) |
+
+### Payload Preparation
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `preparePayload(payload)` | `PreparedPayload` | Canonicalize + hash a payload |
+
+### Bundle Building & Signing
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `buildBundle(opts)` | `CitizenshipBundleV2` | Build a complete V2 bundle with manifest and hash cross-references |
+| `signBundle(bundle, classicalSk, classicalKid, pqSk, pqKid)` | `SignedBundleV2` | Sign a bundle with composite signature |
+
+### Proof of Possession
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `generateRegistrationPop(challenge, sk, alg)` | `SignatureEntry` | Generate PoP for key registration |
+| `verifyRegistrationPop(challenge, pop, pk, alg)` | `PopResult` | Verify a PoP |
+
+### Utility
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `detectVersion(value)` | `string \| null` | Detect DCP protocol version from a JSON object |
+
+## Low-Level API
+
+You can also use the raw WASM functions directly (without the TypeScript wrapper):
 
 ```javascript
-const result = JSON.parse(
-  wasm_verify_signed_bundle(bundleJson, "BASE64_PUBLIC_KEY")
-);
-console.log(result.verified); // true or false
+import init, {
+  wasm_generate_hybrid_keypair,
+  wasm_composite_sign,
+  wasm_composite_verify,
+  wasm_build_bundle,
+  wasm_sign_bundle,
+  wasm_verify_signed_bundle_v2,
+  wasm_ml_kem_768_keygen,
+  wasm_ml_kem_768_encapsulate,
+  wasm_ml_kem_768_decapsulate,
+  wasm_dual_hash,
+  wasm_compute_security_tier,
+} from '@dcp-ai/wasm/pkg';
+
+await init();
+
+const keys = JSON.parse(wasm_generate_hybrid_keypair());
+// ... use raw functions, all return JSON strings
 ```
 
-### `wasm_hash_object(json_str)`
+See [example.html](./example.html) for a complete interactive browser demo.
 
-Computes the SHA-256 hash of a JSON object.
+## Security Tiers
 
-- **Parameters:** `json_str: string` — JSON to hash
-- **Returns:** `string` — SHA-256 hex hash
+The SDK computes adaptive security tiers based on intent risk profiles:
 
-```javascript
-const hash = wasm_hash_object('{"agent_id":"agent-001"}');
-// "a1b2c3..."
-```
+| Tier | Risk Score | Verification Mode | Checkpoint Interval |
+|------|-----------|-------------------|-------------------|
+| `routine` | < 200 | `classical_only` | 50 |
+| `standard` | 200–499 | `hybrid_preferred` | 10 |
+| `elevated` | 500–799 or PII/financial data | `hybrid_required` | 1 |
+| `maximum` | ≥ 800 or credentials/biometric | `hybrid_required` | 1 |
 
-### `wasm_generate_keypair()`
+## Algorithms Supported
 
-Generates an Ed25519 key pair.
-
-- **Returns:** `string` — JSON with `{ "public_key_b64": "...", "secret_key_b64": "..." }`
-
-```javascript
-const keys = JSON.parse(wasm_generate_keypair());
-console.log(keys.public_key_b64);
-console.log(keys.secret_key_b64);
-```
-
-## Included Example
-
-The `example.html` file contains a complete interactive demo that:
-
-1. Initializes the WASM module
-2. Allows pasting a signed bundle JSON
-3. Verifies the bundle in the browser
-4. Displays the verification result
-
-To use it, serve the directory with any HTTP server:
-
-```bash
-npx serve .
-# Open http://localhost:3000/example.html
-```
+| Category | Algorithm | Standard |
+|----------|-----------|----------|
+| Classical signing | Ed25519 | RFC 8032 |
+| PQ signing | ML-DSA-65 | FIPS 204 |
+| PQ signing (stateless) | SLH-DSA-192f | FIPS 205 |
+| PQ key encapsulation | ML-KEM-768 | FIPS 203 |
+| Hashing | SHA-256 + SHA3-256 | FIPS 180-4, FIPS 202 |
+| Canonicalization | JCS | RFC 8785 |
 
 ## Development
 
@@ -139,17 +206,15 @@ npx serve .
 # Install wasm-pack
 curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
-# Install WASM target for Rust
+# Install WASM target
 rustup target add wasm32-unknown-unknown
 ```
 
-### Build from the Rust SDK
-
-The WASM module is compiled from `sdks/rust/` with the `wasm` feature enabled:
+### Run Rust WASM tests
 
 ```bash
 cd ../rust
-wasm-pack build --target web --out-dir ../wasm/pkg
+wasm-pack test --headless --chrome -- --features wasm
 ```
 
 ## License

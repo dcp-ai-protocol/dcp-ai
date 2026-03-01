@@ -50,7 +50,7 @@ export function signBundle(
       created_at: new Date().toISOString(),
       signer: {
         type: signerType,
-        id: signerId || bundle.human_binding_record?.human_id || 'unknown',
+        id: signerId || bundle.responsible_principal_record?.human_id || 'unknown',
         public_key_b64: publicKeyB64,
       },
       bundle_hash: `sha256:${bundleHashHex}`,

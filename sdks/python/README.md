@@ -25,7 +25,7 @@ from dcp_ai import (
     sign_bundle,
     verify_signed_bundle,
     generate_keypair,
-    HumanBindingRecord,
+    ResponsiblePrincipalRecord,
     AgentPassport,
     Intent,
     IntentTarget,
@@ -38,7 +38,7 @@ keys = generate_keypair()
 # 2. Build a Citizenship Bundle
 bundle = (
     BundleBuilder()
-    .human_binding_record(HumanBindingRecord(
+    .responsible_principal_record(ResponsiblePrincipalRecord(
         dcp_version="1.0",
         human_id="human-001",
         entity_type="natural_person",
@@ -151,7 +151,7 @@ dcp intent-hash-cmd <intent_path>
 ```python
 bundle = (
     BundleBuilder()
-    .human_binding_record(hbr)
+    .responsible_principal_record(rpr)
     .agent_passport(passport)
     .intent(intent)
     .policy_decision(policy)
@@ -187,7 +187,7 @@ Verifies: schema, Ed25519 signature, `bundle_hash`, `merkle_root`, `intent_hash`
 
 All DCP v1 artifacts are available as Pydantic v2 models with automatic validation:
 
-`HumanBindingRecord`, `AgentPassport`, `Intent`, `IntentTarget`, `PolicyDecision`, `AuditEntry`, `AuditEvidence`, `CitizenshipBundle`, `SignedBundle`, `BundleSignature`, `SignerInfo`, `RevocationRecord`, `HumanConfirmation`
+`ResponsiblePrincipalRecord`, `AgentPassport`, `Intent`, `IntentTarget`, `PolicyDecision`, `AuditEntry`, `AuditEvidence`, `CitizenshipBundle`, `SignedBundle`, `BundleSignature`, `SignerInfo`, `RevocationRecord`, `HumanConfirmation`
 
 ## Development
 

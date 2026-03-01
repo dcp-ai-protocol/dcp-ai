@@ -92,7 +92,7 @@ Verifies: Ed25519 signature, `bundle_hash`, `merkle_root`, `intent_hash` chain, 
 ### Types (`dcp_ai::types`)
 
 ```rust
-pub struct HumanBindingRecord { ... }
+pub struct ResponsiblePrincipalRecord { ... }
 pub struct AgentPassport { ... }
 pub struct Intent { ... }
 pub struct IntentTarget { ... }
