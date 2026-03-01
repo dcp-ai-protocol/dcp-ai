@@ -1,0 +1,52 @@
+{
+  "dcp_version": "2.0",
+  "responsible_principal_record": {
+    "dcp_version": "2.0",
+    "human_id": "REPLACE_WITH_RPR_HUMAN_ID",
+    "session_nonce": "REPLACE_WITH_SESSION_NONCE",
+    "legal_name": "REPLACE_WITH_LEGAL_NAME",
+    "entity_type": "natural_person",
+    "jurisdiction": "US",
+    "liability_mode": "owner_responsible",
+    "override_rights": true,
+    "issued_at": "REPLACE_WITH_ISO_DATETIME",
+    "expires_at": null,
+    "binding_keys": []
+  },
+  "agent_passport": {
+    "dcp_version": "2.0",
+    "agent_id": "REPLACE_WITH_AGENT_ID",
+    "session_nonce": "REPLACE_WITH_SESSION_NONCE",
+    "keys": [],
+    "principal_binding_reference": "REPLACE_WITH_RPR_HUMAN_ID",
+    "capabilities": ["api_call"],
+    "risk_tier": "medium",
+    "created_at": "REPLACE_WITH_ISO_DATETIME",
+    "status": "active"
+  },
+  "intent": {
+    "dcp_version": "2.0",
+    "intent_id": "REPLACE_WITH_INTENT_ID",
+    "session_nonce": "REPLACE_WITH_SESSION_NONCE",
+    "agent_id": "REPLACE_WITH_AGENT_ID",
+    "human_id": "REPLACE_WITH_RPR_HUMAN_ID",
+    "timestamp": "REPLACE_WITH_ISO_DATETIME",
+    "action_type": "api_call",
+    "target": { "channel": "api" },
+    "data_classes": ["none"],
+    "estimated_impact": "low",
+    "requires_consent": false
+  },
+  "policy_decision": {
+    "dcp_version": "2.0",
+    "intent_id": "REPLACE_WITH_INTENT_ID",
+    "session_nonce": "REPLACE_WITH_SESSION_NONCE",
+    "decision": "approve",
+    "risk_score": 100,
+    "reasons": ["Low-risk action"],
+    "required_confirmation": null,
+    "applied_policy_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "timestamp": "REPLACE_WITH_ISO_DATETIME"
+  },
+  "audit_entries": []
+}

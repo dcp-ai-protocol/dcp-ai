@@ -2,7 +2,7 @@
 /**
  * Generate production-ready conformance examples: real Ed25519 signatures,
  * real intent_hash (SHA-256 canonical intent), chained prev_hash (GENESIS → hash(entry1)).
- * Uses keys/secret_key.txt (human, signs HBR and bundle) and keys/agent_* (agent, signs AP).
+ * Uses keys/secret_key.txt (human, signs RPR and bundle) and keys/agent_* (agent, signs AP).
  * Run from repo root: node scripts/generate-production-examples.js
  */
 import fs from "fs";
@@ -24,7 +24,7 @@ function ensureDir(dir) {
 ensureDir(keysDir);
 ensureDir(examplesDir);
 
-// Human keypair (signs HBR and bundle)
+// Human keypair (signs RPR and bundle)
 const humanSecretB64 = fs.readFileSync(path.join(keysDir, "secret_key.txt"), "utf8").trim();
 const humanPublicB64 = fs.readFileSync(path.join(keysDir, "public_key.txt"), "utf8").trim();
 
@@ -44,8 +44,8 @@ if (fs.existsSync(agentSecretPath) && fs.existsSync(agentPublicPath)) {
   console.log("Generated agent keypair in keys/agent_*.txt");
 }
 
-// --- HBR (signed by human) ---
-const hbr = {
+// --- RPR (signed by human) ---
+const rpr = {
   dcp_version: "1.0",
   human_id: "did:human:alice123",
   legal_name: "Alice Example",
@@ -57,14 +57,14 @@ const hbr = {
   expires_at: null,
   signature: "" // set below
 };
-hbr.signature = signObject(hbr, humanSecretB64);
+rpr.signature = signObject(rpr, humanSecretB64);
 
 // --- AP (signed by agent, public_key = agent) ---
 const ap = {
   dcp_version: "1.0",
   agent_id: "did:agent:agent123",
   public_key: agentPublicB64,
-  human_binding_reference: "did:human:alice123",
+  principal_binding_reference: "did:human:alice123",
   capabilities: ["browse", "email", "api_call"],
   risk_tier: "medium",
   created_at: "2026-01-01T00:10:00Z",
@@ -130,7 +130,7 @@ const audit2 = {
 
 // --- Bundle ---
 const bundle = {
-  human_binding_record: hbr,
+  responsible_principal_record: rpr,
   agent_passport: ap,
   intent,
   policy_decision: policyDecision,
@@ -138,7 +138,7 @@ const bundle = {
 };
 
 // Write individual fixtures (for dcp validate and conformance)
-fs.writeFileSync(path.join(examplesDir, "human_binding_record.json"), JSON.stringify(hbr, null, 2));
+fs.writeFileSync(path.join(examplesDir, "responsible_principal_record.json"), JSON.stringify(rpr, null, 2));
 fs.writeFileSync(path.join(examplesDir, "agent_passport.json"), JSON.stringify(ap, null, 2));
 fs.writeFileSync(path.join(examplesDir, "intent.json"), JSON.stringify(intent, null, 2));
 fs.writeFileSync(path.join(examplesDir, "policy_decision.json"), JSON.stringify(policyDecision, null, 2));
