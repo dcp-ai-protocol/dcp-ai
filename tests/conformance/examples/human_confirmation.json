@@ -1,0 +1,9 @@
+{
+  "dcp_version": "1.0",
+  "intent_id": "intent:send-email-001",
+  "human_id": "human:alice-abc-123",
+  "timestamp": "2026-03-01T12:00:00Z",
+  "decision": "approve",
+  "confirmation_method": "interactive_prompt",
+  "signature": "unsigned:generate-with-dcp-sign"
+}

@@ -1,6 +1,6 @@
 {
   "bundle": {
-    "human_binding_record": {
+    "responsible_principal_record": {
       "dcp_version": "1.0",
       "human_id": "did:human:alice123",
       "legal_name": "Alice Example",
@@ -16,7 +16,7 @@
       "dcp_version": "1.0",
       "agent_id": "did:agent:agent123",
       "public_key": "ywFRKbf3N5DA6UetOjCjfGBNyOSuXtr0THTqRA9V0+g=",
-      "human_binding_reference": "did:human:alice123",
+      "principal_binding_reference": "did:human:alice123",
       "capabilities": [
         "browse",
         "email",
@@ -90,14 +90,14 @@
   },
   "signature": {
     "alg": "ed25519",
-    "created_at": "2026-02-04T02:45:34.013Z",
+    "created_at": "2026-03-01T06:40:34.706Z",
     "signer": {
       "type": "human",
       "id": "did:human:alice123",
-      "public_key_b64": "vW29UZE20iYCjuIOJg/grC/LyudweyysMV53QCHPJ7w="
+      "public_key_b64": "/OfA8AX/2gIKCChIG69KwylU4t5SdGhzhVP1BpodSas="
     },
-    "bundle_hash": "sha256:b470a1b389542d3475683fe42dd00d052548ee4612ed5737598f125bcf8e2030",
+    "bundle_hash": "sha256:7a62ce380f4ec90391e2c5e2302501c2d876e5ebbc9d718bf5bd4ca9d0b28af6",
     "merkle_root": "sha256:b80928bc53f1adf75227dbfd240fff4c63fbe6bdb8c3717a1752ac9fce3aadce",
-    "sig_b64": "Ay6iatymp0l8G8s/6uJ5YU3q0hYUsOOHv8uNHeCR8nVpp7BzNo9PlU8h4JFIaD8JdYXVO6ZmZA0Z4A1VzHPuDw=="
+    "sig_b64": "MwFhsm6mPVylhC3gFaInL3EnteYYdWANQrgFj1/GrFlSOHr183TaJ1W+qm9l81+tdHu+lPou5Sv2mB6AVStICA=="
   }
 }

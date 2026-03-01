@@ -1,0 +1,3 @@
+# Optional: install for real CrewAI + DCP integration
+# dcp-ai>=1.0.0
+# crewai>=0.50.0

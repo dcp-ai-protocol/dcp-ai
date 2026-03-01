@@ -119,7 +119,7 @@ main();
 ```bash
 forge create --rpc-url $RPC_URL \
   --private-key $PRIVATE_KEY \
-  src/DCPAnchor.sol:DCPAnchor
+  contracts/ethereum/DCPAnchor.sol:DCPAnchor
 ```
 
 ### Recommended L2 Networks
@@ -142,8 +142,9 @@ const provider = new ethers.JsonRpcProvider(process.env.ANCHOR_RPC_URL);
 const wallet = new ethers.Wallet(process.env.ANCHOR_PRIVATE_KEY, provider);
 const anchor = new ethers.Contract(CONTRACT_ADDRESS, ABI, wallet);
 
-// Anchor a bundle hash
-const bundleHash = ethers.keccak256(ethers.toUtf8Bytes("bundle-content"));
+// Anchor a bundle hash (DCP uses SHA-256 for bundle hashes)
+const bundleContent = JSON.stringify(bundle);
+const bundleHash = "0x" + require("crypto").createHash("sha256").update(bundleContent).digest("hex");
 const tx = await anchor.anchorBundle(bundleHash);
 await tx.wait();
 console.log("Anchored in tx:", tx.hash);
@@ -182,4 +183,4 @@ forge test
 
 ## License
 
-MIT
+Apache-2.0

@@ -1,0 +1,38 @@
+{
+  "_description": "ML-DSA-65 (FIPS 204) Known Answer Test configuration. Since ML-DSA-65 signing is randomized, KAT compliance is verified through property-based testing: keygen produces correct sizes, sign+verify round-trips, wrong-key rejection, and cross-SDK verification of shared signatures.",
+  "_source": "FIPS 204 (ML-DSA) compliance properties",
+  "properties": {
+    "algorithm": "ml-dsa-65",
+    "nist_level": 3,
+    "public_key_size": 1952,
+    "secret_key_size": 4032,
+    "signature_size": 3309,
+    "kid_length": 32
+  },
+  "property_tests": [
+    {
+      "name": "keygen_sizes",
+      "description": "Generated public key must be exactly 1952 bytes, signature must be exactly 3309 bytes"
+    },
+    {
+      "name": "sign_verify_roundtrip",
+      "description": "Sign then verify with same key must succeed"
+    },
+    {
+      "name": "wrong_key_rejection",
+      "description": "Sign with key A, verify with key B must fail"
+    },
+    {
+      "name": "wrong_message_rejection",
+      "description": "Sign message A, verify against message B must fail"
+    },
+    {
+      "name": "deterministic_kid",
+      "description": "kid = hex(SHA-256(alg || 0x00 || pubkey))[0:32] must be deterministic and reproducible"
+    },
+    {
+      "name": "cross_sdk_verify",
+      "description": "Signature from TypeScript SDK (in interop_vectors.json) must verify in this SDK"
+    }
+  ]
+}

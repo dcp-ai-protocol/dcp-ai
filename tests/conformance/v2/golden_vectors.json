@@ -1,0 +1,99 @@
+{
+  "_description": "DCP-AI v2.0 Golden Conformance Vectors. All SDKs MUST produce identical results for every test case.",
+  "canonicalization": {
+    "simple_sorted_keys": {
+      "input": { "z": 1, "a": 2, "m": 3 },
+      "expected_canonical": "{\"a\":2,\"m\":3,\"z\":1}"
+    },
+    "nested_objects": {
+      "input": { "b": [3, 1], "a": { "y": true, "x": null } },
+      "expected_canonical": "{\"a\":{\"x\":null,\"y\":true},\"b\":[3,1]}"
+    },
+    "mixed_types": {
+      "input": { "name": "hello world", "active": true, "count": 42 },
+      "expected_canonical": "{\"active\":true,\"count\":42,\"name\":\"hello world\"}"
+    },
+    "integer_only_v2": {
+      "input": { "risk_score": 450, "action": "send_email", "active": true },
+      "expected_canonical": "{\"action\":\"send_email\",\"active\":true,\"risk_score\":450}"
+    },
+    "with_null": {
+      "input": { "a": null, "b": 1, "c": "test" },
+      "expected_canonical": "{\"a\":null,\"b\":1,\"c\":\"test\"}"
+    },
+    "unicode": {
+      "input": { "greeting": "hello \"world\"", "emoji": "\ud83c\udf0d" },
+      "expected_canonical": "{\"emoji\":\"\ud83c\udf0d\",\"greeting\":\"hello \\\"world\\\"\"}"
+    }
+  },
+  "v2_canonicalization": {
+    "integer_only": {
+      "input": { "risk_score": 450, "action": "send_email", "active": true },
+      "expected_canonical": "{\"action\":\"send_email\",\"active\":true,\"risk_score\":450}"
+    },
+    "with_null": {
+      "input": { "a": null, "b": 1, "c": "test" },
+      "expected_canonical": "{\"a\":null,\"b\":1,\"c\":\"test\"}"
+    }
+  },
+  "hash_vectors": {
+    "sha256_hello": {
+      "input_utf8": "hello",
+      "expected_hex": "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+    },
+    "sha3_256_hello": {
+      "input_utf8": "hello",
+      "expected_hex": "3338be694f50c5f338814986cdf0686453a888b84f424d792af4b9202398f392"
+    },
+    "sha256_empty": {
+      "input_utf8": "",
+      "expected_hex": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "sha3_256_empty": {
+      "input_utf8": "",
+      "expected_hex": "a7ffc6f8bf1ed76651c14756a061d662f580ff4de43b49fa82d80a4b80f8434a"
+    }
+  },
+  "v1_bundle_verification": {
+    "signed_bundle_file": "../examples/citizenship_bundle.signed.json",
+    "public_key_b64": "/OfA8AX/2gIKCChIG69KwylU4t5SdGhzhVP1BpodSas=",
+    "expected_bundle_hash": "sha256:7a62ce380f4ec90391e2c5e2302501c2d876e5ebbc9d718bf5bd4ca9d0b28af6",
+    "expected_merkle_root": "sha256:b80928bc53f1adf75227dbfd240fff4c63fbe6bdb8c3717a1752ac9fce3aadce",
+    "intent_hash": "6f6acc1f4cfe6fdaf925bb28f70d2b218aabf0cd3485747dcb55702f4bf6e454",
+    "audit_entry_hashes": [
+      "c38c1981665e57883e11376fea5f6f8dcc8bc6e5784fb7995c844e9f7b02e0ab",
+      "b020424b62b1530a305237b9cdeef4470eb090adb945b30c13818161a94e1715"
+    ],
+    "prev_hash_chain": [
+      "GENESIS",
+      "c38c1981665e57883e11376fea5f6f8dcc8bc6e5784fb7995c844e9f7b02e0ab",
+      "b020424b62b1530a305237b9cdeef4470eb090adb945b30c13818161a94e1715"
+    ]
+  },
+  "dual_hash_vectors": {
+    "intent_canonical": {
+      "canonical_json": "{\"action_type\":\"send_email\",\"agent_id\":\"did:agent:agent123\",\"data_classes\":[\"contact_info\"],\"dcp_version\":\"1.0\",\"estimated_impact\":\"medium\",\"human_id\":\"did:human:alice123\",\"intent_id\":\"intent001\",\"requires_consent\":false,\"target\":{\"channel\":\"email\",\"to\":\"bob@example.com\"},\"timestamp\":\"2026-01-01T01:00:00Z\"}",
+      "sha256": "6f6acc1f4cfe6fdaf925bb28f70d2b218aabf0cd3485747dcb55702f4bf6e454",
+      "sha3_256": "6bbc6673fc41c7a6734500ea7dbf0de51c8b5f95d067e19bea259b6078043261"
+    },
+    "audit_entry_dual_hashes": [
+      {
+        "sha256": "c38c1981665e57883e11376fea5f6f8dcc8bc6e5784fb7995c844e9f7b02e0ab",
+        "sha3_256": "b829ceb13e6366a7350b3295ffffb68fdf1dabb3c313d5aaa0a229b6b1fce65a"
+      },
+      {
+        "sha256": "b020424b62b1530a305237b9cdeef4470eb090adb945b30c13818161a94e1715",
+        "sha3_256": "21be423021f224274fc98a84b1e2e779c6d82a971574d09a9fe6929845724775"
+      }
+    ],
+    "dual_merkle_roots": {
+      "sha256": "b80928bc53f1adf75227dbfd240fff4c63fbe6bdb8c3717a1752ac9fce3aadce",
+      "sha3_256": "636620aaa940e796326bed4b73e170f68a1a10c0176d6882f837097da2a0dad9"
+    },
+    "raw_dual_hash": {
+      "input_utf8": "DCP-AI conformance test payload",
+      "sha256": "991b10604a7f4c6dc371315342cd4741babdcbc5969d84dd7db2e9c495e636c4",
+      "sha3_256": "30efdb41d0787262901332227259183a1497bf94e6b4dae92717e568e36740ea"
+    }
+  }
+}

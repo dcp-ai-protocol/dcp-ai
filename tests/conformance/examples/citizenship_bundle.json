@@ -1,5 +1,5 @@
 {
-  "human_binding_record": {
+  "responsible_principal_record": {
     "dcp_version": "1.0",
     "human_id": "did:human:alice123",
     "legal_name": "Alice Example",
@@ -15,7 +15,7 @@
     "dcp_version": "1.0",
     "agent_id": "did:agent:agent123",
     "public_key": "ywFRKbf3N5DA6UetOjCjfGBNyOSuXtr0THTqRA9V0+g=",
-    "human_binding_reference": "did:human:alice123",
+    "principal_binding_reference": "did:human:alice123",
     "capabilities": [
       "browse",
       "email",

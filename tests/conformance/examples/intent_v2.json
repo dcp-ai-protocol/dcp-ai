@@ -1,0 +1,18 @@
+{
+  "dcp_version": "2.0",
+  "intent_id": "intent:send-email-v2-001",
+  "session_nonce": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+  "agent_id": "agent:research-bot-v2-001",
+  "human_id": "human:alice-abc-123",
+  "timestamp": "2026-03-01T12:00:00Z",
+  "action_type": "send_email",
+  "target": {
+    "channel": "email",
+    "to": "bob@example.com",
+    "domain": "example.com"
+  },
+  "data_classes": ["contact_info"],
+  "estimated_impact": "low",
+  "requires_consent": false,
+  "security_tier": "standard"
+}

@@ -1,0 +1,1654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DCP-AI Playground — Digital Citizenship Protocol</title>
+  <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl-fast.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tweetnacl-util@0.15.1/nacl-util.min.js"></script>
+  <style>
+    :root {
+      --bg: #0a0e17;
+      --surface: #131926;
+      --surface-hover: #1a2332;
+      --border: #1e2a3a;
+      --border-bright: #2a3a50;
+      --text: #e0e6ed;
+      --text-dim: #8892a4;
+      --text-muted: #556070;
+      --accent: #00d4aa;
+      --accent-dim: #00d4aa33;
+      --accent-hover: #00e8bb;
+      --red: #ff4466;
+      --red-dim: #ff446633;
+      --yellow: #ffaa33;
+      --yellow-dim: #ffaa3333;
+      --blue: #3388ff;
+      --blue-dim: #3388ff33;
+      --purple: #aa66ff;
+      --radius: 8px;
+      --radius-lg: 12px;
+      --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'JetBrains Mono', Consolas, monospace;
+      --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 14px; }
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* Header */
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .header .logo {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -0.02em;
+    }
+    .header .logo span { color: var(--text-dim); font-weight: 400; }
+    .header .badge {
+      font-size: 0.7rem;
+      background: var(--accent-dim);
+      color: var(--accent);
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+
+    /* Tabs */
+    .tab-bar {
+      display: flex;
+      gap: 2px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      overflow-x: auto;
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      padding: 0.8rem 1.2rem;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 500;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+      white-space: nowrap;
+      font-family: var(--sans);
+    }
+    .tab-btn:hover { color: var(--text); background: var(--surface-hover); }
+    .tab-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    /* Main content */
+    .main { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* Cards */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .card h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .card h3 .step-num {
+      background: var(--accent-dim);
+      color: var(--accent);
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+
+    /* Form elements */
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .form-row.single { grid-template-columns: 1fr; }
+    .form-group { display: flex; flex-direction: column; gap: 0.3rem; }
+    .form-group label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    input, select, textarea {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      padding: 0.6rem 0.8rem;
+      font-size: 0.85rem;
+      font-family: var(--sans);
+      transition: border-color 0.2s;
+      outline: none;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-dim);
+    }
+    textarea { font-family: var(--mono); font-size: 0.8rem; resize: vertical; min-height: 120px; }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.55rem 1.1rem;
+      border-radius: var(--radius);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.15s;
+      font-family: var(--sans);
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: var(--bg);
+    }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-secondary {
+      background: var(--surface-hover);
+      color: var(--text);
+      border-color: var(--border);
+    }
+    .btn-secondary:hover { border-color: var(--border-bright); background: #1e2a3a; }
+    .btn-sm { padding: 0.35rem 0.7rem; font-size: 0.72rem; }
+    .btn-group { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; }
+
+    /* JSON output */
+    .json-output {
+      position: relative;
+      background: #080c14;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+      margin-top: 1rem;
+      max-height: 500px;
+      overflow: auto;
+    }
+    .json-output pre {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .json-output .copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      padding: 4px 10px;
+      border-radius: var(--radius);
+      font-size: 0.7rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: var(--sans);
+    }
+    .json-output .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+    /* Syntax highlighting */
+    .json-key { color: #7ec8e3; }
+    .json-string { color: #a8cc8c; }
+    .json-number { color: #dbab79; }
+    .json-bool { color: #e88388; }
+    .json-null { color: var(--text-muted); }
+
+    /* Verification results */
+    .check-list { list-style: none; margin-top: 1rem; }
+    .check-list li {
+      padding: 0.6rem 0.8rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-size: 0.85rem;
+    }
+    .check-list li:last-child { border-bottom: none; }
+    .check-icon {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .check-pass { background: #00d4aa33; color: #00d4aa; }
+    .check-fail { background: #ff446633; color: #ff4466; }
+    .check-warn { background: #ffaa3333; color: #ffaa33; }
+
+    /* Tier comparison */
+    .tier-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    @media (max-width: 800px) { .tier-grid { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 500px) { .tier-grid { grid-template-columns: 1fr; } .form-row { grid-template-columns: 1fr; } }
+    .tier-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.2rem;
+      text-align: center;
+      transition: all 0.2s;
+      cursor: default;
+    }
+    .tier-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .tier-card.active { border-color: var(--accent); box-shadow: 0 0 20px var(--accent-dim); }
+    .tier-num {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--accent);
+      font-family: var(--mono);
+    }
+    .tier-name {
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin: 0.3rem 0;
+    }
+    .tier-desc {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      margin-bottom: 0.8rem;
+    }
+    .latency-bar-wrap {
+      background: var(--bg);
+      border-radius: 4px;
+      height: 8px;
+      margin: 0.5rem 0;
+      overflow: hidden;
+    }
+    .latency-bar {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.8s ease;
+      width: 0;
+    }
+    .latency-val { font-family: var(--mono); font-size: 0.8rem; color: var(--accent); }
+    .tier-detail { font-size: 0.72rem; color: var(--text-dim); text-align: left; margin-top: 0.8rem; }
+    .tier-detail dt { font-weight: 600; color: var(--text-muted); }
+    .tier-detail dd { margin-bottom: 0.4rem; color: var(--text); }
+
+    /* Protocol explorer */
+    .flow-container { overflow-x: auto; padding: 2rem 0; }
+    .flow {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      min-width: max-content;
+      margin: 0 auto;
+    }
+    .flow-step {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1rem 1.2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      min-width: 110px;
+      position: relative;
+    }
+    .flow-step:hover, .flow-step.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 15px var(--accent-dim);
+    }
+    .flow-step.active { background: #0d1a24; }
+    .flow-step .icon { font-size: 1.5rem; margin-bottom: 0.3rem; }
+    .flow-step .label { font-size: 0.72rem; font-weight: 600; }
+    .flow-arrow {
+      color: var(--border-bright);
+      font-size: 1.5rem;
+      padding: 0 0.3rem;
+      flex-shrink: 0;
+      transition: color 0.3s;
+    }
+    .flow-arrow.lit { color: var(--accent); }
+    .flow-detail {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      margin-top: 1.5rem;
+    }
+    .flow-detail h4 { color: var(--accent); margin-bottom: 0.5rem; }
+    .flow-detail p { font-size: 0.85rem; color: var(--text-dim); }
+    .flow-detail code {
+      background: var(--bg);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+    }
+
+    /* Animation pulse */
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 var(--accent-dim); }
+      50% { box-shadow: 0 0 20px 4px var(--accent-dim); }
+    }
+    .pulse { animation: pulse 2s infinite; }
+
+    /* Key display */
+    .key-display {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.5rem 0.8rem;
+      margin-top: 0.4rem;
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      word-break: break-all;
+    }
+    .key-display .reveal-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.65rem;
+      cursor: pointer;
+      flex-shrink: 0;
+      font-family: var(--sans);
+    }
+    .key-display .reveal-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+    /* Table */
+    .data-table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.8rem; }
+    .data-table th {
+      text-align: left;
+      padding: 0.7rem;
+      border-bottom: 2px solid var(--border);
+      color: var(--text-dim);
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.7rem;
+      letter-spacing: 0.05em;
+    }
+    .data-table td { padding: 0.7rem; border-bottom: 1px solid var(--border); }
+    .data-table tr:hover td { background: var(--surface-hover); }
+
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+    .tag-green { background: #00d4aa22; color: #00d4aa; }
+    .tag-yellow { background: #ffaa3322; color: #ffaa33; }
+    .tag-red { background: #ff446622; color: #ff4466; }
+    .tag-blue { background: #3388ff22; color: #3388ff; }
+    .tag-purple { background: #aa66ff22; color: #aa66ff; }
+
+    .info-box {
+      background: var(--accent-dim);
+      border-left: 3px solid var(--accent);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 0.8rem 1rem;
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-bottom: 1rem;
+    }
+
+    .section-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .section-title .icon { font-size: 1.4rem; }
+
+    /* Animation play button */
+    .anim-controls { display: flex; gap: 0.5rem; margin-top: 1rem; align-items: center; }
+    .progress-track { flex: 1; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .progress-fill { height: 100%; background: var(--accent); width: 0; transition: width 0.3s; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">DCP-AI <span>Playground</span></div>
+  <div class="badge">v2.0</div>
+</div>
+
+<div style="background: #1a1a2e; border: 1px solid #e94560; border-radius: 8px; padding: 10px 16px; margin: 8px 24px; font-size: 13px; color: #e0e0e0; display: flex; align-items: center; gap: 8px;">
+  <span style="font-size: 16px;">&#9888;</span>
+  <span><strong>PQ Notice:</strong> ML-DSA-65 / SLH-DSA signatures are <em>simulated</em> (HMAC placeholder). Ed25519 operations are real. For production PQ crypto, use the WASM SDK.</span>
+</div>
+
+<div class="tab-bar">
+  <button class="tab-btn active" data-tab="identity">Identity Generator</button>
+  <button class="tab-btn" data-tab="builder">Bundle Builder</button>
+  <button class="tab-btn" data-tab="verifier">Bundle Verifier</button>
+  <button class="tab-btn" data-tab="tiers">Tier Comparison</button>
+  <button class="tab-btn" data-tab="explorer">Protocol Explorer</button>
+</div>
+
+<div class="main">
+
+<!-- ==================== TAB 1: Identity Generator ==================== -->
+<div id="tab-identity" class="tab-panel active">
+  <div class="section-title"><span class="icon">&#x1f511;</span> Identity Generator</div>
+  <div class="info-box">
+    Generate Ed25519 keypairs and create DCP v2.0 identity artifacts: Responsible Principal Records and Agent Passports.
+    All cryptographic operations run locally in your browser using <code>tweetnacl</code> and Web Crypto API.
+  </div>
+
+  <div class="card">
+    <h3>Keypair Generation</h3>
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="generateKeypair()">Generate Ed25519 Keypair</button>
+    </div>
+    <div id="keypair-output" style="display:none; margin-top:1rem;">
+      <div class="form-group">
+        <label>Public Key (Base64)</label>
+        <div class="key-display"><span id="pub-key-display"></span></div>
+      </div>
+      <div class="form-group" style="margin-top:0.5rem">
+        <label>Secret Key (Base64)</label>
+        <div class="key-display">
+          <span id="sec-key-display" style="filter: blur(4px); transition: filter 0.2s;">••••••••••••••••</span>
+          <button class="reveal-btn" onclick="toggleSecretKey(this)">show</button>
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:0.5rem">
+        <label>Key ID (kid)</label>
+        <div class="key-display"><span id="kid-display"></span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Responsible Principal Record (RPR)</h3>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Legal Name</label>
+        <input type="text" id="rpr-name" placeholder="Jane Doe" value="Jane Doe">
+      </div>
+      <div class="form-group">
+        <label>Entity Type</label>
+        <select id="rpr-entity-type">
+          <option value="natural_person">Natural Person</option>
+          <option value="organization">Organization</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Jurisdiction</label>
+        <input type="text" id="rpr-jurisdiction" placeholder="US-CA" value="US-CA">
+      </div>
+      <div class="form-group">
+        <label>Contact</label>
+        <input type="text" id="rpr-contact" placeholder="jane@example.com" value="jane@example.com">
+      </div>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="generateRPR()">Generate RPR</button>
+    </div>
+    <div id="rpr-output"></div>
+  </div>
+
+  <div class="card">
+    <h3>Agent Passport</h3>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Capabilities</label>
+        <select id="passport-caps" multiple size="4" style="min-height:80px">
+          <option value="browse" selected>browse</option>
+          <option value="api_call" selected>api_call</option>
+          <option value="email">email</option>
+          <option value="calendar">calendar</option>
+          <option value="payments">payments</option>
+          <option value="crm">crm</option>
+          <option value="file_write">file_write</option>
+          <option value="code_exec">code_exec</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Risk Tier</label>
+        <select id="passport-risk">
+          <option value="low" selected>Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+        </select>
+      </div>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="generatePassport()">Generate Agent Passport</button>
+    </div>
+    <div id="passport-output"></div>
+  </div>
+</div>
+
+<!-- ==================== TAB 2: Bundle Builder ==================== -->
+<div id="tab-builder" class="tab-panel">
+  <div class="section-title"><span class="icon">&#x1f4e6;</span> Bundle Builder</div>
+  <div class="info-box">
+    Build a complete DCP v2.0 CitizenshipBundle step by step. Each artifact is hashed and bound into a manifest, then signed to produce a SignedBundleV2.
+  </div>
+
+  <div class="card">
+    <h3><span class="step-num">1</span> Session &amp; Identity</h3>
+    <p style="font-size:0.8rem; color:var(--text-dim); margin-bottom:0.8rem">
+      Start by generating a session nonce. If you already generated a keypair in the Identity tab, it will be reused.
+    </p>
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="builderInit()">Initialize Session</button>
+    </div>
+    <div id="builder-init-output"></div>
+  </div>
+
+  <div class="card">
+    <h3><span class="step-num">2</span> Responsible Principal Record</h3>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Legal Name</label>
+        <input type="text" id="builder-rpr-name" placeholder="Jane Doe" value="Jane Doe">
+      </div>
+      <div class="form-group">
+        <label>Jurisdiction</label>
+        <input type="text" id="builder-rpr-jur" placeholder="US-CA" value="US-CA">
+      </div>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-secondary" onclick="builderStep('rpr')">Build RPR</button>
+    </div>
+    <div id="builder-rpr-output"></div>
+  </div>
+
+  <div class="card">
+    <h3><span class="step-num">3</span> Agent Passport</h3>
+    <div class="btn-group">
+      <button class="btn btn-secondary" onclick="builderStep('passport')">Build Agent Passport</button>
+    </div>
+    <div id="builder-passport-output"></div>
+  </div>
+
+  <div class="card">
+    <h3><span class="step-num">4</span> Intent Declaration</h3>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Action Type</label>
+        <select id="builder-action-type">
+          <option value="browse">browse</option>
+          <option value="api_call" selected>api_call</option>
+          <option value="send_email">send_email</option>
+          <option value="initiate_payment">initiate_payment</option>
+          <option value="write_file">write_file</option>
+          <option value="execute_code">execute_code</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Target Domain</label>
+        <input type="text" id="builder-target" placeholder="api.example.com" value="api.example.com">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Risk Score (0–1000)</label>
+        <input type="number" id="builder-risk" min="0" max="1000" value="150">
+      </div>
+      <div class="form-group">
+        <label>Data Class</label>
+        <select id="builder-data-class">
+          <option value="none" selected>none</option>
+          <option value="contact_info">contact_info</option>
+          <option value="pii">pii</option>
+          <option value="credentials">credentials</option>
+          <option value="financial_data">financial_data</option>
+        </select>
+      </div>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-secondary" onclick="builderStep('intent')">Build Intent</button>
+    </div>
+    <div id="builder-intent-output"></div>
+  </div>
+
+  <div class="card">
+    <h3><span class="step-num">5</span> Policy Decision</h3>
+    <div class="btn-group">
+      <button class="btn btn-secondary" onclick="builderStep('policy')">Auto-generate Policy Decision</button>
+    </div>
+    <div id="builder-policy-output"></div>
+  </div>
+
+  <div class="card">
+    <h3><span class="step-num">6</span> Audit Entry</h3>
+    <div class="form-row single">
+      <div class="form-group">
+        <label>Outcome</label>
+        <input type="text" id="builder-outcome" placeholder="API call completed successfully" value="API call completed — 200 OK">
+      </div>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-secondary" onclick="builderStep('audit')">Add Audit Entry</button>
+    </div>
+    <div id="builder-audit-output"></div>
+  </div>
+
+  <div class="card">
+    <h3><span class="step-num">7</span> Build &amp; Sign Bundle</h3>
+    <p style="font-size:0.8rem; color:var(--text-dim); margin-bottom:0.8rem">
+      Compute the manifest (SHA-256 hashes of each artifact + Merkle root of audit chain), then sign it to produce a <code>SignedBundleV2</code>.
+    </p>
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="builderBuild()">Build &amp; Sign Bundle</button>
+      <button class="btn btn-secondary" onclick="copyBundle()">Copy to Verifier</button>
+    </div>
+    <div id="builder-bundle-output"></div>
+  </div>
+</div>
+
+<!-- ==================== TAB 3: Bundle Verifier ==================== -->
+<div id="tab-verifier" class="tab-panel">
+  <div class="section-title"><span class="icon">&#x1f50d;</span> Bundle Verifier</div>
+  <div class="info-box">
+    Paste a SignedBundleV2 JSON below and run structural verification. Checks schema version, manifest integrity, artifact hashes, signature, and security tier classification.
+  </div>
+
+  <div class="card">
+    <h3>Bundle JSON</h3>
+    <textarea id="verify-input" placeholder='Paste a SignedBundleV2 JSON here, or use "Copy to Verifier" from the Bundle Builder tab...'></textarea>
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="verifyBundle()">Verify Bundle</button>
+      <button class="btn btn-secondary" onclick="loadSampleBundle()">Load Sample</button>
+    </div>
+  </div>
+
+  <div id="verify-results" style="display:none">
+    <div class="card">
+      <h3>Verification Results</h3>
+      <ul class="check-list" id="verify-checks"></ul>
+    </div>
+    <div id="verify-detail-output"></div>
+  </div>
+</div>
+
+<!-- ==================== TAB 4: Tier Comparison ==================== -->
+<div id="tab-tiers" class="tab-panel">
+  <div class="section-title"><span class="icon">&#x1f6e1;</span> Adaptive Security Tiers</div>
+  <div class="info-box">
+    DCP v2.0 uses 4 adaptive security tiers. The tier is determined automatically from the intent's risk score, data classification, and action type. Higher tiers provide stronger guarantees at the cost of additional latency.
+  </div>
+
+  <div class="tier-grid" id="tier-grid"></div>
+
+  <div class="card" style="margin-top:1.5rem">
+    <h3>Tier Comparison Table</h3>
+    <div style="overflow-x:auto">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Tier</th>
+            <th>Name</th>
+            <th>Verification Mode</th>
+            <th>PQ Checkpoint</th>
+            <th>Latency</th>
+            <th>Bundle Size</th>
+            <th>Use Case</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="tag tag-green">0</span></td>
+            <td>Routine</td>
+            <td>Classical only (Ed25519)</td>
+            <td>Every 50 events</td>
+            <td class="latency-val">~2 ms</td>
+            <td>~1.2 KB</td>
+            <td>Low-risk browsing, reads</td>
+          </tr>
+          <tr>
+            <td><span class="tag tag-blue">1</span></td>
+            <td>Standard</td>
+            <td>Hybrid preferred</td>
+            <td>Every 10 events</td>
+            <td class="latency-val">~7 ms</td>
+            <td>~4.8 KB</td>
+            <td>API calls, CRM updates</td>
+          </tr>
+          <tr>
+            <td><span class="tag tag-yellow">2</span></td>
+            <td>Elevated</td>
+            <td>Hybrid required</td>
+            <td>Every event</td>
+            <td class="latency-val">~11 ms</td>
+            <td>~9.2 KB</td>
+            <td>PII access, payments</td>
+          </tr>
+          <tr>
+            <td><span class="tag tag-red">3</span></td>
+            <td>Maximum</td>
+            <td>Hybrid required + immediate verify</td>
+            <td>Every event + verify</td>
+            <td class="latency-val">~15 ms</td>
+            <td>~12.5 KB</td>
+            <td>Credentials, children's data</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:1.5rem">
+    <h3>Latency Simulation</h3>
+    <p style="font-size:0.8rem; color:var(--text-dim); margin-bottom:1rem">Click "Run Simulation" to see animated latency bars for each tier.</p>
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="runLatencySim()">Run Simulation</button>
+    </div>
+    <div id="latency-sim" style="margin-top:1rem"></div>
+  </div>
+</div>
+
+<!-- ==================== TAB 5: Protocol Explorer ==================== -->
+<div id="tab-explorer" class="tab-panel">
+  <div class="section-title"><span class="icon">&#x1f30d;</span> Protocol Explorer</div>
+  <div class="info-box">
+    Interactive visualization of the DCP v2.0 message flow. Click any step to see details, or press "Animate Flow" to watch data traverse the pipeline.
+  </div>
+
+  <div class="flow-container">
+    <div class="flow" id="protocol-flow"></div>
+  </div>
+
+  <div class="anim-controls">
+    <button class="btn btn-primary" onclick="animateFlow()">Animate Flow</button>
+    <button class="btn btn-secondary" onclick="resetFlow()">Reset</button>
+    <div class="progress-track"><div class="progress-fill" id="flow-progress"></div></div>
+  </div>
+
+  <div class="flow-detail" id="flow-detail" style="display:none">
+    <h4 id="flow-detail-title"></h4>
+    <p id="flow-detail-desc"></p>
+    <div id="flow-detail-json"></div>
+  </div>
+</div>
+
+</div><!-- .main -->
+
+<script>
+/* ============================== Utilities ============================== */
+
+async function sha256(data) {
+  const encoder = new TextEncoder();
+  const buffer = await crypto.subtle.digest('SHA-256', encoder.encode(data));
+  return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function sha256Bytes(bytes) {
+  const buffer = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function uuid() {
+  return crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
+function isoNow() { return new Date().toISOString(); }
+
+function canonicalize(obj) {
+  if (obj === null || typeof obj !== 'object') return JSON.stringify(obj);
+  if (Array.isArray(obj)) return '[' + obj.map(canonicalize).join(',') + ']';
+  const keys = Object.keys(obj).sort();
+  return '{' + keys.map(k => JSON.stringify(k) + ':' + canonicalize(obj[k])).join(',') + '}';
+}
+
+function b64encode(uint8) { return nacl.util.encodeBase64(uint8); }
+function b64decode(str) { return nacl.util.decodeBase64(str); }
+function hexEncode(uint8) { return Array.from(uint8).map(b => b.toString(16).padStart(2, '0')).join(''); }
+
+function syntaxHighlight(json) {
+  if (typeof json !== 'string') json = JSON.stringify(json, null, 2);
+  return json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/("(\\u[\da-fA-F]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?|\bnull\b)/g,
+      function(match) {
+        let cls = 'json-number';
+        if (/^"/.test(match)) {
+          cls = /:$/.test(match) ? 'json-key' : 'json-string';
+        } else if (/true|false/.test(match)) {
+          cls = 'json-bool';
+        } else if (/null/.test(match)) {
+          cls = 'json-null';
+        }
+        return '<span class="' + cls + '">' + match + '</span>';
+      });
+}
+
+function renderJson(containerId, obj) {
+  const el = document.getElementById(containerId);
+  const json = JSON.stringify(obj, null, 2);
+  el.innerHTML = `<div class="json-output"><button class="copy-btn" onclick="copyJson(this)">Copy</button><pre>${syntaxHighlight(json)}</pre></div>`;
+}
+
+function copyJson(btn) {
+  const pre = btn.parentElement.querySelector('pre');
+  navigator.clipboard.writeText(pre.textContent).then(() => {
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 1500);
+  });
+}
+
+/* ============================== Tab Navigation ============================== */
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+/* ============================== Identity Generator ============================== */
+
+let currentKeypair = null;
+let currentKid = null;
+let currentPubB64 = null;
+let currentSecB64 = null;
+let secretRevealed = false;
+
+async function computeKid(alg, pubKeyBytes) {
+  const encoder = new TextEncoder();
+  const algBytes = encoder.encode(alg);
+  const sep = new Uint8Array([0x00]);
+  const combined = new Uint8Array(algBytes.length + 1 + pubKeyBytes.length);
+  combined.set(algBytes, 0);
+  combined.set(sep, algBytes.length);
+  combined.set(pubKeyBytes, algBytes.length + 1);
+  const hash = await sha256Bytes(combined);
+  return hash.substring(0, 32);
+}
+
+async function generateKeypair() {
+  currentKeypair = nacl.sign.keyPair();
+  currentPubB64 = b64encode(currentKeypair.publicKey);
+  currentSecB64 = b64encode(currentKeypair.secretKey);
+  currentKid = await computeKid('ed25519', currentKeypair.publicKey);
+
+  document.getElementById('pub-key-display').textContent = currentPubB64;
+  document.getElementById('sec-key-display').textContent = currentSecB64;
+  document.getElementById('sec-key-display').style.filter = 'blur(4px)';
+  document.getElementById('kid-display').textContent = currentKid;
+  document.getElementById('keypair-output').style.display = 'block';
+  secretRevealed = false;
+}
+
+function toggleSecretKey(btn) {
+  const span = document.getElementById('sec-key-display');
+  secretRevealed = !secretRevealed;
+  span.style.filter = secretRevealed ? 'none' : 'blur(4px)';
+  btn.textContent = secretRevealed ? 'hide' : 'show';
+}
+
+async function generateRPR() {
+  if (!currentKeypair) await generateKeypair();
+  const rpr = {
+    dcp_version: '2.0',
+    human_id: uuid(),
+    session_nonce: uuid(),
+    legal_name: document.getElementById('rpr-name').value || 'Jane Doe',
+    entity_type: document.getElementById('rpr-entity-type').value,
+    jurisdiction: document.getElementById('rpr-jurisdiction').value || 'US-CA',
+    liability_mode: 'owner_responsible',
+    override_rights: true,
+    issued_at: isoNow(),
+    expires_at: null,
+    contact: document.getElementById('rpr-contact').value || null,
+    binding_keys: [{
+      kid: currentKid,
+      alg: 'ed25519',
+      public_key_b64: currentPubB64,
+      created_at: isoNow(),
+      expires_at: null,
+      status: 'active'
+    }]
+  };
+  window._lastRPR = rpr;
+  renderJson('rpr-output', rpr);
+}
+
+async function generatePassport() {
+  if (!currentKeypair) await generateKeypair();
+  const caps = Array.from(document.getElementById('passport-caps').selectedOptions).map(o => o.value);
+  const passport = {
+    dcp_version: '2.0',
+    agent_id: uuid(),
+    session_nonce: window._lastRPR ? window._lastRPR.session_nonce : uuid(),
+    keys: [{
+      kid: currentKid,
+      alg: 'ed25519',
+      public_key_b64: currentPubB64,
+      created_at: isoNow(),
+      expires_at: null,
+      status: 'active'
+    }],
+    principal_binding_reference: window._lastRPR ? window._lastRPR.human_id : uuid(),
+    capabilities: caps,
+    risk_tier: document.getElementById('passport-risk').value,
+    created_at: isoNow(),
+    status: 'active'
+  };
+  window._lastPassport = passport;
+  renderJson('passport-output', passport);
+}
+
+/* ============================== Bundle Builder ============================== */
+
+let builderState = {};
+
+async function builderInit() {
+  if (!currentKeypair) await generateKeypair();
+  builderState = {
+    sessionNonce: uuid(),
+    humanId: uuid(),
+    agentId: uuid(),
+    keypair: currentKeypair,
+    kid: currentKid,
+    pubB64: currentPubB64
+  };
+  renderJson('builder-init-output', {
+    session_nonce: builderState.sessionNonce,
+    human_id: builderState.humanId,
+    agent_id: builderState.agentId,
+    kid: builderState.kid,
+    public_key: builderState.pubB64
+  });
+}
+
+function makeKeyEntry(state) {
+  return {
+    kid: state.kid,
+    alg: 'ed25519',
+    public_key_b64: state.pubB64,
+    created_at: isoNow(),
+    expires_at: null,
+    status: 'active'
+  };
+}
+
+function signPayload(payload, context) {
+  const canonical = canonicalize(payload);
+  const encoder = new TextEncoder();
+  const ctxBytes = encoder.encode(context);
+  const payloadBytes = encoder.encode(canonical);
+  const sep = new Uint8Array([0x00]);
+  const msg = new Uint8Array(ctxBytes.length + 1 + payloadBytes.length);
+  msg.set(ctxBytes, 0);
+  msg.set(sep, ctxBytes.length);
+  msg.set(payloadBytes, ctxBytes.length + 1);
+  const sig = nacl.sign.detached(msg, builderState.keypair.secretKey);
+  return {
+    payload,
+    signatures: [{
+      kid: builderState.kid,
+      alg: 'ed25519',
+      sig_b64: b64encode(sig),
+      context
+    }]
+  };
+}
+
+async function builderStep(step) {
+  if (!builderState.sessionNonce) { alert('Please initialize the session first (Step 1).'); return; }
+  const s = builderState;
+
+  if (step === 'rpr') {
+    const rpr = {
+      dcp_version: '2.0',
+      human_id: s.humanId,
+      session_nonce: s.sessionNonce,
+      legal_name: document.getElementById('builder-rpr-name').value || 'Jane Doe',
+      entity_type: 'natural_person',
+      jurisdiction: document.getElementById('builder-rpr-jur').value || 'US-CA',
+      liability_mode: 'owner_responsible',
+      override_rights: true,
+      issued_at: isoNow(),
+      expires_at: null,
+      contact: null,
+      binding_keys: [makeKeyEntry(s)]
+    };
+    s.rpr = signPayload(rpr, 'DCP-AI.v2.ResponsiblePrincipal');
+    renderJson('builder-rpr-output', s.rpr);
+  }
+
+  if (step === 'passport') {
+    const passport = {
+      dcp_version: '2.0',
+      agent_id: s.agentId,
+      session_nonce: s.sessionNonce,
+      keys: [makeKeyEntry(s)],
+      principal_binding_reference: s.humanId,
+      capabilities: ['browse', 'api_call'],
+      risk_tier: 'low',
+      created_at: isoNow(),
+      status: 'active'
+    };
+    s.passport = signPayload(passport, 'DCP-AI.v2.AgentPassport');
+    renderJson('builder-passport-output', s.passport);
+  }
+
+  if (step === 'intent') {
+    const riskScore = parseInt(document.getElementById('builder-risk').value) || 150;
+    const intent = {
+      dcp_version: '2.0',
+      intent_id: uuid(),
+      session_nonce: s.sessionNonce,
+      agent_id: s.agentId,
+      human_id: s.humanId,
+      timestamp: isoNow(),
+      action_type: document.getElementById('builder-action-type').value,
+      target: {
+        channel: 'api',
+        domain: document.getElementById('builder-target').value || 'api.example.com'
+      },
+      data_classes: [document.getElementById('builder-data-class').value],
+      estimated_impact: riskScore >= 500 ? 'high' : riskScore >= 200 ? 'medium' : 'low',
+      requires_consent: riskScore >= 500,
+      security_tier: computeTier(riskScore, document.getElementById('builder-data-class').value)
+    };
+    s.intentId = intent.intent_id;
+    s.riskScore = riskScore;
+    s.intent = signPayload(intent, 'DCP-AI.v2.Intent');
+    renderJson('builder-intent-output', s.intent);
+  }
+
+  if (step === 'policy') {
+    if (!s.intent) { alert('Please build an intent first (Step 4).'); return; }
+    const score = s.riskScore || 150;
+    const decision = score >= 800 ? 'block' : score >= 500 ? 'escalate' : 'approve';
+    const policyHash = await sha256('default-policy-v2');
+    const policy = {
+      dcp_version: '2.0',
+      intent_id: s.intentId,
+      session_nonce: s.sessionNonce,
+      decision,
+      risk_score: score,
+      reasons: decision === 'approve' ? ['Risk score within acceptable range'] : decision === 'escalate' ? ['Elevated risk — human confirmation required'] : ['Risk score exceeds maximum threshold'],
+      required_confirmation: decision === 'escalate' ? { type: 'human_approve' } : null,
+      applied_policy_hash: 'sha256:' + policyHash,
+      timestamp: isoNow(),
+      resolved_tier: computeTier(score, 'none')
+    };
+    s.policy = signPayload(policy, 'DCP-AI.v2.PolicyDecision');
+    renderJson('builder-policy-output', s.policy);
+  }
+
+  if (step === 'audit') {
+    if (!s.intent) { alert('Please build an intent first.'); return; }
+    const prevHash = s.auditEntries && s.auditEntries.length > 0
+      ? await sha256(canonicalize(s.auditEntries[s.auditEntries.length - 1]))
+      : '0000000000000000000000000000000000000000000000000000000000000000';
+    const audit = {
+      dcp_version: '2.0',
+      audit_id: uuid(),
+      session_nonce: s.sessionNonce,
+      prev_hash: prevHash,
+      hash_alg: 'sha256',
+      timestamp: isoNow(),
+      agent_id: s.agentId,
+      human_id: s.humanId,
+      intent_id: s.intentId,
+      intent_hash: await sha256(canonicalize(s.intent.payload)),
+      policy_decision: s.policy ? s.policy.payload.decision === 'approve' ? 'approved' : s.policy.payload.decision === 'escalate' ? 'escalated' : 'blocked' : 'approved',
+      outcome: document.getElementById('builder-outcome').value || 'Action completed',
+      evidence: { tool: 'playground-demo', result_ref: null, evidence_hash: null },
+      pq_checkpoint_ref: null
+    };
+    if (!s.auditEntries) s.auditEntries = [];
+    s.auditEntries.push(audit);
+    renderJson('builder-audit-output', audit);
+  }
+}
+
+function computeTier(riskScore, dataClass) {
+  const hvData = ['credentials', 'children_data'].includes(dataClass);
+  const sensitiveData = ['pii', 'financial_data', 'health_data', 'credentials', 'children_data'].includes(dataClass);
+  if (riskScore >= 800 || hvData) return 'maximum';
+  if (riskScore >= 500 || sensitiveData) return 'elevated';
+  if (riskScore >= 200) return 'standard';
+  return 'routine';
+}
+
+async function computeMerkleRoot(entries) {
+  let leaves = [];
+  for (const e of entries) {
+    leaves.push(await sha256(canonicalize(e)));
+  }
+  while (leaves.length > 1) {
+    if (leaves.length % 2 === 1) leaves.push(leaves[leaves.length - 1]);
+    const next = [];
+    for (let i = 0; i < leaves.length; i += 2) {
+      next.push(await sha256(leaves[i] + leaves[i + 1]));
+    }
+    leaves = next;
+  }
+  return leaves[0];
+}
+
+async function builderBuild() {
+  const s = builderState;
+  if (!s.rpr || !s.passport || !s.intent || !s.policy || !s.auditEntries || s.auditEntries.length === 0) {
+    alert('Please complete all steps (1–6) before building the bundle.');
+    return;
+  }
+
+  const rprHash = 'sha256:' + await sha256(canonicalize(s.rpr.payload));
+  const passportHash = 'sha256:' + await sha256(canonicalize(s.passport.payload));
+  const intentHash = 'sha256:' + await sha256(canonicalize(s.intent.payload));
+  const policyHash = 'sha256:' + await sha256(canonicalize(s.policy.payload));
+  const merkleRoot = await computeMerkleRoot(s.auditEntries);
+
+  const manifest = {
+    session_nonce: s.sessionNonce,
+    rpr_hash: rprHash,
+    passport_hash: passportHash,
+    intent_hash: intentHash,
+    policy_hash: policyHash,
+    audit_merkle_root: 'sha256:' + merkleRoot,
+    audit_count: s.auditEntries.length
+  };
+
+  const bundle = {
+    dcp_bundle_version: '2.0',
+    manifest,
+    responsible_principal_record: s.rpr,
+    agent_passport: s.passport,
+    intent: s.intent,
+    policy_decision: s.policy,
+    audit_entries: s.auditEntries
+  };
+
+  const manifestCanonical = canonicalize(manifest);
+  const manifestHash = await sha256(manifestCanonical);
+  const encoder = new TextEncoder();
+  const ctxBytes = encoder.encode('DCP-AI.v2.Bundle');
+  const payloadBytes = encoder.encode(manifestCanonical);
+  const sep = new Uint8Array([0x00]);
+  const msg = new Uint8Array(ctxBytes.length + 1 + payloadBytes.length);
+  msg.set(ctxBytes, 0);
+  msg.set(sep, ctxBytes.length);
+  msg.set(payloadBytes, ctxBytes.length + 1);
+  const sig = nacl.sign.detached(msg, s.keypair.secretKey);
+
+  const signedBundle = {
+    bundle,
+    signature: {
+      hash_alg: 'sha256',
+      created_at: isoNow(),
+      signer: {
+        type: 'human',
+        id: s.humanId,
+        kids: [s.kid]
+      },
+      manifest_hash: 'sha256:' + manifestHash,
+      composite_sig: {
+        binding: 'independent',
+        entries: [{
+          kid: s.kid,
+          alg: 'ed25519',
+          sig_b64: b64encode(sig)
+        }]
+      }
+    }
+  };
+
+  s.signedBundle = signedBundle;
+  renderJson('builder-bundle-output', signedBundle);
+}
+
+function copyBundle() {
+  if (!builderState.signedBundle) { alert('Build the bundle first.'); return; }
+  const json = JSON.stringify(builderState.signedBundle, null, 2);
+  document.getElementById('verify-input').value = json;
+  document.querySelector('[data-tab="verifier"]').click();
+}
+
+/* ============================== Bundle Verifier ============================== */
+
+async function verifyBundle() {
+  const input = document.getElementById('verify-input').value.trim();
+  if (!input) { alert('Please paste a bundle JSON.'); return; }
+
+  let parsed;
+  try { parsed = JSON.parse(input); } catch (e) { alert('Invalid JSON: ' + e.message); return; }
+
+  const checks = [];
+  let hasBundle = false;
+  let bundle, signature;
+
+  if (parsed.bundle && parsed.signature) {
+    bundle = parsed.bundle;
+    signature = parsed.signature;
+    hasBundle = true;
+  } else if (parsed.dcp_bundle_version) {
+    bundle = parsed;
+    hasBundle = true;
+  }
+
+  if (!hasBundle) {
+    checks.push({ pass: false, text: 'Not a valid DCP bundle structure — missing "bundle" or "dcp_bundle_version"' });
+  } else {
+    checks.push({
+      pass: bundle.dcp_bundle_version === '2.0',
+      text: `Schema version: ${bundle.dcp_bundle_version || 'missing'}${bundle.dcp_bundle_version === '2.0' ? '' : ' (expected 2.0)'}`
+    });
+
+    const hasManifest = !!bundle.manifest;
+    checks.push({ pass: hasManifest, text: 'Bundle manifest ' + (hasManifest ? 'present' : 'missing') });
+
+    if (hasManifest) {
+      const m = bundle.manifest;
+      checks.push({
+        pass: !!m.session_nonce,
+        text: 'Session nonce: ' + (m.session_nonce ? m.session_nonce.substring(0, 8) + '...' : 'missing')
+      });
+
+      if (bundle.responsible_principal_record) {
+        const rprPayload = bundle.responsible_principal_record.payload || bundle.responsible_principal_record;
+        const computedHash = 'sha256:' + await sha256(canonicalize(rprPayload));
+        const match = computedHash === m.rpr_hash;
+        checks.push({ pass: match, text: 'RPR hash ' + (match ? 'matches manifest' : 'MISMATCH') });
+      } else {
+        checks.push({ pass: false, text: 'Responsible Principal Record missing' });
+      }
+
+      if (bundle.agent_passport) {
+        const ppPayload = bundle.agent_passport.payload || bundle.agent_passport;
+        const computedHash = 'sha256:' + await sha256(canonicalize(ppPayload));
+        const match = computedHash === m.passport_hash;
+        checks.push({ pass: match, text: 'Passport hash ' + (match ? 'matches manifest' : 'MISMATCH') });
+      } else {
+        checks.push({ pass: false, text: 'Agent Passport missing' });
+      }
+
+      if (bundle.intent) {
+        const iPayload = bundle.intent.payload || bundle.intent;
+        const computedHash = 'sha256:' + await sha256(canonicalize(iPayload));
+        const match = computedHash === m.intent_hash;
+        checks.push({ pass: match, text: 'Intent hash ' + (match ? 'matches manifest' : 'MISMATCH') });
+      } else {
+        checks.push({ pass: false, text: 'Intent missing' });
+      }
+
+      if (bundle.policy_decision) {
+        const pPayload = bundle.policy_decision.payload || bundle.policy_decision;
+        const computedHash = 'sha256:' + await sha256(canonicalize(pPayload));
+        const match = computedHash === m.policy_hash;
+        checks.push({ pass: match, text: 'Policy hash ' + (match ? 'matches manifest' : 'MISMATCH') });
+      } else {
+        checks.push({ pass: false, text: 'Policy Decision missing' });
+      }
+
+      if (bundle.audit_entries && bundle.audit_entries.length > 0) {
+        checks.push({ pass: true, text: `Audit entries: ${bundle.audit_entries.length} event(s)` });
+        const merkle = await computeMerkleRoot(bundle.audit_entries);
+        const match = ('sha256:' + merkle) === m.audit_merkle_root;
+        checks.push({ pass: match, text: 'Audit Merkle root ' + (match ? 'matches manifest' : 'MISMATCH') });
+        checks.push({
+          pass: bundle.audit_entries.length === m.audit_count,
+          text: `Audit count: ${bundle.audit_entries.length} (manifest says ${m.audit_count})`
+        });
+      } else {
+        checks.push({ pass: false, text: 'No audit entries found' });
+      }
+    }
+
+    if (signature) {
+      checks.push({ pass: !!signature.composite_sig, text: 'Bundle signature ' + (signature.composite_sig ? 'present' : 'missing') });
+      checks.push({ pass: !!signature.manifest_hash, text: 'Manifest hash in signature: ' + (signature.manifest_hash ? signature.manifest_hash.substring(0, 24) + '...' : 'missing') });
+      if (signature.signer) {
+        checks.push({ pass: true, text: `Signer: ${signature.signer.type} — ${signature.signer.id?.substring(0, 8) || 'unknown'}...` });
+      }
+
+      if (signature.composite_sig && signature.composite_sig.entries) {
+        const entry = signature.composite_sig.entries[0];
+        if (entry && bundle.manifest) {
+          const manifestCanonical = canonicalize(bundle.manifest);
+          const computedManifestHash = 'sha256:' + await sha256(manifestCanonical);
+          const mhMatch = computedManifestHash === signature.manifest_hash;
+          checks.push({ pass: mhMatch, text: 'Manifest hash integrity ' + (mhMatch ? 'verified' : 'MISMATCH') });
+
+          if (entry.alg === 'ed25519' && bundle.agent_passport) {
+            const passport = bundle.agent_passport.payload || bundle.agent_passport;
+            const keyEntry = (passport.keys || []).find(k => k.kid === entry.kid);
+            if (keyEntry) {
+              try {
+                const pubKey = b64decode(keyEntry.public_key_b64);
+                const sigBytes = b64decode(entry.sig_b64);
+                const encoder = new TextEncoder();
+                const ctxBytes = encoder.encode('DCP-AI.v2.Bundle');
+                const payloadBytes = encoder.encode(manifestCanonical);
+                const sep = new Uint8Array([0x00]);
+                const msg = new Uint8Array(ctxBytes.length + 1 + payloadBytes.length);
+                msg.set(ctxBytes, 0);
+                msg.set(sep, ctxBytes.length);
+                msg.set(payloadBytes, ctxBytes.length + 1);
+                const valid = nacl.sign.detached.verify(msg, sigBytes, pubKey);
+                checks.push({ pass: valid, text: 'Ed25519 signature ' + (valid ? 'VALID' : 'INVALID') });
+              } catch (e) {
+                checks.push({ pass: false, text: 'Signature verification error: ' + e.message });
+              }
+            } else {
+              checks.push({ pass: null, text: 'Signer key not found in passport — cannot verify signature' });
+            }
+          }
+        }
+      }
+    } else {
+      checks.push({ pass: null, text: 'No bundle-level signature (unsigned CitizenshipBundle)' });
+    }
+
+    if (bundle.intent) {
+      const iPayload = bundle.intent.payload || bundle.intent;
+      const tier = iPayload.security_tier || 'unknown';
+      checks.push({ pass: true, text: `Security tier: ${tier}` });
+    }
+  }
+
+  const listEl = document.getElementById('verify-checks');
+  listEl.innerHTML = checks.map(c => {
+    const icon = c.pass === true ? '<span class="check-icon check-pass">&#x2713;</span>'
+               : c.pass === false ? '<span class="check-icon check-fail">&#x2717;</span>'
+               : '<span class="check-icon check-warn">?</span>';
+    return `<li>${icon} ${c.text}</li>`;
+  }).join('');
+
+  document.getElementById('verify-results').style.display = 'block';
+
+  const detailEl = document.getElementById('verify-detail-output');
+  if (bundle && bundle.manifest) {
+    detailEl.innerHTML = '';
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = '<h3>Manifest Detail</h3>';
+    const json = JSON.stringify(bundle.manifest, null, 2);
+    card.innerHTML += `<div class="json-output"><button class="copy-btn" onclick="copyJson(this)">Copy</button><pre>${syntaxHighlight(json)}</pre></div>`;
+    detailEl.appendChild(card);
+  }
+}
+
+async function loadSampleBundle() {
+  if (!builderState.signedBundle) {
+    await builderInit();
+    await builderStep('rpr');
+    await builderStep('passport');
+    await builderStep('intent');
+    await builderStep('policy');
+    await builderStep('audit');
+    await builderBuild();
+  }
+  if (builderState.signedBundle) {
+    document.getElementById('verify-input').value = JSON.stringify(builderState.signedBundle, null, 2);
+  }
+}
+
+/* ============================== Tier Comparison ============================== */
+
+const TIERS = [
+  {
+    num: 0, name: 'Routine', color: '#00d4aa', latency: 2, maxBar: 15,
+    mode: 'Classical only', checkpoint: 'Every 50 events', size: '~1.2 KB',
+    desc: 'Low-risk browsing, read-only API calls. Ed25519 signatures only with periodic PQ checkpoints.',
+    use: 'Reading public data, simple queries'
+  },
+  {
+    num: 1, name: 'Standard', color: '#3388ff', latency: 7, maxBar: 15,
+    mode: 'Hybrid preferred', checkpoint: 'Every 10 events', size: '~4.8 KB',
+    desc: 'Moderate risk operations. Hybrid signatures preferred but classical accepted. More frequent PQ checkpoints.',
+    use: 'API calls, CRM updates, calendar events'
+  },
+  {
+    num: 2, name: 'Elevated', color: '#ffaa33', latency: 11, maxBar: 15,
+    mode: 'Hybrid required', checkpoint: 'Every event', size: '~9.2 KB',
+    desc: 'High-risk operations with sensitive data. Hybrid signatures mandatory. Every audit event gets a PQ checkpoint.',
+    use: 'PII access, payment initiation'
+  },
+  {
+    num: 3, name: 'Maximum', color: '#ff4466', latency: 15, maxBar: 15,
+    mode: 'Hybrid + immediate verify', checkpoint: 'Every event + verify', size: '~12.5 KB',
+    desc: 'Maximum security for the most sensitive operations. Immediate verification after each checkpoint.',
+    use: 'Credentials access, children\'s data'
+  }
+];
+
+function renderTierCards() {
+  const grid = document.getElementById('tier-grid');
+  grid.innerHTML = TIERS.map(t => `
+    <div class="tier-card" onclick="selectTier(${t.num})" id="tier-card-${t.num}">
+      <div class="tier-num" style="color:${t.color}">${t.num}</div>
+      <div class="tier-name">${t.name}</div>
+      <div class="tier-desc">${t.desc}</div>
+      <div class="latency-bar-wrap">
+        <div class="latency-bar" id="tier-bar-${t.num}" style="background:${t.color}; width:0%"></div>
+      </div>
+      <div class="latency-val" style="color:${t.color}">~${t.latency} ms</div>
+      <dl class="tier-detail">
+        <dt>Verification</dt><dd>${t.mode}</dd>
+        <dt>Checkpoint</dt><dd>${t.checkpoint}</dd>
+        <dt>Bundle Size</dt><dd>${t.size}</dd>
+        <dt>Use Case</dt><dd>${t.use}</dd>
+      </dl>
+    </div>
+  `).join('');
+  setTimeout(() => {
+    TIERS.forEach(t => {
+      document.getElementById('tier-bar-' + t.num).style.width = (t.latency / t.maxBar * 100) + '%';
+    });
+  }, 100);
+}
+
+function selectTier(num) {
+  document.querySelectorAll('.tier-card').forEach(c => c.classList.remove('active'));
+  document.getElementById('tier-card-' + num).classList.add('active');
+}
+
+function runLatencySim() {
+  const container = document.getElementById('latency-sim');
+  container.innerHTML = TIERS.map(t => `
+    <div style="display:flex; align-items:center; gap:1rem; margin-bottom:0.8rem">
+      <div style="width:80px; font-weight:600; font-size:0.8rem; color:${t.color}">Tier ${t.num}</div>
+      <div style="flex:1; height:24px; background:var(--bg); border-radius:4px; overflow:hidden; border:1px solid var(--border)">
+        <div id="sim-bar-${t.num}" style="height:100%; width:0; background:${t.color}; border-radius:4px; transition: width 0.6s ease; display:flex; align-items:center; justify-content:flex-end; padding-right:8px;">
+          <span style="font-family:var(--mono); font-size:0.7rem; color:var(--bg); font-weight:700;"></span>
+        </div>
+      </div>
+      <div style="width:60px; text-align:right; font-family:var(--mono); font-size:0.8rem; color:${t.color}" id="sim-val-${t.num}">0 ms</div>
+    </div>
+  `).join('');
+
+  TIERS.forEach((t, i) => {
+    setTimeout(() => {
+      const bar = document.getElementById('sim-bar-' + t.num);
+      const val = document.getElementById('sim-val-' + t.num);
+      bar.style.width = (t.latency / 20 * 100) + '%';
+      bar.querySelector('span').textContent = t.latency + ' ms';
+      val.textContent = '~' + t.latency + ' ms';
+    }, i * 300);
+  });
+}
+
+renderTierCards();
+
+/* ============================== Protocol Explorer ============================== */
+
+const FLOW_STEPS = [
+  {
+    id: 'human', icon: '&#x1f464;', label: 'Human',
+    title: 'Human Identity',
+    desc: 'The human principal who owns and is legally responsible for the AI agent. Identified by a <code>human_id</code> UUID and bound via a Responsible Principal Record (RPR).',
+    sample: { human_id: 'uuid', legal_name: 'Jane Doe', entity_type: 'natural_person', jurisdiction: 'US-CA' }
+  },
+  {
+    id: 'rpr', icon: '&#x1f4dc;', label: 'RPR',
+    title: 'Responsible Principal Record',
+    desc: 'Links a human identity to cryptographic keys. Establishes legal jurisdiction, liability mode, and override rights. Signed with domain separation tag <code>DCP-AI.v2.ResponsiblePrincipal</code>.',
+    sample: { dcp_version: '2.0', jurisdiction: 'US-CA', liability_mode: 'owner_responsible', binding_keys: ['ed25519:...'] }
+  },
+  {
+    id: 'passport', icon: '&#x1f4c4;', label: 'Passport',
+    title: 'Agent Passport',
+    desc: 'Defines the AI agent\'s identity, capabilities, and risk tier. References the RPR via <code>principal_binding_reference</code>. Contains the agent\'s key set.',
+    sample: { dcp_version: '2.0', agent_id: 'uuid', capabilities: ['browse', 'api_call'], risk_tier: 'low' }
+  },
+  {
+    id: 'intent', icon: '&#x1f3af;', label: 'Intent',
+    title: 'Intent Declaration',
+    desc: 'Declares what the agent intends to do before executing it. Specifies action type, target, data classes, and estimated impact. Drives security tier selection.',
+    sample: { action_type: 'api_call', target: { channel: 'api', domain: 'example.com' }, data_classes: ['none'], security_tier: 'routine' }
+  },
+  {
+    id: 'policy', icon: '&#x1f6e1;', label: 'Policy',
+    title: 'Policy Decision',
+    desc: 'The policy engine evaluates the intent and produces a decision: <code>approve</code>, <code>escalate</code> (requires human confirmation), or <code>block</code>. Includes risk score and applied policy hash.',
+    sample: { decision: 'approve', risk_score: 150, reasons: ['Risk within threshold'], resolved_tier: 'routine' }
+  },
+  {
+    id: 'action', icon: '&#x26a1;', label: 'Action',
+    title: 'Action Execution',
+    desc: 'The agent performs the approved action. This is the actual API call, email send, file write, etc. The outcome is recorded in the audit trail.',
+    sample: { status: 'executed', result: '200 OK', duration_ms: 342 }
+  },
+  {
+    id: 'audit', icon: '&#x1f4dd;', label: 'Audit',
+    title: 'Audit Event',
+    desc: 'Records the action\'s outcome in a hash-chained audit trail. Each event references the previous via <code>prev_hash</code>. Supports dual-hash mode (SHA-256 + SHA3-256).',
+    sample: { hash_alg: 'sha256', prev_hash: '0000...', policy_decision: 'approved', outcome: 'API call 200 OK' }
+  },
+  {
+    id: 'bundle', icon: '&#x1f4e6;', label: 'Bundle',
+    title: 'Citizenship Bundle',
+    desc: 'Assembles all artifacts into a <code>CitizenshipBundleV2</code> with a manifest containing SHA-256 hashes of each artifact and a Merkle root of the audit chain.',
+    sample: { dcp_bundle_version: '2.0', manifest: { rpr_hash: 'sha256:...', audit_merkle_root: 'sha256:...' } }
+  },
+  {
+    id: 'verify', icon: '&#x2705;', label: 'Verify',
+    title: 'Bundle Verification',
+    desc: 'The verifier recomputes all hashes, verifies the Merkle root, checks composite signatures, and enforces its own verifier policy. The verifier is authoritative — it decides accepted algorithms and modes.',
+    sample: { verified: true, checks: ['schema', 'manifest', 'hashes', 'merkle_root', 'signature', 'tier'] }
+  }
+];
+
+function renderFlow() {
+  const container = document.getElementById('protocol-flow');
+  container.innerHTML = FLOW_STEPS.map((step, i) => {
+    let html = `<div class="flow-step" id="flow-${step.id}" onclick="showFlowDetail('${step.id}')">
+      <div class="icon">${step.icon}</div>
+      <div class="label">${step.label}</div>
+    </div>`;
+    if (i < FLOW_STEPS.length - 1) {
+      html += `<div class="flow-arrow" id="arrow-${i}">&#x2192;</div>`;
+    }
+    return html;
+  }).join('');
+}
+
+function showFlowDetail(id) {
+  const step = FLOW_STEPS.find(s => s.id === id);
+  if (!step) return;
+  document.querySelectorAll('.flow-step').forEach(el => el.classList.remove('active'));
+  document.getElementById('flow-' + id).classList.add('active');
+  const detail = document.getElementById('flow-detail');
+  detail.style.display = 'block';
+  document.getElementById('flow-detail-title').textContent = step.title;
+  document.getElementById('flow-detail-desc').innerHTML = step.desc;
+  const jsonDiv = document.getElementById('flow-detail-json');
+  if (step.sample) {
+    const json = JSON.stringify(step.sample, null, 2);
+    jsonDiv.innerHTML = `<div class="json-output" style="margin-top:0.8rem"><pre>${syntaxHighlight(json)}</pre></div>`;
+  } else {
+    jsonDiv.innerHTML = '';
+  }
+}
+
+let flowAnimating = false;
+async function animateFlow() {
+  if (flowAnimating) return;
+  flowAnimating = true;
+  resetFlow();
+  const progress = document.getElementById('flow-progress');
+
+  for (let i = 0; i < FLOW_STEPS.length; i++) {
+    const step = FLOW_STEPS[i];
+    document.getElementById('flow-' + step.id).classList.add('active', 'pulse');
+    showFlowDetail(step.id);
+    progress.style.width = ((i + 1) / FLOW_STEPS.length * 100) + '%';
+
+    if (i > 0) {
+      document.getElementById('arrow-' + (i - 1)).classList.add('lit');
+    }
+
+    await new Promise(r => setTimeout(r, 1200));
+    document.getElementById('flow-' + step.id).classList.remove('pulse');
+  }
+  flowAnimating = false;
+}
+
+function resetFlow() {
+  document.querySelectorAll('.flow-step').forEach(el => { el.classList.remove('active', 'pulse'); });
+  document.querySelectorAll('.flow-arrow').forEach(el => el.classList.remove('lit'));
+  document.getElementById('flow-detail').style.display = 'none';
+  document.getElementById('flow-progress').style.width = '0';
+}
+
+renderFlow();
+
+</script>
+</body>
+</html>
