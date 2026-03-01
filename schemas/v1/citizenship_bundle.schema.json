@@ -5,15 +5,15 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "human_binding_record",
+    "responsible_principal_record",
     "agent_passport",
     "intent",
     "policy_decision",
     "audit_entries"
   ],
   "properties": {
-    "human_binding_record": {
-      "$ref": "human_binding_record.schema.json"
+    "responsible_principal_record": {
+      "$ref": "responsible_principal_record.schema.json"
     },
     "agent_passport": {
       "$ref": "agent_passport.schema.json"

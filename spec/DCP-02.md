@@ -32,5 +32,6 @@ dcp validate-bundle <citizenship_bundle.json>
 
 - [tests/conformance/examples/intent.json](../tests/conformance/examples/intent.json)
 - [tests/conformance/examples/policy_decision.json](../tests/conformance/examples/policy_decision.json)
+- [tests/conformance/examples/human_confirmation.json](../tests/conformance/examples/human_confirmation.json)
 
 The source of truth for fields and enums is the JSON Schema; this document is the normative specification that references them.

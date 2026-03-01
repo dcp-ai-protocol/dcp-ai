@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/emergency_revocation.schema.json",
+  "title": "EmergencyRevocation",
+  "description": "DCP v2.0 Emergency Revocation. Pre-image of a committed token revokes all agent keys without requiring a private key signature.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "type", "agent_id", "human_id",
+    "revocation_secret", "timestamp", "reason"
+  ],
+  "properties": {
+    "type": {
+      "type": "string",
+      "const": "emergency_revocation"
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "human_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "revocation_secret": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Pre-image of the emergency_revocation_token stored in the agent passport."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "reason": {
+      "type": "string",
+      "const": "key_compromise_emergency"
+    }
+  }
+}

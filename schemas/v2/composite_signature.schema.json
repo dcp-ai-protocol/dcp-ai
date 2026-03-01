@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/composite_signature.schema.json",
+  "title": "CompositeSignature",
+  "description": "DCP v2.0 composite-bound hybrid signature. PQ signature covers the classical signature to prevent stripping attacks.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["classical", "pq", "binding"],
+  "properties": {
+    "classical": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["alg", "kid", "sig_b64"],
+      "properties": {
+        "alg": { "type": "string" },
+        "kid": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+        "sig_b64": { "type": "string", "minLength": 8 }
+      }
+    },
+    "pq": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["alg", "kid", "sig_b64"],
+          "properties": {
+            "alg": { "type": "string" },
+            "kid": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+            "sig_b64": { "type": "string", "minLength": 8 }
+          }
+        }
+      ]
+    },
+    "binding": {
+      "type": "string",
+      "enum": ["pq_over_classical", "classical_only"]
+    }
+  }
+}

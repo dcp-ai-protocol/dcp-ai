@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/key_entry.schema.json",
+  "title": "KeyEntry",
+  "description": "DCP v2.0 key object with deterministic kid derivation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kid", "alg", "public_key_b64", "created_at", "expires_at", "status"],
+  "properties": {
+    "kid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$",
+      "description": "Deterministic key ID: hex(SHA-256(UTF8(alg) || 0x00 || pubkey))[0:32]"
+    },
+    "alg": {
+      "type": "string",
+      "enum": ["ed25519", "ml-dsa-65", "ml-dsa-87", "slh-dsa-192f", "slh-dsa-256f"]
+    },
+    "public_key_b64": {
+      "type": "string",
+      "minLength": 8
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "revoked", "expired"]
+    }
+  }
+}

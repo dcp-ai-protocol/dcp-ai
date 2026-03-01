@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/multi_party_authorization.schema.json",
+  "title": "MultiPartyAuthorization",
+  "description": "DCP v2.0 Multi-Party M-of-N Authorization for critical operations. Requires composite signatures from multiple authorized parties.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "type", "operation", "operation_payload",
+    "required_parties", "authorizations"
+  ],
+  "properties": {
+    "type": {
+      "type": "string",
+      "const": "multi_party_authorization"
+    },
+    "operation": {
+      "type": "string",
+      "enum": ["revoke_agent", "rotate_org_key", "change_jurisdiction", "modify_recovery_config"]
+    },
+    "operation_payload": {
+      "type": "object"
+    },
+    "required_parties": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "authorizations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["party_id", "role", "composite_sig"],
+        "properties": {
+          "party_id": { "type": "string" },
+          "role": {
+            "type": "string",
+            "enum": ["owner", "org_admin", "recovery_contact"]
+          },
+          "composite_sig": {
+            "$ref": "composite_signature.schema.json"
+          }
+        }
+      }
+    }
+  }
+}

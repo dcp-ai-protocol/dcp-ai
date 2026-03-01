@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/jurisdiction_attestation.schema.json",
+  "title": "JurisdictionAttestationV2",
+  "description": "DCP v2.0 Jurisdiction Attestation. Composite-signed by a recognized authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "type", "dcp_version", "issuer", "jurisdiction",
+    "rpr_hash", "agent_id", "attested_at", "expires_at", "composite_sig"
+  ],
+  "properties": {
+    "type": {
+      "type": "string",
+      "const": "jurisdiction_attestation"
+    },
+    "dcp_version": {
+      "type": "string",
+      "const": "2.0"
+    },
+    "issuer": {
+      "type": "string",
+      "minLength": 1
+    },
+    "jurisdiction": {
+      "type": "string",
+      "minLength": 2
+    },
+    "rpr_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "attested_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "composite_sig": {
+      "$ref": "composite_signature.schema.json"
+    }
+  }
+}

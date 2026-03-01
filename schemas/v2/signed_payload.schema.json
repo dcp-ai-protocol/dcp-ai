@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/signed_payload.schema.json",
+  "title": "SignedPayload",
+  "description": "DCP v2.0 SignedPayload envelope. The artifact (payload) never contains signature data.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["payload", "payload_hash", "composite_sig"],
+  "properties": {
+    "payload": {
+      "type": "object"
+    },
+    "payload_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "composite_sig": {
+      "$ref": "composite_signature.schema.json"
+    }
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/audit_compaction.schema.json",
+  "title": "AuditCompaction",
+  "description": "DCP v2.0 Audit Trail Compaction checkpoint. Allows archiving of event ranges while maintaining chain integrity.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "type", "session_nonce", "range",
+    "merkle_root", "prev_hash", "timestamp", "composite_sig"
+  ],
+  "properties": {
+    "type": {
+      "type": "string",
+      "const": "audit_compaction"
+    },
+    "session_nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "range": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to", "count"],
+      "properties": {
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "count": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "merkle_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "prev_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "composite_sig": {
+      "$ref": "composite_signature.schema.json"
+    }
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/revocation_record.schema.json",
+  "title": "RevocationRecordV2",
+  "description": "DCP v2.0 Revocation Record. Kid-level revocation with composite signature.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dcp_version", "agent_id", "human_id",
+    "revoked_kid", "timestamp", "reason", "composite_sig"
+  ],
+  "properties": {
+    "dcp_version": {
+      "type": "string",
+      "const": "2.0"
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "human_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "revoked_kid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "reason": {
+      "type": "string",
+      "enum": ["key_compromise", "key_rotation", "administrative", "key_compromise_emergency"]
+    },
+    "composite_sig": {
+      "$ref": "composite_signature.schema.json"
+    }
+  }
+}

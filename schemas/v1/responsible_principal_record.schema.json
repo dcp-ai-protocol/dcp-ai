@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://dcp-ai.org/schemas/v1/human_binding_record.schema.json",
-  "title": "HumanBindingRecord",
+  "$id": "https://dcp-ai.org/schemas/v1/responsible_principal_record.schema.json",
+  "title": "ResponsiblePrincipalRecord",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -39,7 +39,8 @@
     "jurisdiction": {
       "type": "string",
       "minLength": 2,
-      "maxLength": 10
+      "maxLength": 32,
+      "description": "ISO 3166-1 alpha-2 code, optionally with subdivision (e.g. US-CA, EU-GDPR)"
     },
     "liability_mode": {
       "type": "string",

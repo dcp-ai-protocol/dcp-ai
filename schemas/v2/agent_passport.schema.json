@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/agent_passport.schema.json",
+  "title": "AgentPassportV2",
+  "description": "DCP v2.0 Agent Passport. No inline signature (SignedPayload envelope). Multi-key, session-bound.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dcp_version", "agent_id", "session_nonce", "keys",
+    "principal_binding_reference", "capabilities", "risk_tier",
+    "created_at", "status"
+  ],
+  "properties": {
+    "dcp_version": {
+      "type": "string",
+      "const": "2.0"
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "session_nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "keys": {
+      "type": "array",
+      "items": { "$ref": "key_entry.schema.json" },
+      "minItems": 1
+    },
+    "principal_binding_reference": {
+      "type": "string",
+      "minLength": 6
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["browse", "api_call", "email", "calendar", "payments", "crm", "file_write", "code_exec"]
+      },
+      "uniqueItems": true
+    },
+    "risk_tier": {
+      "type": "string",
+      "enum": ["low", "medium", "high"]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "revoked", "suspended"]
+    },
+    "emergency_revocation_token": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/human_confirmation.schema.json",
+  "title": "HumanConfirmationV2",
+  "description": "DCP v2.0 Human Confirmation. Session-bound approval/denial with composite signature.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dcp_version", "intent_id", "session_nonce",
+    "human_id", "timestamp", "decision", "composite_sig"
+  ],
+  "properties": {
+    "dcp_version": {
+      "type": "string",
+      "const": "2.0"
+    },
+    "intent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "session_nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "human_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "decision": {
+      "type": "string",
+      "enum": ["approve", "deny"]
+    },
+    "composite_sig": {
+      "$ref": "composite_signature.schema.json"
+    }
+  }
+}

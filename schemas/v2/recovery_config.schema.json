@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/recovery_config.schema.json",
+  "title": "RecoveryConfig",
+  "description": "DCP v2.0 Key Recovery Configuration. M-of-N Shamir social recovery. Non-secret metadata — actual shares are encrypted and distributed to holders.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "type", "human_id", "threshold", "total_shares",
+    "share_holders", "created_at", "composite_sig"
+  ],
+  "properties": {
+    "type": {
+      "type": "string",
+      "const": "recovery_config"
+    },
+    "human_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "threshold": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "total_shares": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "share_holders": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["holder_id", "share_index", "holder_kid"],
+        "properties": {
+          "holder_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "share_index": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "holder_kid": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "composite_sig": {
+      "$ref": "composite_signature.schema.json"
+    }
+  }
+}

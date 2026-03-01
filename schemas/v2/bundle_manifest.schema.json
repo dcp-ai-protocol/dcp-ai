@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/bundle_manifest.schema.json",
+  "title": "BundleManifest",
+  "description": "DCP v2.0 Bundle Manifest. Cryptographic binding of all artifact hashes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "session_nonce", "rpr_hash", "passport_hash",
+    "intent_hash", "policy_hash", "audit_merkle_root", "audit_count"
+  ],
+  "properties": {
+    "session_nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "rpr_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "passport_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "intent_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "policy_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "audit_merkle_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "audit_merkle_root_secondary": {
+      "type": "string",
+      "pattern": "^sha3-256:[0-9a-f]{64}$"
+    },
+    "audit_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "pq_checkpoints": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

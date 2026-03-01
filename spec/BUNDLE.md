@@ -6,7 +6,7 @@ An agent does not operate in a vacuum: it operates with an identity, a declared 
 
 A Citizenship Bundle is a JSON object containing exactly:
 
-- `human_binding_record` — DCP-01 (HBR)
+- `responsible_principal_record` — DCP-01 (RPR)
 - `agent_passport` — DCP-01 (AP)
 - `intent` — DCP-02
 - `policy_decision` — DCP-02

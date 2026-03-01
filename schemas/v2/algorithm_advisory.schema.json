@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/algorithm_advisory.schema.json",
+  "title": "AlgorithmAdvisory",
+  "description": "DCP v2.0 Algorithm Deprecation Advisory. Signed by governance key holders to coordinate ecosystem response to algorithm breaks.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "type", "advisory_id", "severity", "affected_algorithms",
+    "action", "replacement_algorithms", "effective_date",
+    "grace_period_days", "description", "issued_at", "issuer",
+    "composite_sig"
+  ],
+  "properties": {
+    "type": {
+      "type": "string",
+      "const": "algorithm_advisory"
+    },
+    "advisory_id": {
+      "type": "string",
+      "pattern": "^DCP-ADV-"
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["critical", "high", "medium", "low"]
+    },
+    "affected_algorithms": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1
+    },
+    "action": {
+      "type": "string",
+      "enum": ["deprecate", "warn", "revoke"]
+    },
+    "replacement_algorithms": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "effective_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "grace_period_days": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "description": {
+      "type": "string"
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "issuer": {
+      "type": "string"
+    },
+    "composite_sig": {
+      "$ref": "composite_signature.schema.json"
+    }
+  }
+}

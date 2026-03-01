@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/blinded_rpr.schema.json",
+  "title": "BlindedResponsiblePrincipalRecordV2",
+  "description": "DCP v2.0 Blinded RPR. PII fields replaced by pii_hash for privacy-preserving transparency logs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dcp_version", "human_id", "session_nonce", "blinded", "pii_hash",
+    "entity_type", "jurisdiction", "liability_mode", "override_rights",
+    "issued_at", "expires_at", "binding_keys"
+  ],
+  "properties": {
+    "dcp_version": {
+      "type": "string",
+      "const": "2.0"
+    },
+    "human_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "session_nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "blinded": {
+      "type": "boolean",
+      "const": true
+    },
+    "pii_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "sha256(canonical({ legal_name, contact }))"
+    },
+    "entity_type": {
+      "type": "string",
+      "enum": ["natural_person", "organization"]
+    },
+    "jurisdiction": {
+      "type": "string",
+      "minLength": 2
+    },
+    "liability_mode": {
+      "type": "string",
+      "enum": ["owner_responsible"]
+    },
+    "override_rights": {
+      "type": "boolean"
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "binding_keys": {
+      "type": "array",
+      "items": { "$ref": "key_entry.schema.json" },
+      "minItems": 1
+    }
+  }
+}

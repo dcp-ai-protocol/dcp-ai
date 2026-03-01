@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/policy_decision.schema.json",
+  "title": "PolicyDecisionV2",
+  "description": "DCP v2.0 Policy Decision. risk_score is integer 0-1000 (millirisk). No floats.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dcp_version", "intent_id", "session_nonce", "decision",
+    "risk_score", "reasons", "required_confirmation",
+    "applied_policy_hash", "timestamp"
+  ],
+  "properties": {
+    "dcp_version": {
+      "type": "string",
+      "const": "2.0"
+    },
+    "intent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "session_nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "decision": {
+      "type": "string",
+      "enum": ["approve", "escalate", "block"]
+    },
+    "risk_score": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "reasons": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "required_confirmation": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["type"],
+          "properties": {
+            "type": { "type": "string", "const": "human_approve" },
+            "fields": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      ]
+    },
+    "applied_policy_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "resolved_tier": {
+      "type": "string",
+      "enum": ["routine", "standard", "elevated", "maximum"],
+      "description": "Final security tier after policy evaluation (may upgrade but never downgrade)"
+    }
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/verifier_policy.schema.json",
+  "title": "VerifierPolicy",
+  "description": "DCP v2.0 Verifier-authoritative signature policy. Set by the verifier, NOT self-declared by agents.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "default_mode", "risk_overrides",
+    "min_classical", "min_pq",
+    "accepted_classical_algs", "accepted_pq_algs", "accepted_hash_algs",
+    "require_session_binding", "require_composite_binding",
+    "max_key_age_days", "allow_v1_bundles"
+  ],
+  "properties": {
+    "default_mode": {
+      "type": "string",
+      "enum": ["classical_only", "pq_only", "hybrid_required", "hybrid_preferred"]
+    },
+    "risk_overrides": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["low", "medium", "high"],
+      "properties": {
+        "low": { "type": "string", "enum": ["classical_only", "pq_only", "hybrid_required", "hybrid_preferred"] },
+        "medium": { "type": "string", "enum": ["classical_only", "pq_only", "hybrid_required", "hybrid_preferred"] },
+        "high": { "type": "string", "enum": ["classical_only", "pq_only", "hybrid_required", "hybrid_preferred"] }
+      }
+    },
+    "min_classical": { "type": "integer", "minimum": 0 },
+    "min_pq": { "type": "integer", "minimum": 0 },
+    "accepted_classical_algs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1
+    },
+    "accepted_pq_algs": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "accepted_hash_algs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1
+    },
+    "require_session_binding": { "type": "boolean" },
+    "require_composite_binding": { "type": "boolean" },
+    "max_key_age_days": { "type": "integer", "minimum": 1 },
+    "allow_v1_bundles": { "type": "boolean" },
+    "allow_classical_fallback_disable": {
+      "type": "boolean",
+      "description": "When true, allows disabling classical-only fallback"
+    },
+    "warn_classical_only_deprecated": {
+      "type": "boolean",
+      "description": "When true, classical-only bundles generate deprecation warnings"
+    },
+    "advisory_rejected_algs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Algorithms rejected due to published advisories"
+    }
+  }
+}

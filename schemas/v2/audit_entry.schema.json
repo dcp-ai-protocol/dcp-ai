@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/audit_entry.schema.json",
+  "title": "AuditEventV2",
+  "description": "DCP v2.0 Audit Event. Supports dual-hash chains (SHA-256 + SHA3-256) and lazy PQ checkpoints.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dcp_version", "audit_id", "session_nonce", "prev_hash",
+    "hash_alg", "timestamp", "agent_id", "human_id",
+    "intent_id", "intent_hash", "policy_decision",
+    "outcome", "evidence", "pq_checkpoint_ref"
+  ],
+  "properties": {
+    "dcp_version": {
+      "type": "string",
+      "const": "2.0"
+    },
+    "audit_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "session_nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "prev_hash": {
+      "type": "string",
+      "pattern": "^(sha256:[0-9a-f]{64}|GENESIS)$"
+    },
+    "prev_hash_secondary": {
+      "type": "string",
+      "pattern": "^sha3-256:[0-9a-f]{64}$"
+    },
+    "hash_alg": {
+      "type": "string",
+      "enum": ["sha256", "sha256+sha3-256"]
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "human_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "intent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "intent_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "intent_hash_secondary": {
+      "type": "string",
+      "pattern": "^sha3-256:[0-9a-f]{64}$"
+    },
+    "policy_decision": {
+      "type": "string",
+      "enum": ["approved", "escalated", "blocked"]
+    },
+    "outcome": {
+      "type": "string"
+    },
+    "evidence": {
+      "type": "object",
+      "properties": {
+        "tool": { "type": ["string", "null"] },
+        "result_ref": { "type": ["string", "null"] },
+        "evidence_hash": { "type": ["string", "null"] }
+      }
+    },
+    "pq_checkpoint_ref": {
+      "type": ["string", "null"]
+    }
+  }
+}

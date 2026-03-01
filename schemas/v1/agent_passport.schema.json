@@ -8,7 +8,7 @@
     "dcp_version",
     "agent_id",
     "public_key",
-    "human_binding_reference",
+    "principal_binding_reference",
     "created_at",
     "status",
     "signature"
@@ -26,7 +26,7 @@
       "type": "string",
       "minLength": 8
     },
-    "human_binding_reference": {
+    "principal_binding_reference": {
       "type": "string",
       "minLength": 6
     },
