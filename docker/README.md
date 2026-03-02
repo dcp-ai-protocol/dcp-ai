@@ -93,6 +93,10 @@ Each service is configured via environment variables in `docker-compose.yml`:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `3002` | HTTP port |
+| `LOG_ID` | auto-generated | Unique identifier for this log instance |
+| `OPERATOR_KEY` | auto-generated | Hex-encoded operator secret for signing STHs |
+| `GOSSIP_PEERS` | — | Comma-separated peer endpoints (e.g. `http://log-b:3002`) |
+| `GOSSIP_INTERVAL_MS` | `30000` | Gossip polling interval in milliseconds |
 
 #### revocation
 
@@ -162,16 +166,14 @@ curl -X POST http://localhost:3000/verify \
   -H "Content-Type: application/json" \
   -d "{\"signed_bundle\": $(cat tests/conformance/examples/citizenship_bundle.signed.json)}"
 
-# 3. Anchor the hash
-HASH=$(curl -s -X POST http://localhost:3000/verify \
-  -H "Content-Type: application/json" \
-  -d "{\"signed_bundle\": $(cat tests/conformance/examples/citizenship_bundle.signed.json)}" \
-  | jq -r '.bundle_hash')
+# 3. Compute the bundle hash locally and anchor it
+HASH="sha256:$(cat tests/conformance/examples/citizenship_bundle.signed.json \
+  | node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>console.log(require("crypto").createHash("sha256").update(d).digest("hex")))')"
 curl -X POST http://localhost:3001/anchor \
   -H "Content-Type: application/json" \
   -d "{\"bundle_hash\": \"$HASH\"}"
 
-# 4. Add to transparency log
+# 4. Add to transparency log (service on port 3002, route is /add)
 curl -X POST http://localhost:3002/add \
   -H "Content-Type: application/json" \
   -d "{\"bundle_hash\": \"$HASH\"}"

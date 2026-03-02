@@ -1,0 +1,24 @@
+{
+  "name": "@dcp-ai/google-a2a",
+  "version": "0.1.0",
+  "description": "DCP-AI bridge for Google A2A (Agent-to-Agent) Protocol",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "keywords": [
+    "dcp",
+    "a2a",
+    "google",
+    "agent",
+    "ai",
+    "protocol"
+  ],
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dcp-ai/dcp-ai-genesis",
+    "directory": "integrations/google-a2a"
+  }
+}

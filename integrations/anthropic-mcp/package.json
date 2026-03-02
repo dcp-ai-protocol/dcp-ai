@@ -1,0 +1,25 @@
+{
+  "name": "@dcp-ai/anthropic-mcp",
+  "version": "0.1.0",
+  "description": "DCP-AI bridge for Anthropic Model Context Protocol (MCP)",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "keywords": [
+    "dcp",
+    "mcp",
+    "anthropic",
+    "claude",
+    "agent",
+    "ai",
+    "protocol"
+  ],
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dcp-ai/dcp-ai-genesis",
+    "directory": "integrations/anthropic-mcp"
+  }
+}

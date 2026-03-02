@@ -6,13 +6,27 @@ info:
     Provides endpoints for verifying signed bundles (V1 and V2), anchoring hashes,
     checking revocations, querying the transparency log, managing agent keys,
     and governance operations.
+
+    ## Service Routing
+
+    DCP runs as a set of microservices, each on its own port.
+    The paths in this specification use canonical prefixes suitable for a
+    unified gateway (e.g. `https://api.dcp-ai.org`). When accessing individual
+    services directly, strip the service prefix:
+
+    | Canonical path prefix  | Direct service (port) | Strip prefix |
+    |------------------------|-----------------------|--------------|
+    | `/transparency-log/*`  | `:3002`               | `/add`, `/root`, `/proof/{index}`, … |
+    | `/revocations*`        | `:3003`               | `/list` (GET), `/revoke` (POST), `/check/{agent_id}` (GET) |
+    | `/anchor`              | `:3001`               | `/anchor` |
+    | Everything else        | `:3000` (gateway)     | No change |
   version: "2.0.0"
   contact:
     name: DCP-AI
     url: https://dcp-ai.org
   license:
-    name: MIT
-    url: https://opensource.org/licenses/MIT
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
 
 servers:
   - url: http://localhost:3000
@@ -95,6 +109,7 @@ paths:
       tags: [Discovery]
       summary: Capability discovery
       operationId: getCapabilities
+      security: []
       description: Returns supported DCP versions, algorithms, wire formats, and feature flags.
       responses:
         "200":
@@ -109,6 +124,7 @@ paths:
       tags: [Advisory]
       summary: List algorithm advisories
       operationId: getAlgorithmAdvisories
+      security: []
       responses:
         "200":
           description: Published algorithm advisories
@@ -127,6 +143,7 @@ paths:
       tags: [Governance]
       summary: Published governance keys
       operationId: getGovernanceKeys
+      security: []
       responses:
         "200":
           description: Governance key set

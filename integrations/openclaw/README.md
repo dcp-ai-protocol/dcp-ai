@@ -165,4 +165,4 @@ console.log(trail.entries);
 
 ## License
 
-MIT
+Apache-2.0

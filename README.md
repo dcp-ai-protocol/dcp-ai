@@ -84,7 +84,13 @@ See also: [Core specification](spec/core/dcp-core.md) | [Profiles overview](spec
 npx @dcp-ai/cli init
 ```
 
-The interactive wizard walks you through identity creation, key generation, intent declaration, and bundle signing.
+The interactive wizard (`@dcp-ai/cli`) walks you through identity creation, key generation, intent declaration, and bundle signing.
+
+A lower-level reference CLI is also available as `dcp` (from the root `dcp-ai` package) for scripting and CI/CD pipelines:
+
+```bash
+npx dcp-ai verify my-bundle.signed.json
+```
 
 ### Option B: SDK directly
 

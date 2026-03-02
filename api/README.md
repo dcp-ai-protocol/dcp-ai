@@ -24,7 +24,7 @@ Formal DCP API definitions: OpenAPI 3.1 specification for HTTP/REST and Protocol
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET /health` | Health check | Response: `{ ok, service, supported_versions, registered_agents, registered_keys }` |
+| `GET /health` | Health check | Response: `{ ok, service, supported_versions }` |
 | `GET /.well-known/dcp-capabilities.json` | Capability discovery | Response: supported versions, algs, features |
 | `GET /.well-known/algorithm-advisories.json` | Algorithm advisories | Response: `{ advisories }` |
 | `GET /.well-known/governance-keys.json` | Governance keys | Response: governance key set |
@@ -83,19 +83,23 @@ Formal DCP API definitions: OpenAPI 3.1 specification for HTTP/REST and Protocol
 
 #### Revocation (service on port 3003)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET /revocations` | List revocations | Response: list of `RevocationRecord` |
-| `POST /revocations` | Publish revocation | Request: `RevocationRecord` |
-| `GET /revocations/{agent_id}` | Revocation status | Response: `{ revoked, record? }` |
+Gateway paths use the `/revocations` prefix. When accessing the revocation service directly on port 3003, use the direct paths shown below.
+
+| Method | Gateway path | Direct path (`:3003`) | Description |
+|--------|-------------|----------------------|-------------|
+| `GET` | `/revocations` | `/list` | List revocations |
+| `POST` | `/revocations` | `/revoke` | Publish revocation |
+| `GET` | `/revocations/{agent_id}` | `/check/{agent_id}` | Revocation status |
 
 #### Transparency Log (service on port 3002)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST /transparency-log/add` | Add entry | Request: `{ bundle_hash }` → Response: `{ index, leaf_hash, root, size }` |
-| `GET /transparency-log/root` | Current Merkle root | Response: `{ root, size }` |
-| `GET /transparency-log/proof/{index}` | Inclusion proof | Response: `{ index, leaf_hash, root, proof }` |
+Gateway paths use the `/transparency-log` prefix. When accessing the service directly on port 3002, strip the prefix.
+
+| Method | Gateway path | Direct path (`:3002`) | Description |
+|--------|-------------|----------------------|-------------|
+| `POST` | `/transparency-log/add` | `/add` | Add entry |
+| `GET` | `/transparency-log/root` | `/root` | Current Merkle root |
+| `GET` | `/transparency-log/proof/{index}` | `/proof/{index}` | Inclusion proof |
 
 ### Main Schemas
 
@@ -236,4 +240,4 @@ npx @openapitools/openapi-generator-cli generate \
 
 ## License
 
-MIT
+Apache-2.0

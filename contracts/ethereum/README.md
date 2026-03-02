@@ -9,64 +9,108 @@ The `DCPAnchor` contract provides an immutable on-chain registry of bundle hashe
 ## Contract
 
 **Solidity:** `^0.8.20`  
-**License:** MIT  
+**License:** Apache-2.0  
 **Target networks:** Base, Arbitrum, Optimism (or any EVM L2)
 
 ## API
+
+### Admin Functions
+
+#### `addSubmitter(address submitter)`
+
+Adds an authorized submitter. Only the contract owner can call this.
+
+#### `removeSubmitter(address submitter)`
+
+Removes an authorized submitter. Only the contract owner can call this.
+
+#### `pause()` / `unpause()`
+
+Emergency pause mechanism. When paused, all anchoring functions revert. Only the contract owner can call these.
+
+#### `transferOwnership(address newOwner)`
+
+Transfers contract ownership.
 
 ### Write Functions
 
 #### `anchorBundle(bytes32 bundleHash)`
 
-Anchors an individual bundle hash.
+Direct anchor for trusted submitters in low-risk scenarios.
 
+- **Requires** authorized submitter or owner
 - **Reverts** if `bundleHash` is zero
 - **Reverts** if the hash has already been anchored
+- **Reverts** if the contract is paused
 - **Emits** `BundleAnchored(bundleHash, msg.sender, block.timestamp)`
 
 ```solidity
-// Example
 dcpAnchor.anchorBundle(0xabc123...);
+```
+
+#### Commit-Reveal (front-running protection)
+
+For scenarios where front-running is a concern, use the two-phase commit-reveal flow:
+
+**Phase 1 — `commit(bytes32 commitHash)`**
+
+Submit `keccak256(abi.encodePacked(bundleHash, salt, msg.sender))` to reserve a slot.
+
+**Phase 2 — `revealAndAnchorBundle(bytes32 bundleHash, bytes32 salt)`**
+
+Reveal the original hash and salt to complete the anchor. Must wait at least `COMMIT_DELAY` blocks and at most `COMMIT_EXPIRY` blocks after the commit.
+
+```solidity
+bytes32 salt = keccak256("random-salt");
+bytes32 commitHash = keccak256(abi.encodePacked(bundleHash, salt, msg.sender));
+dcpAnchor.commit(commitHash);
+// ... wait at least COMMIT_DELAY blocks ...
+dcpAnchor.revealAndAnchorBundle(bundleHash, salt);
 ```
 
 #### `anchorBatch(bytes32 merkleRoot, uint256 count)`
 
 Anchors a Merkle root representing a batch of bundles.
 
+- **Requires** authorized submitter or owner
 - **Reverts** if `merkleRoot` is zero
-- **Reverts** if `count` is zero
+- **Reverts** if `count` is zero or exceeds `MAX_BATCH_SIZE` (10000)
 - **Reverts** if the Merkle root has already been anchored
+- **Reverts** if the contract is paused
 - **Emits** `BatchAnchored(merkleRoot, count, msg.sender, block.timestamp)`
 
 ```solidity
-// Example: anchor a batch of 50 bundles
 dcpAnchor.anchorBatch(0xdef456..., 50);
 ```
 
 ### Read Functions
 
-#### `isAnchored(bytes32 bundleHash) → (bool exists, uint256 timestamp)`
+#### `isAnchored(bytes32 bundleHash) → (bool exists, uint256 timestamp, address submitter)`
 
 Queries whether a bundle hash is anchored.
 
 ```solidity
-(bool exists, uint256 ts) = dcpAnchor.isAnchored(0xabc123...);
+(bool exists, uint256 ts, address submitter) = dcpAnchor.isAnchored(0xabc123...);
 ```
 
-#### `isBatchAnchored(bytes32 merkleRoot) → (bool exists, uint256 timestamp)`
+#### `isBatchAnchored(bytes32 merkleRoot) → (bool exists, uint256 timestamp, uint256 count, address submitter)`
 
 Queries whether a batch Merkle root is anchored.
 
 ```solidity
-(bool exists, uint256 ts) = dcpAnchor.isBatchAnchored(0xdef456...);
+(bool exists, uint256 ts, uint256 count, address submitter) = dcpAnchor.isBatchAnchored(0xdef456...);
 ```
 
 ### Storage
 
 | Variable | Type | Description |
 |----------|------|-------------|
+| `owner` | `address` | Contract owner |
+| `paused` | `bool` | Emergency pause state |
+| `authorizedSubmitters` | `mapping(address => bool)` | Authorized submitters |
 | `bundles` | `mapping(bytes32 => AnchorRecord)` | Individual bundle records |
 | `batches` | `mapping(bytes32 => AnchorRecord)` | Batch Merkle root records |
+| `commitments` | `mapping(bytes32 => Commitment)` | Commit-reveal commitments |
 | `totalAnchors` | `uint256` | Total individual anchors |
 | `totalBatches` | `uint256` | Total batch anchors |
 
@@ -76,25 +120,36 @@ Queries whether a batch Merkle root is anchored.
 struct AnchorRecord {
     address submitter;   // Who anchored the hash
     uint256 timestamp;   // When it was anchored (block.timestamp)
+    uint256 count;       // Number of bundles (1 for individual, N for batch)
     bool exists;         // Whether the record exists
 }
+
+struct Commitment {
+    address submitter;
+    uint256 blockNumber;
+    bool revealed;
+}
 ```
+
+### Constants
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `MAX_BATCH_SIZE` | `10000` | Maximum bundles per batch |
+| `COMMIT_DELAY` | `1` | Minimum blocks between commit and reveal |
+| `COMMIT_EXPIRY` | `256` | Maximum blocks before a commitment expires |
 
 ### Events
 
 ```solidity
-event BundleAnchored(
-    bytes32 indexed bundleHash,
-    address indexed submitter,
-    uint256 timestamp
-);
-
-event BatchAnchored(
-    bytes32 indexed merkleRoot,
-    uint256 bundleCount,
-    address indexed submitter,
-    uint256 timestamp
-);
+event BundleAnchored(bytes32 indexed bundleHash, address indexed submitter, uint256 timestamp);
+event BatchAnchored(bytes32 indexed merkleRoot, uint256 bundleCount, address indexed submitter, uint256 timestamp);
+event CommitSubmitted(bytes32 indexed commitHash, address indexed submitter);
+event SubmitterAdded(address indexed submitter);
+event SubmitterRemoved(address indexed submitter);
+event Paused(address indexed by);
+event Unpaused(address indexed by);
+event OwnerTransferred(address indexed oldOwner, address indexed newOwner);
 ```
 
 ## Deploy
@@ -150,9 +205,10 @@ await tx.wait();
 console.log("Anchored in tx:", tx.hash);
 
 // Verify
-const [exists, timestamp] = await anchor.isAnchored(bundleHash);
+const [exists, timestamp, submitter] = await anchor.isAnchored(bundleHash);
 console.log("Exists:", exists);
 console.log("Timestamp:", new Date(Number(timestamp) * 1000));
+console.log("Submitter:", submitter);
 ```
 
 ## Integration with the Anchoring Service
