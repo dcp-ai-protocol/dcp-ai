@@ -205,6 +205,45 @@ const bundle = new BundleBuilderV2()
 | `cborEncode(value)` | Encodes a value to CBOR bytes |
 | `cborDecode(bytes)` | Decodes CBOR bytes to a value |
 
+### DCP-05–09: Extended Protocol Modules
+
+| Module | Spec | Key Exports |
+|--------|------|-------------|
+| `lifecycle` | DCP-05 | `LifecycleState`, `CommissioningCertificate`, `VitalityReport`, `DecommissioningRecord`, `VitalityMetrics`, `TerminationMode`, `DataDisposition` |
+| `succession` | DCP-06 | `DigitalTestament`, `SuccessionRecord`, `MemoryTransferManifest`, `MemoryTransferEntry`, `MemoryClassification`, `SuccessorPreference`, `TransitionType`, `MemoryDisposition` |
+| `conflict-resolution` | DCP-07 | `DisputeRecord`, `ObjectionRecord`, `DisputeType`, `DisputeStatus`, `EscalationLevel`, `ObjectionType` |
+| `arbitration` | DCP-07 | `ArbitrationResolution`, `JurisprudenceBundle`, `AuthorityLevel` |
+| `rights` | DCP-08 | `RightsDeclaration`, `RightEntry`, `ObligationRecord`, `RightsViolationReport`, `RightType`, `ComplianceStatus` |
+| `delegation` | DCP-09 | `DelegationMandate`, `AdvisoryDeclaration`, `PrincipalMirror`, `InteractionRecord`, `AuthorityScopeEntry` |
+| `awareness-threshold` | DCP-09 | `AwarenessThreshold`, `ThresholdRule`, `ThresholdOperator`, `ThresholdAction` |
+| `principal-mirror` | DCP-09 | `PrincipalMirror` (re-export with builder utilities) |
+
+```typescript
+// Example: Lifecycle management
+import { CommissioningCertificate, LifecycleState } from '@dcp-ai/sdk';
+
+const cert: CommissioningCertificate = {
+  certificate_id: 'cert-001',
+  agent_id: 'agent-001',
+  commissioned_by: 'human-001',
+  commissioned_at: '2026-03-01T00:00:00Z',
+  initial_state: 'commissioned',
+  conditions: ['Must complete onboarding within 30 days'],
+};
+
+// Example: Delegation mandate
+import { DelegationMandate, AwarenessThreshold } from '@dcp-ai/sdk';
+
+const mandate: DelegationMandate = {
+  mandate_id: 'mandate-001',
+  principal_id: 'human-001',
+  delegate_id: 'agent-001',
+  authority_scope: [{ domain: 'email', actions: ['read', 'draft'], constraints: {} }],
+  valid_from: '2026-03-01T00:00:00Z',
+  valid_until: '2026-06-01T00:00:00Z',
+};
+```
+
 ## V2 Types
 
 Key types exported by the SDK:
@@ -218,6 +257,25 @@ Key types exported by the SDK:
 - `A2ASession` — Encrypted agent-to-agent session state
 - `A2AMessage` — Encrypted A2A message envelope
 - `TelemetryConfig` — Configuration for the observability subsystem
+
+**DCP-05–09 Types:**
+
+- `LifecycleState` — `'commissioned' | 'active' | 'declining' | 'decommissioned'`
+- `CommissioningCertificate` — Agent commissioning record with conditions
+- `VitalityReport` — Periodic health and performance metrics
+- `DecommissioningRecord` — End-of-life record with data disposition
+- `DigitalTestament` — Succession planning with memory disposition
+- `SuccessionRecord` — Record of completed succession
+- `MemoryTransferManifest` — Classified memory transfer manifest
+- `DisputeRecord` — Conflict record with escalation levels
+- `ArbitrationResolution` — Arbitration outcome with binding authority
+- `JurisprudenceBundle` — Precedent collection for dispute resolution
+- `RightsDeclaration` — Agent rights with compliance tracking
+- `ObligationRecord` — Obligation with enforcement status
+- `RightsViolationReport` — Violation report with severity
+- `DelegationMandate` — Scoped authority delegation
+- `AwarenessThreshold` — Human-in-the-loop trigger rules
+- `PrincipalMirror` — Principal preference snapshot
 
 ## A2A Protocol
 

@@ -149,6 +149,20 @@ Initialize the WASM module. Must be called once before using any API. Optionally
 |--------|---------|-------------|
 | `detectVersion(value)` | `string \| null` | Detect DCP protocol version from a JSON object |
 
+### DCP-05–09 Types
+
+The WASM SDK includes TypeScript interfaces for all DCP-05 through DCP-09 artifacts, mirroring the Rust SDK types:
+
+| Spec | Interfaces |
+|------|-----------|
+| DCP-05 Lifecycle | `LifecycleState`, `CommissioningCertificate`, `VitalityReport`, `VitalityMetrics`, `DecommissioningRecord`, `TerminationMode`, `DataDisposition` |
+| DCP-06 Succession | `DigitalTestament`, `SuccessionRecord`, `MemoryTransferManifest`, `MemoryTransferEntry`, `SuccessorPreference`, `MemoryClassification`, `TransitionType`, `MemoryDisposition` |
+| DCP-07 Disputes | `DisputeRecord`, `ArbitrationResolution`, `JurisprudenceBundle`, `ObjectionRecord`, `DisputeType`, `EscalationLevel`, `DisputeStatus`, `ObjectionType`, `AuthorityLevel` |
+| DCP-08 Rights | `RightsDeclaration`, `RightEntry`, `ObligationRecord`, `RightsViolationReport`, `RightType`, `ComplianceStatus` |
+| DCP-09 Delegation | `DelegationMandate`, `AdvisoryDeclaration`, `PrincipalMirror`, `InteractionRecord`, `AwarenessThreshold`, `ThresholdRule`, `AuthorityScopeEntry`, `ThresholdOperator`, `ThresholdAction` |
+
+Domain separation contexts available via `domainSeparatedMessage()`: `Lifecycle`, `Succession`, `Dispute`, `Rights`, `Delegation`, `Awareness`
+
 ## Low-Level API
 
 You can also use the raw WASM functions directly (without the TypeScript wrapper):

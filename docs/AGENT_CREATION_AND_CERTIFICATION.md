@@ -107,6 +107,12 @@ Agent → On each action:
       → Build AuditEventV2 (dual hash chain: SHA-256 + SHA3-256)
       → Generate PQ checkpoint every N events (tier-dependent)
       → Present signed bundle to verifier
+
+Agent → Lifecycle management:
+      → Initial state: commissioned → active (via lifecycle transition)
+      → Submit periodic VitalityReport (health metrics, performance)
+      → On decline: active → declining (triggers succession planning)
+      → On end-of-life: declining → decommissioned (with DataDisposition proof)
 ```
 
 ### V2 Key Structure
@@ -164,6 +170,11 @@ The tier determines: verification mode, PQ checkpoint frequency, and bundle pres
 9. Build CitizenshipBundleV2 with `session_nonce` and manifest (all artifact hashes)
 10. Composite-sign bundle: Ed25519 + ML-DSA-65 with `pq_over_classical` binding
 11. Optionally anchor bundle_hash
+12. Initialize lifecycle state: create `CommissioningCertificate` with commissioning authority and conditions (DCP-05)
+13. Configure succession: optionally create `DigitalTestament` with `successor_preferences` and `memory_disposition` (DCP-06)
+14. Declare rights: create `RightsDeclaration` with applicable `RightEntry` items and `ObligationRecord` (DCP-08)
+15. Set up delegation: if agent acts as delegate, create `DelegationMandate` with `authority_scope` (DCP-09)
+16. Configure awareness thresholds: set `AwarenessThreshold` rules for human-in-the-loop triggers (DCP-09)
 
 See [QUICKSTART.md](QUICKSTART.md) for code examples and [MIGRATION_V1_V2.md](MIGRATION_V1_V2.md) for upgrading from V1.
 
