@@ -1,0 +1,32 @@
+{
+  "dcp_version": "2.0",
+  "session_nonce": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+  "predecessor_agent_id": "agent:research-bot-v2-001",
+  "successor_agent_id": "agent:research-bot-v3-001",
+  "timestamp": "2026-07-01T08:45:00Z",
+  "operational_memory": [
+    {
+      "hash": "a1a2a3a4b5b6b7b8c9c0d1d2e3e4f5f6a1a2a3a4b5b6b7b8c9c0d1d2e3e4f5f6",
+      "category": "research_indices",
+      "size": 524288
+    },
+    {
+      "hash": "f6f5e4e3d2d1c0c9b8b7b6b5a4a3a2a1f6f5e4e3d2d1c0c9b8b7b6b5a4a3a2a1",
+      "category": "domain_knowledge_embeddings",
+      "size": 1048576
+    }
+  ],
+  "relational_memory_destroyed": [
+    "user_interaction_logs",
+    "session_cache"
+  ],
+  "transfer_hash": {
+    "sha256": "c3d4e5f6a7b8c3d4e5f6a7b8c3d4e5f6a7b8c3d4e5f6a7b8c3d4e5f6a7b8c3d4",
+    "sha3-256": "d4e5f6a7b8c9d4e5f6a7b8c9d4e5f6a7b8c9d4e5f6a7b8c9d4e5f6a7b8c9d4e5"
+  },
+  "composite_sig": {
+    "classical": { "alg": "ed25519", "kid": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4", "sig_b64": "dGVzdHNpZzEyMzQ1Njc4OTAxMjM0NTY=" },
+    "pq": { "alg": "ml-dsa-65", "kid": "d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1", "sig_b64": "dGVzdHBxc2lnMTIzNDU2Nzg5MDEyMzQ1Ng==" },
+    "binding": "pq_over_classical"
+  }
+}

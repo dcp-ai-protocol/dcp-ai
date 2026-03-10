@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/decommissioning_record.schema.json",
+  "title": "DecommissioningRecord",
+  "description": "DCP-05 v2.0 Decommissioning Record. Documents the formal retirement or termination of an AI agent.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dcp_version", "agent_id", "session_nonce", "human_id",
+    "timestamp", "termination_mode", "reason",
+    "final_vitality_score", "data_disposition", "composite_sig"
+  ],
+  "properties": {
+    "dcp_version": {
+      "type": "string",
+      "const": "2.0"
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "session_nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "human_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "termination_mode": {
+      "type": "string",
+      "enum": ["planned_retirement", "termination_for_cause", "organizational_restructuring", "sudden_failure"]
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "final_vitality_score": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "successor_agent_id": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "minLength": 6 }
+      ]
+    },
+    "data_disposition": {
+      "type": "string",
+      "enum": ["transferred", "archived", "destroyed"]
+    },
+    "composite_sig": {
+      "$ref": "composite_signature.schema.json"
+    }
+  }
+}

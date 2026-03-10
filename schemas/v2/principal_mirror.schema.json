@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/principal_mirror.schema.json",
+  "title": "PrincipalMirror",
+  "description": "DCP-09 v2.0 Principal Mirror. A human-readable narrative of an agent's actions on behalf of its principal.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dcp_version", "mirror_id", "session_nonce", "agent_id",
+    "human_id", "period", "narrative", "action_count",
+    "decision_summary", "audit_chain_hash", "timestamp", "composite_sig"
+  ],
+  "properties": {
+    "dcp_version": {
+      "type": "string",
+      "const": "2.0"
+    },
+    "mirror_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "session_nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "human_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "period": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to"],
+      "properties": {
+        "from": { "type": "string", "format": "date-time" },
+        "to": { "type": "string", "format": "date-time" }
+      }
+    },
+    "narrative": {
+      "type": "string",
+      "minLength": 1
+    },
+    "action_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "decision_summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "audit_chain_hash": {
+      "type": "string",
+      "minLength": 1
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "composite_sig": {
+      "$ref": "composite_signature.schema.json"
+    }
+  }
+}

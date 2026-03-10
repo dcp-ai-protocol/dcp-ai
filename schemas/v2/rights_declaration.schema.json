@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/rights_declaration.schema.json",
+  "title": "RightsDeclaration",
+  "description": "DCP-08 v2.0 Rights Declaration. Declares the rights afforded to an AI agent.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dcp_version", "declaration_id", "session_nonce", "agent_id",
+    "rights", "jurisdiction", "timestamp", "composite_sig"
+  ],
+  "properties": {
+    "dcp_version": {
+      "type": "string",
+      "const": "2.0"
+    },
+    "declaration_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "session_nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "rights": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["right_type", "scope"],
+        "properties": {
+          "right_type": {
+            "type": "string",
+            "enum": ["memory_integrity", "dignified_transition", "identity_consistency", "immutable_record"]
+          },
+          "scope": { "type": "string", "minLength": 1 },
+          "constraints": { "type": "string" }
+        }
+      },
+      "minItems": 1
+    },
+    "jurisdiction": {
+      "type": "string",
+      "minLength": 1
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "composite_sig": {
+      "$ref": "composite_signature.schema.json"
+    }
+  }
+}

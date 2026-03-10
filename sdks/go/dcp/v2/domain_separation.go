@@ -15,6 +15,13 @@ const (
 	CtxProofOfPossession       = "DCP-AI.v2.ProofOfPossession"
 	CtxJurisdictionAttestation = "DCP-AI.v2.JurisdictionAttestation"
 	CtxHumanConfirmation       = "DCP-AI.v2.HumanConfirmation"
+	CtxMultiPartyAuth          = "DCP-AI.v2.MultiPartyAuth"
+	CtxLifecycle               = "DCP-AI.v2.Lifecycle"
+	CtxSuccession              = "DCP-AI.v2.Succession"
+	CtxDispute                 = "DCP-AI.v2.Dispute"
+	CtxRights                  = "DCP-AI.v2.Rights"
+	CtxDelegation              = "DCP-AI.v2.Delegation"
+	CtxAwareness               = "DCP-AI.v2.Awareness"
 )
 
 var validContexts = map[string]bool{
@@ -29,6 +36,13 @@ var validContexts = map[string]bool{
 	CtxProofOfPossession:       true,
 	CtxJurisdictionAttestation: true,
 	CtxHumanConfirmation:       true,
+	CtxMultiPartyAuth:          true,
+	CtxLifecycle:               true,
+	CtxSuccession:              true,
+	CtxDispute:                 true,
+	CtxRights:                  true,
+	CtxDelegation:              true,
+	CtxAwareness:               true,
 }
 
 // DomainSeparatedMessage produces: UTF8(context) || 0x00 || canonicalPayloadBytes.

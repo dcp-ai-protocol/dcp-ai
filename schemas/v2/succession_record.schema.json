@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/succession_record.schema.json",
+  "title": "SuccessionRecord",
+  "description": "DCP-06 v2.0 Succession Record. Documents the formal transition of responsibilities from one agent to another.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dcp_version", "predecessor_agent_id", "successor_agent_id",
+    "session_nonce", "timestamp", "transition_type",
+    "ceremony_participants", "memory_transfer_manifest_hash",
+    "composite_sig"
+  ],
+  "properties": {
+    "dcp_version": {
+      "type": "string",
+      "const": "2.0"
+    },
+    "predecessor_agent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "successor_agent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "session_nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "transition_type": {
+      "type": "string",
+      "enum": ["planned", "forced", "emergency"]
+    },
+    "human_consent": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "human_confirmation.schema.json" }
+      ]
+    },
+    "ceremony_participants": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    },
+    "memory_transfer_manifest_hash": {
+      "type": "string",
+      "minLength": 1
+    },
+    "composite_sig": {
+      "$ref": "composite_signature.schema.json"
+    }
+  }
+}

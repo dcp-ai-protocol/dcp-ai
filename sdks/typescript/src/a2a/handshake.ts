@@ -29,6 +29,10 @@ export interface A2AHello {
   requested_capabilities: string[];
   security_tier: string;
   timestamp: string;
+  /** DCP-09: Optional delegation mandate reference for mutual verification */
+  mandate_id?: string;
+  /** DCP-09: Hash of the delegation mandate for integrity binding */
+  mandate_hash?: string;
 }
 
 export interface A2AWelcome {
@@ -51,6 +55,10 @@ export interface A2AWelcome {
   };
   resolved_security_tier: string;
   timestamp: string;
+  /** DCP-09: Optional delegation mandate reference for mutual verification */
+  mandate_id?: string;
+  /** DCP-09: Hash of the delegation mandate for integrity binding */
+  mandate_hash?: string;
 }
 
 export interface A2AConfirm {

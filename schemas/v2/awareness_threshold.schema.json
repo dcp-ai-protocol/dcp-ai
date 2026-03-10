@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/awareness_threshold.schema.json",
+  "title": "AwarenessThreshold",
+  "description": "DCP-09 v2.0 Awareness Threshold. Configures when an agent must notify its human principal.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dcp_version", "threshold_id", "session_nonce", "agent_id",
+    "human_id", "threshold_rules", "timestamp", "composite_sig"
+  ],
+  "properties": {
+    "dcp_version": {
+      "type": "string",
+      "const": "2.0"
+    },
+    "threshold_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "session_nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "human_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "threshold_rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["dimension", "operator", "value", "action_if_triggered"],
+        "properties": {
+          "dimension": { "type": "string", "minLength": 1 },
+          "operator": { "type": "string", "enum": ["gt", "lt", "gte", "lte", "eq"] },
+          "value": { "type": "number" },
+          "action_if_triggered": { "type": "string", "enum": ["notify", "escalate", "block"] }
+        }
+      },
+      "minItems": 1
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "composite_sig": {
+      "$ref": "composite_signature.schema.json"
+    }
+  }
+}

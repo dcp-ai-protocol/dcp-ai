@@ -1,0 +1,20 @@
+{
+  "dcp_version": "2.0",
+  "interaction_id": "interaction:cross-agent-2026-019",
+  "session_nonce": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+  "agent_id": "agent:research-bot-v2-001",
+  "counterparty_agent_id": "agent:data-pipeline-bot-003",
+  "public_layer": {
+    "terms": "Research-bot requests access to preprocessed genomics dataset catalog from data-pipeline-bot for literature correlation analysis",
+    "decisions": "Data-pipeline-bot grants read-only access to catalog metadata; full dataset access requires separate authorization",
+    "commitments": "Research-bot will cite data-pipeline-bot provenance in any derived outputs; access expires after 30 days"
+  },
+  "private_layer_hash": "9988776655443322110099887766554433221100998877665544332211009988",
+  "mandate_id": "mandate:alice-research-2026-001",
+  "timestamp": "2026-03-08T13:20:00Z",
+  "composite_sig": {
+    "classical": { "alg": "ed25519", "kid": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4", "sig_b64": "dGVzdHNpZzEyMzQ1Njc4OTAxMjM0NTY=" },
+    "pq": { "alg": "ml-dsa-65", "kid": "d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1", "sig_b64": "dGVzdHBxc2lnMTIzNDU2Nzg5MDEyMzQ1Ng==" },
+    "binding": "pq_over_classical"
+  }
+}

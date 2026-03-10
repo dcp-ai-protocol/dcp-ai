@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/delegation_mandate.schema.json",
+  "title": "DelegationMandate",
+  "description": "DCP-09 v2.0 Delegation Mandate. A human's formal delegation of authority to an AI agent.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dcp_version", "mandate_id", "session_nonce", "human_id",
+    "agent_id", "authority_scope", "valid_from", "valid_until",
+    "revocable", "timestamp", "human_composite_sig"
+  ],
+  "properties": {
+    "dcp_version": {
+      "type": "string",
+      "const": "2.0"
+    },
+    "mandate_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "session_nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "human_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "authority_scope": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["domain", "actions_permitted"],
+        "properties": {
+          "domain": { "type": "string", "minLength": 1 },
+          "actions_permitted": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "data_classes": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "limits": { "type": "object" }
+        }
+      },
+      "minItems": 1
+    },
+    "valid_from": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "valid_until": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "revocable": {
+      "type": "boolean"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "human_composite_sig": {
+      "$ref": "composite_signature.schema.json"
+    }
+  }
+}

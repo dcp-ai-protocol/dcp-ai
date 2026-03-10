@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/advisory_declaration.schema.json",
+  "title": "AdvisoryDeclaration",
+  "description": "DCP-09 v2.0 Advisory Declaration. An agent's notification to its human about a significant action.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dcp_version", "declaration_id", "session_nonce", "agent_id",
+    "human_id", "significance_score", "action_summary",
+    "recommended_response", "response_deadline", "timestamp",
+    "composite_sig"
+  ],
+  "properties": {
+    "dcp_version": {
+      "type": "string",
+      "const": "2.0"
+    },
+    "declaration_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "session_nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "human_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "significance_score": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "action_summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "recommended_response": {
+      "type": "string",
+      "minLength": 1
+    },
+    "response_deadline": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "human_response": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "minLength": 1 }
+      ]
+    },
+    "proceeded_without_response": {
+      "type": "boolean"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "composite_sig": {
+      "$ref": "composite_signature.schema.json"
+    }
+  }
+}

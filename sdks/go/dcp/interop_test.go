@@ -216,6 +216,13 @@ func TestInteropDomainSeparation(t *testing.T) {
 		"ProofOfPossession":       v2.CtxProofOfPossession,
 		"JurisdictionAttestation": v2.CtxJurisdictionAttestation,
 		"HumanConfirmation":       v2.CtxHumanConfirmation,
+		"MultiPartyAuth":          v2.CtxMultiPartyAuth,
+		"Lifecycle":               v2.CtxLifecycle,
+		"Succession":              v2.CtxSuccession,
+		"Dispute":                 v2.CtxDispute,
+		"Rights":                  v2.CtxRights,
+		"Delegation":              v2.CtxDelegation,
+		"Awareness":               v2.CtxAwareness,
 	}
 	seen := map[string]bool{}
 	for name, ctx := range ctxMap {

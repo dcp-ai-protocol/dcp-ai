@@ -22,9 +22,11 @@ use dcp_ai::v2::composite_ops::{composite_verify, CompositeKeyInfo};
 use dcp_ai::v2::composite_sig::CompositeSignature;
 use dcp_ai::v2::crypto_provider::{derive_kid, CryptoProvider};
 use dcp_ai::v2::domain_separation::{
-    domain_separated_message, CTX_AGENT_PASSPORT, CTX_AUDIT_EVENT, CTX_BUNDLE,
-    CTX_RESPONSIBLE_PRINCIPAL, CTX_HUMAN_CONFIRMATION, CTX_INTENT, CTX_JURISDICTION_ATTESTATION,
-    CTX_KEY_ROTATION, CTX_POLICY_DECISION, CTX_PROOF_OF_POSSESSION, CTX_REVOCATION,
+    domain_separated_message, CTX_AGENT_PASSPORT, CTX_AUDIT_EVENT, CTX_AWARENESS, CTX_BUNDLE,
+    CTX_DELEGATION, CTX_DISPUTE, CTX_HUMAN_CONFIRMATION, CTX_INTENT,
+    CTX_JURISDICTION_ATTESTATION, CTX_KEY_ROTATION, CTX_LIFECYCLE, CTX_MULTI_PARTY_AUTH,
+    CTX_POLICY_DECISION, CTX_PROOF_OF_POSSESSION, CTX_RESPONSIBLE_PRINCIPAL, CTX_REVOCATION,
+    CTX_RIGHTS, CTX_SUCCESSION,
 };
 
 fn vectors_path() -> PathBuf {
@@ -72,6 +74,13 @@ fn ctx_map() -> Vec<(&'static str, &'static str)> {
         ("ProofOfPossession", CTX_PROOF_OF_POSSESSION),
         ("JurisdictionAttestation", CTX_JURISDICTION_ATTESTATION),
         ("HumanConfirmation", CTX_HUMAN_CONFIRMATION),
+        ("MultiPartyAuth", CTX_MULTI_PARTY_AUTH),
+        ("Lifecycle", CTX_LIFECYCLE),
+        ("Succession", CTX_SUCCESSION),
+        ("Dispute", CTX_DISPUTE),
+        ("Rights", CTX_RIGHTS),
+        ("Delegation", CTX_DELEGATION),
+        ("Awareness", CTX_AWARENESS),
     ]
 }
 

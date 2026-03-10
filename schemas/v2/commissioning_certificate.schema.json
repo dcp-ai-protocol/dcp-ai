@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/commissioning_certificate.schema.json",
+  "title": "CommissioningCertificate",
+  "description": "DCP-05 v2.0 Commissioning Certificate. Records the formal creation and authorization of an AI agent.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dcp_version", "agent_id", "session_nonce", "human_id",
+    "commissioning_authority", "timestamp", "purpose",
+    "initial_capabilities", "risk_tier", "principal_binding_reference",
+    "composite_sig"
+  ],
+  "properties": {
+    "dcp_version": {
+      "type": "string",
+      "const": "2.0"
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "session_nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "human_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "commissioning_authority": {
+      "type": "string",
+      "minLength": 1
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1
+    },
+    "initial_capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["browse", "api_call", "email", "calendar", "payments", "crm", "file_write", "code_exec"]
+      },
+      "uniqueItems": true
+    },
+    "risk_tier": {
+      "type": "string",
+      "enum": ["low", "medium", "high"]
+    },
+    "principal_binding_reference": {
+      "type": "string",
+      "minLength": 6
+    },
+    "composite_sig": {
+      "$ref": "composite_signature.schema.json"
+    }
+  }
+}

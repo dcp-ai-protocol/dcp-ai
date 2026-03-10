@@ -3,7 +3,7 @@ import nacl from "tweetnacl";
 import naclUtil from "tweetnacl-util";
 const { decodeUTF8, encodeBase64, decodeBase64 } = naclUtil;
 import stringify from "json-stable-stringify";
-import { ml_dsa65 } from "@noble/post-quantum/ml-dsa";
+import { ml_dsa65 } from "@noble/post-quantum/ml-dsa.js";
 
 // --- V1 + V2 shared ---
 
@@ -51,6 +51,12 @@ const DOMAIN_TAGS = {
   passport: "DCP-PASSPORT-SIG-v2",
   revocation: "DCP-REVOKE-SIG-v2",
   governance: "DCP-GOVERN-SIG-v2",
+  lifecycle: "DCP-LIFECYCLE-SIG-v2",      // DCP-05
+  succession: "DCP-SUCCESSION-SIG-v2",    // DCP-06
+  dispute: "DCP-DISPUTE-SIG-v2",          // DCP-07
+  rights: "DCP-RIGHTS-SIG-v2",            // DCP-08
+  delegation: "DCP-DELEGATION-SIG-v2",    // DCP-09
+  awareness: "DCP-AWARENESS-SIG-v2",      // DCP-09
 };
 
 export function domainSeparatedMessage(domain, obj) {

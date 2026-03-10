@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/memory_transfer_manifest.schema.json",
+  "title": "MemoryTransferManifest",
+  "description": "DCP-06 v2.0 Memory Transfer Manifest. Records what memory was transferred, retained, or destroyed during succession.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dcp_version", "session_nonce", "predecessor_agent_id",
+    "successor_agent_id", "timestamp", "operational_memory",
+    "relational_memory_destroyed", "transfer_hash", "composite_sig"
+  ],
+  "properties": {
+    "dcp_version": {
+      "type": "string",
+      "const": "2.0"
+    },
+    "session_nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "predecessor_agent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "successor_agent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "operational_memory": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["hash", "category", "size"],
+        "properties": {
+          "hash": { "type": "string", "minLength": 1 },
+          "category": { "type": "string", "minLength": 1 },
+          "size": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "relational_memory_destroyed": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "transfer_hash": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256"],
+      "properties": {
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "sha3-256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "composite_sig": {
+      "$ref": "composite_signature.schema.json"
+    }
+  }
+}
