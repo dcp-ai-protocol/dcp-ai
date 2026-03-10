@@ -101,6 +101,71 @@ DCP_TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "dcp_commission_agent",
+            "description": "Commission an agent (DCP-05 §3.1)",
+            "parameters": {
+                "type": "object",
+                "required": ["purpose"],
+                "properties": {
+                    "purpose": {"type": "string", "description": "Purpose of the agent"},
+                    "capabilities": {"type": "array", "items": {"type": "string"}},
+                    "risk_tier": {"type": "string", "enum": ["low", "medium", "high"]},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "dcp_report_vitality",
+            "description": "Report agent vitality metrics (DCP-05 §4.1)",
+            "parameters": {
+                "type": "object",
+                "required": ["task_completion_rate", "error_rate", "human_satisfaction", "policy_alignment"],
+                "properties": {
+                    "task_completion_rate": {"type": "number"},
+                    "error_rate": {"type": "number"},
+                    "human_satisfaction": {"type": "number"},
+                    "policy_alignment": {"type": "number"},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "dcp_declare_rights",
+            "description": "Declare rights for the agent (DCP-08 §3.1)",
+            "parameters": {
+                "type": "object",
+                "required": ["rights", "jurisdiction"],
+                "properties": {
+                    "rights": {"type": "array", "items": {"type": "string"}},
+                    "jurisdiction": {"type": "string"},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "dcp_create_mandate",
+            "description": "Create a delegation mandate (DCP-09 §3.1)",
+            "parameters": {
+                "type": "object",
+                "required": ["human_id", "authority_scope"],
+                "properties": {
+                    "human_id": {"type": "string", "description": "Human principal ID"},
+                    "authority_scope": {"type": "array", "items": {"type": "string"}},
+                    "valid_from": {"type": "string"},
+                    "valid_until": {"type": "string"},
+                },
+            },
+        },
+    },
 ]
 
 
@@ -133,6 +198,73 @@ def handle_dcp_tool_call(
         )
         return json.dumps({"intent_declared": True, "intent": intent.model_dump()})
 
+    if tool_name == "dcp_commission_agent":
+        now = datetime.now(timezone.utc).isoformat()
+        cert = {
+            "dcp_version": "2.0",
+            "certificate_id": f"cert-{uuid4().hex[:8]}",
+            "session_nonce": session_nonce or _generate_session_nonce(),
+            "agent_id": "self",
+            "purpose": arguments.get("purpose", ""),
+            "initial_capabilities": arguments.get("capabilities", []),
+            "risk_tier": arguments.get("risk_tier", "medium"),
+            "timestamp": now,
+            "_spec_ref": "DCP-05 §3.1",
+        }
+        return json.dumps({"commissioned": True, "certificate": cert})
+
+    if tool_name == "dcp_report_vitality":
+        tcr = arguments.get("task_completion_rate", 0)
+        er = arguments.get("error_rate", 0)
+        hs = arguments.get("human_satisfaction", 0)
+        pa = arguments.get("policy_alignment", 0)
+        score = tcr * 0.3 + (1 - er) * 0.2 + hs * 0.25 + pa * 0.25
+        report = {
+            "dcp_version": "2.0",
+            "report_id": f"vitality-{uuid4().hex[:8]}",
+            "session_nonce": session_nonce or _generate_session_nonce(),
+            "agent_id": "self",
+            "metrics": {
+                "task_completion_rate": tcr,
+                "error_rate": er,
+                "human_satisfaction": hs,
+                "policy_alignment": pa,
+            },
+            "vitality_score": round(score, 4),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "_spec_ref": "DCP-05 §4.1",
+        }
+        return json.dumps({"vitality_reported": True, "report": report})
+
+    if tool_name == "dcp_declare_rights":
+        declaration = {
+            "dcp_version": "2.0",
+            "declaration_id": f"rights-{uuid4().hex[:8]}",
+            "session_nonce": session_nonce or _generate_session_nonce(),
+            "agent_id": "self",
+            "rights": arguments.get("rights", []),
+            "jurisdiction": arguments.get("jurisdiction", ""),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "_spec_ref": "DCP-08 §3.1",
+        }
+        return json.dumps({"rights_declared": True, "declaration": declaration})
+
+    if tool_name == "dcp_create_mandate":
+        now = datetime.now(timezone.utc).isoformat()
+        mandate = {
+            "dcp_version": "2.0",
+            "mandate_id": f"mandate-{uuid4().hex[:8]}",
+            "session_nonce": session_nonce or _generate_session_nonce(),
+            "human_id": arguments.get("human_id", ""),
+            "agent_id": "self",
+            "authority_scope": arguments.get("authority_scope", []),
+            "valid_from": arguments.get("valid_from", now),
+            "valid_until": arguments.get("valid_until"),
+            "timestamp": now,
+            "_spec_ref": "DCP-09 §3.1",
+        }
+        return json.dumps({"mandate_created": True, "mandate": mandate})
+
     return json.dumps({"error": f"Unknown tool: {tool_name}"})
 
 
@@ -157,6 +289,8 @@ class DCPOpenAIClient:
         self.secret_key = secret_key
         self.session_nonce = session_nonce or _generate_session_nonce()
         self.auto_intent = auto_intent
+        self.lifecycle_state: str = "active"
+        self.mandate_id: Optional[str] = None
         self.audit_trail: list[dict[str, Any]] = []
         self._prev_hash = "GENESIS"
 
@@ -180,12 +314,38 @@ class DCPOpenAIClient:
             intent_hash=i_hash,
             policy_decision="approved",
             outcome=outcome,
-            evidence=evidence or {"tool": "openai"},
+            evidence={
+                **(evidence or {"tool": "openai"}),
+                "lifecycle_state": self.lifecycle_state,
+            },
             pq_checkpoint_ref=None,
         )
         entry_dict = entry.model_dump()
         self._prev_hash = _hash_object(entry_dict)
         self.audit_trail.append(entry_dict)
+
+    def commission(self, purpose: str = "", capabilities: Optional[list[str]] = None) -> dict[str, Any]:
+        """Commission this agent (DCP-05 §3.1)."""
+        now = datetime.now(timezone.utc).isoformat()
+        cert = {
+            "dcp_version": "2.0",
+            "certificate_id": f"cert-{uuid4().hex[:8]}",
+            "session_nonce": self.session_nonce,
+            "agent_id": self.passport.get("agent_id", ""),
+            "purpose": purpose,
+            "initial_capabilities": capabilities or self.passport.get("capabilities", []),
+            "risk_tier": self.passport.get("risk_tier", "medium"),
+            "timestamp": now,
+            "_spec_ref": "DCP-05 §3.1",
+        }
+        self.lifecycle_state = "commissioned"
+        self._log_audit(
+            intent_id=f"intent-{uuid4().hex[:8]}",
+            i_hash="commission",
+            outcome="agent_commissioned",
+            evidence={"tool": "openai", "_spec_ref": "DCP-05 §3.1"},
+        )
+        return cert
 
     def chat_completions_create(self, **kwargs: Any) -> Any:
         """Create a chat completion with V2 DCP governance."""

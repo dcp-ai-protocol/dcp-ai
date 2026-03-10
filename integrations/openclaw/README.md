@@ -2,11 +2,18 @@
 
 [OpenClaw](https://github.com/nicepkg/openclaw) plugin that adds **Digital Citizenship Protocol (DCP)** governance to AI agents. Every action the agent takes is declared, risk-scored, and recorded in a cryptographically chained audit trail bound to a human owner.
 
+## Supported DCP Specifications
+
+DCP-01 through DCP-09.
+
 ## Features
 
 - **Identity (DCP-01)** — Ed25519 keypair generation, Responsible Principal Record, Agent Passport
 - **Intent Declaration (DCP-02)** — Risk scoring and policy gating before sensitive actions
 - **Audit Trail (DCP-03)** — Hash-chained, immutable action log with evidence references
+- **Lifecycle (DCP-05)** — Commission, vitality reporting, decommission agents
+- **Succession (DCP-06)** — Digital testament with successor preferences and memory classification
+- **Delegation (DCP-09)** — Create delegation mandates for human→agent authority transfer
 - **Bundle Verification** — Full schema + signature + hash verification of Signed Bundles
 - **Bundle Signing** — Build and sign a complete CitizenshipBundle at session end
 - **SKILL.md** — Companion skill that teaches the agent how to use DCP tools
@@ -34,6 +41,11 @@ plugins:
 | `dcp_verify_bundle` | Verify a Signed Bundle (schema + signature + hashes) | VERIFICATION |
 | `dcp_log_action` | Record action as AuditEntry with hash-chaining | DCP-03 |
 | `dcp_get_audit_trail` | Retrieve session audit trail | DCP-03 |
+| `dcp_commission_agent` | Commission an agent (lifecycle → commissioned) | DCP-05 |
+| `dcp_report_vitality` | Report vitality metrics, get computed score | DCP-05 |
+| `dcp_decommission_agent` | Decommission an agent (graceful/immediate/emergency) | DCP-05 |
+| `dcp_create_testament` | Create digital testament with successor preferences | DCP-06 |
+| `dcp_create_mandate` | Create human→agent delegation mandate | DCP-09 |
 | `dcp_sign_bundle` | Build + sign CitizenshipBundle from session state | BUNDLE |
 
 ## Usage Flow
@@ -78,7 +90,10 @@ integrations/openclaw/
     │   ├── identity.ts        # dcp_identity_setup
     │   ├── intent.ts          # dcp_declare_intent
     │   ├── verify.ts          # dcp_verify_bundle
-    │   └── audit.ts           # dcp_log_action + dcp_get_audit_trail
+    │   ├── audit.ts           # dcp_log_action + dcp_get_audit_trail
+    │   ├── lifecycle.ts       # dcp_commission_agent + dcp_report_vitality + dcp_decommission_agent
+    │   ├── succession.ts      # dcp_create_testament
+    │   └── delegation.ts      # dcp_create_mandate
     └── state/
         └── agent-state.ts     # Per-session DCP state management
 ```

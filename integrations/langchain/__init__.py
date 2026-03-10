@@ -113,6 +113,8 @@ class DCPAgentWrapper:
         self.auto_intent = auto_intent
         self.policy_engine = policy_engine
         self.pq_checkpoint_interval = pq_checkpoint_interval
+        self.lifecycle_state: str = "active"
+        self.mandate_id: Optional[str] = None
         self.audit_trail: list[dict[str, Any]] = []
         self.pq_checkpoints: list[dict[str, Any]] = []
         self._prev_hash = "GENESIS"
@@ -190,8 +192,106 @@ class DCPAgentWrapper:
         self._event_count += 1
         return entry
 
+    def commission(
+        self,
+        purpose: str,
+        capabilities: list[str],
+        risk_tier: str = "medium",
+    ) -> dict[str, Any]:
+        """Commission the agent (DCP-05 §3.1)."""
+        now = datetime.now(timezone.utc).isoformat()
+        cert = {
+            "dcp_version": "2.0",
+            "certificate_id": f"cert-{uuid4().hex[:8]}",
+            "session_nonce": self.session_nonce,
+            "agent_id": self.passport.get("agent_id", ""),
+            "human_id": self.rpr.get("human_id", ""),
+            "purpose": purpose,
+            "initial_capabilities": capabilities,
+            "risk_tier": risk_tier,
+            "timestamp": now,
+            "_spec_ref": "DCP-05 §3.1",
+        }
+        self.lifecycle_state = "commissioned"
+        intent = self._create_intent(action_type="api_call")
+        policy = self._create_policy_decision(intent)
+        entry = self._create_audit_entry(
+            intent, policy,
+            outcome="agent_commissioned",
+            evidence={"tool": "langchain", "_spec_ref": "DCP-05 §3.1"},
+        )
+        self.audit_trail.append(entry.model_dump())
+        return cert
+
+    def report_vitality(self, metrics_dict: dict[str, float]) -> dict[str, Any]:
+        """Report vitality metrics (DCP-05 §4.1)."""
+        now = datetime.now(timezone.utc).isoformat()
+        tcr = metrics_dict.get("task_completion_rate", 0)
+        er = metrics_dict.get("error_rate", 0)
+        hs = metrics_dict.get("human_satisfaction", 0)
+        pa = metrics_dict.get("policy_alignment", 0)
+        score = tcr * 0.3 + (1 - er) * 0.2 + hs * 0.25 + pa * 0.25
+        report = {
+            "dcp_version": "2.0",
+            "report_id": f"vitality-{uuid4().hex[:8]}",
+            "session_nonce": self.session_nonce,
+            "agent_id": self.passport.get("agent_id", ""),
+            "metrics": metrics_dict,
+            "vitality_score": round(score, 4),
+            "timestamp": now,
+            "_spec_ref": "DCP-05 §4.1",
+        }
+        return report
+
+    def decommission(
+        self, termination_mode: str = "graceful", reason: str = ""
+    ) -> dict[str, Any]:
+        """Decommission the agent (DCP-05 §5.1)."""
+        now = datetime.now(timezone.utc).isoformat()
+        record = {
+            "dcp_version": "2.0",
+            "record_id": f"decom-{uuid4().hex[:8]}",
+            "session_nonce": self.session_nonce,
+            "agent_id": self.passport.get("agent_id", ""),
+            "human_id": self.rpr.get("human_id", ""),
+            "termination_mode": termination_mode,
+            "reason": reason,
+            "timestamp": now,
+            "_spec_ref": "DCP-05 §5.1",
+        }
+        self.lifecycle_state = "decommissioned"
+        intent = self._create_intent()
+        policy = self._create_policy_decision(intent)
+        entry = self._create_audit_entry(
+            intent, policy,
+            outcome="agent_decommissioned",
+            evidence={"tool": "langchain", "_spec_ref": "DCP-05 §5.1"},
+        )
+        self.audit_trail.append(entry.model_dump())
+        return record
+
+    def declare_rights(
+        self, rights: list[str], jurisdiction: str
+    ) -> dict[str, Any]:
+        """Declare rights for this agent (DCP-08 §3.1)."""
+        now = datetime.now(timezone.utc).isoformat()
+        declaration = {
+            "dcp_version": "2.0",
+            "declaration_id": f"rights-{uuid4().hex[:8]}",
+            "session_nonce": self.session_nonce,
+            "agent_id": self.passport.get("agent_id", ""),
+            "rights": rights,
+            "jurisdiction": jurisdiction,
+            "timestamp": now,
+            "_spec_ref": "DCP-08 §3.1",
+        }
+        return declaration
+
     async def invoke(self, inputs: dict[str, Any], **kwargs: Any) -> Any:
         """Invoke the wrapped agent with V2 DCP governance."""
+        if self.lifecycle_state == "decommissioned":
+            return {"error": "Agent is decommissioned and cannot perform actions (DCP-05 §5.1)"}
+
         intent = self._create_intent()
         policy = self._create_policy_decision(intent)
 
@@ -311,6 +411,13 @@ class DCPCallback:
             outcome="chain_completed",
             evidence={"tool": "langchain", "result_ref": str(outputs)[:200]},
             run_id=kwargs.get("run_id", ""),
+        )
+
+    def on_lifecycle_event(self, event_type: str, details: dict[str, Any]) -> None:
+        """Record a lifecycle event (DCP-05) as an audit entry."""
+        self._append_entry(
+            outcome=f"lifecycle:{event_type}",
+            evidence={"tool": "langchain", "_spec_ref": "DCP-05", **details},
         )
 
     def get_entries(self) -> list[dict[str, Any]]:

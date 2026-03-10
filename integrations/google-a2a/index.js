@@ -44,6 +44,8 @@ export function passportToAgentCard(passport, a2aEndpoint) {
       dcp_version: passport.dcp_version || '2.0',
       dcp_security_tier: 'standard',
       dcp_owner_rpr_hash: passport.owner_rpr_hash,
+      dcp_lifecycle_state: passport.status || 'active',
+      dcp_mandate_id: passport.mandate_id || null,
     },
   };
 }
@@ -64,7 +66,7 @@ export function agentCardToPassport(card) {
     owner_rpr_hash: card.metadata?.dcp_owner_rpr_hash || '',
     keys: [],
     created_at: new Date().toISOString(),
-    status: 'active',
+    status: card.metadata?.dcp_lifecycle_state || 'active',
     liability_mode: 'delegated',
     jurisdiction: card.provider?.organization || 'unknown',
   };
@@ -111,6 +113,43 @@ export function a2aTaskToIntent(task, agentId) {
     },
     data_classes: ['none'],
     risk_score: 200,
+    timestamp: new Date().toISOString(),
+  };
+}
+
+/**
+ * Inject a DCP delegation mandate into an A2A handshake (DCP-09 §3.1).
+ * @param {object} handshake - A2A handshake message
+ * @param {object} mandate - DCP DelegationMandate
+ * @returns {object} Handshake with mandate_id and mandate_hash
+ */
+export function addMandateToA2AHandshake(handshake, mandate) {
+  return {
+    ...handshake,
+    dcp_mandate: {
+      mandate_id: mandate.mandate_id,
+      mandate_hash: mandate.mandate_hash || null,
+      authority_scope: mandate.authority_scope || [],
+      valid_until: mandate.valid_until || null,
+      _spec_ref: 'DCP-09 §3.1',
+    },
+  };
+}
+
+/**
+ * Create an A2A lifecycle notification message (DCP-05).
+ * @param {string} agentId - DCP agent ID
+ * @param {string} event - Lifecycle event type (commissioned, declining, decommissioned)
+ * @param {object} details - Additional event details
+ * @returns {object} A2A notification message
+ */
+export function createLifecycleNotification(agentId, event, details = {}) {
+  return {
+    type: 'dcp_lifecycle_notification',
+    agent_id: agentId,
+    event,
+    details,
+    _spec_ref: 'DCP-05',
     timestamp: new Date().toISOString(),
   };
 }

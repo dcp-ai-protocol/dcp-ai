@@ -108,8 +108,93 @@ class DCPCrewAgent:
         self.session_nonce = session_nonce or _generate_session_nonce()
         self.goal = goal
         self.backstory = backstory
+        self.lifecycle_state: str = "active"
         self.audit_trail: list[dict[str, Any]] = []
         self._prev_hash = "GENESIS"
+
+    def commission(
+        self,
+        purpose: str = "",
+        capabilities: Optional[list[str]] = None,
+        risk_tier: str = "medium",
+    ) -> dict[str, Any]:
+        """Commission this agent (DCP-05 §3.1)."""
+        now = datetime.now(timezone.utc).isoformat()
+        cert = {
+            "dcp_version": "2.0",
+            "certificate_id": f"cert-{uuid4().hex[:8]}",
+            "session_nonce": self.session_nonce,
+            "agent_id": self.passport.get("agent_id", ""),
+            "purpose": purpose or f"Crew role: {self.role}",
+            "initial_capabilities": capabilities or self.passport.get("capabilities", []),
+            "risk_tier": risk_tier,
+            "timestamp": now,
+            "_spec_ref": "DCP-05 §3.1",
+        }
+        self.lifecycle_state = "commissioned"
+        self.log_action(
+            action_type="api_call",
+            outcome="agent_commissioned",
+            evidence={"tool": f"crewai:{self.role}", "_spec_ref": "DCP-05 §3.1"},
+        )
+        return cert
+
+    def report_vitality(self, metrics: dict[str, float]) -> dict[str, Any]:
+        """Report vitality metrics (DCP-05 §4.1)."""
+        now = datetime.now(timezone.utc).isoformat()
+        tcr = metrics.get("task_completion_rate", 0)
+        er = metrics.get("error_rate", 0)
+        hs = metrics.get("human_satisfaction", 0)
+        pa = metrics.get("policy_alignment", 0)
+        score = tcr * 0.3 + (1 - er) * 0.2 + hs * 0.25 + pa * 0.25
+        report = {
+            "dcp_version": "2.0",
+            "report_id": f"vitality-{uuid4().hex[:8]}",
+            "session_nonce": self.session_nonce,
+            "agent_id": self.passport.get("agent_id", ""),
+            "metrics": metrics,
+            "vitality_score": round(score, 4),
+            "timestamp": now,
+            "_spec_ref": "DCP-05 §4.1",
+        }
+        return report
+
+    def decommission(
+        self, mode: str = "graceful", reason: str = ""
+    ) -> dict[str, Any]:
+        """Decommission this agent (DCP-05 §5.1)."""
+        now = datetime.now(timezone.utc).isoformat()
+        record = {
+            "dcp_version": "2.0",
+            "record_id": f"decom-{uuid4().hex[:8]}",
+            "session_nonce": self.session_nonce,
+            "agent_id": self.passport.get("agent_id", ""),
+            "termination_mode": mode,
+            "reason": reason,
+            "timestamp": now,
+            "_spec_ref": "DCP-05 §5.1",
+        }
+        self.lifecycle_state = "decommissioned"
+        return record
+
+    def create_testament(
+        self,
+        successor_preferences: list[dict[str, Any]],
+        memory_classification: str = "transferable",
+    ) -> dict[str, Any]:
+        """Create a digital testament (DCP-06 §3.1)."""
+        now = datetime.now(timezone.utc).isoformat()
+        testament = {
+            "dcp_version": "2.0",
+            "testament_id": f"testament-{uuid4().hex[:8]}",
+            "session_nonce": self.session_nonce,
+            "agent_id": self.passport.get("agent_id", ""),
+            "successor_preferences": successor_preferences,
+            "memory_classification": memory_classification,
+            "timestamp": now,
+            "_spec_ref": "DCP-06 §3.1",
+        }
+        return testament
 
     def log_action(
         self,
@@ -120,6 +205,10 @@ class DCPCrewAgent:
         data_classes: Optional[list[str]] = None,
     ) -> dict[str, Any]:
         """Log an action as a V2 DCP audit entry."""
+        if self.lifecycle_state == "decommissioned":
+            raise RuntimeError(
+                f"Agent {self.passport.get('agent_id', self.role)} is decommissioned (DCP-05 §5.1)"
+            )
         dc = data_classes or ["none"]
         risk_score = _compute_risk_score(action_type, impact, dc)
         tier = _compute_security_tier(risk_score, dc, action_type)
@@ -226,6 +315,63 @@ class DCPCrew:
             agent_id = agent.passport.get("agent_id", agent.role)
             bundles[agent_id] = agent.audit_trail
         return bundles
+
+    def commission_all(self, purpose: str = "") -> list[dict[str, Any]]:
+        """Commission all agents in the crew (DCP-05 §3.1)."""
+        results = []
+        for agent in self.agents:
+            cert = agent.commission(purpose=purpose or f"Crew member: {agent.role}")
+            results.append(cert)
+        return results
+
+    def succession(
+        self, from_agent: DCPCrewAgent, to_agent: DCPCrewAgent
+    ) -> dict[str, Any]:
+        """Create a succession record between two agents (DCP-06 §4.1)."""
+        now = datetime.now(timezone.utc).isoformat()
+        record = {
+            "dcp_version": "2.0",
+            "record_id": f"succession-{uuid4().hex[:8]}",
+            "session_nonce": self.session_nonce,
+            "predecessor_agent_id": from_agent.passport.get("agent_id", from_agent.role),
+            "successor_agent_id": to_agent.passport.get("agent_id", to_agent.role),
+            "timestamp": now,
+            "_spec_ref": "DCP-06 §4.1",
+        }
+        return record
+
+    def delegate(
+        self,
+        human_id: str,
+        agent: DCPCrewAgent,
+        authority_scope: list[str],
+    ) -> dict[str, Any]:
+        """Create a delegation mandate for an agent (DCP-09 §3.1)."""
+        now = datetime.now(timezone.utc).isoformat()
+        mandate = {
+            "dcp_version": "2.0",
+            "mandate_id": f"mandate-{uuid4().hex[:8]}",
+            "session_nonce": self.session_nonce,
+            "human_id": human_id,
+            "agent_id": agent.passport.get("agent_id", agent.role),
+            "authority_scope": authority_scope,
+            "valid_from": now,
+            "timestamp": now,
+            "_spec_ref": "DCP-09 §3.1",
+        }
+        return mandate
+
+    def get_lifecycle_summary(self) -> list[dict[str, Any]]:
+        """Get lifecycle state of each agent in the crew."""
+        return [
+            {
+                "role": agent.role,
+                "agent_id": agent.passport.get("agent_id", agent.role),
+                "lifecycle_state": agent.lifecycle_state,
+                "audit_entries": len(agent.audit_trail),
+            }
+            for agent in self.agents
+        ]
 
     def verify_session_consistency(self) -> dict[str, Any]:
         """Verify all agents share the crew session nonce where expected."""

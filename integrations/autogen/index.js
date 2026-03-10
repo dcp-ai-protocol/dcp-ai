@@ -28,6 +28,8 @@ export function createDcpAutoGenAgent(config) {
       security_tier: config.security_tier || 'standard',
       jurisdiction: config.jurisdiction || 'US',
       audit_enabled: true,
+      lifecycle_state: config.lifecycle_state || 'active',
+      mandate_id: config.mandate_id || null,
     },
     llm_config: config.llm_config,
   };
@@ -46,10 +48,22 @@ export function auditAutoGenMessage(message, senderConfig, recipientConfig) {
     tierToNumber(recipientConfig.dcp.security_tier),
   ));
 
+  if (senderConfig.dcp.lifecycle_state === 'decommissioned') {
+    return {
+      event_type: 'autogen_message_blocked',
+      sender_agent_id: senderConfig.dcp.agent_id,
+      recipient_agent_id: recipientConfig.dcp.agent_id,
+      error: 'Sender agent is decommissioned (DCP-05 §5.1)',
+      timestamp: new Date().toISOString(),
+    };
+  }
+
   return {
     event_type: 'autogen_message',
     sender_agent_id: senderConfig.dcp.agent_id,
     recipient_agent_id: recipientConfig.dcp.agent_id,
+    sender_lifecycle_state: senderConfig.dcp.lifecycle_state || 'active',
+    recipient_lifecycle_state: recipientConfig.dcp.lifecycle_state || 'active',
     message_type: message.role || 'unknown',
     content_hash: null,
     timestamp: new Date().toISOString(),
@@ -93,6 +107,7 @@ export function createDcpGroupChat(agents, config = {}) {
       security_tier: config.security_tier || 'standard',
       max_rounds: config.max_rounds || 10,
       audit_entries: [],
+      mandates: [],
     },
   };
 }
@@ -121,4 +136,27 @@ export function autoGenFunctionToIntent(functionCall, agentConfig) {
     security_tier: agentConfig.dcp.security_tier,
     timestamp: new Date().toISOString(),
   };
+}
+
+/**
+ * Delegate a role within a DCP GroupChat to an agent (DCP-09 §3.1).
+ * @param {object} groupChat - DCP GroupChat (from createDcpGroupChat)
+ * @param {object} agentConfig - DCP-aware AutoGen agent config
+ * @param {string[]} authorityScope - Scopes of authority being delegated
+ * @returns {object} Updated GroupChat with the mandate recorded
+ */
+export function delegateGroupChatRole(groupChat, agentConfig, authorityScope) {
+  const mandate = {
+    mandate_id: `mandate:autogen-${crypto.randomUUID()}`,
+    agent_id: agentConfig.dcp.agent_id,
+    authority_scope: authorityScope,
+    session_nonce: groupChat.dcp_session.session_nonce,
+    created_at: new Date().toISOString(),
+    _spec_ref: 'DCP-09 §3.1',
+  };
+
+  groupChat.dcp_session.mandates.push(mandate);
+  agentConfig.dcp.mandate_id = mandate.mandate_id;
+
+  return { groupChat, mandate };
 }

@@ -2,6 +2,10 @@
 
 Bridges between DCP Agent Passports and Google A2A (Agent-to-Agent) Protocol Agent Cards, enabling DCP-certified agents to participate in Google A2A networks with post-quantum security.
 
+## Supported DCP Specifications
+
+DCP-01 through DCP-09.
+
 ## Overview
 
 The Google A2A Protocol defines a standard for agent discovery and communication. This bridge maps DCP identity and audit concepts onto A2A primitives:
@@ -18,6 +22,8 @@ The Google A2A Protocol defines a standard for agent discovery and communication
 | `agentCardToPassport(card)` | A2A → DCP | Convert an A2A Agent Card to an Agent Passport skeleton |
 | `wrapA2ATaskWithAudit(task, agentId, intentId)` | A2A + DCP | Wrap a task with a DCP audit entry |
 | `a2aTaskToIntent(task, agentId)` | A2A → DCP | Convert a task request into a DCP Intent |
+| `addMandateToA2AHandshake(handshake, mandate)` | DCP → A2A | Inject DCP-09 mandate into A2A handshake |
+| `createLifecycleNotification(agentId, event, details)` | DCP → A2A | Create A2A notification for lifecycle events (DCP-05) |
 
 ## Agent Card Metadata
 
@@ -28,7 +34,9 @@ DCP metadata is embedded in the Agent Card's `metadata` field:
   "dcp_agent_id": "agent:uuid",
   "dcp_version": "2.0",
   "dcp_security_tier": "standard",
-  "dcp_owner_rpr_hash": "sha256:..."
+  "dcp_owner_rpr_hash": "sha256:...",
+  "dcp_lifecycle_state": "active",
+  "dcp_mandate_id": null
 }
 ```
 

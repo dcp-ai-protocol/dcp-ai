@@ -2,6 +2,10 @@
 
 Converts between DCP artifacts and W3C Decentralized Identifiers (DIDs) and Verifiable Credentials (VCs).
 
+## Supported DCP Specifications
+
+DCP-01 through DCP-09.
+
 ## Overview
 
 This bridge enables interoperability between the DCP-AI identity layer and the W3C decentralized identity ecosystem. It supports bidirectional conversion of:
@@ -19,6 +23,7 @@ This bridge enables interoperability between the DCP-AI identity layer and the W
 | `passportToVC(passport, issuerDid)` | DCP → W3C | Convert an Agent Passport to a Verifiable Credential |
 | `vcToPassport(vc)` | W3C → DCP | Convert a Verifiable Credential back to a Passport skeleton |
 | `bundleToVP(signedBundle, holderDid)` | DCP → W3C | Wrap a signed bundle as a Verifiable Presentation |
+| `rightsToServiceEndpoints(rightsDeclaration)` | DCP → W3C | Convert rights declaration to DID service endpoints (DCP-08) |
 
 ## DID Method
 

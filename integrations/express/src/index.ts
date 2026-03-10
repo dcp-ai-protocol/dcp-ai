@@ -25,6 +25,8 @@ export interface DCPVerifyOptions {
     require_session_binding?: boolean;
     require_composite_binding?: boolean;
   };
+  /** DCP-05: Require agent lifecycle state != decommissioned. */
+  requireActiveLifecycle?: boolean;
 }
 
 export interface DCPAgent {
@@ -39,6 +41,10 @@ export interface DCPAgent {
   kids?: string[];
   /** V2: Session nonce for the bundle. */
   sessionNonce?: string;
+  /** DCP-05: Agent lifecycle state. */
+  lifecycleState?: string;
+  /** DCP-09: Active delegation mandate ID. */
+  mandateId?: string;
 }
 
 const _cache = new Map<string, { result: any; expires: number }>();
@@ -81,6 +87,8 @@ function extractV2Agent(signedBundle: any): DCPAgent {
     dcpVersion: '2.0',
     kids: (passport?.keys || []).map((k: any) => k.kid),
     sessionNonce: nonce,
+    lifecycleState: passport?.status || 'active',
+    mandateId: bundle.manifest?.mandate_id,
   };
 }
 
@@ -179,6 +187,14 @@ async function checkV2Bundle(signedBundle: any, options: DCPVerifyOptions): Prom
         errors.push('Session nonce mismatch across artifacts');
         break;
       }
+    }
+  }
+
+  // DCP-05: Lifecycle state check
+  if (options.requireActiveLifecycle) {
+    const passport = bundle.agent_passport?.payload;
+    if (passport?.status === 'decommissioned') {
+      errors.push('Agent is decommissioned (DCP-05 §5.1). Active lifecycle required.');
     }
   }
 
