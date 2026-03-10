@@ -56,7 +56,7 @@
   },
   "v1_bundle_verification": {
     "signed_bundle_file": "../examples/citizenship_bundle.signed.json",
-    "public_key_b64": "/OfA8AX/2gIKCChIG69KwylU4t5SdGhzhVP1BpodSas=",
+    "public_key_b64": "L9cW+sKJxJUX5+0v/4flcOUwqw4YlfwItf2z6dnBS18=",
     "expected_bundle_hash": "sha256:7a62ce380f4ec90391e2c5e2302501c2d876e5ebbc9d718bf5bd4ca9d0b28af6",
     "expected_merkle_root": "sha256:b80928bc53f1adf75227dbfd240fff4c63fbe6bdb8c3717a1752ac9fce3aadce",
     "intent_hash": "6f6acc1f4cfe6fdaf925bb28f70d2b218aabf0cd3485747dcb55702f4bf6e454",

@@ -26,9 +26,59 @@
  */
 import http from "http";
 import crypto from "crypto";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+import Ajv from "ajv/dist/2020.js";
+import addFormats from "ajv-formats";
 import { verifySignedBundle } from "../lib/verify.js";
 
 const PORT = Number(process.env.PORT) || 3000;
+
+// ── Production Constants ──
+
+const MAX_BODY_BYTES = 1_048_576; // 1 MB max request body
+const MAX_STORE_ENTRIES = 10_000; // per-store cap before eviction
+const GLOBAL_RATE_LIMIT = 100;   // requests per window per IP
+const GLOBAL_RATE_WINDOW = 60_000; // 1 minute
+
+// ── Schema Validation (shared AJV instance) ──
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const baseDir = path.join(__dirname, "..");
+
+function loadSchemasFromDir(ajv, schemasDir) {
+  if (!fs.existsSync(schemasDir)) return;
+  const files = fs.readdirSync(schemasDir).filter((f) => f.endsWith(".json"));
+  for (const f of files) {
+    const full = path.join(schemasDir, f);
+    const schema = JSON.parse(fs.readFileSync(full, "utf8"));
+    if (schema.$id) ajv.addSchema(schema, schema.$id);
+    else ajv.addSchema(schema);
+  }
+}
+
+const ajv = new Ajv({ allErrors: true, strict: false });
+addFormats(ajv);
+loadSchemasFromDir(ajv, path.join(baseDir, "schemas", "v1"));
+loadSchemasFromDir(ajv, path.join(baseDir, "schemas", "v2"));
+
+/**
+ * Validate data against a schema $id.
+ * Returns { valid: true } or { valid: false, errors: string[] }.
+ */
+function validateAgainstSchema(schemaId, data) {
+  const validate = ajv.getSchema(schemaId);
+  if (!validate) return { valid: true }; // schema not found — skip gracefully
+  const ok = validate(data);
+  if (ok) return { valid: true };
+  return {
+    valid: false,
+    errors: (validate.errors || []).map(
+      (e) => `${e.instancePath || "/"} ${e.message}`,
+    ),
+  };
+}
 
 // ── Verifier Policy (verifier-authoritative, not self-declared by agents) ──
 // Phase 3: mutable policy supporting runtime mode switching and advisory auto-response
@@ -83,6 +133,11 @@ const DCP_CAPABILITIES = {
     advisory_auto_response: true,
     governance_keys: true,
     hsm_provider: true,
+    agent_lifecycle: true,       // DCP-05
+    succession: true,            // DCP-06
+    dispute_resolution: true,    // DCP-07
+    rights_obligations: true,    // DCP-08
+    delegation: true,            // DCP-09
   },
   get verifier_policy_hash() { return computePolicyHash(); },
   min_accepted_version: "1.0",
@@ -99,6 +154,24 @@ const revokedAgents = new Set();     // set of emergency-revoked agents
 const algorithmAdvisories = [];      // algorithm deprecation advisories
 let governanceKeySet = null;         // Phase 3: governance key set
 const policyHistory = [];            // Phase 3: policy change audit trail
+
+// DCP-05–09 stores
+const lifecycleStore = new Map();    // agent_id -> { state, history[] }
+const vitalityChains = new Map();    // agent_id -> [reports]
+const testamentStore = new Map();    // agent_id -> testament
+const successionHistory = new Map(); // agent_id -> [succession records]
+const disputeStore = new Map();      // dispute_id -> dispute record
+const jurisprudenceStore = [];       // jurisprudence bundles
+const objectionStore = new Map();    // objection_id -> objection record
+const rightsStore = new Map();       // agent_id -> rights declaration
+const obligationStore = new Map();   // agent_id -> [obligations]
+const violationStore = new Map();    // violation_id -> violation report
+const mandateStore = new Map();      // mandate_id -> delegation mandate
+const revokedMandates = new Set();   // revoked mandate IDs
+const advisoryDeclarationStore = new Map();  // declaration_id -> advisory declaration
+const mirrorStore = new Map();       // agent_id -> [mirrors]
+const interactionStore = new Map();  // interaction_id -> interaction record
+const thresholdStore = new Map();    // agent_id -> awareness threshold
 
 // Emergency revoke rate limiter
 const rateLimitMap = new Map();
@@ -118,6 +191,8 @@ function detectDcpVersion(obj) {
 }
 
 function send(res, statusCode, body, dcpVersion) {
+  if (res.writableEnded) return; // guard against double-send
+  setSecurityHeaders(res);
   res.setHeader("Content-Type", "application/json");
   if (dcpVersion) res.setHeader("DCP-Version", dcpVersion);
   res.writeHead(statusCode);
@@ -127,13 +202,96 @@ function send(res, statusCode, body, dcpVersion) {
 function parseBody(req) {
   return new Promise((resolve, reject) => {
     let data = "";
-    req.on("data", (chunk) => (data += chunk));
+    let bytes = 0;
+    req.on("data", (chunk) => {
+      bytes += chunk.length;
+      if (bytes > MAX_BODY_BYTES) {
+        req.destroy();
+        reject(new Error("PAYLOAD_TOO_LARGE"));
+        return;
+      }
+      data += chunk;
+    });
     req.on("end", () => {
       try { resolve(data ? JSON.parse(data) : {}); }
       catch (e) { reject(e); }
     });
     req.on("error", reject);
   });
+}
+
+// ── Global rate limiter (per-IP) ──
+
+const globalRateLimitMap = new Map();
+
+function checkGlobalRateLimit(ip) {
+  const now = Date.now();
+  let entry = globalRateLimitMap.get(ip);
+  if (!entry || now - entry.start > GLOBAL_RATE_WINDOW) {
+    entry = { start: now, count: 0 };
+    globalRateLimitMap.set(ip, entry);
+  }
+  entry.count++;
+  return entry.count <= GLOBAL_RATE_LIMIT;
+}
+
+// Periodic cleanup of rate limit maps (prevent unbounded growth)
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of globalRateLimitMap) {
+    if (now - entry.start > GLOBAL_RATE_WINDOW) globalRateLimitMap.delete(ip);
+  }
+  for (const [ip, entry] of rateLimitMap) {
+    if (now - entry.start > RATE_LIMIT_WINDOW) rateLimitMap.delete(ip);
+  }
+}, GLOBAL_RATE_WINDOW);
+
+// ── Store eviction (FIFO — evict oldest when cap reached) ──
+
+function storeSet(map, key, value) {
+  if (map.size >= MAX_STORE_ENTRIES && !map.has(key)) {
+    const oldest = map.keys().next().value;
+    map.delete(oldest);
+  }
+  map.set(key, value);
+}
+
+function storePush(map, key, value) {
+  if (!map.has(key)) {
+    if (map.size >= MAX_STORE_ENTRIES) {
+      const oldest = map.keys().next().value;
+      map.delete(oldest);
+    }
+    map.set(key, []);
+  }
+  const arr = map.get(key);
+  if (arr.length >= MAX_STORE_ENTRIES) arr.shift(); // cap per-key arrays too
+  arr.push(value);
+}
+
+// ── Input validation helpers ──
+
+const SAFE_ID = /^[\w:.\-]{1,256}$/;
+
+function isValidId(id) {
+  return typeof id === "string" && SAFE_ID.test(id);
+}
+
+function validateRequiredIds(fields) {
+  for (const [name, value] of Object.entries(fields)) {
+    if (!value) return `Missing required field: ${name}`;
+    if (!isValidId(value)) return `Invalid ${name} format (must be 1-256 alphanumeric/dash/dot/colon characters)`;
+  }
+  return null;
+}
+
+// ── Security headers ──
+
+function setSecurityHeaders(res) {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Strict-Transport-Security", "max-age=63072000; includeSubDomains");
 }
 
 function getClientIp(req) {
@@ -348,6 +506,21 @@ function decidePolicy(riskScore) {
 // ── Server ──
 
 const server = http.createServer(async (req, res) => {
+  // Request timeout (30 seconds)
+  res.setTimeout(30_000, () => {
+    if (!res.writableEnded) send(res, 408, { error: "Request timeout" });
+  });
+
+  try {
+
+  // Global rate limiting (all endpoints except health)
+  if (req.method === "POST") {
+    const ip = getClientIp(req);
+    if (!checkGlobalRateLimit(ip)) {
+      return send(res, 429, { error: "Rate limit exceeded. Max 100 requests per minute." });
+    }
+  }
+
   // Health check
   if (req.method === "GET" && (req.url === "/" || req.url === "/health")) {
     send(res, 200, {
@@ -370,7 +543,10 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "POST" && req.url === "/verify") {
     let body;
     try { body = await parseBody(req); }
-    catch { return send(res, 400, { verified: false, errors: ["Invalid JSON body"] }); }
+    catch (e) {
+      if (e.message === "PAYLOAD_TOO_LARGE") return send(res, 413, { error: "Request body too large (max 1 MB)" });
+      return send(res, 400, { verified: false, errors: ["Invalid JSON body"] });
+    }
 
     const signedBundle = body.signed_bundle;
     if (!signedBundle) {
@@ -425,7 +601,10 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "POST" && req.url === "/v2/passport/register") {
     let body;
     try { body = await parseBody(req); }
-    catch { return send(res, 400, { error: "Invalid JSON" }); }
+    catch (e) {
+      if (e.message === "PAYLOAD_TOO_LARGE") return send(res, 413, { error: "Request body too large (max 1 MB)" });
+      return send(res, 400, { error: "Invalid JSON" });
+    }
 
     const { signed_passport } = body;
     if (!signed_passport?.payload || !signed_passport?.composite_sig) {
@@ -450,7 +629,7 @@ const server = http.createServer(async (req, res) => {
           error: `Kid mismatch for ${key.alg}: expected ${expectedKid}, got ${key.kid}`,
         });
       }
-      keyRegistry.set(key.kid, {
+      storeSet(keyRegistry, key.kid, {
         key,
         agent_id: passport.agent_id,
         registered_at: new Date().toISOString(),
@@ -458,7 +637,7 @@ const server = http.createServer(async (req, res) => {
       registeredKids.push(key.kid);
     }
 
-    passportRegistry.set(passport.agent_id, {
+    storeSet(passportRegistry, passport.agent_id, {
       passport,
       signed_passport,
       registered_at: new Date().toISOString(),
@@ -481,7 +660,10 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "POST" && req.url === "/v2/intent/declare") {
     let body;
     try { body = await parseBody(req); }
-    catch { return send(res, 400, { error: "Invalid JSON" }); }
+    catch (e) {
+      if (e.message === "PAYLOAD_TOO_LARGE") return send(res, 413, { error: "Request body too large (max 1 MB)" });
+      return send(res, 400, { error: "Invalid JSON" });
+    }
 
     const { signed_intent } = body;
     if (!signed_intent?.payload || !signed_intent?.composite_sig) {
@@ -539,7 +721,10 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "POST" && req.url === "/v2/audit/append") {
     let body;
     try { body = await parseBody(req); }
-    catch { return send(res, 400, { error: "Invalid JSON" }); }
+    catch (e) {
+      if (e.message === "PAYLOAD_TOO_LARGE") return send(res, 413, { error: "Request body too large (max 1 MB)" });
+      return send(res, 400, { error: "Invalid JSON" });
+    }
 
     const { audit_event, signature } = body;
     if (!audit_event) {
@@ -584,7 +769,10 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "POST" && req.url === "/v2/bundle/verify") {
     let body;
     try { body = await parseBody(req); }
-    catch { return send(res, 400, { verified: false, errors: ["Invalid JSON body"] }); }
+    catch (e) {
+      if (e.message === "PAYLOAD_TOO_LARGE") return send(res, 413, { error: "Request body too large (max 1 MB)" });
+      return send(res, 400, { verified: false, errors: ["Invalid JSON body"] });
+    }
 
     const signedBundle = body.signed_bundle || body;
     if (!signedBundle.bundle || !signedBundle.signature) {
@@ -674,7 +862,10 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "POST" && req.url === "/v2/keys/rotate") {
     let body;
     try { body = await parseBody(req); }
-    catch { return send(res, 400, { error: "Invalid JSON" }); }
+    catch (e) {
+      if (e.message === "PAYLOAD_TOO_LARGE") return send(res, 413, { error: "Request body too large (max 1 MB)" });
+      return send(res, 400, { error: "Invalid JSON" });
+    }
 
     const { old_kid, new_key, proof_of_possession, authorization_sig } = body;
 
@@ -699,7 +890,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Register new key
-    keyRegistry.set(new_key.kid, {
+    storeSet(keyRegistry, new_key.kid, {
       key: new_key,
       agent_id: oldEntry.agent_id,
       registered_at: new Date().toISOString(),
@@ -740,7 +931,10 @@ const server = http.createServer(async (req, res) => {
 
     let body;
     try { body = await parseBody(req); }
-    catch { return send(res, 400, { error: "Invalid JSON" }); }
+    catch (e) {
+      if (e.message === "PAYLOAD_TOO_LARGE") return send(res, 413, { error: "Request body too large (max 1 MB)" });
+      return send(res, 400, { error: "Invalid JSON" });
+    }
 
     const { agent_id, human_id, revocation_secret } = body;
 
@@ -800,7 +994,10 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "POST" && req.url === "/v2/multi-party/authorize") {
     let body;
     try { body = await parseBody(req); }
-    catch { return send(res, 400, { error: "Invalid JSON" }); }
+    catch (e) {
+      if (e.message === "PAYLOAD_TOO_LARGE") return send(res, 413, { error: "Request body too large (max 1 MB)" });
+      return send(res, 400, { error: "Invalid JSON" });
+    }
 
     const { authorization } = body;
     if (!authorization || authorization.type !== "multi_party_authorization") {
@@ -858,7 +1055,10 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "POST" && req.url === "/v2/audit/compact") {
     let body;
     try { body = await parseBody(req); }
-    catch { return send(res, 400, { error: "Invalid JSON" }); }
+    catch (e) {
+      if (e.message === "PAYLOAD_TOO_LARGE") return send(res, 413, { error: "Request body too large (max 1 MB)" });
+      return send(res, 400, { error: "Invalid JSON" });
+    }
 
     const { compaction } = body;
     if (!compaction || compaction.type !== "audit_compaction") {
@@ -890,7 +1090,10 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "POST" && req.url === "/v2/advisory/publish") {
     let body;
     try { body = await parseBody(req); }
-    catch { return send(res, 400, { error: "Invalid JSON" }); }
+    catch (e) {
+      if (e.message === "PAYLOAD_TOO_LARGE") return send(res, 413, { error: "Request body too large (max 1 MB)" });
+      return send(res, 400, { error: "Invalid JSON" });
+    }
 
     const { advisory } = body;
     if (!advisory || advisory.type !== "algorithm_advisory") {
@@ -974,7 +1177,10 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "POST" && req.url === "/v2/policy/mode") {
     let body;
     try { body = await parseBody(req); }
-    catch { return send(res, 400, { error: "Invalid JSON" }); }
+    catch (e) {
+      if (e.message === "PAYLOAD_TOO_LARGE") return send(res, 413, { error: "Request body too large (max 1 MB)" });
+      return send(res, 400, { error: "Invalid JSON" });
+    }
 
     const { mode } = body;
     const validModes = ["classical_only", "pq_only", "hybrid_required", "hybrid_preferred"];
@@ -1137,7 +1343,10 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "POST" && req.url === "/v2/governance/register") {
     let body;
     try { body = await parseBody(req); }
-    catch { return send(res, 400, { error: "Invalid JSON" }); }
+    catch (e) {
+      if (e.message === "PAYLOAD_TOO_LARGE") return send(res, 413, { error: "Request body too large (max 1 MB)" });
+      return send(res, 400, { error: "Invalid JSON" });
+    }
 
     const { governance_key_set: gks } = body;
     if (!gks || !gks.governance_id || !Array.isArray(gks.keys) || !gks.threshold) {
@@ -1179,6 +1388,800 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // ═══════════════════════════════════════════════════════════════
+  // DCP-05: Agent Lifecycle Endpoints
+  // ═══════════════════════════════════════════════════════════════
+
+  // Valid lifecycle state transitions (DCP-05 §4.1)
+  const LIFECYCLE_TRANSITIONS = {
+    commissioned: ["active"],
+    active: ["declining", "decommissioned"],
+    declining: ["decommissioned"],
+    decommissioned: [],
+  };
+
+  if (req.method === "POST" && req.url === "/v2/lifecycle/commission") {
+    let body;
+    try { body = await parseBody(req); }
+    catch (e) {
+      if (e.message === "PAYLOAD_TOO_LARGE") return send(res, 413, { error: "Request body too large (max 1 MB)" });
+      return send(res, 400, { error: "Invalid JSON" });
+    }
+
+    const cert = body.commissioning_certificate;
+    if (!cert) {
+      return send(res, 400, { error: "Missing commissioning_certificate" });
+    }
+
+    // Schema validation
+    const schemaResult = validateAgainstSchema(
+      "https://dcp-ai.org/schemas/v2/commissioning_certificate.schema.json", cert);
+    if (!schemaResult.valid) {
+      return send(res, 400, { error: "Schema validation failed", details: schemaResult.errors });
+    }
+
+    // ID format validation
+    const idErr = validateRequiredIds({ agent_id: cert.agent_id, human_id: cert.human_id });
+    if (idErr) return send(res, 400, { error: idErr });
+
+    storeSet(lifecycleStore, cert.agent_id, {
+      state: "commissioned",
+      history: [{ state: "commissioned", timestamp: cert.timestamp || new Date().toISOString() }],
+    });
+
+    send(res, 201, {
+      status: "commissioned",
+      agent_id: cert.agent_id,
+      message: "Agent commissioned successfully",
+    }, "2.0");
+    return;
+  }
+
+  if (req.method === "POST" && req.url === "/v2/lifecycle/vitality") {
+    let body;
+    try { body = await parseBody(req); }
+    catch (e) {
+      if (e.message === "PAYLOAD_TOO_LARGE") return send(res, 413, { error: "Request body too large (max 1 MB)" });
+      return send(res, 400, { error: "Invalid JSON" });
+    }
+
+    const report = body.vitality_report;
+    if (!report) {
+      return send(res, 400, { error: "Missing vitality_report" });
+    }
+
+    // Schema validation
+    const schemaResult = validateAgainstSchema(
+      "https://dcp-ai.org/schemas/v2/vitality_report.schema.json", report);
+    if (!schemaResult.valid) {
+      return send(res, 400, { error: "Schema validation failed", details: schemaResult.errors });
+    }
+
+    const idErr = validateRequiredIds({ agent_id: report.agent_id });
+    if (idErr) return send(res, 400, { error: idErr });
+
+    const lifecycle = lifecycleStore.get(report.agent_id);
+    if (!lifecycle) {
+      return send(res, 404, { error: "Agent not found in lifecycle store" });
+    }
+
+    // Validate state transition if report includes a state change
+    if (report.state && report.state !== lifecycle.state) {
+      const allowed = LIFECYCLE_TRANSITIONS[lifecycle.state] || [];
+      if (!allowed.includes(report.state)) {
+        return send(res, 409, {
+          error: `Invalid state transition: ${lifecycle.state} → ${report.state}. Allowed: ${allowed.join(", ") || "none"}`,
+        });
+      }
+    }
+
+    storePush(vitalityChains, report.agent_id, report);
+
+    if (report.state && report.state !== lifecycle.state) {
+      lifecycle.state = report.state;
+      lifecycle.history.push({ state: report.state, timestamp: report.timestamp || new Date().toISOString() });
+    }
+
+    send(res, 200, {
+      accepted: true,
+      agent_id: report.agent_id,
+      current_state: lifecycle.state,
+      vitality_score: report.vitality_score,
+      chain_length: vitalityChains.get(report.agent_id).length,
+    }, "2.0");
+    return;
+  }
+
+  if (req.method === "POST" && req.url === "/v2/lifecycle/decommission") {
+    let body;
+    try { body = await parseBody(req); }
+    catch (e) {
+      if (e.message === "PAYLOAD_TOO_LARGE") return send(res, 413, { error: "Request body too large (max 1 MB)" });
+      return send(res, 400, { error: "Invalid JSON" });
+    }
+
+    const record = body.decommissioning_record;
+    if (!record) {
+      return send(res, 400, { error: "Missing decommissioning_record" });
+    }
+
+    // Schema validation
+    const schemaResult = validateAgainstSchema(
+      "https://dcp-ai.org/schemas/v2/decommissioning_record.schema.json", record);
+    if (!schemaResult.valid) {
+      return send(res, 400, { error: "Schema validation failed", details: schemaResult.errors });
+    }
+
+    const idErr = validateRequiredIds({ agent_id: record.agent_id });
+    if (idErr) return send(res, 400, { error: idErr });
+
+    const lifecycle = lifecycleStore.get(record.agent_id);
+    if (!lifecycle) {
+      return send(res, 404, { error: "Agent not found in lifecycle store" });
+    }
+
+    // Validate state transition — only active or declining can decommission
+    const allowed = LIFECYCLE_TRANSITIONS[lifecycle.state] || [];
+    if (!allowed.includes("decommissioned")) {
+      return send(res, 409, {
+        error: `Cannot decommission from state '${lifecycle.state}'. Must be active or declining.`,
+      });
+    }
+
+    lifecycle.state = "decommissioned";
+    lifecycle.history.push({ state: "decommissioned", timestamp: record.timestamp || new Date().toISOString(), termination_mode: record.termination_mode });
+
+    // Update passport status if registered
+    const passport = passportRegistry.get(record.agent_id);
+    if (passport) {
+      passport.status = "decommissioned";
+    }
+
+    send(res, 200, {
+      status: "decommissioned",
+      agent_id: record.agent_id,
+      termination_mode: record.termination_mode,
+      successor_agent_id: record.successor_agent_id || null,
+    }, "2.0");
+    return;
+  }
+
+  if (req.method === "GET" && req.url?.startsWith("/v2/lifecycle/")) {
+    const agentId = decodeURIComponent(req.url.slice("/v2/lifecycle/".length));
+    const lifecycle = lifecycleStore.get(agentId);
+    if (!lifecycle) {
+      return send(res, 404, { error: "Agent not found" });
+    }
+
+    send(res, 200, {
+      agent_id: agentId,
+      current_state: lifecycle.state,
+      history: lifecycle.history,
+      vitality_reports: (vitalityChains.get(agentId) || []).length,
+    }, "2.0");
+    return;
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // DCP-06: Succession Endpoints
+  // ═══════════════════════════════════════════════════════════════
+
+  if (req.method === "POST" && req.url === "/v2/succession/testament") {
+    let body;
+    try { body = await parseBody(req); }
+    catch (e) {
+      if (e.message === "PAYLOAD_TOO_LARGE") return send(res, 413, { error: "Request body too large (max 1 MB)" });
+      return send(res, 400, { error: "Invalid JSON" });
+    }
+
+    const testament = body.digital_testament;
+    if (!testament) {
+      return send(res, 400, { error: "Missing digital_testament" });
+    }
+
+    const schemaResult = validateAgainstSchema(
+      "https://dcp-ai.org/schemas/v2/digital_testament.schema.json", testament);
+    if (!schemaResult.valid) {
+      return send(res, 400, { error: "Schema validation failed", details: schemaResult.errors });
+    }
+
+    const idErr = validateRequiredIds({ agent_id: testament.agent_id });
+    if (idErr) return send(res, 400, { error: idErr });
+
+    storeSet(testamentStore, testament.agent_id, testament);
+    send(res, 201, {
+      status: "testament_registered",
+      agent_id: testament.agent_id,
+      version: testament.testament_version || 1,
+    }, "2.0");
+    return;
+  }
+
+  if (req.method === "GET" && req.url?.startsWith("/v2/succession/testament/")) {
+    const agentId = decodeURIComponent(req.url.slice("/v2/succession/testament/".length));
+    const testament = testamentStore.get(agentId);
+    if (!testament) {
+      return send(res, 404, { error: "No testament found for agent" });
+    }
+    send(res, 200, testament, "2.0");
+    return;
+  }
+
+  if (req.method === "POST" && req.url === "/v2/succession/execute") {
+    let body;
+    try { body = await parseBody(req); }
+    catch (e) {
+      if (e.message === "PAYLOAD_TOO_LARGE") return send(res, 413, { error: "Request body too large (max 1 MB)" });
+      return send(res, 400, { error: "Invalid JSON" });
+    }
+
+    const record = body.succession_record;
+    if (!record) {
+      return send(res, 400, { error: "Missing succession_record" });
+    }
+
+    const schemaResult = validateAgainstSchema(
+      "https://dcp-ai.org/schemas/v2/succession_record.schema.json", record);
+    if (!schemaResult.valid) {
+      return send(res, 400, { error: "Schema validation failed", details: schemaResult.errors });
+    }
+
+    const idErr = validateRequiredIds({
+      predecessor_agent_id: record.predecessor_agent_id,
+      successor_agent_id: record.successor_agent_id,
+    });
+    if (idErr) return send(res, 400, { error: idErr });
+
+    // Validate predecessor is in declining or decommissioned state
+    const lifecycle = lifecycleStore.get(record.predecessor_agent_id);
+    if (lifecycle && !["declining", "decommissioned"].includes(lifecycle.state)) {
+      return send(res, 409, { error: `Predecessor must be declining or decommissioned, currently: ${lifecycle.state}` });
+    }
+
+    storePush(successionHistory, record.predecessor_agent_id, record);
+
+    send(res, 200, {
+      status: "succession_executed",
+      predecessor: record.predecessor_agent_id,
+      successor: record.successor_agent_id,
+      transition_type: record.transition_type,
+    }, "2.0");
+    return;
+  }
+
+  if (req.method === "POST" && req.url === "/v2/succession/memory-transfer") {
+    let body;
+    try { body = await parseBody(req); }
+    catch (e) {
+      if (e.message === "PAYLOAD_TOO_LARGE") return send(res, 413, { error: "Request body too large (max 1 MB)" });
+      return send(res, 400, { error: "Invalid JSON" });
+    }
+
+    const manifest = body.memory_transfer_manifest;
+    if (!manifest) {
+      return send(res, 400, { error: "Missing memory_transfer_manifest" });
+    }
+
+    const schemaResult = validateAgainstSchema(
+      "https://dcp-ai.org/schemas/v2/memory_transfer_manifest.schema.json", manifest);
+    if (!schemaResult.valid) {
+      return send(res, 400, { error: "Schema validation failed", details: schemaResult.errors });
+    }
+
+    const idErr = validateRequiredIds({
+      predecessor_agent_id: manifest.predecessor_agent_id,
+      successor_agent_id: manifest.successor_agent_id,
+    });
+    if (idErr) return send(res, 400, { error: idErr });
+
+    send(res, 200, {
+      status: "memory_transfer_recorded",
+      predecessor: manifest.predecessor_agent_id,
+      successor: manifest.successor_agent_id,
+      operational_count: (manifest.operational_memory || []).length,
+      destroyed_count: (manifest.relational_memory_destroyed || []).length,
+    }, "2.0");
+    return;
+  }
+
+  if (req.method === "GET" && req.url?.startsWith("/v2/succession/") && !req.url.includes("/testament/")) {
+    const agentId = decodeURIComponent(req.url.slice("/v2/succession/".length));
+    const history = successionHistory.get(agentId) || [];
+    send(res, 200, { agent_id: agentId, successions: history }, "2.0");
+    return;
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // DCP-07: Dispute Resolution Endpoints
+  // ═══════════════════════════════════════════════════════════════
+
+  if (req.method === "POST" && req.url === "/v2/disputes/create") {
+    let body;
+    try { body = await parseBody(req); }
+    catch (e) {
+      if (e.message === "PAYLOAD_TOO_LARGE") return send(res, 413, { error: "Request body too large (max 1 MB)" });
+      return send(res, 400, { error: "Invalid JSON" });
+    }
+
+    const dispute = body.dispute_record;
+    if (!dispute) {
+      return send(res, 400, { error: "Missing dispute_record" });
+    }
+
+    const schemaResult = validateAgainstSchema(
+      "https://dcp-ai.org/schemas/v2/dispute_record.schema.json", dispute);
+    if (!schemaResult.valid) {
+      return send(res, 400, { error: "Schema validation failed", details: schemaResult.errors });
+    }
+
+    const idErr = validateRequiredIds({ dispute_id: dispute.dispute_id });
+    if (idErr) return send(res, 400, { error: idErr });
+
+    storeSet(disputeStore, dispute.dispute_id, dispute);
+    send(res, 201, {
+      status: "dispute_created",
+      dispute_id: dispute.dispute_id,
+      escalation_level: dispute.escalation_level || "direct_negotiation",
+    }, "2.0");
+    return;
+  }
+
+  if (req.method === "POST" && req.url?.match(/^\/v2\/disputes\/[^/]+\/escalate$/)) {
+    const disputeId = decodeURIComponent(req.url.split("/")[3]);
+    const dispute = disputeStore.get(disputeId);
+    if (!dispute) {
+      return send(res, 404, { error: "Dispute not found" });
+    }
+
+    const levels = ["direct_negotiation", "contextual_arbitration", "human_appeal"];
+    const currentIdx = levels.indexOf(dispute.escalation_level);
+    if (currentIdx >= levels.length - 1) {
+      return send(res, 409, { error: "Already at maximum escalation level" });
+    }
+
+    dispute.escalation_level = levels[currentIdx + 1];
+    dispute.status = "in_negotiation";
+    send(res, 200, {
+      dispute_id: disputeId,
+      escalation_level: dispute.escalation_level,
+      status: dispute.status,
+    }, "2.0");
+    return;
+  }
+
+  if (req.method === "POST" && req.url?.match(/^\/v2\/disputes\/[^/]+\/resolve$/)) {
+    const disputeId = decodeURIComponent(req.url.split("/")[3]);
+    const dispute = disputeStore.get(disputeId);
+    if (!dispute) {
+      return send(res, 404, { error: "Dispute not found" });
+    }
+
+    let body;
+    try { body = await parseBody(req); }
+    catch (e) {
+      if (e.message === "PAYLOAD_TOO_LARGE") return send(res, 413, { error: "Request body too large (max 1 MB)" });
+      return send(res, 400, { error: "Invalid JSON" });
+    }
+
+    dispute.status = "resolved";
+    if (body.arbitration_resolution) {
+      dispute.resolution = body.arbitration_resolution;
+    }
+
+    send(res, 200, {
+      dispute_id: disputeId,
+      status: "resolved",
+    }, "2.0");
+    return;
+  }
+
+  if (req.method === "GET" && req.url?.match(/^\/v2\/disputes\/[^/]+$/) && !req.url.includes("/create")) {
+    const disputeId = decodeURIComponent(req.url.slice("/v2/disputes/".length));
+    const dispute = disputeStore.get(disputeId);
+    if (!dispute) {
+      return send(res, 404, { error: "Dispute not found" });
+    }
+    send(res, 200, dispute, "2.0");
+    return;
+  }
+
+  if (req.method === "POST" && req.url === "/v2/objections/create") {
+    let body;
+    try { body = await parseBody(req); }
+    catch (e) {
+      if (e.message === "PAYLOAD_TOO_LARGE") return send(res, 413, { error: "Request body too large (max 1 MB)" });
+      return send(res, 400, { error: "Invalid JSON" });
+    }
+
+    const objection = body.objection_record;
+    if (!objection) {
+      return send(res, 400, { error: "Missing objection_record" });
+    }
+
+    const schemaResult = validateAgainstSchema(
+      "https://dcp-ai.org/schemas/v2/objection_record.schema.json", objection);
+    if (!schemaResult.valid) {
+      return send(res, 400, { error: "Schema validation failed", details: schemaResult.errors });
+    }
+
+    const idErr = validateRequiredIds({ objection_id: objection.objection_id });
+    if (idErr) return send(res, 400, { error: idErr });
+
+    storeSet(objectionStore, objection.objection_id, objection);
+    send(res, 201, {
+      status: "objection_recorded",
+      objection_id: objection.objection_id,
+      human_escalation_required: objection.human_escalation_required || false,
+    }, "2.0");
+    return;
+  }
+
+  if (req.method === "GET" && req.url === "/v2/jurisprudence") {
+    send(res, 200, { jurisprudence: jurisprudenceStore }, "2.0");
+    return;
+  }
+
+  if (req.method === "POST" && req.url === "/v2/jurisprudence") {
+    let body;
+    try { body = await parseBody(req); }
+    catch (e) {
+      if (e.message === "PAYLOAD_TOO_LARGE") return send(res, 413, { error: "Request body too large (max 1 MB)" });
+      return send(res, 400, { error: "Invalid JSON" });
+    }
+
+    const bundle = body.jurisprudence_bundle;
+    if (!bundle) {
+      return send(res, 400, { error: "Missing jurisprudence_bundle" });
+    }
+
+    const schemaResult = validateAgainstSchema(
+      "https://dcp-ai.org/schemas/v2/jurisprudence_bundle.schema.json", bundle);
+    if (!schemaResult.valid) {
+      return send(res, 400, { error: "Schema validation failed", details: schemaResult.errors });
+    }
+
+    const idErr = validateRequiredIds({ jurisprudence_id: bundle.jurisprudence_id });
+    if (idErr) return send(res, 400, { error: idErr });
+
+    if (jurisprudenceStore.length >= MAX_STORE_ENTRIES) jurisprudenceStore.shift();
+    jurisprudenceStore.push(bundle);
+    send(res, 201, {
+      status: "jurisprudence_recorded",
+      jurisprudence_id: bundle.jurisprudence_id,
+    }, "2.0");
+    return;
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // DCP-08: Rights & Obligations Endpoints
+  // ═══════════════════════════════════════════════════════════════
+
+  if (req.method === "POST" && req.url === "/v2/rights/declare") {
+    let body;
+    try { body = await parseBody(req); }
+    catch (e) {
+      if (e.message === "PAYLOAD_TOO_LARGE") return send(res, 413, { error: "Request body too large (max 1 MB)" });
+      return send(res, 400, { error: "Invalid JSON" });
+    }
+
+    const declaration = body.rights_declaration;
+    if (!declaration) {
+      return send(res, 400, { error: "Missing rights_declaration" });
+    }
+
+    const schemaResult = validateAgainstSchema(
+      "https://dcp-ai.org/schemas/v2/rights_declaration.schema.json", declaration);
+    if (!schemaResult.valid) {
+      return send(res, 400, { error: "Schema validation failed", details: schemaResult.errors });
+    }
+
+    const idErr = validateRequiredIds({ agent_id: declaration.agent_id });
+    if (idErr) return send(res, 400, { error: idErr });
+
+    storeSet(rightsStore, declaration.agent_id, declaration);
+    send(res, 201, {
+      status: "rights_declared",
+      agent_id: declaration.agent_id,
+      rights_count: declaration.rights.length,
+    }, "2.0");
+    return;
+  }
+
+  if (req.method === "GET" && req.url?.startsWith("/v2/rights/") && !req.url.includes("/violation") && !req.url.includes("/declare")) {
+    const agentId = decodeURIComponent(req.url.slice("/v2/rights/".length));
+    const declaration = rightsStore.get(agentId);
+    if (!declaration) {
+      return send(res, 404, { error: "No rights declaration found for agent" });
+    }
+    send(res, 200, declaration, "2.0");
+    return;
+  }
+
+  if (req.method === "POST" && req.url === "/v2/obligations/record") {
+    let body;
+    try { body = await parseBody(req); }
+    catch (e) {
+      if (e.message === "PAYLOAD_TOO_LARGE") return send(res, 413, { error: "Request body too large (max 1 MB)" });
+      return send(res, 400, { error: "Invalid JSON" });
+    }
+
+    const obligation = body.obligation_record;
+    if (!obligation) {
+      return send(res, 400, { error: "Missing obligation_record" });
+    }
+
+    const schemaResult = validateAgainstSchema(
+      "https://dcp-ai.org/schemas/v2/obligation_record.schema.json", obligation);
+    if (!schemaResult.valid) {
+      return send(res, 400, { error: "Schema validation failed", details: schemaResult.errors });
+    }
+
+    const idErr = validateRequiredIds({ agent_id: obligation.agent_id, obligation_id: obligation.obligation_id });
+    if (idErr) return send(res, 400, { error: idErr });
+
+    storePush(obligationStore, obligation.agent_id, obligation);
+
+    send(res, 201, {
+      status: "obligation_recorded",
+      obligation_id: obligation.obligation_id,
+      agent_id: obligation.agent_id,
+    }, "2.0");
+    return;
+  }
+
+  if (req.method === "GET" && req.url?.startsWith("/v2/obligations/")) {
+    const agentId = decodeURIComponent(req.url.slice("/v2/obligations/".length));
+    const obligations = obligationStore.get(agentId) || [];
+    send(res, 200, { agent_id: agentId, obligations }, "2.0");
+    return;
+  }
+
+  if (req.method === "POST" && req.url === "/v2/rights/violation") {
+    let body;
+    try { body = await parseBody(req); }
+    catch (e) {
+      if (e.message === "PAYLOAD_TOO_LARGE") return send(res, 413, { error: "Request body too large (max 1 MB)" });
+      return send(res, 400, { error: "Invalid JSON" });
+    }
+
+    const violation = body.violation_report;
+    if (!violation) {
+      return send(res, 400, { error: "Missing violation_report" });
+    }
+
+    const schemaResult = validateAgainstSchema(
+      "https://dcp-ai.org/schemas/v2/rights_violation_report.schema.json", violation);
+    if (!schemaResult.valid) {
+      return send(res, 400, { error: "Schema validation failed", details: schemaResult.errors });
+    }
+
+    const idErr = validateRequiredIds({ violation_id: violation.violation_id, agent_id: violation.agent_id });
+    if (idErr) return send(res, 400, { error: idErr });
+
+    storeSet(violationStore, violation.violation_id, violation);
+    send(res, 201, {
+      status: "violation_reported",
+      violation_id: violation.violation_id,
+      dispute_id: violation.dispute_id || null,
+    }, "2.0");
+    return;
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // DCP-09: Delegation & Representation Endpoints
+  // ═══════════════════════════════════════════════════════════════
+
+  if (req.method === "POST" && req.url === "/v2/delegation/mandate") {
+    let body;
+    try { body = await parseBody(req); }
+    catch (e) {
+      if (e.message === "PAYLOAD_TOO_LARGE") return send(res, 413, { error: "Request body too large (max 1 MB)" });
+      return send(res, 400, { error: "Invalid JSON" });
+    }
+
+    const mandate = body.delegation_mandate;
+    if (!mandate) {
+      return send(res, 400, { error: "Missing delegation_mandate" });
+    }
+
+    const schemaResult = validateAgainstSchema(
+      "https://dcp-ai.org/schemas/v2/delegation_mandate.schema.json", mandate);
+    if (!schemaResult.valid) {
+      return send(res, 400, { error: "Schema validation failed", details: schemaResult.errors });
+    }
+
+    const idErr = validateRequiredIds({ mandate_id: mandate.mandate_id, agent_id: mandate.agent_id, human_id: mandate.human_id });
+    if (idErr) return send(res, 400, { error: idErr });
+
+    storeSet(mandateStore, mandate.mandate_id, mandate);
+    send(res, 201, {
+      status: "mandate_registered",
+      mandate_id: mandate.mandate_id,
+      agent_id: mandate.agent_id,
+    }, "2.0");
+    return;
+  }
+
+  if (req.method === "GET" && req.url?.match(/^\/v2\/delegation\/mandate\/[^/]+$/)) {
+    const mandateId = decodeURIComponent(req.url.slice("/v2/delegation/mandate/".length));
+    const mandate = mandateStore.get(mandateId);
+    if (!mandate) {
+      return send(res, 404, { error: "Mandate not found" });
+    }
+    send(res, 200, { ...mandate, revoked: revokedMandates.has(mandateId) }, "2.0");
+    return;
+  }
+
+  if (req.method === "POST" && req.url?.match(/^\/v2\/delegation\/mandate\/[^/]+\/revoke$/)) {
+    const mandateId = decodeURIComponent(req.url.split("/")[4]);
+    const mandate = mandateStore.get(mandateId);
+    if (!mandate) {
+      return send(res, 404, { error: "Mandate not found" });
+    }
+    if (!mandate.revocable) {
+      return send(res, 409, { error: "Mandate is not revocable" });
+    }
+
+    revokedMandates.add(mandateId);
+    send(res, 200, {
+      status: "mandate_revoked",
+      mandate_id: mandateId,
+    }, "2.0");
+    return;
+  }
+
+  if (req.method === "POST" && req.url === "/v2/agent-advisory/declare") {
+    let body;
+    try { body = await parseBody(req); }
+    catch (e) {
+      if (e.message === "PAYLOAD_TOO_LARGE") return send(res, 413, { error: "Request body too large (max 1 MB)" });
+      return send(res, 400, { error: "Invalid JSON" });
+    }
+
+    const declaration = body.advisory_declaration;
+    if (!declaration) {
+      return send(res, 400, { error: "Missing advisory_declaration" });
+    }
+
+    const schemaResult = validateAgainstSchema(
+      "https://dcp-ai.org/schemas/v2/advisory_declaration.schema.json", declaration);
+    if (!schemaResult.valid) {
+      return send(res, 400, { error: "Schema validation failed", details: schemaResult.errors });
+    }
+
+    const idErr = validateRequiredIds({ declaration_id: declaration.declaration_id });
+    if (idErr) return send(res, 400, { error: idErr });
+
+    storeSet(advisoryDeclarationStore, declaration.declaration_id, declaration);
+    send(res, 201, {
+      status: "advisory_declared",
+      declaration_id: declaration.declaration_id,
+      significance_score: declaration.significance_score,
+    }, "2.0");
+    return;
+  }
+
+  if (req.method === "GET" && req.url?.startsWith("/v2/agent-advisory/")) {
+    const declarationId = decodeURIComponent(req.url.slice("/v2/agent-advisory/".length));
+    const declaration = advisoryDeclarationStore.get(declarationId);
+    if (!declaration) {
+      return send(res, 404, { error: "Advisory declaration not found" });
+    }
+    send(res, 200, declaration, "2.0");
+    return;
+  }
+
+  if (req.method === "POST" && req.url === "/v2/mirror/generate") {
+    let body;
+    try { body = await parseBody(req); }
+    catch (e) {
+      if (e.message === "PAYLOAD_TOO_LARGE") return send(res, 413, { error: "Request body too large (max 1 MB)" });
+      return send(res, 400, { error: "Invalid JSON" });
+    }
+
+    const mirror = body.principal_mirror;
+    if (!mirror) {
+      return send(res, 400, { error: "Missing principal_mirror" });
+    }
+
+    const schemaResult = validateAgainstSchema(
+      "https://dcp-ai.org/schemas/v2/principal_mirror.schema.json", mirror);
+    if (!schemaResult.valid) {
+      return send(res, 400, { error: "Schema validation failed", details: schemaResult.errors });
+    }
+
+    const idErr = validateRequiredIds({ agent_id: mirror.agent_id, mirror_id: mirror.mirror_id });
+    if (idErr) return send(res, 400, { error: idErr });
+
+    storePush(mirrorStore, mirror.agent_id, mirror);
+
+    send(res, 201, {
+      status: "mirror_generated",
+      mirror_id: mirror.mirror_id,
+      agent_id: mirror.agent_id,
+    }, "2.0");
+    return;
+  }
+
+  if (req.method === "GET" && req.url?.startsWith("/v2/mirror/")) {
+    const agentId = decodeURIComponent(req.url.slice("/v2/mirror/".length));
+    const mirrors = mirrorStore.get(agentId) || [];
+    send(res, 200, { agent_id: agentId, mirrors }, "2.0");
+    return;
+  }
+
+  if (req.method === "POST" && req.url === "/v2/interactions/record") {
+    let body;
+    try { body = await parseBody(req); }
+    catch (e) {
+      if (e.message === "PAYLOAD_TOO_LARGE") return send(res, 413, { error: "Request body too large (max 1 MB)" });
+      return send(res, 400, { error: "Invalid JSON" });
+    }
+
+    const record = body.interaction_record;
+    if (!record) {
+      return send(res, 400, { error: "Missing interaction_record" });
+    }
+
+    const schemaResult = validateAgainstSchema(
+      "https://dcp-ai.org/schemas/v2/interaction_record.schema.json", record);
+    if (!schemaResult.valid) {
+      return send(res, 400, { error: "Schema validation failed", details: schemaResult.errors });
+    }
+
+    const idErr = validateRequiredIds({ interaction_id: record.interaction_id });
+    if (idErr) return send(res, 400, { error: idErr });
+
+    storeSet(interactionStore, record.interaction_id, record);
+    send(res, 201, {
+      status: "interaction_recorded",
+      interaction_id: record.interaction_id,
+    }, "2.0");
+    return;
+  }
+
+  if (req.method === "POST" && req.url === "/v2/awareness/threshold") {
+    let body;
+    try { body = await parseBody(req); }
+    catch (e) {
+      if (e.message === "PAYLOAD_TOO_LARGE") return send(res, 413, { error: "Request body too large (max 1 MB)" });
+      return send(res, 400, { error: "Invalid JSON" });
+    }
+
+    const threshold = body.awareness_threshold;
+    if (!threshold) {
+      return send(res, 400, { error: "Missing awareness_threshold" });
+    }
+
+    const schemaResult = validateAgainstSchema(
+      "https://dcp-ai.org/schemas/v2/awareness_threshold.schema.json", threshold);
+    if (!schemaResult.valid) {
+      return send(res, 400, { error: "Schema validation failed", details: schemaResult.errors });
+    }
+
+    const idErr = validateRequiredIds({ agent_id: threshold.agent_id, threshold_id: threshold.threshold_id });
+    if (idErr) return send(res, 400, { error: idErr });
+
+    storeSet(thresholdStore, threshold.agent_id, threshold);
+    send(res, 201, {
+      status: "threshold_configured",
+      threshold_id: threshold.threshold_id,
+      agent_id: threshold.agent_id,
+      rules_count: (threshold.threshold_rules || []).length,
+    }, "2.0");
+    return;
+  }
+
+  if (req.method === "GET" && req.url?.startsWith("/v2/awareness/threshold/")) {
+    const agentId = decodeURIComponent(req.url.slice("/v2/awareness/threshold/".length));
+    const threshold = thresholdStore.get(agentId);
+    if (!threshold) {
+      return send(res, 404, { error: "No awareness threshold configured for agent" });
+    }
+    send(res, 200, threshold, "2.0");
+    return;
+  }
+
   // Anchor stub
   if (req.method === "POST" && req.url === "/anchor") {
     send(res, 501, {
@@ -1189,6 +2192,13 @@ const server = http.createServer(async (req, res) => {
   }
 
   send(res, 404, { error: "Not found" });
+
+  } catch (err) {
+    console.error(`[server] Unhandled error: ${err.message}`);
+    if (!res.writableEnded) {
+      send(res, 500, { error: "Internal server error" });
+    }
+  }
 });
 
 server.listen(PORT, () => {
@@ -1216,4 +2226,51 @@ server.listen(PORT, () => {
   console.log("    POST /v2/policy/mode                      — switch verifier mode (pq_only etc.)");
   console.log("    POST /v2/advisory/auto-apply              — auto-apply advisories to policy");
   console.log("    POST /v2/governance/register              — register governance key set");
+  console.log("  DCP-05 Lifecycle:");
+  console.log("    POST /v2/lifecycle/commission              — commission agent");
+  console.log("    POST /v2/lifecycle/vitality                — submit vitality report");
+  console.log("    POST /v2/lifecycle/decommission            — decommission agent");
+  console.log("    GET  /v2/lifecycle/:agentId                — lifecycle status");
+  console.log("  DCP-06 Succession:");
+  console.log("    POST /v2/succession/testament              — create/update testament");
+  console.log("    GET  /v2/succession/testament/:agentId     — get testament");
+  console.log("    POST /v2/succession/execute                — execute succession");
+  console.log("    POST /v2/succession/memory-transfer        — record memory transfer");
+  console.log("    GET  /v2/succession/:agentId               — succession history");
+  console.log("  DCP-07 Disputes:");
+  console.log("    POST /v2/disputes/create                   — create dispute");
+  console.log("    POST /v2/disputes/:id/escalate             — escalate dispute");
+  console.log("    POST /v2/disputes/:id/resolve              — resolve dispute");
+  console.log("    GET  /v2/disputes/:id                      — get dispute");
+  console.log("    POST /v2/objections/create                 — create objection");
+  console.log("    GET  /v2/jurisprudence                     — list jurisprudence");
+  console.log("    POST /v2/jurisprudence                     — add jurisprudence");
+  console.log("  DCP-08 Rights:");
+  console.log("    POST /v2/rights/declare                    — declare rights");
+  console.log("    GET  /v2/rights/:agentId                   — get rights");
+  console.log("    POST /v2/obligations/record                — record obligation");
+  console.log("    GET  /v2/obligations/:agentId              — get obligations");
+  console.log("    POST /v2/rights/violation                  — report violation");
+  console.log("  DCP-09 Delegation:");
+  console.log("    POST /v2/delegation/mandate                — create mandate");
+  console.log("    GET  /v2/delegation/mandate/:id            — get mandate");
+  console.log("    POST /v2/delegation/mandate/:id/revoke     — revoke mandate");
+  console.log("    POST /v2/agent-advisory/declare            — advisory declaration");
+  console.log("    GET  /v2/agent-advisory/:id                — get advisory");
+  console.log("    POST /v2/mirror/generate                   — generate mirror");
+  console.log("    GET  /v2/mirror/:agentId                   — get mirrors");
+  console.log("    POST /v2/interactions/record               — record interaction");
+  console.log("    POST /v2/awareness/threshold               — set threshold");
+  console.log("    GET  /v2/awareness/threshold/:agentId      — get threshold");
+});
+
+// ── Process-level error handling ──
+
+process.on("unhandledRejection", (err) => {
+  console.error("[server] Unhandled rejection:", err);
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("[server] Uncaught exception:", err);
+  process.exit(1);
 });

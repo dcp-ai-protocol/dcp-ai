@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 import { execFileSync } from "child_process";
 import crypto from "crypto";
-import { ml_dsa65 } from "@noble/post-quantum/ml-dsa";
+import { ml_dsa65 } from "@noble/post-quantum/ml-dsa.js";
 import nacl from "tweetnacl";
 
 const ALLOWED_BASE_DIRS = [process.cwd()];

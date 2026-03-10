@@ -90,14 +90,14 @@
   },
   "signature": {
     "alg": "ed25519",
-    "created_at": "2026-03-01T06:40:34.706Z",
+    "created_at": "2026-03-10T07:50:05.377Z",
     "signer": {
       "type": "human",
       "id": "did:human:alice123",
-      "public_key_b64": "/OfA8AX/2gIKCChIG69KwylU4t5SdGhzhVP1BpodSas="
+      "public_key_b64": "L9cW+sKJxJUX5+0v/4flcOUwqw4YlfwItf2z6dnBS18="
     },
     "bundle_hash": "sha256:7a62ce380f4ec90391e2c5e2302501c2d876e5ebbc9d718bf5bd4ca9d0b28af6",
     "merkle_root": "sha256:b80928bc53f1adf75227dbfd240fff4c63fbe6bdb8c3717a1752ac9fce3aadce",
-    "sig_b64": "MwFhsm6mPVylhC3gFaInL3EnteYYdWANQrgFj1/GrFlSOHr183TaJ1W+qm9l81+tdHu+lPou5Sv2mB6AVStICA=="
+    "sig_b64": "nCPr7KWyoViUTHXA0nZ46pjpbH7VUZ+e88ON3MKfe7+zcL8w6F4TQoOFdpAwVfNMm/DI+fxC2pGFZnQRzbAJCg=="
   }
 }

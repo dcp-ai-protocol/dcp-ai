@@ -38,6 +38,7 @@ npm-debug.log*
 .vscode/
 .idea/
 .cursor/
+.claude/
 
 # Rust
 sdks/rust/target/
