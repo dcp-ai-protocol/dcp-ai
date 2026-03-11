@@ -9,8 +9,8 @@
     "citizenship_bundle": "sha256:d3bc23ff41fcdbc9c7c0ebd592134f1997850ff82329d29722618a467750a8f8",
     "human_confirmation": "sha256:6c1d44ad2d40662ecdbfb5d154c9a8870ece20d568a2d13f03d053d3ac15a93a",
     "intent": "sha256:c0449ed0508260f7380716af8b92458a8868f1cd4e37739e07615638ad5e5d83",
-    "policy_decision": "sha256:4fd8c4792a45e939d946a1abe4945351335ac9dc74dca6a08c9f626e16922bf4",
-    "responsible_principal_record": "sha256:42ef59839352ae0a1a4d04d0e29049836c67051dc1d14acf337e17302fee66c9",
+    "policy_decision": "sha256:608e8ad7509eda45ebd5fb142ba4b952a19b6a422f7c82a7162a703e538709a6",
+    "responsible_principal_record": "sha256:90e35064755784fb2ddfa258b3bf84b640777d09e537c9580c44762379e74b5c",
     "revocation_record": "sha256:46419a775e1c2f42e28c9880cf4c95c9de0d6046b4359401cef613b3a21e7665",
     "signed_bundle": "sha256:711b828ab943f36c9e81b5df7f2fc7dcdba06b0761f5156cb641aa7848681773"
   }

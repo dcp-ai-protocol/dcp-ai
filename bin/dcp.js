@@ -334,7 +334,7 @@ if (cmd === "sign-bundle") {
     const msgBytes = Buffer.from(domainMsg, "utf8");
     const edSigBytes = Buffer.from(edSig, "base64");
     const bindingInput = Buffer.concat([msgBytes, edSigBytes]);
-    const pqSigReal = ml_dsa65.sign(pqSecretBuf, bindingInput);
+    const pqSigReal = ml_dsa65.sign(bindingInput, pqSecretBuf);
     const pqSigB64 = Buffer.from(pqSigReal).toString("base64");
 
     const signedBundle = {
@@ -1176,7 +1176,7 @@ if (cmd === "governance" && args[1] === "sign-advisory") {
 
   const pqSk = Buffer.from(pqSkB64, "base64");
   const bindingInput = Buffer.concat([payloadBytes, Buffer.from(edSig)]);
-  const pqSig = ml_dsa65.sign(pqSk, bindingInput);
+  const pqSig = ml_dsa65.sign(bindingInput, pqSk);
   const pqSigB64 = Buffer.from(pqSig).toString("base64");
 
   const governanceSig = {

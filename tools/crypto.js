@@ -113,7 +113,7 @@ export function signComposite(obj, edSecretKeyB64, pqSecretKeyB64, domain = "bun
     Buffer.from(msgBytes),
     Buffer.from(classicalSig, "base64"),
   ]);
-  const pqSig = ml_dsa65.sign(pqSk, bindingInput);
+  const pqSig = ml_dsa65.sign(bindingInput, pqSk);
   const pqSigB64 = Buffer.from(pqSig).toString("base64");
 
   return {
@@ -149,7 +149,7 @@ export function verifyComposite(obj, compositeSig, edPublicKeyB64, pqPublicKeyB6
 
   let pqOk = false;
   try {
-    pqOk = ml_dsa65.verify(pqPk, bindingInput, pqSig);
+    pqOk = ml_dsa65.verify(pqSig, bindingInput, pqPk);
   } catch {
     pqOk = false;
   }

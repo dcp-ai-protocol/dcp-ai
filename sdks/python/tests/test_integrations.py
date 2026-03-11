@@ -76,7 +76,7 @@ class TestOpenAIToolCall:
     def test_dcp_tools_structure(self):
         from dcp_ai.openai import DCP_TOOLS
 
-        assert len(DCP_TOOLS) == 2
+        assert len(DCP_TOOLS) == 6
         for tool in DCP_TOOLS:
             assert tool["type"] == "function"
             assert "name" in tool["function"]

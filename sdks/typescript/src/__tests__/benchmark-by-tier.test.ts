@@ -99,11 +99,13 @@ beforeAll(async () => {
       alg: 'ed25519',
       publicKeyB64: classicalKp.publicKeyB64,
       secretKeyB64: classicalKp.secretKeyB64,
+      kid: classicalKp.kid,
     },
     pq: {
       alg: 'ml-dsa-65',
       publicKeyB64: pqKp.publicKeyB64,
       secretKeyB64: pqKp.secretKeyB64,
+      kid: pqKp.kid,
     },
   };
 });
