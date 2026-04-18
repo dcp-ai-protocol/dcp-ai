@@ -36,7 +36,18 @@ fastapi = ["fastapi>=0.100.0", "uvicorn>=0.24.0"]
 langchain = ["langchain>=0.1.0", "langchain-core>=0.1.0"]
 openai = ["openai>=1.0.0"]
 crewai = ["crewai>=0.1.0"]
-dev = ["pytest>=7.0", "pytest-asyncio>=0.21.0"]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21.0",
+    # Integration test dependencies (loaded via tests/conftest.py).
+    # These mirror the extras so `pip install -e ".[dev]"` is enough in CI.
+    "fastapi>=0.100.0",
+    "uvicorn>=0.24.0",
+    "langchain>=0.1.0",
+    "langchain-core>=0.1.0",
+    "openai>=1.0.0",
+]
+
 
 [project.scripts]
 dcp = "dcp_ai.cli:app"
