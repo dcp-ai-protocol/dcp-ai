@@ -14,7 +14,6 @@ on:
           - sdk-typescript
           - sdk-wasm
           - cli
-          - sdk-python
           - sdk-rust
 
 jobs:
@@ -80,25 +79,6 @@ jobs:
       - run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-  publish-python-sdk:
-    name: Publish dcp-ai to PyPI
-    runs-on: ubuntu-latest
-    if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'sdk-python'
-    defaults:
-      run:
-        working-directory: sdks/python
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: pip install build twine
-      - run: python -m build
-      - run: twine upload dist/*
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
 
   publish-rust-sdk:
     name: Publish dcp-ai to crates.io
