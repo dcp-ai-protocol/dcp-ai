@@ -1,7 +1,7 @@
 {
-  "name": "@dcp-ai/google-a2a",
+  "name": "@dcp-ai/autogen",
   "version": "2.0.0",
-  "description": "DCP-AI bridge for Google A2A (Agent-to-Agent) Protocol",
+  "description": "DCP-AI bridge for Microsoft AutoGen — digital citizenship for multi-agent conversations",
   "type": "module",
   "main": "index.js",
   "exports": {
@@ -10,8 +10,9 @@
   "files": ["index.js", "README.md"],
   "keywords": [
     "dcp",
-    "a2a",
-    "google",
+    "autogen",
+    "microsoft",
+    "multi-agent",
     "agent",
     "ai",
     "protocol"
@@ -21,7 +22,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/dcp-ai-protocol/dcp-ai",
-    "directory": "integrations/google-a2a"
+    "directory": "integrations/autogen"
   },
   "homepage": "https://dcp-ai.org",
   "bugs": {

@@ -1,0 +1,133 @@
+name: Publish Integrations
+
+# Publishes the 6 framework integrations to npm. Each is its own
+# package under the @dcp-ai scope and is independent of the others.
+# Jobs that need @dcp-ai/sdk will resolve it from the public registry
+# (not the local file link), so the SDK must be published first.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      package:
+        description: 'Integration to publish'
+        required: true
+        type: choice
+        options:
+          - all
+          - anthropic-mcp
+          - autogen
+          - google-a2a
+          - w3c-did
+          - express
+          - openclaw
+
+jobs:
+  publish-anthropic-mcp:
+    name: Publish @dcp-ai/anthropic-mcp
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'anthropic-mcp'
+    defaults:
+      run:
+        working-directory: integrations/anthropic-mcp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-autogen:
+    name: Publish @dcp-ai/autogen
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'autogen'
+    defaults:
+      run:
+        working-directory: integrations/autogen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-google-a2a:
+    name: Publish @dcp-ai/google-a2a
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'google-a2a'
+    defaults:
+      run:
+        working-directory: integrations/google-a2a
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-w3c-did:
+    name: Publish @dcp-ai/w3c-did
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'w3c-did'
+    defaults:
+      run:
+        working-directory: integrations/w3c-did
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-express:
+    name: Publish @dcp-ai/express
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'express'
+    defaults:
+      run:
+        working-directory: integrations/express
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Install against the published @dcp-ai/sdk
+        run: npm install --no-package-lock
+      - run: npm run build
+      - run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-openclaw:
+    name: Publish @dcp-ai/openclaw
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'openclaw'
+    defaults:
+      run:
+        working-directory: integrations/openclaw
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Install against the published @dcp-ai/sdk
+        run: npm install --no-package-lock
+      - run: npm run build
+      - run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

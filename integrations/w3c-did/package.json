@@ -1,7 +1,7 @@
 {
-  "name": "@dcp-ai/google-a2a",
+  "name": "@dcp-ai/w3c-did",
   "version": "2.0.0",
-  "description": "DCP-AI bridge for Google A2A (Agent-to-Agent) Protocol",
+  "description": "DCP-AI bridge for W3C Decentralized Identifiers (DIDs) and Verifiable Credentials",
   "type": "module",
   "main": "index.js",
   "exports": {
@@ -10,10 +10,13 @@
   "files": ["index.js", "README.md"],
   "keywords": [
     "dcp",
-    "a2a",
-    "google",
-    "agent",
+    "w3c",
+    "did",
+    "vc",
+    "verifiable-credentials",
+    "identity",
     "ai",
+    "agent",
     "protocol"
   ],
   "license": "Apache-2.0",
@@ -21,7 +24,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/dcp-ai-protocol/dcp-ai",
-    "directory": "integrations/google-a2a"
+    "directory": "integrations/w3c-did"
   },
   "homepage": "https://dcp-ai.org",
   "bugs": {

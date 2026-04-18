@@ -1,6 +1,6 @@
 {
   "name": "@dcp-ai/openclaw",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "DCP integration plugin for OpenClaw — digital citizenship, intent declaration, and audit trail for AI agents",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -13,17 +13,18 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist", "SKILL.md"],
+  "files": ["dist", "SKILL.md", "README.md"],
   "scripts": {
     "build": "tsup src/index.ts --format esm,cjs --dts --clean",
     "lint": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
-    "@dcp-ai/sdk": "^1.0.0",
+    "@dcp-ai/sdk": "^2.0.0",
     "@sinclair/typebox": "^0.34.0"
   },
   "devDependencies": {
+    "@types/node": "^20.0.0",
     "tsup": "^8.0.0",
     "typescript": "^5.4.0",
     "vitest": "^1.6.0"
@@ -37,5 +38,21 @@
     "protocol",
     "plugin"
   ],
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "author": "DCP-AI Contributors",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dcp-ai-protocol/dcp-ai",
+    "directory": "integrations/openclaw"
+  },
+  "homepage": "https://dcp-ai.org",
+  "bugs": {
+    "url": "https://github.com/dcp-ai-protocol/dcp-ai/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=18"
+  }
 }
