@@ -1,20 +1,30 @@
 {
   "name": "@dcp-ai/cli",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Interactive CLI for DCP-AI Digital Citizenship Protocol",
   "type": "module",
   "bin": {
     "dcp-init": "./bin/dcp-init.js",
     "dcp-ai": "./bin/dcp-ai.js"
   },
-  "files": ["bin", "lib", "templates"],
+  "files": [
+    "bin",
+    "lib",
+    "templates"
+  ],
   "dependencies": {
-    "prompts": "^2.4.2",
+    "@dcp-ai/sdk": "^2.0.0",
     "chalk": "^5.3.0",
     "ora": "^8.0.1",
-    "@dcp-ai/sdk": "file:../sdks/typescript"
+    "prompts": "^2.4.2"
   },
-  "keywords": ["dcp", "ai", "agent", "citizenship", "cli"],
+  "keywords": [
+    "dcp",
+    "ai",
+    "agent",
+    "citizenship",
+    "cli"
+  ],
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
