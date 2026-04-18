@@ -255,6 +255,29 @@ const v2Examples = [
   { name: "V2 Agent Passport", schema: "schemas/v2/agent_passport.schema.json", example: "tests/conformance/examples/passport_v2.json" },
   { name: "V2 Intent", schema: "schemas/v2/intent.schema.json", example: "tests/conformance/examples/intent_v2.json" },
   { name: "V2 Policy Decision", schema: "schemas/v2/policy_decision.schema.json", example: "tests/conformance/examples/policy_decision_v2.json" },
+  // DCP-05: Agent Lifecycle
+  { name: "DCP-05 Commissioning Certificate", schema: "schemas/v2/commissioning_certificate.schema.json", example: "tests/conformance/examples/commissioning_certificate_v2.json" },
+  { name: "DCP-05 Vitality Report", schema: "schemas/v2/vitality_report.schema.json", example: "tests/conformance/examples/vitality_report_v2.json" },
+  { name: "DCP-05 Decommissioning Record", schema: "schemas/v2/decommissioning_record.schema.json", example: "tests/conformance/examples/decommissioning_record_v2.json" },
+  // DCP-06: Succession
+  { name: "DCP-06 Digital Testament", schema: "schemas/v2/digital_testament.schema.json", example: "tests/conformance/examples/digital_testament_v2.json" },
+  { name: "DCP-06 Succession Record", schema: "schemas/v2/succession_record.schema.json", example: "tests/conformance/examples/succession_record_v2.json" },
+  { name: "DCP-06 Memory Transfer Manifest", schema: "schemas/v2/memory_transfer_manifest.schema.json", example: "tests/conformance/examples/memory_transfer_manifest_v2.json" },
+  // DCP-07: Dispute Resolution
+  { name: "DCP-07 Dispute Record", schema: "schemas/v2/dispute_record.schema.json", example: "tests/conformance/examples/dispute_record_v2.json" },
+  { name: "DCP-07 Arbitration Resolution", schema: "schemas/v2/arbitration_resolution.schema.json", example: "tests/conformance/examples/arbitration_resolution_v2.json" },
+  { name: "DCP-07 Jurisprudence Bundle", schema: "schemas/v2/jurisprudence_bundle.schema.json", example: "tests/conformance/examples/jurisprudence_bundle_v2.json" },
+  { name: "DCP-07 Objection Record", schema: "schemas/v2/objection_record.schema.json", example: "tests/conformance/examples/objection_record_v2.json" },
+  // DCP-08: Rights & Obligations
+  { name: "DCP-08 Rights Declaration", schema: "schemas/v2/rights_declaration.schema.json", example: "tests/conformance/examples/rights_declaration_v2.json" },
+  { name: "DCP-08 Obligation Record", schema: "schemas/v2/obligation_record.schema.json", example: "tests/conformance/examples/obligation_record_v2.json" },
+  { name: "DCP-08 Rights Violation Report", schema: "schemas/v2/rights_violation_report.schema.json", example: "tests/conformance/examples/rights_violation_report_v2.json" },
+  // DCP-09: Delegation & Representation
+  { name: "DCP-09 Delegation Mandate", schema: "schemas/v2/delegation_mandate.schema.json", example: "tests/conformance/examples/delegation_mandate_v2.json" },
+  { name: "DCP-09 Advisory Declaration", schema: "schemas/v2/advisory_declaration.schema.json", example: "tests/conformance/examples/advisory_declaration_v2.json" },
+  { name: "DCP-09 Principal Mirror", schema: "schemas/v2/principal_mirror.schema.json", example: "tests/conformance/examples/principal_mirror_v2.json" },
+  { name: "DCP-09 Interaction Record", schema: "schemas/v2/interaction_record.schema.json", example: "tests/conformance/examples/interaction_record_v2.json" },
+  { name: "DCP-09 Awareness Threshold", schema: "schemas/v2/awareness_threshold.schema.json", example: "tests/conformance/examples/awareness_threshold_v2.json" },
 ];
 
 for (const check of v2Examples) {

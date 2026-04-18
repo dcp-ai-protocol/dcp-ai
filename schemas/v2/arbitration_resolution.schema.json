@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/arbitration_resolution.schema.json",
+  "title": "ArbitrationResolution",
+  "description": "DCP-07 v2.0 Arbitration Resolution. Records the outcome of a dispute arbitration process.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dcp_version", "dispute_id", "session_nonce", "arbitrator_ids",
+    "resolution", "binding", "timestamp", "composite_sig"
+  ],
+  "properties": {
+    "dcp_version": {
+      "type": "string",
+      "const": "2.0"
+    },
+    "dispute_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "session_nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "arbitrator_ids": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "resolution": {
+      "type": "string",
+      "minLength": 1
+    },
+    "binding": {
+      "type": "boolean"
+    },
+    "precedent_references": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "composite_sig": {
+      "$ref": "composite_signature.schema.json"
+    }
+  }
+}

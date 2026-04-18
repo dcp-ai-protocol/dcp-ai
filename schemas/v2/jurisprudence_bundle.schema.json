@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/jurisprudence_bundle.schema.json",
+  "title": "JurisprudenceBundle",
+  "description": "DCP-07 v2.0 Jurisprudence Bundle. Captures resolved disputes as reusable precedent.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dcp_version", "jurisprudence_id", "session_nonce", "dispute_id",
+    "resolution_id", "category", "precedent_summary",
+    "applicable_contexts", "authority_level", "timestamp", "composite_sig"
+  ],
+  "properties": {
+    "dcp_version": {
+      "type": "string",
+      "const": "2.0"
+    },
+    "jurisprudence_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "session_nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "dispute_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "resolution_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "category": {
+      "type": "string",
+      "minLength": 1
+    },
+    "precedent_summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "applicable_contexts": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "authority_level": {
+      "type": "string",
+      "enum": ["local", "organizational", "cross_org"]
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "composite_sig": {
+      "$ref": "composite_signature.schema.json"
+    }
+  }
+}

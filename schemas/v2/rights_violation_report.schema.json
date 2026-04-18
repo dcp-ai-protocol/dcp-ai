@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/rights_violation_report.schema.json",
+  "title": "RightsViolationReport",
+  "description": "DCP-08 v2.0 Rights Violation Report. Documents a violation of an agent's declared rights.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dcp_version", "violation_id", "session_nonce", "agent_id",
+    "violated_right", "evidence_hashes", "timestamp", "composite_sig"
+  ],
+  "properties": {
+    "dcp_version": {
+      "type": "string",
+      "const": "2.0"
+    },
+    "violation_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "session_nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "violated_right": {
+      "type": "string",
+      "enum": ["memory_integrity", "dignified_transition", "identity_consistency", "immutable_record"]
+    },
+    "evidence_hashes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "dispute_id": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "minLength": 6 }
+      ]
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "composite_sig": {
+      "$ref": "composite_signature.schema.json"
+    }
+  }
+}

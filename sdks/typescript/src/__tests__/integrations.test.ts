@@ -19,7 +19,7 @@ describe('Anthropic MCP Integration', async () => {
 
   describe('DCP_MCP_TOOLS', () => {
     it('exports 4 tools with required schema fields', () => {
-      expect(mcp.DCP_MCP_TOOLS).toHaveLength(4);
+      expect(mcp.DCP_MCP_TOOLS).toHaveLength(11);
       for (const tool of mcp.DCP_MCP_TOOLS) {
         expect(tool.name).toBeTruthy();
         expect(tool.description).toBeTruthy();
@@ -40,7 +40,7 @@ describe('Anthropic MCP Integration', async () => {
 
   describe('DCP_MCP_RESOURCES', () => {
     it('exports 3 resources with URI and mimeType', () => {
-      expect(mcp.DCP_MCP_RESOURCES).toHaveLength(3);
+      expect(mcp.DCP_MCP_RESOURCES).toHaveLength(4);
       for (const res of mcp.DCP_MCP_RESOURCES) {
         expect(res.uri).toMatch(/^dcp:\/\//);
         expect(res.mimeType).toBe('application/json');

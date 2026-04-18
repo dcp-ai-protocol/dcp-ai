@@ -50,7 +50,7 @@
     },
     "status": {
       "type": "string",
-      "enum": ["active", "revoked", "suspended"]
+      "enum": ["active", "revoked", "suspended", "commissioned", "declining", "decommissioned"]
     },
     "emergency_revocation_token": {
       "type": "string",

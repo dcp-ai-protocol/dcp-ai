@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/objection_record.schema.json",
+  "title": "ObjectionRecord",
+  "description": "DCP-07 v2.0 Objection Record. An agent's formal objection to a directive or action.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dcp_version", "objection_id", "session_nonce", "agent_id",
+    "directive_hash", "objection_type", "reasoning",
+    "human_escalation_required", "timestamp", "composite_sig"
+  ],
+  "properties": {
+    "dcp_version": {
+      "type": "string",
+      "const": "2.0"
+    },
+    "objection_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "session_nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "directive_hash": {
+      "type": "string",
+      "minLength": 1
+    },
+    "objection_type": {
+      "type": "string",
+      "enum": ["ethical", "safety", "policy_violation", "capability_mismatch"]
+    },
+    "reasoning": {
+      "type": "string",
+      "minLength": 1
+    },
+    "proposed_alternative": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "minLength": 1 }
+      ]
+    },
+    "human_escalation_required": {
+      "type": "boolean"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "composite_sig": {
+      "$ref": "composite_signature.schema.json"
+    }
+  }
+}

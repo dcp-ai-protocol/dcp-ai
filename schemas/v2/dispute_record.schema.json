@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/dispute_record.schema.json",
+  "title": "DisputeRecord",
+  "description": "DCP-07 v2.0 Dispute Record. Initiates a formal conflict resolution process between agents.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dcp_version", "dispute_id", "session_nonce", "initiator_agent_id",
+    "respondent_agent_id", "dispute_type", "evidence_hashes",
+    "escalation_level", "status", "timestamp", "composite_sig"
+  ],
+  "properties": {
+    "dcp_version": {
+      "type": "string",
+      "const": "2.0"
+    },
+    "dispute_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "session_nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "initiator_agent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "respondent_agent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "dispute_type": {
+      "type": "string",
+      "enum": ["resource_conflict", "directive_conflict", "capability_conflict", "policy_conflict"]
+    },
+    "evidence_hashes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "escalation_level": {
+      "type": "string",
+      "enum": ["direct_negotiation", "contextual_arbitration", "human_appeal"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["open", "in_negotiation", "arbitrated", "appealed", "resolved"]
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "composite_sig": {
+      "$ref": "composite_signature.schema.json"
+    }
+  }
+}

@@ -219,6 +219,40 @@ The PQ signature covers the classical signature. Removing either component cause
 
 **Strength:** Post-quantum forward secrecy + authenticated encryption.
 
+### 12. Lifecycle State Manipulation (DCP-05)
+
+**Attack:** A malicious actor attempts to bypass lifecycle state transitions — e.g., reactivating a decommissioned agent or skipping the "declining" state to avoid data disposition procedures.
+
+**Protection:**
+- **State machine enforcement:** The server enforces a strict state machine: `commissioned → active → declining → decommissioned`. Invalid transitions are rejected with a 400 error.
+- **Signed lifecycle records:** Every state transition (commissioning certificate, vitality report, decommissioning record) is signed and hash-chained.
+- **Immutable decommissioning:** Once an agent reaches `decommissioned`, no further transitions are possible. The decommissioning record includes data disposition proof.
+
+**Strength:** State machine enforcement + cryptographic audit trail. Unauthorized transitions are rejected at both protocol and implementation level.
+
+### 13. Unauthorized Succession (DCP-06)
+
+**Attack:** An unauthorized party creates a digital testament or initiates succession for an agent they don't control, transferring memory and authority to a rogue successor.
+
+**Protection:**
+- **Testament signing:** Digital testaments must be signed by the agent's responsible principal. The `testament_id`, `agent_id`, and `successor_preferences` are bound by the signature.
+- **Memory classification:** Memory transfers use classified access levels. Only entries matching the successor's clearance are transferred.
+- **Dual-hash manifests:** Memory transfer manifests use dual-hash (SHA-256 + SHA3-256) references to prevent tampering with transferred data.
+
+**Strength:** Cryptographic binding of succession authority + classified memory access control.
+
+### 14. Delegation Abuse & Authority Escalation (DCP-09)
+
+**Attack:** An agent with delegated authority attempts to exceed its delegation scope, or a delegation mandate is forged to grant unauthorized capabilities.
+
+**Protection:**
+- **Scoped delegation mandates:** Each mandate specifies `authority_scope` with explicit domains and actions. Actions outside scope are rejected.
+- **Awareness thresholds:** Configurable thresholds trigger alerts or require human confirmation when delegation parameters exceed defined limits (risk score, financial amount, data sensitivity).
+- **Principal mirrors:** The `PrincipalMirror` record maintains a verifiable snapshot of the principal's preferences, preventing drift between delegated authority and principal intent.
+- **Interaction logging:** Every interaction between delegate and principal is recorded with signed `InteractionRecord` entries.
+
+**Strength:** Scoped authorization + threshold monitoring + cryptographic audit trail.
+
 ### Updated Protection Layers (V2.0)
 
 ```
@@ -249,6 +283,21 @@ Layer 8: A2A Security (DCP-04)
 
 Layer 9: Observability (V2.0)
   Telemetry, metrics, and alerting for anomalous behavior.
+
+Layer 10: Lifecycle Governance (DCP-05)
+  State machine enforcement prevents unauthorized agent state changes.
+
+Layer 11: Succession Security (DCP-06)
+  Signed testaments and classified memory transfers protect succession integrity.
+
+Layer 12: Dispute Resolution (DCP-07)
+  Structured escalation prevents unresolved conflicts from compromising operations.
+
+Layer 13: Rights Enforcement (DCP-08)
+  Declared rights and obligations create verifiable compliance boundaries.
+
+Layer 14: Delegation Control (DCP-09)
+  Scoped mandates and awareness thresholds prevent authority escalation.
 ```
 
 For NIST post-quantum compliance details, see [NIST_CONFORMITY.md](NIST_CONFORMITY.md).

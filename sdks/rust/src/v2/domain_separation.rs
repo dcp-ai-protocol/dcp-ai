@@ -9,6 +9,13 @@ pub const CTX_KEY_ROTATION: &str = "DCP-AI.v2.KeyRotation";
 pub const CTX_PROOF_OF_POSSESSION: &str = "DCP-AI.v2.ProofOfPossession";
 pub const CTX_JURISDICTION_ATTESTATION: &str = "DCP-AI.v2.JurisdictionAttestation";
 pub const CTX_HUMAN_CONFIRMATION: &str = "DCP-AI.v2.HumanConfirmation";
+pub const CTX_MULTI_PARTY_AUTH: &str = "DCP-AI.v2.MultiPartyAuth";
+pub const CTX_LIFECYCLE: &str = "DCP-AI.v2.Lifecycle";
+pub const CTX_SUCCESSION: &str = "DCP-AI.v2.Succession";
+pub const CTX_DISPUTE: &str = "DCP-AI.v2.Dispute";
+pub const CTX_RIGHTS: &str = "DCP-AI.v2.Rights";
+pub const CTX_DELEGATION: &str = "DCP-AI.v2.Delegation";
+pub const CTX_AWARENESS: &str = "DCP-AI.v2.Awareness";
 
 const VALID_CONTEXTS: &[&str] = &[
     CTX_AGENT_PASSPORT,
@@ -22,6 +29,13 @@ const VALID_CONTEXTS: &[&str] = &[
     CTX_PROOF_OF_POSSESSION,
     CTX_JURISDICTION_ATTESTATION,
     CTX_HUMAN_CONFIRMATION,
+    CTX_MULTI_PARTY_AUTH,
+    CTX_LIFECYCLE,
+    CTX_SUCCESSION,
+    CTX_DISPUTE,
+    CTX_RIGHTS,
+    CTX_DELEGATION,
+    CTX_AWARENESS,
 ];
 
 pub fn is_valid_context(ctx: &str) -> bool {

@@ -2,6 +2,10 @@
 
 DCP wrapper for the OpenAI client. Adds automatic DCP governance to chat calls, function calling with DCP tools, and audit trail with hash-chaining.
 
+## Supported DCP Specifications
+
+DCP-01 through DCP-09.
+
 ## Installation
 
 ```bash
@@ -82,6 +86,7 @@ DCPOpenAIClient(
 | Method | Description |
 |--------|-------------|
 | `chat_completions_create(**kwargs)` | Creates a chat completion with DCP governance. Generates an Intent and AuditEntry for each call. |
+| `commission(purpose, capabilities?)` | Commission the agent (DCP-05 §3.1). |
 | `get_audit_trail()` | Returns the full list of audit entries with hash-chaining. |
 
 #### `chat_completions_create` Flow
@@ -113,6 +118,10 @@ response = client.chat.completions.create(
 |------|------------|-------------|
 | `dcp_verify_bundle` | `signed_bundle_json: string` | Verifies a DCP Signed Bundle |
 | `dcp_declare_intent` | `action_type: enum`, `target_channel: enum`, `data_classes?: string[]`, `estimated_impact?: enum` | Declares intent before an action (DCP-02) |
+| `dcp_commission_agent` | `purpose: string`, `capabilities?: string[]`, `risk_tier?: enum` | Commission agent (DCP-05 §3.1) |
+| `dcp_report_vitality` | `task_completion_rate`, `error_rate`, `satisfaction`, `policy_alignment` | Report vitality metrics (DCP-05 §4.1) |
+| `dcp_declare_rights` | `rights: string[]`, `jurisdiction: string` | Declare agent rights (DCP-08 §3.1) |
+| `dcp_create_mandate` | `human_id: string`, `authority_scope: string[]` | Create delegation mandate (DCP-09 §3.1) |
 
 **`action_type`**: `browse`, `api_call`, `send_email`, `create_calendar_event`, `initiate_payment`, `update_crm`, `write_file`, `execute_code`
 

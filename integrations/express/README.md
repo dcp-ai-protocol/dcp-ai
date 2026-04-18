@@ -2,6 +2,10 @@
 
 DCP verification middleware for Express.js. Automatically verifies Signed Bundles on each request and injects the verified agent data.
 
+## Supported DCP Specifications
+
+DCP-01 through DCP-09.
+
 ## Installation
 
 ```bash
@@ -81,6 +85,7 @@ app.use(dcpVerify({
 | `cacheTtlSeconds` | `number` | `0` | Seconds to cache verification results. `0` disables caching. |
 | `headerName` | `string` | `"x-dcp-bundle"` | Name of the HTTP header where the bundle is sent. |
 | `onFailure` | `function` | `undefined` | Custom handler for verification errors. Receives `(req, res, errors)`. |
+| `requireActiveLifecycle` | `boolean` | `false` | Reject decommissioned agents (DCP-05 §5.1). |
 
 ### `req.dcpAgent`
 
@@ -94,6 +99,8 @@ interface DCPAgent {
   capabilities: string[];  // Declared capabilities
   riskTier: string;     // Risk level (low/medium/high)
   status: string;       // Status (active/suspended/revoked)
+  lifecycleState?: string;  // DCP-05 lifecycle state
+  mandateId?: string;       // DCP-09 delegation mandate ID
 }
 ```
 

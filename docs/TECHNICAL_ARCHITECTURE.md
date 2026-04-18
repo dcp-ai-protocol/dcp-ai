@@ -35,8 +35,9 @@ Each layer builds on the previous one. A minimal deployment uses only Layers 1�
 
 Already exists in this repository.
 
-- `spec/` — DCP-01, DCP-02, DCP-03, BUNDLE, VERIFICATION.
-- `schemas/v1/` — JSON Schema draft 2020-12. Each artifact has a `.schema.json`.
+- `spec/` — DCP-01 through DCP-09, BUNDLE, VERIFICATION.
+- `schemas/v1/` — JSON Schema draft 2020-12 (V1 artifacts).
+- `schemas/v2/` — JSON Schema draft 2020-12 (V2 artifacts, including DCP-05–09).
 - The schemas are the source of truth. Any SDK consumes them directly.
 
 This layer is normative. It does not change frequently; it is extended with optional fields.
@@ -342,6 +343,106 @@ V2.0 adds bridge modules for interoperability with external ecosystems:
 ├──────────────────────────────────────────────────────┤
 │  Layer 1: Spec + Schemas (normative)                 │
 │  DCP-01/02/03/04, v2.0 spec, schemas/v1/ + v2/      │
+└──────────────────────────────────────────────────────┘
+```
+
+## DCP-05 through DCP-09: Constitutional Extensions
+
+DCP v2.0 extends beyond accountability into a constitutional framework for digital society. Five new specifications add lifecycle governance, succession, dispute resolution, rights, and delegation.
+
+### DCP-05: Agent Lifecycle Management
+
+Defines the lifecycle state machine: `commissioned → active → declining → decommissioned`. Introduces:
+- **Commissioning Certificate**: Formal agent activation with purpose, capabilities, and risk tier
+- **Vitality Reports**: Hash-chained health metrics (score 0-1000) for continuous monitoring
+- **Decommissioning Record**: Four termination modes (planned retirement, termination for cause, organizational restructuring, sudden failure)
+
+Domain separation context: `DCP-AI.v2.Lifecycle`
+
+### DCP-06: Digital Succession & Inheritance
+
+Handles agent death and knowledge transfer:
+- **Digital Testament**: Ranked successor preferences + memory classification (transfer/retain/destroy)
+- **Succession Record**: Ceremony record with human consent and participant witnesses
+- **Memory Transfer Manifest**: Dual-hash Merkle root over transferred operational memory; relational memory destroyed by default
+
+Domain separation context: `DCP-AI.v2.Succession`
+
+### DCP-07: Conflict Resolution & Dispute Arbitration
+
+Three-tier dispute escalation: direct negotiation → contextual arbitration → human appeal.
+- **Dispute Record**: Four types (resource, directive, capability, policy conflict)
+- **Arbitration Resolution**: M-of-N arbitration panels (reuses governance ceremony pattern)
+- **Jurisprudence Bundle**: Precedent capture for future dispute resolution
+- **Objection Record**: Formal agent right to refuse directives (ethical, safety, policy, capability)
+
+Domain separation context: `DCP-AI.v2.Dispute`
+
+### DCP-08: Rights & Obligations Framework
+
+Codifies agent rights and human obligations:
+- **Rights Declaration**: Four fundamental rights (memory integrity, dignified transition, identity consistency, immutable record)
+- **Obligation Record**: Compliance tracking (compliant/non-compliant/pending review)
+- **Rights Violation Report**: Links to DCP-07 dispute system for enforcement
+
+Domain separation context: `DCP-AI.v2.Rights`
+
+### DCP-09: Personal Representation & Delegation
+
+Human-agent authority delegation with transparency:
+- **Delegation Mandate**: Scoped authority with time bounds, revocable by default
+- **Advisory Declaration**: Agent-to-human notifications with significance scoring (0-1000)
+- **Principal Mirror**: Human-readable narrative summaries of agent actions
+- **Interaction Record**: Dual-layer inter-agent records (public terms + private deliberation hash)
+- **Awareness Threshold**: Configurable rules for when to notify the human
+
+Domain separation contexts: `DCP-AI.v2.Delegation`, `DCP-AI.v2.Awareness`
+
+### Schema & SDK Support
+
+All 18 new schemas live in `schemas/v2/`. Type definitions are available in all SDKs:
+
+| SDK | Types | Domain Separation |
+|-----|-------|-------------------|
+| TypeScript | `sdks/typescript/src/types/v2.ts` | `sdks/typescript/src/core/domain-separation.ts` |
+| Python | `sdks/python/dcp_ai/v2/models.py` | `sdks/python/dcp_ai/v2/domain_separation.py` |
+| Go | `sdks/go/dcp/v2/types.go` | `sdks/go/dcp/v2/domain_separation.go` |
+| Rust | `sdks/rust/src/v2/types.rs` | `sdks/rust/src/v2/domain_separation.rs` |
+| WASM | `sdks/wasm/src/types.ts` | (via Rust) |
+
+The TypeScript SDK additionally exports functional modules for each specification:
+- `lifecycle.ts` (DCP-05), `succession.ts` (DCP-06)
+- `conflict-resolution.ts`, `arbitration.ts` (DCP-07)
+- `rights.ts` (DCP-08)
+- `delegation.ts`, `awareness-threshold.ts`, `principal-mirror.ts` (DCP-09)
+
+### Updated Layer Architecture
+
+```
+┌──────────────────────────────────────────────────────┐
+│  Layer 8: Constitutional Framework                    │
+│  Lifecycle, Succession, Disputes, Rights, Delegation │
+├──────────────────────────────────────────────────────┤
+│  Layer 7: Ecosystem Bridges                          │
+│  W3C DID/VC, Google A2A, Anthropic MCP, AutoGen     │
+├──────────────────────────────────────────────────────┤
+│  Layer 6: Observability + Hardening                  │
+│  Telemetry, metrics, error codes, rate limiting      │
+├──────────────────────────────────────────────────────┤
+│  Layer 5: Integration                                │
+│  Express, FastAPI, LangChain, OpenAI, CrewAI, etc.  │
+├──────────────────────────────────────────────────────┤
+│  Layer 4: Anchor + Attestation                       │
+│  Bitcoin/Ethereum anchor, jurisdiction attestation    │
+├──────────────────────────────────────────────────────┤
+│  Layer 3: Infrastructure services                    │
+│  Verification, transparency log, revocation, A2A     │
+├──────────────────────────────────────────────────────┤
+│  Layer 2: SDK (multi-language, PQ-ready)             │
+│  TS, Python, Go, Rust + composite sigs + hybrid KEM │
+├──────────────────────────────────────────────────────┤
+│  Layer 1: Spec + Schemas (normative)                 │
+│  DCP-01–09, v2.0 spec, schemas/v1/ + v2/            │
 └──────────────────────────────────────────────────────┘
 ```
 

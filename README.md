@@ -19,8 +19,13 @@ The **Digital Citizenship Protocol (DCP)** defines a portable accountability lay
 
 - **Who is responsible** for an agent (Responsible Principal binding),
 - **What the agent declared** it intended to do (Intent Declaration),
-- **What policy outcome** was applied (Policy Decision), and
-- **What verifiable evidence** was produced (Audit Trail).
+- **What policy outcome** was applied (Policy Decision),
+- **What verifiable evidence** was produced (Audit Trail),
+- **How agents are managed** throughout their lifecycle (Lifecycle Management),
+- **What happens when agents transition** or are decommissioned (Digital Succession),
+- **How conflicts are resolved** between agents and principals (Dispute Resolution),
+- **What rights and obligations** govern agent behavior (Rights Framework), and
+- **How authority is delegated** from humans to agents (Personal Representation).
 
 All artifacts are cryptographically signed, hash-chained, and independently verifiable — without requiring a central authority.
 
@@ -70,6 +75,11 @@ See [spec/core/](spec/core/) for the core specification.
 | [DCP-02](spec/DCP-02.md) | Intent Declaration & Policy Gating | Declared intents, security tier enforcement, policy evaluation |
 | [DCP-03](spec/DCP-03.md) | Audit Chain & Transparency | Hash-chained audit entries, Merkle proofs, transparency logs |
 | [DCP-04](spec/DCP-04.md) | Agent-to-Agent Communication | Authenticated inter-agent messaging, delegation, trust chains |
+| [DCP-05](spec/DCP-05.md) | Agent Lifecycle Management | Commission, monitor, decline, and decommission agents with state machine enforcement |
+| [DCP-06](spec/DCP-06.md) | Digital Succession & Inheritance | Digital testaments, memory transfer, successor designation |
+| [DCP-07](spec/DCP-07.md) | Conflict Resolution & Dispute Arbitration | Disputes, escalation levels, arbitration, jurisprudence |
+| [DCP-08](spec/DCP-08.md) | Rights & Obligations Framework | Rights declarations, obligation records, violation reporting |
+| [DCP-09](spec/DCP-09.md) | Personal Representation & Delegation | Delegation mandates, awareness thresholds, principal mirrors |
 | [DCP-AI v2.0](spec/DCP-AI-v2.0.md) | Post-Quantum Normative Specification | Complete v2.0 spec with hybrid PQ crypto, 4-tier security model |
 
 See also: [Core specification](spec/core/dcp-core.md) | [Profiles overview](spec/profiles/)
@@ -290,6 +300,11 @@ cd docker && docker compose up -d
 | [DCP-02](spec/DCP-02.md) | Intent Declaration & Policy Gating |
 | [DCP-03](spec/DCP-03.md) | Audit Chain & Transparency |
 | [DCP-04](spec/DCP-04.md) | Agent-to-Agent Communication |
+| [DCP-05](spec/DCP-05.md) | Agent Lifecycle Management |
+| [DCP-06](spec/DCP-06.md) | Digital Succession & Inheritance |
+| [DCP-07](spec/DCP-07.md) | Conflict Resolution & Dispute Arbitration |
+| [DCP-08](spec/DCP-08.md) | Rights & Obligations Framework |
+| [DCP-09](spec/DCP-09.md) | Personal Representation & Delegation |
 | [DCP-AI v2.0](spec/DCP-AI-v2.0.md) | Post-Quantum Normative Specification |
 | [BUNDLE](spec/BUNDLE.md) | Citizenship Bundle format |
 | [VERIFICATION](spec/VERIFICATION.md) | Verification procedures & checklist |
@@ -371,10 +386,10 @@ DCP v2.0 employs a hybrid cryptographic architecture for quantum-resistant secur
 
 ```
 dcp-ai-genesis/
-├── spec/                    # Normative specifications (DCP-01 through DCP-04, v2.0)
+├── spec/                    # Normative specifications (DCP-01 through DCP-09, v2.0)
 │   ├── core/                # DCP Core editorial specification
 │   └── profiles/            # Profile specifications (crypto, a2a, governance)
-├── schemas/                 # JSON Schemas (draft 2020-12)
+├── schemas/                 # JSON Schemas (draft 2020-12, v2 includes DCP-05–09)
 ├── tools/                   # Validation, conformance, crypto + Merkle helpers
 ├── tests/                   # Conformance tests and fixtures
 ├── bin/dcp.js               # Reference CLI

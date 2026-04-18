@@ -94,6 +94,51 @@ export type {
   AdvisoryAction,
   // Adaptive Security Tiers
   SecurityTier,
+  // DCP-05: Agent Lifecycle
+  LifecycleState,
+  TerminationMode,
+  DataDisposition,
+  VitalityMetrics,
+  CommissioningCertificate,
+  VitalityReport,
+  DecommissioningRecord,
+  // DCP-06: Succession
+  TransitionType,
+  MemoryDisposition,
+  MemoryClassification,
+  SuccessorPreference,
+  DigitalTestament,
+  SuccessionRecord,
+  MemoryTransferEntry,
+  DualHashRef,
+  MemoryTransferManifest,
+  // DCP-07: Dispute Resolution
+  DisputeType,
+  EscalationLevel,
+  DisputeStatus,
+  ObjectionType,
+  AuthorityLevel,
+  DisputeRecord,
+  ArbitrationResolution,
+  JurisprudenceBundle,
+  ObjectionRecord,
+  // DCP-08: Rights & Obligations
+  RightType,
+  ComplianceStatus,
+  RightEntry,
+  RightsDeclaration,
+  ObligationRecord,
+  RightsViolationReport,
+  // DCP-09: Delegation & Representation
+  ThresholdOperator,
+  ThresholdAction,
+  AuthorityScopeEntry,
+  DelegationMandate,
+  AdvisoryDeclaration,
+  PrincipalMirror,
+  InteractionRecord,
+  ThresholdRule,
+  AwarenessThreshold,
 } from './types/v2.js';
 
 // ── V1 Crypto ──
@@ -331,6 +376,67 @@ export {
   verifyResumeProof,
   deriveRekeyedSessionKey,
 } from './a2a/index.js';
+
+// ── DCP-05: Agent Lifecycle ──
+export {
+  validateStateTransition,
+  computeVitalityScore,
+  createCommissioningCertificate,
+  createVitalityReport,
+  hashVitalityReport,
+  createDecommissioningRecord,
+} from './core/lifecycle.js';
+
+// ── DCP-06: Succession ──
+export {
+  createDigitalTestament,
+  updateDigitalTestament,
+  classifyMemory,
+  createMemoryTransferManifest,
+  executeSuccession,
+} from './core/succession.js';
+
+// ── DCP-07: Dispute Resolution ──
+export {
+  createDispute,
+  escalateDispute,
+  resolveDispute,
+  createObjection,
+} from './core/conflict-resolution.js';
+
+export {
+  createArbitrationPanel,
+  submitResolution,
+  buildJurisprudenceBundle,
+  lookupPrecedent,
+} from './core/arbitration.js';
+export type { ArbitrationPanel } from './core/arbitration.js';
+
+// ── DCP-08: Rights & Obligations ──
+export {
+  declareRights,
+  recordObligation,
+  reportViolation,
+  checkRightsCompliance,
+} from './core/rights.js';
+
+// ── DCP-09: Delegation & Representation ──
+export {
+  createDelegationMandate,
+  verifyMandateValidity,
+  revokeDelegation,
+  generateInteractionRecord,
+} from './core/delegation.js';
+
+export {
+  evaluateSignificance,
+  shouldNotifyHuman,
+  createAwarenessThreshold,
+  createAdvisoryDeclaration,
+} from './core/awareness-threshold.js';
+export type { SignificanceContext } from './core/awareness-threshold.js';
+
+export { generateMirror } from './core/principal-mirror.js';
 
 // ── Error Codes ──
 export {

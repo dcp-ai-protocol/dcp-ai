@@ -2,6 +2,10 @@
 
 DCP integration with LangChain. Wraps LangChain agents with digital citizenship, generates audit trails with automatic hash-chaining, and provides verification tools.
 
+## Supported DCP Specifications
+
+DCP-01 through DCP-09.
+
 ## Installation
 
 ```bash
@@ -78,8 +82,12 @@ DCPAgentWrapper(
 
 | Method | Description |
 |--------|-------------|
-| `invoke(inputs, **kwargs)` | Executes the agent with DCP governance. Generates Intent, PolicyDecision, and AuditEntry. |
+| `invoke(inputs, **kwargs)` | Executes the agent with DCP governance. Generates Intent, PolicyDecision, and AuditEntry. Blocks if decommissioned. |
 | `get_audit_trail()` | Returns the list of audit entries with hash-chaining. |
+| `commission(purpose, capabilities, risk_tier)` | Commission the agent (DCP-05 §3.1). |
+| `report_vitality(metrics_dict)` | Report vitality metrics and compute score (DCP-05 §4.1). |
+| `decommission(termination_mode, reason)` | Decommission the agent (DCP-05 §5.1). |
+| `declare_rights(rights, jurisdiction)` | Declare rights (DCP-08 §3.1). |
 
 #### Execution Flow
 
@@ -147,6 +155,7 @@ entries = callback.get_entries()
 |--------|-------------|
 | `on_chain_start(serialized, inputs, **kwargs)` | Records chain start |
 | `on_chain_end(outputs, **kwargs)` | Records chain end |
+| `on_lifecycle_event(event_type, details)` | Records lifecycle events (DCP-05) |
 | `get_entries()` | Returns list of audit entries |
 
 ## Advanced Example — Agent with Custom Policy Engine

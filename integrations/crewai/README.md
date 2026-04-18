@@ -2,6 +2,10 @@
 
 DCP integration with CrewAI for multi-agent governance. Each agent has its own DCP passport and audit trail, with support for combining trails across the entire crew.
 
+## Supported DCP Specifications
+
+DCP-01 through DCP-09.
+
 ## Installation
 
 ```bash
@@ -100,8 +104,12 @@ DCPCrewAgent(
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `log_action(action_type, outcome, evidence?)` | `(str, str, dict?) -> dict` | Records an action as a DCP AuditEntry with hash-chaining |
+| `log_action(action_type, outcome, evidence?)` | `(str, str, dict?) -> dict` | Records an action as a DCP AuditEntry with hash-chaining. Raises if decommissioned. |
 | `get_audit_trail()` | `() -> list[dict]` | Returns the agent's audit trail |
+| `commission(purpose, capabilities, risk_tier)` | `(str, list?, str?) -> dict` | Commission the agent (DCP-05 §3.1) |
+| `report_vitality(metrics)` | `(dict) -> dict` | Report vitality metrics (DCP-05 §4.1) |
+| `decommission(mode, reason)` | `(str, str) -> dict` | Decommission the agent (DCP-05 §5.1) |
+| `create_testament(successor_preferences, memory_classification)` | `(list, str) -> dict` | Create digital testament (DCP-06 §3.1) |
 
 #### `log_action`
 
@@ -136,6 +144,10 @@ DCPCrew(
 | `kickoff(task)` | `(str) -> dict` | Executes the crew with the specified task |
 | `get_combined_audit_trail()` | `() -> list[dict]` | Combined trail from all agents, ordered by timestamp |
 | `get_agent_bundles()` | `() -> dict[str, list[dict]]` | Individual trails by `agent_id` |
+| `commission_all(purpose?)` | `(str?) -> list[dict]` | Commission all agents in the crew (DCP-05 §3.1) |
+| `succession(from_agent, to_agent)` | `(DCPCrewAgent, DCPCrewAgent) -> dict` | Create succession record (DCP-06 §4.1) |
+| `delegate(human_id, agent, authority_scope)` | `(str, DCPCrewAgent, list) -> dict` | Create delegation mandate (DCP-09 §3.1) |
+| `get_lifecycle_summary()` | `() -> list[dict]` | Get lifecycle state of each agent |
 
 ### `get_combined_audit_trail()`
 

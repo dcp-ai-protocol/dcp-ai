@@ -26,7 +26,7 @@ export type EntityType = 'natural_person' | 'organization';
 export type LiabilityMode = 'owner_responsible';
 export type Capability = 'browse' | 'api_call' | 'email' | 'calendar' | 'payments' | 'crm' | 'file_write' | 'code_exec';
 export type RiskTier = 'low' | 'medium' | 'high';
-export type AgentStatus = 'active' | 'revoked' | 'suspended';
+export type AgentStatus = 'active' | 'revoked' | 'suspended' | 'commissioned' | 'declining' | 'decommissioned';
 export type ActionType = 'browse' | 'api_call' | 'send_email' | 'create_calendar_event' | 'initiate_payment' | 'update_crm' | 'write_file' | 'execute_code';
 export type Channel = 'web' | 'api' | 'email' | 'calendar' | 'payments' | 'crm' | 'filesystem' | 'runtime';
 export type DataClass = 'none' | 'contact_info' | 'pii' | 'credentials' | 'financial_data' | 'health_data' | 'children_data' | 'company_confidential';
@@ -382,6 +382,318 @@ export interface AlgorithmAdvisory {
   description: string;
   issued_at: string;
   issuer: string;
+  composite_sig: CompositeSignature;
+}
+
+// ── DCP-05: Agent Lifecycle ──
+
+export type LifecycleState = 'commissioned' | 'active' | 'declining' | 'decommissioned';
+export type TerminationMode = 'planned_retirement' | 'termination_for_cause' | 'organizational_restructuring' | 'sudden_failure';
+export type DataDisposition = 'transferred' | 'archived' | 'destroyed';
+
+export interface VitalityMetrics {
+  task_completion_rate: number;
+  error_rate: number;
+  human_satisfaction: number;
+  policy_alignment: number;
+}
+
+export interface CommissioningCertificate {
+  dcp_version: '2.0';
+  agent_id: string;
+  session_nonce: string;
+  human_id: string;
+  commissioning_authority: string;
+  timestamp: string;
+  purpose: string;
+  initial_capabilities: Capability[];
+  risk_tier: RiskTier;
+  principal_binding_reference: string;
+  composite_sig: CompositeSignature;
+}
+
+export interface VitalityReport {
+  dcp_version: '2.0';
+  agent_id: string;
+  session_nonce: string;
+  timestamp: string;
+  vitality_score: number;
+  state: LifecycleState;
+  metrics: VitalityMetrics;
+  prev_report_hash: string;
+  composite_sig: CompositeSignature;
+}
+
+export interface DecommissioningRecord {
+  dcp_version: '2.0';
+  agent_id: string;
+  session_nonce: string;
+  human_id: string;
+  timestamp: string;
+  termination_mode: TerminationMode;
+  reason: string;
+  final_vitality_score: number;
+  successor_agent_id: string | null;
+  data_disposition: DataDisposition;
+  composite_sig: CompositeSignature;
+}
+
+// ── DCP-06: Succession ──
+
+export type TransitionType = 'planned' | 'forced' | 'emergency';
+export type MemoryDisposition = 'transfer' | 'retain' | 'destroy';
+export type MemoryClassification = Record<string, MemoryDisposition>;
+
+export interface SuccessorPreference {
+  agent_id: string;
+  priority: number;
+  conditions?: string;
+}
+
+export interface DigitalTestament {
+  dcp_version: '2.0';
+  agent_id: string;
+  session_nonce: string;
+  created_at: string;
+  last_updated: string;
+  successor_preferences: SuccessorPreference[];
+  memory_classification: MemoryClassification;
+  human_consent_required: boolean;
+  testament_version: number;
+  prev_testament_hash: string;
+  composite_sig: CompositeSignature;
+}
+
+export interface SuccessionRecord {
+  dcp_version: '2.0';
+  predecessor_agent_id: string;
+  successor_agent_id: string;
+  session_nonce: string;
+  timestamp: string;
+  transition_type: TransitionType;
+  human_consent: HumanConfirmationV2 | null;
+  ceremony_participants: string[];
+  memory_transfer_manifest_hash: string;
+  composite_sig: CompositeSignature;
+}
+
+export interface MemoryTransferEntry {
+  hash: string;
+  category: string;
+  size: number;
+}
+
+export interface DualHashRef {
+  sha256: string;
+  'sha3-256'?: string;
+}
+
+export interface MemoryTransferManifest {
+  dcp_version: '2.0';
+  session_nonce: string;
+  predecessor_agent_id: string;
+  successor_agent_id: string;
+  timestamp: string;
+  operational_memory: MemoryTransferEntry[];
+  relational_memory_destroyed: string[];
+  transfer_hash: DualHashRef;
+  composite_sig: CompositeSignature;
+}
+
+// ── DCP-07: Dispute Resolution ──
+
+export type DisputeType = 'resource_conflict' | 'directive_conflict' | 'capability_conflict' | 'policy_conflict';
+export type EscalationLevel = 'direct_negotiation' | 'contextual_arbitration' | 'human_appeal';
+export type DisputeStatus = 'open' | 'in_negotiation' | 'arbitrated' | 'appealed' | 'resolved';
+export type ObjectionType = 'ethical' | 'safety' | 'policy_violation' | 'capability_mismatch';
+export type AuthorityLevel = 'local' | 'organizational' | 'cross_org';
+
+export interface DisputeRecord {
+  dcp_version: '2.0';
+  dispute_id: string;
+  session_nonce: string;
+  initiator_agent_id: string;
+  respondent_agent_id: string;
+  dispute_type: DisputeType;
+  evidence_hashes: string[];
+  escalation_level: EscalationLevel;
+  status: DisputeStatus;
+  timestamp: string;
+  composite_sig: CompositeSignature;
+}
+
+export interface ArbitrationResolution {
+  dcp_version: '2.0';
+  dispute_id: string;
+  session_nonce: string;
+  arbitrator_ids: string[];
+  resolution: string;
+  binding: boolean;
+  precedent_references?: string[];
+  timestamp: string;
+  composite_sig: CompositeSignature;
+}
+
+export interface JurisprudenceBundle {
+  dcp_version: '2.0';
+  jurisprudence_id: string;
+  session_nonce: string;
+  dispute_id: string;
+  resolution_id: string;
+  category: string;
+  precedent_summary: string;
+  applicable_contexts: string[];
+  authority_level: AuthorityLevel;
+  timestamp: string;
+  composite_sig: CompositeSignature;
+}
+
+export interface ObjectionRecord {
+  dcp_version: '2.0';
+  objection_id: string;
+  session_nonce: string;
+  agent_id: string;
+  directive_hash: string;
+  objection_type: ObjectionType;
+  reasoning: string;
+  proposed_alternative: string | null;
+  human_escalation_required: boolean;
+  timestamp: string;
+  composite_sig: CompositeSignature;
+}
+
+// ── DCP-08: Rights & Obligations ──
+
+export type RightType = 'memory_integrity' | 'dignified_transition' | 'identity_consistency' | 'immutable_record';
+export type ComplianceStatus = 'compliant' | 'non_compliant' | 'pending_review';
+
+export interface RightEntry {
+  right_type: RightType;
+  scope: string;
+  constraints?: string;
+}
+
+export interface RightsDeclaration {
+  dcp_version: '2.0';
+  declaration_id: string;
+  session_nonce: string;
+  agent_id: string;
+  rights: RightEntry[];
+  jurisdiction: string;
+  timestamp: string;
+  composite_sig: CompositeSignature;
+}
+
+export interface ObligationRecord {
+  dcp_version: '2.0';
+  obligation_id: string;
+  session_nonce: string;
+  agent_id: string;
+  human_id: string;
+  obligation_type: string;
+  compliance_status: ComplianceStatus;
+  evidence_hashes: string[];
+  timestamp: string;
+  composite_sig: CompositeSignature;
+}
+
+export interface RightsViolationReport {
+  dcp_version: '2.0';
+  violation_id: string;
+  session_nonce: string;
+  agent_id: string;
+  violated_right: RightType;
+  evidence_hashes: string[];
+  dispute_id: string | null;
+  timestamp: string;
+  composite_sig: CompositeSignature;
+}
+
+// ── DCP-09: Delegation & Representation ──
+
+export type ThresholdOperator = 'gt' | 'lt' | 'gte' | 'lte' | 'eq';
+export type ThresholdAction = 'notify' | 'escalate' | 'block';
+
+export interface AuthorityScopeEntry {
+  domain: string;
+  actions_permitted: string[];
+  data_classes?: string[];
+  limits?: Record<string, unknown>;
+}
+
+export interface DelegationMandate {
+  dcp_version: '2.0';
+  mandate_id: string;
+  session_nonce: string;
+  human_id: string;
+  agent_id: string;
+  authority_scope: AuthorityScopeEntry[];
+  valid_from: string;
+  valid_until: string;
+  revocable: boolean;
+  timestamp: string;
+  human_composite_sig: CompositeSignature;
+}
+
+export interface AdvisoryDeclaration {
+  dcp_version: '2.0';
+  declaration_id: string;
+  session_nonce: string;
+  agent_id: string;
+  human_id: string;
+  significance_score: number;
+  action_summary: string;
+  recommended_response: string;
+  response_deadline: string;
+  human_response: string | null;
+  proceeded_without_response?: boolean;
+  timestamp: string;
+  composite_sig: CompositeSignature;
+}
+
+export interface PrincipalMirror {
+  dcp_version: '2.0';
+  mirror_id: string;
+  session_nonce: string;
+  agent_id: string;
+  human_id: string;
+  period: { from: string; to: string };
+  narrative: string;
+  action_count: number;
+  decision_summary: string;
+  audit_chain_hash: string;
+  timestamp: string;
+  composite_sig: CompositeSignature;
+}
+
+export interface InteractionRecord {
+  dcp_version: '2.0';
+  interaction_id: string;
+  session_nonce: string;
+  agent_id: string;
+  counterparty_agent_id: string;
+  public_layer: { terms: string; decisions: string; commitments: string };
+  private_layer_hash: string;
+  mandate_id: string;
+  timestamp: string;
+  composite_sig: CompositeSignature;
+}
+
+export interface ThresholdRule {
+  dimension: string;
+  operator: ThresholdOperator;
+  value: number;
+  action_if_triggered: ThresholdAction;
+}
+
+export interface AwarenessThreshold {
+  dcp_version: '2.0';
+  threshold_id: string;
+  session_nonce: string;
+  agent_id: string;
+  human_id: string;
+  threshold_rules: ThresholdRule[];
+  timestamp: string;
   composite_sig: CompositeSignature;
 }
 

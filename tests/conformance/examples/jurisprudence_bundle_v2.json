@@ -1,0 +1,21 @@
+{
+  "dcp_version": "2.0",
+  "jurisprudence_id": "juris:api-timeshare-2026-001",
+  "session_nonce": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+  "dispute_id": "dispute:res-conflict-2026-042",
+  "resolution_id": "resolution:res-conflict-2026-042-final",
+  "category": "resource_sharing",
+  "precedent_summary": "When two agents require access to a shared API with limited throughput, time-based partitioning with rate limits is preferred over exclusive access. Priority should align with each agent's primary operational window.",
+  "applicable_contexts": [
+    "shared_api_access",
+    "resource_contention",
+    "multi_agent_scheduling"
+  ],
+  "authority_level": "organizational",
+  "timestamp": "2026-03-20T10:00:00Z",
+  "composite_sig": {
+    "classical": { "alg": "ed25519", "kid": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4", "sig_b64": "dGVzdHNpZzEyMzQ1Njc4OTAxMjM0NTY=" },
+    "pq": { "alg": "ml-dsa-65", "kid": "d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1", "sig_b64": "dGVzdHBxc2lnMTIzNDU2Nzg5MDEyMzQ1Ng==" },
+    "binding": "pq_over_classical"
+  }
+}

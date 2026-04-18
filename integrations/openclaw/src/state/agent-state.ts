@@ -56,6 +56,13 @@ export interface DCPSessionState {
   checkpointCounter: number;
   emergencyToken: EmergencyRevocationTokenPair | null;
 
+  // ── DCP-05–09 fields ──
+  lifecycleState: 'active' | 'commissioned' | 'declining' | 'decommissioned';
+  commissioningCertificate: Record<string, unknown> | null;
+  vitalityReports: Record<string, unknown>[];
+  digitalTestament: Record<string, unknown> | null;
+  delegationMandate: Record<string, unknown> | null;
+
   createdAt: string;
 }
 
@@ -86,6 +93,11 @@ function createSession(): DCPSessionState {
     pqCheckpoints: [],
     checkpointCounter: 0,
     emergencyToken: null,
+    lifecycleState: 'active',
+    commissioningCertificate: null,
+    vitalityReports: [],
+    digitalTestament: null,
+    delegationMandate: null,
     createdAt: new Date().toISOString(),
   };
 }

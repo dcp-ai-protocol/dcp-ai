@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/interaction_record.schema.json",
+  "title": "InteractionRecord",
+  "description": "DCP-09 v2.0 Interaction Record. Records a dual-layer interaction between agents acting under delegation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dcp_version", "interaction_id", "session_nonce", "agent_id",
+    "counterparty_agent_id", "public_layer", "private_layer_hash",
+    "mandate_id", "timestamp", "composite_sig"
+  ],
+  "properties": {
+    "dcp_version": {
+      "type": "string",
+      "const": "2.0"
+    },
+    "interaction_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "session_nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "counterparty_agent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "public_layer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["terms", "decisions", "commitments"],
+      "properties": {
+        "terms": { "type": "string", "minLength": 1 },
+        "decisions": { "type": "string", "minLength": 1 },
+        "commitments": { "type": "string", "minLength": 1 }
+      }
+    },
+    "private_layer_hash": {
+      "type": "string",
+      "minLength": 1
+    },
+    "mandate_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "composite_sig": {
+      "$ref": "composite_signature.schema.json"
+    }
+  }
+}

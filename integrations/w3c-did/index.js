@@ -98,6 +98,8 @@ export function passportToVC(passport, issuerDid) {
       liabilityMode: passport.liability_mode,
       ownerRprHash: passport.owner_rpr_hash,
       status: passport.status,
+      lifecycleState: passport.status || 'active',
+      mandate: passport.mandate_id ? { mandate_id: passport.mandate_id } : undefined,
     },
   };
 }
@@ -119,7 +121,7 @@ export function vcToPassport(vc) {
     owner_rpr_hash: subject.ownerRprHash || '',
     keys: [],
     created_at: vc.issuanceDate || new Date().toISOString(),
-    status: subject.status || 'active',
+    status: subject.lifecycleState || subject.status || 'active',
     liability_mode: subject.liabilityMode || 'delegated',
     jurisdiction: subject.jurisdiction || 'unknown',
   };
@@ -142,9 +144,30 @@ export function bundleToVP(signedBundle, holderDid) {
         bundleVersion: signedBundle.bundle?.dcp_bundle_version || '2.0',
         manifestHash: signedBundle.signature?.manifest_hash,
         securityTier: signedBundle.bundle?.intent?.payload?.security_tier || 'standard',
+        lifecycleState: signedBundle.bundle?.agent_passport?.payload?.status || 'active',
+        mandateId: signedBundle.bundle?.manifest?.mandate_id || null,
       },
     }],
     dcpBundle: signedBundle,
     created: new Date().toISOString(),
   };
+}
+
+/**
+ * Convert a DCP Rights Declaration to W3C DID service endpoints (DCP-08 §3.1).
+ * @param {object} rightsDeclaration - DCP RightsDeclaration artifact
+ * @returns {Array<object>} DID service endpoints of type DCPRight
+ */
+export function rightsToServiceEndpoints(rightsDeclaration) {
+  const agentDid = `did:dcp:agent:${(rightsDeclaration.agent_id || '').replace('agent:', '')}`;
+  return (rightsDeclaration.rights || []).map((right, i) => ({
+    id: `${agentDid}#right-${i}`,
+    type: 'DCPRight',
+    serviceEndpoint: {
+      right,
+      jurisdiction: rightsDeclaration.jurisdiction || 'unknown',
+      declared_at: rightsDeclaration.timestamp || new Date().toISOString(),
+      _spec_ref: 'DCP-08 §3.1',
+    },
+  }));
 }

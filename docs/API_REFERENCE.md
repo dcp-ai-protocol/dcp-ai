@@ -17,6 +17,11 @@ Complete reference for the `@dcp-ai/sdk` TypeScript SDK (v2.0).
 - [Telemetry & Observability](#telemetry--observability)
 - [Hashing & Merkle Trees](#hashing--merkle-trees)
 - [Schema Validation](#schema-validation)
+- [DCP-05: Agent Lifecycle](#dcp-05-agent-lifecycle)
+- [DCP-06: Succession](#dcp-06-succession)
+- [DCP-07: Dispute Resolution](#dcp-07-dispute-resolution)
+- [DCP-08: Rights & Obligations](#dcp-08-rights--obligations)
+- [DCP-09: Delegation & Representation](#dcp-09-delegation--representation)
 - [Domain Separation](#domain-separation)
 - [Session Nonces](#session-nonces)
 - [Key Recovery](#key-recovery)
@@ -170,7 +175,7 @@ type EntityType = 'natural_person' | 'organization';
 type LiabilityMode = 'owner_responsible';
 type Capability = 'browse' | 'api_call' | 'email' | 'calendar' | 'payments' | 'crm' | 'file_write' | 'code_exec';
 type RiskTier = 'low' | 'medium' | 'high';
-type AgentStatus = 'active' | 'revoked' | 'suspended';
+type AgentStatus = 'active' | 'revoked' | 'suspended' | 'commissioned' | 'declining' | 'decommissioned';
 type ActionType = 'browse' | 'api_call' | 'send_email' | 'create_calendar_event' | 'initiate_payment' | 'update_crm' | 'write_file' | 'execute_code';
 type Channel = 'web' | 'api' | 'email' | 'calendar' | 'payments' | 'crm' | 'filesystem' | 'runtime';
 type DataClass = 'none' | 'contact_info' | 'pii' | 'credentials' | 'financial_data' | 'health_data' | 'children_data' | 'company_confidential';
@@ -1304,6 +1309,174 @@ interface ValidationResult {
 
 ---
 
+## DCP-05: Agent Lifecycle
+
+Import from `@dcp-ai/sdk`:
+
+### `validateStateTransition(from, to)`
+
+Check if a lifecycle state transition is valid.
+
+```typescript
+function validateStateTransition(from: LifecycleState, to: LifecycleState): boolean;
+
+type LifecycleState = 'commissioned' | 'active' | 'declining' | 'decommissioned';
+```
+
+Valid transitions: `commissioned→active`, `active→declining`, `declining→decommissioned`, `active→decommissioned` (sudden failure).
+
+### `computeVitalityScore(metrics)`
+
+Compute a weighted vitality score (0-1000) from component metrics.
+
+```typescript
+function computeVitalityScore(metrics: VitalityMetrics): number;
+
+interface VitalityMetrics {
+  task_completion_rate: number;  // 0.0 – 1.0
+  error_rate: number;            // 0.0 – 1.0
+  human_satisfaction: number;    // 0.0 – 1.0
+  policy_alignment: number;      // 0.0 – 1.0
+}
+```
+
+### `createCommissioningCertificate(...)` / `createVitalityReport(...)` / `createDecommissioningRecord(...)`
+
+Create signed lifecycle artifacts. All require `AlgorithmRegistry` and `CompositeKeyPair`.
+
+```typescript
+type TerminationMode = 'planned_retirement' | 'termination_for_cause' | 'organizational_restructuring' | 'sudden_failure';
+type DataDisposition = 'transferred' | 'archived' | 'destroyed';
+```
+
+---
+
+## DCP-06: Succession
+
+### `createDigitalTestament(...)` / `updateDigitalTestament(...)`
+
+Create or update a digital testament with successor preferences and memory classification.
+
+```typescript
+type MemoryDisposition = 'transfer' | 'retain' | 'destroy';
+type MemoryClassification = Record<string, MemoryDisposition>;
+
+interface SuccessorPreference {
+  agent_id: string;
+  priority: number;
+  conditions?: string;
+}
+```
+
+### `executeSuccession(...)` / `createMemoryTransferManifest(...)`
+
+Execute a succession ceremony and create the memory transfer manifest.
+
+```typescript
+type TransitionType = 'planned' | 'forced' | 'emergency';
+```
+
+### `classifyMemory(entries, classification)`
+
+Classify memory entries into operational (transferable) and relational (destroyed).
+
+---
+
+## DCP-07: Dispute Resolution
+
+### `createDispute(...)` / `escalateDispute(...)` / `resolveDispute(...)`
+
+Manage the dispute lifecycle.
+
+```typescript
+type DisputeType = 'resource_conflict' | 'directive_conflict' | 'capability_conflict' | 'policy_conflict';
+type EscalationLevel = 'direct_negotiation' | 'contextual_arbitration' | 'human_appeal';
+type DisputeStatus = 'open' | 'in_negotiation' | 'arbitrated' | 'appealed' | 'resolved';
+```
+
+### `createObjection(...)`
+
+Create a formal agent objection to a directive.
+
+```typescript
+type ObjectionType = 'ethical' | 'safety' | 'policy_violation' | 'capability_mismatch';
+```
+
+### `createArbitrationPanel(...)` / `submitResolution(...)` / `buildJurisprudenceBundle(...)`
+
+Manage arbitration panels and precedent capture.
+
+```typescript
+type AuthorityLevel = 'local' | 'organizational' | 'cross_org';
+```
+
+### `lookupPrecedent(category, bundles)`
+
+Search jurisprudence bundles for applicable precedents.
+
+---
+
+## DCP-08: Rights & Obligations
+
+### `declareRights(...)` / `recordObligation(...)` / `reportViolation(...)`
+
+Manage agent rights and obligation compliance.
+
+```typescript
+type RightType = 'memory_integrity' | 'dignified_transition' | 'identity_consistency' | 'immutable_record';
+type ComplianceStatus = 'compliant' | 'non_compliant' | 'pending_review';
+
+interface RightEntry {
+  right_type: RightType;
+  scope: string;
+  constraints?: string;
+}
+```
+
+### `checkRightsCompliance(rights, obligations)`
+
+Check whether all declared rights are being respected by current obligations.
+
+---
+
+## DCP-09: Delegation & Representation
+
+### `createDelegationMandate(...)` / `verifyMandateValidity(mandate)` / `revokeDelegation(mandate)`
+
+Create, validate, and revoke human-to-agent authority delegations.
+
+```typescript
+interface AuthorityScopeEntry {
+  domain: string;
+  actions_permitted: string[];
+  data_classes?: string[];
+  limits?: Record<string, unknown>;
+}
+```
+
+### `evaluateSignificance(context)` / `shouldNotifyHuman(significance, thresholds)`
+
+Evaluate action significance and determine whether the human should be notified.
+
+```typescript
+type ThresholdOperator = 'gt' | 'lt' | 'gte' | 'lte' | 'eq';
+type ThresholdAction = 'notify' | 'escalate' | 'block';
+```
+
+### `createAdvisoryDeclaration(...)` / `createAwarenessThreshold(...)`
+
+Create agent advisories and configure notification thresholds.
+
+### `generateMirror(...)`
+
+Generate a human-readable principal mirror narrative from an audit chain.
+
+### `generateInteractionRecord(...)`
+
+Create a dual-layer inter-agent interaction record (public terms + private deliberation hash).
+
+---
+
 ## Domain Separation
 
 ### `DCP_CONTEXTS`
@@ -1312,7 +1485,11 @@ Pre-defined domain separation contexts for different DCP operations.
 
 ```typescript
 const DCP_CONTEXTS: Record<string, DcpContext>;
-// Includes: RPR, AgentPassport, Intent, PolicyDecision, AuditEvent, Bundle, PQCheckpoint, etc.
+// 18 contexts: AgentPassport, ResponsiblePrincipal, Intent, PolicyDecision,
+// AuditEvent, Bundle, Revocation, KeyRotation, ProofOfPossession,
+// JurisdictionAttestation, HumanConfirmation, MultiPartyAuth,
+// Lifecycle (DCP-05), Succession (DCP-06), Dispute (DCP-07),
+// Rights (DCP-08), Delegation (DCP-09), Awareness (DCP-09)
 ```
 
 ### `domainSeparatedMessage(context, payload)`

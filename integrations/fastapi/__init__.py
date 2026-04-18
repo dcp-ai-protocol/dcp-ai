@@ -46,6 +46,9 @@ class DCPAgentContext:
     composite_sig_valid: bool = False
     session_binding_valid: bool = False
     blinded_rpr: bool = False
+    lifecycle_state: str = "active"
+    mandate_id: str = ""
+    mandate_valid: bool = False
 
 
 def _detect_version(signed_bundle: dict[str, Any]) -> str:
@@ -199,6 +202,8 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
             is_blinded = rpr_payload.get("blinded", False) is True
             cs = signed_bundle.get("signature", {}).get("composite_sig", {})
 
+            lifecycle_state = passport_payload.get("status", "active")
+
             request.state.dcp_agent = DCPAgentContext(
                 dcp_version="2.0",
                 agent_id=passport_payload.get("agent_id", ""),
@@ -214,6 +219,7 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
                 composite_sig_valid=cs.get("binding") == "pq_over_classical",
                 session_binding_valid=True,
                 blinded_rpr=is_blinded,
+                lifecycle_state=lifecycle_state,
             )
         else:
             from dcp_ai.verify import verify_signed_bundle
@@ -255,6 +261,33 @@ async def require_dcp(request: Request) -> DCPAgentContext:
         raise HTTPException(
             status_code=403,
             detail="DCP agent verification required. Include signed bundle in X-DCP-Bundle header.",
+        )
+    return agent
+
+
+async def require_dcp_commissioned(request: Request) -> DCPAgentContext:
+    """
+    FastAPI dependency that requires a commissioned (non-decommissioned) DCP agent.
+    Rejects agents with lifecycle_state == "decommissioned" (DCP-05 §5.1).
+    """
+    agent = await require_dcp(request)
+    if agent.lifecycle_state == "decommissioned":
+        raise HTTPException(
+            status_code=403,
+            detail="Agent is decommissioned (DCP-05 §5.1). Decommissioned agents cannot perform actions.",
+        )
+    return agent
+
+
+async def require_dcp_mandated(request: Request) -> DCPAgentContext:
+    """
+    FastAPI dependency that requires a valid delegation mandate (DCP-09 §3.1).
+    """
+    agent = await require_dcp(request)
+    if not agent.mandate_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Delegation mandate required (DCP-09 §3.1). No mandate_id present.",
         )
     return agent
 

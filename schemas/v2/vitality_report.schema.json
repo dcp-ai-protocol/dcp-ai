@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/vitality_report.schema.json",
+  "title": "VitalityReport",
+  "description": "DCP-05 v2.0 Vitality Report. Periodic health and performance assessment of an AI agent, hash-chained.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dcp_version", "agent_id", "session_nonce", "timestamp",
+    "vitality_score", "state", "metrics", "prev_report_hash",
+    "composite_sig"
+  ],
+  "properties": {
+    "dcp_version": {
+      "type": "string",
+      "const": "2.0"
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "session_nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "vitality_score": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "state": {
+      "type": "string",
+      "enum": ["commissioned", "active", "declining", "decommissioned"]
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task_completion_rate", "error_rate", "human_satisfaction", "policy_alignment"],
+      "properties": {
+        "task_completion_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "error_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "human_satisfaction": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "policy_alignment": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "prev_report_hash": {
+      "type": "string",
+      "minLength": 1
+    },
+    "composite_sig": {
+      "$ref": "composite_signature.schema.json"
+    }
+  }
+}

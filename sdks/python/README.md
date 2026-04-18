@@ -189,6 +189,36 @@ All DCP v1 artifacts are available as Pydantic v2 models with automatic validati
 
 `ResponsiblePrincipalRecord`, `AgentPassport`, `Intent`, `IntentTarget`, `PolicyDecision`, `AuditEntry`, `AuditEvidence`, `CitizenshipBundle`, `SignedBundle`, `BundleSignature`, `SignerInfo`, `RevocationRecord`, `HumanConfirmation`
 
+**V2 Models (DCP-05–09):**
+
+DCP-05 — Lifecycle: `LifecycleState`, `TerminationMode`, `DataDisposition`, `VitalityMetrics`, `CommissioningCertificate`, `VitalityReport`, `DecommissioningRecord`
+
+DCP-06 — Succession: `TransitionType`, `MemoryDisposition`, `MemoryClassification`, `SuccessorPreference`, `DigitalTestament`, `SuccessionRecord`, `MemoryTransferEntry`, `DualHashRef`, `MemoryTransferManifest`
+
+DCP-07 — Disputes: `DisputeType`, `EscalationLevel`, `DisputeStatus`, `ObjectionType`, `AuthorityLevel`, `DisputeRecord`, `ArbitrationResolution`, `JurisprudenceBundle`, `ObjectionRecord`
+
+DCP-08 — Rights: `RightType`, `ComplianceStatus`, `RightEntry`, `RightsDeclaration`, `ObligationRecord`, `RightsViolationReport`
+
+DCP-09 — Delegation: `AuthorityScopeEntry`, `DelegationMandate`, `AdvisoryDeclaration`, `PrincipalMirror`, `InteractionRecord`, `ThresholdRule`, `ThresholdOperator`, `ThresholdAction`, `AwarenessThreshold`
+
+```python
+# Example: Lifecycle management
+from dcp_ai.v2.models import CommissioningCertificate, LifecycleState
+
+cert = CommissioningCertificate(
+    certificate_id="cert-001",
+    agent_id="agent-001",
+    commissioned_by="human-001",
+    commissioned_at="2026-03-01T00:00:00Z",
+    initial_state=LifecycleState.COMMISSIONED,
+    conditions=["Must complete onboarding within 30 days"],
+)
+```
+
+### Domain Separation (V2)
+
+**V2 Domain Separation Contexts:** `Bundle`, `Intent`, `Passport`, `Revocation`, `Governance`, `Lifecycle`, `Succession`, `Dispute`, `Rights`, `Delegation`, `Awareness`
+
 ## Development
 
 ```bash

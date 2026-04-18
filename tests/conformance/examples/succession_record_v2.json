@@ -1,0 +1,20 @@
+{
+  "dcp_version": "2.0",
+  "predecessor_agent_id": "agent:research-bot-v2-001",
+  "successor_agent_id": "agent:research-bot-v3-001",
+  "session_nonce": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+  "timestamp": "2026-07-01T09:00:00Z",
+  "transition_type": "planned",
+  "human_consent": null,
+  "ceremony_participants": [
+    "agent:research-bot-v2-001",
+    "agent:research-bot-v3-001",
+    "human:alice-abc-123"
+  ],
+  "memory_transfer_manifest_hash": "e3f4a5b6c7d8e3f4a5b6c7d8e3f4a5b6c7d8e3f4a5b6c7d8e3f4a5b6c7d8e3f4",
+  "composite_sig": {
+    "classical": { "alg": "ed25519", "kid": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4", "sig_b64": "dGVzdHNpZzEyMzQ1Njc4OTAxMjM0NTY=" },
+    "pq": { "alg": "ml-dsa-65", "kid": "d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1", "sig_b64": "dGVzdHBxc2lnMTIzNDU2Nzg5MDEyMzQ1Ng==" },
+    "binding": "pq_over_classical"
+  }
+}

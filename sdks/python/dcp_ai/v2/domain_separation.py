@@ -16,6 +16,13 @@ DCP_CONTEXTS: dict[str, str] = {
     "ProofOfPossession": "DCP-AI.v2.ProofOfPossession",
     "JurisdictionAttestation": "DCP-AI.v2.JurisdictionAttestation",
     "HumanConfirmation": "DCP-AI.v2.HumanConfirmation",
+    "MultiPartyAuth": "DCP-AI.v2.MultiPartyAuth",
+    "Lifecycle": "DCP-AI.v2.Lifecycle",
+    "Succession": "DCP-AI.v2.Succession",
+    "Dispute": "DCP-AI.v2.Dispute",
+    "Rights": "DCP-AI.v2.Rights",
+    "Delegation": "DCP-AI.v2.Delegation",
+    "Awareness": "DCP-AI.v2.Awareness",
 }
 
 _VALID_CONTEXTS = frozenset(DCP_CONTEXTS.values())

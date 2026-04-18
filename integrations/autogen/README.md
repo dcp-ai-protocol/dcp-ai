@@ -2,6 +2,10 @@
 
 Enables Microsoft AutoGen agents to carry DCP digital citizenship, providing identity, audit trails, and post-quantum security for multi-agent conversations.
 
+## Supported DCP Specifications
+
+DCP-01 through DCP-09.
+
 ## Overview
 
 This bridge integrates DCP-AI with Microsoft's AutoGen framework for multi-agent orchestration. It provides:
@@ -19,6 +23,7 @@ This bridge integrates DCP-AI with Microsoft's AutoGen framework for multi-agent
 | `auditAutoGenMessage(message, sender, recipient)` | Generate a DCP audit entry for a message |
 | `createDcpGroupChat(agents, config)` | Create a DCP GroupChat with shared session nonce |
 | `autoGenFunctionToIntent(functionCall, agentConfig)` | Convert a function call to a DCP Intent |
+| `delegateGroupChatRole(groupChat, agentConfig, authorityScope)` | Delegate authority scope to an agent in a GroupChat (DCP-09) |
 
 ## Usage
 

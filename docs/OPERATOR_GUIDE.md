@@ -202,7 +202,12 @@ V2 services expose `GET /.well-known/dcp-capabilities.json`:
     "pq_checkpoints": true,
     "dual_hash_chains": true,
     "a2a_protocol": true,
-    "emergency_revocation": true
+    "emergency_revocation": true,
+    "lifecycle_management": true,
+    "digital_succession": true,
+    "dispute_resolution": true,
+    "rights_framework": true,
+    "personal_representation": true
   }
 }
 ```
@@ -230,6 +235,85 @@ Existing V1 operators can upgrade incrementally:
 4. Move to `hybrid_required` when PQ adoption is sufficient
 
 See [MIGRATION_V1_V2.md](MIGRATION_V1_V2.md) for detailed migration steps.
+
+## DCP-05–09 Service Endpoints
+
+DCP v2.0 extends the verification server with 31 endpoints for lifecycle management, digital succession, dispute resolution, rights framework, and personal representation.
+
+### DCP-05: Agent Lifecycle Management
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/v2/lifecycle/commission` | Commission a new agent (creates commissioning certificate) |
+| GET | `/v2/lifecycle/commission/:id` | Retrieve a commissioning certificate |
+| POST | `/v2/lifecycle/vitality` | Submit a vitality report |
+| GET | `/v2/lifecycle/vitality/:agent_id` | Get latest vitality report for an agent |
+| POST | `/v2/lifecycle/decommission` | Record agent decommissioning |
+| GET | `/v2/lifecycle/decommission/:id` | Retrieve a decommissioning record |
+| POST | `/v2/lifecycle/transition` | Execute a lifecycle state transition (enforces state machine) |
+
+Valid lifecycle transitions: `commissioned → active`, `active → declining`, `active → decommissioned`, `declining → decommissioned`.
+
+### DCP-06: Digital Succession & Inheritance
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/v2/succession/testament` | Register a digital testament |
+| GET | `/v2/succession/testament/:id` | Retrieve a digital testament |
+| POST | `/v2/succession/record` | Record a succession event |
+| GET | `/v2/succession/record/:id` | Retrieve a succession record |
+| POST | `/v2/succession/memory-transfer` | Submit a memory transfer manifest |
+| GET | `/v2/succession/memory-transfer/:id` | Retrieve a memory transfer manifest |
+
+### DCP-07: Conflict Resolution & Dispute Arbitration
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/v2/dispute/record` | File a dispute record |
+| GET | `/v2/dispute/record/:id` | Retrieve a dispute record |
+| POST | `/v2/dispute/arbitration` | Submit an arbitration resolution |
+| GET | `/v2/dispute/arbitration/:id` | Retrieve an arbitration resolution |
+| POST | `/v2/dispute/jurisprudence` | Register a jurisprudence bundle |
+| GET | `/v2/dispute/jurisprudence/:id` | Retrieve a jurisprudence bundle |
+| POST | `/v2/dispute/objection` | File an objection record |
+| GET | `/v2/dispute/objection/:id` | Retrieve an objection record |
+
+### DCP-08: Rights & Obligations Framework
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/v2/rights/declaration` | Submit a rights declaration |
+| GET | `/v2/rights/declaration/:id` | Retrieve a rights declaration |
+| POST | `/v2/rights/obligation` | Record an obligation |
+| GET | `/v2/rights/obligation/:id` | Retrieve an obligation record |
+| POST | `/v2/rights/violation` | Report a rights violation |
+| GET | `/v2/rights/violation/:id` | Retrieve a violation report |
+
+### DCP-09: Personal Representation & Delegation
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/v2/delegation/mandate` | Create a delegation mandate |
+| GET | `/v2/delegation/mandate/:id` | Retrieve a delegation mandate |
+| POST | `/v2/delegation/advisory` | Submit an advisory declaration |
+| GET | `/v2/delegation/advisory/:id` | Retrieve an advisory declaration |
+| POST | `/v2/delegation/mirror` | Register a principal mirror |
+| GET | `/v2/delegation/mirror/:id` | Retrieve a principal mirror |
+| POST | `/v2/delegation/interaction` | Record an interaction |
+| GET | `/v2/delegation/interaction/:id` | Retrieve an interaction record |
+| POST | `/v2/awareness/threshold` | Configure an awareness threshold |
+| GET | `/v2/awareness/threshold/:id` | Retrieve an awareness threshold |
+
+### Production Hardening
+
+All DCP-05–09 endpoints include:
+
+- **JSON Schema validation** — Every POST request is validated against its corresponding schema before storage
+- **Rate limiting** — 100 requests/minute/IP on all POST endpoints
+- **Body size limits** — 1 MB maximum request body (returns 413)
+- **Input ID validation** — All IDs must match `^[\w:.\-]{1,256}$` (blocks injection attacks)
+- **Bounded storage** — In-memory stores capped at 10,000 entries with FIFO eviction
+- **Security headers** — X-Content-Type-Options, X-Frame-Options, Strict-Transport-Security, Cache-Control
 
 ## Reference
 

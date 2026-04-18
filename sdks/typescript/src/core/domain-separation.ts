@@ -18,6 +18,17 @@ export const DCP_CONTEXTS = {
   JurisdictionAttestation: 'DCP-AI.v2.JurisdictionAttestation',
   HumanConfirmation: 'DCP-AI.v2.HumanConfirmation',
   MultiPartyAuth: 'DCP-AI.v2.MultiPartyAuth',
+  // DCP-05: Agent Lifecycle
+  Lifecycle: 'DCP-AI.v2.Lifecycle',
+  // DCP-06: Succession
+  Succession: 'DCP-AI.v2.Succession',
+  // DCP-07: Dispute Resolution
+  Dispute: 'DCP-AI.v2.Dispute',
+  // DCP-08: Rights & Obligations
+  Rights: 'DCP-AI.v2.Rights',
+  // DCP-09: Delegation & Representation
+  Delegation: 'DCP-AI.v2.Delegation',
+  Awareness: 'DCP-AI.v2.Awareness',
 } as const;
 
 export type DcpContext = (typeof DCP_CONTEXTS)[keyof typeof DCP_CONTEXTS];

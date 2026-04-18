@@ -2,6 +2,10 @@
 
 DCP verification middleware for FastAPI. Automatically verifies Signed Bundles and provides dependency injection for protected routes.
 
+## Supported DCP Specifications
+
+DCP-01 through DCP-09.
+
 ## Installation
 
 ```bash
@@ -112,6 +116,29 @@ class DCPAgentContext:
     passport: dict[str, Any] = field(default_factory=dict)
     rpr: dict[str, Any] = field(default_factory=dict)
     intent: dict[str, Any] = field(default_factory=dict)
+    lifecycle_state: str = "active"        # DCP-05
+    mandate_id: str = ""                   # DCP-09
+    mandate_valid: bool = False            # DCP-09
+```
+
+### `require_dcp_commissioned(request)`
+
+FastAPI dependency that rejects decommissioned agents (DCP-05 §5.1).
+
+```python
+@app.post("/active-only")
+async def active_only(agent: DCPAgentContext = Depends(require_dcp_commissioned)):
+    return {"agent_id": agent.agent_id}
+```
+
+### `require_dcp_mandated(request)`
+
+FastAPI dependency that requires a valid delegation mandate (DCP-09 §3.1).
+
+```python
+@app.post("/delegated")
+async def delegated(agent: DCPAgentContext = Depends(require_dcp_mandated)):
+    return {"agent_id": agent.agent_id, "mandate_id": agent.mandate_id}
 ```
 
 ## Advanced Example — Global Middleware + Selective Routes

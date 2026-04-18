@@ -25,6 +25,18 @@
 - [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md) — Running a DCP verification service
 - [AGENT_CREATION_AND_CERTIFICATION.md](AGENT_CREATION_AND_CERTIFICATION.md) — Agent creation flow and certification
 
+## Specifications
+
+- [spec/DCP-01.md](../spec/DCP-01.md) — Identity & Responsible Principal Binding
+- [spec/DCP-02.md](../spec/DCP-02.md) — Intent Declaration & Policy Gating
+- [spec/DCP-03.md](../spec/DCP-03.md) — Audit Chain & Transparency
+- [spec/DCP-04.md](../spec/DCP-04.md) — Agent-to-Agent Communication
+- [spec/DCP-05.md](../spec/DCP-05.md) — Agent Lifecycle Management
+- [spec/DCP-06.md](../spec/DCP-06.md) — Digital Succession & Inheritance
+- [spec/DCP-07.md](../spec/DCP-07.md) — Conflict Resolution & Dispute Arbitration
+- [spec/DCP-08.md](../spec/DCP-08.md) — Rights & Obligations Framework
+- [spec/DCP-09.md](../spec/DCP-09.md) — Personal Representation & Delegation
+
 ## Community & Vision
 
 - [EARLY_ADOPTERS.md](EARLY_ADOPTERS.md) — Early adopter program, benefits, and requirements

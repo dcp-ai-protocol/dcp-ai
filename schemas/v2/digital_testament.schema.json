@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/digital_testament.schema.json",
+  "title": "DigitalTestament",
+  "description": "DCP-06 v2.0 Digital Testament. An agent's succession preferences and memory disposition instructions.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dcp_version", "agent_id", "session_nonce", "created_at",
+    "last_updated", "successor_preferences", "memory_classification",
+    "human_consent_required", "testament_version", "prev_testament_hash",
+    "composite_sig"
+  ],
+  "properties": {
+    "dcp_version": {
+      "type": "string",
+      "const": "2.0"
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "session_nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_updated": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "successor_preferences": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["agent_id", "priority"],
+        "properties": {
+          "agent_id": { "type": "string", "minLength": 6 },
+          "priority": { "type": "integer", "minimum": 1 },
+          "conditions": { "type": "string" }
+        }
+      }
+    },
+    "memory_classification": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "enum": ["transfer", "retain", "destroy"]
+      }
+    },
+    "human_consent_required": {
+      "type": "boolean"
+    },
+    "testament_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "prev_testament_hash": {
+      "type": "string",
+      "minLength": 1
+    },
+    "composite_sig": {
+      "$ref": "composite_signature.schema.json"
+    }
+  }
+}

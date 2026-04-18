@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/obligation_record.schema.json",
+  "title": "ObligationRecord",
+  "description": "DCP-08 v2.0 Obligation Record. Records obligations between an agent and its responsible principal.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dcp_version", "obligation_id", "session_nonce", "agent_id",
+    "human_id", "obligation_type", "compliance_status",
+    "evidence_hashes", "timestamp", "composite_sig"
+  ],
+  "properties": {
+    "dcp_version": {
+      "type": "string",
+      "const": "2.0"
+    },
+    "obligation_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "session_nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "human_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "obligation_type": {
+      "type": "string",
+      "minLength": 1
+    },
+    "compliance_status": {
+      "type": "string",
+      "enum": ["compliant", "non_compliant", "pending_review"]
+    },
+    "evidence_hashes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "composite_sig": {
+      "$ref": "composite_signature.schema.json"
+    }
+  }
+}

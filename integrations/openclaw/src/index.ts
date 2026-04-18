@@ -35,6 +35,16 @@ import {
   GetAuditTrailParams,
   executeGetAuditTrail,
 } from './tools/audit.js';
+import {
+  CommissionAgentParams,
+  executeCommissionAgent,
+  ReportVitalityParams,
+  executeReportVitality,
+  DecommissionAgentParams,
+  executeDecommissionAgent,
+} from './tools/lifecycle.js';
+import { CreateTestamentParams, executeCreateTestament } from './tools/succession.js';
+import { CreateMandateParams, executeCreateMandate } from './tools/delegation.js';
 import { getSession, isIdentityReady, clearSession } from './state/agent-state.js';
 
 // ── OpenClaw Plugin API types ──
@@ -116,7 +126,67 @@ export default function register(api: OpenClawPluginAPI): void {
     },
   });
 
-  // ─── 6. dcp_sign_bundle ───
+  // ─── 6. dcp_commission_agent (DCP-05) ───
+  api.registerTool({
+    name: 'dcp_commission_agent',
+    description:
+      'Commission an agent (DCP-05 §3.1). Creates a CommissioningCertificate and ' +
+      'transitions the agent lifecycle state to "commissioned".',
+    parameters: CommissionAgentParams,
+    async execute(_id, params) {
+      return executeCommissionAgent(params as any);
+    },
+  });
+
+  // ─── 7. dcp_report_vitality (DCP-05) ───
+  api.registerTool({
+    name: 'dcp_report_vitality',
+    description:
+      'Report agent vitality metrics (DCP-05 §4.1). Records task completion rate, ' +
+      'error rate, satisfaction, and policy alignment. Returns computed vitality score.',
+    parameters: ReportVitalityParams,
+    async execute(_id, params) {
+      return executeReportVitality(params as any);
+    },
+  });
+
+  // ─── 8. dcp_decommission_agent (DCP-05) ───
+  api.registerTool({
+    name: 'dcp_decommission_agent',
+    description:
+      'Decommission an agent (DCP-05 §5.1). Transitions lifecycle state to ' +
+      '"decommissioned". Supports graceful, immediate, or emergency termination.',
+    parameters: DecommissionAgentParams,
+    async execute(_id, params) {
+      return executeDecommissionAgent(params as any);
+    },
+  });
+
+  // ─── 9. dcp_create_testament (DCP-06) ───
+  api.registerTool({
+    name: 'dcp_create_testament',
+    description:
+      'Create a digital testament for agent succession (DCP-06 §3.1). ' +
+      'Registers successor preferences and memory classification.',
+    parameters: CreateTestamentParams,
+    async execute(_id, params) {
+      return executeCreateTestament(params as any);
+    },
+  });
+
+  // ─── 10. dcp_create_mandate (DCP-09) ───
+  api.registerTool({
+    name: 'dcp_create_mandate',
+    description:
+      'Create a delegation mandate (DCP-09 §3.1). A human principal delegates ' +
+      'specific authority scopes to the agent for a defined validity period.',
+    parameters: CreateMandateParams,
+    async execute(_id, params) {
+      return executeCreateMandate(params as any);
+    },
+  });
+
+  // ─── 11. dcp_sign_bundle ───
   api.registerTool({
     name: 'dcp_sign_bundle',
     description:
@@ -276,3 +346,13 @@ export {
   executeGetAuditTrail,
   GetAuditTrailParams,
 } from './tools/audit.js';
+export {
+  executeCommissionAgent,
+  CommissionAgentParams,
+  executeReportVitality,
+  ReportVitalityParams,
+  executeDecommissionAgent,
+  DecommissionAgentParams,
+} from './tools/lifecycle.js';
+export { executeCreateTestament, CreateTestamentParams } from './tools/succession.js';
+export { executeCreateMandate, CreateMandateParams } from './tools/delegation.js';
