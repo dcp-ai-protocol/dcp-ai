@@ -43,7 +43,6 @@ class MlDsa65Provider(CryptoProvider):
     async def verify(self, message: bytes, signature: bytes, public_key_b64: str) -> bool:
         pk_bytes = base64.b64decode(public_key_b64)
         try:
-            pqc_verify(pk_bytes, message, bytes(signature))
-            return True
+            return bool(pqc_verify(pk_bytes, message, bytes(signature)))
         except Exception:
             return False
