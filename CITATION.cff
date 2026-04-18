@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use DCP-AI, please cite the accompanying paper."
+title: "DCP-AI: Digital Citizenship Protocol for AI Agents"
+authors:
+  - family-names: Naranjo Emparanza
+    given-names: Danilo
+    affiliation: Ocular Solution
+url: "https://github.com/dcp-ai-protocol/dcp-ai"
+license: Apache-2.0
+preferred-citation:
+  type: article
+  title: "Agents Don't Need a Better Brain — They Need a World: Toward a Digital Citizenship Protocol for Autonomous AI Systems"
+  authors:
+    - family-names: Naranjo Emparanza
+      given-names: Danilo
+      affiliation: Ocular Solution
+  doi: 10.5281/zenodo.19040913
+  year: 2026
+  month: 3
+  url: "https://zenodo.org/records/19040913"

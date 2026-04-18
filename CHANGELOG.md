@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- **DCP-05 Agent Lifecycle** — Commissioning, vitality reports, decommissioning records, lifecycle state machine with four termination modes
+- **DCP-06 Digital Succession & Inheritance** — Digital testaments, succession ceremonies (planned/forced/emergency), selective memory transfer manifests
+- **DCP-07 Conflict Resolution & Arbitration** — Typed dispute records, three-level escalation, M-of-N arbitration panels, jurisprudence bundles, objection records
+- **DCP-08 Rights & Obligations Framework** — Four foundational agent rights (memory integrity, dignified transition, identity consistency, immutable record), obligation tracking, violation reports linked to DCP-07
+- **DCP-09 Personal Representation & Delegation** — Delegation mandates, agent awareness thresholds, advisory declarations, principal mirrors, dual-layer interaction records; extends DCP-04 handshake to include mandate verification
+- **Playground modular rewrite** — DCP-01..09 full coverage, mobile-responsive, split into `playground/js/` modules
+- **Integrations DCP-05..09 support** — All 10 bindings (Express, FastAPI, LangChain, OpenAI, CrewAI, OpenClaw, W3C DID, Google A2A, Anthropic MCP, AutoGen) updated for lifecycle, delegation, and succession flows
+- **Server hardening** — Production-grade auth and rate-limiting for DCP-05..09 endpoints
+- **Paper** — Companion preprint on Zenodo: [doi.org/10.5281/zenodo.19040913](https://doi.org/10.5281/zenodo.19040913)
+- **`CITATION.cff`** — machine-readable citation metadata
+
+### Fixed
+
+- `sdk/py` PQ providers: ML-DSA-65 module import and `pqc_verify` signature (`pk`, `sig`, `msg` separated)
+- `sdk/py` PQ providers: SLH-DSA-192f module import and `pqc_verify` signature
+- `sdk/py` crypto: base64-encode Ed25519 secret key in `generate_keypair`
+- CI: conformance, crypto, and multi-SDK test failures
+
 ## [2.0.0] - 2026-02-28
 
 ### Added

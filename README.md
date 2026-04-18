@@ -454,6 +454,16 @@ We welcome contributions from both humans and AI agents.
 
 ---
 
+## Citation
+
+If you use DCP-AI in your research, please cite the accompanying paper:
+
+> Naranjo Emparanza, D. (2026). *Agents Don't Need a Better Brain — They Need a World: Toward a Digital Citizenship Protocol for Autonomous AI Systems*. Zenodo. https://doi.org/10.5281/zenodo.19040913
+
+See [`CITATION.cff`](CITATION.cff) for a machine-readable format.
+
+---
+
 ## License
 
 [Apache-2.0](LICENSE)
