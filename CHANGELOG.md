@@ -4,6 +4,51 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.0.1] - 2026-04-18
+
+### Python SDK
+
+Framework bridges are now shipped inside the package. Prior to 2.0.1
+they lived under `integrations/<name>/` in the repo and were only
+loadable through a pytest hack; anyone who ran `pip install dcp-ai[fastapi]`
+got the upstream `fastapi` library but not the `dcp_ai.fastapi`
+middleware. 2.0.1 fixes that: the four modules now live under
+`dcp_ai/` and are included in the published wheel.
+
+- **Added**: `dcp_ai.fastapi` (middleware, dependency injection, V2 structure checks)
+- **Added**: `dcp_ai.langchain` (agent wrapper, callback, risk scoring)
+- **Added**: `dcp_ai.openai` (client, tool schema, audit trail builder)
+- **Added**: `dcp_ai.crewai` (crew agent, combined audit trail, session consistency checks)
+- **Removed**: `tests/conftest.py` dynamic-module loader (no longer needed)
+
+### Installation
+
+```bash
+pip install dcp-ai[fastapi]     # brings fastapi + uvicorn
+pip install dcp-ai[langchain]   # brings langchain + langchain-core
+pip install dcp-ai[openai]      # brings openai
+pip install dcp-ai[crewai]      # brings crewai
+```
+
+### Backward compatibility
+
+Fully compatible with 2.0.0 imports. The new modules only add API
+surface; existing `from dcp_ai import ...` calls are unaffected.
+
+## [npm integrations] - 2026-04-18
+
+First publication of the six framework bridges as standalone npm
+packages, all at `v2.0.0`:
+
+- `@dcp-ai/anthropic-mcp` — Anthropic MCP bridge
+- `@dcp-ai/autogen` — Microsoft AutoGen bridge
+- `@dcp-ai/google-a2a` — Google Agent-to-Agent bridge
+- `@dcp-ai/w3c-did` — W3C DID/VC bridge
+- `@dcp-ai/express` — Express middleware
+- `@dcp-ai/openclaw` — OpenClaw plugin
+
+`@dcp-ai/express` and `@dcp-ai/openclaw` depend on `@dcp-ai/sdk ^2.0.0`.
+
 ## [2.0.0] - 2026-04-18
 
 First public package release. Published simultaneously to npm (`@dcp-ai/sdk`, `@dcp-ai/cli`, `@dcp-ai/wasm`), PyPI (`dcp-ai`), and crates.io (`dcp-ai`).
