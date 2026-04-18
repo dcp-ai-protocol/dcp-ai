@@ -19,7 +19,7 @@ export function passportToAgentCard(passport, a2aEndpoint) {
     url: a2aEndpoint,
     provider: {
       organization: passport.jurisdiction || 'DCP-AI Network',
-      url: 'https://dcp-ai.dev',
+      url: 'https://dcp-ai.org',
     },
     version: '1.0',
     capabilities: {

@@ -42,7 +42,7 @@ dev = ["pytest>=7.0", "pytest-asyncio>=0.21.0"]
 dcp = "dcp_ai.cli:app"
 
 [project.urls]
-Homepage = "https://dcp-ai.dev"
+Homepage = "https://dcp-ai.org"
 Repository = "https://github.com/dcp-ai-protocol/dcp-ai"
 Issues = "https://github.com/dcp-ai-protocol/dcp-ai/issues"
 

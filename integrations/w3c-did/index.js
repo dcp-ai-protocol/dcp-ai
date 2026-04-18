@@ -83,7 +83,7 @@ export function passportToVC(passport, issuerDid) {
   return {
     '@context': [
       'https://www.w3.org/2018/credentials/v1',
-      'https://dcp-ai.dev/credentials/v2',
+      'https://dcp-ai.org/credentials/v2',
     ],
     type: ['VerifiableCredential', 'DCPAgentPassport'],
     issuer: issuerDid,
