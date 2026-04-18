@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import base64
 
-from pqcrypto.sign.sphincssha2192fsimple import (
+from pqcrypto.sign.sphincs_sha2_192f_simple import (
     SIGNATURE_SIZE,
     generate_keypair,
     sign as pqc_sign,
@@ -43,9 +43,8 @@ class SlhDsa192fProvider(CryptoProvider):
 
     async def verify(self, message: bytes, signature: bytes, public_key_b64: str) -> bool:
         pk_bytes = base64.b64decode(public_key_b64)
-        signed_msg = bytes(signature) + message
         try:
-            pqc_verify(pk_bytes, signed_msg)
+            pqc_verify(pk_bytes, message, bytes(signature))
             return True
         except Exception:
             return False

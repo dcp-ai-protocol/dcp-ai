@@ -21,9 +21,11 @@ def generate_keypair() -> dict[str, str]:
     """Generate a new Ed25519 keypair. Returns dict with public_key_b64 and secret_key_b64."""
     signing_key = nacl.signing.SigningKey.generate()
     verify_key = signing_key.verify_key
+    import base64
+    sk_bytes = signing_key.encode() + verify_key.encode()
     return {
         "public_key_b64": verify_key.encode(encoder=nacl.encoding.Base64Encoder).decode("ascii"),
-        "secret_key_b64": (signing_key.encode() + verify_key.encode()),
+        "secret_key_b64": base64.b64encode(sk_bytes).decode("ascii"),
     }
 
 
