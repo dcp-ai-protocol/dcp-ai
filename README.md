@@ -236,16 +236,16 @@ Drop-in DCP governance for popular AI and web frameworks.
 
 | Integration | Package | Pattern | Docs |
 |-------------|---------|---------|------|
-| **Express** | `@dcp-ai/express` | `dcpVerify()` middleware, `req.dcpAgent` | [integrations/express/](integrations/express/README.md) |
-| **FastAPI** | `dcp-ai[fastapi]` | `DCPVerifyMiddleware`, `Depends(require_dcp)` | [integrations/fastapi/](integrations/fastapi/README.md) |
-| **LangChain** | `dcp-ai[langchain]` | `DCPAgentWrapper`, `DCPTool`, `DCPCallback` | [integrations/langchain/](integrations/langchain/README.md) |
-| **OpenAI** | `dcp-ai[openai]` | `DCPOpenAIClient`, `DCP_TOOLS` function calling | [integrations/openai/](integrations/openai/README.md) |
-| **CrewAI** | `dcp-ai[crewai]` | `DCPCrewAgent`, `DCPCrew` multi-agent governance | [integrations/crewai/](integrations/crewai/README.md) |
-| **OpenClaw** | `@dcp-ai/openclaw` | Plugin + SKILL.md, 6 agent tools | [integrations/openclaw/](integrations/openclaw/README.md) |
-| **W3C DID/VC** | `@dcp-ai/w3c-did` | DID Document ↔ DCP identity bridge, VC issuance | [integrations/w3c-did/](integrations/w3c-did/README.md) |
-| **Google A2A** | `@dcp-ai/a2a` | A2A Agent Card ↔ DCP identity, task governance | [integrations/google-a2a/](integrations/google-a2a/README.md) |
-| **Anthropic MCP** | `@dcp-ai/mcp` | MCP Tool ↔ DCP intent mapping, server middleware | [integrations/anthropic-mcp/](integrations/anthropic-mcp/README.md) |
-| **AutoGen** | `@dcp-ai/autogen` | AutoGen Agent ↔ DCP wrapper, group chat governance | [integrations/autogen/](integrations/autogen/README.md) |
+| **Express** | [![npm](https://img.shields.io/npm/v/@dcp-ai/express?label=%40dcp-ai%2Fexpress&logo=npm)](https://www.npmjs.com/package/@dcp-ai/express) | `dcpVerify()` middleware, `req.dcpAgent` | [integrations/express/](integrations/express/README.md) |
+| **FastAPI** | [![PyPI extra](https://img.shields.io/pypi/v/dcp-ai?label=dcp-ai%5Bfastapi%5D&logo=pypi&logoColor=white)](https://pypi.org/project/dcp-ai/) | `DCPVerifyMiddleware`, `Depends(require_dcp)` | [integrations/fastapi/](integrations/fastapi/README.md) |
+| **LangChain** | [![PyPI extra](https://img.shields.io/pypi/v/dcp-ai?label=dcp-ai%5Blangchain%5D&logo=pypi&logoColor=white)](https://pypi.org/project/dcp-ai/) | `DCPAgentWrapper`, `DCPTool`, `DCPCallback` | [integrations/langchain/](integrations/langchain/README.md) |
+| **OpenAI** | [![PyPI extra](https://img.shields.io/pypi/v/dcp-ai?label=dcp-ai%5Bopenai%5D&logo=pypi&logoColor=white)](https://pypi.org/project/dcp-ai/) | `DCPOpenAIClient`, `DCP_TOOLS` function calling | [integrations/openai/](integrations/openai/README.md) |
+| **CrewAI** | [![PyPI extra](https://img.shields.io/pypi/v/dcp-ai?label=dcp-ai%5Bcrewai%5D&logo=pypi&logoColor=white)](https://pypi.org/project/dcp-ai/) | `DCPCrewAgent`, `DCPCrew` multi-agent governance | [integrations/crewai/](integrations/crewai/README.md) |
+| **OpenClaw** | [![npm](https://img.shields.io/npm/v/@dcp-ai/openclaw?label=%40dcp-ai%2Fopenclaw&logo=npm)](https://www.npmjs.com/package/@dcp-ai/openclaw) | Plugin + SKILL.md, 6 agent tools | [integrations/openclaw/](integrations/openclaw/README.md) |
+| **W3C DID/VC** | [![npm](https://img.shields.io/npm/v/@dcp-ai/w3c-did?label=%40dcp-ai%2Fw3c-did&logo=npm)](https://www.npmjs.com/package/@dcp-ai/w3c-did) | DID Document ↔ DCP identity bridge, VC issuance | [integrations/w3c-did/](integrations/w3c-did/README.md) |
+| **Google A2A** | [![npm](https://img.shields.io/npm/v/@dcp-ai/google-a2a?label=%40dcp-ai%2Fgoogle-a2a&logo=npm)](https://www.npmjs.com/package/@dcp-ai/google-a2a) | A2A Agent Card ↔ DCP identity, task governance | [integrations/google-a2a/](integrations/google-a2a/README.md) |
+| **Anthropic MCP** | [![npm](https://img.shields.io/npm/v/@dcp-ai/anthropic-mcp?label=%40dcp-ai%2Fanthropic-mcp&logo=npm)](https://www.npmjs.com/package/@dcp-ai/anthropic-mcp) | MCP Tool ↔ DCP intent mapping, server middleware | [integrations/anthropic-mcp/](integrations/anthropic-mcp/README.md) |
+| **AutoGen** | [![npm](https://img.shields.io/npm/v/@dcp-ai/autogen?label=%40dcp-ai%2Fautogen&logo=npm)](https://www.npmjs.com/package/@dcp-ai/autogen) | AutoGen Agent ↔ DCP wrapper, group chat governance | [integrations/autogen/](integrations/autogen/README.md) |
 
 ---
 

@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.0.2] - 2026-04-18
+
+### Python SDK
+
+- **Fixed**: `dcp_ai.__version__` now reflects the installed version dynamically via `importlib.metadata` instead of a hardcoded string. In 2.0.1 the attribute still reported `"1.0.0"` even though the wheel was `2.0.1`.
+
+### CI / publish workflows
+
+- Every publish job (`publish.yml`, `publish-pypi.yml`, `publish-integrations.yml`) now pre-checks whether the manifest version is already on the registry and, if so, exits green with a skip notice. Previously, any release-triggered run re-attempted to publish already-published versions and left four red jobs in the Actions tab. No more cosmetic red ghosts on routine releases.
+- Fixed two outdated package names in the README integrations table: `@dcp-ai/a2a` → `@dcp-ai/google-a2a`, `@dcp-ai/mcp` → `@dcp-ai/anthropic-mcp`.
+- Live npm / PyPI version badges added per row in the integrations table.
+
 ## [2.0.1] - 2026-04-18
 
 ### Python SDK

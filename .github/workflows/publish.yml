@@ -1,5 +1,11 @@
 name: Publish Packages
 
+# Publishes the core SDK packages (TypeScript, WASM, CLI, Rust).
+# Every job pre-checks whether the manifest version is already on the
+# registry; if it is, the job prints a skip notice and exits green.
+# That way releases that only bump one package (e.g. the Python SDK
+# at v2.0.1) don't leave red ghosts in the Actions tab.
+
 on:
   release:
     types: [published]
@@ -30,11 +36,27 @@ jobs:
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run test
-      - run: npm run build
-      - run: npm publish --access public
+      - name: Check if version already published
+        id: check
+        run: |
+          LOCAL=$(node -p "require('./package.json').version")
+          REMOTE=$(npm view @dcp-ai/sdk@$LOCAL version 2>/dev/null || true)
+          if [ -n "$REMOTE" ]; then
+            echo "@dcp-ai/sdk@$LOCAL is already on npm — skipping publish."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+      - if: steps.check.outputs.skip != 'true'
+        run: npm ci
+      - if: steps.check.outputs.skip != 'true'
+        run: npm run lint
+      - if: steps.check.outputs.skip != 'true'
+        run: npm run test
+      - if: steps.check.outputs.skip != 'true'
+        run: npm run build
+      - if: steps.check.outputs.skip != 'true'
+        run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -47,16 +69,32 @@ jobs:
         working-directory: sdks/wasm
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
-      - run: npm install
-      - run: npm run build
-      - run: npm publish --access public
+      - name: Check if version already published
+        id: check
+        run: |
+          LOCAL=$(node -p "require('./package.json').version")
+          REMOTE=$(npm view @dcp-ai/wasm@$LOCAL version 2>/dev/null || true)
+          if [ -n "$REMOTE" ]; then
+            echo "@dcp-ai/wasm@$LOCAL is already on npm — skipping publish."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+      - if: steps.check.outputs.skip != 'true'
+        uses: dtolnay/rust-toolchain@stable
+      - if: steps.check.outputs.skip != 'true'
+        name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - if: steps.check.outputs.skip != 'true'
+        run: npm install
+      - if: steps.check.outputs.skip != 'true'
+        run: npm run build
+      - if: steps.check.outputs.skip != 'true'
+        run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -74,9 +112,22 @@ jobs:
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
-      - name: Install against the freshly-published SDK
+      - name: Check if version already published
+        id: check
+        run: |
+          LOCAL=$(node -p "require('./package.json').version")
+          REMOTE=$(npm view @dcp-ai/cli@$LOCAL version 2>/dev/null || true)
+          if [ -n "$REMOTE" ]; then
+            echo "@dcp-ai/cli@$LOCAL is already on npm — skipping publish."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+      - if: steps.check.outputs.skip != 'true'
+        name: Install against the freshly-published SDK
         run: npm install --no-package-lock
-      - run: npm publish --access public
+      - if: steps.check.outputs.skip != 'true'
+        run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -90,6 +141,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo publish
+      - name: Check if version already published
+        id: check
+        run: |
+          LOCAL=$(grep -E '^version = ' Cargo.toml | head -1 | cut -d'"' -f2)
+          REMOTE=$(curl -s "https://crates.io/api/v1/crates/dcp-ai/$LOCAL" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('version',{}).get('num',''))" 2>/dev/null || true)
+          if [ "$REMOTE" = "$LOCAL" ]; then
+            echo "dcp-ai@$LOCAL is already on crates.io — skipping publish."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+      - if: steps.check.outputs.skip != 'true'
+        run: cargo publish
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}

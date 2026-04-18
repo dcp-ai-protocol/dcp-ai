@@ -31,7 +31,12 @@ from dcp_ai.bundle import BundleBuilder, sign_bundle
 
 import dcp_ai.v2 as v2
 
-__version__ = "1.0.0"
+try:
+    from importlib.metadata import version as _pkg_version
+    __version__ = _pkg_version("dcp-ai")
+    del _pkg_version
+except Exception:  # pragma: no cover - only reachable in editable dev with no metadata
+    __version__ = "unknown"
 
 
 def detect_dcp_version(artifact: dict[str, Any]) -> str | None:

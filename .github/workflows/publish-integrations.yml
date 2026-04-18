@@ -2,8 +2,9 @@ name: Publish Integrations
 
 # Publishes the 6 framework integrations to npm. Each is its own
 # package under the @dcp-ai scope and is independent of the others.
-# Jobs that need @dcp-ai/sdk will resolve it from the public registry
-# (not the local file link), so the SDK must be published first.
+# Every job pre-checks whether the manifest version is already on npm
+# and, if so, exits green with a skip notice. That keeps the Actions
+# tab free of red ghosts when a release only bumps one integration.
 
 on:
   release:
@@ -37,7 +38,19 @@ jobs:
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
-      - run: npm publish --access public
+      - name: Check if version already published
+        id: check
+        run: |
+          LOCAL=$(node -p "require('./package.json').version")
+          REMOTE=$(npm view @dcp-ai/anthropic-mcp@$LOCAL version 2>/dev/null || true)
+          if [ -n "$REMOTE" ]; then
+            echo "@dcp-ai/anthropic-mcp@$LOCAL is already on npm — skipping publish."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+      - if: steps.check.outputs.skip != 'true'
+        run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -54,7 +67,19 @@ jobs:
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
-      - run: npm publish --access public
+      - name: Check if version already published
+        id: check
+        run: |
+          LOCAL=$(node -p "require('./package.json').version")
+          REMOTE=$(npm view @dcp-ai/autogen@$LOCAL version 2>/dev/null || true)
+          if [ -n "$REMOTE" ]; then
+            echo "@dcp-ai/autogen@$LOCAL is already on npm — skipping publish."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+      - if: steps.check.outputs.skip != 'true'
+        run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -71,7 +96,19 @@ jobs:
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
-      - run: npm publish --access public
+      - name: Check if version already published
+        id: check
+        run: |
+          LOCAL=$(node -p "require('./package.json').version")
+          REMOTE=$(npm view @dcp-ai/google-a2a@$LOCAL version 2>/dev/null || true)
+          if [ -n "$REMOTE" ]; then
+            echo "@dcp-ai/google-a2a@$LOCAL is already on npm — skipping publish."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+      - if: steps.check.outputs.skip != 'true'
+        run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -88,7 +125,19 @@ jobs:
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
-      - run: npm publish --access public
+      - name: Check if version already published
+        id: check
+        run: |
+          LOCAL=$(node -p "require('./package.json').version")
+          REMOTE=$(npm view @dcp-ai/w3c-did@$LOCAL version 2>/dev/null || true)
+          if [ -n "$REMOTE" ]; then
+            echo "@dcp-ai/w3c-did@$LOCAL is already on npm — skipping publish."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+      - if: steps.check.outputs.skip != 'true'
+        run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -105,10 +154,24 @@ jobs:
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
-      - name: Install against the published @dcp-ai/sdk
+      - name: Check if version already published
+        id: check
+        run: |
+          LOCAL=$(node -p "require('./package.json').version")
+          REMOTE=$(npm view @dcp-ai/express@$LOCAL version 2>/dev/null || true)
+          if [ -n "$REMOTE" ]; then
+            echo "@dcp-ai/express@$LOCAL is already on npm — skipping publish."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+      - if: steps.check.outputs.skip != 'true'
+        name: Install against the published @dcp-ai/sdk
         run: npm install --no-package-lock
-      - run: npm run build
-      - run: npm publish --access public
+      - if: steps.check.outputs.skip != 'true'
+        run: npm run build
+      - if: steps.check.outputs.skip != 'true'
+        run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -125,9 +188,23 @@ jobs:
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
-      - name: Install against the published @dcp-ai/sdk
+      - name: Check if version already published
+        id: check
+        run: |
+          LOCAL=$(node -p "require('./package.json').version")
+          REMOTE=$(npm view @dcp-ai/openclaw@$LOCAL version 2>/dev/null || true)
+          if [ -n "$REMOTE" ]; then
+            echo "@dcp-ai/openclaw@$LOCAL is already on npm — skipping publish."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+      - if: steps.check.outputs.skip != 'true'
+        name: Install against the published @dcp-ai/sdk
         run: npm install --no-package-lock
-      - run: npm run build
-      - run: npm publish --access public
+      - if: steps.check.outputs.skip != 'true'
+        run: npm run build
+      - if: steps.check.outputs.skip != 'true'
+        run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
