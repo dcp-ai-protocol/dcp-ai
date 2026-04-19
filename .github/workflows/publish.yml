@@ -145,12 +145,14 @@ jobs:
         id: check
         run: |
           LOCAL=$(grep -E '^version = ' Cargo.toml | head -1 | cut -d'"' -f2)
-          REMOTE=$(curl -s "https://crates.io/api/v1/crates/dcp-ai/$LOCAL" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('version',{}).get('num',''))" 2>/dev/null || true)
-          if [ "$REMOTE" = "$LOCAL" ]; then
+          # HEAD the static tarball URL; 200 = exists, 403/404 = does not.
+          STATUS=$(curl -s -o /dev/null -w '%{http_code}' -I "https://static.crates.io/crates/dcp-ai/dcp-ai-$LOCAL.crate")
+          echo "HEAD dcp-ai-$LOCAL.crate -> $STATUS"
+          if [ "$STATUS" = "200" ]; then
             echo "dcp-ai@$LOCAL is already on crates.io — skipping publish."
-            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "skip=true" >> "$GITHUB_OUTPUT"
           else
-            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
       - if: steps.check.outputs.skip != 'true'
         run: cargo publish
