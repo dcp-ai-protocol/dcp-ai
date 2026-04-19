@@ -1,12 +1,23 @@
 cff-version: 1.2.0
-message: "If you use DCP-AI, please cite the accompanying paper."
+message: "If you use DCP-AI, please cite both the paper and the software release below."
 title: "DCP-AI: Digital Citizenship Protocol for AI Agents"
 authors:
   - family-names: Naranjo Emparanza
     given-names: Danilo
     affiliation: Ocular Solution
+    orcid: "https://orcid.org/0009-0003-7520-8527"
 url: "https://github.com/dcp-ai-protocol/dcp-ai"
+repository-code: "https://github.com/dcp-ai-protocol/dcp-ai"
 license: Apache-2.0
+version: "2.0.2"
+date-released: "2026-04-19"
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.19656026"
+    description: "DOI for the v2.0.2 software release"
+  - type: doi
+    value: "10.5281/zenodo.19040913"
+    description: "DOI for the companion paper"
 preferred-citation:
   type: article
   title: "Agents Don't Need a Better Brain — They Need a World: Toward a Digital Citizenship Protocol for Autonomous AI Systems"
@@ -14,6 +25,7 @@ preferred-citation:
     - family-names: Naranjo Emparanza
       given-names: Danilo
       affiliation: Ocular Solution
+      orcid: "https://orcid.org/0009-0003-7520-8527"
   doi: 10.5281/zenodo.19040913
   year: 2026
   month: 3
