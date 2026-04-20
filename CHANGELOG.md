@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Go SDK v2.0.0 - 2026-04-19
+
+First installable release of the Go SDK via `go get`. The previous module path (`github.com/dcp-ai/dcp-ai-go`) pointed at a repository that did not exist, so external consumers could not install it. The module now lives as a sub-directory module inside this monorepo:
+
+- **New module path**: `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` (`/v2` suffix required by Go for major versions ≥ 2)
+- **Tag format**: `sdks/go/v2.0.0` (sub-directory-prefixed, as required by the Go module proxy for multi-module repos)
+- **Install**: `go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.0.0`
+
+Code is unchanged — only the module path and internal imports were rewritten. All tests still pass.
+
 ## [2.0.2] - 2026-04-18
 
 ### Python SDK
