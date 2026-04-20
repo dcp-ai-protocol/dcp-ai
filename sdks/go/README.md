@@ -5,7 +5,7 @@ Official Go SDK for the Digital Citizenship Protocol (DCP) v1.0 and v2.0. Suppor
 ## Installation
 
 ```bash
-go get github.com/dcp-ai/dcp-ai-go/dcp
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
 ```
 
 **Requires:** Go 1.21+
@@ -34,7 +34,7 @@ package main
 
 import (
     "fmt"
-    "github.com/dcp-ai/dcp-ai-go/dcp"
+    "github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp"
 )
 
 func main() {
@@ -55,8 +55,8 @@ import (
     "encoding/json"
     "fmt"
 
-    v2 "github.com/dcp-ai/dcp-ai-go/dcp/v2"
-    "github.com/dcp-ai/dcp-ai-go/dcp/providers"
+    v2 "github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp/v2"
+    "github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp/providers"
 )
 
 func main() {

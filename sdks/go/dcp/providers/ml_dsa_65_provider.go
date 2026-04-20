@@ -6,7 +6,7 @@ import (
 
 	"github.com/cloudflare/circl/sign/mldsa/mldsa65"
 
-	v2 "github.com/dcp-ai/dcp-ai-go/dcp/v2"
+	v2 "github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp/v2"
 )
 
 // MlDsa65Provider implements v2.CryptoProvider using ML-DSA-65 (FIPS 204, Level 3).

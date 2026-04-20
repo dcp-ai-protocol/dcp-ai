@@ -9,8 +9,8 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/dcp-ai/dcp-ai-go/dcp/providers"
-	v2 "github.com/dcp-ai/dcp-ai-go/dcp/v2"
+	"github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp/providers"
+	v2 "github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp/v2"
 )
 
 type testKey struct {

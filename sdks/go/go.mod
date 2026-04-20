@@ -1,4 +1,4 @@
-module github.com/dcp-ai/dcp-ai-go
+module github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2
 
 go 1.22.0
 

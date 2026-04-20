@@ -7,7 +7,7 @@ import (
 
 	"github.com/cloudflare/circl/kem/mlkem/mlkem768"
 
-	v2 "github.com/dcp-ai/dcp-ai-go/dcp/v2"
+	v2 "github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp/v2"
 )
 
 // MlKem768Provider implements v2.KemProvider using ML-KEM-768 (FIPS 203, Level 3).

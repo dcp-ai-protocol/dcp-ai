@@ -6,7 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	v2 "github.com/dcp-ai/dcp-ai-go/dcp/v2"
+	v2 "github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp/v2"
 )
 
 // Ed25519Provider implements v2.CryptoProvider using Ed25519.
