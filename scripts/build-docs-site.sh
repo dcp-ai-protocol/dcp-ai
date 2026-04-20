@@ -14,9 +14,12 @@ OUT="$ROOT/docs-site"
 rm -rf "$OUT"
 mkdir -p "$OUT/quickstart" "$OUT/specs" "$OUT/architecture" "$OUT/guides" "$OUT/community"
 
-# Landing page — reuse the repo README as the index.
-cp "$ROOT/README.md"    "$OUT/index.md"
-cp "$ROOT/CHANGELOG.md" "$OUT/CHANGELOG.md"
+# Landing page — custom index designed for the docs site (hero + grid
+# cards + install tabs). Reusing README.md is a bad fit: the README
+# opens with <div align="center"> wrapping everything, which MkDocs
+# renders as one giant un-broken block.
+cp "$ROOT/scripts/docs-index.md" "$OUT/index.md"
+cp "$ROOT/CHANGELOG.md"          "$OUT/CHANGELOG.md"
 
 # Quickstart guides
 cp "$ROOT/docs/QUICKSTART.md"           "$OUT/quickstart/QUICKSTART.md"
