@@ -60,6 +60,10 @@ cp "$ROOT/docs/API_REFERENCE.md"                    "$OUT/guides/API_REFERENCE.m
 cp "$ROOT/docs/EARLY_ADOPTERS.md" "$OUT/community/EARLY_ADOPTERS.md"
 cp "$ROOT/docs/GENESIS_PAPER.md"  "$OUT/community/GENESIS_PAPER.md"
 
+# Playground — copy the static app verbatim. MkDocs leaves it alone and
+# publishes it at /playground/ next to the MkDocs-rendered pages.
+cp -R "$ROOT/playground" "$OUT/playground"
+
 # Rewrite internal links that reference the original on-disk layout so they
 # resolve in the site's sub-directory structure. Portable sed invocation
 # (works on BSD sed / macOS and GNU sed).

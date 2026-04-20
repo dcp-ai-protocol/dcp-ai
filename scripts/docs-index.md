@@ -11,6 +11,7 @@ hide:
 Cryptographically verifiable identity, machine-readable intent, tamper-evident audit trails, authenticated agent-to-agent communication, lifecycle governance, procedural accountability, and delegated representation — in a single hybrid post-quantum protocol stack.
 
 [Get started :material-rocket-launch:](quickstart/QUICKSTART.md){ .md-button .md-button--primary }
+[Try the playground :material-play-circle:](playground/){ .md-button }
 [Read the paper :material-file-document:](https://doi.org/10.5281/zenodo.19040913){ .md-button }
 [View on GitHub :material-github:](https://github.com/dcp-ai-protocol/dcp-ai){ .md-button }
 
