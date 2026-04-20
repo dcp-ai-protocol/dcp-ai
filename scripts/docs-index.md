@@ -4,7 +4,7 @@ hide:
   - toc
 ---
 
-# DCP-AI
+# DCP-AI — Digital Citizenship Protocol for AI Agents
 
 > A portable accountability layer for AI agents on open networks.
 
