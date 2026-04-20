@@ -1,0 +1,141 @@
+site_name: DCP-AI Docs
+site_description: Digital Citizenship Protocol for AI Agents — specs, SDKs, integrations, and operator guides.
+site_url: https://docs.dcp-ai.org/
+site_author: Danilo Naranjo Emparanza
+copyright: Apache-2.0 — Danilo Naranjo Emparanza (Ocular Solution)
+
+repo_name: dcp-ai-protocol/dcp-ai
+repo_url: https://github.com/dcp-ai-protocol/dcp-ai
+edit_uri: edit/main/
+
+docs_dir: docs-site
+
+theme:
+  name: material
+  language: en
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.footer
+    - navigation.indexes
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - content.action.edit
+    - content.tabs.link
+    - announce.dismiss
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: teal
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: teal
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  font:
+    text: Inter
+    code: JetBrains Mono
+  icon:
+    repo: fontawesome/brands/github
+    edit: material/pencil
+    view: material/eye
+
+extra:
+  generator: false
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/dcp-ai-protocol/dcp-ai
+    - icon: fontawesome/brands/npm
+      link: https://www.npmjs.com/org/dcp-ai
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/dcp-ai/
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: 4
+  - pymdownx.details
+  - pymdownx.critic
+  - pymdownx.caret
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.tilde
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.snippets
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+plugins:
+  - search
+
+nav:
+  - Home: index.md
+  - Quick Start:
+      - Overview: quickstart/QUICKSTART.md
+      - Express: quickstart/QUICKSTART_EXPRESS.md
+      - LangChain: quickstart/QUICKSTART_LANGCHAIN.md
+      - OpenAI: quickstart/QUICKSTART_OPENAI.md
+      - CrewAI: quickstart/QUICKSTART_CREWAI.md
+  - Specifications:
+      - Overview: specs/README.md
+      - DCP-01 Identity & Human Binding: specs/DCP-01.md
+      - DCP-02 Intent Declaration & Policy Gating: specs/DCP-02.md
+      - DCP-03 Audit Chain & Transparency: specs/DCP-03.md
+      - DCP-04 Agent-to-Agent Communication: specs/DCP-04.md
+      - DCP-05 Agent Lifecycle: specs/DCP-05.md
+      - DCP-06 Succession & Inheritance: specs/DCP-06.md
+      - DCP-07 Conflict Resolution & Arbitration: specs/DCP-07.md
+      - DCP-08 Rights & Obligations: specs/DCP-08.md
+      - DCP-09 Personal Representation & Delegation: specs/DCP-09.md
+      - DCP-AI v2.0 (Post-Quantum Normative): specs/DCP-AI-v2.0.md
+      - Citizenship Bundle Format: specs/BUNDLE.md
+      - Verification Procedures: specs/VERIFICATION.md
+      - Security Audit (v2.0 Final): specs/AUDIT-v2.0-FINAL.md
+  - Architecture:
+      - Technical Architecture: architecture/TECHNICAL_ARCHITECTURE.md
+      - Security Model: architecture/SECURITY_MODEL.md
+      - Storage & Anchoring: architecture/STORAGE_AND_ANCHORING.md
+      - NIST Conformity: architecture/NIST_CONFORMITY.md
+  - Guides:
+      - Agent Creation & Certification: guides/AGENT_CREATION_AND_CERTIFICATION.md
+      - Operator Guide: guides/OPERATOR_GUIDE.md
+      - Migration V1 → V2: guides/MIGRATION_V1_V2.md
+      - API Reference: guides/API_REFERENCE.md
+  - Community:
+      - Early Adopters: community/EARLY_ADOPTERS.md
+      - Genesis Paper: community/GENESIS_PAPER.md
+  - Changelog: CHANGELOG.md

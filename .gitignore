@@ -51,3 +51,7 @@ sdks/python/.pytest_cache/
 
 # WASM build
 sdks/wasm/pkg/
+
+# MkDocs documentation site
+docs-site/
+site/
