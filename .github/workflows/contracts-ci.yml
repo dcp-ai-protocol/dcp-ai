@@ -1,0 +1,43 @@
+name: Solidity CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'contracts/ethereum/**'
+      - '.github/workflows/contracts-ci.yml'
+  pull_request:
+    paths:
+      - 'contracts/ethereum/**'
+
+jobs:
+  forge:
+    name: Forge build & test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts/ethereum
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Install forge-std
+        run: git clone --depth 1 https://github.com/foundry-rs/forge-std.git lib/forge-std
+
+      - name: Show forge version
+        run: forge --version
+
+      - name: Build
+        run: forge build --sizes
+
+      - name: Test
+        run: forge test -vv
+
+      - name: Format check
+        run: forge fmt --check src script test

@@ -1,0 +1,7 @@
+# Foundry
+out/
+cache/
+broadcast/*/*/run-*.json
+broadcast/*/*/run-*.json.gz
+lib/
+.env

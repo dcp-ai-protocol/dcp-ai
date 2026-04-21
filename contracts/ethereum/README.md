@@ -2,6 +2,37 @@
 
 Solidity smart contract for anchoring DCP Citizenship Bundle hashes on EVM L2 blockchains (Base, Arbitrum, Optimism). Supports individual anchoring and batch anchoring (batch Merkle root).
 
+## Layout
+
+```
+contracts/ethereum/
+  src/DCPAnchor.sol           the contract
+  test/DCPAnchor.t.sol        forge tests (6 passing)
+  script/Deploy.s.sol         deployment script
+  foundry.toml                Foundry project config
+  remappings.txt              import remappings
+  .env.example                template for deployment secrets
+  DEPLOY.md                   step-by-step deploy guide
+```
+
+## Quick start
+
+```bash
+cd contracts/ethereum
+git clone --depth 1 https://github.com/foundry-rs/forge-std.git lib/forge-std
+forge test -vv
+```
+
+## Deploy
+
+See [DEPLOY.md](DEPLOY.md) for the full walk-through (Base Sepolia → Base mainnet, verification on Basescan, wiring the `anchor` service).
+
+Short version:
+```bash
+source .env
+forge script script/Deploy.s.sol --rpc-url base --broadcast --verify
+```
+
 ## Overview
 
 The `DCPAnchor` contract provides an immutable on-chain registry of bundle hashes. Once anchored, a hash cannot be modified or deleted, providing cryptographic evidence that a bundle existed at a given point in time.

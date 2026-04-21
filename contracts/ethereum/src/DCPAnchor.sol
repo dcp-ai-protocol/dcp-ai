@@ -21,11 +21,7 @@ contract DCPAnchor {
     // ── Events ──
 
     /// @notice Emitted when an individual bundle hash is anchored.
-    event BundleAnchored(
-        bytes32 indexed bundleHash,
-        address indexed submitter,
-        uint256 timestamp
-    );
+    event BundleAnchored(bytes32 indexed bundleHash, address indexed submitter, uint256 timestamp);
 
     /// @notice Emitted when a batch Merkle root is anchored.
     event BatchAnchored(
@@ -68,7 +64,7 @@ contract DCPAnchor {
     uint256 public totalAnchors;
     uint256 public totalBatches;
 
-    uint256 public constant MAX_BATCH_SIZE = 10000;
+    uint256 public constant MAX_BATCH_SIZE = 10_000;
     uint256 public constant COMMIT_DELAY = 1;
     uint256 public constant COMMIT_EXPIRY = 256;
 
@@ -140,11 +136,8 @@ contract DCPAnchor {
         require(commitHash != bytes32(0), "DCPAnchor: zero commit");
         require(commitments[commitHash].blockNumber == 0, "DCPAnchor: commit exists");
 
-        commitments[commitHash] = Commitment({
-            submitter: msg.sender,
-            blockNumber: block.number,
-            revealed: false
-        });
+        commitments[commitHash] =
+            Commitment({ submitter: msg.sender, blockNumber: block.number, revealed: false });
 
         emit CommitSubmitted(commitHash, msg.sender);
     }
@@ -154,7 +147,11 @@ contract DCPAnchor {
      * @param bundleHash SHA-256 hash of the canonical bundle (as bytes32).
      * @param salt Random salt used in the commitment.
      */
-    function revealAndAnchorBundle(bytes32 bundleHash, bytes32 salt) external onlyAuthorized whenNotPaused {
+    function revealAndAnchorBundle(bytes32 bundleHash, bytes32 salt)
+        external
+        onlyAuthorized
+        whenNotPaused
+    {
         require(bundleHash != bytes32(0), "DCPAnchor: zero hash");
         require(!bundles[bundleHash].exists, "DCPAnchor: already anchored");
 
@@ -170,10 +167,7 @@ contract DCPAnchor {
         c.revealed = true;
 
         bundles[bundleHash] = AnchorRecord({
-            submitter: msg.sender,
-            timestamp: block.timestamp,
-            count: 1,
-            exists: true
+            submitter: msg.sender, timestamp: block.timestamp, count: 1, exists: true
         });
         totalAnchors++;
 
@@ -189,10 +183,7 @@ contract DCPAnchor {
         require(!bundles[bundleHash].exists, "DCPAnchor: already anchored");
 
         bundles[bundleHash] = AnchorRecord({
-            submitter: msg.sender,
-            timestamp: block.timestamp,
-            count: 1,
-            exists: true
+            submitter: msg.sender, timestamp: block.timestamp, count: 1, exists: true
         });
         totalAnchors++;
 
@@ -210,10 +201,7 @@ contract DCPAnchor {
         require(!batches[merkleRoot].exists, "DCPAnchor: already anchored");
 
         batches[merkleRoot] = AnchorRecord({
-            submitter: msg.sender,
-            timestamp: block.timestamp,
-            count: count,
-            exists: true
+            submitter: msg.sender, timestamp: block.timestamp, count: count, exists: true
         });
         totalBatches++;
 
@@ -222,12 +210,20 @@ contract DCPAnchor {
 
     // ── View Functions ──
 
-    function isAnchored(bytes32 bundleHash) external view returns (bool exists, uint256 timestamp, address submitter) {
+    function isAnchored(bytes32 bundleHash)
+        external
+        view
+        returns (bool exists, uint256 timestamp, address submitter)
+    {
         AnchorRecord storage record = bundles[bundleHash];
         return (record.exists, record.timestamp, record.submitter);
     }
 
-    function isBatchAnchored(bytes32 merkleRoot) external view returns (bool exists, uint256 timestamp, uint256 count, address submitter) {
+    function isBatchAnchored(bytes32 merkleRoot)
+        external
+        view
+        returns (bool exists, uint256 timestamp, uint256 count, address submitter)
+    {
         AnchorRecord storage record = batches[merkleRoot];
         return (record.exists, record.timestamp, record.count, record.submitter);
     }
