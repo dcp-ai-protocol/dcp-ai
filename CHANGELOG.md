@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Template packages - 2026-04-21
+
+First publication of four `npm create @dcp-ai/*` scaffolders, all at `v2.0.0`:
+
+- `@dcp-ai/create-langchain`
+- `@dcp-ai/create-crewai`
+- `@dcp-ai/create-openai`
+- `@dcp-ai/create-express`
+
+Usage: `npm create @dcp-ai/langchain my-app` (or any of the four). Each scaffolder ships a self-contained starter template — same content as the existing `templates/<name>/` in the repo — plus a tiny 35-line `bin.js` with zero runtime dependencies.
+
+## Infrastructure
+
+- **JSON-LD context** now served at [`https://dcp-ai.org/credentials/v2`](https://dcp-ai.org/credentials/v2) (Content-Type `application/ld+json`, CORS `*`, 24 h cache). Required by `@dcp-ai/w3c-did` so every emitted Verifiable Credential/Presentation is dereferenceable by strict JSON-LD processors (Veramo, SpruceID, Trinsic).
+- **Codecov coverage reports** aggregated across the four SDKs (TypeScript, Python, Go, Rust) with per-SDK flags. Badge live in the README.
+- **Publish workflows hardened**: every job (npm / PyPI / crates.io) now pre-checks the registry and exits green with a skip notice if the manifest version is already live. No more red jobs on routine releases.
+
 ## Go SDK v2.0.0 - 2026-04-19
 
 First installable release of the Go SDK via `go get`. The previous module path (`github.com/dcp-ai/dcp-ai-go`) pointed at a repository that did not exist, so external consumers could not install it. The module now lives as a sub-directory module inside this monorepo:
