@@ -1,0 +1,43 @@
+# Fly.io deployment for the DCP-AI anchoring service.
+# Batches bundle hashes and writes them to an EVM L2 (Base, Optimism, etc.)
+# on a configurable interval.
+#
+# Usage:
+#   fly launch --config anchor.toml --no-deploy
+#   fly secrets set ANCHOR_RPC_URL=... ANCHOR_PRIVATE_KEY=0x... ANCHOR_CONTRACT=0x...
+#   fly deploy --config anchor.toml
+
+app = "dcp-ai-anchor"
+primary_region = "iad"
+
+[build]
+  image = "ghcr.io/dcp-ai-protocol/dcp-ai/anchor:latest"
+
+[env]
+  PORT = "3001"
+  DCP_VERSION = "2.0"
+  ANCHOR_MODE = "batch"
+  BATCH_INTERVAL_MS = "60000"
+  # Set at runtime with `fly secrets set`:
+  #   ANCHOR_RPC_URL      — L2 JSON-RPC endpoint
+  #   ANCHOR_PRIVATE_KEY  — signer key for the anchor contract
+  #   ANCHOR_CONTRACT     — deployed DCPAnchor.sol address
+
+[http_service]
+  internal_port = 3001
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/health"
+
+[[vm]]
+  memory = "256mb"
+  cpu_kind = "shared"
+  cpus = 1

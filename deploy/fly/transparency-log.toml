@@ -1,0 +1,43 @@
+# Fly.io deployment for the DCP-AI transparency log.
+# CT-style Merkle log that records every bundle observed. For production,
+# you should run TWO instances with distinct LOG_ID values and point each
+# at the other via GOSSIP_PEERS so split-view attacks are detectable.
+#
+# Usage:
+#   fly launch --config transparency-log.toml --no-deploy
+#   fly secrets set OPERATOR_KEY=... GOSSIP_PEERS=https://other-log.example/
+#   fly deploy --config transparency-log.toml
+
+app = "dcp-ai-transparency-log"
+primary_region = "iad"
+
+[build]
+  image = "ghcr.io/dcp-ai-protocol/dcp-ai/transparency-log:latest"
+
+[env]
+  PORT = "3002"
+  DCP_VERSION = "2.0"
+  LOG_ID = "log-alpha"
+  GOSSIP_INTERVAL_MS = "30000"
+  # Set at runtime with `fly secrets set`:
+  #   OPERATOR_KEY   — signs Signed Tree Heads (STHs)
+  #   GOSSIP_PEERS   — comma-separated URLs of peer logs
+
+[http_service]
+  internal_port = 3002
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1   # keep the log hot so gossip is not interrupted
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/health"
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1

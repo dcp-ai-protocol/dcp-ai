@@ -1,0 +1,41 @@
+# Fly.io deployment for the DCP-AI verification server.
+# Usage (from this directory):
+#   fly launch --config verification.toml --no-deploy
+#   fly deploy --config verification.toml
+
+app = "dcp-ai-verification"
+primary_region = "iad"
+
+[build]
+  image = "ghcr.io/dcp-ai-protocol/dcp-ai/verification:latest"
+
+[env]
+  PORT = "3000"
+  DCP_VERSION = "2.0"
+  VERIFIER_MODE = "hybrid_required"
+  REQUIRE_SESSION_BINDING = "true"
+  REQUIRE_COMPOSITE_BINDING = "true"
+  MAX_KEY_AGE_DAYS = "365"
+  ALLOW_V1_BUNDLES = "true"
+  PQ_CHECKPOINT_INTERVAL = "10"
+  ADVISORY_POLL_INTERVAL_MS = "86400000"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/health"
+
+[[vm]]
+  memory = "256mb"
+  cpu_kind = "shared"
+  cpus = 1
