@@ -1,0 +1,10 @@
+{
+  "name": "dcp-langchain-template",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": { "start": "node index.js" },
+  "dependencies": {
+    "langchain": "^0.3.0",
+    "@langchain/openai": "^0.3.0"
+  }
+}

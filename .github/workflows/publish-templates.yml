@@ -1,0 +1,142 @@
+name: Publish Templates
+
+# Publishes the four @dcp-ai/create-* scaffold packages to npm.
+# Each package is independent and ships:
+#   bin.js  — Node script that copies a template/ directory into CWD
+#   template/ — the starter files for that framework
+#
+# As with publish-integrations.yml, every job pre-checks the registry
+# and skips publish if the manifest version is already on npm.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      package:
+        description: 'Template to publish'
+        required: true
+        type: choice
+        options:
+          - all
+          - create-langchain
+          - create-crewai
+          - create-openai
+          - create-express
+
+jobs:
+  publish-create-langchain:
+    name: Publish @dcp-ai/create-langchain
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'create-langchain'
+    defaults:
+      run:
+        working-directory: packages/create-langchain
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Check if version already published
+        id: check
+        run: |
+          LOCAL=$(node -p "require('./package.json').version")
+          REMOTE=$(npm view @dcp-ai/create-langchain@$LOCAL version 2>/dev/null || true)
+          if [ -n "$REMOTE" ]; then
+            echo "@dcp-ai/create-langchain@$LOCAL is already on npm — skipping publish."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.check.outputs.skip != 'true'
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-create-crewai:
+    name: Publish @dcp-ai/create-crewai
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'create-crewai'
+    defaults:
+      run:
+        working-directory: packages/create-crewai
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Check if version already published
+        id: check
+        run: |
+          LOCAL=$(node -p "require('./package.json').version")
+          REMOTE=$(npm view @dcp-ai/create-crewai@$LOCAL version 2>/dev/null || true)
+          if [ -n "$REMOTE" ]; then
+            echo "@dcp-ai/create-crewai@$LOCAL is already on npm — skipping publish."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.check.outputs.skip != 'true'
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-create-openai:
+    name: Publish @dcp-ai/create-openai
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'create-openai'
+    defaults:
+      run:
+        working-directory: packages/create-openai
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Check if version already published
+        id: check
+        run: |
+          LOCAL=$(node -p "require('./package.json').version")
+          REMOTE=$(npm view @dcp-ai/create-openai@$LOCAL version 2>/dev/null || true)
+          if [ -n "$REMOTE" ]; then
+            echo "@dcp-ai/create-openai@$LOCAL is already on npm — skipping publish."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.check.outputs.skip != 'true'
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-create-express:
+    name: Publish @dcp-ai/create-express
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'create-express'
+    defaults:
+      run:
+        working-directory: packages/create-express
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Check if version already published
+        id: check
+        run: |
+          LOCAL=$(node -p "require('./package.json').version")
+          REMOTE=$(npm view @dcp-ai/create-express@$LOCAL version 2>/dev/null || true)
+          if [ -n "$REMOTE" ]; then
+            echo "@dcp-ai/create-express@$LOCAL is already on npm — skipping publish."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.check.outputs.skip != 'true'
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

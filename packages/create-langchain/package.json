@@ -1,0 +1,28 @@
+{
+  "name": "@dcp-ai/create-langchain",
+  "version": "2.0.0",
+  "description": "Scaffold a DCP-AI governed LangChain agent project",
+  "type": "module",
+  "bin": {
+    "create-dcp-langchain": "./bin.js"
+  },
+  "files": ["bin.js", "template"],
+  "keywords": ["dcp", "langchain", "agent", "ai", "template", "scaffold"],
+  "license": "Apache-2.0",
+  "author": "DCP-AI Contributors",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dcp-ai-protocol/dcp-ai",
+    "directory": "packages/create-langchain"
+  },
+  "homepage": "https://dcp-ai.org",
+  "bugs": {
+    "url": "https://github.com/dcp-ai-protocol/dcp-ai/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

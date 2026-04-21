@@ -1,0 +1,9 @@
+{
+  "name": "dcp-openai-template",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": { "start": "node index.js" },
+  "dependencies": {
+    "openai": "^4.50.0"
+  }
+}

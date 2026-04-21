@@ -1,0 +1,38 @@
+{
+  "name": "@dcp-ai/create-crewai",
+  "version": "2.0.0",
+  "description": "Scaffold a DCP-AI governed crewai agent project",
+  "type": "module",
+  "bin": {
+    "create-dcp-crewai": "./bin.js"
+  },
+  "files": [
+    "bin.js",
+    "template"
+  ],
+  "keywords": [
+    "dcp",
+    "crewai",
+    "agent",
+    "ai",
+    "template",
+    "scaffold"
+  ],
+  "license": "Apache-2.0",
+  "author": "DCP-AI Contributors",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dcp-ai-protocol/dcp-ai",
+    "directory": "packages/create-crewai"
+  },
+  "homepage": "https://dcp-ai.org",
+  "bugs": {
+    "url": "https://github.com/dcp-ai-protocol/dcp-ai/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
