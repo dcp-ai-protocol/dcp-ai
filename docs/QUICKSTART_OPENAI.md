@@ -6,10 +6,21 @@ Add cryptographic identity, policy gating, and audit trails to OpenAI function-c
 
 ## Installation
 
+This guide uses the **OpenAI Node SDK**. If you use Python instead, skip to the Python section at the bottom.
+
 ```bash
 npm install @dcp-ai/sdk openai
-npx @dcp-ai/cli init
 ```
+
+### Zero-config scaffold (alternative)
+
+```bash
+npm create @dcp-ai/openai my-app
+cd my-app
+npm install
+```
+
+Produces a runnable `index.js` with DCP identity + an OpenAI function-calling agent + audited tool calls already wired up.
 
 ---
 
@@ -432,8 +443,33 @@ See [MIGRATION_V1_V2.md](MIGRATION_V1_V2.md) for upgrading existing V1 OpenAI in
 
 ---
 
+## Python equivalent
+
+If your agent is written with the OpenAI Python SDK, use the Python bridge:
+
+```bash
+pip install 'dcp-ai[openai]'
+```
+
+```python
+from dcp_ai.openai import DCPOpenAIClient, DCP_TOOLS
+
+client = DCPOpenAIClient(api_key=OPENAI_KEY, passport=my_passport)
+response = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[...],
+    tools=DCP_TOOLS,        # tool schema that the agent can call to declare intents / verify bundles
+)
+# response.audit_trail contains the signed hash-chained record
+```
+
+Same semantics as the TypeScript client above; the Python surface mirrors `DCP_TOOLS` and policy gating.
+
+---
+
 ## Next Steps
 
 - **[Main Quick Start](./QUICKSTART.md)** — Core SDK usage
+- **[LangChain Integration](./QUICKSTART_LANGCHAIN.md)** — LangChain.js and LangChain Python
 - **[Express Middleware](./QUICKSTART_EXPRESS.md)** — Verify bundles in your API
 - **[API Reference](./API_REFERENCE.md)** — Complete SDK documentation

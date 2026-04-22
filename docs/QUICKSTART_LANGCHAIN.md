@@ -6,10 +6,21 @@ Integrate the Digital Citizenship Protocol into your LangChain agents to add cry
 
 ## Installation
 
+This guide uses **LangChain.js** (TypeScript/Node). If you use **LangChain for Python** instead, skip to the Python section at the bottom.
+
 ```bash
-npm install @dcp-ai/sdk langchain @langchain/core
-npx @dcp-ai/cli init
+npm install @dcp-ai/sdk langchain @langchain/core @langchain/openai
 ```
+
+### Zero-config scaffold (alternative)
+
+```bash
+npm create @dcp-ai/langchain my-app
+cd my-app
+npm install
+```
+
+Produces a runnable `index.js` with DCP identity + a LangChain agent + audited tool calls already wired up.
 
 ---
 
@@ -211,8 +222,30 @@ const registry = getDefaultRegistry();
 
 ---
 
+## LangChain for Python
+
+If your LangChain stack is Python rather than Node, use the Python SDK's built-in bridge instead:
+
+```bash
+pip install 'dcp-ai[langchain]'
+```
+
+```python
+from dcp_ai.langchain import DCPAgentWrapper, DCPTool, DCPCallback
+
+# Wrap any LangChain agent so every tool invocation is DCP-gated and audited
+wrapped = DCPAgentWrapper(agent, passport=my_passport)
+result = wrapped.run("search for X and summarise")
+# result.audit_trail contains the signed hash-chained record
+```
+
+The API mirrors the TypeScript version above. Module-level docstrings in `dcp_ai.langchain` document the full surface.
+
+---
+
 ## Next Steps
 
 - **[Main Quick Start](./QUICKSTART.md)** — Core SDK usage
+- **[CrewAI Integration](./QUICKSTART_CREWAI.md)** — Multi-agent crews (Python)
 - **[Express Middleware](./QUICKSTART_EXPRESS.md)** — Verify bundles in your API
 - **[API Reference](./API_REFERENCE.md)** — Complete SDK documentation

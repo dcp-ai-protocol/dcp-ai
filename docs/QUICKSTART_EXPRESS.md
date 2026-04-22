@@ -10,6 +10,37 @@ Verify DCP signed bundles in your Express.js APIs using the `@dcp-ai/express` mi
 npm install @dcp-ai/express @dcp-ai/sdk express
 ```
 
+### Zero-config scaffold (alternative)
+
+```bash
+npm create @dcp-ai/express my-api
+cd my-api
+npm install
+```
+
+Produces a runnable `index.js` with the DCP verify middleware already wired to a sample route.
+
+### Python equivalent (FastAPI)
+
+If your service is FastAPI rather than Express, use the Python bridge:
+
+```bash
+pip install 'dcp-ai[fastapi]'
+```
+
+```python
+from fastapi import FastAPI, Depends
+from dcp_ai.fastapi import DCPVerifyMiddleware, require_dcp
+
+app = FastAPI()
+app.add_middleware(DCPVerifyMiddleware, require_bundle=True, dcp_version="2.0")
+
+@app.post("/agent/action")
+async def agent_action(agent=Depends(require_dcp)):
+    # agent.passport / agent.intent / agent.session_nonce are populated
+    return {"ok": True, "agent": agent.passport.agent_name}
+```
+
 ---
 
 ## How DCP Integrates with Express

@@ -7,9 +7,21 @@ Add cryptographic identity, policy gating, and audit trails to your CrewAI multi
 ## Installation
 
 ```bash
-pip install dcp-ai crewai crewai-tools
-npx @dcp-ai/cli init
+pip install 'dcp-ai[crewai]' crewai-tools
 ```
+
+The `[crewai]` extra pulls in the `crewai` runtime and unlocks `from dcp_ai.crewai import DCPCrewAgent, DCPCrew`.
+
+### Zero-config scaffold (alternative)
+
+```bash
+npm create @dcp-ai/crewai my-app
+cd my-app
+pip install -r requirements.txt
+python main.py
+```
+
+The scaffolder produces a runnable `main.py` + `requirements.txt` with DCP identity, a two-agent crew, and an audited tool call already wired.
 
 ---
 
