@@ -426,4 +426,48 @@ describe('DcpTelemetry', () => {
       consoleSpy.mockRestore();
     });
   });
+
+  describe('OTLP exporter', () => {
+    it('surfaces a helpful init error when OTel packages are missing', async () => {
+      // The test env does not have @opentelemetry/* installed as real deps, so
+      // initOtlpBridge() should fail, emit a telemetry error event, and leave
+      // the exporter in a safe no-op state.
+      dcpTelemetry.reset();
+      const events: TelemetryEvent[] = [];
+      const unsubscribe = dcpTelemetry.onEvent(e => events.push(e));
+
+      const result = dcpTelemetry.init({
+        enabled: true,
+        serviceName: 'otlp-missing-deps',
+        exporterType: 'otlp',
+        otlpEndpoint: 'http://localhost:4318',
+      });
+      // init() returns a promise when exporterType === 'otlp'
+      expect(result).toBeInstanceOf(Promise);
+      await result;
+
+      const errorEvents = events.filter(e => e.type === 'error');
+      expect(errorEvents.length).toBeGreaterThan(0);
+      const firstError = errorEvents[0] as unknown as { error?: string };
+      expect(String(firstError.error ?? '')).toMatch(/opentelemetry/i);
+
+      // And the app keeps working — listener-based telemetry still fires.
+      dcpTelemetry.recordSignLatency(3.5, 'ed25519');
+      const metricEvents = events.filter(e => e.type === 'metric');
+      expect(metricEvents.length).toBeGreaterThan(0);
+
+      unsubscribe();
+    });
+
+    it('does not attempt OTLP init when exporterType is console', () => {
+      dcpTelemetry.reset();
+      const result = dcpTelemetry.init({
+        enabled: true,
+        serviceName: 'console-only',
+        exporterType: 'console',
+      });
+      // Synchronous for non-OTLP
+      expect(result).toBeUndefined();
+    });
+  });
 });

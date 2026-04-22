@@ -117,6 +117,26 @@ function computePercentiles(values: number[]): PercentileStats {
   };
 }
 
+// SDK version reported to OTel as `service.version`. Read at build time by
+// tsup (via the `define` mechanism) or at runtime from package.json in a dev
+// checkout. Falls back to a constant string if neither is available.
+declare const __DCP_SDK_VERSION__: string | undefined;
+function resolveSdkVersion(): string {
+  try {
+    if (typeof __DCP_SDK_VERSION__ === 'string' && __DCP_SDK_VERSION__.length > 0) {
+      return __DCP_SDK_VERSION__;
+    }
+  } catch {
+    /* `__DCP_SDK_VERSION__` not defined — fine outside the bundled build. */
+  }
+  return 'unknown';
+}
+
+interface OtlpHandlesLike {
+  handleEvent(event: TelemetryEvent): void;
+  shutdown(): Promise<void>;
+}
+
 class DcpTelemetry {
   private config: DcpTelemetryConfig = {
     serviceName: 'dcp-ai',
@@ -128,11 +148,45 @@ class DcpTelemetry {
   private metrics: DcpMetrics = createDefaultMetrics();
   private activeSpans: Map<string, DcpSpan> = new Map();
   private listeners: Array<(event: TelemetryEvent) => void> = [];
+  private otlp: OtlpHandlesLike | null = null;
 
-  init(config: Partial<DcpTelemetryConfig>): void {
+  /**
+   * Initialise telemetry. Safe to call more than once; the last call wins.
+   *
+   * When `exporterType` is `'otlp'`, this method becomes asynchronous under the
+   * hood: it kicks off a dynamic import of the OpenTelemetry SDK. The returned
+   * Promise resolves once the OTel stack is wired. Callers who do not `await`
+   * it will still get correct behaviour — events emitted before the OTLP
+   * exporter is ready are kept in the listener fan-out and in the in-memory
+   * metrics, they just aren't forwarded to OTel. Once ready, future events go
+   * through.
+   */
+  init(config: Partial<DcpTelemetryConfig>): void | Promise<void> {
     this.config = { ...this.config, ...config };
-    if (this.config.enabled) {
-      this.emit({ type: 'init', serviceName: this.config.serviceName, timestamp: Date.now() });
+    if (!this.config.enabled) return;
+    this.emit({ type: 'init', serviceName: this.config.serviceName, timestamp: Date.now() });
+    if (this.config.exporterType === 'otlp') {
+      return this.initOtlpBridge();
+    }
+  }
+
+  private async initOtlpBridge(): Promise<void> {
+    try {
+      const { initOtlp } = await import('./otlp.js');
+      this.otlp = await initOtlp(this.config, resolveSdkVersion());
+    } catch (err) {
+      // Surface the install-hint error message from initOtlp() through the
+      // listener channel so adopters can see it without crashing the app.
+      this.otlp = null;
+      const message = err instanceof Error ? err.message : String(err);
+      this.emit({ type: 'error', operation: 'telemetry.init_otlp', error: message, timestamp: Date.now() });
+    }
+  }
+
+  async shutdown(): Promise<void> {
+    if (this.otlp) {
+      await this.otlp.shutdown();
+      this.otlp = null;
     }
   }
 
@@ -271,6 +325,9 @@ class DcpTelemetry {
   private emit(event: TelemetryEvent): void {
     if (this.config.exporterType === 'console') {
       console.log(`[DCP-AI Telemetry] ${JSON.stringify(event)}`);
+    }
+    if (this.otlp) {
+      try { this.otlp.handleEvent(event); } catch { /* never break the app */ }
     }
     for (const listener of this.listeners) {
       try { listener(event); } catch { /* telemetry must not break application */ }

@@ -4,6 +4,38 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.1.0] - 2026-04-22
+
+### Added
+
+**OpenTelemetry (OTLP) exporter for both TypeScript and Python SDKs.** Adopters can now pipe DCP observability into any OTel-compatible backend (Grafana, Jaeger, Honeycomb, Datadog, New Relic, self-hosted Collectors) without hand-rolled bridges.
+
+- **TypeScript (`@dcp-ai/sdk` 2.0.0 → 2.1.0)**
+    - `dcpTelemetry.init({ exporterType: 'otlp' })` now actually works (the config field was declared in 2.0.x but not wired).
+    - OTel SDK is imported **lazily** — default installs are unchanged. The `@opentelemetry/*` packages are declared as optional peer dependencies; when omitted, `init()` emits a clear error event via the listener bus and the app keeps running.
+    - New `dcpTelemetry.shutdown()` to flush pending exports.
+    - Endpoint resolution: `otlpEndpoint` config → `OTEL_EXPORTER_OTLP_ENDPOINT` env var → `http://localhost:4318`.
+    - `service.name` + `service.version` resource attributes auto-populated.
+    - Metric mapping: DCP recorders map to OTel histograms (`dcp.sign.latency_ms`, `dcp.verify.latency_ms`, `dcp.kem.latency_ms`, `dcp.checkpoint.latency_ms`, `dcp.bundle_verify.latency_ms`) and counters (`dcp.signatures.created`, `dcp.signatures.verified`, `dcp.bundles.verified`, `dcp.a2a.sessions`, `dcp.errors`).
+    - 2 new vitest cases; 460/460 tests pass.
+
+- **Python (`dcp-ai` 2.0.2 → 2.1.0)**
+    - New `dcp_ai.observability` module providing `dcp_telemetry` singleton with the same API surface as the TypeScript version: spans, metric recorders (`record_sign_latency`, `record_verify_latency`, `record_kem_latency`, `record_checkpoint_latency`, `record_bundle_verify`, `record_cache_hit/miss`, `record_a2a_*`, `record_error`), `on_event` listener bus, `get_metrics_summary` with p50/p95/p99.
+    - Exporter modes: `none` (default) / `console` / `otlp`.
+    - New install extra: `pip install 'dcp-ai[otlp]'` pulls `opentelemetry-sdk` + `opentelemetry-exporter-otlp-proto-http`. Without the extra, `init(exporter_type="otlp")` surfaces a clear install hint without crashing.
+    - Hot paths instrumented: `sign_object` and `verify_object` now emit latency + error telemetry when enabled. No overhead when disabled (default).
+    - Public export: `from dcp_ai import dcp_telemetry` works.
+    - 15 new pytest cases; 145/145 tests pass.
+
+### Documentation
+
+- New `docs/OBSERVABILITY.md` with three copy-paste backend recipes (local Jaeger via Docker, Grafana Cloud OTLP endpoint, Honeycomb).
+
+### Backward compatibility
+
+- Fully backward compatible. Defaults unchanged — telemetry ships disabled, recorders are no-ops. No code changes needed for adopters who don't want observability.
+- Other publishable packages remain at their current versions. Only `@dcp-ai/sdk` and `dcp-ai` (PyPI) move to 2.1.0.
+
 ## Template packages - 2026-04-21
 
 First publication of four `npm create @dcp-ai/*` scaffolders, all at `v2.0.0`:

@@ -30,6 +30,7 @@ from dcp_ai.verify import verify_signed_bundle
 from dcp_ai.bundle import BundleBuilder, sign_bundle
 
 import dcp_ai.v2 as v2
+from dcp_ai.observability import dcp_telemetry
 
 try:
     from importlib.metadata import version as _pkg_version
@@ -71,4 +72,5 @@ __all__ = [
     "BundleBuilder", "sign_bundle",
     "v2",
     "detect_dcp_version",
+    "dcp_telemetry",
 ]
