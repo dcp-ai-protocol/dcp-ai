@@ -6,27 +6,27 @@ This document describes the planned evolution of the DCP-AI project. The roadmap
 
 ## Phase 1 — Stabilize Core Semantics
 
-**Status:** In progress
+**Status:** Complete
 
 Define and document the minimum interoperable protocol surface — the artifacts, relationships, and verification model that every DCP implementation must support.
 
-- Publish `spec/core/dcp-core.md` as the editorial core specification
-- Clarify which artifacts are core vs. profile-scoped
-- Establish Responsible Principal Record (RPR) as the definitive terminology
-- Document the verification model independently of cryptographic algorithm choices
-- Establish cross-references between the core specification and the existing normative specs (DCP-01 through DCP-04, DCP-AI v2.0)
+- ✅ `spec/core/dcp-core.md` published as the editorial core specification
+- ✅ Core vs. profile-scoped artifacts delineated
+- ✅ Responsible Principal Record (RPR) established as the definitive terminology
+- ✅ Verification model documented independently of cryptographic algorithm choices
+- ✅ Cross-references wired between the core specification and DCP-01 through DCP-09 plus DCP-AI v2.0
 
 ### Deliverables
 
 - `spec/core/dcp-core.md` — editorial core specification
 - `spec/core/README.md` — core index and rationale
-- Updated `README.md` presenting DCP Core / Profiles / Services architecture
+- `README.md` presenting DCP Core / Profiles / Services architecture
 
 ---
 
 ## Phase 2 — Separate Profiles
 
-**Status:** In progress
+**Status:** Complete for README coverage; normative profile documents ongoing.
 
 Factor out algorithm-specific, transport-specific, and governance-specific details into profile documents that extend the core without being required for basic interoperability.
 
@@ -50,34 +50,31 @@ Factor out algorithm-specific, transport-specific, and governance-specific detai
 
 ---
 
-## Phase 3 — Prepare IETF Positioning
+## Phase 3 — Standards Positioning
 
-**Status:** Planning
+**Status:** Deferred
 
-Evaluate which parts of DCP are suitable for IETF standardization and prepare the positioning strategy.
+Formal standards submission (IETF Internet-Draft, W3C working group adoption, or DIF contribution) is deferred until the protocol has real-world adoption feedback from early adopters. The reasoning: standards bodies favour designs with production use under their belt, and the ~12-month turnaround of a typical draft is better spent after v2.0.x has been exercised by actual integrations rather than before.
 
-- Identify the subset of DCP Core that could form an Internet-Draft
-- Document what should stay outside the IETF track (profiles, services, implementation details)
-- Identify which spec sections map to a potential Internet-Draft
-- Articulate the IETF standardization strategy
+When resumed, candidate forums include:
 
-### Deliverables
+- **IETF** — for the wire-format / canonicalization / verification-policy subset
+- **W3C** — for the Verifiable-Credentials integration layer
+- **DIF (Decentralized Identity Foundation)** — for the agent-identity model
 
-- IETF Internet-Draft prepared for datatracker submission
-- Gap analysis between DCP Core spec and IETF requirements
+In the meantime the project's specs remain citable via Zenodo (paper DOI [`10.5281/zenodo.19040913`](https://doi.org/10.5281/zenodo.19040913), software DOI [`10.5281/zenodo.19656026`](https://doi.org/10.5281/zenodo.19656026)).
 
 ---
 
 ## Phase 4 — Align Schemas and Implementations
 
-**Status:** Future
+**Status:** Substantially complete with v2.0.x shipped.
 
-Once core semantics and profile boundaries are stable, align the runtime artifacts:
-
-- Validate RPR-named schemas across all SDKs and implementations
-- Align conformance tests with the core/profiles structure
-- Update CI to validate core conformance independently of profile conformance
-- Publish profile-specific JSON Schemas under `schemas/profiles/`
+- ✅ RPR-named schemas validated across all five SDKs (TS, Python, Go, Rust, WASM)
+- ✅ Cross-SDK conformance tests running on every CI push (`tests/interop/v2/`)
+- ✅ 39 v2 JSON Schemas + 9 v1 schemas published under `schemas/`
+- 🔄 Separation of core-only vs. full conformance (future refinement — current suite runs as a single matrix)
+- 🔄 Profile-specific JSON Schemas under `schemas/profiles/` (future — current profiles are descriptive READMEs)
 
 ### Principles
 
@@ -86,15 +83,32 @@ Once core semantics and profile boundaries are stable, align the runtime artifac
 
 ---
 
-## Out of Scope (for now)
+## Phase 5 — Adoption and operations
 
-The following are explicitly deferred:
+**Status:** In progress
 
-- Runtime refactoring of SDKs or services
-- Removal of legacy files or compatibility shims
-- Changes to CI/CD pipelines
-- Changes to `package.json`, `pyproject.toml`, `Cargo.toml`, or `go.mod`
+With the stack shipped, the next phase is adoption:
+
+- Attract early adopters per the [Early Adopter Program](docs/EARLY_ADOPTERS.md)
+- Collect feedback from real integrations to inform v2.1
+- Run managed reference deployments of the four services (verification, anchor, transparency-log, revocation) where community demand justifies it
+- Grow the maintainer base beyond the founding maintainer (see [GOVERNANCE.md](GOVERNANCE.md))
+- Publish case studies and integration patterns
+
+### Out of scope for Phase 5
+
+- First-party SaaS of the reference services (operators self-host)
+- Acquiring a certification or accreditation programme (premature)
+
+---
+
+## Out of Scope (general)
+
+The following remain explicitly deferred:
+
 - Schema field renames without backward-compatible aliases
+- Breaking changes to published registry packages without a clean major-version transition
+- Centralised runtime infrastructure owned by the project itself
 
 ---
 
