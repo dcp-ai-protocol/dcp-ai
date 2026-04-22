@@ -55,3 +55,14 @@ sdks/wasm/pkg/
 # MkDocs documentation site
 docs-site/
 site/
+
+# AI-assistant / editor internals (not for public repo)
+CLAUDE.md
+AGENTS.md
+.claude/
+.cursor/
+.cursorrules
+.aider*
+.continue/
+.windsurf/
+.github/copilot-instructions.md
