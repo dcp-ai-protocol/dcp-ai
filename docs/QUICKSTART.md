@@ -6,8 +6,24 @@ Get up and running with the Digital Citizenship Protocol in under 5 minutes.
 
 ## Prerequisites
 
-- **Node.js** 18+ (for TypeScript SDK / CLI)
-- **Python** 3.10+ (for Python SDK)
+Depending on which SDK you use:
+
+- **Node.js** 18+ — for the TypeScript SDK, CLI, WASM package, and any `@dcp-ai/*` integration
+- **Python** 3.10+ — for the Python SDK
+- **Go** 1.22+ — for the Go SDK
+- **Rust** stable — for the Rust crate
+
+You only need the language you plan to build with. All SDKs speak the same protocol, so mixing languages across agents/verifiers works out of the box.
+
+---
+
+## Zero-install shortcuts
+
+Want to see DCP running before installing anything?
+
+- **Interactive playground:** https://dcp-ai.org/playground/ — generate identities, build bundles, verify signatures in the browser.
+- **Scaffolded starter:** run `npm create @dcp-ai/langchain my-app` (or `/crewai`, `/openai`, `/express`) to get a working project in ~2 minutes.
+- **Docker one-liner:** `docker run -p 3000:3000 ghcr.io/dcp-ai-protocol/dcp-ai/verification:latest` starts the reference verification server without cloning anything.
 
 ---
 
@@ -322,6 +338,54 @@ const encrypted = encryptMessage(session, { action: 'transfer', amount: 100 });
 
 ---
 
+## Other SDKs
+
+### Go
+
+```bash
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.0.0
+```
+
+```go
+import dcp "github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp"
+
+canonical, _ := dcp.Canonicalize(map[string]string{"b": "2", "a": "1"})
+// produces {"a":"1","b":"2"}
+```
+
+### Rust
+
+```bash
+cargo add dcp-ai
+```
+
+Providers for ML-DSA-65, ML-KEM-768, SLH-DSA-192f, Ed25519 live under `dcp_ai::providers::*`. See the [`dcp-ai` crate docs on docs.rs](https://docs.rs/dcp-ai) for the full surface.
+
+### WebAssembly (browser)
+
+```bash
+npm install @dcp-ai/wasm
+```
+
+Exposes the same Rust crypto primitives to any browser JS context. The [playground](https://dcp-ai.org/playground/) is a reference consumer of this package.
+
+---
+
+## Run the reference services
+
+All four services the spec references (verification server, anchor, transparency log, revocation registry) ship as Docker images. From an empty directory:
+
+```bash
+docker run -d -p 3000:3000 ghcr.io/dcp-ai-protocol/dcp-ai/verification:latest
+docker run -d -p 3001:3001 ghcr.io/dcp-ai-protocol/dcp-ai/anchor:latest
+docker run -d -p 3002:3002 ghcr.io/dcp-ai-protocol/dcp-ai/transparency-log:latest
+docker run -d -p 3003:3003 ghcr.io/dcp-ai-protocol/dcp-ai/revocation:latest
+```
+
+For managed hosting, see the [Fly.io configs in `deploy/fly/`](../deploy/) and the [deployment guide](../deploy/README.md) for Cloud Run / Railway / Compose alternatives.
+
+---
+
 ## Next Steps
 
 - **[LangChain Integration](./QUICKSTART_LANGCHAIN.md)** — Add DCP to LangChain agents
@@ -331,3 +395,4 @@ const encrypted = encryptMessage(session, { action: 'transfer', amount: 100 });
 - **[API Reference](./API_REFERENCE.md)** — Complete SDK documentation
 - **[Protocol Specification](../spec/)** — Full DCP v2.0 specification
 - **[Security Model](./SECURITY_MODEL.md)** — Threat model and security architecture
+- **[Operator Guide](./OPERATOR_GUIDE.md)** — Running verification and anchoring services in production
