@@ -1,238 +1,180 @@
 # DCP-AI Early Adopter Program
 
-**Program Launch:** Q1 2026
-**Status:** Open for Applications
+**Status:** Open — rolling admission
+**License:** Apache-2.0 (no cost to participate)
 
 ---
 
-## What Is the DCP Early Adopter Program?
+## What it is
 
-The DCP-AI Early Adopter Program is an invitation for organizations, developers, and AI platform builders to be among the first to integrate the Digital Citizenship Protocol into their systems. Early adopters gain direct access to the DCP-AI team, influence over protocol design decisions, and priority support as they build on the world's first post-quantum digital citizenship framework for AI agents.
+DCP-AI is a portable accountability layer for AI agents: cryptographic identity, machine-readable intent, tamper-evident audit trails, agent-to-agent communication, lifecycle governance, and delegated representation. The full stack is open source and installable from every major registry.
 
-This is not a beta test — it is a co-design partnership. Early adopters help shape DCP-AI by integrating it into real-world systems, surfacing edge cases, and providing feedback that directly informs the protocol's evolution.
+The Early Adopter Program is an invitation to teams deploying AI agents in real systems to integrate DCP-AI, surface the edge cases a specification-only review cannot find, and directly shape the next iteration of the protocol.
 
----
-
-## Who Should Apply?
-
-- **AI platform companies** building agent frameworks (LangChain, CrewAI, AutoGen, etc.)
-- **Enterprise teams** deploying autonomous AI agents in production
-- **Government agencies** exploring AI governance and agent accountability
-- **Financial institutions** requiring verifiable AI agent identity for compliance
-- **Healthcare organizations** handling sensitive data with AI agents
-- **Infrastructure providers** building API gateways, middleware, or agent orchestration
-- **Security researchers** focused on post-quantum cryptography and agent safety
-- **Independent developers** building novel AI agent applications
+This is not a beta test. The SDKs are published and used. This is a co-design partnership: your integration story becomes part of how v2.1 gets designed.
 
 ---
 
-## Benefits
+## Who should apply
 
-### Technical Access
-
-- **Early SDK access**: Pre-release versions of TypeScript, Python, and Go SDKs with direct bug-fix priority.
-- **Private repository access**: Access to unreleased features, experimental branches, and internal roadmap documents.
-- **Reference implementations**: Working examples tailored to your stack (Express, FastAPI, gRPC, WebSocket).
-- **Integration templates**: Pre-built templates for OpenAI, LangChain, CrewAI, and custom agent frameworks.
-
-### Direct Support
-
-- **Dedicated Slack channel**: Private channel with DCP-AI core team for technical questions and integration support.
-- **Weekly office hours**: 30-minute weekly sessions with protocol architects (video call).
-- **Priority issue resolution**: Bug reports from early adopters are triaged with highest priority.
-- **Migration assistance**: Hands-on help migrating from v1.0 to v2.0 composite signatures.
-
-### Co-Design Influence
-
-- **Protocol RFCs**: Early access to propose and review protocol changes before they are finalized.
-- **Feedback loop**: Direct input into security tier definitions, algorithm selection, and wire format decisions.
-- **Conformance testing**: Co-develop conformance test suites that validate your integration.
-- **Case study collaboration**: Published case study highlighting your integration (with your approval).
-
-### Recognition
-
-- **Early Adopter badge**: Recognized on the DCP-AI website and in documentation.
-- **Conference speaking**: Priority for co-presenting at security and AI conferences.
-- **Governance participation**: Path to becoming a DCP-AI Reviewer or Maintainer (see [GOVERNANCE.md](../GOVERNANCE.md)).
+- **AI platform teams** building agent frameworks or orchestration
+- **Enterprise teams** deploying autonomous agents where liability, audit, or regulatory compliance matter
+- **Financial, healthcare, or public-sector teams** that need verifiable agent identity
+- **Researchers** working on agent safety, post-quantum crypto, or verifiable credentials
+- **Independent developers** shipping novel agent products and willing to share what they learn
 
 ---
 
-## Requirements
+## What you get
 
-Early adopters commit to the following:
+### Everything in the public stack
+
+You are not waiting on "access" to anything. These are already live:
+
+| Artifact | Where |
+|---|---|
+| 9 protocol specifications (DCP-01..09) | [docs.dcp-ai.org](https://docs.dcp-ai.org/) |
+| 5 SDKs at feature parity (TypeScript, Python, Go, Rust, WASM) | npm / PyPI / crates.io / Go modules |
+| 10 framework integrations (LangChain, CrewAI, OpenAI, Express, FastAPI, Anthropic MCP, Google A2A, AutoGen, W3C DID, OpenClaw) | npm + dcp-ai[extras] |
+| 4 `npm create @dcp-ai/*` scaffolders | npm |
+| Docker images for the four services | `ghcr.io/dcp-ai-protocol/dcp-ai/*` |
+| Interactive playground | [dcp-ai.org/playground](https://dcp-ai.org/playground/) |
+| JSON-LD `@context` for Verifiable Credentials | [dcp-ai.org/credentials/v2](https://dcp-ai.org/credentials/v2) |
+
+### What early adopters get on top
+
+- **Direct channel to the maintainers** via GitHub Issues/Discussions — responses within 2 business days, highest-priority triage for blockers.
+- **Co-design input** on the v2.1 roadmap: which security tiers, which algorithms, which wire-format decisions.
+- **Conformance validation**: help you build test suites that exercise your specific integration paths; results feed back into the public conformance suite.
+- **Case study collaboration** (opt-in): a published write-up of your integration — architecture decisions, challenges, outcomes — with your approval on every paragraph.
+- **Governance path**: active contributors are invited to become Reviewers or Maintainers per [GOVERNANCE.md](../GOVERNANCE.md).
+
+---
+
+## What we ask
 
 ### Integration
 
-1. **Integrate the DCP-AI SDK** into at least one production or staging system within 90 days of acceptance.
-2. **Implement the core flow**: Agent identity creation, intent declaration, policy decision, audit trail, and bundle verification.
-3. **Use composite signatures** (Ed25519 + ML-DSA-65) for v2.0 bundles.
-4. **Run the conformance test suite** and report results.
+1. Integrate the DCP-AI SDK into at least one staging or production path within 90 days of kickoff.
+2. Implement the core flow end-to-end: identity binding → intent declaration → policy decision → audit entry → bundle verification.
+3. For v2.0 use composite hybrid signatures (Ed25519 + ML-DSA-65). The SDKs do this for you; no hand-rolling.
+4. Run the conformance test suite against your integration and share the result.
 
 ### Feedback
 
-1. **Provide structured feedback** via a shared form or Slack at least once per month.
-2. **Report bugs and edge cases** via GitHub issues (private repo for security issues).
-3. **Participate in at least two office hours** sessions during the program period.
-4. **Complete an exit survey** at the end of the program period.
+1. One structured feedback note per month — GitHub Discussion, email, or a short call, whichever is easier.
+2. File bugs and edge cases as GitHub issues. For security-sensitive findings, use GitHub's private vulnerability reporting.
+3. Participate in at least one open discussion thread where design decisions are being weighed.
 
 ### Testing
 
-1. **Run NIST KAT validation** for all cryptographic operations.
-2. **Test cross-SDK verification** if using multiple languages.
-3. **Validate backward compatibility** with v1.0 bundles (if applicable).
-4. **Perform basic security testing**: attempt bundle tampering, signature stripping, and replay attacks against your verifier.
-
-### Confidentiality
-
-- Pre-release features and internal roadmap details shared under NDA.
-- Bug reports and security issues follow responsible disclosure (see [GOVERNANCE.md](../GOVERNANCE.md)).
+1. Run NIST KAT validation for the cryptographic primitives you rely on (Ed25519, ML-DSA-65; ML-KEM-768 and SLH-DSA-192f if applicable).
+2. If you use multiple SDKs in the same system, run the cross-SDK interop vectors (`tests/interop/v2/`).
+3. Validate backward compatibility with v1.0 bundles if any exist in your pipeline.
+4. Try to break things: bundle tampering, signature stripping, session splicing, replay. If you break it, we want to know.
 
 ---
 
 ## Timeline
 
-### Q1 2026: Foundation
+The program runs on rolling admission. Your clock starts when you accept.
 
-| Week | Milestone |
-|------|-----------|
-| 1-2 | Applications open. Accepted adopters receive SDK access and Slack invite. |
-| 3-4 | Kickoff office hours: protocol walkthrough, SDK setup, integration planning. |
-| 5-8 | Initial integration. Core flow (identity, intent, audit, verify) operational. |
-| 9-12 | Composite signature integration. NIST KAT validation. First feedback cycle. |
+| Phase | Typical duration | What happens |
+|---|---|---|
+| Onboarding | week 1 | Kickoff call / thread. Protocol walkthrough targeted at your stack. Integration plan drafted. |
+| Integration | weeks 2-8 | Core flow built. First conformance run. First blocker surfaces. Unblock cycle with maintainer input. |
+| Hardening | weeks 9-12 | Security tier tuning. NIST KAT coverage. Cross-SDK interop if applicable. Production-readiness review. |
+| Graduation | week 13+ | You're a full ecosystem participant. Case study drafted if you opted in. Governance path opens. |
 
-### Q2 2026: Expansion
-
-| Week | Milestone |
-|------|-----------|
-| 13-16 | A2A communication (DCP-04) integration for multi-agent adopters. |
-| 17-20 | Security tier tuning. Production hardening. Cross-SDK interop testing. |
-| 21-24 | Case study drafting. Conformance certification. Program retrospective. |
-
-### Q3 2026: Graduation
-
-- Early adopters graduate to full DCP-AI ecosystem participants.
-- Production deployments are publicly recognized.
-- Governance participation path opens for active contributors.
+There is no formal "end date." You stay in the program as long as you're shipping and the feedback loop is active.
 
 ---
 
-## How to Apply
+## How to apply
 
-### Application Process
+### Process
 
-1. **Submit an application** via GitHub Discussion in the `dcp-ai-genesis` repository (use the "Early Adopter Application" template) or email the maintainers.
+1. Open a GitHub Discussion on [`dcp-ai-protocol/dcp-ai`](https://github.com/dcp-ai-protocol/dcp-ai/discussions) using the **Early Adopter Application** template (or open an issue with the `early-adopter` label if discussions are not enabled for your path).
+2. Alternatively, email the maintainers (see [GOVERNANCE.md](../GOVERNANCE.md) for current maintainer contacts).
 
-2. **Include the following:**
-   - Organization name and description
-   - Use case: What AI agents do you deploy or plan to deploy?
-   - Technical stack: Languages, frameworks, infrastructure
-   - Integration scope: Which DCP components are you most interested in?
-   - Timeline: When can you begin integration?
-   - Team size: How many developers will work on the integration?
+### What to include
 
-3. **Review:** The DCP-AI maintainers review applications on a rolling basis (typically within 7 business days).
+- Organization or team name, short description
+- Use case: what agents do you deploy, or plan to deploy?
+- Technical stack: languages, frameworks, infrastructure
+- Which DCP components are most relevant to you (DCP-01 identity? DCP-03 audit? DCP-07 arbitration? all of them?)
+- Timeline: when can you begin?
+- Team size: how many engineers will touch the integration?
 
-4. **Acceptance:** Accepted applicants receive a welcome packet with SDK access, Slack invite, and kickoff scheduling.
+### Review
 
-### Selection Criteria
-
-Applications are evaluated on:
-
-- **Diversity of use cases**: We aim to cover a broad range of agent types and deployment scenarios.
-- **Production readiness**: Priority for teams planning real deployments (not just evaluation).
-- **Technical capacity**: Team has experience with cryptographic protocols or agent systems.
-- **Feedback commitment**: Willingness to engage actively in the co-design process.
-- **Security posture**: Commitment to responsible handling of pre-release material.
+Applications are reviewed on a rolling basis, typically within 7 business days. We aim for a mix of use cases — enterprise compliance, research, indie builders — rather than selecting by size.
 
 ---
 
-## Support Channels
+## Selection criteria
+
+- **Diversity of use cases** — we actively want unusual applications, not just the expected enterprise paths.
+- **Real deployment intent** — priority for teams shipping to real systems, not just evaluating.
+- **Engagement** — willingness to share what you find, both positive and negative.
+- **Technical capacity** — team has prior experience with cryptographic protocols, agent systems, or security-relevant infrastructure.
+
+---
+
+## Support channels
 
 | Channel | Purpose | Access |
-|---------|---------|--------|
-| **GitHub Issues** | Bug reports, feature requests, conformance issues | Public (security issues via private advisory) |
-| **Slack (Private)** | Daily technical support, integration questions | Early adopters only |
-| **Discord** | Community discussion, general questions | Public |
-| **Office Hours** | Weekly video call with protocol architects | Early adopters only |
-| **Email** | Formal communications, NDA, program logistics | Early adopters only |
+|---|---|---|
+| GitHub Issues | Bugs, feature requests, conformance issues | Public |
+| GitHub Discussions | Design questions, early-adopter threads, integration patterns | Public |
+| Private vulnerability reports | Security-sensitive findings | GitHub's private reporting |
+| Email | NDA-bounded work, contract discussions | Per [GOVERNANCE.md](../GOVERNANCE.md) |
 
-### Office Hours Schedule
-
-- **Weekly**: Wednesdays 10:00 AM Pacific / 1:00 PM Eastern / 6:00 PM UTC
-- **Duration**: 30 minutes
-- **Format**: Open agenda — bring questions, demos, or issue walkthroughs
-- **Recording**: Sessions are recorded and shared with early adopter group (not public)
+No dedicated Slack, Discord, or office-hours call exists at this time. The program is run lean so maintainer bandwidth goes to actually solving your problems. If demand grows enough to justify a community channel, we'll add one and announce it here.
 
 ---
 
-## Bug Bounty for Security Issues
+## Security disclosure
 
-Early adopters (and the broader community) are encouraged to report security vulnerabilities in DCP-AI. We offer a bug bounty for qualifying security issues.
+DCP-AI security issues are disclosed responsibly through GitHub's private vulnerability reporting. A monetary bug bounty may be offered on a case-by-case basis for high-impact findings; this is decided per-report based on severity and reproducibility, not a pre-committed tier. Researchers who prefer public credit are acknowledged in release notes.
 
-### Scope
-
-- Cryptographic implementation flaws (signature bypass, key leakage, etc.)
-- Protocol-level vulnerabilities (stripping attacks, replay, session splicing)
-- SDK implementation bugs that compromise security guarantees
-- Verification pipeline bypasses
-
-### Out of Scope
-
-- Denial-of-service attacks
-- Social engineering
-- Issues in third-party dependencies (report to the dependency maintainer)
-- Issues requiring physical access to hardware
-
-### Reward Tiers
-
-| Severity | Description | Reward |
-|----------|------------|--------|
-| **Critical** | Complete signature verification bypass, private key extraction | $5,000–$15,000 |
-| **High** | Composite binding circumvention, session key leakage, audit chain break | $2,000–$5,000 |
-| **Medium** | Domain separation bypass, kid collision, canonicalization exploit | $500–$2,000 |
-| **Low** | Information disclosure, timing side-channel, non-security conformance issue | $100–$500 |
-
-### Disclosure Process
-
-1. **Do NOT** open a public issue for security vulnerabilities.
-2. Use GitHub's private vulnerability reporting feature or email the maintainers.
-3. Include: description, reproduction steps, impact assessment, and suggested fix (if any).
-4. Maintainers acknowledge within 48 hours and provide fix timeline.
-5. Bounty is paid after the fix is released and the reporter is credited (unless anonymity is requested).
+See [SECURITY_MODEL.md](SECURITY_MODEL.md) for the threat model and reporting guidance.
 
 ---
 
-## Success Stories
+## Success stories
 
-*This section will be populated as early adopters complete their integrations.*
+*This section will be populated as early adopters publish their integrations.*
 
----
+### [Your organization here]
 
-### [Your Organization Here]
-
-We're looking for the first early adopters to share their integration stories. If you integrate DCP-AI into your system, we'd love to feature your experience — the challenges, the architecture decisions, and the outcomes.
-
-Contact the DCP-AI team to discuss a case study collaboration.
+If you integrate DCP-AI and are willing to share the story — architectural decisions, surprises, outcomes — we want to feature it. Contact the maintainers to start a case-study thread.
 
 ---
 
 ## FAQ
 
+**Q: Is DCP-AI production-ready?**
+A: Yes, for the deployments it is designed for. The v2.0 specification is complete, the public audit closed 6/6 recommendations (see [spec/AUDIT-v2.0-FINAL.md](../spec/AUDIT-v2.0-FINAL.md)), and the 5 SDKs are published and used. DCP-04 through DCP-09 remain labelled "Draft — v2.0 Extension" in their headers because they are expected to evolve with adopter feedback; the code implementing them is tested and shipped.
+
 **Q: Is there a cost to join the Early Adopter Program?**
-A: No. The program is free. We invest in early adopters because their feedback is invaluable.
+A: No. The program is free. The entire project is Apache-2.0.
 
 **Q: Do I need to use the post-quantum features?**
-A: For v2.0 integrations, yes — composite signatures (Ed25519 + ML-DSA-65) are required. The SDK handles the complexity; the API is straightforward.
+A: For v2.0 bundles, yes — composite hybrid signatures (Ed25519 + ML-DSA-65) are required. The SDK does the heavy lifting. You do not write crypto by hand.
 
 **Q: Can I participate as an individual developer?**
-A: Yes. Individual developers and small teams are welcome.
+A: Yes. Individual developers and small teams are welcome and often surface the most interesting edge cases.
 
-**Q: What happens after the program ends?**
-A: You continue using DCP-AI as a production participant. Active contributors may be invited to become Reviewers or Maintainers per the governance model.
+**Q: What happens when I finish the program?**
+A: You keep using DCP-AI. Active contributors are invited to become Reviewers or Maintainers per [GOVERNANCE.md](../GOVERNANCE.md).
 
-**Q: Is DCP-AI production-ready?**
-A: The v2.0 specification is finalized and all 13 implementation gaps are verified closed. SDKs are in active development. The Early Adopter Program is the bridge between specification completeness and broad production deployment.
+**Q: Can I run my own hosted instance of the services?**
+A: Yes — that's the intended model. The verification server, anchor, transparency log, and revocation registry are all published as Docker images on GHCR with Fly.io configs ready in [`deploy/`](../deploy/). There is no first-party SaaS; every operator runs their own.
+
+**Q: How do I cite DCP-AI in a paper?**
+A: See [CITATION.cff](../CITATION.cff) for both the paper and software DOIs.
 
 ---
 
-*The DCP-AI Early Adopter Program is an open invitation to build the future of AI agent accountability — together.*
+*The DCP-AI Early Adopter Program is an open invitation to build the accountability infrastructure that autonomous AI systems need, together.*
