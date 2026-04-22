@@ -84,6 +84,8 @@ A jurisdiction (government, regulatory authority, or accredited issuer) may publ
 
 **Publication:** at a well-known URL, e.g. `https://<authority>/.well-known/dcp-revocations.json`. Not mandatory; this is a convention. Any URL works.
 
+**Reference implementation:** `services/revocation/` in this repo (Docker image `ghcr.io/dcp-ai-protocol/dcp-ai/revocation:latest`, Fly.io config in `deploy/fly/revocation.toml`) exposes the expected endpoints and serves the JSON list from `/.well-known/dcp-revocations.json` for the domain it runs under.
+
 **How verifiers use it:** the verifier fetches the list for the agent's jurisdiction (based on `responsible_principal_record.jurisdiction`), checks the issuer's signature, and looks up the bundle's `agent_id` or signer against the entries. If found, verification fails. The list is cacheable (use HTTP cache headers or a TTL).
 
 **Cost:** a static JSON file served from any web server or CDN. Effectively zero.
@@ -109,6 +111,8 @@ A jurisdiction or accredited operator may run a **transparency log** — an appe
 
 **Cost:** a single server with SQLite or PostgreSQL. Millions of entries for minimal cost. Google's [Trillian](https://github.com/google/trillian) is an open-source implementation of this pattern.
 
+**Reference implementation:** this repo ships `services/transparency-log/` (source) and a matching Docker image at `ghcr.io/dcp-ai-protocol/dcp-ai/transparency-log:latest`. It includes gossip between sibling logs so split-view attacks are detectable (DCP-03 §4). A Fly.io config in `deploy/fly/transparency-log.toml` gets a public HTTPS endpoint running in one command.
+
 ## Cost comparison (anchoring methods)
 
 From cheapest to most expensive:
@@ -121,13 +125,20 @@ From cheapest to most expensive:
 
 For government-scale deployment, option 2 (log + Bitcoin batch) provides the best balance of robustness, economy, and public verifiability.
 
-## Publishing and maintaining the protocol
+## Published artefacts (current state)
 
-- **Repo:** Publish the repo under a pseudonymous account (e.g. GitHub/GitLab) or let someone else fork and maintain it. Docs and specs live in the repo; anyone can mirror (e.g. GitHub Pages, IPFS, third-party sites).
-- **NPM package:** Publish `dcp-ai` (or similar) under a pseudonymous npm account, or let a third party publish it.
-- **No canonical URL:** The protocol does not point to a canonical "dcp.ai" or "DCP registry" URL. If someone runs a "DCP registry" or "dcp.ai" site, that is their choice; the protocol does not require it.
-- **Optional anchoring:** Users or third-party anchor services use **existing** public chains (Bitcoin, Ethereum).
-- **Summary:** The protocol is usable entirely from the repo (specs + schemas + CLI). Optional anchoring uses existing blockchain or third-party log. No central service is required.
+The protocol does not require any of the below — they are convenience distributions so operators do not have to build from source. Running everything off-repo is still fully supported.
+
+- **Repo:** `github.com/dcp-ai-protocol/dcp-ai` (Apache-2.0). Anyone can mirror or fork.
+- **SDKs:** published under their native registries (npm, PyPI, crates.io, Go modules) at `v2.0.x`. See [README](../README.md) for the full install table.
+- **Service images:** the four optional services (verification, anchor, transparency log, revocation registry) ship as multi-arch Docker images on GHCR:
+    - `ghcr.io/dcp-ai-protocol/dcp-ai/verification`
+    - `ghcr.io/dcp-ai-protocol/dcp-ai/anchor`
+    - `ghcr.io/dcp-ai-protocol/dcp-ai/transparency-log`
+    - `ghcr.io/dcp-ai-protocol/dcp-ai/revocation`
+- **Smart contract:** `contracts/ethereum/DCPAnchor.sol` is a Foundry project, ready to deploy to Base, Optimism, or Arbitrum. See [`contracts/ethereum/DEPLOY.md`](../contracts/ethereum/DEPLOY.md).
+- **No canonical registry:** DCP-AI does not operate a central "DCP registry" or a hosted verification endpoint. `dcp-ai.org` serves the landing page, docs, playground, and the JSON-LD context for VCs (`/credentials/v2`); it does not verify bundles for anyone.
+- **Summary:** every piece of infrastructure a deployment needs is available either as an SDK you embed or as a container you run yourself. Anchoring still uses existing public chains; none of the published artefacts is a dependency of the protocol.
 
 ---
 
