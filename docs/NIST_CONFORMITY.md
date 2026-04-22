@@ -1,8 +1,8 @@
 # DCP-AI NIST Post-Quantum Cryptography Conformity Statement
 
-**Version:** 2.0.0
-**Date:** February 2026
-**Status:** Active
+**Specification version:** 2.0
+**Last updated:** April 2026
+**Status:** Active — matches shipped SDKs at v2.0.x
 
 This document describes how DCP-AI aligns with NIST post-quantum cryptographic standards and provides a conformity assessment for implementers. DCP-AI incorporates NIST FIPS 203, FIPS 204, and FIPS 205 algorithms as core components of its hybrid post-quantum security architecture.
 
@@ -10,14 +10,14 @@ This document describes how DCP-AI aligns with NIST post-quantum cryptographic s
 
 ## 1. Standards Coverage
 
-| NIST Standard | Algorithm | DCP-AI Usage | Status |
-|---------------|-----------|-------------|--------|
-| FIPS 203 | ML-KEM-768 | Hybrid KEM for A2A sessions, envelope encryption | Active (primary KEM) |
-| FIPS 204 | ML-DSA-65 | Post-quantum signatures in composite binding | Active (primary PQ signature) |
-| FIPS 204 | ML-DSA-87 | High-assurance post-quantum signatures | Active (elevated/maximum tiers) |
-| FIPS 205 | SLH-DSA-192f | Backup hash-based signature scheme | Active (backup PQ) |
-| FIPS 205 | SLH-DSA-256f | Level 5 hash-based signatures | Reserved |
-| SP 800-208 | LMS/XMSS guidance | Informs stateless hash-based sig selection | Reference |
+| NIST Standard | Algorithm | DCP-AI Usage | Shipped | Notes |
+|---------------|-----------|-------------|---------|-------|
+| FIPS 203 | ML-KEM-768 | Hybrid KEM for A2A sessions, envelope encryption | TypeScript, Rust, Go, WASM | Python provider not yet shipped (tracked). |
+| FIPS 204 | ML-DSA-65 | Post-quantum signatures in composite binding | All 5 SDKs | Primary PQ signature. |
+| FIPS 204 | ML-DSA-87 | High-assurance post-quantum signatures | HSM interface only (no native provider) | Reserved for hardware-backed Maximum tier. |
+| FIPS 205 | SLH-DSA-192f | Backup hash-based signature scheme | TypeScript, Python, Rust, Go | Active backup. |
+| FIPS 205 | SLH-DSA-256f | Level 5 hash-based signatures | Not shipped | Reserved. |
+| SP 800-208 | LMS / XMSS guidance | Informs stateless hash-based sig selection | Reference only | DCP-AI uses stateless SLH-DSA, not LMS/XMSS. |
 
 ---
 
@@ -69,7 +69,9 @@ DCP-AI uses ML-DSA-65 as the primary post-quantum signature algorithm in composi
 | Domain Separation | context string parameter | Context tag prefix | See Section 3 |
 | Randomized Signing | Yes (default) | Yes | Hedged with system randomness |
 
-#### ML-DSA-87 (High-Assurance)
+#### ML-DSA-87 (High-Assurance — Reserved)
+
+ML-DSA-87 is reserved for Maximum-tier deployments backed by hardware security modules. The algorithm identifier and key/signature sizes below are part of the specification; a native software provider is not shipped in the v2.0.x SDKs. The HSM provider interface exposes `ml-dsa-87` as a supported algorithm so that PKCS#11 tokens that implement it can be used transparently.
 
 | Parameter | FIPS 204 Value | DCP-AI Value | Notes |
 |-----------|---------------|-------------|-------|
@@ -77,6 +79,7 @@ DCP-AI uses ML-DSA-65 as the primary post-quantum signature algorithm in composi
 | Public Key Size | 2592 bytes | 2592 bytes | Conformant |
 | Secret Key Size | 4896 bytes | 4896 bytes | Conformant |
 | Signature Size | 4627 bytes | 4627 bytes | Conformant |
+| Status | — | HSM-only | No software provider in current SDK release. |
 
 **Usage in DCP-AI:**
 
@@ -203,16 +206,16 @@ ML-DSA-65 uses randomized signing. Direct KAT comparison requires seed control w
 ### 4.6 Running KAT Tests
 
 ```bash
-# TypeScript SDK
-cd sdks/typescript && npm test -- --grep "nist-kat"
+# TypeScript SDK (vitest)
+cd sdks/typescript && npx vitest run src/__tests__/nist-kat.test.ts
 
-# Python SDK
-cd sdks/python && pytest tests/test_nist_kat.py
+# Python SDK (pytest)
+cd sdks/python && pytest tests/test_nist_kat.py -v
 
-# Go SDK (conformance + interop vectors, including PQ provider tests)
+# Go SDK (conformance + interop + PQ providers in one run)
 cd sdks/go && go test ./...
 
-# Rust SDK (includes NIST KAT vectors for Ed25519 and ML-DSA-65)
+# Rust SDK (dedicated integration test)
 cd sdks/rust && cargo test --test nist_kat
 ```
 
@@ -329,18 +332,18 @@ Actions for implementers:
 ### Migration Timeline (Recommended)
 
 ```
-2026 Q1-Q2    Phase 1: Hybrid Introduction
-              - SDK support for composite signatures
+2026 Q1-Q2    Phase 1: Hybrid Introduction  [CURRENT]
+              - SDKs v2.0.x ship composite signatures
               - Verifiers accept both V1 and V2 bundles
-              - Early adopter testing
+              - Early-adopter integrations surface real-world load
 
 2026 Q3-Q4    Phase 2: Hybrid Required
               - Verifier policies default to hybrid_required
               - V1 bundles emit deprecation warnings
-              - Production deployments
+              - Wider production deployments
 
 2027+         Phase 3: PQ-Only (conditional)
-              - Triggered by governance advisory if classical
+              - Triggered by a governance advisory if classical
                 algorithms are weakened
               - V1 bundle rejection
               - Full post-quantum operation
@@ -369,19 +372,22 @@ DCP-AI aligns with NIST's published transition guidance for post-quantum cryptog
 
 Implementations MUST use cryptographic libraries that provide NIST-compliant algorithm implementations.
 
-### Recommended Libraries by Language
+### Libraries used by each shipped SDK
 
-| Language | Library | Algorithms | Notes |
-|----------|---------|-----------|-------|
-| TypeScript/Node | `@noble/post-quantum` | ML-DSA-65, ML-KEM-768, SLH-DSA | Audited, pure JS |
-| TypeScript/Node | `@noble/curves` | Ed25519, X25519 | Audited, pure JS |
-| TypeScript/Node | `@noble/hashes` | SHA-256, SHA3-256, HKDF | Audited, pure JS |
-| Python | `pqcrypto` / `liboqs-python` | ML-DSA, ML-KEM, SLH-DSA | liboqs bindings |
-| Python | `pynacl` | Ed25519, X25519 | libsodium bindings |
-| Go | `circl` (Cloudflare) | ML-DSA-65, ML-KEM-768, SLH-DSA-192f | Production-grade; all three providers implemented |
-| Go | `crypto/ed25519` | Ed25519 | Standard library |
-| Rust | `pqcrypto` | ML-DSA, ML-KEM, SLH-DSA | PQClean bindings |
-| Rust | `ed25519-dalek` | Ed25519 | Audited |
+| SDK | Library | Algorithms |
+|-----|---------|-----------|
+| TypeScript (`@dcp-ai/sdk`) | `@noble/post-quantum` | ML-DSA-65, ML-KEM-768, SLH-DSA-192f |
+| TypeScript (`@dcp-ai/sdk`) | `@noble/curves` | Ed25519, X25519 |
+| TypeScript (`@dcp-ai/sdk`) | `@noble/hashes` | SHA-256, SHA3-256, HKDF |
+| Python (`dcp-ai`) | `pqcrypto` (PQClean) | ML-DSA-65, SLH-DSA-192f |
+| Python (`dcp-ai`) | `pynacl` (libsodium) | Ed25519 |
+| Go (`sdks/go/v2`) | `github.com/cloudflare/circl` | ML-DSA-65, ML-KEM-768, SLH-DSA-192f |
+| Go (`sdks/go/v2`) | `crypto/ed25519` (stdlib) | Ed25519 |
+| Rust (`dcp-ai` crate) | `fips203`, `fips204`, `fips205` (RustCrypto) | ML-KEM-768, ML-DSA-65, SLH-DSA-192f |
+| Rust (`dcp-ai` crate) | `ed25519-dalek` | Ed25519 |
+| WASM (`@dcp-ai/wasm`) | Compiled from the Rust crate above | Same set as Rust |
+
+ML-KEM-768 is not yet exposed through the Python SDK's public provider surface; A2A sessions that require it currently use the TypeScript or Rust SDK. This is a scoping gap, not a design limitation — the same `pqcrypto` dependency can back it when the Python provider is added.
 
 ### Library Audit Requirements
 
