@@ -17,12 +17,12 @@ Thank you for your interest in contributing to the Digital Citizenship Protocol 
 ```bash
 # Clone the repository
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-cd dcp-ai-genesis
+cd dcp-ai
 
 # Install root dependencies (core protocol + CLI)
 npm install
 
-# Run conformance tests to verify your setup
+# Run conformance tests to verify your setup (should print "DCP-AI CONFORMANCE PASS (V1 + V2)")
 npm run conformance
 ```
 
