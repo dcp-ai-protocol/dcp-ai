@@ -20,7 +20,7 @@ The protocol is **spec + crypto + JSON**. SHA-256, Ed25519, canonical JSON, JSON
 │  Verification service, transparency log, revocation │
 ├─────────────────────────────────────────────────────┤
 │  Layer 2: SDK (multi-language)                      │
-│  Node/TS, Python, Go, Rust                          │
+│  TypeScript, Python, Go, Rust, WebAssembly          │
 ├─────────────────────────────────────────────────────┤
 │  Layer 1: Spec + Schemas (normative)                │
 │  spec/, schemas/v1/, JSON Schema draft 2020-12      │
@@ -57,15 +57,17 @@ Not a framework. A library that does exactly what `lib/verify.js` does today, bu
 - `intentHash(intent)` / `hashObject(obj)` — canonical hashing.
 - `revokeAgent(agentId, reason, signerKey)` — create a signed RevocationRecord.
 
-### Language recommendations
+### Language bindings (all published)
 
-**Node/TypeScript (`@dcp-ai/sdk`):** Refactor from `lib/verify.js` + `tools/crypto.js` + `tools/merkle.js`. Publish to npm. Embed schemas as JSON modules (no filesystem dependency). Priority 1 — already ~70% complete.
+All five SDK languages are shipped at `v2.0.x` and live in registries:
 
-**Python (`dcp-ai`):** Publish to PyPI. Dependencies: `jsonschema` (draft 2020-12), `pynacl` (Ed25519 via libsodium), `canonicaljson`. Python is the dominant language in AI/ML; this is how agent creators (OpenAI, Anthropic, LangChain, CrewAI) adopt the protocol.
+- **TypeScript** — [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) on npm. Embedded schemas, no filesystem dependency. `@noble/post-quantum` + `@noble/curves` + `@noble/hashes` for crypto. Also powers `@dcp-ai/cli` (interactive scaffolding CLI) and the integrations under `integrations/express/` and `integrations/openclaw/`.
+- **Python** — [`dcp-ai`](https://pypi.org/project/dcp-ai/) on PyPI. `pqcrypto` for ML-DSA-65 / SLH-DSA-192f, `pynacl` for Ed25519, `jsonschema` for draft 2020-12 validation, `pydantic` for typed models. Framework bridges (`dcp_ai.fastapi`, `dcp_ai.langchain`, `dcp_ai.openai`, `dcp_ai.crewai`) ship inside the wheel and are activated by install extras (e.g. `pip install dcp-ai[fastapi]`).
+- **Go** — `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` (module path requires the `/v2` suffix because of Go's major-version rule). `cloudflare/circl` for ML-DSA-65, ML-KEM-768, and SLH-DSA-192f; `crypto/ed25519` from stdlib. Tagged at `sdks/go/v2.0.0`.
+- **Rust** — [`dcp-ai`](https://crates.io/crates/dcp-ai) on crates.io. `fips203`/`fips204`/`fips205` crates (the RustCrypto FIPS-numbered families) for PQ; `ed25519-dalek` for classical. Also the source of the WASM build below via `--features wasm`.
+- **WebAssembly** — [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) on npm. Compiled from the Rust crate with `wasm-pack`. Powers the browser playground.
 
-**Go (`dcp-ai-go`):** For government infrastructure (log servers, verification). `crypto/ed25519` in stdlib, `encoding/json` (canonical via sorted keys), `santhosh-tekuri/jsonschema`. Go is the language of infrastructure.
-
-**Rust (`dcp-ai-rs`):** Optional; for embedded systems or high-performance gateways. `ed25519-dalek`, `serde_json`, `jsonschema`.
+All five share the same spec and the same schema set; cross-SDK interop is validated in CI via `tests/interop/v2/interop_vectors.json`.
 
 ### SDK structure (Node example)
 
@@ -92,16 +94,17 @@ The SDK does NOT depend on the filesystem. It receives objects and returns struc
 
 ### 3a. Verification service
 
-What already exists in `server/` — an HTTP API that verifies Signed Bundles.
+Lives in `server/` — an HTTP API that verifies Signed Bundles.
 
 For production deployment:
 
-- **Docker image** (e.g. `ghcr.io/dcp-ai/verify-service`). An operator runs `docker run -p 3000:3000 ghcr.io/dcp-ai/verify-service` and has verification running.
+- **Docker image:** `ghcr.io/dcp-ai-protocol/dcp-ai/verification:latest` (also tagged `:2.0.3`, `:2.0`, `:2`). Multi-arch `linux/amd64` + `linux/arm64`. Run with `docker run -p 3000:3000 ghcr.io/dcp-ai-protocol/dcp-ai/verification:latest` and verification is live.
 - **Stateless:** no database. Each request verifies the provided bundle.
-- **Health + metrics:** `/health`, `/metrics` (Prometheus-compatible for government monitoring).
-- **API:** POST `/verify` (body: `signed_bundle`, optional `public_key_b64`; response: `{ verified, errors? }`).
+- **Health + capabilities:** `/health`, `/.well-known/dcp-capabilities.json`.
+- **API:** POST `/verify` (body: `signed_bundle`, optional `public_key_b64`; response: `{ verified, errors? }`). Additional V2 endpoints listed in [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md).
+- **Managed deploy:** Fly.io config in `deploy/fly/verification.toml` — `fly launch --config deploy/fly/verification.toml && fly deploy --config deploy/fly/verification.toml` gets a public HTTPS URL in minutes.
 
-See [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md) and [server/README.md](../server/README.md).
+See [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md), [server/README.md](../server/README.md), and [deploy/README.md](../deploy/README.md).
 
 ### 3b. Transparency log
 
@@ -163,6 +166,8 @@ Receives `bundle_hash` (or log root) and publishes it to a blockchain.
 
 **Tech:** Node.js or Go. For Bitcoin: `bitcoinjs-lib`. For Ethereum/L2: `ethers.js` or `viem`. Can be a standalone script run via cron, or part of the log service (the log anchors its root periodically).
 
+**Reference implementation:** `services/anchor/` in this repo, published as `ghcr.io/dcp-ai-protocol/dcp-ai/anchor:latest`. Fly.io config in `deploy/fly/anchor.toml`. The Ethereum/L2 contract is `contracts/ethereum/DCPAnchor.sol` — a ready-to-deploy Foundry project with tests, deployment script, and per-chain RPC configs (Base, Base Sepolia, Optimism, Arbitrum, Sepolia). See [`contracts/ethereum/DEPLOY.md`](../contracts/ethereum/DEPLOY.md) for the walk-through.
+
 ### 4b. Jurisdiction attestation
 
 A jurisdiction authority (government or accredited issuer) signs the hash of an agent's RPR, certifying "this agent is registered in our jurisdiction."
@@ -204,19 +209,24 @@ This is not part of the protocol; it is a tool for operators.
 
 ---
 
-## Repository structure (recommended)
+## Repository layout (current)
 
-Not everything in one monorepo. Each repo is independent and consumable separately:
+Everything lives in a single monorepo at `github.com/dcp-ai-protocol/dcp-ai`. Each SDK and service is consumable independently through its own public registry, so a government or team can pick the pieces it wants without adopting the whole stack:
 
-- `dcp-ai/spec` — specs + schemas (normative source of truth). What this genesis repo becomes.
-- `dcp-ai/sdk-node` — TypeScript/Node SDK + CLI.
-- `dcp-ai/sdk-python` — Python SDK.
-- `dcp-ai/verify-service` — Docker image of HTTP verification service.
-- `dcp-ai/transparency-log` — Append-only log + Merkle tree implementation.
-- `dcp-ai/anchor` — Anchor scripts/service (Bitcoin, Ethereum L2).
-- `dcp-ai/gov-tools` — CLI for governments (revocation list publisher, attestation).
+- `spec/` — DCP-01 through DCP-09, BUNDLE, VERIFICATION, AUDIT (normative source of truth).
+- `schemas/` — JSON Schema draft 2020-12, split into `v1/` (9 artifacts) and `v2/` (39 artifacts, including DCP-05..09).
+- `sdks/` — TypeScript (`@dcp-ai/sdk`), Python (`dcp-ai`), Go (`sdks/go/v2`), Rust (`dcp-ai` crate), WASM (`@dcp-ai/wasm`).
+- `cli/` — `@dcp-ai/cli` interactive scaffolder (depends on the TypeScript SDK).
+- `integrations/` — 10 framework bridges: Express, FastAPI, LangChain, OpenAI, CrewAI, AutoGen, Anthropic MCP, Google A2A, W3C DID, OpenClaw. Six are standalone npm packages under `@dcp-ai/*`; the four Python ones ship inside the `dcp-ai` wheel as extras.
+- `packages/create-*` — four `npm create @dcp-ai/<template>` scaffolders (LangChain, CrewAI, OpenAI, Express).
+- `server/` — reference HTTP verification server.
+- `services/` — anchor, transparency-log, revocation. Each published as a multi-arch image on GHCR.
+- `contracts/ethereum/` — Foundry project for `DCPAnchor.sol` (ready to deploy to Base, Optimism, Arbitrum, Sepolia).
+- `deploy/` — Fly.io configs for the four services plus a provider-agnostic deployment guide.
+- `docs/` and `docs-site/` — this documentation; rendered at [docs.dcp-ai.org](https://docs.dcp-ai.org/).
+- `playground/` — browser playground powered by `@dcp-ai/wasm`; served at [dcp-ai.org/playground/](https://dcp-ai.org/playground/).
 
-A government can use only `spec` + `sdk-python` and nothing else. Or deploy the full stack. No vendor lock-in, no central dependency.
+A government can use only `spec/` + a single SDK from its preferred registry and nothing else. Or deploy the full stack via Docker/Fly.io. No vendor lock-in; no central dependency.
 
 ---
 
