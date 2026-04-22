@@ -9,6 +9,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"time"
+
+	"github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp/observability"
 )
 
 // Canonicalize returns deterministic JSON (sorted keys, compact).
@@ -74,34 +77,58 @@ func GenerateKeypair() (*Keypair, error) {
 
 // SignObject signs a canonical JSON object with Ed25519. Returns base64 signature.
 func SignObject(obj interface{}, secretKeyB64 string) (string, error) {
+	tel := observability.Default()
+	spanID := tel.StartSpan("dcp.sign", map[string]interface{}{"algorithm": "ed25519"})
+	start := time.Now()
+
 	canon, err := Canonicalize(obj)
 	if err != nil {
+		tel.RecordError("sign", err.Error())
+		tel.EndSpanWith(spanID, observability.SpanError, err.Error())
 		return "", fmt.Errorf("canonicalize: %w", err)
 	}
 	sk, err := base64.StdEncoding.DecodeString(secretKeyB64)
 	if err != nil {
+		tel.RecordError("sign", err.Error())
+		tel.EndSpanWith(spanID, observability.SpanError, err.Error())
 		return "", fmt.Errorf("decode secret key: %w", err)
 	}
 	privKey := ed25519.PrivateKey(sk)
 	sig := ed25519.Sign(privKey, []byte(canon))
+
+	tel.RecordSignLatency(float64(time.Since(start).Microseconds())/1000.0, "ed25519")
+	tel.EndSpan(spanID)
 	return base64.StdEncoding.EncodeToString(sig), nil
 }
 
 // VerifyObject verifies an Ed25519 detached signature on a JSON object.
 func VerifyObject(obj interface{}, signatureB64, publicKeyB64 string) (bool, error) {
+	tel := observability.Default()
+	spanID := tel.StartSpan("dcp.verify", map[string]interface{}{"algorithm": "ed25519"})
+	start := time.Now()
+
 	canon, err := Canonicalize(obj)
 	if err != nil {
+		tel.RecordError("verify", err.Error())
+		tel.EndSpanWith(spanID, observability.SpanError, err.Error())
 		return false, fmt.Errorf("canonicalize: %w", err)
 	}
 	sig, err := base64.StdEncoding.DecodeString(signatureB64)
 	if err != nil {
+		tel.RecordError("verify", err.Error())
+		tel.EndSpanWith(spanID, observability.SpanError, err.Error())
 		return false, fmt.Errorf("decode signature: %w", err)
 	}
 	pk, err := base64.StdEncoding.DecodeString(publicKeyB64)
 	if err != nil {
+		tel.RecordError("verify", err.Error())
+		tel.EndSpanWith(spanID, observability.SpanError, err.Error())
 		return false, fmt.Errorf("decode public key: %w", err)
 	}
-	return ed25519.Verify(ed25519.PublicKey(pk), []byte(canon), sig), nil
+	ok := ed25519.Verify(ed25519.PublicKey(pk), []byte(canon), sig)
+	tel.RecordVerifyLatency(float64(time.Since(start).Microseconds())/1000.0, "ed25519")
+	tel.EndSpan(spanID)
+	return ok, nil
 }
 
 // HashObject computes SHA-256 of canonical JSON. Returns hex string.

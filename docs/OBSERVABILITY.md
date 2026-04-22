@@ -1,6 +1,6 @@
 # Observability — OpenTelemetry integration
 
-As of `@dcp-ai/sdk` 2.1.0 (TypeScript) and `dcp-ai` 2.1.0 (Python), the SDKs can emit **traces and metrics** to any OpenTelemetry-compatible backend. If you run Grafana, Jaeger, Honeycomb, Datadog, New Relic, or a self-hosted OTel Collector, you don't need any custom bridge — DCP-AI talks OTLP directly.
+As of the 2.1.0 release all four core SDKs (**TypeScript, Python, Rust, Go**) can emit **traces and metrics** to any OpenTelemetry-compatible backend. If you run Grafana, Jaeger, Honeycomb, Datadog, New Relic, or a self-hosted OTel Collector, you don't need any custom bridge — DCP-AI talks OTLP directly.
 
 This page documents the three things you need to know:
 
@@ -92,6 +92,57 @@ dcp_telemetry.init(
 ```
 
 Same guarantees as TypeScript: default install is slim, OTel packages are imported lazily only when you flip `exporter_type="otlp"`, and a missing dependency surfaces as an error event rather than an application crash.
+
+### Rust
+
+Enable the optional `otlp` Cargo feature:
+
+```toml
+[dependencies]
+dcp-ai = { version = "2.1", features = ["otlp"] }
+```
+
+Wire in your app:
+
+```rust
+use dcp_ai::observability::{dcp_telemetry, ExporterType, TelemetryConfig};
+
+dcp_telemetry().init(TelemetryConfig {
+    service_name: "my-agent".into(),
+    enabled: true,
+    exporter_type: ExporterType::Otlp,
+    otlp_endpoint: Some("http://localhost:4318".into()),
+    ..Default::default()
+});
+```
+
+The OTLP bridge runs on a Tokio multi-thread runtime; call `dcp_telemetry().shutdown()` before your process exits to flush pending exports. Without the `otlp` feature, requesting `ExporterType::Otlp` emits a clear error event via `on_event` and recorders continue to populate the in-memory `MetricsSummary`.
+
+### Go
+
+Build your binary with the `otlp` build tag:
+
+```bash
+go build -tags otlp ./...
+```
+
+Wire in your app:
+
+```go
+import (
+    "github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp/observability"
+)
+
+observability.Default().Init(observability.Config{
+    ServiceName:  "my-agent",
+    Enabled:      true,
+    ExporterType: observability.ExporterOTLP,
+    OTLPEndpoint: "http://localhost:4318",
+})
+defer observability.Default().Shutdown()
+```
+
+The `go.opentelemetry.io/otel` packages are listed in `go.mod` but the OTLP bridge file is gated by `//go:build otlp` — default (`go build`) binaries do not link the OTel runtime. Without the tag, selecting `ExporterOTLP` emits an `otlp_init` error event through the listener bus; the in-memory metrics still work.
 
 ---
 

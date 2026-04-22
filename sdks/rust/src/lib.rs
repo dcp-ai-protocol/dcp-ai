@@ -9,6 +9,7 @@ pub mod crypto;
 pub mod verify;
 pub mod v2;
 pub mod providers;
+pub mod observability;
 
 pub use types::*;
 pub use crypto::{

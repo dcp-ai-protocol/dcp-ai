@@ -8,7 +8,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-**OpenTelemetry (OTLP) exporter for both TypeScript and Python SDKs.** Adopters can now pipe DCP observability into any OTel-compatible backend (Grafana, Jaeger, Honeycomb, Datadog, New Relic, self-hosted Collectors) without hand-rolled bridges.
+**OpenTelemetry (OTLP) exporter for all four core SDKs** — TypeScript, Python, **Rust, and Go**. Adopters can now pipe DCP observability into any OTel-compatible backend (Grafana, Jaeger, Honeycomb, Datadog, New Relic, self-hosted Collectors) without hand-rolled bridges. Every SDK that performs DCP cryptography now reports the same metric names, counters, and span shapes.
+
+- **Rust (`dcp-ai` 2.0.0 → 2.1.0)**
+    - New `dcp_ai::observability` module with thread-safe `DcpTelemetry` singleton, recorder methods, span lifecycle, `on_event` listener bus, and `MetricsSummary` with p50/p95/p99.
+    - Optional `otlp` Cargo feature (`cargo add dcp-ai --features otlp`) pulls `opentelemetry`, `opentelemetry_sdk`, `opentelemetry-otlp`, and `tokio`. Without the feature, requesting `ExporterType::Otlp` surfaces a clear error event instead of panicking.
+    - Hot paths instrumented: `crypto::sign_object` and `crypto::verify_object` emit latency + error telemetry when enabled. Zero overhead when disabled (default).
+    - 10 unit tests covering disabled-by-default behavior, percentiles, span lifecycle, tier distribution, cache hit rate, and listener panic isolation.
+
+- **Go (`sdks/go/v2.0.0 → v2.1.0`)**
+    - New `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp/observability` package with mutex-protected `Telemetry` type, `Default()` singleton, recorder methods, subscribers with panic recovery, percentile math matching the other SDKs.
+    - OTLP bridge gated by the `otlp` build tag (`go build -tags otlp`). Without the tag, requesting `ExporterOTLP` emits a clear `otlp_init` error event via the listener bus. The `go.opentelemetry.io/otel` dependencies are listed in `go.mod` but are not required at runtime by default builds.
+    - Hot paths instrumented: `dcp.SignObject` and `dcp.VerifyObject` emit latency + error telemetry when enabled. Zero overhead when disabled (default).
+    - 10 unit tests for the observability package + 2 integration tests against `dcp.SignObject` covering the enabled/disabled paths.
 
 - **TypeScript (`@dcp-ai/sdk` 2.0.0 → 2.1.0)**
     - `dcpTelemetry.init({ exporterType: 'otlp' })` now actually works (the config field was declared in 2.0.x but not wired).
@@ -33,8 +45,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Backward compatibility
 
-- Fully backward compatible. Defaults unchanged — telemetry ships disabled, recorders are no-ops. No code changes needed for adopters who don't want observability.
-- Other publishable packages remain at their current versions. Only `@dcp-ai/sdk` and `dcp-ai` (PyPI) move to 2.1.0.
+- Fully backward compatible across all four SDKs. Defaults unchanged — telemetry ships disabled, recorders are no-ops. No code changes needed for adopters who don't want observability.
+- Synchronized semver: `@dcp-ai/sdk` (npm), `dcp-ai` (PyPI), `dcp-ai` (crates.io), and `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` all move to 2.1.0. Other publishable packages (CLI, WASM, integrations, create-* scaffolders) remain at their current versions.
+- WASM SDK observability is deferred to a future minor; browser telemetry has different transport requirements.
 
 ## Template packages - 2026-04-21
 
