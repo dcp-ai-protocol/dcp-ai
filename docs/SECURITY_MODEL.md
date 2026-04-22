@@ -357,12 +357,17 @@ Operators deploying DCP MUST:
 
 | Limitation | Mitigation |
 |---|---|
-| PQ crypto in CLI is simulated (HMAC placeholder) | Production: use real ML-DSA-65 via SDK (`@noble/post-quantum`, `pqcrypto`) |
-| Shamir SSS in CLI is placeholder (random shares) | Production: use proper SSS library (`shamir`, `secrets.js-grempe`) |
 | Self-declared identity at `routine` tier | Attestation required for `standard`+ tiers |
 | Verification cache may serve stale results | Cache MUST be invalidated on revocation list updates |
 | `agent_id` persistence enables tracking | Consider pseudonym rotation for high-privacy scenarios |
 | BlindedRPR exposes `entity_type` and `jurisdiction` | Future: ZKP-based credential presentation |
+| Python SDK has no `ml-kem-768` provider yet | For A2A sessions requiring ML-KEM, use the TypeScript, Rust, Go, or WASM SDK. Python ML-KEM provider is planned. |
+| ML-DSA-87 has no native software provider | Available only through the HSM interface for hardware-backed Maximum tier. Native software provider is reserved for a future SDK release. |
+
+The following limitations that appeared in earlier drafts have been **closed**:
+
+- *PQ crypto in CLI was simulated (HMAC placeholder)* — resolved: the reference CLI (`bin/dcp.js`) now uses real ML-DSA-65 via `@noble/post-quantum` for key generation and signing.
+- *Shamir SSS in CLI was placeholder (random shares)* — resolved: the CLI uses `secrets.js-grempe`, a proper Shamir Secret Sharing library, for key recovery operations.
 
 ---
 
