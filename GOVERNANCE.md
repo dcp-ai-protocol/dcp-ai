@@ -6,6 +6,8 @@ This document describes the governance model for the DCP-AI (Digital Citizenship
 
 DCP-AI uses an **open governance** model. The project is developed in the open, and contributions are welcome from anyone. Major decisions are made through consensus among maintainers, informed by community input.
 
+**Current state (April 2026):** the project is in its bootstrap phase with a single founding maintainer. The roles, decision-making process, and voting rules described below define how the project operates as additional maintainers are added. While the project has a single maintainer, "consensus among maintainers" means the decision of that maintainer; this document applies to that case by construction.
+
 ## Roles
 
 ### Contributors
@@ -65,9 +67,11 @@ Changes to the normative protocol specifications (`spec/`) require a higher bar:
 3. **Release Steps**:
    - All CI checks must pass on `main`
    - A maintainer creates a release branch (if applicable) or tags from `main`
-   - Changelog is updated with all notable changes
+   - `CHANGELOG.md` is updated with all notable changes
    - Release notes are published on GitHub
-   - SDK packages are published to their respective registries (npm, PyPI, crates.io, pkg.go.dev)
+   - SDK packages are published to their respective registries (npm, PyPI, crates.io). The Go SDK is not published to a central registry — Go modules are discovered by tag at `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2`; pkg.go.dev indexes from there automatically.
+   - The publication is automated via the `publish.yml`, `publish-pypi.yml`, `publish-integrations.yml`, `publish-templates.yml`, and `publish-docker.yml` workflows — each triggered by a GitHub Release and each pre-checking whether the artefact is already on its registry so re-runs exit green.
+   - Where applicable, a Zenodo software DOI is created or linked so the release is citable in academic work (see [CITATION.cff](CITATION.cff)).
 
 4. **Hotfixes**: Critical security or correctness fixes may bypass the normal discussion period at maintainer discretion.
 
@@ -76,12 +80,14 @@ Changes to the normative protocol specifications (`spec/`) require a higher bar:
 If you discover a security vulnerability in DCP-AI:
 
 1. **Do NOT** open a public issue.
-2. Email the maintainers privately at the address listed in `SECURITY.md` (or the repository's security advisory feature on GitHub).
-3. Include a description of the vulnerability, steps to reproduce, and potential impact.
-4. Maintainers will acknowledge receipt within 48 hours and provide an estimated timeline for a fix.
-5. A security advisory will be published after the fix is released.
+2. Report privately via one of:
+   - Email: **security@dcp-ai.org**
+   - GitHub Private Vulnerability Reporting: [security/advisories/new](https://github.com/dcp-ai-protocol/dcp-ai/security/advisories/new)
+3. Include a description of the vulnerability, steps to reproduce, the affected component (protocol, specific SDK, a service, or the smart contract), and a potential impact assessment.
+4. Maintainers acknowledge receipt within 48 hours and share an estimated timeline for the fix.
+5. A security advisory is published after the fix ships.
 
-For full details, see [SECURITY.md](SECURITY.md) (if present) or use GitHub's private vulnerability reporting feature.
+For full details see [SECURITY.md](SECURITY.md), including the scope, SLA, and severity handling. Monetary rewards are handled case-by-case rather than as a fixed bounty tier.
 
 ## Amendments
 
