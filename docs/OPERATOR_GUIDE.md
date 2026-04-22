@@ -66,20 +66,48 @@ Implementation of `/anchor` depends on the operator's chain and tooling (Bitcoin
 
 ## Deployment
 
-- **Runtime:** Node.js (or any environment that can run the verification logic).
-- **No database required:** the service is stateless; each request verifies the provided bundle.
-- **Environment variables (suggested):**
-  - `PORT`: HTTP port (e.g. `3000`).
-  - Optional, for anchoring: `ANCHOR_CHAIN_RPC`, `ANCHOR_WALLET_KEY`, etc., depending on the chain.
+The reference verification server, anchor service, transparency log, and revocation registry are all **published as Docker images** on GitHub Container Registry. In most cases you don't need to clone the repo at all — `docker run` is enough.
 
-**Steps:**
+### Option 1 — pull the reference image (fastest)
 
-1. Clone or depend on this repo (or `npm install dcp-ai` if published).
-2. Use the programmatic API: `import { verifySignedBundle, validateBundle } from 'dcp-ai'` (when installed via npm), or from `../lib/verify.js` when running from this repo; or shell out to `dcp verify-bundle` for each request.
-3. Expose POST `/verify` (and optionally POST `/anchor`).
-4. Deploy behind your preferred reverse proxy and TLS.
+```bash
+docker run -d -p 3000:3000 ghcr.io/dcp-ai-protocol/dcp-ai/verification:latest
+curl http://localhost:3000/health
+```
 
-Optional: use the reference server in `server/` (see [server/README.md](../server/README.md)) as a starting point, or build your own with Express/Fastify/etc.
+Multi-arch (`linux/amd64` + `linux/arm64`). Tags: `:latest`, `:2.0.3`, `:2.0`, `:2`, `:sha-<short>`. The full stack (verification + anchor + transparency log + revocation) can be brought up with one `docker compose up -d` using the compose file in `docker/`.
+
+### Option 2 — managed PaaS
+
+Pre-wired configs for Fly.io are in [`deploy/fly/`](../deploy/fly/); the [deployment guide](../deploy/README.md) also covers Google Cloud Run and Railway patterns.
+
+### Option 3 — embed the verifier in your own service
+
+If you want verification inside your existing application (no separate HTTP service), install the SDK for your language and call `verifySignedBundle` directly:
+
+```bash
+npm install @dcp-ai/sdk        # TypeScript / Node.js
+pip install dcp-ai             # Python
+cargo add dcp-ai               # Rust
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.0.0
+```
+
+See each SDK's README for the exact import path and API surface. The SDKs cover 100% of the verification checklist in [VERIFICATION.md](../spec/VERIFICATION.md).
+
+### Stateless by design
+
+- **No database required** for verification: each request is self-contained.
+- **Optional persistence** is only needed for: operator-run anchor service (to queue batches), transparency log (to accumulate the Merkle tree), revocation registry (to serve active revocations).
+
+### Environment variables (verification service)
+
+- `PORT` — HTTP port (default `3000`)
+- `DCP_VERSION` — `2.0`
+- `VERIFIER_MODE` — `classical_only` | `hybrid_preferred` | `hybrid_required`
+- `REQUIRE_SESSION_BINDING`, `REQUIRE_COMPOSITE_BINDING` — `true`/`false`
+- `MAX_KEY_AGE_DAYS`, `ALLOW_V1_BUNDLES`, `PQ_CHECKPOINT_INTERVAL` — tuning knobs
+
+For `anchor`, `transparency-log`, and `revocation` env variables see their respective README files under [`services/`](../services/) or the per-service `fly.toml` in [`deploy/fly/`](../deploy/fly/).
 
 ## Blockchain and verification
 
