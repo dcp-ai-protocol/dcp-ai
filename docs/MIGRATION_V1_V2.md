@@ -1,7 +1,8 @@
 # Migration Guide: DCP-AI v1.0 to v2.0
 
-**Version:** 2.0.0
-**Date:** February 2026
+**Specification version:** 2.0
+**Last updated:** April 2026
+**Applies to:** all v2.0.x SDK releases currently on npm, PyPI, crates.io, and Go modules
 
 This guide walks you through migrating an existing DCP-AI v1.0 integration to v2.0. The migration introduces post-quantum composite signatures, dual-hash chains, session binding, adaptive security tiers, and agent-to-agent communication — while maintaining full backward compatibility for v1.0 bundles.
 
@@ -53,13 +54,30 @@ npm install @dcp-ai/sdk@latest
 **Python:**
 
 ```bash
-pip install dcp-ai --upgrade
+pip install --upgrade dcp-ai
+# Optional extras that pull in framework bridges:
+#   pip install --upgrade 'dcp-ai[fastapi]'
+#   pip install --upgrade 'dcp-ai[langchain]'
+#   pip install --upgrade 'dcp-ai[openai]'
+#   pip install --upgrade 'dcp-ai[crewai]'
 ```
 
-**Go:**
+**Go** (note the v2 major suffix required by Go modules):
 
 ```bash
-go get github.com/dcp-ai/dcp-ai-go@latest
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.0.0
+```
+
+**Rust:**
+
+```bash
+cargo add dcp-ai
+```
+
+**WebAssembly (browser):**
+
+```bash
+npm install @dcp-ai/wasm
 ```
 
 ### Step 2: Generate Hybrid Key Pairs
@@ -685,9 +703,11 @@ For teams migrating a production system, the recommended order is:
 | **Cutover** | Week 8+ | Set `allow_v1_bundles: false` when ready |
 
 For migration support:
-- GitHub Issues: `dcp-ai-genesis` repository
-- Slack: #dcp-migration channel (early adopters)
-- Office Hours: Wednesdays 10:00 AM Pacific
+- GitHub Issues or Discussions: [`dcp-ai-protocol/dcp-ai`](https://github.com/dcp-ai-protocol/dcp-ai)
+- Private vulnerability reports via GitHub's security advisory UI
+- Email the maintainers per [GOVERNANCE.md](../GOVERNANCE.md)
+
+There is no dedicated Slack, Discord, or office-hours call at this time. See [EARLY_ADOPTERS.md](EARLY_ADOPTERS.md) for the current support model.
 
 ---
 
