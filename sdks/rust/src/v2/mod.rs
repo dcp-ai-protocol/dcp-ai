@@ -20,3 +20,6 @@ pub mod security_tier;
 pub mod emergency_revocation;
 pub mod pq_checkpoint;
 pub mod a2a;
+pub mod advisory;
+pub mod blinded_rpr;
+pub mod multi_party_auth;

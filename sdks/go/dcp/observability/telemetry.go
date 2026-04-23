@@ -24,7 +24,7 @@ import (
 
 // SDKVersion is reported to OpenTelemetry as `service.version`. Bumped in
 // lockstep with the Go module tag under sdks/go/v*.
-const SDKVersion = "2.5.0"
+const SDKVersion = "2.6.0"
 
 // ExporterType selects how events are forwarded outside the in-memory bus.
 type ExporterType string

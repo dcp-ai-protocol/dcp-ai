@@ -4,6 +4,37 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.6.0] - 2026-04-23
+
+### Added — blinded RPR, multi-party auth, advisory helpers in Rust + Go
+
+Ports three Python-exclusive features to Rust and Go, closing the gap
+noted in the crosswalk where Python was ahead of the other non-TS SDKs.
+
+- **Blinded RPR (Gap #2)**: `compute_pii_hash`, `blind_rpr`,
+  `verify_blinded_rpr`, `is_blinded_rpr`.
+- **Multi-Party Authorization (Gap #5)**: `verify_multi_party_authorization`
+  + `MultiPartyPolicy` with the four default operation policies
+  (`revoke_agent`, `rotate_org_key`, `change_jurisdiction`,
+  `modify_recovery_config`).
+- **Algorithm advisory helpers (Gap #4)**: `check_advisory`,
+  `evaluate_advisories`, `apply_advisories_to_policy`,
+  `build_algorithm_advisory`.
+
+All three modules match the Python semantics: SHA-256 PII commitment,
+M-of-N structural validation (crypto verification stays at the gateway),
+and routing by action (`revoke` / `deprecate` / `warn`) with grace-period
+handling.
+
+Python (`dcp-ai` 2.5.0 -> 2.6.0): no code change, version bump only to
+keep the SDK suite synchronised.
+
+### Test counts
+
+- Rust: 147/147 (+14 new)
+- Go: 106/106 (+12 new)
+- Python: 231/231 (unchanged)
+
 ## [2.5.0] - 2026-04-23
 
 ### Added — DCP-04 Agent-to-Agent protocol parity
