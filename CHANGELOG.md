@@ -4,6 +4,33 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.5.0] - 2026-04-23
+
+### Added — DCP-04 Agent-to-Agent protocol parity
+
+Ports DCP-04 (Agent-to-Agent) scaffolding to the remaining SDKs.
+
+**Python (`dcp-ai` 2.4.0 -> 2.5.0)** — full parity with TS including the
+symmetric session layer (AES-256-GCM via the `cryptography` package).
+
+- Discovery: `create_agent_directory`, `find_agent_by_capability`,
+  `find_agent_by_id`, `validate_directory_entry`.
+- Handshake: `generate_nonce`, `create_hello`, `create_welcome`,
+  `derive_session_id`, `create_close_message`.
+- Session: `A2ASession`, `create_session`, `encrypt_message`,
+  `decrypt_message`, `needs_rekeying`, `generate_resume_proof`,
+  `verify_resume_proof`, `derive_rekeyed_session_key`.
+
+**Go (`sdks/go/v2.4.0 -> v2.5.0`)** — full parity with TS, using Go stdlib
+`crypto/aes` + `crypto/cipher` for AES-256-GCM (no new dependencies).
+
+**Rust (`dcp-ai` 2.4.0 -> 2.5.0)** — discovery + handshake scaffolding.
+The AES-256-GCM session layer is scheduled for a follow-up release; Rust
+users can still build directories, HELLO/WELCOME messages, and derive
+session IDs.
+
+Test counts: Python 231/231, Rust 133/133, Go 94/94.
+
 ## [2.4.0] - 2026-04-23
 
 ### Added — Production hardening primitives in Python, Rust, Go

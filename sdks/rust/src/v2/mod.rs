@@ -19,3 +19,4 @@ pub mod session_nonce;
 pub mod security_tier;
 pub mod emergency_revocation;
 pub mod pq_checkpoint;
+pub mod a2a;

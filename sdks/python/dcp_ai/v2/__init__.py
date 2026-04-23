@@ -167,6 +167,25 @@ from dcp_ai.v2.pq_checkpoint import (
     audit_events_merkle_root,
     create_pq_checkpoint,
 )
+from dcp_ai.v2.a2a import (
+    A2ASession,
+    create_agent_directory,
+    create_close_message,
+    create_hello,
+    create_session,
+    create_welcome,
+    decrypt_message,
+    derive_rekeyed_session_key,
+    derive_session_id,
+    encrypt_message,
+    find_agent_by_capability,
+    find_agent_by_id,
+    generate_nonce,
+    generate_resume_proof,
+    needs_rekeying,
+    validate_directory_entry,
+    verify_resume_proof,
+)
 
 __all__ = [
     "assert_no_floats",
@@ -311,4 +330,22 @@ __all__ = [
     "PQCheckpointManager",
     "audit_events_merkle_root",
     "create_pq_checkpoint",
+    # DCP-04: A2A protocol
+    "A2ASession",
+    "create_agent_directory",
+    "create_close_message",
+    "create_hello",
+    "create_session",
+    "create_welcome",
+    "decrypt_message",
+    "derive_rekeyed_session_key",
+    "derive_session_id",
+    "encrypt_message",
+    "find_agent_by_capability",
+    "find_agent_by_id",
+    "generate_nonce",
+    "generate_resume_proof",
+    "needs_rekeying",
+    "validate_directory_entry",
+    "verify_resume_proof",
 ]
