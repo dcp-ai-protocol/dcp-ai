@@ -1,0 +1,57 @@
+# Code owners for dcp-ai.
+# GitHub auto-requests review from the accounts listed here when a PR touches
+# matching paths. With a single maintainer today, every area routes to the same
+# account — but the per-area mapping is in place so future per-area reviewers
+# can be added without changing PR flow.
+#
+# Syntax: https://docs.github.com/en/repositories/managing-your-repositories-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default: owner of record for anything not matched by a more specific rule.
+*                                   @dcp-ai-protocol
+
+# Protocol spec + JSON Schemas — the normative source of truth.
+/spec/                              @dcp-ai-protocol
+/schemas/                           @dcp-ai-protocol
+
+# SDKs. Paridad criptográfica entre los 5 es el invariante que más importa
+# cuidar, así que todos apuntan al mismo dueño de facto.
+/sdks/typescript/                   @dcp-ai-protocol
+/sdks/python/                       @dcp-ai-protocol
+/sdks/rust/                         @dcp-ai-protocol
+/sdks/go/                           @dcp-ai-protocol
+/sdks/wasm/                         @dcp-ai-protocol
+
+# Framework integrations (@dcp-ai/express, langchain, crewai, openai, etc.).
+/integrations/                      @dcp-ai-protocol
+
+# npm create @dcp-ai/<framework> scaffolders.
+/packages/                          @dcp-ai-protocol
+
+# Interactive CLI.
+/cli/                               @dcp-ai-protocol
+
+# Operational services (anchor, transparency-log, revocation).
+/services/                          @dcp-ai-protocol
+
+# Smart contracts.
+/contracts/                         @dcp-ai-protocol
+
+# Conformance / interop / NIST KAT tests.
+/tests/                             @dcp-ai-protocol
+
+# Docs surfaces: hand-written docs, MkDocs generator, static site, playground.
+/docs/                              @dcp-ai-protocol
+/docs-site/                         @dcp-ai-protocol
+/site/                              @dcp-ai-protocol
+/playground/                        @dcp-ai-protocol
+
+# Release workflows and repo-wide CI. Changes here affect every package.
+/.github/                           @dcp-ai-protocol
+
+# Security policy, governance, and top-level legal/readme files.
+/SECURITY.md                        @dcp-ai-protocol
+/GOVERNANCE.md                      @dcp-ai-protocol
+/ROADMAP.md                         @dcp-ai-protocol
+/LICENSE                            @dcp-ai-protocol
+/CITATION.cff                       @dcp-ai-protocol
+/CHANGELOG.md                       @dcp-ai-protocol

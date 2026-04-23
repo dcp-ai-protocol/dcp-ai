@@ -1,0 +1,104 @@
+# Path-based PR labels for dcp-ai.
+# Consumed by .github/workflows/labeler.yml (actions/labeler@v5).
+#
+# Rules match changed-file paths in a PR and apply the named label.
+# Multiple rules can match at once — a cross-cutting PR will pick up several labels.
+
+"area/spec":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "spec/**"
+          - "schemas/**"
+          - "api/**"
+
+"area/sdk-typescript":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "sdks/typescript/**"
+
+"area/sdk-python":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "sdks/python/**"
+
+"area/sdk-rust":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "sdks/rust/**"
+
+"area/sdk-go":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "sdks/go/**"
+
+"area/sdk-wasm":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "sdks/wasm/**"
+
+"area/integrations":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "integrations/**"
+
+"area/scaffolders":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "packages/**"
+          - "templates/**"
+
+"area/cli":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "cli/**"
+          - "bin/**"
+
+"area/services":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "services/**"
+
+"area/contracts":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "contracts/**"
+
+"area/docs":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docs/**"
+          - "docs-site/**"
+          - "site/**"
+          - "playground/**"
+          - "mkdocs.yml"
+          - "README*.md"
+          - "CONTRIBUTING*.md"
+
+"area/ci":
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/**"
+
+"area/tests":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "tests/**"
+
+"area/security":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "SECURITY.md"
+          - "keys/**"
+          - "**/package-lock.json"
+          - "**/Cargo.lock"
+          - "**/go.sum"
+          - "**/uv.lock"
+
+"area/release":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "CHANGELOG.md"
+          - "**/package.json"
+          - "**/Cargo.toml"
+          - "**/pyproject.toml"
+          - "**/go.mod"

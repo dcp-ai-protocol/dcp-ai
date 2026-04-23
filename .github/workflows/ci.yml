@@ -10,6 +10,58 @@ on:
     branches: [main]
 
 jobs:
+  # Detect which areas changed so per-language suites can skip when untouched.
+  # Conformance always runs — it's the wire-format invariant check that should
+  # catch any protocol-level regression, regardless of which SDK was edited.
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      typescript: ${{ steps.filter.outputs.typescript }}
+      python: ${{ steps.filter.outputs.python }}
+      go: ${{ steps.filter.outputs.go }}
+      rust: ${{ steps.filter.outputs.rust }}
+      wasm: ${{ steps.filter.outputs.wasm }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            typescript:
+              - 'sdks/typescript/**'
+              - 'schemas/**'
+              - 'spec/**'
+              - 'tests/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - '.github/workflows/ci.yml'
+            python:
+              - 'sdks/python/**'
+              - 'schemas/**'
+              - 'spec/**'
+              - 'tests/**'
+              - '.github/workflows/ci.yml'
+            go:
+              - 'sdks/go/**'
+              - 'schemas/**'
+              - 'spec/**'
+              - 'tests/**'
+              - '.github/workflows/ci.yml'
+            rust:
+              - 'sdks/rust/**'
+              - 'sdks/wasm/**'
+              - 'schemas/**'
+              - 'spec/**'
+              - 'tests/**'
+              - '.github/workflows/ci.yml'
+            wasm:
+              - 'sdks/wasm/**'
+              - 'sdks/rust/**'
+              - 'schemas/**'
+              - 'spec/**'
+              - '.github/workflows/ci.yml'
+
   conformance:
     name: Conformance Tests
     runs-on: ubuntu-latest
@@ -65,6 +117,8 @@ jobs:
 
   typescript-sdk:
     name: TypeScript SDK
+    needs: changes
+    if: ${{ needs.changes.outputs.typescript == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -103,6 +157,8 @@ jobs:
 
   python-sdk:
     name: Python SDK
+    needs: changes
+    if: ${{ needs.changes.outputs.python == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -132,6 +188,8 @@ jobs:
 
   go-sdk:
     name: Go SDK
+    needs: changes
+    if: ${{ needs.changes.outputs.go == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -161,6 +219,8 @@ jobs:
 
   rust-sdk:
     name: Rust SDK
+    needs: changes
+    if: ${{ needs.changes.outputs.rust == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -198,6 +258,8 @@ jobs:
 
   wasm-sdk:
     name: WASM SDK
+    needs: changes
+    if: ${{ needs.changes.outputs.wasm == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
