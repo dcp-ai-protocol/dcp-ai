@@ -29,6 +29,8 @@ dependencies = [
     "pydantic>=2.0",
     "typer>=0.9.0",
     "pqcrypto>=0.4.0",
+    # AES-256-GCM for DCP-04 A2A session encryption (v2.5+).
+    "cryptography>=41.0",
 ]
 
 [project.optional-dependencies]
