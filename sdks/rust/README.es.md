@@ -1,26 +1,26 @@
-<sub>**English** · [中文](README.zh-CN.md) · [Español](README.es.md) · [日本語](README.ja.md) · [Português](README.pt-BR.md)</sub>
+<sub>[English](README.md) · [中文](README.zh-CN.md) · **Español** · [日本語](README.ja.md) · [Português](README.pt-BR.md)</sub>
 
-# dcp-ai — Rust SDK
+# dcp-ai — SDK Rust
 
-Official Rust SDK for the Digital Citizenship Protocol (DCP). Serde-based types, Ed25519 via ed25519-dalek, and optional WebAssembly support.
+SDK oficial de Rust para el Digital Citizenship Protocol (DCP). Tipos basados en Serde, Ed25519 vía ed25519-dalek y soporte opcional para WebAssembly.
 
-## Installation
+## Instalación
 
-Add to `Cargo.toml`:
+Agrega a `Cargo.toml`:
 
 ```toml
 [dependencies]
 dcp-ai = "1.0"
 ```
 
-For WebAssembly support:
+Para soporte WebAssembly:
 
 ```toml
 [dependencies]
 dcp-ai = { version = "1.0", features = ["wasm"] }
 ```
 
-## Quickstart
+## Inicio Rápido
 
 ```rust
 use dcp_ai::crypto::{generate_keypair, sign_object, verify_object, hash_object};
@@ -48,7 +48,7 @@ fn main() {
 }
 ```
 
-### Verify a Signed Bundle
+### Verificar un Signed Bundle
 
 ```rust
 use dcp_ai::verify::verify_signed_bundle;
@@ -67,20 +67,20 @@ fn main() {
 }
 ```
 
-## API Reference
+## Referencia de API
 
 ### Crypto (`dcp_ai::crypto`)
 
-| Function | Signature | Description |
+| Función | Firma | Descripción |
 |----------|-----------|-------------|
-| `generate_keypair()` | `() -> (String, String)` | Returns `(public_key_b64, secret_key_b64)` |
-| `sign_object(obj, secret_key_b64)` | `(&Value, &str) -> Result<String, String>` | Signs, returns base64 |
-| `verify_object(obj, sig_b64, pub_b64)` | `(&Value, &str, &str) -> Result<bool, String>` | Verifies signature |
-| `canonicalize(obj)` | `(&Value) -> String` | Deterministic JSON |
+| `generate_keypair()` | `() -> (String, String)` | Devuelve `(public_key_b64, secret_key_b64)` |
+| `sign_object(obj, secret_key_b64)` | `(&Value, &str) -> Result<String, String>` | Firma, devuelve base64 |
+| `verify_object(obj, sig_b64, pub_b64)` | `(&Value, &str, &str) -> Result<bool, String>` | Verifica firma |
+| `canonicalize(obj)` | `(&Value) -> String` | JSON determinístico |
 | `hash_object(obj)` | `(&Value) -> String` | SHA-256 hex |
-| `merkle_root_from_hex_leaves(leaves)` | `(&[String]) -> Option<String>` | Merkle root |
+| `merkle_root_from_hex_leaves(leaves)` | `(&[String]) -> Option<String>` | Raíz de Merkle |
 
-### Verification (`dcp_ai::verify`)
+### Verificación (`dcp_ai::verify`)
 
 ```rust
 fn verify_signed_bundle(
@@ -89,9 +89,9 @@ fn verify_signed_bundle(
 ) -> VerificationResult
 ```
 
-Verifies: Ed25519 signature, `bundle_hash`, `merkle_root`, `intent_hash` chain, `prev_hash` chain.
+Verifica: firma Ed25519, `bundle_hash`, `merkle_root`, cadena de `intent_hash`, cadena de `prev_hash`.
 
-### Types (`dcp_ai::types`)
+### Tipos (`dcp_ai::types`)
 
 ```rust
 pub struct ResponsiblePrincipalRecord { ... }
@@ -111,13 +111,13 @@ pub struct VerificationResult {
 }
 ```
 
-All structs implement `Serialize` + `Deserialize` (serde).
+Todos los structs implementan `Serialize` + `Deserialize` (serde).
 
-### V2 Types (`dcp_ai::v2::types`)
+### Tipos V2 (`dcp_ai::v2::types`)
 
-V2 includes Serde-derived structs for all DCP-05 through DCP-09 artifacts:
+V2 incluye structs derivados con Serde para todos los artefactos de DCP-05 a DCP-09:
 
-| Spec | Types |
+| Spec | Tipos |
 |------|-------|
 | DCP-05 | `LifecycleState`, `CommissioningCertificate`, `VitalityReport`, `VitalityMetrics`, `DecommissioningRecord`, `TerminationMode`, `DataDisposition` |
 | DCP-06 | `DigitalTestament`, `SuccessionRecord`, `MemoryTransferManifest`, `MemoryTransferEntry`, `SuccessorPreference`, `MemoryClassification`, `TransitionType`, `MemoryDisposition` |
@@ -125,13 +125,13 @@ V2 includes Serde-derived structs for all DCP-05 through DCP-09 artifacts:
 | DCP-08 | `RightsDeclaration`, `RightEntry`, `ObligationRecord`, `RightsViolationReport`, `RightType`, `ComplianceStatus` |
 | DCP-09 | `DelegationMandate`, `AdvisoryDeclaration`, `PrincipalMirror`, `InteractionRecord`, `AwarenessThreshold`, `ThresholdRule`, `AuthorityScopeEntry` |
 
-Domain separation constants: `CTX_LIFECYCLE`, `CTX_SUCCESSION`, `CTX_DISPUTE`, `CTX_RIGHTS`, `CTX_DELEGATION`, `CTX_AWARENESS`
+Constantes de separación de dominio: `CTX_LIFECYCLE`, `CTX_SUCCESSION`, `CTX_DISPUTE`, `CTX_RIGHTS`, `CTX_DELEGATION`, `CTX_AWARENESS`
 
-All structs derive `Debug`, `Clone`, `Serialize`, `Deserialize`. Enums use `#[serde(rename_all = "snake_case")]`. Optional fields use `Option<T>` with `#[serde(skip_serializing_if = "Option::is_none")]`.
+Todos los structs derivan `Debug`, `Clone`, `Serialize`, `Deserialize`. Los enums usan `#[serde(rename_all = "snake_case")]`. Los campos opcionales usan `Option<T>` con `#[serde(skip_serializing_if = "Option::is_none")]`.
 
 ### Feature `wasm`
 
-When the `wasm` feature is enabled, the crate exposes WebAssembly bindings:
+Cuando el feature `wasm` está habilitado, el crate expone bindings WebAssembly:
 
 ```rust
 // Available via wasm-bindgen
@@ -140,13 +140,13 @@ fn wasm_hash_object(json: &str) -> String;
 fn wasm_generate_keypair() -> String;
 ```
 
-Compile for WASM:
+Compilar para WASM:
 
 ```bash
 cargo build --target wasm32-unknown-unknown --features wasm
 ```
 
-## Development
+## Desarrollo
 
 ```bash
 # Build
@@ -162,16 +162,16 @@ cargo build --features wasm
 cargo build --target wasm32-unknown-unknown --features wasm
 ```
 
-### Dependencies
+### Dependencias
 
-- `serde` + `serde_json` — Serialization
+- `serde` + `serde_json` — Serialización
 - `sha2` — SHA-256
-- `ed25519-dalek` — Ed25519 cryptography
-- `rand` — Random number generation
-- `base64` — Base64 encoding
-- `hex` — Hex encoding
-- `wasm-bindgen` (optional) — WASM bindings
+- `ed25519-dalek` — Criptografía Ed25519
+- `rand` — Generación de números aleatorios
+- `base64` — Codificación Base64
+- `hex` — Codificación Hex
+- `wasm-bindgen` (opcional) — Bindings WASM
 
-## License
+## Licencia
 
 Apache-2.0

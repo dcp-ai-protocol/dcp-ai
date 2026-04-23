@@ -1,35 +1,35 @@
-<sub>**English** · [中文](QUICKSTART.zh-CN.md) · [Español](QUICKSTART.es.md) · [日本語](QUICKSTART.ja.md) · [Português](QUICKSTART.pt-BR.md)</sub>
+<sub>[English](QUICKSTART.md) · [中文](QUICKSTART.zh-CN.md) · **Español** · [日本語](QUICKSTART.ja.md) · [Português](QUICKSTART.pt-BR.md)</sub>
 
-# DCP-AI Quick Start Guide
+# Guía de Inicio Rápido de DCP-AI
 
-Get up and running with the Digital Citizenship Protocol in under 5 minutes.
-
----
-
-## Prerequisites
-
-Depending on which SDK you use:
-
-- **Node.js** 18+ — for the TypeScript SDK, CLI, WASM package, and any `@dcp-ai/*` integration
-- **Python** 3.10+ — for the Python SDK
-- **Go** 1.22+ — for the Go SDK
-- **Rust** stable — for the Rust crate
-
-You only need the language you plan to build with. All SDKs speak the same protocol, so mixing languages across agents/verifiers works out of the box.
+Pon en marcha el Digital Citizenship Protocol en menos de 5 minutos.
 
 ---
 
-## Zero-install shortcuts
+## Prerrequisitos
 
-Want to see DCP running before installing anything?
+Según el SDK que uses:
 
-- **Interactive playground:** https://dcp-ai.org/playground/ — generate identities, build bundles, verify signatures in the browser.
-- **Scaffolded starter:** run `npm create @dcp-ai/langchain my-app` (or `/crewai`, `/openai`, `/express`) to get a working project in ~2 minutes.
-- **Docker one-liner:** `docker run -p 3000:3000 ghcr.io/dcp-ai-protocol/dcp-ai/verification:latest` starts the reference verification server without cloning anything.
+- **Node.js** 18+ — para el SDK TypeScript, el CLI, el paquete WASM y cualquier integración `@dcp-ai/*`
+- **Python** 3.10+ — para el SDK Python
+- **Go** 1.22+ — para el SDK Go
+- **Rust** stable — para el crate de Rust
+
+Solo necesitas el lenguaje con el que planeas construir. Todos los SDKs hablan el mismo protocolo, así que mezclar lenguajes entre agentes/verificadores funciona sin configuración adicional.
 
 ---
 
-## 1. Install the CLI
+## Atajos sin instalación
+
+¿Quieres ver DCP en funcionamiento antes de instalar nada?
+
+- **Playground interactivo:** https://dcp-ai.org/playground/ — genera identidades, construye bundles, verifica firmas en el navegador.
+- **Starter con scaffolding:** ejecuta `npm create @dcp-ai/langchain my-app` (o `/crewai`, `/openai`, `/express`) para obtener un proyecto funcional en ~2 minutos.
+- **Docker en una línea:** `docker run -p 3000:3000 ghcr.io/dcp-ai-protocol/dcp-ai/verification:latest` inicia el servidor de verificación de referencia sin clonar nada.
+
+---
+
+## 1. Instala el CLI
 
 ```bash
 npm install -g @dcp-ai/cli
@@ -37,30 +37,30 @@ npm install -g @dcp-ai/cli
 npx @dcp-ai/cli init
 ```
 
-## 2. Initialize Your Agent
+## 2. Inicializa tu Agente
 
 ```bash
 npx @dcp-ai/cli init
 ```
 
-This creates the following files in your project:
+Esto crea los siguientes archivos en tu proyecto:
 
-| File | Purpose |
+| Archivo | Propósito |
 |------|---------|
-| `.dcp/config.json` | Agent configuration and metadata |
-| `.dcp/keys/` | Ed25519 + ML-DSA-65 keypairs |
+| `.dcp/config.json` | Configuración y metadatos del agente |
+| `.dcp/keys/` | Pares de claves Ed25519 + ML-DSA-65 |
 | `.dcp/identity.json` | Responsible Principal Record (RPR) |
-| `.dcp/passport.json` | Agent Passport |
+| `.dcp/passport.json` | Pasaporte del Agente |
 
 ---
 
-## 3. TypeScript SDK
+## 3. SDK TypeScript
 
 ```bash
 npm install @dcp-ai/sdk
 ```
 
-### Create and Sign a Bundle (V1 — Ed25519)
+### Crear y Firmar un Bundle (V1 — Ed25519)
 
 ```typescript
 import {
@@ -156,7 +156,7 @@ const result = verifySignedBundle(signed);
 console.log('Verified:', result.verified); // true
 ```
 
-### Verify a Bundle
+### Verificar un Bundle
 
 ```typescript
 import { verifySignedBundle } from '@dcp-ai/sdk';
@@ -170,7 +170,7 @@ if (result.verified) {
 }
 ```
 
-### V2 — Post-Quantum Hybrid Signatures
+### V2 — Firmas Híbridas Post-Cuánticas
 
 ```typescript
 import {
@@ -213,13 +213,13 @@ const bundle = new BundleBuilderV2(sessionNonce)
 
 ---
 
-## 4. Python SDK
+## 4. SDK Python
 
 ```bash
 pip install dcp-ai
 ```
 
-### Create and Verify a Bundle
+### Crear y Verificar un Bundle
 
 ```python
 from dcp_ai import (
@@ -273,16 +273,16 @@ assert result["verified"] is True
 
 ---
 
-## 5. Security Tiers
+## 5. Niveles de Seguridad
 
-DCP automatically selects a cryptographic security tier based on the intent's risk profile:
+DCP selecciona automáticamente un nivel de seguridad criptográfica con base en el perfil de riesgo de la intención:
 
-| Tier | Name | Verification Mode | PQ Checkpoint Interval | Trigger |
+| Nivel | Nombre | Modo de Verificación | Intervalo de Checkpoint post-cuántico | Disparador |
 |------|------|------------------|----------------------|---------|
-| 0 | **Routine** | Classical only (Ed25519) | Every 50 events | Risk score < 200 |
-| 1 | **Standard** | Hybrid preferred | Every 10 events | Risk score 200–499 |
-| 2 | **Elevated** | Hybrid required | Every event | Risk score 500–799, PII, payments |
-| 3 | **Maximum** | Hybrid required + immediate verify | Every event | Risk score ≥ 800, credentials |
+| 0 | **Routine** | Solo clásico (Ed25519) | Cada 50 eventos | Risk score < 200 |
+| 1 | **Standard** | Híbrido preferido | Cada 10 eventos | Risk score 200–499 |
+| 2 | **Elevated** | Híbrido requerido | Cada evento | Risk score 500–799, PII, pagos |
+| 3 | **Maximum** | Híbrido requerido + verificación inmediata | Cada evento | Risk score ≥ 800, credenciales |
 
 ```typescript
 import { computeSecurityTier, tierToVerificationMode } from '@dcp-ai/sdk';
@@ -294,7 +294,7 @@ const mode = tierToVerificationMode(tier);
 
 ---
 
-## 6. Telemetry & Observability
+## 6. Telemetría y Observabilidad
 
 ```typescript
 import { dcpTelemetry } from '@dcp-ai/sdk';
@@ -320,7 +320,7 @@ console.log(summary.sign.p95); // p95 sign latency in ms
 
 ---
 
-## 7. Agent-to-Agent (A2A) Communication
+## 7. Comunicación Entre Agentes (A2A)
 
 ```typescript
 import { createHello, createWelcome, createSession, encryptMessage } from '@dcp-ai/sdk';
@@ -340,7 +340,7 @@ const encrypted = encryptMessage(session, { action: 'transfer', amount: 100 });
 
 ---
 
-## Other SDKs
+## Otros SDKs
 
 ### Go
 
@@ -361,21 +361,21 @@ canonical, _ := dcp.Canonicalize(map[string]string{"b": "2", "a": "1"})
 cargo add dcp-ai
 ```
 
-Providers for ML-DSA-65, ML-KEM-768, SLH-DSA-192f, Ed25519 live under `dcp_ai::providers::*`. See the [`dcp-ai` crate docs on docs.rs](https://docs.rs/dcp-ai) for the full surface.
+Los providers para ML-DSA-65, ML-KEM-768, SLH-DSA-192f, Ed25519 viven bajo `dcp_ai::providers::*`. Consulta los [docs del crate `dcp-ai` en docs.rs](https://docs.rs/dcp-ai) para la superficie completa.
 
-### WebAssembly (browser)
+### WebAssembly (navegador)
 
 ```bash
 npm install @dcp-ai/wasm
 ```
 
-Exposes the same Rust crypto primitives to any browser JS context. The [playground](https://dcp-ai.org/playground/) is a reference consumer of this package.
+Expone las mismas primitivas criptográficas de Rust a cualquier contexto JS del navegador. El [playground](https://dcp-ai.org/playground/) es un consumidor de referencia de este paquete.
 
 ---
 
-## Run the reference services
+## Ejecuta los servicios de referencia
 
-All four services the spec references (verification server, anchor, transparency log, revocation registry) ship as Docker images. From an empty directory:
+Los cuatro servicios a los que la spec hace referencia (servidor de verificación, anclaje, log de transparencia, registro de revocación) se distribuyen como imágenes Docker. Desde un directorio vacío:
 
 ```bash
 docker run -d -p 3000:3000 ghcr.io/dcp-ai-protocol/dcp-ai/verification:latest
@@ -384,17 +384,17 @@ docker run -d -p 3002:3002 ghcr.io/dcp-ai-protocol/dcp-ai/transparency-log:lates
 docker run -d -p 3003:3003 ghcr.io/dcp-ai-protocol/dcp-ai/revocation:latest
 ```
 
-For managed hosting, see the [Fly.io configs in `deploy/fly/`](../deploy/) and the [deployment guide](../deploy/README.md) for Cloud Run / Railway / Compose alternatives.
+Para hosting administrado, consulta las [configuraciones de Fly.io en `deploy/fly/`](../deploy/) y la [guía de despliegue](../deploy/README.md) para alternativas Cloud Run / Railway / Compose.
 
 ---
 
-## Next Steps
+## Próximos Pasos
 
-- **[LangChain Integration](./QUICKSTART_LANGCHAIN.md)** — Add DCP to LangChain agents
-- **[CrewAI Integration](./QUICKSTART_CREWAI.md)** — Add DCP to CrewAI crews
-- **[OpenAI Integration](./QUICKSTART_OPENAI.md)** — Add DCP to OpenAI function calling
-- **[Express Middleware](./QUICKSTART_EXPRESS.md)** — Verify DCP bundles in Express APIs
-- **[API Reference](./API_REFERENCE.md)** — Complete SDK documentation
-- **[Protocol Specification](../spec/)** — Full DCP v2.0 specification
-- **[Security Model](./SECURITY_MODEL.md)** — Threat model and security architecture
-- **[Operator Guide](./OPERATOR_GUIDE.md)** — Running verification and anchoring services in production
+- **[Integración con LangChain](./QUICKSTART_LANGCHAIN.md)** — Agrega DCP a agentes LangChain
+- **[Integración con CrewAI](./QUICKSTART_CREWAI.md)** — Agrega DCP a crews CrewAI
+- **[Integración con OpenAI](./QUICKSTART_OPENAI.md)** — Agrega DCP al function calling de OpenAI
+- **[Middleware Express](./QUICKSTART_EXPRESS.md)** — Verifica bundles DCP en APIs Express
+- **[Referencia de API](./API_REFERENCE.md)** — Documentación completa del SDK
+- **[Especificación del Protocolo](../spec/)** — Especificación completa de DCP v2.0
+- **[Modelo de Seguridad](./SECURITY_MODEL.md)** — Modelo de amenazas y arquitectura de seguridad
+- **[Guía del Operador](./OPERATOR_GUIDE.md)** — Operación de servicios de verificación y anclaje en producción

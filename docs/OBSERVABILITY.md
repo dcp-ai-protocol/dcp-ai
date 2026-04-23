@@ -1,3 +1,5 @@
+<sub>**English** · [中文](OBSERVABILITY.zh-CN.md) · [Español](OBSERVABILITY.es.md) · [日本語](OBSERVABILITY.ja.md) · [Português](OBSERVABILITY.pt-BR.md)</sub>
+
 # Observability — OpenTelemetry integration
 
 As of the 2.1.0 release all four core SDKs (**TypeScript, Python, Rust, Go**) can emit **traces and metrics** to any OpenTelemetry-compatible backend. If you run Grafana, Jaeger, Honeycomb, Datadog, New Relic, or a self-hosted OTel Collector, you don't need any custom bridge — DCP-AI talks OTLP directly.

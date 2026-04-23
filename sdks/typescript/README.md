@@ -1,3 +1,5 @@
+<sub>**English** · [中文](README.zh-CN.md) · [Español](README.es.md) · [日本語](README.ja.md) · [Português](README.pt-BR.md)</sub>
+
 # @dcp-ai/sdk — TypeScript SDK for DCP-AI v2.0
 
 Official TypeScript SDK for the Digital Citizenship Protocol (DCP-AI). Create, sign, and verify Citizenship Bundles with post-quantum hybrid cryptography (Ed25519 + ML-DSA-65), composite signatures, adaptive security tiers, agent-to-agent (A2A) communication, built-in observability, and production hardening.

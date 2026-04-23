@@ -1,16 +1,16 @@
-<sub>**English** · [中文](README.zh-CN.md) · [Español](README.es.md) · [日本語](README.ja.md) · [Português](README.pt-BR.md)</sub>
+<sub>[English](README.md) · [中文](README.zh-CN.md) · **Español** · [日本語](README.ja.md) · [Português](README.pt-BR.md)</sub>
 
-# dcp-ai — Python SDK
+# dcp-ai — SDK Python
 
-Official Python SDK for the Digital Citizenship Protocol (DCP). Pydantic v2 models, Ed25519 cryptography, bundle verification, and a full-featured CLI.
+SDK oficial de Python para el Digital Citizenship Protocol (DCP). Modelos Pydantic v2, criptografía Ed25519, verificación de bundles y un CLI con todas las funcionalidades.
 
-## Installation
+## Instalación
 
 ```bash
 pip install dcp-ai
 ```
 
-### Optional extras
+### Extras opcionales
 
 ```bash
 pip install "dcp-ai[fastapi]"    # FastAPI middleware
@@ -19,7 +19,7 @@ pip install "dcp-ai[openai]"     # OpenAI wrapper
 pip install "dcp-ai[crewai]"     # CrewAI multi-agent
 ```
 
-## Quickstart
+## Inicio Rápido
 
 ```python
 from dcp_ai import (
@@ -91,7 +91,7 @@ print(result)  # {"verified": True, "errors": []}
 
 ## CLI
 
-The SDK includes a CLI built with Typer. Available as `dcp` after installation.
+El SDK incluye un CLI construido con Typer. Disponible como `dcp` después de la instalación.
 
 ```bash
 # Version
@@ -119,34 +119,34 @@ dcp merkle-root <bundle_path>
 dcp intent-hash-cmd <intent_path>
 ```
 
-## API Reference
+## Referencia de API
 
 ### Crypto
 
-| Function | Signature | Description |
+| Función | Firma | Descripción |
 |----------|-----------|-------------|
-| `generate_keypair()` | `() -> dict[str, str]` | Returns `{"public_key_b64": ..., "secret_key_b64": ...}` |
-| `sign_object(obj, secret_key_b64)` | `(Any, str) -> str` | Signs, returns base64 |
-| `verify_object(obj, signature_b64, public_key_b64)` | `(Any, str, str) -> bool` | Verifies signature |
-| `canonicalize(obj)` | `(Any) -> str` | Deterministic JSON |
-| `public_key_from_secret(secret_key_b64)` | `(str) -> str` | Derives public key |
+| `generate_keypair()` | `() -> dict[str, str]` | Devuelve `{"public_key_b64": ..., "secret_key_b64": ...}` |
+| `sign_object(obj, secret_key_b64)` | `(Any, str) -> str` | Firma, devuelve base64 |
+| `verify_object(obj, signature_b64, public_key_b64)` | `(Any, str, str) -> bool` | Verifica firma |
+| `canonicalize(obj)` | `(Any) -> str` | JSON determinístico |
+| `public_key_from_secret(secret_key_b64)` | `(str) -> str` | Deriva la clave pública |
 
-### Merkle & Hashing
+### Merkle y Hashing
 
-| Function | Signature | Description |
+| Función | Firma | Descripción |
 |----------|-----------|-------------|
-| `hash_object(obj)` | `(Any) -> str` | SHA-256 of canonicalized JSON |
-| `merkle_root_from_hex_leaves(leaves)` | `(list[str]) -> str \| None` | Merkle root |
-| `merkle_root_for_audit_entries(entries)` | `(list[Any]) -> str \| None` | Merkle root of audit entries |
-| `intent_hash(intent)` | `(Any) -> str` | Intent hash |
-| `prev_hash_for_entry(prev_entry)` | `(Any) -> str` | Previous entry hash |
+| `hash_object(obj)` | `(Any) -> str` | SHA-256 del JSON canonicalizado |
+| `merkle_root_from_hex_leaves(leaves)` | `(list[str]) -> str \| None` | Raíz de Merkle |
+| `merkle_root_for_audit_entries(entries)` | `(list[Any]) -> str \| None` | Raíz de Merkle de entradas de auditoría |
+| `intent_hash(intent)` | `(Any) -> str` | Hash de la intención |
+| `prev_hash_for_entry(prev_entry)` | `(Any) -> str` | Hash de la entrada previa |
 
-### Schema Validation
+### Validación de Schema
 
-| Function | Signature | Description |
+| Función | Firma | Descripción |
 |----------|-----------|-------------|
-| `validate_schema(schema_name, data)` | `(str, Any) -> dict` | Returns `{"valid": bool, "errors": [...]}` |
-| `validate_bundle(bundle)` | `(dict) -> dict` | Validates a complete bundle |
+| `validate_schema(schema_name, data)` | `(str, Any) -> dict` | Devuelve `{"valid": bool, "errors": [...]}` |
+| `validate_bundle(bundle)` | `(dict) -> dict` | Valida un bundle completo |
 
 ### Bundle Builder
 
@@ -163,7 +163,7 @@ bundle = (
 )
 ```
 
-### Bundle Signing
+### Firma del Bundle
 
 ```python
 sign_bundle(
@@ -174,7 +174,7 @@ sign_bundle(
 ) -> dict[str, Any]
 ```
 
-### Bundle Verification
+### Verificación del Bundle
 
 ```python
 verify_signed_bundle(
@@ -183,25 +183,25 @@ verify_signed_bundle(
 ) -> dict[str, Any]  # {"verified": bool, "errors": [...]}
 ```
 
-Verifies: schema, Ed25519 signature, `bundle_hash`, `merkle_root`, `intent_hash` chain, `prev_hash` chain.
+Verifica: schema, firma Ed25519, `bundle_hash`, `merkle_root`, cadena de `intent_hash`, cadena de `prev_hash`.
 
-### Pydantic Models
+### Modelos Pydantic
 
-All DCP v1 artifacts are available as Pydantic v2 models with automatic validation:
+Todos los artefactos de DCP v1 están disponibles como modelos Pydantic v2 con validación automática:
 
 `ResponsiblePrincipalRecord`, `AgentPassport`, `Intent`, `IntentTarget`, `PolicyDecision`, `AuditEntry`, `AuditEvidence`, `CitizenshipBundle`, `SignedBundle`, `BundleSignature`, `SignerInfo`, `RevocationRecord`, `HumanConfirmation`
 
-**V2 Models (DCP-05–09):**
+**Modelos V2 (DCP-05–09):**
 
-DCP-05 — Lifecycle: `LifecycleState`, `TerminationMode`, `DataDisposition`, `VitalityMetrics`, `CommissioningCertificate`, `VitalityReport`, `DecommissioningRecord`
+DCP-05 — Ciclo de Vida: `LifecycleState`, `TerminationMode`, `DataDisposition`, `VitalityMetrics`, `CommissioningCertificate`, `VitalityReport`, `DecommissioningRecord`
 
-DCP-06 — Succession: `TransitionType`, `MemoryDisposition`, `MemoryClassification`, `SuccessorPreference`, `DigitalTestament`, `SuccessionRecord`, `MemoryTransferEntry`, `DualHashRef`, `MemoryTransferManifest`
+DCP-06 — Sucesión: `TransitionType`, `MemoryDisposition`, `MemoryClassification`, `SuccessorPreference`, `DigitalTestament`, `SuccessionRecord`, `MemoryTransferEntry`, `DualHashRef`, `MemoryTransferManifest`
 
-DCP-07 — Disputes: `DisputeType`, `EscalationLevel`, `DisputeStatus`, `ObjectionType`, `AuthorityLevel`, `DisputeRecord`, `ArbitrationResolution`, `JurisprudenceBundle`, `ObjectionRecord`
+DCP-07 — Disputas: `DisputeType`, `EscalationLevel`, `DisputeStatus`, `ObjectionType`, `AuthorityLevel`, `DisputeRecord`, `ArbitrationResolution`, `JurisprudenceBundle`, `ObjectionRecord`
 
-DCP-08 — Rights: `RightType`, `ComplianceStatus`, `RightEntry`, `RightsDeclaration`, `ObligationRecord`, `RightsViolationReport`
+DCP-08 — Derechos: `RightType`, `ComplianceStatus`, `RightEntry`, `RightsDeclaration`, `ObligationRecord`, `RightsViolationReport`
 
-DCP-09 — Delegation: `AuthorityScopeEntry`, `DelegationMandate`, `AdvisoryDeclaration`, `PrincipalMirror`, `InteractionRecord`, `ThresholdRule`, `ThresholdOperator`, `ThresholdAction`, `AwarenessThreshold`
+DCP-09 — Delegación: `AuthorityScopeEntry`, `DelegationMandate`, `AdvisoryDeclaration`, `PrincipalMirror`, `InteractionRecord`, `ThresholdRule`, `ThresholdOperator`, `ThresholdAction`, `AwarenessThreshold`
 
 ```python
 # Example: Lifecycle management
@@ -217,11 +217,11 @@ cert = CommissioningCertificate(
 )
 ```
 
-### Domain Separation (V2)
+### Separación de Dominio (V2)
 
-**V2 Domain Separation Contexts:** `Bundle`, `Intent`, `Passport`, `Revocation`, `Governance`, `Lifecycle`, `Succession`, `Dispute`, `Rights`, `Delegation`, `Awareness`
+**Contextos de Separación de Dominio V2:** `Bundle`, `Intent`, `Passport`, `Revocation`, `Governance`, `Lifecycle`, `Succession`, `Dispute`, `Rights`, `Delegation`, `Awareness`
 
-## Development
+## Desarrollo
 
 ```bash
 # Install in development mode
@@ -234,13 +234,13 @@ pytest -v
 pytest -v --asyncio-mode=auto
 ```
 
-### Dependencies
+### Dependencias
 
-- `pynacl` — Ed25519 cryptography
-- `jsonschema` — JSON Schema validation
-- `pydantic` v2 — Data models
-- `typer` — CLI framework
+- `pynacl` — Criptografía Ed25519
+- `jsonschema` — Validación JSON Schema
+- `pydantic` v2 — Modelos de datos
+- `typer` — Framework CLI
 
-## License
+## Licencia
 
 Apache-2.0

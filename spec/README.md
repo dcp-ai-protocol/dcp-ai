@@ -1,3 +1,5 @@
+<sub>**English** · [中文](README.zh-CN.md) · [Español](README.es.md) · [日本語](README.ja.md) · [Português](README.pt-BR.md)</sub>
+
 # Specs — DCP-AI normative
 
 Normative specifications for the Digital Citizenship Protocol for AI Agents. The source of truth for formats is JSON Schema in `schemas/v1/` and `schemas/v2/`; these documents define scope, artifacts, and how to validate.

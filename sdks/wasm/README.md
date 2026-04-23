@@ -1,3 +1,5 @@
+<sub>**English** · [中文](README.zh-CN.md) · [Español](README.es.md) · [日本語](README.ja.md) · [Português](README.pt-BR.md)</sub>
+
 # @dcp-ai/wasm — WebAssembly SDK v2.0
 
 Full-featured WebAssembly module for the Digital Citizenship Protocol (DCP) v2.0, compiled from the Rust SDK. Provides post-quantum composite signatures, hybrid key generation, ML-KEM-768 key encapsulation, dual hashing, bundle building/verification, and security tier computation — all running directly in the browser or Node.js, no server required.

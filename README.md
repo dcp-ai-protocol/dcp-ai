@@ -1,3 +1,5 @@
+<sub>**English** · [中文](README.zh-CN.md) · [Español](README.es.md) · [日本語](README.ja.md) · [Português](README.pt-BR.md)</sub>
+
 <div align="center">
 
 # DCP-AI — Digital Citizenship Protocol for AI Agents

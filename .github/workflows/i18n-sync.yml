@@ -1,0 +1,98 @@
+name: i18n sync check
+
+on:
+  pull_request:
+    paths:
+      - "README.md"
+      - "CONTRIBUTING.md"
+      - "docs/QUICKSTART.md"
+      - "docs/OBSERVABILITY.md"
+      - "spec/README.md"
+      - "sdks/typescript/README.md"
+      - "sdks/python/README.md"
+      - "sdks/rust/README.md"
+      - "sdks/go/README.md"
+      - "sdks/wasm/README.md"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  check-translations-touched:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out PR head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Warn when translations lag behind the English source
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="${{ github.event.pull_request.base.sha }}"
+          head="${{ github.event.pull_request.head.sha }}"
+
+          # Canonical set of (english source, translation directory siblings).
+          # Keep LANGS in sync with the selector banner in each README.
+          LANGS=(zh-CN es ja pt-BR)
+          SOURCES=(
+            "README.md"
+            "CONTRIBUTING.md"
+            "docs/QUICKSTART.md"
+            "docs/OBSERVABILITY.md"
+            "spec/README.md"
+            "sdks/typescript/README.md"
+            "sdks/python/README.md"
+            "sdks/rust/README.md"
+            "sdks/go/README.md"
+            "sdks/wasm/README.md"
+          )
+
+          # Files actually changed in this PR.
+          mapfile -t changed < <(git diff --name-only "$base" "$head")
+
+          missing=()
+          for src in "${SOURCES[@]}"; do
+            # Did the English source change?
+            touched=0
+            for f in "${changed[@]}"; do
+              if [[ "$f" == "$src" ]]; then touched=1; break; fi
+            done
+            [[ $touched -eq 0 ]] && continue
+
+            # For every language, the sibling translation must also be touched.
+            dir=$(dirname "$src")
+            base_name=$(basename "$src" .md)
+            for lang in "${LANGS[@]}"; do
+              tr="$dir/$base_name.$lang.md"
+              tr_touched=0
+              for f in "${changed[@]}"; do
+                if [[ "$f" == "$tr" ]]; then tr_touched=1; break; fi
+              done
+              if [[ $tr_touched -eq 0 ]]; then
+                missing+=("$tr  (source changed: $src)")
+              fi
+            done
+          done
+
+          if [[ ${#missing[@]} -eq 0 ]]; then
+            echo "All translations updated alongside their English sources."
+            exit 0
+          fi
+
+          {
+            echo ""
+            echo "### Translations out of sync"
+            echo ""
+            echo "The following English sources changed in this PR but their translations were not updated:"
+            echo ""
+            for m in "${missing[@]}"; do
+              echo "- \`$m\`"
+            done
+            echo ""
+            echo "This is a warning, not a blocker. Please update the translations when you can — stale translations confuse non-English readers more than missing ones. The language set is currently: ${LANGS[*]}."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "::warning::One or more translations lag behind the English source — see job summary."

@@ -1,56 +1,56 @@
-<sub>**English** · [中文](QUICKSTART.zh-CN.md) · [Español](QUICKSTART.es.md) · [日本語](QUICKSTART.ja.md) · [Português](QUICKSTART.pt-BR.md)</sub>
+<sub>[English](QUICKSTART.md) · [中文](QUICKSTART.zh-CN.md) · [Español](QUICKSTART.es.md) · **日本語** · [Português](QUICKSTART.pt-BR.md)</sub>
 
-# DCP-AI Quick Start Guide
+# DCP-AI クイックスタートガイド
 
-Get up and running with the Digital Citizenship Protocol in under 5 minutes.
-
----
-
-## Prerequisites
-
-Depending on which SDK you use:
-
-- **Node.js** 18+ — for the TypeScript SDK, CLI, WASM package, and any `@dcp-ai/*` integration
-- **Python** 3.10+ — for the Python SDK
-- **Go** 1.22+ — for the Go SDK
-- **Rust** stable — for the Rust crate
-
-You only need the language you plan to build with. All SDKs speak the same protocol, so mixing languages across agents/verifiers works out of the box.
+デジタル市民権プロトコル (Digital Citizenship Protocol) を5分以内に動かし始めましょう。
 
 ---
 
-## Zero-install shortcuts
+## 前提条件
 
-Want to see DCP running before installing anything?
+使用するSDKに応じて以下が必要です。
 
-- **Interactive playground:** https://dcp-ai.org/playground/ — generate identities, build bundles, verify signatures in the browser.
-- **Scaffolded starter:** run `npm create @dcp-ai/langchain my-app` (or `/crewai`, `/openai`, `/express`) to get a working project in ~2 minutes.
-- **Docker one-liner:** `docker run -p 3000:3000 ghcr.io/dcp-ai-protocol/dcp-ai/verification:latest` starts the reference verification server without cloning anything.
+- **Node.js** 18以上 — TypeScript SDK、CLI、WASMパッケージ、および任意の `@dcp-ai/*` 統合に必要
+- **Python** 3.10以上 — Python SDKに必要
+- **Go** 1.22以上 — Go SDKに必要
+- **Rust** stable — Rust crateに必要
+
+ビルドに使う予定の言語だけが必要です。すべてのSDKは同じプロトコルを話すため、エージェントと検証者の間で言語を混在させる構成もそのまま動作します。
 
 ---
 
-## 1. Install the CLI
+## ゼロインストールのショートカット
+
+何もインストールする前にDCPを動かしてみたいですか?
+
+- **対話型プレイグラウンド:** https://dcp-ai.org/playground/ — ブラウザ内でアイデンティティを生成し、バンドルを構築し、署名を検証できます。
+- **スキャフォルド済みスターター:** `npm create @dcp-ai/langchain my-app` (または `/crewai`、`/openai`、`/express`) を実行すれば、約2分で動くプロジェクトが手に入ります。
+- **Docker 1行:** `docker run -p 3000:3000 ghcr.io/dcp-ai-protocol/dcp-ai/verification:latest` を実行するだけで、何もクローンせずにリファレンス検証サーバーが起動します。
+
+---
+
+## 1. CLIをインストール
 
 ```bash
 npm install -g @dcp-ai/cli
-# or run directly with npx
+# または npx で直接実行
 npx @dcp-ai/cli init
 ```
 
-## 2. Initialize Your Agent
+## 2. エージェントを初期化
 
 ```bash
 npx @dcp-ai/cli init
 ```
 
-This creates the following files in your project:
+これにより、プロジェクト内に以下のファイルが作成されます。
 
-| File | Purpose |
+| ファイル | 用途 |
 |------|---------|
-| `.dcp/config.json` | Agent configuration and metadata |
-| `.dcp/keys/` | Ed25519 + ML-DSA-65 keypairs |
-| `.dcp/identity.json` | Responsible Principal Record (RPR) |
-| `.dcp/passport.json` | Agent Passport |
+| `.dcp/config.json` | エージェントの構成とメタデータ |
+| `.dcp/keys/` | Ed25519 + ML-DSA-65 の鍵ペア |
+| `.dcp/identity.json` | 責任主体記録 (Responsible Principal Record、RPR) |
+| `.dcp/passport.json` | エージェントパスポート |
 
 ---
 
@@ -60,7 +60,7 @@ This creates the following files in your project:
 npm install @dcp-ai/sdk
 ```
 
-### Create and Sign a Bundle (V1 — Ed25519)
+### バンドルを作成して署名する (V1 — Ed25519)
 
 ```typescript
 import {
@@ -156,7 +156,7 @@ const result = verifySignedBundle(signed);
 console.log('Verified:', result.verified); // true
 ```
 
-### Verify a Bundle
+### バンドルを検証する
 
 ```typescript
 import { verifySignedBundle } from '@dcp-ai/sdk';
@@ -170,7 +170,7 @@ if (result.verified) {
 }
 ```
 
-### V2 — Post-Quantum Hybrid Signatures
+### V2 — 耐量子ハイブリッド署名
 
 ```typescript
 import {
@@ -219,7 +219,7 @@ const bundle = new BundleBuilderV2(sessionNonce)
 pip install dcp-ai
 ```
 
-### Create and Verify a Bundle
+### バンドルを作成して検証する
 
 ```python
 from dcp_ai import (
@@ -273,16 +273,16 @@ assert result["verified"] is True
 
 ---
 
-## 5. Security Tiers
+## 5. セキュリティティア
 
-DCP automatically selects a cryptographic security tier based on the intent's risk profile:
+DCPは意図のリスクプロファイルに基づいて、暗号セキュリティティアを自動的に選択します。
 
-| Tier | Name | Verification Mode | PQ Checkpoint Interval | Trigger |
+| ティア | 名前 | 検証モード | 耐量子チェックポイント間隔 | トリガー |
 |------|------|------------------|----------------------|---------|
-| 0 | **Routine** | Classical only (Ed25519) | Every 50 events | Risk score < 200 |
-| 1 | **Standard** | Hybrid preferred | Every 10 events | Risk score 200–499 |
-| 2 | **Elevated** | Hybrid required | Every event | Risk score 500–799, PII, payments |
-| 3 | **Maximum** | Hybrid required + immediate verify | Every event | Risk score ≥ 800, credentials |
+| 0 | **Routine** | 古典のみ (Ed25519) | 50イベントごと | リスクスコア < 200 |
+| 1 | **Standard** | ハイブリッド推奨 | 10イベントごと | リスクスコア 200–499 |
+| 2 | **Elevated** | ハイブリッド必須 | 毎イベント | リスクスコア 500–799、PII、支払い |
+| 3 | **Maximum** | ハイブリッド必須 + 即時検証 | 毎イベント | リスクスコア ≥ 800、認証情報 |
 
 ```typescript
 import { computeSecurityTier, tierToVerificationMode } from '@dcp-ai/sdk';
@@ -294,7 +294,7 @@ const mode = tierToVerificationMode(tier);
 
 ---
 
-## 6. Telemetry & Observability
+## 6. テレメトリーと可観測性
 
 ```typescript
 import { dcpTelemetry } from '@dcp-ai/sdk';
@@ -320,7 +320,7 @@ console.log(summary.sign.p95); // p95 sign latency in ms
 
 ---
 
-## 7. Agent-to-Agent (A2A) Communication
+## 7. エージェント間 (A2A) 通信
 
 ```typescript
 import { createHello, createWelcome, createSession, encryptMessage } from '@dcp-ai/sdk';
@@ -340,7 +340,7 @@ const encrypted = encryptMessage(session, { action: 'transfer', amount: 100 });
 
 ---
 
-## Other SDKs
+## 他のSDK
 
 ### Go
 
@@ -361,21 +361,21 @@ canonical, _ := dcp.Canonicalize(map[string]string{"b": "2", "a": "1"})
 cargo add dcp-ai
 ```
 
-Providers for ML-DSA-65, ML-KEM-768, SLH-DSA-192f, Ed25519 live under `dcp_ai::providers::*`. See the [`dcp-ai` crate docs on docs.rs](https://docs.rs/dcp-ai) for the full surface.
+ML-DSA-65、ML-KEM-768、SLH-DSA-192f、Ed25519 のプロバイダは `dcp_ai::providers::*` にあります。完全なAPIについては [`dcp-ai` crateのdocs.rsドキュメント](https://docs.rs/dcp-ai) を参照してください。
 
-### WebAssembly (browser)
+### WebAssembly (ブラウザ)
 
 ```bash
 npm install @dcp-ai/wasm
 ```
 
-Exposes the same Rust crypto primitives to any browser JS context. The [playground](https://dcp-ai.org/playground/) is a reference consumer of this package.
+同じRust暗号プリミティブを任意のブラウザJSコンテキストに公開します。[プレイグラウンド](https://dcp-ai.org/playground/) はこのパッケージのリファレンス利用例です。
 
 ---
 
-## Run the reference services
+## リファレンスサービスを実行する
 
-All four services the spec references (verification server, anchor, transparency log, revocation registry) ship as Docker images. From an empty directory:
+仕様で参照される4つのサービス (検証サーバー、アンカー、透明性ログ、失効レジストリ) はすべてDockerイメージとして提供されています。空のディレクトリから以下を実行します。
 
 ```bash
 docker run -d -p 3000:3000 ghcr.io/dcp-ai-protocol/dcp-ai/verification:latest
@@ -384,17 +384,17 @@ docker run -d -p 3002:3002 ghcr.io/dcp-ai-protocol/dcp-ai/transparency-log:lates
 docker run -d -p 3003:3003 ghcr.io/dcp-ai-protocol/dcp-ai/revocation:latest
 ```
 
-For managed hosting, see the [Fly.io configs in `deploy/fly/`](../deploy/) and the [deployment guide](../deploy/README.md) for Cloud Run / Railway / Compose alternatives.
+マネージドホスティングについては、[`deploy/fly/` のFly.io構成](../deploy/) と、Cloud Run / Railway / Composeの代替方法については [デプロイガイド](../deploy/README.md) を参照してください。
 
 ---
 
-## Next Steps
+## 次のステップ
 
-- **[LangChain Integration](./QUICKSTART_LANGCHAIN.md)** — Add DCP to LangChain agents
-- **[CrewAI Integration](./QUICKSTART_CREWAI.md)** — Add DCP to CrewAI crews
-- **[OpenAI Integration](./QUICKSTART_OPENAI.md)** — Add DCP to OpenAI function calling
-- **[Express Middleware](./QUICKSTART_EXPRESS.md)** — Verify DCP bundles in Express APIs
-- **[API Reference](./API_REFERENCE.md)** — Complete SDK documentation
-- **[Protocol Specification](../spec/)** — Full DCP v2.0 specification
-- **[Security Model](./SECURITY_MODEL.md)** — Threat model and security architecture
-- **[Operator Guide](./OPERATOR_GUIDE.md)** — Running verification and anchoring services in production
+- **[LangChain統合](./QUICKSTART_LANGCHAIN.md)** — LangChainエージェントにDCPを追加
+- **[CrewAI統合](./QUICKSTART_CREWAI.md)** — CrewAIクルーにDCPを追加
+- **[OpenAI統合](./QUICKSTART_OPENAI.md)** — OpenAI関数呼び出しにDCPを追加
+- **[Expressミドルウェア](./QUICKSTART_EXPRESS.md)** — Express APIでDCPバンドルを検証
+- **[APIリファレンス](./API_REFERENCE.md)** — 完全なSDKドキュメント
+- **[プロトコル仕様](../spec/)** — DCP v2.0完全仕様
+- **[セキュリティモデル](./SECURITY_MODEL.md)** — 脅威モデルとセキュリティアーキテクチャ
+- **[オペレータガイド](./OPERATOR_GUIDE.md)** — 本番環境で検証サービスとアンカリングサービスを運用する方法

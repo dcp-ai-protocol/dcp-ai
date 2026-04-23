@@ -1,16 +1,16 @@
-<sub>**English** · [中文](README.zh-CN.md) · [Español](README.es.md) · [日本語](README.ja.md) · [Português](README.pt-BR.md)</sub>
+<sub>[English](README.md) · [中文](README.zh-CN.md) · [Español](README.es.md) · **日本語** · [Português](README.pt-BR.md)</sub>
 
 # dcp-ai — Python SDK
 
-Official Python SDK for the Digital Citizenship Protocol (DCP). Pydantic v2 models, Ed25519 cryptography, bundle verification, and a full-featured CLI.
+デジタル市民権プロトコル (DCP) 公式Python SDKです。Pydantic v2モデル、Ed25519暗号、バンドル検証、フル機能のCLIを備えています。
 
-## Installation
+## インストール
 
 ```bash
 pip install dcp-ai
 ```
 
-### Optional extras
+### オプションのエクストラ
 
 ```bash
 pip install "dcp-ai[fastapi]"    # FastAPI middleware
@@ -19,7 +19,7 @@ pip install "dcp-ai[openai]"     # OpenAI wrapper
 pip install "dcp-ai[crewai]"     # CrewAI multi-agent
 ```
 
-## Quickstart
+## クイックスタート
 
 ```python
 from dcp_ai import (
@@ -91,7 +91,7 @@ print(result)  # {"verified": True, "errors": []}
 
 ## CLI
 
-The SDK includes a CLI built with Typer. Available as `dcp` after installation.
+SDKにはTyperで構築されたCLIが含まれています。インストール後、`dcp` として利用できます。
 
 ```bash
 # Version
@@ -119,36 +119,36 @@ dcp merkle-root <bundle_path>
 dcp intent-hash-cmd <intent_path>
 ```
 
-## API Reference
+## APIリファレンス
 
-### Crypto
+### 暗号
 
-| Function | Signature | Description |
+| 関数 | シグネチャ | 説明 |
 |----------|-----------|-------------|
-| `generate_keypair()` | `() -> dict[str, str]` | Returns `{"public_key_b64": ..., "secret_key_b64": ...}` |
-| `sign_object(obj, secret_key_b64)` | `(Any, str) -> str` | Signs, returns base64 |
-| `verify_object(obj, signature_b64, public_key_b64)` | `(Any, str, str) -> bool` | Verifies signature |
-| `canonicalize(obj)` | `(Any) -> str` | Deterministic JSON |
-| `public_key_from_secret(secret_key_b64)` | `(str) -> str` | Derives public key |
+| `generate_keypair()` | `() -> dict[str, str]` | `{"public_key_b64": ..., "secret_key_b64": ...}` を返す |
+| `sign_object(obj, secret_key_b64)` | `(Any, str) -> str` | 署名し、base64を返す |
+| `verify_object(obj, signature_b64, public_key_b64)` | `(Any, str, str) -> bool` | 署名を検証 |
+| `canonicalize(obj)` | `(Any) -> str` | 決定論的JSON |
+| `public_key_from_secret(secret_key_b64)` | `(str) -> str` | 公開鍵を導出 |
 
-### Merkle & Hashing
+### Merkle & ハッシュ
 
-| Function | Signature | Description |
+| 関数 | シグネチャ | 説明 |
 |----------|-----------|-------------|
-| `hash_object(obj)` | `(Any) -> str` | SHA-256 of canonicalized JSON |
-| `merkle_root_from_hex_leaves(leaves)` | `(list[str]) -> str \| None` | Merkle root |
-| `merkle_root_for_audit_entries(entries)` | `(list[Any]) -> str \| None` | Merkle root of audit entries |
-| `intent_hash(intent)` | `(Any) -> str` | Intent hash |
-| `prev_hash_for_entry(prev_entry)` | `(Any) -> str` | Previous entry hash |
+| `hash_object(obj)` | `(Any) -> str` | 正規化JSONのSHA-256 |
+| `merkle_root_from_hex_leaves(leaves)` | `(list[str]) -> str \| None` | Merkleルート |
+| `merkle_root_for_audit_entries(entries)` | `(list[Any]) -> str \| None` | 監査エントリのMerkleルート |
+| `intent_hash(intent)` | `(Any) -> str` | 意図ハッシュ |
+| `prev_hash_for_entry(prev_entry)` | `(Any) -> str` | 前のエントリのハッシュ |
 
-### Schema Validation
+### スキーマ検証
 
-| Function | Signature | Description |
+| 関数 | シグネチャ | 説明 |
 |----------|-----------|-------------|
-| `validate_schema(schema_name, data)` | `(str, Any) -> dict` | Returns `{"valid": bool, "errors": [...]}` |
-| `validate_bundle(bundle)` | `(dict) -> dict` | Validates a complete bundle |
+| `validate_schema(schema_name, data)` | `(str, Any) -> dict` | `{"valid": bool, "errors": [...]}` を返す |
+| `validate_bundle(bundle)` | `(dict) -> dict` | 完全なバンドルを検証 |
 
-### Bundle Builder
+### バンドルビルダー
 
 ```python
 bundle = (
@@ -163,7 +163,7 @@ bundle = (
 )
 ```
 
-### Bundle Signing
+### バンドル署名
 
 ```python
 sign_bundle(
@@ -174,7 +174,7 @@ sign_bundle(
 ) -> dict[str, Any]
 ```
 
-### Bundle Verification
+### バンドル検証
 
 ```python
 verify_signed_bundle(
@@ -183,25 +183,25 @@ verify_signed_bundle(
 ) -> dict[str, Any]  # {"verified": bool, "errors": [...]}
 ```
 
-Verifies: schema, Ed25519 signature, `bundle_hash`, `merkle_root`, `intent_hash` chain, `prev_hash` chain.
+検証する内容: スキーマ、Ed25519署名、`bundle_hash`、`merkle_root`、`intent_hash` チェーン、`prev_hash` チェーン。
 
-### Pydantic Models
+### Pydanticモデル
 
-All DCP v1 artifacts are available as Pydantic v2 models with automatic validation:
+すべてのDCP v1成果物は、自動検証付きのPydantic v2モデルとして利用可能です。
 
-`ResponsiblePrincipalRecord`, `AgentPassport`, `Intent`, `IntentTarget`, `PolicyDecision`, `AuditEntry`, `AuditEvidence`, `CitizenshipBundle`, `SignedBundle`, `BundleSignature`, `SignerInfo`, `RevocationRecord`, `HumanConfirmation`
+`ResponsiblePrincipalRecord`、`AgentPassport`、`Intent`、`IntentTarget`、`PolicyDecision`、`AuditEntry`、`AuditEvidence`、`CitizenshipBundle`、`SignedBundle`、`BundleSignature`、`SignerInfo`、`RevocationRecord`、`HumanConfirmation`
 
-**V2 Models (DCP-05–09):**
+**V2モデル (DCP-05–09):**
 
-DCP-05 — Lifecycle: `LifecycleState`, `TerminationMode`, `DataDisposition`, `VitalityMetrics`, `CommissioningCertificate`, `VitalityReport`, `DecommissioningRecord`
+DCP-05 — Lifecycle: `LifecycleState`、`TerminationMode`、`DataDisposition`、`VitalityMetrics`、`CommissioningCertificate`、`VitalityReport`、`DecommissioningRecord`
 
-DCP-06 — Succession: `TransitionType`, `MemoryDisposition`, `MemoryClassification`, `SuccessorPreference`, `DigitalTestament`, `SuccessionRecord`, `MemoryTransferEntry`, `DualHashRef`, `MemoryTransferManifest`
+DCP-06 — Succession: `TransitionType`、`MemoryDisposition`、`MemoryClassification`、`SuccessorPreference`、`DigitalTestament`、`SuccessionRecord`、`MemoryTransferEntry`、`DualHashRef`、`MemoryTransferManifest`
 
-DCP-07 — Disputes: `DisputeType`, `EscalationLevel`, `DisputeStatus`, `ObjectionType`, `AuthorityLevel`, `DisputeRecord`, `ArbitrationResolution`, `JurisprudenceBundle`, `ObjectionRecord`
+DCP-07 — Disputes: `DisputeType`、`EscalationLevel`、`DisputeStatus`、`ObjectionType`、`AuthorityLevel`、`DisputeRecord`、`ArbitrationResolution`、`JurisprudenceBundle`、`ObjectionRecord`
 
-DCP-08 — Rights: `RightType`, `ComplianceStatus`, `RightEntry`, `RightsDeclaration`, `ObligationRecord`, `RightsViolationReport`
+DCP-08 — Rights: `RightType`、`ComplianceStatus`、`RightEntry`、`RightsDeclaration`、`ObligationRecord`、`RightsViolationReport`
 
-DCP-09 — Delegation: `AuthorityScopeEntry`, `DelegationMandate`, `AdvisoryDeclaration`, `PrincipalMirror`, `InteractionRecord`, `ThresholdRule`, `ThresholdOperator`, `ThresholdAction`, `AwarenessThreshold`
+DCP-09 — Delegation: `AuthorityScopeEntry`、`DelegationMandate`、`AdvisoryDeclaration`、`PrincipalMirror`、`InteractionRecord`、`ThresholdRule`、`ThresholdOperator`、`ThresholdAction`、`AwarenessThreshold`
 
 ```python
 # Example: Lifecycle management
@@ -217,11 +217,11 @@ cert = CommissioningCertificate(
 )
 ```
 
-### Domain Separation (V2)
+### ドメイン分離 (V2)
 
-**V2 Domain Separation Contexts:** `Bundle`, `Intent`, `Passport`, `Revocation`, `Governance`, `Lifecycle`, `Succession`, `Dispute`, `Rights`, `Delegation`, `Awareness`
+**V2ドメイン分離コンテキスト:** `Bundle`、`Intent`、`Passport`、`Revocation`、`Governance`、`Lifecycle`、`Succession`、`Dispute`、`Rights`、`Delegation`、`Awareness`
 
-## Development
+## 開発
 
 ```bash
 # Install in development mode
@@ -234,13 +234,13 @@ pytest -v
 pytest -v --asyncio-mode=auto
 ```
 
-### Dependencies
+### 依存関係
 
-- `pynacl` — Ed25519 cryptography
-- `jsonschema` — JSON Schema validation
-- `pydantic` v2 — Data models
-- `typer` — CLI framework
+- `pynacl` — Ed25519暗号
+- `jsonschema` — JSONスキーマ検証
+- `pydantic` v2 — データモデル
+- `typer` — CLIフレームワーク
 
-## License
+## ライセンス
 
 Apache-2.0

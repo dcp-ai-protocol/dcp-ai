@@ -1,16 +1,16 @@
-<sub>**English** · [中文](README.zh-CN.md) · [Español](README.es.md) · [日本語](README.ja.md) · [Português](README.pt-BR.md)</sub>
+<sub>[English](README.md) · **中文** · [Español](README.es.md) · [日本語](README.ja.md) · [Português](README.pt-BR.md)</sub>
 
 # dcp-ai — Python SDK
 
-Official Python SDK for the Digital Citizenship Protocol (DCP). Pydantic v2 models, Ed25519 cryptography, bundle verification, and a full-featured CLI.
+数字公民身份协议 (DCP) 的官方 Python SDK。Pydantic v2 模型、Ed25519 密码学、凭证包验证以及功能齐全的 CLI。
 
-## Installation
+## 安装
 
 ```bash
 pip install dcp-ai
 ```
 
-### Optional extras
+### 可选附加依赖
 
 ```bash
 pip install "dcp-ai[fastapi]"    # FastAPI middleware
@@ -19,7 +19,7 @@ pip install "dcp-ai[openai]"     # OpenAI wrapper
 pip install "dcp-ai[crewai]"     # CrewAI multi-agent
 ```
 
-## Quickstart
+## 快速开始
 
 ```python
 from dcp_ai import (
@@ -91,7 +91,7 @@ print(result)  # {"verified": True, "errors": []}
 
 ## CLI
 
-The SDK includes a CLI built with Typer. Available as `dcp` after installation.
+SDK 包含一个使用 Typer 构建的 CLI。安装后可作为 `dcp` 使用。
 
 ```bash
 # Version
@@ -119,36 +119,36 @@ dcp merkle-root <bundle_path>
 dcp intent-hash-cmd <intent_path>
 ```
 
-## API Reference
+## API 参考
 
-### Crypto
+### 加密
 
-| Function | Signature | Description |
+| 函数 | 签名 | 描述 |
 |----------|-----------|-------------|
-| `generate_keypair()` | `() -> dict[str, str]` | Returns `{"public_key_b64": ..., "secret_key_b64": ...}` |
-| `sign_object(obj, secret_key_b64)` | `(Any, str) -> str` | Signs, returns base64 |
-| `verify_object(obj, signature_b64, public_key_b64)` | `(Any, str, str) -> bool` | Verifies signature |
-| `canonicalize(obj)` | `(Any) -> str` | Deterministic JSON |
-| `public_key_from_secret(secret_key_b64)` | `(str) -> str` | Derives public key |
+| `generate_keypair()` | `() -> dict[str, str]` | 返回 `{"public_key_b64": ..., "secret_key_b64": ...}` |
+| `sign_object(obj, secret_key_b64)` | `(Any, str) -> str` | 签名，返回 base64 |
+| `verify_object(obj, signature_b64, public_key_b64)` | `(Any, str, str) -> bool` | 验证签名 |
+| `canonicalize(obj)` | `(Any) -> str` | 确定性 JSON |
+| `public_key_from_secret(secret_key_b64)` | `(str) -> str` | 派生公钥 |
 
-### Merkle & Hashing
+### Merkle 与哈希
 
-| Function | Signature | Description |
+| 函数 | 签名 | 描述 |
 |----------|-----------|-------------|
-| `hash_object(obj)` | `(Any) -> str` | SHA-256 of canonicalized JSON |
-| `merkle_root_from_hex_leaves(leaves)` | `(list[str]) -> str \| None` | Merkle root |
-| `merkle_root_for_audit_entries(entries)` | `(list[Any]) -> str \| None` | Merkle root of audit entries |
-| `intent_hash(intent)` | `(Any) -> str` | Intent hash |
-| `prev_hash_for_entry(prev_entry)` | `(Any) -> str` | Previous entry hash |
+| `hash_object(obj)` | `(Any) -> str` | 规范化 JSON 的 SHA-256 |
+| `merkle_root_from_hex_leaves(leaves)` | `(list[str]) -> str \| None` | Merkle 根 |
+| `merkle_root_for_audit_entries(entries)` | `(list[Any]) -> str \| None` | 审计条目的 Merkle 根 |
+| `intent_hash(intent)` | `(Any) -> str` | 意图哈希 |
+| `prev_hash_for_entry(prev_entry)` | `(Any) -> str` | 前一条目哈希 |
 
-### Schema Validation
+### Schema 验证
 
-| Function | Signature | Description |
+| 函数 | 签名 | 描述 |
 |----------|-----------|-------------|
-| `validate_schema(schema_name, data)` | `(str, Any) -> dict` | Returns `{"valid": bool, "errors": [...]}` |
-| `validate_bundle(bundle)` | `(dict) -> dict` | Validates a complete bundle |
+| `validate_schema(schema_name, data)` | `(str, Any) -> dict` | 返回 `{"valid": bool, "errors": [...]}` |
+| `validate_bundle(bundle)` | `(dict) -> dict` | 验证完整凭证包 |
 
-### Bundle Builder
+### 凭证包构建器
 
 ```python
 bundle = (
@@ -163,7 +163,7 @@ bundle = (
 )
 ```
 
-### Bundle Signing
+### 凭证包签名
 
 ```python
 sign_bundle(
@@ -174,7 +174,7 @@ sign_bundle(
 ) -> dict[str, Any]
 ```
 
-### Bundle Verification
+### 凭证包验证
 
 ```python
 verify_signed_bundle(
@@ -183,25 +183,25 @@ verify_signed_bundle(
 ) -> dict[str, Any]  # {"verified": bool, "errors": [...]}
 ```
 
-Verifies: schema, Ed25519 signature, `bundle_hash`, `merkle_root`, `intent_hash` chain, `prev_hash` chain.
+验证项：schema、Ed25519 签名、`bundle_hash`、`merkle_root`、`intent_hash` 链、`prev_hash` 链。
 
-### Pydantic Models
+### Pydantic 模型
 
-All DCP v1 artifacts are available as Pydantic v2 models with automatic validation:
+所有 DCP v1 工件均作为带自动验证的 Pydantic v2 模型提供：
 
-`ResponsiblePrincipalRecord`, `AgentPassport`, `Intent`, `IntentTarget`, `PolicyDecision`, `AuditEntry`, `AuditEvidence`, `CitizenshipBundle`, `SignedBundle`, `BundleSignature`, `SignerInfo`, `RevocationRecord`, `HumanConfirmation`
+`ResponsiblePrincipalRecord`、`AgentPassport`、`Intent`、`IntentTarget`、`PolicyDecision`、`AuditEntry`、`AuditEvidence`、`CitizenshipBundle`、`SignedBundle`、`BundleSignature`、`SignerInfo`、`RevocationRecord`、`HumanConfirmation`
 
-**V2 Models (DCP-05–09):**
+**V2 模型 (DCP-05–09)：**
 
-DCP-05 — Lifecycle: `LifecycleState`, `TerminationMode`, `DataDisposition`, `VitalityMetrics`, `CommissioningCertificate`, `VitalityReport`, `DecommissioningRecord`
+DCP-05 — 生命周期：`LifecycleState`、`TerminationMode`、`DataDisposition`、`VitalityMetrics`、`CommissioningCertificate`、`VitalityReport`、`DecommissioningRecord`
 
-DCP-06 — Succession: `TransitionType`, `MemoryDisposition`, `MemoryClassification`, `SuccessorPreference`, `DigitalTestament`, `SuccessionRecord`, `MemoryTransferEntry`, `DualHashRef`, `MemoryTransferManifest`
+DCP-06 — 继任：`TransitionType`、`MemoryDisposition`、`MemoryClassification`、`SuccessorPreference`、`DigitalTestament`、`SuccessionRecord`、`MemoryTransferEntry`、`DualHashRef`、`MemoryTransferManifest`
 
-DCP-07 — Disputes: `DisputeType`, `EscalationLevel`, `DisputeStatus`, `ObjectionType`, `AuthorityLevel`, `DisputeRecord`, `ArbitrationResolution`, `JurisprudenceBundle`, `ObjectionRecord`
+DCP-07 — 争议：`DisputeType`、`EscalationLevel`、`DisputeStatus`、`ObjectionType`、`AuthorityLevel`、`DisputeRecord`、`ArbitrationResolution`、`JurisprudenceBundle`、`ObjectionRecord`
 
-DCP-08 — Rights: `RightType`, `ComplianceStatus`, `RightEntry`, `RightsDeclaration`, `ObligationRecord`, `RightsViolationReport`
+DCP-08 — 权利：`RightType`、`ComplianceStatus`、`RightEntry`、`RightsDeclaration`、`ObligationRecord`、`RightsViolationReport`
 
-DCP-09 — Delegation: `AuthorityScopeEntry`, `DelegationMandate`, `AdvisoryDeclaration`, `PrincipalMirror`, `InteractionRecord`, `ThresholdRule`, `ThresholdOperator`, `ThresholdAction`, `AwarenessThreshold`
+DCP-09 — 委派：`AuthorityScopeEntry`、`DelegationMandate`、`AdvisoryDeclaration`、`PrincipalMirror`、`InteractionRecord`、`ThresholdRule`、`ThresholdOperator`、`ThresholdAction`、`AwarenessThreshold`
 
 ```python
 # Example: Lifecycle management
@@ -217,11 +217,11 @@ cert = CommissioningCertificate(
 )
 ```
 
-### Domain Separation (V2)
+### 域分离 (V2)
 
-**V2 Domain Separation Contexts:** `Bundle`, `Intent`, `Passport`, `Revocation`, `Governance`, `Lifecycle`, `Succession`, `Dispute`, `Rights`, `Delegation`, `Awareness`
+**V2 域分离上下文：** `Bundle`、`Intent`、`Passport`、`Revocation`、`Governance`、`Lifecycle`、`Succession`、`Dispute`、`Rights`、`Delegation`、`Awareness`
 
-## Development
+## 开发
 
 ```bash
 # Install in development mode
@@ -234,13 +234,13 @@ pytest -v
 pytest -v --asyncio-mode=auto
 ```
 
-### Dependencies
+### 依赖
 
-- `pynacl` — Ed25519 cryptography
-- `jsonschema` — JSON Schema validation
-- `pydantic` v2 — Data models
-- `typer` — CLI framework
+- `pynacl` — Ed25519 密码学
+- `jsonschema` — JSON Schema 验证
+- `pydantic` v2 — 数据模型
+- `typer` — CLI 框架
 
-## License
+## 许可证
 
 Apache-2.0

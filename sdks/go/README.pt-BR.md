@@ -1,35 +1,35 @@
-<sub>**English** · [中文](README.zh-CN.md) · [Español](README.es.md) · [日本語](README.ja.md) · [Português](README.pt-BR.md)</sub>
+<sub>[English](README.md) · [中文](README.zh-CN.md) · [Español](README.es.md) · [日本語](README.ja.md) · **Português**</sub>
 
-# dcp-ai-go — Go SDK
+# dcp-ai-go — SDK Go
 
-Official Go SDK for the Digital Citizenship Protocol (DCP) v1.0 and v2.0. Supports Ed25519, ML-DSA-65, SLH-DSA-192f, ML-KEM-768, composite signatures, dual hash chains, and full bundle verification.
+SDK Go oficial para o Digital Citizenship Protocol (DCP) v1.0 e v2.0. Suporta Ed25519, ML-DSA-65, SLH-DSA-192f, ML-KEM-768, assinaturas compostas, cadeias de hash duplas e verificação completa de bundles (pacotes de cidadania).
 
-## Installation
+## Instalação
 
 ```bash
 go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
 ```
 
-**Requires:** Go 1.21+
+**Requer:** Go 1.21+
 
-## Features
+## Funcionalidades
 
-| Feature | V1 | V2 |
-|---------|----|----|
-| Ed25519 signatures | Yes | Yes |
-| ML-DSA-65 (FIPS 204) | — | Yes |
-| SLH-DSA-192f (FIPS 205) | — | Yes |
-| ML-KEM-768 (FIPS 203) | — | Yes |
-| Composite signatures (PQ over classical) | — | Yes |
-| Domain separation | — | Yes |
-| Dual hash (SHA-256 + SHA3-256) | — | Yes |
-| Bundle verification | Yes | Yes |
-| Bundle building & signing | — | Yes |
-| Security tier computation | — | Yes |
-| Proof of possession | — | Yes |
-| Key rotation | — | Yes |
+| Funcionalidade | V1 | V2 |
+|----------------|----|----|
+| Assinaturas Ed25519 | Sim | Sim |
+| ML-DSA-65 (FIPS 204) | — | Sim |
+| SLH-DSA-192f (FIPS 205) | — | Sim |
+| ML-KEM-768 (FIPS 203) | — | Sim |
+| Assinaturas compostas (PQ sobre clássica) | — | Sim |
+| Separação de domínio | — | Sim |
+| Dual hash (SHA-256 + SHA3-256) | — | Sim |
+| Verificação de bundle | Sim | Sim |
+| Construção e assinatura de bundle | — | Sim |
+| Cálculo de nível de segurança | — | Sim |
+| Prova de posse | — | Sim |
+| Rotação de chaves | — | Sim |
 
-## Quickstart — V1
+## Início Rápido — V1
 
 ```go
 package main
@@ -48,7 +48,7 @@ func main() {
 }
 ```
 
-## Quickstart — V2
+## Início Rápido — V2
 
 ```go
 package main
@@ -96,7 +96,7 @@ func main() {
 }
 ```
 
-### Security Tiers
+### Níveis de Segurança
 
 ```go
 tier := v2.ComputeSecurityTier(v2.SecurityTierInput{
@@ -109,7 +109,7 @@ fmt.Println(tier.VerificationMode)   // "hybrid_required"
 fmt.Println(tier.CheckpointInterval) // 1
 ```
 
-### ML-KEM-768 Key Encapsulation
+### Encapsulamento de Chave ML-KEM-768
 
 ```go
 kem := &providers.MlKem768Provider{}
@@ -118,55 +118,55 @@ result, _ := kem.Encapsulate(kp.PublicKeyB64)
 sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 ```
 
-## V2 API Reference
+## Referência de API V2
 
-### Bundle Building & Signing
+### Construção e Assinatura de Bundle
 
-| Function | Description |
-|----------|-------------|
-| `v2.BuildBundleV2(input)` | Constructs a V2 bundle with manifest hashes and dual Merkle roots |
-| `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | Signs a bundle with composite or classical-only signature |
-| `v2.VerifySignedBundleV2(reg, jsonBytes)` | Full V2 bundle verification (structure, hashes, signatures, audit chain) |
+| Função | Descrição |
+|--------|-----------|
+| `v2.BuildBundleV2(input)` | Constrói um bundle V2 com hashes de manifesto e Merkle roots duplos |
+| `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | Assina um bundle com assinatura composta ou apenas clássica |
+| `v2.VerifySignedBundleV2(reg, jsonBytes)` | Verificação completa de bundle V2 (estrutura, hashes, assinaturas, cadeia de auditoria) |
 
-### Security Tiers
+### Níveis de Segurança
 
-| Function | Description |
-|----------|-------------|
-| `v2.ComputeSecurityTier(input)` | Computes adaptive security tier (routine/standard/elevated/maximum) |
+| Função | Descrição |
+|--------|-----------|
+| `v2.ComputeSecurityTier(input)` | Calcula o nível de segurança adaptativo (routine/standard/elevated/maximum) |
 
-### Composite Signatures
+### Assinaturas Compostas
 
-| Function | Description |
-|----------|-------------|
-| `v2.CompositeSign(reg, ctx, payload, classicalKey, pqKey)` | PQ-over-classical composite signature |
-| `v2.ClassicalOnlySign(reg, ctx, payload, key)` | Classical-only transition mode |
-| `v2.CompositeVerify(reg, ctx, payload, sig, classicalPK, pqPK)` | Verify composite signatures |
+| Função | Descrição |
+|--------|-----------|
+| `v2.CompositeSign(reg, ctx, payload, classicalKey, pqKey)` | Assinatura composta PQ-sobre-clássico |
+| `v2.ClassicalOnlySign(reg, ctx, payload, key)` | Modo de transição apenas clássico |
+| `v2.CompositeVerify(reg, ctx, payload, sig, classicalPK, pqPK)` | Verifica assinaturas compostas |
 
-### Crypto Providers
+### Provedores de Criptografia
 
-| Provider | Algorithm | Type | Standard |
-|----------|-----------|------|----------|
-| `Ed25519Provider` | ed25519 | Signature | — |
-| `MlDsa65Provider` | ml-dsa-65 | Signature | FIPS 204 |
-| `SlhDsa192fProvider` | slh-dsa-192f | Signature | FIPS 205 |
+| Provedor | Algoritmo | Tipo | Padrão |
+|----------|-----------|------|--------|
+| `Ed25519Provider` | ed25519 | Assinatura | — |
+| `MlDsa65Provider` | ml-dsa-65 | Assinatura | FIPS 204 |
+| `SlhDsa192fProvider` | slh-dsa-192f | Assinatura | FIPS 205 |
 | `MlKem768Provider` | ml-kem-768 | KEM | FIPS 203 |
 
-### V1 API (unchanged)
+### API V1 (inalterada)
 
-| Function | Description |
-|----------|-------------|
-| `dcp.GenerateKeypair()` | Ed25519 keypair |
-| `dcp.SignObject(obj, sk)` | Sign object |
-| `dcp.VerifyObject(obj, sig, pk)` | Verify signature |
-| `dcp.Canonicalize(obj)` | Deterministic JSON |
-| `dcp.HashObject(obj)` | SHA-256 of canonical JSON |
-| `dcp.VerifySignedBundle(sb, pk)` | V1 bundle verification |
+| Função | Descrição |
+|--------|-----------|
+| `dcp.GenerateKeypair()` | Par de chaves Ed25519 |
+| `dcp.SignObject(obj, sk)` | Assina objeto |
+| `dcp.VerifyObject(obj, sig, pk)` | Verifica assinatura |
+| `dcp.Canonicalize(obj)` | JSON determinístico |
+| `dcp.HashObject(obj)` | SHA-256 do JSON canônico |
+| `dcp.VerifySignedBundle(sb, pk)` | Verificação de bundle V1 |
 
-### DCP-05–09 Types
+### Tipos DCP-05–09
 
-V2 includes Go structs for all DCP-05 through DCP-09 artifacts:
+V2 inclui structs Go para todos os artefatos de DCP-05 a DCP-09:
 
-| Spec | Types |
+| Spec | Tipos |
 |------|-------|
 | DCP-05 | `LifecycleState`, `CommissioningCertificate`, `VitalityReport`, `VitalityMetrics`, `DecommissioningRecord`, `TerminationMode`, `DataDisposition` |
 | DCP-06 | `DigitalTestament`, `SuccessionRecord`, `MemoryTransferManifest`, `MemoryTransferEntry`, `SuccessorPreference`, `MemoryClassification`, `TransitionType`, `MemoryDisposition` |
@@ -174,11 +174,11 @@ V2 includes Go structs for all DCP-05 through DCP-09 artifacts:
 | DCP-08 | `RightsDeclaration`, `RightEntry`, `ObligationRecord`, `RightsViolationReport`, `RightType`, `ComplianceStatus` |
 | DCP-09 | `DelegationMandate`, `AdvisoryDeclaration`, `PrincipalMirror`, `InteractionRecord`, `AwarenessThreshold`, `ThresholdRule`, `AuthorityScopeEntry` |
 
-Domain separation contexts: `CtxLifecycle`, `CtxSuccession`, `CtxDispute`, `CtxRights`, `CtxDelegation`, `CtxAwareness`
+Contextos de separação de domínio: `CtxLifecycle`, `CtxSuccession`, `CtxDispute`, `CtxRights`, `CtxDelegation`, `CtxAwareness`
 
-All structs include JSON tags for marshaling/unmarshaling and follow Go naming conventions (`json:"field_name,omitempty"` for optional fields).
+Todas as structs incluem tags JSON para marshaling/unmarshaling e seguem as convenções de nomenclatura do Go (`json:"field_name,omitempty"` para campos opcionais).
 
-## Development
+## Desenvolvimento
 
 ```bash
 go build ./...   # Build
@@ -187,11 +187,11 @@ go fmt ./...     # Format
 go mod tidy      # Verify dependencies
 ```
 
-### Dependencies
+### Dependências
 
 - `github.com/cloudflare/circl` — ML-DSA-65, SLH-DSA-192f, ML-KEM-768
 - `golang.org/x/crypto` — SHA3-256
 
-## License
+## Licença
 
 Apache-2.0

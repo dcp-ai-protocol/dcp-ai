@@ -1,3 +1,5 @@
+<sub>**English** · [中文](CONTRIBUTING.zh-CN.md) · [Español](CONTRIBUTING.es.md) · [日本語](CONTRIBUTING.ja.md) · [Português](CONTRIBUTING.pt-BR.md)</sub>
+
 # Contributing to DCP-AI
 
 Thank you for your interest in contributing to the Digital Citizenship Protocol for AI Agents. This guide will help you get started.
