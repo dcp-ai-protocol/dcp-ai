@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.7.1] - 2026-04-23 (Python only)
+
+### Fixed
+
+- `dcp-ai` (PyPI) 2.7.0 was missing `cryptography` as a hard dependency. The
+  package is required by the DCP-04 A2A session layer introduced in 2.5.0
+  for AES-256-GCM encryption. Fresh `pip install dcp-ai==2.7.0` installs did
+  not pull `cryptography`, so three A2A session tests failed under a clean
+  environment (`test_encrypt_decrypt_round_trip`, `test_tamper_ciphertext_rejected`,
+  `test_session_id_mismatch`). 2.7.1 adds `cryptography>=41.0` to the wheel's
+  required dependencies.
+
+Rust (`dcp-ai` crates.io) and Go (`sdks/go/v2`) are unaffected and remain at
+2.7.0 — the `cryptography` Python package only matters for the Python wheel.
+
 ## [2.7.0] - 2026-04-23
 
 ### Added — Canonical error codes + wire-format detection in PY / GO / RS
