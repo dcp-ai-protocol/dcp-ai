@@ -42,6 +42,12 @@ const LOG_TABLE = new Uint8Array(256);
 
 function gf256Mul(a: number, b: number): number {
   if (a === 0 || b === 0) return 0;
+  // GF(256) multiplication via log/exp tables. LOG_TABLE maps the 255 non-zero
+  // field elements to discrete logarithms in [0, 254]. The sum lies in [0, 508]
+  // and `% 255` reduces it back into [0, 254] — this is the standard
+  // Rijndael/AES GF(256) construction, not a uniformly-random draw. CodeQL's
+  // "biased modulo" rule does not model field arithmetic; the reduction here
+  // is exact (255 mod 255 == 0) so every residue is hit identically.
   return EXP_TABLE[(LOG_TABLE[a] + LOG_TABLE[b]) % 255];
 }
 

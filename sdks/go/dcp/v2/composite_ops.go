@@ -52,6 +52,9 @@ func CompositeSign(
 		return nil, fmt.Errorf("classical sign: %w", err)
 	}
 
+	if len(dsm) > MaxMessageBytes || len(classicalSig) > MaxMessageBytes {
+		return nil, fmt.Errorf("composite message exceeds %d bytes", MaxMessageBytes)
+	}
 	compositeMessage := make([]byte, 0, len(dsm)+len(classicalSig))
 	compositeMessage = append(compositeMessage, dsm...)
 	compositeMessage = append(compositeMessage, classicalSig...)
@@ -179,6 +182,9 @@ func CompositeVerify(
 		return nil, fmt.Errorf("decode pq sig: %w", err)
 	}
 
+	if len(dsm) > MaxMessageBytes || len(classicalSigBytes) > MaxMessageBytes {
+		return nil, fmt.Errorf("composite message exceeds %d bytes", MaxMessageBytes)
+	}
 	compositeMessage := make([]byte, 0, len(dsm)+len(classicalSigBytes))
 	compositeMessage = append(compositeMessage, dsm...)
 	compositeMessage = append(compositeMessage, classicalSigBytes...)

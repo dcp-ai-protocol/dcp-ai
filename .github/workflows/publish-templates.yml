@@ -24,6 +24,9 @@ on:
           - create-openai
           - create-express
 
+permissions:
+  contents: read
+
 jobs:
   publish-create-langchain:
     name: Publish @dcp-ai/create-langchain

@@ -13,6 +13,39 @@ import express from "express";
 const app = express();
 app.use(express.json({ limit: "1mb" }));
 
+// Lightweight in-memory rate limiter. DCP-AI endpoints verify
+// cryptographic signatures on every request, so ungated public endpoints
+// (like /verify) are a natural DoS target. The defaults below are tuned
+// for developer friendliness; tighten them or swap in `express-rate-limit`
+// for production with distributed state (Redis, etc).
+function rateLimit({ windowMs = 60_000, max = 60 } = {}) {
+  const hits = new Map();
+  setInterval(() => {
+    const now = Date.now();
+    for (const [key, meta] of hits) {
+      if (now - meta.start > windowMs) hits.delete(key);
+    }
+  }, windowMs).unref?.();
+  return (req, res, next) => {
+    const key = req.ip || req.socket?.remoteAddress || "unknown";
+    const now = Date.now();
+    const meta = hits.get(key);
+    if (!meta || now - meta.start > windowMs) {
+      hits.set(key, { start: now, count: 1 });
+      return next();
+    }
+    meta.count++;
+    if (meta.count > max) {
+      res.setHeader("Retry-After", String(Math.ceil((meta.start + windowMs - now) / 1000)));
+      return res.status(429).json({ error: "Rate limit exceeded" });
+    }
+    next();
+  };
+}
+
+const publicLimiter = rateLimit({ windowMs: 60_000, max: 60 });      // /verify, /health
+const authedLimiter = rateLimit({ windowMs: 60_000, max: 300 });     // /agents/*
+
 const PORT = process.env.PORT || 3100;
 
 // In-memory registry of verified agents (production: use a database)
@@ -193,8 +226,9 @@ app.get("/health", (_req, res) => {
   });
 });
 
-// Standalone bundle verification — no authentication required
-app.post("/verify", (req, res) => {
+// Standalone bundle verification — no authentication required.
+// Rate-limited to prevent cryptographic-work DoS on the public endpoint.
+app.post("/verify", publicLimiter, (req, res) => {
   const signedBundle = req.body?.signed_bundle || req.body;
 
   if (!signedBundle) {
@@ -216,8 +250,10 @@ app.post("/verify", (req, res) => {
   });
 });
 
-// Agent action — requires DCP bundle
-app.post("/agents/action", dcpMiddleware, (req, res) => {
+// Agent action — requires DCP bundle. Additional per-IP rate limit on top
+// of the bundle check (budget is generous because the caller already paid
+// the cost of obtaining a valid bundle).
+app.post("/agents/action", authedLimiter, dcpMiddleware, (req, res) => {
   const agent = req.dcpAgent;
   const { action } = req.body;
 
@@ -252,8 +288,8 @@ app.post("/agents/action", dcpMiddleware, (req, res) => {
   });
 });
 
-// Agent registry — requires DCP bundle
-app.get("/agents/registry", dcpMiddleware, (_req, res) => {
+// Agent registry — requires DCP bundle (rate-limited).
+app.get("/agents/registry", authedLimiter, dcpMiddleware, (_req, res) => {
   const agents = Array.from(agentRegistry.values()).map((a) => ({
     agentId: a.agentId,
     humanId: a.humanId,

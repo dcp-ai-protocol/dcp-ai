@@ -85,8 +85,14 @@ export async function initOtlp(config: DcpTelemetryConfig, sdkVersion: string): 
   }
 
   const endpoint = config.otlpEndpoint ?? process.env.OTEL_EXPORTER_OTLP_ENDPOINT ?? 'http://localhost:4318';
-  const traceUrl = endpoint.replace(/\/+$/, '') + '/v1/traces';
-  const metricsUrl = endpoint.replace(/\/+$/, '') + '/v1/metrics';
+  // stripTrailingSlashes avoids regex backtracking on crafted input — walks
+  // the end of the string in linear time instead of letting a regex engine
+  // backtrack over repeated `/`.
+  let trimEnd = endpoint.length;
+  while (trimEnd > 0 && endpoint.charCodeAt(trimEnd - 1) === 47 /* '/' */) trimEnd--;
+  const base = endpoint.slice(0, trimEnd);
+  const traceUrl = base + '/v1/traces';
+  const metricsUrl = base + '/v1/metrics';
 
   const resource = new resources.Resource({
     [semconv.SEMRESATTRS_SERVICE_NAME]: config.serviceName,

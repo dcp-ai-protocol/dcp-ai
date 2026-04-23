@@ -294,15 +294,20 @@
     document.getElementById('btn-custom-verify').onclick = () => {
       const input = document.getElementById('custom-bundle').value.trim();
       if (!input) { alert('Paste a signed bundle JSON.'); return; }
+      // Escape untrusted content (verify output, exception messages) before
+      // inlining into innerHTML.
+      const escHtml = s => String(s ?? '').replace(/[&<>"']/g, c => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+      ));
+      const outputEl = document.getElementById('custom-verify-output');
       try {
         const resultJson = wasm_verify_signed_bundle_v2(input);
         const r = JSON.parse(resultJson);
         const tag = r.verified ? '<span class="tag tag-ok">VERIFIED</span>' : '<span class="tag tag-fail">FAILED</span>';
-        document.getElementById('custom-verify-output').innerHTML =
-          `${tag}\n\n` + JSON.stringify(r, null, 2);
+        outputEl.innerHTML = `${tag}\n\n` + escHtml(JSON.stringify(r, null, 2));
       } catch (e) {
-        document.getElementById('custom-verify-output').innerHTML =
-          `<span class="tag tag-fail">ERROR</span>\n\n${e.message}`;
+        outputEl.innerHTML =
+          `<span class="tag tag-fail">ERROR</span>\n\n${escHtml(e && e.message)}`;
       }
     };
   </script>

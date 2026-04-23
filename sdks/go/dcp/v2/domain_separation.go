@@ -45,11 +45,22 @@ var validContexts = map[string]bool{
 	CtxAwareness:               true,
 }
 
+// MaxMessageBytes caps the combined size of a domain-separated / composite
+// message. DCP artifacts are orders of magnitude smaller than this in practice;
+// enforcing an explicit upper bound closes the theoretical `int` addition
+// overflow path on 64-bit systems and prevents runaway allocation on crafted
+// input.
+const MaxMessageBytes = 1 << 24 // 16 MiB
+
 // DomainSeparatedMessage produces: UTF8(context) || 0x00 || canonicalPayloadBytes.
-// Returns an error if the context string is not a recognized DCP v2 context.
+// Returns an error if the context string is not a recognized DCP v2 context
+// or if either component exceeds MaxMessageBytes.
 func DomainSeparatedMessage(context string, canonicalPayload []byte) ([]byte, error) {
 	if !validContexts[context] {
 		return nil, fmt.Errorf("invalid domain separation context: %q", context)
+	}
+	if len(context) > MaxMessageBytes || len(canonicalPayload) > MaxMessageBytes {
+		return nil, fmt.Errorf("domain-separated message exceeds %d bytes", MaxMessageBytes)
 	}
 	ctxBytes := []byte(context)
 	msg := make([]byte, 0, len(ctxBytes)+1+len(canonicalPayload))

@@ -1,5 +1,14 @@
 // playground/js/ui/visualizations.js — SVG visualizations
 
+// Escape untrusted strings before interpolating into SVG/HTML. The playground
+// accepts pasted bundles from arbitrary sources; without escaping, a crafted
+// node.scope / agent.name / etc. could inject script via innerHTML.
+const _HTML_ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, c => _HTML_ESCAPES[c]);
+}
+
 export function renderStateMachine(containerId, currentState) {
   const colors = {
     commissioned: '#3388ff',
@@ -144,11 +153,12 @@ export function renderDelegationChain(containerId, chain) {
   chain.forEach((node, i) => {
     const x = i * 180 + 10;
     const color = node.type === 'human' ? '#3388ff' : '#00d4aa';
+    const idShort = esc(String(node.id || '').substring(0, 12));
     svg += `<rect x="${x}" y="20" width="160" height="60" rx="8" fill="${color}22" stroke="${color}" stroke-width="1.5"/>`;
     svg += `<text x="${x + 80}" y="42" fill="${color}" font-size="10" font-weight="600" text-anchor="middle">${node.type === 'human' ? 'Principal' : 'Agent'}</text>`;
-    svg += `<text x="${x + 80}" y="58" fill="var(--text-dim)" font-size="9" text-anchor="middle">${node.id.substring(0, 12)}...</text>`;
+    svg += `<text x="${x + 80}" y="58" fill="var(--text-dim)" font-size="9" text-anchor="middle">${idShort}...</text>`;
     if (node.scope) {
-      svg += `<text x="${x + 80}" y="72" fill="var(--text-muted)" font-size="8" text-anchor="middle">${node.scope}</text>`;
+      svg += `<text x="${x + 80}" y="72" fill="var(--text-muted)" font-size="8" text-anchor="middle">${esc(node.scope)}</text>`;
     }
     if (i < chain.length - 1) {
       svg += `<line x1="${x + 160}" y1="50" x2="${x + 180}" y2="50" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#del-arrow)"/>`;
@@ -171,10 +181,11 @@ export function renderRightsMatrix(containerId, agents, rights) {
   html += `</tr></thead><tbody>`;
 
   agents.forEach(a => {
-    html += `<tr><td>${a.name || a.agentId.substring(0, 10)}</td>`;
+    const label = esc(a.name || String(a.agentId || '').substring(0, 10));
+    html += `<tr><td>${label}</td>`;
     rightTypes.forEach(r => {
       const status = (rights[a.agentId] && rights[a.agentId][r]) || 'N/A';
-      html += `<td><span class="tag ${colors[status] || 'tag-purple'}">${status}</span></td>`;
+      html += `<td><span class="tag ${colors[status] || 'tag-purple'}">${esc(status)}</span></td>`;
     });
     html += `</tr>`;
   });

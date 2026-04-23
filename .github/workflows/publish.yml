@@ -22,6 +22,11 @@ on:
           - cli
           - sdk-rust
 
+# Registries are authenticated with their own secrets; the workflow never
+# writes back to the repo, so contents: read is sufficient.
+permissions:
+  contents: read
+
 jobs:
   publish-typescript-sdk:
     name: Publish @dcp-ai/sdk to NPM

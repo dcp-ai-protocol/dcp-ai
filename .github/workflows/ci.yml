@@ -9,6 +9,11 @@ on:
   pull_request:
     branches: [main]
 
+# Least-privilege default. Jobs can override with a narrower or wider scope
+# as needed (e.g. codecov/codecov-action@v4 does not require any write perms).
+permissions:
+  contents: read
+
 jobs:
   # Detect which areas changed so per-language suites can skip when untouched.
   # Conformance always runs — it's the wire-format invariant check that should

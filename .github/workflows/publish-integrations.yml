@@ -24,6 +24,9 @@ on:
           - express
           - openclaw
 
+permissions:
+  contents: read
+
 jobs:
   publish-anthropic-mcp:
     name: Publish @dcp-ai/anthropic-mcp

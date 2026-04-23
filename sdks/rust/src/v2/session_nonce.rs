@@ -36,6 +36,9 @@ pub fn verify_session_binding(artifacts: &[Value]) -> SessionBindingResult {
             error: Some("No artifacts to verify".into()),
         };
     }
+    // The `unwrap_or("")` returns an empty string (not a cryptographic value)
+    // when the field is missing; is_valid_session_nonce below rejects empty
+    // strings and produces a clear error. No secret is hardcoded here.
     let first = artifacts[0]
         .get("session_nonce")
         .and_then(Value::as_str)
