@@ -4,6 +4,48 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.4.0] - 2026-04-23
+
+### Added — Production hardening primitives in Python, Rust, Go
+
+Ports the four protocol-critical hardening primitives from the TS core:
+
+- **Session nonce** helpers: `generate_session_nonce`, `is_valid_session_nonce`,
+  `verify_session_binding`, `generate_session_expiry`, `is_session_expired`.
+- **Adaptive security tier**: `compute_security_tier`, `max_tier`,
+  `tier_to_verification_mode`, `tier_to_checkpoint_interval` (Go already had
+  `ComputeSecurityTier`; v2.4 adds the three helper functions).
+- **Emergency revocation** (Gap #13): `generate_emergency_revocation_token`,
+  `verify_emergency_revocation_secret`, `build_emergency_revocation`.
+- **Lazy PQ checkpoints**: `audit_events_merkle_root`, `create_pq_checkpoint`,
+  and `PQCheckpointManager` class with tier-driven interval selection and
+  automatic flush behaviour.
+
+All four modules match the TS semantics exactly: constant-time secret
+verification for emergency revocation, tier-driven checkpoint intervals,
+session-nonce validator regex, and signed checkpoint payloads under the
+`DCP-AI.v2.AuditEvent` domain-separation context.
+
+### What's not in v2.4
+
+Deliberately scoped out (will ship as follow-up releases if demand appears):
+- Shamir secret sharing (Gap #1) — requires careful crypto review; TS-only.
+- Verification cache — app-level concern, not protocol.
+- Rate limiting / circuit breaker / retry — app-level patterns best
+  delegated to existing ecosystem libraries.
+
+### Test counts
+
+- Python: 214/214 pass (+24 new)
+- Rust: 126/126 pass (+10 new)
+- Go: 81/81 pass (+9 new)
+
+### Versions bumped
+
+- `dcp-ai` (PyPI) 2.3.0 -> 2.4.0
+- `dcp-ai` (crates.io) 2.3.0 -> 2.4.0
+- `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` -> v2.4.0
+
 ## [2.3.0] - 2026-04-23
 
 ### Added — Dispute + Rights + Delegation parity across SDKs

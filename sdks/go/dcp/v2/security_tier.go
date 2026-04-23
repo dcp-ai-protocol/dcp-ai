@@ -78,3 +78,44 @@ func ComputeSecurityTier(input SecurityTierInput) SecurityTierResult {
 		CheckpointInterval: interval,
 	}
 }
+
+// ── v2.4 helpers — parity with the other SDKs ──
+
+var tierRank = map[string]int{
+	"routine":  0,
+	"standard": 1,
+	"elevated": 2,
+	"maximum":  3,
+}
+
+// MaxTier returns the stricter (higher-rank) of the two tiers.
+func MaxTier(a, b string) string {
+	if tierRank[a] >= tierRank[b] {
+		return a
+	}
+	return b
+}
+
+// TierToVerificationMode maps a tier to its verification-mode string.
+func TierToVerificationMode(tier string) string {
+	switch tier {
+	case "maximum", "elevated":
+		return "hybrid_required"
+	case "standard":
+		return "hybrid_preferred"
+	default:
+		return "classical_only"
+	}
+}
+
+// TierToCheckpointInterval maps a tier to its PQ-checkpoint interval.
+func TierToCheckpointInterval(tier string) int {
+	switch tier {
+	case "maximum", "elevated":
+		return 1
+	case "standard":
+		return 10
+	default:
+		return 50
+	}
+}

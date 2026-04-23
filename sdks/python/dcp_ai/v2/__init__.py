@@ -144,6 +144,29 @@ from dcp_ai.v2.awareness_threshold import (
     should_notify_human,
 )
 from dcp_ai.v2.principal_mirror import generate_mirror
+from dcp_ai.v2.session_nonce import (
+    generate_session_expiry,
+    generate_session_nonce,
+    is_session_expired,
+    is_valid_session_nonce,
+    verify_session_binding,
+)
+from dcp_ai.v2.security_tier import (
+    compute_security_tier,
+    max_tier,
+    tier_to_checkpoint_interval,
+    tier_to_verification_mode,
+)
+from dcp_ai.v2.emergency_revocation import (
+    build_emergency_revocation,
+    generate_emergency_revocation_token,
+    verify_emergency_revocation_secret,
+)
+from dcp_ai.v2.pq_checkpoint import (
+    PQCheckpointManager,
+    audit_events_merkle_root,
+    create_pq_checkpoint,
+)
 
 __all__ = [
     "assert_no_floats",
@@ -272,4 +295,20 @@ __all__ = [
     "should_notify_human",
     # DCP-09: principal mirror
     "generate_mirror",
+    # v2.4 production hardening primitives
+    "generate_session_expiry",
+    "generate_session_nonce",
+    "is_session_expired",
+    "is_valid_session_nonce",
+    "verify_session_binding",
+    "compute_security_tier",
+    "max_tier",
+    "tier_to_checkpoint_interval",
+    "tier_to_verification_mode",
+    "build_emergency_revocation",
+    "generate_emergency_revocation_token",
+    "verify_emergency_revocation_secret",
+    "PQCheckpointManager",
+    "audit_events_merkle_root",
+    "create_pq_checkpoint",
 ]

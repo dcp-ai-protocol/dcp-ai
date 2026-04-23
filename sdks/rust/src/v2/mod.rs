@@ -15,3 +15,7 @@ pub mod rights;
 pub mod delegation;
 pub mod awareness_threshold;
 pub mod principal_mirror;
+pub mod session_nonce;
+pub mod security_tier;
+pub mod emergency_revocation;
+pub mod pq_checkpoint;

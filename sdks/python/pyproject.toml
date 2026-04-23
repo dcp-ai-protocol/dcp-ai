@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dcp-ai"
-version = "2.3.0"
+version = "2.4.0"
 description = "Python SDK for the Digital Citizenship Protocol for AI Agents"
 readme = "README.md"
 license = "Apache-2.0"
