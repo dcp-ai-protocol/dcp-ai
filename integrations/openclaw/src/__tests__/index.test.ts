@@ -16,20 +16,25 @@ import register, {
 // ---------------------------------------------------------------------------
 
 describe('OpenClaw plugin registration', () => {
-  it('registers all 6 tools via the plugin API', () => {
+  it('registers all 11 tools via the plugin API', () => {
     const tools = new Map<string, any>();
     const mockApi = {
       registerTool: (tool: any) => tools.set(tool.name, tool),
     };
     register(mockApi);
 
-    expect(tools.size).toBe(6);
+    expect(tools.size).toBe(11);
     const expectedNames = [
       'dcp_identity_setup',
       'dcp_declare_intent',
       'dcp_verify_bundle',
       'dcp_log_action',
       'dcp_get_audit_trail',
+      'dcp_commission_agent',
+      'dcp_report_vitality',
+      'dcp_decommission_agent',
+      'dcp_create_testament',
+      'dcp_create_mandate',
       'dcp_sign_bundle',
     ];
     for (const name of expectedNames) {
