@@ -187,6 +187,16 @@ from dcp_ai.v2.a2a import (
     verify_resume_proof,
 )
 
+from dcp_ai.v2.error_codes import (
+    DcpError,
+    DcpErrorCode,
+    DcpProtocolError,
+    ERROR_DESCRIPTIONS,
+    create_dcp_error,
+    detect_wire_format,
+    is_dcp_error,
+)
+
 __all__ = [
     "assert_no_floats",
     "canonicalize_v2",
@@ -348,4 +358,12 @@ __all__ = [
     "needs_rekeying",
     "validate_directory_entry",
     "verify_resume_proof",
+    # v2.7: error codes + wire-format detection
+    "DcpError",
+    "DcpErrorCode",
+    "DcpProtocolError",
+    "ERROR_DESCRIPTIONS",
+    "create_dcp_error",
+    "detect_wire_format",
+    "is_dcp_error",
 ]

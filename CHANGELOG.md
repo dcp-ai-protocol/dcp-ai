@@ -4,6 +4,58 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.7.0] - 2026-04-23
+
+### Added — Canonical error codes + wire-format detection in PY / GO / RS
+
+Ports the `DcpErrorCode` enum and accompanying `DcpError` / `DcpProtocolError`
+machinery from TS to Python, Rust, and Go, plus the lightweight
+`detect_wire_format` helper that routes an incoming byte stream to
+"json" or "cbor" based on the first byte.
+
+**Every SDK now agrees on the same 38 canonical error codes** covering:
+schema errors (E001-E099), signature errors (E100-E199), hash/chain errors
+(E200-E299), identity errors (E300-E399), policy errors (E400-E499),
+session errors (E500-E599), A2A errors (E600-E699), rate limiting
+(E700-E799), and internal errors (E900-E999). Each code carries a canonical
+message + a `retryable` flag so clients can implement policy-matching
+retry logic consistently across SDKs.
+
+**Python (`dcp-ai` 2.6.0 -> 2.7.0)** — new `dcp_ai.v2.error_codes` module
+with `DcpErrorCode` (str-enum), `DcpError` dataclass,
+`DcpProtocolError` exception, `create_dcp_error`, `is_dcp_error`,
+`detect_wire_format`, and `ERROR_DESCRIPTIONS` mapping.
+
+**Rust (`dcp-ai` 2.6.0 -> 2.7.0)** — `dcp_ai::v2::error_codes` with the
+`DcpErrorCode` enum (`Display` → the stable `DCP-E###` identifier),
+`DcpError` struct, `create_dcp_error`, and `detect_wire_format`.
+
+**Go (`sdks/go/v2.6.0 -> v2.7.0`)** — `v2.DcpErrorCode` typed-string with
+37 `Err*` constants, `v2.DcpError` struct implementing the `error`
+interface, `CreateDcpError`, `IsDcpError`, `DetectWireFormat`.
+
+### CBOR encoder/decoder scope decision
+
+The full CBOR encoder/decoder remains TypeScript-only in 2.x. Porting a
+deterministic RFC 8949 implementation to three more SDKs is a substantial
+project that deserves its own milestone; `detect_wire_format` is the
+single helper every SDK needs today to route CBOR payloads to an
+existing ecosystem library (e.g. `cbor2` in Python,
+`github.com/fxamacker/cbor/v2` in Go, `ciborium` in Rust). A dedicated
+v3.x release will add a canonical port.
+
+### Test counts
+
+- Python: 231/231 pass (unchanged; import surface verified)
+- Rust: 152/152 pass (+5 new)
+- Go: 115/115 pass (+8 new)
+
+### Versions bumped
+
+- `dcp-ai` (PyPI) 2.6.0 -> 2.7.0
+- `dcp-ai` (crates.io) 2.6.0 -> 2.7.0
+- `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` -> v2.7.0
+
 ## [2.6.0] - 2026-04-23
 
 ### Added — blinded RPR, multi-party auth, advisory helpers in Rust + Go

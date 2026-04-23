@@ -1,6 +1,6 @@
 [package]
 name = "dcp-ai"
-version = "2.6.0"
+version = "2.7.0"
 edition = "2021"
 description = "Rust SDK for the Digital Citizenship Protocol for AI Agents"
 license = "Apache-2.0"
