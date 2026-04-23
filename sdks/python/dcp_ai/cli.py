@@ -6,12 +6,39 @@ Built with Typer.
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
 import typer
 
 app = typer.Typer(name="dcp", help="Digital Citizenship Protocol CLI")
+
+
+def _write_secret_atomic(path: Path, contents: str) -> None:
+    """Write `contents` to `path` with mode 0600 from creation — no race window.
+
+    Falls back to a plain write on platforms that don't support POSIX modes
+    (e.g. Windows); the containing directory in `keygen` is already chmod 0700
+    in that case.
+    """
+    try:
+        fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    except (AttributeError, OSError):
+        # Non-POSIX platforms: the directory-level permissions set by the
+        # caller still restrict access.
+        path.write_text(contents)
+        return
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(contents)
+    except Exception:
+        # Best-effort cleanup if the write itself fails.
+        try:
+            path.unlink()
+        except OSError:
+            pass
+        raise
 
 
 @app.command()
@@ -29,31 +56,27 @@ def keygen(out_dir: str = "keys") -> None:
     For production deployments, prefer integrating with a KMS/HSM rather than
     storing the raw secret on local disk.
     """
-    import os
     import stat
     from dcp_ai.crypto import generate_keypair
 
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True, mode=0o700)
     # Tighten the directory mode as well so the secret file isn't world-readable
-    # via permissive parent dirs.
+    # via permissive parent dirs (mkdir mode is masked by the process umask).
     try:
         os.chmod(out, stat.S_IRWXU)
-    except OSError:
+    except (AttributeError, OSError):
         pass
 
     kp = generate_keypair()
     pub_path = out / "public_key.txt"
     sec_path = out / "secret_key.txt"
     pub_path.write_text(kp["public_key_b64"] + "\n")
-    sec_path.write_text(kp["secret_key_b64"] + "\n")
-    # Narrow the secret file to owner-only rw (0600). chmod is a no-op on
-    # filesystems that don't support POSIX modes (e.g. Windows); the directory
-    # mode above still provides the primary defence.
-    try:
-        os.chmod(sec_path, stat.S_IRUSR | stat.S_IWUSR)
-    except OSError:
-        pass
+    # Write the secret file atomically with mode 0600 from the start. Using
+    # os.open with explicit flags + mode avoids the short window between
+    # file creation (default mode 0644) and a follow-up chmod during which
+    # another local user could race-read the secret.
+    _write_secret_atomic(sec_path, kp["secret_key_b64"] + "\n")
 
     typer.echo(f"Keypair written to {out_dir}/ (secret_key.txt mode 0600)")
     typer.echo(

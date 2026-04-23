@@ -9,42 +9,28 @@
 
 import crypto from "node:crypto";
 import express from "express";
+import rateLimit from "express-rate-limit";
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
 
-// Lightweight in-memory rate limiter. DCP-AI endpoints verify
-// cryptographic signatures on every request, so ungated public endpoints
-// (like /verify) are a natural DoS target. The defaults below are tuned
-// for developer friendliness; tighten them or swap in `express-rate-limit`
-// for production with distributed state (Redis, etc).
-function rateLimit({ windowMs = 60_000, max = 60 } = {}) {
-  const hits = new Map();
-  setInterval(() => {
-    const now = Date.now();
-    for (const [key, meta] of hits) {
-      if (now - meta.start > windowMs) hits.delete(key);
-    }
-  }, windowMs).unref?.();
-  return (req, res, next) => {
-    const key = req.ip || req.socket?.remoteAddress || "unknown";
-    const now = Date.now();
-    const meta = hits.get(key);
-    if (!meta || now - meta.start > windowMs) {
-      hits.set(key, { start: now, count: 1 });
-      return next();
-    }
-    meta.count++;
-    if (meta.count > max) {
-      res.setHeader("Retry-After", String(Math.ceil((meta.start + windowMs - now) / 1000)));
-      return res.status(429).json({ error: "Rate limit exceeded" });
-    }
-    next();
-  };
-}
-
-const publicLimiter = rateLimit({ windowMs: 60_000, max: 60 });      // /verify, /health
-const authedLimiter = rateLimit({ windowMs: 60_000, max: 300 });     // /agents/*
+// DCP-AI endpoints verify cryptographic signatures on every request, so
+// ungated public endpoints (like /verify) are a natural DoS target.
+// Defaults below are tuned for developer friendliness — tighten them
+// or swap in a distributed store (Redis via `rate-limit-redis`) for
+// production workloads behind a load balancer.
+const publicLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+const authedLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 const PORT = process.env.PORT || 3100;
 
