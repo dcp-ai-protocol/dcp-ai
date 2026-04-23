@@ -155,7 +155,7 @@ If you integrate DCP-AI and are willing to share the story — architectural dec
 ## FAQ
 
 **Q: Is DCP-AI production-ready?**
-A: Yes, for the deployments it is designed for. The v2.0 specification is complete, the public audit closed 6/6 recommendations (see [spec/AUDIT-v2.0-FINAL.md](../spec/AUDIT-v2.0-FINAL.md)), and the 5 SDKs are published and used. DCP-04 through DCP-09 remain labelled "Draft — v2.0 Extension" in their headers because they are expected to evolve with adopter feedback; the code implementing them is tested and shipped.
+A: Yes, for the deployments it is designed for. The v2.0 specification is complete, the public audit closed 6/6 recommendations (see [spec/AUDIT-v2.0-FINAL.md](../spec/AUDIT-v2.0-FINAL.md)), and the 5 SDKs are published and used. DCP-04 through DCP-09 are labelled "Published — v2.0 (extension; revisions tracked via adopter feedback)" in their headers; the wire format is stable and tested, and point-release revisions will be driven by adopter feedback rather than by breaking changes.
 
 **Q: Is there a cost to join the Early Adopter Program?**
 A: No. The program is free. The entire project is Apache-2.0.

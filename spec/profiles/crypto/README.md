@@ -1,6 +1,6 @@
 # Crypto Profile
 
-**Status:** Editorial Draft  
+**Status:** Published — v2.0  
 **Scope:** Cryptographic algorithm selection, composite signatures, crypto-agility, and verifier policy  
 
 ---

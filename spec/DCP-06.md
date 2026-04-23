@@ -1,7 +1,7 @@
 # DCP-06: Succession & Inheritance
 
 ## Status
-Draft — v2.0 Extension
+Published — v2.0 (extension; revisions tracked via adopter feedback)
 
 ## Abstract
 This specification defines mechanisms for AI agents to prepare for and execute succession — the orderly transfer of responsibilities, operational context, and relational knowledge from one agent to its successor. It introduces digital testaments, succession ceremonies, and memory transfer manifests, all cryptographically signed and hash-chained. The protocol ensures continuity of service while preserving the identity boundary between predecessor and successor agents.

@@ -1,7 +1,7 @@
 # DCP-08: Rights & Obligations
 
 ## Status
-Draft — v2.0 Extension
+Published — v2.0 (extension; revisions tracked via adopter feedback)
 
 ## Abstract
 This specification defines a formal framework for declaring, tracking, and enforcing the rights and obligations of DCP-certified AI agents. It introduces four foundational agent rights (memory integrity, dignified transition, identity consistency, and immutable record), a structured obligation tracking system, compliance monitoring, and a violation reporting mechanism linked to the DCP-07 conflict resolution protocol. All rights declarations, obligation records, and violation reports are cryptographically signed and auditable.

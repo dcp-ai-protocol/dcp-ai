@@ -1,7 +1,7 @@
 # DCP-04: Agent-to-Agent Communication
 
 ## Status
-Draft — v2.0 Extension
+Published — v2.0 (extension; revisions tracked via adopter feedback)
 
 ## Abstract
 This specification defines how DCP-certified agents discover each other, establish mutually-authenticated and post-quantum-secured communication channels, and exchange messages with full audit trail integration.

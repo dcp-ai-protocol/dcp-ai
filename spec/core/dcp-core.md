@@ -1,7 +1,7 @@
 # DCP Core Specification
 
-**Status:** Editorial Draft  
-**Version:** 0.1.0  
+**Status:** Published — v2.0  
+**Version:** 2.0  
 **Date:** 2026-03-01  
 
 ---

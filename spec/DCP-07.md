@@ -1,7 +1,7 @@
 # DCP-07: Conflict Resolution
 
 ## Status
-Draft — v2.0 Extension
+Published — v2.0 (extension; revisions tracked via adopter feedback)
 
 ## Abstract
 This specification defines a structured, auditable protocol for resolving conflicts between DCP-certified AI agents. It introduces a three-level escalation model (direct negotiation, contextual arbitration, human appeal), typed dispute records, M-of-N arbitration panels, jurisprudence bundles for precedent tracking, and objection records for formal dissent. All conflict resolution artifacts are cryptographically signed and hash-chained, producing a tamper-evident record of every dispute and its resolution.

@@ -1,7 +1,7 @@
 # DCP-09: Delegation & Representation
 
 ## Status
-Draft — v2.0 Extension
+Published — v2.0 (extension; revisions tracked via adopter feedback)
 
 ## Abstract
 This specification defines the protocol for human-to-agent delegation of authority, agent awareness thresholds, advisory declarations, principal mirrors, and dual-layer interaction records. It provides mechanisms for a human principal to formally delegate specific authority to an AI agent, for agents to declare their understanding of delegated context, and for interactions to be recorded at both technical and human-readable layers. DCP-09 also extends the DCP-04 A2A handshake to include delegation mandate verification, ensuring that agents acting on behalf of principals can prove their authority to counterparties.

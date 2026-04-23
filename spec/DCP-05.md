@@ -1,7 +1,7 @@
 # DCP-05: Agent Lifecycle
 
 ## Status
-Draft — v2.0 Extension
+Published — v2.0 (extension; revisions tracked via adopter feedback)
 
 ## Abstract
 This specification defines the full lifecycle of a DCP-certified AI agent, from commissioning through active service, declining capability, and eventual decommissioning. It introduces lifecycle state machines, vitality metrics, commissioning certificates, vitality reports, and decommissioning records — all cryptographically signed, hash-chained, and independently verifiable. The protocol ensures that an agent's operational history is tamper-evident, that transitions between lifecycle states are authorized and auditable, and that four distinct termination modes accommodate the full range of end-of-life scenarios.

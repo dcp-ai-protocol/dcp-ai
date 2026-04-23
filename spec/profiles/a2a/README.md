@@ -1,6 +1,6 @@
 # A2A Profile (Agent-to-Agent Communication)
 
-**Status:** Editorial Draft  
+**Status:** Published — v2.0  
 **Scope:** Agent discovery, session establishment, transport bindings, and message exchange  
 
 ---

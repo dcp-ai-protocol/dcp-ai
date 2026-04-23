@@ -1,6 +1,6 @@
 # Governance Profile
 
-**Status:** Editorial Draft  
+**Status:** Published — v2.0  
 **Scope:** Risk tiers, jurisdiction attestation, revocation, key recovery, and governance operations  
 
 ---
