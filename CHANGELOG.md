@@ -4,6 +4,59 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.2.0] - 2026-04-23
+
+### Added — Lifecycle + Succession parity across SDKs
+
+Python, Rust, and Go SDKs now implement DCP-05 (Agent Lifecycle) and DCP-06
+(Digital Succession) behavior. TypeScript already shipped these in 2.0.x; the
+2.2.0 release closes the first behavioral-parity gap identified in the
+cross-SDK crosswalk.
+
+**New functions (identical semantics across Python/Rust/Go, matching TS):**
+
+DCP-05 Agent Lifecycle:
+- `validate_state_transition` / `ValidateStateTransition`
+- `compute_vitality_score` / `ComputeVitalityScore`
+- `create_commissioning_certificate` / `CreateCommissioningCertificate`
+- `create_vitality_report` / `CreateVitalityReport`
+- `hash_vitality_report` / `HashVitalityReport`
+- `create_decommissioning_record` / `CreateDecommissioningRecord`
+
+DCP-06 Digital Succession:
+- `create_digital_testament` / `CreateDigitalTestament`
+- `update_digital_testament` / `UpdateDigitalTestament`
+- `classify_memory` / `ClassifyMemory`
+- `create_memory_transfer_manifest` / `CreateMemoryTransferManifest`
+- `execute_succession` / `ExecuteSuccession`
+
+All new factories use the existing composite-sign path under the
+`DCP-AI.v2.Lifecycle` and `DCP-AI.v2.Succession` domain-separation contexts,
+so artifacts produced by any SDK are wire-compatible and cross-verifiable.
+
+### Test counts after this release
+
+- Python: 169/169 pass (+24 new)
+- Rust: 104/104 pass (+10 new)
+- Go: 60/60 pass (+13 new across outer `dcp` package; v2 package unchanged)
+- TypeScript: 460/460 pass (no changes)
+
+### Known protocol-level note
+
+DCP v2.0 canonicalisation forbids floats for cross-SDK determinism, but
+the vitality-report schema expresses per-metric values as `number`
+(0.0..1.0). Factories in all four SDKs now accept metrics at the API
+boundary but signers require integer representations on the wire. This
+is documented in each SDK's tests. A future release may tighten the
+schema to integers (or basis-points) to eliminate the gap entirely.
+
+### Versions bumped
+
+- `dcp-ai` (PyPI) 2.1.0 -> 2.2.0
+- `dcp-ai` (crates.io) 2.1.0 -> 2.2.0
+- `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` -> v2.2.0
+- `@dcp-ai/sdk` (npm) stays at 2.1.0 (TS already had these functions)
+
 ## [2.1.0] - 2026-04-22
 
 ### Added

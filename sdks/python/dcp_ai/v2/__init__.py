@@ -97,6 +97,21 @@ from dcp_ai.v2.algorithm_advisory import (
     check_advisory,
     evaluate_advisories,
 )
+from dcp_ai.v2.lifecycle import (
+    compute_vitality_score,
+    create_commissioning_certificate,
+    create_decommissioning_record,
+    create_vitality_report,
+    hash_vitality_report,
+    validate_state_transition,
+)
+from dcp_ai.v2.succession import (
+    classify_memory,
+    create_digital_testament,
+    create_memory_transfer_manifest,
+    execute_succession,
+    update_digital_testament,
+)
 
 __all__ = [
     "assert_no_floats",
@@ -184,4 +199,17 @@ __all__ = [
     "apply_advisories_to_policy",
     "check_advisory",
     "evaluate_advisories",
+    # DCP-05: lifecycle behavior
+    "compute_vitality_score",
+    "create_commissioning_certificate",
+    "create_decommissioning_record",
+    "create_vitality_report",
+    "hash_vitality_report",
+    "validate_state_transition",
+    # DCP-06: succession behavior
+    "classify_memory",
+    "create_digital_testament",
+    "create_memory_transfer_manifest",
+    "execute_succession",
+    "update_digital_testament",
 ]

@@ -7,3 +7,5 @@ pub mod composite_ops;
 pub mod signed_payload;
 pub mod proof_of_possession;
 pub mod types;
+pub mod lifecycle;
+pub mod succession;
