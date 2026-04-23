@@ -4,6 +4,52 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.3.0] - 2026-04-23
+
+### Added — Dispute + Rights + Delegation parity across SDKs
+
+Python, Rust, and Go now implement DCP-07 (Dispute Resolution + Arbitration),
+DCP-08 (Rights & Obligations), and DCP-09 (Delegation, Awareness-threshold,
+Principal Mirror) behavior — matching the TypeScript feature set.
+
+**New function groups (identical semantics across PY/RS/GO, matching TS):**
+
+DCP-07 Conflict Resolution:
+- `create_dispute` · `escalate_dispute` · `resolve_dispute` · `create_objection`
+- Arbitration: `create_arbitration_panel` · `submit_resolution` ·
+  `build_jurisprudence_bundle` · `lookup_precedent`
+
+DCP-08 Rights & Obligations:
+- `declare_rights` · `record_obligation` · `report_violation` ·
+  `check_rights_compliance`
+
+DCP-09 Delegation & Representation:
+- Delegation: `create_delegation_mandate` · `verify_mandate_validity` ·
+  `revoke_delegation` · `generate_interaction_record`
+- Awareness threshold: `evaluate_significance` · `should_notify_human` ·
+  `create_awareness_threshold` · `create_advisory_declaration`
+- Principal mirror: `generate_mirror`
+
+All new factories use the existing composite-sign path under the
+`DCP-AI.v2.Dispute`, `DCP-AI.v2.Rights`, `DCP-AI.v2.Delegation`, and
+`DCP-AI.v2.Awareness` domain-separation contexts. The delegation mandate
+artifact carries its human-principal signature in the `human_composite_sig`
+field, matching the TS wire format.
+
+### Test counts
+
+- Python: 190/190 pass (+21 new)
+- Rust: 116/116 pass (+12 new)
+- Go: 72/72 pass (+12 new across outer `dcp_test` package)
+- TypeScript: 460/460 pass (no changes)
+
+### Versions bumped
+
+- `dcp-ai` (PyPI) 2.2.0 -> 2.3.0
+- `dcp-ai` (crates.io) 2.2.0 -> 2.3.0
+- `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` -> v2.3.0
+- `@dcp-ai/sdk` (npm) stays at 2.1.0
+
 ## [2.2.0] - 2026-04-23
 
 ### Added — Lifecycle + Succession parity across SDKs

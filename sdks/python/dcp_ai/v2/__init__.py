@@ -112,6 +112,38 @@ from dcp_ai.v2.succession import (
     execute_succession,
     update_digital_testament,
 )
+from dcp_ai.v2.conflict_resolution import (
+    create_dispute,
+    create_objection,
+    escalate_dispute,
+    resolve_dispute,
+)
+from dcp_ai.v2.arbitration import (
+    ArbitrationPanel,
+    build_jurisprudence_bundle,
+    create_arbitration_panel,
+    lookup_precedent,
+    submit_resolution,
+)
+from dcp_ai.v2.rights import (
+    check_rights_compliance,
+    declare_rights,
+    record_obligation,
+    report_violation,
+)
+from dcp_ai.v2.delegation import (
+    create_delegation_mandate,
+    generate_interaction_record,
+    revoke_delegation,
+    verify_mandate_validity,
+)
+from dcp_ai.v2.awareness_threshold import (
+    create_advisory_declaration,
+    create_awareness_threshold,
+    evaluate_significance,
+    should_notify_human,
+)
+from dcp_ai.v2.principal_mirror import generate_mirror
 
 __all__ = [
     "assert_no_floats",
@@ -212,4 +244,32 @@ __all__ = [
     "create_memory_transfer_manifest",
     "execute_succession",
     "update_digital_testament",
+    # DCP-07: conflict resolution
+    "create_dispute",
+    "create_objection",
+    "escalate_dispute",
+    "resolve_dispute",
+    # DCP-07: arbitration
+    "ArbitrationPanel",
+    "build_jurisprudence_bundle",
+    "create_arbitration_panel",
+    "lookup_precedent",
+    "submit_resolution",
+    # DCP-08: rights & obligations
+    "check_rights_compliance",
+    "declare_rights",
+    "record_obligation",
+    "report_violation",
+    # DCP-09: delegation
+    "create_delegation_mandate",
+    "generate_interaction_record",
+    "revoke_delegation",
+    "verify_mandate_validity",
+    # DCP-09: awareness threshold
+    "create_advisory_declaration",
+    "create_awareness_threshold",
+    "evaluate_significance",
+    "should_notify_human",
+    # DCP-09: principal mirror
+    "generate_mirror",
 ]
