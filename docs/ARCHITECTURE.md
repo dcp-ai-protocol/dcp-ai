@@ -85,14 +85,11 @@ spec edits need all five SDKs to stay in lockstep; a doc edit is self-contained.
 | Deploy or re-deploy a service | `services/<name>/` + `deploy/fly/`. |
 | Release a new SDK version | Bump the respective `package.json` / `Cargo.toml` / `pyproject.toml` / git tag; CI detects and publishes via `.github/workflows/publish*.yml`. Skip-if-already-published is built in. |
 
-## What's deliberately NOT in this repo
+## Scope boundary
 
-- **Dashboard web app** — lives in `dcp-db/` (React + Vite + Supabase). Consumes the SDKs but is an application on top of the protocol, not part of it.
-- **Marketing landing page** — lives in `dcp-landing/`.
-- **Demo MCP server** — lives in `dcp-demo/` (Python, uses local SDKs via path deps).
-- **Agent workers** — live in `dcp-agents/`.
+The monorepo contains the **protocol and its reference implementations**: spec, schemas, the five SDKs, framework integrations, scaffolders, CLI, operational services, smart contracts, docs, and the interactive playground. That's everything a third party needs to adopt DCP-AI.
 
-All four are sibling repos at `github.com/dcp-ai-protocol/<name>`. The boundary is simple: if a component is normative protocol, reference implementation, operational infra, or a canonical integration, it lives here. If it's an end-user application or a specific deployment, it lives in its own repo.
+End-user applications (dashboards, agents, demos) and marketing surfaces are intentionally **not** in this repo. They belong in whatever codebase hosts them — they're applications on top of the protocol, not part of it.
 
 ## Why monorepo today
 
