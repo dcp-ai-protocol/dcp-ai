@@ -368,6 +368,9 @@ The following limitations that appeared in earlier drafts have been **closed**:
 
 - *PQ crypto in CLI was simulated (HMAC placeholder)* — resolved: the reference CLI (`bin/dcp.js`) now uses real ML-DSA-65 via `@noble/post-quantum` for key generation and signing.
 - *Shamir SSS in CLI was placeholder (random shares)* — resolved: the CLI uses `secrets.js-grempe`, a proper Shamir Secret Sharing library, for key recovery operations.
+- *DCP-04..09 behavior was TypeScript-only* — resolved in 2.2.0..2.7.0: lifecycle, succession, dispute resolution, arbitration, rights & obligations, delegation, awareness threshold, principal mirror, plus the full A2A handshake and AES-256-GCM session layer (Python + Go) are now available across Python, Rust, and Go with identical semantics to the TypeScript reference. See [CHANGELOG.md](../CHANGELOG.md#210---2026-04-22) for the release-by-release breakdown.
+- *Canonical error taxonomy was TS-only* — resolved in 2.7.0: 38 `DcpErrorCode` values with stable `DCP-E###` identifiers are now aligned across TypeScript, Python, Rust, and Go so cross-SDK error handling matches on a single string.
+- *Python CLI `keygen` wrote the secret key with default file mode* — resolved: `sdks/python/dcp_ai/cli.py` now creates `secret_key.txt` atomically with mode 0600 from the `os.open` call itself (no chmod race window) and sets the containing directory to mode 0700.
 
 ---
 

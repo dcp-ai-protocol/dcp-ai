@@ -90,10 +90,25 @@ In the meantime the project's specs remain citable via Zenodo (paper DOI [`10.52
 With the stack shipped, the next phase is adoption:
 
 - Attract early adopters per the [Early Adopter Program](docs/EARLY_ADOPTERS.md)
-- Collect feedback from real integrations to inform v2.1
+- Collect feedback from real integrations to inform subsequent minor releases
 - Run managed reference deployments of the four services (verification, anchor, transparency-log, revocation) where community demand justifies it
 - Grow the maintainer base beyond the founding maintainer (see [GOVERNANCE.md](GOVERNANCE.md))
 - Publish case studies and integration patterns
+
+### Delivered since v2.0 launch
+
+Six minor releases shipped on 2026-04-22..23 closed the cross-SDK
+behavioral-parity gap identified by the first external crosswalk. Before
+these releases, DCP-04..09 behavior lived only in the TypeScript SDK;
+afterwards every core SDK speaks the same protocol surface.
+
+- **v2.1.0** — OpenTelemetry OTLP exporter for TS + Python telemetry parity.
+- **v2.2.0** — DCP-05 lifecycle + DCP-06 succession ported to Python, Rust, Go.
+- **v2.3.0** — DCP-07 dispute + DCP-08 rights + DCP-09 delegation / awareness / mirror ported to Python, Rust, Go (21 functions × 3 SDKs).
+- **v2.4.0** — Production hardening primitives in Python, Rust, Go (session-nonce helpers, security-tier engine, emergency revocation, lazy PQ checkpoints with `PQCheckpointManager`).
+- **v2.5.0** — DCP-04 Agent-to-Agent: full AES-256-GCM session layer in Python (via `cryptography`) and Go (stdlib `crypto/aes`); discovery + handshake scaffolding in Rust.
+- **v2.6.0** — Blinded RPR, multi-party authorization, and algorithm-advisory helpers cross-ported from Python to Rust and Go.
+- **v2.7.0** — 38 canonical `DcpErrorCode` values + `detect_wire_format` helper aligned across all four core SDKs, so cross-SDK error handling matches on a single stable string.
 
 ### Out of scope for Phase 5
 

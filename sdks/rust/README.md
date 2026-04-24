@@ -2,7 +2,7 @@
 
 # dcp-ai — Rust SDK
 
-Official Rust SDK for the Digital Citizenship Protocol (DCP). Serde-based types, Ed25519 via ed25519-dalek, and optional WebAssembly support.
+Official Rust SDK for the Digital Citizenship Protocol (DCP v2.0). Serde-based types, hybrid post-quantum cryptography (Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768), composite signatures with `pq_over_classical` binding, dual hash chains, OpenTelemetry observability, DCP-04..09 behavior, and optional WebAssembly support.
 
 ## Installation
 
@@ -10,15 +10,44 @@ Add to `Cargo.toml`:
 
 ```toml
 [dependencies]
-dcp-ai = "1.0"
+dcp-ai = "2.7"
+```
+
+With OpenTelemetry/OTLP export:
+
+```toml
+[dependencies]
+dcp-ai = { version = "2.7", features = ["otlp"] }
 ```
 
 For WebAssembly support:
 
 ```toml
 [dependencies]
-dcp-ai = { version = "1.0", features = ["wasm"] }
+dcp-ai = { version = "2.7", features = ["wasm"] }
 ```
+
+## Features
+
+| Area | Status |
+|---|---|
+| Ed25519 / ML-DSA-65 / SLH-DSA-192f / ML-KEM-768 providers | Yes |
+| Composite signatures (`pq_over_classical`) + verification | Yes |
+| Canonical JSON v2 + domain separation | Yes |
+| Dual hash (SHA-256 + SHA3-256) + Merkle roots | Yes |
+| Bundle verification (V1 + V2) | Yes |
+| DCP-05 agent lifecycle (commissioning / vitality / decommissioning) | Yes |
+| DCP-06 digital succession (testament, memory transfer, ceremony) | Yes |
+| DCP-07 dispute resolution + arbitration + jurisprudence | Yes |
+| DCP-08 rights + obligations + compliance | Yes |
+| DCP-09 delegation + awareness threshold + principal mirror | Yes |
+| DCP-04 A2A discovery + handshake + session id derivation | Yes |
+| DCP-04 A2A AES-256-GCM session encryption | _Deferred to a follow-up release_ |
+| Session nonce helpers, security tier engine, emergency revocation | Yes |
+| Lazy PQ checkpoints + `PQCheckpointManager` | Yes |
+| Blinded RPR, multi-party authorization, algorithm advisory helpers | Yes |
+| Canonical error codes (38 shared across all SDKs) + `detect_wire_format` | Yes |
+| OpenTelemetry / OTLP exporter (optional `otlp` feature) | Yes |
 
 ## Quickstart
 

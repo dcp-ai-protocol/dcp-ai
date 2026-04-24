@@ -2,7 +2,7 @@
 
 # dcp-ai — Python SDK
 
-Official Python SDK for the Digital Citizenship Protocol (DCP). Pydantic v2 models, Ed25519 cryptography, bundle verification, and a full-featured CLI.
+Official Python SDK for the Digital Citizenship Protocol (DCP v2.0). Pydantic v2 models, hybrid post-quantum cryptography (Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768), composite signatures with `pq_over_classical` binding, bundle verification, OpenTelemetry observability, DCP-04 through DCP-09 behavior, and a full-featured CLI.
 
 ## Installation
 
@@ -17,7 +17,29 @@ pip install "dcp-ai[fastapi]"    # FastAPI middleware
 pip install "dcp-ai[langchain]"  # LangChain integration
 pip install "dcp-ai[openai]"     # OpenAI wrapper
 pip install "dcp-ai[crewai]"     # CrewAI multi-agent
+pip install "dcp-ai[otlp]"       # OpenTelemetry OTLP exporter
 ```
+
+## Features
+
+| Area | Status |
+|---|---|
+| Ed25519 / ML-DSA-65 / SLH-DSA-192f / ML-KEM-768 providers | Yes |
+| Composite signatures (`pq_over_classical`) + verification | Yes |
+| Canonical JSON v2 + domain separation | Yes |
+| Dual hash (SHA-256 + SHA3-256) + Merkle roots | Yes |
+| Bundle verification (V1 + V2) | Yes |
+| DCP-04 A2A discovery + handshake + AES-256-GCM session (via `cryptography`) | Yes |
+| DCP-05 agent lifecycle (commissioning / vitality / decommissioning) | Yes |
+| DCP-06 digital succession (testament, memory transfer, ceremony) | Yes |
+| DCP-07 dispute resolution + arbitration + jurisprudence | Yes |
+| DCP-08 rights + obligations + compliance | Yes |
+| DCP-09 delegation + awareness threshold + principal mirror | Yes |
+| Session nonce helpers, security tier engine, emergency revocation | Yes |
+| Lazy PQ checkpoints + `PQCheckpointManager` | Yes |
+| Blinded RPR, multi-party authorization, algorithm advisory helpers | Yes |
+| Canonical error codes (38 shared across all SDKs) + `detect_wire_format` | Yes |
+| OpenTelemetry / OTLP exporter (optional `[otlp]` extra) | Yes |
 
 ## Quickstart
 
