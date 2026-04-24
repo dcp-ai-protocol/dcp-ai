@@ -18,17 +18,13 @@ app = typer.Typer(name="dcp", help="Digital Citizenship Protocol CLI")
 def _write_secret_atomic(path: Path, contents: str) -> None:
     """Write `contents` to `path` with mode 0600 from creation — no race window.
 
-    Falls back to a plain write on platforms that don't support POSIX modes
-    (e.g. Windows); the containing directory in `keygen` is already chmod 0700
-    in that case.
+    `os.open` is available on POSIX systems and on Windows; on Windows the
+    mode bits are only partially honoured (read-only flag), but the file is
+    never created in a world-readable state. If the open fails for any reason
+    (permissions, disk full, unsupported platform) the error propagates — we
+    never fall back to a less-secure write path.
     """
-    try:
-        fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    except (AttributeError, OSError):
-        # Non-POSIX platforms: the directory-level permissions set by the
-        # caller still restrict access.
-        path.write_text(contents)
-        return
+    fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     try:
         with os.fdopen(fd, "w") as f:
             f.write(contents)
