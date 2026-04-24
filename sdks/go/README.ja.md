@@ -28,6 +28,17 @@ go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
 | セキュリティティア計算 | — | Yes |
 | 所有証明 | — | Yes |
 | 鍵ローテーション | — | Yes |
+| DCP-04 A2A 発見 + ハンドシェイク + AES-256-GCM セッション (stdlib) | — | Yes |
+| DCP-05 エージェントライフサイクル (コミッショニング / バイタリティ / デコミッショニング) | — | Yes |
+| DCP-06 デジタル継承 (デジタル遺言、メモリ転送、セレモニー) | — | Yes |
+| DCP-07 紛争解決 + 仲裁 + 判例 | — | Yes |
+| DCP-08 権利と義務 + コンプライアンス | — | Yes |
+| DCP-09 委任 + 認識しきい値 + プリンシパルミラー | — | Yes |
+| セッションノンスヘルパー、緊急失効 | — | Yes |
+| 遅延PQチェックポイント + `PQCheckpointManager` | — | Yes |
+| ブラインドRPR、マルチパーティ認可、アルゴリズムアドバイザリヘルパー | — | Yes |
+| 正規エラーコード (全SDK共通の38種) + `DetectWireFormat` | — | Yes |
+| OpenTelemetry / OTLP エクスポーター (ビルドタグ `otlp`) | — | Yes |
 
 ## クイックスタート — V1
 

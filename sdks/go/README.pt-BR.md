@@ -28,6 +28,17 @@ go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
 | Cálculo de nível de segurança | — | Sim |
 | Prova de posse | — | Sim |
 | Rotação de chaves | — | Sim |
+| DCP-04 descoberta A2A + handshake + sessão AES-256-GCM (stdlib) | — | Sim |
+| DCP-05 ciclo de vida de agentes (commissioning / vitality / decommissioning) | — | Sim |
+| DCP-06 sucessão digital (testamento digital, transferência de memória, cerimônia) | — | Sim |
+| DCP-07 resolução de disputas + arbitragem + jurisprudência | — | Sim |
+| DCP-08 direitos + obrigações + conformidade | — | Sim |
+| DCP-09 delegação + limiar de consciência + espelho do principal | — | Sim |
+| Helpers de nonce de sessão, revogação de emergência | — | Sim |
+| Checkpoints PQ lazy + `PQCheckpointManager` | — | Sim |
+| Helpers de RPR blindado, autorização multi-parte, advisory de algoritmo | — | Sim |
+| Códigos de erro canônicos (38 compartilhados entre todos os SDKs) + `DetectWireFormat` | — | Sim |
+| Exportador OpenTelemetry / OTLP (build tag `otlp`) | — | Sim |
 
 ## Início Rápido — V1
 

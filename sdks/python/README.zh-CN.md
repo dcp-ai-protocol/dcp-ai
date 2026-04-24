@@ -2,7 +2,7 @@
 
 # dcp-ai — Python SDK
 
-数字公民身份协议 (DCP) 的官方 Python SDK。Pydantic v2 模型、Ed25519 密码学、凭证包验证以及功能齐全的 CLI。
+数字公民身份协议 (DCP v2.0) 的官方 Python SDK。Pydantic v2 模型、混合后量子密码学 (Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768)、带 `pq_over_classical` 绑定的复合签名、凭证包验证、OpenTelemetry 可观测性、DCP-04 至 DCP-09 行为，以及功能齐全的 CLI。
 
 ## 安装
 
@@ -17,7 +17,29 @@ pip install "dcp-ai[fastapi]"    # FastAPI middleware
 pip install "dcp-ai[langchain]"  # LangChain integration
 pip install "dcp-ai[openai]"     # OpenAI wrapper
 pip install "dcp-ai[crewai]"     # CrewAI multi-agent
+pip install "dcp-ai[otlp]"       # OpenTelemetry OTLP exporter
 ```
+
+## 功能
+
+| 范畴 | 状态 |
+|---|---|
+| Ed25519 / ML-DSA-65 / SLH-DSA-192f / ML-KEM-768 provider | 是 |
+| 复合签名 (`pq_over_classical`) + 验证 | 是 |
+| 规范 JSON v2 + 域分离 | 是 |
+| 双哈希 (SHA-256 + SHA3-256) + Merkle 根 | 是 |
+| 凭证包验证 (V1 + V2) | 是 |
+| DCP-04 A2A 发现 + 握手 + AES-256-GCM 会话（通过 `cryptography`） | 是 |
+| DCP-05 代理生命周期（委任 / 活力 / 停用） | 是 |
+| DCP-06 数字继承（数字遗嘱、记忆迁移、交接仪式） | 是 |
+| DCP-07 争议解决 + 仲裁 + 判例 | 是 |
+| DCP-08 权利与义务 + 合规 | 是 |
+| DCP-09 委托 + 感知阈值 + 主体镜像 | 是 |
+| 会话随机数助手、安全等级引擎、紧急撤销 | 是 |
+| 惰性 PQ 检查点 + `PQCheckpointManager` | 是 |
+| 盲化 RPR、多方授权、算法建议助手 | 是 |
+| 规范错误码（38 项，跨所有 SDK 共享）+ `detect_wire_format` | 是 |
+| OpenTelemetry / OTLP 导出器（可选 `[otlp]` 附加依赖） | 是 |
 
 ## 快速开始
 
@@ -195,13 +217,13 @@ verify_signed_bundle(
 
 DCP-05 — 生命周期：`LifecycleState`、`TerminationMode`、`DataDisposition`、`VitalityMetrics`、`CommissioningCertificate`、`VitalityReport`、`DecommissioningRecord`
 
-DCP-06 — 继任：`TransitionType`、`MemoryDisposition`、`MemoryClassification`、`SuccessorPreference`、`DigitalTestament`、`SuccessionRecord`、`MemoryTransferEntry`、`DualHashRef`、`MemoryTransferManifest`
+DCP-06 — 继承：`TransitionType`、`MemoryDisposition`、`MemoryClassification`、`SuccessorPreference`、`DigitalTestament`、`SuccessionRecord`、`MemoryTransferEntry`、`DualHashRef`、`MemoryTransferManifest`
 
 DCP-07 — 争议：`DisputeType`、`EscalationLevel`、`DisputeStatus`、`ObjectionType`、`AuthorityLevel`、`DisputeRecord`、`ArbitrationResolution`、`JurisprudenceBundle`、`ObjectionRecord`
 
 DCP-08 — 权利：`RightType`、`ComplianceStatus`、`RightEntry`、`RightsDeclaration`、`ObligationRecord`、`RightsViolationReport`
 
-DCP-09 — 委派：`AuthorityScopeEntry`、`DelegationMandate`、`AdvisoryDeclaration`、`PrincipalMirror`、`InteractionRecord`、`ThresholdRule`、`ThresholdOperator`、`ThresholdAction`、`AwarenessThreshold`
+DCP-09 — 委托：`AuthorityScopeEntry`、`DelegationMandate`、`AdvisoryDeclaration`、`PrincipalMirror`、`InteractionRecord`、`ThresholdRule`、`ThresholdOperator`、`ThresholdAction`、`AwarenessThreshold`
 
 ```python
 # Example: Lifecycle management

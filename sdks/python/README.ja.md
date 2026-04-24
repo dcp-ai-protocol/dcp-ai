@@ -2,7 +2,7 @@
 
 # dcp-ai — Python SDK
 
-デジタル市民権プロトコル (DCP) 公式Python SDKです。Pydantic v2モデル、Ed25519暗号、バンドル検証、フル機能のCLIを備えています。
+デジタル市民権プロトコル (DCP v2.0) 公式Python SDKです。Pydantic v2モデル、ハイブリッド耐量子暗号 (Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768)、`pq_over_classical` バインディングによる複合署名、バンドル検証、OpenTelemetryによるオブザーバビリティ、DCP-04からDCP-09までの動作、およびフル機能のCLIを備えています。
 
 ## インストール
 
@@ -17,7 +17,29 @@ pip install "dcp-ai[fastapi]"    # FastAPI middleware
 pip install "dcp-ai[langchain]"  # LangChain integration
 pip install "dcp-ai[openai]"     # OpenAI wrapper
 pip install "dcp-ai[crewai]"     # CrewAI multi-agent
+pip install "dcp-ai[otlp]"       # OpenTelemetry OTLP exporter
 ```
+
+## 機能
+
+| 領域 | 状態 |
+|---|---|
+| Ed25519 / ML-DSA-65 / SLH-DSA-192f / ML-KEM-768 プロバイダ | Yes |
+| 複合署名 (`pq_over_classical`) + 検証 | Yes |
+| 正規化JSON v2 + ドメイン分離 | Yes |
+| デュアルハッシュ (SHA-256 + SHA3-256) + Merkleルート | Yes |
+| バンドル検証 (V1 + V2) | Yes |
+| DCP-04 A2A 発見 + ハンドシェイク + AES-256-GCM セッション (`cryptography` 経由) | Yes |
+| DCP-05 エージェントライフサイクル (コミッショニング / バイタリティ / デコミッショニング) | Yes |
+| DCP-06 デジタル継承 (デジタル遺言、メモリ転送、セレモニー) | Yes |
+| DCP-07 紛争解決 + 仲裁 + 判例 | Yes |
+| DCP-08 権利と義務 + コンプライアンス | Yes |
+| DCP-09 委任 + 認識しきい値 + プリンシパルミラー | Yes |
+| セッションノンスヘルパー、セキュリティティアエンジン、緊急失効 | Yes |
+| 遅延PQチェックポイント + `PQCheckpointManager` | Yes |
+| ブラインドRPR、マルチパーティ認可、アルゴリズムアドバイザリヘルパー | Yes |
+| 正規エラーコード (全SDK共通の38種) + `detect_wire_format` | Yes |
+| OpenTelemetry / OTLP エクスポーター (オプションの `[otlp]` エクストラ) | Yes |
 
 ## クイックスタート
 

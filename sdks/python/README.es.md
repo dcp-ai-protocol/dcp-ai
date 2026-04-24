@@ -2,7 +2,7 @@
 
 # dcp-ai — SDK Python
 
-SDK oficial de Python para el Digital Citizenship Protocol (DCP). Modelos Pydantic v2, criptografía Ed25519, verificación de bundles y un CLI con todas las funcionalidades.
+SDK oficial de Python para el Digital Citizenship Protocol (DCP v2.0). Modelos Pydantic v2, criptografía híbrida post-cuántica (Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768), firmas compuestas con enlace `pq_over_classical`, verificación de bundles, observabilidad con OpenTelemetry, comportamiento DCP-04 a DCP-09 y un CLI con todas las funcionalidades.
 
 ## Instalación
 
@@ -17,7 +17,29 @@ pip install "dcp-ai[fastapi]"    # FastAPI middleware
 pip install "dcp-ai[langchain]"  # LangChain integration
 pip install "dcp-ai[openai]"     # OpenAI wrapper
 pip install "dcp-ai[crewai]"     # CrewAI multi-agent
+pip install "dcp-ai[otlp]"       # OpenTelemetry OTLP exporter
 ```
+
+## Características
+
+| Área | Estado |
+|---|---|
+| Providers Ed25519 / ML-DSA-65 / SLH-DSA-192f / ML-KEM-768 | Sí |
+| Firmas compuestas (`pq_over_classical`) + verificación | Sí |
+| JSON canónico v2 + separación de dominio | Sí |
+| Hash dual (SHA-256 + SHA3-256) + raíces de Merkle | Sí |
+| Verificación de bundle (V1 + V2) | Sí |
+| Descubrimiento A2A DCP-04 + handshake + sesión AES-256-GCM (vía `cryptography`) | Sí |
+| Ciclo de vida de agente DCP-05 (commissioning / vitalidad / decommissioning) | Sí |
+| Sucesión digital DCP-06 (testamento, transferencia de memoria, ceremonia) | Sí |
+| Resolución de disputas + arbitraje + jurisprudencia DCP-07 | Sí |
+| Derechos + obligaciones + compliance DCP-08 | Sí |
+| Delegación + umbral de conciencia + espejo del principal DCP-09 | Sí |
+| Helpers de nonce de sesión, motor de nivel de seguridad, revocación de emergencia | Sí |
+| Checkpoints PQ perezosos + `PQCheckpointManager` | Sí |
+| RPR blinded, autorización multi-parte, helpers de aviso de algoritmo | Sí |
+| Códigos de error canónicos (38 compartidos entre todos los SDKs) + `detect_wire_format` | Sí |
+| Exportador OpenTelemetry / OTLP (extra opcional `[otlp]`) | Sí |
 
 ## Inicio Rápido
 

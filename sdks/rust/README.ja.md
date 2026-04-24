@@ -2,7 +2,7 @@
 
 # dcp-ai — Rust SDK
 
-デジタル市民権プロトコル (DCP) 公式Rust SDKです。Serdeベースの型、ed25519-dalekによるEd25519、オプションのWebAssemblyサポートを備えています。
+デジタル市民権プロトコル (DCP v2.0) 公式Rust SDKです。Serdeベースの型、ハイブリッド耐量子暗号 (Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768)、`pq_over_classical` バインディングによる複合署名、デュアルハッシュチェーン、OpenTelemetryによるオブザーバビリティ、DCP-04..09の動作、およびオプションのWebAssemblyサポートを備えています。
 
 ## インストール
 
@@ -10,15 +10,44 @@
 
 ```toml
 [dependencies]
-dcp-ai = "1.0"
+dcp-ai = "2.7"
+```
+
+OpenTelemetry/OTLPエクスポートの場合:
+
+```toml
+[dependencies]
+dcp-ai = { version = "2.7", features = ["otlp"] }
 ```
 
 WebAssemblyサポートの場合:
 
 ```toml
 [dependencies]
-dcp-ai = { version = "1.0", features = ["wasm"] }
+dcp-ai = { version = "2.7", features = ["wasm"] }
 ```
+
+## 機能
+
+| 領域 | 状態 |
+|---|---|
+| Ed25519 / ML-DSA-65 / SLH-DSA-192f / ML-KEM-768 プロバイダ | Yes |
+| 複合署名 (`pq_over_classical`) + 検証 | Yes |
+| 正規化JSON v2 + ドメイン分離 | Yes |
+| デュアルハッシュ (SHA-256 + SHA3-256) + Merkleルート | Yes |
+| バンドル検証 (V1 + V2) | Yes |
+| DCP-05 エージェントライフサイクル (コミッショニング / バイタリティ / デコミッショニング) | Yes |
+| DCP-06 デジタル継承 (デジタル遺言、メモリ転送、セレモニー) | Yes |
+| DCP-07 紛争解決 + 仲裁 + 判例 | Yes |
+| DCP-08 権利と義務 + コンプライアンス | Yes |
+| DCP-09 委任 + 認識しきい値 + プリンシパルミラー | Yes |
+| DCP-04 A2A 発見 + ハンドシェイク + セッションID導出 | Yes |
+| DCP-04 A2A AES-256-GCM セッション暗号化 | _後続リリースに延期_ |
+| セッションノンスヘルパー、セキュリティティアエンジン、緊急失効 | Yes |
+| 遅延PQチェックポイント + `PQCheckpointManager` | Yes |
+| ブラインドRPR、マルチパーティ認可、アルゴリズムアドバイザリヘルパー | Yes |
+| 正規エラーコード (全SDK共通の38種) + `detect_wire_format` | Yes |
+| OpenTelemetry / OTLP エクスポーター (オプションの `otlp` フィーチャー) | Yes |
 
 ## クイックスタート
 

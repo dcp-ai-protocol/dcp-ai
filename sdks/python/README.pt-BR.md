@@ -2,7 +2,7 @@
 
 # dcp-ai — SDK Python
 
-SDK Python oficial para o Digital Citizenship Protocol (DCP). Modelos Pydantic v2, criptografia Ed25519, verificação de bundles (pacotes de cidadania) e uma CLI completa.
+SDK Python oficial para o Digital Citizenship Protocol (DCP v2.0). Modelos Pydantic v2, criptografia híbrida pós-quântica (Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768), assinaturas compostas com binding `pq_over_classical`, verificação de bundles, observabilidade OpenTelemetry, comportamento DCP-04 a DCP-09 e uma CLI completa.
 
 ## Instalação
 
@@ -17,7 +17,29 @@ pip install "dcp-ai[fastapi]"    # FastAPI middleware
 pip install "dcp-ai[langchain]"  # LangChain integration
 pip install "dcp-ai[openai]"     # OpenAI wrapper
 pip install "dcp-ai[crewai]"     # CrewAI multi-agent
+pip install "dcp-ai[otlp]"       # OpenTelemetry OTLP exporter
 ```
+
+## Recursos
+
+| Área | Status |
+|---|---|
+| Provedores Ed25519 / ML-DSA-65 / SLH-DSA-192f / ML-KEM-768 | Sim |
+| Assinaturas compostas (`pq_over_classical`) + verificação | Sim |
+| JSON canônico v2 + separação de domínio | Sim |
+| Dual hash (SHA-256 + SHA3-256) + Merkle roots | Sim |
+| Verificação de bundle (V1 + V2) | Sim |
+| DCP-04 descoberta A2A + handshake + sessão AES-256-GCM (via `cryptography`) | Sim |
+| DCP-05 ciclo de vida de agentes (commissioning / vitality / decommissioning) | Sim |
+| DCP-06 sucessão digital (testamento digital, transferência de memória, cerimônia) | Sim |
+| DCP-07 resolução de disputas + arbitragem + jurisprudência | Sim |
+| DCP-08 direitos + obrigações + conformidade | Sim |
+| DCP-09 delegação + limiar de consciência + espelho do principal | Sim |
+| Helpers de nonce de sessão, motor de tier de segurança, revogação de emergência | Sim |
+| Checkpoints PQ lazy + `PQCheckpointManager` | Sim |
+| Helpers de RPR blindado, autorização multi-parte, advisory de algoritmo | Sim |
+| Códigos de erro canônicos (38 compartilhados entre todos os SDKs) + `detect_wire_format` | Sim |
+| Exportador OpenTelemetry / OTLP (extra opcional `[otlp]`) | Sim |
 
 ## Início Rápido
 

@@ -2,7 +2,7 @@
 
 # dcp-ai — Rust SDK
 
-数字公民身份协议 (DCP) 的官方 Rust SDK。基于 Serde 的类型、通过 ed25519-dalek 实现的 Ed25519，以及可选的 WebAssembly 支持。
+数字公民身份协议 (DCP v2.0) 的官方 Rust SDK。基于 Serde 的类型、混合后量子密码学 (Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768)、带 `pq_over_classical` 绑定的复合签名、双哈希链、OpenTelemetry 可观测性、DCP-04..09 行为，以及可选的 WebAssembly 支持。
 
 ## 安装
 
@@ -10,15 +10,44 @@
 
 ```toml
 [dependencies]
-dcp-ai = "1.0"
+dcp-ai = "2.7"
+```
+
+启用 OpenTelemetry/OTLP 导出：
+
+```toml
+[dependencies]
+dcp-ai = { version = "2.7", features = ["otlp"] }
 ```
 
 启用 WebAssembly 支持：
 
 ```toml
 [dependencies]
-dcp-ai = { version = "1.0", features = ["wasm"] }
+dcp-ai = { version = "2.7", features = ["wasm"] }
 ```
+
+## 功能
+
+| 范畴 | 状态 |
+|---|---|
+| Ed25519 / ML-DSA-65 / SLH-DSA-192f / ML-KEM-768 provider | 是 |
+| 复合签名 (`pq_over_classical`) + 验证 | 是 |
+| 规范 JSON v2 + 域分离 | 是 |
+| 双哈希 (SHA-256 + SHA3-256) + Merkle 根 | 是 |
+| 凭证包验证 (V1 + V2) | 是 |
+| DCP-05 代理生命周期（委任 / 活力 / 停用） | 是 |
+| DCP-06 数字继承（数字遗嘱、记忆迁移、交接仪式） | 是 |
+| DCP-07 争议解决 + 仲裁 + 判例 | 是 |
+| DCP-08 权利与义务 + 合规 | 是 |
+| DCP-09 委托 + 感知阈值 + 主体镜像 | 是 |
+| DCP-04 A2A 发现 + 握手 + 会话 ID 派生 | 是 |
+| DCP-04 A2A AES-256-GCM 会话加密 | _延后至后续版本_ |
+| 会话随机数助手、安全等级引擎、紧急撤销 | 是 |
+| 惰性 PQ 检查点 + `PQCheckpointManager` | 是 |
+| 盲化 RPR、多方授权、算法建议助手 | 是 |
+| 规范错误码（38 项，跨所有 SDK 共享）+ `detect_wire_format` | 是 |
+| OpenTelemetry / OTLP 导出器（可选 `otlp` 特性） | 是 |
 
 ## 快速开始
 

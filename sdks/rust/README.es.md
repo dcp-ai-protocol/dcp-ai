@@ -2,7 +2,7 @@
 
 # dcp-ai — SDK Rust
 
-SDK oficial de Rust para el Digital Citizenship Protocol (DCP). Tipos basados en Serde, Ed25519 vía ed25519-dalek y soporte opcional para WebAssembly.
+SDK oficial de Rust para el Digital Citizenship Protocol (DCP v2.0). Tipos basados en Serde, criptografía híbrida post-cuántica (Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768), firmas compuestas con enlace `pq_over_classical`, cadenas duales de hash, observabilidad con OpenTelemetry, comportamiento DCP-04..09 y soporte opcional para WebAssembly.
 
 ## Instalación
 
@@ -10,15 +10,44 @@ Agrega a `Cargo.toml`:
 
 ```toml
 [dependencies]
-dcp-ai = "1.0"
+dcp-ai = "2.7"
+```
+
+Con exportador OpenTelemetry/OTLP:
+
+```toml
+[dependencies]
+dcp-ai = { version = "2.7", features = ["otlp"] }
 ```
 
 Para soporte WebAssembly:
 
 ```toml
 [dependencies]
-dcp-ai = { version = "1.0", features = ["wasm"] }
+dcp-ai = { version = "2.7", features = ["wasm"] }
 ```
+
+## Características
+
+| Área | Estado |
+|---|---|
+| Providers Ed25519 / ML-DSA-65 / SLH-DSA-192f / ML-KEM-768 | Sí |
+| Firmas compuestas (`pq_over_classical`) + verificación | Sí |
+| JSON canónico v2 + separación de dominio | Sí |
+| Hash dual (SHA-256 + SHA3-256) + raíces de Merkle | Sí |
+| Verificación de bundle (V1 + V2) | Sí |
+| Ciclo de vida de agente DCP-05 (commissioning / vitalidad / decommissioning) | Sí |
+| Sucesión digital DCP-06 (testamento, transferencia de memoria, ceremonia) | Sí |
+| Resolución de disputas + arbitraje + jurisprudencia DCP-07 | Sí |
+| Derechos + obligaciones + compliance DCP-08 | Sí |
+| Delegación + umbral de conciencia + espejo del principal DCP-09 | Sí |
+| Descubrimiento A2A DCP-04 + handshake + derivación de id de sesión | Sí |
+| Cifrado de sesión A2A AES-256-GCM DCP-04 | _Diferido a una release posterior_ |
+| Helpers de nonce de sesión, motor de nivel de seguridad, revocación de emergencia | Sí |
+| Checkpoints PQ perezosos + `PQCheckpointManager` | Sí |
+| RPR blinded, autorización multi-parte, helpers de aviso de algoritmo | Sí |
+| Códigos de error canónicos (38 compartidos entre todos los SDKs) + `detect_wire_format` | Sí |
+| Exportador OpenTelemetry / OTLP (feature opcional `otlp`) | Sí |
 
 ## Inicio Rápido
 
