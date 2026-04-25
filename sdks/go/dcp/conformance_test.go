@@ -451,6 +451,35 @@ func TestDualMerkleRootsMatch(t *testing.T) {
 	}
 }
 
+// TestV2DualMerkleRootMatchesGolden exercises the public v2.DualMerkleRoot
+// helper against the same golden conformance vectors so the Go SDK exposes
+// byte-identical roots to the Python / TypeScript implementations.
+func TestV2DualMerkleRootMatchesGolden(t *testing.T) {
+	gv := loadGoldenVectors(t)
+	dv := gv.DualHashVectors
+	expected := dv.DualMerkleRoots
+
+	leaves := make([]v2.DualHash, len(dv.AuditEntryDualHashes))
+	for i, dh := range dv.AuditEntryDualHashes {
+		leaves[i] = v2.DualHash{SHA256: dh.SHA256, SHA3256: dh.SHA3256}
+	}
+	root, ok := v2.DualMerkleRoot(leaves)
+	if !ok {
+		t.Fatalf("v2.DualMerkleRoot returned ok=false for non-empty input")
+	}
+	if root.SHA256 != expected.SHA256 {
+		t.Fatalf("v2.DualMerkleRoot SHA-256 mismatch:\n  got:  %s\n  want: %s", root.SHA256, expected.SHA256)
+	}
+	if root.SHA3256 != expected.SHA3256 {
+		t.Fatalf("v2.DualMerkleRoot SHA3-256 mismatch:\n  got:  %s\n  want: %s", root.SHA3256, expected.SHA3256)
+	}
+
+	// Contract: empty input returns ok=false.
+	if _, ok := v2.DualMerkleRoot(nil); ok {
+		t.Fatalf("v2.DualMerkleRoot(nil) should return ok=false")
+	}
+}
+
 func TestDualMerkleSHA256MatchesV1(t *testing.T) {
 	gv := loadGoldenVectors(t)
 	v1Root := gv.V1BundleVerification.ExpectedMerkleRoot[len("sha256:"):]
