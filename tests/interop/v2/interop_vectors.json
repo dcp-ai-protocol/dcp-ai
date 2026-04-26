@@ -64,6 +64,108 @@
         "outcome": "success"
       },
       "expected_canonical": "{\"agent_id\":\"agent-interop-test-001\",\"audit_id\":\"audit-interop-001\",\"dcp_version\":\"2.0\",\"outcome\":\"success\",\"session_nonce\":\"a1b2c3d4e5f6a7b8a1b2c3d4e5f6a7b8a1b2c3d4e5f6a7b8a1b2c3d4e5f6a7b8\"}"
+    },
+    "edge_cases": {
+      "_description": "Edge cases for the dcp-jcs-v1 canonicalization profile. Every SDK MUST produce identical output for the `canonical` field, or raise an error when `expects_error` is true.",
+      "vectors": [
+        {
+          "name": "null_preservation",
+          "input": {
+            "x": null,
+            "y": 1
+          },
+          "canonical": "{\"x\":null,\"y\":1}"
+        },
+        {
+          "name": "integer_exact_float",
+          "input_json": "{\"n\":1.0}",
+          "canonical": "{\"n\":1}",
+          "_note": "Source literal 1.0 — JSON parses to a Number whose value is integer."
+        },
+        {
+          "name": "trailing_zeros",
+          "input_json": "{\"n\":1.00}",
+          "canonical": "{\"n\":1}"
+        },
+        {
+          "name": "scientific_notation_integer",
+          "input_json": "{\"n\":1e2}",
+          "canonical": "{\"n\":100}"
+        },
+        {
+          "name": "non_integer_float_rejected",
+          "input_json": "{\"n\":0.1}",
+          "expects_error": true
+        },
+        {
+          "name": "fractional_rejected",
+          "input_json": "{\"n\":1.5}",
+          "expects_error": true
+        },
+        {
+          "name": "scientific_fractional_rejected",
+          "input_json": "{\"n\":1.0e-1}",
+          "expects_error": true,
+          "_note": "1.0e-1 = 0.1, fractional value"
+        },
+        {
+          "name": "negative_integer",
+          "input": {
+            "n": -42
+          },
+          "canonical": "{\"n\":-42}"
+        },
+        {
+          "name": "key_sort_unicode",
+          "input": {
+            "é": 1,
+            "e": 2,
+            "z": 3
+          },
+          "canonical": "{\"e\":2,\"z\":3,\"é\":1}"
+        },
+        {
+          "name": "nested_null",
+          "input": {
+            "outer": {
+              "inner": null
+            }
+          },
+          "canonical": "{\"outer\":{\"inner\":null}}"
+        },
+        {
+          "name": "empty_object",
+          "input": {},
+          "canonical": "{}"
+        },
+        {
+          "name": "empty_array",
+          "input": [],
+          "canonical": "[]"
+        },
+        {
+          "name": "array_with_null",
+          "input": [
+            1,
+            null,
+            3
+          ],
+          "canonical": "[1,null,3]"
+        },
+        {
+          "name": "deeply_nested",
+          "input": {
+            "a": {
+              "b": {
+                "c": {
+                  "d": 42
+                }
+              }
+            }
+          },
+          "canonical": "{\"a\":{\"b\":{\"c\":{\"d\":42}}}}"
+        }
+      ]
     }
   },
   "payload_hashes": {

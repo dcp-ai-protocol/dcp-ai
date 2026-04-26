@@ -365,3 +365,25 @@ class TestSessionSplicing:
         sa = V["session_splicing"]["session_a"]
         sb = V["session_splicing"]["session_b"]
         assert sa["passport"]["session_nonce"] != sb["intent"]["session_nonce"]
+
+
+class TestCanonicalizationEdgeCases:
+    """dcp-jcs-v1 profile edge cases — every SDK must agree byte-for-byte."""
+
+    def test_all_vectors(self, V):
+        edge = V["canonicalization"]["edge_cases"]["vectors"]
+        for vec in edge:
+            name = vec["name"]
+            if "input" in vec:
+                payload = vec["input"]
+            else:
+                payload = json.loads(vec["input_json"])
+
+            if vec.get("expects_error"):
+                with pytest.raises(TypeError):
+                    canonicalize_v2(payload)
+            else:
+                produced = canonicalize_v2(payload)
+                assert produced == vec["canonical"], (
+                    f"{name}: produced {produced!r}, expected {vec['canonical']!r}"
+                )

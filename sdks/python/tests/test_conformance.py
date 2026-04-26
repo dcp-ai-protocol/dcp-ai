@@ -156,6 +156,30 @@ class TestV2Canonicalization:
         with pytest.raises(TypeError):
             assert_no_floats({"a": 1.5})
 
+    # ── dcp-jcs-v1 profile: integer-valued floats are accepted and
+    # normalised to integer form. Non-integer floats remain rejected.
+
+    def test_accepts_integer_valued_float(self) -> None:
+        assert canonicalize_v2({"n": 1.0}) == '{"n":1}'
+
+    def test_accepts_trailing_zeros(self) -> None:
+        # `1.00` parses to the same Python float as 1.0 — covered by the
+        # same rule. Test name documents the wire-level intent.
+        assert canonicalize_v2({"n": 1.00}) == '{"n":1}'
+
+    def test_accepts_scientific_notation_with_integer_value(self) -> None:
+        # `1e2` parses to float 100.0 in Python. Profile normalises to "100".
+        assert canonicalize_v2({"n": 1e2}) == '{"n":100}'
+
+    def test_rejects_non_finite_floats(self) -> None:
+        import math
+        with pytest.raises(TypeError):
+            canonicalize_v2({"n": math.nan})
+        with pytest.raises(TypeError):
+            canonicalize_v2({"n": math.inf})
+        with pytest.raises(TypeError):
+            canonicalize_v2({"n": -math.inf})
+
 
 class TestHashVectors:
     def test_sha256_hello(self, vectors: dict) -> None:

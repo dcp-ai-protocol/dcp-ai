@@ -55,6 +55,11 @@
       "type": "string",
       "maxLength": 256,
       "description": "Audience binding — identifier of the intended verifier. Prevents relay attacks."
+    },
+    "canonicalization_profile": {
+      "type": "string",
+      "const": "dcp-jcs-v1",
+      "description": "Identifier of the canonicalization profile under which this bundle was produced. Optional for backward compatibility with bundles produced before the profile shipped; verifiers that encounter a bundle without the field MUST assume 'dcp-jcs-v1'. See spec/CANONICALIZATION_PROFILE.md."
     }
   }
 }

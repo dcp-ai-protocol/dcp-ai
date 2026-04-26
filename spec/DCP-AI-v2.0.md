@@ -375,12 +375,26 @@ Tiers influence suggested presentation mode for bandwidth optimization:
 
 ## 15. Canonicalization
 
-RFC 8785 (JCS) with restrictions:
+DCP-AI v2.0 uses canonicalization profile **`dcp-jcs-v1`**, a strict
+subset of RFC 8785 (JCS). The profile pins the cases JCS leaves
+implementation-defined (undefined handling, floats with integer value,
+scientific notation, null preservation, empty containers) so the four
+SDKs produce byte-identical output.
+
+Summary:
 1. Keys sorted lexicographically by Unicode code point
 2. Compact form (no whitespace)
-3. Integers only (no floats)
-4. No field exclusion (SignedPayload envelope)
-5. Signed bytes: `UTF8(context_tag) || 0x00 || canonical(payload)`
+3. Integer-only numbers, decided post-parse (`1.0`, `1e2`, `1.00` accepted; `0.1`, `NaN`, `Infinity` rejected)
+4. `null` preserved with its key; arrays preserve `null` positionally
+5. `undefined` (TypeScript-only): omit in objects, serialize as `null` in arrays
+6. No field exclusion (SignedPayload envelope)
+7. Signed bytes: `UTF8(context_tag) || 0x00 || canonical(payload)`
+
+The full normative profile, including the edge-case acceptance table
+and the test fixtures all four SDKs must pass, lives in
+[`spec/CANONICALIZATION_PROFILE.md`](CANONICALIZATION_PROFILE.md).
+Bundles produced under this profile declare it via the optional
+`canonicalization_profile: "dcp-jcs-v1"` field on the bundle manifest.
 
 ---
 

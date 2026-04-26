@@ -4,6 +4,72 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.8.0] - 2026-04-26
+
+### Added — Canonicalization profile `dcp-jcs-v1`
+
+A public crosswalk against another protocol surfaced three real
+asymmetries in how the four SDKs canonicalised JSON: `1.0`/`1.00`
+were rejected by Python and Rust but accepted by TypeScript and Go;
+`1e2` was rejected by Rust alone; and `undefined` had no formal
+treatment in the spec. The "RFC 8785 + integer-only" summary in
+`spec/DCP-AI-v2.0.md` § 15 was correct as far as it went, but did not
+pin the cases JCS leaves implementation-defined. This release closes
+all of them.
+
+- **New normative document**: [`spec/CANONICALIZATION_PROFILE.md`](spec/CANONICALIZATION_PROFILE.md)
+  formalises profile `dcp-jcs-v1` with eight numbered rules, an
+  edge-case acceptance table covering 22 inputs, an undefined-handling
+  contract that documents the TypeScript-only asymmetry (omit in
+  objects, serialize as `null` in arrays), and a versioning policy
+  for future profiles.
+- **Bundle manifest field**: `canonicalization_profile: "dcp-jcs-v1"`
+  added to `schemas/v2/bundle_manifest.schema.json` as an optional
+  field. Verifiers that encounter a bundle without it MUST assume
+  `dcp-jcs-v1`. Future profiles will make the field required.
+- **Python (`dcp-ai` 2.7.1 → 2.8.0)**: `assert_no_floats` now accepts
+  floats whose value is a finite integer (`1.0`, `1e2`, `1.00`); they
+  are normalised to integer form before `json.dumps`. Non-integer
+  floats (`0.1`), `NaN`, and infinities remain rejected.
+- **Rust (`dcp-ai` 2.7.0 → 2.8.0)**: `assert_no_floats` now accepts
+  `Number(f64)` whose `fract()` is zero. New `format_number` helper
+  in `canonical_recurse` emits integer-valued floats without decimal
+  point or exponent, matching the other SDKs byte-for-byte.
+- **Go (`sdks/go/v2.7.0` → `v2.8.0`)**: behaviour already aligned
+  (`v != math.Trunc(v)` check). Version-bump only.
+- **TypeScript (`@dcp-ai/sdk` stays 2.1.0)**: behaviour already
+  aligned. Docstring in `sdks/typescript/src/core/canonicalize.ts`
+  formalises the undefined-vs-null asymmetry.
+
+### Added — interop edge-case fixtures
+
+`tests/interop/v2/interop_vectors.json` now ships
+`canonicalization.edge_cases` with 14 vectors covering null
+preservation (with key, inside arrays), integer-valued floats,
+trailing zeros, scientific notation, fractional rejection, non-finite
+rejection, code-point key sorting (including `é`), nested nulls,
+empty containers, deeply nested objects, and arrays with null. Each
+SDK's interop test loads the same block and asserts byte-identical
+output (or matching error) for every vector. CI runs all four in
+parallel on every PR; divergence is a release blocker.
+
+### Versions bumped
+
+- `dcp-ai` (PyPI) 2.7.1 → 2.8.0
+- `dcp-ai` (crates.io) 2.7.0 → 2.8.0
+- `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` → v2.8.0
+- `@dcp-ai/sdk` (npm) stays 2.1.0 — TypeScript already implemented
+  the profile; this release adds the docstring formalisation only.
+
+### Behavioural compatibility
+
+Bundles produced by previous releases remain valid. The change is
+**additive** for SDKs that previously rejected `1.0`/`1.00`/`1e2`:
+inputs that used to throw `TypeError`/`Err` now succeed and produce
+the same canonical output other SDKs were already producing. No
+input that previously canonicalised successfully canonicalises
+differently in 2.8.0.
+
 ## [2.7.1] - 2026-04-23 (Python only)
 
 ### Fixed

@@ -1,9 +1,19 @@
 /**
- * DCP v2.0 Canonicalization — RFC 8785 (JCS) with float prohibition.
+ * DCP v2.0 Canonicalization — profile `dcp-jcs-v1`.
  *
- * DCP-AI v2.0 mandates integer-only numeric values. This eliminates the
- * entire class of floating-point canonicalization ambiguities. Any payload
- * containing a non-integer number is rejected before signing.
+ * Strict subset of RFC 8785 (JCS) with the cases JCS leaves
+ * implementation-defined explicitly pinned. See
+ * `spec/CANONICALIZATION_PROFILE.md` for the normative reference.
+ *
+ * Numeric rule: a number is valid iff its value is a finite integer.
+ * `1.0`, `1.00`, and `1e2` are accepted because, post-parse, JavaScript
+ * cannot distinguish them from `1` and `100`. `0.1`, `NaN`, and
+ * infinities are rejected.
+ *
+ * Undefined handling (TypeScript-only): in objects, a key whose value
+ * is `undefined` is omitted entirely; inside an array, `undefined`
+ * serialises as the literal `null`. Other SDKs (Python, Rust, Go) do
+ * not expose `undefined` as a distinct value.
  */
 
 /**

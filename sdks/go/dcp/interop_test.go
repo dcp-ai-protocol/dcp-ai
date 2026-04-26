@@ -162,6 +162,10 @@ func TestInteropKidDerivation(t *testing.T) {
 func TestInteropCanonicalization(t *testing.T) {
 	vecs := loadVectors(t)
 	for name, entry := range vecs.Canonicalization {
+		// edge_cases is a separate block exercised by TestCanonicalizationEdgeCases.
+		if entry.ExpectedCanonical == "" {
+			continue
+		}
 		t.Run(name, func(t *testing.T) {
 			canonical, err := v2.CanonicalizeV2(entry.Input)
 			if err != nil {
@@ -181,6 +185,10 @@ func TestInteropCanonicalization(t *testing.T) {
 func TestInteropPayloadHashes(t *testing.T) {
 	vecs := loadVectors(t)
 	for name, entry := range vecs.Canonicalization {
+		// Skip the edge_cases sub-block (no precomputed payload hashes).
+		if entry.ExpectedCanonical == "" {
+			continue
+		}
 		hashes := vecs.PayloadHashes[name]
 		t.Run(name+"_sha256", func(t *testing.T) {
 			computed := v2.SHA256Hex([]byte(entry.ExpectedCanonical))
@@ -494,4 +502,59 @@ func TestInteropSessionSplicing(t *testing.T) {
 			t.Error("must detect nonce mismatch across sessions")
 		}
 	})
+}
+
+// TestCanonicalizationEdgeCases verifies that the Go canonicalizer matches
+// the dcp-jcs-v1 profile fixtures shipped in the shared interop_vectors.json.
+// All four core SDKs (TS, Python, Rust, Go) must agree byte-for-byte on the
+// `canonical` output and on the rejection of the `expects_error` cases.
+func TestCanonicalizationEdgeCases(t *testing.T) {
+	_, thisFile, _, _ := runtime.Caller(0)
+	vecPath := filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "tests", "interop", "v2", "interop_vectors.json")
+	data, err := os.ReadFile(vecPath)
+	if err != nil {
+		t.Fatalf("read vectors: %v", err)
+	}
+	var top map[string]interface{}
+	if err := json.Unmarshal(data, &top); err != nil {
+		t.Fatalf("parse vectors: %v", err)
+	}
+	canon, _ := top["canonicalization"].(map[string]interface{})
+	edge, _ := canon["edge_cases"].(map[string]interface{})
+	vectors, _ := edge["vectors"].([]interface{})
+	if len(vectors) == 0 {
+		t.Fatal("no edge_case vectors found")
+	}
+	for _, v := range vectors {
+		vec, _ := v.(map[string]interface{})
+		name, _ := vec["name"].(string)
+		t.Run(name, func(t *testing.T) {
+			var payload interface{}
+			if rawJSON, ok := vec["input_json"].(string); ok {
+				if err := json.Unmarshal([]byte(rawJSON), &payload); err != nil {
+					t.Fatalf("parse input_json: %v", err)
+				}
+			} else if input, ok := vec["input"]; ok {
+				payload = input
+			} else {
+				t.Fatalf("vector has neither input nor input_json")
+			}
+
+			expectErr, _ := vec["expects_error"].(bool)
+			got, err := v2.CanonicalizeV2(payload)
+			if expectErr {
+				if err == nil {
+					t.Fatalf("expected error, got %q", got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			want, _ := vec["canonical"].(string)
+			if got != want {
+				t.Fatalf("canonical mismatch:\n  got:  %s\n  want: %s", got, want)
+			}
+		})
+	}
 }

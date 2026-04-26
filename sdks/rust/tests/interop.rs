@@ -418,3 +418,43 @@ fn interop_session_splicing() {
     ).unwrap();
     assert!(ib.valid, "intent B should verify");
 }
+
+#[test]
+fn canonicalization_edge_cases() {
+    use dcp_ai::v2::canonicalize::canonicalize_v2;
+    let v = load_vectors();
+    let edge = v["canonicalization"]["edge_cases"]["vectors"]
+        .as_array()
+        .expect("edge_cases.vectors array missing");
+    for vec in edge {
+        let name = vec["name"].as_str().unwrap_or("?");
+        // Pull the input either from the literal `input` field or by
+        // re-parsing `input_json` (used for source-literal cases the
+        // vectors file cannot represent directly).
+        let payload: Value = if let Some(raw_json) = vec["input_json"].as_str() {
+            serde_json::from_str(raw_json)
+                .unwrap_or_else(|e| panic!("{name}: bad input_json: {e}"))
+        } else if !vec["input"].is_null() {
+            vec["input"].clone()
+        } else if let Some(_) = vec.get("input") {
+            // Explicit JSON null is a valid input.
+            vec["input"].clone()
+        } else {
+            panic!("{name}: neither input nor input_json")
+        };
+
+        let expects_error = vec["expects_error"].as_bool().unwrap_or(false);
+        let result = canonicalize_v2(&payload);
+        if expects_error {
+            assert!(
+                result.is_err(),
+                "{name}: expected error, got {:?}",
+                result
+            );
+        } else {
+            let want = vec["canonical"].as_str().expect("canonical field");
+            let got = result.unwrap_or_else(|e| panic!("{name}: {e}"));
+            assert_eq!(got, want, "{name}: canonical mismatch");
+        }
+    }
+}

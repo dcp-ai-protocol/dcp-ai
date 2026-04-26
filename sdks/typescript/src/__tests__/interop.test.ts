@@ -466,3 +466,31 @@ describe('Composite Binding Direction', () => {
     }
   });
 });
+
+describe('canonicalization edge cases (dcp-jcs-v1 profile)', () => {
+  type EdgeVec = {
+    name: string;
+    input?: unknown;
+    input_json?: string;
+    canonical?: string;
+    expects_error?: boolean;
+  };
+
+  it('all vectors match the dcp-jcs-v1 profile', () => {
+    const edge = (V as any).canonicalization.edge_cases.vectors as EdgeVec[];
+    for (const vec of edge) {
+      const payload =
+        'input' in vec && vec.input !== undefined
+          ? vec.input
+          : JSON.parse(vec.input_json!);
+
+      if (vec.expects_error) {
+        expect(() => canonicalizeV2(payload), `${vec.name} should throw`).toThrow();
+      } else {
+        expect(canonicalizeV2(payload), `${vec.name} canonical mismatch`).toBe(
+          vec.canonical,
+        );
+      }
+    }
+  });
+});
