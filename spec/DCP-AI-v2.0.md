@@ -234,10 +234,16 @@ The bundle manifest cryptographically binds all artifact hashes:
     "audit_merkle_root": "sha256:...",
     "audit_merkle_root_secondary": "sha3-256:...",
     "audit_count": 5,
-    "pq_checkpoints": ["ckpt-uuid-1"]
+    "pq_checkpoints": ["ckpt-uuid-1"],
+    "canonicalization_profile": "dcp-jcs-v1"
   }
 }
 ```
+
+`canonicalization_profile` is OPTIONAL (only `"dcp-jcs-v1"` defined today;
+see § 15 and [`CANONICALIZATION_PROFILE.md`](CANONICALIZATION_PROFILE.md)).
+A verifier that encounters a bundle without the field MUST assume
+`dcp-jcs-v1`. Future profiles will make the field REQUIRED.
 
 The bundle-level composite signature signs `canonical(manifest)`.
 

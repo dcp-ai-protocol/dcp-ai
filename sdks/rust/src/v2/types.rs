@@ -175,6 +175,13 @@ pub struct BundleManifest {
     pub audit_count: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pq_checkpoints: Option<Vec<String>>,
+    /// JSON canonicalization profile under which this bundle was produced.
+    /// Optional today (only `"dcp-jcs-v1"` is defined; absence is assumed
+    /// equivalent to `"dcp-jcs-v1"` per
+    /// `spec/CANONICALIZATION_PROFILE.md` § 4). Future profiles will make
+    /// the field required.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub canonicalization_profile: Option<String>,
 }
 
 // ── Capability Discovery ──

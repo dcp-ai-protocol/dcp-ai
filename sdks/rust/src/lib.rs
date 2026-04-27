@@ -830,7 +830,8 @@ pub mod wasm {
             "policy_hash": policy_hash,
             "audit_merkle_root": audit_merkle_sha256,
             "audit_merkle_root_secondary": audit_merkle_sha3,
-            "audit_count": audit_entries.len()
+            "audit_count": audit_entries.len(),
+            "canonicalization_profile": "dcp-jcs-v1"
         });
 
         let bundle = json!({

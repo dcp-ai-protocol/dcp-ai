@@ -67,6 +67,14 @@ func VerifySignedBundleV2(registry *AlgorithmRegistry, signedBundleJSON []byte) 
 	}
 	result.SessionBindingValid = manifestNonce != ""
 
+	// Per spec/CANONICALIZATION_PROFILE.md § 4: a missing canonicalization_profile
+	// MUST be assumed equal to the only profile defined today, "dcp-jcs-v1".
+	// An unknown value is rejected; future profiles will register their own
+	// canonicalizer here.
+	if profile, ok := manifest["canonicalization_profile"].(string); ok && profile != "dcp-jcs-v1" {
+		result.Errors = append(result.Errors, fmt.Sprintf("Unknown canonicalization_profile: %s", profile))
+	}
+
 	verifyManifestHashes(bundle, manifest, result)
 	verifySessionNonceConsistency(bundle, manifestNonce, result)
 	verifyBundleSignature(registry, bundle, signature, manifest, result)

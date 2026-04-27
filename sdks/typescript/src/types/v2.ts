@@ -176,6 +176,7 @@ export interface BundleManifest {
   pq_checkpoints?: string[];
   session_expires_at?: string;
   intended_verifier?: string;
+  canonicalization_profile?: 'dcp-jcs-v1';
 }
 
 export interface BundleSignerV2 {

@@ -82,6 +82,7 @@ func BuildBundleV2(input BundleBuildInput) (*CitizenshipBundleV2, error) {
 		AuditMerkleRoot:          "sha256:" + auditMerkleSHA256,
 		AuditMerkleRootSecondary: "sha3-256:" + auditMerkleSHA3,
 		AuditCount:               len(input.AuditEntries),
+		CanonicalizationProfile:  "dcp-jcs-v1",
 	}
 
 	bundle := &CitizenshipBundleV2{

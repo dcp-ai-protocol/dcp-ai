@@ -255,6 +255,15 @@ export async function verifySignedBundleV2(
 
   // ── 4. Manifest integrity ──
 
+  // Canonicalization profile: per spec/CANONICALIZATION_PROFILE.md § 4,
+  // a missing field defaults to 'dcp-jcs-v1' (the only profile defined
+  // today). An unknown value is rejected; a future profile (dcp-jcs-v2)
+  // will register its own canonicalizer here.
+  const profile = bundle.manifest.canonicalization_profile;
+  if (profile !== undefined && profile !== 'dcp-jcs-v1') {
+    errors.push(`Unknown canonicalization_profile: ${profile}`);
+  }
+
   const expectedRprHash = `sha256:${payloadHashHex(bundle.responsible_principal_record.payload)}`;
   const expectedPassportHash = `sha256:${payloadHashHex(bundle.agent_passport.payload)}`;
   const expectedIntentHash = `sha256:${payloadHashHex(bundle.intent.payload)}`;

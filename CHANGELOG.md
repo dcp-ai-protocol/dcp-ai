@@ -4,6 +4,100 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.8.1] - 2026-04-26
+
+### Wired the `canonicalization_profile` field across the four SDKs
+
+`v2.8.0` declared the `canonicalization_profile` field in
+`schemas/v2/bundle_manifest.schema.json` and described it in
+`spec/CANONICALIZATION_PROFILE.md` § 4, but no SDK actually wrote or
+read the field — the typed `BundleManifest` structures shipped without
+it, and verifiers ignored it. `v2.8.1` closes that gap end-to-end.
+
+- **TypeScript (`@dcp-ai/sdk` 2.1.0 → 2.1.1)** — `BundleManifest`
+  interface in `sdks/typescript/src/types/v2.ts` gains
+  `canonicalization_profile?: 'dcp-jcs-v1'`. `BundleBuilderV2.build()`
+  in `sdks/typescript/src/bundle/builder-v2.ts` now emits
+  `canonicalization_profile: "dcp-jcs-v1"` on every produced manifest.
+  `verifyV2Bundle` in `sdks/typescript/src/core/verify-v2.ts` accepts
+  an absent field (assumes `dcp-jcs-v1`), accepts `"dcp-jcs-v1"`
+  explicitly, and rejects any other value with
+  `"Unknown canonicalization_profile: <value>"`.
+- **Python (`dcp-ai` 2.8.0 → 2.8.1)** — `BundleManifest` in
+  `sdks/python/dcp_ai/v2/models.py` gains
+  `canonicalization_profile: Literal["dcp-jcs-v1"] | None = "dcp-jcs-v1"`.
+  Pydantic enforces unknown-value rejection at parse time; absence
+  triggers the default value. No separate verifier change is needed
+  because validation lives in the model.
+- **Go (`sdks/go/v2.8.0` → `v2.8.1`)** — `BundleManifest` struct in
+  `sdks/go/dcp/v2/types.go` gains `CanonicalizationProfile string` with
+  `json:"canonicalization_profile,omitempty"`. `BuildBundleV2` in
+  `sdks/go/dcp/v2/bundle_builder.go` sets it to `"dcp-jcs-v1"` on every
+  produced manifest. `VerifySignedBundleV2` in
+  `sdks/go/dcp/v2/verify_bundle.go` now rejects bundles whose manifest
+  carries a `canonicalization_profile` value other than `"dcp-jcs-v1"`.
+- **Rust (`dcp-ai` crates.io 2.8.0 → 2.8.1)** —
+  `BundleManifest` in `sdks/rust/src/v2/types.rs` gains
+  `pub canonicalization_profile: Option<String>` with
+  `#[serde(skip_serializing_if = "Option::is_none")]`. `wasm_build_bundle`
+  in `sdks/rust/src/lib.rs` sets `"canonicalization_profile":
+  "dcp-jcs-v1"` on the manifest it emits.
+
+### Spec & profile document
+
+- `spec/DCP-AI-v2.0.md` § 9 (Bundle Manifest) now lists
+  `canonicalization_profile` alongside the other manifest fields, with
+  an inline note that an absent field MUST be assumed equivalent to
+  `"dcp-jcs-v1"`.
+- `spec/CANONICALIZATION_PROFILE.md` § 2 — Rule 6 (undefined / null
+  handling) is rewritten as a cross-language table that explicitly
+  lists how TypeScript, Python, Go, and Rust host values map onto the
+  JSON wire format for both object slots and array slots.
+- `spec/CANONICALIZATION_PROFILE.md` § 2 — new Rule 9 makes Unicode
+  normalization (NFC, NFD, NFKC, NFKD) explicitly out of scope: the
+  canonicalizer emits strings byte-for-byte as the host parser
+  delivers them, and a future profile (`dcp-jcs-v2` or later) MAY pin
+  a normalization form. RFC 8259 § 8.1 is referenced as the
+  conventional choice (NFC) for application-layer normalisation.
+- `spec/CANONICALIZATION_PROFILE.md` Rule 9 also pins the rationale
+  for not shipping `NaN` / `±Infinity` interop fixtures: those values
+  are not part of RFC 8259 wire format, so most parsers reject them
+  before the canonicalizer is reached. Rejection is verified by
+  per-SDK unit tests rather than shared fixtures.
+
+### Behavioural compatibility
+
+The new field is **additive and optional in serialization**:
+
+- A `v2.8.1`-produced bundle carries `canonicalization_profile:
+  "dcp-jcs-v1"` on its manifest. Older verifiers that don't know about
+  the field will treat it as an unknown property — which is fine
+  because the JSON Schema declares the field as `additionalProperties`-
+  compatible (it lives among `properties` and is `optional`).
+- A bundle produced by `v2.8.0` or earlier has no
+  `canonicalization_profile` field. `v2.8.1` verifiers accept it: per
+  `spec/CANONICALIZATION_PROFILE.md` § 4, an absent field MUST be
+  assumed equivalent to `"dcp-jcs-v1"`.
+- A bundle that carries `canonicalization_profile` with an unknown
+  value (e.g. `"dcp-jcs-v2"`) is rejected by every `v2.8.1` SDK. This
+  is the forward-compatibility hook for future profiles: a verifier
+  that hasn't been updated to a new profile MUST refuse it rather than
+  silently accept a manifest it cannot validate.
+
+The bundle-level signature covers `canonical(manifest)`, so adding the
+field changes the manifest hash of any newly-produced bundle relative
+to one that would have been produced under `v2.8.0`. Bundles produced
+under `v2.8.0` and earlier, and their stored signatures, remain valid
+under `v2.8.1` verifiers.
+
+### Versions bumped
+
+- `dcp-ai` (PyPI) 2.8.0 → 2.8.1
+- `dcp-ai` (crates.io) 2.8.0 → 2.8.1
+- `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` v2.8.0 → v2.8.1
+- `@dcp-ai/sdk` (npm) 2.1.0 → 2.1.1 — first TypeScript code change
+  since 2.1.0 (the 2.8.0 release was a docstring-only edit)
+
 ## [2.8.0] - 2026-04-26
 
 ### Added — Canonicalization profile `dcp-jcs-v1`

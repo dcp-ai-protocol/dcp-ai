@@ -134,6 +134,11 @@ class BundleManifest(BaseModel):
     audit_merkle_root_secondary: str | None = None
     audit_count: int
     pq_checkpoints: list[PQCheckpoint] | None = None
+    # Per spec/CANONICALIZATION_PROFILE.md § 4: optional today, only
+    # "dcp-jcs-v1" is defined. Pydantic Literal enforces unknown-value
+    # rejection at parse time. A bundle without the field is accepted
+    # and the default below makes any new manifest emit it.
+    canonicalization_profile: Literal["dcp-jcs-v1"] | None = "dcp-jcs-v1"
 
 
 # ── Capabilities & Verifier Policy ──

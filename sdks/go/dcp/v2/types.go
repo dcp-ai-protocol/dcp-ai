@@ -143,6 +143,12 @@ type BundleManifest struct {
 	AuditMerkleRootSecondary string   `json:"audit_merkle_root_secondary,omitempty"`
 	AuditCount               int      `json:"audit_count"`
 	PQCheckpoints            []string `json:"pq_checkpoints,omitempty"`
+	// CanonicalizationProfile identifies the JSON canonicalization profile
+	// under which this bundle was produced. Optional today (only "dcp-jcs-v1"
+	// is defined; absence is assumed equivalent to "dcp-jcs-v1" — see
+	// spec/CANONICALIZATION_PROFILE.md § 4). Future profiles will make the
+	// field required.
+	CanonicalizationProfile string `json:"canonicalization_profile,omitempty"`
 }
 
 // BundleSignerV2 describes who signed a V2 bundle.

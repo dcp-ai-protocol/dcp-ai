@@ -193,6 +193,7 @@ export class BundleBuilderV2 {
       policy_hash: policyHash,
       audit_merkle_root: `sha256:${sha256Root}`,
       audit_count: this._auditEntries.length,
+      canonicalization_profile: 'dcp-jcs-v1',
     };
 
     if (this._dualHash) {

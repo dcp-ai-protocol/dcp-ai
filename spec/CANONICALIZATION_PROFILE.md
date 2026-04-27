@@ -111,31 +111,45 @@ input    → [1, null, 3]
 output   → [1,null,3]
 ```
 
-### Rule 6 — Undefined handling (TypeScript-specific)
+### Rule 6 — Null and undefined handling (cross-language)
 
+JSON has one absent-value channel (`null`). Host languages have more.
 TypeScript is the only host language that distinguishes `undefined`
-from `null`. The canonicalizer MUST:
+from `null`; Python, Go, and Rust do not. The canonicalizer MUST treat
+each host value as follows:
 
-- **In objects**: omit the key entirely when its value is `undefined`.
-- **In arrays**: serialize `undefined` as the literal `null`.
+| Host language | Host value                                          | In an object key | In an array slot |
+|---------------|-----------------------------------------------------|------------------|------------------|
+| TypeScript    | `undefined`                                         | **omit the key** | emit `null`      |
+| TypeScript    | `null`                                              | emit `null`      | emit `null`      |
+| Python        | absent key                                          | **omit the key** | n/a              |
+| Python        | `None`                                              | emit `null`      | emit `null`      |
+| Go            | absent map entry                                    | **omit the key** | n/a              |
+| Go            | `nil` interface / explicit JSON null                | emit `null`      | emit `null`      |
+| Rust          | absent struct field with `skip_serializing_if=None` | **omit the key** | n/a              |
+| Rust          | `Option::None` serialized without skip             | emit `null`      | emit `null`      |
+| Rust          | `Value::Null`                                       | emit `null`      | emit `null`      |
 
 ```
-input    → { a: 1, b: undefined, c: 3 }
+input    → { a: 1, b: undefined, c: 3 }   (TS)
 output   → {"a":1,"c":3}
 
-input    → [1, undefined, 3]
+input    → [1, undefined, 3]              (TS)
 output   → [1,null,3]
+
+input    → {"a": 1, "b": None, "c": 3}    (Python)
+output   → {"a":1,"b":null,"c":3}
 ```
 
-This is intentionally asymmetric: an object with an absent key and an
-object with `b: undefined` produce identical output, matching JSON's
-inability to express "absent vs undefined-valued" distinctly. Inside an
-array the position is meaningful, so `undefined` materializes as `null`.
+This is intentionally asymmetric: in TypeScript, an object with an
+absent key and an object with `b: undefined` produce identical output,
+matching JSON's inability to express "absent vs undefined-valued"
+distinctly. Inside an array the position is meaningful, so
+`undefined` materializes as `null`.
 
-Python (`None`), Go (`nil`), and Rust (`Option::None` mapped to
-`Value::Null`) do not expose `undefined` as a distinct value; they MUST
-serialize a null-equivalent input as JSON `null`. SDKs MUST NOT invent
-an `undefined` channel where the host language has none.
+SDKs MUST NOT invent an `undefined` channel where the host language has
+none. Python `None`, Go `nil` of an interface type that produced a JSON
+null on parse, and Rust `Value::Null` all map to JSON `null`.
 
 ### Rule 7 — Booleans
 
@@ -158,6 +172,36 @@ output   → {}
 input    → []
 output   → []
 ```
+
+### Rule 9 — Unicode normalization is OUT OF SCOPE
+
+Strings are emitted as their UTF-8 byte sequence with the escaping
+rules of Rule 3, **without** any Unicode normalization (NFC, NFD,
+NFKC, NFKD). A producer that supplies the precomposed string `"é"`
+(U+00E9) and a producer that supplies the decomposed sequence
+`"e"` + `U+0301` will produce **different bytes**, even though the
+two strings render identically and compare equal under canonical
+equivalence.
+
+This is a deliberate non-decision: requiring a normalization form at
+the canonicalization layer would force every SDK to ship an ICU- or
+unicode-tables-equivalent dependency and would still leave open
+which form (NFC vs NFKC) wins. Applications that care about
+homograph resistance MUST normalize their strings **before** they
+hand the value to the canonicalizer (NFC is the conventional choice
+for JSON-on-the-wire interchange — RFC 8259 § 8.1).
+
+A future profile (`dcp-jcs-v2` or later) MAY pin a normalization form;
+that decision will live in its own profile document.
+
+> Note on `NaN` / `±Infinity`: these values are not part of RFC 8259
+> JSON wire format. Most JSON parsers reject them at parse time, so
+> the canonicalizer never sees them. Where a parser does accept them
+> (e.g. Python `json.loads(allow_nan=True)`, JavaScript hand-built
+> values), Rule 4 still rejects them post-parse. The interop fixtures
+> deliberately do not ship a NaN/Infinity vector because no portable
+> JSON syntax can express them; rejection is verified by per-SDK unit
+> tests (e.g. `sdks/rust/src/v2/canonicalize.rs` `test_rejects_non_finite`).
 
 ---
 
