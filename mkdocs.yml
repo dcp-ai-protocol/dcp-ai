@@ -122,6 +122,7 @@ nav:
       - DCP-08 Rights & Obligations: specs/DCP-08.md
       - DCP-09 Personal Representation & Delegation: specs/DCP-09.md
       - DCP-AI v2.0 (Post-Quantum Normative): specs/DCP-AI-v2.0.md
+      - Canonicalization Profile (dcp-jcs-v1): specs/CANONICALIZATION_PROFILE.md
       - Citizenship Bundle Format: specs/BUNDLE.md
       - Verification Procedures: specs/VERIFICATION.md
       - Security Audit (v2.0 Final): specs/AUDIT-v2.0-FINAL.md
