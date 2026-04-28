@@ -27,6 +27,7 @@ cp "$ROOT/docs/QUICKSTART_EXPRESS.md"   "$OUT/quickstart/QUICKSTART_EXPRESS.md"
 cp "$ROOT/docs/QUICKSTART_LANGCHAIN.md" "$OUT/quickstart/QUICKSTART_LANGCHAIN.md"
 cp "$ROOT/docs/QUICKSTART_OPENAI.md"    "$OUT/quickstart/QUICKSTART_OPENAI.md"
 cp "$ROOT/docs/QUICKSTART_CREWAI.md"    "$OUT/quickstart/QUICKSTART_CREWAI.md"
+cp "$ROOT/docs/QUICKSTART_AGNO.md"      "$OUT/quickstart/QUICKSTART_AGNO.md"
 
 # Specifications — every .md directly under spec/
 cp "$ROOT/spec/README.md"            "$OUT/specs/README.md"

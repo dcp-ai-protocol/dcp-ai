@@ -110,6 +110,7 @@ nav:
       - LangChain: quickstart/QUICKSTART_LANGCHAIN.md
       - OpenAI: quickstart/QUICKSTART_OPENAI.md
       - CrewAI: quickstart/QUICKSTART_CREWAI.md
+      - Agno: quickstart/QUICKSTART_AGNO.md
   - Specifications:
       - Overview: specs/README.md
       - DCP-01 Identity & Human Binding: specs/DCP-01.md
