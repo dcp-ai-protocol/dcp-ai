@@ -2,6 +2,8 @@
 
 [Agno](https://www.agno.com/) is a Python framework and runtime for building AI agents. The [`agno-dcp`](https://github.com/dcp-ai-protocol/agno-dcp) integration wraps Agno's `Agent`, `Team`, `Workflow`, and MCP primitives with the full DCP-AI governance stack: cryptographic identity (DCP-01), signed policy gating (DCP-02), tamper-evident audit (DCP-03), and signed inter-agent messaging (DCP-04).
 
+> **▸ See it running:** [agno-dcp-demo.fly.dev](https://agno-dcp-demo.fly.dev) — a banking collections workflow with one-click scenarios, a live audit log over Server-Sent Events, and signed Compliance Bundle export. Source: [`dcp-ai-protocol/agno-dcp-demo`](https://github.com/dcp-ai-protocol/agno-dcp-demo).
+
 Unlike the other Python integrations (`dcp-ai[fastapi]`, `dcp-ai[langchain]`, ...), `agno-dcp` ships as a **separate package** because it depends on Agno as a peer dependency. The cryptographic primitives are imported from `dcp-ai>=2.8.1` so bundles produced by `agno-dcp` are byte-exact compatible with every DCP-AI verifier.
 
 The full source, end-to-end design notes, and API reference live in the dedicated repository: <https://github.com/dcp-ai-protocol/agno-dcp>. This page is a 60-second onramp.
