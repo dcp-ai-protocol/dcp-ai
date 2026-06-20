@@ -52,8 +52,8 @@
     "@types/json-stable-stringify": "^1.0.36",
     "tsup": "^8.0.0",
     "typescript": "^5.4.0",
-    "vitest": "^3.2.4",
-    "@vitest/coverage-v8": "^3.2.4"
+    "vitest": "^4.1.9",
+    "@vitest/coverage-v8": "^4.1.9"
   },
   "overrides": {
     "esbuild": ">=0.25.0",
