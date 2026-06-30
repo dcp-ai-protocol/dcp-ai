@@ -33,7 +33,7 @@ wasm-bindgen = { version = "0.2", optional = true }
 
 # Optional OTLP bridge (feature = "otlp")
 opentelemetry = { version = "0.24", optional = true }
-opentelemetry_sdk = { version = "0.24", features = ["rt-tokio"], optional = true }
+opentelemetry_sdk = { version = "0.32", features = ["rt-tokio"], optional = true }
 opentelemetry-otlp = { version = "0.17", features = ["http-proto", "reqwest-client", "metrics"], optional = true }
 tokio = { version = "1", features = ["rt-multi-thread"], optional = true }
 
