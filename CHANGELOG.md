@@ -34,6 +34,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Go SDK: canonicalization no longer escapes `<`, `>`, `&` or U+2028/U+2029 and emits `-0` as `0`
   (`dcp-jcs-v1` Rules 3 and 4) in the V2, proof-of-possession and V1 paths.
 - TypeScript SDK: object keys are sorted by Unicode code point (Rule 1), not UTF-16 code units.
+- Python SDK: `pqcrypto` is capped below 1.0. The 1.0 release removed the `pqcrypto.sign.ml_dsa_*`
+  modules, so fresh installs of `dcp-ai` 2.8.1 fail to import the ML-DSA-65 provider.
 - `tests/interop/v2/interop_vectors.json`: edge-case vectors for negative zero, HTML characters,
   U+2028/U+2029, control-character escapes and astral-plane key ordering.
 - `tools/conformance.js`: the `edge_cases` entry no longer passes vacuously, the never-executed
