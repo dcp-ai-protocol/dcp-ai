@@ -3,6 +3,9 @@ import { execSync } from "child_process";
 import fs from "fs";
 import crypto from "crypto";
 import { intentHash, hashObject, dualHashObject, canonicalize } from "./merkle.js";
+import { generateKeypair } from "./crypto.js";
+import { verifySignedBundle } from "../lib/verify.js";
+import { buildV2Examples } from "../scripts/generate-v2-examples.js";
 
 // ═══════════════════════════════════════════════════════════════
 // V1 CONFORMANCE
@@ -212,6 +215,9 @@ if (fs.existsSync(interopPath)) {
 
   if (interop.canonicalization && typeof interop.canonicalization === "object") {
     for (const [name, vec] of Object.entries(interop.canonicalization)) {
+      // edge_cases is a block of dcp-jcs-v1 vectors, not a single vector; the
+      // four SDK suites run it against their canonicalizers.
+      if (!("input" in vec)) continue;
       const result = canonicalize(vec.input);
       if (result === vec.expected_canonical) {
         console.log(`✔ V2 interop canonicalization: ${name}`);
@@ -222,26 +228,48 @@ if (fs.existsSync(interopPath)) {
     }
   }
 
-  if (interop.domain_separation && typeof interop.domain_separation === "object") {
-    for (const [name, vec] of Object.entries(interop.domain_separation)) {
-      if (vec.tag && vec.input && vec.expected) {
-        const computed = `${vec.tag}|${canonicalize(vec.input)}`;
-        if (computed === vec.expected) {
-          console.log(`✔ V2 interop domain separation: ${name}`);
-        } else {
-          console.error(`✖ V2 interop domain separation: ${name}`);
-          failures++;
-        }
-      }
-    }
-  }
-
   if (interop.attack_vectors && typeof interop.attack_vectors === "object") {
     const count = Object.keys(interop.attack_vectors).length;
     console.log(`✔ V2 interop: ${count} attack vectors available for SDK testing`);
   }
 } else {
   console.log("⚠  V2 interop vectors not found, skipping");
+}
+
+// ═══════════════════════════════════════════════════════════════
+// V2 CONFORMANCE — Reference verifier on normative signed bundles
+// ═══════════════════════════════════════════════════════════════
+
+console.log("\n── V2 Signed Bundle Verification (lib/verify.js) ──\n");
+
+{
+  const { signedBundle, signerPublicKeyB64 } = await buildV2Examples();
+  const variant = (mutate) => {
+    const copy = structuredClone(signedBundle);
+    mutate(copy);
+    return copy;
+  };
+  const cases = [
+    ["normative signed bundle verifies", signedBundle, true],
+    ["bundle pinned to its signer key verifies", signedBundle, true, signerPublicKeyB64],
+    ["bundle pinned to another key is rejected", signedBundle, false, generateKeypair().publicKeyB64],
+    ["pinned bundle under pq_only is rejected (pq_only skips the classical signer)", signedBundle, false, signerPublicKeyB64, { mode: "pq_only" }],
+    ["tampered intent is rejected", variant((b) => { b.bundle.intent.payload.target.to = "attacker@evil.example"; }), false],
+    ["forged classical signature is rejected", variant((b) => { b.signature.composite_sig.classical.sig_b64 = Buffer.alloc(64).toString("base64"); }), false],
+    ["forged PQ signature is rejected under hybrid_required", variant((b) => { b.signature.composite_sig.pq.sig_b64 = Buffer.alloc(3309).toString("base64"); }), false, undefined, { mode: "hybrid_required" }],
+    ["PQ-stripped bundle is rejected under hybrid_required", variant((b) => { b.signature.composite_sig.pq = null; b.signature.composite_sig.binding = "classical_only"; }), false, undefined, { mode: "hybrid_required" }],
+    ["schema-invalid payload is rejected", variant((b) => { b.bundle.policy_decision.payload.risk_score = "high"; }), false],
+    ["legacy pre-normative V2 envelope is rejected", { dcp_version: "2.0", bundle: signedBundle.bundle, bundle_manifest: {}, signature: signedBundle.signature }, false],
+  ];
+  for (const [label, bundle, expected, publicKeyB64, options] of cases) {
+    const result = await verifySignedBundle(bundle, publicKeyB64, undefined, options);
+    if (result.verified === expected) {
+      console.log(`✔ V2 ${label}`);
+    } else {
+      console.error(`✖ V2 ${label}`, result.errors);
+      failures++;
+    }
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════

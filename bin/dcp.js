@@ -312,61 +312,34 @@ if (cmd === "sign-bundle") {
     }
 
     const bundle = safeParseJSON(safePath(bundlePath), "bundle");
-    const edSecret = fs.readFileSync(safePath(edSecretPath), "utf8").trim();
-    const pqSecret = fs.readFileSync(safePath(pqSecretPath), "utf8").trim();
+    if (bundle?.dcp_bundle_version !== "2.0" || !bundle.manifest) {
+      console.error("Expected an unsigned V2 bundle (dcp_bundle_version \"2.0\" with a manifest), e.g. from BundleBuilderV2.");
+      process.exit(2);
+    }
+    const edSecretB64 = fs.readFileSync(safePath(edSecretPath), "utf8").trim();
+    const pqSecretB64 = fs.readFileSync(safePath(pqSecretPath), "utf8").trim();
 
-    // Compute manifest hash
-    const manifestJson = JSON.stringify(bundle.manifest || bundle);
-    const manifestHash = "sha256:" + crypto.createHash("sha256").update(manifestJson).digest("hex");
-
-    // Create composite signature structure
-    const edPk = Buffer.from(edSecret, "base64").subarray(32); // Ed25519 sk is 64B, last 32 are pk
-    const classicalKid = deriveKid("ed25519", edPk);
-    const pqPkStub = crypto.createHash("sha256").update(Buffer.from(pqSecret, "base64")).digest();
-    const pqKid = deriveKid("ml-dsa-65", pqPkStub);
-
-    const { signObject, canonicalize, domainSeparatedMessage } = await import("../tools/crypto.js");
-    const domainMsg = domainSeparatedMessage("bundle", bundle.manifest || bundle);
-    const canonicalManifest = canonicalize(bundle.manifest || bundle);
-    const edSig = signObject(JSON.parse(canonicalManifest), edSecret);
-
-    const pqSecretBuf = Buffer.from(pqSecret, "base64");
-    const msgBytes = Buffer.from(domainMsg, "utf8");
-    const edSigBytes = Buffer.from(edSig, "base64");
-    const bindingInput = Buffer.concat([msgBytes, edSigBytes]);
-    const pqSigReal = ml_dsa65.sign(bindingInput, pqSecretBuf);
-    const pqSigB64 = Buffer.from(pqSigReal).toString("base64");
-
-    const signedBundle = {
-      dcp_version: "2.0",
-      bundle,
-      signature: {
-        hash_alg: "sha256",
-        created_at: new Date().toISOString(),
-        signer: {
-          type: "human",
-          id: "cli-signer",
-          kids: [classicalKid, pqKid],
-        },
-        manifest_hash: manifestHash,
-        composite_sig: {
-          classical: {
-            alg: "ed25519",
-            kid: classicalKid,
-            sig_b64: edSig,
-          },
-          pq: {
-            alg: "ml-dsa-65",
-            kid: pqKid,
-            sig_b64: pqSigB64,
-          },
-          binding: "pq_over_classical",
-        },
-        domain_sep: "DCP-BUNDLE-SIG-v2",
-      },
+    // Public keys come from the secrets: a tweetnacl Ed25519 secret key ends
+    // with its public key, and ML-DSA-65 re-derives its public key.
+    const edPk = Buffer.from(edSecretB64, "base64").subarray(32);
+    const pqPk = Buffer.from(ml_dsa65.getPublicKey(Buffer.from(pqSecretB64, "base64")));
+    const keys = {
+      classical: { kid: deriveKid("ed25519", edPk), alg: "ed25519", secretKeyB64: edSecretB64, publicKeyB64: edPk.toString("base64") },
+      pq: { kid: deriveKid("ml-dsa-65", pqPk), alg: "ml-dsa-65", secretKeyB64: pqSecretB64, publicKeyB64: pqPk.toString("base64") },
     };
 
-    fs.writeFileSync(outPath, JSON.stringify(signedBundle, null, 2));
+    const { AlgorithmRegistry, Ed25519Provider, MlDsa65Provider, signBundleV2 } = await import("@dcp-ai/sdk");
+    const registry = new AlgorithmRegistry();
+    registry.registerSigner(new Ed25519Provider());
+    registry.registerSigner(new MlDsa65Provider());
+    const signedBundle = await signBundleV2(bundle, {
+      registry,
+      signerType: "human",
+      signerId: bundle.responsible_principal_record?.payload?.human_id || "cli-signer",
+      keys,
+    });
+
+    fs.writeFileSync(safePath(outPath), JSON.stringify(signedBundle, null, 2));
     console.log(`✅ V2 composite-signed bundle written to ${outPath}`);
     process.exit(0);
   }
@@ -403,97 +376,21 @@ if (cmd === "verify-bundle") {
   }
 
   const signedBundle = safeParseJSON(safePath(signedPath), "signed bundle");
+  const { verifySignedBundle, isV2Bundle } = await import("../lib/verify.js");
 
-  // Detect version
-  const isV2 = signedBundle.bundle?.dcp_bundle_version === "2.0" ||
-               signedBundle.bundle?.manifest !== undefined;
-
-  if (isV2) {
+  if (isV2Bundle(signedBundle)) {
     console.log("Detected: DCP v2.0 bundle");
-    const errors = [];
-    const warnings = [];
-    const bundle = signedBundle.bundle;
-    const signature = signedBundle.signature;
-
-    if (!bundle || !signature) {
-      console.error("❌ Missing bundle or signature");
-      process.exit(1);
-    }
-
-    // Check manifest
-    if (bundle.manifest) {
-      console.log("✅ Manifest present");
-      if (bundle.manifest.session_nonce && /^[0-9a-f]{64}$/.test(bundle.manifest.session_nonce)) {
-        console.log(`✅ Session nonce: ${bundle.manifest.session_nonce.slice(0, 16)}...`);
-      } else {
-        errors.push("Invalid session_nonce");
-      }
-
-      if (bundle.manifest.session_expires_at) {
-        const expiresAt = new Date(bundle.manifest.session_expires_at);
-        if (expiresAt < new Date()) {
-          errors.push(`Session expired at ${bundle.manifest.session_expires_at}`);
-        } else {
-          console.log(`✅ Session valid until: ${bundle.manifest.session_expires_at}`);
-        }
-      }
-
-      if (bundle.manifest.intended_verifier) {
-        console.log(`✅ Intended verifier: ${bundle.manifest.intended_verifier}`);
-      }
-    } else {
-      errors.push("Missing manifest");
-    }
-
-    // Check artifacts
-    for (const field of ["responsible_principal_record", "agent_passport", "intent", "policy_decision"]) {
-      if (bundle[field]?.payload) {
-        console.log(`✅ ${field} (SignedPayload)`);
-      } else {
-        errors.push(`Missing ${field}`);
-      }
-    }
-
-    // Check composite sig
-    if (signature.composite_sig) {
-      const cs = signature.composite_sig;
-      if (cs.classical) console.log(`✅ Classical sig: ${cs.classical.alg} (kid: ${cs.classical.kid})`);
-      if (cs.pq) console.log(`✅ PQ sig: ${cs.pq.alg} (kid: ${cs.pq.kid})`);
-      console.log(`   Binding: ${cs.binding}`);
-
-      if (policyMode === "hybrid_required" && cs.binding === "classical_only") {
-        errors.push("Policy hybrid_required but bundle is classical_only");
-      }
-      if (policyMode === "hybrid_preferred" && cs.binding === "classical_only") {
-        warnings.push("Classical-only (no PQ protection)");
-      }
-    } else {
-      errors.push("Missing composite_sig");
-    }
-
-    // Audit entries
-    if (Array.isArray(bundle.audit_entries)) {
-      console.log(`✅ Audit entries: ${bundle.audit_entries.length}`);
-    }
-
-    // PQ checkpoints
-    if (Array.isArray(bundle.pq_checkpoints)) {
-      console.log(`✅ PQ checkpoints: ${bundle.pq_checkpoints.length}`);
-    }
-
-    if (warnings.length > 0) {
-      for (const w of warnings) console.log(`⚠️  ${w}`);
-    }
-
-    if (errors.length === 0) {
-      console.log("\n✅ V2 BUNDLE STRUCTURE VALID");
+    const publicKeyB64 = publicKeyPath ? fs.readFileSync(safePath(publicKeyPath), "utf8").trim() : undefined;
+    const result = await verifySignedBundle(signedBundle, publicKeyB64, undefined, { mode: policyMode || undefined });
+    for (const w of result.warnings || []) console.log(`⚠️  ${w}`);
+    if (result.verified) {
+      console.log("\n✅ V2 BUNDLE VERIFIED (SCHEMA + MANIFEST + COMPOSITE SIGNATURE + AUDIT CHAIN)");
       if (policyMode) console.log(`   Policy: ${policyMode}`);
       process.exit(0);
-    } else {
-      for (const e of errors) console.error(`❌ ${e}`);
-      console.error("\n❌ V2 VERIFICATION FAILED");
-      process.exit(1);
     }
+    for (const e of result.errors || []) console.error(`❌ ${e}`);
+    console.error("\n❌ V2 VERIFICATION FAILED");
+    process.exit(1);
   }
 
   // V1 path
@@ -503,8 +400,7 @@ if (cmd === "verify-bundle") {
   }
 
   const publicKeyB64 = fs.readFileSync(safePath(publicKeyPath), "utf8").trim();
-  const { verifySignedBundle } = await import("../lib/verify.js");
-  const result = verifySignedBundle(signedBundle, publicKeyB64);
+  const result = await verifySignedBundle(signedBundle, publicKeyB64);
   if (result.verified) {
     console.log("✅ SIGNATURE VALID");
     console.log("✅ BUNDLE INTEGRITY VALID");
