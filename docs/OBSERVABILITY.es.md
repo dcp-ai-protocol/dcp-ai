@@ -118,7 +118,7 @@ dcp_telemetry().init(TelemetryConfig {
 });
 ```
 
-El puente OTLP corre sobre un runtime multi-hilo de Tokio; llama a `dcp_telemetry().shutdown()` antes de que tu proceso termine para flushear exportaciones pendientes. Sin el feature `otlp`, solicitar `ExporterType::Otlp` emite un evento de error claro vía `on_event` y los recorders siguen poblando el `MetricsSummary` en memoria.
+El puente OTLP exporta desde hilos en segundo plano (procesador de spans por lotes y lector periódico de métricas sobre un cliente HTTP bloqueante), así que no necesita un runtime de Tokio; llama a `dcp_telemetry().shutdown()` antes de que tu proceso termine para flushear exportaciones pendientes. Sin el feature `otlp`, solicitar `ExporterType::Otlp` emite un evento de error claro vía `on_event` y los recorders siguen poblando el `MetricsSummary` en memoria.
 
 ### Go
 
