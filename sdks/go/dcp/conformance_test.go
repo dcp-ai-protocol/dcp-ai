@@ -266,6 +266,23 @@ func TestCanonicalWithNull(t *testing.T) {
 	}
 }
 
+// V1 output must match the JS reference (json-stable-stringify): no HTML
+// escaping, raw U+2028, -0 emitted as 0, fractional numbers still allowed.
+func TestCanonicalV1MatchesReferenceEscaping(t *testing.T) {
+	var in interface{}
+	if err := json.Unmarshal([]byte(`{"u":"a<b>&c d","n":-0,"f":0.5}`), &in); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Canonicalize(in)
+	if err != nil {
+		t.Fatalf("canonicalize: %v", err)
+	}
+	want := "{\"f\":0.5,\"n\":0,\"u\":\"a<b>&c d\"}"
+	if got != want {
+		t.Fatalf("got %s, want %s", got, want)
+	}
+}
+
 func TestCanonicalUnicode(t *testing.T) {
 	gv := loadGoldenVectors(t)
 	c := gv.Canonicalization["unicode"]
