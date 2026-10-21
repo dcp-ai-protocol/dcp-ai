@@ -90,8 +90,25 @@ function jcsNumber(n: number): string {
   );
 }
 
+/**
+ * Profile Rule 1 orders keys by Unicode code point. Array#sort's default
+ * compares UTF-16 code units, which puts astral characters (surrogate pairs)
+ * before U+E000..U+FFFF and diverges from the Python, Go and Rust SDKs.
+ */
+function compareCodePoints(a: string, b: string): number {
+  const ia = a[Symbol.iterator]();
+  const ib = b[Symbol.iterator]();
+  for (;;) {
+    const x = ia.next();
+    const y = ib.next();
+    if (x.done || y.done) return x.done ? (y.done ? 0 : -1) : 1;
+    const diff = x.value.codePointAt(0)! - y.value.codePointAt(0)!;
+    if (diff !== 0) return diff;
+  }
+}
+
 function jcsObject(obj: Record<string, unknown>): string {
-  const keys = Object.keys(obj).sort();
+  const keys = Object.keys(obj).sort(compareCodePoints);
   const pairs: string[] = [];
   for (const key of keys) {
     const val = obj[key];
