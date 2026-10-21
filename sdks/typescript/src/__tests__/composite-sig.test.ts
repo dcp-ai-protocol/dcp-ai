@@ -544,7 +544,7 @@ describe('SecureKeyGuard', () => {
 // 8. SLH-DSA-192f Provider (Backup PQ)
 // ---------------------------------------------------------------------------
 
-describe('SlhDsa192fProvider', () => {
+describe('SlhDsa192fProvider', { timeout: 60_000 }, () => {
   let slhDsa: SlhDsa192fProvider;
 
   beforeAll(() => {
@@ -578,4 +578,4 @@ describe('SlhDsa192fProvider', () => {
     );
     expect(valid).toBe(false);
   });
-}, { timeout: 60_000 });
+});
