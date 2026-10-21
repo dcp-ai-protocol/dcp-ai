@@ -118,7 +118,7 @@ dcp_telemetry().init(TelemetryConfig {
 });
 ```
 
-OTLP 桥接在 Tokio 多线程运行时上运行；在进程退出前调用 `dcp_telemetry().shutdown()` 以刷新挂起的导出。如果不启用 `otlp` 特性，请求 `ExporterType::Otlp` 会通过 `on_event` 发射一个清晰的错误事件，且记录器仍会填充内存中的 `MetricsSummary`。
+OTLP 桥接在后台线程中导出（批量 span 处理器和基于阻塞 HTTP 客户端的周期性指标读取器），因此不需要 Tokio 运行时；在进程退出前调用 `dcp_telemetry().shutdown()` 以刷新挂起的导出。如果不启用 `otlp` 特性，请求 `ExporterType::Otlp` 会通过 `on_event` 发射一个清晰的错误事件，且记录器仍会填充内存中的 `MetricsSummary`。
 
 ### Go
 

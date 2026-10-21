@@ -118,7 +118,7 @@ dcp_telemetry().init(TelemetryConfig {
 });
 ```
 
-OTLPブリッジはTokioマルチスレッドランタイム上で動作します。プロセス終了前に `dcp_telemetry().shutdown()` を呼び出して、保留中のエクスポートをフラッシュしてください。`otlp` フィーチャーなしで `ExporterType::Otlp` を要求した場合、`on_event` 経由で明確なエラーイベントが送出され、レコーダーはインメモリの `MetricsSummary` を引き続き更新します。
+OTLPブリッジはバックグラウンドスレッド（バッチスパンプロセッサと、ブロッキングHTTPクライアントを使う定期メトリクスリーダー）からエクスポートするため、Tokioランタイムは不要です。プロセス終了前に `dcp_telemetry().shutdown()` を呼び出して、保留中のエクスポートをフラッシュしてください。`otlp` フィーチャーなしで `ExporterType::Otlp` を要求した場合、`on_event` 経由で明確なエラーイベントが送出され、レコーダーはインメモリの `MetricsSummary` を引き続き更新します。
 
 ### Go
 

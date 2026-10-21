@@ -118,7 +118,7 @@ dcp_telemetry().init(TelemetryConfig {
 });
 ```
 
-The OTLP bridge runs on a Tokio multi-thread runtime; call `dcp_telemetry().shutdown()` before your process exits to flush pending exports. Without the `otlp` feature, requesting `ExporterType::Otlp` emits a clear error event via `on_event` and recorders continue to populate the in-memory `MetricsSummary`.
+The OTLP bridge exports from background threads (batch span processor and periodic metric reader over a blocking HTTP client), so it needs no Tokio runtime; call `dcp_telemetry().shutdown()` before your process exits to flush pending exports. Without the `otlp` feature, requesting `ExporterType::Otlp` emits a clear error event via `on_event` and recorders continue to populate the in-memory `MetricsSummary`.
 
 ### Go
 
