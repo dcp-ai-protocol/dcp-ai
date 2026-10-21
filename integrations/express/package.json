@@ -28,11 +28,12 @@
     "tsup": "^8.0.0",
     "typescript": "^5.4.0",
     "@types/express": "^4.17.21",
-    "vitest": "^3.2.4"
+    "vitest": "^4.1.12"
   },
   "overrides": {
     "esbuild": ">=0.25.0",
-    "picomatch": ">=4.0.4"
+    "picomatch": ">=4.0.4",
+    "vite": "^7.3.7"
   },
   "keywords": [
     "dcp",
