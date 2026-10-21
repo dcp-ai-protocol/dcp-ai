@@ -164,6 +164,46 @@
             }
           },
           "canonical": "{\"a\":{\"b\":{\"c\":{\"d\":42}}}}"
+        },
+        {
+          "name": "negative_zero",
+          "input_json": "{\"n\":-0}",
+          "canonical": "{\"n\":0}",
+          "_note": "Rule 4: -0 decodes to an integer value and is emitted as 0 (spec §3 table)."
+        },
+        {
+          "name": "string_html_chars_verbatim",
+          "input": {
+            "s": "<a href='/x?y=1&z=2'>"
+          },
+          "canonical": "{\"s\":\"<a href='/x?y=1&z=2'>\"}",
+          "_note": "Rule 3: <, > and & are not escaped (Go's encoding/json escapes them by default)."
+        },
+        {
+          "name": "string_line_separators_verbatim",
+          "input": {
+            "s": "a b c"
+          },
+          "canonical": "{\"s\":\"a b c\"}",
+          "_note": "Rule 3: U+2028 and U+2029 are emitted as raw UTF-8, not as \\u escapes."
+        },
+        {
+          "name": "string_control_char_escapes",
+          "input": {
+            "s": "\u0000\u0007\b\t\n\u000b\f\r\u001f\"\\\u007f"
+          },
+          "canonical": "{\"s\":\"\\u0000\\u0007\\b\\t\\n\\u000b\\f\\r\\u001f\\\"\\\\\u007f\"}",
+          "_note": "Rule 3 / RFC 8785 §3.2: short escapes for \\b \\t \\n \\f \\r, lowercase \\u00xx for other C0 controls, DEL (U+007F) verbatim."
+        },
+        {
+          "name": "key_sort_code_point_astral",
+          "input": {
+            "ﬁ": 1,
+            "😀": 2,
+            "a": 3
+          },
+          "canonical": "{\"a\":3,\"ﬁ\":1,\"😀\":2}",
+          "_note": "Rule 1 orders by code point: U+FB01 < U+1F600. UTF-16 code-unit order (JavaScript's default sort) would put the emoji (0xD83D) first."
         }
       ]
     }
