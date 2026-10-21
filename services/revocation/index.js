@@ -65,6 +65,13 @@ function checkRateLimit(ip) {
   return entry.count <= EMERGENCY_MAX_ATTEMPTS;
 }
 
+// decodeURIComponent throws on malformed escapes (e.g. %E0); inside the async
+// handler that becomes an unhandled rejection and kills the process.
+function decodeParam(value) {
+  try { return decodeURIComponent(value); }
+  catch { return null; }
+}
+
 function isKeyExpired(kid) {
   const expiry = keyExpiry.get(kid);
   if (!expiry) return false;
@@ -298,9 +305,11 @@ const server = http.createServer(async (req, res) => {
   }
 
   // ── Check by kid (V2) ──
-  const kidCheckMatch = req.url?.match(/^\/v2\/check\/kid\/(.+)$/);
+  const kidCheckMatch = req.url?.match(/^\/v2\/check\/kid\/([^?]+)(?:\?(.*))?$/);
   if (req.method === "GET" && kidCheckMatch) {
-    const kid = decodeURIComponent(kidCheckMatch[1]);
+    const kid = decodeParam(kidCheckMatch[1]);
+    if (kid === null) return send(res, 400, { error: "Malformed kid" });
+    const agentId = new URLSearchParams(kidCheckMatch[2] || "").get("agent_id");
 
     // Check explicit revocation
     const record = kidRevocations.get(kid);
@@ -314,17 +323,17 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
-    // Check agent-level emergency revocation
-    for (const [, agentRecord] of revocations.entries()) {
-      if (agentRecord.emergency) {
-        return send(res, 200, {
-          revoked: true,
-          kid,
-          agent_id: agentRecord.agent_id,
-          reason: "key_compromise_emergency",
-          revoked_at: agentRecord.timestamp,
-        });
-      }
+    // Agent-level emergency revocation covers every kid of that agent, but the
+    // service only knows a kid's owner when the caller passes ?agent_id=.
+    const agentRecord = agentId ? revocations.get(agentId) : undefined;
+    if (agentRecord?.emergency) {
+      return send(res, 200, {
+        revoked: true,
+        kid,
+        agent_id: agentId,
+        reason: "key_compromise_emergency",
+        revoked_at: agentRecord.timestamp,
+      });
     }
 
     // Check short-lived cert expiry
@@ -377,7 +386,8 @@ const server = http.createServer(async (req, res) => {
   // ── V1: Check specific agent ──
   const checkMatch = req.url?.match(/^\/check\/(.+)$/);
   if (req.method === "GET" && checkMatch) {
-    const agentId = decodeURIComponent(checkMatch[1]);
+    const agentId = decodeParam(checkMatch[1]);
+    if (agentId === null) return send(res, 400, { error: "Malformed agent_id" });
     const record = revocations.get(agentId);
     if (record) {
       return send(res, 200, { revoked: true, record });
@@ -399,7 +409,7 @@ server.listen(PORT, () => {
   console.log("    POST /v2/emergency-revoke                 — panic button revocation");
   console.log("    POST /v2/register-emergency-token         — register emergency token");
   console.log("    POST /v2/register-key-expiry              — short-lived cert tracking");
-  console.log("    GET  /v2/check/kid/:kid                   — check kid revocation");
+  console.log("    GET  /v2/check/kid/:kid[?agent_id=]       — check kid revocation");
   console.log("    GET  /v2/list                             — list all (agent + kid)");
   console.log("  Shared:");
   console.log("    GET  /.well-known/dcp-revocations.json    — standard format");

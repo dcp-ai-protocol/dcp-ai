@@ -239,12 +239,14 @@ curl -X POST http://localhost:3003/v2/register-key-expiry \
 { "ok": true, "kid": "a1b2c3d4...", "expires_at": "2026-04-01T00:00:00Z" }
 ```
 
-### `GET /v2/check/kid/:kid`
+### `GET /v2/check/kid/:kid[?agent_id=<id>]`
 
 Check if a specific key identifier is revoked (explicit revocation, emergency revocation, or expiry).
+The service does not know which agent owns an arbitrary kid, so an emergency revocation is only
+reported when the caller passes the owning `agent_id` (or checks `GET /check/:agent_id`).
 
 ```bash
-curl http://localhost:3003/v2/check/kid/a1b2c3d4e5f6
+curl "http://localhost:3003/v2/check/kid/a1b2c3d4e5f6?agent_id=agent-001"
 ```
 
 **Revoked key:**
