@@ -59,12 +59,12 @@ runs:
           exit 0
         fi
 
-        VERIFY_CMD="node -e \"
+        VERIFY_CMD="node --input-type=module -e \"
           import { verifySignedBundle } from '${REPO_ROOT}/lib/verify.js';
           import fs from 'fs';
           const sb = JSON.parse(fs.readFileSync('${BUNDLE_PATH}', 'utf8'));
           const pk = '${PK_PATH}' ? fs.readFileSync('${PK_PATH}', 'utf8').trim() : undefined;
-          const result = verifySignedBundle(sb, pk);
+          const result = await verifySignedBundle(sb, pk);
           console.log(JSON.stringify(result));
         \""
 

@@ -31,7 +31,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import Ajv from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
-import { verifySignedBundle } from "../lib/verify.js";
+import { verifySignedBundle, isV2Bundle } from "../lib/verify.js";
 
 const PORT = Number(process.env.PORT) || 3000;
 
@@ -322,125 +322,6 @@ function validateSessionNonce(nonce) {
   return typeof nonce === "string" && /^[0-9a-f]{64}$/.test(nonce);
 }
 
-function verifyV2BundleStructure(signedBundle) {
-  const errors = [];
-  const warnings = [];
-  const bundle = signedBundle.bundle;
-  const signature = signedBundle.signature;
-
-  if (!bundle) { errors.push("Missing bundle field"); return { errors, warnings }; }
-  if (!signature) { errors.push("Missing signature field"); return { errors, warnings }; }
-
-  if (bundle.dcp_bundle_version !== "2.0") {
-    errors.push("Invalid dcp_bundle_version");
-  }
-
-  // Manifest check
-  if (!bundle.manifest) {
-    errors.push("Missing manifest");
-  } else {
-    if (!validateSessionNonce(bundle.manifest.session_nonce)) {
-      errors.push("Invalid or missing session_nonce in manifest");
-    }
-    for (const field of ["rpr_hash", "passport_hash", "intent_hash", "policy_hash", "audit_merkle_root"]) {
-      if (!bundle.manifest[field]) {
-        errors.push(`Missing manifest.${field}`);
-      }
-    }
-    if (typeof bundle.manifest.audit_count !== "number") {
-      errors.push("Missing or invalid manifest.audit_count");
-    }
-  }
-
-  // Required artifacts
-  for (const field of ["responsible_principal_record", "agent_passport", "intent", "policy_decision"]) {
-    const artifact = bundle[field];
-    if (!artifact) {
-      errors.push(`Missing ${field}`);
-    } else if (!artifact.payload) {
-      errors.push(`Missing payload in ${field}`);
-    } else if (!artifact.composite_sig) {
-      errors.push(`Missing composite_sig in ${field}`);
-    }
-  }
-
-  // Audit entries
-  if (!Array.isArray(bundle.audit_entries)) {
-    errors.push("Missing or invalid audit_entries array");
-  }
-
-  // Session nonce consistency
-  if (bundle.manifest) {
-    const nonce = bundle.manifest.session_nonce;
-    const artifacts = [
-      bundle.agent_passport?.payload,
-      bundle.responsible_principal_record?.payload,
-      bundle.intent?.payload,
-      bundle.policy_decision?.payload,
-    ].filter(Boolean);
-
-    for (const art of artifacts) {
-      if (art.session_nonce && art.session_nonce !== nonce) {
-        errors.push(`Session nonce mismatch in artifact`);
-        break;
-      }
-    }
-
-    if (Array.isArray(bundle.audit_entries)) {
-      for (const entry of bundle.audit_entries) {
-        if (entry.session_nonce && entry.session_nonce !== nonce) {
-          errors.push("Session nonce mismatch in audit entry");
-          break;
-        }
-      }
-    }
-  }
-
-  // Composite signature check
-  if (signature.composite_sig) {
-    const cs = signature.composite_sig;
-    if (!cs.classical) {
-      errors.push("Missing classical signature in bundle composite_sig");
-    }
-    if (cs.binding === "pq_over_classical" && !cs.pq) {
-      errors.push("Binding is pq_over_classical but PQ signature is missing");
-    }
-    if (cs.binding === "classical_only") {
-      const mode = VERIFIER_POLICY.default_mode;
-      if (mode === "hybrid_required") {
-        errors.push("Verifier policy requires hybrid signatures, but bundle has classical_only");
-      } else if (mode === "pq_only") {
-        errors.push("pq_only mode requires PQ signature, but bundle has classical_only binding");
-      } else if (mode === "hybrid_preferred") {
-        warnings.push("Bundle uses classical_only (no PQ protection)");
-      }
-      if (VERIFIER_POLICY.warn_classical_only_deprecated) {
-        warnings.push("DEPRECATION: classical-only bundles are deprecated. Migrate to hybrid or pq_only.");
-      }
-    }
-
-    // Phase 3: check for advisory-rejected algorithms
-    const rejectedAlgs = VERIFIER_POLICY.advisory_rejected_algs || [];
-    if (rejectedAlgs.length > 0) {
-      if (cs.classical && rejectedAlgs.includes(cs.classical.alg)) {
-        errors.push(`Classical algorithm ${cs.classical.alg} rejected by active advisory`);
-      }
-      if (cs.pq && rejectedAlgs.includes(cs.pq.alg)) {
-        errors.push(`PQ algorithm ${cs.pq.alg} rejected by active advisory`);
-      }
-    }
-  } else {
-    errors.push("Missing composite_sig in signature");
-  }
-
-  // PQ checkpoints
-  if (bundle.manifest?.pq_checkpoints?.length > 0 && !Array.isArray(bundle.pq_checkpoints)) {
-    warnings.push("Manifest references PQ checkpoints but none found in bundle");
-  }
-
-  return { errors, warnings };
-}
-
 // ── Risk scoring for V2 intent declarations ──
 
 const ACTION_RISK = {
@@ -556,8 +437,9 @@ const server = http.createServer(async (req, res) => {
     const version = detectDcpVersion(signedBundle);
 
     if (version === "2.0") {
-      const { errors, warnings } = verifyV2BundleStructure(signedBundle);
-      const verified = errors.length === 0;
+      const { verified, errors, warnings = [] } = await verifySignedBundle(
+        signedBundle, body.public_key_b64, undefined, { policy: VERIFIER_POLICY },
+      );
 
       let resolvedTier = null;
       const intentPayload = signedBundle.bundle?.intent?.payload;
@@ -588,7 +470,7 @@ const server = http.createServer(async (req, res) => {
       }, "1.0");
     }
 
-    const result = verifySignedBundle(signedBundle, publicKeyB64);
+    const result = await verifySignedBundle(signedBundle, publicKeyB64);
     send(res, 200, {
       verified: result.verified,
       dcp_version: "1.0",
@@ -782,7 +664,15 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
-    const { errors, warnings } = verifyV2BundleStructure(signedBundle);
+    if (!isV2Bundle(signedBundle)) {
+      return send(res, 400, { verified: false, errors: ["Not a V2 signed bundle (use POST /verify for V1)"] });
+    }
+
+    // Verification enforces the advertised VERIFIER_POLICY (mode, accepted and
+    // advisory-rejected algorithms).
+    const { errors, warnings = [] } = await verifySignedBundle(
+      signedBundle, body.public_key_b64, undefined, { policy: VERIFIER_POLICY },
+    );
 
     // Compute resolved tier from intent inside the bundle
     let resolvedTier = null;

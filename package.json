@@ -19,12 +19,13 @@
     "server": "node server/index.js"
   },
   "dependencies": {
+    "@dcp-ai/sdk": "^2.1.1",
+    "@noble/post-quantum": "^0.5.4",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
-    "tweetnacl": "^1.0.3",
-    "tweetnacl-util": "^0.15.1",
     "json-stable-stringify": "^1.1.1",
-    "@noble/post-quantum": "^0.5.4",
-    "secrets.js-grempe": "^2.0.0"
+    "secrets.js-grempe": "^2.0.0",
+    "tweetnacl": "^1.0.3",
+    "tweetnacl-util": "^0.15.1"
   }
 }

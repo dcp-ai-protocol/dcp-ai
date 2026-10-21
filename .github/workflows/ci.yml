@@ -99,23 +99,10 @@ jobs:
           fi
 
       - name: Verify V2 signed bundle
-        run: |
-          if [ -f tests/conformance/examples/signed_bundle_v2.json ]; then
-            echo "V2 signed bundle exists — structural check passed"
-            node -e "
-              const fs = require('fs');
-              const b = JSON.parse(fs.readFileSync('tests/conformance/examples/signed_bundle_v2.json','utf8'));
-              console.log('  dcp_version:', b.dcp_version);
-              console.log('  has manifest:', !!b.bundle_manifest);
-              console.log('  binding:', b.signature?.binding);
-              console.log('  session_nonce:', b.session_nonce ? 'present' : 'missing');
-              if (b.dcp_version !== '2.0') process.exit(1);
-              if (!b.bundle_manifest) process.exit(1);
-              if (!b.session_nonce) process.exit(1);
-            "
-          else
-            echo "Skipping V2 bundle verification (not yet generated)"
-          fi
+        run: node bin/dcp.js verify-bundle --policy hybrid_required tests/conformance/examples/signed_bundle_v2.json
+
+      - name: Server and service tests
+        run: node --test server/index.test.js services/revocation/index.test.js
 
       - name: Check protocol integrity
         run: node bin/dcp.js integrity
