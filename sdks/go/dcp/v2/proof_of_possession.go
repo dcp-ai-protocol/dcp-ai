@@ -2,9 +2,7 @@ package v2
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
-	"sort"
 )
 
 // PopChallenge represents a proof-of-possession challenge for key registration.
@@ -36,41 +34,9 @@ type KeyRotationKey struct {
 	Status       string  `json:"status"`
 }
 
-// canonicalJSON produces a sorted-key JSON encoding (simplified RFC 8785).
+// canonicalJSON produces the dcp-jcs-v1 encoding signed by PoP payloads.
 func canonicalJSON(v interface{}) ([]byte, error) {
-	data, err := json.Marshal(v)
-	if err != nil {
-		return nil, err
-	}
-	var m map[string]interface{}
-	if err := json.Unmarshal(data, &m); err != nil {
-		return nil, err
-	}
-	return marshalSorted(m)
-}
-
-func marshalSorted(m map[string]interface{}) ([]byte, error) {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	buf := []byte("{")
-	for i, k := range keys {
-		if i > 0 {
-			buf = append(buf, ',')
-		}
-		kb, _ := json.Marshal(k)
-		buf = append(buf, kb...)
-		buf = append(buf, ':')
-		vb, err := json.Marshal(m[k])
-		if err != nil {
-			return nil, err
-		}
-		buf = append(buf, vb...)
-	}
-	buf = append(buf, '}')
-	return buf, nil
+	return MarshalCanonical(v)
 }
 
 // GenerateRegistrationPoP creates a proof-of-possession for initial key registration.

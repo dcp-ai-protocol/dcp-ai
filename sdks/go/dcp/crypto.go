@@ -6,55 +6,22 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
-	"sort"
 	"time"
 
 	"github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp/observability"
+	v2 "github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp/v2"
 )
 
-// Canonicalize returns deterministic JSON (sorted keys, compact).
+// Canonicalize returns deterministic JSON (sorted keys, compact). It shares
+// the V2 encoder, minus the integer-only rule, so strings are not
+// HTML-escaped and match the other SDKs byte for byte.
 func Canonicalize(obj interface{}) (string, error) {
-	// Marshal to JSON, then re-parse to sort keys
-	data, err := json.Marshal(obj)
+	out, err := v2.MarshalCanonical(obj)
 	if err != nil {
 		return "", err
 	}
-	var raw interface{}
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return "", err
-	}
-	sorted := sortJSON(raw)
-	result, err := json.Marshal(sorted)
-	if err != nil {
-		return "", err
-	}
-	return string(result), nil
-}
-
-// sortJSON recursively sorts map keys for deterministic JSON.
-func sortJSON(v interface{}) interface{} {
-	switch val := v.(type) {
-	case map[string]interface{}:
-		sorted := make(map[string]interface{})
-		keys := make([]string, 0, len(val))
-		for k := range val {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-		for _, k := range keys {
-			sorted[k] = sortJSON(val[k])
-		}
-		return sorted
-	case []interface{}:
-		for i, item := range val {
-			val[i] = sortJSON(item)
-		}
-		return val
-	default:
-		return v
-	}
+	return string(out), nil
 }
 
 // Keypair holds an Ed25519 keypair encoded in base64.
