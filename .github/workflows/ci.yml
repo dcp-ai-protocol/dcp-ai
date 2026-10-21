@@ -27,6 +27,7 @@ jobs:
       go: ${{ steps.filter.outputs.go }}
       rust: ${{ steps.filter.outputs.rust }}
       wasm: ${{ steps.filter.outputs.wasm }}
+      integrations: ${{ steps.filter.outputs.integrations }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -65,6 +66,10 @@ jobs:
               - 'sdks/rust/**'
               - 'schemas/**'
               - 'spec/**'
+              - '.github/workflows/ci.yml'
+            integrations:
+              - 'integrations/express/**'
+              - 'integrations/openclaw/**'
               - '.github/workflows/ci.yml'
 
   conformance:
@@ -147,6 +152,33 @@ jobs:
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
+  # The npm integrations pin their own lockfiles (and pull @dcp-ai/sdk from the
+  # registry), so dependency bumps there need their own test run.
+  integrations:
+    name: Integration (${{ matrix.integration }})
+    needs: changes
+    if: ${{ needs.changes.outputs.integrations == 'true' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        integration: [express, openclaw]
+    defaults:
+      run:
+        working-directory: integrations/${{ matrix.integration }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npx vitest run
+
   python-sdk:
     name: Python SDK
     needs: changes
@@ -191,7 +223,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version-file: sdks/go/go.mod
 
       - name: Build
         run: go build ./...
@@ -230,8 +262,14 @@ jobs:
       - name: Build
         run: cargo build
 
+      - name: Build (otlp feature)
+        run: cargo build --features otlp
+
       - name: Test with coverage
         run: cargo llvm-cov --lcov --output-path lcov.info
+
+      - name: Test (otlp feature)
+        run: cargo test --features otlp
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
