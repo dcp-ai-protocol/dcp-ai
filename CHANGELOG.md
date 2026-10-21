@@ -4,6 +4,42 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Security
+
+- The reference verifier (`lib/verify.js`), `dcp verify-bundle` and the verification server now
+  verify normative V2 bundles (`schemas/v2/signed_bundle.schema.json`) by delegating to
+  `verifySignedBundleV2` from `@dcp-ai/sdk`, after JSON Schema validation. Before, bundles produced
+  by any SDK were rejected as "Invalid signed bundle format", `dcp verify-bundle` printed
+  `V2 BUNDLE STRUCTURE VALID` (exit 0) for forged bundles, and the server only checked structure.
+  The pre-normative envelope (top-level `dcp_version` / `bundle_manifest`) is rejected. The server
+  verifies against its advertised `VERIFIER_POLICY` (mode, accepted and advisory-rejected
+  algorithms), and a public-key pin is refused in `pq_only` mode, which skips the classical signer.
+- `dcp sign-bundle --composite` emits a normative `SignedBundleV2`; the ML-DSA-65 kid used to be
+  derived from a hash of the secret key. `tools/bundle_sign.js --v2` was removed.
+- Revocation service: one emergency revocation no longer reports every kid of every agent as
+  revoked (`GET /v2/check/kid/:kid` now takes `?agent_id=`), and malformed percent-encoding returns
+  400 instead of crashing the process.
+
+### Changed (breaking)
+
+- `lib/verify.js` (the root package `main`): `verifySignedBundle` is now `async` and takes a
+  fourth `options` argument (`{ policy, mode }`); results always carry an `errors` array. The
+  `verify-bundle` composite GitHub Action, `bin/dcp.js`, `server/` and `tools/bundle_verify.js`
+  were updated. `tools/bundle_verify.js` no longer takes a PQ public key argument.
+
+### Fixed
+
+- Go SDK: canonicalization no longer escapes `<`, `>`, `&` or U+2028/U+2029 and emits `-0` as `0`
+  (`dcp-jcs-v1` Rules 3 and 4) in the V2, proof-of-possession and V1 paths.
+- TypeScript SDK: object keys are sorted by Unicode code point (Rule 1), not UTF-16 code units.
+- `tests/interop/v2/interop_vectors.json`: edge-case vectors for negative zero, HTML characters,
+  U+2028/U+2029, control-character escapes and astral-plane key ordering.
+- `tools/conformance.js`: the `edge_cases` entry no longer passes vacuously, the never-executed
+  domain-separation block was removed, and V2 signed bundles (valid, tampered, forged, PQ-stripped,
+  key-pinned, legacy) are checked against the reference verifier.
+
 ## [2.8.1] - 2026-04-26
 
 ### Wired the `canonicalization_profile` field across the four SDKs
