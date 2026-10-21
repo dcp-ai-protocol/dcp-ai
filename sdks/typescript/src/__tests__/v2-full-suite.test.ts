@@ -456,7 +456,7 @@ describe('Unit: MlDsa65Provider', () => {
   });
 });
 
-describe('Unit: SlhDsa192fProvider (backup PQ)', () => {
+describe('Unit: SlhDsa192fProvider (backup PQ)', { timeout: 120_000 }, () => {
   let slhDsa: SlhDsa192fProvider;
 
   beforeAll(() => {
@@ -486,7 +486,7 @@ describe('Unit: SlhDsa192fProvider (backup PQ)', () => {
     const sig = await slhDsa.sign(new TextEncoder().encode('correct'), kp.secretKeyB64);
     expect(await slhDsa.verify(new TextEncoder().encode('wrong'), sig, kp.publicKeyB64)).toBe(false);
   });
-}, { timeout: 120_000 });
+});
 
 // ── 1c. Kid Derivation ──
 
@@ -1499,7 +1499,7 @@ describe('NIST KAT: ML-DSA-65 Compliance (FIPS 204)', () => {
   });
 });
 
-describe('NIST KAT: SLH-DSA-192f Compliance (FIPS 205)', () => {
+describe('NIST KAT: SLH-DSA-192f Compliance (FIPS 205)', { timeout: 120_000 }, () => {
   let slhDsa: SlhDsa192fProvider;
 
   beforeAll(() => {
@@ -1526,7 +1526,7 @@ describe('NIST KAT: SLH-DSA-192f Compliance (FIPS 205)', () => {
     const pkBytes = new Uint8Array(Buffer.from(kp.publicKeyB64, 'base64'));
     expect(deriveKid('slh-dsa-192f', pkBytes)).toBe(kp.kid);
   });
-}, { timeout: 120_000 });
+});
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 4. KEY RECOVERY ROUND-TRIP (Shamir SSS)
