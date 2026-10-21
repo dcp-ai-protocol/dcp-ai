@@ -31,16 +31,17 @@ zeroize = { version = "1.8", features = ["derive"] }
 getrandom = { version = "0.2", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 
-# Optional OTLP bridge (feature = "otlp")
-opentelemetry = { version = "0.24", optional = true }
-opentelemetry_sdk = { version = "0.24", features = ["rt-tokio"], optional = true }
-opentelemetry-otlp = { version = "0.17", features = ["http-proto", "reqwest-client", "metrics"], optional = true }
-tokio = { version = "1", features = ["rt-multi-thread"], optional = true }
+# Optional OTLP bridge (feature = "otlp"). The SDK's batch span processor and
+# periodic metric reader run on their own threads and export through the
+# blocking reqwest client, so no async runtime is needed.
+opentelemetry = { version = "0.32", optional = true }
+opentelemetry_sdk = { version = "0.32.1", optional = true }
+opentelemetry-otlp = { version = "0.32", default-features = false, features = ["http-proto", "reqwest-blocking-client", "trace", "metrics"], optional = true }
 
 [features]
 default = []
 wasm = ["wasm-bindgen", "getrandom/js"]
-otlp = ["opentelemetry", "opentelemetry_sdk", "opentelemetry-otlp", "tokio"]
+otlp = ["opentelemetry", "opentelemetry_sdk", "opentelemetry-otlp"]
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
