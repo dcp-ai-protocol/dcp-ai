@@ -66,7 +66,7 @@ def test_blind_rpr_requires_pii_salt():
         blind_rpr(_rpr().model_copy(update={"pii_salt": None}))
 
 
-@pytest.mark.parametrize("salt", ["", "ab", "A" * 64, "g" * 64, "a" * 66])
+@pytest.mark.parametrize("salt", ["", "ab", "A" * 64, "g" * 64, "a" * 66, "a" * 64 + "\n"])
 def test_blind_rpr_rejects_malformed_pii_salt(salt):
     with pytest.raises(ValueError, match=r"generate_pii_salt\(\)"):
         blind_rpr(_rpr().model_copy(update={"pii_salt": salt}))

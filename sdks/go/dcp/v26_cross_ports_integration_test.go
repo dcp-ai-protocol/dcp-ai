@@ -101,7 +101,7 @@ func TestGeneratePIISalt(t *testing.T) {
 }
 
 func TestBlindRPRRequiresPIISalt(t *testing.T) {
-	for _, salt := range []interface{}{nil, "", "ab", strings.Repeat("A", 64), strings.Repeat("g", 64), strings.Repeat("a", 66), 42} {
+	for _, salt := range []interface{}{nil, "", "ab", strings.Repeat("A", 64), strings.Repeat("g", 64), strings.Repeat("a", 66), strings.Repeat("a", 64) + "\n", 42} {
 		full := sampleRPR()
 		full["pii_salt"] = salt
 		if _, err := v2.BlindRPR(full); err == nil || !strings.Contains(err.Error(), "GeneratePIISalt()") {
