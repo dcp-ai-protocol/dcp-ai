@@ -307,6 +307,14 @@ class TestSignatures:
         assert_error(await verify_signed_bundle_v2(signed, registry), f"{name}:")
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(("slot", "key", "message"), [("classical", 1, "is ml-dsa-65, not ed25519"), ("pq", 0, "is ed25519, not ml-dsa-65")])
+    async def test_signer_key_alg_must_match_its_slot(self, registry, signed, agent_keys, slot, key, message):
+        """V2-6: a slot that names, by kid, a key of another algorithm is rejected in every mode."""
+        signed["bundle"]["intent"]["composite_sig"][slot]["kid"] = agent_keys[key].kid
+        for policy in (None, PQ_ONLY_VERIFIER_POLICY):
+            assert_error(await verify_signed_bundle_v2(signed, registry, policy), message)
+
+    @pytest.mark.asyncio
     async def test_absent_artifact_pq_sig_only_tolerated_by_hybrid_preferred(self, registry, signed_medium, agent_keys):
         intent = signed_medium["bundle"]["intent"]
         canonical_bytes, _ = prepare_payload(intent["payload"])
