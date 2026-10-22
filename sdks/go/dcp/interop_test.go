@@ -639,10 +639,12 @@ func TestCanonicalizationEdgeCases(t *testing.T) {
 	}
 }
 
-// TestSignedBundleVectors runs v2.VerifySignedBundleV2 over the shared
-// bundle_vectors.json: the signed bundle must verify, and each must_reject
-// case's mutations (VERIFICATION.md V2-7 / V2-8) must make it fail with an
-// error naming error_contains.
+// TestSignedBundleVectors runs v2.VerifySignedBundleV2WithPolicy over the shared
+// bundle_vectors.json under every verification mode: the signed bundle must
+// verify, each must_reject case's mutations (VERIFICATION.md V2-7 / V2-8) and
+// each must_reject_bundles entry must be rejected with an error naming
+// error_contains, and the classical-only routine control must get its
+// expected verdict.
 func TestSignedBundleVectors(t *testing.T) {
 	_, thisFile, _, _ := runtime.Caller(0)
 	vecPath := filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "tests", "interop", "v2", "bundle_vectors.json")
@@ -660,40 +662,89 @@ func TestSignedBundleVectors(t *testing.T) {
 				Value interface{} `json:"value"`
 			} `json:"mutations"`
 		} `json:"must_reject"`
+		MustRejectBundles []struct {
+			Name          string          `json:"name"`
+			ErrorContains string          `json:"error_contains"`
+			SignedBundle  json.RawMessage `json:"signed_bundle"`
+		} `json:"must_reject_bundles"`
+		Control struct {
+			SignedBundle   json.RawMessage `json:"signed_bundle"`
+			VerifiedByMode map[string]bool `json:"verified_by_mode"`
+		} `json:"classical_only_routine_bundle"`
 	}
 	if err := json.Unmarshal(data, &vecs); err != nil {
 		t.Fatalf("parse bundle vectors: %v", err)
 	}
 	reg := newRegistry()
-
-	if r := v2.VerifySignedBundleV2(reg, vecs.SignedBundle); !r.Verified {
-		t.Fatalf("signed_bundle must verify: %v", r.Errors)
+	rejects := func(t *testing.T, r *v2.V2VerificationResult, errorContains string) {
+		t.Helper()
+		if r.Verified {
+			t.Fatal("bundle must be rejected")
+		}
+		if !strings.Contains(strings.ToLower(strings.Join(r.Errors, "\n")), errorContains) {
+			t.Fatalf("no error mentions %q: %v", errorContains, r.Errors)
+		}
 	}
-	for _, m := range vecs.MustReject {
-		t.Run(m.Name, func(t *testing.T) {
-			var sb map[string]interface{}
-			if err := json.Unmarshal(vecs.SignedBundle, &sb); err != nil {
-				t.Fatal(err)
+
+	for _, mode := range []string{"classical_only", "hybrid_preferred", "hybrid_required", "pq_only"} {
+		policy := v2.DefaultVerifierPolicy()
+		policy.DefaultMode = mode
+		policy.RiskOverrides = map[string]string{"low": mode, "medium": mode, "high": mode}
+		t.Run(mode, func(t *testing.T) {
+			if r := v2.VerifySignedBundleV2WithPolicy(reg, vecs.SignedBundle, policy); !r.Verified {
+				t.Fatalf("signed_bundle must verify: %v", r.Errors)
 			}
-			for _, mut := range m.Mutations {
-				node := sb
-				for _, key := range mut.Path[:len(mut.Path)-1] {
-					node = node[key].(map[string]interface{})
-				}
-				node[mut.Path[len(mut.Path)-1]] = mut.Value
+			for _, m := range vecs.MustReject {
+				t.Run(m.Name, func(t *testing.T) {
+					var sb map[string]interface{}
+					if err := json.Unmarshal(vecs.SignedBundle, &sb); err != nil {
+						t.Fatal(err)
+					}
+					for _, mut := range m.Mutations {
+						node := sb
+						for _, key := range mut.Path[:len(mut.Path)-1] {
+							node = node[key].(map[string]interface{})
+						}
+						node[mut.Path[len(mut.Path)-1]] = mut.Value
+					}
+					mutated, err := json.Marshal(sb)
+					if err != nil {
+						t.Fatal(err)
+					}
+					rejects(t, v2.VerifySignedBundleV2WithPolicy(reg, mutated, policy), m.ErrorContains)
+				})
 			}
-			mutated, err := json.Marshal(sb)
-			if err != nil {
-				t.Fatal(err)
+			for _, b := range vecs.MustRejectBundles {
+				t.Run(b.Name, func(t *testing.T) {
+					rejects(t, v2.VerifySignedBundleV2WithPolicy(reg, b.SignedBundle, policy), b.ErrorContains)
+				})
 			}
-			r := v2.VerifySignedBundleV2(reg, mutated)
-			if r.Verified {
-				t.Fatal("mutated bundle must be rejected")
-			}
-			if !strings.Contains(strings.ToLower(strings.Join(r.Errors, "\n")), m.ErrorContains) {
-				t.Fatalf("no error mentions %q: %v", m.ErrorContains, r.Errors)
+			r := v2.VerifySignedBundleV2WithPolicy(reg, vecs.Control.SignedBundle, policy)
+			if r.Verified != vecs.Control.VerifiedByMode[mode] {
+				t.Errorf("classical_only_routine_bundle: verified=%v, want %v (errors %v)", r.Verified, vecs.Control.VerifiedByMode[mode], r.Errors)
 			}
 		})
+	}
+
+	// DefaultVerifierPolicy maps the low-risk passport to classical_only; the
+	// result reports the tier and the mode the tier raised it to.
+	if r := v2.VerifySignedBundleV2(reg, vecs.Control.SignedBundle); !r.Verified || r.ResolvedTier != "routine" || r.VerificationMode != "classical_only" {
+		t.Errorf("control: verified=%v tier=%s mode=%s", r.Verified, r.ResolvedTier, r.VerificationMode)
+	}
+	if r := v2.VerifySignedBundleV2(reg, vecs.MustRejectBundles[0].SignedBundle); r.Verified || r.ResolvedTier != "elevated" || r.VerificationMode != "hybrid_required" {
+		t.Errorf("%s: verified=%v tier=%s mode=%s", vecs.MustRejectBundles[0].Name, r.Verified, r.ResolvedTier, r.VerificationMode)
+	}
+	unknown := v2.DefaultVerifierPolicy()
+	unknown.DefaultMode, unknown.RiskOverrides = "strict", nil
+	if r := v2.VerifySignedBundleV2WithPolicy(reg, vecs.SignedBundle, unknown); r.Verified {
+		t.Error("an unknown policy mode must fail closed")
+	}
+	// The verifier enforces only DefaultMode and RiskOverrides, so another
+	// setting must not pass silently.
+	tuned := v2.DefaultVerifierPolicy()
+	tuned.AcceptedClassicalAlgs = []string{"ed448"}
+	if r := v2.VerifySignedBundleV2WithPolicy(reg, vecs.SignedBundle, tuned); r.Verified {
+		t.Error("a policy field the verifier does not enforce must fail closed")
 	}
 }
 
