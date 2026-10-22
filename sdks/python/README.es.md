@@ -2,7 +2,7 @@
 
 # dcp-ai — SDK Python
 
-SDK oficial de Python para el Digital Citizenship Protocol (DCP v2.0). Modelos Pydantic v2, criptografía híbrida post-cuántica (firmas Ed25519 + ML-DSA-65 + SLH-DSA-192f y encapsulación de claves ML-KEM-768), firmas compuestas con enlace `pq_over_classical`, firma y verificación de bundles V1 y V2, observabilidad con OpenTelemetry, comportamiento DCP-04 a DCP-09 y un CLI con todas las funcionalidades.
+SDK oficial de Python para el Digital Citizenship Protocol (DCP v2.0). Modelos Pydantic v2, firmas híbridas post-cuánticas (Ed25519 + ML-DSA-65, además de SLH-DSA-192f), la primitiva KEM ML-KEM-768, firmas compuestas con enlace `pq_over_classical`, firma y verificación de bundles V1 y V2, observabilidad con OpenTelemetry, comportamiento DCP-04 a DCP-09 y un CLI con todas las funcionalidades.
 
 ## Instalación
 
@@ -26,7 +26,7 @@ pip install "dcp-ai[otlp]"       # OpenTelemetry OTLP exporter
 |---|---|
 | Providers Ed25519 / ML-DSA-65 (FIPS 204) | Sí |
 | Provider SLH-DSA-192f | Sí, FIPS 205 (puro, contexto vacío), interoperable con los otros SDKs |
-| Provider ML-KEM-768 | Sí, FIPS 203 |
+| ML-KEM-768 | Primitiva KEM: sí (`MlKem768Provider`, FIPS 203). Intercambio de claves híbrido X25519 + ML-KEM-768 de DCP-04: todavía no |
 | Firmas compuestas (`pq_over_classical`) + verificación | Sí |
 | JSON canónico v2 + separación de dominio | Sí |
 | Hash dual (SHA-256 + SHA3-256) + raíces de Merkle | Sí |

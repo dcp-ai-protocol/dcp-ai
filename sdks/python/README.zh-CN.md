@@ -2,7 +2,7 @@
 
 # dcp-ai — Python SDK
 
-数字公民身份协议 (DCP v2.0) 的官方 Python SDK。Pydantic v2 模型、混合后量子密码学 (Ed25519 + ML-DSA-65 + SLH-DSA-192f 签名与 ML-KEM-768 密钥封装)、带 `pq_over_classical` 绑定的复合签名、V1 与 V2 凭证包签名与验证、OpenTelemetry 可观测性、DCP-04 至 DCP-09 行为，以及功能齐全的 CLI。
+数字公民身份协议 (DCP v2.0) 的官方 Python SDK。Pydantic v2 模型、混合后量子签名 (Ed25519 + ML-DSA-65，另有 SLH-DSA-192f)、ML-KEM-768 KEM 原语、带 `pq_over_classical` 绑定的复合签名、V1 与 V2 凭证包签名与验证、OpenTelemetry 可观测性、DCP-04 至 DCP-09 行为，以及功能齐全的 CLI。
 
 ## 安装
 
@@ -26,7 +26,7 @@ pip install "dcp-ai[otlp]"       # OpenTelemetry OTLP exporter
 |---|---|
 | Ed25519 / ML-DSA-65 (FIPS 204) provider | 是 |
 | SLH-DSA-192f provider | 是，FIPS 205（纯模式、空上下文），可与其他 SDK 互操作 |
-| ML-KEM-768 provider | 是，FIPS 203 |
+| ML-KEM-768 | KEM 原语：是（`MlKem768Provider`，FIPS 203）。DCP-04 的 X25519 + ML-KEM-768 混合密钥交换：暂不支持 |
 | 复合签名 (`pq_over_classical`) + 验证 | 是 |
 | 规范 JSON v2 + 域分离 | 是 |
 | 双哈希 (SHA-256 + SHA3-256) + Merkle 根 | 是 |

@@ -170,6 +170,21 @@ async def _check_composite_sig(
     return result.valid, errors, warnings
 
 
+def _resolve_policy(policy: Any) -> dict[str, Any]:
+    """Complete a caller's policy with DEFAULT_VERIFIER_POLICY.
+
+    default_mode and risk_overrides go together: a policy that sets default_mode
+    without overrides (or with None) gets none, so the default policy's
+    low -> classical_only override cannot weaken the caller's default_mode.
+    """
+    if policy is None:
+        return dict(DEFAULT_VERIFIER_POLICY)
+    policy = dict(policy.model_dump() if hasattr(policy, "model_dump") else policy)
+    if policy.get("risk_overrides") is None and "default_mode" in policy:
+        policy["risk_overrides"] = {}
+    return {**DEFAULT_VERIFIER_POLICY, **policy}
+
+
 async def verify_signed_bundle_v2(
     signed_bundle: dict[str, Any],
     registry: AlgorithmRegistry,
@@ -177,16 +192,14 @@ async def verify_signed_bundle_v2(
 ) -> dict[str, Any]:
     """Full V2 signed bundle verification.
 
-    `policy` is a dict (or a VerifierPolicy model) merged over
-    DEFAULT_VERIFIER_POLICY. Returns {"verified", "errors", "warnings", "details"}.
-    A structurally malformed bundle fails verification instead of raising.
+    `policy` is a dict or a VerifierPolicy model; fields it leaves out come from
+    DEFAULT_VERIFIER_POLICY (see _resolve_policy). Returns {"verified", "errors",
+    "warnings", "details"}. A structurally malformed bundle fails verification
+    instead of raising.
     """
-    if hasattr(policy, "model_dump"):
-        policy = policy.model_dump(exclude_none=True)
-    merged = {**DEFAULT_VERIFIER_POLICY, **(policy or {})}
     result: dict[str, Any] = {"verified": False, "errors": [], "warnings": [], "details": {}}
     try:
-        await _verify(signed_bundle, registry, merged, result)
+        await _verify(signed_bundle, registry, _resolve_policy(policy), result)
     except (KeyError, TypeError, AttributeError, ValueError, IndexError) as exc:
         result["errors"].append(f"Malformed signed bundle: {exc!r}")
     result["verified"] = not result["errors"]
@@ -245,8 +258,9 @@ async def _verify(
     max_duration = policy.get("max_session_duration_seconds") or 0
     if max_duration > 0 and expires_at:
         # signature.created_at sits outside the signed manifest. Clamping it to now
-        # keeps honest bundles' verdict (same as TS) while a forged future value can
-        # shrink the check to the session's remaining lifetime at most.
+        # keeps honest bundles' verdict (same as TS), but a rewritten value can still
+        # shrink the check down to the session's remaining lifetime (not to zero).
+        # Closing that needs a signed session start in the manifest.
         now = datetime.now(timezone.utc)
         created_at = signature.get("created_at")
         created = min(_parse_time(created_at), now) if created_at else now

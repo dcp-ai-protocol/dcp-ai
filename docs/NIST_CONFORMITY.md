@@ -12,7 +12,7 @@ This document describes how DCP-AI aligns with NIST post-quantum cryptographic s
 
 | NIST Standard | Algorithm | DCP-AI Usage | Shipped | Notes |
 |---------------|-----------|-------------|---------|-------|
-| FIPS 203 | ML-KEM-768 | Hybrid KEM for A2A sessions, envelope encryption | TypeScript, Rust, Go, WASM | Python provider not yet shipped (tracked). |
+| FIPS 203 | ML-KEM-768 | Hybrid KEM for A2A sessions, envelope encryption | All 5 SDKs | Python ships the KEM primitive only; its DCP-04 handshake does not run the X25519 hybrid yet. |
 | FIPS 204 | ML-DSA-65 | Post-quantum signatures in composite binding | All 5 SDKs | Primary PQ signature. |
 | FIPS 204 | ML-DSA-87 | High-assurance post-quantum signatures | HSM interface only (no native provider) | Reserved for hardware-backed Maximum tier. |
 | FIPS 205 | SLH-DSA-192f | Backup hash-based signature scheme | TypeScript, Python, Rust, Go | Active backup. |
@@ -379,7 +379,7 @@ Implementations MUST use cryptographic libraries that provide NIST-compliant alg
 | TypeScript (`@dcp-ai/sdk`) | `@noble/post-quantum` | ML-DSA-65, ML-KEM-768, SLH-DSA-192f |
 | TypeScript (`@dcp-ai/sdk`) | `@noble/curves` | Ed25519, X25519 |
 | TypeScript (`@dcp-ai/sdk`) | `@noble/hashes` | SHA-256, SHA3-256, HKDF |
-| Python (`dcp-ai`) | `pqcrypto` (PQClean) | ML-DSA-65, SLH-DSA-192f |
+| Python (`dcp-ai`) | `pqcrypto` ≥ 1.0 (Backbone Rust crates, not independently audited) | ML-DSA-65, ML-KEM-768, SLH-DSA-192f |
 | Python (`dcp-ai`) | `pynacl` (libsodium) | Ed25519 |
 | Go (`sdks/go/v2`) | `github.com/cloudflare/circl` | ML-DSA-65, ML-KEM-768, SLH-DSA-192f |
 | Go (`sdks/go/v2`) | `crypto/ed25519` (stdlib) | Ed25519 |
@@ -387,7 +387,7 @@ Implementations MUST use cryptographic libraries that provide NIST-compliant alg
 | Rust (`dcp-ai` crate) | `ed25519-dalek` | Ed25519 |
 | WASM (`@dcp-ai/wasm`) | Compiled from the Rust crate above | Same set as Rust |
 
-ML-KEM-768 is not yet exposed through the Python SDK's public provider surface; A2A sessions that require it currently use the TypeScript or Rust SDK. This is a scoping gap, not a design limitation — the same `pqcrypto` dependency can back it when the Python provider is added.
+The Python SDK exposes ML-KEM-768 as a KEM primitive (`MlKem768Provider`), but its DCP-04 handshake does not run the X25519 + ML-KEM-768 hybrid exchange yet: both parties pass the derived session key to `create_session`. A2A sessions that need the hybrid exchange currently use the TypeScript SDK (`HybridKemProvider`).
 
 ### Library Audit Requirements
 
