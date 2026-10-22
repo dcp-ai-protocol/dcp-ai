@@ -89,6 +89,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   (`security_tier ?? computeSecurityTier(intent)`), so a declared tier could lower the computed one,
   and passed no policy decision. The explicit tier now only raises the tier. The policy decision is
   passed too, so `risk_score` counts once `@dcp-ai/sdk` reads it (the release after 2.1.2).
+- Denial of service in the reference services, whose state lives in memory and does not survive a
+  restart:
+  - Verification server: registrations are rate limited per client (`REGISTRATIONS_PER_HOUR`,
+    default 20 per hour), rotation keeps only an agent's 4 most recent retired keys, and only
+    `created_at` is stored from a registered passport. One agent rotating over and over, or a
+    flood of registrations, filled the 10,000-key registry (507 until a restart), and every
+    stored signed passport could take up to 1 MB. The key-family check on re-registration no
+    longer rescans the registry quadratically.
+  - Transparency log: `POST /gossip/exchange` only accepts a well-formed tree head signed by a
+    pinned peer, in a body of at most 16 KB, and keeps the last 100 alerts. Polled tree heads must
+    verify under the peer's pinned key (`GOSSIP_PEERS=<url>#<key>`). Before, anyone could fill
+    the alerts list with 1 MB strings, and no peer tree head was ever verified.
+  - Revocation service: `POST /v2/register` is rate limited per client and capped at
+    `MAX_AGENTS` (default 10,000), and stored fields are bounded, so a flood of registrations or
+    oversized records can no longer run it out of memory and wipe every revocation.
 
 ### Changed (breaking)
 

@@ -101,15 +101,43 @@ See each SDK's README for the exact import path and API surface. Coverage of the
 ### Stateless by design
 
 - **No database required** for verification: each request is self-contained.
-- **Optional persistence** is only needed for: operator-run anchor service (to queue batches), transparency log (to accumulate the Merkle tree), revocation registry (to serve active revocations).
+- **Persistence** is needed for everything else: the gateway's passport and key registries, the anchor queue, the transparency log and the revocation registry.
+
+### Reference services keep state in memory only
+
+The reference gateway (`server/`) and services (`services/`) have no persistent store. **A restart, a deploy or a crash wipes their state**, including a crash from running out of memory. That state is:
+
+- registered passports, keys and emergency tokens;
+- revocations;
+- the transparency log;
+- pending anchors.
+
+After a wipe, revoked agents look valid again, and the first registration of any `agent_id` is trust on first use again. Add persistent storage before relying on these services in production.
+
+To keep memory bounded, they refuse work instead of evicting state:
+
+| Service | Limit | Setting |
+|---------|-------|---------|
+| Gateway | 20 passport registrations per client per hour (429) | `REGISTRATIONS_PER_HOUR` |
+| Gateway | 10,000 registered keys; new agents and rotations then get 507 | — |
+| Gateway | 4 rotated-out keys kept per agent; older ones are dropped | — |
+| Gateway | 100 POST requests per client per minute, 5 emergency revocations per minute | — |
+| Revocation | 20 registrations per client per hour (429) | `REGISTRATIONS_PER_HOUR` |
+| Revocation | 10,000 registered agents; new ones then get 507 | `MAX_AGENTS` |
+| Revocation | Text fields of at most 256 characters; 5 emergency revocations per client per minute | — |
+| Transparency log | Gossip exchanges need a tree head signed by a pinned peer (`GOSSIP_PEERS=<url>#<key>`); 16 KB bodies; the last 100 alerts | `GOSSIP_PEERS` |
+| All | 1 MB request bodies | — |
+
+The limits count per client IP. Behind a proxy that appends the client IP to `X-Forwarded-For`, set `TRUST_PROXY=true`; otherwise every client shares the proxy's address.
 
 ### Environment variables (verification service)
 
 - `PORT` — HTTP port (default `3000`)
-- `DCP_VERSION` — `2.0`
-- `VERIFIER_MODE` — `classical_only` | `hybrid_preferred` | `hybrid_required`
-- `REQUIRE_SESSION_BINDING`, `REQUIRE_COMPOSITE_BINDING` — `true`/`false`
-- `MAX_KEY_AGE_DAYS`, `ALLOW_V1_BUNDLES`, `PQ_CHECKPOINT_INTERVAL` — tuning knobs
+- `OPERATOR_TOKEN` — bearer token for the admin endpoints (policy, advisories, governance); unset keeps them locked
+- `VERIFIER_MODE` — `classical_only` | `hybrid_preferred` | `hybrid_required` | `pq_only`
+- `ALLOW_V1_BUNDLES` — `false` rejects V1 bundles
+- `TRUST_PROXY`, `REGISTRATIONS_PER_HOUR` — see above
+- `REQUIRE_SESSION_BINDING`, `REQUIRE_COMPOSITE_BINDING`, `MAX_KEY_AGE_DAYS` and `PQ_CHECKPOINT_INTERVAL` appear in the deploy configs but are not read yet
 
 For `anchor`, `transparency-log`, and `revocation` env variables see their respective README files under [`services/`](../services/) or the per-service `fly.toml` in [`deploy/fly/`](../deploy/fly/).
 
