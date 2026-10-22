@@ -102,8 +102,8 @@ Human → Create agent (capabilities, security_tier)
      → Optional: anchor bundle_hash
 
 Agent → On each action:
-      → Build IntentV2 (with risk_score, data_classes, security_tier)
-      → Evaluate PolicyDecisionV2 (with resolved_tier)
+      → Build IntentV2 (with action_type, data_classes, estimated_impact, security_tier)
+      → Evaluate PolicyDecisionV2 (with risk_score, resolved_tier)
       → Build AuditEventV2 (dual hash chain: SHA-256 + SHA3-256)
       → Generate PQ checkpoint every N events (tier-dependent)
       → Present signed bundle to verifier
@@ -146,14 +146,16 @@ Key ID derivation: `kid = hex(SHA-256(UTF8(alg) || 0x00 || raw_public_key))[0:32
 
 ### V2 Security Tier Selection
 
-The security tier is computed automatically from the intent's risk profile:
+The security tier is computed automatically from the policy decision's `risk_score` and the intent's `data_classes`, `action_type` and `estimated_impact` (spec §14.2):
 
 | Condition | Tier |
 |-----------|------|
 | risk_score >= 800 OR data_classes includes credentials/children_data | Maximum |
-| risk_score >= 500 OR data_classes includes pii/financial/health OR payment action | Elevated |
-| risk_score >= 200 | Standard |
+| risk_score >= 500 OR data_classes includes pii/financial_data/health_data OR initiate_payment OR estimated_impact high OR an unknown or missing value | Elevated |
+| risk_score >= 200 OR estimated_impact medium | Standard |
 | Default | Routine |
+
+An explicit `security_tier` on the intent can only raise the tier.
 
 The tier determines: verification mode, PQ checkpoint frequency, and bundle presentation format.
 
@@ -163,8 +165,8 @@ The tier determines: verification mode, PQ checkpoint frequency, and bundle pres
 2. Build RPR with `keys[]` array (KeyEntry format), sign with composite signature
 3. Compute `revocation_token = SHA-256(random_secret)`, configure Shamir SSS recovery
 4. Build AgentPassport with `keys[]`, `owner_rpr_hash`, capabilities
-5. Build IntentV2 with `risk_score`, `data_classes`, compute `security_tier`
-6. Build PolicyDecisionV2 with `resolved_tier`
+5. Build IntentV2 with `action_type`, `data_classes`, `estimated_impact`, compute `security_tier`
+6. Build PolicyDecisionV2 with `risk_score` and `resolved_tier`
 7. Build AuditEventV2 entries with dual hash chain (SHA-256 + SHA3-256)
 8. Generate PQ checkpoints per tier interval
 9. Build CitizenshipBundleV2 with `session_nonce` and manifest (all artifact hashes)

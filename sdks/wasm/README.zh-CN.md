@@ -54,8 +54,8 @@ const sign = (context: string, payload: object) =>
 const bundle = dcp.buildBundle({
   rpr: sign('DCP-AI.v2.ResponsiblePrincipal', { dcp_version: '2.0', human_id: 'alice', binding_keys: keyEntries /* ... */ }),
   passport: sign('DCP-AI.v2.AgentPassport', { dcp_version: '2.0', agent_id: 'agent-001', keys: keyEntries /* ... */ }),
-  intent: sign('DCP-AI.v2.Intent', { dcp_version: '2.0', intent_id: 'intent-001' /* ... */ }),
-  policy: sign('DCP-AI.v2.PolicyDecision', { dcp_version: '2.0', intent_id: 'intent-001', decision: 'approve' /* ... */ }),
+  intent: sign('DCP-AI.v2.Intent', { dcp_version: '2.0', intent_id: 'intent-001', action_type: 'browse', data_classes: ['none'], estimated_impact: 'low' /* ... */ }),
+  policy: sign('DCP-AI.v2.PolicyDecision', { dcp_version: '2.0', intent_id: 'intent-001', decision: 'approve', risk_score: 100 /* ... */ }),
   auditEntries: [],
   sessionNonce,
 });
@@ -137,7 +137,7 @@ console.log(result.pq_valid);       // true
 |--------|---------|-------------|
 | `generateSessionNonce()` | `string` | 256 位随机随机数（64 个十六进制字符） |
 | `verifySessionBinding(artifacts)` | `SessionBindingResult` | 验证工件间的随机数一致性 |
-| `computeSecurityTier(intent)` | `SecurityTierResult` | 计算自适应安全等级 (routine/standard/elevated/maximum) |
+| `computeSecurityTier(intent, policyDecision?)` | `SecurityTierResult` | 计算自适应安全等级 (routine/standard/elevated/maximum)；`risk_score` 取自策略决策 |
 
 ### 负载准备
 
@@ -208,14 +208,14 @@ const keys = JSON.parse(wasm_generate_hybrid_keypair());
 
 ## 安全等级
 
-SDK 根据意图风险特征计算自适应安全等级：
+`computeSecurityTier(intent, policyDecision?)` 计算自适应安全等级（spec §14.2）。`risk_score` 取自策略决策（没有则为 0）；未知或缺失的 `action_type`、`estimated_impact` 或 `data_classes` 值按 `elevated` 处理，`intent.security_tier` 只能提高结果。取匹配的最高等级。
 
-| 等级 | 风险分数 | 验证模式 | 检查点间隔 |
-|------|-----------|-------------------|-------------------|
-| `routine` | < 200 | `classical_only` | 50 |
-| `standard` | 200–499 | `hybrid_preferred` | 10 |
-| `elevated` | 500–799 或 PII/金融数据 | `hybrid_required` | 1 |
-| `maximum` | ≥ 800 或凭据/生物特征 | `hybrid_required` | 1 |
+| 等级 | 条件（任一） | 验证模式 | 检查点间隔 |
+|------|---------------|-------------------|---------------------|
+| `routine` | 不满足以下任何条件 | `classical_only` | 50 |
+| `standard` | `risk_score` 200–499, `estimated_impact: medium` | `hybrid_preferred` | 10 |
+| `elevated` | `risk_score` 500–799, `pii` / `financial_data` / `health_data`, `initiate_payment`, `estimated_impact: high`, 未知值 | `hybrid_required` | 1 |
+| `maximum` | `risk_score` ≥ 800, `credentials` / `children_data` | `hybrid_required` | 1 |
 
 ## 支持的算法
 

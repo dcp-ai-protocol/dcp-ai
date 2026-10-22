@@ -37,7 +37,7 @@ pip install "dcp-ai[otlp]"       # OpenTelemetry OTLP exporter
 | Resolución de disputas + arbitraje + jurisprudencia DCP-07 | Sí |
 | Derechos + obligaciones + compliance DCP-08 | Sí |
 | Delegación + umbral de conciencia + espejo del principal DCP-09 | Sí |
-| Helpers de nonce de sesión, motor de nivel de seguridad, revocación de emergencia | Sí |
+| Helpers de nonce de sesión, motor de nivel de seguridad (`compute_security_tier(intent, policy_decision)`, spec §14.2), revocación de emergencia | Sí |
 | Checkpoints PQ perezosos + `PQCheckpointManager` | Sí |
 | RPR blinded, autorización multi-parte, helpers de aviso de algoritmo | Sí |
 | Códigos de error canónicos (38 compartidos entre todos los SDKs) + `detect_wire_format` | Sí |

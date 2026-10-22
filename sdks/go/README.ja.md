@@ -120,13 +120,17 @@ func main() {
 
 ```go
 tier := v2.ComputeSecurityTier(v2.SecurityTierInput{
-    RiskScore:   600,
-    DataClasses: []string{"financial"},
-    ActionType:  "payment",
+    RiskScore:       600, // from the bundle's PolicyDecision, never the intent
+    DataClasses:     []string{"financial_data"},
+    ActionType:      "initiate_payment",
+    EstimatedImpact: "high",
 })
 fmt.Println(tier.Tier)               // "elevated"
 fmt.Println(tier.VerificationMode)   // "hybrid_required"
 fmt.Println(tier.CheckpointInterval) // 1
+
+// From decoded intent and PolicyDecision payloads (map[string]interface{}):
+tier = v2.ComputeSecurityTier(v2.SecurityTierInputFromPayloads(intentPayload, policyPayload))
 ```
 
 ### ML-KEM-768 鍵カプセル化
@@ -153,7 +157,8 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 
 | 関数 | 説明 |
 |----------|-------------|
-| `v2.ComputeSecurityTier(input)` | 適応型セキュリティティアを計算 (routine/standard/elevated/maximum) |
+| `v2.ComputeSecurityTier(input)` | 適応型セキュリティティア（routine/standard/elevated/maximum）と検証モード・チェックポイント間隔を計算（spec §14.2）。未知の値は `elevated` として扱う |
+| `v2.SecurityTierInputFromPayloads(intent, policyDecision)` | デコード済みの intent と PolicyDecision のペイロードからティア入力を作成（`risk_score` は PolicyDecision から取得） |
 
 ### 複合署名
 

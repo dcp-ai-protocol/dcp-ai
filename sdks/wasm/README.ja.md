@@ -54,8 +54,8 @@ const sign = (context: string, payload: object) =>
 const bundle = dcp.buildBundle({
   rpr: sign('DCP-AI.v2.ResponsiblePrincipal', { dcp_version: '2.0', human_id: 'alice', binding_keys: keyEntries /* ... */ }),
   passport: sign('DCP-AI.v2.AgentPassport', { dcp_version: '2.0', agent_id: 'agent-001', keys: keyEntries /* ... */ }),
-  intent: sign('DCP-AI.v2.Intent', { dcp_version: '2.0', intent_id: 'intent-001' /* ... */ }),
-  policy: sign('DCP-AI.v2.PolicyDecision', { dcp_version: '2.0', intent_id: 'intent-001', decision: 'approve' /* ... */ }),
+  intent: sign('DCP-AI.v2.Intent', { dcp_version: '2.0', intent_id: 'intent-001', action_type: 'browse', data_classes: ['none'], estimated_impact: 'low' /* ... */ }),
+  policy: sign('DCP-AI.v2.PolicyDecision', { dcp_version: '2.0', intent_id: 'intent-001', decision: 'approve', risk_score: 100 /* ... */ }),
   auditEntries: [],
   sessionNonce,
 });
@@ -137,7 +137,7 @@ WASMモジュールを初期化します。APIを使用する前に1回呼び出
 |--------|---------|-------------|
 | `generateSessionNonce()` | `string` | 256ビットのランダムノンス (64hex文字) |
 | `verifySessionBinding(artifacts)` | `SessionBindingResult` | 成果物間でのノンス整合性を検証 |
-| `computeSecurityTier(intent)` | `SecurityTierResult` | 適応型セキュリティティアを計算 (routine/standard/elevated/maximum) |
+| `computeSecurityTier(intent, policyDecision?)` | `SecurityTierResult` | 適応型セキュリティティアを計算 (routine/standard/elevated/maximum)。`risk_score` はポリシー決定から取得 |
 
 ### ペイロード準備
 
@@ -208,14 +208,14 @@ const keys = JSON.parse(wasm_generate_hybrid_keypair());
 
 ## セキュリティティア
 
-SDKは意図のリスクプロファイルに基づいて適応型セキュリティティアを計算します。
+`computeSecurityTier(intent, policyDecision?)` は適応型セキュリティティアを計算します（spec §14.2）。`risk_score` はポリシー決定から取得します（ない場合は 0）。未知または欠落した `action_type`、`estimated_impact`、`data_classes` の値は `elevated` として扱い、`intent.security_tier` は結果を引き上げることしかできません。該当する最も高いティアが適用されます。
 
-| ティア | リスクスコア | 検証モード | チェックポイント間隔 |
-|------|-----------|-------------------|-------------------|
-| `routine` | < 200 | `classical_only` | 50 |
-| `standard` | 200–499 | `hybrid_preferred` | 10 |
-| `elevated` | 500–799 または PII/金融データ | `hybrid_required` | 1 |
-| `maximum` | ≥ 800 または認証情報/生体情報 | `hybrid_required` | 1 |
+| ティア | 条件（いずれか） | 検証モード | チェックポイント間隔 |
+|------|---------------|-------------------|---------------------|
+| `routine` | 以下のいずれにも該当しない | `classical_only` | 50 |
+| `standard` | `risk_score` 200–499, `estimated_impact: medium` | `hybrid_preferred` | 10 |
+| `elevated` | `risk_score` 500–799, `pii` / `financial_data` / `health_data`, `initiate_payment`, `estimated_impact: high`, 未知の値 | `hybrid_required` | 1 |
+| `maximum` | `risk_score` ≥ 800, `credentials` / `children_data` | `hybrid_required` | 1 |
 
 ## サポートされるアルゴリズム
 

@@ -43,7 +43,7 @@ dcp-ai = { version = "2.9", features = ["wasm"] }
 | DCP-09 委托 + 感知阈值 + 主体镜像 | 是 |
 | DCP-04 A2A 发现 + 握手 + 会话 ID 派生 | 是 |
 | DCP-04 A2A AES-256-GCM 会话加密 | _延后至后续版本_ |
-| 会话随机数助手、安全等级引擎、紧急撤销 | 是 |
+| 会话随机数助手、安全等级引擎（`compute_security_tier(&intent, Some(&policy_decision))`，spec §14.2）、紧急撤销 | 是 |
 | 惰性 PQ 检查点 + `PQCheckpointManager` | 是 |
 | 盲化 RPR、多方授权、算法建议助手 | 是 |
 | 规范错误码（38 项，跨所有 SDK 共享）+ `detect_wire_format` | 是 |

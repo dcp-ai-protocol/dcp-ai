@@ -347,17 +347,18 @@ async function executeFunctionCallV2(call: OpenAI.ChatCompletionMessageToolCall)
     action_type: 'api_call',
     target: { channel: 'api', domain: call.function.name },
     data_classes: ['none'],
-    risk_score: 50,
+    estimated_impact: 'low',
   };
 
-  // V2: Automatic security tier computation
-  const tier = computeSecurityTier(intent); // → 'standard'
+  // V2: Automatic security tier computation (risk_score comes from the policy decision)
+  const riskScore = 50;
+  const tier = computeSecurityTier(intent, { risk_score: riskScore }); // → 'routine'
 
   const policy = {
     dcp_version: '2.0',
     intent_id: intentId,
     decision: 'approve' as const,
-    risk_score: intent.risk_score,
+    risk_score: riskScore,
     resolved_tier: tier,
     timestamp: new Date().toISOString(),
   };
@@ -430,12 +431,12 @@ if (auditLog.length > 0) {
 const sensitiveIntent = {
   dcp_version: '2.0',
   action_type: 'api_call',
-  data_classes: ['pii', 'financial'],  // sensitive data → elevated tier
-  risk_score: 600,                      // → tier = 'elevated'
+  data_classes: ['pii', 'financial_data'],  // sensitive data → elevated tier
+  estimated_impact: 'high',
   requires_consent: true,
 };
 
-const tier = computeSecurityTier(sensitiveIntent); // → 'elevated'
+const tier = computeSecurityTier(sensitiveIntent, { risk_score: 600 }); // → 'elevated'
 // With elevated tier: hybrid_required verification, every-event PQ checkpoints
 ```
 

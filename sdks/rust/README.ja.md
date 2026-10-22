@@ -43,7 +43,7 @@ dcp-ai = { version = "2.9", features = ["wasm"] }
 | DCP-09 委任 + 認識しきい値 + プリンシパルミラー | Yes |
 | DCP-04 A2A 発見 + ハンドシェイク + セッションID導出 | Yes |
 | DCP-04 A2A AES-256-GCM セッション暗号化 | _後続リリースに延期_ |
-| セッションノンスヘルパー、セキュリティティアエンジン、緊急失効 | Yes |
+| セッションノンスヘルパー、セキュリティティアエンジン（`compute_security_tier(&intent, Some(&policy_decision))`、spec §14.2）、緊急失効 | Yes |
 | 遅延PQチェックポイント + `PQCheckpointManager` | Yes |
 | ブラインドRPR、マルチパーティ認可、アルゴリズムアドバイザリヘルパー | Yes |
 | 正規エラーコード (全SDK共通の38種) + `detect_wire_format` | Yes |

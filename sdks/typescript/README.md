@@ -63,8 +63,8 @@ const keys = generateKeypair();
 const bundle = new BundleBuilderV2()
   .responsiblePrincipalRecord({ /* V2 RPR with keys[] */ })
   .agentPassport({ /* V2 passport with capabilities */ })
-  .intent({ /* V2 intent with risk_score and security_tier */ })
-  .policyDecision({ /* V2 policy with resolved_tier */ })
+  .intent({ /* V2 intent with security_tier */ })
+  .policyDecision({ /* V2 policy decision with risk_score and resolved_tier */ })
   .addAuditEntry({ /* V2 audit with dual-hash chain */ })
   .build();
 ```
@@ -105,7 +105,7 @@ const bundle = new BundleBuilderV2()
 
 | Function | Description |
 |----------|-------------|
-| `computeSecurityTier(intent)` | Computes a `SecurityTier` (routine, standard, elevated, maximum) from an intent's risk profile |
+| `computeSecurityTier(intent, policyDecision?)` | Computes a `SecurityTier` (routine, standard, elevated, maximum) from an intent and the policy decision's `risk_score` (spec §14.2); unknown values fail closed to `elevated` |
 | `maxTier(a, b)` | Returns the higher of two security tiers |
 | `tierToVerificationMode(tier)` | Maps a tier to the required verification mode |
 | `tierToCheckpointInterval(tier)` | Maps a tier to the PQ checkpoint interval |
@@ -258,7 +258,7 @@ Key types exported by the SDK:
 - `SignedPayload` — Wrapper for signed data with composite signature metadata
 - `CompositeSignature` — Contains classical + PQ signature components
 - `KeyEntry` — Public key entry with algorithm, kid, and key material
-- `SecurityTier` — `'basic' | 'elevated' | 'critical'`
+- `SecurityTier` — `'routine' | 'standard' | 'elevated' | 'maximum'`
 - `VerifierPolicy` — Policy specifying required verification mode per tier
 - `PQCheckpoint` — Post-quantum checkpoint over audit entries
 - `A2ASession` — Encrypted agent-to-agent session state

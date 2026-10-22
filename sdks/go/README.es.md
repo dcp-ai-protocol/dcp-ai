@@ -120,13 +120,17 @@ func main() {
 
 ```go
 tier := v2.ComputeSecurityTier(v2.SecurityTierInput{
-    RiskScore:   600,
-    DataClasses: []string{"financial"},
-    ActionType:  "payment",
+    RiskScore:       600, // from the bundle's PolicyDecision, never the intent
+    DataClasses:     []string{"financial_data"},
+    ActionType:      "initiate_payment",
+    EstimatedImpact: "high",
 })
 fmt.Println(tier.Tier)               // "elevated"
 fmt.Println(tier.VerificationMode)   // "hybrid_required"
 fmt.Println(tier.CheckpointInterval) // 1
+
+// From decoded intent and PolicyDecision payloads (map[string]interface{}):
+tier = v2.ComputeSecurityTier(v2.SecurityTierInputFromPayloads(intentPayload, policyPayload))
 ```
 
 ### Encapsulación de Clave ML-KEM-768
@@ -153,7 +157,8 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 
 | Función | Descripción |
 |----------|-------------|
-| `v2.ComputeSecurityTier(input)` | Calcula el nivel de seguridad adaptativo (routine/standard/elevated/maximum) |
+| `v2.ComputeSecurityTier(input)` | Calcula el nivel de seguridad adaptativo (routine/standard/elevated/maximum), su modo de verificación y su intervalo de checkpoint (spec §14.2); los valores desconocidos dan `elevated` |
+| `v2.SecurityTierInputFromPayloads(intent, policyDecision)` | Construye la entrada del nivel a partir de los payloads decodificados del intent y de la PolicyDecision (`risk_score` sale de la PolicyDecision) |
 
 ### Firmas Compuestas
 

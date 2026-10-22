@@ -54,8 +54,8 @@ const sign = (context: string, payload: object) =>
 const bundle = dcp.buildBundle({
   rpr: sign('DCP-AI.v2.ResponsiblePrincipal', { dcp_version: '2.0', human_id: 'alice', binding_keys: keyEntries /* ... */ }),
   passport: sign('DCP-AI.v2.AgentPassport', { dcp_version: '2.0', agent_id: 'agent-001', keys: keyEntries /* ... */ }),
-  intent: sign('DCP-AI.v2.Intent', { dcp_version: '2.0', intent_id: 'intent-001' /* ... */ }),
-  policy: sign('DCP-AI.v2.PolicyDecision', { dcp_version: '2.0', intent_id: 'intent-001', decision: 'approve' /* ... */ }),
+  intent: sign('DCP-AI.v2.Intent', { dcp_version: '2.0', intent_id: 'intent-001', action_type: 'browse', data_classes: ['none'], estimated_impact: 'low' /* ... */ }),
+  policy: sign('DCP-AI.v2.PolicyDecision', { dcp_version: '2.0', intent_id: 'intent-001', decision: 'approve', risk_score: 100 /* ... */ }),
   auditEntries: [],
   sessionNonce,
 });
@@ -137,7 +137,7 @@ Inicializa o módulo WASM. Deve ser chamado uma vez antes de usar qualquer API. 
 |--------|---------|-----------|
 | `generateSessionNonce()` | `string` | Nonce aleatório de 256 bits (64 caracteres hex) |
 | `verifySessionBinding(artifacts)` | `SessionBindingResult` | Verifica consistência de nonce entre artefatos |
-| `computeSecurityTier(intent)` | `SecurityTierResult` | Calcula nível de segurança adaptativo (routine/standard/elevated/maximum) |
+| `computeSecurityTier(intent, policyDecision?)` | `SecurityTierResult` | Calcula nível de segurança adaptativo (routine/standard/elevated/maximum); `risk_score` vem da decisão de política |
 
 ### Preparação de Payload
 
@@ -208,14 +208,14 @@ Veja [example.html](./example.html) para um demo interativo completo no navegado
 
 ## Níveis de Segurança
 
-O SDK calcula níveis de segurança adaptativos com base nos perfis de risco da intenção:
+`computeSecurityTier(intent, policyDecision?)` calcula o nível de segurança adaptativo (spec §14.2). `risk_score` vem da decisão de política (0 se não houver); um valor de `action_type`, `estimated_impact` ou `data_classes` desconhecido ou ausente conta como `elevated`, e `intent.security_tier` só pode elevar o resultado. Vale o nível mais alto que corresponder.
 
-| Nível | Risk Score | Modo de Verificação | Intervalo do Checkpoint |
-|-------|-----------|---------------------|-------------------------|
-| `routine` | < 200 | `classical_only` | 50 |
-| `standard` | 200–499 | `hybrid_preferred` | 10 |
-| `elevated` | 500–799 ou dados PII/financeiros | `hybrid_required` | 1 |
-| `maximum` | ≥ 800 ou credenciais/biometria | `hybrid_required` | 1 |
+| Nível | Quando (qualquer um) | Modo de Verificação | Intervalo do Checkpoint |
+|------|---------------|-------------------|---------------------|
+| `routine` | nenhuma das condições abaixo | `classical_only` | 50 |
+| `standard` | `risk_score` 200–499, `estimated_impact: medium` | `hybrid_preferred` | 10 |
+| `elevated` | `risk_score` 500–799, `pii` / `financial_data` / `health_data`, `initiate_payment`, `estimated_impact: high`, valores desconhecidos | `hybrid_required` | 1 |
+| `maximum` | `risk_score` ≥ 800, `credentials` / `children_data` | `hybrid_required` | 1 |
 
 ## Algoritmos Suportados
 

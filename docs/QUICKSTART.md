@@ -197,7 +197,7 @@ const keys: CompositeKeyPair = {
 };
 
 // Compute the security tier for your intent
-const tier = computeSecurityTier(intentV2);
+const tier = computeSecurityTier(intentV2, policyDecisionV2);
 console.log('Security tier:', tier); // 'routine' | 'standard' | 'elevated' | 'maximum'
 
 // Build a V2 bundle with the fluent builder
@@ -279,15 +279,17 @@ DCP automatically selects a cryptographic security tier based on the intent's ri
 
 | Tier | Name | Verification Mode | PQ Checkpoint Interval | Trigger |
 |------|------|------------------|----------------------|---------|
-| 0 | **Routine** | Classical only (Ed25519) | Every 50 events | Risk score < 200 |
-| 1 | **Standard** | Hybrid preferred | Every 10 events | Risk score 200–499 |
-| 2 | **Elevated** | Hybrid required | Every event | Risk score 500–799, PII, payments |
-| 3 | **Maximum** | Hybrid required + immediate verify | Every event | Risk score ≥ 800, credentials |
+| 0 | **Routine** | Classical only (Ed25519) | Every 50 events | None of the triggers below |
+| 1 | **Standard** | Hybrid preferred | Every 10 events | Risk score 200–499, `estimated_impact: medium` |
+| 2 | **Elevated** | Hybrid required | Every event | Risk score 500–799, PII, financial or health data, payments, `estimated_impact: high`, unknown values |
+| 3 | **Maximum** | Hybrid required + immediate verify | Every event | Risk score ≥ 800, credentials, children's data |
+
+The risk score is the policy decision's `risk_score` (spec §14.2).
 
 ```typescript
 import { computeSecurityTier, tierToVerificationMode } from '@dcp-ai/sdk';
 
-const tier = computeSecurityTier(intent);
+const tier = computeSecurityTier(intent, policyDecision);
 const mode = tierToVerificationMode(tier);
 // tier: 'elevated', mode: 'hybrid_required'
 ```

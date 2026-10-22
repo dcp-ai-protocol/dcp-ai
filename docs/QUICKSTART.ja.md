@@ -197,7 +197,7 @@ const keys: CompositeKeyPair = {
 };
 
 // Compute the security tier for your intent
-const tier = computeSecurityTier(intentV2);
+const tier = computeSecurityTier(intentV2, policyDecisionV2);
 console.log('Security tier:', tier); // 'routine' | 'standard' | 'elevated' | 'maximum'
 
 // Build a V2 bundle with the fluent builder
@@ -279,15 +279,17 @@ DCPは意図のリスクプロファイルに基づいて、暗号セキュリ�
 
 | ティア | 名前 | 検証モード | 耐量子チェックポイント間隔 | トリガー |
 |------|------|------------------|----------------------|---------|
-| 0 | **Routine** | 古典のみ (Ed25519) | 50イベントごと | リスクスコア < 200 |
-| 1 | **Standard** | ハイブリッド推奨 | 10イベントごと | リスクスコア 200–499 |
-| 2 | **Elevated** | ハイブリッド必須 | 毎イベント | リスクスコア 500–799、PII、支払い |
-| 3 | **Maximum** | ハイブリッド必須 + 即時検証 | 毎イベント | リスクスコア ≥ 800、認証情報 |
+| 0 | **Routine** | 古典のみ (Ed25519) | 50イベントごと | 以下のトリガーに該当しない |
+| 1 | **Standard** | ハイブリッド推奨 | 10イベントごと | リスクスコア 200–499、`estimated_impact: medium` |
+| 2 | **Elevated** | ハイブリッド必須 | 毎イベント | リスクスコア 500–799、PII、金融・健康データ、支払い、`estimated_impact: high`、未知の値 |
+| 3 | **Maximum** | ハイブリッド必須 + 即時検証 | 毎イベント | リスクスコア ≥ 800、認証情報、子どものデータ |
+
+リスクスコアはポリシー決定の `risk_score` です（spec §14.2）。
 
 ```typescript
 import { computeSecurityTier, tierToVerificationMode } from '@dcp-ai/sdk';
 
-const tier = computeSecurityTier(intent);
+const tier = computeSecurityTier(intent, policyDecision);
 const mode = tierToVerificationMode(tier);
 // tier: 'elevated', mode: 'hybrid_required'
 ```

@@ -346,7 +346,7 @@ Set `allow_v1_bundles: true` during the transition period.
 
 ### Step 9: Add Security Tier Support (Optional)
 
-If your system uses intents with risk scores, add security tier computation:
+Compute the security tier from the intent and the policy decision, which carries the `risk_score`:
 
 ```typescript
 import { computeSecurityTier } from '@dcp-ai/sdk';
@@ -354,13 +354,14 @@ import { computeSecurityTier } from '@dcp-ai/sdk';
 const intent = {
   intent_id: 'intent:...',
   action_type: 'api_call',
-  risk_score: 350,
   data_classes: ['pii'],
+  estimated_impact: 'medium',
   // ...
 };
+const policyDecision = { risk_score: 350 /* , ... */ };
 
-const tier = computeSecurityTier(intent);
-// tier = "elevated" (risk_score >= 200 AND has_sensitive data)
+const tier = computeSecurityTier(intent, policyDecision);
+// tier = "elevated" (pii is sensitive data; risk_score 350 alone would give "standard")
 ```
 
 ### Step 10: Run Conformance Tests
@@ -558,7 +559,7 @@ Key structural differences:
 | `hashObject(obj)` | `hashObject(obj)` (unchanged) | Still SHA-256 + JCS |
 | N/A | `dualHashCanonical(canonicalJson)` | SHA-256 + SHA3-256 |
 | N/A | `registerDefaultProviders()` + `getDefaultRegistry()` | Ed25519, ML-DSA-65, SLH-DSA-192f via the algorithm registry |
-| N/A | `computeSecurityTier(intent)` | Adaptive tier calculation |
+| N/A | `computeSecurityTier(intent, policyDecision?)` | Adaptive tier calculation (spec §14.2) |
 | N/A | `deriveKid(alg, publicKeyBytes)` | Deterministic kid |
 | N/A | `compositeSign(registry, context, payloadBytes, keys)` | Manual composite signing |
 | N/A | `compositeVerify(registry, context, payloadBytes, sig, classicalPk, pqPk?)` | Manual composite verification |
@@ -570,7 +571,7 @@ Key structural differences:
 | `sign_bundle(bundle, secret_key)` | Not available yet | Build and sign V2 bundles with the TypeScript or Go SDK, or `dcp sign-bundle --composite` |
 | `verify_signed_bundle(sb, public_key)` | Not available yet | Verify V2 bundles with the TypeScript or Go SDK, or `dcp verify-bundle` |
 | N/A | `Ed25519Provider` / `MlDsa65Provider` (`dcp_ai.providers`), async `generate_keypair()` | Hybrid keys |
-| N/A | `compute_security_tier(intent)` (`dcp_ai.v2`) | Adaptive tier |
+| N/A | `compute_security_tier(intent, policy_decision=None)` (`dcp_ai.v2`) | Adaptive tier (spec §14.2) |
 | N/A | `derive_kid(alg, public_key_bytes)` (`dcp_ai.v2`) | Deterministic kid |
 
 ### 5.3 Go SDK
@@ -580,7 +581,7 @@ Key structural differences:
 | `SignObject(bundle, secretKeyB64)` | `v2.SignPayload(registry, context, payload, classicalKey, pqKey)` per artifact, then `v2.BuildBundleV2(input)` + `v2.SignBundleV2(registry, bundle, classicalKey, pqKey)` | Composite signatures over each artifact and over the manifest |
 | `VerifySignedBundle(sb, publicKeyB64)` | `v2.VerifySignedBundleV2(registry, signedBundleJSON)` | Policy-driven |
 | N/A | `GenerateKeypair()` on `providers.Ed25519Provider` / `providers.MlDsa65Provider` | Hybrid keys |
-| N/A | `v2.ComputeSecurityTier(intent)` | Adaptive tier |
+| N/A | `v2.ComputeSecurityTier(input)`, `v2.SecurityTierInputFromPayloads(intent, policyDecision)` | Adaptive tier (spec §14.2) |
 | N/A | `v2.DeriveKid(alg, publicKey)` | Deterministic kid |
 
 ### 5.4 CLI Changes

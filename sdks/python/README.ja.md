@@ -37,7 +37,7 @@ pip install "dcp-ai[otlp]"       # OpenTelemetry OTLP exporter
 | DCP-07 紛争解決 + 仲裁 + 判例 | Yes |
 | DCP-08 権利と義務 + コンプライアンス | Yes |
 | DCP-09 委任 + 認識しきい値 + プリンシパルミラー | Yes |
-| セッションノンスヘルパー、セキュリティティアエンジン、緊急失効 | Yes |
+| セッションノンスヘルパー、セキュリティティアエンジン（`compute_security_tier(intent, policy_decision)`、spec §14.2）、緊急失効 | Yes |
 | 遅延PQチェックポイント + `PQCheckpointManager` | Yes |
 | ブラインドRPR、マルチパーティ認可、アルゴリズムアドバイザリヘルパー | Yes |
 | 正規エラーコード (全SDK共通の38種) + `detect_wire_format` | Yes |

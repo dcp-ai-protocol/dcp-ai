@@ -54,8 +54,8 @@ const sign = (context: string, payload: object) =>
 const bundle = dcp.buildBundle({
   rpr: sign('DCP-AI.v2.ResponsiblePrincipal', { dcp_version: '2.0', human_id: 'alice', binding_keys: keyEntries /* ... */ }),
   passport: sign('DCP-AI.v2.AgentPassport', { dcp_version: '2.0', agent_id: 'agent-001', keys: keyEntries /* ... */ }),
-  intent: sign('DCP-AI.v2.Intent', { dcp_version: '2.0', intent_id: 'intent-001' /* ... */ }),
-  policy: sign('DCP-AI.v2.PolicyDecision', { dcp_version: '2.0', intent_id: 'intent-001', decision: 'approve' /* ... */ }),
+  intent: sign('DCP-AI.v2.Intent', { dcp_version: '2.0', intent_id: 'intent-001', action_type: 'browse', data_classes: ['none'], estimated_impact: 'low' /* ... */ }),
+  policy: sign('DCP-AI.v2.PolicyDecision', { dcp_version: '2.0', intent_id: 'intent-001', decision: 'approve', risk_score: 100 /* ... */ }),
   auditEntries: [],
   sessionNonce,
 });
@@ -137,7 +137,7 @@ Initialize the WASM module. Must be called once before using any API. Optionally
 |--------|---------|-------------|
 | `generateSessionNonce()` | `string` | 256-bit random nonce (64 hex chars) |
 | `verifySessionBinding(artifacts)` | `SessionBindingResult` | Verify nonce consistency across artifacts |
-| `computeSecurityTier(intent)` | `SecurityTierResult` | Compute adaptive security tier (routine/standard/elevated/maximum) |
+| `computeSecurityTier(intent, policyDecision?)` | `SecurityTierResult` | Compute the adaptive security tier (routine/standard/elevated/maximum); `risk_score` comes from the policy decision |
 
 ### Payload Preparation
 
@@ -208,14 +208,14 @@ See [example.html](./example.html) for a complete interactive browser demo.
 
 ## Security Tiers
 
-The SDK computes adaptive security tiers based on intent risk profiles:
+`computeSecurityTier(intent, policyDecision?)` computes the adaptive security tier (spec §14.2). `risk_score` comes from the policy decision (0 without one); an unknown or missing `action_type`, `estimated_impact` or `data_classes` value counts as `elevated`, and `intent.security_tier` can only raise the result. The highest matching tier applies.
 
-| Tier | Risk Score | Verification Mode | Checkpoint Interval |
-|------|-----------|-------------------|-------------------|
-| `routine` | < 200 | `classical_only` | 50 |
-| `standard` | 200–499 | `hybrid_preferred` | 10 |
-| `elevated` | 500–799 or PII/financial data | `hybrid_required` | 1 |
-| `maximum` | ≥ 800 or credentials/biometric | `hybrid_required` | 1 |
+| Tier | When (any of) | Verification Mode | Checkpoint Interval |
+|------|---------------|-------------------|---------------------|
+| `routine` | none of the below | `classical_only` | 50 |
+| `standard` | `risk_score` 200–499, `estimated_impact: medium` | `hybrid_preferred` | 10 |
+| `elevated` | `risk_score` 500–799, `pii` / `financial_data` / `health_data`, `initiate_payment`, `estimated_impact: high`, unknown values | `hybrid_required` | 1 |
+| `maximum` | `risk_score` ≥ 800, `credentials` / `children_data` | `hybrid_required` | 1 |
 
 ## Algorithms Supported
 

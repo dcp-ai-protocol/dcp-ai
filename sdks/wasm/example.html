@@ -77,7 +77,8 @@
     <!-- Security Tier -->
     <div class="panel">
       <h2>5. Security Tier Computation</h2>
-      <textarea id="tier-input">{"risk_score": 600, "data_classes": ["pii", "financial"], "action_type": "payment"}</textarea>
+      <textarea id="tier-input">{"action_type": "initiate_payment", "data_classes": ["pii", "financial_data"], "estimated_impact": "high"}</textarea>
+      <textarea id="tier-policy">{"risk_score": 600}</textarea>
       <div class="btn-row">
         <button id="btn-tier" disabled>Compute Tier</button>
       </div>
@@ -208,8 +209,8 @@
           { kid: hybridKeys.pq.kid, alg: 'ml-dsa-65', public_key_b64: hybridKeys.pq.public_key_b64 },
         ],
       };
-      const intent = { action: 'transfer', amount: 500, risk_score: 650, session_nonce: nonce, data_classes: ['financial'] };
-      const policy = { decision: 'allow', reason: 'elevated tier verified', security_tier: 'elevated', session_nonce: nonce };
+      const intent = { action_type: 'initiate_payment', data_classes: ['financial_data'], estimated_impact: 'high', session_nonce: nonce };
+      const policy = { decision: 'approve', risk_score: 650, resolved_tier: 'elevated', session_nonce: nonce };
 
       const bundleJson = wasm_build_bundle(
         JSON.stringify(rpr), JSON.stringify(passport),
@@ -272,7 +273,9 @@
     // -- Security Tier --
     document.getElementById('btn-tier').onclick = () => {
       const input = document.getElementById('tier-input').value;
-      const result = wasm_compute_security_tier(input);
+      // risk_score comes from the policy decision, never the intent (spec §14.2)
+      const policyDecision = document.getElementById('tier-policy').value.trim() || undefined;
+      const result = wasm_compute_security_tier(input, policyDecision);
       const r = JSON.parse(result);
       const colors = { routine: 'tag-info', standard: 'tag-info', elevated: 'tag-warn', maximum: 'tag-fail' };
       document.getElementById('tier-output').innerHTML =
