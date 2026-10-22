@@ -111,13 +111,16 @@ async function handle(req, res) {
     if (unusable) {
       return send(res, 409, { error: `Key ${unusable.kid} is revoked, expired or registered to another agent` });
     }
-    // Re-registration (a new token, or new keys replacing expired or revoked ones) must be
-    // signed by all of the agent's active keys and be newer than the registered passport:
-    // signed passports are public, so an old one can be replayed.
+    // Re-registration (e.g. a new token) must be newer than the registered passport (signed
+    // passports are public, so an old one can be replayed) and signed by exactly the agent's
+    // active classical and PQ keys. An agent that lost either one (expired or kid-revoked)
+    // stays locked: its remaining key alone could pair itself with a new partner key and
+    // take the agent over. Recovery goes through the emergency token or the operator.
     if (existing) {
-      if (active.length === 0 || !active.every((a) => signers.some((k) => k.kid === a.kid))) {
+      const slotKids = [sig.classical.kid, sig.pq.kid];
+      if (!slotKids.every((kid) => active.some((a) => a.kid === kid)) || !active.every((a) => slotKids.includes(a.kid))) {
         return send(res, 409, {
-          error: `Agent ${agentId} is already registered; re-registration must be signed by all of its active keys`,
+          error: `Agent ${agentId} is already registered; re-registration must be signed by its active classical and PQ keys`,
         });
       }
       if (!(Date.parse(passport.created_at) > Date.parse(existing.created_at))) {
@@ -128,7 +131,7 @@ async function handle(req, res) {
     for (const k of signers) kidOwners.set(k.kid, agentId);
     agents.set(agentId, {
       // Registered entries are kept, so a new passport cannot extend expires_at.
-      keys: [...(existing?.keys ?? []), ...signers.filter((k) => !isActive(k))],
+      keys: existing?.keys ?? signers,
       // Never cleared: a newer passport without a token keeps the registered one.
       token_hash: passport.emergency_revocation_token ?? existing?.token_hash ?? null,
       created_at: passport.created_at,

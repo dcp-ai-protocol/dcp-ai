@@ -121,28 +121,37 @@ test("key expiry comes from the signed passport, not an unauthenticated call", a
   assert.equal((await checkKid(foxtrot.keys.classical.kid)).revoked, false);
 });
 
-test("a newer passport signed by all active keys renews expired keys", async () => {
-  // hotel's PQ key has expired; its active Ed25519 key and a new PQ key sign a newer passport.
+test("an agent left without an active key of either family stays locked", async () => {
+  // Once the PQ key is gone, the Ed25519 key alone (stolen, say) must not be able to pair
+  // itself with an attacker's PQ key, plant a token and take the agent over.
+  const takeOver = async (victim) => {
+    const attacker = await newAgent(victim.passport.agent_id);
+    const passport = {
+      ...victim.passport,
+      created_at: later(victim.passport.created_at),
+      keys: [victim.passport.keys[0], attacker.passport.keys[1]],
+      emergency_revocation_token: attacker.passport.emergency_revocation_token,
+    };
+    const keys = { classical: victim.keys.classical, pq: attacker.keys.pq };
+    return (await post("/v2/register", { signed_passport: await signPassport(passport, keys) })).status;
+  };
+
+  // hotel's PQ key has expired.
   const hotel = await newAgent("agent:hotel-001");
   hotel.passport.keys[1].expires_at = "2020-01-01T00:00:00Z";
   assert.equal((await post("/v2/register", { signed_passport: await signPassport(hotel.passport, hotel.keys) })).status, 201);
+  assert.equal(await takeOver(hotel), 409);
 
-  const fresh = await newAgent("agent:hotel-001");
-  const keys = { classical: hotel.keys.classical, pq: fresh.keys.pq };
-  const renewal = { ...hotel.passport, created_at: later(hotel.passport.created_at), keys: [hotel.passport.keys[0], fresh.passport.keys[1]] };
-  const renewed = await post("/v2/register", { signed_passport: await signPassport(renewal, keys) });
-  assert.equal(renewed.status, 201);
-  assert.deepEqual(renewed.body.registered_kids, [hotel.keys.classical.kid, fresh.keys.pq.kid]);
-  assert.equal((await checkKid(hotel.keys.pq.kid)).reason, "expired");
-
-  // The new kid is the agent's now: it can be revoked by kid.
+  // juliet revoked its PQ key by kid.
+  const juliet = await newAgent("agent:juliet-01");
+  assert.equal((await register(juliet)).status, 201);
   const record = {
-    dcp_version: "2.0", agent_id: "agent:hotel-001", human_id: "human:test-owner",
-    revoked_kid: fresh.keys.pq.kid, timestamp: new Date().toISOString(), reason: "key_rotation",
+    dcp_version: "2.0", agent_id: "agent:juliet-01", human_id: "human:test-owner",
+    revoked_kid: juliet.keys.pq.kid, timestamp: new Date().toISOString(), reason: "key_compromise",
   };
-  const composite_sig = await sign(DCP_CONTEXTS.Revocation, record, keys);
+  const composite_sig = await sign(DCP_CONTEXTS.Revocation, record, juliet.keys);
   assert.equal((await post("/v2/revoke", { ...record, composite_sig })).status, 201);
-  assert.equal((await checkKid(fresh.keys.pq.kid)).revoked, true);
+  assert.equal(await takeOver(juliet), 409);
 
   // With no active key left, nobody can re-register the agent.
   const india = await newAgent("agent:india-001");

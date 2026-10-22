@@ -37,7 +37,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import Ajv from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
-import { DCP_CONTEXTS, verifyKeyRotation } from "@dcp-ai/sdk";
+import { DCP_CONTEXTS, DEFAULT_VERIFIER_POLICY, verifyKeyRotation } from "@dcp-ai/sdk";
 import { verifySignedBundle, isV2Bundle, verifyCompositeSig, v2Registry } from "../lib/verify.js";
 import { parseBody, getClientIp, isOperator } from "../lib/http.js";
 
@@ -578,10 +578,15 @@ const server = http.createServer(async (req, res) => {
       // agents, and the passport must be newer: signed passports are public, so an old
       // one can be replayed to bring back an old token.
       // ponytail: scans the key registry (at most MAX_STORE_ENTRIES keys); index kids by agent if this gets hot.
-      const activeKids = [...keyRegistry]
-        .filter(([, entry]) => entry.agent_id === agentId && isActiveKey(entry))
-        .map(([kid]) => kid);
-      const signedByAllActive = activeKids.length > 0 && activeKids.length === signerKids.length &&
+      const agentKeys = [...keyRegistry.values()].filter((entry) => entry.agent_id === agentId);
+      const activeKids = agentKeys.filter(isActiveKey).map((entry) => entry.key.kid);
+      // Each key family the agent registered needs an active key: once its PQ key has
+      // expired, its Ed25519 key alone must not replace the token. Recovery then goes
+      // through the emergency token or the operator.
+      const family = (alg) => (DEFAULT_VERIFIER_POLICY.accepted_classical_algs.includes(alg) ? "classical" : "pq");
+      const lostFamily = agentKeys.some((entry) =>
+        !agentKeys.some((other) => isActiveKey(other) && family(other.key.alg) === family(entry.key.alg)));
+      const signedByAllActive = !lostFamily && activeKids.length > 0 && activeKids.length === signerKids.length &&
         activeKids.every((kid) => signerKids.includes(kid));
       if (!signedByAllActive) {
         return send(res, 409, {
