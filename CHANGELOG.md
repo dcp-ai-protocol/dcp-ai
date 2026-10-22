@@ -6,6 +6,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Security
+
+- Go and Rust verifiers accepted an audit entry (or PQ checkpoint) whose `session_nonce` differed
+  from the manifest's, although the manifest committed to it (`spec/VERIFICATION.md` V2-4: every
+  artifact and audit entry that carries a nonce shares the manifest's). Both now check the trail
+  and the checkpoints as TypeScript and Python do, with the error `Session nonce mismatch in
+  audit_entries[i]`. Shared vector `audit_entry_session_nonce_differs`.
+- The Rust verifier did not check `manifest.canonicalization_profile` at all, and the Go verifier
+  ignored a value that was not a string, so a bundle could claim a profile no verifier implements
+  (`spec/CANONICALIZATION_PROFILE.md` § 4, V2-3). Both now reject any value other than
+  `"dcp-jcs-v1"`, as TypeScript and Python do. Shared vectors `canonicalization_profile_unknown`
+  and `canonicalization_profile_not_a_string`.
+
+### Added
+
+- `tests/interop/v2/bundle_vectors.json`: 28 more `must_reject` cases, one per vulnerability of
+  the v2.10 round, that all four SDK verifiers (Python included) run under every verification
+  mode: artifacts without any `composite_sig` (V2-8); `dcp_bundle_version` `1.0` and `3.0`
+  (V2-1); a key expired with a non-UTC offset, malformed key `expires_at` values (impossible date,
+  date only, no offset) on the passport and the RPR (V2-13); classical-only bundles whose intent
+  or policy decision implies `elevated` while the intent declares `security_tier: "routine"` or
+  `estimated_impact: "high"` (V2-10); prototype keys (`constructor`, `__proto__`, `toString`,
+  `hasOwnProperty`) in the passport `risk_tier` and `constructor` in `action_type`,
+  `estimated_impact` and `security_tier` (V2-9); an unknown or non-string
+  `canonicalization_profile` (V2-3); an intent, an audit entry or the manifest with another
+  `session_nonce` (V2-4); a manifest hash, audit root or chain hash that does not match (V2-3).
+
 ### Fixed
 
 - `@dcp-ai/wasm`: the npm package ships `pkg/` (the `.wasm` binary and its glue). wasm-pack writes
@@ -14,6 +41,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   test suite checks the tarball.
 - `@dcp-ai/sdk`: the bundled telemetry version is read from `package.json` at build time (`tsup.config.ts`)
   instead of a literal in the build script; 2.2.0 would have reported itself as 2.1.2.
+- Python `verify_signed_bundle_v2` reported an artifact without a `composite_sig` as
+  `Malformed signed bundle: KeyError('composite_sig')`; the error now names the artifact
+  (`intent: Missing composite signature`), as in the other SDKs.
 
 ## [2.10.0] - 2026-10-22
 
