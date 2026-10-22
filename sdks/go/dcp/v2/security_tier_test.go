@@ -1,144 +1,88 @@
 package v2
 
-import "testing"
+import (
+	"encoding/json"
+	"testing"
+)
 
-func TestSecurityTier_Routine(t *testing.T) {
-	r := ComputeSecurityTier(SecurityTierInput{
-		RiskScore:   100,
-		DataClasses: []string{"general"},
-		ActionType:  "read",
-	})
-	if r.Tier != "routine" {
-		t.Fatalf("expected routine, got %s", r.Tier)
-	}
-	if r.VerificationMode != "classical_only" {
-		t.Fatalf("expected classical_only, got %s", r.VerificationMode)
-	}
-	if r.CheckpointInterval != 50 {
-		t.Fatalf("expected interval 50, got %d", r.CheckpointInterval)
-	}
-}
+// The shared table lives in tests/interop/v2/interop_vectors.json
+// (TestInteropSecurityTier). These cases cover the typed Go API.
 
-func TestSecurityTier_Standard(t *testing.T) {
-	r := ComputeSecurityTier(SecurityTierInput{
-		RiskScore:   300,
-		DataClasses: []string{"general"},
-		ActionType:  "read",
-	})
-	if r.Tier != "standard" {
-		t.Fatalf("expected standard, got %s", r.Tier)
+func TestSecurityTier_TypedInput(t *testing.T) {
+	cases := []struct {
+		name  string
+		input SecurityTierInput
+		want  SecurityTierResult
+	}{
+		{"routine", SecurityTierInput{DataClasses: []string{"none"}, ActionType: "browse", EstimatedImpact: "low"},
+			SecurityTierResult{"routine", "classical_only", 50}},
+		{"standard by risk score", SecurityTierInput{RiskScore: 200, DataClasses: []string{}, ActionType: "api_call", EstimatedImpact: "low"},
+			SecurityTierResult{"standard", "hybrid_preferred", 10}},
+		{"standard by medium impact", SecurityTierInput{DataClasses: []string{"contact_info"}, ActionType: "send_email", EstimatedImpact: "medium"},
+			SecurityTierResult{"standard", "hybrid_preferred", 10}},
+		{"elevated by financial_data", SecurityTierInput{DataClasses: []string{"financial_data"}, ActionType: "api_call", EstimatedImpact: "low"},
+			SecurityTierResult{"elevated", "hybrid_required", 1}},
+		{"elevated by initiate_payment", SecurityTierInput{DataClasses: []string{"none"}, ActionType: "initiate_payment", EstimatedImpact: "low"},
+			SecurityTierResult{"elevated", "hybrid_required", 1}},
+		{"maximum by children_data", SecurityTierInput{DataClasses: []string{"children_data"}, ActionType: "browse", EstimatedImpact: "low"},
+			SecurityTierResult{"maximum", "hybrid_required", 1}},
+		{"maximum by risk score", SecurityTierInput{RiskScore: 800, DataClasses: []string{"none"}, ActionType: "browse", EstimatedImpact: "low"},
+			SecurityTierResult{"maximum", "hybrid_required", 1}},
+		{"old payment vocabulary fails closed", SecurityTierInput{DataClasses: []string{"none"}, ActionType: "payment", EstimatedImpact: "low"},
+			SecurityTierResult{"elevated", "hybrid_required", 1}},
+		{"old biometric class fails closed", SecurityTierInput{DataClasses: []string{"biometric"}, ActionType: "browse", EstimatedImpact: "low"},
+			SecurityTierResult{"elevated", "hybrid_required", 1}},
+		{"nil data classes fail closed", SecurityTierInput{ActionType: "browse", EstimatedImpact: "low"},
+			SecurityTierResult{"elevated", "hybrid_required", 1}},
+		{"zero value fails closed", SecurityTierInput{},
+			SecurityTierResult{"elevated", "hybrid_required", 1}},
+		{"explicit tier raises", SecurityTierInput{DataClasses: []string{"none"}, ActionType: "browse", EstimatedImpact: "low", SecurityTier: "maximum"},
+			SecurityTierResult{"maximum", "hybrid_required", 1}},
+		{"explicit tier cannot lower", SecurityTierInput{DataClasses: []string{"pii"}, ActionType: "browse", EstimatedImpact: "low", SecurityTier: "routine"},
+			SecurityTierResult{"elevated", "hybrid_required", 1}},
 	}
-	if r.VerificationMode != "hybrid_preferred" {
-		t.Fatalf("expected hybrid_preferred, got %s", r.VerificationMode)
-	}
-	if r.CheckpointInterval != 10 {
-		t.Fatalf("expected interval 10, got %d", r.CheckpointInterval)
-	}
-}
-
-func TestSecurityTier_Elevated_ByScore(t *testing.T) {
-	r := ComputeSecurityTier(SecurityTierInput{
-		RiskScore:   600,
-		DataClasses: []string{},
-		ActionType:  "read",
-	})
-	if r.Tier != "elevated" {
-		t.Fatalf("expected elevated, got %s", r.Tier)
-	}
-	if r.VerificationMode != "hybrid_required" {
-		t.Fatalf("expected hybrid_required, got %s", r.VerificationMode)
-	}
-}
-
-func TestSecurityTier_Elevated_ByDataClass(t *testing.T) {
-	r := ComputeSecurityTier(SecurityTierInput{
-		RiskScore:   100,
-		DataClasses: []string{"financial"},
-		ActionType:  "read",
-	})
-	if r.Tier != "elevated" {
-		t.Fatalf("expected elevated, got %s", r.Tier)
-	}
-}
-
-func TestSecurityTier_Elevated_ByPayment(t *testing.T) {
-	r := ComputeSecurityTier(SecurityTierInput{
-		RiskScore:   100,
-		DataClasses: []string{},
-		ActionType:  "payment",
-	})
-	if r.Tier != "elevated" {
-		t.Fatalf("expected elevated, got %s", r.Tier)
-	}
-}
-
-func TestSecurityTier_Elevated_ByTransfer(t *testing.T) {
-	r := ComputeSecurityTier(SecurityTierInput{
-		RiskScore:   50,
-		DataClasses: []string{},
-		ActionType:  "transfer",
-	})
-	if r.Tier != "elevated" {
-		t.Fatalf("expected elevated, got %s", r.Tier)
-	}
-}
-
-func TestSecurityTier_Maximum_ByScore(t *testing.T) {
-	r := ComputeSecurityTier(SecurityTierInput{
-		RiskScore:   900,
-		DataClasses: []string{},
-		ActionType:  "read",
-	})
-	if r.Tier != "maximum" {
-		t.Fatalf("expected maximum, got %s", r.Tier)
-	}
-	if r.VerificationMode != "hybrid_required" {
-		t.Fatalf("expected hybrid_required, got %s", r.VerificationMode)
-	}
-	if r.CheckpointInterval != 1 {
-		t.Fatalf("expected interval 1, got %d", r.CheckpointInterval)
-	}
-}
-
-func TestSecurityTier_Maximum_ByDataClass(t *testing.T) {
-	cases := []string{"credentials", "children_data", "biometric"}
-	for _, dc := range cases {
-		t.Run(dc, func(t *testing.T) {
-			r := ComputeSecurityTier(SecurityTierInput{
-				RiskScore:   10,
-				DataClasses: []string{dc},
-				ActionType:  "read",
-			})
-			if r.Tier != "maximum" {
-				t.Fatalf("expected maximum for %s, got %s", dc, r.Tier)
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := ComputeSecurityTier(c.input); got != c.want {
+				t.Fatalf("got %+v, want %+v", got, c.want)
 			}
 		})
 	}
 }
 
-func TestSecurityTier_MediumDataClasses(t *testing.T) {
-	cases := []string{"pii", "financial", "health", "legal"}
-	for _, dc := range cases {
-		t.Run(dc, func(t *testing.T) {
-			r := ComputeSecurityTier(SecurityTierInput{
-				RiskScore:   10,
-				DataClasses: []string{dc},
-				ActionType:  "read",
-			})
-			if r.Tier != "elevated" {
-				t.Fatalf("expected elevated for %s, got %s", dc, r.Tier)
-			}
-		})
+func TestSecurityTierInputFromPayloads_GoValues(t *testing.T) {
+	// Maps built in Go (not decoded from JSON) carry int and []string values.
+	intent := map[string]interface{}{"action_type": "browse", "data_classes": []string{"none"}, "estimated_impact": "low"}
+	for _, score := range []interface{}{900, int64(900), 900.0, json.Number("900")} {
+		got := ComputeSecurityTier(SecurityTierInputFromPayloads(intent, map[string]interface{}{"risk_score": score}))
+		if got.Tier != "maximum" {
+			t.Fatalf("risk_score %T: got %s, want maximum", score, got.Tier)
+		}
+	}
+	if got := SecurityTierInputFromPayloads(intent, map[string]interface{}{"risk_score": 1e300}).RiskScore; got != 1000 {
+		t.Fatalf("huge risk_score: got %d, want 1000", got)
+	}
+	if got := ComputeSecurityTier(SecurityTierInputFromPayloads(intent, nil)); got.Tier != "routine" {
+		t.Fatalf("nil policy decision: got %s, want routine", got.Tier)
 	}
 }
 
-func TestSecurityTier_ZeroRiskScore(t *testing.T) {
-	r := ComputeSecurityTier(SecurityTierInput{
-		RiskScore:   0,
-		DataClasses: []string{},
-		ActionType:  "",
-	})
-	if r.Tier != "routine" {
-		t.Fatalf("expected routine, got %s", r.Tier)
+func TestSecurityTierHelpers_UnknownNamesFailClosed(t *testing.T) {
+	for _, name := range []string{"bogus", "", "Maximum"} {
+		if got := TierToVerificationMode(name); got != "hybrid_required" {
+			t.Errorf("TierToVerificationMode(%q) = %s, want hybrid_required", name, got)
+		}
+		if got := TierToCheckpointInterval(name); got != 1 {
+			t.Errorf("TierToCheckpointInterval(%q) = %d, want 1", name, got)
+		}
+		if got := MaxTier(name, "routine"); got != "elevated" {
+			t.Errorf("MaxTier(%q, routine) = %s, want elevated", name, got)
+		}
+		if got := MaxTier("routine", name); got != "elevated" {
+			t.Errorf("MaxTier(routine, %q) = %s, want elevated", name, got)
+		}
+		if got := MaxTier(name, "maximum"); got != "maximum" {
+			t.Errorf("MaxTier(%q, maximum) = %s, want maximum", name, got)
+		}
 	}
 }
