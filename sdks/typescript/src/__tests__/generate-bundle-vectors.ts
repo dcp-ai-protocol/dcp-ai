@@ -3,12 +3,12 @@
  *
  * Writes tests/interop/v2/bundle_vectors.json: one signed bundle that every
  * SDK verifier MUST accept, and cases whose mutations (set `value` at `path`)
- * MUST make it reject the bundle with an error that names `error_contains`
- * (spec/VERIFICATION.md V2-6 to V2-8), whole signed bundles it MUST reject
- * the same way (must_reject_bundles), and a classical-only control with its
- * expected verdict per mode. As in a real
- * deployment the principal (RPR binding_keys) signs the RPR and the bundle,
- * and the agent (passport keys) signs the passport, intent and policy decision.
+ * MUST make it reject the bundle with an error that names `error_contains`,
+ * whole signed bundles it MUST reject the same way (must_reject_bundles), and
+ * a classical-only control with its expected verdict per mode. Each case names
+ * the spec/VERIFICATION.md step it checks. As in a real deployment the
+ * principal (RPR binding_keys) signs the RPR and the bundle, and the agent
+ * (passport keys) signs the passport, intent and policy decision.
  *
  * Run: cd sdks/typescript && npx vite-node src/__tests__/generate-bundle-vectors.ts
  */
@@ -87,6 +87,13 @@ interface Variant {
   classicalOnly?: boolean;
   /** Drop the pq member from the bundle signature (the schema requires it, null for classical_only). */
   bundleSigWithoutPq?: boolean;
+  /** Applied to every agent key entry (passport keys) or principal one (RPR binding_keys). */
+  agentKey?: Partial<KeyEntry>;
+  principalKey?: Partial<KeyEntry>;
+  /** Manifest fields set before signing; undefined removes one. */
+  manifest?: Record<string, unknown>;
+  /** prev_hash of the first audit entry instead of GENESIS. */
+  firstPrevHash?: string;
 }
 
 // A routine intent (spec §14.2), the starting point of the security tier variants.
@@ -123,13 +130,13 @@ async function main() {
       issued_at: '2026-10-21T00:00:00Z',
       expires_at: null,
       contact: null,
-      binding_keys: keyEntries(principal),
+      binding_keys: keyEntries(principal).map((k) => ({ ...k, ...variant.principalKey })),
     };
     const passport: AgentPassportV2 = {
       dcp_version: '2.0',
       agent_id: 'agent:interop-bot',
       session_nonce: nonce,
-      keys: keyEntries(agent),
+      keys: keyEntries(agent).map((k) => ({ ...k, ...variant.agentKey })),
       principal_binding_reference: rpr.human_id,
       capabilities: ['browse', 'api_call'],
       risk_tier: 'medium',
@@ -167,7 +174,7 @@ async function main() {
       dcp_version: '2.0',
       audit_id: 'audit:interop-001',
       session_nonce: nonce,
-      prev_hash: 'GENESIS',
+      prev_hash: variant.firstPrevHash ?? 'GENESIS',
       hash_alg: 'sha256',
       timestamp: '2026-10-21T12:01:00Z',
       agent_id: passport.agent_id,
@@ -189,6 +196,7 @@ async function main() {
       .policyDecision(await sign(policyDecision, DCP_CONTEXTS.PolicyDecision, agent, variant.classicalOnly))
       .addAuditEntries([audit, audit2])
       .build();
+    Object.assign(bundle.manifest, variant.manifest);
     const signer = { registry, signerType: 'human' as const, signerId: rpr.human_id };
     const signedBundle = variant.classicalOnly
       ? await signBundleV2ClassicalOnly(bundle, { ...signer, key: principal.classical })
@@ -261,6 +269,30 @@ async function main() {
       spec_step: 'V2-8',
       error_contains: 'intent',
       mutations: [set(['bundle', 'intent', 'composite_sig'], (await sign(intent, DCP_CONTEXTS.Intent, principal)).composite_sig)],
+    },
+    {
+      name: 'intent_payload_hash_wrong',
+      spec_step: 'V2-3',
+      error_contains: 'intent',
+      mutations: [set(['bundle', 'intent', 'payload_hash'], sha256Of({ not: 'the intent' }))],
+    },
+    {
+      // A self-consistent chain from GENESIS, but not the one the manifest commits to.
+      name: 'audit_entries_replaced',
+      spec_step: 'V2-3',
+      error_contains: 'audit',
+      mutations: [
+        set(['bundle', 'audit_entries'], (() => {
+          const first = { ...b.audit_entries[0], outcome: 'email_deleted' };
+          return [first, { ...b.audit_entries[1], prev_hash: sha256Of(first), outcome: 'email_deleted' }];
+        })()),
+      ],
+    },
+    {
+      name: 'audit_entries_truncated',
+      spec_step: 'V2-3',
+      error_contains: 'audit',
+      mutations: [set(['bundle', 'audit_entries'], [b.audit_entries[0]])],
     },
     {
       name: 'policy_decision_signed_under_intent_context',
@@ -381,6 +413,33 @@ async function main() {
       spec_step: 'V2-5',
       error_contains: 'bundle',
       variant: { ...lowRisk, intent: ROUTINE_INTENT, bundleSigWithoutPq: true },
+    },
+    {
+      name: 'audit_chain_not_starting_at_genesis',
+      spec_step: 'V2-3',
+      error_contains: 'chain',
+      variant: { firstPrevHash: `sha256:${'0'.repeat(64)}` },
+    },
+    { name: 'manifest_without_rpr_hash', spec_step: 'V2-3', error_contains: 'rpr_hash', variant: { manifest: { rpr_hash: undefined } } },
+    {
+      name: 'session_expired',
+      spec_step: 'V2-4',
+      error_contains: 'session expired',
+      variant: { manifest: { session_expires_at: '2020-01-01T00:00:00Z' } },
+    },
+    { name: 'passport_key_revoked', spec_step: 'V2-13', error_contains: 'revoked', variant: { agentKey: { status: 'revoked' } } },
+    {
+      name: 'passport_key_expired',
+      spec_step: 'V2-13',
+      error_contains: 'expired',
+      variant: { agentKey: { expires_at: '2020-01-01T00:00:00Z' } },
+    },
+    { name: 'rpr_binding_key_revoked', spec_step: 'V2-13', error_contains: 'revoked', variant: { principalKey: { status: 'revoked' } } },
+    {
+      name: 'rpr_binding_key_expired',
+      spec_step: 'V2-13',
+      error_contains: 'expired',
+      variant: { principalKey: { expires_at: '2020-01-01T00:00:00Z' } },
     },
   ];
 
