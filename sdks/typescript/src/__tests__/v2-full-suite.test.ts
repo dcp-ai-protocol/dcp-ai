@@ -897,6 +897,134 @@ describe('Unit: Verifier Policy (V2 Bundle Verification)', () => {
   });
 });
 
+// ── 1i-bis. Security tier enforcement (spec §14.3, VERIFICATION.md V2-7/V2-10) ──
+
+describe('Unit: Security Tier Enforcement', () => {
+  // The passport declares itself low risk, which DEFAULT_VERIFIER_POLICY maps
+  // to classical_only. The tier must still raise the mode.
+  async function buildTierBundle(opts: {
+    intent?: Partial<IntentV2>;
+    riskScore?: number;
+    riskTier?: AgentPassportV2['risk_tier'];
+    hybrid?: boolean;
+  }): Promise<SignedBundleV2> {
+    const sn = generateSessionNonce();
+    const passport: AgentPassportV2 = { ...makePassport(sn), risk_tier: opts.riskTier ?? 'low' };
+    const rpr = makeRpr(sn);
+    const intent: IntentV2 = {
+      ...makeIntent(sn, passport.agent_id),
+      action_type: 'browse',
+      target: { channel: 'web' },
+      data_classes: ['none'],
+      estimated_impact: 'low',
+      ...opts.intent,
+    };
+    const pd: PolicyDecisionV2 = { ...makePolicyDecision(sn, intent.intent_id), risk_score: opts.riskScore ?? 0 };
+
+    const bundle = new BundleBuilderV2(sn)
+      .responsiblePrincipalRecord(await signPayload(rpr, DCP_CONTEXTS.ResponsiblePrincipal, rprKeys))
+      .agentPassport(await signPayload(passport, DCP_CONTEXTS.AgentPassport, keys))
+      .intent(await signPayload(intent, DCP_CONTEXTS.Intent, keys))
+      .policyDecision(await signPayload(pd, DCP_CONTEXTS.PolicyDecision, keys))
+      .addAuditEntries(buildAuditChain(sn, passport.agent_id, intent.intent_id, 1))
+      .build();
+
+    const signer = { registry, signerType: 'human' as const, signerId: 'human-test' };
+    return opts.hybrid
+      ? signBundleV2(bundle, { ...signer, keys: rprKeys })
+      : signBundleV2ClassicalOnly(bundle, { ...signer, key: rprKeys.classical });
+  }
+
+  function tamperPqSignature(signed: SignedBundleV2): void {
+    const pq = signed.signature.composite_sig.pq!;
+    const bytes = Buffer.from(pq.sig_b64, 'base64');
+    bytes[10] ^= 0xff;
+    pq.sig_b64 = bytes.toString('base64');
+  }
+
+  it('accepts classical_only for a routine intent and reports the tier', async () => {
+    const result = await verifySignedBundleV2(await buildTierBundle({}), registry);
+    expect(result.errors).toEqual([]);
+    expect(result.verified).toBe(true);
+    expect(result.details?.resolved_tier).toBe('routine');
+    expect(result.details?.verification_mode).toBe('classical_only');
+  });
+
+  it('rejects classical_only for a payment intent from a low-risk passport', async () => {
+    const signed = await buildTierBundle({
+      intent: { action_type: 'initiate_payment', target: { channel: 'payments' } },
+    });
+    const result = await verifySignedBundleV2(signed, registry);
+    expect(result.verified).toBe(false);
+    expect(result.details?.resolved_tier).toBe('elevated');
+    expect(result.details?.verification_mode).toBe('hybrid_required');
+  });
+
+  it('rejects classical_only for financial data and for high impact', async () => {
+    for (const intent of [{ data_classes: ['financial_data'] }, { estimated_impact: 'high' }] as Partial<IntentV2>[]) {
+      const result = await verifySignedBundleV2(await buildTierBundle({ intent }), registry);
+      expect(result.verified, JSON.stringify(intent)).toBe(false);
+      expect(result.details?.resolved_tier).toBe('elevated');
+    }
+  });
+
+  it('rejects classical_only when the policy decision risk_score is 900', async () => {
+    const result = await verifySignedBundleV2(await buildTierBundle({ riskScore: 900 }), registry);
+    expect(result.verified).toBe(false);
+    expect(result.details?.resolved_tier).toBe('maximum');
+  });
+
+  it('accepts classical_only with a warning for a standard intent', async () => {
+    const signed = await buildTierBundle({ intent: { estimated_impact: 'medium' } });
+    const result = await verifySignedBundleV2(signed, registry);
+    expect(result.verified).toBe(true);
+    expect(result.details?.resolved_tier).toBe('standard');
+    expect(result.details?.verification_mode).toBe('hybrid_preferred');
+    expect(result.warnings.some((w) => w.includes('PQ signature missing'))).toBe(true);
+  });
+
+  it('lets an explicit security_tier raise the mode but not lower it', async () => {
+    const raised = await buildTierBundle({ intent: { security_tier: 'elevated' } });
+    expect((await verifySignedBundleV2(raised, registry)).verified).toBe(false);
+
+    const lowered = await buildTierBundle({ intent: { data_classes: ['pii'], security_tier: 'routine' } });
+    const result = await verifySignedBundleV2(lowered, registry);
+    expect(result.verified).toBe(false);
+    expect(result.details?.resolved_tier).toBe('elevated');
+  });
+
+  it('keeps a stricter policy mode for a routine intent', async () => {
+    const signed = await buildTierBundle({ riskTier: 'high' });
+    const result = await verifySignedBundleV2(signed, registry);
+    expect(result.verified).toBe(false);
+    expect(result.details?.verification_mode).toBe('hybrid_required');
+  });
+
+  it('keeps pq_only for an elevated intent', async () => {
+    const signed = await buildTierBundle({ hybrid: true, intent: { data_classes: ['pii'] } });
+    const result = await verifySignedBundleV2(signed, registry, PQ_ONLY_VERIFIER_POLICY);
+    expect(result.errors).toEqual([]);
+    expect(result.verified).toBe(true);
+    expect(result.details?.verification_mode).toBe('pq_only');
+  });
+
+  it('rejects a present but invalid PQ signature under hybrid_preferred (V2-7)', async () => {
+    const signed = await buildTierBundle({ hybrid: true, riskTier: 'medium' });
+    tamperPqSignature(signed);
+    const result = await verifySignedBundleV2(signed, registry);
+    expect(result.details?.verification_mode).toBe('hybrid_preferred');
+    expect(result.verified).toBe(false);
+  });
+
+  it('rejects a present but invalid PQ signature under classical_only (V2-7)', async () => {
+    const signed = await buildTierBundle({ hybrid: true });
+    tamperPqSignature(signed);
+    const result = await verifySignedBundleV2(signed, registry);
+    expect(result.details?.verification_mode).toBe('classical_only');
+    expect(result.verified).toBe(false);
+  });
+});
+
 // ── 1j. PQ Checkpoints ──
 
 describe('Unit: PQ Checkpoints', () => {
