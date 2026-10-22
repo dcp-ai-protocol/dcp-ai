@@ -336,7 +336,7 @@ Verifiers automatically:
 
 ## 14. Adaptive Security Tiers
 
-The adaptive security tier system automatically selects cryptographic protection levels based on intent risk score, data classification, and action type. Tiers drive verification mode selection, PQ checkpoint intervals, and bundle presentation modes.
+The adaptive security tier system selects cryptographic protection levels from the policy decision's risk score and the intent's data classes, action type and estimated impact. Tiers drive verification mode selection, PQ checkpoint intervals, and bundle presentation modes.
 
 ### 14.1 Tier Definitions
 
@@ -349,26 +349,56 @@ The adaptive security tier system automatically selects cryptographic protection
 
 ### 14.2 Tier Selection Algorithm
 
-```
-function computeSecurityTier(intent):
-  score = intent.risk_score ?? 0
-  has_high_value = intent.data_classes ∩ {credentials, children_data} ≠ ∅
-  has_sensitive = intent.data_classes ∩ {pii, financial_data, health_data, credentials, children_data} ≠ ∅
-  is_payment = intent.action_type == "initiate_payment"
+The tier is computed only from signed fields the schemas define: the intent's
+`action_type`, `data_classes`, `estimated_impact` and optional
+`security_tier`, and the `risk_score` (integer 0..1000) of the bundle's
+`PolicyDecisionV2`. The intent schema has no `risk_score`; an implementation
+MUST NOT read one from the intent.
 
-  if score >= 800 OR has_high_value:    return "maximum"
-  if score >= 500 OR has_sensitive OR is_payment: return "elevated"
-  if score >= 200:                      return "standard"
-  return "routine"
 ```
+function computeSecurityTier(intent, policy_decision):
+  score = policy_decision.risk_score if it is a number, else 0
+  dc = intent.data_classes
+  unknown = intent.action_type ∉ ACTION_TYPES
+         OR intent.estimated_impact ∉ {low, medium, high}
+         OR dc is not an array
+         OR some element of dc ∉ DATA_CLASSES
+
+  if score >= 800 OR dc ∩ {credentials, children_data} ≠ ∅:
+    tier = "maximum"
+  else if score >= 500 OR dc ∩ {pii, financial_data, health_data} ≠ ∅
+       OR intent.action_type == "initiate_payment"
+       OR intent.estimated_impact == "high" OR unknown:
+    tier = "elevated"
+  else if score >= 200 OR intent.estimated_impact == "medium":
+    tier = "standard"
+  else:
+    tier = "routine"
+
+  explicit = intent.security_tier
+  if explicit is present and not null:
+    tier = max(tier, explicit if it is a tier name else "elevated")
+  return tier
+```
+
+`ACTION_TYPES` and `DATA_CLASSES` are the `action_type` and `data_classes`
+enums of `schemas/v2/intent.schema.json`. A missing, mistyped or unknown
+value fails closed to at least `elevated`, so a value the verifier does not
+know never lowers the scrutiny a bundle gets, with or without schema
+validation. With no policy decision, or a `risk_score` that is not a number,
+the score is 0.
+
+The `security_tier` category of `tests/interop/v2/interop_vectors.json` lists
+the expected tier, verification mode and checkpoint interval for each case.
+All four SDKs run it.
 
 ### 14.3 Tier Upgrade (Never Downgrade)
 
-The verifier MAY upgrade the computed tier but MUST NOT downgrade it. The `resolved_tier` field in `PolicyDecisionV2` records the final tier after policy evaluation.
+The verifier MAY upgrade the computed tier but MUST NOT downgrade it. The `resolved_tier` field in `PolicyDecisionV2` records the tier the policy engine resolved. It is informational: the computation in §14.2 does not read it.
 
 ### 14.4 Intent and Policy Decision Fields
 
-`IntentV2` includes an optional `security_tier` field (auto-computed or explicitly set). `PolicyDecisionV2` includes an optional `resolved_tier` field reflecting the final tier after verifier policy application.
+`IntentV2` includes an optional `security_tier` field (auto-computed or explicitly set). `PolicyDecisionV2` includes an optional `resolved_tier` field, the tier the policy engine resolved, for information; §14.2 does not read it.
 
 ### 14.5 Verification Cache
 
