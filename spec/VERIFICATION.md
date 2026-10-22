@@ -96,7 +96,7 @@ Based on the verifier's policy configuration:
 
 ### Step V2-10: Compute security tier (optional)
 
-If the intent payload includes `action_type`, `estimated_impact`, and `data_classes`, compute the risk score and security tier. Verify the bundle's signature mode meets the tier's requirements (e.g., `elevated` and `maximum` tiers require `hybrid_required`).
+Compute the security tier from `intent.payload` and `policy_decision.payload` as in [DCP-AI-v2.0.md § 14.2](DCP-AI-v2.0.md). The risk score comes from the policy decision, not the intent. Verify the bundle's signature mode meets the tier's requirements (e.g., `elevated` and `maximum` tiers require `hybrid_required`).
 
 ### Step V2-11: Verify dual-hash audit chain (if present)
 
