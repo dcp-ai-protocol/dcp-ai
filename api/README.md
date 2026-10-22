@@ -40,9 +40,9 @@ Formal DCP API definitions: OpenAPI 3.1 specification for HTTP/REST and Protocol
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST /v2/passport/register` | Register agent passport + keys | Request: `{ signed_passport }` |
+| `POST /v2/passport/register` | Register agent passport + keys | Request: `{ signed_passport }`; the composite self-signature must verify |
 | `GET /v2/keys/{kid}` | Key registry lookup | Response: `{ found, kid, key, agent_id }` |
-| `POST /v2/keys/rotate` | Key rotation with PoP | Request: `{ old_kid, new_key, proof_of_possession }` |
+| `POST /v2/keys/rotate` | Key rotation with PoP | Request: `KeyRotationRecord` (`{ old_kid, new_key, timestamp, proof_of_possession, authorization_sig }`) |
 
 #### V2 Intent & Policy
 
@@ -50,7 +50,7 @@ Formal DCP API definitions: OpenAPI 3.1 specification for HTTP/REST and Protocol
 |--------|------|-------------|
 | `POST /v2/intent/declare` | Declare intent, get policy | Response: `{ policy_decision, security_tier, verification_mode }` |
 | `GET /v2/policy` | Current verifier policy | Response: `{ policy, policy_hash, mode }` |
-| `POST /v2/policy/mode` | Switch verifier mode | Request: `{ mode }` (pq_only, hybrid_required, etc.) |
+| `POST /v2/policy/mode` | Switch verifier mode (operator token) | Request: `{ mode }` (pq_only, hybrid_required, etc.) |
 
 #### V2 Audit
 
@@ -70,10 +70,10 @@ Formal DCP API definitions: OpenAPI 3.1 specification for HTTP/REST and Protocol
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST /v2/advisory/publish` | Publish algorithm advisory | Request: `{ advisory }` |
+| `POST /v2/advisory/publish` | Publish algorithm advisory (operator token) | Request: `{ advisory }` |
 | `GET /v2/advisory/check` | Check active advisories | Response: `{ deprecated, warned, revoked }` |
-| `POST /v2/advisory/auto-apply` | Auto-apply advisories to policy | Removes deprecated algs, adds replacements |
-| `POST /v2/governance/register` | Register governance key set | Request: `{ governance_key_set }` |
+| `POST /v2/advisory/auto-apply` | Auto-apply advisories to policy (operator token) | Removes deprecated algs, adds replacements |
+| `POST /v2/governance/register` | Register governance key set (operator token) | Request: `{ governance_key_set }` |
 
 #### Anchoring
 

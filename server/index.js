@@ -23,6 +23,12 @@
  *   POST /v2/advisory/auto-apply              — Auto-apply advisories to policy
  *   POST /v2/governance/register              — Register governance key set
  *   GET  /.well-known/governance-keys.json    — Published governance keys
+ *
+ * Admin endpoints (ADMIN_ROUTES) need `Authorization: Bearer $OPERATOR_TOKEN`.
+ *
+ * Environment:
+ *   PORT, OPERATOR_TOKEN, VERIFIER_MODE, ALLOW_V1_BUNDLES,
+ *   TRUST_PROXY — "true" behind a proxy that appends X-Forwarded-For (rate limiting)
  */
 import http from "http";
 import crypto from "crypto";
@@ -31,16 +37,23 @@ import path from "path";
 import { fileURLToPath } from "url";
 import Ajv from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
-import { verifySignedBundle, isV2Bundle } from "../lib/verify.js";
+import { DCP_CONTEXTS, verifyKeyRotation } from "@dcp-ai/sdk";
+import { verifySignedBundle, isV2Bundle, verifyCompositeSig, v2Registry } from "../lib/verify.js";
+import { parseBody, getClientIp, isOperator } from "../lib/http.js";
 
 const PORT = Number(process.env.PORT) || 3000;
 
 // ── Production Constants ──
 
-const MAX_BODY_BYTES = 1_048_576; // 1 MB max request body
 const MAX_STORE_ENTRIES = 10_000; // per-store cap before eviction
+const MAX_ADVISORIES = 1_000;
 const GLOBAL_RATE_LIMIT = 100;   // requests per window per IP
 const GLOBAL_RATE_WINDOW = 60_000; // 1 minute
+
+// Endpoints that change the verifier's trust configuration (operator token).
+const ADMIN_ROUTES = new Set([
+  "/v2/policy/mode", "/v2/governance/register", "/v2/advisory/publish", "/v2/advisory/auto-apply",
+]);
 
 // ── Schema Validation (shared AJV instance) ──
 
@@ -103,6 +116,42 @@ let VERIFIER_POLICY = {
   warn_classical_only_deprecated: false,
   advisory_rejected_algs: [],
 };
+
+const VERIFIER_MODES = ["classical_only", "pq_only", "hybrid_required", "hybrid_preferred"];
+
+function setVerifierMode(mode) {
+  VERIFIER_POLICY.default_mode = mode;
+  VERIFIER_POLICY.risk_overrides = { high: mode, medium: mode, low: mode };
+
+  if (mode === "pq_only") {
+    VERIFIER_POLICY.min_classical = 0;
+    VERIFIER_POLICY.min_pq = 1;
+    VERIFIER_POLICY.require_composite_binding = false;
+    VERIFIER_POLICY.allow_classical_fallback_disable = true;
+    VERIFIER_POLICY.warn_classical_only_deprecated = true;
+    VERIFIER_POLICY.allow_v1_bundles = false;
+  } else if (mode === "hybrid_required") {
+    VERIFIER_POLICY.min_classical = 1;
+    VERIFIER_POLICY.min_pq = 1;
+    VERIFIER_POLICY.require_composite_binding = true;
+    VERIFIER_POLICY.allow_classical_fallback_disable = false;
+    VERIFIER_POLICY.warn_classical_only_deprecated = false;
+  } else if (mode === "classical_only") {
+    VERIFIER_POLICY.min_classical = 1;
+    VERIFIER_POLICY.min_pq = 0;
+    VERIFIER_POLICY.require_composite_binding = false;
+    VERIFIER_POLICY.warn_classical_only_deprecated = true;
+  }
+}
+
+// Operator configuration (docker/fly env). pq_only already disables V1.
+if (process.env.VERIFIER_MODE) {
+  if (!VERIFIER_MODES.includes(process.env.VERIFIER_MODE)) {
+    throw new Error(`Invalid VERIFIER_MODE '${process.env.VERIFIER_MODE}'. Valid: ${VERIFIER_MODES.join(", ")}`);
+  }
+  setVerifierMode(process.env.VERIFIER_MODE);
+}
+if (process.env.ALLOW_V1_BUNDLES === "false") VERIFIER_POLICY.allow_v1_bundles = false;
 
 // Phase 3: POLICY_HASH is now computed dynamically via computePolicyHash()
 const POLICY_HASH = computePolicyHash();
@@ -199,27 +248,6 @@ function send(res, statusCode, body, dcpVersion) {
   res.end(JSON.stringify(body));
 }
 
-function parseBody(req) {
-  return new Promise((resolve, reject) => {
-    let data = "";
-    let bytes = 0;
-    req.on("data", (chunk) => {
-      bytes += chunk.length;
-      if (bytes > MAX_BODY_BYTES) {
-        req.destroy();
-        reject(new Error("PAYLOAD_TOO_LARGE"));
-        return;
-      }
-      data += chunk;
-    });
-    req.on("end", () => {
-      try { resolve(data ? JSON.parse(data) : {}); }
-      catch (e) { reject(e); }
-    });
-    req.on("error", reject);
-  });
-}
-
 // ── Global rate limiter (per-IP) ──
 
 const globalRateLimitMap = new Map();
@@ -292,11 +320,6 @@ function setSecurityHeaders(res) {
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("Strict-Transport-Security", "max-age=63072000; includeSubDomains");
-}
-
-function getClientIp(req) {
-  return req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
-    req.socket?.remoteAddress || "unknown";
 }
 
 function checkRateLimit(ip) {
@@ -402,6 +425,11 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  if (req.method === "POST" && ADMIN_ROUTES.has(req.url) && !isOperator(req)) {
+    res.setHeader("WWW-Authenticate", "Bearer");
+    return send(res, 401, { error: "Operator token required (Authorization: Bearer <OPERATOR_TOKEN>)" });
+  }
+
   // Health check
   if (req.method === "GET" && (req.url === "/" || req.url === "/health")) {
     send(res, 200, {
@@ -462,6 +490,14 @@ const server = http.createServer(async (req, res) => {
     }
 
     // V1 verification
+    if (!VERIFIER_POLICY.allow_v1_bundles) {
+      return send(res, 200, {
+        verified: false,
+        dcp_version: "1.0",
+        errors: ["V1 bundles are disabled by verifier policy"],
+      }, "1.0");
+    }
+
     const publicKeyB64 = body.public_key_b64 || signedBundle?.signature?.signer?.public_key_b64;
     if (!publicKeyB64) {
       return send(res, 400, {
@@ -480,6 +516,9 @@ const server = http.createServer(async (req, res) => {
   }
 
   // ── V2: Register passport + keys ──
+  // The passport's composite self-signature proves possession of its signer
+  // keys, and only those are registered. Re-registering an agent (e.g. with a
+  // new emergency token) must be signed by the keys already registered to it.
   if (req.method === "POST" && req.url === "/v2/passport/register") {
     let body;
     try { body = await parseBody(req); }
@@ -498,12 +537,13 @@ const server = http.createServer(async (req, res) => {
       return send(res, 400, { error: "Only V2 passports supported" });
     }
 
-    if (!passport.agent_id || !Array.isArray(passport.keys) || passport.keys.length === 0) {
-      return send(res, 400, { error: "Invalid passport: missing agent_id or keys" });
+    const schemaResult = validateAgainstSchema(
+      "https://dcp-ai.org/schemas/v2/agent_passport.schema.json", passport);
+    if (!schemaResult.valid) {
+      return send(res, 400, { error: "Schema validation failed", details: schemaResult.errors });
     }
 
     // Verify deterministic kids
-    const registeredKids = [];
     for (const key of passport.keys) {
       const expectedKid = deriveKid(key.alg, key.public_key_b64);
       if (key.kid !== expectedKid) {
@@ -511,29 +551,53 @@ const server = http.createServer(async (req, res) => {
           error: `Kid mismatch for ${key.alg}: expected ${expectedKid}, got ${key.kid}`,
         });
       }
-      storeSet(keyRegistry, key.kid, {
-        key,
-        agent_id: passport.agent_id,
-        registered_at: new Date().toISOString(),
-      });
-      registeredKids.push(key.kid);
     }
 
-    storeSet(passportRegistry, passport.agent_id, {
-      passport,
-      signed_passport,
-      registered_at: new Date().toISOString(),
-    });
+    const sig = signed_passport.composite_sig;
+    const allowClassicalOnly = ["classical_only", "hybrid_preferred"].includes(VERIFIER_POLICY.default_mode);
+    if (!(await verifyCompositeSig(DCP_CONTEXTS.AgentPassport, passport, sig, passport.keys, { allowClassicalOnly }))) {
+      return send(res, 403, { error: "Passport signature does not verify against the passport's own keys" });
+    }
+
+    const agentId = passport.agent_id;
+    if (revokedAgents.has(agentId)) {
+      return send(res, 403, { error: `Agent ${agentId} has been revoked` });
+    }
+
+    const signerKids = [sig.classical.kid, sig.pq?.kid].filter(Boolean);
+    const isActiveKidOfAgent = (kid) => {
+      const entry = keyRegistry.get(kid);
+      return entry?.agent_id === agentId && entry.key.status !== "revoked" && !revokedKids.has(kid);
+    };
+    if (passportRegistry.has(agentId) && !signerKids.every(isActiveKidOfAgent)) {
+      return send(res, 409, {
+        error: `Agent ${agentId} is already registered; re-registration must be signed by its current keys`,
+      });
+    }
+    const takenKid = signerKids.find((kid) => keyRegistry.has(kid) && keyRegistry.get(kid).agent_id !== agentId);
+    if (takenKid) {
+      return send(res, 409, { error: `Key ${takenKid} is registered to another agent` });
+    }
+    // Evicting identities would let anyone re-register an evicted agent_id.
+    if (!passportRegistry.has(agentId) && keyRegistry.size >= MAX_STORE_ENTRIES) {
+      return send(res, 507, { error: "Key registry full" });
+    }
+
+    const registeredAt = new Date().toISOString();
+    for (const key of passport.keys.filter((k) => signerKids.includes(k.kid))) {
+      keyRegistry.set(key.kid, { key, agent_id: agentId, registered_at: registeredAt });
+    }
+    passportRegistry.set(agentId, { passport, signed_passport, registered_at: registeredAt });
 
     // Register emergency token if present
     if (passport.emergency_revocation_token) {
-      emergencyTokens.set(passport.agent_id, passport.emergency_revocation_token);
+      emergencyTokens.set(agentId, passport.emergency_revocation_token);
     }
 
     send(res, 201, {
       ok: true,
-      agent_id: passport.agent_id,
-      registered_kids: registeredKids,
+      agent_id: agentId,
+      registered_kids: signerKids,
     }, "2.0");
     return;
   }
@@ -749,6 +813,9 @@ const server = http.createServer(async (req, res) => {
   }
 
   // ── V2: Key rotation ──
+  // The body is a KeyRotationRecord (@dcp-ai/sdk createKeyRotation): the new
+  // key proves possession and the old key authorizes, both signing
+  // {old_kid, new_kid, timestamp} under "DCP-AI.v2.KeyRotation".
   if (req.method === "POST" && req.url === "/v2/keys/rotate") {
     let body;
     try { body = await parseBody(req); }
@@ -757,18 +824,26 @@ const server = http.createServer(async (req, res) => {
       return send(res, 400, { error: "Invalid JSON" });
     }
 
-    const { old_kid, new_key, proof_of_possession, authorization_sig } = body;
+    const { old_kid, new_key, proof_of_possession, authorization_sig, timestamp } = body;
 
-    if (!old_kid || !new_key || !proof_of_possession) {
+    if (!old_kid || !new_key || !proof_of_possession || !authorization_sig || !timestamp) {
       return send(res, 400, {
-        error: "Missing required fields: old_kid, new_key, proof_of_possession",
+        error: "Missing required fields: old_kid, new_key, proof_of_possession, authorization_sig, timestamp",
       });
+    }
+
+    const keyResult = validateAgainstSchema("https://dcp-ai.org/schemas/v2/key_entry.schema.json", new_key);
+    if (!keyResult.valid) {
+      return send(res, 400, { error: "Invalid new_key", details: keyResult.errors });
     }
 
     // Verify old key exists
     const oldEntry = keyRegistry.get(old_kid);
     if (!oldEntry) {
       return send(res, 404, { error: `Key ${old_kid} not found` });
+    }
+    if (oldEntry.key.status === "revoked" || revokedKids.has(old_kid) || revokedAgents.has(oldEntry.agent_id)) {
+      return send(res, 403, { error: `Key ${old_kid} is revoked` });
     }
 
     // Verify new kid is deterministic
@@ -778,9 +853,27 @@ const server = http.createServer(async (req, res) => {
         error: `Kid mismatch: expected ${expectedKid}, got ${new_key.kid}`,
       });
     }
+    if (keyRegistry.has(new_key.kid)) {
+      return send(res, 409, { error: `Key ${new_key.kid} is already registered` });
+    }
+
+    const rotation = await verifyKeyRotation(
+      v2Registry,
+      { old_kid, new_kid: new_key.kid, timestamp, proof_of_possession, authorization_sig },
+      oldEntry.key.public_key_b64,
+      new_key.public_key_b64,
+    ).catch(() => ({ valid: false }));
+    if (!rotation.valid) {
+      return send(res, 403, {
+        error: "Rotation not proven: proof_of_possession must be signed by new_key and authorization_sig by old_kid",
+      });
+    }
+    if (keyRegistry.size >= MAX_STORE_ENTRIES) {
+      return send(res, 507, { error: "Key registry full" });
+    }
 
     // Register new key
-    storeSet(keyRegistry, new_key.kid, {
+    keyRegistry.set(new_key.kid, {
       key: new_key,
       agent_id: oldEntry.agent_id,
       registered_at: new Date().toISOString(),
@@ -881,6 +974,11 @@ const server = http.createServer(async (req, res) => {
   }
 
   // ── V2: Multi-party authorization (Gap #5) ──
+  // Each party signs {operation, operation_payload, party_id, role} under
+  // "DCP-AI.v2.MultiPartyAuth" (createPartyAuthorization in sdks/typescript). A party
+  // is an identity registered via /v2/passport/register: its signing kids must
+  // be active keys registered to its party_id. Roles are asserted by the
+  // signer, not looked up.
   if (req.method === "POST" && req.url === "/v2/multi-party/authorize") {
     let body;
     try { body = await parseBody(req); }
@@ -890,27 +988,10 @@ const server = http.createServer(async (req, res) => {
     }
 
     const { authorization } = body;
-    if (!authorization || authorization.type !== "multi_party_authorization") {
-      return send(res, 400, { error: "Missing or invalid multi_party_authorization" });
-    }
-
-    const ALLOWED_OPERATIONS = new Set([
-      "revoke_agent", "rotate_org_key", "change_jurisdiction", "modify_recovery_config",
-    ]);
-
-    if (!ALLOWED_OPERATIONS.has(authorization.operation)) {
-      return send(res, 400, { error: `Unknown operation: ${authorization.operation}` });
-    }
-
-    if (!Array.isArray(authorization.authorizations)) {
-      return send(res, 400, { error: "Missing authorizations array" });
-    }
-
-    const required = authorization.required_parties || 2;
-    if (authorization.authorizations.length < required) {
-      return send(res, 403, {
-        error: `Insufficient authorizations: ${authorization.authorizations.length} < ${required}`,
-      });
+    const schemaResult = validateAgainstSchema(
+      "https://dcp-ai.org/schemas/v2/multi_party_authorization.schema.json", authorization);
+    if (!authorization || !schemaResult.valid) {
+      return send(res, 400, { error: "Missing or invalid multi_party_authorization", details: schemaResult.errors });
     }
 
     const hasOwner = authorization.authorizations.some(a => a.role === "owner");
@@ -919,23 +1000,40 @@ const server = http.createServer(async (req, res) => {
     }
 
     const errors = [];
+    const verifiedParties = new Set();
     for (const auth of authorization.authorizations) {
-      if (!auth.party_id || !auth.role || !auth.composite_sig) {
-        errors.push(`Invalid authorization entry for party ${auth.party_id || "unknown"}`);
-      }
-      if (auth.composite_sig && auth.composite_sig.binding === "pq_over_classical" && !auth.composite_sig.pq) {
-        errors.push(`Party ${auth.party_id}: binding pq_over_classical but PQ sig missing`);
+      const partyKeys = [auth.composite_sig.classical?.kid, auth.composite_sig.pq?.kid]
+        .map((kid) => keyRegistry.get(kid))
+        .filter((e) => e?.agent_id === auth.party_id && e.key.status !== "revoked" && !revokedKids.has(e.key.kid))
+        .map((e) => e.key);
+      const signable = {
+        operation: authorization.operation,
+        operation_payload: authorization.operation_payload,
+        party_id: auth.party_id,
+        role: auth.role,
+      };
+      if (await verifyCompositeSig(DCP_CONTEXTS.MultiPartyAuth, signable, auth.composite_sig, partyKeys)) {
+        verifiedParties.add(auth.party_id);
+      } else {
+        errors.push(`Party ${auth.party_id}: signature does not verify against its registered keys`);
       }
     }
 
     if (errors.length > 0) {
-      return send(res, 400, { error: "Authorization validation failed", details: errors });
+      return send(res, 403, { error: "Authorization validation failed", details: errors });
+    }
+
+    // A party counts once, however many roles it signs for.
+    if (verifiedParties.size < authorization.required_parties) {
+      return send(res, 403, {
+        error: `Insufficient authorizations: ${verifiedParties.size} distinct parties < ${authorization.required_parties}`,
+      });
     }
 
     send(res, 200, {
       ok: true,
       operation: authorization.operation,
-      parties_verified: authorization.authorizations.length,
+      parties_verified: verifiedParties.size,
       threshold_met: true,
     }, "2.0");
     return;
@@ -985,21 +1083,17 @@ const server = http.createServer(async (req, res) => {
       return send(res, 400, { error: "Invalid JSON" });
     }
 
+    // ponytail: composite_sig is only checked structurally — @dcp-ai/sdk has no
+    // AlgorithmAdvisory context tag yet, so the operator token is the trust anchor.
     const { advisory } = body;
-    if (!advisory || advisory.type !== "algorithm_advisory") {
-      return send(res, 400, { error: "Missing or invalid algorithm_advisory" });
+    const schemaResult = validateAgainstSchema(
+      "https://dcp-ai.org/schemas/v2/algorithm_advisory.schema.json", advisory);
+    if (!advisory || !schemaResult.valid) {
+      return send(res, 400, { error: "Missing or invalid algorithm_advisory", details: schemaResult.errors });
     }
 
-    if (!advisory.advisory_id || !advisory.affected_algorithms || !advisory.action) {
-      return send(res, 400, { error: "Advisory missing required fields" });
-    }
-
-    if (!["deprecate", "warn", "revoke"].includes(advisory.action)) {
-      return send(res, 400, { error: `Invalid action: ${advisory.action}` });
-    }
-
-    if (!advisory.composite_sig) {
-      return send(res, 400, { error: "Advisory must be signed by governance key" });
+    if (algorithmAdvisories.length >= MAX_ADVISORIES) {
+      return send(res, 507, { error: `Advisory store full (max ${MAX_ADVISORIES})` });
     }
 
     algorithmAdvisories.push(advisory);
@@ -1073,38 +1167,15 @@ const server = http.createServer(async (req, res) => {
     }
 
     const { mode } = body;
-    const validModes = ["classical_only", "pq_only", "hybrid_required", "hybrid_preferred"];
 
-    if (!validModes.includes(mode)) {
+    if (!VERIFIER_MODES.includes(mode)) {
       return send(res, 400, {
-        error: `Invalid mode '${mode}'. Valid: ${validModes.join(", ")}`,
+        error: `Invalid mode '${mode}'. Valid: ${VERIFIER_MODES.join(", ")}`,
       });
     }
 
     const oldMode = VERIFIER_POLICY.default_mode;
-
-    VERIFIER_POLICY.default_mode = mode;
-    VERIFIER_POLICY.risk_overrides = { high: mode, medium: mode, low: mode };
-
-    if (mode === "pq_only") {
-      VERIFIER_POLICY.min_classical = 0;
-      VERIFIER_POLICY.min_pq = 1;
-      VERIFIER_POLICY.require_composite_binding = false;
-      VERIFIER_POLICY.allow_classical_fallback_disable = true;
-      VERIFIER_POLICY.warn_classical_only_deprecated = true;
-      VERIFIER_POLICY.allow_v1_bundles = false;
-    } else if (mode === "hybrid_required") {
-      VERIFIER_POLICY.min_classical = 1;
-      VERIFIER_POLICY.min_pq = 1;
-      VERIFIER_POLICY.require_composite_binding = true;
-      VERIFIER_POLICY.allow_classical_fallback_disable = false;
-      VERIFIER_POLICY.warn_classical_only_deprecated = false;
-    } else if (mode === "classical_only") {
-      VERIFIER_POLICY.min_classical = 1;
-      VERIFIER_POLICY.min_pq = 0;
-      VERIFIER_POLICY.require_composite_binding = false;
-      VERIFIER_POLICY.warn_classical_only_deprecated = true;
-    }
+    setVerifierMode(mode);
 
     policyHistory.push({
       action: "mode_switch",
