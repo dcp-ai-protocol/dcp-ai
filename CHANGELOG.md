@@ -124,7 +124,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `verify_signed_bundle_v2`, `DEFAULT_VERIFIER_POLICY` and `PQ_ONLY_VERIFIER_POLICY` port the
   TypeScript `builder-v2.ts`, `signer-v2.ts` and `verify-v2.ts`. The verifier also checks each
   artifact's composite signature (VERIFICATION.md V2-8), rejects a present but invalid PQ signature
-  in every mode (V2-7) and fails closed on an unknown verification mode.
+  in every mode (V2-7) and fails closed on an unknown verification mode. Unlike the TypeScript
+  verifier, it binds the bundle's PQ checkpoints to the manifest's `pq_checkpoints` IDs and does
+  not let the unsigned `signature.created_at` shorten the `max_session_duration_seconds` check.
+  Checkpoint contents (V2-12) and `audit_merkle_root_secondary` are still not verified.
 - `tests/nist-kat/ml-kem-768` and `tests/nist-kat/slh-dsa-192f`: NIST ACVP vectors (ML-KEM-768
   decapsulation and key checks, SLH-DSA-SHA2-192f signature verification).
 - `tests/interop/v2/cross_sdk_vectors.json`: SLH-DSA-192f, ML-KEM-768 and signed V2 bundle vectors

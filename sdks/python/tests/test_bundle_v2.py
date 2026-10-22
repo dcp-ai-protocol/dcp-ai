@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -84,6 +85,7 @@ def rebuild(bundle: dict) -> dict:
         .intent(bundle["intent"])
         .policy_decision(bundle["policy_decision"])
         .add_audit_entries(bundle["audit_entries"])
+        .add_pq_checkpoints(bundle.get("pq_checkpoints") or [])
         .enable_dual_hash()
         .build()
     )
@@ -237,6 +239,20 @@ class TestIntegrity:
         assert_error(result, error)
 
     @pytest.mark.asyncio
+    async def test_pq_checkpoints_bound_to_manifest(self, registry, signed, principal_keys):
+        nonce = signed["bundle"]["manifest"]["session_nonce"]
+        signed["bundle"]["pq_checkpoints"] = [{"checkpoint_id": "ckpt-1", "session_nonce": nonce}]
+        with_checkpoint = await resign(registry, signed, principal_keys)
+        result = await verify_signed_bundle_v2(with_checkpoint, registry)
+        assert result["verified"] is True, result["errors"]
+
+        checkpoints = with_checkpoint["bundle"]["pq_checkpoints"]
+        checkpoints.append({"checkpoint_id": "ckpt-injected", "session_nonce": nonce})
+        assert_error(await verify_signed_bundle_v2(with_checkpoint, registry), "Manifest pq_checkpoints")
+        checkpoints.clear()
+        assert_error(await verify_signed_bundle_v2(with_checkpoint, registry), "Manifest pq_checkpoints")
+
+    @pytest.mark.asyncio
     async def test_malformed_input_fails_without_raising(self, registry):
         for bad in ({}, {"bundle": {"dcp_bundle_version": "2.0"}, "signature": {}}):
             result = await verify_signed_bundle_v2(bad, registry)
@@ -319,6 +335,20 @@ class TestSessionAndAudience:
     async def test_expired_session(self, registry, signed, principal_keys):
         expired = await resign(registry, signed, principal_keys, session_expires_at="2020-01-01T00:00:00.000Z")
         assert_error(await verify_signed_bundle_v2(expired, registry), "Session expired")
+
+    @pytest.mark.asyncio
+    async def test_max_session_duration_ignores_unsigned_created_at(self, registry, signed, principal_keys):
+        expires = datetime.now(timezone.utc) + timedelta(hours=2)
+        expires_at = expires.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+        long_session = await resign(registry, signed, principal_keys, session_expires_at=expires_at)
+        ok = await verify_signed_bundle_v2(long_session, registry, {"max_session_duration_seconds": 3 * 3600})
+        assert ok["verified"] is True, ok["errors"]
+
+        one_hour = {"max_session_duration_seconds": 3600}
+        assert_error(await verify_signed_bundle_v2(long_session, registry, one_hour), "exceeds policy max")
+        # signature.created_at is not signed: moving it up to the expiry must not shorten the session.
+        long_session["signature"]["created_at"] = expires_at
+        assert_error(await verify_signed_bundle_v2(long_session, registry, one_hour), "exceeds policy max")
 
     @pytest.mark.asyncio
     async def test_session_expiry_required(self, registry, signed):
