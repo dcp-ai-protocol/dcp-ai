@@ -270,8 +270,8 @@ jobs:
       - name: Test with coverage
         run: cargo llvm-cov --lcov --output-path lcov.info
 
-      - name: Test (otlp feature)
-        run: cargo test --features otlp
+      - name: Test (all features)
+        run: cargo test --all-features
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
@@ -287,6 +287,10 @@ jobs:
         run: |
           rustup target add wasm32-unknown-unknown
           cargo build --target wasm32-unknown-unknown --features wasm
+
+      # tests/wasm_bindings.rs only compiles for wasm32; build it so it cannot rot.
+      - name: Build WASM tests
+        run: cargo test --target wasm32-unknown-unknown --features wasm --no-run
 
   wasm-sdk:
     name: WASM SDK
