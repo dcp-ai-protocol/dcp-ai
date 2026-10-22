@@ -88,6 +88,8 @@ services:
       - DCP_VERSION=2.0
       - LOG_ID=log-alpha
       # OPERATOR_KEY (64 hex, openssl rand -hex 32) pins the STH signing key; unset = ephemeral
+      # Tree heads only count under a pinned key: <url>#<peer's /health public_key>, which
+      # needs a fixed OPERATOR_KEY on the peer. Unpinned peers are polled but ignored.
       - GOSSIP_PEERS=http://transparency-log-b:3012
       - GOSSIP_INTERVAL_MS=30000
       - OPERATOR_TOKEN

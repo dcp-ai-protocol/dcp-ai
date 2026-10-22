@@ -11,14 +11,15 @@
  *   LOG_ID        — Unique identifier for this log instance
  *   OPERATOR_KEY  — Ed25519 seed for signing STHs: 64 hex chars (openssl rand -hex 32)
  *   OPERATOR_TOKEN — Bearer token required by POST /gossip/peers
- *   GOSSIP_PEERS  — Comma-separated list of peer endpoints (e.g. "http://log-b:3002,http://log-c:3002")
+ *   GOSSIP_PEERS  — Comma-separated peers, each "<endpoint>#<base64 Ed25519 public key>"
+ *                   (e.g. "http://log-b:3002#q1w2..."); tree heads from unpinned peers are ignored
  *   GOSSIP_INTERVAL_MS — Gossip polling interval in ms (default 30000)
  */
 
 import http from "http";
 import crypto from "crypto";
 import nacl from "tweetnacl";
-import { GossipManager } from "./gossip.js";
+import { GossipManager, isWellFormedSTH } from "./gossip.js";
 import { isOperator, parseBody } from "../../lib/http.js";
 
 const PORT = Number(process.env.PORT) || 3002;
@@ -46,6 +47,7 @@ const operatorKeyPair = {
 const log = [];
 let treeHashes = [];
 const alerts = [];
+const MAX_ALERTS = 100; // the most recent ones
 
 function sha256Hex(data) {
   return crypto.createHash("sha256").update(data).digest("hex");
@@ -97,13 +99,16 @@ const gossipManager = new GossipManager({
   getLocalSTH,
   onInconsistency: (alert) => {
     alerts.push(alert);
+    if (alerts.length > MAX_ALERTS) alerts.shift();
   },
 });
 
 if (process.env.GOSSIP_PEERS) {
   const peers = process.env.GOSSIP_PEERS.split(",").map(s => s.trim()).filter(Boolean);
-  peers.forEach((endpoint, i) => {
-    gossipManager.addPeer(`peer-${i}`, endpoint);
+  peers.forEach((entry, i) => {
+    const [endpoint, publicKey] = entry.split("#");
+    if (!publicKey) console.warn(`[gossip] ${endpoint} has no pinned public key: its tree heads will be ignored`);
+    gossipManager.addPeer(`peer-${i}`, endpoint, publicKey);
   });
 }
 
@@ -208,14 +213,23 @@ async function handle(req, res) {
     return;
   }
 
-  // Gossip exchange — receive peer's STH, return ours, detect split-view
+  // Gossip exchange — receive a pinned peer's STH, return ours, detect split-view.
+  // Open to anyone, so the STH must be well formed and signed by a pinned peer
+  // before it is compared or recorded in an alert.
   if (req.method === "POST" && req.url === "/gossip/exchange") {
     let body;
-    try { body = await parseBody(req); }
-    catch { return send(res, 400, { error: "Invalid JSON" }); }
+    try { body = await parseBody(req, 16_384); }
+    catch { return send(res, 400, { error: "Invalid JSON or body too large" }); }
 
-    const result = gossipManager.handleExchange(body.sth);
-    send(res, 200, result);
+    if (!isWellFormedSTH(body.sth)) {
+      return send(res, 400, { error: "Malformed STH" });
+    }
+    const peerId = gossipManager.findSigner(body.sth);
+    if (!peerId) {
+      return send(res, 403, { error: "STH is not signed by a pinned gossip peer" });
+    }
+
+    send(res, 200, gossipManager.handleExchange(body.sth, peerId));
     return;
   }
 
@@ -234,8 +248,12 @@ async function handle(req, res) {
     if (!body.peer_id || !/^https?:\/\//.test(body.endpoint)) {
       return send(res, 400, { error: "Missing peer_id or http(s) endpoint" });
     }
+    if (body.public_key !== undefined && !(typeof body.public_key === "string" &&
+        Buffer.from(body.public_key, "base64").length === 32)) {
+      return send(res, 400, { error: "public_key must be a base64 Ed25519 public key" });
+    }
 
-    gossipManager.addPeer(body.peer_id, body.endpoint);
+    gossipManager.addPeer(body.peer_id, body.endpoint, body.public_key);
     send(res, 200, { added: body.peer_id, peers: gossipManager.getPeers().length });
     return;
   }

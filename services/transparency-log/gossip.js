@@ -13,6 +13,16 @@
 import crypto from "crypto";
 import { signObject, verifyObject } from "../../tools/crypto.js";
 
+// Tree heads come from other logs, so only well-formed ones are compared or kept.
+export function isWellFormedSTH(sth) {
+  return typeof sth === "object" && sth !== null &&
+    (sth.root === null || /^[0-9a-f]{64}$/.test(sth.root)) &&
+    Number.isSafeInteger(sth.size) && sth.size >= 0 &&
+    typeof sth.log_id === "string" && sth.log_id.length <= 128 &&
+    typeof sth.timestamp === "string" && sth.timestamp.length <= 64 &&
+    typeof sth.signature === "string" && sth.signature.length <= 128;
+}
+
 export class GossipManager {
   constructor({ operatorKeyPair, logId, getLocalSTH, onInconsistency }) {
     this.peers = new Map();
@@ -20,26 +30,37 @@ export class GossipManager {
     this.logId = logId || `log-${crypto.randomUUID().slice(0, 8)}`;
     this.getLocalSTH = getLocalSTH;
     this.onInconsistency = onInconsistency || this._defaultInconsistencyHandler;
-    this.peerSTHHistory = new Map();
     this._pollInterval = null;
   }
 
-  addPeer(peerId, endpoint) {
-    this.peers.set(peerId, { endpoint, lastSeen: null, lastSTH: null });
+  /**
+   * @param publicKey - the peer's pinned Ed25519 public key (base64). Without it
+   *   the peer's tree heads cannot be verified and are ignored.
+   */
+  addPeer(peerId, endpoint, publicKey = null) {
+    this.peers.set(peerId, { endpoint, publicKey, lastSeen: null, lastSTH: null });
   }
 
   removePeer(peerId) {
     this.peers.delete(peerId);
-    this.peerSTHHistory.delete(peerId);
   }
 
   getPeers() {
     return Array.from(this.peers.entries()).map(([id, info]) => ({
       peer_id: id,
       endpoint: info.endpoint,
+      public_key: info.publicKey,
       last_seen: info.lastSeen,
       last_sth: info.lastSTH,
     }));
+  }
+
+  /** The id of the pinned peer whose key signed this (well-formed) STH, or null. */
+  findSigner(sth) {
+    for (const [peerId, peer] of this.peers) {
+      if (peer.publicKey && this.verifySignedTreeHead(sth, peer.publicKey).valid) return peerId;
+    }
+    return null;
   }
 
   /**
@@ -87,13 +108,12 @@ export class GossipManager {
       }
 
       const peerSTH = await resp.json();
+      if (!peer.publicKey || !isWellFormedSTH(peerSTH) || !this.verifySignedTreeHead(peerSTH, peer.publicKey).valid) {
+        console.error(`[gossip] Ignoring tree head from ${peerId}: no pinned key, malformed or bad signature`);
+        return;
+      }
       peer.lastSeen = new Date().toISOString();
       peer.lastSTH = peerSTH;
-
-      if (!this.peerSTHHistory.has(peerId)) {
-        this.peerSTHHistory.set(peerId, []);
-      }
-      this.peerSTHHistory.get(peerId).push(peerSTH);
 
       const localSTH = this.getLocalSTH();
 
@@ -147,16 +167,18 @@ export class GossipManager {
   }
 
   /**
-   * Handle a gossip exchange request from a peer. Return our STH, verify theirs.
+   * Handle a gossip exchange from a pinned peer, whose STH the caller has
+   * validated and verified (isWellFormedSTH, findSigner). Return our STH.
    */
-  handleExchange(peerSTH) {
+  handleExchange(peerSTH, peerId) {
     const localSTH = this.getLocalSTH();
     const signedLocalSTH = this.signTreeHead(localSTH.root, localSTH.size);
 
     let alert = null;
-    if (peerSTH && peerSTH.size === localSTH.size && peerSTH.root !== localSTH.root) {
+    if (peerSTH.size === localSTH.size && peerSTH.root !== localSTH.root) {
       alert = {
         type: "split_view_detected",
+        peer_id: peerId,
         peer_log_id: peerSTH.log_id,
         local_root: localSTH.root,
         peer_root: peerSTH.root,
