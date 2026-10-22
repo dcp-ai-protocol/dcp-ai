@@ -70,6 +70,7 @@ jobs:
               - '.github/workflows/ci.yml'
             integrations:
               - 'integrations/express/**'
+              - 'integrations/google-a2a/**'
               - 'integrations/openclaw/**'
               - '.github/workflows/ci.yml'
 
@@ -165,7 +166,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        integration: [express, openclaw]
+        integration: [express, google-a2a, openclaw]
     defaults:
       run:
         working-directory: integrations/${{ matrix.integration }}
