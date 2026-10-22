@@ -2,7 +2,7 @@
 
 # dcp-ai — Python SDK
 
-デジタル市民権プロトコル (DCP v2.0) 公式Python SDKです。Pydantic v2モデル、ハイブリッド耐量子署名 (Ed25519 + ML-DSA-65、および SLH-DSA-192f)、`pq_over_classical` バインディングによる複合署名、V1 バンドルの署名と検証、OpenTelemetryによるオブザーバビリティ、DCP-04からDCP-09までの動作、およびフル機能のCLIを備えています。
+デジタル市民権プロトコル (DCP v2.0) 公式Python SDKです。Pydantic v2モデル、ハイブリッド耐量子暗号 (Ed25519 + ML-DSA-65 + SLH-DSA-192f 署名と ML-KEM-768 鍵カプセル化)、`pq_over_classical` バインディングによる複合署名、V1・V2 バンドルの署名と検証、OpenTelemetryによるオブザーバビリティ、DCP-04からDCP-09までの動作、およびフル機能のCLIを備えています。
 
 ## インストール
 
@@ -24,13 +24,13 @@ pip install "dcp-ai[otlp]"       # OpenTelemetry OTLP exporter
 
 | 領域 | 状態 |
 |---|---|
-| Ed25519 / ML-DSA-65 プロバイダ | Yes |
-| SLH-DSA-192f プロバイダ | Yes（`pqcrypto` による標準化前の SPHINCS+。他の SDK との FIPS 205 相互運用は未対応） |
-| ML-KEM-768 | 未対応（TypeScript・Go・Rust は対応済み） |
+| Ed25519 / ML-DSA-65 (FIPS 204) プロバイダ | Yes |
+| SLH-DSA-192f プロバイダ | Yes（FIPS 205、pure モード・空のコンテキスト。他の SDK と相互運用可能） |
+| ML-KEM-768 プロバイダ | Yes（FIPS 203） |
 | 複合署名 (`pq_over_classical`) + 検証 | Yes |
 | 正規化JSON v2 + ドメイン分離 | Yes |
 | デュアルハッシュ (SHA-256 + SHA3-256) + Merkleルート | Yes |
-| バンドルの署名と検証 | V1: Yes。V2 (`SignedBundleV2`): 未対応。TypeScript SDK または `dcp verify-bundle` を使用してください |
+| バンドルの署名と検証 | V1: Yes。V2 (`SignedBundleV2`): Yes（`BundleBuilderV2` / `sign_bundle_v2` / `verify_signed_bundle_v2`） |
 | DCP-04 A2A 発見 + ハンドシェイク + AES-256-GCM セッション (`cryptography` 経由) | Yes |
 | DCP-05 エージェントライフサイクル (コミッショニング / バイタリティ / デコミッショニング) | Yes |
 | DCP-06 デジタル継承 (デジタル遺言、メモリ転送、セレモニー) | Yes |
@@ -209,6 +209,34 @@ verify_signed_bundle(
 
 検証する内容: スキーマ、Ed25519署名、`bundle_hash`、`merkle_root`、`intent_hash` チェーン、`prev_hash` チェーン。
 
+### V2 バンドル
+
+`dcp_ai.v2` の `BundleBuilderV2`、`sign_bundle_v2`、`verify_signed_bundle_v2` は、TypeScript SDK の `builder-v2.ts`、`signer-v2.ts`、`verify-v2.ts` の移植です。成果物は `SignedPayload` 辞書（`{"payload", "payload_hash", "composite_sig"}`）で、バンドル署名はマニフェストに対する複合署名です。
+
+```python
+from dcp_ai.providers import Ed25519Provider, MlDsa65Provider
+from dcp_ai.v2 import AlgorithmRegistry, BundleBuilderV2, sign_bundle_v2, verify_signed_bundle_v2
+
+registry = AlgorithmRegistry()
+registry.register_signer(Ed25519Provider())
+registry.register_signer(MlDsa65Provider())
+
+bundle = (
+    BundleBuilderV2(session_nonce)
+    .responsible_principal_record(signed_rpr)
+    .agent_passport(signed_passport)
+    .intent(signed_intent)
+    .policy_decision(signed_policy)
+    .add_audit_entries(audit_events)
+    .build()
+)
+signed = await sign_bundle_v2(bundle, registry, "human", "human-001", classical_key, pq_key)
+result = await verify_signed_bundle_v2(signed, registry)  # DEFAULT_VERIFIER_POLICY
+# {"verified": bool, "errors": [...], "warnings": [...], "details": {...}}
+```
+
+検証器は各成果物自体の複合署名も検証し（RPR はプリンシパルの `binding_keys`、それ以外はパスポートの鍵で検証）、存在するのに無効な PQ 署名はどのポリシーモードでも拒否します。
+
 ### Pydanticモデル
 
 すべてのDCP v1成果物は、自動検証付きのPydantic v2モデルとして利用可能です。
@@ -264,6 +292,8 @@ pytest -v --asyncio-mode=auto
 - `jsonschema` — JSONスキーマ検証
 - `pydantic` v2 — データモデル
 - `typer` — CLIフレームワーク
+- `pqcrypto` ≥ 1.0 — ML-DSA-65、SLH-DSA-192f、ML-KEM-768（FIPS 204/205/203）
+- `cryptography` — DCP-04 A2A セッション用の AES-256-GCM
 
 ## ライセンス
 

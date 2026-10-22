@@ -196,6 +196,16 @@ from dcp_ai.v2.error_codes import (
     detect_wire_format,
     is_dcp_error,
 )
+from dcp_ai.v2.bundle import (
+    BundleBuilderV2,
+    sign_bundle_v2,
+    sign_bundle_v2_classical_only,
+)
+from dcp_ai.v2.verify import (
+    DEFAULT_VERIFIER_POLICY,
+    PQ_ONLY_VERIFIER_POLICY,
+    verify_signed_bundle_v2,
+)
 
 __all__ = [
     "assert_no_floats",
@@ -366,4 +376,11 @@ __all__ = [
     "create_dcp_error",
     "detect_wire_format",
     "is_dcp_error",
+    # V2 bundle build / sign / verify
+    "BundleBuilderV2",
+    "sign_bundle_v2",
+    "sign_bundle_v2_classical_only",
+    "DEFAULT_VERIFIER_POLICY",
+    "PQ_ONLY_VERIFIER_POLICY",
+    "verify_signed_bundle_v2",
 ]

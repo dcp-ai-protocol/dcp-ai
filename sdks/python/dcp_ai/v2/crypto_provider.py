@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import hashlib
 from abc import ABC, abstractmethod
+from typing import Any
 
 
 def derive_kid(alg: str, public_key_bytes: bytes) -> str:
@@ -52,8 +53,8 @@ class KemProvider(ABC):
         ...
 
     @abstractmethod
-    async def encapsulate(self, public_key_b64: str) -> dict[str, str]:
-        """Encapsulate against a public key. Returns dict with shared_secret, ciphertext_b64."""
+    async def encapsulate(self, public_key_b64: str) -> dict[str, Any]:
+        """Encapsulate against a public key. Returns dict with shared_secret (bytes), ciphertext_b64."""
         ...
 
     @abstractmethod

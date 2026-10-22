@@ -88,6 +88,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   (`KeyRotationRecord`). `dcp rotate-key` and `dcp keys certify` still send a simulated proof of
   possession, which the server now rejects.
 
+### Changed (breaking)
+
+- Python SDK: SLH-DSA-192f now implements FIPS 205 (pure SLH-DSA, empty context), like the
+  TypeScript, Go and Rust SDKs. It was built on PQClean's pre-standard SPHINCS+, which signs the
+  bare message instead of `0x00 || 0x00 || message`, so SLH-DSA signatures did not verify across
+  SDKs in either direction. Signatures made by `SlhDsa192fProvider` in `dcp-ai` 2.8.2 and earlier
+  no longer verify.
+- Python SDK: requires `pqcrypto>=1.0,<2`, now used for ML-DSA-65, SLH-DSA-192f and ML-KEM-768,
+  instead of the `<1.0` cap of 2.8.2 (`pqcrypto` 1.0 changed its API and dropped SPHINCS+).
+  `dcp_ai.providers` no longer swallows an `ImportError`, and the PQ interop tests no longer skip
+  when a provider is missing.
+
 ### Added
 
 - TypeScript SDK: `blindRpr`, `verifyBlindedRpr`, `isBlindedRpr` and `computePiiHash` are exported
@@ -107,6 +119,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `sdks/typescript/src/__tests__/generate-bundle-vectors.ts`.
 - Go SDK: `v2.SignPayload` signs an artifact into a `SignedPayload`: a composite signature, or a
   classical-only one when no PQ key is given.
+- Python SDK: `MlKem768Provider` (FIPS 203), the ML-KEM-768 provider the other SDKs already had.
+- Python SDK: V2 bundles. `BundleBuilderV2`, `sign_bundle_v2`, `sign_bundle_v2_classical_only`,
+  `verify_signed_bundle_v2`, `DEFAULT_VERIFIER_POLICY` and `PQ_ONLY_VERIFIER_POLICY` port the
+  TypeScript `builder-v2.ts`, `signer-v2.ts` and `verify-v2.ts`. The verifier also checks each
+  artifact's composite signature (VERIFICATION.md V2-8), rejects a present but invalid PQ signature
+  in every mode (V2-7) and fails closed on an unknown verification mode.
+- `tests/nist-kat/ml-kem-768` and `tests/nist-kat/slh-dsa-192f`: NIST ACVP vectors (ML-KEM-768
+  decapsulation and key checks, SLH-DSA-SHA2-192f signature verification).
+- `tests/interop/v2/cross_sdk_vectors.json`: SLH-DSA-192f, ML-KEM-768 and signed V2 bundle vectors
+  produced by the TypeScript and Python SDKs, each verified by the other.
+
+### Fixed
+
+- Python SDK: `BundleManifest.pq_checkpoints` holds checkpoint IDs, as in
+  `schemas/v2/bundle_manifest.schema.json`, and the model gains `session_expires_at` and
+  `intended_verifier`.
 
 ### Documentation
 
