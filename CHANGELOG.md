@@ -15,6 +15,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `@dcp-ai/sdk`: the bundled telemetry version is read from `package.json` at build time (`tsup.config.ts`)
   instead of a literal in the build script; 2.2.0 would have reported itself as 2.1.2.
 
+### Documentation
+
+- `docs/EU_AI_ACT_MAPPING.md`: how DCP-AI artifacts support the logging, human oversight,
+  record-keeping, explanation and incident-evidence obligations of Regulation (EU) 2024/1689 (EU AI
+  Act) as amended by Regulation (EU) 2026/1744, with the application timeline, an implementer
+  checklist and the gaps DCP does not cover. Articles verified on EUR-Lex on 22 October 2026.
+
 ## [2.10.0] - 2026-10-22
 
 ### Package versions

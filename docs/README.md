@@ -18,6 +18,7 @@
 
 - [API_REFERENCE.md](API_REFERENCE.md) — Complete TypeScript SDK API documentation
 - [NIST_CONFORMITY.md](NIST_CONFORMITY.md) — NIST FIPS 203/204/205 conformance statement
+- [EU_AI_ACT_MAPPING.md](EU_AI_ACT_MAPPING.md) — EU AI Act (Regulation (EU) 2024/1689) logging, human oversight and record-keeping obligations mapped to DCP artifacts
 - [MIGRATION_V1_V2.md](MIGRATION_V1_V2.md) — Migrating from DCP v1.0 to v2.0
 
 ## Operations
