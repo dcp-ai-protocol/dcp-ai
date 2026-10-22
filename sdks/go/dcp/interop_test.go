@@ -617,3 +617,77 @@ func TestSignedBundleVectors(t *testing.T) {
 		})
 	}
 }
+
+type testSigner struct {
+	classical, pq v2.CompositeKeyInfo
+	entries       []interface{}
+}
+
+func newTestSigner(t *testing.T) testSigner {
+	t.Helper()
+	ed, err := (&providers.Ed25519Provider{}).GenerateKeypair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	pq, err := (&providers.MlDsa65Provider{}).GenerateKeypair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := testSigner{
+		classical: v2.CompositeKeyInfo{Kid: ed.Kid, Alg: "ed25519", SecretKeyB64: ed.SecretKeyB64, PublicKeyB64: ed.PublicKeyB64},
+		pq:        v2.CompositeKeyInfo{Kid: pq.Kid, Alg: "ml-dsa-65", SecretKeyB64: pq.SecretKeyB64, PublicKeyB64: pq.PublicKeyB64},
+	}
+	for _, k := range []v2.CompositeKeyInfo{s.classical, s.pq} {
+		s.entries = append(s.entries, map[string]interface{}{
+			"kid": k.Kid, "alg": k.Alg, "public_key_b64": k.PublicKeyB64, "status": "active",
+		})
+	}
+	return s
+}
+
+// TestBuildSignVerifyBundleV2: a bundle built from signed artifacts with
+// BuildBundleV2 and signed with SignBundleV2 passes VerifySignedBundleV2.
+func TestBuildSignVerifyBundleV2(t *testing.T) {
+	reg := newRegistry()
+	principal, agent := newTestSigner(t), newTestSigner(t)
+	nonce := strings.Repeat("ab", 32)
+	sign := func(context string, payload map[string]interface{}, s testSigner) v2.SignedPayload {
+		t.Helper()
+		sp, err := v2.SignPayload(reg, context, payload, s.classical, &s.pq)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return sp
+	}
+
+	audit1 := v2.AuditEventV2{DCPVersion: "2.0", AuditID: "audit-1", SessionNonce: nonce, PrevHash: "GENESIS", HashAlg: "sha256"}
+	canonical, err := v2.CanonicalizeV2(audit1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	audit2 := audit1
+	audit2.AuditID, audit2.PrevHash = "audit-2", "sha256:"+v2.SHA256Hex([]byte(canonical))
+
+	bundle, err := v2.BuildBundleV2(v2.BundleBuildInput{
+		RPR:          sign(v2.CtxResponsiblePrincipal, map[string]interface{}{"human_id": "h-1", "session_nonce": nonce, "binding_keys": principal.entries}, principal),
+		Passport:     sign(v2.CtxAgentPassport, map[string]interface{}{"agent_id": "a-1", "session_nonce": nonce, "keys": agent.entries}, agent),
+		Intent:       sign(v2.CtxIntent, map[string]interface{}{"intent_id": "i-1", "session_nonce": nonce}, agent),
+		Policy:       sign(v2.CtxPolicyDecision, map[string]interface{}{"intent_id": "i-1", "session_nonce": nonce, "risk_score": 200}, agent),
+		AuditEntries: []v2.AuditEventV2{audit1, audit2},
+		SessionNonce: nonce,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	signed, err := v2.SignBundleV2(reg, bundle, principal.classical, &principal.pq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := json.Marshal(signed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r := v2.VerifySignedBundleV2(reg, data); !r.Verified {
+		t.Fatalf("built bundle must verify: %v", r.Errors)
+	}
+}

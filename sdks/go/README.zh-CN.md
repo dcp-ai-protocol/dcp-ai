@@ -79,25 +79,34 @@ func main() {
     reg.RegisterSigner(&providers.MlDsa65Provider{})
     reg.RegisterKem(&providers.MlKem768Provider{})
 
-    // Generate keypairs
+    // Generate keypairs (here one pair signs for both the principal and the agent)
     edKeys, _ := (&providers.Ed25519Provider{}).GenerateKeypair()
     pqKeys, _ := (&providers.MlDsa65Provider{}).GenerateKeypair()
+    classicalKey := v2.CompositeKeyInfo{Kid: edKeys.Kid, Alg: "ed25519", SecretKeyB64: edKeys.SecretKeyB64, PublicKeyB64: edKeys.PublicKeyB64}
+    pqKey := v2.CompositeKeyInfo{Kid: pqKeys.Kid, Alg: "ml-dsa-65", SecretKeyB64: pqKeys.SecretKeyB64, PublicKeyB64: pqKeys.PublicKeyB64}
+    keys := []interface{}{
+        map[string]interface{}{"kid": edKeys.Kid, "alg": "ed25519", "public_key_b64": edKeys.PublicKeyB64, "status": "active"},
+        map[string]interface{}{"kid": pqKeys.Kid, "alg": "ml-dsa-65", "public_key_b64": pqKeys.PublicKeyB64, "status": "active"},
+    }
 
-    // Build a V2 bundle
+    // Sign each artifact under its own context (Ed25519 + ML-DSA-65)
+    sign := func(context string, payload map[string]interface{}) v2.SignedPayload {
+        sp, _ := v2.SignPayload(reg, context, payload, classicalKey, &pqKey)
+        return sp
+    }
+
+    // Build a V2 bundle from the signed artifacts
     bundle, _ := v2.BuildBundleV2(v2.BundleBuildInput{
-        RPR:          map[string]interface{}{"human_id": "h-1", "session_nonce": "nonce-1"},
-        Passport:     map[string]interface{}{"agent_id": "a-1", "session_nonce": "nonce-1"},
-        Intent:       map[string]interface{}{"intent_id": "i-1", "session_nonce": "nonce-1"},
-        Policy:       map[string]interface{}{"intent_id": "i-1", "session_nonce": "nonce-1", "risk_score": 200},
-        AuditEntries: []interface{}{},
+        RPR:          sign(v2.CtxResponsiblePrincipal, map[string]interface{}{"human_id": "h-1", "session_nonce": "nonce-1", "binding_keys": keys}),
+        Passport:     sign(v2.CtxAgentPassport, map[string]interface{}{"agent_id": "a-1", "session_nonce": "nonce-1", "keys": keys}),
+        Intent:       sign(v2.CtxIntent, map[string]interface{}{"intent_id": "i-1", "session_nonce": "nonce-1"}),
+        Policy:       sign(v2.CtxPolicyDecision, map[string]interface{}{"intent_id": "i-1", "session_nonce": "nonce-1", "risk_score": 200}),
+        AuditEntries: []v2.AuditEventV2{},
         SessionNonce: "nonce-1",
     })
 
-    // Sign with composite (Ed25519 + ML-DSA-65)
-    pqKey := v2.CompositeKeyInfo{Kid: pqKeys.Kid, Alg: "ml-dsa-65", SecretKeyB64: pqKeys.SecretKeyB64}
-    signed, _ := v2.SignBundleV2(reg, bundle, v2.CompositeKeyInfo{
-        Kid: edKeys.Kid, Alg: "ed25519", SecretKeyB64: edKeys.SecretKeyB64,
-    }, &pqKey)
+    // Sign the manifest with a composite signature
+    signed, _ := v2.SignBundleV2(reg, bundle, classicalKey, &pqKey)
 
     // Verify
     data, _ := json.Marshal(signed)
@@ -135,7 +144,8 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 
 | 函数 | 描述 |
 |----------|-------------|
-| `v2.BuildBundleV2(input)` | 构建带清单哈希和双 Merkle 根的 V2 凭证包 |
+| `v2.SignPayload(reg, context, payload, classicalKey, pqKey)` | 将工件签名为 `SignedPayload`（复合签名；`pqKey` 为 nil 时仅经典签名） |
+| `v2.BuildBundleV2(input)` | 由已签名的工件构建 V2 凭证包，含清单哈希和双 Merkle 根 |
 | `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | 使用复合或仅经典签名签名凭证包 |
 | `v2.VerifySignedBundleV2(reg, jsonBytes)` | 完整的 V2 凭证包验证（结构、哈希、签名、审计链） |
 

@@ -10,57 +10,59 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-// BundleBuildInput holds the artifacts needed to build a V2 bundle.
+// BundleBuildInput holds the signed artifacts needed to build a V2 bundle.
+// Sign each payload with SignPayload: the RPR with the principal's
+// binding_keys, the passport, intent and policy decision with the passport keys.
 type BundleBuildInput struct {
-	RPR          interface{}   // responsible principal record payload
-	Passport     interface{}   // agent passport payload
-	Intent       interface{}   // intent payload
-	Policy       interface{}   // policy decision payload
-	AuditEntries []interface{} // audit event payloads
+	RPR          SignedPayload
+	Passport     SignedPayload
+	Intent       SignedPayload
+	Policy       SignedPayload
+	AuditEntries []AuditEventV2
 	SessionNonce string
 }
 
-// BuildBundleV2 constructs a CitizenshipBundleV2 from individual artifacts.
-// It computes manifest hashes, dual Merkle roots, and assembles the bundle structure.
+// BuildBundleV2 assembles a CitizenshipBundleV2 from signed artifacts.
+// It computes manifest hashes and dual Merkle roots over the audit entries.
 func BuildBundleV2(input BundleBuildInput) (*CitizenshipBundleV2, error) {
-	hashArtifact := func(v interface{}) (string, string, error) {
-		canonical, err := CanonicalizeV2(v)
+	hashPayload := func(sp SignedPayload) (string, error) {
+		canonical, err := CanonicalizeV2(sp.Payload)
 		if err != nil {
-			return "", "", fmt.Errorf("canonicalize: %w", err)
+			return "", fmt.Errorf("canonicalize: %w", err)
 		}
-		dh := DualHashCanonical(canonical)
-		return "sha256:" + dh.SHA256, canonical, nil
+		return "sha256:" + DualHashCanonical(canonical).SHA256, nil
 	}
 
-	rprHash, _, err := hashArtifact(input.RPR)
+	rprHash, err := hashPayload(input.RPR)
 	if err != nil {
 		return nil, fmt.Errorf("rpr hash: %w", err)
 	}
-	passportHash, _, err := hashArtifact(input.Passport)
+	passportHash, err := hashPayload(input.Passport)
 	if err != nil {
 		return nil, fmt.Errorf("passport hash: %w", err)
 	}
-	intentHash, _, err := hashArtifact(input.Intent)
+	intentHash, err := hashPayload(input.Intent)
 	if err != nil {
 		return nil, fmt.Errorf("intent hash: %w", err)
 	}
-	policyHash, _, err := hashArtifact(input.Policy)
+	policyHash, err := hashPayload(input.Policy)
 	if err != nil {
 		return nil, fmt.Errorf("policy hash: %w", err)
 	}
 
+	auditEntries := input.AuditEntries
+	if auditEntries == nil {
+		auditEntries = []AuditEventV2{}
+	}
 	var sha256Leaves, sha3Leaves []string
-	var auditEvents []AuditEventV2
-	for _, entry := range input.AuditEntries {
+	for i, entry := range auditEntries {
 		canonical, err := CanonicalizeV2(entry)
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("audit entry %d: %w", i, err)
 		}
 		dh := DualHashCanonical(canonical)
 		sha256Leaves = append(sha256Leaves, dh.SHA256)
 		sha3Leaves = append(sha3Leaves, dh.SHA3256)
-
-		auditEvents = append(auditEvents, AuditEventV2{})
 	}
 
 	auditMerkleSHA256 := computeMerkleRoot(sha256Leaves, merkleHashSHA256)
@@ -81,30 +83,18 @@ func BuildBundleV2(input BundleBuildInput) (*CitizenshipBundleV2, error) {
 		PolicyHash:               policyHash,
 		AuditMerkleRoot:          "sha256:" + auditMerkleSHA256,
 		AuditMerkleRootSecondary: "sha3-256:" + auditMerkleSHA3,
-		AuditCount:               len(input.AuditEntries),
+		AuditCount:               len(auditEntries),
 		CanonicalizationProfile:  "dcp-jcs-v1",
 	}
 
 	bundle := &CitizenshipBundleV2{
-		DCPBundleVersion: "2.0",
-		Manifest:         manifest,
-		ResponsiblePrincipalRecord: SignedPayload{
-			Payload:     input.RPR,
-			PayloadHash: rprHash,
-		},
-		AgentPassport: SignedPayload{
-			Payload:     input.Passport,
-			PayloadHash: passportHash,
-		},
-		Intent: SignedPayload{
-			Payload:     input.Intent,
-			PayloadHash: intentHash,
-		},
-		PolicyDecision: SignedPayload{
-			Payload:     input.Policy,
-			PayloadHash: policyHash,
-		},
-		AuditEntries: auditEvents,
+		DCPBundleVersion:           "2.0",
+		Manifest:                   manifest,
+		ResponsiblePrincipalRecord: input.RPR,
+		AgentPassport:              input.Passport,
+		Intent:                     input.Intent,
+		PolicyDecision:             input.Policy,
+		AuditEntries:               auditEntries,
 	}
 
 	return bundle, nil

@@ -577,7 +577,7 @@ Key structural differences:
 
 | v1.0 API | v2.0 API | Notes |
 |----------|----------|-------|
-| `SignObject(bundle, secretKeyB64)` | `v2.BuildBundleV2(input)` + `v2.SignBundleV2(registry, bundle, classicalKey, pqKey)` | Composite signature over the manifest |
+| `SignObject(bundle, secretKeyB64)` | `v2.SignPayload(registry, context, payload, classicalKey, pqKey)` per artifact, then `v2.BuildBundleV2(input)` + `v2.SignBundleV2(registry, bundle, classicalKey, pqKey)` | Composite signatures over each artifact and over the manifest |
 | `VerifySignedBundle(sb, publicKeyB64)` | `v2.VerifySignedBundleV2(registry, signedBundleJSON)` | Policy-driven |
 | N/A | `GenerateKeypair()` on `providers.Ed25519Provider` / `providers.MlDsa65Provider` | Hybrid keys |
 | N/A | `v2.ComputeSecurityTier(intent)` | Adaptive tier |

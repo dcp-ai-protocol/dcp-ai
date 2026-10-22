@@ -8,11 +8,11 @@ import (
 
 func TestBuildBundleV2_Structure(t *testing.T) {
 	input := BundleBuildInput{
-		RPR:          map[string]interface{}{"human_id": "h1", "session_nonce": "n1"},
-		Passport:     map[string]interface{}{"agent_id": "a1", "session_nonce": "n1"},
-		Intent:       map[string]interface{}{"intent_id": "i1", "session_nonce": "n1"},
-		Policy:       map[string]interface{}{"intent_id": "i1", "session_nonce": "n1", "risk_score": 100},
-		AuditEntries: []interface{}{},
+		RPR:          SignedPayload{Payload: map[string]interface{}{"human_id": "h1", "session_nonce": "n1"}},
+		Passport:     SignedPayload{Payload: map[string]interface{}{"agent_id": "a1", "session_nonce": "n1"}},
+		Intent:       SignedPayload{Payload: map[string]interface{}{"intent_id": "i1", "session_nonce": "n1"}},
+		Policy:       SignedPayload{Payload: map[string]interface{}{"intent_id": "i1", "session_nonce": "n1", "risk_score": 100}},
+		AuditEntries: []AuditEventV2{},
 		SessionNonce: "n1",
 	}
 
@@ -50,11 +50,11 @@ func TestBuildBundleV2_Structure(t *testing.T) {
 func TestBuildBundleV2_ManifestHashConsistency(t *testing.T) {
 	payload := map[string]interface{}{"test": "data", "session_nonce": "n1"}
 	input := BundleBuildInput{
-		RPR:          payload,
-		Passport:     payload,
-		Intent:       payload,
-		Policy:       payload,
-		AuditEntries: []interface{}{},
+		RPR:          SignedPayload{Payload: payload},
+		Passport:     SignedPayload{Payload: payload},
+		Intent:       SignedPayload{Payload: payload},
+		Policy:       SignedPayload{Payload: payload},
+		AuditEntries: []AuditEventV2{},
 		SessionNonce: "n1",
 	}
 
@@ -77,13 +77,13 @@ func TestBuildBundleV2_ManifestHashConsistency(t *testing.T) {
 
 func TestBuildBundleV2_WithAuditEntries(t *testing.T) {
 	input := BundleBuildInput{
-		RPR:      map[string]interface{}{"session_nonce": "n1"},
-		Passport: map[string]interface{}{"session_nonce": "n1"},
-		Intent:   map[string]interface{}{"session_nonce": "n1"},
-		Policy:   map[string]interface{}{"session_nonce": "n1"},
-		AuditEntries: []interface{}{
-			map[string]interface{}{"audit_id": "a1"},
-			map[string]interface{}{"audit_id": "a2"},
+		RPR:      SignedPayload{Payload: map[string]interface{}{"session_nonce": "n1"}},
+		Passport: SignedPayload{Payload: map[string]interface{}{"session_nonce": "n1"}},
+		Intent:   SignedPayload{Payload: map[string]interface{}{"session_nonce": "n1"}},
+		Policy:   SignedPayload{Payload: map[string]interface{}{"session_nonce": "n1"}},
+		AuditEntries: []AuditEventV2{
+			{AuditID: "a1"},
+			{AuditID: "a2"},
 		},
 		SessionNonce: "n1",
 	}
@@ -106,11 +106,11 @@ func TestSignBundleV2_ClassicalOnly(t *testing.T) {
 	reg.RegisterSigner(&mockProvider{alg: "ed25519", sigSize: 64})
 
 	input := BundleBuildInput{
-		RPR:          map[string]interface{}{"session_nonce": "n1"},
-		Passport:     map[string]interface{}{"session_nonce": "n1"},
-		Intent:       map[string]interface{}{"session_nonce": "n1"},
-		Policy:       map[string]interface{}{"session_nonce": "n1"},
-		AuditEntries: []interface{}{},
+		RPR:          SignedPayload{Payload: map[string]interface{}{"session_nonce": "n1"}},
+		Passport:     SignedPayload{Payload: map[string]interface{}{"session_nonce": "n1"}},
+		Intent:       SignedPayload{Payload: map[string]interface{}{"session_nonce": "n1"}},
+		Policy:       SignedPayload{Payload: map[string]interface{}{"session_nonce": "n1"}},
+		AuditEntries: []AuditEventV2{},
 		SessionNonce: "n1",
 	}
 
@@ -148,11 +148,11 @@ func TestSignBundleV2_Composite(t *testing.T) {
 	reg.RegisterSigner(&mockProvider{alg: "ml-dsa-65", sigSize: 3309})
 
 	input := BundleBuildInput{
-		RPR:          map[string]interface{}{"session_nonce": "n1"},
-		Passport:     map[string]interface{}{"session_nonce": "n1"},
-		Intent:       map[string]interface{}{"session_nonce": "n1"},
-		Policy:       map[string]interface{}{"session_nonce": "n1"},
-		AuditEntries: []interface{}{},
+		RPR:          SignedPayload{Payload: map[string]interface{}{"session_nonce": "n1"}},
+		Passport:     SignedPayload{Payload: map[string]interface{}{"session_nonce": "n1"}},
+		Intent:       SignedPayload{Payload: map[string]interface{}{"session_nonce": "n1"}},
+		Policy:       SignedPayload{Payload: map[string]interface{}{"session_nonce": "n1"}},
+		AuditEntries: []AuditEventV2{},
 		SessionNonce: "n1",
 	}
 
@@ -189,11 +189,11 @@ func TestSignBundleV2_ProducesValidJSON(t *testing.T) {
 	reg.RegisterSigner(&mockProvider{alg: "ed25519", sigSize: 64})
 
 	input := BundleBuildInput{
-		RPR:          map[string]interface{}{"session_nonce": "n1"},
-		Passport:     map[string]interface{}{"session_nonce": "n1"},
-		Intent:       map[string]interface{}{"session_nonce": "n1"},
-		Policy:       map[string]interface{}{"session_nonce": "n1"},
-		AuditEntries: []interface{}{},
+		RPR:          SignedPayload{Payload: map[string]interface{}{"session_nonce": "n1"}},
+		Passport:     SignedPayload{Payload: map[string]interface{}{"session_nonce": "n1"}},
+		Intent:       SignedPayload{Payload: map[string]interface{}{"session_nonce": "n1"}},
+		Policy:       SignedPayload{Payload: map[string]interface{}{"session_nonce": "n1"}},
+		AuditEntries: []AuditEventV2{},
 		SessionNonce: "n1",
 	}
 
