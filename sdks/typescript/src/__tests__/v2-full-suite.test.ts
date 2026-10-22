@@ -50,7 +50,7 @@ import {
   DEFAULT_VERIFIER_POLICY,
   PQ_ONLY_VERIFIER_POLICY,
 } from '../core/verify-v2.js';
-import type { VerifierPolicy } from '../types/v2.js';
+import type { RiskTier, VerificationMode, VerifierPolicy } from '../types/v2.js';
 import {
   blindRpr,
   verifyBlindedRpr,
@@ -260,9 +260,10 @@ function buildAuditChain(
 
 async function buildSignedBundleV2(
   nonce?: string,
+  passportOverrides: Partial<AgentPassportV2> = {},
 ): Promise<SignedBundleV2> {
   const sn = nonce || sessionNonce;
-  const passport = makePassport(sn);
+  const passport = { ...makePassport(sn), ...passportOverrides };
   const rpr = makeRpr(sn);
   const intent = makeIntent(sn, passport.agent_id);
   const policy = makePolicyDecision(sn, intent.intent_id);
@@ -1444,6 +1445,42 @@ describe('Negative: Forged Signatures (VERIFICATION.md V2-7 / V2-8)', () => {
     const required = await verifySignedBundleV2(signed, registry, hybridRequired);
     expect(required.verified).toBe(false);
     expect(required.errors.some(e => e.startsWith('intent:'))).toBe(true);
+  });
+});
+
+describe('Negative: Unknown Verification Modes', () => {
+  it.each(['constructor', 'toString', '__proto__'])(
+    'rejects a tampered intent with a stale bundle signature when risk_tier is %s',
+    async (tier) => {
+      const signed = await buildSignedBundleV2(undefined, { risk_tier: tier as RiskTier });
+      const intent = signed.bundle.intent;
+      intent.payload = { ...intent.payload, target: { channel: 'email', to: 'mallory@example.com' } };
+      intent.payload_hash = preparePayload(intent.payload).payloadHash;
+      signed.bundle.manifest.intent_hash = intent.payload_hash;
+
+      const result = await verifySignedBundleV2(signed, registry, DEFAULT_VERIFIER_POLICY);
+      expect(result.verified).toBe(false);
+    },
+  );
+
+  it('rejects a policy whose resolved mode is not a VerificationMode', async () => {
+    const signed = await buildSignedBundleV2();
+    const policies: VerifierPolicy[] = [
+      {
+        ...DEFAULT_VERIFIER_POLICY,
+        default_mode: 'hybrid' as VerificationMode,
+        risk_overrides: {} as VerifierPolicy['risk_overrides'],
+      },
+      {
+        ...DEFAULT_VERIFIER_POLICY,
+        risk_overrides: { ...DEFAULT_VERIFIER_POLICY.risk_overrides, medium: 'none' as VerificationMode },
+      },
+    ];
+    for (const policy of policies) {
+      const result = await verifySignedBundleV2(signed, registry, policy);
+      expect(result.verified).toBe(false);
+      expect(result.errors.some((e) => e.includes('Unknown verification mode'))).toBe(true);
+    }
   });
 });
 

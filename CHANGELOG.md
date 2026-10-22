@@ -49,6 +49,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   policy decision against the passport `keys`. Before, only `payload_hash` was checked, so a
   forged agent signature on the intent verified even under `hybrid_required`. The reference
   verifier, `dcp verify-bundle` and the server get this with the next `@dcp-ai/sdk` release.
+- TypeScript SDK: `verifySignedBundleV2` fails closed on a verification mode it does not recognise,
+  and rejects a verifier policy whose mode is not `classical_only`, `hybrid_preferred`,
+  `hybrid_required` or `pq_only`.
 - Go (`v2.VerifySignedBundleV2`) and Rust SDKs: each artifact's `composite_sig` is verified the
   same way (V2-8), and signer keys are looked up by `kid` (V2-6), the bundle signer in the
   passport `keys` and the RPR `binding_keys`. They used to take the passport's Ed25519 and
