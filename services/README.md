@@ -60,11 +60,12 @@ node services/revocation/index.js
 
 - **Revocation** writes are signed: registration by the passport's own keys, revocations by the keys registered to the agent. Emergency revocation needs the pre-image of the registered token.
 - **Anchor** `POST /flush` and **Transparency Log** `POST /gossip/peers` require `Authorization: Bearer <OPERATOR_TOKEN>`; without `OPERATOR_TOKEN` they stay locked. The log fetches its peers itself, so an open peer list would let anyone point it at internal URLs.
-- Request bodies are capped at 1 MB. Rate limits (revocation's emergency endpoint, the gateway) key on the socket address; set `TRUST_PROXY=true` only behind a proxy that appends the client IP to `X-Forwarded-For`.
+- Request bodies are capped at 1 MB. Rate limits (registrations and emergency revocations, the gateway's POSTs) key on the socket address; set `TRUST_PROXY=true` only behind a proxy that appends the client IP to `X-Forwarded-For`.
+- Registries refuse new entries when full (507) instead of evicting them: the revocation service caps agents (`MAX_AGENTS`), the gateway caps keys and keeps 4 retired keys per agent. The transparency log only trusts tree heads signed by pinned peers (`GOSSIP_PEERS=<url>#<key>`).
 
 ## Persistence
 
-All services keep their state **in memory**, and nothing survives a restart, a deploy or a stopped machine:
+All services keep their state **in memory**, and **nothing survives a restart**, a deploy, a crash or a stopped machine:
 
 - **Revocation**: forgetting revocations un-revokes agents, and after a wipe the first registration of an `agent_id` is trust on first use again. `deploy/fly/revocation.toml` keeps one machine running (`min_machines_running = 1`) so idling does not wipe it; deploys still do.
 - **Transparency Log**: a restart starts a new, empty tree, so earlier STHs and proofs no longer match it. Its Fly config already keeps one machine running.
