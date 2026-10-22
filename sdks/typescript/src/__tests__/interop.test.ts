@@ -514,13 +514,17 @@ describe('Signed bundle verification (bundle_vectors.json)', () => {
     expect(result.verified).toBe(true);
   });
 
-  for (const { name, path, value } of B.must_reject as { name: string; path: string[]; value: unknown }[]) {
+  type Case = { name: string; error_contains: string; mutations: { path: string[]; value: unknown }[] };
+  for (const { name, error_contains, mutations } of B.must_reject as Case[]) {
     it.each(MODES)(`${name} is rejected under %s`, async (mode) => {
       const signed = structuredClone(B.signed_bundle);
-      const parent = path.slice(0, -1).reduce((node: any, key) => node[key], signed);
-      parent[path[path.length - 1]] = value;
+      for (const { path, value } of mutations) {
+        const parent = path.slice(0, -1).reduce((node: any, key) => node[key], signed);
+        parent[path[path.length - 1]] = value;
+      }
       const result = await verifySignedBundleV2(signed, registry, policyFor(mode));
       expect(result.verified).toBe(false);
+      expect(result.errors.join('\n').toLowerCase()).toContain(error_contains);
     });
   }
 });
