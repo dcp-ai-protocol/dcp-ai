@@ -19,8 +19,8 @@ let signedBundle;
 before(async () => {
   ({ signedBundle } = await buildV2Examples());
   const services = await Promise.all([
-    startService(SERVER, { OPERATOR_TOKEN }),
-    startService(SERVER, { VERIFIER_MODE: "classical_only", ALLOW_V1_BUNDLES: "false" }),
+    startService(SERVER, { OPERATOR_TOKEN, REGISTRATIONS_PER_HOUR: "1000" }),
+    startService(SERVER, { VERIFIER_MODE: "classical_only", ALLOW_V1_BUNDLES: "false", REGISTRATIONS_PER_HOUR: "1000" }),
   ]);
   [base, configured] = services.map((s) => s.base);
   procs = services.map((s) => s.proc);
@@ -179,6 +179,47 @@ test("key rotation needs proof of possession by the new key and authorization by
   const rotation = await createKeyRotation(registry, params);
   assert.equal((await post("/v2/keys/rotate", rotation)).status, 200);
   assert.equal((await post("/v2/keys/rotate", rotation)).status, 403, "old key is retired");
+});
+
+test("rotation keeps at most four retired keys per agent", async () => {
+  const lima = await newAgent("agent:lima-0001");
+  assert.equal((await post("/v2/passport/register", { signed_passport: lima.signedPassport })).status, 201);
+  const registeredKeys = async () => (await (await fetch(`${base}/health`)).json()).registered_keys;
+  const before = await registeredKeys();
+
+  const ed25519 = new Ed25519Provider();
+  let current = { kid: lima.keys.classical.kid, secretKeyB64: lima.keys.classical.secretKeyB64 };
+  const retired = [];
+  for (let i = 0; i < 6; i++) {
+    const next = await ed25519.generateKeypair();
+    const rotation = await createKeyRotation(registry, {
+      oldKid: current.kid, oldAlg: "ed25519", oldSecretKeyB64: current.secretKeyB64,
+      newKid: next.kid, newAlg: "ed25519", newSecretKeyB64: next.secretKeyB64, newPublicKeyB64: next.publicKeyB64,
+      timestamp: new Date().toISOString(), expiresAt: null,
+    });
+    assert.equal((await post("/v2/keys/rotate", rotation)).status, 200);
+    retired.push(current.kid);
+    current = next;
+  }
+
+  // Six rotations retired six keys; the two oldest are dropped instead of filling the registry.
+  assert.equal(await registeredKeys(), before + 4);
+  assert.equal((await fetch(`${base}/v2/keys/${retired[0]}`)).status, 404);
+  assert.equal((await (await fetch(`${base}/v2/keys/${retired[5]}`)).json()).key.status, "revoked");
+});
+
+test("new registrations are rate limited per client", async () => {
+  const { base: limited, proc } = await startService(SERVER, { REGISTRATIONS_PER_HOUR: "2" });
+  try {
+    const statuses = [];
+    for (const id of ["agent:mike-0001", "agent:mike-0002", "agent:mike-0003"]) {
+      const { signedPassport } = await newAgent(id);
+      statuses.push((await postTo(limited, "/v2/passport/register", { signed_passport: signedPassport })).status);
+    }
+    assert.deepEqual(statuses, [201, 201, 429]);
+  } finally {
+    proc.kill();
+  }
 });
 
 test("expired keys cannot re-register, extend their expiry or authorize a rotation", async () => {

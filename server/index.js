@@ -39,7 +39,7 @@ import Ajv from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import { DCP_CONTEXTS, DEFAULT_VERIFIER_POLICY, verifyKeyRotation } from "@dcp-ai/sdk";
 import { verifySignedBundle, isV2Bundle, verifyCompositeSig, v2Registry } from "../lib/verify.js";
-import { parseBody, getClientIp, isOperator } from "../lib/http.js";
+import { parseBody, getClientIp, isOperator, rateLimiter } from "../lib/http.js";
 import { computeSecurityTier } from "../lib/security-tier.js";
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -48,6 +48,8 @@ const PORT = Number(process.env.PORT) || 3000;
 
 const MAX_STORE_ENTRIES = 10_000; // per-store cap before eviction
 const MAX_ADVISORIES = 1_000;
+const MAX_RETIRED_KEYS_PER_AGENT = 4; // older rotated-out keys are dropped
+const REGISTRATIONS_PER_HOUR = Number(process.env.REGISTRATIONS_PER_HOUR) || 20; // per client
 const GLOBAL_RATE_LIMIT = 100;   // requests per window per IP
 const GLOBAL_RATE_WINDOW = 60_000; // 1 minute
 
@@ -196,7 +198,8 @@ const DCP_CAPABILITIES = {
 // ── In-memory stores ──
 
 const keyRegistry = new Map();       // kid -> { key, agent_id, registered_at }
-const passportRegistry = new Map();  // agent_id -> passport data
+const agentKids = new Map();         // agent_id -> Set of its kids in keyRegistry, oldest first
+const passportRegistry = new Map();  // agent_id -> { created_at, registered_at }
 const auditChains = new Map();       // agent_id -> [events]
 const emergencyTokens = new Map();   // agent_id -> token_hash
 const revokedKids = new Set();       // set of revoked kids
@@ -223,10 +226,10 @@ const mirrorStore = new Map();       // agent_id -> [mirrors]
 const interactionStore = new Map();  // interaction_id -> interaction record
 const thresholdStore = new Map();    // agent_id -> awareness threshold
 
-// Emergency revoke rate limiter
-const rateLimitMap = new Map();
-const RATE_LIMIT_MAX = 5;
-const RATE_LIMIT_WINDOW = 60_000;
+// Per-client rate limiters
+const checkGlobalRateLimit = rateLimiter(GLOBAL_RATE_LIMIT, GLOBAL_RATE_WINDOW);
+const checkRateLimit = rateLimiter(5, 60_000); // emergency revocations
+const checkRegistrationRate = rateLimiter(REGISTRATIONS_PER_HOUR, 3_600_000);
 
 // ── Helpers ──
 
@@ -248,32 +251,6 @@ function send(res, statusCode, body, dcpVersion) {
   res.writeHead(statusCode);
   res.end(JSON.stringify(body));
 }
-
-// ── Global rate limiter (per-IP) ──
-
-const globalRateLimitMap = new Map();
-
-function checkGlobalRateLimit(ip) {
-  const now = Date.now();
-  let entry = globalRateLimitMap.get(ip);
-  if (!entry || now - entry.start > GLOBAL_RATE_WINDOW) {
-    entry = { start: now, count: 0 };
-    globalRateLimitMap.set(ip, entry);
-  }
-  entry.count++;
-  return entry.count <= GLOBAL_RATE_LIMIT;
-}
-
-// Periodic cleanup of rate limit maps (prevent unbounded growth)
-setInterval(() => {
-  const now = Date.now();
-  for (const [ip, entry] of globalRateLimitMap) {
-    if (now - entry.start > GLOBAL_RATE_WINDOW) globalRateLimitMap.delete(ip);
-  }
-  for (const [ip, entry] of rateLimitMap) {
-    if (now - entry.start > RATE_LIMIT_WINDOW) rateLimitMap.delete(ip);
-  }
-}, GLOBAL_RATE_WINDOW);
 
 // ── Store eviction (FIFO — evict oldest when cap reached) ──
 
@@ -323,16 +300,19 @@ function setSecurityHeaders(res) {
   res.setHeader("Strict-Transport-Security", "max-age=63072000; includeSubDomains");
 }
 
-function checkRateLimit(ip) {
-  const now = Date.now();
-  let entry = rateLimitMap.get(ip);
-  if (!entry || now - entry.start > RATE_LIMIT_WINDOW) {
-    entry = { start: now, count: 0 };
-    rateLimitMap.set(ip, entry);
-  }
-  entry.count++;
-  return entry.count <= RATE_LIMIT_MAX;
+// keyRegistry is only written through these, so agentKids stays in step with it.
+function registerKey(entry) {
+  keyRegistry.set(entry.key.kid, entry);
+  if (!agentKids.has(entry.agent_id)) agentKids.set(entry.agent_id, new Set());
+  agentKids.get(entry.agent_id).add(entry.key.kid);
 }
+
+function dropKey(entry) {
+  keyRegistry.delete(entry.key.kid);
+  agentKids.get(entry.agent_id).delete(entry.key.kid);
+}
+
+const keysOf = (agentId) => [...(agentKids.get(agentId) ?? [])].map((kid) => keyRegistry.get(kid));
 
 // A registered key can still sign for its agent: not revoked, not expired.
 function isActiveKey(entry) {
@@ -512,6 +492,10 @@ const server = http.createServer(async (req, res) => {
   // keys, and only those are registered. Re-registering an agent (e.g. with a
   // new emergency token) must be signed by all of its active keys.
   if (req.method === "POST" && req.url === "/v2/passport/register") {
+    if (!checkRegistrationRate(getClientIp(req))) {
+      return send(res, 429, { error: `Rate limit exceeded. Max ${REGISTRATIONS_PER_HOUR} registrations per hour.` });
+    }
+
     let body;
     try { body = await parseBody(req); }
     catch (e) {
@@ -562,23 +546,22 @@ const server = http.createServer(async (req, res) => {
       // Exactly the agent's active keys must sign, whatever VERIFIER_MODE allows new
       // agents, and the passport must be newer: signed passports are public, so an old
       // one can be replayed to bring back an old token.
-      // ponytail: scans the key registry (at most MAX_STORE_ENTRIES keys); index kids by agent if this gets hot.
-      const agentKeys = [...keyRegistry.values()].filter((entry) => entry.agent_id === agentId);
+      const agentKeys = keysOf(agentId);
       const activeKids = agentKeys.filter(isActiveKey).map((entry) => entry.key.kid);
       // Each key family the agent registered needs an active key: once its PQ key has
       // expired, its Ed25519 key alone must not replace the token. Recovery then goes
       // through the emergency token or the operator.
       const family = (alg) => (DEFAULT_VERIFIER_POLICY.accepted_classical_algs.includes(alg) ? "classical" : "pq");
-      const lostFamily = agentKeys.some((entry) =>
-        !agentKeys.some((other) => isActiveKey(other) && family(other.key.alg) === family(entry.key.alg)));
-      const signedByAllActive = !lostFamily && activeKids.length > 0 && activeKids.length === signerKids.length &&
-        activeKids.every((kid) => signerKids.includes(kid));
+      const families = new Set(agentKeys.map((entry) => family(entry.key.alg)));
+      const activeFamilies = new Set(agentKeys.filter(isActiveKey).map((entry) => family(entry.key.alg)));
+      const signedByAllActive = families.size === activeFamilies.size && activeKids.length > 0 &&
+        activeKids.length === signerKids.length && activeKids.every((kid) => signerKids.includes(kid));
       if (!signedByAllActive) {
         return send(res, 409, {
           error: `Agent ${agentId} is already registered; re-registration must be signed by all of its active keys`,
         });
       }
-      if (!(Date.parse(passport.created_at) > Date.parse(registered.passport.created_at))) {
+      if (!(Date.parse(passport.created_at) > Date.parse(registered.created_at))) {
         return send(res, 409, { error: "Re-registration needs a passport newer (created_at) than the registered one" });
       }
     }
@@ -594,9 +577,10 @@ const server = http.createServer(async (req, res) => {
     const registeredAt = new Date().toISOString();
     // Registered entries are kept, so a new passport cannot extend a key's expires_at.
     for (const key of passport.keys.filter((k) => signerKids.includes(k.kid) && !keyRegistry.has(k.kid))) {
-      keyRegistry.set(key.kid, { key, agent_id: agentId, registered_at: registeredAt });
+      registerKey({ key, agent_id: agentId, registered_at: registeredAt });
     }
-    passportRegistry.set(agentId, { passport, signed_passport, registered_at: registeredAt });
+    // Only what re-registration needs: a whole signed passport could be ~1 MB per agent.
+    passportRegistry.set(agentId, { created_at: passport.created_at, registered_at: registeredAt });
 
     // Register emergency token if present
     if (passport.emergency_revocation_token) {
@@ -879,7 +863,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Register new key
-    keyRegistry.set(new_key.kid, {
+    registerKey({
       key: new_key,
       agent_id: oldEntry.agent_id,
       registered_at: new Date().toISOString(),
@@ -890,16 +874,9 @@ const server = http.createServer(async (req, res) => {
     const oldKey = oldEntry.key;
     oldKey.status = "revoked";
 
-    // Update passport keys
-    const passportEntry = passportRegistry.get(oldEntry.agent_id);
-    if (passportEntry) {
-      const keys = passportEntry.passport.keys || [];
-      const idx = keys.findIndex(k => k.kid === old_kid);
-      if (idx >= 0) {
-        keys[idx].status = "revoked";
-      }
-      keys.push(new_key);
-    }
+    // Keep only the most recent retired keys, so rotating over and over cannot fill the registry.
+    const retired = keysOf(oldEntry.agent_id).filter((entry) => entry.key.status === "revoked");
+    for (const entry of retired.slice(0, -MAX_RETIRED_KEYS_PER_AGENT)) dropKey(entry);
 
     send(res, 200, {
       ok: true,
@@ -958,12 +935,10 @@ const server = http.createServer(async (req, res) => {
     revokedAgents.add(agent_id);
     let keysRevoked = 0;
 
-    for (const [kid, entry] of keyRegistry.entries()) {
-      if (entry.agent_id === agent_id) {
-        revokedKids.add(kid);
-        entry.key.status = "revoked";
-        keysRevoked++;
-      }
+    for (const entry of keysOf(agent_id)) {
+      revokedKids.add(entry.key.kid);
+      entry.key.status = "revoked";
+      keysRevoked++;
     }
 
     // Consume the token (one-time use)
