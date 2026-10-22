@@ -1284,10 +1284,18 @@ describe('Negative: Blinded RPR', () => {
   });
 
   it('blindRpr refuses a malformed pii_salt', () => {
-    for (const pii_salt of ['', 'ab', 'A'.repeat(64), 'g'.repeat(64), 'a'.repeat(66)]) {
-      expect(() => blindRpr({ ...makeRpr(sessionNonce), pii_salt }), pii_salt).toThrow(
-        /generatePiiSalt\(\)/,
-      );
+    const salts: unknown[] = [
+      '',
+      'ab',
+      'A'.repeat(64),
+      'g'.repeat(64),
+      'a'.repeat(66),
+      `${'a'.repeat(64)}\n`,
+      ['a'.repeat(64)],
+    ];
+    for (const pii_salt of salts) {
+      const rpr = { ...makeRpr(sessionNonce), pii_salt } as ResponsiblePrincipalRecordV2;
+      expect(() => blindRpr(rpr), String(pii_salt)).toThrow(/generatePiiSalt\(\)/);
     }
   });
 

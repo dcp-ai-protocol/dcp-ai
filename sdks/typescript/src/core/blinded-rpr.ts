@@ -55,7 +55,7 @@ export function computePiiHash(rpr: ResponsiblePrincipalRecordV2): string {
  * pii_salt: an unsalted commitment can be confirmed by guessing the PII.
  */
 export function blindRpr(rpr: ResponsiblePrincipalRecordV2): BlindedResponsiblePrincipalRecordV2 {
-  if (!PII_SALT_PATTERN.test(rpr.pii_salt ?? '')) {
+  if (typeof rpr.pii_salt !== 'string' || !PII_SALT_PATTERN.test(rpr.pii_salt)) {
     throw new Error(
       'blindRpr requires rpr.pii_salt (32 random bytes as 64 lowercase hex): set it with generatePiiSalt() before signing the RPR',
     );
