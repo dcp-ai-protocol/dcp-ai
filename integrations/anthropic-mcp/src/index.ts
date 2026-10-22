@@ -7,7 +7,8 @@
  * handlers return drafts that still need keys and signatures (their `next_step` says so).
  */
 import crypto from 'crypto';
-import { verifySignedBundleV2, getDefaultRegistry, registerDefaultProviders, type SignedBundleV2 } from '@dcp-ai/sdk';
+import { verifySignedBundleV2, getDefaultRegistry, registerDefaultProviders } from '@dcp-ai/sdk';
+import { isSignedBundleShape } from './receipt.js';
 
 export {
   withDcpReceipt,
@@ -16,6 +17,8 @@ export {
   defaultPolicy,
   hashEvidence,
   stableJson,
+  resultSeen,
+  isSignedBundleShape,
   type DcpReceiptIdentity,
   type DcpReceiptOptions,
   type DcpReceiptResult,
@@ -281,11 +284,14 @@ export async function handleDcpToolCall(toolName: string, args: Args): Promise<R
 }
 
 async function handleVerifyBundle(args: Args) {
-  let bundle: SignedBundleV2;
+  let bundle: unknown;
   try {
     bundle = JSON.parse(String(args.bundle_json));
   } catch (error) {
     return { verified: false, errors: [`bundle_json is not JSON: ${(error as Error).message}`], warnings: [] };
+  }
+  if (!isSignedBundleShape(bundle)) {
+    return { verified: false, errors: ['not a signed bundle: bundle, signature and bundle.audit_entries (array) are required'], warnings: [] };
   }
   registerDefaultProviders();
   const result = await verifySignedBundleV2(bundle, getDefaultRegistry());
