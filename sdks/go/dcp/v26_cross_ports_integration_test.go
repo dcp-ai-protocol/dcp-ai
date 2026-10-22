@@ -125,6 +125,19 @@ func TestVerifyBlindedRPRWrongSalt(t *testing.T) {
 	}
 }
 
+func TestVerifyBlindedRPRRejectsMalformedSalt(t *testing.T) {
+	for _, salt := range []interface{}{"", "ab", strings.Repeat("A", 64), 42} {
+		full := sampleRPR()
+		full["pii_salt"] = salt
+		b, _ := v2.BlindRPR(sampleRPR())
+		b["pii_hash"], _ = v2.ComputePIIHash(full)
+		r := v2.VerifyBlindedRPR(full, b)
+		if r.Valid || !slices.Contains(r.Errors, "pii_salt is not 32 random bytes as 64 lowercase hex") {
+			t.Fatalf("pii_salt %v: got valid=%v errors=%v", salt, r.Valid, r.Errors)
+		}
+	}
+}
+
 func TestVerifyBlindedRPRLegacyWarns(t *testing.T) {
 	legacy := sampleRPR()
 	delete(legacy, "pii_salt")

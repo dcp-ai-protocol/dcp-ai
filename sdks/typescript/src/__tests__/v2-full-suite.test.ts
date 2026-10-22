@@ -1332,6 +1332,22 @@ describe('Negative: Blinded RPR', () => {
     expect(result.errors.some(e => e.includes('pii_hash mismatch'))).toBe(true);
   });
 
+  it('verifyBlindedRpr rejects a present but malformed pii_salt', () => {
+    for (const pii_salt of ['', 'ab', 'A'.repeat(64)]) {
+      const rpr = { ...makeRpr(sessionNonce), pii_salt };
+      const blinded = { ...blindRpr(saltedRpr()), pii_hash: computePiiHash(rpr) };
+      const result = verifyBlindedRpr(rpr, blinded);
+      expect(result.valid, pii_salt).toBe(false);
+      expect(result.errors).toContain('pii_salt is not 32 random bytes as 64 lowercase hex');
+    }
+  });
+
+  it('computePiiHash hashes a missing legal_name as null', () => {
+    const { legal_name: _name, ...rpr } = saltedRpr();
+    const withNull = { ...rpr, legal_name: null } as unknown as ResponsiblePrincipalRecordV2;
+    expect(computePiiHash(rpr as ResponsiblePrincipalRecordV2)).toBe(computePiiHash(withNull));
+  });
+
   it('verifyBlindedRpr accepts a legacy unsalted record with a deprecation warning', () => {
     const legacy = makeRpr(sessionNonce);
     const blinded = { ...blindRpr(saltedRpr()), pii_hash: computePiiHash(legacy) };

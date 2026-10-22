@@ -14,7 +14,15 @@ import (
 
 var piiSaltPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
-const legacyPIIHashWarning = "legacy unsalted pii_hash (deprecated): anyone who guesses legal_name and contact can confirm them"
+const (
+	malformedPIISaltError = "pii_salt is not 32 random bytes as 64 lowercase hex"
+	legacyPIIHashWarning  = "legacy unsalted pii_hash (deprecated): anyone who guesses legal_name and contact can confirm them"
+)
+
+func validPIISalt(v interface{}) bool {
+	s, ok := v.(string)
+	return ok && piiSaltPattern.MatchString(s)
+}
 
 // GeneratePIISalt returns 32 random bytes as 64 lowercase hex chars. Set it as
 // pii_salt on the full RPR before signing it, and never publish it.
@@ -47,7 +55,7 @@ func ComputePIIHash(rpr map[string]interface{}) (string, error) {
 // commitment. It fails when pii_salt is missing or malformed: an unsalted
 // commitment can be confirmed by guessing the PII.
 func BlindRPR(rpr map[string]interface{}) (map[string]interface{}, error) {
-	if salt, _ := rpr["pii_salt"].(string); !piiSaltPattern.MatchString(salt) {
+	if !validPIISalt(rpr["pii_salt"]) {
 		return nil, errors.New("BlindRPR requires pii_salt (32 random bytes as 64 lowercase hex): set it with GeneratePIISalt() before signing the RPR")
 	}
 	piiHash, err := ComputePIIHash(rpr)
@@ -79,7 +87,8 @@ type BlindedRprCheck struct {
 
 // VerifyBlindedRPR ensures a full RPR discloses the expected blinded commitment.
 // A full RPR without pii_salt is checked against the legacy unsalted
-// commitment and adds a deprecation warning.
+// commitment and adds a deprecation warning; a present pii_salt that is not
+// 64 lowercase hex characters is an error.
 func VerifyBlindedRPR(fullRPR, blinded map[string]interface{}) BlindedRprCheck {
 	errs := []string{}
 	warnings := []string{}
@@ -93,6 +102,8 @@ func VerifyBlindedRPR(fullRPR, blinded map[string]interface{}) BlindedRprCheck {
 	}
 	if fullRPR["pii_salt"] == nil {
 		warnings = append(warnings, legacyPIIHashWarning)
+	} else if !validPIISalt(fullRPR["pii_salt"]) {
+		errs = append(errs, malformedPIISaltError)
 	}
 	keys := []string{"human_id", "session_nonce", "entity_type", "jurisdiction", "liability_mode", "override_rights", "issued_at", "expires_at", "binding_keys"}
 	for _, k := range keys {

@@ -22,9 +22,14 @@ from dcp_ai.v2.models import (
 from dcp_ai.v2.canonicalize import canonicalize_v2
 
 _PII_SALT_PATTERN = re.compile(r"[0-9a-f]{64}")
+_MALFORMED_PII_SALT_ERROR = "pii_salt is not 32 random bytes as 64 lowercase hex"
 _LEGACY_PII_HASH_WARNING = (
     "legacy unsalted pii_hash (deprecated): anyone who guesses legal_name and contact can confirm them"
 )
+
+
+def _is_valid_pii_salt(salt: object) -> bool:
+    return isinstance(salt, str) and _PII_SALT_PATTERN.fullmatch(salt) is not None
 
 
 def generate_pii_salt() -> str:
@@ -58,7 +63,7 @@ def blind_rpr(rpr: ResponsiblePrincipalRecordV2) -> BlindedResponsiblePrincipalR
     Raises ValueError when the RPR has no valid pii_salt: an unsalted
     commitment can be confirmed by guessing the PII.
     """
-    if rpr.pii_salt is None or not _PII_SALT_PATTERN.fullmatch(rpr.pii_salt):
+    if not _is_valid_pii_salt(rpr.pii_salt):
         raise ValueError(
             "blind_rpr requires rpr.pii_salt (32 random bytes as 64 lowercase hex): "
             "set it with generate_pii_salt() before signing the RPR"
@@ -87,7 +92,8 @@ def verify_blinded_rpr(
     """Verify a full RPR matches a blinded RPR (regulatory disclosure).
 
     A full RPR without pii_salt is checked against the legacy unsalted
-    commitment and adds a deprecation warning.
+    commitment and adds a deprecation warning; a present pii_salt that is not
+    64 lowercase hex characters is an error.
     """
     errors: list[str] = []
     warnings: list[str] = []
@@ -99,6 +105,8 @@ def verify_blinded_rpr(
         )
     if full_rpr.pii_salt is None:
         warnings.append(_LEGACY_PII_HASH_WARNING)
+    elif not _is_valid_pii_salt(full_rpr.pii_salt):
+        errors.append(_MALFORMED_PII_SALT_ERROR)
 
     if full_rpr.human_id != blinded_rpr.human_id:
         errors.append("human_id mismatch")

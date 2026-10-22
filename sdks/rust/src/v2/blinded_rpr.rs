@@ -11,6 +11,14 @@ use sha2::{Digest, Sha256};
 
 use crate::v2::canonicalize::canonicalize_v2;
 
+const MALFORMED_PII_SALT_ERROR: &str = "pii_salt is not 32 random bytes as 64 lowercase hex";
+
+fn is_valid_pii_salt(salt: &Value) -> bool {
+    salt.as_str().map_or(false, |s| {
+        s.len() == 64 && s.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+    })
+}
+
 /// Generate a `pii_salt`: 32 random bytes as 64 lowercase hex chars. Set it on
 /// the full RPR before signing it, and never publish it.
 pub fn generate_pii_salt() -> String {
@@ -40,8 +48,7 @@ pub fn compute_pii_hash(rpr: &Value) -> Result<String, String> {
 /// hash commitment. Fails when `pii_salt` is missing or malformed: an
 /// unsalted commitment can be confirmed by guessing the PII.
 pub fn blind_rpr(rpr: &Value) -> Result<Value, String> {
-    let salt = rpr.get("pii_salt").and_then(Value::as_str).unwrap_or("");
-    if salt.len() != 64 || !salt.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f')) {
+    if !rpr.get("pii_salt").map_or(false, is_valid_pii_salt) {
         return Err("blind_rpr requires pii_salt (32 random bytes as 64 lowercase hex): set it with generate_pii_salt() before signing the RPR".into());
     }
     let pii_hash = compute_pii_hash(rpr)?;
@@ -71,7 +78,8 @@ pub struct BlindedRprCheck {
 ///
 /// A full RPR whose `pii_salt` is missing or null still verifies against the
 /// legacy unsalted commitment, which is deprecated (spec §12.1). To flag such
-/// records, check `full_rpr.get("pii_salt").map_or(true, Value::is_null)`.
+/// records, check `full_rpr.get("pii_salt").map_or(true, Value::is_null)`. A
+/// present `pii_salt` that is not 64 lowercase hex characters is an error.
 pub fn verify_blinded_rpr(full_rpr: &Value, blinded_rpr: &Value) -> BlindedRprCheck {
     let mut errors = Vec::new();
     match compute_pii_hash(full_rpr) {
@@ -82,6 +90,11 @@ pub fn verify_blinded_rpr(full_rpr: &Value, blinded_rpr: &Value) -> BlindedRprCh
             }
         }
         Err(e) => errors.push(format!("compute pii_hash: {e}")),
+    }
+    if let Some(salt) = full_rpr.get("pii_salt").filter(|s| !s.is_null()) {
+        if !is_valid_pii_salt(salt) {
+            errors.push(MALFORMED_PII_SALT_ERROR.into());
+        }
     }
     let keys = [
         "human_id",

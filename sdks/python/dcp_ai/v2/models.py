@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, SerializerFunctionWrapHandler, model_serializer
 
 
 # ── Key & Crypto ──
@@ -49,6 +49,14 @@ class ResponsiblePrincipalRecordV2(BaseModel):
     contact: str | None = None
     binding_keys: list[KeyEntryV2]
     pii_salt: str | None = None
+
+    @model_serializer(mode="wrap")
+    def _omit_unset_pii_salt(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        # The schema has no null for pii_salt, and a null would change the signed bytes.
+        data = handler(self)
+        if data.get("pii_salt") is None:
+            data.pop("pii_salt", None)
+        return data
 
 
 class BlindedResponsiblePrincipalRecordV2(BaseModel):
