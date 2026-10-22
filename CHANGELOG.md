@@ -13,20 +13,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   binding keys or a different session nonce still matched the blinded record. In Go, list fields
   decoded from JSON no longer fail to match the same list built as `[]string`.
 - Verification server: `POST /v2/passport/register` verifies the passport's composite
-  self-signature and registers only its signer keys; re-registering an `agent_id` must be signed by
-  its current keys. Anyone could re-register an agent with their own keys, plant their emergency
-  token and emergency-revoke it. `POST /v2/keys/rotate` verifies the proof of possession and the old
-  key's authorization (`verifyKeyRotation`), and `POST /v2/multi-party/authorize` verifies each
-  party's signature against its registered keys, counting each party once.
+  self-signature and registers only its signer keys; re-registering an `agent_id` needs a newer
+  passport signed by all of its active keys. Anyone could re-register an agent with their own
+  keys, plant their emergency token and emergency-revoke it. `POST /v2/keys/rotate` verifies the
+  proof of possession and the old key's authorization (`verifyKeyRotation`), and
+  `POST /v2/multi-party/authorize` verifies each party's signature against its registered keys,
+  counting each party once.
 - Verification server: `/v2/policy/mode`, `/v2/governance/register`, `/v2/advisory/publish` and
   `/v2/advisory/auto-apply` require `Authorization: Bearer $OPERATOR_TOKEN` (locked when unset).
   Advisories are schema-validated and capped at 1000. Rate limits key on the socket address, not
   the client-supplied `X-Forwarded-For` (`TRUST_PROXY=true` behind a proxy), and `VERIFIER_MODE` /
   `ALLOW_V1_BUNDLES` are read from the environment; `allow_v1_bundles` is now enforced.
 - Revocation service: agents register with their signed passport (`POST /v2/register`), which
-  records kid ownership, key expiry and the emergency token; `/revoke` and `/v2/revoke` must be
-  signed by the agent's registered keys. `GET /v2/check/kid/:kid` reports emergency revocations
-  without `?agent_id=`.
+  records kid ownership, key expiry and the emergency token; re-registration needs a newer passport
+  signed by the agent's active classical and PQ keys, and `/revoke` and `/v2/revoke` must be
+  signed by its active keys. `GET /v2/check/kid/:kid` reports emergency revocations of registered
+  kids without `?agent_id=`.
 - Anchor service: no more random `tx_hash` (records carry `tx_hash: null`, `onchain: false`),
   bodies are capped at 1 MB, `POST /flush` needs the operator token, and malformed input is a 400
   instead of a crash. Transparency log: tree heads are Ed25519-signed instead of an HMAC nobody
@@ -42,11 +44,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed (breaking)
 
 - Revocation service: `POST /v2/register-emergency-token` and `POST /v2/register-key-expiry` were
-  removed in favour of `POST /v2/register`; V1 `/revoke` needs an agent registered with an
-  `ed25519` key, and a revoked agent can no longer be revoked again (409).
+  removed in favour of `POST /v2/register`. V1 `/revoke` needs an agent registered there, which
+  takes a hybrid (Ed25519 + ML-DSA-65 or SLH-DSA-192f) passport signature, so Ed25519-only (V1)
+  agents can no longer publish revocations. A revoked agent can no longer be revoked again (409).
+- Verification server and revocation service: re-registering an `agent_id` (for example to replace
+  the emergency revocation token) needs a passport whose `created_at` is newer than the registered
+  one, signed by all of the agent's active keys; a passport without a token keeps the registered
+  one. An agent that has lost every active key of a family (classical or PQ) cannot re-register:
+  recovery goes through the emergency revocation token or the operator.
 - Transparency log: leaf hashes, roots and inclusion proofs change with the RFC 6962 prefixes, and
-  STH `signature` / `public_key` are now base64 Ed25519. `/add` and the anchor's `/anchor` only
-  accept `sha256:<64 hex>` hashes.
+  STH `signature` / `public_key` are now base64 Ed25519. `/add` only accepts `sha256:<64 hex>`
+  hashes, and the anchor's `/anchor` 64 hex characters with an optional `sha256:` prefix.
 - Verification server: `/v2/keys/rotate` requires `authorization_sig` and `timestamp`
   (`KeyRotationRecord`). `dcp rotate-key` and `dcp keys certify` still send a simulated proof of
   possession, which the server now rejects.
