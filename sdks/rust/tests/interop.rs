@@ -540,6 +540,10 @@ fn signed_bundle_vectors() {
             }
             assert_rejected(&verify_signed_bundle_v2_with_policy(&mutated, &policy), case, mode);
         }
+        for case in vectors["must_accept_bundles"].as_array().expect("must_accept_bundles") {
+            let result = verify_signed_bundle_v2_with_policy(&case["signed_bundle"], &policy);
+            assert!(result.verified, "{mode}: {} must verify: {:?}", case["name"], result.errors);
+        }
         for case in vectors["must_reject_bundles"].as_array().expect("must_reject_bundles") {
             assert_rejected(&verify_signed_bundle_v2_with_policy(&case["signed_bundle"], &policy), case, mode);
         }

@@ -472,6 +472,10 @@ class TestSignedBundleVectors:
             assert not result["verified"], name
             assert error_contains in "\n".join(result["errors"]).lower(), (name, result["errors"])
 
+        for case in B["must_accept_bundles"]:
+            result = await verify_signed_bundle_v2(case["signed_bundle"], registry, policy)
+            assert result["verified"], (case["name"], result["errors"])
+
         control = B["classical_only_routine_bundle"]
         result = await verify_signed_bundle_v2(control["signed_bundle"], registry, policy)
         assert result["verified"] == control["verified_by_mode"][mode], result["errors"]

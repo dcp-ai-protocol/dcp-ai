@@ -327,10 +327,11 @@ fn audit_trail_errors(bundle: &Value, manifest: &Value) -> Vec<String> {
         prev = format!("sha256:{}", leaf);
         leaves.push(leaf);
     }
-    if let Some(root) = merkle_root_from_hex_leaves(&leaves) {
-        if manifest.get("audit_merkle_root").and_then(Value::as_str) != Some(format!("sha256:{}", root).as_str()) {
-            errors.push("Manifest audit_merkle_root mismatch".to_string());
-        }
+    // An empty audit trail has the root 64 zeros (VERIFICATION.md V2-3), as the
+    // wasm bundle builder writes it.
+    let root = merkle_root_from_hex_leaves(&leaves).unwrap_or_else(|| "0".repeat(64));
+    if manifest.get("audit_merkle_root").and_then(Value::as_str) != Some(format!("sha256:{}", root).as_str()) {
+        errors.push("Manifest audit_merkle_root mismatch".to_string());
     }
     errors
 }

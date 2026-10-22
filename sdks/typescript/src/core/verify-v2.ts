@@ -445,11 +445,12 @@ export async function verifySignedBundleV2(
     errors.push(`Manifest policy_hash mismatch: expected ${expectedPolicyHash}`);
   }
 
-  if (bundle.audit_entries.length > 0) {
-    const expectedMerkleRoot = `sha256:${auditMerkleRootHex(bundle.audit_entries)}`;
-    if (bundle.manifest.audit_merkle_root !== expectedMerkleRoot) {
-      errors.push(`Manifest audit_merkle_root mismatch`);
-    }
+  // An empty audit trail has the root 64 zeros (VERIFICATION.md V2-3).
+  const expectedMerkleRoot = `sha256:${
+    bundle.audit_entries.length > 0 ? auditMerkleRootHex(bundle.audit_entries) : '0'.repeat(64)
+  }`;
+  if (bundle.manifest.audit_merkle_root !== expectedMerkleRoot) {
+    errors.push(`Manifest audit_merkle_root mismatch`);
   }
 
   if (bundle.manifest.audit_count !== bundle.audit_entries.length) {

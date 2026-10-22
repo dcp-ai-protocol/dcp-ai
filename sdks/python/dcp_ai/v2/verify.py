@@ -320,7 +320,9 @@ async def _verify(
     checkpoint_ids = [c["checkpoint_id"] for c in bundle.get("pq_checkpoints") or []]
     if (manifest.get("pq_checkpoints") or []) != checkpoint_ids:
         errors.append("Manifest pq_checkpoints do not match the bundle's checkpoints")
-    if audit_entries and manifest.get("audit_merkle_root") != f"sha256:{audit_events_merkle_root(audit_entries)}":
+    # An empty audit trail has the root 64 zeros (VERIFICATION.md V2-3).
+    expected_root = audit_events_merkle_root(audit_entries) if audit_entries else "0" * 64
+    if manifest.get("audit_merkle_root") != f"sha256:{expected_root}":
         errors.append("Manifest audit_merkle_root mismatch")
     if manifest.get("audit_count") != len(audit_entries):
         errors.append(

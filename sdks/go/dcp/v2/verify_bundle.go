@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"regexp"
 	"slices"
+	"strings"
 	"time"
 )
 
@@ -480,10 +481,14 @@ func verifyAuditTrail(bundle, manifest map[string]interface{}, result *V2Verific
 		leaves = append(leaves, leaf)
 		prev = "sha256:" + leaf
 	}
+	// An empty audit trail has the root 64 zeros (VERIFICATION.md V2-3), as
+	// BuildBundleV2 writes it.
+	expected := strings.Repeat("0", 64)
 	if len(leaves) > 0 {
-		if root, _ := manifest["audit_merkle_root"].(string); root != "sha256:"+computeMerkleRoot(leaves, merkleHashSHA256) {
-			result.Errors = append(result.Errors, "Manifest audit_merkle_root mismatch")
-		}
+		expected = computeMerkleRoot(leaves, merkleHashSHA256)
+	}
+	if root, _ := manifest["audit_merkle_root"].(string); root != "sha256:"+expected {
+		result.Errors = append(result.Errors, "Manifest audit_merkle_root mismatch")
 	}
 }
 
