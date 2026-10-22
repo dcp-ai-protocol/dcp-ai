@@ -17,13 +17,16 @@ type SecurityTierResult struct {
 // (spec §14.2). RiskScore comes from the bundle's PolicyDecision, never from
 // the intent, and a value outside 0..1000 counts as unknown; the other fields
 // are intent fields. SecurityTier is the intent's explicit security_tier and
-// can only raise the result.
+// can only raise the result, as can MandateChainTier, the effective tier of a
+// verified delegation chain (VerifyMandateChain, DCP-09 §3.5): a floor that
+// never lowers the tier.
 type SecurityTierInput struct {
-	RiskScore       int      `json:"risk_score"`
-	DataClasses     []string `json:"data_classes"`
-	ActionType      string   `json:"action_type"`
-	EstimatedImpact string   `json:"estimated_impact"`
-	SecurityTier    string   `json:"security_tier,omitempty"`
+	RiskScore        int      `json:"risk_score"`
+	DataClasses      []string `json:"data_classes"`
+	ActionType       string   `json:"action_type"`
+	EstimatedImpact  string   `json:"estimated_impact"`
+	SecurityTier     string   `json:"security_tier,omitempty"`
+	MandateChainTier string   `json:"mandate_chain_tier,omitempty"`
 }
 
 // Values allowed by schemas/v2/intent.schema.json.
@@ -44,7 +47,9 @@ var (
 // ComputeSecurityTier determines the adaptive security tier (routine,
 // standard, elevated, maximum) and its verification mode and PQ checkpoint
 // interval. A value outside the intent schema, including a missing action
-// type, impact or data class list, fails closed to at least elevated.
+// type, impact or data class list, fails closed to at least elevated. An
+// explicit SecurityTier or MandateChainTier can only raise the result; an
+// unknown name there counts as elevated.
 func ComputeSecurityTier(input SecurityTierInput) SecurityTierResult {
 	maximum, elevated := false, false
 	score := input.RiskScore
@@ -75,6 +80,9 @@ func ComputeSecurityTier(input SecurityTierInput) SecurityTierResult {
 
 	if input.SecurityTier != "" {
 		tier = MaxTier(tier, input.SecurityTier)
+	}
+	if input.MandateChainTier != "" {
+		tier = MaxTier(tier, input.MandateChainTier)
 	}
 
 	return SecurityTierResult{
