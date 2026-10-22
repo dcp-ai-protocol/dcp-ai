@@ -85,6 +85,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   allow. They now use the §14.2 rule (`lib/security-tier.js`): `risk_score` from the bundle's policy
   decision, `estimated_impact`, unknown values to `elevated`, and an explicit tier that can only
   raise the result. `/v2/intent/declare` computes `resolved_tier` the same way.
+- OpenClaw integration: `dcp_verify_bundle` and `dcp_log_action` used `intent.security_tier` as given
+  (`security_tier ?? computeSecurityTier(intent)`), so a declared tier could lower the computed one,
+  and passed no policy decision. The explicit tier now only raises the tier. The policy decision is
+  passed too, so `risk_score` counts once `@dcp-ai/sdk` reads it (the release after 2.1.2).
 
 ### Changed (breaking)
 

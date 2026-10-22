@@ -16,6 +16,7 @@ import {
   classicalOnlySign,
   preparePayload,
   computeSecurityTier,
+  maxTier,
   DCP_CONTEXTS,
   type IntentV2,
   type PolicyDecisionV2,
@@ -72,6 +73,22 @@ export const DeclareIntentParams = Type.Object({
 });
 
 export type DeclareIntentInput = Static<typeof DeclareIntentParams>;
+
+// @dcp-ai/sdk releases after 2.1.2 read risk_score from the policy decision
+// (spec §14.2); earlier ones ignore the second argument.
+const computeTier = computeSecurityTier as (
+  intent: IntentV2,
+  policyDecision?: PolicyDecisionV2,
+) => SecurityTier;
+
+/**
+ * The security tier of an intent (spec §14.2). Its explicit security_tier
+ * can only raise the computed tier, never lower it.
+ */
+export function resolveIntentTier(intent: IntentV2, policyDecision?: PolicyDecisionV2): SecurityTier {
+  const computed = computeTier(intent, policyDecision);
+  return intent.security_tier ? maxTier(computed, intent.security_tier) : computed;
+}
 
 // ── Risk Scoring (V2: integer millirisk 0-1000) ──
 

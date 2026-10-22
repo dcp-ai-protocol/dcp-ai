@@ -13,7 +13,6 @@ import {
   sha256Hex,
   sha3_256Hex,
   canonicalizeV2,
-  computeSecurityTier,
   tierToCheckpointInterval,
   DCP_CONTEXTS,
   PQCheckpointManager,
@@ -21,6 +20,7 @@ import {
   type AuditPolicyDecision,
   type SecurityTier,
 } from '@dcp-ai/sdk';
+import { resolveIntentTier } from './intent.js';
 import { getSession, isIdentityReady } from '../state/agent-state.js';
 
 const PQ_CHECKPOINT_INTERVAL_DEFAULT = 10;
@@ -160,8 +160,7 @@ export async function executeLogAction(
 
   // PQ checkpoint management (lazy model) — tier-aware interval
   let pqCheckpointProduced = false;
-  const intentTier: SecurityTier | undefined =
-    (intent as any).security_tier ?? computeSecurityTier(intent);
+  const intentTier: SecurityTier = resolveIntentTier(intent, policy);
   const manager = getCheckpointManager(params.session_id, intentTier);
   if (manager) {
     const checkpoint = await manager.recordEvent(entry);
