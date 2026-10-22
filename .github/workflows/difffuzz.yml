@@ -1,0 +1,67 @@
+# Differential fuzzing of the four V2 bundle verifiers (tools/difffuzz).
+# The same mutated signed bundle goes through the TypeScript, Python, Go and
+# Rust SDKs; any disagreement, crash or timeout fails the job.
+
+name: Differential fuzzing
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      iterations:
+        description: Mutants per run
+        default: '300'
+      seed:
+        description: PRNG seed
+        default: '1'
+  schedule:
+    # Nightly, 03:17 UTC.
+    - cron: '17 3 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  difffuzz:
+    name: Differential fuzzing
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: sdks/go/go.mod
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Build the TypeScript SDK
+        working-directory: sdks/typescript
+        run: |
+          npm install
+          npm run build
+
+      - name: Install the Python SDK
+        run: pip install -e sdks/python
+
+      - name: Fuzz
+        env:
+          ITERATIONS: ${{ github.event_name == 'schedule' && '3000' || github.event.inputs.iterations || '300' }}
+          SEED: ${{ github.event.inputs.seed || github.run_id }}
+        run: node tools/difffuzz/run.mjs --iterations "$ITERATIONS" --seed "$SEED"
+
+      - name: Upload findings
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: difffuzz-findings
+          path: tools/difffuzz/findings/
+          if-no-files-found: ignore
