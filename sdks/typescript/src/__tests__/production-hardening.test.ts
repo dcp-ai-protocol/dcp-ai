@@ -8,6 +8,9 @@ import {
 import { RateLimiter, AdaptiveRateLimiter } from '../core/rate-limiter.js';
 import { CircuitBreaker } from '../core/circuit-breaker.js';
 import { withRetry } from '../core/retry.js';
+import { generateSessionExpiry } from '../core/session-nonce.js';
+import { VerificationCache } from '../core/verification-cache.js';
+import type { SecurityTier } from '../types/v2.js';
 
 // ─── Error Codes ────────────────────────────────────────────────────────────
 
@@ -158,13 +161,41 @@ describe('AdaptiveRateLimiter', () => {
     expect(arl.check(ctx, 'maximum').allowed).toBe(false);
   });
 
-  it('falls back to standard tier for unknown tiers', () => {
+  it('counts unknown tiers, prototype keys included, as elevated, in one bucket', () => {
     const arl = new AdaptiveRateLimiter();
     const ctx = { agent_id: 'agent-1' };
 
-    const r = arl.check(ctx, 'unknown_tier');
-    expect(r.allowed).toBe(true);
-    expect(r.remaining).toBe(499);
+    expect(arl.check(ctx, 'unknown_tier').remaining).toBe(99);
+    expect(arl.check(ctx, 'constructor').remaining).toBe(98);
+    expect(arl.check(ctx, '__proto__').remaining).toBe(97);
+    expect(arl.check(ctx, 'elevated').remaining).toBe(96);
+  });
+});
+
+describe('Unknown tier names fail closed', () => {
+  it('generateSessionExpiry gives them the elevated duration', () => {
+    for (const tier of ['bogus', 'constructor', '__proto__']) {
+      const seconds = (Date.parse(generateSessionExpiry(undefined, tier)) - Date.now()) / 1000;
+      expect(seconds, tier).toBeGreaterThan(3590);
+      expect(seconds, tier).toBeLessThanOrEqual(3600);
+    }
+  });
+
+  it('VerificationCache gives them the elevated TTL', () => {
+    vi.useFakeTimers();
+    try {
+      const cache = new VerificationCache();
+      const result = { verified: true, errors: [], warnings: [] };
+      for (const tier of ['bogus', 'constructor', '__proto__']) {
+        cache.set(`hash-${tier}`, result, ['k1'], tier as SecurityTier);
+      }
+      vi.advanceTimersByTime(30_001);
+      for (const tier of ['bogus', 'constructor', '__proto__']) {
+        expect(cache.get(`hash-${tier}`), tier).toBeNull();
+      }
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
