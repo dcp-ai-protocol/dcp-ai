@@ -125,6 +125,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   policy decision, and reports it in `details.resolved_tier`. Before, the mode came only from the
   agent's own `passport.risk_tier`, so under `DEFAULT_VERIFIER_POLICY` a passport declaring
   `risk_tier: "low"` got `classical_only` even for a payment intent.
+- TypeScript SDK: `AdaptiveRateLimiter.check`, `generateSessionExpiry` and `VerificationCache.set`
+  count an unknown tier name, or a prototype key such as `constructor`, as `elevated`. The rate
+  limiter gave every made-up name its own bucket, `generateSessionExpiry` threw on `constructor`,
+  and the cache never expired such entries.
+- OpenClaw integration: `dcp_declare_intent` computed the tier it signs into the intent and the
+  policy decision before scoring the intent. It now passes the risk score, which counts once
+  `@dcp-ai/sdk` reads it (the release after 2.1.2).
 
 ### Changed (breaking)
 
@@ -301,6 +308,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   present must verify in every mode, as the verifiers already do. `docs/API_REFERENCE.md` documents
   `details.resolved_tier` and the tier-aware mode of `verifySignedBundleV2`, and the TypeScript SDK
   README (all languages) describes it.
+- `docs/MIGRATION_V1_V2.md` §6.3 no longer shows a `dcp migrate-check` command, which the CLI does
+  not have, or a `risk_score` on the intent; it validates migrated bundles with
+  `dcp verify-bundle --policy hybrid_required`.
 
 ## [2.9.0] - 2026-10-21
 
