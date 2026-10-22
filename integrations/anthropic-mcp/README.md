@@ -87,8 +87,10 @@ ran. `arguments` are the arguments as received, copied before the handler runs, 
 rewrites its input cannot change what the receipt attests. `result` is exactly what the wrapper
 returns minus `_meta` (`resultSeen(result)`): the receipt travels in `_meta`, and a handler's own
 `_meta` is transport metadata, not evidence. A handler that returns a bare value gets it wrapped as
-`{ content: [{ type: "text", text }] }`, and that wrapper is what is hashed. When the MCP `extra`
-carries a `requestId`, it is recorded as `evidence.request_id`.
+`{ content: [{ type: "text", text }] }`, and that wrapper is what is hashed. The arguments are
+snapshotted as JSON, so a `Date` is hashed as its ISO string and functions or an `AbortSignal` (as
+in the MCP SDK's `extra`) are dropped. When the MCP `extra` carries a `requestId`, it is recorded
+as `evidence.request_id`, and `verifyDcpReceipt(receipt, { requestId })` checks it.
 
 Unlike the canonicalization profile, `stableJson` keeps any JSON number, so arguments and results
 with decimals hash fine. It sorts keys with JavaScript's `sort()`; an object whose keys are integer

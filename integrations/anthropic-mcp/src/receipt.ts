@@ -275,8 +275,10 @@ export function withDcpReceipt<A, R>(
 
   return async (args: A, extra?: unknown) => {
     const now = new Date().toISOString();
-    // The arguments as received: a handler that mutates them must not change what the receipt attests.
-    const argumentsSeen = args === undefined ? undefined : structuredClone(args);
+    // The arguments as received, as JSON (what travelled on the wire: a Date is its string, a function
+    // or an AbortSignal is dropped): a handler that mutates them must not change what the receipt attests.
+    const argumentsJson = JSON.stringify(args);
+    const argumentsSeen: unknown = argumentsJson === undefined ? undefined : JSON.parse(argumentsJson);
     const c = options.classify?.(toolName, args) ?? {};
     const impact = c.estimated_impact ?? 'low';
     const intentId = `intent:${crypto.randomUUID()}`;
@@ -382,6 +384,8 @@ export interface VerifyReceiptOptions {
   policy?: VerifierPolicy;
   /** When given, the receipt must name this tool. */
   tool?: string;
+  /** When given, the receipt's `evidence.request_id` must equal it (the MCP request id the wrapper saw in `extra`). */
+  requestId?: string | number;
   /**
    * Given together, the receipt's `evidence_hash` must be the hash of `{ arguments, result }`,
    * where `result` is what the caller received minus `_meta` (`resultSeen`). One without the
@@ -409,6 +413,9 @@ export async function verifyDcpReceipt(receipt: SignedBundleV2, options: VerifyR
   if (entry && options.tool !== undefined && evidence.tool !== options.tool) {
     errors.push(`receipt names tool ${String(evidence.tool)}, expected ${options.tool}`);
   }
+  if (entry && options.requestId !== undefined && evidence.request_id !== String(options.requestId)) {
+    errors.push(`receipt is for request ${String(evidence.request_id)}, expected ${String(options.requestId)}`);
+  }
   const hasArgs = 'arguments' in options;
   const hasResult = 'result' in options;
   if (hasArgs !== hasResult) errors.push('arguments and result must be given together to check the evidence_hash');
@@ -421,5 +428,8 @@ export async function verifyDcpReceipt(receipt: SignedBundleV2, options: VerifyR
 
 /** The shape `verifySignedBundleV2` of the published SDK assumes before it reads anything; without it the SDK throws instead of failing closed. */
 export function isSignedBundleShape(v: unknown): v is SignedBundleV2 & { bundle: { audit_entries: unknown[] } } {
-  return isObject(v) && isObject(v.bundle) && isObject(v.signature) && Array.isArray(v.bundle.audit_entries);
+  return (
+    isObject(v) && isObject(v.bundle) && isObject(v.signature) && Array.isArray(v.bundle.audit_entries) &&
+    (v.bundle.pq_checkpoints === undefined || Array.isArray(v.bundle.pq_checkpoints))
+  );
 }
