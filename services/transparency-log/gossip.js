@@ -11,6 +11,7 @@
  */
 
 import crypto from "crypto";
+import { signObject, verifyObject } from "../../tools/crypto.js";
 
 export class GossipManager {
   constructor({ operatorKeyPair, logId, getLocalSTH, onInconsistency }) {
@@ -42,49 +43,32 @@ export class GossipManager {
   }
 
   /**
-   * Sign a tree head using the operator's Ed25519 key.
+   * Sign a tree head with the operator's Ed25519 key: the signature covers the
+   * canonical JSON of { log_id, root, size, timestamp }.
    */
   signTreeHead(root, size) {
-    const payload = JSON.stringify({ root, size, timestamp: new Date().toISOString(), log_id: this.logId });
-    const payloadBuf = Buffer.from(payload, "utf8");
-
-    const hmac = crypto.createHmac("sha256", this.operatorKeyPair.secretKey)
-      .update(payloadBuf)
-      .digest("base64");
-
+    const sth = { log_id: this.logId, root, size, timestamp: new Date().toISOString() };
     return {
-      root,
-      size,
-      timestamp: new Date().toISOString(),
-      log_id: this.logId,
-      signature: hmac,
+      ...sth,
+      signature: signObject(sth, this.operatorKeyPair.secretKey),
       public_key: this.operatorKeyPair.publicKey,
     };
   }
 
   /**
-   * Verify a signed tree head from a peer.
+   * Verify a signed tree head against the peer's pinned Ed25519 public key
+   * (base64), never against the key the STH carries.
    */
   verifySignedTreeHead(sth, peerPublicKey) {
-    if (!sth || !sth.root || typeof sth.size !== "number" || !sth.signature) {
+    if (!sth || typeof sth.size !== "number" || !sth.signature) {
       return { valid: false, error: "Malformed STH" };
     }
 
-    const payload = JSON.stringify({
-      root: sth.root,
-      size: sth.size,
-      timestamp: sth.timestamp,
-      log_id: sth.log_id,
-    });
-
-    const expected = crypto.createHmac("sha256", peerPublicKey)
-      .update(Buffer.from(payload, "utf8"))
-      .digest("base64");
-
-    if (expected !== sth.signature) {
-      return { valid: false, error: "Invalid STH signature" };
-    }
-    return { valid: true };
+    const { log_id, root, size, timestamp } = sth;
+    try {
+      if (verifyObject({ log_id, root, size, timestamp }, sth.signature, peerPublicKey)) return { valid: true };
+    } catch { /* malformed signature or key */ }
+    return { valid: false, error: "Invalid STH signature" };
   }
 
   /**

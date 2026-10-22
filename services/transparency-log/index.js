@@ -9,22 +9,33 @@
  * Environment:
  *   PORT          — HTTP port (default 3002)
  *   LOG_ID        — Unique identifier for this log instance
- *   OPERATOR_KEY  — Hex-encoded operator secret for signing STHs
+ *   OPERATOR_KEY  — Secret seed for the Ed25519 STH signing key (seed = SHA-256(OPERATOR_KEY))
+ *   OPERATOR_TOKEN — Bearer token required by POST /gossip/peers
  *   GOSSIP_PEERS  — Comma-separated list of peer endpoints (e.g. "http://log-b:3002,http://log-c:3002")
  *   GOSSIP_INTERVAL_MS — Gossip polling interval in ms (default 30000)
  */
 
 import http from "http";
 import crypto from "crypto";
+import nacl from "tweetnacl";
 import { GossipManager } from "./gossip.js";
+import { isOperator, parseBody } from "../../lib/http.js";
 
 const PORT = Number(process.env.PORT) || 3002;
 const LOG_ID = process.env.LOG_ID || `log-${crypto.randomUUID().slice(0, 8)}`;
 
-const operatorSecret = process.env.OPERATOR_KEY || crypto.randomBytes(32).toString("hex");
+// STHs are Ed25519-signed so anyone holding the public key can verify them.
+// Without OPERATOR_KEY the key is ephemeral and changes on every restart.
+if (!process.env.OPERATOR_KEY) {
+  console.warn("[tlog] OPERATOR_KEY not set: STHs are signed with an ephemeral key");
+}
+const seed = process.env.OPERATOR_KEY
+  ? crypto.createHash("sha256").update(process.env.OPERATOR_KEY).digest()
+  : crypto.randomBytes(32);
+const { secretKey, publicKey } = nacl.sign.keyPair.fromSeed(seed);
 const operatorKeyPair = {
-  secretKey: operatorSecret,
-  publicKey: crypto.createHash("sha256").update(operatorSecret).digest("hex"),
+  secretKey: Buffer.from(secretKey).toString("base64"),
+  publicKey: Buffer.from(publicKey).toString("base64"),
 };
 
 // ── Append-only log ──
@@ -36,49 +47,39 @@ function sha256Hex(data) {
   return crypto.createHash("sha256").update(data).digest("hex");
 }
 
-function computeMerkleRoot(leaves) {
-  if (!leaves || leaves.length === 0) return null;
-  let layer = leaves.slice();
-  while (layer.length > 1) {
-    if (layer.length % 2 === 1) layer.push(layer[layer.length - 1]);
-    const next = [];
-    for (let i = 0; i < layer.length; i += 2) {
-      const left = Buffer.from(layer[i], "hex");
-      const right = Buffer.from(layer[i + 1], "hex");
-      next.push(sha256Hex(Buffer.concat([left, right])));
-    }
-    layer = next;
-  }
-  return layer[0];
+// RFC 6962 §2.1: leaves and interior nodes hash with distinct prefixes, so a
+// leaf can never pass for a subtree root.
+function leafHash(data) {
+  return sha256Hex(Buffer.concat([Buffer.from([0x00]), Buffer.from(data, "utf8")]));
 }
 
-function computeInclusionProof(index, leaves) {
-  if (index < 0 || index >= leaves.length) return null;
+function nodeHash(left, right) {
+  return sha256Hex(Buffer.concat([Buffer.from([0x01]), Buffer.from(left, "hex"), Buffer.from(right, "hex")]));
+}
 
-  const proof = [];
-  let layer = leaves.slice();
-  let idx = index;
+// Largest power of two below n (n >= 2). Splitting here instead of duplicating
+// the last node keeps [a,b,c] and [a,b,c,c] from sharing a root.
+function splitPoint(n) {
+  let k = 1;
+  while (k * 2 < n) k *= 2;
+  return k;
+}
 
-  while (layer.length > 1) {
-    if (layer.length % 2 === 1) layer.push(layer[layer.length - 1]);
+// ponytail: recomputed per request, O(n); cache subtree roots if the log grows large.
+function computeMerkleRoot(leaves, lo = 0, hi = leaves.length) {
+  if (hi === lo) return null;
+  if (hi - lo === 1) return leaves[lo];
+  const k = lo + splitPoint(hi - lo);
+  return nodeHash(computeMerkleRoot(leaves, lo, k), computeMerkleRoot(leaves, k, hi));
+}
 
-    if (idx % 2 === 0) {
-      proof.push({ hash: layer[idx + 1], direction: "right" });
-    } else {
-      proof.push({ hash: layer[idx - 1], direction: "left" });
-    }
-
-    const next = [];
-    for (let i = 0; i < layer.length; i += 2) {
-      const left = Buffer.from(layer[i], "hex");
-      const right = Buffer.from(layer[i + 1], "hex");
-      next.push(sha256Hex(Buffer.concat([left, right])));
-    }
-    layer = next;
-    idx = Math.floor(idx / 2);
-  }
-
-  return proof;
+// Audit path, leaf to root; `direction` is the side the sibling hash goes on.
+function computeInclusionProof(index, leaves, lo = 0, hi = leaves.length) {
+  if (hi - lo === 1) return [];
+  const k = lo + splitPoint(hi - lo);
+  return index < k
+    ? [...computeInclusionProof(index, leaves, lo, k), { hash: computeMerkleRoot(leaves, k, hi), direction: "right" }]
+    : [...computeInclusionProof(index, leaves, k, hi), { hash: computeMerkleRoot(leaves, lo, k), direction: "left" }];
 }
 
 function getLocalSTH() {
@@ -108,25 +109,14 @@ function send(res, statusCode, body) {
   res.end(JSON.stringify(body));
 }
 
-function parseBody(req) {
-  return new Promise((resolve, reject) => {
-    let data = "";
-    req.on("data", (chunk) => (data += chunk));
-    req.on("end", () => {
-      try { resolve(data ? JSON.parse(data) : {}); }
-      catch (e) { reject(e); }
-    });
-    req.on("error", reject);
-  });
-}
-
-const server = http.createServer(async (req, res) => {
+async function handle(req, res) {
   // Health
   if (req.method === "GET" && (req.url === "/" || req.url === "/health")) {
     send(res, 200, {
       ok: true,
       service: "dcp-transparency-log",
       log_id: LOG_ID,
+      public_key: operatorKeyPair.publicKey,
       size: log.length,
       gossip_peers: gossipManager.getPeers().length,
       alerts: alerts.length,
@@ -141,23 +131,23 @@ const server = http.createServer(async (req, res) => {
     catch { return send(res, 400, { error: "Invalid JSON" }); }
 
     const bundleHash = body.bundle_hash;
-    if (!bundleHash) {
-      return send(res, 400, { error: "Missing bundle_hash" });
+    if (typeof bundleHash !== "string" || !/^sha256:[0-9a-f]{64}$/.test(bundleHash)) {
+      return send(res, 400, { error: "bundle_hash must be sha256:<64 hex chars>" });
     }
 
     const index = log.length;
-    const leafHash = sha256Hex(Buffer.from(bundleHash, "utf8"));
+    const leaf = leafHash(bundleHash);
     const entry = {
       hash: bundleHash,
-      leaf_hash: leafHash,
+      leaf_hash: leaf,
       timestamp: new Date().toISOString(),
       index,
     };
     log.push(entry);
-    treeHashes.push(leafHash);
+    treeHashes.push(leaf);
 
     const root = computeMerkleRoot(treeHashes);
-    send(res, 200, { index, leaf_hash: leafHash, root, size: log.length });
+    send(res, 200, { index, leaf_hash: leaf, root, size: log.length });
     return;
   }
 
@@ -225,14 +215,20 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Add gossip peer dynamically
+  // Add gossip peer dynamically. The log fetches peers itself, so an open
+  // endpoint would let anyone point it at internal URLs (SSRF).
   if (req.method === "POST" && req.url === "/gossip/peers") {
+    if (!isOperator(req)) {
+      res.setHeader("WWW-Authenticate", "Bearer");
+      return send(res, 401, { error: "Operator token required (Authorization: Bearer <OPERATOR_TOKEN>)" });
+    }
+
     let body;
     try { body = await parseBody(req); }
     catch { return send(res, 400, { error: "Invalid JSON" }); }
 
-    if (!body.peer_id || !body.endpoint) {
-      return send(res, 400, { error: "Missing peer_id or endpoint" });
+    if (!body.peer_id || !/^https?:\/\//.test(body.endpoint)) {
+      return send(res, 400, { error: "Missing peer_id or http(s) endpoint" });
     }
 
     gossipManager.addPeer(body.peer_id, body.endpoint);
@@ -247,10 +243,19 @@ const server = http.createServer(async (req, res) => {
   }
 
   send(res, 404, { error: "Not found" });
+}
+
+// A throwing handler must not take the in-memory log down with it.
+const server = http.createServer((req, res) => {
+  handle(req, res).catch((err) => {
+    console.error(`[tlog] ${err.stack}`);
+    if (!res.headersSent) send(res, 500, { error: "Internal server error" });
+  });
 });
 
 server.listen(PORT, () => {
   console.log(`DCP Transparency Log [${LOG_ID}] listening on port ${PORT}`);
+  console.log(`  STH public key (Ed25519): ${operatorKeyPair.publicKey}`);
   console.log("  POST /add              — add bundle_hash to log");
   console.log("  GET  /root             — current Merkle root");
   console.log("  GET  /root/signed      — signed tree head (STH)");
@@ -258,7 +263,7 @@ server.listen(PORT, () => {
   console.log("  GET  /entries          — list all entries");
   console.log("  GET  /gossip/peers     — list gossip peers");
   console.log("  POST /gossip/exchange  — gossip STH exchange");
-  console.log("  POST /gossip/peers     — add gossip peer");
+  console.log("  POST /gossip/peers     — add gossip peer (operator token)");
   console.log("  GET  /gossip/alerts    — split-view security alerts");
 
   const pollInterval = Number(process.env.GOSSIP_INTERVAL_MS) || 30_000;
