@@ -42,6 +42,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   domain-separation block was removed, and V2 signed bundles (valid, tampered, forged, PQ-stripped,
   key-pinned, legacy) are checked against the reference verifier.
 
+### Documentation
+
+- `spec/VERIFICATION.md`:
+  - The V2 checklist now points at `schemas/v2/signed_bundle.schema.json` (the cited `*_v2` schemas never existed).
+  - The non-existent `independent` binding was removed.
+  - The reference implementation is named.
+- `spec/CANONICALIZATION_PROFILE.md` §3 gained rows for string escaping and code-point key order. This clarifies Rules 1 and 3; the profile is unchanged.
+- The server, operator, migration, API reference, CI and bundle docs now describe the real V2 verification, the actual CLI syntax and the SDK APIs that exist:
+  - The migration guide's API tables named several functions that do not exist.
+  - The server README showed the pre-normative envelope.
+- The Python SDK README (all languages) no longer claims ML-KEM-768 or V2 bundle support, and the CrewAI quickstart flags its V2 snippet as planned API.
+- Translations and project docs:
+  - 11 integrations including Agno; canonicalization profile and Agno quickstart links.
+  - Rust 2.8 install snippets and Go `@latest` pins.
+  - Per-package supported versions in `SECURITY.md`, and v2.8.x in `ROADMAP.md`.
+  - The Zenodo concept DOI in `CITATION.cff`.
+
 ## [2.8.1] - 2026-04-26
 
 ### Wired the `canonicalization_profile` field across the four SDKs

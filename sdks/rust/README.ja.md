@@ -10,21 +10,21 @@
 
 ```toml
 [dependencies]
-dcp-ai = "2.7"
+dcp-ai = "2.8"
 ```
 
 OpenTelemetry/OTLPエクスポートの場合:
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.7", features = ["otlp"] }
+dcp-ai = { version = "2.8", features = ["otlp"] }
 ```
 
 WebAssemblyサポートの場合:
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.7", features = ["wasm"] }
+dcp-ai = { version = "2.8", features = ["wasm"] }
 ```
 
 ## 機能

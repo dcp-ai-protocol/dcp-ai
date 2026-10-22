@@ -156,12 +156,13 @@ graph TB
     WA["WASM Module"]
   end
 
-  subgraph integrations["Integrations (10)"]
+  subgraph integrations["Integrations (11)"]
     EX["Express Middleware"]
     FA["FastAPI Middleware"]
     LC["LangChain"]
     OA["OpenAI"]
     CR["CrewAI"]
+    AGNO["Agno (agno-dcp)"]
     OC["OpenClaw Plugin"]
     W3C["W3C DID/VC Bridge"]
     A2A["Google A2A Bridge"]
@@ -247,6 +248,7 @@ Governança DCP drop-in para frameworks populares de IA e web.
 | **LangChain** | [![PyPI extra](https://img.shields.io/pypi/v/dcp-ai?label=dcp-ai%5Blangchain%5D&logo=pypi&logoColor=white)](https://pypi.org/project/dcp-ai/) | `DCPAgentWrapper`, `DCPTool`, `DCPCallback` | [integrations/langchain/](integrations/langchain/README.md) |
 | **OpenAI** | [![PyPI extra](https://img.shields.io/pypi/v/dcp-ai?label=dcp-ai%5Bopenai%5D&logo=pypi&logoColor=white)](https://pypi.org/project/dcp-ai/) | `DCPOpenAIClient`, function calling com `DCP_TOOLS` | [integrations/openai/](integrations/openai/README.md) |
 | **CrewAI** | [![PyPI extra](https://img.shields.io/pypi/v/dcp-ai?label=dcp-ai%5Bcrewai%5D&logo=pypi&logoColor=white)](https://pypi.org/project/dcp-ai/) | `DCPCrewAgent`, governança multi-agente `DCPCrew` | [integrations/crewai/](integrations/crewai/README.md) |
+| **Agno** | [![PyPI](https://img.shields.io/pypi/v/agno-dcp?label=agno-dcp&logo=pypi&logoColor=white&color=blue)](https://pypi.org/project/agno-dcp/) | Wrappers `DCPAgent`, `DCPTeam`, `DCPWorkflow` (pacote separado) | [repositório agno-dcp](https://github.com/dcp-ai-protocol/agno-dcp) |
 | **OpenClaw** | [![npm](https://img.shields.io/npm/v/@dcp-ai/openclaw?label=%40dcp-ai%2Fopenclaw&logo=npm)](https://www.npmjs.com/package/@dcp-ai/openclaw) | Plugin + SKILL.md, 6 ferramentas de agente | [integrations/openclaw/](integrations/openclaw/README.md) |
 | **W3C DID/VC** | [![npm](https://img.shields.io/npm/v/@dcp-ai/w3c-did?label=%40dcp-ai%2Fw3c-did&logo=npm)](https://www.npmjs.com/package/@dcp-ai/w3c-did) | Ponte entre DID Document e identidade DCP, emissão de VC | [integrations/w3c-did/](integrations/w3c-did/README.md) |
 | **Google A2A** | [![npm](https://img.shields.io/npm/v/@dcp-ai/google-a2a?label=%40dcp-ai%2Fgoogle-a2a&logo=npm)](https://www.npmjs.com/package/@dcp-ai/google-a2a) | A2A Agent Card ↔ identidade DCP, governança de tarefas | [integrations/google-a2a/](integrations/google-a2a/README.md) |
@@ -320,6 +322,7 @@ cd docker && docker compose up -d
 | [DCP-AI v2.0](spec/DCP-AI-v2.0.md) | Post-Quantum Normative Specification |
 | [BUNDLE](spec/BUNDLE.md) | Formato do Citizenship Bundle |
 | [VERIFICATION](spec/VERIFICATION.md) | Procedimentos e checklist de verificação |
+| [CANONICALIZATION_PROFILE](spec/CANONICALIZATION_PROFILE.md) | Perfil de JSON canônico `dcp-jcs-v1` por trás de toda assinatura e hash |
 | [DCP Core](spec/core/dcp-core.md) | Especificação editorial do protocolo core |
 
 ### Primeiros Passos
@@ -329,6 +332,7 @@ cd docker && docker compose up -d
 | [QUICKSTART](docs/QUICKSTART.md) | Guia geral de início rápido |
 | [QUICKSTART_LANGCHAIN](docs/QUICKSTART_LANGCHAIN.md) | Passo-a-passo da integração LangChain |
 | [QUICKSTART_CREWAI](docs/QUICKSTART_CREWAI.md) | Configuração multi-agente CrewAI |
+| [QUICKSTART_AGNO](docs/QUICKSTART_AGNO.md) | Agentes, times e workflows Agno com `agno-dcp` (demo ao vivo) |
 | [QUICKSTART_OPENAI](docs/QUICKSTART_OPENAI.md) | Integração function-calling OpenAI |
 | [QUICKSTART_EXPRESS](docs/QUICKSTART_EXPRESS.md) | Configuração do middleware Express |
 

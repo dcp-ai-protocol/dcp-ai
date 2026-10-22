@@ -14,7 +14,7 @@ Normative specifications for the Digital Citizenship Protocol for AI Agents. The
 | [BUNDLE](BUNDLE.md) | Citizenship Bundle & Signed Bundle | Citizenship Bundle (L3), Signed Bundle (Ed25519 signature, bundle_hash, merkle_root) |
 | [VERIFICATION](VERIFICATION.md) | Verification checklist | Normative steps to verify a Signed Bundle (schema, signature, expiry, revocation, intent_hash, audit chain, merkle; all local) |
 
-**Validation:** `dcp validate <schema> <json>`, `dcp validate-bundle <bundle.json>`, `dcp verify-bundle <signed.json> <public_key.txt>`, `dcp intent-hash <intent.json>`.
+**Validation:** `dcp validate <schema> <json>`, `dcp validate-bundle <bundle.json>`, `dcp verify-bundle [--policy <mode>] <signed.json> [public_key.txt]`, `dcp intent-hash <intent.json>`.
 **Conformance:** `npm run conformance` validates L3-OBJECTS + L3-BUNDLE + L3-SIGNED + intent_hash and prev_hash chain.
 
 ---
@@ -25,6 +25,7 @@ Normative specifications for the Digital Citizenship Protocol for AI Agents. The
 |----------|-------|
 | [DCP-04](DCP-04.md) | Agent-to-Agent Communication |
 | [DCP-AI v2.0](DCP-AI-v2.0.md) | Post-Quantum Normative Specification |
+| [Canonicalization Profile](CANONICALIZATION_PROFILE.md) | `dcp-jcs-v1` — byte-exact JSON canonicalization for every signature, hash and Merkle leaf |
 | [Security Audit](AUDIT-v2.0-FINAL.md) | v2.0 Final Security Audit (13 gaps closed) |
 
 ---
