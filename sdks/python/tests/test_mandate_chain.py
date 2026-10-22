@@ -147,6 +147,24 @@ class TestMandateChainBuilders:
         assert (await verify_mandate_chain(registry, [None], set(), keys))["errors"] == ["mandate[0]: not an object"]  # type: ignore[list-item]
 
 
+@pytest.mark.asyncio
+async def test_malformed_input_is_rejected_not_raised(V, registry):
+    """An unhashable tier, an integer too large for a float, or a non-dict key list reject the chain; nothing propagates."""
+    now = parse_rfc3339(V["verification_time"])
+    root, sub = V["must_accept"][0]["chain"]
+    cases = {
+        "unhashable_tier": [{**root, "minimum_security_tier": ["elevated"]}, sub],
+        "huge_integer_limit": [root, {**sub, "authority_scope": [{**sub["authority_scope"][0], "limits": {**sub["authority_scope"][0]["limits"], "max_messages_per_day": 10**400}}]}],
+        "list_as_mandate": [root, ["not", "a", "mandate"]],
+    }
+    for name, chain in cases.items():
+        result = await verify_mandate_chain(registry, chain, set(), V["keys"], now=now)  # type: ignore[arg-type]
+        assert result["valid"] is False, name
+        assert result["errors"], name
+    broken_keys = {"human_keys": V["keys"]["human_keys"], "agent_keys": ["not", "a", "dict"]}
+    assert (await verify_mandate_chain(registry, [root, sub], set(), broken_keys, now=now))["valid"] is False  # type: ignore[arg-type]
+
+
 def test_security_tier_floor_can_only_raise():
     routine = {"action_type": "browse", "data_classes": ["none"], "estimated_impact": "low"}
     assert compute_security_tier(routine, {"risk_score": 0}) == "routine"

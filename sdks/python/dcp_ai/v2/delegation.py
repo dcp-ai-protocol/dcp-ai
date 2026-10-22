@@ -162,7 +162,10 @@ def _is_str_list(v: Any) -> bool:
 
 
 def _is_number(v: Any) -> bool:
-    return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+    # math.isfinite raises OverflowError on an int too large for a float, so ints are not passed to it.
+    if isinstance(v, bool):
+        return False
+    return isinstance(v, int) or (isinstance(v, float) and math.isfinite(v))
 
 
 def _is_int(v: Any) -> bool:
@@ -200,7 +203,7 @@ def _shape_errors(m: dict[str, Any]) -> list[str]:
         errors.append("missing or invalid authority_scope")
     if "sub_delegation" in m and not _sub_delegation_ok(m["sub_delegation"]):
         errors.append("invalid sub_delegation")
-    if "minimum_security_tier" in m and m["minimum_security_tier"] not in _TIER_RANK:
+    if "minimum_security_tier" in m and not (isinstance(m["minimum_security_tier"], str) and m["minimum_security_tier"] in _TIER_RANK):
         errors.append("invalid minimum_security_tier")
     return errors
 
@@ -335,7 +338,20 @@ async def verify_mandate_chain(
         now = datetime.now(timezone.utc)
     elif now.tzinfo is None:
         now = now.replace(tzinfo=timezone.utc)
+    # The chain is untrusted input: an exception the checks below did not foresee is a rejection, not a crash.
+    try:
+        return await _verify_mandate_chain(registry, chain, revoked_mandate_ids, keys, now)
+    except Exception as exc:  # noqa: BLE001
+        return {"valid": False, "errors": [f"mandate chain verification error: {exc}"], "depth": 0, "effective_tier": None}
 
+
+async def _verify_mandate_chain(
+    registry: AlgorithmRegistry,
+    chain: list[dict[str, Any]],
+    revoked_mandate_ids: set[str],
+    keys: dict[str, Any],
+    now: datetime,
+) -> dict[str, Any]:
     def invalid(errors: list[str]) -> dict[str, Any]:
         return {"valid": False, "errors": errors, "depth": 0, "effective_tier": None}
 
