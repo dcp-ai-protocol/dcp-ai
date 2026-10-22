@@ -2,7 +2,7 @@
 
 # dcp-ai — Python SDK
 
-数字公民身份协议 (DCP v2.0) 的官方 Python SDK。Pydantic v2 模型、混合后量子密码学 (Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768)、带 `pq_over_classical` 绑定的复合签名、凭证包验证、OpenTelemetry 可观测性、DCP-04 至 DCP-09 行为，以及功能齐全的 CLI。
+数字公民身份协议 (DCP v2.0) 的官方 Python SDK。Pydantic v2 模型、混合后量子签名 (Ed25519 + ML-DSA-65，另有 SLH-DSA-192f)、带 `pq_over_classical` 绑定的复合签名、V1 凭证包签名与验证、OpenTelemetry 可观测性、DCP-04 至 DCP-09 行为，以及功能齐全的 CLI。
 
 ## 安装
 
@@ -24,11 +24,13 @@ pip install "dcp-ai[otlp]"       # OpenTelemetry OTLP exporter
 
 | 范畴 | 状态 |
 |---|---|
-| Ed25519 / ML-DSA-65 / SLH-DSA-192f / ML-KEM-768 provider | 是 |
+| Ed25519 / ML-DSA-65 provider | 是 |
+| SLH-DSA-192f provider | 是，通过 `pqcrypto` 实现的标准化前 SPHINCS+；与其他 SDK 的 FIPS 205 互操作尚待完成 |
+| ML-KEM-768 | 暂不支持（TypeScript、Go 和 Rust 已支持） |
 | 复合签名 (`pq_over_classical`) + 验证 | 是 |
 | 规范 JSON v2 + 域分离 | 是 |
 | 双哈希 (SHA-256 + SHA3-256) + Merkle 根 | 是 |
-| 凭证包验证 (V1 + V2) | 是 |
+| 凭证包签名与验证 | V1：是。V2 (`SignedBundleV2`)：暂不支持，请使用 TypeScript SDK 或 `dcp verify-bundle` |
 | DCP-04 A2A 发现 + 握手 + AES-256-GCM 会话（通过 `cryptography`） | 是 |
 | DCP-05 代理生命周期（委任 / 活力 / 停用） | 是 |
 | DCP-06 数字继承（数字遗嘱、记忆迁移、交接仪式） | 是 |

@@ -39,13 +39,15 @@ When verifying a Signed Bundle, perform the following in order:
 
 When verifying a V2 Signed Bundle (`dcp_bundle_version: "2.0"`), perform the following steps. These extend the V1 checklist with composite signature verification, session binding, and manifest integrity.
 
+Reference implementation: `dcp verify-bundle [--policy <mode>] <signed.json> [public_key.txt]` (or `verifySignedBundle` in `lib/verify.js`), which validates the schemas and delegates the cryptographic checks to `verifySignedBundleV2` in `@dcp-ai/sdk`. The optional public key pins the classical signer.
+
 ### Step V2-1: Detect version
 
 Inspect `bundle.dcp_bundle_version`. If `"2.0"`, use this V2 checklist. If absent or `"1.0"`, use the V1 checklist above.
 
 ### Step V2-2: Schema-validate
 
-Validate the Signed Bundle against `schemas/v2/signed_bundle_v2.schema.json` and the inner Citizenship Bundle against `schemas/v2/citizenship_bundle_v2.schema.json`.
+Validate the Signed Bundle against `schemas/v2/signed_bundle.schema.json`, which defines the inner bundle and references `bundle_manifest`, `signed_payload`, `audit_entry` and `pq_checkpoint`. Validate each `SignedPayload.payload` against its artifact schema: `responsible_principal_record`, `agent_passport`, `intent` and `policy_decision` in `schemas/v2/`.
 
 ### Step V2-3: Validate manifest
 
@@ -65,7 +67,7 @@ All artifacts (`responsible_principal_record.payload`, `agent_passport.payload`,
 
 The bundle-level `signature` MUST contain a `composite_sig` object with:
 - `classical` — object with `alg`, `kid`, `sig_b64`
-- `binding` — one of `pq_over_classical`, `classical_only`, `independent`
+- `binding` — one of `pq_over_classical`, `classical_only` (`schemas/v2/composite_signature.schema.json`)
 - `pq` — (required if binding is `pq_over_classical`) object with `alg`, `kid`, `sig_b64`
 
 ### Step V2-6: Verify classical signature

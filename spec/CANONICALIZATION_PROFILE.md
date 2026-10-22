@@ -235,6 +235,10 @@ table.
 | `[1, null, 3]` | `[1,null,3]` | Rule 5 |
 | `{"é": 1, "e": 2, "z": 3}` | `{"e":2,"z":3,"é":1}` | Rule 1, code-point ordering |
 | `{"a": {"b": {"c": 42}}}` | `{"a":{"b":{"c":42}}}` | Rule 1, recursive |
+| `{"ﬁ": 1, "😀": 2, "a": 3}` | `{"a":3,"ﬁ":1,"😀":2}` | Rule 1, code-point order: U+FB01 < U+1F600 (UTF-16 code-unit order would put the emoji first) |
+| `{"s": "<a href='/x?y=1&z=2'>"}` | `{"s":"<a href='/x?y=1&z=2'>"}` | Rule 3, `<`, `>` and `&` are not escaped |
+| `{"s": "a b c"}` | `{"s":"a` U+2028 `b` U+2029 `c"}` as raw UTF-8 | Rule 3, line/paragraph separators are not escaped |
+| `{"s": "\u0000\u0008\t\n\u000b\f\r\u001f\"\\"}` | `{"s":"\u0000\b\t\n\u000b\f\r\u001f\"\\"}` | Rule 3, RFC 8785 §3.2 short escapes, lowercase `\u00xx` for other C0 controls |
 
 ---
 

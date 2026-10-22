@@ -733,10 +733,19 @@ interface VerifyV2Result {
 9. Audit hash chain validation (prev_hash links)
 10. Key validity checks (revocation, expiry, age)
 
-```typescript
-import { verifySignedBundleV2, getDefaultRegistry, DEFAULT_VERIFIER_POLICY } from '@dcp-ai/sdk';
+> **Known limitations (tracked for the next SDK release):**
+>
+> - Per-artifact `SignedPayload.composite_sig` signatures are not verified yet (VERIFICATION.md Step V2-8). Integrity is still covered by the bundle signature over the manifest's payload hashes.
+> - Under `hybrid_preferred`, a PQ signature that is present but invalid is accepted with a warning. Use `hybrid_required` when PQ must hold.
 
-const result = await verifySignedBundleV2(signedBundle, registry);
+```typescript
+import { verifySignedBundleV2, getDefaultRegistry, registerDefaultProviders } from '@dcp-ai/sdk';
+
+// The default registry is empty until providers are registered
+// (Ed25519, ML-DSA-65, SLH-DSA-192f).
+registerDefaultProviders();
+
+const result = await verifySignedBundleV2(signedBundle, getDefaultRegistry());
 if (result.verified) {
   console.log('Mode:', result.details?.verification_mode);
 } else {

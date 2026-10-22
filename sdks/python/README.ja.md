@@ -2,7 +2,7 @@
 
 # dcp-ai — Python SDK
 
-デジタル市民権プロトコル (DCP v2.0) 公式Python SDKです。Pydantic v2モデル、ハイブリッド耐量子暗号 (Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768)、`pq_over_classical` バインディングによる複合署名、バンドル検証、OpenTelemetryによるオブザーバビリティ、DCP-04からDCP-09までの動作、およびフル機能のCLIを備えています。
+デジタル市民権プロトコル (DCP v2.0) 公式Python SDKです。Pydantic v2モデル、ハイブリッド耐量子署名 (Ed25519 + ML-DSA-65、および SLH-DSA-192f)、`pq_over_classical` バインディングによる複合署名、V1 バンドルの署名と検証、OpenTelemetryによるオブザーバビリティ、DCP-04からDCP-09までの動作、およびフル機能のCLIを備えています。
 
 ## インストール
 
@@ -24,11 +24,13 @@ pip install "dcp-ai[otlp]"       # OpenTelemetry OTLP exporter
 
 | 領域 | 状態 |
 |---|---|
-| Ed25519 / ML-DSA-65 / SLH-DSA-192f / ML-KEM-768 プロバイダ | Yes |
+| Ed25519 / ML-DSA-65 プロバイダ | Yes |
+| SLH-DSA-192f プロバイダ | Yes（`pqcrypto` による標準化前の SPHINCS+。他の SDK との FIPS 205 相互運用は未対応） |
+| ML-KEM-768 | 未対応（TypeScript・Go・Rust は対応済み） |
 | 複合署名 (`pq_over_classical`) + 検証 | Yes |
 | 正規化JSON v2 + ドメイン分離 | Yes |
 | デュアルハッシュ (SHA-256 + SHA3-256) + Merkleルート | Yes |
-| バンドル検証 (V1 + V2) | Yes |
+| バンドルの署名と検証 | V1: Yes。V2 (`SignedBundleV2`): 未対応。TypeScript SDK または `dcp verify-bundle` を使用してください |
 | DCP-04 A2A 発見 + ハンドシェイク + AES-256-GCM セッション (`cryptography` 経由) | Yes |
 | DCP-05 エージェントライフサイクル (コミッショニング / バイタリティ / デコミッショニング) | Yes |
 | DCP-06 デジタル継承 (デジタル遺言、メモリ転送、セレモニー) | Yes |
