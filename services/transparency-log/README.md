@@ -163,7 +163,8 @@ A peer's tree heads only count when they verify under its **pinned** public key:
 `POST /gossip/peers`. Polled tree heads from a peer without a pinned key, malformed ones or ones
 with a bad signature are ignored. `/gossip/exchange` is open, so it only accepts a well-formed
 STH (64-hex or null `root`, integer `size`) signed by a pinned peer, in a body of at most 16 KB
-(otherwise 400 or 403), and only the last 100 alerts are kept.
+(otherwise 400 or 403). Alerts are deduplicated by peer, tree size and root, so replaying a
+signed tree head adds nothing, and only the last 100 are kept.
 
 ## Configuration
 

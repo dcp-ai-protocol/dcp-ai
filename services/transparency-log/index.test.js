@@ -101,7 +101,11 @@ test("gossip exchange only takes well-formed tree heads signed by a pinned peer"
   assert.equal(split.status, 200);
   assert.equal(split.body.alert.type, "split_view_detected");
 
-  for (let i = 0; i < 110; i++) await exchange(peerSth(otherRoot, size));
+  // Replaying the same signed tree head adds nothing, so it cannot push older alerts out.
+  for (let i = 0; i < 5; i++) await exchange(peerSth(otherRoot, size));
+  assert.equal((await get("/gossip/alerts")).count, 1);
+
+  for (let i = 0; i < 110; i++) await exchange(peerSth(sha256Hex(`root-${i}`), size));
   assert.equal((await get("/gossip/alerts")).count, 100);
 });
 

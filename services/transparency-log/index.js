@@ -98,6 +98,9 @@ const gossipManager = new GossipManager({
   logId: LOG_ID,
   getLocalSTH,
   onInconsistency: (alert) => {
+    // Signed tree heads are public: a replayed one must not push older alerts out.
+    if (alerts.some((a) => a.peer_id === alert.peer_id && a.tree_size === alert.tree_size &&
+        a.peer_root === alert.peer_root)) return;
     alerts.push(alert);
     if (alerts.length > MAX_ALERTS) alerts.shift();
   },
