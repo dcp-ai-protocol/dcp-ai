@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp/providers"
@@ -561,7 +562,8 @@ func TestCanonicalizationEdgeCases(t *testing.T) {
 
 // TestSignedBundleVectors runs v2.VerifySignedBundleV2 over the shared
 // bundle_vectors.json: the signed bundle must verify, and each must_reject
-// mutation (VERIFICATION.md V2-7 / V2-8) must make it fail.
+// case's mutations (VERIFICATION.md V2-7 / V2-8) must make it fail with an
+// error naming error_contains.
 func TestSignedBundleVectors(t *testing.T) {
 	_, thisFile, _, _ := runtime.Caller(0)
 	vecPath := filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "tests", "interop", "v2", "bundle_vectors.json")
@@ -572,9 +574,12 @@ func TestSignedBundleVectors(t *testing.T) {
 	var vecs struct {
 		SignedBundle json.RawMessage `json:"signed_bundle"`
 		MustReject   []struct {
-			Name  string      `json:"name"`
-			Path  []string    `json:"path"`
-			Value interface{} `json:"value"`
+			Name          string `json:"name"`
+			ErrorContains string `json:"error_contains"`
+			Mutations     []struct {
+				Path  []string    `json:"path"`
+				Value interface{} `json:"value"`
+			} `json:"mutations"`
 		} `json:"must_reject"`
 	}
 	if err := json.Unmarshal(data, &vecs); err != nil {
@@ -591,17 +596,23 @@ func TestSignedBundleVectors(t *testing.T) {
 			if err := json.Unmarshal(vecs.SignedBundle, &sb); err != nil {
 				t.Fatal(err)
 			}
-			node := sb
-			for _, key := range m.Path[:len(m.Path)-1] {
-				node = node[key].(map[string]interface{})
+			for _, mut := range m.Mutations {
+				node := sb
+				for _, key := range mut.Path[:len(mut.Path)-1] {
+					node = node[key].(map[string]interface{})
+				}
+				node[mut.Path[len(mut.Path)-1]] = mut.Value
 			}
-			node[m.Path[len(m.Path)-1]] = m.Value
 			mutated, err := json.Marshal(sb)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if r := v2.VerifySignedBundleV2(reg, mutated); r.Verified {
+			r := v2.VerifySignedBundleV2(reg, mutated)
+			if r.Verified {
 				t.Fatal("mutated bundle must be rejected")
+			}
+			if !strings.Contains(strings.ToLower(strings.Join(r.Errors, "\n")), m.ErrorContains) {
+				t.Fatalf("no error mentions %q: %v", m.ErrorContains, r.Errors)
 			}
 		})
 	}

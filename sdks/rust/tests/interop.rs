@@ -464,8 +464,8 @@ fn canonicalization_edge_cases() {
 // Signed bundle verification (bundle_vectors.json)
 // ---------------------------------------------------------------------------
 
-/// The shared signed bundle must verify, and each must_reject mutation
-/// (VERIFICATION.md V2-7 / V2-8) must make it fail.
+/// The shared signed bundle must verify, and each must_reject case's mutations
+/// (VERIFICATION.md V2-7 / V2-8) must make it fail with an error naming error_contains.
 #[test]
 fn signed_bundle_vectors() {
     let data = fs::read_to_string(vectors_path().with_file_name("bundle_vectors.json"))
@@ -478,15 +478,22 @@ fn signed_bundle_vectors() {
 
     for case in vectors["must_reject"].as_array().expect("must_reject") {
         let mut mutated = signed.clone();
-        let mut node = &mut mutated;
-        for key in case["path"].as_array().expect("path") {
-            node = &mut node[key.as_str().expect("path key")];
+        for mutation in case["mutations"].as_array().expect("mutations") {
+            let mut node = &mut mutated;
+            for key in mutation["path"].as_array().expect("path") {
+                node = &mut node[key.as_str().expect("path key")];
+            }
+            *node = mutation["value"].clone();
         }
-        *node = case["value"].clone();
+        let result = verify_signed_bundle_v2(&mutated);
+        assert!(!result.verified, "{} must be rejected", case["name"]);
+        let want = case["error_contains"].as_str().expect("error_contains");
         assert!(
-            !verify_signed_bundle_v2(&mutated).verified,
-            "{} must be rejected",
-            case["name"]
+            result.errors.iter().any(|e| e.to_lowercase().contains(want)),
+            "{}: no error mentions {}: {:?}",
+            case["name"],
+            want,
+            result.errors
         );
     }
 }
