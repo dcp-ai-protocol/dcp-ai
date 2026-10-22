@@ -78,7 +78,7 @@ export type DeclareIntentInput = Static<typeof DeclareIntentParams>;
 // (spec §14.2); earlier ones ignore the second argument.
 const computeTier = computeSecurityTier as (
   intent: IntentV2,
-  policyDecision?: PolicyDecisionV2,
+  policyDecision?: Pick<PolicyDecisionV2, 'risk_score'>,
 ) => SecurityTier;
 
 /**
@@ -184,7 +184,14 @@ export async function executeDeclareIntent(
     requires_consent: params.estimated_impact === 'high',
   };
 
-  const securityTier = computeSecurityTier(intentForTier);
+  // Risk scoring (V2: integer millirisk). The tier counts the policy
+  // decision's risk_score (spec §14.2).
+  const riskScore = computeRiskScore(
+    params.action_type,
+    params.estimated_impact,
+    dataClasses,
+  );
+  const securityTier = computeTier(intentForTier, { risk_score: riskScore });
   const intent: IntentV2 = { ...intentForTier, security_tier: securityTier };
 
   session.intentsV2.set(intentId, intent);
@@ -204,12 +211,7 @@ export async function executeDeclareIntent(
   };
   session.signedIntents.set(intentId, signedIntent);
 
-  // Risk scoring & policy decision (V2: integer millirisk)
-  const riskScore = computeRiskScore(
-    params.action_type,
-    params.estimated_impact,
-    dataClasses,
-  );
+  // Policy decision
   const { decision, reasons } = decidePolicy(riskScore);
   const requiresHuman = decision === 'block' || decision === 'escalate';
 
