@@ -129,11 +129,9 @@ class TestMlDsa65KAT:
 
     @pytest.fixture(scope="class")
     def provider(self):
-        try:
-            from dcp_ai.providers.ml_dsa_65_provider import MlDsa65Provider
-            return MlDsa65Provider()
-        except ImportError:
-            pytest.skip("pqcrypto not installed")
+        from dcp_ai.providers.ml_dsa_65_provider import MlDsa65Provider
+
+        return MlDsa65Provider()
 
     def test_algorithm_id(self, provider):
         assert provider.alg == "ml-dsa-65"

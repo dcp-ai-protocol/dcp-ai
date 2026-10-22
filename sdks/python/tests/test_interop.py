@@ -26,6 +26,7 @@ from dcp_ai.v2.dual_hash import sha256_hex, sha3_256_hex
 from dcp_ai.v2.crypto_registry import AlgorithmRegistry
 from dcp_ai.v2.composite_ops import composite_verify, CompositeKeyInfo
 from dcp_ai.providers.ed25519_provider import Ed25519Provider
+from dcp_ai.providers.ml_dsa_65_provider import MlDsa65Provider
 
 VECTORS_PATH = Path(__file__).resolve().parent.parent.parent.parent / "tests" / "interop" / "v2" / "interop_vectors.json"
 
@@ -40,16 +41,8 @@ def V():
 def registry():
     r = AlgorithmRegistry()
     r.register_signer(Ed25519Provider())
-    try:
-        from dcp_ai.providers.ml_dsa_65_provider import MlDsa65Provider
-        r.register_signer(MlDsa65Provider())
-    except ImportError:
-        pass
+    r.register_signer(MlDsa65Provider())
     return r
-
-
-def _has_pq(registry: AlgorithmRegistry) -> bool:
-    return registry.has_signer("ml-dsa-65")
 
 
 # ---------------------------------------------------------------------------
@@ -158,8 +151,6 @@ class TestCompositeSignatures:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("comp_name", ["passport_composite", "intent_composite", "audit_composite"])
     async def test_verify(self, V, registry, comp_name):
-        if not _has_pq(registry):
-            pytest.skip("ML-DSA-65 provider not available")
         entry = V["composite_signatures"][comp_name]
         canonical = V["canonicalization"][entry["payload_key"]]["expected_canonical"]
         payload_bytes = canonical.encode("utf-8")
@@ -207,8 +198,6 @@ class TestClassicalOnly:
 class TestStrippingAttacks:
     @pytest.mark.asyncio
     async def test_pq_removal_fails(self, V, registry):
-        if not _has_pq(registry):
-            pytest.skip("ML-DSA-65 provider not available")
         av = V["attack_vectors"]["stripping_pq_removal"]
         canonical = V["canonicalization"][av["payload_key"]]["expected_canonical"]
         payload_bytes = canonical.encode("utf-8")
@@ -239,8 +228,6 @@ class TestStrippingAttacks:
 
     @pytest.mark.asyncio
     async def test_tampered_classical(self, V, registry):
-        if not _has_pq(registry):
-            pytest.skip("ML-DSA-65 provider not available")
         av = V["attack_vectors"]["tampered_classical_sig"]
         canonical = V["canonicalization"][av["payload_key"]]["expected_canonical"]
         payload_bytes = canonical.encode("utf-8")
@@ -257,8 +244,6 @@ class TestStrippingAttacks:
 
     @pytest.mark.asyncio
     async def test_tampered_pq(self, V, registry):
-        if not _has_pq(registry):
-            pytest.skip("ML-DSA-65 provider not available")
         av = V["attack_vectors"]["tampered_pq_sig"]
         canonical = V["canonicalization"][av["payload_key"]]["expected_canonical"]
         payload_bytes = canonical.encode("utf-8")
@@ -282,8 +267,6 @@ class TestStrippingAttacks:
 class TestCrossContextReplay:
     @pytest.mark.asyncio
     async def test_intent_sig_fails_under_audit(self, V, registry):
-        if not _has_pq(registry):
-            pytest.skip("ML-DSA-65 provider not available")
         av = V["attack_vectors"]["cross_context_replay"]
         canonical = V["canonicalization"][av["payload_key"]]["expected_canonical"]
         payload_bytes = canonical.encode("utf-8")
@@ -299,8 +282,6 @@ class TestCrossContextReplay:
 
     @pytest.mark.asyncio
     async def test_intent_sig_succeeds_under_intent(self, V, registry):
-        if not _has_pq(registry):
-            pytest.skip("ML-DSA-65 provider not available")
         av = V["attack_vectors"]["cross_context_replay"]
         canonical = V["canonicalization"][av["payload_key"]]["expected_canonical"]
         payload_bytes = canonical.encode("utf-8")
@@ -330,8 +311,6 @@ class TestSessionSplicing:
 
     @pytest.mark.asyncio
     async def test_passport_a_verifies(self, V, registry):
-        if not _has_pq(registry):
-            pytest.skip("ML-DSA-65 provider not available")
         sa = V["session_splicing"]["session_a"]
         payload_bytes = sa["passport_canonical"].encode("utf-8")
         result = await composite_verify(
@@ -346,8 +325,6 @@ class TestSessionSplicing:
 
     @pytest.mark.asyncio
     async def test_intent_b_verifies(self, V, registry):
-        if not _has_pq(registry):
-            pytest.skip("ML-DSA-65 provider not available")
         sb = V["session_splicing"]["session_b"]
         payload_bytes = sb["intent_canonical"].encode("utf-8")
         result = await composite_verify(
