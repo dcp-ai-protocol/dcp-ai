@@ -1298,6 +1298,30 @@ describe('Negative: Blinded RPR', () => {
     expect(result.errors.some(e => e.includes('jurisdiction'))).toBe(true);
   });
 
+  it('verifyBlindedRpr fails for different binding_keys', () => {
+    const rpr = makeRpr(sessionNonce);
+    const blinded = blindRpr(rpr);
+    blinded.binding_keys = [rpr.binding_keys[1]];
+    const result = verifyBlindedRpr(rpr, blinded);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain('binding_keys mismatch');
+  });
+
+  it('verifyBlindedRpr fails for a different session_nonce', () => {
+    const rpr = makeRpr(sessionNonce);
+    const blinded = blindRpr(rpr);
+    blinded.session_nonce = 'b'.repeat(64);
+    const result = verifyBlindedRpr(rpr, blinded);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain('session_nonce mismatch');
+  });
+
+  it('verifyBlindedRpr accepts a blinded RPR parsed from JSON', () => {
+    const rpr = makeRpr(sessionNonce);
+    const blinded = JSON.parse(JSON.stringify(blindRpr(rpr)));
+    expect(verifyBlindedRpr(rpr, blinded)).toEqual({ valid: true, errors: [] });
+  });
+
   it('isBlindedRpr correctly detects blinded vs full', () => {
     const rpr = makeRpr(sessionNonce);
     const blinded = blindRpr(rpr);

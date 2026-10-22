@@ -1,6 +1,8 @@
 package dcp_test
 
 import (
+	"encoding/json"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -137,6 +139,35 @@ func TestVerifyBlindedRPRTampered(t *testing.T) {
 	r := v2.VerifyBlindedRPR(full, b)
 	if r.Valid {
 		t.Fatalf("expected invalid")
+	}
+}
+
+func TestVerifyBlindedRPRComparesKeysAndNonce(t *testing.T) {
+	for field, value := range map[string]interface{}{
+		"binding_keys":  []interface{}{map[string]interface{}{"kid": "attacker", "alg": "ed25519"}},
+		"session_nonce": strings.Repeat("b", 64),
+	} {
+		full := sampleRPR()
+		b, _ := v2.BlindRPR(full)
+		b[field] = value
+		r := v2.VerifyBlindedRPR(full, b)
+		if r.Valid || !slices.Contains(r.Errors, field+" mismatch") {
+			t.Fatalf("%s: expected %q, got %v", field, field+" mismatch", r.Errors)
+		}
+	}
+}
+
+func TestVerifyBlindedRPRParsedFromJSON(t *testing.T) {
+	full := sampleRPR()
+	full["binding_keys"] = []map[string]interface{}{{"kid": "k1", "alg": "ed25519"}}
+	b, _ := v2.BlindRPR(full)
+	raw, _ := json.Marshal(b)
+	var parsed map[string]interface{}
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		t.Fatal(err)
+	}
+	if r := v2.VerifyBlindedRPR(full, parsed); !r.Valid {
+		t.Fatalf("errors: %v", r.Errors)
 	}
 }
 

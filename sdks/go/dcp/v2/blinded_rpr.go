@@ -3,6 +3,7 @@
 package v2
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -61,7 +62,7 @@ func VerifyBlindedRPR(fullRPR, blinded map[string]interface{}) BlindedRprCheck {
 	if err == nil && got != expected {
 		errs = append(errs, fmt.Sprintf("pii_hash mismatch: expected %s, got %s", expected, got))
 	}
-	keys := []string{"human_id", "entity_type", "jurisdiction", "liability_mode", "override_rights", "issued_at", "expires_at"}
+	keys := []string{"human_id", "session_nonce", "entity_type", "jurisdiction", "liability_mode", "override_rights", "issued_at", "expires_at", "binding_keys"}
 	for _, k := range keys {
 		if !equal(fullRPR[k], blinded[k]) {
 			errs = append(errs, k+" mismatch")
@@ -76,24 +77,10 @@ func IsBlindedRPR(rpr map[string]interface{}) bool {
 	return blinded
 }
 
+// equal compares canonical JSON, so []string and []interface{} (or a
+// typed map and its decoded form) with the same content are equal.
 func equal(a, b interface{}) bool {
-	// Best-effort structural equality that's tolerant of []string vs []interface{}.
-	switch av := a.(type) {
-	case []string:
-		bv, ok := b.([]string)
-		if !ok {
-			return false
-		}
-		if len(av) != len(bv) {
-			return false
-		}
-		for i := range av {
-			if av[i] != bv[i] {
-				return false
-			}
-		}
-		return true
-	default:
-		return fmt.Sprintf("%v", a) == fmt.Sprintf("%v", b)
-	}
+	ca, errA := MarshalCanonical(a)
+	cb, errB := MarshalCanonical(b)
+	return errA == nil && errB == nil && bytes.Equal(ca, cb)
 }

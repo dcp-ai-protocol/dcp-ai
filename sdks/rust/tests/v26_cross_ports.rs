@@ -168,6 +168,28 @@ fn verify_blinded_rpr_tampered() {
     assert!(!result.valid);
 }
 
+#[test]
+fn verify_blinded_rpr_compares_keys_and_nonce() {
+    for (field, value) in [
+        (
+            "binding_keys",
+            json!([{ "kid": "attacker", "alg": "ed25519" }]),
+        ),
+        ("session_nonce", json!("b".repeat(64))),
+    ] {
+        let full = sample_rpr();
+        let mut blinded = blind_rpr(&full).unwrap();
+        blinded[field] = value;
+        let result = verify_blinded_rpr(&full, &blinded);
+        assert!(!result.valid, "{field}");
+        assert!(
+            result.errors.contains(&format!("{field} mismatch")),
+            "{field}: {:?}",
+            result.errors
+        );
+    }
+}
+
 // ── Multi-party auth ──
 
 fn mpa(operation: &str, auths: Vec<serde_json::Value>) -> serde_json::Value {

@@ -60,12 +60,14 @@ pub fn verify_blinded_rpr(full_rpr: &Value, blinded_rpr: &Value) -> BlindedRprCh
     }
     let keys = [
         "human_id",
+        "session_nonce",
         "entity_type",
         "jurisdiction",
         "liability_mode",
         "override_rights",
         "issued_at",
         "expires_at",
+        "binding_keys",
     ];
     for k in keys {
         if full_rpr.get(k) != blinded_rpr.get(k) {

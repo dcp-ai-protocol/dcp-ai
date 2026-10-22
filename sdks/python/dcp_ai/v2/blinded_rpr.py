@@ -64,6 +64,8 @@ def verify_blinded_rpr(
 
     if full_rpr.human_id != blinded_rpr.human_id:
         errors.append("human_id mismatch")
+    if full_rpr.session_nonce != blinded_rpr.session_nonce:
+        errors.append("session_nonce mismatch")
     if full_rpr.entity_type != blinded_rpr.entity_type:
         errors.append("entity_type mismatch")
     if full_rpr.jurisdiction != blinded_rpr.jurisdiction:
@@ -76,6 +78,8 @@ def verify_blinded_rpr(
         errors.append("issued_at mismatch")
     if full_rpr.expires_at != blinded_rpr.expires_at:
         errors.append("expires_at mismatch")
+    if full_rpr.binding_keys != blinded_rpr.binding_keys:
+        errors.append("binding_keys mismatch")
 
     return {"valid": len(errors) == 0, "errors": errors}
 
