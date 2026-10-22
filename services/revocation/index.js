@@ -12,19 +12,26 @@
  * the passport's emergency revocation token. Revocations must be signed by
  * the registered keys.
  *
+ * State is in memory and does not survive a restart.
+ *
  * Environment:
- *   PORT        — HTTP port (default 3003)
- *   TRUST_PROXY — "true" behind a proxy that appends X-Forwarded-For
+ *   PORT                   — HTTP port (default 3003)
+ *   TRUST_PROXY            — "true" behind a proxy that appends X-Forwarded-For
+ *   REGISTRATIONS_PER_HOUR — POST /v2/register calls per client and hour (default 20)
+ *   MAX_AGENTS             — registered agents before new ones get 507 (default 10000)
  */
 
 import http from "http";
 import crypto from "crypto";
 import { DCP_CONTEXTS } from "@dcp-ai/sdk";
 import { verifyCompositeSig } from "../../lib/verify.js";
-import { decodeParam, getClientIp, parseBody } from "../../lib/http.js";
+import { decodeParam, getClientIp, parseBody, rateLimiter } from "../../lib/http.js";
 import { verifyObject } from "../../tools/crypto.js";
 
 const PORT = Number(process.env.PORT) || 3003;
+const REGISTRATIONS_PER_HOUR = Number(process.env.REGISTRATIONS_PER_HOUR) || 20;
+const MAX_AGENTS = Number(process.env.MAX_AGENTS) || 10_000;
+const V2_REASONS = ["key_compromise", "key_rotation", "administrative", "key_compromise_emergency"];
 
 // ── Revocation stores ──
 
@@ -37,10 +44,14 @@ const agents = new Map();
 // kid -> agent_id, for the keys that proved possession at registration
 const kidOwners = new Map();
 
-// Rate limiter for emergency revoke (per IP)
-const emergencyRateLimit = new Map();
-const EMERGENCY_MAX_ATTEMPTS = 5;
-const EMERGENCY_WINDOW_MS = 60_000;
+// Per-client rate limiters
+const checkRateLimit = rateLimiter(5, 60_000); // emergency revocations
+const checkRegistrationRate = rateLimiter(REGISTRATIONS_PER_HOUR, 3_600_000);
+
+// Everything below is kept in memory and published, so client-supplied text stays short.
+const tooLong = (...values) => values.some((v) => v !== undefined && (typeof v !== "string" || v.length > 256));
+const badDate = (v) => typeof v !== "string" || tooLong(v) || Number.isNaN(Date.parse(v));
+const sigEntry = (s) => s && { alg: s.alg, kid: s.kid, sig_b64: s.sig_b64 };
 
 function send(res, statusCode, body) {
   res.setHeader("Content-Type", "application/json");
@@ -53,17 +64,6 @@ function activeKeys(agentId) {
   const now = new Date();
   return (agents.get(agentId)?.keys ?? []).filter((k) =>
     !kidRevocations.has(k.kid) && !(k.expires_at && new Date(k.expires_at) < now));
-}
-
-function checkRateLimit(ip) {
-  const now = Date.now();
-  let entry = emergencyRateLimit.get(ip);
-  if (!entry || now - entry.windowStart > EMERGENCY_WINDOW_MS) {
-    entry = { windowStart: now, count: 0 };
-    emergencyRateLimit.set(ip, entry);
-  }
-  entry.count++;
-  return entry.count <= EMERGENCY_MAX_ATTEMPTS;
 }
 
 async function handle(req, res) {
@@ -82,15 +82,23 @@ async function handle(req, res) {
 
   // ── V2: Register an agent's keys and emergency token ──
   if (req.method === "POST" && req.url === "/v2/register") {
+    if (!checkRegistrationRate(getClientIp(req))) {
+      return send(res, 429, { error: `Rate limit exceeded. Max ${REGISTRATIONS_PER_HOUR} registrations per hour.` });
+    }
+
     let body;
     try { body = await parseBody(req); }
     catch { return send(res, 400, { error: "Invalid JSON" }); }
 
     const passport = body.signed_passport?.payload;
     const sig = body.signed_passport?.composite_sig;
-    if (passport?.dcp_version !== "2.0" || typeof passport.agent_id !== "string" || !Array.isArray(passport.keys) ||
-        Number.isNaN(Date.parse(passport.created_at))) {
+    if (passport?.dcp_version !== "2.0" || typeof passport.agent_id !== "string" || tooLong(passport.agent_id) ||
+        !Array.isArray(passport.keys) || badDate(passport.created_at)) {
       return send(res, 400, { error: "Missing signed_passport (V2 passport payload with created_at + composite_sig)" });
+    }
+    const token = passport.emergency_revocation_token;
+    if (token !== undefined && !/^sha256:[0-9a-f]{64}$/.test(token)) {
+      return send(res, 400, { error: "emergency_revocation_token must be sha256:<64 hex chars>" });
     }
 
     if (!(await verifyCompositeSig(DCP_CONTEXTS.AgentPassport, passport, sig, passport.keys))) {
@@ -128,10 +136,19 @@ async function handle(req, res) {
       }
     }
 
+    if (signers.some((k) => k.expires_at != null && badDate(k.expires_at))) {
+      return send(res, 400, { error: "Key expires_at must be a date-time or null" });
+    }
+    // A full registry refuses new agents: evicting one would let anyone claim its agent_id.
+    if (!existing && agents.size >= MAX_AGENTS) {
+      return send(res, 507, { error: "Registry full" });
+    }
+
     for (const k of signers) kidOwners.set(k.kid, agentId);
     agents.set(agentId, {
       // Registered entries are kept, so a new passport cannot extend expires_at.
-      keys: existing?.keys ?? signers,
+      keys: existing?.keys ??
+        signers.map(({ kid, alg, public_key_b64, expires_at }) => ({ kid, alg, public_key_b64, expires_at: expires_at ?? null })),
       // Never cleared: a newer passport without a token keeps the registered one.
       token_hash: passport.emergency_revocation_token ?? existing?.token_hash ?? null,
       created_at: passport.created_at,
@@ -156,6 +173,9 @@ async function handle(req, res) {
       return send(res, 400, {
         error: "Missing required fields: agent_id, reason, signature",
       });
+    }
+    if (tooLong(dcp_version, human_id, timestamp, reason, signature)) {
+      return send(res, 400, { error: "Fields must be strings of at most 256 characters" });
     }
 
     const signed = { dcp_version, agent_id, human_id, timestamp, reason };
@@ -207,6 +227,10 @@ async function handle(req, res) {
       return send(res, 400, { error: "V2 revocation requires dcp_version: 2.0" });
     }
 
+    if (!V2_REASONS.includes(reason) || tooLong(human_id, timestamp)) {
+      return send(res, 400, { error: `reason must be one of ${V2_REASONS.join(", ")}; human_id and timestamp at most 256 characters` });
+    }
+
     if (kidOwners.get(revoked_kid) !== agent_id) {
       return send(res, 403, { error: "revoked_kid is not a registered key of agent_id" });
     }
@@ -223,7 +247,7 @@ async function handle(req, res) {
       revoked_kid,
       timestamp: timestamp || new Date().toISOString(),
       reason,
-      composite_sig,
+      composite_sig: { classical: sigEntry(composite_sig.classical), pq: sigEntry(composite_sig.pq) ?? null, binding: composite_sig.binding },
     };
 
     kidRevocations.set(revoked_kid, record);
@@ -279,6 +303,9 @@ async function handle(req, res) {
     // Validate secret format (must be 64 hex chars)
     if (!/^[0-9a-f]{64}$/.test(revocation_secret)) {
       return send(res, 400, { error: "Invalid revocation_secret format (expected 64 hex chars)" });
+    }
+    if (tooLong(human_id, timestamp, reason)) {
+      return send(res, 400, { error: "Fields must be strings of at most 256 characters" });
     }
 
     // Look up the emergency token for this agent
