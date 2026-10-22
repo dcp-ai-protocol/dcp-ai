@@ -24,7 +24,7 @@ primary_region = "iad"
   GOSSIP_INTERVAL_MS = "30000"
   # Set at runtime with `fly secrets set`:
   #   OPERATOR_KEY   — Ed25519 seed for Signed Tree Heads: 64 hex (openssl rand -hex 32)
-  #   GOSSIP_PEERS   — comma-separated URLs of peer logs
+  #   GOSSIP_PEERS   — comma-separated <url>#<peer's base64 Ed25519 public key> (its /health public_key)
 
 [http_service]
   internal_port = 3002

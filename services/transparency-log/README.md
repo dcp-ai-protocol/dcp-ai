@@ -154,9 +154,16 @@ curl http://localhost:3002/entries
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/gossip/peers` | Known peers and the last 20 alerts |
-| POST | `/gossip/peers` | Add a peer `{ peer_id, endpoint }` (http/https). Requires `Authorization: Bearer <OPERATOR_TOKEN>`: the log fetches peers itself, so an open list would allow SSRF |
-| POST | `/gossip/exchange` | Exchange STHs with a peer `{ sth }`; returns ours and any split-view alert |
-| GET | `/gossip/alerts` | Split-view alerts |
+| POST | `/gossip/peers` | Add a peer `{ peer_id, endpoint, public_key }` (http/https endpoint, base64 Ed25519 key). Requires `Authorization: Bearer <OPERATOR_TOKEN>`: the log fetches peers itself, so an open list would allow SSRF |
+| POST | `/gossip/exchange` | Exchange STHs with a pinned peer `{ sth }`; returns ours and any split-view alert |
+| GET | `/gossip/alerts` | Split-view alerts (the last 100) |
+
+A peer's tree heads only count when they verify under its **pinned** public key: give it as
+`<endpoint>#<base64 Ed25519 public key>` in `GOSSIP_PEERS`, or `public_key` in
+`POST /gossip/peers`. Polled tree heads from a peer without a pinned key, malformed ones or ones
+with a bad signature are ignored. `/gossip/exchange` is open, so it only accepts a well-formed
+STH (64-hex or null `root`, integer `size`) signed by a pinned peer, in a body of at most 16 KB
+(otherwise 400 or 403), and only the last 100 alerts are kept.
 
 ## Configuration
 
@@ -168,7 +175,7 @@ curl http://localhost:3002/entries
 | `LOG_ID` | random | Identifier of this log instance |
 | `OPERATOR_KEY` | — | Ed25519 seed of the STH signing key: 64 hex chars (`openssl rand -hex 32`). Any other value stops the service; unset means an ephemeral key |
 | `OPERATOR_TOKEN` | — | Bearer token for `POST /gossip/peers`. Unset: locked |
-| `GOSSIP_PEERS` | — | Comma-separated peer URLs, polled every `GOSSIP_INTERVAL_MS` |
+| `GOSSIP_PEERS` | — | Comma-separated peers, each `<endpoint>#<base64 Ed25519 public key>` (the peer's `/health` `public_key`), polled every `GOSSIP_INTERVAL_MS` |
 | `GOSSIP_INTERVAL_MS` | `30000` | Gossip polling interval |
 
 ## CT-style Format

@@ -2,11 +2,24 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
+import nacl from "tweetnacl";
 import { post as postTo, sha256Hex, startService } from "../../tests/helpers.js";
-import { verifyObject } from "../../tools/crypto.js";
+import { signObject, verifyObject } from "../../tools/crypto.js";
 
 const TLOG = fileURLToPath(new URL("./index.js", import.meta.url));
-const env = { OPERATOR_KEY: crypto.randomBytes(32).toString("hex"), OPERATOR_TOKEN: "test-operator-token" };
+const b64 = (bytes) => Buffer.from(bytes).toString("base64");
+// A peer log this test signs tree heads for; the log under test pins its public key.
+const peer = nacl.sign.keyPair();
+const peerSth = (root, size, secretKey = peer.secretKey) => {
+  const sth = { log_id: "log-peer", root, size, timestamp: new Date().toISOString() };
+  return { ...sth, signature: signObject(sth, b64(secretKey)) };
+};
+const env = {
+  OPERATOR_KEY: crypto.randomBytes(32).toString("hex"),
+  OPERATOR_TOKEN: "test-operator-token",
+  GOSSIP_PEERS: `http://127.0.0.1:9#${b64(peer.publicKey)}`,
+  GOSSIP_INTERVAL_MS: "3600000",
+};
 let base;
 const procs = [];
 
@@ -71,4 +84,40 @@ test("POST /gossip/peers needs the operator token and an http(s) endpoint", asyn
   const asOperator = { authorization: `Bearer ${env.OPERATOR_TOKEN}` };
   assert.equal((await post("/gossip/peers", { peer_id: "peer-y", endpoint: "file:///etc/passwd" }, asOperator)).status, 400);
   assert.equal((await post("/gossip/peers", { peer_id: "peer-z", endpoint: "https://log-b.example" }, asOperator)).status, 200);
+});
+
+test("gossip exchange only takes well-formed tree heads signed by a pinned peer", async () => {
+  const exchange = (sth) => post("/gossip/exchange", { sth });
+  const { size } = await get("/root");
+  const otherRoot = "ab".repeat(32);
+
+  assert.equal((await exchange(peerSth(otherRoot, size, nacl.sign.keyPair().secretKey))).status, 403);
+  assert.equal((await exchange({ ...peerSth(otherRoot, size), root: "x".repeat(1000) })).status, 400);
+  assert.equal((await exchange({ ...peerSth(otherRoot, size), padding: "x".repeat(50_000) })).status, 400);
+  assert.equal((await get("/gossip/alerts")).count, 0);
+
+  // A pinned peer showing another root for the same size is a split view.
+  const split = await exchange(peerSth(otherRoot, size));
+  assert.equal(split.status, 200);
+  assert.equal(split.body.alert.type, "split_view_detected");
+
+  for (let i = 0; i < 110; i++) await exchange(peerSth(otherRoot, size));
+  assert.equal((await get("/gossip/alerts")).count, 100);
+});
+
+test("polled peer tree heads are only trusted with the peer's pinned key", async () => {
+  const peerLog = await startService(TLOG, { OPERATOR_KEY: crypto.randomBytes(32).toString("hex") });
+  procs.push(peerLog.proc);
+  const { public_key } = await (await fetch(`${peerLog.base}/health`)).json();
+  const pinned = await startService(TLOG, { GOSSIP_PEERS: `${peerLog.base}#${public_key}`, GOSSIP_INTERVAL_MS: "100" });
+  const mispinned = await startService(TLOG, {
+    GOSSIP_PEERS: `${peerLog.base}#${b64(nacl.sign.keyPair().publicKey)}`,
+    GOSSIP_INTERVAL_MS: "100",
+  });
+  procs.push(pinned.proc, mispinned.proc);
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+
+  const lastSth = async ({ base: url }) => (await (await fetch(`${url}/gossip/peers`)).json()).peers[0].last_sth;
+  assert.equal((await lastSth(pinned)).log_id, (await (await fetch(`${peerLog.base}/health`)).json()).log_id);
+  assert.equal(await lastSth(mispinned), null);
 });
