@@ -87,10 +87,11 @@ services:
       - PORT=3002
       - DCP_VERSION=2.0
       - LOG_ID=log-alpha
-      # OPERATOR_KEY (64 hex, openssl rand -hex 32) pins the STH signing key; unset = ephemeral
-      # Tree heads only count under a pinned key: <url>#<peer's /health public_key>, which
-      # needs a fixed OPERATOR_KEY on the peer. Unpinned peers are polled but ignored.
-      - GOSSIP_PEERS=http://transparency-log-b:3012
+      # Gossip only trusts tree heads under a pinned key, so each log needs a fixed
+      # OPERATOR_KEY and its peer's public key; see docker/README.md. Unset: ephemeral
+      # keys, and the peers are polled but ignored.
+      - OPERATOR_KEY=${TLOG_ALPHA_OPERATOR_KEY:-}
+      - GOSSIP_PEERS=http://transparency-log-b:3012#${TLOG_BETA_PUBLIC_KEY:-}
       - GOSSIP_INTERVAL_MS=30000
       - OPERATOR_TOKEN
     restart: unless-stopped
@@ -111,7 +112,8 @@ services:
       - PORT=3012
       - DCP_VERSION=2.0
       - LOG_ID=log-beta
-      - GOSSIP_PEERS=http://transparency-log-a:3002
+      - OPERATOR_KEY=${TLOG_BETA_OPERATOR_KEY:-}
+      - GOSSIP_PEERS=http://transparency-log-a:3002#${TLOG_ALPHA_PUBLIC_KEY:-}
       - GOSSIP_INTERVAL_MS=30000
       - OPERATOR_TOKEN
     restart: unless-stopped

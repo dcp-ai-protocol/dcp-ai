@@ -96,30 +96,44 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     `created_at` is stored from a registered passport. One agent rotating over and over, or a
     flood of registrations, filled the 10,000-key registry (507 until a restart), and every
     stored signed passport could take up to 1 MB. Dropped keys stay revoked as tombstones and can
-    never be registered again, and an agent can register at most 64 keys over its lifetime. The
-    key-family check on re-registration no longer rescans the registry quadratically.
+    never be registered again, and an agent can register at most `MAX_KEYS_PER_AGENT` keys (64)
+    over its lifetime. A rotation drops a retired key before the cap check, so it still fits in a
+    full registry. The key-family check on re-registration no longer rescans the registry
+    quadratically.
   - Transparency log: `POST /gossip/exchange` only accepts a well-formed tree head signed by a
     pinned peer, in a body of at most 16 KB, and keeps the last 100 distinct alerts, so a
-    replayed tree head cannot push older ones out. Polled tree heads must
-    verify under the peer's pinned key (`GOSSIP_PEERS=<url>#<key>`). Before, anyone could fill
-    the alerts list with 1 MB strings, and no peer tree head was ever verified.
+    replayed tree head cannot push older ones out. Polled tree heads must verify under the peer's
+    pinned key, and a poll reads at most 16 KB, times out after one interval and never overlaps
+    the previous one. Before, anyone could fill the alerts list with 1 MB strings, no peer tree
+    head was ever verified, and a hanging peer stacked polls.
   - Revocation service: `POST /v2/register` is rate limited per client and capped at
     `MAX_AGENTS` (default 10,000), and stored fields are bounded, so a flood of registrations or
     oversized records can no longer run it out of memory and wipe every revocation.
-- Revocation service: registering a new `agent_id` needs the operator token. A passport is only
-  self-signed, so anyone could register a victim's `agent_id` first, with their own keys and
-  token, then emergency-revoke it or lock the real agent out with 409. Every restart reopened
-  every `agent_id` to this. `GET /v2/check/kid/:kid` answers 404 (`registered: false`) for a
-  kid it never registered, instead of the verdict of whatever agent the caller named in
-  `?agent_id=`.
+- Verification server and revocation service: registering a new `agent_id` needs the operator
+  token. A passport is only self-signed, so anyone could register a victim's `agent_id` first,
+  with their own keys and token, then emergency-revoke it or lock the real agent out with 409.
+  Every restart reopened every `agent_id` to this. `GET /v2/check/kid/:kid` answers 404
+  (`registered: false`) for a kid it never registered, instead of the verdict of whatever agent
+  the caller named in `?agent_id=`.
+- Verification server and revocation service: public keys and signatures must be the canonical
+  base64 of exactly their algorithm's size, and the V2 schemas restrict `public_key_b64` and
+  `sig_b64` to the base64 alphabet and cap their length. Lenient decoders skipped whitespace, so
+  an ML-DSA key padded with 900 KB of spaces registered and was served back, and padded
+  signatures were stored and published by `/v2/list`.
 
 ### Changed (breaking)
 
-- Revocation service: `POST /v2/register` for a new `agent_id` needs
-  `Authorization: Bearer $OPERATOR_TOKEN` (401 otherwise); re-registering stays self-service.
-  `GET /v2/check/kid/:kid` ignores `?agent_id=` and returns 404 for unregistered kids.
-- Verification server: an agent can register at most 64 keys over its lifetime; further
-  rotations get 409, and the agent has to register a new `agent_id`.
+- Verification server (`POST /v2/passport/register`) and revocation service (`POST /v2/register`):
+  a new `agent_id` needs `Authorization: Bearer $OPERATOR_TOKEN` (401 otherwise); re-registering
+  stays self-service. The revocation service's `GET /v2/check/kid/:kid` ignores `?agent_id=` and
+  returns 404 for unregistered kids.
+- Verification server: an agent can register at most `MAX_KEYS_PER_AGENT` keys (default 64) over
+  its lifetime; further rotations get 409, and the agent has to register a new `agent_id`.
+- Schemas: `key_entry.public_key_b64` and `composite_signature` `sig_b64` must match
+  `^[A-Za-z0-9+/]+={0,2}$` and are capped at 3,456 and 66,476 characters.
+- Transparency log: each `GOSSIP_PEERS` entry is `<url>#<base64 Ed25519 public key>`. Tree heads
+  from peers without a pinned key are ignored, and `/gossip/exchange` rejects them (403); the
+  Docker Compose logs only gossip once their keys are set (see `docker/README.md`).
 - Go SDK: `BundleBuildInput` takes signed artifacts (`SignedPayload`, see `v2.SignPayload`) and
   `[]AuditEventV2` audit entries. `BuildBundleV2` wrapped unsigned payloads, which verifiers now
   reject (V2-8), and filled the bundle with empty audit entries.
@@ -200,9 +214,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   full RPR marks a legacy record.
 - `@dcp-ai/openclaw`: `dcp_identity_setup` signs its RPR with a `pii_salt`, so the record can be
   blinded later without re-signing.
-- Revocation service: `REVOCATION_STATE_PATH` keeps registrations and revocations in an
-  append-only file replayed at start (default: memory only). The Docker Compose stack sets it,
-  on a volume.
+- Revocation service: `REVOCATION_STATE_PATH` keeps registrations and revocations in a file
+  (default: memory only). Writes are appended as fsynced JSON lines, and the file is replayed and
+  compacted through an atomic rename at start; the service refuses to start if the path is not
+  writable or the file is over 512 MB. The Docker Compose stack sets it, on a volume.
+- Verification server: `MAX_REGISTERED_KEYS` and `MAX_KEYS_PER_AGENT` size the key registry.
 - TypeScript SDK: `blindRpr`, `verifyBlindedRpr`, `isBlindedRpr` and `computePiiHash` are exported
   from the package entry point. They were implemented but unreachable from `@dcp-ai/sdk` 2.1.2 and
   earlier; Python, Go and Rust already exported them.

@@ -99,7 +99,17 @@ On-chain submission is not implemented yet, so the three `ANCHOR_*` chain settin
 | `LOG_ID` | auto-generated | Unique identifier for this log instance |
 | `OPERATOR_KEY` | ephemeral | Ed25519 seed of the STH signing key: 64 hex chars (`openssl rand -hex 32`), one per log. Anything else stops the service |
 | `OPERATOR_TOKEN` | — | Bearer token for `POST /gossip/peers` (passed through from the host env) |
-| `GOSSIP_PEERS` | — | Comma-separated peer endpoints (e.g. `http://log-b:3002`) |
+| `GOSSIP_PEERS` | — | Comma-separated peers, each `<endpoint>#<base64 Ed25519 public key>` (e.g. `http://log-b:3002#q1w2...`); tree heads from unpinned peers are ignored |
+
+To make the two Compose logs gossip, give each one a fixed key and pin the other's. Run this from the
+repo root (it uses the root `node_modules`):
+
+```bash
+export TLOG_ALPHA_OPERATOR_KEY=$(openssl rand -hex 32) TLOG_BETA_OPERATOR_KEY=$(openssl rand -hex 32)
+pub() { node -e 'const n = require("tweetnacl"); console.log(Buffer.from(n.sign.keyPair.fromSeed(Buffer.from(process.argv[1], "hex")).publicKey).toString("base64"))' "$1"; }
+export TLOG_ALPHA_PUBLIC_KEY=$(pub $TLOG_ALPHA_OPERATOR_KEY) TLOG_BETA_PUBLIC_KEY=$(pub $TLOG_BETA_OPERATOR_KEY)
+docker compose up
+```
 | `GOSSIP_INTERVAL_MS` | `30000` | Gossip polling interval in milliseconds |
 
 #### revocation
