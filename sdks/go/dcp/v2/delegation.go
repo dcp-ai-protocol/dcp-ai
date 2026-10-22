@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"math/big"
 	"time"
 )
 
@@ -267,22 +268,37 @@ func asInteger(v interface{}) (int, bool) {
 }
 
 // asNumber reads a JSON number; a bool is not one.
-// asInt64 reads an integer value that was never a float64: a builder's int or
-// a json.Number, which keeps every digit. Default decoding gives float64, whose
-// rounding the signature over the canonical bytes already rejects.
-func asInt64(v interface{}) (int64, bool) {
+// exactInteger reads a limit as the exact integer it denotes: a Go int, an
+// integral float64, or a json.Number with every digit. Compared through
+// float64, a child of 2^53+1 would pass as equal to a parent of 2^53 and a
+// parent of 2^53+3 would round up to a child of 2^53+4. A number with a
+// fractional part is not a wire integer and is not comparable.
+func exactInteger(v interface{}) (*big.Int, bool) {
 	switch n := v.(type) {
 	case int:
-		return int64(n), true
+		return big.NewInt(int64(n)), true
 	case int32:
-		return int64(n), true
+		return big.NewInt(int64(n)), true
 	case int64:
-		return n, true
+		return big.NewInt(n), true
+	case float64:
+		if math.IsNaN(n) || math.IsInf(n, 0) || n != math.Trunc(n) {
+			return nil, false
+		}
+		i, _ := big.NewFloat(n).Int(nil) // exact: n is integral
+		return i, true
 	case json.Number:
-		i, err := n.Int64()
-		return i, err == nil
+		if i, ok := new(big.Int).SetString(string(n), 10); ok {
+			return i, true
+		}
+		f, _, err := big.ParseFloat(string(n), 10, 256, big.ToNearestEven)
+		if err != nil || !f.IsInt() {
+			return nil, false
+		}
+		i, _ := f.Int(nil)
+		return i, true
 	}
-	return 0, false
+	return nil, false
 }
 
 func asNumber(v interface{}) (float64, bool) {
@@ -485,19 +501,18 @@ func attenuationError(parent, child []scopeEntry) string {
 					return fmt.Sprintf("limits.%s for domain %q missing", key, c.domain)
 				}
 				// A number may only shrink; anything else must stay identical. Mixed types are not comparable.
-				pn, pIsNum := asNumber(pv)
-				cn, cIsNum := asNumber(cv)
+				_, pIsNum := asNumber(pv)
+				_, cIsNum := asNumber(cv)
+				pi, pIsInt := exactInteger(pv)
+				ci, cIsInt := exactInteger(cv)
 				var within bool
-				if pIsNum && cIsNum {
-					within = cn <= pn
-					// Integers compare exactly: through float64 a child of 2^53+1 would pass as equal to a parent of 2^53.
-					if pi, ok := asInt64(pv); ok {
-						if ci, ok := asInt64(cv); ok {
-							within = ci <= pi
-						}
-					}
-				} else {
-					within = !pIsNum && !cIsNum && canonicalEqual(pv, cv)
+				switch {
+				case pIsInt && cIsInt:
+					within = ci.Cmp(pi) <= 0
+				case pIsNum || cIsNum:
+					within = false // a number with a fraction, or a number against a non-number
+				default:
+					within = canonicalEqual(pv, cv)
 				}
 				if !within {
 					return fmt.Sprintf("limits.%s for domain %q is not within the parent", key, c.domain)

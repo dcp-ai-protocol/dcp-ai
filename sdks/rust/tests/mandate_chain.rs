@@ -375,7 +375,9 @@ fn limits_compare_integers_exactly() {
                 mandate_id: "mandate:sub",
                 session_nonce: &nonce,
                 agent_id: "agent:subagent",
-                authority_scope: vec![json!({"domain": "api", "actions_permitted": ["call"], "limits": {"n": n}})],
+                authority_scope: vec![
+                    json!({"domain": "api", "actions_permitted": ["call"], "limits": {"n": n}}),
+                ],
                 valid_from: "2026-01-01T00:00:00Z",
                 valid_until: "2099-01-01T00:00:00Z",
                 revocable: true,
@@ -384,9 +386,23 @@ fn limits_compare_integers_exactly() {
         )
         .unwrap()
     };
-    let equal = verify_mandate_chain(&[root.clone(), sub_with(9007199254740992)], &HashSet::new(), &keys, None);
+    let equal = verify_mandate_chain(
+        &[root.clone(), sub_with(9007199254740992)],
+        &HashSet::new(),
+        &keys,
+        None,
+    );
     assert!(equal.valid, "{:?}", equal.errors);
-    let looser = verify_mandate_chain(&[root.clone(), sub_with(9007199254740993)], &HashSet::new(), &keys, None);
+    let looser = verify_mandate_chain(
+        &[root.clone(), sub_with(9007199254740993)],
+        &HashSet::new(),
+        &keys,
+        None,
+    );
     assert!(!looser.valid);
-    assert!(looser.errors.iter().any(|e| e.contains("limits.n")), "{:?}", looser.errors);
+    assert!(
+        looser.errors.iter().any(|e| e.contains("limits.n")),
+        "{:?}",
+        looser.errors
+    );
 }
