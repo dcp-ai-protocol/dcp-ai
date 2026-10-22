@@ -53,11 +53,30 @@ pub fn compute_vitality_score(m: &VitalityMetricsFloat) -> u32 {
 
 // ── Artifact creation ──
 
+// SystemTime::now() panics on wasm32-unknown-unknown, so the wasm build reads
+// the clock from JavaScript.
+#[cfg(all(target_arch = "wasm32", feature = "wasm"))]
+#[wasm_bindgen::prelude::wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_namespace = Date, js_name = now)]
+    fn js_date_now() -> f64;
+}
+
+/// Milliseconds since the Unix epoch.
+fn unix_now_millis() -> u64 {
+    #[cfg(all(target_arch = "wasm32", feature = "wasm"))]
+    return js_date_now() as u64;
+    #[cfg(not(all(target_arch = "wasm32", feature = "wasm")))]
+    {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
+    }
+}
+
 pub(crate) fn utc_now_iso() -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let d = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
-    let secs = d.as_secs() as i64;
-    let millis = d.subsec_millis();
+    let now = unix_now_millis();
+    let secs = (now / 1000) as i64;
+    let millis = (now % 1000) as u32;
     let (y, mo, d, h, mi, s) = civil_from_secs(secs);
     format!(
         "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}.{:03}Z",
