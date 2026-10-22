@@ -251,18 +251,18 @@ func TestMandateChainBuilders(t *testing.T) {
 	}
 }
 
-// Integer limits compare exactly: a map built in Go (int) or decoded with
-// UseNumber (json.Number) keeps 2^53+1 exact, so the signature over the
-// canonical bytes verifies, and a float64 comparison would take it for equal
-// to a parent of 2^53.
-func TestMandateChainLimitsCompareIntegersExactly(t *testing.T) {
+// Numeric limits compare only within ±(2^53-1): a map built in Go (int) or
+// decoded with UseNumber (json.Number) keeps 2^53 exact, so the signature over
+// the canonical bytes verifies, and the limit is still not comparable, as it
+// is for a verifier that reads JSON numbers as float64.
+func TestMandateChainLimitsPastTheSafeIntegersAreNotComparable(t *testing.T) {
 	reg := newRegistry()
 	humanC, humanPQ := chainKeys(t, reg)
 	orchC, orchPQ := chainKeys(t, reg)
 	const validFrom, validUntil = "2026-01-01T00:00:00Z", "2099-01-01T00:00:00Z"
 	root, err := v2.CreateDelegationMandate(reg, humanC, humanPQ, v2.DelegationMandateParams{
 		MandateID: "mandate:root", SessionNonce: strings.Repeat("a", 64), HumanID: "human:alice", AgentID: "agent:orchestrator",
-		AuthorityScope: []map[string]interface{}{{"domain": "api", "actions_permitted": []string{"call"}, "limits": map[string]interface{}{"n": 1 << 53}}},
+		AuthorityScope: []map[string]interface{}{{"domain": "api", "actions_permitted": []string{"call"}, "limits": map[string]interface{}{"n": 1<<53 - 1}}},
 		ValidFrom:      validFrom, ValidUntil: validUntil, Revocable: true,
 		SubDelegation: &v2.SubDelegationPolicy{Permitted: true, MaxDepth: 1},
 	})
@@ -298,17 +298,18 @@ func TestMandateChainLimitsCompareIntegersExactly(t *testing.T) {
 		}
 		return out
 	}
-	equal := []map[string]interface{}{root, subWith(1 << 53)}
-	looser := []map[string]interface{}{root, subWith(1<<53 + 1)}
+	equal := []map[string]interface{}{root, subWith(1<<53 - 1)}
+	past := []map[string]interface{}{root, subWith(1 << 53)}
 	for name, chain := range map[string][]map[string]interface{}{"built": equal, "decoded": decoded(equal)} {
 		if r := v2.VerifyMandateChain(reg, chain, map[string]bool{}, keys, time.Time{}); !r.Valid {
-			t.Fatalf("%s: an equal limit must verify: %v", name, r.Errors)
+			t.Fatalf("%s: an equal limit at the bound must verify: %v", name, r.Errors)
 		}
 	}
-	for name, chain := range map[string][]map[string]interface{}{"built": looser, "decoded": decoded(looser)} {
+	for name, chain := range map[string][]map[string]interface{}{"built": past, "decoded": decoded(past)} {
 		r := v2.VerifyMandateChain(reg, chain, map[string]bool{}, keys, time.Time{})
-		if r.Valid || !strings.Contains(strings.Join(r.Errors, "\n"), "limits.n") {
-			t.Fatalf("%s: a limit of 2^53+1 must be rejected as looser than 2^53: valid=%v %v", name, r.Valid, r.Errors)
+		errors := strings.Join(r.Errors, "\n")
+		if r.Valid || !strings.Contains(errors, "limits.n") || !strings.Contains(errors, "not comparable") {
+			t.Fatalf("%s: a limit of 2^53 must be rejected as not comparable: valid=%v %v", name, r.Valid, r.Errors)
 		}
 	}
 }

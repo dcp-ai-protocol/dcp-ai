@@ -344,12 +344,25 @@ fn shape_errors(m: &Map<String, Value>) -> Vec<String> {
             errors.push(format!("missing or invalid {field}"));
         }
     }
-    let scope_ok = m
+    let scope = m
         .get("authority_scope")
         .and_then(Value::as_array)
-        .is_some_and(|scope| !scope.is_empty() && scope.iter().all(scope_entry_ok));
-    if !scope_ok {
-        errors.push("missing or invalid authority_scope".into());
+        .filter(|scope| !scope.is_empty() && scope.iter().all(scope_entry_ok));
+    match scope {
+        None => errors.push("missing or invalid authority_scope".into()),
+        Some(scope) => {
+            for e in scope {
+                let domain = e["domain"].as_str().unwrap_or_default();
+                let limits = e.get("limits").and_then(Value::as_object);
+                for (key, v) in limits.into_iter().flatten() {
+                    if v.is_number() && comparable_limit(v).is_none() {
+                        errors.push(format!(
+                            "limits.{key} for domain \"{domain}\" is not comparable"
+                        ));
+                    }
+                }
+            }
+        }
     }
     if m.get("sub_delegation")
         .is_some_and(|v| !sub_delegation_ok(v))
@@ -376,28 +389,29 @@ fn str_set(v: Option<&Value>) -> HashSet<&str> {
         .unwrap_or_default()
 }
 
+/// The greatest numeric limit a chain verifier compares: ±(2^53 − 1) are the integers every
+/// SDK reads exactly, whether it parses JSON numbers as f64, as exact integers or as text.
+/// Beyond it an f64 verifier and an exact one disagree on what a mandate says, so such a
+/// limit is not comparable (DCP-09 §3.5.2 rule 5).
+const MAX_COMPARABLE_LIMIT: i64 = (1 << 53) - 1;
+
+/// A numeric limit as the integer it denotes, when it is an integer within
+/// ±MAX_COMPARABLE_LIMIT. A float counts only without a fractional part; a u64 above i64::MAX
+/// comes back from `as_f64` far out of range.
+fn comparable_limit(v: &Value) -> Option<i64> {
+    let n = match v.as_i64() {
+        Some(i) => i,
+        None => {
+            let f = v.as_f64()?;
+            (f.fract() == 0.0 && f.abs() <= MAX_COMPARABLE_LIMIT as f64).then_some(f as i64)?
+        }
+    };
+    (-MAX_COMPARABLE_LIMIT..=MAX_COMPARABLE_LIMIT)
+        .contains(&n)
+        .then_some(n)
+}
+
 /// Why `child` is not within `parent` (rule 5 of DCP-09 §3.5.2), or None when it is.
-/// A JSON number as the exact integer it denotes, or None when it is not a wire integer. A
-/// float counts only without a fractional part; i128 holds every such f64 below 2^127.
-fn exact_integer(v: &Value) -> Option<i128> {
-    if let Some(i) = v.as_i64() {
-        return Some(i128::from(i));
-    }
-    if let Some(u) = v.as_u64() {
-        return Some(i128::from(u));
-    }
-    let f = v.as_f64()?;
-    (f.is_finite() && f.fract() == 0.0 && f.abs() < 2f64.powi(127)).then(|| f as i128)
-}
-
-/// `child <= parent` for two JSON numbers, compared as exact integers whatever their
-/// representation: through f64 a child of 2^53 + 1 would pass as equal to a parent of 2^53,
-/// and a parent of 2^53 + 3 would round up to a child of 2^53 + 4. A number with a
-/// fractional part is not a wire integer and is not comparable.
-fn number_within(child: &Value, parent: &Value) -> bool {
-    matches!((exact_integer(child), exact_integer(parent)), (Some(c), Some(p)) if c <= p)
-}
-
 fn attenuation_error(parent: &[Value], child: &[Value]) -> Option<String> {
     let mut by_domain: HashMap<&str, &Map<String, Value>> = HashMap::new();
     // shape_errors has already rejected these shapes; here they are "not comparable", never "fine".
@@ -455,11 +469,19 @@ fn attenuation_error(parent: &[Value], child: &[Value]) -> Option<String> {
                 let Some(cv) = c_limits.get(key) else {
                     return Some(format!("limits.{key} for domain \"{domain}\" missing"));
                 };
-                // A number may only shrink; anything else must stay identical. Mixed types are not comparable.
-                let within = match (pv.is_number(), cv.is_number()) {
-                    (true, true) => number_within(cv, pv),
-                    (false, false) => canonical_equal(pv, cv),
-                    _ => false,
+                // A number may only shrink; anything else must stay identical. A number outside
+                // ±(2^53 − 1), or a number against a non-number, is not comparable.
+                let within = if pv.is_number() || cv.is_number() {
+                    match (comparable_limit(pv), comparable_limit(cv)) {
+                        (Some(p), Some(c)) => c <= p,
+                        _ => {
+                            return Some(format!(
+                                "limits.{key} for domain \"{domain}\" is not comparable"
+                            ))
+                        }
+                    }
+                } else {
+                    canonical_equal(pv, cv)
                 };
                 if !within {
                     return Some(format!(
@@ -884,21 +906,48 @@ mod tests {
         assert_eq!(attenuation_error(&[ok.clone()], &[ok]), None);
     }
 
-    /// Limits compare as exact integers whatever their JSON representation; a fraction is
-    /// not comparable.
+    /// Limits compare as integers within ±(2^53 − 1) whatever their JSON representation; one
+    /// past that bound, a fraction or a number against a non-number is not comparable.
     #[test]
-    fn limits_compare_exactly_across_representations() {
+    fn limits_beyond_the_safe_integers_are_not_comparable() {
         let entry =
             |n: Value| vec![json!({"domain": "api", "actions_permitted": [], "limits": {"n": n}})];
-        let parent = entry(json!(9007199254740995u64)); // 2^53 + 3, which f64 rounds to 2^53 + 4
-        assert!(attenuation_error(&parent, &entry(json!(9007199254740996.0))).is_some());
-        assert!(attenuation_error(&parent, &entry(json!(9007199254740996u64))).is_some());
-        assert_eq!(
-            attenuation_error(&parent, &entry(json!(9007199254740994.0))),
-            None
-        );
-        assert_eq!(attenuation_error(&parent, &entry(json!(-1))), None);
-        assert!(attenuation_error(&parent, &entry(json!(1.5))).is_some());
-        assert!(attenuation_error(&entry(json!(1.5)), &entry(json!(1))).is_some());
+        let parent = entry(json!(9007199254740991u64)); // 2^53 − 1
+        for within in [
+            json!(9007199254740991u64),
+            json!(9007199254740991.0),
+            json!(-9007199254740991i64),
+            json!(-1),
+            json!(0),
+        ] {
+            assert_eq!(
+                attenuation_error(&parent, &entry(within.clone())),
+                None,
+                "{within}"
+            );
+        }
+        for not_comparable in [
+            json!(9007199254740992u64),
+            json!(9007199254740992.0),
+            json!(9007199254740993u64),
+            json!(-9007199254740992i64),
+            json!(18446744073709551615u64),
+            json!(1e300),
+            json!(1.5),
+            json!("1"),
+        ] {
+            let error = attenuation_error(&parent, &entry(not_comparable.clone()))
+                .unwrap_or_else(|| panic!("{not_comparable} must not be comparable"));
+            assert!(
+                error.contains("not comparable"),
+                "{not_comparable}: {error}"
+            );
+        }
+        for bad_parent in [json!(9007199254740992u64), json!(1.5)] {
+            let error = attenuation_error(&entry(bad_parent.clone()), &entry(json!(1))).unwrap();
+            assert!(error.contains("not comparable"), "{bad_parent}: {error}");
+        }
+        let error = attenuation_error(&entry(json!(5)), &entry(json!(6))).unwrap();
+        assert!(error.contains("not within the parent"), "{error}");
     }
 }

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"math/big"
 	"time"
 )
 
@@ -267,73 +266,51 @@ func asInteger(v interface{}) (int, bool) {
 	return 0, false
 }
 
-// asNumber reads a JSON number; a bool is not one.
-// Limits beyond this magnitude are not comparable: the same bound as the Rust
-// verifier's i128, and it keeps a crafted json.Number such as "1e999999999"
-// from materializing a huge big.Int before the signature is ever checked.
-const maxLimitBits = 127
+// maxComparableLimit bounds the numeric limits a chain verifier compares:
+// ±(2^53-1) are the integers every SDK reads exactly, whether it parses JSON
+// numbers as float64, as json.Number or as arbitrary-precision integers.
+// Beyond it a float64 verifier and an exact one disagree on what a mandate
+// says, so such a limit is not comparable (DCP-09 §3.5.2 rule 5).
+const maxComparableLimit = 1<<53 - 1
 
-// maxLimitChars bounds the json.Number text that is parsed at all; 2^127 has
-// 39 digits, so anything longer is either out of range or not an integer.
-const maxLimitChars = 64
-
-// exactInteger reads a limit as the exact integer it denotes: a Go int, an
-// integral float64, or a json.Number with every digit. Compared through
-// float64, a child of 2^53+1 would pass as equal to a parent of 2^53 and a
-// parent of 2^53+3 would round up to a child of 2^53+4. A number with a
-// fractional part, or one of 2^127 or more in magnitude, is not comparable.
-func exactInteger(v interface{}) (*big.Int, bool) {
-	switch n := v.(type) {
-	case int:
-		return big.NewInt(int64(n)), true
-	case int32:
-		return big.NewInt(int64(n)), true
-	case int64:
-		return big.NewInt(n), true
-	case float64:
-		if math.IsNaN(n) || math.IsInf(n, 0) || n != math.Trunc(n) {
-			return nil, false
-		}
-		return boundedInt(big.NewFloat(n)) // exact: n is integral
-	case json.Number:
-		if len(n) > maxLimitChars {
-			return nil, false
-		}
-		// Exact: at most 63 significant digits fit in 210 bits, under the 256 kept,
-		// and an exponent stays in the float's exponent until boundedInt checks it.
-		f, _, err := big.ParseFloat(string(n), 10, 256, big.ToNearestEven)
-		if err != nil || !f.IsInt() {
-			return nil, false
-		}
-		return boundedInt(f)
+// isNumber says whether a value is a JSON number however it was decoded or built; a bool is not one.
+func isNumber(v interface{}) bool {
+	switch v.(type) {
+	case int, int32, int64, float64, json.Number:
+		return true
 	}
-	return nil, false
+	return false
 }
 
-// boundedInt is the integer value of an integral big.Float below 2^maxLimitBits in magnitude.
-func boundedInt(f *big.Float) (*big.Int, bool) {
-	if f.MantExp(nil) > maxLimitBits {
-		return nil, false
-	}
-	i, _ := f.Int(nil)
-	return i, true
-}
-
-func asNumber(v interface{}) (float64, bool) {
-	switch n := v.(type) {
+// comparableLimit reads a numeric limit as the integer it denotes, when it is
+// an integer within ±maxComparableLimit. A fraction, anything larger and a
+// json.Number strconv cannot parse (such as "1e999999999") are not.
+func comparableLimit(v interface{}) (int64, bool) {
+	var n int64
+	switch x := v.(type) {
 	case int:
-		return float64(n), true
+		n = int64(x)
 	case int32:
-		return float64(n), true
+		n = int64(x)
 	case int64:
-		return float64(n), true
+		n = x
 	case float64:
-		return n, !math.IsNaN(n) && !math.IsInf(n, 0)
+		if x != math.Trunc(x) || math.Abs(x) > maxComparableLimit {
+			return 0, false
+		}
+		n = int64(x)
 	case json.Number:
-		f, err := n.Float64()
-		return f, err == nil
+		if i, err := x.Int64(); err == nil {
+			n = i
+		} else if f, err := x.Float64(); err == nil {
+			return comparableLimit(f)
+		} else {
+			return 0, false
+		}
+	default:
+		return 0, false
 	}
-	return 0, false
+	return n, -maxComparableLimit <= n && n <= maxComparableLimit
 }
 
 func isNonEmptyString(v interface{}) bool {
@@ -450,8 +427,16 @@ func mandateShapeErrors(m map[string]interface{}) []string {
 			errors = append(errors, "missing or invalid "+field)
 		}
 	}
-	if _, ok := parseScope(m["authority_scope"]); !ok {
+	if scope, ok := parseScope(m["authority_scope"]); !ok {
 		errors = append(errors, "missing or invalid authority_scope")
+	} else {
+		for _, e := range scope {
+			for key, v := range e.limits {
+				if _, ok := comparableLimit(v); isNumber(v) && !ok {
+					errors = append(errors, fmt.Sprintf("limits.%s for domain %q is not comparable", key, e.domain))
+				}
+			}
+		}
 	}
 	if raw, present := m["sub_delegation"]; present {
 		if _, ok := subDelegationPolicy(raw); !ok {
@@ -518,21 +503,18 @@ func attenuationError(parent, child []scopeEntry) string {
 				if !present {
 					return fmt.Sprintf("limits.%s for domain %q missing", key, c.domain)
 				}
-				// A number may only shrink; anything else must stay identical. Mixed types are not comparable.
-				_, pIsNum := asNumber(pv)
-				_, cIsNum := asNumber(cv)
-				pi, pIsInt := exactInteger(pv)
-				ci, cIsInt := exactInteger(cv)
-				var within bool
-				switch {
-				case pIsInt && cIsInt:
-					within = ci.Cmp(pi) <= 0
-				case pIsNum || cIsNum:
-					within = false // a number with a fraction, or a number against a non-number
-				default:
-					within = canonicalEqual(pv, cv)
-				}
-				if !within {
+				// A number may only shrink; anything else must stay identical. A number outside
+				// ±(2^53-1), or a number against a non-number, is not comparable.
+				if isNumber(pv) || isNumber(cv) {
+					pi, pOK := comparableLimit(pv)
+					ci, cOK := comparableLimit(cv)
+					if !pOK || !cOK {
+						return fmt.Sprintf("limits.%s for domain %q is not comparable", key, c.domain)
+					}
+					if ci > pi {
+						return fmt.Sprintf("limits.%s for domain %q is not within the parent", key, c.domain)
+					}
+				} else if !canonicalEqual(pv, cv) {
 					return fmt.Sprintf("limits.%s for domain %q is not within the parent", key, c.domain)
 				}
 			}
