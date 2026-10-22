@@ -88,11 +88,19 @@ age) applies, and `GET /v2/policy` shows it.
   That signature proves possession of the two signer keys, and only those are
   registered: listing someone else's public key registers nothing.
 - The **first** registration of an `agent_id` is trust on first use. Registering
-  it again (for example to replace the emergency revocation token) must be
-  signed by its active keys (registered to it, not revoked, not expired),
-  otherwise 409; the registered key entries are kept, so a new passport cannot
-  extend a key's `expires_at`. A kid registered to another agent is also a 409,
-  and an emergency-revoked agent cannot re-register.
+  it again (for example to replace the emergency revocation token) needs a
+  passport whose `created_at` is newer than the registered one, since signed
+  passports are public and an old one could be replayed, signed by exactly the
+  agent's active keys (registered to it, not revoked, not expired), whatever
+  `VERIFIER_MODE` allows for new agents; otherwise 409. The registered key
+  entries are kept, so a new passport cannot extend a key's `expires_at`, and a
+  passport without a token keeps the registered one.
+- An agent that has lost every active key of a family it registered (for
+  example its ML-DSA-65 key expired) cannot re-register: its remaining key alone
+  must not replace the token. Recovery goes through the emergency revocation
+  token (revoke, then register a new `agent_id`) or the operator, who has no
+  API for it yet. A kid registered to another agent is also a 409, and an
+  emergency-revoked agent cannot re-register.
 - **Key rotation** takes a `KeyRotationRecord` as built by `createKeyRotation`
   in `@dcp-ai/sdk`: the new key signs `{old_kid, new_kid, timestamp}` under
   `DCP-AI.v2.KeyRotation` (proof of possession) and the old key countersigns it.
@@ -171,7 +179,8 @@ curl -s -X POST http://localhost:3000/v2/passport/register \
 
 Responses: 201 `{ ok, agent_id, registered_kids }`, 400 (schema or kid
 mismatch), 403 (signature invalid, or agent revoked), 409 (agent registered with
-other keys, or kid owned by another agent), 507 (registry full).
+other keys, passport not newer than the registered one, agent without an active
+key of a registered family, or kid owned by another agent), 507 (registry full).
 
 ### Key Rotation
 

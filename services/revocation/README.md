@@ -46,7 +46,8 @@ curl http://localhost:3003/health
 Publish an agent-level revocation (V1). `signature` is an Ed25519 signature (base64) over the
 V1 canonical JSON of `{ dcp_version, agent_id, human_id, timestamp, reason }` as sent
 (`signObject` in `tools/crypto.js`), made with one of the agent's active (registered, not revoked,
-not expired) `ed25519` keys. The agent must have registered with `POST /v2/register` first.
+not expired) `ed25519` keys. The agent must have registered with `POST /v2/register` first, which
+takes a hybrid passport signature: an Ed25519-only (V1) agent cannot publish revocations here.
 
 ```bash
 curl -X POST http://localhost:3003/revoke \
@@ -156,8 +157,15 @@ curl -X POST http://localhost:3003/v2/register \
 - Only the two signer keys (classical + PQ) are registered: listing someone else's public key
   registers nothing. Their `expires_at` drives the `expired` answer of `GET /v2/check/kid/:kid`.
 - The first registration of an `agent_id` is trust on first use. Registering it again (for
-  example to replace the token) must be signed by its active keys (not revoked, not expired), and
-  keeps the registered key entries: a new passport cannot extend a key's `expires_at`.
+  example to replace the token) needs a passport whose `created_at` is newer than the registered
+  one, since signed passports are public and an old one could be replayed, signed by exactly the
+  agent's active classical and PQ keys (not revoked, not expired). The registered key entries are
+  kept, so a new passport can neither extend a key's `expires_at` nor add keys, and a passport
+  without a token keeps the registered one.
+- An agent that has lost its active classical or PQ key (expired, or revoked by kid) stays
+  locked: its remaining key alone could otherwise pair itself with a new partner key and take the
+  agent over. Recovery goes through the emergency revocation token (revoke, then register a new
+  `agent_id`) or the operator, who has no API for it yet.
 
 **Response (201):**
 
@@ -165,8 +173,10 @@ curl -X POST http://localhost:3003/v2/register \
 { "ok": true, "agent_id": "agent-001", "registered_kids": ["a1b2...", "c3d4..."] }
 ```
 
-**Error responses:** 400 (not a V2 signed passport), 403 (signature invalid, or agent
-emergency-revoked), 409 (agent registered with other keys, or a kid owned by another agent).
+**Error responses:** 400 (not a V2 signed passport, or no valid `created_at`), 403 (signature
+invalid, or agent emergency-revoked), 409 (agent registered with other keys, passport not newer
+than the registered one, agent without an active classical or PQ key, or a kid that is revoked,
+expired or owned by another agent).
 
 ### `POST /v2/revoke`
 
@@ -260,9 +270,12 @@ and the key expiry now come from the signed passport (`POST /v2/register`).
 
 ### `GET /v2/check/kid/:kid[?agent_id=<id>]`
 
-Check if a specific key identifier is revoked (explicit revocation, emergency revocation of its
-owner, or expiry). The owner of a registered kid is known, so `?agent_id=` is only needed for
-kids the agent listed in its passport but did not sign with (they are not registered).
+Check if a specific key identifier is revoked: an explicit kid revocation, an emergency revocation
+of its owner, or expiry. The service only knows the owner of the kids that signed an agent's
+registration (`POST /v2/register`). For any other kid (listed in a passport without signing it,
+rotated at the gateway, or belonging to an agent that never registered here), an emergency
+revocation of its owner is only reported when the caller passes `?agent_id=<owner>`; without it
+the answer is `revoked: false`.
 
 ```bash
 curl "http://localhost:3003/v2/check/kid/a1b2c3d4e5f6"
