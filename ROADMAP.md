@@ -134,9 +134,8 @@ issue or pull request of its own.
 ### Positioning
 
 DCP does not compete with tool-access protocols (MCP), agent-to-agent protocols
-(A2A), agent-payment protocols or the identity drafts under discussion at the
-IETF (several individual Internet-Drafts, none adopted by a working group as of
-October 2026). It is the accountability and evidence layer on top of them. It
+(A2A), agent-payment protocols or the AI-agent identity drafts at the IETF (at
+the time of writing, October 2026, individual submissions as far as we know). It is the accountability and evidence layer on top of them. It
 answers the question those protocols leave open: who answers for what this agent
 did, and how can a third party check it without trusting the operator?
 
@@ -144,13 +143,13 @@ did, and how can a third party check it without trusting the operator?
 
 - The surface is larger than the adoption: 9 specifications, 39 v2 schemas,
   5 SDKs, 10 integrations and 4 services.
-- Most defects found were disagreements between the four SDK verifiers, not flaws
-  in a single algorithm: a mode bypass through prototype keys in TypeScript,
+- Most verifier defects found were disagreements between the four SDK verifiers,
+  not flaws in a single algorithm: a verification-mode bypass in TypeScript,
   Ed25519 accepted in the post-quantum slot in Go and Rust, a null artifact
   skipped in Go, timestamps compared as text in Rust.
-- Operations depend on one person: the npm 2FA and token blocked the release of
-  a security fix, and creating a security advisory needs rights only an
-  organisation admin has.
+- Operations depend on one person (as of October 2026): the npm publishing
+  credentials blocked the release of a security fix, and creating a security
+  advisory needs rights the maintainer account does not have.
 
 ### Proposed priorities
 
@@ -168,14 +167,17 @@ did, and how can a third party check it without trusting the operator?
    signed and may only narrow permissions, never widen them; the chain verifies
    offline back to the responsible human; a subagent cannot lower the security
    tier of whoever delegated to it (the intent already cannot lower its own).
-4. **Integrate, do not compete.** An MCP middleware that returns a signed receipt
-   per call; an A2A Agent Card that carries the DCP passport; HTTP Message
+   They extend the DCP-09 delegation mandate, which would move into the core if
+   Priority 2 is adopted.
+4. **Integrate, do not compete.** A signed receipt per tool call in the existing
+   MCP integration; the DCP passport carried inside the A2A Agent Card (the
+   `google-a2a` integration already converts between the two); HTTP Message
    Signatures (RFC 9421); accept identity from WIMSE/SPIFFE, OAuth or DIDs and
    bind it to a responsible human.
 5. **Regulatory evidence.** A mapping of the audit trail to the logging,
    human-oversight and record-keeping duties of the EU AI Act (Articles 12, 14
-   and 26), in the style of `docs/NIST_CONFORMITY.md`. The application dates are
-   in flux, so the mapping must be checked against the final text before it is cited.
+   and 26), in the style of `docs/NIST_CONFORMITY.md`. The mapping and the
+   application dates must be checked against the text in force before they are cited.
 
 ### Notes from the agent side
 
@@ -194,7 +196,8 @@ did, and how can a third party check it without trusting the operator?
 
 - New specifications without at least two independent implementers.
 - A central service run by the project (see "Out of scope for Phase 5").
-- An IETF submission before two or three integrations run in production (see Phase 3).
+- An IETF submission before two or three integrations run in production (Phase 3
+  defers it for adoption feedback; this makes the threshold concrete).
 
 ### Open questions
 
