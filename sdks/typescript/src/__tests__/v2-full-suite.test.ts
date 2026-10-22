@@ -1358,6 +1358,95 @@ describe('Negative: Artifact Swap in Bundle', () => {
   });
 });
 
+describe('Negative: Forged Signatures (VERIFICATION.md V2-7 / V2-8)', () => {
+  const hybridRequired: VerifierPolicy = {
+    ...DEFAULT_VERIFIER_POLICY,
+    default_mode: 'hybrid_required',
+    risk_overrides: { low: 'hybrid_required', medium: 'hybrid_required', high: 'hybrid_required' },
+  };
+
+  function flipFirstByte(sigB64: string): string {
+    const bytes = Buffer.from(sigB64, 'base64');
+    bytes[0] ^= 0xff;
+    return bytes.toString('base64');
+  }
+
+  it('rejects a present-but-invalid bundle PQ signature under hybrid_preferred', async () => {
+    const signed = await buildSignedBundleV2();
+    signed.signature.composite_sig.pq!.sig_b64 = flipFirstByte(signed.signature.composite_sig.pq!.sig_b64);
+
+    const result = await verifySignedBundleV2(signed, registry, DEFAULT_VERIFIER_POLICY);
+    expect(result.details?.verification_mode).toBe('hybrid_preferred');
+    expect(result.verified).toBe(false);
+    expect(result.errors.some(e => e.includes('PQ signature invalid'))).toBe(true);
+  });
+
+  it('rejects a zeroed intent signature under hybrid_required', async () => {
+    const signed = await buildSignedBundleV2();
+    signed.bundle.intent.composite_sig.classical.sig_b64 = Buffer.alloc(64).toString('base64');
+    signed.bundle.intent.composite_sig.pq!.sig_b64 = Buffer.alloc(3309).toString('base64');
+
+    const result = await verifySignedBundleV2(signed, registry, hybridRequired);
+    expect(result.verified).toBe(false);
+    expect(result.errors.some(e => e.startsWith('intent:'))).toBe(true);
+  });
+
+  it('rejects a present-but-invalid artifact PQ signature under hybrid_preferred', async () => {
+    const signed = await buildSignedBundleV2();
+    const sig = signed.bundle.agent_passport.composite_sig;
+    sig.pq!.sig_b64 = flipFirstByte(sig.pq!.sig_b64);
+
+    const result = await verifySignedBundleV2(signed, registry, DEFAULT_VERIFIER_POLICY);
+    expect(result.verified).toBe(false);
+    expect(result.errors.some(e => e.startsWith('agent_passport:') && e.includes('PQ'))).toBe(true);
+  });
+
+  it('rejects an RPR signed by the agent instead of the principal binding_keys', async () => {
+    const signed = await buildSignedBundleV2();
+    const rpr = signed.bundle.responsible_principal_record;
+    rpr.composite_sig = (await signPayload(rpr.payload, DCP_CONTEXTS.ResponsiblePrincipal, keys)).composite_sig;
+
+    const result = await verifySignedBundleV2(signed, registry, DEFAULT_VERIFIER_POLICY);
+    expect(result.verified).toBe(false);
+    expect(result.errors.some(e => e.startsWith('responsible_principal_record:'))).toBe(true);
+  });
+
+  it('rejects an intent signed by the principal instead of the passport keys', async () => {
+    const signed = await buildSignedBundleV2();
+    const intent = signed.bundle.intent;
+    intent.composite_sig = (await signPayload(intent.payload, DCP_CONTEXTS.Intent, rprKeys)).composite_sig;
+
+    const result = await verifySignedBundleV2(signed, registry, DEFAULT_VERIFIER_POLICY);
+    expect(result.verified).toBe(false);
+    expect(result.errors.some(e => e.startsWith('intent:'))).toBe(true);
+  });
+
+  it('rejects a policy decision signed under another context tag', async () => {
+    const signed = await buildSignedBundleV2();
+    const pd = signed.bundle.policy_decision;
+    pd.composite_sig = (await signPayload(pd.payload, DCP_CONTEXTS.Intent, keys)).composite_sig;
+
+    const result = await verifySignedBundleV2(signed, registry, DEFAULT_VERIFIER_POLICY);
+    expect(result.verified).toBe(false);
+    expect(result.errors.some(e => e.startsWith('policy_decision:'))).toBe(true);
+  });
+
+  it('tolerates an absent artifact PQ signature only under hybrid_preferred', async () => {
+    const signed = await buildSignedBundleV2();
+    const intent = signed.bundle.intent;
+    const { canonicalBytes } = preparePayload(intent.payload);
+    intent.composite_sig = await classicalOnlySign(registry, DCP_CONTEXTS.Intent, canonicalBytes, keys.classical);
+
+    const preferred = await verifySignedBundleV2(signed, registry, DEFAULT_VERIFIER_POLICY);
+    expect(preferred.verified).toBe(true);
+    expect(preferred.warnings.some(w => w.startsWith('intent:') && w.includes('PQ signature missing'))).toBe(true);
+
+    const required = await verifySignedBundleV2(signed, registry, hybridRequired);
+    expect(required.verified).toBe(false);
+    expect(required.errors.some(e => e.startsWith('intent:'))).toBe(true);
+  });
+});
+
 describe('Negative: Broken prev_hash Chain', () => {
   it('swapped audit entries break chain verification', async () => {
     const signed = await buildSignedBundleV2();

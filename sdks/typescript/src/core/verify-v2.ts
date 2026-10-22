@@ -5,7 +5,7 @@
  *   1. Schema detection (V1 vs V2 routing)
  *   2. Session nonce consistency
  *   3. Manifest integrity (recompute artifact hashes)
- *   4. Composite signature verification (bound hybrid)
+ *   4. Composite signature verification (bound hybrid): manifest + each artifact
  *   5. Verifier-authoritative policy enforcement
  *   6. Audit hash chain validation
  *   7. PQ checkpoint chain validation
@@ -28,8 +28,10 @@ import { canonicalizeV2 } from './canonicalize.js';
 import { sha256Hex } from './dual-hash.js';
 import { compositeVerify } from './composite-ops.js';
 import type { CompositeVerifyResult } from './composite-ops.js';
+import type { CompositeSignature } from './composite-sig.js';
 import { AlgorithmRegistry } from './crypto-registry.js';
 import { DCP_CONTEXTS } from './domain-separation.js';
+import type { DcpContext } from './domain-separation.js';
 import { verifySessionBinding, isSessionExpired } from './session-nonce.js';
 import { verifyPayloadHash } from './signed-payload.js';
 
@@ -136,6 +138,114 @@ function resolveMode(policy: VerifierPolicy, riskTier?: RiskTier): VerificationM
 
 function findKeyByKid(keys: KeyEntry[], kid: string): KeyEntry | undefined {
   return keys.find((k) => k.kid === kid);
+}
+
+interface SigCheck {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+/**
+ * Steps V2-6, V2-7 and V2-9 for one composite signature over `payload`,
+ * with signer keys looked up by kid in `keys`. A PQ signature that is present
+ * (pq_over_classical) must verify in every mode; only an absent one
+ * (classical_only) may be tolerated, and only by hybrid_preferred and
+ * classical_only.
+ */
+async function checkCompositeSig(
+  registry: AlgorithmRegistry,
+  policy: VerifierPolicy,
+  mode: VerificationMode,
+  context: DcpContext,
+  payload: unknown,
+  sig: CompositeSignature,
+  keys: KeyEntry[],
+  keysLabel: string,
+): Promise<SigCheck> {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const fail = (error: string): SigCheck => ({ valid: false, errors: [...errors, error], warnings });
+  const rejectedAlgs = policy.advisory_rejected_algs || [];
+
+  if (mode !== 'pq_only') {
+    if (!policy.accepted_classical_algs.includes(sig.classical.alg)) {
+      errors.push(`Classical algorithm ${sig.classical.alg} not accepted by verifier policy`);
+    }
+    if (rejectedAlgs.includes(sig.classical.alg)) {
+      errors.push(`Classical algorithm ${sig.classical.alg} rejected by active advisory`);
+    }
+  }
+  if (sig.pq && !policy.accepted_pq_algs.includes(sig.pq.alg)) {
+    errors.push(`PQ algorithm ${sig.pq.alg} not accepted by verifier policy`);
+  }
+  if (sig.pq && rejectedAlgs.includes(sig.pq.alg)) {
+    errors.push(`PQ algorithm ${sig.pq.alg} rejected by active advisory`);
+  }
+  if (policy.require_composite_binding && sig.binding !== 'pq_over_classical' && mode === 'hybrid_required') {
+    errors.push('Verifier policy requires composite binding (pq_over_classical)');
+  }
+  if (policy.warn_classical_only_deprecated && sig.binding === 'classical_only') {
+    warnings.push('DEPRECATION: classical-only signatures are deprecated. Migrate to hybrid or pq_only.');
+  }
+
+  if (mode === 'pq_only' && sig.binding === 'classical_only') {
+    return fail('pq_only mode requires PQ signature, but binding is classical_only');
+  }
+
+  // In pq_only mode, the classical key is optional
+  const signerKey = findKeyByKid(keys, sig.classical.kid);
+  if (!signerKey && mode !== 'pq_only') {
+    return fail(`Classical signer key kid=${sig.classical.kid} not found in ${keysLabel}`);
+  }
+  const pqKey = sig.pq ? findKeyByKid(keys, sig.pq.kid) : undefined;
+  if (sig.pq && !pqKey) {
+    return fail(`PQ signer key kid=${sig.pq.kid} not found in ${keysLabel}`);
+  }
+  if (mode === 'pq_only' && !pqKey) {
+    return fail('pq_only mode requires PQ key, but no PQ key found');
+  }
+
+  let result: CompositeVerifyResult;
+  try {
+    const payloadBytes = new TextEncoder().encode(canonicalizeV2(payload));
+    result = await compositeVerify(
+      registry,
+      context,
+      payloadBytes,
+      sig,
+      signerKey?.public_key_b64 || '',
+      pqKey?.public_key_b64,
+    );
+  } catch (err) {
+    return fail(`Signature verification error: ${(err as Error).message}`);
+  }
+
+  switch (mode) {
+    case 'hybrid_required':
+      if (!result.classical_valid) errors.push('Classical signature invalid (hybrid_required)');
+      if (!result.pq_valid) errors.push('PQ signature invalid or missing (hybrid_required)');
+      break;
+
+    case 'hybrid_preferred':
+    case 'classical_only':
+      if (!result.classical_valid) errors.push(`Classical signature invalid (${mode})`);
+      if (sig.binding === 'pq_over_classical' && !result.pq_valid) {
+        errors.push(`PQ signature invalid (${mode})`);
+      } else if (mode === 'hybrid_preferred' && !result.pq_valid) {
+        warnings.push('PQ signature missing (hybrid_preferred: accepted with warning)');
+      }
+      break;
+
+    case 'pq_only':
+      if (!result.pq_valid) errors.push('PQ signature invalid or missing (pq_only)');
+      if (!result.classical_valid && !policy.allow_classical_fallback_disable) {
+        warnings.push('Classical signature not verified in pq_only mode (fallback not disabled)');
+      }
+      break;
+  }
+
+  return { valid: result.valid, errors, warnings };
 }
 
 /**
@@ -314,123 +424,42 @@ export async function verifySignedBundleV2(
     details.advisory_rejected_algs = rejectedAlgs;
   }
 
-  // ── 6. Validate algorithms against policy ──
-
-  const bundleSig = signature.composite_sig;
-
-  if (mode !== 'pq_only') {
-    if (!policy.accepted_classical_algs.includes(bundleSig.classical.alg)) {
-      errors.push(`Classical algorithm ${bundleSig.classical.alg} not accepted by verifier policy`);
-    }
-    if (rejectedAlgs.includes(bundleSig.classical.alg)) {
-      errors.push(`Classical algorithm ${bundleSig.classical.alg} rejected by active advisory`);
-    }
+  if (mode === 'classical_only' && policy.warn_classical_only_deprecated) {
+    warnings.push('DEPRECATION: classical_only mode is deprecated in Phase 3');
   }
 
-  if (bundleSig.pq && !policy.accepted_pq_algs.includes(bundleSig.pq.alg)) {
-    errors.push(`PQ algorithm ${bundleSig.pq.alg} not accepted by verifier policy`);
-  }
-
-  if (bundleSig.pq && rejectedAlgs.includes(bundleSig.pq.alg)) {
-    errors.push(`PQ algorithm ${bundleSig.pq.alg} rejected by active advisory`);
-  }
-
-  if (policy.require_composite_binding && bundleSig.binding !== 'pq_over_classical') {
-    if (mode === 'hybrid_required') {
-      errors.push('Verifier policy requires composite binding (pq_over_classical)');
-    }
-  }
-
-  // Phase 3: deprecation warning for classical-only bundles
-  if (policy.warn_classical_only_deprecated && bundleSig.binding === 'classical_only') {
-    warnings.push('DEPRECATION: classical-only bundles are deprecated. Migrate to hybrid or pq_only.');
-  }
-
-  // ── 7. Composite signature verification over manifest ──
-
-  const manifestCanonical = canonicalizeV2(bundle.manifest);
-  const manifestBytes = new TextEncoder().encode(manifestCanonical);
+  // ── 6. Bundle composite signature over the manifest (V2-6, V2-7, V2-9) ──
 
   const allKeys = passport.keys;
   const rprPayload = bundle.responsible_principal_record.payload as { binding_keys?: KeyEntry[] };
   const rprKeys = rprPayload.binding_keys || [];
 
-  // In pq_only mode, classical key is optional
-  let signerKey: KeyEntry | undefined;
-  if (mode === 'pq_only' && bundleSig.binding === 'classical_only') {
-    errors.push('pq_only mode requires PQ signature, but bundle has classical_only binding');
-    return { verified: false, errors, warnings, details };
-  }
+  const bundleCheck = await checkCompositeSig(
+    registry, policy, mode, DCP_CONTEXTS.Bundle, bundle.manifest, signature.composite_sig,
+    [...allKeys, ...rprKeys], 'passport or RPR',
+  );
+  errors.push(...bundleCheck.errors);
+  warnings.push(...bundleCheck.warnings);
+  details.signature_valid = bundleCheck.valid;
 
-  signerKey = findKeyByKid(allKeys, bundleSig.classical.kid) ||
-    findKeyByKid(rprKeys, bundleSig.classical.kid);
+  // ── 7. Per-artifact composite signatures (V2-8) ──
+  // The principal signs the RPR with its binding_keys; the agent signs the
+  // rest with its passport keys.
 
-  if (!signerKey && mode !== 'pq_only') {
-    errors.push(`Classical signer key kid=${bundleSig.classical.kid} not found in passport or RPR`);
-    return { verified: false, errors, warnings, details };
-  }
+  const artifacts = [
+    ['responsible_principal_record', DCP_CONTEXTS.ResponsiblePrincipal, rprKeys, 'RPR binding_keys'],
+    ['agent_passport', DCP_CONTEXTS.AgentPassport, allKeys, 'passport keys'],
+    ['intent', DCP_CONTEXTS.Intent, allKeys, 'passport keys'],
+    ['policy_decision', DCP_CONTEXTS.PolicyDecision, allKeys, 'passport keys'],
+  ] as const;
 
-  let pqKey: KeyEntry | undefined;
-  if (bundleSig.pq) {
-    pqKey = findKeyByKid(allKeys, bundleSig.pq.kid) || findKeyByKid(rprKeys, bundleSig.pq.kid);
-    if (!pqKey) {
-      errors.push(`PQ signer key kid=${bundleSig.pq.kid} not found in passport or RPR`);
-      return { verified: false, errors, warnings, details };
-    }
-  }
-
-  if (mode === 'pq_only' && !pqKey) {
-    errors.push('pq_only mode requires PQ key, but no PQ key found');
-    return { verified: false, errors, warnings, details };
-  }
-
-  let sigResult: CompositeVerifyResult;
-  try {
-    sigResult = await compositeVerify(
-      registry,
-      DCP_CONTEXTS.Bundle,
-      manifestBytes,
-      bundleSig,
-      signerKey?.public_key_b64 || '',
-      pqKey?.public_key_b64,
+  for (const [name, context, keys, keysLabel] of artifacts) {
+    const sp = bundle[name];
+    const check = await checkCompositeSig(
+      registry, policy, mode, context, sp.payload, sp.composite_sig, keys, keysLabel,
     );
-  } catch (err) {
-    errors.push(`Signature verification error: ${(err as Error).message}`);
-    return { verified: false, errors, warnings, details };
-  }
-
-  details.signature_valid = sigResult.valid;
-
-  // ── 8. Enforce policy mode ──
-
-  switch (mode) {
-    case 'hybrid_required':
-      if (!sigResult.classical_valid) errors.push('Classical signature invalid (hybrid_required)');
-      if (!sigResult.pq_valid) errors.push('PQ signature invalid or missing (hybrid_required)');
-      break;
-
-    case 'hybrid_preferred':
-      if (!sigResult.classical_valid) errors.push('Classical signature invalid');
-      if (!sigResult.pq_valid) {
-        warnings.push('PQ signature missing or invalid (hybrid_preferred: accepted with warning)');
-      }
-      break;
-
-    case 'classical_only':
-      if (!sigResult.classical_valid) errors.push('Classical signature invalid (classical_only)');
-      if (policy.warn_classical_only_deprecated) {
-        warnings.push('DEPRECATION: classical_only mode is deprecated in Phase 3');
-      }
-      break;
-
-    case 'pq_only':
-      if (!sigResult.pq_valid) errors.push('PQ signature invalid or missing (pq_only)');
-      if (sigResult.classical_valid) {
-        // Classical is accepted but not required — informational
-      } else if (!policy.allow_classical_fallback_disable) {
-        warnings.push('Classical signature not verified in pq_only mode (fallback not disabled)');
-      }
-      break;
+    errors.push(...check.errors.map((e) => `${name}: ${e}`));
+    warnings.push(...check.warnings.map((w) => `${name}: ${w}`));
   }
 
   details.policy_satisfied = errors.length === 0;
@@ -438,7 +467,7 @@ export async function verifySignedBundleV2(
     return { verified: false, errors, warnings, details };
   }
 
-  // ── 9. Audit hash chain validation (prev_hash) ──
+  // ── 8. Audit hash chain validation (prev_hash) ──
 
   let prevHashExpected = 'GENESIS';
   for (let i = 0; i < bundle.audit_entries.length; i++) {
@@ -455,7 +484,7 @@ export async function verifySignedBundleV2(
 
   details.hash_chain_valid = errors.length === 0;
 
-  // ── 10. Key validity checks ──
+  // ── 9. Key validity checks ──
 
   const now = new Date();
   for (const key of allKeys) {
