@@ -6,7 +6,7 @@ import { post as postTo, sha256Hex, startService } from "../../tests/helpers.js"
 import { verifyObject } from "../../tools/crypto.js";
 
 const TLOG = fileURLToPath(new URL("./index.js", import.meta.url));
-const env = { OPERATOR_KEY: "test-operator-key", OPERATOR_TOKEN: "test-operator-token" };
+const env = { OPERATOR_KEY: crypto.randomBytes(32).toString("hex"), OPERATOR_TOKEN: "test-operator-token" };
 let base;
 const procs = [];
 
@@ -58,6 +58,10 @@ test("signed tree heads verify with the published Ed25519 key, which survives re
   const restarted = await startService(TLOG, env);
   procs.push(restarted.proc);
   assert.equal((await (await fetch(`${restarted.base}/health`)).json()).public_key, public_key);
+
+  // A passphrase (like the old compose placeholders) would make the key guessable.
+  const passphrase = { OPERATOR_KEY: "alpha-operator-secret-replace-in-production" };
+  await assert.rejects(startService(TLOG, passphrase).then(({ proc }) => proc.kill()));
 });
 
 test("POST /gossip/peers needs the operator token and an http(s) endpoint", async () => {

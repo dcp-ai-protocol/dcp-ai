@@ -9,7 +9,7 @@
  * Environment:
  *   PORT          — HTTP port (default 3002)
  *   LOG_ID        — Unique identifier for this log instance
- *   OPERATOR_KEY  — Secret seed for the Ed25519 STH signing key (seed = SHA-256(OPERATOR_KEY))
+ *   OPERATOR_KEY  — Ed25519 seed for signing STHs: 64 hex chars (openssl rand -hex 32)
  *   OPERATOR_TOKEN — Bearer token required by POST /gossip/peers
  *   GOSSIP_PEERS  — Comma-separated list of peer endpoints (e.g. "http://log-b:3002,http://log-c:3002")
  *   GOSSIP_INTERVAL_MS — Gossip polling interval in ms (default 30000)
@@ -25,13 +25,17 @@ const PORT = Number(process.env.PORT) || 3002;
 const LOG_ID = process.env.LOG_ID || `log-${crypto.randomUUID().slice(0, 8)}`;
 
 // STHs are Ed25519-signed so anyone holding the public key can verify them.
-// Without OPERATOR_KEY the key is ephemeral and changes on every restart.
-if (!process.env.OPERATOR_KEY) {
+// OPERATOR_KEY is the 32-byte seed itself: a passphrase (like the old compose
+// placeholders) would make the signing key guessable. Without it the key is
+// ephemeral and changes on every restart.
+const { OPERATOR_KEY } = process.env;
+if (OPERATOR_KEY && !/^[0-9a-f]{64}$/i.test(OPERATOR_KEY)) {
+  throw new Error("OPERATOR_KEY must be 64 hex characters (32 random bytes: openssl rand -hex 32)");
+}
+if (!OPERATOR_KEY) {
   console.warn("[tlog] OPERATOR_KEY not set: STHs are signed with an ephemeral key");
 }
-const seed = process.env.OPERATOR_KEY
-  ? crypto.createHash("sha256").update(process.env.OPERATOR_KEY).digest()
-  : crypto.randomBytes(32);
+const seed = OPERATOR_KEY ? Buffer.from(OPERATOR_KEY, "hex") : crypto.randomBytes(32);
 const { secretKey, publicKey } = nacl.sign.keyPair.fromSeed(seed);
 const operatorKeyPair = {
   secretKey: Buffer.from(secretKey).toString("base64"),

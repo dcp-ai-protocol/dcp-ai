@@ -97,7 +97,7 @@ On-chain submission is not implemented yet, so the three `ANCHOR_*` chain settin
 |----------|---------|-------------|
 | `PORT` | `3002` | HTTP port |
 | `LOG_ID` | auto-generated | Unique identifier for this log instance |
-| `OPERATOR_KEY` | ephemeral | Secret seed of the Ed25519 STH signing key; replace the compose placeholders |
+| `OPERATOR_KEY` | ephemeral | Ed25519 seed of the STH signing key: 64 hex chars (`openssl rand -hex 32`), one per log. Anything else stops the service |
 | `OPERATOR_TOKEN` | — | Bearer token for `POST /gossip/peers` (passed through from the host env) |
 | `GOSSIP_PEERS` | — | Comma-separated peer endpoints (e.g. `http://log-b:3002`) |
 | `GOSSIP_INTERVAL_MS` | `30000` | Gossip polling interval in milliseconds |
