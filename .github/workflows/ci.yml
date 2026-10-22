@@ -6,8 +6,8 @@ name: DCP-AI CI
 on:
   push:
     branches: [main]
+  # Any base branch, so stacked PRs get CI before they are retargeted to main.
   pull_request:
-    branches: [main]
 
 # Least-privilege default. Jobs can override with a narrower or wider scope
 # as needed (e.g. codecov/codecov-action@v4 does not require any write perms).
