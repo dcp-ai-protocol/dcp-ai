@@ -21,11 +21,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- `tests/interop/v2/bundle_vectors.json`: 28 more `must_reject` cases, one per vulnerability of
+- `tests/interop/v2/bundle_vectors.json`: 28 more rejection cases (5 `must_reject` mutations, 23 `must_reject_bundles`), one per vulnerability of
   the v2.10 round, that all four SDK verifiers (Python included) run under every verification
   mode: artifacts without any `composite_sig` (V2-8); `dcp_bundle_version` `1.0` and `3.0`
   (V2-1); a key expired with a non-UTC offset, malformed key `expires_at` values (impossible date,
-  date only, no offset) on the passport and the RPR (V2-13); classical-only bundles whose intent
+  date only, no offset) on the passport and an impossible date on the RPR (V2-13); classical-only bundles whose intent
   or policy decision implies `elevated` while the intent declares `security_tier: "routine"` or
   `estimated_impact: "high"` (V2-10); prototype keys (`constructor`, `__proto__`, `toString`,
   `hasOwnProperty`) in the passport `risk_tier` and `constructor` in `action_type`,

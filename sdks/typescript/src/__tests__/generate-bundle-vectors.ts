@@ -524,7 +524,8 @@ async function main() {
       variant: { principalKey: { expires_at: '2020-01-01T00:00:00Z' } },
     },
     {
-      // Expired as an instant, although as text it sorts after the current year's "2026-...".
+      // Expired as an instant; a verifier that cannot parse the +14:00 offset reports a parse error
+      // instead of "expired", which the error_contains check catches.
       name: 'passport_key_expired_with_offset',
       spec_step: 'V2-13',
       error_contains: 'expired',
