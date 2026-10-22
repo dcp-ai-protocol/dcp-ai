@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"reflect"
 	"time"
 )
 
@@ -273,10 +274,16 @@ func asInteger(v interface{}) (int, bool) {
 // says, so such a limit is not comparable (DCP-09 §3.5.2 rule 5).
 const maxComparableLimit = 1<<53 - 1
 
-// isNumber says whether a value is a JSON number however it was decoded or built; a bool is not one.
+// isNumber says whether a value is a JSON number however it was decoded or
+// built: a json.Number or any Go integer or float kind; a bool is not one.
 func isNumber(v interface{}) bool {
-	switch v.(type) {
-	case int, int32, int64, float64, json.Number:
+	if _, ok := v.(json.Number); ok {
+		return true
+	}
+	switch reflect.ValueOf(v).Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
+		reflect.Float32, reflect.Float64:
 		return true
 	}
 	return false
@@ -286,27 +293,32 @@ func isNumber(v interface{}) bool {
 // an integer within ±maxComparableLimit. A fraction, anything larger and a
 // json.Number strconv cannot parse (such as "1e999999999") are not.
 func comparableLimit(v interface{}) (int64, bool) {
-	var n int64
-	switch x := v.(type) {
-	case int:
-		n = int64(x)
-	case int32:
-		n = int64(x)
-	case int64:
-		n = x
-	case float64:
-		if x != math.Trunc(x) || math.Abs(x) > maxComparableLimit {
-			return 0, false
-		}
-		n = int64(x)
-	case json.Number:
+	if x, ok := v.(json.Number); ok {
 		if i, err := x.Int64(); err == nil {
-			n = i
-		} else if f, err := x.Float64(); err == nil {
-			return comparableLimit(f)
-		} else {
+			return i, -maxComparableLimit <= i && i <= maxComparableLimit
+		}
+		f, err := x.Float64()
+		if err != nil {
 			return 0, false
 		}
+		return comparableLimit(f)
+	}
+	var n int64
+	rv := reflect.ValueOf(v)
+	switch rv.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		n = rv.Int()
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		if rv.Uint() > maxComparableLimit {
+			return 0, false
+		}
+		n = int64(rv.Uint())
+	case reflect.Float32, reflect.Float64:
+		f := rv.Float()
+		if f != math.Trunc(f) || math.Abs(f) > maxComparableLimit {
+			return 0, false
+		}
+		n = int64(f)
 	default:
 		return 0, false
 	}
