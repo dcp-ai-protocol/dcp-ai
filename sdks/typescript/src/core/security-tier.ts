@@ -139,3 +139,21 @@ export function tierToVerificationMode(tier: SecurityTier): VerificationMode {
 export function tierToCheckpointInterval(tier: SecurityTier): number {
   return TIER_TO_CHECKPOINT_INTERVAL[knownTier(tier)];
 }
+
+const MODE_STRICTNESS: readonly VerificationMode[] = ['classical_only', 'hybrid_preferred', 'hybrid_required'];
+
+/**
+ * The verification mode a verifier enforces (spec §14.3): the stricter of its
+ * policy mode and the tier's mode. The tier only adds a PQ requirement, so a
+ * `pq_only` policy stays `pq_only`; an unknown policy mode counts as
+ * `hybrid_required`.
+ */
+export function effectiveVerificationMode(
+  policyMode: VerificationMode,
+  tier: SecurityTier,
+): VerificationMode {
+  if (policyMode === 'pq_only') return 'pq_only';
+  const policyRank = MODE_STRICTNESS.indexOf(policyMode);
+  if (policyRank < 0) return 'hybrid_required';
+  return MODE_STRICTNESS[Math.max(policyRank, MODE_STRICTNESS.indexOf(tierToVerificationMode(tier)))];
+}

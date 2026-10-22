@@ -34,6 +34,7 @@ import { verifySignedBundleV2, DEFAULT_VERIFIER_POLICY } from '../core/verify-v2
 import type { VerificationMode, VerifierPolicy } from '../types/v2.js';
 import {
   computeSecurityTier,
+  effectiveVerificationMode,
   maxTier,
   tierToCheckpointInterval,
   tierToVerificationMode,
@@ -579,6 +580,20 @@ describe('security tier (spec §14.2)', () => {
       expect(maxTier(name, 'routine'), name).toBe('elevated');
       expect(maxTier('routine', name), name).toBe('elevated');
       expect(maxTier(name, 'maximum'), name).toBe('maximum');
+    }
+  });
+
+  it('effective verification mode is the stricter of policy and tier', () => {
+    const cases = (V as any).security_tier.effective_mode.cases as Array<{
+      policy_mode: VerificationMode;
+      tier: SecurityTier;
+      expected: VerificationMode;
+    }>;
+    expect(cases.length).toBeGreaterThan(0);
+    for (const vec of cases) {
+      expect(effectiveVerificationMode(vec.policy_mode, vec.tier), `${vec.policy_mode} + ${vec.tier}`).toBe(
+        vec.expected,
+      );
     }
   });
 });

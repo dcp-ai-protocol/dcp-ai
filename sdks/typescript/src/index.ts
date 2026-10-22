@@ -235,6 +235,7 @@ export type { ShamirShare, RecoverySetup } from './core/key-recovery.js';
 // ── V2 Security Tier Engine ──
 export {
   computeSecurityTier,
+  effectiveVerificationMode,
   maxTier,
   tierToVerificationMode,
   tierToCheckpointInterval,

@@ -154,6 +154,7 @@ from dcp_ai.v2.session_nonce import (
 )
 from dcp_ai.v2.security_tier import (
     compute_security_tier,
+    effective_verification_mode,
     max_tier,
     tier_to_checkpoint_interval,
     tier_to_verification_mode,
@@ -343,6 +344,7 @@ __all__ = [
     "is_valid_session_nonce",
     "verify_session_binding",
     "compute_security_tier",
+    "effective_verification_mode",
     "max_tier",
     "tier_to_checkpoint_interval",
     "tier_to_verification_mode",

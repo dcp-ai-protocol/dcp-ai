@@ -115,3 +115,21 @@ def tier_to_verification_mode(tier: str) -> str:
 def tier_to_checkpoint_interval(tier: str) -> int:
     """Map a tier to its PQ-checkpoint interval (number of events between checkpoints)."""
     return _TIER_TO_CHECKPOINT_INTERVAL[_known_tier(tier)]
+
+
+_MODE_STRICTNESS = ("classical_only", "hybrid_preferred", "hybrid_required")
+
+
+def effective_verification_mode(policy_mode: str, tier: str) -> str:
+    """The verification mode a verifier enforces (spec §14.3).
+
+    The stricter of the policy mode and the tier's mode. The tier only adds a PQ
+    requirement, so a ``pq_only`` policy stays ``pq_only``; an unknown policy mode
+    counts as ``hybrid_required``.
+    """
+    if policy_mode == "pq_only":
+        return "pq_only"
+    if policy_mode not in _MODE_STRICTNESS:
+        return "hybrid_required"
+    tier_rank = _MODE_STRICTNESS.index(tier_to_verification_mode(tier))
+    return _MODE_STRICTNESS[max(_MODE_STRICTNESS.index(policy_mode), tier_rank)]

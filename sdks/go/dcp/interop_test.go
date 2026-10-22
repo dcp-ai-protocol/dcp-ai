@@ -113,7 +113,14 @@ type interopVectors struct {
 	AttackVectors           map[string]json.RawMessage   `json:"attack_vectors"`
 	SessionSplicing         sessionSplicingData          `json:"session_splicing"`
 	SecurityTier            struct {
-		Cases []securityTierCase `json:"cases"`
+		Cases         []securityTierCase `json:"cases"`
+		EffectiveMode struct {
+			Cases []struct {
+				PolicyMode string `json:"policy_mode"`
+				Tier       string `json:"tier"`
+				Expected   string `json:"expected"`
+			} `json:"cases"`
+		} `json:"effective_mode"`
 	} `json:"security_tier"`
 }
 
@@ -761,5 +768,17 @@ func TestBuildSignVerifyBundleV2(t *testing.T) {
 	}
 	if r := v2.VerifySignedBundleV2(reg, data); !r.Verified {
 		t.Fatalf("built bundle must verify: %v", r.Errors)
+	}
+}
+
+func TestInteropEffectiveVerificationMode(t *testing.T) {
+	cases := loadVectors(t).SecurityTier.EffectiveMode.Cases
+	if len(cases) == 0 {
+		t.Fatal("no effective_mode vectors found")
+	}
+	for _, c := range cases {
+		if got := v2.EffectiveVerificationMode(c.PolicyMode, c.Tier); got != c.Expected {
+			t.Errorf("%s + %s: got %s, want %s", c.PolicyMode, c.Tier, got, c.Expected)
+		}
 	}
 }

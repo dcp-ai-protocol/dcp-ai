@@ -29,6 +29,7 @@ from dcp_ai.v2.crypto_registry import AlgorithmRegistry
 from dcp_ai.v2.composite_ops import composite_verify, CompositeKeyInfo
 from dcp_ai.v2.security_tier import (
     compute_security_tier,
+    effective_verification_mode,
     tier_to_checkpoint_interval,
     tier_to_verification_mode,
 )
@@ -399,3 +400,10 @@ class TestSecurityTier:
                 "checkpoint_interval": tier_to_checkpoint_interval(tier),
             }
             assert got == case["expected"], case["name"]
+
+    def test_effective_mode_vectors(self, V):
+        cases = V["security_tier"]["effective_mode"]["cases"]
+        assert cases
+        for case in cases:
+            got = effective_verification_mode(case["policy_mode"], case["tier"])
+            assert got == case["expected"], f"{case['policy_mode']} + {case['tier']}"
