@@ -117,6 +117,55 @@ func TestVerifyBundleV2_SessionNonceMismatch(t *testing.T) {
 	}
 }
 
+// An audit entry with another session_nonce (V2-4) and a canonicalization_profile
+// that is not the string "dcp-jcs-v1" are rejected.
+func TestVerifyBundleV2_AuditNonceAndProfile(t *testing.T) {
+	reg := NewAlgorithmRegistry()
+	build := func(auditNonce string, profile interface{}) []byte {
+		manifest := map[string]interface{}{"session_nonce": "nonce-a"}
+		if profile != nil {
+			manifest["canonicalization_profile"] = profile
+		}
+		artifact := map[string]interface{}{"payload": map[string]interface{}{"session_nonce": "nonce-a"}}
+		data, _ := json.Marshal(map[string]interface{}{
+			"bundle": map[string]interface{}{
+				"dcp_bundle_version":           "2.0",
+				"manifest":                     manifest,
+				"responsible_principal_record": artifact,
+				"agent_passport":               artifact,
+				"intent":                       artifact,
+				"policy_decision":              artifact,
+				"audit_entries":                []interface{}{map[string]interface{}{"session_nonce": auditNonce}},
+			},
+			"signature": map[string]interface{}{},
+		})
+		return data
+	}
+	hasError := func(result *V2VerificationResult, want string) bool {
+		for _, e := range result.Errors {
+			if strings.HasPrefix(e, want) {
+				return true
+			}
+		}
+		return false
+	}
+	if r := VerifySignedBundleV2(reg, build("nonce-b", nil)); !hasError(r, "Session nonce mismatch in audit_entries[0]") || r.SessionBindingValid {
+		t.Fatalf("audit entry nonce: %v", r.Errors)
+	}
+	if r := VerifySignedBundleV2(reg, build("nonce-a", nil)); hasError(r, "Session nonce mismatch in audit_entries[0]") {
+		t.Fatalf("same nonce reported as a mismatch: %v", r.Errors)
+	}
+	for _, profile := range []interface{}{1, "dcp-jcs-v2", json.RawMessage("null")} {
+		r := VerifySignedBundleV2(reg, build("nonce-a", profile))
+		if !hasError(r, "Unknown canonicalization_profile: ") {
+			t.Fatalf("profile %v: %v", profile, r.Errors)
+		}
+	}
+	if r := VerifySignedBundleV2(reg, build("nonce-a", "dcp-jcs-v1")); hasError(r, "Unknown canonicalization_profile: ") {
+		t.Fatalf("dcp-jcs-v1 rejected: %v", r.Errors)
+	}
+}
+
 func TestVerifyBundleV2_MissingArtifacts(t *testing.T) {
 	reg := NewAlgorithmRegistry()
 	bundle := map[string]interface{}{
