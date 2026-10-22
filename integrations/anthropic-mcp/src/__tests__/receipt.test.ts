@@ -62,6 +62,15 @@ describe('withDcpReceipt', () => {
     const { _meta, ...seen } = out;
     const receipt = _meta.dcp_receipt;
     expect(receipt.bundle.audit_entries[0].evidence.request_id).toBe('7');
+    expect((await verifyDcpReceipt(receipt, { requestId: 7 })).verified).toBe(true);
+    expect((await verifyDcpReceipt(receipt, { requestId: 8 })).errors.join('\n')).toContain('request 7');
+
+    // Arguments with a function, an AbortSignal and a Date (as the MCP SDK passes `extra`) are hashed as their JSON.
+    const extraLike = withDcpReceipt('no_input', async () => ({ content: [] }), { identity });
+    const when = new Date('2026-01-01T00:00:00Z');
+    const e = await extraLike({ signal: new AbortController().signal, sendNotification: () => {}, when } as any, { requestId: 'r-1' });
+    const { _meta: em, ...eSeen } = e;
+    expect((await verifyDcpReceipt(em.dcp_receipt, { arguments: { signal: {}, when: when.toISOString() }, result: eSeen, requestId: 'r-1' })).verified).toBe(true);
     // The caller sent 1000 and that is what the receipt attests, not the mutated 10.
     expect((await verifyDcpReceipt(receipt, { arguments: { amount: 1000 }, result: seen })).verified).toBe(true);
     expect((await verifyDcpReceipt(receipt, { arguments: { amount: 10 }, result: seen })).verified).toBe(false);
