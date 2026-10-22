@@ -420,6 +420,22 @@ class TestPolicyResolution:
         policy = VerifierPolicy(require_audience_binding=True, verifier_id="verifier-a")
         assert_error(await verify_signed_bundle_v2(bound, registry, policy), "intended for verifier 'verifier-b'")
 
+    @pytest.mark.asyncio
+    async def test_dict_policy_rejects_unknown_keys(self, registry, signed):
+        with pytest.raises(ValidationError):
+            await verify_signed_bundle_v2(signed, registry, {"require_audiance_binding": True, "verifier_id": "a"})
+
+    @pytest.mark.asyncio
+    async def test_default_mode_alone_keeps_model_overrides(self, registry, classical_low):
+        """Setting only default_mode cannot weaken a tier: the model's default overrides apply."""
+        for policy in (VerifierPolicy(default_mode="classical_only"), {"default_mode": "classical_only"}):
+            result = await verify_signed_bundle_v2(classical_low, registry, policy)
+            assert result["details"]["verification_mode"] == "hybrid_required"
+            assert_error(result, "composite binding")
+        explicit = VerifierPolicy(default_mode="classical_only", risk_overrides=None)
+        ok = await verify_signed_bundle_v2(classical_low, registry, explicit)
+        assert ok["verified"] is True, ok["errors"]
+
     def test_model_rejects_unknown_fields(self):
         with pytest.raises(ValidationError):
             VerifierPolicy(require_audiance_binding=True)
