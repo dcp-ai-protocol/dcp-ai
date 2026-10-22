@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.10.0] - 2026-10-22
+
+### Package versions
+
+- `dcp-ai` (PyPI) 2.8.2 → 2.9.0: pqcrypto 1.x, FIPS 205 SLH-DSA, ML-KEM-768, V2 bundles and a V2
+  verifier; breaking for `blind_rpr` (requires `pii_salt`) and `pqcrypto<1.0` installs.
+- `@dcp-ai/sdk` (npm) 2.1.2 → 2.2.0: security fixes in `verifySignedBundleV2`, security tier
+  enforcement, Blinded RPR exports; breaking for `blindRpr` (requires `pii_salt`).
+- `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` v2.9.0 → v2.10.0: V2 verifier hardening and
+  tier enforcement; breaking for `BundleBuildInput` (signed artifacts) and `BlindRPR`.
+- `dcp-ai` (crates.io) 2.9.0 → 2.10.0: native V2 verifier, tier enforcement, RFC 3339
+  expiry parsing; breaking for `blind_rpr` and the `wasm` bundle builder.
+- `@dcp-ai/wasm` 2.0.0 → 2.1.0: `buildBundle` takes signed artifacts; `verifyBundle` takes a
+  full verifier policy.
+- `@dcp-ai/openclaw` 2.0.0 → 2.1.0: security tier floor and `pii_salt` on signed RPRs.
+- Unchanged: `@dcp-ai/cli` 2.0.0 and the other integration packages.
+
 ### Security
 
 - Blinded RPR commitments are salted, in all four SDKs. `pii_hash` was
