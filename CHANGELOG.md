@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [2.9.0] - 2026-10-21
+
+### Package versions
+
+- `dcp-ai` (PyPI) 2.8.1 → 2.8.2: fixes only.
+- `@dcp-ai/sdk` (npm) 2.1.1 → 2.1.2: fixes only.
+- `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` v2.8.1 → v2.9.0: adds `v2.MarshalCanonical`.
+- `dcp-ai` (crates.io) 2.8.1 → 2.9.0: OpenTelemetry 0.32, breaking for the optional `otlp`
+  feature (see "Changed (breaking)").
+- Unchanged: `@dcp-ai/wasm` 2.0.0, `@dcp-ai/cli` 2.0.0 and the integration packages.
+
 ### Security
 
 - The reference verifier (`lib/verify.js`), `dcp verify-bundle` and the verification server now
@@ -28,6 +39,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   fourth `options` argument (`{ policy, mode }`); results always carry an `errors` array. The
   `verify-bundle` composite GitHub Action, `bin/dcp.js`, `server/` and `tools/bundle_verify.js`
   were updated. `tools/bundle_verify.js` no longer takes a PQ public key argument.
+- Rust SDK, optional `otlp` feature: OpenTelemetry 0.24 → 0.32.
+  - `OtlpHandles.tracer_provider` is now `SdkTracerProvider` and `OtlpHandles.tracer` is
+    `SdkTracer`, following the upstream renames.
+  - The feature no longer pulls in `tokio`: the bridge exports from the SDK's background threads
+    over the blocking `reqwest` client.
+  - Errors prefixed `tracer install:` now read `trace exporter:`.
+
+### Added
+
+- Go SDK: `v2.MarshalCanonical(obj)`, the `dcp-jcs-v1` encoder without the integer-only rule. The
+  V1 `Canonicalize` and the proof-of-possession encoder now use it.
 
 ### Fixed
 
@@ -42,6 +64,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   domain-separation block was removed, and V2 signed bundles (valid, tampered, forged, PQ-stripped,
   key-pinned, legacy) are checked against the reference verifier.
 
+### Dependencies
+
+- All 95 open Dependabot alerts are closed (11 critical, 54 high). #22 superseded the 15 Dependabot
+  PRs (#5–#21); #24 bumped grpc.
+- TypeScript SDK, `@dcp-ai/express`, `@dcp-ai/openclaw` (development):
+  - vitest and `@vitest/coverage-v8` 4.1.12, bumped together.
+  - vite 7.3.7, pinned through `overrides`.
+  - postcss 8.5.31, nanoid 3.3.20, source-map-js 1.2.2, esbuild 0.28.2, fast-uri 3.1.9.
+  - Express runtime lockfile: proxy-addr 2.0.8, qs 6.16.1, body-parser 2.3.0.
+- Root harness: fast-uri 3.1.9, and the new `@dcp-ai/sdk` dependency.
+- Go SDK: `golang.org/x/crypto` v0.55.0, `golang.org/x/net` v0.58.0, `google.golang.org/grpc`
+  v1.83.2, `go.opentelemetry.io/otel/*` v1.46.0.
+- Rust SDK: opentelemetry, opentelemetry_sdk and opentelemetry-otlp 0.32. `opentelemetry_sdk`
+  0.32.1 fixes unbounded memory allocation in W3C Baggage propagation.
+- CI:
+  - New integration test job for express and openclaw.
+  - The Rust job builds and tests `--features otlp`.
+  - The Go job reads its version from `go.mod`.
+  - The generated V2 bundle is verified with the CLI.
+  - The server and revocation tests run.
+
 ### Documentation
 
 - `spec/VERIFICATION.md`:
@@ -55,8 +98,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The Python SDK README (all languages) no longer claims ML-KEM-768 or V2 bundle support, and the CrewAI quickstart flags its V2 snippet as planned API.
 - Translations and project docs:
   - 11 integrations including Agno; canonicalization profile and Agno quickstart links.
-  - Rust 2.8 install snippets and Go `@latest` pins.
-  - Per-package supported versions in `SECURITY.md`, and v2.8.x in `ROADMAP.md`.
+  - Rust install snippets for this release and Go `@latest` pins.
+  - Per-package supported versions in `SECURITY.md`, and the v2.8.x and v2.9.0 releases in `ROADMAP.md`.
   - The Zenodo concept DOI in `CITATION.cff`.
 
 ## [2.8.1] - 2026-04-26
