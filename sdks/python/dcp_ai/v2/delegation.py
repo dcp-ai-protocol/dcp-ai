@@ -173,6 +173,16 @@ def _is_int(v: Any) -> bool:
     return _is_number(v) and (isinstance(v, int) or v.is_integer())
 
 
+# A numeric limit compares only as an integer within ±(2^53 − 1): every SDK reads those exactly, whether
+# it parses JSON numbers as doubles or keeps every digit, so beyond them two verifiers disagree on what a
+# mandate says (DCP-09 §3.5.2 rule 5).
+_MAX_COMPARABLE_LIMIT = 2**53 - 1
+
+
+def _is_comparable_number(v: Any) -> bool:
+    return _is_int(v) and -_MAX_COMPARABLE_LIMIT <= v <= _MAX_COMPARABLE_LIMIT
+
+
 def _scope_entry_ok(e: Any) -> bool:
     return (
         isinstance(e, dict)
@@ -201,6 +211,11 @@ def _shape_errors(m: dict[str, Any]) -> list[str]:
     scope = m.get("authority_scope")
     if not isinstance(scope, list) or not scope or not all(_scope_entry_ok(e) for e in scope):
         errors.append("missing or invalid authority_scope")
+    else:
+        for e in scope:
+            for key, v in e.get("limits", {}).items():
+                if _is_number(v) and not _is_comparable_number(v):
+                    errors.append(f'limits.{key} for domain "{e["domain"]}" is not comparable')
     if "sub_delegation" in m and not _sub_delegation_ok(m["sub_delegation"]):
         errors.append("invalid sub_delegation")
     if "minimum_security_tier" in m and not (isinstance(m["minimum_security_tier"], str) and m["minimum_security_tier"] in _TIER_RANK):
@@ -238,11 +253,14 @@ def _attenuation_error(parent: list[dict[str, Any]], child: list[dict[str, Any]]
                 if key not in c["limits"]:
                     return f'limits.{key} for domain "{domain}" missing'
                 cv = c["limits"][key]
-                # A number may only shrink; anything else must stay identical. Mixed types are not comparable.
-                if _is_number(pv) and _is_number(cv):
+                # A number may only shrink; anything else must stay identical. A number outside ±(2^53 − 1), or a
+                # number against a non-number, is not comparable.
+                if _is_number(pv) or _is_number(cv):
+                    if not (_is_comparable_number(pv) and _is_comparable_number(cv)):
+                        return f'limits.{key} for domain "{domain}" is not comparable'
                     within = cv <= pv
                 else:
-                    within = not _is_number(pv) and not _is_number(cv) and _canonical_equal(pv, cv)
+                    within = _canonical_equal(pv, cv)
                 if not within:
                     return f'limits.{key} for domain "{domain}" is not within the parent'
     return None

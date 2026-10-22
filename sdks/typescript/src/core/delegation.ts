@@ -177,7 +177,10 @@ const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 const isNonEmptyString = (v: unknown): v is string => typeof v === 'string' && v.length > 0;
 const isStringArray = (v: unknown): v is string[] => Array.isArray(v) && v.every((s) => typeof s === 'string');
-const isNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+// A numeric limit compares only as an integer within ±(2^53 − 1): every SDK reads those exactly, whether
+// it parses JSON numbers as doubles or keeps every digit, so beyond them two verifiers disagree on what a
+// mandate says (DCP-09 §3.5.2 rule 5).
+const isComparableNumber = (v: unknown): v is number => Number.isSafeInteger(v);
 const hasOwn = (o: object, key: string): boolean => Object.prototype.hasOwnProperty.call(o, key);
 // A field set to undefined is absent on the wire (canonicalizeV2 omits it), so it is absent here too.
 const present = (o: Record<string, unknown>, key: string): boolean => o[key] !== undefined;
@@ -215,6 +218,12 @@ function mandateShapeErrors(m: Record<string, unknown>): string[] {
   }
   if (!Array.isArray(m.authority_scope) || m.authority_scope.length === 0 || !m.authority_scope.every(isScopeEntry)) {
     errors.push('missing or invalid authority_scope');
+  } else {
+    for (const entry of m.authority_scope as AuthorityScopeEntry[]) {
+      for (const [key, v] of Object.entries(entry.limits ?? {})) {
+        if (typeof v === 'number' && !isComparableNumber(v)) errors.push(`limits.${key} for domain "${entry.domain}" is not comparable`);
+      }
+    }
   }
   if (present(m, 'sub_delegation') && !isSubDelegation(m.sub_delegation)) errors.push('invalid sub_delegation');
   if (present(m, 'minimum_security_tier') && !(typeof m.minimum_security_tier === 'string' && hasOwn(TIER_RANK, m.minimum_security_tier))) {
@@ -252,9 +261,14 @@ function attenuationError(parent: AuthorityScopeEntry[], child: AuthorityScopeEn
       for (const key of Object.keys(p.limits)) {
         if (!hasOwn(c.limits, key)) return `limits.${key} for domain "${c.domain}" missing`;
         const [pv, cv] = [p.limits[key], c.limits[key]];
-        // A number may only shrink; anything else must stay identical. Mixed types are not comparable.
-        const within = isNumber(pv) && isNumber(cv) ? cv <= pv : !isNumber(pv) && !isNumber(cv) && canonicalEqual(pv, cv);
-        if (!within) return `limits.${key} for domain "${c.domain}" is not within the parent`;
+        // A number may only shrink; anything else must stay identical. A number outside ±(2^53 − 1), or a
+        // number against a non-number, is not comparable.
+        if (typeof pv === 'number' || typeof cv === 'number') {
+          if (!isComparableNumber(pv) || !isComparableNumber(cv)) return `limits.${key} for domain "${c.domain}" is not comparable`;
+          if (cv > pv) return `limits.${key} for domain "${c.domain}" is not within the parent`;
+        } else if (!canonicalEqual(pv, cv)) {
+          return `limits.${key} for domain "${c.domain}" is not within the parent`;
+        }
       }
     }
   }

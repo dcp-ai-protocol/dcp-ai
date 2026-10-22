@@ -199,6 +199,23 @@ async function main() {
   // A root that does not permit sub-delegation at all.
   const sealedRoot = await signRoot(rootPayload({ mandate_id: 'mandate:interop-root-sealed', sub_delegation: undefined }));
 
+  // Numeric limits compare only within ±(2^53 − 1), the integers every SDK reads exactly (DCP-09 §3.5.2 rule 5).
+  const MAX_COMPARABLE = Number.MAX_SAFE_INTEGER; // 2^53 − 1
+  const TWO_53 = MAX_COMPARABLE + 1;
+  // 2^53 + 1 is not a JavaScript number: a mandate signed over the canonical 2^53 carries this marker
+  // instead, and the written file gets the bare integer 9007199254740993 in its place, as a producer that
+  // canonicalizes through doubles would put on the wire. A verifier reading doubles sees a valid signature.
+  const TWO_53_PLUS_1_MARKER = '@@9007199254740993@@';
+  const apiScope = (n: number) => [{ domain: 'api', actions_permitted: ['call'], limits: { max_calls: n } }];
+  const withLimit = (m: Mandate, key: string, value: unknown): Mandate => {
+    const [entry, ...rest] = m.authority_scope as Record<string, unknown>[];
+    return { ...m, authority_scope: [{ ...entry, limits: { ...(entry.limits as Record<string, unknown>), [key]: value } }, ...rest] };
+  };
+  const boundRoot = await signRoot(rootPayload({ mandate_id: 'mandate:interop-root-bound', authority_scope: apiScope(MAX_COMPARABLE) }));
+  const boundSubPayload = (over: Mandate = {}): Mandate =>
+    sub1Payload({ mandate_id: 'mandate:interop-sub-bound', parent_mandate_id: 'mandate:interop-root-bound', authority_scope: apiScope(MAX_COMPARABLE), ...over });
+  const boundSub = await signSub(boundSubPayload(), agents[ORCHESTRATOR]);
+
   const mustAccept = [
     { name: 'depth_1', chain: [root, sub1], revoked_mandate_ids: [], expected: { depth: 1, effective_tier: 'elevated' } },
     { name: 'depth_2', chain: [root, sub1, sub2], revoked_mandate_ids: [], expected: { depth: 2, effective_tier: 'maximum' } },
@@ -210,6 +227,7 @@ async function main() {
       revoked_mandate_ids: ['mandate:interop-sub-plain'],
       expected: { depth: 1, effective_tier: 'elevated' },
     },
+    { name: 'limits_at_the_safe_integer_bound', chain: [boundRoot, boundSub], revoked_mandate_ids: [], expected: { depth: 1, effective_tier: 'elevated' } },
   ];
 
   const scope1 = sub1Payload().authority_scope as Record<string, unknown>[];
@@ -229,6 +247,16 @@ async function main() {
     { name: 'changed_non_numeric_limit', chain: [root, await sub1Of({ authority_scope: limits({ region: 'US' }) })], error_contains: 'limits' },
     { name: 'dropped_limit_key', chain: [root, await sub1Of({ authority_scope: email({ limits: { max_messages_per_day: 50, region: 'EU' } }) })], error_contains: 'limits' },
     { name: 'limit_type_changed', chain: [root, await sub1Of({ authority_scope: limits({ max_recipients: 'many' }) })], error_contains: 'limits' },
+    // 2^53 is exact in every representation, so every verifier agrees on the signature and on the limit being out of range.
+    { name: 'limit_of_2_53_is_not_comparable', chain: [await signRoot(rootPayload({ mandate_id: 'mandate:interop-root-2-53', authority_scope: apiScope(TWO_53) }))], error_contains: 'not comparable' },
+    // The wire says 2^53 + 1, over a parent at 2^53 − 1; a verifier reading doubles sees 2^53 under a valid signature.
+    {
+      name: 'limit_of_2_53_plus_1_over_a_parent_at_the_bound',
+      chain: [boundRoot, withLimit(await signSub(boundSubPayload({ authority_scope: apiScope(TWO_53) }), agents[ORCHESTRATOR]), 'max_calls', TWO_53_PLUS_1_MARKER)],
+      error_contains: 'not comparable',
+    },
+    // A key the parent does not have is never compared; the bound still applies to it.
+    { name: 'added_limit_of_2_53_plus_1', chain: [root, withLimit(await sub1Of({ authority_scope: limits({ max_attachments: TWO_53 }) }), 'max_attachments', TWO_53_PLUS_1_MARKER)], error_contains: 'not comparable' },
     { name: 'unknown_domain', chain: [root, await sub1Of({ authority_scope: [{ domain: 'payments', actions_permitted: ['pay'] }] })], error_contains: 'authority_scope' },
     { name: 'validity_extended_beyond_parent', chain: [root, await sub1Of({ valid_until: '2099-06-01T00:00:00Z' })], error_contains: 'valid_until' },
     { name: 'validity_starts_before_parent', chain: [root, await sub1Of({ valid_from: '2025-06-01T00:00:00Z' })], error_contains: 'valid_from' },
@@ -269,21 +297,6 @@ async function main() {
     { name: 'duplicate_domain_in_child', chain: [root, await sub1Of({ authority_scope: [...email({}), ...email({ actions_permitted: ['send'] })] })], error_contains: 'authority_scope' },
   ];
 
-  // Every vector gets the verdict the file promises, under this SDK.
-  const at = (t: string) => new Date(t).getTime();
-  for (const c of mustAccept) {
-    const r = await verifyMandateChain(registry, c.chain as any, new Set(c.revoked_mandate_ids), keys, at(VERIFICATION_TIME));
-    if (!r.valid || r.depth !== c.expected.depth || r.effective_tier !== c.expected.effective_tier) {
-      throw new Error(`${c.name} must verify: ${JSON.stringify(r)}`);
-    }
-  }
-  for (const c of mustReject) {
-    const r = await verifyMandateChain(registry, c.chain as any, new Set(c.revoked_mandate_ids ?? []), keys, at(c.verification_time ?? VERIFICATION_TIME));
-    if (r.valid || !r.errors.join('\n').toLowerCase().includes(c.error_contains)) {
-      throw new Error(`${c.name} must be rejected with "${c.error_contains}": ${JSON.stringify(r.errors)}`);
-    }
-  }
-
   const tierFloorCases = [
     { name: 'floor_raises_routine_to_elevated', intent: ROUTINE_INTENT, policy_decision: { risk_score: 0 }, mandate_chain_tier: 'elevated' },
     { name: 'floor_below_the_tier_changes_nothing', intent: MAXIMUM_INTENT, policy_decision: { risk_score: 0 }, mandate_chain_tier: 'routine' },
@@ -296,7 +309,7 @@ async function main() {
 
   const out = {
     _description:
-      'Cross-SDK DCP-09 §3.5 mandate chain vectors. Every chain verifier MUST accept each must_accept chain (root first), verified at verification_time against keys (the human principal keys and each delegating agent keys by agent_id) with revoked_mandate_ids revoked, and report expected.depth and expected.effective_tier (the greatest minimum_security_tier along the chain, null when none sets one). It MUST reject each must_reject chain, at its own verification_time when it has one, with an error that contains error_contains (case-insensitive). tier_floor gives the security tier (DCP-AI v2.0 §14.2) computeSecurityTier returns for an intent, a policy decision and a mandate chain effective tier, which can only raise the tier.',
+      'Cross-SDK DCP-09 §3.5 mandate chain vectors. Every chain verifier MUST accept each must_accept chain (root first), verified at verification_time against keys (the human principal keys and each delegating agent keys by agent_id) with revoked_mandate_ids revoked, and report expected.depth and expected.effective_tier (the greatest minimum_security_tier along the chain, null when none sets one). It MUST reject each must_reject chain, at its own verification_time when it has one, with an error that contains error_contains (case-insensitive). Numeric limits compare only as integers within ±(2^53 − 1); a mandate with a numeric limit outside that range is not comparable, so some must_reject chains carry the integer 9007199254740993, which a JSON parser that reads doubles cannot represent. tier_floor gives the security tier (DCP-AI v2.0 §14.2) computeSecurityTier returns for an intent, a policy decision and a mandate chain effective tier, which can only raise the tier.',
     _generator: 'sdks/typescript/src/__tests__/generate-mandate-chain-vectors.ts',
     _generated_at: new Date().toISOString(),
     verification_time: VERIFICATION_TIME,
@@ -305,7 +318,26 @@ async function main() {
     must_reject: mustReject,
     tier_floor: { cases: tierFloorCases },
   };
-  writeFileSync(OUTPUT_PATH, JSON.stringify(out, null, 2) + '\n');
+  const text = JSON.stringify(out, null, 2).split(`"${TWO_53_PLUS_1_MARKER}"`).join('9007199254740993') + '\n';
+  if (text.includes(TWO_53_PLUS_1_MARKER)) throw new Error('a 2^53 + 1 marker was left outside a limit value');
+
+  // Every vector gets the verdict the file promises, under this SDK reading the file as written.
+  const written = JSON.parse(text);
+  const at = (t: string) => new Date(t).getTime();
+  for (const c of written.must_accept) {
+    const r = await verifyMandateChain(registry, c.chain, new Set<string>(c.revoked_mandate_ids), written.keys, at(VERIFICATION_TIME));
+    if (!r.valid || r.depth !== c.expected.depth || r.effective_tier !== c.expected.effective_tier) {
+      throw new Error(`${c.name} must verify: ${JSON.stringify(r)}`);
+    }
+  }
+  for (const c of written.must_reject) {
+    const r = await verifyMandateChain(registry, c.chain, new Set<string>(c.revoked_mandate_ids ?? []), written.keys, at(c.verification_time ?? VERIFICATION_TIME));
+    if (r.valid || !r.errors.join('\n').toLowerCase().includes(c.error_contains)) {
+      throw new Error(`${c.name} must be rejected with "${c.error_contains}": ${JSON.stringify(r.errors)}`);
+    }
+  }
+
+  writeFileSync(OUTPUT_PATH, text);
   console.log(`Wrote ${OUTPUT_PATH}: ${mustAccept.length} must_accept, ${mustReject.length} must_reject, ${tierFloorCases.length} tier_floor cases`);
 }
 

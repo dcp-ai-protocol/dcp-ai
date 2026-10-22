@@ -331,10 +331,11 @@ fn mandate_chain_builders() {
     );
 }
 
-/// Integer limits compare exactly: serde_json keeps 2^53 + 1 exact, so the signature over the
-/// canonical bytes verifies, and an f64 comparison would take it for equal to a parent of 2^53.
+/// Numeric limits compare only within ±(2^53 − 1): serde_json keeps 2^53 exact, so the
+/// signature over the canonical bytes verifies, and the limit is still not comparable, as it
+/// is for a verifier that reads JSON numbers as doubles.
 #[test]
-fn limits_compare_integers_exactly() {
+fn limits_past_the_safe_integers_are_not_comparable() {
     let (ed, pq) = (Ed25519Provider, MlDsa65Provider);
     let (human, orchestrator) = (make_keys(), make_keys());
     let nonce_root = generate_session_nonce();
@@ -348,7 +349,7 @@ fn limits_compare_integers_exactly() {
             session_nonce: &nonce_root,
             human_id: "human:alice",
             agent_id: "agent:orchestrator",
-            authority_scope: vec![json!({"domain": "api", "actions_permitted": ["call"], "limits": {"n": 9007199254740992u64}})],
+            authority_scope: vec![json!({"domain": "api", "actions_permitted": ["call"], "limits": {"n": 9007199254740991u64}})],
             valid_from: "2026-01-01T00:00:00Z",
             valid_until: "2099-01-01T00:00:00Z",
             revocable: true,
@@ -387,22 +388,24 @@ fn limits_compare_integers_exactly() {
         .unwrap()
     };
     let equal = verify_mandate_chain(
-        &[root.clone(), sub_with(9007199254740992)],
+        &[root.clone(), sub_with(9007199254740991)],
         &HashSet::new(),
         &keys,
         None,
     );
     assert!(equal.valid, "{:?}", equal.errors);
-    let looser = verify_mandate_chain(
-        &[root.clone(), sub_with(9007199254740993)],
+    let past = verify_mandate_chain(
+        &[root.clone(), sub_with(9007199254740992)],
         &HashSet::new(),
         &keys,
         None,
     );
-    assert!(!looser.valid);
+    assert!(!past.valid);
     assert!(
-        looser.errors.iter().any(|e| e.contains("limits.n")),
+        past.errors
+            .iter()
+            .any(|e| e.contains("limits.n") && e.contains("not comparable")),
         "{:?}",
-        looser.errors
+        past.errors
     );
 }
