@@ -359,9 +359,15 @@ MUST NOT read one from the intent.
 
 ```
 function computeSecurityTier(intent, policy_decision):
-  score = policy_decision.risk_score if it is a number, else 0
+  if policy_decision is absent or null:
+    score = 0
+  else if policy_decision.risk_score is an integer from 0 to 1000:
+    score = policy_decision.risk_score
+  else:
+    score = unknown
   dc = intent.data_classes
-  unknown = intent.action_type ∉ ACTION_TYPES
+  unknown = score is unknown
+         OR intent.action_type ∉ ACTION_TYPES
          OR intent.estimated_impact ∉ {low, medium, high}
          OR dc is not an array
          OR some element of dc ∉ DATA_CLASSES
@@ -387,8 +393,11 @@ function computeSecurityTier(intent, policy_decision):
 enums of `schemas/v2/intent.schema.json`. A missing, mistyped or unknown
 value fails closed to at least `elevated`, so a value the verifier does not
 know never lowers the scrutiny a bundle gets, with or without schema
-validation. With no policy decision, or a `risk_score` that is not a number,
-the score is 0.
+validation. With no policy decision the score is 0. In a policy decision, a
+`risk_score` that is missing or is not an integer from 0 to 1000 (a string, a
+fraction, a negative number, a number above 1000) is unknown in the same way,
+and the score comparisons above treat it as 0. A number with no fractional
+part, such as `200.0`, counts as that integer.
 
 The `security_tier` category of `tests/interop/v2/interop_vectors.json` lists
 the expected tier, verification mode and checkpoint interval for each case.

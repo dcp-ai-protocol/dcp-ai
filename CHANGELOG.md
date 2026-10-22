@@ -212,6 +212,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     the input from decoded payloads.
   - Rust: `compute_security_tier(intent, policy_decision: Option<&Value>)`. `wasm_compute_security_tier`
     and `computeSecurityTier` in `@dcp-ai/wasm` take an optional policy decision.
+- Security tier computation, all SDKs and the reference server: a policy decision `risk_score` that
+  is missing or not an integer from 0 to 1000 counts as unknown, so the tier is at least `elevated`,
+  like an unknown intent value. A non-numeric value used to count as 0, and other numbers were
+  compared as they were, so `-1` gave `routine` and `1e30` gave `maximum` (now `elevated`, with the
+  same `hybrid_required` mode). With no policy decision the score is still 0. In Go,
+  `SecurityTierInputFromPayloads` sets `RiskScore` to -1 for such a value, and `ComputeSecurityTier`
+  treats any `RiskScore` outside 0..1000 as unknown.
 - TypeScript SDK `verifySignedBundleV2`: bundles that pass today with a `classical_only` signature
   are rejected when their intent is sensitive: `initiate_payment`, `pii`, `financial_data`,
   `health_data`, `credentials` or `children_data`, `estimated_impact: "high"`, a policy decision

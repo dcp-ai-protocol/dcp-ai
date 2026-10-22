@@ -126,14 +126,15 @@ class TestSecurityTier:
         assert compute_security_tier({**_ROUTINE_INTENT, "data_classes": [{"x": 1}]}) == "elevated"
         assert compute_security_tier({**_ROUTINE_INTENT, "security_tier": ["maximum"]}) == "elevated"
 
-    def test_boolean_risk_score_counts_as_zero(self):
-        assert compute_security_tier(_ROUTINE_INTENT, {"risk_score": True}) == "routine"
+    def test_boolean_risk_score_is_unknown(self):
+        assert compute_security_tier(_ROUTINE_INTENT, {"risk_score": True}) == "elevated"
 
     def test_non_dict_inputs_fail_closed(self):
         assert compute_security_tier("browse") == "elevated"
         assert compute_security_tier(None) == "elevated"
-        assert compute_security_tier(_ROUTINE_INTENT, "900") == "routine"
-        assert compute_security_tier(_ROUTINE_INTENT, ["risk_score", 900]) == "routine"
+        assert compute_security_tier(_ROUTINE_INTENT, "900") == "elevated"
+        assert compute_security_tier(_ROUTINE_INTENT, ["risk_score", 900]) == "elevated"
+        assert compute_security_tier(_ROUTINE_INTENT, None) == "routine"
 
     def test_helpers_count_unknown_tier_names_as_elevated(self):
         for name in ("constructor", "__proto__", "bogus", None, 3):

@@ -15,8 +15,9 @@ type SecurityTierResult struct {
 
 // SecurityTierInput holds the signed fields the adaptive security tier reads
 // (spec §14.2). RiskScore comes from the bundle's PolicyDecision, never from
-// the intent; the other fields are intent fields. SecurityTier is the intent's
-// explicit security_tier and can only raise the result.
+// the intent, and a value outside 0..1000 counts as unknown; the other fields
+// are intent fields. SecurityTier is the intent's explicit security_tier and
+// can only raise the result.
 type SecurityTierInput struct {
 	RiskScore       int      `json:"risk_score"`
 	DataClasses     []string `json:"data_classes"`
@@ -46,7 +47,13 @@ var (
 // type, impact or data class list, fails closed to at least elevated.
 func ComputeSecurityTier(input SecurityTierInput) SecurityTierResult {
 	maximum, elevated := false, false
-	unknown := input.DataClasses == nil || !schemaActionTypes[input.ActionType] || !schemaImpacts[input.EstimatedImpact]
+	score := input.RiskScore
+	scoreUnknown := score < 0 || score > 1000
+	if scoreUnknown {
+		score = 0
+	}
+	unknown := scoreUnknown || input.DataClasses == nil ||
+		!schemaActionTypes[input.ActionType] || !schemaImpacts[input.EstimatedImpact]
 	for _, dc := range input.DataClasses {
 		maximum = maximum || maximumDataClasses[dc]
 		elevated = elevated || elevatedDataClasses[dc]
@@ -55,12 +62,12 @@ func ComputeSecurityTier(input SecurityTierInput) SecurityTierResult {
 
 	var tier string
 	switch {
-	case input.RiskScore >= 800 || maximum:
+	case score >= 800 || maximum:
 		tier = "maximum"
-	case input.RiskScore >= 500 || elevated || unknown ||
+	case score >= 500 || elevated || unknown ||
 		input.ActionType == "initiate_payment" || input.EstimatedImpact == "high":
 		tier = "elevated"
-	case input.RiskScore >= 200 || input.EstimatedImpact == "medium":
+	case score >= 200 || input.EstimatedImpact == "medium":
 		tier = "standard"
 	default:
 		tier = "routine"
@@ -79,8 +86,9 @@ func ComputeSecurityTier(input SecurityTierInput) SecurityTierResult {
 
 // SecurityTierInputFromPayloads builds the tier input from a decoded intent
 // payload and the bundle's PolicyDecision payload (nil when there is none).
-// Values of the wrong type become unknown values, so they fail closed; a
-// risk_score that is not a number counts as 0.
+// Values of the wrong type become unknown values, so they fail closed; in a
+// policy decision, a risk_score that is not an integer from 0 to 1000, or none,
+// becomes RiskScore -1 (unknown). Without a policy decision RiskScore is 0.
 func SecurityTierInputFromPayloads(intent, policyDecision map[string]interface{}) SecurityTierInput {
 	var in SecurityTierInput
 	in.ActionType, _ = intent["action_type"].(string)
@@ -103,18 +111,27 @@ func SecurityTierInputFromPayloads(intent, policyDecision map[string]interface{}
 		}
 	}
 
-	var score float64
-	switch v := policyDecision["risk_score"].(type) {
-	case float64:
-		score = v
-	case int:
-		score = float64(v)
-	case int64:
-		score = float64(v)
-	case json.Number:
-		score, _ = v.Float64()
+	if policyDecision != nil {
+		score, ok := 0.0, true
+		switch v := policyDecision["risk_score"].(type) {
+		case float64:
+			score = v
+		case int:
+			score = float64(v)
+		case int64:
+			score = float64(v)
+		case json.Number:
+			var err error
+			score, err = v.Float64()
+			ok = err == nil
+		default:
+			ok = false
+		}
+		in.RiskScore = -1
+		if ok && score == math.Trunc(score) && score >= 0 && score <= 1000 {
+			in.RiskScore = int(score)
+		}
 	}
-	in.RiskScore = int(math.Max(0, math.Min(score, 1000)))
 	return in
 }
 

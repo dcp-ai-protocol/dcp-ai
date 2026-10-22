@@ -208,7 +208,7 @@ Veja [example.html](./example.html) para um demo interativo completo no navegado
 
 ## Níveis de Segurança
 
-`computeSecurityTier(intent, policyDecision?)` calcula o nível de segurança adaptativo (spec §14.2). `risk_score` vem da decisão de política (0 se não houver); um valor de `action_type`, `estimated_impact` ou `data_classes` desconhecido ou ausente conta como `elevated`, e `intent.security_tier` só pode elevar o resultado. Vale o nível mais alto que corresponder.
+`computeSecurityTier(intent, policyDecision?)` calcula o nível de segurança adaptativo (spec §14.2). `risk_score` vem da decisão de política (0 se não houver); um valor de `action_type`, `estimated_impact` ou `data_classes` desconhecido ou ausente, ou um `risk_score` ausente ou que não seja um inteiro de 0 a 1000, conta como `elevated`, e `intent.security_tier` só pode elevar o resultado. Vale o nível mais alto que corresponder.
 
 | Nível | Quando (qualquer um) | Modo de Verificação | Intervalo do Checkpoint |
 |------|---------------|-------------------|---------------------|

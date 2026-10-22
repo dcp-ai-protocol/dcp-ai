@@ -59,8 +59,19 @@ func TestSecurityTierInputFromPayloads_GoValues(t *testing.T) {
 			t.Fatalf("risk_score %T: got %s, want maximum", score, got.Tier)
 		}
 	}
-	if got := SecurityTierInputFromPayloads(intent, map[string]interface{}{"risk_score": 1e300}).RiskScore; got != 1000 {
-		t.Fatalf("huge risk_score: got %d, want 1000", got)
+	// A risk_score that is missing or not an integer from 0 to 1000 is unknown.
+	for _, pd := range []map[string]interface{}{
+		{"risk_score": 1e300}, {"risk_score": 900.5}, {"risk_score": -1}, {"risk_score": "900"},
+		{"risk_score": true}, {"risk_score": nil}, {},
+	} {
+		in := SecurityTierInputFromPayloads(intent, pd)
+		if got := ComputeSecurityTier(in); in.RiskScore != -1 || got.Tier != "elevated" {
+			t.Fatalf("%v: got RiskScore %d and %s, want -1 and elevated", pd, in.RiskScore, got.Tier)
+		}
+	}
+	direct := SecurityTierInput{RiskScore: 5000, DataClasses: []string{"none"}, ActionType: "browse", EstimatedImpact: "low"}
+	if got := ComputeSecurityTier(direct); got.Tier != "elevated" {
+		t.Fatalf("RiskScore 5000: got %s, want elevated", got.Tier)
 	}
 	if got := ComputeSecurityTier(SecurityTierInputFromPayloads(intent, nil)); got.Tier != "routine" {
 		t.Fatalf("nil policy decision: got %s, want routine", got.Tier)

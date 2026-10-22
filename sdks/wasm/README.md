@@ -208,7 +208,7 @@ See [example.html](./example.html) for a complete interactive browser demo.
 
 ## Security Tiers
 
-`computeSecurityTier(intent, policyDecision?)` computes the adaptive security tier (spec §14.2). `risk_score` comes from the policy decision (0 without one); an unknown or missing `action_type`, `estimated_impact` or `data_classes` value counts as `elevated`, and `intent.security_tier` can only raise the result. The highest matching tier applies.
+`computeSecurityTier(intent, policyDecision?)` computes the adaptive security tier (spec §14.2). `risk_score` comes from the policy decision (0 without one); an unknown or missing `action_type`, `estimated_impact` or `data_classes` value, or a `risk_score` that is missing or not an integer from 0 to 1000, counts as `elevated`, and `intent.security_tier` can only raise the result. The highest matching tier applies.
 
 | Tier | When (any of) | Verification Mode | Checkpoint Interval |
 |------|---------------|-------------------|---------------------|

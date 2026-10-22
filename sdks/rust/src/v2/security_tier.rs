@@ -66,16 +66,22 @@ fn is_one_of(value: Option<&Value>, allowed: &[&str]) -> bool {
 }
 
 /// Compute the security tier (spec §14.2) from an intent and the bundle's
-/// policy decision. `risk_score` is read from the policy decision only; with
-/// no policy decision it counts as 0, as does a non-numeric value. A value
-/// outside the intent schema enums, including a missing `action_type`,
-/// `estimated_impact` or `data_classes`, fails closed to at least `Elevated`.
-/// An explicit `security_tier` on the intent can only raise the result.
+/// policy decision. `risk_score` is read from the policy decision only and
+/// must be an integer from 0 to 1000; with no (or a null) policy decision it
+/// counts as 0. A value outside the schemas, including a missing `action_type`,
+/// `estimated_impact`, `data_classes` or `risk_score`, fails closed to at least
+/// `Elevated`. An explicit `security_tier` on the intent can only raise the
+/// result.
 pub fn compute_security_tier(intent: &Value, policy_decision: Option<&Value>) -> SecurityTier {
-    let score = policy_decision
-        .and_then(|p| p.get("risk_score"))
-        .and_then(Value::as_f64)
-        .unwrap_or(0.0);
+    let score = match policy_decision.filter(|p| !p.is_null()) {
+        None => Some(0.0),
+        Some(p) => p
+            .get("risk_score")
+            .and_then(Value::as_f64)
+            .filter(|s| s.fract() == 0.0 && (0.0..=1000.0).contains(s)),
+    };
+    let score_known = score.is_some();
+    let score = score.unwrap_or(0.0);
     // A missing or non-array data_classes counts as one unknown value.
     let unknown_list = [Value::Null];
     let data_classes = intent
@@ -84,7 +90,8 @@ pub fn compute_security_tier(intent: &Value, policy_decision: Option<&Value>) ->
         .map_or(&unknown_list[..], Vec::as_slice);
     let action_type = intent.get("action_type");
     let impact = intent.get("estimated_impact");
-    let unknown = !is_one_of(action_type, ACTION_TYPES)
+    let unknown = !score_known
+        || !is_one_of(action_type, ACTION_TYPES)
         || !is_one_of(impact, IMPACTS)
         || data_classes.iter().any(|d| !is_one_of(Some(d), DATA_CLASSES));
 

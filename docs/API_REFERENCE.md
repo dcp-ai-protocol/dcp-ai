@@ -828,12 +828,12 @@ function computeSecurityTier(
 ): SecurityTier;
 ```
 
-**Decision logic** (`risk_score` comes from the policy decision; without one it is 0):
+**Decision logic** (`risk_score` comes from the policy decision and must be an integer from 0 to 1000; without a policy decision it is 0):
 
 | Condition | Tier |
 |-----------|------|
 | `risk_score >= 800`, or `credentials` / `children_data` | `'maximum'` |
-| `risk_score >= 500`, `pii` / `financial_data` / `health_data`, `initiate_payment`, `estimated_impact: 'high'`, or an unknown or missing `action_type`, `estimated_impact` or `data_classes` value | `'elevated'` |
+| `risk_score >= 500`, `pii` / `financial_data` / `health_data`, `initiate_payment`, `estimated_impact: 'high'`, or an unknown or missing `action_type`, `estimated_impact` or `data_classes` value, or a policy decision `risk_score` that is missing or not an integer from 0 to 1000 | `'elevated'` |
 | `risk_score >= 200` or `estimated_impact: 'medium'` | `'standard'` |
 | otherwise | `'routine'` |
 
