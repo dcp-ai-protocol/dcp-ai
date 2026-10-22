@@ -14,6 +14,8 @@ use crate::v2::domain_separation::{
     CTX_AGENT_PASSPORT, CTX_BUNDLE, CTX_INTENT, CTX_POLICY_DECISION, CTX_RESPONSIBLE_PRINCIPAL,
 };
 use crate::v2::dual_hash;
+use crate::v2::security_tier::{compute_security_tier, effective_verification_mode};
+use crate::v2::types::VerifierPolicy;
 
 /// Outcome of a V2 signed bundle verification.
 #[derive(Debug, Default, Serialize)]
@@ -26,13 +28,41 @@ pub struct V2VerificationResult {
     pub pq_valid: bool,
     pub session_binding_valid: bool,
     pub manifest_valid: bool,
+    /// The mode the bundle was checked against: the stricter of the policy mode
+    /// and the security tier's mode (spec §14.3).
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub verification_mode: String,
+    /// The security tier of the bundle's intent and policy decision.
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub resolved_tier: String,
 }
 
-/// Verify a V2 signed bundle: structure, manifest hashes, session nonce
-/// binding, the composite signatures over the manifest and over each
-/// artifact, and the audit hash chain.
+/// Verify a V2 signed bundle under the default verifier policy: structure,
+/// manifest hashes, session nonce binding, the composite signatures over the
+/// manifest and over each artifact, and the audit hash chain.
 pub fn verify_signed_bundle_v2(signed_bundle: &Value) -> V2VerificationResult {
+    verify_signed_bundle_v2_with_policy(signed_bundle, &VerifierPolicy::default())
+}
+
+/// Verify a V2 signed bundle against the stricter of the policy mode
+/// (`default_mode`, or the `risk_overrides` entry for the passport's
+/// `risk_tier`) and the security tier's mode (spec §14.3). Only those two
+/// fields are enforced; a policy that changes any other field fails
+/// verification instead of having the setting ignored.
+pub fn verify_signed_bundle_v2_with_policy(signed_bundle: &Value, policy: &VerifierPolicy) -> V2VerificationResult {
     let mut r = V2VerificationResult { dcp_version: "2.0".into(), ..Default::default() };
+    let enforced = VerifierPolicy {
+        default_mode: policy.default_mode.clone(),
+        risk_overrides: policy.risk_overrides.clone(),
+        ..VerifierPolicy::default()
+    };
+    if *policy != enforced {
+        r.errors.push(
+            "Verifier policy sets fields this verifier does not enforce: only default_mode and risk_overrides may differ from the default"
+                .to_string(),
+        );
+        return r;
+    }
 
     let bundle = match signed_bundle.get("bundle") {
         Some(b) => b,
@@ -108,6 +138,27 @@ pub fn verify_signed_bundle_v2(signed_bundle: &Value) -> V2VerificationResult {
         }
     }
 
+    // Verification mode: the agent's risk_tier and intent can raise the policy
+    // mode but never take it below the security tier's mode.
+    let payload_of = |field: &str| bundle.get(field).and_then(|a| a.get("payload"));
+    let risk_tier = payload_of("agent_passport")
+        .and_then(|p| p.get("risk_tier"))
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let policy_mode = policy
+        .risk_overrides
+        .get(risk_tier)
+        .filter(|_| !risk_tier.is_empty())
+        .unwrap_or(&policy.default_mode);
+    if !matches!(policy_mode.as_str(), "classical_only" | "hybrid_preferred" | "hybrid_required" | "pq_only") {
+        r.errors.push("Unknown verification mode in verifier policy".to_string());
+        return r;
+    }
+    let tier = compute_security_tier(payload_of("intent").unwrap_or(&Value::Null), payload_of("policy_decision"));
+    let mode = effective_verification_mode(policy_mode, tier);
+    r.resolved_tier = tier.as_str().to_string();
+    r.verification_mode = mode.to_string();
+
     // Bundle composite_sig over the manifest: signed by the agent or by its principal.
     let rpr_keys = payload_keys(bundle, "responsible_principal_record", "binding_keys");
     let agent_keys = payload_keys(bundle, "agent_passport", "keys");
@@ -120,11 +171,10 @@ pub fn verify_signed_bundle_v2(signed_bundle: &Value) -> V2VerificationResult {
                 Ok((cs, result)) => {
                     r.classical_valid = result.classical_valid;
                     r.pq_valid = result.pq_valid;
-                    if !result.valid {
-                        r.errors.push("Bundle signature verification failed".to_string());
-                    }
-                    if cs.binding == "classical_only" {
-                        r.warnings.push("Bundle uses classical_only binding (no PQ protection)".to_string());
+                    match check_mode(mode, &cs, &result) {
+                        Err(e) => r.errors.push(format!("Bundle {}", e)),
+                        Ok(Some(w)) => r.warnings.push(format!("Bundle {}", w)),
+                        Ok(None) => {}
                     }
                 }
                 Err(e) => r.errors.push(format!("Bundle signature: {}", e)),
@@ -146,14 +196,12 @@ pub fn verify_signed_bundle_v2(signed_bundle: &Value) -> V2VerificationResult {
             continue;
         };
         match verify_composite_sig(context, payload, artifact.get("composite_sig"), keys) {
-            Ok((_, result)) if !result.valid => {
-                r.errors.push(format!("{} signature verification failed", field));
-            }
-            Ok((cs, _)) if cs.binding == "classical_only" => {
-                r.warnings.push(format!("{} uses classical_only binding (no PQ protection)", field));
-            }
-            Ok(_) => {}
             Err(e) => r.errors.push(format!("{} signature: {}", field, e)),
+            Ok((cs, result)) => match check_mode(mode, &cs, &result) {
+                Err(e) => r.errors.push(format!("{} {}", field, e)),
+                Ok(Some(w)) => r.warnings.push(format!("{} {}", field, w)),
+                Ok(None) => {}
+            },
         }
     }
 
@@ -178,6 +226,28 @@ pub fn verify_signed_bundle_v2(signed_bundle: &Value) -> V2VerificationResult {
     r.manifest_valid = bundle.get("manifest").is_some();
     r.verified = r.errors.is_empty();
     r
+}
+
+/// Apply the verification mode to one verified composite signature
+/// (VERIFICATION.md V2-7, V2-9): `Err` rejects it, `Ok(Some(_))` is a warning.
+/// A PQ signature that is present must verify in every mode; `result.valid`
+/// covers both components for pq_over_classical.
+fn check_mode(mode: &str, cs: &CompositeSignature, result: &CompositeVerifyResult) -> Result<Option<String>, String> {
+    match mode {
+        "pq_only" if cs.binding != "pq_over_classical" || !result.pq_valid => {
+            Err("PQ signature invalid or missing (pq_only)".into())
+        }
+        "pq_only" if !result.classical_valid => Ok(Some("classical signature not verified in pq_only mode".into())),
+        "pq_only" => Ok(None),
+        "hybrid_required" if cs.binding != "pq_over_classical" => {
+            Err(format!("hybrid_required needs a pq_over_classical signature, got {}", cs.binding))
+        }
+        _ if !result.valid => Err("signature verification failed".into()),
+        "hybrid_preferred" if cs.binding == "classical_only" => {
+            Ok(Some("classical_only binding (no PQ protection)".into()))
+        }
+        _ => Ok(None),
+    }
 }
 
 /// Key entries listed under `field` in an artifact's payload.

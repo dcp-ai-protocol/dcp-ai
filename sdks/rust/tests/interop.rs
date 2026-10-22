@@ -21,7 +21,10 @@ use dcp_ai::v2::canonicalize::canonicalize_v2;
 use dcp_ai::v2::composite_ops::{composite_verify, CompositeKeyInfo};
 use dcp_ai::v2::composite_sig::CompositeSignature;
 use dcp_ai::v2::crypto_provider::{derive_kid, CryptoProvider};
-use dcp_ai::v2::verify_bundle::verify_signed_bundle_v2;
+use dcp_ai::v2::types::VerifierPolicy;
+use dcp_ai::v2::verify_bundle::{
+    verify_signed_bundle_v2, verify_signed_bundle_v2_with_policy, V2VerificationResult,
+};
 use dcp_ai::v2::security_tier::{
     compute_security_tier, effective_verification_mode, tier_to_checkpoint_interval,
     tier_to_verification_mode, SecurityTier,
@@ -494,38 +497,71 @@ fn canonicalization_edge_cases() {
 // Signed bundle verification (bundle_vectors.json)
 // ---------------------------------------------------------------------------
 
-/// The shared signed bundle must verify, and each must_reject case's mutations
-/// (VERIFICATION.md V2-7 / V2-8) must make it fail with an error naming error_contains.
+/// Under every verification mode, the shared signed bundle must verify, each
+/// must_reject case's mutations (VERIFICATION.md V2-7 / V2-8) and each
+/// must_reject_bundles entry must be rejected with an error naming
+/// error_contains, and the classical-only routine control must get its
+/// expected verdict.
 #[test]
 fn signed_bundle_vectors() {
     let data = fs::read_to_string(vectors_path().with_file_name("bundle_vectors.json"))
         .expect("read bundle vectors");
     let vectors: Value = serde_json::from_str(&data).expect("parse bundle vectors");
     let signed = &vectors["signed_bundle"];
-
-    let result = verify_signed_bundle_v2(signed);
-    assert!(result.verified, "signed_bundle must verify: {:?}", result.errors);
-
-    for case in vectors["must_reject"].as_array().expect("must_reject") {
-        let mut mutated = signed.clone();
-        for mutation in case["mutations"].as_array().expect("mutations") {
-            let mut node = &mut mutated;
-            for key in mutation["path"].as_array().expect("path") {
-                node = &mut node[key.as_str().expect("path key")];
-            }
-            *node = mutation["value"].clone();
-        }
-        let result = verify_signed_bundle_v2(&mutated);
-        assert!(!result.verified, "{} must be rejected", case["name"]);
+    let assert_rejected = |result: &V2VerificationResult, case: &Value, mode: &str| {
         let want = case["error_contains"].as_str().expect("error_contains");
+        assert!(!result.verified, "{mode}: {} must be rejected", case["name"]);
         assert!(
             result.errors.iter().any(|e| e.to_lowercase().contains(want)),
-            "{}: no error mentions {}: {:?}",
+            "{mode}: {}: no error mentions {want}: {:?}",
             case["name"],
-            want,
             result.errors
         );
+    };
+
+    for mode in ["classical_only", "hybrid_preferred", "hybrid_required", "pq_only"] {
+        let policy = VerifierPolicy {
+            default_mode: mode.into(),
+            risk_overrides: ["low", "medium", "high"].iter().map(|t| (t.to_string(), mode.to_string())).collect(),
+            ..VerifierPolicy::default()
+        };
+        let result = verify_signed_bundle_v2_with_policy(signed, &policy);
+        assert!(result.verified, "{mode}: signed_bundle must verify: {:?}", result.errors);
+
+        for case in vectors["must_reject"].as_array().expect("must_reject") {
+            let mut mutated = signed.clone();
+            for mutation in case["mutations"].as_array().expect("mutations") {
+                let mut node = &mut mutated;
+                for key in mutation["path"].as_array().expect("path") {
+                    node = &mut node[key.as_str().expect("path key")];
+                }
+                *node = mutation["value"].clone();
+            }
+            assert_rejected(&verify_signed_bundle_v2_with_policy(&mutated, &policy), case, mode);
+        }
+        for case in vectors["must_reject_bundles"].as_array().expect("must_reject_bundles") {
+            assert_rejected(&verify_signed_bundle_v2_with_policy(&case["signed_bundle"], &policy), case, mode);
+        }
+        let control = &vectors["classical_only_routine_bundle"];
+        let result = verify_signed_bundle_v2_with_policy(&control["signed_bundle"], &policy);
+        assert_eq!(result.verified, control["verified_by_mode"][mode], "{mode}: control: {:?}", result.errors);
     }
+
+    // The default policy maps the low-risk passport to classical_only; the
+    // result reports the tier and the mode the tier raised it to.
+    let control = verify_signed_bundle_v2(&vectors["classical_only_routine_bundle"]["signed_bundle"]);
+    assert!(control.verified, "control: {:?}", control.errors);
+    assert_eq!((control.resolved_tier.as_str(), control.verification_mode.as_str()), ("routine", "classical_only"));
+    let payment = verify_signed_bundle_v2(&vectors["must_reject_bundles"][0]["signed_bundle"]);
+    assert!(!payment.verified, "{} must be rejected", vectors["must_reject_bundles"][0]["name"]);
+    assert_eq!((payment.resolved_tier.as_str(), payment.verification_mode.as_str()), ("elevated", "hybrid_required"));
+
+    let unknown = VerifierPolicy { default_mode: "strict".into(), risk_overrides: Default::default(), ..VerifierPolicy::default() };
+    assert!(!verify_signed_bundle_v2_with_policy(signed, &unknown).verified, "an unknown policy mode must fail closed");
+    // Only default_mode and risk_overrides are enforced, so another setting
+    // must not pass silently.
+    let tuned = VerifierPolicy { accepted_classical_algs: vec!["ed448".into()], ..VerifierPolicy::default() };
+    assert!(!verify_signed_bundle_v2_with_policy(signed, &tuned).verified, "a policy field the verifier does not enforce must fail closed");
 }
 
 /// wasm_sign_payload, wasm_build_bundle and wasm_sign_bundle produce a bundle
@@ -576,8 +612,32 @@ fn wasm_build_sign_verify_round_trip() {
         &s(&principal, "pq", "secret_key_b64"),
         &s(&principal, "pq", "kid"),
     );
-    let result: Value = serde_json::from_str(&wasm_verify_signed_bundle_v2(&signed)).unwrap();
+    let result: Value = serde_json::from_str(&wasm_verify_signed_bundle_v2(&signed, None)).unwrap();
     assert_eq!(result["verified"], true, "{}", result["errors"]);
+    // An intent without the schema fields is elevated, so the default policy's
+    // hybrid_preferred is raised to hybrid_required.
+    assert_eq!(result["verification_mode"], "hybrid_required");
+
+    // A policy must be a complete VerifierPolicy: a partial one fails closed.
+    let partial = Some(r#"{"default_mode":"classical_only"}"#.to_string());
+    let result: Value = serde_json::from_str(&wasm_verify_signed_bundle_v2(&signed, partial)).unwrap();
+    assert_eq!(result["verified"], false);
+    assert!(result["errors"][0].as_str().unwrap().contains("Policy parse error"), "{}", result["errors"]);
+}
+
+/// A verifier policy applies to V2 bundles, so with one a V1 bundle is
+/// rejected instead of being verified without it.
+#[cfg(feature = "wasm")]
+#[test]
+fn wasm_verify_rejects_v1_bundles_under_a_policy() {
+    use dcp_ai::wasm::wasm_verify_signed_bundle_v2;
+
+    let tests_dir = vectors_path().parent().unwrap().parent().unwrap().parent().unwrap().to_path_buf();
+    let v1 = fs::read_to_string(tests_dir.join("conformance/examples/citizenship_bundle.signed.json")).unwrap();
+    let policy = serde_json::to_string(&VerifierPolicy::default()).unwrap();
+    let result: Value = serde_json::from_str(&wasm_verify_signed_bundle_v2(&v1, Some(policy))).unwrap();
+    assert_eq!(result["verified"], false);
+    assert!(result["errors"][0].as_str().unwrap().contains("V1"), "{}", result["errors"]);
 }
 
 // ---------------------------------------------------------------------------

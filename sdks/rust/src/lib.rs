@@ -338,8 +338,20 @@ pub mod wasm {
     }
 
     /// Full V2 bundle verification with cryptographic signature checks.
+    ///
+    /// `policy_json` is a full `VerifierPolicy` for V2 bundles; without it the
+    /// default policy applies. The mode is the stricter of the policy mode and
+    /// the security tier's mode (spec §14.3). The V1 verifier cannot apply a
+    /// policy, so with one a V1 bundle is rejected.
     #[wasm_bindgen]
-    pub fn wasm_verify_signed_bundle_v2(signed_bundle_json: &str) -> String {
+    pub fn wasm_verify_signed_bundle_v2(signed_bundle_json: &str, policy_json: Option<String>) -> String {
+        let policy: crate::v2::types::VerifierPolicy = match policy_json.as_deref().map(serde_json::from_str) {
+            None => Default::default(),
+            Some(Ok(p)) => p,
+            Some(Err(e)) => return serde_json::to_string(&json!({
+                "verified": false, "errors": [format!("Policy parse error: {}", e)]
+            })).unwrap(),
+        };
         let val: Value = match serde_json::from_str(signed_bundle_json) {
             Ok(v) => v,
             Err(e) => return serde_json::to_string(&json!({
@@ -348,12 +360,15 @@ pub mod wasm {
         };
 
         match crate::detect_dcp_version(&val) {
+            Some("1.0") if policy_json.is_some() => serde_json::to_string(&json!({
+                "verified": false, "errors": ["V1 bundles cannot be verified under a verifier policy"]
+            })).unwrap(),
             Some("1.0") => {
                 let result = verify::verify_signed_bundle(&val, None);
                 serde_json::to_string(&result).unwrap_or_else(|_| "{\"verified\":false}".to_string())
             },
             Some("2.0") => {
-                let result = crate::v2::verify_bundle::verify_signed_bundle_v2(&val);
+                let result = crate::v2::verify_bundle::verify_signed_bundle_v2_with_policy(&val, &policy);
                 serde_json::to_string(&result).unwrap_or_else(|_| "{\"verified\":false}".to_string())
             },
             _ => serde_json::to_string(&json!({

@@ -65,6 +65,28 @@ export interface V2VerificationResult {
   pq_valid: boolean;
   session_binding_valid: boolean;
   manifest_valid: boolean;
+  /** V2 only: the mode the bundle was checked against, the stricter of the policy and the security tier. */
+  verification_mode?: 'classical_only' | 'hybrid_preferred' | 'hybrid_required' | 'pq_only';
+  /** V2 only: the security tier of the bundle's intent and policy decision. */
+  resolved_tier?: SecurityTierResult['tier'];
+}
+
+/**
+ * Verifier policy for V2 bundles, with every field. Without one, `verifyBundle`
+ * uses the default policy. Only default_mode and risk_overrides may differ from it.
+ */
+export interface VerifierPolicy {
+  default_mode: NonNullable<V2VerificationResult['verification_mode']>;
+  risk_overrides: Record<string, NonNullable<V2VerificationResult['verification_mode']>>;
+  min_classical: number;
+  min_pq: number;
+  accepted_classical_algs: string[];
+  accepted_pq_algs: string[];
+  accepted_hash_algs: string[];
+  require_session_binding: boolean;
+  require_composite_binding: boolean;
+  max_key_age_days: number;
+  allow_v1_bundles: boolean;
 }
 
 export interface KemKeypairResult {
