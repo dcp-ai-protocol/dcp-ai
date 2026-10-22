@@ -68,21 +68,13 @@ pub mod wasm {
     use crate::v2::dual_hash;
     use crate::v2::canonicalize::canonicalize_v2;
     use crate::v2::signed_payload;
+    use crate::v2::verify_bundle::provider_for_alg;
     use crate::v2::proof_of_possession::{
         PopChallenge, generate_registration_pop, verify_registration_pop,
     };
 
     fn json_err(msg: &str) -> String {
         format!("{{\"error\":\"{}\"}}", msg.replace('"', "'"))
-    }
-
-    fn provider_for_alg(alg: &str) -> Result<Box<dyn CryptoProvider>, String> {
-        match alg {
-            "ed25519" => Ok(Box::new(Ed25519Provider)),
-            "ml-dsa-65" => Ok(Box::new(MlDsa65Provider)),
-            "slh-dsa-192f" => Ok(Box::new(SlhDsa192fProvider)),
-            _ => Err(format!("Unknown algorithm: {}", alg)),
-        }
     }
 
     // ── V1 Compatibility ──────────────────────────────────────────────────
@@ -355,195 +347,19 @@ pub mod wasm {
             })).unwrap(),
         };
 
-        let version = crate::detect_dcp_version(&val);
-
-        match version {
+        match crate::detect_dcp_version(&val) {
             Some("1.0") => {
                 let result = verify::verify_signed_bundle(&val, None);
-                return serde_json::to_string(&result).unwrap_or_else(|_| "{\"verified\":false}".to_string());
+                serde_json::to_string(&result).unwrap_or_else(|_| "{\"verified\":false}".to_string())
             },
-            Some("2.0") => {},
-            _ => {
-                return serde_json::to_string(&json!({
-                    "verified": false, "errors": ["Unknown DCP version"]
-                })).unwrap();
-            }
-        }
-
-        let mut errors: Vec<String> = Vec::new();
-        let mut warnings: Vec<String> = Vec::new();
-        let mut classical_valid = false;
-        let mut pq_valid = false;
-
-        let bundle = match val.get("bundle") {
-            Some(b) => b,
-            None => return serde_json::to_string(&json!({
-                "verified": false, "errors": ["Missing bundle field"]
+            Some("2.0") => {
+                let result = crate::v2::verify_bundle::verify_signed_bundle_v2(&val);
+                serde_json::to_string(&result).unwrap_or_else(|_| "{\"verified\":false}".to_string())
+            },
+            _ => serde_json::to_string(&json!({
+                "verified": false, "errors": ["Unknown DCP version"]
             })).unwrap(),
-        };
-        let signature = match val.get("signature") {
-            Some(s) => s,
-            None => return serde_json::to_string(&json!({
-                "verified": false, "errors": ["Missing signature field"]
-            })).unwrap(),
-        };
-
-        if bundle.get("dcp_bundle_version").and_then(|v| v.as_str()) != Some("2.0") {
-            errors.push("Invalid dcp_bundle_version".to_string());
         }
-        if bundle.get("manifest").is_none() {
-            errors.push("Missing manifest in bundle".to_string());
-        }
-        for field in &["responsible_principal_record", "agent_passport", "intent", "policy_decision"] {
-            if bundle.get(*field).is_none() {
-                errors.push(format!("Missing {} in bundle", field));
-            }
-        }
-
-        let manifest_nonce = bundle.get("manifest")
-            .and_then(|m| m.get("session_nonce"))
-            .and_then(|n| n.as_str())
-            .unwrap_or("");
-        if manifest_nonce.is_empty() {
-            errors.push("Missing session_nonce in manifest".to_string());
-        }
-
-        // Verify manifest hashes against actual artifact hashes
-        if let Some(manifest) = bundle.get("manifest") {
-            for (field, hash_key) in &[
-                ("responsible_principal_record", "rpr_hash"),
-                ("agent_passport", "passport_hash"),
-                ("intent", "intent_hash"),
-                ("policy_decision", "policy_hash"),
-            ] {
-                if let (Some(artifact), Some(expected)) = (
-                    bundle.get(*field).and_then(|a| a.get("payload")),
-                    manifest.get(*hash_key).and_then(|h| h.as_str()),
-                ) {
-                    if let Ok(canonical) = canonicalize_v2(artifact) {
-                        let dh = dual_hash::dual_hash_canonical(&canonical);
-                        let computed = format!("sha256:{}", dh.sha256);
-                        if computed != expected {
-                            errors.push(format!("Manifest {} mismatch", hash_key));
-                        }
-                    }
-                }
-            }
-        }
-
-        // Session nonce consistency across artifacts
-        if !manifest_nonce.is_empty() {
-            for field in &["responsible_principal_record", "agent_passport", "intent", "policy_decision"] {
-                if let Some(nonce) = bundle.get(*field)
-                    .and_then(|a| a.get("payload"))
-                    .and_then(|p| p.get("session_nonce"))
-                    .and_then(|n| n.as_str())
-                {
-                    if nonce != manifest_nonce {
-                        errors.push(format!("Session nonce mismatch in {}", field));
-                        break;
-                    }
-                }
-            }
-        }
-
-        // Cryptographic signature verification on the bundle-level composite_sig
-        if let Some(cs_val) = signature.get("composite_sig") {
-            if let Ok(cs) = serde_json::from_value::<CompositeSignature>(cs_val.clone()) {
-                let binding = cs.binding.as_str();
-
-                // We need public keys from the passport
-                let passport_keys = bundle.get("agent_passport")
-                    .and_then(|a| a.get("payload"))
-                    .and_then(|p| p.get("keys"))
-                    .and_then(|k| k.as_array());
-
-                let mut classical_pk: Option<String> = None;
-                let mut pq_pk: Option<String> = None;
-
-                if let Some(keys) = passport_keys {
-                    for key_entry in keys {
-                        let alg = key_entry.get("alg").and_then(|a| a.as_str()).unwrap_or("");
-                        let pk = key_entry.get("public_key_b64").and_then(|p| p.as_str());
-                        match alg {
-                            "ed25519" => classical_pk = pk.map(|s| s.to_string()),
-                            "ml-dsa-65" => pq_pk = pk.map(|s| s.to_string()),
-                            _ => {}
-                        }
-                    }
-                }
-
-                // Verify bundle manifest signature
-                if let Some(manifest) = bundle.get("manifest") {
-                    if let Ok(canonical) = canonicalize_v2(manifest) {
-                        let ed = Ed25519Provider;
-                        let pq_prov = MlDsa65Provider;
-
-                        if let Some(ref cpk) = classical_pk {
-                            let pq_ref: Option<&dyn CryptoProvider> = if pq_pk.is_some() && binding == "pq_over_classical" {
-                                Some(&pq_prov)
-                            } else {
-                                None
-                            };
-                            match composite_verify(
-                                &ed, pq_ref,
-                                crate::v2::domain_separation::CTX_BUNDLE,
-                                canonical.as_bytes(), &cs, cpk,
-                                pq_pk.as_deref(),
-                            ) {
-                                Ok(result) => {
-                                    classical_valid = result.classical_valid;
-                                    pq_valid = result.pq_valid;
-                                    if !result.valid {
-                                        errors.push("Bundle signature verification failed".to_string());
-                                    }
-                                },
-                                Err(e) => errors.push(format!("Signature verify error: {}", e)),
-                            }
-                        } else {
-                            warnings.push("No classical public key found in passport".to_string());
-                        }
-                    }
-                }
-
-                if binding == "classical_only" {
-                    warnings.push("Bundle uses classical_only binding (no PQ protection)".to_string());
-                }
-            } else {
-                errors.push("Invalid composite_sig structure".to_string());
-            }
-        } else {
-            errors.push("Missing composite_sig in signature".to_string());
-        }
-
-        // Verify audit entry hash chain
-        if let Some(entries) = bundle.get("audit_entries").and_then(|e| e.as_array()) {
-            let mut expected_prev = "sha256:".to_string() + &"0".repeat(64);
-            for (i, entry) in entries.iter().enumerate() {
-                if let Some(prev) = entry.get("prev_hash").and_then(|p| p.as_str()) {
-                    if i > 0 && prev != expected_prev {
-                        errors.push(format!("Audit hash chain broken at entry {}", i));
-                        break;
-                    }
-                }
-                if let Ok(canonical) = canonicalize_v2(entry) {
-                    let dh = dual_hash::dual_hash_canonical(&canonical);
-                    expected_prev = format!("sha256:{}", dh.sha256);
-                }
-            }
-        }
-
-        let verified = errors.is_empty();
-        serde_json::to_string(&json!({
-            "verified": verified,
-            "dcp_version": "2.0",
-            "errors": errors,
-            "warnings": warnings,
-            "classical_valid": classical_valid,
-            "pq_valid": pq_valid,
-            "session_binding_valid": !manifest_nonce.is_empty(),
-            "manifest_valid": bundle.get("manifest").is_some()
-        })).unwrap()
     }
 
     // ── Canonicalization & Domain Separation ───────────────────────────────
