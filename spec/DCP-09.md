@@ -49,7 +49,7 @@ DCP-09 addresses five interconnected concerns:
 
 **Mandate Chain**: When an agent delegates a subset of its authority to another agent, the chain of mandates from the original human principal through intermediate agents to the final delegate.
 
-**Domain Separation Tags**: `DCP-DELEGATION-SIG-v2` (delegation and interaction records), `DCP-AWARENESS-SIG-v2` (awareness thresholds and advisory declarations).
+**Domain Separation Tags**: `DCP-DELEGATION-SIG-v2` (delegation and interaction records), `DCP-AWARENESS-SIG-v2` (awareness thresholds and advisory declarations), `DCP-AI.v2.SubMandate` (sub-mandates, Section 3.5).
 
 ## 3. Delegation Mandate
 
@@ -197,12 +197,35 @@ The `mandate_hash` is a SHA-256 hash of the canonical (deterministically seriali
 
 ### 3.5 Sub-Delegation
 
-When `sub_delegation.permitted` is `true`, the delegate agent may issue a sub-mandate to another agent. Sub-delegation constraints:
-- Sub-delegation depth is limited by `max_depth` (0 = no sub-delegation, 1 = one level, etc.)
-- Sub-mandates MUST be strictly narrower than the parent mandate (scope reduction only)
-- Sub-mandates MUST inherit the parent mandate's prohibitions
-- Sub-mandates MUST reference the parent mandate's `mandate_id`
-- The mandate chain is verifiable: any party can trace authority back to the human principal
+A delegate agent MAY pass part of its authority on to another agent by issuing a **sub-mandate**: a `DelegationMandate` (`schemas/v2/delegation_mandate.schema.json`) that references its parent and is signed by the delegating agent instead of the human. The mandates from the human's root mandate down to the acting agent form the **mandate chain**. Responsibility survives every hop because each hop is signed, may only narrow what the previous one granted, and verifies offline back to the human principal.
+
+#### 3.5.1 Wire fields
+
+The wire schema has these optional fields, all absent on a mandate that is not part of a chain, so existing root mandates are unchanged byte for byte:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `parent_mandate_id` | string | `mandate_id` of the mandate this sub-mandate narrows. MUST be absent on a root mandate. |
+| `delegation_depth` | integer ≥ 0 | Hops from the human: `0` (or absent) on a root mandate, parent's depth + 1 on a sub-mandate. |
+| `sub_delegation` | `{ "permitted": boolean, "max_depth": integer ≥ 0 }` | Whether the delegate may sub-delegate, and the greatest `delegation_depth` any descendant may reach. Absent means sub-delegation is not permitted. |
+| `minimum_security_tier` | `routine` \| `standard` \| `elevated` \| `maximum` | Floor for the security tier (DCP-AI v2.0 §14.2) of every action under the mandate. |
+| `delegator_composite_sig` | `CompositeSignature` | Signature of the delegating agent (the parent mandate's `agent_id`) over the canonical sub-mandate, under the `DCP-AI.v2.SubMandate` domain-separation context. |
+
+A root mandate MUST carry `human_composite_sig` (context `DCP-AI.v2.Delegation`) and MUST NOT carry `delegator_composite_sig`. A sub-mandate MUST carry `delegator_composite_sig`, `parent_mandate_id` and `delegation_depth`, and MUST NOT carry `human_composite_sig`. The signed bytes are the canonical mandate without its signature field, under the context of its depth.
+
+#### 3.5.2 Chain verification
+
+A verifier that accepts a mandate chain MUST take the ordered chain (root first), the set of revoked `mandate_id`s, the verification time and the keys of the human principal and of every delegating agent, and MUST reject the whole chain unless all of the following hold. Timestamps are parsed as RFC 3339 instants and MUST NOT be compared as text. Any field with an unknown value, any field missing for the mandate's depth and any input that is not comparable fails closed.
+
+1. **Root.** The first mandate has `delegation_depth` 0 or none, no `parent_mandate_id`, and a `human_composite_sig` that verifies against the human principal's keys.
+2. **Link.** Each sub-mandate's `parent_mandate_id` equals the previous mandate's `mandate_id`; its `delegation_depth` is the parent's + 1; its `human_id` equals the parent's; and its `delegator_composite_sig` verifies against the keys of the parent's `agent_id`.
+3. **Permission and depth.** The parent's `sub_delegation.permitted` is `true`, and the sub-mandate's `delegation_depth` is at most the smallest `sub_delegation.max_depth` of all its ancestors.
+4. **Validity window.** `valid_from` is not before the parent's and `valid_until` is not after the parent's, and the verification time lies within every mandate's window.
+5. **Attenuation.** Every `authority_scope` entry of the sub-mandate matches a parent entry with the same `domain`; its `actions_permitted` is a subset of the parent's; its `data_classes` is a subset of the parent's, and when the parent entry has no `data_classes` the sub-mandate entry has none; for every key of the parent entry's `limits`, the sub-mandate entry has the key with a numeric value not greater than the parent's or a value identical to the parent's; the sub-mandate MAY add keys. A domain that appears twice in one mandate is not comparable.
+6. **Tier floor.** When the parent has a `minimum_security_tier`, the sub-mandate has one that is not below it (`routine` < `standard` < `elevated` < `maximum`). The chain's effective tier is the greatest `minimum_security_tier` along it; a verifier feeding it into the tier computation of DCP-AI v2.0 §14.2 MUST let it only raise the tier.
+7. **Revocation.** No mandate of the chain is revoked. A revoked ancestor invalidates every descendant.
+
+Reference implementations: `verifyMandateChain` (TypeScript), `verify_mandate_chain` (Python and Rust) and `VerifyMandateChain` (Go). `tests/interop/v2/mandate_chain_vectors.json` holds chains every implementation MUST accept and chains it MUST reject, and all four SDK suites run it.
 
 ### 3.6 Mandate Revocation
 
@@ -739,10 +762,10 @@ An agent could attempt to exceed its delegated authority by misrepresenting its 
 ### 10.3 Sub-Delegation Abuse
 
 Sub-delegation creates chains of authority that could be exploited. Mitigations:
-- Sub-delegation depth is limited by the parent mandate
-- Sub-mandates MUST be strictly narrower than the parent
-- The full mandate chain is verifiable back to the human principal
-- Sub-delegation is disabled by default (`permitted: false`)
+- Sub-delegation depth is limited by `sub_delegation.max_depth` of every ancestor (Section 3.5)
+- Sub-mandates MUST be narrower than the parent: a subset of actions and data classes, limits that are not looser, a validity window inside the parent's, and a `minimum_security_tier` that is not below the parent's, so a subagent can never lower the security tier of whoever delegated to it
+- The full mandate chain is verifiable offline back to the human principal: each hop is signed by the previous delegate and a revoked ancestor invalidates every descendant
+- Sub-delegation is disabled by default (`sub_delegation` absent or `permitted: false`)
 
 ### 10.4 Stale Awareness Thresholds
 
@@ -762,9 +785,12 @@ The narrative layer of interaction records could be crafted to present a mislead
 
 ### 10.6 Domain Separation
 
-This specification uses two domain separation tags:
+This specification uses three domain separation tags:
 - `DCP-DELEGATION-SIG-v2` for delegation mandates, principal mirrors, and interaction records
 - `DCP-AWARENESS-SIG-v2` for awareness thresholds and advisory declarations
+- `DCP-AI.v2.SubMandate` for sub-mandates (Section 3.5), so a mandate signed by a delegating agent can never pass for one signed by a human principal
+
+On the DCP-AI v2.0 wire the first two are the context tags `DCP-AI.v2.Delegation` and `DCP-AI.v2.Awareness` (DCP-AI v2.0 §4.1).
 
 This separation prevents signatures from one context being replayed in another.
 

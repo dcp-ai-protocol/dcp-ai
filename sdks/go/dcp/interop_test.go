@@ -294,6 +294,7 @@ func TestInteropDomainSeparation(t *testing.T) {
 		"Rights":                  v2.CtxRights,
 		"Delegation":              v2.CtxDelegation,
 		"Awareness":               v2.CtxAwareness,
+		"SubMandate":              v2.CtxSubMandate,
 	}
 	seen := map[string]bool{}
 	for name, ctx := range ctxMap {

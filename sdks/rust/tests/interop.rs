@@ -35,7 +35,7 @@ use dcp_ai::v2::domain_separation::{
     CTX_DELEGATION, CTX_DISPUTE, CTX_HUMAN_CONFIRMATION, CTX_INTENT,
     CTX_JURISDICTION_ATTESTATION, CTX_KEY_ROTATION, CTX_LIFECYCLE, CTX_MULTI_PARTY_AUTH,
     CTX_POLICY_DECISION, CTX_PROOF_OF_POSSESSION, CTX_RESPONSIBLE_PRINCIPAL, CTX_REVOCATION,
-    CTX_RIGHTS, CTX_SUCCESSION,
+    CTX_RIGHTS, CTX_SUB_MANDATE, CTX_SUCCESSION,
 };
 
 fn vectors_path() -> PathBuf {
@@ -90,6 +90,7 @@ fn ctx_map() -> Vec<(&'static str, &'static str)> {
         ("Rights", CTX_RIGHTS),
         ("Delegation", CTX_DELEGATION),
         ("Awareness", CTX_AWARENESS),
+        ("SubMandate", CTX_SUB_MANDATE),
     ]
 }
 

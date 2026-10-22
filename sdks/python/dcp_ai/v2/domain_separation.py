@@ -23,6 +23,7 @@ DCP_CONTEXTS: dict[str, str] = {
     "Rights": "DCP-AI.v2.Rights",
     "Delegation": "DCP-AI.v2.Delegation",
     "Awareness": "DCP-AI.v2.Awareness",
+    "SubMandate": "DCP-AI.v2.SubMandate",
 }
 
 _VALID_CONTEXTS = frozenset(DCP_CONTEXTS.values())
