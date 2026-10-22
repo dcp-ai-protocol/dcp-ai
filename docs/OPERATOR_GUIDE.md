@@ -238,16 +238,18 @@ V2 response includes the resolved security tier:
 
 ### Security Tiers in Verification
 
-The verification service respects and enforces security tiers:
+Each security tier maps to a verification mode and a PQ checkpoint interval (spec §14.1):
 
 | Tier | Verification Mode | PQ Checkpoint | Bundle Size |
 |------|------------------|---------------|-------------|
 | Routine | `classical_only` | Every 50 events | ~1-2 KB |
 | Standard | `hybrid_preferred` | Every 10 events | ~2-5 KB |
 | Elevated | `hybrid_required` | Every event | ~10-15 KB |
-| Maximum | `hybrid_required` + verify checkpoint | Every event | ~15-25 KB |
+| Maximum | `hybrid_required` | Every event | ~15-25 KB |
 
-The verifier can **upgrade** a tier (e.g., force `elevated` for financial operations) but MUST NOT **downgrade** it. SDK verifiers check each bundle against the stricter of the policy mode (the `risk_overrides` entry for the passport's `risk_tier`, or `default_mode`) and the tier's mode (spec §14.3), so a passport that declares `risk_tier: "low"` still needs a hybrid signature for a payment intent. The reference server gets this behaviour from `@dcp-ai/sdk` once its dependency is bumped.
+The verifier can **upgrade** a tier (e.g., force `elevated` for financial operations) but MUST NOT **downgrade** it. The SDK verifiers (TypeScript, Go, Rust, WASM and Python) check the bundle signature and every artifact signature against the stricter of the policy mode (the `risk_overrides` entry for the passport's `risk_tier`, or `default_mode`) and the tier's mode (spec §14.3), so a passport that declares `risk_tier: "low"` still needs a hybrid signature for a payment intent. No verifier checks PQ checkpoint contents yet (`spec/VERIFICATION.md` V2-12).
+
+The reference server's `POST /v2/bundle/verify` reports `resolved_tier`, and rejects a `classical_only` bundle signature when the tier needs `hybrid_required`. Its `verification_mode` field is the tier's mode, not the effective mode, and it does not apply the tier to the artifact signatures. It gets the full SDK behaviour once its `@dcp-ai/sdk` dependency is bumped.
 
 ### Capabilities Endpoint (V2)
 

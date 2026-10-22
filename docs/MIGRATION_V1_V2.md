@@ -674,7 +674,7 @@ For teams migrating a production system, the recommended order is:
 5. **Switch to composite signatures** using the v2.0 signing APIs.
 6. **Add dual-hash chains** to audit entries.
 7. **Implement bundle manifest** structure.
-8. **Add security tier computation** (optional but recommended).
+8. **Sign sensitive intents with hybrid signatures.** V2 verifiers enforce the security tier (spec §14.3): a `classical_only` bundle is rejected for a payment, sensitive data, high impact or a policy decision `risk_score` of 500 or more.
 9. **Run full conformance tests** including NIST KAT validation.
 10. **Disable v1.0 bundle acceptance** when all agents in your ecosystem have migrated.
 
