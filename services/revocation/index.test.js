@@ -49,6 +49,11 @@ test("registration is proven by the passport signature and cannot be hijacked", 
   const unsigned = { agent_id: "agent:charlie-1", emergency_revocation_token: `sha256:${"0".repeat(64)}` };
   assert.equal((await post("/v2/register-emergency-token", unsigned)).status, 404);
 
+  // Charlie's Ed25519 key alone, used in both composite slots, cannot replace the token.
+  const oneKey = { classical: charlie.keys.classical, pq: charlie.keys.classical };
+  const planted = { ...charlie.passport, emergency_revocation_token: `sha256:${"1".repeat(64)}` };
+  assert.equal((await post("/v2/register", { signed_passport: await signPassport(planted, oneKey) })).status, 403);
+
   // Charlie's own keys can replace the token, and the new secret works.
   const secret = crypto.randomBytes(32).toString("hex");
   const renewed = { ...charlie.passport, emergency_revocation_token: `sha256:${sha256Hex(Buffer.from(secret, "hex"))}` };
@@ -69,6 +74,8 @@ test("revocations must be signed by the agent's registered keys", async () => {
   assert.equal((await post("/v2/revoke", await signedBy(record, echo.keys))).status, 403);
   const foreignKid = { ...record, agent_id: "agent:echo-0001" };
   assert.equal((await post("/v2/revoke", await signedBy(foreignKid, echo.keys))).status, 403);
+  const oneKey = { classical: delta.keys.classical, pq: delta.keys.classical };
+  assert.equal((await post("/v2/revoke", await signedBy(record, oneKey))).status, 403);
   assert.equal((await checkKid(delta.keys.pq.kid)).revoked, false);
   assert.equal((await post("/v2/revoke", await signedBy(record, delta.keys))).status, 201);
   assert.equal((await checkKid(delta.keys.pq.kid)).revoked, true);

@@ -88,6 +88,16 @@ test("passport registration checks the self-signature and blocks agent hijacking
   assert.equal(owner.agent_id, "agent:alice-001");
 });
 
+test("one key in both composite slots is not a hybrid signature", async () => {
+  const dave = await newAgent("agent:dave-0001");
+  assert.equal((await post("/v2/passport/register", { signed_passport: dave.signedPassport })).status, 201);
+
+  // Holding only dave's Ed25519 key must not be enough to replace his emergency token.
+  const oneKey = { classical: dave.keys.classical, pq: dave.keys.classical };
+  const renewed = { ...dave.passport, emergency_revocation_token: `sha256:${"1".repeat(64)}` };
+  assert.equal((await post("/v2/passport/register", { signed_passport: await signPassport(renewed, oneKey) })).status, 403);
+});
+
 test("key rotation needs proof of possession by the new key and authorization by the old", async () => {
   const bob = await newAgent("agent:bob-0001");
   assert.equal((await post("/v2/passport/register", { signed_passport: bob.signedPassport })).status, 201);
@@ -150,6 +160,9 @@ test("multi-party authorization verifies each party's registered composite signa
   assert.equal(await submit(await authorize(owner, "party:owner-01", "owner"), await authorize(admin, "party:admin-01", "org_admin")), 200);
   // One party signing under two roles is still one party.
   assert.equal(await submit(await authorize(owner, "party:owner-01", "owner"), await authorize(owner, "party:owner-01", "org_admin")), 403);
+  // A party signing with one key in both slots is not a hybrid signature.
+  const ownerOneKey = { keys: { classical: owner.keys.classical, pq: owner.keys.classical } };
+  assert.equal(await submit(await authorize(ownerOneKey, "party:owner-01", "owner"), await authorize(admin, "party:admin-01", "org_admin")), 403);
   // Claiming a registered party_id with other keys fails.
   assert.equal(await submit(await authorize(owner, "party:owner-01", "owner"), await authorize(outsider, "party:admin-01", "org_admin")), 403);
 });
