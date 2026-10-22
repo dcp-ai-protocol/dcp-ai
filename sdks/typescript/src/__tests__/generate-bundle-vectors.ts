@@ -4,7 +4,9 @@
  * Writes tests/interop/v2/bundle_vectors.json: one signed bundle that every
  * SDK verifier MUST accept, and cases whose mutations (set `value` at `path`)
  * MUST make it reject the bundle with an error that names `error_contains`
- * (spec/VERIFICATION.md V2-6 to V2-8). As in a real
+ * (spec/VERIFICATION.md V2-6 to V2-8), whole signed bundles it MUST reject
+ * the same way (must_reject_bundles), and a classical-only control with its
+ * expected verdict per mode. As in a real
  * deployment the principal (RPR binding_keys) signs the RPR and the bundle,
  * and the agent (passport keys) signs the passport, intent and policy decision.
  *
@@ -21,13 +23,13 @@ import { AlgorithmRegistry } from '../core/crypto-registry.js';
 import { canonicalizeV2 } from '../core/canonicalize.js';
 import { DCP_CONTEXTS, domainSeparatedMessage } from '../core/domain-separation.js';
 import type { DcpContext } from '../core/domain-separation.js';
-import { compositeSign } from '../core/composite-ops.js';
+import { classicalOnlySign, compositeSign } from '../core/composite-ops.js';
 import type { CompositeKeyPair } from '../core/composite-ops.js';
 import { preparePayload } from '../core/signed-payload.js';
 import { sha256Hex } from '../core/dual-hash.js';
 import { generateSessionNonce } from '../core/session-nonce.js';
 import { BundleBuilderV2 } from '../bundle/builder-v2.js';
-import { signBundleV2 } from '../bundle/signer-v2.js';
+import { signBundleV2, signBundleV2ClassicalOnly } from '../bundle/signer-v2.js';
 import type {
   AgentPassportV2,
   AuditEventV2,
@@ -67,11 +69,29 @@ function keyEntries(keys: CompositeKeyPair): KeyEntry[] {
   }));
 }
 
-async function sign<T>(payload: T, context: DcpContext, keys: CompositeKeyPair) {
+async function sign<T>(payload: T, context: DcpContext, keys: CompositeKeyPair, classicalOnly = false) {
   const { canonicalBytes, payloadHash } = preparePayload(payload);
-  const composite_sig = await compositeSign(registry, context, canonicalBytes, keys);
+  const composite_sig = classicalOnly
+    ? await classicalOnlySign(registry, context, canonicalBytes, keys.classical)
+    : await compositeSign(registry, context, canonicalBytes, keys);
   return { payload, payload_hash: payloadHash, composite_sig };
 }
+
+/** Changes to the default bundle; classicalOnly signs everything without PQ. */
+interface Variant {
+  passport?: Partial<AgentPassportV2>;
+  intent?: Partial<IntentV2>;
+  policyDecision?: Partial<PolicyDecisionV2>;
+  classicalOnly?: boolean;
+}
+
+// A routine intent (spec §14.2), the starting point of the security tier variants.
+const ROUTINE_INTENT: Partial<IntentV2> = {
+  action_type: 'browse',
+  target: { channel: 'web' },
+  data_classes: ['none'],
+  estimated_impact: 'low',
+};
 
 const sha256Of = (obj: unknown) => `sha256:${sha256Hex(Buffer.from(canonicalizeV2(obj), 'utf8'))}`;
 
@@ -86,87 +106,93 @@ async function main() {
   const agent = await generateKeys();
   const nonce = generateSessionNonce();
 
-  const rpr: ResponsiblePrincipalRecordV2 = {
-    dcp_version: '2.0',
-    human_id: 'human:interop-principal',
-    session_nonce: nonce,
-    legal_name: 'Interop Principal',
-    entity_type: 'natural_person',
-    jurisdiction: 'US-CA',
-    liability_mode: 'owner_responsible',
-    override_rights: true,
-    issued_at: '2026-10-21T00:00:00Z',
-    expires_at: null,
-    contact: null,
-    binding_keys: keyEntries(principal),
-  };
-  const passport: AgentPassportV2 = {
-    dcp_version: '2.0',
-    agent_id: 'agent:interop-bot',
-    session_nonce: nonce,
-    keys: keyEntries(agent),
-    principal_binding_reference: rpr.human_id,
-    capabilities: ['browse', 'api_call'],
-    risk_tier: 'medium',
-    created_at: '2026-10-21T00:00:00Z',
-    status: 'active',
-  };
-  const intent: IntentV2 = {
-    dcp_version: '2.0',
-    intent_id: 'intent:interop-001',
-    session_nonce: nonce,
-    agent_id: passport.agent_id,
-    human_id: rpr.human_id,
-    timestamp: '2026-10-21T12:00:00Z',
-    action_type: 'send_email',
-    target: { channel: 'email', to: 'bob@example.com', domain: 'example.com' },
-    data_classes: ['contact_info'],
-    estimated_impact: 'medium',
-    requires_consent: false,
-  };
-  const policyDecision: PolicyDecisionV2 = {
-    dcp_version: '2.0',
-    intent_id: intent.intent_id,
-    session_nonce: nonce,
-    decision: 'approve',
-    risk_score: 450,
-    reasons: ['Known recipient domain'],
-    required_confirmation: null,
-    applied_policy_hash: sha256Of({ policy: 'default' }),
-    timestamp: '2026-10-21T12:00:01Z',
-  };
-  const audit: AuditEventV2 = {
-    dcp_version: '2.0',
-    audit_id: 'audit:interop-001',
-    session_nonce: nonce,
-    prev_hash: 'GENESIS',
-    hash_alg: 'sha256',
-    timestamp: '2026-10-21T12:01:00Z',
-    agent_id: passport.agent_id,
-    human_id: rpr.human_id,
-    intent_id: intent.intent_id,
-    intent_hash: sha256Of(intent),
-    policy_decision: 'approved',
-    outcome: 'email_sent',
-    evidence: { tool: 'smtp', result_ref: null, evidence_hash: null },
-    pq_checkpoint_ref: null,
-  };
-  const audit2: AuditEventV2 = { ...audit, audit_id: 'audit:interop-002', prev_hash: sha256Of(audit), timestamp: '2026-10-21T12:02:00Z' };
+  async function build(variant: Variant = {}) {
+    const rpr: ResponsiblePrincipalRecordV2 = {
+      dcp_version: '2.0',
+      human_id: 'human:interop-principal',
+      session_nonce: nonce,
+      legal_name: 'Interop Principal',
+      entity_type: 'natural_person',
+      jurisdiction: 'US-CA',
+      liability_mode: 'owner_responsible',
+      override_rights: true,
+      issued_at: '2026-10-21T00:00:00Z',
+      expires_at: null,
+      contact: null,
+      binding_keys: keyEntries(principal),
+    };
+    const passport: AgentPassportV2 = {
+      dcp_version: '2.0',
+      agent_id: 'agent:interop-bot',
+      session_nonce: nonce,
+      keys: keyEntries(agent),
+      principal_binding_reference: rpr.human_id,
+      capabilities: ['browse', 'api_call'],
+      risk_tier: 'medium',
+      created_at: '2026-10-21T00:00:00Z',
+      status: 'active',
+      ...variant.passport,
+    };
+    const intent: IntentV2 = {
+      dcp_version: '2.0',
+      intent_id: 'intent:interop-001',
+      session_nonce: nonce,
+      agent_id: passport.agent_id,
+      human_id: rpr.human_id,
+      timestamp: '2026-10-21T12:00:00Z',
+      action_type: 'send_email',
+      target: { channel: 'email', to: 'bob@example.com', domain: 'example.com' },
+      data_classes: ['contact_info'],
+      estimated_impact: 'medium',
+      requires_consent: false,
+      ...variant.intent,
+    };
+    const policyDecision: PolicyDecisionV2 = {
+      dcp_version: '2.0',
+      intent_id: intent.intent_id,
+      session_nonce: nonce,
+      decision: 'approve',
+      risk_score: 450,
+      reasons: ['Known recipient domain'],
+      required_confirmation: null,
+      applied_policy_hash: sha256Of({ policy: 'default' }),
+      timestamp: '2026-10-21T12:00:01Z',
+      ...variant.policyDecision,
+    };
+    const audit: AuditEventV2 = {
+      dcp_version: '2.0',
+      audit_id: 'audit:interop-001',
+      session_nonce: nonce,
+      prev_hash: 'GENESIS',
+      hash_alg: 'sha256',
+      timestamp: '2026-10-21T12:01:00Z',
+      agent_id: passport.agent_id,
+      human_id: rpr.human_id,
+      intent_id: intent.intent_id,
+      intent_hash: sha256Of(intent),
+      policy_decision: 'approved',
+      outcome: 'email_sent',
+      evidence: { tool: 'smtp', result_ref: null, evidence_hash: null },
+      pq_checkpoint_ref: null,
+    };
+    const audit2: AuditEventV2 = { ...audit, audit_id: 'audit:interop-002', prev_hash: sha256Of(audit), timestamp: '2026-10-21T12:02:00Z' };
 
-  const signedIntent = await sign(intent, DCP_CONTEXTS.Intent, agent);
-  const bundle = new BundleBuilderV2(nonce)
-    .responsiblePrincipalRecord(await sign(rpr, DCP_CONTEXTS.ResponsiblePrincipal, principal))
-    .agentPassport(await sign(passport, DCP_CONTEXTS.AgentPassport, agent))
-    .intent(signedIntent)
-    .policyDecision(await sign(policyDecision, DCP_CONTEXTS.PolicyDecision, agent))
-    .addAuditEntries([audit, audit2])
-    .build();
-  const signedBundle = await signBundleV2(bundle, {
-    registry,
-    signerType: 'human',
-    signerId: rpr.human_id,
-    keys: principal,
-  });
+    const signedIntent = await sign(intent, DCP_CONTEXTS.Intent, agent, variant.classicalOnly);
+    const bundle = new BundleBuilderV2(nonce)
+      .responsiblePrincipalRecord(await sign(rpr, DCP_CONTEXTS.ResponsiblePrincipal, principal, variant.classicalOnly))
+      .agentPassport(await sign(passport, DCP_CONTEXTS.AgentPassport, agent, variant.classicalOnly))
+      .intent(signedIntent)
+      .policyDecision(await sign(policyDecision, DCP_CONTEXTS.PolicyDecision, agent, variant.classicalOnly))
+      .addAuditEntries([audit, audit2])
+      .build();
+    const signer = { registry, signerType: 'human' as const, signerId: rpr.human_id };
+    const signedBundle = variant.classicalOnly
+      ? await signBundleV2ClassicalOnly(bundle, { ...signer, key: principal.classical })
+      : await signBundleV2(bundle, { ...signer, keys: principal });
+    return { rpr, passport, intent, policyDecision, bundle, signedIntent, signedBundle };
+  }
+
+  const { rpr, passport, intent, policyDecision, bundle, signedIntent, signedBundle } = await build();
 
   const b = signedBundle.bundle;
   const bundleSig = signedBundle.signature.composite_sig;
@@ -320,15 +346,55 @@ async function main() {
     },
   ];
 
+  // Classical-only bundles from a passport that declares itself low risk, which
+  // DEFAULT_VERIFIER_POLICY maps to classical_only: only the security tier
+  // (spec §14.3) rejects them, with an error about the missing PQ signature.
+  const lowRisk = { classicalOnly: true, passport: { risk_tier: 'low' as const }, policyDecision: { risk_score: 0 } };
+  const mustRejectBundles: { name: string; spec_step: string; error_contains: string; variant: Variant }[] = [
+    {
+      name: 'classical_only_payment_from_low_risk_passport',
+      spec_step: 'V2-10',
+      error_contains: 'pq',
+      variant: { ...lowRisk, intent: { ...ROUTINE_INTENT, action_type: 'initiate_payment', target: { channel: 'payments' } } },
+    },
+    {
+      name: 'classical_only_policy_risk_score_900',
+      spec_step: 'V2-10',
+      error_contains: 'pq',
+      variant: { ...lowRisk, intent: ROUTINE_INTENT, policyDecision: { risk_score: 900 } },
+    },
+    {
+      name: 'classical_only_explicit_security_tier_elevated',
+      spec_step: 'V2-10',
+      error_contains: 'pq',
+      variant: { ...lowRisk, intent: { ...ROUTINE_INTENT, security_tier: 'elevated' } },
+    },
+  ];
+
   const vectors = {
     _description:
-      'Cross-SDK V2 bundle verification vectors (spec/VERIFICATION.md V2-6 to V2-8). ' +
+      'Cross-SDK V2 bundle verification vectors (spec/VERIFICATION.md V2). ' +
       'Every verifier MUST accept signed_bundle. After applying the mutations of any must_reject ' +
       'case (set value at path, in order) it MUST reject it, whatever its verification mode, with ' +
-      'an error that contains error_contains (case-insensitive).',
+      'an error that contains error_contains (case-insensitive). It MUST also reject every ' +
+      'must_reject_bundles entry the same way, and give classical_only_routine_bundle the verdict ' +
+      'in verified_by_mode.',
     _generator: 'sdks/typescript/src/__tests__/generate-bundle-vectors.ts',
     signed_bundle: signedBundle,
     must_reject: mustReject,
+    classical_only_routine_bundle: {
+      _description:
+        'Control for must_reject_bundles: the same classical-only, low-risk bundle with a routine ' +
+        'intent. verified_by_mode is the expected verdict under each verification mode.',
+      signed_bundle: (await build({ ...lowRisk, intent: ROUTINE_INTENT })).signedBundle,
+      verified_by_mode: { classical_only: true, hybrid_preferred: true, hybrid_required: false, pq_only: false },
+    },
+    must_reject_bundles: await Promise.all(
+      mustRejectBundles.map(async ({ variant, ...rest }) => ({
+        ...rest,
+        signed_bundle: (await build(variant)).signedBundle,
+      })),
+    ),
   };
 
   writeFileSync(OUTPUT_PATH, JSON.stringify(vectors, null, 2) + '\n');

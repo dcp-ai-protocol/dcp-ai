@@ -31,7 +31,7 @@ import type { CompositeSignature } from '../core/composite-sig.js';
 import { deriveKid } from '../core/crypto-provider.js';
 import { sha256Hex, sha3_256Hex } from '../core/dual-hash.js';
 import { verifySignedBundleV2, DEFAULT_VERIFIER_POLICY } from '../core/verify-v2.js';
-import type { VerificationMode, VerifierPolicy } from '../types/v2.js';
+import type { SignedBundleV2, VerificationMode, VerifierPolicy } from '../types/v2.js';
 import {
   computeSecurityTier,
   effectiveVerificationMode,
@@ -547,6 +547,21 @@ describe('Signed bundle verification (bundle_vectors.json)', () => {
       expect(result.errors.join('\n').toLowerCase()).toContain(error_contains);
     });
   }
+
+  type BundleCase = { name: string; error_contains: string; signed_bundle: SignedBundleV2 };
+  for (const { name, error_contains, signed_bundle } of B.must_reject_bundles as BundleCase[]) {
+    it.each(MODES)(`${name} is rejected under %s`, async (mode) => {
+      const result = await verifySignedBundleV2(signed_bundle, registry, policyFor(mode));
+      expect(result.verified).toBe(false);
+      expect(result.errors.join('\n').toLowerCase()).toContain(error_contains);
+    });
+  }
+
+  it.each(MODES)('classical_only_routine_bundle verdict under %s', async (mode) => {
+    const { signed_bundle, verified_by_mode } = B.classical_only_routine_bundle;
+    const result = await verifySignedBundleV2(signed_bundle, registry, policyFor(mode));
+    expect(result.verified, result.errors.join('; ')).toBe(verified_by_mode[mode]);
+  });
 });
 
 describe('security tier (spec §14.2)', () => {
