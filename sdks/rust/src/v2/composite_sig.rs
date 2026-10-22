@@ -10,6 +10,9 @@ pub struct SignatureEntry {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CompositeSignature {
     pub classical: SignatureEntry,
+    /// Required, and null for `classical_only` (schemas/v2/composite_signature.schema.json):
+    /// `deserialize_with` stops serde from reading a missing `pq` as None.
+    #[serde(deserialize_with = "Option::deserialize")]
     pub pq: Option<SignatureEntry>,
     pub binding: String,
 }

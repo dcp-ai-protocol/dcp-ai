@@ -25,6 +25,7 @@ import { DCP_CONTEXTS, domainSeparatedMessage } from '../core/domain-separation.
 import type { DcpContext } from '../core/domain-separation.js';
 import { classicalOnlySign, compositeSign } from '../core/composite-ops.js';
 import type { CompositeKeyPair } from '../core/composite-ops.js';
+import type { CompositeSignature } from '../core/composite-sig.js';
 import { preparePayload } from '../core/signed-payload.js';
 import { sha256Hex } from '../core/dual-hash.js';
 import { generateSessionNonce } from '../core/session-nonce.js';
@@ -83,6 +84,8 @@ interface Variant {
   intent?: Partial<IntentV2>;
   policyDecision?: Partial<PolicyDecisionV2>;
   classicalOnly?: boolean;
+  /** Drop the pq member from the bundle signature (the schema requires it, null for classical_only). */
+  bundleSigWithoutPq?: boolean;
 }
 
 // A routine intent (spec §14.2), the starting point of the security tier variants.
@@ -189,6 +192,7 @@ async function main() {
     const signedBundle = variant.classicalOnly
       ? await signBundleV2ClassicalOnly(bundle, { ...signer, key: principal.classical })
       : await signBundleV2(bundle, { ...signer, keys: principal });
+    if (variant.bundleSigWithoutPq) delete (signedBundle.signature.composite_sig as Partial<CompositeSignature>).pq;
     return { rpr, passport, intent, policyDecision, bundle, signedIntent, signedBundle };
   }
 
@@ -368,6 +372,14 @@ async function main() {
       spec_step: 'V2-10',
       error_contains: 'pq',
       variant: { ...lowRisk, intent: { ...ROUTINE_INTENT, security_tier: 'elevated' } },
+    },
+    {
+      // The control's bundle signature without its pq member: the schema requires
+      // pq, null for classical_only, and an absent one is not a classical_only signature.
+      name: 'classical_only_bundle_signature_without_pq',
+      spec_step: 'V2-5',
+      error_contains: 'bundle',
+      variant: { ...lowRisk, intent: ROUTINE_INTENT, bundleSigWithoutPq: true },
     },
   ];
 
