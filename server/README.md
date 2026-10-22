@@ -73,6 +73,7 @@ Default port: `3000`. Override with `PORT=4000 node server/index.js`. Set `OPERA
 | `VERIFIER_MODE` | `hybrid_required` | Startup verification mode: `classical_only`, `hybrid_preferred`, `hybrid_required` or `pq_only`. An invalid value stops the server |
 | `ALLOW_V1_BUNDLES` | `true` | `false` makes `POST /verify` reject V1 bundles (`pq_only` always does) |
 | `TRUST_PROXY` | — | `true` only behind a proxy that appends the client IP to `X-Forwarded-For` (Fly, nginx). Rate limits then key on its last hop; otherwise on the socket address, since clients can forge the header |
+| `REGISTRATIONS_PER_HOUR` | `20` | `POST /v2/passport/register` calls per client per hour; more get 429 |
 
 `REQUIRE_SESSION_BINDING`, `REQUIRE_COMPOSITE_BINDING`, `MAX_KEY_AGE_DAYS`,
 `PQ_CHECKPOINT_INTERVAL` and `ADVISORY_POLL_INTERVAL_MS` appear in the Docker and
@@ -118,7 +119,11 @@ age) applies, and `GET /v2/policy` shows it.
   `AlgorithmAdvisory` context tag yet, so the operator vouches for advisories.
 - The key registry refuses new agents and rotations (507) once it holds 10,000
   keys instead of evicting old ones, since an evicted `agent_id` could be
-  registered again by anyone.
+  registered again by anyone. To keep one agent from filling it, rotation keeps
+  only the agent's 4 most recent retired keys (older ones are dropped and look
+  up as 404), and registrations are rate limited per client
+  (`REGISTRATIONS_PER_HOUR`). Only `created_at` is kept from a registered
+  passport, not the whole signed passport.
 
 ## Usage Examples
 
