@@ -97,6 +97,16 @@ with decimals hash fine. It sorts keys with JavaScript's `sort()`; an object who
 strings (`{ "10": 1, "9": 2 }`) is ordered the way V8 orders it, so recompute the hash in JavaScript
 or avoid such keys when another language must check it.
 
+### What verification proves, and what it does not
+
+A receipt verifies with the keys its own passport and RPR list, like every DCP bundle: a `verified`
+result alone proves the receipt is self-consistent and untampered, not who those keys belong to. To
+make it an identity check, pass `trustedKeys` (the keys you already trust for the agent and its
+principal, from a registry or a pinned passport and RPR) together with `expectedAgentId` and
+`expectedHumanId`: every signature in the receipt must then be made with one of those keys, active
+and unexpired in your list, and the result says `anchored: true`. A verifier that trusts a registry
+of passports can anchor every receipt an agent produces without re-reading the passport itself.
+
 Limits to know about:
 
 - A receipt is bound to one call by its `intent_id` and `audit_id`, and to the MCP request by

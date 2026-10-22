@@ -83,6 +83,36 @@ describe('withDcpReceipt', () => {
     expect((await verifyDcpReceipt(b._meta.dcp_receipt, { arguments: {}, result: { content: [{ type: 'text', text: 'hi' }] } })).verified).toBe(true);
   }, 60_000);
 
+  it('anchors the receipt to trusted keys and to the expected agent and principal', async () => {
+    const out = await withDcpReceipt('get_weather', weather, { identity })({ city: 'Santiago' });
+    const receipt = out._meta.dcp_receipt;
+    const agentId = identity.signedPassport.payload.agent_id;
+    const humanId = identity.signedRpr.payload.human_id;
+    const trusted = identity.signedPassport.payload.keys;
+    const plain = await verifyDcpReceipt(receipt);
+    expect(plain.verified).toBe(true);
+    expect(plain.anchored).toBe(false);
+    const ok = await verifyDcpReceipt(receipt, { trustedKeys: trusted, expectedAgentId: agentId, expectedHumanId: humanId });
+    expect(ok.verified, ok.errors.join('\n')).toBe(true);
+    expect(ok.anchored).toBe(true);
+    const other = await createReceiptIdentity({ legalName: 'Someone Else', jurisdiction: 'CL' });
+    const wrongKeys = await verifyDcpReceipt(receipt, { trustedKeys: other.signedPassport.payload.keys });
+    expect(wrongKeys.verified).toBe(false);
+    expect(wrongKeys.errors.join('\n')).toContain('not among the trusted keys');
+    const revoked = await verifyDcpReceipt(receipt, { trustedKeys: trusted.map((k) => ({ ...k, status: 'revoked' as const })) });
+    expect(revoked.verified).toBe(false);
+    expect(revoked.errors.join('\n')).toContain('is revoked');
+    const expired = await verifyDcpReceipt(receipt, { trustedKeys: trusted.map((k) => ({ ...k, expires_at: '2020-01-01T00:00:00Z' })) });
+    expect(expired.verified).toBe(false);
+    expect(expired.errors.join('\n')).toContain('has expired');
+    const partial = await verifyDcpReceipt(receipt, { trustedKeys: [trusted[0]] }); // only the classical key is trusted
+    expect(partial.verified).toBe(false);
+    expect(partial.errors.join('\n')).toContain('.pq: key');
+    expect((await verifyDcpReceipt(receipt, { expectedAgentId: 'agent:other' })).errors.join('\n')).toContain('expected agent:other');
+    expect((await verifyDcpReceipt(receipt, { expectedHumanId: 'rpr:other' })).errors.join('\n')).toContain('expected rpr:other');
+    expect((await verifyDcpReceipt(receipt, { trustedKeys: 'nope' as any })).errors[0]).toContain('trustedKeys must be an array');
+  }, 120_000);
+
   it('verifyDcpReceipt fails closed on input that is not a signed bundle and on half-given evidence', async () => {
     for (const bad of [null, undefined, {}, 'str', [], { bundle: { dcp_bundle_version: '2.0' }, signature: {} }, { bundle: { audit_entries: {} }, signature: {} }]) {
       const r = await verifyDcpReceipt(bad as any);
