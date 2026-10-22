@@ -120,10 +120,14 @@ age) applies, and `GET /v2/policy` shows it.
 - The key registry refuses new agents and rotations (507) once it holds 10,000
   keys instead of evicting old ones, since an evicted `agent_id` could be
   registered again by anyone. To keep one agent from filling it, rotation keeps
-  only the agent's 4 most recent retired keys (older ones are dropped and look
-  up as 404), and registrations are rate limited per client
-  (`REGISTRATIONS_PER_HOUR`). Only `created_at` is kept from a registered
-  passport, not the whole signed passport.
+  only the agent's 4 most recent retired keys. Older ones are dropped, but
+  their kids remain as tombstones: `GET /v2/keys/:kid` answers
+  `revoked: true, retired: true` with `key: null`, and the key can never be
+  registered again by anyone. An agent can register at most 64 keys over its
+  lifetime (rotation then gets 409), which keeps its tombstones bounded.
+  Registrations are rate limited per client (`REGISTRATIONS_PER_HOUR`), and
+  only `created_at` is kept from a registered passport, not the whole signed
+  passport.
 
 ## Usage Examples
 
