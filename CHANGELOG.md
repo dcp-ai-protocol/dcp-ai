@@ -352,6 +352,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   effective mode in Step V2-9 and enforces the policy with it in Step V2-10, where the tier check
   used to be optional. `docs/OPERATOR_GUIDE.md` and `docs/SECURITY_MODEL.md` describe the tier-aware
   mode, and the Go, Python, Rust and WASM SDK READMEs (all languages) describe the verifier policy.
+- Spec §18 (verification pipeline), `docs/OPERATOR_GUIDE.md` and the migration guide's step 8
+  describe tier enforcement as the verifiers implement it. The operator guide no longer says that
+  the maximum tier verifies PQ checkpoints, which no verifier does yet (V2-12), and says what the
+  reference server enforces until its `@dcp-ai/sdk` dependency is bumped.
 
 ## [2.9.0] - 2026-10-21
 

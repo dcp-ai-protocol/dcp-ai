@@ -508,10 +508,10 @@ V2 verifiers MUST support V1 indefinitely. Migration is gradual.
 2. Schema validation (route V1/V2)
 3. Session nonce consistency
 4. Manifest integrity (recompute artifact hashes)
-5. Security tier resolution (§14)
+5. Security tier computation from the signed intent and policy decision (§14.2)
 6. Advisory-driven algorithm rejection
 7. Composite signature verification (parallel)
-8. Tier-aware verifier policy enforcement
+8. Verifier policy enforcement with the effective mode, the stricter of the policy mode and the tier's mode (§14.3), on the bundle signature and every artifact signature
 9. Audit hash chain validation
 10. PQ checkpoint chain validation
 11. Key validity checks (expiry, revocation, kid derivation)
