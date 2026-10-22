@@ -21,6 +21,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `@dcp-ai/google-a2a` 2.1.0: the signed DCP Agent Passport travels inside the A2A Agent Card.
+  `passportToAgentCard(signedPassport, url)` (or `attachPassportToAgentCard(card, signedPassport)`)
+  puts the `SignedPayload<AgentPassportV2>` in the card's `capabilities.extensions` under
+  `https://dcp-ai.org/a2a/extensions/passport/v2`, A2A's own extension mechanism;
+  `verifyAgentCardPassport(card)` verifies it offline (payload hash, `pq_over_classical`
+  composite signature under the AgentPassport context with the active, unexpired keys the
+  passport lists, `status: active`, and `metadata.dcp_agent_id` naming the same agent), failing
+  closed on anything malformed; `agentCardToPassport` returns that passport instead of a
+  skeleton when the card carries one. The package is now TypeScript (`dist/` build, vitest suite
+  in CI).
 - `tests/interop/v2/bundle_vectors.json`: 28 more rejection cases (5 `must_reject` mutations, 23 `must_reject_bundles`), one per vulnerability of
   the v2.10 round, that all four SDK verifiers (Python included) run under every verification
   mode: artifacts without any `composite_sig` (V2-8); `dcp_bundle_version` `1.0` and `3.0`
