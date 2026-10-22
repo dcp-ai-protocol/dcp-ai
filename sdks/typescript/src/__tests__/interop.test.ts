@@ -29,6 +29,8 @@ import type { CompositeKeyPair } from '../core/composite-ops.js';
 import type { CompositeSignature } from '../core/composite-sig.js';
 import { deriveKid } from '../core/crypto-provider.js';
 import { sha256Hex, sha3_256Hex } from '../core/dual-hash.js';
+import { verifySignedBundleV2, DEFAULT_VERIFIER_POLICY } from '../core/verify-v2.js';
+import type { VerificationMode, VerifierPolicy } from '../types/v2.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -493,4 +495,32 @@ describe('canonicalization edge cases (dcp-jcs-v1 profile)', () => {
       }
     }
   });
+});
+
+describe('Signed bundle verification (bundle_vectors.json)', () => {
+  const B = JSON.parse(
+    readFileSync(resolve(__dirname, '../../../../tests/interop/v2/bundle_vectors.json'), 'utf-8'),
+  );
+  const MODES: VerificationMode[] = ['classical_only', 'hybrid_preferred', 'hybrid_required', 'pq_only'];
+  const policyFor = (mode: VerificationMode): VerifierPolicy => ({
+    ...DEFAULT_VERIFIER_POLICY,
+    default_mode: mode,
+    risk_overrides: { low: mode, medium: mode, high: mode },
+  });
+
+  it.each(MODES)('signed_bundle verifies under %s', async (mode) => {
+    const result = await verifySignedBundleV2(B.signed_bundle, registry, policyFor(mode));
+    expect(result.errors).toEqual([]);
+    expect(result.verified).toBe(true);
+  });
+
+  for (const { name, path, value } of B.must_reject as { name: string; path: string[]; value: unknown }[]) {
+    it.each(MODES)(`${name} is rejected under %s`, async (mode) => {
+      const signed = structuredClone(B.signed_bundle);
+      const parent = path.slice(0, -1).reduce((node: any, key) => node[key], signed);
+      parent[path[path.length - 1]] = value;
+      const result = await verifySignedBundleV2(signed, registry, policyFor(mode));
+      expect(result.verified).toBe(false);
+    });
+  }
 });
