@@ -134,8 +134,10 @@ from dcp_ai.v2.rights import (
 )
 from dcp_ai.v2.delegation import (
     create_delegation_mandate,
+    create_sub_mandate,
     generate_interaction_record,
     revoke_delegation,
+    verify_mandate_chain,
     verify_mandate_validity,
 )
 from dcp_ai.v2.awareness_threshold import (
@@ -327,8 +329,10 @@ __all__ = [
     "report_violation",
     # DCP-09: delegation
     "create_delegation_mandate",
+    "create_sub_mandate",
     "generate_interaction_record",
     "revoke_delegation",
+    "verify_mandate_chain",
     "verify_mandate_validity",
     # DCP-09: awareness threshold
     "create_advisory_declaration",
