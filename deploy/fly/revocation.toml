@@ -6,8 +6,14 @@
 #   fly launch --config revocation.toml --no-deploy
 #   fly deploy --config revocation.toml
 #
+#   fly secrets set OPERATOR_TOKEN=...   # needed to register new agent_ids
+#
 # State (registered keys, revocations) is in memory: a stopped machine forgets
-# it, so one machine stays up. Restarts and deploys still wipe it.
+# it, so one machine stays up. Restarts and deploys still wipe it unless the
+# state goes on a volume:
+#   fly volumes create revocation_data --size 1
+#   and add:  [mounts]  source = "revocation_data"  destination = "/data"
+#   and set:  REVOCATION_STATE_PATH = "/data/revocation-state.jsonl" under [env]
 
 app = "dcp-ai-revocation"
 primary_region = "iad"
