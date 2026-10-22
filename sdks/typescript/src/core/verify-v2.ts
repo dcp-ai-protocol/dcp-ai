@@ -6,7 +6,7 @@
  *   2. Session nonce consistency
  *   3. Manifest integrity (recompute artifact hashes)
  *   4. Composite signature verification (bound hybrid): manifest + each artifact
- *   5. Verifier-authoritative policy enforcement
+ *   5. Verifier-authoritative policy enforcement, raised by the security tier (spec §14.3)
  *   6. Audit hash chain validation
  *   7. PQ checkpoint chain validation
  *   8. Key validity checks
@@ -20,6 +20,9 @@ import type {
   VerificationMode,
   RiskTier,
   AgentPassportV2,
+  IntentV2,
+  PolicyDecisionV2,
+  SecurityTier,
   AuditEventV2,
   PQCheckpoint,
   KeyEntry,
@@ -34,6 +37,7 @@ import { DCP_CONTEXTS } from './domain-separation.js';
 import type { DcpContext } from './domain-separation.js';
 import { verifySessionBinding, isSessionExpired } from './session-nonce.js';
 import { verifyPayloadHash } from './signed-payload.js';
+import { computeSecurityTier, effectiveVerificationMode } from './security-tier.js';
 
 export interface VerifyV2Result {
   verified: boolean;
@@ -49,6 +53,7 @@ export interface VerifyV2Result {
     hash_chain_valid?: boolean;
     pq_checkpoints_valid?: boolean;
     verification_mode?: VerificationMode;
+    resolved_tier?: SecurityTier;
     advisory_rejected_algs?: string[];
   };
 }
@@ -450,15 +455,22 @@ export async function verifySignedBundleV2(
     return { verified: false, errors, warnings, details };
   }
 
-  // ── 5. Resolve verifier policy mode ──
+  // ── 5. Resolve the verification mode ──
+  // The stricter of the policy mode and the security tier's mode (spec §14.3):
+  // the agent's own risk_tier and intent can raise the mode, never lower it.
 
   const passport = bundle.agent_passport.payload as AgentPassportV2;
-  const riskTier = passport.risk_tier;
-  const mode = resolveMode(policy, riskTier);
-  if (!mode) {
+  const policyMode = resolveMode(policy, passport.risk_tier);
+  if (!policyMode) {
     errors.push('Unknown verification mode in verifier policy');
     return { verified: false, errors, warnings, details };
   }
+  const tier = computeSecurityTier(
+    bundle.intent.payload as IntentV2,
+    bundle.policy_decision.payload as PolicyDecisionV2,
+  );
+  const mode = effectiveVerificationMode(policyMode, tier);
+  details.resolved_tier = tier;
   details.verification_mode = mode;
 
   // ── 5a. Advisory-driven algorithm rejection (Phase 3) ──
