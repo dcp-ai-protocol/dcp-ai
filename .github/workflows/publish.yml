@@ -5,6 +5,14 @@ name: Publish Packages
 # registry; if it is, the job prints a skip notice and exits green.
 # That way releases that only bump one package (e.g. the Python SDK
 # at v2.0.1) don't leave red ghosts in the Actions tab.
+#
+# npm authentication is trusted publishing (OIDC). NPM_TOKEN stays only as a
+# transitional fallback. A job that holds `id-token: write` can mint a publish
+# credential for every package configured for this workflow file, so no such job
+# installs dependencies or runs package scripts: each npm package is built and
+# packed in a read-only build-* job, and a separate publish-* job downloads the
+# tarball and runs `npm publish`. Trusted publishers are configured per package on
+# npmjs.com with the workflow filename `publish.yml`. crates.io still uses a token.
 
 on:
   release:
@@ -22,16 +30,21 @@ on:
           - cli
           - sdk-rust
 
-# Registries are authenticated with their own secrets; the workflow never
-# writes back to the repo, so contents: read is sufficient.
+# Jobs that need more than read-only declare it themselves.
 permissions:
   contents: read
 
 jobs:
-  publish-typescript-sdk:
-    name: Publish @dcp-ai/sdk to NPM
+  build-typescript-sdk:
+    name: Build @dcp-ai/sdk
     runs-on: ubuntu-latest
     if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'sdk-typescript'
+    # Read-only: this job installs dependencies and runs build scripts, so it never
+    # gets `id-token: write`. It hands a packed tarball to publish-typescript-sdk.
+    permissions:
+      contents: read
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
     defaults:
       run:
         working-directory: sdks/typescript
@@ -48,11 +61,12 @@ jobs:
           REMOTE=$(npm view @dcp-ai/sdk@$LOCAL version 2>/dev/null || true)
           if [ -n "$REMOTE" ]; then
             echo "@dcp-ai/sdk@$LOCAL is already on npm — skipping publish."
-            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "skip=true" >> "$GITHUB_OUTPUT"
           else
-            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
       - if: steps.check.outputs.skip != 'true'
+        name: Install
         run: npm ci
       - if: steps.check.outputs.skip != 'true'
         run: npm run lint
@@ -61,14 +75,50 @@ jobs:
       - if: steps.check.outputs.skip != 'true'
         run: npm run build
       - if: steps.check.outputs.skip != 'true'
-        run: npm publish --access public
+        name: Pack the tarball
+        run: npm pack --pack-destination "$RUNNER_TEMP/pkg"
+      - if: steps.check.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-typescript-sdk
+          path: ${{ runner.temp }}/pkg/*.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-typescript-sdk:
+    name: Publish @dcp-ai/sdk to NPM
+    needs: build-typescript-sdk
+    runs-on: ubuntu-latest
+    if: needs.build-typescript-sdk.result == 'success' && needs.build-typescript-sdk.outputs.skip != 'true'
+    # Only downloads the tarball built above and publishes it: no checkout, no install,
+    # no package script, so no third-party code can use the OIDC token.
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: npm-typescript-sdk
+          path: pkg
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm publish ./pkg/*.tgz --access public --ignore-scripts
         env:
+          # Transitional fallback: npm tries trusted publishing (OIDC) first. Delete this
+          # env block, and the NPM_TOKEN secret, once the trusted publishers are verified.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-  publish-wasm-sdk:
-    name: Publish @dcp-ai/wasm to NPM
+  build-wasm-sdk:
+    name: Build @dcp-ai/wasm
     runs-on: ubuntu-latest
     if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'sdk-wasm'
+    # Read-only: this job installs dependencies and runs build scripts, so it never
+    # gets `id-token: write`. It hands a packed tarball to publish-wasm-sdk.
+    permissions:
+      contents: read
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
     defaults:
       run:
         working-directory: sdks/wasm
@@ -85,9 +135,9 @@ jobs:
           REMOTE=$(npm view @dcp-ai/wasm@$LOCAL version 2>/dev/null || true)
           if [ -n "$REMOTE" ]; then
             echo "@dcp-ai/wasm@$LOCAL is already on npm — skipping publish."
-            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "skip=true" >> "$GITHUB_OUTPUT"
           else
-            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
       - if: steps.check.outputs.skip != 'true'
         uses: dtolnay/rust-toolchain@stable
@@ -99,15 +149,51 @@ jobs:
       - if: steps.check.outputs.skip != 'true'
         run: npm run build
       - if: steps.check.outputs.skip != 'true'
-        run: npm publish --access public
+        name: Pack the tarball
+        run: npm pack --pack-destination "$RUNNER_TEMP/pkg"
+      - if: steps.check.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-wasm-sdk
+          path: ${{ runner.temp }}/pkg/*.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-wasm-sdk:
+    name: Publish @dcp-ai/wasm to NPM
+    needs: build-wasm-sdk
+    runs-on: ubuntu-latest
+    if: needs.build-wasm-sdk.result == 'success' && needs.build-wasm-sdk.outputs.skip != 'true'
+    # Only downloads the tarball built above and publishes it: no checkout, no install,
+    # no package script, so no third-party code can use the OIDC token.
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: npm-wasm-sdk
+          path: pkg
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm publish ./pkg/*.tgz --access public --ignore-scripts
         env:
+          # Transitional fallback: npm tries trusted publishing (OIDC) first. Delete this
+          # env block, and the NPM_TOKEN secret, once the trusted publishers are verified.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-  publish-cli:
-    name: Publish @dcp-ai/cli to NPM
+  build-cli:
+    name: Build @dcp-ai/cli
     runs-on: ubuntu-latest
-    needs: publish-typescript-sdk
-    if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'cli'
+    needs: [build-typescript-sdk, publish-typescript-sdk]
+    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') && (github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'cli') }}
+    # Read-only: this job installs dependencies and runs build scripts, so it never
+    # gets `id-token: write`. It hands a packed tarball to publish-cli.
+    permissions:
+      contents: read
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
     defaults:
       run:
         working-directory: cli
@@ -124,16 +210,46 @@ jobs:
           REMOTE=$(npm view @dcp-ai/cli@$LOCAL version 2>/dev/null || true)
           if [ -n "$REMOTE" ]; then
             echo "@dcp-ai/cli@$LOCAL is already on npm — skipping publish."
-            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "skip=true" >> "$GITHUB_OUTPUT"
           else
-            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
       - if: steps.check.outputs.skip != 'true'
         name: Install against the freshly-published SDK
         run: npm install --no-package-lock
       - if: steps.check.outputs.skip != 'true'
-        run: npm publish --access public
+        name: Pack the tarball
+        run: npm pack --pack-destination "$RUNNER_TEMP/pkg"
+      - if: steps.check.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-cli
+          path: ${{ runner.temp }}/pkg/*.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-cli:
+    name: Publish @dcp-ai/cli to NPM
+    needs: build-cli
+    runs-on: ubuntu-latest
+    if: needs.build-cli.result == 'success' && needs.build-cli.outputs.skip != 'true'
+    # Only downloads the tarball built above and publishes it: no checkout, no install,
+    # no package script, so no third-party code can use the OIDC token.
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: npm-cli
+          path: pkg
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm publish ./pkg/*.tgz --access public --ignore-scripts
         env:
+          # Transitional fallback: npm tries trusted publishing (OIDC) first. Delete this
+          # env block, and the NPM_TOKEN secret, once the trusted publishers are verified.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   publish-rust-sdk:

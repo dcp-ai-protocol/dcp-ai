@@ -5,6 +5,14 @@ name: Publish Integrations
 # Every job pre-checks whether the manifest version is already on npm
 # and, if so, exits green with a skip notice. That keeps the Actions
 # tab free of red ghosts when a release only bumps one integration.
+#
+# npm authentication is trusted publishing (OIDC); NPM_TOKEN stays only as a
+# transitional fallback. Packages with nothing to build are published straight from
+# the checkout with `--ignore-scripts`. express and openclaw need an install and a
+# build, so they are built and packed in a read-only build-* job and published by a
+# separate publish-* job that only downloads the tarball (see publish.yml for why).
+# Trusted publishers are configured per package on npmjs.com with the workflow
+# filename `publish-integrations.yml`.
 
 on:
   release:
@@ -32,6 +40,11 @@ jobs:
     name: Publish @dcp-ai/anthropic-mcp
     runs-on: ubuntu-latest
     if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'anthropic-mcp'
+    # Nothing is installed and no package script runs here, so no third-party code
+    # can use the OIDC token this job is allowed to mint.
+    permissions:
+      contents: read
+      id-token: write
     defaults:
       run:
         working-directory: integrations/anthropic-mcp
@@ -39,7 +52,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
       - name: Check if version already published
         id: check
@@ -48,19 +61,26 @@ jobs:
           REMOTE=$(npm view @dcp-ai/anthropic-mcp@$LOCAL version 2>/dev/null || true)
           if [ -n "$REMOTE" ]; then
             echo "@dcp-ai/anthropic-mcp@$LOCAL is already on npm — skipping publish."
-            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "skip=true" >> "$GITHUB_OUTPUT"
           else
-            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
       - if: steps.check.outputs.skip != 'true'
-        run: npm publish --access public
+        run: npm publish --access public --ignore-scripts
         env:
+          # Transitional fallback: npm tries trusted publishing (OIDC) first. Delete this
+          # env block, and the NPM_TOKEN secret, once the trusted publishers are verified.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   publish-autogen:
     name: Publish @dcp-ai/autogen
     runs-on: ubuntu-latest
     if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'autogen'
+    # Nothing is installed and no package script runs here, so no third-party code
+    # can use the OIDC token this job is allowed to mint.
+    permissions:
+      contents: read
+      id-token: write
     defaults:
       run:
         working-directory: integrations/autogen
@@ -68,7 +88,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
       - name: Check if version already published
         id: check
@@ -77,19 +97,26 @@ jobs:
           REMOTE=$(npm view @dcp-ai/autogen@$LOCAL version 2>/dev/null || true)
           if [ -n "$REMOTE" ]; then
             echo "@dcp-ai/autogen@$LOCAL is already on npm — skipping publish."
-            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "skip=true" >> "$GITHUB_OUTPUT"
           else
-            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
       - if: steps.check.outputs.skip != 'true'
-        run: npm publish --access public
+        run: npm publish --access public --ignore-scripts
         env:
+          # Transitional fallback: npm tries trusted publishing (OIDC) first. Delete this
+          # env block, and the NPM_TOKEN secret, once the trusted publishers are verified.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   publish-google-a2a:
     name: Publish @dcp-ai/google-a2a
     runs-on: ubuntu-latest
     if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'google-a2a'
+    # Nothing is installed and no package script runs here, so no third-party code
+    # can use the OIDC token this job is allowed to mint.
+    permissions:
+      contents: read
+      id-token: write
     defaults:
       run:
         working-directory: integrations/google-a2a
@@ -97,7 +124,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
       - name: Check if version already published
         id: check
@@ -106,19 +133,26 @@ jobs:
           REMOTE=$(npm view @dcp-ai/google-a2a@$LOCAL version 2>/dev/null || true)
           if [ -n "$REMOTE" ]; then
             echo "@dcp-ai/google-a2a@$LOCAL is already on npm — skipping publish."
-            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "skip=true" >> "$GITHUB_OUTPUT"
           else
-            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
       - if: steps.check.outputs.skip != 'true'
-        run: npm publish --access public
+        run: npm publish --access public --ignore-scripts
         env:
+          # Transitional fallback: npm tries trusted publishing (OIDC) first. Delete this
+          # env block, and the NPM_TOKEN secret, once the trusted publishers are verified.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   publish-w3c-did:
     name: Publish @dcp-ai/w3c-did
     runs-on: ubuntu-latest
     if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'w3c-did'
+    # Nothing is installed and no package script runs here, so no third-party code
+    # can use the OIDC token this job is allowed to mint.
+    permissions:
+      contents: read
+      id-token: write
     defaults:
       run:
         working-directory: integrations/w3c-did
@@ -126,7 +160,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
       - name: Check if version already published
         id: check
@@ -135,19 +169,27 @@ jobs:
           REMOTE=$(npm view @dcp-ai/w3c-did@$LOCAL version 2>/dev/null || true)
           if [ -n "$REMOTE" ]; then
             echo "@dcp-ai/w3c-did@$LOCAL is already on npm — skipping publish."
-            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "skip=true" >> "$GITHUB_OUTPUT"
           else
-            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
       - if: steps.check.outputs.skip != 'true'
-        run: npm publish --access public
+        run: npm publish --access public --ignore-scripts
         env:
+          # Transitional fallback: npm tries trusted publishing (OIDC) first. Delete this
+          # env block, and the NPM_TOKEN secret, once the trusted publishers are verified.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-  publish-express:
-    name: Publish @dcp-ai/express
+  build-express:
+    name: Build @dcp-ai/express
     runs-on: ubuntu-latest
     if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'express'
+    # Read-only: this job installs dependencies and runs build scripts, so it never
+    # gets `id-token: write`. It hands a packed tarball to publish-express.
+    permissions:
+      contents: read
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
     defaults:
       run:
         working-directory: integrations/express
@@ -164,9 +206,9 @@ jobs:
           REMOTE=$(npm view @dcp-ai/express@$LOCAL version 2>/dev/null || true)
           if [ -n "$REMOTE" ]; then
             echo "@dcp-ai/express@$LOCAL is already on npm — skipping publish."
-            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "skip=true" >> "$GITHUB_OUTPUT"
           else
-            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
       - if: steps.check.outputs.skip != 'true'
         name: Install against the published @dcp-ai/sdk
@@ -174,14 +216,50 @@ jobs:
       - if: steps.check.outputs.skip != 'true'
         run: npm run build
       - if: steps.check.outputs.skip != 'true'
-        run: npm publish --access public
+        name: Pack the tarball
+        run: npm pack --pack-destination "$RUNNER_TEMP/pkg"
+      - if: steps.check.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-express
+          path: ${{ runner.temp }}/pkg/*.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-express:
+    name: Publish @dcp-ai/express
+    needs: build-express
+    runs-on: ubuntu-latest
+    if: needs.build-express.result == 'success' && needs.build-express.outputs.skip != 'true'
+    # Only downloads the tarball built above and publishes it: no checkout, no install,
+    # no package script, so no third-party code can use the OIDC token.
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: npm-express
+          path: pkg
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm publish ./pkg/*.tgz --access public --ignore-scripts
         env:
+          # Transitional fallback: npm tries trusted publishing (OIDC) first. Delete this
+          # env block, and the NPM_TOKEN secret, once the trusted publishers are verified.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-  publish-openclaw:
-    name: Publish @dcp-ai/openclaw
+  build-openclaw:
+    name: Build @dcp-ai/openclaw
     runs-on: ubuntu-latest
     if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'openclaw'
+    # Read-only: this job installs dependencies and runs build scripts, so it never
+    # gets `id-token: write`. It hands a packed tarball to publish-openclaw.
+    permissions:
+      contents: read
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
     defaults:
       run:
         working-directory: integrations/openclaw
@@ -198,9 +276,9 @@ jobs:
           REMOTE=$(npm view @dcp-ai/openclaw@$LOCAL version 2>/dev/null || true)
           if [ -n "$REMOTE" ]; then
             echo "@dcp-ai/openclaw@$LOCAL is already on npm — skipping publish."
-            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "skip=true" >> "$GITHUB_OUTPUT"
           else
-            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
       - if: steps.check.outputs.skip != 'true'
         name: Install against the published @dcp-ai/sdk
@@ -208,6 +286,36 @@ jobs:
       - if: steps.check.outputs.skip != 'true'
         run: npm run build
       - if: steps.check.outputs.skip != 'true'
-        run: npm publish --access public
+        name: Pack the tarball
+        run: npm pack --pack-destination "$RUNNER_TEMP/pkg"
+      - if: steps.check.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-openclaw
+          path: ${{ runner.temp }}/pkg/*.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-openclaw:
+    name: Publish @dcp-ai/openclaw
+    needs: build-openclaw
+    runs-on: ubuntu-latest
+    if: needs.build-openclaw.result == 'success' && needs.build-openclaw.outputs.skip != 'true'
+    # Only downloads the tarball built above and publishes it: no checkout, no install,
+    # no package script, so no third-party code can use the OIDC token.
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: npm-openclaw
+          path: pkg
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm publish ./pkg/*.tgz --access public --ignore-scripts
         env:
+          # Transitional fallback: npm tries trusted publishing (OIDC) first. Delete this
+          # env block, and the NPM_TOKEN secret, once the trusted publishers are verified.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

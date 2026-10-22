@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Security
+
+- `ci`: the npm publish workflows (`publish.yml`, `publish-integrations.yml`,
+  `publish-templates.yml`) use npm trusted publishing (OIDC) instead of depending only on a
+  long-lived `NPM_TOKEN`; releases carry a provenance statement. The OIDC permission is held only by
+  jobs that install nothing and run no package script: packages that need an install or build are
+  packed in a read-only job and published from the tarball. `NPM_TOKEN` stays as a transitional
+  fallback until the trusted publishers are configured and verified on npmjs.com (one entry per
+  package, with the workflow filename). crates.io still publishes with a token.
+
+### Fixed
+
+- `@dcp-ai/wasm`: add the `repository` field to `package.json`, which npm provenance requires.
+
 ## [2.10.0] - 2026-10-22
 
 ### Package versions
