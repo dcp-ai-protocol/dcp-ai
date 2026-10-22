@@ -365,6 +365,7 @@ cd docker && docker compose up -d
 | Document | Description |
 |----------|-------------|
 | [NIST_CONFORMITY](docs/NIST_CONFORMITY.md) | NIST post-quantum cryptography conformance |
+| [EU_AI_ACT_MAPPING](docs/EU_AI_ACT_MAPPING.md) | EU AI Act logging, human oversight and record-keeping obligations mapped to DCP artifacts |
 | [ROADMAP](ROADMAP.md) | Project evolution roadmap |
 
 ### Community
