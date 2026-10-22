@@ -157,15 +157,23 @@ func payloadKeys(bundle map[string]interface{}, artifact, field string) []interf
 	return keys
 }
 
-func findKeyByKid(keys []interface{}, kid string) string {
+// The algorithms each composite signature slot may hold.
+var (
+	classicalAlgs = map[string]bool{"ed25519": true}
+	pqAlgs        = map[string]bool{"ml-dsa-65": true, "slh-dsa-192f": true}
+)
+
+// findKeyByKid returns the public key and algorithm of the entry with that kid.
+func findKeyByKid(keys []interface{}, kid string) (pk, alg string) {
 	for _, k := range keys {
 		entry, _ := k.(map[string]interface{})
 		if id, _ := entry["kid"].(string); id != "" && id == kid {
-			pk, _ := entry["public_key_b64"].(string)
-			return pk
+			pk, _ = entry["public_key_b64"].(string)
+			alg, _ = entry["alg"].(string)
+			return pk, alg
 		}
 	}
-	return ""
+	return "", ""
 }
 
 // verifyCompositeSig verifies a composite_sig over payload with the keys it
@@ -184,14 +192,29 @@ func verifyCompositeSig(registry *AlgorithmRegistry, context string, payload, cs
 		return nil, nil, fmt.Errorf("invalid composite_sig structure")
 	}
 
-	classicalPK := findKeyByKid(keys, cs.Classical.Kid)
+	// Ed25519 cannot stand in for the PQ signature, nor ML-DSA for the classical one.
+	if !classicalAlgs[cs.Classical.Alg] {
+		return nil, nil, fmt.Errorf("classical slot holds %q, which is not a classical algorithm", cs.Classical.Alg)
+	}
+	if cs.PQ != nil && !pqAlgs[cs.PQ.Alg] {
+		return nil, nil, fmt.Errorf("PQ slot holds %q, which is not a PQ algorithm", cs.PQ.Alg)
+	}
+
+	classicalPK, classicalAlg := findKeyByKid(keys, cs.Classical.Kid)
 	if classicalPK == "" {
 		return nil, nil, fmt.Errorf("classical signer key kid=%s not found", cs.Classical.Kid)
 	}
+	if classicalAlg != cs.Classical.Alg {
+		return nil, nil, fmt.Errorf("classical signer key kid=%s is %s, not %s", cs.Classical.Kid, classicalAlg, cs.Classical.Alg)
+	}
 	var pqPK string
 	if cs.PQ != nil {
-		if pqPK = findKeyByKid(keys, cs.PQ.Kid); pqPK == "" {
+		var pqAlg string
+		if pqPK, pqAlg = findKeyByKid(keys, cs.PQ.Kid); pqPK == "" {
 			return nil, nil, fmt.Errorf("PQ signer key kid=%s not found", cs.PQ.Kid)
+		}
+		if pqAlg != cs.PQ.Alg {
+			return nil, nil, fmt.Errorf("PQ signer key kid=%s is %s, not %s", cs.PQ.Kid, pqAlg, cs.PQ.Alg)
 		}
 	}
 
@@ -253,11 +276,17 @@ func verifyArtifactSignatures(registry *AlgorithmRegistry, bundle map[string]int
 		{"policy_decision", CtxPolicyDecision, agentKeys},
 	}
 	for _, a := range artifacts {
-		sp, ok := bundle[a.field].(map[string]interface{})
-		if !ok {
+		raw, present := bundle[a.field]
+		if !present {
 			continue // reported as missing by VerifySignedBundleV2
 		}
-		cs, cvr, err := verifyCompositeSig(registry, a.context, sp["payload"], sp["composite_sig"], a.keys)
+		sp, _ := raw.(map[string]interface{})
+		payload, ok := sp["payload"].(map[string]interface{})
+		if !ok {
+			result.Errors = append(result.Errors, fmt.Sprintf("%s is not a SignedPayload object", a.field))
+			continue
+		}
+		cs, cvr, err := verifyCompositeSig(registry, a.context, payload, sp["composite_sig"], a.keys)
 		switch {
 		case err != nil:
 			result.Errors = append(result.Errors, fmt.Sprintf("%s signature: %s", a.field, err))
