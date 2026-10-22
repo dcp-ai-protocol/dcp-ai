@@ -72,6 +72,7 @@ Deploy each service (the `.toml` files in this directory are pre-configured to p
 
 ```bash
 fly launch --config verification.toml    --no-deploy
+fly secrets set --app dcp-ai-verification OPERATOR_TOKEN="$(openssl rand -hex 32)"
 fly deploy --config verification.toml
 
 fly launch --config anchor.toml          --no-deploy
@@ -93,6 +94,11 @@ fly deploy --config revocation.toml
 ```
 
 Each service gets a public HTTPS URL like `https://dcp-ai-verification.fly.dev`.
+
+State is in memory. The verification, revocation and transparency-log configs keep one machine
+running so idling does not wipe their registries; a deploy or restart still starts them empty.
+Set `OPERATOR_TOKEN` on the anchor and transparency-log apps too if you need `POST /flush` or
+`POST /gossip/peers`.
 
 For production you want **two** transparency-log instances in different regions, each pointing at the other via `GOSSIP_PEERS`. That is what detects split-view attacks (DCP-03 §4).
 

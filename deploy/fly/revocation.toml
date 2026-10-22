@@ -5,6 +5,9 @@
 # Usage:
 #   fly launch --config revocation.toml --no-deploy
 #   fly deploy --config revocation.toml
+#
+# State (registered keys, revocations) is in memory: a stopped machine forgets
+# it, so one machine stays up. Restarts and deploys still wipe it.
 
 app = "dcp-ai-revocation"
 primary_region = "iad"
@@ -15,13 +18,14 @@ primary_region = "iad"
 [env]
   PORT = "3003"
   DCP_VERSION = "2.0"
+  TRUST_PROXY = "true"   # Fly's proxy appends the client IP to X-Forwarded-For
 
 [http_service]
   internal_port = 3003
   force_https = true
   auto_stop_machines = "stop"
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
 
   [[http_service.checks]]
     interval = "30s"

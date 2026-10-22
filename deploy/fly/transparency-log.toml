@@ -6,7 +6,10 @@
 # Usage:
 #   fly launch --config transparency-log.toml --no-deploy
 #   fly secrets set OPERATOR_KEY=... GOSSIP_PEERS=https://other-log.example/
+#   fly secrets set OPERATOR_TOKEN=...   # unlocks POST /gossip/peers
 #   fly deploy --config transparency-log.toml
+#
+# The log is in memory: restarts and deploys start a new, empty tree.
 
 app = "dcp-ai-transparency-log"
 primary_region = "iad"
@@ -20,7 +23,7 @@ primary_region = "iad"
   LOG_ID = "log-alpha"
   GOSSIP_INTERVAL_MS = "30000"
   # Set at runtime with `fly secrets set`:
-  #   OPERATOR_KEY   — signs Signed Tree Heads (STHs)
+  #   OPERATOR_KEY   — seed of the Ed25519 key that signs Signed Tree Heads (STHs)
   #   GOSSIP_PEERS   — comma-separated URLs of peer logs
 
 [http_service]
