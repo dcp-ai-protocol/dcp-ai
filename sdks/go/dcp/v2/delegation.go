@@ -267,6 +267,24 @@ func asInteger(v interface{}) (int, bool) {
 }
 
 // asNumber reads a JSON number; a bool is not one.
+// asInt64 reads an integer value that was never a float64: a builder's int or
+// a json.Number, which keeps every digit. Default decoding gives float64, whose
+// rounding the signature over the canonical bytes already rejects.
+func asInt64(v interface{}) (int64, bool) {
+	switch n := v.(type) {
+	case int:
+		return int64(n), true
+	case int32:
+		return int64(n), true
+	case int64:
+		return n, true
+	case json.Number:
+		i, err := n.Int64()
+		return i, err == nil
+	}
+	return 0, false
+}
+
 func asNumber(v interface{}) (float64, bool) {
 	switch n := v.(type) {
 	case int:
@@ -472,6 +490,12 @@ func attenuationError(parent, child []scopeEntry) string {
 				var within bool
 				if pIsNum && cIsNum {
 					within = cn <= pn
+					// Integers compare exactly: through float64 a child of 2^53+1 would pass as equal to a parent of 2^53.
+					if pi, ok := asInt64(pv); ok {
+						if ci, ok := asInt64(cv); ok {
+							within = ci <= pi
+						}
+					}
 				} else {
 					within = !pIsNum && !cIsNum && canonicalEqual(pv, cv)
 				}

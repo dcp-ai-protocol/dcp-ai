@@ -377,6 +377,16 @@ fn str_set(v: Option<&Value>) -> HashSet<&str> {
 }
 
 /// Why `child` is not within `parent` (rule 5 of DCP-09 §3.5.2), or None when it is.
+/// `child <= parent` for two JSON numbers. Integers compare exactly: serde_json keeps them
+/// exact, so through f64 a child of 2^53 + 1 would pass as equal to a parent of 2^53.
+fn number_within(child: &Value, parent: &Value) -> bool {
+    let as_int = |v: &Value| v.as_i64().map(i128::from).or_else(|| v.as_u64().map(i128::from));
+    match (as_int(child), as_int(parent)) {
+        (Some(c), Some(p)) => c <= p,
+        _ => matches!((child.as_f64(), parent.as_f64()), (Some(c), Some(p)) if c <= p),
+    }
+}
+
 fn attenuation_error(parent: &[Value], child: &[Value]) -> Option<String> {
     let mut by_domain: HashMap<&str, &Map<String, Value>> = HashMap::new();
     for p in parent {
@@ -426,9 +436,9 @@ fn attenuation_error(parent: &[Value], child: &[Value]) -> Option<String> {
                     return Some(format!("limits.{key} for domain \"{domain}\" missing"));
                 };
                 // A number may only shrink; anything else must stay identical. Mixed types are not comparable.
-                let within = match (pv.as_f64(), cv.as_f64()) {
-                    (Some(parent_n), Some(child_n)) => child_n <= parent_n,
-                    (None, None) => canonical_equal(pv, cv),
+                let within = match (pv.is_number(), cv.is_number()) {
+                    (true, true) => number_within(cv, pv),
+                    (false, false) => canonical_equal(pv, cv),
                     _ => false,
                 };
                 if !within {
