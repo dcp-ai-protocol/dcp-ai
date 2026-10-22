@@ -215,6 +215,14 @@ export {
 } from './core/emergency-revocation.js';
 export type { EmergencyRevocationTokenPair } from './core/emergency-revocation.js';
 
+// ── V2 Blinded RPR (PII-hashed principal binding) ──
+export {
+  computePiiHash,
+  blindRpr,
+  verifyBlindedRpr,
+  isBlindedRpr,
+} from './core/blinded-rpr.js';
+
 // ── V2 Key Recovery — Shamir (Gap #1) ──
 export {
   shamirSplit,
