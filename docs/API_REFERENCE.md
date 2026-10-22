@@ -246,6 +246,21 @@ interface BlindedResponsiblePrincipalRecordV2 {
 }
 ```
 
+Helpers (exported by `@dcp-ai/sdk` releases after 2.1.2):
+
+```typescript
+// pii_hash = "sha256:" + hex(sha256(canonical({ legal_name, contact })))
+function computePiiHash(rpr: ResponsiblePrincipalRecordV2): string;
+function blindRpr(rpr: ResponsiblePrincipalRecordV2): BlindedResponsiblePrincipalRecordV2;
+function verifyBlindedRpr(
+  fullRpr: ResponsiblePrincipalRecordV2,
+  blindedRpr: BlindedResponsiblePrincipalRecordV2,
+): { valid: boolean; errors: string[] };
+function isBlindedRpr(
+  rpr: ResponsiblePrincipalRecordV2 | BlindedResponsiblePrincipalRecordV2,
+): rpr is BlindedResponsiblePrincipalRecordV2;
+```
+
 ### IntentV2
 
 ```typescript
@@ -778,12 +793,12 @@ const DEFAULT_VERIFIER_POLICY: VerifierPolicy = {
 };
 ```
 
-### `verifySignedBundle(signedBundle)` (V1)
+### `verifySignedBundle(signedBundle, publicKeyB64?)` (V1)
 
-Verify a V1 Ed25519-signed bundle.
+Verify a V1 Ed25519-signed bundle. Without `publicKeyB64`, the key in `signature.signer.public_key_b64` is used.
 
 ```typescript
-function verifySignedBundle(signedBundle: SignedBundle): VerificationResult;
+function verifySignedBundle(signedBundle: SignedBundle, publicKeyB64?: string): VerificationResult;
 
 interface VerificationResult {
   verified: boolean;
@@ -1235,12 +1250,12 @@ Compute a Merkle root from hex-encoded leaf hashes.
 function merkleRootFromHexLeaves(leaves: string[]): string;
 ```
 
-### `merkleRootForAuditEntries(entries)`
+### `merkleRootForAuditEntries(auditEntries)`
 
-Compute a Merkle root for an array of audit entries.
+Compute a Merkle root for an array of audit entries (`null` for an empty array).
 
 ```typescript
-function merkleRootForAuditEntries(entries: AuditEntry[]): string;
+function merkleRootForAuditEntries(auditEntries: unknown[]): string | null;
 ```
 
 ### `intentHash(intent)`
@@ -1251,12 +1266,12 @@ Compute the hash of an intent object.
 function intentHash(intent: unknown): string;
 ```
 
-### `prevHashForEntry(entry)`
+### `prevHashForEntry(prevEntry)`
 
-Compute the prev_hash chain link for an audit entry.
+Compute the `prev_hash` for the next audit entry from the previous entry.
 
 ```typescript
-function prevHashForEntry(entry: unknown): string;
+function prevHashForEntry(prevEntry: unknown): string;
 ```
 
 ### `sha256Hex(data)` / `sha3_256Hex(data)`
@@ -1268,14 +1283,14 @@ function sha256Hex(data: Uint8Array | Buffer): string;
 function sha3_256Hex(data: Uint8Array | Buffer): string;
 ```
 
-### `dualHash(data)` / `dualHashCanonical(obj)` / `dualMerkleRoot(entries)`
+### `dualHash(data)` / `dualHashCanonical(canonicalJson)` / `dualMerkleRoot(leaves)`
 
-Dual-hash (SHA-256 + SHA3-256) operations for V2.
+Dual-hash (SHA-256 + SHA3-256) operations for V2. `dualHashCanonical` takes an already canonicalized JSON string; `dualMerkleRoot` returns `null` for no leaves.
 
 ```typescript
 function dualHash(data: Uint8Array): DualHash;
-function dualHashCanonical(obj: unknown): DualHash;
-function dualMerkleRoot(entries: unknown[]): DualHash;
+function dualHashCanonical(canonicalJson: string): DualHash;
+function dualMerkleRoot(leaves: DualHash[]): DualHash | null;
 
 interface DualHash {
   sha256: string;
@@ -1283,24 +1298,24 @@ interface DualHash {
 }
 ```
 
-### `auditEventsMerkleRoot(entries)`
+### `auditEventsMerkleRoot(events)`
 
 Compute the SHA-256 Merkle root for V2 audit events.
 
 ```typescript
-function auditEventsMerkleRoot(entries: AuditEventV2[]): string;
+function auditEventsMerkleRoot(events: AuditEventV2[]): string;
 ```
 
 ---
 
 ## Schema Validation
 
-### `validateSchema(type, data)`
+### `validateSchema(schemaName, data)`
 
 Validate a DCP artifact against its JSON Schema.
 
 ```typescript
-function validateSchema(type: string, data: unknown): ValidationResult;
+function validateSchema(schemaName: string, data: unknown): ValidationResult;
 ```
 
 ### `validateBundle(bundle)`
@@ -1501,12 +1516,12 @@ const DCP_CONTEXTS: Record<string, DcpContext>;
 // Rights (DCP-08), Delegation (DCP-09), Awareness (DCP-09)
 ```
 
-### `domainSeparatedMessage(context, payload)`
+### `domainSeparatedMessage(context, canonicalPayloadBytes)`
 
-Prepend a domain separation context to a message before signing.
+Build the message that gets signed: `UTF8(context) || 0x00 || canonicalPayloadBytes`. Throws on an unknown context tag.
 
 ```typescript
-function domainSeparatedMessage(context: DcpContext | string, payload: Uint8Array): Uint8Array;
+function domainSeparatedMessage(context: DcpContext | string, canonicalPayloadBytes: Uint8Array): Uint8Array;
 ```
 
 ---
@@ -1545,12 +1560,12 @@ function verifySessionBinding(artifacts: Array<{ session_nonce?: string }>): {
 
 ## Key Recovery
 
-### `shamirSplit(secret, totalShares, threshold)`
+### `shamirSplit(secret, threshold, totalShares)`
 
 Split a secret key into M-of-N Shamir shares.
 
 ```typescript
-function shamirSplit(secret: Uint8Array, totalShares: number, threshold: number): ShamirShare[];
+function shamirSplit(secret: Uint8Array, threshold: number, totalShares: number): ShamirShare[];
 
 interface ShamirShare {
   index: number;
@@ -1566,17 +1581,22 @@ Reconstruct a secret from Shamir shares.
 function shamirReconstruct(shares: ShamirShare[]): Uint8Array;
 ```
 
-### `setupKeyRecovery(humanId, secretKey, holders, threshold)`
+### `setupKeyRecovery({ humanId, masterSecret, threshold, holders })`
 
-Set up key recovery with M-of-N social recovery configuration.
+Set up key recovery with M-of-N social recovery configuration. Returns the config to publish and one share per holder to distribute.
 
 ```typescript
-function setupKeyRecovery(
-  humanId: string,
-  secretKey: Uint8Array,
-  holders: RecoveryShareHolder[],
-  threshold: number,
-): RecoverySetup;
+function setupKeyRecovery(params: {
+  humanId: string;
+  masterSecret: Uint8Array;
+  threshold: number;
+  holders: Array<{ holderId: string; holderKid: string }>;
+}): RecoverySetup;
+
+interface RecoverySetup {
+  config: Omit<RecoveryConfig, 'composite_sig'>;
+  shares: ShamirShare[];
+}
 ```
 
 ---
@@ -1585,60 +1605,67 @@ function setupKeyRecovery(
 
 ### `generateEmergencyRevocationToken()`
 
-Generate a token pair for emergency agent revocation.
+Generate a revocation secret and its commitment token for emergency agent revocation.
 
 ```typescript
 function generateEmergencyRevocationToken(): EmergencyRevocationTokenPair;
 
 interface EmergencyRevocationTokenPair {
-  token: string;      // Stored in agent passport (public)
-  secret: string;     // Kept by human principal (secret)
+  revocation_secret: string;           // 64 hex chars; kept offline by the human principal
+  emergency_revocation_token: string;  // "sha256:<hex>"; embedded in the agent passport
 }
 ```
 
-### `verifyEmergencyRevocationSecret(token, secret)`
+### `verifyEmergencyRevocationSecret(revocationSecret, commitmentToken)`
 
-Verify an emergency revocation secret against its public token.
+Verify an emergency revocation secret against the commitment token from the passport.
 
 ```typescript
-function verifyEmergencyRevocationSecret(token: string, secret: string): boolean;
+function verifyEmergencyRevocationSecret(revocationSecret: string, commitmentToken: string): boolean;
 ```
 
-### `buildEmergencyRevocation(agentId, humanId, secret)`
+### `buildEmergencyRevocation({ agentId, humanId, revocationSecret })`
 
-Build an emergency revocation record.
+Build an emergency revocation request.
 
 ```typescript
-function buildEmergencyRevocation(
-  agentId: string,
-  humanId: string,
-  secret: string,
-): EmergencyRevocation;
+function buildEmergencyRevocation(params: {
+  agentId: string;
+  humanId: string;
+  revocationSecret: string;
+}): EmergencyRevocation;
 ```
 
 ---
 
 ## Bundle Presentation
 
-### `suggestPresentationMode(bundle, context?)`
+### `suggestPresentationMode(tier, opts)`
 
-Suggest the optimal presentation mode for a bundle.
+Suggest a presentation mode: `full` on first contact or at `elevated`/`maximum`; at `routine`/`standard`, `reference` with an existing trust relationship and `compact` otherwise.
 
 ```typescript
-function suggestPresentationMode(bundle: SignedBundleV2, context?: Record<string, unknown>): PresentationMode;
+function suggestPresentationMode(
+  tier: SecurityTier,
+  opts: { isFirstContact: boolean; hasTrustRelationship: boolean },
+): PresentationMode;
 
-type PresentationMode = 'full' | 'compact' | 'reference' | 'incremental';
+type PresentationMode = 'full' | 'incremental' | 'reference' | 'compact';
 ```
 
-### `presentFull(bundle)` / `presentCompact(bundle)` / `presentReference(bundle)` / `presentIncremental(bundle, delta)`
+### `presentFull(bundle)` / `presentCompact(bundle, pqCheckpointRef)` / `presentReference(bundle, verificationEndpoint)` / `presentIncremental(baseBundle, updatedBundle, baseAuditCount)`
 
-Generate different presentation formats for bundle transmission.
+Generate different presentation formats for bundle transmission. `presentCompact` drops the PQ signature and references a PQ checkpoint instead; `presentReference` sends only the bundle hash, the session nonce and a verification endpoint; `presentIncremental` sends the audit entries after `baseAuditCount`, the PQ checkpoints, the updated manifest and its signature.
 
 ```typescript
 function presentFull(bundle: SignedBundleV2): FullPresentation;
-function presentCompact(bundle: SignedBundleV2): CompactPresentation;
-function presentReference(bundle: SignedBundleV2): ReferencePresentation;
-function presentIncremental(bundle: SignedBundleV2, delta: IncrementalDelta): IncrementalPresentation;
+function presentCompact(bundle: SignedBundleV2, pqCheckpointRef: string | null): CompactPresentation;
+function presentReference(bundle: SignedBundleV2, verificationEndpoint: string): ReferencePresentation;
+function presentIncremental(
+  baseBundle: SignedBundleV2,
+  updatedBundle: SignedBundleV2,
+  baseAuditCount: number,
+): IncrementalPresentation;
 ```
 
 ### `computeBundleHash(bundle)`
@@ -1684,20 +1711,20 @@ interface CacheEntry {
 
 Compact binary serialization for DCP bundles.
 
-### `cborEncode(data)` / `cborDecode(bytes)`
+### `cborEncode(value)` / `cborDecode(data)`
 
 ```typescript
-function cborEncode(data: unknown): Uint8Array;
-function cborDecode(bytes: Uint8Array): unknown;
+function cborEncode(value: unknown): Uint8Array;
+function cborDecode(data: Uint8Array): unknown;
 ```
 
-### `jsonToCborPayload(json)` / `cborPayloadToJson(bytes)`
+### `jsonToCborPayload(json)` / `cborPayloadToJson(cbor)`
 
-Convert between JSON objects and CBOR payloads.
+Convert a DCP payload between its JSON form (base64 `*_b64` fields) and its CBOR-friendly form (raw byte strings), recursively. Encode the result with `cborEncode`.
 
 ```typescript
-function jsonToCborPayload(json: unknown): Uint8Array;
-function cborPayloadToJson(bytes: Uint8Array): unknown;
+function jsonToCborPayload(json: Record<string, unknown>): Record<string, unknown>;
+function cborPayloadToJson(cbor: Record<string, unknown>): Record<string, unknown>;
 ```
 
 ### `detectWireFormat(data)`
