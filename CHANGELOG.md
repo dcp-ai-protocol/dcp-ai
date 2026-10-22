@@ -79,6 +79,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Rust SDK: `serde_json` now has `float_roundtrip`. Its fast float parser is off by one ULP on long
+  decimal literals, so `9007199254740991.0` (which `dcp-jcs-v1` reads as the integer
+  9007199254740991, as every other SDK does) became 9007199254740990 and `2251799813685247.0`
+  a non-integer, and the Rust verifier rejected signatures and limits the TypeScript, Python and Go
+  verifiers accept. Shared vector `limits_written_in_decimal_form`.
 - `@dcp-ai/wasm`: the npm package ships `pkg/` (the `.wasm` binary and its glue). wasm-pack writes
   `pkg/.gitignore` = `*`, npm honours nested `.gitignore` files, and `@dcp-ai/wasm@2.0.0` was published
   without `pkg/`, so its runtime import of `../pkg/dcp_ai.js` failed. The build removes that file and the

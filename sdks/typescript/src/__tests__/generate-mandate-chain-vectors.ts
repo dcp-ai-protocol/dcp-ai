@@ -206,6 +206,12 @@ async function main() {
   // instead, and the written file gets the bare integer 9007199254740993 in its place, as a producer that
   // canonicalizes through doubles would put on the wire. A verifier reading doubles sees a valid signature.
   const TWO_53_PLUS_1_MARKER = '@@9007199254740993@@';
+  // Decimal forms of integers within the bound: dcp-jcs-v1 reads them as the integer, so every SDK
+  // must accept them and canonicalize them identically. JSON.stringify would drop the ".0", so the
+  // written file gets them through markers too; a parser that is off by one ULP on long decimal
+  // literals (serde_json without float_roundtrip) reads a different integer and rejects.
+  const DECIMAL_FORMS: Record<string, string> = { '@@9007199254740991.0@@': '9007199254740991.0', '@@2251799813685247.0@@': '2251799813685247.0' };
+  const WIRE_MARKERS: Record<string, string> = { [TWO_53_PLUS_1_MARKER]: '9007199254740993', ...DECIMAL_FORMS };
   const apiScope = (n: number) => [{ domain: 'api', actions_permitted: ['call'], limits: { max_calls: n } }];
   const withLimit = (m: Mandate, key: string, value: unknown): Mandate => {
     const [entry, ...rest] = m.authority_scope as Record<string, unknown>[];
@@ -215,6 +221,12 @@ async function main() {
   const boundSubPayload = (over: Mandate = {}): Mandate =>
     sub1Payload({ mandate_id: 'mandate:interop-sub-bound', parent_mandate_id: 'mandate:interop-root-bound', authority_scope: apiScope(MAX_COMPARABLE), ...over });
   const boundSub = await signSub(boundSubPayload(), agents[ORCHESTRATOR]);
+  const decimalLimits = { max_calls: MAX_COMPARABLE, max_bytes: 2251799813685247 };
+  const decimalScope = [{ domain: 'api', actions_permitted: ['call'], limits: decimalLimits }];
+  const inDecimalForm = (m: Mandate): Mandate =>
+    withLimit(withLimit(m, 'max_calls', '@@9007199254740991.0@@'), 'max_bytes', '@@2251799813685247.0@@');
+  const decimalRoot = inDecimalForm(await signRoot(rootPayload({ mandate_id: 'mandate:interop-root-decimal', authority_scope: decimalScope })));
+  const decimalSub = inDecimalForm(await signSub(sub1Payload({ mandate_id: 'mandate:interop-sub-decimal', parent_mandate_id: 'mandate:interop-root-decimal', authority_scope: decimalScope }), agents[ORCHESTRATOR]));
 
   const mustAccept = [
     { name: 'depth_1', chain: [root, sub1], revoked_mandate_ids: [], expected: { depth: 1, effective_tier: 'elevated' } },
@@ -228,6 +240,7 @@ async function main() {
       expected: { depth: 1, effective_tier: 'elevated' },
     },
     { name: 'limits_at_the_safe_integer_bound', chain: [boundRoot, boundSub], revoked_mandate_ids: [], expected: { depth: 1, effective_tier: 'elevated' } },
+    { name: 'limits_written_in_decimal_form', chain: [decimalRoot, decimalSub], revoked_mandate_ids: [], expected: { depth: 1, effective_tier: 'elevated' } },
   ];
 
   const scope1 = sub1Payload().authority_scope as Record<string, unknown>[];
@@ -309,7 +322,7 @@ async function main() {
 
   const out = {
     _description:
-      'Cross-SDK DCP-09 §3.5 mandate chain vectors. Every chain verifier MUST accept each must_accept chain (root first), verified at verification_time against keys (the human principal keys and each delegating agent keys by agent_id) with revoked_mandate_ids revoked, and report expected.depth and expected.effective_tier (the greatest minimum_security_tier along the chain, null when none sets one). It MUST reject each must_reject chain, at its own verification_time when it has one, with an error that contains error_contains (case-insensitive). Numeric limits compare only as integers within ±(2^53 − 1); a mandate with a numeric limit outside that range is not comparable, so some must_reject chains carry the integer 9007199254740993, which a JSON parser that reads doubles cannot represent. tier_floor gives the security tier (DCP-AI v2.0 §14.2) computeSecurityTier returns for an intent, a policy decision and a mandate chain effective tier, which can only raise the tier.',
+      'Cross-SDK DCP-09 §3.5 mandate chain vectors. Every chain verifier MUST accept each must_accept chain (root first), verified at verification_time against keys (the human principal keys and each delegating agent keys by agent_id) with revoked_mandate_ids revoked, and report expected.depth and expected.effective_tier (the greatest minimum_security_tier along the chain, null when none sets one). It MUST reject each must_reject chain, at its own verification_time when it has one, with an error that contains error_contains (case-insensitive). Numeric limits compare only as integers within ±(2^53 − 1); a mandate with a numeric limit outside that range is not comparable, so some must_reject chains carry the integer 9007199254740993, which a JSON parser that reads doubles cannot represent, and one must_accept chain writes its limits in decimal form (9007199254740991.0), which every parser must read as that integer. tier_floor gives the security tier (DCP-AI v2.0 §14.2) computeSecurityTier returns for an intent, a policy decision and a mandate chain effective tier, which can only raise the tier.',
     _generator: 'sdks/typescript/src/__tests__/generate-mandate-chain-vectors.ts',
     _generated_at: new Date().toISOString(),
     verification_time: VERIFICATION_TIME,
@@ -318,8 +331,9 @@ async function main() {
     must_reject: mustReject,
     tier_floor: { cases: tierFloorCases },
   };
-  const text = JSON.stringify(out, null, 2).split(`"${TWO_53_PLUS_1_MARKER}"`).join('9007199254740993') + '\n';
-  if (text.includes(TWO_53_PLUS_1_MARKER)) throw new Error('a 2^53 + 1 marker was left outside a limit value');
+  let text = JSON.stringify(out, null, 2) + '\n';
+  for (const [marker, wire] of Object.entries(WIRE_MARKERS)) text = text.split(`"${marker}"`).join(wire);
+  if (text.includes('@@')) throw new Error('a wire marker was left outside a limit value');
 
   // Every vector gets the verdict the file promises, under this SDK reading the file as written.
   const written = JSON.parse(text);

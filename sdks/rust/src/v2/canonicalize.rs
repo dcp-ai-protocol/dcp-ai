@@ -132,6 +132,22 @@ mod tests {
 
     // ── dcp-jcs-v1 profile: integer-valued floats accepted ──
 
+    /// Long decimal literals must round to the integer they name: serde_json's fast float path is
+    /// off by one ULP without `float_roundtrip`, and a verifier that reads 9007199254740990 for
+    /// `9007199254740991.0` canonicalizes other bytes than every other SDK.
+    #[test]
+    fn test_long_decimal_literals_round_trip_exactly() {
+        for (literal, canonical) in [
+            ("9007199254740991.0", "9007199254740991"),
+            ("2251799813685247.0", "2251799813685247"),
+            ("-9007199254740991.0", "-9007199254740991"),
+            ("9.007199254740991e15", "9007199254740991"),
+        ] {
+            let v: serde_json::Value = serde_json::from_str(literal).unwrap();
+            assert_eq!(canonicalize_v2(&v).unwrap(), canonical, "{literal}");
+        }
+    }
+
     #[test]
     fn test_accepts_integer_valued_float() {
         // `1.0` from a JSON literal — serde_json stores as Number(f64).

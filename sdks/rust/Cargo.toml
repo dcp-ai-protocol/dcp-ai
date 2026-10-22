@@ -16,7 +16,9 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+# float_roundtrip: the fast float parser is off by one ULP on long decimal literals such as
+# 9007199254740991.0, which dcp-jcs-v1 reads as the integer 9007199254740991 like every other SDK.
+serde_json = { version = "1.0", features = ["float_roundtrip"] }
 sha2 = "0.10"
 ed25519-dalek = { version = "2.1", features = ["rand_core"] }
 rand = "0.8"
