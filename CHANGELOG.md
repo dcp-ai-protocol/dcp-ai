@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Security
+
+- Blinded RPR verification (`verifyBlindedRpr`, `verify_blinded_rpr`, `VerifyBlindedRPR`) now also
+  compares `session_nonce` and `binding_keys`, in all four SDKs. Before, a full RPR with different
+  binding keys or a different session nonce still matched the blinded record. In Go, list fields
+  decoded from JSON no longer fail to match the same list built as `[]string`.
+
 ### Added
 
 - TypeScript SDK: `blindRpr`, `verifyBlindedRpr`, `isBlindedRpr` and `computePiiHash` are exported

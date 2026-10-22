@@ -78,6 +78,9 @@ export function verifyBlindedRpr(
   if (fullRpr.human_id !== blindedRpr.human_id) {
     errors.push('human_id mismatch');
   }
+  if (fullRpr.session_nonce !== blindedRpr.session_nonce) {
+    errors.push('session_nonce mismatch');
+  }
   if (fullRpr.entity_type !== blindedRpr.entity_type) {
     errors.push('entity_type mismatch');
   }
@@ -95,6 +98,9 @@ export function verifyBlindedRpr(
   }
   if (fullRpr.expires_at !== blindedRpr.expires_at) {
     errors.push('expires_at mismatch');
+  }
+  if (canonicalizeV2(fullRpr.binding_keys ?? null) !== canonicalizeV2(blindedRpr.binding_keys ?? null)) {
+    errors.push('binding_keys mismatch');
   }
 
   return { valid: errors.length === 0, errors };
