@@ -204,8 +204,42 @@ test("rotation keeps at most four retired keys per agent", async () => {
 
   // Six rotations retired six keys; the two oldest are dropped instead of filling the registry.
   assert.equal(await registeredKeys(), before + 4);
-  assert.equal((await fetch(`${base}/v2/keys/${retired[0]}`)).status, 404);
   assert.equal((await (await fetch(`${base}/v2/keys/${retired[5]}`)).json()).key.status, "revoked");
+  // A dropped key still reads as revoked, and nobody can register it again as an active key.
+  const dropped = await (await fetch(`${base}/v2/keys/${retired[0]}`)).json();
+  assert.equal(dropped.revoked, true);
+  assert.equal(dropped.agent_id, "agent:lima-0001");
+  const reuse = await newAgent("agent:lima-reuse");
+  reuse.passport.keys[0] = lima.passport.keys[0];
+  const reused = await signPassport(reuse.passport, { classical: lima.keys.classical, pq: reuse.keys.pq });
+  assert.equal((await post("/v2/passport/register", { signed_passport: reused })).status, 409);
+});
+
+test("an agent can hold at most 64 keys over its lifetime", async () => {
+  // Its own server: 63 rotations would hit the shared one's per-client POST limit.
+  const { base: own, proc } = await startService(SERVER, {});
+  try {
+    const mike = await newAgent("agent:mike-life");
+    assert.equal((await postTo(own, "/v2/passport/register", { signed_passport: mike.signedPassport })).status, 201);
+    const ed25519 = new Ed25519Provider();
+    let current = { kid: mike.keys.classical.kid, secretKeyB64: mike.keys.classical.secretKeyB64 };
+    const rotate = async () => {
+      const next = await ed25519.generateKeypair();
+      const rotation = await createKeyRotation(registry, {
+        oldKid: current.kid, oldAlg: "ed25519", oldSecretKeyB64: current.secretKeyB64,
+        newKid: next.kid, newAlg: "ed25519", newSecretKeyB64: next.secretKeyB64, newPublicKeyB64: next.publicKeyB64,
+        timestamp: new Date().toISOString(), expiresAt: null,
+      });
+      const { status } = await postTo(own, "/v2/keys/rotate", rotation);
+      if (status === 200) current = next;
+      return status;
+    };
+    // 2 registered keys + 62 rotations = 64 keys.
+    for (let i = 0; i < 62; i++) assert.equal(await rotate(), 200, `rotation ${i + 1}`);
+    assert.equal(await rotate(), 409);
+  } finally {
+    proc.kill();
+  }
 });
 
 test("new registrations are rate limited per client", async () => {

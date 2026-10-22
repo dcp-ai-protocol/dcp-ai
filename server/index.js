@@ -48,7 +48,8 @@ const PORT = Number(process.env.PORT) || 3000;
 
 const MAX_STORE_ENTRIES = 10_000; // per-store cap before eviction
 const MAX_ADVISORIES = 1_000;
-const MAX_RETIRED_KEYS_PER_AGENT = 4; // older rotated-out keys are dropped
+const MAX_RETIRED_KEYS_PER_AGENT = 4; // older rotated-out keys are dropped (kept as tombstones)
+const MAX_KEYS_PER_AGENT = 64; // over an agent's lifetime, so its tombstones stay bounded
 const REGISTRATIONS_PER_HOUR = Number(process.env.REGISTRATIONS_PER_HOUR) || 20; // per client
 const GLOBAL_RATE_LIMIT = 100;   // requests per window per IP
 const GLOBAL_RATE_WINDOW = 60_000; // 1 minute
@@ -199,6 +200,8 @@ const DCP_CAPABILITIES = {
 
 const keyRegistry = new Map();       // kid -> { key, agent_id, registered_at }
 const agentKids = new Map();         // agent_id -> Set of its kids in keyRegistry, oldest first
+const keyCounts = new Map();         // agent_id -> keys it ever registered
+const retiredKids = new Map();       // kid -> agent_id of dropped rotated-out keys: revoked for good
 const passportRegistry = new Map();  // agent_id -> { created_at, registered_at }
 const auditChains = new Map();       // agent_id -> [events]
 const emergencyTokens = new Map();   // agent_id -> token_hash
@@ -305,11 +308,15 @@ function registerKey(entry) {
   keyRegistry.set(entry.key.kid, entry);
   if (!agentKids.has(entry.agent_id)) agentKids.set(entry.agent_id, new Set());
   agentKids.get(entry.agent_id).add(entry.key.kid);
+  keyCounts.set(entry.agent_id, (keyCounts.get(entry.agent_id) ?? 0) + 1);
 }
 
+// Drops a retired key's entry but keeps its kid as a tombstone, so the key reads as
+// revoked and can never be registered again, by anyone.
 function dropKey(entry) {
   keyRegistry.delete(entry.key.kid);
   agentKids.get(entry.agent_id).delete(entry.key.kid);
+  retiredKids.set(entry.key.kid, entry.agent_id);
 }
 
 const keysOf = (agentId) => [...(agentKids.get(agentId) ?? [])].map((kid) => keyRegistry.get(kid));
@@ -565,9 +572,10 @@ const server = http.createServer(async (req, res) => {
         return send(res, 409, { error: "Re-registration needs a passport newer (created_at) than the registered one" });
       }
     }
-    const takenKid = signerKids.find((kid) => keyRegistry.has(kid) && keyRegistry.get(kid).agent_id !== agentId);
+    const takenKid = signerKids.find((kid) =>
+      retiredKids.has(kid) || (keyRegistry.has(kid) && keyRegistry.get(kid).agent_id !== agentId));
     if (takenKid) {
-      return send(res, 409, { error: `Key ${takenKid} is registered to another agent` });
+      return send(res, 409, { error: `Key ${takenKid} is retired or registered to another agent` });
     }
     // Evicting identities would let anyone re-register an evicted agent_id.
     if (!passportRegistry.has(agentId) && keyRegistry.size >= MAX_STORE_ENTRIES) {
@@ -767,6 +775,9 @@ const server = http.createServer(async (req, res) => {
     const kid = keyLookupMatch[1];
     const entry = keyRegistry.get(kid);
 
+    if (!entry && retiredKids.has(kid)) {
+      return send(res, 200, { found: true, revoked: true, retired: true, kid, key: null, agent_id: retiredKids.get(kid) }, "2.0");
+    }
     if (!entry) {
       return send(res, 404, { found: false, kid }, "2.0");
     }
@@ -843,8 +854,13 @@ const server = http.createServer(async (req, res) => {
         error: `Kid mismatch: expected ${expectedKid}, got ${new_key.kid}`,
       });
     }
-    if (keyRegistry.has(new_key.kid)) {
-      return send(res, 409, { error: `Key ${new_key.kid} is already registered` });
+    if (keyRegistry.has(new_key.kid) || retiredKids.has(new_key.kid)) {
+      return send(res, 409, { error: `Key ${new_key.kid} is already registered or retired` });
+    }
+    if ((keyCounts.get(oldEntry.agent_id) ?? 0) >= MAX_KEYS_PER_AGENT) {
+      return send(res, 409, {
+        error: `Agent ${oldEntry.agent_id} has used its ${MAX_KEYS_PER_AGENT} keys; register a new agent_id`,
+      });
     }
 
     const rotation = await verifyKeyRotation(
