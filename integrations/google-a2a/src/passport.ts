@@ -136,13 +136,16 @@ function keyError(slot: unknown, allowed: ReadonlySet<string>, keys: KeyEntry[],
   if (trusted) {
     // The trusted entry is the authoritative one: it must match and be live itself, so a key the
     // verifier has since revoked or let expire cannot be revived by the passport's own copy.
-    const anchor = trusted.find((t) => t && t.kid === kid && t.alg === alg && t.public_key_b64 === key.public_key_b64);
-    if (!anchor) return `key ${kid} is not among the trusted keys`;
-    if (anchor.status !== 'active') return `trusted key ${kid} is ${anchor.status}`;
-    if (anchor.expires_at !== null && anchor.expires_at !== undefined) {
-      const expires = instant(anchor.expires_at);
-      if (expires === undefined) return `trusted key ${kid} has an invalid expires_at`;
-      if (expires < nowMs) return `trusted key ${kid} has expired`;
+    // Every matching entry must be live: a revocation recorded next to a stale active copy still wins.
+    const anchors = trusted.filter((t) => t && t.kid === kid && t.alg === alg && t.public_key_b64 === key.public_key_b64);
+    if (anchors.length === 0) return `key ${kid} is not among the trusted keys`;
+    for (const anchor of anchors) {
+      if (anchor.status !== 'active') return `trusted key ${kid} is ${String(anchor.status)}`;
+      if (anchor.expires_at !== null && anchor.expires_at !== undefined) {
+        const expires = instant(anchor.expires_at);
+        if (expires === undefined) return `trusted key ${kid} has an invalid expires_at`;
+        if (expires < nowMs) return `trusted key ${kid} has expired`;
+      }
     }
   }
   return key;

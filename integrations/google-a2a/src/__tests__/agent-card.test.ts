@@ -92,6 +92,8 @@ describe('the signed passport inside the Agent Card', () => {
     const expiredAnchor = await verifyAgentCardPassport(card, { trustedKeys: entries(keys, { expires_at: '2020-01-01T00:00:00Z' }) });
     expect(expiredAnchor.verified).toBe(false);
     expect(expiredAnchor.errors.join('\n')).toContain('has expired');
+    const mixed = await verifyAgentCardPassport(card, { trustedKeys: [...entries(keys), ...entries(keys, { status: 'revoked' })] });
+    expect(mixed.verified).toBe(false); // a revocation next to a stale active copy still wins
     const notArray = await verifyAgentCardPassport(card, { trustedKeys: 'nope' as any });
     expect(notArray.verified).toBe(false);
     expect(notArray.errors[0]).toContain('trustedKeys must be an array');
