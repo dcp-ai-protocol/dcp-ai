@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use super::composite_sig::CompositeSignature;
+use super::delegation::SubDelegationPolicy;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KeyEntry {
@@ -538,6 +539,29 @@ pub struct DelegationMandate {
     pub revocable: bool,
     pub timestamp: String,
     pub human_composite_sig: CompositeSignature,
+}
+
+/// A sub-mandate (DCP-09 §3.5): a delegate agent's narrower delegation to
+/// another agent, signed by the delegating agent under the SubMandate context.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubMandate {
+    pub dcp_version: String,
+    pub mandate_id: String,
+    pub session_nonce: String,
+    pub human_id: String,
+    pub agent_id: String,
+    pub authority_scope: Vec<AuthorityScopeEntry>,
+    pub valid_from: String,
+    pub valid_until: String,
+    pub revocable: bool,
+    pub timestamp: String,
+    pub parent_mandate_id: String,
+    pub delegation_depth: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sub_delegation: Option<SubDelegationPolicy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub minimum_security_tier: Option<String>,
+    pub delegator_composite_sig: CompositeSignature,
 }
 
 /// SignificanceScore is 0-1000.
