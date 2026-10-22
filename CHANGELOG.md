@@ -143,6 +143,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   slot must hold Ed25519 and the PQ slot ML-DSA-65 or SLH-DSA-192f, from a key whose `alg` is the
   same, as in the TypeScript, Go and Rust SDKs. Under `pq_only` it accepted ML-DSA-65 in the
   classical slot.
+- Go and Rust SDKs: a composite signature must carry its `pq` member, `null` for `classical_only`
+  (`schemas/v2/composite_signature.schema.json`). They decoded an absent `pq` like `null` and
+  verified such a `classical_only` signature, which the TypeScript and Python verifiers reject.
+  `bundle_vectors.json` pins it with `classical_only_bundle_signature_without_pq`.
 
 ### Changed (breaking)
 
