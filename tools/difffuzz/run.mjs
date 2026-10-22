@@ -171,16 +171,19 @@ function otherType(v) {
 const mutators = {
   delete_key(doc) {
     const s = pick(slots(doc).filter((x) => isObj(x.container)));
+    if (!s) return null;
     delete s.container[s.key];
     return fmtPath(s.path);
   },
   set_null(doc) {
     const s = pick(slots(doc));
+    if (!s) return null;
     s.container[s.key] = null;
     return fmtPath(s.path);
   },
   swap_type(doc) {
     const s = pick(slots(doc));
+    if (!s) return null;
     s.container[s.key] = otherType(s.value);
     return fmtPath(s.path);
   },
@@ -188,6 +191,7 @@ const mutators = {
     const s = pick(
       slots(doc).filter((x) => isObj(x.container) && Object.keys(x.container).length > 1),
     );
+    if (!s) return null;
     const other = pick(Object.keys(s.container).filter((k) => k !== s.key));
     [s.container[s.key], s.container[other]] = [s.container[other], s.container[s.key]];
     return `${fmtPath(s.path)} <-> ${other}`;
@@ -196,6 +200,7 @@ const mutators = {
     const all = slots(doc).filter((x) => typeof x.value === 'string' && BASE64.test(x.value));
     if (!all.length) return null;
     const s = pick(all);
+    if (!s) return null;
     const i = randInt(s.value.length - (s.value.endsWith('=') ? 2 : 0));
     const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
     let c = alphabet[randInt(64)];
@@ -207,12 +212,14 @@ const mutators = {
     const all = slots(doc).filter((x) => typeof x.value === 'string' && ENUMISH.test(x.value));
     if (!all.length) return null;
     const s = pick(all);
+    if (!s) return null;
     const k = pick(PROTO_KEYS);
     s.container[s.key] = k;
     return `${fmtPath(s.path)} = ${k}`;
   },
   prototype_key_as_key(doc) {
     const s = pick(slots(doc).filter((x) => isObj(x.container)));
+    if (!s) return null;
     const k = pick(PROTO_KEYS);
     s.container[k] = s.value;
     delete s.container[s.key];
@@ -220,6 +227,7 @@ const mutators = {
   },
   add_unknown_key(doc) {
     const s = pick(slots(doc).filter((x) => isObj(x.value)));
+    if (!s) return null;
     const k = `x_${randInt(1e6).toString(36)}`;
     s.value[k] = randomValue();
     return `${fmtPath([...s.path, k])}`;
@@ -241,6 +249,7 @@ const mutators = {
     const all = slots(doc).filter((x) => typeof x.value === 'number');
     if (!all.length) return null;
     const s = pick(all);
+    if (!s) return null;
     const n = s.value;
     const token = pick([
       `${n}.0`,
@@ -266,6 +275,7 @@ const mutators = {
     const all = slots(doc).filter((x) => typeof x.value === 'string' && RFC3339.test(x.value));
     if (!all.length) return null;
     const s = pick(all);
+    if (!s) return null;
     const t = new Date(s.value);
     const iso = t.toISOString();
     const offset = (sign, h) => {
@@ -314,6 +324,7 @@ const mutators = {
   },
   oversized_string(doc) {
     const s = pick(slots(doc));
+    if (!s) return null;
     const size = pick([65536, 1 << 20]);
     s.container[s.key] = pick(['A', 'é', '\u0000']).repeat(size);
     return `${fmtPath(s.path)} = <${size} chars>`;
@@ -322,6 +333,7 @@ const mutators = {
     // ponytail: depth 100 stays inside every parser's limit (serde_json's
     // default is 128) so this exercises the verifiers, not the JSON parsers.
     const s = pick(slots(doc));
+    if (!s) return null;
     let v = pick([null, 'leaf', 1]);
     for (let i = 0; i < 100; i++) v = rand() < 0.5 ? { n: v } : [v];
     s.container[s.key] = v;
@@ -443,7 +455,14 @@ for (const mode of MODES)
   );
 mkdirSync(opts.out, { recursive: true });
 
-const stats = { iterations: 0, verdicts: 0, agreements: 0, findings: 0, byMutator: {} };
+const stats = {
+  iterations: 0,
+  verdicts: 0,
+  agreements: 0,
+  findings: 0,
+  fromValid: 0,
+  byMutator: {},
+};
 const modeName = (m) => m || 'default';
 
 async function judge(mode, text) {
@@ -500,17 +519,24 @@ console.log(
   `seeds: ${seeds.length} (${seeds.map((s) => `${s.name}=${MODES.map((m) => baseline.get(`${s.name}|${m}`)).join('/')}`).join(', ')})`,
 );
 
+// Most seeds are must_reject bundles, which every SDK already rejects; only a
+// baseline-valid seed can expose an accept/reject disagreement, so at least
+// half of the iterations start from one.
+const validSeeds = seeds.filter((s) => baseline.get(`${s.name}|${MODES[0]}`) === true);
 for (let i = 1; i <= opts.iterations; i++) {
   stats.iterations++;
-  const seed = pick(seeds);
+  const fromValid = validSeeds.length > 0 && rand() < 0.5;
+  const seed = fromValid ? pick(validSeeds) : pick(seeds);
+  if (baseline.get(`${seed.name}|${MODES[0]}`) === true) stats.fromValid++;
   const doc = clone(seed.doc);
   const mutations = [];
   const count = rand() < 0.7 ? 1 : 2;
-  while (mutations.length < count) {
+  for (let tries = 0; mutations.length < count && tries < 20; tries++) {
     const name = pick(MUTATOR_NAMES);
     const detail = mutators[name](doc);
     if (detail !== null) mutations.push({ mutator: name, detail });
   }
+  if (!mutations.length) mutations.push({ mutator: 'none', detail: 'no eligible slot' });
   const onlyReorder = mutations.every((m) => m.mutator === 'reorder_keys');
   const text = serialize(doc);
   const verdicts = {};
@@ -545,7 +571,7 @@ for (let i = 1; i <= opts.iterations; i++) {
 
 for (const mode of MODES) for (const s of Object.values(shims[mode])) s.kill();
 console.log(
-  `\nseed ${opts.seed}: ${stats.iterations} iterations x ${MODES.length} modes = ${stats.verdicts} verdicts (incl. ${seeds.length * MODES.length} baselines), ${stats.agreements} agreements, ${stats.findings} findings, ${((Date.now() - started) / 1000).toFixed(1)}s`,
+  `\nseed ${opts.seed}: ${stats.iterations} iterations x ${MODES.length} modes = ${stats.verdicts} verdicts (incl. ${seeds.length * MODES.length} baselines), ${stats.agreements} agreements, ${stats.findings} findings, ${stats.fromValid}/${stats.iterations} iterations from a baseline-valid seed (${validSeeds.length}/${seeds.length} seeds), ${((Date.now() - started) / 1000).toFixed(1)}s`,
 );
 console.log(
   `mutations: ${Object.entries(stats.byMutator)

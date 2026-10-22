@@ -35,9 +35,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `tools/difffuzz`: a differential fuzzer that runs the same mutated V2 signed bundle through the
   TypeScript, Python, Go and Rust verifiers (one shim per SDK, built from this checkout) and fails
   on any disagreement, crash or timeout, saving each finding under `tools/difffuzz/findings/`.
-  Mutators cover deleted and null fields, type swaps, sibling swaps, base64 bit flips, prototype
-  keys, unknown keys, duplicated artifacts, number and RFC 3339 variants, oversized strings, deep
-  nesting and key reordering (which must never change a verdict).
+  Seeds are the V2 signed bundles in `tests/interop/v2/`; mutators cover deleted and null fields,
+  type swaps, sibling swaps, base64 character flips, prototype keys, unknown keys, duplicated
+  artifacts, number and RFC 3339 variants, oversized strings, deep nesting and key reordering
+  (which must never change a verdict).
 - `.github/workflows/difffuzz.yml` runs the fuzzer on every pull request (300 iterations), on
   `workflow_dispatch` and nightly (3000 iterations).
 

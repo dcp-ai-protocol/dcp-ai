@@ -55,8 +55,12 @@ bundle under the strict mode.
 All V2 signed bundles found in `tests/interop/v2/bundle_vectors.json`
 (`signed_bundle`, `must_accept_bundles`, `classical_only_routine_bundle`,
 `must_reject_bundles`), in `tests/interop/v2/cross_sdk_vectors.json` and in
-`tests/conformance/examples/*.json`. Each seed is first verified unmutated
-under every mode (the baseline); a baseline disagreement is a finding too.
+`tests/conformance/examples/*.json` (empty until V2 signed examples are
+checked in there). Each seed is first verified unmutated under every mode (the
+baseline); a baseline disagreement is a finding too. Most seeds are
+`must_reject` bundles, which every SDK already rejects, so at least half of
+the iterations start from a seed whose baseline verdict under the first mode
+is valid; the summary line reports the split.
 
 ### Mutators
 
