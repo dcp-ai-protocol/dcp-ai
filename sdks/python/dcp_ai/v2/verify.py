@@ -31,7 +31,7 @@ from dcp_ai.v2.domain_separation import DCP_CONTEXTS
 from dcp_ai.v2.models import VerifierPolicy
 from dcp_ai.v2.pq_checkpoint import audit_events_merkle_root
 from dcp_ai.v2.security_tier import compute_security_tier, effective_verification_mode
-from dcp_ai.v2.session_nonce import is_session_expired, verify_session_binding
+from dcp_ai.v2.session_nonce import parse_rfc3339, verify_session_binding
 from dcp_ai.v2.signed_payload import prepare_payload, verify_payload_hash
 
 # Transition-period default, identical to the TypeScript SDK. The risk tier comes
@@ -266,11 +266,17 @@ async def _verify(
             return
         details["session_nonce"] = session["nonce"]
 
-    # 3a. Session expiry
+    # 3a. Session expiry: absent or null never expires; anything else must be an
+    # RFC 3339 timestamp still in the future.
     expires_at = manifest.get("session_expires_at")
-    if expires_at:
+    expires = None
+    if expires_at is not None:
         details["session_expires_at"] = expires_at
-        if is_session_expired(expires_at):
+        expires = parse_rfc3339(expires_at)
+        if expires is None:
+            errors.append(f"Invalid session_expires_at: {expires_at}")
+            return
+        if expires < datetime.now(timezone.utc):
             errors.append(f"Session expired at {expires_at}")
             return
     elif policy.get("require_session_expiry"):
@@ -278,7 +284,7 @@ async def _verify(
         return
 
     max_duration = policy.get("max_session_duration_seconds") or 0
-    if max_duration > 0 and expires_at:
+    if max_duration > 0 and expires is not None:
         # signature.created_at sits outside the signed manifest. Clamping it to now
         # keeps honest bundles' verdict (same as TS), but a rewritten value can still
         # shrink the check down to the session's remaining lifetime (not to zero).
@@ -286,7 +292,7 @@ async def _verify(
         now = datetime.now(timezone.utc)
         created_at = signature.get("created_at")
         created = min(_parse_time(created_at), now) if created_at else now
-        duration = (_parse_time(expires_at) - created).total_seconds()
+        duration = (expires - created).total_seconds()
         if duration > max_duration:
             errors.append(f"Session duration {duration:g}s exceeds policy max of {max_duration}s")
 
@@ -391,7 +397,11 @@ async def _verify(
     for key in passport_keys + rpr_keys:
         if key.get("status") == "revoked":
             errors.append(f"Key {key['kid']} is revoked")
-        if key.get("expires_at") and _parse_time(key["expires_at"]) < now:
-            errors.append(f"Key {key['kid']} has expired")
+        if key.get("expires_at") is not None:
+            key_expires = parse_rfc3339(key["expires_at"])
+            if key_expires is None:
+                errors.append(f"Key {key['kid']} has an invalid expires_at: {key['expires_at']}")
+            elif key_expires < now:
+                errors.append(f"Key {key['kid']} has expired")
         if max_age_days > 0 and (now - _parse_time(key["created_at"])).total_seconds() / 86400 > max_age_days:
             warnings.append(f"Key {key['kid']} exceeds max age of {max_age_days} days")

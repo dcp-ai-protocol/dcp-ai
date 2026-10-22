@@ -35,7 +35,7 @@ import type { CompositeSignature } from './composite-sig.js';
 import { AlgorithmRegistry } from './crypto-registry.js';
 import { DCP_CONTEXTS } from './domain-separation.js';
 import type { DcpContext } from './domain-separation.js';
-import { verifySessionBinding, isSessionExpired } from './session-nonce.js';
+import { verifySessionBinding, parseRfc3339 } from './session-nonce.js';
 import { verifyPayloadHash } from './signed-payload.js';
 import { computeSecurityTier, effectiveVerificationMode } from './security-tier.js';
 
@@ -366,11 +366,20 @@ export async function verifySignedBundleV2(
   }
 
   // ── 3a. Session expiration check ──
+  // Absent or null never expires; anything else must be an RFC 3339 timestamp
+  // still in the future.
 
-  if (bundle.manifest.session_expires_at) {
-    details.session_expires_at = bundle.manifest.session_expires_at;
-    if (isSessionExpired(bundle.manifest.session_expires_at)) {
-      errors.push(`Session expired at ${bundle.manifest.session_expires_at}`);
+  const sessionExpiresAt: unknown = bundle.manifest.session_expires_at;
+  let sessionExpires: number | undefined;
+  if (sessionExpiresAt !== undefined && sessionExpiresAt !== null) {
+    details.session_expires_at = String(sessionExpiresAt);
+    sessionExpires = parseRfc3339(sessionExpiresAt);
+    if (sessionExpires === undefined) {
+      errors.push(`Invalid session_expires_at: ${String(sessionExpiresAt)}`);
+      return { verified: false, errors, warnings, details };
+    }
+    if (sessionExpires < Date.now()) {
+      errors.push(`Session expired at ${String(sessionExpiresAt)}`);
       return { verified: false, errors, warnings, details };
     }
   } else if (policy.require_session_expiry) {
@@ -378,10 +387,9 @@ export async function verifySignedBundleV2(
     return { verified: false, errors, warnings, details };
   }
 
-  if (policy.max_session_duration_seconds && policy.max_session_duration_seconds > 0 && bundle.manifest.session_expires_at) {
+  if (policy.max_session_duration_seconds && policy.max_session_duration_seconds > 0 && sessionExpires !== undefined) {
     const created = signature.created_at ? new Date(signature.created_at).getTime() : Date.now();
-    const expires = new Date(bundle.manifest.session_expires_at).getTime();
-    const durationSec = (expires - created) / 1000;
+    const durationSec = (sessionExpires - created) / 1000;
     if (durationSec > policy.max_session_duration_seconds) {
       errors.push(
         `Session duration ${durationSec}s exceeds policy max of ${policy.max_session_duration_seconds}s`,
@@ -548,8 +556,13 @@ export async function verifySignedBundleV2(
     if (key.status === 'revoked') {
       errors.push(`Key ${key.kid} is revoked`);
     }
-    if (key.expires_at && new Date(key.expires_at) < now) {
-      errors.push(`Key ${key.kid} has expired`);
+    if (key.expires_at !== undefined && key.expires_at !== null) {
+      const expires = parseRfc3339(key.expires_at);
+      if (expires === undefined) {
+        errors.push(`Key ${key.kid} has an invalid expires_at: ${String(key.expires_at)}`);
+      } else if (expires < now.getTime()) {
+        errors.push(`Key ${key.kid} has expired`);
+      }
     }
     if (policy.max_key_age_days > 0) {
       const createdAt = new Date(key.created_at);

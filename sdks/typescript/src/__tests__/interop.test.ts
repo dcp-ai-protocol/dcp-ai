@@ -31,6 +31,7 @@ import type { CompositeSignature } from '../core/composite-sig.js';
 import { deriveKid } from '../core/crypto-provider.js';
 import { sha256Hex, sha3_256Hex } from '../core/dual-hash.js';
 import { verifySignedBundleV2, DEFAULT_VERIFIER_POLICY } from '../core/verify-v2.js';
+import { parseRfc3339 } from '../core/session-nonce.js';
 import type { SignedBundleV2, VerificationMode, VerifierPolicy } from '../types/v2.js';
 import {
   computeSecurityTier,
@@ -569,6 +570,15 @@ describe('Signed bundle verification (bundle_vectors.json)', () => {
     const { signed_bundle, verified_by_mode } = B.classical_only_routine_bundle;
     const result = await verifySignedBundleV2(signed_bundle, registry, policyFor(mode));
     expect(result.verified, result.errors.join('; ')).toBe(verified_by_mode[mode]);
+  });
+});
+
+describe('RFC 3339 timestamps (rfc3339)', () => {
+  it('parses every case to its instant, or rejects it', () => {
+    expect(V.rfc3339.cases.length).toBeGreaterThan(0);
+    for (const { input, epoch_ms } of V.rfc3339.cases) {
+      expect(parseRfc3339(input) ?? null, String(input)).toBe(epoch_ms);
+    }
   });
 });
 

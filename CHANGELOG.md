@@ -159,6 +159,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Go and Rust V2 verifiers reject a bundle whose `manifest.session_expires_at` has passed, so an
   expired session can no longer be replayed against them. The `@dcp-ai/wasm` verifier reads the
   clock from JavaScript, since `SystemTime::now()` panics on `wasm32-unknown-unknown`.
+- Rust SDK: `is_session_expired` compared RFC 3339 strings with the UTC clock lexicographically,
+  so a timestamp with an offset was misjudged by up to 14 hours: a session ending in an hour,
+  written `-05:00`, counted as expired, and one that ended an hour ago, written `+05:00`, as still
+  valid. It now parses the timestamp (`parse_rfc3339_millis`) and compares instants, for session
+  and key expiry and in the advisory helpers.
+- Expiry timestamps in all four verifiers: a `session_expires_at` or key `expires_at` that is
+  present but is not an RFC 3339 timestamp with a `Z` or `±hh:mm` offset is rejected; absent or
+  `null` still means no expiry. TypeScript accepted anything `Date` could not parse (`"n/a"`) or
+  parsed leniently (`"2099-12-31"`), and skipped an empty `session_expires_at`; Rust accepted
+  `"n/a"`; Go skipped a non-string key `expires_at`; Python raised. `isSessionExpired` and
+  `is_session_expired` count a malformed value as expired.
 - Key validity covers every key that can sign. All four verifiers reject a revoked or expired key in
   the principal's RPR `binding_keys`, which sign the RPR and may sign the bundle; TypeScript and
   Python checked only the passport keys. The Go and Rust verifiers checked no key status at all and
@@ -303,6 +314,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `tests/interop/v2/bundle_vectors.json`: rejection cases for a wrong `payload_hash`, replaced or
   truncated audit entries, an audit chain that does not start at `GENESIS`, a manifest without
   `rpr_hash`, an expired session, and revoked or expired passport and binding keys.
+- `tests/interop/v2/interop_vectors.json` `rfc3339`: the instant of RFC 3339 timestamps with
+  offsets and fractions, and the malformed values every verifier rejects. `bundle_vectors.json`
+  adds malformed and offset expiries, and its signed bundle carries far-future expiries written
+  with offsets. TypeScript `parseRfc3339`, Python `parse_rfc3339` and Rust `parse_rfc3339_millis`
+  are the parsers the verifiers use.
 - TypeScript SDK: `blindRpr`, `verifyBlindedRpr`, `isBlindedRpr` and `computePiiHash` are exported
   from the package entry point. They were implemented but unreachable from `@dcp-ai/sdk` 2.1.2 and
   earlier; Python, Go and Rust already exported them.

@@ -2,6 +2,8 @@ package v2
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -242,6 +244,38 @@ func TestVerifyManifestHashes_FailsClosed(t *testing.T) {
 	} {
 		if errs := errorsFor(mutate); len(errs) == 0 {
 			t.Errorf("%s: expected an error", name)
+		}
+	}
+}
+
+// TestParseRFC3339Vectors runs the shared rfc3339 vectors: each input parses
+// to its instant in Unix milliseconds, or is rejected.
+func TestParseRFC3339Vectors(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "tests", "interop", "v2", "interop_vectors.json"))
+	if err != nil {
+		t.Fatalf("read interop vectors: %v", err)
+	}
+	var vecs struct {
+		RFC3339 struct {
+			Cases []struct {
+				Input   interface{} `json:"input"`
+				EpochMs *int64      `json:"epoch_ms"`
+			} `json:"cases"`
+		} `json:"rfc3339"`
+	}
+	if err := json.Unmarshal(data, &vecs); err != nil {
+		t.Fatalf("parse interop vectors: %v", err)
+	}
+	if len(vecs.RFC3339.Cases) == 0 {
+		t.Fatal("no rfc3339 cases")
+	}
+	for _, c := range vecs.RFC3339.Cases {
+		got, ok := parseRFC3339(c.Input)
+		switch {
+		case c.EpochMs == nil && ok:
+			t.Errorf("%v: parsed as %v, want it rejected", c.Input, got)
+		case c.EpochMs != nil && (!ok || got.UnixMilli() != *c.EpochMs):
+			t.Errorf("%v: got %v (ok=%v), want %d", c.Input, got.UnixMilli(), ok, *c.EpochMs)
 		}
 	}
 }

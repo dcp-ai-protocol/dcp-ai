@@ -3,7 +3,6 @@
 use rand::RngCore;
 use serde_json::Value;
 
-use crate::v2::lifecycle::utc_now_iso_pub as utc_now_iso;
 
 /// Generate a cryptographically random 256-bit session nonce (64 hex chars).
 pub fn generate_session_nonce() -> String {
@@ -125,8 +124,82 @@ fn civil_from_secs(secs: i64) -> (i64, u32, u32, u32, u32, u32) {
     (y, m, d, h, mi, s)
 }
 
-/// Return `true` if the ISO-8601 timestamp has already passed.
+/// Milliseconds since the Unix epoch of an RFC 3339 timestamp with a `Z` or
+/// `±hh:mm` offset (`YYYY-MM-DDTHH:MM:SS[.fraction]`), or None for anything
+/// else: a date without a time, a time without an offset, or an impossible date
+/// or time. Digits beyond milliseconds are dropped.
+pub fn parse_rfc3339_millis(s: &str) -> Option<i64> {
+    let b = s.as_bytes();
+    let num = |from: usize, to: usize| -> Option<i64> {
+        let digits = b.get(from..to)?;
+        digits.iter().all(u8::is_ascii_digit).then(|| digits.iter().fold(0, |n, d| n * 10 + i64::from(d - b'0')))
+    };
+    if b.len() < 20 || b[4] != b'-' || b[7] != b'-' || b[10] != b'T' || b[13] != b':' || b[16] != b':' {
+        return None;
+    }
+    let (year, month, day) = (num(0, 4)?, num(5, 7)?, num(8, 10)?);
+    let (hour, minute, second) = (num(11, 13)?, num(14, 16)?, num(17, 19)?);
+    let mut at = 19;
+    let mut millis = 0;
+    if b[at] == b'.' {
+        let digits = b[at + 1..].iter().take_while(|c| c.is_ascii_digit()).count();
+        if digits == 0 {
+            return None;
+        }
+        let kept = digits.min(3);
+        millis = num(at + 1, at + 1 + kept)? * 10_i64.pow(3 - kept as u32);
+        at += 1 + digits;
+    }
+    let offset_minutes = match &b[at..] {
+        [b'Z'] => 0,
+        [sign @ (b'+' | b'-'), _, _, b':', _, _] => {
+            let (oh, om) = (num(at + 1, at + 3)?, num(at + 4, at + 6)?);
+            if oh > 23 || om > 59 {
+                return None;
+            }
+            (oh * 60 + om) * if *sign == b'-' { -1 } else { 1 }
+        }
+        _ => return None,
+    };
+    let days_in_month = match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) => 29,
+        2 => 28,
+        _ => return None,
+    };
+    if day < 1 || day > days_in_month || hour > 23 || minute > 59 || second > 59 {
+        return None;
+    }
+    // Days from civil (Howard Hinnant).
+    let (y, m) = if month <= 2 { (year - 1, month + 9) } else { (year, month - 3) };
+    let era = y.div_euclid(400);
+    let yoe = y - era * 400;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + (153 * m + 2) / 5 + day - 1;
+    let days = era * 146_097 + doe - 719_468;
+    Some((((days * 24 + hour) * 60 + minute - offset_minutes) * 60 + second) * 1000 + millis)
+}
+
+/// Whether an RFC 3339 `expires_at` has passed. A value that is not an RFC 3339
+/// timestamp counts as expired, so a malformed expiry fails closed.
 pub fn is_session_expired(expires_at: &str) -> bool {
-    // Lexicographic comparison works for UTC ISO-8601 with Z suffix.
-    utc_now_iso().as_str() > expires_at
+    parse_rfc3339_millis(expires_at).map_or(true, |t| t < crate::v2::lifecycle::unix_now_millis() as i64)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn expiry_compares_instants_not_strings() {
+        // Written with an offset, an instant an hour ahead can sort before now as
+        // a string, and one an hour behind can sort after it.
+        let now = crate::v2::lifecycle::unix_now_millis() as i64 / 1000;
+        let with_offset = |secs: i64, offset_hours: i64| {
+            let (y, mo, d, h, mi, s) = civil_from_secs(secs + offset_hours * 3600);
+            format!("{y:04}-{mo:02}-{d:02}T{h:02}:{mi:02}:{s:02}{offset_hours:+03}:00")
+        };
+        assert!(!is_session_expired(&with_offset(now + 3600, -5)), "{}", with_offset(now + 3600, -5));
+        assert!(is_session_expired(&with_offset(now - 3600, 5)), "{}", with_offset(now - 3600, 5));
+    }
 }

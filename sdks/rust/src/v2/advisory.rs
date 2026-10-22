@@ -9,30 +9,9 @@ use std::collections::BTreeSet;
 
 use serde_json::{json, Value};
 
-/// Lightweight timestamp comparison — both sides are UTC ISO-8601 with Z.
+/// Seconds since the Unix epoch of an RFC 3339 timestamp, offsets included.
 fn parse_iso_epoch_secs(ts: &str) -> Option<i64> {
-    // Accept both "YYYY-MM-DDTHH:MM:SS.sssZ" and "YYYY-MM-DDTHH:MM:SSZ".
-    let (date, time) = ts.split_once('T')?;
-    let time_part = time.trim_end_matches('Z');
-    let (h_m_s, _frac) = time_part.split_once('.').unwrap_or((time_part, "0"));
-    let mut date_parts = date.split('-');
-    let year: i64 = date_parts.next()?.parse().ok()?;
-    let month: i64 = date_parts.next()?.parse().ok()?;
-    let day: i64 = date_parts.next()?.parse().ok()?;
-    let mut tp = h_m_s.split(':');
-    let hour: i64 = tp.next()?.parse().ok()?;
-    let minute: i64 = tp.next()?.parse().ok()?;
-    let second: i64 = tp.next()?.parse().ok()?;
-
-    // Days from civil (year, month, day) — Howard Hinnant.
-    let m = if month <= 2 { month + 9 } else { month - 3 };
-    let ym = if month <= 2 { year - 1 } else { year };
-    let era = ym / 400;
-    let yoe = ym - era * 400;
-    let doy = (153 * m + 2) / 5 + day - 1;
-    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-    let days = era * 146_097 + doe - 719_468;
-    Some(days * 86_400 + hour * 3600 + minute * 60 + second)
+    crate::v2::session_nonce::parse_rfc3339_millis(ts).map(|ms| ms.div_euclid(1000))
 }
 
 fn now_epoch_secs() -> i64 {

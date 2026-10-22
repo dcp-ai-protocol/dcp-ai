@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"regexp"
 	"slices"
 	"time"
 )
@@ -181,16 +182,35 @@ func verifyManifestHashes(bundle, manifest map[string]interface{}, result *V2Ver
 	}
 }
 
+// rfc3339Pattern is the timestamp shape every SDK accepts: a time and a Z or
+// ±hh:mm offset are required. time.Parse checks the other ranges, but not the
+// offset's (it takes +24:00).
+var rfc3339Pattern = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-](\d{2}):(\d{2}))$`)
+
+// parseRFC3339 returns the instant of an RFC 3339 timestamp with a Z or ±hh:mm
+// offset. A non-string, a date without a time, a time without an offset or an
+// impossible date, time or offset is not one.
+func parseRFC3339(v interface{}) (time.Time, bool) {
+	s, _ := v.(string)
+	m := rfc3339Pattern.FindStringSubmatch(s)
+	if m == nil || m[3] > "23" || m[4] > "59" {
+		return time.Time{}, false
+	}
+	t, err := time.Parse(time.RFC3339, s)
+	return t, err == nil
+}
+
 // verifySessionExpiry rejects a bundle whose manifest session_expires_at has
-// passed or cannot be parsed.
+// passed or is not an RFC 3339 timestamp. Absent or null never expires.
 func verifySessionExpiry(manifest map[string]interface{}, result *V2VerificationResult) {
 	raw, ok := manifest["session_expires_at"]
 	if !ok || raw == nil {
 		return
 	}
-	value, _ := raw.(string)
-	expires, err := time.Parse(time.RFC3339, value)
-	if err != nil || !expires.After(time.Now()) {
+	switch expires, valid := parseRFC3339(raw); {
+	case !valid:
+		result.Errors = append(result.Errors, fmt.Sprintf("Invalid session_expires_at: %v", raw))
+	case expires.Before(time.Now()):
 		result.Errors = append(result.Errors, fmt.Sprintf("Session expired at %v", raw))
 	}
 }
@@ -479,8 +499,11 @@ func verifyKeyValidity(bundle map[string]interface{}, result *V2VerificationResu
 		if status, _ := key["status"].(string); status == "revoked" {
 			result.Errors = append(result.Errors, fmt.Sprintf("Key %s is revoked", kid))
 		}
-		if value, ok := key["expires_at"].(string); ok {
-			if expires, err := time.Parse(time.RFC3339, value); err != nil || expires.Before(now) {
+		if raw, ok := key["expires_at"]; ok && raw != nil {
+			switch expires, valid := parseRFC3339(raw); {
+			case !valid:
+				result.Errors = append(result.Errors, fmt.Sprintf("Key %s has an invalid expires_at: %v", kid, raw))
+			case expires.Before(now):
 				result.Errors = append(result.Errors, fmt.Sprintf("Key %s has expired", kid))
 			}
 		}
