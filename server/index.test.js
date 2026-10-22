@@ -5,6 +5,7 @@ import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { DCP_CONTEXTS, Ed25519Provider, createKeyRotation } from "@dcp-ai/sdk";
 import { buildV2Examples } from "../scripts/generate-v2-examples.js";
+import { computeSecurityTier } from "../lib/security-tier.js";
 import { later, newAgent, post as postTo, registry, sha256Hex, sign, signPassport, startService } from "../tests/helpers.js";
 
 const SERVER = fileURLToPath(new URL("./index.js", import.meta.url));
@@ -43,6 +44,27 @@ test("server policy (hybrid_required) rejects a PQ-stripped bundle", async () =>
   stripped.signature.composite_sig.binding = "classical_only";
   assert.equal((await post("/verify", { signed_bundle: stripped })).body.verified, false);
   assert.equal((await post("/v2/bundle/verify", { signed_bundle: stripped })).body.verified, false);
+});
+
+test("the security tier follows the shared §14.2 vectors", () => {
+  const { security_tier } = JSON.parse(
+    fs.readFileSync(new URL("../tests/interop/v2/interop_vectors.json", import.meta.url), "utf8"),
+  );
+  for (const c of security_tier.cases) {
+    assert.equal(computeSecurityTier(c.intent, c.policy_decision), c.expected.tier, c.name);
+  }
+});
+
+test("resolved_tier: an explicit intent tier cannot lower it, risk_score comes from the policy decision", async () => {
+  const withPii = structuredClone(signedBundle);
+  Object.assign(withPii.bundle.intent.payload, { data_classes: ["pii"], security_tier: "routine" });
+  const risky = structuredClone(signedBundle);
+  Object.assign(risky.bundle.intent.payload, { action_type: "browse", data_classes: ["none"], estimated_impact: "low" });
+  risky.bundle.policy_decision.payload.risk_score = 900;
+  for (const path of ["/verify", "/v2/bundle/verify"]) {
+    assert.equal((await post(path, { signed_bundle: withPii })).body.resolved_tier, "elevated", path);
+    assert.equal((await post(path, { signed_bundle: risky })).body.resolved_tier, "maximum", path);
+  }
 });
 
 test("V1 bundle on the V2 endpoint is a 400, not a 500", async () => {

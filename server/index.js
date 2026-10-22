@@ -40,6 +40,7 @@ import addFormats from "ajv-formats";
 import { DCP_CONTEXTS, DEFAULT_VERIFIER_POLICY, verifyKeyRotation } from "@dcp-ai/sdk";
 import { verifySignedBundle, isV2Bundle, verifyCompositeSig, v2Registry } from "../lib/verify.js";
 import { parseBody, getClientIp, isOperator } from "../lib/http.js";
+import { computeSecurityTier } from "../lib/security-tier.js";
 
 const PORT = Number(process.env.PORT) || 3000;
 
@@ -365,8 +366,6 @@ const SENSITIVE_DATA = new Set([
   "pii", "credentials", "financial_data", "health_data", "children_data",
 ]);
 
-const HIGH_VALUE_DATA = new Set(["credentials", "children_data"]);
-
 const TIER_TO_VERIFICATION_MODE = {
   routine: "classical_only",
   standard: "hybrid_preferred",
@@ -387,17 +386,6 @@ function computeRiskScore(actionType, impact, dataClasses) {
   const sensitiveCount = (dataClasses || []).filter(d => SENSITIVE_DATA.has(d)).length;
   const dataBoost = sensitiveCount * 150;
   return Math.min(1000, Math.round((base + actionWeight) / 2 + dataBoost));
-}
-
-function computeSecurityTier(riskScore, dataClasses, actionType) {
-  const hasHighValue = (dataClasses || []).some(d => HIGH_VALUE_DATA.has(d));
-  const hasSensitive = (dataClasses || []).some(d => SENSITIVE_DATA.has(d));
-  const isPayment = actionType === "initiate_payment";
-
-  if (riskScore >= 800 || hasHighValue) return "maximum";
-  if (riskScore >= 500 || hasSensitive || isPayment) return "elevated";
-  if (riskScore >= 200) return "standard";
-  return "routine";
 }
 
 function resolveVerificationModeForTier(tier) {
@@ -479,10 +467,7 @@ const server = http.createServer(async (req, res) => {
       let resolvedTier = null;
       const intentPayload = signedBundle.bundle?.intent?.payload;
       if (intentPayload) {
-        const rs = intentPayload.risk_score ??
-          computeRiskScore(intentPayload.action_type, intentPayload.estimated_impact, intentPayload.data_classes);
-        resolvedTier = intentPayload.security_tier ??
-          computeSecurityTier(rs, intentPayload.data_classes, intentPayload.action_type);
+        resolvedTier = computeSecurityTier(intentPayload, signedBundle.bundle?.policy_decision?.payload);
       }
 
       send(res, 200, {
@@ -659,7 +644,7 @@ const server = http.createServer(async (req, res) => {
       intent.data_classes,
     );
     const { decision, reasons } = decidePolicy(riskScore);
-    const resolvedTier = computeSecurityTier(riskScore, intent.data_classes, intent.action_type);
+    const resolvedTier = computeSecurityTier(intent, { risk_score: riskScore });
     const tierVerificationMode = resolveVerificationModeForTier(resolvedTier);
 
     const policyDecision = {
@@ -766,10 +751,7 @@ const server = http.createServer(async (req, res) => {
     let resolvedTier = null;
     const intentPayload = signedBundle.bundle?.intent?.payload;
     if (intentPayload) {
-      const rs = intentPayload.risk_score ??
-        computeRiskScore(intentPayload.action_type, intentPayload.estimated_impact, intentPayload.data_classes);
-      resolvedTier = intentPayload.security_tier ??
-        computeSecurityTier(rs, intentPayload.data_classes, intentPayload.action_type);
+      resolvedTier = computeSecurityTier(intentPayload, signedBundle.bundle?.policy_decision?.payload);
 
       // Tier-aware verification mode enforcement
       const requiredMode = resolveVerificationModeForTier(resolvedTier);
