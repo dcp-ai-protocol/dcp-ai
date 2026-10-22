@@ -13,7 +13,9 @@ use crate::v2::crypto_provider::CryptoProvider;
 use crate::v2::domain_separation::{
     CTX_AGENT_PASSPORT, CTX_BUNDLE, CTX_INTENT, CTX_POLICY_DECISION, CTX_RESPONSIBLE_PRINCIPAL,
 };
+use crate::crypto::merkle_root_from_hex_leaves;
 use crate::v2::dual_hash;
+use crate::v2::session_nonce::is_session_expired;
 use crate::v2::security_tier::{compute_security_tier, effective_verification_mode};
 use crate::v2::types::VerifierPolicy;
 
@@ -104,26 +106,12 @@ pub fn verify_signed_bundle_v2_with_policy(signed_bundle: &Value, policy: &Verif
         r.errors.push("Missing session_nonce in manifest".to_string());
     }
 
-    // Verify manifest hashes against actual artifact hashes
+    // Artifact hashes against their payload_hash and the manifest (V2-3)
     if let Some(manifest) = bundle.get("manifest") {
-        for (field, hash_key) in &[
-            ("responsible_principal_record", "rpr_hash"),
-            ("agent_passport", "passport_hash"),
-            ("intent", "intent_hash"),
-            ("policy_decision", "policy_hash"),
-        ] {
-            if let (Some(artifact), Some(expected)) = (
-                bundle.get(*field).and_then(|a| a.get("payload")),
-                manifest.get(*hash_key).and_then(|h| h.as_str()),
-            ) {
-                if let Ok(canonical) = canonicalize_v2(artifact) {
-                    let dh = dual_hash::dual_hash_canonical(&canonical);
-                    let computed = format!("sha256:{}", dh.sha256);
-                    if computed != expected {
-                        r.errors.push(format!("Manifest {} mismatch", hash_key));
-                    }
-                }
-            }
+        r.errors.extend(manifest_hash_errors(bundle, manifest));
+        if is_session_expired_value(manifest.get("session_expires_at")) {
+            let expires = &manifest["session_expires_at"];
+            r.errors.push(format!("Session expired at {}", expires.as_str().map_or(expires.to_string(), String::from)));
         }
     }
 
@@ -211,20 +199,18 @@ pub fn verify_signed_bundle_v2_with_policy(signed_bundle: &Value, policy: &Verif
         }
     }
 
-    // Verify audit entry hash chain
-    if let Some(entries) = bundle.get("audit_entries").and_then(|e| e.as_array()) {
-        let mut expected_prev = "sha256:".to_string() + &"0".repeat(64);
-        for (i, entry) in entries.iter().enumerate() {
-            if let Some(prev) = entry.get("prev_hash").and_then(|p| p.as_str()) {
-                if i > 0 && prev != expected_prev {
-                    r.errors.push(format!("Audit hash chain broken at entry {}", i));
-                    break;
-                }
-            }
-            if let Ok(canonical) = canonicalize_v2(entry) {
-                let dh = dual_hash::dual_hash_canonical(&canonical);
-                expected_prev = format!("sha256:{}", dh.sha256);
-            }
+    // Audit entries tied to the signed manifest, and the validity of every
+    // key that can sign (V2-13): the passport keys and the RPR binding_keys.
+    if let Some(manifest) = bundle.get("manifest") {
+        r.errors.extend(audit_trail_errors(bundle, manifest));
+    }
+    for key in agent_keys.iter().chain(rpr_keys.iter()) {
+        let kid = key.get("kid").and_then(Value::as_str).unwrap_or("");
+        if key.get("status").and_then(Value::as_str) == Some("revoked") {
+            r.errors.push(format!("Key {} is revoked", kid));
+        }
+        if is_session_expired_value(key.get("expires_at")) {
+            r.errors.push(format!("Key {} has expired", kid));
         }
     }
 
@@ -273,6 +259,82 @@ fn check_mode(
         _ => {}
     }
     (errors, warnings)
+}
+
+/// Recompute each artifact's hash and check it against its `payload_hash` and
+/// the manifest (VERIFICATION.md V2-3). A hash that cannot be checked, because
+/// the payload or the manifest field is missing or the payload cannot be
+/// canonicalized, is an error.
+fn manifest_hash_errors(bundle: &Value, manifest: &Value) -> Vec<String> {
+    let mut errors = Vec::new();
+    for (field, hash_key) in [
+        ("responsible_principal_record", "rpr_hash"),
+        ("agent_passport", "passport_hash"),
+        ("intent", "intent_hash"),
+        ("policy_decision", "policy_hash"),
+    ] {
+        let Some(artifact) = bundle.get(field) else { continue }; // reported as missing
+        let computed = match artifact.get("payload").filter(|p| !p.is_null()).map(canonicalize_v2) {
+            Some(Ok(canonical)) => format!("sha256:{}", dual_hash::dual_hash_canonical(&canonical).sha256),
+            _ => {
+                errors.push(format!("Cannot hash {} payload", field));
+                continue;
+            }
+        };
+        if artifact.get("payload_hash").and_then(Value::as_str) != Some(computed.as_str()) {
+            errors.push(format!("{}: payload_hash mismatch", field));
+        }
+        if manifest.get(hash_key).and_then(Value::as_str) != Some(computed.as_str()) {
+            errors.push(format!("Manifest {} mismatch", hash_key));
+        }
+    }
+    errors
+}
+
+/// Tie the audit entries to the signed manifest, as the TS verifier does:
+/// `audit_count`, `audit_merkle_root` and the `prev_hash` chain from GENESIS.
+fn audit_trail_errors(bundle: &Value, manifest: &Value) -> Vec<String> {
+    let Some(entries) = bundle.get("audit_entries").and_then(Value::as_array) else {
+        return vec!["Missing audit_entries in bundle".to_string()];
+    };
+    let mut errors = Vec::new();
+    if manifest.get("audit_count").and_then(Value::as_f64) != Some(entries.len() as f64) {
+        errors.push(format!(
+            "Manifest audit_count={} but bundle has {} entries",
+            manifest.get("audit_count").unwrap_or(&Value::Null),
+            entries.len()
+        ));
+    }
+    let mut leaves = Vec::with_capacity(entries.len());
+    let mut prev = "GENESIS".to_string();
+    for (i, entry) in entries.iter().enumerate() {
+        let Ok(canonical) = canonicalize_v2(entry) else {
+            errors.push(format!("Cannot hash audit entry {}", i));
+            return errors;
+        };
+        if entry.get("prev_hash").and_then(Value::as_str) != Some(prev.as_str()) {
+            errors.push(format!("Audit hash chain broken at entry {}: expected {}", i, prev));
+            return errors;
+        }
+        let leaf = dual_hash::dual_hash_canonical(&canonical).sha256;
+        prev = format!("sha256:{}", leaf);
+        leaves.push(leaf);
+    }
+    if let Some(root) = merkle_root_from_hex_leaves(&leaves) {
+        if manifest.get("audit_merkle_root").and_then(Value::as_str) != Some(format!("sha256:{}", root).as_str()) {
+            errors.push("Manifest audit_merkle_root mismatch".to_string());
+        }
+    }
+    errors
+}
+
+/// Whether an optional `session_expires_at` / `expires_at` value has passed.
+/// Null or absent means it never expires.
+fn is_session_expired_value(value: Option<&Value>) -> bool {
+    match value {
+        None | Some(Value::Null) => false,
+        Some(v) => v.as_str().map_or(true, is_session_expired),
+    }
 }
 
 /// Key entries listed under `field` in an artifact's payload.
@@ -354,4 +416,46 @@ fn verify_composite_sig(
     )
     .map_err(|e| e.to_string())?;
     Ok((cs, result))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    /// A bundle whose four artifact hashes all match, with their manifest.
+    fn consistent() -> (Value, Value) {
+        let mut bundle = json!({});
+        let mut manifest = json!({});
+        for (field, key) in [
+            ("responsible_principal_record", "rpr_hash"),
+            ("agent_passport", "passport_hash"),
+            ("intent", "intent_hash"),
+            ("policy_decision", "policy_hash"),
+        ] {
+            let payload = json!({ "artifact": field });
+            let hash = format!("sha256:{}", dual_hash::dual_hash_canonical(&canonicalize_v2(&payload).unwrap()).sha256);
+            bundle[field] = json!({ "payload": payload, "payload_hash": hash });
+            manifest[key] = json!(hash);
+        }
+        (bundle, manifest)
+    }
+
+    #[test]
+    fn manifest_hashes_fail_closed() {
+        let (bundle, manifest) = consistent();
+        assert!(manifest_hash_errors(&bundle, &manifest).is_empty());
+
+        let mutations: [(&str, fn(&mut Value, &mut Value)); 4] = [
+            ("manifest hash missing", |_, m| { m.as_object_mut().unwrap().remove("intent_hash"); }),
+            ("payload missing", |b, _| { b["intent"].as_object_mut().unwrap().remove("payload"); }),
+            ("payload not canonical", |b, _| b["intent"]["payload"] = json!({ "amount": 1.5 })),
+            ("payload_hash wrong", |b, _| b["intent"]["payload_hash"] = json!(format!("sha256:{}", "0".repeat(64)))),
+        ];
+        for (name, mutate) in mutations {
+            let (mut b, mut m) = consistent();
+            mutate(&mut b, &mut m);
+            assert!(!manifest_hash_errors(&b, &m).is_empty(), "{name}: expected an error");
+        }
+    }
 }
