@@ -32,6 +32,13 @@ import { deriveKid } from '../core/crypto-provider.js';
 import { sha256Hex, sha3_256Hex } from '../core/dual-hash.js';
 import { verifySignedBundleV2, DEFAULT_VERIFIER_POLICY } from '../core/verify-v2.js';
 import type { VerificationMode, VerifierPolicy } from '../types/v2.js';
+import {
+  computeSecurityTier,
+  maxTier,
+  tierToCheckpointInterval,
+  tierToVerificationMode,
+} from '../core/security-tier.js';
+import type { IntentV2, PolicyDecisionV2, SecurityTier } from '../types/v2.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -539,4 +546,39 @@ describe('Signed bundle verification (bundle_vectors.json)', () => {
       expect(result.errors.join('\n').toLowerCase()).toContain(error_contains);
     });
   }
+});
+
+describe('security tier (spec §14.2)', () => {
+  type TierVec = {
+    name: string;
+    intent: IntentV2;
+    policy_decision?: PolicyDecisionV2;
+    expected: { tier: string; verification_mode: string; checkpoint_interval: number };
+  };
+
+  it('all vectors resolve to the expected tier, mode and checkpoint interval', () => {
+    const cases = (V as any).security_tier.cases as TierVec[];
+    expect(cases.length).toBeGreaterThan(0);
+    for (const vec of cases) {
+      const tier = computeSecurityTier(vec.intent, vec.policy_decision);
+      expect(
+        {
+          tier,
+          verification_mode: tierToVerificationMode(tier),
+          checkpoint_interval: tierToCheckpointInterval(tier),
+        },
+        vec.name,
+      ).toEqual(vec.expected);
+    }
+  });
+
+  it('helpers count an unknown tier name as elevated, never as an inherited value', () => {
+    for (const name of ['constructor', '__proto__', 'toString', 'bogus'] as unknown as SecurityTier[]) {
+      expect(tierToVerificationMode(name), name).toBe('hybrid_required');
+      expect(tierToCheckpointInterval(name), name).toBe(1);
+      expect(maxTier(name, 'routine'), name).toBe('elevated');
+      expect(maxTier('routine', name), name).toBe('elevated');
+      expect(maxTier(name, 'maximum'), name).toBe('maximum');
+    }
+  });
 });
