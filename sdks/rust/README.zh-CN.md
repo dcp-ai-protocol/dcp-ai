@@ -35,7 +35,7 @@ dcp-ai = { version = "2.9", features = ["wasm"] }
 | 复合签名 (`pq_over_classical`) + 验证 | 是 |
 | 规范 JSON v2 + 域分离 | 是 |
 | 双哈希 (SHA-256 + SHA3-256) + Merkle 根 | 是 |
-| 凭证包验证 (V1 + V2) | 是 |
+| 凭证包验证 (V1 + V2；V2 应用验证者策略和安全等级，`verify_signed_bundle_v2_with_policy`) | 是 |
 | DCP-05 代理生命周期（委任 / 活力 / 停用） | 是 |
 | DCP-06 数字继承（数字遗嘱、记忆迁移、交接仪式） | 是 |
 | DCP-07 争议解决 + 仲裁 + 判例 | 是 |
@@ -165,6 +165,7 @@ V2 包含针对 DCP-05 至 DCP-09 全部工件的 Serde 派生 struct：
 ```rust
 // Available via wasm-bindgen
 fn wasm_verify_signed_bundle(json: &str, pub_key: Option<String>) -> String;
+fn wasm_verify_signed_bundle_v2(json: &str, policy_json: Option<String>) -> String; // default policy when None; V1 bundles are rejected under a policy
 fn wasm_hash_object(json: &str) -> String;
 fn wasm_generate_keypair() -> String;
 ```

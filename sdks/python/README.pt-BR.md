@@ -235,7 +235,7 @@ result = await verify_signed_bundle_v2(signed, registry)  # DEFAULT_VERIFIER_POL
 # {"verified": bool, "errors": [...], "warnings": [...], "details": {...}}
 ```
 
-O verificador também confere a assinatura composta de cada artefato (o RPR com as `binding_keys` do principal, o restante com as chaves do passaporte) e rejeita, em qualquer modo de política, uma assinatura PQ presente mas inválida.
+O verificador também confere a assinatura composta de cada artefato (o RPR com as `binding_keys` do principal, o restante com as chaves do passaporte) e rejeita, em qualquer modo de política, uma assinatura PQ presente mas inválida. O modo é o mais estrito entre o da política e o do nível de segurança (spec §14.3), e `details["resolved_tier"]` informa o nível.
 
 ### Modelos Pydantic
 

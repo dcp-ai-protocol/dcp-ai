@@ -222,7 +222,7 @@ func resolveVerificationMode(bundle map[string]interface{}, policy VerifierPolic
 }
 
 // checkMode applies the verification mode to one verified composite signature
-// (VERIFICATION.md V2-7, V2-9). A PQ signature that is present must verify in
+// (VERIFICATION.md V2-7, V2-10). A PQ signature that is present must verify in
 // every mode; cvr.Valid covers both components for pq_over_classical.
 func checkMode(mode string, cs *CompositeSignature, cvr *CompositeVerifyResult) (err, warning string) {
 	switch {

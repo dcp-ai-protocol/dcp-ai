@@ -151,7 +151,8 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 | `v2.SignPayload(reg, context, payload, classicalKey, pqKey)` | Assina um artefato como `SignedPayload` (composta, ou apenas clássica quando `pqKey` é nil) |
 | `v2.BuildBundleV2(input)` | Constrói um bundle V2 a partir de artefatos assinados, com hashes de manifesto e Merkle roots duplos |
 | `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | Assina um bundle com assinatura composta ou apenas clássica |
-| `v2.VerifySignedBundleV2(reg, jsonBytes)` | Verificação completa de bundle V2 (estrutura, hashes, assinaturas, cadeia de auditoria) |
+| `v2.VerifySignedBundleV2(reg, jsonBytes)` | Verificação completa de bundle V2 (estrutura, hashes, assinaturas, cadeia de auditoria) com `DefaultVerifierPolicy`, contra o modo mais estrito entre o da política e o do nível de segurança (spec §14.3); informa `ResolvedTier` e `VerificationMode` |
+| `v2.VerifySignedBundleV2WithPolicy(reg, jsonBytes, policy)` | O mesmo, com a sua própria `VerifierPolicy`; só `DefaultMode` e `RiskOverrides` podem diferir de `DefaultVerifierPolicy()`, qualquer outra mudança faz a verificação falhar |
 
 ### Níveis de Segurança
 
@@ -159,6 +160,7 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 |--------|-----------|
 | `v2.ComputeSecurityTier(input)` | Calcula o nível de segurança adaptativo (routine/standard/elevated/maximum), seu modo de verificação e intervalo de checkpoint (spec §14.2); valores desconhecidos resultam em `elevated` |
 | `v2.SecurityTierInputFromPayloads(intent, policyDecision)` | Monta a entrada do nível a partir dos payloads decodificados do intent e da PolicyDecision (`risk_score` vem da PolicyDecision; se faltar ou não for um inteiro de 0 a 1000, vira `RiskScore: -1`, que é desconhecido) |
+| `v2.EffectiveVerificationMode(policyMode, tier)` | O modo mais estrito entre o da política e o do nível; `pq_only` não muda |
 
 ### Assinaturas Compostas
 

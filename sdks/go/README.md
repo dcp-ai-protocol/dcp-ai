@@ -151,7 +151,8 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 | `v2.SignPayload(reg, context, payload, classicalKey, pqKey)` | Signs an artifact into a `SignedPayload` (composite, or classical-only when `pqKey` is nil) |
 | `v2.BuildBundleV2(input)` | Assembles a V2 bundle from signed artifacts, with manifest hashes and dual Merkle roots |
 | `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | Signs a bundle with composite or classical-only signature |
-| `v2.VerifySignedBundleV2(reg, jsonBytes)` | Full V2 bundle verification (structure, hashes, signatures, audit chain) |
+| `v2.VerifySignedBundleV2(reg, jsonBytes)` | Full V2 bundle verification (structure, hashes, signatures, audit chain) under `DefaultVerifierPolicy`, against the stricter of the policy mode and the security tier's mode (spec §14.3); reports `ResolvedTier` and `VerificationMode` |
+| `v2.VerifySignedBundleV2WithPolicy(reg, jsonBytes, policy)` | Same with your own `VerifierPolicy`; only `DefaultMode` and `RiskOverrides` may differ from `DefaultVerifierPolicy()`, any other change fails verification |
 
 ### Security Tiers
 
@@ -159,6 +160,7 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 |----------|-------------|
 | `v2.ComputeSecurityTier(input)` | Computes the adaptive security tier (routine/standard/elevated/maximum), its verification mode and checkpoint interval (spec §14.2); unknown values fail closed to `elevated` |
 | `v2.SecurityTierInputFromPayloads(intent, policyDecision)` | Builds the tier input from decoded intent and PolicyDecision payloads (`risk_score` comes from the PolicyDecision; one that is missing or not an integer from 0 to 1000 becomes `RiskScore: -1`, which is unknown) |
+| `v2.EffectiveVerificationMode(policyMode, tier)` | The stricter of the policy mode and the tier's mode; `pq_only` stays `pq_only` |
 
 ### Composite Signatures
 

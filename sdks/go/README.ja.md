@@ -151,7 +151,8 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 | `v2.SignPayload(reg, context, payload, classicalKey, pqKey)` | 成果物に署名して `SignedPayload` を生成（複合署名、`pqKey` が nil の場合は古典のみ） |
 | `v2.BuildBundleV2(input)` | 署名済みの成果物から、マニフェストハッシュとデュアルMerkleルート付きのV2バンドルを構築 |
 | `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | 複合または古典のみの署名でバンドルに署名 |
-| `v2.VerifySignedBundleV2(reg, jsonBytes)` | V2バンドルの完全検証 (構造、ハッシュ、署名、監査チェーン) |
+| `v2.VerifySignedBundleV2(reg, jsonBytes)` | V2バンドルの完全検証 (構造、ハッシュ、署名、監査チェーン)。`DefaultVerifierPolicy` を使い、ポリシーのモードとセキュリティティアのモードのうち厳しい方で検証（spec §14.3）。`ResolvedTier` と `VerificationMode` を返す |
+| `v2.VerifySignedBundleV2WithPolicy(reg, jsonBytes, policy)` | 独自の `VerifierPolicy` で同じ検証を行う。`DefaultVerifierPolicy()` と異なってよいのは `DefaultMode` と `RiskOverrides` だけで、それ以外を変えると検証は失敗する |
 
 ### セキュリティティア
 
@@ -159,6 +160,7 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 |----------|-------------|
 | `v2.ComputeSecurityTier(input)` | 適応型セキュリティティア（routine/standard/elevated/maximum）と検証モード・チェックポイント間隔を計算（spec §14.2）。未知の値は `elevated` として扱う |
 | `v2.SecurityTierInputFromPayloads(intent, policyDecision)` | デコード済みの intent と PolicyDecision のペイロードからティア入力を作成（`risk_score` は PolicyDecision から取得。欠落しているか 0〜1000 の整数でない場合は未知を表す `RiskScore: -1` になる） |
+| `v2.EffectiveVerificationMode(policyMode, tier)` | ポリシーのモードとティアのモードのうち厳しい方。`pq_only` は変わらない |
 
 ### 複合署名
 

@@ -106,7 +106,7 @@ async def _check_composite_sig(
     keys: list[dict[str, Any]],
     keys_label: str,
 ) -> tuple[bool, list[str], list[str]]:
-    """Steps V2-6, V2-7 and V2-9 for one composite signature over `payload`.
+    """Steps V2-6, V2-7 and V2-10 for one composite signature over `payload`.
 
     Returns (valid, errors, warnings); signer keys are looked up by kid in `keys`.
     """
@@ -342,7 +342,7 @@ async def _verify(
     if mode == "classical_only" and policy.get("warn_classical_only_deprecated"):
         warnings.append("DEPRECATION: classical_only mode is deprecated in Phase 3")
 
-    # 6. Bundle composite signature over the manifest (V2-6, V2-7, V2-9)
+    # 6. Bundle composite signature over the manifest (V2-6, V2-7, V2-10)
     passport_keys = passport.get("keys") or []
     rpr_keys = bundle["responsible_principal_record"]["payload"].get("binding_keys") or []
     valid, errs, warns = await _check_composite_sig(

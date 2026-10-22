@@ -198,6 +198,8 @@ Signature policy is set by the verifier's configuration, NOT by the agent. The v
 }
 ```
 
+The security tier (§14.3) can only make the mode this policy selects stricter.
+
 ### 7.3 PQ-Only Mode (Phase 3)
 
 When `default_mode` is `pq_only`:
@@ -403,7 +405,20 @@ The `security_tier` category of `tests/interop/v2/interop_vectors.json` lists
 the expected tier, verification mode and checkpoint interval for each case.
 All four SDKs run it.
 
-### 14.3 Tier Upgrade (Never Downgrade)
+### 14.3 Tier Enforcement (Never Downgrade)
+
+A V2 verifier MUST compute the tier of every bundle and verify the bundle
+with the stricter of two modes:
+
+1. the policy mode: the verifier's `default_mode`, or its `risk_overrides`
+   entry for the passport's `risk_tier` (§7.2);
+2. the tier's mode (§14.1).
+
+Strictness is `classical_only` < `hybrid_preferred` < `hybrid_required`. The
+tier can only add a PQ requirement, so a `pq_only` policy stays `pq_only`.
+The agent being verified signs the passport and the intent, so its
+`risk_tier` and `security_tier` can raise the mode but cannot take it below
+the tier's mode. Verifiers report the resolved tier with their result.
 
 The verifier MAY upgrade the computed tier but MUST NOT downgrade it. The `resolved_tier` field in `PolicyDecisionV2` records the tier the policy engine resolved. It is informational: the computation in §14.2 does not read it.
 
@@ -535,7 +550,7 @@ V2 verifiers MUST support V1 indefinitely. Migration is gradual.
 - Integer-only numeric fields
 - Deterministic kid derivation
 - NIST KAT validation for all PQ providers
-- Security tier never-downgrade rule (§14.3)
+- Security tier computation (§14.2) and enforcement with the never-downgrade rule (§14.3) for every V2 bundle
 
 ### 20.2 SHOULD
 
@@ -544,7 +559,6 @@ V2 verifiers MUST support V1 indefinitely. Migration is gradual.
 - CBOR wire format for high-throughput deployments
 - Short-lived certificates (24h TTL) instead of revocation lists
 - Advisory polling (daily)
-- Adaptive security tier computation for all intents (§14.2)
 
 ### 20.3 MAY
 

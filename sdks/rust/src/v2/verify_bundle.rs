@@ -229,7 +229,7 @@ pub fn verify_signed_bundle_v2_with_policy(signed_bundle: &Value, policy: &Verif
 }
 
 /// Apply the verification mode to one verified composite signature
-/// (VERIFICATION.md V2-7, V2-9): `Err` rejects it, `Ok(Some(_))` is a warning.
+/// (VERIFICATION.md V2-7, V2-10): `Err` rejects it, `Ok(Some(_))` is a warning.
 /// A PQ signature that is present must verify in every mode; `result.valid`
 /// covers both components for pq_over_classical.
 fn check_mode(mode: &str, cs: &CompositeSignature, result: &CompositeVerifyResult) -> Result<Option<String>, String> {

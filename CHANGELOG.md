@@ -132,6 +132,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - OpenClaw integration: `dcp_declare_intent` computed the tier it signs into the intent and the
   policy decision before scoring the intent. It now passes the risk score, which counts once
   `@dcp-ai/sdk` reads it (the release after 2.1.2).
+- Go (`v2.VerifySignedBundleV2`), Rust (`v2::verify_bundle::verify_signed_bundle_v2` and the
+  `wasm_verify_signed_bundle_v2` binding behind `verifyBundle` in `@dcp-ai/wasm`) and Python
+  (`verify_signed_bundle_v2`) verifiers enforce the security tier like the TypeScript one: the mode is
+  the stricter of the policy mode and the tier's mode, applied to the bundle signature and to each
+  artifact signature; an unknown policy mode fails closed; and the result reports the tier and the
+  mode. The Go and Rust verifiers had no verifier policy and accepted `classical_only` signatures for
+  any intent.
+- Python SDK `verify_signed_bundle_v2`: in every composite signature, in every mode, the classical
+  slot must hold Ed25519 and the PQ slot ML-DSA-65 or SLH-DSA-192f, from a key whose `alg` is the
+  same, as in the TypeScript, Go and Rust SDKs. Under `pq_only` it accepted ML-DSA-65 in the
+  classical slot.
 
 ### Changed (breaking)
 
@@ -225,6 +236,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `risk_score` of 500 or more, or a value outside the intent schema. Sign them with a hybrid
   (`pq_over_classical`) signature. The root verifier (`lib/verify.js`, `dcp verify-bundle`, the
   server) gets this with the next `@dcp-ai/sdk` release.
+- Go, Rust and Python verifiers reject the same `classical_only` bundles. Go `VerifySignedBundleV2`
+  and Rust `verify_signed_bundle_v2` apply the TypeScript `DEFAULT_VERIFIER_POLICY` instead of no
+  policy; `wasm_verify_signed_bundle_v2` takes an optional policy JSON (a full `VerifierPolicy`) and,
+  with one, rejects V1 bundles. Their policy may differ from the default only in `default_mode` and
+  `risk_overrides`: any other change, or an unknown field in the Rust `VerifierPolicy` JSON, fails
+  verification instead of being ignored.
+- Python SDK `verify_signed_bundle_v2`: errors and warnings about the bundle signature start with
+  `bundle: `, a null or non-object artifact is reported as `<name>: not a SignedPayload object`, and
+  an unknown policy mode fails with `Unknown verification mode in verifier policy` before any
+  signature is checked, as in TypeScript.
 
 ### Added
 
@@ -247,6 +268,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `effectiveVerificationMode` (TS), `effective_verification_mode` (Python, Rust) and
   `EffectiveVerificationMode` (Go): the stricter of a policy mode and a tier's mode, with `pq_only`
   unchanged (spec §14.3). Shared vectors in `security_tier.effective_mode`.
+- Go SDK: `v2.VerifySignedBundleV2WithPolicy(registry, json, policy)` and `v2.DefaultVerifierPolicy()`.
+  Rust SDK: `verify_signed_bundle_v2_with_policy` and `impl Default for VerifierPolicy` (the
+  TypeScript default policy). `@dcp-ai/wasm`: `verifyBundle(signedBundle, policy?)` and the
+  `VerifierPolicy` type. The Python result's `details` gains `resolved_tier`.
+- `tests/interop/v2/bundle_vectors.json`: `must_reject_bundles`, classical-only bundles with
+  sensitive intents from a low-risk passport that every verifier must reject in every mode, and a
+  classical-only routine control with its expected verdict per mode. The TS, Go, Rust and Python
+  tests run them, and Python now runs the whole file.
 - TypeScript SDK: `blindRpr`, `verifyBlindedRpr`, `isBlindedRpr` and `computePiiHash` are exported
   from the package entry point. They were implemented but unreachable from `@dcp-ai/sdk` 2.1.2 and
   earlier; Python, Go and Rust already exported them.
@@ -307,8 +336,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The Go and WASM SDK READMEs (all languages) and `docs/MIGRATION_V1_V2.md` sign each artifact
   before building the bundle, and list the signing keys in the passport and the RPR.
 - `spec/DCP-AI-v2.0.md` §14.2 describes the tier computation above, §14.3 and §14.4 describe
-  `resolved_tier` as informational (§14.2 does not read it), and `spec/VERIFICATION.md` V2-10
-  computes the tier as in §14.2. The SDK READMEs (all languages), `docs/API_REFERENCE.md`, the
+  `resolved_tier` as informational (§14.2 does not read it), and `spec/VERIFICATION.md` computes
+  the tier as in §14.2. The SDK READMEs (all languages), `docs/API_REFERENCE.md`, the
   quickstart, migration and agent-creation guides and `sdks/wasm/example.html` pass the policy
   decision to the tier function and use the intent schema's values.
 - `spec/VERIFICATION.md` V2-7 and `spec/DCP-AI-v2.0.md` §7.1 state that a PQ signature that is
@@ -318,6 +347,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `docs/MIGRATION_V1_V2.md` §6.3 no longer shows a `dcp migrate-check` command, which the CLI does
   not have, or a `risk_score` on the intent; it validates migrated bundles with
   `dcp verify-bundle --policy hybrid_required`.
+- `spec/DCP-AI-v2.0.md` §14.3 makes tier enforcement a MUST for V2 verifiers (§20.1): the mode is the
+  stricter of the policy mode and the tier's mode. `spec/VERIFICATION.md` computes the tier and the
+  effective mode in Step V2-9 and enforces the policy with it in Step V2-10, where the tier check
+  used to be optional. `docs/OPERATOR_GUIDE.md` and `docs/SECURITY_MODEL.md` describe the tier-aware
+  mode, and the Go, Python, Rust and WASM SDK READMEs (all languages) describe the verifier policy.
 
 ## [2.9.0] - 2026-10-21
 

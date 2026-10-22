@@ -199,7 +199,7 @@ The PQ signature covers the classical signature. Removing either component cause
 **Attack:** A malicious agent declares a low security tier (e.g., `routine`) to avoid PQ signature requirements for a high-risk operation.
 
 **Protection:**
-- **Verifier-authoritative policy:** The verifier determines the minimum tier, not the agent. Verifiers can upgrade tiers but MUST NOT downgrade.
+- **Verifier-authoritative policy:** The verifier determines the minimum tier, not the agent. It verifies each bundle against the stricter of its policy mode and the tier's mode (spec §14.3), so a passport that declares `risk_tier: "low"` cannot get `classical_only` for a payment intent. Verifiers can upgrade tiers but MUST NOT downgrade.
 - **Automatic tier computation:** The SDK computes tiers from the policy decision's `risk_score` and the intent's `data_classes`, `action_type` and `estimated_impact` (spec §14.2). Unknown or missing values fail closed to `elevated`, and the agent cannot override the computed tier downward.
 - **Never-downgrade rule:** If the intent computes to `elevated` but the agent declares `routine`, the verifier resolves to `elevated`.
 

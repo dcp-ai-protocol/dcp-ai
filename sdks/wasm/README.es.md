@@ -112,7 +112,7 @@ Inicializa el módulo WASM. Debe llamarse una vez antes de usar cualquier API. O
 | Método | Devuelve | Descripción |
 |--------|---------|-------------|
 | `compositeVerify(context, payload, sig, classicalPk, pqPk?)` | `CompositeVerifyResult` | Verificación criptográfica de una firma compuesta |
-| `verifyBundle(signedBundle)` | `V2VerificationResult` | Verificación completa de bundle V2 (estructura + cripto + cadena de hash) |
+| `verifyBundle(signedBundle, policy?)` | `V2VerificationResult` | Verificación completa de bundle V2 (estructura + cripto + cadena de hash) contra el modo más estricto entre el de la política y el del nivel de seguridad (spec §14.3); informa `resolved_tier` y `verification_mode`. `policy` solo puede diferir del valor por defecto en `default_mode` y `risk_overrides`, y con una política se rechazan los bundles V1 |
 
 ### Operaciones de Hash
 
