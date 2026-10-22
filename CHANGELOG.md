@@ -114,9 +114,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `VerifierPolicy` (unknown keys raise), and fields it leaves out take the model's defaults
   (`hybrid_required` for every risk tier), not the default policy's `low` → `classical_only`. Only
   `risk_overrides=None` makes `default_mode` apply to every tier.
-
-### Changed (breaking)
-
 - Blinding requires `pii_salt`, in all four SDKs. `blindRpr` (TypeScript) and `blind_rpr` (Python,
   `ValueError`) throw, and `BlindRPR` (Go) and `blind_rpr` (Rust) return an error, when the full RPR
   has no `pii_salt` or it is not 64 lowercase hex characters. Set it with the new helper before
