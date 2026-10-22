@@ -202,10 +202,11 @@ const bundle = new BundleBuilderV2()
 | `buildEmergencyRevocation({ agentId, humanId, revocationSecret })` | 根据撤销密钥构建紧急撤销请求 |
 | `shamirSplit(secret, threshold, totalShares)` | 将秘密分割为 `totalShares` 份，任意 `threshold` 份即可重建 |
 | `shamirReconstruct(shares)` | 从至少 `threshold` 份秘密碎片重建秘密 |
-| `blindRpr(rpr)` | 用哈希承诺替换 RPR 中的个人信息（`legal_name`、`contact`） |
-| `verifyBlindedRpr(fullRpr, blindedRpr)` | 检查盲化 RPR 是否与完整记录一致 |
+| `generatePiiSalt()` | 生成 `pii_salt`（32 字节随机数的十六进制）。在签名前设置到 RPR 上，且永不公开 |
+| `blindRpr(rpr)` | 用加盐哈希承诺替换 RPR 中的个人信息（`legal_name`、`contact`）；`rpr.pii_salt` 缺失或格式错误时抛出异常 |
+| `verifyBlindedRpr(fullRpr, blindedRpr)` | 检查盲化 RPR 是否与完整记录一致；`warnings` 标记未加盐的旧版承诺 |
 | `isBlindedRpr(rpr)` | `BlindedResponsiblePrincipalRecordV2` 的类型守卫 |
-| `computePiiHash(rpr)` | 计算 RPR 个人信息字段的哈希承诺 |
+| `computePiiHash(rpr)` | 计算 RPR 个人信息字段及 `pii_salt` 的哈希承诺（无 `pii_salt` 时为已弃用的未加盐值） |
 | `CborEncoder` | CBOR 编码器类 |
 | `CborDecoder` | CBOR 解码器类 |
 | `cborEncode(value)` | 将值编码为 CBOR 字节 |

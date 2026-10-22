@@ -202,10 +202,11 @@ const bundle = new BundleBuilderV2()
 | `buildEmergencyRevocation({ agentId, humanId, revocationSecret })` | Builds an emergency revocation request from the revocation secret |
 | `shamirSplit(secret, threshold, totalShares)` | Splits a secret into `totalShares` shares; any `threshold` of them reconstruct it |
 | `shamirReconstruct(shares)` | Reconstructs a secret from at least `threshold` shares |
-| `blindRpr(rpr)` | Replaces an RPR's PII (`legal_name`, `contact`) with a hash commitment |
-| `verifyBlindedRpr(fullRpr, blindedRpr)` | Checks that a blinded RPR matches the full record |
+| `generatePiiSalt()` | Generates a `pii_salt` (32 random bytes as hex). Set it on the RPR before signing it; it is never published |
+| `blindRpr(rpr)` | Replaces an RPR's PII (`legal_name`, `contact`) with a salted hash commitment; throws if `rpr.pii_salt` is missing or malformed |
+| `verifyBlindedRpr(fullRpr, blindedRpr)` | Checks that a blinded RPR matches the full record; `warnings` flags a legacy unsalted commitment |
 | `isBlindedRpr(rpr)` | Type guard for `BlindedResponsiblePrincipalRecordV2` |
-| `computePiiHash(rpr)` | Computes the hash commitment over an RPR's PII fields |
+| `computePiiHash(rpr)` | Computes the hash commitment over an RPR's PII fields and `pii_salt` (without `pii_salt`: the deprecated unsalted value) |
 | `CborEncoder` | CBOR encoder class |
 | `CborDecoder` | CBOR decoder class |
 | `cborEncode(value)` | Encodes a value to CBOR bytes |

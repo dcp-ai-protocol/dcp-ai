@@ -8,6 +8,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Security
 
+- Blinded RPR commitments are salted, in all four SDKs. `pii_hash` was
+  `sha256(canonical({ contact, legal_name }))`, so anyone who guessed a principal's name and contact
+  could confirm the guess against a published blinded RPR, and on an immutable log or anchor that
+  stays true forever. The full RPR now carries `pii_salt` (32 bytes from a CSPRNG, lowercase hex),
+  which is signed with it and never published, and `pii_hash` is
+  `sha256(canonical({ contact, legal_name, pii_salt }))`. Deleting the full RPR, and with it the
+  salt, leaves the published commitment unopenable (`spec/DCP-AI-v2.0.md` §12.1). A missing
+  `contact` hashes as `null` in every SDK; TypeScript used to omit it. The new `blinded_rpr`
+  category in `tests/interop/v2/interop_vectors.json` (salted and legacy `pii_hash`, expected
+  blinded record) runs in all four SDK suites.
 - Blinded RPR verification (`verifyBlindedRpr`, `verify_blinded_rpr`, `VerifyBlindedRPR`) now also
   compares `session_nonce` and `binding_keys`, in all four SDKs. Before, a full RPR with different
   binding keys or a different session nonce still matched the blinded record. In Go, list fields
@@ -105,8 +115,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   (`hybrid_required` for every risk tier), not the default policy's `low` → `classical_only`. Only
   `risk_overrides=None` makes `default_mode` apply to every tier.
 
+### Changed (breaking)
+
+- Blinding requires `pii_salt`, in all four SDKs. `blindRpr` (TypeScript) and `blind_rpr` (Python,
+  `ValueError`) throw, and `BlindRPR` (Go) and `blind_rpr` (Rust) return an error, when the full RPR
+  has no `pii_salt` or it is not 64 lowercase hex characters. Set it with the new helper before
+  signing the RPR: an RPR signed without one has to be re-signed before it can be blinded.
+- Rust SDK: `ResponsiblePrincipalRecordV2` has a new public field, `pii_salt: Option<String>`, so
+  struct literals must set it.
+
 ### Added
 
+- `generatePiiSalt` (TypeScript), `generate_pii_salt` (Python, Rust) and `GeneratePIISalt` (Go).
+  The RPR types of all four SDKs, `schemas/v2/responsible_principal_record.schema.json` and
+  `api/proto/dcp.proto` carry `pii_salt`.
+- Legacy unsalted blinded RPRs still verify, with a deprecation warning: the results of
+  `verifyBlindedRpr` (TypeScript), `verify_blinded_rpr` (Python) and `VerifyBlindedRPR` (Go) carry
+  a `warnings` list. Rust's `BlindedRprCheck` keeps its two fields, because a new public field
+  would break callers that build or destructure it; check `full_rpr.get("pii_salt")` instead.
 - TypeScript SDK: `blindRpr`, `verifyBlindedRpr`, `isBlindedRpr` and `computePiiHash` are exported
   from the package entry point. They were implemented but unreachable from `@dcp-ai/sdk` 2.1.2 and
   earlier; Python, Go and Rust already exported them.
@@ -149,6 +175,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Documentation
 
+- `spec/DCP-AI-v2.0.md` §12.1 specifies the salted commitment, the private salt disclosed only with
+  the full RPR, erasure by deleting the full RPR, an opaque `human_id` that MUST NOT contain or be
+  derived from PII, and the deprecation of unsalted commitments.
 - `spec/CANONICALIZATION_PROFILE.md`, `spec/DCP-AI-v2.0.md`, the WASM SDK README (all languages),
   `docs/NIST_CONFORMITY.md` and the TypeScript, Python and Rust canonicalizer comments describe
   `dcp-jcs-v1` as based on RFC 8785, not a strict subset of it or plain RFC 8785: Rule 1 orders keys

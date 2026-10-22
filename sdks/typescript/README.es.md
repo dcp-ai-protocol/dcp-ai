@@ -202,10 +202,11 @@ const bundle = new BundleBuilderV2()
 | `buildEmergencyRevocation({ agentId, humanId, revocationSecret })` | Construye una solicitud de revocación de emergencia a partir del secreto de revocación |
 | `shamirSplit(secret, threshold, totalShares)` | Divide un secreto en `totalShares` shares; cualquier grupo de `threshold` lo reconstruye |
 | `shamirReconstruct(shares)` | Reconstruye un secreto a partir de al menos `threshold` shares |
-| `blindRpr(rpr)` | Sustituye los datos personales de un RPR (`legal_name`, `contact`) por un compromiso hash |
-| `verifyBlindedRpr(fullRpr, blindedRpr)` | Comprueba que un RPR cegado corresponde al registro completo |
+| `generatePiiSalt()` | Genera un `pii_salt` (32 bytes aleatorios en hex). Se asigna al RPR antes de firmarlo y nunca se publica |
+| `blindRpr(rpr)` | Sustituye los datos personales de un RPR (`legal_name`, `contact`) por un compromiso hash con sal; lanza un error si `rpr.pii_salt` falta o es inválido |
+| `verifyBlindedRpr(fullRpr, blindedRpr)` | Comprueba que un RPR cegado corresponde al registro completo; `warnings` señala un compromiso heredado sin sal |
 | `isBlindedRpr(rpr)` | Type guard para `BlindedResponsiblePrincipalRecordV2` |
-| `computePiiHash(rpr)` | Calcula el compromiso hash sobre los campos de datos personales de un RPR |
+| `computePiiHash(rpr)` | Calcula el compromiso hash sobre los campos de datos personales y el `pii_salt` de un RPR (sin `pii_salt`: el valor heredado sin sal, obsoleto) |
 | `CborEncoder` | Clase encoder CBOR |
 | `CborDecoder` | Clase decoder CBOR |
 | `cborEncode(value)` | Codifica un valor a bytes CBOR |
