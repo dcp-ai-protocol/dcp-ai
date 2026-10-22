@@ -173,10 +173,11 @@ curl -X POST http://localhost:3003/v2/register \
 { "ok": true, "agent_id": "agent-001", "registered_kids": ["a1b2...", "c3d4..."] }
 ```
 
-**Error responses:** 400 (not a V2 signed passport, or no valid `created_at`), 403 (signature
-invalid, or agent emergency-revoked), 409 (agent registered with other keys, passport not newer
-than the registered one, agent without an active classical or PQ key, or a kid that is revoked,
-expired or owned by another agent).
+**Error responses:** 400 (not a V2 signed passport, no valid `created_at`, or a malformed token
+or key expiry), 403 (signature invalid, or agent emergency-revoked), 409 (agent registered with
+other keys, passport not newer than the registered one, agent without an active classical or PQ
+key, or a kid that is revoked, expired or owned by another agent), 429 (more than
+`REGISTRATIONS_PER_HOUR` calls from this client), 507 (`MAX_AGENTS` reached).
 
 ### `POST /v2/revoke`
 
@@ -369,6 +370,16 @@ This endpoint can be:
 |----------|---------|-------------|
 | `PORT` | `3003` | HTTP port |
 | `TRUST_PROXY` | — | `true` only behind a proxy that appends the client IP to `X-Forwarded-For` |
+| `REGISTRATIONS_PER_HOUR` | `20` | `POST /v2/register` calls per client per hour; more get 429 |
+| `MAX_AGENTS` | `10000` | Registered agents; new agents then get 507 (nothing is evicted) |
+
+State is in memory and **does not survive a restart**, deploy or crash: registrations and every
+revocation are lost, so revoked agents look valid again. The limits above keep a flood of
+registrations from running the service out of memory. Records are also bounded:
+- `human_id`, `timestamp` and `reason` are at most 256 characters, and V2 `reason` is one of
+  `key_compromise`, `key_rotation`, `administrative`, `key_compromise_emergency`.
+- `emergency_revocation_token` must be `sha256:<64 hex>`.
+- Only the signature fields of `composite_sig` are stored.
 
 ## Integration
 

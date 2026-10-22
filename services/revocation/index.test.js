@@ -9,8 +9,10 @@ import { signObject } from "../../tools/crypto.js";
 let base;
 let proc;
 
+const SERVICE = fileURLToPath(new URL("./index.js", import.meta.url));
+
 before(async () => {
-  ({ base, proc } = await startService(fileURLToPath(new URL("./index.js", import.meta.url))));
+  ({ base, proc } = await startService(SERVICE, { REGISTRATIONS_PER_HOUR: "1000" }));
 });
 
 after(() => proc.kill());
@@ -160,6 +162,52 @@ test("an agent left without an active key of either family stays locked", async 
   const takeover = await newAgent("agent:india-001");
   takeover.passport.created_at = later(india.passport.created_at);
   assert.equal((await post("/v2/register", { signed_passport: await signPassport(takeover.passport, takeover.keys) })).status, 409);
+});
+
+test("registrations are rate limited per client and the registry is capped", async () => {
+  const limited = await startService(SERVICE, { REGISTRATIONS_PER_HOUR: "2" });
+  const capped = await startService(SERVICE, { MAX_AGENTS: "2" });
+  try {
+    const registerAll = async (service, ids) => {
+      const statuses = [];
+      for (const id of ids) {
+        const { signedPassport } = await newAgent(id);
+        statuses.push((await postTo(service.base, "/v2/register", { signed_passport: signedPassport })).status);
+      }
+      return statuses;
+    };
+    assert.deepEqual(await registerAll(limited, ["agent:mike-0001", "agent:mike-0002", "agent:mike-0003"]), [201, 201, 429]);
+
+    // A full registry refuses new agents instead of evicting one, and registered agents can still re-register.
+    const november = await newAgent("agent:nov-00001");
+    assert.equal((await postTo(capped.base, "/v2/register", { signed_passport: november.signedPassport })).status, 201);
+    assert.deepEqual(await registerAll(capped, ["agent:oscar-001", "agent:papa-0001"]), [201, 507]);
+    const renewed = { ...november.passport, created_at: later(november.passport.created_at) };
+    assert.equal((await postTo(capped.base, "/v2/register", { signed_passport: await signPassport(renewed, november.keys) })).status, 201);
+  } finally {
+    limited.proc.kill();
+    capped.proc.kill();
+  }
+});
+
+test("stored registrations and revocations are bounded", async () => {
+  const quebec = await newAgent("agent:quebec-01");
+  const badToken = { ...quebec.passport, emergency_revocation_token: "x".repeat(10_000) };
+  assert.equal((await post("/v2/register", { signed_passport: await signPassport(badToken, quebec.keys) })).status, 400);
+  assert.equal((await register(quebec)).status, 201);
+
+  const record = {
+    dcp_version: "2.0", agent_id: "agent:quebec-01", human_id: "h".repeat(10_000),
+    revoked_kid: quebec.keys.pq.kid, timestamp: new Date().toISOString(), reason: "key_compromise",
+  };
+  assert.equal((await post("/v2/revoke", { ...record, composite_sig: await sign(DCP_CONTEXTS.Revocation, record, quebec.keys) })).status, 400);
+
+  // Only the signature fields of composite_sig are kept.
+  const signed = { ...record, human_id: "human:test-owner" };
+  const composite_sig = { ...(await sign(DCP_CONTEXTS.Revocation, signed, quebec.keys)), padding: "x".repeat(10_000) };
+  assert.equal((await post("/v2/revoke", { ...signed, composite_sig })).status, 201);
+  const { kid_revocations } = await (await get("/v2/list")).json();
+  assert.equal(kid_revocations.find((r) => r.revoked_kid === quebec.keys.pq.kid).composite_sig.padding, undefined);
 });
 
 test("malformed percent-encoding returns 400 instead of crashing the service", async () => {
