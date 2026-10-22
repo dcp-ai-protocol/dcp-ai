@@ -142,6 +142,9 @@ describe('executeIdentitySetup', () => {
     expect(session.signedPassport!.composite_sig).toBeDefined();
     expect(session.signedRpr).not.toBeNull();
     expect(session.signedRpr!.payload).toBeDefined();
+    expect((session.signedRpr!.payload as { pii_salt?: string }).pii_salt).toMatch(
+      /^[0-9a-f]{64}$/,
+    );
     expect(session.compositeKeys).not.toBeNull();
     expect(session.compositeKeys!.classical.alg).toBe('ed25519');
     expect(session.compositeKeys!.pq.alg).toBe('ml-dsa-65');

@@ -179,8 +179,9 @@ export async function executeIdentitySetup(
   };
   session.signedPassport = signedPassport;
 
-  // Build ResponsiblePrincipalRecordV2
-  const rpr: ResponsiblePrincipalRecordV2 = {
+  // Build ResponsiblePrincipalRecordV2. pii_salt is signed with it so the
+  // record can be blinded later without re-signing (spec §12.1).
+  const rpr: ResponsiblePrincipalRecordV2 & { pii_salt: string } = {
     dcp_version: '2.0',
     human_id: humanId,
     session_nonce: sessionNonce,
@@ -193,6 +194,7 @@ export async function executeIdentitySetup(
     expires_at: null,
     contact: params.contact ?? null,
     binding_keys: [classicalKeyEntry, pqKeyEntry],
+    pii_salt: Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('hex'),
   };
   session.rprV2 = rpr;
 
