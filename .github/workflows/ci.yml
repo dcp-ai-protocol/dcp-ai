@@ -66,6 +66,7 @@ jobs:
               - 'sdks/rust/**'
               - 'schemas/**'
               - 'spec/**'
+              - 'tests/**'
               - '.github/workflows/ci.yml'
             integrations:
               - 'integrations/express/**'
@@ -319,3 +320,8 @@ jobs:
         run: |
           npm install
           npm run build:ts
+
+      # Runs verifyBundle over tests/interop/v2/bundle_vectors.json in Node, so the
+      # wasm verifier runs; the Rust job only compiles the wasm32 tests.
+      - name: Verify the bundle vectors through the wasm build
+        run: npm test

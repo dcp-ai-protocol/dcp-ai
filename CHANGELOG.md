@@ -320,6 +320,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `tests/interop/v2/bundle_vectors.json`: rejection cases for a wrong `payload_hash`, replaced or
   truncated audit entries, an audit chain that does not start at `GENESIS`, a manifest without
   `rpr_hash`, an expired session, and revoked or expired passport and binding keys.
+- `@dcp-ai/wasm`: `npm test` runs `verifyBundle` from the built package over
+  `tests/interop/v2/bundle_vectors.json` in Node, and CI runs it. It used to only type-check, and
+  the Rust wasm32 tests are only compiled, so the wasm verifier never ran in CI.
 - `tests/interop/v2/interop_vectors.json` `rfc3339`: the instant of RFC 3339 timestamps with
   offsets and fractions, and the malformed values every verifier rejects. `bundle_vectors.json`
   adds malformed and offset expiries, and its signed bundle carries far-future expiries written
