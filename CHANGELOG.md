@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `@dcp-ai/wasm`: the npm package ships `pkg/` (the `.wasm` binary and its glue). wasm-pack writes
+  `pkg/.gitignore` = `*`, npm honours nested `.gitignore` files, and `@dcp-ai/wasm@2.0.0` was published
+  without `pkg/`, so its runtime import of `../pkg/dcp_ai.js` failed. The build removes that file and the
+  test suite checks the tarball.
+- `@dcp-ai/sdk`: the bundled telemetry version is read from `package.json` at build time (`tsup.config.ts`)
+  instead of a literal in the build script; 2.2.0 would have reported itself as 2.1.2.
+
 ## [2.10.0] - 2026-10-22
 
 ### Package versions

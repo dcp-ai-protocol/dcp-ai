@@ -15,7 +15,7 @@
   },
   "files": ["dist"],
   "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --dts --clean --define.__DCP_SDK_VERSION__=\\\"2.1.2\\\"",
+    "build": "tsup",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "tsc --noEmit",
