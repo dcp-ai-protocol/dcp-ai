@@ -2,6 +2,7 @@ package v2
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -165,7 +166,7 @@ func TestVerifyBundleV2_AuditChainBroken(t *testing.T) {
 				"payload": map[string]interface{}{"session_nonce": "n1"},
 			},
 			"audit_entries": []interface{}{
-				map[string]interface{}{"audit_id": "a1", "prev_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000"},
+				map[string]interface{}{"audit_id": "a1", "prev_hash": "GENESIS"},
 				map[string]interface{}{"audit_id": "a2", "prev_hash": "sha256:wrong"},
 			},
 		},
@@ -180,7 +181,7 @@ func TestVerifyBundleV2_AuditChainBroken(t *testing.T) {
 	result := VerifySignedBundleV2(reg, data)
 	found := false
 	for _, e := range result.Errors {
-		if e == "Audit hash chain broken at entry 1" {
+		if strings.HasPrefix(e, "Audit hash chain broken at entry 1") {
 			found = true
 		}
 	}
@@ -197,5 +198,50 @@ func TestVerifyBundleV2_ResultStructure(t *testing.T) {
 	}
 	if result.Errors == nil {
 		t.Fatal("errors should not be nil")
+	}
+}
+
+// verifyManifestHashes must fail closed when a hash cannot be checked
+// (VERIFICATION.md V2-3), not skip the artifact.
+func TestVerifyManifestHashes_FailsClosed(t *testing.T) {
+	fields := map[string]string{
+		"responsible_principal_record": "rpr_hash", "agent_passport": "passport_hash",
+		"intent": "intent_hash", "policy_decision": "policy_hash",
+	}
+	build := func() (bundle, manifest map[string]interface{}) {
+		bundle, manifest = map[string]interface{}{}, map[string]interface{}{}
+		for field, key := range fields {
+			payload := map[string]interface{}{"artifact": field}
+			canonical, _ := CanonicalizeV2(payload)
+			hash := "sha256:" + DualHashCanonical(canonical).SHA256
+			bundle[field] = map[string]interface{}{"payload": payload, "payload_hash": hash}
+			manifest[key] = hash
+		}
+		return bundle, manifest
+	}
+	errorsFor := func(mutate func(bundle, manifest map[string]interface{})) []string {
+		bundle, manifest := build()
+		mutate(bundle, manifest)
+		result := &V2VerificationResult{}
+		verifyManifestHashes(bundle, manifest, result)
+		return result.Errors
+	}
+
+	if errs := errorsFor(func(_, _ map[string]interface{}) {}); len(errs) != 0 {
+		t.Fatalf("consistent bundle: %v", errs)
+	}
+	for name, mutate := range map[string]func(bundle, manifest map[string]interface{}){
+		"manifest hash missing": func(_, m map[string]interface{}) { delete(m, "intent_hash") },
+		"payload missing":       func(b, _ map[string]interface{}) { delete(b["intent"].(map[string]interface{}), "payload") },
+		"payload not canonical": func(b, _ map[string]interface{}) {
+			b["intent"].(map[string]interface{})["payload"] = map[string]interface{}{"amount": 1.5}
+		},
+		"payload_hash wrong": func(b, _ map[string]interface{}) {
+			b["intent"].(map[string]interface{})["payload_hash"] = "sha256:" + strings.Repeat("0", 64)
+		},
+	} {
+		if errs := errorsFor(mutate); len(errs) == 0 {
+			t.Errorf("%s: expected an error", name)
+		}
 	}
 }
