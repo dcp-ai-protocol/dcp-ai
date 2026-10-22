@@ -1,8 +1,8 @@
 """
 DCP v2.0 canonicalization — profile `dcp-jcs-v1`.
 
-Strict subset of RFC 8785 (JCS) with the cases JCS leaves
-implementation-defined explicitly pinned. See
+Based on RFC 8785 (JCS) with the cases JCS leaves implementation-defined
+explicitly pinned; unlike JCS, keys are ordered by code point (Rule 1). See
 ``spec/CANONICALIZATION_PROFILE.md`` for the normative reference.
 
 Numeric rule: a number is valid iff its value, post-parse, is a finite

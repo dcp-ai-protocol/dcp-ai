@@ -1,8 +1,8 @@
 /**
  * DCP v2.0 Canonicalization — profile `dcp-jcs-v1`.
  *
- * Strict subset of RFC 8785 (JCS) with the cases JCS leaves
- * implementation-defined explicitly pinned. See
+ * Based on RFC 8785 (JCS) with the cases JCS leaves implementation-defined
+ * explicitly pinned; unlike JCS, keys are ordered by code point (Rule 1). See
  * `spec/CANONICALIZATION_PROFILE.md` for the normative reference.
  *
  * Numeric rule: a number is valid iff its value is a finite integer.
@@ -44,7 +44,7 @@ export function assertNoFloats(value: unknown, path = '$'): void {
 }
 
 /**
- * RFC 8785 (JCS) canonical JSON serialization with DCP v2.0 restrictions:
+ * Canonical JSON serialization per profile `dcp-jcs-v1` (based on RFC 8785 JCS):
  * - Object keys sorted lexicographically by Unicode code point
  * - Compact form (no whitespace)
  * - Integers only (floats rejected)
