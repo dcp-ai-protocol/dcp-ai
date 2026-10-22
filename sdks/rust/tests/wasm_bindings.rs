@@ -233,3 +233,21 @@ fn test_detect_version_unknown() {
     let result = wasm_detect_version(r#"{"foo":"bar"}"#);
     assert_eq!(result, "null");
 }
+
+// The expiry checks read the clock, which must not trap on wasm32-unknown-unknown
+// (SystemTime::now() panics there).
+#[wasm_bindgen_test]
+fn test_verify_bundle_rejects_an_expired_session() {
+    let vectors: serde_json::Value =
+        serde_json::from_str(include_str!("../../../tests/interop/v2/bundle_vectors.json")).unwrap();
+    let case = vectors["must_reject_bundles"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["name"] == "session_expired")
+        .unwrap();
+    let result: serde_json::Value =
+        serde_json::from_str(&wasm_verify_signed_bundle_v2(&case["signed_bundle"].to_string(), None)).unwrap();
+    assert_eq!(result["verified"], false);
+    assert!(result["errors"].to_string().contains("Session expired"), "{}", result["errors"]);
+}
