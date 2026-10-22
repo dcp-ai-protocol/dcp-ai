@@ -40,7 +40,7 @@ Formal DCP API definitions: OpenAPI 3.1 specification for HTTP/REST and Protocol
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST /v2/passport/register` | Register agent passport + keys | Request: `{ signed_passport }`; the composite self-signature must verify |
+| `POST /v2/passport/register` | Register agent passport + keys (a new `agent_id` needs the operator token) | Request: `{ signed_passport }`; the composite self-signature must verify |
 | `GET /v2/keys/{kid}` | Key registry lookup | Response: `{ found, kid, key, agent_id }` |
 | `POST /v2/keys/rotate` | Key rotation with PoP | Request: `KeyRotationRecord` (`{ old_kid, new_key, timestamp, proof_of_possession, authorization_sig }`) |
 

@@ -27,7 +27,7 @@ Default port: `3000`. Override with `PORT=4000 node server/index.js`. Set `OPERA
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/v2/passport/register` | Register a self-signed agent passport (see [Trust model](#trust-model)) |
+| POST | `/v2/passport/register` | Register a self-signed agent passport; a new `agent_id` needs the operator token (see [Trust model](#trust-model)) |
 | POST | `/v2/intent/declare` | Declare intent, receive policy decision |
 | POST | `/v2/audit/append` | Append audit event to agent's chain |
 | POST | `/v2/audit/compact` | Compact audit chain with Merkle summary |
@@ -74,6 +74,8 @@ Default port: `3000`. Override with `PORT=4000 node server/index.js`. Set `OPERA
 | `ALLOW_V1_BUNDLES` | `true` | `false` makes `POST /verify` reject V1 bundles (`pq_only` always does) |
 | `TRUST_PROXY` | — | `true` only behind a proxy that appends the client IP to `X-Forwarded-For` (Fly, nginx). Rate limits then key on its last hop; otherwise on the socket address, since clients can forge the header |
 | `REGISTRATIONS_PER_HOUR` | `20` | `POST /v2/passport/register` calls per client per hour; more get 429 |
+| `MAX_REGISTERED_KEYS` | `10000` | Keys in the registry; new agents and rotations then get 507 (nothing is evicted) |
+| `MAX_KEYS_PER_AGENT` | `64` | Keys an agent can register over its lifetime; further rotations get 409. Raise it for agents that rotate often (each retired key costs a ~100-byte tombstone) |
 
 `REQUIRE_SESSION_BINDING`, `REQUIRE_COMPOSITE_BINDING`, `MAX_KEY_AGE_DAYS`,
 `PQ_CHECKPOINT_INTERVAL` and `ADVISORY_POLL_INTERVAL_MS` appear in the Docker and
@@ -87,9 +89,12 @@ age) applies, and `GET /v2/policy` shows it.
   (`DCP-AI.v2.AgentPassport`, Ed25519 + ML-DSA-65; classical-only is accepted
   only in `classical_only` / `hybrid_preferred` mode) against the keys it lists.
   That signature proves possession of the two signer keys, and only those are
-  registered: listing someone else's public key registers nothing.
-- The **first** registration of an `agent_id` is trust on first use. Registering
-  it again (for example to replace the emergency revocation token) needs a
+  registered: listing someone else's public key registers nothing. Keys and
+  signatures must be canonical base64 of exactly their algorithm's size.
+- Registering a **new** `agent_id` needs `Authorization: Bearer <OPERATOR_TOKEN>`
+  (401 otherwise). A passport is only self-signed, and so is a principal's RPR,
+  so without a trust anchor anyone could claim a victim's `agent_id` first and
+  emergency-revoke it: the operator vouches for new agents. Registering it again (for example to replace the emergency revocation token) needs a
   passport whose `created_at` is newer than the registered one, since signed
   passports are public and an old one could be replayed, signed by exactly the
   agent's active keys (registered to it, not revoked, not expired), whatever
@@ -117,14 +122,16 @@ age) applies, and `GET /v2/policy` shows it.
 - **Operator endpoints** are guarded by `OPERATOR_TOKEN` only. Advisory
   `composite_sig` is checked structurally: `@dcp-ai/sdk` has no
   `AlgorithmAdvisory` context tag yet, so the operator vouches for advisories.
-- The key registry refuses new agents and rotations (507) once it holds 10,000
-  keys instead of evicting old ones, since an evicted `agent_id` could be
-  registered again by anyone. To keep one agent from filling it, rotation keeps
-  only the agent's 4 most recent retired keys. Older ones are dropped, but
-  their kids remain as tombstones: `GET /v2/keys/:kid` answers
+- The key registry refuses new agents and rotations (507) once it holds
+  `MAX_REGISTERED_KEYS` keys (10,000) instead of evicting old ones, since an
+  evicted `agent_id` could be registered again by anyone. To keep one agent
+  from filling it, rotation keeps only the agent's 4 most recent retired keys,
+  dropping the oldest before the cap check so a rotation still fits in a full
+  registry. Dropped keys remain as tombstones: `GET /v2/keys/:kid` answers
   `revoked: true, retired: true` with `key: null`, and the key can never be
-  registered again by anyone. An agent can register at most 64 keys over its
-  lifetime (rotation then gets 409), which keeps its tombstones bounded.
+  registered again by anyone. An agent can register at most
+  `MAX_KEYS_PER_AGENT` keys (64) over its lifetime, so its tombstones stay
+  bounded; past that, rotation gets 409.
   Registrations are rate limited per client (`REGISTRATIONS_PER_HOUR`), and
   only `created_at` is kept from a registered passport, not the whole signed
   passport.
@@ -158,6 +165,7 @@ keys it lists (the `agent_passport` of an SDK-built bundle has this shape).
 
 ```bash
 curl -s -X POST http://localhost:3000/v2/passport/register \
+  -H "Authorization: Bearer $OPERATOR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "signed_passport": {
@@ -187,9 +195,11 @@ curl -s -X POST http://localhost:3000/v2/passport/register \
 ```
 
 Responses: 201 `{ ok, agent_id, registered_kids }`, 400 (schema or kid
-mismatch), 403 (signature invalid, or agent revoked), 409 (agent registered with
+mismatch, or keys that are not canonical base64), 401 (a new `agent_id` without the
+operator token), 403 (signature invalid, or agent revoked), 409 (agent registered with
 other keys, passport not newer than the registered one, agent without an active
-key of a registered family, or kid owned by another agent), 507 (registry full).
+key of a registered family, or a kid that is retired or owned by another agent),
+429 (rate limit), 507 (registry full).
 
 ### Key Rotation
 
