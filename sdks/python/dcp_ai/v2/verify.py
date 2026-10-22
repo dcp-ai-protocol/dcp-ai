@@ -3,10 +3,12 @@ DCP v2.0 signed bundle verification — Python port of the TypeScript SDK's
 core/verify-v2.ts.
 
 Pipeline: payload hashes, session nonce binding and expiry, audience binding,
-manifest integrity, the bundle composite signature over the manifest, each
-artifact's own composite signature (VERIFICATION.md V2-8), verifier policy,
+manifest integrity, the verification mode, the bundle composite signature over
+the manifest, each artifact's own composite signature (VERIFICATION.md V2-8),
 the audit prev_hash chain and key validity. The policy is verifier-authoritative:
-the bundle has no say in it.
+the bundle has no say in it, and the mode is the stricter of the policy mode and
+the security tier's mode (spec §14.3), so the agent's own risk_tier and intent
+can raise it but never lower it.
 
 A PQ signature that is present (pq_over_classical) must verify in every mode;
 only an absent one (classical_only) may be tolerated, by hybrid_preferred and
@@ -28,13 +30,16 @@ from dcp_ai.v2.crypto_registry import AlgorithmRegistry
 from dcp_ai.v2.domain_separation import DCP_CONTEXTS
 from dcp_ai.v2.models import VerifierPolicy
 from dcp_ai.v2.pq_checkpoint import audit_events_merkle_root
+from dcp_ai.v2.security_tier import compute_security_tier, effective_verification_mode
 from dcp_ai.v2.session_nonce import is_session_expired, verify_session_binding
 from dcp_ai.v2.signed_payload import prepare_payload, verify_payload_hash
 
 # Transition-period default, identical to the TypeScript SDK. The risk tier comes
 # from the agent-signed passport, and both "low" and "medium" accept classical-only
-# signatures, so a stolen Ed25519 key is enough to pass this policy. Verifiers that
-# need post-quantum assurance must pass hybrid_required (or pq_only) for every tier.
+# signatures, so a stolen Ed25519 key is enough to pass this policy for routine and
+# standard intents (the security tier raises the others to hybrid_required).
+# Verifiers that need post-quantum assurance must pass hybrid_required (or pq_only)
+# for every tier.
 DEFAULT_VERIFIER_POLICY: dict[str, Any] = {
     "default_mode": "hybrid_preferred",
     "risk_overrides": {
@@ -75,6 +80,7 @@ PQ_ONLY_VERIFIER_POLICY: dict[str, Any] = {
 }
 
 _ARTIFACTS = ("responsible_principal_record", "agent_passport", "intent", "policy_decision")
+_VERIFICATION_MODES = ("classical_only", "hybrid_preferred", "hybrid_required", "pq_only")
 # The algorithms each composite signature slot may hold.
 _CLASSICAL_ALGS = ("ed25519",)
 _PQ_ALGS = ("ml-dsa-65", "slh-dsa-192f")
@@ -318,10 +324,18 @@ async def _verify(
     if errors:
         return
 
-    # 5. Verifier policy mode for the agent's risk tier
+    # 5. Verification mode: the stricter of the policy mode for the agent's
+    # risk tier and the security tier's mode (spec §14.3).
     passport = bundle["agent_passport"]["payload"]
     risk_tier = passport.get("risk_tier")
-    mode = (policy.get("risk_overrides") or {}).get(risk_tier) or policy["default_mode"]
+    overrides = policy.get("risk_overrides") or {}
+    policy_mode = overrides[risk_tier] if risk_tier and risk_tier in overrides else policy["default_mode"]
+    if policy_mode not in _VERIFICATION_MODES:
+        errors.append("Unknown verification mode in verifier policy")
+        return
+    tier = compute_security_tier(bundle["intent"]["payload"], bundle["policy_decision"]["payload"])
+    mode = effective_verification_mode(policy_mode, tier)
+    details["resolved_tier"] = tier
     details["verification_mode"] = mode
     if policy.get("advisory_rejected_algs"):
         details["advisory_rejected_algs"] = policy["advisory_rejected_algs"]
