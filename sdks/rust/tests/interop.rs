@@ -497,3 +497,55 @@ fn signed_bundle_vectors() {
         );
     }
 }
+
+/// wasm_sign_payload, wasm_build_bundle and wasm_sign_bundle produce a bundle
+/// that wasm_verify_signed_bundle_v2 accepts.
+#[cfg(feature = "wasm")]
+#[test]
+fn wasm_build_sign_verify_round_trip() {
+    use dcp_ai::wasm::*;
+    use serde_json::json;
+
+    let principal: Value = serde_json::from_str(&wasm_generate_hybrid_keypair()).unwrap();
+    let agent: Value = serde_json::from_str(&wasm_generate_hybrid_keypair()).unwrap();
+    let entries = |k: &Value| {
+        json!([
+            {"kid": k["classical"]["kid"], "alg": "ed25519", "public_key_b64": k["classical"]["public_key_b64"], "status": "active"},
+            {"kid": k["pq"]["kid"], "alg": "ml-dsa-65", "public_key_b64": k["pq"]["public_key_b64"], "status": "active"},
+        ])
+    };
+    let s = |k: &Value, slot: &str, field: &str| k[slot][field].as_str().unwrap().to_string();
+    let sign = |context: &str, payload: Value, k: &Value| {
+        wasm_sign_payload(
+            context,
+            &payload.to_string(),
+            &s(k, "classical", "secret_key_b64"),
+            &s(k, "classical", "kid"),
+            &s(k, "pq", "secret_key_b64"),
+            &s(k, "pq", "kid"),
+        )
+    };
+
+    let nonce = "ab".repeat(32);
+    let audit1 = json!({"audit_id": "audit-1", "session_nonce": nonce, "prev_hash": "GENESIS"});
+    let audit1_hash = sha256_hex(canonicalize_v2(&audit1).unwrap().as_bytes());
+    let audit2 = json!({"audit_id": "audit-2", "session_nonce": nonce, "prev_hash": format!("sha256:{}", audit1_hash)});
+
+    let bundle = wasm_build_bundle(
+        &sign(CTX_RESPONSIBLE_PRINCIPAL, json!({"human_id": "h-1", "session_nonce": nonce, "binding_keys": entries(&principal)}), &principal),
+        &sign(CTX_AGENT_PASSPORT, json!({"agent_id": "a-1", "session_nonce": nonce, "keys": entries(&agent)}), &agent),
+        &sign(CTX_INTENT, json!({"intent_id": "i-1", "session_nonce": nonce}), &agent),
+        &sign(CTX_POLICY_DECISION, json!({"intent_id": "i-1", "session_nonce": nonce, "risk_score": 200}), &agent),
+        &json!([audit1, audit2]).to_string(),
+        &nonce,
+    );
+    let signed = wasm_sign_bundle(
+        &bundle,
+        &s(&principal, "classical", "secret_key_b64"),
+        &s(&principal, "classical", "kid"),
+        &s(&principal, "pq", "secret_key_b64"),
+        &s(&principal, "pq", "kid"),
+    );
+    let result: Value = serde_json::from_str(&wasm_verify_signed_bundle_v2(&signed)).unwrap();
+    assert_eq!(result["verified"], true, "{}", result["errors"]);
+}
