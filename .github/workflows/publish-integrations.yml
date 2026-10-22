@@ -53,6 +53,11 @@ jobs:
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
       - if: steps.check.outputs.skip != 'true'
+        name: Install against the published @dcp-ai/sdk
+        run: npm install --no-package-lock
+      - if: steps.check.outputs.skip != 'true'
+        run: npm run build
+      - if: steps.check.outputs.skip != 'true'
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

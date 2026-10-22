@@ -31,6 +31,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   closed on anything malformed; `agentCardToPassport` returns that passport instead of a
   skeleton when the card carries one. The package is now TypeScript (`dist/` build, vitest suite
   in CI).
+- `@dcp-ai/anthropic-mcp` 2.1.0: signed receipts for MCP tool calls. `withDcpReceipt(name, handler,
+  { identity })` wraps any MCP tool handler: the call is classified into an Intent (DCP-02) and
+  composite-signed before the tool runs, the policy decides (approve runs the tool; escalate and
+  block return an `isError` result without running it; a throwing handler yields `outcome:
+  "failed"`), and one audit entry (DCP-03) records the SHA-256 of the arguments and of the result.
+  The receipt in `_meta.dcp_receipt` is an ordinary DCP v2.0 signed bundle, so any DCP verifier
+  checks it offline; `verifyDcpReceipt` also recomputes the evidence hash from the arguments and
+  result the caller saw and checks the tool name. `createReceiptIdentity` issues a session identity
+  (Ed25519 + ML-DSA-65 keys, signed RPR and passport) for tests and first runs. The package is now
+  TypeScript (`dist/` build, vitest suite in CI) and `dcp_verify_bundle` runs the real
+  `verifySignedBundleV2` instead of a structural check; its unused `security_tier` input is gone.
 - `tests/interop/v2/bundle_vectors.json`: 28 more rejection cases (5 `must_reject` mutations, 23 `must_reject_bundles`), one per vulnerability of
   the v2.10 round, that all four SDK verifiers (Python included) run under every verification
   mode: artifacts without any `composite_sig` (V2-8); `dcp_bundle_version` `1.0` and `3.0`

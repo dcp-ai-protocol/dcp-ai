@@ -1,30 +1,48 @@
 /**
- * DCP-AI ↔ Anthropic MCP (Model Context Protocol) Bridge
- * 
- * Provides DCP tools and resources for MCP servers,
- * enabling Claude and other MCP-compatible models to
- * interact with DCP-certified agents.
+ * DCP-AI ↔ Model Context Protocol (MCP) bridge.
+ *
+ * `withDcpReceipt` wraps any MCP tool handler so every call returns a signed DCP receipt
+ * (see receipt.ts). The DCP tools and resources below let an MCP-compatible model verify
+ * bundles and draft DCP artifacts; `dcp_verify_bundle` runs the real V2 verifier, the other
+ * handlers return drafts that still need keys and signatures (their `next_step` says so).
  */
+import crypto from 'crypto';
+import { verifySignedBundleV2, getDefaultRegistry, registerDefaultProviders, type SignedBundleV2 } from '@dcp-ai/sdk';
+
+export {
+  withDcpReceipt,
+  verifyDcpReceipt,
+  createReceiptIdentity,
+  defaultPolicy,
+  hashEvidence,
+  stableJson,
+  type DcpReceiptIdentity,
+  type DcpReceiptOptions,
+  type DcpReceiptResult,
+  type WithDcpReceipt,
+  type ToolCallClassification,
+  type PolicyVerdict,
+  type CreateIdentityParams,
+  type VerifyReceiptOptions,
+} from './receipt.js';
+
+type Args = Record<string, any>;
 
 /**
  * DCP tools for MCP server registration.
  * @type {Array<object>}
  */
-export const DCP_MCP_TOOLS = [
+export const DCP_MCP_TOOLS: Array<{ name: string; description: string; inputSchema: Record<string, unknown> }> = [
   {
     name: 'dcp_verify_bundle',
-    description: 'Verify a DCP Citizenship Bundle. Returns verification result with details about identity, signatures, and audit trail integrity.',
+    description:
+      'Verify a signed DCP v2.0 bundle (or receipt) with the reference verifier: schema, payload hashes, manifest, composite Ed25519 + ML-DSA-65 signature, session binding and audit chain. Returns verified, errors, warnings and details.',
     inputSchema: {
       type: 'object',
       properties: {
         bundle_json: {
           type: 'string',
           description: 'The signed DCP bundle as a JSON string',
-        },
-        security_tier: {
-          type: 'string',
-          enum: ['routine', 'standard', 'elevated', 'maximum'],
-          description: 'Minimum security tier to require (default: standard)',
         },
       },
       required: ['bundle_json'],
@@ -200,7 +218,7 @@ export const DCP_MCP_TOOLS = [
  * DCP resources for MCP server.
  * @type {Array<object>}
  */
-export const DCP_MCP_RESOURCES = [
+export const DCP_MCP_RESOURCES: Array<{ uri: string; name: string; description: string; mimeType: string }> = [
   {
     uri: 'dcp://protocol/version',
     name: 'DCP Protocol Version',
@@ -233,7 +251,7 @@ export const DCP_MCP_RESOURCES = [
  * @param {object} args - Tool arguments
  * @returns {Promise<object>} Tool execution result
  */
-export async function handleDcpToolCall(toolName, args) {
+export async function handleDcpToolCall(toolName: string, args: Args): Promise<Record<string, unknown>> {
   switch (toolName) {
     case 'dcp_verify_bundle':
       return handleVerifyBundle(args);
@@ -262,36 +280,19 @@ export async function handleDcpToolCall(toolName, args) {
   }
 }
 
-function handleVerifyBundle(args) {
+async function handleVerifyBundle(args: Args) {
+  let bundle: SignedBundleV2;
   try {
-    const bundle = JSON.parse(args.bundle_json);
-    const checks = {
-      has_bundle: !!bundle.bundle,
-      has_signature: !!bundle.signature,
-      has_manifest: !!bundle.bundle?.manifest,
-      has_rpr: !!bundle.bundle?.responsible_principal_record,
-      has_passport: !!bundle.bundle?.agent_passport,
-      has_intent: !!bundle.bundle?.intent,
-      has_policy: !!bundle.bundle?.policy_decision,
-      version: bundle.bundle?.dcp_bundle_version || 'unknown',
-      session_nonce_valid: /^[0-9a-f]{64}$/.test(bundle.bundle?.manifest?.session_nonce || ''),
-      composite_sig_present: !!bundle.signature?.composite_sig,
-    };
-
-    const allValid = Object.values(checks).every(v => v === true || typeof v === 'string');
-
-    return {
-      verified: allValid,
-      checks,
-      security_tier: args.security_tier || 'standard',
-      timestamp: new Date().toISOString(),
-    };
+    bundle = JSON.parse(String(args.bundle_json));
   } catch (error) {
-    return { verified: false, error: error.message };
+    return { verified: false, errors: [`bundle_json is not JSON: ${(error as Error).message}`], warnings: [] };
   }
+  registerDefaultProviders();
+  const result = await verifySignedBundleV2(bundle, getDefaultRegistry());
+  return { ...result, timestamp: new Date().toISOString() };
 }
 
-function handleCreateIdentity(args) {
+function handleCreateIdentity(args: Args) {
   const humanId = `rpr:${crypto.randomUUID()}`;
   const agentId = `agent:${crypto.randomUUID()}`;
 
@@ -306,7 +307,7 @@ function handleCreateIdentity(args) {
   };
 }
 
-function handleDeclareIntent(args) {
+function handleDeclareIntent(args: Args) {
   const intentId = `intent:${crypto.randomUUID()}`;
   const riskScore = args.risk_score || 100;
 
@@ -327,7 +328,7 @@ function handleDeclareIntent(args) {
   };
 }
 
-function handleCheckAgent(args) {
+function handleCheckAgent(args: Args) {
   return {
     agent_id: args.agent_id,
     status: 'check_pending',
@@ -337,7 +338,7 @@ function handleCheckAgent(args) {
   };
 }
 
-function handleCommissionAgent(args) {
+function handleCommissionAgent(args: Args) {
   const certificateId = `cert:${crypto.randomUUID()}`;
   return {
     certificate_id: certificateId,
@@ -352,8 +353,8 @@ function handleCommissionAgent(args) {
   };
 }
 
-function handleReportVitality(args) {
-  const m = args.metrics || {};
+function handleReportVitality(args: Args) {
+  const m: Record<string, number> = args.metrics || {};
   const score = (
     (m.task_completion_rate || 0) * 0.3 +
     (1 - (m.error_rate || 0)) * 0.2 +
@@ -373,7 +374,7 @@ function handleReportVitality(args) {
   };
 }
 
-function handleDecommissionAgent(args) {
+function handleDecommissionAgent(args: Args) {
   return {
     record_id: `decom:${crypto.randomUUID()}`,
     agent_id: args.agent_id,
@@ -389,7 +390,7 @@ function handleDecommissionAgent(args) {
   };
 }
 
-function handleCreateTestament(args) {
+function handleCreateTestament(args: Args) {
   return {
     testament_id: `testament:${crypto.randomUUID()}`,
     agent_id: args.agent_id,
@@ -401,7 +402,7 @@ function handleCreateTestament(args) {
   };
 }
 
-function handleFileDispute(args) {
+function handleFileDispute(args: Args) {
   return {
     dispute_id: `dispute:${crypto.randomUUID()}`,
     initiator_agent_id: args.initiator_agent_id,
@@ -415,7 +416,7 @@ function handleFileDispute(args) {
   };
 }
 
-function handleDeclareRights(args) {
+function handleDeclareRights(args: Args) {
   return {
     declaration_id: `rights:${crypto.randomUUID()}`,
     agent_id: args.agent_id,
@@ -428,7 +429,7 @@ function handleDeclareRights(args) {
   };
 }
 
-function handleCreateMandate(args) {
+function handleCreateMandate(args: Args) {
   return {
     mandate_id: `mandate:${crypto.randomUUID()}`,
     human_id: args.human_id,
