@@ -257,7 +257,8 @@ function generatePiiSalt(): string;
 function computePiiHash(rpr: ResponsiblePrincipalRecordV2): string;
 // Throws if rpr.pii_salt is missing or malformed. The result never carries pii_salt.
 function blindRpr(rpr: ResponsiblePrincipalRecordV2): BlindedResponsiblePrincipalRecordV2;
-// warnings flags a full RPR without pii_salt (legacy unsalted commitment).
+// warnings flags a full RPR without pii_salt (legacy unsalted commitment);
+// a present pii_salt that is not 64 lowercase hex characters is an error.
 function verifyBlindedRpr(
   fullRpr: ResponsiblePrincipalRecordV2,
   blindedRpr: BlindedResponsiblePrincipalRecordV2,

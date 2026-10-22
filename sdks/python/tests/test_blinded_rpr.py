@@ -66,10 +66,26 @@ def test_blind_rpr_requires_pii_salt():
         blind_rpr(_rpr().model_copy(update={"pii_salt": None}))
 
 
-@pytest.mark.parametrize("salt", ["", "ab", "A" * 64, "g" * 64, "a" * 66, "a" * 64 + "\n"])
+@pytest.mark.parametrize("salt", ["", "ab", "A" * 64, "g" * 64, "a" * 66, "a" * 64 + "\n", 42])
 def test_blind_rpr_rejects_malformed_pii_salt(salt):
     with pytest.raises(ValueError, match=r"generate_pii_salt\(\)"):
         blind_rpr(_rpr().model_copy(update={"pii_salt": salt}))
+
+
+@pytest.mark.parametrize("salt", ["", "ab", "A" * 64, 42])
+def test_verify_rejects_malformed_pii_salt(salt):
+    full = _rpr().model_copy(update={"pii_salt": salt})
+    blinded = blind_rpr(_rpr()).model_copy(update={"pii_hash": compute_pii_hash(full)})
+    result = verify_blinded_rpr(full, blinded)
+    assert result["valid"] is False
+    assert "pii_salt is not 32 random bytes as 64 lowercase hex" in result["errors"]
+
+
+def test_unset_pii_salt_is_omitted_when_serialized():
+    legacy = _rpr().model_copy(update={"pii_salt": None})
+    assert "pii_salt" not in legacy.model_dump()
+    assert '"pii_salt"' not in legacy.model_dump_json()
+    assert re.fullmatch(r"[0-9a-f]{64}", _rpr().model_dump()["pii_salt"])
 
 
 def test_generate_pii_salt_is_32_random_bytes_as_hex():

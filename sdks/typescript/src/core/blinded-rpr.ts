@@ -19,8 +19,13 @@ import { canonicalizeV2 } from './canonicalize.js';
 import { sha256Hex } from './dual-hash.js';
 
 const PII_SALT_PATTERN = /^[0-9a-f]{64}$/;
+const MALFORMED_PII_SALT_ERROR = 'pii_salt is not 32 random bytes as 64 lowercase hex';
 const LEGACY_PII_HASH_WARNING =
   'legacy unsalted pii_hash (deprecated): anyone who guesses legal_name and contact can confirm them';
+
+function isValidPiiSalt(salt: unknown): salt is string {
+  return typeof salt === 'string' && PII_SALT_PATTERN.test(salt);
+}
 
 /**
  * Generate a pii_salt: 32 random bytes as 64 lowercase hex chars. Set it on
@@ -41,7 +46,7 @@ export function generatePiiSalt(): string {
 export function computePiiHash(rpr: ResponsiblePrincipalRecordV2): string {
   const piiFields: Record<string, unknown> = {
     contact: rpr.contact ?? null,
-    legal_name: rpr.legal_name,
+    legal_name: rpr.legal_name ?? null,
   };
   if (rpr.pii_salt != null) piiFields.pii_salt = rpr.pii_salt;
   const canonical = canonicalizeV2(piiFields);
@@ -55,7 +60,7 @@ export function computePiiHash(rpr: ResponsiblePrincipalRecordV2): string {
  * pii_salt: an unsalted commitment can be confirmed by guessing the PII.
  */
 export function blindRpr(rpr: ResponsiblePrincipalRecordV2): BlindedResponsiblePrincipalRecordV2 {
-  if (typeof rpr.pii_salt !== 'string' || !PII_SALT_PATTERN.test(rpr.pii_salt)) {
+  if (!isValidPiiSalt(rpr.pii_salt)) {
     throw new Error(
       'blindRpr requires rpr.pii_salt (32 random bytes as 64 lowercase hex): set it with generatePiiSalt() before signing the RPR',
     );
@@ -86,7 +91,8 @@ export function blindRpr(rpr: ResponsiblePrincipalRecordV2): BlindedResponsibleP
  *   2. All non-PII fields are identical
  *
  * A full RPR without pii_salt is checked against the legacy unsalted
- * commitment and adds a deprecation warning.
+ * commitment and adds a deprecation warning; a present pii_salt that is not
+ * 64 lowercase hex characters is an error.
  */
 export function verifyBlindedRpr(
   fullRpr: ResponsiblePrincipalRecordV2,
@@ -103,6 +109,8 @@ export function verifyBlindedRpr(
   }
   if (fullRpr.pii_salt == null) {
     warnings.push(LEGACY_PII_HASH_WARNING);
+  } else if (!isValidPiiSalt(fullRpr.pii_salt)) {
+    errors.push(MALFORMED_PII_SALT_ERROR);
   }
 
   if (fullRpr.human_id !== blindedRpr.human_id) {

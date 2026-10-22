@@ -181,6 +181,25 @@ fn verify_blinded_rpr_wrong_salt() {
 }
 
 #[test]
+fn verify_blinded_rpr_rejects_malformed_salt() {
+    for salt in [json!(""), json!("ab"), json!("A".repeat(64)), json!(42)] {
+        let mut full = sample_rpr();
+        full["pii_salt"] = salt.clone();
+        let mut blinded = blind_rpr(&sample_rpr()).unwrap();
+        blinded["pii_hash"] = json!(compute_pii_hash(&full).unwrap());
+        let result = verify_blinded_rpr(&full, &blinded);
+        assert!(!result.valid, "{salt}");
+        assert!(
+            result
+                .errors
+                .contains(&"pii_salt is not 32 random bytes as 64 lowercase hex".to_string()),
+            "{salt}: {:?}",
+            result.errors
+        );
+    }
+}
+
+#[test]
 fn verify_blinded_rpr_accepts_legacy_unsalted_record() {
     let mut legacy = sample_rpr();
     legacy.as_object_mut().unwrap().remove("pii_salt");
