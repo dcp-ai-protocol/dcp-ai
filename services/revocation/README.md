@@ -2,11 +2,12 @@
 
 HTTP service for publishing and querying DCP agent revocations. Supports both V1 (agent-level) and V2 (kid-level, emergency revocation, short-lived cert tracking). Exposes a `.well-known` endpoint for standardized queries.
 
-Every write is authenticated. An agent first registers with its self-signed V2 passport
-(`POST /v2/register`): the composite signature proves possession of the signer keys, so the
-service records those kids as the agent's, with their expiry and the passport's emergency
-revocation token. Revocations must then be signed by those registered keys. State is in memory
-(see [Persistence](../README.md#persistence)).
+Every write is authenticated. The operator registers each new agent with its self-signed V2
+passport (`POST /v2/register` with the operator token): the composite signature proves possession
+of the signer keys, so the service records those kids as the agent's, with their expiry and the
+passport's emergency revocation token. Re-registering is self-service, and revocations must be
+signed by the registered keys. State is in memory unless `REVOCATION_STATE_PATH` names a file
+(see [Configuration](#configuration)).
 
 ## Quickstart
 
@@ -148,16 +149,22 @@ passport, the `SignedPayload` of an `AgentPassportV2` signed under `DCP-AI.v2.Ag
 the keys it lists (the `agent_passport` of an SDK-built bundle). The composite signature must be
 `pq_over_classical`.
 
+Registering a **new** `agent_id` needs `Authorization: Bearer <OPERATOR_TOKEN>`. A passport is
+only self-signed, and so is an RPR, so without a trust anchor anyone could claim a victim's
+`agent_id` first, plant their own token and emergency-revoke it. The operator vouches for new
+agents instead, and with no `OPERATOR_TOKEN` configured nobody can register one. Re-registering an
+existing agent needs no token.
+
 ```bash
 curl -X POST http://localhost:3003/v2/register \
+  -H "Authorization: Bearer $OPERATOR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{ "signed_passport": { "payload": { "dcp_version": "2.0", "agent_id": "...", "keys": [...], "emergency_revocation_token": "sha256:...", ... }, "payload_hash": "sha256:...", "composite_sig": { ... } } }'
 ```
 
 - Only the two signer keys (classical + PQ) are registered: listing someone else's public key
   registers nothing. Their `expires_at` drives the `expired` answer of `GET /v2/check/kid/:kid`.
-- The first registration of an `agent_id` is trust on first use. Registering it again (for
-  example to replace the token) needs a passport whose `created_at` is newer than the registered
+- Registering an `agent_id` again (for example to replace the token) needs a passport whose `created_at` is newer than the registered
   one, since signed passports are public and an old one could be replayed, signed by exactly the
   agent's active classical and PQ keys (not revoked, not expired). The registered key entries are
   kept, so a new passport can neither extend a key's `expires_at` nor add keys, and a passport
@@ -174,7 +181,8 @@ curl -X POST http://localhost:3003/v2/register \
 ```
 
 **Error responses:** 400 (not a V2 signed passport, no valid `created_at`, or a malformed token
-or key expiry), 403 (signature invalid, or agent emergency-revoked), 409 (agent registered with
+or key expiry), 401 (a new `agent_id` without the operator token), 403 (signature invalid, or
+agent emergency-revoked), 409 (agent registered with
 other keys, passport not newer than the registered one, agent without an active classical or PQ
 key, or a kid that is revoked, expired or owned by another agent), 429 (more than
 `REGISTRATIONS_PER_HOUR` calls from this client), 507 (`MAX_AGENTS` reached).
@@ -269,14 +277,14 @@ curl -X POST http://localhost:3003/v2/emergency-revoke \
 accepted unsigned requests, so anyone could replace a token or mark any key expired. The token
 and the key expiry now come from the signed passport (`POST /v2/register`).
 
-### `GET /v2/check/kid/:kid[?agent_id=<id>]`
+### `GET /v2/check/kid/:kid`
 
-Check if a specific key identifier is revoked: an explicit kid revocation, an emergency revocation
-of its owner, or expiry. The service only knows the owner of the kids that signed an agent's
-registration (`POST /v2/register`). For any other kid (listed in a passport without signing it,
-rotated at the gateway, or belonging to an agent that never registered here), an emergency
-revocation of its owner is only reported when the caller passes `?agent_id=<owner>`; without it
-the answer is `revoked: false`.
+Check if a registered key identifier is revoked: an explicit kid revocation, an emergency
+revocation of its owner, or expiry. The service only knows the kids that signed an agent's
+registration (`POST /v2/register`). Any other kid gets **404** `{ "registered": false }`. That
+covers kids listed in a passport without signing it, rotated at the gateway, or belonging to an
+agent that never registered here: their status here is unknown, not "not revoked". `?agent_id=`
+is ignored, so a caller cannot borrow another agent's verdict for a kid.
 
 ```bash
 curl "http://localhost:3003/v2/check/kid/a1b2c3d4e5f6"
@@ -369,12 +377,16 @@ This endpoint can be:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `3003` | HTTP port |
+| `OPERATOR_TOKEN` | — | Bearer token for registering a new `agent_id`. Unset: no new agents |
+| `REVOCATION_STATE_PATH` | — | File that keeps registrations and revocations across restarts (append-only JSON lines, replayed at start; its directory must exist). Unset: memory only |
 | `TRUST_PROXY` | — | `true` only behind a proxy that appends the client IP to `X-Forwarded-For` |
 | `REGISTRATIONS_PER_HOUR` | `20` | `POST /v2/register` calls per client per hour; more get 429 |
 | `MAX_AGENTS` | `10000` | Registered agents; new agents then get 507 (nothing is evicted) |
 
-State is in memory and **does not survive a restart**, deploy or crash: registrations and every
-revocation are lost, so revoked agents look valid again. The limits above keep a flood of
+Without `REVOCATION_STATE_PATH`, state is in memory and **does not survive a restart**, deploy
+or crash: registrations and every revocation are lost, so revoked agents look valid again. On
+Fly, put the file on a volume (see `deploy/fly/revocation.toml`); the Docker Compose stack keeps
+it on the `revocation-data` volume. The limits above keep a flood of
 registrations from running the service out of memory. Records are also bounded:
 - `human_id`, `timestamp` and `reason` are at most 256 characters, and V2 `reason` is one of
   `key_compromise`, `key_rotation`, `administrative`, `key_compromise_emergency`.
@@ -389,7 +401,7 @@ The Express and FastAPI middlewares can use `checkRevocation: true` to automatic
 
 ### V2 flow
 
-1. Register the agent's signed passport during setup (`POST /v2/register`): keys, their expiry and the emergency token
+1. The operator registers the agent's signed passport during setup (`POST /v2/register` with the operator token): keys, their expiry and the emergency token
 2. Revoke individual keys as needed, signed by the agent's keys (`POST /v2/revoke`)
 3. Use panic button in emergencies (`POST /v2/emergency-revoke`)
 4. Check key status before accepting bundles (`GET /v2/check/kid/:kid`)

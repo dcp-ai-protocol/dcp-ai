@@ -1,5 +1,8 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { DCP_CONTEXTS } from "@dcp-ai/sdk";
 import crypto from "node:crypto";
@@ -10,16 +13,20 @@ let base;
 let proc;
 
 const SERVICE = fileURLToPath(new URL("./index.js", import.meta.url));
+const OPERATOR_TOKEN = "test-operator-token";
+const asOperator = { authorization: `Bearer ${OPERATOR_TOKEN}` };
 
 before(async () => {
-  ({ base, proc } = await startService(SERVICE, { REGISTRATIONS_PER_HOUR: "1000" }));
+  ({ base, proc } = await startService(SERVICE, { REGISTRATIONS_PER_HOUR: "1000", OPERATOR_TOKEN }));
 });
 
 after(() => proc.kill());
 
-const post = (path, body) => postTo(base, path, body);
+const post = (path, body, headers) => postTo(base, path, body, headers);
 const get = (path) => fetch(base + path);
-const register = (agent) => post("/v2/register", { signed_passport: agent.signedPassport });
+// First registrations go through the operator; re-registrations do not.
+const register = (agent) => post("/v2/register", { signed_passport: agent.signedPassport }, asOperator);
+const registerSigned = (signed_passport) => post("/v2/register", { signed_passport }, asOperator);
 const checkKid = async (kid) => (await get(`/v2/check/kid/${kid}`)).json();
 
 test("emergency revocation covers the agent's registered kids, and only those", async () => {
@@ -40,7 +47,7 @@ test("registration is proven by the passport signature and cannot be hijacked", 
   const charlie = await newAgent("agent:charlie-1");
   const tampered = structuredClone(charlie.signedPassport);
   tampered.payload.emergency_revocation_token = `sha256:${"0".repeat(64)}`;
-  assert.equal((await post("/v2/register", { signed_passport: tampered })).status, 403);
+  assert.equal((await registerSigned(tampered)).status, 403);
   assert.equal((await register(charlie)).status, 201);
 
   // Mallory registers charlie's agent_id with her own keys to plant her token.
@@ -108,7 +115,7 @@ test("key expiry comes from the signed passport, not an unauthenticated call", a
   const foxtrot = await newAgent("agent:foxtrot-1");
   foxtrot.passport.keys[1].expires_at = "2020-01-01T00:00:00Z";
   const signed = await signPassport(foxtrot.passport, foxtrot.keys);
-  assert.equal((await post("/v2/register", { signed_passport: signed })).status, 201);
+  assert.equal((await registerSigned(signed)).status, 201);
   assert.equal((await checkKid(foxtrot.keys.pq.kid)).reason, "expired");
 
   // An expired key cannot sign a passport that extends its own expiry.
@@ -141,7 +148,7 @@ test("an agent left without an active key of either family stays locked", async 
   // hotel's PQ key has expired.
   const hotel = await newAgent("agent:hotel-001");
   hotel.passport.keys[1].expires_at = "2020-01-01T00:00:00Z";
-  assert.equal((await post("/v2/register", { signed_passport: await signPassport(hotel.passport, hotel.keys) })).status, 201);
+  assert.equal((await registerSigned(await signPassport(hotel.passport, hotel.keys))).status, 201);
   assert.equal(await takeOver(hotel), 409);
 
   // juliet revoked its PQ key by kid.
@@ -158,21 +165,21 @@ test("an agent left without an active key of either family stays locked", async 
   // With no active key left, nobody can re-register the agent.
   const india = await newAgent("agent:india-001");
   for (const key of india.passport.keys) key.expires_at = "2020-01-01T00:00:00Z";
-  assert.equal((await post("/v2/register", { signed_passport: await signPassport(india.passport, india.keys) })).status, 201);
+  assert.equal((await registerSigned(await signPassport(india.passport, india.keys))).status, 201);
   const takeover = await newAgent("agent:india-001");
   takeover.passport.created_at = later(india.passport.created_at);
   assert.equal((await post("/v2/register", { signed_passport: await signPassport(takeover.passport, takeover.keys) })).status, 409);
 });
 
 test("registrations are rate limited per client and the registry is capped", async () => {
-  const limited = await startService(SERVICE, { REGISTRATIONS_PER_HOUR: "2" });
-  const capped = await startService(SERVICE, { MAX_AGENTS: "2" });
+  const limited = await startService(SERVICE, { REGISTRATIONS_PER_HOUR: "2", OPERATOR_TOKEN });
+  const capped = await startService(SERVICE, { MAX_AGENTS: "2", OPERATOR_TOKEN });
   try {
     const registerAll = async (service, ids) => {
       const statuses = [];
       for (const id of ids) {
         const { signedPassport } = await newAgent(id);
-        statuses.push((await postTo(service.base, "/v2/register", { signed_passport: signedPassport })).status);
+        statuses.push((await postTo(service.base, "/v2/register", { signed_passport: signedPassport }, asOperator)).status);
       }
       return statuses;
     };
@@ -180,7 +187,7 @@ test("registrations are rate limited per client and the registry is capped", asy
 
     // A full registry refuses new agents instead of evicting one, and registered agents can still re-register.
     const november = await newAgent("agent:nov-00001");
-    assert.equal((await postTo(capped.base, "/v2/register", { signed_passport: november.signedPassport })).status, 201);
+    assert.equal((await postTo(capped.base, "/v2/register", { signed_passport: november.signedPassport }, asOperator)).status, 201);
     assert.deepEqual(await registerAll(capped, ["agent:oscar-001", "agent:papa-0001"]), [201, 507]);
     const renewed = { ...november.passport, created_at: later(november.passport.created_at) };
     assert.equal((await postTo(capped.base, "/v2/register", { signed_passport: await signPassport(renewed, november.keys) })).status, 201);
@@ -193,7 +200,7 @@ test("registrations are rate limited per client and the registry is capped", asy
 test("stored registrations and revocations are bounded", async () => {
   const quebec = await newAgent("agent:quebec-01");
   const badToken = { ...quebec.passport, emergency_revocation_token: "x".repeat(10_000) };
-  assert.equal((await post("/v2/register", { signed_passport: await signPassport(badToken, quebec.keys) })).status, 400);
+  assert.equal((await registerSigned(await signPassport(badToken, quebec.keys))).status, 400);
   assert.equal((await register(quebec)).status, 201);
 
   const record = {
@@ -208,6 +215,68 @@ test("stored registrations and revocations are bounded", async () => {
   assert.equal((await post("/v2/revoke", { ...signed, composite_sig })).status, 201);
   const { kid_revocations } = await (await get("/v2/list")).json();
   assert.equal(kid_revocations.find((r) => r.revoked_kid === quebec.keys.pq.kid).composite_sig.padding, undefined);
+});
+
+test("only the operator can register a new agent_id", async () => {
+  // Anyone could otherwise claim a victim's agent_id first, plant a token and revoke it.
+  const romeo = await newAgent("agent:romeo-001");
+  const squatter = await newAgent("agent:romeo-001");
+  assert.equal((await post("/v2/register", { signed_passport: squatter.signedPassport })).status, 401);
+  assert.equal((await post("/v2/register", { signed_passport: squatter.signedPassport }, { authorization: "Bearer wrong" })).status, 401);
+  assert.equal((await post("/v2/emergency-revoke", { agent_id: "agent:romeo-001", revocation_secret: squatter.revocationSecret })).status, 404);
+
+  assert.equal((await register(romeo)).status, 201);
+  // Re-registering stays self-service: the agent's own keys, no operator token.
+  const renewed = { ...romeo.passport, created_at: later(romeo.passport.created_at) };
+  assert.equal((await post("/v2/register", { signed_passport: await signPassport(renewed, romeo.keys) })).status, 201);
+});
+
+test("a kid the service never registered gets an explicit unknown, not its claimed agent's verdict", async () => {
+  // agent:alpha-001 was emergency-revoked above; ?agent_id= must not lend that verdict to a stray kid.
+  const stray = crypto.randomBytes(16).toString("hex");
+  const res = await get(`/v2/check/kid/${stray}?agent_id=agent:alpha-001`);
+  assert.equal(res.status, 404);
+  const body = await res.json();
+  assert.equal(body.registered, false);
+  assert.equal(body.revoked, undefined);
+});
+
+test("REVOCATION_STATE_PATH keeps registrations and revocations across a restart", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "dcp-revocation-"));
+  const env = { OPERATOR_TOKEN, REVOCATION_STATE_PATH: path.join(dir, "state.jsonl") };
+  const sierra = await newAgent("agent:sierra-01");
+  const tango = await newAgent("agent:tango-001");
+  let service = await startService(SERVICE, env);
+  try {
+    for (const agent of [sierra, tango]) {
+      assert.equal((await postTo(service.base, "/v2/register", { signed_passport: agent.signedPassport }, asOperator)).status, 201);
+    }
+    const record = {
+      dcp_version: "2.0", agent_id: "agent:sierra-01", human_id: "human:test-owner",
+      revoked_kid: sierra.keys.pq.kid, timestamp: new Date().toISOString(), reason: "key_compromise",
+    };
+    const composite_sig = await sign(DCP_CONTEXTS.Revocation, record, sierra.keys);
+    assert.equal((await postTo(service.base, "/v2/revoke", { ...record, composite_sig })).status, 201);
+    const panic = { agent_id: "agent:tango-001", revocation_secret: tango.revocationSecret };
+    assert.equal((await postTo(service.base, "/v2/emergency-revoke", panic)).status, 200);
+  } finally {
+    service.proc.kill();
+  }
+
+  service = await startService(SERVICE, env);
+  try {
+    const check = async (kid) => (await fetch(`${service.base}/v2/check/kid/${kid}`)).json();
+    assert.equal((await check(sierra.keys.pq.kid)).revoked, true);
+    assert.equal((await check(sierra.keys.classical.kid)).revoked, false);
+    assert.equal((await check(tango.keys.classical.kid)).revoked, true);
+    assert.equal((await (await fetch(`${service.base}/check/agent:tango-001`)).json()).revoked, true);
+    // The restored registry still knows the agents: nobody can claim tango's agent_id again.
+    const renewed = { ...tango.passport, created_at: later(tango.passport.created_at) };
+    assert.equal((await postTo(service.base, "/v2/register", { signed_passport: await signPassport(renewed, tango.keys) })).status, 403);
+  } finally {
+    service.proc.kill();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("malformed percent-encoding returns 400 instead of crashing the service", async () => {
