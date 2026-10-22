@@ -21,12 +21,16 @@ type SecurityTierResult struct {
 // verified delegation chain (VerifyMandateChain, DCP-09 §3.5): a floor that
 // never lowers the tier.
 type SecurityTierInput struct {
-	RiskScore        int      `json:"risk_score"`
-	DataClasses      []string `json:"data_classes"`
-	ActionType       string   `json:"action_type"`
-	EstimatedImpact  string   `json:"estimated_impact"`
-	SecurityTier     string   `json:"security_tier,omitempty"`
-	MandateChainTier string   `json:"mandate_chain_tier,omitempty"`
+	RiskScore       int      `json:"risk_score"`
+	DataClasses     []string `json:"data_classes"`
+	ActionType      string   `json:"action_type"`
+	EstimatedImpact string   `json:"estimated_impact"`
+	SecurityTier    string   `json:"security_tier,omitempty"`
+	// MandateChainTier is the effective tier of a verified delegation chain
+	// (VerifyMandateChain, DCP-09 §3.5), a floor that can only raise the result.
+	// Go has no optional string: "" means no chain (the absent input of the other
+	// SDKs), and a non-empty name that is not a tier counts as elevated.
+	MandateChainTier string `json:"mandate_chain_tier,omitempty"`
 }
 
 // Values allowed by schemas/v2/intent.schema.json.

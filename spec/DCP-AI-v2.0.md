@@ -397,7 +397,9 @@ function computeSecurityTier(intent, policy_decision):
 
 The effective tier of a verified delegation chain, the greatest
 `minimum_security_tier` along it, is an optional input to this computation
-that can only raise the result, never lower it.
+that can only raise the result, never lower it. No bundle field carries the
+chain yet, so the floor applies where the verifier is handed a verified chain
+alongside the bundle; the bundle verifiers of §18 do not read one.
 
 `ACTION_TYPES` and `DATA_CLASSES` are the `action_type` and `data_classes`
 enums of `schemas/v2/intent.schema.json`. A missing, mistyped or unknown

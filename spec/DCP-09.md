@@ -213,9 +213,11 @@ The wire schema has these optional fields, all absent on a mandate that is not p
 
 A root mandate MUST carry `human_composite_sig` (context `DCP-AI.v2.Delegation`) and MUST NOT carry `delegator_composite_sig`. A sub-mandate MUST carry `delegator_composite_sig`, `parent_mandate_id` and `delegation_depth`, and MUST NOT carry `human_composite_sig`. The signed bytes are the canonical mandate without its signature field, under the context of its depth.
 
+Both `human_composite_sig` and `delegator_composite_sig` MUST use the `pq_over_classical` binding (DCP-AI v2.0 §5): a verifier MUST reject a mandate whose signature is `classical_only`, whatever its verification mode.
+
 #### 3.5.2 Chain verification
 
-A verifier that accepts a mandate chain MUST take the ordered chain (root first), the set of revoked `mandate_id`s, the verification time and the keys of the human principal and of every delegating agent, and MUST reject the whole chain unless all of the following hold. Timestamps are parsed as RFC 3339 instants and MUST NOT be compared as text. Any field with an unknown value, any field missing for the mandate's depth and any input that is not comparable fails closed.
+A verifier that accepts a mandate chain MUST take the ordered chain (root first), the set of revoked `mandate_id`s, the verification time and the keys of the human principal and of every delegating agent, and MUST reject the whole chain unless all of the following hold. The human principal's keys MUST be the `binding_keys` of the Responsible Principal Record of the chain's `human_id`, and the keys of a delegating agent MUST be the `keys` of the verified Agent Passport of that `agent_id`; the chain verifier looks keys up by `kid` in what it is given and does not establish that mapping itself, the same trust model as the bundle verifier. Timestamps are parsed as RFC 3339 instants and MUST NOT be compared as text. Any field with an unknown value, any field missing for the mandate's depth and any input that is not comparable fails closed.
 
 1. **Root.** The first mandate has `delegation_depth` 0 or none, no `parent_mandate_id`, and a `human_composite_sig` that verifies against the human principal's keys.
 2. **Link.** Each sub-mandate's `parent_mandate_id` equals the previous mandate's `mandate_id`; its `delegation_depth` is the parent's + 1; its `human_id` equals the parent's; and its `delegator_composite_sig` verifies against the keys of the parent's `agent_id`.
