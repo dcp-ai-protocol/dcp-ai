@@ -91,21 +91,21 @@ const bundle = new BundleBuilderV2()
 | `AlgorithmRegistry` | 利用可能な暗号アルゴリズムプロバイダを管理するレジストリ |
 | `getDefaultRegistry()` | シングルトンのアルゴリズムレジストリを返す |
 | `registerDefaultProviders()` | Ed25519、ML-DSA-65、SLH-DSA-192f のプロバイダを登録 |
-| `deriveKid(publicKey, algorithm)` | 公開鍵から鍵識別子を導出 |
+| `deriveKid(alg, publicKeyBytes)` | 公開鍵から鍵識別子を導出 |
 
 ### 複合署名 (V2)
 
 | 関数 | 説明 |
 |----------|-------------|
-| `compositeSign(payload, keys, registry)` | 古典 + 耐量子アルゴリズムによる複合署名を作成 |
-| `compositeVerify(payload, signature, registry)` | 複合署名を検証 |
-| `classicalOnlySign(payload, keys, registry)` | 古典アルゴリズムのみで署名 (フォールバックモード) |
+| `compositeSign(registry, context, canonicalPayloadBytes, keys)` | 古典 + 耐量子アルゴリズムによる複合署名を作成 |
+| `compositeVerify(registry, context, canonicalPayloadBytes, compositeSig, classicalPubkeyB64, pqPubkeyB64?, strategy?)` | 複合署名を検証 |
+| `classicalOnlySign(registry, context, canonicalPayloadBytes, key)` | 古典アルゴリズムのみで署名 (フォールバックモード) |
 
 ### セキュリティティア (V2)
 
 | 関数 | 説明 |
 |----------|-------------|
-| `computeSecurityTier(riskScore, flags)` | 数値のリスクスコアから `SecurityTier` を計算 |
+| `computeSecurityTier(intent)` | intent のリスクプロファイルから `SecurityTier`（routine / standard / elevated / maximum）を計算 |
 | `maxTier(a, b)` | 2つのセキュリティティアのうち高い方を返す |
 | `tierToVerificationMode(tier)` | ティアから必要な検証モードへのマッピング |
 | `tierToCheckpointInterval(tier)` | ティアから耐量子チェックポイント間隔へのマッピング |
@@ -117,20 +117,20 @@ const bundle = new BundleBuilderV2()
 | `BundleBuilder` | V1 | V1市民権バンドル用の流暢なビルダー |
 | `BundleBuilderV2` | V2 | セキュリティティアとデュアルハッシュに対応したV2バンドル用ビルダー |
 | `signBundle(bundle, options)` | V1 | V1バンドルにEd25519で署名 |
-| `signBundleV2(bundle, keys, registry)` | V2 | V2バンドルに複合署名で署名 |
-| `signBundleV2ClassicalOnly(bundle, keys, registry)` | V2 | V2バンドルに古典のみの署名で署名 |
+| `signBundleV2(bundle, options)` | V2 | V2バンドルに複合署名で署名 |
+| `signBundleV2ClassicalOnly(bundle, options)` | V2 | V2バンドルに古典のみの署名で署名 |
 | `verifySignedBundle(signedBundle, publicKeyB64)` | V1 | V1署名済みバンドルを検証 |
-| `verifySignedBundleV2(signedBundle, registry)` | V2 | V2署名済みバンドルを検証 (複合または古典) |
+| `verifySignedBundleV2(signedBundle, registry, policy?)` | V2 | V2署名済みバンドルを検証 (複合または古典) |
 
 ### バンドル最適化 (V2)
 
 | エクスポート | 説明 |
 |--------|-------------|
-| `suggestPresentationMode(context)` | コンテキストに基づいてプレゼンテーションモードを推奨 |
+| `suggestPresentationMode(tier, opts)` | セキュリティティアと、初回接触か既存の信頼関係かに基づいてプレゼンテーションモードを推奨 |
 | `presentFull(bundle)` | 完全なバンドルプレゼンテーション (省略なし) |
-| `presentCompact(bundle)` | 監査トレイルを刈り込んだコンパクトなプレゼンテーション |
-| `presentReference(bundle)` | 参照のみのプレゼンテーション (ハッシュのみ、ペイロードなし) |
-| `presentIncremental(bundle, since)` | インクリメンタルプレゼンテーション (チェックポイント以降の差分) |
+| `presentCompact(bundle, pqCheckpointRef)` | コンパクトなプレゼンテーション：PQ 署名を省き、代わりに最も近い PQ チェックポイントを参照 |
+| `presentReference(bundle, verificationEndpoint)` | 参照のみのプレゼンテーション：バンドルハッシュ、セッションナンス、完全なバンドルを検証・取得するエンドポイント |
+| `presentIncremental(baseBundle, updatedBundle, baseAuditCount)` | 検証済みのベースバンドルに対するインクリメンタルプレゼンテーション：新しい監査エントリ、PQ チェックポイント、更新されたマニフェストと署名 |
 | `VerificationCache` | 冗長な暗号処理を避けるため検証結果をキャッシュ |
 
 ### 耐量子チェックポイント (V2)
@@ -138,8 +138,8 @@ const bundle = new BundleBuilderV2()
 | エクスポート | 説明 |
 |--------|-------------|
 | `PQCheckpointManager` | 定期的な耐量子チェックポイント作成を管理 |
-| `createPQCheckpoint(entries, keys, registry)` | 監査エントリに対する耐量子署名付きチェックポイントを作成 |
-| `auditEventsMerkleRoot(entries)` | 監査エントリからMerkleルートを計算 |
+| `createPQCheckpoint(registry, events, sessionNonce, keys)` | 監査エントリに対する耐量子署名付きチェックポイントを作成 |
+| `auditEventsMerkleRoot(events)` | 監査エントリからMerkleルートを計算 |
 
 ### デュアルハッシュ (V2)
 
@@ -154,19 +154,19 @@ const bundle = new BundleBuilderV2()
 
 | 関数 | 説明 |
 |----------|-------------|
-| `createAgentDirectory()` | メモリ内のエージェントディレクトリを作成 |
-| `findAgentByCapability(dir, cap)` | ディレクトリ内の能力でエージェントを検索 |
-| `findAgentById(dir, id)` | IDでエージェントを検索 |
-| `createHello(agentId, capabilities)` | A2A Helloハンドシェイクメッセージを作成 |
-| `createWelcome(agentId, capabilities)` | A2A Welcome応答メッセージを作成 |
-| `deriveSessionId(helloNonce, welcomeNonce)` | ハンドシェイクノンスからセッションIDを導出 |
-| `createCloseMessage(sessionId, reason)` | セッションクローズメッセージを作成 |
-| `createSession(id, key, local, remote, tier)` | 暗号化されたA2Aセッションを作成 |
+| `createAgentDirectory(organization, agents)` | メモリ内のエージェントディレクトリを作成 |
+| `findAgentByCapability(directory, requiredCapabilities)` | ディレクトリ内の能力でエージェントを検索 |
+| `findAgentById(directory, agentId)` | IDでエージェントを検索 |
+| `createHello(initiatorBundle, kemPublicKeyB64, requestedCapabilities, securityTier)` | A2A Helloハンドシェイクメッセージを作成 |
+| `createWelcome(responderBundle, kemPublicKeyB64, kemCiphertextB64, resolvedTier)` | A2A Welcome応答メッセージを作成 |
+| `deriveSessionId(agentIdA, agentIdB, nonceA, nonceB, sessionKey)` | ハンドシェイクノンスからセッションIDを導出 |
+| `createCloseMessage(sessionId, reason, finalSequence, auditSummaryHash)` | セッションクローズメッセージを作成 |
+| `createSession(sessionId, sessionKey, localAgentId, remoteAgentId, securityTier, rekeyingInterval?)` | 暗号化されたA2Aセッションを作成 |
 | `encryptMessage(session, payload)` | A2Aセッション内でメッセージを暗号化 |
-| `decryptMessage(session, encrypted)` | A2Aセッション内でメッセージを復号 |
+| `decryptMessage(session, message)` | A2Aセッション内でメッセージを復号 |
 | `needsRekeying(session)` | セッションが鍵ローテーションを必要とするかチェック |
-| `generateResumeProof(session)` | セッション再開のための証明を生成 |
-| `verifyResumeProof(session, proof)` | セッション再開証明を検証 |
+| `generateResumeProof(session, lastSeenSequence)` | セッション再開のための証明を生成 |
+| `verifyResumeProof(session, lastSeenSequence, proof)` | セッション再開証明を検証 |
 
 ### 可観測性
 
@@ -185,27 +185,31 @@ const bundle = new BundleBuilderV2()
 |--------|-------------|
 | `DcpErrorCode` | 構造化されたエラーコードのenum |
 | `DcpProtocolError` | プロトコルレベル障害のための型付きエラークラス |
-| `createDcpError(code, message, context)` | 構造化されたDCPエラーを作成するファクトリー |
-| `isDcpError(err)` | `DcpProtocolError` のための型ガード |
+| `createDcpError(code, details?)` | 構造化されたDCPエラーを作成するファクトリー |
+| `isDcpError(error)` | `DcpProtocolError` のための型ガード |
 | `RateLimiter` | 固定ウィンドウのレート制限 |
 | `AdaptiveRateLimiter` | 負荷に応じて調整するレート制限 |
 | `CircuitBreaker` | 外部呼び出しのためのサーキットブレーカー |
-| `withRetry(fn, options)` | バックオフ付きで非同期関数をリトライ |
+| `withRetry(fn, config?)` | バックオフ付きで非同期関数をリトライ |
 
 ### その他のV2
 
 | エクスポート | 説明 |
 |--------|-------------|
 | `generateSessionNonce()` | 暗号的セッションノンスを生成 |
-| `domainSeparatedMessage(domain, message)` | メッセージにドメイン分離子をプレフィックス |
-| `generateEmergencyRevocationToken(keys)` | 事前署名済みの緊急失効トークンを生成 |
-| `buildEmergencyRevocation(token)` | トークンから完全な失効レコードを構築 |
-| `shamirSplit(secret, n, k)` | 秘密を `n` 個のシェアに分割 (閾値 `k`) |
-| `shamirReconstruct(shares)` | `k` 個のシェアから秘密を復元 |
+| `domainSeparatedMessage(context, canonicalPayloadBytes)` | メッセージにドメイン分離子をプレフィックス |
+| `generateEmergencyRevocationToken()` | 失効シークレットと、その `sha256:` トークンコミットメントを生成 |
+| `buildEmergencyRevocation({ agentId, humanId, revocationSecret })` | 失効シークレットから緊急失効リクエストを構築 |
+| `shamirSplit(secret, threshold, totalShares)` | 秘密を `totalShares` 個のシェアに分割（任意の `threshold` 個で復元可能） |
+| `shamirReconstruct(shares)` | 少なくとも `threshold` 個のシェアから秘密を復元 |
+| `blindRpr(rpr)` | RPR の個人情報（`legal_name`、`contact`）をハッシュコミットメントに置き換え |
+| `verifyBlindedRpr(fullRpr, blindedRpr)` | ブラインド化された RPR が完全なレコードと一致するか検証 |
+| `isBlindedRpr(rpr)` | `BlindedResponsiblePrincipalRecordV2` の型ガード |
+| `computePiiHash(rpr)` | RPR の個人情報フィールドに対するハッシュコミットメントを計算 |
 | `CborEncoder` | CBORエンコーダークラス |
 | `CborDecoder` | CBORデコーダークラス |
 | `cborEncode(value)` | 値をCBORバイト列にエンコード |
-| `cborDecode(bytes)` | CBORバイト列を値にデコード |
+| `cborDecode(data)` | CBORバイト列を値にデコード |
 
 ### DCP-05–09: 拡張プロトコルモジュール
 

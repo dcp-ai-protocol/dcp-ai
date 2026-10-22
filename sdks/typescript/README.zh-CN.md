@@ -91,21 +91,21 @@ const bundle = new BundleBuilderV2()
 | `AlgorithmRegistry` | 管理可用加密算法 Provider 的注册表 |
 | `getDefaultRegistry()` | 返回单例算法注册表 |
 | `registerDefaultProviders()` | 注册 Ed25519、ML-DSA-65 和 SLH-DSA-192f Provider |
-| `deriveKid(publicKey, algorithm)` | 从公钥派生密钥标识符 |
+| `deriveKid(alg, publicKeyBytes)` | 从公钥派生密钥标识符 |
 
 ### 复合签名 (V2)
 
 | 函数 | 描述 |
 |----------|-------------|
-| `compositeSign(payload, keys, registry)` | 使用经典 + 后量子算法创建复合签名 |
-| `compositeVerify(payload, signature, registry)` | 验证复合签名 |
-| `classicalOnlySign(payload, keys, registry)` | 仅使用经典算法签名（回退模式） |
+| `compositeSign(registry, context, canonicalPayloadBytes, keys)` | 使用经典 + 后量子算法创建复合签名 |
+| `compositeVerify(registry, context, canonicalPayloadBytes, compositeSig, classicalPubkeyB64, pqPubkeyB64?, strategy?)` | 验证复合签名 |
+| `classicalOnlySign(registry, context, canonicalPayloadBytes, key)` | 仅使用经典算法签名（回退模式） |
 
 ### 安全等级 (V2)
 
 | 函数 | 描述 |
 |----------|-------------|
-| `computeSecurityTier(riskScore, flags)` | 从数值风险分数计算 `SecurityTier` |
+| `computeSecurityTier(intent)` | 根据 intent 的风险画像计算 `SecurityTier`（routine、standard、elevated、maximum） |
 | `maxTier(a, b)` | 返回两个安全等级中较高的一个 |
 | `tierToVerificationMode(tier)` | 将等级映射为所需的验证模式 |
 | `tierToCheckpointInterval(tier)` | 将等级映射为后量子检查点间隔 |
@@ -117,20 +117,20 @@ const bundle = new BundleBuilderV2()
 | `BundleBuilder` | V1 | V1 公民凭证包的流式构建器 |
 | `BundleBuilderV2` | V2 | 带安全等级与双哈希的 V2 凭证包流式构建器 |
 | `signBundle(bundle, options)` | V1 | 使用 Ed25519 签名 V1 凭证包 |
-| `signBundleV2(bundle, keys, registry)` | V2 | 使用复合签名签名 V2 凭证包 |
-| `signBundleV2ClassicalOnly(bundle, keys, registry)` | V2 | 以仅经典签名方式签名 V2 凭证包 |
+| `signBundleV2(bundle, options)` | V2 | 使用复合签名签名 V2 凭证包 |
+| `signBundleV2ClassicalOnly(bundle, options)` | V2 | 以仅经典签名方式签名 V2 凭证包 |
 | `verifySignedBundle(signedBundle, publicKeyB64)` | V1 | 验证 V1 已签名凭证包 |
-| `verifySignedBundleV2(signedBundle, registry)` | V2 | 验证 V2 已签名凭证包（复合或经典） |
+| `verifySignedBundleV2(signedBundle, registry, policy?)` | V2 | 验证 V2 已签名凭证包（复合或经典） |
 
 ### 凭证包优化 (V2)
 
 | 导出 | 描述 |
 |--------|-------------|
-| `suggestPresentationMode(context)` | 根据上下文推荐呈现模式 |
+| `suggestPresentationMode(tier, opts)` | 根据安全等级以及是首次接触还是已有信任关系推荐呈现模式 |
 | `presentFull(bundle)` | 完整凭证包呈现（无省略） |
-| `presentCompact(bundle)` | 精简呈现，裁剪审计轨迹 |
-| `presentReference(bundle)` | 仅引用呈现（哈希，无负载） |
-| `presentIncremental(bundle, since)` | 增量呈现（自某检查点以来的差异） |
+| `presentCompact(bundle, pqCheckpointRef)` | 精简呈现：省略 PQ 签名，改为引用最近的 PQ 检查点 |
+| `presentReference(bundle, verificationEndpoint)` | 仅引用呈现：凭证包哈希、会话 nonce，以及用于验证或获取完整凭证包的端点 |
+| `presentIncremental(baseBundle, updatedBundle, baseAuditCount)` | 相对于已验证基础凭证包的增量呈现：新的审计条目、PQ 检查点、更新后的 manifest 及签名 |
 | `VerificationCache` | 缓存验证结果以避免冗余加密工作 |
 
 ### 后量子检查点 (V2)
@@ -138,8 +138,8 @@ const bundle = new BundleBuilderV2()
 | 导出 | 描述 |
 |--------|-------------|
 | `PQCheckpointManager` | 管理周期性的后量子检查点创建 |
-| `createPQCheckpoint(entries, keys, registry)` | 对审计条目创建后量子签名的检查点 |
-| `auditEventsMerkleRoot(entries)` | 从审计条目计算 Merkle 根 |
+| `createPQCheckpoint(registry, events, sessionNonce, keys)` | 对审计条目创建后量子签名的检查点 |
+| `auditEventsMerkleRoot(events)` | 从审计条目计算 Merkle 根 |
 
 ### 双哈希 (V2)
 
@@ -154,19 +154,19 @@ const bundle = new BundleBuilderV2()
 
 | 函数 | 描述 |
 |----------|-------------|
-| `createAgentDirectory()` | 创建一个内存中的智能体目录 |
-| `findAgentByCapability(dir, cap)` | 在目录中按能力查找智能体 |
-| `findAgentById(dir, id)` | 按 ID 查找智能体 |
-| `createHello(agentId, capabilities)` | 创建 A2A Hello 握手消息 |
-| `createWelcome(agentId, capabilities)` | 创建 A2A Welcome 响应消息 |
-| `deriveSessionId(helloNonce, welcomeNonce)` | 从握手随机数派生会话 ID |
-| `createCloseMessage(sessionId, reason)` | 创建会话关闭消息 |
-| `createSession(id, key, local, remote, tier)` | 创建加密的 A2A 会话 |
+| `createAgentDirectory(organization, agents)` | 创建一个内存中的智能体目录 |
+| `findAgentByCapability(directory, requiredCapabilities)` | 在目录中按能力查找智能体 |
+| `findAgentById(directory, agentId)` | 按 ID 查找智能体 |
+| `createHello(initiatorBundle, kemPublicKeyB64, requestedCapabilities, securityTier)` | 创建 A2A Hello 握手消息 |
+| `createWelcome(responderBundle, kemPublicKeyB64, kemCiphertextB64, resolvedTier)` | 创建 A2A Welcome 响应消息 |
+| `deriveSessionId(agentIdA, agentIdB, nonceA, nonceB, sessionKey)` | 从握手随机数派生会话 ID |
+| `createCloseMessage(sessionId, reason, finalSequence, auditSummaryHash)` | 创建会话关闭消息 |
+| `createSession(sessionId, sessionKey, localAgentId, remoteAgentId, securityTier, rekeyingInterval?)` | 创建加密的 A2A 会话 |
 | `encryptMessage(session, payload)` | 在 A2A 会话内加密消息 |
-| `decryptMessage(session, encrypted)` | 在 A2A 会话内解密消息 |
+| `decryptMessage(session, message)` | 在 A2A 会话内解密消息 |
 | `needsRekeying(session)` | 检查会话是否需要密钥轮换 |
-| `generateResumeProof(session)` | 为会话恢复生成证明 |
-| `verifyResumeProof(session, proof)` | 验证会话恢复证明 |
+| `generateResumeProof(session, lastSeenSequence)` | 为会话恢复生成证明 |
+| `verifyResumeProof(session, lastSeenSequence, proof)` | 验证会话恢复证明 |
 
 ### 可观测性
 
@@ -185,27 +185,31 @@ const bundle = new BundleBuilderV2()
 |--------|-------------|
 | `DcpErrorCode` | 结构化错误码枚举 |
 | `DcpProtocolError` | 协议级故障的类型化错误类 |
-| `createDcpError(code, message, context)` | 创建结构化 DCP 错误的工厂 |
-| `isDcpError(err)` | `DcpProtocolError` 的类型守卫 |
+| `createDcpError(code, details?)` | 创建结构化 DCP 错误的工厂 |
+| `isDcpError(error)` | `DcpProtocolError` 的类型守卫 |
 | `RateLimiter` | 固定窗口限流器 |
 | `AdaptiveRateLimiter` | 根据负载自适应调整的限流器 |
 | `CircuitBreaker` | 用于外部调用的熔断器 |
-| `withRetry(fn, options)` | 以退避重试异步函数 |
+| `withRetry(fn, config?)` | 以退避重试异步函数 |
 
 ### 其他 V2
 
 | 导出 | 描述 |
 |--------|-------------|
 | `generateSessionNonce()` | 生成加密的会话随机数 |
-| `domainSeparatedMessage(domain, message)` | 为消息添加域分离前缀 |
-| `generateEmergencyRevocationToken(keys)` | 生成预签名的紧急撤销令牌 |
-| `buildEmergencyRevocation(token)` | 从令牌构建完整撤销记录 |
-| `shamirSplit(secret, n, k)` | 将秘密分割为 `n` 份（阈值 `k`） |
-| `shamirReconstruct(shares)` | 从 `k` 份秘密碎片重建秘密 |
+| `domainSeparatedMessage(context, canonicalPayloadBytes)` | 为消息添加域分离前缀 |
+| `generateEmergencyRevocationToken()` | 生成撤销密钥及其 `sha256:` 令牌承诺 |
+| `buildEmergencyRevocation({ agentId, humanId, revocationSecret })` | 根据撤销密钥构建紧急撤销请求 |
+| `shamirSplit(secret, threshold, totalShares)` | 将秘密分割为 `totalShares` 份，任意 `threshold` 份即可重建 |
+| `shamirReconstruct(shares)` | 从至少 `threshold` 份秘密碎片重建秘密 |
+| `blindRpr(rpr)` | 用哈希承诺替换 RPR 中的个人信息（`legal_name`、`contact`） |
+| `verifyBlindedRpr(fullRpr, blindedRpr)` | 检查盲化 RPR 是否与完整记录一致 |
+| `isBlindedRpr(rpr)` | `BlindedResponsiblePrincipalRecordV2` 的类型守卫 |
+| `computePiiHash(rpr)` | 计算 RPR 个人信息字段的哈希承诺 |
 | `CborEncoder` | CBOR 编码器类 |
 | `CborDecoder` | CBOR 解码器类 |
 | `cborEncode(value)` | 将值编码为 CBOR 字节 |
-| `cborDecode(bytes)` | 将 CBOR 字节解码为值 |
+| `cborDecode(data)` | 将 CBOR 字节解码为值 |
 
 ### DCP-05–09：扩展协议模块
 

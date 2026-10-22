@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- TypeScript SDK: `blindRpr`, `verifyBlindedRpr`, `isBlindedRpr` and `computePiiHash` are exported
+  from the package entry point. They were implemented but unreachable from `@dcp-ai/sdk` 2.1.2 and
+  earlier; Python, Go and Rust already exported them.
+
+### Documentation
+
+- `spec/CANONICALIZATION_PROFILE.md`, `spec/DCP-AI-v2.0.md`, the WASM SDK README (all languages),
+  `docs/NIST_CONFORMITY.md` and the TypeScript, Python and Rust canonicalizer comments describe
+  `dcp-jcs-v1` as based on RFC 8785, not a strict subset of it or plain RFC 8785: Rule 1 orders keys
+  by code point, RFC 8785 by UTF-16 code units. The profile is unchanged.
+- The TypeScript SDK README (all languages) and `docs/API_REFERENCE.md` list the real signatures of
+  the composite-signature, bundle, presentation, PQ checkpoint, A2A, error, emergency revocation,
+  key recovery, hashing and CBOR functions.
+
 ## [2.9.0] - 2026-10-21
 
 ### Package versions

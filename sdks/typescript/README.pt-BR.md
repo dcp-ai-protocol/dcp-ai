@@ -91,21 +91,21 @@ const bundle = new BundleBuilderV2()
 | `AlgorithmRegistry` | Registro que gerencia provedores de algoritmos criptográficos disponíveis |
 | `getDefaultRegistry()` | Retorna o registro singleton de algoritmos |
 | `registerDefaultProviders()` | Registra os provedores Ed25519, ML-DSA-65 e SLH-DSA-192f |
-| `deriveKid(publicKey, algorithm)` | Deriva um identificador de chave a partir de uma chave pública |
+| `deriveKid(alg, publicKeyBytes)` | Deriva um identificador de chave a partir de uma chave pública |
 
 ### Assinaturas Compostas (V2)
 
 | Função | Descrição |
 |--------|-----------|
-| `compositeSign(payload, keys, registry)` | Cria uma assinatura composta com algoritmos clássicos + pós-quânticos |
-| `compositeVerify(payload, signature, registry)` | Verifica uma assinatura composta |
-| `classicalOnlySign(payload, keys, registry)` | Assina apenas com algoritmo clássico (modo fallback) |
+| `compositeSign(registry, context, canonicalPayloadBytes, keys)` | Cria uma assinatura composta com algoritmos clássicos + pós-quânticos |
+| `compositeVerify(registry, context, canonicalPayloadBytes, compositeSig, classicalPubkeyB64, pqPubkeyB64?, strategy?)` | Verifica uma assinatura composta |
+| `classicalOnlySign(registry, context, canonicalPayloadBytes, key)` | Assina apenas com algoritmo clássico (modo fallback) |
 
 ### Níveis de Segurança (V2)
 
 | Função | Descrição |
 |--------|-----------|
-| `computeSecurityTier(riskScore, flags)` | Calcula um `SecurityTier` a partir de um risk score numérico |
+| `computeSecurityTier(intent)` | Calcula um `SecurityTier` (routine, standard, elevated, maximum) a partir do perfil de risco de um intent |
 | `maxTier(a, b)` | Retorna o maior entre dois níveis de segurança |
 | `tierToVerificationMode(tier)` | Mapeia um nível ao modo de verificação exigido |
 | `tierToCheckpointInterval(tier)` | Mapeia um nível ao intervalo do checkpoint PQ |
@@ -117,20 +117,20 @@ const bundle = new BundleBuilderV2()
 | `BundleBuilder` | V1 | Builder fluente para Citizenship Bundles V1 |
 | `BundleBuilderV2` | V2 | Builder fluente para bundles V2 com níveis de segurança e dual hashing |
 | `signBundle(bundle, options)` | V1 | Assina um bundle V1 com Ed25519 |
-| `signBundleV2(bundle, keys, registry)` | V2 | Assina um bundle V2 com assinaturas compostas |
-| `signBundleV2ClassicalOnly(bundle, keys, registry)` | V2 | Assina um bundle V2 somente com assinaturas clássicas |
+| `signBundleV2(bundle, options)` | V2 | Assina um bundle V2 com assinaturas compostas |
+| `signBundleV2ClassicalOnly(bundle, options)` | V2 | Assina um bundle V2 somente com assinaturas clássicas |
 | `verifySignedBundle(signedBundle, publicKeyB64)` | V1 | Verifica um signed bundle V1 |
-| `verifySignedBundleV2(signedBundle, registry)` | V2 | Verifica um signed bundle V2 (composto ou clássico) |
+| `verifySignedBundleV2(signedBundle, registry, policy?)` | V2 | Verifica um signed bundle V2 (composto ou clássico) |
 
 ### Otimização de Bundle (V2)
 
 | Export | Descrição |
 |--------|-----------|
-| `suggestPresentationMode(context)` | Recomenda um modo de apresentação com base no contexto |
+| `suggestPresentationMode(tier, opts)` | Recomenda um modo de apresentação com base no nível de segurança e se é um primeiro contato ou uma relação de confiança existente |
 | `presentFull(bundle)` | Apresentação completa do bundle (sem omissões) |
-| `presentCompact(bundle)` | Apresentação compacta com trilha de auditoria podada |
-| `presentReference(bundle)` | Apresentação só por referência (hashes, sem payloads) |
-| `presentIncremental(bundle, since)` | Apresentação incremental (delta desde um checkpoint) |
+| `presentCompact(bundle, pqCheckpointRef)` | Apresentação compacta: omite a assinatura PQ e referencia em seu lugar o checkpoint PQ mais próximo |
+| `presentReference(bundle, verificationEndpoint)` | Apresentação só por referência: hash do bundle, nonce de sessão e um endpoint para verificar ou obter o bundle completo |
+| `presentIncremental(baseBundle, updatedBundle, baseAuditCount)` | Apresentação incremental em relação a um bundle base já verificado: novas entradas de auditoria, checkpoints PQ, manifest atualizado e assinatura |
 | `VerificationCache` | Armazena em cache resultados de verificação para evitar trabalho criptográfico redundante |
 
 ### Checkpoints PQ (V2)
@@ -138,8 +138,8 @@ const bundle = new BundleBuilderV2()
 | Export | Descrição |
 |--------|-----------|
 | `PQCheckpointManager` | Gerencia a criação periódica de checkpoints pós-quânticos |
-| `createPQCheckpoint(entries, keys, registry)` | Cria um checkpoint assinado por PQ sobre entradas de auditoria |
-| `auditEventsMerkleRoot(entries)` | Calcula um Merkle root a partir de entradas de auditoria |
+| `createPQCheckpoint(registry, events, sessionNonce, keys)` | Cria um checkpoint assinado por PQ sobre entradas de auditoria |
+| `auditEventsMerkleRoot(events)` | Calcula um Merkle root a partir de entradas de auditoria |
 
 ### Dual Hash (V2)
 
@@ -154,19 +154,19 @@ const bundle = new BundleBuilderV2()
 
 | Função | Descrição |
 |--------|-----------|
-| `createAgentDirectory()` | Cria um diretório de agentes em memória |
-| `findAgentByCapability(dir, cap)` | Encontra agentes por capacidade em um diretório |
-| `findAgentById(dir, id)` | Encontra um agente por ID |
-| `createHello(agentId, capabilities)` | Cria uma mensagem Hello de handshake A2A |
-| `createWelcome(agentId, capabilities)` | Cria uma mensagem Welcome de resposta A2A |
-| `deriveSessionId(helloNonce, welcomeNonce)` | Deriva um ID de sessão a partir de nonces de handshake |
-| `createCloseMessage(sessionId, reason)` | Cria uma mensagem de encerramento de sessão |
-| `createSession(id, key, local, remote, tier)` | Cria uma sessão A2A criptografada |
+| `createAgentDirectory(organization, agents)` | Cria um diretório de agentes em memória |
+| `findAgentByCapability(directory, requiredCapabilities)` | Encontra agentes por capacidade em um diretório |
+| `findAgentById(directory, agentId)` | Encontra um agente por ID |
+| `createHello(initiatorBundle, kemPublicKeyB64, requestedCapabilities, securityTier)` | Cria uma mensagem Hello de handshake A2A |
+| `createWelcome(responderBundle, kemPublicKeyB64, kemCiphertextB64, resolvedTier)` | Cria uma mensagem Welcome de resposta A2A |
+| `deriveSessionId(agentIdA, agentIdB, nonceA, nonceB, sessionKey)` | Deriva um ID de sessão a partir de nonces de handshake |
+| `createCloseMessage(sessionId, reason, finalSequence, auditSummaryHash)` | Cria uma mensagem de encerramento de sessão |
+| `createSession(sessionId, sessionKey, localAgentId, remoteAgentId, securityTier, rekeyingInterval?)` | Cria uma sessão A2A criptografada |
 | `encryptMessage(session, payload)` | Criptografa uma mensagem dentro de uma sessão A2A |
-| `decryptMessage(session, encrypted)` | Descriptografa uma mensagem dentro de uma sessão A2A |
+| `decryptMessage(session, message)` | Descriptografa uma mensagem dentro de uma sessão A2A |
 | `needsRekeying(session)` | Verifica se uma sessão precisa de rotação de chave |
-| `generateResumeProof(session)` | Gera uma prova para retomada de sessão |
-| `verifyResumeProof(session, proof)` | Verifica uma prova de retomada de sessão |
+| `generateResumeProof(session, lastSeenSequence)` | Gera uma prova para retomada de sessão |
+| `verifyResumeProof(session, lastSeenSequence, proof)` | Verifica uma prova de retomada de sessão |
 
 ### Observabilidade
 
@@ -185,27 +185,31 @@ const bundle = new BundleBuilderV2()
 |--------|-----------|
 | `DcpErrorCode` | Enum de códigos de erro estruturados |
 | `DcpProtocolError` | Classe de erro tipada para falhas no nível do protocolo |
-| `createDcpError(code, message, context)` | Factory para criar erros DCP estruturados |
-| `isDcpError(err)` | Type guard para `DcpProtocolError` |
+| `createDcpError(code, details?)` | Factory para criar erros DCP estruturados |
+| `isDcpError(error)` | Type guard para `DcpProtocolError` |
 | `RateLimiter` | Rate limiter de janela fixa |
 | `AdaptiveRateLimiter` | Rate limiter que se ajusta com base em carga |
 | `CircuitBreaker` | Circuit breaker para chamadas externas |
-| `withRetry(fn, options)` | Executa uma função assíncrona novamente com backoff |
+| `withRetry(fn, config?)` | Executa uma função assíncrona novamente com backoff |
 
 ### Outras V2
 
 | Export | Descrição |
 |--------|-----------|
 | `generateSessionNonce()` | Gera um nonce de sessão criptográfico |
-| `domainSeparatedMessage(domain, message)` | Adiciona prefixo de separação de domínio a uma mensagem |
-| `generateEmergencyRevocationToken(keys)` | Gera um token pré-assinado de revogação de emergência |
-| `buildEmergencyRevocation(token)` | Constrói um registro completo de revogação a partir de um token |
-| `shamirSplit(secret, n, k)` | Divide um segredo em `n` shares (threshold `k`) |
-| `shamirReconstruct(shares)` | Reconstrói um segredo a partir de `k` shares |
+| `domainSeparatedMessage(context, canonicalPayloadBytes)` | Adiciona prefixo de separação de domínio a uma mensagem |
+| `generateEmergencyRevocationToken()` | Gera um segredo de revogação e seu compromisso de token `sha256:` |
+| `buildEmergencyRevocation({ agentId, humanId, revocationSecret })` | Constrói uma solicitação de revogação de emergência a partir do segredo de revogação |
+| `shamirSplit(secret, threshold, totalShares)` | Divide um segredo em `totalShares` shares; quaisquer `threshold` deles o reconstroem |
+| `shamirReconstruct(shares)` | Reconstrói um segredo a partir de pelo menos `threshold` shares |
+| `blindRpr(rpr)` | Substitui os dados pessoais de um RPR (`legal_name`, `contact`) por um compromisso hash |
+| `verifyBlindedRpr(fullRpr, blindedRpr)` | Verifica se um RPR cego corresponde ao registro completo |
+| `isBlindedRpr(rpr)` | Type guard para `BlindedResponsiblePrincipalRecordV2` |
+| `computePiiHash(rpr)` | Calcula o compromisso hash sobre os campos de dados pessoais de um RPR |
 | `CborEncoder` | Classe encoder CBOR |
 | `CborDecoder` | Classe decoder CBOR |
 | `cborEncode(value)` | Codifica um valor em bytes CBOR |
-| `cborDecode(bytes)` | Decodifica bytes CBOR em um valor |
+| `cborDecode(data)` | Decodifica bytes CBOR em um valor |
 
 ### DCP-05–09: Módulos Estendidos do Protocolo
 
