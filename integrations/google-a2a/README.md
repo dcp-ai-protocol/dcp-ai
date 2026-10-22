@@ -41,7 +41,9 @@ belong to the passport's agent. To make it an identity check:
 
 - Pass `trustedKeys`: the keys you already trust for that agent (from a registry, a pinned earlier
   passport, or the `binding_keys` of a verified RPR when the principal signs for the agent) and
-  `expectedAgentId`. Both signing keys must be among them; the result then says `anchored: true`.
+  `expectedAgentId`. Both signing keys must be among them, and the trusted entries themselves must
+  be `active` and unexpired (your record of a key is authoritative over the passport's copy); the
+  result then says `anchored: true`.
 - Use only `result.passport`, never the card's unsigned fields, as the agent's identity.
 - Before delegating a task, demand proof of possession from the endpoint: the SDK's
   `generateRegistrationPoP` / `verifyRegistrationPoP`, or a DCP-04 A2A session. A2A 1.0's

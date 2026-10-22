@@ -85,6 +85,16 @@ describe('the signed passport inside the Agent Card', () => {
     expect(anchored.verified, anchored.errors.join('\n')).toBe(true);
     expect(anchored.anchored).toBe(true);
     const otherAnchor = await verifyAgentCardPassport(card, { trustedKeys: entries(intruder) });
+    // The anchor's own lifecycle is authoritative: a key the verifier revoked or let expire does not verify.
+    const revokedAnchor = await verifyAgentCardPassport(card, { trustedKeys: entries(keys, { status: 'revoked' }) });
+    expect(revokedAnchor.verified).toBe(false);
+    expect(revokedAnchor.errors.join('\n')).toContain('trusted key');
+    const expiredAnchor = await verifyAgentCardPassport(card, { trustedKeys: entries(keys, { expires_at: '2020-01-01T00:00:00Z' }) });
+    expect(expiredAnchor.verified).toBe(false);
+    expect(expiredAnchor.errors.join('\n')).toContain('has expired');
+    const notArray = await verifyAgentCardPassport(card, { trustedKeys: 'nope' as any });
+    expect(notArray.verified).toBe(false);
+    expect(notArray.errors[0]).toContain('trustedKeys must be an array');
     expect(otherAnchor.verified).toBe(false);
     expect(otherAnchor.errors.join('\n')).toContain('trusted keys');
     const otherAgent = await verifyAgentCardPassport(card, { expectedAgentId: 'agent:someone-else' });
