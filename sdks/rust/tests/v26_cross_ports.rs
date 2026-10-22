@@ -153,6 +153,7 @@ fn blind_rpr_requires_pii_salt() {
         json!("A".repeat(64)),
         json!("g".repeat(64)),
         json!("a".repeat(66)),
+        json!(format!("{}\n", "a".repeat(64))),
         json!(42),
     ] {
         let mut full = sample_rpr();
