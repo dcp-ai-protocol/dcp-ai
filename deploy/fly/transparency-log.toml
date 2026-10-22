@@ -23,7 +23,7 @@ primary_region = "iad"
   LOG_ID = "log-alpha"
   GOSSIP_INTERVAL_MS = "30000"
   # Set at runtime with `fly secrets set`:
-  #   OPERATOR_KEY   — seed of the Ed25519 key that signs Signed Tree Heads (STHs)
+  #   OPERATOR_KEY   — Ed25519 seed for Signed Tree Heads: 64 hex (openssl rand -hex 32)
   #   GOSSIP_PEERS   — comma-separated URLs of peer logs
 
 [http_service]

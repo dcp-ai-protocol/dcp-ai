@@ -29,9 +29,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   without `?agent_id=`.
 - Anchor service: no more random `tx_hash` (records carry `tx_hash: null`, `onchain: false`),
   bodies are capped at 1 MB, `POST /flush` needs the operator token, and malformed input is a 400
-  instead of a crash. Transparency log: tree heads are Ed25519-signed (key derived from
-  `OPERATOR_KEY`) instead of an HMAC nobody else could verify, the Merkle tree uses RFC 6962
-  leaf/node prefixes, and `POST /gossip/peers` (an SSRF vector) needs the operator token.
+  instead of a crash. Transparency log: tree heads are Ed25519-signed instead of an HMAC nobody
+  else could verify; `OPERATOR_KEY` must be the 64-hex seed (the public compose placeholders were
+  removed), the Merkle tree uses RFC 6962 leaf/node prefixes, and `POST /gossip/peers` (an SSRF
+  vector) needs the operator token.
 - Verification server and revocation service: expired keys can no longer re-register a passport,
   authorize a key rotation or sign for a party or a revocation, and re-registering keeps the
   registered key entries, so a new passport cannot extend a key's `expires_at`.

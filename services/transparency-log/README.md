@@ -100,8 +100,8 @@ const { log_id, root, size, timestamp, signature } = sth;
 verifyObject({ log_id, root, size, timestamp }, signature, pinnedPublicKey); // true
 ```
 
-The key is derived from `OPERATOR_KEY`, so it survives restarts. Without `OPERATOR_KEY` the log
-signs with an ephemeral key and earlier STHs stop verifying after a restart.
+`OPERATOR_KEY` is the key's 32-byte seed, so the key survives restarts. Without it the log signs
+with an ephemeral key and earlier STHs stop verifying after a restart.
 
 ### `GET /proof/:index`
 
@@ -166,7 +166,7 @@ curl http://localhost:3002/entries
 |----------|---------|-------------|
 | `PORT` | `3002` | HTTP port |
 | `LOG_ID` | random | Identifier of this log instance |
-| `OPERATOR_KEY` | — | Secret seed of the STH signing key (Ed25519 seed = SHA-256(`OPERATOR_KEY`)); use 32+ random bytes. Unset: ephemeral key |
+| `OPERATOR_KEY` | — | Ed25519 seed of the STH signing key: 64 hex chars (`openssl rand -hex 32`). Any other value stops the service; unset means an ephemeral key |
 | `OPERATOR_TOKEN` | — | Bearer token for `POST /gossip/peers`. Unset: locked |
 | `GOSSIP_PEERS` | — | Comma-separated peer URLs, polled every `GOSSIP_INTERVAL_MS` |
 | `GOSSIP_INTERVAL_MS` | `30000` | Gossip polling interval |

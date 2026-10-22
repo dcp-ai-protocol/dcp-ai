@@ -87,7 +87,7 @@ services:
       - PORT=3002
       - DCP_VERSION=2.0
       - LOG_ID=log-alpha
-      - OPERATOR_KEY=alpha-operator-secret-replace-in-production
+      # OPERATOR_KEY (64 hex, openssl rand -hex 32) pins the STH signing key; unset = ephemeral
       - GOSSIP_PEERS=http://transparency-log-b:3012
       - GOSSIP_INTERVAL_MS=30000
       - OPERATOR_TOKEN
@@ -109,7 +109,6 @@ services:
       - PORT=3012
       - DCP_VERSION=2.0
       - LOG_ID=log-beta
-      - OPERATOR_KEY=beta-operator-secret-replace-in-production
       - GOSSIP_PEERS=http://transparency-log-a:3002
       - GOSSIP_INTERVAL_MS=30000
       - OPERATOR_TOKEN
