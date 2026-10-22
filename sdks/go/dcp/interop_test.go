@@ -92,6 +92,13 @@ type sessionSplicingData struct {
 	SessionB sessionArtifact `json:"session_b"`
 }
 
+type securityTierCase struct {
+	Name           string                 `json:"name"`
+	Intent         map[string]interface{} `json:"intent"`
+	PolicyDecision map[string]interface{} `json:"policy_decision"`
+	Expected       v2.SecurityTierResult  `json:"expected"`
+}
+
 type interopVectors struct {
 	TestKeys                map[string]testKey           `json:"test_keys"`
 	KidDerivation           map[string]kidDerivEntry     `json:"kid_derivation"`
@@ -105,6 +112,9 @@ type interopVectors struct {
 	ClassicalOnlySignatures map[string]compositeSigEntry `json:"classical_only_signatures"`
 	AttackVectors           map[string]json.RawMessage   `json:"attack_vectors"`
 	SessionSplicing         sessionSplicingData          `json:"session_splicing"`
+	SecurityTier            struct {
+		Cases []securityTierCase `json:"cases"`
+	} `json:"security_tier"`
 }
 
 func loadVectors(t *testing.T) *interopVectors {
@@ -546,6 +556,25 @@ func TestInteropSessionSplicing(t *testing.T) {
 			t.Error("must detect nonce mismatch across sessions")
 		}
 	})
+}
+
+// ---------------------------------------------------------------------------
+// 11. Security Tier (spec §14.2)
+// ---------------------------------------------------------------------------
+
+func TestInteropSecurityTier(t *testing.T) {
+	cases := loadVectors(t).SecurityTier.Cases
+	if len(cases) == 0 {
+		t.Fatal("no security_tier vectors found")
+	}
+	for _, c := range cases {
+		t.Run(c.Name, func(t *testing.T) {
+			got := v2.ComputeSecurityTier(v2.SecurityTierInputFromPayloads(c.Intent, c.PolicyDecision))
+			if got != c.Expected {
+				t.Fatalf("got %+v, want %+v", got, c.Expected)
+			}
+		})
+	}
 }
 
 // TestCanonicalizationEdgeCases verifies that the Go canonicalizer matches
