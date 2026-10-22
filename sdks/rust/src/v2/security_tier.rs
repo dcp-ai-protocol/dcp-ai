@@ -136,3 +136,20 @@ pub fn tier_to_checkpoint_interval(tier: SecurityTier) -> u32 {
         SecurityTier::Elevated | SecurityTier::Maximum => 1,
     }
 }
+
+const MODE_STRICTNESS: [&str; 3] = ["classical_only", "hybrid_preferred", "hybrid_required"];
+
+/// The verification mode a verifier enforces (spec §14.3): the stricter of its
+/// policy mode and the tier's mode. The tier only adds a PQ requirement, so a
+/// `pq_only` policy stays `pq_only`; an unknown policy mode counts as
+/// `hybrid_required`.
+pub fn effective_verification_mode(policy_mode: &str, tier: SecurityTier) -> &'static str {
+    if policy_mode == "pq_only" {
+        return "pq_only";
+    }
+    let rank = |mode: &str| MODE_STRICTNESS.iter().position(|m| *m == mode);
+    match (rank(policy_mode), rank(tier_to_verification_mode(tier))) {
+        (Some(policy), Some(tier)) => MODE_STRICTNESS[policy.max(tier)],
+        _ => "hybrid_required",
+    }
+}

@@ -3,6 +3,7 @@ package v2
 import (
 	"encoding/json"
 	"math"
+	"slices"
 )
 
 // SecurityTierResult describes the computed security tier and its parameters.
@@ -169,4 +170,21 @@ func TierToCheckpointInterval(tier string) int {
 	default:
 		return 50
 	}
+}
+
+var modeStrictness = []string{"classical_only", "hybrid_preferred", "hybrid_required"}
+
+// EffectiveVerificationMode returns the mode a verifier enforces (spec §14.3):
+// the stricter of its policy mode and the tier's mode. The tier only adds a PQ
+// requirement, so a pq_only policy stays pq_only; an unknown policy mode counts
+// as hybrid_required.
+func EffectiveVerificationMode(policyMode, tier string) string {
+	if policyMode == "pq_only" {
+		return "pq_only"
+	}
+	rank := slices.Index(modeStrictness, policyMode)
+	if rank < 0 {
+		return "hybrid_required"
+	}
+	return modeStrictness[max(rank, slices.Index(modeStrictness, TierToVerificationMode(tier)))]
 }

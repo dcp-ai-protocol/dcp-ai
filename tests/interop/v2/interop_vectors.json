@@ -668,6 +668,29 @@
       {"name": "fractional risk_score 800.5 is maximum", "intent": {"action_type": "browse", "data_classes": ["none"], "estimated_impact": "low"}, "policy_decision": {"risk_score": 800.5}, "expected": {"tier": "maximum", "verification_mode": "hybrid_required", "checkpoint_interval": 1}},
       {"name": "negative risk_score stays routine", "intent": {"action_type": "browse", "data_classes": ["none"], "estimated_impact": "low"}, "policy_decision": {"risk_score": -1}, "expected": {"tier": "routine", "verification_mode": "classical_only", "checkpoint_interval": 50}},
       {"name": "huge risk_score is maximum", "intent": {"action_type": "browse", "data_classes": ["none"], "estimated_impact": "low"}, "policy_decision": {"risk_score": 1e+30}, "expected": {"tier": "maximum", "verification_mode": "hybrid_required", "checkpoint_interval": 1}}
-    ]
+    ],
+    "effective_mode": {
+      "_description": "Effective verification mode (spec §14.3): the stricter of the verifier policy mode and the tier mode, with classical_only < hybrid_preferred < hybrid_required. A pq_only policy stays pq_only; an unknown policy mode counts as hybrid_required, and an unknown tier as elevated.",
+      "cases": [
+        {"policy_mode": "classical_only", "tier": "routine", "expected": "classical_only"},
+        {"policy_mode": "classical_only", "tier": "standard", "expected": "hybrid_preferred"},
+        {"policy_mode": "classical_only", "tier": "elevated", "expected": "hybrid_required"},
+        {"policy_mode": "classical_only", "tier": "maximum", "expected": "hybrid_required"},
+        {"policy_mode": "hybrid_preferred", "tier": "routine", "expected": "hybrid_preferred"},
+        {"policy_mode": "hybrid_preferred", "tier": "standard", "expected": "hybrid_preferred"},
+        {"policy_mode": "hybrid_preferred", "tier": "elevated", "expected": "hybrid_required"},
+        {"policy_mode": "hybrid_preferred", "tier": "maximum", "expected": "hybrid_required"},
+        {"policy_mode": "hybrid_required", "tier": "routine", "expected": "hybrid_required"},
+        {"policy_mode": "hybrid_required", "tier": "standard", "expected": "hybrid_required"},
+        {"policy_mode": "hybrid_required", "tier": "elevated", "expected": "hybrid_required"},
+        {"policy_mode": "hybrid_required", "tier": "maximum", "expected": "hybrid_required"},
+        {"policy_mode": "pq_only", "tier": "routine", "expected": "pq_only"},
+        {"policy_mode": "pq_only", "tier": "standard", "expected": "pq_only"},
+        {"policy_mode": "pq_only", "tier": "elevated", "expected": "pq_only"},
+        {"policy_mode": "pq_only", "tier": "maximum", "expected": "pq_only"},
+        {"policy_mode": "strict", "tier": "routine", "expected": "hybrid_required"},
+        {"policy_mode": "classical_only", "tier": "constructor", "expected": "hybrid_required"}
+      ]
+    }
   }
 }

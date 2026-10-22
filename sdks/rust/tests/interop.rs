@@ -23,7 +23,8 @@ use dcp_ai::v2::composite_sig::CompositeSignature;
 use dcp_ai::v2::crypto_provider::{derive_kid, CryptoProvider};
 use dcp_ai::v2::verify_bundle::verify_signed_bundle_v2;
 use dcp_ai::v2::security_tier::{
-    compute_security_tier, tier_to_checkpoint_interval, tier_to_verification_mode,
+    compute_security_tier, effective_verification_mode, tier_to_checkpoint_interval,
+    tier_to_verification_mode, SecurityTier,
 };
 use dcp_ai::v2::domain_separation::{
     domain_separated_message, CTX_AGENT_PASSPORT, CTX_AUDIT_EVENT, CTX_AWARENESS, CTX_BUNDLE,
@@ -610,5 +611,30 @@ fn security_tier_vectors_wasm_binding() {
         let out = dcp_ai::wasm::wasm_compute_security_tier(&case["intent"].to_string(), policy_decision);
         let got: Value = serde_json::from_str(&out).unwrap();
         assert_eq!(got, case["expected"], "{}", case["name"]);
+    }
+}
+
+#[test]
+fn effective_mode_vectors() {
+    let vectors = load_vectors();
+    let cases = vectors["security_tier"]["effective_mode"]["cases"].as_array().expect("effective_mode cases");
+    assert!(!cases.is_empty());
+    for case in cases {
+        // SecurityTier is a closed enum: an unknown name cannot reach this API.
+        let tier = match case["tier"].as_str().unwrap() {
+            "routine" => SecurityTier::Routine,
+            "standard" => SecurityTier::Standard,
+            "elevated" => SecurityTier::Elevated,
+            "maximum" => SecurityTier::Maximum,
+            _ => continue,
+        };
+        let policy_mode = case["policy_mode"].as_str().unwrap();
+        assert_eq!(
+            effective_verification_mode(policy_mode, tier),
+            case["expected"].as_str().unwrap(),
+            "{} + {}",
+            policy_mode,
+            case["tier"]
+        );
     }
 }
