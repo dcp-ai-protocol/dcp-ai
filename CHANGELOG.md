@@ -58,9 +58,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   ML-DSA-65 keys by algorithm, so they rejected bundles signed with the principal's keys and
   reported a bundle whose passport listed no Ed25519 key as verified, with a warning, without
   checking its signature.
+- TypeScript, Go and Rust SDKs: in every composite signature, in every verification mode, the
+  classical slot must hold Ed25519 and the PQ slot ML-DSA-65 or SLH-DSA-192f, from a key whose
+  `alg` is the same. Go also rejects a bundle whose RPR, passport, intent or policy decision is
+  null or not an object, where it skipped every check on that artifact, and TypeScript returns
+  `verified: false` for such a bundle instead of throwing.
 
 ### Changed (breaking)
 
+- Go SDK: `BundleBuildInput` takes signed artifacts (`SignedPayload`, see `v2.SignPayload`) and
+  `[]AuditEventV2` audit entries. `BuildBundleV2` wrapped unsigned payloads, which verifiers now
+  reject (V2-8), and filled the bundle with empty audit entries.
+- WASM (`wasm_build_bundle`, and `buildBundle` in `@dcp-ai/wasm`): each artifact is a
+  `SignedPayload` from `wasm_sign_payload` / `signPayload`, not a raw payload. Bundles built from
+  raw payloads carried no artifact signatures and no longer verify.
 - Revocation service: `POST /v2/register-emergency-token` and `POST /v2/register-key-expiry` were
   removed in favour of `POST /v2/register`. V1 `/revoke` needs an agent registered there, which
   takes a hybrid (Ed25519 + ML-DSA-65 or SLH-DSA-192f) passport signature, so Ed25519-only (V1)
@@ -90,9 +101,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `dcp_ai::v2::verify_bundle::verify_signed_bundle_v2`, so native builds and `cargo test` run it;
   `wasm_verify_signed_bundle_v2` delegates to it.
 - `tests/interop/v2/bundle_vectors.json`: a signed bundle that every V2 verifier must accept, and
-  mutations (forged bundle PQ signature, forged or misattributed artifact signatures) after which
-  it must reject it, checked by the TypeScript, Go and Rust suites. Regenerate with
+  mutations (forged bundle PQ signature, forged or misattributed artifact signatures, algorithms in
+  the wrong slot, null or non-object artifacts) after which it must reject it with an error naming
+  the bundle or artifact, checked by the TypeScript, Go and Rust suites. Regenerate with
   `sdks/typescript/src/__tests__/generate-bundle-vectors.ts`.
+- Go SDK: `v2.SignPayload` signs an artifact into a `SignedPayload`: a composite signature, or a
+  classical-only one when no PQ key is given.
 
 ### Documentation
 
@@ -106,6 +120,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `docs/API_REFERENCE.md`: the V2 verification pipeline lists the per-artifact signature checks,
   and the known-limitations note on V2-7 and V2-8 now applies only to `@dcp-ai/sdk` 2.1.2 and
   earlier.
+- The Go and WASM SDK READMEs (all languages) and `docs/MIGRATION_V1_V2.md` sign each artifact
+  before building the bundle, and list the signing keys in the passport and the RPR.
 
 ## [2.9.0] - 2026-10-21
 
