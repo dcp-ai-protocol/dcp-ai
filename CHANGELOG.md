@@ -147,6 +147,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   (`schemas/v2/composite_signature.schema.json`). They decoded an absent `pq` like `null` and
   verified such a `classical_only` signature, which the TypeScript and Python verifiers reject.
   `bundle_vectors.json` pins it with `classical_only_bundle_signature_without_pq`.
+- Go and Rust V2 verifiers tie the audit trail to the signed manifest, as the TypeScript and Python
+  ones do: they recompute `audit_merkle_root`, check `audit_count`, and require the chain to start at
+  `GENESIS`. Before, anyone could replace the audit entries of a validly signed bundle with a
+  fabricated, self-consistent chain, and both still reported it as verified.
+- Go and Rust V2 verifiers fail closed when a manifest check cannot run: a missing artifact hash
+  such as `rpr_hash`, or a payload that is missing or cannot be canonicalized, is an error instead of
+  a skipped check.
+- Go and Rust V2 verifiers check each artifact's `payload_hash` against its payload, as the
+  TypeScript and Python ones do; they ignored it.
+- Go and Rust V2 verifiers reject a bundle whose `manifest.session_expires_at` has passed, so an
+  expired session can no longer be replayed against them. The `@dcp-ai/wasm` verifier reads the
+  clock from JavaScript, since `SystemTime::now()` panics on `wasm32-unknown-unknown`.
+- Key validity covers every key that can sign. All four verifiers reject a revoked or expired key in
+  the principal's RPR `binding_keys`, which sign the RPR and may sign the bundle; TypeScript and
+  Python checked only the passport keys. The Go and Rust verifiers checked no key status at all and
+  now reject revoked or expired passport keys too.
 
 ### Changed (breaking)
 
@@ -284,6 +300,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   classical-only routine control with its expected verdict per mode. The TS, Go, Rust and Python
   tests run them, and Python now runs the whole file. `default_verifier_policy` carries the
   TypeScript `DEFAULT_VERIFIER_POLICY`, which every SDK must accept as a policy.
+- `tests/interop/v2/bundle_vectors.json`: rejection cases for a wrong `payload_hash`, replaced or
+  truncated audit entries, an audit chain that does not start at `GENESIS`, a manifest without
+  `rpr_hash`, an expired session, and revoked or expired passport and binding keys.
 - TypeScript SDK: `blindRpr`, `verifyBlindedRpr`, `isBlindedRpr` and `computePiiHash` are exported
   from the package entry point. They were implemented but unreachable from `@dcp-ai/sdk` 2.1.2 and
   earlier; Python, Go and Rust already exported them.
@@ -364,6 +383,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   describe tier enforcement as the verifiers implement it. The operator guide no longer says that
   the maximum tier verifies PQ checkpoints, which no verifier does yet (V2-12), and says what the
   reference server enforces until its `@dcp-ai/sdk` dependency is bumped.
+- `spec/VERIFICATION.md` V2-3, V2-4 and V2-13 spell out these checks: `payload_hash`, fail-closed
+  manifest hashes, the audit trail tied to the manifest, session expiry, and the validity of the
+  RPR `binding_keys`. `docs/API_REFERENCE.md` lists the binding keys in the key validity step.
 
 ## [2.9.0] - 2026-10-21
 
