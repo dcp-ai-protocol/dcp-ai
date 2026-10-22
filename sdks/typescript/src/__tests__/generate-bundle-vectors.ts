@@ -29,6 +29,7 @@ import type { CompositeSignature } from '../core/composite-sig.js';
 import { preparePayload } from '../core/signed-payload.js';
 import { sha256Hex } from '../core/dual-hash.js';
 import { generateSessionNonce } from '../core/session-nonce.js';
+import { auditEventsMerkleRoot } from '../core/pq-checkpoint.js';
 import { BundleBuilderV2 } from '../bundle/builder-v2.js';
 import { signBundleV2, signBundleV2ClassicalOnly } from '../bundle/signer-v2.js';
 import { DEFAULT_VERIFIER_POLICY } from '../core/verify-v2.js';
@@ -96,6 +97,12 @@ interface Variant {
   firstPrevHash?: string;
   /** No audit entries, with the manifest Go and Rust build for that (the TS builder refuses it). */
   noAuditEntries?: boolean;
+  /** prev_hash of the second audit entry instead of the first entry's hash. */
+  secondPrevHash?: string;
+  /** The intent is signed under this session_nonce; the manifest commits to that intent. */
+  intentNonce?: string;
+  /** The second audit entry carries this session_nonce; the manifest commits to that trail. */
+  auditNonce?: string;
 }
 
 // A routine intent (spec §14.2), the starting point of the security tier variants.
@@ -189,7 +196,12 @@ async function main() {
       evidence: { tool: 'smtp', result_ref: null, evidence_hash: null },
       pq_checkpoint_ref: null,
     };
-    const audit2: AuditEventV2 = { ...audit, audit_id: 'audit:interop-002', prev_hash: sha256Of(audit), timestamp: '2026-10-21T12:02:00Z' };
+    const audit2: AuditEventV2 = {
+      ...audit,
+      audit_id: 'audit:interop-002',
+      prev_hash: variant.secondPrevHash ?? sha256Of(audit),
+      timestamp: '2026-10-21T12:02:00Z',
+    };
 
     const signedIntent = await sign(intent, DCP_CONTEXTS.Intent, agent, variant.classicalOnly);
     const bundle = new BundleBuilderV2(nonce)
@@ -202,6 +214,16 @@ async function main() {
     if (variant.noAuditEntries) {
       bundle.audit_entries = [];
       Object.assign(bundle.manifest, { audit_count: 0, audit_merkle_root: `sha256:${'0'.repeat(64)}` });
+    }
+    // The builder refuses nonces that differ, so these are patched in after it,
+    // with the manifest committing to the patched artifact.
+    if (variant.intentNonce) {
+      bundle.intent = await sign({ ...intent, session_nonce: variant.intentNonce }, DCP_CONTEXTS.Intent, agent);
+      bundle.manifest.intent_hash = bundle.intent.payload_hash;
+    }
+    if (variant.auditNonce) {
+      bundle.audit_entries[1] = { ...audit2, session_nonce: variant.auditNonce };
+      bundle.manifest.audit_merkle_root = `sha256:${auditEventsMerkleRoot(bundle.audit_entries)}`;
     }
     Object.assign(bundle.manifest, { session_expires_at: '2099-12-31T23:59:59+05:00' }, variant.manifest);
     const signer = { registry, signerType: 'human' as const, signerId: rpr.human_id };
@@ -388,13 +410,27 @@ async function main() {
         set(['bundle', 'responsible_principal_record'], null),
       ],
     },
+    // An artifact without any composite_sig, not a zeroed one (V2-8).
+    ...(['intent', 'agent_passport', 'policy_decision'] as const).map((name) => ({
+      name: `${name}_unsigned`,
+      spec_step: 'V2-8',
+      error_contains: name,
+      mutations: [set(['bundle', name], { payload: b[name].payload, payload_hash: b[name].payload_hash })],
+    })),
+    ...['1.0', '3.0'].map((version) => ({
+      name: `dcp_bundle_version_${version.replace('.', '_')}`,
+      spec_step: 'V2-1',
+      error_contains: 'version',
+      mutations: [set(['bundle', 'dcp_bundle_version'], version)],
+    })),
   ];
 
   // Classical-only bundles from a passport that declares itself low risk, which
   // DEFAULT_VERIFIER_POLICY maps to classical_only: only the security tier
   // (spec §14.3) rejects them, with an error about the missing PQ signature.
   const lowRisk = { classicalOnly: true, passport: { risk_tier: 'low' as const }, policyDecision: { risk_score: 0 } };
-  const mustRejectBundles: { name: string; spec_step: string; error_contains: string; variant: Variant }[] = [
+  type BundleCase = { name: string; spec_step: string; error_contains: string; variant: Variant };
+  const mustRejectBundles: BundleCase[] = [
     {
       name: 'classical_only_payment_from_low_risk_passport',
       spec_step: 'V2-10',
@@ -486,6 +522,134 @@ async function main() {
       spec_step: 'V2-13',
       error_contains: 'expired',
       variant: { principalKey: { expires_at: '2020-01-01T00:00:00Z' } },
+    },
+    {
+      // Expired as an instant, although as text it sorts after the current year's "2026-...".
+      name: 'passport_key_expired_with_offset',
+      spec_step: 'V2-13',
+      error_contains: 'expired',
+      variant: { agentKey: { expires_at: '2020-01-01T00:00:00+14:00' } },
+    },
+    ...['2026-13-45T00:00:00Z', '2026-10-22', '2026-10-22T00:00:00'].map((value, i) => ({
+      name: `passport_key_expires_at_${['impossible_date', 'date_only', 'no_offset'][i]}`,
+      spec_step: 'V2-13',
+      error_contains: 'expires_at',
+      variant: { agentKey: { expires_at: value } },
+    })),
+    {
+      name: 'rpr_binding_key_expires_at_impossible_date',
+      spec_step: 'V2-13',
+      error_contains: 'expires_at',
+      variant: { principalKey: { expires_at: '2026-13-45T00:00:00Z' } },
+    },
+    // Security tier downgrade (V2-9, V2-10): the agent cannot lower the tier its
+    // intent and policy decision imply, so a classical-only signature never
+    // satisfies an elevated one, whatever the passport or the intent declares.
+    {
+      name: 'classical_only_estimated_impact_high',
+      spec_step: 'V2-10',
+      error_contains: 'pq',
+      variant: { ...lowRisk, intent: { ...ROUTINE_INTENT, estimated_impact: 'high' } },
+    },
+    {
+      name: 'classical_only_payment_declaring_security_tier_routine',
+      spec_step: 'V2-10',
+      error_contains: 'pq',
+      variant: {
+        ...lowRisk,
+        intent: { ...ROUTINE_INTENT, action_type: 'initiate_payment', target: { channel: 'payments' }, security_tier: 'routine' },
+      },
+    },
+    {
+      name: 'classical_only_policy_risk_score_900_declaring_security_tier_routine',
+      spec_step: 'V2-10',
+      error_contains: 'pq',
+      variant: { ...lowRisk, intent: { ...ROUTINE_INTENT, security_tier: 'routine' }, policyDecision: { risk_score: 900 } },
+    },
+    // Prototype keys in enumerated fields (V2-2, V2-9): the mode lookup for the
+    // passport's risk_tier must not read an inherited property (a TypeScript
+    // verifier once resolved no mode at all for "constructor" and accepted the
+    // bundle), and an unknown intent value fails closed to elevated.
+    ...['constructor', '__proto__', 'toString', 'hasOwnProperty'].map((name): BundleCase => ({
+      name: `classical_only_payment_from_passport_risk_tier_${name.replace(/_/g, '')}`,
+      spec_step: 'V2-9',
+      error_contains: 'pq',
+      variant: {
+        ...lowRisk,
+        passport: { risk_tier: name as 'low' },
+        intent: { ...ROUTINE_INTENT, action_type: 'initiate_payment', target: { channel: 'payments' } },
+      },
+    })),
+    {
+      name: 'classical_only_intent_action_type_constructor',
+      spec_step: 'V2-9',
+      error_contains: 'pq',
+      variant: { ...lowRisk, intent: { ...ROUTINE_INTENT, action_type: 'constructor' as 'browse' } },
+    },
+    {
+      name: 'classical_only_intent_estimated_impact_constructor',
+      spec_step: 'V2-9',
+      error_contains: 'pq',
+      variant: { ...lowRisk, intent: { ...ROUTINE_INTENT, estimated_impact: 'constructor' as 'low' } },
+    },
+    {
+      name: 'classical_only_intent_security_tier_constructor',
+      spec_step: 'V2-9',
+      error_contains: 'pq',
+      variant: { ...lowRisk, intent: { ...ROUTINE_INTENT, security_tier: 'constructor' as 'routine' } },
+    },
+    // Canonicalization profile (spec/CANONICALIZATION_PROFILE.md § 4): only dcp-jcs-v1 exists.
+    {
+      name: 'canonicalization_profile_unknown',
+      spec_step: 'V2-3',
+      error_contains: 'canonicalization_profile',
+      variant: { manifest: { canonicalization_profile: 'dcp-jcs-v2' } },
+    },
+    {
+      name: 'canonicalization_profile_not_a_string',
+      spec_step: 'V2-3',
+      error_contains: 'canonicalization_profile',
+      variant: { manifest: { canonicalization_profile: 1 } },
+    },
+    // Session nonce consistency (V2-4): every artifact and audit entry shares
+    // the manifest's nonce. Each bundle here is signed over what it carries.
+    {
+      name: 'intent_session_nonce_differs',
+      spec_step: 'V2-4',
+      error_contains: 'nonce',
+      variant: { intentNonce: generateSessionNonce() },
+    },
+    {
+      name: 'audit_entry_session_nonce_differs',
+      spec_step: 'V2-4',
+      error_contains: 'nonce',
+      variant: { auditNonce: generateSessionNonce() },
+    },
+    {
+      name: 'manifest_session_nonce_differs_from_artifacts',
+      spec_step: 'V2-4',
+      error_contains: 'nonce',
+      variant: { manifest: { session_nonce: generateSessionNonce() } },
+    },
+    // Manifest integrity (V2-3).
+    {
+      name: 'manifest_intent_hash_mismatch',
+      spec_step: 'V2-3',
+      error_contains: 'intent_hash',
+      variant: { manifest: { intent_hash: sha256Of({ not: 'the intent' }) } },
+    },
+    {
+      name: 'manifest_audit_merkle_root_mismatch',
+      spec_step: 'V2-3',
+      error_contains: 'audit',
+      variant: { manifest: { audit_merkle_root: sha256Of({ not: 'the trail' }) } },
+    },
+    {
+      // The manifest commits to this trail, whose second entry does not chain to the first.
+      name: 'audit_chain_hash_wrong',
+      spec_step: 'V2-3',
+      error_contains: 'chain',
+      variant: { secondPrevHash: sha256Of({ not: 'the first entry' }) },
     },
   ];
 
