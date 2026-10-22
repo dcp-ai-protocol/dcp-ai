@@ -1502,6 +1502,24 @@ interface AuthorityScopeEntry {
 }
 ```
 
+### `createSubMandate(registry, delegatorKeys, parent, params)` / `verifyMandateChain(registry, chain, revokedIds, keys, now?)`
+
+Delegation chains (DCP-09 §3.5): the agent holding `parent` issues a sub-mandate to another agent, signed with its
+own keys under the `DCP-AI.v2.SubMandate` context. `verifyMandateChain` takes the chain root first, the revoked
+mandate ids, the human's key entries and each delegating agent's key entries by `agent_id`, and the verification
+time; it checks every hop's signature back to the human, the parent link and depth, `sub_delegation`, nested
+validity windows, attenuation (actions, data classes and limits may only narrow), the `minimum_security_tier`
+floor and revocation (a revoked ancestor invalidates every descendant), failing closed on anything unknown.
+
+```typescript
+interface MandateChainKeys { human_keys: KeyEntry[]; agent_keys: Record<string, KeyEntry[]> }
+interface MandateChainResult { valid: boolean; errors: string[]; depth: number; effective_tier: SecurityTier | null }
+```
+
+`computeSecurityTier(intent, policyDecision?, mandateChainTier?)` takes the chain's `effective_tier` as a floor
+that can only raise the tier (spec §14.2). Python: `create_sub_mandate`, `verify_mandate_chain`; Go:
+`CreateSubMandate`, `VerifyMandateChain`; Rust: `create_sub_mandate`, `verify_mandate_chain`.
+
 ### `evaluateSignificance(context)` / `shouldNotifyHuman(significance, thresholds)`
 
 Evaluate action significance and determine whether the human should be notified.

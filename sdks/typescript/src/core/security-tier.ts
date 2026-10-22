@@ -72,11 +72,14 @@ const TIER_RANK: Record<SecurityTier, number> = {
  * be an integer from 0 to 1000; with no policy decision it counts as 0. A
  * value outside the schemas, including a missing `action_type`,
  * `estimated_impact`, `data_classes` or `risk_score`, fails closed to at least
- * `elevated`. An explicit `intent.security_tier` can only raise the result.
+ * `elevated`. An explicit `intent.security_tier` can only raise the result, and
+ * so can `mandateChainTier`, the effective tier of a verified delegation chain
+ * (`verifyMandateChain`, DCP-09 §3.5): a floor that never lowers the tier.
  */
 export function computeSecurityTier(
   intent: IntentV2,
-  policyDecision?: Pick<PolicyDecisionV2, 'risk_score'>,
+  policyDecision?: Pick<PolicyDecisionV2, 'risk_score'> | null,
+  mandateChainTier?: SecurityTier | null,
 ): SecurityTier {
   // Signed payloads are not schema-checked here, so read them as untyped.
   const raw = intent as unknown as Record<string, unknown>;
@@ -109,8 +112,9 @@ export function computeSecurityTier(
   }
 
   const explicit = raw.security_tier;
-  if (explicit === undefined || explicit === null) return tier;
-  return maxTier(tier, explicit as SecurityTier);
+  if (explicit !== undefined && explicit !== null) tier = maxTier(tier, explicit as SecurityTier);
+  if (mandateChainTier === undefined || mandateChainTier === null) return tier;
+  return maxTier(tier, mandateChainTier);
 }
 
 /** A tier name, or 'elevated' for anything else: fails closed, never an inherited value. */

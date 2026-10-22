@@ -134,6 +134,8 @@ export type {
   ThresholdAction,
   AuthorityScopeEntry,
   DelegationMandate,
+  SubDelegationPolicy,
+  SubMandate,
   AdvisoryDeclaration,
   PrincipalMirror,
   InteractionRecord,
@@ -433,10 +435,13 @@ export {
 // ── DCP-09: Delegation & Representation ──
 export {
   createDelegationMandate,
+  createSubMandate,
   verifyMandateValidity,
+  verifyMandateChain,
   revokeDelegation,
   generateInteractionRecord,
 } from './core/delegation.js';
+export type { MandateChainKeys, MandateChainResult } from './core/delegation.js';
 
 export {
   evaluateSignificance,
