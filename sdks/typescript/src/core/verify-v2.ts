@@ -148,6 +148,12 @@ function resolveMode(policy: VerifierPolicy, riskTier?: RiskTier): VerificationM
   return VERIFICATION_MODES.includes(mode) ? mode : undefined;
 }
 
+// The algorithms each composite signature slot may hold.
+const CLASSICAL_ALGS: readonly string[] = ['ed25519'];
+const PQ_ALGS: readonly string[] = ['ml-dsa-65', 'slh-dsa-192f'];
+
+const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
+
 function findKeyByKid(keys: KeyEntry[], kid: string): KeyEntry | undefined {
   return keys.find((k) => k.kid === kid);
 }
@@ -180,6 +186,17 @@ async function checkCompositeSig(
   const fail = (error: string): SigCheck => ({ valid: false, errors: [...errors, error], warnings });
   const rejectedAlgs = policy.advisory_rejected_algs || [];
 
+  if (!isObject(sig) || !isObject(sig.classical)) {
+    return fail('Missing composite signature');
+  }
+  // In every mode: Ed25519 cannot stand in for the PQ signature, nor ML-DSA for the classical one.
+  if (!CLASSICAL_ALGS.includes(sig.classical.alg)) {
+    return fail(`Classical slot holds ${sig.classical.alg}, which is not a classical algorithm`);
+  }
+  if (sig.pq && !PQ_ALGS.includes(sig.pq.alg)) {
+    return fail(`PQ slot holds ${sig.pq.alg}, which is not a PQ algorithm`);
+  }
+
   if (mode !== 'pq_only') {
     if (!policy.accepted_classical_algs.includes(sig.classical.alg)) {
       errors.push(`Classical algorithm ${sig.classical.alg} not accepted by verifier policy`);
@@ -210,9 +227,15 @@ async function checkCompositeSig(
   if (!signerKey && mode !== 'pq_only') {
     return fail(`Classical signer key kid=${sig.classical.kid} not found in ${keysLabel}`);
   }
+  if (signerKey && signerKey.alg !== sig.classical.alg) {
+    return fail(`Classical signer key kid=${sig.classical.kid} is ${signerKey.alg}, not ${sig.classical.alg}`);
+  }
   const pqKey = sig.pq ? findKeyByKid(keys, sig.pq.kid) : undefined;
   if (sig.pq && !pqKey) {
     return fail(`PQ signer key kid=${sig.pq.kid} not found in ${keysLabel}`);
+  }
+  if (sig.pq && pqKey && pqKey.alg !== sig.pq.alg) {
+    return fail(`PQ signer key kid=${sig.pq.kid} is ${pqKey.alg}, not ${sig.pq.alg}`);
   }
   if (mode === 'pq_only' && !pqKey) {
     return fail('pq_only mode requires PQ key, but no PQ key found');
@@ -297,7 +320,9 @@ export async function verifySignedBundleV2(
   ];
 
   for (const { name, sp } of payloadChecks) {
-    if (!verifyPayloadHash(sp)) {
+    if (!isObject(sp) || !isObject(sp.payload)) {
+      errors.push(`${name}: not a SignedPayload object`);
+    } else if (!verifyPayloadHash(sp)) {
       errors.push(`${name}: payload_hash mismatch`);
     }
   }
@@ -457,8 +482,8 @@ export async function verifySignedBundleV2(
     registry, policy, mode, DCP_CONTEXTS.Bundle, bundle.manifest, signature.composite_sig,
     [...allKeys, ...rprKeys], 'passport or RPR',
   );
-  errors.push(...bundleCheck.errors);
-  warnings.push(...bundleCheck.warnings);
+  errors.push(...bundleCheck.errors.map((e) => `bundle: ${e}`));
+  warnings.push(...bundleCheck.warnings.map((w) => `bundle: ${w}`));
   details.signature_valid = bundleCheck.valid;
 
   // ── 7. Per-artifact composite signatures (V2-8) ──
