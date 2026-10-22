@@ -174,6 +174,8 @@ Signed bytes: `context_tag || 0x00 || canonical(payload)`
 | `hybrid_required` | Yes | Yes | Configurable |
 | `hybrid_preferred` | Yes | No (warn) | Configurable |
 
+In every mode, a PQ signature that is present (`pq_over_classical`) MUST verify. `hybrid_preferred` and `classical_only` only tolerate an absent one.
+
 ### 7.2 Verifier-Authoritative Policy
 
 Signature policy is set by the verifier's configuration, NOT by the agent. The verifier loads policy from its own config:

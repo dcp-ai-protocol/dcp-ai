@@ -120,6 +120,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `sig_b64` to the base64 alphabet and cap their length. Lenient decoders skipped whitespace, so
   an ML-DSA key padded with 900 KB of spaces registered and was served back, and padded
   signatures were stored and published by `/v2/list`.
+- TypeScript SDK `verifySignedBundleV2` enforces the security tier (spec §14.3): it verifies against
+  the stricter of the policy mode and the mode of the tier computed from the signed intent and
+  policy decision, and reports it in `details.resolved_tier`. Before, the mode came only from the
+  agent's own `passport.risk_tier`, so under `DEFAULT_VERIFIER_POLICY` a passport declaring
+  `risk_tier: "low"` got `classical_only` even for a payment intent.
 
 ### Changed (breaking)
 
@@ -200,6 +205,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     the input from decoded payloads.
   - Rust: `compute_security_tier(intent, policy_decision: Option<&Value>)`. `wasm_compute_security_tier`
     and `computeSecurityTier` in `@dcp-ai/wasm` take an optional policy decision.
+- TypeScript SDK `verifySignedBundleV2`: bundles that pass today with a `classical_only` signature
+  are rejected when their intent is sensitive: `initiate_payment`, `pii`, `financial_data`,
+  `health_data`, `credentials` or `children_data`, `estimated_impact: "high"`, a policy decision
+  `risk_score` of 500 or more, or a value outside the intent schema. Sign them with a hybrid
+  (`pq_over_classical`) signature. The root verifier (`lib/verify.js`, `dcp verify-bundle`, the
+  server) gets this with the next `@dcp-ai/sdk` release.
 
 ### Added
 
@@ -219,6 +230,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   compacted through an atomic rename at start; the service refuses to start if the path is not
   writable or the file is over 512 MB. The Docker Compose stack sets it, on a volume.
 - Verification server: `MAX_REGISTERED_KEYS` and `MAX_KEYS_PER_AGENT` size the key registry.
+- `effectiveVerificationMode` (TS), `effective_verification_mode` (Python, Rust) and
+  `EffectiveVerificationMode` (Go): the stricter of a policy mode and a tier's mode, with `pq_only`
+  unchanged (spec §14.3). Shared vectors in `security_tier.effective_mode`.
 - TypeScript SDK: `blindRpr`, `verifyBlindedRpr`, `isBlindedRpr` and `computePiiHash` are exported
   from the package entry point. They were implemented but unreachable from `@dcp-ai/sdk` 2.1.2 and
   earlier; Python, Go and Rust already exported them.
@@ -283,6 +297,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   computes the tier as in §14.2. The SDK READMEs (all languages), `docs/API_REFERENCE.md`, the
   quickstart, migration and agent-creation guides and `sdks/wasm/example.html` pass the policy
   decision to the tier function and use the intent schema's values.
+- `spec/VERIFICATION.md` V2-7 and `spec/DCP-AI-v2.0.md` §7.1 state that a PQ signature that is
+  present must verify in every mode, as the verifiers already do. `docs/API_REFERENCE.md` documents
+  `details.resolved_tier` and the tier-aware mode of `verifySignedBundleV2`, and the TypeScript SDK
+  README (all languages) describes it.
 
 ## [2.9.0] - 2026-10-21
 

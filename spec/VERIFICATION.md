@@ -80,6 +80,8 @@ If `composite_sig.binding` is `pq_over_classical`:
 1. Reconstruct the PQ signed message: `context_tag || 0x00 || canonical(manifest) || classical_sig_bytes`
 2. Verify `composite_sig.pq.sig_b64` against the public key identified by `composite_sig.pq.kid` using the PQ algorithm (e.g., ML-DSA-65).
 
+A PQ signature that is present MUST verify in every mode, including `hybrid_preferred` and `classical_only`; an invalid one fails verification.
+
 If binding is `classical_only`, the PQ signature is absent. This MAY be acceptable depending on verifier policy (e.g., `hybrid_preferred` allows it; `hybrid_required` rejects it).
 
 ### Step V2-8: Verify per-artifact composite signatures

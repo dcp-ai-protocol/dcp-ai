@@ -120,7 +120,7 @@ const bundle = new BundleBuilderV2()
 | `signBundleV2(bundle, options)` | V2 | V2バンドルに複合署名で署名 |
 | `signBundleV2ClassicalOnly(bundle, options)` | V2 | V2バンドルに古典のみの署名で署名 |
 | `verifySignedBundle(signedBundle, publicKeyB64)` | V1 | V1署名済みバンドルを検証 |
-| `verifySignedBundleV2(signedBundle, registry, policy?)` | V2 | V2署名済みバンドルを検証 (複合または古典) |
+| `verifySignedBundleV2(signedBundle, registry, policy?)` | V2 | V2署名済みバンドルを検証 (複合または古典)。ポリシーのモードとセキュリティティアのモードのうち厳しい方を適用し、`resolved_tier` を返す |
 
 ### バンドル最適化 (V2)
 
@@ -259,7 +259,7 @@ SDKがエクスポートする主要な型:
 - `CompositeSignature` — 古典 + 耐量子署名コンポーネントを含む
 - `KeyEntry` — アルゴリズム、kid、鍵素材を含む公開鍵エントリ
 - `SecurityTier` — `'routine' | 'standard' | 'elevated' | 'maximum'`
-- `VerifierPolicy` — ティアごとに必要な検証モードを指定するポリシー
+- `VerifierPolicy` — 検証者ポリシー：デフォルトモードと `risk_tier` ごとの上書き。セキュリティティアはモードを厳しくすることしかできない
 - `PQCheckpoint` — 監査エントリに対する耐量子チェックポイント
 - `A2ASession` — 暗号化されたエージェント間セッション状態
 - `A2AMessage` — 暗号化されたA2Aメッセージ封筒

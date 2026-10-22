@@ -120,7 +120,7 @@ const bundle = new BundleBuilderV2()
 | `signBundleV2(bundle, options)` | V2 | Firma un bundle V2 con firmas compuestas |
 | `signBundleV2ClassicalOnly(bundle, options)` | V2 | Firma un bundle V2 con firmas solo clásicas |
 | `verifySignedBundle(signedBundle, publicKeyB64)` | V1 | Verifica un bundle firmado V1 |
-| `verifySignedBundleV2(signedBundle, registry, policy?)` | V2 | Verifica un bundle firmado V2 (compuesto o clásico) |
+| `verifySignedBundleV2(signedBundle, registry, policy?)` | V2 | Verifica un bundle firmado V2 (compuesto o clásico) con el modo más estricto entre el de la política y el del nivel de seguridad; informa `resolved_tier` |
 
 ### Optimización del Bundle (V2)
 
@@ -259,7 +259,7 @@ Tipos clave exportados por el SDK:
 - `CompositeSignature` — Contiene componentes de firma clásico + post-cuántico
 - `KeyEntry` — Entrada de clave pública con algoritmo, kid y material de clave
 - `SecurityTier` — `'routine' | 'standard' | 'elevated' | 'maximum'`
-- `VerifierPolicy` — Política que especifica el modo de verificación requerido por nivel
+- `VerifierPolicy` — Política del verificador: modo por defecto y overrides por `risk_tier`; el nivel de seguridad solo puede hacer el modo más estricto
 - `PQCheckpoint` — Checkpoint post-cuántico sobre entradas de auditoría
 - `A2ASession` — Estado de sesión entre agentes cifrada
 - `A2AMessage` — Sobre de mensaje A2A cifrado
