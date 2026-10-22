@@ -118,20 +118,17 @@ pub fn verify_signed_bundle_v2_with_policy(signed_bundle: &Value, policy: &Verif
         }
     }
 
-    // Session nonce consistency across artifacts
-    if !manifest_nonce.is_empty() {
-        for field in &["responsible_principal_record", "agent_passport", "intent", "policy_decision"] {
-            if let Some(nonce) = bundle.get(*field)
-                .and_then(|a| a.get("payload"))
-                .and_then(|p| p.get("session_nonce"))
-                .and_then(|n| n.as_str())
-            {
-                if nonce != manifest_nonce {
-                    r.errors.push(format!("Session nonce mismatch in {}", field));
-                    break;
-                }
-            }
+    // Per spec/CANONICALIZATION_PROFILE.md § 4 a missing canonicalization_profile
+    // means dcp-jcs-v1; any other value, string or not, is rejected.
+    if let Some(profile) = bundle.get("manifest").and_then(|m| m.get("canonicalization_profile")) {
+        if profile.as_str() != Some("dcp-jcs-v1") {
+            r.errors.push(format!("Unknown canonicalization_profile: {}", display(Some(profile))));
         }
+    }
+
+    // Session nonce consistency across artifacts, audit entries and checkpoints (V2-4)
+    if !manifest_nonce.is_empty() {
+        r.errors.extend(session_nonce_errors(bundle, manifest_nonce));
     }
 
     // Verification mode: the agent's risk_tier and intent can raise the policy
@@ -336,6 +333,28 @@ fn audit_trail_errors(bundle: &Value, manifest: &Value) -> Vec<String> {
     errors
 }
 
+/// The first artifact, audit entry or PQ checkpoint whose `session_nonce` is not
+/// the manifest's (VERIFICATION.md V2-4). Entries without one are not checked.
+fn session_nonce_errors(bundle: &Value, manifest_nonce: &str) -> Vec<String> {
+    let nonce_of = |v: &Value| v.get("session_nonce").and_then(Value::as_str).map(str::to_owned);
+    for field in ["responsible_principal_record", "agent_passport", "intent", "policy_decision"] {
+        if let Some(nonce) = bundle.get(field).and_then(|a| a.get("payload")).and_then(nonce_of) {
+            if nonce != manifest_nonce {
+                return vec![format!("Session nonce mismatch in {}", field)];
+            }
+        }
+    }
+    for field in ["audit_entries", "pq_checkpoints"] {
+        let entries = bundle.get(field).and_then(Value::as_array).into_iter().flatten();
+        for (i, entry) in entries.enumerate() {
+            if nonce_of(entry).is_some_and(|nonce| nonce != manifest_nonce) {
+                return vec![format!("Session nonce mismatch in {}[{}]", field, i)];
+            }
+        }
+    }
+    Vec::new()
+}
+
 /// Why an expiry fails.
 enum Expiry {
     Invalid,
@@ -467,6 +486,39 @@ mod tests {
             manifest[key] = json!(hash);
         }
         (bundle, manifest)
+    }
+
+    #[test]
+    fn audit_entry_nonce_must_match_the_manifest() {
+        let bundle = json!({
+            "intent": { "payload": { "session_nonce": "a" } },
+            "audit_entries": [{ "session_nonce": "a" }, { "session_nonce": "b" }],
+        });
+        assert_eq!(session_nonce_errors(&bundle, "a"), vec!["Session nonce mismatch in audit_entries[1]"]);
+        let same = json!({ "audit_entries": [{ "session_nonce": "a" }, { "prev_hash": "GENESIS" }] });
+        assert!(session_nonce_errors(&same, "a").is_empty());
+        let artifact = json!({ "agent_passport": { "payload": { "session_nonce": "b" } } });
+        assert_eq!(session_nonce_errors(&artifact, "a"), vec!["Session nonce mismatch in agent_passport"]);
+    }
+
+    #[test]
+    fn canonicalization_profile_must_be_dcp_jcs_v1() {
+        let policy = VerifierPolicy::default();
+        let with_profile = |profile: Value| {
+            let mut manifest = json!({ "session_nonce": "a" });
+            manifest["canonicalization_profile"] = profile;
+            json!({ "bundle": { "dcp_bundle_version": "2.0", "manifest": manifest }, "signature": {} })
+        };
+        for profile in [json!("dcp-jcs-v2"), json!(1), Value::Null] {
+            let result = verify_signed_bundle_v2_with_policy(&with_profile(profile.clone()), &policy);
+            assert!(
+                result.errors.iter().any(|e| e.starts_with("Unknown canonicalization_profile: ")),
+                "{profile}: {:?}",
+                result.errors
+            );
+        }
+        let result = verify_signed_bundle_v2_with_policy(&with_profile(json!("dcp-jcs-v1")), &policy);
+        assert!(!result.errors.iter().any(|e| e.contains("canonicalization_profile")), "{:?}", result.errors);
     }
 
     #[test]
