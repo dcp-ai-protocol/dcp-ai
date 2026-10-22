@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 import { DCP_CONTEXTS } from "@dcp-ai/sdk";
 import crypto from "node:crypto";
-import { newAgent, post as postTo, sha256Hex, sign, signPassport, startService } from "../../tests/helpers.js";
+import { later, newAgent, post as postTo, sha256Hex, sign, signPassport, startService } from "../../tests/helpers.js";
 import { signObject } from "../../tools/crypto.js";
 
 let base;
@@ -54,10 +54,24 @@ test("registration is proven by the passport signature and cannot be hijacked", 
   const planted = { ...charlie.passport, emergency_revocation_token: `sha256:${"1".repeat(64)}` };
   assert.equal((await post("/v2/register", { signed_passport: await signPassport(planted, oneKey) })).status, 403);
 
-  // Charlie's own keys can replace the token, and the new secret works.
+  // Charlie's own keys can replace the token with a newer passport.
   const secret = crypto.randomBytes(32).toString("hex");
-  const renewed = { ...charlie.passport, emergency_revocation_token: `sha256:${sha256Hex(Buffer.from(secret, "hex"))}` };
+  const renewed = {
+    ...charlie.passport,
+    created_at: later(charlie.passport.created_at),
+    emergency_revocation_token: `sha256:${sha256Hex(Buffer.from(secret, "hex"))}`,
+  };
   assert.equal((await post("/v2/register", { signed_passport: await signPassport(renewed, charlie.keys) })).status, 201);
+
+  // Signed passports are public: replaying the old one must not bring the old token back.
+  assert.equal((await register(charlie)).status, 409);
+  const oldToken = { agent_id: "agent:charlie-1", revocation_secret: charlie.revocationSecret };
+  assert.equal((await post("/v2/emergency-revoke", oldToken)).status, 403);
+
+  // A newer passport without a token keeps the registered one.
+  const noToken = { ...renewed, created_at: later(renewed.created_at) };
+  delete noToken.emergency_revocation_token;
+  assert.equal((await post("/v2/register", { signed_passport: await signPassport(noToken, charlie.keys) })).status, 201);
   assert.equal((await post("/v2/emergency-revoke", { agent_id: "agent:charlie-1", revocation_secret: secret })).status, 200);
 });
 
@@ -97,6 +111,7 @@ test("key expiry comes from the signed passport, not an unauthenticated call", a
 
   // An expired key cannot sign a passport that extends its own expiry.
   const extended = structuredClone(foxtrot.passport);
+  extended.created_at = later(foxtrot.passport.created_at);
   extended.keys[1].expires_at = null;
   assert.equal((await post("/v2/register", { signed_passport: await signPassport(extended, foxtrot.keys) })).status, 409);
   assert.equal((await checkKid(foxtrot.keys.pq.kid)).reason, "expired");
@@ -104,6 +119,38 @@ test("key expiry comes from the signed passport, not an unauthenticated call", a
   const unsigned = { kid: foxtrot.keys.classical.kid, expires_at: "2020-01-01T00:00:00Z" };
   assert.equal((await post("/v2/register-key-expiry", unsigned)).status, 404);
   assert.equal((await checkKid(foxtrot.keys.classical.kid)).revoked, false);
+});
+
+test("a newer passport signed by all active keys renews expired keys", async () => {
+  // hotel's PQ key has expired; its active Ed25519 key and a new PQ key sign a newer passport.
+  const hotel = await newAgent("agent:hotel-001");
+  hotel.passport.keys[1].expires_at = "2020-01-01T00:00:00Z";
+  assert.equal((await post("/v2/register", { signed_passport: await signPassport(hotel.passport, hotel.keys) })).status, 201);
+
+  const fresh = await newAgent("agent:hotel-001");
+  const keys = { classical: hotel.keys.classical, pq: fresh.keys.pq };
+  const renewal = { ...hotel.passport, created_at: later(hotel.passport.created_at), keys: [hotel.passport.keys[0], fresh.passport.keys[1]] };
+  const renewed = await post("/v2/register", { signed_passport: await signPassport(renewal, keys) });
+  assert.equal(renewed.status, 201);
+  assert.deepEqual(renewed.body.registered_kids, [hotel.keys.classical.kid, fresh.keys.pq.kid]);
+  assert.equal((await checkKid(hotel.keys.pq.kid)).reason, "expired");
+
+  // The new kid is the agent's now: it can be revoked by kid.
+  const record = {
+    dcp_version: "2.0", agent_id: "agent:hotel-001", human_id: "human:test-owner",
+    revoked_kid: fresh.keys.pq.kid, timestamp: new Date().toISOString(), reason: "key_rotation",
+  };
+  const composite_sig = await sign(DCP_CONTEXTS.Revocation, record, keys);
+  assert.equal((await post("/v2/revoke", { ...record, composite_sig })).status, 201);
+  assert.equal((await checkKid(fresh.keys.pq.kid)).revoked, true);
+
+  // With no active key left, nobody can re-register the agent.
+  const india = await newAgent("agent:india-001");
+  for (const key of india.passport.keys) key.expires_at = "2020-01-01T00:00:00Z";
+  assert.equal((await post("/v2/register", { signed_passport: await signPassport(india.passport, india.keys) })).status, 201);
+  const takeover = await newAgent("agent:india-001");
+  takeover.passport.created_at = later(india.passport.created_at);
+  assert.equal((await post("/v2/register", { signed_passport: await signPassport(takeover.passport, takeover.keys) })).status, 409);
 });
 
 test("malformed percent-encoding returns 400 instead of crashing the service", async () => {

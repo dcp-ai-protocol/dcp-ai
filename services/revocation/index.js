@@ -88,8 +88,9 @@ async function handle(req, res) {
 
     const passport = body.signed_passport?.payload;
     const sig = body.signed_passport?.composite_sig;
-    if (passport?.dcp_version !== "2.0" || typeof passport.agent_id !== "string" || !Array.isArray(passport.keys)) {
-      return send(res, 400, { error: "Missing signed_passport (V2 passport payload + composite_sig)" });
+    if (passport?.dcp_version !== "2.0" || typeof passport.agent_id !== "string" || !Array.isArray(passport.keys) ||
+        Number.isNaN(Date.parse(passport.created_at))) {
+      return send(res, 400, { error: "Missing signed_passport (V2 passport payload with created_at + composite_sig)" });
     }
 
     if (!(await verifyCompositeSig(DCP_CONTEXTS.AgentPassport, passport, sig, passport.keys))) {
@@ -102,24 +103,35 @@ async function handle(req, res) {
     }
 
     const signers = passport.keys.filter((k) => k.kid === sig.classical.kid || k.kid === sig.pq?.kid);
-    // Re-registration (e.g. to replace the token) must come from the agent's active keys,
-    // and it keeps their registered entries: a new passport cannot extend expires_at.
     const existing = agents.get(agentId);
-    const current = activeKeys(agentId);
-    if (existing && !signers.every((k) => current.some((c) => c.kid === k.kid))) {
-      return send(res, 409, {
-        error: `Agent ${agentId} is already registered; re-registration must be signed by its current keys`,
-      });
+    const active = activeKeys(agentId);
+    const isActive = (k) => active.some((a) => a.kid === k.kid);
+    // A signer is one of the agent's active keys or a kid nobody has registered.
+    const unusable = signers.find((k) => kidOwners.has(k.kid) && !isActive(k));
+    if (unusable) {
+      return send(res, 409, { error: `Key ${unusable.kid} is revoked, expired or registered to another agent` });
     }
-    const taken = signers.find((k) => kidOwners.has(k.kid) && kidOwners.get(k.kid) !== agentId);
-    if (taken) {
-      return send(res, 409, { error: `Key ${taken.kid} is registered to another agent` });
+    // Re-registration (a new token, or new keys replacing expired or revoked ones) must be
+    // signed by all of the agent's active keys and be newer than the registered passport:
+    // signed passports are public, so an old one can be replayed.
+    if (existing) {
+      if (active.length === 0 || !active.every((a) => signers.some((k) => k.kid === a.kid))) {
+        return send(res, 409, {
+          error: `Agent ${agentId} is already registered; re-registration must be signed by all of its active keys`,
+        });
+      }
+      if (!(Date.parse(passport.created_at) > Date.parse(existing.created_at))) {
+        return send(res, 409, { error: "Re-registration needs a passport newer (created_at) than the registered one" });
+      }
     }
 
     for (const k of signers) kidOwners.set(k.kid, agentId);
     agents.set(agentId, {
-      keys: existing?.keys ?? signers,
-      token_hash: passport.emergency_revocation_token ?? null,
+      // Registered entries are kept, so a new passport cannot extend expires_at.
+      keys: [...(existing?.keys ?? []), ...signers.filter((k) => !isActive(k))],
+      // Never cleared: a newer passport without a token keeps the registered one.
+      token_hash: passport.emergency_revocation_token ?? existing?.token_hash ?? null,
+      created_at: passport.created_at,
       registered_at: new Date().toISOString(),
     });
 
