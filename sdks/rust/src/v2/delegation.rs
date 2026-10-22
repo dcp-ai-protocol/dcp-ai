@@ -377,21 +377,37 @@ fn str_set(v: Option<&Value>) -> HashSet<&str> {
 }
 
 /// Why `child` is not within `parent` (rule 5 of DCP-09 §3.5.2), or None when it is.
-/// `child <= parent` for two JSON numbers. Integers compare exactly: serde_json keeps them
-/// exact, so through f64 a child of 2^53 + 1 would pass as equal to a parent of 2^53.
-fn number_within(child: &Value, parent: &Value) -> bool {
-    let as_int = |v: &Value| v.as_i64().map(i128::from).or_else(|| v.as_u64().map(i128::from));
-    match (as_int(child), as_int(parent)) {
-        (Some(c), Some(p)) => c <= p,
-        _ => matches!((child.as_f64(), parent.as_f64()), (Some(c), Some(p)) if c <= p),
+/// A JSON number as the exact integer it denotes, or None when it is not a wire integer. A
+/// float counts only without a fractional part; i128 holds every such f64 below 2^127.
+fn exact_integer(v: &Value) -> Option<i128> {
+    if let Some(i) = v.as_i64() {
+        return Some(i128::from(i));
     }
+    if let Some(u) = v.as_u64() {
+        return Some(i128::from(u));
+    }
+    let f = v.as_f64()?;
+    (f.is_finite() && f.fract() == 0.0 && f.abs() < 2f64.powi(127)).then(|| f as i128)
+}
+
+/// `child <= parent` for two JSON numbers, compared as exact integers whatever their
+/// representation: through f64 a child of 2^53 + 1 would pass as equal to a parent of 2^53,
+/// and a parent of 2^53 + 3 would round up to a child of 2^53 + 4. A number with a
+/// fractional part is not a wire integer and is not comparable.
+fn number_within(child: &Value, parent: &Value) -> bool {
+    matches!((exact_integer(child), exact_integer(parent)), (Some(c), Some(p)) if c <= p)
 }
 
 fn attenuation_error(parent: &[Value], child: &[Value]) -> Option<String> {
     let mut by_domain: HashMap<&str, &Map<String, Value>> = HashMap::new();
+    // shape_errors has already rejected these shapes; here they are "not comparable", never "fine".
     for p in parent {
-        let p = p.as_object()?;
-        let domain = p.get("domain")?.as_str()?;
+        let Some(p) = p.as_object() else {
+            return Some("authority_scope entry of the parent is not comparable".into());
+        };
+        let Some(domain) = p.get("domain").and_then(Value::as_str) else {
+            return Some("authority_scope domain of the parent is not comparable".into());
+        };
         if by_domain.insert(domain, p).is_some() {
             return Some(format!(
                 "authority_scope domain \"{domain}\" is duplicated in the parent"
@@ -400,8 +416,12 @@ fn attenuation_error(parent: &[Value], child: &[Value]) -> Option<String> {
     }
     let mut seen = HashSet::new();
     for c in child {
-        let c = c.as_object()?;
-        let domain = c.get("domain")?.as_str()?;
+        let Some(c) = c.as_object() else {
+            return Some("authority_scope entry is not comparable".into());
+        };
+        let Some(domain) = c.get("domain").and_then(Value::as_str) else {
+            return Some("authority_scope domain is not comparable".into());
+        };
         if !seen.insert(domain) {
             return Some(format!("authority_scope domain \"{domain}\" is duplicated"));
         }
@@ -830,4 +850,55 @@ pub fn generate_interaction_record(
         );
     }
     Ok(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    /// A scope entry that is not an object, or whose domain is not a string, is "not
+    /// comparable": a rejection, never a silent "within the parent".
+    #[test]
+    fn attenuation_error_rejects_malformed_entries() {
+        let ok = json!({"domain": "email", "actions_permitted": ["read"]});
+        for (parent, child) in [
+            (vec![json!("email")], vec![ok.clone()]),
+            (
+                vec![json!({"domain": 5, "actions_permitted": ["read"]})],
+                vec![ok.clone()],
+            ),
+            (vec![ok.clone()], vec![json!(null)]),
+            (
+                vec![ok.clone()],
+                vec![json!({"domain": ["email"], "actions_permitted": []})],
+            ),
+        ] {
+            let error =
+                attenuation_error(&parent, &child).expect("malformed entries must not pass");
+            assert!(
+                error.contains("authority_scope") && error.contains("not comparable"),
+                "{error}"
+            );
+        }
+        assert_eq!(attenuation_error(&[ok.clone()], &[ok]), None);
+    }
+
+    /// Limits compare as exact integers whatever their JSON representation; a fraction is
+    /// not comparable.
+    #[test]
+    fn limits_compare_exactly_across_representations() {
+        let entry =
+            |n: Value| vec![json!({"domain": "api", "actions_permitted": [], "limits": {"n": n}})];
+        let parent = entry(json!(9007199254740995u64)); // 2^53 + 3, which f64 rounds to 2^53 + 4
+        assert!(attenuation_error(&parent, &entry(json!(9007199254740996.0))).is_some());
+        assert!(attenuation_error(&parent, &entry(json!(9007199254740996u64))).is_some());
+        assert_eq!(
+            attenuation_error(&parent, &entry(json!(9007199254740994.0))),
+            None
+        );
+        assert_eq!(attenuation_error(&parent, &entry(json!(-1))), None);
+        assert!(attenuation_error(&parent, &entry(json!(1.5))).is_some());
+        assert!(attenuation_error(&entry(json!(1.5)), &entry(json!(1))).is_some());
+    }
 }
