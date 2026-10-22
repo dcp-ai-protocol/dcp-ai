@@ -2,7 +2,7 @@
 
 # dcp-ai — Python SDK
 
-デジタル市民権プロトコル (DCP v2.0) 公式Python SDKです。Pydantic v2モデル、ハイブリッド耐量子暗号 (Ed25519 + ML-DSA-65 + SLH-DSA-192f 署名と ML-KEM-768 鍵カプセル化)、`pq_over_classical` バインディングによる複合署名、V1・V2 バンドルの署名と検証、OpenTelemetryによるオブザーバビリティ、DCP-04からDCP-09までの動作、およびフル機能のCLIを備えています。
+デジタル市民権プロトコル (DCP v2.0) 公式Python SDKです。Pydantic v2モデル、ハイブリッド耐量子署名 (Ed25519 + ML-DSA-65、および SLH-DSA-192f)、ML-KEM-768 KEM プリミティブ、`pq_over_classical` バインディングによる複合署名、V1・V2 バンドルの署名と検証、OpenTelemetryによるオブザーバビリティ、DCP-04からDCP-09までの動作、およびフル機能のCLIを備えています。
 
 ## インストール
 
@@ -26,7 +26,7 @@ pip install "dcp-ai[otlp]"       # OpenTelemetry OTLP exporter
 |---|---|
 | Ed25519 / ML-DSA-65 (FIPS 204) プロバイダ | Yes |
 | SLH-DSA-192f プロバイダ | Yes（FIPS 205、pure モード・空のコンテキスト。他の SDK と相互運用可能） |
-| ML-KEM-768 プロバイダ | Yes（FIPS 203） |
+| ML-KEM-768 | KEM プリミティブ: Yes（`MlKem768Provider`、FIPS 203）。DCP-04 の X25519 + ML-KEM-768 ハイブリッド鍵交換: 未対応 |
 | 複合署名 (`pq_over_classical`) + 検証 | Yes |
 | 正規化JSON v2 + ドメイン分離 | Yes |
 | デュアルハッシュ (SHA-256 + SHA3-256) + Merkleルート | Yes |

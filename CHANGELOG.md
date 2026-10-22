@@ -99,6 +99,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   instead of the `<1.0` cap of 2.8.2 (`pqcrypto` 1.0 changed its API and dropped SPHINCS+).
   `dcp_ai.providers` no longer swallows an `ImportError`, and the PQ interop tests no longer skip
   when a provider is missing.
+- Python SDK: `VerifierPolicy` rejects unknown fields instead of dropping them, and gains the
+  fields it was missing (`allow_classical_fallback_disable`, `warn_classical_only_deprecated`,
+  `advisory_rejected_algs`, `require_session_expiry`, `max_session_duration_seconds`,
+  `require_audience_binding`, `verifier_id`). Before, `VerifierPolicy(require_audience_binding=True,
+  verifier_id=...)` silently lost both fields. In `verify_signed_bundle_v2`, a policy that sets
+  `default_mode` without `risk_overrides` (or with `None`) uses `default_mode` for every risk tier,
+  instead of inheriting the default policy's `low` → `classical_only` override.
 
 ### Added
 
@@ -119,15 +126,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `sdks/typescript/src/__tests__/generate-bundle-vectors.ts`.
 - Go SDK: `v2.SignPayload` signs an artifact into a `SignedPayload`: a composite signature, or a
   classical-only one when no PQ key is given.
-- Python SDK: `MlKem768Provider` (FIPS 203), the ML-KEM-768 provider the other SDKs already had.
+- Python SDK: `MlKem768Provider` (FIPS 203), the ML-KEM-768 primitive the other SDKs already had.
+  The Python DCP-04 handshake does not run the X25519 + ML-KEM-768 hybrid key exchange yet.
 - Python SDK: V2 bundles. `BundleBuilderV2`, `sign_bundle_v2`, `sign_bundle_v2_classical_only`,
   `verify_signed_bundle_v2`, `DEFAULT_VERIFIER_POLICY` and `PQ_ONLY_VERIFIER_POLICY` port the
   TypeScript `builder-v2.ts`, `signer-v2.ts` and `verify-v2.ts`. The verifier also checks each
   artifact's composite signature (VERIFICATION.md V2-8), rejects a present but invalid PQ signature
   in every mode (V2-7) and fails closed on an unknown verification mode. Unlike the TypeScript
-  verifier, it binds the bundle's PQ checkpoints to the manifest's `pq_checkpoints` IDs and does
-  not let the unsigned `signature.created_at` shorten the `max_session_duration_seconds` check.
-  Checkpoint contents (V2-12) and `audit_merkle_root_secondary` are still not verified.
+  verifier, it binds the bundle's PQ checkpoints to the manifest's `pq_checkpoints` IDs, and in
+  the `max_session_duration_seconds` check it clamps the unsigned `signature.created_at` to the
+  verification time: a rewritten value can shorten that check down to the session's remaining
+  lifetime, not to zero. Closing it needs a signed session start, which the manifest does not
+  carry. Checkpoint contents (V2-12) and `audit_merkle_root_secondary` are still not verified.
 - `tests/nist-kat/ml-kem-768` and `tests/nist-kat/slh-dsa-192f`: NIST ACVP vectors (ML-KEM-768
   decapsulation and key checks, SLH-DSA-SHA2-192f signature verification).
 - `tests/interop/v2/cross_sdk_vectors.json`: SLH-DSA-192f, ML-KEM-768 and signed V2 bundle vectors

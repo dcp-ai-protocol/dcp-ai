@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # ── Key & Crypto ──
@@ -156,6 +156,10 @@ class DcpCapabilities(BaseModel):
 
 
 class VerifierPolicy(BaseModel):
+    # A misspelt or unsupported field must fail, not be dropped: dropping
+    # require_audience_binding, say, would silently disable that check.
+    model_config = ConfigDict(extra="forbid")
+
     default_mode: str = "hybrid_required"
     risk_overrides: dict[str, Any] | None = Field(
         default_factory=lambda: {"low": "hybrid_required", "medium": "hybrid_required", "high": "hybrid_required"}
@@ -169,6 +173,15 @@ class VerifierPolicy(BaseModel):
     require_composite_binding: bool = True
     max_key_age_days: int = 365
     allow_v1_bundles: bool = True
+    # Phase 3 fields (schemas/v2/verifier_policy.schema.json) and the TypeScript
+    # VerifierPolicy extensions, with the same semantics as verify-v2.ts.
+    allow_classical_fallback_disable: bool = False
+    warn_classical_only_deprecated: bool = False
+    advisory_rejected_algs: list[str] = Field(default_factory=list)
+    require_session_expiry: bool = False
+    max_session_duration_seconds: int = 0
+    require_audience_binding: bool = False
+    verifier_id: str | None = None
 
 
 # ── DCP-05: Agent Lifecycle ──

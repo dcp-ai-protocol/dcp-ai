@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pytest
 from jsonschema import Draft202012Validator
+from pydantic import ValidationError
 from referencing import Registry, Resource
 
 from dcp_ai.v2 import (
@@ -22,6 +23,7 @@ from dcp_ai.v2 import (
     PQ_ONLY_VERIFIER_POLICY,
     BundleBuilderV2,
     BundleManifest,
+    VerifierPolicy,
     canonicalize_v2,
     classical_only_sign,
     generate_session_nonce,
@@ -68,6 +70,19 @@ def signed(registry, agent_keys, principal_keys):
 def signed_medium(registry, agent_keys, principal_keys):
     """Risk tier "medium" resolves to hybrid_preferred under the default policy."""
     return asyncio.run(build_signed_bundle(registry, agent_keys, principal_keys, risk_tier="medium"))
+
+
+@pytest.fixture
+def classical_low(registry, agent_keys, principal_keys):
+    """Risk tier "low" and a classical-only bundle signature (the artifacts stay hybrid)."""
+    bundle = asyncio.run(build_signed_bundle(registry, agent_keys, principal_keys, risk_tier="low"))["bundle"]
+    return asyncio.run(
+        sign_bundle_v2_classical_only(bundle, registry, "human", "human-cross-sdk", principal_keys[0])
+    )
+
+
+def iso(t: datetime) -> str:
+    return t.isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
 def flip_first_byte(sig_b64: str) -> str:
@@ -152,8 +167,6 @@ class TestRoundTrip:
 
     @pytest.mark.asyncio
     async def test_accepts_verifier_policy_model(self, registry, signed):
-        from dcp_ai.v2 import VerifierPolicy
-
         result = await verify_signed_bundle_v2(signed, registry, VerifierPolicy())
         assert result["verified"] is True, result["errors"]
 
@@ -337,18 +350,28 @@ class TestSessionAndAudience:
         assert_error(await verify_signed_bundle_v2(expired, registry), "Session expired")
 
     @pytest.mark.asyncio
-    async def test_max_session_duration_ignores_unsigned_created_at(self, registry, signed, principal_keys):
-        expires = datetime.now(timezone.utc) + timedelta(hours=2)
-        expires_at = expires.isoformat(timespec="milliseconds").replace("+00:00", "Z")
-        long_session = await resign(registry, signed, principal_keys, session_expires_at=expires_at)
-        ok = await verify_signed_bundle_v2(long_session, registry, {"max_session_duration_seconds": 3 * 3600})
-        assert ok["verified"] is True, ok["errors"]
-
+    async def test_max_session_duration_with_unsigned_created_at(self, registry, signed, principal_keys):
+        """signature.created_at is not signed. Clamping it to now narrows the gap, not closes it."""
+        now = datetime.now(timezone.utc)
         one_hour = {"max_session_duration_seconds": 3600}
-        assert_error(await verify_signed_bundle_v2(long_session, registry, one_hour), "exceeds policy max")
-        # signature.created_at is not signed: moving it up to the expiry must not shorten the session.
-        long_session["signature"]["created_at"] = expires_at
-        assert_error(await verify_signed_bundle_v2(long_session, registry, one_hour), "exceeds policy max")
+
+        # A 2 h session signed now. Moving created_at up to the expiry is clamped to now,
+        # so the check still sees 2 h.
+        fresh = await resign(registry, signed, principal_keys, session_expires_at=iso(now + timedelta(hours=2)))
+        ok = await verify_signed_bundle_v2(fresh, registry, {"max_session_duration_seconds": 3 * 3600})
+        assert ok["verified"] is True, ok["errors"]
+        assert_error(await verify_signed_bundle_v2(fresh, registry, one_hour), "exceeds policy max")
+        fresh["signature"]["created_at"] = iso(now + timedelta(hours=2))
+        assert_error(await verify_signed_bundle_v2(fresh, registry, one_hour), "exceeds policy max")
+
+        # A 10 h session signed 9.5 h ago is rejected as signed, but a created_at rewritten to
+        # 20 min ago shrinks the check to the 50 min that remain, which passes. Closing this
+        # needs a signed session start in the manifest.
+        old = await resign(registry, signed, principal_keys, session_expires_at=iso(now + timedelta(minutes=30)))
+        old["signature"]["created_at"] = iso(now - timedelta(hours=9, minutes=30))
+        assert_error(await verify_signed_bundle_v2(old, registry, one_hour), "exceeds policy max")
+        old["signature"]["created_at"] = iso(now - timedelta(minutes=20))
+        assert (await verify_signed_bundle_v2(old, registry, one_hour))["verified"] is True
 
     @pytest.mark.asyncio
     async def test_session_expiry_required(self, registry, signed):
@@ -366,6 +389,40 @@ class TestSessionAndAudience:
             bound, registry, {"require_audience_binding": True, "verifier_id": "verifier-b"}
         )
         assert_error(other, "Bundle intended for verifier 'verifier-a'")
+
+
+class TestPolicyResolution:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "policy",
+        [
+            {"default_mode": "hybrid_required"},
+            {"default_mode": "hybrid_required", "risk_overrides": None},
+            VerifierPolicy(default_mode="hybrid_required", risk_overrides=None),
+        ],
+        ids=["dict-without-overrides", "dict-none-overrides", "model-none-overrides"],
+    )
+    async def test_no_overrides_means_default_mode(self, registry, classical_low, policy):
+        """The default policy's low -> classical_only override must not leak into a caller's mode."""
+        result = await verify_signed_bundle_v2(classical_low, registry, policy)
+        assert result["details"]["verification_mode"] == "hybrid_required"
+        assert_error(result, "composite binding")
+
+    @pytest.mark.asyncio
+    async def test_explicit_low_override_applies(self, registry, classical_low):
+        policy = {"default_mode": "hybrid_required", "risk_overrides": {"low": "classical_only"}}
+        result = await verify_signed_bundle_v2(classical_low, registry, policy)
+        assert result["verified"] is True, result["errors"]
+
+    @pytest.mark.asyncio
+    async def test_model_carries_audience_binding(self, registry, signed, principal_keys):
+        bound = await resign(registry, signed, principal_keys, intended_verifier="verifier-b")
+        policy = VerifierPolicy(require_audience_binding=True, verifier_id="verifier-a")
+        assert_error(await verify_signed_bundle_v2(bound, registry, policy), "intended for verifier 'verifier-b'")
+
+    def test_model_rejects_unknown_fields(self):
+        with pytest.raises(ValidationError):
+            VerifierPolicy(require_audiance_binding=True)
 
 
 class TestBuilder:
