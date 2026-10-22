@@ -87,7 +87,8 @@ export class VerificationCache {
     }
 
     const now = Date.now();
-    const ttl = this.ttlByTier[tier];
+    // An unknown tier name gets the elevated TTL; without a TTL the entry never expired.
+    const ttl = this.ttlByTier[Object.hasOwn(this.ttlByTier, tier) ? tier : 'elevated'];
     const entry: CacheEntry = {
       result,
       bundleHash,

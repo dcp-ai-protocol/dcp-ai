@@ -71,7 +71,9 @@ const DEFAULT_SESSION_DURATIONS: Record<string, number> = {
  * @param durationSeconds - how long the session is valid (default: 4 hours)
  */
 export function generateSessionExpiry(durationSeconds?: number, tier?: string): string {
-  const duration = durationSeconds ?? (tier ? DEFAULT_SESSION_DURATIONS[tier] ?? 14400 : 14400);
+  // An unknown tier name gets the elevated duration, never a longer one.
+  const known = tier && (Object.hasOwn(DEFAULT_SESSION_DURATIONS, tier) ? tier : 'elevated');
+  const duration = durationSeconds ?? (known ? DEFAULT_SESSION_DURATIONS[known] : 14400);
   return new Date(Date.now() + duration * 1000).toISOString();
 }
 

@@ -78,8 +78,11 @@ export class AdaptiveRateLimiter {
   }
 
   check(context: RateLimitContext, tier: string): { allowed: boolean; remaining: number; resetMs: number } {
-    const config = this.tierConfigs[tier] || this.tierConfigs.standard;
-    const key = `${tier}:${context.agent_id || context.ip || 'global'}`;
+    // An unknown tier (a prototype key included) counts as elevated and shares
+    // its bucket, so made-up tier names cannot multiply an agent's allowance.
+    const known = Object.hasOwn(this.tierConfigs, tier) ? tier : 'elevated';
+    const config = this.tierConfigs[known];
+    const key = `${known}:${context.agent_id || context.ip || 'global'}`;
 
     if (!this.limiters.has(key)) {
       this.limiters.set(key, new RateLimiter(config));
