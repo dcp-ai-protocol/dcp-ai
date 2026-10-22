@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { verifySignedBundleV2, getDefaultRegistry, registerDefaultProviders } from '@dcp-ai/sdk';
+import { verifySignedBundleV2, getDefaultRegistry, registerDefaultProviders, compositeSign, preparePayload, DCP_CONTEXTS } from '@dcp-ai/sdk';
 import {
   createReceiptIdentity,
   withDcpReceipt,
@@ -111,7 +111,59 @@ describe('withDcpReceipt', () => {
     expect((await verifyDcpReceipt(receipt, { expectedAgentId: 'agent:other' })).errors.join('\n')).toContain('expected agent:other');
     expect((await verifyDcpReceipt(receipt, { expectedHumanId: 'rpr:other' })).errors.join('\n')).toContain('expected rpr:other');
     expect((await verifyDcpReceipt(receipt, { trustedKeys: 'nope' as any })).errors[0]).toContain('trustedKeys must be an array');
+    expect(wrongKeys.anchored).toBe(false); // anchored says the anchor held, not that one was requested
   }, 120_000);
+
+  it('does not anchor a forged receipt whose decoy key entries reuse the trusted kids', async () => {
+    // The attacker signs with its own keys relabelled with the victim's kids, lists decoy passport
+    // entries (victim kid, another alg, attacker public key) and copies the victim's real keys into
+    // the RPR. The SDK verifies the signatures with the first key by kid (the decoy); the anchor must
+    // resolve the same key and reject it, never match the victim's copy by kid + alg.
+    const victim = identity;
+    const trusted = victim.signedPassport.payload.keys;
+    const attacker = await createReceiptIdentity({ legalName: 'Mallory', jurisdiction: 'CL', agentId: victim.signedPassport.payload.agent_id, humanId: victim.signedRpr.payload.human_id });
+    const keys = { classical: { ...attacker.keys.classical, kid: trusted[0].kid }, pq: { ...attacker.keys.pq, kid: trusted[1].kid } };
+    const decoys = [
+      { ...trusted[0], alg: 'ed25519-decoy', public_key_b64: attacker.keys.classical.publicKeyB64 },
+      { ...trusted[1], alg: 'ml-dsa-65-decoy', public_key_b64: attacker.keys.pq.publicKeyB64 },
+    ];
+    registerDefaultProviders();
+    const registry = getDefaultRegistry();
+    const sign = async <T extends object>(ctx: Parameters<typeof compositeSign>[1], payload: T) => {
+      const p = preparePayload(payload);
+      return { payload, payload_hash: p.payloadHash, composite_sig: await compositeSign(registry, ctx, p.canonicalBytes, keys) };
+    };
+    const forged: DcpReceiptIdentity = {
+      ...attacker,
+      keys,
+      signedRpr: await sign(DCP_CONTEXTS.ResponsiblePrincipal, { ...attacker.signedRpr.payload, binding_keys: trusted }),
+      signedPassport: await sign(DCP_CONTEXTS.AgentPassport, { ...attacker.signedPassport.payload, keys: decoys as any }),
+    };
+    const out = await withDcpReceipt('t', async () => ({ content: [{ type: 'text' as const, text: 'x' }] }), { identity: forged })({});
+    const r = await verifyDcpReceipt(out._meta.dcp_receipt, { trustedKeys: trusted, expectedAgentId: victim.signedPassport.payload.agent_id, expectedHumanId: victim.signedRpr.payload.human_id });
+    expect(r.verified).toBe(false);
+    expect(r.anchored).toBe(false);
+    expect(r.errors.join('\n')).toContain('signature says ed25519');
+    // A kid listed twice in the passport is not comparable either.
+    const twice: DcpReceiptIdentity = { ...forged, signedPassport: await sign(DCP_CONTEXTS.AgentPassport, { ...attacker.signedPassport.payload, keys: [...decoys, ...trusted] as any }) };
+    const out2 = await withDcpReceipt('t', async () => ({ content: [] }), { identity: twice })({});
+    const r2 = await verifyDcpReceipt(out2._meta.dcp_receipt, { trustedKeys: trusted });
+    expect(r2.verified).toBe(false);
+    expect(r2.errors.join('\n')).toContain('listed more than once');
+  }, 120_000);
+
+  it('fails closed when the published SDK verifier would throw', async () => {
+    const out = await withDcpReceipt('get_weather', weather, { identity })({ city: 'Santiago' });
+    const receipt = out._meta.dcp_receipt;
+    for (const broken of [
+      { ...receipt, signature: { ...receipt.signature, composite_sig: null } },
+      { ...receipt, bundle: { ...receipt.bundle, agent_passport: null } },
+    ]) {
+      const r = await verifyDcpReceipt(broken as any);
+      expect(r.verified).toBe(false);
+      expect(r.errors.length).toBeGreaterThan(0);
+    }
+  }, 60_000);
 
   it('verifyDcpReceipt fails closed on input that is not a signed bundle and on half-given evidence', async () => {
     for (const bad of [null, undefined, {}, 'str', [], { bundle: { dcp_bundle_version: '2.0' }, signature: {} }, { bundle: { audit_entries: {} }, signature: {} }]) {
