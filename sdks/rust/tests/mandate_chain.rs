@@ -330,3 +330,63 @@ fn mandate_chain_builders() {
         vec!["mandate[0]: not an object".to_string()]
     );
 }
+
+/// Integer limits compare exactly: serde_json keeps 2^53 + 1 exact, so the signature over the
+/// canonical bytes verifies, and an f64 comparison would take it for equal to a parent of 2^53.
+#[test]
+fn limits_compare_integers_exactly() {
+    let (ed, pq) = (Ed25519Provider, MlDsa65Provider);
+    let (human, orchestrator) = (make_keys(), make_keys());
+    let nonce_root = generate_session_nonce();
+    let root = create_delegation_mandate_with_options(
+        &ed,
+        &pq,
+        &human.0,
+        &human.1,
+        DelegationMandateParams {
+            mandate_id: "mandate:root",
+            session_nonce: &nonce_root,
+            human_id: "human:alice",
+            agent_id: "agent:orchestrator",
+            authority_scope: vec![json!({"domain": "api", "actions_permitted": ["call"], "limits": {"n": 9007199254740992u64}})],
+            valid_from: "2026-01-01T00:00:00Z",
+            valid_until: "2099-01-01T00:00:00Z",
+            revocable: true,
+        },
+        &MandateChainOptions {
+            sub_delegation: Some(SubDelegationPolicy { permitted: true, max_depth: 1 }),
+            minimum_security_tier: None,
+        },
+    )
+    .unwrap();
+    let keys = MandateChainKeys {
+        human_keys: key_entries(&human),
+        agent_keys: HashMap::from([("agent:orchestrator".to_string(), key_entries(&orchestrator))]),
+    };
+    let sub_with = |n: u64| {
+        let nonce = generate_session_nonce();
+        create_sub_mandate(
+            &ed,
+            &pq,
+            &orchestrator.0,
+            &orchestrator.1,
+            &root,
+            SubMandateParams {
+                mandate_id: "mandate:sub",
+                session_nonce: &nonce,
+                agent_id: "agent:subagent",
+                authority_scope: vec![json!({"domain": "api", "actions_permitted": ["call"], "limits": {"n": n}})],
+                valid_from: "2026-01-01T00:00:00Z",
+                valid_until: "2099-01-01T00:00:00Z",
+                revocable: true,
+                options: MandateChainOptions::default(),
+            },
+        )
+        .unwrap()
+    };
+    let equal = verify_mandate_chain(&[root.clone(), sub_with(9007199254740992)], &HashSet::new(), &keys, None);
+    assert!(equal.valid, "{:?}", equal.errors);
+    let looser = verify_mandate_chain(&[root.clone(), sub_with(9007199254740993)], &HashSet::new(), &keys, None);
+    assert!(!looser.valid);
+    assert!(looser.errors.iter().any(|e| e.contains("limits.n")), "{:?}", looser.errors);
+}

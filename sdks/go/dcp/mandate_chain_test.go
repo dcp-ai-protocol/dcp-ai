@@ -1,6 +1,7 @@
 package dcp
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -247,5 +248,67 @@ func TestMandateChainBuilders(t *testing.T) {
 	late, _ := time.Parse(time.RFC3339, "2100-01-01T00:00:00Z")
 	if r := v2.VerifyMandateChain(reg, chain[:2], none, keys, late); r.Valid || !strings.Contains(strings.Join(r.Errors, ","), "expired") {
 		t.Fatalf("an expired chain must not verify: %+v", r)
+	}
+}
+
+// Integer limits compare exactly: a map built in Go (int) or decoded with
+// UseNumber (json.Number) keeps 2^53+1 exact, so the signature over the
+// canonical bytes verifies, and a float64 comparison would take it for equal
+// to a parent of 2^53.
+func TestMandateChainLimitsCompareIntegersExactly(t *testing.T) {
+	reg := newRegistry()
+	humanC, humanPQ := chainKeys(t, reg)
+	orchC, orchPQ := chainKeys(t, reg)
+	const validFrom, validUntil = "2026-01-01T00:00:00Z", "2099-01-01T00:00:00Z"
+	root, err := v2.CreateDelegationMandate(reg, humanC, humanPQ, v2.DelegationMandateParams{
+		MandateID: "mandate:root", SessionNonce: strings.Repeat("a", 64), HumanID: "human:alice", AgentID: "agent:orchestrator",
+		AuthorityScope: []map[string]interface{}{{"domain": "api", "actions_permitted": []string{"call"}, "limits": map[string]interface{}{"n": 1 << 53}}},
+		ValidFrom:      validFrom, ValidUntil: validUntil, Revocable: true,
+		SubDelegation: &v2.SubDelegationPolicy{Permitted: true, MaxDepth: 1},
+	})
+	if err != nil {
+		t.Fatalf("CreateDelegationMandate: %v", err)
+	}
+	keys := v2.MandateChainKeys{
+		HumanKeys: chainKeyEntries(humanC, humanPQ),
+		AgentKeys: map[string][]interface{}{"agent:orchestrator": chainKeyEntries(orchC, orchPQ)},
+	}
+	subWith := func(n int) map[string]interface{} {
+		sub, err := v2.CreateSubMandate(reg, orchC, orchPQ, root, v2.SubMandateParams{
+			MandateID: "mandate:sub", SessionNonce: strings.Repeat("b", 64), AgentID: "agent:subagent",
+			AuthorityScope: []map[string]interface{}{{"domain": "api", "actions_permitted": []string{"call"}, "limits": map[string]interface{}{"n": n}}},
+			ValidFrom:      validFrom, ValidUntil: validUntil, Revocable: true,
+		})
+		if err != nil {
+			t.Fatalf("CreateSubMandate: %v", err)
+		}
+		return sub
+	}
+	// decoded re-reads the chain as JSON with UseNumber, as a verifier that keeps every digit would.
+	decoded := func(chain []map[string]interface{}) []map[string]interface{} {
+		raw, err := json.Marshal(chain)
+		if err != nil {
+			t.Fatal(err)
+		}
+		dec := json.NewDecoder(bytes.NewReader(raw))
+		dec.UseNumber()
+		var out []map[string]interface{}
+		if err := dec.Decode(&out); err != nil {
+			t.Fatal(err)
+		}
+		return out
+	}
+	equal := []map[string]interface{}{root, subWith(1 << 53)}
+	looser := []map[string]interface{}{root, subWith(1<<53 + 1)}
+	for name, chain := range map[string][]map[string]interface{}{"built": equal, "decoded": decoded(equal)} {
+		if r := v2.VerifyMandateChain(reg, chain, map[string]bool{}, keys, time.Time{}); !r.Valid {
+			t.Fatalf("%s: an equal limit must verify: %v", name, r.Errors)
+		}
+	}
+	for name, chain := range map[string][]map[string]interface{}{"built": looser, "decoded": decoded(looser)} {
+		r := v2.VerifyMandateChain(reg, chain, map[string]bool{}, keys, time.Time{})
+		if r.Valid || !strings.Contains(strings.Join(r.Errors, "\n"), "limits.n") {
+			t.Fatalf("%s: a limit of 2^53+1 must be rejected as looser than 2^53: valid=%v %v", name, r.Valid, r.Errors)
+		}
 	}
 }
