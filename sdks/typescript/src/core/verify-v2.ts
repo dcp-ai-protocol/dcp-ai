@@ -541,9 +541,10 @@ export async function verifySignedBundleV2(
   details.hash_chain_valid = errors.length === 0;
 
   // ── 9. Key validity checks ──
+  // Every key that can sign: the passport keys and the RPR binding_keys (V2-13).
 
   const now = new Date();
-  for (const key of allKeys) {
+  for (const key of [...allKeys, ...rprKeys]) {
     if (key.status === 'revoked') {
       errors.push(`Key ${key.kid} is revoked`);
     }
