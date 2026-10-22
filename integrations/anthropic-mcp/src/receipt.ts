@@ -387,6 +387,19 @@ export interface VerifyReceiptOptions {
   /** When given, the receipt's `evidence.request_id` must equal it (the MCP request id the wrapper saw in `extra`). */
   requestId?: string | number;
   /**
+   * The trust anchor: keys the verifier already trusts for this agent and its principal (from a
+   * registry, a pinned earlier passport or RPR). When given, every signature in the receipt (the
+   * bundle's, the RPR's, the passport's, the intent's and the policy decision's) must be made with a
+   * key that is among them, with the same `kid`, `alg` and `public_key_b64`, and that is `active`
+   * and unexpired in this list. Without it the receipt is only self-consistent: signed with the
+   * keys its own passport and RPR list.
+   */
+  trustedKeys?: KeyEntry[];
+  /** The agent the receipt must be from (`agent_passport.payload.agent_id`). */
+  expectedAgentId?: string;
+  /** The principal the receipt must be under (`responsible_principal_record.payload.human_id`). */
+  expectedHumanId?: string;
+  /**
    * Given together, the receipt's `evidence_hash` must be the hash of `{ arguments, result }`,
    * where `result` is what the caller received minus `_meta` (`resultSeen`). One without the
    * other is an error.
@@ -401,11 +414,22 @@ export interface VerifyReceiptOptions {
  * `arguments` and `result`. Returns the verifier's result with any extra errors appended.
  */
 export async function verifyDcpReceipt(receipt: SignedBundleV2, options: VerifyReceiptOptions = {}) {
-  const invalid = (error: string) => ({ verified: false, errors: [error], warnings: [] as string[] });
+  const anchored = options.trustedKeys !== undefined;
+  const invalid = (error: string) => ({ verified: false, anchored, errors: [error], warnings: [] as string[] });
   if (!isSignedBundleShape(receipt)) return invalid('not a signed bundle: bundle, signature and bundle.audit_entries (array) are required');
+  if (anchored && !Array.isArray(options.trustedKeys)) return invalid('trustedKeys must be an array of key entries');
   const registry = options.registry ?? defaultRegistry();
   const result = await verifySignedBundleV2(receipt, registry, options.policy ?? DEFAULT_VERIFIER_POLICY);
   const errors = [...result.errors];
+  const passport = receipt.bundle.agent_passport?.payload as { agent_id?: unknown; keys?: unknown } | undefined;
+  const rpr = receipt.bundle.responsible_principal_record?.payload as { human_id?: unknown; binding_keys?: unknown } | undefined;
+  if (options.expectedAgentId !== undefined && passport?.agent_id !== options.expectedAgentId) {
+    errors.push(`receipt is from agent ${String(passport?.agent_id)}, expected ${options.expectedAgentId}`);
+  }
+  if (options.expectedHumanId !== undefined && rpr?.human_id !== options.expectedHumanId) {
+    errors.push(`receipt is under principal ${String(rpr?.human_id)}, expected ${options.expectedHumanId}`);
+  }
+  if (anchored) errors.push(...anchorErrors(receipt, [...asKeys(passport?.keys), ...asKeys(rpr?.binding_keys)], options.trustedKeys as KeyEntry[]));
   const entries = receipt.bundle.audit_entries;
   const entry = entries.length === 1 && isObject(entries[0]) ? entries[0] : undefined;
   if (!entry) errors.push('a receipt carries exactly one audit entry');
@@ -423,7 +447,62 @@ export async function verifyDcpReceipt(receipt: SignedBundleV2, options: VerifyR
     const expected = hashEvidence({ arguments: options.arguments, result: options.result });
     if (evidence.evidence_hash !== expected) errors.push('evidence_hash does not match the given arguments and result');
   }
-  return { ...result, verified: result.verified && errors.length === 0, errors };
+  return { ...result, anchored, verified: result.verified && errors.length === 0, errors };
+}
+
+const asKeys = (v: unknown): KeyEntry[] => (Array.isArray(v) ? (v.filter(isObject) as unknown as KeyEntry[]) : []);
+
+/** Every signature slot of a receipt: the bundle's and each signed artifact's, classical and pq. */
+function signatureSlots(receipt: SignedBundleV2): Array<{ where: string; kid: unknown; alg: unknown }> {
+  const out: Array<{ where: string; kid: unknown; alg: unknown }> = [];
+  const add = (where: string, sig: unknown) => {
+    if (!isObject(sig)) return out.push({ where, kid: undefined, alg: undefined });
+    for (const slot of ['classical', 'pq'] as const) {
+      const s = sig[slot];
+      if (s === null && slot === 'pq') continue;
+      out.push(isObject(s) ? { where: `${where}.${slot}`, kid: s.kid, alg: s.alg } : { where: `${where}.${slot}`, kid: undefined, alg: undefined });
+    }
+  };
+  add('signature', receipt.signature?.composite_sig);
+  for (const name of ['responsible_principal_record', 'agent_passport', 'intent', 'policy_decision'] as const) {
+    add(name, (receipt.bundle[name] as { composite_sig?: unknown } | undefined)?.composite_sig);
+  }
+  return out;
+}
+
+/**
+ * Why the receipt's signatures are not all made with trusted keys. A signing key must be listed by
+ * the receipt (passport keys or RPR binding keys) and match a trusted entry by kid, alg and public
+ * key, and every matching trusted entry must be active and unexpired now.
+ */
+function anchorErrors(receipt: SignedBundleV2, listed: KeyEntry[], trusted: KeyEntry[]): string[] {
+  const errors: string[] = [];
+  const nowMs = Date.now();
+  for (const slot of signatureSlots(receipt)) {
+    if (typeof slot.kid !== 'string' || typeof slot.alg !== 'string') {
+      errors.push(`${slot.where}: signature slot without kid or alg`);
+      continue;
+    }
+    const key = listed.find((k) => k.kid === slot.kid && k.alg === slot.alg);
+    if (!key) {
+      errors.push(`${slot.where}: key ${slot.kid} is not listed by the receipt`);
+      continue;
+    }
+    const anchors = trusted.filter((t) => isObject(t) && t.kid === key.kid && t.alg === key.alg && t.public_key_b64 === key.public_key_b64);
+    if (anchors.length === 0) {
+      errors.push(`${slot.where}: key ${slot.kid} is not among the trusted keys`);
+      continue;
+    }
+    for (const a of anchors) {
+      if (a.status !== 'active') errors.push(`${slot.where}: trusted key ${slot.kid} is ${String(a.status)}`);
+      else if (a.expires_at !== null && a.expires_at !== undefined) {
+        const expires = Date.parse(String(a.expires_at));
+        if (Number.isNaN(expires)) errors.push(`${slot.where}: trusted key ${slot.kid} has an invalid expires_at`);
+        else if (expires < nowMs) errors.push(`${slot.where}: trusted key ${slot.kid} has expired`);
+      }
+    }
+  }
+  return errors;
 }
 
 /** The shape `verifySignedBundleV2` of the published SDK assumes before it reads anything; without it the SDK throws instead of failing closed. */
