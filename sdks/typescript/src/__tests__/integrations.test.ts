@@ -1,9 +1,9 @@
 /**
  * Integration tests for the 4 pure-JS DCP integrations:
  *   - anthropic-mcp
- *   - google-a2a
  *   - autogen
  *   - w3c-did
+ * google-a2a is a TypeScript package with its own vitest suite (integrations/google-a2a).
  */
 import { describe, it, expect } from 'vitest';
 import { resolve } from 'path';
@@ -134,99 +134,6 @@ describe('Anthropic MCP Integration', async () => {
     it('returns error for unknown tool', async () => {
       const result = await mcp.handleDcpToolCall('nonexistent_tool', {});
       expect(result.error).toMatch(/Unknown DCP tool/);
-    });
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Google A2A
-// ---------------------------------------------------------------------------
-
-describe('Google A2A Integration', async () => {
-  const a2a = await import(resolve(INTEGRATIONS_ROOT, 'google-a2a/index.js'));
-
-  const samplePassport = {
-    agent_id: 'agent:test-001',
-    agent_name: 'Test Agent',
-    dcp_version: '2.0',
-    capabilities: ['data_retrieval', 'api_call'],
-    owner_rpr_hash: 'sha256:abc123',
-    jurisdiction: 'US',
-    status: 'active',
-    liability_mode: 'delegated',
-    model: 'gpt-4',
-    created_at: '2026-01-01T00:00:00Z',
-    keys: [],
-  };
-
-  describe('passportToAgentCard', () => {
-    it('creates a valid A2A Agent Card', () => {
-      const card = a2a.passportToAgentCard(samplePassport, 'https://example.com/a2a');
-      expect(card.name).toBe('Test Agent');
-      expect(card.url).toBe('https://example.com/a2a');
-      expect(card.version).toBe('1.0');
-      expect(card.skills).toHaveLength(2);
-      expect(card.skills[0].id).toBe('data_retrieval');
-      expect(card.metadata.dcp_agent_id).toBe('agent:test-001');
-      expect(card.metadata.dcp_version).toBe('2.0');
-    });
-
-    it('maps capabilities to skills with tags', () => {
-      const card = a2a.passportToAgentCard(samplePassport, 'https://x.com');
-      for (const skill of card.skills) {
-        expect(skill.tags).toContain('dcp');
-        expect(skill.name).toBeTruthy();
-      }
-    });
-  });
-
-  describe('agentCardToPassport', () => {
-    it('converts an Agent Card back to a passport skeleton', () => {
-      const card = a2a.passportToAgentCard(samplePassport, 'https://example.com/a2a');
-      const passport = a2a.agentCardToPassport(card);
-      expect(passport.dcp_version).toBe('2.0');
-      expect(passport.agent_id).toBe('agent:test-001');
-      expect(passport.capabilities).toContain('data_retrieval');
-      expect(passport.capabilities).toContain('api_call');
-      expect(passport.status).toBe('active');
-    });
-  });
-
-  describe('round-trip passport -> agentCard -> passport', () => {
-    it('preserves agent_id and capabilities', () => {
-      const card = a2a.passportToAgentCard(samplePassport, 'https://x.com');
-      const roundTripped = a2a.agentCardToPassport(card);
-      expect(roundTripped.agent_id).toBe(samplePassport.agent_id);
-      expect(roundTripped.capabilities.sort()).toEqual(samplePassport.capabilities.sort());
-    });
-  });
-
-  describe('wrapA2ATaskWithAudit', () => {
-    it('wraps a task with DCP audit metadata', () => {
-      const task = { id: 'task-42', status: { state: 'completed' } };
-      const wrapped = a2a.wrapA2ATaskWithAudit(task, 'agent:a', 'intent:i');
-      expect(wrapped.dcp_audit.event_type).toBe('a2a_task_execution');
-      expect(wrapped.dcp_audit.agent_id).toBe('agent:a');
-      expect(wrapped.dcp_audit.intent_id).toBe('intent:i');
-      expect(wrapped.dcp_audit.task_id).toBe('task-42');
-      expect(wrapped.dcp_audit.task_status).toBe('completed');
-      expect(wrapped.a2a_task).toBe(task);
-    });
-  });
-
-  describe('a2aTaskToIntent', () => {
-    it('creates a DCP Intent from an A2A task', () => {
-      const task = {
-        id: 'task-99',
-        message: { parts: [{ text: 'Analyze data' }] },
-      };
-      const intent = a2a.a2aTaskToIntent(task, 'agent:b');
-      expect(intent.dcp_version).toBe('2.0');
-      expect(intent.schema).toBe('intent_v2');
-      expect(intent.agent_id).toBe('agent:b');
-      expect(intent.action_type).toBe('task_delegate');
-      expect(intent.description).toBe('Analyze data');
-      expect(intent.intent_id).toMatch(/^intent:a2a-/);
     });
   });
 });

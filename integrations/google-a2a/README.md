@@ -25,12 +25,28 @@ if (!check.verified) throw new Error(check.errors.join('; '));
 check.passport.agent_id; // the verified DCP agent
 ```
 
+### What verification proves, and what it does not
+
 `verifyAgentCardPassport` checks that the extension is present, the `payload_hash` matches, the
-composite signature is `pq_over_classical` and verifies under the AgentPassport context with keys
-the passport itself lists (active, unexpired, of the signature's algorithm), the passport is
-`active`, and `metadata.dcp_agent_id`, when present, names the same agent. Anything malformed
-fails closed. As with any DCP bundle, the consumer still decides whether to trust the principal
-the passport binds to.
+composite signature is `pq_over_classical` (Ed25519 plus ML-DSA-65 or SLH-DSA-192f, each slot
+pinned to its algorithm) and verifies under the AgentPassport context with keys the passport
+itself lists (active, unexpired, each `kid` the hash of its public key), timestamps are RFC 3339,
+the passport is `active`, and `metadata.dcp_agent_id` and `expectedAgentId`, when given, name
+the same agent. Anything malformed fails closed.
+
+A passport is public, and anyone can copy it into their own card. So a `verified` result alone
+proves that the passport is **self-consistent**: signed by the keys it lists. It does not prove
+that the party serving the card holds those keys, nor that `url`, `name`, `provider` or `skills`
+belong to the passport's agent. To make it an identity check:
+
+- Pass `trustedKeys`: the keys you already trust for that agent (from a registry, a pinned earlier
+  passport, or the `binding_keys` of a verified RPR when the principal signs for the agent) and
+  `expectedAgentId`. Both signing keys must be among them; the result then says `anchored: true`.
+- Use only `result.passport`, never the card's unsigned fields, as the agent's identity.
+- Before delegating a task, demand proof of possession from the endpoint: the SDK's
+  `generateRegistrationPoP` / `verifyRegistrationPoP`, or a DCP-04 A2A session. A2A 1.0's
+  `AgentCard.signatures` (JWS over the card) is the protocol's own way to bind the rest of the
+  card.
 
 `attachPassportToAgentCard(card, signedPassport)` adds the extension to a card you already have
 (replacing an earlier DCP passport), `agentCardPassport(card)` reads it, and

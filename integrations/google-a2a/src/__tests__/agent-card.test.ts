@@ -78,7 +78,18 @@ describe('the signed passport inside the Agent Card', () => {
     const result = await verifyAgentCardPassport(card);
     expect(result.errors).toEqual([]);
     expect(result.verified).toBe(true);
+    expect(result.anchored).toBe(false);
     expect(result.passport?.agent_id).toBe('agent:a2a-test');
+    // Anchored to keys the verifier already trusts, and to the agent it expects.
+    const anchored = await verifyAgentCardPassport(card, { trustedKeys: entries(keys), expectedAgentId: 'agent:a2a-test' });
+    expect(anchored.verified, anchored.errors.join('\n')).toBe(true);
+    expect(anchored.anchored).toBe(true);
+    const otherAnchor = await verifyAgentCardPassport(card, { trustedKeys: entries(intruder) });
+    expect(otherAnchor.verified).toBe(false);
+    expect(otherAnchor.errors.join('\n')).toContain('trusted keys');
+    const otherAgent = await verifyAgentCardPassport(card, { expectedAgentId: 'agent:someone-else' });
+    expect(otherAgent.verified).toBe(false);
+    expect(otherAgent.errors.join('\n')).toContain('expected');
     // The card survives a JSON round trip, as it will over HTTP.
     expect((await verifyAgentCardPassport(JSON.parse(JSON.stringify(card)))).verified).toBe(true);
   }, 60_000);
@@ -114,6 +125,14 @@ describe('the signed passport inside the Agent Card', () => {
       ['revoked key', signPassport(passportPayload(keys, { keys: entries(keys, { status: 'revoked' }) }), keys), {}, 'is revoked'],
       ['expired key', signPassport(passportPayload(keys, { keys: entries(keys, { expires_at: '2020-01-01T00:00:00Z' }) }), keys), {}, 'has expired'],
       ['no principal binding', signPassport(passportPayload(keys, { principal_binding_reference: '' }), keys), {}, 'principal_binding_reference'],
+      ['two Ed25519 keys posing as hybrid', (async () => {
+        const c2 = await getDefaultRegistry().getSigner('ed25519').generateKeypair();
+        const fake: CompositeKeyPair = { ...keys, pq: { kid: c2.kid, alg: 'ed25519', secretKeyB64: c2.secretKeyB64, publicKeyB64: c2.publicKeyB64 } };
+        return signPassport(passportPayload(fake), fake);
+      })(), {}, 'not allowed in this slot'],
+      ['kid that is not the kid of its key', signPassport(passportPayload(keys, { keys: entries(keys).map((k, i) => (i === 0 ? { ...k, kid: '0'.repeat(32) } : k)) }), { ...keys, classical: { ...keys.classical, kid: '0'.repeat(32) } }), {}, 'is not the kid of its public key'],
+      ['expires_at that is not RFC 3339', signPassport(passportPayload(keys, { keys: entries(keys, { expires_at: '2099-01-01' }) }), keys), {}, 'invalid expires_at'],
+      ['created_at that is not RFC 3339', signPassport(passportPayload(keys, { created_at: 'not-a-date' }), keys), {}, 'created_at'],
     ];
     for (const [name, p, meta, needle] of cases) {
       const result = await verifyAgentCardPassport(withPassport(await p, meta));
