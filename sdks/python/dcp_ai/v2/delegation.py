@@ -183,6 +183,11 @@ def _is_comparable_number(v: Any) -> bool:
     return _is_int(v) and -_MAX_COMPARABLE_LIMIT <= v <= _MAX_COMPARABLE_LIMIT
 
 
+def _is_json_number(v: Any) -> bool:
+    # Any number the wire can carry, ±inf from an out-of-range literal included; a bool is not one.
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
 def _scope_entry_ok(e: Any) -> bool:
     return (
         isinstance(e, dict)
@@ -214,7 +219,7 @@ def _shape_errors(m: dict[str, Any]) -> list[str]:
     else:
         for e in scope:
             for key, v in e.get("limits", {}).items():
-                if _is_number(v) and not _is_comparable_number(v):
+                if _is_json_number(v) and not _is_comparable_number(v):
                     errors.append(f'limits.{key} for domain "{e["domain"]}" is not comparable')
     if "sub_delegation" in m and not _sub_delegation_ok(m["sub_delegation"]):
         errors.append("invalid sub_delegation")
@@ -255,7 +260,7 @@ def _attenuation_error(parent: list[dict[str, Any]], child: list[dict[str, Any]]
                 cv = c["limits"][key]
                 # A number may only shrink; anything else must stay identical. A number outside ±(2^53 − 1), or a
                 # number against a non-number, is not comparable.
-                if _is_number(pv) or _is_number(cv):
+                if _is_json_number(pv) or _is_json_number(cv):
                     if not (_is_comparable_number(pv) and _is_comparable_number(cv)):
                         return f'limits.{key} for domain "{domain}" is not comparable'
                     within = cv <= pv

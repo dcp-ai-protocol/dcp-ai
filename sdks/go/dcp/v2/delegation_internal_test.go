@@ -23,6 +23,9 @@ func TestAttenuationLimitsBeyondTheSafeIntegersAreNotComparable(t *testing.T) {
 		"json_number_equal": json.Number("9007199254740991"),
 		"exponent_form":     json.Number("1e15"),
 		"negative":          -1,
+		"int8":              int8(-7),
+		"uint16":            uint16(7),
+		"float32_equal":     float32(1 << 20),
 		"negative_bound":    int64(-(1<<53 - 1)),
 	} {
 		if err := attenuationError(parent, entry(child)); err != "" {
@@ -31,7 +34,11 @@ func TestAttenuationLimitsBeyondTheSafeIntegersAreNotComparable(t *testing.T) {
 	}
 	for name, child := range map[string]interface{}{
 		"int_2_53":                   int64(1 << 53),
+		"uint64_2_53":                uint64(1 << 53),
+		"uint64_2_63":                uint64(1 << 63),
+		"uint_2_53":                  uint(1 << 53),
 		"float_2_53":                 float64(1 << 53),
+		"float32_2_53":               float32(1 << 53),
 		"json_number_2_53":           json.Number("9007199254740992"),
 		"json_number_2_53_plus_1":    json.Number("9007199254740993"),
 		"negative_2_53":              int64(-(1 << 53)),
