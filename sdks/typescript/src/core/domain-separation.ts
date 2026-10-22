@@ -29,6 +29,7 @@ export const DCP_CONTEXTS = {
   // DCP-09: Delegation & Representation
   Delegation: 'DCP-AI.v2.Delegation',
   Awareness: 'DCP-AI.v2.Awareness',
+  SubMandate: 'DCP-AI.v2.SubMandate',
 } as const;
 
 export type DcpContext = (typeof DCP_CONTEXTS)[keyof typeof DCP_CONTEXTS];

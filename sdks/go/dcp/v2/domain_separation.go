@@ -22,6 +22,7 @@ const (
 	CtxRights                  = "DCP-AI.v2.Rights"
 	CtxDelegation              = "DCP-AI.v2.Delegation"
 	CtxAwareness               = "DCP-AI.v2.Awareness"
+	CtxSubMandate              = "DCP-AI.v2.SubMandate"
 )
 
 var validContexts = map[string]bool{
@@ -43,6 +44,7 @@ var validContexts = map[string]bool{
 	CtxRights:                  true,
 	CtxDelegation:              true,
 	CtxAwareness:               true,
+	CtxSubMandate:              true,
 }
 
 // MaxMessageBytes caps the combined size of a domain-separated / composite

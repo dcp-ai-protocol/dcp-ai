@@ -114,6 +114,8 @@ signed_bytes = UTF8(context_tag) || 0x00 || canonical_payload_bytes
 | `DCP-AI.v2.HumanConfirmation` | Human confirmation |
 | `DCP-AI.v2.AlgorithmAdvisory` | Algorithm deprecation advisory |
 | `DCP-AI.v2.Governance` | Governance operations |
+| `DCP-AI.v2.Delegation` | Root delegation mandate (human signature) and interaction records (DCP-09) |
+| `DCP-AI.v2.SubMandate` | Sub-mandate signed by the delegating agent (DCP-09 §3.5) |
 
 ---
 
@@ -388,8 +390,14 @@ function computeSecurityTier(intent, policy_decision):
   explicit = intent.security_tier
   if explicit is present and not null:
     tier = max(tier, explicit if it is a tier name else "elevated")
+  if a verified mandate chain (DCP-09 §3.5) applies and has an effective tier:
+    tier = max(tier, that tier if it is a tier name else "elevated")
   return tier
 ```
+
+The effective tier of a verified delegation chain, the greatest
+`minimum_security_tier` along it, is an optional input to this computation
+that can only raise the result, never lower it.
 
 `ACTION_TYPES` and `DATA_CLASSES` are the `action_type` and `data_classes`
 enums of `schemas/v2/intent.schema.json`. A missing, mistyped or unknown

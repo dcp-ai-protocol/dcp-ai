@@ -16,6 +16,7 @@ pub const CTX_DISPUTE: &str = "DCP-AI.v2.Dispute";
 pub const CTX_RIGHTS: &str = "DCP-AI.v2.Rights";
 pub const CTX_DELEGATION: &str = "DCP-AI.v2.Delegation";
 pub const CTX_AWARENESS: &str = "DCP-AI.v2.Awareness";
+pub const CTX_SUB_MANDATE: &str = "DCP-AI.v2.SubMandate";
 
 const VALID_CONTEXTS: &[&str] = &[
     CTX_AGENT_PASSPORT,
@@ -36,6 +37,7 @@ const VALID_CONTEXTS: &[&str] = &[
     CTX_RIGHTS,
     CTX_DELEGATION,
     CTX_AWARENESS,
+    CTX_SUB_MANDATE,
 ];
 
 pub fn is_valid_context(ctx: &str) -> bool {
