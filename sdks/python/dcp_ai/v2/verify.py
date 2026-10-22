@@ -11,6 +11,10 @@ the bundle has no say in it.
 A PQ signature that is present (pq_over_classical) must verify in every mode;
 only an absent one (classical_only) may be tolerated, by hybrid_preferred and
 classical_only (VERIFICATION.md V2-7).
+
+Not verified, as in the TypeScript SDK: PQ checkpoint contents and signatures
+(VERIFICATION.md V2-12; only their IDs are bound to the manifest) and the
+manifest's audit_merkle_root_secondary. Do not rely on either after verification.
 """
 
 from __future__ import annotations
@@ -26,6 +30,10 @@ from dcp_ai.v2.pq_checkpoint import audit_events_merkle_root
 from dcp_ai.v2.session_nonce import is_session_expired, verify_session_binding
 from dcp_ai.v2.signed_payload import prepare_payload, verify_payload_hash
 
+# Transition-period default, identical to the TypeScript SDK. The risk tier comes
+# from the agent-signed passport, and both "low" and "medium" accept classical-only
+# signatures, so a stolen Ed25519 key is enough to pass this policy. Verifiers that
+# need post-quantum assurance must pass hybrid_required (or pq_only) for every tier.
 DEFAULT_VERIFIER_POLICY: dict[str, Any] = {
     "default_mode": "hybrid_preferred",
     "risk_overrides": {
@@ -236,8 +244,12 @@ async def _verify(
 
     max_duration = policy.get("max_session_duration_seconds") or 0
     if max_duration > 0 and expires_at:
+        # signature.created_at sits outside the signed manifest. Clamping it to now
+        # keeps honest bundles' verdict (same as TS) while a forged future value can
+        # shrink the check to the session's remaining lifetime at most.
+        now = datetime.now(timezone.utc)
         created_at = signature.get("created_at")
-        created = _parse_time(created_at) if created_at else datetime.now(timezone.utc)
+        created = min(_parse_time(created_at), now) if created_at else now
         duration = (_parse_time(expires_at) - created).total_seconds()
         if duration > max_duration:
             errors.append(f"Session duration {duration:g}s exceeds policy max of {max_duration}s")
@@ -263,6 +275,9 @@ async def _verify(
         expected = prepare_payload(bundle[name]["payload"])[1]
         if manifest.get(field) != expected:
             errors.append(f"Manifest {field} mismatch: expected {expected}")
+    checkpoint_ids = [c["checkpoint_id"] for c in bundle.get("pq_checkpoints") or []]
+    if (manifest.get("pq_checkpoints") or []) != checkpoint_ids:
+        errors.append("Manifest pq_checkpoints do not match the bundle's checkpoints")
     if audit_entries and manifest.get("audit_merkle_root") != f"sha256:{audit_events_merkle_root(audit_entries)}":
         errors.append("Manifest audit_merkle_root mismatch")
     if manifest.get("audit_count") != len(audit_entries):
