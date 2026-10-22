@@ -79,6 +79,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `routine` there and `elevated` in the TypeScript, Python and Rust SDKs. All four SDKs and the binding
   now compute the same tier, checked by the new `security_tier` vectors in
   `tests/interop/v2/interop_vectors.json`.
+- Verification server: `resolved_tier` in `POST /verify` and `POST /v2/bundle/verify`, and the tier
+  check of `/v2/bundle/verify`, took `intent.security_tier` as given, so an agent that declared
+  `routine` lowered its own tier, and read `risk_score` from the intent, which the schema does not
+  allow. They now use the §14.2 rule (`lib/security-tier.js`): `risk_score` from the bundle's policy
+  decision, `estimated_impact`, unknown values to `elevated`, and an explicit tier that can only
+  raise the result. `/v2/intent/declare` computes `resolved_tier` the same way.
 
 ### Changed (breaking)
 
