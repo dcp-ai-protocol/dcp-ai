@@ -1,6 +1,7 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
+import http from "node:http";
 import { fileURLToPath } from "node:url";
 import nacl from "tweetnacl";
 import { post as postTo, sha256Hex, startService } from "../../tests/helpers.js";
@@ -124,4 +125,28 @@ test("polled peer tree heads are only trusted with the peer's pinned key", async
   const lastSth = async ({ base: url }) => (await (await fetch(`${url}/gossip/peers`)).json()).peers[0].last_sth;
   assert.equal((await lastSth(pinned)).log_id, (await (await fetch(`${peerLog.base}/health`)).json()).log_id);
   assert.equal(await lastSth(mispinned), null);
+});
+
+test("gossip polls never overlap, and a peer that does not answer is given up on", async () => {
+  let active = 0;
+  let peak = 0;
+  let total = 0;
+  const hanging = http.createServer((req) => {
+    total++;
+    peak = Math.max(peak, ++active);
+    req.on("close", () => active--);
+  });
+  await new Promise((resolve) => hanging.listen(0, "127.0.0.1", resolve));
+  const poller = await startService(TLOG, {
+    GOSSIP_PEERS: `http://127.0.0.1:${hanging.address().port}#${b64(peer.publicKey)}`,
+    GOSSIP_INTERVAL_MS: "100",
+  });
+  procs.push(poller.proc);
+  await new Promise((resolve) => setTimeout(resolve, 1200));
+  poller.proc.kill();
+  hanging.closeAllConnections();
+  hanging.close();
+
+  assert.equal(peak, 1);
+  assert.ok(total >= 3, `only ${total} polls: a hung one blocked the rest`);
 });
