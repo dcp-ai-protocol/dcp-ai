@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
-	"strings"
+	"time"
 )
 
 // V2VerificationResult describes the outcome of a V2 signed bundle verification.
@@ -127,6 +127,7 @@ func VerifySignedBundleV2WithPolicy(registry *AlgorithmRegistry, signedBundleJSO
 
 	verifyManifestHashes(bundle, manifest, result)
 	verifySessionNonceConsistency(bundle, manifestNonce, result)
+	verifySessionExpiry(manifest, result)
 	mode := resolveVerificationMode(bundle, policy, result)
 	if mode == "" {
 		result.Errors = append(result.Errors, "Unknown verification mode in verifier policy")
@@ -134,15 +135,20 @@ func VerifySignedBundleV2WithPolicy(registry *AlgorithmRegistry, signedBundleJSO
 	}
 	verifyBundleSignature(registry, bundle, signature, manifest, mode, policy, result)
 	verifyArtifactSignatures(registry, bundle, mode, policy, result)
-	verifyAuditHashChain(bundle, result)
+	verifyAuditTrail(bundle, manifest, result)
+	verifyKeyValidity(bundle, result)
 
 	result.Verified = len(result.Errors) == 0
 	return result
 }
 
+// verifyManifestHashes recomputes each artifact's hash and checks it against
+// its payload_hash and the manifest (VERIFICATION.md V2-3). A hash that cannot
+// be checked, because the payload or the manifest field is missing or the
+// payload cannot be canonicalized, is an error.
 func verifyManifestHashes(bundle, manifest map[string]interface{}, result *V2VerificationResult) {
 	if manifest == nil {
-		return
+		return // reported as missing by VerifySignedBundleV2
 	}
 
 	hashFields := []struct {
@@ -158,26 +164,34 @@ func verifyManifestHashes(bundle, manifest map[string]interface{}, result *V2Ver
 	for _, hf := range hashFields {
 		artifact, ok := bundle[hf.artifactKey].(map[string]interface{})
 		if !ok {
+			continue // reported by VerifySignedBundleV2 and verifyArtifactSignatures
+		}
+		canonical, err := CanonicalizeV2(artifact["payload"])
+		if artifact["payload"] == nil || err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("Cannot hash %s payload", hf.artifactKey))
 			continue
 		}
-		payload := artifact["payload"]
-		if payload == nil {
-			continue
+		computed := "sha256:" + DualHashCanonical(canonical).SHA256
+		if payloadHash, _ := artifact["payload_hash"].(string); payloadHash != computed {
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: payload_hash mismatch", hf.artifactKey))
 		}
-		expected, _ := manifest[hf.hashKey].(string)
-		if expected == "" {
-			continue
-		}
-
-		canonical, err := CanonicalizeV2(payload)
-		if err != nil {
-			continue
-		}
-		dh := DualHashCanonical(canonical)
-		computed := "sha256:" + dh.SHA256
-		if computed != expected {
+		if expected, _ := manifest[hf.hashKey].(string); expected != computed {
 			result.Errors = append(result.Errors, fmt.Sprintf("Manifest %s mismatch", hf.hashKey))
 		}
+	}
+}
+
+// verifySessionExpiry rejects a bundle whose manifest session_expires_at has
+// passed or cannot be parsed.
+func verifySessionExpiry(manifest map[string]interface{}, result *V2VerificationResult) {
+	raw, ok := manifest["session_expires_at"]
+	if !ok || raw == nil {
+		return
+	}
+	value, _ := raw.(string)
+	expires, err := time.Parse(time.RFC3339, value)
+	if err != nil || !expires.After(time.Now()) {
+		result.Errors = append(result.Errors, fmt.Sprintf("Session expired at %v", raw))
 	}
 }
 
@@ -413,30 +427,62 @@ func verifyArtifactSignatures(registry *AlgorithmRegistry, bundle map[string]int
 	}
 }
 
-func verifyAuditHashChain(bundle map[string]interface{}, result *V2VerificationResult) {
-	entriesRaw, ok := bundle["audit_entries"].([]interface{})
+// verifyAuditTrail ties the audit entries to the signed manifest, as the TS
+// verifier does: audit_count, audit_merkle_root, and the prev_hash chain that
+// starts at GENESIS.
+func verifyAuditTrail(bundle, manifest map[string]interface{}, result *V2VerificationResult) {
+	if manifest == nil {
+		return // reported as missing by VerifySignedBundleV2
+	}
+	entries, ok := bundle["audit_entries"].([]interface{})
 	if !ok {
+		result.Errors = append(result.Errors, "Missing audit_entries in bundle")
 		return
 	}
+	if count, ok := manifest["audit_count"].(float64); !ok || count != float64(len(entries)) {
+		result.Errors = append(result.Errors, fmt.Sprintf("Manifest audit_count=%v but bundle has %d entries", manifest["audit_count"], len(entries)))
+	}
 
-	expectedPrev := "sha256:" + strings.Repeat("0", 64)
-	for i, entryRaw := range entriesRaw {
-		entry, ok := entryRaw.(map[string]interface{})
-		if !ok {
-			continue
+	leaves := make([]string, 0, len(entries))
+	prev := "GENESIS"
+	for i, raw := range entries {
+		entry, _ := raw.(map[string]interface{})
+		canonical, err := CanonicalizeV2(raw)
+		if entry == nil || err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("Cannot hash audit entry %d", i))
+			return
 		}
-		if i > 0 {
-			prevHash, _ := entry["prev_hash"].(string)
-			if prevHash != expectedPrev {
-				result.Errors = append(result.Errors, fmt.Sprintf("Audit hash chain broken at entry %d", i))
-				break
+		if prevHash, _ := entry["prev_hash"].(string); prevHash != prev {
+			result.Errors = append(result.Errors, fmt.Sprintf("Audit hash chain broken at entry %d: expected %s", i, prev))
+			return
+		}
+		leaf := DualHashCanonical(canonical).SHA256
+		leaves = append(leaves, leaf)
+		prev = "sha256:" + leaf
+	}
+	if len(leaves) > 0 {
+		if root, _ := manifest["audit_merkle_root"].(string); root != "sha256:"+computeMerkleRoot(leaves, merkleHashSHA256) {
+			result.Errors = append(result.Errors, "Manifest audit_merkle_root mismatch")
+		}
+	}
+}
+
+// verifyKeyValidity rejects a revoked or expired key among those that can sign:
+// the passport keys and the RPR binding_keys (VERIFICATION.md V2-13).
+func verifyKeyValidity(bundle map[string]interface{}, result *V2VerificationResult) {
+	keys := append(append([]interface{}{}, payloadKeys(bundle, "agent_passport", "keys")...),
+		payloadKeys(bundle, "responsible_principal_record", "binding_keys")...)
+	now := time.Now()
+	for _, raw := range keys {
+		key, _ := raw.(map[string]interface{})
+		kid, _ := key["kid"].(string)
+		if status, _ := key["status"].(string); status == "revoked" {
+			result.Errors = append(result.Errors, fmt.Sprintf("Key %s is revoked", kid))
+		}
+		if value, ok := key["expires_at"].(string); ok {
+			if expires, err := time.Parse(time.RFC3339, value); err != nil || expires.Before(now) {
+				result.Errors = append(result.Errors, fmt.Sprintf("Key %s has expired", kid))
 			}
 		}
-		canonical, err := CanonicalizeV2(entry)
-		if err != nil {
-			continue
-		}
-		dh := DualHashCanonical(canonical)
-		expectedPrev = "sha256:" + dh.SHA256
 	}
 }
