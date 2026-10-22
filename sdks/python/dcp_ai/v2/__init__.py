@@ -81,6 +81,7 @@ from dcp_ai.v2.proof_of_possession import (
 from dcp_ai.v2.blinded_rpr import (
     blind_rpr,
     compute_pii_hash,
+    generate_pii_salt,
     is_blinded_rpr,
     verify_blinded_rpr,
 )
@@ -280,6 +281,7 @@ __all__ = [
     # Phase 2: Blinded RPR
     "blind_rpr",
     "compute_pii_hash",
+    "generate_pii_salt",
     "is_blinded_rpr",
     "verify_blinded_rpr",
     # Phase 2: Multi-party M-of-N auth

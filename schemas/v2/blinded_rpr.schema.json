@@ -30,7 +30,7 @@
     "pii_hash": {
       "type": "string",
       "pattern": "^sha256:[0-9a-f]{64}$",
-      "description": "sha256(canonical({ legal_name, contact }))"
+      "description": "sha256(dcp-jcs-v1({ contact, legal_name, pii_salt })) over the full RPR, with a missing contact hashed as null (spec §12.1). The salt stays in the full RPR. Legacy records hash the same fields without pii_salt; they are deprecated."
     },
     "entity_type": {
       "type": "string",

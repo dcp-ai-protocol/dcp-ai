@@ -5,7 +5,9 @@ use serde_json::json;
 use dcp_ai::v2::advisory::{
     apply_advisories_to_policy, build_algorithm_advisory, check_advisory, evaluate_advisories,
 };
-use dcp_ai::v2::blinded_rpr::{blind_rpr, compute_pii_hash, is_blinded_rpr, verify_blinded_rpr};
+use dcp_ai::v2::blinded_rpr::{
+    blind_rpr, compute_pii_hash, generate_pii_salt, is_blinded_rpr, verify_blinded_rpr,
+};
 use dcp_ai::v2::multi_party_auth::{
     verify_multi_party_authorization, MultiPartyPolicy,
 };
@@ -127,7 +129,64 @@ fn sample_rpr() -> serde_json::Value {
         "issued_at": "2026-04-01T00:00:00Z",
         "expires_at": "2027-04-01T00:00:00Z",
         "binding_keys": [],
+        "pii_salt": "c".repeat(64),
     })
+}
+
+#[test]
+fn generate_pii_salt_is_32_random_bytes_as_hex() {
+    let salt = generate_pii_salt();
+    assert_eq!(salt.len(), 64);
+    assert!(
+        salt.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f')),
+        "{salt}"
+    );
+    assert_ne!(generate_pii_salt(), salt);
+}
+
+#[test]
+fn blind_rpr_requires_pii_salt() {
+    for salt in [
+        json!(null),
+        json!(""),
+        json!("ab"),
+        json!("A".repeat(64)),
+        json!("g".repeat(64)),
+        json!("a".repeat(66)),
+        json!(42),
+    ] {
+        let mut full = sample_rpr();
+        full["pii_salt"] = salt.clone();
+        let err = blind_rpr(&full).unwrap_err();
+        assert!(err.contains("generate_pii_salt()"), "{salt}: {err}");
+    }
+    let mut full = sample_rpr();
+    full.as_object_mut().unwrap().remove("pii_salt");
+    assert!(blind_rpr(&full).is_err());
+}
+
+#[test]
+fn verify_blinded_rpr_wrong_salt() {
+    let mut full = sample_rpr();
+    let blinded = blind_rpr(&full).unwrap();
+    full["pii_salt"] = json!("d".repeat(64));
+    let result = verify_blinded_rpr(&full, &blinded);
+    assert!(!result.valid);
+    assert!(
+        result.errors[0].starts_with("pii_hash mismatch"),
+        "{:?}",
+        result.errors
+    );
+}
+
+#[test]
+fn verify_blinded_rpr_accepts_legacy_unsalted_record() {
+    let mut legacy = sample_rpr();
+    legacy.as_object_mut().unwrap().remove("pii_salt");
+    let mut blinded = blind_rpr(&sample_rpr()).unwrap();
+    blinded["pii_hash"] = json!(compute_pii_hash(&legacy).unwrap());
+    let result = verify_blinded_rpr(&legacy, &blinded);
+    assert!(result.valid, "errors: {:?}", result.errors);
 }
 
 #[test]
@@ -146,6 +205,7 @@ fn blind_rpr_strips_pii() {
     assert_eq!(blinded["blinded"], true);
     assert!(blinded.get("contact").is_none() || blinded["contact"].is_null());
     assert!(blinded.get("legal_name").is_none() || blinded["legal_name"].is_null());
+    assert!(blinded.get("pii_salt").is_none());
     assert!(is_blinded_rpr(&blinded));
 }
 

@@ -48,6 +48,7 @@ class ResponsiblePrincipalRecordV2(BaseModel):
     expires_at: str | None = None
     contact: str | None = None
     binding_keys: list[KeyEntryV2]
+    pii_salt: str | None = None
 
 
 class BlindedResponsiblePrincipalRecordV2(BaseModel):

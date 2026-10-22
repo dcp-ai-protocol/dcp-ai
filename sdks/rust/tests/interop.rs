@@ -152,6 +152,32 @@ fn interop_payload_hashes() {
 // ---------------------------------------------------------------------------
 
 #[test]
+fn interop_blinded_rpr() {
+    use dcp_ai::v2::blinded_rpr::{blind_rpr, compute_pii_hash};
+    let v = load_vectors();
+    let vectors = v["blinded_rpr"]["vectors"]
+        .as_array()
+        .expect("blinded_rpr.vectors array missing");
+    for vec in vectors {
+        let name = vec["name"].as_str().unwrap();
+        let rpr = &vec["rpr"];
+        let mut legacy = rpr.clone();
+        legacy.as_object_mut().unwrap().remove("pii_salt");
+        assert_eq!(
+            compute_pii_hash(rpr).unwrap(),
+            vec["pii_hash"].as_str().unwrap(),
+            "{name}: salted"
+        );
+        assert_eq!(
+            compute_pii_hash(&legacy).unwrap(),
+            vec["legacy_pii_hash"].as_str().unwrap(),
+            "{name}: legacy"
+        );
+        assert_eq!(blind_rpr(rpr).unwrap(), vec["blinded"], "{name}: blinded RPR");
+    }
+}
+
+#[test]
 fn interop_domain_separation_all_contexts() {
     let v = load_vectors();
     let payload = v["domain_separation_all_contexts"]["payload_canonical"]

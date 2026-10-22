@@ -221,6 +221,7 @@ export {
   blindRpr,
   verifyBlindedRpr,
   isBlindedRpr,
+  generatePiiSalt,
 } from './core/blinded-rpr.js';
 
 // ── V2 Key Recovery — Shamir (Gap #1) ──

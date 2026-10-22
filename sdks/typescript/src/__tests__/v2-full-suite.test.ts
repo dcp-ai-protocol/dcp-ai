@@ -56,6 +56,7 @@ import {
   verifyBlindedRpr,
   computePiiHash,
   isBlindedRpr,
+  generatePiiSalt,
 } from '../core/blinded-rpr.js';
 import {
   generateEmergencyRevocationToken,
@@ -1263,25 +1264,50 @@ describe('Negative: Emergency Revocation', () => {
 });
 
 describe('Negative: Blinded RPR', () => {
-  it('blindRpr strips PII and adds pii_hash', () => {
-    const rpr = makeRpr(sessionNonce);
+  const saltedRpr = (): ResponsiblePrincipalRecordV2 => ({
+    ...makeRpr(sessionNonce),
+    pii_salt: generatePiiSalt(),
+  });
+
+  it('blindRpr strips PII and pii_salt and adds pii_hash', () => {
+    const rpr = saltedRpr();
     const blinded = blindRpr(rpr);
     expect(blinded.blinded).toBe(true);
     expect(blinded.pii_hash).toMatch(/^sha256:/);
     expect((blinded as any).legal_name).toBeUndefined();
     expect((blinded as any).contact).toBeUndefined();
+    expect((blinded as any).pii_salt).toBeUndefined();
+  });
+
+  it('blindRpr refuses an RPR without pii_salt', () => {
+    expect(() => blindRpr(makeRpr(sessionNonce))).toThrow(/generatePiiSalt\(\)/);
+  });
+
+  it('blindRpr refuses a malformed pii_salt', () => {
+    for (const pii_salt of ['', 'ab', 'A'.repeat(64), 'g'.repeat(64), 'a'.repeat(66)]) {
+      expect(() => blindRpr({ ...makeRpr(sessionNonce), pii_salt }), pii_salt).toThrow(
+        /generatePiiSalt\(\)/,
+      );
+    }
+  });
+
+  it('generatePiiSalt returns 32 random bytes as lowercase hex', () => {
+    const salt = generatePiiSalt();
+    expect(salt).toMatch(/^[0-9a-f]{64}$/);
+    expect(generatePiiSalt()).not.toBe(salt);
   });
 
   it('verifyBlindedRpr succeeds for matching full RPR', () => {
-    const rpr = makeRpr(sessionNonce);
+    const rpr = saltedRpr();
     const blinded = blindRpr(rpr);
     const result = verifyBlindedRpr(rpr, blinded);
     expect(result.valid).toBe(true);
     expect(result.errors).toHaveLength(0);
+    expect(result.warnings).toHaveLength(0);
   });
 
   it('verifyBlindedRpr fails for wrong PII', () => {
-    const rpr = makeRpr(sessionNonce);
+    const rpr = saltedRpr();
     const blinded = blindRpr(rpr);
 
     const wrongRpr = { ...rpr, legal_name: 'John Smith' };
@@ -1290,8 +1316,26 @@ describe('Negative: Blinded RPR', () => {
     expect(result.errors.some(e => e.includes('pii_hash mismatch'))).toBe(true);
   });
 
+  it('verifyBlindedRpr fails for a different pii_salt', () => {
+    const rpr = saltedRpr();
+    const blinded = blindRpr(rpr);
+    const result = verifyBlindedRpr({ ...rpr, pii_salt: generatePiiSalt() }, blinded);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some(e => e.includes('pii_hash mismatch'))).toBe(true);
+  });
+
+  it('verifyBlindedRpr accepts a legacy unsalted record with a deprecation warning', () => {
+    const legacy = makeRpr(sessionNonce);
+    const blinded = { ...blindRpr(saltedRpr()), pii_hash: computePiiHash(legacy) };
+    const result = verifyBlindedRpr(legacy, blinded);
+    expect(result.valid).toBe(true);
+    expect(result.errors).toHaveLength(0);
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]).toMatch(/legacy unsalted pii_hash/);
+  });
+
   it('verifyBlindedRpr fails for mismatched fields', () => {
-    const rpr = makeRpr(sessionNonce);
+    const rpr = saltedRpr();
     const blinded = blindRpr(rpr);
     blinded.jurisdiction = 'DE';
     const result = verifyBlindedRpr(rpr, blinded);
@@ -1300,7 +1344,7 @@ describe('Negative: Blinded RPR', () => {
   });
 
   it('verifyBlindedRpr fails for different binding_keys', () => {
-    const rpr = makeRpr(sessionNonce);
+    const rpr = saltedRpr();
     const blinded = blindRpr(rpr);
     blinded.binding_keys = [rpr.binding_keys[1]];
     const result = verifyBlindedRpr(rpr, blinded);
@@ -1309,7 +1353,7 @@ describe('Negative: Blinded RPR', () => {
   });
 
   it('verifyBlindedRpr fails for a different session_nonce', () => {
-    const rpr = makeRpr(sessionNonce);
+    const rpr = saltedRpr();
     const blinded = blindRpr(rpr);
     blinded.session_nonce = 'b'.repeat(64);
     const result = verifyBlindedRpr(rpr, blinded);
@@ -1318,13 +1362,13 @@ describe('Negative: Blinded RPR', () => {
   });
 
   it('verifyBlindedRpr accepts a blinded RPR parsed from JSON', () => {
-    const rpr = makeRpr(sessionNonce);
+    const rpr = saltedRpr();
     const blinded = JSON.parse(JSON.stringify(blindRpr(rpr)));
-    expect(verifyBlindedRpr(rpr, blinded)).toEqual({ valid: true, errors: [] });
+    expect(verifyBlindedRpr(rpr, blinded)).toEqual({ valid: true, errors: [], warnings: [] });
   });
 
   it('isBlindedRpr correctly detects blinded vs full', () => {
-    const rpr = makeRpr(sessionNonce);
+    const rpr = saltedRpr();
     const blinded = blindRpr(rpr);
     expect(isBlindedRpr(blinded)).toBe(true);
     expect(isBlindedRpr(rpr)).toBe(false);

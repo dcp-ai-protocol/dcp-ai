@@ -21,6 +21,8 @@ import pytest
 
 from dcp_ai.v2.crypto_provider import derive_kid
 from dcp_ai.v2.canonicalize import canonicalize_v2
+from dcp_ai.v2.blinded_rpr import blind_rpr, compute_pii_hash
+from dcp_ai.v2.models import ResponsiblePrincipalRecordV2
 from dcp_ai.v2.domain_separation import DCP_CONTEXTS, domain_separated_message
 from dcp_ai.v2.dual_hash import sha256_hex, sha3_256_hex
 from dcp_ai.v2.crypto_registry import AlgorithmRegistry
@@ -91,6 +93,18 @@ class TestPayloadHashes:
     def test_sha3_256(self, V, name):
         canonical = V["canonicalization"][name]["expected_canonical"]
         assert sha3_256_hex(canonical.encode("utf-8")) == V["payload_hashes"][name]["sha3_256"]
+
+
+class TestBlindedRprVectors:
+    def test_all_vectors(self, V):
+        for vec in V["blinded_rpr"]["vectors"]:
+            rpr = ResponsiblePrincipalRecordV2.model_validate(vec["rpr"])
+            legacy = ResponsiblePrincipalRecordV2.model_validate(
+                {k: v for k, v in vec["rpr"].items() if k != "pii_salt"}
+            )
+            assert compute_pii_hash(rpr) == vec["pii_hash"], vec["name"]
+            assert compute_pii_hash(legacy) == vec["legacy_pii_hash"], vec["name"]
+            assert canonicalize_v2(blind_rpr(rpr).model_dump()) == canonicalize_v2(vec["blinded"]), vec["name"]
 
 
 # ---------------------------------------------------------------------------

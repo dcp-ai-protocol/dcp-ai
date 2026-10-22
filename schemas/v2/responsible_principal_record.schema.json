@@ -57,6 +57,11 @@
       "type": "array",
       "items": { "$ref": "key_entry.schema.json" },
       "minItems": 1
+    },
+    "pii_salt": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "32 bytes from a CSPRNG as lowercase hex. Salts pii_hash (spec §12.1); signed with the full RPR and never published. Required to blind the record."
     }
   }
 }

@@ -222,6 +222,115 @@
       "sha3_256": "9f183b03e7403938a7d45751d6ce50b33c7d07c6feb9f02766badefdf3ce80d1"
     }
   },
+  "blinded_rpr": {
+    "_description": "Blinded RPR commitments (spec/DCP-AI-v2.0.md §12.1). pii_hash = \"sha256:\" + hex(sha256(dcp-jcs-v1({ contact, legal_name, pii_salt }))), with a missing contact hashed as null. legacy_pii_hash is the deprecated unsalted value: the same without pii_salt, as computed for an RPR that has no pii_salt. blinded is the expected blindRpr output for rpr; pii_salt, legal_name and contact never appear in it.",
+    "_security_notice": "The pii_salt values below are TEST-ONLY and public. Real salts are 32 bytes from a CSPRNG (generatePiiSalt / generate_pii_salt / GeneratePIISalt).",
+    "vectors": [
+      {
+        "name": "with_contact",
+        "rpr": {
+          "dcp_version": "2.0",
+          "human_id": "principal-interop-001",
+          "session_nonce": "a1b2c3d4e5f6a7b8a1b2c3d4e5f6a7b8a1b2c3d4e5f6a7b8a1b2c3d4e5f6a7b8",
+          "legal_name": "Jane Doe",
+          "entity_type": "natural_person",
+          "jurisdiction": "US",
+          "liability_mode": "owner_responsible",
+          "override_rights": true,
+          "issued_at": "2026-02-25T00:00:00Z",
+          "expires_at": "2027-02-25T00:00:00Z",
+          "contact": "jane@example.com",
+          "binding_keys": [
+            {
+              "kid": "c367fd10536963d0787361552bf97e56",
+              "alg": "ed25519",
+              "public_key_b64": "7/Tc71vBBEJc1YrhAre9RhrKj0a4SgBWv0DDMa/pcK8=",
+              "created_at": "2026-02-25T00:00:00Z",
+              "expires_at": "2027-02-25T00:00:00Z",
+              "status": "active"
+            }
+          ],
+          "pii_salt": "74058328d7575d054daaac7aaaeffea873cac94fc8f827cb0bc82741ffbdeaa2"
+        },
+        "pii_hash": "sha256:26b386008ebe60d87ed15ed145c669593d1dbec81e7c716e90adfe8c2587e5b9",
+        "legacy_pii_hash": "sha256:31ab08990c5f2bba219f719a56a5599d7e7c1e50eae438b1cd6ca016c0b7463d",
+        "blinded": {
+          "dcp_version": "2.0",
+          "human_id": "principal-interop-001",
+          "session_nonce": "a1b2c3d4e5f6a7b8a1b2c3d4e5f6a7b8a1b2c3d4e5f6a7b8a1b2c3d4e5f6a7b8",
+          "blinded": true,
+          "pii_hash": "sha256:26b386008ebe60d87ed15ed145c669593d1dbec81e7c716e90adfe8c2587e5b9",
+          "entity_type": "natural_person",
+          "jurisdiction": "US",
+          "liability_mode": "owner_responsible",
+          "override_rights": true,
+          "issued_at": "2026-02-25T00:00:00Z",
+          "expires_at": "2027-02-25T00:00:00Z",
+          "binding_keys": [
+            {
+              "kid": "c367fd10536963d0787361552bf97e56",
+              "alg": "ed25519",
+              "public_key_b64": "7/Tc71vBBEJc1YrhAre9RhrKj0a4SgBWv0DDMa/pcK8=",
+              "created_at": "2026-02-25T00:00:00Z",
+              "expires_at": "2027-02-25T00:00:00Z",
+              "status": "active"
+            }
+          ]
+        }
+      },
+      {
+        "name": "without_contact_non_ascii_name",
+        "rpr": {
+          "dcp_version": "2.0",
+          "human_id": "principal-interop-002",
+          "session_nonce": "a1b2c3d4e5f6a7b8a1b2c3d4e5f6a7b8a1b2c3d4e5f6a7b8a1b2c3d4e5f6a7b8",
+          "legal_name": "María José Núñez",
+          "entity_type": "natural_person",
+          "jurisdiction": "US",
+          "liability_mode": "owner_responsible",
+          "override_rights": true,
+          "issued_at": "2026-02-25T00:00:00Z",
+          "expires_at": "2027-02-25T00:00:00Z",
+          "binding_keys": [
+            {
+              "kid": "c367fd10536963d0787361552bf97e56",
+              "alg": "ed25519",
+              "public_key_b64": "7/Tc71vBBEJc1YrhAre9RhrKj0a4SgBWv0DDMa/pcK8=",
+              "created_at": "2026-02-25T00:00:00Z",
+              "expires_at": "2027-02-25T00:00:00Z",
+              "status": "active"
+            }
+          ],
+          "pii_salt": "4c75bb0fb75f0afc3726888301a0ec086497aaec8126f169c740eb4bdb784eb5"
+        },
+        "pii_hash": "sha256:36a6d8fad74c406b0f2f99b82300dfe91c892b72d0c9006584238ada18945aa2",
+        "legacy_pii_hash": "sha256:be0d780c407966d1f768550ec9bf3d82264db98098a770cd5273733e9dc18ec1",
+        "blinded": {
+          "dcp_version": "2.0",
+          "human_id": "principal-interop-002",
+          "session_nonce": "a1b2c3d4e5f6a7b8a1b2c3d4e5f6a7b8a1b2c3d4e5f6a7b8a1b2c3d4e5f6a7b8",
+          "blinded": true,
+          "pii_hash": "sha256:36a6d8fad74c406b0f2f99b82300dfe91c892b72d0c9006584238ada18945aa2",
+          "entity_type": "natural_person",
+          "jurisdiction": "US",
+          "liability_mode": "owner_responsible",
+          "override_rights": true,
+          "issued_at": "2026-02-25T00:00:00Z",
+          "expires_at": "2027-02-25T00:00:00Z",
+          "binding_keys": [
+            {
+              "kid": "c367fd10536963d0787361552bf97e56",
+              "alg": "ed25519",
+              "public_key_b64": "7/Tc71vBBEJc1YrhAre9RhrKj0a4SgBWv0DDMa/pcK8=",
+              "created_at": "2026-02-25T00:00:00Z",
+              "expires_at": "2027-02-25T00:00:00Z",
+              "status": "active"
+            }
+          ]
+        }
+      }
+    ]
+  },
   "domain_separated_messages": {
     "passport_dsm": "4443502d41492e76322e4167656e7450617373706f7274007b226167656e745f6964223a226167656e742d696e7465726f702d746573742d303031222c226361706162696c6974696573223a5b226170695f63616c6c222c2262726f777365225d2c226463705f76657273696f6e223a22322e30222c227269736b5f74696572223a226d656469756d222c2273657373696f6e5f6e6f6e6365223a2261316232633364346535663661376238613162326333643465356636613762386131623263336434653566366137623861316232633364346535663661376238222c22737461747573223a22616374697665227d",
     "intent_dsm": "4443502d41492e76322e496e74656e74007b22616374696f6e5f74797065223a2273656e645f656d61696c222c226167656e745f6964223a226167656e742d696e7465726f702d746573742d303031222c226463705f76657273696f6e223a22322e30222c22657374696d617465645f696d70616374223a226d656469756d222c22696e74656e745f6964223a22696e74656e742d696e7465726f702d303031222c2273657373696f6e5f6e6f6e6365223a2261316232633364346535663661376238613162326333643465356636613762386131623263336434653566366137623861316232633364346535663661376238227d",

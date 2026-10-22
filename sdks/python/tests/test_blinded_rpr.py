@@ -1,6 +1,10 @@
-"""Blinded RPR: verify_blinded_rpr must compare every non-PII field."""
+"""Blinded RPR: salted commitment, fail-closed blinding, and verify_blinded_rpr comparing every non-PII field."""
 
-from dcp_ai.v2.blinded_rpr import blind_rpr, verify_blinded_rpr
+import re
+
+import pytest
+
+from dcp_ai.v2.blinded_rpr import blind_rpr, compute_pii_hash, generate_pii_salt, verify_blinded_rpr
 from dcp_ai.v2.models import BlindedResponsiblePrincipalRecordV2, KeyEntryV2, ResponsiblePrincipalRecordV2
 
 
@@ -21,18 +25,19 @@ def _rpr() -> ResponsiblePrincipalRecordV2:
         expires_at="2027-02-25T00:00:00Z",
         contact="jane@example.com",
         binding_keys=[_key("k1", "ed25519"), _key("k2", "ml-dsa-65")],
+        pii_salt=generate_pii_salt(),
     )
 
 
 def test_matching_rpr_verifies():
     rpr = _rpr()
-    assert verify_blinded_rpr(rpr, blind_rpr(rpr)) == {"valid": True, "errors": []}
+    assert verify_blinded_rpr(rpr, blind_rpr(rpr)) == {"valid": True, "errors": [], "warnings": []}
 
 
 def test_blinded_rpr_parsed_from_json_verifies():
     rpr = _rpr()
     blinded = BlindedResponsiblePrincipalRecordV2.model_validate_json(blind_rpr(rpr).model_dump_json())
-    assert verify_blinded_rpr(rpr, blinded) == {"valid": True, "errors": []}
+    assert verify_blinded_rpr(rpr, blinded) == {"valid": True, "errors": [], "warnings": []}
 
 
 def test_different_binding_keys_fail():
@@ -49,3 +54,42 @@ def test_different_session_nonce_fails():
     result = verify_blinded_rpr(rpr, blinded)
     assert result["valid"] is False
     assert "session_nonce mismatch" in result["errors"]
+
+
+def test_blind_rpr_strips_pii_and_salt():
+    blinded = blind_rpr(_rpr()).model_dump()
+    assert not {"legal_name", "contact", "pii_salt"} & blinded.keys()
+
+
+def test_blind_rpr_requires_pii_salt():
+    with pytest.raises(ValueError, match=r"generate_pii_salt\(\)"):
+        blind_rpr(_rpr().model_copy(update={"pii_salt": None}))
+
+
+@pytest.mark.parametrize("salt", ["", "ab", "A" * 64, "g" * 64, "a" * 66])
+def test_blind_rpr_rejects_malformed_pii_salt(salt):
+    with pytest.raises(ValueError, match=r"generate_pii_salt\(\)"):
+        blind_rpr(_rpr().model_copy(update={"pii_salt": salt}))
+
+
+def test_generate_pii_salt_is_32_random_bytes_as_hex():
+    salt = generate_pii_salt()
+    assert re.fullmatch(r"[0-9a-f]{64}", salt)
+    assert generate_pii_salt() != salt
+
+
+def test_different_pii_salt_fails():
+    rpr = _rpr()
+    result = verify_blinded_rpr(rpr.model_copy(update={"pii_salt": generate_pii_salt()}), blind_rpr(rpr))
+    assert result["valid"] is False
+    assert any(e.startswith("pii_hash mismatch") for e in result["errors"])
+
+
+def test_legacy_unsalted_record_verifies_with_warning():
+    legacy = _rpr().model_copy(update={"pii_salt": None})
+    blinded = blind_rpr(_rpr()).model_copy(update={"pii_hash": compute_pii_hash(legacy)})
+    result = verify_blinded_rpr(legacy, blinded)
+    assert result["valid"] is True
+    assert result["errors"] == []
+    assert len(result["warnings"]) == 1
+    assert "legacy unsalted pii_hash" in result["warnings"][0]
