@@ -116,6 +116,15 @@ test("re-registration needs every active key, even where VERIFIER_MODE allows cl
   };
   const classicalOnly = await signPassport(planted, { classical: erin.keys.classical });
   assert.equal((await postTo(configured, "/v2/passport/register", { signed_passport: classicalOnly })).status, 409);
+
+  // Nor once its PQ key has expired: an agent that registered a PQ key needs an active one.
+  const kilo = await newAgent("agent:kilo-0001");
+  kilo.passport.keys[1].expires_at = "2020-01-01T00:00:00Z";
+  const registered = await signPassport(kilo.passport, kilo.keys);
+  assert.equal((await postTo(configured, "/v2/passport/register", { signed_passport: registered })).status, 201);
+  const kiloPlanted = { ...planted, agent_id: "agent:kilo-0001", keys: [kilo.passport.keys[0]], created_at: later(kilo.passport.created_at) };
+  const kiloClassicalOnly = await signPassport(kiloPlanted, { classical: kilo.keys.classical });
+  assert.equal((await postTo(configured, "/v2/passport/register", { signed_passport: kiloClassicalOnly })).status, 409);
 });
 
 test("one key in both composite slots is not a hybrid signature", async () => {
