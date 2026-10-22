@@ -39,6 +39,7 @@ from dcp_ai.v2.models import (
 )
 from dcp_ai.v2.canonicalize import canonicalize_v2
 from dcp_ai.v2.dual_hash import sha256_hex
+from dcp_ai.v2.security_tier import compute_security_tier
 
 
 def _hash_object(obj: Any) -> str:
@@ -51,7 +52,6 @@ def _generate_session_nonce() -> str:
 
 
 SENSITIVE_DATA_CLASSES = {"pii", "financial_data", "health_data", "credentials", "children_data"}
-HIGH_VALUE_DATA_CLASSES = {"credentials", "children_data"}
 
 
 def _compute_risk_score(action_type: str, impact: str, data_classes: list[str]) -> int:
@@ -71,18 +71,13 @@ def _compute_security_tier(
     risk_score: int,
     data_classes: list[str],
     action_type: str,
+    impact: str,
 ) -> str:
-    has_high_value = any(d in HIGH_VALUE_DATA_CLASSES for d in data_classes)
-    has_sensitive = any(d in SENSITIVE_DATA_CLASSES for d in data_classes)
-    is_payment = action_type == "initiate_payment"
-
-    if risk_score >= 800 or has_high_value:
-        return "maximum"
-    if risk_score >= 500 or has_sensitive or is_payment:
-        return "elevated"
-    if risk_score >= 200:
-        return "standard"
-    return "routine"
+    """Compute adaptive security tier from risk score, data classes, action and impact."""
+    return compute_security_tier(
+        {"action_type": action_type, "data_classes": data_classes, "estimated_impact": impact},
+        {"risk_score": risk_score},
+    )
 
 
 class DCPCrewAgent:
@@ -211,7 +206,7 @@ class DCPCrewAgent:
             )
         dc = data_classes or ["none"]
         risk_score = _compute_risk_score(action_type, impact, dc)
-        tier = _compute_security_tier(risk_score, dc, action_type)
+        tier = _compute_security_tier(risk_score, dc, action_type, impact)
         intent = IntentV2(
             dcp_version="2.0",
             intent_id=f"intent-{uuid4().hex[:8]}",
