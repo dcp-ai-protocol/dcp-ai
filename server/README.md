@@ -10,7 +10,7 @@ node server/index.js
 # or: npm run server
 ```
 
-Default port: `3000`. Override with `PORT=4000 node server/index.js`. Set `OPERATOR_TOKEN` to use the admin endpoints.
+Default port: `3000`. Override with `PORT=4000 node server/index.js`. Set `OPERATOR_TOKEN` to use the admin endpoints and to register new agents.
 
 ## Endpoints
 
@@ -69,7 +69,7 @@ Default port: `3000`. Override with `PORT=4000 node server/index.js`. Set `OPERA
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `3000` | HTTP listen port |
-| `OPERATOR_TOKEN` | — | Bearer token for the operator endpoints. Unset: they stay locked |
+| `OPERATOR_TOKEN` | — | Bearer token for the operator endpoints and for registering new `agent_id`s. Unset: both stay locked |
 | `VERIFIER_MODE` | `hybrid_required` | Startup verification mode: `classical_only`, `hybrid_preferred`, `hybrid_required` or `pq_only`. An invalid value stops the server |
 | `ALLOW_V1_BUNDLES` | `true` | `false` makes `POST /verify` reject V1 bundles (`pq_only` always does) |
 | `TRUST_PROXY` | — | `true` only behind a proxy that appends the client IP to `X-Forwarded-For` (Fly, nginx). Rate limits then key on its last hop; otherwise on the socket address, since clients can forge the header |

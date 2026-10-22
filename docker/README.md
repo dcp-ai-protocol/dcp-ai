@@ -119,7 +119,8 @@ docker compose up
 | `PORT` | `3003` | HTTP port |
 | `TRUST_PROXY` | — | `true` only behind a proxy that appends the client IP to `X-Forwarded-For` |
 
-The verification service reads `OPERATOR_TOKEN` too (its admin endpoints). Run
+The verification and revocation services read `OPERATOR_TOKEN` too: for the gateway's admin
+endpoints and for registering new `agent_id`s on both. Run
 `OPERATOR_TOKEN=$(openssl rand -hex 32) docker compose up` to unlock them; without it they answer 401.
 All services keep their state in memory, so `docker compose down` or a restart wipes it.
 

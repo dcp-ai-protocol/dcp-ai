@@ -1,7 +1,7 @@
 # Fly.io deployment for the DCP-AI verification server.
 # Usage (from this directory):
 #   fly launch --config verification.toml --no-deploy
-#   fly secrets set OPERATOR_TOKEN=...   # unlocks the admin endpoints
+#   fly secrets set OPERATOR_TOKEN=...   # admin endpoints and registering new agent_ids
 #   fly deploy --config verification.toml
 #
 # State (passports, keys, revocations) is in memory: a stopped machine forgets

@@ -44,7 +44,7 @@ services:
       - ALLOW_V1_BUNDLES=true
       - PQ_CHECKPOINT_INTERVAL=10
       - ADVISORY_POLL_INTERVAL_MS=86400000
-      - OPERATOR_TOKEN   # from the host env; admin endpoints stay locked without it
+      - OPERATOR_TOKEN   # from the host env; admin endpoints and new agent_ids stay locked without it
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
