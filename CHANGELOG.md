@@ -40,6 +40,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   registered key entries, so a new passport cannot extend a key's `expires_at`.
 - Fly configs keep one verification and one revocation machine running: scaling to zero wiped
   their in-memory registries whenever the machine idled.
+- TypeScript SDK: `verifySignedBundleV2` implements `spec/VERIFICATION.md` Steps V2-7 and V2-8. A
+  PQ signature that is present (`pq_over_classical`) must verify in every mode; `hybrid_preferred`
+  (the default for medium risk) accepted an invalid one with a warning and `classical_only`
+  ignored it. Only an absent one (`classical_only` binding) is tolerated, and not under
+  `hybrid_required` or `pq_only`. Each artifact's own `composite_sig` is now verified under the
+  same rules with its context tag: the RPR against its `binding_keys`, the passport, intent and
+  policy decision against the passport `keys`. Before, only `payload_hash` was checked, so a
+  forged agent signature on the intent verified even under `hybrid_required`. The reference
+  verifier, `dcp verify-bundle` and the server get this with the next `@dcp-ai/sdk` release.
+- Go (`v2.VerifySignedBundleV2`) and Rust SDKs: each artifact's `composite_sig` is verified the
+  same way (V2-8), and signer keys are looked up by `kid` (V2-6), the bundle signer in the
+  passport `keys` and the RPR `binding_keys`. They used to take the passport's Ed25519 and
+  ML-DSA-65 keys by algorithm, so they rejected bundles signed with the principal's keys and
+  reported a bundle whose passport listed no Ed25519 key as verified, with a warning, without
+  checking its signature.
 
 ### Changed (breaking)
 
@@ -68,6 +83,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   keys looked up by derived kid) and its `v2Registry`; `lib/http.js` holds the body parsing,
   client-IP and operator-token helpers shared by `server/` and `services/`. The anchor and
   transparency-log services have `node:test` suites, run in CI with the existing ones.
+- Rust SDK: the V2 bundle verifier moved out of the `wasm` feature into
+  `dcp_ai::v2::verify_bundle::verify_signed_bundle_v2`, so native builds and `cargo test` run it;
+  `wasm_verify_signed_bundle_v2` delegates to it.
+- `tests/interop/v2/bundle_vectors.json`: a signed bundle that every V2 verifier must accept, and
+  mutations (forged bundle PQ signature, forged or misattributed artifact signatures) after which
+  it must reject it, checked by the TypeScript, Go and Rust suites. Regenerate with
+  `sdks/typescript/src/__tests__/generate-bundle-vectors.ts`.
 
 ### Documentation
 
@@ -78,6 +100,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The TypeScript SDK README (all languages) and `docs/API_REFERENCE.md` list the real signatures of
   the composite-signature, bundle, presentation, PQ checkpoint, A2A, error, emergency revocation,
   key recovery, hashing and CBOR functions.
+- `docs/API_REFERENCE.md`: the V2 verification pipeline lists the per-artifact signature checks,
+  and the known-limitations note on V2-7 and V2-8 now applies only to `@dcp-ai/sdk` 2.1.2 and
+  earlier.
 
 ## [2.9.0] - 2026-10-21
 
@@ -105,7 +130,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Revocation service: one emergency revocation no longer reports every kid of every agent as
   revoked (`GET /v2/check/kid/:kid` now takes `?agent_id=`), and malformed percent-encoding returns
   400 instead of crashing the process.
-
 ### Changed (breaking)
 
 - `lib/verify.js` (the root package `main`): `verifySignedBundle` is now `async` and takes a
