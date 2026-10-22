@@ -414,12 +414,18 @@ export interface VerifyReceiptOptions {
  * `arguments` and `result`. Returns the verifier's result with any extra errors appended.
  */
 export async function verifyDcpReceipt(receipt: SignedBundleV2, options: VerifyReceiptOptions = {}) {
-  const anchored = options.trustedKeys !== undefined;
-  const invalid = (error: string) => ({ verified: false, anchored, errors: [error], warnings: [] as string[] });
+  const wantAnchor = options.trustedKeys !== undefined;
+  const invalid = (error: string) => ({ verified: false, anchored: false, errors: [error], warnings: [] as string[] });
   if (!isSignedBundleShape(receipt)) return invalid('not a signed bundle: bundle, signature and bundle.audit_entries (array) are required');
-  if (anchored && !Array.isArray(options.trustedKeys)) return invalid('trustedKeys must be an array of key entries');
+  if (wantAnchor && !Array.isArray(options.trustedKeys)) return invalid('trustedKeys must be an array of key entries');
   const registry = options.registry ?? defaultRegistry();
-  const result = await verifySignedBundleV2(receipt, registry, options.policy ?? DEFAULT_VERIFIER_POLICY);
+  let result: Awaited<ReturnType<typeof verifySignedBundleV2>>;
+  try {
+    result = await verifySignedBundleV2(receipt, registry, options.policy ?? DEFAULT_VERIFIER_POLICY);
+  } catch (e) {
+    // The published SDK throws on some malformed bundles (a null composite_sig, a null artifact) instead of failing closed.
+    return invalid(`bundle verification error: ${e instanceof Error ? e.message : String(e)}`);
+  }
   const errors = [...result.errors];
   const passport = receipt.bundle.agent_passport?.payload as { agent_id?: unknown; keys?: unknown } | undefined;
   const rpr = receipt.bundle.responsible_principal_record?.payload as { human_id?: unknown; binding_keys?: unknown } | undefined;
@@ -429,7 +435,9 @@ export async function verifyDcpReceipt(receipt: SignedBundleV2, options: VerifyR
   if (options.expectedHumanId !== undefined && rpr?.human_id !== options.expectedHumanId) {
     errors.push(`receipt is under principal ${String(rpr?.human_id)}, expected ${options.expectedHumanId}`);
   }
-  if (anchored) errors.push(...anchorErrors(receipt, [...asKeys(passport?.keys), ...asKeys(rpr?.binding_keys)], options.trustedKeys as KeyEntry[]));
+  const anchorErrs = wantAnchor ? anchorErrors(receipt, asKeys(passport?.keys), asKeys(rpr?.binding_keys), options.trustedKeys as KeyEntry[]) : [];
+  errors.push(...anchorErrs);
+  const anchored = wantAnchor && anchorErrs.length === 0;
   const entries = receipt.bundle.audit_entries;
   const entry = entries.length === 1 && isObject(entries[0]) ? entries[0] : undefined;
   if (!entry) errors.push('a receipt carries exactly one audit entry');
@@ -452,40 +460,59 @@ export async function verifyDcpReceipt(receipt: SignedBundleV2, options: VerifyR
 
 const asKeys = (v: unknown): KeyEntry[] => (Array.isArray(v) ? (v.filter(isObject) as unknown as KeyEntry[]) : []);
 
-/** Every signature slot of a receipt: the bundle's and each signed artifact's, classical and pq. */
-function signatureSlots(receipt: SignedBundleV2): Array<{ where: string; kid: unknown; alg: unknown }> {
-  const out: Array<{ where: string; kid: unknown; alg: unknown }> = [];
-  const add = (where: string, sig: unknown) => {
-    if (!isObject(sig)) return out.push({ where, kid: undefined, alg: undefined });
+/**
+ * Every signature slot of a receipt with the key list the SDK verifier resolves it against (the
+ * RPR against the RPR binding keys, the agent's artifacts against the passport keys, the bundle
+ * against both, passport keys first), classical and pq.
+ */
+function signatureSlots(receipt: SignedBundleV2, passportKeys: KeyEntry[], rprKeys: KeyEntry[]): Array<{ where: string; kid: unknown; alg: unknown; keys: KeyEntry[] }> {
+  const out: Array<{ where: string; kid: unknown; alg: unknown; keys: KeyEntry[] }> = [];
+  const add = (where: string, sig: unknown, keys: KeyEntry[]) => {
+    if (!isObject(sig)) return out.push({ where, kid: undefined, alg: undefined, keys });
     for (const slot of ['classical', 'pq'] as const) {
       const s = sig[slot];
       if (s === null && slot === 'pq') continue;
-      out.push(isObject(s) ? { where: `${where}.${slot}`, kid: s.kid, alg: s.alg } : { where: `${where}.${slot}`, kid: undefined, alg: undefined });
+      out.push(isObject(s) ? { where: `${where}.${slot}`, kid: s.kid, alg: s.alg, keys } : { where: `${where}.${slot}`, kid: undefined, alg: undefined, keys });
     }
   };
-  add('signature', receipt.signature?.composite_sig);
-  for (const name of ['responsible_principal_record', 'agent_passport', 'intent', 'policy_decision'] as const) {
-    add(name, (receipt.bundle[name] as { composite_sig?: unknown } | undefined)?.composite_sig);
-  }
+  const artifact = (name: keyof SignedBundleV2['bundle']) => (receipt.bundle[name] as { composite_sig?: unknown } | undefined)?.composite_sig;
+  add('signature', receipt.signature?.composite_sig, [...passportKeys, ...rprKeys]);
+  add('responsible_principal_record', artifact('responsible_principal_record'), rprKeys);
+  for (const name of ['agent_passport', 'intent', 'policy_decision'] as const) add(name, artifact(name), passportKeys);
   return out;
 }
 
 /**
- * Why the receipt's signatures are not all made with trusted keys. A signing key must be listed by
- * the receipt (passport keys or RPR binding keys) and match a trusted entry by kid, alg and public
- * key, and every matching trusted entry must be active and unexpired now.
+ * Why the receipt's signatures are not all made with trusted keys. Each signing key is resolved
+ * exactly as the SDK verifier resolves it (the first listed key with the slot's kid, in the list
+ * for that artifact), so the key that is anchored is the key whose public key verified the
+ * signature; it must then carry the slot's algorithm and match a trusted entry by kid, alg and
+ * public key, and every matching trusted entry must be active and unexpired now. A kid listed
+ * twice with different keys is not comparable.
  */
-function anchorErrors(receipt: SignedBundleV2, listed: KeyEntry[], trusted: KeyEntry[]): string[] {
+function anchorErrors(receipt: SignedBundleV2, passportKeys: KeyEntry[], rprKeys: KeyEntry[], trusted: KeyEntry[]): string[] {
   const errors: string[] = [];
   const nowMs = Date.now();
-  for (const slot of signatureSlots(receipt)) {
+  for (const slot of signatureSlots(receipt, passportKeys, rprKeys)) {
+    // ponytail: resolution mirrors the SDK's findKeyByKid; if the SDK ever changes it, change this with it.
     if (typeof slot.kid !== 'string' || typeof slot.alg !== 'string') {
       errors.push(`${slot.where}: signature slot without kid or alg`);
       continue;
     }
-    const key = listed.find((k) => k.kid === slot.kid && k.alg === slot.alg);
-    if (!key) {
+    const matches = slot.keys.filter((k) => k.kid === slot.kid);
+    if (matches.length === 0) {
       errors.push(`${slot.where}: key ${slot.kid} is not listed by the receipt`);
+      continue;
+    }
+    // The same entry may appear in both the passport and the RPR (one key pair for both roles);
+    // two different keys under one kid are not comparable.
+    const key = matches[0];
+    if (matches.some((k) => k.alg !== key.alg || k.public_key_b64 !== key.public_key_b64)) {
+      errors.push(`${slot.where}: kid ${slot.kid} is listed more than once with different keys`);
+      continue;
+    }
+    if (key.alg !== slot.alg) {
+      errors.push(`${slot.where}: key ${slot.kid} is ${String(key.alg)}, signature says ${slot.alg}`);
       continue;
     }
     const anchors = trusted.filter((t) => isObject(t) && t.kid === key.kid && t.alg === key.alg && t.public_key_b64 === key.public_key_b64);

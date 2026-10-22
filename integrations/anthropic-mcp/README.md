@@ -103,9 +103,11 @@ A receipt verifies with the keys its own passport and RPR list, like every DCP b
 result alone proves the receipt is self-consistent and untampered, not who those keys belong to. To
 make it an identity check, pass `trustedKeys` (the keys you already trust for the agent and its
 principal, from a registry or a pinned passport and RPR) together with `expectedAgentId` and
-`expectedHumanId`: every signature in the receipt must then be made with one of those keys, active
-and unexpired in your list, and the result says `anchored: true`. A verifier that trusts a registry
-of passports can anchor every receipt an agent produces without re-reading the passport itself.
+`expectedHumanId`: every signature the SDK verifies in the receipt must then be made with one of
+those keys, resolved exactly as the SDK resolves it (first listed key with the signature's `kid`,
+in the key list of that artifact), active and unexpired in your list; the result says `anchored:
+true` only when that held. A verifier that trusts a registry of passports can anchor every receipt
+an agent produces without re-reading the passport itself.
 
 Limits to know about:
 
