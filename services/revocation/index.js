@@ -12,10 +12,17 @@
  * the passport's emergency revocation token. Revocations must be signed by
  * the registered keys.
  *
- * State is in memory and does not survive a restart.
+ * Registering a new agent_id needs the operator token (OPERATOR_TOKEN): a
+ * passport is only self-signed, so the operator vouches for who may claim an
+ * agent_id. Re-registering stays self-service, signed by the agent's keys.
+ *
+ * State is in memory and does not survive a restart unless REVOCATION_STATE_PATH
+ * names a file to keep it in.
  *
  * Environment:
  *   PORT                   — HTTP port (default 3003)
+ *   OPERATOR_TOKEN         — bearer token required to register a new agent_id
+ *   REVOCATION_STATE_PATH  — optional append-only state file (default: memory only)
  *   TRUST_PROXY            — "true" behind a proxy that appends X-Forwarded-For
  *   REGISTRATIONS_PER_HOUR — POST /v2/register calls per client and hour (default 20)
  *   MAX_AGENTS             — registered agents before new ones get 507 (default 10000)
@@ -23,9 +30,10 @@
 
 import http from "http";
 import crypto from "crypto";
+import fs from "fs";
 import { DCP_CONTEXTS } from "@dcp-ai/sdk";
 import { verifyCompositeSig } from "../../lib/verify.js";
-import { decodeParam, getClientIp, parseBody, rateLimiter } from "../../lib/http.js";
+import { decodeParam, getClientIp, isOperator, parseBody, rateLimiter } from "../../lib/http.js";
 import { verifyObject } from "../../tools/crypto.js";
 
 const PORT = Number(process.env.PORT) || 3003;
@@ -43,6 +51,27 @@ const kidRevocations = new Map();
 const agents = new Map();
 // kid -> agent_id, for the keys that proved possession at registration
 const kidOwners = new Map();
+
+// Optional file-backed state: each write is appended as one JSON line and the file is
+// replayed at start. Without REVOCATION_STATE_PATH, a restart forgets every registration
+// and revocation.
+// ponytail: append-only and never compacted; rewrite it from the maps if it grows large.
+const STATE_PATH = process.env.REVOCATION_STATE_PATH;
+const stores = { revocations, kidRevocations, agents, kidOwners };
+function put(store, key, value) {
+  if (STATE_PATH) fs.appendFileSync(STATE_PATH, JSON.stringify([store, key, value]) + "\n");
+  stores[store].set(key, value);
+}
+if (STATE_PATH && fs.existsSync(STATE_PATH)) {
+  for (const line of fs.readFileSync(STATE_PATH, "utf8").split("\n").filter(Boolean)) {
+    try {
+      const [store, key, value] = JSON.parse(line);
+      stores[store].set(key, value);
+    } catch {
+      console.warn("[revocation] Skipping an unreadable state line (a torn last write?)");
+    }
+  }
+}
 
 // Per-client rate limiters
 const checkRateLimit = rateLimiter(5, 60_000); // emergency revocations
@@ -73,6 +102,7 @@ async function handle(req, res) {
       ok: true,
       service: "dcp-revocation",
       supported_versions: ["1.0", "2.0"],
+      state: STATE_PATH ? "file" : "memory",
       registered_agents: agents.size,
       total_revocations: revocations.size,
       total_kid_revocations: kidRevocations.size,
@@ -101,17 +131,27 @@ async function handle(req, res) {
       return send(res, 400, { error: "emergency_revocation_token must be sha256:<64 hex chars>" });
     }
 
+    const agentId = passport.agent_id;
+    const existing = agents.get(agentId);
+    // The first registration claims the agent_id. A passport (or an RPR) is only
+    // self-signed, so anyone could claim a victim's agent_id first, plant a token and
+    // revoke it: the operator vouches for new agents instead.
+    if (!existing && !isOperator(req)) {
+      res.setHeader("WWW-Authenticate", "Bearer");
+      return send(res, 401, {
+        error: "Registering a new agent_id needs the operator token (Authorization: Bearer <OPERATOR_TOKEN>)",
+      });
+    }
+
     if (!(await verifyCompositeSig(DCP_CONTEXTS.AgentPassport, passport, sig, passport.keys))) {
       return send(res, 403, { error: "Passport signature does not verify against the passport's own keys" });
     }
 
-    const agentId = passport.agent_id;
     if (revocations.get(agentId)?.emergency) {
       return send(res, 403, { error: `Agent ${agentId} has been emergency-revoked` });
     }
 
     const signers = passport.keys.filter((k) => k.kid === sig.classical.kid || k.kid === sig.pq?.kid);
-    const existing = agents.get(agentId);
     const active = activeKeys(agentId);
     const isActive = (k) => active.some((a) => a.kid === k.kid);
     // A signer is one of the agent's active keys or a kid nobody has registered.
@@ -144,8 +184,8 @@ async function handle(req, res) {
       return send(res, 507, { error: "Registry full" });
     }
 
-    for (const k of signers) kidOwners.set(k.kid, agentId);
-    agents.set(agentId, {
+    for (const k of signers) put("kidOwners", k.kid, agentId);
+    put("agents", agentId, {
       // Registered entries are kept, so a new passport cannot extend expires_at.
       keys: existing?.keys ??
         signers.map(({ kid, alg, public_key_b64, expires_at }) => ({ kid, alg, public_key_b64, expires_at: expires_at ?? null })),
@@ -201,7 +241,7 @@ async function handle(req, res) {
       signature,
     };
 
-    revocations.set(agent_id, record);
+    put("revocations", agent_id, record);
     console.log(`[revoke] Agent revoked: ${agent_id} — ${reason}`);
     send(res, 201, { ok: true, agent_id, revoked_at: record.timestamp });
     return;
@@ -250,11 +290,11 @@ async function handle(req, res) {
       composite_sig: { classical: sigEntry(composite_sig.classical), pq: sigEntry(composite_sig.pq) ?? null, binding: composite_sig.binding },
     };
 
-    kidRevocations.set(revoked_kid, record);
+    put("kidRevocations", revoked_kid, record);
 
     // Also revoke at agent level if no remaining active kids
     if (!revocations.has(agent_id)) {
-      revocations.set(agent_id, {
+      put("revocations", agent_id, {
         dcp_version: "2.0",
         agent_id,
         human_id: human_id || "",
@@ -265,8 +305,7 @@ async function handle(req, res) {
       });
     } else {
       const existing = revocations.get(agent_id);
-      if (!existing.revoked_kids) existing.revoked_kids = [];
-      existing.revoked_kids.push(revoked_kid);
+      put("revocations", agent_id, { ...existing, revoked_kids: [...(existing.revoked_kids ?? []), revoked_kid] });
     }
 
     console.log(`[v2/revoke] Kid revoked: ${revoked_kid} (agent ${agent_id}) — ${reason}`);
@@ -339,7 +378,7 @@ async function handle(req, res) {
     const keysRevoked = agent.keys.length;
 
     // Mark agent as emergency-revoked
-    revocations.set(agent_id, {
+    put("revocations", agent_id, {
       dcp_version: "2.0",
       agent_id,
       human_id: human_id || "",
@@ -364,8 +403,12 @@ async function handle(req, res) {
   if (req.method === "GET" && kidCheckMatch) {
     const kid = decodeParam(kidCheckMatch[1]);
     if (kid === null) return send(res, 400, { error: "Malformed kid" });
-    // ?agent_id= only helps for kids the agent did not register (non-signer passport keys).
-    const owner = kidOwners.get(kid) ?? new URLSearchParams(kidCheckMatch[2] || "").get("agent_id");
+    // Only registered kids have a known owner. Any other kid gets an explicit unknown, never
+    // a verdict borrowed from whichever agent a caller names.
+    const owner = kidOwners.get(kid);
+    if (!owner) {
+      return send(res, 404, { kid, registered: false, error: "Kid not registered here: its revocation status is unknown" });
+    }
 
     // Check explicit revocation
     const record = kidRevocations.get(kid);
@@ -380,7 +423,7 @@ async function handle(req, res) {
     }
 
     // Agent-level emergency revocation covers every kid of that agent.
-    const agentRecord = owner ? revocations.get(owner) : undefined;
+    const agentRecord = revocations.get(owner);
     if (agentRecord?.emergency) {
       return send(res, 200, {
         revoked: true,
