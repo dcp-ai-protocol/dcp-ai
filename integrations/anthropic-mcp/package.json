@@ -1,13 +1,39 @@
 {
   "name": "@dcp-ai/anthropic-mcp",
-  "version": "2.0.0",
-  "description": "DCP-AI bridge for Anthropic Model Context Protocol (MCP)",
+  "version": "2.1.0",
+  "description": "DCP-AI bridge for the Model Context Protocol (MCP): signed receipts for tool calls, DCP tools and resources",
   "type": "module",
-  "main": "index.js",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./index.js"
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "types": "./dist/index.d.ts"
+    }
   },
-  "files": ["index.js", "README.md"],
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
+    "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@dcp-ai/sdk": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^4.1.12"
+  },
+  "overrides": {
+    "esbuild": ">=0.25.0",
+    "picomatch": ">=4.0.4",
+    "vite": "^7.3.7"
+  },
   "keywords": [
     "dcp",
     "mcp",
@@ -15,7 +41,8 @@
     "claude",
     "agent",
     "ai",
-    "protocol"
+    "protocol",
+    "receipt"
   ],
   "license": "Apache-2.0",
   "author": "DCP-AI Contributors",

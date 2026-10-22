@@ -69,6 +69,7 @@ jobs:
               - 'tests/**'
               - '.github/workflows/ci.yml'
             integrations:
+              - 'integrations/anthropic-mcp/**'
               - 'integrations/express/**'
               - 'integrations/google-a2a/**'
               - 'integrations/openclaw/**'
@@ -166,7 +167,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        integration: [express, google-a2a, openclaw]
+        integration: [anthropic-mcp, express, google-a2a, openclaw]
     defaults:
       run:
         working-directory: integrations/${{ matrix.integration }}
