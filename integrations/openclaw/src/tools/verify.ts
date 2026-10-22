@@ -9,12 +9,12 @@ import { Type, type Static } from '@sinclair/typebox';
 import {
   verifySignedBundle,
   detectDcpVersion,
-  computeSecurityTier,
   registerDefaultProviders,
   type VerificationResult,
   type SignedBundle,
   type SecurityTier,
 } from '@dcp-ai/sdk';
+import { resolveIntentTier } from './intent.js';
 
 // ── Parameter Schema ──
 
@@ -221,7 +221,7 @@ async function verifyV2Bundle(
   let resolvedTier: SecurityTier | undefined;
   const intentPayload = bundle.intent?.payload;
   if (intentPayload) {
-    resolvedTier = intentPayload.security_tier ?? computeSecurityTier(intentPayload);
+    resolvedTier = resolveIntentTier(intentPayload, bundle.policy_decision?.payload);
   }
 
   return {

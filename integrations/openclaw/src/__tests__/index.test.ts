@@ -310,6 +310,30 @@ describe('executeVerifyBundle', () => {
     expect(result.agent_id).toBe('agent:y');
     expect(result.session_nonce).toBe(nonce);
   });
+
+  it('does not let the intent lower its own security tier', async () => {
+    const nonce = 'b'.repeat(64);
+    const result = await executeVerifyBundle({
+      signed_bundle: {
+        bundle: {
+          dcp_bundle_version: '2.0',
+          manifest: { session_nonce: nonce },
+          intent: {
+            payload: {
+              session_nonce: nonce,
+              action_type: 'browse',
+              data_classes: ['pii'],
+              estimated_impact: 'low',
+              security_tier: 'routine',
+            },
+          },
+          policy_decision: { payload: { session_nonce: nonce, risk_score: 0 } },
+        },
+        signature: { composite_sig: { classical: 'sig', binding: 'classical_only' } },
+      },
+    });
+    expect(result.resolved_tier).toBe('elevated');
+  });
 });
 
 // ---------------------------------------------------------------------------
