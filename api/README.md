@@ -79,7 +79,7 @@ Formal DCP API definitions: OpenAPI 3.1 specification for HTTP/REST and Protocol
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST /anchor` | Anchor bundle hash | Request: `{ bundle_hash, chain? }` → Response: `{ anchored, chain, tx_hash }` or 501 |
+| `POST /anchor` | Anchor bundle hash | Request: `{ bundle_hash, chain? }` → Response: `{ anchored, chain, tx_hash }` (`tx_hash: null` until on-chain submission is implemented) or 501 |
 
 #### Revocation (service on port 3003)
 
