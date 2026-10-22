@@ -137,7 +137,8 @@ class TestSession:
         msg = encrypt_message(left, {"a": 1})
         tampered = dict(msg)
         ct = base64.b64decode(tampered["encrypted_payload"])
-        tampered["encrypted_payload"] = base64.b64encode(b"\xff" + ct[1:]).decode()
+        # Flip a bit instead of overwriting with 0xff, which is a no-op 1 time in 256.
+        tampered["encrypted_payload"] = base64.b64encode(bytes([ct[0] ^ 0x01]) + ct[1:]).decode()
         with pytest.raises(Exception):
             decrypt_message(right, tampered)
 
