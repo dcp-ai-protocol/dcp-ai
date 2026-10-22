@@ -7,6 +7,12 @@ name: Publish Templates
 #
 # As with publish-integrations.yml, every job pre-checks the registry
 # and skips publish if the manifest version is already on npm.
+#
+# npm authentication is trusted publishing (OIDC); NPM_TOKEN stays only as a
+# transitional fallback. The packages have nothing to install or build, so each job
+# publishes the checked-out files with `--ignore-scripts` and no third-party code runs
+# next to the OIDC token. Trusted publishers are configured per package on npmjs.com
+# with the workflow filename `publish-templates.yml`.
 
 on:
   release:
@@ -32,6 +38,11 @@ jobs:
     name: Publish @dcp-ai/create-langchain
     runs-on: ubuntu-latest
     if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'create-langchain'
+    # Nothing is installed and no package script runs here, so no third-party code
+    # can use the OIDC token this job is allowed to mint.
+    permissions:
+      contents: read
+      id-token: write
     defaults:
       run:
         working-directory: packages/create-langchain
@@ -39,7 +50,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
       - name: Check if version already published
         id: check
@@ -53,14 +64,21 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
       - if: steps.check.outputs.skip != 'true'
-        run: npm publish --access public
+        run: npm publish --access public --ignore-scripts
         env:
+          # Transitional fallback: npm tries trusted publishing (OIDC) first. Delete this
+          # env block, and the NPM_TOKEN secret, once the trusted publishers are verified.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   publish-create-crewai:
     name: Publish @dcp-ai/create-crewai
     runs-on: ubuntu-latest
     if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'create-crewai'
+    # Nothing is installed and no package script runs here, so no third-party code
+    # can use the OIDC token this job is allowed to mint.
+    permissions:
+      contents: read
+      id-token: write
     defaults:
       run:
         working-directory: packages/create-crewai
@@ -68,7 +86,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
       - name: Check if version already published
         id: check
@@ -82,14 +100,21 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
       - if: steps.check.outputs.skip != 'true'
-        run: npm publish --access public
+        run: npm publish --access public --ignore-scripts
         env:
+          # Transitional fallback: npm tries trusted publishing (OIDC) first. Delete this
+          # env block, and the NPM_TOKEN secret, once the trusted publishers are verified.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   publish-create-openai:
     name: Publish @dcp-ai/create-openai
     runs-on: ubuntu-latest
     if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'create-openai'
+    # Nothing is installed and no package script runs here, so no third-party code
+    # can use the OIDC token this job is allowed to mint.
+    permissions:
+      contents: read
+      id-token: write
     defaults:
       run:
         working-directory: packages/create-openai
@@ -97,7 +122,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
       - name: Check if version already published
         id: check
@@ -111,14 +136,21 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
       - if: steps.check.outputs.skip != 'true'
-        run: npm publish --access public
+        run: npm publish --access public --ignore-scripts
         env:
+          # Transitional fallback: npm tries trusted publishing (OIDC) first. Delete this
+          # env block, and the NPM_TOKEN secret, once the trusted publishers are verified.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   publish-create-express:
     name: Publish @dcp-ai/create-express
     runs-on: ubuntu-latest
     if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'create-express'
+    # Nothing is installed and no package script runs here, so no third-party code
+    # can use the OIDC token this job is allowed to mint.
+    permissions:
+      contents: read
+      id-token: write
     defaults:
       run:
         working-directory: packages/create-express
@@ -126,7 +158,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
       - name: Check if version already published
         id: check
@@ -140,6 +172,8 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
       - if: steps.check.outputs.skip != 'true'
-        run: npm publish --access public
+        run: npm publish --access public --ignore-scripts
         env:
+          # Transitional fallback: npm tries trusted publishing (OIDC) first. Delete this
+          # env block, and the NPM_TOKEN secret, once the trusted publishers are verified.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
