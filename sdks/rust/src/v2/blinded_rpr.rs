@@ -69,9 +69,9 @@ pub struct BlindedRprCheck {
 
 /// Verify that a full RPR discloses the expected blinded commitment.
 ///
-/// A full RPR without `pii_salt` still verifies against the legacy unsalted
-/// commitment, which is deprecated (spec §12.1): check
-/// `full_rpr.get("pii_salt")` to flag such records.
+/// A full RPR whose `pii_salt` is missing or null still verifies against the
+/// legacy unsalted commitment, which is deprecated (spec §12.1). To flag such
+/// records, check `full_rpr.get("pii_salt").map_or(true, Value::is_null)`.
 pub fn verify_blinded_rpr(full_rpr: &Value, blinded_rpr: &Value) -> BlindedRprCheck {
     let mut errors = Vec::new();
     match compute_pii_hash(full_rpr) {

@@ -132,7 +132,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Legacy unsalted blinded RPRs still verify, with a deprecation warning: the results of
   `verifyBlindedRpr` (TypeScript), `verify_blinded_rpr` (Python) and `VerifyBlindedRPR` (Go) carry
   a `warnings` list. Rust's `BlindedRprCheck` keeps its two fields, because a new public field
-  would break callers that build or destructure it; check `full_rpr.get("pii_salt")` instead.
+  would break callers that build or destructure it; there, a missing or null `pii_salt` in the
+  full RPR marks a legacy record.
 - TypeScript SDK: `blindRpr`, `verifyBlindedRpr`, `isBlindedRpr` and `computePiiHash` are exported
   from the package entry point. They were implemented but unreachable from `@dcp-ai/sdk` 2.1.2 and
   earlier; Python, Go and Rust already exported them.
