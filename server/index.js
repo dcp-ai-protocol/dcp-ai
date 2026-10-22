@@ -333,6 +333,13 @@ function checkRateLimit(ip) {
   return entry.count <= RATE_LIMIT_MAX;
 }
 
+// A registered key can still sign for its agent: not revoked, not expired.
+function isActiveKey(entry) {
+  const { key } = entry;
+  return key.status !== "revoked" && !revokedKids.has(key.kid) &&
+    !(key.expires_at && new Date(key.expires_at) < new Date());
+}
+
 function deriveKid(alg, publicKeyB64) {
   const pkBytes = Buffer.from(publicKeyB64, "base64");
   const algBytes = Buffer.from(alg, "utf8");
@@ -565,10 +572,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     const signerKids = [sig.classical.kid, sig.pq?.kid].filter(Boolean);
-    const isActiveKidOfAgent = (kid) => {
-      const entry = keyRegistry.get(kid);
-      return entry?.agent_id === agentId && entry.key.status !== "revoked" && !revokedKids.has(kid);
-    };
+    const isActiveKidOfAgent = (kid) => keyRegistry.get(kid)?.agent_id === agentId && isActiveKey(keyRegistry.get(kid));
     if (passportRegistry.has(agentId) && !signerKids.every(isActiveKidOfAgent)) {
       return send(res, 409, {
         error: `Agent ${agentId} is already registered; re-registration must be signed by its current keys`,
@@ -584,7 +588,8 @@ const server = http.createServer(async (req, res) => {
     }
 
     const registeredAt = new Date().toISOString();
-    for (const key of passport.keys.filter((k) => signerKids.includes(k.kid))) {
+    // Registered entries are kept, so a new passport cannot extend a key's expires_at.
+    for (const key of passport.keys.filter((k) => signerKids.includes(k.kid) && !keyRegistry.has(k.kid))) {
       keyRegistry.set(key.kid, { key, agent_id: agentId, registered_at: registeredAt });
     }
     passportRegistry.set(agentId, { passport, signed_passport, registered_at: registeredAt });
@@ -842,8 +847,8 @@ const server = http.createServer(async (req, res) => {
     if (!oldEntry) {
       return send(res, 404, { error: `Key ${old_kid} not found` });
     }
-    if (oldEntry.key.status === "revoked" || revokedKids.has(old_kid) || revokedAgents.has(oldEntry.agent_id)) {
-      return send(res, 403, { error: `Key ${old_kid} is revoked` });
+    if (!isActiveKey(oldEntry) || revokedAgents.has(oldEntry.agent_id)) {
+      return send(res, 403, { error: `Key ${old_kid} is revoked or expired` });
     }
 
     // Verify new kid is deterministic
@@ -1004,7 +1009,7 @@ const server = http.createServer(async (req, res) => {
     for (const auth of authorization.authorizations) {
       const partyKeys = [auth.composite_sig.classical?.kid, auth.composite_sig.pq?.kid]
         .map((kid) => keyRegistry.get(kid))
-        .filter((e) => e?.agent_id === auth.party_id && e.key.status !== "revoked" && !revokedKids.has(e.key.kid))
+        .filter((e) => e?.agent_id === auth.party_id && isActiveKey(e))
         .map((e) => e.key);
       const signable = {
         operation: authorization.operation,

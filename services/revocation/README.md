@@ -45,8 +45,8 @@ curl http://localhost:3003/health
 
 Publish an agent-level revocation (V1). `signature` is an Ed25519 signature (base64) over the
 V1 canonical JSON of `{ dcp_version, agent_id, human_id, timestamp, reason }` as sent
-(`signObject` in `tools/crypto.js`), made with one of the agent's registered `ed25519` keys. The
-agent must have registered with `POST /v2/register` first.
+(`signObject` in `tools/crypto.js`), made with one of the agent's active (registered, not revoked,
+not expired) `ed25519` keys. The agent must have registered with `POST /v2/register` first.
 
 ```bash
 curl -X POST http://localhost:3003/revoke \
@@ -156,7 +156,8 @@ curl -X POST http://localhost:3003/v2/register \
 - Only the two signer keys (classical + PQ) are registered: listing someone else's public key
   registers nothing. Their `expires_at` drives the `expired` answer of `GET /v2/check/kid/:kid`.
 - The first registration of an `agent_id` is trust on first use. Registering it again (for
-  example to replace the token) must be signed by its current, non-revoked keys.
+  example to replace the token) must be signed by its active keys (not revoked, not expired), and
+  keeps the registered key entries: a new passport cannot extend a key's `expires_at`.
 
 **Response (201):**
 
@@ -171,7 +172,7 @@ emergency-revoked), 409 (agent registered with other keys, or a kid owned by ano
 
 Kid-level revocation with composite signature. `composite_sig` signs the record without it
 (`dcp_version`, `agent_id`, `human_id`, `revoked_kid`, `timestamp`, `reason`, as sent) under
-`DCP-AI.v2.Revocation`, with the agent's registered keys; `revoked_kid` must be one of them.
+`DCP-AI.v2.Revocation`, with the agent's active keys; `revoked_kid` must be one of its registered kids.
 
 ```bash
 curl -X POST http://localhost:3003/v2/revoke \

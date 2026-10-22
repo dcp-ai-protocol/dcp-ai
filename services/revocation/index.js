@@ -48,6 +48,13 @@ function send(res, statusCode, body) {
   res.end(JSON.stringify(body));
 }
 
+// Keys that can still sign for an agent: registered, not revoked, not expired.
+function activeKeys(agentId) {
+  const now = new Date();
+  return (agents.get(agentId)?.keys ?? []).filter((k) =>
+    !kidRevocations.has(k.kid) && !(k.expires_at && new Date(k.expires_at) < now));
+}
+
 function checkRateLimit(ip) {
   const now = Date.now();
   let entry = emergencyRateLimit.get(ip);
@@ -95,9 +102,11 @@ async function handle(req, res) {
     }
 
     const signers = passport.keys.filter((k) => k.kid === sig.classical.kid || k.kid === sig.pq?.kid);
-    // Re-registration (e.g. to replace the token) must come from the agent's current keys.
-    const isCurrentKey = (k) => kidOwners.get(k.kid) === agentId && !kidRevocations.has(k.kid);
-    if (agents.has(agentId) && !signers.every(isCurrentKey)) {
+    // Re-registration (e.g. to replace the token) must come from the agent's active keys,
+    // and it keeps their registered entries: a new passport cannot extend expires_at.
+    const existing = agents.get(agentId);
+    const current = activeKeys(agentId);
+    if (existing && !signers.every((k) => current.some((c) => c.kid === k.kid))) {
       return send(res, 409, {
         error: `Agent ${agentId} is already registered; re-registration must be signed by its current keys`,
       });
@@ -109,7 +118,7 @@ async function handle(req, res) {
 
     for (const k of signers) kidOwners.set(k.kid, agentId);
     agents.set(agentId, {
-      keys: signers,
+      keys: existing?.keys ?? signers,
       token_hash: passport.emergency_revocation_token ?? null,
       registered_at: new Date().toISOString(),
     });
@@ -135,12 +144,12 @@ async function handle(req, res) {
     }
 
     const signed = { dcp_version, agent_id, human_id, timestamp, reason };
-    const signedByAgent = agents.get(agent_id)?.keys.some((k) => {
+    const signedByAgent = activeKeys(agent_id).some((k) => {
       try { return k.alg === "ed25519" && verifyObject(signed, signature, k.public_key_b64); }
       catch { return false; }
     });
     if (!signedByAgent) {
-      return send(res, 403, { error: "Signature does not verify against the agent's registered ed25519 keys" });
+      return send(res, 403, { error: "Signature does not verify against the agent's active ed25519 keys" });
     }
 
     // Revocations are final: overwriting one could downgrade an emergency revocation.
@@ -188,8 +197,8 @@ async function handle(req, res) {
     }
 
     const signed = { dcp_version, agent_id, human_id, revoked_kid, timestamp, reason };
-    if (!(await verifyCompositeSig(DCP_CONTEXTS.Revocation, signed, composite_sig, agents.get(agent_id).keys))) {
-      return send(res, 403, { error: "composite_sig does not verify against the agent's registered keys" });
+    if (!(await verifyCompositeSig(DCP_CONTEXTS.Revocation, signed, composite_sig, activeKeys(agent_id)))) {
+      return send(res, 403, { error: "composite_sig does not verify against the agent's active keys" });
     }
 
     const record = {

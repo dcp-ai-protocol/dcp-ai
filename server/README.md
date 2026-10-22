@@ -89,18 +89,20 @@ age) applies, and `GET /v2/policy` shows it.
   registered: listing someone else's public key registers nothing.
 - The **first** registration of an `agent_id` is trust on first use. Registering
   it again (for example to replace the emergency revocation token) must be
-  signed by the keys already registered to it, otherwise 409. A kid registered to
-  another agent is also a 409, and an emergency-revoked agent cannot re-register.
+  signed by its active keys (registered to it, not revoked, not expired),
+  otherwise 409; the registered key entries are kept, so a new passport cannot
+  extend a key's `expires_at`. A kid registered to another agent is also a 409,
+  and an emergency-revoked agent cannot re-register.
 - **Key rotation** takes a `KeyRotationRecord` as built by `createKeyRotation`
   in `@dcp-ai/sdk`: the new key signs `{old_kid, new_kid, timestamp}` under
   `DCP-AI.v2.KeyRotation` (proof of possession) and the old key countersigns it.
-  The old key must be active; afterwards it is marked revoked.
+  The old key must be active (not revoked, not expired); afterwards it is marked revoked.
 - **Multi-party authorization**: each party signs
   `{operation, operation_payload, party_id, role}` under
   `DCP-AI.v2.MultiPartyAuth` (`createPartyAuthorization` in
   `sdks/typescript/src/core/multi-party-auth.ts`, not exported by `@dcp-ai/sdk` 2.1.1).
   A party is an identity registered through `/v2/passport/register`, and its
-  signing kids must be active keys registered to its `party_id`. Each party
+  signing kids must be active (not revoked, not expired) keys registered to its `party_id`. Each party
   counts once toward `required_parties`, whatever roles it signs for. Roles are
   asserted by the signer, not looked up anywhere.
 - **Operator endpoints** are guarded by `OPERATOR_TOKEN` only. Advisory

@@ -2,7 +2,8 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 import { DCP_CONTEXTS } from "@dcp-ai/sdk";
-import { newAgent, post as postTo, sign, signPassport, startService } from "../../tests/helpers.js";
+import crypto from "node:crypto";
+import { newAgent, post as postTo, sha256Hex, sign, signPassport, startService } from "../../tests/helpers.js";
 import { signObject } from "../../tools/crypto.js";
 
 let base;
@@ -47,6 +48,12 @@ test("registration is proven by the passport signature and cannot be hijacked", 
   assert.equal((await post("/v2/emergency-revoke", revoke)).status, 403);
   const unsigned = { agent_id: "agent:charlie-1", emergency_revocation_token: `sha256:${"0".repeat(64)}` };
   assert.equal((await post("/v2/register-emergency-token", unsigned)).status, 404);
+
+  // Charlie's own keys can replace the token, and the new secret works.
+  const secret = crypto.randomBytes(32).toString("hex");
+  const renewed = { ...charlie.passport, emergency_revocation_token: `sha256:${sha256Hex(Buffer.from(secret, "hex"))}` };
+  assert.equal((await post("/v2/register", { signed_passport: await signPassport(renewed, charlie.keys) })).status, 201);
+  assert.equal((await post("/v2/emergency-revoke", { agent_id: "agent:charlie-1", revocation_secret: secret })).status, 200);
 });
 
 test("revocations must be signed by the agent's registered keys", async () => {
@@ -79,6 +86,12 @@ test("key expiry comes from the signed passport, not an unauthenticated call", a
   foxtrot.passport.keys[1].expires_at = "2020-01-01T00:00:00Z";
   const signed = await signPassport(foxtrot.passport, foxtrot.keys);
   assert.equal((await post("/v2/register", { signed_passport: signed })).status, 201);
+  assert.equal((await checkKid(foxtrot.keys.pq.kid)).reason, "expired");
+
+  // An expired key cannot sign a passport that extends its own expiry.
+  const extended = structuredClone(foxtrot.passport);
+  extended.keys[1].expires_at = null;
+  assert.equal((await post("/v2/register", { signed_passport: await signPassport(extended, foxtrot.keys) })).status, 409);
   assert.equal((await checkKid(foxtrot.keys.pq.kid)).reason, "expired");
 
   const unsigned = { kid: foxtrot.keys.classical.kid, expires_at: "2020-01-01T00:00:00Z" };
