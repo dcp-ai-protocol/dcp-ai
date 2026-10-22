@@ -302,6 +302,28 @@ export async function verifySignedBundleV2(
   registry: AlgorithmRegistry,
   policy: VerifierPolicy = DEFAULT_VERIFIER_POLICY,
 ): Promise<VerifyV2Result> {
+  // A structurally malformed bundle (a missing or null bundle, signature,
+  // manifest or audit trail, a number the canonicalization profile rejects,
+  // ...) fails verification instead of throwing, as in the Python, Go and
+  // Rust verifiers (VERIFICATION.md V2-3, V2-5).
+  try {
+    return await verifyV2(signedBundle, registry, policy);
+  } catch (e) {
+    const reason = e instanceof Error ? e.message : String(e);
+    return {
+      verified: false,
+      errors: [`Malformed signed bundle: ${reason}`],
+      warnings: [],
+      details: {},
+    };
+  }
+}
+
+async function verifyV2(
+  signedBundle: SignedBundleV2,
+  registry: AlgorithmRegistry,
+  policy: VerifierPolicy,
+): Promise<VerifyV2Result> {
   const errors: string[] = [];
   const warnings: string[] = [];
   const details: VerifyV2Result['details'] = {};
