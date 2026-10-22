@@ -10,6 +10,7 @@ import type {
   PreparedPayload,
   SessionBindingResult,
   V2VerificationResult,
+  VerifierPolicy,
   KemKeypairResult,
   KemEncapsulateResult,
   PopResult,
@@ -175,9 +176,16 @@ export class DcpWasm {
     );
   }
 
-  verifyBundle(signedBundle: SignedBundleV2 | unknown): V2VerificationResult {
+  /**
+   * Verify a V1 or V2 signed bundle. `policy` applies to V2 bundles (the default
+   * policy when it is left out); with a policy, V1 bundles are rejected.
+   */
+  verifyBundle(signedBundle: SignedBundleV2 | unknown, policy?: VerifierPolicy): V2VerificationResult {
     return parseOrThrow(
-      wasm().wasm_verify_signed_bundle_v2(JSON.stringify(signedBundle)),
+      wasm().wasm_verify_signed_bundle_v2(
+        JSON.stringify(signedBundle),
+        policy === undefined ? undefined : JSON.stringify(policy),
+      ),
       'verifyBundle',
     );
   }

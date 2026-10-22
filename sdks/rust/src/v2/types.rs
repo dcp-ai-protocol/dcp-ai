@@ -218,7 +218,10 @@ pub struct DcpCapabilities {
 
 // ── Verifier Policy ──
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Unknown fields are rejected, so a setting a verifier does not know about
+/// cannot be silently dropped.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct VerifierPolicy {
     pub default_mode: String,
     pub risk_overrides: HashMap<String, String>,
@@ -231,6 +234,27 @@ pub struct VerifierPolicy {
     pub require_composite_binding: bool,
     pub max_key_age_days: u32,
     pub allow_v1_bundles: bool,
+}
+
+/// The default verifier policy, the same as `DEFAULT_VERIFIER_POLICY` in the
+/// TypeScript SDK.
+impl Default for VerifierPolicy {
+    fn default() -> Self {
+        let modes = [("low", "classical_only"), ("medium", "hybrid_preferred"), ("high", "hybrid_required")];
+        VerifierPolicy {
+            default_mode: "hybrid_preferred".into(),
+            risk_overrides: modes.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(),
+            min_classical: 1,
+            min_pq: 1,
+            accepted_classical_algs: vec!["ed25519".into()],
+            accepted_pq_algs: vec!["ml-dsa-65".into(), "slh-dsa-192f".into()],
+            accepted_hash_algs: vec!["sha256".into(), "sha384".into()],
+            require_session_binding: true,
+            require_composite_binding: true,
+            max_key_age_days: 365,
+            allow_v1_bundles: true,
+        }
+    }
 }
 
 // ── DCP-05: Agent Lifecycle ──
