@@ -7,6 +7,7 @@ import {
   Ed25519Provider,
   MlDsa65Provider,
   canonicalizeV2,
+  classicalOnlySign,
   compositeSign,
   preparePayload,
 } from "@dcp-ai/sdk";
@@ -42,9 +43,17 @@ export const post = async (base, path, body, headers = {}) => {
 
 export const sha256Hex = (data) => crypto.createHash("sha256").update(data).digest("hex");
 
-/** Composite Ed25519 + ML-DSA-65 signature over canonical(payload). */
-export const sign = async (context, payload, keys) =>
-  compositeSign(registry, context, new TextEncoder().encode(canonicalizeV2(payload)), keys);
+/** Composite signature over canonical(payload); classical-only when `keys.pq` is absent. */
+export const sign = async (context, payload, keys) => {
+  const bytes = new TextEncoder().encode(canonicalizeV2(payload));
+  return keys.pq
+    ? compositeSign(registry, context, bytes, keys)
+    : classicalOnlySign(registry, context, bytes, keys.classical);
+};
+
+/** An ISO timestamp `seconds` after `iso`, e.g. a newer passport `created_at`. */
+export const later = (iso, seconds = 60) =>
+  new Date(Date.parse(iso) + seconds * 1000).toISOString().replace(/\.\d{3}Z$/, "Z");
 
 /**
  * A fresh agent: composite keys (with secrets), its passport and the

@@ -525,7 +525,7 @@ const server = http.createServer(async (req, res) => {
   // ── V2: Register passport + keys ──
   // The passport's composite self-signature proves possession of its signer
   // keys, and only those are registered. Re-registering an agent (e.g. with a
-  // new emergency token) must be signed by the keys already registered to it.
+  // new emergency token) must be signed by all of its active keys.
   if (req.method === "POST" && req.url === "/v2/passport/register") {
     let body;
     try { body = await parseBody(req); }
@@ -572,11 +572,25 @@ const server = http.createServer(async (req, res) => {
     }
 
     const signerKids = [sig.classical.kid, sig.pq?.kid].filter(Boolean);
-    const isActiveKidOfAgent = (kid) => keyRegistry.get(kid)?.agent_id === agentId && isActiveKey(keyRegistry.get(kid));
-    if (passportRegistry.has(agentId) && !signerKids.every(isActiveKidOfAgent)) {
-      return send(res, 409, {
-        error: `Agent ${agentId} is already registered; re-registration must be signed by its current keys`,
-      });
+    const registered = passportRegistry.get(agentId);
+    if (registered) {
+      // Exactly the agent's active keys must sign, whatever VERIFIER_MODE allows new
+      // agents, and the passport must be newer: signed passports are public, so an old
+      // one can be replayed to bring back an old token.
+      // ponytail: scans the key registry (at most MAX_STORE_ENTRIES keys); index kids by agent if this gets hot.
+      const activeKids = [...keyRegistry]
+        .filter(([, entry]) => entry.agent_id === agentId && isActiveKey(entry))
+        .map(([kid]) => kid);
+      const signedByAllActive = activeKids.length > 0 && activeKids.length === signerKids.length &&
+        activeKids.every((kid) => signerKids.includes(kid));
+      if (!signedByAllActive) {
+        return send(res, 409, {
+          error: `Agent ${agentId} is already registered; re-registration must be signed by all of its active keys`,
+        });
+      }
+      if (!(Date.parse(passport.created_at) > Date.parse(registered.passport.created_at))) {
+        return send(res, 409, { error: "Re-registration needs a passport newer (created_at) than the registered one" });
+      }
     }
     const takenKid = signerKids.find((kid) => keyRegistry.has(kid) && keyRegistry.get(kid).agent_id !== agentId);
     if (takenKid) {

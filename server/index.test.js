@@ -5,7 +5,7 @@ import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { DCP_CONTEXTS, Ed25519Provider, createKeyRotation } from "@dcp-ai/sdk";
 import { buildV2Examples } from "../scripts/generate-v2-examples.js";
-import { newAgent, post as postTo, registry, sha256Hex, sign, signPassport, startService } from "../tests/helpers.js";
+import { later, newAgent, post as postTo, registry, sha256Hex, sign, signPassport, startService } from "../tests/helpers.js";
 
 const SERVER = fileURLToPath(new URL("./index.js", import.meta.url));
 const OPERATOR_TOKEN = "test-operator-token";
@@ -55,8 +55,15 @@ test("admin endpoints require the operator token", async () => {
     assert.equal((await post(path, { mode: "classical_only" }, { authorization: "Bearer wrong" })).status, 401, path);
   }
   assert.equal((await post("/v2/policy/mode", { mode: "hybrid_required" }, asOperator)).status, 200);
-  const unsigned = { type: "algorithm_advisory", advisory_id: "DCP-ADV-0001", affected_algorithms: ["ed25519"], action: "revoke" };
+  // Valid in every field but the signature, which the schema requires.
+  const unsigned = {
+    type: "algorithm_advisory", advisory_id: "DCP-ADV-0001", severity: "low", affected_algorithms: ["ed448"],
+    action: "warn", replacement_algorithms: [], effective_date: "2026-01-01T00:00:00Z", grace_period_days: 0,
+    description: "test advisory", issued_at: "2026-01-01T00:00:00Z", issuer: "governance:test",
+  };
   assert.equal((await post("/v2/advisory/publish", { advisory: unsigned }, asOperator)).status, 400);
+  const composite_sig = { classical: { alg: "ed25519", kid: "0".repeat(32), sig_b64: "A".repeat(88) }, pq: null, binding: "classical_only" };
+  assert.equal((await post("/v2/advisory/publish", { advisory: { ...unsigned, composite_sig } }, asOperator)).status, 201);
 });
 
 test("passport registration checks the self-signature and blocks agent hijacking", async () => {
@@ -73,10 +80,19 @@ test("passport registration checks the self-signature and blocks agent hijacking
   const revoke = { agent_id: "agent:alice-001", revocation_secret: mallory.revocationSecret };
   assert.equal((await post("/v2/emergency-revoke", revoke)).status, 403);
 
-  // Alice herself can replace the token: her current keys sign the new passport.
+  // Alice herself can replace the token: her current keys sign a newer passport.
   const secret = crypto.randomBytes(32).toString("hex");
-  const renewed = { ...alice.passport, emergency_revocation_token: `sha256:${sha256Hex(Buffer.from(secret, "hex"))}` };
+  const renewed = {
+    ...alice.passport,
+    created_at: later(alice.passport.created_at),
+    emergency_revocation_token: `sha256:${sha256Hex(Buffer.from(secret, "hex"))}`,
+  };
   assert.equal((await post("/v2/passport/register", { signed_passport: await signPassport(renewed, alice.keys) })).status, 201);
+
+  // Signed passports are public: replaying the old one must not bring the old token back.
+  assert.equal((await post("/v2/passport/register", { signed_passport: alice.signedPassport })).status, 409);
+  const oldToken = { agent_id: "agent:alice-001", revocation_secret: alice.revocationSecret };
+  assert.equal((await post("/v2/emergency-revoke", oldToken)).status, 403);
 
   // Listing alice's public key in another passport proves nothing: only signer keys register.
   const squatter = await newAgent("agent:squatter");
@@ -86,6 +102,20 @@ test("passport registration checks the self-signature and blocks agent hijacking
   assert.deepEqual(squat.body.registered_kids, [squatter.keys.classical.kid, squatter.keys.pq.kid]);
   const owner = await (await fetch(`${base}/v2/keys/${alice.keys.classical.kid}`)).json();
   assert.equal(owner.agent_id, "agent:alice-001");
+});
+
+test("re-registration needs every active key, even where VERIFIER_MODE allows classical-only", async () => {
+  // classical_only accepts classical-only passports from new agents; it must not let one
+  // stolen Ed25519 key re-register an agent that also holds a PQ key.
+  const erin = await newAgent("agent:erin-0001");
+  assert.equal((await postTo(configured, "/v2/passport/register", { signed_passport: erin.signedPassport })).status, 201);
+  const planted = {
+    ...erin.passport,
+    created_at: later(erin.passport.created_at),
+    emergency_revocation_token: `sha256:${sha256Hex(Buffer.from("11".repeat(32), "hex"))}`,
+  };
+  const classicalOnly = await signPassport(planted, { classical: erin.keys.classical });
+  assert.equal((await postTo(configured, "/v2/passport/register", { signed_passport: classicalOnly })).status, 409);
 });
 
 test("one key in both composite slots is not a hybrid signature", async () => {
@@ -126,6 +156,7 @@ test("expired keys cannot re-register, extend their expiry or authorize a rotati
   assert.equal((await post("/v2/passport/register", { signed_passport: await signPassport(carol.passport, carol.keys) })).status, 201);
 
   const extended = structuredClone(carol.passport);
+  extended.created_at = later(carol.passport.created_at);
   for (const key of extended.keys) key.expires_at = null;
   assert.equal((await post("/v2/passport/register", { signed_passport: await signPassport(extended, carol.keys) })).status, 409);
   assert.equal((await (await fetch(`${base}/v2/keys/${carol.keys.classical.kid}`)).json()).expired, true);
