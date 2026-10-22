@@ -24,3 +24,4 @@ pub mod advisory;
 pub mod blinded_rpr;
 pub mod multi_party_auth;
 pub mod error_codes;
+pub mod verify_bundle;

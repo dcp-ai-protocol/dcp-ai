@@ -21,6 +21,7 @@ use dcp_ai::v2::canonicalize::canonicalize_v2;
 use dcp_ai::v2::composite_ops::{composite_verify, CompositeKeyInfo};
 use dcp_ai::v2::composite_sig::CompositeSignature;
 use dcp_ai::v2::crypto_provider::{derive_kid, CryptoProvider};
+use dcp_ai::v2::verify_bundle::verify_signed_bundle_v2;
 use dcp_ai::v2::domain_separation::{
     domain_separated_message, CTX_AGENT_PASSPORT, CTX_AUDIT_EVENT, CTX_AWARENESS, CTX_BUNDLE,
     CTX_DELEGATION, CTX_DISPUTE, CTX_HUMAN_CONFIRMATION, CTX_INTENT,
@@ -456,5 +457,36 @@ fn canonicalization_edge_cases() {
             let got = result.unwrap_or_else(|e| panic!("{name}: {e}"));
             assert_eq!(got, want, "{name}: canonical mismatch");
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Signed bundle verification (bundle_vectors.json)
+// ---------------------------------------------------------------------------
+
+/// The shared signed bundle must verify, and each must_reject mutation
+/// (VERIFICATION.md V2-7 / V2-8) must make it fail.
+#[test]
+fn signed_bundle_vectors() {
+    let data = fs::read_to_string(vectors_path().with_file_name("bundle_vectors.json"))
+        .expect("read bundle vectors");
+    let vectors: Value = serde_json::from_str(&data).expect("parse bundle vectors");
+    let signed = &vectors["signed_bundle"];
+
+    let result = verify_signed_bundle_v2(signed);
+    assert!(result.verified, "signed_bundle must verify: {:?}", result.errors);
+
+    for case in vectors["must_reject"].as_array().expect("must_reject") {
+        let mut mutated = signed.clone();
+        let mut node = &mut mutated;
+        for key in case["path"].as_array().expect("path") {
+            node = &mut node[key.as_str().expect("path key")];
+        }
+        *node = case["value"].clone();
+        assert!(
+            !verify_signed_bundle_v2(&mutated).verified,
+            "{} must be rejected",
+            case["name"]
+        );
     }
 }
