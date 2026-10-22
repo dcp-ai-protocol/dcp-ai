@@ -38,7 +38,9 @@ import { fileURLToPath } from "url";
 import Ajv from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import { DCP_CONTEXTS, DEFAULT_VERIFIER_POLICY, verifyKeyRotation } from "@dcp-ai/sdk";
-import { verifySignedBundle, isV2Bundle, verifyCompositeSig, v2Registry } from "../lib/verify.js";
+import {
+  verifySignedBundle, isV2Bundle, verifyCompositeSig, v2Registry, isCanonicalB64, KEY_BYTES, SIG_BYTES,
+} from "../lib/verify.js";
 import { parseBody, getClientIp, isOperator, rateLimiter } from "../lib/http.js";
 import { computeSecurityTier } from "../lib/security-tier.js";
 
@@ -48,8 +50,10 @@ const PORT = Number(process.env.PORT) || 3000;
 
 const MAX_STORE_ENTRIES = 10_000; // per-store cap before eviction
 const MAX_ADVISORIES = 1_000;
+const MAX_REGISTERED_KEYS = Number(process.env.MAX_REGISTERED_KEYS) || 10_000; // full: 507, never evicted
 const MAX_RETIRED_KEYS_PER_AGENT = 4; // older rotated-out keys are dropped (kept as tombstones)
-const MAX_KEYS_PER_AGENT = 64; // over an agent's lifetime, so its tombstones stay bounded
+// Over an agent's lifetime, so its tombstones stay bounded; daily rotation needs more.
+const MAX_KEYS_PER_AGENT = Number(process.env.MAX_KEYS_PER_AGENT) || 64;
 const REGISTRATIONS_PER_HOUR = Number(process.env.REGISTRATIONS_PER_HOUR) || 20; // per client
 const GLOBAL_RATE_LIMIT = 100;   // requests per window per IP
 const GLOBAL_RATE_WINDOW = 60_000; // 1 minute
@@ -526,6 +530,16 @@ const server = http.createServer(async (req, res) => {
       return send(res, 400, { error: "Schema validation failed", details: schemaResult.errors });
     }
 
+    // The first registration claims the agent_id, and a passport is only self-signed:
+    // anyone could claim a victim's agent_id first and revoke it. The operator vouches
+    // for new agents; re-registering stays self-service.
+    if (!passportRegistry.has(passport.agent_id) && !isOperator(req)) {
+      res.setHeader("WWW-Authenticate", "Bearer");
+      return send(res, 401, {
+        error: "Registering a new agent_id needs the operator token (Authorization: Bearer <OPERATOR_TOKEN>)",
+      });
+    }
+
     // Verify deterministic kids
     for (const key of passport.keys) {
       const expectedKid = deriveKid(key.alg, key.public_key_b64);
@@ -578,7 +592,7 @@ const server = http.createServer(async (req, res) => {
       return send(res, 409, { error: `Key ${takenKid} is retired or registered to another agent` });
     }
     // Evicting identities would let anyone re-register an evicted agent_id.
-    if (!passportRegistry.has(agentId) && keyRegistry.size >= MAX_STORE_ENTRIES) {
+    if (!passportRegistry.has(agentId) && keyRegistry.size >= MAX_REGISTERED_KEYS) {
       return send(res, 507, { error: "Key registry full" });
     }
 
@@ -837,6 +851,10 @@ const server = http.createServer(async (req, res) => {
     if (!keyResult.valid) {
       return send(res, 400, { error: "Invalid new_key", details: keyResult.errors });
     }
+    if (!isCanonicalB64(new_key.public_key_b64, KEY_BYTES[new_key.alg]) ||
+        ![proof_of_possession, authorization_sig].every((s) => isCanonicalB64(s?.sig_b64, SIG_BYTES[s?.alg]))) {
+      return send(res, 400, { error: "Keys and signatures must be canonical base64 of their algorithm's size" });
+    }
 
     // Verify old key exists
     const oldEntry = keyRegistry.get(old_kid);
@@ -874,7 +892,11 @@ const server = http.createServer(async (req, res) => {
         error: "Rotation not proven: proof_of_possession must be signed by new_key and authorization_sig by old_kid",
       });
     }
-    if (keyRegistry.size >= MAX_STORE_ENTRIES) {
+    // This rotation retires the old key, so drop the agent's oldest retired keys first:
+    // a rotation then still fits in a full registry.
+    const retired = keysOf(oldEntry.agent_id).filter((entry) => entry.key.status === "revoked");
+    for (const entry of retired.slice(0, Math.max(0, retired.length + 1 - MAX_RETIRED_KEYS_PER_AGENT))) dropKey(entry);
+    if (keyRegistry.size >= MAX_REGISTERED_KEYS) {
       return send(res, 507, { error: "Key registry full" });
     }
 
@@ -889,10 +911,6 @@ const server = http.createServer(async (req, res) => {
     // Mark old key as rotated (not revoked — grace period applies)
     const oldKey = oldEntry.key;
     oldKey.status = "revoked";
-
-    // Keep only the most recent retired keys, so rotating over and over cannot fill the registry.
-    const retired = keysOf(oldEntry.agent_id).filter((entry) => entry.key.status === "revoked");
-    for (const entry of retired.slice(0, -MAX_RETIRED_KEYS_PER_AGENT)) dropKey(entry);
 
     send(res, 200, {
       ok: true,

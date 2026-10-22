@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
-import { DCP_CONTEXTS, Ed25519Provider, createKeyRotation } from "@dcp-ai/sdk";
+import { DCP_CONTEXTS, Ed25519Provider, MlDsa65Provider, createKeyRotation } from "@dcp-ai/sdk";
 import { buildV2Examples } from "../scripts/generate-v2-examples.js";
 import { computeSecurityTier } from "../lib/security-tier.js";
 import { later, newAgent, post as postTo, registry, sha256Hex, sign, signPassport, startService } from "../tests/helpers.js";
@@ -20,7 +20,7 @@ before(async () => {
   ({ signedBundle } = await buildV2Examples());
   const services = await Promise.all([
     startService(SERVER, { OPERATOR_TOKEN, REGISTRATIONS_PER_HOUR: "1000" }),
-    startService(SERVER, { VERIFIER_MODE: "classical_only", ALLOW_V1_BUNDLES: "false", REGISTRATIONS_PER_HOUR: "1000" }),
+    startService(SERVER, { VERIFIER_MODE: "classical_only", ALLOW_V1_BUNDLES: "false", REGISTRATIONS_PER_HOUR: "1000", OPERATOR_TOKEN }),
   ]);
   [base, configured] = services.map((s) => s.base);
   procs = services.map((s) => s.proc);
@@ -29,6 +29,25 @@ before(async () => {
 after(() => procs.forEach((p) => p.kill()));
 
 const post = (path, body, headers) => postTo(base, path, body, headers);
+// Registering a new agent_id needs the operator token; re-registering does not.
+const registerNew = (url, signed_passport) => postTo(url, "/v2/passport/register", { signed_passport }, asOperator);
+
+// Rotates an agent's Ed25519 key on `url` and returns the HTTP status.
+const ed25519Rotator = (url, agent) => {
+  const provider = new Ed25519Provider();
+  let current = { kid: agent.keys.classical.kid, secretKeyB64: agent.keys.classical.secretKeyB64 };
+  return async () => {
+    const next = await provider.generateKeypair();
+    const rotation = await createKeyRotation(registry, {
+      oldKid: current.kid, oldAlg: "ed25519", oldSecretKeyB64: current.secretKeyB64,
+      newKid: next.kid, newAlg: "ed25519", newSecretKeyB64: next.secretKeyB64, newPublicKeyB64: next.publicKeyB64,
+      timestamp: new Date().toISOString(), expiresAt: null,
+    });
+    const { status } = await postTo(url, "/v2/keys/rotate", rotation);
+    if (status === 200) current = next;
+    return status;
+  };
+};
 const v1Bundle = () => JSON.parse(
   fs.readFileSync(new URL("../tests/conformance/examples/citizenship_bundle.signed.json", import.meta.url), "utf8"),
 );
@@ -90,7 +109,7 @@ test("admin endpoints require the operator token", async () => {
 
 test("passport registration checks the self-signature and blocks agent hijacking", async () => {
   const alice = await newAgent("agent:alice-001");
-  assert.equal((await post("/v2/passport/register", { signed_passport: alice.signedPassport })).status, 201);
+  assert.equal((await registerNew(base, alice.signedPassport)).status, 201);
 
   const tampered = structuredClone(alice.signedPassport);
   tampered.payload.capabilities = ["browse", "payments"];
@@ -119,7 +138,7 @@ test("passport registration checks the self-signature and blocks agent hijacking
   // Listing alice's public key in another passport proves nothing: only signer keys register.
   const squatter = await newAgent("agent:squatter");
   squatter.passport.keys.push(alice.passport.keys[0]);
-  const squat = await post("/v2/passport/register", { signed_passport: await signPassport(squatter.passport, squatter.keys) });
+  const squat = await registerNew(base, await signPassport(squatter.passport, squatter.keys));
   assert.equal(squat.status, 201);
   assert.deepEqual(squat.body.registered_kids, [squatter.keys.classical.kid, squatter.keys.pq.kid]);
   const owner = await (await fetch(`${base}/v2/keys/${alice.keys.classical.kid}`)).json();
@@ -130,7 +149,7 @@ test("re-registration needs every active key, even where VERIFIER_MODE allows cl
   // classical_only accepts classical-only passports from new agents; it must not let one
   // stolen Ed25519 key re-register an agent that also holds a PQ key.
   const erin = await newAgent("agent:erin-0001");
-  assert.equal((await postTo(configured, "/v2/passport/register", { signed_passport: erin.signedPassport })).status, 201);
+  assert.equal((await registerNew(configured, erin.signedPassport)).status, 201);
   const planted = {
     ...erin.passport,
     created_at: later(erin.passport.created_at),
@@ -143,7 +162,7 @@ test("re-registration needs every active key, even where VERIFIER_MODE allows cl
   const kilo = await newAgent("agent:kilo-0001");
   kilo.passport.keys[1].expires_at = "2020-01-01T00:00:00Z";
   const registered = await signPassport(kilo.passport, kilo.keys);
-  assert.equal((await postTo(configured, "/v2/passport/register", { signed_passport: registered })).status, 201);
+  assert.equal((await registerNew(configured, registered)).status, 201);
   const kiloPlanted = { ...planted, agent_id: "agent:kilo-0001", keys: [kilo.passport.keys[0]], created_at: later(kilo.passport.created_at) };
   const kiloClassicalOnly = await signPassport(kiloPlanted, { classical: kilo.keys.classical });
   assert.equal((await postTo(configured, "/v2/passport/register", { signed_passport: kiloClassicalOnly })).status, 409);
@@ -151,7 +170,7 @@ test("re-registration needs every active key, even where VERIFIER_MODE allows cl
 
 test("one key in both composite slots is not a hybrid signature", async () => {
   const dave = await newAgent("agent:dave-0001");
-  assert.equal((await post("/v2/passport/register", { signed_passport: dave.signedPassport })).status, 201);
+  assert.equal((await registerNew(base, dave.signedPassport)).status, 201);
 
   // Holding only dave's Ed25519 key must not be enough to replace his emergency token.
   const oneKey = { classical: dave.keys.classical, pq: dave.keys.classical };
@@ -161,7 +180,7 @@ test("one key in both composite slots is not a hybrid signature", async () => {
 
 test("key rotation needs proof of possession by the new key and authorization by the old", async () => {
   const bob = await newAgent("agent:bob-0001");
-  assert.equal((await post("/v2/passport/register", { signed_passport: bob.signedPassport })).status, 201);
+  assert.equal((await registerNew(base, bob.signedPassport)).status, 201);
 
   const ed25519 = new Ed25519Provider();
   const next = await ed25519.generateKeypair();
@@ -183,7 +202,7 @@ test("key rotation needs proof of possession by the new key and authorization by
 
 test("rotation keeps at most four retired keys per agent", async () => {
   const lima = await newAgent("agent:lima-0001");
-  assert.equal((await post("/v2/passport/register", { signed_passport: lima.signedPassport })).status, 201);
+  assert.equal((await registerNew(base, lima.signedPassport)).status, 201);
   const registeredKeys = async () => (await (await fetch(`${base}/health`)).json()).registered_keys;
   const before = await registeredKeys();
 
@@ -212,43 +231,46 @@ test("rotation keeps at most four retired keys per agent", async () => {
   const reuse = await newAgent("agent:lima-reuse");
   reuse.passport.keys[0] = lima.passport.keys[0];
   const reused = await signPassport(reuse.passport, { classical: lima.keys.classical, pq: reuse.keys.pq });
-  assert.equal((await post("/v2/passport/register", { signed_passport: reused })).status, 409);
+  assert.equal((await registerNew(base, reused)).status, 409);
 });
 
-test("an agent can hold at most 64 keys over its lifetime", async () => {
-  // Its own server: 63 rotations would hit the shared one's per-client POST limit.
-  const { base: own, proc } = await startService(SERVER, {});
+test("MAX_KEYS_PER_AGENT caps the keys an agent registers over its lifetime", async () => {
+  const { base: own, proc } = await startService(SERVER, { OPERATOR_TOKEN, MAX_KEYS_PER_AGENT: "8" });
   try {
     const mike = await newAgent("agent:mike-life");
-    assert.equal((await postTo(own, "/v2/passport/register", { signed_passport: mike.signedPassport })).status, 201);
-    const ed25519 = new Ed25519Provider();
-    let current = { kid: mike.keys.classical.kid, secretKeyB64: mike.keys.classical.secretKeyB64 };
-    const rotate = async () => {
-      const next = await ed25519.generateKeypair();
-      const rotation = await createKeyRotation(registry, {
-        oldKid: current.kid, oldAlg: "ed25519", oldSecretKeyB64: current.secretKeyB64,
-        newKid: next.kid, newAlg: "ed25519", newSecretKeyB64: next.secretKeyB64, newPublicKeyB64: next.publicKeyB64,
-        timestamp: new Date().toISOString(), expiresAt: null,
-      });
-      const { status } = await postTo(own, "/v2/keys/rotate", rotation);
-      if (status === 200) current = next;
-      return status;
-    };
-    // 2 registered keys + 62 rotations = 64 keys.
-    for (let i = 0; i < 62; i++) assert.equal(await rotate(), 200, `rotation ${i + 1}`);
+    assert.equal((await registerNew(own, mike.signedPassport)).status, 201);
+    const rotate = ed25519Rotator(own, mike);
+    // 2 registered keys + 6 rotations = 8 keys.
+    for (let i = 0; i < 6; i++) assert.equal(await rotate(), 200, `rotation ${i + 1}`);
     assert.equal(await rotate(), 409);
   } finally {
     proc.kill();
   }
 });
 
+test("MAX_REGISTERED_KEYS caps the registry, and a rotation that retires a key still fits", async () => {
+  const { base: small, proc } = await startService(SERVER, { OPERATOR_TOKEN, MAX_REGISTERED_KEYS: "6" });
+  try {
+    const victor = await newAgent("agent:victor-01");
+    assert.equal((await registerNew(small, victor.signedPassport)).status, 201);
+    const rotate = ed25519Rotator(small, victor);
+    // 2 active + 4 retired keys fill the registry.
+    for (let i = 0; i < 4; i++) assert.equal(await rotate(), 200, `rotation ${i + 1}`);
+    assert.equal((await registerNew(small, (await newAgent("agent:whiskey-1")).signedPassport)).status, 507);
+    // The next rotation drops victor's oldest retired key before the cap check.
+    assert.equal(await rotate(), 200);
+  } finally {
+    proc.kill();
+  }
+});
+
 test("new registrations are rate limited per client", async () => {
-  const { base: limited, proc } = await startService(SERVER, { REGISTRATIONS_PER_HOUR: "2" });
+  const { base: limited, proc } = await startService(SERVER, { REGISTRATIONS_PER_HOUR: "2", OPERATOR_TOKEN });
   try {
     const statuses = [];
     for (const id of ["agent:mike-0001", "agent:mike-0002", "agent:mike-0003"]) {
       const { signedPassport } = await newAgent(id);
-      statuses.push((await postTo(limited, "/v2/passport/register", { signed_passport: signedPassport })).status);
+      statuses.push((await registerNew(limited, signedPassport)).status);
     }
     assert.deepEqual(statuses, [201, 201, 429]);
   } finally {
@@ -256,10 +278,38 @@ test("new registrations are rate limited per client", async () => {
   }
 });
 
+test("only the operator can register a new agent_id on the gateway", async () => {
+  // A passport is only self-signed: anyone could otherwise claim a victim's agent_id first.
+  const sierra = await newAgent("agent:sierra-gw");
+  assert.equal((await post("/v2/passport/register", { signed_passport: sierra.signedPassport })).status, 401);
+  assert.equal((await post("/v2/passport/register", { signed_passport: sierra.signedPassport }, { authorization: "Bearer wrong" })).status, 401);
+  assert.equal((await registerNew(base, sierra.signedPassport)).status, 201);
+  const renewed = { ...sierra.passport, created_at: later(sierra.passport.created_at) };
+  assert.equal((await post("/v2/passport/register", { signed_passport: await signPassport(renewed, sierra.keys) })).status, 201);
+});
+
+test("base64 keys must be canonical and the size of their algorithm", async () => {
+  // Lenient decoders skip whitespace, so a padded key used to verify and be stored as sent.
+  const tango = await newAgent("agent:tango-gw");
+  const padded = structuredClone(tango.passport);
+  padded.keys[1].public_key_b64 += " ".repeat(10_000);
+  assert.equal((await registerNew(base, await signPassport(padded, tango.keys))).status, 400);
+
+  assert.equal((await registerNew(base, tango.signedPassport)).status, 201);
+  const next = await new MlDsa65Provider().generateKeypair();
+  const rotation = await createKeyRotation(registry, {
+    oldKid: tango.keys.pq.kid, oldAlg: "ml-dsa-65", oldSecretKeyB64: tango.keys.pq.secretKeyB64,
+    newKid: next.kid, newAlg: "ml-dsa-65", newSecretKeyB64: next.secretKeyB64,
+    newPublicKeyB64: next.publicKeyB64 + " ".repeat(10_000),
+    timestamp: new Date().toISOString(), expiresAt: null,
+  });
+  assert.equal((await post("/v2/keys/rotate", rotation)).status, 400);
+});
+
 test("expired keys cannot re-register, extend their expiry or authorize a rotation", async () => {
   const carol = await newAgent("agent:carol-001");
   for (const key of carol.passport.keys) key.expires_at = "2020-01-01T00:00:00Z";
-  assert.equal((await post("/v2/passport/register", { signed_passport: await signPassport(carol.passport, carol.keys) })).status, 201);
+  assert.equal((await registerNew(base, await signPassport(carol.passport, carol.keys))).status, 201);
 
   const extended = structuredClone(carol.passport);
   extended.created_at = later(carol.passport.created_at);
@@ -281,7 +331,7 @@ test("multi-party authorization verifies each party's registered composite signa
   const admin = await newAgent("party:admin-01");
   const outsider = await newAgent("party:outsider");
   for (const party of [owner, admin]) {
-    assert.equal((await post("/v2/passport/register", { signed_passport: party.signedPassport })).status, 201);
+    assert.equal((await registerNew(base, party.signedPassport)).status, 201);
   }
 
   const operation_payload = { agent_id: "agent:bob-0001" };
