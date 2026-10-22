@@ -75,6 +75,9 @@ PQ_ONLY_VERIFIER_POLICY: dict[str, Any] = {
 }
 
 _ARTIFACTS = ("responsible_principal_record", "agent_passport", "intent", "policy_decision")
+# The algorithms each composite signature slot may hold.
+_CLASSICAL_ALGS = ("ed25519",)
+_PQ_ALGS = ("ml-dsa-65", "slh-dsa-192f")
 _MANIFEST_HASH_FIELDS = dict(zip(_ARTIFACTS, ("rpr_hash", "passport_hash", "intent_hash", "policy_hash")))
 
 
@@ -106,6 +109,15 @@ async def _check_composite_sig(
     rejected = policy.get("advisory_rejected_algs") or []
     classical, pq, binding = sig["classical"], sig.get("pq"), sig.get("binding")
 
+    def fail(error: str) -> tuple[bool, list[str], list[str]]:
+        return False, [*errors, error], warnings
+
+    # In every mode: Ed25519 cannot stand in for the PQ signature, nor ML-DSA for the classical one.
+    if classical["alg"] not in _CLASSICAL_ALGS:
+        return fail(f"Classical slot holds {classical['alg']}, which is not a classical algorithm")
+    if pq and pq["alg"] not in _PQ_ALGS:
+        return fail(f"PQ slot holds {pq['alg']}, which is not a PQ algorithm")
+
     if mode != "pq_only":
         if classical["alg"] not in policy["accepted_classical_algs"]:
             errors.append(f"Classical algorithm {classical['alg']} not accepted by verifier policy")
@@ -120,18 +132,19 @@ async def _check_composite_sig(
     if policy.get("warn_classical_only_deprecated") and binding == "classical_only":
         warnings.append("DEPRECATION: classical-only signatures are deprecated. Migrate to hybrid or pq_only.")
 
-    def fail(error: str) -> tuple[bool, list[str], list[str]]:
-        return False, [*errors, error], warnings
-
     if mode == "pq_only" and binding == "classical_only":
         return fail("pq_only mode requires PQ signature, but binding is classical_only")
     # In pq_only mode the classical key is optional.
     signer_key = _find_key(keys, classical["kid"])
     if signer_key is None and mode != "pq_only":
         return fail(f"Classical signer key kid={classical['kid']} not found in {keys_label}")
+    if signer_key is not None and signer_key.get("alg") != classical["alg"]:
+        return fail(f"Classical signer key kid={classical['kid']} is {signer_key.get('alg')}, not {classical['alg']}")
     pq_key = _find_key(keys, pq["kid"]) if pq else None
     if pq and pq_key is None:
         return fail(f"PQ signer key kid={pq['kid']} not found in {keys_label}")
+    if pq and pq_key.get("alg") != pq["alg"]:
+        return fail(f"PQ signer key kid={pq['kid']} is {pq_key.get('alg')}, not {pq['alg']}")
     if mode == "pq_only" and pq_key is None:
         return fail("pq_only mode requires PQ key, but no PQ key found")
 
@@ -226,7 +239,10 @@ async def _verify(
 
     # 2. Payload hash of every signed artifact
     for name in _ARTIFACTS:
-        if not verify_payload_hash(bundle[name]):
+        signed = bundle.get(name)
+        if not isinstance(signed, dict) or not isinstance(signed.get("payload"), dict):
+            errors.append(f"{name}: not a SignedPayload object")
+        elif not verify_payload_hash(signed):
             errors.append(f"{name}: payload_hash mismatch")
     if errors:
         return
@@ -319,8 +335,8 @@ async def _verify(
         registry, policy, mode, DCP_CONTEXTS["Bundle"], manifest, signature["composite_sig"],
         passport_keys + rpr_keys, "passport or RPR",
     )
-    errors.extend(errs)
-    warnings.extend(warns)
+    errors.extend(f"bundle: {e}" for e in errs)
+    warnings.extend(f"bundle: {w}" for w in warns)
     details["signature_valid"] = valid
 
     # 7. Per-artifact composite signatures (V2-8). The principal signs the RPR

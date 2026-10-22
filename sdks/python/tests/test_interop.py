@@ -13,6 +13,7 @@ to form the 4×4 cross-language verification matrix.
 from __future__ import annotations
 
 import base64
+import copy
 import json
 import os
 from pathlib import Path
@@ -33,6 +34,7 @@ from dcp_ai.v2.security_tier import (
     tier_to_checkpoint_interval,
     tier_to_verification_mode,
 )
+from dcp_ai.v2.verify import DEFAULT_VERIFIER_POLICY, verify_signed_bundle_v2
 from dcp_ai.providers.ed25519_provider import Ed25519Provider
 from dcp_ai.providers.ml_dsa_65_provider import MlDsa65Provider
 
@@ -407,3 +409,48 @@ class TestSecurityTier:
         for case in cases:
             got = effective_verification_mode(case["policy_mode"], case["tier"])
             assert got == case["expected"], f"{case['policy_mode']} + {case['tier']}"
+
+
+# ---------------------------------------------------------------------------
+# Signed bundle verification (bundle_vectors.json)
+# ---------------------------------------------------------------------------
+
+MODES = ("classical_only", "hybrid_preferred", "hybrid_required", "pq_only")
+
+
+@pytest.fixture(scope="module")
+def B():
+    with open(VECTORS_PATH.with_name("bundle_vectors.json")) as f:
+        return json.load(f)
+
+
+def _policy_for(mode):
+    return {**DEFAULT_VERIFIER_POLICY, "default_mode": mode, "risk_overrides": dict.fromkeys(("low", "medium", "high"), mode)}
+
+
+def _mutated(signed, mutations):
+    out = copy.deepcopy(signed)
+    for mutation in mutations:
+        node = out
+        for key in mutation["path"][:-1]:
+            node = node[key]
+        node[mutation["path"][-1]] = mutation["value"]
+    return out
+
+
+class TestSignedBundleVectors:
+    """Under every mode the signed bundle verifies and each must_reject mutation
+    (VERIFICATION.md V2-7 / V2-8) is rejected with an error naming error_contains."""
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("mode", MODES)
+    async def test_vectors(self, B, registry, mode):
+        policy = _policy_for(mode)
+        result = await verify_signed_bundle_v2(B["signed_bundle"], registry, policy)
+        assert result["verified"], result["errors"]
+
+        cases = [(c["name"], _mutated(B["signed_bundle"], c["mutations"]), c["error_contains"]) for c in B["must_reject"]]
+        for name, signed, error_contains in cases:
+            result = await verify_signed_bundle_v2(signed, registry, policy)
+            assert not result["verified"], name
+            assert error_contains in "\n".join(result["errors"]).lower(), (name, result["errors"])
