@@ -279,6 +279,65 @@ test("REVOCATION_STATE_PATH keeps registrations and revocations across a restart
   }
 });
 
+test("base64 keys and signatures must be canonical and the size of their algorithm", async () => {
+  const uniform = await newAgent("agent:uniform-1");
+  const padded = structuredClone(uniform.passport);
+  padded.keys[1].public_key_b64 += " ".repeat(10_000);
+  assert.equal((await registerSigned(await signPassport(padded, uniform.keys))).status, 403);
+  assert.equal((await register(uniform)).status, 201);
+
+  const record = {
+    dcp_version: "2.0", agent_id: "agent:uniform-1", human_id: "human:test-owner",
+    revoked_kid: uniform.keys.pq.kid, timestamp: new Date().toISOString(), reason: "key_compromise",
+  };
+  const composite_sig = await sign(DCP_CONTEXTS.Revocation, record, uniform.keys);
+  composite_sig.pq.sig_b64 += " ".repeat(10_000);
+  assert.equal((await post("/v2/revoke", { ...record, composite_sig })).status, 403);
+  assert.equal((await checkKid(uniform.keys.pq.kid)).revoked, false);
+});
+
+test("the state file must be writable at startup", async () => {
+  const unwritable = path.join(os.tmpdir(), `no-such-dir-${crypto.randomUUID()}`, "state.jsonl");
+  await assert.rejects(startService(SERVICE, { OPERATOR_TOKEN, REVOCATION_STATE_PATH: unwritable }).then(({ proc }) => proc.kill()));
+});
+
+test("the state file is compacted at start, and re-registrations append only what changed", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "dcp-revocation-"));
+  const file = path.join(dir, "state.jsonl");
+  const lines = () => fs.readFileSync(file, "utf8").split("\n").filter(Boolean).length;
+  const env = { OPERATOR_TOKEN, REVOCATION_STATE_PATH: file };
+  const victor = await newAgent("agent:victor-rv");
+  let passport = victor.passport;
+  let secret;
+  let service = await startService(SERVICE, env);
+  try {
+    assert.equal((await postTo(service.base, "/v2/register", { signed_passport: victor.signedPassport }, asOperator)).status, 201);
+    for (let i = 0; i < 3; i++) {
+      secret = crypto.randomBytes(32).toString("hex");
+      passport = {
+        ...passport,
+        created_at: later(passport.created_at),
+        emergency_revocation_token: `sha256:${sha256Hex(Buffer.from(secret, "hex"))}`,
+      };
+      assert.equal((await postTo(service.base, "/v2/register", { signed_passport: await signPassport(passport, victor.keys) })).status, 201);
+    }
+    // The agent and its two kids, then one small line per re-registration.
+    assert.equal(lines(), 6);
+  } finally {
+    service.proc.kill();
+  }
+
+  service = await startService(SERVICE, env);
+  try {
+    assert.equal(lines(), 3);
+    const panic = { agent_id: "agent:victor-rv", revocation_secret: secret };
+    assert.equal((await postTo(service.base, "/v2/emergency-revoke", panic)).status, 200);
+  } finally {
+    service.proc.kill();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("malformed percent-encoding returns 400 instead of crashing the service", async () => {
   assert.equal((await get("/v2/check/kid/%E0")).status, 400);
   assert.equal((await get("/check/%E0")).status, 400);

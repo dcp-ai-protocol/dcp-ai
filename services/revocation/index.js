@@ -52,25 +52,56 @@ const agents = new Map();
 // kid -> agent_id, for the keys that proved possession at registration
 const kidOwners = new Map();
 
-// Optional file-backed state: each write is appended as one JSON line and the file is
-// replayed at start. Without REVOCATION_STATE_PATH, a restart forgets every registration
-// and revocation.
-// ponytail: append-only and never compacted; rewrite it from the maps if it grows large.
+// Optional file-backed state: each write is appended (and fsynced) as one JSON line,
+// and at start the file is replayed, then compacted to one line per entry through a
+// temp file and an atomic rename. Without REVOCATION_STATE_PATH, a restart forgets
+// every registration and revocation.
 const STATE_PATH = process.env.REVOCATION_STATE_PATH;
+const MAX_STATE_BYTES = 512 * 1024 * 1024; // refuse to start rather than read an absurd file
 const stores = { revocations, kidRevocations, agents, kidOwners };
+let stateFd = null;
+
+function persist(entry) {
+  if (stateFd === null) return;
+  fs.writeSync(stateFd, JSON.stringify(entry) + "\n");
+  fs.fsyncSync(stateFd);
+}
+
 function put(store, key, value) {
-  if (STATE_PATH) fs.appendFileSync(STATE_PATH, JSON.stringify([store, key, value]) + "\n");
+  persist([store, key, value]);
   stores[store].set(key, value);
 }
-if (STATE_PATH && fs.existsSync(STATE_PATH)) {
-  for (const line of fs.readFileSync(STATE_PATH, "utf8").split("\n").filter(Boolean)) {
-    try {
-      const [store, key, value] = JSON.parse(line);
-      stores[store].set(key, value);
-    } catch {
-      console.warn("[revocation] Skipping an unreadable state line (a torn last write?)");
+
+// Records only the changed fields, e.g. a re-registration's new token.
+function merge(store, key, fields) {
+  persist([store, key, fields, "merge"]);
+  stores[store].set(key, { ...stores[store].get(key), ...fields });
+}
+
+if (STATE_PATH) {
+  if (fs.existsSync(STATE_PATH)) {
+    if (fs.statSync(STATE_PATH).size > MAX_STATE_BYTES) {
+      throw new Error(`${STATE_PATH} is over ${MAX_STATE_BYTES} bytes; refusing to load it`);
+    }
+    for (const line of fs.readFileSync(STATE_PATH, "utf8").split("\n").filter(Boolean)) {
+      try {
+        const [store, key, value, op] = JSON.parse(line);
+        stores[store].set(key, op === "merge" ? { ...stores[store].get(key), ...value } : value);
+      } catch {
+        console.warn("[revocation] Skipping an unreadable state line (a torn last write?)");
+      }
     }
   }
+  // Also fails fast, at startup, when the path is not writable.
+  const tmp = `${STATE_PATH}.tmp`;
+  const fd = fs.openSync(tmp, "w");
+  for (const [name, store] of Object.entries(stores)) {
+    for (const [key, value] of store) fs.writeSync(fd, JSON.stringify([name, key, value]) + "\n");
+  }
+  fs.fsyncSync(fd);
+  fs.closeSync(fd);
+  fs.renameSync(tmp, STATE_PATH);
+  stateFd = fs.openSync(STATE_PATH, "a");
 }
 
 // Per-client rate limiters
@@ -184,16 +215,23 @@ async function handle(req, res) {
       return send(res, 507, { error: "Registry full" });
     }
 
-    for (const k of signers) put("kidOwners", k.kid, agentId);
-    put("agents", agentId, {
-      // Registered entries are kept, so a new passport cannot extend expires_at.
-      keys: existing?.keys ??
-        signers.map(({ kid, alg, public_key_b64, expires_at }) => ({ kid, alg, public_key_b64, expires_at: expires_at ?? null })),
+    const update = {
       // Never cleared: a newer passport without a token keeps the registered one.
       token_hash: passport.emergency_revocation_token ?? existing?.token_hash ?? null,
       created_at: passport.created_at,
       registered_at: new Date().toISOString(),
-    });
+    };
+    if (existing) {
+      // The registered key entries stay (a new passport cannot extend expires_at), so
+      // only the changed fields are recorded.
+      merge("agents", agentId, update);
+    } else {
+      for (const k of signers) put("kidOwners", k.kid, agentId);
+      put("agents", agentId, {
+        keys: signers.map(({ kid, alg, public_key_b64, expires_at }) => ({ kid, alg, public_key_b64, expires_at: expires_at ?? null })),
+        ...update,
+      });
+    }
 
     console.log(`[register] Agent ${agentId} registered (${signers.length} keys)`);
     send(res, 201, { ok: true, agent_id: agentId, registered_kids: signers.map((k) => k.kid) });

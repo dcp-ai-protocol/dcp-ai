@@ -378,7 +378,7 @@ This endpoint can be:
 |----------|---------|-------------|
 | `PORT` | `3003` | HTTP port |
 | `OPERATOR_TOKEN` | — | Bearer token for registering a new `agent_id`. Unset: no new agents |
-| `REVOCATION_STATE_PATH` | — | File that keeps registrations and revocations across restarts (append-only JSON lines, replayed at start; its directory must exist). Unset: memory only |
+| `REVOCATION_STATE_PATH` | — | File that keeps registrations and revocations across restarts. Unset: memory only. Every write is appended as one fsynced JSON line (a re-registration only records what changed). At start the file is replayed, then compacted to one line per entry through a temp file and an atomic rename. The service refuses to start if the path is not writable or the file exceeds 512 MB |
 | `TRUST_PROXY` | — | `true` only behind a proxy that appends the client IP to `X-Forwarded-For` |
 | `REGISTRATIONS_PER_HOUR` | `20` | `POST /v2/register` calls per client per hour; more get 429 |
 | `MAX_AGENTS` | `10000` | Registered agents; new agents then get 507 (nothing is evicted) |
