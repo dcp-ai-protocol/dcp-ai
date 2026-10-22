@@ -2,6 +2,12 @@
 
 HTTP service for publishing and querying DCP agent revocations. Supports both V1 (agent-level) and V2 (kid-level, emergency revocation, short-lived cert tracking). Exposes a `.well-known` endpoint for standardized queries.
 
+Every write is authenticated. An agent first registers with its self-signed V2 passport
+(`POST /v2/register`): the composite signature proves possession of the signer keys, so the
+service records those kids as the agent's, with their expiry and the passport's emergency
+revocation token. Revocations must then be signed by those registered keys. State is in memory
+(see [Persistence](../README.md#persistence)).
+
 ## Quickstart
 
 ```bash
@@ -29,6 +35,7 @@ curl http://localhost:3003/health
   "ok": true,
   "service": "dcp-revocation",
   "supported_versions": ["1.0", "2.0"],
+  "registered_agents": 2,
   "total_revocations": 3,
   "total_kid_revocations": 1
 }
@@ -36,14 +43,19 @@ curl http://localhost:3003/health
 
 ### `POST /revoke`
 
-Publish an agent-level revocation (V1).
+Publish an agent-level revocation (V1). `signature` is an Ed25519 signature (base64) over the
+V1 canonical JSON of `{ dcp_version, agent_id, human_id, timestamp, reason }` as sent
+(`signObject` in `tools/crypto.js`), made with one of the agent's registered `ed25519` keys. The
+agent must have registered with `POST /v2/register` first.
 
 ```bash
 curl -X POST http://localhost:3003/revoke \
   -H "Content-Type: application/json" \
   -d '{
-    "agent_id": "agent-001",
-    "human_id": "human-001",
+    "dcp_version": "1.0",
+    "agent_id": "agent:research-bot-001",
+    "human_id": "human:alice-001",
+    "timestamp": "2026-03-01T00:00:00Z",
     "reason": "Compromised credentials",
     "signature": "base64-signature..."
   }'
@@ -56,9 +68,11 @@ curl -X POST http://localhost:3003/revoke \
 | `agent_id` | `string` | Yes | ID of the agent to revoke |
 | `human_id` | `string` | No | ID of the responsible human |
 | `reason` | `string` | Yes | Reason for revocation |
-| `signature` | `string` | Yes | Revocation signature |
+| `signature` | `string` | Yes | Ed25519 signature over the other fields |
 | `dcp_version` | `string` | No | DCP version (default: `"1.0"`) |
 | `timestamp` | `string` | No | ISO 8601 (default: now) |
+
+Fields left out of the request are left out of the signed object; defaults are filled in afterwards.
 
 **Response (201):**
 
@@ -69,6 +83,10 @@ curl -X POST http://localhost:3003/revoke \
   "revoked_at": "2026-03-01T00:00:00.000Z"
 }
 ```
+
+**Error responses:** 400 (missing fields), 403 (signature does not verify against the agent's
+registered `ed25519` keys), 409 (agent already revoked: revocations are final, so an emergency
+revocation cannot be overwritten).
 
 ### `GET /check/:agent_id`
 
@@ -122,9 +140,38 @@ curl http://localhost:3003/list
 
 ## V2 Endpoints
 
+### `POST /v2/register`
+
+Register an agent's keys and emergency revocation token. The body is the agent's self-signed
+passport, the `SignedPayload` of an `AgentPassportV2` signed under `DCP-AI.v2.AgentPassport` by
+the keys it lists (the `agent_passport` of an SDK-built bundle). The composite signature must be
+`pq_over_classical`.
+
+```bash
+curl -X POST http://localhost:3003/v2/register \
+  -H "Content-Type: application/json" \
+  -d '{ "signed_passport": { "payload": { "dcp_version": "2.0", "agent_id": "...", "keys": [...], "emergency_revocation_token": "sha256:...", ... }, "payload_hash": "sha256:...", "composite_sig": { ... } } }'
+```
+
+- Only the two signer keys (classical + PQ) are registered: listing someone else's public key
+  registers nothing. Their `expires_at` drives the `expired` answer of `GET /v2/check/kid/:kid`.
+- The first registration of an `agent_id` is trust on first use. Registering it again (for
+  example to replace the token) must be signed by its current, non-revoked keys.
+
+**Response (201):**
+
+```json
+{ "ok": true, "agent_id": "agent-001", "registered_kids": ["a1b2...", "c3d4..."] }
+```
+
+**Error responses:** 400 (not a V2 signed passport), 403 (signature invalid, or agent
+emergency-revoked), 409 (agent registered with other keys, or a kid owned by another agent).
+
 ### `POST /v2/revoke`
 
-Kid-level revocation with composite signature.
+Kid-level revocation with composite signature. `composite_sig` signs the record without it
+(`dcp_version`, `agent_id`, `human_id`, `revoked_kid`, `timestamp`, `reason`, as sent) under
+`DCP-AI.v2.Revocation`, with the agent's registered keys; `revoked_kid` must be one of them.
 
 ```bash
 curl -X POST http://localhost:3003/v2/revoke \
@@ -165,9 +212,14 @@ curl -X POST http://localhost:3003/v2/revoke \
 }
 ```
 
+**Error responses:** 400 (missing fields or `dcp_version`), 403 (`revoked_kid` is not a
+registered key of `agent_id`, or `composite_sig` does not verify against the agent's keys).
+
 ### `POST /v2/emergency-revoke`
 
-Emergency revocation (panic button). Revokes ALL keys for an agent using a pre-registered revocation secret. Rate-limited to 5 attempts per minute per IP.
+Emergency revocation (panic button). Revokes ALL keys for an agent using the pre-image of the
+`emergency_revocation_token` registered with its passport. Rate-limited to 5 attempts per minute
+per client IP (socket address, or the last `X-Forwarded-For` hop with `TRUST_PROXY=true`).
 
 ```bash
 curl -X POST http://localhost:3003/v2/emergency-revoke \
@@ -201,52 +253,18 @@ curl -X POST http://localhost:3003/v2/emergency-revoke \
 
 **Error responses:** 400 (bad format), 403 (invalid secret), 404 (no token registered), 409 (token already consumed), 429 (rate limit).
 
-### `POST /v2/register-emergency-token`
-
-Register an emergency revocation token for an agent. Called during identity setup.
-
-```bash
-curl -X POST http://localhost:3003/v2/register-emergency-token \
-  -H "Content-Type: application/json" \
-  -d '{
-    "agent_id": "agent-001",
-    "emergency_revocation_token": "sha256:abc123..."
-  }'
-```
-
-**Response (201):**
-
-```json
-{ "ok": true, "agent_id": "agent-001" }
-```
-
-### `POST /v2/register-key-expiry`
-
-Register key expiry for short-lived cert tracking.
-
-```bash
-curl -X POST http://localhost:3003/v2/register-key-expiry \
-  -H "Content-Type: application/json" \
-  -d '{
-    "kid": "a1b2c3d4...",
-    "expires_at": "2026-04-01T00:00:00Z"
-  }'
-```
-
-**Response (201):**
-
-```json
-{ "ok": true, "kid": "a1b2c3d4...", "expires_at": "2026-04-01T00:00:00Z" }
-```
+`POST /v2/register-emergency-token` and `POST /v2/register-key-expiry` were removed: they
+accepted unsigned requests, so anyone could replace a token or mark any key expired. The token
+and the key expiry now come from the signed passport (`POST /v2/register`).
 
 ### `GET /v2/check/kid/:kid[?agent_id=<id>]`
 
-Check if a specific key identifier is revoked (explicit revocation, emergency revocation, or expiry).
-The service does not know which agent owns an arbitrary kid, so an emergency revocation is only
-reported when the caller passes the owning `agent_id` (or checks `GET /check/:agent_id`).
+Check if a specific key identifier is revoked (explicit revocation, emergency revocation of its
+owner, or expiry). The owner of a registered kid is known, so `?agent_id=` is only needed for
+kids the agent listed in its passport but did not sign with (they are not registered).
 
 ```bash
-curl "http://localhost:3003/v2/check/kid/a1b2c3d4e5f6?agent_id=agent-001"
+curl "http://localhost:3003/v2/check/kid/a1b2c3d4e5f6"
 ```
 
 **Revoked key:**
@@ -336,6 +354,7 @@ This endpoint can be:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `3003` | HTTP port |
+| `TRUST_PROXY` | — | `true` only behind a proxy that appends the client IP to `X-Forwarded-For` |
 
 ## Integration
 
@@ -345,30 +364,23 @@ The Express and FastAPI middlewares can use `checkRevocation: true` to automatic
 
 ### V2 flow
 
-1. Register emergency token during agent setup (`POST /v2/register-emergency-token`)
-2. Register key expiry for short-lived certs (`POST /v2/register-key-expiry`)
-3. Revoke individual keys as needed (`POST /v2/revoke`)
-4. Use panic button in emergencies (`POST /v2/emergency-revoke`)
-5. Check key status before accepting bundles (`GET /v2/check/kid/:kid`)
+1. Register the agent's signed passport during setup (`POST /v2/register`): keys, their expiry and the emergency token
+2. Revoke individual keys as needed, signed by the agent's keys (`POST /v2/revoke`)
+3. Use panic button in emergencies (`POST /v2/emergency-revoke`)
+4. Check key status before accepting bundles (`GET /v2/check/kid/:kid`)
 
 ## Development
 
 ```bash
 PORT=3003 node index.js
 
-# Test V1
 curl http://localhost:3003/health
-curl -X POST http://localhost:3003/revoke \
-  -H "Content-Type: application/json" \
-  -d '{"agent_id":"test-001","reason":"test","signature":"sig"}'
 curl http://localhost:3003/check/test-001
-
-# Test V2
-curl -X POST http://localhost:3003/v2/register-emergency-token \
-  -H "Content-Type: application/json" \
-  -d '{"agent_id":"test-002","emergency_revocation_token":"sha256:abc123"}'
 curl http://localhost:3003/v2/list
 curl http://localhost:3003/.well-known/dcp-revocations.json
+
+# Writes need signatures; index.test.js builds signed passports and revocations
+node --test services/revocation/index.test.js   # from the repo root
 ```
 
 ## License
