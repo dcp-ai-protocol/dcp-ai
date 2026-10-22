@@ -756,7 +756,7 @@ interface VerifyV2Result {
 7. Composite signature verification over the manifest and over each artifact's `SignedPayload` (the RPR against its `binding_keys`, the passport, intent and policy decision against the passport `keys`)
 8. Policy mode enforcement (hybrid_required, hybrid_preferred, classical_only, pq_only); a PQ signature that is present must verify in every mode, and only an absent one is tolerated, by hybrid_preferred and classical_only
 9. Audit hash chain validation (prev_hash links)
-10. Key validity checks (revocation, expiry, age)
+10. Key validity checks (revocation, expiry, age) for the passport keys and the RPR `binding_keys`
 
 > `@dcp-ai/sdk` 2.1.2 and earlier skip the per-artifact signatures of step 7 (VERIFICATION.md Step V2-8) and, under `hybrid_preferred`, accept a PQ signature that is present but invalid with a warning (Step V2-7).
 

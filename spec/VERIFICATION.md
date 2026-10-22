@@ -57,11 +57,15 @@ The bundle MUST contain a `manifest` object with the following required fields:
 - `audit_merkle_root` — Merkle root of audit entries
 - `audit_count` — integer count of audit entries
 
-Recompute each artifact hash from the canonical representation of the corresponding `payload` and verify it matches the manifest value.
+Recompute each artifact hash from the canonical representation of the corresponding `payload` and verify it matches the manifest value and the artifact's own `payload_hash`. A manifest hash that is missing, or a payload that is missing or cannot be canonicalized, fails verification.
+
+Tie the audit trail to the manifest: `audit_count` MUST equal the number of `audit_entries`, `audit_merkle_root` MUST equal the Merkle root recomputed from them, the first entry's `prev_hash` MUST be `GENESIS`, and each later entry's `prev_hash` MUST be the hash of the previous entry.
 
 ### Step V2-4: Verify session nonce consistency
 
 All artifacts (`responsible_principal_record.payload`, `agent_passport.payload`, `intent.payload`, `policy_decision.payload`) and all `audit_entries` that include a `session_nonce` field MUST share the same nonce as `manifest.session_nonce`.
+
+If `manifest.session_expires_at` is present and has passed, reject the bundle.
 
 ### Step V2-5: Verify composite signature structure
 
@@ -122,7 +126,8 @@ If the manifest references `pq_checkpoints`, verify each checkpoint:
 For each key identifier (`kid`) referenced in composite signatures:
 - Verify the kid was derived deterministically: `kid = hex(SHA-256(UTF8(alg) || 0x00 || raw_public_key))[0:32]`
 - Optionally check key status against a revocation service or local revocation list.
-- Check `expires_at` if present — reject expired keys.
+
+Reject the bundle if any key that can sign it, in the passport `keys` or the RPR `binding_keys`, has `status: "revoked"` or an `expires_at` that has passed.
 
 ---
 
