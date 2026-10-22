@@ -102,7 +102,8 @@ closed the cross-SDK behavioral-parity gap identified by the first external
 crosswalk. Before these releases, DCP-04..09 behavior lived only in the
 TypeScript SDK; afterwards every core SDK speaks the same protocol surface.
 v2.8.0 and v2.8.1 (2026-04-26) then pinned byte-exact canonicalization
-across the four SDKs.
+across the four SDKs, and v2.9.0 (2026-10-21) made the reference verifier
+verify normative V2 bundles.
 
 - **v2.1.0** — OpenTelemetry OTLP exporter for TS + Python telemetry parity.
 - **v2.2.0** — DCP-05 lifecycle + DCP-06 succession ported to Python, Rust, Go.
@@ -113,6 +114,7 @@ across the four SDKs.
 - **v2.7.0** — 38 canonical `DcpErrorCode` values + `detect_wire_format` helper aligned across all four core SDKs, so cross-SDK error handling matches on a single stable string.
 - **v2.8.0** — Canonicalization profile `dcp-jcs-v1` ([`spec/CANONICALIZATION_PROFILE.md`](spec/CANONICALIZATION_PROFILE.md)) pins the cases RFC 8785 leaves implementation-defined, closing the four-SDK divergence on `1.0`, `1e2` and `undefined`; 14 shared edge-case interop vectors.
 - **v2.8.1** — `canonicalization_profile` manifest field wired across the four SDKs: builders emit `"dcp-jcs-v1"`, verifiers treat an absent field as `dcp-jcs-v1` and reject unknown values.
+- **v2.9.0** (2026-10-21) — The reference verifier, CLI and server verify normative V2 bundles through `@dcp-ai/sdk`; Go and TypeScript canonicalization fixed against `dcp-jcs-v1`; all open dependency security alerts closed (Go and Rust 2.9.0, Python 2.8.2, `@dcp-ai/sdk` 2.1.2).
 
 ### Out of scope for Phase 5
 

@@ -10,21 +10,21 @@
 
 ```toml
 [dependencies]
-dcp-ai = "2.8"
+dcp-ai = "2.9"
 ```
 
 启用 OpenTelemetry/OTLP 导出：
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.8", features = ["otlp"] }
+dcp-ai = { version = "2.9", features = ["otlp"] }
 ```
 
 启用 WebAssembly 支持：
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.8", features = ["wasm"] }
+dcp-ai = { version = "2.9", features = ["wasm"] }
 ```
 
 ## 功能

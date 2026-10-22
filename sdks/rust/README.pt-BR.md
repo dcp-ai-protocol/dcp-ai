@@ -10,21 +10,21 @@ Adicione ao `Cargo.toml`:
 
 ```toml
 [dependencies]
-dcp-ai = "2.8"
+dcp-ai = "2.9"
 ```
 
 Com exportação OpenTelemetry/OTLP:
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.8", features = ["otlp"] }
+dcp-ai = { version = "2.9", features = ["otlp"] }
 ```
 
 Para suporte a WebAssembly:
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.8", features = ["wasm"] }
+dcp-ai = { version = "2.9", features = ["wasm"] }
 ```
 
 ## Recursos
