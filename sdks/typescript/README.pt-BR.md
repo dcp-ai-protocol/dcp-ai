@@ -202,10 +202,11 @@ const bundle = new BundleBuilderV2()
 | `buildEmergencyRevocation({ agentId, humanId, revocationSecret })` | Constrói uma solicitação de revogação de emergência a partir do segredo de revogação |
 | `shamirSplit(secret, threshold, totalShares)` | Divide um segredo em `totalShares` shares; quaisquer `threshold` deles o reconstroem |
 | `shamirReconstruct(shares)` | Reconstrói um segredo a partir de pelo menos `threshold` shares |
-| `blindRpr(rpr)` | Substitui os dados pessoais de um RPR (`legal_name`, `contact`) por um compromisso hash |
-| `verifyBlindedRpr(fullRpr, blindedRpr)` | Verifica se um RPR cego corresponde ao registro completo |
+| `generatePiiSalt()` | Gera um `pii_salt` (32 bytes aleatórios em hex). Defina-o no RPR antes de assiná-lo; ele nunca é publicado |
+| `blindRpr(rpr)` | Substitui os dados pessoais de um RPR (`legal_name`, `contact`) por um compromisso hash com salt; lança um erro se `rpr.pii_salt` estiver ausente ou malformado |
+| `verifyBlindedRpr(fullRpr, blindedRpr)` | Verifica se um RPR cego corresponde ao registro completo; `warnings` sinaliza um compromisso legado sem salt |
 | `isBlindedRpr(rpr)` | Type guard para `BlindedResponsiblePrincipalRecordV2` |
-| `computePiiHash(rpr)` | Calcula o compromisso hash sobre os campos de dados pessoais de um RPR |
+| `computePiiHash(rpr)` | Calcula o compromisso hash sobre os campos de dados pessoais e o `pii_salt` de um RPR (sem `pii_salt`: o valor legado sem salt, obsoleto) |
 | `CborEncoder` | Classe encoder CBOR |
 | `CborDecoder` | Classe decoder CBOR |
 | `cborEncode(value)` | Codifica um valor em bytes CBOR |

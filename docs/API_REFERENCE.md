@@ -222,6 +222,7 @@ interface ResponsiblePrincipalRecordV2 {
   expires_at: string | null;
   contact: string | null;
   binding_keys: KeyEntry[];
+  pii_salt?: string;                // 32 random bytes as hex; signed, never published
 }
 ```
 
@@ -235,7 +236,7 @@ interface BlindedResponsiblePrincipalRecordV2 {
   human_id: string;
   session_nonce: string;
   blinded: true;
-  pii_hash: string;                 // Hash of PII fields
+  pii_hash: string;                 // Salted hash of PII fields
   entity_type: EntityType;
   jurisdiction: string;
   liability_mode: LiabilityMode;
@@ -249,13 +250,18 @@ interface BlindedResponsiblePrincipalRecordV2 {
 Helpers (exported by `@dcp-ai/sdk` releases after 2.1.2):
 
 ```typescript
-// pii_hash = "sha256:" + hex(sha256(canonical({ legal_name, contact })))
+// 32 random bytes as hex. Set it as rpr.pii_salt before signing the RPR; never publish it.
+function generatePiiSalt(): string;
+// pii_hash = "sha256:" + hex(sha256(canonical({ contact, legal_name, pii_salt })))
+// Without pii_salt: the legacy unsalted value (deprecated), for opening old records.
 function computePiiHash(rpr: ResponsiblePrincipalRecordV2): string;
+// Throws if rpr.pii_salt is missing or malformed. The result never carries pii_salt.
 function blindRpr(rpr: ResponsiblePrincipalRecordV2): BlindedResponsiblePrincipalRecordV2;
+// warnings flags a full RPR without pii_salt (legacy unsalted commitment).
 function verifyBlindedRpr(
   fullRpr: ResponsiblePrincipalRecordV2,
   blindedRpr: BlindedResponsiblePrincipalRecordV2,
-): { valid: boolean; errors: string[] };
+): { valid: boolean; errors: string[]; warnings: string[] };
 function isBlindedRpr(
   rpr: ResponsiblePrincipalRecordV2 | BlindedResponsiblePrincipalRecordV2,
 ): rpr is BlindedResponsiblePrincipalRecordV2;

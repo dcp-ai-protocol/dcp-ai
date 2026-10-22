@@ -202,10 +202,11 @@ const bundle = new BundleBuilderV2()
 | `buildEmergencyRevocation({ agentId, humanId, revocationSecret })` | 失効シークレットから緊急失効リクエストを構築 |
 | `shamirSplit(secret, threshold, totalShares)` | 秘密を `totalShares` 個のシェアに分割（任意の `threshold` 個で復元可能） |
 | `shamirReconstruct(shares)` | 少なくとも `threshold` 個のシェアから秘密を復元 |
-| `blindRpr(rpr)` | RPR の個人情報（`legal_name`、`contact`）をハッシュコミットメントに置き換え |
-| `verifyBlindedRpr(fullRpr, blindedRpr)` | ブラインド化された RPR が完全なレコードと一致するか検証 |
+| `generatePiiSalt()` | `pii_salt`（32 バイトの乱数の hex）を生成。署名前に RPR に設定し、公開しない |
+| `blindRpr(rpr)` | RPR の個人情報（`legal_name`、`contact`）をソルト付きハッシュコミットメントに置き換え。`rpr.pii_salt` がない、または不正な場合は例外を送出 |
+| `verifyBlindedRpr(fullRpr, blindedRpr)` | ブラインド化された RPR が完全なレコードと一致するか検証。`warnings` はソルトなしのレガシーコミットメントを示す |
 | `isBlindedRpr(rpr)` | `BlindedResponsiblePrincipalRecordV2` の型ガード |
-| `computePiiHash(rpr)` | RPR の個人情報フィールドに対するハッシュコミットメントを計算 |
+| `computePiiHash(rpr)` | RPR の個人情報フィールドと `pii_salt` に対するハッシュコミットメントを計算（`pii_salt` がない場合は非推奨のソルトなしの値） |
 | `CborEncoder` | CBORエンコーダークラス |
 | `CborDecoder` | CBORデコーダークラス |
 | `cborEncode(value)` | 値をCBORバイト列にエンコード |
