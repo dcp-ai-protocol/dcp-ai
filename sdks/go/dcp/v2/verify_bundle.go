@@ -20,7 +20,8 @@ type V2VerificationResult struct {
 
 // VerifySignedBundleV2 performs full V2 bundle verification against a JSON-encoded
 // signed bundle. It validates structure, manifest hash consistency, session nonce
-// binding, cryptographic composite signatures, and audit hash chain integrity.
+// binding, the composite signatures over the manifest and over each artifact,
+// and audit hash chain integrity.
 func VerifySignedBundleV2(registry *AlgorithmRegistry, signedBundleJSON []byte) *V2VerificationResult {
 	result := &V2VerificationResult{
 		DCPVersion: "2.0",
@@ -78,6 +79,7 @@ func VerifySignedBundleV2(registry *AlgorithmRegistry, signedBundleJSON []byte) 
 	verifyManifestHashes(bundle, manifest, result)
 	verifySessionNonceConsistency(bundle, manifestNonce, result)
 	verifyBundleSignature(registry, bundle, signature, manifest, result)
+	verifyArtifactSignatures(registry, bundle, result)
 	verifyAuditHashChain(bundle, result)
 
 	result.Verified = len(result.Errors) == 0
@@ -147,74 +149,79 @@ func verifySessionNonceConsistency(bundle map[string]interface{}, manifestNonce 
 	}
 }
 
+// payloadKeys returns the key entries listed under field in an artifact's payload.
+func payloadKeys(bundle map[string]interface{}, artifact, field string) []interface{} {
+	sp, _ := bundle[artifact].(map[string]interface{})
+	payload, _ := sp["payload"].(map[string]interface{})
+	keys, _ := payload[field].([]interface{})
+	return keys
+}
+
+func findKeyByKid(keys []interface{}, kid string) string {
+	for _, k := range keys {
+		entry, _ := k.(map[string]interface{})
+		if id, _ := entry["kid"].(string); id != "" && id == kid {
+			pk, _ := entry["public_key_b64"].(string)
+			return pk
+		}
+	}
+	return ""
+}
+
+// verifyCompositeSig verifies a composite_sig over payload with the keys it
+// names by kid (VERIFICATION.md V2-6, V2-7): pq_over_classical is valid only
+// when both components verify; classical_only carries no PQ signature.
+func verifyCompositeSig(registry *AlgorithmRegistry, context string, payload, csRaw interface{}, keys []interface{}) (*CompositeSignature, *CompositeVerifyResult, error) {
+	if csRaw == nil {
+		return nil, nil, fmt.Errorf("missing composite_sig")
+	}
+	csBytes, err := json.Marshal(csRaw)
+	if err != nil {
+		return nil, nil, fmt.Errorf("invalid composite_sig structure")
+	}
+	var cs CompositeSignature
+	if err := json.Unmarshal(csBytes, &cs); err != nil {
+		return nil, nil, fmt.Errorf("invalid composite_sig structure")
+	}
+
+	classicalPK := findKeyByKid(keys, cs.Classical.Kid)
+	if classicalPK == "" {
+		return nil, nil, fmt.Errorf("classical signer key kid=%s not found", cs.Classical.Kid)
+	}
+	var pqPK string
+	if cs.PQ != nil {
+		if pqPK = findKeyByKid(keys, cs.PQ.Kid); pqPK == "" {
+			return nil, nil, fmt.Errorf("PQ signer key kid=%s not found", cs.PQ.Kid)
+		}
+	}
+
+	canonical, err := CanonicalizeV2(payload)
+	if err != nil {
+		return nil, nil, fmt.Errorf("canonicalize: %w", err)
+	}
+	cvr, err := CompositeVerify(registry, context, []byte(canonical), &cs, classicalPK, pqPK)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &cs, cvr, nil
+}
+
 func verifyBundleSignature(registry *AlgorithmRegistry, bundle, signature, manifest map[string]interface{}, result *V2VerificationResult) {
 	csRaw, ok := signature["composite_sig"]
 	if !ok {
 		result.Errors = append(result.Errors, "Missing composite_sig in signature")
 		return
 	}
-
-	csBytes, err := json.Marshal(csRaw)
-	if err != nil {
-		result.Errors = append(result.Errors, "Invalid composite_sig structure")
-		return
-	}
-	var cs CompositeSignature
-	if err := json.Unmarshal(csBytes, &cs); err != nil {
-		result.Errors = append(result.Errors, "Invalid composite_sig structure")
-		return
-	}
-
-	passport, ok := bundle["agent_passport"].(map[string]interface{})
-	if !ok {
-		result.Warnings = append(result.Warnings, "No agent_passport found in bundle")
-		return
-	}
-	payload, ok := passport["payload"].(map[string]interface{})
-	if !ok {
-		result.Warnings = append(result.Warnings, "No payload in agent_passport")
-		return
-	}
-	keysRaw, ok := payload["keys"].([]interface{})
-	if !ok {
-		result.Warnings = append(result.Warnings, "No keys in agent passport payload")
-		return
-	}
-
-	var classicalPK, pqPK string
-	for _, kRaw := range keysRaw {
-		keyMap, ok := kRaw.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		alg, _ := keyMap["alg"].(string)
-		pk, _ := keyMap["public_key_b64"].(string)
-		switch alg {
-		case "ed25519":
-			classicalPK = pk
-		case "ml-dsa-65":
-			pqPK = pk
-		}
-	}
-
 	if manifest == nil {
 		return
 	}
 
-	canonical, err := CanonicalizeV2(manifest)
+	// The bundle is signed by the agent or by its principal.
+	keys := append(append([]interface{}{}, payloadKeys(bundle, "agent_passport", "keys")...),
+		payloadKeys(bundle, "responsible_principal_record", "binding_keys")...)
+	cs, cvr, err := verifyCompositeSig(registry, CtxBundle, manifest, csRaw, keys)
 	if err != nil {
-		result.Errors = append(result.Errors, fmt.Sprintf("Canonicalize manifest error: %s", err))
-		return
-	}
-
-	if classicalPK == "" {
-		result.Warnings = append(result.Warnings, "No classical public key found in passport")
-		return
-	}
-
-	cvr, err := CompositeVerify(registry, CtxBundle, []byte(canonical), &cs, classicalPK, pqPK)
-	if err != nil {
-		result.Errors = append(result.Errors, fmt.Sprintf("Signature verify error: %s", err))
+		result.Errors = append(result.Errors, fmt.Sprintf("Bundle signature: %s", err))
 		return
 	}
 
@@ -227,6 +234,38 @@ func verifyBundleSignature(registry *AlgorithmRegistry, bundle, signature, manif
 
 	if cs.Binding == "classical_only" {
 		result.Warnings = append(result.Warnings, "Bundle uses classical_only binding (no PQ protection)")
+	}
+}
+
+// verifyArtifactSignatures checks each artifact's own composite_sig
+// (VERIFICATION.md V2-8): the principal signs the RPR with its binding_keys,
+// the agent signs the rest with its passport keys.
+func verifyArtifactSignatures(registry *AlgorithmRegistry, bundle map[string]interface{}, result *V2VerificationResult) {
+	rprKeys := payloadKeys(bundle, "responsible_principal_record", "binding_keys")
+	agentKeys := payloadKeys(bundle, "agent_passport", "keys")
+	artifacts := []struct {
+		field, context string
+		keys           []interface{}
+	}{
+		{"responsible_principal_record", CtxResponsiblePrincipal, rprKeys},
+		{"agent_passport", CtxAgentPassport, agentKeys},
+		{"intent", CtxIntent, agentKeys},
+		{"policy_decision", CtxPolicyDecision, agentKeys},
+	}
+	for _, a := range artifacts {
+		sp, ok := bundle[a.field].(map[string]interface{})
+		if !ok {
+			continue // reported as missing by VerifySignedBundleV2
+		}
+		cs, cvr, err := verifyCompositeSig(registry, a.context, sp["payload"], sp["composite_sig"], a.keys)
+		switch {
+		case err != nil:
+			result.Errors = append(result.Errors, fmt.Sprintf("%s signature: %s", a.field, err))
+		case !cvr.Valid:
+			result.Errors = append(result.Errors, fmt.Sprintf("%s signature verification failed", a.field))
+		case cs.Binding == "classical_only":
+			result.Warnings = append(result.Warnings, fmt.Sprintf("%s uses classical_only binding (no PQ protection)", a.field))
+		}
 	}
 }
 
