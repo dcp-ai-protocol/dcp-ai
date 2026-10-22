@@ -54,7 +54,7 @@ node services/revocation/index.js
 3. **Bundle signed** and verified (`POST /v2/bundle/verify`)
 4. **Hash anchored** to blockchain via Anchor service (`POST /anchor`)
 5. **Hash logged** in transparency log (`POST /add`)
-6. **Revocation checked** before accepting bundles: `GET /check/:agent_id` for agent-level and emergency revocations, and `GET /v2/check/kid/:kid?agent_id=<owner>` for key-level ones. Without `agent_id`, the kid check cannot see emergency revocations.
+6. **Revocation checked** before accepting bundles: `GET /v2/check/kid/:kid` covers kid-level, emergency and expiry revocations of every kid registered with `POST /v2/register` (pass `?agent_id=<owner>` only for a kid the agent did not register), and `GET /check/:agent_id` covers agent-level ones.
 
 ## Authentication
 
