@@ -59,9 +59,10 @@ node services/revocation/index.js
 ## Authentication
 
 - **Revocation** writes are signed: registration by the passport's own keys, revocations by the keys registered to the agent. Registering a new `agent_id` also needs the operator token, so nobody can claim someone else's first. Emergency revocation needs the pre-image of the registered token.
+- **New `agent_id`s** are registered by the operator, on the gateway (`POST /v2/passport/register`) and on the revocation service (`POST /v2/register`); re-registering is self-service, signed by the agent's keys.
 - **Anchor** `POST /flush` and **Transparency Log** `POST /gossip/peers` require `Authorization: Bearer <OPERATOR_TOKEN>`; without `OPERATOR_TOKEN` they stay locked. The log fetches its peers itself, so an open peer list would let anyone point it at internal URLs.
 - Request bodies are capped at 1 MB. Rate limits (registrations and emergency revocations, the gateway's POSTs) key on the socket address; set `TRUST_PROXY=true` only behind a proxy that appends the client IP to `X-Forwarded-For`.
-- Registries refuse new entries when full (507) instead of evicting them: the revocation service caps agents (`MAX_AGENTS`), the gateway caps keys and keeps 4 retired keys per agent. The transparency log only trusts tree heads signed by pinned peers (`GOSSIP_PEERS=<url>#<key>`).
+- Registries refuse new entries when full (507) instead of evicting them: the revocation service caps agents (`MAX_AGENTS`), the gateway caps keys (`MAX_REGISTERED_KEYS`, `MAX_KEYS_PER_AGENT` over an agent's lifetime) and keeps 4 retired keys per agent. Keys and signatures must be canonical base64 of their algorithm's exact size. The transparency log only trusts tree heads signed by pinned peers (`GOSSIP_PEERS=<url>#<key>`).
 
 ## Persistence
 

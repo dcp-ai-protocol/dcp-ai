@@ -5,7 +5,8 @@
 #
 # Usage:
 #   fly launch --config transparency-log.toml --no-deploy
-#   fly secrets set OPERATOR_KEY=... GOSSIP_PEERS=https://other-log.example/
+#   fly secrets set OPERATOR_KEY=$(openssl rand -hex 32) \
+#     GOSSIP_PEERS='https://other-log.example#<the other log's /health public_key>'
 #   fly secrets set OPERATOR_TOKEN=...   # unlocks POST /gossip/peers
 #   fly deploy --config transparency-log.toml
 #
