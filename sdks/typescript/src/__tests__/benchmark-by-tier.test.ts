@@ -166,8 +166,8 @@ describe('Tier Computation Performance', () => {
     };
 
     expect(computeSecurityTier({ ...base, action_type: 'browse', data_classes: ['none'] } as IntentV2)).toBe('routine');
-    // risk_score 300 -> standard (no sensitive data, score between 200-499)
-    expect(computeSecurityTier({ ...base, action_type: 'api_call', data_classes: ['contact_info'], risk_score: 300 } as IntentV2 & { risk_score: number })).toBe('standard');
+    // policy decision risk_score 300 -> standard (no sensitive data, score between 200-499)
+    expect(computeSecurityTier({ ...base, action_type: 'api_call', data_classes: ['contact_info'] } as IntentV2, { risk_score: 300 })).toBe('standard');
     expect(computeSecurityTier({ ...base, action_type: 'initiate_payment', data_classes: ['none'] } as IntentV2)).toBe('elevated');
     expect(computeSecurityTier({ ...base, action_type: 'api_call', data_classes: ['credentials'] } as IntentV2)).toBe('maximum');
   });
