@@ -102,7 +102,7 @@ async def _check_composite_sig(
     mode: str,
     context: str,
     payload: Any,
-    sig: dict[str, Any],
+    sig: Any,
     keys: list[dict[str, Any]],
     keys_label: str,
 ) -> tuple[bool, list[str], list[str]]:
@@ -113,10 +113,13 @@ async def _check_composite_sig(
     errors: list[str] = []
     warnings: list[str] = []
     rejected = policy.get("advisory_rejected_algs") or []
-    classical, pq, binding = sig["classical"], sig.get("pq"), sig.get("binding")
 
     def fail(error: str) -> tuple[bool, list[str], list[str]]:
         return False, [*errors, error], warnings
+
+    if not isinstance(sig, dict) or not isinstance(sig.get("classical"), dict):
+        return fail("Missing composite signature")
+    classical, pq, binding = sig["classical"], sig.get("pq"), sig.get("binding")
 
     # In every mode: Ed25519 cannot stand in for the PQ signature, nor ML-DSA for the classical one.
     if classical["alg"] not in _CLASSICAL_ALGS:
@@ -354,7 +357,7 @@ async def _verify(
     passport_keys = passport.get("keys") or []
     rpr_keys = bundle["responsible_principal_record"]["payload"].get("binding_keys") or []
     valid, errs, warns = await _check_composite_sig(
-        registry, policy, mode, DCP_CONTEXTS["Bundle"], manifest, signature["composite_sig"],
+        registry, policy, mode, DCP_CONTEXTS["Bundle"], manifest, signature.get("composite_sig"),
         passport_keys + rpr_keys, "passport or RPR",
     )
     errors.extend(f"bundle: {e}" for e in errs)
@@ -371,7 +374,7 @@ async def _verify(
     ):
         signed = bundle[name]
         _, errs, warns = await _check_composite_sig(
-            registry, policy, mode, DCP_CONTEXTS[context], signed["payload"], signed["composite_sig"],
+            registry, policy, mode, DCP_CONTEXTS[context], signed["payload"], signed.get("composite_sig"),
             keys, keys_label,
         )
         errors.extend(f"{name}: {e}" for e in errs)

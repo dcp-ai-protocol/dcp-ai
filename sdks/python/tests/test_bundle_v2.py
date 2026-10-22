@@ -284,6 +284,14 @@ class TestSignatures:
         assert_error(result, "PQ signature invalid")
 
     @pytest.mark.asyncio
+    async def test_unsigned_artifact_is_named(self, registry, signed_medium):
+        # Without any composite_sig (V2-8) the error names the artifact, as in the other SDKs.
+        del signed_medium["bundle"]["intent"]["composite_sig"]
+        assert_error(await verify_signed_bundle_v2(signed_medium, registry), "intent: Missing composite signature")
+        del signed_medium["signature"]["composite_sig"]
+        assert_error(await verify_signed_bundle_v2(signed_medium, registry), "bundle: Missing composite signature")
+
+    @pytest.mark.asyncio
     async def test_invalid_artifact_pq_sig_rejected_under_hybrid_preferred(self, registry, signed_medium):
         sig = signed_medium["bundle"]["agent_passport"]["composite_sig"]
         sig["pq"]["sig_b64"] = flip_first_byte(sig["pq"]["sig_b64"])
