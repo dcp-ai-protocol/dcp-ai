@@ -33,10 +33,12 @@ export const IdentitySetupParams = Type.Object({
   owner_name: Type.String({
     description: 'Legal name of the human owner (for RPR)',
   }),
-  entity_type: Type.Union([Type.Literal('natural_person'), Type.Literal('organization')], {
-    description: 'Whether the owner is a natural person or organization',
-    default: 'natural_person',
-  }),
+  entity_type: Type.Optional(
+    Type.Union([Type.Literal('natural_person'), Type.Literal('organization')], {
+      description: 'Whether the owner is a natural person or organization (default: natural_person)',
+      default: 'natural_person',
+    }),
+  ),
   jurisdiction: Type.String({
     description: 'ISO 3166-1 jurisdiction code (e.g. "US", "ES", "MX")',
   }),
