@@ -129,7 +129,7 @@ For each key identifier (`kid`) referenced in composite signatures:
 - Verify the kid was derived deterministically: `kid = hex(SHA-256(UTF8(alg) || 0x00 || raw_public_key))[0:32]`
 - Optionally check key status against a revocation service or local revocation list.
 
-Reject the bundle if any key that can sign it, in the passport `keys` or the RPR `binding_keys`, has `status: "revoked"` or an `expires_at` that has passed.
+Reject the bundle if any key that can sign it, in the passport `keys` or the RPR `binding_keys`, has `status` `"revoked"` or `"expired"` (`schemas/v2/key_entry.schema.json` allows both), or an `expires_at` that has passed or is not an RFC 3339 timestamp (Step V2-4).
 
 ---
 

@@ -459,7 +459,14 @@ async function main() {
       error_contains: 'expired',
       variant: { agentKey: { expires_at: '2020-01-01T00:00:00Z' } },
     },
+    { name: 'passport_key_status_expired', spec_step: 'V2-13', error_contains: 'expired', variant: { agentKey: { status: 'expired' } } },
     { name: 'rpr_binding_key_revoked', spec_step: 'V2-13', error_contains: 'revoked', variant: { principalKey: { status: 'revoked' } } },
+    {
+      name: 'rpr_binding_key_status_expired',
+      spec_step: 'V2-13',
+      error_contains: 'expired',
+      variant: { principalKey: { status: 'expired' } },
+    },
     {
       name: 'rpr_binding_key_expired',
       spec_step: 'V2-13',

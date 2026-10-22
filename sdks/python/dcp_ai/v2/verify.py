@@ -395,8 +395,8 @@ async def _verify(
     now = datetime.now(timezone.utc)
     max_age_days = policy.get("max_key_age_days") or 0
     for key in passport_keys + rpr_keys:
-        if key.get("status") == "revoked":
-            errors.append(f"Key {key['kid']} is revoked")
+        if key.get("status") in ("revoked", "expired"):
+            errors.append(f"Key {key['kid']} is {key['status']}")
         if key.get("expires_at") is not None:
             key_expires = parse_rfc3339(key["expires_at"])
             if key_expires is None:

@@ -553,8 +553,8 @@ export async function verifySignedBundleV2(
 
   const now = new Date();
   for (const key of [...allKeys, ...rprKeys]) {
-    if (key.status === 'revoked') {
-      errors.push(`Key ${key.kid} is revoked`);
+    if (key.status === 'revoked' || key.status === 'expired') {
+      errors.push(`Key ${key.kid} is ${key.status}`);
     }
     if (key.expires_at !== undefined && key.expires_at !== null) {
       const expires = parseRfc3339(key.expires_at);
