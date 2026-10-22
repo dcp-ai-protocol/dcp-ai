@@ -129,11 +129,23 @@ function auditMerkleRootHex(entries: AuditEventV2[]): string {
   return leaves[0];
 }
 
-function resolveMode(policy: VerifierPolicy, riskTier?: RiskTier): VerificationMode {
-  if (riskTier && policy.risk_overrides[riskTier]) {
-    return policy.risk_overrides[riskTier];
-  }
-  return policy.default_mode;
+const VERIFICATION_MODES: readonly unknown[] = [
+  'classical_only',
+  'hybrid_preferred',
+  'hybrid_required',
+  'pq_only',
+];
+
+/**
+ * The policy's mode for a risk tier: only the policy's own overrides count,
+ * and a value that is not a VerificationMode resolves to undefined.
+ */
+function resolveMode(policy: VerifierPolicy, riskTier?: RiskTier): VerificationMode | undefined {
+  const mode =
+    riskTier && Object.hasOwn(policy.risk_overrides, riskTier)
+      ? policy.risk_overrides[riskTier]
+      : policy.default_mode;
+  return VERIFICATION_MODES.includes(mode) ? mode : undefined;
 }
 
 function findKeyByKid(keys: KeyEntry[], kid: string): KeyEntry | undefined {
@@ -243,6 +255,9 @@ async function checkCompositeSig(
         warnings.push('Classical signature not verified in pq_only mode (fallback not disabled)');
       }
       break;
+
+    default:
+      errors.push('Unknown verification mode');
   }
 
   return { valid: result.valid, errors, warnings };
@@ -415,6 +430,10 @@ export async function verifySignedBundleV2(
   const passport = bundle.agent_passport.payload as AgentPassportV2;
   const riskTier = passport.risk_tier;
   const mode = resolveMode(policy, riskTier);
+  if (!mode) {
+    errors.push('Unknown verification mode in verifier policy');
+    return { verified: false, errors, warnings, details };
+  }
   details.verification_mode = mode;
 
   // ── 5a. Advisory-driven algorithm rejection (Phase 3) ──
