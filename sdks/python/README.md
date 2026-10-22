@@ -2,7 +2,7 @@
 
 # dcp-ai — Python SDK
 
-Official Python SDK for the Digital Citizenship Protocol (DCP v2.0). Pydantic v2 models, hybrid post-quantum signatures (Ed25519 + ML-DSA-65, plus SLH-DSA-192f), composite signatures with `pq_over_classical` binding, V1 bundle signing and verification, OpenTelemetry observability, DCP-04 through DCP-09 behavior, and a full-featured CLI.
+Official Python SDK for the Digital Citizenship Protocol (DCP v2.0). Pydantic v2 models, hybrid post-quantum cryptography (Ed25519 + ML-DSA-65 + SLH-DSA-192f signatures, ML-KEM-768 key encapsulation), composite signatures with `pq_over_classical` binding, V1 and V2 bundle signing and verification, OpenTelemetry observability, DCP-04 through DCP-09 behavior, and a full-featured CLI.
 
 ## Installation
 
@@ -24,13 +24,13 @@ pip install "dcp-ai[otlp]"       # OpenTelemetry OTLP exporter
 
 | Area | Status |
 |---|---|
-| Ed25519 / ML-DSA-65 providers | Yes |
-| SLH-DSA-192f provider | Yes, pre-standard SPHINCS+ via `pqcrypto`; FIPS 205 interop with the other SDKs is pending |
-| ML-KEM-768 | Not yet (TypeScript, Go and Rust have it) |
+| Ed25519 / ML-DSA-65 (FIPS 204) providers | Yes |
+| SLH-DSA-192f provider | Yes, FIPS 205 (pure, empty context), interoperable with the other SDKs |
+| ML-KEM-768 provider | Yes, FIPS 203 |
 | Composite signatures (`pq_over_classical`) + verification | Yes |
 | Canonical JSON v2 + domain separation | Yes |
 | Dual hash (SHA-256 + SHA3-256) + Merkle roots | Yes |
-| Bundle signing + verification | V1: yes. V2 (`SignedBundleV2`): not yet, use the TypeScript SDK or `dcp verify-bundle` |
+| Bundle signing + verification | V1: yes. V2 (`SignedBundleV2`): yes, `BundleBuilderV2` / `sign_bundle_v2` / `verify_signed_bundle_v2` |
 | DCP-04 A2A discovery + handshake + AES-256-GCM session (via `cryptography`) | Yes |
 | DCP-05 agent lifecycle (commissioning / vitality / decommissioning) | Yes |
 | DCP-06 digital succession (testament, memory transfer, ceremony) | Yes |
@@ -209,6 +209,34 @@ verify_signed_bundle(
 
 Verifies: schema, Ed25519 signature, `bundle_hash`, `merkle_root`, `intent_hash` chain, `prev_hash` chain.
 
+### V2 Bundles
+
+`BundleBuilderV2`, `sign_bundle_v2` and `verify_signed_bundle_v2` (in `dcp_ai.v2`) port the TypeScript SDK's `builder-v2.ts`, `signer-v2.ts` and `verify-v2.ts`. Artifacts are `SignedPayload` dicts (`{"payload", "payload_hash", "composite_sig"}`); the bundle signature is a composite signature over the manifest.
+
+```python
+from dcp_ai.providers import Ed25519Provider, MlDsa65Provider
+from dcp_ai.v2 import AlgorithmRegistry, BundleBuilderV2, sign_bundle_v2, verify_signed_bundle_v2
+
+registry = AlgorithmRegistry()
+registry.register_signer(Ed25519Provider())
+registry.register_signer(MlDsa65Provider())
+
+bundle = (
+    BundleBuilderV2(session_nonce)
+    .responsible_principal_record(signed_rpr)
+    .agent_passport(signed_passport)
+    .intent(signed_intent)
+    .policy_decision(signed_policy)
+    .add_audit_entries(audit_events)
+    .build()
+)
+signed = await sign_bundle_v2(bundle, registry, "human", "human-001", classical_key, pq_key)
+result = await verify_signed_bundle_v2(signed, registry)  # DEFAULT_VERIFIER_POLICY
+# {"verified": bool, "errors": [...], "warnings": [...], "details": {...}}
+```
+
+The verifier also checks each artifact's own composite signature (the RPR against the principal's `binding_keys`, the rest against the passport keys) and, in every policy mode, rejects a PQ signature that is present but invalid.
+
 ### Pydantic Models
 
 All DCP v1 artifacts are available as Pydantic v2 models with automatic validation:
@@ -264,6 +292,8 @@ pytest -v --asyncio-mode=auto
 - `jsonschema` — JSON Schema validation
 - `pydantic` v2 — Data models
 - `typer` — CLI framework
+- `pqcrypto` ≥ 1.0 — ML-DSA-65, SLH-DSA-192f, ML-KEM-768 (FIPS 204/205/203)
+- `cryptography` — AES-256-GCM for DCP-04 A2A sessions
 
 ## License
 

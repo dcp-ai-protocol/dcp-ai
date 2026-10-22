@@ -2,7 +2,7 @@
 
 # dcp-ai — Python SDK
 
-数字公民身份协议 (DCP v2.0) 的官方 Python SDK。Pydantic v2 模型、混合后量子签名 (Ed25519 + ML-DSA-65，另有 SLH-DSA-192f)、带 `pq_over_classical` 绑定的复合签名、V1 凭证包签名与验证、OpenTelemetry 可观测性、DCP-04 至 DCP-09 行为，以及功能齐全的 CLI。
+数字公民身份协议 (DCP v2.0) 的官方 Python SDK。Pydantic v2 模型、混合后量子密码学 (Ed25519 + ML-DSA-65 + SLH-DSA-192f 签名与 ML-KEM-768 密钥封装)、带 `pq_over_classical` 绑定的复合签名、V1 与 V2 凭证包签名与验证、OpenTelemetry 可观测性、DCP-04 至 DCP-09 行为，以及功能齐全的 CLI。
 
 ## 安装
 
@@ -24,13 +24,13 @@ pip install "dcp-ai[otlp]"       # OpenTelemetry OTLP exporter
 
 | 范畴 | 状态 |
 |---|---|
-| Ed25519 / ML-DSA-65 provider | 是 |
-| SLH-DSA-192f provider | 是，通过 `pqcrypto` 实现的标准化前 SPHINCS+；与其他 SDK 的 FIPS 205 互操作尚待完成 |
-| ML-KEM-768 | 暂不支持（TypeScript、Go 和 Rust 已支持） |
+| Ed25519 / ML-DSA-65 (FIPS 204) provider | 是 |
+| SLH-DSA-192f provider | 是，FIPS 205（纯模式、空上下文），可与其他 SDK 互操作 |
+| ML-KEM-768 provider | 是，FIPS 203 |
 | 复合签名 (`pq_over_classical`) + 验证 | 是 |
 | 规范 JSON v2 + 域分离 | 是 |
 | 双哈希 (SHA-256 + SHA3-256) + Merkle 根 | 是 |
-| 凭证包签名与验证 | V1：是。V2 (`SignedBundleV2`)：暂不支持，请使用 TypeScript SDK 或 `dcp verify-bundle` |
+| 凭证包签名与验证 | V1：是。V2 (`SignedBundleV2`)：是，`BundleBuilderV2` / `sign_bundle_v2` / `verify_signed_bundle_v2` |
 | DCP-04 A2A 发现 + 握手 + AES-256-GCM 会话（通过 `cryptography`） | 是 |
 | DCP-05 代理生命周期（委任 / 活力 / 停用） | 是 |
 | DCP-06 数字继承（数字遗嘱、记忆迁移、交接仪式） | 是 |
@@ -209,6 +209,34 @@ verify_signed_bundle(
 
 验证项：schema、Ed25519 签名、`bundle_hash`、`merkle_root`、`intent_hash` 链、`prev_hash` 链。
 
+### V2 凭证包
+
+`dcp_ai.v2` 中的 `BundleBuilderV2`、`sign_bundle_v2` 和 `verify_signed_bundle_v2` 移植自 TypeScript SDK 的 `builder-v2.ts`、`signer-v2.ts` 和 `verify-v2.ts`。工件为 `SignedPayload` 字典（`{"payload", "payload_hash", "composite_sig"}`）；凭证包签名是对 manifest 的复合签名。
+
+```python
+from dcp_ai.providers import Ed25519Provider, MlDsa65Provider
+from dcp_ai.v2 import AlgorithmRegistry, BundleBuilderV2, sign_bundle_v2, verify_signed_bundle_v2
+
+registry = AlgorithmRegistry()
+registry.register_signer(Ed25519Provider())
+registry.register_signer(MlDsa65Provider())
+
+bundle = (
+    BundleBuilderV2(session_nonce)
+    .responsible_principal_record(signed_rpr)
+    .agent_passport(signed_passport)
+    .intent(signed_intent)
+    .policy_decision(signed_policy)
+    .add_audit_entries(audit_events)
+    .build()
+)
+signed = await sign_bundle_v2(bundle, registry, "human", "human-001", classical_key, pq_key)
+result = await verify_signed_bundle_v2(signed, registry)  # DEFAULT_VERIFIER_POLICY
+# {"verified": bool, "errors": [...], "warnings": [...], "details": {...}}
+```
+
+验证器还会检查每个工件自身的复合签名（RPR 使用主体的 `binding_keys`，其余使用护照密钥），并且在任何策略模式下都会拒绝存在但无效的 PQ 签名。
+
 ### Pydantic 模型
 
 所有 DCP v1 工件均作为带自动验证的 Pydantic v2 模型提供：
@@ -264,6 +292,8 @@ pytest -v --asyncio-mode=auto
 - `jsonschema` — JSON Schema 验证
 - `pydantic` v2 — 数据模型
 - `typer` — CLI 框架
+- `pqcrypto` ≥ 1.0 — ML-DSA-65、SLH-DSA-192f、ML-KEM-768（FIPS 204/205/203）
+- `cryptography` — DCP-04 A2A 会话的 AES-256-GCM
 
 ## 许可证
 

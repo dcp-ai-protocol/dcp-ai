@@ -3,6 +3,8 @@ NIST KAT (Known Answer Test) Compliance Tests (Python SDK)
 
 Ed25519: RFC 8032 deterministic test vectors.
 ML-DSA-65: FIPS 204 property-based compliance (size, round-trip, rejection).
+SLH-DSA-192f: FIPS 205 NIST ACVP signature verification + properties.
+ML-KEM-768: FIPS 203 NIST ACVP decapsulation and key checks + properties.
 
 Phase 1 gate: no SDK ships V2 without passing all KAT tests.
 """
@@ -15,17 +17,28 @@ from pathlib import Path
 
 import nacl.signing
 import pytest
+from pqcrypto.sign import slh_dsa_sha2_192f
 
-from dcp_ai.providers.ed25519_provider import Ed25519Provider
+from dcp_ai.providers import Ed25519Provider, MlDsa65Provider, MlKem768Provider, SlhDsa192fProvider
 from dcp_ai.v2.crypto_provider import derive_kid
 
 KAT_DIR = Path(__file__).resolve().parent.parent.parent.parent / "tests" / "nist-kat"
 INTEROP_PATH = Path(__file__).resolve().parent.parent.parent.parent / "tests" / "interop" / "v2" / "interop_vectors.json"
+CROSS_SDK_PATH = INTEROP_PATH.with_name("cross_sdk_vectors.json")
 
 
 def load_kat(name: str) -> dict:
     with open(KAT_DIR / name / "vectors.json") as f:
         return json.load(f)
+
+
+def load_cross_sdk(section: str) -> dict:
+    with open(CROSS_SDK_PATH) as f:
+        return json.load(f)[section]
+
+
+def hex_to_b64(value: str) -> str:
+    return base64.b64encode(bytes.fromhex(value)).decode("ascii")
 
 
 # ---------------------------------------------------------------------------
@@ -129,8 +142,6 @@ class TestMlDsa65KAT:
 
     @pytest.fixture(scope="class")
     def provider(self):
-        from dcp_ai.providers.ml_dsa_65_provider import MlDsa65Provider
-
         return MlDsa65Provider()
 
     def test_algorithm_id(self, provider):
@@ -195,3 +206,148 @@ class TestMlDsa65KAT:
 
         valid = await provider.verify(composite_msg, pq_sig, pq_pk)
         assert valid is True, "Cross-SDK ML-DSA-65 verification failed"
+
+
+# ---------------------------------------------------------------------------
+# SLH-DSA-SHA2-192f FIPS 205 KAT
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def slh_kat():
+    return load_kat("slh-dsa-192f")
+
+
+@pytest.fixture(scope="module")
+def slh():
+    return SlhDsa192fProvider()
+
+
+class TestSlhDsa192fKAT:
+    def test_sizes_match_fips205(self, slh, slh_kat):
+        assert slh.alg == slh_kat["properties"]["algorithm"]
+        assert slh.key_size == slh_kat["properties"]["public_key_size"]
+        assert slh.sig_size == slh_kat["properties"]["signature_size"]
+
+    def test_nist_signature_verification(self, slh_kat):
+        """NIST ACVP external/pure sigVer cases (they carry a context, so call pqcrypto directly)."""
+        for vec in slh_kat["signature_verification"]:
+            try:
+                slh_dsa_sha2_192f.verify(
+                    bytes.fromhex(vec["pk"]),
+                    bytes.fromhex(vec["message"]),
+                    bytes.fromhex(vec["signature"]),
+                    bytes.fromhex(vec["context"]),
+                )
+                valid = True
+            except ValueError:
+                valid = False
+            assert valid is vec["testPassed"], f"tcId {vec['tcId']}: {vec['reason']}"
+
+    @pytest.mark.asyncio
+    async def test_keygen_sign_verify(self, slh, slh_kat):
+        props = slh_kat["properties"]
+        kp = await slh.generate_keypair()
+        pk_bytes = base64.b64decode(kp["public_key_b64"])
+        assert len(pk_bytes) == props["public_key_size"]
+        assert len(base64.b64decode(kp["secret_key_b64"])) == props["secret_key_size"]
+        assert kp["kid"] == derive_kid("slh-dsa-192f", pk_bytes)
+
+        msg = b"SLH-DSA-192f KAT round-trip"
+        sig = await slh.sign(msg, kp["secret_key_b64"])
+        assert len(sig) == props["signature_size"]
+        assert await slh.verify(msg, sig, kp["public_key_b64"]) is True
+        assert await slh.verify(b"another message", sig, kp["public_key_b64"]) is False
+        other = await slh.generate_keypair()
+        assert await slh.verify(msg, sig, other["public_key_b64"]) is False
+        assert await slh.verify(msg, sig[:-1], kp["public_key_b64"]) is False
+
+    @pytest.mark.asyncio
+    async def test_cross_sdk_verify(self, slh):
+        """SLH-DSA-192f signature from the TypeScript SDK (@noble/post-quantum) verifies in Python."""
+        vec = load_cross_sdk("typescript")["slh_dsa_192f"]
+        msg = bytes.fromhex(vec["message_hex"])
+        sig = base64.b64decode(vec["sig_b64"])
+        assert derive_kid("slh-dsa-192f", base64.b64decode(vec["public_key_b64"])) == vec["kid"]
+        assert await slh.verify(msg, sig, vec["public_key_b64"]) is True
+        assert await slh.verify(msg + b"x", sig, vec["public_key_b64"]) is False
+
+
+# ---------------------------------------------------------------------------
+# ML-KEM-768 FIPS 203 KAT
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def kem_kat():
+    return load_kat("ml-kem-768")
+
+
+@pytest.fixture(scope="module")
+def kem():
+    return MlKem768Provider()
+
+
+class TestMlKem768KAT:
+    def test_algorithm_id(self, kem, kem_kat):
+        assert kem.alg == kem_kat["properties"]["algorithm"]
+
+    @pytest.mark.asyncio
+    async def test_nist_decapsulation(self, kem, kem_kat):
+        """Valid ciphertexts and implicit rejection of modified ones."""
+        for vec in kem_kat["decapsulation"]:
+            shared_secret = await kem.decapsulate(hex_to_b64(vec["c"]), hex_to_b64(vec["dk"]))
+            assert shared_secret == bytes.fromhex(vec["k"]), f"tcId {vec['tcId']}: {vec['reason']}"
+
+    @pytest.mark.asyncio
+    async def test_nist_encapsulation_key_check(self, kem, kem_kat):
+        for vec in kem_kat["encapsulation_key_check"]:
+            if vec["testPassed"]:
+                result = await kem.encapsulate(hex_to_b64(vec["ek"]))
+                assert len(result["shared_secret"]) == kem_kat["properties"]["shared_secret_size"]
+            else:
+                with pytest.raises(ValueError):
+                    await kem.encapsulate(hex_to_b64(vec["ek"]))
+
+    @pytest.mark.asyncio
+    async def test_nist_decapsulation_key_check(self, kem, kem_kat):
+        ciphertext_b64 = base64.b64encode(bytes(kem_kat["properties"]["ciphertext_size"])).decode("ascii")
+        for vec in kem_kat["decapsulation_key_check"]:
+            if vec["testPassed"]:
+                assert len(await kem.decapsulate(ciphertext_b64, hex_to_b64(vec["dk"]))) == 32
+            else:
+                with pytest.raises(ValueError):
+                    await kem.decapsulate(ciphertext_b64, hex_to_b64(vec["dk"]))
+
+    @pytest.mark.asyncio
+    async def test_round_trip(self, kem, kem_kat):
+        props = kem_kat["properties"]
+        kp = await kem.generate_keypair()
+        pk_bytes = base64.b64decode(kp["public_key_b64"])
+        assert len(pk_bytes) == props["public_key_size"]
+        assert len(base64.b64decode(kp["secret_key_b64"])) == props["secret_key_size"]
+        assert kp["kid"] == derive_kid("ml-kem-768", pk_bytes)
+
+        result = await kem.encapsulate(kp["public_key_b64"])
+        assert len(base64.b64decode(result["ciphertext_b64"])) == props["ciphertext_size"]
+        assert len(result["shared_secret"]) == props["shared_secret_size"]
+        assert await kem.decapsulate(result["ciphertext_b64"], kp["secret_key_b64"]) == result["shared_secret"]
+
+        other = await kem.generate_keypair()
+        assert await kem.decapsulate(result["ciphertext_b64"], other["secret_key_b64"]) != result["shared_secret"]
+
+    @pytest.mark.asyncio
+    async def test_invalid_lengths_raise(self, kem):
+        kp = await kem.generate_keypair()
+        short = base64.b64encode(b"short").decode("ascii")
+        with pytest.raises(ValueError):
+            await kem.encapsulate(short)
+        with pytest.raises(ValueError):
+            await kem.decapsulate(short, kp["secret_key_b64"])
+
+    @pytest.mark.asyncio
+    async def test_cross_sdk_decapsulate(self, kem):
+        """ML-KEM-768 ciphertext from the TypeScript SDK decapsulates to the TS shared secret."""
+        vec = load_cross_sdk("typescript")["ml_kem_768"]
+        shared_secret = await kem.decapsulate(vec["ciphertext_b64"], vec["secret_key_b64"])
+        assert shared_secret.hex() == vec["shared_secret_hex"]
