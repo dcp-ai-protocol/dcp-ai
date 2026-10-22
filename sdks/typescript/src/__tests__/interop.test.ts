@@ -549,6 +549,15 @@ describe('Signed bundle verification (bundle_vectors.json)', () => {
     });
   }
 
+  type AcceptCase = { name: string; signed_bundle: SignedBundleV2 };
+  for (const { name, signed_bundle } of B.must_accept_bundles as AcceptCase[]) {
+    it.each(MODES)(`${name} verifies under %s`, async (mode) => {
+      const result = await verifySignedBundleV2(signed_bundle, registry, policyFor(mode));
+      expect(result.errors).toEqual([]);
+      expect(result.verified).toBe(true);
+    });
+  }
+
   type BundleCase = { name: string; error_contains: string; signed_bundle: SignedBundleV2 };
   for (const { name, error_contains, signed_bundle } of B.must_reject_bundles as BundleCase[]) {
     it.each(MODES)(`${name} is rejected under %s`, async (mode) => {

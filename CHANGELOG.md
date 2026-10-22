@@ -177,6 +177,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - All four verifiers reject a key whose `status` is `expired`, like `revoked`. The key entry schema
   allows `expired`, but only `revoked` was checked, so a key marked expired with no `expires_at`
   still signed.
+- An empty audit trail must have the Merkle root `sha256:` followed by 64 zeros, which the Go and
+  Rust builders already wrote. All four verifiers skipped `audit_merkle_root` when a bundle had no
+  audit entries, so it could hold any value.
 
 ### Changed (breaking)
 

@@ -94,6 +94,8 @@ interface Variant {
   manifest?: Record<string, unknown>;
   /** prev_hash of the first audit entry instead of GENESIS. */
   firstPrevHash?: string;
+  /** No audit entries, with the manifest Go and Rust build for that (the TS builder refuses it). */
+  noAuditEntries?: boolean;
 }
 
 // A routine intent (spec §14.2), the starting point of the security tier variants.
@@ -197,6 +199,10 @@ async function main() {
       .policyDecision(await sign(policyDecision, DCP_CONTEXTS.PolicyDecision, agent, variant.classicalOnly))
       .addAuditEntries([audit, audit2])
       .build();
+    if (variant.noAuditEntries) {
+      bundle.audit_entries = [];
+      Object.assign(bundle.manifest, { audit_count: 0, audit_merkle_root: `sha256:${'0'.repeat(64)}` });
+    }
     Object.assign(bundle.manifest, { session_expires_at: '2099-12-31T23:59:59+05:00' }, variant.manifest);
     const signer = { registry, signerType: 'human' as const, signerId: rpr.human_id };
     const signedBundle = variant.classicalOnly
@@ -421,6 +427,14 @@ async function main() {
       error_contains: 'chain',
       variant: { firstPrevHash: `sha256:${'0'.repeat(64)}` },
     },
+    {
+      // What the TypeScript builder wrote for an empty audit trail before the
+      // empty root was defined as 64 zeros.
+      name: 'empty_audit_trail_with_another_root',
+      spec_step: 'V2-3',
+      error_contains: 'audit',
+      variant: { noAuditEntries: true, manifest: { audit_merkle_root: 'sha256:undefined' } },
+    },
     { name: 'manifest_without_rpr_hash', spec_step: 'V2-3', error_contains: 'rpr_hash', variant: { manifest: { rpr_hash: undefined } } },
     {
       name: 'session_expired',
@@ -482,7 +496,8 @@ async function main() {
       'case (set value at path, in order) it MUST reject it, whatever its verification mode, with ' +
       'an error that contains error_contains (case-insensitive). It MUST also reject every ' +
       'must_reject_bundles entry the same way, and give classical_only_routine_bundle the verdict ' +
-      'in verified_by_mode. default_verifier_policy is the TypeScript DEFAULT_VERIFIER_POLICY; a ' +
+      'in verified_by_mode. Every must_accept_bundles entry MUST verify in every mode. ' +
+      'default_verifier_policy is the TypeScript DEFAULT_VERIFIER_POLICY; a ' +
       'verifier that takes a policy MUST accept it and verify signed_bundle under it.',
     _generator: 'sdks/typescript/src/__tests__/generate-bundle-vectors.ts',
     default_verifier_policy: DEFAULT_VERIFIER_POLICY,
@@ -495,6 +510,13 @@ async function main() {
       signed_bundle: (await build({ ...lowRisk, intent: ROUTINE_INTENT })).signedBundle,
       verified_by_mode: { classical_only: true, hybrid_preferred: true, hybrid_required: false, pq_only: false },
     },
+    must_accept_bundles: [
+      {
+        name: 'empty_audit_trail',
+        spec_step: 'V2-3',
+        signed_bundle: (await build({ noAuditEntries: true })).signedBundle,
+      },
+    ],
     must_reject_bundles: await Promise.all(
       mustRejectBundles.map(async ({ variant, ...rest }) => ({
         ...rest,

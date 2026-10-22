@@ -59,7 +59,7 @@ The bundle MUST contain a `manifest` object with the following required fields:
 
 Recompute each artifact hash from the canonical representation of the corresponding `payload` and verify it matches the manifest value and the artifact's own `payload_hash`. A manifest hash that is missing, or a payload that is missing or cannot be canonicalized, fails verification.
 
-Tie the audit trail to the manifest: `audit_count` MUST equal the number of `audit_entries`, `audit_merkle_root` MUST equal the Merkle root recomputed from them, the first entry's `prev_hash` MUST be `GENESIS`, and each later entry's `prev_hash` MUST be the hash of the previous entry.
+Tie the audit trail to the manifest: `audit_count` MUST equal the number of `audit_entries`, `audit_merkle_root` MUST equal the Merkle root recomputed from them, the first entry's `prev_hash` MUST be `GENESIS`, and each later entry's `prev_hash` MUST be the hash of the previous entry. An empty audit trail has the root `sha256:` followed by 64 zeros, which the manifest schema's pattern admits; a bundle builder that accepts no audit entries writes that value (the Go and Rust builders do; the TypeScript and Python ones require at least one entry).
 
 ### Step V2-4: Verify session nonce consistency
 

@@ -664,6 +664,10 @@ func TestSignedBundleVectors(t *testing.T) {
 				Value interface{} `json:"value"`
 			} `json:"mutations"`
 		} `json:"must_reject"`
+		MustAcceptBundles []struct {
+			Name         string          `json:"name"`
+			SignedBundle json.RawMessage `json:"signed_bundle"`
+		} `json:"must_accept_bundles"`
 		MustRejectBundles []struct {
 			Name          string          `json:"name"`
 			ErrorContains string          `json:"error_contains"`
@@ -714,6 +718,13 @@ func TestSignedBundleVectors(t *testing.T) {
 						t.Fatal(err)
 					}
 					rejects(t, v2.VerifySignedBundleV2WithPolicy(reg, mutated, policy), m.ErrorContains)
+				})
+			}
+			for _, b := range vecs.MustAcceptBundles {
+				t.Run(b.Name, func(t *testing.T) {
+					if r := v2.VerifySignedBundleV2WithPolicy(reg, b.SignedBundle, policy); !r.Verified {
+						t.Fatalf("must verify: %v", r.Errors)
+					}
 				})
 			}
 			for _, b := range vecs.MustRejectBundles {
