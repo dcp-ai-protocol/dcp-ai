@@ -92,25 +92,56 @@ class TestSessionNonce:
 # ── Security tier ──
 
 
+_ROUTINE_INTENT = {"action_type": "browse", "data_classes": ["none"], "estimated_impact": "low"}
+
+
 class TestSecurityTier:
-    def test_routine_default(self):
-        assert compute_security_tier({}) == "routine"
+    def test_routine_baseline(self):
+        assert compute_security_tier(_ROUTINE_INTENT) == "routine"
+
+    def test_missing_fields_fail_closed(self):
+        assert compute_security_tier({}) == "elevated"
 
     def test_standard_threshold(self):
-        assert compute_security_tier({"risk_score": 200}) == "standard"
-        assert compute_security_tier({"risk_score": 499}) == "standard"
+        assert compute_security_tier(_ROUTINE_INTENT, {"risk_score": 200}) == "standard"
+        assert compute_security_tier(_ROUTINE_INTENT, {"risk_score": 499}) == "standard"
+
+    def test_risk_score_on_intent_is_ignored(self):
+        assert compute_security_tier({**_ROUTINE_INTENT, "risk_score": 900}) == "routine"
 
     def test_elevated_on_sensitive_data(self):
-        assert compute_security_tier({"data_classes": ["pii"]}) == "elevated"
+        assert compute_security_tier({**_ROUTINE_INTENT, "data_classes": ["pii"]}) == "elevated"
 
     def test_elevated_on_payment(self):
-        assert compute_security_tier({"action_type": "initiate_payment"}) == "elevated"
+        assert compute_security_tier({**_ROUTINE_INTENT, "action_type": "initiate_payment"}) == "elevated"
 
     def test_maximum_on_credentials(self):
-        assert compute_security_tier({"data_classes": ["credentials"]}) == "maximum"
+        assert compute_security_tier({**_ROUTINE_INTENT, "data_classes": ["credentials"]}) == "maximum"
 
     def test_maximum_on_score_800(self):
-        assert compute_security_tier({"risk_score": 800}) == "maximum"
+        assert compute_security_tier(_ROUTINE_INTENT, {"risk_score": 800}) == "maximum"
+
+    def test_unhashable_values_fail_closed(self):
+        assert compute_security_tier({**_ROUTINE_INTENT, "action_type": ["browse"]}) == "elevated"
+        assert compute_security_tier({**_ROUTINE_INTENT, "data_classes": [{"x": 1}]}) == "elevated"
+        assert compute_security_tier({**_ROUTINE_INTENT, "security_tier": ["maximum"]}) == "elevated"
+
+    def test_boolean_risk_score_counts_as_zero(self):
+        assert compute_security_tier(_ROUTINE_INTENT, {"risk_score": True}) == "routine"
+
+    def test_non_dict_inputs_fail_closed(self):
+        assert compute_security_tier("browse") == "elevated"
+        assert compute_security_tier(None) == "elevated"
+        assert compute_security_tier(_ROUTINE_INTENT, "900") == "routine"
+        assert compute_security_tier(_ROUTINE_INTENT, ["risk_score", 900]) == "routine"
+
+    def test_helpers_count_unknown_tier_names_as_elevated(self):
+        for name in ("constructor", "__proto__", "bogus", None, 3):
+            assert tier_to_verification_mode(name) == "hybrid_required", name
+            assert tier_to_checkpoint_interval(name) == 1, name
+            assert max_tier(name, "routine") == "elevated", name
+            assert max_tier("routine", name) == "elevated", name
+            assert max_tier(name, "maximum") == "maximum", name
 
     def test_max_tier_never_downgrades(self):
         assert max_tier("routine", "maximum") == "maximum"

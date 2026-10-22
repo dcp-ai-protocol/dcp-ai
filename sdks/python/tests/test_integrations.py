@@ -157,22 +157,22 @@ class TestLangChainRiskScoring:
     def test_compute_security_tier_routine(self):
         from dcp_ai.langchain import _compute_security_tier
 
-        assert _compute_security_tier(100, ["none"], "browse") == "routine"
+        assert _compute_security_tier(100, ["none"], "browse", "low") == "routine"
 
     def test_compute_security_tier_maximum(self):
         from dcp_ai.langchain import _compute_security_tier
 
-        assert _compute_security_tier(900, ["credentials"], "execute_code") == "maximum"
+        assert _compute_security_tier(900, ["credentials"], "execute_code", "high") == "maximum"
 
     def test_compute_security_tier_elevated_payment(self):
         from dcp_ai.langchain import _compute_security_tier
 
-        assert _compute_security_tier(300, ["none"], "initiate_payment") == "elevated"
+        assert _compute_security_tier(300, ["none"], "initiate_payment", "low") == "elevated"
 
     def test_compute_security_tier_elevated_sensitive(self):
         from dcp_ai.langchain import _compute_security_tier
 
-        assert _compute_security_tier(300, ["pii"], "api_call") == "elevated"
+        assert _compute_security_tier(300, ["pii"], "api_call", "low") == "elevated"
 
 
 class TestDCPAgentWrapper:

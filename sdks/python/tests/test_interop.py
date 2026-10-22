@@ -27,6 +27,11 @@ from dcp_ai.v2.domain_separation import DCP_CONTEXTS, domain_separated_message
 from dcp_ai.v2.dual_hash import sha256_hex, sha3_256_hex
 from dcp_ai.v2.crypto_registry import AlgorithmRegistry
 from dcp_ai.v2.composite_ops import composite_verify, CompositeKeyInfo
+from dcp_ai.v2.security_tier import (
+    compute_security_tier,
+    tier_to_checkpoint_interval,
+    tier_to_verification_mode,
+)
 from dcp_ai.providers.ed25519_provider import Ed25519Provider
 from dcp_ai.providers.ml_dsa_65_provider import MlDsa65Provider
 
@@ -378,3 +383,19 @@ class TestCanonicalizationEdgeCases:
                 assert produced == vec["canonical"], (
                     f"{name}: produced {produced!r}, expected {vec['canonical']!r}"
                 )
+
+
+class TestSecurityTier:
+    """Spec §14.2 tier table — every SDK must resolve the same tier, mode and interval."""
+
+    def test_all_vectors(self, V):
+        cases = V["security_tier"]["cases"]
+        assert cases
+        for case in cases:
+            tier = compute_security_tier(case["intent"], case.get("policy_decision"))
+            got = {
+                "tier": tier,
+                "verification_mode": tier_to_verification_mode(tier),
+                "checkpoint_interval": tier_to_checkpoint_interval(tier),
+            }
+            assert got == case["expected"], case["name"]
