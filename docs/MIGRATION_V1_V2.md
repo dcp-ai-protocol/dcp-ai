@@ -651,23 +651,15 @@ v2.0 prohibits floating-point numbers in all signed payloads (canonicalization a
 
 v2.0 bundles are larger due to ML-DSA-65 signatures (3309 B each). For bandwidth-sensitive deployments, use CBOR wire format (30-40% reduction) and consider compact bundle presentation modes for established sessions at lower security tiers.
 
-### 6.3 Automated Migration Validation
+### 6.3 Validating Migrated Bundles
 
-The DCP-AI SDK includes a migration validator:
+The CLI has no v1.0-to-v2.0 migration checker. Verify each migrated bundle with the V2 verifier instead:
 
 ```bash
-# Validate that a v1.0 bundle can be upgraded to v2.0
-dcp migrate-check --input v1-bundle.json
-
-# Output:
-# ✅ RPR: compatible (needs session_nonce, PQ key)
-# ✅ Passport: compatible (needs session_nonce, PQ key)
-# ✅ Intent: compatible (needs session_nonce, risk_score as integer)
-# ✅ Policy: compatible (needs session_nonce)
-# ✅ Audit: compatible (needs prev_hash_secondary, session_nonce)
-# ⚠️  Signature: v1.0 Ed25519-only → needs composite upgrade
-# ⚠️  Bundle hash: flat → needs manifest upgrade
+dcp verify-bundle --policy hybrid_required signed_bundle_v2.json
 ```
+
+It checks the manifest hashes, session binding, composite signatures and audit chain. `risk_score` belongs to the policy decision, as an integer from 0 to 1000; the V2 intent schema does not allow it (spec §14.2).
 
 ---
 
