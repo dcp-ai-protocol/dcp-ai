@@ -147,6 +147,8 @@ test("gossip polls never overlap, and a peer that does not answer is given up on
   hanging.closeAllConnections();
   hanging.close();
 
-  assert.equal(peak, 1);
+  // The server can see an aborted poll's connection close just after the next poll
+  // opens, hence 2; stacked polls grew with every interval (11 here before the fix).
+  assert.ok(peak <= 2, `${peak} concurrent polls`);
   assert.ok(total >= 3, `only ${total} polls: a hung one blocked the rest`);
 });
