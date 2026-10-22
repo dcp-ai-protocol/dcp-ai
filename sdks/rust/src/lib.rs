@@ -508,51 +508,25 @@ pub mod wasm {
 
     // ── Security Tier ─────────────────────────────────────────────────────
 
-    /// Compute adaptive security tier from an intent's risk profile.
-    /// Input: JSON intent with risk_score, data_classes, action_type.
+    /// Compute the adaptive security tier (spec §14.2) from an intent and,
+    /// optionally, the bundle's policy decision, whose risk_score it reads.
     #[wasm_bindgen]
-    pub fn wasm_compute_security_tier(intent_json: &str) -> String {
-        let val: Value = match serde_json::from_str(intent_json) {
+    pub fn wasm_compute_security_tier(intent_json: &str, policy_decision_json: Option<String>) -> String {
+        let intent: Value = match serde_json::from_str(intent_json) {
             Ok(v) => v,
             Err(e) => return json_err(&format!("JSON parse: {}", e)),
         };
-
-        let risk_score = val.get("risk_score").and_then(|r| r.as_u64()).unwrap_or(0);
-        let data_classes: Vec<&str> = val.get("data_classes")
-            .and_then(|d| d.as_array())
-            .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect())
-            .unwrap_or_default();
-        let action_type = val.get("action_type").and_then(|a| a.as_str()).unwrap_or("");
-
-        let has_high_sensitivity = data_classes.iter().any(|c|
-            *c == "credentials" || *c == "children_data" || *c == "biometric"
-        );
-        let has_medium_sensitivity = data_classes.iter().any(|c|
-            *c == "pii" || *c == "financial" || *c == "health" || *c == "legal"
-        );
-        let is_payment = action_type == "payment" || action_type == "transfer";
-
-        let tier = if risk_score >= 800 || has_high_sensitivity {
-            "maximum"
-        } else if risk_score >= 500 || has_medium_sensitivity || is_payment {
-            "elevated"
-        } else if risk_score >= 200 {
-            "standard"
-        } else {
-            "routine"
+        let policy_decision: Option<Value> = match policy_decision_json.as_deref().map(serde_json::from_str) {
+            None => None,
+            Some(Ok(v)) => Some(v),
+            Some(Err(e)) => return json_err(&format!("JSON parse: {}", e)),
         };
 
-        let (verification_mode, checkpoint_interval) = match tier {
-            "maximum" => ("hybrid_required", 1),
-            "elevated" => ("hybrid_required", 1),
-            "standard" => ("hybrid_preferred", 10),
-            _ => ("classical_only", 50),
-        };
-
+        let tier = crate::v2::security_tier::compute_security_tier(&intent, policy_decision.as_ref());
         serde_json::to_string(&json!({
-            "tier": tier,
-            "verification_mode": verification_mode,
-            "checkpoint_interval": checkpoint_interval
+            "tier": tier.as_str(),
+            "verification_mode": crate::v2::security_tier::tier_to_verification_mode(tier),
+            "checkpoint_interval": crate::v2::security_tier::tier_to_checkpoint_interval(tier)
         })).unwrap()
     }
 

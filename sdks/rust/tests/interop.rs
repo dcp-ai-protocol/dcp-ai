@@ -22,6 +22,9 @@ use dcp_ai::v2::composite_ops::{composite_verify, CompositeKeyInfo};
 use dcp_ai::v2::composite_sig::CompositeSignature;
 use dcp_ai::v2::crypto_provider::{derive_kid, CryptoProvider};
 use dcp_ai::v2::verify_bundle::verify_signed_bundle_v2;
+use dcp_ai::v2::security_tier::{
+    compute_security_tier, tier_to_checkpoint_interval, tier_to_verification_mode,
+};
 use dcp_ai::v2::domain_separation::{
     domain_separated_message, CTX_AGENT_PASSPORT, CTX_AUDIT_EVENT, CTX_AWARENESS, CTX_BUNDLE,
     CTX_DELEGATION, CTX_DISPUTE, CTX_HUMAN_CONFIRMATION, CTX_INTENT,
@@ -574,4 +577,38 @@ fn wasm_build_sign_verify_round_trip() {
     );
     let result: Value = serde_json::from_str(&wasm_verify_signed_bundle_v2(&signed)).unwrap();
     assert_eq!(result["verified"], true, "{}", result["errors"]);
+}
+
+// ---------------------------------------------------------------------------
+// Security tier (spec §14.2)
+// ---------------------------------------------------------------------------
+
+fn security_tier_cases() -> Vec<Value> {
+    let cases = load_vectors()["security_tier"]["cases"].as_array().cloned().unwrap_or_default();
+    assert!(!cases.is_empty(), "no security_tier vectors found");
+    cases
+}
+
+#[test]
+fn security_tier_vectors() {
+    for case in security_tier_cases() {
+        let tier = compute_security_tier(&case["intent"], case.get("policy_decision"));
+        let got = serde_json::json!({
+            "tier": tier.as_str(),
+            "verification_mode": tier_to_verification_mode(tier),
+            "checkpoint_interval": tier_to_checkpoint_interval(tier),
+        });
+        assert_eq!(got, case["expected"], "{}", case["name"]);
+    }
+}
+
+#[cfg(feature = "wasm")]
+#[test]
+fn security_tier_vectors_wasm_binding() {
+    for case in security_tier_cases() {
+        let policy_decision = case.get("policy_decision").map(Value::to_string);
+        let out = dcp_ai::wasm::wasm_compute_security_tier(&case["intent"].to_string(), policy_decision);
+        let got: Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(got, case["expected"], "{}", case["name"]);
+    }
 }

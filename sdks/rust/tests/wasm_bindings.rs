@@ -141,16 +141,16 @@ fn test_session_binding_invalid() {
 
 #[wasm_bindgen_test]
 fn test_security_tier_routine() {
-    let intent = r#"{"risk_score":50,"data_classes":[],"action_type":"read"}"#;
-    let result = wasm_compute_security_tier(intent);
+    let intent = r#"{"action_type":"browse","data_classes":["none"],"estimated_impact":"low"}"#;
+    let result = wasm_compute_security_tier(intent, Some(r#"{"risk_score":50}"#.into()));
     let r: serde_json::Value = serde_json::from_str(&result).unwrap();
     assert_eq!(r["tier"], "routine");
 }
 
 #[wasm_bindgen_test]
 fn test_security_tier_maximum() {
-    let intent = r#"{"risk_score":900,"data_classes":["credentials"],"action_type":"admin"}"#;
-    let result = wasm_compute_security_tier(intent);
+    let intent = r#"{"action_type":"api_call","data_classes":["credentials"],"estimated_impact":"low"}"#;
+    let result = wasm_compute_security_tier(intent, Some(r#"{"risk_score":900}"#.into()));
     let r: serde_json::Value = serde_json::from_str(&result).unwrap();
     assert_eq!(r["tier"], "maximum");
 }
