@@ -152,7 +152,7 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 | `v2.BuildBundleV2(input)` | Construye un bundle V2 a partir de artefactos firmados, con hashes del manifiesto y raíces duales de Merkle |
 | `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | Firma un bundle con firma compuesta o solo clásica |
 | `v2.VerifySignedBundleV2(reg, jsonBytes)` | Verificación completa de bundle V2 (estructura, hashes, firmas, cadena de auditoría) con `DefaultVerifierPolicy`, contra el modo más estricto entre el de la política y el del nivel de seguridad (spec §14.3); informa `ResolvedTier` y `VerificationMode` |
-| `v2.VerifySignedBundleV2WithPolicy(reg, jsonBytes, policy)` | Igual, con tu propia `VerifierPolicy`; solo `DefaultMode` y `RiskOverrides` pueden diferir de `DefaultVerifierPolicy()`, cualquier otro cambio hace fallar la verificación |
+| `v2.VerifySignedBundleV2WithPolicy(reg, jsonBytes, policy)` | Igual, con tu propia `VerifierPolicy`; solo `DefaultMode`, `RiskOverrides` y los campos de Fase 3 (`AdvisoryRejectedAlgs`, `WarnClassicalOnlyDeprecated`, `AllowClassicalFallbackDisable`, como en TypeScript) pueden diferir de `DefaultVerifierPolicy()`, cualquier otro cambio hace fallar la verificación |
 
 ### Niveles de Seguridad
 

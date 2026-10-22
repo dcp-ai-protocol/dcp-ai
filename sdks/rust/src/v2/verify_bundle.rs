@@ -46,19 +46,24 @@ pub fn verify_signed_bundle_v2(signed_bundle: &Value) -> V2VerificationResult {
 
 /// Verify a V2 signed bundle against the stricter of the policy mode
 /// (`default_mode`, or the `risk_overrides` entry for the passport's
-/// `risk_tier`) and the security tier's mode (spec §14.3). Only those two
-/// fields are enforced; a policy that changes any other field fails
-/// verification instead of having the setting ignored.
+/// `risk_tier`) and the security tier's mode (spec §14.3). Besides those two
+/// fields, only the Phase 3 ones are enforced, as in the TypeScript SDK:
+/// `advisory_rejected_algs`, `warn_classical_only_deprecated` and
+/// `allow_classical_fallback_disable`. A policy that changes any other field
+/// fails verification instead of having the setting ignored.
 pub fn verify_signed_bundle_v2_with_policy(signed_bundle: &Value, policy: &VerifierPolicy) -> V2VerificationResult {
     let mut r = V2VerificationResult { dcp_version: "2.0".into(), ..Default::default() };
     let enforced = VerifierPolicy {
         default_mode: policy.default_mode.clone(),
         risk_overrides: policy.risk_overrides.clone(),
+        allow_classical_fallback_disable: policy.allow_classical_fallback_disable,
+        warn_classical_only_deprecated: policy.warn_classical_only_deprecated,
+        advisory_rejected_algs: policy.advisory_rejected_algs.clone(),
         ..VerifierPolicy::default()
     };
     if *policy != enforced {
         r.errors.push(
-            "Verifier policy sets fields this verifier does not enforce: only default_mode and risk_overrides may differ from the default"
+            "Verifier policy sets fields this verifier does not enforce: only default_mode, risk_overrides and the Phase 3 fields may differ from the default"
                 .to_string(),
         );
         return r;
@@ -158,6 +163,9 @@ pub fn verify_signed_bundle_v2_with_policy(signed_bundle: &Value, policy: &Verif
     let mode = effective_verification_mode(policy_mode, tier);
     r.resolved_tier = tier.as_str().to_string();
     r.verification_mode = mode.to_string();
+    if mode == "classical_only" && policy.warn_classical_only_deprecated {
+        r.warnings.push("DEPRECATION: classical_only mode is deprecated in Phase 3".to_string());
+    }
 
     // Bundle composite_sig over the manifest: signed by the agent or by its principal.
     let rpr_keys = payload_keys(bundle, "responsible_principal_record", "binding_keys");
@@ -171,11 +179,9 @@ pub fn verify_signed_bundle_v2_with_policy(signed_bundle: &Value, policy: &Verif
                 Ok((cs, result)) => {
                     r.classical_valid = result.classical_valid;
                     r.pq_valid = result.pq_valid;
-                    match check_mode(mode, &cs, &result) {
-                        Err(e) => r.errors.push(format!("Bundle {}", e)),
-                        Ok(Some(w)) => r.warnings.push(format!("Bundle {}", w)),
-                        Ok(None) => {}
-                    }
+                    let (errors, warnings) = check_mode(mode, policy, &cs, &result);
+                    r.errors.extend(errors.iter().map(|e| format!("Bundle {}", e)));
+                    r.warnings.extend(warnings.iter().map(|w| format!("Bundle {}", w)));
                 }
                 Err(e) => r.errors.push(format!("Bundle signature: {}", e)),
             }
@@ -197,11 +203,11 @@ pub fn verify_signed_bundle_v2_with_policy(signed_bundle: &Value, policy: &Verif
         };
         match verify_composite_sig(context, payload, artifact.get("composite_sig"), keys) {
             Err(e) => r.errors.push(format!("{} signature: {}", field, e)),
-            Ok((cs, result)) => match check_mode(mode, &cs, &result) {
-                Err(e) => r.errors.push(format!("{} {}", field, e)),
-                Ok(Some(w)) => r.warnings.push(format!("{} {}", field, w)),
-                Ok(None) => {}
-            },
+            Ok((cs, result)) => {
+                let (errors, warnings) = check_mode(mode, policy, &cs, &result);
+                r.errors.extend(errors.iter().map(|e| format!("{} {}", field, e)));
+                r.warnings.extend(warnings.iter().map(|w| format!("{} {}", field, w)));
+            }
         }
     }
 
@@ -228,26 +234,45 @@ pub fn verify_signed_bundle_v2_with_policy(signed_bundle: &Value, policy: &Verif
     r
 }
 
-/// Apply the verification mode to one verified composite signature
-/// (VERIFICATION.md V2-7, V2-10): `Err` rejects it, `Ok(Some(_))` is a warning.
-/// A PQ signature that is present must verify in every mode; `result.valid`
-/// covers both components for pq_over_classical.
-fn check_mode(mode: &str, cs: &CompositeSignature, result: &CompositeVerifyResult) -> Result<Option<String>, String> {
+/// Apply the verification mode and the policy's Phase 3 settings to one verified
+/// composite signature (VERIFICATION.md V2-7, V2-10), as the TypeScript verifier
+/// does. Returns its errors and warnings. A PQ signature that is present must
+/// verify in every mode; `result.valid` covers both components for pq_over_classical.
+fn check_mode(
+    mode: &str,
+    policy: &VerifierPolicy,
+    cs: &CompositeSignature,
+    result: &CompositeVerifyResult,
+) -> (Vec<String>, Vec<String>) {
+    let (mut errors, mut warnings) = (Vec::new(), Vec::new());
+    let rejected = &policy.advisory_rejected_algs;
+    if mode != "pq_only" && rejected.contains(&cs.classical.alg) {
+        errors.push(format!("Classical algorithm {} rejected by active advisory", cs.classical.alg));
+    }
+    if let Some(pq) = cs.pq.as_ref().filter(|pq| rejected.contains(&pq.alg)) {
+        errors.push(format!("PQ algorithm {} rejected by active advisory", pq.alg));
+    }
+    if policy.warn_classical_only_deprecated && cs.binding == "classical_only" {
+        warnings.push("DEPRECATION: classical-only signatures are deprecated. Migrate to hybrid or pq_only.".into());
+    }
     match mode {
         "pq_only" if cs.binding != "pq_over_classical" || !result.pq_valid => {
-            Err("PQ signature invalid or missing (pq_only)".into())
+            errors.push("PQ signature invalid or missing (pq_only)".into())
         }
-        "pq_only" if !result.classical_valid => Ok(Some("classical signature not verified in pq_only mode".into())),
-        "pq_only" => Ok(None),
+        "pq_only" if !result.classical_valid && !policy.allow_classical_fallback_disable => {
+            warnings.push("classical signature not verified in pq_only mode".into())
+        }
+        "pq_only" => {}
         "hybrid_required" if cs.binding != "pq_over_classical" => {
-            Err(format!("hybrid_required needs a pq_over_classical signature, got {}", cs.binding))
+            errors.push(format!("hybrid_required needs a pq_over_classical signature, got {}", cs.binding))
         }
-        _ if !result.valid => Err("signature verification failed".into()),
+        _ if !result.valid => errors.push("signature verification failed".into()),
         "hybrid_preferred" if cs.binding == "classical_only" => {
-            Ok(Some("classical_only binding (no PQ protection)".into()))
+            warnings.push("classical_only binding (no PQ protection)".into())
         }
-        _ => Ok(None),
+        _ => {}
     }
+    (errors, warnings)
 }
 
 /// Key entries listed under `field` in an artifact's payload.

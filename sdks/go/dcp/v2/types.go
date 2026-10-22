@@ -199,6 +199,12 @@ type VerifierPolicy struct {
 	RequireCompositeBinding  bool              `json:"require_composite_binding"`
 	MaxKeyAgeDays            int               `json:"max_key_age_days"`
 	AllowV1Bundles           bool              `json:"allow_v1_bundles"`
+
+	// Phase 3 fields of schemas/v2/verifier_policy.schema.json, with the
+	// TypeScript SDK's semantics.
+	AllowClassicalFallbackDisable bool     `json:"allow_classical_fallback_disable"`
+	WarnClassicalOnlyDeprecated   bool     `json:"warn_classical_only_deprecated"`
+	AdvisoryRejectedAlgs          []string `json:"advisory_rejected_algs"`
 }
 
 // SupportedAlgs describes the algorithm suites a DCP implementation supports.

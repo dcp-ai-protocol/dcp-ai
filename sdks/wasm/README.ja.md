@@ -112,7 +112,7 @@ WASMモジュールを初期化します。APIを使用する前に1回呼び出
 | メソッド | 戻り値 | 説明 |
 |--------|---------|-------------|
 | `compositeVerify(context, payload, sig, classicalPk, pqPk?)` | `CompositeVerifyResult` | 複合署名の暗号検証 |
-| `verifyBundle(signedBundle, policy?)` | `V2VerificationResult` | V2バンドルの完全検証 (構造 + 暗号 + ハッシュチェーン)。ポリシーのモードとセキュリティティアのモードのうち厳しい方で検証（spec §14.3）。`resolved_tier` と `verification_mode` を返す。`policy` がデフォルトと異なってよいのは `default_mode` と `risk_overrides` だけで、ポリシーを渡すと V1 バンドルは拒否される |
+| `verifyBundle(signedBundle, policy?)` | `V2VerificationResult` | V2バンドルの完全検証 (構造 + 暗号 + ハッシュチェーン)。ポリシーのモードとセキュリティティアのモードのうち厳しい方で検証（spec §14.3）。`resolved_tier` と `verification_mode` を返す。`policy` がデフォルトと異なってよいのは `default_mode`、`risk_overrides` と Phase 3 のフィールド（`advisory_rejected_algs`、`warn_classical_only_deprecated`、`allow_classical_fallback_disable`）だけで、ポリシーを渡すと V1 バンドルは拒否される |
 
 ### ハッシュ操作
 

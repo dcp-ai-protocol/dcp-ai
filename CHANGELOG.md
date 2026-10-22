@@ -242,10 +242,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   server) gets this with the next `@dcp-ai/sdk` release.
 - Go, Rust and Python verifiers reject the same `classical_only` bundles. Go `VerifySignedBundleV2`
   and Rust `verify_signed_bundle_v2` apply the TypeScript `DEFAULT_VERIFIER_POLICY` instead of no
-  policy; `wasm_verify_signed_bundle_v2` takes an optional policy JSON (a full `VerifierPolicy`) and,
-  with one, rejects V1 bundles. Their policy may differ from the default only in `default_mode` and
-  `risk_overrides`: any other change, or an unknown field in the Rust `VerifierPolicy` JSON, fails
-  verification instead of being ignored.
+  policy; `wasm_verify_signed_bundle_v2` takes an optional policy JSON (a `VerifierPolicy`) and,
+  with one, rejects V1 bundles. Their policy may differ from the default only in `default_mode`,
+  `risk_overrides` and the Phase 3 fields (`advisory_rejected_algs`, `warn_classical_only_deprecated`,
+  `allow_classical_fallback_disable`, enforced as in TypeScript): any other change, or an unknown
+  field in the Rust `VerifierPolicy` JSON, fails verification instead of being ignored.
 - Python SDK `verify_signed_bundle_v2`: errors and warnings about the bundle signature start with
   `bundle: `, a null or non-object artifact is reported as `<name>: not a SignedPayload object`, and
   an unknown policy mode fails with `Unknown verification mode in verifier policy` before any
@@ -274,12 +275,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   unchanged (spec §14.3). Shared vectors in `security_tier.effective_mode`.
 - Go SDK: `v2.VerifySignedBundleV2WithPolicy(registry, json, policy)` and `v2.DefaultVerifierPolicy()`.
   Rust SDK: `verify_signed_bundle_v2_with_policy` and `impl Default for VerifierPolicy` (the
-  TypeScript default policy). `@dcp-ai/wasm`: `verifyBundle(signedBundle, policy?)` and the
-  `VerifierPolicy` type. The Python result's `details` gains `resolved_tier`.
+  TypeScript default policy). The Go and Rust `VerifierPolicy` gain the Phase 3 fields of
+  `schemas/v2/verifier_policy.schema.json`, so the TypeScript `DEFAULT_VERIFIER_POLICY` decodes into
+  them as is. `@dcp-ai/wasm`: `verifyBundle(signedBundle, policy?)` and the `VerifierPolicy` type.
+  The Python result's `details` gains `resolved_tier`.
 - `tests/interop/v2/bundle_vectors.json`: `must_reject_bundles`, classical-only bundles with
   sensitive intents from a low-risk passport that every verifier must reject in every mode, and a
   classical-only routine control with its expected verdict per mode. The TS, Go, Rust and Python
-  tests run them, and Python now runs the whole file.
+  tests run them, and Python now runs the whole file. `default_verifier_policy` carries the
+  TypeScript `DEFAULT_VERIFIER_POLICY`, which every SDK must accept as a policy.
 - TypeScript SDK: `blindRpr`, `verifyBlindedRpr`, `isBlindedRpr` and `computePiiHash` are exported
   from the package entry point. They were implemented but unreachable from `@dcp-ai/sdk` 2.1.2 and
   earlier; Python, Go and Rust already exported them.
