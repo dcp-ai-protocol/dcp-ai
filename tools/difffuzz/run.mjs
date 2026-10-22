@@ -236,12 +236,15 @@ const mutators = {
     const b = doc.bundle;
     if (!isObj(b)) return null;
     const [from, to] = [pick(ARTIFACTS), pick(ARTIFACTS)];
+    // A seed that lacks the artifact (a must_reject bundle) has nothing to copy: clone(undefined) throws.
+    if (b[from] === undefined) return null;
     if (rand() < 0.5 || from === to) {
       b[to] = clone(b[from]);
       return `bundle.${to} = bundle.${from}`;
     }
     if (!isObj(b[from]) || !isObj(b[to])) return null;
     const part = pick(['composite_sig', 'payload', 'payload_hash']);
+    if (b[from][part] === undefined) return null;
     b[to][part] = clone(b[from][part]);
     return `bundle.${to}.${part} = bundle.${from}.${part}`;
   },
