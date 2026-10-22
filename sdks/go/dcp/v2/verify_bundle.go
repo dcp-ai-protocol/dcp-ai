@@ -123,8 +123,8 @@ func VerifySignedBundleV2WithPolicy(registry *AlgorithmRegistry, signedBundleJSO
 	// MUST be assumed equal to the only profile defined today, "dcp-jcs-v1".
 	// An unknown value is rejected; future profiles will register their own
 	// canonicalizer here.
-	if profile, ok := manifest["canonicalization_profile"].(string); ok && profile != "dcp-jcs-v1" {
-		result.Errors = append(result.Errors, fmt.Sprintf("Unknown canonicalization_profile: %s", profile))
+	if profile, ok := manifest["canonicalization_profile"]; ok && profile != "dcp-jcs-v1" {
+		result.Errors = append(result.Errors, fmt.Sprintf("Unknown canonicalization_profile: %v", profile))
 	}
 
 	verifyManifestHashes(bundle, manifest, result)
@@ -234,6 +234,19 @@ func verifySessionNonceConsistency(bundle map[string]interface{}, manifestNonce 
 			result.Errors = append(result.Errors, fmt.Sprintf("Session nonce mismatch in %s", field))
 			result.SessionBindingValid = false
 			return
+		}
+	}
+	// Audit entries and PQ checkpoints that carry a session_nonce share it too (V2-4).
+	for _, field := range []string{"audit_entries", "pq_checkpoints"} {
+		entries, _ := bundle[field].([]interface{})
+		for i, raw := range entries {
+			entry, _ := raw.(map[string]interface{})
+			nonce, _ := entry["session_nonce"].(string)
+			if nonce != "" && nonce != manifestNonce {
+				result.Errors = append(result.Errors, fmt.Sprintf("Session nonce mismatch in %s[%d]", field, i))
+				result.SessionBindingValid = false
+				return
+			}
 		}
 	}
 }
