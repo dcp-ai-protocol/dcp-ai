@@ -384,10 +384,11 @@ async def _verify(
         prev_hash = prepare_payload(entry)[1]
     details["hash_chain_valid"] = not errors
 
-    # 9. Key validity
+    # 9. Key validity of every key that can sign: the passport keys and the RPR
+    # binding_keys (V2-13)
     now = datetime.now(timezone.utc)
     max_age_days = policy.get("max_key_age_days") or 0
-    for key in passport_keys:
+    for key in passport_keys + rpr_keys:
         if key.get("status") == "revoked":
             errors.append(f"Key {key['kid']} is revoked")
         if key.get("expires_at") and _parse_time(key["expires_at"]) < now:
