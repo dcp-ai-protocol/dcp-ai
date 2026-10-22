@@ -180,6 +180,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Type-check and build
+        run: npm run lint --if-present && npm run build --if-present
+
       - name: Run tests
         run: npx vitest run
 
