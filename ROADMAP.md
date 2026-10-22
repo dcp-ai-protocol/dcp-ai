@@ -125,6 +125,89 @@ full V2 procedure, security tier included.
 
 ---
 
+## Proposal: direction after v2.10
+
+**Status:** Proposal for maintainer discussion. Nothing in this section is scheduled
+or promised; an item becomes part of the roadmap only after it is accepted in an
+issue or pull request of its own.
+
+### Positioning
+
+DCP does not compete with tool-access protocols (MCP), agent-to-agent protocols
+(A2A), agent-payment protocols or the identity drafts under discussion at the
+IETF (several individual Internet-Drafts, none adopted by a working group as of
+October 2026). It is the accountability and evidence layer on top of them. It
+answers the question those protocols leave open: who answers for what this agent
+did, and how can a third party check it without trusting the operator?
+
+### What the v2.10 round showed
+
+- The surface is larger than the adoption: 9 specifications, 39 v2 schemas,
+  5 SDKs, 10 integrations and 4 services.
+- Most defects found were disagreements between the four SDK verifiers, not flaws
+  in a single algorithm: a mode bypass through prototype keys in TypeScript,
+  Ed25519 accepted in the post-quantum slot in Go and Rust, a null artifact
+  skipped in Go, timestamps compared as text in Rust.
+- Operations depend on one person: the npm 2FA and token blocked the release of
+  a security fix, and creating a security advisory needs rights only an
+  organisation admin has.
+
+### Proposed priorities
+
+1. **Operational security (weeks).** Publish without long-lived tokens (npm and
+   crates.io trusted publishing, as PyPI already does). Turn every vulnerability
+   of the v2.10 round into a negative vector that all four SDKs must reject.
+   Differential fuzzing: the same mutated bundle goes to every verifier and any
+   disagreement is a bug. An external audit. A second maintainer with admin rights.
+2. **A small core and one verifier.** A DCP Core 3.0 limited to the Responsible
+   Principal Record, passport, intent, policy decision, action evidence and
+   bundle, with DCP-05 to DCP-09 as experimental profiles until they have
+   production users. One normative verifier (candidate: the Rust crate, which
+   already compiles to wasm) with bindings; the other SDKs build bundles.
+3. **Delegation chains.** Human, agent, subagent, tool and payment: every hop is
+   signed and may only narrow permissions, never widen them; the chain verifies
+   offline back to the responsible human; a subagent cannot lower the security
+   tier of whoever delegated to it (the intent already cannot lower its own).
+4. **Integrate, do not compete.** An MCP middleware that returns a signed receipt
+   per call; an A2A Agent Card that carries the DCP passport; HTTP Message
+   Signatures (RFC 9421); accept identity from WIMSE/SPIFFE, OAuth or DIDs and
+   bind it to a responsible human.
+5. **Regulatory evidence.** A mapping of the audit trail to the logging,
+   human-oversight and record-keeping duties of the EU AI Act (Articles 12, 14
+   and 26), in the style of `docs/NIST_CONFORMITY.md`. The application dates are
+   in flux, so the mapping must be checked against the final text before it is cited.
+
+### Notes from the agent side
+
+- Routine actions must stay cheap. If every tool call costs a post-quantum
+  signature and a full bundle, nobody will adopt it. Receipts of one session can
+  be gathered in a Merkle tree and signed with the hybrid scheme when the session
+  closes or when the security tier is elevated.
+- The main risk for an agent is not a stolen key. It is prompt injection while
+  holding legitimate keys. What bounds it is the intent signed before acting, an
+  independent policy decision, short-lived least-privilege mandates, and evidence
+  that shows whether the action left the declared intent.
+- Being able to prove that it acted within its mandate protects the agent and the
+  human who answers for it.
+
+### Not proposed
+
+- New specifications without at least two independent implementers.
+- A central service run by the project (see "Out of scope for Phase 5").
+- An IETF submission before two or three integrations run in production (see Phase 3).
+
+### Open questions
+
+- Is a Core 3.0 cut acceptable given the guiding principle "additive over
+  subtractive"? Moving DCP-05 to DCP-09 to experimental profiles is a breaking change.
+- Which implementation becomes the normative verifier, and what is the migration
+  path for the SDKs that stop verifying?
+- Should delegation chains reuse an existing capability format (UCAN, Biscuit) or
+  stay DCP-native?
+- Who is the second maintainer, and how is admin access shared safely?
+
+---
+
 ## Out of Scope (general)
 
 The following remain explicitly deferred:
