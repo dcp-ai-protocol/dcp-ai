@@ -16,6 +16,7 @@ import {
   compositeSign,
   preparePayload,
   computeSecurityTier,
+  maxTier,
   canonicalizeV2,
   sha256Hex,
   generateSessionNonce,
@@ -37,13 +38,23 @@ import {
   type ActionType,
   type DataClass,
   type Impact,
+  type SecurityTier,
 } from '@dcp-ai/sdk';
 
 type Channel = IntentV2['target']['channel'];
 type VerifierPolicy = Parameters<typeof verifySignedBundleV2>[2];
 // @dcp-ai/sdk releases after 2.1.2 read risk_score from the policy decision (spec §14.2);
 // earlier ones ignore the second argument.
-const computeTier = computeSecurityTier as (intent: IntentV2, policyDecision?: Pick<PolicyDecisionV2, 'risk_score'>) => IntentV2['security_tier'] & string;
+const computeTier = computeSecurityTier as (intent: IntentV2, policyDecision?: Pick<PolicyDecisionV2, 'risk_score'>) => SecurityTier;
+
+/** The tier a risk score alone implies (spec §14.2: 200 standard, 500 elevated, 800 maximum); the same on every SDK version. */
+function riskTier(risk: number): SecurityTier {
+  return risk >= 800 ? 'maximum' : risk >= 500 ? 'elevated' : risk >= 200 ? 'standard' : 'routine';
+}
+
+const SHA256_PATTERN = /^sha256:[0-9a-f]{64}$/;
+const PASSPORT_CAPABILITIES: ReadonlySet<string> = new Set(['browse', 'api_call', 'email', 'calendar', 'payments', 'crm', 'file_write', 'code_exec']);
+const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
 /** The signed identity a receipt binds every call to; one per session nonce. */
 export interface DcpReceiptIdentity {
@@ -84,7 +95,7 @@ export interface DcpReceiptOptions {
   classify?: (toolName: string, args: unknown) => ToolCallClassification;
   /** Decides whether the call runs; the default is `defaultPolicy`. */
   decide?: (intent: IntentV2) => PolicyVerdict;
-  /** `applied_policy_hash` of the decisions; default: the hash of `defaultPolicy`'s rules. */
+  /** `applied_policy_hash` of the decisions, `sha256:<64 hex>`; default: the hash of `defaultPolicy`'s rules. */
   appliedPolicyHash?: string;
 }
 
@@ -143,6 +154,13 @@ export function hashEvidence(value: unknown): string {
   return `sha256:${sha256Hex(new TextEncoder().encode(stableJson(value)))}`;
 }
 
+/** The result as the caller sees it, minus `_meta` (transport metadata, where the receipt itself travels): what the receipt hashes. */
+export function resultSeen<T>(result: T): Omit<T, '_meta'> {
+  if (!isObject(result)) return result as Omit<T, '_meta'>;
+  const { _meta: _ignored, ...seen } = result;
+  return seen as Omit<T, '_meta'>;
+}
+
 function defaultRegistry(): AlgorithmRegistry {
   registerDefaultProviders();
   return getDefaultRegistry();
@@ -173,6 +191,9 @@ export interface CreateIdentityParams {
  * signed RPR and passport; this is for tests and first runs.
  */
 export async function createReceiptIdentity(params: CreateIdentityParams): Promise<DcpReceiptIdentity> {
+  const capabilities = params.capabilities ?? ['api_call'];
+  const unknown = capabilities.filter((c) => !PASSPORT_CAPABILITIES.has(c));
+  if (unknown.length > 0) throw new Error(`capabilities not in the passport schema: ${unknown.join(', ')} (allowed: ${[...PASSPORT_CAPABILITIES].join(', ')})`);
   const registry = params.registry ?? defaultRegistry();
   const classicalKp = await registry.getSigner('ed25519').generateKeypair();
   const pqKp = await registry.getSigner('ml-dsa-65').generateKeypair();
@@ -212,7 +233,7 @@ export async function createReceiptIdentity(params: CreateIdentityParams): Promi
     session_nonce: sessionNonce,
     keys: keyEntries,
     principal_binding_reference: humanId,
-    capabilities: (params.capabilities ?? ['api_call']) as AgentPassportV2['capabilities'],
+    capabilities: capabilities as AgentPassportV2['capabilities'],
     risk_tier: params.riskTier ?? 'medium',
     created_at: now,
     status: 'active',
@@ -229,13 +250,15 @@ export async function createReceiptIdentity(params: CreateIdentityParams): Promi
  * Wrap an MCP tool handler so every call returns a signed receipt in `_meta.dcp_receipt`.
  *
  * Before the tool runs, the call is classified into an Intent and composite-signed, and the
- * policy decides. An approved call runs and its arguments and result are hashed into the
- * audit entry (`outcome: "completed"`). An escalated or blocked call does not run and the
- * wrapper returns an `isError` result instead (`outcome: "escalated"` / `"blocked"`), so the
- * refusal is evidence too. A handler that throws yields an `isError` result with
- * `outcome: "failed"`. The receipt is a V2 signed bundle with one audit entry, verifiable
- * on its own; `receipt.bundle.audit_entries[0].evidence` holds `tool`, `result_ref` (the
- * result's hash) and `evidence_hash` (the hash of `{ arguments, result }`).
+ * policy decides. An approved call runs (`outcome: "completed"`). An escalated or blocked call
+ * does not run and the wrapper returns an `isError` result instead (`outcome: "escalated"` /
+ * `"blocked"`), so the refusal is evidence too. A handler that throws yields an `isError`
+ * result with `outcome: "failed"`. The receipt is a V2 signed bundle with one audit entry,
+ * verifiable on its own; `receipt.bundle.audit_entries[0].evidence` holds `tool`,
+ * `result_ref` (the hash of the result when the tool ran, else null), `evidence_hash` (the
+ * hash of `{ arguments, result }`) and, when the MCP `extra` carries one, `request_id`.
+ * `arguments` are hashed as received, before the handler can touch them; `result` is what the
+ * wrapper returns minus `_meta` (see `resultSeen`), whatever the outcome.
  */
 export function withDcpReceipt<A, R>(
   toolName: string,
@@ -246,11 +269,14 @@ export function withDcpReceipt<A, R>(
   const { identity } = options;
   const decide = options.decide ?? defaultPolicy;
   const appliedPolicyHash = options.appliedPolicyHash ?? DEFAULT_POLICY_HASH;
+  if (!SHA256_PATTERN.test(appliedPolicyHash)) throw new Error('appliedPolicyHash must be sha256:<64 hex digits>');
   const agentId = identity.signedPassport.payload.agent_id;
   const humanId = identity.signedRpr.payload.human_id;
 
   return async (args: A, extra?: unknown) => {
     const now = new Date().toISOString();
+    // The arguments as received: a handler that mutates them must not change what the receipt attests.
+    const argumentsSeen = args === undefined ? undefined : structuredClone(args);
     const c = options.classify?.(toolName, args) ?? {};
     const impact = c.estimated_impact ?? 'low';
     const intentId = `intent:${crypto.randomUUID()}`;
@@ -268,7 +294,9 @@ export function withDcpReceipt<A, R>(
       requires_consent: c.requires_consent ?? impact === 'high',
     };
     const verdict = decide(draft);
-    const tier = computeTier(draft, { risk_score: verdict.risk_score });
+    // The SDK's tier from the intent, never below what the risk score implies (the published
+    // 2.1.x SDK reads no risk score; 2.2.0 does; both end here with the same tier).
+    const tier = maxTier(computeTier(draft, { risk_score: verdict.risk_score }), riskTier(verdict.risk_score));
     const intent: IntentV2 = { ...draft, security_tier: tier };
     const signedIntent = await sign(registry, DCP_CONTEXTS.Intent, intent, identity.keys);
 
@@ -288,24 +316,29 @@ export function withDcpReceipt<A, R>(
     const signedPolicy = await sign(registry, DCP_CONTEXTS.PolicyDecision, policy, identity.keys);
 
     // Run the tool only on approval; a refusal or a failure is still a receipt.
-    let result: unknown = null;
     let outcome: string;
-    let response: R | DcpReceiptResult;
+    let response: unknown;
+    let ran = false;
     if (verdict.decision !== 'approve') {
       outcome = verdict.decision === 'block' ? 'blocked' : 'escalated';
       response = { content: [{ type: 'text', text: `DCP policy ${outcome} the call to ${toolName}: ${verdict.reasons.join('; ')}` }], isError: true };
     } else {
+      ran = true;
       try {
-        result = await handler(args, extra);
+        response = await handler(args, extra);
         outcome = 'completed';
-        response = result as R;
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e);
-        result = { error: message };
         outcome = 'failed';
         response = { content: [{ type: 'text', text: `${toolName} failed: ${message}` }], isError: true };
       }
     }
+    // What the caller gets back: an MCP result object; a bare value becomes a text content.
+    const base: Record<string, unknown> = isObject(response)
+      ? response
+      : { content: response == null ? [] : [{ type: 'text', text: String(response) }] };
+    const result = resultSeen(base);
+    const requestId = isObject(extra) && extra.requestId !== undefined ? String(extra.requestId) : undefined;
 
     const entry: AuditEventV2 = {
       dcp_version: '2.0',
@@ -322,8 +355,9 @@ export function withDcpReceipt<A, R>(
       outcome,
       evidence: {
         tool: toolName,
-        result_ref: outcome === 'completed' ? hashEvidence(result) : null,
-        evidence_hash: hashEvidence({ arguments: args, result }),
+        result_ref: ran ? hashEvidence(result) : null,
+        evidence_hash: hashEvidence({ arguments: argumentsSeen, result }),
+        ...(requestId !== undefined ? { request_id: requestId } : {}),
       },
       pq_checkpoint_ref: null,
     };
@@ -337,8 +371,7 @@ export function withDcpReceipt<A, R>(
       .build();
     const receipt = await signBundleV2(bundle, { registry, signerType: 'human', signerId: humanId, keys: identity.keys });
 
-    const base = (response !== null && typeof response === 'object' ? response : { content: [{ type: 'text', text: String(response) }] }) as object;
-    const meta = (base as { _meta?: Record<string, unknown> })._meta ?? {};
+    const meta = isObject(base._meta) ? base._meta : {};
     return { ...base, _meta: { ...meta, dcp_receipt: receipt } } as WithDcpReceipt<R>;
   };
 }
@@ -349,7 +382,11 @@ export interface VerifyReceiptOptions {
   policy?: VerifierPolicy;
   /** When given, the receipt must name this tool. */
   tool?: string;
-  /** When given with `result`, the receipt's `evidence_hash` must match these. */
+  /**
+   * Given together, the receipt's `evidence_hash` must be the hash of `{ arguments, result }`,
+   * where `result` is what the caller received minus `_meta` (`resultSeen`). One without the
+   * other is an error.
+   */
   arguments?: unknown;
   result?: unknown;
 }
@@ -360,18 +397,29 @@ export interface VerifyReceiptOptions {
  * `arguments` and `result`. Returns the verifier's result with any extra errors appended.
  */
 export async function verifyDcpReceipt(receipt: SignedBundleV2, options: VerifyReceiptOptions = {}) {
+  const invalid = (error: string) => ({ verified: false, errors: [error], warnings: [] as string[] });
+  if (!isSignedBundleShape(receipt)) return invalid('not a signed bundle: bundle, signature and bundle.audit_entries (array) are required');
   const registry = options.registry ?? defaultRegistry();
   const result = await verifySignedBundleV2(receipt, registry, options.policy ?? DEFAULT_VERIFIER_POLICY);
   const errors = [...result.errors];
-  const entries = receipt?.bundle?.audit_entries;
-  const entry = Array.isArray(entries) && entries.length === 1 ? entries[0] : undefined;
+  const entries = receipt.bundle.audit_entries;
+  const entry = entries.length === 1 && isObject(entries[0]) ? entries[0] : undefined;
   if (!entry) errors.push('a receipt carries exactly one audit entry');
-  if (entry && options.tool !== undefined && entry.evidence?.tool !== options.tool) {
-    errors.push(`receipt names tool ${String(entry.evidence?.tool)}, expected ${options.tool}`);
+  const evidence = isObject(entry?.evidence) ? entry.evidence : {};
+  if (entry && options.tool !== undefined && evidence.tool !== options.tool) {
+    errors.push(`receipt names tool ${String(evidence.tool)}, expected ${options.tool}`);
   }
-  if (entry && 'arguments' in options && 'result' in options) {
+  const hasArgs = 'arguments' in options;
+  const hasResult = 'result' in options;
+  if (hasArgs !== hasResult) errors.push('arguments and result must be given together to check the evidence_hash');
+  if (entry && hasArgs && hasResult) {
     const expected = hashEvidence({ arguments: options.arguments, result: options.result });
-    if (entry.evidence?.evidence_hash !== expected) errors.push('evidence_hash does not match the given arguments and result');
+    if (evidence.evidence_hash !== expected) errors.push('evidence_hash does not match the given arguments and result');
   }
   return { ...result, verified: result.verified && errors.length === 0, errors };
+}
+
+/** The shape `verifySignedBundleV2` of the published SDK assumes before it reads anything; without it the SDK throws instead of failing closed. */
+export function isSignedBundleShape(v: unknown): v is SignedBundleV2 & { bundle: { audit_entries: unknown[] } } {
+  return isObject(v) && isObject(v.bundle) && isObject(v.signature) && Array.isArray(v.bundle.audit_entries);
 }

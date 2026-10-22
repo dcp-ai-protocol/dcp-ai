@@ -6,6 +6,7 @@ import {
   verifyDcpReceipt,
   hashEvidence,
   stableJson,
+  resultSeen,
   defaultPolicy,
   type DcpReceiptIdentity,
 } from '../receipt.js';
@@ -41,9 +42,54 @@ describe('withDcpReceipt', () => {
     expect(entry.evidence.tool).toBe('get_weather');
     expect(entry.evidence.result_ref).toBe(hashEvidence({ content, structuredContent }));
     expect(receipt.bundle.intent.payload.target).toEqual({ channel: 'api', to: 'get_weather' });
-    expect(receipt.bundle.intent.payload.security_tier).toBe('routine');
+    expect(receipt.bundle.intent.payload.security_tier).toBe('standard'); // risk 200 (spec §14.2), on every SDK version
+    expect(receipt.bundle.policy_decision.payload.resolved_tier).toBe('standard');
     expect(receipt.bundle.policy_decision.payload.decision).toBe('approve');
+    expect(entry.evidence.request_id).toBeUndefined();
   }, 60_000);
+
+  it('hashes the arguments as received and the result as the caller sees it, _meta aside', async () => {
+    const mutating = withDcpReceipt(
+      'normalize',
+      async (args: { amount: number }) => {
+        args.amount = 10; // a handler that rewrites its input
+        return { content: [{ type: 'text' as const, text: 'ok' }], _meta: { trace: 'abc' } };
+      },
+      { identity },
+    );
+    const out = await mutating({ amount: 1000 }, { requestId: 7 });
+    expect(out._meta.trace).toBe('abc');
+    const { _meta, ...seen } = out;
+    const receipt = _meta.dcp_receipt;
+    expect(receipt.bundle.audit_entries[0].evidence.request_id).toBe('7');
+    // The caller sent 1000 and that is what the receipt attests, not the mutated 10.
+    expect((await verifyDcpReceipt(receipt, { arguments: { amount: 1000 }, result: seen })).verified).toBe(true);
+    expect((await verifyDcpReceipt(receipt, { arguments: { amount: 10 }, result: seen })).verified).toBe(false);
+    expect(resultSeen(out)).toEqual(seen);
+
+    // A bare value becomes a text content, and that is what is hashed.
+    const bare = withDcpReceipt('hi', async () => 'hi', { identity });
+    const b = await bare({});
+    expect(b.content).toEqual([{ type: 'text', text: 'hi' }]);
+    expect((await verifyDcpReceipt(b._meta.dcp_receipt, { arguments: {}, result: { content: [{ type: 'text', text: 'hi' }] } })).verified).toBe(true);
+  }, 60_000);
+
+  it('verifyDcpReceipt fails closed on input that is not a signed bundle and on half-given evidence', async () => {
+    for (const bad of [null, undefined, {}, 'str', [], { bundle: { dcp_bundle_version: '2.0' }, signature: {} }, { bundle: { audit_entries: {} }, signature: {} }]) {
+      const r = await verifyDcpReceipt(bad as any);
+      expect(r.verified, JSON.stringify(bad)).toBe(false);
+      expect(r.errors.length).toBeGreaterThan(0);
+    }
+    const out = await withDcpReceipt('get_weather', weather, { identity })({ city: 'Santiago' });
+    const half = await verifyDcpReceipt(out._meta.dcp_receipt, { arguments: { city: 'Santiago' } });
+    expect(half.verified).toBe(false);
+    expect(half.errors.join('\n')).toContain('together');
+  }, 60_000);
+
+  it('refuses options the schemas would reject', async () => {
+    expect(() => withDcpReceipt('x', async () => ({}), { identity, appliedPolicyHash: 'sha256:…' })).toThrow('appliedPolicyHash');
+    await expect(createReceiptIdentity({ legalName: 'x', jurisdiction: 'CL', capabilities: ['data_retrieval'] })).rejects.toThrow('capabilities');
+  });
 
   it('rejects a receipt whose arguments or result were changed, or that names another tool', async () => {
     const wrapped = withDcpReceipt('get_weather', weather, { identity });
@@ -76,15 +122,16 @@ describe('withDcpReceipt', () => {
     expect(receipt.bundle.audit_entries[0].policy_decision).toBe('blocked');
     expect(receipt.bundle.audit_entries[0].evidence.result_ref).toBeNull();
     expect(receipt.bundle.policy_decision.payload.required_confirmation).not.toBeNull();
-    // elevated from the financial data and high impact; maximum once the SDK reads risk_score (spec §14.2)
-    expect(['elevated', 'maximum']).toContain(receipt.bundle.intent.payload.security_tier);
-    const checked = await verifyDcpReceipt(receipt, { tool: 'pay_invoice', arguments: { amount: 10 }, result: null });
+    expect(receipt.bundle.intent.payload.security_tier).toBe('maximum'); // risk 1000
+    const { _meta, ...seen } = out;
+    const checked = await verifyDcpReceipt(receipt, { tool: 'pay_invoice', arguments: { amount: 10 }, result: seen });
     expect(checked.verified, checked.errors.join('\n')).toBe(true);
 
     const escalated = withDcpReceipt('pay_invoice', async () => ({ content: [] }), { identity, classify: () => ({ estimated_impact: 'medium' }) });
     const e = await escalated({});
     expect(e.isError).toBe(true);
     expect(e._meta.dcp_receipt.bundle.audit_entries[0].outcome).toBe('escalated');
+    expect(e._meta.dcp_receipt.bundle.intent.payload.security_tier).toBe('elevated'); // risk 500
   }, 60_000);
 
   it('turns a throwing handler into an isError result whose receipt records the failure', async () => {
@@ -95,7 +142,9 @@ describe('withDcpReceipt', () => {
     const entry = out._meta.dcp_receipt.bundle.audit_entries[0];
     expect(entry.outcome).toBe('failed');
     expect(entry.policy_decision).toBe('approved');
-    const checked = await verifyDcpReceipt(out._meta.dcp_receipt, { tool: 'explode', arguments: { x: 1 }, result: { error: 'boom' } });
+    expect(entry.evidence.result_ref).not.toBeNull();
+    const { _meta, ...seen } = out;
+    const checked = await verifyDcpReceipt(_meta.dcp_receipt, { tool: 'explode', arguments: { x: 1 }, result: seen });
     expect(checked.verified, checked.errors.join('\n')).toBe(true);
   }, 60_000);
 

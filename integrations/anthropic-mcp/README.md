@@ -43,9 +43,9 @@ What happens on each call:
 | Policy decision | Tool runs | Returned | Audit entry |
 |---|---|---|---|
 | `approve` | yes | the handler's result + `_meta.dcp_receipt` | `outcome: "completed"`, `result_ref` = hash of the result |
-| `escalate` | no | `{ content, isError: true, _meta }` | `outcome: "escalated"`, `policy_decision: "escalated"` |
-| `block` | no | `{ content, isError: true, _meta }` | `outcome: "blocked"`, `policy_decision: "blocked"` |
-| handler throws | yes | `{ content, isError: true, _meta }` | `outcome: "failed"`, result `{ error }` |
+| `escalate` | no | `{ content, isError: true, _meta }` | `outcome: "escalated"`, `policy_decision: "escalated"`, `result_ref: null` |
+| `block` | no | `{ content, isError: true, _meta }` | `outcome: "blocked"`, `policy_decision: "blocked"`, `result_ref: null` |
+| handler throws | yes | `{ content, isError: true, _meta }` | `outcome: "failed"`, `result_ref` = hash of that error result |
 
 A refusal is evidence too: the receipt of a blocked call shows the intent the agent declared and
 the decision that stopped it.
@@ -72,18 +72,38 @@ withDcpReceipt('pay_invoice', payInvoice, {
 });
 ```
 
-The intent's `security_tier` is computed by the SDK from the intent (DCP-AI v2.0 §14.2) and never
-lowered by the classification.
+The intent's `security_tier` (and the decision's `resolved_tier`) is the SDK's tier for the intent
+(DCP-AI v2.0 §14.2), never below what the risk score implies (200 standard, 500 elevated, 800
+maximum), so the default call is `standard`. `appliedPolicyHash` must be `sha256:<64 hex>` and
+`createReceiptIdentity` only accepts the passport schema's capabilities (`browse`, `api_call`,
+`email`, `calendar`, `payments`, `crm`, `file_write`, `code_exec`); both are refused up front
+because the reference verifier validates the schemas.
 
 ### Evidence hashes
 
 `evidence.evidence_hash` is `sha256:` over the JSON text of `{ arguments, result }` with keys sorted
-at every depth (`stableJson`), and `evidence.result_ref` the same over the result alone. Unlike the
-canonicalization profile, this text keeps any JSON number, so tool arguments and results with
-decimals hash fine. `hashEvidence(value)` computes it.
+at every depth (`stableJson`), and `evidence.result_ref` the same over the result alone when the tool
+ran. `arguments` are the arguments as received, copied before the handler runs, so a handler that
+rewrites its input cannot change what the receipt attests. `result` is exactly what the wrapper
+returns minus `_meta` (`resultSeen(result)`): the receipt travels in `_meta`, and a handler's own
+`_meta` is transport metadata, not evidence. A handler that returns a bare value gets it wrapped as
+`{ content: [{ type: "text", text }] }`, and that wrapper is what is hashed. When the MCP `extra`
+carries a `requestId`, it is recorded as `evidence.request_id`.
 
-Each receipt is self-contained (one audit entry, `prev_hash: "GENESIS"`); batching a session's
-receipts into one bundle is on the roadmap.
+Unlike the canonicalization profile, `stableJson` keeps any JSON number, so arguments and results
+with decimals hash fine. It sorts keys with JavaScript's `sort()`; an object whose keys are integer
+strings (`{ "10": 1, "9": 2 }`) is ordered the way V8 orders it, so recompute the hash in JavaScript
+or avoid such keys when another language must check it.
+
+Limits to know about:
+
+- A receipt is bound to one call by its `intent_id` and `audit_id`, and to the MCP request by
+  `request_id` when the server provides one; `verifyDcpReceipt` does not check time windows or
+  deduplicate, so a verifier that must detect a replayed receipt keeps its own set of seen ids.
+- Each receipt is self-contained (one audit entry, `prev_hash: "GENESIS"`); batching a session's
+  receipts into one bundle is on the roadmap.
+- `createReceiptIdentity` signs the RPR and the passport with the same key pair (the principal and
+  the agent are one), which is right for tests and first runs only.
 
 ## DCP tools and resources
 

@@ -1,142 +1,14 @@
 /**
- * Integration tests for the 4 pure-JS DCP integrations:
- *   - anthropic-mcp
+ * Integration tests for the pure-JS DCP integrations:
  *   - autogen
  *   - w3c-did
- * google-a2a is a TypeScript package with its own vitest suite (integrations/google-a2a).
+ * anthropic-mcp and google-a2a are TypeScript packages with their own vitest suites
+ * (integrations/anthropic-mcp, integrations/google-a2a).
  */
 import { describe, it, expect } from 'vitest';
 import { resolve } from 'path';
 
 const INTEGRATIONS_ROOT = resolve(__dirname, '../../../../integrations');
-
-// ---------------------------------------------------------------------------
-// Anthropic MCP
-// ---------------------------------------------------------------------------
-
-describe('Anthropic MCP Integration', async () => {
-  const mcp = await import(resolve(INTEGRATIONS_ROOT, 'anthropic-mcp/index.js'));
-
-  describe('DCP_MCP_TOOLS', () => {
-    it('exports 4 tools with required schema fields', () => {
-      expect(mcp.DCP_MCP_TOOLS).toHaveLength(11);
-      for (const tool of mcp.DCP_MCP_TOOLS) {
-        expect(tool.name).toBeTruthy();
-        expect(tool.description).toBeTruthy();
-        expect(tool.inputSchema).toBeDefined();
-        expect(tool.inputSchema.type).toBe('object');
-        expect(tool.inputSchema.properties).toBeDefined();
-      }
-    });
-
-    it('includes the expected tool names', () => {
-      const names = mcp.DCP_MCP_TOOLS.map((t: any) => t.name);
-      expect(names).toContain('dcp_verify_bundle');
-      expect(names).toContain('dcp_create_identity');
-      expect(names).toContain('dcp_declare_intent');
-      expect(names).toContain('dcp_check_agent');
-    });
-  });
-
-  describe('DCP_MCP_RESOURCES', () => {
-    it('exports 3 resources with URI and mimeType', () => {
-      expect(mcp.DCP_MCP_RESOURCES).toHaveLength(4);
-      for (const res of mcp.DCP_MCP_RESOURCES) {
-        expect(res.uri).toMatch(/^dcp:\/\//);
-        expect(res.mimeType).toBe('application/json');
-        expect(res.name).toBeTruthy();
-      }
-    });
-  });
-
-  describe('handleDcpToolCall', () => {
-    it('verifies a valid bundle JSON', async () => {
-      const bundle = {
-        bundle: {
-          dcp_bundle_version: '2.0',
-          manifest: { session_nonce: 'a'.repeat(64) },
-          responsible_principal_record: {},
-          agent_passport: {},
-          intent: {},
-          policy_decision: {},
-        },
-        signature: { composite_sig: { classical: 'abc' } },
-      };
-      const result = await mcp.handleDcpToolCall('dcp_verify_bundle', {
-        bundle_json: JSON.stringify(bundle),
-      });
-      expect(result.verified).toBe(true);
-      expect(result.checks).toBeDefined();
-      expect(result.timestamp).toBeTruthy();
-    });
-
-    it('returns verified=false for invalid JSON', async () => {
-      const result = await mcp.handleDcpToolCall('dcp_verify_bundle', {
-        bundle_json: 'not-json',
-      });
-      expect(result.verified).toBe(false);
-      expect(result.error).toBeTruthy();
-    });
-
-    it('creates an identity with unique IDs', async () => {
-      const result1 = await mcp.handleDcpToolCall('dcp_create_identity', {
-        entity_name: 'Alice',
-        jurisdiction: 'US',
-      });
-      const result2 = await mcp.handleDcpToolCall('dcp_create_identity', {
-        entity_name: 'Alice',
-        jurisdiction: 'US',
-      });
-      expect(result1.human_id).toMatch(/^rpr:/);
-      expect(result1.agent_id).toMatch(/^agent:/);
-      expect(result1.human_id).not.toBe(result2.human_id);
-      expect(result1.agent_id).not.toBe(result2.agent_id);
-      expect(result1.status).toBe('identity_created');
-    });
-
-    it('uses entity_name for default agent_name', async () => {
-      const result = await mcp.handleDcpToolCall('dcp_create_identity', {
-        entity_name: 'Bob',
-        jurisdiction: 'EU',
-      });
-      expect(result.agent_name).toBe('Bob-agent');
-    });
-
-    it('declares intent and computes tier from risk_score', async () => {
-      const low = await mcp.handleDcpToolCall('dcp_declare_intent', {
-        agent_id: 'agent:1',
-        action_type: 'browse',
-        description: 'Browse web',
-        risk_score: 50,
-      });
-      expect(low.computed_tier).toBe('routine');
-      expect(low.policy_decision).toBe('approve');
-
-      const high = await mcp.handleDcpToolCall('dcp_declare_intent', {
-        agent_id: 'agent:2',
-        action_type: 'payment',
-        description: 'Send payment',
-        risk_score: 900,
-      });
-      expect(high.computed_tier).toBe('maximum');
-      expect(high.policy_decision).toBe('escalate');
-    });
-
-    it('checks agent status', async () => {
-      const result = await mcp.handleDcpToolCall('dcp_check_agent', {
-        agent_id: 'agent:test',
-      });
-      expect(result.agent_id).toBe('agent:test');
-      expect(result.status).toBe('check_pending');
-      expect(result.timestamp).toBeTruthy();
-    });
-
-    it('returns error for unknown tool', async () => {
-      const result = await mcp.handleDcpToolCall('nonexistent_tool', {});
-      expect(result.error).toMatch(/Unknown DCP tool/);
-    });
-  });
-});
 
 // ---------------------------------------------------------------------------
 // AutoGen
