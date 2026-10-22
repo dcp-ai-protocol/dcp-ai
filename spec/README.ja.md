@@ -14,7 +14,7 @@ AIエージェントのためのデジタル市民権プロトコルの規範仕
 | [BUNDLE](BUNDLE.md) | 市民権バンドルと署名済みバンドル | Citizenship Bundle (L3)、Signed Bundle (Ed25519署名、bundle_hash、merkle_root) |
 | [VERIFICATION](VERIFICATION.md) | 検証チェックリスト | 署名済みバンドルを検証するための規範的ステップ (スキーマ、署名、有効期限、失効、intent_hash、監査チェーン、merkle; すべてローカル) |
 
-**検証:** `dcp validate <schema> <json>`、`dcp validate-bundle <bundle.json>`、`dcp verify-bundle <signed.json> <public_key.txt>`、`dcp intent-hash <intent.json>`。
+**検証:** `dcp validate <schema> <json>`、`dcp validate-bundle <bundle.json>`、`dcp verify-bundle [--policy <mode>] <signed.json> [public_key.txt]`、`dcp intent-hash <intent.json>`。
 **適合性:** `npm run conformance` はL3-OBJECTS + L3-BUNDLE + L3-SIGNED + intent_hash および prev_hash チェーンを検証します。
 
 ---
@@ -25,6 +25,7 @@ AIエージェントのためのデジタル市民権プロトコルの規範仕
 |----------|-------|
 | [DCP-04](DCP-04.md) | エージェント間通信 |
 | [DCP-AI v2.0](DCP-AI-v2.0.md) | 耐量子規範仕様 |
+| [Canonicalization Profile](CANONICALIZATION_PROFILE.md) | `dcp-jcs-v1` — すべての署名・ハッシュ・Merkleリーフに用いる、バイト単位で厳密なJSON正規化 |
 | [Security Audit](AUDIT-v2.0-FINAL.md) | v2.0最終セキュリティ監査 (13件のギャップ解消) |
 
 ---

@@ -54,9 +54,13 @@ Include as much detail as possible:
 
 ## Supported Versions
 
+The packages do not share one version number; the `@dcp-ai/*` npm packages follow their own version lines.
+
 | Version | Supported |
 |---------|-----------|
-| 2.0.x   | Yes       |
+| 2.8.x (`dcp-ai` on PyPI and crates.io, Go module `sdks/go/v2`) | Yes |
+| 2.1.x (`@dcp-ai/sdk`) | Yes |
+| 2.0.x (`@dcp-ai/wasm`, `@dcp-ai/cli` and the other `@dcp-ai/*` npm packages) | Yes |
 | 1.0.x   | Yes (maintenance) |
 | < 1.0   | No        |
 

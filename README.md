@@ -322,6 +322,7 @@ cd docker && docker compose up -d
 | [DCP-AI v2.0](spec/DCP-AI-v2.0.md) | Post-Quantum Normative Specification |
 | [BUNDLE](spec/BUNDLE.md) | Citizenship Bundle format |
 | [VERIFICATION](spec/VERIFICATION.md) | Verification procedures & checklist |
+| [CANONICALIZATION_PROFILE](spec/CANONICALIZATION_PROFILE.md) | Canonical JSON profile `dcp-jcs-v1` behind every signature and hash |
 | [DCP Core](spec/core/dcp-core.md) | Core protocol editorial specification |
 
 ### Getting Started
@@ -331,6 +332,7 @@ cd docker && docker compose up -d
 | [QUICKSTART](docs/QUICKSTART.md) | General quick start guide |
 | [QUICKSTART_LANGCHAIN](docs/QUICKSTART_LANGCHAIN.md) | LangChain integration walkthrough |
 | [QUICKSTART_CREWAI](docs/QUICKSTART_CREWAI.md) | CrewAI multi-agent setup |
+| [QUICKSTART_AGNO](docs/QUICKSTART_AGNO.md) | Agno agents, teams and workflows with `agno-dcp` (live demo) |
 | [QUICKSTART_OPENAI](docs/QUICKSTART_OPENAI.md) | OpenAI function-calling integration |
 | [QUICKSTART_EXPRESS](docs/QUICKSTART_EXPRESS.md) | Express middleware setup |
 

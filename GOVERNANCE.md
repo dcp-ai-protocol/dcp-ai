@@ -56,7 +56,7 @@ Changes to the normative protocol specifications (`spec/`) require a higher bar:
 - Review by at least two maintainers
 - A minimum 14-day discussion period for breaking changes
 - Updated conformance tests that validate the new behavior
-- Updated schemas in `schemas/v1/` (or a new version directory)
+- Updated schemas in `schemas/v1/` or `schemas/v2/` (or a new version directory)
 
 ## Release Process
 

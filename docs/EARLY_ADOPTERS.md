@@ -11,7 +11,7 @@ DCP-AI is a portable accountability layer for AI agents: cryptographic identity,
 
 The Early Adopter Program is an invitation to teams deploying AI agents in real systems to integrate DCP-AI, surface the edge cases a specification-only review cannot find, and directly shape the next iteration of the protocol.
 
-This is not a beta test. The SDKs are published and used. This is a co-design partnership: your integration story becomes part of how v2.1 gets designed.
+This is not a beta test. The SDKs are published and used. This is a co-design partnership: your integration story becomes part of how the next releases get designed.
 
 ---
 
@@ -35,7 +35,7 @@ You are not waiting on "access" to anything. These are already live:
 |---|---|
 | 9 protocol specifications (DCP-01..09) | [docs.dcp-ai.org](https://docs.dcp-ai.org/) |
 | 5 SDKs at feature parity (TypeScript, Python, Go, Rust, WASM) | npm / PyPI / crates.io / Go modules |
-| 10 framework integrations (LangChain, CrewAI, OpenAI, Express, FastAPI, Anthropic MCP, Google A2A, AutoGen, W3C DID, OpenClaw) | npm + dcp-ai[extras] |
+| 11 framework integrations (LangChain, CrewAI, Agno, OpenAI, Express, FastAPI, Anthropic MCP, Google A2A, AutoGen, W3C DID, OpenClaw) | npm + dcp-ai[extras] + agno-dcp (PyPI) |
 | 4 `npm create @dcp-ai/*` scaffolders | npm |
 | Docker images for the four services | `ghcr.io/dcp-ai-protocol/dcp-ai/*` |
 | Interactive playground | [dcp-ai.org/playground](https://dcp-ai.org/playground/) |
@@ -44,7 +44,7 @@ You are not waiting on "access" to anything. These are already live:
 ### What early adopters get on top
 
 - **Direct channel to the maintainers** via GitHub Issues/Discussions — responses within 2 business days, highest-priority triage for blockers.
-- **Co-design input** on the v2.1 roadmap: which security tiers, which algorithms, which wire-format decisions.
+- **Co-design input** on the roadmap for upcoming releases: which security tiers, which algorithms, which wire-format decisions.
 - **Conformance validation**: help you build test suites that exercise your specific integration paths; results feed back into the public conformance suite.
 - **Case study collaboration** (opt-in): a published write-up of your integration — architecture decisions, challenges, outcomes — with your approval on every paragraph.
 - **Governance path**: active contributors are invited to become Reviewers or Maintainers per [GOVERNANCE.md](../GOVERNANCE.md).
@@ -155,7 +155,7 @@ If you integrate DCP-AI and are willing to share the story — architectural dec
 ## FAQ
 
 **Q: Is DCP-AI production-ready?**
-A: Yes, for the deployments it is designed for. The v2.0 specification is complete, the public audit closed 6/6 recommendations (see [spec/AUDIT-v2.0-FINAL.md](../spec/AUDIT-v2.0-FINAL.md)), and the 5 SDKs are published and used. DCP-04 through DCP-09 are labelled "Published — v2.0 (extension; revisions tracked via adopter feedback)" in their headers; the wire format is stable and tested, and point-release revisions will be driven by adopter feedback rather than by breaking changes.
+A: Yes, for the deployments it is designed for. The v2.0 specification is complete, the v2.0 final security audit verified all 13 identified gaps as closed (see [spec/AUDIT-v2.0-FINAL.md](../spec/AUDIT-v2.0-FINAL.md)), and the 5 SDKs are published and used. DCP-04 through DCP-09 are labelled "Published — v2.0 (extension; revisions tracked via adopter feedback)" in their headers; the wire format is stable and tested, and point-release revisions will be driven by adopter feedback rather than by breaking changes.
 
 **Q: Is there a cost to join the Early Adopter Program?**
 A: No. The program is free. The entire project is Apache-2.0.

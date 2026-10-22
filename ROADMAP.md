@@ -97,10 +97,12 @@ With the stack shipped, the next phase is adoption:
 
 ### Delivered since v2.0 launch
 
-Six minor releases shipped on 2026-04-22..23 closed the cross-SDK
-behavioral-parity gap identified by the first external crosswalk. Before
-these releases, DCP-04..09 behavior lived only in the TypeScript SDK;
-afterwards every core SDK speaks the same protocol surface.
+Seven minor releases shipped on 2026-04-22..23 (v2.1.0 through v2.7.0)
+closed the cross-SDK behavioral-parity gap identified by the first external
+crosswalk. Before these releases, DCP-04..09 behavior lived only in the
+TypeScript SDK; afterwards every core SDK speaks the same protocol surface.
+v2.8.0 and v2.8.1 (2026-04-26) then pinned byte-exact canonicalization
+across the four SDKs.
 
 - **v2.1.0** — OpenTelemetry OTLP exporter for TS + Python telemetry parity.
 - **v2.2.0** — DCP-05 lifecycle + DCP-06 succession ported to Python, Rust, Go.
@@ -109,6 +111,8 @@ afterwards every core SDK speaks the same protocol surface.
 - **v2.5.0** — DCP-04 Agent-to-Agent: full AES-256-GCM session layer in Python (via `cryptography`) and Go (stdlib `crypto/aes`); discovery + handshake scaffolding in Rust.
 - **v2.6.0** — Blinded RPR, multi-party authorization, and algorithm-advisory helpers cross-ported from Python to Rust and Go.
 - **v2.7.0** — 38 canonical `DcpErrorCode` values + `detect_wire_format` helper aligned across all four core SDKs, so cross-SDK error handling matches on a single stable string.
+- **v2.8.0** — Canonicalization profile `dcp-jcs-v1` ([`spec/CANONICALIZATION_PROFILE.md`](spec/CANONICALIZATION_PROFILE.md)) pins the cases RFC 8785 leaves implementation-defined, closing the four-SDK divergence on `1.0`, `1e2` and `undefined`; 14 shared edge-case interop vectors.
+- **v2.8.1** — `canonicalization_profile` manifest field wired across the four SDKs: builders emit `"dcp-jcs-v1"`, verifiers treat an absent field as `dcp-jcs-v1` and reject unknown values.
 
 ### Out of scope for Phase 5
 

@@ -14,7 +14,7 @@
 | [BUNDLE](BUNDLE.md) | 公民凭证包与已签名凭证包 | 公民凭证包 (L3)、已签名凭证包 (Ed25519 签名、bundle_hash、merkle_root) |
 | [VERIFICATION](VERIFICATION.md) | 验证清单 | 验证已签名凭证包的规范性步骤（schema、签名、过期、撤销、intent_hash、审计链、merkle；全部本地） |
 
-**验证：** `dcp validate <schema> <json>`、`dcp validate-bundle <bundle.json>`、`dcp verify-bundle <signed.json> <public_key.txt>`、`dcp intent-hash <intent.json>`。
+**验证：** `dcp validate <schema> <json>`、`dcp validate-bundle <bundle.json>`、`dcp verify-bundle [--policy <mode>] <signed.json> [public_key.txt]`、`dcp intent-hash <intent.json>`。
 **一致性：** `npm run conformance` 验证 L3-OBJECTS + L3-BUNDLE + L3-SIGNED + intent_hash 与 prev_hash 链。
 
 ---
@@ -25,6 +25,7 @@
 |----------|-------|
 | [DCP-04](DCP-04.md) | 智能体间通信 |
 | [DCP-AI v2.0](DCP-AI-v2.0.md) | 后量子规范性规范 |
+| [Canonicalization Profile](CANONICALIZATION_PROFILE.md) | `dcp-jcs-v1` —— 所有签名、哈希和 Merkle 叶子所用的字节级精确 JSON 规范化 |
 | [Security Audit](AUDIT-v2.0-FINAL.md) | v2.0 最终安全审计（关闭 13 个缺口） |
 
 ---

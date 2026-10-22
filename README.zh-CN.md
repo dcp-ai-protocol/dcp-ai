@@ -156,12 +156,13 @@ graph TB
     WA["WASM Module"]
   end
 
-  subgraph integrations["Integrations (10)"]
+  subgraph integrations["Integrations (11)"]
     EX["Express Middleware"]
     FA["FastAPI Middleware"]
     LC["LangChain"]
     OA["OpenAI"]
     CR["CrewAI"]
+    AGNO["Agno (agno-dcp)"]
     OC["OpenClaw Plugin"]
     W3C["W3C DID/VC Bridge"]
     A2A["Google A2A Bridge"]
@@ -247,6 +248,7 @@ graph TB
 | **LangChain** | [![PyPI extra](https://img.shields.io/pypi/v/dcp-ai?label=dcp-ai%5Blangchain%5D&logo=pypi&logoColor=white)](https://pypi.org/project/dcp-ai/) | `DCPAgentWrapper`、`DCPTool`、`DCPCallback` | [integrations/langchain/](integrations/langchain/README.md) |
 | **OpenAI** | [![PyPI extra](https://img.shields.io/pypi/v/dcp-ai?label=dcp-ai%5Bopenai%5D&logo=pypi&logoColor=white)](https://pypi.org/project/dcp-ai/) | `DCPOpenAIClient`、`DCP_TOOLS` 函数调用 | [integrations/openai/](integrations/openai/README.md) |
 | **CrewAI** | [![PyPI extra](https://img.shields.io/pypi/v/dcp-ai?label=dcp-ai%5Bcrewai%5D&logo=pypi&logoColor=white)](https://pypi.org/project/dcp-ai/) | `DCPCrewAgent`、`DCPCrew` 多智能体治理 | [integrations/crewai/](integrations/crewai/README.md) |
+| **Agno** | [![PyPI](https://img.shields.io/pypi/v/agno-dcp?label=agno-dcp&logo=pypi&logoColor=white&color=blue)](https://pypi.org/project/agno-dcp/) | `DCPAgent`、`DCPTeam`、`DCPWorkflow` 封装器（独立包） | [agno-dcp 仓库](https://github.com/dcp-ai-protocol/agno-dcp) |
 | **OpenClaw** | [![npm](https://img.shields.io/npm/v/@dcp-ai/openclaw?label=%40dcp-ai%2Fopenclaw&logo=npm)](https://www.npmjs.com/package/@dcp-ai/openclaw) | 插件 + SKILL.md，6 个智能体工具 | [integrations/openclaw/](integrations/openclaw/README.md) |
 | **W3C DID/VC** | [![npm](https://img.shields.io/npm/v/@dcp-ai/w3c-did?label=%40dcp-ai%2Fw3c-did&logo=npm)](https://www.npmjs.com/package/@dcp-ai/w3c-did) | DID Document ↔ DCP 身份桥接，VC 签发 | [integrations/w3c-did/](integrations/w3c-did/README.md) |
 | **Google A2A** | [![npm](https://img.shields.io/npm/v/@dcp-ai/google-a2a?label=%40dcp-ai%2Fgoogle-a2a&logo=npm)](https://www.npmjs.com/package/@dcp-ai/google-a2a) | A2A Agent Card ↔ DCP 身份，任务治理 | [integrations/google-a2a/](integrations/google-a2a/README.md) |
@@ -320,6 +322,7 @@ cd docker && docker compose up -d
 | [DCP-AI v2.0](spec/DCP-AI-v2.0.md) | 后量子规范性规范 |
 | [BUNDLE](spec/BUNDLE.md) | 公民凭证包格式 |
 | [VERIFICATION](spec/VERIFICATION.md) | 验证流程与清单 |
+| [CANONICALIZATION_PROFILE](spec/CANONICALIZATION_PROFILE.md) | 所有签名和哈希所依据的规范化 JSON 配置 `dcp-jcs-v1` |
 | [DCP Core](spec/core/dcp-core.md) | 核心协议编辑规范 |
 
 ### 入门指南
@@ -329,6 +332,7 @@ cd docker && docker compose up -d
 | [QUICKSTART](docs/QUICKSTART.md) | 通用快速入门指南 |
 | [QUICKSTART_LANGCHAIN](docs/QUICKSTART_LANGCHAIN.md) | LangChain 集成分步教程 |
 | [QUICKSTART_CREWAI](docs/QUICKSTART_CREWAI.md) | CrewAI 多智能体设置 |
+| [QUICKSTART_AGNO](docs/QUICKSTART_AGNO.md) | 使用 `agno-dcp` 的 Agno 智能体、团队与工作流（含在线演示） |
 | [QUICKSTART_OPENAI](docs/QUICKSTART_OPENAI.md) | OpenAI 函数调用集成 |
 | [QUICKSTART_EXPRESS](docs/QUICKSTART_EXPRESS.md) | Express 中间件设置 |
 

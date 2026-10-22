@@ -345,7 +345,7 @@ const encrypted = encryptMessage(session, { action: 'transfer', amount: 100 });
 ### Go
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.0.0
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@latest
 ```
 
 ```go

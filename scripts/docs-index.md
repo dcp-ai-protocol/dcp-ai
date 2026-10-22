@@ -34,7 +34,7 @@ Cryptographically verifiable identity, machine-readable intent, tamper-evident a
 === "Go"
 
     ```bash
-    go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.0.0
+    go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@latest
     ```
 
 === "Rust"
@@ -143,13 +143,13 @@ Cryptographically verifiable identity, machine-readable intent, tamper-evident a
 
     `@dcp-ai/sdk`, `dcp-ai` (PyPI), `dcp-ai` (crates.io), `sdks/go/v2`, `@dcp-ai/wasm`
 
--   :material-connection:{ .lg .middle } **10 integrations**
+-   :material-connection:{ .lg .middle } **11 integrations**
 
     ---
 
     Drop-in governance for the popular AI and web frameworks.
 
-    Express, FastAPI, LangChain, OpenAI, CrewAI, OpenClaw, W3C DID, Google A2A, Anthropic MCP, AutoGen
+    Express, FastAPI, LangChain, OpenAI, CrewAI, Agno, OpenClaw, W3C DID, Google A2A, Anthropic MCP, AutoGen
 
 -   :material-shield-key:{ .lg .middle } **Hybrid post-quantum crypto**
 
