@@ -236,6 +236,14 @@ This creates a complete audit trail across all crew members, bound to a single h
 
 DCP v2.0 adds post-quantum composite signatures, adaptive security tiers, and enhanced audit chains to CrewAI crews.
 
+> **Status:** the Python SDK (`dcp-ai` 2.8.x) does not ship a V2 bundle builder, signer, verifier or hybrid key generator yet. The snippets below (`BundleBuilderV2`, `sign_bundle_v2`, `verify_signed_bundle_v2`, `generate_hybrid_keypair`) show the planned API and will not import today.
+>
+> To produce V2 bundles now:
+> - Build and sign them with the TypeScript SDK (`BundleBuilderV2` + `signBundleV2` from `@dcp-ai/sdk`) or with `dcp sign-bundle --composite`.
+> - Verify them with `dcp verify-bundle`.
+>
+> Python already provides the V2 types, dual-hash helpers and `compute_security_tier` in `dcp_ai.v2`.
+
 ### Installation (V2)
 
 ```bash

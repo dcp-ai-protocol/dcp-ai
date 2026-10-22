@@ -6,7 +6,7 @@ Reusable GitHub Actions and CI workflow for the DCP ecosystem. Includes actions 
 
 ### `verify-bundle`
 
-Verifies a DCP Signed Bundle in a GitHub Actions workflow.
+Verifies a DCP Signed Bundle in a GitHub Actions workflow, using the reference verifier (`lib/verify.js`). V1 bundles get schema, Ed25519 signature, audit-chain and Merkle checks. Normative V2 bundles (`schemas/v2/signed_bundle.schema.json`) are schema-validated and then verified by `@dcp-ai/sdk`: manifest, composite Ed25519 + ML-DSA-65 signature, session binding and audit chain.
 
 ```yaml
 - uses: ./.github/actions/verify-bundle
@@ -22,7 +22,7 @@ Verifies a DCP Signed Bundle in a GitHub Actions workflow.
 | Input | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `bundle-path` | Yes | — | Path to the signed bundle JSON file |
-| `public-key-path` | No | — | Path to the Ed25519 public key |
+| `public-key-path` | No | — | Path to the expected Ed25519 public key. V1: verify against it (otherwise the key embedded in the bundle is used). V2: pins the bundle's classical signer |
 | `fail-on-invalid` | No | `"true"` | Fail the step if the bundle is invalid |
 | `node-version` | No | `"20"` | Node.js version |
 

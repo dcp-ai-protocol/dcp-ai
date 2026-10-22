@@ -2,7 +2,7 @@
 
 # dcp-ai — SDK Python
 
-SDK Python oficial para o Digital Citizenship Protocol (DCP v2.0). Modelos Pydantic v2, criptografia híbrida pós-quântica (Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768), assinaturas compostas com binding `pq_over_classical`, verificação de bundles, observabilidade OpenTelemetry, comportamento DCP-04 a DCP-09 e uma CLI completa.
+SDK Python oficial para o Digital Citizenship Protocol (DCP v2.0). Modelos Pydantic v2, assinaturas híbridas pós-quânticas (Ed25519 + ML-DSA-65, além de SLH-DSA-192f), assinaturas compostas com binding `pq_over_classical`, assinatura e verificação de bundles V1, observabilidade OpenTelemetry, comportamento DCP-04 a DCP-09 e uma CLI completa.
 
 ## Instalação
 
@@ -24,11 +24,13 @@ pip install "dcp-ai[otlp]"       # OpenTelemetry OTLP exporter
 
 | Área | Status |
 |---|---|
-| Provedores Ed25519 / ML-DSA-65 / SLH-DSA-192f / ML-KEM-768 | Sim |
+| Provedores Ed25519 / ML-DSA-65 | Sim |
+| Provedor SLH-DSA-192f | Sim, SPHINCS+ pré-padrão via `pqcrypto`; a interoperabilidade FIPS 205 com os outros SDKs está pendente |
+| ML-KEM-768 | Ainda não (TypeScript, Go e Rust já têm) |
 | Assinaturas compostas (`pq_over_classical`) + verificação | Sim |
 | JSON canônico v2 + separação de domínio | Sim |
 | Dual hash (SHA-256 + SHA3-256) + Merkle roots | Sim |
-| Verificação de bundle (V1 + V2) | Sim |
+| Assinatura + verificação de bundles | V1: sim. V2 (`SignedBundleV2`): ainda não, use o SDK TypeScript ou `dcp verify-bundle` |
 | DCP-04 descoberta A2A + handshake + sessão AES-256-GCM (via `cryptography`) | Sim |
 | DCP-05 ciclo de vida de agentes (commissioning / vitality / decommissioning) | Sim |
 | DCP-06 sucessão digital (testamento digital, transferência de memória, cerimônia) | Sim |

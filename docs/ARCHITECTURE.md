@@ -70,7 +70,7 @@ spec edits need all five SDKs to stay in lockstep; a doc edit is self-contained.
 - **SDKs → integrations.** Each `integrations/*` package pulls its language's SDK as a dependency — e.g. `@dcp-ai/express` depends on `@dcp-ai/sdk`. No integration reimplements crypto.
 - **Integrations → scaffolders.** `packages/create-*` ship the minimal glue a user needs to start a project on top of a specific integration.
 - **SDKs → services.** Operational services use an SDK internally for signing/verification; they don't fork the crypto.
-- **Root `dcp-ai` npm.** The top-level `package.json` publishes the reference CLI + verification library (`bin/dcp.js`, `lib/verify.js`). It's the original entry point; most new users arrive via an SDK or a scaffolder instead.
+- **Root `dcp-ai` npm.** The top-level `package.json` holds the reference CLI + verification library (`bin/dcp.js`, `lib/verify.js`). V1 is verified in place; V2 is schema-validated there and then verified by `@dcp-ai/sdk`, so there is a single V2 implementation. It's the original entry point; most new users arrive via an SDK or a scaffolder instead.
 
 ## Where to change what
 

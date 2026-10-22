@@ -42,7 +42,7 @@ curl -X POST http://localhost:3000/verify \
 # V2 composite verification
 curl -X POST http://localhost:3000/v2/bundle/verify \
   -H "Content-Type: application/json" \
-  -d '{"signed_bundle": {"dcp_version":"2.0","bundle":{...},"signature":{...}}}'
+  -d '{"signed_bundle": {"bundle": {"dcp_bundle_version":"2.0","manifest":{...},...}, "signature": {"composite_sig":{...},...}}}'
 
 # Capability discovery
 curl http://localhost:3000/.well-known/dcp-capabilities.json

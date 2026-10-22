@@ -65,7 +65,7 @@ pip install --upgrade dcp-ai
 **Go** (note the v2 major suffix required by Go modules):
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.0.0
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@latest
 ```
 
 **Rust:**
@@ -87,42 +87,37 @@ v2.0 requires both classical (Ed25519) and post-quantum (ML-DSA-65) key pairs.
 **TypeScript:**
 
 ```typescript
-import {
-  getDefaultRegistry,
-  registerDefaultProviders,
-  deriveKid,
-} from '@dcp-ai/sdk';
+import { getDefaultRegistry, registerDefaultProviders } from '@dcp-ai/sdk';
 
+registerDefaultProviders(); // Ed25519, ML-DSA-65, SLH-DSA-192f into the default registry
 const registry = getDefaultRegistry();
-registerDefaultProviders(registry);
 
-const ed25519 = registry.getSigner('ed25519');
-const mlDsa65 = registry.getSigner('ml-dsa-65');
-
-const classicalKp = await ed25519.generateKeyPair();
-const pqKp = await mlDsa65.generateKeyPair();
-
-const classicalKid = deriveKid('ed25519', classicalKp.publicKey);
-const pqKid = deriveKid('ml-dsa-65', pqKp.publicKey);
-// classicalKp: { publicKey, secretKey } (Ed25519)
-// pqKp:        { publicKey, secretKey } (ML-DSA-65)
+const classicalKp = await registry.getSigner('ed25519').generateKeypair();
+const pqKp = await registry.getSigner('ml-dsa-65').generateKeypair();
+// each: { kid, publicKeyB64, secretKeyB64 }; kid = deriveKid(alg, publicKey)
 ```
 
 **Python:**
 
 ```python
-from dcp_ai import generate_hybrid_keypair
+import asyncio
+from dcp_ai.providers.ed25519_provider import Ed25519Provider
+from dcp_ai.providers.ml_dsa_65_provider import MlDsa65Provider
 
-keys = generate_hybrid_keypair()
-# keys.classical.public_key, keys.classical.secret_key
-# keys.pq.public_key, keys.pq.secret_key
+async def generate_hybrid():
+    return await Ed25519Provider().generate_keypair(), await MlDsa65Provider().generate_keypair()
+
+classical, pq = asyncio.run(generate_hybrid())
+# each: {"kid", "public_key_b64", "secret_key_b64"}
 ```
+
+The Python SDK does not build or sign V2 bundles yet (see 5.2); it can generate the keys and the V2 artifacts.
 
 **CLI:**
 
 ```bash
-dcp keygen --hybrid --out ./keys/
-# Creates: ed25519.pub, ed25519.key, ml-dsa-65.pub, ml-dsa-65.key
+dcp keygen --hybrid ./keys/
+# Creates: ed25519_{public_key,secret_key,kid}.txt and ml_dsa_65_{public_key,secret_key,kid}.txt
 ```
 
 ### Step 3: Update Artifact Construction
@@ -557,49 +552,49 @@ Key structural differences:
 
 | v1.0 API | v2.0 API | Notes |
 |----------|----------|-------|
-| `signBundle(bundle, secretKey)` | `signBundleV2(bundle, { classicalKey, pqKey, sessionNonce })` | Composite signing |
-| `verifySignedBundle(sb, publicKey)` | `verifyBundleV2(sb, verifierPolicy)` | Policy-driven verification |
-| `createBundle(rpr, ap, intent, policy, audit)` | `createBundleV2(rpr, ap, intent, policy, audit, sessionNonce)` | Session nonce required |
+| `signBundle(bundle, secretKey)` | `signBundleV2(bundle, { registry, signerType, signerId, keys })` | Composite signature over the manifest |
+| `verifySignedBundle(sb, publicKey)` | `verifySignedBundleV2(sb, registry, policy?)` | Policy-driven verification |
+| `new BundleBuilder()…build()` | `new BundleBuilderV2(sessionNonce)…build()` | Session nonce required; artifacts are `SignedPayload`s |
 | `hashObject(obj)` | `hashObject(obj)` (unchanged) | Still SHA-256 + JCS |
-| N/A | `hashObjectSecondary(obj)` | SHA3-256 hash |
-| N/A | `getDefaultRegistry()` + `registerDefaultProviders()` + `deriveKid()` | Ed25519 + ML-DSA-65 via algorithm registry |
+| N/A | `dualHashCanonical(canonicalJson)` | SHA-256 + SHA3-256 |
+| N/A | `registerDefaultProviders()` + `getDefaultRegistry()` | Ed25519, ML-DSA-65, SLH-DSA-192f via the algorithm registry |
 | N/A | `computeSecurityTier(intent)` | Adaptive tier calculation |
-| N/A | `deriveKid(alg, publicKey)` | Deterministic kid |
-| N/A | `createCompositeSignature(payload, ctx, keys)` | Manual composite signing |
-| N/A | `verifyCompositeSignature(payload, ctx, sig)` | Manual composite verification |
+| N/A | `deriveKid(alg, publicKeyBytes)` | Deterministic kid |
+| N/A | `compositeSign(registry, context, payloadBytes, keys)` | Manual composite signing |
+| N/A | `compositeVerify(registry, context, payloadBytes, sig, classicalPk, pqPk?)` | Manual composite verification |
 
 ### 5.2 Python SDK
 
 | v1.0 API | v2.0 API | Notes |
 |----------|----------|-------|
-| `sign_bundle(bundle, secret_key)` | `sign_bundle_v2(bundle, classical_key, pq_key, session_nonce)` | Composite signing |
-| `verify_signed_bundle(sb, public_key)` | `verify_bundle_v2(sb, verifier_policy)` | Policy-driven |
-| N/A | `generate_hybrid_keypair()` | Ed25519 + ML-DSA-65 |
-| N/A | `compute_security_tier(intent)` | Adaptive tier |
-| N/A | `derive_kid(alg, public_key)` | Deterministic kid |
+| `sign_bundle(bundle, secret_key)` | Not available yet | Build and sign V2 bundles with the TypeScript or Go SDK, or `dcp sign-bundle --composite` |
+| `verify_signed_bundle(sb, public_key)` | Not available yet | Verify V2 bundles with the TypeScript or Go SDK, or `dcp verify-bundle` |
+| N/A | `Ed25519Provider` / `MlDsa65Provider` (`dcp_ai.providers`), async `generate_keypair()` | Hybrid keys |
+| N/A | `compute_security_tier(intent)` (`dcp_ai.v2`) | Adaptive tier |
+| N/A | `derive_kid(alg, public_key_bytes)` (`dcp_ai.v2`) | Deterministic kid |
 
 ### 5.3 Go SDK
 
 | v1.0 API | v2.0 API | Notes |
 |----------|----------|-------|
-| `SignBundle(bundle, secretKey)` | `SignBundleV2(bundle, opts)` | Composite signing |
-| `VerifySignedBundle(sb, publicKey)` | `VerifyBundleV2(sb, policy)` | Policy-driven |
-| N/A | `GenerateHybridKeyPair()` | Ed25519 + ML-DSA-65 |
-| N/A | `ComputeSecurityTier(intent)` | Adaptive tier |
-| N/A | `DeriveKid(alg, publicKey)` | Deterministic kid |
+| `SignObject(bundle, secretKeyB64)` | `v2.BuildBundleV2(input)` + `v2.SignBundleV2(registry, bundle, classicalKey, pqKey)` | Composite signature over the manifest |
+| `VerifySignedBundle(sb, publicKeyB64)` | `v2.VerifySignedBundleV2(registry, signedBundleJSON)` | Policy-driven |
+| N/A | `GenerateKeypair()` on `providers.Ed25519Provider` / `providers.MlDsa65Provider` | Hybrid keys |
+| N/A | `v2.ComputeSecurityTier(intent)` | Adaptive tier |
+| N/A | `v2.DeriveKid(alg, publicKey)` | Deterministic kid |
 
 ### 5.4 CLI Changes
 
 | v1.0 Command | v2.0 Command | Notes |
 |-------------|-------------|-------|
-| `dcp keygen` | `dcp keygen --hybrid` | Generates both key types |
-| `dcp sign-bundle` | `dcp sign-bundle --composite` | Composite signing |
-| `dcp verify-bundle` | `dcp verify-bundle --policy <file>` | Policy-driven verification |
-| N/A | `dcp kid --alg <alg> --key <file>` | Compute kid |
-| N/A | `dcp recovery-setup` | M-of-N social recovery |
-| N/A | `dcp emergency-revoke` | Panic-button revocation |
-| N/A | `dcp rotate-key` | Key rotation with PoP |
-| N/A | `dcp capabilities <endpoint>` | Query endpoint capabilities |
+| `dcp keygen [out_dir]` | `dcp keygen --hybrid [out_dir]` | Generates both key types |
+| `dcp sign-bundle` | `dcp sign-bundle --composite <bundle_v2.json> <ed25519_sk> <ml_dsa_65_sk> [out]` | Composite signing via `@dcp-ai/sdk` |
+| `dcp verify-bundle` | `dcp verify-bundle [--policy <mode>] <signed.json> [public_key.txt]` | Full V2 verification; `<mode>` is `classical_only`, `hybrid_preferred`, `hybrid_required` or `pq_only`; the key pins the classical signer |
+| N/A | `dcp kid <public_key_file> --alg <algorithm>` | Compute kid |
+| N/A | `dcp recovery-setup --threshold <M> --shares <N> [out]` | M-of-N social recovery |
+| N/A | `dcp emergency-revoke --agent <id> --token <secret>` | Panic-button revocation |
+| N/A | `dcp rotate-key --old-kid <kid> --new-alg <alg>` | Key rotation with PoP |
+| N/A | `dcp capabilities <endpoint_url>` | Query endpoint capabilities |
 | N/A | `dcp advisory check [url]` | Check algorithm advisories |
 
 ---
@@ -622,8 +617,8 @@ Run through this checklist to confirm your migration is complete:
 - [ ] **Dual-hash chain**: Audit entries include `prev_hash_secondary` (SHA3-256)
 - [ ] **Manifest**: Bundle manifest contains all artifact hashes and secondary Merkle root
 - [ ] **Session nonce**: All artifacts in a bundle share the same nonce
-- [ ] **V2 verification**: `verifyBundleV2` passes for correctly signed v2.0 bundles
-- [ ] **V1 compatibility**: `verifyBundleV2` passes for v1.0 bundles (with `allow_v1_bundles: true`)
+- [ ] **V2 verification**: `verifySignedBundleV2` (or `dcp verify-bundle`) passes for correctly signed v2.0 bundles
+- [ ] **V1 compatibility**: v1.0 bundles still verify with `verifySignedBundle` or `dcp verify-bundle`, which route by version (`verifySignedBundleV2` only accepts v2.0)
 - [ ] **Tamper detection**: Modifying any artifact field causes verification to fail
 - [ ] **Stripping detection**: Removing the PQ signature causes verification to fail
 - [ ] **NIST KAT**: All cryptographic operations pass KAT validation

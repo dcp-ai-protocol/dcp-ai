@@ -18,8 +18,8 @@ The service is **stateless**: each request receives a bundle (and optionally a p
 
 ## Requirements
 
-- This repo (or the published npm package): schemas in `schemas/v1/`, spec in `spec/`.
-- Ability to run verification: either the CLI (`dcp verify-bundle`) or the programmatic API (`verifySignedBundle`, `validateBundle`) from the repo.
+- This repo (or the published npm package): schemas in `schemas/v1/` and `schemas/v2/`, spec in `spec/`.
+- Ability to run verification: either the CLI (`dcp verify-bundle [--policy <mode>] <signed.json> [public_key.txt]`) or the programmatic API from the repo: `verifySignedBundle` (async) and `validateBundle` in `lib/verify.js`. V2 bundles are schema-validated there and then verified by `@dcp-ai/sdk`.
 - Optional, for anchoring: RPC or block explorer access to an existing chain (Bitcoin, Ethereum, or a transparency log). See [STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md).
 
 ## Suggested API contract
@@ -75,7 +75,7 @@ docker run -d -p 3000:3000 ghcr.io/dcp-ai-protocol/dcp-ai/verification:latest
 curl http://localhost:3000/health
 ```
 
-Multi-arch (`linux/amd64` + `linux/arm64`). Tags: `:latest`, `:2.0.3`, `:2.0`, `:2`, `:sha-<short>`. The full stack (verification + anchor + transparency log + revocation) can be brought up with one `docker compose up -d` using the compose file in `docker/`.
+Multi-arch (`linux/amd64` + `linux/arm64`). Tags: `:latest`, the release semver tags (`:<major>.<minor>.<patch>`, `:<major>.<minor>`, `:<major>`) and `:sha-<short>`. The full stack (verification + anchor + transparency log + revocation) can be brought up with one `docker compose up -d` using the compose file in `docker/`.
 
 ### Option 2 — managed PaaS
 
@@ -83,16 +83,20 @@ Pre-wired configs for Fly.io are in [`deploy/fly/`](../deploy/fly/); the [deploy
 
 ### Option 3 — embed the verifier in your own service
 
-If you want verification inside your existing application (no separate HTTP service), install the SDK for your language and call `verifySignedBundle` directly:
+If you want verification inside your existing application (no separate HTTP service), install the SDK for your language and call its verifier directly (`verifySignedBundleV2` in TypeScript, `v2.VerifySignedBundleV2` in Go):
 
 ```bash
 npm install @dcp-ai/sdk        # TypeScript / Node.js
 pip install dcp-ai             # Python
 cargo add dcp-ai               # Rust
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.0.0
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@latest
 ```
 
-See each SDK's README for the exact import path and API surface. The SDKs cover 100% of the verification checklist in [VERIFICATION.md](../spec/VERIFICATION.md).
+See each SDK's README for the exact import path and API surface. Coverage of the checklist in [VERIFICATION.md](../spec/VERIFICATION.md) differs by SDK:
+
+- **TypeScript and Go:** V1 and V2, except per-artifact signature checks (Step V2-8), which are being added.
+- **Rust:** V2 verification is exposed only through the `wasm` feature (`@dcp-ai/wasm`); natively it verifies V1.
+- **Python:** verifies V1 bundles only.
 
 ### Stateless by design
 

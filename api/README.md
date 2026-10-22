@@ -34,7 +34,7 @@ Formal DCP API definitions: OpenAPI 3.1 specification for HTTP/REST and Protocol
 | Method | Path | Description |
 |--------|------|-------------|
 | `POST /verify` | Verify a Signed Bundle (V1/V2 auto-detect) | Request: `{ signed_bundle, public_key_b64? }` → Response: `{ verified, dcp_version, errors, warnings }` |
-| `POST /v2/bundle/verify` | Full V2 tier-aware verification | Response adds `resolved_tier`, `verification_mode`, `session_binding_valid` |
+| `POST /v2/bundle/verify` | Full V2 tier-aware verification (normative `SignedBundleV2` only; V1 bundles get 400) | Response adds `resolved_tier`, `verification_mode`, `session_binding_valid` |
 
 #### V2 Passport & Keys
 

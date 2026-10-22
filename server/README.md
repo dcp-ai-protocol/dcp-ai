@@ -20,7 +20,7 @@ Default port: `3000`. Override with `PORT=4000 node server/index.js`.
 |--------|------|-------------|
 | GET | `/` , `/health` | Health check — `{ ok, service, version, capabilities }` |
 | GET | `/.well-known/dcp-capabilities.json` | Protocol capability discovery (algorithms, features, wire formats) |
-| POST | `/verify` | Verify a signed bundle (auto-detects V1 or V2) |
+| POST | `/verify` | Verify a signed bundle (auto-detects V1 or V2; V2 is checked against `VERIFIER_POLICY`) |
 | POST | `/anchor` | Stub — returns 501 (implement per operator) |
 
 ### V2: Identity & Intent
@@ -31,7 +31,7 @@ Default port: `3000`. Override with `PORT=4000 node server/index.js`.
 | POST | `/v2/intent/declare` | Declare intent, receive policy decision |
 | POST | `/v2/audit/append` | Append audit event to agent's chain |
 | POST | `/v2/audit/compact` | Compact audit chain with Merkle summary |
-| POST | `/v2/bundle/verify` | Full V2 composite bundle verification |
+| POST | `/v2/bundle/verify` | Full V2 bundle verification: schema, manifest, composite Ed25519 + ML-DSA-65 signature, session binding and audit chain (via `lib/verify.js` and `@dcp-ai/sdk`), against `VERIFIER_POLICY`. V1 bundles get 400 |
 
 ### V2: Key Management
 
@@ -65,10 +65,8 @@ Default port: `3000`. Override with `PORT=4000 node server/index.js`.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `3000` | HTTP listen port |
-| `VERIFIER_MODE` | `hybrid_required` | Default verification mode |
-| `REQUIRE_SESSION_BINDING` | `true` | Enforce session nonce in V2 bundles |
-| `MAX_KEY_AGE_DAYS` | `365` | Maximum key age before rotation required |
-| `ALLOW_V1_BUNDLES` | `true` | Accept V1 format bundles |
+
+The verifier policy (`hybrid_required` for every risk tier, session binding required, 365-day key age) is set in code (`VERIFIER_POLICY` in `server/index.js`) and can be inspected at `GET /v2/policy`. The `VERIFIER_MODE`, `REQUIRE_SESSION_BINDING`, `MAX_KEY_AGE_DAYS` and `ALLOW_V1_BUNDLES` variables that appear in the Docker and Fly configs are not read yet.
 
 ## Usage Examples
 
@@ -135,15 +133,32 @@ curl -s -X POST http://localhost:3000/v2/bundle/verify \
   -H "Content-Type: application/json" \
   -d '{
     "signed_bundle": {
-      "dcp_version": "2.0",
-      "bundle": { ... },
-      "bundle_manifest": { ... },
-      "signature": { "classical": { ... }, "pq": { ... }, "binding": "composite" },
-      "session_nonce": "..."
+      "bundle": {
+        "dcp_bundle_version": "2.0",
+        "manifest": { "session_nonce": "...", "rpr_hash": "sha256:...", ... },
+        "responsible_principal_record": { "payload": { ... }, "payload_hash": "sha256:...", "composite_sig": { ... } },
+        "agent_passport": { ... },
+        "intent": { ... },
+        "policy_decision": { ... },
+        "audit_entries": [ ... ]
+      },
+      "signature": {
+        "hash_alg": "sha256",
+        "created_at": "...",
+        "signer": { "type": "human", "id": "...", "kids": ["..."] },
+        "manifest_hash": "sha256:...",
+        "composite_sig": {
+          "classical": { "alg": "ed25519", "kid": "...", "sig_b64": "..." },
+          "pq": { "alg": "ml-dsa-65", "kid": "...", "sig_b64": "..." },
+          "binding": "pq_over_classical"
+        }
+      }
     },
     "public_key_b64": "..."
   }'
 ```
+
+The format is `schemas/v2/signed_bundle.schema.json`; build it with `BundleBuilderV2` + `signBundleV2` from `@dcp-ai/sdk` or `dcp sign-bundle --composite`. `public_key_b64` is optional and pins the classical signer. The pre-normative envelope (top-level `dcp_version` / `bundle_manifest`) is rejected.
 
 ### Emergency Revocation
 
@@ -183,9 +198,9 @@ curl -s http://localhost:3000/.well-known/dcp-capabilities.json | jq .
 ## Limitations
 
 - **In-memory storage**: all state (passports, keys, audit chains, advisories) is lost on restart. Production deployments should add persistent storage.
-- **PQ signatures**: ML-DSA-65 / SLH-DSA verification is structural only — real post-quantum signature verification requires a FIPS 204 library.
+- **Signatures outside bundle verification**: bundle verification checks real Ed25519 and ML-DSA-65 / SLH-DSA signatures. `/v2/passport/register`, `/v2/keys/rotate`, `/v2/multi-party/authorize`, `/v2/advisory/publish` and `/v2/governance/register` do not verify signatures yet.
+- **No authentication**: admin endpoints (`/v2/policy/mode`, `/v2/governance/register`, `/v2/advisory/*`) are open, so anyone who can reach the gateway can change its policy. Do not expose it publicly as-is.
 - **Anchoring**: `POST /anchor` returns 501. Implement using your blockchain (Ethereum, Bitcoin) or transparency log.
-- **Governance signatures**: advisory and governance key registration does not cryptographically verify signatures.
 
 ## Deployment
 

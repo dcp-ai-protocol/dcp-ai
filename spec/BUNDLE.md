@@ -64,6 +64,13 @@ dcp keygen [out_dir]
 
 **Example:** [tests/conformance/examples/citizenship_bundle.signed.json](../tests/conformance/examples/citizenship_bundle.signed.json)
 
+**V2 bundles** (`bundle.dcp_bundle_version: "2.0"`) use `schemas/v2/signed_bundle.schema.json`: every artifact is a `SignedPayload`, and the composite Ed25519 + ML-DSA-65 signature covers the bundle `manifest`. See the V2 checklist in [VERIFICATION.md](VERIFICATION.md).
+
+```bash
+dcp sign-bundle --composite <bundle_v2.json> <ed25519_secret_key.txt> <ml_dsa_65_secret_key.txt> [out.json]
+dcp verify-bundle [--policy <mode>] <signed_bundle_v2.json> [public_key.txt]   # key pins the classical signer
+```
+
 ---
 
 ## Verification checklist
