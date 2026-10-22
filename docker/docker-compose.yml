@@ -131,9 +131,16 @@ services:
     environment:
       - PORT=3003
       - DCP_VERSION=2.0
+      - OPERATOR_TOKEN   # needed to register new agent_ids
+      - REVOCATION_STATE_PATH=/data/revocation-state.jsonl
+    volumes:
+      - revocation-data:/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3003/health"]
       interval: 30s
       timeout: 5s
       retries: 3
+
+volumes:
+  revocation-data:

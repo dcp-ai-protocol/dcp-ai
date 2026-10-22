@@ -105,7 +105,7 @@ See each SDK's README for the exact import path and API surface. Coverage of the
 
 ### Reference services keep state in memory only
 
-The reference gateway (`server/`) and services (`services/`) have no persistent store. **A restart, a deploy or a crash wipes their state**, including a crash from running out of memory. That state is:
+The reference gateway (`server/`) and services (`services/`) have no persistent store, except that the revocation service can keep its state in a file (`REVOCATION_STATE_PATH`, off by default). **A restart, a deploy or a crash wipes their state**, including a crash from running out of memory. That state is:
 
 - registered passports, keys and emergency tokens;
 - revocations;
@@ -120,8 +120,9 @@ To keep memory bounded, they refuse work instead of evicting state:
 |---------|-------|---------|
 | Gateway | 20 passport registrations per client per hour (429) | `REGISTRATIONS_PER_HOUR` |
 | Gateway | 10,000 registered keys; new agents and rotations then get 507 | — |
-| Gateway | 4 rotated-out keys kept per agent; older ones are dropped | — |
+| Gateway | 4 rotated-out keys kept per agent; older ones stay revoked as tombstones; 64 keys per agent over its lifetime (409) | — |
 | Gateway | 100 POST requests per client per minute, 5 emergency revocations per minute | — |
+| Revocation | Registering a new `agent_id` needs the operator token (401) | `OPERATOR_TOKEN` |
 | Revocation | 20 registrations per client per hour (429) | `REGISTRATIONS_PER_HOUR` |
 | Revocation | 10,000 registered agents; new ones then get 507 | `MAX_AGENTS` |
 | Revocation | Text fields of at most 256 characters; 5 emergency revocations per client per minute | — |
