@@ -87,9 +87,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Verification server: `/v2/keys/rotate` requires `authorization_sig` and `timestamp`
   (`KeyRotationRecord`). `dcp rotate-key` and `dcp keys certify` still send a simulated proof of
   possession, which the server now rejects.
-
-### Changed (breaking)
-
 - Python SDK: SLH-DSA-192f now implements FIPS 205 (pure SLH-DSA, empty context), like the
   TypeScript, Go and Rust SDKs. It was built on PQClean's pre-standard SPHINCS+, which signs the
   bare message instead of `0x00 || 0x00 || message`, so SLH-DSA signatures did not verify across
