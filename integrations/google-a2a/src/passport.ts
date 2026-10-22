@@ -133,8 +133,17 @@ function keyError(slot: unknown, allowed: ReadonlySet<string>, keys: KeyEntry[],
     if (expires === undefined) return `key ${kid} has an invalid expires_at`;
     if (expires < nowMs) return `key ${kid} has expired`;
   }
-  if (trusted && !trusted.some((t) => t && t.kid === kid && t.alg === alg && t.public_key_b64 === key.public_key_b64)) {
-    return `key ${kid} is not among the trusted keys`;
+  if (trusted) {
+    // The trusted entry is the authoritative one: it must match and be live itself, so a key the
+    // verifier has since revoked or let expire cannot be revived by the passport's own copy.
+    const anchor = trusted.find((t) => t && t.kid === kid && t.alg === alg && t.public_key_b64 === key.public_key_b64);
+    if (!anchor) return `key ${kid} is not among the trusted keys`;
+    if (anchor.status !== 'active') return `trusted key ${kid} is ${anchor.status}`;
+    if (anchor.expires_at !== null && anchor.expires_at !== undefined) {
+      const expires = instant(anchor.expires_at);
+      if (expires === undefined) return `trusted key ${kid} has an invalid expires_at`;
+      if (expires < nowMs) return `trusted key ${kid} has expired`;
+    }
   }
   return key;
 }
@@ -166,8 +175,9 @@ export async function verifyAgentCardPassport(card: AgentCard, options: VerifyAg
 }
 
 async function verify(card: AgentCard, options: VerifyAgentCardPassportOptions): Promise<AgentCardPassportResult> {
-  const anchored = Array.isArray(options.trustedKeys);
+  const anchored = options.trustedKeys !== undefined;
   const invalid = (errors: string[]): AgentCardPassportResult => ({ verified: false, anchored, errors });
+  if (anchored && !Array.isArray(options.trustedKeys)) return invalid(['trustedKeys must be an array of key entries']);
   const signed = agentCardPassport(card);
   if (!signed) return invalid(['the Agent Card carries no DCP passport extension']);
   const errors: string[] = [];
