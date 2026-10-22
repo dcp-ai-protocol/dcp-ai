@@ -5,7 +5,11 @@
 # Usage:
 #   fly launch --config anchor.toml --no-deploy
 #   fly secrets set ANCHOR_RPC_URL=... ANCHOR_PRIVATE_KEY=0x... ANCHOR_CONTRACT=0x...
+#   fly secrets set OPERATOR_TOKEN=...   # unlocks POST /flush
 #   fly deploy --config anchor.toml
+#
+# On-chain submission is not implemented yet (records carry tx_hash: null),
+# and pending hashes and records are in memory: scaling to zero drops them.
 
 app = "dcp-ai-anchor"
 primary_region = "iad"

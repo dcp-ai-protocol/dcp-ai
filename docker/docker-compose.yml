@@ -44,6 +44,7 @@ services:
       - ALLOW_V1_BUNDLES=true
       - PQ_CHECKPOINT_INTERVAL=10
       - ADVISORY_POLL_INTERVAL_MS=86400000
+      - OPERATOR_TOKEN   # from the host env; admin endpoints stay locked without it
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
@@ -63,6 +64,7 @@ services:
       - DCP_VERSION=2.0
       - ANCHOR_MODE=batch
       - BATCH_INTERVAL_MS=60000
+      - OPERATOR_TOKEN
       # Configure for production:
       # - ANCHOR_RPC_URL=https://mainnet.base.org
       # - ANCHOR_PRIVATE_KEY=0x...
@@ -88,6 +90,7 @@ services:
       - OPERATOR_KEY=alpha-operator-secret-replace-in-production
       - GOSSIP_PEERS=http://transparency-log-b:3012
       - GOSSIP_INTERVAL_MS=30000
+      - OPERATOR_TOKEN
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3002/health"]
@@ -109,6 +112,7 @@ services:
       - OPERATOR_KEY=beta-operator-secret-replace-in-production
       - GOSSIP_PEERS=http://transparency-log-a:3002
       - GOSSIP_INTERVAL_MS=30000
+      - OPERATOR_TOKEN
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3012/health"]

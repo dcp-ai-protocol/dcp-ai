@@ -1,7 +1,11 @@
 # Fly.io deployment for the DCP-AI verification server.
 # Usage (from this directory):
 #   fly launch --config verification.toml --no-deploy
+#   fly secrets set OPERATOR_TOKEN=...   # unlocks the admin endpoints
 #   fly deploy --config verification.toml
+#
+# State (passports, keys, revocations) is in memory: a stopped machine forgets
+# it, so one machine stays up. Restarts and deploys still wipe it.
 
 app = "dcp-ai-verification"
 primary_region = "iad"
@@ -19,13 +23,14 @@ primary_region = "iad"
   ALLOW_V1_BUNDLES = "true"
   PQ_CHECKPOINT_INTERVAL = "10"
   ADVISORY_POLL_INTERVAL_MS = "86400000"
+  TRUST_PROXY = "true"   # Fly's proxy appends the client IP to X-Forwarded-For
 
 [http_service]
   internal_port = 3000
   force_https = true
   auto_stop_machines = "stop"
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
   processes = ["app"]
 
   [[http_service.checks]]

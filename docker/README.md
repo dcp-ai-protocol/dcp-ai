@@ -87,6 +87,9 @@ Each service is configured via environment variables in `docker-compose.yml`:
 | `ANCHOR_RPC_URL` | — | JSON-RPC URL of the L2 node |
 | `ANCHOR_PRIVATE_KEY` | — | Wallet private key |
 | `ANCHOR_CONTRACT` | — | DCPAnchor contract address |
+| `OPERATOR_TOKEN` | — | Bearer token for `POST /flush` (passed through from the host env) |
+
+On-chain submission is not implemented yet, so the three `ANCHOR_*` chain settings are not used.
 
 #### transparency-log
 
@@ -94,7 +97,8 @@ Each service is configured via environment variables in `docker-compose.yml`:
 |----------|---------|-------------|
 | `PORT` | `3002` | HTTP port |
 | `LOG_ID` | auto-generated | Unique identifier for this log instance |
-| `OPERATOR_KEY` | auto-generated | Hex-encoded operator secret for signing STHs |
+| `OPERATOR_KEY` | ephemeral | Secret seed of the Ed25519 STH signing key; replace the compose placeholders |
+| `OPERATOR_TOKEN` | — | Bearer token for `POST /gossip/peers` (passed through from the host env) |
 | `GOSSIP_PEERS` | — | Comma-separated peer endpoints (e.g. `http://log-b:3002`) |
 | `GOSSIP_INTERVAL_MS` | `30000` | Gossip polling interval in milliseconds |
 
@@ -103,6 +107,11 @@ Each service is configured via environment variables in `docker-compose.yml`:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `3003` | HTTP port |
+| `TRUST_PROXY` | — | `true` only behind a proxy that appends the client IP to `X-Forwarded-For` |
+
+The verification service reads `OPERATOR_TOKEN` too (its admin endpoints). Run
+`OPERATOR_TOKEN=$(openssl rand -hex 32) docker compose up` to unlock them; without it they answer 401.
+All services keep their state in memory, so `docker compose down` or a restart wipes it.
 
 ### Configure blockchain anchoring
 
