@@ -12,12 +12,50 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   compares `session_nonce` and `binding_keys`, in all four SDKs. Before, a full RPR with different
   binding keys or a different session nonce still matched the blinded record. In Go, list fields
   decoded from JSON no longer fail to match the same list built as `[]string`.
+- Verification server: `POST /v2/passport/register` verifies the passport's composite
+  self-signature and registers only its signer keys; re-registering an `agent_id` must be signed by
+  its current keys. Anyone could re-register an agent with their own keys, plant their emergency
+  token and emergency-revoke it. `POST /v2/keys/rotate` verifies the proof of possession and the old
+  key's authorization (`verifyKeyRotation`), and `POST /v2/multi-party/authorize` verifies each
+  party's signature against its registered keys, counting each party once.
+- Verification server: `/v2/policy/mode`, `/v2/governance/register`, `/v2/advisory/publish` and
+  `/v2/advisory/auto-apply` require `Authorization: Bearer $OPERATOR_TOKEN` (locked when unset).
+  Advisories are schema-validated and capped at 1000. Rate limits key on the socket address, not
+  the client-supplied `X-Forwarded-For` (`TRUST_PROXY=true` behind a proxy), and `VERIFIER_MODE` /
+  `ALLOW_V1_BUNDLES` are read from the environment; `allow_v1_bundles` is now enforced.
+- Revocation service: agents register with their signed passport (`POST /v2/register`), which
+  records kid ownership, key expiry and the emergency token; `/revoke` and `/v2/revoke` must be
+  signed by the agent's registered keys. `GET /v2/check/kid/:kid` reports emergency revocations
+  without `?agent_id=`.
+- Anchor service: no more random `tx_hash` (records carry `tx_hash: null`, `onchain: false`),
+  bodies are capped at 1 MB, `POST /flush` needs the operator token, and malformed input is a 400
+  instead of a crash. Transparency log: tree heads are Ed25519-signed (key derived from
+  `OPERATOR_KEY`) instead of an HMAC nobody else could verify, the Merkle tree uses RFC 6962
+  leaf/node prefixes, and `POST /gossip/peers` (an SSRF vector) needs the operator token.
+- Fly configs keep one verification and one revocation machine running: scaling to zero wiped
+  their in-memory registries whenever the machine idled.
+
+### Changed (breaking)
+
+- Revocation service: `POST /v2/register-emergency-token` and `POST /v2/register-key-expiry` were
+  removed in favour of `POST /v2/register`; V1 `/revoke` needs an agent registered with an
+  `ed25519` key, and a revoked agent can no longer be revoked again (409).
+- Transparency log: leaf hashes, roots and inclusion proofs change with the RFC 6962 prefixes, and
+  STH `signature` / `public_key` are now base64 Ed25519. `/add` and the anchor's `/anchor` only
+  accept `sha256:<64 hex>` hashes.
+- Verification server: `/v2/keys/rotate` requires `authorization_sig` and `timestamp`
+  (`KeyRotationRecord`). `dcp rotate-key` and `dcp keys certify` still send a simulated proof of
+  possession, which the server now rejects.
 
 ### Added
 
 - TypeScript SDK: `blindRpr`, `verifyBlindedRpr`, `isBlindedRpr` and `computePiiHash` are exported
   from the package entry point. They were implemented but unreachable from `@dcp-ai/sdk` 2.1.2 and
   earlier; Python, Go and Rust already exported them.
+- `lib/verify.js` exports `verifyCompositeSig` (a composite signature over a payload, with signer
+  keys looked up by derived kid) and its `v2Registry`; `lib/http.js` holds the body parsing,
+  client-IP and operator-token helpers shared by `server/` and `services/`. The anchor and
+  transparency-log services have `node:test` suites, run in CI with the existing ones.
 
 ### Documentation
 
