@@ -15,9 +15,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   which is signed with it and never published, and `pii_hash` is
   `sha256(canonical({ contact, legal_name, pii_salt }))`. Deleting the full RPR, and with it the
   salt, leaves the published commitment unopenable (`spec/DCP-AI-v2.0.md` §12.1). A missing
-  `contact` hashes as `null` in every SDK; TypeScript used to omit it. The new `blinded_rpr`
-  category in `tests/interop/v2/interop_vectors.json` (salted and legacy `pii_hash`, expected
-  blinded record) runs in all four SDK suites.
+  `contact` or `legal_name` hashes as `null` in every SDK; TypeScript used to omit the key. The new
+  `blinded_rpr` category in `tests/interop/v2/interop_vectors.json` (salted and legacy `pii_hash`,
+  expected blinded record) runs in all four SDK suites, and `generate-interop-vectors.ts` emits it.
 - Blinded RPR verification (`verifyBlindedRpr`, `verify_blinded_rpr`, `VerifyBlindedRPR`) now also
   compares `session_nonce` and `binding_keys`, in all four SDKs. Before, a full RPR with different
   binding keys or a different session nonce still matched the blinded record. In Go, list fields
@@ -118,6 +118,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `ValueError`) throw, and `BlindRPR` (Go) and `blind_rpr` (Rust) return an error, when the full RPR
   has no `pii_salt` or it is not 64 lowercase hex characters. Set it with the new helper before
   signing the RPR: an RPR signed without one has to be re-signed before it can be blinded.
+- Blinded RPR verification rejects a full RPR whose `pii_salt` is present but is not a string of
+  64 lowercase hex characters, in all four SDKs. Before, a record blinded elsewhere with an empty or
+  short salt verified with no warning, while unsalted records were flagged.
+- Blinded RPR verification results: `verify_blinded_rpr` (Python) returns a new `warnings` key
+  and Go's `BlindedRprCheck` has a new `Warnings` field, so code that compares whole results or
+  builds `BlindedRprCheck` with unkeyed literals must change.
+- `schemas/v2/responsible_principal_record.schema.json` accepts `pii_salt`. The schema has
+  `additionalProperties: false`, so verifiers that validate against the previous schema reject
+  RPRs that carry a salt: update verifiers before producers start setting it.
 - Rust SDK: `ResponsiblePrincipalRecordV2` has a new public field, `pii_salt: Option<String>`, so
   struct literals must set it.
 
@@ -125,12 +134,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - `generatePiiSalt` (TypeScript), `generate_pii_salt` (Python, Rust) and `GeneratePIISalt` (Go).
   The RPR types of all four SDKs, `schemas/v2/responsible_principal_record.schema.json` and
-  `api/proto/dcp.proto` carry `pii_salt`.
+  `api/proto/dcp.proto` carry `pii_salt`. Python's `ResponsiblePrincipalRecordV2` leaves an unset
+  `pii_salt` out when serialized, since the schema has no null for it.
 - Legacy unsalted blinded RPRs still verify, with a deprecation warning: the results of
   `verifyBlindedRpr` (TypeScript), `verify_blinded_rpr` (Python) and `VerifyBlindedRPR` (Go) carry
   a `warnings` list. Rust's `BlindedRprCheck` keeps its two fields, because a new public field
   would break callers that build or destructure it; there, a missing or null `pii_salt` in the
   full RPR marks a legacy record.
+- `@dcp-ai/openclaw`: `dcp_identity_setup` signs its RPR with a `pii_salt`, so the record can be
+  blinded later without re-signing.
 - TypeScript SDK: `blindRpr`, `verifyBlindedRpr`, `isBlindedRpr` and `computePiiHash` are exported
   from the package entry point. They were implemented but unreachable from `@dcp-ai/sdk` 2.1.2 and
   earlier; Python, Go and Rust already exported them.
@@ -167,6 +179,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The V2 conformance examples (`scripts/generate-v2-examples.js`) use an opaque `human_id` instead
+  of one derived from the legal name, which §12.1 now forbids, and their RPR carries a `pii_salt`.
 - Python SDK: `BundleManifest.pq_checkpoints` holds checkpoint IDs, as in
   `schemas/v2/bundle_manifest.schema.json`, and the model gains `session_expires_at` and
   `intended_verifier`.
