@@ -73,7 +73,8 @@ export interface V2VerificationResult {
 
 /**
  * Verifier policy for V2 bundles, with every field. Without one, `verifyBundle`
- * uses the default policy. Only default_mode and risk_overrides may differ from it.
+ * uses the default policy. Only default_mode, risk_overrides and the optional Phase 3 fields may
+ * differ from it.
  */
 export interface VerifierPolicy {
   default_mode: NonNullable<V2VerificationResult['verification_mode']>;
@@ -87,6 +88,10 @@ export interface VerifierPolicy {
   require_composite_binding: boolean;
   max_key_age_days: number;
   allow_v1_bundles: boolean;
+  /** Phase 3 (schemas/v2/verifier_policy.schema.json), with the TypeScript SDK's semantics. */
+  allow_classical_fallback_disable?: boolean;
+  warn_classical_only_deprecated?: boolean;
+  advisory_rejected_algs?: string[];
 }
 
 export interface KemKeypairResult {

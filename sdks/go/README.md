@@ -152,7 +152,7 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 | `v2.BuildBundleV2(input)` | Assembles a V2 bundle from signed artifacts, with manifest hashes and dual Merkle roots |
 | `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | Signs a bundle with composite or classical-only signature |
 | `v2.VerifySignedBundleV2(reg, jsonBytes)` | Full V2 bundle verification (structure, hashes, signatures, audit chain) under `DefaultVerifierPolicy`, against the stricter of the policy mode and the security tier's mode (spec §14.3); reports `ResolvedTier` and `VerificationMode` |
-| `v2.VerifySignedBundleV2WithPolicy(reg, jsonBytes, policy)` | Same with your own `VerifierPolicy`; only `DefaultMode` and `RiskOverrides` may differ from `DefaultVerifierPolicy()`, any other change fails verification |
+| `v2.VerifySignedBundleV2WithPolicy(reg, jsonBytes, policy)` | Same with your own `VerifierPolicy`; only `DefaultMode`, `RiskOverrides` and the Phase 3 fields (`AdvisoryRejectedAlgs`, `WarnClassicalOnlyDeprecated`, `AllowClassicalFallbackDisable`, as in TypeScript) may differ from `DefaultVerifierPolicy()`, any other change fails verification |
 
 ### Security Tiers
 

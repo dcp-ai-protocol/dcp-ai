@@ -472,6 +472,15 @@ class TestSignedBundleVectors:
         assert (payment["details"]["resolved_tier"], payment["details"]["verification_mode"]) == ("elevated", "hybrid_required")
 
     @pytest.mark.asyncio
+    async def test_typescript_default_policy(self, B, registry):
+        result = await verify_signed_bundle_v2(B["signed_bundle"], registry, B["default_verifier_policy"])
+        assert result["verified"], result["errors"]
+        advisory = {**B["default_verifier_policy"], "advisory_rejected_algs": ["ml-dsa-65"]}
+        result = await verify_signed_bundle_v2(B["signed_bundle"], registry, advisory)
+        assert not result["verified"]
+        assert any("rejected by active advisory" in e for e in result["errors"]), result["errors"]
+
+    @pytest.mark.asyncio
     async def test_unknown_policy_mode_fails_closed(self, B, registry):
         policy = {**DEFAULT_VERIFIER_POLICY, "default_mode": "strict", "risk_overrides": None}
         result = await verify_signed_bundle_v2(B["signed_bundle"], registry, policy)

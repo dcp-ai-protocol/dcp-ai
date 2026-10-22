@@ -43,6 +43,7 @@ func DefaultVerifierPolicy() VerifierPolicy {
 		RequireCompositeBinding: true,
 		MaxKeyAgeDays:           365,
 		AllowV1Bundles:          true,
+		AdvisoryRejectedAlgs:    []string{},
 	}
 }
 
@@ -57,8 +58,10 @@ func VerifySignedBundleV2(registry *AlgorithmRegistry, signedBundleJSON []byte) 
 // VerifySignedBundleV2WithPolicy verifies a V2 signed bundle against the stricter
 // of the policy mode (DefaultMode, or the RiskOverrides entry for the passport's
 // risk_tier) and the security tier's mode (spec §14.3).
-// Only DefaultMode and RiskOverrides are enforced; a policy that changes any
-// other field fails verification instead of having the setting ignored.
+// Besides DefaultMode and RiskOverrides, only the Phase 3 fields are enforced,
+// as in the TypeScript SDK: AdvisoryRejectedAlgs, WarnClassicalOnlyDeprecated
+// and AllowClassicalFallbackDisable. A policy that changes any other field fails
+// verification instead of having the setting ignored.
 func VerifySignedBundleV2WithPolicy(registry *AlgorithmRegistry, signedBundleJSON []byte, policy VerifierPolicy) *V2VerificationResult {
 	result := &V2VerificationResult{
 		DCPVersion: "2.0",
@@ -67,8 +70,11 @@ func VerifySignedBundleV2WithPolicy(registry *AlgorithmRegistry, signedBundleJSO
 	}
 	enforced := DefaultVerifierPolicy()
 	enforced.DefaultMode, enforced.RiskOverrides = policy.DefaultMode, policy.RiskOverrides
+	enforced.AllowClassicalFallbackDisable = policy.AllowClassicalFallbackDisable
+	enforced.WarnClassicalOnlyDeprecated = policy.WarnClassicalOnlyDeprecated
+	enforced.AdvisoryRejectedAlgs = policy.AdvisoryRejectedAlgs
 	if !reflect.DeepEqual(policy, enforced) {
-		result.Errors = append(result.Errors, "Verifier policy sets fields this verifier does not enforce: only DefaultMode and RiskOverrides may differ from DefaultVerifierPolicy")
+		result.Errors = append(result.Errors, "Verifier policy sets fields this verifier does not enforce: only DefaultMode, RiskOverrides and the Phase 3 fields may differ from DefaultVerifierPolicy")
 		return result
 	}
 
@@ -126,8 +132,8 @@ func VerifySignedBundleV2WithPolicy(registry *AlgorithmRegistry, signedBundleJSO
 		result.Errors = append(result.Errors, "Unknown verification mode in verifier policy")
 		return result
 	}
-	verifyBundleSignature(registry, bundle, signature, manifest, mode, result)
-	verifyArtifactSignatures(registry, bundle, mode, result)
+	verifyBundleSignature(registry, bundle, signature, manifest, mode, policy, result)
+	verifyArtifactSignatures(registry, bundle, mode, policy, result)
 	verifyAuditHashChain(bundle, result)
 
 	result.Verified = len(result.Errors) == 0
@@ -218,29 +224,41 @@ func resolveVerificationMode(bundle map[string]interface{}, policy VerifierPolic
 	tier := ComputeSecurityTier(SecurityTierInputFromPayloads(payload("intent"), payload("policy_decision")))
 	result.ResolvedTier = tier.Tier
 	result.VerificationMode = EffectiveVerificationMode(policyMode, tier.Tier)
+	if result.VerificationMode == "classical_only" && policy.WarnClassicalOnlyDeprecated {
+		result.Warnings = append(result.Warnings, "DEPRECATION: classical_only mode is deprecated in Phase 3")
+	}
 	return result.VerificationMode
 }
 
-// checkMode applies the verification mode to one verified composite signature
-// (VERIFICATION.md V2-7, V2-10). A PQ signature that is present must verify in
-// every mode; cvr.Valid covers both components for pq_over_classical.
-func checkMode(mode string, cs *CompositeSignature, cvr *CompositeVerifyResult) (err, warning string) {
+// checkMode applies the verification mode and the policy's Phase 3 settings to
+// one verified composite signature (VERIFICATION.md V2-7, V2-10), as the TS
+// verifier does. A PQ signature that is present must verify in every mode;
+// cvr.Valid covers both components for pq_over_classical.
+func checkMode(mode string, policy VerifierPolicy, cs *CompositeSignature, cvr *CompositeVerifyResult) (errs, warnings []string) {
+	if mode != "pq_only" && slices.Contains(policy.AdvisoryRejectedAlgs, cs.Classical.Alg) {
+		errs = append(errs, fmt.Sprintf("Classical algorithm %s rejected by active advisory", cs.Classical.Alg))
+	}
+	if cs.PQ != nil && slices.Contains(policy.AdvisoryRejectedAlgs, cs.PQ.Alg) {
+		errs = append(errs, fmt.Sprintf("PQ algorithm %s rejected by active advisory", cs.PQ.Alg))
+	}
+	if policy.WarnClassicalOnlyDeprecated && cs.Binding == "classical_only" {
+		warnings = append(warnings, "DEPRECATION: classical-only signatures are deprecated. Migrate to hybrid or pq_only.")
+	}
 	switch {
 	case mode == "pq_only":
 		if cs.Binding != "pq_over_classical" || !cvr.PQValid {
-			return "PQ signature invalid or missing (pq_only)", ""
-		}
-		if !cvr.ClassicalValid {
-			return "", "classical signature not verified in pq_only mode"
+			errs = append(errs, "PQ signature invalid or missing (pq_only)")
+		} else if !cvr.ClassicalValid && !policy.AllowClassicalFallbackDisable {
+			warnings = append(warnings, "classical signature not verified in pq_only mode")
 		}
 	case mode == "hybrid_required" && cs.Binding != "pq_over_classical":
-		return "hybrid_required needs a pq_over_classical signature, got " + cs.Binding, ""
+		errs = append(errs, "hybrid_required needs a pq_over_classical signature, got "+cs.Binding)
 	case !cvr.Valid:
-		return "signature verification failed", ""
+		errs = append(errs, "signature verification failed")
 	case cs.Binding == "classical_only" && mode == "hybrid_preferred":
-		return "", "classical_only binding (no PQ protection)"
+		warnings = append(warnings, "classical_only binding (no PQ protection)")
 	}
-	return "", ""
+	return errs, warnings
 }
 
 // payloadKeys returns the key entries listed under field in an artifact's payload.
@@ -323,7 +341,7 @@ func verifyCompositeSig(registry *AlgorithmRegistry, context string, payload, cs
 	return &cs, cvr, nil
 }
 
-func verifyBundleSignature(registry *AlgorithmRegistry, bundle, signature, manifest map[string]interface{}, mode string, result *V2VerificationResult) {
+func verifyBundleSignature(registry *AlgorithmRegistry, bundle, signature, manifest map[string]interface{}, mode string, policy VerifierPolicy, result *V2VerificationResult) {
 	csRaw, ok := signature["composite_sig"]
 	if !ok {
 		result.Errors = append(result.Errors, "Missing composite_sig in signature")
@@ -345,9 +363,11 @@ func verifyBundleSignature(registry *AlgorithmRegistry, bundle, signature, manif
 	result.ClassicalValid = cvr.ClassicalValid
 	result.PQValid = cvr.PQValid
 
-	if e, w := checkMode(mode, cs, cvr); e != "" {
+	errs, warnings := checkMode(mode, policy, cs, cvr)
+	for _, e := range errs {
 		result.Errors = append(result.Errors, "Bundle "+e)
-	} else if w != "" {
+	}
+	for _, w := range warnings {
 		result.Warnings = append(result.Warnings, "Bundle "+w)
 	}
 }
@@ -355,7 +375,7 @@ func verifyBundleSignature(registry *AlgorithmRegistry, bundle, signature, manif
 // verifyArtifactSignatures checks each artifact's own composite_sig
 // (VERIFICATION.md V2-8): the principal signs the RPR with its binding_keys,
 // the agent signs the rest with its passport keys.
-func verifyArtifactSignatures(registry *AlgorithmRegistry, bundle map[string]interface{}, mode string, result *V2VerificationResult) {
+func verifyArtifactSignatures(registry *AlgorithmRegistry, bundle map[string]interface{}, mode string, policy VerifierPolicy, result *V2VerificationResult) {
 	rprKeys := payloadKeys(bundle, "responsible_principal_record", "binding_keys")
 	agentKeys := payloadKeys(bundle, "agent_passport", "keys")
 	artifacts := []struct {
@@ -383,9 +403,11 @@ func verifyArtifactSignatures(registry *AlgorithmRegistry, bundle map[string]int
 			result.Errors = append(result.Errors, fmt.Sprintf("%s signature: %s", a.field, err))
 			continue
 		}
-		if e, w := checkMode(mode, cs, cvr); e != "" {
+		errs, warnings := checkMode(mode, policy, cs, cvr)
+		for _, e := range errs {
 			result.Errors = append(result.Errors, fmt.Sprintf("%s %s", a.field, e))
-		} else if w != "" {
+		}
+		for _, w := range warnings {
 			result.Warnings = append(result.Warnings, fmt.Sprintf("%s %s", a.field, w))
 		}
 	}

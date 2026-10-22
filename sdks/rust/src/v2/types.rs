@@ -234,6 +234,14 @@ pub struct VerifierPolicy {
     pub require_composite_binding: bool,
     pub max_key_age_days: u32,
     pub allow_v1_bundles: bool,
+    /// Phase 3 fields of schemas/v2/verifier_policy.schema.json, with the
+    /// TypeScript SDK's semantics; absent ones take their defaults.
+    #[serde(default)]
+    pub allow_classical_fallback_disable: bool,
+    #[serde(default)]
+    pub warn_classical_only_deprecated: bool,
+    #[serde(default)]
+    pub advisory_rejected_algs: Vec<String>,
 }
 
 /// The default verifier policy, the same as `DEFAULT_VERIFIER_POLICY` in the
@@ -253,6 +261,9 @@ impl Default for VerifierPolicy {
             require_composite_binding: true,
             max_key_age_days: 365,
             allow_v1_bundles: true,
+            allow_classical_fallback_disable: false,
+            warn_classical_only_deprecated: false,
+            advisory_rejected_algs: Vec::new(),
         }
     }
 }

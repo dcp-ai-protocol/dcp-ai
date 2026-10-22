@@ -564,6 +564,42 @@ fn signed_bundle_vectors() {
     assert!(!verify_signed_bundle_v2_with_policy(signed, &tuned).verified, "a policy field the verifier does not enforce must fail closed");
 }
 
+/// The TypeScript DEFAULT_VERIFIER_POLICY, Phase 3 fields included, decodes as a
+/// VerifierPolicy equal to the Rust default, and its advisory_rejected_algs is enforced.
+#[test]
+fn default_verifier_policy_vector() {
+    let data = fs::read_to_string(vectors_path().with_file_name("bundle_vectors.json"))
+        .expect("read bundle vectors");
+    let vectors: Value = serde_json::from_str(&data).expect("parse bundle vectors");
+    let policy: VerifierPolicy =
+        serde_json::from_value(vectors["default_verifier_policy"].clone()).expect("TS default policy");
+    assert_eq!(policy, VerifierPolicy::default());
+    let result = verify_signed_bundle_v2_with_policy(&vectors["signed_bundle"], &policy);
+    assert!(result.verified, "{:?}", result.errors);
+
+    let mut advisory = vectors["default_verifier_policy"].clone();
+    advisory["advisory_rejected_algs"] = serde_json::json!(["ml-dsa-65"]);
+    let advisory: VerifierPolicy = serde_json::from_value(advisory).expect("advisory policy");
+    let result = verify_signed_bundle_v2_with_policy(&vectors["signed_bundle"], &advisory);
+    assert!(!result.verified, "an advisory-rejected algorithm must fail verification");
+    assert!(result.errors.iter().any(|e| e.contains("rejected by active advisory")), "{:?}", result.errors);
+}
+
+/// wasm_verify_signed_bundle_v2 takes the TypeScript DEFAULT_VERIFIER_POLICY as is.
+#[cfg(feature = "wasm")]
+#[test]
+fn wasm_verify_accepts_the_typescript_default_policy() {
+    use dcp_ai::wasm::wasm_verify_signed_bundle_v2;
+
+    let data = fs::read_to_string(vectors_path().with_file_name("bundle_vectors.json"))
+        .expect("read bundle vectors");
+    let vectors: Value = serde_json::from_str(&data).expect("parse bundle vectors");
+    let policy = Some(vectors["default_verifier_policy"].to_string());
+    let result: Value =
+        serde_json::from_str(&wasm_verify_signed_bundle_v2(&vectors["signed_bundle"].to_string(), policy)).unwrap();
+    assert_eq!(result["verified"], true, "{}", result["errors"]);
+}
+
 /// wasm_sign_payload, wasm_build_bundle and wasm_sign_bundle produce a bundle
 /// that wasm_verify_signed_bundle_v2 accepts.
 #[cfg(feature = "wasm")]

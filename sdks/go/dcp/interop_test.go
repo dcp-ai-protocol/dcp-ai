@@ -1,11 +1,13 @@
 package dcp
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
@@ -745,6 +747,54 @@ func TestSignedBundleVectors(t *testing.T) {
 	tuned.AcceptedClassicalAlgs = []string{"ed448"}
 	if r := v2.VerifySignedBundleV2WithPolicy(reg, vecs.SignedBundle, tuned); r.Verified {
 		t.Error("a policy field the verifier does not enforce must fail closed")
+	}
+}
+
+// TestDefaultVerifierPolicyVector decodes the TypeScript DEFAULT_VERIFIER_POLICY
+// strictly: every field, Phase 3 included, must be a VerifierPolicy field. It must
+// equal DefaultVerifierPolicy(), and its advisory_rejected_algs is enforced.
+func TestDefaultVerifierPolicyVector(t *testing.T) {
+	_, thisFile, _, _ := runtime.Caller(0)
+	data, err := os.ReadFile(filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "tests", "interop", "v2", "bundle_vectors.json"))
+	if err != nil {
+		t.Fatalf("read bundle vectors: %v", err)
+	}
+	var vecs struct {
+		DefaultVerifierPolicy json.RawMessage `json:"default_verifier_policy"`
+		SignedBundle          json.RawMessage `json:"signed_bundle"`
+	}
+	if err := json.Unmarshal(data, &vecs); err != nil {
+		t.Fatalf("parse bundle vectors: %v", err)
+	}
+	decode := func(raw []byte) v2.VerifierPolicy {
+		t.Helper()
+		dec := json.NewDecoder(bytes.NewReader(raw))
+		dec.DisallowUnknownFields()
+		var p v2.VerifierPolicy
+		if err := dec.Decode(&p); err != nil {
+			t.Fatalf("decode policy: %v", err)
+		}
+		return p
+	}
+	reg := newRegistry()
+
+	policy := decode(vecs.DefaultVerifierPolicy)
+	if !reflect.DeepEqual(policy, v2.DefaultVerifierPolicy()) {
+		t.Fatalf("TS default policy %+v differs from DefaultVerifierPolicy() %+v", policy, v2.DefaultVerifierPolicy())
+	}
+	if r := v2.VerifySignedBundleV2WithPolicy(reg, vecs.SignedBundle, policy); !r.Verified {
+		t.Fatalf("signed_bundle must verify under the TS default policy: %v", r.Errors)
+	}
+
+	var fields map[string]interface{}
+	if err := json.Unmarshal(vecs.DefaultVerifierPolicy, &fields); err != nil {
+		t.Fatal(err)
+	}
+	fields["advisory_rejected_algs"] = []string{"ml-dsa-65"}
+	raw, _ := json.Marshal(fields)
+	r := v2.VerifySignedBundleV2WithPolicy(reg, vecs.SignedBundle, decode(raw))
+	if r.Verified || !strings.Contains(strings.Join(r.Errors, "\n"), "rejected by active advisory") {
+		t.Fatalf("an advisory-rejected algorithm must fail verification: %v", r.Errors)
 	}
 }
 

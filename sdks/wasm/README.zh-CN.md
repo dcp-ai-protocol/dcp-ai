@@ -112,7 +112,7 @@ console.log(result.pq_valid);       // true
 | 方法 | 返回值 | 描述 |
 |--------|---------|-------------|
 | `compositeVerify(context, payload, sig, classicalPk, pqPk?)` | `CompositeVerifyResult` | 复合签名的密码学验证 |
-| `verifyBundle(signedBundle, policy?)` | `V2VerificationResult` | 完整的 V2 凭证包验证（结构 + 加密 + 哈希链），按策略模式与安全等级模式中更严格的一个验证（spec §14.3）；返回 `resolved_tier` 和 `verification_mode`。`policy` 只能在 `default_mode` 和 `risk_overrides` 上与默认值不同，传入策略时 V1 凭证包会被拒绝 |
+| `verifyBundle(signedBundle, policy?)` | `V2VerificationResult` | 完整的 V2 凭证包验证（结构 + 加密 + 哈希链），按策略模式与安全等级模式中更严格的一个验证（spec §14.3）；返回 `resolved_tier` 和 `verification_mode`。`policy` 只能在 `default_mode`、`risk_overrides` 和 Phase 3 字段（`advisory_rejected_algs`、`warn_classical_only_deprecated`、`allow_classical_fallback_disable`）上与默认值不同，传入策略时 V1 凭证包会被拒绝 |
 
 ### 哈希操作
 

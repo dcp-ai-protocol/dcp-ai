@@ -557,6 +557,14 @@ describe('Signed bundle verification (bundle_vectors.json)', () => {
     });
   }
 
+  it('verifies signed_bundle under default_verifier_policy and enforces its advisory list', async () => {
+    const policy = B.default_verifier_policy as VerifierPolicy;
+    expect((await verifySignedBundleV2(B.signed_bundle, registry, policy)).errors).toEqual([]);
+    const advisory = await verifySignedBundleV2(B.signed_bundle, registry, { ...policy, advisory_rejected_algs: ['ml-dsa-65'] });
+    expect(advisory.verified).toBe(false);
+    expect(advisory.errors.join('\n')).toContain('rejected by active advisory');
+  });
+
   it.each(MODES)('classical_only_routine_bundle verdict under %s', async (mode) => {
     const { signed_bundle, verified_by_mode } = B.classical_only_routine_bundle;
     const result = await verifySignedBundleV2(signed_bundle, registry, policyFor(mode));

@@ -31,6 +31,7 @@ import { sha256Hex } from '../core/dual-hash.js';
 import { generateSessionNonce } from '../core/session-nonce.js';
 import { BundleBuilderV2 } from '../bundle/builder-v2.js';
 import { signBundleV2, signBundleV2ClassicalOnly } from '../bundle/signer-v2.js';
+import { DEFAULT_VERIFIER_POLICY } from '../core/verify-v2.js';
 import type {
   AgentPassportV2,
   AuditEventV2,
@@ -390,8 +391,10 @@ async function main() {
       'case (set value at path, in order) it MUST reject it, whatever its verification mode, with ' +
       'an error that contains error_contains (case-insensitive). It MUST also reject every ' +
       'must_reject_bundles entry the same way, and give classical_only_routine_bundle the verdict ' +
-      'in verified_by_mode.',
+      'in verified_by_mode. default_verifier_policy is the TypeScript DEFAULT_VERIFIER_POLICY; a ' +
+      'verifier that takes a policy MUST accept it and verify signed_bundle under it.',
     _generator: 'sdks/typescript/src/__tests__/generate-bundle-vectors.ts',
+    default_verifier_policy: DEFAULT_VERIFIER_POLICY,
     signed_bundle: signedBundle,
     must_reject: mustReject,
     classical_only_routine_bundle: {
