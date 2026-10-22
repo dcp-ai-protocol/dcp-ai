@@ -110,6 +110,25 @@ test("key rotation needs proof of possession by the new key and authorization by
   assert.equal((await post("/v2/keys/rotate", rotation)).status, 403, "old key is retired");
 });
 
+test("expired keys cannot re-register, extend their expiry or authorize a rotation", async () => {
+  const carol = await newAgent("agent:carol-001");
+  for (const key of carol.passport.keys) key.expires_at = "2020-01-01T00:00:00Z";
+  assert.equal((await post("/v2/passport/register", { signed_passport: await signPassport(carol.passport, carol.keys) })).status, 201);
+
+  const extended = structuredClone(carol.passport);
+  for (const key of extended.keys) key.expires_at = null;
+  assert.equal((await post("/v2/passport/register", { signed_passport: await signPassport(extended, carol.keys) })).status, 409);
+  assert.equal((await (await fetch(`${base}/v2/keys/${carol.keys.classical.kid}`)).json()).expired, true);
+
+  const next = await new Ed25519Provider().generateKeypair();
+  const rotation = await createKeyRotation(registry, {
+    oldKid: carol.keys.classical.kid, oldAlg: "ed25519", oldSecretKeyB64: carol.keys.classical.secretKeyB64,
+    newKid: next.kid, newAlg: "ed25519", newSecretKeyB64: next.secretKeyB64, newPublicKeyB64: next.publicKeyB64,
+    timestamp: new Date().toISOString(), expiresAt: null,
+  });
+  assert.equal((await post("/v2/keys/rotate", rotation)).status, 403);
+});
+
 test("multi-party authorization verifies each party's registered composite signature", async () => {
   const owner = await newAgent("party:owner-01");
   const admin = await newAgent("party:admin-01");

@@ -32,6 +32,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   instead of a crash. Transparency log: tree heads are Ed25519-signed (key derived from
   `OPERATOR_KEY`) instead of an HMAC nobody else could verify, the Merkle tree uses RFC 6962
   leaf/node prefixes, and `POST /gossip/peers` (an SSRF vector) needs the operator token.
+- Verification server and revocation service: expired keys can no longer re-register a passport,
+  authorize a key rotation or sign for a party or a revocation, and re-registering keeps the
+  registered key entries, so a new passport cannot extend a key's `expires_at`.
 - Fly configs keep one verification and one revocation machine running: scaling to zero wiped
   their in-memory registries whenever the machine idled.
 
