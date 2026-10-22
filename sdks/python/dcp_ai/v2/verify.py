@@ -26,6 +26,7 @@ from dcp_ai.v2.canonicalize import canonicalize_v2
 from dcp_ai.v2.composite_ops import composite_verify
 from dcp_ai.v2.crypto_registry import AlgorithmRegistry
 from dcp_ai.v2.domain_separation import DCP_CONTEXTS
+from dcp_ai.v2.models import VerifierPolicy
 from dcp_ai.v2.pq_checkpoint import audit_events_merkle_root
 from dcp_ai.v2.session_nonce import is_session_expired, verify_session_binding
 from dcp_ai.v2.signed_payload import prepare_payload, verify_payload_hash
@@ -171,18 +172,16 @@ async def _check_composite_sig(
 
 
 def _resolve_policy(policy: Any) -> dict[str, Any]:
-    """Complete a caller's policy with DEFAULT_VERIFIER_POLICY.
+    """None means DEFAULT_VERIFIER_POLICY; anything else is validated as a VerifierPolicy.
 
-    default_mode and risk_overrides go together: a policy that sets default_mode
-    without overrides (or with None) gets none, so the default policy's
-    low -> classical_only override cannot weaken the caller's default_mode.
+    Unknown keys raise, and fields left out take the model's defaults
+    (hybrid_required for every risk tier), never the default policy's
+    low -> classical_only override. risk_overrides=None applies default_mode to
+    every tier.
     """
     if policy is None:
         return dict(DEFAULT_VERIFIER_POLICY)
-    policy = dict(policy.model_dump() if hasattr(policy, "model_dump") else policy)
-    if policy.get("risk_overrides") is None and "default_mode" in policy:
-        policy["risk_overrides"] = {}
-    return {**DEFAULT_VERIFIER_POLICY, **policy}
+    return VerifierPolicy.model_validate(policy).model_dump()
 
 
 async def verify_signed_bundle_v2(
@@ -192,14 +191,15 @@ async def verify_signed_bundle_v2(
 ) -> dict[str, Any]:
     """Full V2 signed bundle verification.
 
-    `policy` is a dict or a VerifierPolicy model; fields it leaves out come from
-    DEFAULT_VERIFIER_POLICY (see _resolve_policy). Returns {"verified", "errors",
-    "warnings", "details"}. A structurally malformed bundle fails verification
-    instead of raising.
+    `policy` is a VerifierPolicy, a dict validated as one (see _resolve_policy;
+    pydantic.ValidationError on unknown keys), or None for DEFAULT_VERIFIER_POLICY.
+    Returns {"verified", "errors", "warnings", "details"}. A structurally
+    malformed bundle fails verification instead of raising.
     """
+    resolved = _resolve_policy(policy)
     result: dict[str, Any] = {"verified": False, "errors": [], "warnings": [], "details": {}}
     try:
-        await _verify(signed_bundle, registry, _resolve_policy(policy), result)
+        await _verify(signed_bundle, registry, resolved, result)
     except (KeyError, TypeError, AttributeError, ValueError, IndexError) as exc:
         result["errors"].append(f"Malformed signed bundle: {exc!r}")
     result["verified"] = not result["errors"]

@@ -103,9 +103,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   fields it was missing (`allow_classical_fallback_disable`, `warn_classical_only_deprecated`,
   `advisory_rejected_algs`, `require_session_expiry`, `max_session_duration_seconds`,
   `require_audience_binding`, `verifier_id`). Before, `VerifierPolicy(require_audience_binding=True,
-  verifier_id=...)` silently lost both fields. In `verify_signed_bundle_v2`, a policy that sets
-  `default_mode` without `risk_overrides` (or with `None`) uses `default_mode` for every risk tier,
-  instead of inheriting the default policy's `low` → `classical_only` override.
+  verifier_id=...)` silently lost both fields. In `verify_signed_bundle_v2`, a dict policy is validated as a
+  `VerifierPolicy` (unknown keys raise), and fields it leaves out take the model's defaults
+  (`hybrid_required` for every risk tier), not the default policy's `low` → `classical_only`. Only
+  `risk_overrides=None` makes `default_mode` apply to every tier.
 
 ### Added
 
