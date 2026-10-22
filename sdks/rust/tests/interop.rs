@@ -21,6 +21,7 @@ use dcp_ai::v2::canonicalize::canonicalize_v2;
 use dcp_ai::v2::composite_ops::{composite_verify, CompositeKeyInfo};
 use dcp_ai::v2::composite_sig::CompositeSignature;
 use dcp_ai::v2::crypto_provider::{derive_kid, CryptoProvider};
+use dcp_ai::v2::session_nonce::parse_rfc3339_millis;
 use dcp_ai::v2::types::VerifierPolicy;
 use dcp_ai::v2::verify_bundle::{
     verify_signed_bundle_v2, verify_signed_bundle_v2_with_policy, V2VerificationResult,
@@ -674,6 +675,19 @@ fn wasm_verify_rejects_v1_bundles_under_a_policy() {
     let result: Value = serde_json::from_str(&wasm_verify_signed_bundle_v2(&v1, Some(policy))).unwrap();
     assert_eq!(result["verified"], false);
     assert!(result["errors"][0].as_str().unwrap().contains("V1"), "{}", result["errors"]);
+}
+
+/// RFC 3339 timestamps: each input parses to its instant in Unix milliseconds,
+/// or is rejected.
+#[test]
+fn rfc3339_vectors() {
+    let vectors = load_vectors();
+    let cases = vectors["rfc3339"]["cases"].as_array().expect("rfc3339 cases");
+    assert!(!cases.is_empty());
+    for case in cases {
+        let got = case["input"].as_str().and_then(parse_rfc3339_millis);
+        assert_eq!(got, case["epoch_ms"].as_i64(), "{}", case["input"]);
+    }
 }
 
 // ---------------------------------------------------------------------------

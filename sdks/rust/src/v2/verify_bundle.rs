@@ -15,7 +15,8 @@ use crate::v2::domain_separation::{
 };
 use crate::crypto::merkle_root_from_hex_leaves;
 use crate::v2::dual_hash;
-use crate::v2::session_nonce::is_session_expired;
+use crate::v2::lifecycle::unix_now_millis;
+use crate::v2::session_nonce::parse_rfc3339_millis;
 use crate::v2::security_tier::{compute_security_tier, effective_verification_mode};
 use crate::v2::types::VerifierPolicy;
 
@@ -109,9 +110,11 @@ pub fn verify_signed_bundle_v2_with_policy(signed_bundle: &Value, policy: &Verif
     // Artifact hashes against their payload_hash and the manifest (V2-3)
     if let Some(manifest) = bundle.get("manifest") {
         r.errors.extend(manifest_hash_errors(bundle, manifest));
-        if is_session_expired_value(manifest.get("session_expires_at")) {
-            let expires = &manifest["session_expires_at"];
-            r.errors.push(format!("Session expired at {}", expires.as_str().map_or(expires.to_string(), String::from)));
+        let expires = manifest.get("session_expires_at");
+        match check_expiry(expires) {
+            Ok(()) => {}
+            Err(Expiry::Invalid) => r.errors.push(format!("Invalid session_expires_at: {}", display(expires))),
+            Err(Expiry::Passed) => r.errors.push(format!("Session expired at {}", display(expires))),
         }
     }
 
@@ -209,8 +212,12 @@ pub fn verify_signed_bundle_v2_with_policy(signed_bundle: &Value, policy: &Verif
         if key.get("status").and_then(Value::as_str) == Some("revoked") {
             r.errors.push(format!("Key {} is revoked", kid));
         }
-        if is_session_expired_value(key.get("expires_at")) {
-            r.errors.push(format!("Key {} has expired", kid));
+        match check_expiry(key.get("expires_at")) {
+            Ok(()) => {}
+            Err(Expiry::Invalid) => {
+                r.errors.push(format!("Key {} has an invalid expires_at: {}", kid, display(key.get("expires_at"))))
+            }
+            Err(Expiry::Passed) => r.errors.push(format!("Key {} has expired", kid)),
         }
     }
 
@@ -328,12 +335,32 @@ fn audit_trail_errors(bundle: &Value, manifest: &Value) -> Vec<String> {
     errors
 }
 
-/// Whether an optional `session_expires_at` / `expires_at` value has passed.
-/// Null or absent means it never expires.
-fn is_session_expired_value(value: Option<&Value>) -> bool {
+/// Why an expiry fails.
+enum Expiry {
+    Invalid,
+    Passed,
+}
+
+/// An optional expiry (`session_expires_at`, a key's `expires_at`): absent or
+/// null never expires; anything else must be an RFC 3339 timestamp still in
+/// the future.
+fn check_expiry(value: Option<&Value>) -> Result<(), Expiry> {
     match value {
-        None | Some(Value::Null) => false,
-        Some(v) => v.as_str().map_or(true, is_session_expired),
+        None | Some(Value::Null) => Ok(()),
+        Some(v) => match v.as_str().and_then(parse_rfc3339_millis) {
+            None => Err(Expiry::Invalid),
+            Some(t) if t < unix_now_millis() as i64 => Err(Expiry::Passed),
+            Some(_) => Ok(()),
+        },
+    }
+}
+
+/// A JSON value for an error message, strings without their quotes.
+fn display(value: Option<&Value>) -> String {
+    match value {
+        Some(Value::String(s)) => s.clone(),
+        Some(v) => v.to_string(),
+        None => "null".into(),
     }
 }
 

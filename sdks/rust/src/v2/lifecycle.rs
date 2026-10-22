@@ -63,7 +63,7 @@ extern "C" {
 }
 
 /// Milliseconds since the Unix epoch.
-fn unix_now_millis() -> u64 {
+pub(crate) fn unix_now_millis() -> u64 {
     #[cfg(all(target_arch = "wasm32", feature = "wasm"))]
     return js_date_now() as u64;
     #[cfg(not(all(target_arch = "wasm32", feature = "wasm")))]

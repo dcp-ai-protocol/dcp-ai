@@ -67,6 +67,8 @@ All artifacts (`responsible_principal_record.payload`, `agent_passport.payload`,
 
 If `manifest.session_expires_at` is present and has passed, reject the bundle.
 
+Timestamps in these checks (`session_expires_at` here, a key's `expires_at` in Step V2-13) are RFC 3339 date-times with a `Z` or `±hh:mm` offset, such as `2026-10-22T06:05:03-05:00`. Compare them as instants, never as strings: the string order of two timestamps with different offsets is not their time order. Absent or `null` means no expiry. Any other value that is not such a timestamp (a date without a time, a time without an offset, an impossible date or time, a non-string) MUST be rejected. The `rfc3339` category of `tests/interop/v2/interop_vectors.json` lists the instant of each accepted case and the rejected ones.
+
 ### Step V2-5: Verify composite signature structure
 
 The bundle-level `signature` MUST contain a `composite_sig` object with:

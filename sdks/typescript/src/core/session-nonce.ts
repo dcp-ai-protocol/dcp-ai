@@ -77,9 +77,39 @@ export function generateSessionExpiry(durationSeconds?: number, tier?: string): 
   return new Date(Date.now() + duration * 1000).toISOString();
 }
 
+const RFC3339 = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(?:Z|([+-])(\d{2}):(\d{2}))$/;
+
 /**
- * Check whether a session_expires_at timestamp has passed.
+ * Milliseconds since the Unix epoch of an RFC 3339 timestamp with a `Z` or
+ * `±hh:mm` offset, or undefined for anything else: a date without a time, a
+ * time without an offset, an impossible date or time (which `Date.parse` would
+ * roll over or accept), or a non-string. Digits beyond milliseconds are dropped.
+ */
+export function parseRfc3339(value: unknown): number | undefined {
+  const m = typeof value === 'string' ? RFC3339.exec(value) : null;
+  if (!m) return undefined;
+  const [year, month, day, hour, minute, second] = m.slice(1, 7).map(Number);
+  const [offsetHours, offsetMinutes] = [Number(m[9] ?? 0), Number(m[10] ?? 0)];
+  const lastDay = new Date(0);
+  lastDay.setUTCFullYear(year, month, 0);
+  if (
+    month < 1 || month > 12 || day < 1 || day > lastDay.getUTCDate() ||
+    hour > 23 || minute > 59 || second > 59 || offsetHours > 23 || offsetMinutes > 59
+  ) {
+    return undefined;
+  }
+  const t = new Date(0);
+  t.setUTCFullYear(year, month - 1, day);
+  t.setUTCHours(hour, minute, second, Number((m[7] ?? '').slice(0, 3).padEnd(3, '0')));
+  const offset = (m[8] === '-' ? -1 : 1) * (offsetHours * 60 + offsetMinutes);
+  return t.getTime() - offset * 60_000;
+}
+
+/**
+ * Check whether a session_expires_at timestamp has passed. A value that is not
+ * an RFC 3339 timestamp counts as expired, so a malformed expiry fails closed.
  */
 export function isSessionExpired(expiresAt: string): boolean {
-  return new Date(expiresAt) < new Date();
+  const expires = parseRfc3339(expiresAt);
+  return expires === undefined || expires < Date.now();
 }

@@ -136,7 +136,8 @@ async function main() {
       dcp_version: '2.0',
       agent_id: 'agent:interop-bot',
       session_nonce: nonce,
-      keys: keyEntries(agent).map((k) => ({ ...k, ...variant.agentKey })),
+      // A far-future expiry with an offset, so every verifier parses one on the happy path.
+      keys: keyEntries(agent).map((k) => ({ ...k, expires_at: '2099-12-31T18:59:59-05:00', ...variant.agentKey })),
       principal_binding_reference: rpr.human_id,
       capabilities: ['browse', 'api_call'],
       risk_tier: 'medium',
@@ -196,7 +197,7 @@ async function main() {
       .policyDecision(await sign(policyDecision, DCP_CONTEXTS.PolicyDecision, agent, variant.classicalOnly))
       .addAuditEntries([audit, audit2])
       .build();
-    Object.assign(bundle.manifest, variant.manifest);
+    Object.assign(bundle.manifest, { session_expires_at: '2099-12-31T23:59:59+05:00' }, variant.manifest);
     const signer = { registry, signerType: 'human' as const, signerId: rpr.human_id };
     const signedBundle = variant.classicalOnly
       ? await signBundleV2ClassicalOnly(bundle, { ...signer, key: principal.classical })
@@ -426,6 +427,30 @@ async function main() {
       spec_step: 'V2-4',
       error_contains: 'session expired',
       variant: { manifest: { session_expires_at: '2020-01-01T00:00:00Z' } },
+    },
+    {
+      name: 'session_expired_with_offset',
+      spec_step: 'V2-4',
+      error_contains: 'session expired',
+      variant: { manifest: { session_expires_at: '2020-01-01T09:00:00+05:00' } },
+    },
+    ...['n/a', '', '2099-12-31', 4102444800].map((value, i) => ({
+      name: `session_expires_at_${['not_a_timestamp', 'empty', 'date_only', 'not_a_string'][i]}`,
+      spec_step: 'V2-4',
+      error_contains: 'session_expires_at',
+      variant: { manifest: { session_expires_at: value } },
+    })),
+    {
+      name: 'passport_key_expires_at_not_a_timestamp',
+      spec_step: 'V2-13',
+      error_contains: 'expires_at',
+      variant: { agentKey: { expires_at: 'n/a' } },
+    },
+    {
+      name: 'passport_key_expires_at_not_a_string',
+      spec_step: 'V2-13',
+      error_contains: 'expires_at',
+      variant: { agentKey: { expires_at: 4102444800 as unknown as string } },
     },
     { name: 'passport_key_revoked', spec_step: 'V2-13', error_contains: 'revoked', variant: { agentKey: { status: 'revoked' } } },
     {

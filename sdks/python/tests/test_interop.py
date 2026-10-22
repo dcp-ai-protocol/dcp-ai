@@ -16,6 +16,7 @@ import base64
 import copy
 import json
 import os
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -34,6 +35,7 @@ from dcp_ai.v2.security_tier import (
     tier_to_checkpoint_interval,
     tier_to_verification_mode,
 )
+from dcp_ai.v2.session_nonce import parse_rfc3339
 from dcp_ai.v2.verify import DEFAULT_VERIFIER_POLICY, verify_signed_bundle_v2
 from dcp_ai.providers.ed25519_provider import Ed25519Provider
 from dcp_ai.providers.ml_dsa_65_provider import MlDsa65Provider
@@ -386,6 +388,19 @@ class TestCanonicalizationEdgeCases:
                 assert produced == vec["canonical"], (
                     f"{name}: produced {produced!r}, expected {vec['canonical']!r}"
                 )
+
+
+class TestRfc3339:
+    """RFC 3339 timestamps: the instant in Unix milliseconds, or None when malformed."""
+
+    def test_all_vectors(self, V):
+        cases = V["rfc3339"]["cases"]
+        assert cases
+        epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
+        for case in cases:
+            got = parse_rfc3339(case["input"])
+            got_ms = None if got is None else (got - epoch) // timedelta(milliseconds=1)
+            assert got_ms == case["epoch_ms"], case["input"]
 
 
 class TestSecurityTier:

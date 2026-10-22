@@ -699,5 +699,36 @@
         {"policy_mode": "classical_only", "tier": "constructor", "expected": "hybrid_required"}
       ]
     }
+  },
+  "rfc3339": {
+    "_description": "RFC 3339 timestamps as session_expires_at and key expires_at use them: the instant in Unix milliseconds, digits beyond milliseconds dropped, or null for a value a verifier must reject as malformed (no time, no offset, an impossible date or time, a non-string).",
+    "cases": [
+      {"input": "2026-10-22T11:05:03Z", "epoch_ms": 1792667103000},
+      {"input": "2026-10-22T06:05:03-05:00", "epoch_ms": 1792667103000},
+      {"input": "2026-10-22T14:05:03+05:00", "epoch_ms": 1792659903000},
+      {"input": "2026-10-22T00:30:00+01:00", "epoch_ms": 1792625400000},
+      {"input": "2026-10-22T11:05:03.250Z", "epoch_ms": 1792667103250},
+      {"input": "2026-10-22T12:35:03.5+01:30", "epoch_ms": 1792667103500},
+      {"input": "2026-10-22T11:05:03.123456789Z", "epoch_ms": 1792667103123},
+      {"input": "2024-02-29T00:00:00Z", "epoch_ms": 1709164800000},
+      {"input": "1970-01-01T00:00:00Z", "epoch_ms": 0},
+      {"input": "n/a", "epoch_ms": null},
+      {"input": "", "epoch_ms": null},
+      {"input": "2026-10-22", "epoch_ms": null},
+      {"input": "2026-10-22T11:05:03", "epoch_ms": null},
+      {"input": "2026-10-22 11:05:03Z", "epoch_ms": null},
+      {"input": "2026-10-22T11:05:03ZZ", "epoch_ms": null},
+      {"input": "2026-10-22T11:05:03.Z", "epoch_ms": null},
+      {"input": "2026-10-22T11:05:03+0500", "epoch_ms": null},
+      {"input": "2026-13-01T00:00:00Z", "epoch_ms": null},
+      {"input": "2026-02-30T00:00:00Z", "epoch_ms": null},
+      {"input": "2025-02-29T00:00:00Z", "epoch_ms": null},
+      {"input": "2026-10-22T24:00:00Z", "epoch_ms": null},
+      {"input": "2026-10-22T11:60:00Z", "epoch_ms": null},
+      {"input": "2026-10-22T11:05:60Z", "epoch_ms": null},
+      {"input": "2026-10-22T11:05:03+24:00", "epoch_ms": null},
+      {"input": "2026-10-22T11:05:03+05:60", "epoch_ms": null},
+      {"input": 1792494303000, "epoch_ms": null}
+    ]
   }
 }
