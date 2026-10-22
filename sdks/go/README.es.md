@@ -158,7 +158,7 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 | Función | Descripción |
 |----------|-------------|
 | `v2.ComputeSecurityTier(input)` | Calcula el nivel de seguridad adaptativo (routine/standard/elevated/maximum), su modo de verificación y su intervalo de checkpoint (spec §14.2); los valores desconocidos dan `elevated` |
-| `v2.SecurityTierInputFromPayloads(intent, policyDecision)` | Construye la entrada del nivel a partir de los payloads decodificados del intent y de la PolicyDecision (`risk_score` sale de la PolicyDecision) |
+| `v2.SecurityTierInputFromPayloads(intent, policyDecision)` | Construye la entrada del nivel a partir de los payloads decodificados del intent y de la PolicyDecision (`risk_score` sale de la PolicyDecision; si falta o no es un entero de 0 a 1000 queda en `RiskScore: -1`, que es desconocido) |
 
 ### Firmas Compuestas
 

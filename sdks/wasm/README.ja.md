@@ -208,7 +208,7 @@ const keys = JSON.parse(wasm_generate_hybrid_keypair());
 
 ## セキュリティティア
 
-`computeSecurityTier(intent, policyDecision?)` は適応型セキュリティティアを計算します（spec §14.2）。`risk_score` はポリシー決定から取得します（ない場合は 0）。未知または欠落した `action_type`、`estimated_impact`、`data_classes` の値は `elevated` として扱い、`intent.security_tier` は結果を引き上げることしかできません。該当する最も高いティアが適用されます。
+`computeSecurityTier(intent, policyDecision?)` は適応型セキュリティティアを計算します（spec §14.2）。`risk_score` はポリシー決定から取得します（ない場合は 0）。未知または欠落した `action_type`、`estimated_impact`、`data_classes` の値と、欠落しているか 0〜1000 の整数でない `risk_score` は `elevated` として扱い、`intent.security_tier` は結果を引き上げることしかできません。該当する最も高いティアが適用されます。
 
 | ティア | 条件（いずれか） | 検証モード | チェックポイント間隔 |
 |------|---------------|-------------------|---------------------|

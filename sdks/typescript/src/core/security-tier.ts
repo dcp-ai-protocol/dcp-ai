@@ -68,11 +68,11 @@ const TIER_RANK: Record<SecurityTier, number> = {
 
 /**
  * Compute the security tier (spec §14.2) from the intent and the bundle's
- * policy decision. `risk_score` is read from the policy decision only; with
- * no policy decision it counts as 0, as does a non-numeric value. A value
- * outside the intent schema enums, including a missing `action_type`,
- * `estimated_impact` or `data_classes`, fails closed to at least `elevated`.
- * An explicit `intent.security_tier` can only raise the result.
+ * policy decision. `risk_score` is read from the policy decision only and must
+ * be an integer from 0 to 1000; with no policy decision it counts as 0. A
+ * value outside the schemas, including a missing `action_type`,
+ * `estimated_impact`, `data_classes` or `risk_score`, fails closed to at least
+ * `elevated`. An explicit `intent.security_tier` can only raise the result.
  */
 export function computeSecurityTier(
   intent: IntentV2,
@@ -80,10 +80,13 @@ export function computeSecurityTier(
 ): SecurityTier {
   // Signed payloads are not schema-checked here, so read them as untyped.
   const raw = intent as unknown as Record<string, unknown>;
-  const riskScore: unknown = policyDecision?.risk_score;
-  const score = typeof riskScore === 'number' ? riskScore : 0;
+  const riskScore: unknown =
+    policyDecision == null ? 0 : (policyDecision as unknown as Record<string, unknown>).risk_score;
+  const scoreKnown = Number.isInteger(riskScore) && (riskScore as number) >= 0 && (riskScore as number) <= 1000;
+  const score = scoreKnown ? (riskScore as number) : 0;
   const dataClasses: unknown[] = Array.isArray(raw.data_classes) ? raw.data_classes : [undefined];
   const unknownValue =
+    !scoreKnown ||
     !ACTION_TYPES.has(raw.action_type) ||
     !IMPACTS.has(raw.estimated_impact) ||
     dataClasses.some((d) => !DATA_CLASSES.has(d));

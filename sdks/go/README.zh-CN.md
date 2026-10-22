@@ -158,7 +158,7 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 | 函数 | 描述 |
 |----------|-------------|
 | `v2.ComputeSecurityTier(input)` | 计算自适应安全等级（routine/standard/elevated/maximum）及其验证模式和检查点间隔（spec §14.2）；未知值按 `elevated` 处理 |
-| `v2.SecurityTierInputFromPayloads(intent, policyDecision)` | 根据解码后的 intent 和 PolicyDecision 载荷构建等级输入（`risk_score` 取自 PolicyDecision） |
+| `v2.SecurityTierInputFromPayloads(intent, policyDecision)` | 根据解码后的 intent 和 PolicyDecision 载荷构建等级输入（`risk_score` 取自 PolicyDecision；缺失或不是 0 到 1000 之间的整数时为 `RiskScore: -1`，即未知） |
 
 ### 复合签名
 

@@ -208,7 +208,7 @@ const keys = JSON.parse(wasm_generate_hybrid_keypair());
 
 ## 安全等级
 
-`computeSecurityTier(intent, policyDecision?)` 计算自适应安全等级（spec §14.2）。`risk_score` 取自策略决策（没有则为 0）；未知或缺失的 `action_type`、`estimated_impact` 或 `data_classes` 值按 `elevated` 处理，`intent.security_tier` 只能提高结果。取匹配的最高等级。
+`computeSecurityTier(intent, policyDecision?)` 计算自适应安全等级（spec §14.2）。`risk_score` 取自策略决策（没有则为 0）；未知或缺失的 `action_type`、`estimated_impact` 或 `data_classes` 值，以及缺失或不是 0 到 1000 之间整数的 `risk_score`，按 `elevated` 处理，`intent.security_tier` 只能提高结果。取匹配的最高等级。
 
 | 等级 | 条件（任一） | 验证模式 | 检查点间隔 |
 |------|---------------|-------------------|---------------------|

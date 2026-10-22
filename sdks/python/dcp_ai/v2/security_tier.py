@@ -43,23 +43,32 @@ def _is(value: Any, allowed: frozenset[str]) -> bool:
     return isinstance(value, str) and value in allowed
 
 
+def _is_risk_score(value: Any) -> bool:
+    # An integer from 0 to 1000; a float counts when it has no fractional part, as in JSON.
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    return 0 <= value <= 1000 and (isinstance(value, int) or value.is_integer())
+
+
 def compute_security_tier(
     intent: dict[str, Any], policy_decision: dict[str, Any] | None = None
 ) -> str:
     """Compute the security tier (spec §14.2) from an intent and the bundle's policy decision.
 
-    ``risk_score`` is read from the policy decision only; with no policy decision it
-    counts as 0, as does a non-numeric value. A value outside the intent schema enums,
-    including a missing ``action_type``, ``estimated_impact`` or ``data_classes``, fails
-    closed to at least ``elevated``. An explicit ``intent["security_tier"]`` can only
-    raise the result.
+    ``risk_score`` is read from the policy decision only and must be an integer from 0
+    to 1000; with no policy decision it counts as 0. A value outside the schemas,
+    including a missing ``action_type``, ``estimated_impact``, ``data_classes`` or
+    ``risk_score``, fails closed to at least ``elevated``. An explicit
+    ``intent["security_tier"]`` can only raise the result.
     """
     if not isinstance(intent, dict):
         intent = {}
-    if not isinstance(policy_decision, dict):
-        policy_decision = {}
-    score = policy_decision.get("risk_score")
-    if isinstance(score, bool) or not isinstance(score, (int, float)):
+    if policy_decision is None:
+        score = 0
+    else:
+        score = policy_decision.get("risk_score") if isinstance(policy_decision, dict) else None
+    score_known = _is_risk_score(score)
+    if not score_known:
         score = 0
     data_classes = intent.get("data_classes")
     if not isinstance(data_classes, list):
@@ -67,7 +76,8 @@ def compute_security_tier(
     action_type = intent.get("action_type")
     impact = intent.get("estimated_impact")
     unknown = (
-        not _is(action_type, _ACTION_TYPES)
+        not score_known
+        or not _is(action_type, _ACTION_TYPES)
         or not _is(impact, _IMPACTS)
         or not all(_is(d, _DATA_CLASSES) for d in data_classes)
     )

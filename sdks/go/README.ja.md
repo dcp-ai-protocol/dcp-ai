@@ -158,7 +158,7 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 | 関数 | 説明 |
 |----------|-------------|
 | `v2.ComputeSecurityTier(input)` | 適応型セキュリティティア（routine/standard/elevated/maximum）と検証モード・チェックポイント間隔を計算（spec §14.2）。未知の値は `elevated` として扱う |
-| `v2.SecurityTierInputFromPayloads(intent, policyDecision)` | デコード済みの intent と PolicyDecision のペイロードからティア入力を作成（`risk_score` は PolicyDecision から取得） |
+| `v2.SecurityTierInputFromPayloads(intent, policyDecision)` | デコード済みの intent と PolicyDecision のペイロードからティア入力を作成（`risk_score` は PolicyDecision から取得。欠落しているか 0〜1000 の整数でない場合は未知を表す `RiskScore: -1` になる） |
 
 ### 複合署名
 
