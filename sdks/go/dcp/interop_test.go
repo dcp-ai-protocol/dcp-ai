@@ -36,6 +36,16 @@ type hashEntry struct {
 	SHA3256 string `json:"sha3_256"`
 }
 
+type blindedRPRVectors struct {
+	Vectors []struct {
+		Name          string                 `json:"name"`
+		RPR           map[string]interface{} `json:"rpr"`
+		PIIHash       string                 `json:"pii_hash"`
+		LegacyPIIHash string                 `json:"legacy_pii_hash"`
+		Blinded       map[string]interface{} `json:"blinded"`
+	} `json:"vectors"`
+}
+
 type domainSepAllCtx struct {
 	PayloadCanonical string            `json:"payload_canonical"`
 	DsmHex           map[string]string `json:"dsm_hex"`
@@ -87,6 +97,7 @@ type interopVectors struct {
 	KidDerivation           map[string]kidDerivEntry     `json:"kid_derivation"`
 	Canonicalization        map[string]canonEntry        `json:"canonicalization"`
 	PayloadHashes           map[string]hashEntry         `json:"payload_hashes"`
+	BlindedRPR              blindedRPRVectors            `json:"blinded_rpr"`
 	DomainSepMsgs           map[string]string            `json:"domain_separated_messages"`
 	DomainSepAllCtx         domainSepAllCtx              `json:"domain_separation_all_contexts"`
 	Ed25519Signatures       map[string]sigEntry          `json:"ed25519_signatures"`
@@ -201,6 +212,38 @@ func TestInteropPayloadHashes(t *testing.T) {
 			computed := v2.SHA3256Hex([]byte(entry.ExpectedCanonical))
 			if computed != hashes.SHA3256 {
 				t.Errorf("sha3-256 mismatch: got %s, want %s", computed, hashes.SHA3256)
+			}
+		})
+	}
+}
+
+func TestInteropBlindedRPR(t *testing.T) {
+	vecs := loadVectors(t)
+	if len(vecs.BlindedRPR.Vectors) == 0 {
+		t.Fatal("no blinded_rpr vectors found")
+	}
+	for _, vec := range vecs.BlindedRPR.Vectors {
+		t.Run(vec.Name, func(t *testing.T) {
+			if got, err := v2.ComputePIIHash(vec.RPR); err != nil || got != vec.PIIHash {
+				t.Errorf("salted pii_hash: got %s (%v), want %s", got, err, vec.PIIHash)
+			}
+			legacy := map[string]interface{}{}
+			for k, v := range vec.RPR {
+				if k != "pii_salt" {
+					legacy[k] = v
+				}
+			}
+			if got, err := v2.ComputePIIHash(legacy); err != nil || got != vec.LegacyPIIHash {
+				t.Errorf("legacy pii_hash: got %s (%v), want %s", got, err, vec.LegacyPIIHash)
+			}
+			blinded, err := v2.BlindRPR(vec.RPR)
+			if err != nil {
+				t.Fatalf("BlindRPR: %v", err)
+			}
+			got, _ := v2.CanonicalizeV2(blinded)
+			want, _ := v2.CanonicalizeV2(vec.Blinded)
+			if got != want {
+				t.Errorf("blinded RPR:\n  got:  %s\n  want: %s", got, want)
 			}
 		})
 	}

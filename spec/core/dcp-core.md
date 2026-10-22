@@ -210,7 +210,7 @@ DCP does not assume a central authority. Verification is local and P2P: a verifi
 
 ### 6.3 Privacy
 
-The core supports a blinded mode where PII fields in the principal binding are replaced by a commitment hash (`pii_hash`). Non-PII fields (keys, jurisdiction, liability) are preserved for verification. The full record can be disclosed to authorized parties on demand.
+The core supports a blinded mode where PII fields in the principal binding are replaced by a salted commitment hash (`pii_hash`, see [DCP-AI v2.0 §12.1](../DCP-AI-v2.0.md#121-blinded-rpr)). Non-PII fields (keys, jurisdiction, liability) are preserved for verification. The full record can be disclosed to authorized parties on demand.
 
 ### 6.4 Replay Protection
 

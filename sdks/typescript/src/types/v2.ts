@@ -65,6 +65,8 @@ export interface ResponsiblePrincipalRecordV2 {
   expires_at: string | null;
   contact: string | null;
   binding_keys: KeyEntry[];
+  /** 32 random bytes as hex (generatePiiSalt). Signed with the full RPR, never published. */
+  pii_salt?: string;
 }
 
 export interface BlindedResponsiblePrincipalRecordV2 {

@@ -28,6 +28,7 @@ type ResponsiblePrincipalRecordV2 struct {
 	ExpiresAt      *string    `json:"expires_at"`
 	Contact        *string    `json:"contact,omitempty"`
 	BindingKeys    []KeyEntry `json:"binding_keys"`
+	PIISalt        string     `json:"pii_salt,omitempty"`
 }
 
 // BlindedResponsiblePrincipalRecordV2 represents a PII-protected Responsible Principal Record.

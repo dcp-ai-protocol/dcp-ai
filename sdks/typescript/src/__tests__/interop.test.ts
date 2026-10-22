@@ -20,6 +20,7 @@ import { Ed25519Provider } from '../providers/ed25519.js';
 import { MlDsa65Provider } from '../providers/ml-dsa-65.js';
 import { AlgorithmRegistry } from '../core/crypto-registry.js';
 import { canonicalizeV2 } from '../core/canonicalize.js';
+import { blindRpr, computePiiHash } from '../core/blinded-rpr.js';
 import { DCP_CONTEXTS, domainSeparatedMessage } from '../core/domain-separation.js';
 import {
   compositeSign,
@@ -105,6 +106,17 @@ describe('Payload Hashes (cross-SDK agreement)', () => {
       expect(sha3_256Hex(bytes)).toBe(V.payload_hashes[name].sha3_256);
     });
   }
+});
+
+describe('Blinded RPR pii_hash (cross-SDK agreement)', () => {
+  it('salted and legacy pii_hash and the blinded record match every vector', () => {
+    for (const vec of V.blinded_rpr.vectors) {
+      const { pii_salt: _salt, ...legacy } = vec.rpr;
+      expect(computePiiHash(vec.rpr), vec.name).toBe(vec.pii_hash);
+      expect(computePiiHash(legacy), vec.name).toBe(vec.legacy_pii_hash);
+      expect(canonicalizeV2(blindRpr(vec.rpr)), vec.name).toBe(canonicalizeV2(vec.blinded));
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------

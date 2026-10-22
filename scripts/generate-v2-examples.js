@@ -70,6 +70,7 @@ export async function buildV2Examples() {
     issued_at: validFrom,
     expires_at: validUntil,
     binding_keys: [keyEntry(keys.classical), keyEntry(keys.pq)],
+    pii_salt: crypto.randomBytes(32).toString("hex"),
   };
 
   // --- V2 Passport ---

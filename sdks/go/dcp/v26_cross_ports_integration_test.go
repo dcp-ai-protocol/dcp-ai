@@ -86,6 +86,53 @@ func sampleRPR() map[string]interface{} {
 		"issued_at":         "2026-04-01T00:00:00Z",
 		"expires_at":        "2027-04-01T00:00:00Z",
 		"binding_keys":      []string{},
+		"pii_salt":          strings.Repeat("c", 64),
+	}
+}
+
+func TestGeneratePIISalt(t *testing.T) {
+	salt := v2.GeneratePIISalt()
+	if len(salt) != 64 || strings.Trim(salt, "0123456789abcdef") != "" {
+		t.Fatalf("bad shape: %s", salt)
+	}
+	if v2.GeneratePIISalt() == salt {
+		t.Fatal("two salts are equal")
+	}
+}
+
+func TestBlindRPRRequiresPIISalt(t *testing.T) {
+	for _, salt := range []interface{}{nil, "", "ab", strings.Repeat("A", 64), strings.Repeat("g", 64), strings.Repeat("a", 66), 42} {
+		full := sampleRPR()
+		full["pii_salt"] = salt
+		if _, err := v2.BlindRPR(full); err == nil || !strings.Contains(err.Error(), "GeneratePIISalt()") {
+			t.Fatalf("pii_salt %v: expected an error naming GeneratePIISalt(), got %v", salt, err)
+		}
+	}
+	full := sampleRPR()
+	delete(full, "pii_salt")
+	if _, err := v2.BlindRPR(full); err == nil {
+		t.Fatal("missing pii_salt: expected an error")
+	}
+}
+
+func TestVerifyBlindedRPRWrongSalt(t *testing.T) {
+	full := sampleRPR()
+	b, _ := v2.BlindRPR(full)
+	full["pii_salt"] = strings.Repeat("d", 64)
+	r := v2.VerifyBlindedRPR(full, b)
+	if r.Valid || len(r.Errors) != 1 || !strings.HasPrefix(r.Errors[0], "pii_hash mismatch") {
+		t.Fatalf("expected a pii_hash mismatch, got %v", r.Errors)
+	}
+}
+
+func TestVerifyBlindedRPRLegacyWarns(t *testing.T) {
+	legacy := sampleRPR()
+	delete(legacy, "pii_salt")
+	b, _ := v2.BlindRPR(sampleRPR())
+	b["pii_hash"], _ = v2.ComputePIIHash(legacy)
+	r := v2.VerifyBlindedRPR(legacy, b)
+	if !r.Valid || len(r.Warnings) != 1 || !strings.Contains(r.Warnings[0], "legacy unsalted pii_hash") {
+		t.Fatalf("got valid=%v errors=%v warnings=%v", r.Valid, r.Errors, r.Warnings)
 	}
 }
 
@@ -118,6 +165,9 @@ func TestBlindRPRStripsPII(t *testing.T) {
 	if b["legal_name"] != nil {
 		t.Fatalf("legal_name should be absent")
 	}
+	if _, ok := b["pii_salt"]; ok {
+		t.Fatalf("pii_salt should be absent")
+	}
 	if !v2.IsBlindedRPR(b) {
 		t.Fatalf("IsBlindedRPR false")
 	}
@@ -127,8 +177,8 @@ func TestVerifyBlindedRPRHappy(t *testing.T) {
 	full := sampleRPR()
 	b, _ := v2.BlindRPR(full)
 	r := v2.VerifyBlindedRPR(full, b)
-	if !r.Valid {
-		t.Fatalf("errors: %v", r.Errors)
+	if !r.Valid || len(r.Warnings) != 0 {
+		t.Fatalf("errors: %v, warnings: %v", r.Errors, r.Warnings)
 	}
 }
 

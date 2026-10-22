@@ -270,6 +270,7 @@ message ResponsiblePrincipalRecordV2 {
   string expires_at = 10;
   string contact = 11;
   repeated KeyEntryV2 binding_keys = 12;
+  string pii_salt = 13;
 }
 
 message IntentV2 {

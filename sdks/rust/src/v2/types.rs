@@ -48,6 +48,8 @@ pub struct ResponsiblePrincipalRecordV2 {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub contact: Option<String>,
     pub binding_keys: Vec<KeyEntry>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pii_salt: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

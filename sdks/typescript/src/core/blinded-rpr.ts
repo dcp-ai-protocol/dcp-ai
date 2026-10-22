@@ -5,11 +5,12 @@
  * to transparency logs or anchored on-chain, publishing PII violates GDPR
  * Article 17 and similar regulations.
  *
- * Blinded RPR replaces PII fields with a hash commitment. A regulator can
- * later verify the full RPR matches the blinded version by checking the
- * pii_hash.
+ * Blinded RPR replaces PII fields with a salted hash commitment. The salt
+ * (pii_salt) stays in the full RPR, so a regulator given the full RPR can
+ * verify it matches the blinded version by checking the pii_hash.
  */
 
+import { randomBytes } from 'crypto';
 import type {
   ResponsiblePrincipalRecordV2,
   BlindedResponsiblePrincipalRecordV2,
@@ -17,26 +18,48 @@ import type {
 import { canonicalizeV2 } from './canonicalize.js';
 import { sha256Hex } from './dual-hash.js';
 
+const PII_SALT_PATTERN = /^[0-9a-f]{64}$/;
+const LEGACY_PII_HASH_WARNING =
+  'legacy unsalted pii_hash (deprecated): anyone who guesses legal_name and contact can confirm them';
+
+/**
+ * Generate a pii_salt: 32 random bytes as 64 lowercase hex chars. Set it on
+ * the full RPR before signing it, and never publish it.
+ */
+export function generatePiiSalt(): string {
+  return randomBytes(32).toString('hex');
+}
+
 /**
  * Extract PII fields from a full RPR and compute their hash commitment.
  *
- * pii_hash = sha256(canonical({ legal_name, contact }))
+ * pii_hash = sha256(canonical({ contact, legal_name, pii_salt }))
+ *
+ * Without pii_salt this is the legacy unsalted commitment (deprecated), kept
+ * so existing records can still be opened.
  */
 export function computePiiHash(rpr: ResponsiblePrincipalRecordV2): string {
-  const piiFields = {
+  const piiFields: Record<string, unknown> = {
+    contact: rpr.contact ?? null,
     legal_name: rpr.legal_name,
-    contact: rpr.contact,
   };
+  if (rpr.pii_salt != null) piiFields.pii_salt = rpr.pii_salt;
   const canonical = canonicalizeV2(piiFields);
   const hash = sha256Hex(Buffer.from(canonical, 'utf8'));
   return `sha256:${hash}`;
 }
 
 /**
- * Create a Blinded RPR from a full RPR. Strips PII fields and replaces
- * them with a hash commitment.
+ * Create a Blinded RPR from a full RPR. Strips PII fields and pii_salt and
+ * replaces them with a hash commitment. Throws when the RPR has no valid
+ * pii_salt: an unsalted commitment can be confirmed by guessing the PII.
  */
 export function blindRpr(rpr: ResponsiblePrincipalRecordV2): BlindedResponsiblePrincipalRecordV2 {
+  if (!PII_SALT_PATTERN.test(rpr.pii_salt ?? '')) {
+    throw new Error(
+      'blindRpr requires rpr.pii_salt (32 random bytes as 64 lowercase hex): set it with generatePiiSalt() before signing the RPR',
+    );
+  }
   const piiHash = computePiiHash(rpr);
 
   return {
@@ -61,18 +84,25 @@ export function blindRpr(rpr: ResponsiblePrincipalRecordV2): BlindedResponsibleP
  * Checks that:
  *   1. The pii_hash in the blinded RPR matches the PII in the full RPR
  *   2. All non-PII fields are identical
+ *
+ * A full RPR without pii_salt is checked against the legacy unsalted
+ * commitment and adds a deprecation warning.
  */
 export function verifyBlindedRpr(
   fullRpr: ResponsiblePrincipalRecordV2,
   blindedRpr: BlindedResponsiblePrincipalRecordV2,
-): { valid: boolean; errors: string[] } {
+): { valid: boolean; errors: string[]; warnings: string[] } {
   const errors: string[] = [];
+  const warnings: string[] = [];
 
   const expectedPiiHash = computePiiHash(fullRpr);
   if (blindedRpr.pii_hash !== expectedPiiHash) {
     errors.push(
       `pii_hash mismatch: expected ${expectedPiiHash}, got ${blindedRpr.pii_hash}`,
     );
+  }
+  if (fullRpr.pii_salt == null) {
+    warnings.push(LEGACY_PII_HASH_WARNING);
   }
 
   if (fullRpr.human_id !== blindedRpr.human_id) {
@@ -103,7 +133,7 @@ export function verifyBlindedRpr(
     errors.push('binding_keys mismatch');
   }
 
-  return { valid: errors.length === 0, errors };
+  return { valid: errors.length === 0, errors, warnings };
 }
 
 /**

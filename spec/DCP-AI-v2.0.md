@@ -296,7 +296,21 @@ Private keys SHOULD be stored in hardware security modules. The `CryptoProvider`
 
 ### 12.1 Blinded RPR
 
-PII fields (`legal_name`, `contact`) are replaced by `pii_hash = SHA-256(canonical(PII fields))`. Non-PII fields (keys, jurisdiction, liability) are preserved for verification.
+A blinded RPR (`schemas/v2/blinded_rpr.schema.json`) replaces the PII fields of the full RPR (`legal_name`, `contact`) with a salted commitment, so bundles can be published to transparency logs and anchors without the PII. Non-PII fields (`human_id`, `session_nonce`, `entity_type`, `jurisdiction`, `liability_mode`, `override_rights`, `issued_at`, `expires_at`, `binding_keys`) are copied unchanged and checked against the full RPR on disclosure.
+
+```
+pii_salt = hex(random(32))
+pii_hash = "sha256:" || hex(SHA-256(UTF8(canonical({ contact, legal_name, pii_salt }))))
+```
+
+A missing `contact` is hashed as `null`.
+
+- **Salt.** `pii_salt` is a field of the full RPR: 32 bytes from a CSPRNG as lowercase hex, fresh for each RPR. It is covered by the full RPR's signature and MUST NOT be published; it never appears in the blinded RPR. Reusing a salt gives records with the same PII the same `pii_hash`, which links them. 32 bytes keep a guess-and-confirm search at 2^128 work even with Grover's algorithm.
+- **Blinding fails closed.** Implementations MUST refuse to blind an RPR that has no valid `pii_salt`. The salt is signed with the full RPR, so it has to be set when the RPR is created: an RPR that may be blinded later SHOULD carry a `pii_salt` from the start.
+- **Disclosure.** The salt is disclosed only together with the full RPR, for example to a regulator, who recomputes `pii_hash` from the full RPR and compares the non-PII fields.
+- **Erasure.** Deleting the full RPR, and with it the salt, makes the published commitment unopenable: nobody can confirm a guessed name and contact against it. This provides erasure (GDPR Art. 17) for records on immutable logs and anchors, which cannot be rewritten. Every copy of the full RPR, including disclosed ones, has to be deleted.
+- **`human_id`.** The blinded RPR publishes `human_id`, so `human_id` MUST be opaque and MUST NOT contain or be derived from PII, such as an email address, a name, or a hash of either.
+- **Legacy commitments.** A `pii_hash` computed from a full RPR without `pii_salt` (the formula above without the `pii_salt` member) is deprecated. Implementations MUST NOT blind new records that way. Verifiers MAY still check a legacy commitment against a disclosed full RPR and SHOULD flag it as deprecated: anyone who guesses the PII can confirm it, and on an immutable log that stays true forever.
 
 ---
 
