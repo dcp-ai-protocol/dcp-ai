@@ -113,7 +113,7 @@ Inicializa o módulo WASM. Deve ser chamado uma vez antes de usar qualquer API. 
 
 | Método | Retorna | Descrição |
 |--------|---------|-----------|
-| `canonicalize(value)` | `string` | Canonicalização JCS (RFC 8785) |
+| `canonicalize(value)` | `string` | Canonicalização `dcp-jcs-v1` (baseada na RFC 8785 JCS) |
 | `domainSeparatedMessage(context, payloadHex)` | `string` | Mensagem com separação de domínio (hex) |
 | `deriveKid(alg, publicKeyB64)` | `string` | ID de chave determinístico a partir de algoritmo + chave pública |
 
@@ -212,7 +212,7 @@ O SDK calcula níveis de segurança adaptativos com base nos perfis de risco da 
 | Assinatura PQ (stateless) | SLH-DSA-192f | FIPS 205 |
 | Encapsulamento de chave PQ | ML-KEM-768 | FIPS 203 |
 | Hashing | SHA-256 + SHA3-256 | FIPS 180-4, FIPS 202 |
-| Canonicalização | JCS | RFC 8785 |
+| Canonicalização | `dcp-jcs-v1` | Baseado na RFC 8785 (JCS) |
 
 ## Desenvolvimento
 

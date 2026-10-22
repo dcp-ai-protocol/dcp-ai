@@ -10,10 +10,14 @@ appeared in `spec/DCP-AI-v2.0.md` § 15. Every signature, every hash,
 every Merkle leaf in a DCP artifact is taken over the output of the
 algorithm specified here.
 
-The profile is a **strict subset of RFC 8785 (JCS)** with explicit
-treatment of the cases JCS leaves implementation-defined. SDKs that
-claim profile compliance MUST produce byte-identical output for the
-edge-case table in §3.
+The profile is **based on RFC 8785 (JCS)**. It restricts numbers to
+integers (Rule 4) and gives explicit treatment to the cases JCS leaves
+implementation-defined. It is not a strict subset of JCS: Rule 1 orders
+object keys by Unicode code point, while RFC 8785 §3.2.3 orders them by
+UTF-16 code units. The two orders differ only when an object's keys mix
+supplementary-plane characters (U+10000 and above) with characters in
+U+E000..U+FFFF. SDKs that claim profile compliance MUST produce
+byte-identical output for the edge-case table in §3.
 
 ---
 

@@ -113,7 +113,7 @@ WASMモジュールを初期化します。APIを使用する前に1回呼び出
 
 | メソッド | 戻り値 | 説明 |
 |--------|---------|-------------|
-| `canonicalize(value)` | `string` | RFC 8785 JCSの正規化 |
+| `canonicalize(value)` | `string` | `dcp-jcs-v1` による正規化（RFC 8785 JCS ベース） |
 | `domainSeparatedMessage(context, payloadHex)` | `string` | ドメイン分離されたメッセージ (hex) |
 | `deriveKid(alg, publicKeyB64)` | `string` | アルゴリズム + 公開鍵からの決定論的鍵ID |
 
@@ -212,7 +212,7 @@ SDKは意図のリスクプロファイルに基づいて適応型セキュリ�
 | 耐量子署名 (ステートレス) | SLH-DSA-192f | FIPS 205 |
 | 耐量子鍵カプセル化 | ML-KEM-768 | FIPS 203 |
 | ハッシュ | SHA-256 + SHA3-256 | FIPS 180-4, FIPS 202 |
-| 正規化 | JCS | RFC 8785 |
+| 正規化 | `dcp-jcs-v1` | RFC 8785 (JCS) ベース |
 
 ## 開発
 

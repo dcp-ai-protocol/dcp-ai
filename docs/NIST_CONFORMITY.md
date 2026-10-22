@@ -273,7 +273,7 @@ Use this checklist to verify that your DCP-AI implementation conforms to NIST PQ
 - [ ] HSM/TPM provider interface is available for production deployments
 - [ ] Algorithm advisory system is implemented for crypto-agility
 - [ ] Integer-only numeric fields (no floating-point) in all signed payloads
-- [ ] RFC 8785 (JCS) canonicalization for all JSON signing
+- [ ] `dcp-jcs-v1` canonicalization (based on RFC 8785 JCS) for all JSON signing
 
 ---
 

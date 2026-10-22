@@ -113,7 +113,7 @@ console.log(result.pq_valid);       // true
 
 | 方法 | 返回值 | 描述 |
 |--------|---------|-------------|
-| `canonicalize(value)` | `string` | RFC 8785 JCS 规范化 |
+| `canonicalize(value)` | `string` | `dcp-jcs-v1` 规范化（基于 RFC 8785 JCS） |
 | `domainSeparatedMessage(context, payloadHex)` | `string` | 域分离消息（十六进制） |
 | `deriveKid(alg, publicKeyB64)` | `string` | 从算法 + 公钥派生的确定性密钥 ID |
 
@@ -212,7 +212,7 @@ SDK 根据意图风险特征计算自适应安全等级：
 | 后量子签名（无状态） | SLH-DSA-192f | FIPS 205 |
 | 后量子密钥封装 | ML-KEM-768 | FIPS 203 |
 | 哈希 | SHA-256 + SHA3-256 | FIPS 180-4、FIPS 202 |
-| 规范化 | JCS | RFC 8785 |
+| 规范化 | `dcp-jcs-v1` | 基于 RFC 8785（JCS） |
 
 ## 开发
 

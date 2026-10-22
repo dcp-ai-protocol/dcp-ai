@@ -24,7 +24,7 @@ The Digital Citizenship Protocol for AI (DCP-AI) v2.0 defines a post-quantum-res
 
 - `||` denotes byte concatenation
 - `UTF8(s)` denotes UTF-8 encoding of string `s`
-- `canonical(obj)` denotes RFC 8785 JCS canonicalization
+- `canonical(obj)` denotes canonicalization under profile `dcp-jcs-v1` (§15), based on RFC 8785 JCS
 - `SHA-256(m)` denotes the SHA-256 hash of message `m`
 - `hex(b)[0:n]` denotes the first `n` hex characters of byte sequence `b`
 
@@ -381,11 +381,14 @@ Tiers influence suggested presentation mode for bandwidth optimization:
 
 ## 15. Canonicalization
 
-DCP-AI v2.0 uses canonicalization profile **`dcp-jcs-v1`**, a strict
-subset of RFC 8785 (JCS). The profile pins the cases JCS leaves
+DCP-AI v2.0 uses canonicalization profile **`dcp-jcs-v1`**, based on
+RFC 8785 (JCS). The profile pins the cases JCS leaves
 implementation-defined (undefined handling, floats with integer value,
 scientific notation, null preservation, empty containers) so the four
-SDKs produce byte-identical output.
+SDKs produce byte-identical output. It is not a strict subset of JCS:
+keys are ordered by Unicode code point (item 1), while RFC 8785 orders
+them by UTF-16 code units. The two orders differ only for keys that mix
+supplementary-plane characters with characters in U+E000..U+FFFF.
 
 Summary:
 1. Keys sorted lexicographically by Unicode code point
