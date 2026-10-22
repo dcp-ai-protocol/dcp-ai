@@ -580,7 +580,8 @@ pub mod wasm {
 
     // ── Bundle Building & Signing ─────────────────────────────────────────
 
-    /// Build a complete V2 CitizenshipBundle with manifest.
+    /// Build a V2 CitizenshipBundle with manifest from signed artifacts: each
+    /// artifact is a SignedPayload from `wasm_sign_payload`.
     #[wasm_bindgen]
     pub fn wasm_build_bundle(
         rpr_json: &str,
@@ -590,36 +591,25 @@ pub mod wasm {
         audit_entries_json: &str,
         session_nonce: &str,
     ) -> String {
-        let rpr: Value = match serde_json::from_str(rpr_json) {
-            Ok(v) => v, Err(e) => return json_err(&format!("RPR parse: {}", e)),
-        };
-        let passport: Value = match serde_json::from_str(passport_json) {
-            Ok(v) => v, Err(e) => return json_err(&format!("Passport parse: {}", e)),
-        };
-        let intent: Value = match serde_json::from_str(intent_json) {
-            Ok(v) => v, Err(e) => return json_err(&format!("Intent parse: {}", e)),
-        };
-        let policy: Value = match serde_json::from_str(policy_json) {
-            Ok(v) => v, Err(e) => return json_err(&format!("Policy parse: {}", e)),
-        };
+        let mut signed = Vec::with_capacity(4);
+        for (name, artifact_json) in [
+            ("RPR", rpr_json), ("Passport", passport_json), ("Intent", intent_json), ("Policy", policy_json),
+        ] {
+            let sp: Value = match serde_json::from_str(artifact_json) {
+                Ok(v) => v, Err(e) => return json_err(&format!("{} parse: {}", name, e)),
+            };
+            let (Some(payload), Some(sig)) = (sp.get("payload"), sp.get("composite_sig")) else {
+                return json_err(&format!("{} must be a SignedPayload from wasm_sign_payload", name));
+            };
+            let canonical = match canonicalize_v2(payload) {
+                Ok(c) => c, Err(e) => return json_err(&format!("{}: {}", name, e)),
+            };
+            let hash = format!("sha256:{}", dual_hash::dual_hash_canonical(&canonical).sha256);
+            signed.push(json!({ "payload": payload, "payload_hash": hash, "composite_sig": sig }));
+        }
         let audit_entries: Vec<Value> = match serde_json::from_str(audit_entries_json) {
             Ok(v) => v, Err(e) => return json_err(&format!("Audit entries parse: {}", e)),
         };
-
-        let hash_val = |v: &Value| -> String {
-            match canonicalize_v2(v) {
-                Ok(c) => {
-                    let dh = dual_hash::dual_hash_canonical(&c);
-                    format!("sha256:{}", dh.sha256)
-                },
-                Err(_) => "sha256:error".to_string(),
-            }
-        };
-
-        let rpr_hash = hash_val(&rpr);
-        let passport_hash = hash_val(&passport);
-        let intent_hash = hash_val(&intent);
-        let policy_hash = hash_val(&policy);
 
         // Compute dual Merkle root over audit entries
         let audit_hashes: Vec<dual_hash::DualHash> = audit_entries.iter()
@@ -640,10 +630,10 @@ pub mod wasm {
 
         let manifest = json!({
             "session_nonce": session_nonce,
-            "rpr_hash": rpr_hash,
-            "passport_hash": passport_hash,
-            "intent_hash": intent_hash,
-            "policy_hash": policy_hash,
+            "rpr_hash": signed[0]["payload_hash"],
+            "passport_hash": signed[1]["payload_hash"],
+            "intent_hash": signed[2]["payload_hash"],
+            "policy_hash": signed[3]["payload_hash"],
             "audit_merkle_root": audit_merkle_sha256,
             "audit_merkle_root_secondary": audit_merkle_sha3,
             "audit_count": audit_entries.len(),
@@ -653,10 +643,10 @@ pub mod wasm {
         let bundle = json!({
             "dcp_bundle_version": "2.0",
             "manifest": manifest,
-            "responsible_principal_record": { "payload": rpr, "payload_hash": rpr_hash },
-            "agent_passport": { "payload": passport, "payload_hash": passport_hash },
-            "intent": { "payload": intent, "payload_hash": intent_hash },
-            "policy_decision": { "payload": policy, "payload_hash": policy_hash },
+            "responsible_principal_record": signed[0],
+            "agent_passport": signed[1],
+            "intent": signed[2],
+            "policy_decision": signed[3],
             "audit_entries": audit_entries
         });
 

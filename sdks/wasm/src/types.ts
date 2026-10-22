@@ -97,10 +97,10 @@ export interface BundleManifest {
 export interface CitizenshipBundleV2 {
   dcp_bundle_version: string;
   manifest: BundleManifest;
-  responsible_principal_record: { payload: unknown; payload_hash: string };
-  agent_passport: { payload: unknown; payload_hash: string };
-  intent: { payload: unknown; payload_hash: string };
-  policy_decision: { payload: unknown; payload_hash: string };
+  responsible_principal_record: SignedPayload;
+  agent_passport: SignedPayload;
+  intent: SignedPayload;
+  policy_decision: SignedPayload;
   audit_entries: unknown[];
 }
 
@@ -115,11 +115,12 @@ export interface SignedBundleV2 {
   };
 }
 
+/** Each artifact is a SignedPayload from `signPayload`. */
 export interface BuildBundleOptions {
-  rpr: unknown;
-  passport: unknown;
-  intent: unknown;
-  policy: unknown;
+  rpr: SignedPayload;
+  passport: SignedPayload;
+  intent: SignedPayload;
+  policy: SignedPayload;
   auditEntries: unknown[];
   sessionNonce?: string;
 }

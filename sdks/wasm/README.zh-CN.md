@@ -34,23 +34,37 @@ import { initDcp } from '@dcp-ai/wasm';
 
 const dcp = await initDcp();
 
-// Generate hybrid Ed25519 + ML-DSA-65 keypair
+// Generate hybrid Ed25519 + ML-DSA-65 keypair (here it signs for both the principal and the agent)
 const keys = dcp.generateHybridKeypair();
+const keyEntries = [keys.classical, keys.pq].map((k) => ({
+  kid: k.kid, alg: k.alg, public_key_b64: k.public_key_b64,
+  created_at: new Date().toISOString(), expires_at: null, status: 'active',
+}));
+const sessionNonce = dcp.generateSessionNonce();
 
-// Build a V2 bundle
+// Sign each artifact under its own context
+const sign = (context: string, payload: object) =>
+  dcp.signPayload(
+    context, { ...payload, session_nonce: sessionNonce },
+    keys.classical.secret_key_b64, keys.classical.kid!,
+    keys.pq.secret_key_b64, keys.pq.kid!,
+  );
+
+// Build a V2 bundle from the signed artifacts
 const bundle = dcp.buildBundle({
-  rpr: { dcp_version: '2.0', human_id: 'alice', /* ... */ },
-  passport: { dcp_version: '2.0', agent_id: 'agent-001', keys: [/* ... */] },
-  intent: { action: 'read', risk_score: 100 },
-  policy: { decision: 'allow', reason: 'low risk' },
+  rpr: sign('DCP-AI.v2.ResponsiblePrincipal', { dcp_version: '2.0', human_id: 'alice', binding_keys: keyEntries /* ... */ }),
+  passport: sign('DCP-AI.v2.AgentPassport', { dcp_version: '2.0', agent_id: 'agent-001', keys: keyEntries /* ... */ }),
+  intent: sign('DCP-AI.v2.Intent', { dcp_version: '2.0', intent_id: 'intent-001' /* ... */ }),
+  policy: sign('DCP-AI.v2.PolicyDecision', { dcp_version: '2.0', intent_id: 'intent-001', decision: 'approve' /* ... */ }),
   auditEntries: [],
+  sessionNonce,
 });
 
 // Sign the bundle with composite signature
 const signed = dcp.signBundle(
   bundle,
-  keys.classical.secret_key_b64, keys.classical.kid,
-  keys.pq.secret_key_b64, keys.pq.kid,
+  keys.classical.secret_key_b64, keys.classical.kid!,
+  keys.pq.secret_key_b64, keys.pq.kid!,
 );
 
 // Verify the signed bundle
@@ -135,7 +149,7 @@ console.log(result.pq_valid);       // true
 
 | 方法 | 返回值 | 描述 |
 |--------|---------|-------------|
-| `buildBundle(opts)` | `CitizenshipBundleV2` | 构建完整的 V2 凭证包，含清单与哈希交叉引用 |
+| `buildBundle(opts)` | `CitizenshipBundleV2` | 由 `signPayload` 签名的工件构建带清单的 V2 凭证包 |
 | `signBundle(bundle, classicalSk, classicalKid, pqSk, pqKid)` | `SignedBundleV2` | 使用复合签名签名凭证包 |
 
 ### 持有证明
