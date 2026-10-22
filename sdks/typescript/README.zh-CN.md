@@ -120,7 +120,7 @@ const bundle = new BundleBuilderV2()
 | `signBundleV2(bundle, options)` | V2 | 使用复合签名签名 V2 凭证包 |
 | `signBundleV2ClassicalOnly(bundle, options)` | V2 | 以仅经典签名方式签名 V2 凭证包 |
 | `verifySignedBundle(signedBundle, publicKeyB64)` | V1 | 验证 V1 已签名凭证包 |
-| `verifySignedBundleV2(signedBundle, registry, policy?)` | V2 | 验证 V2 已签名凭证包（复合或经典） |
+| `verifySignedBundleV2(signedBundle, registry, policy?)` | V2 | 验证 V2 已签名凭证包（复合或经典），采用策略模式与安全等级模式中更严格的一个，并返回 `resolved_tier` |
 
 ### 凭证包优化 (V2)
 
@@ -259,7 +259,7 @@ SDK 导出的关键类型：
 - `CompositeSignature` — 包含经典 + 后量子签名组件
 - `KeyEntry` — 带算法、kid 和密钥材料的公钥条目
 - `SecurityTier` — `'routine' | 'standard' | 'elevated' | 'maximum'`
-- `VerifierPolicy` — 指定每个等级所需验证模式的策略
+- `VerifierPolicy` — 验证者策略：默认模式和按 `risk_tier` 的覆盖；安全等级只能使模式更严格
 - `PQCheckpoint` — 针对审计条目的后量子检查点
 - `A2ASession` — 加密的智能体间 (A2A) 会话状态
 - `A2AMessage` — 加密的 A2A 消息信封

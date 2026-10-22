@@ -737,10 +737,13 @@ interface VerifyV2Result {
     hash_chain_valid?: boolean;
     pq_checkpoints_valid?: boolean;
     verification_mode?: VerificationMode;
+    resolved_tier?: SecurityTier;
     advisory_rejected_algs?: string[];
   };
 }
 ```
+
+`verification_mode` is the mode the bundle was checked against and `resolved_tier` the security tier computed from its intent and policy decision.
 
 **Verification pipeline:**
 
@@ -748,7 +751,7 @@ interface VerifyV2Result {
 2. Payload hash verification for all signed artifacts
 3. Session nonce consistency across all artifacts
 4. Manifest integrity (recompute all artifact hashes + audit Merkle root)
-5. Verifier policy mode resolution (based on risk tier)
+5. Verification mode: the stricter of the policy mode (`default_mode`, or the `risk_overrides` entry for the passport's `risk_tier`) and the security tier's mode (spec §14.3); a `pq_only` policy stays `pq_only`
 6. Algorithm validation against policy
 7. Composite signature verification over the manifest and over each artifact's `SignedPayload` (the RPR against its `binding_keys`, the passport, intent and policy decision against the passport `keys`)
 8. Policy mode enforcement (hybrid_required, hybrid_preferred, classical_only, pq_only); a PQ signature that is present must verify in every mode, and only an absent one is tolerated, by hybrid_preferred and classical_only
@@ -882,6 +885,18 @@ function maxTier(a: SecurityTier, b: SecurityTier): SecurityTier;
 
 maxTier('routine', 'elevated'); // 'elevated'
 maxTier('maximum', 'standard'); // 'maximum'
+```
+
+### `effectiveVerificationMode(policyMode, tier)`
+
+The mode a verifier enforces (spec §14.3): the stricter of its policy mode and the tier's mode, with `classical_only` < `hybrid_preferred` < `hybrid_required`. The tier only adds a PQ requirement, so a `pq_only` policy stays `pq_only`; an unknown policy mode counts as `'hybrid_required'`. `verifySignedBundleV2` applies it to every bundle.
+
+```typescript
+function effectiveVerificationMode(policyMode: VerificationMode, tier: SecurityTier): VerificationMode;
+
+effectiveVerificationMode('classical_only', 'elevated'); // 'hybrid_required'
+effectiveVerificationMode('hybrid_required', 'routine'); // 'hybrid_required'
+effectiveVerificationMode('pq_only', 'maximum'); // 'pq_only'
 ```
 
 ---

@@ -120,7 +120,7 @@ const bundle = new BundleBuilderV2()
 | `signBundleV2(bundle, options)` | V2 | Signs a V2 bundle with composite signatures |
 | `signBundleV2ClassicalOnly(bundle, options)` | V2 | Signs a V2 bundle with classical-only signatures |
 | `verifySignedBundle(signedBundle, publicKeyB64)` | V1 | Verifies a V1 signed bundle |
-| `verifySignedBundleV2(signedBundle, registry, policy?)` | V2 | Verifies a V2 signed bundle (composite or classical) |
+| `verifySignedBundleV2(signedBundle, registry, policy?)` | V2 | Verifies a V2 signed bundle (composite or classical) against the stricter of the policy mode and the security tier's mode; reports `resolved_tier` |
 
 ### Bundle Optimization (V2)
 
@@ -259,7 +259,7 @@ Key types exported by the SDK:
 - `CompositeSignature` — Contains classical + PQ signature components
 - `KeyEntry` — Public key entry with algorithm, kid, and key material
 - `SecurityTier` — `'routine' | 'standard' | 'elevated' | 'maximum'`
-- `VerifierPolicy` — Policy specifying required verification mode per tier
+- `VerifierPolicy` — Verifier policy: default mode and per-`risk_tier` overrides; the security tier can only make the mode stricter
 - `PQCheckpoint` — Post-quantum checkpoint over audit entries
 - `A2ASession` — Encrypted agent-to-agent session state
 - `A2AMessage` — Encrypted A2A message envelope
