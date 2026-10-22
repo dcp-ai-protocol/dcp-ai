@@ -161,7 +161,8 @@ curl http://localhost:3002/entries
 A peer's tree heads only count when they verify under its **pinned** public key: give it as
 `<endpoint>#<base64 Ed25519 public key>` in `GOSSIP_PEERS`, or `public_key` in
 `POST /gossip/peers`. Polled tree heads from a peer without a pinned key, malformed ones or ones
-with a bad signature are ignored. `/gossip/exchange` is open, so it only accepts a well-formed
+with a bad signature are ignored. A poll reads at most 16 KB, gives up after one interval
+(10 s at most), and never starts while the previous one is still running. `/gossip/exchange` is open, so it only accepts a well-formed
 STH (64-hex or null `root`, integer `size`) signed by a pinned peer, in a body of at most 16 KB
 (otherwise 400 or 403). Alerts are deduplicated by peer, tree size and root, so replaying a
 signed tree head adds nothing, and only the last 100 are kept.
@@ -176,7 +177,7 @@ signed tree head adds nothing, and only the last 100 are kept.
 | `LOG_ID` | random | Identifier of this log instance |
 | `OPERATOR_KEY` | — | Ed25519 seed of the STH signing key: 64 hex chars (`openssl rand -hex 32`). Any other value stops the service; unset means an ephemeral key |
 | `OPERATOR_TOKEN` | — | Bearer token for `POST /gossip/peers`. Unset: locked |
-| `GOSSIP_PEERS` | — | Comma-separated peers, each `<endpoint>#<base64 Ed25519 public key>` (the peer's `/health` `public_key`), polled every `GOSSIP_INTERVAL_MS` |
+| `GOSSIP_PEERS` | — | Comma-separated peers, each `<endpoint>#<base64 Ed25519 public key>` (the peer's `/health` `public_key`, fixed by its `OPERATOR_KEY`), polled every `GOSSIP_INTERVAL_MS` |
 | `GOSSIP_INTERVAL_MS` | `30000` | Gossip polling interval |
 
 ## CT-style Format

@@ -13,6 +13,26 @@
 import crypto from "crypto";
 import { signObject, verifyObject } from "../../tools/crypto.js";
 
+const MAX_PEER_STH_BYTES = 16_384; // a tree head is a few hundred bytes
+
+// Reads at most `max` bytes of a peer's response, so a peer cannot make us buffer more.
+async function readJsonLimited(resp, max) {
+  const reader = resp.body.getReader();
+  const chunks = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.length;
+    if (size > max) {
+      await reader.cancel();
+      throw new Error(`response over ${max} bytes`);
+    }
+    chunks.push(value);
+  }
+  return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+}
+
 // Tree heads come from other logs, so only well-formed ones are compared or kept.
 export function isWellFormedSTH(sth) {
   return typeof sth === "object" && sth !== null &&
@@ -31,6 +51,7 @@ export class GossipManager {
     this.getLocalSTH = getLocalSTH;
     this.onInconsistency = onInconsistency || this._defaultInconsistencyHandler;
     this._pollInterval = null;
+    this._pollTimeoutMs = 10_000;
   }
 
   /**
@@ -101,13 +122,13 @@ export class GossipManager {
     if (!peer) return;
 
     try {
-      const resp = await fetch(`${peer.endpoint}/root/signed`);
+      const resp = await fetch(`${peer.endpoint}/root/signed`, { signal: AbortSignal.timeout(this._pollTimeoutMs) });
       if (!resp.ok) {
         console.error(`[gossip] Failed to fetch STH from ${peerId}: HTTP ${resp.status}`);
         return;
       }
 
-      const peerSTH = await resp.json();
+      const peerSTH = await readJsonLimited(resp, MAX_PEER_STH_BYTES);
       if (!peer.publicKey || !isWellFormedSTH(peerSTH) || !this.verifySignedTreeHead(peerSTH, peer.publicKey).valid) {
         console.error(`[gossip] Ignoring tree head from ${peerId}: no pinned key, malformed or bad signature`);
         return;
@@ -154,7 +175,14 @@ export class GossipManager {
    */
   startPolling(intervalMs = 30_000) {
     if (this._pollInterval) return;
-    this._pollInterval = setInterval(() => this.pollAllPeers(), intervalMs);
+    // A poll gives up after one interval (10 s at most), and a slow peer cannot stack them.
+    this._pollTimeoutMs = Math.min(intervalMs, 10_000);
+    let polling = false;
+    this._pollInterval = setInterval(async () => {
+      if (polling) return;
+      polling = true;
+      try { await this.pollAllPeers(); } finally { polling = false; }
+    }, intervalMs);
     console.log(`[gossip] Started polling ${this.peers.size} peers every ${intervalMs}ms`);
   }
 
