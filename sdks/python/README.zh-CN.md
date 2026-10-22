@@ -235,7 +235,7 @@ result = await verify_signed_bundle_v2(signed, registry)  # DEFAULT_VERIFIER_POL
 # {"verified": bool, "errors": [...], "warnings": [...], "details": {...}}
 ```
 
-验证器还会检查每个工件自身的复合签名（RPR 使用主体的 `binding_keys`，其余使用护照密钥），并且在任何策略模式下都会拒绝存在但无效的 PQ 签名。
+验证器还会检查每个工件自身的复合签名（RPR 使用主体的 `binding_keys`，其余使用护照密钥），并且在任何策略模式下都会拒绝存在但无效的 PQ 签名。模式取策略模式与安全等级模式中更严格的一个（spec §14.3），`details["resolved_tier"]` 返回该等级。
 
 ### Pydantic 模型
 

@@ -151,7 +151,8 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 | `v2.SignPayload(reg, context, payload, classicalKey, pqKey)` | 将工件签名为 `SignedPayload`（复合签名；`pqKey` 为 nil 时仅经典签名） |
 | `v2.BuildBundleV2(input)` | 由已签名的工件构建 V2 凭证包，含清单哈希和双 Merkle 根 |
 | `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | 使用复合或仅经典签名签名凭证包 |
-| `v2.VerifySignedBundleV2(reg, jsonBytes)` | 完整的 V2 凭证包验证（结构、哈希、签名、审计链） |
+| `v2.VerifySignedBundleV2(reg, jsonBytes)` | 完整的 V2 凭证包验证（结构、哈希、签名、审计链），使用 `DefaultVerifierPolicy`，按策略模式与安全等级模式中更严格的一个验证（spec §14.3）；返回 `ResolvedTier` 和 `VerificationMode` |
+| `v2.VerifySignedBundleV2WithPolicy(reg, jsonBytes, policy)` | 相同，但使用自定义 `VerifierPolicy`；只有 `DefaultMode` 和 `RiskOverrides` 可以与 `DefaultVerifierPolicy()` 不同，其他任何改动都会使验证失败 |
 
 ### 安全等级
 
@@ -159,6 +160,7 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 |----------|-------------|
 | `v2.ComputeSecurityTier(input)` | 计算自适应安全等级（routine/standard/elevated/maximum）及其验证模式和检查点间隔（spec §14.2）；未知值按 `elevated` 处理 |
 | `v2.SecurityTierInputFromPayloads(intent, policyDecision)` | 根据解码后的 intent 和 PolicyDecision 载荷构建等级输入（`risk_score` 取自 PolicyDecision；缺失或不是 0 到 1000 之间的整数时为 `RiskScore: -1`，即未知） |
+| `v2.EffectiveVerificationMode(policyMode, tier)` | 策略模式与等级模式中更严格的一个；`pq_only` 不变 |
 
 ### 复合签名
 

@@ -35,7 +35,7 @@ dcp-ai = { version = "2.9", features = ["wasm"] }
 | Composite signatures (`pq_over_classical`) + verification | Yes |
 | Canonical JSON v2 + domain separation | Yes |
 | Dual hash (SHA-256 + SHA3-256) + Merkle roots | Yes |
-| Bundle verification (V1 + V2) | Yes |
+| Bundle verification (V1 + V2; V2 under a verifier policy and the security tier, `verify_signed_bundle_v2_with_policy`) | Yes |
 | DCP-05 agent lifecycle (commissioning / vitality / decommissioning) | Yes |
 | DCP-06 digital succession (testament, memory transfer, ceremony) | Yes |
 | DCP-07 dispute resolution + arbitration + jurisprudence | Yes |
@@ -165,6 +165,7 @@ When the `wasm` feature is enabled, the crate exposes WebAssembly bindings:
 ```rust
 // Available via wasm-bindgen
 fn wasm_verify_signed_bundle(json: &str, pub_key: Option<String>) -> String;
+fn wasm_verify_signed_bundle_v2(json: &str, policy_json: Option<String>) -> String; // default policy when None; V1 bundles are rejected under a policy
 fn wasm_hash_object(json: &str) -> String;
 fn wasm_generate_keypair() -> String;
 ```

@@ -235,7 +235,7 @@ result = await verify_signed_bundle_v2(signed, registry)  # DEFAULT_VERIFIER_POL
 # {"verified": bool, "errors": [...], "warnings": [...], "details": {...}}
 ```
 
-検証器は各成果物自体の複合署名も検証し（RPR はプリンシパルの `binding_keys`、それ以外はパスポートの鍵で検証）、存在するのに無効な PQ 署名はどのポリシーモードでも拒否します。
+検証器は各成果物自体の複合署名も検証し（RPR はプリンシパルの `binding_keys`、それ以外はパスポートの鍵で検証）、存在するのに無効な PQ 署名はどのポリシーモードでも拒否します。モードはポリシーのモードとセキュリティティアのモードのうち厳しい方で（spec §14.3）、`details["resolved_tier"]` がティアを返します。
 
 ### Pydanticモデル
 

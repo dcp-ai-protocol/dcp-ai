@@ -182,6 +182,8 @@ Verification modes:
 - `hybrid_required` — Both Ed25519 and ML-DSA-65 composite signature required
 - `pq_only` — Only post-quantum signature required (future)
 
+In every mode, a PQ signature (ML-DSA-65 or SLH-DSA-192f) that is present must verify; an invalid one is rejected.
+
 ### POST /verify (V2)
 
 V2 bundles include `composite_sig` with both classical and post-quantum components:
@@ -245,7 +247,7 @@ The verification service respects and enforces security tiers:
 | Elevated | `hybrid_required` | Every event | ~10-15 KB |
 | Maximum | `hybrid_required` + verify checkpoint | Every event | ~15-25 KB |
 
-The verifier can **upgrade** a tier (e.g., force `elevated` for financial operations) but MUST NOT **downgrade** it.
+The verifier can **upgrade** a tier (e.g., force `elevated` for financial operations) but MUST NOT **downgrade** it. SDK verifiers check each bundle against the stricter of the policy mode (the `risk_overrides` entry for the passport's `risk_tier`, or `default_mode`) and the tier's mode (spec §14.3), so a passport that declares `risk_tier: "low"` still needs a hybrid signature for a payment intent. The reference server gets this behaviour from `@dcp-ai/sdk` once its dependency is bumped.
 
 ### Capabilities Endpoint (V2)
 

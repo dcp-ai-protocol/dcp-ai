@@ -235,7 +235,7 @@ result = await verify_signed_bundle_v2(signed, registry)  # DEFAULT_VERIFIER_POL
 # {"verified": bool, "errors": [...], "warnings": [...], "details": {...}}
 ```
 
-The verifier also checks each artifact's own composite signature (the RPR against the principal's `binding_keys`, the rest against the passport keys) and, in every policy mode, rejects a PQ signature that is present but invalid.
+The verifier also checks each artifact's own composite signature (the RPR against the principal's `binding_keys`, the rest against the passport keys) and, in every policy mode, rejects a PQ signature that is present but invalid. The mode is the stricter of the policy mode and the security tier's mode (spec §14.3), and `details["resolved_tier"]` reports the tier.
 
 ### Pydantic Models
 

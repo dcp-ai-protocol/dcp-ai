@@ -170,7 +170,7 @@ interface SigCheck {
 }
 
 /**
- * Steps V2-6, V2-7 and V2-9 for one composite signature over `payload`,
+ * Steps V2-6, V2-7 and V2-10 for one composite signature over `payload`,
  * with signer keys looked up by kid in `keys`. A PQ signature that is present
  * (pq_over_classical) must verify in every mode; only an absent one
  * (classical_only) may be tolerated, and only by hybrid_preferred and
@@ -484,7 +484,7 @@ export async function verifySignedBundleV2(
     warnings.push('DEPRECATION: classical_only mode is deprecated in Phase 3');
   }
 
-  // ── 6. Bundle composite signature over the manifest (V2-6, V2-7, V2-9) ──
+  // ── 6. Bundle composite signature over the manifest (V2-6, V2-7, V2-10) ──
 
   const allKeys = passport.keys;
   const rprPayload = bundle.responsible_principal_record.payload as { binding_keys?: KeyEntry[] };

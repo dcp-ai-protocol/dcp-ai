@@ -82,23 +82,27 @@ If `composite_sig.binding` is `pq_over_classical`:
 
 A PQ signature that is present MUST verify in every mode, including `hybrid_preferred` and `classical_only`; an invalid one fails verification.
 
-If binding is `classical_only`, the PQ signature is absent. This MAY be acceptable depending on verifier policy (e.g., `hybrid_preferred` allows it; `hybrid_required` rejects it).
+If binding is `classical_only`, the PQ signature is absent. This MAY be acceptable depending on the effective mode (Step V2-9): `hybrid_preferred` accepts it with a warning, `hybrid_required` and `pq_only` reject it.
 
 ### Step V2-8: Verify per-artifact composite signatures
 
 Each artifact (`responsible_principal_record`, `agent_passport`, `intent`, `policy_decision`) is wrapped in a `SignedPayload` envelope with its own `composite_sig`. Verify each artifact's composite signature using the same process as Steps V2-6 and V2-7, with the appropriate context tag for each artifact type.
 
-### Step V2-9: Enforce verifier policy
+### Step V2-9: Compute the security tier and the effective mode
 
-Based on the verifier's policy configuration:
-- If `default_mode` is `hybrid_required`, reject bundles with `classical_only` binding.
-- If `default_mode` is `pq_only`, reject bundles without a PQ signature.
+Compute the security tier from `intent.payload` and `policy_decision.payload` as in [DCP-AI-v2.0.md § 14.2](DCP-AI-v2.0.md): `risk_score` comes from the policy decision, never from the intent; a missing, mistyped or unknown `action_type`, `estimated_impact` or `data_classes` value, or a policy decision `risk_score` that is missing or not an integer from 0 to 1000, fails closed to `elevated`; `intent.security_tier` can only raise the tier.
+
+The effective mode is the stricter of the policy mode (`default_mode`, or the `risk_overrides` entry for the passport's `risk_tier`) and the tier's mode: `routine` → `classical_only`, `standard` → `hybrid_preferred`, `elevated` and `maximum` → `hybrid_required`, with `classical_only` < `hybrid_preferred` < `hybrid_required`. A `pq_only` policy stays `pq_only`. Report the resolved tier with the result.
+
+### Step V2-10: Enforce verifier policy
+
+Apply the effective mode (Step V2-9) and the verifier's policy configuration to the bundle signature and to every artifact signature (Steps V2-6 to V2-8):
+- If the effective mode is `hybrid_required`, reject bundles with `classical_only` binding.
+- If the effective mode is `pq_only`, reject bundles without a PQ signature.
 - Check `accepted_classical_algs` and `accepted_pq_algs` — reject if bundle uses an algorithm not in these lists.
 - Check `advisory_rejected_algs` — reject if bundle uses an algorithm blocked by an active advisory.
 
-### Step V2-10: Compute security tier (optional)
-
-Compute the security tier from `intent.payload` and `policy_decision.payload` as in [DCP-AI-v2.0.md § 14.2](DCP-AI-v2.0.md). The risk score comes from the policy decision, not the intent. Verify the bundle's signature mode meets the tier's requirements (e.g., `elevated` and `maximum` tiers require `hybrid_required`).
+A `classical_only` bundle with an `initiate_payment` intent is therefore rejected even when its passport declares `risk_tier: "low"`.
 
 ### Step V2-11: Verify dual-hash audit chain (if present)
 
