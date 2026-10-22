@@ -321,17 +321,34 @@ test("the state file is compacted at start, and re-registrations append only wha
       };
       assert.equal((await postTo(service.base, "/v2/register", { signed_passport: await signPassport(passport, victor.keys) })).status, 201);
     }
-    // The agent and its two kids, then one small line per re-registration.
-    assert.equal(lines(), 6);
+    // One line for the agent (its keys included), then one small line per re-registration.
+    assert.equal(lines(), 4);
   } finally {
     service.proc.kill();
   }
 
   service = await startService(SERVICE, env);
   try {
-    assert.equal(lines(), 3);
+    assert.equal(lines(), 1);
     const panic = { agent_id: "agent:victor-rv", revocation_secret: secret };
     assert.equal((await postTo(service.base, "/v2/emergency-revoke", panic)).status, 200);
+  } finally {
+    service.proc.kill();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a registration torn by a crash does not lock its agent_id out", async () => {
+  // Kid owners used to get their own lines before the agent's: a crash in between left
+  // owners without an agent, and that agent_id got 409 until someone edited the file.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "dcp-revocation-"));
+  const file = path.join(dir, "state.jsonl");
+  const xray = await newAgent("agent:xray-0001");
+  const orphans = [xray.keys.classical.kid, xray.keys.pq.kid].map((kid) => JSON.stringify(["kidOwners", kid, "agent:xray-0001"]));
+  fs.writeFileSync(file, orphans.join("\n") + "\n");
+  const service = await startService(SERVICE, { OPERATOR_TOKEN, REVOCATION_STATE_PATH: file });
+  try {
+    assert.equal((await postTo(service.base, "/v2/register", { signed_passport: xray.signedPassport }, asOperator)).status, 201);
   } finally {
     service.proc.kill();
     fs.rmSync(dir, { recursive: true, force: true });

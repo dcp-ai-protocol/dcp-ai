@@ -49,7 +49,8 @@ const revocations = new Map();
 const kidRevocations = new Map();
 // Registered agents: agent_id -> { keys: KeyEntry[], token_hash, registered_at }
 const agents = new Map();
-// kid -> agent_id, for the keys that proved possession at registration
+// kid -> agent_id, for the keys that proved possession at registration. Derived from
+// `agents` (keys never change after the first registration), so it is never persisted.
 const kidOwners = new Map();
 
 // Optional file-backed state: each write is appended (and fsynced) as one JSON line,
@@ -58,7 +59,7 @@ const kidOwners = new Map();
 // every registration and revocation.
 const STATE_PATH = process.env.REVOCATION_STATE_PATH;
 const MAX_STATE_BYTES = 512 * 1024 * 1024; // refuse to start rather than read an absurd file
-const stores = { revocations, kidRevocations, agents, kidOwners };
+const stores = { revocations, kidRevocations, agents };
 let stateFd = null;
 
 function persist(entry) {
@@ -86,11 +87,16 @@ if (STATE_PATH) {
     for (const line of fs.readFileSync(STATE_PATH, "utf8").split("\n").filter(Boolean)) {
       try {
         const [store, key, value, op] = JSON.parse(line);
+        // Older files kept kid owners on their own lines, which a crash could orphan.
+        if (store === "kidOwners") continue;
         stores[store].set(key, op === "merge" ? { ...stores[store].get(key), ...value } : value);
       } catch {
         console.warn("[revocation] Skipping an unreadable state line (a torn last write?)");
       }
     }
+  }
+  for (const [agentId, agent] of agents) {
+    for (const k of agent.keys) kidOwners.set(k.kid, agentId);
   }
   // Also fails fast, at startup, when the path is not writable.
   const tmp = `${STATE_PATH}.tmp`;
@@ -226,11 +232,12 @@ async function handle(req, res) {
       // only the changed fields are recorded.
       merge("agents", agentId, update);
     } else {
-      for (const k of signers) put("kidOwners", k.kid, agentId);
+      // One record, keys included, so a crash cannot leave kid owners without their agent.
       put("agents", agentId, {
         keys: signers.map(({ kid, alg, public_key_b64, expires_at }) => ({ kid, alg, public_key_b64, expires_at: expires_at ?? null })),
         ...update,
       });
+      for (const k of signers) kidOwners.set(k.kid, agentId);
     }
 
     console.log(`[register] Agent ${agentId} registered (${signers.length} keys)`);
