@@ -439,8 +439,9 @@ def _mutated(signed, mutations):
 
 
 class TestSignedBundleVectors:
-    """Under every mode the signed bundle verifies and each must_reject mutation
-    (VERIFICATION.md V2-7 / V2-8) is rejected with an error naming error_contains."""
+    """Under every mode the signed bundle verifies, each must_reject mutation
+    (VERIFICATION.md V2-7 / V2-8) and must_reject_bundles entry is rejected with
+    an error naming error_contains, and the routine control gets its verdict."""
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("mode", MODES)
@@ -450,7 +451,29 @@ class TestSignedBundleVectors:
         assert result["verified"], result["errors"]
 
         cases = [(c["name"], _mutated(B["signed_bundle"], c["mutations"]), c["error_contains"]) for c in B["must_reject"]]
+        cases += [(c["name"], c["signed_bundle"], c["error_contains"]) for c in B["must_reject_bundles"]]
         for name, signed, error_contains in cases:
             result = await verify_signed_bundle_v2(signed, registry, policy)
             assert not result["verified"], name
             assert error_contains in "\n".join(result["errors"]).lower(), (name, result["errors"])
+
+        control = B["classical_only_routine_bundle"]
+        result = await verify_signed_bundle_v2(control["signed_bundle"], registry, policy)
+        assert result["verified"] == control["verified_by_mode"][mode], result["errors"]
+
+    @pytest.mark.asyncio
+    async def test_default_policy_raises_the_mode_to_the_tier(self, B, registry):
+        # The default policy maps the low-risk passport to classical_only.
+        control = await verify_signed_bundle_v2(B["classical_only_routine_bundle"]["signed_bundle"], registry)
+        assert control["verified"], control["errors"]
+        assert (control["details"]["resolved_tier"], control["details"]["verification_mode"]) == ("routine", "classical_only")
+        payment = await verify_signed_bundle_v2(B["must_reject_bundles"][0]["signed_bundle"], registry)
+        assert not payment["verified"]
+        assert (payment["details"]["resolved_tier"], payment["details"]["verification_mode"]) == ("elevated", "hybrid_required")
+
+    @pytest.mark.asyncio
+    async def test_unknown_policy_mode_fails_closed(self, B, registry):
+        policy = {**DEFAULT_VERIFIER_POLICY, "default_mode": "strict", "risk_overrides": None}
+        result = await verify_signed_bundle_v2(B["signed_bundle"], registry, policy)
+        assert not result["verified"]
+        assert result["errors"] == ["Unknown verification mode in verifier policy"]
