@@ -2,6 +2,7 @@ package v2
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -21,6 +22,9 @@ func TestAttenuationLimitsCompareExactly(t *testing.T) {
 		"json_number_one_above":          json.Number("9007199254740996"),
 		"fraction":                       1.5,
 		"string":                         "1",
+		"exponent_form_out_of_range":     json.Number("1e999999999"),
+		"too_many_digits":                json.Number("1" + strings.Repeat("0", 100)),
+		"float_out_of_range":             1e300,
 	} {
 		if err := attenuationError(parent, entry(child)); err == "" {
 			t.Errorf("%s: %v must not be within 2^53+3", name, child)

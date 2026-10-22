@@ -268,11 +268,20 @@ func asInteger(v interface{}) (int, bool) {
 }
 
 // asNumber reads a JSON number; a bool is not one.
+// Limits beyond this magnitude are not comparable: the same bound as the Rust
+// verifier's i128, and it keeps a crafted json.Number such as "1e999999999"
+// from materializing a huge big.Int before the signature is ever checked.
+const maxLimitBits = 127
+
+// maxLimitChars bounds the json.Number text that is parsed at all; 2^127 has
+// 39 digits, so anything longer is either out of range or not an integer.
+const maxLimitChars = 64
+
 // exactInteger reads a limit as the exact integer it denotes: a Go int, an
 // integral float64, or a json.Number with every digit. Compared through
 // float64, a child of 2^53+1 would pass as equal to a parent of 2^53 and a
 // parent of 2^53+3 would round up to a child of 2^53+4. A number with a
-// fractional part is not a wire integer and is not comparable.
+// fractional part, or one of 2^127 or more in magnitude, is not comparable.
 func exactInteger(v interface{}) (*big.Int, bool) {
 	switch n := v.(type) {
 	case int:
@@ -285,20 +294,29 @@ func exactInteger(v interface{}) (*big.Int, bool) {
 		if math.IsNaN(n) || math.IsInf(n, 0) || n != math.Trunc(n) {
 			return nil, false
 		}
-		i, _ := big.NewFloat(n).Int(nil) // exact: n is integral
-		return i, true
+		return boundedInt(big.NewFloat(n)) // exact: n is integral
 	case json.Number:
-		if i, ok := new(big.Int).SetString(string(n), 10); ok {
-			return i, true
+		if len(n) > maxLimitChars {
+			return nil, false
 		}
+		// Exact: at most 63 significant digits fit in 210 bits, under the 256 kept,
+		// and an exponent stays in the float's exponent until boundedInt checks it.
 		f, _, err := big.ParseFloat(string(n), 10, 256, big.ToNearestEven)
 		if err != nil || !f.IsInt() {
 			return nil, false
 		}
-		i, _ := f.Int(nil)
-		return i, true
+		return boundedInt(f)
 	}
 	return nil, false
+}
+
+// boundedInt is the integer value of an integral big.Float below 2^maxLimitBits in magnitude.
+func boundedInt(f *big.Float) (*big.Int, bool) {
+	if f.MantExp(nil) > maxLimitBits {
+		return nil, false
+	}
+	i, _ := f.Int(nil)
+	return i, true
 }
 
 func asNumber(v interface{}) (float64, bool) {
