@@ -83,25 +83,36 @@ fn session_expiry_past_is_expired() {
 
 #[test]
 fn tier_routing_thresholds() {
-    assert_eq!(compute_security_tier(&json!({})), SecurityTier::Routine);
+    let routine = json!({"action_type": "browse", "data_classes": ["none"], "estimated_impact": "low"});
+    let with = |field: &str, value: serde_json::Value| {
+        let mut intent = routine.clone();
+        intent[field] = value;
+        intent
+    };
+    assert_eq!(compute_security_tier(&routine, None), SecurityTier::Routine);
+    assert_eq!(compute_security_tier(&json!({}), None), SecurityTier::Elevated);
     assert_eq!(
-        compute_security_tier(&json!({"risk_score": 200})),
+        compute_security_tier(&routine, Some(&json!({"risk_score": 200}))),
         SecurityTier::Standard
     );
     assert_eq!(
-        compute_security_tier(&json!({"data_classes": ["pii"]})),
+        compute_security_tier(&with("risk_score", json!(900)), None),
+        SecurityTier::Routine
+    );
+    assert_eq!(
+        compute_security_tier(&with("data_classes", json!(["pii"])), None),
         SecurityTier::Elevated
     );
     assert_eq!(
-        compute_security_tier(&json!({"action_type": "initiate_payment"})),
+        compute_security_tier(&with("action_type", json!("initiate_payment")), None),
         SecurityTier::Elevated
     );
     assert_eq!(
-        compute_security_tier(&json!({"data_classes": ["credentials"]})),
+        compute_security_tier(&with("data_classes", json!(["credentials"])), None),
         SecurityTier::Maximum
     );
     assert_eq!(
-        compute_security_tier(&json!({"risk_score": 800})),
+        compute_security_tier(&routine, Some(&json!({"risk_score": 800}))),
         SecurityTier::Maximum
     );
 }

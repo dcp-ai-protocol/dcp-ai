@@ -238,9 +238,12 @@ export class DcpWasm {
     );
   }
 
-  computeSecurityTier(intent: unknown): SecurityTierResult {
+  computeSecurityTier(intent: unknown, policyDecision?: unknown): SecurityTierResult {
     return parseOrThrow(
-      wasm().wasm_compute_security_tier(JSON.stringify(intent)),
+      wasm().wasm_compute_security_tier(
+        JSON.stringify(intent),
+        policyDecision === undefined ? undefined : JSON.stringify(policyDecision),
+      ),
       'computeSecurityTier',
     );
   }

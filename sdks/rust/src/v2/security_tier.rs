@@ -30,35 +30,87 @@ impl SecurityTier {
     }
 }
 
-const SENSITIVE_DATA_CLASSES: &[&str] = &[
+// Values allowed by schemas/v2/intent.schema.json.
+const ACTION_TYPES: &[&str] = &[
+    "browse",
+    "api_call",
+    "send_email",
+    "create_calendar_event",
+    "initiate_payment",
+    "update_crm",
+    "write_file",
+    "execute_code",
+];
+const DATA_CLASSES: &[&str] = &[
+    "none",
+    "contact_info",
     "pii",
+    "credentials",
     "financial_data",
     "health_data",
-    "credentials",
     "children_data",
+    "company_confidential",
 ];
-const HIGH_VALUE_DATA_CLASSES: &[&str] = &["credentials", "children_data"];
+const IMPACTS: &[&str] = &["low", "medium", "high"];
+const MAXIMUM_DATA_CLASSES: &[&str] = &["credentials", "children_data"];
+const ELEVATED_DATA_CLASSES: &[&str] = &["pii", "financial_data", "health_data"];
+const TIERS: [SecurityTier; 4] = [
+    SecurityTier::Routine,
+    SecurityTier::Standard,
+    SecurityTier::Elevated,
+    SecurityTier::Maximum,
+];
 
-/// Compute the security tier for an intent.
-pub fn compute_security_tier(intent: &Value) -> SecurityTier {
-    let score = intent.get("risk_score").and_then(Value::as_i64).unwrap_or(0);
-    let data_classes: Vec<&str> = intent
+fn is_one_of(value: Option<&Value>, allowed: &[&str]) -> bool {
+    value.and_then(Value::as_str).is_some_and(|s| allowed.contains(&s))
+}
+
+/// Compute the security tier (spec §14.2) from an intent and the bundle's
+/// policy decision. `risk_score` is read from the policy decision only; with
+/// no policy decision it counts as 0, as does a non-numeric value. A value
+/// outside the intent schema enums, including a missing `action_type`,
+/// `estimated_impact` or `data_classes`, fails closed to at least `Elevated`.
+/// An explicit `security_tier` on the intent can only raise the result.
+pub fn compute_security_tier(intent: &Value, policy_decision: Option<&Value>) -> SecurityTier {
+    let score = policy_decision
+        .and_then(|p| p.get("risk_score"))
+        .and_then(Value::as_f64)
+        .unwrap_or(0.0);
+    // A missing or non-array data_classes counts as one unknown value.
+    let unknown_list = [Value::Null];
+    let data_classes = intent
         .get("data_classes")
         .and_then(Value::as_array)
-        .map(|arr| arr.iter().filter_map(Value::as_str).collect())
-        .unwrap_or_default();
-    let has_high_value = data_classes.iter().any(|d| HIGH_VALUE_DATA_CLASSES.contains(d));
-    let has_sensitive = data_classes.iter().any(|d| SENSITIVE_DATA_CLASSES.contains(d));
-    let is_payment = intent.get("action_type").and_then(Value::as_str) == Some("initiate_payment");
+        .map_or(&unknown_list[..], Vec::as_slice);
+    let action_type = intent.get("action_type");
+    let impact = intent.get("estimated_impact");
+    let unknown = !is_one_of(action_type, ACTION_TYPES)
+        || !is_one_of(impact, IMPACTS)
+        || data_classes.iter().any(|d| !is_one_of(Some(d), DATA_CLASSES));
 
-    if score >= 800 || has_high_value {
+    let tier = if score >= 800.0
+        || data_classes.iter().any(|d| is_one_of(Some(d), MAXIMUM_DATA_CLASSES))
+    {
         SecurityTier::Maximum
-    } else if score >= 500 || has_sensitive || is_payment {
+    } else if score >= 500.0
+        || unknown
+        || data_classes.iter().any(|d| is_one_of(Some(d), ELEVATED_DATA_CLASSES))
+        || is_one_of(action_type, &["initiate_payment"])
+        || is_one_of(impact, &["high"])
+    {
         SecurityTier::Elevated
-    } else if score >= 200 {
+    } else if score >= 200.0 || is_one_of(impact, &["medium"]) {
         SecurityTier::Standard
     } else {
         SecurityTier::Routine
+    };
+
+    match intent.get("security_tier") {
+        None | Some(Value::Null) => tier,
+        Some(explicit) => {
+            let explicit = TIERS.into_iter().find(|t| explicit.as_str() == Some(t.as_str()));
+            max_tier(tier, explicit.unwrap_or(SecurityTier::Elevated))
+        }
     }
 }
 
