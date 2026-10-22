@@ -141,7 +141,10 @@ pub fn verify_signed_bundle_v2(signed_bundle: &Value) -> V2VerificationResult {
         ("policy_decision", CTX_POLICY_DECISION, &agent_keys),
     ] {
         let Some(artifact) = bundle.get(field) else { continue }; // reported as missing above
-        let payload = artifact.get("payload").unwrap_or(&Value::Null);
+        let Some(payload) = artifact.get("payload").filter(|p| p.is_object()) else {
+            r.errors.push(format!("{} is not a SignedPayload object", field));
+            continue;
+        };
         match verify_composite_sig(context, payload, artifact.get("composite_sig"), keys) {
             Ok((_, result)) if !result.valid => {
                 r.errors.push(format!("{} signature verification failed", field));
@@ -187,11 +190,17 @@ fn payload_keys<'a>(bundle: &'a Value, artifact: &str, field: &str) -> Vec<&'a V
         .unwrap_or_default()
 }
 
-fn find_key<'a>(keys: &[&'a Value], kid: &str) -> Option<&'a str> {
-    keys.iter()
-        .find(|k| k.get("kid").and_then(|v| v.as_str()) == Some(kid))
-        .and_then(|k| k.get("public_key_b64"))
-        .and_then(|v| v.as_str())
+/// The algorithms each composite signature slot may hold.
+const CLASSICAL_ALGS: [&str; 1] = ["ed25519"];
+const PQ_ALGS: [&str; 2] = ["ml-dsa-65", "slh-dsa-192f"];
+
+/// Public key and algorithm of the key entry with that kid.
+fn find_key<'a>(keys: &[&'a Value], kid: &str) -> Option<(&'a str, &'a str)> {
+    let key = keys.iter().find(|k| k.get("kid").and_then(|v| v.as_str()) == Some(kid))?;
+    Some((
+        key.get("public_key_b64").and_then(|v| v.as_str())?,
+        key.get("alg").and_then(|v| v.as_str()).unwrap_or(""),
+    ))
 }
 
 pub(crate) fn provider_for_alg(alg: &str) -> Result<Box<dyn CryptoProvider>, String> {
@@ -214,13 +223,32 @@ fn verify_composite_sig(
 ) -> Result<(CompositeSignature, CompositeVerifyResult), String> {
     let cs: CompositeSignature = serde_json::from_value(cs_val.ok_or("missing composite_sig")?.clone())
         .map_err(|_| "invalid composite_sig structure".to_string())?;
-    let classical_pk = find_key(keys, &cs.classical.kid)
+    // Ed25519 cannot stand in for the PQ signature, nor ML-DSA for the classical one.
+    if !CLASSICAL_ALGS.contains(&cs.classical.alg.as_str()) {
+        return Err(format!("classical slot holds {}, which is not a classical algorithm", cs.classical.alg));
+    }
+    if let Some(entry) = &cs.pq {
+        if !PQ_ALGS.contains(&entry.alg.as_str()) {
+            return Err(format!("PQ slot holds {}, which is not a PQ algorithm", entry.alg));
+        }
+    }
+
+    let (classical_pk, classical_alg) = find_key(keys, &cs.classical.kid)
         .ok_or_else(|| format!("classical signer key kid={} not found", cs.classical.kid))?;
+    if classical_alg != cs.classical.alg {
+        return Err(format!(
+            "classical signer key kid={} is {}, not {}",
+            cs.classical.kid, classical_alg, cs.classical.alg
+        ));
+    }
     let classical = provider_for_alg(&cs.classical.alg)?;
     let (pq, pq_pk) = match &cs.pq {
         Some(entry) => {
-            let pk = find_key(keys, &entry.kid)
+            let (pk, alg) = find_key(keys, &entry.kid)
                 .ok_or_else(|| format!("PQ signer key kid={} not found", entry.kid))?;
+            if alg != entry.alg {
+                return Err(format!("PQ signer key kid={} is {}, not {}", entry.kid, alg, entry.alg));
+            }
             (Some(provider_for_alg(&entry.alg)?), Some(pk))
         }
         None => (None, None),
