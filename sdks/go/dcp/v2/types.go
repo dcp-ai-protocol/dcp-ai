@@ -484,18 +484,43 @@ type AuthorityScopeEntry struct {
 }
 
 // DelegationMandate records a human-to-agent authority delegation (DCP-09).
+// The DCP-09 §3.5 chain fields are absent on a mandate that permits no
+// sub-delegation.
 type DelegationMandate struct {
-	DCPVersion        string                `json:"dcp_version"`
-	MandateID         string                `json:"mandate_id"`
-	SessionNonce      string                `json:"session_nonce"`
-	HumanID           string                `json:"human_id"`
-	AgentID           string                `json:"agent_id"`
-	AuthorityScope    []AuthorityScopeEntry `json:"authority_scope"`
-	ValidFrom         string                `json:"valid_from"`
-	ValidUntil        string                `json:"valid_until"`
-	Revocable         bool                  `json:"revocable"`
-	Timestamp         string                `json:"timestamp"`
-	HumanCompositeSig CompositeSignature    `json:"human_composite_sig"`
+	DCPVersion          string                `json:"dcp_version"`
+	MandateID           string                `json:"mandate_id"`
+	SessionNonce        string                `json:"session_nonce"`
+	HumanID             string                `json:"human_id"`
+	AgentID             string                `json:"agent_id"`
+	AuthorityScope      []AuthorityScopeEntry `json:"authority_scope"`
+	ValidFrom           string                `json:"valid_from"`
+	ValidUntil          string                `json:"valid_until"`
+	Revocable           bool                  `json:"revocable"`
+	Timestamp           string                `json:"timestamp"`
+	DelegationDepth     *int                  `json:"delegation_depth,omitempty"`
+	SubDelegation       *SubDelegationPolicy  `json:"sub_delegation,omitempty"`
+	MinimumSecurityTier string                `json:"minimum_security_tier,omitempty"`
+	HumanCompositeSig   CompositeSignature    `json:"human_composite_sig"`
+}
+
+// SubMandate is a delegate agent's narrower delegation to another agent,
+// signed by the delegating agent (DCP-09 §3.5).
+type SubMandate struct {
+	DCPVersion            string                `json:"dcp_version"`
+	MandateID             string                `json:"mandate_id"`
+	SessionNonce          string                `json:"session_nonce"`
+	HumanID               string                `json:"human_id"`
+	AgentID               string                `json:"agent_id"`
+	AuthorityScope        []AuthorityScopeEntry `json:"authority_scope"`
+	ValidFrom             string                `json:"valid_from"`
+	ValidUntil            string                `json:"valid_until"`
+	Revocable             bool                  `json:"revocable"`
+	Timestamp             string                `json:"timestamp"`
+	ParentMandateID       string                `json:"parent_mandate_id"`
+	DelegationDepth       int                   `json:"delegation_depth"`
+	SubDelegation         *SubDelegationPolicy  `json:"sub_delegation,omitempty"`
+	MinimumSecurityTier   string                `json:"minimum_security_tier,omitempty"`
+	DelegatorCompositeSig CompositeSignature    `json:"delegator_composite_sig"`
 }
 
 // AdvisoryDeclaration records an agent advisory to a human (DCP-09).
