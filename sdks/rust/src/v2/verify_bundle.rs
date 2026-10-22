@@ -209,8 +209,8 @@ pub fn verify_signed_bundle_v2_with_policy(signed_bundle: &Value, policy: &Verif
     }
     for key in agent_keys.iter().chain(rpr_keys.iter()) {
         let kid = key.get("kid").and_then(Value::as_str).unwrap_or("");
-        if key.get("status").and_then(Value::as_str) == Some("revoked") {
-            r.errors.push(format!("Key {} is revoked", kid));
+        if let Some(status @ ("revoked" | "expired")) = key.get("status").and_then(Value::as_str) {
+            r.errors.push(format!("Key {} is {}", kid, status));
         }
         match check_expiry(key.get("expires_at")) {
             Ok(()) => {}

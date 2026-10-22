@@ -496,8 +496,8 @@ func verifyKeyValidity(bundle map[string]interface{}, result *V2VerificationResu
 	for _, raw := range keys {
 		key, _ := raw.(map[string]interface{})
 		kid, _ := key["kid"].(string)
-		if status, _ := key["status"].(string); status == "revoked" {
-			result.Errors = append(result.Errors, fmt.Sprintf("Key %s is revoked", kid))
+		if status, _ := key["status"].(string); status == "revoked" || status == "expired" {
+			result.Errors = append(result.Errors, fmt.Sprintf("Key %s is %s", kid, status))
 		}
 		if raw, ok := key["expires_at"]; ok && raw != nil {
 			switch expires, valid := parseRFC3339(raw); {

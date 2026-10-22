@@ -174,6 +174,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   the principal's RPR `binding_keys`, which sign the RPR and may sign the bundle; TypeScript and
   Python checked only the passport keys. The Go and Rust verifiers checked no key status at all and
   now reject revoked or expired passport keys too.
+- All four verifiers reject a key whose `status` is `expired`, like `revoked`. The key entry schema
+  allows `expired`, but only `revoked` was checked, so a key marked expired with no `expires_at`
+  still signed.
 
 ### Changed (breaking)
 
