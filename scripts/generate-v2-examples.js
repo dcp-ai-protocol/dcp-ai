@@ -60,7 +60,7 @@ export async function buildV2Examples() {
   // --- V2 RPR ---
   const rpr = {
     dcp_version: "2.0",
-    human_id: "human:alice-v2-001",
+    human_id: "rpr:v2-example-001",
     session_nonce: sessionNonce,
     legal_name: "Alice V2 Example",
     entity_type: "natural_person",

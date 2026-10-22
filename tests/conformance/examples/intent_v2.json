@@ -1,9 +1,9 @@
 {
   "dcp_version": "2.0",
   "intent_id": "intent:v2-email-gen-001",
-  "session_nonce": "b0ad6691992f5051fde856878c0141cf47c8702937575ce55051244494016356",
+  "session_nonce": "a0f170f5da399c85fb454c1194b0650475d3b55e2068eaafe263cf4aa90630c8",
   "agent_id": "agent:research-bot-v2-gen",
-  "human_id": "human:alice-v2-001",
+  "human_id": "rpr:v2-example-001",
   "timestamp": "2026-03-01T12:00:00Z",
   "action_type": "send_email",
   "target": {
