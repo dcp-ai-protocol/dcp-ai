@@ -1,6 +1,6 @@
 {
   "name": "@dcp-ai/openclaw",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "DCP integration plugin for OpenClaw — digital citizenship, intent declaration, and audit trail for AI agents",
   "type": "module",
   "main": "./dist/index.cjs",

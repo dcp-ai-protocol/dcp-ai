@@ -247,7 +247,7 @@ interface BlindedResponsiblePrincipalRecordV2 {
 }
 ```
 
-Helpers (exported by `@dcp-ai/sdk` releases after 2.1.2):
+Helpers (exported by `@dcp-ai/sdk` 2.2.0 and later):
 
 ```typescript
 // 32 random bytes as hex. Set it as rpr.pii_salt before signing the RPR; never publish it.

@@ -9,8 +9,8 @@ authors:
 url: "https://github.com/dcp-ai-protocol/dcp-ai"
 repository-code: "https://github.com/dcp-ai-protocol/dcp-ai"
 license: Apache-2.0
-version: "2.9.0"
-date-released: "2026-10-21"
+version: "2.10.0"
+date-released: "2026-10-22"
 identifiers:
   - type: doi
     value: "10.5281/zenodo.19656025"

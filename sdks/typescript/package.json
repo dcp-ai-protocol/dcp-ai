@@ -1,6 +1,6 @@
 {
   "name": "@dcp-ai/sdk",
-  "version": "2.1.2",
+  "version": "2.2.0",
   "description": "TypeScript SDK for the Digital Citizenship Protocol for AI Agents",
   "type": "module",
   "main": "./dist/index.cjs",
