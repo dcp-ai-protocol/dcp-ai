@@ -63,8 +63,8 @@ const keys = generateKeypair();
 const bundle = new BundleBuilderV2()
   .responsiblePrincipalRecord({ /* V2 RPR with keys[] */ })
   .agentPassport({ /* V2 passport with capabilities */ })
-  .intent({ /* V2 intent with risk_score and security_tier */ })
-  .policyDecision({ /* V2 policy with resolved_tier */ })
+  .intent({ /* V2 intent with security_tier */ })
+  .policyDecision({ /* V2 policy decision with risk_score and resolved_tier */ })
   .addAuditEntry({ /* V2 audit with dual-hash chain */ })
   .build();
 ```
@@ -105,7 +105,7 @@ const bundle = new BundleBuilderV2()
 
 | Función | Descripción |
 |----------|-------------|
-| `computeSecurityTier(intent)` | Calcula un `SecurityTier` (routine, standard, elevated, maximum) a partir del perfil de riesgo de un intent |
+| `computeSecurityTier(intent, policyDecision?)` | Calcula un `SecurityTier` (routine, standard, elevated, maximum) a partir de un intent y del `risk_score` de la decisión de política (spec §14.2); los valores desconocidos dan `elevated` |
 | `maxTier(a, b)` | Devuelve el mayor de dos niveles de seguridad |
 | `tierToVerificationMode(tier)` | Mapea un nivel al modo de verificación requerido |
 | `tierToCheckpointInterval(tier)` | Mapea un nivel al intervalo de checkpoint post-cuántico |
@@ -258,7 +258,7 @@ Tipos clave exportados por el SDK:
 - `SignedPayload` — Wrapper para datos firmados con metadatos de firma compuesta
 - `CompositeSignature` — Contiene componentes de firma clásico + post-cuántico
 - `KeyEntry` — Entrada de clave pública con algoritmo, kid y material de clave
-- `SecurityTier` — `'basic' | 'elevated' | 'critical'`
+- `SecurityTier` — `'routine' | 'standard' | 'elevated' | 'maximum'`
 - `VerifierPolicy` — Política que especifica el modo de verificación requerido por nivel
 - `PQCheckpoint` — Checkpoint post-cuántico sobre entradas de auditoría
 - `A2ASession` — Estado de sesión entre agentes cifrada

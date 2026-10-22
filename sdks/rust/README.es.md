@@ -43,7 +43,7 @@ dcp-ai = { version = "2.9", features = ["wasm"] }
 | Delegación + umbral de conciencia + espejo del principal DCP-09 | Sí |
 | Descubrimiento A2A DCP-04 + handshake + derivación de id de sesión | Sí |
 | Cifrado de sesión A2A AES-256-GCM DCP-04 | _Diferido a una release posterior_ |
-| Helpers de nonce de sesión, motor de nivel de seguridad, revocación de emergencia | Sí |
+| Helpers de nonce de sesión, motor de nivel de seguridad (`compute_security_tier(&intent, Some(&policy_decision))`, spec §14.2), revocación de emergencia | Sí |
 | Checkpoints PQ perezosos + `PQCheckpointManager` | Sí |
 | RPR blinded, autorización multi-parte, helpers de aviso de algoritmo | Sí |
 | Códigos de error canónicos (38 compartidos entre todos los SDKs) + `detect_wire_format` | Sí |

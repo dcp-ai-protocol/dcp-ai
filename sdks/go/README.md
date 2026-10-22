@@ -120,13 +120,17 @@ func main() {
 
 ```go
 tier := v2.ComputeSecurityTier(v2.SecurityTierInput{
-    RiskScore:   600,
-    DataClasses: []string{"financial"},
-    ActionType:  "payment",
+    RiskScore:       600, // from the bundle's PolicyDecision, never the intent
+    DataClasses:     []string{"financial_data"},
+    ActionType:      "initiate_payment",
+    EstimatedImpact: "high",
 })
 fmt.Println(tier.Tier)               // "elevated"
 fmt.Println(tier.VerificationMode)   // "hybrid_required"
 fmt.Println(tier.CheckpointInterval) // 1
+
+// From decoded intent and PolicyDecision payloads (map[string]interface{}):
+tier = v2.ComputeSecurityTier(v2.SecurityTierInputFromPayloads(intentPayload, policyPayload))
 ```
 
 ### ML-KEM-768 Key Encapsulation
@@ -153,7 +157,8 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 
 | Function | Description |
 |----------|-------------|
-| `v2.ComputeSecurityTier(input)` | Computes adaptive security tier (routine/standard/elevated/maximum) |
+| `v2.ComputeSecurityTier(input)` | Computes the adaptive security tier (routine/standard/elevated/maximum), its verification mode and checkpoint interval (spec §14.2); unknown values fail closed to `elevated` |
+| `v2.SecurityTierInputFromPayloads(intent, policyDecision)` | Builds the tier input from decoded intent and PolicyDecision payloads (`risk_score` comes from the PolicyDecision) |
 
 ### Composite Signatures
 

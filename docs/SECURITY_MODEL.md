@@ -200,7 +200,7 @@ The PQ signature covers the classical signature. Removing either component cause
 
 **Protection:**
 - **Verifier-authoritative policy:** The verifier determines the minimum tier, not the agent. Verifiers can upgrade tiers but MUST NOT downgrade.
-- **Automatic tier computation:** The SDK computes tiers from risk_score, data_classes, and action_type. The agent cannot override the computed tier downward.
+- **Automatic tier computation:** The SDK computes tiers from the policy decision's `risk_score` and the intent's `data_classes`, `action_type` and `estimated_impact` (spec §14.2). Unknown or missing values fail closed to `elevated`, and the agent cannot override the computed tier downward.
 - **Never-downgrade rule:** If the intent computes to `elevated` but the agent declares `routine`, the verifier resolves to `elevated`.
 
 **Strength:** Policy enforcement at the verifier level.

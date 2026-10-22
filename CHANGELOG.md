@@ -73,6 +73,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `alg` is the same. Go also rejects a bundle whose RPR, passport, intent or policy decision is
   null or not an object, where it skipped every check on that artifact, and TypeScript returns
   `verified: false` for such a bundle instead of throwing.
+- Security tier (spec §14.2): the Go SDK and the `@dcp-ai/wasm` binding (`wasm_compute_security_tier`)
+  matched `payment`/`transfer`, `financial`, `health`, `legal` and `biometric`, which the intent schema
+  does not allow, so schema-valid `initiate_payment`, `financial_data` and `health_data` intents were
+  `routine` there and `elevated` in the TypeScript, Python and Rust SDKs. All four SDKs and the binding
+  now compute the same tier, checked by the new `security_tier` vectors in
+  `tests/interop/v2/interop_vectors.json`.
 
 ### Changed (breaking)
 
@@ -129,6 +135,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   RPRs that carry a salt: update verifiers before producers start setting it.
 - Rust SDK: `ResponsiblePrincipalRecordV2` has a new public field, `pii_salt: Option<String>`, so
   struct literals must set it.
+- Security tier computation (spec §14.2), all SDKs: `risk_score` is read from the bundle's policy
+  decision, never from the intent (the intent schema does not allow it, so the tier was never
+  `standard` for a valid intent). `estimated_impact` `medium` raises the tier to `standard` and `high`
+  to `elevated`; a missing, mistyped or unknown `action_type`, `estimated_impact` or `data_classes`
+  value gives at least `elevated`; an explicit `intent.security_tier` can only raise the result.
+  - TypeScript: `computeSecurityTier(intent, policyDecision?)`.
+  - Python: `compute_security_tier(intent, policy_decision=None)`; `compute_security_tier({})` is now
+    `elevated`. The LangChain and CrewAI integrations use it instead of their own copies.
+  - Go: `SecurityTierInput` gains `EstimatedImpact` and `SecurityTier`, and its zero value (or nil
+    `DataClasses`) is now `elevated`. `v2.SecurityTierInputFromPayloads(intent, policyDecision)` builds
+    the input from decoded payloads.
+  - Rust: `compute_security_tier(intent, policy_decision: Option<&Value>)`. `wasm_compute_security_tier`
+    and `computeSecurityTier` in `@dcp-ai/wasm` take an optional policy decision.
 
 ### Added
 
@@ -202,6 +221,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   earlier.
 - The Go and WASM SDK READMEs (all languages) and `docs/MIGRATION_V1_V2.md` sign each artifact
   before building the bundle, and list the signing keys in the passport and the RPR.
+- `spec/DCP-AI-v2.0.md` §14.2 describes the tier computation above, §14.3 and §14.4 describe
+  `resolved_tier` as informational (§14.2 does not read it), and `spec/VERIFICATION.md` V2-10
+  computes the tier as in §14.2. The SDK READMEs (all languages), `docs/API_REFERENCE.md`, the
+  quickstart, migration and agent-creation guides and `sdks/wasm/example.html` pass the policy
+  decision to the tier function and use the intent schema's values.
 
 ## [2.9.0] - 2026-10-21
 

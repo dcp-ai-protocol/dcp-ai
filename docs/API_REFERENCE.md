@@ -814,27 +814,32 @@ interface VerificationResult {
 
 ## Security Tier Engine
 
-### `computeSecurityTier(intent)`
+### `computeSecurityTier(intent, policyDecision?)`
 
-Compute the appropriate security tier based on the intent's risk profile.
+Compute the security tier (spec §14.2) from the intent and the bundle's policy decision.
 
 ```typescript
-function computeSecurityTier(intent: IntentV2): SecurityTier;
+function computeSecurityTier(
+  intent: IntentV2,
+  policyDecision?: Pick<PolicyDecisionV2, 'risk_score'>,
+): SecurityTier;
 ```
 
-**Decision logic:**
+**Decision logic** (`risk_score` comes from the policy decision; without one it is 0):
 
 | Condition | Tier |
 |-----------|------|
-| `risk_score >= 800` or credentials/children's data | `'maximum'` |
-| `risk_score >= 500` or PII/financial/payment data | `'elevated'` |
-| `risk_score >= 200` | `'standard'` |
-| `risk_score < 200` | `'routine'` |
+| `risk_score >= 800`, or `credentials` / `children_data` | `'maximum'` |
+| `risk_score >= 500`, `pii` / `financial_data` / `health_data`, `initiate_payment`, `estimated_impact: 'high'`, or an unknown or missing `action_type`, `estimated_impact` or `data_classes` value | `'elevated'` |
+| `risk_score >= 200` or `estimated_impact: 'medium'` | `'standard'` |
+| otherwise | `'routine'` |
+
+An explicit `intent.security_tier` can only raise the result; an unknown value counts as `'elevated'`. A `risk_score` placed on the intent is ignored.
 
 ```typescript
 import { computeSecurityTier } from '@dcp-ai/sdk';
 
-const tier = computeSecurityTier(intent);
+const tier = computeSecurityTier(bundle.intent.payload, bundle.policy_decision.payload);
 // 'routine' | 'standard' | 'elevated' | 'maximum'
 ```
 

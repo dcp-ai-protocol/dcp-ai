@@ -197,7 +197,7 @@ const keys: CompositeKeyPair = {
 };
 
 // Compute the security tier for your intent
-const tier = computeSecurityTier(intentV2);
+const tier = computeSecurityTier(intentV2, policyDecisionV2);
 console.log('Security tier:', tier); // 'routine' | 'standard' | 'elevated' | 'maximum'
 
 // Build a V2 bundle with the fluent builder
@@ -279,15 +279,17 @@ DCP selecciona automáticamente un nivel de seguridad criptográfica con base en
 
 | Nivel | Nombre | Modo de Verificación | Intervalo de Checkpoint post-cuántico | Disparador |
 |------|------|------------------|----------------------|---------|
-| 0 | **Routine** | Solo clásico (Ed25519) | Cada 50 eventos | Risk score < 200 |
-| 1 | **Standard** | Híbrido preferido | Cada 10 eventos | Risk score 200–499 |
-| 2 | **Elevated** | Híbrido requerido | Cada evento | Risk score 500–799, PII, pagos |
-| 3 | **Maximum** | Híbrido requerido + verificación inmediata | Cada evento | Risk score ≥ 800, credenciales |
+| 0 | **Routine** | Solo clásico (Ed25519) | Cada 50 eventos | Ninguno de los disparadores siguientes |
+| 1 | **Standard** | Híbrido preferido | Cada 10 eventos | Risk score 200–499, `estimated_impact: medium` |
+| 2 | **Elevated** | Híbrido requerido | Cada evento | Risk score 500–799, PII, datos financieros o de salud, pagos, `estimated_impact: high`, valores desconocidos |
+| 3 | **Maximum** | Híbrido requerido + verificación inmediata | Cada evento | Risk score ≥ 800, credenciales, datos de menores |
+
+El risk score es el `risk_score` de la decisión de política (spec §14.2).
 
 ```typescript
 import { computeSecurityTier, tierToVerificationMode } from '@dcp-ai/sdk';
 
-const tier = computeSecurityTier(intent);
+const tier = computeSecurityTier(intent, policyDecision);
 const mode = tierToVerificationMode(tier);
 // tier: 'elevated', mode: 'hybrid_required'
 ```

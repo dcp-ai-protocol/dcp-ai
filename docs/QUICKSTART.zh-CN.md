@@ -197,7 +197,7 @@ const keys: CompositeKeyPair = {
 };
 
 // Compute the security tier for your intent
-const tier = computeSecurityTier(intentV2);
+const tier = computeSecurityTier(intentV2, policyDecisionV2);
 console.log('Security tier:', tier); // 'routine' | 'standard' | 'elevated' | 'maximum'
 
 // Build a V2 bundle with the fluent builder
@@ -279,15 +279,17 @@ DCP 会根据意图的风险特征自动选择密码学安全等级：
 
 | 等级 | 名称 | 验证模式 | 后量子检查点间隔 | 触发条件 |
 |------|------|------------------|----------------------|---------|
-| 0 | **Routine** | 仅经典 (Ed25519) | 每 50 个事件 | 风险分数 < 200 |
-| 1 | **Standard** | 优先混合 | 每 10 个事件 | 风险分数 200–499 |
-| 2 | **Elevated** | 必须混合 | 每个事件 | 风险分数 500–799、PII、支付 |
-| 3 | **Maximum** | 必须混合 + 即时验证 | 每个事件 | 风险分数 ≥ 800、凭据 |
+| 0 | **Routine** | 仅经典 (Ed25519) | 每 50 个事件 | 不满足以下任何触发条件 |
+| 1 | **Standard** | 优先混合 | 每 10 个事件 | 风险分数 200–499、`estimated_impact: medium` |
+| 2 | **Elevated** | 必须混合 | 每个事件 | 风险分数 500–799、PII、金融或健康数据、支付、`estimated_impact: high`、未知值 |
+| 3 | **Maximum** | 必须混合 + 即时验证 | 每个事件 | 风险分数 ≥ 800、凭据、儿童数据 |
+
+风险分数是策略决策的 `risk_score`（spec §14.2）。
 
 ```typescript
 import { computeSecurityTier, tierToVerificationMode } from '@dcp-ai/sdk';
 
-const tier = computeSecurityTier(intent);
+const tier = computeSecurityTier(intent, policyDecision);
 const mode = tierToVerificationMode(tier);
 // tier: 'elevated', mode: 'hybrid_required'
 ```

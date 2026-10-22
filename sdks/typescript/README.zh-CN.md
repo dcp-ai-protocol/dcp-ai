@@ -63,8 +63,8 @@ const keys = generateKeypair();
 const bundle = new BundleBuilderV2()
   .responsiblePrincipalRecord({ /* V2 RPR with keys[] */ })
   .agentPassport({ /* V2 passport with capabilities */ })
-  .intent({ /* V2 intent with risk_score and security_tier */ })
-  .policyDecision({ /* V2 policy with resolved_tier */ })
+  .intent({ /* V2 intent with security_tier */ })
+  .policyDecision({ /* V2 policy decision with risk_score and resolved_tier */ })
   .addAuditEntry({ /* V2 audit with dual-hash chain */ })
   .build();
 ```
@@ -105,7 +105,7 @@ const bundle = new BundleBuilderV2()
 
 | 函数 | 描述 |
 |----------|-------------|
-| `computeSecurityTier(intent)` | 根据 intent 的风险画像计算 `SecurityTier`（routine、standard、elevated、maximum） |
+| `computeSecurityTier(intent, policyDecision?)` | 根据 intent 和策略决策的 `risk_score` 计算 `SecurityTier`（routine、standard、elevated、maximum）（spec §14.2）；未知值按 `elevated` 处理 |
 | `maxTier(a, b)` | 返回两个安全等级中较高的一个 |
 | `tierToVerificationMode(tier)` | 将等级映射为所需的验证模式 |
 | `tierToCheckpointInterval(tier)` | 将等级映射为后量子检查点间隔 |
@@ -258,7 +258,7 @@ SDK 导出的关键类型：
 - `SignedPayload` — 带复合签名元数据的已签名数据封装
 - `CompositeSignature` — 包含经典 + 后量子签名组件
 - `KeyEntry` — 带算法、kid 和密钥材料的公钥条目
-- `SecurityTier` — `'basic' | 'elevated' | 'critical'`
+- `SecurityTier` — `'routine' | 'standard' | 'elevated' | 'maximum'`
 - `VerifierPolicy` — 指定每个等级所需验证模式的策略
 - `PQCheckpoint` — 针对审计条目的后量子检查点
 - `A2ASession` — 加密的智能体间 (A2A) 会话状态

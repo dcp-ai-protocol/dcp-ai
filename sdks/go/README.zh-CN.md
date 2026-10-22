@@ -120,13 +120,17 @@ func main() {
 
 ```go
 tier := v2.ComputeSecurityTier(v2.SecurityTierInput{
-    RiskScore:   600,
-    DataClasses: []string{"financial"},
-    ActionType:  "payment",
+    RiskScore:       600, // from the bundle's PolicyDecision, never the intent
+    DataClasses:     []string{"financial_data"},
+    ActionType:      "initiate_payment",
+    EstimatedImpact: "high",
 })
 fmt.Println(tier.Tier)               // "elevated"
 fmt.Println(tier.VerificationMode)   // "hybrid_required"
 fmt.Println(tier.CheckpointInterval) // 1
+
+// From decoded intent and PolicyDecision payloads (map[string]interface{}):
+tier = v2.ComputeSecurityTier(v2.SecurityTierInputFromPayloads(intentPayload, policyPayload))
 ```
 
 ### ML-KEM-768 密钥封装
@@ -153,7 +157,8 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 
 | 函数 | 描述 |
 |----------|-------------|
-| `v2.ComputeSecurityTier(input)` | 计算自适应安全等级 (routine/standard/elevated/maximum) |
+| `v2.ComputeSecurityTier(input)` | 计算自适应安全等级（routine/standard/elevated/maximum）及其验证模式和检查点间隔（spec §14.2）；未知值按 `elevated` 处理 |
+| `v2.SecurityTierInputFromPayloads(intent, policyDecision)` | 根据解码后的 intent 和 PolicyDecision 载荷构建等级输入（`risk_score` 取自 PolicyDecision） |
 
 ### 复合签名
 

@@ -43,7 +43,7 @@ dcp-ai = { version = "2.9", features = ["wasm"] }
 | DCP-09 delegação + limiar de consciência + espelho do principal | Sim |
 | DCP-04 descoberta A2A + handshake + derivação de session id | Sim |
 | DCP-04 criptografia de sessão A2A AES-256-GCM | _Adiado para uma release subsequente_ |
-| Helpers de nonce de sessão, motor de tier de segurança, revogação de emergência | Sim |
+| Helpers de nonce de sessão, motor de tier de segurança (`compute_security_tier(&intent, Some(&policy_decision))`, spec §14.2), revogação de emergência | Sim |
 | Checkpoints PQ lazy + `PQCheckpointManager` | Sim |
 | Helpers de RPR blindado, autorização multi-parte, advisory de algoritmo | Sim |
 | Códigos de erro canônicos (38 compartilhados entre todos os SDKs) + `detect_wire_format` | Sim |

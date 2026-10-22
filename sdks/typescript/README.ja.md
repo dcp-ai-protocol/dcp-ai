@@ -63,8 +63,8 @@ const keys = generateKeypair();
 const bundle = new BundleBuilderV2()
   .responsiblePrincipalRecord({ /* V2 RPR with keys[] */ })
   .agentPassport({ /* V2 passport with capabilities */ })
-  .intent({ /* V2 intent with risk_score and security_tier */ })
-  .policyDecision({ /* V2 policy with resolved_tier */ })
+  .intent({ /* V2 intent with security_tier */ })
+  .policyDecision({ /* V2 policy decision with risk_score and resolved_tier */ })
   .addAuditEntry({ /* V2 audit with dual-hash chain */ })
   .build();
 ```
@@ -105,7 +105,7 @@ const bundle = new BundleBuilderV2()
 
 | 関数 | 説明 |
 |----------|-------------|
-| `computeSecurityTier(intent)` | intent のリスクプロファイルから `SecurityTier`（routine / standard / elevated / maximum）を計算 |
+| `computeSecurityTier(intent, policyDecision?)` | intent とポリシー決定の `risk_score` から `SecurityTier`（routine / standard / elevated / maximum）を計算（spec §14.2）。未知の値は `elevated` として扱う |
 | `maxTier(a, b)` | 2つのセキュリティティアのうち高い方を返す |
 | `tierToVerificationMode(tier)` | ティアから必要な検証モードへのマッピング |
 | `tierToCheckpointInterval(tier)` | ティアから耐量子チェックポイント間隔へのマッピング |
@@ -258,7 +258,7 @@ SDKがエクスポートする主要な型:
 - `SignedPayload` — 複合署名メタデータを伴う署名データのラッパー
 - `CompositeSignature` — 古典 + 耐量子署名コンポーネントを含む
 - `KeyEntry` — アルゴリズム、kid、鍵素材を含む公開鍵エントリ
-- `SecurityTier` — `'basic' | 'elevated' | 'critical'`
+- `SecurityTier` — `'routine' | 'standard' | 'elevated' | 'maximum'`
 - `VerifierPolicy` — ティアごとに必要な検証モードを指定するポリシー
 - `PQCheckpoint` — 監査エントリに対する耐量子チェックポイント
 - `A2ASession` — 暗号化されたエージェント間セッション状態

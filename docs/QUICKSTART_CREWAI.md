@@ -321,18 +321,19 @@ def search_web_v2(query: str) -> str:
         "action_type": "browse",
         "target": {"channel": "web", "domain": query[:50]},
         "data_classes": ["none"],
-        "risk_score": 50,
+        "estimated_impact": "low",
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
-    # V2: Automatic security tier computation
-    tier = compute_security_tier(intent)  # → "standard"
+    # V2: Automatic security tier computation (risk_score comes from the policy decision)
+    risk_score = 50
+    tier = compute_security_tier(intent, {"risk_score": risk_score})  # → "routine"
 
     policy = {
         "dcp_version": "2.0",
         "intent_id": intent["intent_id"],
         "decision": "approve",
-        "risk_score": intent["risk_score"],
+        "risk_score": risk_score,
         "resolved_tier": tier,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
