@@ -3,6 +3,8 @@ package v2
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
+	"slices"
 	"strings"
 )
 
@@ -16,17 +18,58 @@ type V2VerificationResult struct {
 	PQValid             bool     `json:"pq_valid"`
 	SessionBindingValid bool     `json:"session_binding_valid"`
 	ManifestValid       bool     `json:"manifest_valid"`
+	// VerificationMode is the mode the bundle was checked against and
+	// ResolvedTier the security tier of its intent and policy decision.
+	VerificationMode string `json:"verification_mode"`
+	ResolvedTier     string `json:"resolved_tier"`
+}
+
+// DefaultVerifierPolicy returns the default verifier policy, the same as
+// DEFAULT_VERIFIER_POLICY in the TypeScript SDK.
+func DefaultVerifierPolicy() VerifierPolicy {
+	return VerifierPolicy{
+		DefaultMode: "hybrid_preferred",
+		RiskOverrides: map[string]string{
+			"low":    "classical_only",
+			"medium": "hybrid_preferred",
+			"high":   "hybrid_required",
+		},
+		MinClassical:            1,
+		MinPQ:                   1,
+		AcceptedClassicalAlgs:   []string{"ed25519"},
+		AcceptedPQAlgs:          []string{"ml-dsa-65", "slh-dsa-192f"},
+		AcceptedHashAlgs:        []string{"sha256", "sha384"},
+		RequireSessionBinding:   true,
+		RequireCompositeBinding: true,
+		MaxKeyAgeDays:           365,
+		AllowV1Bundles:          true,
+	}
 }
 
 // VerifySignedBundleV2 performs full V2 bundle verification against a JSON-encoded
-// signed bundle. It validates structure, manifest hash consistency, session nonce
-// binding, the composite signatures over the manifest and over each artifact,
-// and audit hash chain integrity.
+// signed bundle under DefaultVerifierPolicy. It validates structure, manifest hash
+// consistency, session nonce binding, the composite signatures over the manifest
+// and over each artifact, and audit hash chain integrity.
 func VerifySignedBundleV2(registry *AlgorithmRegistry, signedBundleJSON []byte) *V2VerificationResult {
+	return VerifySignedBundleV2WithPolicy(registry, signedBundleJSON, DefaultVerifierPolicy())
+}
+
+// VerifySignedBundleV2WithPolicy verifies a V2 signed bundle against the stricter
+// of the policy mode (DefaultMode, or the RiskOverrides entry for the passport's
+// risk_tier) and the security tier's mode (spec §14.3).
+// Only DefaultMode and RiskOverrides are enforced; a policy that changes any
+// other field fails verification instead of having the setting ignored.
+func VerifySignedBundleV2WithPolicy(registry *AlgorithmRegistry, signedBundleJSON []byte, policy VerifierPolicy) *V2VerificationResult {
 	result := &V2VerificationResult{
 		DCPVersion: "2.0",
 		Errors:     []string{},
 		Warnings:   []string{},
+	}
+	enforced := DefaultVerifierPolicy()
+	enforced.DefaultMode, enforced.RiskOverrides = policy.DefaultMode, policy.RiskOverrides
+	if !reflect.DeepEqual(policy, enforced) {
+		result.Errors = append(result.Errors, "Verifier policy sets fields this verifier does not enforce: only DefaultMode and RiskOverrides may differ from DefaultVerifierPolicy")
+		return result
 	}
 
 	var raw map[string]interface{}
@@ -78,8 +121,13 @@ func VerifySignedBundleV2(registry *AlgorithmRegistry, signedBundleJSON []byte) 
 
 	verifyManifestHashes(bundle, manifest, result)
 	verifySessionNonceConsistency(bundle, manifestNonce, result)
-	verifyBundleSignature(registry, bundle, signature, manifest, result)
-	verifyArtifactSignatures(registry, bundle, result)
+	mode := resolveVerificationMode(bundle, policy, result)
+	if mode == "" {
+		result.Errors = append(result.Errors, "Unknown verification mode in verifier policy")
+		return result
+	}
+	verifyBundleSignature(registry, bundle, signature, manifest, mode, result)
+	verifyArtifactSignatures(registry, bundle, mode, result)
 	verifyAuditHashChain(bundle, result)
 
 	result.Verified = len(result.Errors) == 0
@@ -147,6 +195,52 @@ func verifySessionNonceConsistency(bundle map[string]interface{}, manifestNonce 
 			return
 		}
 	}
+}
+
+// resolveVerificationMode sets the bundle's security tier and returns the mode it
+// is checked against: the agent's risk_tier and intent can raise the policy mode
+// but never take it below the tier's mode. It returns "" for a policy mode that
+// is not a verification mode.
+func resolveVerificationMode(bundle map[string]interface{}, policy VerifierPolicy, result *V2VerificationResult) string {
+	payload := func(field string) map[string]interface{} {
+		sp, _ := bundle[field].(map[string]interface{})
+		p, _ := sp["payload"].(map[string]interface{})
+		return p
+	}
+	policyMode := policy.DefaultMode
+	riskTier, _ := payload("agent_passport")["risk_tier"].(string)
+	if override, ok := policy.RiskOverrides[riskTier]; ok && riskTier != "" {
+		policyMode = override
+	}
+	if policyMode != "pq_only" && !slices.Contains(modeStrictness, policyMode) {
+		return ""
+	}
+	tier := ComputeSecurityTier(SecurityTierInputFromPayloads(payload("intent"), payload("policy_decision")))
+	result.ResolvedTier = tier.Tier
+	result.VerificationMode = EffectiveVerificationMode(policyMode, tier.Tier)
+	return result.VerificationMode
+}
+
+// checkMode applies the verification mode to one verified composite signature
+// (VERIFICATION.md V2-7, V2-9). A PQ signature that is present must verify in
+// every mode; cvr.Valid covers both components for pq_over_classical.
+func checkMode(mode string, cs *CompositeSignature, cvr *CompositeVerifyResult) (err, warning string) {
+	switch {
+	case mode == "pq_only":
+		if cs.Binding != "pq_over_classical" || !cvr.PQValid {
+			return "PQ signature invalid or missing (pq_only)", ""
+		}
+		if !cvr.ClassicalValid {
+			return "", "classical signature not verified in pq_only mode"
+		}
+	case mode == "hybrid_required" && cs.Binding != "pq_over_classical":
+		return "hybrid_required needs a pq_over_classical signature, got " + cs.Binding, ""
+	case !cvr.Valid:
+		return "signature verification failed", ""
+	case cs.Binding == "classical_only" && mode == "hybrid_preferred":
+		return "", "classical_only binding (no PQ protection)"
+	}
+	return "", ""
 }
 
 // payloadKeys returns the key entries listed under field in an artifact's payload.
@@ -229,7 +323,7 @@ func verifyCompositeSig(registry *AlgorithmRegistry, context string, payload, cs
 	return &cs, cvr, nil
 }
 
-func verifyBundleSignature(registry *AlgorithmRegistry, bundle, signature, manifest map[string]interface{}, result *V2VerificationResult) {
+func verifyBundleSignature(registry *AlgorithmRegistry, bundle, signature, manifest map[string]interface{}, mode string, result *V2VerificationResult) {
 	csRaw, ok := signature["composite_sig"]
 	if !ok {
 		result.Errors = append(result.Errors, "Missing composite_sig in signature")
@@ -251,19 +345,17 @@ func verifyBundleSignature(registry *AlgorithmRegistry, bundle, signature, manif
 	result.ClassicalValid = cvr.ClassicalValid
 	result.PQValid = cvr.PQValid
 
-	if !cvr.Valid {
-		result.Errors = append(result.Errors, "Bundle signature verification failed")
-	}
-
-	if cs.Binding == "classical_only" {
-		result.Warnings = append(result.Warnings, "Bundle uses classical_only binding (no PQ protection)")
+	if e, w := checkMode(mode, cs, cvr); e != "" {
+		result.Errors = append(result.Errors, "Bundle "+e)
+	} else if w != "" {
+		result.Warnings = append(result.Warnings, "Bundle "+w)
 	}
 }
 
 // verifyArtifactSignatures checks each artifact's own composite_sig
 // (VERIFICATION.md V2-8): the principal signs the RPR with its binding_keys,
 // the agent signs the rest with its passport keys.
-func verifyArtifactSignatures(registry *AlgorithmRegistry, bundle map[string]interface{}, result *V2VerificationResult) {
+func verifyArtifactSignatures(registry *AlgorithmRegistry, bundle map[string]interface{}, mode string, result *V2VerificationResult) {
 	rprKeys := payloadKeys(bundle, "responsible_principal_record", "binding_keys")
 	agentKeys := payloadKeys(bundle, "agent_passport", "keys")
 	artifacts := []struct {
@@ -287,13 +379,14 @@ func verifyArtifactSignatures(registry *AlgorithmRegistry, bundle map[string]int
 			continue
 		}
 		cs, cvr, err := verifyCompositeSig(registry, a.context, payload, sp["composite_sig"], a.keys)
-		switch {
-		case err != nil:
+		if err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("%s signature: %s", a.field, err))
-		case !cvr.Valid:
-			result.Errors = append(result.Errors, fmt.Sprintf("%s signature verification failed", a.field))
-		case cs.Binding == "classical_only":
-			result.Warnings = append(result.Warnings, fmt.Sprintf("%s uses classical_only binding (no PQ protection)", a.field))
+			continue
+		}
+		if e, w := checkMode(mode, cs, cvr); e != "" {
+			result.Errors = append(result.Errors, fmt.Sprintf("%s %s", a.field, e))
+		} else if w != "" {
+			result.Warnings = append(result.Warnings, fmt.Sprintf("%s %s", a.field, w))
 		}
 	}
 }
