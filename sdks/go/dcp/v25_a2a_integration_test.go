@@ -227,15 +227,43 @@ func TestA2AInvalidAndTooOldSequences(t *testing.T) {
 	if _, err := v2.DecryptMessage(right, m0); err == nil || !strings.Contains(err.Error(), "too old") {
 		t.Fatalf("sequence older than the window must be rejected, got %v", err)
 	}
-	// A session built without ReceivedSequences accepts nothing below the counter.
+	// A session restored without ReceivedSequences never accepts a sequence below its counter again.
 	left2, right2 := pairSessions(t)
-	n0, _ := v2.EncryptMessage(left2, map[string]interface{}{"n": 0})
-	if _, err := v2.DecryptMessage(right2, n0); err != nil {
-		t.Fatal(err)
+	var ms []map[string]interface{}
+	for i := 0; i < 4; i++ {
+		m, _ := v2.EncryptMessage(left2, map[string]interface{}{"n": i})
+		ms = append(ms, m)
+	}
+	for _, i := range []int{0, 1} {
+		if _, err := v2.DecryptMessage(right2, ms[i]); err != nil {
+			t.Fatal(err)
+		}
 	}
 	right2.ReceivedSequences = nil
-	if _, err := v2.DecryptMessage(right2, n0); err == nil || !strings.Contains(err.Error(), "already received") {
-		t.Fatalf("nil ReceivedSequences must reject a sequence below the counter, got %v", err)
+	if _, err := v2.DecryptMessage(right2, ms[2]); err != nil {
+		t.Fatalf("new message on a restored session: %v", err)
+	}
+	for i := 0; i < 3; i++ {
+		if _, err := v2.DecryptMessage(right2, ms[i]); err == nil || !strings.Contains(err.Error(), "already received") {
+			t.Fatalf("restored session must reject message %d, got %v", i, err)
+		}
+	}
+	if _, err := v2.DecryptMessage(right2, ms[3]); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestA2ASequenceAWindowAheadRejected(t *testing.T) {
+	left, right := pairSessions(t)
+	left.MessageCounterSend = 1000
+	m, _ := v2.EncryptMessage(left, map[string]interface{}{"n": 1000})
+	if _, err := v2.DecryptMessage(right, m); err == nil || !strings.Contains(err.Error(), "too far ahead") {
+		t.Fatalf("a sequence a window ahead must be rejected, got %v", err)
+	}
+	left.MessageCounterSend = 999
+	m, _ = v2.EncryptMessage(left, map[string]interface{}{"n": 999})
+	if _, err := v2.DecryptMessage(right, m); err != nil {
+		t.Fatalf("a sequence just inside the window: %v", err)
 	}
 }
 

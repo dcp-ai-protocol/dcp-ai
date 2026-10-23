@@ -447,14 +447,24 @@ describe('A2A Session', () => {
       expect(() => decryptMessage(receiver, m0)).toThrow('too old');
     });
 
-    it('a session without received_sequences accepts nothing below the counter', () => {
+    it('a session restored without received_sequences never accepts a sequence below its counter again', () => {
       const { sender, receiver } = makePair();
-      const m0 = encryptMessage(sender, { n: 0 });
-      const m1 = encryptMessage(sender, { n: 1 });
-      decryptMessage(receiver, m0);
-      delete receiver.received_sequences; // a session object from before the field existed
-      expect(() => decryptMessage(receiver, m0)).toThrow('already received');
-      expect(decryptMessage(receiver, m1)).toEqual({ n: 1 });
+      const msgs = [0, 1, 2, 3].map((n) => encryptMessage(sender, { n }));
+      decryptMessage(receiver, msgs[0]);
+      decryptMessage(receiver, msgs[1]);
+      delete receiver.received_sequences; // restored from storage without the field
+      expect(() => decryptMessage(receiver, msgs[1])).toThrow('already received');
+      expect(decryptMessage(receiver, msgs[2])).toEqual({ n: 2 });
+      for (const m of msgs.slice(0, 3)) expect(() => decryptMessage(receiver, m)).toThrow('already received');
+      expect(decryptMessage(receiver, msgs[3])).toEqual({ n: 3 });
+    });
+
+    it('rejects a sequence a window or more ahead of the counter', () => {
+      const { sender, receiver } = makePair();
+      sender.message_counter_send = 1000;
+      expect(() => decryptMessage(receiver, encryptMessage(sender, { n: 1000 }))).toThrow('too far ahead');
+      sender.message_counter_send = 999;
+      expect(decryptMessage(receiver, encryptMessage(sender, { n: 999 }))).toEqual({ n: 999 });
     });
 
     it('verifies a resume proof and rejects a wrong one of any length', () => {
