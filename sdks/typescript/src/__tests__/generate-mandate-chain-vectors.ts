@@ -241,6 +241,8 @@ async function main() {
     },
     { name: 'limits_at_the_safe_integer_bound', chain: [boundRoot, boundSub], revoked_mandate_ids: [], expected: { depth: 1, effective_tier: 'elevated' } },
     { name: 'limits_written_in_decimal_form', chain: [decimalRoot, decimalSub], revoked_mandate_ids: [], expected: { depth: 1, effective_tier: 'elevated' } },
+    // An empty list is a subset: the child may touch no data class at all, the narrowest scope.
+    { name: 'data_classes_narrowed_to_none', chain: [root, await sub1Of({ authority_scope: email({ data_classes: [] }) })], revoked_mandate_ids: [], expected: { depth: 1, effective_tier: 'elevated' } },
   ];
 
   const scope1 = sub1Payload().authority_scope as Record<string, unknown>[];
@@ -252,7 +254,7 @@ async function main() {
     { name: 'widened_actions_permitted', chain: [root, await sub1Of({ authority_scope: email({ actions_permitted: ['read', 'draft', 'send', 'delete'] }) })], error_contains: 'actions_permitted' },
     { name: 'added_data_classes', chain: [root, await sub1Of({ authority_scope: email({ data_classes: ['contact_info', 'pii'] }) })], error_contains: 'data_classes' },
     // Dropping data_classes would free the child from the parent's restriction.
-    { name: 'dropped_data_classes', chain: [root, await sub1Of({ authority_scope: email({ data_classes: undefined }) })], error_contains: 'data_classes' },
+    { name: 'dropped_data_classes', chain: [root, await sub1Of({ authority_scope: email({ data_classes: undefined }) })], error_contains: 'data_classes for domain "email" missing' },
     {
       name: 'data_classes_where_parent_has_none',
       chain: [plainRoot, await signSub(plainSubPayload({ authority_scope: [{ domain: 'calendar', actions_permitted: ['read'], data_classes: ['contact_info'] }] }), agents[ORCHESTRATOR])],
