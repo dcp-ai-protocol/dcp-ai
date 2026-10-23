@@ -191,8 +191,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   builder, signer or verifier, although `dcp_ai.v2` ships them (from 2.9.0). Both now use the SDK
   as it is: a policy gate decides before the tool runs, the search query stays out of the record,
   each tool call seals its own bundle, and verification pins the operator (V1: its public key;
-  V2: its RPR hash and kids under `hybrid_required`, since the bundle's own keys only make it
-  self-consistent). The bundles verify in Python and with `dcp verify-bundle`, the V2 ones also
+  V2: its RPR hash and kids under `hybrid_required`, and that every kid is derived from its key,
+  since the bundle's own keys only make it self-consistent). The bundles verify in Python and with `dcp verify-bundle`, the V2 ones also
   with the TypeScript, Go and Rust SDKs. The guide imports `tool` from `crewai.tools`, as CrewAI
   documents it, and describes the `npm create @dcp-ai/crewai` scaffold as the placeholder
   walkthrough it is.

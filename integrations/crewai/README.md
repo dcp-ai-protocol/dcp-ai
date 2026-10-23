@@ -2,7 +2,7 @@
 
 DCP integration with CrewAI for multi-agent governance. Each agent has its own DCP passport and audit trail, with support for combining trails across the entire crew.
 
-`DCPCrewAgent` and `DCPCrew` keep DCP records next to a crew: hash-chained V2 audit entries, lifecycle and succession records. They do not sign anything and do not run CrewAI themselves. For signed, verifiable citizenship bundles of a CrewAI crew, use the core SDK as in [docs/QUICKSTART_CREWAI.md](../../docs/QUICKSTART_CREWAI.md).
+`DCPCrewAgent` and `DCPCrew` keep DCP records next to a crew: hash-chained audit entries in the V2 shape, lifecycle and succession records. They do not sign anything and do not run CrewAI themselves. For signed, verifiable citizenship bundles of a CrewAI crew, use the core SDK as in [docs/QUICKSTART_CREWAI.md](../../docs/QUICKSTART_CREWAI.md).
 
 ## Supported DCP Specifications
 
@@ -19,8 +19,9 @@ pip install "dcp-ai[crewai]"
 ```python
 from dcp_ai.crewai import DCPCrewAgent, DCPCrew
 
-# The V2 payloads of the principal's RPR and of each agent's passport
-# (DCPCrewAgent reads human_id, agent_id and capabilities)
+# Fields of the principal's RPR and of each agent's passport, in their V2 form.
+# DCPCrewAgent reads human_id, agent_id and capabilities; it does not need full,
+# signed payloads (those also carry session_nonce and keys).
 rpr = {
     "dcp_version": "2.0",
     "human_id": "rpr:human-001",
@@ -97,7 +98,7 @@ DCPCrewAgent(
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `log_action(action_type, outcome, evidence?, impact?, data_classes?)` | `(str, str, dict?, str?, list?) -> dict` | Records an action as a V2 audit entry with hash-chaining (the intent behind it is hashed, not kept). Raises if decommissioned. |
+| `log_action(action_type, outcome, evidence?, impact?, data_classes?)` | `(str, str, dict?, str?, list?) -> dict` | Records an action as an audit entry in the V2 shape, with hash-chaining (the intent behind it is hashed, not kept). Raises if decommissioned. |
 | `get_audit_trail()` | `() -> list[dict]` | Returns the agent's audit trail |
 | `commission(purpose, capabilities, risk_tier)` | `(str, list?, str?) -> dict` | Commission the agent (DCP-05 §3.1) |
 | `report_vitality(metrics)` | `(dict) -> dict` | Report vitality metrics (DCP-05 §4.1) |
