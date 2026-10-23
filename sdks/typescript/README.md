@@ -163,7 +163,7 @@ const bundle = new BundleBuilderV2()
 | `createCloseMessage(sessionId, reason, finalSequence, auditSummaryHash)` | Creates a session close message |
 | `createSession(sessionId, sessionKey, localAgentId, remoteAgentId, securityTier, rekeyingInterval?)` | Creates an encrypted A2A session |
 | `encryptMessage(session, payload)` | Encrypts a message within an A2A session |
-| `decryptMessage(session, message)` | Decrypts a message within an A2A session |
+| `decryptMessage(session, message)` | Decrypts a message within an A2A session; each sequence is accepted once within the 1000-message window (DCP-04 §8.4) |
 | `needsRekeying(session)` | Checks if a session needs key rotation |
 | `generateResumeProof(session, lastSeenSequence)` | Generates a proof for session resumption |
 | `verifyResumeProof(session, lastSeenSequence, proof)` | Verifies a session resumption proof |
@@ -212,6 +212,39 @@ const bundle = new BundleBuilderV2()
 | `cborEncode(value)` | Encodes a value to CBOR bytes |
 | `cborDecode(data)` | Decodes CBOR bytes to a value |
 
+### Delegation Chains (DCP-09 §3.5)
+
+A human delegates to an agent with a root mandate; that agent may pass part of its authority to another agent
+with a sub-mandate it signs itself, and so on. Every hop may only narrow what it received, and the whole chain
+verifies offline back to the human.
+
+| Function | Description |
+|----------|-------------|
+| `createDelegationMandate(registry, humanKeys, params)` | Root mandate signed by the human (`human_composite_sig`); `sub_delegation` and `minimum_security_tier` are optional |
+| `createSubMandate(registry, delegatorKeys, parent, params)` | Sub-mandate signed by the parent's agent (`delegator_composite_sig`, `DCP-AI.v2.SubMandate` context) |
+| `verifyMandateChain(registry, chain, revokedIds, keys, now?)` | Verifies the chain root first: signatures back to the human, parent links and depth, `sub_delegation`, nested validity windows, attenuation (actions, `data_classes` and `limits` only narrow), the security-tier floor and revocation; returns `{ valid, errors, depth, effective_tier }` |
+
+```typescript
+import { createSubMandate, verifyMandateChain, computeSecurityTier } from '@dcp-ai/sdk';
+
+const sub = await createSubMandate(registry, orchestratorKeys, rootMandate, {
+  mandate_id: 'mandate:sub-1',
+  session_nonce: nonce,
+  agent_id: 'agent:subagent',
+  authority_scope: [{ domain: 'email', actions_permitted: ['read'], data_classes: ['contact_info'], limits: { max_messages_per_day: 10 } }],
+  valid_from: '2026-03-01T00:00:00Z',
+  valid_until: '2026-06-01T00:00:00Z',
+  revocable: true,
+});
+
+const result = await verifyMandateChain(registry, [rootMandate, sub], new Set(), {
+  human_keys: humanKeyEntries,
+  agent_keys: { 'agent:orchestrator': orchestratorKeyEntries },
+});
+// The chain's tier floor can only raise the tier of an action taken under it.
+const tier = computeSecurityTier(intent, policyDecision, result.valid ? result.effective_tier : null);
+```
+
 ### DCP-05–09: Extended Protocol Modules
 
 | Module | Spec | Key Exports |
@@ -238,17 +271,19 @@ const cert: CommissioningCertificate = {
   conditions: ['Must complete onboarding within 30 days'],
 };
 
-// Example: Delegation mandate
-import { DelegationMandate, AwarenessThreshold } from '@dcp-ai/sdk';
+// Example: Delegation mandate (signed by the human)
+import { createDelegationMandate } from '@dcp-ai/sdk';
 
-const mandate: DelegationMandate = {
+const mandate = await createDelegationMandate(registry, humanKeys, {
   mandate_id: 'mandate-001',
-  principal_id: 'human-001',
-  delegate_id: 'agent-001',
-  authority_scope: [{ domain: 'email', actions: ['read', 'draft'], constraints: {} }],
+  session_nonce: nonce,
+  human_id: 'rpr:human-001',
+  agent_id: 'agent:agent-001',
+  authority_scope: [{ domain: 'email', actions_permitted: ['read', 'draft'], limits: { max_messages_per_day: 50 } }],
   valid_from: '2026-03-01T00:00:00Z',
   valid_until: '2026-06-01T00:00:00Z',
-};
+  revocable: true,
+});
 ```
 
 ## V2 Types
@@ -295,6 +330,7 @@ import { createSession, encryptMessage, decryptMessage } from '@dcp-ai/sdk';
 const session = createSession(sessionId, sessionKey, 'agent:a', 'agent:b', 'elevated');
 const encrypted = encryptMessage(session, { action: 'negotiate', data: {...} });
 const decrypted = decryptMessage(remoteSession, encrypted);
+// The same message delivered again throws: each sequence is accepted once.
 ```
 
 ## Observability

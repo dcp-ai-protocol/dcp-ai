@@ -817,14 +817,16 @@ interface VerificationResult {
 
 ## Security Tier Engine
 
-### `computeSecurityTier(intent, policyDecision?)`
+### `computeSecurityTier(intent, policyDecision?, mandateChainTier?)`
 
-Compute the security tier (spec §14.2) from the intent and the bundle's policy decision.
+Compute the security tier (spec §14.2) from the intent and the bundle's policy decision. `mandateChainTier`,
+the `effective_tier` of a verified delegation chain (`verifyMandateChain`), can only raise the result.
 
 ```typescript
 function computeSecurityTier(
   intent: IntentV2,
-  policyDecision?: Pick<PolicyDecisionV2, 'risk_score'>,
+  policyDecision?: Pick<PolicyDecisionV2, 'risk_score'> | null,
+  mandateChainTier?: SecurityTier | null,
 ): SecurityTier;
 ```
 
@@ -977,6 +979,7 @@ interface A2ASession {
   security_tier: string;
   rekeying_interval: number;
   status: 'active' | 'rekeying' | 'closed';
+  received_sequences?: number[];   // Sequences accepted within the receive window
 }
 ```
 
@@ -1006,7 +1009,11 @@ interface EncryptedMessage {
 
 ### `decryptMessage(session, message)`
 
-Decrypt an incoming A2A message.
+Decrypt an incoming A2A message. Each sequence is accepted once (DCP-04 §8.4): a sequence already
+received, one more than 1000 behind the highest received, one 1000 or more ahead of it, or one that is not
+a non-negative integer is rejected. Out-of-order delivery inside the window works. A sequence is recorded
+only after the GCM tag verifies, so a forged message cannot use one up. A session restored without
+`received_sequences` counts every sequence of the window below `message_counter_recv` as received.
 
 ```typescript
 function decryptMessage(
@@ -1508,7 +1515,8 @@ Delegation chains (DCP-09 §3.5): the agent holding `parent` issues a sub-mandat
 own keys under the `DCP-AI.v2.SubMandate` context. `verifyMandateChain` takes the chain root first, the revoked
 mandate ids, the human's key entries and each delegating agent's key entries by `agent_id`, and the verification
 time; it checks every hop's signature back to the human, the parent link and depth, `sub_delegation`, nested
-validity windows, attenuation (actions, data classes and limits may only narrow), the `minimum_security_tier`
+validity windows, attenuation (actions, data classes and limits may only narrow: a child entry restates the
+parent's `data_classes` as a subset, and numeric limits compare only as integers within ±(2^53−1)), the `minimum_security_tier`
 floor and revocation (a revoked ancestor invalidates every descendant), failing closed on anything unknown.
 
 ```typescript

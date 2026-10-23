@@ -144,9 +144,9 @@ fails at once, so a broken agent shows up as failures, never as a hung run.
 
 ## What the first run found
 
-All 16 SDK pairs and the reference verifier agree on every bundle and every attack (17 checks per
-pair). Writing the agents surfaced these SDK gaps, none of them a verdict divergence between
-SDK verifiers:
+All 16 SDK pairs and the reference verifier agree on every bundle and every attack. Writing the
+agents surfaced these SDK gaps, none of them a verdict divergence between SDK verifiers, and each
+was fixed:
 
 - **Go `SignBundleV2` left `signature.signer.id` empty**: it took no signer id. The four SDK
   verifiers accepted such a bundle; the reference verifier, the CLI and the server rejected it
@@ -155,15 +155,15 @@ SDK verifiers:
   `created_at` and `manifest_hash` are unauthenticated metadata outside the signed manifest: no
   verifier checks them against the RPR or recomputes `manifest_hash` (all five accept zeros);
   only the schema constrains their shape.
-- **Go's typed payloads cannot express the contract**: `IntentV2` has no `security_tier`,
-  `PolicyDecisionV2` no `resolved_tier`, and `contact` / `target.to` are `omitempty` where the
-  schema wants `null`; the Go agent builds those payloads as maps.
-- **Rust has no bundle builder or signer**; the Rust agent assembles the manifest and signs it
-  from the primitives, and its bundles verify everywhere. Rust also has no public helper for an
-  RFC 3339 "now" or a UUID v4.
-- **An empty audit trail**: Rust's `audit_events_merkle_root` refuses an empty list while its
-  verifier accepts `audit_merkle_root` of 64 zeros with no entries. Whether a bundle may carry no
-  audit entry at all is a spec question (the builders require one).
+- **Go's typed payloads lacked tier fields**: `IntentV2` had no `security_tier` and
+  `PolicyDecisionV2` no `resolved_tier`. Both exist now. (`contact` and `target.to` are optional in
+  the schema, so the Go agent's maps write `null` only to match the contract.)
+- **Rust's native API has no bundle builder or signer** (the `wasm` feature has
+  `wasm_build_bundle` / `wasm_sign_bundle`); the Rust agent assembles the manifest and signs it
+  from the primitives, and its bundles verify everywhere.
+- **An empty audit trail**: every verifier accepts a validly signed bundle with no audit entries,
+  as `spec/VERIFICATION.md` allows (root of 64 zeros); the `auditEventsMerkleRoot` helpers, which
+  serve PQ checkpoints, refuse an empty list in all four SDKs alike.
 
 ## Roadmap
 

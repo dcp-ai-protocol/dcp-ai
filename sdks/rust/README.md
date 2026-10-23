@@ -36,14 +36,15 @@ dcp-ai = { version = "2.10", features = ["wasm"] }
 | Canonical JSON v2 + domain separation | Yes |
 | Dual hash (SHA-256 + SHA3-256) + Merkle roots | Yes |
 | Bundle verification (V1 + V2; V2 under a verifier policy and the security tier, `verify_signed_bundle_v2_with_policy`) | Yes |
+| V2 bundle building & signing | `wasm` feature: `wasm_build_bundle` / `wasm_sign_bundle`. Native API: not yet; assemble the manifest from `prepare_payload`, `composite_sign` and `audit_events_merkle_root`, as `tools/interop-matrix/agents/rust` does |
 | DCP-05 agent lifecycle (commissioning / vitality / decommissioning) | Yes |
 | DCP-06 digital succession (testament, memory transfer, ceremony) | Yes |
 | DCP-07 dispute resolution + arbitration + jurisprudence | Yes |
 | DCP-08 rights + obligations + compliance | Yes |
-| DCP-09 delegation + awareness threshold + principal mirror | Yes |
+| DCP-09 delegation + verifiable delegation chains (`create_sub_mandate`, `verify_mandate_chain`, §3.5) + awareness threshold + principal mirror | Yes |
 | DCP-04 A2A discovery + handshake + session id derivation | Yes |
 | DCP-04 A2A AES-256-GCM session encryption | _Deferred to a follow-up release_ |
-| Session nonce helpers, security tier engine (`compute_security_tier(&intent, Some(&policy_decision))`, spec §14.2), emergency revocation | Yes |
+| Session nonce helpers, security tier engine (`compute_security_tier(&intent, Some(&policy_decision))`, spec §14.2; `compute_security_tier_with_floor` adds a delegation chain's tier), emergency revocation | Yes |
 | Lazy PQ checkpoints + `PQCheckpointManager` | Yes |
 | Blinded RPR, multi-party authorization, algorithm advisory helpers | Yes |
 | Canonical error codes (38 shared across all SDKs) + `detect_wire_format` | Yes |
@@ -158,6 +159,14 @@ Domain separation constants: `CTX_LIFECYCLE`, `CTX_SUCCESSION`, `CTX_DISPUTE`, `
 
 All structs derive `Debug`, `Clone`, `Serialize`, `Deserialize`. Enums use `#[serde(rename_all = "snake_case")]`. Optional fields use `Option<T>` with `#[serde(skip_serializing_if = "Option::is_none")]`.
 
+### Delegation Chains (`dcp_ai::v2::delegation`, DCP-09 §3.5)
+
+| Function | Description |
+|----------|-------------|
+| `create_delegation_mandate_with_options(ed, pq, human_classical, human_pq, params, &MandateChainOptions)` | Root mandate signed by the human, with optional `sub_delegation` and `minimum_security_tier` |
+| `create_sub_mandate(ed, pq, classical, pq_key, &parent, SubMandateParams { .. })` | Sub-mandate signed by the parent's agent under the `DCP-AI.v2.SubMandate` context |
+| `verify_mandate_chain(&chain, &revoked_ids, &MandateChainKeys { human_keys, agent_keys }, now_millis)` | Verifies the chain root first and offline (signatures back to the human, links and depth, `sub_delegation`, nested validity, attenuation of actions, `data_classes` and `limits`, tier floor, revocation); returns `MandateChainResult { valid, errors, depth, effective_tier }` |
+
 ### Feature `wasm`
 
 When the `wasm` feature is enabled, the crate exposes WebAssembly bindings:
@@ -168,6 +177,8 @@ fn wasm_verify_signed_bundle(json: &str, pub_key: Option<String>) -> String;
 fn wasm_verify_signed_bundle_v2(json: &str, policy_json: Option<String>) -> String; // default policy when None; V1 bundles are rejected under a policy
 fn wasm_hash_object(json: &str) -> String;
 fn wasm_generate_keypair() -> String;
+fn wasm_build_bundle(rpr_json: &str, passport_json: &str, intent_json: &str, policy_json: &str, audit_entries_json: &str, session_nonce: &str /* , … */) -> String;
+fn wasm_sign_bundle(bundle_json: &str, classical_sk_b64: &str, classical_kid: &str, pq_sk_b64: &str, pq_kid: &str) -> String;
 ```
 
 Compile for WASM:

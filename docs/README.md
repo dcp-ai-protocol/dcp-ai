@@ -14,6 +14,12 @@
 - [SECURITY_MODEL.md](SECURITY_MODEL.md) — Threat model, attack vectors, protection layers
 - [STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md) — P2P storage and optional blockchain anchoring
 
+## Testing & Assurance
+
+- [tools/interop-matrix](../tools/interop-matrix/README.md) — Live agents on the four SDKs sign and verify each other's bundles, untouched and tampered with in transit
+- [tools/difffuzz](../tools/difffuzz/README.md) — Differential fuzzing of the four V2 verifiers
+- [tests/interop/v2](../tests/interop/v2/) — Shared vectors every SDK must accept or reject
+
 ## Reference
 
 - [API_REFERENCE.md](API_REFERENCE.md) — Complete TypeScript SDK API documentation

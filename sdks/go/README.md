@@ -28,12 +28,12 @@ go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
 | Security tier computation | — | Yes |
 | Proof of possession | — | Yes |
 | Key rotation | — | Yes |
-| DCP-04 A2A discovery + handshake + AES-256-GCM session (stdlib) | — | Yes |
+| DCP-04 A2A discovery + handshake + AES-256-GCM session (stdlib; safe for concurrent use, each message accepted once within the window) | — | Yes |
 | DCP-05 agent lifecycle (commissioning / vitality / decommissioning) | — | Yes |
 | DCP-06 digital succession (testament, memory transfer, ceremony) | — | Yes |
 | DCP-07 dispute resolution + arbitration + jurisprudence | — | Yes |
 | DCP-08 rights + obligations + compliance | — | Yes |
-| DCP-09 delegation + awareness threshold + principal mirror | — | Yes |
+| DCP-09 delegation + verifiable delegation chains (`CreateSubMandate`, `VerifyMandateChain`) + awareness threshold + principal mirror | — | Yes |
 | Session nonce helpers, emergency revocation | — | Yes |
 | Lazy PQ checkpoints + `PQCheckpointManager` | — | Yes |
 | Blinded RPR, multi-party authorization, algorithm advisory helpers | — | Yes |
@@ -150,7 +150,7 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 |----------|-------------|
 | `v2.SignPayload(reg, context, payload, classicalKey, pqKey)` | Signs an artifact into a `SignedPayload` (composite, or classical-only when `pqKey` is nil) |
 | `v2.BuildBundleV2(input)` | Assembles a V2 bundle from signed artifacts, with manifest hashes and dual Merkle roots |
-| `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | Signs a bundle with composite or classical-only signature |
+| `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | Signs a bundle with composite or classical-only signature; the signer is the bundle's principal (`signer.id` = the RPR's `human_id`) |
 | `v2.VerifySignedBundleV2(reg, jsonBytes)` | Full V2 bundle verification (structure, hashes, signatures, audit chain) under `DefaultVerifierPolicy`, against the stricter of the policy mode and the security tier's mode (spec §14.3); reports `ResolvedTier` and `VerificationMode` |
 | `v2.VerifySignedBundleV2WithPolicy(reg, jsonBytes, policy)` | Same with your own `VerifierPolicy`; only `DefaultMode`, `RiskOverrides` and the Phase 3 fields (`AdvisoryRejectedAlgs`, `WarnClassicalOnlyDeprecated`, `AllowClassicalFallbackDisable`, as in TypeScript) may differ from `DefaultVerifierPolicy()`, any other change fails verification |
 
@@ -161,6 +161,16 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 | `v2.ComputeSecurityTier(input)` | Computes the adaptive security tier (routine/standard/elevated/maximum), its verification mode and checkpoint interval (spec §14.2); unknown values fail closed to `elevated` |
 | `v2.SecurityTierInputFromPayloads(intent, policyDecision)` | Builds the tier input from decoded intent and PolicyDecision payloads (`risk_score` comes from the PolicyDecision; one that is missing or not an integer from 0 to 1000 becomes `RiskScore: -1`, which is unknown) |
 | `v2.EffectiveVerificationMode(policyMode, tier)` | The stricter of the policy mode and the tier's mode; `pq_only` stays `pq_only` |
+
+### Delegation Chains (DCP-09 §3.5)
+
+| Function | Description |
+|----------|-------------|
+| `v2.CreateDelegationMandate(reg, humanClassical, humanPQ, params)` | Root mandate signed by the human; `SubDelegation` and `MinimumSecurityTier` are optional |
+| `v2.CreateSubMandate(reg, delegatorClassical, delegatorPQ, parent, v2.SubMandateParams{...})` | Sub-mandate signed by the parent's agent under the `DCP-AI.v2.SubMandate` context |
+| `v2.VerifyMandateChain(reg, chain, revokedIDs, v2.MandateChainKeys{HumanKeys, AgentKeys}, now)` | Verifies the chain root first and offline (signatures back to the human, links and depth, `sub_delegation`, nested validity, attenuation of actions, `data_classes` and `limits`, tier floor, revocation); returns `MandateChainResult{Valid, Errors, Depth, EffectiveTier}` |
+
+`SecurityTierInput.MandateChainTier` takes the chain's `EffectiveTier` as a floor that can only raise the tier.
 
 ### Composite Signatures
 

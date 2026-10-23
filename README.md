@@ -91,7 +91,7 @@ See [spec/core/](spec/core/) for the core specification.
 | [DCP-06](spec/DCP-06.md) | Digital Succession & Inheritance | Digital testaments, memory transfer, successor designation |
 | [DCP-07](spec/DCP-07.md) | Conflict Resolution & Dispute Arbitration | Disputes, escalation levels, arbitration, jurisprudence |
 | [DCP-08](spec/DCP-08.md) | Rights & Obligations Framework | Rights declarations, obligation records, violation reporting |
-| [DCP-09](spec/DCP-09.md) | Personal Representation & Delegation | Delegation mandates, awareness thresholds, principal mirrors |
+| [DCP-09](spec/DCP-09.md) | Personal Representation & Delegation | Delegation mandates, verifiable sub-delegation chains back to the human, awareness thresholds, principal mirrors |
 | [DCP-AI v2.0](spec/DCP-AI-v2.0.md) | Post-Quantum Normative Specification | Complete v2.0 spec with hybrid PQ crypto, 4-tier security model |
 
 See also: [Core specification](spec/core/dcp-core.md) | [Profiles overview](spec/profiles/)
@@ -352,6 +352,14 @@ cd docker && docker compose up -d
 | [SECURITY_MODEL](docs/SECURITY_MODEL.md) | Threat model, attack vectors, protection layers |
 | [STORAGE_AND_ANCHORING](docs/STORAGE_AND_ANCHORING.md) | P2P storage, optional blockchain anchoring |
 
+### Testing & Assurance
+
+| Tool | Description |
+|------|-------------|
+| [Interop matrix](tools/interop-matrix/README.md) | Live agents on the four SDKs (and the reference verifier) create, sign and verify each other's citizenship bundles, untouched and tampered with in transit |
+| [Differential fuzzer](tools/difffuzz/README.md) | The same mutated signed bundle through the four SDK verifiers; any disagreement is a finding |
+| [Shared vectors](tests/interop/v2/) | Bundles, mandate chains and attack cases every SDK must accept or reject the same way |
+
 ### Guides
 
 | Guide | Description |
@@ -408,6 +416,8 @@ dcp-ai-genesis/
 │   └── profiles/            # Profile specifications (crypto, a2a, governance)
 ├── schemas/                 # JSON Schemas (draft 2020-12, v2 includes DCP-05–09)
 ├── tools/                   # Validation, conformance, crypto + Merkle helpers
+│   ├── interop-matrix/      # Live interoperability between agents on the four SDKs
+│   └── difffuzz/            # Differential fuzzer of the four V2 verifiers
 ├── tests/                   # Conformance tests and fixtures
 ├── bin/dcp.js               # Reference CLI
 ├── cli/                     # Interactive CLI wizard (@dcp-ai/cli)
@@ -455,6 +465,10 @@ npm test
 
 # Run protocol conformance suite
 npm run conformance
+
+# Cross-SDK checks (build sdks/typescript first; needs Python, Go and Rust)
+node tools/interop-matrix/run.mjs
+node tools/difffuzz/run.mjs
 
 # Start verification server (port 3000)
 npm run server
