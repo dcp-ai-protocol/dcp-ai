@@ -245,9 +245,6 @@ func bundle(args json.RawMessage) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	// SignBundleV2 takes no signer id and leaves signer.id empty; the signer block is
-	// outside the signed manifest, so the agent fills in the id the contract fixes.
-	signed.Signature.Signer.ID = state.humanID
 	return map[string]interface{}{"signed_bundle": signed}, nil
 }
 
