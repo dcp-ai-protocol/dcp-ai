@@ -152,7 +152,7 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 | `v2.BuildBundleV2(input)` | 由已签名的工件构建 V2 凭证包，含清单哈希和双 Merkle 根 |
 | `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | 使用复合或仅经典签名签名凭证包；签名者是凭证包的主体（`signer.id` = RPR 的 `human_id`） |
 | `v2.VerifySignedBundleV2(reg, jsonBytes)` | 完整的 V2 凭证包验证（结构、哈希、签名、审计链），使用 `DefaultVerifierPolicy`，按策略模式与安全等级模式中更严格的一个验证（spec §14.3）；返回 `ResolvedTier` 和 `VerificationMode` |
-| `v2.VerifySignedBundleV2WithPolicy(reg, jsonBytes, policy)` | 相同，但使用自定义 `VerifierPolicy`；只有 `DefaultMode`、`RiskOverrides`、`MaxSessionDurationSeconds` 和 Phase 3 字段（`AdvisoryRejectedAlgs`、`WarnClassicalOnlyDeprecated`、`AllowClassicalFallbackDisable`，语义与 TypeScript 相同）可以与 `DefaultVerifierPolicy()` 不同，其他任何改动都会使验证失败 |
+| `v2.VerifySignedBundleV2WithPolicy(reg, jsonBytes, policy)` | 相同，但使用自定义 `VerifierPolicy`；只有 `DefaultMode`、`RiskOverrides`、`MaxSessionDurationSeconds`、`RequireSessionExpiry`、`RequireAudienceBinding`、`VerifierID` 和 Phase 3 字段（`AdvisoryRejectedAlgs`、`WarnClassicalOnlyDeprecated`、`AllowClassicalFallbackDisable`，语义与 TypeScript 相同）可以与 `DefaultVerifierPolicy()` 不同，其他任何改动都会使验证失败 |
 
 ### 安全等级
 

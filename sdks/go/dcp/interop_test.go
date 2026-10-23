@@ -872,6 +872,26 @@ func TestDefaultVerifierPolicyVector(t *testing.T) {
 	if r.Verified || !strings.Contains(strings.Join(r.Errors, "\n"), "rejected by active advisory") {
 		t.Fatalf("an advisory-rejected algorithm must fail verification: %v", r.Errors)
 	}
+
+	// The schema's session and audience fields decode into VerifierPolicy, and
+	// the verifier enforces them instead of failing closed on them.
+	delete(fields, "advisory_rejected_algs")
+	fields["require_session_expiry"] = true
+	fields["max_session_duration_seconds"] = 3_000_000_000
+	fields["require_audience_binding"] = true
+	fields["verifier_id"] = "verifier:acme"
+	raw, _ = json.Marshal(fields)
+	want := v2.DefaultVerifierPolicy()
+	want.AdvisoryRejectedAlgs = nil
+	want.RequireSessionExpiry, want.MaxSessionDurationSeconds = true, 3_000_000_000
+	want.RequireAudienceBinding, want.VerifierID = true, "verifier:acme"
+	if got := decode(raw); !reflect.DeepEqual(got, want) {
+		t.Fatalf("decoded %+v, want %+v", got, want)
+	} else if r := v2.VerifySignedBundleV2WithPolicy(reg, vecs.SignedBundle, got); r.Verified ||
+		strings.Contains(strings.Join(r.Errors, "\n"), "does not enforce") ||
+		!strings.Contains(strings.Join(r.Errors, "\n"), "Policy requires audience binding") {
+		t.Fatalf("signed_bundle has no intended_verifier: %v", r.Errors)
+	}
 }
 
 // parseInstant parses an RFC 3339 timestamp string.
@@ -1195,6 +1215,39 @@ func TestBuildSignVerifyBundleV2(t *testing.T) {
 	// The agent signs checkpoints: the principal's keys are not passport keys.
 	if r := verify(withCheckpoint(principal)); r.Verified || !strings.Contains(strings.Join(r.Errors, "\n"), "not found in passport keys") {
 		t.Fatalf("a checkpoint signed by the principal must be rejected: %v", r.Errors)
+	}
+
+	// RequireSessionExpiry, RequireAudienceBinding and VerifierID, as the
+	// TypeScript verifier applies them.
+	bound := *bundle
+	bound.Manifest.SessionExpiresAt = time.Now().Add(time.Hour).UTC().Format(time.RFC3339)
+	bound.Manifest.IntendedVerifier = "verifier:acme"
+	for _, c := range []struct {
+		name          string
+		bundle        *v2.CitizenshipBundleV2
+		edit          func(p *v2.VerifierPolicy)
+		errorContains string // "" when the bundle must verify
+	}{
+		{"expiry required and present", &bound, func(p *v2.VerifierPolicy) { p.RequireSessionExpiry = true }, ""},
+		{"expiry required and absent", bundle, func(p *v2.VerifierPolicy) { p.RequireSessionExpiry = true },
+			"Policy requires session_expires_at but manifest does not include it"},
+		{"audience required and present", &bound, func(p *v2.VerifierPolicy) { p.RequireAudienceBinding = true }, ""},
+		{"audience required and absent", bundle, func(p *v2.VerifierPolicy) { p.RequireAudienceBinding = true },
+			"Policy requires audience binding but manifest does not include intended_verifier"},
+		{"audience is this verifier", &bound, func(p *v2.VerifierPolicy) { p.RequireAudienceBinding, p.VerifierID = true, "verifier:acme" }, ""},
+		{"audience is another verifier", &bound, func(p *v2.VerifierPolicy) { p.RequireAudienceBinding, p.VerifierID = true, "verifier:other" },
+			"Bundle intended for verifier 'verifier:acme', not 'verifier:other'"},
+		{"verifier id alone binds nothing", bundle, func(p *v2.VerifierPolicy) { p.VerifierID = "verifier:other" }, ""},
+	} {
+		policy := v2.DefaultVerifierPolicy()
+		c.edit(&policy)
+		r := verifyWith(c.bundle, policy)
+		switch {
+		case c.errorContains == "" && !r.Verified:
+			t.Errorf("%s: must verify: %v", c.name, r.Errors)
+		case c.errorContains != "" && (r.Verified || !strings.Contains(strings.Join(r.Errors, "\n"), c.errorContains)):
+			t.Errorf("%s: want an error %q, got verified=%v %v", c.name, c.errorContains, r.Verified, r.Errors)
+		}
 	}
 }
 

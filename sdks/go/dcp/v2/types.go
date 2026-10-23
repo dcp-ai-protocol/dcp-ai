@@ -225,6 +225,14 @@ type VerifierPolicy struct {
 	// its session_issued_at is rejected, and so is one without either
 	// (VERIFICATION.md V2-4). 0 is no limit.
 	MaxSessionDurationSeconds int `json:"max_session_duration_seconds,omitempty"`
+
+	// RequireSessionExpiry rejects a bundle whose manifest has no
+	// session_expires_at. RequireAudienceBinding rejects one whose manifest has
+	// no intended_verifier, or, when VerifierID is set, another one than
+	// VerifierID, this verifier's identity. Zero values turn them off.
+	RequireSessionExpiry   bool   `json:"require_session_expiry,omitempty"`
+	RequireAudienceBinding bool   `json:"require_audience_binding,omitempty"`
+	VerifierID             string `json:"verifier_id,omitempty"`
 }
 
 // SupportedAlgs describes the algorithm suites a DCP implementation supports.
