@@ -221,7 +221,10 @@ const mutators = {
     const s = pick(slots(doc).filter((x) => isObj(x.container)));
     if (!s) return null;
     const k = pick(PROTO_KEYS);
-    s.container[k] = s.value;
+    if (k === s.key) return null;
+    // An own key: plain assignment to "__proto__" would set the prototype instead (no key in the
+    // serialized mutant, and a cycle when the value is an object).
+    Object.defineProperty(s.container, k, { value: s.value, enumerable: true, writable: true, configurable: true });
     delete s.container[s.key];
     return `${fmtPath(s.path)} renamed to ${k}`;
   },
@@ -403,7 +406,12 @@ class Shim {
     this.stderr = '';
     this.proc.stderr.on('data', (d) => (this.stderr = (this.stderr + d).slice(-4000)));
     this.lines = createInterface({ input: this.proc.stdout });
-    this.exit = new Promise((res) => this.proc.on('exit', (code, signal) => res({ code, signal })));
+    // A write to a shim that already died fails with EPIPE; its exit is what gets reported.
+    this.proc.stdin.on('error', () => {});
+    this.exit = new Promise((res) => {
+      this.proc.on('exit', (code, signal) => res({ code, signal }));
+      this.proc.on('error', (e) => res({ code: null, signal: `cannot run ${this.cmd}: ${e.message}` }));
+    });
   }
   verdict(text) {
     if (!this.proc) this.start();
