@@ -100,7 +100,19 @@ export async function executeVerifyBundle(
     return verifyV2Bundle(signedBundle, params);
   }
 
-  // V1 fallback
+  if (version !== '1.0') {
+    const error =
+      'Unrecognized DCP bundle version: expected bundle.dcp_bundle_version "2.0" or bundle.responsible_principal_record.dcp_version "1.0"';
+    return { verified: false, dcp_version: 'unknown', errors: [error], warnings: [], message: `Verification failed: ${error}` };
+  }
+
+  // V1: one Ed25519 signature, accepted only when the policy does not require a PQ one.
+  const policy = resolvePolicy(params.verifier_policy);
+  const refusal = typeof policy === 'string' ? policy : v1PolicyRefusal(policy);
+  if (refusal) {
+    return { verified: false, dcp_version: '1.0', errors: [refusal], warnings: [], message: `V1 verification failed: ${refusal}` };
+  }
+
   const result: VerificationResult = verifySignedBundle(
     signedBundle as SignedBundle,
     params.public_key,
@@ -152,6 +164,21 @@ function resolvePolicy(configured: VerifyBundleInput['verifier_policy']): Verifi
     policy.require_composite_binding = configured.require_composite_binding;
   }
   return policy;
+}
+
+/**
+ * Why a V1 bundle (one Ed25519 signature, no post-quantum one) is refused under this policy, or
+ * null. A V1 passport's risk tier is self-declared, so V1 is refused as soon as any tier requires
+ * a post-quantum signature; the SDK's default policy does for the high tier.
+ */
+function v1PolicyRefusal(policy: VerifierPolicy): string | null {
+  if (!policy.allow_v1_bundles) return 'V1 bundles are not accepted: verifier policy allow_v1_bundles is false';
+  const modes = [policy.default_mode, ...Object.values(policy.risk_overrides)];
+  const strict = modes.find((mode) => mode === 'hybrid_required' || mode === 'pq_only');
+  if (strict) {
+    return `V1 bundles are not accepted: the verifier policy requires ${strict} for a risk tier, and a V1 bundle has no post-quantum signature`;
+  }
+  return null;
 }
 
 /**

@@ -102,7 +102,9 @@ integrations/openclaw/
 
 `dcp_verify_bundle` accepts a V2 bundle only if `verifySignedBundleV2` from `@dcp-ai/sdk` accepts it, with an Ed25519 / ML-DSA-65 / SLH-DSA-192f registry and the SDK's `DEFAULT_VERIFIER_POLICY`. It checks the artifact payload hashes and the manifest, session binding and expiry, the bundle's composite signature over the manifest against the passport or RPR keys, the verification mode for the passport's risk tier, the audit hash chain and key validity, and returns the verifier's `errors` and `warnings`. The tool also rejects a bundle whose PQ signature is present but does not verify (VERIFICATION.md V2-7), which `@dcp-ai/sdk` 2.1.x accepts with a warning under `hybrid_preferred`.
 
-`verifier_policy` sets fields over the default policy: `default_mode` applies to every risk tier, and `require_session_binding` / `require_composite_binding` are passed to the SDK verifier. `@dcp-ai/sdk` 2.1.x does not check the per-artifact signatures (VERIFICATION.md V2-8) or the PQ checkpoint signatures; the bundle signature still covers every artifact through the manifest hashes.
+`verifier_policy` sets fields over the default policy: `default_mode` applies to every risk tier, and `require_session_binding` / `require_composite_binding` are passed to the SDK verifier.
+
+A V1 bundle (one Ed25519 signature) is verified with `verifySignedBundle` only when no risk tier of the policy requires a post-quantum signature: the SDK's default policy requires `hybrid_required` for the `high` tier, so V1 bundles are rejected unless `verifier_policy.default_mode` is `classical_only` or `hybrid_preferred`. A bundle whose version cannot be detected is rejected. `@dcp-ai/sdk` 2.1.x does not check the per-artifact signatures (VERIFICATION.md V2-8) or the PQ checkpoint signatures; the bundle signature still covers every artifact through the manifest hashes.
 
 ## Concept Mapping: OpenClaw → DCP
 
