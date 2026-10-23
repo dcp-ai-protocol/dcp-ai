@@ -160,6 +160,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Documentation
 
+- Documentation in English and in the es, zh-CN, ja and pt-BR translations brought up to date:
+  delegation chains in every SDK README, the A2A receive window, Testing & Assurance (interop matrix,
+  differential fuzzer, shared vectors), corrected facts (Go 1.25, Rust's FIPS crates, a TypeScript
+  DCP-09 example that used fields outside the schema), and the README rows the translations had
+  missed.
 - `docs/EU_AI_ACT_MAPPING.md`: how DCP-AI artifacts support the logging, human oversight,
   record-keeping, explanation and incident-evidence obligations of Regulation (EU) 2024/1689 (EU AI
   Act) as amended by Regulation (EU) 2026/1744, with the application timeline, an implementer
