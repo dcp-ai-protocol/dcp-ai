@@ -188,9 +188,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `docs/QUICKSTART_CREWAI.md`: neither example ran. The V1 one imported `build_bundle`, which the
   Python SDK does not have, and wrote signatures where `intent_hash` and `prev_hash` take hashes;
   the V2 one used an API that was never released and said the Python SDK had no V2 bundle
-  builder, signer or verifier, although `dcp_ai.v2` ships them. Both now use the SDK as it is
-  and seal one bundle per tool call; their bundles verify in Python and with `dcp verify-bundle`,
-  and the V2 ones also with the TypeScript, Go and Rust SDKs.
+  builder, signer or verifier, although `dcp_ai.v2` ships them (from 2.9.0). Both now use the SDK
+  as it is: a policy gate decides before the tool runs, the search query stays out of the record,
+  each tool call seals its own bundle, and verification pins the operator (V1: its public key;
+  V2: its RPR hash and kids under `hybrid_required`, since the bundle's own keys only make it
+  self-consistent). The bundles verify in Python and with `dcp verify-bundle`, the V2 ones also
+  with the TypeScript, Go and Rust SDKs. The guide imports `tool` from `crewai.tools`, as CrewAI
+  documents it, and describes the `npm create @dcp-ai/crewai` scaffold as the placeholder
+  walkthrough it is.
+- `integrations/crewai/README.md`: the examples used V1 payloads with values the schemas refuse
+  (`liability_mode: "full"`, capability `write_file`) and printed an `action_type` field audit
+  entries do not have. They now run; the README says that `DCPCrewAgent` and `DCPCrew` keep
+  unsigned records and do not run CrewAI, and lists the `session_nonce` parameters.
 - Documentation in English and in the es, zh-CN, ja and pt-BR translations brought up to date:
   delegation chains in every SDK README, the A2A receive window, Testing & Assurance (interop matrix,
   differential fuzzer, shared vectors), corrected facts (Go 1.25, Rust's FIPS crates, a TypeScript
