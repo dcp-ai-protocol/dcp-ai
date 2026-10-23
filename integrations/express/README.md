@@ -84,6 +84,7 @@ app.use(dcpVerify({
 | `checkRevocation` | `boolean` | `false` | After verification, ask the revocation service whether the agent (and, for V2, each key) is revoked. Fails open if the service is unreachable. |
 | `revocationServiceUrl` | `string` | `"http://localhost:3003"` | Base URL of the revocation service. |
 | `cacheTtlSeconds` | `number` | `0` | Seconds to cache verification results. `0` disables caching. |
+| `cacheMaxEntries` | `number` | `1000` | Most verified bundles kept in the cache; the least recently used is evicted first. |
 | `headerName` | `string` | `"x-dcp-bundle"` | Name of the HTTP header where the bundle is sent. |
 | `onFailure` | `function` | `undefined` | Custom handler for verification errors. Receives `(req, res, errors)`. |
 | `verifierPolicy` | `object` | `undefined` | V2 verifier policy fields, merged over the SDK's `DEFAULT_VERIFIER_POLICY` and passed to `verifySignedBundleV2`. A `default_mode` given without `risk_overrides` applies to every risk tier. An unknown verification mode throws when the middleware is created. |
@@ -116,7 +117,8 @@ interface DCPAgent {
 1. Extracts the signed bundle from the `X-DCP-Bundle` header (JSON) or from `req.body.signed_bundle`
 2. Verifies it with `@dcp-ai/sdk`:
    - **V2** (`bundle.dcp_bundle_version: "2.0"`): `verifySignedBundleV2()` with an Ed25519 / ML-DSA-65 / SLH-DSA-192f registry and the policy above. It checks the artifact payload hashes and the manifest, session binding and expiry, the bundle's composite signature over the manifest against the passport or RPR keys, the verification mode for the passport's risk tier, the audit hash chain and key validity. The middleware also rejects a bundle whose PQ signature is present but does not verify (VERIFICATION.md V2-7), which `@dcp-ai/sdk` 2.1.x accepts with a warning under `hybrid_preferred`. A malformed bundle is rejected with `403`, never accepted on its structure alone.
-   - **V1**: `verifySignedBundle()`.
+   - **V1** (`bundle.responsible_principal_record.dcp_version: "1.0"`): `verifySignedBundle()`, only if the policy accepts a bundle without a post-quantum signature. A V1 bundle is rejected when `allow_v1_bundles` is `false`, when `requireHybrid` is set, or when the policy's `default_mode` or any `risk_overrides` mode is `hybrid_required` or `pq_only`: a V1 passport's risk tier is self-declared, so it could otherwise claim the tier with the weakest mode. The SDK's `DEFAULT_VERIFIER_POLICY` requires `hybrid_required` for the `high` tier, so V1 bundles are rejected by default; `verifierPolicy: { default_mode: "hybrid_preferred" }` (or `"classical_only"`) accepts them.
+   - A bundle whose version cannot be detected is rejected with `403`.
 3. If valid: injects `req.dcpAgent` and calls `next()`
 4. If it fails: responds with `403`, the verifier's `errors` and `warnings` (or uses `onFailure` if configured)
 5. If an internal error occurs: responds with `500`
@@ -125,7 +127,7 @@ interface DCPAgent {
 
 ### Cache
 
-When `cacheTtlSeconds > 0`, each middleware keeps its own cache of verified bundles, keyed by the SHA-256 of the whole signed bundle: a cached verdict is only reused for the identical bundle, under the same middleware options. Within the TTL a cached bundle is not re-verified, so session or key expiry and revocation are not checked again until the entry expires.
+When `cacheTtlSeconds > 0`, each middleware keeps its own cache of verified bundles, keyed by the SHA-256 of the whole signed bundle: a cached verdict is only reused for the identical bundle, under the same middleware options. An entry expires after `cacheTtlSeconds`, or earlier when the bundle's session (`manifest.session_expires_at`), the RPR, a passport key or an RPR binding key expires; a bundle with an expiry timestamp that does not parse is not cached. The cache holds at most `cacheMaxEntries` bundles, evicting expired entries and then the least recently used. With `checkRevocation`, revocation is checked again on every cache hit.
 
 ## Advanced Example — Selectively Protected Routes
 

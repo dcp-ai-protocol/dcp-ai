@@ -1,11 +1,28 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, it, expect, vi } from 'vitest';
 import type { Request, Response, NextFunction } from 'express';
+import { verifySignedBundle, verifySignedBundleV2 } from '@dcp-ai/sdk';
 import { dcpVerify, type DCPAgent } from '../index.js';
+
+// The real SDK verifiers, wrapped so the tests can count how often they run.
+vi.mock('@dcp-ai/sdk', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@dcp-ai/sdk')>();
+  return {
+    ...actual,
+    verifySignedBundle: vi.fn(actual.verifySignedBundle),
+    verifySignedBundleV2: vi.fn(actual.verifySignedBundleV2),
+  };
+});
+const v2VerifierCalls = () => vi.mocked(verifySignedBundleV2).mock.calls.length;
 
 // Cross-SDK vectors: every verifier must accept `signed_bundle` under `default_verifier_policy`.
 const VECTORS = JSON.parse(
   readFileSync(new URL('../../../../tests/interop/v2/bundle_vectors.json', import.meta.url), 'utf8'),
+);
+
+// A V1 signed bundle (Ed25519 only) from the conformance examples.
+const V1_SIGNED_BUNDLE = JSON.parse(
+  readFileSync(new URL('../../../../tests/conformance/examples/citizenship_bundle.signed.json', import.meta.url), 'utf8'),
 );
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
@@ -67,6 +84,7 @@ async function run(middleware: ReturnType<typeof dcpVerify>, req: Request & { dc
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 // ---------------------------------------------------------------------------
@@ -405,5 +423,104 @@ describe('caching', () => {
 
     expect(next.called).toBe(false);
     expect(res.status).toHaveBeenCalledWith(403);
+  });
+});
+
+describe('cache bounds', () => {
+  it('evicts the least recently used verdict beyond cacheMaxEntries', async () => {
+    const middleware = dcpVerify({ cacheTtlSeconds: 60, cacheMaxEntries: 2 });
+    const a = honestBundle();
+    const b = classicalOnlyBundle();
+    const c = clone(VECTORS.must_accept_bundles[0].signed_bundle);
+    vi.mocked(verifySignedBundleV2).mockClear();
+
+    for (const bundle of [a, b, a, c]) expect((await run(middleware, headerReq(bundle))).next).toHaveBeenCalled();
+    expect(v2VerifierCalls()).toBe(3); // a, b, c; the second a is a hit
+
+    expect((await run(middleware, headerReq(a))).next).toHaveBeenCalled();
+    expect(v2VerifierCalls()).toBe(3); // a was used more recently than b, so c evicted b
+    expect((await run(middleware, headerReq(b))).next).toHaveBeenCalled();
+    expect(v2VerifierCalls()).toBe(4);
+  });
+
+  it('does not serve a cached verdict after the session expires', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-23T00:00:00Z'));
+    const middleware = dcpVerify({ cacheTtlSeconds: 200 * 365 * 24 * 3600 });
+    const signed = honestBundle();
+    expect((await run(middleware, headerReq(signed))).next).toHaveBeenCalled();
+
+    // The manifest's session_expires_at is 2099-12-31T18:59:59Z; the keys expire five hours later.
+    vi.setSystemTime(new Date('2099-12-31T20:00:00Z'));
+    const { res, next } = await run(middleware, headerReq(signed));
+
+    expect(next.called).toBe(false);
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res._body.errors.join(' ')).toMatch(/expired/i);
+  });
+
+  it('checks revocation again on a cache hit', async () => {
+    let revoked = false;
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ revoked }) })));
+    const middleware = dcpVerify({ cacheTtlSeconds: 60, checkRevocation: true, revocationServiceUrl: 'http://revocation.test' });
+    expect((await run(middleware, headerReq(honestBundle()))).next).toHaveBeenCalled();
+
+    revoked = true;
+    const { res, next } = await run(middleware, headerReq(honestBundle()));
+
+    expect(next.called).toBe(false);
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res._body.errors).toEqual(['Agent or key has been revoked']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// V1 bundles: no downgrade below the verifier policy
+// ---------------------------------------------------------------------------
+
+describe('V1 bundles', () => {
+  it('accepts a V1 bundle when every risk tier allows a classical signature', async () => {
+    const middleware = dcpVerify({ verifierPolicy: { default_mode: 'hybrid_preferred' } });
+    const { req, next } = await run(middleware, headerReq(clone(V1_SIGNED_BUNDLE)));
+
+    expect(next).toHaveBeenCalled();
+    expect(req.dcpAgent!.dcpVersion).toBe('1.0');
+  });
+
+  it('rejects a V1 bundle under the default policy, whose high risk tier requires hybrid signatures', async () => {
+    const { res, next } = await run(dcpVerify(), headerReq(clone(V1_SIGNED_BUNDLE)));
+
+    expect(next.called).toBe(false);
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res._body.errors.join(' ')).toMatch(/V1/);
+  });
+
+  it('rejects a V1 bundle when requireHybrid is set', async () => {
+    const middleware = dcpVerify({ requireHybrid: true, verifierPolicy: { default_mode: 'hybrid_preferred' } });
+    const { res, next } = await run(middleware, headerReq(clone(V1_SIGNED_BUNDLE)));
+
+    expect(next.called).toBe(false);
+    expect(res.status).toHaveBeenCalledWith(403);
+  });
+
+  it('rejects a V1 bundle when allow_v1_bundles is false', async () => {
+    const middleware = dcpVerify({ verifierPolicy: { default_mode: 'hybrid_preferred', allow_v1_bundles: false } });
+    const { res, next } = await run(middleware, headerReq(clone(V1_SIGNED_BUNDLE)));
+
+    expect(next.called).toBe(false);
+    expect(res.status).toHaveBeenCalledWith(403);
+  });
+
+  it('rejects a bundle whose version it cannot detect instead of trying the V1 verifier', async () => {
+    const unknown = clone(V1_SIGNED_BUNDLE);
+    delete unknown.bundle.responsible_principal_record.dcp_version;
+    const middleware = dcpVerify({ verifierPolicy: { default_mode: 'hybrid_preferred' } });
+    vi.mocked(verifySignedBundle).mockClear();
+    const { res, next } = await run(middleware, headerReq(unknown));
+
+    expect(next.called).toBe(false);
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res._body.errors.join(' ')).toMatch(/version/i);
+    expect(verifySignedBundle).not.toHaveBeenCalled();
   });
 });
