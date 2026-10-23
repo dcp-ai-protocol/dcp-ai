@@ -112,6 +112,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   that has them passed attenuation, although nothing then bound it to the parent's data classes.
   It is now rejected (`data_classes for domain "<d>" missing`), as a missing `limits` key already
   was; DCP-09 §3.5.2 rule 5 says so. Shared vector `dropped_data_classes`.
+- Go SDK: an `A2ASession` used from several goroutines crashed the process (`fatal error:
+  concurrent map writes` in `DecryptMessage`). The session now holds a mutex, so
+  `EncryptMessage`, `DecryptMessage` and `NeedsRekeying` may run concurrently; sequences stay
+  unique and each message is still accepted once. `IntentV2` gains `SecurityTier` and
+  `PolicyDecisionV2` gains `ResolvedTier` (both optional in the schema and omitted when empty), so a
+  Go integrator using the typed payloads can declare them.
 - Go SDK: `SignBundleV2` left `signature.signer.id` empty, which `signed_bundle.schema.json`
   forbids, so the reference verifier, the CLI and the server rejected every bundle it signed while
   the four SDK verifiers accepted it (found by `tools/interop-matrix`). The signer is now the
