@@ -142,6 +142,14 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
+def _stamp_session_start(bundle: dict[str, Any]) -> None:
+    """A manifest with an expiry gets the signed session start a verifier's maximum
+    session duration is measured from (spec/VERIFICATION.md V2-4), unless it has one."""
+    manifest = bundle["manifest"]
+    if manifest.get("session_expires_at") and manifest.get("session_issued_at") is None:
+        manifest["session_issued_at"] = _now_iso()
+
+
 def _require_principal_signer(bundle: dict[str, Any], signer_id: str) -> None:
     """The bundle signer is the responsible principal (spec/VERIFICATION.md V2-6):
     a verifier rejects a signer.id other than the RPR's human_id."""
@@ -168,15 +176,13 @@ async def sign_bundle_v2(
     """Composite-sign the manifest of a V2 bundle. Returns {"bundle", "signature"}.
 
     session_expires_at and intended_verifier are written into the manifest
-    before signing, as in the TypeScript signBundleV2. With session_expires_at,
-    the manifest also gets session_issued_at (now) unless it already has one.
+    before signing, as in the TypeScript signBundleV2. A manifest with
+    session_expires_at also gets session_issued_at (now) unless it already has one.
     """
     _require_principal_signer(bundle, signer_id)
     if session_expires_at:
         bundle["manifest"]["session_expires_at"] = session_expires_at
-        # The session start a verifier's maximum session duration is measured from.
-        if bundle["manifest"].get("session_issued_at") is None:
-            bundle["manifest"]["session_issued_at"] = _now_iso()
+    _stamp_session_start(bundle)
     if intended_verifier:
         bundle["manifest"]["intended_verifier"] = intended_verifier
 
@@ -203,8 +209,12 @@ async def sign_bundle_v2_classical_only(
     signer_id: str,
     key: CompositeKeyInfo,
 ) -> dict[str, Any]:
-    """Sign a V2 bundle with a classical-only composite signature (transition mode)."""
+    """Sign a V2 bundle with a classical-only composite signature (transition mode).
+
+    A manifest with session_expires_at gets session_issued_at (now) unless it already has one.
+    """
     _require_principal_signer(bundle, signer_id)
+    _stamp_session_start(bundle)
     manifest_bytes, manifest_hash = prepare_payload(bundle["manifest"])
     composite = await classical_only_sign(registry, DCP_CONTEXTS["Bundle"], manifest_bytes, key)
     return {
