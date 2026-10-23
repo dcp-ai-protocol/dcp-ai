@@ -212,8 +212,8 @@
         hybridKeys.pq.secret_key_b64, hybridKeys.pq.kid,
       );
       const rpr = sign('DCP-AI.v2.ResponsiblePrincipal', { human_id: 'human:alice-demo', binding_keys: keyEntries });
-      const passport = sign('DCP-AI.v2.AgentPassport', { agent_id: 'agent-demo-001', principal_binding_reference: 'human:alice-demo', keys: keyEntries });
-      const intent = sign('DCP-AI.v2.Intent', { intent_id: 'intent-demo-001', action_type: 'initiate_payment', data_classes: ['financial_data'], estimated_impact: 'high' });
+      const passport = sign('DCP-AI.v2.AgentPassport', { agent_id: 'agent-demo-001', principal_binding_reference: 'human:alice-demo', status: 'active', keys: keyEntries });
+      const intent = sign('DCP-AI.v2.Intent', { intent_id: 'intent-demo-001', agent_id: 'agent-demo-001', human_id: 'human:alice-demo', action_type: 'initiate_payment', data_classes: ['financial_data'], estimated_impact: 'high' });
       const policy = sign('DCP-AI.v2.PolicyDecision', { intent_id: 'intent-demo-001', decision: 'approve', risk_score: 650, resolved_tier: 'elevated' });
 
       // Each artifact is a SignedPayload; an empty audit trail gets roots of 64 zeros.
