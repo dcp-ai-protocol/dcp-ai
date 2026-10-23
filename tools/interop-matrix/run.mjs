@@ -64,7 +64,10 @@ class Agent {
     this.nextId = 1;
     this.pending = new Map();
     this.stderr = '';
+    this.dead = null; // why the agent can no longer answer, once it cannot
     this.proc = spawn(cmd, args, { stdio: ['pipe', 'pipe', 'pipe'] });
+    this.proc.on('error', (e) => this.die(`cannot run ${cmd}: ${e.message}`));
+    this.proc.stdin.on('error', () => {}); // a write after the agent died; its exit is reported
     this.proc.stderr.on('data', (d) => (this.stderr = (this.stderr + d).slice(-4000)));
     createInterface({ input: this.proc.stdout }).on('line', (line) => {
       let msg;
@@ -74,13 +77,20 @@ class Agent {
         return this.failAll(`unparseable response: ${line.slice(0, 200)}`);
       }
       const p = this.pending.get(msg.id);
-      if (!p) return this.failAll(`response to unknown request ${msg.id}`);
+      if (!p) return this.die(`response to unknown request ${msg.id}`);
       this.pending.delete(msg.id);
       clearTimeout(p.timer);
       if (msg.ok) p.resolve(msg.result);
       else p.reject(new Error(`${this.name}.${p.cmd}: ${msg.error}`));
     });
-    this.proc.on('exit', (code, signal) => this.failAll(`exited (${code ?? signal}): ${this.stderr.split('\n').filter((l) => l.trim()).slice(-6).join(' | ')}`));
+    this.proc.on('exit', (code, signal) => this.die(`exited (${code ?? signal}): ${this.stderr.split('\n').filter((l) => l.trim()).slice(-6).join(' | ')}`));
+  }
+  // An agent that crashed, timed out or answered out of turn is out of sync: stop it and fail
+  // every pending and later request at once instead of waiting a timeout for each.
+  die(reason) {
+    if (!this.dead) this.dead = reason;
+    this.proc.kill('SIGKILL');
+    this.failAll(this.dead);
   }
   failAll(reason) {
     for (const [, p] of this.pending) {
@@ -90,18 +100,16 @@ class Agent {
     this.pending.clear();
   }
   call(cmd, args = {}) {
+    if (this.dead) return Promise.reject(new Error(`${this.name}.${cmd}: ${this.dead}`));
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.pending.delete(id);
-        reject(new Error(`${this.name}.${cmd}: timeout after ${opts.timeout} ms`));
-      }, opts.timeout);
+      const timer = setTimeout(() => this.die(`timeout after ${opts.timeout} ms in ${cmd}`), opts.timeout);
       this.pending.set(id, { resolve, reject, timer, cmd });
       this.proc.stdin.write(JSON.stringify({ id, cmd, args }) + '\n');
     });
   }
   async stop() {
-    await this.call('shutdown').catch(() => {});
+    if (!this.dead) await this.call('shutdown').catch(() => {});
     this.proc.kill();
   }
 }
@@ -143,6 +151,9 @@ const ATTACKS = {
   bundle_signature_swapped: (b, own) => ((b.signature = clone(own.payment.signature)), b),
   passport_swapped: (b, _own, other) => ((b.bundle.agent_passport = clone(other.routine.bundle.agent_passport)), b),
   pq_stripped: (b) => ((b.signature.composite_sig = { ...b.signature.composite_sig, pq: null, binding: 'classical_only' }), b),
+  // Same session and signer: the manifest's own hashes must catch artifacts from another bundle.
+  intent_from_other_bundle: (b, own) => ((b.bundle.intent = clone(own.payment.bundle.intent)), (b.bundle.policy_decision = clone(own.payment.bundle.policy_decision)), b),
+  trail_from_other_bundle: (b, own) => ((b.bundle.audit_entries = clone(own.payment.bundle.audit_entries)), b),
 };
 const ATTACK_MODES = { pq_stripped: ['hybrid_required'] };
 
@@ -150,6 +161,7 @@ async function main() {
   const cmds = launchers();
   const agents = Object.fromEntries(Object.entries(cmds).map(([n, [c, a]]) => [n, new Agent(n, c, a)]));
   const names = opts.agents;
+  if (!names.some((n) => !VERIFY_ONLY.has(n))) throw new Error('at least one producing agent is needed (ts, py, go or rust)');
   mkdirSync(opts.out, { recursive: true });
   const failures = [];
   const cells = {}; // `${producer}>${verifier}` -> { pass, total }
@@ -164,6 +176,7 @@ async function main() {
       }
     }
     const producers = names.filter((p) => produced[p]);
+    if (producers.length < 2) console.log('note: passport_swapped needs two producers and is skipped');
     for (const [i, p] of producers.entries()) {
       const other = produced[producers[(i + 1) % producers.length]];
       const cases = [
