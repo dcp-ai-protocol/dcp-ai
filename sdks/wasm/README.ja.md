@@ -53,8 +53,8 @@ const sign = (context: string, payload: object) =>
 // Build a V2 bundle from the signed artifacts
 const bundle = dcp.buildBundle({
   rpr: sign('DCP-AI.v2.ResponsiblePrincipal', { dcp_version: '2.0', human_id: 'human:alice', binding_keys: keyEntries /* ... */ }),
-  passport: sign('DCP-AI.v2.AgentPassport', { dcp_version: '2.0', agent_id: 'agent-001', keys: keyEntries /* ... */ }),
-  intent: sign('DCP-AI.v2.Intent', { dcp_version: '2.0', intent_id: 'intent-001', action_type: 'browse', data_classes: ['none'], estimated_impact: 'low' /* ... */ }),
+  passport: sign('DCP-AI.v2.AgentPassport', { dcp_version: '2.0', agent_id: 'agent-001', keys: keyEntries, principal_binding_reference: 'human:alice', status: 'active' /* ... */ }),
+  intent: sign('DCP-AI.v2.Intent', { dcp_version: '2.0', intent_id: 'intent-001', agent_id: 'agent-001', human_id: 'human:alice', action_type: 'browse', data_classes: ['none'], estimated_impact: 'low' /* ... */ }),
   policy: sign('DCP-AI.v2.PolicyDecision', { dcp_version: '2.0', intent_id: 'intent-001', decision: 'approve', risk_score: 100 /* ... */ }),
   auditEntries: [],
   sessionNonce,
@@ -112,7 +112,7 @@ WASMモジュールを初期化します。APIを使用する前に1回呼び出
 | メソッド | 戻り値 | 説明 |
 |--------|---------|-------------|
 | `compositeVerify(context, payload, sig, classicalPk, pqPk?)` | `CompositeVerifyResult` | 複合署名の暗号検証 |
-| `verifyBundle(signedBundle, policy?)` | `V2VerificationResult` | V2バンドルの完全検証 (構造 + 暗号 + ハッシュチェーン)。ポリシーのモードとセキュリティティアのモードのうち厳しい方で検証（spec §14.3）。`resolved_tier` と `verification_mode` を返す。`policy` がデフォルトと異なってよいのは `default_mode`、`risk_overrides` と Phase 3 のフィールド（`advisory_rejected_algs`、`warn_classical_only_deprecated`、`allow_classical_fallback_disable`）だけで、ポリシーを渡すと V1 バンドルは拒否される |
+| `verifyBundle(signedBundle, policy?)` | `V2VerificationResult` | V2バンドルの完全検証 (構造 + 暗号 + ハッシュチェーン)。ポリシーのモードとセキュリティティアのモードのうち厳しい方で検証（spec §14.3）。`resolved_tier` と `verification_mode` を返す。`policy` がデフォルトと異なってよいのは `default_mode`、`risk_overrides`、Phase 3 のフィールド（`advisory_rejected_algs`、`warn_classical_only_deprecated`、`allow_classical_fallback_disable`）と `max_session_duration_seconds`（署名済みの `session_issued_at` から測る。マニフェストに `session_expires_at` があれば `signBundle` が書き込む）だけで、`require_session_expiry`、`require_audience_binding`、`verifier_id` など他のフィールドを設定したポリシーでは検証が失敗し、ポリシーを渡すと V1 バンドルは拒否される |
 
 ### ハッシュ操作
 
@@ -150,7 +150,7 @@ WASMモジュールを初期化します。APIを使用する前に1回呼び出
 | メソッド | 戻り値 | 説明 |
 |--------|---------|-------------|
 | `buildBundle(opts)` | `CitizenshipBundleV2` | `signPayload` で署名した成果物から、マニフェスト付きのV2バンドルを構築。`sessionNonce` の既定値は RPR の `session_nonce` |
-| `signBundle(bundle, classicalSk, classicalKid, pqSk, pqKid)` | `SignedBundleV2` | 複合署名でバンドルに署名。`signer.id` は RPR の `human_id` |
+| `signBundle(bundle, classicalSk, classicalKid, pqSk, pqKid)` | `SignedBundleV2` | 複合署名でバンドルに署名。`signer.id` は RPR の `human_id`。マニフェストに `session_expires_at` があり `session_issued_at` がなければ、`session_issued_at` に署名時刻を設定 |
 
 ### 所有証明
 

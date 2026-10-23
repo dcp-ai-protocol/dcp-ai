@@ -36,14 +36,16 @@ check('signed_bundle without a policy', dcp.verifyBundle(B.signed_bundle).verifi
 for (const mode of MODES) {
   const policy = policyFor(mode);
   const verify = (bundle) => dcp.verifyBundle(bundle, policy);
+  // A case's verifier_policy_overrides replace those fields of the mode's policy.
+  const verifyCase = (c) => dcp.verifyBundle(c.signed_bundle, { ...policy, ...c.verifier_policy_overrides });
   let result = verify(B.signed_bundle);
   check(`${mode}: signed_bundle`, result.verified === true, result);
   for (const c of B.must_accept_bundles) {
-    result = verify(c.signed_bundle);
+    result = verifyCase(c);
     check(`${mode}: ${c.name}`, result.verified === true, result);
   }
   for (const c of B.must_reject) rejects(`${mode}: ${c.name}`, verify(mutated(B.signed_bundle, c.mutations)), c.error_contains);
-  for (const c of B.must_reject_bundles) rejects(`${mode}: ${c.name}`, verify(c.signed_bundle), c.error_contains);
+  for (const c of B.must_reject_bundles) rejects(`${mode}: ${c.name}`, verifyCase(c), c.error_contains);
   const control = B.classical_only_routine_bundle;
   result = verify(control.signed_bundle);
   check(`${mode}: classical_only_routine_bundle`, result.verified === control.verified_by_mode[mode], result);

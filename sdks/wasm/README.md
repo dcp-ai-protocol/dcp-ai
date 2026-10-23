@@ -53,8 +53,8 @@ const sign = (context: string, payload: object) =>
 // Build a V2 bundle from the signed artifacts
 const bundle = dcp.buildBundle({
   rpr: sign('DCP-AI.v2.ResponsiblePrincipal', { dcp_version: '2.0', human_id: 'human:alice', binding_keys: keyEntries /* ... */ }),
-  passport: sign('DCP-AI.v2.AgentPassport', { dcp_version: '2.0', agent_id: 'agent-001', keys: keyEntries /* ... */ }),
-  intent: sign('DCP-AI.v2.Intent', { dcp_version: '2.0', intent_id: 'intent-001', action_type: 'browse', data_classes: ['none'], estimated_impact: 'low' /* ... */ }),
+  passport: sign('DCP-AI.v2.AgentPassport', { dcp_version: '2.0', agent_id: 'agent-001', keys: keyEntries, principal_binding_reference: 'human:alice', status: 'active' /* ... */ }),
+  intent: sign('DCP-AI.v2.Intent', { dcp_version: '2.0', intent_id: 'intent-001', agent_id: 'agent-001', human_id: 'human:alice', action_type: 'browse', data_classes: ['none'], estimated_impact: 'low' /* ... */ }),
   policy: sign('DCP-AI.v2.PolicyDecision', { dcp_version: '2.0', intent_id: 'intent-001', decision: 'approve', risk_score: 100 /* ... */ }),
   auditEntries: [],
   sessionNonce,
@@ -112,7 +112,7 @@ Initialize the WASM module. Must be called once before using any API. Optionally
 | Method | Returns | Description |
 |--------|---------|-------------|
 | `compositeVerify(context, payload, sig, classicalPk, pqPk?)` | `CompositeVerifyResult` | Cryptographic verification of a composite signature |
-| `verifyBundle(signedBundle, policy?)` | `V2VerificationResult` | Full V2 bundle verification (structure + crypto + hash chain) against the stricter of the policy mode and the security tier's mode (spec §14.3); reports `resolved_tier` and `verification_mode`. `policy` may differ from the default only in `default_mode`, `risk_overrides` and the Phase 3 fields (`advisory_rejected_algs`, `warn_classical_only_deprecated`, `allow_classical_fallback_disable`), and with a policy V1 bundles are rejected |
+| `verifyBundle(signedBundle, policy?)` | `V2VerificationResult` | Full V2 bundle verification (structure + crypto + hash chain) against the stricter of the policy mode and the security tier's mode (spec §14.3); reports `resolved_tier` and `verification_mode`. `policy` may differ from the default only in `default_mode`, `risk_overrides`, the Phase 3 fields (`advisory_rejected_algs`, `warn_classical_only_deprecated`, `allow_classical_fallback_disable`) and `max_session_duration_seconds` (measured from the signed `session_issued_at`, which `signBundle` writes when the manifest has `session_expires_at`); a policy that sets another field, such as `require_session_expiry`, `require_audience_binding` or `verifier_id`, fails verification, and with a policy V1 bundles are rejected |
 
 ### Hash Operations
 
@@ -150,7 +150,7 @@ Initialize the WASM module. Must be called once before using any API. Optionally
 | Method | Returns | Description |
 |--------|---------|-------------|
 | `buildBundle(opts)` | `CitizenshipBundleV2` | Build a V2 bundle with manifest from artifacts signed with `signPayload`; `sessionNonce` defaults to the RPR's `session_nonce` |
-| `signBundle(bundle, classicalSk, classicalKid, pqSk, pqKid)` | `SignedBundleV2` | Sign a bundle with composite signature; `signer.id` is the RPR's `human_id` |
+| `signBundle(bundle, classicalSk, classicalKid, pqSk, pqKid)` | `SignedBundleV2` | Sign a bundle with composite signature; `signer.id` is the RPR's `human_id`, and a manifest with `session_expires_at` and no `session_issued_at` gets `session_issued_at` set to the signing time |
 
 ### Proof of Possession
 

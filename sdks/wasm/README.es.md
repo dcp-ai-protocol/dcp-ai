@@ -53,8 +53,8 @@ const sign = (context: string, payload: object) =>
 // Build a V2 bundle from the signed artifacts
 const bundle = dcp.buildBundle({
   rpr: sign('DCP-AI.v2.ResponsiblePrincipal', { dcp_version: '2.0', human_id: 'human:alice', binding_keys: keyEntries /* ... */ }),
-  passport: sign('DCP-AI.v2.AgentPassport', { dcp_version: '2.0', agent_id: 'agent-001', keys: keyEntries /* ... */ }),
-  intent: sign('DCP-AI.v2.Intent', { dcp_version: '2.0', intent_id: 'intent-001', action_type: 'browse', data_classes: ['none'], estimated_impact: 'low' /* ... */ }),
+  passport: sign('DCP-AI.v2.AgentPassport', { dcp_version: '2.0', agent_id: 'agent-001', keys: keyEntries, principal_binding_reference: 'human:alice', status: 'active' /* ... */ }),
+  intent: sign('DCP-AI.v2.Intent', { dcp_version: '2.0', intent_id: 'intent-001', agent_id: 'agent-001', human_id: 'human:alice', action_type: 'browse', data_classes: ['none'], estimated_impact: 'low' /* ... */ }),
   policy: sign('DCP-AI.v2.PolicyDecision', { dcp_version: '2.0', intent_id: 'intent-001', decision: 'approve', risk_score: 100 /* ... */ }),
   auditEntries: [],
   sessionNonce,
@@ -112,7 +112,7 @@ Inicializa el módulo WASM. Debe llamarse una vez antes de usar cualquier API. O
 | Método | Devuelve | Descripción |
 |--------|---------|-------------|
 | `compositeVerify(context, payload, sig, classicalPk, pqPk?)` | `CompositeVerifyResult` | Verificación criptográfica de una firma compuesta |
-| `verifyBundle(signedBundle, policy?)` | `V2VerificationResult` | Verificación completa de bundle V2 (estructura + cripto + cadena de hash) contra el modo más estricto entre el de la política y el del nivel de seguridad (spec §14.3); informa `resolved_tier` y `verification_mode`. `policy` solo puede diferir del valor por defecto en `default_mode`, `risk_overrides` y los campos de Fase 3 (`advisory_rejected_algs`, `warn_classical_only_deprecated`, `allow_classical_fallback_disable`), y con una política se rechazan los bundles V1 |
+| `verifyBundle(signedBundle, policy?)` | `V2VerificationResult` | Verificación completa de bundle V2 (estructura + cripto + cadena de hash) contra el modo más estricto entre el de la política y el del nivel de seguridad (spec §14.3); informa `resolved_tier` y `verification_mode`. `policy` solo puede diferir del valor por defecto en `default_mode`, `risk_overrides`, los campos de Fase 3 (`advisory_rejected_algs`, `warn_classical_only_deprecated`, `allow_classical_fallback_disable`) y `max_session_duration_seconds` (medido desde el `session_issued_at` firmado, que `signBundle` escribe cuando el manifiesto tiene `session_expires_at`); una política que fija otro campo, como `require_session_expiry`, `require_audience_binding` o `verifier_id`, hace fallar la verificación, y con una política se rechazan los bundles V1 |
 
 ### Operaciones de Hash
 
@@ -150,7 +150,7 @@ Inicializa el módulo WASM. Debe llamarse una vez antes de usar cualquier API. O
 | Método | Devuelve | Descripción |
 |--------|---------|-------------|
 | `buildBundle(opts)` | `CitizenshipBundleV2` | Construye un bundle V2 con manifiesto a partir de artefactos firmados con `signPayload`; `sessionNonce` toma por defecto el `session_nonce` del RPR |
-| `signBundle(bundle, classicalSk, classicalKid, pqSk, pqKid)` | `SignedBundleV2` | Firma un bundle con firma compuesta; `signer.id` es el `human_id` del RPR |
+| `signBundle(bundle, classicalSk, classicalKid, pqSk, pqKid)` | `SignedBundleV2` | Firma un bundle con firma compuesta; `signer.id` es el `human_id` del RPR, y un manifiesto con `session_expires_at` y sin `session_issued_at` recibe `session_issued_at` con el momento de la firma |
 
 ### Proof of Possession
 
