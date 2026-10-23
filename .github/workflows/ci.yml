@@ -73,6 +73,9 @@ jobs:
               - 'integrations/express/**'
               - 'integrations/google-a2a/**'
               - 'integrations/openclaw/**'
+              - 'sdks/typescript/**'
+              - 'tests/interop/v2/**'
+              - 'tests/conformance/examples/**'
               - '.github/workflows/ci.yml'
 
   conformance:
@@ -165,8 +168,10 @@ jobs:
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
-  # The npm integrations pin their own lockfiles (and pull @dcp-ai/sdk from the
-  # registry), so dependency bumps there need their own test run.
+  # The npm integrations pin their own lockfiles, so dependency bumps there need their own test
+  # run. anthropic-mcp and google-a2a pull @dcp-ai/sdk from the registry; express and openclaw
+  # depend on the workspace SDK (file:../../sdks/typescript) until @dcp-ai/sdk 2.2.0 is on npm,
+  # so it is built before their install.
   integrations:
     name: Integration (${{ matrix.integration }})
     needs: changes
@@ -185,6 +190,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+
+      - name: Build the workspace SDK
+        if: ${{ matrix.integration == 'express' || matrix.integration == 'openclaw' }}
+        working-directory: sdks/typescript
+        run: npm install && npm run build
 
       - name: Install dependencies
         run: npm ci
