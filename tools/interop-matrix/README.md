@@ -103,8 +103,7 @@ intent and policy decision, the intent's whole trail, and the manifest: `session
 `canonicalization_profile "dcp-jcs-v1"`. The signature: `hash_alg "sha256"`, `created_at` now,
 `signer {type: "human", id: human_id, kids: [human classical kid, human pq kid]}`,
 `manifest_hash`, `composite_sig` by the **human** keys under the `Bundle` context. Use the SDK's
-bundle builder and signer where it has one; an SDK without one assembles the bundle from its
-primitives.
+bundle builder and signer. The Go and Rust builders also write `audit_merkle_root_secondary`.
 
 ### `verify` `{signed_bundle, mode}` → `{valid, errors}`
 
@@ -157,9 +156,11 @@ agents surfaced these SDK gaps, none of them a verdict divergence between SDK ve
 - **Go's typed payloads lacked tier fields**: `IntentV2` had no `security_tier` and
   `PolicyDecisionV2` no `resolved_tier`. Both exist now. (`contact` and `target.to` are optional in
   the schema, so the Go agent's maps write `null` only to match the contract.)
-- **Rust's native API has no bundle builder or signer** (the `wasm` feature has
-  `wasm_build_bundle` / `wasm_sign_bundle`); the Rust agent assembles the manifest and signs it
-  from the primitives, and its bundles verify everywhere.
+- **Rust's native API had no bundle builder or signer**, so the Rust agent assembled the manifest
+  and signed it from the primitives. Fixed: `build_bundle_v2` and `sign_bundle_v2`
+  (`dcp_ai::v2::bundle`), which the agent now uses. The `wasm` feature's `wasm_build_bundle` and
+  `wasm_sign_bundle` now call them; before, `wasm_sign_bundle` wrote `created_at ""` and no
+  `signer.id`, so the reference verifier rejected every bundle it signed.
 - **An empty audit trail**: every verifier accepts a validly signed bundle with no audit entries,
   as `spec/VERIFICATION.md` allows (root of 64 zeros); the `auditEventsMerkleRoot` helpers, which
   serve PQ checkpoints, refuse an empty list in all four SDKs alike.
