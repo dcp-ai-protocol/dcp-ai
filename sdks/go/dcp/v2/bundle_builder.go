@@ -105,6 +105,9 @@ func BuildBundleV2(input BundleBuildInput) (*CitizenshipBundleV2, error) {
 // SignBundleV2 signs a CitizenshipBundleV2 using composite signatures (Ed25519 + PQ).
 // Returns a SignedBundleV2 with bundle-level signature. The signer is the bundle's
 // responsible principal: signer.type "human" and signer.id the RPR's human_id.
+// When the manifest has a SessionExpiresAt and no SessionIssuedAt, the signed
+// manifest gets the signing time as its SessionIssuedAt (VERIFICATION.md V2-4);
+// bundle itself is not changed.
 func SignBundleV2(
 	registry *AlgorithmRegistry,
 	bundle *CitizenshipBundleV2,
@@ -115,7 +118,12 @@ func SignBundleV2(
 	if signerID == "" {
 		return nil, errors.New("responsible_principal_record has no human_id to name as the bundle signer")
 	}
-	canonical, err := CanonicalizeV2(bundle.Manifest)
+	now := time.Now().UTC().Format(time.RFC3339)
+	manifest := bundle.Manifest
+	if manifest.SessionExpiresAt != "" && manifest.SessionIssuedAt == "" {
+		manifest.SessionIssuedAt = now
+	}
+	canonical, err := CanonicalizeV2(manifest)
 	if err != nil {
 		return nil, fmt.Errorf("canonicalize manifest: %w", err)
 	}
@@ -143,7 +151,7 @@ func SignBundleV2(
 		Bundle: *bundle,
 		Signature: BundleSignatureV2{
 			HashAlg:   "sha256",
-			CreatedAt: time.Now().UTC().Format(time.RFC3339),
+			CreatedAt: now,
 			Signer: BundleSignerV2{
 				Type: "human",
 				ID:   signerID,
@@ -153,6 +161,7 @@ func SignBundleV2(
 			CompositeSig: *compositeSig,
 		},
 	}
+	signed.Bundle.Manifest = manifest
 	return signed, nil
 }
 
