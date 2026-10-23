@@ -3,8 +3,7 @@
  *
  * Supports both V1 (Ed25519) and V2 (composite hybrid signatures) bundles.
  * A V2 bundle is accepted only when `verifySignedBundleV2` from `@dcp-ai/sdk`
- * accepts it under the middleware's verifier policy, plus the checks of
- * ./dcp-verify.ts that SDK 2.1.x skips.
+ * accepts it under the middleware's verifier policy.
  *
  * Usage:
  *   import { dcpVerify } from '@dcp-ai/express';

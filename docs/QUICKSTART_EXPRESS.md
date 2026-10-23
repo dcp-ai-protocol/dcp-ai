@@ -181,14 +181,14 @@ const response2 = await fetch('http://localhost:3000/api/data', {
 
 The middleware auto-detects V1 and V2 bundles. A V2 bundle is accepted only if `verifySignedBundleV2` from `@dcp-ai/sdk` accepts it under the middleware's verifier policy (`verifierPolicy` over the SDK's `DEFAULT_VERIFIER_POLICY`, then `requireHybrid`). It verifies:
 
-- **Composite signature** — the bundle's Ed25519 + ML-DSA-65 signature over the manifest, with the passport or RPR keys, in the stricter of the policy mode for the passport's risk tier and the mode of the intent's security tier; a PQ signature that is present must verify
+- **Composite signatures** — the principal's Ed25519 + ML-DSA-65 signature over the manifest, with the RPR `binding_keys`, and each artifact's own signature, in the stricter of the policy mode for the passport's risk tier and the mode of the intent's security tier; a PQ signature that is present must verify
 - **Manifest integrity** — All artifact hashes and the audit Merkle root match
 - **Session binding** — Session nonce consistency across all artifacts, and session expiry
 - **Audit hash chain** and key validity (revoked or expired keys)
 
 A V1 bundle has no post-quantum signature, so it is accepted only where a classical-only bundle would be (VERIFICATION.md V2-10): under the default policy a V1 bundle with a routine or standard intent passes, and one with a payment, sensitive data, a high estimated impact or a risk score of 0.5 or more is refused. `requireHybrid` and `allow_v1_bundles: false` refuse every V1 bundle.
 
-A verified bundle is internally consistent and signed by the keys it lists itself; it does not prove who the principal is unless you pin the principal's keys, which the middleware cannot do yet. See the package README for the checks `@dcp-ai/sdk` 2.1.x still leaves out (per-artifact signatures) and for audience binding against replay.
+A verified bundle is internally consistent and signed by the keys it lists itself; it does not prove who the principal is unless you pin the principal's keys, which the middleware cannot do yet. See the package README for audience binding against replay.
 
 ```typescript
 // V2-specific agent properties

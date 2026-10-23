@@ -14,6 +14,8 @@ npm install @dcp-ai/express @dcp-ai/sdk
 
 **Peer dependency:** Express 4.18+ or 5.x
 
+Until `@dcp-ai/sdk` 2.2.0 is on npm, this package depends on the workspace SDK (`"@dcp-ai/sdk": "file:../../sdks/typescript"`): build it first (`cd sdks/typescript && npm install && npm run build`). Publishing the package needs the dependency raised to `^2.2.0`; the publish workflow refuses a package that depends on a local path.
+
 ## Quickstart
 
 ```typescript
@@ -121,20 +123,20 @@ interface DCPAgent {
 
 1. Extracts the signed bundle from the `X-DCP-Bundle` header (JSON) or from `req.body.signed_bundle`
 2. Verifies it:
-   - **V2** (`bundle.dcp_bundle_version: "2.0"`): the verification mode is the stricter of the policy mode for the passport's `risk_tier` (which must be `low`, `medium` or `high`) and the mode of the security tier computed from the intent and the policy decision (spec §14.2: `routine` → `classical_only`, `standard` → `hybrid_preferred`, `elevated` and `maximum` → `hybrid_required`; a `pq_only` policy stays `pq_only`). The bundle then goes to `verifySignedBundleV2()` from `@dcp-ai/sdk`, with an Ed25519 / ML-DSA-65 / SLH-DSA-192f registry and that mode, which checks the artifact payload hashes and the manifest, session binding and expiry, the bundle's composite signature over the manifest against the passport or RPR keys, the audit hash chain and key validity. A malformed bundle is rejected with `403`, never accepted on its structure alone.
+   - **V2** (`bundle.dcp_bundle_version: "2.0"`): `verifySignedBundleV2()` from `@dcp-ai/sdk`, with an Ed25519 / ML-DSA-65 / SLH-DSA-192f registry and the policy above. It checks the artifact payload hashes and the manifest; session binding, expiry and the signed session start (`session_issued_at`); the bundle signature over the manifest, made by the principal with the RPR `binding_keys`, and the unsigned `signature` block that must agree with it; each artifact's own signature; the verification mode, the stricter of the policy mode for the passport's `risk_tier` and the mode of the security tier of the intent and policy decision (spec §14.2); PQ checkpoints; cross-artifact consistency (passport status, RPR expiry, one agent, principal and intent across the artifacts and audit entries); the audit hash chain; and key validity, kid derivation and canonical base64 keys (`spec/VERIFICATION.md` V2-1 to V2-14). A malformed bundle is rejected with `403`, never accepted on its structure alone.
    - **V1** (`bundle.responsible_principal_record.dcp_version: "1.0"`): `verifySignedBundle()`, only where VERIFICATION.md V2-10 would accept a classical-only bundle, since a V1 bundle has no post-quantum signature: `allow_v1_bundles` is `true`, `requireHybrid` is off, and the stricter of the policy mode for the V1 passport's `risk_tier` (`default_mode` when it has none) and the mode of the security tier of the V1 intent and policy decision (V1 `risk_score` is 0 to 1, scaled by 1000; a missing one counts as `elevated`) is `classical_only` or `hybrid_preferred`. Under the default policy a routine or standard V1 intent passes, while a payment, sensitive data, a high estimated impact or a risk score of 0.5 or more is refused.
    - A bundle whose version cannot be detected is rejected with `403`.
 3. If valid: injects `req.dcpAgent` and calls `next()`
 4. If it fails: responds with `403`, the verifier's `errors` and `warnings` (or uses `onFailure` if configured)
 5. If an internal error occurs: responds with `500`
 
-### What "verified" means, and what `@dcp-ai/sdk` 2.1.x leaves out
+### What "verified" means
 
-A verified bundle is internally consistent and signed by the keys it lists itself (the passport keys and the RPR binding keys). It does not prove who the principal is: anyone can create keys and an RPR naming any `human_id`. Proving that needs the caller to pin the principal's trusted keys, and this middleware has no such option yet.
+A verified bundle is internally consistent and signed by the keys it lists itself: the RPR `binding_keys` for the bundle signature, the passport keys for the agent's artifacts. It does not prove who the principal is: anyone can create keys and an RPR naming any `human_id`. Proving that needs the caller to pin the principal's trusted keys, and this middleware has no such option yet.
 
 A verified bundle can be replayed by anyone who holds it until its session expires. Against replay, set `verifierPolicy.require_audience_binding: true` with your `verifier_id` (the bundle's `manifest.intended_verifier` must name this verifier), and `require_session_expiry` / `max_session_duration_seconds` to bound the session.
 
-The published `@dcp-ai/sdk` 2.1.x verifier skips several checks of [`spec/VERIFICATION.md`](../../spec/VERIFICATION.md). The middleware does them itself: the verification mode from the risk tier (own properties of `risk_overrides` only) and the security tier (V2-9, V2-10), the Merkle root of an empty audit trail (V2-3), `session_expires_at` as an RFC 3339 timestamp (V2-4), the status and `expires_at` of the passport keys and RPR binding keys (V2-13), and a PQ signature that is present but invalid (V2-7). One gap remains until the package depends on an SDK release that closes it: **the per-artifact signatures of the RPR, passport, intent and policy decision are not verified** (V2-8; 8 of the 65 must-reject bundles in `tests/interop/v2/bundle_vectors.json`, marked as expected failures in the tests). The bundle signature still covers every artifact through the manifest hashes, so an artifact cannot be changed after signing; what is not checked is which key signed each artifact.
+The tests run every case of `tests/interop/v2/bundle_vectors.json`, each under its `verifier_policy_overrides`.
 
 ### Cache
 
