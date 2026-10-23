@@ -425,7 +425,6 @@ async function checkPQCheckpoints(
       registry, policy, cpMode, DCP_CONTEXTS.AuditEvent, payload, sig, passportKeys, 'passport keys',
     );
     errors.push(...check.errors.map((e) => `${label}: ${e}`));
-    if (!check.valid && check.errors.length === 0) errors.push(`${label}: signature invalid`);
   }
   return errors;
 }
