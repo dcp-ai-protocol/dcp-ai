@@ -61,24 +61,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `DCPVerifyMiddleware` argument; the OpenClaw operator policy below). `requireHybrid` raises every
   risk tier to at least `hybrid_required`, and a `default_mode` without `risk_overrides` applies to
   every tier. The verifier's errors and warnings are returned, and `composite_sig_valid` comes from
-  it. Both TypeScript packages now depend on `@dcp-ai/sdk` ^2.1.1.
-- With the published `@dcp-ai/sdk` 2.1.1 verifier, Express and OpenClaw still accepted 32 of the 65
-  bundles in `tests/interop/v2/bundle_vectors.json` that every verifier must reject. Until a release
-  that fixes it is published, both add the checks they can make without re-implementing the
-  verifier (`dcp-verify.ts`, the same file in both packages): the verification mode is the stricter
-  of the policy mode for the passport's `risk_tier`, read from own properties of `risk_overrides`
-  only (2.1.1 followed the prototype chain, so a `risk_tier` of `constructor` or `__proto__`
-  switched every signature check off; a `risk_tier` other than `low`, `medium` or `high` is now a
-  403), and the mode of the security tier computed from the intent and the policy decision as in
-  spec §14.2 (2.1.1 ignores it, and its `computeSecurityTier` reads `risk_score` from the intent);
-  an empty audit trail must have the Merkle root of 64 zeros (2.1.x's own `BundleBuilderV2` writes
-  `sha256:undefined` there, so such bundles are now refused); `session_expires_at` must be an RFC
-  3339 timestamp; passport keys and RPR binding keys must not be revoked or expired and their
-  `expires_at` must be an RFC 3339 timestamp in the future; and a PQ signature that is present must
-  verify, which 2.1.1 only warns about under `hybrid_preferred`. 8 bundles remain accepted: 2.1.1
-  does not verify the per-artifact signatures of the RPR, passport, intent and policy decision
-  (VERIFICATION.md V2-8). Their tests are marked as expected failures, so they flip when the
-  dependency is raised. The Python middleware already passes all 67 with the in-package verifier.
+  it. Until `@dcp-ai/sdk` 2.2.0 is on npm, both TypeScript packages depend on the workspace SDK
+  (`"@dcp-ai/sdk": "file:../../sdks/typescript"`), whose verifier has the fixes above; CI builds it
+  before testing them, and all three pass every case of `tests/interop/v2/bundle_vectors.json`
+  under its `verifier_policy_overrides`. Publishing them needs the dependency raised to `^2.2.0`
+  first: `publish-integrations.yml` now refuses a package that depends on a local path.
 - The same three verifiers sent every bundle not detected as V2 to the V1 verifier, whatever the
   verifier policy: a V1 bundle (one Ed25519 signature, no post-quantum one) got past
   `requireHybrid` or a `hybrid_required` policy, and a bundle of undetectable version was tried as
