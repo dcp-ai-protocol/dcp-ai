@@ -183,6 +183,10 @@ pub struct BundleManifest {
     /// (spec/VERIFICATION.md V2-4).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub session_issued_at: Option<String>,
+    /// The verifier this bundle is meant for, signed with the manifest; a
+    /// verifier policy with `require_audience_binding` checks it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub intended_verifier: Option<String>,
     /// JSON canonicalization profile under which this bundle was produced.
     /// Optional today (only `"dcp-jcs-v1"` is defined; absence is assumed
     /// equivalent to `"dcp-jcs-v1"` per
@@ -255,6 +259,17 @@ pub struct VerifierPolicy {
     /// `session_issued_at` fails verification.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_session_duration_seconds: Option<u64>,
+    /// A manifest without `session_expires_at` fails verification. Absent
+    /// means false.
+    #[serde(default)]
+    pub require_session_expiry: bool,
+    /// A manifest without `intended_verifier`, or with one other than
+    /// `verifier_id` when that is set, fails verification. Absent means false.
+    #[serde(default)]
+    pub require_audience_binding: bool,
+    /// This verifier's identity, for `require_audience_binding`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verifier_id: Option<String>,
 }
 
 /// The default verifier policy, the same as `DEFAULT_VERIFIER_POLICY` in the
@@ -278,6 +293,9 @@ impl Default for VerifierPolicy {
             warn_classical_only_deprecated: false,
             advisory_rejected_algs: Vec::new(),
             max_session_duration_seconds: None,
+            require_session_expiry: false,
+            require_audience_binding: false,
+            verifier_id: None,
         }
     }
 }

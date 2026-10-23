@@ -58,9 +58,10 @@ pub fn verify_signed_bundle_v2(signed_bundle: &Value) -> V2VerificationResult {
 /// `risk_tier`) and the security tier's mode (spec §14.3). Besides those two
 /// fields, only these are enforced, as in the TypeScript SDK: the Phase 3
 /// `advisory_rejected_algs`, `warn_classical_only_deprecated` and
-/// `allow_classical_fallback_disable`, and `max_session_duration_seconds`. A
-/// policy that changes any other field fails verification instead of having
-/// the setting ignored.
+/// `allow_classical_fallback_disable`, `max_session_duration_seconds`,
+/// `require_session_expiry`, and `require_audience_binding` with
+/// `verifier_id`. A policy that changes any other field fails verification
+/// instead of having the setting ignored.
 pub fn verify_signed_bundle_v2_with_policy(signed_bundle: &Value, policy: &VerifierPolicy) -> V2VerificationResult {
     let mut r = V2VerificationResult { dcp_version: "2.0".into(), ..Default::default() };
     let enforced = VerifierPolicy {
@@ -70,11 +71,14 @@ pub fn verify_signed_bundle_v2_with_policy(signed_bundle: &Value, policy: &Verif
         warn_classical_only_deprecated: policy.warn_classical_only_deprecated,
         advisory_rejected_algs: policy.advisory_rejected_algs.clone(),
         max_session_duration_seconds: policy.max_session_duration_seconds,
+        require_session_expiry: policy.require_session_expiry,
+        require_audience_binding: policy.require_audience_binding,
+        verifier_id: policy.verifier_id.clone(),
         ..VerifierPolicy::default()
     };
     if *policy != enforced {
         r.errors.push(
-            "Verifier policy sets fields this verifier does not enforce: only default_mode, risk_overrides, the Phase 3 fields and max_session_duration_seconds may differ from the default"
+            "Verifier policy sets fields this verifier does not enforce: only default_mode, risk_overrides, the Phase 3 fields, max_session_duration_seconds, require_session_expiry, require_audience_binding and verifier_id may differ from the default"
                 .to_string(),
         );
         return r;
@@ -120,6 +124,7 @@ pub fn verify_signed_bundle_v2_with_policy(signed_bundle: &Value, policy: &Verif
         r.errors.extend(manifest_hash_errors(bundle, manifest));
         let now = unix_now_millis() as i64;
         r.errors.extend(session_time_errors(manifest, policy.max_session_duration_seconds, now));
+        r.errors.extend(manifest_policy_errors(manifest, policy));
     }
 
     // Per spec/CANONICALIZATION_PROFILE.md § 4 a missing canonicalization_profile
@@ -435,6 +440,31 @@ fn session_time_errors(manifest: &Value, max_seconds: Option<u64>, now: i64) -> 
             }
         }
         _ => {} // an invalid or passed time, reported above
+    }
+    errors
+}
+
+/// What the verifier policy demands of the manifest, as in TypeScript:
+/// `require_session_expiry` needs `session_expires_at`, and
+/// `require_audience_binding` needs `intended_verifier`, which must be
+/// `verifier_id` when that is set. An `intended_verifier` that is empty or not
+/// a string counts as none.
+fn manifest_policy_errors(manifest: &Value, policy: &VerifierPolicy) -> Vec<String> {
+    let mut errors = Vec::new();
+    if policy.require_session_expiry && manifest.get("session_expires_at").is_none_or(Value::is_null) {
+        errors.push("Policy requires session_expires_at but manifest does not include it".to_string());
+    }
+    if policy.require_audience_binding {
+        match manifest.get("intended_verifier").and_then(Value::as_str).filter(|v| !v.is_empty()) {
+            None => errors
+                .push("Policy requires audience binding but manifest does not include intended_verifier".to_string()),
+            Some(intended) => match policy.verifier_id.as_deref() {
+                Some(verifier_id) if !verifier_id.is_empty() && verifier_id != intended => {
+                    errors.push(format!("Bundle intended for verifier '{}', not '{}'", intended, verifier_id))
+                }
+                _ => {}
+            },
+        }
     }
     errors
 }
@@ -1017,6 +1047,46 @@ mod tests {
             mutated[field] = value.clone();
             let got = errors(json!(["c"]), json!([mutated]));
             assert!(got.contains(&format!("pq_checkpoints[c]: {want}")), "{field}={value}: {got}");
+        }
+    }
+
+    #[test]
+    fn policy_demands_on_the_manifest() {
+        let policy = |expiry: bool, audience: bool, verifier_id: Option<&str>| VerifierPolicy {
+            require_session_expiry: expiry,
+            require_audience_binding: audience,
+            verifier_id: verifier_id.map(str::to_string),
+            ..VerifierPolicy::default()
+        };
+        let manifest = json!({ "session_expires_at": "2099-12-31T23:59:59Z", "intended_verifier": "verifier:a" });
+        let errors = |manifest: &Value, policy: &VerifierPolicy| manifest_policy_errors(manifest, policy).join("\n");
+        // Off by default; on, a manifest that has what they ask passes.
+        for p in [policy(false, false, None), policy(true, true, None), policy(true, true, Some("verifier:a"))] {
+            assert_eq!(errors(&manifest, &p), "", "{p:?}");
+        }
+        assert_eq!(
+            errors(&json!({}), &policy(false, false, Some("verifier:a"))),
+            "",
+            "verifier_id alone binds nothing"
+        );
+        assert_eq!(errors(&manifest, &policy(false, true, Some(""))), "", "an empty verifier_id is none");
+
+        let expiry = "Policy requires session_expires_at but manifest does not include it";
+        let audience = "Policy requires audience binding but manifest does not include intended_verifier";
+        let cases = [
+            (json!({}), policy(true, false, None), expiry),
+            (json!({ "session_expires_at": null }), policy(true, false, None), expiry),
+            (json!({}), policy(false, true, None), audience),
+            (json!({ "intended_verifier": "" }), policy(false, true, None), audience),
+            (json!({ "intended_verifier": 7 }), policy(false, true, Some("7")), audience),
+            (
+                manifest.clone(),
+                policy(false, true, Some("verifier:b")),
+                "Bundle intended for verifier 'verifier:a', not 'verifier:b'",
+            ),
+        ];
+        for (manifest, policy, want) in cases {
+            assert_eq!(errors(&manifest, &policy), want, "{manifest}");
         }
     }
 

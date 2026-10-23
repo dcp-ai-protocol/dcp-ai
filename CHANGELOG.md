@@ -237,6 +237,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   now has them (`RequireSessionExpiry`, `RequireAudienceBinding`, `VerifierID`, off when zero) and
   the verifier applies them as TypeScript does: a manifest without `session_expires_at`, without
   `intended_verifier`, or intended for another verifier than `verifier_id` is rejected.
+- Rust SDK and `@dcp-ai/wasm`: `VerifierPolicy` refused `require_session_expiry`,
+  `require_audience_binding` and `verifier_id`, which `schemas/v2/verifier_policy.schema.json`
+  lists and the TypeScript and Python verifiers enforce, so a policy that set any of them failed
+  every verification. They are now enforced as in TypeScript: under `require_session_expiry` a
+  manifest without `session_expires_at` is rejected, and under `require_audience_binding` one
+  without `intended_verifier` or, with `verifier_id` set, with another one. Rust's
+  `BundleManifest` gains `intended_verifier`.
 - Go SDK: `BundleManifest` had no `intended_verifier`, so a manifest decoded into it and encoded
   again lost the field and its signature no longer verified. The field is there now
   (`IntendedVerifier`, omitted when empty); a test round-trips a manifest with every schema field.
