@@ -198,8 +198,8 @@ func CreateCloseMessage(sessionID, reason string, finalSequence uint64, auditSum
 
 // A2ASession holds symmetric-channel state between two agents. EncryptMessage,
 // DecryptMessage and NeedsRekeying may be called concurrently on one session;
-// pass it by pointer (it holds a mutex), and do not change its fields while
-// those calls run.
+// pass it by pointer (it holds a mutex), and do not read or change its fields
+// while those calls run.
 type A2ASession struct {
 	mu sync.Mutex
 

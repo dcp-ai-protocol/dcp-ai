@@ -39,7 +39,7 @@ func TestA2ASessionConcurrentUse(t *testing.T) {
 	var accepted sync.WaitGroup
 	errs := make(chan error, 2*n)
 	for _, m := range msgs {
-		for copy := 0; copy < 2; copy++ { // every message twice: exactly one copy is accepted
+		for twice := 0; twice < 2; twice++ { // every message twice: exactly one copy is accepted
 			accepted.Add(1)
 			go func(m map[string]interface{}) {
 				defer accepted.Done()
