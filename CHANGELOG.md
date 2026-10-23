@@ -33,6 +33,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     change verify as before under a policy without a maximum session duration.
   - **The unsigned signer block could contradict the signature.** `signature.signer.id` must now be
     the RPR's `human_id`, and `signature.signer.kids` the kids of the composite signature.
+    `signBundleV2` and `sign_bundle_v2` refuse a signer id other than the RPR's `human_id`; Go's
+    `SignBundleV2` and Rust's `sign_bundle_v2` already take it from the RPR.
   - **PQ checkpoints were not verified.** A checkpoint with a changed Merkle root or PQ signature,
     or a missing one the manifest lists, verified. The bundle must now carry exactly the listed
     checkpoints, each over its audit entries and signed by the agent with both algorithms (V2-12).
