@@ -259,6 +259,7 @@ pip install 'dcp-ai[crewai]>=2.9.0'
 
 ```python
 import asyncio
+import base64
 import uuid
 from datetime import datetime, timezone
 
@@ -275,6 +276,7 @@ from dcp_ai.v2 import (
     canonicalize_v2,
     composite_sign,
     compute_security_tier,
+    derive_kid,
     generate_session_expiry,
     generate_session_nonce,
     prepare_payload,
@@ -418,8 +420,8 @@ def search_web_v2(query: str) -> str:
         "intent_hash": f"sha256:{sha256_hex(canonicalize_v2(intent).encode())}",
         "policy_decision": "approved" if approved else "escalated",
         "outcome": "search_completed" if approved else "awaiting_human_approval",
-        "evidence": {"tool": "search_web_v2", "result_ref": None,
-                     "evidence_hash": f"sha256:{sha256_hex(result.encode())}"},
+        # A real tool's output hash goes in evidence_hash; this toy result would reveal the query.
+        "evidence": {"tool": "search_web_v2", "result_ref": None, "evidence_hash": None},
         "pq_checkpoint_ref": None,
     }
 
@@ -472,7 +474,9 @@ signed_bundles = asyncio.run(seal())
 
 ### V2 Verification Pinned to the Operator
 
-`verify_signed_bundle_v2` checks a bundle against the keys the bundle itself carries, so a bundle someone else signed with their own keys is also self-consistent. Whoever verifies the crew's bundles pins the signer: the operator publishes the hash of its RPR and its kids, and a bundle must carry that RPR and name those kids. A `hybrid_required` policy demands both signatures, since the default policy accepts Ed25519 alone at the routine tier.
+`verify_signed_bundle_v2` checks a bundle against the keys the bundle itself carries, so a bundle someone else signed with their own keys is also self-consistent. Whoever verifies the crew's bundles pins the signer: the operator publishes the hash of its RPR and its kids, and a bundle must carry that RPR and name those kids. Every kid must also be derived from its public key (spec/VERIFICATION.md V2-13), which verifiers up to dcp-ai 2.9.0 do not check. A `hybrid_required` policy demands both signatures, since the default policy accepts Ed25519 alone at the routine tier, and the bundles must carry a session expiry.
+
+`verified` covers integrity and the signer; whether the action was approved is the policy decision inside the bundle.
 
 ```python
 # What the operator publishes to anyone who verifies the crew's bundles
@@ -483,7 +487,17 @@ HYBRID_REQUIRED = {
     **DEFAULT_VERIFIER_POLICY,
     "default_mode": "hybrid_required",
     "risk_overrides": dict.fromkeys(("low", "medium", "high"), "hybrid_required"),
+    "require_session_expiry": True,
 }
+
+
+def kid_matches_key(entry: dict) -> bool:
+    """spec/VERIFICATION.md V2-13: a kid is derived from its algorithm and public key."""
+    try:
+        public_key = base64.b64decode(entry["public_key_b64"], validate=True)
+        return entry["kid"] == derive_kid(entry["alg"], public_key)
+    except Exception:
+        return False
 
 
 async def verify_crew_bundle(signed: dict) -> bool:
@@ -492,23 +506,27 @@ async def verify_crew_bundle(signed: dict) -> bool:
     if not result["verified"]:
         return False
     # Verified under hybrid_required, so both signatures are there: check whose they are.
+    bundle = signed["bundle"]
     composite = signed["signature"]["composite_sig"]
+    keys = bundle["agent_passport"]["payload"]["keys"] + bundle["responsible_principal_record"]["payload"]["binding_keys"]
     return (
-        signed["bundle"]["responsible_principal_record"]["payload_hash"] == TRUSTED_RPR_HASH
+        bundle["responsible_principal_record"]["payload_hash"] == TRUSTED_RPR_HASH
         and [composite["classical"]["kid"], composite["pq"]["kid"]] == TRUSTED_KIDS
+        and all(kid_matches_key(k) for k in keys)
     )
 
 
 for signed in signed_bundles:
     intent = signed["bundle"]["intent"]["payload"]
+    decision = signed["bundle"]["policy_decision"]["payload"]["decision"]
     print(f"{intent['intent_id']}: verified={asyncio.run(verify_crew_bundle(signed))}, "
-          f"tier={intent['security_tier']}")
+          f"decision={decision}, tier={intent['security_tier']}")
 ```
 
-Outside Python, save a bundle as JSON and pin the operator's Ed25519 public key (`operator_keys[0].public_key_b64`) in a file:
+Outside Python, save a bundle as JSON and pin the operator's Ed25519 public key (`operator_keys[0].public_key_b64`) in a file. The reference CLI runs from a checkout of this repository after `npm install`; the `dcp` command that `pip install dcp-ai` installs is the Python CLI, which has no `verify-bundle`:
 
 ```bash
-dcp verify-bundle --policy hybrid_required bundle.json operator_ed25519_pub.txt
+node bin/dcp.js verify-bundle --policy hybrid_required bundle.json operator_ed25519_pub.txt
 ```
 
 The same bundles verify with the TypeScript, Go and Rust SDKs.
