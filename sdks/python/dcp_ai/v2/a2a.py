@@ -215,9 +215,10 @@ class A2ASession:
     created_at: str = field(default_factory=_utc_iso)
     last_activity: str = field(default_factory=_utc_iso)
     status: str = "active"  # "active" | "rekeying" | "closed"
-    # Sequences accepted within the receive window, so each one is accepted once. None (a session
-    # restored without it) counts every sequence of the window below message_counter_recv as received.
-    received_sequences: set[int] | None = field(default_factory=set)
+    # Sequences accepted within the receive window, so each one is accepted once. None (the default:
+    # a session restored without it) counts every sequence of the window below message_counter_recv
+    # as received; on a new session that is no sequence at all.
+    received_sequences: set[int] | None = None
 
 
 # How far behind the highest received sequence a message may still arrive (out of order).
@@ -295,7 +296,7 @@ def decrypt_message(session: A2ASession, message: dict[str, Any]) -> dict[str, A
     AESGCM = _aesgcm()
 
     sequence = message.get("sequence")
-    if not isinstance(sequence, int) or isinstance(sequence, bool) or sequence < 0:
+    if type(sequence) is not int or sequence < 0:  # exactly int: no bool, no subclass with its own __str__
         raise ValueError("Invalid message sequence")
     recv = session.message_counter_recv
     if sequence < recv - RECEIVE_WINDOW:
