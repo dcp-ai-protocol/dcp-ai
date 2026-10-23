@@ -753,12 +753,18 @@ fn find_key<'a>(keys: &[&'a Value], kid: &str) -> Option<(&'a str, &'a str)> {
 /// its kid derived from its alg and those bytes, so no key list can claim
 /// another party's kid.
 fn key_identity_error(kid: &str, alg: &str, public_key_b64: &str) -> Option<String> {
-    // The strict engine refuses missing padding and trailing bits; re-encoding
-    // confirms the bytes have no other spelling.
-    let Some(pk) = BASE64.decode(public_key_b64).ok().filter(|pk| BASE64.encode(pk) == public_key_b64) else {
+    let Some(pk) = canonical_b64(public_key_b64) else {
         return Some(format!("key {} public_key_b64 is not canonical base64 (V2-13)", kid));
     };
     (derive_kid(alg, &pk) != kid).then(|| format!("key {} is not derived from its public key (V2-13)", kid))
+}
+
+/// The bytes of canonical base64 (RFC 4648 § 4: padded, zero trailing bits, no
+/// other character), the one encoding every SDK decodes the same way. The
+/// strict engine refuses missing padding and trailing bits; re-encoding
+/// confirms the bytes have no other spelling.
+fn canonical_b64(value: &str) -> Option<Vec<u8>> {
+    BASE64.decode(value).ok().filter(|bytes| BASE64.encode(bytes) == value)
 }
 
 pub(crate) fn provider_for_alg(alg: &str) -> Result<Box<dyn CryptoProvider>, String> {
@@ -771,9 +777,10 @@ pub(crate) fn provider_for_alg(alg: &str) -> Result<Box<dyn CryptoProvider>, Str
 }
 
 /// Verify a composite_sig over `payload` with the keys it names by kid, looked
-/// up in `keys` only (VERIFICATION.md V2-6, V2-7), each kid derived from its
-/// key (V2-13): pq_over_classical is valid only when both components verify;
-/// classical_only carries no PQ signature.
+/// up in `keys` only (VERIFICATION.md V2-6, V2-7), each sig_b64 canonical
+/// base64 (V2-5) and each kid derived from its key (V2-13): pq_over_classical
+/// is valid only when both components verify; classical_only carries no PQ
+/// signature.
 fn verify_composite_sig(
     context: &str,
     payload: &Value,
@@ -791,6 +798,13 @@ fn verify_composite_sig(
         if !PQ_ALGS.contains(&entry.alg.as_str()) {
             return Err(format!("PQ slot holds {}, which is not a PQ algorithm", entry.alg));
         }
+    }
+    // One encoding per signature, the same bytes in every SDK (V2-5).
+    if canonical_b64(&cs.classical.sig_b64).is_none() {
+        return Err("Classical sig_b64 is not canonical base64 (V2-5)".to_string());
+    }
+    if cs.pq.as_ref().is_some_and(|entry| canonical_b64(&entry.sig_b64).is_none()) {
+        return Err("PQ sig_b64 is not canonical base64 (V2-5)".to_string());
     }
 
     let (classical_pk, classical_alg) = find_key(keys, &cs.classical.kid)
@@ -1088,6 +1102,37 @@ mod tests {
         for (manifest, policy, want) in cases {
             assert_eq!(errors(&manifest, &policy), want, "{manifest}");
         }
+    }
+
+    #[test]
+    fn signatures_are_canonical_base64() {
+        let sig = BASE64.encode([9u8; 64]);
+        let cs = |classical: &str, pq: &str| {
+            json!({
+                "binding": "pq_over_classical",
+                "classical": { "alg": "ed25519", "kid": "k", "sig_b64": classical },
+                "pq": { "alg": "ml-dsa-65", "kid": "q", "sig_b64": pq },
+            })
+        };
+        let error =
+            |c: &str, p: &str| verify_composite_sig(CTX_BUNDLE, &json!({}), Some(&cs(c, p)), &[], "keys").unwrap_err();
+        // Junk after the padding, extra padding, a newline inside, a trailing bit set, no padding.
+        const B64: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        let last = sig.find('=').unwrap() - 1;
+        let flipped = B64.as_bytes()[B64.find(&sig[last..last + 1]).unwrap() ^ 1] as char;
+        let variants = [
+            format!("{sig}A"),
+            format!("{sig}=="),
+            format!("{}\n{}", &sig[..4], &sig[4..]),
+            format!("{}{}{}", &sig[..last], flipped, &sig[last + 1..]),
+            sig.trim_end_matches('=').to_string(),
+        ];
+        for bad in variants {
+            assert_eq!(error(&bad, &sig), "Classical sig_b64 is not canonical base64 (V2-5)", "{bad:?}");
+            assert_eq!(error(&sig, &bad), "PQ sig_b64 is not canonical base64 (V2-5)", "{bad:?}");
+        }
+        // Canonical ones go on to the key lookup.
+        assert!(error(&sig, &sig).contains("not found in keys"));
     }
 
     #[test]
