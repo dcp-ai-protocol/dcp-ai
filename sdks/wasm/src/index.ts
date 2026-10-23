@@ -268,7 +268,8 @@ export class DcpWasm {
   // ── Bundle Building & Signing ──────────────────────────────────────
 
   buildBundle(opts: BuildBundleOptions): CitizenshipBundleV2 {
-    const nonce = opts.sessionNonce ?? this.generateSessionNonce();
+    const rprNonce = (opts.rpr.payload as { session_nonce?: unknown } | null)?.session_nonce;
+    const nonce = opts.sessionNonce ?? (typeof rprNonce === 'string' ? rprNonce : '');
     return parseOrThrow(
       wasm().wasm_build_bundle(
         JSON.stringify(opts.rpr),

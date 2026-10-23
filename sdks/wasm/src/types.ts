@@ -149,6 +149,7 @@ export interface BuildBundleOptions {
   intent: SignedPayload;
   policy: SignedPayload;
   auditEntries: unknown[];
+  /** Defaults to the RPR payload's `session_nonce`; every artifact and audit entry must carry it. */
   sessionNonce?: string;
 }
 
