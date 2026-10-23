@@ -121,8 +121,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `tools/difffuzz`: `prototype_key_as_key` assigned `__proto__` as a plain property, which sets the
   prototype instead of adding a key, so those mutants never carried the key they claimed (and a
   cycle could crash the run); it now defines an own key. A shim that cannot start or that died
-  between verdicts is reported as a crash instead of an unhandled error. `spec/VERIFICATION.md` no
-  longer credits Rust with a bundle builder.
+  between verdicts is reported as a crash instead of an unhandled error. `spec/VERIFICATION.md` now
+  names Rust's bundle builder correctly (`wasm_build_bundle`, `wasm` feature only).
 - Go SDK: `SignBundleV2` left `signature.signer.id` empty, which `signed_bundle.schema.json`
   forbids, so the reference verifier, the CLI and the server rejected every bundle it signed while
   the four SDK verifiers accepted it (found by `tools/interop-matrix`). The signer is now the
