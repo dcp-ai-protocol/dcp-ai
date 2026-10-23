@@ -36,7 +36,7 @@ dcp-ai = { version = "2.10", features = ["wasm"] }
 | Canonical JSON v2 + domain separation | Yes |
 | Dual hash (SHA-256 + SHA3-256) + Merkle roots | Yes |
 | Bundle verification (V1 + V2; V2 under a verifier policy and the security tier, `verify_signed_bundle_v2_with_policy`) | Yes |
-| V2 bundle building & signing (`dcp_ai::v2::bundle`: `build_bundle_v2`, `sign_bundle_v2`; the `wasm` feature's `wasm_build_bundle` / `wasm_sign_bundle` call them) | Yes |
+| V2 bundle building & signing (`dcp_ai::v2::bundle`: `build_bundle_v2`, `sign_bundle_v2`; the `wasm` feature's `wasm_build_bundle` / `wasm_sign_bundle` call them; no PQ checkpoints yet) | Yes |
 | DCP-05 agent lifecycle (commissioning / vitality / decommissioning) | Yes |
 | DCP-06 digital succession (testament, memory transfer, ceremony) | Yes |
 | DCP-07 dispute resolution + arbitration + jurisprudence | Yes |

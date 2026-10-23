@@ -36,7 +36,7 @@ dcp-ai = { version = "2.10", features = ["wasm"] }
 | 规范 JSON v2 + 域分离 | 是 |
 | 双哈希 (SHA-256 + SHA3-256) + Merkle 根 | 是 |
 | 凭证包验证 (V1 + V2；V2 应用验证者策略和安全等级，`verify_signed_bundle_v2_with_policy`) | 是 |
-| V2 凭证包构建与签名（`dcp_ai::v2::bundle`：`build_bundle_v2`、`sign_bundle_v2`；`wasm` 特性的 `wasm_build_bundle` / `wasm_sign_bundle` 调用它们） | 是 |
+| V2 凭证包构建与签名（`dcp_ai::v2::bundle`：`build_bundle_v2`、`sign_bundle_v2`；`wasm` 特性的 `wasm_build_bundle` / `wasm_sign_bundle` 调用它们；暂不支持 PQ 检查点） | 是 |
 | DCP-05 代理生命周期（委任 / 活力 / 停用） | 是 |
 | DCP-06 数字继承（数字遗嘱、记忆迁移、交接仪式） | 是 |
 | DCP-07 争议解决 + 仲裁 + 判例 | 是 |
