@@ -114,6 +114,7 @@
       wasm_composite_sign,
       wasm_composite_verify,
       wasm_classical_only_sign,
+      wasm_sign_payload,
       wasm_build_bundle,
       wasm_sign_bundle,
       wasm_verify_signed_bundle_v2,
@@ -201,22 +202,26 @@
     document.getElementById('btn-bundle').onclick = () => {
       if (!hybridKeys) { alert('Generate a hybrid keypair first.'); return; }
       const nonce = wasm_generate_session_nonce();
-      const rpr = { dcp_version: '2.0', human_id: 'alice-demo', binding_method: 'oauth2', session_nonce: nonce, timestamp: new Date().toISOString() };
-      const passport = {
-        dcp_version: '2.0', agent_id: 'agent-demo-001', model: 'gpt-4o', session_nonce: nonce,
-        keys: [
-          { kid: hybridKeys.classical.kid, alg: 'ed25519', public_key_b64: hybridKeys.classical.public_key_b64 },
-          { kid: hybridKeys.pq.kid, alg: 'ml-dsa-65', public_key_b64: hybridKeys.pq.public_key_b64 },
-        ],
-      };
-      const intent = { action_type: 'initiate_payment', data_classes: ['financial_data'], estimated_impact: 'high', session_nonce: nonce };
-      const policy = { decision: 'approve', risk_score: 650, resolved_tier: 'elevated', session_nonce: nonce };
-
-      const bundleJson = wasm_build_bundle(
-        JSON.stringify(rpr), JSON.stringify(passport),
-        JSON.stringify(intent), JSON.stringify(policy),
-        '[]', nonce,
+      // The demo's one hybrid keypair signs for both the principal and the agent.
+      const keyEntries = [hybridKeys.classical, hybridKeys.pq].map((k) => ({
+        kid: k.kid, alg: k.alg, public_key_b64: k.public_key_b64, status: 'active',
+      }));
+      const sign = (context, payload) => wasm_sign_payload(
+        context, JSON.stringify({ dcp_version: '2.0', session_nonce: nonce, ...payload }),
+        hybridKeys.classical.secret_key_b64, hybridKeys.classical.kid,
+        hybridKeys.pq.secret_key_b64, hybridKeys.pq.kid,
       );
+      const rpr = sign('DCP-AI.v2.ResponsiblePrincipal', { human_id: 'human:alice-demo', binding_keys: keyEntries });
+      const passport = sign('DCP-AI.v2.AgentPassport', { agent_id: 'agent-demo-001', principal_binding_reference: 'human:alice-demo', keys: keyEntries });
+      const intent = sign('DCP-AI.v2.Intent', { intent_id: 'intent-demo-001', action_type: 'initiate_payment', data_classes: ['financial_data'], estimated_impact: 'high' });
+      const policy = sign('DCP-AI.v2.PolicyDecision', { intent_id: 'intent-demo-001', decision: 'approve', risk_score: 650, resolved_tier: 'elevated' });
+
+      // Each artifact is a SignedPayload; an empty audit trail gets roots of 64 zeros.
+      const bundleJson = wasm_build_bundle(rpr, passport, intent, policy, '[]', nonce);
+      if (JSON.parse(bundleJson).error) {
+        document.getElementById('bundle-output').textContent = `Build failed: ${JSON.parse(bundleJson).error}`;
+        return;
+      }
 
       const signedJson = wasm_sign_bundle(
         bundleJson,
