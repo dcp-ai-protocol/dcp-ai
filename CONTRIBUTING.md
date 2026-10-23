@@ -82,6 +82,18 @@ cd sdks/wasm
 npm test
 ```
 
+### Cross-SDK
+
+Every SDK reads the shared vectors in `tests/interop/v2/` from its own test suite. Two tools check the SDKs
+against each other (build `sdks/typescript` and install `sdks/python` first; Go and Rust must be on `PATH`):
+
+```bash
+node tools/interop-matrix/run.mjs   # agents on the four SDKs sign and verify each other's bundles
+node tools/difffuzz/run.mjs         # the same mutated bundle through the four verifiers
+```
+
+Both run in CI on every pull request.
+
 ## Code Style
 
 This project uses automated tooling to enforce consistent code style:
@@ -118,7 +130,8 @@ npx eslint --fix .
 - [ ] All existing tests pass
 - [ ] New tests added for new functionality
 - [ ] Code follows the project style guidelines
-- [ ] Documentation updated if applicable
+- [ ] Documentation updated if applicable, in every language the document has
+- [ ] Changes to signing, hashing, canonicalization or verification: shared vectors updated and the interop matrix passes
 - [ ] Commit messages follow the format below
 
 ## Commit Message Format
@@ -167,6 +180,7 @@ chore(ci): add code coverage to TypeScript SDK workflow
 - All new features must include corresponding tests.
 - Bug fixes should include a regression test that would have caught the bug.
 - Conformance tests in `tests/conformance/` verify protocol compliance across all implementations.
+- A rule every SDK enforces gets a shared vector in `tests/interop/v2/`, so the four SDKs are tested against the same case.
 - SDK tests should cover bundle creation, signing, verification, and error cases.
 - CI must pass before a PR can be merged. Test failures are not suppressed — if tests fail, the build fails.
 

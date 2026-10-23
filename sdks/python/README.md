@@ -31,13 +31,13 @@ pip install "dcp-ai[otlp]"       # OpenTelemetry OTLP exporter
 | Canonical JSON v2 + domain separation | Yes |
 | Dual hash (SHA-256 + SHA3-256) + Merkle roots | Yes |
 | Bundle signing + verification | V1: yes. V2 (`SignedBundleV2`): yes, `BundleBuilderV2` / `sign_bundle_v2` / `verify_signed_bundle_v2` |
-| DCP-04 A2A discovery + handshake + AES-256-GCM session (via `cryptography`) | Yes |
+| DCP-04 A2A discovery + handshake + AES-256-GCM session (via `cryptography`); each message accepted once within the window (§8.4) | Yes |
 | DCP-05 agent lifecycle (commissioning / vitality / decommissioning) | Yes |
 | DCP-06 digital succession (testament, memory transfer, ceremony) | Yes |
 | DCP-07 dispute resolution + arbitration + jurisprudence | Yes |
 | DCP-08 rights + obligations + compliance | Yes |
-| DCP-09 delegation + awareness threshold + principal mirror | Yes |
-| Session nonce helpers, security tier engine (`compute_security_tier(intent, policy_decision)`, spec §14.2), emergency revocation | Yes |
+| DCP-09 delegation + verifiable delegation chains (`create_sub_mandate`, `verify_mandate_chain`, §3.5) + awareness threshold + principal mirror | Yes |
+| Session nonce helpers, security tier engine (`compute_security_tier(intent, policy_decision, mandate_chain_tier)`, spec §14.2), emergency revocation | Yes |
 | Lazy PQ checkpoints + `PQCheckpointManager` | Yes |
 | Blinded RPR, multi-party authorization, algorithm advisory helpers | Yes |
 | Canonical error codes (38 shared across all SDKs) + `detect_wire_format` | Yes |
@@ -236,6 +236,31 @@ result = await verify_signed_bundle_v2(signed, registry)  # DEFAULT_VERIFIER_POL
 ```
 
 The verifier also checks each artifact's own composite signature (the RPR against the principal's `binding_keys`, the rest against the passport keys) and, in every policy mode, rejects a PQ signature that is present but invalid. The mode is the stricter of the policy mode and the security tier's mode (spec §14.3), and `details["resolved_tier"]` reports the tier.
+
+### Delegation Chains (DCP-09 §3.5)
+
+A root mandate is signed by the human (`create_delegation_mandate`); the agent holding it may issue a
+sub-mandate to another agent (`create_sub_mandate`), signed with its own keys. `verify_mandate_chain` checks
+the chain root first and offline: signatures back to the human, parent links and depth, `sub_delegation`,
+nested validity windows, attenuation (actions, `data_classes` and `limits` only narrow), the security-tier
+floor and revocation.
+
+```python
+from dcp_ai.v2 import create_sub_mandate, verify_mandate_chain, compute_security_tier
+
+sub = await create_sub_mandate(
+    registry, orchestrator_classical, orchestrator_pq, root_mandate,
+    mandate_id="mandate:sub-1", session_nonce=nonce, agent_id="agent:subagent",
+    authority_scope=[{"domain": "email", "actions_permitted": ["read"], "data_classes": ["contact_info"]}],
+    valid_from="2026-03-01T00:00:00Z", valid_until="2026-06-01T00:00:00Z", revocable=True,
+)
+result = await verify_mandate_chain(
+    registry, [root_mandate, sub], set(),
+    {"human_keys": human_key_entries, "agent_keys": {"agent:orchestrator": orchestrator_key_entries}},
+)
+# {"valid", "errors", "depth", "effective_tier"}; the tier floor can only raise an action's tier.
+tier = compute_security_tier(intent, policy_decision, result["effective_tier"] if result["valid"] else None)
+```
 
 ### Pydantic Models
 
