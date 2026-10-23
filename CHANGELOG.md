@@ -21,17 +21,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     a key of its own. Every kid that verifies a signature must now be derived from its key (V2-13).
   - **Signed but inconsistent bundles verified.** A revoked or decommissioned passport, an expired
     RPR, a policy decision for another intent, and audit entries for another intent, agent or
-    principal, or with another `intent_hash`. The V1 checks are now V2-14: the passport is `active`
-    or `declining`, the RPR has not expired, and every artifact names the same principal, agent and
-    intent.
+    principal, with another `intent_hash` or not recording the policy decision. The V1 checks are
+    now V2-14: the passport is `active` or `declining`, the RPR has not expired, and every artifact
+    names the same principal, agent and intent. An escalated or blocked action is still valid
+    evidence.
   - **The session duration bound read an unsigned field.** `max_session_duration_seconds` was
-    measured from `signature.created_at`, outside the signed manifest; it is now measured from the
-    verification time (V2-4).
+    measured from `signature.created_at`, outside the signed manifest. The manifest has a new
+    `session_issued_at`, which `signBundleV2` and `sign_bundle_v2` write with `session_expires_at`;
+    the maximum is measured from it, and under a maximum a bundle without it is rejected (V2-4).
+    It must not be more than 30 seconds ahead of the verifier's clock. Bundles signed before this
+    change verify as before under a policy without a maximum session duration.
+  - **The unsigned signer block could contradict the signature.** `signature.signer.id` must now be
+    the RPR's `human_id`, and `signature.signer.kids` the kids of the composite signature.
   - **PQ checkpoints were not verified.** A checkpoint with a changed Merkle root or PQ signature,
     or a missing one the manifest lists, verified. The bundle must now carry exactly the listed
     checkpoints, each over its audit entries and signed by the agent with both algorithms (V2-12).
-  - 25 new `must_reject_bundles` vectors and 3 `must_accept_bundles` controls in
-    `tests/interop/v2/bundle_vectors.json`, each signed over one defect. `lib/verify.js` pins a
+  - New vectors in `tests/interop/v2/bundle_vectors.json`, each signed over one defect: 30
+    `must_reject_bundles` cases, 2 `must_reject` mutations of the unsigned signer block and 6
+    `must_accept_bundles` controls. A case may carry `verifier_policy_overrides`. `lib/verify.js` pins a
     `dcp verify-bundle` key among the RPR `binding_keys` only.
 - Go and Rust verifiers accepted an audit entry (or PQ checkpoint) whose `session_nonce` differed
   from the manifest's, although the manifest committed to it (`spec/VERIFICATION.md` V2-4: every
