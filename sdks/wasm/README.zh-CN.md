@@ -112,7 +112,7 @@ console.log(result.pq_valid);       // true
 | 方法 | 返回值 | 描述 |
 |--------|---------|-------------|
 | `compositeVerify(context, payload, sig, classicalPk, pqPk?)` | `CompositeVerifyResult` | 复合签名的密码学验证 |
-| `verifyBundle(signedBundle, policy?)` | `V2VerificationResult` | 完整的 V2 凭证包验证（结构 + 加密 + 哈希链），按策略模式与安全等级模式中更严格的一个验证（spec §14.3）；返回 `resolved_tier` 和 `verification_mode`。`policy` 只能在 `default_mode`、`risk_overrides`、Phase 3 字段（`advisory_rejected_algs`、`warn_classical_only_deprecated`、`allow_classical_fallback_disable`）和 `max_session_duration_seconds`（从已签名的 `session_issued_at` 起算，清单含 `session_expires_at` 时由 `signBundle` 写入）上与默认值不同；设置其他字段（如 `require_session_expiry`、`require_audience_binding` 或 `verifier_id`）的策略会验证失败，传入策略时 V1 凭证包会被拒绝 |
+| `verifyBundle(signedBundle, policy?)` | `V2VerificationResult` | 完整的 V2 凭证包验证（结构 + 加密 + 哈希链），按策略模式与安全等级模式中更严格的一个验证（spec §14.3）；返回 `resolved_tier` 和 `verification_mode`。`policy` 只能在 `default_mode`、`risk_overrides`、Phase 3 字段（`advisory_rejected_algs`、`warn_classical_only_deprecated`、`allow_classical_fallback_disable`）、`max_session_duration_seconds`（从已签名的 `session_issued_at` 起算，清单含 `session_expires_at` 时由 `signBundle` 写入）、`require_session_expiry`（拒绝没有 `session_expires_at` 的清单）以及带 `verifier_id` 的 `require_audience_binding`（拒绝没有 `intended_verifier` 或与 `verifier_id` 不同的清单）上与默认值不同；传入策略时 V1 凭证包会被拒绝 |
 
 ### 哈希操作
 

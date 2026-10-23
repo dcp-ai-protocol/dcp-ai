@@ -63,6 +63,22 @@ for (const [name, auditEntries] of [['one entry', [audit]], ['empty trail', []]]
   check('within the maximum session duration', within.verified, within.errors);
   const over = dcp.verifyBundle(signed, { ...defaults, max_session_duration_seconds: 60 });
   check('over the maximum session duration', !over.verified && over.errors.some((e) => e.includes('Session duration')), over.errors);
+
+  // The policy's demands on the signed manifest: an expiry, and an audience checked against verifier_id.
+  const audience = (verifier_id) => ({ ...defaults, require_audience_binding: true, verifier_id });
+  const errorsOf = (s, policy) => dcp.verifyBundle(s, policy).errors;
+  check('require_session_expiry with an expiry', dcp.verifyBundle(signed, { ...defaults, require_session_expiry: true }).verified, errorsOf(signed, { ...defaults, require_session_expiry: true }));
+  const noExpiry = signBundle(dcp.buildBundle({ ...artifacts, auditEntries: [audit] }));
+  const expiryErrors = errorsOf(noExpiry, { ...defaults, require_session_expiry: true });
+  check('require_session_expiry without one', expiryErrors.includes('Policy requires session_expires_at but manifest does not include it'), expiryErrors);
+  const noAudience = errorsOf(signed, audience('verifier:a'));
+  check('require_audience_binding without intended_verifier', noAudience.includes('Policy requires audience binding but manifest does not include intended_verifier'), noAudience);
+  const bound = dcp.buildBundle({ ...artifacts, auditEntries: [audit] });
+  bound.manifest.intended_verifier = 'verifier:a';
+  const boundSigned = signBundle(bound);
+  check('intended for this verifier', dcp.verifyBundle(boundSigned, audience('verifier:a')).verified, errorsOf(boundSigned, audience('verifier:a')));
+  const other = errorsOf(boundSigned, audience('verifier:b'));
+  check('intended for another verifier', other.includes("Bundle intended for verifier 'verifier:a', not 'verifier:b'"), other);
 }
 
 const rejects = (name, fn, needle) => {

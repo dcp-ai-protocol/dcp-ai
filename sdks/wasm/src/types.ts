@@ -73,10 +73,10 @@ export interface V2VerificationResult {
 
 /**
  * Verifier policy for V2 bundles (schemas/v2/verifier_policy.schema.json), with every required
- * field. Without one, `verifyBundle` uses the default policy. Only default_mode, risk_overrides,
- * the optional Phase 3 fields and max_session_duration_seconds may differ from it.
- * require_session_expiry, require_audience_binding and verifier_id are not enforced by this
- * verifier: a policy that sets any of them, to any value, fails verification.
+ * field. Without one, `verifyBundle` uses the default policy. Only default_mode, risk_overrides
+ * and the optional fields may differ from it: the Phase 3 fields, max_session_duration_seconds,
+ * require_session_expiry, require_audience_binding and verifier_id, all enforced as in the
+ * TypeScript SDK.
  */
 export interface VerifierPolicy {
   default_mode: NonNullable<V2VerificationResult['verification_mode']>;
@@ -96,15 +96,18 @@ export interface VerifierPolicy {
   advisory_rejected_algs?: string[];
   /**
    * Maximum of the manifest's session_expires_at minus its signed session_issued_at, in seconds;
-   * absent or 0 means no limit. Under a maximum, a bundle with session_expires_at and without
+   * absent or 0 means no limit. Under a maximum, a bundle without session_expires_at or without
    * session_issued_at fails verification (spec/VERIFICATION.md V2-4).
    */
   max_session_duration_seconds?: number;
-  /** Schema field this verifier does not enforce; setting it fails verification. */
+  /** A manifest without session_expires_at fails verification. Absent means false. */
   require_session_expiry?: boolean;
-  /** Schema field this verifier does not enforce; setting it fails verification. */
+  /**
+   * A manifest without intended_verifier, or with one other than verifier_id when that is set,
+   * fails verification. Absent means false.
+   */
   require_audience_binding?: boolean;
-  /** Schema field this verifier does not enforce; setting it fails verification. */
+  /** This verifier's identity, for require_audience_binding. */
   verifier_id?: string;
 }
 
