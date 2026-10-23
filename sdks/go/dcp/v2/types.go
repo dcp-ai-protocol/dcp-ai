@@ -219,8 +219,8 @@ type VerifierPolicy struct {
 
 	// MaxSessionDurationSeconds bounds the signed session window: a bundle
 	// whose manifest session_expires_at is more than this many seconds after
-	// its session_issued_at is rejected, and so is one with session_expires_at
-	// but without session_issued_at (VERIFICATION.md V2-4). 0 is no limit.
+	// its session_issued_at is rejected, and so is one without either
+	// (VERIFICATION.md V2-4). 0 is no limit.
 	MaxSessionDurationSeconds int `json:"max_session_duration_seconds,omitempty"`
 }
 
