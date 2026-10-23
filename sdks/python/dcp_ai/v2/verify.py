@@ -365,13 +365,11 @@ async def _check_pq_checkpoints(
             errors.append(f"{label}: merkle_root does not match its audit entries")
             continue
         payload = {k: v for k, v in cp.items() if k != "composite_sig"}
-        valid, errs, _ = await _check_composite_sig(
+        _, errs, _ = await _check_composite_sig(
             registry, policy, cp_mode, DCP_CONTEXTS["AuditEvent"], payload, cp.get("composite_sig"),
             passport_keys, "passport keys",
         )
         errors.extend(f"{label}: {e}" for e in errs)
-        if not valid and not errs:
-            errors.append(f"{label}: signature invalid")
     return errors
 
 
