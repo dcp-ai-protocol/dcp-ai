@@ -8,6 +8,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Security
 
+- V2 verifiers in all four SDKs accepted bundles that the signatures alone allowed but the
+  protocol does not. Reported by an external review and confirmed by our own; the reference
+  verifier `lib/verify.js` gets the fixes with the next `@dcp-ai/sdk` release.
+  - **Any agent could claim any principal.** The bundle signature verified with the passport keys
+    as well as the RPR `binding_keys`, and the agent signs its own passport. Pairing a published,
+    signed RPR with a new passport and keys gave a verified bundle without the principal's private
+    key. The bundle signature now verifies only with the RPR `binding_keys`
+    (`spec/VERIFICATION.md` V2-6), so the principal's signature over the manifest, which commits to
+    `passport_hash`, is what binds the agent.
+  - **Kids were not checked against their keys.** A key list could claim another party's kid for
+    a key of its own. Every kid that verifies a signature must now be derived from its key (V2-13).
+  - **Signed but inconsistent bundles verified.** A revoked or decommissioned passport, an expired
+    RPR, a policy decision for another intent, and audit entries for another intent, agent or
+    principal, or with another `intent_hash`. The V1 checks are now V2-14: the passport is `active`
+    or `declining`, the RPR has not expired, and every artifact names the same principal, agent and
+    intent.
+  - **The session duration bound read an unsigned field.** `max_session_duration_seconds` was
+    measured from `signature.created_at`, outside the signed manifest; it is now measured from the
+    verification time (V2-4).
+  - **PQ checkpoints were not verified.** A checkpoint with a changed Merkle root or PQ signature,
+    or a missing one the manifest lists, verified. The bundle must now carry exactly the listed
+    checkpoints, each over its audit entries and signed by the agent with both algorithms (V2-12).
+  - 25 new `must_reject_bundles` vectors and 3 `must_accept_bundles` controls in
+    `tests/interop/v2/bundle_vectors.json`, each signed over one defect. `lib/verify.js` pins a
+    `dcp verify-bundle` key among the RPR `binding_keys` only.
 - Go and Rust verifiers accepted an audit entry (or PQ checkpoint) whose `session_nonce` differed
   from the manifest's, although the manifest committed to it (`spec/VERIFICATION.md` V2-4: every
   artifact and audit entry that carries a nonce shares the manifest's). Both now check the trail
