@@ -38,8 +38,13 @@ export interface DCPVerifyOptions {
   revocationServiceUrl?: string;
   onFailure?: (req: Request, res: Response, errors: string[]) => void;
   headerName?: string;
-  /** Seconds a verified bundle stays cached, keyed by the SHA-256 of the whole signed bundle. 0 disables the cache. */
+  /**
+   * Seconds a verified bundle stays cached, keyed by the SHA-256 of the whole signed bundle. 0
+   * disables the cache. An entry never outlives the bundle's session or signing keys.
+   */
   cacheTtlSeconds?: number;
+  /** Most verified bundles kept in the cache; the least recently used is evicted first. Default 1000. */
+  cacheMaxEntries?: number;
   /** V2: require hybrid composite signatures: every risk tier whose mode is classical_only or hybrid_preferred becomes hybrid_required. */
   requireHybrid?: boolean;
   /**
@@ -252,6 +257,75 @@ async function checkRevocationStatus(agentId: string, kids: string[] | undefined
 }
 
 /**
+ * Why a V1 bundle (one Ed25519 signature, no post-quantum one) is refused under this policy, or
+ * null. A V1 passport's risk tier is self-declared, so V1 is refused as soon as any tier requires
+ * a post-quantum signature.
+ */
+function v1PolicyRefusal(policy: VerifierPolicy, requireHybrid: boolean): string | null {
+  if (!policy.allow_v1_bundles) return 'V1 bundles are not accepted: verifier policy allow_v1_bundles is false';
+  if (requireHybrid) return 'V1 bundles are not accepted: requireHybrid needs a post-quantum signature';
+  const modes = [policy.default_mode, ...RISK_TIERS.map((tier) => policy.risk_overrides[tier])];
+  const strict = modes.find((mode) => mode === 'hybrid_required' || mode === 'pq_only');
+  if (strict) {
+    return `V1 bundles are not accepted: the verifier policy requires ${strict} for a risk tier, and a V1 bundle has no post-quantum signature`;
+  }
+  return null;
+}
+
+/**
+ * When a cached verdict on this bundle stops holding: after the TTL, or when the session, the RPR,
+ * a passport key or an RPR binding key expires, whichever comes first. A timestamp that does not
+ * parse gives 0 (not cached).
+ */
+function verdictExpiry(signedBundle: any, ttlSeconds: number): number {
+  const bundle = signedBundle.bundle ?? {};
+  const rpr = bundle.responsible_principal_record?.payload ?? bundle.responsible_principal_record;
+  const passport = bundle.agent_passport?.payload ?? bundle.agent_passport;
+  const keys = [
+    ...(Array.isArray(passport?.keys) ? passport.keys : []),
+    ...(Array.isArray(rpr?.binding_keys) ? rpr.binding_keys : []),
+  ];
+  const stamps = [bundle.manifest?.session_expires_at, rpr?.expires_at, ...keys.map((key: any) => key?.expires_at)];
+  let expires = Date.now() + ttlSeconds * 1000;
+  for (const stamp of stamps) {
+    if (stamp === undefined || stamp === null) continue;
+    const time = typeof stamp === 'string' ? Date.parse(stamp) : NaN;
+    if (Number.isNaN(time)) return 0;
+    expires = Math.min(expires, time);
+  }
+  return expires;
+}
+
+/** Verified agents by signed-bundle hash, each until its expiry; least recently used evicted first. */
+class VerdictCache {
+  private readonly entries = new Map<string, { agent: DCPAgent; expires: number }>();
+
+  constructor(private readonly maxEntries: number) {}
+
+  get(key: string): DCPAgent | undefined {
+    const entry = this.entries.get(key);
+    if (!entry) return undefined;
+    this.entries.delete(key);
+    if (Date.now() >= entry.expires) return undefined;
+    this.entries.set(key, entry); // now the most recently used
+    return structuredClone(entry.agent);
+  }
+
+  set(key: string, agent: DCPAgent, expires: number): void {
+    const now = Date.now();
+    if (expires <= now) return;
+    this.entries.delete(key);
+    if (this.entries.size >= this.maxEntries) {
+      for (const [k, entry] of this.entries) if (now >= entry.expires) this.entries.delete(k);
+    }
+    while (this.entries.size >= this.maxEntries) {
+      this.entries.delete(this.entries.keys().next().value as string);
+    }
+    this.entries.set(key, { agent: structuredClone(agent), expires });
+  }
+}
+
+/**
  * Express middleware that verifies DCP signed bundles (V1 + V2).
  */
 export function dcpVerify(options: DCPVerifyOptions = {}) {
@@ -262,17 +336,24 @@ export function dcpVerify(options: DCPVerifyOptions = {}) {
     onFailure,
     headerName = 'x-dcp-bundle',
     cacheTtlSeconds = 0,
+    cacheMaxEntries = 1000,
     requireActiveLifecycle = false,
   } = options;
+  if (!Number.isInteger(cacheMaxEntries) || cacheMaxEntries < 1) {
+    throw new Error('cacheMaxEntries must be a positive integer');
+  }
   const policy = resolveVerifierPolicy(options);
+  const v1Refusal = v1PolicyRefusal(policy, Boolean(options.requireHybrid));
 
   // One cache per middleware: its verdicts hold only under this middleware's policy and options.
   // The key is the SHA-256 of the whole signed bundle, so no other bundle can reuse a verdict.
-  const cache = new Map<string, { agent: DCPAgent; expires: number }>();
+  const cache = new VerdictCache(cacheMaxEntries);
   const cacheKeyFor = (signedBundle: unknown) =>
     createHash('sha256').update(JSON.stringify(signedBundle)).digest('hex');
-  const remember = (key: string, agent: DCPAgent) => {
-    cache.set(key, { agent, expires: Date.now() + cacheTtlSeconds * 1000 });
+
+  const fail = (req: Request, res: Response, errors: string[], warnings?: string[]) => {
+    if (onFailure) return onFailure(req, res, errors);
+    return res.status(403).json(warnings ? { verified: false, errors, warnings } : { verified: false, errors });
   };
 
   return async (req: Request & { dcpAgent?: DCPAgent }, res: Response, next: NextFunction) => {
@@ -293,74 +374,44 @@ export function dcpVerify(options: DCPVerifyOptions = {}) {
 
       if (!signedBundle) {
         if (requireBundle) {
-          const errors = ['Missing DCP signed bundle. Provide via X-DCP-Bundle header or body.signed_bundle.'];
-          if (onFailure) return onFailure(req, res, errors);
-          return res.status(403).json({ verified: false, errors });
+          return fail(req, res, ['Missing DCP signed bundle. Provide via X-DCP-Bundle header or body.signed_bundle.']);
         }
         return next();
       }
 
-      // Cache check
       const cacheKey = cacheTtlSeconds > 0 ? cacheKeyFor(signedBundle) : '';
-      if (cacheKey) {
-        const cached = cache.get(cacheKey);
-        if (cached && Date.now() <= cached.expires) {
-          req.dcpAgent = structuredClone(cached.agent);
-          return next();
+      const cached = cacheKey ? cache.get(cacheKey) : undefined;
+      let agent: DCPAgent;
+
+      if (cached) {
+        agent = cached;
+      } else {
+        const version = detectVersion(signedBundle);
+        if (version === '2.0') {
+          const { verified, errors, warnings } = await checkV2Bundle(signedBundle, policy, requireActiveLifecycle);
+          if (!verified) return fail(req, res, errors, warnings);
+          agent = extractV2Agent(signedBundle, warnings);
+        } else if (version === '1.0') {
+          if (v1Refusal) return fail(req, res, [v1Refusal]);
+          const result = verifySignedBundle(signedBundle);
+          if (!result.verified) return fail(req, res, result.errors || ['Verification failed']);
+          agent = extractV1Agent(signedBundle);
+        } else {
+          return fail(req, res, [
+            'Unrecognized DCP bundle version: expected bundle.dcp_bundle_version "2.0" or bundle.responsible_principal_record.dcp_version "1.0"',
+          ]);
         }
-        cache.delete(cacheKey);
       }
 
-      const version = detectVersion(signedBundle);
-
-      if (version === '2.0') {
-        // V2 verification path
-        const { verified, errors, warnings } = await checkV2Bundle(signedBundle, policy, requireActiveLifecycle);
-
-        if (!verified) {
-          if (onFailure) return onFailure(req, res, errors);
-          return res.status(403).json({ verified: false, errors, warnings });
-        }
-
-        const agent = extractV2Agent(signedBundle, warnings);
-
-        // Revocation check
-        if (checkRevocation) {
-          const revoked = await checkRevocationStatus(agent.agentId, agent.kids, revocationServiceUrl);
-          if (revoked) {
-            const errors = ['Agent or key has been revoked'];
-            if (onFailure) return onFailure(req, res, errors);
-            return res.status(403).json({ verified: false, errors });
-          }
-        }
-
-        if (cacheKey) remember(cacheKey, structuredClone(agent));
-
-        req.dcpAgent = agent;
-        return next();
-      }
-
-      // V1 verification path
-      const result = verifySignedBundle(signedBundle);
-
-      if (!result.verified) {
-        const errors = result.errors || ['Verification failed'];
-        if (onFailure) return onFailure(req, res, errors);
-        return res.status(403).json({ verified: false, errors });
-      }
-
-      const agent = extractV1Agent(signedBundle);
-
+      // Revocation is checked on every request, cached verdict or not.
       if (checkRevocation) {
-        const revoked = await checkRevocationStatus(agent.agentId, undefined, revocationServiceUrl);
-        if (revoked) {
-          const errors = ['Agent has been revoked'];
-          if (onFailure) return onFailure(req, res, errors);
-          return res.status(403).json({ verified: false, errors });
+        const v2 = agent.dcpVersion === '2.0';
+        if (await checkRevocationStatus(agent.agentId, v2 ? agent.kids : undefined, revocationServiceUrl)) {
+          return fail(req, res, [v2 ? 'Agent or key has been revoked' : 'Agent has been revoked']);
         }
       }
 
-      if (cacheKey) remember(cacheKey, structuredClone(agent));
+      if (cacheKey && !cached) cache.set(cacheKey, agent, verdictExpiry(signedBundle, cacheTtlSeconds));
 
       req.dcpAgent = agent;
       next();

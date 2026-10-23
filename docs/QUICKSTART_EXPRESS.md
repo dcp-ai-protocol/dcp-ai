@@ -186,6 +186,8 @@ The middleware auto-detects V1 and V2 bundles. A V2 bundle is accepted only if `
 - **Session binding** — Session nonce consistency across all artifacts, and session expiry
 - **Audit hash chain** and key validity (revoked or expired keys)
 
+A V1 bundle has no post-quantum signature, so it is accepted only when no risk tier of the policy requires one (no `hybrid_required` or `pq_only` mode, no `requireHybrid`, `allow_v1_bundles` not `false`). The SDK's default policy requires `hybrid_required` for the `high` tier, so set `verifierPolicy: { default_mode: 'hybrid_preferred' }` to accept V1 bundles.
+
 ```typescript
 // V2-specific agent properties
 app.get('/api/secure', (req: express.Request & { dcpAgent?: DCPAgent }, res) => {
