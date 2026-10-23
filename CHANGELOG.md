@@ -109,8 +109,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   keep the sequences accepted within the receive window and accept each one once, out of order
   included; a sequence that is not a non-negative integer is rejected, and a sequence is only
   recorded after its authentication tag verifies. A sequence a full window or more ahead of the
-  receive counter is rejected (DCP-04 §8.4). A session restored without the new field counts
-  every sequence of the window below its receive counter as received. `verifyResumeProof`
+  receive counter is rejected (DCP-04 §8.4). A session restored without the new field (TypeScript
+  `undefined`, Go `nil`, Python `None`, the constructor default) counts every sequence of the window
+  below its receive counter as received. `verifyResumeProof`
   (TypeScript) compares in constant time, as Python and Go already did. The Go session is
   documented as not safe for concurrent use.
 

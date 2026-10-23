@@ -211,8 +211,25 @@ class TestSession:
             with pytest.raises(ValueError, match="already received"):
                 decrypt_message(right, m)
         assert decrypt_message(right, msgs[3]) == {"n": 3}
+        # Restoring through the constructor without the field is the same restored session.
         restored = A2ASession(**{k: v for k, v in vars(right).items() if k != "received_sequences"})
-        assert restored.received_sequences == set()  # a fresh field means a fresh session
+        for m in msgs:
+            with pytest.raises(ValueError, match="already received"):
+                decrypt_message(restored, m)
+        fresh = encrypt_message(left, {"n": 4})
+        assert decrypt_message(restored, fresh) == {"n": 4}
+        with pytest.raises(ValueError, match="already received"):
+            decrypt_message(restored, msgs[0])
+
+    def test_sequence_must_be_exactly_int(self):
+        class Sneaky(int):
+            def __str__(self) -> str:
+                return "5"
+
+        left, right = _pair_sessions()
+        m0 = encrypt_message(left, {"n": 0})
+        with pytest.raises(ValueError, match="Invalid message sequence"):
+            decrypt_message(right, {**m0, "sequence": Sneaky(0)})
 
     def test_sequence_a_window_ahead_rejected(self):
         left, right = _pair_sessions()
