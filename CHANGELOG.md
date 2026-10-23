@@ -113,6 +113,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   signed by the wrong agent, both signatures present, wrong `delegation_depth`, and more) and the
   tier-floor cases. All four SDK suites run it.
 
+### Changed
+
+- `lib/verify.js`: schema validation builds one Ajv per schema root and compiles each schema once,
+  on first use, instead of loading and compiling every schema on each `validateOne` call (five per
+  V2 bundle). Validating a V2 bundle's schemas went from about 34 ms to 0.14 ms (median of 20 runs
+  after the first, which still compiles).
+
 ### Fixed
 
 - Python SDK, `dcp_ai.crewai`: the agents of a `DCPCrew` never shared the crew's session nonce.
