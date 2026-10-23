@@ -5,6 +5,7 @@ pub mod dual_hash;
 pub mod composite_sig;
 pub mod composite_ops;
 pub mod signed_payload;
+pub mod bundle;
 pub mod proof_of_possession;
 pub mod types;
 pub mod lifecycle;
