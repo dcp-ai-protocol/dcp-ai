@@ -10,7 +10,7 @@ Thank you for your interest in contributing to the Digital Citizenship Protocol 
 
 - **Node.js** >= 18 (required for the core protocol and TypeScript SDK)
 - **Python** >= 3.12 (required for the Python SDK)
-- **Go** >= 1.21 (required for the Go SDK)
+- **Go** >= 1.25 (required for the Go SDK)
 - **Rust** (stable toolchain, required for the Rust SDK)
 - **Git**
 
