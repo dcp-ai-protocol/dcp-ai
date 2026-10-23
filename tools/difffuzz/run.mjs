@@ -280,6 +280,8 @@ const mutators = {
     const s = pick(all);
     if (!s) return null;
     const t = new Date(s.value);
+    // A must_reject seed carries impossible dates (2026-13-45) that match the pattern but name no instant.
+    if (Number.isNaN(t.getTime())) return null;
     const iso = t.toISOString();
     const offset = (sign, h) => {
       const shifted = new Date(t.getTime() + sign * h * 3600000).toISOString().slice(0, 19);
