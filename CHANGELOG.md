@@ -21,6 +21,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Rust SDK: native V2 bundle building and signing, `dcp_ai::v2::bundle`. `build_bundle_v2(&rpr,
+  &passport, &intent, &policy, &audit_entries, session_nonce)` checks each `payload_hash` and the
+  `session_nonce` of every artifact and audit entry, and writes the manifest with both audit
+  Merkle roots (an empty trail gets roots of 64 zeros, as in Go); `sign_bundle_v2(bundle,
+  &classical, &pq)` composite-signs the manifest, with `signer.id` the RPR's `human_id`, as the
+  Go `SignBundleV2` does. The interop matrix's Rust agent uses them instead of assembling the
+  bundle by hand.
 - `tools/interop-matrix`: live interoperability between the four SDKs. One agent process per SDK
   (TypeScript, Python, Go, Rust) creates its identity, declares intents, acts and signs its
   citizenship bundles (DCP-01 to DCP-03); every other agent, and the reference verifier
@@ -108,6 +115,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Rust `wasm` feature and `@dcp-ai/wasm`: `wasm_sign_bundle` (`signBundle`) wrote
+  `created_at ""` and no `signer.id`, so the reference verifier, the CLI and the server rejected
+  every bundle it signed (`created_at must match format "date-time"`, `signer must have required
+  property 'id'`). `wasm_build_bundle` (`buildBundle`) joined the SHA3-256 audit leaves with
+  SHA-256, unlike every other SDK, and skipped an audit entry it could not canonicalize while
+  still counting it. Both now call `build_bundle_v2` and `sign_bundle_v2`, so `buildBundle` also
+  rejects a `payload_hash` that does not match its payload and an artifact or entry from another
+  session. Without `sessionNonce`, `buildBundle` generated a nonce no artifact carried, so even
+  `verifyBundle` rejected the bundle; it now takes the RPR's `session_nonce`.
 - Mandate chains (all four SDKs): a sub-mandate entry without `data_classes` under a parent entry
   that has them passed attenuation, although nothing then bound it to the parent's data classes.
   It is now rejected (`data_classes for domain "<d>" missing`), as a missing `limits` key already
