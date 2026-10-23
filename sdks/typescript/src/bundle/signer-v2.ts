@@ -48,6 +48,8 @@ export async function signBundleV2(
 
   if (sessionExpiresAt) {
     bundle.manifest.session_expires_at = sessionExpiresAt;
+    // The session start a verifier's maximum session duration is measured from.
+    bundle.manifest.session_issued_at ??= new Date().toISOString();
   }
   if (intendedVerifier) {
     bundle.manifest.intended_verifier = intendedVerifier;

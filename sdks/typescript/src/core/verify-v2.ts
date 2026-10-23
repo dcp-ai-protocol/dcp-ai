@@ -176,6 +176,12 @@ function kidMatchesKey(key: KeyEntry): boolean {
   }
 }
 
+/** How far in the future a signed session start may be (V2-4), as DCP-04 allows for timestamps. */
+const SESSION_CLOCK_SKEW_MS = 30_000;
+
+/** The audit entry record of each policy decision (V2-14). */
+const AUDITED_DECISION: Record<string, string> = { approve: 'approved', escalate: 'escalated', block: 'blocked' };
+
 /** Two identifiers that are the same string; two missing ones are not the same. */
 const sameId = (a: unknown, b: unknown): boolean => typeof a === 'string' && a === b;
 
@@ -352,6 +358,9 @@ function consistencyErrors(bundle: SignedBundleV2['bundle'], intentHash: string)
     if (!sameId(e.intent_hash, intentHash)) errors.push(`audit_entries[${i}] intent_hash is not the intent payload hash`);
     if (!sameId(e.agent_id, passport.agent_id)) errors.push(`audit_entries[${i}] agent_id is not the passport agent_id`);
     if (!sameId(e.human_id, rpr.human_id)) errors.push(`audit_entries[${i}] human_id is not the RPR human_id`);
+    if (!sameId(e.policy_decision, AUDITED_DECISION[String(policy.decision)])) {
+      errors.push(`audit_entries[${i}] policy_decision ${String(e.policy_decision)} does not record the decision ${String(policy.decision)}`);
+    }
   });
   return errors;
 }
@@ -539,10 +548,32 @@ async function verifyV2(
     return { verified: false, errors, warnings, details };
   }
 
-  // What is left of the session, from now: signature.created_at is outside
-  // the signed manifest, so it cannot decide this (V2-4).
+  // The session start is the signed session_issued_at, never the unsigned
+  // signature.created_at (V2-4).
+  const sessionIssuedAt: unknown = bundle.manifest.session_issued_at;
+  let sessionIssued: number | undefined;
+  if (sessionIssuedAt !== undefined && sessionIssuedAt !== null) {
+    sessionIssued = parseRfc3339(sessionIssuedAt);
+    if (sessionIssued === undefined) {
+      errors.push(`Invalid session_issued_at: ${String(sessionIssuedAt)}`);
+      return { verified: false, errors, warnings, details };
+    }
+    if (sessionIssued > Date.now() + SESSION_CLOCK_SKEW_MS) {
+      errors.push(`session_issued_at ${String(sessionIssuedAt)} is in the future`);
+      return { verified: false, errors, warnings, details };
+    }
+    if (sessionExpires !== undefined && sessionIssued > sessionExpires) {
+      errors.push('session_issued_at is after session_expires_at');
+      return { verified: false, errors, warnings, details };
+    }
+  }
+
   if (policy.max_session_duration_seconds && policy.max_session_duration_seconds > 0 && sessionExpires !== undefined) {
-    const durationSec = (sessionExpires - Date.now()) / 1000;
+    if (sessionIssued === undefined) {
+      errors.push('Policy max_session_duration_seconds requires session_issued_at in the manifest');
+      return { verified: false, errors, warnings, details };
+    }
+    const durationSec = (sessionExpires - sessionIssued) / 1000;
     if (durationSec > policy.max_session_duration_seconds) {
       errors.push(
         `Session duration ${durationSec}s exceeds policy max of ${policy.max_session_duration_seconds}s`,
@@ -665,6 +696,22 @@ async function verifyV2(
     registry, policy, mode, DCP_CONTEXTS.Bundle, bundle.manifest, signature.composite_sig,
     rprKeys, 'RPR binding_keys',
   );
+  // The unsigned signer block must not contradict the signature (V2-4).
+  const signer = (isObject(signature.signer) ? signature.signer : {}) as Record<string, unknown>;
+  const sig = signature.composite_sig;
+  const signedKids: unknown[] = [sig?.classical?.kid, ...(sig?.pq ? [sig.pq.kid] : [])];
+  const signerKids = signer.kids;
+  if (!sameId(signer.id, (rprPayload as { human_id?: unknown }).human_id)) {
+    bundleCheck.errors.push(`signature signer id ${String(signer.id)} is not the RPR human_id`);
+  }
+  if (
+    !Array.isArray(signerKids) ||
+    signerKids.length !== signedKids.length ||
+    signerKids.some((k: unknown, i: number) => k !== signedKids[i])
+  ) {
+    bundleCheck.errors.push('signature signer kids do not name the bundle signature keys');
+  }
+  if (bundleCheck.errors.length > 0) bundleCheck.valid = false;
   errors.push(...bundleCheck.errors.map((e) => `bundle: ${e}`));
   warnings.push(...bundleCheck.warnings.map((w) => `bundle: ${w}`));
   details.signature_valid = bundleCheck.valid;
