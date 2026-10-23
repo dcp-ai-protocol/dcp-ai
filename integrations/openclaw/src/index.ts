@@ -28,7 +28,8 @@ import {
 
 import { IdentitySetupParams, executeIdentitySetup } from './tools/identity.js';
 import { DeclareIntentParams, executeDeclareIntent } from './tools/intent.js';
-import { VerifyBundleParams, executeVerifyBundle } from './tools/verify.js';
+import { VerifyBundleParams, executeVerifyBundle, configureVerifier } from './tools/verify.js';
+import type { VerifierPolicyOptions } from './tools/dcp-verify.js';
 import {
   LogActionParams,
   executeLogAction,
@@ -62,7 +63,18 @@ interface OpenClawPluginAPI {
 
 // ── Plugin Entry Point ──
 
-export default function register(api: OpenClawPluginAPI): void {
+/** Operator configuration of the plugin. */
+export interface DcpPluginConfig {
+  /**
+   * Verifier policy of dcp_verify_bundle: fields over the SDK's DEFAULT_VERIFIER_POLICY. The
+   * tool's verifier_policy parameter can only make it stricter. See configureVerifier.
+   */
+  verifierPolicy?: VerifierPolicyOptions;
+}
+
+export default function register(api: OpenClawPluginAPI, config: DcpPluginConfig = {}): void {
+  if (config.verifierPolicy !== undefined) configureVerifier({ verifierPolicy: config.verifierPolicy });
+
   // ─── 1. dcp_identity_setup ───
   api.registerTool({
     name: 'dcp_identity_setup',
@@ -95,7 +107,7 @@ export default function register(api: OpenClawPluginAPI): void {
     description:
       'Verify a DCP SignedBundle (V1 or V2 auto-detected). ' +
       'V2: verified by the SDK verifier (bundle composite signature, manifest integrity, session binding, ' +
-      'audit hash chain, key validity) under the default verifier policy or verifier_policy.',
+      'audit hash chain, key validity) under the operator verifier policy; verifier_policy can only make it stricter.',
     parameters: VerifyBundleParams,
     async execute(_id, params) {
       return executeVerifyBundle(params as any);
@@ -340,7 +352,8 @@ export default function register(api: OpenClawPluginAPI): void {
 export { getSession, isIdentityReady, clearSession, listSessions } from './state/agent-state.js';
 export { executeIdentitySetup, IdentitySetupParams } from './tools/identity.js';
 export { executeDeclareIntent, DeclareIntentParams } from './tools/intent.js';
-export { executeVerifyBundle, VerifyBundleParams } from './tools/verify.js';
+export { executeVerifyBundle, VerifyBundleParams, configureVerifier } from './tools/verify.js';
+export type { VerifierPolicyOptions } from './tools/dcp-verify.js';
 export {
   executeLogAction,
   LogActionParams,

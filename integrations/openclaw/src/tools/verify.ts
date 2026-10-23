@@ -2,30 +2,36 @@
  * dcp_verify_bundle — Verify a DCP SignedBundle (V1 or V2).
  *
  * A V2 bundle is verified only if `verifySignedBundleV2` from the SDK accepts
- * it: artifact payload hashes and manifest integrity, session binding and
- * expiry, the bundle's composite signature over the manifest, the verifier
- * policy mode, the audit hash chain and key validity.
+ * it, plus the checks of ./dcp-verify.ts that SDK 2.1.x skips. The verifier
+ * policy is the operator's (configureVerifier, or the SDK's
+ * DEFAULT_VERIFIER_POLICY); the tool's verifier_policy parameter, which the
+ * calling model controls, can only make it stricter.
  */
 import { Type, type Static } from '@sinclair/typebox';
 import {
-  AlgorithmRegistry,
-  DEFAULT_VERIFIER_POLICY,
-  Ed25519Provider,
-  MlDsa65Provider,
-  SlhDsa192fProvider,
   verifySignedBundle,
-  verifySignedBundleV2,
-  detectDcpVersion,
   type VerificationResult,
   type SignedBundle,
-  type SignedBundleV2,
-  type SecurityTier,
   type VerificationMode,
   type VerifierPolicy,
 } from '@dcp-ai/sdk';
-import { resolveIntentTier } from './intent.js';
+import {
+  RISK_TIERS,
+  checkPolicyFields,
+  computeSecurityTier,
+  detectVersion,
+  isObject,
+  resolveVerifierPolicy,
+  stricterMode,
+  v1Refusal,
+  verifyV2,
+  type SecurityTier,
+  type VerifierPolicyOptions,
+} from './dcp-verify.js';
 
 // ── Parameter Schema ──
+
+const PARAM_POLICY_FIELDS = ['default_mode', 'require_session_binding', 'require_composite_binding', 'allow_v1_bundles'];
 
 export const VerifyBundleParams = Type.Object({
   signed_bundle: Type.Any({
@@ -46,15 +52,44 @@ export const VerifyBundleParams = Type.Object({
           Type.Literal('hybrid_preferred'),
           Type.Literal('hybrid_required'),
           Type.Literal('pq_only'),
-        ], { description: 'Verification mode for every risk tier.' }),
+        ], { description: 'Raises the verification mode of every risk tier to at least this one.' }),
       ),
-      require_session_binding: Type.Optional(Type.Boolean()),
-      require_composite_binding: Type.Optional(Type.Boolean()),
-    }, { description: 'V2: verifier policy fields set over the SDK default policy.' }),
+      require_session_binding: Type.Optional(Type.Boolean({ description: 'true requires session binding; false changes nothing.' })),
+      require_composite_binding: Type.Optional(Type.Boolean({ description: 'true requires composite binding; false changes nothing.' })),
+      allow_v1_bundles: Type.Optional(Type.Boolean({ description: 'false refuses V1 bundles; true changes nothing.' })),
+    }, { description: 'Makes the operator\'s verifier policy stricter for this call. It cannot make it weaker.' }),
   ),
 });
 
 export type VerifyBundleInput = Static<typeof VerifyBundleParams>;
+
+// ── Operator policy ──
+
+let operatorPolicy: VerifierPolicy = resolveVerifierPolicy(undefined);
+
+/**
+ * Sets the verifier policy of dcp_verify_bundle: `verifierPolicy` fields over the SDK's
+ * DEFAULT_VERIFIER_POLICY (a default_mode without risk_overrides applies to every risk tier).
+ * Throws on an unknown field or a value of the wrong type. Called with no policy, it restores the
+ * default. The tool's verifier_policy parameter can only make this policy stricter.
+ */
+export function configureVerifier(options: { verifierPolicy?: VerifierPolicyOptions } = {}): void {
+  operatorPolicy = resolveVerifierPolicy(options.verifierPolicy);
+}
+
+/** The operator policy made stricter, never weaker, by the tool's verifier_policy parameter. */
+function tightenPolicy(base: VerifierPolicy, param: unknown): VerifierPolicy {
+  const fields = checkPolicyFields(param, 'verifier_policy', PARAM_POLICY_FIELDS);
+  const policy: VerifierPolicy = { ...base, risk_overrides: { ...base.risk_overrides } };
+  if (fields.default_mode) {
+    policy.default_mode = stricterMode(policy.default_mode, fields.default_mode);
+    for (const tier of RISK_TIERS) policy.risk_overrides[tier] = stricterMode(policy.risk_overrides[tier], fields.default_mode);
+  }
+  if (fields.require_session_binding) policy.require_session_binding = true;
+  if (fields.require_composite_binding) policy.require_composite_binding = true;
+  if (fields.allow_v1_bundles === false) policy.allow_v1_bundles = false;
+  return policy;
+}
 
 // ── Execution ──
 
@@ -64,19 +99,20 @@ export interface VerifyBundleResult {
   errors: string[];
   warnings: string[];
   message: string;
+  /** Only for a verified bundle. */
   agent_id?: string;
+  /** Only for a verified bundle. */
   human_id?: string;
+  /** Only for a verified bundle. */
   session_nonce?: string;
   resolved_tier?: SecurityTier;
+  /** V2: the verification mode the bundle was checked in (the stricter of the policy and its security tier). */
+  verification_mode?: VerificationMode;
 }
 
-const VERIFICATION_MODES: readonly string[] = ['classical_only', 'hybrid_preferred', 'hybrid_required', 'pq_only'];
-const SIGNED_ARTIFACTS = ['responsible_principal_record', 'agent_passport', 'intent', 'policy_decision'] as const;
-
-// Built once: the providers the V2 verifier needs (Ed25519, ML-DSA-65, SLH-DSA-192f).
-const registry = new AlgorithmRegistry();
-for (const provider of [new Ed25519Provider(), new MlDsa65Provider(), new SlhDsa192fProvider()]) {
-  registry.registerSigner(provider);
+function failure(dcpVersion: VerifyBundleResult['dcp_version'], errors: string[], extra: Partial<VerifyBundleResult> = {}): VerifyBundleResult {
+  const label = dcpVersion === 'unknown' ? 'Verification' : `V${dcpVersion.slice(0, 1)} verification`;
+  return { verified: false, dcp_version: dcpVersion, errors, warnings: [], message: `${label} failed: ${errors.join('; ')}`, ...extra };
 }
 
 export async function executeVerifyBundle(
@@ -84,193 +120,72 @@ export async function executeVerifyBundle(
 ): Promise<VerifyBundleResult> {
   const signedBundle = params.signed_bundle;
 
-  if (!signedBundle?.bundle && !signedBundle?.signature) {
-    return {
-      verified: false,
-      dcp_version: 'unknown',
-      errors: ['Invalid input: signed_bundle must have "bundle" and "signature" fields.'],
-      warnings: [],
-      message: 'Verification failed: malformed signed bundle.',
-    };
+  if (!isObject(signedBundle) || (!signedBundle.bundle && !signedBundle.signature)) {
+    return failure('unknown', ['Invalid input: signed_bundle must have "bundle" and "signature" fields.']);
   }
 
-  const version = detectDcpVersion(signedBundle as Record<string, unknown>);
-
-  if (version === '2.0') {
-    return verifyV2Bundle(signedBundle, params);
+  let policy: VerifierPolicy;
+  try {
+    policy = tightenPolicy(operatorPolicy, params.verifier_policy);
+  } catch (err) {
+    return failure('unknown', [err instanceof Error ? err.message : String(err)]);
   }
 
+  const version = detectVersion(signedBundle);
+  if (version === '2.0') return verifyV2Bundle(signedBundle, policy);
   if (version !== '1.0') {
-    const error =
-      'Unrecognized DCP bundle version: expected bundle.dcp_bundle_version "2.0" or bundle.responsible_principal_record.dcp_version "1.0"';
-    return { verified: false, dcp_version: 'unknown', errors: [error], warnings: [], message: `Verification failed: ${error}` };
+    return failure('unknown', [
+      'Unrecognized DCP bundle version: expected bundle.dcp_bundle_version "2.0" or bundle.responsible_principal_record.dcp_version "1.0"',
+    ]);
   }
 
-  // V1: one Ed25519 signature, accepted only when the policy does not require a PQ one.
-  const policy = resolvePolicy(params.verifier_policy);
-  const refusal = typeof policy === 'string' ? policy : v1PolicyRefusal(policy);
-  if (refusal) {
-    return { verified: false, dcp_version: '1.0', errors: [refusal], warnings: [], message: `V1 verification failed: ${refusal}` };
+  const refusal = v1Refusal(policy, false, signedBundle.bundle);
+  if (refusal) return failure('1.0', [refusal]);
+
+  let result: VerificationResult;
+  try {
+    result = verifySignedBundle(signedBundle as SignedBundle, params.public_key);
+  } catch (err) {
+    return failure('1.0', [`V1 verification error: ${err instanceof Error ? err.message : String(err)}`]);
   }
+  if (!result.verified) return failure('1.0', result.errors ?? ['Unknown verification failure']);
 
-  const result: VerificationResult = verifySignedBundle(
-    signedBundle as SignedBundle,
-    params.public_key,
-  );
-
-  if (result.verified) {
-    const agentId = signedBundle.bundle?.agent_passport?.agent_id ?? 'unknown';
-    const humanId = signedBundle.bundle?.responsible_principal_record?.human_id ?? 'unknown';
-    return {
-      verified: true,
-      dcp_version: '1.0',
-      errors: [],
-      warnings: [],
-      message: `V1 bundle verified. Agent ${agentId} bound to ${humanId}.`,
-      agent_id: agentId,
-      human_id: humanId,
-    };
-  }
-
+  const agentId = signedBundle.bundle?.agent_passport?.agent_id ?? 'unknown';
+  const humanId = signedBundle.bundle?.responsible_principal_record?.human_id ?? 'unknown';
   return {
-    verified: false,
+    verified: true,
     dcp_version: '1.0',
-    errors: result.errors ?? ['Unknown verification failure'],
+    errors: [],
     warnings: [],
-    message: `V1 verification failed: ${(result.errors ?? []).join('; ')}`,
+    message: `V1 bundle verified. Agent ${agentId} bound to ${humanId}.`,
+    agent_id: agentId,
+    human_id: humanId,
   };
 }
 
-function isObject(value: unknown): value is Record<string, any> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-/**
- * `verifier_policy` over the SDK's DEFAULT_VERIFIER_POLICY. A default_mode applies to every
- * risk tier (the default policy's risk_overrides would otherwise shadow it).
- */
-function resolvePolicy(configured: VerifyBundleInput['verifier_policy']): VerifierPolicy | string {
-  const policy: VerifierPolicy = { ...DEFAULT_VERIFIER_POLICY, risk_overrides: { ...DEFAULT_VERIFIER_POLICY.risk_overrides } };
-  if (configured?.default_mode !== undefined) {
-    const mode = configured.default_mode as VerificationMode;
-    if (!VERIFICATION_MODES.includes(mode)) return `Unknown verification mode in verifier_policy: ${String(mode)}`;
-    policy.default_mode = mode;
-    policy.risk_overrides = { low: mode, medium: mode, high: mode };
-  }
-  if (configured?.require_session_binding !== undefined) {
-    policy.require_session_binding = configured.require_session_binding;
-  }
-  if (configured?.require_composite_binding !== undefined) {
-    policy.require_composite_binding = configured.require_composite_binding;
-  }
-  return policy;
-}
-
-/**
- * Why a V1 bundle (one Ed25519 signature, no post-quantum one) is refused under this policy, or
- * null. A V1 passport's risk tier is self-declared, so V1 is refused as soon as any tier requires
- * a post-quantum signature; the SDK's default policy does for the high tier.
- */
-function v1PolicyRefusal(policy: VerifierPolicy): string | null {
-  if (!policy.allow_v1_bundles) return 'V1 bundles are not accepted: verifier policy allow_v1_bundles is false';
-  const modes = [policy.default_mode, ...Object.values(policy.risk_overrides)];
-  const strict = modes.find((mode) => mode === 'hybrid_required' || mode === 'pq_only');
-  if (strict) {
-    return `V1 bundles are not accepted: the verifier policy requires ${strict} for a risk tier, and a V1 bundle has no post-quantum signature`;
-  }
-  return null;
-}
-
-/**
- * Shape checks that give clearer errors than the SDK's, and keep the published @dcp-ai/sdk
- * 2.1.x from throwing on a malformed bundle. Never a verdict on their own.
- */
-function v2ShapeErrors(bundle: any, signature: any): string[] {
-  if (!isObject(bundle) || !isObject(signature)) return ['Missing bundle or signature'];
-
-  const errors: string[] = [];
-  if (!isObject(bundle.manifest)) {
-    errors.push('Missing manifest');
-  } else if (typeof bundle.manifest.session_nonce !== 'string' || !/^[0-9a-f]{64}$/.test(bundle.manifest.session_nonce)) {
-    errors.push('Invalid session_nonce in manifest');
-  }
-  for (const field of SIGNED_ARTIFACTS) {
-    const art = bundle[field];
-    if (!isObject(art) || !isObject(art.payload)) {
-      errors.push(`Missing ${field} payload`);
-    } else if (!isObject(art.composite_sig)) {
-      errors.push(`Missing composite_sig in ${field}`);
-    }
-  }
-  if (isObject(bundle.agent_passport?.payload) && !Array.isArray(bundle.agent_passport.payload.keys)) {
-    errors.push('Missing agent_passport keys');
-  }
-  if (!Array.isArray(bundle.audit_entries)) errors.push('Missing audit_entries array');
-  if (bundle.pq_checkpoints !== undefined && !Array.isArray(bundle.pq_checkpoints)) {
-    errors.push('Invalid pq_checkpoints');
-  }
-  if (!isObject(signature.composite_sig) || !isObject(signature.composite_sig.classical)) {
-    errors.push('Missing composite_sig in signature');
-  }
-  return errors;
-}
-
-async function runV2Verifier(signedBundle: any, policy: VerifierPolicy): Promise<{ errors: string[]; warnings: string[] }> {
-  let result: Awaited<ReturnType<typeof verifySignedBundleV2>>;
-  try {
-    result = await verifySignedBundleV2(signedBundle as SignedBundleV2, registry, policy);
-  } catch (err) {
-    // @dcp-ai/sdk 2.1.x throws on some malformed bundles instead of failing closed.
-    return { errors: [`V2 verification error: ${err instanceof Error ? err.message : String(err)}`], warnings: [] };
-  }
-  const errors = [...result.errors];
-  // VERIFICATION.md V2-7: a PQ signature that is present must verify in every mode. @dcp-ai/sdk
-  // 2.1.x accepts an invalid one under hybrid_preferred with a warning, but reports it in
-  // details.signature_valid. pq_only does not require the classical signature.
-  if (result.verified && result.details?.signature_valid !== true && result.details?.verification_mode !== 'pq_only') {
-    errors.push('Bundle composite signature does not verify (a PQ signature that is present must verify)');
-  }
-  return { errors, warnings: result.warnings };
-}
-
-async function verifyV2Bundle(
-  signedBundle: any,
-  params: VerifyBundleInput,
-): Promise<VerifyBundleResult> {
+async function verifyV2Bundle(signedBundle: Record<string, any>, policy: VerifierPolicy): Promise<VerifyBundleResult> {
   const bundle = signedBundle.bundle;
-  const signature = signedBundle.signature;
+  const verdict = await verifyV2(signedBundle, policy);
 
-  const policy = resolvePolicy(params.verifier_policy);
-  const shapeErrors = v2ShapeErrors(bundle, signature);
-  let errors: string[];
-  let warnings: string[] = [];
-  if (typeof policy === 'string') errors = [policy];
-  else if (shapeErrors.length > 0) errors = shapeErrors;
-  else ({ errors, warnings } = await runV2Verifier(signedBundle, policy));
-
-  const verified = errors.length === 0;
-  const agentId = bundle?.agent_passport?.payload?.agent_id ?? 'unknown';
-  const humanId = bundle?.responsible_principal_record?.payload?.human_id ?? 'unknown';
-  const nonce = bundle?.manifest?.session_nonce;
-
-  // Compute resolved tier from the intent if available
-  let resolvedTier: SecurityTier | undefined;
+  // The security tier of the intent, reported even for a bundle that does not verify.
   const intentPayload = bundle?.intent?.payload;
-  if (isObject(intentPayload)) {
-    resolvedTier = resolveIntentTier(intentPayload as any, bundle.policy_decision?.payload);
-  }
+  const resolvedTier = verdict.securityTier ?? (isObject(intentPayload) ? computeSecurityTier(intentPayload, bundle.policy_decision?.payload) : undefined);
+  const context = { resolved_tier: resolvedTier, verification_mode: verdict.verificationMode };
 
+  if (!verdict.verified) return { ...failure('2.0', verdict.errors, context), warnings: verdict.warnings };
+
+  const agentId = bundle.agent_passport.payload.agent_id ?? 'unknown';
+  const humanId = bundle.responsible_principal_record.payload.human_id ?? 'unknown';
+  const nonce = bundle.manifest.session_nonce;
   return {
-    verified,
+    verified: true,
     dcp_version: '2.0',
-    errors,
-    warnings,
-    message: verified
-      ? `V2 bundle verified (tier: ${resolvedTier ?? 'unknown'}). Agent ${agentId} bound to ${humanId}. Session: ${nonce?.slice(0, 16)}...`
-      : `V2 verification failed: ${errors.join('; ')}`,
+    errors: [],
+    warnings: verdict.warnings,
+    message: `V2 bundle verified (tier: ${resolvedTier}, mode: ${verdict.verificationMode}). Agent ${agentId} bound to ${humanId}. Session: ${nonce.slice(0, 16)}...`,
     agent_id: agentId,
     human_id: humanId,
     session_nonce: nonce,
-    resolved_tier: resolvedTier,
+    ...context,
   };
 }

@@ -14,7 +14,7 @@ DCP-01 through DCP-09.
 - **Lifecycle (DCP-05)** — Commission, vitality reporting, decommission agents
 - **Succession (DCP-06)** — Digital testament with successor preferences and memory classification
 - **Delegation (DCP-09)** — Create delegation mandates for human→agent authority transfer
-- **Bundle Verification** — V2 Signed Bundles are verified by the SDK's `verifySignedBundleV2` (signatures, hashes, session binding, audit chain, key validity)
+- **Bundle Verification** — V2 Signed Bundles are verified by the SDK's `verifySignedBundleV2` (signatures, hashes, session binding, audit chain, key validity) under the operator's verifier policy
 - **Bundle Signing** — Build and sign a complete CitizenshipBundle at session end
 - **SKILL.md** — Companion skill that teaches the agent how to use DCP tools
 
@@ -100,11 +100,31 @@ integrations/openclaw/
 
 ## Bundle Verification
 
-`dcp_verify_bundle` accepts a V2 bundle only if `verifySignedBundleV2` from `@dcp-ai/sdk` accepts it, with an Ed25519 / ML-DSA-65 / SLH-DSA-192f registry and the SDK's `DEFAULT_VERIFIER_POLICY`. It checks the artifact payload hashes and the manifest, session binding and expiry, the bundle's composite signature over the manifest against the passport or RPR keys, the verification mode for the passport's risk tier, the audit hash chain and key validity, and returns the verifier's `errors` and `warnings`. The tool also rejects a bundle whose PQ signature is present but does not verify (VERIFICATION.md V2-7), which `@dcp-ai/sdk` 2.1.x accepts with a warning under `hybrid_preferred`.
+### Policy: set by the operator, tightened by the model
 
-`verifier_policy` sets fields over the default policy: `default_mode` applies to every risk tier, and `require_session_binding` / `require_composite_binding` are passed to the SDK verifier.
+The verifier policy of `dcp_verify_bundle` is the operator's: the SDK's `DEFAULT_VERIFIER_POLICY` unless the host sets another one, with `register(api, { verifierPolicy })` or `configureVerifier({ verifierPolicy })` (fields over the default policy; a `default_mode` without `risk_overrides` applies to every risk tier; an unknown field or a wrong type throws).
 
-A V1 bundle (one Ed25519 signature) is verified with `verifySignedBundle` only when no risk tier of the policy requires a post-quantum signature: the SDK's default policy requires `hybrid_required` for the `high` tier, so V1 bundles are rejected unless `verifier_policy.default_mode` is `classical_only` or `hybrid_preferred`. A bundle whose version cannot be detected is rejected. `@dcp-ai/sdk` 2.1.x does not check the per-artifact signatures (VERIFICATION.md V2-8) or the PQ checkpoint signatures; the bundle signature still covers every artifact through the manifest hashes.
+```typescript
+import register, { configureVerifier } from '@dcp-ai/openclaw';
+
+configureVerifier({ verifierPolicy: { default_mode: 'hybrid_required', require_audience_binding: true, verifier_id: 'my-service' } });
+```
+
+The tool's `verifier_policy` parameter is set by the calling model, so it can only make that policy stricter: `default_mode` raises every risk tier to at least that mode (`classical_only` < `hybrid_preferred` < `hybrid_required` < `pq_only`), `require_session_binding` and `require_composite_binding` can only be turned on, and `allow_v1_bundles` can only be turned off. Any other field is an error.
+
+### What is checked
+
+- **V2**: the verification mode is the stricter of the policy mode for the passport's `risk_tier` (which must be `low`, `medium` or `high`) and the mode of the security tier computed from the intent and the policy decision (spec §14.2). The bundle then goes to `verifySignedBundleV2` from `@dcp-ai/sdk`, with an Ed25519 / ML-DSA-65 / SLH-DSA-192f registry and that mode: payload hashes and manifest, session binding and expiry, the bundle's composite signature over the manifest against the passport or RPR keys, audit hash chain and key validity.
+- **V1** (one Ed25519 signature): verified with `verifySignedBundle` only where VERIFICATION.md V2-10 would accept a classical-only bundle: `allow_v1_bundles` is true and the stricter of the policy mode for the V1 passport's `risk_tier` and the mode of the security tier of the V1 intent and policy decision (V1 `risk_score` is 0 to 1, scaled by 1000; a missing one counts as `elevated`) is `classical_only` or `hybrid_preferred`. Under the default policy a routine or standard V1 intent passes; a payment, sensitive data, a high estimated impact or a risk score of 0.5 or more is refused.
+- A bundle whose version cannot be detected is rejected.
+
+The result carries the verifier's `errors` and `warnings`, `resolved_tier` (the security tier) and, for V2, `verification_mode`. `agent_id`, `human_id` and `session_nonce` are only returned for a verified bundle.
+
+### What "verified" means, and what `@dcp-ai/sdk` 2.1.x leaves out
+
+A verified bundle is internally consistent and signed by the keys it lists itself (the passport keys and the RPR binding keys). It does not prove who the principal is: anyone can create keys and an RPR naming any `human_id`. That needs the verifier to pin the principal's trusted keys, and this plugin has no such option yet. A verified bundle can also be replayed until its session expires; the operator policy's `require_audience_binding` with a `verifier_id` (the bundle's `manifest.intended_verifier` must name it) and `require_session_expiry` / `max_session_duration_seconds` limit that.
+
+The published `@dcp-ai/sdk` 2.1.x verifier skips several checks of `spec/VERIFICATION.md`; the plugin does them itself: the verification mode from the risk tier and the security tier (V2-9, V2-10), the Merkle root of an empty audit trail (V2-3), `session_expires_at` as an RFC 3339 timestamp (V2-4), the status and `expires_at` of the passport keys and RPR binding keys (V2-13), and a PQ signature that is present but invalid (V2-7). One gap remains until the package depends on an SDK release that closes it: **the per-artifact signatures of the RPR, passport, intent and policy decision are not verified** (V2-8; 8 of the 65 must-reject bundles in `tests/interop/v2/bundle_vectors.json`, marked as expected failures in the tests). The bundle signature still covers every artifact through the manifest hashes. PQ checkpoint signatures are not verified either.
 
 ## Concept Mapping: OpenClaw → DCP
 
