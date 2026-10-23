@@ -52,7 +52,7 @@ const sign = (context: string, payload: object) =>
 
 // Build a V2 bundle from the signed artifacts
 const bundle = dcp.buildBundle({
-  rpr: sign('DCP-AI.v2.ResponsiblePrincipal', { dcp_version: '2.0', human_id: 'alice', binding_keys: keyEntries /* ... */ }),
+  rpr: sign('DCP-AI.v2.ResponsiblePrincipal', { dcp_version: '2.0', human_id: 'human:alice', binding_keys: keyEntries /* ... */ }),
   passport: sign('DCP-AI.v2.AgentPassport', { dcp_version: '2.0', agent_id: 'agent-001', keys: keyEntries /* ... */ }),
   intent: sign('DCP-AI.v2.Intent', { dcp_version: '2.0', intent_id: 'intent-001', action_type: 'browse', data_classes: ['none'], estimated_impact: 'low' /* ... */ }),
   policy: sign('DCP-AI.v2.PolicyDecision', { dcp_version: '2.0', intent_id: 'intent-001', decision: 'approve', risk_score: 100 /* ... */ }),

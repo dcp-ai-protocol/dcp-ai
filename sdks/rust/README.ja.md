@@ -36,7 +36,7 @@ dcp-ai = { version = "2.10", features = ["wasm"] }
 | 正規化JSON v2 + ドメイン分離 | Yes |
 | デュアルハッシュ (SHA-256 + SHA3-256) + Merkleルート | Yes |
 | バンドル検証 (V1 + V2。V2 は検証ポリシーとセキュリティティアを適用、`verify_signed_bundle_v2_with_policy`) | Yes |
-| V2 バンドルの構築と署名（`dcp_ai::v2::bundle`: `build_bundle_v2`、`sign_bundle_v2`。`wasm` フィーチャーの `wasm_build_bundle` / `wasm_sign_bundle` はこれらを呼び出します） | はい |
+| V2 バンドルの構築と署名（`dcp_ai::v2::bundle`: `build_bundle_v2`、`sign_bundle_v2`。`wasm` フィーチャーの `wasm_build_bundle` / `wasm_sign_bundle` はこれらを呼び出します。PQ チェックポイントは未対応） | はい |
 | DCP-05 エージェントライフサイクル (コミッショニング / バイタリティ / デコミッショニング) | Yes |
 | DCP-06 デジタル継承 (デジタル遺言、メモリ転送、セレモニー) | Yes |
 | DCP-07 紛争解決 + 仲裁 + 判例 | Yes |

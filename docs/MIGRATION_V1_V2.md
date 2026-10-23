@@ -588,7 +588,7 @@ Key structural differences:
 
 | v1.0 API | v2.0 API | Notes |
 |----------|----------|-------|
-| `sign_object(bundle, secret_key_b64)` | `prepare_payload` + `composite_sign(ed, pq, context, payload_bytes, classical_key, pq_key)` per artifact, then `build_bundle_v2(&rpr, &passport, &intent, &policy, &audit_entries, session_nonce)` + `sign_bundle_v2(bundle, &classical_key, &pq_key)` (`dcp_ai::v2::bundle`) | Composite signatures over each artifact and over the manifest |
+| `sign_object(bundle, secret_key_b64)` | `prepare_payload` (`dcp_ai::v2::signed_payload`) + `composite_sign(ed, pq, context, payload_bytes, classical_key, pq_key)` (`dcp_ai::v2::composite_ops`) per artifact, then `build_bundle_v2(&rpr, &passport, &intent, &policy, &audit_entries, session_nonce)` + `sign_bundle_v2(bundle, &classical_key, &pq_key)` (`dcp_ai::v2::bundle`) | Composite signatures over each artifact and over the manifest |
 | `verify_signed_bundle(sb, public_key_b64)` | `verify_signed_bundle_v2_with_policy(&signed_bundle, &policy)` (`dcp_ai::v2::verify_bundle`) | Policy-driven |
 
 ### 5.5 CLI Changes
