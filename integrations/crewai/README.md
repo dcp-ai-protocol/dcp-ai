@@ -88,7 +88,7 @@ DCPCrewAgent(
     passport: dict[str, Any],     # DCP Agent Passport
     rpr: dict[str, Any],          # Responsible Principal Record
     secret_key: str = "",         # Kept on the agent; DCPCrewAgent does not sign with it
-    session_nonce: str = "",      # Session nonce; a fresh one when empty
+    session_nonce: str = "",      # Session nonce; a fresh one when empty, which a DCPCrew replaces with its own
     goal: str = "",               # Agent goal
     backstory: str = "",          # Agent context/backstory
 )
@@ -127,7 +127,7 @@ Multi-agent crew with DCP governance.
 ```python
 DCPCrew(
     agents: list[DCPCrewAgent],   # List of DCP agents
-    session_nonce: str = "",      # Crew session nonce; a fresh one when empty
+    session_nonce: str = "",      # Crew nonce, a fresh one when empty; given to every agent that has not logged and was not given its own
     verbose: bool = False,        # Verbose logging
 )
 ```
