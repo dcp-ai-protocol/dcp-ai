@@ -25,7 +25,9 @@ Do not rely on it after verification.
 from __future__ import annotations
 
 import base64
-from datetime import datetime, timedelta, timezone
+import binascii
+import re
+import time
 from typing import Any
 
 from dcp_ai.v2.canonicalize import canonicalize_v2
@@ -36,7 +38,7 @@ from dcp_ai.v2.domain_separation import DCP_CONTEXTS
 from dcp_ai.v2.models import VerifierPolicy
 from dcp_ai.v2.pq_checkpoint import audit_events_merkle_root
 from dcp_ai.v2.security_tier import compute_security_tier, effective_verification_mode
-from dcp_ai.v2.session_nonce import parse_rfc3339, verify_session_binding
+from dcp_ai.v2.session_nonce import rfc3339_epoch_ms, verify_session_binding
 from dcp_ai.v2.signed_payload import prepare_payload, verify_payload_hash
 
 # Transition-period default, identical to the TypeScript SDK. The risk tier comes
@@ -92,26 +94,53 @@ _PQ_ALGS = ("ml-dsa-65", "slh-dsa-192f")
 _MANIFEST_HASH_FIELDS = dict(zip(_ARTIFACTS, ("rpr_hash", "passport_hash", "intent_hash", "policy_hash")))
 
 
-def _parse_time(value: str) -> datetime:
-    t = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    return t if t.tzinfo else t.replace(tzinfo=timezone.utc)
+def _now_ms() -> int:
+    """The verification time, in milliseconds since the Unix epoch (V2-4 compares at that precision)."""
+    return time.time_ns() // 1_000_000
+
+
+def _seconds(millis: int) -> str:
+    """A duration in milliseconds, as seconds without a rounding that hides the milliseconds."""
+    return str(millis // 1000) if millis % 1000 == 0 else str(millis / 1000)
 
 
 def _find_key(keys: list[dict[str, Any]], kid: str) -> dict[str, Any] | None:
     return next((k for k in keys if k.get("kid") == kid), None)
 
 
-def _kid_matches_key(key: dict[str, Any]) -> bool:
-    """V2-13: a kid is derived from its key entry's alg and raw public key."""
+_BASE64 = re.compile(r"[A-Za-z0-9+/]*={0,2}")
+
+
+def _canonical_b64_bytes(value: Any) -> bytes | None:
+    """The bytes of canonical base64 (RFC 4648 § 4, padded, zero trailing bits), or None."""
+    if not isinstance(value, str) or len(value) % 4 != 0 or not _BASE64.fullmatch(value):
+        return None
     try:
-        public_key = key.get("public_key_b64")
-        return isinstance(public_key, str) and derive_kid(key["alg"], base64.b64decode(public_key)) == key.get("kid")
-    except Exception:  # a malformed alg or public key derives nothing
-        return False
+        raw = base64.b64decode(value, validate=True)
+    except binascii.Error:
+        return None
+    return raw if base64.b64encode(raw).decode("ascii") == value else None
+
+
+def _key_identity_error(key: dict[str, Any]) -> str | None:
+    """V2-13: why a key cannot verify a signature (a public key that is not canonical
+    base64, a kid not derived from it), or None."""
+    raw = _canonical_b64_bytes(key.get("public_key_b64"))
+    if raw is None:
+        return f"Key {key.get('kid')} public_key_b64 is not canonical base64 (V2-13)"
+    try:
+        if derive_kid(key["alg"], raw) == key.get("kid"):
+            return None
+    except Exception:  # an alg derive_kid cannot take is a kid that is not derived
+        pass
+    return f"Key {key.get('kid')} is not derived from its public key (V2-13)"
 
 
 # How far in the future a signed session start may be (V2-4), as DCP-04 allows for timestamps.
-_SESSION_CLOCK_SKEW = timedelta(seconds=30)
+_SESSION_CLOCK_SKEW_MS = 30_000
+
+# The hash algorithms a signature block may name (V2-4).
+_SIGNATURE_HASH_ALGS = ("sha256", "sha256+sha3-256")
 
 # The audit entry record of each policy decision (V2-14).
 _AUDITED_DECISION = {"approve": "approved", "escalate": "escalated", "block": "blocked"}
@@ -183,8 +212,9 @@ async def _check_composite_sig(
     if mode == "pq_only" and pq_key is None:
         return fail("pq_only mode requires PQ key, but no PQ key found")
     for key in (signer_key, pq_key):
-        if key is not None and not _kid_matches_key(key):
-            return fail(f"Key {key.get('kid')} is not derived from its public key (V2-13)")
+        identity_error = _key_identity_error(key) if key is not None else None
+        if identity_error:
+            return fail(identity_error)
 
     try:
         result = await composite_verify(
@@ -222,11 +252,12 @@ async def _check_composite_sig(
     return result.valid, errors, warnings
 
 
-def _signer_block_errors(signature: dict[str, Any], rpr: dict[str, Any]) -> list[str]:
-    """The unsigned signer block must not contradict the signature (V2-4).
+def _signer_block_errors(signature: dict[str, Any], rpr: dict[str, Any], manifest: dict[str, Any]) -> list[str]:
+    """The unsigned signature block must not contradict the signature (V2-4).
 
     signer.id is the RPR human_id; signer.kids are the composite_sig kids, the
-    classical one and then the PQ one when present.
+    classical one and then the PQ one when present; manifest_hash is the hash of
+    the canonical manifest; hash_alg is sha256 or sha256+sha3-256.
     """
     errors: list[str] = []
     signer = signature.get("signer")
@@ -246,6 +277,11 @@ def _signer_block_errors(signature: dict[str, Any], rpr: dict[str, Any]) -> list
         or not all(_same_id(k, signed) for k, signed in zip(signer_kids, signed_kids))
     ):
         errors.append("signature signer kids do not name the bundle signature keys")
+    if signature.get("manifest_hash") != prepare_payload(manifest)[1]:
+        errors.append("signature manifest_hash is not the hash of the manifest")
+    hash_alg = signature.get("hash_alg")
+    if not (isinstance(hash_alg, str) and hash_alg in _SIGNATURE_HASH_ALGS):
+        errors.append(f"signature hash_alg {hash_alg} is not sha256 or sha256+sha3-256")
     return errors
 
 
@@ -265,10 +301,10 @@ def _consistency_errors(bundle: dict[str, Any], intent_hash: str) -> list[str]:
         errors.append(f"agent_passport status is {status}, not active (DCP-05 § 3.1)")
     rpr_expires_at = rpr.get("expires_at")
     if rpr_expires_at is not None:
-        rpr_expires = parse_rfc3339(rpr_expires_at)
+        rpr_expires = rfc3339_epoch_ms(rpr_expires_at)
         if rpr_expires is None:
             errors.append(f"responsible_principal_record has an invalid expires_at: {rpr_expires_at}")
-        elif rpr_expires < datetime.now(timezone.utc):
+        elif rpr_expires < _now_ms():
             errors.append(f"responsible_principal_record expired at {rpr_expires_at}")
     if not _same_id(passport.get("principal_binding_reference"), rpr.get("human_id")):
         errors.append("agent_passport principal_binding_reference is not the RPR human_id")
@@ -455,11 +491,11 @@ async def _verify(
     expires = None
     if expires_at is not None:
         details["session_expires_at"] = expires_at
-        expires = parse_rfc3339(expires_at)
+        expires = rfc3339_epoch_ms(expires_at)
         if expires is None:
             errors.append(f"Invalid session_expires_at: {expires_at}")
             return
-        if expires < datetime.now(timezone.utc):
+        if expires < _now_ms():
             errors.append(f"Session expired at {expires_at}")
             return
     elif policy.get("require_session_expiry"):
@@ -467,29 +503,35 @@ async def _verify(
         return
 
     # The session start is the signed session_issued_at, never the unsigned
-    # signature.created_at (V2-4). Absent or null means none.
+    # signature.created_at (V2-4). Absent or null means none. Timestamps compare
+    # at millisecond precision.
     issued_at = manifest.get("session_issued_at")
     issued = None
     if issued_at is not None:
-        issued = parse_rfc3339(issued_at)
+        issued = rfc3339_epoch_ms(issued_at)
         if issued is None:
             errors.append(f"Invalid session_issued_at: {issued_at}")
             return
-        if issued > datetime.now(timezone.utc) + _SESSION_CLOCK_SKEW:
+        if issued > _now_ms() + _SESSION_CLOCK_SKEW_MS:
             errors.append(f"session_issued_at {issued_at} is in the future")
             return
         if expires is not None and issued > expires:
             errors.append("session_issued_at is after session_expires_at")
             return
 
+    # A maximum session duration needs both ends of the session, signed.
     max_duration = policy.get("max_session_duration_seconds") or 0
-    if max_duration > 0 and expires is not None:
+    if max_duration > 0:
+        if expires is None:
+            errors.append("Policy max_session_duration_seconds requires session_expires_at in the manifest")
+            return
         if issued is None:
             errors.append("Policy max_session_duration_seconds requires session_issued_at in the manifest")
             return
-        duration = (expires - issued).total_seconds()
-        if duration > max_duration:
-            errors.append(f"Session duration {duration:g}s exceeds policy max of {max_duration}s")
+        if expires - issued > max_duration * 1000:
+            errors.append(
+                f"Session duration {_seconds(expires - issued)}s exceeds policy max of {max_duration}s"
+            )
 
     # 3b. Audience binding
     if manifest.get("intended_verifier"):
@@ -559,7 +601,7 @@ async def _verify(
         registry, policy, mode, DCP_CONTEXTS["Bundle"], manifest, signature.get("composite_sig"),
         rpr_keys, "RPR binding_keys",
     )
-    errs += _signer_block_errors(signature, bundle["responsible_principal_record"]["payload"])
+    errs += _signer_block_errors(signature, bundle["responsible_principal_record"]["payload"], manifest)
     valid = valid and not errs
     errors.extend(f"bundle: {e}" for e in errs)
     warnings.extend(f"bundle: {w}" for w in warns)
@@ -603,16 +645,19 @@ async def _verify(
 
     # 9. Key validity of every key that can sign: the passport keys and the RPR
     # binding_keys (V2-13)
-    now = datetime.now(timezone.utc)
+    now = _now_ms()
     max_age_days = policy.get("max_key_age_days") or 0
     for key in passport_keys + rpr_keys:
         if key.get("status") in ("revoked", "expired"):
             errors.append(f"Key {key['kid']} is {key['status']}")
         if key.get("expires_at") is not None:
-            key_expires = parse_rfc3339(key["expires_at"])
+            key_expires = rfc3339_epoch_ms(key["expires_at"])
             if key_expires is None:
                 errors.append(f"Key {key['kid']} has an invalid expires_at: {key['expires_at']}")
             elif key_expires < now:
                 errors.append(f"Key {key['kid']} has expired")
-        if max_age_days > 0 and (now - _parse_time(key["created_at"])).total_seconds() / 86400 > max_age_days:
+        # An advisory only: a created_at that is not an RFC 3339 timestamp gives no
+        # warning and never fails the bundle.
+        created = rfc3339_epoch_ms(key.get("created_at"))
+        if max_age_days > 0 and created is not None and (now - created) / 86_400_000 > max_age_days:
             warnings.append(f"Key {key['kid']} exceeds max age of {max_age_days} days")

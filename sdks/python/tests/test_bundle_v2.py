@@ -253,6 +253,32 @@ class TestIntegrity:
         assert_error(result, error)
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("created_at", "warned"),
+        [
+            ("2020-01-01T00:00:00Z", True),
+            ("2026-10-21t00:00:00z", False),  # lowercase separators
+            ("2016-12-31T23:59:60Z", False),  # a leap second
+            ("not a time", False),
+            (None, False),  # absent
+        ],
+    )
+    async def test_key_created_at_is_advisory(self, registry, signed, agent_keys, principal_keys, created_at, warned):
+        """The key-age warning reads created_at with the strict RFC 3339 parser; a value it
+        cannot read gives no warning and never fails the bundle."""
+        passport = signed["bundle"]["agent_passport"]["payload"]
+        if created_at is None:
+            del passport["keys"][0]["created_at"]
+        else:
+            passport["keys"][0]["created_at"] = created_at
+        signed["bundle"]["agent_passport"] = await sign_payload(
+            registry, passport, DCP_CONTEXTS["AgentPassport"], agent_keys
+        )
+        result = await verify_signed_bundle_v2(await resign(registry, signed, principal_keys), registry)
+        assert result["verified"] is True, result["errors"]
+        assert any("exceeds max age" in w for w in result["warnings"]) is warned, result["warnings"]
+
+    @pytest.mark.asyncio
     async def test_pq_checkpoints_bound_to_manifest(self, registry, signed, agent_keys, principal_keys):
         """V2-12: the bundle carries exactly the listed checkpoints, each signed by the agent."""
         bundle = signed["bundle"]
@@ -407,9 +433,20 @@ class TestSessionAndAudience:
                     bundle, registry, "human", "human-cross-sdk", *principal_keys,
                     dual_hash=True, session_expires_at=iso(expires_at),
                 )
-            # Signed without session_issued_at, as before it existed.
+            # Signed without session_issued_at, as a signer that predates it would: the
+            # SDK signers now stamp one whenever the manifest has an expiry.
             bundle["manifest"]["session_expires_at"] = iso(expires_at)
-            return await sign_bundle_v2(bundle, registry, "human", "human-cross-sdk", *principal_keys, dual_hash=True)
+            manifest = await sign_payload(registry, bundle["manifest"], DCP_CONTEXTS["Bundle"], principal_keys)
+            return {
+                "bundle": bundle,
+                "signature": {
+                    "hash_alg": "sha256+sha3-256",
+                    "created_at": iso(now),
+                    "signer": {"type": "human", "id": "human-cross-sdk", "kids": [k.kid for k in principal_keys]},
+                    "manifest_hash": manifest["payload_hash"],
+                    "composite_sig": manifest["composite_sig"],
+                },
+            }
 
         # sign_bundle_v2 writes session_issued_at (now) with session_expires_at, and keeps one already set.
         fresh = await resign(registry, signed, principal_keys, session_expires_at=iso(now + timedelta(hours=2)))
@@ -445,6 +482,35 @@ class TestSessionAndAudience:
             await verify_signed_bundle_v2(unstarted, registry, one_hour),
             "Policy max_session_duration_seconds requires session_issued_at",
         )
+        # Nor without session_expires_at: a maximum needs both ends of the session.
+        endless = await resign(registry, signed, principal_keys)
+        assert "session_expires_at" not in endless["bundle"]["manifest"]
+        assert (await verify_signed_bundle_v2(endless, registry))["verified"] is True
+        assert_error(
+            await verify_signed_bundle_v2(endless, registry, one_hour),
+            "Policy max_session_duration_seconds requires session_expires_at",
+        )
+
+    @pytest.mark.asyncio
+    async def test_signers_stamp_session_issued_at_with_any_expiry(self, registry, signed_medium, principal_keys):
+        """V2-4: both signers stamp session_issued_at whenever the manifest has session_expires_at."""
+        expires_at = iso(datetime.now(timezone.utc) + timedelta(hours=1))
+        for classical_only in (False, True):
+            bundle = rebuild(signed_medium["bundle"])
+            bundle["manifest"]["session_expires_at"] = expires_at  # not through the signer's argument
+            if classical_only:
+                out = await sign_bundle_v2_classical_only(bundle, registry, "human", "human-cross-sdk", principal_keys[0])
+            else:
+                out = await sign_bundle_v2(bundle, registry, "human", "human-cross-sdk", *principal_keys)
+            assert out["bundle"]["manifest"]["session_issued_at"].endswith("Z")
+            policy = {**DEFAULT_VERIFIER_POLICY, "max_session_duration_seconds": 7200}  # medium: hybrid_preferred
+            result = await verify_signed_bundle_v2(out, registry, policy)
+            assert result["verified"] is True, (classical_only, result["errors"])
+        # Without an expiry there is no session to start.
+        unbounded = await sign_bundle_v2_classical_only(
+            rebuild(signed_medium["bundle"]), registry, "human", "human-cross-sdk", principal_keys[0]
+        )
+        assert "session_issued_at" not in unbounded["bundle"]["manifest"]
 
     @pytest.mark.asyncio
     async def test_session_issued_at_is_checked(self, registry, signed, principal_keys):

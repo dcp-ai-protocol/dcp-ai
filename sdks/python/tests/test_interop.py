@@ -35,7 +35,7 @@ from dcp_ai.v2.security_tier import (
     tier_to_checkpoint_interval,
     tier_to_verification_mode,
 )
-from dcp_ai.v2.session_nonce import parse_rfc3339
+from dcp_ai.v2.session_nonce import parse_rfc3339, rfc3339_epoch_ms
 from dcp_ai.v2.verify import DEFAULT_VERIFIER_POLICY, verify_signed_bundle_v2
 from dcp_ai.providers.ed25519_provider import Ed25519Provider
 from dcp_ai.providers.ml_dsa_65_provider import MlDsa65Provider
@@ -401,6 +401,14 @@ class TestRfc3339:
             got = parse_rfc3339(case["input"])
             got_ms = None if got is None else (got - epoch) // timedelta(milliseconds=1)
             assert got_ms == case["epoch_ms"], case["input"]
+            assert rfc3339_epoch_ms(case["input"]) == case["epoch_ms"], case["input"]
+
+    def test_epoch_ms_covers_year_0000(self):
+        """Years 0000 to 9999 are valid (VERIFICATION.md V2-4); datetime cannot hold year 0000."""
+        assert rfc3339_epoch_ms("0000-01-01T00:00:00Z") == -62167219200000
+        assert rfc3339_epoch_ms("0000-02-29T00:00:00Z") == -62162121600000  # 0000 is a leap year
+        assert rfc3339_epoch_ms("9999-12-31T23:59:59.999Z") == 253402300799999
+        assert parse_rfc3339("0000-01-01T00:00:00Z") is None
 
 
 class TestSecurityTier:
