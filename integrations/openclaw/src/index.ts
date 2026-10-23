@@ -94,7 +94,8 @@ export default function register(api: OpenClawPluginAPI): void {
     name: 'dcp_verify_bundle',
     description:
       'Verify a DCP SignedBundle (V1 or V2 auto-detected). ' +
-      'V2: validates composite signatures, manifest integrity, session binding, hash chains, PQ checkpoints.',
+      'V2: verified by the SDK verifier (bundle composite signature, manifest integrity, session binding, ' +
+      'audit hash chain, key validity) under the default verifier policy or verifier_policy.',
     parameters: VerifyBundleParams,
     async execute(_id, params) {
       return executeVerifyBundle(params as any);

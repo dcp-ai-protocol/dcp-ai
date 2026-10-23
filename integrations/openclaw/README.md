@@ -14,7 +14,7 @@ DCP-01 through DCP-09.
 - **Lifecycle (DCP-05)** — Commission, vitality reporting, decommission agents
 - **Succession (DCP-06)** — Digital testament with successor preferences and memory classification
 - **Delegation (DCP-09)** — Create delegation mandates for human→agent authority transfer
-- **Bundle Verification** — Full schema + signature + hash verification of Signed Bundles
+- **Bundle Verification** — V2 Signed Bundles are verified by the SDK's `verifySignedBundleV2` (signatures, hashes, session binding, audit chain, key validity)
 - **Bundle Signing** — Build and sign a complete CitizenshipBundle at session end
 - **SKILL.md** — Companion skill that teaches the agent how to use DCP tools
 
@@ -38,7 +38,7 @@ plugins:
 |------|-------------|----------|
 | `dcp_identity_setup` | Generate keypair + RPR + AgentPassport | DCP-01 |
 | `dcp_declare_intent` | Declare intent, get policy decision (approve/escalate/block) | DCP-02 |
-| `dcp_verify_bundle` | Verify a Signed Bundle (schema + signature + hashes) | VERIFICATION |
+| `dcp_verify_bundle` | Verify a Signed Bundle with the SDK verifier (signature + hashes + session binding) | VERIFICATION |
 | `dcp_log_action` | Record action as AuditEntry with hash-chaining | DCP-03 |
 | `dcp_get_audit_trail` | Retrieve session audit trail | DCP-03 |
 | `dcp_commission_agent` | Commission an agent (lifecycle → commissioned) | DCP-05 |
@@ -97,6 +97,12 @@ integrations/openclaw/
     └── state/
         └── agent-state.ts     # Per-session DCP state management
 ```
+
+## Bundle Verification
+
+`dcp_verify_bundle` accepts a V2 bundle only if `verifySignedBundleV2` from `@dcp-ai/sdk` accepts it, with an Ed25519 / ML-DSA-65 / SLH-DSA-192f registry and the SDK's `DEFAULT_VERIFIER_POLICY`. It checks the artifact payload hashes and the manifest, session binding and expiry, the bundle's composite signature over the manifest against the passport or RPR keys, the verification mode for the passport's risk tier, the audit hash chain and key validity, and returns the verifier's `errors` and `warnings`. The tool also rejects a bundle whose PQ signature is present but does not verify (VERIFICATION.md V2-7), which `@dcp-ai/sdk` 2.1.x accepts with a warning under `hybrid_preferred`.
+
+`verifier_policy` sets fields over the default policy: `default_mode` applies to every risk tier, and `require_session_binding` / `require_composite_binding` are passed to the SDK verifier. `@dcp-ai/sdk` 2.1.x does not check the per-artifact signatures (VERIFICATION.md V2-8) or the PQ checkpoint signatures; the bundle signature still covers every artifact through the manifest hashes.
 
 ## Concept Mapping: OpenClaw → DCP
 
