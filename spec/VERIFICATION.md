@@ -65,7 +65,9 @@ Tie the audit trail to the manifest: `audit_count` MUST equal the number of `aud
 
 All artifacts (`responsible_principal_record.payload`, `agent_passport.payload`, `intent.payload`, `policy_decision.payload`) and all `audit_entries` that include a `session_nonce` field MUST share the same nonce as `manifest.session_nonce`.
 
-If `manifest.session_expires_at` is present and has passed, reject the bundle.
+If `manifest.session_expires_at` is present and has passed, reject the bundle. A verifier policy's `max_session_duration_seconds` bounds what is left of the session: reject the bundle when `session_expires_at` is more than that many seconds after the verification time.
+
+The `signature` block outside `composite_sig` (`hash_alg`, `created_at`, `signer`, `manifest_hash`) is not signed: anyone can change it without breaking a signature. It MUST NOT decide any check, including the session duration above.
 
 Timestamps in these checks (`session_expires_at` here, a key's `expires_at` in Step V2-13) are RFC 3339 date-times with a `Z` or `±hh:mm` offset, such as `2026-10-22T06:05:03-05:00`. Compare them as instants, never as strings: the string order of two timestamps with different offsets is not their time order. Absent or `null` means no expiry. Any other value that is not such a timestamp (a date without a time, a time without an offset, an impossible date or time, a non-string) MUST be rejected. The `rfc3339` category of `tests/interop/v2/interop_vectors.json` lists the instant of each accepted case and the rejected ones.
 
@@ -80,11 +82,13 @@ The bundle-level `signature` MUST contain a `composite_sig` object with:
 
 Reconstruct the signed message: `context_tag || 0x00 || canonical(manifest)` where `context_tag` is `"DCP-AI.v2.Bundle"`. Verify `composite_sig.classical.sig_b64` against the public key identified by `composite_sig.classical.kid` using the algorithm specified in `composite_sig.classical.alg` (typically Ed25519).
 
+The bundle signer is the responsible principal: look the kid up in the RPR `binding_keys` only. The principal's signature over the manifest, which commits to `passport_hash`, is what binds this agent and its keys to the principal; the agent signs its own passport, so a key that only the passport lists MUST NOT verify the bundle signature. Otherwise anyone could pair a published, signed RPR with a passport and keys of their own.
+
 ### Step V2-7: Verify PQ signature (if present)
 
 If `composite_sig.binding` is `pq_over_classical`:
 1. Reconstruct the PQ signed message: `context_tag || 0x00 || canonical(manifest) || classical_sig_bytes`
-2. Verify `composite_sig.pq.sig_b64` against the public key identified by `composite_sig.pq.kid` using the PQ algorithm (e.g., ML-DSA-65).
+2. Verify `composite_sig.pq.sig_b64` against the public key identified by `composite_sig.pq.kid` in the RPR `binding_keys`, using the PQ algorithm (e.g., ML-DSA-65).
 
 A PQ signature that is present MUST verify in every mode, including `hybrid_preferred` and `classical_only`; an invalid one fails verification.
 
@@ -92,7 +96,7 @@ If binding is `classical_only`, the PQ signature is absent. This MAY be acceptab
 
 ### Step V2-8: Verify per-artifact composite signatures
 
-Each artifact (`responsible_principal_record`, `agent_passport`, `intent`, `policy_decision`) is wrapped in a `SignedPayload` envelope with its own `composite_sig`. Verify each artifact's composite signature using the same process as Steps V2-6 and V2-7, with the appropriate context tag for each artifact type.
+Each artifact (`responsible_principal_record`, `agent_passport`, `intent`, `policy_decision`) is wrapped in a `SignedPayload` envelope with its own `composite_sig`. Verify each artifact's composite signature using the same process as Steps V2-6 and V2-7, with the appropriate context tag for each artifact type. The principal signs the RPR with its `binding_keys`; the agent signs the passport, the intent and the policy decision with the passport `keys`.
 
 ### Step V2-9: Compute the security tier and the effective mode
 
@@ -118,18 +122,29 @@ If audit entries include `prev_hash_secondary`, verify the secondary hash chain:
 
 ### Step V2-12: Verify PQ checkpoints (if present)
 
-If the manifest references `pq_checkpoints`, verify each checkpoint:
-1. The checkpoint's `merkle_root` matches the Merkle root of the events in its `event_range`.
-2. The checkpoint's `composite_sig` is valid (both classical and PQ components).
-3. The checkpoint's `session_nonce` matches the bundle's session nonce.
+If the manifest lists `pq_checkpoints` or the bundle carries any, verify them:
+1. The bundle MUST carry exactly the checkpoints the manifest lists, once each, by `checkpoint_id`. A listed checkpoint that is missing, or a carried one the manifest does not list, fails verification: the manifest is signed, the checkpoint bodies are not.
+2. A checkpoint's `event_range` names a contiguous run of `audit_entries`, from the entry whose `audit_id` is `from_audit_id` to the one whose `audit_id` is `to_audit_id`, with `count` entries. Its `merkle_root` MUST be `sha256:` followed by the Merkle root of those entries, computed as `auditEventsMerkleRoot` computes it.
+3. Its `composite_sig` is the agent's: verify it with the passport `keys`, under the `DCP-AI.v2.AuditEvent` context, over the canonical checkpoint without `composite_sig`. Both the classical and the PQ signature MUST be present and valid (in `pq_only` mode, the PQ one); a checkpoint exists to carry the PQ signature.
+4. Its `session_nonce` MUST be the manifest's.
 
 ### Step V2-13: Key validity checks
 
-For each key identifier (`kid`) referenced in composite signatures:
-- Verify the kid was derived deterministically: `kid = hex(SHA-256(UTF8(alg) || 0x00 || raw_public_key))[0:32]`
+For each key identifier (`kid`) referenced in composite signatures (the bundle's, each artifact's and each checkpoint's):
+- The kid MUST be derived from the key that verifies the signature: `kid = hex(SHA-256(UTF8(alg) || 0x00 || raw_public_key))[0:32]`, with `alg` and `raw_public_key` from that key entry. Reject the bundle otherwise. A kid then names one key, whichever list holds it; without this check a key list can claim another party's kid for a key of its own.
 - Optionally check key status against a revocation service or local revocation list.
 
 Reject the bundle if any key that can sign it, in the passport `keys` or the RPR `binding_keys`, has `status` `"revoked"` or `"expired"` (`schemas/v2/key_entry.schema.json` allows both), or an `expires_at` that has passed or is not an RFC 3339 timestamp (Step V2-4).
+
+### Step V2-14: Cross-artifact consistency
+
+The signatures prove who signed each artifact; these checks make the artifacts describe one action, by one agent, for one principal. They carry the V1 checks on the RPR, the passport and `intent_hash` over to V2. Reject the bundle when:
+- `agent_passport.status` is neither `active` nor `declining`: a `commissioned`, `suspended`, `revoked` or `decommissioned` agent takes no action ([DCP-05](DCP-05.md) § 3.1);
+- the RPR's `expires_at` has passed or is not an RFC 3339 timestamp (Step V2-4); `null` never expires;
+- `agent_passport.principal_binding_reference` is not the RPR's `human_id`;
+- `intent.agent_id` is not the passport's `agent_id`, or `intent.human_id` is not the RPR's `human_id`;
+- `policy_decision.intent_id` is not `intent.intent_id`;
+- an audit entry's `intent_id` is not `intent.intent_id`, its `intent_hash` is not the intent's payload hash (the manifest's `intent_hash`), its `agent_id` is not the passport's or its `human_id` is not the RPR's.
 
 ---
 
