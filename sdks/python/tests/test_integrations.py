@@ -310,6 +310,19 @@ class TestDCPCrew:
         )
         return DCPCrew(agents=[a1, a2])
 
+    def test_agents_share_the_crew_session_nonce(self):
+        from dcp_ai.crewai import DCPCrewAgent, DCPCrew
+
+        crew = self._make_crew()
+        crew.kickoff(task="Write a report")
+        nonces = {e["session_nonce"] for e in crew.get_combined_audit_trail()}
+        assert nonces == {crew.session_nonce}
+
+        given = DCPCrewAgent(role="r", passport={}, rpr={}, session_nonce="e" * 64)
+        fresh = DCPCrewAgent(role="w", passport={}, rpr={})
+        crew = DCPCrew(agents=[given, fresh], session_nonce="f" * 64)
+        assert [a.session_nonce for a in crew.agents] == ["e" * 64, "f" * 64]
+
     def test_kickoff_generates_audit_for_all_agents(self):
         crew = self._make_crew()
         result = crew.kickoff(task="Write a report")
