@@ -65,6 +65,7 @@ app.add_middleware(
     DCPVerifyMiddleware,
     require_bundle=False,       # If True, rejects requests without a bundle
     header_name="x-dcp-bundle", # Header where the bundle is sent
+    verifier_policy={"default_mode": "hybrid_required"},  # Optional, over DEFAULT_VERIFIER_POLICY
 )
 ```
 
@@ -75,13 +76,17 @@ app.add_middleware(
 | `app` | `Any` | (required) | ASGI application |
 | `require_bundle` | `bool` | `False` | Rejects requests without a bundle with 403 |
 | `header_name` | `str` | `"x-dcp-bundle"` | HTTP header name |
+| `verifier_policy` | `dict \| VerifierPolicy \| None` | `None` | V2 verifier policy. A dict sets `VerifierPolicy` fields over `DEFAULT_VERIFIER_POLICY` (a `default_mode` without `risk_overrides` applies to every risk tier); a `VerifierPolicy` is used as is. Unknown fields or modes raise when the middleware is built. |
 
 #### Behavior
 
 1. Extracts the signed bundle from the header or JSON body (`signed_bundle`)
-2. Verifies using `verify_signed_bundle()` from the Python SDK
-3. If valid: stores `DCPAgentContext` in `request.state.dcp_agent`
-4. If it fails and `require_bundle=True`: responds with `403`
+2. Verifies it with the Python SDK:
+   - **V2** (`bundle.dcp_bundle_version: "2.0"`): `await verify_signed_bundle_v2(signed_bundle, registry, policy)` from `dcp_ai.v2`, with an Ed25519 / ML-DSA-65 / SLH-DSA-192f registry and the policy above. It checks the payload hashes and the manifest, session binding and expiry, the bundle's and every artifact's composite signature, the verification mode (the stricter of the policy's mode for the passport's risk tier and the intent's security tier), the audit hash chain and key validity. `composite_sig_valid` is the verifier's result for the bundle signature.
+   - **V1** (`bundle.responsible_principal_record.dcp_version: "1.0"`): `verify_signed_bundle()`, only if the policy accepts a bundle without a post-quantum signature. A V1 bundle is rejected when `allow_v1_bundles` is false or the policy's `default_mode` or any `risk_overrides` mode is `hybrid_required` or `pq_only`: a V1 passport's risk tier is self-declared. `DEFAULT_VERIFIER_POLICY` requires `hybrid_required` for the `high` tier, so V1 bundles are rejected unless `verifier_policy` sets `default_mode` to `classical_only` or `hybrid_preferred`.
+   - A bundle whose version cannot be detected is rejected.
+3. If valid: stores `DCPAgentContext` in `request.state.dcp_agent`, with the verifier's `warnings`
+4. If it fails: responds with `403`, the verifier's `errors` (and, for V2, `warnings`)
 5. If no bundle and `require_bundle=False`: continues without verification
 
 ### `require_dcp(request)`
@@ -107,8 +112,10 @@ Dataclass with the verified agent data:
 ```python
 @dataclass
 class DCPAgentContext:
+    dcp_version: str = "1.0"
     agent_id: str = ""
     human_id: str = ""
+    session_nonce: str = ""                # V2: verified session nonce
     public_key: str = ""
     capabilities: list[str] = field(default_factory=list)
     risk_tier: str = "medium"
@@ -116,9 +123,14 @@ class DCPAgentContext:
     passport: dict[str, Any] = field(default_factory=dict)
     rpr: dict[str, Any] = field(default_factory=dict)
     intent: dict[str, Any] = field(default_factory=dict)
+    policy_decision: dict[str, Any] = field(default_factory=dict)
+    composite_sig_valid: bool = False      # V2: the bundle signature verified
+    session_binding_valid: bool = False    # V2: session binding verified
+    blinded_rpr: bool = False
     lifecycle_state: str = "active"        # DCP-05
     mandate_id: str = ""                   # DCP-09
     mandate_valid: bool = False            # DCP-09
+    warnings: list[str] = field(default_factory=list)  # V2: verifier warnings
 ```
 
 ### `require_dcp_commissioned(request)`

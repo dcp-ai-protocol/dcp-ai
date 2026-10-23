@@ -1,8 +1,12 @@
 """
 dcp-ai FastAPI integration — V2 middleware and dependency injection for DCP verification.
 
-Supports both V1 and V2 bundles. V2 bundles use composite hybrid signatures,
-session binding, blinded RPR mode, and verifier-authoritative policy.
+Supports both V1 and V2 bundles. A V2 bundle is accepted only when
+`verify_signed_bundle_v2` from `dcp_ai.v2` accepts it under the middleware's
+verifier policy (`verifier_policy` over `DEFAULT_VERIFIER_POLICY`): composite
+hybrid signatures, session binding, manifest integrity, audit chain, key validity.
+A V1 bundle (one Ed25519 signature) is accepted only when no risk tier of the
+policy requires a post-quantum signature.
 
 Usage:
     from dcp_ai.fastapi import DCPVerifyMiddleware, require_dcp
@@ -18,7 +22,6 @@ Usage:
 
 from __future__ import annotations
 
-import hashlib
 import json
 from dataclasses import dataclass, field
 from typing import Any, Optional
@@ -26,6 +29,12 @@ from typing import Any, Optional
 from fastapi import Request, HTTPException, Depends
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
+
+from dcp_ai.providers import Ed25519Provider, MlDsa65Provider, SlhDsa192fProvider
+from dcp_ai.v2.crypto_registry import AlgorithmRegistry
+from dcp_ai.v2.models import VerifierPolicy
+from dcp_ai.v2.verify import DEFAULT_VERIFIER_POLICY, verify_signed_bundle_v2
+from dcp_ai.verify import verify_signed_bundle
 
 
 @dataclass
@@ -49,97 +58,118 @@ class DCPAgentContext:
     lifecycle_state: str = "active"
     mandate_id: str = ""
     mandate_valid: bool = False
+    warnings: list[str] = field(default_factory=list)
 
 
-def _detect_version(signed_bundle: dict[str, Any]) -> str:
-    """Detect DCP protocol version from bundle structure."""
-    bundle = signed_bundle.get("bundle", {})
+_RISK_TIERS = ("low", "medium", "high")
+_VERIFICATION_MODES = ("classical_only", "hybrid_preferred", "hybrid_required", "pq_only")
+_SIGNED_ARTIFACTS = ("responsible_principal_record", "agent_passport", "intent", "policy_decision")
+
+# Built once: the providers the V2 verifier needs (Ed25519, ML-DSA-65, SLH-DSA-192f).
+_REGISTRY = AlgorithmRegistry()
+for _provider in (Ed25519Provider(), MlDsa65Provider(), SlhDsa192fProvider()):
+    _REGISTRY.register_signer(_provider)
+
+
+def _resolve_verifier_policy(verifier_policy: dict[str, Any] | VerifierPolicy | None) -> dict[str, Any]:
+    """`verifier_policy` over DEFAULT_VERIFIER_POLICY, validated as a VerifierPolicy.
+
+    A VerifierPolicy instance is used as is. A dict sets fields over the default
+    policy; a default_mode given without risk_overrides applies to every risk
+    tier, and a risk_overrides dict sets tiers over the others. Unknown fields
+    (pydantic.ValidationError) and unknown verification modes (ValueError) raise.
+    """
+    if isinstance(verifier_policy, VerifierPolicy):
+        policy = verifier_policy.model_dump()
+    else:
+        configured = dict(verifier_policy or {})
+        merged = {**DEFAULT_VERIFIER_POLICY, **configured}
+        overrides = configured.get("risk_overrides", ...)
+        if overrides is not None:
+            base = (
+                dict.fromkeys(_RISK_TIERS, configured["default_mode"])
+                if "default_mode" in configured
+                else DEFAULT_VERIFIER_POLICY["risk_overrides"]
+            )
+            merged["risk_overrides"] = {**base, **(overrides if isinstance(overrides, dict) else {})}
+        policy = VerifierPolicy.model_validate(merged).model_dump()
+    for mode in [policy["default_mode"], *(policy["risk_overrides"] or {}).values()]:
+        if mode not in _VERIFICATION_MODES:
+            raise ValueError(f"Unknown verification mode in verifier_policy: {mode}")
+    return policy
+
+
+def _v1_refusal(policy: dict[str, Any]) -> str | None:
+    """Why a V1 bundle (no post-quantum signature) is refused under `policy`, or None.
+
+    A V1 passport's risk tier is self-declared, so V1 is refused as soon as any
+    tier requires a post-quantum signature; DEFAULT_VERIFIER_POLICY does for "high".
+    """
+    if not policy.get("allow_v1_bundles"):
+        return "V1 bundles are not accepted: verifier policy allow_v1_bundles is false"
+    modes = [policy["default_mode"], *(policy.get("risk_overrides") or {}).values()]
+    strict = next((m for m in modes if m in ("hybrid_required", "pq_only")), None)
+    if strict:
+        return (
+            f"V1 bundles are not accepted: the verifier policy requires {strict} for a risk tier, "
+            "and a V1 bundle has no post-quantum signature"
+        )
+    return None
+
+
+def _detect_version(signed_bundle: Any) -> Optional[str]:
+    """DCP protocol version of a signed bundle: "2.0", "1.0", or None when undetectable."""
+    bundle = signed_bundle.get("bundle") if isinstance(signed_bundle, dict) else None
+    if not isinstance(bundle, dict):
+        return None
     if bundle.get("dcp_bundle_version") == "2.0":
         return "2.0"
-    rpr = bundle.get("responsible_principal_record", {})
-    payload = rpr.get("payload", rpr)
-    if payload.get("dcp_version") == "2.0":
-        return "2.0"
-    return "1.0"
+    rpr = bundle.get("responsible_principal_record")
+    if not isinstance(rpr, dict):
+        return None
+    if isinstance(rpr.get("payload"), dict):
+        return "2.0" if rpr["payload"].get("dcp_version") == "2.0" else None
+    return "1.0" if rpr.get("dcp_version") == "1.0" else None
 
 
-def _verify_session_binding(bundle: dict[str, Any]) -> tuple[bool, str]:
-    """Verify session nonce consistency across all V2 artifacts."""
-    manifest = bundle.get("manifest", {})
-    nonce = manifest.get("session_nonce", "")
-    if not nonce:
-        return False, "missing session_nonce in manifest"
+def _v2_shape_errors(signed_bundle: dict[str, Any]) -> list[str]:
+    """Shape checks with clearer errors than the verifier's. Never a verdict:
+    an empty list only means the bundle can go to verify_signed_bundle_v2."""
+    bundle = signed_bundle.get("bundle")
+    signature = signed_bundle.get("signature")
+    if not isinstance(bundle, dict) or not bundle:
+        return ["Missing bundle field"]
 
-    artifacts = [
-        bundle.get("agent_passport", {}).get("payload", {}),
-        bundle.get("responsible_principal_record", {}).get("payload", {}),
-        bundle.get("intent", {}).get("payload", {}),
-        bundle.get("policy_decision", {}).get("payload", {}),
-    ]
-    for art in artifacts:
-        art_nonce = art.get("session_nonce")
-        if art_nonce and art_nonce != nonce:
-            return False, "session_nonce mismatch in artifact"
-
-    for entry in bundle.get("audit_entries", []):
-        if entry.get("session_nonce") and entry["session_nonce"] != nonce:
-            return False, "session_nonce mismatch in audit entry"
-
-    return True, nonce
-
-
-def _verify_v2_structure(signed_bundle: dict[str, Any]) -> dict[str, Any]:
-    """Structural validation for V2 bundles."""
     errors: list[str] = []
-    warnings: list[str] = []
-
-    bundle = signed_bundle.get("bundle", {})
-    signature = signed_bundle.get("signature", {})
-
-    if not bundle:
-        errors.append("Missing bundle field")
-        return {"verified": False, "errors": errors, "warnings": warnings}
-
-    if bundle.get("dcp_bundle_version") != "2.0":
-        errors.append("Invalid dcp_bundle_version")
-
-    if not bundle.get("manifest"):
+    if not isinstance(bundle.get("manifest"), dict):
         errors.append("Missing manifest")
-
-    for artifact in ["responsible_principal_record", "agent_passport", "intent", "policy_decision"]:
+    for artifact in _SIGNED_ARTIFACTS:
         art = bundle.get(artifact)
-        if not art:
+        if not isinstance(art, dict) or not art:
             errors.append(f"Missing {artifact}")
-        elif not art.get("payload"):
+        elif not isinstance(art.get("payload"), dict):
             errors.append(f"Missing payload in {artifact}")
-        elif not art.get("composite_sig"):
+        elif not isinstance(art.get("composite_sig"), dict):
             errors.append(f"Missing composite_sig in {artifact}")
-
     if not isinstance(bundle.get("audit_entries"), list):
         errors.append("Missing or invalid audit_entries")
 
-    cs = signature.get("composite_sig", {})
-    if not cs:
+    cs = signature.get("composite_sig") if isinstance(signature, dict) else None
+    if not isinstance(cs, dict) or not cs:
         errors.append("Missing composite_sig in signature")
     elif cs.get("binding") == "pq_over_classical" and not cs.get("pq"):
         errors.append("Binding is pq_over_classical but PQ signature missing")
-
-    session_valid, session_info = _verify_session_binding(bundle)
-    if not session_valid:
-        errors.append(f"Session binding: {session_info}")
-
-    return {
-        "verified": len(errors) == 0,
-        "errors": errors,
-        "warnings": warnings,
-        "session_nonce": session_info if session_valid else None,
-    }
+    return errors
 
 
 class DCPVerifyMiddleware(BaseHTTPMiddleware):
     """
     FastAPI middleware that verifies DCP signed bundles (V1 and V2).
     Extracts bundle from X-DCP-Bundle header or request body.
+
+    `verifier_policy` (a dict of VerifierPolicy fields set over
+    DEFAULT_VERIFIER_POLICY, or a full VerifierPolicy) is passed to
+    verify_signed_bundle_v2 and also decides whether V1 bundles are accepted.
     """
 
     def __init__(
@@ -148,11 +178,14 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
         require_bundle: bool = False,
         header_name: str = "x-dcp-bundle",
         dcp_version: str = "2.0",
+        verifier_policy: dict[str, Any] | VerifierPolicy | None = None,
     ) -> None:
         super().__init__(app)
         self.require_bundle = require_bundle
         self.header_name = header_name
         self.dcp_version = dcp_version
+        self.verifier_policy = _resolve_verifier_policy(verifier_policy)
+        self._v1_refusal = _v1_refusal(self.verifier_policy)
 
     async def dispatch(self, request: Request, call_next: Any) -> Any:
         signed_bundle = None
@@ -182,7 +215,11 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
         version = _detect_version(signed_bundle)
 
         if version == "2.0":
-            result = _verify_v2_structure(signed_bundle)
+            errors = _v2_shape_errors(signed_bundle)
+            if errors:
+                result = {"verified": False, "errors": errors, "warnings": [], "details": {}}
+            else:
+                result = await verify_signed_bundle_v2(signed_bundle, _REGISTRY, self.verifier_policy)
             if not result["verified"]:
                 return JSONResponse(
                     status_code=403,
@@ -190,41 +227,39 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
                         "verified": False,
                         "dcp_version": "2.0",
                         "errors": result["errors"],
+                        "warnings": result["warnings"],
                     },
                 )
 
-            bundle = signed_bundle.get("bundle", {})
-            passport_payload = bundle.get("agent_passport", {}).get("payload", {})
-            rpr_payload = bundle.get("responsible_principal_record", {}).get("payload", {})
-            intent_payload = bundle.get("intent", {}).get("payload", {})
-            policy_payload = bundle.get("policy_decision", {}).get("payload", {})
-
-            is_blinded = rpr_payload.get("blinded", False) is True
-            cs = signed_bundle.get("signature", {}).get("composite_sig", {})
-
-            lifecycle_state = passport_payload.get("status", "active")
+            details = result["details"]
+            bundle = signed_bundle["bundle"]
+            passport_payload = bundle["agent_passport"]["payload"]
+            rpr_payload = bundle["responsible_principal_record"]["payload"]
 
             request.state.dcp_agent = DCPAgentContext(
                 dcp_version="2.0",
                 agent_id=passport_payload.get("agent_id", ""),
                 human_id=rpr_payload.get("human_id", ""),
-                session_nonce=result.get("session_nonce", ""),
+                session_nonce=details.get("session_nonce") or "",
                 capabilities=passport_payload.get("capabilities", []),
                 risk_tier=passport_payload.get("risk_tier", "medium"),
                 status=passport_payload.get("status", "active"),
                 passport=passport_payload,
                 rpr=rpr_payload,
-                intent=intent_payload,
-                policy_decision=policy_payload,
-                composite_sig_valid=cs.get("binding") == "pq_over_classical",
-                session_binding_valid=True,
-                blinded_rpr=is_blinded,
-                lifecycle_state=lifecycle_state,
+                intent=bundle["intent"]["payload"],
+                policy_decision=bundle["policy_decision"]["payload"],
+                composite_sig_valid=details.get("signature_valid") is True,
+                session_binding_valid=bool(details.get("session_nonce")),
+                blinded_rpr=rpr_payload.get("blinded", False) is True,
+                lifecycle_state=passport_payload.get("status", "active"),
+                warnings=list(result["warnings"]),
             )
-        else:
-            from dcp_ai.verify import verify_signed_bundle
-
-            result = verify_signed_bundle(signed_bundle)
+        elif version == "1.0":
+            result = (
+                {"verified": False, "errors": [self._v1_refusal]}
+                if self._v1_refusal
+                else verify_signed_bundle(signed_bundle)
+            )
             if not result["verified"]:
                 return JSONResponse(
                     status_code=403,
@@ -246,6 +281,17 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
                 passport=passport,
                 rpr=rpr,
                 intent=bundle.get("intent", {}),
+            )
+        else:
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "verified": False,
+                    "errors": [
+                        'Unrecognized DCP bundle version: expected bundle.dcp_bundle_version "2.0" '
+                        'or bundle.responsible_principal_record.dcp_version "1.0"'
+                    ],
+                },
             )
 
         return await call_next(request)
