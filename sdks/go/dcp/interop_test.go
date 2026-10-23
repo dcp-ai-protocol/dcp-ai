@@ -1209,3 +1209,60 @@ func TestInteropEffectiveVerificationMode(t *testing.T) {
 		}
 	}
 }
+
+// TestMalformedSessionNonceRejected: a bundle whose artifacts all share a
+// session nonce that is not 64 lowercase hex characters is rejected, as the
+// TypeScript, Python and Rust verifiers reject it (VERIFICATION.md V2-4).
+func TestMalformedSessionNonceRejected(t *testing.T) {
+	reg := newRegistry()
+	principal, agent := newTestSigner(t), newTestSigner(t)
+	for _, tc := range []struct {
+		nonce string
+		valid bool
+	}{{strings.Repeat("ab", 32), true}, {strings.Repeat("AB", 32), false}, {"abcdef", false}} {
+		sign := func(context string, payload map[string]interface{}, s testSigner) v2.SignedPayload {
+			t.Helper()
+			sp, err := v2.SignPayload(reg, context, payload, s.classical, &s.pq)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return sp
+		}
+		intent := sign(v2.CtxIntent, map[string]interface{}{"intent_id": "i-1", "agent_id": "a-1", "human_id": "h-1", "session_nonce": tc.nonce}, agent)
+		intentCanonical, err := v2.CanonicalizeV2(intent.Payload)
+		if err != nil {
+			t.Fatal(err)
+		}
+		audit := v2.AuditEventV2{
+			DCPVersion: "2.0", AuditID: "audit-1", SessionNonce: tc.nonce, PrevHash: "GENESIS", HashAlg: "sha256",
+			AgentID: "a-1", HumanID: "h-1", IntentID: "i-1", IntentHash: "sha256:" + v2.SHA256Hex([]byte(intentCanonical)),
+			PolicyDecision: "approved",
+		}
+		bundle, err := v2.BuildBundleV2(v2.BundleBuildInput{
+			RPR:          sign(v2.CtxResponsiblePrincipal, map[string]interface{}{"human_id": "h-1", "session_nonce": tc.nonce, "binding_keys": principal.entries}, principal),
+			Passport:     sign(v2.CtxAgentPassport, map[string]interface{}{"agent_id": "a-1", "session_nonce": tc.nonce, "keys": agent.entries, "status": "active", "principal_binding_reference": "h-1"}, agent),
+			Intent:       intent,
+			Policy:       sign(v2.CtxPolicyDecision, map[string]interface{}{"intent_id": "i-1", "session_nonce": tc.nonce, "risk_score": 200, "decision": "approve"}, agent),
+			AuditEntries: []v2.AuditEventV2{audit},
+			SessionNonce: tc.nonce,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		signed, err := v2.SignBundleV2(reg, bundle, principal.classical, &principal.pq)
+		if err != nil {
+			t.Fatal(err)
+		}
+		raw, err := json.Marshal(signed)
+		if err != nil {
+			t.Fatal(err)
+		}
+		r := v2.VerifySignedBundleV2WithPolicy(reg, raw, v2.DefaultVerifierPolicy())
+		if r.Verified != tc.valid {
+			t.Errorf("nonce %q: verified %v, want %v: %v", tc.nonce, r.Verified, tc.valid, r.Errors)
+		}
+		if !tc.valid && !strings.Contains(strings.Join(r.Errors, "\n"), "Invalid session_nonce") {
+			t.Errorf("nonce %q: errors %v, want Invalid session_nonce", tc.nonce, r.Errors)
+		}
+	}
+}

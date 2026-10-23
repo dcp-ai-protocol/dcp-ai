@@ -120,8 +120,11 @@ func VerifySignedBundleV2WithPolicy(registry *AlgorithmRegistry, signedBundleJSO
 	manifestNonce, _ := manifest["session_nonce"].(string)
 	if manifestNonce == "" {
 		result.Errors = append(result.Errors, "Missing session_nonce in manifest")
+	} else if !IsValidSessionNonce(manifestNonce) {
+		// Every artifact must carry this nonce, so a malformed one is malformed everywhere (V2-4).
+		result.Errors = append(result.Errors, fmt.Sprintf("Invalid session_nonce in manifest: %q", manifestNonce))
 	}
-	result.SessionBindingValid = manifestNonce != ""
+	result.SessionBindingValid = IsValidSessionNonce(manifestNonce)
 
 	// Per spec/CANONICALIZATION_PROFILE.md § 4: a missing canonicalization_profile
 	// MUST be assumed equal to the only profile defined today, "dcp-jcs-v1".
