@@ -249,6 +249,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   manifest without `session_expires_at` is rejected, and under `require_audience_binding` one
   without `intended_verifier` or, with `verifier_id` set, with another one. Rust's
   `BundleManifest` gains `intended_verifier`.
+- Python SDK, `dcp_ai.langchain` (`DCPTool.run`, `DCPTool.arun`) and `dcp_ai.openai`
+  (`dcp_verify_bundle` in `handle_dcp_tool_call`): both sent every bundle to the V1 verifier, so
+  every V2 bundle was rejected and a V1 bundle was accepted under no verifier policy. They now
+  verify V2 bundles with `verify_signed_bundle_v2` and an Ed25519 / ML-DSA-65 / SLH-DSA-192f
+  registry built once, under a verifier policy the caller sets (`DCPTool(verifier_policy=...)`,
+  `handle_dcp_tool_call(..., verifier_policy=...)`, over `DEFAULT_VERIFIER_POLICY`), and return the
+  verifier's errors. A V1 bundle is accepted only under the V2-10 rule of the FastAPI middleware:
+  the policy allows V1 bundles and would accept a classical-only bundle for its risk tier and
+  security tier. The sync entry points work inside a running event loop (the verification runs on
+  a worker thread), `DCPTool.arun` awaits it, and the new `averify_bundle_tool_call` is the async
+  form of the OpenAI tool call. Both pass every case of `tests/interop/v2/bundle_vectors.json`.
 - Go SDK: `BundleManifest` had no `intended_verifier`, so a manifest decoded into it and encoded
   again lost the field and its signature no longer verified. The field is there now
   (`IntendedVerifier`, omitted when empty); a test round-trips a manifest with every schema field.

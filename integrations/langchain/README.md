@@ -124,8 +124,18 @@ agent = initialize_agent(
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `run(signed_bundle_json)` | `(str) -> str` | Synchronous verification |
-| `arun(signed_bundle_json)` | `(str) -> str` | Asynchronous verification |
+| `run(signed_bundle_json)` | `(str \| dict) -> str` | Synchronous verification, with or without a running event loop |
+| `arun(signed_bundle_json)` | `(str \| dict) -> str` | Asynchronous verification |
+
+A V2 bundle is verified with `verify_signed_bundle_v2` from `dcp_ai.v2` (composite signatures,
+session binding, manifest, cross-artifact consistency, audit chain, key validity) under
+`DCPTool(verifier_policy=...)`: a dict of `VerifierPolicy` fields set over
+`DEFAULT_VERIFIER_POLICY` (a `default_mode` without `risk_overrides` applies to every risk tier),
+or a full `VerifierPolicy`; the default is `DEFAULT_VERIFIER_POLICY`. A V1 bundle, which has no
+post-quantum signature, is accepted only when the policy has `allow_v1_bundles` and would accept a
+classical-only bundle for its risk tier and security tier (`spec/VERIFICATION.md` V2-10). The
+result is `Bundle VERIFIED (v<version>) for agent <agent_id>` or `Bundle INVALID: <errors>`, with
+the verifier's errors.
 
 ### `DCPCallback`
 
