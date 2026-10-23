@@ -10,7 +10,7 @@ Official Go SDK for the Digital Citizenship Protocol (DCP) v1.0 and v2.0. Suppor
 go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
 ```
 
-**Requires:** Go 1.21+
+**Requires:** Go 1.25+
 
 ## Features
 
