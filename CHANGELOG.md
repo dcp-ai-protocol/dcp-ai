@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Security
 
+- The four V2 verifiers split on non-canonical encodings of a valid signature: with junk after
+  the padding, extra padding, a newline inside, trailing bits set or no padding, TypeScript
+  accepted every variant, Python and Go some, Rust none. Every `sig_b64` must now be canonical
+  base64 (`spec/VERIFICATION.md` V2-5), so a signature has one encoding and every SDK decodes the
+  same bytes; 13 new `must_reject` vectors cover it.
 - V2 verifiers in all four SDKs accepted bundles that the signatures alone allowed but the
   protocol does not. Reported by an external review and confirmed by our own; the reference
   verifier `lib/verify.js` gets the fixes with the next `@dcp-ai/sdk` release.
