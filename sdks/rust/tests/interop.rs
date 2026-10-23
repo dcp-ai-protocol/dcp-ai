@@ -662,7 +662,8 @@ fn hostile_shapes_are_rejected() {
 }
 
 /// The TypeScript DEFAULT_VERIFIER_POLICY, Phase 3 fields included, decodes as a
-/// VerifierPolicy equal to the Rust default, and its advisory_rejected_algs is enforced.
+/// VerifierPolicy equal to the Rust default, and its advisory_rejected_algs is
+/// enforced, as are require_session_expiry and require_audience_binding.
 #[test]
 fn default_verifier_policy_vector() {
     let data = fs::read_to_string(vectors_path().with_file_name("bundle_vectors.json"))
@@ -680,6 +681,23 @@ fn default_verifier_policy_vector() {
     let result = verify_signed_bundle_v2_with_policy(&vectors["signed_bundle"], &advisory);
     assert!(!result.verified, "an advisory-rejected algorithm must fail verification");
     assert!(result.errors.iter().any(|e| e.contains("rejected by active advisory")), "{:?}", result.errors);
+
+    // The session and audience fields of verifier_policy.schema.json decode and
+    // are enforced: the shared bundle expires, but names no intended verifier.
+    let mut fields = vectors["default_verifier_policy"].clone();
+    fields["require_session_expiry"] = serde_json::json!(true);
+    fields["verifier_id"] = serde_json::json!("verifier:interop");
+    let expiry: VerifierPolicy = serde_json::from_value(fields.clone()).expect("session and audience fields");
+    assert_eq!(
+        (expiry.require_session_expiry, expiry.require_audience_binding, expiry.verifier_id.as_deref()),
+        (true, false, Some("verifier:interop"))
+    );
+    let result = verify_signed_bundle_v2_with_policy(&vectors["signed_bundle"], &expiry);
+    assert!(result.verified, "{:?}", result.errors);
+    fields["require_audience_binding"] = serde_json::json!(true);
+    let audience: VerifierPolicy = serde_json::from_value(fields).expect("audience binding");
+    let result = verify_signed_bundle_v2_with_policy(&vectors["signed_bundle"], &audience);
+    assert_eq!(result.errors, ["Policy requires audience binding but manifest does not include intended_verifier"]);
 }
 
 /// wasm_verify_signed_bundle_v2 takes the TypeScript DEFAULT_VERIFIER_POLICY as is.
@@ -695,6 +713,19 @@ fn wasm_verify_accepts_the_typescript_default_policy() {
     let result: Value =
         serde_json::from_str(&wasm_verify_signed_bundle_v2(&vectors["signed_bundle"].to_string(), policy)).unwrap();
     assert_eq!(result["verified"], true, "{}", result["errors"]);
+
+    // With the schema's session and audience fields too.
+    let mut fields = vectors["default_verifier_policy"].clone();
+    fields["require_session_expiry"] = serde_json::json!(true);
+    fields["require_audience_binding"] = serde_json::json!(true);
+    fields["verifier_id"] = serde_json::json!("verifier:interop");
+    let result: Value = serde_json::from_str(&wasm_verify_signed_bundle_v2(
+        &vectors["signed_bundle"].to_string(),
+        Some(fields.to_string()),
+    ))
+    .unwrap();
+    assert_eq!(result["verified"], false);
+    assert_eq!(result["errors"][0], "Policy requires audience binding but manifest does not include intended_verifier");
 }
 
 /// wasm_sign_payload, wasm_build_bundle and wasm_sign_bundle produce a bundle

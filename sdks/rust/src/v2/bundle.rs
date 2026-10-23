@@ -297,6 +297,35 @@ mod tests {
             "2026-10-21T00:00:00Z"
         );
 
+        // A verifier policy's demands on the signed manifest: the audience,
+        // checked against verifier_id, and an expiry.
+        let mut bound = build_bundle_v2(&rpr, &passport, &intent, &policy, &trail, &nonce).unwrap();
+        bound["manifest"]["intended_verifier"] = json!("verifier:a");
+        let signed = sign_bundle_v2(bound, &hc, &hp).unwrap();
+        let audience = |verifier_id: Option<&str>| VerifierPolicy {
+            require_audience_binding: true,
+            verifier_id: verifier_id.map(str::to_string),
+            ..VerifierPolicy::default()
+        };
+        for verifier_id in [None, Some("verifier:a")] {
+            let result = verify_signed_bundle_v2_with_policy(&signed, &audience(verifier_id));
+            assert!(result.verified, "{verifier_id:?}: {:?}", result.errors);
+        }
+        let result = verify_signed_bundle_v2_with_policy(&signed, &audience(Some("verifier:b")));
+        assert_eq!(
+            result.errors,
+            ["Bundle intended for verifier 'verifier:a', not 'verifier:b'"]
+        );
+        let expiry = VerifierPolicy {
+            require_session_expiry: true,
+            ..VerifierPolicy::default()
+        };
+        let result = verify_signed_bundle_v2_with_policy(&signed, &expiry);
+        assert_eq!(
+            result.errors,
+            ["Policy requires session_expires_at but manifest does not include it"]
+        );
+
         let build = |trail: &[Value], nonce: &str, rpr: &SignedPayload| {
             build_bundle_v2(rpr, &passport, &intent, &policy, trail, nonce).unwrap_err()
         };
