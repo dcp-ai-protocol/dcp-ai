@@ -558,10 +558,16 @@ describe('Signed bundle verification (bundle_vectors.json)', () => {
     });
   }
 
-  type BundleCase = { name: string; error_contains: string; signed_bundle: SignedBundleV2 };
-  for (const { name, error_contains, signed_bundle } of B.must_reject_bundles as BundleCase[]) {
+  type BundleCase = {
+    name: string;
+    error_contains: string;
+    signed_bundle: SignedBundleV2;
+    verifier_policy_overrides?: Partial<VerifierPolicy>;
+  };
+  for (const { name, error_contains, signed_bundle, verifier_policy_overrides } of B.must_reject_bundles as BundleCase[]) {
     it.each(MODES)(`${name} is rejected under %s`, async (mode) => {
-      const result = await verifySignedBundleV2(signed_bundle, registry, policyFor(mode));
+      const policy = { ...policyFor(mode), ...verifier_policy_overrides };
+      const result = await verifySignedBundleV2(signed_bundle, registry, policy);
       expect(result.verified).toBe(false);
       expect(result.errors.join('\n').toLowerCase()).toContain(error_contains);
     });
