@@ -179,12 +179,12 @@ const response2 = await fetch('http://localhost:3000/api/data', {
 
 ## V2 Bundle Verification
 
-The middleware auto-detects V1 and V2 bundles. For V2 bundles, it additionally verifies:
+The middleware auto-detects V1 and V2 bundles. A V2 bundle is accepted only if `verifySignedBundleV2` from `@dcp-ai/sdk` accepts it under the middleware's verifier policy (`verifierPolicy` over the SDK's `DEFAULT_VERIFIER_POLICY`, then `requireHybrid`). It verifies:
 
-- **Composite signatures** — Ed25519 + ML-DSA-65 hybrid validation
-- **Manifest integrity** — All artifact hashes match
-- **Session binding** — Session nonce consistency across all artifacts
-- **PQ checkpoint** integrity (when present)
+- **Composite signature** — the bundle's Ed25519 + ML-DSA-65 signature over the manifest, with the passport or RPR keys, in the mode the policy sets for the passport's risk tier; a PQ signature that is present must verify
+- **Manifest integrity** — All artifact hashes and the audit Merkle root match
+- **Session binding** — Session nonce consistency across all artifacts, and session expiry
+- **Audit hash chain** and key validity (revoked or expired keys)
 
 ```typescript
 // V2-specific agent properties
