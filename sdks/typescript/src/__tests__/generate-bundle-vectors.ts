@@ -300,7 +300,7 @@ async function main() {
   const agentSigned = await signBundleV2(structuredClone(bundle), {
     registry,
     signerType: 'organization',
-    signerId: passport.agent_id,
+    signerId: rpr.human_id,
     keys: agent,
   });
 

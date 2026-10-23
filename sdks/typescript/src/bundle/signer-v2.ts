@@ -38,6 +38,17 @@ export interface SignBundleV2ClassicalOnlyOptions {
 }
 
 /**
+ * The bundle signer is the responsible principal (spec/VERIFICATION.md V2-6):
+ * a verifier rejects a signer.id other than the RPR's human_id.
+ */
+function assertPrincipalSigner(bundle: CitizenshipBundleV2, signerId: string): void {
+  const humanId = (bundle.responsible_principal_record?.payload as { human_id?: unknown } | undefined)?.human_id;
+  if (signerId !== humanId) {
+    throw new Error(`signerId ${signerId} is not the RPR human_id ${String(humanId)}: the bundle signer is the responsible principal`);
+  }
+}
+
+/**
  * Sign a V2 bundle with a composite (hybrid) signature over the manifest.
  */
 export async function signBundleV2(
@@ -45,6 +56,7 @@ export async function signBundleV2(
   options: SignBundleV2Options,
 ): Promise<SignedBundleV2> {
   const { registry, signerType, signerId, keys, dualHash = false, sessionExpiresAt, intendedVerifier } = options;
+  assertPrincipalSigner(bundle, signerId);
 
   if (sessionExpiresAt) {
     bundle.manifest.session_expires_at = sessionExpiresAt;
@@ -89,6 +101,7 @@ export async function signBundleV2ClassicalOnly(
   options: SignBundleV2ClassicalOnlyOptions,
 ): Promise<SignedBundleV2> {
   const { registry, signerType, signerId, key } = options;
+  assertPrincipalSigner(bundle, signerId);
 
   const manifestCanonical = canonicalizeV2(bundle.manifest);
   const manifestBytes = new TextEncoder().encode(manifestCanonical);
