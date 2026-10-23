@@ -449,6 +449,10 @@ fn attenuation_error(parent: &[Value], child: &[Value]) -> Option<String> {
                 "actions_permitted for domain \"{domain}\" is not a subset of the parent"
             ));
         }
+        // A child without data_classes would not be bound by the parent's, so it must restate a subset.
+        if p.contains_key("data_classes") && !c.contains_key("data_classes") {
+            return Some(format!("data_classes for domain \"{domain}\" missing"));
+        }
         if c.contains_key("data_classes") {
             if !p.contains_key("data_classes") {
                 return Some(format!(

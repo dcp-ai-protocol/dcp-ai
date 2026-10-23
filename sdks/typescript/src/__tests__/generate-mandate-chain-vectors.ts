@@ -251,6 +251,8 @@ async function main() {
   const mustReject: { name: string; chain: Mandate[]; revoked_mandate_ids?: string[]; verification_time?: string; error_contains: string }[] = [
     { name: 'widened_actions_permitted', chain: [root, await sub1Of({ authority_scope: email({ actions_permitted: ['read', 'draft', 'send', 'delete'] }) })], error_contains: 'actions_permitted' },
     { name: 'added_data_classes', chain: [root, await sub1Of({ authority_scope: email({ data_classes: ['contact_info', 'pii'] }) })], error_contains: 'data_classes' },
+    // Dropping data_classes would free the child from the parent's restriction.
+    { name: 'dropped_data_classes', chain: [root, await sub1Of({ authority_scope: email({ data_classes: undefined }) })], error_contains: 'data_classes' },
     {
       name: 'data_classes_where_parent_has_none',
       chain: [plainRoot, await signSub(plainSubPayload({ authority_scope: [{ domain: 'calendar', actions_permitted: ['read'], data_classes: ['contact_info'] }] }), agents[ORCHESTRATOR])],

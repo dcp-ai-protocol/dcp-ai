@@ -246,6 +246,9 @@ def _attenuation_error(parent: list[dict[str, Any]], child: list[dict[str, Any]]
             return f'authority_scope domain "{domain}" is not in the parent'
         if not set(c["actions_permitted"]) <= set(p["actions_permitted"]):
             return f'actions_permitted for domain "{domain}" is not a subset of the parent'
+        # A child without data_classes would not be bound by the parent's, so it must restate a subset.
+        if "data_classes" in p and "data_classes" not in c:
+            return f'data_classes for domain "{domain}" missing'
         if "data_classes" in c:
             if "data_classes" not in p:
                 return f'data_classes for domain "{domain}" present but the parent has none'

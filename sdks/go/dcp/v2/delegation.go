@@ -498,6 +498,10 @@ func attenuationError(parent, child []scopeEntry) string {
 		if !containsAll(p.actions, c.actions) {
 			return fmt.Sprintf("actions_permitted for domain %q is not a subset of the parent", c.domain)
 		}
+		// A child without data_classes would not be bound by the parent's, so it must restate a subset.
+		if p.hasDataClasses && !c.hasDataClasses {
+			return fmt.Sprintf("data_classes for domain %q missing", c.domain)
+		}
 		if c.hasDataClasses {
 			if !p.hasDataClasses {
 				return fmt.Sprintf("data_classes for domain %q present but the parent has none", c.domain)

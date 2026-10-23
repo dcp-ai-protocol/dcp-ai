@@ -108,6 +108,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Mandate chains (all four SDKs): a sub-mandate entry without `data_classes` under a parent entry
+  that has them passed attenuation, although nothing then bound it to the parent's data classes.
+  It is now rejected (`data_classes for domain "<d>" missing`), as a missing `limits` key already
+  was; DCP-09 §3.5.2 rule 5 says so. Shared vector `dropped_data_classes`.
 - Go SDK: `SignBundleV2` left `signature.signer.id` empty, which `signed_bundle.schema.json`
   forbids, so the reference verifier, the CLI and the server rejected every bundle it signed while
   the four SDK verifiers accepted it (found by `tools/interop-matrix`). The signer is now the

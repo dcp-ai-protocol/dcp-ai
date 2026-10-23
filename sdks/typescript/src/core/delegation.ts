@@ -249,6 +249,8 @@ function attenuationError(parent: AuthorityScopeEntry[], child: AuthorityScopeEn
     if (!c.actions_permitted.every((a) => actions.has(a))) {
       return `actions_permitted for domain "${c.domain}" is not a subset of the parent`;
     }
+    // A child without data_classes would not be bound by the parent's, so it must restate a subset.
+    if (p.data_classes !== undefined && c.data_classes === undefined) return `data_classes for domain "${c.domain}" missing`;
     if (c.data_classes !== undefined) {
       if (p.data_classes === undefined) return `data_classes for domain "${c.domain}" present but the parent has none`;
       const classes = new Set(p.data_classes);
