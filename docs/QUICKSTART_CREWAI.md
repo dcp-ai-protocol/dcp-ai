@@ -474,7 +474,7 @@ signed_bundles = asyncio.run(seal())
 
 ### V2 Verification Pinned to the Operator
 
-`verify_signed_bundle_v2` checks a bundle against the keys the bundle itself carries, so a bundle someone else signed with their own keys is also self-consistent. Whoever verifies the crew's bundles pins the signer: the operator publishes the hash of its RPR and its kids, and a bundle must carry that RPR and name those kids. Every kid must also be derived from its public key (spec/VERIFICATION.md V2-13), which verifiers up to dcp-ai 2.9.0 do not check. A `hybrid_required` policy demands both signatures, since the default policy accepts Ed25519 alone at the routine tier, and the bundles must carry a session expiry.
+`verify_signed_bundle_v2` checks a bundle against the keys the bundle itself carries, so a bundle someone else signed with their own keys is also self-consistent. Whoever verifies the crew's bundles pins the signer: the operator publishes the hash of its RPR and its kids, and a bundle must carry that RPR and name those kids. Every kid must also be derived from its public key (spec/VERIFICATION.md V2-13). The verifier in this repository checks it, but the dcp-ai 2.9.0 release on PyPI does not, so the guide checks it too. A `hybrid_required` policy demands both signatures, since the default policy accepts Ed25519 alone at the routine tier, and the bundles must carry a session expiry.
 
 `verified` covers integrity and the signer; whether the action was approved is the policy decision inside the bundle.
 
