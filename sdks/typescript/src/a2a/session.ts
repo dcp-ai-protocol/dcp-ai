@@ -1,4 +1,7 @@
-import { createHash, randomBytes, createCipheriv, createDecipheriv, createHmac } from 'crypto';
+import { createHash, randomBytes, createCipheriv, createDecipheriv, createHmac, timingSafeEqual } from 'crypto';
+
+/** How far behind the highest received sequence a message may still arrive (out of order). */
+const RECEIVE_WINDOW = 1000;
 
 export interface A2ASession {
   session_id: string;
@@ -12,6 +15,11 @@ export interface A2ASession {
   security_tier: string;
   rekeying_interval: number;
   status: 'active' | 'rekeying' | 'closed';
+  /**
+   * Sequences accepted within the receive window, so each one is accepted once. A session
+   * without it (built before this field existed) accepts nothing below message_counter_recv.
+   */
+  received_sequences?: number[];
 }
 
 export interface EncryptedMessage {
@@ -46,6 +54,7 @@ export function createSession(
     security_tier: securityTier,
     rekeying_interval: rekeyingInterval,
     status: 'active',
+    received_sequences: [],
   };
 }
 
@@ -101,10 +110,16 @@ export function decryptMessage(
     throw new Error('Unexpected sender');
   }
 
-  if (message.sequence <= session.message_counter_recv - 1 && session.message_counter_recv > 0) {
-    if (message.sequence < session.message_counter_recv - 1000) {
-      throw new Error('Message sequence too old (outside window)');
-    }
+  const sequence = message.sequence;
+  if (!Number.isSafeInteger(sequence) || sequence < 0) {
+    throw new Error('Invalid message sequence');
+  }
+  if (sequence < session.message_counter_recv - RECEIVE_WINDOW) {
+    throw new Error('Message sequence too old (outside window)');
+  }
+  const seen = session.received_sequences;
+  if (seen === undefined ? sequence < session.message_counter_recv : seen.includes(sequence)) {
+    throw new Error('Message sequence already received');
   }
 
   const iv = Buffer.from(message.iv, 'base64');
@@ -123,7 +138,11 @@ export function decryptMessage(
   decipher.setAuthTag(tag);
 
   const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
-  session.message_counter_recv = Math.max(session.message_counter_recv, message.sequence + 1);
+  // Recorded only once the tag verified, so a forged message cannot use up a sequence.
+  session.message_counter_recv = Math.max(session.message_counter_recv, sequence + 1);
+  const floor = session.message_counter_recv - RECEIVE_WINDOW;
+  // ponytail: linear scan over at most RECEIVE_WINDOW numbers; a bitmap if the window grows.
+  session.received_sequences = [...(seen ?? []), sequence].filter((s) => s >= floor);
   session.last_activity = message.timestamp;
 
   return JSON.parse(decrypted.toString('utf8'));
@@ -140,8 +159,9 @@ export function generateResumeProof(session: A2ASession, lastSeenSequence: numbe
 }
 
 export function verifyResumeProof(session: A2ASession, lastSeenSequence: number, proof: string): boolean {
-  const expected = generateResumeProof(session, lastSeenSequence);
-  return expected === proof;
+  const expected = Buffer.from(generateResumeProof(session, lastSeenSequence));
+  const given = Buffer.from(String(proof));
+  return given.length === expected.length && timingSafeEqual(given, expected);
 }
 
 export function deriveRekeyedSessionKey(

@@ -168,6 +168,36 @@ class TestSession:
         assert verify_resume_proof(left, 10, p) is True
         assert verify_resume_proof(left, 11, p) is False
 
+    def test_each_sequence_accepted_once_in_or_out_of_order(self):
+        left, right = _pair_sessions()
+        m0, m1, m2 = (encrypt_message(left, {"n": i}) for i in range(3))
+        assert decrypt_message(right, m0) == {"n": 0}
+        assert decrypt_message(right, m2) == {"n": 2}
+        assert decrypt_message(right, m1) == {"n": 1}  # late, inside the window
+        for m in (m0, m1, m2):
+            with pytest.raises(ValueError, match="already received"):
+                decrypt_message(right, m)
+
+    def test_forged_message_does_not_use_up_its_sequence(self):
+        import base64
+
+        left, right = _pair_sessions()
+        m0 = encrypt_message(left, {"n": 0})
+        forged = {**m0, "tag": base64.b64encode(bytes(16)).decode()}
+        with pytest.raises(Exception):
+            decrypt_message(right, forged)
+        assert decrypt_message(right, m0) == {"n": 0}
+
+    def test_invalid_and_too_old_sequences_rejected(self):
+        left, right = _pair_sessions()
+        m0 = encrypt_message(left, {"n": 0})
+        for sequence in (-1, 0.5, True, "0", None):
+            with pytest.raises(ValueError, match="Invalid message sequence"):
+                decrypt_message(right, {**m0, "sequence": sequence})
+        right.message_counter_recv = 1001
+        with pytest.raises(ValueError, match="too old"):
+            decrypt_message(right, m0)
+
 
 class TestNonce:
     def test_generate_hex(self):

@@ -105,6 +105,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   the four SDK verifiers accepted it (found by `tools/interop-matrix`). The signer is now the
   bundle's responsible principal (`signer.id` = the RPR's `human_id`), and a bundle whose RPR has
   no `human_id` is refused before signing.
+- A2A sessions (TypeScript, Python, Go): `decryptMessage` / `decrypt_message` / `DecryptMessage`
+  keep the sequences accepted within the receive window and accept each one once, out of order
+  included; a sequence that is not a non-negative integer is rejected, and a sequence is only
+  recorded after its authentication tag verifies. `verifyResumeProof` (TypeScript) compares in
+  constant time, as Python and Go already did.
+
 - Rust SDK: `serde_json` now has `float_roundtrip`. Its fast float parser is off by one ULP on long
   decimal literals, so `9007199254740991.0` (which `dcp-jcs-v1` reads as the integer
   9007199254740991, as every other SDK does) became 9007199254740990 and `2251799813685247.0`
