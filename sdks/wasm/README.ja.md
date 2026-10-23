@@ -112,7 +112,7 @@ WASMモジュールを初期化します。APIを使用する前に1回呼び出
 | メソッド | 戻り値 | 説明 |
 |--------|---------|-------------|
 | `compositeVerify(context, payload, sig, classicalPk, pqPk?)` | `CompositeVerifyResult` | 複合署名の暗号検証 |
-| `verifyBundle(signedBundle, policy?)` | `V2VerificationResult` | V2バンドルの完全検証 (構造 + 暗号 + ハッシュチェーン)。ポリシーのモードとセキュリティティアのモードのうち厳しい方で検証（spec §14.3）。`resolved_tier` と `verification_mode` を返す。`policy` がデフォルトと異なってよいのは `default_mode`、`risk_overrides`、Phase 3 のフィールド（`advisory_rejected_algs`、`warn_classical_only_deprecated`、`allow_classical_fallback_disable`）と `max_session_duration_seconds`（署名済みの `session_issued_at` から測る。マニフェストに `session_expires_at` があれば `signBundle` が書き込む）だけで、`require_session_expiry`、`require_audience_binding`、`verifier_id` など他のフィールドを設定したポリシーでは検証が失敗し、ポリシーを渡すと V1 バンドルは拒否される |
+| `verifyBundle(signedBundle, policy?)` | `V2VerificationResult` | V2バンドルの完全検証 (構造 + 暗号 + ハッシュチェーン)。ポリシーのモードとセキュリティティアのモードのうち厳しい方で検証（spec §14.3）。`resolved_tier` と `verification_mode` を返す。`policy` がデフォルトと異なってよいのは `default_mode`、`risk_overrides`、Phase 3 のフィールド（`advisory_rejected_algs`、`warn_classical_only_deprecated`、`allow_classical_fallback_disable`）、`max_session_duration_seconds`（署名済みの `session_issued_at` から測る。マニフェストに `session_expires_at` があれば `signBundle` が書き込む）、`require_session_expiry`（`session_expires_at` のないマニフェストは拒否）、`verifier_id` を伴う `require_audience_binding`（`intended_verifier` がないか `verifier_id` と異なるマニフェストは拒否）だけで、ポリシーを渡すと V1 バンドルは拒否される |
 
 ### ハッシュ操作
 
