@@ -106,7 +106,7 @@ func TestSignBundleV2_ClassicalOnly(t *testing.T) {
 	reg.RegisterSigner(&mockProvider{alg: "ed25519", sigSize: 64})
 
 	input := BundleBuildInput{
-		RPR:          SignedPayload{Payload: map[string]interface{}{"session_nonce": "n1"}},
+		RPR:          SignedPayload{Payload: map[string]interface{}{"human_id": "rpr:test", "session_nonce": "n1"}},
 		Passport:     SignedPayload{Payload: map[string]interface{}{"session_nonce": "n1"}},
 		Intent:       SignedPayload{Payload: map[string]interface{}{"session_nonce": "n1"}},
 		Policy:       SignedPayload{Payload: map[string]interface{}{"session_nonce": "n1"}},
@@ -148,7 +148,7 @@ func TestSignBundleV2_Composite(t *testing.T) {
 	reg.RegisterSigner(&mockProvider{alg: "ml-dsa-65", sigSize: 3309})
 
 	input := BundleBuildInput{
-		RPR:          SignedPayload{Payload: map[string]interface{}{"session_nonce": "n1"}},
+		RPR:          SignedPayload{Payload: map[string]interface{}{"human_id": "rpr:test", "session_nonce": "n1"}},
 		Passport:     SignedPayload{Payload: map[string]interface{}{"session_nonce": "n1"}},
 		Intent:       SignedPayload{Payload: map[string]interface{}{"session_nonce": "n1"}},
 		Policy:       SignedPayload{Payload: map[string]interface{}{"session_nonce": "n1"}},
@@ -189,7 +189,7 @@ func TestSignBundleV2_ProducesValidJSON(t *testing.T) {
 	reg.RegisterSigner(&mockProvider{alg: "ed25519", sigSize: 64})
 
 	input := BundleBuildInput{
-		RPR:          SignedPayload{Payload: map[string]interface{}{"session_nonce": "n1"}},
+		RPR:          SignedPayload{Payload: map[string]interface{}{"human_id": "rpr:test", "session_nonce": "n1"}},
 		Passport:     SignedPayload{Payload: map[string]interface{}{"session_nonce": "n1"}},
 		Intent:       SignedPayload{Payload: map[string]interface{}{"session_nonce": "n1"}},
 		Policy:       SignedPayload{Payload: map[string]interface{}{"session_nonce": "n1"}},
