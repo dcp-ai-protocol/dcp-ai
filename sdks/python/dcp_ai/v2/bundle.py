@@ -142,6 +142,17 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
+def _require_principal_signer(bundle: dict[str, Any], signer_id: str) -> None:
+    """The bundle signer is the responsible principal (spec/VERIFICATION.md V2-6):
+    a verifier rejects a signer.id other than the RPR's human_id."""
+    rpr = bundle.get("responsible_principal_record") or {}
+    human_id = (rpr.get("payload") or {}).get("human_id") if isinstance(rpr, dict) else None
+    if signer_id != human_id:
+        raise ValueError(
+            f"signer_id {signer_id} is not the RPR human_id {human_id}: the bundle signer is the responsible principal"
+        )
+
+
 async def sign_bundle_v2(
     bundle: dict[str, Any],
     registry: AlgorithmRegistry,
@@ -160,6 +171,7 @@ async def sign_bundle_v2(
     before signing, as in the TypeScript signBundleV2. With session_expires_at,
     the manifest also gets session_issued_at (now) unless it already has one.
     """
+    _require_principal_signer(bundle, signer_id)
     if session_expires_at:
         bundle["manifest"]["session_expires_at"] = session_expires_at
         # The session start a verifier's maximum session duration is measured from.
@@ -192,6 +204,7 @@ async def sign_bundle_v2_classical_only(
     key: CompositeKeyInfo,
 ) -> dict[str, Any]:
     """Sign a V2 bundle with a classical-only composite signature (transition mode)."""
+    _require_principal_signer(bundle, signer_id)
     manifest_bytes, manifest_hash = prepare_payload(bundle["manifest"])
     composite = await classical_only_sign(registry, DCP_CONTEXTS["Bundle"], manifest_bytes, key)
     return {
