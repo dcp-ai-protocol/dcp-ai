@@ -45,7 +45,9 @@ request on stdout, in order; anything else goes to stderr.
 
 An agent keeps its own state (keys, identity, intents, audit trails) in memory for the life of the
 process. Keys never leave it. Every value below that the contract fixes must be produced exactly
-as written; everything else is the SDK's own business, which is what the matrix tests.
+as written; everything else is the SDK's own business, which is what the matrix tests (an
+optional field an SDK adds on its own, such as Go's SHA3 `audit_merkle_root_secondary`, is fine
+as long as every verifier accepts it).
 
 ### `identity` `{owner_name, jurisdiction}` → `{agent_id, human_id, session_nonce}`
 
@@ -134,6 +136,11 @@ each copy, in both modes unless noted:
 | `bundle_signature_swapped` | the bundle signature comes from the payment bundle |
 | `passport_swapped` | the passport is another agent's (the next SDK's producer) |
 | `pq_stripped` | the bundle signature's `pq` slot is removed (`classical_only`); `hybrid_required` only |
+| `intent_from_other_bundle` | the intent and policy decision come from the payment bundle (same session and signer) |
+| `trail_from_other_bundle` | the audit trail comes from the payment bundle (same session and signer) |
+
+An agent that crashes, times out or answers out of turn is stopped and every later request to it
+fails at once, so a broken agent shows up as failures, never as a hung run.
 
 ## What the first run found
 
@@ -144,7 +151,9 @@ SDK verifiers:
 - **Go `SignBundleV2` leaves `signature.signer.id` empty** (`sdks/go/dcp/v2/bundle_builder.go`):
   it takes no signer id. The four SDK verifiers accept such a bundle; the reference verifier, the
   CLI and the server reject it (`signer/id must NOT have fewer than 6 characters`). The Go agent
-  sets the id after signing (the signer block is outside the signed manifest) until the SDK does.
+  sets the id after signing until the SDK does. The `signature.signer` block (`id`, `kids`) and
+  `created_at` are unauthenticated metadata outside the signed manifest: no verifier checks them
+  against the RPR, only the schema constrains their shape.
 - **Go's typed payloads cannot express the contract**: `IntentV2` has no `security_tier`,
   `PolicyDecisionV2` no `resolved_tier`, and `contact` / `target.to` are `omitempty` where the
   schema wants `null`; the Go agent builds those payloads as maps.
