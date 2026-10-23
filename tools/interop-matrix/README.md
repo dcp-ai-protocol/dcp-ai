@@ -7,7 +7,8 @@ trusting a counterparty. The processes share nothing but the messages the orches
 so every pair (16 with four SDKs, each SDK against itself included) is a real interoperation, not
 a comparison of files. A fifth, verify-only agent, `ref`, runs the reference verifier
 `lib/verify.js` (what `npx dcp-ai verify` and the verification server run): it validates every
-artifact against `schemas/v2` before the published `@dcp-ai/sdk` verifier, which the SDK
+artifact against `schemas/v2` before the `@dcp-ai/sdk` verifier (the workspace SDK until 2.2.0 is
+on npm), which the SDK
 verifiers do not.
 
 The orchestrator is also the network in between: it tampers with bundles in transit, and every

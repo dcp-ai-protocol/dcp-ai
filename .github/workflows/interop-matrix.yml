@@ -37,14 +37,16 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - name: Install the reference verifier
-        run: npm install
-
+      # The reference verifier depends on the workspace SDK until @dcp-ai/sdk 2.2.0
+      # is on npm, so the SDK is built first.
       - name: Build the TypeScript SDK
         working-directory: sdks/typescript
         run: |
           npm install
           npm run build
+
+      - name: Install the reference verifier
+        run: npm install
 
       - name: Install the Python SDK
         run: pip install -e sdks/python

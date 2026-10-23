@@ -8,13 +8,23 @@
 #   - Algorithm advisory system
 #   - Audit trail compaction
 
+# The services depend on the workspace SDK until @dcp-ai/sdk 2.2.0 is on npm.
+FROM node:20-alpine AS sdk
+WORKDIR /app/sdks/typescript
+COPY sdks/typescript/package.json sdks/typescript/package-lock.json ./
+RUN npm ci
+COPY sdks/typescript/ ./
+RUN npm run build
+
 FROM node:20-alpine AS base
 WORKDIR /app
 
 RUN apk add --no-cache wget
 
+COPY --from=sdk /app/sdks/typescript/package.json ./sdks/typescript/package.json
+COPY --from=sdk /app/sdks/typescript/dist ./sdks/typescript/dist
 COPY package.json ./
-RUN npm install --production
+RUN npm install --omit=dev --install-links
 
 COPY lib/ ./lib/
 COPY tools/ ./tools/

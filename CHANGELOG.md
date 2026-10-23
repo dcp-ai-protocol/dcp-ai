@@ -157,6 +157,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- The reference verifier (`lib/verify.js`, `dcp verify-bundle`, the verification server and its
+  Docker image) depends on the workspace `@dcp-ai/sdk` (`file:sdks/typescript`, packed through
+  `install-links` in `.npmrc`) until 2.2.0 is on npm, so it runs the verifier fixes of this release
+  instead of the published 2.1.1, which accepted 39 of the 79 `must_reject_bundles` vectors. Build
+  `sdks/typescript` before `npm install` at the root; CI and `docker/Dockerfile` do. Publishing
+  needs the dependency raised back to `^2.2.0`.
 - `lib/verify.js`: schema validation builds one Ajv per schema root and compiles each schema once,
   on first use, instead of loading and compiling every schema on each `validateOne` call (five per
   V2 bundle). Validating a V2 bundle's schemas went from about 34 ms to 0.14 ms (median of 20 runs
