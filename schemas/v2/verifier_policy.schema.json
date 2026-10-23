@@ -59,6 +59,23 @@
       "type": "array",
       "items": { "type": "string" },
       "description": "Algorithms rejected due to published advisories"
+    },
+    "require_session_expiry": {
+      "type": "boolean",
+      "description": "Reject bundles whose manifest has no session_expires_at"
+    },
+    "max_session_duration_seconds": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Maximum of session_expires_at minus session_issued_at; 0 means no limit (spec/VERIFICATION.md V2-4)"
+    },
+    "require_audience_binding": {
+      "type": "boolean",
+      "description": "Reject bundles whose manifest has no intended_verifier, or another one than verifier_id"
+    },
+    "verifier_id": {
+      "type": "string",
+      "description": "This verifier's identity, for require_audience_binding"
     }
   }
 }
