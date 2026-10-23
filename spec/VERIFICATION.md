@@ -65,9 +65,11 @@ Tie the audit trail to the manifest: `audit_count` MUST equal the number of `aud
 
 All artifacts (`responsible_principal_record.payload`, `agent_passport.payload`, `intent.payload`, `policy_decision.payload`) and all `audit_entries` that include a `session_nonce` field MUST share the same nonce as `manifest.session_nonce`.
 
-If `manifest.session_expires_at` is present and has passed, reject the bundle. A verifier policy's `max_session_duration_seconds` bounds what is left of the session: reject the bundle when `session_expires_at` is more than that many seconds after the verification time.
+If `manifest.session_expires_at` is present and has passed, reject the bundle.
 
-The `signature` block outside `composite_sig` (`hash_alg`, `created_at`, `signer`, `manifest_hash`) is not signed: anyone can change it without breaking a signature. It MUST NOT decide any check, including the session duration above.
+`manifest.session_issued_at`, when present, is when the session began, signed with the rest of the manifest. Reject the bundle when it is not an RFC 3339 timestamp, when it is more than 30 seconds after the verification time (the clock skew [DCP-04](DCP-04.md) also allows), or when it is after `session_expires_at`. A verifier policy's `max_session_duration_seconds` bounds `session_expires_at` minus `session_issued_at`: under such a policy a bundle with `session_expires_at` and without `session_issued_at` is rejected, never measured from an unsigned time. Bundles signed before `session_issued_at` existed verify as before under a policy without a maximum session duration; under one with a maximum they are rejected and must be signed again.
+
+The `signature` block outside `composite_sig` (`hash_alg`, `created_at`, `signer`, `manifest_hash`) is not signed: anyone can change it without breaking a signature. It MUST NOT stand in for signed data, as `created_at` once did for the session start. It MUST NOT contradict what is signed either: `signer.id` is the RPR's `human_id`, and `signer.kids` are the kids of `composite_sig`, the classical one and then the PQ one when present.
 
 Timestamps in these checks (`session_expires_at` here, a key's `expires_at` in Step V2-13) are RFC 3339 date-times with a `Z` or `±hh:mm` offset, such as `2026-10-22T06:05:03-05:00`. Compare them as instants, never as strings: the string order of two timestamps with different offsets is not their time order. Absent or `null` means no expiry. Any other value that is not such a timestamp (a date without a time, a time without an offset, an impossible date or time, a non-string) MUST be rejected. The `rfc3339` category of `tests/interop/v2/interop_vectors.json` lists the instant of each accepted case and the rejected ones.
 
@@ -144,7 +146,10 @@ The signatures prove who signed each artifact; these checks make the artifacts d
 - `agent_passport.principal_binding_reference` is not the RPR's `human_id`;
 - `intent.agent_id` is not the passport's `agent_id`, or `intent.human_id` is not the RPR's `human_id`;
 - `policy_decision.intent_id` is not `intent.intent_id`;
-- an audit entry's `intent_id` is not `intent.intent_id`, its `intent_hash` is not the intent's payload hash (the manifest's `intent_hash`), its `agent_id` is not the passport's or its `human_id` is not the RPR's.
+- an audit entry's `intent_id` is not `intent.intent_id`, its `intent_hash` is not the intent's payload hash (the manifest's `intent_hash`), its `agent_id` is not the passport's or its `human_id` is not the RPR's;
+- an audit entry's `policy_decision` does not record the policy decision: `approved` for `approve`, `escalated` for `escalate`, `blocked` for `block`.
+
+A bundle that records an escalated or blocked action is valid evidence of it: nothing here requires the decision to be `approve`. The status and expiry checks, like the key checks of Step V2-13, apply at the verification time; verifying archived evidence as of an earlier time is not defined yet.
 
 ---
 
