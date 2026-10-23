@@ -118,7 +118,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Python SDK, `dcp_ai.crewai`: the agents of a `DCPCrew` never shared the crew's session nonce.
   `DCPCrewAgent` always generated its own, so the crew's check for an agent without one never
   applied, and each agent's audit entries carried a different `session_nonce`. A crew now gives
-  its nonce to every agent that was not given one and has not logged yet.
+  its nonce to every agent that still has the nonce it generated for itself and has not logged
+  yet; a nonce given to the agent, or set on it later, stays.
 - Rust `wasm` feature and `@dcp-ai/wasm`: `wasm_sign_bundle` (`signBundle`) wrote
   `created_at ""` and no `signer.id`, so the reference verifier, the CLI and the server rejected
   every bundle it signed (`created_at must match format "date-time"`, `signer must have required

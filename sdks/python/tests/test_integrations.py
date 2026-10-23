@@ -323,6 +323,15 @@ class TestDCPCrew:
         crew = DCPCrew(agents=[given, fresh], session_nonce="f" * 64)
         assert [a.session_nonce for a in crew.agents] == ["e" * 64, "f" * 64]
 
+        # A nonce set after construction, or one already in the agent's trail, stays.
+        assigned = DCPCrewAgent(role="a", passport={}, rpr={})
+        assigned.session_nonce = "1" * 64
+        logged = DCPCrewAgent(role="l", passport={}, rpr={})
+        logged.log_action()
+        own = logged.session_nonce
+        crew = DCPCrew(agents=[assigned, logged], session_nonce="2" * 64)
+        assert [a.session_nonce for a in crew.agents] == ["1" * 64, own]
+
     def test_kickoff_generates_audit_for_all_agents(self):
         crew = self._make_crew()
         result = crew.kickoff(task="Write a report")
