@@ -35,6 +35,8 @@ This guide walks you through migrating an existing DCP-AI v1.0 integration to v2
 
 There are **no breaking changes** for v1.0 consumers. A v2.0 verifier will accept v1.0 bundles when configured with `allow_v1_bundles: true` (the default). v1.0 verifiers will reject v2.0 bundles with a clear error message (`"unsupported dcp_version 2.0"`).
 
+A v1.0 bundle has one Ed25519 signature and no post-quantum one, so the verification middlewares (`@dcp-ai/express`, `@dcp-ai/openclaw`, `dcp_ai.fastapi`) accept it only where a classical-only v2.0 bundle would pass (VERIFICATION.md V2-10): the stricter of the policy mode for the V1 passport's `risk_tier` and the mode of the security tier computed from the V1 intent and policy decision (V1 `risk_score`, 0 to 1, scaled by 1000; a missing one counts as `elevated`) must be `classical_only` or `hybrid_preferred`. Under the default policy, a V1 bundle with a routine or standard intent passes, and one with a payment, sensitive data, a high estimated impact or a risk score of 0.5 or more is refused; Express `requireHybrid` refuses every V1 bundle.
+
 The migration is **additive**: v2.0 introduces new fields and structures alongside the v1.0 format. You can migrate producers (agents) and consumers (verifiers) independently.
 
 ---
@@ -342,7 +344,7 @@ v2.0 verifiers use a policy configuration that is verifier-authoritative.
 }
 ```
 
-Set `allow_v1_bundles: true` during the transition period.
+Set `allow_v1_bundles: true` during the transition period. V1 bundles still need a mode that tolerates a classical-only signature: with this policy (`hybrid_required` for the medium and high tiers), the verification middlewares accept V1 bundles only from low-risk passports with routine or standard intents.
 
 ### Step 9: Add Security Tier Support (Optional)
 
@@ -386,7 +388,8 @@ cd sdks/typescript && npm test -- --grep "nist-kat"
 ```
 V1 Verifier + V1 Bundle  ->  PASS (unchanged)
 V1 Verifier + V2 Bundle  ->  REJECT "unsupported dcp_version 2.0"
-V2 Verifier + V1 Bundle  ->  PASS (when allow_v1_bundles=true)
+V2 Verifier + V1 Bundle  ->  PASS (when allow_v1_bundles=true and the effective mode
+                                    for the bundle is classical_only or hybrid_preferred)
 V2 Verifier + V2 Bundle  ->  PASS (full V2 verification)
 ```
 

@@ -57,30 +57,73 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   whose intent was changed after signing, was reported as verified. All three now verify every V2
   bundle with the SDK verifier (`verifySignedBundleV2` from `@dcp-ai/sdk`, `verify_signed_bundle_v2`
   from `dcp_ai.v2`) and an Ed25519 / ML-DSA-65 / SLH-DSA-192f registry, under the configured
-  policy over `DEFAULT_VERIFIER_POLICY` (`verifierPolicy`, `verifier_policy`, a new
-  `DCPVerifyMiddleware` argument; `requireHybrid` raises every risk tier to `hybrid_required`, a
-  `default_mode` without `risk_overrides` applies to every tier), and return its errors and
-  warnings; `composite_sig_valid` comes from the verifier. The two TypeScript packages also reject
-  a PQ signature that is present but does not verify (VERIFICATION.md V2-7), which `@dcp-ai/sdk`
-  2.1.x accepts with a warning under `hybrid_preferred`; per-artifact signatures (V2-8) are checked
-  once they depend on an `@dcp-ai/sdk` release that verifies them. Both now depend on
-  `@dcp-ai/sdk` ^2.1.1.
+  policy over `DEFAULT_VERIFIER_POLICY` (`verifierPolicy`; `verifier_policy`, a new
+  `DCPVerifyMiddleware` argument; the OpenClaw operator policy below). `requireHybrid` raises every
+  risk tier to at least `hybrid_required`, and a `default_mode` without `risk_overrides` applies to
+  every tier. The verifier's errors and warnings are returned, and `composite_sig_valid` comes from
+  it. Both TypeScript packages now depend on `@dcp-ai/sdk` ^2.1.1.
+- With the published `@dcp-ai/sdk` 2.1.1 verifier, Express and OpenClaw still accepted 32 of the 65
+  bundles in `tests/interop/v2/bundle_vectors.json` that every verifier must reject. Until a release
+  that fixes it is published, both add the checks they can make without re-implementing the
+  verifier (`dcp-verify.ts`, the same file in both packages): the verification mode is the stricter
+  of the policy mode for the passport's `risk_tier`, read from own properties of `risk_overrides`
+  only (2.1.1 followed the prototype chain, so a `risk_tier` of `constructor` or `__proto__`
+  switched every signature check off; a `risk_tier` other than `low`, `medium` or `high` is now a
+  403), and the mode of the security tier computed from the intent and the policy decision as in
+  spec §14.2 (2.1.1 ignores it, and its `computeSecurityTier` reads `risk_score` from the intent);
+  an empty audit trail must have the Merkle root of 64 zeros (2.1.x's own `BundleBuilderV2` writes
+  `sha256:undefined` there, so such bundles are now refused); `session_expires_at` must be an RFC
+  3339 timestamp; passport keys and RPR binding keys must not be revoked or expired and their
+  `expires_at` must be an RFC 3339 timestamp in the future; and a PQ signature that is present must
+  verify, which 2.1.1 only warns about under `hybrid_preferred`. 8 bundles remain accepted: 2.1.1
+  does not verify the per-artifact signatures of the RPR, passport, intent and policy decision
+  (VERIFICATION.md V2-8). Their tests are marked as expected failures, so they flip when the
+  dependency is raised. The Python middleware already passes all 67 with the in-package verifier.
 - The same three verifiers sent every bundle not detected as V2 to the V1 verifier, whatever the
   verifier policy: a V1 bundle (one Ed25519 signature, no post-quantum one) got past
   `requireHybrid` or a `hybrid_required` policy, and a bundle of undetectable version was tried as
-  V1. A V1 bundle is now rejected when the policy has `allow_v1_bundles: false`, `requireHybrid` is
-  set, or the default mode or any `risk_overrides` mode is `hybrid_required` or `pq_only`, since a
-  V1 passport's risk tier is self-declared. `DEFAULT_VERIFIER_POLICY` is `hybrid_required` for the
-  `high` tier, so V1 bundles are now rejected by default; a policy whose `default_mode` is
-  `classical_only` or `hybrid_preferred` accepts them. A bundle of undetectable version is rejected.
+  V1. A V1 bundle is now accepted only where VERIFICATION.md V2-10 would accept a classical-only
+  bundle: `allow_v1_bundles` is true, `requireHybrid` is off, and the stricter of the policy mode
+  for the V1 passport's `risk_tier` and the mode of the security tier of the V1 intent and policy
+  decision (V1 `risk_score`, 0 to 1, scaled by 1000; a missing one counts as `elevated`) is
+  `classical_only` or `hybrid_preferred`. Under `DEFAULT_VERIFIER_POLICY` the V1 conformance bundle
+  (a standard-tier `send_email`) passes and the same bundle with an `initiate_payment` intent is
+  refused. A bundle of undetectable version is rejected.
+- `@dcp-ai/openclaw`: `dcp_verify_bundle` took its verifier policy from the `verifier_policy` tool
+  parameter, which the calling model controls, and returned the unverified bundle's `agent_id` and
+  `human_id` with a failed result. The policy is now the operator's (`register(api,
+  { verifierPolicy })` or the new `configureVerifier`, over `DEFAULT_VERIFIER_POLICY`); the
+  parameter can only make it stricter (a stricter mode per tier, `require_*` only turned on,
+  `allow_v1_bundles` only turned off, any other field an error). The result echoes
+  `verification_mode`, and names the agent, principal and session only when the bundle verified.
 - `@dcp-ai/express`: the verdict cache was keyed by `signature.composite_sig` and shared by every
   middleware, so a different bundle carrying a cached signature, or a middleware with a stricter
   policy, reused a "verified" verdict; it also grew without bound and kept a verdict for the whole
   TTL after the session or a key had expired or the agent had been revoked. Each middleware now has
-  its own cache keyed by the SHA-256 of the whole signed bundle, holding at most `cacheMaxEntries`
-  (new, default 1000) bundles, least recently used evicted first; an entry expires at the earliest
-  of the TTL, the manifest's `session_expires_at`, the RPR's `expires_at` and the `expires_at` of
-  every passport key and RPR binding key, and `checkRevocation` runs again on every cache hit.
+  its own cache keyed by the SHA-256 of the bundle's canonical form (`canonicalizeV2`; a bundle
+  without one, such as one holding `1e999`, which `JSON.stringify` printed like `null`, is verified
+  but not cached), holding at most `cacheMaxEntries` (new, default 1000) bundles, least recently
+  used evicted first; an entry expires at the earliest of the TTL, the manifest's
+  `session_expires_at`, the RPR's `expires_at` and the `expires_at` of every passport key and RPR
+  binding key. A deeply nested bundle no longer gives a 500.
+- `@dcp-ai/express`: `checkRevocation` asked only about the agent and its passport keys, and failed
+  open silently. It now also asks about every RPR binding key and the bundle signature's classical
+  and PQ kids, on every request including cache hits. A lookup that gives no answer (service
+  unreachable, a non-2xx response, a body that is not JSON or has no `revoked`) still lets the
+  request through by default; the new `revocationFailClosed: true` rejects it.
+- `@dcp-ai/express`: an unknown option or `verifierPolicy` field (`defaultMode`) and a value of the
+  wrong type (`allow_v1_bundles: "false"`) were ignored, leaving the default in force. They now
+  throw when the middleware is created.
+- `dcp_ai.fastapi`: an `X-DCP-Bundle` header holding an integer over Python's 4300-digit limit or
+  nested too deeply, and a bundle too deep for the verifier, gave a 500; they now get a 403.
+  `pq_checkpoints` that is not a list is rejected (it was read as no checkpoints).
+  `verifier_policy={"risk_overrides": None}` now keeps the default tiers instead of applying
+  `default_mode` to all of them, and an unknown risk tier raises. `dcp_version` is documented as
+  not enforced.
+- The three READMEs now say what "verified" means: the bundle is internally consistent and signed
+  by the keys it lists itself, which does not prove who the principal is unless the verifier pins
+  the principal's keys (none of the middlewares can yet), and `require_audience_binding` with a
+  `verifier_id` limits replay to the intended verifier.
 - Go and Rust verifiers accepted an audit entry (or PQ checkpoint) whose `session_nonce` differed
   from the manifest's, although the manifest committed to it (`spec/VERIFICATION.md` V2-4: every
   artifact and audit entry that carries a nonce shares the manifest's). Both now check the trail
