@@ -113,6 +113,11 @@ interface Variant {
   bundleKeys?: CompositeKeyPair;
   /** signature.created_at, outside the signed manifest, set after signing. */
   createdAt?: string;
+  /** Edits the passport key entries before the passport is signed. */
+  passportKeysEdit?: (keys: KeyEntry[]) => void;
+  /** The policy decision, or the second audit entry, carries no session_nonce; the manifest commits to it. */
+  policyNoNonce?: boolean;
+  auditNoNonce?: boolean;
   /** A PQ checkpoint over the two audit entries, signed by the agent unless keys says otherwise. */
   checkpoint?: {
     count?: number;
@@ -179,6 +184,7 @@ async function main() {
       status: 'active',
       ...variant.passport,
     };
+    variant.passportKeysEdit?.(passport.keys);
     const intent: IntentV2 = {
       dcp_version: '2.0',
       intent_id: 'intent:interop-001',
@@ -247,6 +253,16 @@ async function main() {
       bundle.intent = await sign({ ...intent, session_nonce: variant.intentNonce }, DCP_CONTEXTS.Intent, agent);
       bundle.manifest.intent_hash = bundle.intent.payload_hash;
     }
+    if (variant.policyNoNonce) {
+      const { session_nonce: _omitted, ...withoutNonce } = policyDecision;
+      bundle.policy_decision = await sign(withoutNonce, DCP_CONTEXTS.PolicyDecision, agentKeys) as never;
+      bundle.manifest.policy_hash = bundle.policy_decision.payload_hash;
+    }
+    if (variant.auditNoNonce) {
+      const { session_nonce: _omitted, ...withoutNonce } = audit2;
+      bundle.audit_entries[1] = withoutNonce as AuditEventV2;
+      bundle.manifest.audit_merkle_root = `sha256:${auditEventsMerkleRoot(bundle.audit_entries)}`;
+    }
     if (variant.auditNonce) {
       bundle.audit_entries[1] = { ...audit2, session_nonce: variant.auditNonce };
       bundle.manifest.audit_merkle_root = `sha256:${auditEventsMerkleRoot(bundle.audit_entries)}`;
@@ -280,6 +296,16 @@ async function main() {
       : await signBundleV2(bundle, { ...signer, keys: bundleKeys });
     if (variant.bundleSigWithoutPq) delete (signedBundle.signature.composite_sig as Partial<CompositeSignature>).pq;
     if (variant.createdAt) signedBundle.signature.created_at = variant.createdAt;
+    // A bundle from a signer that predates session_issued_at: the signers now
+    // stamp it whenever there is an expiry, so the manifest is signed again without it.
+    if (variant.manifest && 'session_issued_at' in variant.manifest && variant.manifest.session_issued_at === undefined) {
+      delete signedBundle.bundle.manifest.session_issued_at;
+      const { canonicalBytes, payloadHash } = preparePayload(signedBundle.bundle.manifest);
+      signedBundle.signature.composite_sig = variant.classicalOnly
+        ? await classicalOnlySign(registry, DCP_CONTEXTS.Bundle, canonicalBytes, bundleKeys.classical)
+        : await compositeSign(registry, DCP_CONTEXTS.Bundle, canonicalBytes, bundleKeys);
+      signedBundle.signature.manifest_hash = payloadHash;
+    }
     return { rpr, passport, intent, policyDecision, bundle, signedIntent, signedBundle };
   }
 
@@ -304,7 +330,26 @@ async function main() {
     keys: agent,
   });
 
+  const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  // The same 32 bytes with a trailing bit set: a lenient decoder reads the key, a strict one refuses it.
+  const withTrailingBit = (b64: string) => {
+    const i = b64.indexOf('=') - 1;
+    return b64.slice(0, i) + B64[B64.indexOf(b64[i]) ^ 1] + b64.slice(i + 1);
+  };
   const mustReject = [
+    // The rest of the unsigned signature block (V2-4).
+    {
+      name: 'signature_manifest_hash_other',
+      spec_step: 'V2-4',
+      error_contains: 'manifest_hash',
+      mutations: [set(['signature', 'manifest_hash'], sha256Of({ not: 'the manifest' }))],
+    },
+    {
+      name: 'signature_hash_alg_unknown',
+      spec_step: 'V2-4',
+      error_contains: 'hash_alg',
+      mutations: [set(['signature', 'hash_alg'], 'md5')],
+    },
     // The unsigned signer block must not contradict the signature (V2-4).
     {
       name: 'signature_signer_id_other',
@@ -789,6 +834,30 @@ async function main() {
     })),
     // The session duration bound reads only signed data (V2-4): signature.created_at
     // is set an hour before the session ends, outside the manifest.
+    // Every artifact and audit entry carries the session nonce (V2-4).
+    { name: 'policy_decision_without_session_nonce', spec_step: 'V2-4', error_contains: 'nonce', variant: { policyNoNonce: true } },
+    { name: 'audit_entry_without_session_nonce', spec_step: 'V2-4', error_contains: 'nonce', variant: { auditNoNonce: true } },
+    // A key is canonical base64, so every verifier decodes the same bytes (V2-13).
+    {
+      name: 'passport_key_public_key_with_trailing_bits',
+      spec_step: 'V2-13',
+      error_contains: 'canonical base64',
+      variant: { passportKeysEdit: (keys) => { keys[0].public_key_b64 = withTrailingBit(keys[0].public_key_b64); } },
+    },
+    {
+      name: 'passport_pq_key_public_key_unpadded',
+      spec_step: 'V2-13',
+      error_contains: 'canonical base64',
+      variant: { passportKeysEdit: (keys) => { keys[1].public_key_b64 = keys[1].public_key_b64.replace(/=+$/, ''); } },
+    },
+    // A maximum session duration needs both ends of the session (V2-4).
+    {
+      name: 'session_expires_at_missing_under_policy_max',
+      spec_step: 'V2-4',
+      error_contains: 'session_expires_at',
+      verifier_policy_overrides: { max_session_duration_seconds: 3_000_000_000 },
+      variant: { manifest: { session_expires_at: undefined } },
+    },
     // The session start is the signed session_issued_at (V2-4).
     {
       name: 'session_issued_at_missing_under_policy_max',
@@ -919,6 +988,21 @@ async function main() {
           ).signedBundle,
         })),
       )),
+      {
+        // RFC 3339 years start at 0000.
+        name: 'session_issued_at_year_0000',
+        spec_step: 'V2-4',
+        signed_bundle: (await build({ manifest: { session_issued_at: '0000-01-01T00:00:00Z' } })).signedBundle,
+      },
+      {
+        // Timestamps compare at millisecond precision: the 0.0009 s past the maximum are dropped.
+        name: 'session_duration_at_millisecond_precision',
+        spec_step: 'V2-4',
+        verifier_policy_overrides: {
+          max_session_duration_seconds: (Date.parse('2099-12-31T18:59:59Z') - Date.parse('2026-10-21T00:00:00Z')) / 1000,
+        },
+        signed_bundle: (await build({ manifest: { session_expires_at: '2099-12-31T18:59:59.0009Z' } })).signedBundle,
+      },
       {
         // 2026-10-21 to 2099-12-31 is about 2.3e9 seconds.
         name: 'session_within_policy_max',
