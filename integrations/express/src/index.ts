@@ -2,13 +2,35 @@
  * @dcp-ai/express — DCP verification middleware for Express.js
  *
  * Supports both V1 (Ed25519) and V2 (composite hybrid signatures) bundles.
+ * A V2 bundle is accepted only when `verifySignedBundleV2` from `@dcp-ai/sdk`
+ * accepts it under the middleware's verifier policy.
  *
  * Usage:
  *   import { dcpVerify } from '@dcp-ai/express';
  *   app.use('/api/agents/*', dcpVerify({ requireBundle: true }));
  */
 
+import { createHash } from 'node:crypto';
 import type { Request, Response, NextFunction } from 'express';
+import {
+  AlgorithmRegistry,
+  DEFAULT_VERIFIER_POLICY,
+  Ed25519Provider,
+  MlDsa65Provider,
+  SlhDsa192fProvider,
+  verifySignedBundle,
+  verifySignedBundleV2,
+  type SignedBundleV2,
+  type VerificationMode,
+  type VerifierPolicy,
+} from '@dcp-ai/sdk';
+
+type RiskTier = keyof VerifierPolicy['risk_overrides'];
+
+/** Verifier policy fields to set over the SDK's `DEFAULT_VERIFIER_POLICY`. */
+export type VerifierPolicyOptions = Partial<Omit<VerifierPolicy, 'risk_overrides'>> & {
+  risk_overrides?: Partial<VerifierPolicy['risk_overrides']>;
+};
 
 export interface DCPVerifyOptions {
   requireBundle?: boolean;
@@ -16,15 +38,16 @@ export interface DCPVerifyOptions {
   revocationServiceUrl?: string;
   onFailure?: (req: Request, res: Response, errors: string[]) => void;
   headerName?: string;
+  /** Seconds a verified bundle stays cached, keyed by the SHA-256 of the whole signed bundle. 0 disables the cache. */
   cacheTtlSeconds?: number;
-  /** V2: Require hybrid composite signatures (default: false for backward compat). */
+  /** V2: require hybrid composite signatures: every risk tier whose mode is classical_only or hybrid_preferred becomes hybrid_required. */
   requireHybrid?: boolean;
-  /** V2: Verification policy override. */
-  verifierPolicy?: {
-    default_mode?: 'classical_only' | 'hybrid_required' | 'hybrid_preferred' | 'pq_only';
-    require_session_binding?: boolean;
-    require_composite_binding?: boolean;
-  };
+  /**
+   * V2: verifier policy, merged over the SDK's `DEFAULT_VERIFIER_POLICY` and passed to
+   * `verifySignedBundleV2`. A `default_mode` given without `risk_overrides` applies to every
+   * risk tier.
+   */
+  verifierPolicy?: VerifierPolicyOptions;
   /** DCP-05: Require agent lifecycle state != decommissioned. */
   requireActiveLifecycle?: boolean;
 }
@@ -45,23 +68,55 @@ export interface DCPAgent {
   lifecycleState?: string;
   /** DCP-09: Active delegation mandate ID. */
   mandateId?: string;
+  /** V2: Warnings of the SDK verifier for an accepted bundle (e.g. a classical-only signature). */
+  warnings?: string[];
 }
 
-const _cache = new Map<string, { result: any; expires: number }>();
+const VERIFICATION_MODES: readonly VerificationMode[] = ['classical_only', 'hybrid_preferred', 'hybrid_required', 'pq_only'];
+const RISK_TIERS: readonly RiskTier[] = ['low', 'medium', 'high'];
+const SIGNED_ARTIFACTS = ['responsible_principal_record', 'agent_passport', 'intent', 'policy_decision'] as const;
 
-function getCached(key: string): any | null {
-  const entry = _cache.get(key);
-  if (!entry) return null;
-  if (Date.now() > entry.expires) {
-    _cache.delete(key);
-    return null;
+// Built once: the providers the V2 verifier needs (Ed25519, ML-DSA-65, SLH-DSA-192f).
+const registry = new AlgorithmRegistry();
+for (const provider of [new Ed25519Provider(), new MlDsa65Provider(), new SlhDsa192fProvider()]) {
+  registry.registerSigner(provider);
+}
+
+/**
+ * The policy the middleware passes to `verifySignedBundleV2`: `verifierPolicy` over the SDK's
+ * `DEFAULT_VERIFIER_POLICY`, then `requireHybrid`. Throws on an unknown verification mode.
+ */
+export function resolveVerifierPolicy(
+  options: Pick<DCPVerifyOptions, 'verifierPolicy' | 'requireHybrid'> = {},
+): VerifierPolicy {
+  // A field explicitly set to undefined keeps the default instead of switching a check off.
+  const configured: VerifierPolicyOptions = Object.fromEntries(
+    Object.entries(options.verifierPolicy ?? {}).filter(([, value]) => value !== undefined),
+  );
+  const tierModes = configured.default_mode
+    ? Object.fromEntries(RISK_TIERS.map((tier) => [tier, configured.default_mode]))
+    : DEFAULT_VERIFIER_POLICY.risk_overrides;
+  const policy: VerifierPolicy = {
+    ...DEFAULT_VERIFIER_POLICY,
+    ...configured,
+    risk_overrides: { ...tierModes, ...configured.risk_overrides } as VerifierPolicy['risk_overrides'],
+  };
+  if (options.requireHybrid) {
+    const raise = (mode: VerificationMode): VerificationMode =>
+      mode === 'classical_only' || mode === 'hybrid_preferred' ? 'hybrid_required' : mode;
+    policy.default_mode = raise(policy.default_mode);
+    for (const tier of RISK_TIERS) policy.risk_overrides[tier] = raise(policy.risk_overrides[tier]);
   }
-  return entry.result;
+  for (const mode of [policy.default_mode, ...RISK_TIERS.map((tier) => policy.risk_overrides[tier])]) {
+    if (!VERIFICATION_MODES.includes(mode)) {
+      throw new Error(`Unknown verification mode in verifierPolicy: ${String(mode)}`);
+    }
+  }
+  return policy;
 }
 
-function setCache(key: string, result: any, ttl: number): void {
-  if (ttl <= 0) return;
-  _cache.set(key, { result, expires: Date.now() + ttl * 1000 });
+function isObject(value: unknown): value is Record<string, any> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function detectVersion(obj: any): '1.0' | '2.0' | null {
@@ -71,7 +126,7 @@ function detectVersion(obj: any): '1.0' | '2.0' | null {
   return null;
 }
 
-function extractV2Agent(signedBundle: any): DCPAgent {
+function extractV2Agent(signedBundle: any, warnings: string[]): DCPAgent {
   const bundle = signedBundle.bundle;
   const passport = bundle.agent_passport?.payload;
   const rpr = bundle.responsible_principal_record?.payload;
@@ -89,6 +144,7 @@ function extractV2Agent(signedBundle: any): DCPAgent {
     sessionNonce: nonce,
     lifecycleState: passport?.status || 'active',
     mandateId: bundle.manifest?.mandate_id,
+    warnings,
   };
 }
 
@@ -105,100 +161,70 @@ function extractV1Agent(signedBundle: any): DCPAgent {
   };
 }
 
-async function checkV2Bundle(signedBundle: any, options: DCPVerifyOptions): Promise<{ verified: boolean; errors: string[]; warnings: string[] }> {
+/**
+ * Shape checks that give clearer errors than the SDK's, and keep the published @dcp-ai/sdk
+ * 2.1.x from throwing on a malformed bundle. Never a verdict: an empty list only means the
+ * bundle can go to the SDK verifier.
+ */
+function v2ShapeErrors(signedBundle: any): string[] {
+  const { bundle, signature } = signedBundle;
+  if (!isObject(bundle) || !isObject(signature)) return ['Missing bundle or signature fields'];
+
   const errors: string[] = [];
-  const warnings: string[] = [];
-  const bundle = signedBundle.bundle;
-  const signature = signedBundle.signature;
-
-  if (!bundle || !signature) {
-    errors.push('Missing bundle or signature fields');
-    return { verified: false, errors, warnings };
-  }
-
-  if (bundle.dcp_bundle_version !== '2.0') {
-    errors.push('Invalid dcp_bundle_version');
-  }
-
-  // Manifest integrity
-  if (!bundle.manifest) {
+  if (!isObject(bundle.manifest)) {
     errors.push('Missing manifest');
-  } else {
-    if (!bundle.manifest.session_nonce || !/^[0-9a-f]{64}$/.test(bundle.manifest.session_nonce)) {
-      errors.push('Invalid or missing session_nonce in manifest');
-    }
-    for (const field of ['rpr_hash', 'passport_hash', 'intent_hash', 'policy_hash', 'audit_merkle_root']) {
-      if (!bundle.manifest[field]) {
-        errors.push(`Missing manifest.${field}`);
-      }
+  } else if (typeof bundle.manifest.session_nonce !== 'string' || !/^[0-9a-f]{64}$/.test(bundle.manifest.session_nonce)) {
+    errors.push('Invalid or missing session_nonce in manifest');
+  }
+  for (const name of SIGNED_ARTIFACTS) {
+    const artifact = bundle[name];
+    if (!isObject(artifact) || !isObject(artifact.payload)) {
+      errors.push(`Missing or invalid ${name} (expected SignedPayload)`);
+    } else if (!isObject(artifact.composite_sig)) {
+      errors.push(`Missing composite_sig in ${name}`);
     }
   }
-
-  // Required artifacts with SignedPayload envelope
-  for (const field of ['responsible_principal_record', 'agent_passport', 'intent', 'policy_decision']) {
-    const artifact = bundle[field];
-    if (!artifact?.payload) {
-      errors.push(`Missing or invalid ${field} (expected SignedPayload)`);
-    } else if (!artifact.composite_sig) {
-      errors.push(`Missing composite_sig in ${field}`);
-    }
+  if (isObject(bundle.agent_passport?.payload) && !Array.isArray(bundle.agent_passport.payload.keys)) {
+    errors.push('Missing agent_passport keys');
   }
-
-  // Composite signature check
-  if (signature.composite_sig) {
-    const cs = signature.composite_sig;
-    const policy = options.verifierPolicy || {};
-    const mode = policy.default_mode || (options.requireHybrid ? 'hybrid_required' : 'hybrid_preferred');
-
-    if (!cs.classical) {
-      errors.push('Missing classical signature');
-    }
-
-    if (cs.binding === 'pq_over_classical' && !cs.pq) {
-      errors.push('PQ signature missing despite pq_over_classical binding');
-    }
-
-    if (mode === 'hybrid_required' && cs.binding === 'classical_only') {
-      errors.push('Verifier policy requires hybrid signatures');
-    } else if (mode === 'hybrid_preferred' && cs.binding === 'classical_only') {
-      warnings.push('Bundle uses classical_only binding (no PQ protection)');
-    }
-
-    if (policy.require_composite_binding && cs.binding !== 'pq_over_classical') {
-      errors.push('Composite binding required but not present');
-    }
-  } else {
+  if (!Array.isArray(bundle.audit_entries)) errors.push('Missing or invalid audit_entries');
+  if (bundle.pq_checkpoints !== undefined && !Array.isArray(bundle.pq_checkpoints)) {
+    errors.push('Invalid pq_checkpoints');
+  }
+  if (!isObject(signature.composite_sig) || !isObject(signature.composite_sig.classical)) {
     errors.push('Missing composite_sig in bundle signature');
   }
+  return errors;
+}
 
-  // Session binding validation
-  const requireSessionBinding = options.verifierPolicy?.require_session_binding ?? true;
-  if (requireSessionBinding && bundle.manifest) {
-    const nonce = bundle.manifest.session_nonce;
-    const artifacts = [
-      bundle.agent_passport?.payload,
-      bundle.responsible_principal_record?.payload,
-      bundle.intent?.payload,
-      bundle.policy_decision?.payload,
-    ].filter(Boolean);
+async function checkV2Bundle(
+  signedBundle: any,
+  policy: VerifierPolicy,
+  requireActiveLifecycle: boolean,
+): Promise<{ verified: boolean; errors: string[]; warnings: string[] }> {
+  const shapeErrors = v2ShapeErrors(signedBundle);
+  if (shapeErrors.length > 0) return { verified: false, errors: shapeErrors, warnings: [] };
 
-    for (const art of artifacts) {
-      if (art.session_nonce && art.session_nonce !== nonce) {
-        errors.push('Session nonce mismatch across artifacts');
-        break;
-      }
-    }
+  let result: Awaited<ReturnType<typeof verifySignedBundleV2>>;
+  try {
+    result = await verifySignedBundleV2(signedBundle as SignedBundleV2, registry, policy);
+  } catch (err) {
+    // @dcp-ai/sdk 2.1.x throws on some malformed bundles instead of failing closed.
+    const reason = err instanceof Error ? err.message : String(err);
+    return { verified: false, errors: [`V2 verification error: ${reason}`], warnings: [] };
   }
 
-  // DCP-05: Lifecycle state check
-  if (options.requireActiveLifecycle) {
-    const passport = bundle.agent_passport?.payload;
-    if (passport?.status === 'decommissioned') {
-      errors.push('Agent is decommissioned (DCP-05 §5.1). Active lifecycle required.');
-    }
+  const errors = [...result.errors];
+  // VERIFICATION.md V2-7: a PQ signature that is present must verify in every mode. @dcp-ai/sdk
+  // 2.1.x accepts an invalid one under hybrid_preferred with a warning, but reports it in
+  // details.signature_valid. pq_only does not require the classical signature.
+  if (result.verified && result.details?.signature_valid !== true && result.details?.verification_mode !== 'pq_only') {
+    errors.push('Bundle composite signature does not verify (a PQ signature that is present must verify)');
   }
-
-  return { verified: errors.length === 0, errors, warnings };
+  if (requireActiveLifecycle && signedBundle.bundle.agent_passport.payload.status === 'decommissioned') {
+    errors.push('Agent is decommissioned (DCP-05 §5.1). Active lifecycle required.');
+  }
+  return { verified: errors.length === 0, errors, warnings: result.warnings };
 }
 
 async function checkRevocationStatus(agentId: string, kids: string[] | undefined, url: string): Promise<boolean> {
@@ -236,7 +262,18 @@ export function dcpVerify(options: DCPVerifyOptions = {}) {
     onFailure,
     headerName = 'x-dcp-bundle',
     cacheTtlSeconds = 0,
+    requireActiveLifecycle = false,
   } = options;
+  const policy = resolveVerifierPolicy(options);
+
+  // One cache per middleware: its verdicts hold only under this middleware's policy and options.
+  // The key is the SHA-256 of the whole signed bundle, so no other bundle can reuse a verdict.
+  const cache = new Map<string, { agent: DCPAgent; expires: number }>();
+  const cacheKeyFor = (signedBundle: unknown) =>
+    createHash('sha256').update(JSON.stringify(signedBundle)).digest('hex');
+  const remember = (key: string, agent: DCPAgent) => {
+    cache.set(key, { agent, expires: Date.now() + cacheTtlSeconds * 1000 });
+  };
 
   return async (req: Request & { dcpAgent?: DCPAgent }, res: Response, next: NextFunction) => {
     try {
@@ -264,27 +301,28 @@ export function dcpVerify(options: DCPVerifyOptions = {}) {
       }
 
       // Cache check
-      const cacheKey = JSON.stringify(signedBundle.signature?.composite_sig || signedBundle.signature?.sig_b64 || '');
-      if (cacheTtlSeconds > 0 && cacheKey) {
-        const cached = getCached(cacheKey);
-        if (cached?.verified) {
-          req.dcpAgent = cached.agent;
+      const cacheKey = cacheTtlSeconds > 0 ? cacheKeyFor(signedBundle) : '';
+      if (cacheKey) {
+        const cached = cache.get(cacheKey);
+        if (cached && Date.now() <= cached.expires) {
+          req.dcpAgent = structuredClone(cached.agent);
           return next();
         }
+        cache.delete(cacheKey);
       }
 
       const version = detectVersion(signedBundle);
 
       if (version === '2.0') {
         // V2 verification path
-        const { verified, errors, warnings } = await checkV2Bundle(signedBundle, options);
+        const { verified, errors, warnings } = await checkV2Bundle(signedBundle, policy, requireActiveLifecycle);
 
         if (!verified) {
           if (onFailure) return onFailure(req, res, errors);
           return res.status(403).json({ verified: false, errors, warnings });
         }
 
-        const agent = extractV2Agent(signedBundle);
+        const agent = extractV2Agent(signedBundle, warnings);
 
         // Revocation check
         if (checkRevocation) {
@@ -296,16 +334,13 @@ export function dcpVerify(options: DCPVerifyOptions = {}) {
           }
         }
 
-        if (cacheTtlSeconds > 0) {
-          setCache(cacheKey, { verified: true, agent }, cacheTtlSeconds);
-        }
+        if (cacheKey) remember(cacheKey, structuredClone(agent));
 
         req.dcpAgent = agent;
         return next();
       }
 
       // V1 verification path
-      const { verifySignedBundle } = await import('@dcp-ai/sdk');
       const result = verifySignedBundle(signedBundle);
 
       if (!result.verified) {
@@ -325,9 +360,7 @@ export function dcpVerify(options: DCPVerifyOptions = {}) {
         }
       }
 
-      if (cacheTtlSeconds > 0) {
-        setCache(cacheKey, { verified: true, agent }, cacheTtlSeconds);
-      }
+      if (cacheKey) remember(cacheKey, structuredClone(agent));
 
       req.dcpAgent = agent;
       next();
