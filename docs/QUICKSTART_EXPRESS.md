@@ -38,7 +38,7 @@ app.add_middleware(DCPVerifyMiddleware, require_bundle=True, dcp_version="2.0")
 @app.post("/agent/action")
 async def agent_action(agent=Depends(require_dcp)):
     # agent.passport / agent.intent / agent.session_nonce are populated
-    return {"ok": True, "agent": agent.passport.agent_name}
+    return {"ok": True, "agent": agent.agent_id}
 ```
 
 ---
