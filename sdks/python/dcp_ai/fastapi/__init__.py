@@ -23,6 +23,7 @@ Usage:
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
@@ -33,6 +34,7 @@ from starlette.responses import JSONResponse
 from dcp_ai.providers import Ed25519Provider, MlDsa65Provider, SlhDsa192fProvider
 from dcp_ai.v2.crypto_registry import AlgorithmRegistry
 from dcp_ai.v2.models import VerifierPolicy
+from dcp_ai.v2.security_tier import compute_security_tier, effective_verification_mode
 from dcp_ai.v2.verify import DEFAULT_VERIFIER_POLICY, verify_signed_bundle_v2
 from dcp_ai.verify import verify_signed_bundle
 
@@ -74,47 +76,82 @@ for _provider in (Ed25519Provider(), MlDsa65Provider(), SlhDsa192fProvider()):
 def _resolve_verifier_policy(verifier_policy: dict[str, Any] | VerifierPolicy | None) -> dict[str, Any]:
     """`verifier_policy` over DEFAULT_VERIFIER_POLICY, validated as a VerifierPolicy.
 
-    A VerifierPolicy instance is used as is. A dict sets fields over the default
-    policy; a default_mode given without risk_overrides applies to every risk
-    tier, and a risk_overrides dict sets tiers over the others. Unknown fields
-    (pydantic.ValidationError) and unknown verification modes (ValueError) raise.
+    A VerifierPolicy instance is used as is (its risk_overrides=None means its
+    default_mode for every tier). A dict sets fields over the default policy: a
+    default_mode given without risk_overrides applies to every risk tier, a
+    risk_overrides dict sets its tiers over the others, and risk_overrides=None
+    keeps the default tiers. Unknown fields (pydantic.ValidationError), unknown
+    risk tiers and unknown verification modes (ValueError) raise.
     """
     if isinstance(verifier_policy, VerifierPolicy):
         policy = verifier_policy.model_dump()
+        if policy["risk_overrides"] is None:
+            policy["risk_overrides"] = dict.fromkeys(_RISK_TIERS, policy["default_mode"])
     else:
+        if verifier_policy is not None and not isinstance(verifier_policy, dict):
+            raise TypeError("verifier_policy must be a dict or a VerifierPolicy")
         configured = dict(verifier_policy or {})
+        overrides = configured.pop("risk_overrides", None)
         merged = {**DEFAULT_VERIFIER_POLICY, **configured}
-        overrides = configured.get("risk_overrides", ...)
-        if overrides is ... or isinstance(overrides, dict):
+        if overrides is not None and not isinstance(overrides, dict):
+            merged["risk_overrides"] = overrides  # VerifierPolicy rejects it
+        else:
             base = (
                 dict.fromkeys(_RISK_TIERS, configured["default_mode"])
                 if "default_mode" in configured
                 else DEFAULT_VERIFIER_POLICY["risk_overrides"]
             )
-            merged["risk_overrides"] = {**base, **({} if overrides is ... else overrides)}
+            merged["risk_overrides"] = {**base, **(overrides or {})}
         policy = VerifierPolicy.model_validate(merged).model_dump()
-    for mode in [policy["default_mode"], *(policy["risk_overrides"] or {}).values()]:
+    unknown_tiers = set(policy["risk_overrides"]) - set(_RISK_TIERS)
+    if unknown_tiers:
+        raise ValueError(f"Unknown risk tier in verifier_policy risk_overrides: {sorted(unknown_tiers)[0]}")
+    for mode in [policy["default_mode"], *policy["risk_overrides"].values()]:
         if mode not in _VERIFICATION_MODES:
             raise ValueError(f"Unknown verification mode in verifier_policy: {mode}")
     return policy
 
 
-def _v1_refusal(policy: dict[str, Any]) -> str | None:
-    """Why a V1 bundle (no post-quantum signature) is refused under `policy`, or None.
+def _printable(value: Any) -> str:
+    """A short printable form of an untrusted value (never recurses into it)."""
+    return repr(value[:80]) if isinstance(value, str) else type(value).__name__
 
-    A V1 passport's risk tier is self-declared, so V1 is refused as soon as any
-    tier requires a post-quantum signature; DEFAULT_VERIFIER_POLICY does for "high".
+
+def _v1_refusal(policy: dict[str, Any], bundle: Any) -> str | None:
+    """Why a V1 bundle is refused under `policy`, or None.
+
+    A V1 bundle has one Ed25519 signature and no post-quantum one, so it passes
+    only where VERIFICATION.md V2-10 would accept a classical-only bundle:
+    allow_v1_bundles is true, and the stricter of the policy mode for the
+    passport's risk_tier (default_mode when it has none) and the mode of the
+    security tier of the V1 intent and policy decision is classical_only or
+    hybrid_preferred. V1 risk_score is 0 to 1: it is scaled by 1000 and rounded,
+    and a missing or invalid one fails closed to elevated.
     """
     if not policy.get("allow_v1_bundles"):
         return "V1 bundles are not accepted: verifier policy allow_v1_bundles is false"
-    modes = [policy["default_mode"], *(policy.get("risk_overrides") or {}).values()]
-    strict = next((m for m in modes if m in ("hybrid_required", "pq_only")), None)
-    if strict:
-        return (
-            f"V1 bundles are not accepted: the verifier policy requires {strict} for a risk tier, "
-            "and a V1 bundle has no post-quantum signature"
-        )
-    return None
+    b = bundle if isinstance(bundle, dict) else {}
+    passport = b.get("agent_passport") if isinstance(b.get("agent_passport"), dict) else {}
+    if "risk_tier" not in passport:
+        policy_mode = policy["default_mode"]
+    else:
+        risk_tier = passport["risk_tier"]
+        if not (isinstance(risk_tier, str) and risk_tier in _RISK_TIERS and risk_tier in policy["risk_overrides"]):
+            return f"V1 bundles are not accepted: agent_passport risk_tier {_printable(risk_tier)} is not low, medium or high"
+        policy_mode = policy["risk_overrides"][risk_tier]
+    decision = b.get("policy_decision") if isinstance(b.get("policy_decision"), dict) else {}
+    score = decision.get("risk_score")
+    known = isinstance(score, (int, float)) and not isinstance(score, bool) and 0 <= score <= 1
+    risk_score = math.floor(score * 1000 + 0.5) if known else None
+    intent = b.get("intent") if isinstance(b.get("intent"), dict) else {}
+    tier = compute_security_tier(intent, {"risk_score": risk_score})
+    mode = effective_verification_mode(policy_mode, tier)
+    if mode in ("classical_only", "hybrid_preferred"):
+        return None
+    return (
+        f"V1 bundles are not accepted here: the policy requires {mode} for this bundle "
+        f"(security tier {tier}), and a V1 bundle has no post-quantum signature"
+    )
 
 
 def _detect_version(signed_bundle: Any) -> Optional[str]:
@@ -153,6 +190,8 @@ def _v2_shape_errors(signed_bundle: dict[str, Any]) -> list[str]:
             errors.append(f"Missing composite_sig in {artifact}")
     if not isinstance(bundle.get("audit_entries"), list):
         errors.append("Missing or invalid audit_entries")
+    if bundle.get("pq_checkpoints") is not None and not isinstance(bundle["pq_checkpoints"], list):
+        errors.append("Invalid pq_checkpoints")
 
     cs = signature.get("composite_sig") if isinstance(signature, dict) else None
     if not isinstance(cs, dict) or not cs:
@@ -170,6 +209,9 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
     `verifier_policy` (a dict of VerifierPolicy fields set over
     DEFAULT_VERIFIER_POLICY, or a full VerifierPolicy) is passed to
     verify_signed_bundle_v2 and also decides whether V1 bundles are accepted.
+    `dcp_version` is stored but not enforced: whether V1 bundles are accepted
+    is up to the policy (allow_v1_bundles and the V1 rule of _v1_refusal), and
+    require_dcp_v2 restricts a route to V2.
     """
 
     def __init__(
@@ -185,7 +227,6 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
         self.header_name = header_name
         self.dcp_version = dcp_version
         self.verifier_policy = _resolve_verifier_policy(verifier_policy)
-        self._v1_refusal = _v1_refusal(self.verifier_policy)
 
     async def dispatch(self, request: Request, call_next: Any) -> Any:
         signed_bundle = None
@@ -194,7 +235,8 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
         if header_value:
             try:
                 signed_bundle = json.loads(header_value)
-            except (json.JSONDecodeError, TypeError):
+            except (ValueError, TypeError, RecursionError):
+                # Not JSON, an integer over Python's 4300-digit limit, or nesting too deep.
                 pass
 
         if not signed_bundle:
@@ -219,7 +261,10 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
             if errors:
                 result = {"verified": False, "errors": errors, "warnings": [], "details": {}}
             else:
-                result = await verify_signed_bundle_v2(signed_bundle, _REGISTRY, self.verifier_policy)
+                try:
+                    result = await verify_signed_bundle_v2(signed_bundle, _REGISTRY, self.verifier_policy)
+                except RecursionError:
+                    result = {"verified": False, "errors": ["Signed bundle is nested too deeply"], "warnings": []}
             if not result["verified"]:
                 return JSONResponse(
                     status_code=403,
@@ -255,11 +300,14 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
                 warnings=list(result["warnings"]),
             )
         elif version == "1.0":
-            result = (
-                {"verified": False, "errors": [self._v1_refusal]}
-                if self._v1_refusal
-                else verify_signed_bundle(signed_bundle)
-            )
+            refusal = _v1_refusal(self.verifier_policy, signed_bundle.get("bundle"))
+            if refusal:
+                result = {"verified": False, "errors": [refusal]}
+            else:
+                try:
+                    result = verify_signed_bundle(signed_bundle)
+                except RecursionError:
+                    result = {"verified": False, "errors": ["Signed bundle is nested too deeply"]}
             if not result["verified"]:
                 return JSONResponse(
                     status_code=403,

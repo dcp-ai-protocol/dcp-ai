@@ -677,10 +677,36 @@ class TestFastAPIMiddlewareV1:
         assert response.status_code == 200, response.json()
         assert response.json()["agent_id"] == "did:agent:agent123"
 
-    def test_rejects_a_v1_bundle_under_the_default_policy(self):
+    def test_accepts_the_v1_conformance_bundle_under_the_default_policy(self):
+        # risk_tier medium (hybrid_preferred), a send_email intent with risk_score 0.21 (standard tier).
         response = self._post(self._v1_bundle())
+        assert response.status_code == 200, response.json()
+
+    def test_refuses_a_v1_payment_intent_under_the_default_policy(self, monkeypatch):
+        import dcp_ai.fastapi
+
+        calls = []
+        monkeypatch.setattr(dcp_ai.fastapi, "verify_signed_bundle", lambda *a: calls.append(a) or {"verified": True})
+        payment = self._v1_bundle()
+        payment["bundle"]["intent"]["action_type"] = "initiate_payment"
+        response = self._post(payment)
         assert response.status_code == 403
-        assert any("V1" in e for e in response.json()["errors"])
+        assert any("V1 bundles are not accepted here" in e and "elevated" in e for e in response.json()["errors"])
+        assert calls == []
+
+    def test_refuses_a_v1_bundle_without_a_risk_score(self):
+        unscored = self._v1_bundle()
+        del unscored["bundle"]["policy_decision"]["risk_score"]
+        response = self._post(unscored)
+        assert response.status_code == 403
+        assert any("V1 bundles are not accepted here" in e for e in response.json()["errors"])
+
+    def test_refuses_a_v1_bundle_whose_risk_tier_is_unknown(self):
+        odd = self._v1_bundle()
+        odd["bundle"]["agent_passport"]["risk_tier"] = "constructor"
+        response = self._post(odd)
+        assert response.status_code == 403
+        assert any("risk_tier" in e for e in response.json()["errors"])
 
     def test_rejects_a_v1_bundle_when_v1_is_not_allowed(self):
         response = self._post(
@@ -707,3 +733,92 @@ class TestFastAPIMiddlewareV1:
         assert response.status_code == 403
         assert any("version" in e.lower() for e in response.json()["errors"])
         assert calls == []
+
+
+class TestFastAPIMiddlewareHardening:
+    """Hostile input gets a 4xx, never a 500; the policy is resolved as documented."""
+
+    @staticmethod
+    def _client(**kwargs):
+        from fastapi import FastAPI, Request
+        from fastapi.testclient import TestClient
+        from dcp_ai.fastapi import DCPVerifyMiddleware
+
+        app = FastAPI()
+        app.add_middleware(DCPVerifyMiddleware, require_bundle=True, **kwargs)
+
+        @app.post("/action")
+        async def action(request: Request):
+            return {"agent": request.state.dcp_agent.agent_id}
+
+        return TestClient(app, raise_server_exceptions=False)
+
+    @pytest.mark.parametrize(
+        "raw",
+        [
+            '{"bundle": {"dcp_bundle_version": "2.0", "n": ' + "9" * 4301 + "}}",
+            "[" * 5000 + "]" * 5000,
+            '{"bundle": {"responsible_principal_record": {"dcp_version": "1.0", "x": ' + '{"a": ' * 5000 + "1" + "}" * 5000 + "}}}",
+        ],
+        ids=["4301-digit integer", "deep array", "deep V1 object"],
+    )
+    def test_hostile_header_gets_403(self, raw):
+        response = self._client().post("/action", headers={"x-dcp-bundle": raw})
+        assert response.status_code == 403
+
+    def test_rejects_pq_checkpoints_that_are_not_a_list(self):
+        with open(_BUNDLE_VECTORS) as f:
+            signed = json.load(f)["signed_bundle"]
+        signed["bundle"]["pq_checkpoints"] = {}
+        response = self._client().post("/action", json={"signed_bundle": signed})
+        assert response.status_code == 403
+        assert "Invalid pq_checkpoints" in response.json()["errors"]
+
+    def test_risk_overrides_none_keeps_the_default_tiers(self):
+        from dcp_ai.fastapi import DCPVerifyMiddleware
+        from dcp_ai.v2.verify import DEFAULT_VERIFIER_POLICY
+
+        policy = DCPVerifyMiddleware(MagicMock(), verifier_policy={"risk_overrides": None}).verifier_policy
+        assert policy["risk_overrides"] == DEFAULT_VERIFIER_POLICY["risk_overrides"]
+
+    def test_an_unknown_risk_tier_raises(self):
+        from dcp_ai.fastapi import DCPVerifyMiddleware
+
+        with pytest.raises(ValueError, match="risk tier"):
+            DCPVerifyMiddleware(MagicMock(), verifier_policy={"risk_overrides": {"critical": "pq_only"}})
+
+    def test_a_verifier_policy_instance_without_risk_overrides_applies_its_mode_everywhere(self):
+        from dcp_ai.fastapi import DCPVerifyMiddleware
+        from dcp_ai.v2.models import VerifierPolicy
+
+        policy = DCPVerifyMiddleware(
+            MagicMock(), verifier_policy=VerifierPolicy(default_mode="classical_only", risk_overrides=None)
+        ).verifier_policy
+        assert policy["risk_overrides"] == dict.fromkeys(("low", "medium", "high"), "classical_only")
+
+
+def _bundle_vector_cases():
+    with open(_BUNDLE_VECTORS) as f:
+        vectors = json.load(f)
+    cases = [pytest.param(vectors["signed_bundle"], None, id="accept signed_bundle")]
+    cases += [pytest.param(c["signed_bundle"], None, id=f"accept {c['name']}") for c in vectors["must_accept_bundles"]]
+    for c in vectors["must_reject"]:
+        signed = copy.deepcopy(vectors["signed_bundle"])
+        for mutation in c["mutations"]:
+            node = signed
+            for key in mutation["path"][:-1]:
+                node = node[key]
+            node[mutation["path"][-1]] = mutation["value"]
+        cases.append(pytest.param(signed, c["error_contains"], id=f"reject {c['name']}"))
+    cases += [pytest.param(c["signed_bundle"], c["error_contains"], id=f"reject {c['name']}") for c in vectors["must_reject_bundles"]]
+    return cases
+
+
+@pytest.mark.parametrize("signed_bundle,error_contains", _bundle_vector_cases())
+def test_fastapi_middleware_on_the_shared_bundle_vectors(signed_bundle, error_contains):
+    response = TestFastAPIMiddlewareV2._client().post("/action", json={"signed_bundle": signed_bundle})
+    if error_contains is None:
+        assert response.status_code == 200, response.json()
+    else:
+        assert response.status_code == 403
+        assert error_contains.lower() in " ".join(response.json()["errors"]).lower()
