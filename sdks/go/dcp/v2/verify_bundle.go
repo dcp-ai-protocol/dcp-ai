@@ -63,10 +63,12 @@ func VerifySignedBundleV2(registry *AlgorithmRegistry, signedBundleJSON []byte) 
 // of the policy mode (DefaultMode, or the RiskOverrides entry for the passport's
 // risk_tier) and the security tier's mode (spec §14.3).
 // Besides DefaultMode and RiskOverrides, only the Phase 3 fields and the session
-// bound are enforced, as in the TypeScript SDK: AdvisoryRejectedAlgs,
-// WarnClassicalOnlyDeprecated, AllowClassicalFallbackDisable and
-// MaxSessionDurationSeconds. A policy that changes any other field fails
-// verification instead of having the setting ignored.
+// and audience fields are enforced, as in the TypeScript SDK:
+// AdvisoryRejectedAlgs, WarnClassicalOnlyDeprecated,
+// AllowClassicalFallbackDisable, MaxSessionDurationSeconds,
+// RequireSessionExpiry, RequireAudienceBinding and VerifierID. A policy that
+// changes any other field fails verification instead of having the setting
+// ignored.
 func VerifySignedBundleV2WithPolicy(registry *AlgorithmRegistry, signedBundleJSON []byte, policy VerifierPolicy) *V2VerificationResult {
 	result := &V2VerificationResult{
 		DCPVersion: "2.0",
@@ -79,8 +81,10 @@ func VerifySignedBundleV2WithPolicy(registry *AlgorithmRegistry, signedBundleJSO
 	enforced.WarnClassicalOnlyDeprecated = policy.WarnClassicalOnlyDeprecated
 	enforced.AdvisoryRejectedAlgs = policy.AdvisoryRejectedAlgs
 	enforced.MaxSessionDurationSeconds = policy.MaxSessionDurationSeconds
+	enforced.RequireSessionExpiry = policy.RequireSessionExpiry
+	enforced.RequireAudienceBinding, enforced.VerifierID = policy.RequireAudienceBinding, policy.VerifierID
 	if !reflect.DeepEqual(policy, enforced) {
-		result.Errors = append(result.Errors, "Verifier policy sets fields this verifier does not enforce: only DefaultMode, RiskOverrides, MaxSessionDurationSeconds and the Phase 3 fields may differ from DefaultVerifierPolicy")
+		result.Errors = append(result.Errors, "Verifier policy sets fields this verifier does not enforce: only DefaultMode, RiskOverrides, MaxSessionDurationSeconds, RequireSessionExpiry, RequireAudienceBinding, VerifierID and the Phase 3 fields may differ from DefaultVerifierPolicy")
 		return result
 	}
 
@@ -137,6 +141,7 @@ func VerifySignedBundleV2WithPolicy(registry *AlgorithmRegistry, signedBundleJSO
 	verifyManifestHashes(bundle, manifest, result)
 	verifySessionNonceConsistency(bundle, manifestNonce, result)
 	verifySessionTimes(manifest, policy, result)
+	verifyAudience(manifest, policy, result)
 	verifyConsistency(bundle, result)
 	mode := resolveVerificationMode(bundle, policy, result)
 	if mode == "" {
@@ -241,6 +246,7 @@ func secondsBetween(from, to time.Time) float64 {
 // MaxSessionDurationSeconds bounds session_expires_at minus session_issued_at
 // and requires both: signature.created_at is outside the signed manifest and
 // is never read, and a session without an expiry is not one that never ends.
+// RequireSessionExpiry requires session_expires_at under any policy.
 func verifySessionTimes(manifest map[string]interface{}, policy VerifierPolicy, result *V2VerificationResult) {
 	now := nowMillis()
 	fail := func(format string, args ...interface{}) {
@@ -279,6 +285,9 @@ func verifySessionTimes(manifest map[string]interface{}, policy VerifierPolicy, 
 		}
 	}
 
+	if !expiresPresent && policy.RequireSessionExpiry {
+		fail("Policy requires session_expires_at but manifest does not include it")
+	}
 	if policy.MaxSessionDurationSeconds <= 0 {
 		return
 	}
@@ -293,6 +302,22 @@ func verifySessionTimes(manifest map[string]interface{}, policy VerifierPolicy, 
 		if d := secondsBetween(issued, expires); d > float64(policy.MaxSessionDurationSeconds) {
 			fail("Session duration %.0fs exceeds policy max of %ds", d, policy.MaxSessionDurationSeconds)
 		}
+	}
+}
+
+// verifyAudience applies the policy's audience binding: with
+// RequireAudienceBinding the manifest must name its intended_verifier, and
+// with VerifierID set too, name this verifier.
+func verifyAudience(manifest map[string]interface{}, policy VerifierPolicy, result *V2VerificationResult) {
+	if !policy.RequireAudienceBinding {
+		return
+	}
+	intended, _ := manifest["intended_verifier"].(string)
+	switch {
+	case intended == "":
+		result.Errors = append(result.Errors, "Policy requires audience binding but manifest does not include intended_verifier")
+	case policy.VerifierID != "" && intended != policy.VerifierID:
+		result.Errors = append(result.Errors, fmt.Sprintf("Bundle intended for verifier '%s', not '%s'", intended, policy.VerifierID))
 	}
 }
 

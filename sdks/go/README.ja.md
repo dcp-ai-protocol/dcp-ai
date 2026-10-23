@@ -152,7 +152,7 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 | `v2.BuildBundleV2(input)` | 署名済みの成果物から、マニフェストハッシュとデュアルMerkleルート付きのV2バンドルを構築 |
 | `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | 複合または古典のみの署名でバンドルに署名。署名者はバンドルの責任主体 (`signer.id` = RPR の `human_id`) |
 | `v2.VerifySignedBundleV2(reg, jsonBytes)` | V2バンドルの完全検証 (構造、ハッシュ、署名、監査チェーン)。`DefaultVerifierPolicy` を使い、ポリシーのモードとセキュリティティアのモードのうち厳しい方で検証（spec §14.3）。`ResolvedTier` と `VerificationMode` を返す |
-| `v2.VerifySignedBundleV2WithPolicy(reg, jsonBytes, policy)` | 独自の `VerifierPolicy` で同じ検証を行う。`DefaultVerifierPolicy()` と異なってよいのは `DefaultMode`、`RiskOverrides`、`MaxSessionDurationSeconds` と Phase 3 のフィールド（`AdvisoryRejectedAlgs`、`WarnClassicalOnlyDeprecated`、`AllowClassicalFallbackDisable`。意味は TypeScript と同じ）だけで、それ以外を変えると検証は失敗する |
+| `v2.VerifySignedBundleV2WithPolicy(reg, jsonBytes, policy)` | 独自の `VerifierPolicy` で同じ検証を行う。`DefaultVerifierPolicy()` と異なってよいのは `DefaultMode`、`RiskOverrides`、`MaxSessionDurationSeconds`、`RequireSessionExpiry`、`RequireAudienceBinding`、`VerifierID` と Phase 3 のフィールド（`AdvisoryRejectedAlgs`、`WarnClassicalOnlyDeprecated`、`AllowClassicalFallbackDisable`。意味は TypeScript と同じ）だけで、それ以外を変えると検証は失敗する |
 
 ### セキュリティティア
 
