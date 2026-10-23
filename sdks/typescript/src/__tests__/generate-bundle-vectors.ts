@@ -268,7 +268,11 @@ async function main() {
       if (c.carried ?? true) bundle.pq_checkpoints = [signedCheckpoint as never];
       if (c.listed ?? true) bundle.manifest.pq_checkpoints = [checkpoint.checkpoint_id];
     }
-    Object.assign(bundle.manifest, { session_expires_at: '2099-12-31T23:59:59+05:00' }, variant.manifest);
+    Object.assign(
+      bundle.manifest,
+      { session_issued_at: '2026-10-21T00:00:00Z', session_expires_at: '2099-12-31T23:59:59+05:00' },
+      variant.manifest,
+    );
     const signer = { registry, signerType: 'human' as const, signerId: rpr.human_id };
     const bundleKeys = variant.bundleKeys ?? principalKeys;
     const signedBundle = variant.classicalOnly
@@ -301,6 +305,19 @@ async function main() {
   });
 
   const mustReject = [
+    // The unsigned signer block must not contradict the signature (V2-4).
+    {
+      name: 'signature_signer_id_other',
+      spec_step: 'V2-4',
+      error_contains: 'signer id',
+      mutations: [set(['signature', 'signer', 'id'], 'human:someone-else')],
+    },
+    {
+      name: 'signature_signer_kids_other',
+      spec_step: 'V2-4',
+      error_contains: 'signer kids',
+      mutations: [set(['signature', 'signer', 'kids'], [agent.classical.kid, agent.pq.kid])],
+    },
     {
       name: 'bundle_pq_signature_invalid',
       spec_step: 'V2-7',
@@ -772,6 +789,26 @@ async function main() {
     })),
     // The session duration bound reads only signed data (V2-4): signature.created_at
     // is set an hour before the session ends, outside the manifest.
+    // The session start is the signed session_issued_at (V2-4).
+    {
+      name: 'session_issued_at_missing_under_policy_max',
+      spec_step: 'V2-4',
+      error_contains: 'session_issued_at',
+      verifier_policy_overrides: { max_session_duration_seconds: 3600 },
+      variant: { manifest: { session_issued_at: undefined } },
+    },
+    ...['2099-01-01T00:00:00Z', 'n/a', '2026-10-21'].map((value, i): BundleCase => ({
+      name: `session_issued_at_${['in_the_future', 'not_a_timestamp', 'date_only'][i]}`,
+      spec_step: 'V2-4',
+      error_contains: 'session_issued_at',
+      variant: { manifest: { session_issued_at: value } },
+    })),
+    {
+      name: 'audit_entry_policy_decision_other',
+      spec_step: 'V2-14',
+      error_contains: 'audit_entries[0] policy_decision',
+      variant: { audit: { policy_decision: 'blocked' } },
+    },
     {
       name: 'session_longer_than_policy_max_with_late_created_at',
       spec_step: 'V2-4',
@@ -868,6 +905,26 @@ async function main() {
         name: 'rpr_expires_in_the_future',
         spec_step: 'V2-14',
         signed_bundle: (await build({ rpr: { expires_at: '2099-12-31T23:59:59Z' } })).signedBundle,
+      },
+      // A bundle is evidence of what happened, including an action the policy escalated or blocked.
+      ...(await Promise.all(
+        (['escalate', 'block'] as const).map(async (decision) => ({
+          name: `${decision === 'block' ? 'blocked' : 'escalated'}_action_recorded`,
+          spec_step: 'V2-14',
+          signed_bundle: (
+            await build({
+              policyDecision: { decision, required_confirmation: { type: 'human_approve', fields: ['action_type'] } },
+              audit: { policy_decision: decision === 'block' ? 'blocked' : 'escalated' },
+            })
+          ).signedBundle,
+        })),
+      )),
+      {
+        // 2026-10-21 to 2099-12-31 is about 2.3e9 seconds.
+        name: 'session_within_policy_max',
+        spec_step: 'V2-4',
+        verifier_policy_overrides: { max_session_duration_seconds: 3_000_000_000 },
+        signed_bundle: (await build()).signedBundle,
       },
     ],
     must_reject_bundles: await Promise.all(
