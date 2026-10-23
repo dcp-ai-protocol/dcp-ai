@@ -136,7 +136,7 @@ intended_verifier and no session window, is accepted only when the policy has `a
 accepts ed25519 (`accepted_classical_algs`, no `advisory_rejected_algs` entry), requires no
 audience binding, session expiry or maximum session duration, and would accept a classical-only
 bundle for its risk tier and security tier (`spec/VERIFICATION.md` V2-10); its artifacts must be
-objects. The
+objects, its passport `agent_id` and RPR `human_id` strings. The
 result is `Bundle VERIFIED (v<version>) for agent <agent_id>` or `Bundle INVALID: <errors>`, with
 the verifier's errors. The text is bounded (at most 20 errors of 500 characters, an `agent_id` of
 200) and the parts that come from the bundle have their control and format characters escaped
