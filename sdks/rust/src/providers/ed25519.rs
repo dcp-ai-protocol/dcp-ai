@@ -39,9 +39,10 @@ impl CryptoProvider for Ed25519Provider {
     fn sign(&self, message: &[u8], secret_key_b64: &str) -> Result<Vec<u8>, CryptoError> {
         let sk_bytes = BASE64.decode(secret_key_b64)
             .map_err(|e| CryptoError::KeyError(format!("base64 decode: {}", e)))?;
-        let key_bytes: [u8; 32] = sk_bytes[..32]
-            .try_into()
-            .map_err(|_| CryptoError::KeyError("invalid secret key length".into()))?;
+        let key_bytes: [u8; 32] = sk_bytes
+            .get(..32)
+            .and_then(|seed| seed.try_into().ok())
+            .ok_or_else(|| CryptoError::KeyError("invalid secret key length".into()))?;
         let signing_key = SigningKey::from_bytes(&key_bytes);
         let sig = signing_key.sign(message);
         Ok(sig.to_bytes().to_vec())
@@ -66,6 +67,12 @@ impl CryptoProvider for Ed25519Provider {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_short_secret_key_is_an_error_not_a_panic() {
+        let err = Ed25519Provider.sign(b"m", &BASE64.encode([1u8, 2, 3])).unwrap_err();
+        assert!(err.to_string().contains("invalid secret key length"), "{err}");
+    }
 
     #[test]
     fn test_keypair_generation() {
