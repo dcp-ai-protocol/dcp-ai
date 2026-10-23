@@ -2,30 +2,35 @@
 DCP v2.0 signed bundle verification — Python port of the TypeScript SDK's
 core/verify-v2.ts.
 
-Pipeline: payload hashes, session nonce binding and expiry, audience binding,
-manifest integrity, the verification mode, the bundle composite signature over
-the manifest, each artifact's own composite signature (VERIFICATION.md V2-8),
-the audit prev_hash chain and key validity. The policy is verifier-authoritative:
-the bundle has no say in it, and the mode is the stricter of the policy mode and
-the security tier's mode (spec §14.3), so the agent's own risk_tier and intent
-can raise it but never lower it.
+Pipeline: payload hashes, session nonce binding, expiry and signed start
+(session_issued_at, which a maximum session duration is measured from), audience
+binding, manifest integrity, cross-artifact consistency (VERIFICATION.md V2-14),
+the verification mode, the bundle composite signature over the manifest (by the
+principal: RPR binding_keys only, with a signer block that names them), each
+artifact's own composite signature (V2-8), the PQ checkpoints (V2-12), the audit
+prev_hash chain and key validity. The unsigned signature.created_at decides
+nothing. Every key that verifies a signature has a kid derived from it (V2-13). The
+policy is verifier-authoritative: the bundle has no say in it, and the mode is
+the stricter of the policy mode and the security tier's mode (spec §14.3), so the
+agent's own risk_tier and intent can raise it but never lower it.
 
 A PQ signature that is present (pq_over_classical) must verify in every mode;
 only an absent one (classical_only) may be tolerated, by hybrid_preferred and
 classical_only (VERIFICATION.md V2-7).
 
-Not verified, as in the TypeScript SDK: PQ checkpoint contents and signatures
-(VERIFICATION.md V2-12; only their IDs are bound to the manifest) and the
-manifest's audit_merkle_root_secondary. Do not rely on either after verification.
+Not verified, as in the TypeScript SDK: the manifest's audit_merkle_root_secondary.
+Do not rely on it after verification.
 """
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import base64
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from dcp_ai.v2.canonicalize import canonicalize_v2
 from dcp_ai.v2.composite_ops import composite_verify
+from dcp_ai.v2.crypto_provider import derive_kid
 from dcp_ai.v2.crypto_registry import AlgorithmRegistry
 from dcp_ai.v2.domain_separation import DCP_CONTEXTS
 from dcp_ai.v2.models import VerifierPolicy
@@ -96,6 +101,27 @@ def _find_key(keys: list[dict[str, Any]], kid: str) -> dict[str, Any] | None:
     return next((k for k in keys if k.get("kid") == kid), None)
 
 
+def _kid_matches_key(key: dict[str, Any]) -> bool:
+    """V2-13: a kid is derived from its key entry's alg and raw public key."""
+    try:
+        public_key = key.get("public_key_b64")
+        return isinstance(public_key, str) and derive_kid(key["alg"], base64.b64decode(public_key)) == key.get("kid")
+    except Exception:  # a malformed alg or public key derives nothing
+        return False
+
+
+# How far in the future a signed session start may be (V2-4), as DCP-04 allows for timestamps.
+_SESSION_CLOCK_SKEW = timedelta(seconds=30)
+
+# The audit entry record of each policy decision (V2-14).
+_AUDITED_DECISION = {"approve": "approved", "escalate": "escalated", "block": "blocked"}
+
+
+def _same_id(a: Any, b: Any) -> bool:
+    """Two identifiers that are the same string; two missing ones are not the same."""
+    return isinstance(a, str) and a == b
+
+
 async def _check_composite_sig(
     registry: AlgorithmRegistry,
     policy: dict[str, Any],
@@ -156,6 +182,9 @@ async def _check_composite_sig(
         return fail(f"PQ signer key kid={pq['kid']} is {pq_key.get('alg')}, not {pq['alg']}")
     if mode == "pq_only" and pq_key is None:
         return fail("pq_only mode requires PQ key, but no PQ key found")
+    for key in (signer_key, pq_key):
+        if key is not None and not _kid_matches_key(key):
+            return fail(f"Key {key.get('kid')} is not derived from its public key (V2-13)")
 
     try:
         result = await composite_verify(
@@ -191,6 +220,159 @@ async def _check_composite_sig(
         errors.append(f"Unknown verification mode: {mode}")
 
     return result.valid, errors, warnings
+
+
+def _signer_block_errors(signature: dict[str, Any], rpr: dict[str, Any]) -> list[str]:
+    """The unsigned signer block must not contradict the signature (V2-4).
+
+    signer.id is the RPR human_id; signer.kids are the composite_sig kids, the
+    classical one and then the PQ one when present.
+    """
+    errors: list[str] = []
+    signer = signature.get("signer")
+    signer = signer if isinstance(signer, dict) else {}
+    sig = signature.get("composite_sig")
+    sig = sig if isinstance(sig, dict) else {}
+    classical, pq = sig.get("classical"), sig.get("pq")
+    signed_kids = [classical.get("kid") if isinstance(classical, dict) else None]
+    if pq:
+        signed_kids.append(pq.get("kid") if isinstance(pq, dict) else None)
+    signer_kids = signer.get("kids")
+    if not _same_id(signer.get("id"), rpr.get("human_id")):
+        errors.append(f"signature signer id {signer.get('id')} is not the RPR human_id")
+    if (
+        not isinstance(signer_kids, list)
+        or len(signer_kids) != len(signed_kids)
+        or not all(_same_id(k, signed) for k, signed in zip(signer_kids, signed_kids))
+    ):
+        errors.append("signature signer kids do not name the bundle signature keys")
+    return errors
+
+
+def _consistency_errors(bundle: dict[str, Any], intent_hash: str) -> list[str]:
+    """V2-14: the artifacts describe one action, by one agent, for one principal.
+
+    The signatures say who signed each artifact; these checks tie them together.
+    """
+    errors: list[str] = []
+    rpr = bundle["responsible_principal_record"]["payload"]
+    passport = bundle["agent_passport"]["payload"]
+    intent = bundle["intent"]["payload"]
+    policy = bundle["policy_decision"]["payload"]
+
+    status = passport.get("status")
+    if not (isinstance(status, str) and status in ("active", "declining")):
+        errors.append(f"agent_passport status is {status}, not active (DCP-05 § 3.1)")
+    rpr_expires_at = rpr.get("expires_at")
+    if rpr_expires_at is not None:
+        rpr_expires = parse_rfc3339(rpr_expires_at)
+        if rpr_expires is None:
+            errors.append(f"responsible_principal_record has an invalid expires_at: {rpr_expires_at}")
+        elif rpr_expires < datetime.now(timezone.utc):
+            errors.append(f"responsible_principal_record expired at {rpr_expires_at}")
+    if not _same_id(passport.get("principal_binding_reference"), rpr.get("human_id")):
+        errors.append("agent_passport principal_binding_reference is not the RPR human_id")
+    if not _same_id(intent.get("agent_id"), passport.get("agent_id")):
+        errors.append("intent agent_id is not the passport agent_id")
+    if not _same_id(intent.get("human_id"), rpr.get("human_id")):
+        errors.append("intent human_id is not the RPR human_id")
+    if not _same_id(policy.get("intent_id"), intent.get("intent_id")):
+        errors.append("policy_decision intent_id is not the intent intent_id")
+    decision = policy.get("decision")
+    audited = _AUDITED_DECISION.get(decision) if isinstance(decision, str) else None
+    for i, entry in enumerate(bundle["audit_entries"]):
+        e = entry if isinstance(entry, dict) else {}
+        if not _same_id(e.get("intent_id"), intent.get("intent_id")):
+            errors.append(f"audit_entries[{i}] intent_id is not the intent intent_id")
+        if not _same_id(e.get("intent_hash"), intent_hash):
+            errors.append(f"audit_entries[{i}] intent_hash is not the intent payload hash")
+        if not _same_id(e.get("agent_id"), passport.get("agent_id")):
+            errors.append(f"audit_entries[{i}] agent_id is not the passport agent_id")
+        if not _same_id(e.get("human_id"), rpr.get("human_id")):
+            errors.append(f"audit_entries[{i}] human_id is not the RPR human_id")
+        if not _same_id(e.get("policy_decision"), audited):
+            errors.append(
+                f"audit_entries[{i}] policy_decision {e.get('policy_decision')} "
+                f"does not record the decision {decision}"
+            )
+    return errors
+
+
+def _audit_index(entries: list[Any], audit_id: Any) -> int:
+    """Index of the first audit entry whose audit_id is the string `audit_id`, or -1."""
+    if not isinstance(audit_id, str):
+        return -1
+    return next((i for i, e in enumerate(entries) if isinstance(e, dict) and e.get("audit_id") == audit_id), -1)
+
+
+async def _check_pq_checkpoints(
+    registry: AlgorithmRegistry,
+    policy: dict[str, Any],
+    mode: str,
+    bundle: dict[str, Any],
+    passport_keys: list[dict[str, Any]],
+) -> list[str]:
+    """V2-12: the bundle carries exactly the checkpoints its signed manifest lists.
+
+    Each covers a contiguous run of audit entries, with their Merkle root, and is
+    signed by the agent with both algorithms (the PQ one alone under pq_only).
+    """
+    manifest = bundle["manifest"]
+    listed = manifest.get("pq_checkpoints")
+    carried = bundle.get("pq_checkpoints")
+    listed = [] if listed is None else listed
+    carried = [] if carried is None else carried
+    if not isinstance(listed, list) or not isinstance(carried, list):
+        return ["pq_checkpoints: manifest list and bundle checkpoints must be arrays"]
+
+    errors: list[str] = []
+    by_id: dict[str, dict[str, Any]] = {}
+    for cp in carried:
+        cid = cp.get("checkpoint_id") if isinstance(cp, dict) else None
+        if not isinstance(cid, str) or cid in by_id:
+            errors.append(f"pq_checkpoints: checkpoint {cid} is missing an id or carried twice")
+        else:
+            by_id[cid] = cp
+    listed_ids = [lid for lid in listed if isinstance(lid, str)]
+    if len(set(listed_ids)) != len(listed_ids):
+        errors.append("pq_checkpoints: the manifest lists a checkpoint twice")
+    for lid in listed:
+        if not isinstance(lid, str) or lid not in by_id:
+            errors.append(f"pq_checkpoints: manifest lists {lid}, which the bundle does not carry")
+    for cid in by_id:
+        if cid not in listed_ids:
+            errors.append(f"pq_checkpoints: {cid} is not listed in the manifest")
+    if errors:
+        return errors
+
+    entries = bundle["audit_entries"]
+    cp_mode = "pq_only" if mode == "pq_only" else "hybrid_required"
+    for cid, cp in by_id.items():
+        label = f"pq_checkpoints[{cid}]"
+        if not _same_id(cp.get("session_nonce"), manifest.get("session_nonce")):
+            errors.append(f"{label}: session_nonce is not the manifest's")
+            continue
+        event_range = cp.get("event_range")
+        if not isinstance(event_range, dict):
+            event_range = {}
+        start = _audit_index(entries, event_range.get("from_audit_id"))
+        end = _audit_index(entries, event_range.get("to_audit_id"))
+        count = event_range.get("count")
+        if start < 0 or end < start or isinstance(count, bool) or count != end - start + 1:
+            errors.append(f"{label}: event_range does not match the audit entries")
+            continue
+        if cp.get("merkle_root") != f"sha256:{audit_events_merkle_root(entries[start:end + 1])}":
+            errors.append(f"{label}: merkle_root does not match its audit entries")
+            continue
+        payload = {k: v for k, v in cp.items() if k != "composite_sig"}
+        valid, errs, _ = await _check_composite_sig(
+            registry, policy, cp_mode, DCP_CONTEXTS["AuditEvent"], payload, cp.get("composite_sig"),
+            passport_keys, "passport keys",
+        )
+        errors.extend(f"{label}: {e}" for e in errs)
+        if not valid and not errs:
+            errors.append(f"{label}: signature invalid")
+    return errors
 
 
 def _resolve_policy(policy: Any) -> dict[str, Any]:
@@ -286,16 +468,28 @@ async def _verify(
         errors.append("Policy requires session_expires_at but manifest does not include it")
         return
 
+    # The session start is the signed session_issued_at, never the unsigned
+    # signature.created_at (V2-4). Absent or null means none.
+    issued_at = manifest.get("session_issued_at")
+    issued = None
+    if issued_at is not None:
+        issued = parse_rfc3339(issued_at)
+        if issued is None:
+            errors.append(f"Invalid session_issued_at: {issued_at}")
+            return
+        if issued > datetime.now(timezone.utc) + _SESSION_CLOCK_SKEW:
+            errors.append(f"session_issued_at {issued_at} is in the future")
+            return
+        if expires is not None and issued > expires:
+            errors.append("session_issued_at is after session_expires_at")
+            return
+
     max_duration = policy.get("max_session_duration_seconds") or 0
     if max_duration > 0 and expires is not None:
-        # signature.created_at sits outside the signed manifest. Clamping it to now
-        # keeps honest bundles' verdict (same as TS), but a rewritten value can still
-        # shrink the check down to the session's remaining lifetime (not to zero).
-        # Closing that needs a signed session start in the manifest.
-        now = datetime.now(timezone.utc)
-        created_at = signature.get("created_at")
-        created = min(_parse_time(created_at), now) if created_at else now
-        duration = (expires - created).total_seconds()
+        if issued is None:
+            errors.append("Policy max_session_duration_seconds requires session_issued_at in the manifest")
+            return
+        duration = (expires - issued).total_seconds()
         if duration > max_duration:
             errors.append(f"Session duration {duration:g}s exceeds policy max of {max_duration}s")
 
@@ -320,9 +514,8 @@ async def _verify(
         expected = prepare_payload(bundle[name]["payload"])[1]
         if manifest.get(field) != expected:
             errors.append(f"Manifest {field} mismatch: expected {expected}")
-    checkpoint_ids = [c["checkpoint_id"] for c in bundle.get("pq_checkpoints") or []]
-    if (manifest.get("pq_checkpoints") or []) != checkpoint_ids:
-        errors.append("Manifest pq_checkpoints do not match the bundle's checkpoints")
+    # The manifest's pq_checkpoints are checked against the carried checkpoints
+    # with the checkpoints themselves (V2-12, step 7a).
     # An empty audit trail has the root 64 zeros (VERIFICATION.md V2-3).
     expected_root = audit_events_merkle_root(audit_entries) if audit_entries else "0" * 64
     if manifest.get("audit_merkle_root") != f"sha256:{expected_root}":
@@ -332,6 +525,12 @@ async def _verify(
             f"Manifest audit_count={manifest.get('audit_count')} but bundle has {len(audit_entries)} entries"
         )
     details["manifest_valid"] = not errors
+    if errors:
+        return
+
+    # 4a. Cross-artifact consistency (V2-14), against the intent's payload hash,
+    # which the manifest's intent_hash now matches.
+    errors.extend(_consistency_errors(bundle, manifest["intent_hash"]))
     if errors:
         return
 
@@ -353,13 +552,17 @@ async def _verify(
     if mode == "classical_only" and policy.get("warn_classical_only_deprecated"):
         warnings.append("DEPRECATION: classical_only mode is deprecated in Phase 3")
 
-    # 6. Bundle composite signature over the manifest (V2-6, V2-7, V2-10)
+    # 6. Bundle composite signature over the manifest (V2-6, V2-7, V2-10). The
+    # signer is the principal: only the RPR binding_keys verify it. The agent
+    # signs its own passport, so its keys cannot vouch for the principal.
     passport_keys = passport.get("keys") or []
     rpr_keys = bundle["responsible_principal_record"]["payload"].get("binding_keys") or []
     valid, errs, warns = await _check_composite_sig(
         registry, policy, mode, DCP_CONTEXTS["Bundle"], manifest, signature.get("composite_sig"),
-        passport_keys + rpr_keys, "passport or RPR",
+        rpr_keys, "RPR binding_keys",
     )
+    errs += _signer_block_errors(signature, bundle["responsible_principal_record"]["payload"])
+    valid = valid and not errs
     errors.extend(f"bundle: {e}" for e in errs)
     warnings.extend(f"bundle: {w}" for w in warns)
     details["signature_valid"] = valid
@@ -379,6 +582,11 @@ async def _verify(
         )
         errors.extend(f"{name}: {e}" for e in errs)
         warnings.extend(f"{name}: {w}" for w in warns)
+
+    # 7a. PQ checkpoints (V2-12)
+    checkpoint_errors = await _check_pq_checkpoints(registry, policy, mode, bundle, passport_keys)
+    errors.extend(checkpoint_errors)
+    details["pq_checkpoints_valid"] = not checkpoint_errors
 
     details["policy_satisfied"] = not errors
     if errors:
