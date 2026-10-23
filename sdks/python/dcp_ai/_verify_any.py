@@ -1,12 +1,13 @@
 """
-Signed bundle verification for the framework bridges (dcp_ai.langchain, dcp_ai.openai).
+Signed bundle verification shared by the framework bridges (dcp_ai.fastapi,
+dcp_ai.langchain, dcp_ai.openai): one registry, one verifier policy, one V1 rule.
 
 A V2 bundle is verified by verify_signed_bundle_v2 from dcp_ai.v2 under a verifier
 policy (a dict of VerifierPolicy fields set over DEFAULT_VERIFIER_POLICY, or a full
 VerifierPolicy), with one registry of the providers it needs (Ed25519, ML-DSA-65,
 SLH-DSA-192f). A V1 bundle (one Ed25519 signature) goes to dcp_ai.verify only where
-VERIFICATION.md V2-10 would accept a classical-only bundle, the rule the FastAPI
-middleware applies. Nothing here reports a V2 bundle verified on its own.
+VERIFICATION.md V2-10 would accept a classical-only bundle. Nothing here reports a V2
+bundle verified on its own.
 """
 
 from __future__ import annotations
