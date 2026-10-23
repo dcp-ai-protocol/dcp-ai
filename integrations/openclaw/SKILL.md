@@ -67,9 +67,12 @@ If you receive a DCP Signed Bundle from another agent, verify it:
 ```
 dcp_verify_bundle({
   signed_bundle: { ... },  // the full signed bundle JSON
-  public_key: "base64..."  // optional, uses bundle's signer key if omitted
+  public_key: "base64..."  // V1 only; a V2 bundle is checked against the keys it lists
 })
 ```
+
+The tool verifies the signatures with the DCP SDK verifier. Trust the bundle only when the result
+has `verified: true`; otherwise `errors` says why it was rejected.
 
 ## End of session
 

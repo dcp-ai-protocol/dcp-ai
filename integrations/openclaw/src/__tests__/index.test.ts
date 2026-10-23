@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, it, expect, beforeEach } from 'vitest';
 import register, {
   getSession,
@@ -242,6 +243,18 @@ describe('executeDeclareIntent', () => {
 // ---------------------------------------------------------------------------
 
 describe('executeVerifyBundle', () => {
+  // Cross-SDK vectors: every verifier must accept `signed_bundle` under `default_verifier_policy`.
+  const VECTORS = JSON.parse(
+    readFileSync(new URL('../../../../tests/interop/v2/bundle_vectors.json', import.meta.url), 'utf8'),
+  );
+  const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
+  const honest = () => clone(VECTORS.signed_bundle);
+  const flipFirstByte = (b64: string) => {
+    const bytes = Buffer.from(b64, 'base64');
+    bytes[0] ^= 0x01;
+    return bytes.toString('base64');
+  };
+
   it('rejects malformed input', async () => {
     const result = await executeVerifyBundle({ signed_bundle: {} });
     expect(result.verified).toBe(false);
@@ -264,7 +277,41 @@ describe('executeVerifyBundle', () => {
     expect(result.errors.some(e => e.includes('manifest'))).toBe(true);
   });
 
-  it('verifies a structurally valid V2 bundle', async () => {
+  it('verifies the honest interop bundle', async () => {
+    const signed = honest();
+    const result = await executeVerifyBundle({ signed_bundle: signed });
+    expect(result.errors).toEqual([]);
+    expect(result.verified).toBe(true);
+    expect(result.dcp_version).toBe('2.0');
+    expect(result.agent_id).toBe('agent:interop-bot');
+    expect(result.human_id).toBe('human:interop-principal');
+    expect(result.session_nonce).toBe(signed.bundle.manifest.session_nonce);
+  });
+
+  it('verifies a bundle signed by dcp_sign_bundle', async () => {
+    const SESSION_ID = 'test-verify-round-trip';
+    clearSession(SESSION_ID);
+    const tools = new Map<string, any>();
+    register({ registerTool: (tool: any) => tools.set(tool.name, tool) });
+    await executeIdentitySetup({ session_id: SESSION_ID, owner_name: 'Round Trip', jurisdiction: 'US' });
+    const intent = await executeDeclareIntent({
+      session_id: SESSION_ID,
+      action_type: 'api_call',
+      target_channel: 'api',
+      estimated_impact: 'low',
+    });
+    await executeLogAction({ session_id: SESSION_ID, intent_id: intent.intent_id, outcome: 'done' });
+    const { signed_bundle } = await tools.get('dcp_sign_bundle').execute('call-1', { session_id: SESSION_ID });
+
+    const result = await executeVerifyBundle({ signed_bundle });
+    expect(result.errors).toEqual([]);
+    expect(result.verified).toBe(true);
+
+    signed_bundle.bundle.intent.payload.action_type = 'initiate_payment';
+    expect((await executeVerifyBundle({ signed_bundle })).verified).toBe(false);
+  });
+
+  it('rejects a structurally valid but unsigned V2 bundle', async () => {
     const nonce = 'a'.repeat(64);
     const result = await executeVerifyBundle({
       signed_bundle: {
@@ -305,10 +352,57 @@ describe('executeVerifyBundle', () => {
         },
       },
     });
-    expect(result.verified).toBe(true);
+    expect(result.verified).toBe(false);
     expect(result.dcp_version).toBe('2.0');
-    expect(result.agent_id).toBe('agent:y');
-    expect(result.session_nonce).toBe(nonce);
+  });
+
+  it('rejects the bundle with a corrupted classical bundle signature', async () => {
+    const forged = honest();
+    forged.signature.composite_sig.classical.sig_b64 = flipFirstByte(forged.signature.composite_sig.classical.sig_b64);
+    const result = await executeVerifyBundle({ signed_bundle: forged });
+    expect(result.verified).toBe(false);
+    expect(result.errors.join(' ')).toMatch(/signature/i);
+  });
+
+  it('rejects the bundle with a corrupted PQ bundle signature under the default policy', async () => {
+    const forged = honest();
+    forged.signature.composite_sig.pq.sig_b64 = flipFirstByte(forged.signature.composite_sig.pq.sig_b64);
+    const result = await executeVerifyBundle({ signed_bundle: forged });
+    expect(result.verified).toBe(false);
+  });
+
+  it('rejects the bundle with a changed intent payload and the original signatures', async () => {
+    const forged = honest();
+    forged.bundle.intent.payload.action_type = 'initiate_payment';
+    const result = await executeVerifyBundle({ signed_bundle: forged });
+    expect(result.verified).toBe(false);
+    expect(result.errors.join(' ')).toMatch(/intent/);
+  });
+
+  it('rejects a different bundle carrying the honest bundle signature', async () => {
+    const other = clone(VECTORS.must_accept_bundles[0].signed_bundle);
+    other.signature.composite_sig = honest().signature.composite_sig;
+    const result = await executeVerifyBundle({ signed_bundle: other });
+    expect(result.verified).toBe(false);
+  });
+
+  it('applies verifier_policy.default_mode to every risk tier', async () => {
+    const classicalOnly = () => clone(VECTORS.classical_only_routine_bundle.signed_bundle);
+    expect((await executeVerifyBundle({ signed_bundle: classicalOnly() })).verified).toBe(true);
+    const result = await executeVerifyBundle({
+      signed_bundle: classicalOnly(),
+      verifier_policy: { default_mode: 'hybrid_required' },
+    });
+    expect(result.verified).toBe(false);
+  });
+
+  it('rejects an unknown verification mode', async () => {
+    const result = await executeVerifyBundle({
+      signed_bundle: honest(),
+      verifier_policy: { default_mode: 'none' as any },
+    });
+    expect(result.verified).toBe(false);
+    expect(result.errors.join(' ')).toMatch(/verification mode/);
   });
 
   it('does not let the intent lower its own security tier', async () => {
