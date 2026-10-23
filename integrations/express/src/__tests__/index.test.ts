@@ -562,68 +562,6 @@ describe('V1 bundles', () => {
 // Shared interop vectors (tests/interop/v2/bundle_vectors.json)
 // ---------------------------------------------------------------------------
 
-// Cases @dcp-ai/sdk 2.1.x cannot reject: it does not verify the per-artifact signatures
-// (VERIFICATION.md V2-8). They are expected failures until the dependency is raised to a release
-// that does; `it.fails` then fails, and the case moves to the passing list.
-const SDK_21_GAPS: Record<string, string> = Object.fromEntries(
-  [
-    'rpr_classical_signature_invalid',
-    'passport_pq_signature_invalid',
-    'intent_signatures_zeroed',
-    'intent_signed_by_principal',
-    'policy_decision_signed_under_intent_context',
-    'intent_pq_slot_holds_ed25519',
-    'passport_classical_slot_holds_ml_dsa',
-    'policy_decision_kid_names_another_algorithm',
-  ].map((name) => [name, 'per-artifact signature (V2-8), not verified by @dcp-ai/sdk 2.1.x']),
-);
-// Rules the SDK checks only after 2.1.x (VERIFICATION.md V2-4, V2-6, V2-12, V2-13, V2-14):
-// the principal as bundle signer, kid derivation, cross-artifact consistency, the signed
-// session start and PQ checkpoints. Expected failures until the dependency is raised.
-for (const name of [
-    'audit_entry_agent_id_other',
-    'audit_entry_human_id_other',
-    'audit_entry_intent_hash_other',
-    'audit_entry_intent_id_other',
-    'audit_entry_policy_decision_other',
-    'bundle_signed_by_agent_keys',
-    'intent_agent_id_other',
-    'intent_human_id_other',
-    'passport_key_kid_not_derived',
-    'passport_key_public_key_with_trailing_bits',
-    'passport_pq_key_public_key_unpadded',
-    'passport_principal_binding_reference_other',
-    'passport_status_commissioned',
-    'passport_status_decommissioned',
-    'passport_status_revoked',
-    'passport_status_suspended',
-    'policy_decision_intent_id_other',
-    'pq_checkpoint_carried_but_not_listed',
-    'pq_checkpoint_event_range_count_wrong',
-    'pq_checkpoint_listed_but_missing',
-    'pq_checkpoint_merkle_root_other',
-    'pq_checkpoint_pq_signature_invalid',
-    'pq_checkpoint_signed_by_principal',
-    'rpr_binding_key_kid_not_derived',
-    'rpr_expired',
-    'rpr_expires_at_impossible_date',
-    'session_expires_at_missing_under_policy_max',
-    'session_issued_at_date_only',
-    'session_issued_at_in_the_future',
-    'session_issued_at_missing_under_policy_max',
-    'session_issued_at_not_a_timestamp',
-    'session_longer_than_policy_max_with_late_created_at',
-    'signature_hash_alg_unknown',
-    'signature_manifest_hash_other',
-    'signature_signer_id_other',
-    'signature_signer_kids_other',
-]) SDK_21_GAPS[name] = 'rule the SDK checks only after 2.1.x (VERIFICATION.md V2-4, V2-6, V2-12 to V2-14)';
-// Rejected, but @dcp-ai/sdk 2.1.x words the error without the vector's error_contains.
-const SDK_21_WORDING: Record<string, string> = {
-  classical_only_bundle_signature_without_pq: '2.1.x says "Classical signature invalid (classical_only)"',
-  bundle_pq_slot_holds_ed25519: '2.1.x says "PQ algorithm ed25519 not accepted by verifier policy"',
-};
-
 function mutated(signed: any, mutations: { path: (string | number)[]; value: unknown }[]) {
   const out = clone(signed);
   for (const { path, value } of mutations) {
@@ -635,29 +573,31 @@ function mutated(signed: any, mutations: { path: (string | number)[]; value: unk
 }
 
 describe('shared bundle vectors under the default verifier policy', () => {
+  // Each case is verified under default_verifier_policy with its verifier_policy_overrides.
   const policy = VECTORS.default_verifier_policy;
-  const accept = [['signed_bundle', VECTORS.signed_bundle], ...VECTORS.must_accept_bundles.map((c: any) => [c.name, c.signed_bundle])];
+  const accept = [
+    ['signed_bundle', VECTORS.signed_bundle, undefined],
+    ...VECTORS.must_accept_bundles.map((c: any) => [c.name, c.signed_bundle, c.verifier_policy_overrides]),
+  ];
   const reject = [
-    ...VECTORS.must_reject.map((c: any) => [c.name, mutated(VECTORS.signed_bundle, c.mutations), c.error_contains, c.spec_step]),
+    ...VECTORS.must_reject.map((c: any) => [c.name, mutated(VECTORS.signed_bundle, c.mutations), c.error_contains, c.spec_step, undefined]),
     ...VECTORS.must_reject_bundles.map((c: any) => [c.name, c.signed_bundle, c.error_contains, c.spec_step, c.verifier_policy_overrides]),
   ];
 
-  for (const [name, signed] of accept) {
+  for (const [name, signed, overrides] of accept) {
     it(`accepts ${name}`, async () => {
-      const { res, next } = await run(dcpVerify({ verifierPolicy: policy }), headerReq(signed));
+      const { res, next } = await run(dcpVerify({ verifierPolicy: { ...policy, ...overrides } }), headerReq(signed));
       expect(res._body?.errors).toBeUndefined();
       expect(next).toHaveBeenCalled();
     });
   }
 
   for (const [name, signed, errorContains, step, overrides] of reject) {
-    const test = SDK_21_GAPS[name] ? it.fails : it;
-    const reason = SDK_21_GAPS[name] ? ` [expected failure: ${SDK_21_GAPS[name]}]` : '';
-    test(`rejects ${name} (${step})${reason}`, async () => {
+    it(`rejects ${name} (${step})`, async () => {
       const { res, next } = await run(dcpVerify({ verifierPolicy: { ...policy, ...overrides } }), headerReq(signed));
       expect(next.called).toBe(false);
       expect(res.status).toHaveBeenCalledWith(403);
-      if (!SDK_21_WORDING[name]) expect(res._body.errors.join(' ').toLowerCase()).toContain(errorContains.toLowerCase());
+      expect(res._body.errors.join(' ').toLowerCase()).toContain(errorContains.toLowerCase());
     });
   }
 
