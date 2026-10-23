@@ -18,7 +18,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     (`spec/VERIFICATION.md` V2-6), so the principal's signature over the manifest, which commits to
     `passport_hash`, is what binds the agent.
   - **Kids were not checked against their keys.** A key list could claim another party's kid for
-    a key of its own. Every kid that verifies a signature must now be derived from its key (V2-13).
+    a key of its own. Every kid that verifies a signature must now be derived from its key, and the
+    key must be canonical base64 so every SDK decodes the same bytes (V2-13).
   - **Signed but inconsistent bundles verified.** A revoked or decommissioned passport, an expired
     RPR, a policy decision for another intent, and audit entries for another intent, agent or
     principal, with another `intent_hash` or not recording the policy decision. The V1 checks are
@@ -29,19 +30,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     measured from `signature.created_at`, outside the signed manifest. The manifest has a new
     `session_issued_at`, which `signBundleV2` and `sign_bundle_v2` write with `session_expires_at`;
     the maximum is measured from it, and under a maximum a bundle without it is rejected (V2-4).
-    It must not be more than 30 seconds ahead of the verifier's clock. Bundles signed before this
-    change verify as before under a policy without a maximum session duration.
-  - **The unsigned signer block could contradict the signature.** `signature.signer.id` must now be
-    the RPR's `human_id`, and `signature.signer.kids` the kids of the composite signature.
+    It must not be more than 30 seconds ahead of the verifier's clock, and a maximum also rejects a
+    bundle without `session_expires_at`. Timestamps compare at millisecond precision in every SDK.
+    Bundles signed before this change verify as before under a policy without a maximum session
+    duration.
+  - **The unsigned signature block could contradict the signature.** `signature.signer.id` must now
+    be the RPR's `human_id`, `signature.signer.kids` the kids of the composite signature,
+    `manifest_hash` the hash of the manifest and `hash_alg` one of the two the schema allows.
     `signBundleV2` and `sign_bundle_v2` refuse a signer id other than the RPR's `human_id`; Go's
     `SignBundleV2` and Rust's `sign_bundle_v2` already take it from the RPR.
   - **PQ checkpoints were not verified.** A checkpoint with a changed Merkle root or PQ signature,
     or a missing one the manifest lists, verified. The bundle must now carry exactly the listed
     checkpoints, each over its audit entries and signed by the agent with both algorithms (V2-12).
-  - New vectors in `tests/interop/v2/bundle_vectors.json`, each signed over one defect: 30
-    `must_reject_bundles` cases, 2 `must_reject` mutations of the unsigned signer block and 6
-    `must_accept_bundles` controls. A case may carry `verifier_policy_overrides`. `lib/verify.js` pins a
-    `dcp verify-bundle` key among the RPR `binding_keys` only.
+  - The Go and Rust verifiers accepted an artifact or audit entry without `session_nonce`; every
+    one must now carry the manifest's, as in TypeScript and Python.
+  - New vectors in `tests/interop/v2/bundle_vectors.json`, each signed over one defect: 35
+    `must_reject_bundles` cases, 4 `must_reject` mutations of the unsigned signature block and 8
+    `must_accept_bundles` controls. A case may carry `verifier_policy_overrides`.
+  - `lib/verify.js` pins a `dcp verify-bundle` key among the RPR `binding_keys`, and every entry
+    under the signing kid must carry the pinned key, so the pin holds while the published SDK
+    still looks the signer up in the passport first.
 - Go and Rust verifiers accepted an audit entry (or PQ checkpoint) whose `session_nonce` differed
   from the manifest's, although the manifest committed to it (`spec/VERIFICATION.md` V2-4: every
   artifact and audit entry that carries a nonce shares the manifest's). Both now check the trail
