@@ -72,7 +72,8 @@ dcp_verify_bundle({
 ```
 
 The tool verifies the signatures with the DCP SDK verifier. Trust the bundle only when the result
-has `verified: true`; otherwise `errors` says why it was rejected.
+has `verified: true`; otherwise `errors` says why it was rejected. V1 bundles have no post-quantum
+signature and are rejected under the default policy.
 
 ## End of session
 

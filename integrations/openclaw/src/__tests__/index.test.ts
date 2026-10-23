@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { verifySignedBundle } from '@dcp-ai/sdk';
 import register, {
   getSession,
   isIdentityReady,
@@ -11,6 +12,12 @@ import register, {
   executeGetAuditTrail,
   executeDeclareIntent,
 } from '../index.js';
+
+// The real SDK, with the V1 verifier wrapped so a test can check it is not called.
+vi.mock('@dcp-ai/sdk', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@dcp-ai/sdk')>();
+  return { ...actual, verifySignedBundle: vi.fn(actual.verifySignedBundle) };
+});
 
 // ---------------------------------------------------------------------------
 // Plugin registration
@@ -403,6 +410,51 @@ describe('executeVerifyBundle', () => {
     });
     expect(result.verified).toBe(false);
     expect(result.errors.join(' ')).toMatch(/verification mode/);
+  });
+
+  describe('V1 bundles', () => {
+    // A V1 signed bundle (Ed25519 only) from the conformance examples.
+    const v1Bundle = () =>
+      JSON.parse(
+        readFileSync(new URL('../../../../tests/conformance/examples/citizenship_bundle.signed.json', import.meta.url), 'utf8'),
+      );
+
+    it('verifies a V1 bundle when every risk tier allows a classical signature', async () => {
+      const result = await executeVerifyBundle({
+        signed_bundle: v1Bundle(),
+        verifier_policy: { default_mode: 'hybrid_preferred' },
+      });
+      expect(result.errors).toEqual([]);
+      expect(result.verified).toBe(true);
+      expect(result.dcp_version).toBe('1.0');
+    });
+
+    it('rejects a V1 bundle under the default policy, whose high risk tier requires hybrid signatures', async () => {
+      const result = await executeVerifyBundle({ signed_bundle: v1Bundle() });
+      expect(result.verified).toBe(false);
+      expect(result.errors.join(' ')).toMatch(/V1/);
+    });
+
+    it('rejects a V1 bundle when verifier_policy requires hybrid signatures', async () => {
+      const result = await executeVerifyBundle({
+        signed_bundle: v1Bundle(),
+        verifier_policy: { default_mode: 'hybrid_required' },
+      });
+      expect(result.verified).toBe(false);
+    });
+
+    it('rejects a bundle whose version it cannot detect instead of trying the V1 verifier', async () => {
+      const unknown = v1Bundle();
+      delete unknown.bundle.responsible_principal_record.dcp_version;
+      vi.mocked(verifySignedBundle).mockClear();
+      const result = await executeVerifyBundle({
+        signed_bundle: unknown,
+        verifier_policy: { default_mode: 'hybrid_preferred' },
+      });
+      expect(result.verified).toBe(false);
+      expect(result.errors.join(' ')).toMatch(/version/i);
+      expect(verifySignedBundle).not.toHaveBeenCalled();
+    });
   });
 
   it('does not let the intent lower its own security tier', async () => {
