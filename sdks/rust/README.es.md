@@ -177,7 +177,7 @@ fn wasm_verify_signed_bundle(json: &str, pub_key: Option<String>) -> String;
 fn wasm_verify_signed_bundle_v2(json: &str, policy_json: Option<String>) -> String; // default policy when None; V1 bundles are rejected under a policy
 fn wasm_hash_object(json: &str) -> String;
 fn wasm_generate_keypair() -> String;
-fn wasm_build_bundle(rpr_json: &str, passport_json: &str, intent_json: &str, policy_json: &str, audit_entries_json: &str, session_nonce: &str /* , … */) -> String;
+fn wasm_build_bundle(rpr_json: &str, passport_json: &str, intent_json: &str, policy_json: &str, audit_entries_json: &str, session_nonce: &str) -> String;
 fn wasm_sign_bundle(bundle_json: &str, classical_sk_b64: &str, classical_kid: &str, pq_sk_b64: &str, pq_kid: &str) -> String;
 ```
 

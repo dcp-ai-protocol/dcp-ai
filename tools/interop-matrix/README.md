@@ -145,8 +145,7 @@ fails at once, so a broken agent shows up as failures, never as a hung run.
 ## What the first run found
 
 All 16 SDK pairs and the reference verifier agree on every bundle and every attack. Writing the
-agents surfaced these SDK gaps, none of them a verdict divergence between SDK verifiers, and each
-was fixed:
+agents surfaced these SDK gaps, none of them a verdict divergence between SDK verifiers:
 
 - **Go `SignBundleV2` left `signature.signer.id` empty**: it took no signer id. The four SDK
   verifiers accepted such a bundle; the reference verifier, the CLI and the server rejected it
