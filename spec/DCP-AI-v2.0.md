@@ -517,15 +517,16 @@ V2 verifiers MUST support V1 indefinitely. Migration is gradual.
 1. Wire format decode (JSON or CBOR)
 2. Schema validation (route V1/V2)
 3. Session nonce consistency
-4. Manifest integrity (recompute artifact hashes)
-5. Security tier computation from the signed intent and policy decision (§14.2)
-6. Advisory-driven algorithm rejection
-7. Composite signature verification (parallel)
-8. Verifier policy enforcement with the effective mode, the stricter of the policy mode and the tier's mode (§14.3), on the bundle signature and every artifact signature
-9. Audit hash chain validation
-10. PQ checkpoint chain validation
-11. Key validity checks (expiry, revocation, kid derivation)
-12. Verification cache lookup/store (§14.5)
+4. Manifest integrity (recompute artifact hashes), and the session window from the signed `session_issued_at` and `session_expires_at`
+5. Cross-artifact consistency: passport status, RPR expiry, one principal, agent and intent across the artifacts and the audit trail (VERIFICATION.md V2-14)
+6. Security tier computation from the signed intent and policy decision (§14.2)
+7. Advisory-driven algorithm rejection
+8. Composite signature verification (parallel): the bundle signature with the RPR `binding_keys`, the agent's artifacts with the passport `keys`, every kid derived from its key
+9. Verifier policy enforcement with the effective mode, the stricter of the policy mode and the tier's mode (§14.3), on the bundle signature and every artifact signature
+10. Audit hash chain validation
+11. PQ checkpoint validation: exactly the listed checkpoints, each over its audit entries and signed by the agent
+12. Key validity checks (expiry, revocation, kid derivation)
+13. Verification cache lookup/store (§14.5)
 
 ---
 
@@ -547,6 +548,9 @@ V2 verifiers MUST support V1 indefinitely. Migration is gradual.
 | PII exposure | Blinded RPR mode |
 | Key loss | M-of-N social recovery (Shamir SSS) |
 | Tier evasion | Verifier-authoritative tier upgrade, agent cannot downgrade |
+| Agent claiming a principal (reusing a published, signed RPR) | Bundle signature only by the RPR `binding_keys`; it commits to the passport hash |
+| Inconsistent but validly signed artifacts | Cross-artifact consistency checks (VERIFICATION.md V2-14) |
+| Unsigned metadata steering a check | Session start signed in the manifest; the signer block may not contradict the signature |
 
 ---
 
