@@ -31,13 +31,13 @@ pip install "dcp-ai[otlp]"       # OpenTelemetry OTLP exporter
 | 正規化JSON v2 + ドメイン分離 | Yes |
 | デュアルハッシュ (SHA-256 + SHA3-256) + Merkleルート | Yes |
 | バンドルの署名と検証 | V1: Yes。V2 (`SignedBundleV2`): Yes（`BundleBuilderV2` / `sign_bundle_v2` / `verify_signed_bundle_v2`） |
-| DCP-04 A2A 発見 + ハンドシェイク + AES-256-GCM セッション (`cryptography` 経由) | Yes |
+| DCP-04 A2A 発見 + ハンドシェイク + AES-256-GCM セッション (`cryptography` 経由)。各メッセージはウィンドウ内で一度だけ受理 (§8.4) | Yes |
 | DCP-05 エージェントライフサイクル (コミッショニング / バイタリティ / デコミッショニング) | Yes |
 | DCP-06 デジタル継承 (デジタル遺言、メモリ転送、セレモニー) | Yes |
 | DCP-07 紛争解決 + 仲裁 + 判例 | Yes |
 | DCP-08 権利と義務 + コンプライアンス | Yes |
-| DCP-09 委任 + 認識しきい値 + プリンシパルミラー | Yes |
-| セッションノンスヘルパー、セキュリティティアエンジン（`compute_security_tier(intent, policy_decision)`、spec §14.2）、緊急失効 | Yes |
+| DCP-09 委任 + 検証可能な委任チェーン (`create_sub_mandate`、`verify_mandate_chain`、§3.5) + 認識しきい値 + プリンシパルミラー | Yes |
+| セッションノンスヘルパー、セキュリティティアエンジン（`compute_security_tier(intent, policy_decision, mandate_chain_tier)`、spec §14.2）、緊急失効 | Yes |
 | 遅延PQチェックポイント + `PQCheckpointManager` | Yes |
 | ブラインドRPR、マルチパーティ認可、アルゴリズムアドバイザリヘルパー | Yes |
 | 正規エラーコード (全SDK共通の38種) + `detect_wire_format` | Yes |
@@ -236,6 +236,27 @@ result = await verify_signed_bundle_v2(signed, registry)  # DEFAULT_VERIFIER_POL
 ```
 
 検証器は各成果物自体の複合署名も検証し（RPR はプリンシパルの `binding_keys`、それ以外はパスポートの鍵で検証）、存在するのに無効な PQ 署名はどのポリシーモードでも拒否します。モードはポリシーのモードとセキュリティティアのモードのうち厳しい方で（spec §14.3）、`details["resolved_tier"]` がティアを返します。
+
+### 委任チェーン (DCP-09 §3.5)
+
+ルートマンデートは人間が署名します (`create_delegation_mandate`)。それを保持するエージェントは、自身の鍵で署名したサブマンデートを別のエージェントに発行できます (`create_sub_mandate`)。`verify_mandate_chain` はチェーンをルートから順に、オフラインで検査します：人間まで遡る署名、親へのリンクと深さ、`sub_delegation`、入れ子になった有効期間、権限の減衰 (アクション、`data_classes`、`limits` は狭めることしかできない)、セキュリティティアの下限、失効。
+
+```python
+from dcp_ai.v2 import create_sub_mandate, verify_mandate_chain, compute_security_tier
+
+sub = await create_sub_mandate(
+    registry, orchestrator_classical, orchestrator_pq, root_mandate,
+    mandate_id="mandate:sub-1", session_nonce=nonce, agent_id="agent:subagent",
+    authority_scope=[{"domain": "email", "actions_permitted": ["read"], "data_classes": ["contact_info"]}],
+    valid_from="2026-03-01T00:00:00Z", valid_until="2026-06-01T00:00:00Z", revocable=True,
+)
+result = await verify_mandate_chain(
+    registry, [root_mandate, sub], set(),
+    {"human_keys": human_key_entries, "agent_keys": {"agent:orchestrator": orchestrator_key_entries}},
+)
+# {"valid", "errors", "depth", "effective_tier"}; the tier floor can only raise an action's tier.
+tier = compute_security_tier(intent, policy_decision, result["effective_tier"] if result["valid"] else None)
+```
 
 ### Pydanticモデル
 

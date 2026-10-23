@@ -31,13 +31,13 @@ pip install "dcp-ai[otlp]"       # OpenTelemetry OTLP exporter
 | 规范 JSON v2 + 域分离 | 是 |
 | 双哈希 (SHA-256 + SHA3-256) + Merkle 根 | 是 |
 | 凭证包签名与验证 | V1：是。V2 (`SignedBundleV2`)：是，`BundleBuilderV2` / `sign_bundle_v2` / `verify_signed_bundle_v2` |
-| DCP-04 A2A 发现 + 握手 + AES-256-GCM 会话（通过 `cryptography`） | 是 |
+| DCP-04 A2A 发现 + 握手 + AES-256-GCM 会话（通过 `cryptography`）；在窗口内每条消息只接受一次（§8.4） | 是 |
 | DCP-05 代理生命周期（委任 / 活力 / 停用） | 是 |
 | DCP-06 数字继承（数字遗嘱、记忆迁移、交接仪式） | 是 |
 | DCP-07 争议解决 + 仲裁 + 判例 | 是 |
 | DCP-08 权利与义务 + 合规 | 是 |
-| DCP-09 委托 + 感知阈值 + 主体镜像 | 是 |
-| 会话随机数助手、安全等级引擎（`compute_security_tier(intent, policy_decision)`，spec §14.2）、紧急撤销 | 是 |
+| DCP-09 委托 + 可验证的委托链（`create_sub_mandate`、`verify_mandate_chain`，§3.5）+ 感知阈值 + 主体镜像 | 是 |
+| 会话随机数助手、安全等级引擎（`compute_security_tier(intent, policy_decision, mandate_chain_tier)`，spec §14.2）、紧急撤销 | 是 |
 | 惰性 PQ 检查点 + `PQCheckpointManager` | 是 |
 | 盲化 RPR、多方授权、算法建议助手 | 是 |
 | 规范错误码（38 项，跨所有 SDK 共享）+ `detect_wire_format` | 是 |
@@ -236,6 +236,29 @@ result = await verify_signed_bundle_v2(signed, registry)  # DEFAULT_VERIFIER_POL
 ```
 
 验证器还会检查每个工件自身的复合签名（RPR 使用主体的 `binding_keys`，其余使用护照密钥），并且在任何策略模式下都会拒绝存在但无效的 PQ 签名。模式取策略模式与安全等级模式中更严格的一个（spec §14.3），`details["resolved_tier"]` 返回该等级。
+
+### 委托链 (DCP-09 §3.5)
+
+根授权由人类签名（`create_delegation_mandate`）；持有根授权的智能体可以向另一个智能体签发子授权（`create_sub_mandate`），
+并用自己的密钥签名。`verify_mandate_chain` 离线验证以根授权开头的链：一直追溯到人类的签名、父级链接与深度、`sub_delegation`、
+嵌套的有效期窗口、权限衰减（动作、`data_classes` 和 `limits` 只能收窄）、安全等级下限以及撤销。
+
+```python
+from dcp_ai.v2 import create_sub_mandate, verify_mandate_chain, compute_security_tier
+
+sub = await create_sub_mandate(
+    registry, orchestrator_classical, orchestrator_pq, root_mandate,
+    mandate_id="mandate:sub-1", session_nonce=nonce, agent_id="agent:subagent",
+    authority_scope=[{"domain": "email", "actions_permitted": ["read"], "data_classes": ["contact_info"]}],
+    valid_from="2026-03-01T00:00:00Z", valid_until="2026-06-01T00:00:00Z", revocable=True,
+)
+result = await verify_mandate_chain(
+    registry, [root_mandate, sub], set(),
+    {"human_keys": human_key_entries, "agent_keys": {"agent:orchestrator": orchestrator_key_entries}},
+)
+# {"valid", "errors", "depth", "effective_tier"}; the tier floor can only raise an action's tier.
+tier = compute_security_tier(intent, policy_decision, result["effective_tier"] if result["valid"] else None)
+```
 
 ### Pydantic 模型
 

@@ -10,7 +10,7 @@
 go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
 ```
 
-**需要：** Go 1.21+
+**需要：** Go 1.25+
 
 ## 特性
 
@@ -28,12 +28,12 @@ go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
 | 安全等级计算 | — | 是 |
 | 持有证明 | — | 是 |
 | 密钥轮换 | — | 是 |
-| DCP-04 A2A 发现 + 握手 + AES-256-GCM 会话（标准库） | — | 是 |
+| DCP-04 A2A 发现 + 握手 + AES-256-GCM 会话（标准库；可安全并发使用，在窗口内每条消息只接受一次） | — | 是 |
 | DCP-05 代理生命周期（委任 / 活力 / 停用） | — | 是 |
 | DCP-06 数字继承（数字遗嘱、记忆迁移、交接仪式） | — | 是 |
 | DCP-07 争议解决 + 仲裁 + 判例 | — | 是 |
 | DCP-08 权利与义务 + 合规 | — | 是 |
-| DCP-09 委托 + 感知阈值 + 主体镜像 | — | 是 |
+| DCP-09 委托 + 可验证的委托链（`CreateSubMandate`、`VerifyMandateChain`）+ 感知阈值 + 主体镜像 | — | 是 |
 | 会话随机数助手、紧急撤销 | — | 是 |
 | 惰性 PQ 检查点 + `PQCheckpointManager` | — | 是 |
 | 盲化 RPR、多方授权、算法建议助手 | — | 是 |
@@ -150,7 +150,7 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 |----------|-------------|
 | `v2.SignPayload(reg, context, payload, classicalKey, pqKey)` | 将工件签名为 `SignedPayload`（复合签名；`pqKey` 为 nil 时仅经典签名） |
 | `v2.BuildBundleV2(input)` | 由已签名的工件构建 V2 凭证包，含清单哈希和双 Merkle 根 |
-| `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | 使用复合或仅经典签名签名凭证包 |
+| `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | 使用复合或仅经典签名签名凭证包；签名者是凭证包的主体（`signer.id` = RPR 的 `human_id`） |
 | `v2.VerifySignedBundleV2(reg, jsonBytes)` | 完整的 V2 凭证包验证（结构、哈希、签名、审计链），使用 `DefaultVerifierPolicy`，按策略模式与安全等级模式中更严格的一个验证（spec §14.3）；返回 `ResolvedTier` 和 `VerificationMode` |
 | `v2.VerifySignedBundleV2WithPolicy(reg, jsonBytes, policy)` | 相同，但使用自定义 `VerifierPolicy`；只有 `DefaultMode`、`RiskOverrides` 和 Phase 3 字段（`AdvisoryRejectedAlgs`、`WarnClassicalOnlyDeprecated`、`AllowClassicalFallbackDisable`，语义与 TypeScript 相同）可以与 `DefaultVerifierPolicy()` 不同，其他任何改动都会使验证失败 |
 
@@ -161,6 +161,16 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 | `v2.ComputeSecurityTier(input)` | 计算自适应安全等级（routine/standard/elevated/maximum）及其验证模式和检查点间隔（spec §14.2）；未知值按 `elevated` 处理 |
 | `v2.SecurityTierInputFromPayloads(intent, policyDecision)` | 根据解码后的 intent 和 PolicyDecision 载荷构建等级输入（`risk_score` 取自 PolicyDecision；缺失或不是 0 到 1000 之间的整数时为 `RiskScore: -1`，即未知） |
 | `v2.EffectiveVerificationMode(policyMode, tier)` | 策略模式与等级模式中更严格的一个；`pq_only` 不变 |
+
+### 委托链 (DCP-09 §3.5)
+
+| 函数 | 描述 |
+|----------|-------------|
+| `v2.CreateDelegationMandate(reg, humanClassical, humanPQ, params)` | 由人类签名的根授权；`SubDelegation` 和 `MinimumSecurityTier` 为可选项 |
+| `v2.CreateSubMandate(reg, delegatorClassical, delegatorPQ, parent, v2.SubMandateParams{...})` | 由父授权中的智能体在 `DCP-AI.v2.SubMandate` 上下文下签名的子授权 |
+| `v2.VerifyMandateChain(reg, chain, revokedIDs, v2.MandateChainKeys{HumanKeys, AgentKeys}, now)` | 离线验证以根授权开头的链（一直追溯到人类的签名、链接与深度、`sub_delegation`、嵌套有效期、动作、`data_classes` 和 `limits` 的权限衰减、等级下限、撤销）；返回 `MandateChainResult{Valid, Errors, Depth, EffectiveTier}` |
+
+`SecurityTierInput.MandateChainTier` 接受链的 `EffectiveTier` 作为下限，该下限只能提高等级。
 
 ### 复合签名
 

@@ -10,7 +10,7 @@ AIエージェントのためのデジタル市民権プロトコルへのコン
 
 - **Node.js** >= 18 (コアプロトコルとTypeScript SDKに必要)
 - **Python** >= 3.12 (Python SDKに必要)
-- **Go** >= 1.21 (Go SDKに必要)
+- **Go** >= 1.25 (Go SDKに必要)
 - **Rust** (stableツールチェーン、Rust SDKに必要)
 - **Git**
 
@@ -82,6 +82,17 @@ cd sdks/wasm
 npm test
 ```
 
+### SDK横断
+
+各SDKは、それぞれのテストスイートから `tests/interop/v2/` の共有ベクトルを読み込みます。SDK同士を相互に検査するツールが2つあります (先に `sdks/typescript` をビルドし、`sdks/python` をインストールしてください。Go と Rust は `PATH` 上にある必要があります)。
+
+```bash
+node tools/interop-matrix/run.mjs   # agents on the four SDKs sign and verify each other's bundles
+node tools/difffuzz/run.mjs         # the same mutated bundle through the four verifiers
+```
+
+どちらもすべてのプルリクエストでCI上で実行されます。
+
 ## コードスタイル
 
 このプロジェクトでは、一貫したコードスタイルを強制するために自動化ツールを使用しています。
@@ -118,7 +129,8 @@ npx eslint --fix .
 - [ ] すべての既存テストがパスする
 - [ ] 新機能には新しいテストが追加されている
 - [ ] コードがプロジェクトのスタイルガイドラインに従っている
-- [ ] 該当する場合、ドキュメントが更新されている
+- [ ] 該当する場合、ドキュメントがそのドキュメントのすべての言語版で更新されている
+- [ ] 署名、ハッシュ、正規化、検証に関わる変更の場合: 共有ベクトルが更新され、相互運用マトリクスがパスしている
 - [ ] コミットメッセージが以下のフォーマットに従っている
 
 ## コミットメッセージのフォーマット
@@ -167,6 +179,7 @@ chore(ci): add code coverage to TypeScript SDK workflow
 - すべての新機能には対応するテストを含めてください。
 - バグ修正には、そのバグを捕捉できたはずのリグレッションテストを含めてください。
 - `tests/conformance/` の適合性テストは、すべての実装でプロトコル準拠を検証します。
+- すべてのSDKが施行するルールには `tests/interop/v2/` に共有ベクトルを用意し、4つのSDKを同じケースでテストします。
 - SDKテストでは、バンドル作成、署名、検証、エラーケースをカバーしてください。
 - PRがマージされる前にCIがパスする必要があります。テスト失敗は抑制されません — テストが失敗すると、ビルドも失敗します。
 

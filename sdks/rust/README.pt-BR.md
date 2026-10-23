@@ -36,14 +36,15 @@ dcp-ai = { version = "2.10", features = ["wasm"] }
 | JSON canônico v2 + separação de domínio | Sim |
 | Dual hash (SHA-256 + SHA3-256) + Merkle roots | Sim |
 | Verificação de bundle (V1 + V2; V2 com política de verificador e nível de segurança, `verify_signed_bundle_v2_with_policy`) | Sim |
+| Construção e assinatura de bundle V2 | Feature `wasm`: `wasm_build_bundle` / `wasm_sign_bundle`. API nativa: ainda não; monte o manifesto a partir de `prepare_payload`, `composite_sign` e `audit_events_merkle_root`, como faz `tools/interop-matrix/agents/rust` |
 | DCP-05 ciclo de vida de agentes (commissioning / vitality / decommissioning) | Sim |
 | DCP-06 sucessão digital (testamento digital, transferência de memória, cerimônia) | Sim |
 | DCP-07 resolução de disputas + arbitragem + jurisprudência | Sim |
 | DCP-08 direitos + obrigações + conformidade | Sim |
-| DCP-09 delegação + limiar de consciência + espelho do principal | Sim |
+| DCP-09 delegação + cadeias de delegação verificáveis (`create_sub_mandate`, `verify_mandate_chain`, §3.5) + limiar de consciência + espelho do principal | Sim |
 | DCP-04 descoberta A2A + handshake + derivação de session id | Sim |
 | DCP-04 criptografia de sessão A2A AES-256-GCM | _Adiado para uma release subsequente_ |
-| Helpers de nonce de sessão, motor de tier de segurança (`compute_security_tier(&intent, Some(&policy_decision))`, spec §14.2), revogação de emergência | Sim |
+| Helpers de nonce de sessão, motor de tier de segurança (`compute_security_tier(&intent, Some(&policy_decision))`, spec §14.2; `compute_security_tier_with_floor` acrescenta o nível de uma cadeia de delegação), revogação de emergência | Sim |
 | Checkpoints PQ lazy + `PQCheckpointManager` | Sim |
 | Helpers de RPR blindado, autorização multi-parte, advisory de algoritmo | Sim |
 | Códigos de erro canônicos (38 compartilhados entre todos os SDKs) + `detect_wire_format` | Sim |
@@ -158,6 +159,14 @@ Constantes de separação de domínio: `CTX_LIFECYCLE`, `CTX_SUCCESSION`, `CTX_D
 
 Todas as structs derivam `Debug`, `Clone`, `Serialize`, `Deserialize`. Enums usam `#[serde(rename_all = "snake_case")]`. Campos opcionais usam `Option<T>` com `#[serde(skip_serializing_if = "Option::is_none")]`.
 
+### Cadeias de Delegação (`dcp_ai::v2::delegation`, DCP-09 §3.5)
+
+| Função | Descrição |
+|--------|-----------|
+| `create_delegation_mandate_with_options(ed, pq, human_classical, human_pq, params, &MandateChainOptions)` | Mandato raiz assinado pelo humano, com `sub_delegation` e `minimum_security_tier` opcionais |
+| `create_sub_mandate(ed, pq, classical, pq_key, &parent, SubMandateParams { .. })` | Submandato assinado pelo agente do mandato pai sob o contexto `DCP-AI.v2.SubMandate` |
+| `verify_mandate_chain(&chain, &revoked_ids, &MandateChainKeys { human_keys, agent_keys }, now_millis)` | Verifica a cadeia começando pela raiz e offline (assinaturas até o humano, vínculos e profundidade, `sub_delegation`, validade aninhada, atenuação de ações, `data_classes` e `limits`, piso de nível, revogação); retorna `MandateChainResult { valid, errors, depth, effective_tier }` |
+
 ### Feature `wasm`
 
 Quando a feature `wasm` está habilitada, a crate expõe bindings WebAssembly:
@@ -168,6 +177,8 @@ fn wasm_verify_signed_bundle(json: &str, pub_key: Option<String>) -> String;
 fn wasm_verify_signed_bundle_v2(json: &str, policy_json: Option<String>) -> String; // default policy when None; V1 bundles are rejected under a policy
 fn wasm_hash_object(json: &str) -> String;
 fn wasm_generate_keypair() -> String;
+fn wasm_build_bundle(rpr_json: &str, passport_json: &str, intent_json: &str, policy_json: &str, audit_entries_json: &str, session_nonce: &str /* , … */) -> String;
+fn wasm_sign_bundle(bundle_json: &str, classical_sk_b64: &str, classical_kid: &str, pq_sk_b64: &str, pq_kid: &str) -> String;
 ```
 
 Compilar para WASM:
@@ -196,7 +207,9 @@ cargo build --target wasm32-unknown-unknown --features wasm
 
 - `serde` + `serde_json` — Serialização
 - `sha2` — SHA-256
+- `sha3` — SHA3-256 (cadeias de hash duplas)
 - `ed25519-dalek` — Criptografia Ed25519
+- `fips203` / `fips204` / `fips205` — ML-KEM-768, ML-DSA-65 e SLH-DSA-192f (FIPS 203 / 204 / 205)
 - `rand` — Geração de números aleatórios
 - `base64` — Codificação Base64
 - `hex` — Codificação Hex

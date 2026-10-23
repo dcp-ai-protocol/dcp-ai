@@ -6,7 +6,7 @@
 
 ### オープンネットワーク上のAIエージェントのための、ポータブルなアカウンタビリティ層
 
-[![Protocol](https://img.shields.io/badge/protocol-v2.0-blue)](#protocol-specifications)
+[![Protocol](https://img.shields.io/badge/protocol-v2.0-blue)](#プロトコル仕様)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/dcp-ai-protocol/dcp-ai/ci.yml?branch=main&label=CI)](https://github.com/dcp-ai-protocol/dcp-ai/actions/workflows/ci.yml)
 [![Coverage](https://codecov.io/gh/dcp-ai-protocol/dcp-ai/graph/badge.svg)](https://codecov.io/gh/dcp-ai-protocol/dcp-ai)
@@ -91,7 +91,7 @@ DCPは3つの概念層から構成されています。
 | [DCP-06](spec/DCP-06.md) | デジタル継承と相続 | デジタル遺言、記憶の移行、後継指定 |
 | [DCP-07](spec/DCP-07.md) | 紛争解決と仲裁 | 紛争、エスカレーションレベル、仲裁、判例 |
 | [DCP-08](spec/DCP-08.md) | 権利と義務のフレームワーク | 権利宣言、義務記録、違反報告 |
-| [DCP-09](spec/DCP-09.md) | 人格代理と委任 | 委任マンデート、気付き閾値、責任主体ミラー |
+| [DCP-09](spec/DCP-09.md) | 人格代理と委任 | 委任マンデート、人間まで遡って検証可能なサブ委任チェーン、気付き閾値、責任主体ミラー |
 | [DCP-AI v2.0](spec/DCP-AI-v2.0.md) | 耐量子規範仕様 | ハイブリッド耐量子暗号、4ティアセキュリティモデルを含む完全なv2.0仕様 |
 
 こちらも参照: [Core仕様](spec/core/dcp-core.md) | [プロファイル概要](spec/profiles/)
@@ -232,7 +232,7 @@ graph TB
 | **TypeScript** | `@dcp-ai/sdk` | BundleBuilder、ハイブリッド耐量子暗号、JSONスキーマ検証、Vitest | [sdks/typescript/](sdks/typescript/README.md) |
 | **Python** | `dcp-ai` | Pydantic v2モデル、CLI (Typer)、耐量子エクストラ、オプションプラグイン | [sdks/python/](sdks/python/README.md) |
 | **Go** | `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` | ネイティブ型、ハイブリッド署名、完全な検証パイプライン | [sdks/go/](sdks/go/README.md) |
-| **Rust** | `dcp-ai` | serde、ed25519-dalek + pqcrypto、オプションのWASM機能 | [sdks/rust/](sdks/rust/README.md) |
+| **Rust** | `dcp-ai` | serde、ed25519-dalek + fips203/204/205、オプションのWASM機能 | [sdks/rust/](sdks/rust/README.md) |
 | **WASM** | `@dcp-ai/wasm` | ブラウザでの検証、WebAssemblyでの耐量子暗号、Rustからコンパイル | [sdks/wasm/](sdks/wasm/README.md) |
 
 ---
@@ -251,8 +251,8 @@ graph TB
 | **Agno** | [![PyPI](https://img.shields.io/pypi/v/agno-dcp?label=agno-dcp&logo=pypi&logoColor=white&color=blue)](https://pypi.org/project/agno-dcp/) | `DCPAgent`、`DCPTeam`、`DCPWorkflow` ラッパー (別パッケージ) | [agno-dcp リポジトリ](https://github.com/dcp-ai-protocol/agno-dcp) |
 | **OpenClaw** | [![npm](https://img.shields.io/npm/v/@dcp-ai/openclaw?label=%40dcp-ai%2Fopenclaw&logo=npm)](https://www.npmjs.com/package/@dcp-ai/openclaw) | プラグイン + SKILL.md、6つのエージェントツール | [integrations/openclaw/](integrations/openclaw/README.md) |
 | **W3C DID/VC** | [![npm](https://img.shields.io/npm/v/@dcp-ai/w3c-did?label=%40dcp-ai%2Fw3c-did&logo=npm)](https://www.npmjs.com/package/@dcp-ai/w3c-did) | DIDドキュメント ↔ DCPアイデンティティブリッジ、VC発行 | [integrations/w3c-did/](integrations/w3c-did/README.md) |
-| **Google A2A** | [![npm](https://img.shields.io/npm/v/@dcp-ai/google-a2a?label=%40dcp-ai%2Fgoogle-a2a&logo=npm)](https://www.npmjs.com/package/@dcp-ai/google-a2a) | A2A Agent Card ↔ DCPアイデンティティ、タスクガバナンス | [integrations/google-a2a/](integrations/google-a2a/README.md) |
-| **Anthropic MCP** | [![npm](https://img.shields.io/npm/v/@dcp-ai/anthropic-mcp?label=%40dcp-ai%2Fanthropic-mcp&logo=npm)](https://www.npmjs.com/package/@dcp-ai/anthropic-mcp) | MCPツール ↔ DCP意図マッピング、サーバーミドルウェア | [integrations/anthropic-mcp/](integrations/anthropic-mcp/README.md) |
+| **Google A2A** | [![npm](https://img.shields.io/npm/v/@dcp-ai/google-a2a?label=%40dcp-ai%2Fgoogle-a2a&logo=npm)](https://www.npmjs.com/package/@dcp-ai/google-a2a) | A2A Agent Card 内の署名済みDCPパスポート (`verifyAgentCardPassport`)、タスクから意図へのマッピング | [integrations/google-a2a/](integrations/google-a2a/README.md) |
+| **Anthropic MCP** | [![npm](https://img.shields.io/npm/v/@dcp-ai/anthropic-mcp?label=%40dcp-ai%2Fanthropic-mcp&logo=npm)](https://www.npmjs.com/package/@dcp-ai/anthropic-mcp) | MCPツール呼び出しごとの署名済みDCPレシート (`withDcpReceipt`)、DCPツールとリソース | [integrations/anthropic-mcp/](integrations/anthropic-mcp/README.md) |
 | **AutoGen** | [![npm](https://img.shields.io/npm/v/@dcp-ai/autogen?label=%40dcp-ai%2Fautogen&logo=npm)](https://www.npmjs.com/package/@dcp-ai/autogen) | AutoGenエージェント ↔ DCPラッパー、グループチャットガバナンス | [integrations/autogen/](integrations/autogen/README.md) |
 
 ---
@@ -352,6 +352,14 @@ cd docker && docker compose up -d
 | [SECURITY_MODEL](docs/SECURITY_MODEL.md) | 脅威モデル、攻撃ベクトル、保護層 |
 | [STORAGE_AND_ANCHORING](docs/STORAGE_AND_ANCHORING.md) | P2Pストレージ、オプションのブロックチェーンアンカリング |
 
+### テストと保証
+
+| ツール | 説明 |
+|------|-------------|
+| [相互運用マトリクス](tools/interop-matrix/README.md) | 4つのSDK (およびリファレンス検証者) 上で稼働するエージェントが、互いの市民権バンドルを作成、署名、検証します。そのままのものと、転送中に改ざんされたものの両方を対象とします |
+| [差分ファザー](tools/difffuzz/README.md) | 同じ変異を加えた署名済みバンドルを4つのSDKの検証者に通します。判定の不一致はすべて検出事項として扱います |
+| [共有ベクトル](tests/interop/v2/) | すべてのSDKが同じように受理または拒否しなければならないバンドル、マンデートチェーン、攻撃ケース |
+
 ### ガイド
 
 | ガイド | 説明 |
@@ -365,6 +373,7 @@ cd docker && docker compose up -d
 | ドキュメント | 説明 |
 |----------|-------------|
 | [NIST_CONFORMITY](docs/NIST_CONFORMITY.md) | NIST耐量子暗号準拠 |
+| [EU_AI_ACT_MAPPING](docs/EU_AI_ACT_MAPPING.md) | EU AI法のログ記録、人間による監視、記録保持の義務とDCP成果物との対応付け |
 | [ROADMAP](ROADMAP.md) | プロジェクトの進化ロードマップ |
 
 ### コミュニティ
@@ -407,6 +416,8 @@ dcp-ai-genesis/
 │   └── profiles/            # Profile specifications (crypto, a2a, governance)
 ├── schemas/                 # JSON Schemas (draft 2020-12, v2 includes DCP-05–09)
 ├── tools/                   # Validation, conformance, crypto + Merkle helpers
+│   ├── interop-matrix/      # Live interoperability between agents on the four SDKs
+│   └── difffuzz/            # Differential fuzzer of the four V2 verifiers
 ├── tests/                   # Conformance tests and fixtures
 ├── bin/dcp.js               # Reference CLI
 ├── cli/                     # Interactive CLI wizard (@dcp-ai/cli)
@@ -454,6 +465,10 @@ npm test
 
 # プロトコル適合テストスイートを実行
 npm run conformance
+
+# SDK横断チェック (先に sdks/typescript をビルドしてください。Python、Go、Rust が必要です)
+node tools/interop-matrix/run.mjs
+node tools/difffuzz/run.mjs
 
 # 検証サーバーを起動 (ポート 3000)
 npm run server

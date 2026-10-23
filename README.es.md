@@ -6,7 +6,7 @@
 
 ### Una capa portable de rendición de cuentas para agentes de IA en redes abiertas
 
-[![Protocol](https://img.shields.io/badge/protocol-v2.0-blue)](#protocol-specifications)
+[![Protocol](https://img.shields.io/badge/protocol-v2.0-blue)](#especificaciones-del-protocolo)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/dcp-ai-protocol/dcp-ai/ci.yml?branch=main&label=CI)](https://github.com/dcp-ai-protocol/dcp-ai/actions/workflows/ci.yml)
 [![Coverage](https://codecov.io/gh/dcp-ai-protocol/dcp-ai/graph/badge.svg)](https://codecov.io/gh/dcp-ai-protocol/dcp-ai)
@@ -91,7 +91,7 @@ Consulta [spec/core/](spec/core/) para la especificación del core.
 | [DCP-06](spec/DCP-06.md) | Sucesión Digital y Herencia | Testamentos digitales, transferencia de memoria, designación de sucesores |
 | [DCP-07](spec/DCP-07.md) | Resolución de Conflictos y Arbitraje de Disputas | Disputas, niveles de escalamiento, arbitraje, jurisprudencia |
 | [DCP-08](spec/DCP-08.md) | Marco de Derechos y Obligaciones | Declaraciones de derechos, registros de obligaciones, reportes de violaciones |
-| [DCP-09](spec/DCP-09.md) | Representación Personal y Delegación | Mandatos de delegación, umbrales de conciencia, espejos del principal |
+| [DCP-09](spec/DCP-09.md) | Representación Personal y Delegación | Mandatos de delegación, cadenas de subdelegación verificables hasta el humano, umbrales de conciencia, espejos del principal |
 | [DCP-AI v2.0](spec/DCP-AI-v2.0.md) | Especificación Normativa Post-Cuántica | Spec v2.0 completa con criptografía híbrida post-cuántica, modelo de seguridad de 4 niveles |
 
 Consulta también: [Especificación del Core](spec/core/dcp-core.md) | [Visión general de los Perfiles](spec/profiles/)
@@ -232,7 +232,7 @@ Crea, firma y verifica Citizenship Bundles (paquetes de ciudadanía) en tu lengu
 | **TypeScript** | `@dcp-ai/sdk` | BundleBuilder, criptografía híbrida post-cuántica, validación JSON Schema, Vitest | [sdks/typescript/](sdks/typescript/README.md) |
 | **Python** | `dcp-ai` | Modelos Pydantic v2, CLI (Typer), extras post-cuánticos, plugins opcionales | [sdks/python/](sdks/python/README.md) |
 | **Go** | `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` | Tipos nativos, firmas híbridas, pipeline de verificación completo | [sdks/go/](sdks/go/README.md) |
-| **Rust** | `dcp-ai` | serde, ed25519-dalek + pqcrypto, feature WASM opcional | [sdks/rust/](sdks/rust/README.md) |
+| **Rust** | `dcp-ai` | serde, ed25519-dalek + fips203/204/205, feature WASM opcional | [sdks/rust/](sdks/rust/README.md) |
 | **WASM** | `@dcp-ai/wasm` | Verificación en el navegador, criptografía post-cuántica en WebAssembly, compilado desde Rust | [sdks/wasm/](sdks/wasm/README.md) |
 
 ---
@@ -251,8 +251,8 @@ Gobernanza DCP lista para usar (drop-in) para frameworks populares de IA y web.
 | **Agno** | [![PyPI](https://img.shields.io/pypi/v/agno-dcp?label=agno-dcp&logo=pypi&logoColor=white&color=blue)](https://pypi.org/project/agno-dcp/) | Wrappers `DCPAgent`, `DCPTeam`, `DCPWorkflow` (paquete independiente) | [repositorio agno-dcp](https://github.com/dcp-ai-protocol/agno-dcp) |
 | **OpenClaw** | [![npm](https://img.shields.io/npm/v/@dcp-ai/openclaw?label=%40dcp-ai%2Fopenclaw&logo=npm)](https://www.npmjs.com/package/@dcp-ai/openclaw) | Plugin + SKILL.md, 6 herramientas de agente | [integrations/openclaw/](integrations/openclaw/README.md) |
 | **W3C DID/VC** | [![npm](https://img.shields.io/npm/v/@dcp-ai/w3c-did?label=%40dcp-ai%2Fw3c-did&logo=npm)](https://www.npmjs.com/package/@dcp-ai/w3c-did) | Puente DID Document ↔ identidad DCP, emisión de VC | [integrations/w3c-did/](integrations/w3c-did/README.md) |
-| **Google A2A** | [![npm](https://img.shields.io/npm/v/@dcp-ai/google-a2a?label=%40dcp-ai%2Fgoogle-a2a&logo=npm)](https://www.npmjs.com/package/@dcp-ai/google-a2a) | A2A Agent Card ↔ identidad DCP, gobernanza de tareas | [integrations/google-a2a/](integrations/google-a2a/README.md) |
-| **Anthropic MCP** | [![npm](https://img.shields.io/npm/v/@dcp-ai/anthropic-mcp?label=%40dcp-ai%2Fanthropic-mcp&logo=npm)](https://www.npmjs.com/package/@dcp-ai/anthropic-mcp) | Mapeo MCP Tool ↔ intención DCP, middleware de servidor | [integrations/anthropic-mcp/](integrations/anthropic-mcp/README.md) |
+| **Google A2A** | [![npm](https://img.shields.io/npm/v/@dcp-ai/google-a2a?label=%40dcp-ai%2Fgoogle-a2a&logo=npm)](https://www.npmjs.com/package/@dcp-ai/google-a2a) | Pasaporte DCP firmado dentro de la A2A Agent Card (`verifyAgentCardPassport`), tareas a intenciones | [integrations/google-a2a/](integrations/google-a2a/README.md) |
+| **Anthropic MCP** | [![npm](https://img.shields.io/npm/v/@dcp-ai/anthropic-mcp?label=%40dcp-ai%2Fanthropic-mcp&logo=npm)](https://www.npmjs.com/package/@dcp-ai/anthropic-mcp) | Recibo DCP firmado por cada llamada a herramienta MCP (`withDcpReceipt`), herramientas y recursos DCP | [integrations/anthropic-mcp/](integrations/anthropic-mcp/README.md) |
 | **AutoGen** | [![npm](https://img.shields.io/npm/v/@dcp-ai/autogen?label=%40dcp-ai%2Fautogen&logo=npm)](https://www.npmjs.com/package/@dcp-ai/autogen) | Wrapper AutoGen Agent ↔ DCP, gobernanza de group chat | [integrations/autogen/](integrations/autogen/README.md) |
 
 ---
@@ -352,6 +352,14 @@ cd docker && docker compose up -d
 | [SECURITY_MODEL](docs/SECURITY_MODEL.md) | Modelo de amenazas, vectores de ataque, capas de protección |
 | [STORAGE_AND_ANCHORING](docs/STORAGE_AND_ANCHORING.md) | Almacenamiento P2P, anclaje opcional en blockchain |
 
+### Pruebas y Garantía
+
+| Herramienta | Descripción |
+|-------------|-------------|
+| [Matriz de interoperabilidad](tools/interop-matrix/README.md) | Agentes en vivo sobre los cuatro SDKs (y el verificador de referencia) crean, firman y verifican los citizenship bundles de los demás, intactos y manipulados en tránsito |
+| [Fuzzer diferencial](tools/difffuzz/README.md) | El mismo bundle firmado y mutado pasa por los verificadores de los cuatro SDKs; cualquier discrepancia es un hallazgo |
+| [Vectores compartidos](tests/interop/v2/) | Bundles, cadenas de mandatos y casos de ataque que todo SDK debe aceptar o rechazar de la misma manera |
+
 ### Guías
 
 | Guía | Descripción |
@@ -365,6 +373,7 @@ cd docker && docker compose up -d
 | Documento | Descripción |
 |----------|-------------|
 | [NIST_CONFORMITY](docs/NIST_CONFORMITY.md) | Conformidad con la criptografía post-cuántica del NIST |
+| [EU_AI_ACT_MAPPING](docs/EU_AI_ACT_MAPPING.md) | Obligaciones de registro, supervisión humana y conservación de registros del Reglamento de IA de la UE (EU AI Act) mapeadas a artefactos DCP |
 | [ROADMAP](ROADMAP.md) | Hoja de ruta de evolución del proyecto |
 
 ### Comunidad
@@ -407,6 +416,8 @@ dcp-ai-genesis/
 │   └── profiles/            # Profile specifications (crypto, a2a, governance)
 ├── schemas/                 # JSON Schemas (draft 2020-12, v2 includes DCP-05–09)
 ├── tools/                   # Validation, conformance, crypto + Merkle helpers
+│   ├── interop-matrix/      # Live interoperability between agents on the four SDKs
+│   └── difffuzz/            # Differential fuzzer of the four V2 verifiers
 ├── tests/                   # Conformance tests and fixtures
 ├── bin/dcp.js               # Reference CLI
 ├── cli/                     # Interactive CLI wizard (@dcp-ai/cli)
@@ -454,6 +465,10 @@ npm test
 
 # Run protocol conformance suite
 npm run conformance
+
+# Cross-SDK checks (build sdks/typescript first; needs Python, Go and Rust)
+node tools/interop-matrix/run.mjs
+node tools/difffuzz/run.mjs
 
 # Start verification server (port 3000)
 npm run server

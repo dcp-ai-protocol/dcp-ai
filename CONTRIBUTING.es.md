@@ -10,7 +10,7 @@ Gracias por tu interés en contribuir al Digital Citizenship Protocol for AI Age
 
 - **Node.js** >= 18 (requerido para el protocolo core y el SDK TypeScript)
 - **Python** >= 3.12 (requerido para el SDK Python)
-- **Go** >= 1.21 (requerido para el SDK Go)
+- **Go** >= 1.25 (requerido para el SDK Go)
 - **Rust** (toolchain stable, requerido para el SDK Rust)
 - **Git**
 
@@ -82,6 +82,18 @@ cd sdks/wasm
 npm test
 ```
 
+### Entre SDKs
+
+Cada SDK lee los vectores compartidos de `tests/interop/v2/` desde su propia suite de tests. Dos herramientas verifican los SDKs
+entre sí (primero compila `sdks/typescript` e instala `sdks/python`; Go y Rust deben estar en el `PATH`):
+
+```bash
+node tools/interop-matrix/run.mjs   # agents on the four SDKs sign and verify each other's bundles
+node tools/difffuzz/run.mjs         # the same mutated bundle through the four verifiers
+```
+
+Ambas se ejecutan en CI en cada pull request.
+
 ## Estilo de Código
 
 Este proyecto usa herramientas automatizadas para aplicar un estilo de código consistente:
@@ -118,7 +130,8 @@ npx eslint --fix .
 - [ ] Todos los tests existentes pasan
 - [ ] Se agregaron nuevos tests para la funcionalidad nueva
 - [ ] El código sigue las pautas de estilo del proyecto
-- [ ] Documentación actualizada si aplica
+- [ ] Documentación actualizada si aplica, en todos los idiomas en que exista el documento
+- [ ] Cambios en firma, hashing, canonicalización o verificación: vectores compartidos actualizados y la matriz de interoperabilidad pasa
 - [ ] Los mensajes de commit siguen el formato a continuación
 
 ## Formato de Mensajes de Commit
@@ -167,6 +180,7 @@ chore(ci): add code coverage to TypeScript SDK workflow
 - Todas las nuevas funcionalidades deben incluir tests correspondientes.
 - Las correcciones de bugs deben incluir un test de regresión que hubiese atrapado el bug.
 - Los tests de conformidad en `tests/conformance/` verifican el cumplimiento del protocolo en todas las implementaciones.
+- Toda regla que aplican todos los SDKs recibe un vector compartido en `tests/interop/v2/`, de modo que los cuatro SDKs se prueban contra el mismo caso.
 - Los tests de los SDKs deben cubrir la creación de bundles, firma, verificación y casos de error.
 - CI debe pasar antes de que un PR pueda ser mergeado. Los fallos de tests no se suprimen — si los tests fallan, el build falla.
 

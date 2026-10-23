@@ -10,7 +10,7 @@
 go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
 ```
 
-**必要環境:** Go 1.21以上
+**必要環境:** Go 1.25以上
 
 ## 機能
 
@@ -28,12 +28,12 @@ go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
 | セキュリティティア計算 | — | Yes |
 | 所有証明 | — | Yes |
 | 鍵ローテーション | — | Yes |
-| DCP-04 A2A 発見 + ハンドシェイク + AES-256-GCM セッション (stdlib) | — | Yes |
+| DCP-04 A2A 発見 + ハンドシェイク + AES-256-GCM セッション (stdlib。並行利用に対して安全で、各メッセージはウィンドウ内で一度だけ受理) | — | Yes |
 | DCP-05 エージェントライフサイクル (コミッショニング / バイタリティ / デコミッショニング) | — | Yes |
 | DCP-06 デジタル継承 (デジタル遺言、メモリ転送、セレモニー) | — | Yes |
 | DCP-07 紛争解決 + 仲裁 + 判例 | — | Yes |
 | DCP-08 権利と義務 + コンプライアンス | — | Yes |
-| DCP-09 委任 + 認識しきい値 + プリンシパルミラー | — | Yes |
+| DCP-09 委任 + 検証可能な委任チェーン (`CreateSubMandate`、`VerifyMandateChain`) + 認識しきい値 + プリンシパルミラー | — | Yes |
 | セッションノンスヘルパー、緊急失効 | — | Yes |
 | 遅延PQチェックポイント + `PQCheckpointManager` | — | Yes |
 | ブラインドRPR、マルチパーティ認可、アルゴリズムアドバイザリヘルパー | — | Yes |
@@ -150,7 +150,7 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 |----------|-------------|
 | `v2.SignPayload(reg, context, payload, classicalKey, pqKey)` | 成果物に署名して `SignedPayload` を生成（複合署名、`pqKey` が nil の場合は古典のみ） |
 | `v2.BuildBundleV2(input)` | 署名済みの成果物から、マニフェストハッシュとデュアルMerkleルート付きのV2バンドルを構築 |
-| `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | 複合または古典のみの署名でバンドルに署名 |
+| `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | 複合または古典のみの署名でバンドルに署名。署名者はバンドルの責任主体 (`signer.id` = RPR の `human_id`) |
 | `v2.VerifySignedBundleV2(reg, jsonBytes)` | V2バンドルの完全検証 (構造、ハッシュ、署名、監査チェーン)。`DefaultVerifierPolicy` を使い、ポリシーのモードとセキュリティティアのモードのうち厳しい方で検証（spec §14.3）。`ResolvedTier` と `VerificationMode` を返す |
 | `v2.VerifySignedBundleV2WithPolicy(reg, jsonBytes, policy)` | 独自の `VerifierPolicy` で同じ検証を行う。`DefaultVerifierPolicy()` と異なってよいのは `DefaultMode`、`RiskOverrides` と Phase 3 のフィールド（`AdvisoryRejectedAlgs`、`WarnClassicalOnlyDeprecated`、`AllowClassicalFallbackDisable`。意味は TypeScript と同じ）だけで、それ以外を変えると検証は失敗する |
 
@@ -161,6 +161,16 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 | `v2.ComputeSecurityTier(input)` | 適応型セキュリティティア（routine/standard/elevated/maximum）と検証モード・チェックポイント間隔を計算（spec §14.2）。未知の値は `elevated` として扱う |
 | `v2.SecurityTierInputFromPayloads(intent, policyDecision)` | デコード済みの intent と PolicyDecision のペイロードからティア入力を作成（`risk_score` は PolicyDecision から取得。欠落しているか 0〜1000 の整数でない場合は未知を表す `RiskScore: -1` になる） |
 | `v2.EffectiveVerificationMode(policyMode, tier)` | ポリシーのモードとティアのモードのうち厳しい方。`pq_only` は変わらない |
+
+### 委任チェーン (DCP-09 §3.5)
+
+| 関数 | 説明 |
+|----------|-------------|
+| `v2.CreateDelegationMandate(reg, humanClassical, humanPQ, params)` | 人間が署名するルートマンデート。`SubDelegation` と `MinimumSecurityTier` は任意 |
+| `v2.CreateSubMandate(reg, delegatorClassical, delegatorPQ, parent, v2.SubMandateParams{...})` | 親マンデートのエージェントが `DCP-AI.v2.SubMandate` コンテキストで署名するサブマンデート |
+| `v2.VerifyMandateChain(reg, chain, revokedIDs, v2.MandateChainKeys{HumanKeys, AgentKeys}, now)` | チェーンをルートから順に、オフラインで検証 (人間まで遡る署名、リンクと深さ、`sub_delegation`、入れ子になった有効期間、アクション・`data_classes`・`limits` の権限の減衰、ティアの下限、失効)。`MandateChainResult{Valid, Errors, Depth, EffectiveTier}` を返す |
+
+`SecurityTierInput.MandateChainTier` は、チェーンの `EffectiveTier` を、ティアを引き上げることしかできない下限として受け取ります。
 
 ### 複合署名
 

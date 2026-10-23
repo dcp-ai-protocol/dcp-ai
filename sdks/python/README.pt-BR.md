@@ -31,13 +31,13 @@ pip install "dcp-ai[otlp]"       # OpenTelemetry OTLP exporter
 | JSON canônico v2 + separação de domínio | Sim |
 | Dual hash (SHA-256 + SHA3-256) + Merkle roots | Sim |
 | Assinatura + verificação de bundles | V1: sim. V2 (`SignedBundleV2`): sim, `BundleBuilderV2` / `sign_bundle_v2` / `verify_signed_bundle_v2` |
-| DCP-04 descoberta A2A + handshake + sessão AES-256-GCM (via `cryptography`) | Sim |
+| DCP-04 descoberta A2A + handshake + sessão AES-256-GCM (via `cryptography`); cada mensagem é aceita uma única vez dentro da janela (§8.4) | Sim |
 | DCP-05 ciclo de vida de agentes (commissioning / vitality / decommissioning) | Sim |
 | DCP-06 sucessão digital (testamento digital, transferência de memória, cerimônia) | Sim |
 | DCP-07 resolução de disputas + arbitragem + jurisprudência | Sim |
 | DCP-08 direitos + obrigações + conformidade | Sim |
-| DCP-09 delegação + limiar de consciência + espelho do principal | Sim |
-| Helpers de nonce de sessão, motor de tier de segurança (`compute_security_tier(intent, policy_decision)`, spec §14.2), revogação de emergência | Sim |
+| DCP-09 delegação + cadeias de delegação verificáveis (`create_sub_mandate`, `verify_mandate_chain`, §3.5) + limiar de consciência + espelho do principal | Sim |
+| Helpers de nonce de sessão, motor de tier de segurança (`compute_security_tier(intent, policy_decision, mandate_chain_tier)`, spec §14.2), revogação de emergência | Sim |
 | Checkpoints PQ lazy + `PQCheckpointManager` | Sim |
 | Helpers de RPR blindado, autorização multi-parte, advisory de algoritmo | Sim |
 | Códigos de erro canônicos (38 compartilhados entre todos os SDKs) + `detect_wire_format` | Sim |
@@ -236,6 +236,31 @@ result = await verify_signed_bundle_v2(signed, registry)  # DEFAULT_VERIFIER_POL
 ```
 
 O verificador também confere a assinatura composta de cada artefato (o RPR com as `binding_keys` do principal, o restante com as chaves do passaporte) e rejeita, em qualquer modo de política, uma assinatura PQ presente mas inválida. O modo é o mais estrito entre o da política e o do nível de segurança (spec §14.3), e `details["resolved_tier"]` informa o nível.
+
+### Cadeias de Delegação (DCP-09 §3.5)
+
+Um mandato raiz é assinado pelo humano (`create_delegation_mandate`); o agente que o detém pode emitir um
+submandato para outro agente (`create_sub_mandate`), assinado com suas próprias chaves. `verify_mandate_chain` verifica
+a cadeia começando pela raiz e offline: assinaturas até o humano, vínculos com o pai e profundidade, `sub_delegation`,
+janelas de validade aninhadas, atenuação (ações, `data_classes` e `limits` só se restringem), o piso de nível
+de segurança e a revogação.
+
+```python
+from dcp_ai.v2 import create_sub_mandate, verify_mandate_chain, compute_security_tier
+
+sub = await create_sub_mandate(
+    registry, orchestrator_classical, orchestrator_pq, root_mandate,
+    mandate_id="mandate:sub-1", session_nonce=nonce, agent_id="agent:subagent",
+    authority_scope=[{"domain": "email", "actions_permitted": ["read"], "data_classes": ["contact_info"]}],
+    valid_from="2026-03-01T00:00:00Z", valid_until="2026-06-01T00:00:00Z", revocable=True,
+)
+result = await verify_mandate_chain(
+    registry, [root_mandate, sub], set(),
+    {"human_keys": human_key_entries, "agent_keys": {"agent:orchestrator": orchestrator_key_entries}},
+)
+# {"valid", "errors", "depth", "effective_tier"}; the tier floor can only raise an action's tier.
+tier = compute_security_tier(intent, policy_decision, result["effective_tier"] if result["valid"] else None)
+```
 
 ### Modelos Pydantic
 

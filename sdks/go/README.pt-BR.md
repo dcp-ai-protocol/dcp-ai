@@ -10,7 +10,7 @@ SDK Go oficial para o Digital Citizenship Protocol (DCP) v1.0 e v2.0. Suporta Ed
 go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
 ```
 
-**Requer:** Go 1.21+
+**Requer:** Go 1.25+
 
 ## Funcionalidades
 
@@ -28,12 +28,12 @@ go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
 | Cálculo de nível de segurança | — | Sim |
 | Prova de posse | — | Sim |
 | Rotação de chaves | — | Sim |
-| DCP-04 descoberta A2A + handshake + sessão AES-256-GCM (stdlib) | — | Sim |
+| DCP-04 descoberta A2A + handshake + sessão AES-256-GCM (stdlib; segura para uso concorrente, cada mensagem é aceita uma única vez dentro da janela) | — | Sim |
 | DCP-05 ciclo de vida de agentes (commissioning / vitality / decommissioning) | — | Sim |
 | DCP-06 sucessão digital (testamento digital, transferência de memória, cerimônia) | — | Sim |
 | DCP-07 resolução de disputas + arbitragem + jurisprudência | — | Sim |
 | DCP-08 direitos + obrigações + conformidade | — | Sim |
-| DCP-09 delegação + limiar de consciência + espelho do principal | — | Sim |
+| DCP-09 delegação + cadeias de delegação verificáveis (`CreateSubMandate`, `VerifyMandateChain`) + limiar de consciência + espelho do principal | — | Sim |
 | Helpers de nonce de sessão, revogação de emergência | — | Sim |
 | Checkpoints PQ lazy + `PQCheckpointManager` | — | Sim |
 | Helpers de RPR blindado, autorização multi-parte, advisory de algoritmo | — | Sim |
@@ -150,7 +150,7 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 |--------|-----------|
 | `v2.SignPayload(reg, context, payload, classicalKey, pqKey)` | Assina um artefato como `SignedPayload` (composta, ou apenas clássica quando `pqKey` é nil) |
 | `v2.BuildBundleV2(input)` | Constrói um bundle V2 a partir de artefatos assinados, com hashes de manifesto e Merkle roots duplos |
-| `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | Assina um bundle com assinatura composta ou apenas clássica |
+| `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | Assina um bundle com assinatura composta ou apenas clássica; o signatário é o principal do bundle (`signer.id` = o `human_id` do RPR) |
 | `v2.VerifySignedBundleV2(reg, jsonBytes)` | Verificação completa de bundle V2 (estrutura, hashes, assinaturas, cadeia de auditoria) com `DefaultVerifierPolicy`, contra o modo mais estrito entre o da política e o do nível de segurança (spec §14.3); informa `ResolvedTier` e `VerificationMode` |
 | `v2.VerifySignedBundleV2WithPolicy(reg, jsonBytes, policy)` | O mesmo, com a sua própria `VerifierPolicy`; só `DefaultMode`, `RiskOverrides` e os campos da Fase 3 (`AdvisoryRejectedAlgs`, `WarnClassicalOnlyDeprecated`, `AllowClassicalFallbackDisable`, como no TypeScript) podem diferir de `DefaultVerifierPolicy()`, qualquer outra mudança faz a verificação falhar |
 
@@ -161,6 +161,16 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 | `v2.ComputeSecurityTier(input)` | Calcula o nível de segurança adaptativo (routine/standard/elevated/maximum), seu modo de verificação e intervalo de checkpoint (spec §14.2); valores desconhecidos resultam em `elevated` |
 | `v2.SecurityTierInputFromPayloads(intent, policyDecision)` | Monta a entrada do nível a partir dos payloads decodificados do intent e da PolicyDecision (`risk_score` vem da PolicyDecision; se faltar ou não for um inteiro de 0 a 1000, vira `RiskScore: -1`, que é desconhecido) |
 | `v2.EffectiveVerificationMode(policyMode, tier)` | O modo mais estrito entre o da política e o do nível; `pq_only` não muda |
+
+### Cadeias de Delegação (DCP-09 §3.5)
+
+| Função | Descrição |
+|--------|-----------|
+| `v2.CreateDelegationMandate(reg, humanClassical, humanPQ, params)` | Mandato raiz assinado pelo humano; `SubDelegation` e `MinimumSecurityTier` são opcionais |
+| `v2.CreateSubMandate(reg, delegatorClassical, delegatorPQ, parent, v2.SubMandateParams{...})` | Submandato assinado pelo agente do mandato pai sob o contexto `DCP-AI.v2.SubMandate` |
+| `v2.VerifyMandateChain(reg, chain, revokedIDs, v2.MandateChainKeys{HumanKeys, AgentKeys}, now)` | Verifica a cadeia começando pela raiz e offline (assinaturas até o humano, vínculos e profundidade, `sub_delegation`, validade aninhada, atenuação de ações, `data_classes` e `limits`, piso de nível, revogação); retorna `MandateChainResult{Valid, Errors, Depth, EffectiveTier}` |
+
+`SecurityTierInput.MandateChainTier` recebe o `EffectiveTier` da cadeia como um piso que só pode elevar o nível.
 
 ### Assinaturas Compostas
 

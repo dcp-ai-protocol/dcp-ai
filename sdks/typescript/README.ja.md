@@ -105,7 +105,7 @@ const bundle = new BundleBuilderV2()
 
 | 関数 | 説明 |
 |----------|-------------|
-| `computeSecurityTier(intent, policyDecision?)` | intent とポリシー決定の `risk_score` から `SecurityTier`（routine / standard / elevated / maximum）を計算（spec §14.2）。未知の値は `elevated` として扱う |
+| `computeSecurityTier(intent, policyDecision?, mandateChainTier?)` | intent とポリシー決定の `risk_score` から `SecurityTier`（routine / standard / elevated / maximum）を計算（spec §14.2）。検証済み委任チェーンの `effective_tier` はティアを引き上げることしかできない。未知の値は `elevated` として扱う |
 | `maxTier(a, b)` | 2つのセキュリティティアのうち高い方を返す |
 | `tierToVerificationMode(tier)` | ティアから必要な検証モードへのマッピング |
 | `tierToCheckpointInterval(tier)` | ティアから耐量子チェックポイント間隔へのマッピング |
@@ -163,7 +163,7 @@ const bundle = new BundleBuilderV2()
 | `createCloseMessage(sessionId, reason, finalSequence, auditSummaryHash)` | セッションクローズメッセージを作成 |
 | `createSession(sessionId, sessionKey, localAgentId, remoteAgentId, securityTier, rekeyingInterval?)` | 暗号化されたA2Aセッションを作成 |
 | `encryptMessage(session, payload)` | A2Aセッション内でメッセージを暗号化 |
-| `decryptMessage(session, message)` | A2Aセッション内でメッセージを復号 |
+| `decryptMessage(session, message)` | A2Aセッション内でメッセージを復号。各シーケンスは1000メッセージのウィンドウ内で一度だけ受理される (DCP-04 §8.4) |
 | `needsRekeying(session)` | セッションが鍵ローテーションを必要とするかチェック |
 | `generateResumeProof(session, lastSeenSequence)` | セッション再開のための証明を生成 |
 | `verifyResumeProof(session, lastSeenSequence, proof)` | セッション再開証明を検証 |
@@ -212,6 +212,37 @@ const bundle = new BundleBuilderV2()
 | `cborEncode(value)` | 値をCBORバイト列にエンコード |
 | `cborDecode(data)` | CBORバイト列を値にデコード |
 
+### 委任チェーン (DCP-09 §3.5)
+
+人間はルートマンデートによってエージェントに委任します。そのエージェントは、自ら署名するサブマンデートによって権限の一部を別のエージェントに引き渡すことができ、以降も同様に続けられます。各ホップは受け取った権限を狭めることしかできず、チェーン全体は人間までオフラインで遡って検証できます。
+
+| 関数 | 説明 |
+|----------|-------------|
+| `createDelegationMandate(registry, humanKeys, params)` | 人間が署名するルートマンデート (`human_composite_sig`)。`sub_delegation` と `minimum_security_tier` は任意 |
+| `createSubMandate(registry, delegatorKeys, parent, params)` | 親マンデートのエージェントが署名するサブマンデート (`delegator_composite_sig`、`DCP-AI.v2.SubMandate` コンテキスト) |
+| `verifyMandateChain(registry, chain, revokedIds, keys, now?)` | ルートから順にチェーンを検証：人間まで遡る署名、親へのリンクと深さ、`sub_delegation`、入れ子になった有効期間、権限の減衰 (アクション、`data_classes`、`limits` は狭めることしかできない)、セキュリティティアの下限、失効。`{ valid, errors, depth, effective_tier }` を返す |
+
+```typescript
+import { createSubMandate, verifyMandateChain, computeSecurityTier } from '@dcp-ai/sdk';
+
+const sub = await createSubMandate(registry, orchestratorKeys, rootMandate, {
+  mandate_id: 'mandate:sub-1',
+  session_nonce: nonce,
+  agent_id: 'agent:subagent',
+  authority_scope: [{ domain: 'email', actions_permitted: ['read'], data_classes: ['contact_info'], limits: { max_messages_per_day: 10 } }],
+  valid_from: '2026-03-01T00:00:00Z',
+  valid_until: '2026-06-01T00:00:00Z',
+  revocable: true,
+});
+
+const result = await verifyMandateChain(registry, [rootMandate, sub], new Set(), {
+  human_keys: humanKeyEntries,
+  agent_keys: { 'agent:orchestrator': orchestratorKeyEntries },
+});
+// The chain's tier floor can only raise the tier of an action taken under it.
+const tier = computeSecurityTier(intent, policyDecision, result.valid ? result.effective_tier : null);
+```
+
 ### DCP-05–09: 拡張プロトコルモジュール
 
 | モジュール | Spec | 主なエクスポート |
@@ -238,17 +269,19 @@ const cert: CommissioningCertificate = {
   conditions: ['Must complete onboarding within 30 days'],
 };
 
-// Example: Delegation mandate
-import { DelegationMandate, AwarenessThreshold } from '@dcp-ai/sdk';
+// Example: Delegation mandate (signed by the human)
+import { createDelegationMandate } from '@dcp-ai/sdk';
 
-const mandate: DelegationMandate = {
+const mandate = await createDelegationMandate(registry, humanKeys, {
   mandate_id: 'mandate-001',
-  principal_id: 'human-001',
-  delegate_id: 'agent-001',
-  authority_scope: [{ domain: 'email', actions: ['read', 'draft'], constraints: {} }],
+  session_nonce: nonce,
+  human_id: 'rpr:human-001',
+  agent_id: 'agent:agent-001',
+  authority_scope: [{ domain: 'email', actions_permitted: ['read', 'draft'], limits: { max_messages_per_day: 50 } }],
   valid_from: '2026-03-01T00:00:00Z',
   valid_until: '2026-06-01T00:00:00Z',
-};
+  revocable: true,
+});
 ```
 
 ## V2 型
@@ -295,6 +328,7 @@ import { createSession, encryptMessage, decryptMessage } from '@dcp-ai/sdk';
 const session = createSession(sessionId, sessionKey, 'agent:a', 'agent:b', 'elevated');
 const encrypted = encryptMessage(session, { action: 'negotiate', data: {...} });
 const decrypted = decryptMessage(remoteSession, encrypted);
+// The same message delivered again throws: each sequence is accepted once.
 ```
 
 ## 可観測性

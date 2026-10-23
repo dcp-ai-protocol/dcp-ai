@@ -10,7 +10,7 @@ SDK oficial de Go para el Digital Citizenship Protocol (DCP) v1.0 y v2.0. Soport
 go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
 ```
 
-**Requiere:** Go 1.21+
+**Requiere:** Go 1.25+
 
 ## Características
 
@@ -28,12 +28,12 @@ go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
 | Cálculo del nivel de seguridad | — | Sí |
 | Proof of possession | — | Sí |
 | Rotación de claves | — | Sí |
-| Descubrimiento A2A DCP-04 + handshake + sesión AES-256-GCM (stdlib) | — | Sí |
+| Descubrimiento A2A DCP-04 + handshake + sesión AES-256-GCM (stdlib; segura para uso concurrente, cada mensaje se acepta una sola vez dentro de la ventana) | — | Sí |
 | Ciclo de vida de agente DCP-05 (commissioning / vitalidad / decommissioning) | — | Sí |
 | Sucesión digital DCP-06 (testamento, transferencia de memoria, ceremonia) | — | Sí |
 | Resolución de disputas + arbitraje + jurisprudencia DCP-07 | — | Sí |
 | Derechos + obligaciones + compliance DCP-08 | — | Sí |
-| Delegación + umbral de conciencia + espejo del principal DCP-09 | — | Sí |
+| Delegación + cadenas de delegación verificables (`CreateSubMandate`, `VerifyMandateChain`) + umbral de conciencia + espejo del principal DCP-09 | — | Sí |
 | Helpers de nonce de sesión, revocación de emergencia | — | Sí |
 | Checkpoints PQ perezosos + `PQCheckpointManager` | — | Sí |
 | RPR blinded, autorización multi-parte, helpers de aviso de algoritmo | — | Sí |
@@ -150,7 +150,7 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 |----------|-------------|
 | `v2.SignPayload(reg, context, payload, classicalKey, pqKey)` | Firma un artefacto como `SignedPayload` (compuesta, o solo clásica si `pqKey` es nil) |
 | `v2.BuildBundleV2(input)` | Construye un bundle V2 a partir de artefactos firmados, con hashes del manifiesto y raíces duales de Merkle |
-| `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | Firma un bundle con firma compuesta o solo clásica |
+| `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | Firma un bundle con firma compuesta o solo clásica; el firmante es el principal del bundle (`signer.id` = el `human_id` del RPR) |
 | `v2.VerifySignedBundleV2(reg, jsonBytes)` | Verificación completa de bundle V2 (estructura, hashes, firmas, cadena de auditoría) con `DefaultVerifierPolicy`, contra el modo más estricto entre el de la política y el del nivel de seguridad (spec §14.3); informa `ResolvedTier` y `VerificationMode` |
 | `v2.VerifySignedBundleV2WithPolicy(reg, jsonBytes, policy)` | Igual, con tu propia `VerifierPolicy`; solo `DefaultMode`, `RiskOverrides` y los campos de Fase 3 (`AdvisoryRejectedAlgs`, `WarnClassicalOnlyDeprecated`, `AllowClassicalFallbackDisable`, como en TypeScript) pueden diferir de `DefaultVerifierPolicy()`, cualquier otro cambio hace fallar la verificación |
 
@@ -158,9 +158,19 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 
 | Función | Descripción |
 |----------|-------------|
-| `v2.ComputeSecurityTier(input)` | Calcula el nivel de seguridad adaptativo (routine/standard/elevated/maximum), su modo de verificación y su intervalo de checkpoint (spec §14.2); los valores desconocidos dan `elevated` |
+| `v2.ComputeSecurityTier(input)` | Calcula el nivel de seguridad adaptativo (routine/standard/elevated/maximum), su modo de verificación y su intervalo de checkpoint (spec §14.2); los valores desconocidos fallan de forma segura a `elevated` |
 | `v2.SecurityTierInputFromPayloads(intent, policyDecision)` | Construye la entrada del nivel a partir de los payloads decodificados del intent y de la PolicyDecision (`risk_score` sale de la PolicyDecision; si falta o no es un entero de 0 a 1000 queda en `RiskScore: -1`, que es desconocido) |
 | `v2.EffectiveVerificationMode(policyMode, tier)` | El modo más estricto entre el de la política y el del nivel; `pq_only` no cambia |
+
+### Cadenas de Delegación (DCP-09 §3.5)
+
+| Función | Descripción |
+|----------|-------------|
+| `v2.CreateDelegationMandate(reg, humanClassical, humanPQ, params)` | Mandato raíz firmado por el humano; `SubDelegation` y `MinimumSecurityTier` son opcionales |
+| `v2.CreateSubMandate(reg, delegatorClassical, delegatorPQ, parent, v2.SubMandateParams{...})` | Submandato firmado por el agente del mandato padre bajo el contexto `DCP-AI.v2.SubMandate` |
+| `v2.VerifyMandateChain(reg, chain, revokedIDs, v2.MandateChainKeys{HumanKeys, AgentKeys}, now)` | Verifica la cadena empezando por la raíz y offline (firmas hasta el humano, enlaces y profundidad, `sub_delegation`, validez anidada, atenuación de acciones, `data_classes` y `limits`, nivel mínimo, revocación); devuelve `MandateChainResult{Valid, Errors, Depth, EffectiveTier}` |
+
+`SecurityTierInput.MandateChainTier` recibe el `EffectiveTier` de la cadena como nivel mínimo, que solo puede elevar el nivel.
 
 ### Firmas Compuestas
 
