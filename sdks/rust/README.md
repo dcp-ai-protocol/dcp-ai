@@ -207,7 +207,9 @@ cargo build --target wasm32-unknown-unknown --features wasm
 
 - `serde` + `serde_json` — Serialization
 - `sha2` — SHA-256
+- `sha3` — SHA3-256 (dual hash chains)
 - `ed25519-dalek` — Ed25519 cryptography
+- `fips203` / `fips204` / `fips205` — ML-KEM-768, ML-DSA-65 and SLH-DSA-192f (FIPS 203 / 204 / 205)
 - `rand` — Random number generation
 - `base64` — Base64 encoding
 - `hex` — Hex encoding

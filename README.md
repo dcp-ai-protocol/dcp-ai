@@ -232,7 +232,7 @@ Create, sign, and verify Citizenship Bundles in your preferred language. All SDK
 | **TypeScript** | `@dcp-ai/sdk` | BundleBuilder, hybrid PQ crypto, JSON Schema validation, Vitest | [sdks/typescript/](sdks/typescript/README.md) |
 | **Python** | `dcp-ai` | Pydantic v2 models, CLI (Typer), PQ extras, optional plugins | [sdks/python/](sdks/python/README.md) |
 | **Go** | `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` | Native types, hybrid signatures, full verification pipeline | [sdks/go/](sdks/go/README.md) |
-| **Rust** | `dcp-ai` | serde, ed25519-dalek + pqcrypto, optional WASM feature | [sdks/rust/](sdks/rust/README.md) |
+| **Rust** | `dcp-ai` | serde, ed25519-dalek + fips203/204/205, optional WASM feature | [sdks/rust/](sdks/rust/README.md) |
 | **WASM** | `@dcp-ai/wasm` | Browser verification, PQ crypto in WebAssembly, compiled from Rust | [sdks/wasm/](sdks/wasm/README.md) |
 
 ---

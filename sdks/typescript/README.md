@@ -105,7 +105,7 @@ const bundle = new BundleBuilderV2()
 
 | Function | Description |
 |----------|-------------|
-| `computeSecurityTier(intent, policyDecision?)` | Computes a `SecurityTier` (routine, standard, elevated, maximum) from an intent and the policy decision's `risk_score` (spec §14.2); unknown values fail closed to `elevated` |
+| `computeSecurityTier(intent, policyDecision?, mandateChainTier?)` | Computes a `SecurityTier` (routine, standard, elevated, maximum) from an intent and the policy decision's `risk_score` (spec §14.2); a verified delegation chain's `effective_tier` can only raise it; unknown values fail closed to `elevated` |
 | `maxTier(a, b)` | Returns the higher of two security tiers |
 | `tierToVerificationMode(tier)` | Maps a tier to the required verification mode |
 | `tierToCheckpointInterval(tier)` | Maps a tier to the PQ checkpoint interval |
