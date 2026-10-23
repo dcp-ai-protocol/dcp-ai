@@ -68,6 +68,9 @@ type IntentV2 struct {
 	DataClasses     []string       `json:"data_classes"`
 	EstimatedImpact string         `json:"estimated_impact"`
 	RequiresConsent bool           `json:"requires_consent"`
+	// SecurityTier is the declared tier (routine, standard, elevated, maximum); it can only
+	// raise the computed one (DCP-AI v2.0 §14.2). Empty means none declared.
+	SecurityTier string `json:"security_tier,omitempty"`
 }
 
 // RequiredConfirmation represents the confirmation requirements on a policy decision.
@@ -88,6 +91,8 @@ type PolicyDecisionV2 struct {
 	RequiredConfirmation *RequiredConfirmation `json:"required_confirmation"`
 	AppliedPolicyHash    string                `json:"applied_policy_hash"`
 	Timestamp            string                `json:"timestamp"`
+	// ResolvedTier is the security tier the policy engine resolved; empty means none.
+	ResolvedTier string `json:"resolved_tier,omitempty"`
 }
 
 // AuditEvidenceV2 represents evidence attached to a V2 audit event.

@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sync"
 	"time"
 )
 
@@ -195,9 +196,13 @@ func CreateCloseMessage(sessionID, reason string, finalSequence uint64, auditSum
 
 // ── Session ──
 
-// A2ASession holds symmetric-channel state between two agents. It is not safe
-// for concurrent use: serialize EncryptMessage and DecryptMessage per session.
+// A2ASession holds symmetric-channel state between two agents. EncryptMessage,
+// DecryptMessage and NeedsRekeying may be called concurrently on one session;
+// pass it by pointer (it holds a mutex), and do not change its fields while
+// those calls run.
 type A2ASession struct {
+	mu sync.Mutex
+
 	SessionID           string
 	SessionKey          []byte
 	AgentIDLocal        string
@@ -249,6 +254,8 @@ func CreateA2ASession(
 
 // EncryptMessage encrypts a JSON payload and bumps the send counter.
 func EncryptMessage(session *A2ASession, payload map[string]interface{}) (map[string]interface{}, error) {
+	session.mu.Lock()
+	defer session.mu.Unlock()
 	if session.Status != "active" {
 		return nil, fmt.Errorf("cannot send on %s session", session.Status)
 	}
@@ -291,6 +298,8 @@ func EncryptMessage(session *A2ASession, payload map[string]interface{}) (map[st
 
 // DecryptMessage verifies AAD + tag, returns the decoded JSON, and advances the recv counter.
 func DecryptMessage(session *A2ASession, msg map[string]interface{}) (map[string]interface{}, error) {
+	session.mu.Lock()
+	defer session.mu.Unlock()
 	if msg["session_id"] != session.SessionID {
 		return nil, errors.New("session ID mismatch")
 	}
@@ -363,6 +372,8 @@ func DecryptMessage(session *A2ASession, msg map[string]interface{}) (map[string
 
 // NeedsRekeying returns true if the session hit the rekey interval on send.
 func NeedsRekeying(session *A2ASession) bool {
+	session.mu.Lock()
+	defer session.mu.Unlock()
 	return session.MessageCounterSend >= session.RekeyingInterval
 }
 
