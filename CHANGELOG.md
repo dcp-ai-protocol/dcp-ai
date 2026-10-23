@@ -21,6 +21,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `tools/interop-matrix`: live interoperability between the four SDKs. One agent process per SDK
+  (TypeScript, Python, Go, Rust) creates its identity, declares intents, acts and signs its
+  citizenship bundles (DCP-01 to DCP-03); every other agent, and the reference verifier
+  `lib/verify.js`, verifies them under the default policy and `hybrid_required`, untouched and
+  after seven tamperings in transit (changed intent, reordered or dropped audit entries, spliced
+  session, swapped bundle signature or passport, stripped PQ signature). The agents share only the
+  messages the orchestrator relays. `.github/workflows/interop-matrix.yml` runs it on every pull
+  request and nightly.
 - `@dcp-ai/google-a2a` 2.1.0: the signed DCP Agent Passport travels inside the A2A Agent Card.
   `passportToAgentCard(signedPassport, url)` (or `attachPassportToAgentCard(card, signedPassport)`)
   puts the `SignedPayload<AgentPassportV2>` in the card's `capabilities.extensions` under
