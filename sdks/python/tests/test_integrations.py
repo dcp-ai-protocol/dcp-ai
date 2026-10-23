@@ -800,8 +800,12 @@ class TestFastAPIMiddlewareHardening:
 def _bundle_vector_cases():
     with open(_BUNDLE_VECTORS) as f:
         vectors = json.load(f)
-    cases = [pytest.param(vectors["signed_bundle"], None, id="accept signed_bundle")]
-    cases += [pytest.param(c["signed_bundle"], None, id=f"accept {c['name']}") for c in vectors["must_accept_bundles"]]
+    overrides = lambda c: c.get("verifier_policy_overrides")  # noqa: E731
+    cases = [pytest.param(vectors["signed_bundle"], None, None, id="accept signed_bundle")]
+    cases += [
+        pytest.param(c["signed_bundle"], None, overrides(c), id=f"accept {c['name']}")
+        for c in vectors["must_accept_bundles"]
+    ]
     for c in vectors["must_reject"]:
         signed = copy.deepcopy(vectors["signed_bundle"])
         for mutation in c["mutations"]:
@@ -809,14 +813,21 @@ def _bundle_vector_cases():
             for key in mutation["path"][:-1]:
                 node = node[key]
             node[mutation["path"][-1]] = mutation["value"]
-        cases.append(pytest.param(signed, c["error_contains"], id=f"reject {c['name']}"))
-    cases += [pytest.param(c["signed_bundle"], c["error_contains"], id=f"reject {c['name']}") for c in vectors["must_reject_bundles"]]
+        cases.append(pytest.param(signed, c["error_contains"], None, id=f"reject {c['name']}"))
+    cases += [
+        pytest.param(c["signed_bundle"], c["error_contains"], overrides(c), id=f"reject {c['name']}")
+        for c in vectors["must_reject_bundles"]
+    ]
     return cases
 
 
-@pytest.mark.parametrize("signed_bundle,error_contains", _bundle_vector_cases())
-def test_fastapi_middleware_on_the_shared_bundle_vectors(signed_bundle, error_contains):
-    response = TestFastAPIMiddlewareV2._client().post("/action", json={"signed_bundle": signed_bundle})
+@pytest.mark.parametrize("signed_bundle,error_contains,policy_overrides", _bundle_vector_cases())
+def test_fastapi_middleware_on_the_shared_bundle_vectors(signed_bundle, error_contains, policy_overrides):
+    from dcp_ai.v2.verify import DEFAULT_VERIFIER_POLICY
+
+    # A case's verifier_policy_overrides are merged over the default policy, as the SDK harnesses do.
+    kwargs = {"verifier_policy": {**DEFAULT_VERIFIER_POLICY, **policy_overrides}} if policy_overrides else {}
+    response = TestFastAPIMiddlewareV2._client(**kwargs).post("/action", json={"signed_bundle": signed_bundle})
     if error_contains is None:
         assert response.status_code == 200, response.json()
     else:
