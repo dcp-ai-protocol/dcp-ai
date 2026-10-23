@@ -1009,9 +1009,9 @@ interface EncryptedMessage {
 
 ### `decryptMessage(session, message)`
 
-Decrypt an incoming A2A message. Each sequence is accepted once (DCP-04 §8.4): a sequence already
-received, one more than 1000 behind the highest received, one 1000 or more ahead of it, or one that is not
-a non-negative integer is rejected. Out-of-order delivery inside the window works. A sequence is recorded
+Decrypt an incoming A2A message. Each sequence is accepted once (DCP-04 §8.4): with `R` =
+`message_counter_recv` (the highest sequence received plus one), a sequence already received, one below
+`R − 1000`, one at `R + 1000` or above, or one that is not a non-negative integer is rejected. Out-of-order delivery inside the window works. A sequence is recorded
 only after the GCM tag verifies, so a forged message cannot use one up. A session restored without
 `received_sequences` counts every sequence of the window below `message_counter_recv` as received.
 
