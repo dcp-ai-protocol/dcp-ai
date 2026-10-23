@@ -548,7 +548,7 @@ V2 verifiers MUST support V1 indefinitely. Migration is gradual.
 | PII exposure | Blinded RPR mode |
 | Key loss | M-of-N social recovery (Shamir SSS) |
 | Tier evasion | Verifier-authoritative tier upgrade, agent cannot downgrade |
-| Agent claiming a principal (reusing a published, signed RPR) | Bundle signature only by the RPR `binding_keys`; it commits to the passport hash |
+| Agent claiming a principal (reusing a published, signed RPR) | Bundle signature only by the RPR `binding_keys`; it commits to the passport hash. An RPR minted under someone else's `human_id` is stopped only by a verifier that pins or attests the principal's keys |
 | Inconsistent but validly signed artifacts | Cross-artifact consistency checks (VERIFICATION.md V2-14) |
 | Unsigned metadata steering a check | Session start signed in the manifest; the signer block may not contradict the signature |
 
