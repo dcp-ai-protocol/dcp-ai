@@ -215,7 +215,7 @@ function makePolicyDecision(nonce: string, intentId: string): PolicyDecisionV2 {
 
 function makeAuditEvent(
   nonce: string, agentId: string, intentId: string,
-  prevHash: string, idx: number,
+  prevHash: string, idx: number, intentHash = 'sha256:placeholder',
 ): AuditEventV2 {
   return {
     dcp_version: '2.0',
@@ -227,7 +227,7 @@ function makeAuditEvent(
     agent_id: agentId,
     human_id: 'human-test',
     intent_id: intentId,
-    intent_hash: 'sha256:placeholder',
+    intent_hash: intentHash,
     policy_decision: 'approved',
     outcome: `action_${idx}_completed`,
     evidence: { tool: 'email_client', result_ref: null, evidence_hash: null },
@@ -245,13 +245,16 @@ async function signPayload<T>(
   return { payload, payload_hash: payloadHash, composite_sig: sig };
 }
 
+/** `intent` is the bundle's intent payload (entries then carry its id and hash, V2-14) or a bare id. */
 function buildAuditChain(
-  nonce: string, agentId: string, intentId: string, count: number,
+  nonce: string, agentId: string, intent: string | IntentV2, count: number,
 ): AuditEventV2[] {
   const entries: AuditEventV2[] = [];
   let prevHash = 'GENESIS';
+  const [intentId, intentHash] =
+    typeof intent === 'string' ? [intent, undefined] : [intent.intent_id, preparePayload(intent).payloadHash];
   for (let i = 0; i < count; i++) {
-    const entry = makeAuditEvent(nonce, agentId, intentId, prevHash, i);
+    const entry = makeAuditEvent(nonce, agentId, intentId, prevHash, i, intentHash);
     entries.push(entry);
     const canonical = canonicalizeV2(entry);
     prevHash = `sha256:${sha256Hex(Buffer.from(canonical, 'utf8'))}`;
@@ -274,7 +277,7 @@ async function buildSignedBundleV2(
   const signedIntent = await signPayload(intent, DCP_CONTEXTS.Intent, keys);
   const signedPolicy = await signPayload(policy, DCP_CONTEXTS.PolicyDecision, keys);
 
-  const auditEntries = buildAuditChain(sn, passport.agent_id, intent.intent_id, 3);
+  const auditEntries = buildAuditChain(sn, passport.agent_id, intent, 3);
 
   const bundle = new BundleBuilderV2(sn)
     .responsiblePrincipalRecord(signedRpr)
@@ -779,7 +782,7 @@ describe('Unit: Verifier Policy (V2 Bundle Verification)', () => {
     const signedRpr = await signPayload(rpr, DCP_CONTEXTS.ResponsiblePrincipal, rprKeys);
     const signedIntent = await signPayload(intent, DCP_CONTEXTS.Intent, keys);
     const signedPolicy = await signPayload(policy, DCP_CONTEXTS.PolicyDecision, keys);
-    const auditEntries = buildAuditChain(sn, passport.agent_id, intent.intent_id, 1);
+    const auditEntries = buildAuditChain(sn, passport.agent_id, intent, 1);
 
     const bundle = new BundleBuilderV2(sn)
       .responsiblePrincipalRecord(signedRpr)
@@ -817,7 +820,7 @@ describe('Unit: Verifier Policy (V2 Bundle Verification)', () => {
     const signedRpr = await signPayload(rpr, DCP_CONTEXTS.ResponsiblePrincipal, rprKeys);
     const signedIntent = await signPayload(intent, DCP_CONTEXTS.Intent, keys);
     const signedPolicy = await signPayload(pd, DCP_CONTEXTS.PolicyDecision, keys);
-    const auditEntries = buildAuditChain(sn, passport.agent_id, intent.intent_id, 1);
+    const auditEntries = buildAuditChain(sn, passport.agent_id, intent, 1);
 
     const bundle = new BundleBuilderV2(sn)
       .responsiblePrincipalRecord(signedRpr)
@@ -866,7 +869,7 @@ describe('Unit: Verifier Policy (V2 Bundle Verification)', () => {
     const signedRpr = await signPayload(rpr, DCP_CONTEXTS.ResponsiblePrincipal, rprKeys);
     const signedIntent = await signPayload(intent, DCP_CONTEXTS.Intent, keys);
     const signedPolicy = await signPayload(pd, DCP_CONTEXTS.PolicyDecision, keys);
-    const auditEntries = buildAuditChain(sn, passport.agent_id, intent.intent_id, 1);
+    const auditEntries = buildAuditChain(sn, passport.agent_id, intent, 1);
 
     const bundle = new BundleBuilderV2(sn)
       .responsiblePrincipalRecord(signedRpr)
@@ -926,7 +929,7 @@ describe('Unit: Security Tier Enforcement', () => {
       .agentPassport(await signPayload(passport, DCP_CONTEXTS.AgentPassport, keys))
       .intent(await signPayload(intent, DCP_CONTEXTS.Intent, keys))
       .policyDecision(await signPayload(pd, DCP_CONTEXTS.PolicyDecision, keys))
-      .addAuditEntries(buildAuditChain(sn, passport.agent_id, intent.intent_id, 1))
+      .addAuditEntries(buildAuditChain(sn, passport.agent_id, intent, 1))
       .build();
 
     const signer = { registry, signerType: 'human' as const, signerId: 'human-test' };
@@ -1219,7 +1222,7 @@ describe('Negative: Session Splicing', () => {
       makePolicyDecision(sn2, intent.intent_id),
       DCP_CONTEXTS.PolicyDecision, keys,
     );
-    const auditEntries = buildAuditChain(sn1, passport.agent_id, intent.intent_id, 1);
+    const auditEntries = buildAuditChain(sn1, passport.agent_id, intent, 1);
 
     expect(() =>
       new BundleBuilderV2(sn1)
@@ -1267,7 +1270,7 @@ describe('Negative: Policy Downgrade', () => {
     const signedRpr = await signPayload(rpr, DCP_CONTEXTS.ResponsiblePrincipal, rprKeys);
     const signedIntent = await signPayload(intent, DCP_CONTEXTS.Intent, keys);
     const signedPolicy = await signPayload(pd, DCP_CONTEXTS.PolicyDecision, keys);
-    const auditEntries = buildAuditChain(sn, passport.agent_id, intent.intent_id, 1);
+    const auditEntries = buildAuditChain(sn, passport.agent_id, intent, 1);
 
     const bundle = new BundleBuilderV2(sn)
       .responsiblePrincipalRecord(signedRpr)
@@ -1300,7 +1303,7 @@ describe('Negative: Policy Downgrade', () => {
     const signedRpr = await signPayload(rpr, DCP_CONTEXTS.ResponsiblePrincipal, rprKeys);
     const signedIntent = await signPayload(intent, DCP_CONTEXTS.Intent, keys);
     const signedPolicy = await signPayload(pd, DCP_CONTEXTS.PolicyDecision, keys);
-    const auditEntries = buildAuditChain(sn, passport.agent_id, intent.intent_id, 1);
+    const auditEntries = buildAuditChain(sn, passport.agent_id, intent, 1);
 
     const bundle = new BundleBuilderV2(sn)
       .responsiblePrincipalRecord(signedRpr)
@@ -1708,7 +1711,7 @@ describe('Negative: Revoked / Expired Keys', () => {
     const signedRpr = await signPayload(rpr, DCP_CONTEXTS.ResponsiblePrincipal, rprKeys);
     const signedIntent = await signPayload(intent, DCP_CONTEXTS.Intent, keys);
     const signedPolicy = await signPayload(pd, DCP_CONTEXTS.PolicyDecision, keys);
-    const auditEntries = buildAuditChain(sn, passport.agent_id, intent.intent_id, 1);
+    const auditEntries = buildAuditChain(sn, passport.agent_id, intent, 1);
 
     const bundle = new BundleBuilderV2(sn)
       .responsiblePrincipalRecord(signedRpr)
@@ -1740,7 +1743,7 @@ describe('Negative: Revoked / Expired Keys', () => {
     const signedRpr = await signPayload(rpr, DCP_CONTEXTS.ResponsiblePrincipal, rprKeys);
     const signedIntent = await signPayload(intent, DCP_CONTEXTS.Intent, keys);
     const signedPolicy = await signPayload(pd, DCP_CONTEXTS.PolicyDecision, keys);
-    const auditEntries = buildAuditChain(sn, passport.agent_id, intent.intent_id, 1);
+    const auditEntries = buildAuditChain(sn, passport.agent_id, intent, 1);
 
     const bundle = new BundleBuilderV2(sn)
       .responsiblePrincipalRecord(signedRpr)
@@ -2392,7 +2395,7 @@ describe('Load: Full Bundle Build + Verify Pipeline', () => {
     const signedRpr = await signPayload(rpr, DCP_CONTEXTS.ResponsiblePrincipal, rprKeys);
     const signedIntent = await signPayload(intent, DCP_CONTEXTS.Intent, keys);
     const signedPolicy = await signPayload(pd, DCP_CONTEXTS.PolicyDecision, keys);
-    const auditEntries = buildAuditChain(sn, passport.agent_id, intent.intent_id, 10);
+    const auditEntries = buildAuditChain(sn, passport.agent_id, intent, 10);
 
     const bundle = new BundleBuilderV2(sn)
       .responsiblePrincipalRecord(signedRpr)
