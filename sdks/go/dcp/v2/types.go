@@ -161,6 +161,9 @@ type BundleManifest struct {
 	// signing time when SessionExpiresAt is set and it is not.
 	SessionIssuedAt  string `json:"session_issued_at,omitempty"`
 	SessionExpiresAt string `json:"session_expires_at,omitempty"`
+	// IntendedVerifier binds the bundle to one verifier (audience binding);
+	// a verifier policy with require_audience_binding checks it.
+	IntendedVerifier string `json:"intended_verifier,omitempty"`
 }
 
 // BundleSignerV2 describes who signed a V2 bundle.

@@ -218,3 +218,35 @@ func TestSignBundleV2_ProducesValidJSON(t *testing.T) {
 		t.Fatal("signed bundle JSON missing 'signature' field")
 	}
 }
+
+// TestBundleManifestRoundTripsEveryField: a manifest with every field the
+// schema defines decodes into BundleManifest and encodes to the same
+// canonical bytes, so the manifest signature still verifies after a typed
+// round trip.
+func TestBundleManifestRoundTripsEveryField(t *testing.T) {
+	raw := []byte(`{"session_nonce":"` + strings.Repeat("ab", 32) + `","rpr_hash":"sha256:` + strings.Repeat("1", 64) +
+		`","passport_hash":"sha256:` + strings.Repeat("2", 64) + `","intent_hash":"sha256:` + strings.Repeat("3", 64) +
+		`","policy_hash":"sha256:` + strings.Repeat("4", 64) + `","audit_merkle_root":"sha256:` + strings.Repeat("5", 64) +
+		`","audit_merkle_root_secondary":"sha3-256:` + strings.Repeat("6", 64) + `","audit_count":2,"pq_checkpoints":["ckpt-1"],` +
+		`"session_issued_at":"2026-10-21T00:00:00Z","session_expires_at":"2099-12-31T23:59:59Z","intended_verifier":"verifier:acme",` +
+		`"canonicalization_profile":"dcp-jcs-v1"}`)
+	var generic map[string]interface{}
+	if err := json.Unmarshal(raw, &generic); err != nil {
+		t.Fatal(err)
+	}
+	var typed BundleManifest
+	if err := json.Unmarshal(raw, &typed); err != nil {
+		t.Fatal(err)
+	}
+	want, err := CanonicalizeV2(generic)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := CanonicalizeV2(typed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != want {
+		t.Fatalf("typed round trip changed the manifest:\n got %s\nwant %s", got, want)
+	}
+}

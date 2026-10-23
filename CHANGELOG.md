@@ -164,6 +164,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Go SDK: `BundleManifest` had no `intended_verifier`, so a manifest decoded into it and encoded
+  again lost the field and its signature no longer verified. The field is there now
+  (`IntendedVerifier`, omitted when empty); a test round-trips a manifest with every schema field.
 - Python SDK, `dcp_ai.crewai`: the agents of a `DCPCrew` never shared the crew's session nonce.
   `DCPCrewAgent` always generated its own, so the crew's check for an agent without one never
   applied, and each agent's audit entries carried a different `session_nonce`. A crew now gives
