@@ -1,0 +1,61 @@
+# Live interop matrix (tools/interop-matrix): one agent process per SDK
+# (TypeScript, Python, Go, Rust) produces citizenship bundles and every other
+# agent verifies them, untouched and tampered with in transit. Any unexpected
+# verdict, crash or timeout fails the job.
+
+name: Interop matrix
+
+on:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    # Nightly, 03:47 UTC.
+    - cron: '47 3 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  interop-matrix:
+    name: Interop matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: sdks/go/go.mod
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install the reference verifier
+        run: npm install
+
+      - name: Build the TypeScript SDK
+        working-directory: sdks/typescript
+        run: |
+          npm install
+          npm run build
+
+      - name: Install the Python SDK
+        run: pip install -e sdks/python
+
+      - name: Run the matrix
+        run: node tools/interop-matrix/run.mjs
+
+      - name: Upload the report and failing bundles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: interop-matrix
+          path: tools/interop-matrix/out/
+          if-no-files-found: ignore

@@ -1,0 +1,12 @@
+[package]
+name = "interop-rust-agent"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "Rust SDK agent for tools/interop-matrix (not part of the dcp-ai crate)"
+
+[dependencies]
+dcp-ai = { path = "../../../../sdks/rust" }
+serde_json = "1"
+uuid = { version = "1", features = ["v4"] }
+humantime = "2"
