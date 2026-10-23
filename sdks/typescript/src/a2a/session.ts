@@ -17,7 +17,8 @@ export interface A2ASession {
   status: 'active' | 'rekeying' | 'closed';
   /**
    * Sequences accepted within the receive window, so each one is accepted once. A session
-   * without it (built before this field existed) accepts nothing below message_counter_recv.
+   * without it (built before this field existed, or restored without it) counts every sequence
+   * of the window below message_counter_recv as already received.
    */
   received_sequences?: number[];
 }
@@ -114,11 +115,17 @@ export function decryptMessage(
   if (!Number.isSafeInteger(sequence) || sequence < 0) {
     throw new Error('Invalid message sequence');
   }
-  if (sequence < session.message_counter_recv - RECEIVE_WINDOW) {
+  const recv = session.message_counter_recv;
+  if (sequence < recv - RECEIVE_WINDOW) {
     throw new Error('Message sequence too old (outside window)');
   }
-  const seen = session.received_sequences;
-  if (seen === undefined ? sequence < session.message_counter_recv : seen.includes(sequence)) {
+  if (sequence >= recv + RECEIVE_WINDOW) {
+    throw new Error('Message sequence too far ahead (outside window)');
+  }
+  const seen =
+    session.received_sequences ??
+    Array.from({ length: recv - Math.max(0, recv - RECEIVE_WINDOW) }, (_, i) => Math.max(0, recv - RECEIVE_WINDOW) + i);
+  if (seen.includes(sequence)) {
     throw new Error('Message sequence already received');
   }
 
@@ -128,7 +135,7 @@ export function decryptMessage(
 
   const aad = Buffer.concat([
     Buffer.from(message.session_id),
-    Buffer.from(String(message.sequence)),
+    Buffer.from(String(sequence)),
     Buffer.from(message.sender_agent_id),
     Buffer.from(message.timestamp),
   ]);
@@ -142,7 +149,7 @@ export function decryptMessage(
   session.message_counter_recv = Math.max(session.message_counter_recv, sequence + 1);
   const floor = session.message_counter_recv - RECEIVE_WINDOW;
   // ponytail: linear scan over at most RECEIVE_WINDOW numbers; a bitmap if the window grows.
-  session.received_sequences = [...(seen ?? []), sequence].filter((s) => s >= floor);
+  session.received_sequences = [...seen, sequence].filter((s) => s >= floor);
   session.last_activity = message.timestamp;
 
   return JSON.parse(decrypted.toString('utf8'));

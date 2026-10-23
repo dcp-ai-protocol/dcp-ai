@@ -198,6 +198,30 @@ class TestSession:
         with pytest.raises(ValueError, match="too old"):
             decrypt_message(right, m0)
 
+    def test_restored_session_without_received_sequences_never_accepts_below_counter(self):
+        left, right = _pair_sessions()
+        msgs = [encrypt_message(left, {"n": i}) for i in range(4)]
+        decrypt_message(right, msgs[0])
+        decrypt_message(right, msgs[1])
+        right.received_sequences = None  # restored from storage without the field
+        with pytest.raises(ValueError, match="already received"):
+            decrypt_message(right, msgs[1])
+        assert decrypt_message(right, msgs[2]) == {"n": 2}
+        for m in msgs[:3]:
+            with pytest.raises(ValueError, match="already received"):
+                decrypt_message(right, m)
+        assert decrypt_message(right, msgs[3]) == {"n": 3}
+        restored = A2ASession(**{k: v for k, v in vars(right).items() if k != "received_sequences"})
+        assert restored.received_sequences == set()  # a fresh field means a fresh session
+
+    def test_sequence_a_window_ahead_rejected(self):
+        left, right = _pair_sessions()
+        left.message_counter_send = 1000
+        with pytest.raises(ValueError, match="too far ahead"):
+            decrypt_message(right, encrypt_message(left, {"n": 1000}))
+        left.message_counter_send = 999
+        assert decrypt_message(right, encrypt_message(left, {"n": 999})) == {"n": 999}
+
 
 class TestNonce:
     def test_generate_hex(self):

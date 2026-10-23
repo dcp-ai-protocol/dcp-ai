@@ -195,7 +195,8 @@ func CreateCloseMessage(sessionID, reason string, finalSequence uint64, auditSum
 
 // ── Session ──
 
-// A2ASession holds symmetric-channel state between two agents.
+// A2ASession holds symmetric-channel state between two agents. It is not safe
+// for concurrent use: serialize EncryptMessage and DecryptMessage per session.
 type A2ASession struct {
 	SessionID           string
 	SessionKey          []byte
@@ -209,8 +210,8 @@ type A2ASession struct {
 	LastActivity        string
 	Status              string // "active" | "rekeying" | "closed"
 	// ReceivedSequences holds the sequences accepted within the receive window, so
-	// each one is accepted once. A session built without it (nil) accepts nothing
-	// below MessageCounterRecv.
+	// each one is accepted once. A session built or restored without it (nil)
+	// counts every sequence of the window below MessageCounterRecv as received.
 	ReceivedSequences map[int]struct{}
 }
 
@@ -300,14 +301,20 @@ func DecryptMessage(session *A2ASession, msg map[string]interface{}) (map[string
 	if !ok {
 		return nil, errors.New("invalid message sequence")
 	}
-	if seq < session.MessageCounterRecv-a2aReceiveWindow {
+	recv := session.MessageCounterRecv
+	if seq < recv-a2aReceiveWindow {
 		return nil, errors.New("message sequence too old (outside window)")
 	}
+	if seq >= recv+a2aReceiveWindow {
+		return nil, errors.New("message sequence too far ahead (outside window)")
+	}
 	if session.ReceivedSequences == nil {
-		if seq < session.MessageCounterRecv {
-			return nil, errors.New("message sequence already received")
+		session.ReceivedSequences = map[int]struct{}{}
+		for s := max(0, recv-a2aReceiveWindow); s < recv; s++ {
+			session.ReceivedSequences[s] = struct{}{}
 		}
-	} else if _, seen := session.ReceivedSequences[seq]; seen {
+	}
+	if _, seen := session.ReceivedSequences[seq]; seen {
 		return nil, errors.New("message sequence already received")
 	}
 	iv, err := base64.StdEncoding.DecodeString(mustString(msg["iv"]))
@@ -338,9 +345,6 @@ func DecryptMessage(session *A2ASession, msg map[string]interface{}) (map[string
 	// Recorded only once the tag verified, so a forged message cannot use up a sequence.
 	if seq+1 > session.MessageCounterRecv {
 		session.MessageCounterRecv = seq + 1
-	}
-	if session.ReceivedSequences == nil {
-		session.ReceivedSequences = map[int]struct{}{}
 	}
 	session.ReceivedSequences[seq] = struct{}{}
 	floor := session.MessageCounterRecv - a2aReceiveWindow

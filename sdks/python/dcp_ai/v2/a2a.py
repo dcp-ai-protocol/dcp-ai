@@ -215,8 +215,9 @@ class A2ASession:
     created_at: str = field(default_factory=_utc_iso)
     last_activity: str = field(default_factory=_utc_iso)
     status: str = "active"  # "active" | "rekeying" | "closed"
-    # Sequences accepted within the receive window, so each one is accepted once.
-    received_sequences: set[int] = field(default_factory=set)
+    # Sequences accepted within the receive window, so each one is accepted once. None (a session
+    # restored without it) counts every sequence of the window below message_counter_recv as received.
+    received_sequences: set[int] | None = field(default_factory=set)
 
 
 # How far behind the highest received sequence a message may still arrive (out of order).
@@ -296,9 +297,15 @@ def decrypt_message(session: A2ASession, message: dict[str, Any]) -> dict[str, A
     sequence = message.get("sequence")
     if not isinstance(sequence, int) or isinstance(sequence, bool) or sequence < 0:
         raise ValueError("Invalid message sequence")
-    if sequence < session.message_counter_recv - RECEIVE_WINDOW:
+    recv = session.message_counter_recv
+    if sequence < recv - RECEIVE_WINDOW:
         raise ValueError("Message sequence too old (outside window)")
-    if sequence in session.received_sequences:
+    if sequence >= recv + RECEIVE_WINDOW:
+        raise ValueError("Message sequence too far ahead (outside window)")
+    seen = session.received_sequences
+    if seen is None:
+        seen = set(range(max(0, recv - RECEIVE_WINDOW), recv))
+    if sequence in seen:
         raise ValueError("Message sequence already received")
 
     iv = base64.b64decode(message["iv"])
@@ -306,7 +313,7 @@ def decrypt_message(session: A2ASession, message: dict[str, Any]) -> dict[str, A
     ciphertext = base64.b64decode(message["encrypted_payload"])
     aad = (
         message["session_id"].encode("utf-8")
-        + str(message["sequence"]).encode("ascii")
+        + str(sequence).encode("ascii")
         + message["sender_agent_id"].encode("utf-8")
         + message["timestamp"].encode("utf-8")
     )
@@ -315,7 +322,7 @@ def decrypt_message(session: A2ASession, message: dict[str, Any]) -> dict[str, A
     # Recorded only once the tag verified, so a forged message cannot use up a sequence.
     session.message_counter_recv = max(session.message_counter_recv, sequence + 1)
     floor = session.message_counter_recv - RECEIVE_WINDOW
-    session.received_sequences = {s for s in session.received_sequences if s >= floor} | {sequence}
+    session.received_sequences = {s for s in seen if s >= floor} | {sequence}
     session.last_activity = message["timestamp"]
     return json.loads(plaintext.decode("utf-8"))
 
