@@ -568,8 +568,8 @@ Key structural differences:
 
 | v1.0 API | v2.0 API | Notes |
 |----------|----------|-------|
-| `sign_bundle(bundle, secret_key)` | Not available yet | Build and sign V2 bundles with the TypeScript or Go SDK, or `dcp sign-bundle --composite` |
-| `verify_signed_bundle(sb, public_key)` | Not available yet | Verify V2 bundles with the TypeScript or Go SDK, or `dcp verify-bundle` |
+| `sign_bundle(bundle, secret_key)` | `prepare_payload` + `await composite_sign(registry, context, payload_bytes, classical_key, pq_key)` per artifact, then `BundleBuilderV2(session_nonce)…build()` + `await sign_bundle_v2(bundle, registry, signer_type, signer_id, classical_key, pq_key)` (`dcp_ai.v2`) | Composite signatures over each artifact and over the manifest |
+| `verify_signed_bundle(sb, public_key)` | `await verify_signed_bundle_v2(signed_bundle, registry, policy=None)` (`dcp_ai.v2`) | Policy-driven |
 | N/A | `Ed25519Provider` / `MlDsa65Provider` (`dcp_ai.providers`), async `generate_keypair()` | Hybrid keys |
 | N/A | `compute_security_tier(intent, policy_decision=None)` (`dcp_ai.v2`) | Adaptive tier (spec §14.2) |
 | N/A | `derive_kid(alg, public_key_bytes)` (`dcp_ai.v2`) | Deterministic kid |
@@ -584,7 +584,14 @@ Key structural differences:
 | N/A | `v2.ComputeSecurityTier(input)`, `v2.SecurityTierInputFromPayloads(intent, policyDecision)` | Adaptive tier (spec §14.2) |
 | N/A | `v2.DeriveKid(alg, publicKey)` | Deterministic kid |
 
-### 5.4 CLI Changes
+### 5.4 Rust SDK
+
+| v1.0 API | v2.0 API | Notes |
+|----------|----------|-------|
+| `sign_object(bundle, secret_key_b64)` | `prepare_payload` + `composite_sign(ed, pq, context, payload_bytes, classical_key, pq_key)` per artifact, then `build_bundle_v2(&rpr, &passport, &intent, &policy, &audit_entries, session_nonce)` + `sign_bundle_v2(bundle, &classical_key, &pq_key)` (`dcp_ai::v2::bundle`) | Composite signatures over each artifact and over the manifest |
+| `verify_signed_bundle(sb, public_key_b64)` | `verify_signed_bundle_v2_with_policy(&signed_bundle, &policy)` (`dcp_ai::v2::verify_bundle`) | Policy-driven |
+
+### 5.5 CLI Changes
 
 | v1.0 Command | v2.0 Command | Notes |
 |-------------|-------------|-------|
