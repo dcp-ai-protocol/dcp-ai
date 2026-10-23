@@ -96,13 +96,14 @@ func main() {
     }
 
     // Build a V2 bundle from the signed artifacts
+    nonce := v2.GenerateSessionNonce()
     bundle, _ := v2.BuildBundleV2(v2.BundleBuildInput{
-        RPR:          sign(v2.CtxResponsiblePrincipal, map[string]interface{}{"human_id": "rpr:alice", "session_nonce": "nonce-1", "binding_keys": keys}),
-        Passport:     sign(v2.CtxAgentPassport, map[string]interface{}{"agent_id": "a-1", "session_nonce": "nonce-1", "keys": keys, "status": "active", "principal_binding_reference": "rpr:alice"}),
-        Intent:       sign(v2.CtxIntent, map[string]interface{}{"intent_id": "i-1", "session_nonce": "nonce-1", "agent_id": "a-1", "human_id": "rpr:alice"}),
-        Policy:       sign(v2.CtxPolicyDecision, map[string]interface{}{"intent_id": "i-1", "session_nonce": "nonce-1", "risk_score": 200}),
+        RPR:          sign(v2.CtxResponsiblePrincipal, map[string]interface{}{"human_id": "rpr:alice", "session_nonce": nonce, "binding_keys": keys}),
+        Passport:     sign(v2.CtxAgentPassport, map[string]interface{}{"agent_id": "a-1", "session_nonce": nonce, "keys": keys, "status": "active", "principal_binding_reference": "rpr:alice"}),
+        Intent:       sign(v2.CtxIntent, map[string]interface{}{"intent_id": "i-1", "session_nonce": nonce, "agent_id": "a-1", "human_id": "rpr:alice"}),
+        Policy:       sign(v2.CtxPolicyDecision, map[string]interface{}{"intent_id": "i-1", "session_nonce": nonce, "risk_score": 200}),
         AuditEntries: []v2.AuditEventV2{},
-        SessionNonce: "nonce-1",
+        SessionNonce: nonce,
     })
 
     // Sign the manifest with a composite signature
