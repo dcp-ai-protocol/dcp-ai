@@ -237,6 +237,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `@dcp-ai/anthropic-mcp` and `@dcp-ai/google-a2a`: the `"types"` export condition came first, so
+  a CommonJS consumer got the ESM declarations (`dist/index.d.ts`) and TypeScript refused
+  `require()` under `node16` with TS1471. The condition is removed, so `require` gets
+  `dist/index.d.cts` and `import` gets `dist/index.d.ts`. `@dcp-ai/sdk`, `@dcp-ai/express` and
+  `@dcp-ai/openclaw` drop the same condition, which came after `"import"` and `"require"`, never
+  matched and made tsup warn on every build. In `@dcp-ai/wasm`, whose exports have no `"require"`,
+  it gave a CommonJS consumer types under `nodenext` for a `require()` that Node refuses with
+  `ERR_PACKAGE_PATH_NOT_EXPORTED`. TypeScript now reports TS2307 there as well.
 - Go SDK: `VerifySignedBundleV2WithPolicy` failed every bundle under a policy that set
   `require_session_expiry`, `require_audience_binding` or `verifier_id`, fields that
   `verifier_policy.schema.json` lists and the TypeScript and Python verifiers enforce. `VerifierPolicy`
