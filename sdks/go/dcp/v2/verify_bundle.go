@@ -141,7 +141,7 @@ func VerifySignedBundleV2WithPolicy(registry *AlgorithmRegistry, signedBundleJSO
 		return result
 	}
 	verifyBundleSignature(registry, bundle, signature, manifest, mode, policy, result)
-	verifySignerBlock(bundle, signature, result)
+	verifySignatureMetadata(bundle, signature, manifest, result)
 	verifyArtifactSignatures(registry, bundle, mode, policy, result)
 	verifyPQCheckpoints(registry, bundle, manifest, mode, policy, result)
 	verifyAuditTrail(bundle, manifest, result)
@@ -196,8 +196,10 @@ func verifyManifestHashes(bundle, manifest map[string]interface{}, result *V2Ver
 var rfc3339Pattern = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-](\d{2}):(\d{2}))$`)
 
 // parseRFC3339 returns the instant of an RFC 3339 timestamp with a Z or ±hh:mm
-// offset. A non-string, a date without a time, a time without an offset or an
-// impossible date, time or offset is not one.
+// offset, at millisecond precision: digits beyond milliseconds are dropped, as
+// every SDK does (VERIFICATION.md V2-4). Years 0000 to 9999 are valid. A
+// non-string, a date without a time, a time without an offset or an impossible
+// date, time or offset is not one.
 func parseRFC3339(v interface{}) (time.Time, bool) {
 	s, _ := v.(string)
 	m := rfc3339Pattern.FindStringSubmatch(s)
@@ -205,36 +207,47 @@ func parseRFC3339(v interface{}) (time.Time, bool) {
 		return time.Time{}, false
 	}
 	t, err := time.Parse(time.RFC3339, s)
-	return t, err == nil
+	return truncateToMillis(t), err == nil
+}
+
+// truncateToMillis drops what is below the millisecond, for any year.
+func truncateToMillis(t time.Time) time.Time {
+	return t.Add(-time.Duration(t.Nanosecond() % int(time.Millisecond)))
+}
+
+// nowMillis is the verification time at the precision timestamps compare at.
+func nowMillis() time.Time {
+	return truncateToMillis(time.Now().Round(0))
 }
 
 // sessionClockSkew is how far in the future a signed session start may be
 // (VERIFICATION.md V2-4), the clock skew DCP-04 allows for timestamps.
 const sessionClockSkew = 30 * time.Second
 
-// secondsBetween is to minus from in seconds, without time.Duration's
-// saturation at about 292 years.
+// secondsBetween is to minus from in seconds, from their milliseconds, without
+// time.Duration's saturation at about 292 years.
 func secondsBetween(from, to time.Time) float64 {
-	return float64(to.Unix()-from.Unix()) + float64(to.Nanosecond()-from.Nanosecond())/1e9
+	return float64(to.UnixMilli()-from.UnixMilli()) / 1000
 }
 
 // verifySessionTimes checks the manifest's signed session window
 // (VERIFICATION.md V2-4). session_expires_at must not have passed. A
 // session_issued_at must not be more than sessionClockSkew in the future nor
-// after session_expires_at. Both must be RFC 3339 timestamps; absent or null
-// is no value. The policy's MaxSessionDurationSeconds bounds session_expires_at
-// minus session_issued_at, and requires session_issued_at when the session
-// expires: signature.created_at is outside the signed manifest and is never
-// read.
+// after session_expires_at. Both must be RFC 3339 timestamps, compared at
+// millisecond precision; absent or null is no value. The policy's
+// MaxSessionDurationSeconds bounds session_expires_at minus session_issued_at
+// and requires both: signature.created_at is outside the signed manifest and
+// is never read, and a session without an expiry is not one that never ends.
 func verifySessionTimes(manifest map[string]interface{}, policy VerifierPolicy, result *V2VerificationResult) {
-	now := time.Now()
+	now := nowMillis()
 	fail := func(format string, args ...interface{}) {
 		result.Errors = append(result.Errors, fmt.Sprintf(format, args...))
 	}
 
 	var expires time.Time
-	hasExpires := false
+	expiresPresent, hasExpires := false, false
 	if raw, ok := manifest["session_expires_at"]; ok && raw != nil {
+		expiresPresent = true
 		var valid bool
 		switch expires, valid = parseRFC3339(raw); {
 		case !valid:
@@ -263,10 +276,14 @@ func verifySessionTimes(manifest map[string]interface{}, policy VerifierPolicy, 
 		}
 	}
 
-	if policy.MaxSessionDurationSeconds <= 0 || !hasExpires {
+	if policy.MaxSessionDurationSeconds <= 0 {
 		return
 	}
 	switch {
+	case !expiresPresent:
+		fail("Policy max_session_duration_seconds requires session_expires_at in the manifest")
+	case !hasExpires:
+		// An invalid or passed expiry, reported above.
 	case !issuedPresent:
 		fail("Policy max_session_duration_seconds requires session_issued_at in the manifest")
 	case hasIssued:
@@ -362,31 +379,35 @@ func verifySessionNonceConsistency(bundle map[string]interface{}, manifestNonce 
 	if manifestNonce == "" {
 		return
 	}
+	// check reports a session_nonce that is missing or not the manifest's.
+	check := func(where string, carrier interface{}) bool {
+		obj, _ := carrier.(map[string]interface{})
+		raw, present := obj["session_nonce"]
+		switch {
+		case !present || raw == nil:
+			result.Errors = append(result.Errors, fmt.Sprintf("Missing session_nonce in %s", where))
+		case !sameID(raw, manifestNonce):
+			result.Errors = append(result.Errors, fmt.Sprintf("Session nonce mismatch in %s", where))
+		default:
+			return true
+		}
+		result.SessionBindingValid = false
+		return false
+	}
 	for _, field := range []string{"responsible_principal_record", "agent_passport", "intent", "policy_decision"} {
 		artifact, ok := bundle[field].(map[string]interface{})
 		if !ok {
-			continue
+			continue // reported as missing by VerifySignedBundleV2
 		}
-		payload, ok := artifact["payload"].(map[string]interface{})
-		if !ok {
-			continue
-		}
-		nonce, _ := payload["session_nonce"].(string)
-		if nonce != "" && nonce != manifestNonce {
-			result.Errors = append(result.Errors, fmt.Sprintf("Session nonce mismatch in %s", field))
-			result.SessionBindingValid = false
+		if !check(field, artifact["payload"]) {
 			return
 		}
 	}
-	// Audit entries and PQ checkpoints that carry a session_nonce share it too (V2-4).
+	// Every audit entry and carried PQ checkpoint carries it too (V2-4).
 	for _, field := range []string{"audit_entries", "pq_checkpoints"} {
 		entries, _ := bundle[field].([]interface{})
 		for i, raw := range entries {
-			entry, _ := raw.(map[string]interface{})
-			nonce, _ := entry["session_nonce"].(string)
-			if nonce != "" && nonce != manifestNonce {
-				result.Errors = append(result.Errors, fmt.Sprintf("Session nonce mismatch in %s[%d]", field, i))
-				result.SessionBindingValid = false
+			if !check(fmt.Sprintf("%s[%d]", field, i), raw) {
 				return
 			}
 		}
@@ -466,24 +487,45 @@ var (
 	pqAlgs        = map[string]bool{"ml-dsa-65": true, "slh-dsa-192f": true}
 )
 
-// findKeyByKid returns the public key and algorithm of the entry with that kid.
-func findKeyByKid(keys []interface{}, kid string) (pk, alg string) {
+// findKeyByKid returns the entry with that kid, or nil.
+func findKeyByKid(keys []interface{}, kid string) map[string]interface{} {
 	for _, k := range keys {
 		entry, _ := k.(map[string]interface{})
 		if id, _ := entry["kid"].(string); id != "" && id == kid {
-			pk, _ = entry["public_key_b64"].(string)
-			alg, _ = entry["alg"].(string)
-			return pk, alg
+			return entry
 		}
 	}
-	return "", ""
+	return nil
 }
 
-// kidMatchesKey reports whether kid is derived from the key entry's alg and raw
-// public key (VERIFICATION.md V2-13).
-func kidMatchesKey(kid, alg, publicKeyB64 string) bool {
-	raw, err := base64.StdEncoding.DecodeString(publicKeyB64)
-	return err == nil && DeriveKid(alg, raw) == kid
+// canonicalB64Bytes returns the bytes of v when it is canonical base64 (RFC
+// 4648 § 4: standard alphabet, padded, zero trailing bits and nothing else, not
+// even the line breaks the decoder skips).
+func canonicalB64Bytes(v interface{}) ([]byte, bool) {
+	s, ok := v.(string)
+	if !ok {
+		return nil, false
+	}
+	raw, err := base64.StdEncoding.Strict().DecodeString(s)
+	if err != nil || base64.StdEncoding.EncodeToString(raw) != s {
+		return nil, false
+	}
+	return raw, true
+}
+
+// keyIdentityError says why a key entry cannot verify a signature
+// (VERIFICATION.md V2-13): its public_key_b64 is not canonical base64, so
+// verifiers could decode different bytes, or its kid is not derived from its
+// alg and those bytes. It returns nil for a key that can.
+func keyIdentityError(kid, alg string, publicKeyB64 interface{}) error {
+	raw, ok := canonicalB64Bytes(publicKeyB64)
+	if !ok {
+		return fmt.Errorf("key %s public_key_b64 is not canonical base64 (V2-13)", kid)
+	}
+	if DeriveKid(alg, raw) != kid {
+		return fmt.Errorf("key %s is not derived from its public key (V2-13)", kid)
+	}
+	return nil
 }
 
 // verifyCompositeSig verifies a composite_sig over payload with the keys it
@@ -512,28 +554,33 @@ func verifyCompositeSig(registry *AlgorithmRegistry, context string, payload, cs
 		return nil, nil, fmt.Errorf("PQ slot holds %q, which is not a PQ algorithm", cs.PQ.Alg)
 	}
 
-	classicalPK, classicalAlg := findKeyByKid(keys, cs.Classical.Kid)
-	if classicalPK == "" {
+	classicalKey := findKeyByKid(keys, cs.Classical.Kid)
+	if classicalKey == nil {
 		return nil, nil, fmt.Errorf("classical signer key kid=%s not found in %s", cs.Classical.Kid, keysLabel)
 	}
+	classicalAlg, _ := classicalKey["alg"].(string)
 	if classicalAlg != cs.Classical.Alg {
 		return nil, nil, fmt.Errorf("classical signer key kid=%s is %s, not %s", cs.Classical.Kid, classicalAlg, cs.Classical.Alg)
 	}
-	var pqPK string
+	var pqKey map[string]interface{}
 	if cs.PQ != nil {
-		var pqAlg string
-		if pqPK, pqAlg = findKeyByKid(keys, cs.PQ.Kid); pqPK == "" {
+		if pqKey = findKeyByKid(keys, cs.PQ.Kid); pqKey == nil {
 			return nil, nil, fmt.Errorf("PQ signer key kid=%s not found in %s", cs.PQ.Kid, keysLabel)
 		}
-		if pqAlg != cs.PQ.Alg {
+		if pqAlg, _ := pqKey["alg"].(string); pqAlg != cs.PQ.Alg {
 			return nil, nil, fmt.Errorf("PQ signer key kid=%s is %s, not %s", cs.PQ.Kid, pqAlg, cs.PQ.Alg)
 		}
-		if !kidMatchesKey(cs.PQ.Kid, pqAlg, pqPK) {
-			return nil, nil, fmt.Errorf("key %s is not derived from its public key (V2-13)", cs.PQ.Kid)
-		}
 	}
-	if !kidMatchesKey(cs.Classical.Kid, classicalAlg, classicalPK) {
-		return nil, nil, fmt.Errorf("key %s is not derived from its public key (V2-13)", cs.Classical.Kid)
+	if err := keyIdentityError(cs.Classical.Kid, cs.Classical.Alg, classicalKey["public_key_b64"]); err != nil {
+		return nil, nil, err
+	}
+	classicalPK, _ := classicalKey["public_key_b64"].(string)
+	var pqPK string
+	if pqKey != nil {
+		if err := keyIdentityError(cs.PQ.Kid, cs.PQ.Alg, pqKey["public_key_b64"]); err != nil {
+			return nil, nil, err
+		}
+		pqPK, _ = pqKey["public_key_b64"].(string)
 	}
 
 	canonical, err := CanonicalizeV2(payload)
@@ -579,11 +626,12 @@ func verifyBundleSignature(registry *AlgorithmRegistry, bundle, signature, manif
 	}
 }
 
-// verifySignerBlock checks that the unsigned signer block does not contradict
-// the signature (VERIFICATION.md V2-4): signer.id is the RPR human_id, and
-// signer.kids are the composite_sig kids, the classical one and then the PQ
-// one when present.
-func verifySignerBlock(bundle, signature map[string]interface{}, result *V2VerificationResult) {
+// verifySignatureMetadata checks that the unsigned signature block does not
+// contradict what is signed (VERIFICATION.md V2-4): signer.id is the RPR
+// human_id, signer.kids are the composite_sig kids (the classical one and then
+// the PQ one when present), manifest_hash is the SHA-256 of the canonical
+// manifest and hash_alg is sha256 or sha256+sha3-256.
+func verifySignatureMetadata(bundle, signature, manifest map[string]interface{}, result *V2VerificationResult) {
 	signer, _ := signature["signer"].(map[string]interface{})
 	if !sameID(signer["id"], artifactPayload(bundle, "responsible_principal_record")["human_id"]) {
 		result.Errors = append(result.Errors, fmt.Sprintf("Bundle signature: signer id %v is not the RPR human_id", signer["id"]))
@@ -602,6 +650,16 @@ func verifySignerBlock(bundle, signature map[string]interface{}, result *V2Verif
 	}
 	if !match {
 		result.Errors = append(result.Errors, "Bundle signature: signer kids do not name the bundle signature keys")
+	}
+	var manifestHash interface{}
+	if canonical, err := CanonicalizeV2(manifest); manifest != nil && err == nil {
+		manifestHash = "sha256:" + DualHashCanonical(canonical).SHA256
+	}
+	if !sameID(signature["manifest_hash"], manifestHash) {
+		result.Errors = append(result.Errors, "Bundle signature: manifest_hash is not the hash of the manifest")
+	}
+	if alg, _ := signature["hash_alg"].(string); alg != "sha256" && alg != "sha256+sha3-256" {
+		result.Errors = append(result.Errors, fmt.Sprintf("Bundle signature: hash_alg %v is not sha256 or sha256+sha3-256", signature["hash_alg"]))
 	}
 }
 

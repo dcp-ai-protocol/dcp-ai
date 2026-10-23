@@ -1,11 +1,13 @@
 package v2
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 type mockProvider struct {
@@ -326,5 +328,79 @@ func TestParseRFC3339Vectors(t *testing.T) {
 		case c.EpochMs != nil && (!ok || got.UnixMilli() != *c.EpochMs):
 			t.Errorf("%v: got %v (ok=%v), want %d", c.Input, got.UnixMilli(), ok, *c.EpochMs)
 		}
+	}
+}
+
+// Timestamps compare at millisecond precision, for years 0000 to 9999
+// (VERIFICATION.md V2-4): what is below the millisecond decides nothing.
+func TestSessionTimesMillisecondPrecision(t *testing.T) {
+	errorsFor := func(manifest map[string]interface{}, maxSession int) []string {
+		policy := DefaultVerifierPolicy()
+		policy.MaxSessionDurationSeconds = maxSession
+		result := &V2VerificationResult{}
+		verifySessionTimes(manifest, policy, result)
+		return result.Errors
+	}
+	issued, _ := time.Parse(time.RFC3339, "2026-10-21T00:00:00Z")
+	expires, _ := time.Parse(time.RFC3339, "2099-12-31T18:59:59Z")
+	exact := int(expires.Unix() - issued.Unix())
+
+	// The maximum plus 0.0005 s is the maximum.
+	window := map[string]interface{}{"session_issued_at": "2026-10-21T00:00:00Z", "session_expires_at": "2099-12-31T18:59:59.0005Z"}
+	if errs := errorsFor(window, exact); len(errs) != 0 {
+		t.Fatalf("max + 0.0005 s: %v", errs)
+	}
+	window["session_expires_at"] = "2099-12-31T18:59:59.001Z"
+	if errs := errorsFor(window, exact); len(errs) != 1 || !strings.HasPrefix(errs[0], "Session duration") {
+		t.Fatalf("max + 0.001 s: %v", errs)
+	}
+
+	// An issue time .0009 s and an expiry .0001 s into the same millisecond.
+	second := time.Now().Add(10 * time.Second).UTC().Format("2006-01-02T15:04:05")
+	same := map[string]interface{}{"session_issued_at": second + ".0009Z", "session_expires_at": second + ".0001Z"}
+	if errs := errorsFor(same, 0); len(errs) != 0 {
+		t.Fatalf("same millisecond: %v", errs)
+	}
+
+	// Years 0000 and 9999, and a window longer than time.Duration holds.
+	wide := map[string]interface{}{"session_issued_at": "0000-01-01T00:00:00Z", "session_expires_at": "9999-12-31T23:59:59.999Z"}
+	if errs := errorsFor(wide, 1<<40); len(errs) != 0 {
+		t.Fatalf("years 0000 to 9999: %v", errs)
+	}
+	if errs := errorsFor(wide, 300*365*24*3600); len(errs) != 1 || !strings.HasPrefix(errs[0], "Session duration") {
+		t.Fatalf("a 10000 year session under a 300 year maximum: %v", errs)
+	}
+
+	// A maximum needs both ends of the session.
+	if errs := errorsFor(map[string]interface{}{"session_issued_at": "2026-10-21T00:00:00Z"}, 3600); len(errs) != 1 || !strings.Contains(errs[0], "session_expires_at") {
+		t.Fatalf("no session_expires_at under a maximum: %v", errs)
+	}
+}
+
+// A key is canonical base64 before its kid is derived (VERIFICATION.md V2-13).
+func TestKeyIdentityCanonicalBase64(t *testing.T) {
+	key := []byte("0123456789abcdef0123456789abcdef")
+	b64 := base64.StdEncoding.EncodeToString(key)
+	kid := DeriveKid("ed25519", key)
+	if err := keyIdentityError(kid, "ed25519", b64); err != nil {
+		t.Fatalf("canonical key: %v", err)
+	}
+	last := strings.IndexByte(b64, '=') - 1
+	const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+	trailingBit := b64[:last] + string(alphabet[strings.IndexByte(alphabet, b64[last])^1]) + b64[last+1:]
+	for name, v := range map[string]interface{}{
+		"trailing bit": trailingBit,
+		"unpadded":     strings.TrimRight(b64, "="),
+		"line break":   b64[:8] + "\n" + b64[8:],
+		"url-safe":     strings.NewReplacer("+", "-", "/", "_").Replace(base64.StdEncoding.EncodeToString([]byte{0xfb, 0xff, 0xfe})),
+		"not a string": 42,
+	} {
+		err := keyIdentityError(kid, "ed25519", v)
+		if err == nil || !strings.Contains(err.Error(), "canonical base64") {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	if err := keyIdentityError(strings.Repeat("a", 32), "ed25519", b64); err == nil || !strings.Contains(err.Error(), "not derived") {
+		t.Errorf("kid not derived: %v", err)
 	}
 }
