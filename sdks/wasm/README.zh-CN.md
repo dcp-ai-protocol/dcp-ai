@@ -149,8 +149,8 @@ console.log(result.pq_valid);       // true
 
 | 方法 | 返回值 | 描述 |
 |--------|---------|-------------|
-| `buildBundle(opts)` | `CitizenshipBundleV2` | 由 `signPayload` 签名的工件构建带清单的 V2 凭证包 |
-| `signBundle(bundle, classicalSk, classicalKid, pqSk, pqKid)` | `SignedBundleV2` | 使用复合签名签名凭证包 |
+| `buildBundle(opts)` | `CitizenshipBundleV2` | 由 `signPayload` 签名的工件构建带清单的 V2 凭证包；`sessionNonce` 默认为 RPR 的 `session_nonce` |
+| `signBundle(bundle, classicalSk, classicalKid, pqSk, pqKid)` | `SignedBundleV2` | 使用复合签名签名凭证包；`signer.id` 为 RPR 的 `human_id` |
 
 ### 持有证明
 

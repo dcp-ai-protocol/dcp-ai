@@ -149,8 +149,8 @@ Inicializa o módulo WASM. Deve ser chamado uma vez antes de usar qualquer API. 
 
 | Método | Retorna | Descrição |
 |--------|---------|-----------|
-| `buildBundle(opts)` | `CitizenshipBundleV2` | Constrói um bundle V2 com manifesto a partir de artefatos assinados com `signPayload` |
-| `signBundle(bundle, classicalSk, classicalKid, pqSk, pqKid)` | `SignedBundleV2` | Assina um bundle com assinatura composta |
+| `buildBundle(opts)` | `CitizenshipBundleV2` | Constrói um bundle V2 com manifesto a partir de artefatos assinados com `signPayload`; `sessionNonce` usa por padrão o `session_nonce` do RPR |
+| `signBundle(bundle, classicalSk, classicalKid, pqSk, pqKid)` | `SignedBundleV2` | Assina um bundle com assinatura composta; `signer.id` é o `human_id` do RPR |
 
 ### Prova de Posse
 

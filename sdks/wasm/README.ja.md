@@ -149,8 +149,8 @@ WASMモジュールを初期化します。APIを使用する前に1回呼び出
 
 | メソッド | 戻り値 | 説明 |
 |--------|---------|-------------|
-| `buildBundle(opts)` | `CitizenshipBundleV2` | `signPayload` で署名した成果物から、マニフェスト付きのV2バンドルを構築 |
-| `signBundle(bundle, classicalSk, classicalKid, pqSk, pqKid)` | `SignedBundleV2` | 複合署名でバンドルに署名 |
+| `buildBundle(opts)` | `CitizenshipBundleV2` | `signPayload` で署名した成果物から、マニフェスト付きのV2バンドルを構築。`sessionNonce` の既定値は RPR の `session_nonce` |
+| `signBundle(bundle, classicalSk, classicalKid, pqSk, pqKid)` | `SignedBundleV2` | 複合署名でバンドルに署名。`signer.id` は RPR の `human_id` |
 
 ### 所有証明
 
