@@ -76,18 +76,23 @@ app.add_middleware(
 | `app` | `Any` | (required) | ASGI application |
 | `require_bundle` | `bool` | `False` | Rejects requests without a bundle with 403 |
 | `header_name` | `str` | `"x-dcp-bundle"` | HTTP header name |
-| `verifier_policy` | `dict \| VerifierPolicy \| None` | `None` | V2 verifier policy. A dict sets `VerifierPolicy` fields over `DEFAULT_VERIFIER_POLICY` (a `default_mode` without `risk_overrides` applies to every risk tier); a `VerifierPolicy` is used as is. Unknown fields or modes raise when the middleware is built. |
+| `verifier_policy` | `dict \| VerifierPolicy \| None` | `None` | Verifier policy. A dict sets `VerifierPolicy` fields over `DEFAULT_VERIFIER_POLICY`: a `default_mode` without `risk_overrides` applies to every risk tier, a `risk_overrides` dict sets its tiers over the others, and `risk_overrides=None` keeps the default tiers. A `VerifierPolicy` is used as is. Unknown fields, risk tiers or modes raise when the middleware is built. |
+| `dcp_version` | `str` | `"2.0"` | Stored but not enforced. Whether V1 bundles are accepted is up to `verifier_policy` (see below); `require_dcp_v2` restricts a route to V2. |
 
 #### Behavior
 
-1. Extracts the signed bundle from the header or JSON body (`signed_bundle`)
+1. Extracts the signed bundle from the header or JSON body (`signed_bundle`). A header that is not JSON, holds an integer over Python's 4300-digit limit or is nested too deeply counts as no bundle (`403` with `require_bundle=True`), never a `500`.
 2. Verifies it with the Python SDK:
    - **V2** (`bundle.dcp_bundle_version: "2.0"`): `await verify_signed_bundle_v2(signed_bundle, registry, policy)` from `dcp_ai.v2`, with an Ed25519 / ML-DSA-65 / SLH-DSA-192f registry and the policy above. It checks the payload hashes and the manifest, session binding and expiry, the bundle's and every artifact's composite signature, the verification mode (the stricter of the policy's mode for the passport's risk tier and the intent's security tier), the audit hash chain and key validity. `composite_sig_valid` is the verifier's result for the bundle signature.
-   - **V1** (`bundle.responsible_principal_record.dcp_version: "1.0"`): `verify_signed_bundle()`, only if the policy accepts a bundle without a post-quantum signature. A V1 bundle is rejected when `allow_v1_bundles` is false or the policy's `default_mode` or any `risk_overrides` mode is `hybrid_required` or `pq_only`: a V1 passport's risk tier is self-declared. `DEFAULT_VERIFIER_POLICY` requires `hybrid_required` for the `high` tier, so V1 bundles are rejected unless `verifier_policy` sets `default_mode` to `classical_only` or `hybrid_preferred`.
+   - **V1** (`bundle.responsible_principal_record.dcp_version: "1.0"`): `verify_signed_bundle()`, only where VERIFICATION.md V2-10 would accept a classical-only bundle, since a V1 bundle has no post-quantum signature: `allow_v1_bundles` is true and the stricter of the policy mode for the V1 passport's `risk_tier` (`default_mode` when it has none) and the mode of the security tier of the V1 intent and policy decision (V1 `risk_score` is 0 to 1, scaled by 1000; a missing one counts as `elevated`) is `classical_only` or `hybrid_preferred`. Under `DEFAULT_VERIFIER_POLICY` a routine or standard V1 intent passes; a payment, sensitive data, a high estimated impact or a risk score of 0.5 or more is refused.
    - A bundle whose version cannot be detected is rejected.
 3. If valid: stores `DCPAgentContext` in `request.state.dcp_agent`, with the verifier's `warnings`
 4. If it fails: responds with `403`, the verifier's `errors` (and, for V2, `warnings`)
 5. If no bundle and `require_bundle=False`: continues without verification
+
+#### What "verified" means
+
+A verified bundle is internally consistent and signed by the keys it lists itself (the passport keys and the RPR binding keys). It does not prove who the principal is: anyone can create keys and an RPR naming any `human_id`. That needs the verifier to pin the principal's trusted keys, and this middleware has no such option yet. A verified bundle can also be replayed until its session expires; `verifier_policy={"require_audience_binding": True, "verifier_id": "my-service"}` (the bundle's `manifest.intended_verifier` must name this verifier), `require_session_expiry` and `max_session_duration_seconds` limit that.
 
 ### `require_dcp(request)`
 
