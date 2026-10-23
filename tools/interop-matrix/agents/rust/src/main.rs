@@ -6,16 +6,16 @@ use std::io::{self, BufRead, Write};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 
 use dcp_ai::providers::{ed25519::Ed25519Provider, ml_dsa_65::MlDsa65Provider};
+use dcp_ai::v2::bundle::{build_bundle_v2, sign_bundle_v2};
 use dcp_ai::v2::canonicalize::canonicalize_v2;
 use dcp_ai::v2::composite_ops::{composite_sign, CompositeKeyInfo};
 use dcp_ai::v2::crypto_provider::CryptoProvider;
 use dcp_ai::v2::domain_separation::{
-    CTX_AGENT_PASSPORT, CTX_BUNDLE, CTX_INTENT, CTX_POLICY_DECISION, CTX_RESPONSIBLE_PRINCIPAL,
+    CTX_AGENT_PASSPORT, CTX_INTENT, CTX_POLICY_DECISION, CTX_RESPONSIBLE_PRINCIPAL,
 };
 use dcp_ai::v2::dual_hash::sha256_hex;
-use dcp_ai::v2::pq_checkpoint::audit_events_merkle_root;
 use dcp_ai::v2::security_tier::compute_security_tier;
-use dcp_ai::v2::session_nonce::{generate_session_nonce, verify_session_binding};
+use dcp_ai::v2::session_nonce::generate_session_nonce;
 use dcp_ai::v2::signed_payload::{prepare_payload, SignedPayload};
 use dcp_ai::v2::types::VerifierPolicy;
 use dcp_ai::v2::verify_bundle::verify_signed_bundle_v2_with_policy;
@@ -29,8 +29,8 @@ struct Keys {
 }
 
 struct Intent {
-    intent: Value,
-    policy: Value,
+    intent: SignedPayload,
+    policy: SignedPayload,
     trail: Vec<Value>,
 }
 
@@ -40,8 +40,8 @@ struct State {
     nonce: String,
     human_id: String,
     agent_id: String,
-    rpr: Value,
-    passport: Value,
+    rpr: SignedPayload,
+    passport: SignedPayload,
     intents: HashMap<String, Intent>,
 }
 
@@ -99,16 +99,15 @@ fn sign(context: &str, bytes: &[u8], keys: &Keys) -> Res {
     serde_json::to_value(sig).map_err(|e| e.to_string())
 }
 
-fn signed(payload: Value, context: &str, keys: &Keys) -> Res {
+fn signed(payload: Value, context: &str, keys: &Keys) -> Result<SignedPayload, String> {
     let (bytes, payload_hash) = prepare_payload(&payload)?;
     let composite_sig =
         serde_json::from_value(sign(context, &bytes, keys)?).map_err(|e| e.to_string())?;
-    serde_json::to_value(SignedPayload {
+    Ok(SignedPayload {
         payload,
         payload_hash,
         composite_sig,
     })
-    .map_err(|e| e.to_string())
 }
 
 fn arg<'a>(args: &'a Value, name: &str) -> Result<&'a Value, String> {
@@ -209,7 +208,7 @@ fn act(s: &mut State, args: &Value) -> Res {
         Some(prev) => canonical_hash(prev)?,
         None => "GENESIS".to_string(),
     };
-    let decision = match it.policy["payload"]["decision"].as_str() {
+    let decision = match it.policy.payload["decision"].as_str() {
         Some("approve") => "approved",
         Some("escalate") => "escalated",
         _ => "blocked",
@@ -220,7 +219,7 @@ fn act(s: &mut State, args: &Value) -> Res {
         "dcp_version": "2.0", "audit_id": audit_id, "session_nonce": nonce,
         "prev_hash": prev_hash, "hash_alg": "sha256", "timestamp": now(),
         "agent_id": agent_id, "human_id": human_id, "intent_id": intent_id,
-        "intent_hash": canonical_hash(&it.intent["payload"])?,
+        "intent_hash": canonical_hash(&it.intent.payload)?,
         "policy_decision": decision, "outcome": arg(args, "outcome")?,
         "evidence": {"tool": arg(args, "tool")?, "result_ref": result_ref,
                      "evidence_hash": sha256(result_ref.as_bytes())},
@@ -229,59 +228,22 @@ fn act(s: &mut State, args: &Value) -> Res {
     Ok(json!({"audit_id": audit_id, "count": it.trail.len()}))
 }
 
-// The Rust SDK has no bundle builder or signer: the bundle, its manifest and the
-// manifest signature are assembled here from SDK primitives, as the TypeScript
-// BundleBuilderV2 (sdks/typescript/src/bundle/builder-v2.ts) and signBundleV2
-// (signer-v2.ts) do.
 fn bundle(s: &State, args: &Value) -> Res {
     let intent_id = arg_str(args, "intent_id")?;
     let it = s
         .intents
         .get(intent_id)
         .ok_or(format!("unknown intent {intent_id}"))?;
-    if it.trail.is_empty() {
-        return Err("At least one audit entry is required".into());
-    }
-    let mut artifacts: Vec<Value> = [&s.rpr, &s.passport, &it.intent, &it.policy]
-        .iter()
-        .map(|a| a["payload"].clone())
-        .collect();
-    artifacts.extend(it.trail.iter().cloned());
-    let binding = verify_session_binding(&artifacts);
-    if !binding.valid || binding.nonce.as_deref() != Some(s.nonce.as_str()) {
-        return Err(format!(
-            "Session nonce validation failed: {:?}",
-            binding.error
-        ));
-    }
-    let manifest = json!({
-        "session_nonce": s.nonce,
-        "rpr_hash": s.rpr["payload_hash"],
-        "passport_hash": s.passport["payload_hash"],
-        "intent_hash": it.intent["payload_hash"],
-        "policy_hash": it.policy["payload_hash"],
-        "audit_merkle_root": format!("sha256:{}", audit_events_merkle_root(&it.trail)?),
-        "audit_count": it.trail.len(),
-        "canonicalization_profile": "dcp-jcs-v1",
-    });
-    let manifest_bytes = canonicalize_v2(&manifest)?.into_bytes();
-    let signature = json!({
-        "hash_alg": "sha256",
-        "created_at": now(),
-        "signer": {"type": "human", "id": s.human_id, "kids": [s.human.classical.kid, s.human.pq.kid]},
-        "manifest_hash": sha256(&manifest_bytes),
-        "composite_sig": sign(CTX_BUNDLE, &manifest_bytes, &s.human)?,
-    });
-    let bundle = json!({
-        "dcp_bundle_version": "2.0",
-        "manifest": manifest,
-        "responsible_principal_record": s.rpr,
-        "agent_passport": s.passport,
-        "intent": it.intent,
-        "policy_decision": it.policy,
-        "audit_entries": it.trail,
-    });
-    Ok(json!({"signed_bundle": {"bundle": bundle, "signature": signature}}))
+    let bundle = build_bundle_v2(
+        &s.rpr,
+        &s.passport,
+        &it.intent,
+        &it.policy,
+        &it.trail,
+        &s.nonce,
+    )?;
+    let signed = sign_bundle_v2(bundle, &s.human.classical, &s.human.pq)?;
+    Ok(json!({"signed_bundle": signed}))
 }
 
 fn verify(args: &Value) -> Res {
