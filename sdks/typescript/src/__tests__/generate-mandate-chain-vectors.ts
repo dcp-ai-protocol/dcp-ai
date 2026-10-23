@@ -242,7 +242,7 @@ async function main() {
     { name: 'limits_at_the_safe_integer_bound', chain: [boundRoot, boundSub], revoked_mandate_ids: [], expected: { depth: 1, effective_tier: 'elevated' } },
     { name: 'limits_written_in_decimal_form', chain: [decimalRoot, decimalSub], revoked_mandate_ids: [], expected: { depth: 1, effective_tier: 'elevated' } },
     // An empty list is a subset: the child may touch no data class at all, the narrowest scope.
-    { name: 'data_classes_narrowed_to_none', chain: [root, await sub1Of({ authority_scope: email({ data_classes: [] }) })], revoked_mandate_ids: [], expected: { depth: 1, effective_tier: 'elevated' } },
+    { name: 'data_classes_narrowed_to_none', chain: [root, await sub1Of({ authority_scope: [{ ...(sub1Payload().authority_scope as Record<string, unknown>[])[0], data_classes: [] }] })], revoked_mandate_ids: [], expected: { depth: 1, effective_tier: 'elevated' } },
   ];
 
   const scope1 = sub1Payload().authority_scope as Record<string, unknown>[];
