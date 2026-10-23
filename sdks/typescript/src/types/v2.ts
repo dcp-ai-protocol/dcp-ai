@@ -176,6 +176,8 @@ export interface BundleManifest {
   audit_merkle_root_secondary?: string;
   audit_count: number;
   pq_checkpoints?: string[];
+  /** When the session began, signed with the manifest (spec/VERIFICATION.md V2-4). */
+  session_issued_at?: string;
   session_expires_at?: string;
   intended_verifier?: string;
   canonicalization_profile?: 'dcp-jcs-v1';
