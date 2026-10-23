@@ -8,7 +8,11 @@ Integration tests for the 4 Python DCP integrations:
 
 from __future__ import annotations
 
+import base64
+import copy
 import json
+from pathlib import Path
+
 import pytest
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, AsyncMock
@@ -406,48 +410,9 @@ class TestFastAPIVersionDetection:
         assert _detect_version(bundle) == "2.0"
 
 
-class TestFastAPISessionBinding:
-    def test_valid_session_binding(self):
-        from dcp_ai.fastapi import _verify_session_binding
-
-        nonce = "a" * 64
-        bundle = {
-            "manifest": {"session_nonce": nonce},
-            "agent_passport": {"payload": {"session_nonce": nonce}},
-            "responsible_principal_record": {"payload": {"session_nonce": nonce}},
-            "intent": {"payload": {"session_nonce": nonce}},
-            "policy_decision": {"payload": {"session_nonce": nonce}},
-            "audit_entries": [{"session_nonce": nonce}],
-        }
-        valid, info = _verify_session_binding(bundle)
-        assert valid is True
-        assert info == nonce
-
-    def test_missing_session_nonce(self):
-        from dcp_ai.fastapi import _verify_session_binding
-
-        bundle = {"manifest": {}}
-        valid, info = _verify_session_binding(bundle)
-        assert valid is False
-        assert "missing" in info
-
-    def test_mismatched_nonce(self):
-        from dcp_ai.fastapi import _verify_session_binding
-
-        bundle = {
-            "manifest": {"session_nonce": "a" * 64},
-            "agent_passport": {"payload": {"session_nonce": "b" * 64}},
-            "responsible_principal_record": {"payload": {}},
-            "intent": {"payload": {}},
-            "policy_decision": {"payload": {}},
-            "audit_entries": [],
-        }
-        valid, info = _verify_session_binding(bundle)
-        assert valid is False
-        assert "mismatch" in info
-
-
 class TestFastAPIV2Structure:
+    """Shape pre-checks only: passing them is no verdict (see TestFastAPIMiddlewareV2)."""
+
     def _make_valid_v2_bundle(self):
         nonce = "a" * 64
         return {
@@ -488,49 +453,39 @@ class TestFastAPIV2Structure:
             },
         }
 
-    def test_valid_v2_structure(self):
-        from dcp_ai.fastapi import _verify_v2_structure
+    def test_well_formed_v2_bundle_has_no_shape_errors(self):
+        from dcp_ai.fastapi import _v2_shape_errors
 
-        result = _verify_v2_structure(self._make_valid_v2_bundle())
-        assert result["verified"] is True
-        assert result["errors"] == []
+        assert _v2_shape_errors(self._make_valid_v2_bundle()) == []
 
     def test_missing_bundle(self):
-        from dcp_ai.fastapi import _verify_v2_structure
+        from dcp_ai.fastapi import _v2_shape_errors
 
-        result = _verify_v2_structure({})
-        assert result["verified"] is False
-        assert any("Missing bundle" in e for e in result["errors"])
+        assert any("Missing bundle" in e for e in _v2_shape_errors({}))
 
     def test_missing_manifest(self):
-        from dcp_ai.fastapi import _verify_v2_structure
+        from dcp_ai.fastapi import _v2_shape_errors
 
         bundle = self._make_valid_v2_bundle()
         del bundle["bundle"]["manifest"]
-        result = _verify_v2_structure(bundle)
-        assert result["verified"] is False
-        assert any("Missing manifest" in e for e in result["errors"])
+        assert any("Missing manifest" in e for e in _v2_shape_errors(bundle))
 
     def test_missing_artifact(self):
-        from dcp_ai.fastapi import _verify_v2_structure
+        from dcp_ai.fastapi import _v2_shape_errors
 
         bundle = self._make_valid_v2_bundle()
         del bundle["bundle"]["intent"]
-        result = _verify_v2_structure(bundle)
-        assert result["verified"] is False
-        assert any("intent" in e for e in result["errors"])
+        assert any("intent" in e for e in _v2_shape_errors(bundle))
 
     def test_pq_binding_without_pq_sig(self):
-        from dcp_ai.fastapi import _verify_v2_structure
+        from dcp_ai.fastapi import _v2_shape_errors
 
         bundle = self._make_valid_v2_bundle()
         bundle["signature"]["composite_sig"] = {
             "classical": "sig",
             "binding": "pq_over_classical",
         }
-        result = _verify_v2_structure(bundle)
-        assert result["verified"] is False
-        assert any("PQ" in e for e in result["errors"])
+        assert any("PQ" in e for e in _v2_shape_errors(bundle))
 
 
 class TestFastAPIDCPAgentContext:
@@ -556,3 +511,185 @@ class TestFastAPIDCPAgentContext:
         assert ctx.dcp_version == "2.0"
         assert ctx.agent_id == "agent:test"
         assert ctx.composite_sig_valid is True
+
+
+# ---------------------------------------------------------------------------
+# FastAPI middleware: V2 bundles go through verify_signed_bundle_v2
+# ---------------------------------------------------------------------------
+
+_BUNDLE_VECTORS = Path(__file__).resolve().parents[3] / "tests" / "interop" / "v2" / "bundle_vectors.json"
+
+
+def _flip_first_byte(b64: str) -> str:
+    raw = bytearray(base64.b64decode(b64))
+    raw[0] ^= 0x01
+    return base64.b64encode(bytes(raw)).decode()
+
+
+class TestFastAPIMiddlewareV2:
+    """Every verifier must accept the interop vectors' signed_bundle under the
+    default verifier policy, and reject it once a signature or a signed payload
+    is changed."""
+
+    @pytest.fixture(scope="class")
+    def vectors(self):
+        with open(_BUNDLE_VECTORS) as f:
+            return json.load(f)
+
+    @staticmethod
+    def _client(**middleware_kwargs):
+        from fastapi import Depends, FastAPI
+        from fastapi.testclient import TestClient
+        from dcp_ai.fastapi import DCPAgentContext, DCPVerifyMiddleware, require_dcp
+
+        app = FastAPI()
+        app.add_middleware(DCPVerifyMiddleware, require_bundle=True, **middleware_kwargs)
+
+        @app.post("/action")
+        async def action(agent: DCPAgentContext = Depends(require_dcp)):
+            return {
+                "agent_id": agent.agent_id,
+                "human_id": agent.human_id,
+                "session_nonce": agent.session_nonce,
+                "composite_sig_valid": agent.composite_sig_valid,
+                "session_binding_valid": agent.session_binding_valid,
+                "warnings": getattr(agent, "warnings", None),
+            }
+
+        return TestClient(app)
+
+    def _post(self, signed_bundle, **middleware_kwargs):
+        return self._client(**middleware_kwargs).post("/action", json={"signed_bundle": signed_bundle})
+
+    def test_accepts_the_honest_bundle(self, vectors):
+        signed = copy.deepcopy(vectors["signed_bundle"])
+        response = self._post(signed)
+        assert response.status_code == 200, response.json()
+        body = response.json()
+        assert body["agent_id"] == "agent:interop-bot"
+        assert body["human_id"] == "human:interop-principal"
+        assert body["session_nonce"] == signed["bundle"]["manifest"]["session_nonce"]
+        assert body["composite_sig_valid"] is True
+        assert body["session_binding_valid"] is True
+
+    def test_accepts_the_honest_bundle_from_the_header(self, vectors):
+        client = self._client()
+        response = client.post("/action", headers={"x-dcp-bundle": json.dumps(vectors["signed_bundle"])})
+        assert response.status_code == 200, response.json()
+
+    def test_rejects_a_corrupted_classical_bundle_signature(self, vectors):
+        forged = copy.deepcopy(vectors["signed_bundle"])
+        classical = forged["signature"]["composite_sig"]["classical"]
+        classical["sig_b64"] = _flip_first_byte(classical["sig_b64"])
+        response = self._post(forged)
+        assert response.status_code == 403
+        assert response.json()["verified"] is False
+        assert any("signature" in e.lower() for e in response.json()["errors"])
+
+    def test_rejects_a_changed_intent_payload_with_the_original_signatures(self, vectors):
+        forged = copy.deepcopy(vectors["signed_bundle"])
+        forged["bundle"]["intent"]["payload"]["action_type"] = "initiate_payment"
+        response = self._post(forged)
+        assert response.status_code == 403
+        assert any("intent" in e for e in response.json()["errors"])
+
+    def test_rejects_a_different_bundle_carrying_the_honest_bundle_signature(self, vectors):
+        other = copy.deepcopy(vectors["must_accept_bundles"][0]["signed_bundle"])
+        other["signature"]["composite_sig"] = copy.deepcopy(vectors["signed_bundle"]["signature"]["composite_sig"])
+        response = self._post(other)
+        assert response.status_code == 403
+
+    def test_rejects_a_structurally_valid_but_unsigned_bundle(self):
+        nonce = "a" * 64
+        fake = lambda **payload: {"payload": {"session_nonce": nonce, **payload}, "composite_sig": {"classical": "sig"}}  # noqa: E731
+        unsigned = {
+            "bundle": {
+                "dcp_bundle_version": "2.0",
+                "manifest": {"session_nonce": nonce, "rpr_hash": "sha256:a", "passport_hash": "sha256:b",
+                             "intent_hash": "sha256:c", "policy_hash": "sha256:d", "audit_merkle_root": "sha256:e"},
+                "responsible_principal_record": fake(human_id="rpr:x"),
+                "agent_passport": fake(agent_id="agent:y"),
+                "intent": fake(),
+                "policy_decision": fake(),
+                "audit_entries": [],
+            },
+            "signature": {"composite_sig": {"classical": "sig", "pq": "pq-sig", "binding": "pq_over_classical"}},
+        }
+        response = self._post(unsigned)
+        assert response.status_code == 403
+
+    def test_rejects_a_session_nonce_mismatch(self, vectors):
+        case = next(c for c in vectors["must_reject_bundles"] if c["name"] == "intent_session_nonce_differs")
+        response = self._post(case["signed_bundle"])
+        assert response.status_code == 403
+        assert any("nonce" in e.lower() for e in response.json()["errors"])
+
+    def test_composite_sig_valid_comes_from_the_verifier(self, vectors):
+        # A classical-only bundle from a low-risk passport with a routine intent is
+        # accepted under the default policy, and its signature verifies.
+        signed = vectors["classical_only_routine_bundle"]["signed_bundle"]
+        response = self._post(signed)
+        assert response.status_code == 200, response.json()
+        assert response.json()["composite_sig_valid"] is True
+
+    def test_verifier_policy_default_mode_applies_to_every_risk_tier(self, vectors):
+        signed = vectors["classical_only_routine_bundle"]["signed_bundle"]
+        response = self._post(signed, verifier_policy={"default_mode": "hybrid_required"})
+        assert response.status_code == 403
+
+    def test_rejects_a_malformed_bundle(self, vectors):
+        malformed = copy.deepcopy(vectors["signed_bundle"])
+        malformed["bundle"]["intent"] = None
+        response = self._post(malformed)
+        assert response.status_code == 403
+        assert any("intent" in e for e in response.json()["errors"])
+
+
+class TestFastAPIMiddlewareV1:
+    """A V1 bundle has one Ed25519 signature and no post-quantum one: it is
+    accepted only when no risk tier of the verifier policy requires one."""
+
+    _V1_BUNDLE = Path(__file__).resolve().parents[3] / "tests" / "conformance" / "examples" / "citizenship_bundle.signed.json"
+
+    def _v1_bundle(self):
+        with open(self._V1_BUNDLE) as f:
+            return json.load(f)
+
+    def _post(self, signed_bundle, **middleware_kwargs):
+        return TestFastAPIMiddlewareV2._client(**middleware_kwargs).post("/action", json={"signed_bundle": signed_bundle})
+
+    def test_accepts_a_v1_bundle_when_every_tier_allows_classical(self):
+        response = self._post(self._v1_bundle(), verifier_policy={"default_mode": "hybrid_preferred"})
+        assert response.status_code == 200, response.json()
+        assert response.json()["agent_id"] == "did:agent:agent123"
+
+    def test_rejects_a_v1_bundle_under_the_default_policy(self):
+        response = self._post(self._v1_bundle())
+        assert response.status_code == 403
+        assert any("V1" in e for e in response.json()["errors"])
+
+    def test_rejects_a_v1_bundle_when_v1_is_not_allowed(self):
+        response = self._post(
+            self._v1_bundle(),
+            verifier_policy={"default_mode": "hybrid_preferred", "allow_v1_bundles": False},
+        )
+        assert response.status_code == 403
+
+    def test_rejects_an_undetectable_version_without_the_v1_verifier(self, monkeypatch):
+        import dcp_ai.fastapi
+        import dcp_ai.verify
+
+        calls = []
+
+        def spy(*args, **kwargs):
+            calls.append(args)
+            return {"verified": True}
+
+        monkeypatch.setattr(dcp_ai.verify, "verify_signed_bundle", spy)
+        monkeypatch.setattr(dcp_ai.fastapi, "verify_signed_bundle", spy, raising=False)
+        unknown = self._v1_bundle()
+        del unknown["bundle"]["responsible_principal_record"]["dcp_version"]
+        response = self._post(unknown, verifier_policy={"default_mode": "hybrid_preferred"})
+        assert response.status_code == 403
+        assert any("version" in e.lower() for e in response.json()["errors"])
+        assert calls == []
