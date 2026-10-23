@@ -627,82 +627,36 @@ describe('dcp_verify_bundle on the shared bundle vectors', () => {
     }
     return out;
   };
-  // @dcp-ai/sdk 2.1.x does not verify the per-artifact signatures (VERIFICATION.md V2-8): expected
-  // failures until the dependency is raised to a release that does (`it.fails` then fails).
-  const SDK_21_GAPS = new Set([
-    'rpr_classical_signature_invalid',
-    'passport_pq_signature_invalid',
-    'intent_signatures_zeroed',
-    'intent_signed_by_principal',
-    'policy_decision_signed_under_intent_context',
-    'intent_pq_slot_holds_ed25519',
-    'passport_classical_slot_holds_ml_dsa',
-    'policy_decision_kid_names_another_algorithm',
-  ]);
-  // Rules the SDK checks only after 2.1.x (VERIFICATION.md V2-4, V2-6, V2-12 to V2-14): expected
-  // failures until the dependency is raised.
-  for (const name of [
-      'audit_entry_agent_id_other',
-      'audit_entry_human_id_other',
-      'audit_entry_intent_hash_other',
-      'audit_entry_intent_id_other',
-      'audit_entry_policy_decision_other',
-      'bundle_signed_by_agent_keys',
-      'intent_agent_id_other',
-      'intent_human_id_other',
-      'passport_key_kid_not_derived',
-      'passport_key_public_key_with_trailing_bits',
-      'passport_pq_key_public_key_unpadded',
-      'passport_principal_binding_reference_other',
-      'passport_status_commissioned',
-      'passport_status_decommissioned',
-      'passport_status_revoked',
-      'passport_status_suspended',
-      'policy_decision_intent_id_other',
-      'pq_checkpoint_carried_but_not_listed',
-      'pq_checkpoint_event_range_count_wrong',
-      'pq_checkpoint_listed_but_missing',
-      'pq_checkpoint_merkle_root_other',
-      'pq_checkpoint_pq_signature_invalid',
-      'pq_checkpoint_signed_by_principal',
-      'rpr_binding_key_kid_not_derived',
-      'rpr_expired',
-      'rpr_expires_at_impossible_date',
-      'session_expires_at_missing_under_policy_max',
-      'session_issued_at_date_only',
-      'session_issued_at_in_the_future',
-      'session_issued_at_missing_under_policy_max',
-      'session_issued_at_not_a_timestamp',
-      'session_longer_than_policy_max_with_late_created_at',
-      'signature_hash_alg_unknown',
-      'signature_manifest_hash_other',
-      'signature_signer_id_other',
-      'signature_signer_kids_other',
-  ]) SDK_21_GAPS.add(name);
-  // Rejected, but @dcp-ai/sdk 2.1.x words the error without the vector's error_contains.
-  const SDK_21_WORDING = new Set(['classical_only_bundle_signature_without_pq', 'bundle_pq_slot_holds_ed25519']);
+  // Each case runs under the operator policy default_verifier_policy with the case's
+  // verifier_policy_overrides (the tool parameter could only tighten it).
+  const operatorPolicy = (overrides: unknown) => ({ ...VECTORS.default_verifier_policy, ...(overrides as object) });
+  afterEach(() => configureVerifier());
 
-  // The default operator policy is the SDK's DEFAULT_VERIFIER_POLICY, the vectors' default_verifier_policy.
-  it('accepts signed_bundle and the must_accept bundles', async () => {
-    for (const signed of [VECTORS.signed_bundle, ...VECTORS.must_accept_bundles.map((c: any) => c.signed_bundle)]) {
+  const accept = [
+    ['signed_bundle', VECTORS.signed_bundle, undefined],
+    ...VECTORS.must_accept_bundles.map((c: any) => [c.name, c.signed_bundle, c.verifier_policy_overrides]),
+  ];
+  for (const [name, signed, overrides] of accept) {
+    it(`accepts ${name}`, async () => {
+      configureVerifier({ verifierPolicy: operatorPolicy(overrides) });
       const result = await executeVerifyBundle({ signed_bundle: clone(signed) });
       expect(result.errors).toEqual([]);
       expect(result.verified).toBe(true);
-    }
-  });
+    });
+  }
 
   const reject = [
-    ...VECTORS.must_reject.map((c: any) => [c.name, mutated(VECTORS.signed_bundle, c.mutations), c.error_contains, c.spec_step]),
-    ...VECTORS.must_reject_bundles.map((c: any) => [c.name, c.signed_bundle, c.error_contains, c.spec_step]),
+    ...VECTORS.must_reject.map((c: any) => [c.name, mutated(VECTORS.signed_bundle, c.mutations), c.error_contains, c.spec_step, undefined]),
+    ...VECTORS.must_reject_bundles.map((c: any) => [c.name, c.signed_bundle, c.error_contains, c.spec_step, c.verifier_policy_overrides]),
   ];
-  for (const [name, signed, errorContains, step] of reject) {
-    const gap = SDK_21_GAPS.has(name);
-    (gap ? it.fails : it)(`rejects ${name} (${step})${gap ? ' [expected failure: not checked by @dcp-ai/sdk 2.1.x]' : ''}`, async () => {
+  for (const [name, signed, errorContains, step, overrides] of reject) {
+    it(`rejects ${name} (${step})`, async () => {
+      configureVerifier({ verifierPolicy: operatorPolicy(overrides) });
       const result = await executeVerifyBundle({ signed_bundle: clone(signed) });
       expect(result.verified).toBe(false);
       expect(result.agent_id).toBeUndefined();
       expect(result.human_id).toBeUndefined();
-      if (!SDK_21_WORDING.has(name)) expect(result.errors.join(' ').toLowerCase()).toContain(errorContains.toLowerCase());
+      expect(result.errors.join(' ').toLowerCase()).toContain(errorContains.toLowerCase());
     });
   }
 

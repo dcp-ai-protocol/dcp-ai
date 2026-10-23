@@ -25,6 +25,8 @@ DCP-01 through DCP-09.
 npm install @dcp-ai/openclaw
 ```
 
+Until `@dcp-ai/sdk` 2.2.0 is on npm, this package depends on the workspace SDK (`"@dcp-ai/sdk": "file:../../sdks/typescript"`): build it first (`cd sdks/typescript && npm install && npm run build`). Publishing the package needs the dependency raised to `^2.2.0`; the publish workflow refuses a package that depends on a local path.
+
 Add to your OpenClaw config:
 
 ```yaml
@@ -114,17 +116,17 @@ The tool's `verifier_policy` parameter is set by the calling model, so it can on
 
 ### What is checked
 
-- **V2**: the verification mode is the stricter of the policy mode for the passport's `risk_tier` (which must be `low`, `medium` or `high`) and the mode of the security tier computed from the intent and the policy decision (spec §14.2). The bundle then goes to `verifySignedBundleV2` from `@dcp-ai/sdk`, with an Ed25519 / ML-DSA-65 / SLH-DSA-192f registry and that mode: payload hashes and manifest, session binding and expiry, the bundle's composite signature over the manifest against the passport or RPR keys, audit hash chain and key validity.
+- **V2**: `verifySignedBundleV2` from `@dcp-ai/sdk`, with an Ed25519 / ML-DSA-65 / SLH-DSA-192f registry and the policy above. It checks the artifact payload hashes and the manifest; session binding, expiry and the signed session start (`session_issued_at`); the bundle signature over the manifest, made by the principal with the RPR `binding_keys`, and the unsigned `signature` block that must agree with it; each artifact's own signature; the verification mode, the stricter of the policy mode for the passport's `risk_tier` and the mode of the security tier of the intent and policy decision (spec §14.2); PQ checkpoints; cross-artifact consistency (passport status, RPR expiry, one agent, principal and intent across the artifacts and audit entries); the audit hash chain; and key validity, kid derivation and canonical base64 keys (`spec/VERIFICATION.md` V2-1 to V2-14).
 - **V1** (one Ed25519 signature): verified with `verifySignedBundle` only where VERIFICATION.md V2-10 would accept a classical-only bundle: `allow_v1_bundles` is true and the stricter of the policy mode for the V1 passport's `risk_tier` and the mode of the security tier of the V1 intent and policy decision (V1 `risk_score` is 0 to 1, scaled by 1000; a missing one counts as `elevated`) is `classical_only` or `hybrid_preferred`. Under the default policy a routine or standard V1 intent passes; a payment, sensitive data, a high estimated impact or a risk score of 0.5 or more is refused.
 - A bundle whose version cannot be detected is rejected.
 
 The result carries the verifier's `errors` and `warnings`, `resolved_tier` (the security tier) and, for V2, `verification_mode`. `agent_id`, `human_id` and `session_nonce` are only returned for a verified bundle.
 
-### What "verified" means, and what `@dcp-ai/sdk` 2.1.x leaves out
+### What "verified" means
 
-A verified bundle is internally consistent and signed by the keys it lists itself (the passport keys and the RPR binding keys). It does not prove who the principal is: anyone can create keys and an RPR naming any `human_id`. That needs the verifier to pin the principal's trusted keys, and this plugin has no such option yet. A verified bundle can also be replayed until its session expires; the operator policy's `require_audience_binding` with a `verifier_id` (the bundle's `manifest.intended_verifier` must name it) and `require_session_expiry` / `max_session_duration_seconds` limit that.
+A verified bundle is internally consistent and signed by the keys it lists itself: the RPR `binding_keys` for the bundle signature, the passport keys for the agent's artifacts. It does not prove who the principal is: anyone can create keys and an RPR naming any `human_id`. That needs the verifier to pin the principal's trusted keys, and this plugin has no such option yet. A verified bundle can also be replayed until its session expires; the operator policy's `require_audience_binding` with a `verifier_id` (the bundle's `manifest.intended_verifier` must name it) and `require_session_expiry` / `max_session_duration_seconds` limit that.
 
-The published `@dcp-ai/sdk` 2.1.x verifier skips several checks of `spec/VERIFICATION.md`; the plugin does them itself: the verification mode from the risk tier and the security tier (V2-9, V2-10), the Merkle root of an empty audit trail (V2-3), `session_expires_at` as an RFC 3339 timestamp (V2-4), the status and `expires_at` of the passport keys and RPR binding keys (V2-13), and a PQ signature that is present but invalid (V2-7). One gap remains until the package depends on an SDK release that closes it: **the per-artifact signatures of the RPR, passport, intent and policy decision are not verified** (V2-8; 8 of the 65 must-reject bundles in `tests/interop/v2/bundle_vectors.json`, marked as expected failures in the tests). The bundle signature still covers every artifact through the manifest hashes. PQ checkpoint signatures are not verified either.
+The tests run every case of `tests/interop/v2/bundle_vectors.json`, each under the operator policy with its `verifier_policy_overrides`.
 
 ## Concept Mapping: OpenClaw → DCP
 
