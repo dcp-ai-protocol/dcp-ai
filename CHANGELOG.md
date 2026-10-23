@@ -185,6 +185,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Documentation
 
+- `docs/QUICKSTART_CREWAI.md`: neither example ran. The V1 one imported `build_bundle`, which the
+  Python SDK does not have, and wrote signatures where `intent_hash` and `prev_hash` take hashes;
+  the V2 one used an API that was never released and said the Python SDK had no V2 bundle
+  builder, signer or verifier, although `dcp_ai.v2` ships them. Both now use the SDK as it is
+  and seal one bundle per tool call; their bundles verify in Python and with `dcp verify-bundle`,
+  and the V2 ones also with the TypeScript, Go and Rust SDKs.
 - Documentation in English and in the es, zh-CN, ja and pt-BR translations brought up to date:
   delegation chains in every SDK README, the A2A receive window, Testing & Assurance (interop matrix,
   differential fuzzer, shared vectors), corrected facts (Go 1.25, Rust's FIPS crates, a TypeScript
