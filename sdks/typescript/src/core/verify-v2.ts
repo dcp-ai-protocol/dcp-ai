@@ -230,6 +230,13 @@ async function checkCompositeSig(
   if (sig.pq && !PQ_ALGS.includes(sig.pq.alg)) {
     return fail(`PQ slot holds ${sig.pq.alg}, which is not a PQ algorithm`);
   }
+  // One encoding per signature, the same bytes in every SDK (V2-5).
+  if (!canonicalB64Bytes(sig.classical.sig_b64)) {
+    return fail('Classical sig_b64 is not canonical base64 (V2-5)');
+  }
+  if (sig.pq && !canonicalB64Bytes(sig.pq.sig_b64)) {
+    return fail('PQ sig_b64 is not canonical base64 (V2-5)');
+  }
 
   if (mode !== 'pq_only') {
     if (!policy.accepted_classical_algs.includes(sig.classical.alg)) {

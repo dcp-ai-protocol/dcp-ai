@@ -80,6 +80,8 @@ The bundle-level `signature` MUST contain a `composite_sig` object with:
 - `binding` — one of `pq_over_classical`, `classical_only` (`schemas/v2/composite_signature.schema.json`)
 - `pq` — (required if binding is `pq_over_classical`) object with `alg`, `kid`, `sig_b64`
 
+Every `sig_b64`, in the bundle signature, the artifacts' and the checkpoints', MUST be canonical base64 (RFC 4648 § 4: padded, zero trailing bits, no other character), so every verifier decodes the same bytes and a signature has one encoding. Reject the bundle otherwise.
+
 ### Step V2-6: Verify classical signature
 
 Reconstruct the signed message: `context_tag || 0x00 || canonical(manifest)` where `context_tag` is `"DCP-AI.v2.Bundle"`. Verify `composite_sig.classical.sig_b64` against the public key identified by `composite_sig.classical.kid` using the algorithm specified in `composite_sig.classical.alg` (typically Ed25519).

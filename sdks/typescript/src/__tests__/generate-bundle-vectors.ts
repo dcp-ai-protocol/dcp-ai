@@ -333,10 +333,37 @@ async function main() {
   const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
   // The same 32 bytes with a trailing bit set: a lenient decoder reads the key, a strict one refuses it.
   const withTrailingBit = (b64: string) => {
+    if (!b64.includes('=')) return b64; // no padding, no trailing bits to set
     const i = b64.indexOf('=') - 1;
     return b64.slice(0, i) + B64[B64.indexOf(b64[i]) ^ 1] + b64.slice(i + 1);
   };
+  // Non-canonical encodings of the same signature bytes (V2-5): a lenient decoder reads them.
+  const sigEncodings: [string, (s: string) => string][] = [
+    ['with_junk_after', (s) => s + 'x'],
+    ['with_extra_padding', (s) => s + '='],
+    ['with_a_newline', (s) => s.slice(0, 10) + '\n' + s.slice(10)],
+    ['with_trailing_bits', withTrailingBit],
+    ['unpadded', (s) => s.replace(/=+$/, '')],
+  ];
+  const sigSlots: [string, string[]][] = [
+    ['bundle_classical', ['signature', 'composite_sig', 'classical', 'sig_b64']],
+    ['bundle_pq', ['signature', 'composite_sig', 'pq', 'sig_b64']],
+    ['intent_classical', ['bundle', 'intent', 'composite_sig', 'classical', 'sig_b64']],
+  ];
+  const atPath = (obj: any, path: string[]) => path.reduce((node, key) => node[key], obj);
+  const sigEncodingCases = sigSlots.flatMap(([slot, path]) =>
+    sigEncodings
+      .map(([name, edit]) => [name, edit(atPath(signedBundle, path))] as const)
+      .filter(([, value]) => value !== atPath(signedBundle, path))
+      .map(([name, value]) => ({
+        name: `${slot}_sig_b64_${name}`,
+        spec_step: 'V2-5',
+        error_contains: 'sig_b64 is not canonical base64',
+        mutations: [set(path, value)],
+      })),
+  );
   const mustReject = [
+    ...sigEncodingCases,
     // The rest of the unsigned signature block (V2-4).
     {
       name: 'signature_manifest_hash_other',
