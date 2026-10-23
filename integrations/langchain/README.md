@@ -131,11 +131,16 @@ A V2 bundle is verified with `verify_signed_bundle_v2` from `dcp_ai.v2` (composi
 session binding, manifest, cross-artifact consistency, audit chain, key validity) under
 `DCPTool(verifier_policy=...)`: a dict of `VerifierPolicy` fields set over
 `DEFAULT_VERIFIER_POLICY` (a `default_mode` without `risk_overrides` applies to every risk tier),
-or a full `VerifierPolicy`; the default is `DEFAULT_VERIFIER_POLICY`. A V1 bundle, which has no
-post-quantum signature, is accepted only when the policy has `allow_v1_bundles` and would accept a
-classical-only bundle for its risk tier and security tier (`spec/VERIFICATION.md` V2-10). The
+or a full `VerifierPolicy`; the default is `DEFAULT_VERIFIER_POLICY`. A V1 bundle, which has an Ed25519 signature only, no
+intended_verifier and no session window, is accepted only when the policy has `allow_v1_bundles`,
+accepts ed25519 (`accepted_classical_algs`, no `advisory_rejected_algs` entry), requires no
+audience binding, session expiry or maximum session duration, and would accept a classical-only
+bundle for its risk tier and security tier (`spec/VERIFICATION.md` V2-10); its artifacts must be
+objects. The
 result is `Bundle VERIFIED (v<version>) for agent <agent_id>` or `Bundle INVALID: <errors>`, with
-the verifier's errors.
+the verifier's errors. The text is bounded (at most 20 errors of 500 characters, an `agent_id` of
+200) and the parts that come from the bundle have their control and format characters escaped
+(`\u000a` for a newline), since they reach the model's context.
 
 ### `DCPCallback`
 

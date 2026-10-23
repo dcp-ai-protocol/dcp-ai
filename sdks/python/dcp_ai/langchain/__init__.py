@@ -20,7 +20,13 @@ from datetime import datetime, timezone
 from typing import Any, Optional, Sequence
 from uuid import uuid4
 
-from dcp_ai._verify_any import resolve_verifier_policy, run_sync, verify_any_signed_bundle
+from dcp_ai._verify_any import (
+    bounded_result,
+    printable,
+    resolve_verifier_policy,
+    run_sync,
+    verify_any_signed_bundle,
+)
 from dcp_ai.v2.models import (
     IntentV2,
     PolicyDecisionV2,
@@ -325,8 +331,10 @@ class DCPTool:
     session binding, manifest, V2-14 consistency, audit chain, key validity) under
     `verifier_policy`: a dict of VerifierPolicy fields set over
     DEFAULT_VERIFIER_POLICY, or a full VerifierPolicy. A V1 bundle is accepted
-    only when the policy allows V1 bundles and would accept a classical-only
-    bundle for its risk tier and security tier (VERIFICATION.md V2-10).
+    only when the policy allows V1 bundles, refuses nothing a V1 bundle has or
+    lacks (an Ed25519-only signature, no audience or session window) and would
+    accept a classical-only bundle for its risk tier and security tier
+    (VERIFICATION.md V2-10; dcp_ai._verify_any.v1_refusal).
 
     Usage (as a LangChain tool):
         tool = DCPTool()  # or DCPTool(verifier_policy={"default_mode": "hybrid_required"})
@@ -347,22 +355,25 @@ class DCPTool:
         return run_sync(lambda: self.arun(signed_bundle_json))
 
     async def arun(self, signed_bundle_json: str | dict[str, Any]) -> str:
+        """Verify; the text is bounded and its bundle-supplied parts escaped (printable)."""
         try:
             signed_bundle = (
                 json.loads(signed_bundle_json)
                 if isinstance(signed_bundle_json, str)
                 else signed_bundle_json
             )
-            result = await verify_any_signed_bundle(signed_bundle, self.verifier_policy)
+            result = bounded_result(await verify_any_signed_bundle(signed_bundle, self.verifier_policy))
+            if not result["verified"]:
+                return f"Bundle INVALID: {', '.join(result['errors'])}"
+            # A verified V1 bundle has object artifacts (v1_shape_error); V2, a passport payload object.
+            passport = signed_bundle["bundle"]["agent_passport"]
+            if result["dcp_version"] == "2.0":
+                passport = passport["payload"]
+            agent_id = passport.get("agent_id")
+            shown = printable(agent_id, 200) if isinstance(agent_id, str) else "unknown"
+            return f"Bundle VERIFIED (v{result['dcp_version']}) for agent {shown}"
         except Exception as e:
-            return f"Verification error: {str(e)}"
-        if not result["verified"]:
-            return f"Bundle INVALID: {', '.join(result['errors'])}"
-        bundle = signed_bundle["bundle"]
-        passport = bundle.get("agent_passport") or {}
-        if result["dcp_version"] == "2.0":
-            passport = passport.get("payload") or {}
-        return f"Bundle VERIFIED (v{result['dcp_version']}) for agent {passport.get('agent_id', 'unknown')}"
+            return f"Verification error: {printable(str(e))}"
 
 
 class DCPCallback:
