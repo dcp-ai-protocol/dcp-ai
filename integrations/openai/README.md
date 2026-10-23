@@ -129,9 +129,19 @@ response = client.chat.completions.create(
 
 **`estimated_impact`**: `low`, `medium`, `high`
 
-### `handle_dcp_tool_call(tool_name, arguments)`
+### `handle_dcp_tool_call(tool_name, arguments, session_nonce="", verifier_policy=None)`
 
 Processes DCP tool calls returned by OpenAI.
+
+`dcp_verify_bundle` verifies a V2 bundle with `verify_signed_bundle_v2` from `dcp_ai.v2` under
+`verifier_policy`: a dict of `VerifierPolicy` fields set over `DEFAULT_VERIFIER_POLICY` (a
+`default_mode` without `risk_overrides` applies to every risk tier), or a full `VerifierPolicy`;
+the default is `DEFAULT_VERIFIER_POLICY`. A V1 bundle, which has no post-quantum signature, is
+accepted only when the policy has `allow_v1_bundles` and would accept a classical-only bundle for
+its risk tier and security tier (`spec/VERIFICATION.md` V2-10). The result is JSON with
+`verified`, `dcp_version`, the verifier's `errors` and `warnings` and, for V2, its `details`. It
+works with or without a running event loop; async code can await
+`averify_bundle_tool_call(arguments, verifier_policy)` instead.
 
 ```python
 from dcp_ai.openai import handle_dcp_tool_call

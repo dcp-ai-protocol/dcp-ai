@@ -27,13 +27,14 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 from uuid import uuid4
 
+from dcp_ai._verify_any import resolve_verifier_policy, run_sync, verify_any_signed_bundle
 from dcp_ai.v2.models import (
     IntentV2,
     AuditEventV2,
+    VerifierPolicy,
 )
 from dcp_ai.v2.canonicalize import canonicalize_v2
 from dcp_ai.v2.dual_hash import sha256_hex
-from dcp_ai.verify import verify_signed_bundle
 
 
 def _hash_object(obj: Any) -> str:
@@ -169,19 +170,42 @@ DCP_TOOLS = [
 ]
 
 
+async def averify_bundle_tool_call(
+    arguments: dict[str, Any],
+    verifier_policy: dict[str, Any] | VerifierPolicy | None = None,
+) -> str:
+    """The dcp_verify_bundle tool call, for async code: a JSON verification result.
+
+    A V2 bundle is verified by verify_signed_bundle_v2 under `verifier_policy` (a
+    dict of VerifierPolicy fields set over DEFAULT_VERIFIER_POLICY, or a full
+    VerifierPolicy); a V1 bundle only where that policy would accept a
+    classical-only bundle (VERIFICATION.md V2-10). The result carries
+    "verified", "dcp_version", "errors" and "warnings" (and the V2 "details").
+    An invalid verifier_policy raises.
+    """
+    policy = resolve_verifier_policy(verifier_policy)
+    try:
+        signed_bundle = json.loads(arguments.get("signed_bundle_json", "{}"))
+        result = await verify_any_signed_bundle(signed_bundle, policy)
+        return json.dumps(result)
+    except Exception as e:
+        return json.dumps({"verified": False, "errors": [str(e)]})
+
+
 def handle_dcp_tool_call(
     tool_name: str,
     arguments: dict[str, Any],
     session_nonce: str = "",
+    verifier_policy: dict[str, Any] | VerifierPolicy | None = None,
 ) -> str:
-    """Handle DCP tool calls from OpenAI function calling (V2-aware)."""
+    """Handle DCP tool calls from OpenAI function calling (V2-aware).
+
+    dcp_verify_bundle verifies under `verifier_policy` (see
+    averify_bundle_tool_call), with or without a running event loop.
+    """
     if tool_name == "dcp_verify_bundle":
-        try:
-            bundle = json.loads(arguments.get("signed_bundle_json", "{}"))
-            result = verify_signed_bundle(bundle)
-            return json.dumps(result)
-        except Exception as e:
-            return json.dumps({"verified": False, "errors": [str(e)]})
+        policy = resolve_verifier_policy(verifier_policy)
+        return run_sync(lambda: averify_bundle_tool_call(arguments, policy))
 
     if tool_name == "dcp_declare_intent":
         intent = IntentV2(

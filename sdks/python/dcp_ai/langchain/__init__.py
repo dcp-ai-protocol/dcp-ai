@@ -6,7 +6,8 @@ Supports V2 composite signatures, session nonces, PQ checkpoints, blinded
 
 Components:
   - DCPAgentWrapper: Wraps any LangChain agent with V2 DCP citizenship
-  - DCPTool: Tool that verifies V1/V2 bundles from other agents
+  - DCPTool: Tool that verifies V1/V2 bundles from other agents (V2 with
+    verify_signed_bundle_v2, under a verifier policy the caller sets)
   - DCPCallback: Callback handler that generates V2 audit entries automatically
 """
 
@@ -19,16 +20,17 @@ from datetime import datetime, timezone
 from typing import Any, Optional, Sequence
 from uuid import uuid4
 
+from dcp_ai._verify_any import resolve_verifier_policy, run_sync, verify_any_signed_bundle
 from dcp_ai.v2.models import (
     IntentV2,
     PolicyDecisionV2,
     AuditEventV2,
+    VerifierPolicy,
 )
 from dcp_ai.v2.canonicalize import canonicalize_v2
 from dcp_ai.v2.dual_hash import sha256_hex
 from dcp_ai.v2.domain_separation import DCP_CONTEXTS
 from dcp_ai.v2.security_tier import compute_security_tier
-from dcp_ai.verify import verify_signed_bundle
 
 
 def _hash_object(obj: Any) -> str:
@@ -319,8 +321,15 @@ class DCPTool:
     """
     LangChain-compatible tool that verifies DCP bundles (V1 + V2).
 
+    A V2 bundle is verified by verify_signed_bundle_v2 (composite signatures,
+    session binding, manifest, V2-14 consistency, audit chain, key validity) under
+    `verifier_policy`: a dict of VerifierPolicy fields set over
+    DEFAULT_VERIFIER_POLICY, or a full VerifierPolicy. A V1 bundle is accepted
+    only when the policy allows V1 bundles and would accept a classical-only
+    bundle for its risk tier and security tier (VERIFICATION.md V2-10).
+
     Usage (as a LangChain tool):
-        tool = DCPTool()
+        tool = DCPTool()  # or DCPTool(verifier_policy={"default_mode": "hybrid_required"})
         result = tool.run(signed_bundle_json)
     """
 
@@ -330,26 +339,30 @@ class DCPTool:
         "Input: JSON string of a signed bundle."
     )
 
-    def run(self, signed_bundle_json: str) -> str:
+    def __init__(self, verifier_policy: dict[str, Any] | VerifierPolicy | None = None) -> None:
+        self.verifier_policy = resolve_verifier_policy(verifier_policy)
+
+    def run(self, signed_bundle_json: str | dict[str, Any]) -> str:
+        """Verify synchronously, with or without a running event loop."""
+        return run_sync(lambda: self.arun(signed_bundle_json))
+
+    async def arun(self, signed_bundle_json: str | dict[str, Any]) -> str:
         try:
             signed_bundle = (
                 json.loads(signed_bundle_json)
                 if isinstance(signed_bundle_json, str)
                 else signed_bundle_json
             )
-            result = verify_signed_bundle(signed_bundle)
-            if result["verified"]:
-                bundle = signed_bundle.get("bundle", {})
-                version = bundle.get("dcp_bundle_version", "1.0")
-                passport = bundle.get("agent_passport", {})
-                agent_id = passport.get("payload", passport).get("agent_id", "unknown")
-                return f"Bundle VERIFIED (v{version}) for agent {agent_id}"
-            return f"Bundle INVALID: {', '.join(result.get('errors', []))}"
+            result = await verify_any_signed_bundle(signed_bundle, self.verifier_policy)
         except Exception as e:
             return f"Verification error: {str(e)}"
-
-    async def arun(self, signed_bundle_json: str) -> str:
-        return self.run(signed_bundle_json)
+        if not result["verified"]:
+            return f"Bundle INVALID: {', '.join(result['errors'])}"
+        bundle = signed_bundle["bundle"]
+        passport = bundle.get("agent_passport") or {}
+        if result["dcp_version"] == "2.0":
+            passport = passport.get("payload") or {}
+        return f"Bundle VERIFIED (v{result['dcp_version']}) for agent {passport.get('agent_id', 'unknown')}"
 
 
 class DCPCallback:
