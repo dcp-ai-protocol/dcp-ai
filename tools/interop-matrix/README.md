@@ -151,9 +151,10 @@ SDK verifiers:
 - **Go `SignBundleV2` left `signature.signer.id` empty**: it took no signer id. The four SDK
   verifiers accepted such a bundle; the reference verifier, the CLI and the server rejected it
   (`signer/id must NOT have fewer than 6 characters`). Fixed: the signer is now the bundle's RPR
-  `human_id`, and the Go agent uses `SignBundleV2` as is. The `signature.signer` block (`id`, `kids`) and
-  `created_at` are unauthenticated metadata outside the signed manifest: no verifier checks them
-  against the RPR, only the schema constrains their shape.
+  `human_id`, and the Go agent uses `SignBundleV2` as is. The `signature.signer` block (`id`, `kids`),
+  `created_at` and `manifest_hash` are unauthenticated metadata outside the signed manifest: no
+  verifier checks them against the RPR or recomputes `manifest_hash` (all five accept zeros);
+  only the schema constrains their shape.
 - **Go's typed payloads cannot express the contract**: `IntentV2` has no `security_tier`,
   `PolicyDecisionV2` no `resolved_tier`, and `contact` / `target.to` are `omitempty` where the
   schema wants `null`; the Go agent builds those payloads as maps.
