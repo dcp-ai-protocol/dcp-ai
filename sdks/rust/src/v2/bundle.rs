@@ -1,6 +1,7 @@
 //! V2 bundle building and signing (spec/BUNDLE.md): the native counterpart of
 //! `BundleBuilderV2` / `signBundleV2` in TypeScript and Python and of
-//! `BuildBundleV2` / `SignBundleV2` in Go.
+//! `BuildBundleV2` / `SignBundleV2` in Go. Like Go, it does not take PQ
+//! checkpoints yet; the TypeScript and Python builders do.
 
 use serde_json::{json, Value};
 
@@ -117,6 +118,7 @@ pub fn sign_bundle_v2(
     let signer_id = bundle
         .pointer("/responsible_principal_record/payload/human_id")
         .and_then(Value::as_str)
+        .filter(|id| !id.is_empty())
         .ok_or("responsible_principal_record has no human_id to name as the bundle signer")?
         .to_string();
     let (manifest_bytes, manifest_hash) = prepare_payload(manifest)?;
@@ -150,6 +152,7 @@ mod tests {
         CTX_AGENT_PASSPORT, CTX_INTENT, CTX_POLICY_DECISION, CTX_RESPONSIBLE_PRINCIPAL,
     };
     use crate::v2::dual_hash::{sha256_hex, sha3_256_hex};
+    use crate::v2::session_nonce::parse_rfc3339_millis;
     use crate::v2::verify_bundle::verify_signed_bundle_v2;
 
     fn key(p: &dyn CryptoProvider) -> CompositeKeyInfo {
@@ -227,6 +230,8 @@ mod tests {
         let result = verify_signed_bundle_v2(&signed);
         assert!(result.verified, "{:?}", result.errors);
         assert_eq!(signed["signature"]["signer"]["id"], "human-1");
+        let created_at = signed["signature"]["created_at"].as_str().unwrap();
+        assert!(parse_rfc3339_millis(created_at).is_some(), "{created_at}");
         // SHA3-256 leaves joined by SHA3-256, as in TypeScript and Python.
         let leaf = |e: &Value| {
             hex::decode(dual_hash_canonical(&canonicalize_v2(e).unwrap()).sha3_256).unwrap()
@@ -255,14 +260,13 @@ mod tests {
         stale.payload["human_id"] = json!("human-2");
         assert!(build(&trail, &nonce, &stale).contains("payload_hash does not match"));
 
-        let mut anonymous =
-            build_bundle_v2(&rpr, &passport, &intent, &policy, &trail, &nonce).unwrap();
-        anonymous["responsible_principal_record"]["payload"]
-            .as_object_mut()
-            .unwrap()
-            .remove("human_id");
-        assert!(sign_bundle_v2(anonymous, &hc, &hp)
-            .unwrap_err()
-            .contains("no human_id"));
+        let bundle = build_bundle_v2(&rpr, &passport, &intent, &policy, &trail, &nonce).unwrap();
+        for human_id in [Value::Null, json!("")] {
+            let mut anonymous = bundle.clone();
+            anonymous["responsible_principal_record"]["payload"]["human_id"] = human_id;
+            assert!(sign_bundle_v2(anonymous, &hc, &hp)
+                .unwrap_err()
+                .contains("no human_id"));
+        }
     }
 }
