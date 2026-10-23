@@ -98,8 +98,8 @@ func main() {
     // Build a V2 bundle from the signed artifacts
     bundle, _ := v2.BuildBundleV2(v2.BundleBuildInput{
         RPR:          sign(v2.CtxResponsiblePrincipal, map[string]interface{}{"human_id": "rpr:alice", "session_nonce": "nonce-1", "binding_keys": keys}),
-        Passport:     sign(v2.CtxAgentPassport, map[string]interface{}{"agent_id": "a-1", "session_nonce": "nonce-1", "keys": keys}),
-        Intent:       sign(v2.CtxIntent, map[string]interface{}{"intent_id": "i-1", "session_nonce": "nonce-1"}),
+        Passport:     sign(v2.CtxAgentPassport, map[string]interface{}{"agent_id": "a-1", "session_nonce": "nonce-1", "keys": keys, "status": "active", "principal_binding_reference": "rpr:alice"}),
+        Intent:       sign(v2.CtxIntent, map[string]interface{}{"intent_id": "i-1", "session_nonce": "nonce-1", "agent_id": "a-1", "human_id": "rpr:alice"}),
         Policy:       sign(v2.CtxPolicyDecision, map[string]interface{}{"intent_id": "i-1", "session_nonce": "nonce-1", "risk_score": 200}),
         AuditEntries: []v2.AuditEventV2{},
         SessionNonce: "nonce-1",
@@ -152,7 +152,7 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 | `v2.BuildBundleV2(input)` | Construye un bundle V2 a partir de artefactos firmados, con hashes del manifiesto y raíces duales de Merkle |
 | `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | Firma un bundle con firma compuesta o solo clásica; el firmante es el principal del bundle (`signer.id` = el `human_id` del RPR) |
 | `v2.VerifySignedBundleV2(reg, jsonBytes)` | Verificación completa de bundle V2 (estructura, hashes, firmas, cadena de auditoría) con `DefaultVerifierPolicy`, contra el modo más estricto entre el de la política y el del nivel de seguridad (spec §14.3); informa `ResolvedTier` y `VerificationMode` |
-| `v2.VerifySignedBundleV2WithPolicy(reg, jsonBytes, policy)` | Igual, con tu propia `VerifierPolicy`; solo `DefaultMode`, `RiskOverrides` y los campos de Fase 3 (`AdvisoryRejectedAlgs`, `WarnClassicalOnlyDeprecated`, `AllowClassicalFallbackDisable`, como en TypeScript) pueden diferir de `DefaultVerifierPolicy()`, cualquier otro cambio hace fallar la verificación |
+| `v2.VerifySignedBundleV2WithPolicy(reg, jsonBytes, policy)` | Igual, con tu propia `VerifierPolicy`; solo `DefaultMode`, `RiskOverrides`, `MaxSessionDurationSeconds` y los campos de Fase 3 (`AdvisoryRejectedAlgs`, `WarnClassicalOnlyDeprecated`, `AllowClassicalFallbackDisable`, como en TypeScript) pueden diferir de `DefaultVerifierPolicy()`, cualquier otro cambio hace fallar la verificación |
 
 ### Niveles de Seguridad
 
