@@ -148,10 +148,10 @@ All 16 SDK pairs and the reference verifier agree on every bundle and every atta
 pair). Writing the agents surfaced these SDK gaps, none of them a verdict divergence between
 SDK verifiers:
 
-- **Go `SignBundleV2` leaves `signature.signer.id` empty** (`sdks/go/dcp/v2/bundle_builder.go`):
-  it takes no signer id. The four SDK verifiers accept such a bundle; the reference verifier, the
-  CLI and the server reject it (`signer/id must NOT have fewer than 6 characters`). The Go agent
-  sets the id after signing until the SDK does. The `signature.signer` block (`id`, `kids`) and
+- **Go `SignBundleV2` left `signature.signer.id` empty**: it took no signer id. The four SDK
+  verifiers accepted such a bundle; the reference verifier, the CLI and the server rejected it
+  (`signer/id must NOT have fewer than 6 characters`). Fixed: the signer is now the bundle's RPR
+  `human_id`, and the Go agent uses `SignBundleV2` as is. The `signature.signer` block (`id`, `kids`) and
   `created_at` are unauthenticated metadata outside the signed manifest: no verifier checks them
   against the RPR, only the schema constrains their shape.
 - **Go's typed payloads cannot express the contract**: `IntentV2` has no `security_tier`,
