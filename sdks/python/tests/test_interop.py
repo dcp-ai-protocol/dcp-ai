@@ -465,15 +465,22 @@ class TestSignedBundleVectors:
         result = await verify_signed_bundle_v2(B["signed_bundle"], registry, policy)
         assert result["verified"], result["errors"]
 
-        cases = [(c["name"], _mutated(B["signed_bundle"], c["mutations"]), c["error_contains"]) for c in B["must_reject"]]
-        cases += [(c["name"], c["signed_bundle"], c["error_contains"]) for c in B["must_reject_bundles"]]
-        for name, signed, error_contains in cases:
-            result = await verify_signed_bundle_v2(signed, registry, policy)
+        cases = [
+            (c["name"], _mutated(B["signed_bundle"], c["mutations"]), c["error_contains"], {}) for c in B["must_reject"]
+        ]
+        # A case's verifier_policy_overrides are merged over each mode's policy.
+        cases += [
+            (c["name"], c["signed_bundle"], c["error_contains"], c.get("verifier_policy_overrides") or {})
+            for c in B["must_reject_bundles"]
+        ]
+        for name, signed, error_contains, overrides in cases:
+            result = await verify_signed_bundle_v2(signed, registry, {**policy, **overrides})
             assert not result["verified"], name
             assert error_contains in "\n".join(result["errors"]).lower(), (name, result["errors"])
 
         for case in B["must_accept_bundles"]:
-            result = await verify_signed_bundle_v2(case["signed_bundle"], registry, policy)
+            overrides = case.get("verifier_policy_overrides") or {}
+            result = await verify_signed_bundle_v2(case["signed_bundle"], registry, {**policy, **overrides})
             assert result["verified"], (case["name"], result["errors"])
 
         control = B["classical_only_routine_bundle"]

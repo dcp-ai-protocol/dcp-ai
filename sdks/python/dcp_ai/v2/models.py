@@ -144,6 +144,8 @@ class BundleManifest(BaseModel):
     audit_count: int
     # Checkpoint IDs; the checkpoints themselves live in the bundle.
     pq_checkpoints: list[str] | None = None
+    # When the session began, signed with the manifest (spec/VERIFICATION.md V2-4).
+    session_issued_at: str | None = None
     session_expires_at: str | None = None
     intended_verifier: str | None = None
     # Per spec/CANONICALIZATION_PROFILE.md § 4: optional today, only

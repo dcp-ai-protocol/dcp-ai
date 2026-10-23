@@ -157,10 +157,14 @@ async def sign_bundle_v2(
     """Composite-sign the manifest of a V2 bundle. Returns {"bundle", "signature"}.
 
     session_expires_at and intended_verifier are written into the manifest
-    before signing, as in the TypeScript signBundleV2.
+    before signing, as in the TypeScript signBundleV2. With session_expires_at,
+    the manifest also gets session_issued_at (now) unless it already has one.
     """
     if session_expires_at:
         bundle["manifest"]["session_expires_at"] = session_expires_at
+        # The session start a verifier's maximum session duration is measured from.
+        if bundle["manifest"].get("session_issued_at") is None:
+            bundle["manifest"]["session_issued_at"] = _now_iso()
     if intended_verifier:
         bundle["manifest"]["intended_verifier"] = intended_verifier
 
