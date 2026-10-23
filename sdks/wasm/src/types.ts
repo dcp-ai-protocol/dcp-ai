@@ -119,6 +119,9 @@ export interface BundleManifest {
   audit_merkle_root: string;
   audit_merkle_root_secondary: string;
   audit_count: number;
+  canonicalization_profile?: 'dcp-jcs-v1';
+  session_expires_at?: string;
+  intended_verifier?: string;
 }
 
 export interface CitizenshipBundleV2 {
@@ -136,7 +139,8 @@ export interface SignedBundleV2 {
   signature: {
     hash_alg: string;
     created_at: string;
-    signer: { type: string; kids: string[] };
+    /** `signBundle` signs as the responsible principal: type `human`, `id` the RPR's `human_id`. */
+    signer: { type: 'human' | 'organization'; id: string; kids: string[] };
     manifest_hash: string;
     composite_sig: CompositeSignature;
   };
