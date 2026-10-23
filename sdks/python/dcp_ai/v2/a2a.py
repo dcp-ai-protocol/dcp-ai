@@ -215,6 +215,12 @@ class A2ASession:
     created_at: str = field(default_factory=_utc_iso)
     last_activity: str = field(default_factory=_utc_iso)
     status: str = "active"  # "active" | "rekeying" | "closed"
+    # Sequences accepted within the receive window, so each one is accepted once.
+    received_sequences: set[int] = field(default_factory=set)
+
+
+# How far behind the highest received sequence a message may still arrive (out of order).
+RECEIVE_WINDOW = 1000
 
 
 def create_session(
@@ -287,9 +293,13 @@ def decrypt_message(session: A2ASession, message: dict[str, Any]) -> dict[str, A
         raise ValueError("Unexpected sender")
     AESGCM = _aesgcm()
 
-    if message["sequence"] <= session.message_counter_recv - 1 and session.message_counter_recv > 0:
-        if message["sequence"] < session.message_counter_recv - 1000:
-            raise ValueError("Message sequence too old (outside window)")
+    sequence = message.get("sequence")
+    if not isinstance(sequence, int) or isinstance(sequence, bool) or sequence < 0:
+        raise ValueError("Invalid message sequence")
+    if sequence < session.message_counter_recv - RECEIVE_WINDOW:
+        raise ValueError("Message sequence too old (outside window)")
+    if sequence in session.received_sequences:
+        raise ValueError("Message sequence already received")
 
     iv = base64.b64decode(message["iv"])
     tag = base64.b64decode(message["tag"])
@@ -302,7 +312,10 @@ def decrypt_message(session: A2ASession, message: dict[str, Any]) -> dict[str, A
     )
     gcm = AESGCM(session.session_key)
     plaintext = gcm.decrypt(iv, ciphertext + tag, aad)
-    session.message_counter_recv = max(session.message_counter_recv, int(message["sequence"]) + 1)
+    # Recorded only once the tag verified, so a forged message cannot use up a sequence.
+    session.message_counter_recv = max(session.message_counter_recv, sequence + 1)
+    floor = session.message_counter_recv - RECEIVE_WINDOW
+    session.received_sequences = {s for s in session.received_sequences if s >= floor} | {sequence}
     session.last_activity = message["timestamp"]
     return json.loads(plaintext.decode("utf-8"))
 

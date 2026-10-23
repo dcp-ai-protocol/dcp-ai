@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 )
 
@@ -207,7 +208,15 @@ type A2ASession struct {
 	CreatedAt           string
 	LastActivity        string
 	Status              string // "active" | "rekeying" | "closed"
+	// ReceivedSequences holds the sequences accepted within the receive window, so
+	// each one is accepted once. A session built without it (nil) accepts nothing
+	// below MessageCounterRecv.
+	ReceivedSequences map[int]struct{}
 }
+
+// a2aReceiveWindow is how far behind the highest received sequence a message
+// may still arrive (out of order).
+const a2aReceiveWindow = 1000
 
 // CreateA2ASession constructs a new A2A session. `sessionKey` must be 32 bytes.
 func CreateA2ASession(
@@ -230,9 +239,10 @@ func CreateA2ASession(
 		AgentIDRemote:    remoteAgentID,
 		SecurityTier:     securityTier,
 		RekeyingInterval: rekeyingInterval,
-		CreatedAt:        now,
-		LastActivity:     now,
-		Status:           "active",
+		CreatedAt:         now,
+		LastActivity:      now,
+		Status:            "active",
+		ReceivedSequences: map[int]struct{}{},
 	}, nil
 }
 
@@ -286,11 +296,19 @@ func DecryptMessage(session *A2ASession, msg map[string]interface{}) (map[string
 	if msg["sender_agent_id"] != session.AgentIDRemote {
 		return nil, errors.New("unexpected sender")
 	}
-	seq, _ := intOf(msg["sequence"])
-	if seq <= session.MessageCounterRecv-1 && session.MessageCounterRecv > 0 {
-		if seq < session.MessageCounterRecv-1000 {
-			return nil, errors.New("message sequence too old (outside window)")
+	seq, ok := sequenceOf(msg["sequence"])
+	if !ok {
+		return nil, errors.New("invalid message sequence")
+	}
+	if seq < session.MessageCounterRecv-a2aReceiveWindow {
+		return nil, errors.New("message sequence too old (outside window)")
+	}
+	if session.ReceivedSequences == nil {
+		if seq < session.MessageCounterRecv {
+			return nil, errors.New("message sequence already received")
 		}
+	} else if _, seen := session.ReceivedSequences[seq]; seen {
+		return nil, errors.New("message sequence already received")
 	}
 	iv, err := base64.StdEncoding.DecodeString(mustString(msg["iv"]))
 	if err != nil {
@@ -317,8 +335,19 @@ func DecryptMessage(session *A2ASession, msg map[string]interface{}) (map[string
 	if err != nil {
 		return nil, fmt.Errorf("gcm open: %w", err)
 	}
+	// Recorded only once the tag verified, so a forged message cannot use up a sequence.
 	if seq+1 > session.MessageCounterRecv {
 		session.MessageCounterRecv = seq + 1
+	}
+	if session.ReceivedSequences == nil {
+		session.ReceivedSequences = map[int]struct{}{}
+	}
+	session.ReceivedSequences[seq] = struct{}{}
+	floor := session.MessageCounterRecv - a2aReceiveWindow
+	for s := range session.ReceivedSequences {
+		if s < floor {
+			delete(session.ReceivedSequences, s)
+		}
 	}
 	session.LastActivity = mustString(msg["timestamp"])
 	var out map[string]interface{}
@@ -358,16 +387,21 @@ func buildAAD(sessionID string, sequence int, senderID, timestamp string) []byte
 	return []byte(fmt.Sprintf("%s%d%s%s", sessionID, sequence, senderID, timestamp))
 }
 
-func intOf(v interface{}) (int, bool) {
+// sequenceOf reads a message sequence: a non-negative integer, whether built
+// in Go or decoded from JSON (float64 or json.Number). A fraction is not one.
+func sequenceOf(v interface{}) (int, bool) {
 	switch x := v.(type) {
 	case int:
-		return x, true
+		return x, x >= 0
 	case int64:
-		return int(x), true
+		return int(x), x >= 0
 	case uint64:
-		return int(x), true
+		return int(x), x <= math.MaxInt64
 	case float64:
-		return int(x), true
+		return int(x), x >= 0 && x == math.Trunc(x) && x <= 1<<53
+	case json.Number:
+		i, err := x.Int64()
+		return int(i), err == nil && i >= 0
 	}
 	return 0, false
 }

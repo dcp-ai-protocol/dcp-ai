@@ -420,6 +420,53 @@ describe('A2A Session', () => {
     });
   });
 
+  describe('received sequences', () => {
+    it('accepts each sequence once, in or out of order', () => {
+      const { sender, receiver } = makePair();
+      const [m0, m1, m2] = [encryptMessage(sender, { n: 0 }), encryptMessage(sender, { n: 1 }), encryptMessage(sender, { n: 2 })];
+      expect(decryptMessage(receiver, m0)).toEqual({ n: 0 });
+      expect(decryptMessage(receiver, m2)).toEqual({ n: 2 });
+      expect(decryptMessage(receiver, m1)).toEqual({ n: 1 }); // late, inside the window
+      for (const m of [m0, m1, m2]) expect(() => decryptMessage(receiver, m)).toThrow('already received');
+    });
+
+    it('a forged message does not use up its sequence', () => {
+      const { sender, receiver } = makePair();
+      const m0 = encryptMessage(sender, { n: 0 });
+      expect(() => decryptMessage(receiver, { ...m0, tag: randomBytes(16).toString('base64') })).toThrow();
+      expect(decryptMessage(receiver, m0)).toEqual({ n: 0 });
+    });
+
+    it('rejects a sequence that is not a non-negative integer, and one older than the window', () => {
+      const { sender, receiver } = makePair();
+      const m0 = encryptMessage(sender, { n: 0 });
+      for (const sequence of [-1, 0.5, Number.NaN, '0' as unknown as number]) {
+        expect(() => decryptMessage(receiver, { ...m0, sequence })).toThrow('Invalid message sequence');
+      }
+      receiver.message_counter_recv = 1001;
+      expect(() => decryptMessage(receiver, m0)).toThrow('too old');
+    });
+
+    it('a session without received_sequences accepts nothing below the counter', () => {
+      const { sender, receiver } = makePair();
+      const m0 = encryptMessage(sender, { n: 0 });
+      const m1 = encryptMessage(sender, { n: 1 });
+      decryptMessage(receiver, m0);
+      delete receiver.received_sequences; // a session object from before the field existed
+      expect(() => decryptMessage(receiver, m0)).toThrow('already received');
+      expect(decryptMessage(receiver, m1)).toEqual({ n: 1 });
+    });
+
+    it('verifies a resume proof and rejects a wrong one of any length', () => {
+      const { sender } = makePair();
+      const proof = generateResumeProof(sender, 10);
+      expect(verifyResumeProof(sender, 10, proof)).toBe(true);
+      expect(verifyResumeProof(sender, 11, proof)).toBe(false);
+      expect(verifyResumeProof(sender, 10, proof.slice(1))).toBe(false);
+      expect(verifyResumeProof(sender, 10, '')).toBe(false);
+    });
+  });
+
   describe('needsRekeying', () => {
     it('returns false below rekeying interval', () => {
       const s = createSession(sessionId, sessionKey, 'a', 'b', 'standard', 100);
