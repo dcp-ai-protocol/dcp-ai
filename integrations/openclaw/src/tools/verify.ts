@@ -2,14 +2,16 @@
  * dcp_verify_bundle — Verify a DCP SignedBundle (V1 or V2).
  *
  * A V2 bundle is verified only if `verifySignedBundleV2` from the SDK accepts
- * it, plus the checks of ./dcp-verify.ts that SDK 2.1.x skips. The verifier
+ * it. The verifier
  * policy is the operator's (configureVerifier, or the SDK's
  * DEFAULT_VERIFIER_POLICY); the tool's verifier_policy parameter, which the
  * calling model controls, can only make it stricter.
  */
 import { Type, type Static } from '@sinclair/typebox';
 import {
+  computeSecurityTier,
   verifySignedBundle,
+  type IntentV2,
   type VerificationResult,
   type SignedBundle,
   type VerificationMode,
@@ -18,7 +20,6 @@ import {
 import {
   RISK_TIERS,
   checkPolicyFields,
-  computeSecurityTier,
   detectVersion,
   isObject,
   resolveVerifierPolicy,
@@ -169,7 +170,11 @@ async function verifyV2Bundle(signedBundle: Record<string, any>, policy: Verifie
 
   // The security tier of the intent, reported even for a bundle that does not verify.
   const intentPayload = bundle?.intent?.payload;
-  const resolvedTier = verdict.securityTier ?? (isObject(intentPayload) ? computeSecurityTier(intentPayload, bundle.policy_decision?.payload) : undefined);
+  // A policy decision that is not an object has no valid risk_score: the tier fails closed.
+  const policyPayload = isObject(bundle?.policy_decision?.payload) ? bundle.policy_decision.payload : {};
+  const resolvedTier =
+    verdict.securityTier ??
+    (isObject(intentPayload) ? computeSecurityTier(intentPayload as unknown as IntentV2, policyPayload as { risk_score: number }) : undefined);
   const context = { resolved_tier: resolvedTier, verification_mode: verdict.verificationMode };
 
   if (!verdict.verified) return { ...failure('2.0', verdict.errors, context), warnings: verdict.warnings };
