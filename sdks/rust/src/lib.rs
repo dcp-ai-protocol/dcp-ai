@@ -570,8 +570,8 @@ pub mod wasm {
 
     // ── Bundle Building & Signing ─────────────────────────────────────────
 
-    /// Build a V2 CitizenshipBundle with manifest from signed artifacts: each
-    /// artifact is a SignedPayload from `wasm_sign_payload`.
+    /// Build a V2 CitizenshipBundle with `crate::v2::bundle::build_bundle_v2`:
+    /// each artifact is a SignedPayload from `wasm_sign_payload`.
     #[wasm_bindgen]
     pub fn wasm_build_bundle(
         rpr_json: &str,
@@ -585,65 +585,24 @@ pub mod wasm {
         for (name, artifact_json) in [
             ("RPR", rpr_json), ("Passport", passport_json), ("Intent", intent_json), ("Policy", policy_json),
         ] {
-            let sp: Value = match serde_json::from_str(artifact_json) {
-                Ok(v) => v, Err(e) => return json_err(&format!("{} parse: {}", name, e)),
-            };
-            let (Some(payload), Some(sig)) = (sp.get("payload"), sp.get("composite_sig")) else {
-                return json_err(&format!("{} must be a SignedPayload from wasm_sign_payload", name));
-            };
-            let canonical = match canonicalize_v2(payload) {
-                Ok(c) => c, Err(e) => return json_err(&format!("{}: {}", name, e)),
-            };
-            let hash = format!("sha256:{}", dual_hash::dual_hash_canonical(&canonical).sha256);
-            signed.push(json!({ "payload": payload, "payload_hash": hash, "composite_sig": sig }));
+            match serde_json::from_str::<signed_payload::SignedPayload>(artifact_json) {
+                Ok(sp) => signed.push(sp),
+                Err(e) => return json_err(&format!("{} must be a SignedPayload from wasm_sign_payload: {}", name, e)),
+            }
         }
         let audit_entries: Vec<Value> = match serde_json::from_str(audit_entries_json) {
             Ok(v) => v, Err(e) => return json_err(&format!("Audit entries parse: {}", e)),
         };
-
-        // Compute dual Merkle root over audit entries
-        let audit_hashes: Vec<dual_hash::DualHash> = audit_entries.iter()
-            .filter_map(|e| canonicalize_v2(e).ok())
-            .map(|c| dual_hash::dual_hash_canonical(&c))
-            .collect();
-
-        let (audit_merkle_sha256, audit_merkle_sha3) = if audit_hashes.is_empty() {
-            ("sha256:".to_string() + &"0".repeat(64), "sha3-256:".to_string() + &"0".repeat(64))
-        } else {
-            let sha256_leaves: Vec<String> = audit_hashes.iter().map(|h| h.sha256.clone()).collect();
-            let sha3_leaves: Vec<String> = audit_hashes.iter().map(|h| h.sha3_256.clone()).collect();
-            (
-                format!("sha256:{}", crypto::merkle_root_from_hex_leaves(&sha256_leaves).unwrap_or_default()),
-                format!("sha3-256:{}", crypto::merkle_root_from_hex_leaves(&sha3_leaves).unwrap_or_default()),
-            )
-        };
-
-        let manifest = json!({
-            "session_nonce": session_nonce,
-            "rpr_hash": signed[0]["payload_hash"],
-            "passport_hash": signed[1]["payload_hash"],
-            "intent_hash": signed[2]["payload_hash"],
-            "policy_hash": signed[3]["payload_hash"],
-            "audit_merkle_root": audit_merkle_sha256,
-            "audit_merkle_root_secondary": audit_merkle_sha3,
-            "audit_count": audit_entries.len(),
-            "canonicalization_profile": "dcp-jcs-v1"
-        });
-
-        let bundle = json!({
-            "dcp_bundle_version": "2.0",
-            "manifest": manifest,
-            "responsible_principal_record": signed[0],
-            "agent_passport": signed[1],
-            "intent": signed[2],
-            "policy_decision": signed[3],
-            "audit_entries": audit_entries
-        });
-
-        serde_json::to_string(&bundle).unwrap_or_else(|_| json_err("serialize failed"))
+        match crate::v2::bundle::build_bundle_v2(
+            &signed[0], &signed[1], &signed[2], &signed[3], &audit_entries, session_nonce,
+        ) {
+            Ok(bundle) => serde_json::to_string(&bundle).unwrap_or_else(|_| json_err("serialize failed")),
+            Err(e) => json_err(&e),
+        }
     }
 
-    /// Sign a V2 bundle with composite signature (Ed25519 + ML-DSA-65).
+    /// Sign a V2 bundle with composite signature (Ed25519 + ML-DSA-65), with
+    /// `crate::v2::bundle::sign_bundle_v2`.
     #[wasm_bindgen]
     pub fn wasm_sign_bundle(
         bundle_json: &str,
@@ -656,61 +615,20 @@ pub mod wasm {
             Ok(v) => v,
             Err(e) => return json_err(&format!("Bundle parse: {}", e)),
         };
-
-        let manifest = match bundle.get("manifest") {
-            Some(m) => m,
-            None => return json_err("Missing manifest in bundle"),
-        };
-
-        let canonical = match canonicalize_v2(manifest) {
-            Ok(c) => c,
-            Err(e) => return json_err(&e),
-        };
-
-        let manifest_hash = {
-            let dh = dual_hash::dual_hash_canonical(&canonical);
-            format!("sha256:{}", dh.sha256)
-        };
-
-        let ed = Ed25519Provider;
-        let pq = MlDsa65Provider;
-        let classical_key = CompositeKeyInfo {
-            kid: classical_kid.to_string(),
-            alg: "ed25519".to_string(),
-            secret_key_b64: classical_sk_b64.to_string(),
+        let key = |kid: &str, alg: &str, sk: &str| CompositeKeyInfo {
+            kid: kid.to_string(),
+            alg: alg.to_string(),
+            secret_key_b64: sk.to_string(),
             public_key_b64: String::new(),
         };
-        let pq_key = CompositeKeyInfo {
-            kid: pq_kid.to_string(),
-            alg: "ml-dsa-65".to_string(),
-            secret_key_b64: pq_sk_b64.to_string(),
-            public_key_b64: String::new(),
-        };
-
-        let sig = match composite_sign(
-            &ed, &pq,
-            crate::v2::domain_separation::CTX_BUNDLE,
-            canonical.as_bytes(), &classical_key, &pq_key,
+        match crate::v2::bundle::sign_bundle_v2(
+            bundle,
+            &key(classical_kid, "ed25519", classical_sk_b64),
+            &key(pq_kid, "ml-dsa-65", pq_sk_b64),
         ) {
-            Ok(s) => s,
-            Err(e) => return json_err(&e.to_string()),
-        };
-
-        let signed_bundle = json!({
-            "bundle": bundle,
-            "signature": {
-                "hash_alg": "sha256",
-                "created_at": "",
-                "signer": {
-                    "type": "human",
-                    "kids": [classical_kid, pq_kid]
-                },
-                "manifest_hash": manifest_hash,
-                "composite_sig": sig
-            }
-        });
-
-        serde_json::to_string(&signed_bundle).unwrap_or_else(|_| json_err("serialize failed"))
+            Ok(signed) => serde_json::to_string(&signed).unwrap_or_else(|_| json_err("serialize failed")),
+            Err(e) => json_err(&e),
+        }
     }
 
     // ── Proof of Possession ───────────────────────────────────────────────
