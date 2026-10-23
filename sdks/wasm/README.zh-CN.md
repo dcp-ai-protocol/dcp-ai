@@ -53,8 +53,8 @@ const sign = (context: string, payload: object) =>
 // Build a V2 bundle from the signed artifacts
 const bundle = dcp.buildBundle({
   rpr: sign('DCP-AI.v2.ResponsiblePrincipal', { dcp_version: '2.0', human_id: 'human:alice', binding_keys: keyEntries /* ... */ }),
-  passport: sign('DCP-AI.v2.AgentPassport', { dcp_version: '2.0', agent_id: 'agent-001', keys: keyEntries /* ... */ }),
-  intent: sign('DCP-AI.v2.Intent', { dcp_version: '2.0', intent_id: 'intent-001', action_type: 'browse', data_classes: ['none'], estimated_impact: 'low' /* ... */ }),
+  passport: sign('DCP-AI.v2.AgentPassport', { dcp_version: '2.0', agent_id: 'agent-001', keys: keyEntries, principal_binding_reference: 'human:alice', status: 'active' /* ... */ }),
+  intent: sign('DCP-AI.v2.Intent', { dcp_version: '2.0', intent_id: 'intent-001', agent_id: 'agent-001', human_id: 'human:alice', action_type: 'browse', data_classes: ['none'], estimated_impact: 'low' /* ... */ }),
   policy: sign('DCP-AI.v2.PolicyDecision', { dcp_version: '2.0', intent_id: 'intent-001', decision: 'approve', risk_score: 100 /* ... */ }),
   auditEntries: [],
   sessionNonce,
@@ -112,7 +112,7 @@ console.log(result.pq_valid);       // true
 | 方法 | 返回值 | 描述 |
 |--------|---------|-------------|
 | `compositeVerify(context, payload, sig, classicalPk, pqPk?)` | `CompositeVerifyResult` | 复合签名的密码学验证 |
-| `verifyBundle(signedBundle, policy?)` | `V2VerificationResult` | 完整的 V2 凭证包验证（结构 + 加密 + 哈希链），按策略模式与安全等级模式中更严格的一个验证（spec §14.3）；返回 `resolved_tier` 和 `verification_mode`。`policy` 只能在 `default_mode`、`risk_overrides` 和 Phase 3 字段（`advisory_rejected_algs`、`warn_classical_only_deprecated`、`allow_classical_fallback_disable`）上与默认值不同，传入策略时 V1 凭证包会被拒绝 |
+| `verifyBundle(signedBundle, policy?)` | `V2VerificationResult` | 完整的 V2 凭证包验证（结构 + 加密 + 哈希链），按策略模式与安全等级模式中更严格的一个验证（spec §14.3）；返回 `resolved_tier` 和 `verification_mode`。`policy` 只能在 `default_mode`、`risk_overrides`、Phase 3 字段（`advisory_rejected_algs`、`warn_classical_only_deprecated`、`allow_classical_fallback_disable`）和 `max_session_duration_seconds`（从已签名的 `session_issued_at` 起算，清单含 `session_expires_at` 时由 `signBundle` 写入）上与默认值不同；设置其他字段（如 `require_session_expiry`、`require_audience_binding` 或 `verifier_id`）的策略会验证失败，传入策略时 V1 凭证包会被拒绝 |
 
 ### 哈希操作
 
@@ -150,7 +150,7 @@ console.log(result.pq_valid);       // true
 | 方法 | 返回值 | 描述 |
 |--------|---------|-------------|
 | `buildBundle(opts)` | `CitizenshipBundleV2` | 由 `signPayload` 签名的工件构建带清单的 V2 凭证包；`sessionNonce` 默认为 RPR 的 `session_nonce` |
-| `signBundle(bundle, classicalSk, classicalKid, pqSk, pqKid)` | `SignedBundleV2` | 使用复合签名签名凭证包；`signer.id` 为 RPR 的 `human_id` |
+| `signBundle(bundle, classicalSk, classicalKid, pqSk, pqKid)` | `SignedBundleV2` | 使用复合签名签名凭证包；`signer.id` 为 RPR 的 `human_id`，清单有 `session_expires_at` 而无 `session_issued_at` 时，将 `session_issued_at` 设为签名时间 |
 
 ### 持有证明
 

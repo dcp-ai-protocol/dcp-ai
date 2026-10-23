@@ -72,9 +72,11 @@ export interface V2VerificationResult {
 }
 
 /**
- * Verifier policy for V2 bundles, with every field. Without one, `verifyBundle`
- * uses the default policy. Only default_mode, risk_overrides and the optional Phase 3 fields may
- * differ from it.
+ * Verifier policy for V2 bundles (schemas/v2/verifier_policy.schema.json), with every required
+ * field. Without one, `verifyBundle` uses the default policy. Only default_mode, risk_overrides,
+ * the optional Phase 3 fields and max_session_duration_seconds may differ from it.
+ * require_session_expiry, require_audience_binding and verifier_id are not enforced by this
+ * verifier: a policy that sets any of them, to any value, fails verification.
  */
 export interface VerifierPolicy {
   default_mode: NonNullable<V2VerificationResult['verification_mode']>;
@@ -92,6 +94,18 @@ export interface VerifierPolicy {
   allow_classical_fallback_disable?: boolean;
   warn_classical_only_deprecated?: boolean;
   advisory_rejected_algs?: string[];
+  /**
+   * Maximum of the manifest's session_expires_at minus its signed session_issued_at, in seconds;
+   * absent or 0 means no limit. Under a maximum, a bundle with session_expires_at and without
+   * session_issued_at fails verification (spec/VERIFICATION.md V2-4).
+   */
+  max_session_duration_seconds?: number;
+  /** Schema field this verifier does not enforce; setting it fails verification. */
+  require_session_expiry?: boolean;
+  /** Schema field this verifier does not enforce; setting it fails verification. */
+  require_audience_binding?: boolean;
+  /** Schema field this verifier does not enforce; setting it fails verification. */
+  verifier_id?: string;
 }
 
 export interface KemKeypairResult {
@@ -120,6 +134,11 @@ export interface BundleManifest {
   audit_merkle_root_secondary: string;
   audit_count: number;
   canonicalization_profile?: 'dcp-jcs-v1';
+  /**
+   * When the session began, signed with the manifest (spec/VERIFICATION.md V2-4). `signBundle`
+   * sets it to the signing time when the manifest has session_expires_at and no session_issued_at.
+   */
+  session_issued_at?: string;
   session_expires_at?: string;
   intended_verifier?: string;
 }

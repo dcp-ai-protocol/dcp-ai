@@ -11,13 +11,24 @@ const nonce = dcp.generateSessionNonce();
 const entries = (k) => [k.classical, k.pq].map((x) => ({ kid: x.kid, alg: x.alg, public_key_b64: x.public_key_b64, status: 'active' }));
 const sign = (context, payload, k) =>
   dcp.signPayload(context, { ...payload, session_nonce: nonce }, k.classical.secret_key_b64, k.classical.kid, k.pq.secret_key_b64, k.pq.kid);
+const [humanId, agentId] = ['human:build-sign', 'agent:build-sign'];
 const artifacts = {
-  rpr: sign('DCP-AI.v2.ResponsiblePrincipal', { human_id: 'human:build-sign', binding_keys: entries(human) }, human),
-  passport: sign('DCP-AI.v2.AgentPassport', { agent_id: 'agent:build-sign', keys: entries(agent) }, agent),
-  intent: sign('DCP-AI.v2.Intent', { intent_id: 'intent-1' }, agent),
-  policy: sign('DCP-AI.v2.PolicyDecision', { intent_id: 'intent-1', risk_score: 200 }, agent),
+  rpr: sign('DCP-AI.v2.ResponsiblePrincipal', { human_id: humanId, binding_keys: entries(human) }, human),
+  passport: sign(
+    'DCP-AI.v2.AgentPassport',
+    { agent_id: agentId, keys: entries(agent), principal_binding_reference: humanId, status: 'active' },
+    agent,
+  ),
+  intent: sign('DCP-AI.v2.Intent', { intent_id: 'intent-1', agent_id: agentId, human_id: humanId }, agent),
+  policy: sign('DCP-AI.v2.PolicyDecision', { intent_id: 'intent-1', risk_score: 200, decision: 'approve' }, agent),
 };
-const audit = { audit_id: 'audit-1', session_nonce: nonce, prev_hash: 'GENESIS' };
+// The audit entry names the intent, by id and payload hash, the agent and the principal,
+// and records the policy decision (V2-14).
+const audit = {
+  audit_id: 'audit-1', session_nonce: nonce, prev_hash: 'GENESIS',
+  intent_id: 'intent-1', intent_hash: artifacts.intent.payload_hash, agent_id: agentId, human_id: humanId,
+  policy_decision: 'approved',
+};
 const signBundle = (bundle) =>
   dcp.signBundle(bundle, human.classical.secret_key_b64, human.classical.kid, human.pq.secret_key_b64, human.pq.kid);
 
@@ -33,6 +44,25 @@ for (const [name, auditEntries] of [['one entry', [audit]], ['empty trail', []]]
   check(`${name}: manifest nonce`, signed.bundle.manifest.session_nonce === nonce, signed.bundle.manifest);
   const result = dcp.verifyBundle(signed);
   check(`${name}: verifyBundle`, result.verified, result.errors);
+  check(`${name}: no session_issued_at without an expiry`, !('session_issued_at' in signed.bundle.manifest), signed.bundle.manifest);
+}
+
+// A session that expires gets its signed start from the JavaScript clock, which a
+// maximum session duration is measured from (V2-4).
+{
+  const { default_verifier_policy: defaults } = JSON.parse(
+    readFileSync(new URL('../../../tests/interop/v2/bundle_vectors.json', import.meta.url), 'utf8'),
+  );
+  const bundle = dcp.buildBundle({ ...artifacts, auditEntries: [audit] });
+  bundle.manifest.session_expires_at = new Date(Date.now() + 3_600_000).toISOString();
+  const before = Date.now();
+  const signed = signBundle(bundle);
+  const issued = Date.parse(signed.bundle.manifest.session_issued_at);
+  check('session_issued_at is the signing time', issued >= before && issued <= Date.now(), signed.bundle.manifest);
+  const within = dcp.verifyBundle(signed, { ...defaults, max_session_duration_seconds: 7200 });
+  check('within the maximum session duration', within.verified, within.errors);
+  const over = dcp.verifyBundle(signed, { ...defaults, max_session_duration_seconds: 60 });
+  check('over the maximum session duration', !over.verified && over.errors.some((e) => e.includes('Session duration')), over.errors);
 }
 
 const rejects = (name, fn, needle) => {
