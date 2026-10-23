@@ -1,6 +1,7 @@
 //! V2 signed bundle verification (spec/VERIFICATION.md, V2 checklist).
 
 use std::collections::HashSet;
+use std::fmt::Display;
 
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
@@ -183,7 +184,7 @@ pub fn verify_signed_bundle_v2_with_policy(signed_bundle: &Value, policy: &Verif
             }
         }
     }
-    r.errors.extend(signer_block_errors(bundle, signature));
+    r.errors.extend(signature_block_errors(bundle, signature));
 
     // Each artifact's own composite_sig (V2-8): the principal signs the RPR
     // with its binding_keys, the agent signs the rest with its passport keys.
@@ -347,22 +348,26 @@ fn audit_trail_errors(bundle: &Value, manifest: &Value) -> Vec<String> {
     errors
 }
 
-/// The first artifact, audit entry or PQ checkpoint whose `session_nonce` is not
-/// the manifest's (VERIFICATION.md V2-4). Entries without one are not checked.
+/// The first artifact payload, audit entry or PQ checkpoint whose
+/// `session_nonce` is missing or not the manifest's (VERIFICATION.md V2-4):
+/// every one carries it. A missing artifact is reported on its own.
 fn session_nonce_errors(bundle: &Value, manifest_nonce: &str) -> Vec<String> {
-    let nonce_of = |v: &Value| v.get("session_nonce").and_then(Value::as_str).map(str::to_owned);
+    let error = |carrier: Option<&Value>, at: &dyn Display| match carrier.and_then(|c| c.get("session_nonce")) {
+        None | Some(Value::Null) => Some(format!("Session nonce missing in {}", at)),
+        Some(nonce) if nonce.as_str() != Some(manifest_nonce) => Some(format!("Session nonce mismatch in {}", at)),
+        Some(_) => None,
+    };
     for field in ["responsible_principal_record", "agent_passport", "intent", "policy_decision"] {
-        if let Some(nonce) = bundle.get(field).and_then(|a| a.get("payload")).and_then(nonce_of) {
-            if nonce != manifest_nonce {
-                return vec![format!("Session nonce mismatch in {}", field)];
-            }
+        let Some(artifact) = bundle.get(field) else { continue };
+        if let Some(e) = error(artifact.get("payload"), &field) {
+            return vec![e];
         }
     }
     for field in ["audit_entries", "pq_checkpoints"] {
         let entries = bundle.get(field).and_then(Value::as_array).into_iter().flatten();
         for (i, entry) in entries.enumerate() {
-            if nonce_of(entry).is_some_and(|nonce| nonce != manifest_nonce) {
-                return vec![format!("Session nonce mismatch in {}[{}]", field, i)];
+            if let Some(e) = error(Some(entry), &format_args!("{}[{}]", field, i)) {
+                return vec![e];
             }
         }
     }
@@ -378,15 +383,17 @@ const SESSION_CLOCK_SKEW_MS: i64 = 30_000;
 /// more than [`SESSION_CLOCK_SKEW_MS`] in the future nor after
 /// `session_expires_at`. Both are RFC 3339 timestamps; absent or null is no
 /// value. `max_session_duration_seconds` bounds `session_expires_at` minus
-/// `session_issued_at`, and requires `session_issued_at` when the session
-/// expires: `signature.created_at` is outside the signed manifest and is never
-/// read. `now` is the verification time in Unix milliseconds.
+/// `session_issued_at` and requires both: a session without an expiry does not
+/// count as one that never ends, and `signature.created_at`, outside the signed
+/// manifest, is never read. Instants compare at millisecond precision. `now`
+/// is the verification time in Unix milliseconds.
 fn session_time_errors(manifest: &Value, max_seconds: Option<u64>, now: i64) -> Vec<String> {
     let present = |key: &str| manifest.get(key).filter(|v| !v.is_null());
     let mut errors = Vec::new();
 
+    let expires_raw = present("session_expires_at");
     let mut expires = None;
-    if let Some(raw) = present("session_expires_at") {
+    if let Some(raw) = expires_raw {
         match raw.as_str().and_then(parse_rfc3339_millis) {
             None => errors.push(format!("Invalid session_expires_at: {}", display(Some(raw)))),
             Some(t) if t < now => errors.push(format!("Session expired at {}", display(Some(raw)))),
@@ -409,12 +416,15 @@ fn session_time_errors(manifest: &Value, max_seconds: Option<u64>, now: i64) -> 
         }
     }
 
-    let (Some(max), Some(expires)) = (max_seconds.filter(|max| *max > 0), expires) else { return errors };
-    match (issued_raw, issued) {
-        (None, _) => {
+    let Some(max) = max_seconds.filter(|max| *max > 0) else { return errors };
+    match (expires_raw, expires, issued_raw, issued) {
+        (None, ..) => {
+            errors.push("Policy max_session_duration_seconds requires session_expires_at in the manifest".to_string())
+        }
+        (Some(_), Some(_), None, _) => {
             errors.push("Policy max_session_duration_seconds requires session_issued_at in the manifest".to_string())
         }
-        (Some(_), Some(issued)) => {
+        (_, Some(expires), _, Some(issued)) => {
             let duration_ms = i128::from(expires) - i128::from(issued);
             if duration_ms > i128::from(max) * 1000 {
                 errors.push(format!(
@@ -424,16 +434,17 @@ fn session_time_errors(manifest: &Value, max_seconds: Option<u64>, now: i64) -> 
                 ));
             }
         }
-        (Some(_), None) => {} // reported above
+        _ => {} // an invalid or passed time, reported above
     }
     errors
 }
 
-/// The unsigned signer block does not contradict the signature
-/// (VERIFICATION.md V2-4): `signer.id` is the RPR human_id, and `signer.kids`
-/// are the composite_sig kids, the classical one and then the PQ one when
-/// present.
-fn signer_block_errors(bundle: &Value, signature: &Value) -> Vec<String> {
+/// The unsigned signature block does not contradict what is signed
+/// (VERIFICATION.md V2-4): `signer.id` is the RPR human_id, `signer.kids` are
+/// the composite_sig kids, the classical one and then the PQ one when present,
+/// `manifest_hash` is `sha256:` and the SHA-256 of the canonical manifest, and
+/// `hash_alg` is `sha256` or `sha256+sha3-256`.
+fn signature_block_errors(bundle: &Value, signature: &Value) -> Vec<String> {
     let mut errors = Vec::new();
     let signer = signature.get("signer");
     let signer_id = signer.and_then(|s| s.get("id"));
@@ -454,6 +465,19 @@ fn signer_block_errors(bundle: &Value, signature: &Value) -> Vec<String> {
     });
     if !named {
         errors.push("Bundle signature: signer kids do not name the bundle signature keys".to_string());
+    }
+    let manifest_hash = bundle
+        .get("manifest")
+        .and_then(|m| canonicalize_v2(m).ok())
+        .map(|c| format!("sha256:{}", dual_hash::dual_hash_canonical(&c).sha256));
+    let signed_hash = signature.get("manifest_hash");
+    if manifest_hash.is_none() || signed_hash.and_then(Value::as_str) != manifest_hash.as_deref() {
+        errors
+            .push(format!("Bundle signature: manifest_hash {} is not the hash of the manifest", display(signed_hash)));
+    }
+    let hash_alg = signature.get("hash_alg");
+    if !matches!(hash_alg.and_then(Value::as_str), Some("sha256" | "sha256+sha3-256")) {
+        errors.push(format!("Bundle signature: hash_alg {} is not sha256 or sha256+sha3-256", display(hash_alg)));
     }
     errors
 }
@@ -693,10 +717,18 @@ fn find_key<'a>(keys: &[&'a Value], kid: &str) -> Option<(&'a str, &'a str)> {
     ))
 }
 
-/// The kid is derived from the key entry's alg and raw public key
-/// (VERIFICATION.md V2-13), so no key list can claim another party's kid.
-fn kid_matches_key(kid: &str, alg: &str, public_key_b64: &str) -> bool {
-    BASE64.decode(public_key_b64).is_ok_and(|pk| derive_kid(alg, &pk) == kid)
+/// Why a key entry cannot verify a signature (VERIFICATION.md V2-13), if it
+/// cannot: its `public_key_b64` must be canonical base64 (RFC 4648 § 4,
+/// padded, zero trailing bits), so every verifier decodes the same bytes, and
+/// its kid derived from its alg and those bytes, so no key list can claim
+/// another party's kid.
+fn key_identity_error(kid: &str, alg: &str, public_key_b64: &str) -> Option<String> {
+    // The strict engine refuses missing padding and trailing bits; re-encoding
+    // confirms the bytes have no other spelling.
+    let Some(pk) = BASE64.decode(public_key_b64).ok().filter(|pk| BASE64.encode(pk) == public_key_b64) else {
+        return Some(format!("key {} public_key_b64 is not canonical base64 (V2-13)", kid));
+    };
+    (derive_kid(alg, &pk) != kid).then(|| format!("key {} is not derived from its public key (V2-13)", kid))
 }
 
 pub(crate) fn provider_for_alg(alg: &str) -> Result<Box<dyn CryptoProvider>, String> {
@@ -753,8 +785,8 @@ fn verify_composite_sig(
     };
     let pq_signer = cs.pq.as_ref().zip(pq_pk).map(|(entry, pk)| (entry.kid.as_str(), entry.alg.as_str(), pk));
     for (kid, alg, pk) in [(cs.classical.kid.as_str(), classical_alg, classical_pk)].into_iter().chain(pq_signer) {
-        if !kid_matches_key(kid, alg, pk) {
-            return Err(format!("key {} is not derived from its public key (V2-13)", kid));
+        if let Some(error) = key_identity_error(kid, alg, pk) {
+            return Err(error);
         }
     }
     let canonical = canonicalize_v2(payload)?;
@@ -789,16 +821,31 @@ mod tests {
     }
 
     #[test]
-    fn audit_entry_nonce_must_match_the_manifest() {
+    fn every_carrier_has_the_manifest_nonce() {
         let bundle = json!({
             "intent": { "payload": { "session_nonce": "a" } },
             "audit_entries": [{ "session_nonce": "a" }, { "session_nonce": "b" }],
         });
         assert_eq!(session_nonce_errors(&bundle, "a"), vec!["Session nonce mismatch in audit_entries[1]"]);
-        let same = json!({ "audit_entries": [{ "session_nonce": "a" }, { "prev_hash": "GENESIS" }] });
+        let same = json!({ "audit_entries": [{ "session_nonce": "a" }, { "session_nonce": "a" }] });
         assert!(session_nonce_errors(&same, "a").is_empty());
         let artifact = json!({ "agent_passport": { "payload": { "session_nonce": "b" } } });
         assert_eq!(session_nonce_errors(&artifact, "a"), vec!["Session nonce mismatch in agent_passport"]);
+        // A carrier without the nonce is rejected too (V2-4).
+        let cases = [
+            (json!({ "audit_entries": [{ "session_nonce": "a" }, { "prev_hash": "GENESIS" }] }), "audit_entries[1]"),
+            (json!({ "pq_checkpoints": [{ "session_nonce": null }] }), "pq_checkpoints[0]"),
+            (
+                json!({ "responsible_principal_record": { "payload": { "human_id": "h" } } }),
+                "responsible_principal_record",
+            ),
+            (json!({ "policy_decision": { "payload": null } }), "policy_decision"),
+            (json!({ "audit_entries": [7] }), "audit_entries[0]"),
+        ];
+        for (bundle, at) in cases {
+            assert_eq!(session_nonce_errors(&bundle, "a"), vec![format!("Session nonce missing in {at}")], "{bundle}");
+        }
+        assert_eq!(session_nonce_errors(&json!({ "intent": { "payload": { "session_nonce": 1 } } }), "a").len(), 1);
     }
 
     #[test]
@@ -859,9 +906,19 @@ mod tests {
         for manifest in [json!({ "session_expires_at": far }), window(Value::Null, far), json!({})] {
             assert_eq!(errors(manifest.clone(), None), "", "{manifest}");
         }
-        assert_eq!(errors(json!({}), Some(3600)), "", "no expiry, nothing to bound");
+        // Years 0000 to 9999; instants at millisecond precision, the 0.0009 s
+        // past the maximum dropped (2026-10-21 to 2099-12-31T18:59:59 is
+        // 2309885999 s).
+        assert_eq!(errors(window(json!("0000-01-01T00:00:00Z"), "9999-12-31T23:59:59Z"), None), "");
+        let ms = window(issued.clone(), "2099-12-31T18:59:59.0009Z");
+        assert_eq!(errors(ms.clone(), Some(2_309_885_999)), "");
+        assert!(errors(ms, Some(2_309_885_998)).starts_with("Session duration "));
 
         let cases = [
+            // A maximum needs both ends: no expiry is not a session that never ends.
+            (json!({}), Some(3600), "Policy max_session_duration_seconds requires session_expires_at in the manifest"),
+            (json!({ "session_issued_at": issued }), Some(3600), "requires session_expires_at"),
+            (window(issued.clone(), "x"), Some(3600), "Invalid session_expires_at: x"),
             (window(Value::Null, far), Some(3600), "Policy max_session_duration_seconds requires session_issued_at"),
             (json!({ "session_expires_at": far }), Some(3600), "requires session_issued_at in the manifest"),
             (
@@ -961,6 +1018,64 @@ mod tests {
             let got = errors(json!(["c"]), json!([mutated]));
             assert!(got.contains(&format!("pq_checkpoints[c]: {want}")), "{field}={value}: {got}");
         }
+    }
+
+    #[test]
+    fn keys_are_canonical_base64_and_name_their_kid() {
+        let raw = [7u8; 32];
+        let (pk, kid) = (BASE64.encode(raw), derive_kid("ed25519", &raw));
+        assert_eq!(key_identity_error(&kid, "ed25519", &pk), None);
+        // The same bytes with a trailing bit set, without padding, with a line
+        // break, in the URL-safe alphabet: a lenient decoder reads them all.
+        const B64: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        let last = pk.find('=').unwrap() - 1;
+        let flipped = B64.as_bytes()[B64.find(&pk[last..last + 1]).unwrap() ^ 1] as char;
+        let trailing = format!("{}{}{}", &pk[..last], flipped, &pk[last + 1..]);
+        let url_safe = BASE64.encode([0xfb; 32]).replace('+', "-");
+        for bad in [trailing, pk.trim_end_matches('=').to_string(), format!("{pk}\n"), url_safe] {
+            let error = key_identity_error(&kid, "ed25519", &bad);
+            assert!(error.as_deref().is_some_and(|e| e.contains("is not canonical base64 (V2-13)")), "{bad:?}");
+        }
+        // Canonical but not this kid's key: another key, another alg, no bytes at all.
+        let other = "0".repeat(32);
+        assert!(key_identity_error(&other, "ed25519", &pk).is_some_and(|e| e.contains("is not derived")));
+        assert!(key_identity_error(&kid, "ed25519", "").is_some_and(|e| e.contains("is not derived")));
+        assert!(key_identity_error(&kid, "ml-dsa-65", &pk).is_some_and(|e| e.contains("is not derived")));
+    }
+
+    #[test]
+    fn signature_block_does_not_contradict_the_manifest() {
+        let bundle = json!({
+            "manifest": { "session_nonce": "n" },
+            "responsible_principal_record": { "payload": { "human_id": "h" } },
+        });
+        let canonical = canonicalize_v2(&bundle["manifest"]).unwrap();
+        let hash = format!("sha256:{}", dual_hash::dual_hash_canonical(&canonical).sha256);
+        let signature = |hash_alg: Value, manifest_hash: Value| {
+            json!({
+                "hash_alg": hash_alg, "manifest_hash": manifest_hash,
+                "signer": { "id": "h", "kids": ["c"] }, "composite_sig": { "classical": { "kid": "c" }, "pq": null },
+            })
+        };
+        for alg in ["sha256", "sha256+sha3-256"] {
+            assert_eq!(signature_block_errors(&bundle, &signature(json!(alg), json!(hash))), Vec::<String>::new());
+        }
+        let other = format!("sha256:{}", "0".repeat(64));
+        let cases = [
+            (json!("md5"), json!(hash), "Bundle signature: hash_alg md5 is not sha256 or sha256+sha3-256"),
+            (Value::Null, json!(hash), "hash_alg null"),
+            (json!("sha256"), json!(other), "manifest_hash sha256:000"),
+            (json!("sha256"), json!(hash.trim_start_matches("sha256:")), "is not the hash of the manifest"),
+            (json!("sha256"), Value::Null, "manifest_hash null is not the hash of the manifest"),
+        ];
+        for (alg, manifest_hash, want) in cases {
+            let errors = signature_block_errors(&bundle, &signature(alg, manifest_hash)).join("\n");
+            assert!(errors.contains(want), "{want}: {errors}");
+        }
+        let unhashable =
+            json!({ "manifest": { "n": 1.5 }, "responsible_principal_record": { "payload": { "human_id": "h" } } });
+        let errors = signature_block_errors(&unhashable, &signature(json!("sha256"), json!(hash))).join("\n");
+        assert!(errors.contains("is not the hash of the manifest"), "{errors}");
     }
 
     /// A checkpoint signature is judged by the mode, as an artifact's is: under

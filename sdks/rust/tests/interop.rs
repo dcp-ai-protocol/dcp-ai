@@ -581,9 +581,9 @@ fn signed_bundle_vectors() {
     assert!(!verify_signed_bundle_v2_with_policy(signed, &tuned).verified, "a policy field the verifier does not enforce must fail closed");
 }
 
-/// A bundle whose checkpoints, audit entries, artifacts, keys, session times or
-/// signer block have the wrong JSON type is rejected with errors, never a panic
-/// (V2-4, V2-12, V2-13, V2-14).
+/// A bundle whose checkpoints, audit entries, artifacts, keys, session times,
+/// nonces or signature block have the wrong JSON type is rejected with errors,
+/// never a panic (V2-4, V2-12, V2-13, V2-14).
 #[test]
 fn hostile_shapes_are_rejected() {
     let data = fs::read_to_string(vectors_path().with_file_name("bundle_vectors.json"))
@@ -621,6 +621,12 @@ fn hostile_shapes_are_rejected() {
         "/signature/signer/kids",
         "/signature/signer/kids/1",
         "/signature/composite_sig/pq",
+        "/signature/manifest_hash",
+        "/signature/hash_alg",
+        "/bundle/policy_decision/payload/session_nonce",
+        "/bundle/audit_entries/1/session_nonce",
+        "/bundle/pq_checkpoints/0/session_nonce",
+        "/bundle/agent_passport/payload/keys/1/public_key_b64",
     ];
     let values = [
         Value::Null,
