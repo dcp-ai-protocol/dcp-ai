@@ -108,12 +108,21 @@ pub fn build_bundle_v2(
 /// as in the Go `SignBundleV2`: `signer.type` is `"human"` and `signer.id` the
 /// RPR's `human_id`. Manifest fields that must be signed, such as
 /// `session_expires_at` or `intended_verifier`, go into `bundle["manifest"]`
-/// before this call.
+/// before this call. A manifest with `session_expires_at` and without
+/// `session_issued_at` gets `session_issued_at` set to now before it is signed,
+/// as in TypeScript: the session start a verifier's maximum session duration
+/// is measured from (spec/VERIFICATION.md V2-4).
 pub fn sign_bundle_v2(
-    bundle: Value,
+    mut bundle: Value,
     classical: &CompositeKeyInfo,
     pq: &CompositeKeyInfo,
 ) -> Result<Value, String> {
+    if let Some(manifest) = bundle.get_mut("manifest").and_then(Value::as_object_mut) {
+        let set = |field: &str| manifest.get(field).is_some_and(|v| !v.is_null());
+        if set("session_expires_at") && !set("session_issued_at") {
+            manifest.insert("session_issued_at".into(), json!(utc_now_iso()));
+        }
+    }
     let manifest = bundle.get("manifest").ok_or("Missing manifest in bundle")?;
     let signer_id = bundle
         .pointer("/responsible_principal_record/payload/human_id")
@@ -153,7 +162,8 @@ mod tests {
     };
     use crate::v2::dual_hash::{sha256_hex, sha3_256_hex};
     use crate::v2::session_nonce::parse_rfc3339_millis;
-    use crate::v2::verify_bundle::verify_signed_bundle_v2;
+    use crate::v2::types::VerifierPolicy;
+    use crate::v2::verify_bundle::{verify_signed_bundle_v2, verify_signed_bundle_v2_with_policy};
 
     fn key(p: &dyn CryptoProvider) -> CompositeKeyInfo {
         let k = p.generate_keypair().unwrap();
@@ -207,22 +217,34 @@ mod tests {
         );
         let passport = sign(
             CTX_AGENT_PASSPORT,
-            json!({"agent_id": "agent-1", "session_nonce": nonce, "keys": entries(&agent)}),
+            json!({
+                "agent_id": "agent-1", "session_nonce": nonce, "keys": entries(&agent),
+                "principal_binding_reference": "human-1", "status": "active",
+            }),
             &agent,
         );
         let intent = sign(
             CTX_INTENT,
-            json!({"intent_id": "i-1", "session_nonce": nonce}),
+            json!({"intent_id": "i-1", "session_nonce": nonce, "agent_id": "agent-1", "human_id": "human-1"}),
             &agent,
         );
         let policy = sign(
             CTX_POLICY_DECISION,
-            json!({"intent_id": "i-1", "session_nonce": nonce, "risk_score": 200}),
+            json!({"intent_id": "i-1", "session_nonce": nonce, "risk_score": 200, "decision": "approve"}),
             &agent,
         );
-        let a1 = json!({"audit_id": "a-1", "session_nonce": nonce, "prev_hash": "GENESIS"});
+        // Audit entries name the intent, by id and payload hash, the agent and
+        // the principal, and record the policy decision (V2-14).
+        let entry = |audit_id: &str, prev_hash: String| {
+            json!({
+                "audit_id": audit_id, "session_nonce": nonce, "prev_hash": prev_hash,
+                "intent_id": "i-1", "intent_hash": intent.payload_hash, "agent_id": "agent-1", "human_id": "human-1",
+                "policy_decision": "approved",
+            })
+        };
+        let a1 = entry("a-1", "GENESIS".into());
         let a1_hash = sha256_hex(canonicalize_v2(&a1).unwrap().as_bytes());
-        let a2 = json!({"audit_id": "a-2", "session_nonce": nonce, "prev_hash": format!("sha256:{a1_hash}")});
+        let a2 = entry("a-2", format!("sha256:{a1_hash}"));
         let trail = [a1, a2];
 
         let bundle = build_bundle_v2(&rpr, &passport, &intent, &policy, &trail, &nonce).unwrap();
@@ -248,6 +270,32 @@ mod tests {
         );
         let result = verify_signed_bundle_v2(&sign_bundle_v2(empty, &hc, &hp).unwrap());
         assert!(result.verified, "{:?}", result.errors);
+        assert!(signed["bundle"]["manifest"]
+            .get("session_issued_at")
+            .is_none());
+
+        // A session that expires gets its signed start, which a maximum session
+        // duration is measured from (V2-4); a start already set is kept.
+        let mut expiring =
+            build_bundle_v2(&rpr, &passport, &intent, &policy, &trail, &nonce).unwrap();
+        expiring["manifest"]["session_expires_at"] = json!("2099-12-31T23:59:59Z");
+        let signed = sign_bundle_v2(expiring.clone(), &hc, &hp).unwrap();
+        let issued_at = signed["bundle"]["manifest"]["session_issued_at"]
+            .as_str()
+            .unwrap();
+        assert!(parse_rfc3339_millis(issued_at).is_some(), "{issued_at}");
+        let within = VerifierPolicy {
+            max_session_duration_seconds: Some(3_000_000_000),
+            ..VerifierPolicy::default()
+        };
+        let result = verify_signed_bundle_v2_with_policy(&signed, &within);
+        assert!(result.verified, "{:?}", result.errors);
+        expiring["manifest"]["session_issued_at"] = json!("2026-10-21T00:00:00Z");
+        let signed = sign_bundle_v2(expiring, &hc, &hp).unwrap();
+        assert_eq!(
+            signed["bundle"]["manifest"]["session_issued_at"],
+            "2026-10-21T00:00:00Z"
+        );
 
         let build = |trail: &[Value], nonce: &str, rpr: &SignedPayload| {
             build_bundle_v2(rpr, &passport, &intent, &policy, trail, nonce).unwrap_err()

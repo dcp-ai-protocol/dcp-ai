@@ -340,7 +340,7 @@ pub mod wasm {
     /// Full V2 bundle verification with cryptographic signature checks.
     ///
     /// `policy_json` is a `VerifierPolicy` for V2 bundles, with every field but
-    /// the optional Phase 3 ones; without it the
+    /// the optional Phase 3 ones and `max_session_duration_seconds`; without it the
     /// default policy applies. The mode is the stricter of the policy mode and
     /// the security tier's mode (spec §14.3). The V1 verifier cannot apply a
     /// policy, so with one a V1 bundle is rejected.

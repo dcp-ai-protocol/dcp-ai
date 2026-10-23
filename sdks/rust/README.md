@@ -164,7 +164,7 @@ All structs derive `Debug`, `Clone`, `Serialize`, `Deserialize`. Enums use `#[se
 | Function | Description |
 |----------|-------------|
 | `build_bundle_v2(&rpr, &passport, &intent, &policy, &audit_entries, session_nonce)` | Builds the V2 bundle from the four `SignedPayload`s and the audit trail. It checks each `payload_hash` and the `session_nonce` of every artifact and audit entry, and writes the manifest with both audit Merkle roots; an empty trail gets roots of 64 zeros |
-| `sign_bundle_v2(bundle, &classical, &pq)` | Composite-signs the manifest under `CTX_BUNDLE` and returns `{bundle, signature}`, with `signer.id` the RPR's `human_id`. Put `session_expires_at` or `intended_verifier` in the manifest before signing |
+| `sign_bundle_v2(bundle, &classical, &pq)` | Composite-signs the manifest under `CTX_BUNDLE` and returns `{bundle, signature}`, with `signer.id` the RPR's `human_id`. Put `session_expires_at` or `intended_verifier` in the manifest before signing; with `session_expires_at` and no `session_issued_at`, it sets `session_issued_at` to the signing time |
 
 ### Delegation Chains (`dcp_ai::v2::delegation`, DCP-09 §3.5)
 

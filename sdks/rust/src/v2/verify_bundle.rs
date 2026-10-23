@@ -1,5 +1,9 @@
 //! V2 signed bundle verification (spec/VERIFICATION.md, V2 checklist).
 
+use std::collections::HashSet;
+
+use base64::engine::general_purpose::STANDARD as BASE64;
+use base64::Engine;
 use serde::Serialize;
 use serde_json::Value;
 
@@ -9,13 +13,14 @@ use crate::providers::slh_dsa_192f::SlhDsa192fProvider;
 use crate::v2::canonicalize::canonicalize_v2;
 use crate::v2::composite_ops::{composite_verify, CompositeVerifyResult};
 use crate::v2::composite_sig::CompositeSignature;
-use crate::v2::crypto_provider::CryptoProvider;
+use crate::v2::crypto_provider::{derive_kid, CryptoProvider};
 use crate::v2::domain_separation::{
-    CTX_AGENT_PASSPORT, CTX_BUNDLE, CTX_INTENT, CTX_POLICY_DECISION, CTX_RESPONSIBLE_PRINCIPAL,
+    CTX_AGENT_PASSPORT, CTX_AUDIT_EVENT, CTX_BUNDLE, CTX_INTENT, CTX_POLICY_DECISION, CTX_RESPONSIBLE_PRINCIPAL,
 };
 use crate::crypto::merkle_root_from_hex_leaves;
 use crate::v2::dual_hash;
 use crate::v2::lifecycle::unix_now_millis;
+use crate::v2::pq_checkpoint::audit_events_merkle_root;
 use crate::v2::session_nonce::parse_rfc3339_millis;
 use crate::v2::security_tier::{compute_security_tier, effective_verification_mode};
 use crate::v2::types::VerifierPolicy;
@@ -50,10 +55,11 @@ pub fn verify_signed_bundle_v2(signed_bundle: &Value) -> V2VerificationResult {
 /// Verify a V2 signed bundle against the stricter of the policy mode
 /// (`default_mode`, or the `risk_overrides` entry for the passport's
 /// `risk_tier`) and the security tier's mode (spec §14.3). Besides those two
-/// fields, only the Phase 3 ones are enforced, as in the TypeScript SDK:
+/// fields, only these are enforced, as in the TypeScript SDK: the Phase 3
 /// `advisory_rejected_algs`, `warn_classical_only_deprecated` and
-/// `allow_classical_fallback_disable`. A policy that changes any other field
-/// fails verification instead of having the setting ignored.
+/// `allow_classical_fallback_disable`, and `max_session_duration_seconds`. A
+/// policy that changes any other field fails verification instead of having
+/// the setting ignored.
 pub fn verify_signed_bundle_v2_with_policy(signed_bundle: &Value, policy: &VerifierPolicy) -> V2VerificationResult {
     let mut r = V2VerificationResult { dcp_version: "2.0".into(), ..Default::default() };
     let enforced = VerifierPolicy {
@@ -62,11 +68,12 @@ pub fn verify_signed_bundle_v2_with_policy(signed_bundle: &Value, policy: &Verif
         allow_classical_fallback_disable: policy.allow_classical_fallback_disable,
         warn_classical_only_deprecated: policy.warn_classical_only_deprecated,
         advisory_rejected_algs: policy.advisory_rejected_algs.clone(),
+        max_session_duration_seconds: policy.max_session_duration_seconds,
         ..VerifierPolicy::default()
     };
     if *policy != enforced {
         r.errors.push(
-            "Verifier policy sets fields this verifier does not enforce: only default_mode, risk_overrides and the Phase 3 fields may differ from the default"
+            "Verifier policy sets fields this verifier does not enforce: only default_mode, risk_overrides, the Phase 3 fields and max_session_duration_seconds may differ from the default"
                 .to_string(),
         );
         return r;
@@ -110,12 +117,8 @@ pub fn verify_signed_bundle_v2_with_policy(signed_bundle: &Value, policy: &Verif
     // Artifact hashes against their payload_hash and the manifest (V2-3)
     if let Some(manifest) = bundle.get("manifest") {
         r.errors.extend(manifest_hash_errors(bundle, manifest));
-        let expires = manifest.get("session_expires_at");
-        match check_expiry(expires) {
-            Ok(()) => {}
-            Err(Expiry::Invalid) => r.errors.push(format!("Invalid session_expires_at: {}", display(expires))),
-            Err(Expiry::Passed) => r.errors.push(format!("Session expired at {}", display(expires))),
-        }
+        let now = unix_now_millis() as i64;
+        r.errors.extend(session_time_errors(manifest, policy.max_session_duration_seconds, now));
     }
 
     // Per spec/CANONICALIZATION_PROFILE.md § 4 a missing canonicalization_profile
@@ -130,6 +133,10 @@ pub fn verify_signed_bundle_v2_with_policy(signed_bundle: &Value, policy: &Verif
     if !manifest_nonce.is_empty() {
         r.errors.extend(session_nonce_errors(bundle, manifest_nonce));
     }
+
+    // The passport, intent, policy decision and audit entries name the same
+    // principal, agent and intent (V2-14).
+    r.errors.extend(consistency_errors(bundle));
 
     // Verification mode: the agent's risk_tier and intent can raise the policy
     // mode but never take it below the security tier's mode.
@@ -155,15 +162,16 @@ pub fn verify_signed_bundle_v2_with_policy(signed_bundle: &Value, policy: &Verif
         r.warnings.push("DEPRECATION: classical_only mode is deprecated in Phase 3".to_string());
     }
 
-    // Bundle composite_sig over the manifest: signed by the agent or by its principal.
+    // Bundle composite_sig over the manifest (V2-6, V2-7). The signer is the
+    // principal: only the RPR binding_keys verify it. The agent signs its own
+    // passport, so its keys cannot vouch for the principal.
     let rpr_keys = payload_keys(bundle, "responsible_principal_record", "binding_keys");
     let agent_keys = payload_keys(bundle, "agent_passport", "keys");
     match (signature.get("composite_sig"), bundle.get("manifest")) {
         (None, _) => r.errors.push("Missing composite_sig in signature".to_string()),
         (Some(_), None) => {}
         (Some(cs_val), Some(manifest)) => {
-            let keys: Vec<&Value> = agent_keys.iter().chain(rpr_keys.iter()).copied().collect();
-            match verify_composite_sig(CTX_BUNDLE, manifest, Some(cs_val), &keys) {
+            match verify_composite_sig(CTX_BUNDLE, manifest, Some(cs_val), &rpr_keys, RPR_KEYS) {
                 Ok((cs, result)) => {
                     r.classical_valid = result.classical_valid;
                     r.pq_valid = result.pq_valid;
@@ -175,21 +183,22 @@ pub fn verify_signed_bundle_v2_with_policy(signed_bundle: &Value, policy: &Verif
             }
         }
     }
+    r.errors.extend(signer_block_errors(bundle, signature));
 
     // Each artifact's own composite_sig (V2-8): the principal signs the RPR
     // with its binding_keys, the agent signs the rest with its passport keys.
-    for (field, context, keys) in [
-        ("responsible_principal_record", CTX_RESPONSIBLE_PRINCIPAL, &rpr_keys),
-        ("agent_passport", CTX_AGENT_PASSPORT, &agent_keys),
-        ("intent", CTX_INTENT, &agent_keys),
-        ("policy_decision", CTX_POLICY_DECISION, &agent_keys),
+    for (field, context, keys, keys_label) in [
+        ("responsible_principal_record", CTX_RESPONSIBLE_PRINCIPAL, &rpr_keys, RPR_KEYS),
+        ("agent_passport", CTX_AGENT_PASSPORT, &agent_keys, PASSPORT_KEYS),
+        ("intent", CTX_INTENT, &agent_keys, PASSPORT_KEYS),
+        ("policy_decision", CTX_POLICY_DECISION, &agent_keys, PASSPORT_KEYS),
     ] {
         let Some(artifact) = bundle.get(field) else { continue }; // reported as missing above
         let Some(payload) = artifact.get("payload").filter(|p| p.is_object()) else {
             r.errors.push(format!("{} is not a SignedPayload object", field));
             continue;
         };
-        match verify_composite_sig(context, payload, artifact.get("composite_sig"), keys) {
+        match verify_composite_sig(context, payload, artifact.get("composite_sig"), keys, keys_label) {
             Err(e) => r.errors.push(format!("{} signature: {}", field, e)),
             Ok((cs, result)) => {
                 let (errors, warnings) = check_mode(mode, policy, &cs, &result);
@@ -197,6 +206,11 @@ pub fn verify_signed_bundle_v2_with_policy(signed_bundle: &Value, policy: &Verif
                 r.warnings.extend(warnings.iter().map(|w| format!("{} {}", field, w)));
             }
         }
+    }
+
+    // PQ checkpoints, signed by the agent (V2-12).
+    if let Some(manifest) = bundle.get("manifest") {
+        r.errors.extend(checkpoint_errors(bundle, manifest, mode, policy, &agent_keys));
     }
 
     // Audit entries tied to the signed manifest, and the validity of every
@@ -355,15 +369,283 @@ fn session_nonce_errors(bundle: &Value, manifest_nonce: &str) -> Vec<String> {
     Vec::new()
 }
 
+/// How far in the future a signed session start may be (VERIFICATION.md V2-4),
+/// the clock skew DCP-04 allows for timestamps.
+const SESSION_CLOCK_SKEW_MS: i64 = 30_000;
+
+/// The manifest's signed session window (VERIFICATION.md V2-4).
+/// `session_expires_at` must not have passed. A `session_issued_at` must not be
+/// more than [`SESSION_CLOCK_SKEW_MS`] in the future nor after
+/// `session_expires_at`. Both are RFC 3339 timestamps; absent or null is no
+/// value. `max_session_duration_seconds` bounds `session_expires_at` minus
+/// `session_issued_at`, and requires `session_issued_at` when the session
+/// expires: `signature.created_at` is outside the signed manifest and is never
+/// read. `now` is the verification time in Unix milliseconds.
+fn session_time_errors(manifest: &Value, max_seconds: Option<u64>, now: i64) -> Vec<String> {
+    let present = |key: &str| manifest.get(key).filter(|v| !v.is_null());
+    let mut errors = Vec::new();
+
+    let mut expires = None;
+    if let Some(raw) = present("session_expires_at") {
+        match raw.as_str().and_then(parse_rfc3339_millis) {
+            None => errors.push(format!("Invalid session_expires_at: {}", display(Some(raw)))),
+            Some(t) if t < now => errors.push(format!("Session expired at {}", display(Some(raw)))),
+            Some(t) => expires = Some(t),
+        }
+    }
+
+    let issued_raw = present("session_issued_at");
+    let mut issued = None;
+    if let Some(raw) = issued_raw {
+        match raw.as_str().and_then(parse_rfc3339_millis) {
+            None => errors.push(format!("Invalid session_issued_at: {}", display(Some(raw)))),
+            Some(t) if t > now.saturating_add(SESSION_CLOCK_SKEW_MS) => {
+                errors.push(format!("session_issued_at {} is in the future", display(Some(raw))))
+            }
+            Some(t) if expires.is_some_and(|e| t > e) => {
+                errors.push("session_issued_at is after session_expires_at".to_string())
+            }
+            Some(t) => issued = Some(t),
+        }
+    }
+
+    let (Some(max), Some(expires)) = (max_seconds.filter(|max| *max > 0), expires) else { return errors };
+    match (issued_raw, issued) {
+        (None, _) => {
+            errors.push("Policy max_session_duration_seconds requires session_issued_at in the manifest".to_string())
+        }
+        (Some(_), Some(issued)) => {
+            let duration_ms = i128::from(expires) - i128::from(issued);
+            if duration_ms > i128::from(max) * 1000 {
+                errors.push(format!(
+                    "Session duration {}s exceeds policy max of {}s",
+                    duration_ms as f64 / 1000.0,
+                    max
+                ));
+            }
+        }
+        (Some(_), None) => {} // reported above
+    }
+    errors
+}
+
+/// The unsigned signer block does not contradict the signature
+/// (VERIFICATION.md V2-4): `signer.id` is the RPR human_id, and `signer.kids`
+/// are the composite_sig kids, the classical one and then the PQ one when
+/// present.
+fn signer_block_errors(bundle: &Value, signature: &Value) -> Vec<String> {
+    let mut errors = Vec::new();
+    let signer = signature.get("signer");
+    let signer_id = signer.and_then(|s| s.get("id"));
+    let human_id =
+        bundle.get("responsible_principal_record").and_then(|a| a.get("payload")).and_then(|p| p.get("human_id"));
+    if !same_id(signer_id, human_id) {
+        errors.push(format!("Bundle signature: signer id {} is not the RPR human_id", display(signer_id)));
+    }
+    let cs = signature.get("composite_sig");
+    let kid = |slot: &str| cs.and_then(|c| c.get(slot)).and_then(|entry| entry.get("kid"));
+    let mut signed = vec![kid("classical")];
+    if cs.and_then(|c| c.get("pq")).is_some_and(|pq| !pq.is_null()) {
+        signed.push(kid("pq"));
+    }
+    let kids = signer.and_then(|s| s.get("kids")).and_then(Value::as_array);
+    let named = kids.is_some_and(|kids| {
+        kids.len() == signed.len() && kids.iter().zip(&signed).all(|(kid, signed)| same_id(Some(kid), *signed))
+    });
+    if !named {
+        errors.push("Bundle signature: signer kids do not name the bundle signature keys".to_string());
+    }
+    errors
+}
+
+/// Two identifiers that are the same string; two missing ones are not the same.
+fn same_id(a: Option<&Value>, b: Option<&Value>) -> bool {
+    matches!((a, b), (Some(Value::String(a)), Some(Value::String(b))) if a == b)
+}
+
+/// The artifacts describe one action, by one agent, for one principal
+/// (VERIFICATION.md V2-14). The signatures say who signed each one; these
+/// checks tie them together. A missing artifact or payload fails them, on top
+/// of the error that reports it.
+fn consistency_errors(bundle: &Value) -> Vec<String> {
+    let payload = |field: &str| bundle.get(field).and_then(|a| a.get("payload")).unwrap_or(&Value::Null);
+    let rpr = payload("responsible_principal_record");
+    let passport = payload("agent_passport");
+    let intent = payload("intent");
+    let decision = payload("policy_decision");
+    let (human_id, agent_id, intent_id) = (rpr.get("human_id"), passport.get("agent_id"), intent.get("intent_id"));
+    let mut errors = Vec::new();
+
+    let status = passport.get("status");
+    if !matches!(status.and_then(Value::as_str), Some("active" | "declining")) {
+        errors.push(format!("agent_passport status is {}, not active (DCP-05 § 3.1)", display(status)));
+    }
+    let expires = rpr.get("expires_at");
+    match check_expiry(expires) {
+        Ok(()) => {}
+        Err(Expiry::Invalid) => {
+            errors.push(format!("responsible_principal_record has an invalid expires_at: {}", display(expires)))
+        }
+        Err(Expiry::Passed) => errors.push(format!("responsible_principal_record expired at {}", display(expires))),
+    }
+    if !same_id(passport.get("principal_binding_reference"), human_id) {
+        errors.push("agent_passport principal_binding_reference is not the RPR human_id".to_string());
+    }
+    if !same_id(intent.get("agent_id"), agent_id) {
+        errors.push("intent agent_id is not the passport agent_id".to_string());
+    }
+    if !same_id(intent.get("human_id"), human_id) {
+        errors.push("intent human_id is not the RPR human_id".to_string());
+    }
+    if !same_id(decision.get("intent_id"), intent_id) {
+        errors.push("policy_decision intent_id is not the intent intent_id".to_string());
+    }
+    // What an audit entry records for the policy decision. An escalated or
+    // blocked action is valid evidence too.
+    let recorded = match decision.get("decision").and_then(Value::as_str) {
+        Some("approve") => Some("approved"),
+        Some("escalate") => Some("escalated"),
+        Some("block") => Some("blocked"),
+        _ => None,
+    };
+
+    // The intent's payload hash, in the form of the manifest's intent_hash.
+    let intent_hash = intent
+        .is_object()
+        .then(|| canonicalize_v2(intent).ok())
+        .flatten()
+        .map(|c| Value::String(format!("sha256:{}", dual_hash::dual_hash_canonical(&c).sha256)));
+    let entries = bundle.get("audit_entries").and_then(Value::as_array).map_or(&[][..], Vec::as_slice);
+    for (i, entry) in entries.iter().enumerate() {
+        if !same_id(entry.get("intent_id"), intent_id) {
+            errors.push(format!("audit_entries[{}] intent_id is not the intent intent_id", i));
+        }
+        if !same_id(entry.get("intent_hash"), intent_hash.as_ref()) {
+            errors.push(format!("audit_entries[{}] intent_hash is not the intent payload hash", i));
+        }
+        if !same_id(entry.get("agent_id"), agent_id) {
+            errors.push(format!("audit_entries[{}] agent_id is not the passport agent_id", i));
+        }
+        if !same_id(entry.get("human_id"), human_id) {
+            errors.push(format!("audit_entries[{}] human_id is not the RPR human_id", i));
+        }
+        if recorded.is_none() || entry.get("policy_decision").and_then(Value::as_str) != recorded {
+            errors.push(format!(
+                "audit_entries[{}] policy_decision {} does not record the decision {}",
+                i,
+                display(entry.get("policy_decision")),
+                display(decision.get("decision"))
+            ));
+        }
+    }
+    errors
+}
+
+/// The bundle carries exactly the checkpoints its signed manifest lists, once
+/// each; each covers a contiguous run of audit entries, with their Merkle
+/// root, and is signed by the agent with both algorithms, the PQ one alone
+/// under pq_only (VERIFICATION.md V2-12).
+fn checkpoint_errors(
+    bundle: &Value,
+    manifest: &Value,
+    mode: &str,
+    policy: &VerifierPolicy,
+    passport_keys: &[&Value],
+) -> Vec<String> {
+    // Absent or null lists nothing.
+    fn list(value: Option<&Value>) -> Option<&[Value]> {
+        match value {
+            None | Some(Value::Null) => Some(&[]),
+            Some(v) => v.as_array().map(Vec::as_slice),
+        }
+    }
+    let (Some(listed), Some(carried)) = (list(manifest.get("pq_checkpoints")), list(bundle.get("pq_checkpoints")))
+    else {
+        return vec!["pq_checkpoints: manifest list and bundle checkpoints must be arrays".to_string()];
+    };
+
+    let mut errors = Vec::new();
+    let mut by_id: Vec<(&str, &Value)> = Vec::with_capacity(carried.len());
+    let mut carried_ids = HashSet::with_capacity(carried.len());
+    for cp in carried {
+        match cp.get("checkpoint_id").and_then(Value::as_str) {
+            Some(id) if carried_ids.insert(id) => by_id.push((id, cp)),
+            _ => errors.push(format!(
+                "pq_checkpoints: checkpoint {} is missing an id or carried twice",
+                display(cp.get("checkpoint_id"))
+            )),
+        }
+    }
+    let mut listed_ids = HashSet::with_capacity(listed.len());
+    for id in listed {
+        match id.as_str() {
+            Some(id) if !listed_ids.insert(id) => {
+                errors.push("pq_checkpoints: the manifest lists a checkpoint twice".to_string())
+            }
+            Some(id) if carried_ids.contains(id) => {}
+            _ => errors
+                .push(format!("pq_checkpoints: manifest lists {}, which the bundle does not carry", display(Some(id)))),
+        }
+    }
+    for (id, _) in &by_id {
+        if !listed_ids.contains(id) {
+            errors.push(format!("pq_checkpoints: {} is not listed in the manifest", id));
+        }
+    }
+    if !errors.is_empty() {
+        return errors;
+    }
+
+    let entries = bundle.get("audit_entries").and_then(Value::as_array).map_or(&[][..], Vec::as_slice);
+    let cp_mode = if mode == "pq_only" { "pq_only" } else { "hybrid_required" };
+    for (id, cp) in by_id {
+        let label = format!("pq_checkpoints[{}]", id);
+        if !same_id(cp.get("session_nonce"), manifest.get("session_nonce")) {
+            errors.push(format!("{}: session_nonce is not the manifest's", label));
+            continue;
+        }
+        let range = cp.get("event_range").filter(|r| r.is_object());
+        let position = |key: &str| {
+            let audit_id = range?.get(key);
+            entries.iter().position(|e| same_id(e.get("audit_id"), audit_id))
+        };
+        let count = range.and_then(|r| r.get("count")).and_then(Value::as_f64);
+        let run = match (position("from_audit_id"), position("to_audit_id")) {
+            (Some(from), Some(to)) if to >= from && count == Some((to - from + 1) as f64) => entries.get(from..=to),
+            _ => None,
+        };
+        let Some(run) = run else {
+            errors.push(format!("{}: event_range does not match the audit entries", label));
+            continue;
+        };
+        let root = audit_events_merkle_root(run).ok().map(|root| format!("sha256:{}", root));
+        if root.is_none() || cp.get("merkle_root").and_then(Value::as_str) != root.as_deref() {
+            errors.push(format!("{}: merkle_root does not match its audit entries", label));
+            continue;
+        }
+        let mut payload = cp.clone();
+        let sig = payload.as_object_mut().and_then(|p| p.remove("composite_sig"));
+        match verify_composite_sig(CTX_AUDIT_EVENT, &payload, sig.as_ref(), passport_keys, PASSPORT_KEYS) {
+            Err(e) => errors.push(format!("{}: {}", label, e)),
+            Ok((cs, result)) => {
+                // The verdict comes from the mode's errors, as for every artifact.
+                let (sig_errors, _) = check_mode(cp_mode, policy, &cs, &result);
+                errors.extend(sig_errors.iter().map(|e| format!("{}: {}", label, e)));
+            }
+        }
+    }
+    errors
+}
+
 /// Why an expiry fails.
 enum Expiry {
     Invalid,
     Passed,
 }
 
-/// An optional expiry (`session_expires_at`, a key's `expires_at`): absent or
-/// null never expires; anything else must be an RFC 3339 timestamp still in
-/// the future.
+/// An optional expiry (a key's or the RPR's `expires_at`): absent or null
+/// never expires; anything else must be an RFC 3339 timestamp still in the
+/// future.
 fn check_expiry(value: Option<&Value>) -> Result<(), Expiry> {
     match value {
         None | Some(Value::Null) => Ok(()),
@@ -398,6 +680,10 @@ fn payload_keys<'a>(bundle: &'a Value, artifact: &str, field: &str) -> Vec<&'a V
 const CLASSICAL_ALGS: [&str; 1] = ["ed25519"];
 const PQ_ALGS: [&str; 2] = ["ml-dsa-65", "slh-dsa-192f"];
 
+/// The key lists signers are looked up in, as error messages name them.
+const RPR_KEYS: &str = "RPR binding_keys";
+const PASSPORT_KEYS: &str = "passport keys";
+
 /// Public key and algorithm of the key entry with that kid.
 fn find_key<'a>(keys: &[&'a Value], kid: &str) -> Option<(&'a str, &'a str)> {
     let key = keys.iter().find(|k| k.get("kid").and_then(|v| v.as_str()) == Some(kid))?;
@@ -405,6 +691,12 @@ fn find_key<'a>(keys: &[&'a Value], kid: &str) -> Option<(&'a str, &'a str)> {
         key.get("public_key_b64").and_then(|v| v.as_str())?,
         key.get("alg").and_then(|v| v.as_str()).unwrap_or(""),
     ))
+}
+
+/// The kid is derived from the key entry's alg and raw public key
+/// (VERIFICATION.md V2-13), so no key list can claim another party's kid.
+fn kid_matches_key(kid: &str, alg: &str, public_key_b64: &str) -> bool {
+    BASE64.decode(public_key_b64).is_ok_and(|pk| derive_kid(alg, &pk) == kid)
 }
 
 pub(crate) fn provider_for_alg(alg: &str) -> Result<Box<dyn CryptoProvider>, String> {
@@ -416,14 +708,16 @@ pub(crate) fn provider_for_alg(alg: &str) -> Result<Box<dyn CryptoProvider>, Str
     }
 }
 
-/// Verify a composite_sig over `payload` with the keys it names by kid
-/// (VERIFICATION.md V2-6, V2-7): pq_over_classical is valid only when both
-/// components verify; classical_only carries no PQ signature.
+/// Verify a composite_sig over `payload` with the keys it names by kid, looked
+/// up in `keys` only (VERIFICATION.md V2-6, V2-7), each kid derived from its
+/// key (V2-13): pq_over_classical is valid only when both components verify;
+/// classical_only carries no PQ signature.
 fn verify_composite_sig(
     context: &str,
     payload: &Value,
     cs_val: Option<&Value>,
     keys: &[&Value],
+    keys_label: &str,
 ) -> Result<(CompositeSignature, CompositeVerifyResult), String> {
     let cs: CompositeSignature = serde_json::from_value(cs_val.ok_or("missing composite_sig")?.clone())
         .map_err(|_| "invalid composite_sig structure".to_string())?;
@@ -438,7 +732,7 @@ fn verify_composite_sig(
     }
 
     let (classical_pk, classical_alg) = find_key(keys, &cs.classical.kid)
-        .ok_or_else(|| format!("classical signer key kid={} not found", cs.classical.kid))?;
+        .ok_or_else(|| format!("classical signer key kid={} not found in {}", cs.classical.kid, keys_label))?;
     if classical_alg != cs.classical.alg {
         return Err(format!(
             "classical signer key kid={} is {}, not {}",
@@ -449,7 +743,7 @@ fn verify_composite_sig(
     let (pq, pq_pk) = match &cs.pq {
         Some(entry) => {
             let (pk, alg) = find_key(keys, &entry.kid)
-                .ok_or_else(|| format!("PQ signer key kid={} not found", entry.kid))?;
+                .ok_or_else(|| format!("PQ signer key kid={} not found in {}", entry.kid, keys_label))?;
             if alg != entry.alg {
                 return Err(format!("PQ signer key kid={} is {}, not {}", entry.kid, alg, entry.alg));
             }
@@ -457,6 +751,12 @@ fn verify_composite_sig(
         }
         None => (None, None),
     };
+    let pq_signer = cs.pq.as_ref().zip(pq_pk).map(|(entry, pk)| (entry.kid.as_str(), entry.alg.as_str(), pk));
+    for (kid, alg, pk) in [(cs.classical.kid.as_str(), classical_alg, classical_pk)].into_iter().chain(pq_signer) {
+        if !kid_matches_key(kid, alg, pk) {
+            return Err(format!("key {} is not derived from its public key (V2-13)", kid));
+        }
+    }
     let canonical = canonicalize_v2(payload)?;
     let result = composite_verify(
         classical.as_ref(), pq.as_deref(), context, canonical.as_bytes(), &cs, classical_pk, pq_pk,
@@ -536,6 +836,172 @@ mod tests {
             let (mut b, mut m) = consistent();
             mutate(&mut b, &mut m);
             assert!(!manifest_hash_errors(&b, &m).is_empty(), "{name}: expected an error");
+        }
+    }
+
+    #[test]
+    fn session_window_is_signed() {
+        let now = parse_rfc3339_millis("2026-10-23T00:00:00Z").unwrap();
+        let errors = |manifest: Value, max: Option<u64>| session_time_errors(&manifest, max, now).join("\n");
+        let window =
+            |issued: Value, expires: &str| json!({ "session_issued_at": issued, "session_expires_at": expires });
+        let far = "2099-12-31T23:59:59Z";
+        let issued = json!("2026-10-21T00:00:00Z");
+
+        // The duration runs from the signed start, about 2.3e9 seconds here.
+        for max in [None, Some(0), Some(3_000_000_000), Some(u64::MAX)] {
+            assert_eq!(errors(window(issued.clone(), far), max), "", "{max:?}");
+        }
+        assert!(errors(window(issued.clone(), far), Some(3600)).starts_with("Session duration "));
+        // Up to 30 seconds ahead of the verifier's clock; absent or null is no
+        // start, which only a maximum session duration requires.
+        assert_eq!(errors(window(json!("2026-10-23T00:00:30Z"), far), Some(3_000_000_000)), "");
+        for manifest in [json!({ "session_expires_at": far }), window(Value::Null, far), json!({})] {
+            assert_eq!(errors(manifest.clone(), None), "", "{manifest}");
+        }
+        assert_eq!(errors(json!({}), Some(3600)), "", "no expiry, nothing to bound");
+
+        let cases = [
+            (window(Value::Null, far), Some(3600), "Policy max_session_duration_seconds requires session_issued_at"),
+            (json!({ "session_expires_at": far }), Some(3600), "requires session_issued_at in the manifest"),
+            (
+                window(json!("2026-10-23T00:00:31Z"), far),
+                None,
+                "session_issued_at 2026-10-23T00:00:31Z is in the future",
+            ),
+            (window(json!("2026-10-21"), far), None, "Invalid session_issued_at: 2026-10-21"),
+            (window(json!(1), far), Some(3600), "Invalid session_issued_at: 1"),
+            (window(json!("2026-10-23T00:00:20Z"), "2026-10-23T00:00:10Z"), None, "session_issued_at is after"),
+            (window(issued.clone(), "2026-10-22T00:00:00Z"), Some(3600), "Session expired at"),
+            (window(issued.clone(), "tomorrow"), None, "Invalid session_expires_at: tomorrow"),
+        ];
+        for (manifest, max, want) in cases {
+            let got = errors(manifest.clone(), max);
+            assert!(got.contains(want), "{manifest} {max:?}: {want}: {got}");
+        }
+    }
+
+    #[test]
+    fn identifiers_match_only_as_equal_strings() {
+        assert!(same_id(Some(&json!("a")), Some(&json!("a"))));
+        for (a, b) in [
+            (None, None),
+            (Some(Value::Null), Some(Value::Null)),
+            (Some(json!(1)), Some(json!(1))),
+            (Some(json!("a")), Some(json!("b"))),
+        ] {
+            assert!(!same_id(a.as_ref(), b.as_ref()), "{a:?} {b:?}");
+        }
+        // Missing artifacts and identifiers fail V2-14 instead of matching each other.
+        let errors = consistency_errors(&json!({ "intent": { "payload": 1 }, "audit_entries": [{}] })).join("\n");
+        for want in [
+            "agent_passport status is null",
+            "agent_passport principal_binding_reference",
+            "intent agent_id",
+            "intent human_id",
+            "policy_decision intent_id",
+            "audit_entries[0] intent_id",
+            "audit_entries[0] intent_hash",
+            "audit_entries[0] agent_id",
+            "audit_entries[0] human_id",
+        ] {
+            assert!(errors.contains(want), "{want}: {errors}");
+        }
+    }
+
+    #[test]
+    fn checkpoints_fail_closed() {
+        let policy = VerifierPolicy::default();
+        let entries = json!([{ "audit_id": "a" }, { "audit_id": "b" }]);
+        let root = |run: &[Value]| format!("sha256:{}", audit_events_merkle_root(run).unwrap());
+        let cp = json!({
+            "checkpoint_id": "c", "session_nonce": "n", "merkle_root": root(entries.as_array().unwrap()),
+            "event_range": { "from_audit_id": "a", "to_audit_id": "b", "count": 2 },
+        });
+        let errors = |listed: Value, carried: Value| {
+            let bundle = json!({ "audit_entries": entries, "pq_checkpoints": carried });
+            let manifest = json!({ "session_nonce": "n", "pq_checkpoints": listed });
+            checkpoint_errors(&bundle, &manifest, "hybrid_preferred", &policy, &[]).join("\n")
+        };
+        assert_eq!(errors(Value::Null, Value::Null), "");
+        assert_eq!(errors(json!([]), json!([])), "");
+        let cases = [
+            (json!({}), json!([]), "must be arrays"),
+            (json!([]), json!("c"), "must be arrays"),
+            (json!(["c"]), json!([]), "manifest lists c, which the bundle does not carry"),
+            (json!([1]), json!([]), "manifest lists 1, which the bundle does not carry"),
+            (json!([]), json!([cp]), "c is not listed in the manifest"),
+            (json!(["c", "c"]), json!([cp]), "the manifest lists a checkpoint twice"),
+            (json!(["c"]), json!([cp, cp]), "checkpoint c is missing an id or carried twice"),
+            (json!(["c"]), json!([7]), "checkpoint null is missing an id or carried twice"),
+        ];
+        for (listed, carried, want) in cases {
+            let got = errors(listed.clone(), carried);
+            assert!(got.contains(want), "{listed}: {want}: {got}");
+        }
+
+        // The checkpoint over both entries is checked down to its signature.
+        assert!(errors(json!(["c"]), json!([cp])).contains("pq_checkpoints[c]: missing composite_sig"));
+        let range =
+            |from: &str, to: &str, count: Value| json!({ "from_audit_id": from, "to_audit_id": to, "count": count });
+        let mutations = [
+            ("session_nonce", json!("m"), "session_nonce is not the manifest's"),
+            ("session_nonce", Value::Null, "session_nonce is not the manifest's"),
+            ("event_range", json!("a..b"), "event_range does not match"),
+            ("event_range", range("b", "a", json!(0)), "event_range does not match"),
+            ("event_range", range("a", "z", json!(2)), "event_range does not match"),
+            ("event_range", range("a", "b", json!("2")), "event_range does not match"),
+            ("event_range", json!({ "count": 2 }), "event_range does not match"),
+            ("merkle_root", json!(root(&entries.as_array().unwrap()[..1])), "merkle_root does not match"),
+            ("merkle_root", Value::Null, "merkle_root does not match"),
+        ];
+        for (field, value, want) in mutations {
+            let mut mutated = cp.clone();
+            mutated[field] = value.clone();
+            let got = errors(json!(["c"]), json!([mutated]));
+            assert!(got.contains(&format!("pq_checkpoints[c]: {want}")), "{field}={value}: {got}");
+        }
+    }
+
+    /// A checkpoint signature is judged by the mode, as an artifact's is: under
+    /// pq_only the classical signature is not required (V2-12).
+    #[test]
+    fn checkpoint_signature_is_judged_by_the_mode() {
+        use crate::v2::composite_ops::{composite_sign, CompositeKeyInfo};
+        let key = |p: &dyn CryptoProvider| {
+            let k = p.generate_keypair().unwrap();
+            CompositeKeyInfo {
+                kid: k.kid,
+                alg: p.alg().to_string(),
+                secret_key_b64: k.secret_key_b64,
+                public_key_b64: k.public_key_b64,
+            }
+        };
+        let (signer, listed, pq) = (key(&Ed25519Provider), key(&Ed25519Provider), key(&MlDsa65Provider));
+        // The classical signature is by another key than the one its kid names;
+        // the PQ signature, over it, is valid.
+        let classical = CompositeKeyInfo { kid: listed.kid.clone(), ..signer };
+        let entry = |k: &CompositeKeyInfo| json!({ "kid": k.kid, "alg": k.alg, "public_key_b64": k.public_key_b64 });
+        let passport_keys = [entry(&listed), entry(&pq)];
+        let entries = json!([{ "audit_id": "a" }]);
+        let root = audit_events_merkle_root(entries.as_array().unwrap()).unwrap();
+        let mut cp = json!({
+            "checkpoint_id": "c", "session_nonce": "n", "merkle_root": format!("sha256:{}", root),
+            "event_range": { "from_audit_id": "a", "to_audit_id": "a", "count": 1 },
+        });
+        let canonical = canonicalize_v2(&cp).unwrap();
+        let sig =
+            composite_sign(&Ed25519Provider, &MlDsa65Provider, CTX_AUDIT_EVENT, canonical.as_bytes(), &classical, &pq);
+        cp["composite_sig"] = serde_json::to_value(sig.unwrap()).unwrap();
+
+        let bundle = json!({ "audit_entries": entries, "pq_checkpoints": [cp] });
+        let manifest = json!({ "session_nonce": "n", "pq_checkpoints": ["c"] });
+        let keys: Vec<&Value> = passport_keys.iter().collect();
+        let policy = VerifierPolicy::default();
+        assert_eq!(checkpoint_errors(&bundle, &manifest, "pq_only", &policy, &keys), Vec::<String>::new());
+        for mode in ["classical_only", "hybrid_preferred", "hybrid_required"] {
+            let errors = checkpoint_errors(&bundle, &manifest, mode, &policy, &keys).join("\n");
+            assert!(errors.contains("pq_checkpoints[c]: signature verification failed"), "{mode}: {errors}");
         }
     }
 }

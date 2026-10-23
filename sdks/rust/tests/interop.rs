@@ -520,6 +520,16 @@ fn signed_bundle_vectors() {
             result.errors
         );
     };
+    // A case's verifier_policy_overrides replace those fields of the mode's policy.
+    let policy_for = |policy: &VerifierPolicy, case: &Value| -> VerifierPolicy {
+        let mut merged = serde_json::to_value(policy).expect("policy");
+        if let Some(overrides) = case.get("verifier_policy_overrides") {
+            for (field, value) in overrides.as_object().expect("verifier_policy_overrides") {
+                merged[field] = value.clone();
+            }
+        }
+        serde_json::from_value(merged).expect("case policy")
+    };
 
     for mode in ["classical_only", "hybrid_preferred", "hybrid_required", "pq_only"] {
         let policy = VerifierPolicy {
@@ -542,11 +552,12 @@ fn signed_bundle_vectors() {
             assert_rejected(&verify_signed_bundle_v2_with_policy(&mutated, &policy), case, mode);
         }
         for case in vectors["must_accept_bundles"].as_array().expect("must_accept_bundles") {
-            let result = verify_signed_bundle_v2_with_policy(&case["signed_bundle"], &policy);
+            let result = verify_signed_bundle_v2_with_policy(&case["signed_bundle"], &policy_for(&policy, case));
             assert!(result.verified, "{mode}: {} must verify: {:?}", case["name"], result.errors);
         }
         for case in vectors["must_reject_bundles"].as_array().expect("must_reject_bundles") {
-            assert_rejected(&verify_signed_bundle_v2_with_policy(&case["signed_bundle"], &policy), case, mode);
+            let result = verify_signed_bundle_v2_with_policy(&case["signed_bundle"], &policy_for(&policy, case));
+            assert_rejected(&result, case, mode);
         }
         let control = &vectors["classical_only_routine_bundle"];
         let result = verify_signed_bundle_v2_with_policy(&control["signed_bundle"], &policy);
@@ -568,6 +579,80 @@ fn signed_bundle_vectors() {
     // must not pass silently.
     let tuned = VerifierPolicy { accepted_classical_algs: vec!["ed448".into()], ..VerifierPolicy::default() };
     assert!(!verify_signed_bundle_v2_with_policy(signed, &tuned).verified, "a policy field the verifier does not enforce must fail closed");
+}
+
+/// A bundle whose checkpoints, audit entries, artifacts, keys, session times or
+/// signer block have the wrong JSON type is rejected with errors, never a panic
+/// (V2-4, V2-12, V2-13, V2-14).
+#[test]
+fn hostile_shapes_are_rejected() {
+    let data = fs::read_to_string(vectors_path().with_file_name("bundle_vectors.json"))
+        .expect("read bundle vectors");
+    let vectors: Value = serde_json::from_str(&data).expect("parse bundle vectors");
+    let base = vectors["must_accept_bundles"]
+        .as_array()
+        .expect("must_accept_bundles")
+        .iter()
+        .find(|c| c["name"] == "pq_checkpoint_over_the_trail")
+        .expect("pq_checkpoint_over_the_trail");
+    let pointers = [
+        "/bundle/pq_checkpoints",
+        "/bundle/pq_checkpoints/0",
+        "/bundle/pq_checkpoints/0/checkpoint_id",
+        "/bundle/pq_checkpoints/0/event_range",
+        "/bundle/pq_checkpoints/0/event_range/count",
+        "/bundle/pq_checkpoints/0/composite_sig",
+        "/bundle/manifest/pq_checkpoints",
+        "/bundle/audit_entries",
+        "/bundle/audit_entries/0",
+        "/bundle/audit_entries/0/intent_hash",
+        "/bundle/agent_passport/payload/status",
+        "/bundle/agent_passport/payload/keys",
+        "/bundle/agent_passport/payload/keys/0/public_key_b64",
+        "/bundle/responsible_principal_record/payload/expires_at",
+        "/bundle/responsible_principal_record/payload/binding_keys",
+        "/bundle/intent/payload",
+        "/bundle/manifest/session_issued_at",
+        "/bundle/manifest/session_expires_at",
+        "/bundle/audit_entries/0/policy_decision",
+        "/bundle/policy_decision/payload/decision",
+        "/signature/signer",
+        "/signature/signer/id",
+        "/signature/signer/kids",
+        "/signature/signer/kids/1",
+        "/signature/composite_sig/pq",
+    ];
+    let values = [
+        Value::Null,
+        serde_json::json!(-1),
+        serde_json::json!("x"),
+        serde_json::json!([null]),
+        serde_json::json!({}),
+    ];
+    // A maximum the unchanged bundle is within, so the session window is checked.
+    let policy = VerifierPolicy {
+        max_session_duration_seconds: Some(3_000_000_000),
+        ..VerifierPolicy::default()
+    };
+    let result = verify_signed_bundle_v2_with_policy(&base["signed_bundle"], &policy);
+    assert!(result.verified, "{:?}", result.errors);
+    for pointer in pointers {
+        for value in &values {
+            let mut signed = base["signed_bundle"].clone();
+            let node = signed
+                .pointer_mut(pointer)
+                .unwrap_or_else(|| panic!("{pointer}"));
+            if node == value {
+                continue; // the bundle already holds it, as the RPR's null expires_at
+            }
+            *node = value.clone();
+            let result = verify_signed_bundle_v2_with_policy(&signed, &policy);
+            assert!(
+                !result.verified && !result.errors.is_empty(),
+                "{pointer} = {value}"
+            );
+        }
+    }
 }
 
 /// The TypeScript DEFAULT_VERIFIER_POLICY, Phase 3 fields included, decodes as a
@@ -635,15 +720,39 @@ fn wasm_build_sign_verify_round_trip() {
     };
 
     let nonce = "ab".repeat(32);
-    let audit1 = json!({"audit_id": "audit-1", "session_nonce": nonce, "prev_hash": "GENESIS"});
+    let intent = sign(
+        CTX_INTENT,
+        json!({"intent_id": "i-1", "session_nonce": nonce, "agent_id": "a-1", "human_id": "h-1"}),
+        &agent,
+    );
+    let intent_hash = serde_json::from_str::<Value>(&intent).unwrap()["payload_hash"].clone();
+    // Audit entries name the intent, by id and payload hash, the agent and the
+    // principal, and record the policy decision (V2-14).
+    let entry = |audit_id: &str, prev_hash: String| {
+        json!({
+            "audit_id": audit_id, "session_nonce": nonce, "prev_hash": prev_hash,
+            "intent_id": "i-1", "intent_hash": intent_hash, "agent_id": "a-1", "human_id": "h-1",
+            "policy_decision": "approved",
+        })
+    };
+    let audit1 = entry("audit-1", "GENESIS".into());
     let audit1_hash = sha256_hex(canonicalize_v2(&audit1).unwrap().as_bytes());
-    let audit2 = json!({"audit_id": "audit-2", "session_nonce": nonce, "prev_hash": format!("sha256:{}", audit1_hash)});
+    let audit2 = entry("audit-2", format!("sha256:{}", audit1_hash));
 
+    let passport = json!({
+        "agent_id": "a-1", "session_nonce": nonce, "keys": entries(&agent),
+        "principal_binding_reference": "h-1", "status": "active",
+    });
+    let decision = sign(
+        CTX_POLICY_DECISION,
+        json!({"intent_id": "i-1", "session_nonce": nonce, "risk_score": 200, "decision": "approve"}),
+        &agent,
+    );
     let bundle = wasm_build_bundle(
         &sign(CTX_RESPONSIBLE_PRINCIPAL, json!({"human_id": "h-1", "session_nonce": nonce, "binding_keys": entries(&principal)}), &principal),
-        &sign(CTX_AGENT_PASSPORT, json!({"agent_id": "a-1", "session_nonce": nonce, "keys": entries(&agent)}), &agent),
-        &sign(CTX_INTENT, json!({"intent_id": "i-1", "session_nonce": nonce}), &agent),
-        &sign(CTX_POLICY_DECISION, json!({"intent_id": "i-1", "session_nonce": nonce, "risk_score": 200}), &agent),
+        &sign(CTX_AGENT_PASSPORT, passport, &agent),
+        &intent,
+        &decision,
         &json!([audit1, audit2]).to_string(),
         &nonce,
     );
