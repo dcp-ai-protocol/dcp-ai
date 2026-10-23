@@ -559,8 +559,8 @@ func keyIdentityError(kid, alg string, publicKeyB64 interface{}) error {
 // verifyCompositeSig verifies a composite_sig over payload with the keys it
 // names by kid in keys, the list keysLabel names (VERIFICATION.md V2-6, V2-7):
 // pq_over_classical is valid only when both components verify; classical_only
-// carries no PQ signature. A key whose kid is not derived from it verifies
-// nothing (V2-13).
+// carries no PQ signature. A sig_b64 that is not canonical base64 (V2-5), or a
+// key whose kid is not derived from it (V2-13), verifies nothing.
 func verifyCompositeSig(registry *AlgorithmRegistry, context string, payload, csRaw interface{}, keys []interface{}, keysLabel string) (*CompositeSignature, *CompositeVerifyResult, error) {
 	if csRaw == nil {
 		return nil, nil, fmt.Errorf("missing composite_sig")
@@ -580,6 +580,15 @@ func verifyCompositeSig(registry *AlgorithmRegistry, context string, payload, cs
 	}
 	if cs.PQ != nil && !pqAlgs[cs.PQ.Alg] {
 		return nil, nil, fmt.Errorf("PQ slot holds %q, which is not a PQ algorithm", cs.PQ.Alg)
+	}
+	// One encoding per signature, the same bytes in every SDK (VERIFICATION.md V2-5).
+	if _, ok := canonicalB64Bytes(cs.Classical.SigB64); !ok {
+		return nil, nil, fmt.Errorf("Classical sig_b64 is not canonical base64 (V2-5)")
+	}
+	if cs.PQ != nil {
+		if _, ok := canonicalB64Bytes(cs.PQ.SigB64); !ok {
+			return nil, nil, fmt.Errorf("PQ sig_b64 is not canonical base64 (V2-5)")
+		}
 	}
 
 	classicalKey := findKeyByKid(keys, cs.Classical.Kid)
