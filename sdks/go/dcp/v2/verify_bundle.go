@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -51,8 +52,9 @@ func DefaultVerifierPolicy() VerifierPolicy {
 
 // VerifySignedBundleV2 performs full V2 bundle verification against a JSON-encoded
 // signed bundle under DefaultVerifierPolicy. It validates structure, manifest hash
-// consistency, session nonce binding, the composite signatures over the manifest
-// and over each artifact, and audit hash chain integrity.
+// consistency, session nonce binding, cross-artifact consistency (V2-14), the
+// principal's composite signature over the manifest, each artifact's and each PQ
+// checkpoint's composite signature, and audit hash chain integrity.
 func VerifySignedBundleV2(registry *AlgorithmRegistry, signedBundleJSON []byte) *V2VerificationResult {
 	return VerifySignedBundleV2WithPolicy(registry, signedBundleJSON, DefaultVerifierPolicy())
 }
@@ -60,9 +62,10 @@ func VerifySignedBundleV2(registry *AlgorithmRegistry, signedBundleJSON []byte) 
 // VerifySignedBundleV2WithPolicy verifies a V2 signed bundle against the stricter
 // of the policy mode (DefaultMode, or the RiskOverrides entry for the passport's
 // risk_tier) and the security tier's mode (spec §14.3).
-// Besides DefaultMode and RiskOverrides, only the Phase 3 fields are enforced,
-// as in the TypeScript SDK: AdvisoryRejectedAlgs, WarnClassicalOnlyDeprecated
-// and AllowClassicalFallbackDisable. A policy that changes any other field fails
+// Besides DefaultMode and RiskOverrides, only the Phase 3 fields and the session
+// bound are enforced, as in the TypeScript SDK: AdvisoryRejectedAlgs,
+// WarnClassicalOnlyDeprecated, AllowClassicalFallbackDisable and
+// MaxSessionDurationSeconds. A policy that changes any other field fails
 // verification instead of having the setting ignored.
 func VerifySignedBundleV2WithPolicy(registry *AlgorithmRegistry, signedBundleJSON []byte, policy VerifierPolicy) *V2VerificationResult {
 	result := &V2VerificationResult{
@@ -75,8 +78,9 @@ func VerifySignedBundleV2WithPolicy(registry *AlgorithmRegistry, signedBundleJSO
 	enforced.AllowClassicalFallbackDisable = policy.AllowClassicalFallbackDisable
 	enforced.WarnClassicalOnlyDeprecated = policy.WarnClassicalOnlyDeprecated
 	enforced.AdvisoryRejectedAlgs = policy.AdvisoryRejectedAlgs
+	enforced.MaxSessionDurationSeconds = policy.MaxSessionDurationSeconds
 	if !reflect.DeepEqual(policy, enforced) {
-		result.Errors = append(result.Errors, "Verifier policy sets fields this verifier does not enforce: only DefaultMode, RiskOverrides and the Phase 3 fields may differ from DefaultVerifierPolicy")
+		result.Errors = append(result.Errors, "Verifier policy sets fields this verifier does not enforce: only DefaultMode, RiskOverrides, MaxSessionDurationSeconds and the Phase 3 fields may differ from DefaultVerifierPolicy")
 		return result
 	}
 
@@ -129,14 +133,17 @@ func VerifySignedBundleV2WithPolicy(registry *AlgorithmRegistry, signedBundleJSO
 
 	verifyManifestHashes(bundle, manifest, result)
 	verifySessionNonceConsistency(bundle, manifestNonce, result)
-	verifySessionExpiry(manifest, result)
+	verifySessionTimes(manifest, policy, result)
+	verifyConsistency(bundle, result)
 	mode := resolveVerificationMode(bundle, policy, result)
 	if mode == "" {
 		result.Errors = append(result.Errors, "Unknown verification mode in verifier policy")
 		return result
 	}
 	verifyBundleSignature(registry, bundle, signature, manifest, mode, policy, result)
+	verifySignerBlock(bundle, signature, result)
 	verifyArtifactSignatures(registry, bundle, mode, policy, result)
+	verifyPQCheckpoints(registry, bundle, manifest, mode, policy, result)
 	verifyAuditTrail(bundle, manifest, result)
 	verifyKeyValidity(bundle, result)
 
@@ -201,20 +208,155 @@ func parseRFC3339(v interface{}) (time.Time, bool) {
 	return t, err == nil
 }
 
-// verifySessionExpiry rejects a bundle whose manifest session_expires_at has
-// passed or is not an RFC 3339 timestamp. Absent or null never expires.
-func verifySessionExpiry(manifest map[string]interface{}, result *V2VerificationResult) {
-	raw, ok := manifest["session_expires_at"]
-	if !ok || raw == nil {
+// sessionClockSkew is how far in the future a signed session start may be
+// (VERIFICATION.md V2-4), the clock skew DCP-04 allows for timestamps.
+const sessionClockSkew = 30 * time.Second
+
+// secondsBetween is to minus from in seconds, without time.Duration's
+// saturation at about 292 years.
+func secondsBetween(from, to time.Time) float64 {
+	return float64(to.Unix()-from.Unix()) + float64(to.Nanosecond()-from.Nanosecond())/1e9
+}
+
+// verifySessionTimes checks the manifest's signed session window
+// (VERIFICATION.md V2-4). session_expires_at must not have passed. A
+// session_issued_at must not be more than sessionClockSkew in the future nor
+// after session_expires_at. Both must be RFC 3339 timestamps; absent or null
+// is no value. The policy's MaxSessionDurationSeconds bounds session_expires_at
+// minus session_issued_at, and requires session_issued_at when the session
+// expires: signature.created_at is outside the signed manifest and is never
+// read.
+func verifySessionTimes(manifest map[string]interface{}, policy VerifierPolicy, result *V2VerificationResult) {
+	now := time.Now()
+	fail := func(format string, args ...interface{}) {
+		result.Errors = append(result.Errors, fmt.Sprintf(format, args...))
+	}
+
+	var expires time.Time
+	hasExpires := false
+	if raw, ok := manifest["session_expires_at"]; ok && raw != nil {
+		var valid bool
+		switch expires, valid = parseRFC3339(raw); {
+		case !valid:
+			fail("Invalid session_expires_at: %v", raw)
+		case expires.Before(now):
+			fail("Session expired at %v", raw)
+		default:
+			hasExpires = true
+		}
+	}
+
+	var issued time.Time
+	issuedPresent, hasIssued := false, false
+	if raw, ok := manifest["session_issued_at"]; ok && raw != nil {
+		issuedPresent = true
+		var valid bool
+		switch issued, valid = parseRFC3339(raw); {
+		case !valid:
+			fail("Invalid session_issued_at: %v", raw)
+		case issued.After(now.Add(sessionClockSkew)):
+			fail("session_issued_at %v is in the future", raw)
+		case hasExpires && issued.After(expires):
+			fail("session_issued_at is after session_expires_at")
+		default:
+			hasIssued = true
+		}
+	}
+
+	if policy.MaxSessionDurationSeconds <= 0 || !hasExpires {
 		return
 	}
-	switch expires, valid := parseRFC3339(raw); {
-	case !valid:
-		result.Errors = append(result.Errors, fmt.Sprintf("Invalid session_expires_at: %v", raw))
-	case expires.Before(time.Now()):
-		result.Errors = append(result.Errors, fmt.Sprintf("Session expired at %v", raw))
+	switch {
+	case !issuedPresent:
+		fail("Policy max_session_duration_seconds requires session_issued_at in the manifest")
+	case hasIssued:
+		if d := secondsBetween(issued, expires); d > float64(policy.MaxSessionDurationSeconds) {
+			fail("Session duration %.0fs exceeds policy max of %ds", d, policy.MaxSessionDurationSeconds)
+		}
 	}
 }
+
+// sameID reports whether two identifiers are the same string; two missing or
+// non-string values are not the same.
+func sameID(a, b interface{}) bool {
+	sa, okA := a.(string)
+	sb, okB := b.(string)
+	return okA && okB && sa == sb
+}
+
+// verifyConsistency checks that the artifacts describe one action, by one
+// agent, for one principal (VERIFICATION.md V2-14). The signatures say who
+// signed each artifact; these checks tie them together. It reads the decoded
+// JSON, so a missing or non-string identifier never matches.
+func verifyConsistency(bundle map[string]interface{}, result *V2VerificationResult) {
+	rpr := artifactPayload(bundle, "responsible_principal_record")
+	passport := artifactPayload(bundle, "agent_passport")
+	intent := artifactPayload(bundle, "intent")
+	policy := artifactPayload(bundle, "policy_decision")
+	fail := func(format string, args ...interface{}) {
+		result.Errors = append(result.Errors, fmt.Sprintf(format, args...))
+	}
+
+	if status, _ := passport["status"].(string); status != "active" && status != "declining" {
+		fail("agent_passport status is %v, not active (DCP-05 § 3.1)", passport["status"])
+	}
+	if raw, ok := rpr["expires_at"]; ok && raw != nil {
+		switch expires, valid := parseRFC3339(raw); {
+		case !valid:
+			fail("responsible_principal_record has an invalid expires_at: %v", raw)
+		case expires.Before(time.Now()):
+			fail("responsible_principal_record expired at %v", raw)
+		}
+	}
+	if !sameID(passport["principal_binding_reference"], rpr["human_id"]) {
+		fail("agent_passport principal_binding_reference is not the RPR human_id")
+	}
+	if !sameID(intent["agent_id"], passport["agent_id"]) {
+		fail("intent agent_id is not the passport agent_id")
+	}
+	if !sameID(intent["human_id"], rpr["human_id"]) {
+		fail("intent human_id is not the RPR human_id")
+	}
+	if !sameID(policy["intent_id"], intent["intent_id"]) {
+		fail("policy_decision intent_id is not the intent intent_id")
+	}
+	// What an audit entry records for the policy decision. An escalated or
+	// blocked action is valid evidence too.
+	decision, _ := policy["decision"].(string)
+	recorded, known := auditedDecision[decision]
+
+	// The intent's payload hash, in the manifest's intent_hash form. An intent
+	// that cannot be hashed (reported by verifyManifestHashes) matches nothing.
+	var intentHash interface{}
+	if sp, _ := bundle["intent"].(map[string]interface{}); sp["payload"] != nil {
+		if canonical, err := CanonicalizeV2(sp["payload"]); err == nil {
+			intentHash = "sha256:" + DualHashCanonical(canonical).SHA256
+		}
+	}
+	entries, _ := bundle["audit_entries"].([]interface{})
+	for i, raw := range entries {
+		entry, _ := raw.(map[string]interface{})
+		if !sameID(entry["intent_id"], intent["intent_id"]) {
+			fail("audit_entries[%d] intent_id is not the intent intent_id", i)
+		}
+		if !sameID(entry["intent_hash"], intentHash) {
+			fail("audit_entries[%d] intent_hash is not the intent payload hash", i)
+		}
+		if !sameID(entry["agent_id"], passport["agent_id"]) {
+			fail("audit_entries[%d] agent_id is not the passport agent_id", i)
+		}
+		if !sameID(entry["human_id"], rpr["human_id"]) {
+			fail("audit_entries[%d] human_id is not the RPR human_id", i)
+		}
+		if !known || !sameID(entry["policy_decision"], recorded) {
+			fail("audit_entries[%d] policy_decision %v does not record the decision %v", i, entry["policy_decision"], policy["decision"])
+		}
+	}
+}
+
+// auditedDecision is what an audit entry's policy_decision records for each
+// policy decision (VERIFICATION.md V2-14).
+var auditedDecision = map[string]string{"approve": "approved", "escalate": "escalated", "block": "blocked"}
 
 func verifySessionNonceConsistency(bundle map[string]interface{}, manifestNonce string, result *V2VerificationResult) {
 	if manifestNonce == "" {
@@ -256,20 +398,15 @@ func verifySessionNonceConsistency(bundle map[string]interface{}, manifestNonce 
 // but never take it below the tier's mode. It returns "" for a policy mode that
 // is not a verification mode.
 func resolveVerificationMode(bundle map[string]interface{}, policy VerifierPolicy, result *V2VerificationResult) string {
-	payload := func(field string) map[string]interface{} {
-		sp, _ := bundle[field].(map[string]interface{})
-		p, _ := sp["payload"].(map[string]interface{})
-		return p
-	}
 	policyMode := policy.DefaultMode
-	riskTier, _ := payload("agent_passport")["risk_tier"].(string)
+	riskTier, _ := artifactPayload(bundle, "agent_passport")["risk_tier"].(string)
 	if override, ok := policy.RiskOverrides[riskTier]; ok && riskTier != "" {
 		policyMode = override
 	}
 	if policyMode != "pq_only" && !slices.Contains(modeStrictness, policyMode) {
 		return ""
 	}
-	tier := ComputeSecurityTier(SecurityTierInputFromPayloads(payload("intent"), payload("policy_decision")))
+	tier := ComputeSecurityTier(SecurityTierInputFromPayloads(artifactPayload(bundle, "intent"), artifactPayload(bundle, "policy_decision")))
 	result.ResolvedTier = tier.Tier
 	result.VerificationMode = EffectiveVerificationMode(policyMode, tier.Tier)
 	if result.VerificationMode == "classical_only" && policy.WarnClassicalOnlyDeprecated {
@@ -309,11 +446,17 @@ func checkMode(mode string, policy VerifierPolicy, cs *CompositeSignature, cvr *
 	return errs, warnings
 }
 
-// payloadKeys returns the key entries listed under field in an artifact's payload.
-func payloadKeys(bundle map[string]interface{}, artifact, field string) []interface{} {
+// artifactPayload returns an artifact's payload object, or nil when the
+// artifact or its payload is not a JSON object.
+func artifactPayload(bundle map[string]interface{}, artifact string) map[string]interface{} {
 	sp, _ := bundle[artifact].(map[string]interface{})
 	payload, _ := sp["payload"].(map[string]interface{})
-	keys, _ := payload[field].([]interface{})
+	return payload
+}
+
+// payloadKeys returns the key entries listed under field in an artifact's payload.
+func payloadKeys(bundle map[string]interface{}, artifact, field string) []interface{} {
+	keys, _ := artifactPayload(bundle, artifact)[field].([]interface{})
 	return keys
 }
 
@@ -336,10 +479,19 @@ func findKeyByKid(keys []interface{}, kid string) (pk, alg string) {
 	return "", ""
 }
 
+// kidMatchesKey reports whether kid is derived from the key entry's alg and raw
+// public key (VERIFICATION.md V2-13).
+func kidMatchesKey(kid, alg, publicKeyB64 string) bool {
+	raw, err := base64.StdEncoding.DecodeString(publicKeyB64)
+	return err == nil && DeriveKid(alg, raw) == kid
+}
+
 // verifyCompositeSig verifies a composite_sig over payload with the keys it
-// names by kid (VERIFICATION.md V2-6, V2-7): pq_over_classical is valid only
-// when both components verify; classical_only carries no PQ signature.
-func verifyCompositeSig(registry *AlgorithmRegistry, context string, payload, csRaw interface{}, keys []interface{}) (*CompositeSignature, *CompositeVerifyResult, error) {
+// names by kid in keys, the list keysLabel names (VERIFICATION.md V2-6, V2-7):
+// pq_over_classical is valid only when both components verify; classical_only
+// carries no PQ signature. A key whose kid is not derived from it verifies
+// nothing (V2-13).
+func verifyCompositeSig(registry *AlgorithmRegistry, context string, payload, csRaw interface{}, keys []interface{}, keysLabel string) (*CompositeSignature, *CompositeVerifyResult, error) {
 	if csRaw == nil {
 		return nil, nil, fmt.Errorf("missing composite_sig")
 	}
@@ -362,7 +514,7 @@ func verifyCompositeSig(registry *AlgorithmRegistry, context string, payload, cs
 
 	classicalPK, classicalAlg := findKeyByKid(keys, cs.Classical.Kid)
 	if classicalPK == "" {
-		return nil, nil, fmt.Errorf("classical signer key kid=%s not found", cs.Classical.Kid)
+		return nil, nil, fmt.Errorf("classical signer key kid=%s not found in %s", cs.Classical.Kid, keysLabel)
 	}
 	if classicalAlg != cs.Classical.Alg {
 		return nil, nil, fmt.Errorf("classical signer key kid=%s is %s, not %s", cs.Classical.Kid, classicalAlg, cs.Classical.Alg)
@@ -371,11 +523,17 @@ func verifyCompositeSig(registry *AlgorithmRegistry, context string, payload, cs
 	if cs.PQ != nil {
 		var pqAlg string
 		if pqPK, pqAlg = findKeyByKid(keys, cs.PQ.Kid); pqPK == "" {
-			return nil, nil, fmt.Errorf("PQ signer key kid=%s not found", cs.PQ.Kid)
+			return nil, nil, fmt.Errorf("PQ signer key kid=%s not found in %s", cs.PQ.Kid, keysLabel)
 		}
 		if pqAlg != cs.PQ.Alg {
 			return nil, nil, fmt.Errorf("PQ signer key kid=%s is %s, not %s", cs.PQ.Kid, pqAlg, cs.PQ.Alg)
 		}
+		if !kidMatchesKey(cs.PQ.Kid, pqAlg, pqPK) {
+			return nil, nil, fmt.Errorf("key %s is not derived from its public key (V2-13)", cs.PQ.Kid)
+		}
+	}
+	if !kidMatchesKey(cs.Classical.Kid, classicalAlg, classicalPK) {
+		return nil, nil, fmt.Errorf("key %s is not derived from its public key (V2-13)", cs.Classical.Kid)
 	}
 
 	canonical, err := CanonicalizeV2(payload)
@@ -399,10 +557,11 @@ func verifyBundleSignature(registry *AlgorithmRegistry, bundle, signature, manif
 		return
 	}
 
-	// The bundle is signed by the agent or by its principal.
-	keys := append(append([]interface{}{}, payloadKeys(bundle, "agent_passport", "keys")...),
-		payloadKeys(bundle, "responsible_principal_record", "binding_keys")...)
-	cs, cvr, err := verifyCompositeSig(registry, CtxBundle, manifest, csRaw, keys)
+	// The signer is the principal: only the RPR binding_keys verify it
+	// (VERIFICATION.md V2-6, V2-7). The agent signs its own passport, so its
+	// keys cannot vouch for the principal.
+	keys := payloadKeys(bundle, "responsible_principal_record", "binding_keys")
+	cs, cvr, err := verifyCompositeSig(registry, CtxBundle, manifest, csRaw, keys, "RPR binding_keys")
 	if err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("Bundle signature: %s", err))
 		return
@@ -420,6 +579,32 @@ func verifyBundleSignature(registry *AlgorithmRegistry, bundle, signature, manif
 	}
 }
 
+// verifySignerBlock checks that the unsigned signer block does not contradict
+// the signature (VERIFICATION.md V2-4): signer.id is the RPR human_id, and
+// signer.kids are the composite_sig kids, the classical one and then the PQ
+// one when present.
+func verifySignerBlock(bundle, signature map[string]interface{}, result *V2VerificationResult) {
+	signer, _ := signature["signer"].(map[string]interface{})
+	if !sameID(signer["id"], artifactPayload(bundle, "responsible_principal_record")["human_id"]) {
+		result.Errors = append(result.Errors, fmt.Sprintf("Bundle signature: signer id %v is not the RPR human_id", signer["id"]))
+	}
+	cs, _ := signature["composite_sig"].(map[string]interface{})
+	classical, _ := cs["classical"].(map[string]interface{})
+	signed := []interface{}{classical["kid"]}
+	if pq := cs["pq"]; pq != nil {
+		pqEntry, _ := pq.(map[string]interface{})
+		signed = append(signed, pqEntry["kid"])
+	}
+	kids, ok := signer["kids"].([]interface{})
+	match := ok && len(kids) == len(signed)
+	for i := 0; match && i < len(kids); i++ {
+		match = sameID(kids[i], signed[i])
+	}
+	if !match {
+		result.Errors = append(result.Errors, "Bundle signature: signer kids do not name the bundle signature keys")
+	}
+}
+
 // verifyArtifactSignatures checks each artifact's own composite_sig
 // (VERIFICATION.md V2-8): the principal signs the RPR with its binding_keys,
 // the agent signs the rest with its passport keys.
@@ -427,13 +612,13 @@ func verifyArtifactSignatures(registry *AlgorithmRegistry, bundle map[string]int
 	rprKeys := payloadKeys(bundle, "responsible_principal_record", "binding_keys")
 	agentKeys := payloadKeys(bundle, "agent_passport", "keys")
 	artifacts := []struct {
-		field, context string
-		keys           []interface{}
+		field, context, keysLabel string
+		keys                      []interface{}
 	}{
-		{"responsible_principal_record", CtxResponsiblePrincipal, rprKeys},
-		{"agent_passport", CtxAgentPassport, agentKeys},
-		{"intent", CtxIntent, agentKeys},
-		{"policy_decision", CtxPolicyDecision, agentKeys},
+		{"responsible_principal_record", CtxResponsiblePrincipal, "RPR binding_keys", rprKeys},
+		{"agent_passport", CtxAgentPassport, "passport keys", agentKeys},
+		{"intent", CtxIntent, "passport keys", agentKeys},
+		{"policy_decision", CtxPolicyDecision, "passport keys", agentKeys},
 	}
 	for _, a := range artifacts {
 		raw, present := bundle[a.field]
@@ -446,7 +631,7 @@ func verifyArtifactSignatures(registry *AlgorithmRegistry, bundle map[string]int
 			result.Errors = append(result.Errors, fmt.Sprintf("%s is not a SignedPayload object", a.field))
 			continue
 		}
-		cs, cvr, err := verifyCompositeSig(registry, a.context, payload, sp["composite_sig"], a.keys)
+		cs, cvr, err := verifyCompositeSig(registry, a.context, payload, sp["composite_sig"], a.keys, a.keysLabel)
 		if err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("%s signature: %s", a.field, err))
 			continue
@@ -457,6 +642,131 @@ func verifyArtifactSignatures(registry *AlgorithmRegistry, bundle map[string]int
 		}
 		for _, w := range warnings {
 			result.Warnings = append(result.Warnings, fmt.Sprintf("%s %s", a.field, w))
+		}
+	}
+}
+
+// jsonArray returns v as a JSON array: absent or null is an empty one, and
+// ok is false for any other value that is not an array.
+func jsonArray(v interface{}) (arr []interface{}, ok bool) {
+	if v == nil {
+		return []interface{}{}, true
+	}
+	arr, ok = v.([]interface{})
+	return arr, ok
+}
+
+// auditIndex returns the index of the first audit entry whose audit_id is id,
+// or -1.
+func auditIndex(entries []interface{}, id interface{}) int {
+	for i, raw := range entries {
+		if entry, _ := raw.(map[string]interface{}); sameID(entry["audit_id"], id) {
+			return i
+		}
+	}
+	return -1
+}
+
+// verifyPQCheckpoints checks the bundle's PQ checkpoints (VERIFICATION.md
+// V2-12): the bundle carries exactly the checkpoints its signed manifest lists,
+// once each; each has the manifest's session_nonce, covers a contiguous run of
+// audit entries with their Merkle root, and is signed by the agent with both
+// algorithms (the PQ one alone under pq_only), with the passport keys.
+func verifyPQCheckpoints(registry *AlgorithmRegistry, bundle, manifest map[string]interface{}, mode string, policy VerifierPolicy, result *V2VerificationResult) {
+	if manifest == nil {
+		return // reported as missing by VerifySignedBundleV2
+	}
+	listed, listedOK := jsonArray(manifest["pq_checkpoints"])
+	carried, carriedOK := jsonArray(bundle["pq_checkpoints"])
+	if !listedOK || !carriedOK {
+		result.Errors = append(result.Errors, "pq_checkpoints: manifest list and bundle checkpoints must be arrays")
+		return
+	}
+	var errs []string
+	var ids []string
+	byID := map[string]map[string]interface{}{}
+	for _, raw := range carried {
+		cp, _ := raw.(map[string]interface{})
+		id, ok := cp["checkpoint_id"].(string)
+		if _, dup := byID[id]; !ok || dup {
+			errs = append(errs, fmt.Sprintf("pq_checkpoints: checkpoint %v is missing an id or carried twice", cp["checkpoint_id"]))
+			continue
+		}
+		byID[id] = cp
+		ids = append(ids, id)
+	}
+	listedIDs := map[string]bool{}
+	for _, raw := range listed {
+		id, ok := raw.(string)
+		switch {
+		case ok && listedIDs[id]:
+			errs = append(errs, fmt.Sprintf("pq_checkpoints: the manifest lists %s twice", id))
+		case !ok || byID[id] == nil:
+			errs = append(errs, fmt.Sprintf("pq_checkpoints: manifest lists %v, which the bundle does not carry", raw))
+		}
+		if ok {
+			listedIDs[id] = true
+		}
+	}
+	for _, id := range ids {
+		if !listedIDs[id] {
+			errs = append(errs, fmt.Sprintf("pq_checkpoints: %s is not listed in the manifest", id))
+		}
+	}
+	if len(errs) > 0 {
+		result.Errors = append(result.Errors, errs...)
+		return
+	}
+
+	entries, _ := bundle["audit_entries"].([]interface{})
+	passportKeys := payloadKeys(bundle, "agent_passport", "keys")
+	cpMode := "hybrid_required"
+	if mode == "pq_only" {
+		cpMode = "pq_only"
+	}
+	for _, id := range ids {
+		cp := byID[id]
+		fail := func(msg string) {
+			result.Errors = append(result.Errors, fmt.Sprintf("pq_checkpoints[%s]: %s", id, msg))
+		}
+		if !sameID(cp["session_nonce"], manifest["session_nonce"]) {
+			fail("session_nonce is not the manifest's")
+			continue
+		}
+		rng, _ := cp["event_range"].(map[string]interface{})
+		from, to := auditIndex(entries, rng["from_audit_id"]), auditIndex(entries, rng["to_audit_id"])
+		if count, ok := rng["count"].(float64); from < 0 || to < from || !ok || count != float64(to-from+1) {
+			fail("event_range does not match the audit entries")
+			continue
+		}
+		run := make([]map[string]interface{}, 0, to-from+1)
+		for _, raw := range entries[from : to+1] {
+			if entry, ok := raw.(map[string]interface{}); ok {
+				run = append(run, entry)
+			}
+		}
+		root, err := AuditEventsMerkleRoot(run)
+		if err != nil || len(run) != to-from+1 || !sameID(cp["merkle_root"], "sha256:"+root) {
+			fail("merkle_root does not match its audit entries")
+			continue
+		}
+		payload := make(map[string]interface{}, len(cp))
+		for k, v := range cp {
+			if k != "composite_sig" {
+				payload[k] = v
+			}
+		}
+		cs, cvr, err := verifyCompositeSig(registry, CtxAuditEvent, payload, cp["composite_sig"], passportKeys, "passport keys")
+		if err != nil {
+			fail(err.Error())
+			continue
+		}
+		modeErrs, warnings := checkMode(cpMode, policy, cs, cvr)
+		for _, e := range modeErrs {
+			fail(e)
+		}
+		for _, w := range warnings {
+			result.Warnings = append(result.Warnings, fmt.Sprintf("pq_checkpoints[%s]: %s", id, w))
 		}
 	}
 }

@@ -155,6 +155,12 @@ type BundleManifest struct {
 	// spec/CANONICALIZATION_PROFILE.md § 4). Future profiles will make the
 	// field required.
 	CanonicalizationProfile string `json:"canonicalization_profile,omitempty"`
+	// SessionIssuedAt and SessionExpiresAt are the signed session window, RFC
+	// 3339 timestamps (VERIFICATION.md V2-4). A verifier with a maximum session
+	// duration measures it from SessionIssuedAt; SignBundleV2 sets it to the
+	// signing time when SessionExpiresAt is set and it is not.
+	SessionIssuedAt  string `json:"session_issued_at,omitempty"`
+	SessionExpiresAt string `json:"session_expires_at,omitempty"`
 }
 
 // BundleSignerV2 describes who signed a V2 bundle.
@@ -210,6 +216,12 @@ type VerifierPolicy struct {
 	AllowClassicalFallbackDisable bool     `json:"allow_classical_fallback_disable"`
 	WarnClassicalOnlyDeprecated   bool     `json:"warn_classical_only_deprecated"`
 	AdvisoryRejectedAlgs          []string `json:"advisory_rejected_algs"`
+
+	// MaxSessionDurationSeconds bounds the signed session window: a bundle
+	// whose manifest session_expires_at is more than this many seconds after
+	// its session_issued_at is rejected, and so is one with session_expires_at
+	// but without session_issued_at (VERIFICATION.md V2-4). 0 is no limit.
+	MaxSessionDurationSeconds int `json:"max_session_duration_seconds,omitempty"`
 }
 
 // SupportedAlgs describes the algorithm suites a DCP implementation supports.
