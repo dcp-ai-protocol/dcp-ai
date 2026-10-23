@@ -326,7 +326,7 @@ describe('V2 bundle validation', () => {
   });
 
   it('refuses an unknown verification mode when the middleware is created', () => {
-    expect(() => dcpVerify({ verifierPolicy: { default_mode: 'none' as any } })).toThrow(/verification mode/);
+    expect(() => dcpVerify({ verifierPolicy: { default_mode: 'none' as any } })).toThrow(/default_mode/);
   });
 });
 
@@ -487,12 +487,45 @@ describe('V1 bundles', () => {
     expect(req.dcpAgent!.dcpVersion).toBe('1.0');
   });
 
-  it('rejects a V1 bundle under the default policy, whose high risk tier requires hybrid signatures', async () => {
-    const { res, next } = await run(dcpVerify(), headerReq(clone(V1_SIGNED_BUNDLE)));
+  it('accepts the V1 conformance bundle under the default policy', async () => {
+    // risk_tier medium (hybrid_preferred), a send_email intent with risk_score 0.21 (standard tier).
+    const { req, next } = await run(dcpVerify(), headerReq(clone(V1_SIGNED_BUNDLE)));
+
+    expect(next).toHaveBeenCalled();
+    expect(req.dcpAgent!.dcpVersion).toBe('1.0');
+  });
+
+  it('refuses a V1 payment intent under the default policy without trying the V1 verifier', async () => {
+    const payment = clone(V1_SIGNED_BUNDLE);
+    payment.bundle.intent.action_type = 'initiate_payment';
+    vi.mocked(verifySignedBundle).mockClear();
+
+    const { res, next } = await run(dcpVerify(), headerReq(payment));
 
     expect(next.called).toBe(false);
     expect(res.status).toHaveBeenCalledWith(403);
-    expect(res._body.errors.join(' ')).toMatch(/V1/);
+    expect(res._body.errors.join(' ')).toMatch(/V1 bundles are not accepted here.*elevated/);
+    expect(verifySignedBundle).not.toHaveBeenCalled();
+  });
+
+  it('refuses a V1 bundle whose risk score is missing (elevated tier)', async () => {
+    const unscored = clone(V1_SIGNED_BUNDLE);
+    delete unscored.bundle.policy_decision.risk_score;
+
+    const { res, next } = await run(dcpVerify(), headerReq(unscored));
+
+    expect(next.called).toBe(false);
+    expect(res._body.errors.join(' ')).toMatch(/V1 bundles are not accepted here/);
+  });
+
+  it('refuses a V1 bundle whose passport risk_tier is not low, medium or high', async () => {
+    const odd = clone(V1_SIGNED_BUNDLE);
+    odd.bundle.agent_passport.risk_tier = 'constructor';
+
+    const { res, next } = await run(dcpVerify(), headerReq(odd));
+
+    expect(next.called).toBe(false);
+    expect(res._body.errors.join(' ')).toMatch(/risk_tier/);
   });
 
   it('rejects a V1 bundle when requireHybrid is set', async () => {
@@ -522,5 +555,193 @@ describe('V1 bundles', () => {
     expect(res.status).toHaveBeenCalledWith(403);
     expect(res._body.errors.join(' ')).toMatch(/version/i);
     expect(verifySignedBundle).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Shared interop vectors (tests/interop/v2/bundle_vectors.json)
+// ---------------------------------------------------------------------------
+
+// Cases @dcp-ai/sdk 2.1.x cannot reject: it does not verify the per-artifact signatures
+// (VERIFICATION.md V2-8). They are expected failures until the dependency is raised to a release
+// that does; `it.fails` then fails, and the case moves to the passing list.
+const SDK_21_GAPS: Record<string, string> = Object.fromEntries(
+  [
+    'rpr_classical_signature_invalid',
+    'passport_pq_signature_invalid',
+    'intent_signatures_zeroed',
+    'intent_signed_by_principal',
+    'policy_decision_signed_under_intent_context',
+    'intent_pq_slot_holds_ed25519',
+    'passport_classical_slot_holds_ml_dsa',
+    'policy_decision_kid_names_another_algorithm',
+  ].map((name) => [name, 'per-artifact signature (V2-8), not verified by @dcp-ai/sdk 2.1.x']),
+);
+// Rejected, but @dcp-ai/sdk 2.1.x words the error without the vector's error_contains.
+const SDK_21_WORDING: Record<string, string> = {
+  classical_only_bundle_signature_without_pq: '2.1.x says "Classical signature invalid (classical_only)"',
+  bundle_pq_slot_holds_ed25519: '2.1.x says "PQ algorithm ed25519 not accepted by verifier policy"',
+};
+
+function mutated(signed: any, mutations: { path: (string | number)[]; value: unknown }[]) {
+  const out = clone(signed);
+  for (const { path, value } of mutations) {
+    let node = out;
+    for (const key of path.slice(0, -1)) node = node[key];
+    node[path[path.length - 1]] = value;
+  }
+  return out;
+}
+
+describe('shared bundle vectors under the default verifier policy', () => {
+  const policy = VECTORS.default_verifier_policy;
+  const accept = [['signed_bundle', VECTORS.signed_bundle], ...VECTORS.must_accept_bundles.map((c: any) => [c.name, c.signed_bundle])];
+  const reject = [
+    ...VECTORS.must_reject.map((c: any) => [c.name, mutated(VECTORS.signed_bundle, c.mutations), c.error_contains, c.spec_step]),
+    ...VECTORS.must_reject_bundles.map((c: any) => [c.name, c.signed_bundle, c.error_contains, c.spec_step]),
+  ];
+
+  for (const [name, signed] of accept) {
+    it(`accepts ${name}`, async () => {
+      const { res, next } = await run(dcpVerify({ verifierPolicy: policy }), headerReq(signed));
+      expect(res._body?.errors).toBeUndefined();
+      expect(next).toHaveBeenCalled();
+    });
+  }
+
+  for (const [name, signed, errorContains, step] of reject) {
+    const test = SDK_21_GAPS[name] ? it.fails : it;
+    const reason = SDK_21_GAPS[name] ? ` [expected failure: ${SDK_21_GAPS[name]}]` : '';
+    test(`rejects ${name} (${step})${reason}`, async () => {
+      const { res, next } = await run(dcpVerify({ verifierPolicy: policy }), headerReq(signed));
+      expect(next.called).toBe(false);
+      expect(res.status).toHaveBeenCalledWith(403);
+      if (!SDK_21_WORDING[name]) expect(res._body.errors.join(' ').toLowerCase()).toContain(errorContains.toLowerCase());
+    });
+  }
+
+  for (const [mode, expected] of Object.entries(VECTORS.classical_only_routine_bundle.verified_by_mode)) {
+    it(`gives the classical-only routine control its verdict under ${mode}`, async () => {
+      const middleware = dcpVerify({ verifierPolicy: { default_mode: mode as any } });
+      const { next } = await run(middleware, headerReq(classicalOnlyBundle()));
+      expect(next.called).toBe(expected);
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Revocation: every signing key, fail open or closed
+// ---------------------------------------------------------------------------
+
+describe('revocation lookups', () => {
+  it('asks about the passport keys, the RPR binding keys and the bundle signature kids', async () => {
+    const signed = honestBundle();
+    const signerKid = signed.signature.composite_sig.classical.kid;
+    let revokedKid = '';
+    const urls: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      urls.push(url);
+      return { ok: true, json: async () => ({ revoked: url === `http://revocation.test/v2/check/kid/${revokedKid}` }) };
+    }));
+    const middleware = dcpVerify({ checkRevocation: true, revocationServiceUrl: 'http://revocation.test' });
+
+    expect((await run(middleware, headerReq(signed))).next).toHaveBeenCalled();
+    const kids = [
+      ...signed.bundle.agent_passport.payload.keys,
+      ...signed.bundle.responsible_principal_record.payload.binding_keys,
+    ].map((key: any) => key.kid);
+    expect(kids).toContain(signerKid);
+    for (const kid of kids) expect(urls).toContain(`http://revocation.test/v2/check/kid/${kid}`);
+
+    revokedKid = signerKid; // the principal's binding key that signed the bundle
+    const { res, next } = await run(middleware, headerReq(signed));
+    expect(next.called).toBe(false);
+    expect(res.status).toHaveBeenCalledWith(403);
+  });
+
+  const outages: [string, () => Promise<unknown>][] = [
+    ['unreachable', async () => { throw new Error('ECONNREFUSED'); }],
+    ['non-2xx', async () => ({ ok: false, status: 503, json: async () => ({}) })],
+    ['not JSON', async () => ({ ok: true, json: async () => { throw new SyntaxError('Unexpected token'); } })],
+    ['no revoked field', async () => ({ ok: true, json: async () => ({}) })],
+  ];
+
+  for (const [label, response] of outages) {
+    it(`fails open by default when the revocation service is ${label}`, async () => {
+      vi.stubGlobal('fetch', vi.fn(response));
+      const { next } = await run(dcpVerify({ checkRevocation: true }), headerReq(honestBundle()));
+      expect(next).toHaveBeenCalled();
+    });
+
+    it(`fails closed with revocationFailClosed when the revocation service is ${label}`, async () => {
+      vi.stubGlobal('fetch', vi.fn(response));
+      const { res, next } = await run(dcpVerify({ checkRevocation: true, revocationFailClosed: true }), headerReq(honestBundle()));
+      expect(next.called).toBe(false);
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(res._body.errors).toEqual(['Revocation status unavailable (revocationFailClosed)']);
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Configuration fails closed
+// ---------------------------------------------------------------------------
+
+describe('configuration', () => {
+  const bad: [string, any][] = [
+    ['an unknown verifierPolicy field', { verifierPolicy: { defaultMode: 'hybrid_required' } }],
+    ['a string for a boolean field', { verifierPolicy: { allow_v1_bundles: 'false' } }],
+    ['a number for a boolean field', { verifierPolicy: { require_session_binding: 0 } }],
+    ['an unknown risk tier', { verifierPolicy: { risk_overrides: { critical: 'pq_only' } } }],
+    ['an unknown mode in risk_overrides', { verifierPolicy: { risk_overrides: { high: 'toString' } } }],
+    ['a string for an algorithm list', { verifierPolicy: { accepted_classical_algs: 'ed25519' } }],
+    ['a verifierPolicy that is not an object', { verifierPolicy: 'hybrid_required' }],
+    ['an unknown option', { requireHybird: true }],
+    ['a string for requireHybrid', { requireHybrid: 'yes' }],
+    ['a negative cacheTtlSeconds', { cacheTtlSeconds: -1 }],
+  ];
+  for (const [label, options] of bad) {
+    it(`throws when the middleware is created with ${label}`, () => {
+      expect(() => dcpVerify(options)).toThrow();
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Hostile input with the cache on
+// ---------------------------------------------------------------------------
+
+describe('hostile input with the cache on', () => {
+  const deeplyNested = (depth: number) => {
+    let value: unknown = [];
+    for (let i = 0; i < depth; i++) value = [value];
+    return value;
+  };
+
+  it('answers 403, not 500, for a deeply nested body', async () => {
+    const req = makeReq({ body: { signed_bundle: deeplyNested(100_000) } });
+    const { res, next } = await run(dcpVerify({ cacheTtlSeconds: 60 }), req);
+    expect(next.called).toBe(false);
+    expect(res.status).toHaveBeenCalledWith(403);
+  });
+
+  it('answers 403, not 500, for a signed bundle with a deeply nested intent', async () => {
+    const signed = honestBundle();
+    signed.bundle.intent.payload.deep = deeplyNested(100_000);
+    const { res, next } = await run(dcpVerify({ cacheTtlSeconds: 60 }), makeReq({ body: { signed_bundle: signed } }));
+    expect(next.called).toBe(false);
+    expect(res.status).toHaveBeenCalledWith(403);
+  });
+
+  it('does not serve the cached verdict of a bundle to one that only stringifies the same (1e999)', async () => {
+    const raw = JSON.stringify(VECTORS.signed_bundle);
+    const forged = raw.replace('"contact":null', '"contact":1e999'); // JSON.stringify(Infinity) is "null"
+    expect(forged).not.toBe(raw);
+    const middleware = dcpVerify({ cacheTtlSeconds: 60 });
+    expect((await run(middleware, makeReq({ headers: { 'x-dcp-bundle': raw } as any }))).next).toHaveBeenCalled();
+
+    const { res, next } = await run(middleware, makeReq({ headers: { 'x-dcp-bundle': forged } as any }));
+    expect(next.called).toBe(false);
+    expect(res.status).toHaveBeenCalledWith(403);
   });
 });
