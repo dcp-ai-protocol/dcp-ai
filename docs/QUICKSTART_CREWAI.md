@@ -7,21 +7,20 @@ Add cryptographic identity, policy gating, and audit trails to your CrewAI multi
 ## Installation
 
 ```bash
-pip install 'dcp-ai[crewai]' crewai-tools
+pip install 'dcp-ai[crewai]'
 ```
 
-The `[crewai]` extra pulls in the `crewai` runtime and unlocks `from dcp_ai.crewai import DCPCrewAgent, DCPCrew`.
+The `[crewai]` extra installs the `crewai` runtime. The examples below use the core SDK directly; the SDK's own CrewAI helpers, `DCPCrewAgent` and `DCPCrew` in `dcp_ai.crewai`, are described in [integrations/crewai](../integrations/crewai/README.md).
 
 ### Zero-config scaffold (alternative)
 
 ```bash
 npm create @dcp-ai/crewai my-app
 cd my-app
-pip install -r requirements.txt
 python main.py
 ```
 
-The scaffolder produces a runnable `main.py` + `requirements.txt` with DCP identity, a two-agent crew, and an audited tool call already wired.
+The scaffolder produces a starter `main.py` that walks a three-agent crew through the DCP flow (session nonce, passports, intents, policy decisions, audit entries) with placeholder keys and signatures, and a `requirements.txt` whose dependencies are commented out. It runs without CrewAI or the SDK; replace the placeholders with the SDK calls below.
 
 ---
 
@@ -44,8 +43,11 @@ Crew
 ## Complete Working Example
 
 ```python
+import uuid
+from datetime import datetime, timezone
+
 from crewai import Agent, Task, Crew, Process
-from crewai_tools import tool
+from crewai.tools import tool
 from dcp_ai import (
     AgentPassport,
     AuditEvidence,
@@ -58,7 +60,6 @@ from dcp_ai import (
     sign_object,
     verify_signed_bundle,
 )
-from datetime import datetime, timezone
 
 
 def now() -> str:
@@ -79,6 +80,7 @@ rpr = {
     "override_rights": True,
     "issued_at": now(),
     "expires_at": None,
+    "contact": None,
     "signature": "",
 }
 rpr["signature"] = sign_object(rpr, operator_keys["secret_key_b64"])
@@ -104,43 +106,48 @@ def create_passport(agent_name: str, capabilities: list[str]) -> AgentPassport:
 
 
 researcher_passport = create_passport("researcher", ["browse", "api_call"])
-writer_passport = create_passport("writer", ["file_write"])
+writer_passport = create_passport("writer", ["file_write"])  # for the writer's own DCP-gated tools
 
-# 3. DCP audit state: one sealed bundle per tool call
-bundles = []
-intent_seq = 0
+
+# 3. The policy gate: your rules decide before the tool runs
+def evaluate_policy(intent: Intent) -> PolicyDecision:
+    """Approve low-impact actions on public data; anything else waits for a human."""
+    low_risk = intent.estimated_impact == "low" and intent.data_classes == ["none"]
+    return PolicyDecision(
+        intent_id=intent.intent_id,
+        decision="approve" if low_risk else "escalate",
+        risk_score=0.05 if low_risk else 0.6,
+        reasons=["low-impact action on public data" if low_risk else "needs human approval"],
+        required_confirmation=None if low_risk else {"type": "human_approve", "fields": ["action_type"]},
+    )
+
+
+bundles = []  # one sealed bundle per tool call
 
 
 # 4. Create a DCP-gated tool
 @tool("search_web")
 def search_web(query: str) -> str:
     """Search the web for information."""
-    global intent_seq
-    intent_seq += 1
-
     intent = Intent(
-        intent_id=f"intent-{intent_seq}",
+        intent_id=f"intent:{uuid.uuid4()}",
         agent_id=researcher_passport.agent_id,
         human_id=human_id,
         timestamp=now(),
         action_type="browse",
-        target={"channel": "web", "domain": query[:50]},
+        target={"channel": "web"},  # the query itself stays out of the record
         data_classes=["none"],
         estimated_impact="low",
         requires_consent=False,
     )
 
-    policy = PolicyDecision(
-        intent_id=intent.intent_id,
-        decision="approve",
-        risk_score=0.05,
-        reasons=["Low-risk web search"],
-    )
+    policy = evaluate_policy(intent)
+    approved = policy.decision == "approve"
 
-    # Execute
-    result = f"Search results for: {query}"
+    # Execute only what the policy approved
+    result = f"Search results for: {query}" if approved else "Blocked: this search needs human approval."
 
-    # Log the audit entry (intent_hash and the prev_hash chain are computed for you) and seal
+    # Log the audit entry (intent_hash and the prev_hash chain are computed for you) and seal the bundle
     bundle = (
         BundleBuilder()
         .responsible_principal_record(rpr)
@@ -148,13 +155,13 @@ def search_web(query: str) -> str:
         .intent(intent)
         .policy_decision(policy)
         .create_audit_entry(
-            audit_id=f"audit-{intent_seq}",
+            audit_id=f"audit:{uuid.uuid4()}",
             timestamp=now(),
             agent_id=researcher_passport.agent_id,
             human_id=human_id,
             intent_id=intent.intent_id,
-            policy_decision="approved",
-            outcome=result[:200],
+            policy_decision="approved" if approved else "escalated",
+            outcome="search_completed" if approved else "awaiting_human_approval",
             evidence=AuditEvidence(tool="search_web", result_ref=None),
         )
         .build()
@@ -226,28 +233,26 @@ print(f"Bundles: {len(bundles)}")
 
 ## Multi-Agent Audit
 
-With CrewAI's multi-agent setup, DCP tracks which agent performed which action:
+Each audit entry names the agent that acted. Give every crew member that uses tools its own passport and DCP-gated tools, and the bundles show which agent did what, all bound to the same human principal:
 
 ```python
-# Each audit entry names the agent that acted
+# Each audit entry names the agent that acted and what came of it
 for signed in bundles:
     for entry in signed["bundle"]["audit_entries"]:
         print(f"Agent: {entry['agent_id']}")
-        print(f"Action: {entry['outcome']}")
+        print(f"Outcome: {entry['outcome']}")
 ```
-
-This creates a complete audit trail across all crew members, bound to a single human principal.
 
 ---
 
 ## V2.0 Upgrade
 
-DCP v2.0 adds post-quantum composite signatures, adaptive security tiers, and session-bound audit trails to CrewAI crews. The Python SDK ships the whole V2 path in `dcp_ai.v2`: hybrid keys (Ed25519 + ML-DSA-65), `BundleBuilderV2`, `sign_bundle_v2` and `verify_signed_bundle_v2`.
+DCP v2.0 adds post-quantum composite signatures, adaptive security tiers, and session-bound audit trails to CrewAI crews. The Python SDK ships the V2 path from version 2.9.0: hybrid keys (Ed25519 + ML-DSA-65) in `dcp_ai.providers`, and `BundleBuilderV2`, `sign_bundle_v2` and `verify_signed_bundle_v2` in `dcp_ai.v2`.
 
 ### Installation (V2)
 
 ```bash
-pip install 'dcp-ai[crewai]' crewai-tools
+pip install 'dcp-ai[crewai]>=2.9.0'
 ```
 
 ### V2 Crew Setup with Security Tiers
@@ -257,17 +262,20 @@ import asyncio
 import uuid
 from datetime import datetime, timezone
 
-from crewai_tools import tool
+from crewai import Agent, Crew, Task
+from crewai.tools import tool
 from dcp_ai.providers.ed25519_provider import Ed25519Provider
 from dcp_ai.providers.ml_dsa_65_provider import MlDsa65Provider
 from dcp_ai.v2 import (
     DCP_CONTEXTS,
+    DEFAULT_VERIFIER_POLICY,
     AlgorithmRegistry,
     BundleBuilderV2,
     CompositeKeyInfo,
     canonicalize_v2,
     composite_sign,
     compute_security_tier,
+    generate_session_expiry,
     generate_session_nonce,
     prepare_payload,
     sha256_hex,
@@ -308,6 +316,7 @@ async def sign(payload: dict, context: str, keys: list[CompositeKeyInfo]) -> dic
     return {"payload": payload, "payload_hash": payload_hash, "composite_sig": sig}
 
 
+# Both key pairs live in one process here; in production the operator signs on its own side.
 operator_keys = asyncio.run(hybrid_keys())    # the crew operator signs the RPR and the bundles
 researcher_keys = asyncio.run(hybrid_keys())  # the researcher agent signs its passport, intents and decisions
 session_nonce = generate_session_nonce()      # every artifact of this crew run carries it
@@ -344,10 +353,17 @@ researcher_passport = {
 
 ### V2 DCP-Gated Tool with Security Tiers
 
-The tool declares an intent, records the policy decision and writes the audit entry for every call. The artifacts are signed when the run is sealed, below.
+The tool declares an intent, asks the policy gate, runs only what it approved and writes the audit entry. The artifacts are signed when the run is sealed, below; to sign each intent before acting, call `sign` from your own event loop inside the tool.
 
 ```python
 records = []  # one {"intent", "policy", "audit"} per tool call
+
+
+def evaluate_policy(intent: dict) -> tuple[str, int]:
+    """Your policy engine: (decision, risk_score in 0..1000)."""
+    if intent["estimated_impact"] == "low" and intent["data_classes"] == ["none"]:
+        return "approve", 50
+    return "escalate", 600
 
 
 @tool("search_web_v2")
@@ -361,31 +377,33 @@ def search_web_v2(query: str) -> str:
         "human_id": human_id,
         "timestamp": now(),
         "action_type": "browse",
-        "target": {"channel": "web", "domain": query[:50]},
+        "target": {"channel": "web"},  # the query itself stays out of the record
         "data_classes": ["none"],
         "estimated_impact": "low",
         "requires_consent": False,
     }
 
-    # Adaptive security tier (spec §14.2): risk_score comes from the policy decision
-    risk_score = 50
-    tier = compute_security_tier(intent, {"risk_score": risk_score})  # "routine"
+    decision, risk_score = evaluate_policy(intent)
+    # Adaptive security tier (spec §14.2) from the intent and the policy's risk score
+    tier = compute_security_tier(intent, {"risk_score": risk_score})  # "routine" here
     intent["security_tier"] = tier
 
     policy = {
         "dcp_version": "2.0",
         "intent_id": intent["intent_id"],
         "session_nonce": session_nonce,
-        "decision": "approve",
+        "decision": decision,
         "risk_score": risk_score,
-        "reasons": ["low-impact web search"],
-        "required_confirmation": None,
+        "reasons": ["low-impact action on public data" if decision == "approve" else "needs human approval"],
+        "required_confirmation": None if decision == "approve" else {"type": "human_approve", "fields": ["action_type"]},
         "applied_policy_hash": f"sha256:{sha256_hex(b'crew-policy-v1')}",
         "timestamp": now(),
         "resolved_tier": tier,
     }
 
-    result = f"Search results for: {query}"
+    # Execute only what the policy approved
+    approved = decision == "approve"
+    result = f"Search results for: {query}" if approved else "Blocked: this search needs human approval."
 
     audit = {
         "dcp_version": "2.0",
@@ -398,8 +416,8 @@ def search_web_v2(query: str) -> str:
         "human_id": human_id,
         "intent_id": intent["intent_id"],
         "intent_hash": f"sha256:{sha256_hex(canonicalize_v2(intent).encode())}",
-        "policy_decision": "approved",
-        "outcome": result[:200],
+        "policy_decision": "approved" if approved else "escalated",
+        "outcome": "search_completed" if approved else "awaiting_human_approval",
         "evidence": {"tool": "search_web_v2", "result_ref": None,
                      "evidence_hash": f"sha256:{sha256_hex(result.encode())}"},
         "pq_checkpoint_ref": None,
@@ -407,6 +425,20 @@ def search_web_v2(query: str) -> str:
 
     records.append({"intent": intent, "policy": policy, "audit": audit})
     return result
+
+
+researcher = Agent(
+    role="Research Analyst",
+    goal="Find accurate information on the given topic",
+    backstory="You are a thorough researcher with a DCP V2 identity.",
+    tools=[search_web_v2],
+)
+research_task = Task(
+    description="Research the topic: {topic}",
+    agent=researcher,
+    expected_output="A summary of findings",
+)
+Crew(agents=[researcher], tasks=[research_task]).kickoff(inputs={"topic": "post-quantum cryptography"})
 ```
 
 ### V2 Bundle Sealing with Composite Signatures
@@ -428,18 +460,58 @@ async def seal() -> list[dict]:
             .add_audit_entry(record["audit"])
             .build()
         )
-        signed = await sign_bundle_v2(bundle, registry, "human", human_id, *operator_keys)
-        verification = await verify_signed_bundle_v2(signed, registry)
-        print(f"{record['intent']['intent_id']}: verified={verification['verified']}, "
-              f"tier={record['intent']['security_tier']}")
-        bundles.append(signed)
+        bundles.append(await sign_bundle_v2(
+            bundle, registry, "human", human_id, *operator_keys,
+            session_expires_at=generate_session_expiry(tier=record["intent"]["security_tier"]),
+        ))
     return bundles
 
 
 signed_bundles = asyncio.run(seal())
 ```
 
-Each signed bundle also verifies with `dcp verify-bundle` and with the TypeScript, Go and Rust SDKs.
+### V2 Verification Pinned to the Operator
+
+`verify_signed_bundle_v2` checks a bundle against the keys the bundle itself carries, so a bundle someone else signed with their own keys is also self-consistent. Whoever verifies the crew's bundles pins the signer: the operator publishes the hash of its RPR and its kids, and a bundle must carry that RPR and name those kids. A `hybrid_required` policy demands both signatures, since the default policy accepts Ed25519 alone at the routine tier.
+
+```python
+# What the operator publishes to anyone who verifies the crew's bundles
+TRUSTED_RPR_HASH = prepare_payload(rpr)[1]
+TRUSTED_KIDS = [k.kid for k in operator_keys]
+
+HYBRID_REQUIRED = {
+    **DEFAULT_VERIFIER_POLICY,
+    "default_mode": "hybrid_required",
+    "risk_overrides": dict.fromkeys(("low", "medium", "high"), "hybrid_required"),
+}
+
+
+async def verify_crew_bundle(signed: dict) -> bool:
+    """Valid, signed with both algorithms, and signed by the operator."""
+    result = await verify_signed_bundle_v2(signed, registry, HYBRID_REQUIRED)
+    if not result["verified"]:
+        return False
+    # Verified under hybrid_required, so both signatures are there: check whose they are.
+    composite = signed["signature"]["composite_sig"]
+    return (
+        signed["bundle"]["responsible_principal_record"]["payload_hash"] == TRUSTED_RPR_HASH
+        and [composite["classical"]["kid"], composite["pq"]["kid"]] == TRUSTED_KIDS
+    )
+
+
+for signed in signed_bundles:
+    intent = signed["bundle"]["intent"]["payload"]
+    print(f"{intent['intent_id']}: verified={asyncio.run(verify_crew_bundle(signed))}, "
+          f"tier={intent['security_tier']}")
+```
+
+Outside Python, save a bundle as JSON and pin the operator's Ed25519 public key (`operator_keys[0].public_key_b64`) in a file:
+
+```bash
+dcp verify-bundle --policy hybrid_required bundle.json operator_ed25519_pub.txt
+```
+
+The same bundles verify with the TypeScript, Go and Rust SDKs.
 
 ### V2 DCP Integration Points for CrewAI
 
@@ -447,9 +519,9 @@ Each signed bundle also verifies with `dcp verify-bundle` and with the TypeScrip
 |----------------|---------------|-----------------|
 | Crew operator | RPR | RPR with `binding_keys` (Ed25519 + ML-DSA-65) |
 | Agent | Agent Passport | Passport with hybrid keys |
-| Tool use | Intent → Policy → Audit | + risk_score, security tier, session nonce |
+| Tool use | Intent → Policy → Audit | + integer risk_score, security tier, session nonce |
 | Task completion | Audit entries | + PQ checkpoints per tier |
-| Crew run | Citizenship Bundle | + manifest, session_nonce, composite sig |
+| Crew run | Citizenship Bundles, one per tool call | + manifest, session_nonce, composite sig, session expiry |
 
 See [MIGRATION_V1_V2.md](MIGRATION_V1_V2.md) for upgrading existing V1 CrewAI integrations.
 
