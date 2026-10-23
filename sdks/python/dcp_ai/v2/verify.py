@@ -181,6 +181,11 @@ async def _check_composite_sig(
         return fail(f"Classical slot holds {classical['alg']}, which is not a classical algorithm")
     if pq and pq["alg"] not in _PQ_ALGS:
         return fail(f"PQ slot holds {pq['alg']}, which is not a PQ algorithm")
+    # One encoding per signature, the same bytes in every SDK (V2-5).
+    if _canonical_b64_bytes(classical.get("sig_b64")) is None:
+        return fail("Classical sig_b64 is not canonical base64 (V2-5)")
+    if pq and _canonical_b64_bytes(pq.get("sig_b64")) is None:
+        return fail("PQ sig_b64 is not canonical base64 (V2-5)")
 
     if mode != "pq_only":
         if classical["alg"] not in policy["accepted_classical_algs"]:
