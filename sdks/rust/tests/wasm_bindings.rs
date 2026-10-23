@@ -251,3 +251,31 @@ fn test_verify_bundle_rejects_an_expired_session() {
     assert_eq!(result["verified"], false);
     assert!(result["errors"].to_string().contains("Session expired"), "{}", result["errors"]);
 }
+
+// The signed session window reads the clock too: a session_issued_at in the
+// future, and the maximum session duration from session_issued_at, each case
+// under its verifier_policy_overrides merged over the default policy.
+#[wasm_bindgen_test]
+fn test_verify_bundle_checks_the_signed_session_window() {
+    let vectors: serde_json::Value =
+        serde_json::from_str(include_str!("../../../tests/interop/v2/bundle_vectors.json")).unwrap();
+    for (name, want) in [
+        ("session_longer_than_policy_max_with_late_created_at", "Session duration"),
+        ("session_issued_at_in_the_future", "is in the future"),
+    ] {
+        let case = vectors["must_reject_bundles"].as_array().unwrap().iter().find(|c| c["name"] == name).unwrap();
+        let mut policy = vectors["default_verifier_policy"].clone();
+        if let Some(overrides) = case["verifier_policy_overrides"].as_object() {
+            for (field, value) in overrides {
+                policy[field] = value.clone();
+            }
+        }
+        let result: serde_json::Value = serde_json::from_str(&wasm_verify_signed_bundle_v2(
+            &case["signed_bundle"].to_string(),
+            Some(policy.to_string()),
+        ))
+        .unwrap();
+        assert_eq!(result["verified"], false, "{name}");
+        assert!(result["errors"].to_string().contains(want), "{name}: {}", result["errors"]);
+    }
+}

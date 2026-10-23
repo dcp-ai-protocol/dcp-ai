@@ -164,7 +164,7 @@ Todas as structs derivam `Debug`, `Clone`, `Serialize`, `Deserialize`. Enums usa
 | Função | Descrição |
 |--------|-----------|
 | `build_bundle_v2(&rpr, &passport, &intent, &policy, &audit_entries, session_nonce)` | Constrói o bundle V2 a partir dos quatro `SignedPayload` e da trilha de auditoria. Verifica cada `payload_hash` e o `session_nonce` de cada artefato e entrada de auditoria, e grava o manifesto com as duas raízes Merkle da auditoria; uma trilha vazia recebe raízes de 64 zeros |
-| `sign_bundle_v2(bundle, &classical, &pq)` | Assina o manifesto com assinatura composta sob `CTX_BUNDLE` e retorna `{bundle, signature}`, com `signer.id` igual ao `human_id` do RPR. Coloque `session_expires_at` ou `intended_verifier` no manifesto antes de assinar |
+| `sign_bundle_v2(bundle, &classical, &pq)` | Assina o manifesto com assinatura composta sob `CTX_BUNDLE` e retorna `{bundle, signature}`, com `signer.id` igual ao `human_id` do RPR. Coloque `session_expires_at` ou `intended_verifier` no manifesto antes de assinar; com `session_expires_at` e sem `session_issued_at`, define `session_issued_at` como o momento da assinatura |
 
 ### Cadeias de Delegação (`dcp_ai::v2::delegation`, DCP-09 §3.5)
 

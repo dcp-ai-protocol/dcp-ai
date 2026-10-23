@@ -164,7 +164,7 @@ V2には、DCP-05からDCP-09までのすべての成果物のためのSerde由�
 | 関数 | 説明 |
 |----------|-------------|
 | `build_bundle_v2(&rpr, &passport, &intent, &policy, &audit_entries, session_nonce)` | 4 つの `SignedPayload` と監査証跡から V2 バンドルを構築します。各 `payload_hash` と、すべてのアーティファクトおよび監査エントリの `session_nonce` を検査し、2 つの監査 Merkle ルートを含むマニフェストを書き込みます。監査証跡が空の場合、ルートは 64 個のゼロです |
-| `sign_bundle_v2(bundle, &classical, &pq)` | `CTX_BUNDLE` でマニフェストに複合署名し、`{bundle, signature}` を返します。`signer.id` は RPR の `human_id` です。`session_expires_at` や `intended_verifier` は署名前にマニフェストに入れてください |
+| `sign_bundle_v2(bundle, &classical, &pq)` | `CTX_BUNDLE` でマニフェストに複合署名し、`{bundle, signature}` を返します。`signer.id` は RPR の `human_id` です。`session_expires_at` や `intended_verifier` は署名前にマニフェストに入れてください。`session_expires_at` があり `session_issued_at` がなければ、`session_issued_at` に署名時刻を設定します |
 
 ### 委任チェーン (`dcp_ai::v2::delegation`、DCP-09 §3.5)
 

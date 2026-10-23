@@ -178,6 +178,11 @@ pub struct BundleManifest {
     pub audit_count: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pq_checkpoints: Option<Vec<String>>,
+    /// When the session began (RFC 3339), signed with the manifest; a verifier
+    /// with a maximum session duration measures it from here
+    /// (spec/VERIFICATION.md V2-4).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_issued_at: Option<String>,
     /// JSON canonicalization profile under which this bundle was produced.
     /// Optional today (only `"dcp-jcs-v1"` is defined; absence is assumed
     /// equivalent to `"dcp-jcs-v1"` per
@@ -243,6 +248,13 @@ pub struct VerifierPolicy {
     pub warn_classical_only_deprecated: bool,
     #[serde(default)]
     pub advisory_rejected_algs: Vec<String>,
+    /// The most `session_expires_at` may be after the signed
+    /// `session_issued_at`, in seconds (VERIFICATION.md V2-4), as in
+    /// schemas/v2/verifier_policy.schema.json. Absent or 0 sets no bound; under
+    /// a bound, a manifest with `session_expires_at` and without
+    /// `session_issued_at` fails verification.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_session_duration_seconds: Option<u64>,
 }
 
 /// The default verifier policy, the same as `DEFAULT_VERIFIER_POLICY` in the
@@ -265,6 +277,7 @@ impl Default for VerifierPolicy {
             allow_classical_fallback_disable: false,
             warn_classical_only_deprecated: false,
             advisory_rejected_algs: Vec::new(),
+            max_session_duration_seconds: None,
         }
     }
 }

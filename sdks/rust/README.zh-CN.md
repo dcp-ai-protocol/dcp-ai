@@ -164,7 +164,7 @@ V2 包含针对 DCP-05 至 DCP-09 全部工件的 Serde 派生 struct：
 | 函数 | 描述 |
 |----------|-------------|
 | `build_bundle_v2(&rpr, &passport, &intent, &policy, &audit_entries, session_nonce)` | 用四个 `SignedPayload` 和审计记录构建 V2 凭证包。它检查每个 `payload_hash` 以及每个工件和审计条目的 `session_nonce`，并写入包含两个审计 Merkle 根的 manifest；审计记录为空时，根为 64 个零 |
-| `sign_bundle_v2(bundle, &classical, &pq)` | 在 `CTX_BUNDLE` 下对 manifest 进行复合签名，返回 `{bundle, signature}`，其中 `signer.id` 为 RPR 的 `human_id`。如需 `session_expires_at` 或 `intended_verifier`，请在签名前写入 manifest |
+| `sign_bundle_v2(bundle, &classical, &pq)` | 在 `CTX_BUNDLE` 下对 manifest 进行复合签名，返回 `{bundle, signature}`，其中 `signer.id` 为 RPR 的 `human_id`。如需 `session_expires_at` 或 `intended_verifier`，请在签名前写入 manifest；有 `session_expires_at` 而无 `session_issued_at` 时，会将 `session_issued_at` 设为签名时间 |
 
 ### 委托链 (`dcp_ai::v2::delegation`，DCP-09 §3.5)
 
