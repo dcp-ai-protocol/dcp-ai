@@ -2,6 +2,8 @@ name: Publish Integrations
 
 # Publishes the 6 framework integrations to npm. Each is its own
 # package under the @dcp-ai scope and is independent of the others.
+# A package that depends on a local path (file:, link:, ...) is refused:
+# express and openclaw use the workspace SDK until @dcp-ai/sdk 2.2.0 is on npm.
 # Every job pre-checks whether the manifest version is already on npm
 # and, if so, exits green with a skip notice. That keeps the Actions
 # tab free of red ghosts when a release only bumps one integration.
@@ -53,6 +55,18 @@ jobs:
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
       - if: steps.check.outputs.skip != 'true'
+        name: Refuse a dependency on a local path
+        # express and openclaw depend on the workspace SDK (file:../../sdks/typescript) until
+        # @dcp-ai/sdk 2.2.0 is on npm: raise the dependency to ^2.2.0 before publishing them.
+        run: |
+          node -e '
+            const pkg = require("./package.json");
+            const deps = { ...pkg.dependencies, ...pkg.peerDependencies, ...pkg.optionalDependencies };
+            const local = Object.entries(deps).filter(([, spec]) => /^(file|link|portal|workspace):|^[.\/~]/.test(String(spec)));
+            for (const [name, spec] of local) console.error(`::error::${pkg.name} depends on ${name}@${spec}, a local path: raise it to a published version before publishing.`);
+            process.exit(local.length > 0 ? 1 : 0);
+          '
+      - if: steps.check.outputs.skip != 'true'
         name: Install against the published @dcp-ai/sdk
         run: npm install --no-package-lock
       - if: steps.check.outputs.skip != 'true'
@@ -87,6 +101,18 @@ jobs:
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
       - if: steps.check.outputs.skip != 'true'
+        name: Refuse a dependency on a local path
+        # express and openclaw depend on the workspace SDK (file:../../sdks/typescript) until
+        # @dcp-ai/sdk 2.2.0 is on npm: raise the dependency to ^2.2.0 before publishing them.
+        run: |
+          node -e '
+            const pkg = require("./package.json");
+            const deps = { ...pkg.dependencies, ...pkg.peerDependencies, ...pkg.optionalDependencies };
+            const local = Object.entries(deps).filter(([, spec]) => /^(file|link|portal|workspace):|^[.\/~]/.test(String(spec)));
+            for (const [name, spec] of local) console.error(`::error::${pkg.name} depends on ${name}@${spec}, a local path: raise it to a published version before publishing.`);
+            process.exit(local.length > 0 ? 1 : 0);
+          '
+      - if: steps.check.outputs.skip != 'true'
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -115,6 +141,18 @@ jobs:
           else
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
+      - if: steps.check.outputs.skip != 'true'
+        name: Refuse a dependency on a local path
+        # express and openclaw depend on the workspace SDK (file:../../sdks/typescript) until
+        # @dcp-ai/sdk 2.2.0 is on npm: raise the dependency to ^2.2.0 before publishing them.
+        run: |
+          node -e '
+            const pkg = require("./package.json");
+            const deps = { ...pkg.dependencies, ...pkg.peerDependencies, ...pkg.optionalDependencies };
+            const local = Object.entries(deps).filter(([, spec]) => /^(file|link|portal|workspace):|^[.\/~]/.test(String(spec)));
+            for (const [name, spec] of local) console.error(`::error::${pkg.name} depends on ${name}@${spec}, a local path: raise it to a published version before publishing.`);
+            process.exit(local.length > 0 ? 1 : 0);
+          '
       - if: steps.check.outputs.skip != 'true'
         name: Install against the published @dcp-ai/sdk
         run: npm install --no-package-lock
@@ -150,6 +188,18 @@ jobs:
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
       - if: steps.check.outputs.skip != 'true'
+        name: Refuse a dependency on a local path
+        # express and openclaw depend on the workspace SDK (file:../../sdks/typescript) until
+        # @dcp-ai/sdk 2.2.0 is on npm: raise the dependency to ^2.2.0 before publishing them.
+        run: |
+          node -e '
+            const pkg = require("./package.json");
+            const deps = { ...pkg.dependencies, ...pkg.peerDependencies, ...pkg.optionalDependencies };
+            const local = Object.entries(deps).filter(([, spec]) => /^(file|link|portal|workspace):|^[.\/~]/.test(String(spec)));
+            for (const [name, spec] of local) console.error(`::error::${pkg.name} depends on ${name}@${spec}, a local path: raise it to a published version before publishing.`);
+            process.exit(local.length > 0 ? 1 : 0);
+          '
+      - if: steps.check.outputs.skip != 'true'
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -178,6 +228,18 @@ jobs:
           else
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
+      - if: steps.check.outputs.skip != 'true'
+        name: Refuse a dependency on a local path
+        # express and openclaw depend on the workspace SDK (file:../../sdks/typescript) until
+        # @dcp-ai/sdk 2.2.0 is on npm: raise the dependency to ^2.2.0 before publishing them.
+        run: |
+          node -e '
+            const pkg = require("./package.json");
+            const deps = { ...pkg.dependencies, ...pkg.peerDependencies, ...pkg.optionalDependencies };
+            const local = Object.entries(deps).filter(([, spec]) => /^(file|link|portal|workspace):|^[.\/~]/.test(String(spec)));
+            for (const [name, spec] of local) console.error(`::error::${pkg.name} depends on ${name}@${spec}, a local path: raise it to a published version before publishing.`);
+            process.exit(local.length > 0 ? 1 : 0);
+          '
       - if: steps.check.outputs.skip != 'true'
         name: Install against the published @dcp-ai/sdk
         run: npm install --no-package-lock
@@ -212,6 +274,18 @@ jobs:
           else
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
+      - if: steps.check.outputs.skip != 'true'
+        name: Refuse a dependency on a local path
+        # express and openclaw depend on the workspace SDK (file:../../sdks/typescript) until
+        # @dcp-ai/sdk 2.2.0 is on npm: raise the dependency to ^2.2.0 before publishing them.
+        run: |
+          node -e '
+            const pkg = require("./package.json");
+            const deps = { ...pkg.dependencies, ...pkg.peerDependencies, ...pkg.optionalDependencies };
+            const local = Object.entries(deps).filter(([, spec]) => /^(file|link|portal|workspace):|^[.\/~]/.test(String(spec)));
+            for (const [name, spec] of local) console.error(`::error::${pkg.name} depends on ${name}@${spec}, a local path: raise it to a published version before publishing.`);
+            process.exit(local.length > 0 ? 1 : 0);
+          '
       - if: steps.check.outputs.skip != 'true'
         name: Install against the published @dcp-ai/sdk
         run: npm install --no-package-lock
