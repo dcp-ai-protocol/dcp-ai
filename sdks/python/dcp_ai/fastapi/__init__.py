@@ -85,13 +85,13 @@ def _resolve_verifier_policy(verifier_policy: dict[str, Any] | VerifierPolicy | 
         configured = dict(verifier_policy or {})
         merged = {**DEFAULT_VERIFIER_POLICY, **configured}
         overrides = configured.get("risk_overrides", ...)
-        if overrides is not None:
+        if overrides is ... or isinstance(overrides, dict):
             base = (
                 dict.fromkeys(_RISK_TIERS, configured["default_mode"])
                 if "default_mode" in configured
                 else DEFAULT_VERIFIER_POLICY["risk_overrides"]
             )
-            merged["risk_overrides"] = {**base, **(overrides if isinstance(overrides, dict) else {})}
+            merged["risk_overrides"] = {**base, **({} if overrides is ... else overrides)}
         policy = VerifierPolicy.model_validate(merged).model_dump()
     for mode in [policy["default_mode"], *(policy["risk_overrides"] or {}).values()]:
         if mode not in _VERIFICATION_MODES:

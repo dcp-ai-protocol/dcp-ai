@@ -637,6 +637,20 @@ class TestFastAPIMiddlewareV2:
         response = self._post(signed, verifier_policy={"default_mode": "hybrid_required"})
         assert response.status_code == 403
 
+    def test_verifier_policy_is_checked_when_the_middleware_is_built(self):
+        from pydantic import ValidationError
+        from dcp_ai.fastapi import DCPVerifyMiddleware
+
+        app = MagicMock()
+        with pytest.raises(ValidationError):
+            DCPVerifyMiddleware(app, verifier_policy={"default_mod": "hybrid_required"})
+        with pytest.raises(ValidationError):
+            DCPVerifyMiddleware(app, verifier_policy={"risk_overrides": ["hybrid_required"]})
+        with pytest.raises(ValueError, match="verification mode"):
+            DCPVerifyMiddleware(app, verifier_policy={"default_mode": "none"})
+        policy = DCPVerifyMiddleware(app, verifier_policy={"risk_overrides": {"low": "hybrid_required"}}).verifier_policy
+        assert policy["risk_overrides"] == {"low": "hybrid_required", "medium": "hybrid_preferred", "high": "hybrid_required"}
+
     def test_rejects_a_malformed_bundle(self, vectors):
         malformed = copy.deepcopy(vectors["signed_bundle"])
         malformed["bundle"]["intent"] = None
