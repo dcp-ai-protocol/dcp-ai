@@ -164,16 +164,23 @@ function findKeyByKid(keys: KeyEntry[], kid: string): KeyEntry | undefined {
   return keys.find((k) => k.kid === kid);
 }
 
-/** V2-13: a kid is derived from its key entry's alg and raw public key. */
-function kidMatchesKey(key: KeyEntry): boolean {
+/** The bytes of canonical base64 (RFC 4648 § 4, padded, zero trailing bits), or undefined. */
+function canonicalB64Bytes(value: unknown): Uint8Array | undefined {
+  if (typeof value !== 'string' || value.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(value)) return undefined;
+  const bytes = Buffer.from(value, 'base64');
+  return bytes.toString('base64') === value ? new Uint8Array(bytes) : undefined;
+}
+
+/** V2-13: why a key cannot verify a signature (non-canonical key, kid not derived from it), or undefined. */
+function keyIdentityError(key: KeyEntry): string | undefined {
+  const bytes = canonicalB64Bytes(key.public_key_b64);
+  if (!bytes) return `Key ${key.kid} public_key_b64 is not canonical base64 (V2-13)`;
   try {
-    return (
-      typeof key.public_key_b64 === 'string' &&
-      deriveKid(key.alg, new Uint8Array(Buffer.from(key.public_key_b64, 'base64'))) === key.kid
-    );
+    if (deriveKid(key.alg, bytes) === key.kid) return undefined;
   } catch {
-    return false;
+    // An alg deriveKid cannot take is a kid that is not derived.
   }
+  return `Key ${key.kid} is not derived from its public key (V2-13)`;
 }
 
 /** How far in the future a signed session start may be (V2-4), as DCP-04 allows for timestamps. */
@@ -268,9 +275,8 @@ async function checkCompositeSig(
     return fail('pq_only mode requires PQ key, but no PQ key found');
   }
   for (const key of [signerKey, pqKey]) {
-    if (key && !kidMatchesKey(key)) {
-      return fail(`Key ${key.kid} is not derived from its public key (V2-13)`);
-    }
+    const identityError = key && keyIdentityError(key);
+    if (identityError) return fail(identityError);
   }
 
   let result: CompositeVerifyResult;
@@ -410,8 +416,9 @@ async function checkPQCheckpoints(
       continue;
     }
     const range = isObject(cp.event_range) ? cp.event_range : undefined;
-    const from = range ? entries.findIndex((e) => e.audit_id === range.from_audit_id) : -1;
-    const to = range ? entries.findIndex((e) => e.audit_id === range.to_audit_id) : -1;
+    const at = (id: unknown) => (typeof id === 'string' ? entries.findIndex((e) => e.audit_id === id) : -1);
+    const from = at(range?.from_audit_id);
+    const to = at(range?.to_audit_id);
     if (from < 0 || to < from || range?.count !== to - from + 1) {
       errors.push(`${label}: event_range does not match the audit entries`);
       continue;
@@ -567,6 +574,10 @@ async function verifyV2(
     }
   }
 
+  if (policy.max_session_duration_seconds && policy.max_session_duration_seconds > 0 && sessionExpires === undefined) {
+    errors.push('Policy max_session_duration_seconds requires session_expires_at in the manifest');
+    return { verified: false, errors, warnings, details };
+  }
   if (policy.max_session_duration_seconds && policy.max_session_duration_seconds > 0 && sessionExpires !== undefined) {
     if (sessionIssued === undefined) {
       errors.push('Policy max_session_duration_seconds requires session_issued_at in the manifest');
@@ -709,6 +720,12 @@ async function verifyV2(
     signerKids.some((k: unknown, i: number) => k !== signedKids[i])
   ) {
     bundleCheck.errors.push('signature signer kids do not name the bundle signature keys');
+  }
+  if (signature.manifest_hash !== `sha256:${payloadHashHex(bundle.manifest)}`) {
+    bundleCheck.errors.push('signature manifest_hash is not the hash of the manifest');
+  }
+  if (signature.hash_alg !== 'sha256' && signature.hash_alg !== 'sha256+sha3-256') {
+    bundleCheck.errors.push(`signature hash_alg ${String(signature.hash_alg)} is not sha256 or sha256+sha3-256`);
   }
   if (bundleCheck.errors.length > 0) bundleCheck.valid = false;
   errors.push(...bundleCheck.errors.map((e) => `bundle: ${e}`));

@@ -41,6 +41,11 @@ export interface SignBundleV2ClassicalOnlyOptions {
  * The bundle signer is the responsible principal (spec/VERIFICATION.md V2-6):
  * a verifier rejects a signer.id other than the RPR's human_id.
  */
+/** A manifest with an expiry gets the signed session start a maximum session duration is measured from (V2-4). */
+function stampSessionStart(bundle: CitizenshipBundleV2): void {
+  if (bundle.manifest.session_expires_at) bundle.manifest.session_issued_at ??= new Date().toISOString();
+}
+
 function assertPrincipalSigner(bundle: CitizenshipBundleV2, signerId: string): void {
   const humanId = (bundle.responsible_principal_record?.payload as { human_id?: unknown } | undefined)?.human_id;
   if (signerId !== humanId) {
@@ -60,9 +65,8 @@ export async function signBundleV2(
 
   if (sessionExpiresAt) {
     bundle.manifest.session_expires_at = sessionExpiresAt;
-    // The session start a verifier's maximum session duration is measured from.
-    bundle.manifest.session_issued_at ??= new Date().toISOString();
   }
+  stampSessionStart(bundle);
   if (intendedVerifier) {
     bundle.manifest.intended_verifier = intendedVerifier;
   }
@@ -102,6 +106,7 @@ export async function signBundleV2ClassicalOnly(
 ): Promise<SignedBundleV2> {
   const { registry, signerType, signerId, key } = options;
   assertPrincipalSigner(bundle, signerId);
+  stampSessionStart(bundle);
 
   const manifestCanonical = canonicalizeV2(bundle.manifest);
   const manifestBytes = new TextEncoder().encode(manifestCanonical);
