@@ -89,6 +89,14 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
 
+      # The root depends on the workspace SDK until @dcp-ai/sdk 2.2.0 is on npm
+      # (package.json, .npmrc): build it before installing the root.
+      - name: Build the workspace SDK
+        working-directory: sdks/typescript
+        run: |
+          npm install
+          npm run build
+
       - name: Install dependencies
         run: npm install
 
