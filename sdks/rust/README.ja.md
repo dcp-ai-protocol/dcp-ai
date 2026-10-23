@@ -36,14 +36,15 @@ dcp-ai = { version = "2.10", features = ["wasm"] }
 | 正規化JSON v2 + ドメイン分離 | Yes |
 | デュアルハッシュ (SHA-256 + SHA3-256) + Merkleルート | Yes |
 | バンドル検証 (V1 + V2。V2 は検証ポリシーとセキュリティティアを適用、`verify_signed_bundle_v2_with_policy`) | Yes |
+| V2 バンドルの構築と署名 | `wasm` フィーチャー: `wasm_build_bundle` / `wasm_sign_bundle`。ネイティブAPI: 未対応。`tools/interop-matrix/agents/rust` と同様に、`prepare_payload`、`composite_sign`、`audit_events_merkle_root` からマニフェストを組み立ててください |
 | DCP-05 エージェントライフサイクル (コミッショニング / バイタリティ / デコミッショニング) | Yes |
 | DCP-06 デジタル継承 (デジタル遺言、メモリ転送、セレモニー) | Yes |
 | DCP-07 紛争解決 + 仲裁 + 判例 | Yes |
 | DCP-08 権利と義務 + コンプライアンス | Yes |
-| DCP-09 委任 + 認識しきい値 + プリンシパルミラー | Yes |
+| DCP-09 委任 + 検証可能な委任チェーン (`create_sub_mandate`、`verify_mandate_chain`、§3.5) + 認識しきい値 + プリンシパルミラー | Yes |
 | DCP-04 A2A 発見 + ハンドシェイク + セッションID導出 | Yes |
 | DCP-04 A2A AES-256-GCM セッション暗号化 | _後続リリースに延期_ |
-| セッションノンスヘルパー、セキュリティティアエンジン（`compute_security_tier(&intent, Some(&policy_decision))`、spec §14.2）、緊急失効 | Yes |
+| セッションノンスヘルパー、セキュリティティアエンジン（`compute_security_tier(&intent, Some(&policy_decision))`、spec §14.2。`compute_security_tier_with_floor` は委任チェーンのティアを加味する）、緊急失効 | Yes |
 | 遅延PQチェックポイント + `PQCheckpointManager` | Yes |
 | ブラインドRPR、マルチパーティ認可、アルゴリズムアドバイザリヘルパー | Yes |
 | 正規エラーコード (全SDK共通の38種) + `detect_wire_format` | Yes |
@@ -158,6 +159,14 @@ V2には、DCP-05からDCP-09までのすべての成果物のためのSerde由�
 
 すべての構造体は `Debug`、`Clone`、`Serialize`、`Deserialize` を導出します。enumは `#[serde(rename_all = "snake_case")]` を使用します。オプションフィールドは `Option<T>` と `#[serde(skip_serializing_if = "Option::is_none")]` を使用します。
 
+### 委任チェーン (`dcp_ai::v2::delegation`、DCP-09 §3.5)
+
+| 関数 | 説明 |
+|----------|-------------|
+| `create_delegation_mandate_with_options(ed, pq, human_classical, human_pq, params, &MandateChainOptions)` | 人間が署名するルートマンデート。`sub_delegation` と `minimum_security_tier` は任意 |
+| `create_sub_mandate(ed, pq, classical, pq_key, &parent, SubMandateParams { .. })` | 親マンデートのエージェントが `DCP-AI.v2.SubMandate` コンテキストで署名するサブマンデート |
+| `verify_mandate_chain(&chain, &revoked_ids, &MandateChainKeys { human_keys, agent_keys }, now_millis)` | チェーンをルートから順に、オフラインで検証 (人間まで遡る署名、リンクと深さ、`sub_delegation`、入れ子になった有効期間、アクション・`data_classes`・`limits` の権限の減衰、ティアの下限、失効)。`MandateChainResult { valid, errors, depth, effective_tier }` を返す |
+
 ### フィーチャー `wasm`
 
 `wasm` フィーチャーが有効化されている場合、crateはWebAssemblyバインディングを公開します。
@@ -168,6 +177,8 @@ fn wasm_verify_signed_bundle(json: &str, pub_key: Option<String>) -> String;
 fn wasm_verify_signed_bundle_v2(json: &str, policy_json: Option<String>) -> String; // default policy when None; V1 bundles are rejected under a policy
 fn wasm_hash_object(json: &str) -> String;
 fn wasm_generate_keypair() -> String;
+fn wasm_build_bundle(rpr_json: &str, passport_json: &str, intent_json: &str, policy_json: &str, audit_entries_json: &str, session_nonce: &str /* , … */) -> String;
+fn wasm_sign_bundle(bundle_json: &str, classical_sk_b64: &str, classical_kid: &str, pq_sk_b64: &str, pq_kid: &str) -> String;
 ```
 
 WASM向けにコンパイル:
@@ -196,7 +207,9 @@ cargo build --target wasm32-unknown-unknown --features wasm
 
 - `serde` + `serde_json` — シリアライゼーション
 - `sha2` — SHA-256
+- `sha3` — SHA3-256（二重ハッシュチェーン）
 - `ed25519-dalek` — Ed25519暗号
+- `fips203` / `fips204` / `fips205` — ML-KEM-768、ML-DSA-65、SLH-DSA-192f（FIPS 203 / 204 / 205）
 - `rand` — 乱数生成
 - `base64` — Base64エンコーディング
 - `hex` — Hexエンコーディング

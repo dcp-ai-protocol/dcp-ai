@@ -6,7 +6,7 @@
 
 ### 为开放网络中的 AI 智能体提供可移植的问责层
 
-[![Protocol](https://img.shields.io/badge/protocol-v2.0-blue)](#protocol-specifications)
+[![Protocol](https://img.shields.io/badge/protocol-v2.0-blue)](#协议规范)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/dcp-ai-protocol/dcp-ai/ci.yml?branch=main&label=CI)](https://github.com/dcp-ai-protocol/dcp-ai/actions/workflows/ci.yml)
 [![Coverage](https://codecov.io/gh/dcp-ai-protocol/dcp-ai/graph/badge.svg)](https://codecov.io/gh/dcp-ai-protocol/dcp-ai)
@@ -91,7 +91,7 @@ DCP 在概念上分为三个层次：
 | [DCP-06](spec/DCP-06.md) | 数字继承与继任 | 数字遗嘱、记忆转移、继任者指定 |
 | [DCP-07](spec/DCP-07.md) | 冲突解决与争议仲裁 | 争议、升级层级、仲裁、判例 |
 | [DCP-08](spec/DCP-08.md) | 权利与义务框架 | 权利声明、义务记录、违规报告 |
-| [DCP-09](spec/DCP-09.md) | 个人代表与委派 | 委派授权、感知阈值、主体镜像 |
+| [DCP-09](spec/DCP-09.md) | 个人代表与委派 | 委派授权、可一直追溯到人类的可验证子委派链、感知阈值、主体镜像 |
 | [DCP-AI v2.0](spec/DCP-AI-v2.0.md) | 后量子规范性规范 | 完整 v2.0 规范，包含混合后量子加密、4 层安全模型 |
 
 另请参阅：[核心规范](spec/core/dcp-core.md) | [Profile 概览](spec/profiles/)
@@ -232,7 +232,7 @@ graph TB
 | **TypeScript** | `@dcp-ai/sdk` | BundleBuilder、混合后量子加密、JSON Schema 验证、Vitest | [sdks/typescript/](sdks/typescript/README.md) |
 | **Python** | `dcp-ai` | Pydantic v2 模型、CLI (Typer)、后量子可选依赖、可选插件 | [sdks/python/](sdks/python/README.md) |
 | **Go** | `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` | 原生类型、混合签名、完整验证流水线 | [sdks/go/](sdks/go/README.md) |
-| **Rust** | `dcp-ai` | serde、ed25519-dalek + pqcrypto、可选 WASM 特性 | [sdks/rust/](sdks/rust/README.md) |
+| **Rust** | `dcp-ai` | serde、ed25519-dalek + fips203/204/205、可选 WASM 特性 | [sdks/rust/](sdks/rust/README.md) |
 | **WASM** | `@dcp-ai/wasm` | 浏览器验证、WebAssembly 中的后量子加密，由 Rust 编译 | [sdks/wasm/](sdks/wasm/README.md) |
 
 ---
@@ -251,8 +251,8 @@ graph TB
 | **Agno** | [![PyPI](https://img.shields.io/pypi/v/agno-dcp?label=agno-dcp&logo=pypi&logoColor=white&color=blue)](https://pypi.org/project/agno-dcp/) | `DCPAgent`、`DCPTeam`、`DCPWorkflow` 封装器（独立包） | [agno-dcp 仓库](https://github.com/dcp-ai-protocol/agno-dcp) |
 | **OpenClaw** | [![npm](https://img.shields.io/npm/v/@dcp-ai/openclaw?label=%40dcp-ai%2Fopenclaw&logo=npm)](https://www.npmjs.com/package/@dcp-ai/openclaw) | 插件 + SKILL.md，6 个智能体工具 | [integrations/openclaw/](integrations/openclaw/README.md) |
 | **W3C DID/VC** | [![npm](https://img.shields.io/npm/v/@dcp-ai/w3c-did?label=%40dcp-ai%2Fw3c-did&logo=npm)](https://www.npmjs.com/package/@dcp-ai/w3c-did) | DID Document ↔ DCP 身份桥接，VC 签发 | [integrations/w3c-did/](integrations/w3c-did/README.md) |
-| **Google A2A** | [![npm](https://img.shields.io/npm/v/@dcp-ai/google-a2a?label=%40dcp-ai%2Fgoogle-a2a&logo=npm)](https://www.npmjs.com/package/@dcp-ai/google-a2a) | A2A Agent Card ↔ DCP 身份，任务治理 | [integrations/google-a2a/](integrations/google-a2a/README.md) |
-| **Anthropic MCP** | [![npm](https://img.shields.io/npm/v/@dcp-ai/anthropic-mcp?label=%40dcp-ai%2Fanthropic-mcp&logo=npm)](https://www.npmjs.com/package/@dcp-ai/anthropic-mcp) | MCP Tool ↔ DCP 意图映射，服务器中间件 | [integrations/anthropic-mcp/](integrations/anthropic-mcp/README.md) |
+| **Google A2A** | [![npm](https://img.shields.io/npm/v/@dcp-ai/google-a2a?label=%40dcp-ai%2Fgoogle-a2a&logo=npm)](https://www.npmjs.com/package/@dcp-ai/google-a2a) | A2A Agent Card 中内嵌已签名的 DCP 护照（`verifyAgentCardPassport`），任务映射为意图 | [integrations/google-a2a/](integrations/google-a2a/README.md) |
+| **Anthropic MCP** | [![npm](https://img.shields.io/npm/v/@dcp-ai/anthropic-mcp?label=%40dcp-ai%2Fanthropic-mcp&logo=npm)](https://www.npmjs.com/package/@dcp-ai/anthropic-mcp) | 每次 MCP 工具调用生成一张已签名的 DCP 回执（`withDcpReceipt`），DCP 工具与资源 | [integrations/anthropic-mcp/](integrations/anthropic-mcp/README.md) |
 | **AutoGen** | [![npm](https://img.shields.io/npm/v/@dcp-ai/autogen?label=%40dcp-ai%2Fautogen&logo=npm)](https://www.npmjs.com/package/@dcp-ai/autogen) | AutoGen Agent ↔ DCP 封装器，群聊治理 | [integrations/autogen/](integrations/autogen/README.md) |
 
 ---
@@ -352,6 +352,14 @@ cd docker && docker compose up -d
 | [SECURITY_MODEL](docs/SECURITY_MODEL.md) | 威胁模型、攻击向量、保护层 |
 | [STORAGE_AND_ANCHORING](docs/STORAGE_AND_ANCHORING.md) | P2P 存储、可选区块链锚定 |
 
+### 测试与保障
+
+| 工具 | 描述 |
+|------|-------------|
+| [互操作矩阵](tools/interop-matrix/README.md) | 运行在四个 SDK（以及参考验证器）上的实时智能体相互创建、签名并验证彼此的公民凭证包，包括原样传输的和在传输中被篡改的 |
+| [差分模糊测试器](tools/difffuzz/README.md) | 将同一个经过变异的已签名凭证包送入四个 SDK 的验证器；任何结果分歧都视为一项发现 |
+| [共享测试向量](tests/interop/v2/) | 每个 SDK 都必须以相同方式接受或拒绝的凭证包、授权链和攻击用例 |
+
 ### 指南
 
 | 指南 | 描述 |
@@ -365,6 +373,7 @@ cd docker && docker compose up -d
 | 文档 | 描述 |
 |----------|-------------|
 | [NIST_CONFORMITY](docs/NIST_CONFORMITY.md) | NIST 后量子密码学一致性 |
+| [EU_AI_ACT_MAPPING](docs/EU_AI_ACT_MAPPING.md) | 欧盟《人工智能法案》中日志记录、人工监督和记录保存义务与 DCP 工件的对应关系 |
 | [ROADMAP](ROADMAP.md) | 项目演进路线图 |
 
 ### 社区
@@ -407,6 +416,8 @@ dcp-ai-genesis/
 │   └── profiles/            # Profile specifications (crypto, a2a, governance)
 ├── schemas/                 # JSON Schemas (draft 2020-12, v2 includes DCP-05–09)
 ├── tools/                   # Validation, conformance, crypto + Merkle helpers
+│   ├── interop-matrix/      # Live interoperability between agents on the four SDKs
+│   └── difffuzz/            # Differential fuzzer of the four V2 verifiers
 ├── tests/                   # Conformance tests and fixtures
 ├── bin/dcp.js               # Reference CLI
 ├── cli/                     # Interactive CLI wizard (@dcp-ai/cli)
@@ -454,6 +465,10 @@ npm test
 
 # Run protocol conformance suite
 npm run conformance
+
+# Cross-SDK checks (build sdks/typescript first; needs Python, Go and Rust)
+node tools/interop-matrix/run.mjs
+node tools/difffuzz/run.mjs
 
 # Start verification server (port 3000)
 npm run server

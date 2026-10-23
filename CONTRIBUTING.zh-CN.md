@@ -10,7 +10,7 @@
 
 - **Node.js** >= 18（核心协议与 TypeScript SDK 必需）
 - **Python** >= 3.12（Python SDK 必需）
-- **Go** >= 1.21（Go SDK 必需）
+- **Go** >= 1.25（Go SDK 必需）
 - **Rust**（稳定工具链，Rust SDK 必需）
 - **Git**
 
@@ -82,6 +82,18 @@ cd sdks/wasm
 npm test
 ```
 
+### 跨 SDK
+
+每个 SDK 都在自己的测试套件中读取 `tests/interop/v2/` 中的共享测试向量。另有两个工具用于让各 SDK 相互检验
+（需先构建 `sdks/typescript` 并安装 `sdks/python`；Go 和 Rust 必须在 `PATH` 中）：
+
+```bash
+node tools/interop-matrix/run.mjs   # agents on the four SDKs sign and verify each other's bundles
+node tools/difffuzz/run.mjs         # the same mutated bundle through the four verifiers
+```
+
+两者都会在每个 Pull Request 的 CI 中运行。
+
 ## 代码风格
 
 本项目使用自动化工具执行一致的代码风格：
@@ -118,7 +130,8 @@ npx eslint --fix .
 - [ ] 所有现有测试通过
 - [ ] 为新功能添加了新测试
 - [ ] 代码遵循项目风格指南
-- [ ] 如适用，已更新文档
+- [ ] 如适用，已更新文档，且覆盖该文档的所有语言版本
+- [ ] 涉及签名、哈希、规范化或验证的变更：已更新共享测试向量，且互操作矩阵通过
 - [ ] 提交信息遵循下方格式
 
 ## 提交信息格式
@@ -167,6 +180,7 @@ chore(ci): add code coverage to TypeScript SDK workflow
 - 所有新特性必须包含相应的测试。
 - bug 修复应包含一个若先前存在就能捕获该 bug 的回归测试。
 - `tests/conformance/` 中的一致性测试在所有实现之间验证协议合规性。
+- 每个 SDK 都执行的规则，需在 `tests/interop/v2/` 中有对应的共享测试向量，使四个 SDK 针对同一用例进行测试。
 - SDK 测试应涵盖凭证包创建、签名、验证以及错误情况。
 - PR 合并前 CI 必须通过。测试失败不会被抑制 —— 测试失败则构建失败。
 

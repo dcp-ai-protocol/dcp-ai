@@ -105,7 +105,7 @@ const bundle = new BundleBuilderV2()
 
 | Função | Descrição |
 |--------|-----------|
-| `computeSecurityTier(intent, policyDecision?)` | Calcula um `SecurityTier` (routine, standard, elevated, maximum) a partir de um intent e do `risk_score` da decisão de política (spec §14.2); valores desconhecidos resultam em `elevated` |
+| `computeSecurityTier(intent, policyDecision?, mandateChainTier?)` | Calcula um `SecurityTier` (routine, standard, elevated, maximum) a partir de um intent e do `risk_score` da decisão de política (spec §14.2); o `effective_tier` de uma cadeia de delegação verificada só pode elevá-lo; valores desconhecidos resultam em `elevated` |
 | `maxTier(a, b)` | Retorna o maior entre dois níveis de segurança |
 | `tierToVerificationMode(tier)` | Mapeia um nível ao modo de verificação exigido |
 | `tierToCheckpointInterval(tier)` | Mapeia um nível ao intervalo do checkpoint PQ |
@@ -163,7 +163,7 @@ const bundle = new BundleBuilderV2()
 | `createCloseMessage(sessionId, reason, finalSequence, auditSummaryHash)` | Cria uma mensagem de encerramento de sessão |
 | `createSession(sessionId, sessionKey, localAgentId, remoteAgentId, securityTier, rekeyingInterval?)` | Cria uma sessão A2A criptografada |
 | `encryptMessage(session, payload)` | Criptografa uma mensagem dentro de uma sessão A2A |
-| `decryptMessage(session, message)` | Descriptografa uma mensagem dentro de uma sessão A2A |
+| `decryptMessage(session, message)` | Descriptografa uma mensagem dentro de uma sessão A2A; cada sequência é aceita uma única vez dentro da janela de 1000 mensagens (DCP-04 §8.4) |
 | `needsRekeying(session)` | Verifica se uma sessão precisa de rotação de chave |
 | `generateResumeProof(session, lastSeenSequence)` | Gera uma prova para retomada de sessão |
 | `verifyResumeProof(session, lastSeenSequence, proof)` | Verifica uma prova de retomada de sessão |
@@ -212,6 +212,39 @@ const bundle = new BundleBuilderV2()
 | `cborEncode(value)` | Codifica um valor em bytes CBOR |
 | `cborDecode(data)` | Decodifica bytes CBOR em um valor |
 
+### Cadeias de Delegação (DCP-09 §3.5)
+
+Um humano delega a um agente com um mandato raiz; esse agente pode repassar parte da sua autoridade a outro agente
+com um submandato que ele mesmo assina, e assim por diante. Cada salto só pode restringir o que recebeu, e a cadeia inteira
+é verificada offline até o humano.
+
+| Função | Descrição |
+|--------|-----------|
+| `createDelegationMandate(registry, humanKeys, params)` | Mandato raiz assinado pelo humano (`human_composite_sig`); `sub_delegation` e `minimum_security_tier` são opcionais |
+| `createSubMandate(registry, delegatorKeys, parent, params)` | Submandato assinado pelo agente do mandato pai (`delegator_composite_sig`, contexto `DCP-AI.v2.SubMandate`) |
+| `verifyMandateChain(registry, chain, revokedIds, keys, now?)` | Verifica a cadeia começando pela raiz: assinaturas até o humano, vínculos com o pai e profundidade, `sub_delegation`, janelas de validade aninhadas, atenuação (ações, `data_classes` e `limits` só se restringem), o piso de nível de segurança e a revogação; retorna `{ valid, errors, depth, effective_tier }` |
+
+```typescript
+import { createSubMandate, verifyMandateChain, computeSecurityTier } from '@dcp-ai/sdk';
+
+const sub = await createSubMandate(registry, orchestratorKeys, rootMandate, {
+  mandate_id: 'mandate:sub-1',
+  session_nonce: nonce,
+  agent_id: 'agent:subagent',
+  authority_scope: [{ domain: 'email', actions_permitted: ['read'], data_classes: ['contact_info'], limits: { max_messages_per_day: 10 } }],
+  valid_from: '2026-03-01T00:00:00Z',
+  valid_until: '2026-06-01T00:00:00Z',
+  revocable: true,
+});
+
+const result = await verifyMandateChain(registry, [rootMandate, sub], new Set(), {
+  human_keys: humanKeyEntries,
+  agent_keys: { 'agent:orchestrator': orchestratorKeyEntries },
+});
+// The chain's tier floor can only raise the tier of an action taken under it.
+const tier = computeSecurityTier(intent, policyDecision, result.valid ? result.effective_tier : null);
+```
+
 ### DCP-05–09: Módulos Estendidos do Protocolo
 
 | Módulo | Spec | Exports Principais |
@@ -238,17 +271,19 @@ const cert: CommissioningCertificate = {
   conditions: ['Must complete onboarding within 30 days'],
 };
 
-// Example: Delegation mandate
-import { DelegationMandate, AwarenessThreshold } from '@dcp-ai/sdk';
+// Example: Delegation mandate (signed by the human)
+import { createDelegationMandate } from '@dcp-ai/sdk';
 
-const mandate: DelegationMandate = {
+const mandate = await createDelegationMandate(registry, humanKeys, {
   mandate_id: 'mandate-001',
-  principal_id: 'human-001',
-  delegate_id: 'agent-001',
-  authority_scope: [{ domain: 'email', actions: ['read', 'draft'], constraints: {} }],
+  session_nonce: nonce,
+  human_id: 'rpr:human-001',
+  agent_id: 'agent:agent-001',
+  authority_scope: [{ domain: 'email', actions_permitted: ['read', 'draft'], limits: { max_messages_per_day: 50 } }],
   valid_from: '2026-03-01T00:00:00Z',
   valid_until: '2026-06-01T00:00:00Z',
-};
+  revocable: true,
+});
 ```
 
 ## Tipos V2
@@ -295,6 +330,7 @@ import { createSession, encryptMessage, decryptMessage } from '@dcp-ai/sdk';
 const session = createSession(sessionId, sessionKey, 'agent:a', 'agent:b', 'elevated');
 const encrypted = encryptMessage(session, { action: 'negotiate', data: {...} });
 const decrypted = decryptMessage(remoteSession, encrypted);
+// The same message delivered again throws: each sequence is accepted once.
 ```
 
 ## Observabilidade

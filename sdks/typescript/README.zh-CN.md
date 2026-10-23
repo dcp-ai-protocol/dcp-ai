@@ -105,7 +105,7 @@ const bundle = new BundleBuilderV2()
 
 | 函数 | 描述 |
 |----------|-------------|
-| `computeSecurityTier(intent, policyDecision?)` | 根据 intent 和策略决策的 `risk_score` 计算 `SecurityTier`（routine、standard、elevated、maximum）（spec §14.2）；未知值按 `elevated` 处理 |
+| `computeSecurityTier(intent, policyDecision?, mandateChainTier?)` | 根据 intent 和策略决策的 `risk_score` 计算 `SecurityTier`（routine、standard、elevated、maximum）（spec §14.2）；已验证委派链的 `effective_tier` 只能提高该等级；未知值按 `elevated` 处理 |
 | `maxTier(a, b)` | 返回两个安全等级中较高的一个 |
 | `tierToVerificationMode(tier)` | 将等级映射为所需的验证模式 |
 | `tierToCheckpointInterval(tier)` | 将等级映射为后量子检查点间隔 |
@@ -163,7 +163,7 @@ const bundle = new BundleBuilderV2()
 | `createCloseMessage(sessionId, reason, finalSequence, auditSummaryHash)` | 创建会话关闭消息 |
 | `createSession(sessionId, sessionKey, localAgentId, remoteAgentId, securityTier, rekeyingInterval?)` | 创建加密的 A2A 会话 |
 | `encryptMessage(session, payload)` | 在 A2A 会话内加密消息 |
-| `decryptMessage(session, message)` | 在 A2A 会话内解密消息 |
+| `decryptMessage(session, message)` | 在 A2A 会话内解密消息；在 1000 条消息的窗口内，每个序列号只接受一次（DCP-04 §8.4） |
 | `needsRekeying(session)` | 检查会话是否需要密钥轮换 |
 | `generateResumeProof(session, lastSeenSequence)` | 为会话恢复生成证明 |
 | `verifyResumeProof(session, lastSeenSequence, proof)` | 验证会话恢复证明 |
@@ -212,6 +212,38 @@ const bundle = new BundleBuilderV2()
 | `cborEncode(value)` | 将值编码为 CBOR 字节 |
 | `cborDecode(data)` | 将 CBOR 字节解码为值 |
 
+### 委派链 (DCP-09 §3.5)
+
+人类通过根授权将权限委派给一个智能体；该智能体可以通过自己签名的子授权，将其部分权限再委派给另一个智能体，依此类推。
+每一跳只能收窄其所获得的权限，整条链可离线验证，一直追溯到人类。
+
+| 函数 | 描述 |
+|----------|-------------|
+| `createDelegationMandate(registry, humanKeys, params)` | 由人类签名的根授权（`human_composite_sig`）；`sub_delegation` 和 `minimum_security_tier` 为可选项 |
+| `createSubMandate(registry, delegatorKeys, parent, params)` | 由父授权中的智能体签名的子授权（`delegator_composite_sig`，`DCP-AI.v2.SubMandate` 上下文） |
+| `verifyMandateChain(registry, chain, revokedIds, keys, now?)` | 验证以根授权开头的链：一直追溯到人类的签名、父级链接与深度、`sub_delegation`、嵌套的有效期窗口、权限衰减（动作、`data_classes` 和 `limits` 只能收窄）、安全等级下限以及撤销；返回 `{ valid, errors, depth, effective_tier }` |
+
+```typescript
+import { createSubMandate, verifyMandateChain, computeSecurityTier } from '@dcp-ai/sdk';
+
+const sub = await createSubMandate(registry, orchestratorKeys, rootMandate, {
+  mandate_id: 'mandate:sub-1',
+  session_nonce: nonce,
+  agent_id: 'agent:subagent',
+  authority_scope: [{ domain: 'email', actions_permitted: ['read'], data_classes: ['contact_info'], limits: { max_messages_per_day: 10 } }],
+  valid_from: '2026-03-01T00:00:00Z',
+  valid_until: '2026-06-01T00:00:00Z',
+  revocable: true,
+});
+
+const result = await verifyMandateChain(registry, [rootMandate, sub], new Set(), {
+  human_keys: humanKeyEntries,
+  agent_keys: { 'agent:orchestrator': orchestratorKeyEntries },
+});
+// The chain's tier floor can only raise the tier of an action taken under it.
+const tier = computeSecurityTier(intent, policyDecision, result.valid ? result.effective_tier : null);
+```
+
 ### DCP-05–09：扩展协议模块
 
 | 模块 | 规范 | 关键导出 |
@@ -238,17 +270,19 @@ const cert: CommissioningCertificate = {
   conditions: ['Must complete onboarding within 30 days'],
 };
 
-// Example: Delegation mandate
-import { DelegationMandate, AwarenessThreshold } from '@dcp-ai/sdk';
+// Example: Delegation mandate (signed by the human)
+import { createDelegationMandate } from '@dcp-ai/sdk';
 
-const mandate: DelegationMandate = {
+const mandate = await createDelegationMandate(registry, humanKeys, {
   mandate_id: 'mandate-001',
-  principal_id: 'human-001',
-  delegate_id: 'agent-001',
-  authority_scope: [{ domain: 'email', actions: ['read', 'draft'], constraints: {} }],
+  session_nonce: nonce,
+  human_id: 'rpr:human-001',
+  agent_id: 'agent:agent-001',
+  authority_scope: [{ domain: 'email', actions_permitted: ['read', 'draft'], limits: { max_messages_per_day: 50 } }],
   valid_from: '2026-03-01T00:00:00Z',
   valid_until: '2026-06-01T00:00:00Z',
-};
+  revocable: true,
+});
 ```
 
 ## V2 类型
@@ -295,6 +329,7 @@ import { createSession, encryptMessage, decryptMessage } from '@dcp-ai/sdk';
 const session = createSession(sessionId, sessionKey, 'agent:a', 'agent:b', 'elevated');
 const encrypted = encryptMessage(session, { action: 'negotiate', data: {...} });
 const decrypted = decryptMessage(remoteSession, encrypted);
+// The same message delivered again throws: each sequence is accepted once.
 ```
 
 ## 可观测性
