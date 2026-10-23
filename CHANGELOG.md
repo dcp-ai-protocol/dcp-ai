@@ -15,7 +15,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   same bytes; 13 new `must_reject` vectors cover it.
 - V2 verifiers in all four SDKs accepted bundles that the signatures alone allowed but the
   protocol does not. Reported by an external review and confirmed by our own; the reference
-  verifier `lib/verify.js` gets the fixes with the next `@dcp-ai/sdk` release.
+  verifier `lib/verify.js` runs the fixed verifier through the workspace SDK until 2.2.0 is on npm
+  (see Changed).
   - **Any agent could claim any principal.** The bundle signature verified with the passport keys
     as well as the RPR `binding_keys`, and the agent signs its own passport. Pairing a published,
     signed RPR with a new passport and keys gave a verified bundle without the principal's private
@@ -53,8 +54,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     `must_reject_bundles` cases, 4 `must_reject` mutations of the unsigned signature block and 8
     `must_accept_bundles` controls. A case may carry `verifier_policy_overrides`.
   - `lib/verify.js` pins a `dcp verify-bundle` key among the RPR `binding_keys`, and every entry
-    under the signing kid must carry the pinned key, so the pin holds while the published SDK
-    still looks the signer up in the passport first.
+    under the signing kid must carry the pinned key, so the pin also holds with the published SDK
+    2.1.1, which looks the signer up in the passport first.
 - `@dcp-ai/express` (`dcpVerify`), `@dcp-ai/openclaw` (`dcp_verify_bundle`) and the Python FastAPI
   middleware (`dcp_ai.fastapi.DCPVerifyMiddleware`) accepted V2 signed bundles without verifying any
   signature: they checked only the bundle's structure and session nonces (the FastAPI middleware
