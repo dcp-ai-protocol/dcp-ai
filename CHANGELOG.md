@@ -255,11 +255,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   verify V2 bundles with `verify_signed_bundle_v2` and an Ed25519 / ML-DSA-65 / SLH-DSA-192f
   registry built once, under a verifier policy the caller sets (`DCPTool(verifier_policy=...)`,
   `handle_dcp_tool_call(..., verifier_policy=...)`, over `DEFAULT_VERIFIER_POLICY`), and return the
-  verifier's errors. A V1 bundle is accepted only under the V2-10 rule of the FastAPI middleware:
-  the policy allows V1 bundles and would accept a classical-only bundle for its risk tier and
-  security tier. The sync entry points work inside a running event loop (the verification runs on
-  a worker thread), `DCPTool.arun` awaits it, and the new `averify_bundle_tool_call` is the async
-  form of the OpenAI tool call. Both pass every case of `tests/interop/v2/bundle_vectors.json`.
+  verifier's errors, at most 20 errors and 20 warnings of 500 characters each, with the control and
+  format characters of bundle-supplied text (an `agent_id`, an invalid timestamp) escaped, so a
+  bundle cannot put megabytes or new lines into the model's context. A V1 bundle is accepted only
+  under the V2-10 rule of the FastAPI middleware, now shared by all three entry points
+  (`dcp_ai._verify_any`) and extended to the whole policy: the policy allows V1 bundles, accepts
+  ed25519 (in `accepted_classical_algs`, not in `advisory_rejected_algs`), requires no audience
+  binding, session expiry or maximum session duration (a V1 bundle has no `intended_verifier` and
+  no session window), and would accept a classical-only bundle for its risk tier and security
+  tier; the FastAPI middleware applies the added conditions too. A V1 bundle whose artifacts are
+  not objects, or whose `audit_entries` is not a list of objects, is refused in all three (the
+  FastAPI middleware answered 500 for a non-object `agent_passport`, now 403), and
+  `dcp_ai.verify.verify_signed_bundle` returns an error instead of raising on a malformed
+  signature block, key or audit trail. A `VerifierPolicy` instance is validated like a dict, so
+  one built with `model_construct` or changed by assignment cannot carry an invalid value. The
+  sync entry points work inside a running event loop (the verification runs on a worker thread)
+  and run on a private loop, leaving the thread's current event loop as it was; `DCPTool.arun`
+  awaits the verification, and the new `averify_bundle_tool_call` is the async form of the OpenAI
+  tool call. Both pass every case of `tests/interop/v2/bundle_vectors.json`.
 - Go SDK: `BundleManifest` had no `intended_verifier`, so a manifest decoded into it and encoded
   again lost the field and its signature no longer verified. The field is there now
   (`IntendedVerifier`, omitted when empty); a test round-trips a manifest with every schema field.

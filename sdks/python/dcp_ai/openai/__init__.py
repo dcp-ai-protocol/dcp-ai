@@ -27,7 +27,13 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 from uuid import uuid4
 
-from dcp_ai._verify_any import resolve_verifier_policy, run_sync, verify_any_signed_bundle
+from dcp_ai._verify_any import (
+    bounded_result,
+    printable,
+    resolve_verifier_policy,
+    run_sync,
+    verify_any_signed_bundle,
+)
 from dcp_ai.v2.models import (
     IntentV2,
     AuditEventV2,
@@ -178,18 +184,19 @@ async def averify_bundle_tool_call(
 
     A V2 bundle is verified by verify_signed_bundle_v2 under `verifier_policy` (a
     dict of VerifierPolicy fields set over DEFAULT_VERIFIER_POLICY, or a full
-    VerifierPolicy); a V1 bundle only where that policy would accept a
-    classical-only bundle (VERIFICATION.md V2-10). The result carries
-    "verified", "dcp_version", "errors" and "warnings" (and the V2 "details").
-    An invalid verifier_policy raises.
+    VerifierPolicy); a V1 bundle only where that policy would accept it
+    (VERIFICATION.md V2-10; dcp_ai._verify_any.v1_refusal). The result carries
+    "verified", "dcp_version", "errors" and "warnings" (and the V2 "details"),
+    bounded and with bundle-supplied text escaped (bounded_result). An invalid
+    verifier_policy raises.
     """
     policy = resolve_verifier_policy(verifier_policy)
     try:
         signed_bundle = json.loads(arguments.get("signed_bundle_json", "{}"))
-        result = await verify_any_signed_bundle(signed_bundle, policy)
+        result = bounded_result(await verify_any_signed_bundle(signed_bundle, policy))
         return json.dumps(result)
     except Exception as e:
-        return json.dumps({"verified": False, "errors": [str(e)]})
+        return json.dumps({"verified": False, "errors": [printable(str(e))]})
 
 
 def handle_dcp_tool_call(

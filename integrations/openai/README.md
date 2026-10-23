@@ -136,11 +136,16 @@ Processes DCP tool calls returned by OpenAI.
 `dcp_verify_bundle` verifies a V2 bundle with `verify_signed_bundle_v2` from `dcp_ai.v2` under
 `verifier_policy`: a dict of `VerifierPolicy` fields set over `DEFAULT_VERIFIER_POLICY` (a
 `default_mode` without `risk_overrides` applies to every risk tier), or a full `VerifierPolicy`;
-the default is `DEFAULT_VERIFIER_POLICY`. A V1 bundle, which has no post-quantum signature, is
-accepted only when the policy has `allow_v1_bundles` and would accept a classical-only bundle for
-its risk tier and security tier (`spec/VERIFICATION.md` V2-10). The result is JSON with
-`verified`, `dcp_version`, the verifier's `errors` and `warnings` and, for V2, its `details`. It
-works with or without a running event loop; async code can await
+the default is `DEFAULT_VERIFIER_POLICY`. A V1 bundle, which has an Ed25519 signature only, no
+intended_verifier and no session window, is accepted only when the policy has `allow_v1_bundles`,
+accepts ed25519 (`accepted_classical_algs`, no `advisory_rejected_algs` entry), requires no
+audience binding, session expiry or maximum session duration, and would accept a classical-only
+bundle for its risk tier and security tier (`spec/VERIFICATION.md` V2-10); its artifacts must be
+objects. The result is JSON with
+`verified`, `dcp_version`, the verifier's `errors` and `warnings` (at most 20 each, of 500
+characters) and, for V2, its `details` (each value bounded the same way), with the control and
+format characters of bundle-supplied text escaped. It works with or without a running event loop,
+and leaves the thread's current event loop as it was; async code can await
 `averify_bundle_tool_call(arguments, verifier_policy)` instead.
 
 ```python
