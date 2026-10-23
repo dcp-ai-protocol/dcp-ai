@@ -36,7 +36,7 @@ dcp-ai = { version = "2.10", features = ["wasm"] }
 | Canonical JSON v2 + domain separation | Yes |
 | Dual hash (SHA-256 + SHA3-256) + Merkle roots | Yes |
 | Bundle verification (V1 + V2; V2 under a verifier policy and the security tier, `verify_signed_bundle_v2_with_policy`) | Yes |
-| V2 bundle building & signing | `wasm` feature: `wasm_build_bundle` / `wasm_sign_bundle`. Native API: not yet; assemble the manifest from `prepare_payload`, `composite_sign` and `audit_events_merkle_root`, as `tools/interop-matrix/agents/rust` does |
+| V2 bundle building & signing (`dcp_ai::v2::bundle`: `build_bundle_v2`, `sign_bundle_v2`; the `wasm` feature's `wasm_build_bundle` / `wasm_sign_bundle` call them) | Yes |
 | DCP-05 agent lifecycle (commissioning / vitality / decommissioning) | Yes |
 | DCP-06 digital succession (testament, memory transfer, ceremony) | Yes |
 | DCP-07 dispute resolution + arbitration + jurisprudence | Yes |
@@ -158,6 +158,13 @@ V2 includes Serde-derived structs for all DCP-05 through DCP-09 artifacts:
 Domain separation constants: `CTX_LIFECYCLE`, `CTX_SUCCESSION`, `CTX_DISPUTE`, `CTX_RIGHTS`, `CTX_DELEGATION`, `CTX_AWARENESS`
 
 All structs derive `Debug`, `Clone`, `Serialize`, `Deserialize`. Enums use `#[serde(rename_all = "snake_case")]`. Optional fields use `Option<T>` with `#[serde(skip_serializing_if = "Option::is_none")]`.
+
+### Bundles (`dcp_ai::v2::bundle`)
+
+| Function | Description |
+|----------|-------------|
+| `build_bundle_v2(&rpr, &passport, &intent, &policy, &audit_entries, session_nonce)` | Builds the V2 bundle from the four `SignedPayload`s and the audit trail. It checks each `payload_hash` and the `session_nonce` of every artifact and audit entry, and writes the manifest with both audit Merkle roots; an empty trail gets roots of 64 zeros |
+| `sign_bundle_v2(bundle, &classical, &pq)` | Composite-signs the manifest under `CTX_BUNDLE` and returns `{bundle, signature}`, with `signer.id` the RPR's `human_id`. Put `session_expires_at` or `intended_verifier` in the manifest before signing |
 
 ### Delegation Chains (`dcp_ai::v2::delegation`, DCP-09 §3.5)
 

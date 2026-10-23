@@ -36,7 +36,7 @@ dcp-ai = { version = "2.10", features = ["wasm"] }
 | 正規化JSON v2 + ドメイン分離 | Yes |
 | デュアルハッシュ (SHA-256 + SHA3-256) + Merkleルート | Yes |
 | バンドル検証 (V1 + V2。V2 は検証ポリシーとセキュリティティアを適用、`verify_signed_bundle_v2_with_policy`) | Yes |
-| V2 バンドルの構築と署名 | `wasm` フィーチャー: `wasm_build_bundle` / `wasm_sign_bundle`。ネイティブAPI: 未対応。`tools/interop-matrix/agents/rust` と同様に、`prepare_payload`、`composite_sign`、`audit_events_merkle_root` からマニフェストを組み立ててください |
+| V2 バンドルの構築と署名（`dcp_ai::v2::bundle`: `build_bundle_v2`、`sign_bundle_v2`。`wasm` フィーチャーの `wasm_build_bundle` / `wasm_sign_bundle` はこれらを呼び出します） | はい |
 | DCP-05 エージェントライフサイクル (コミッショニング / バイタリティ / デコミッショニング) | Yes |
 | DCP-06 デジタル継承 (デジタル遺言、メモリ転送、セレモニー) | Yes |
 | DCP-07 紛争解決 + 仲裁 + 判例 | Yes |
@@ -158,6 +158,13 @@ V2には、DCP-05からDCP-09までのすべての成果物のためのSerde由�
 ドメイン分離定数: `CTX_LIFECYCLE`、`CTX_SUCCESSION`、`CTX_DISPUTE`、`CTX_RIGHTS`、`CTX_DELEGATION`、`CTX_AWARENESS`
 
 すべての構造体は `Debug`、`Clone`、`Serialize`、`Deserialize` を導出します。enumは `#[serde(rename_all = "snake_case")]` を使用します。オプションフィールドは `Option<T>` と `#[serde(skip_serializing_if = "Option::is_none")]` を使用します。
+
+### バンドル (`dcp_ai::v2::bundle`)
+
+| 関数 | 説明 |
+|----------|-------------|
+| `build_bundle_v2(&rpr, &passport, &intent, &policy, &audit_entries, session_nonce)` | 4 つの `SignedPayload` と監査証跡から V2 バンドルを構築します。各 `payload_hash` と、すべてのアーティファクトおよび監査エントリの `session_nonce` を検査し、2 つの監査 Merkle ルートを含むマニフェストを書き込みます。監査証跡が空の場合、ルートは 64 個のゼロです |
+| `sign_bundle_v2(bundle, &classical, &pq)` | `CTX_BUNDLE` でマニフェストに複合署名し、`{bundle, signature}` を返します。`signer.id` は RPR の `human_id` です。`session_expires_at` や `intended_verifier` は署名前にマニフェストに入れてください |
 
 ### 委任チェーン (`dcp_ai::v2::delegation`、DCP-09 §3.5)
 

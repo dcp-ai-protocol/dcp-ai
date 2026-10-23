@@ -36,7 +36,7 @@ dcp-ai = { version = "2.10", features = ["wasm"] }
 | 规范 JSON v2 + 域分离 | 是 |
 | 双哈希 (SHA-256 + SHA3-256) + Merkle 根 | 是 |
 | 凭证包验证 (V1 + V2；V2 应用验证者策略和安全等级，`verify_signed_bundle_v2_with_policy`) | 是 |
-| V2 凭证包构建与签名 | `wasm` 特性：`wasm_build_bundle` / `wasm_sign_bundle`。原生 API：暂不支持；可参照 `tools/interop-matrix/agents/rust` 的做法，用 `prepare_payload`、`composite_sign` 和 `audit_events_merkle_root` 组装 manifest |
+| V2 凭证包构建与签名（`dcp_ai::v2::bundle`：`build_bundle_v2`、`sign_bundle_v2`；`wasm` 特性的 `wasm_build_bundle` / `wasm_sign_bundle` 调用它们） | 是 |
 | DCP-05 代理生命周期（委任 / 活力 / 停用） | 是 |
 | DCP-06 数字继承（数字遗嘱、记忆迁移、交接仪式） | 是 |
 | DCP-07 争议解决 + 仲裁 + 判例 | 是 |
@@ -158,6 +158,13 @@ V2 包含针对 DCP-05 至 DCP-09 全部工件的 Serde 派生 struct：
 域分离常量：`CTX_LIFECYCLE`、`CTX_SUCCESSION`、`CTX_DISPUTE`、`CTX_RIGHTS`、`CTX_DELEGATION`、`CTX_AWARENESS`
 
 所有 struct 派生 `Debug`、`Clone`、`Serialize`、`Deserialize`。枚举使用 `#[serde(rename_all = "snake_case")]`。可选字段使用 `Option<T>` 并带 `#[serde(skip_serializing_if = "Option::is_none")]`。
+
+### 凭证包 (`dcp_ai::v2::bundle`)
+
+| 函数 | 描述 |
+|----------|-------------|
+| `build_bundle_v2(&rpr, &passport, &intent, &policy, &audit_entries, session_nonce)` | 用四个 `SignedPayload` 和审计记录构建 V2 凭证包。它检查每个 `payload_hash` 以及每个工件和审计条目的 `session_nonce`，并写入包含两个审计 Merkle 根的 manifest；审计记录为空时，根为 64 个零 |
+| `sign_bundle_v2(bundle, &classical, &pq)` | 在 `CTX_BUNDLE` 下对 manifest 进行复合签名，返回 `{bundle, signature}`，其中 `signer.id` 为 RPR 的 `human_id`。如需 `session_expires_at` 或 `intended_verifier`，请在签名前写入 manifest |
 
 ### 委托链 (`dcp_ai::v2::delegation`，DCP-09 §3.5)
 

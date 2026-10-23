@@ -36,7 +36,7 @@ dcp-ai = { version = "2.10", features = ["wasm"] }
 | JSON canônico v2 + separação de domínio | Sim |
 | Dual hash (SHA-256 + SHA3-256) + Merkle roots | Sim |
 | Verificação de bundle (V1 + V2; V2 com política de verificador e nível de segurança, `verify_signed_bundle_v2_with_policy`) | Sim |
-| Construção e assinatura de bundle V2 | Feature `wasm`: `wasm_build_bundle` / `wasm_sign_bundle`. API nativa: ainda não; monte o manifesto a partir de `prepare_payload`, `composite_sign` e `audit_events_merkle_root`, como faz `tools/interop-matrix/agents/rust` |
+| Construção e assinatura de bundle V2 (`dcp_ai::v2::bundle`: `build_bundle_v2`, `sign_bundle_v2`; `wasm_build_bundle` / `wasm_sign_bundle` da feature `wasm` as chamam) | Sim |
 | DCP-05 ciclo de vida de agentes (commissioning / vitality / decommissioning) | Sim |
 | DCP-06 sucessão digital (testamento digital, transferência de memória, cerimônia) | Sim |
 | DCP-07 resolução de disputas + arbitragem + jurisprudência | Sim |
@@ -158,6 +158,13 @@ V2 inclui structs derivadas de Serde para todos os artefatos de DCP-05 a DCP-09:
 Constantes de separação de domínio: `CTX_LIFECYCLE`, `CTX_SUCCESSION`, `CTX_DISPUTE`, `CTX_RIGHTS`, `CTX_DELEGATION`, `CTX_AWARENESS`
 
 Todas as structs derivam `Debug`, `Clone`, `Serialize`, `Deserialize`. Enums usam `#[serde(rename_all = "snake_case")]`. Campos opcionais usam `Option<T>` com `#[serde(skip_serializing_if = "Option::is_none")]`.
+
+### Bundles (`dcp_ai::v2::bundle`)
+
+| Função | Descrição |
+|--------|-----------|
+| `build_bundle_v2(&rpr, &passport, &intent, &policy, &audit_entries, session_nonce)` | Constrói o bundle V2 a partir dos quatro `SignedPayload` e da trilha de auditoria. Verifica cada `payload_hash` e o `session_nonce` de cada artefato e entrada de auditoria, e grava o manifesto com as duas raízes Merkle da auditoria; uma trilha vazia recebe raízes de 64 zeros |
+| `sign_bundle_v2(bundle, &classical, &pq)` | Assina o manifesto com assinatura composta sob `CTX_BUNDLE` e retorna `{bundle, signature}`, com `signer.id` igual ao `human_id` do RPR. Coloque `session_expires_at` ou `intended_verifier` no manifesto antes de assinar |
 
 ### Cadeias de Delegação (`dcp_ai::v2::delegation`, DCP-09 §3.5)
 
