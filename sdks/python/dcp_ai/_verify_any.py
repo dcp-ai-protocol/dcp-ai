@@ -44,8 +44,10 @@ def resolve_verifier_policy(verifier_policy: dict[str, Any] | VerifierPolicy | N
     """`verifier_policy` over DEFAULT_VERIFIER_POLICY, validated as a VerifierPolicy.
 
     A VerifierPolicy instance is validated again (one built with model_construct
-    or changed by assignment was never validated); its risk_overrides=None means
-    its default_mode for every tier. A dict sets fields over the default policy: a
+    or changed by assignment was never validated); a tier its risk_overrides
+    leaves out, or every tier when it is None, gets its default_mode, as the V2
+    verifier (and the TypeScript SDK's resolveMode) resolves such a policy. A dict
+    sets fields over the default policy: a
     default_mode given without risk_overrides applies to every risk tier, a
     risk_overrides dict sets its tiers over the others, and risk_overrides=None
     keeps the default tiers. Unknown fields (pydantic.ValidationError), unknown
@@ -53,8 +55,10 @@ def resolve_verifier_policy(verifier_policy: dict[str, Any] | VerifierPolicy | N
     """
     if isinstance(verifier_policy, VerifierPolicy):
         policy = VerifierPolicy.model_validate(dict(verifier_policy)).model_dump()
-        if policy["risk_overrides"] is None:
-            policy["risk_overrides"] = dict.fromkeys(_RISK_TIERS, policy["default_mode"])
+        policy["risk_overrides"] = {
+            **dict.fromkeys(_RISK_TIERS, policy["default_mode"]),
+            **(policy["risk_overrides"] or {}),
+        }
     else:
         if verifier_policy is not None and not isinstance(verifier_policy, dict):
             raise TypeError("verifier_policy must be a dict or a VerifierPolicy")
@@ -102,6 +106,19 @@ def v1_shape_error(bundle: Any) -> str | None:
     entries = bundle.get("audit_entries")
     if not isinstance(entries, list) or not all(isinstance(e, dict) for e in entries):
         return "V1 bundle audit_entries is not a list of objects"
+    # What names the agent and the principal goes into an agent context: the
+    # schema's types (agent_passport and responsible_principal_record .schema.json).
+    passport, rpr = bundle["agent_passport"], bundle["responsible_principal_record"]
+    if not isinstance(passport.get("agent_id"), str):
+        return "V1 bundle agent_passport agent_id is not a string"
+    if not isinstance(rpr.get("human_id"), str):
+        return "V1 bundle responsible_principal_record human_id is not a string"
+    for key in ("public_key", "status"):
+        if key in passport and not isinstance(passport[key], str):
+            return f"V1 bundle agent_passport {key} is not a string"
+    capabilities = passport.get("capabilities", [])
+    if not isinstance(capabilities, list) or not all(isinstance(c, str) for c in capabilities):
+        return "V1 bundle agent_passport capabilities is not a list of strings"
     return None
 
 

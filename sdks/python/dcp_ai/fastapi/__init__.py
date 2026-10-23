@@ -34,6 +34,7 @@ from starlette.responses import JSONResponse
 # and OpenAI bridges (dcp_ai._verify_any).
 from dcp_ai._verify_any import (
     _REGISTRY,
+    bounded_result as _bounded_result,
     detect_version as _detect_version,
     resolve_verifier_policy as _resolve_verifier_policy,
     v1_refusal as _v1_refusal,
@@ -166,14 +167,16 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
                     result = await verify_signed_bundle_v2(signed_bundle, _REGISTRY, self.verifier_policy)
                 except RecursionError:
                     result = {"verified": False, "errors": ["Signed bundle is nested too deeply"], "warnings": []}
+            # Errors and warnings carry bundle text: bounded and escaped, as the bridges return them.
+            bounded = _bounded_result(result)
             if not result["verified"]:
                 return JSONResponse(
                     status_code=403,
                     content={
                         "verified": False,
                         "dcp_version": "2.0",
-                        "errors": result["errors"],
-                        "warnings": result["warnings"],
+                        "errors": bounded["errors"],
+                        "warnings": bounded["warnings"],
                     },
                 )
 
@@ -198,7 +201,7 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
                 session_binding_valid=bool(details.get("session_nonce")),
                 blinded_rpr=rpr_payload.get("blinded", False) is True,
                 lifecycle_state=passport_payload.get("status", "active"),
-                warnings=list(result["warnings"]),
+                warnings=bounded["warnings"],
             )
         elif version == "1.0":
             refusal = _v1_refusal(self.verifier_policy, signed_bundle.get("bundle"))
@@ -212,7 +215,7 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
             if not result["verified"]:
                 return JSONResponse(
                     status_code=403,
-                    content={"verified": False, "errors": result.get("errors", [])},
+                    content={"verified": False, "errors": _bounded_result(result)["errors"]},
                 )
 
             bundle = signed_bundle.get("bundle", {})

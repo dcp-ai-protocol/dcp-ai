@@ -267,8 +267,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   not objects, or whose `audit_entries` is not a list of objects, is refused in all three (the
   FastAPI middleware answered 500 for a non-object `agent_passport`, now 403), and
   `dcp_ai.verify.verify_signed_bundle` returns an error instead of raising on a malformed
-  signature block, key or audit trail. A `VerifierPolicy` instance is validated like a dict, so
-  one built with `model_construct` or changed by assignment cannot carry an invalid value. The
+  signature block, key or audit trail. A V1 bundle whose passport `agent_id` or RPR `human_id` is
+  not a string (or whose passport `public_key`, `status` or `capabilities` has the wrong type) is
+  refused too, instead of reaching the FastAPI agent context. The FastAPI middleware's 403
+  responses and its context's `warnings` are bounded and escaped like the bridges' output. A
+  `VerifierPolicy` instance is validated like a dict, so one built with `model_construct` or
+  changed by assignment cannot carry an invalid value, and a risk tier its `risk_overrides` leaves
+  out gets its `default_mode`, as the V2 verifier and the TypeScript SDK's `resolveMode` resolve
+  it (a V1 bundle for that tier was refused with "is not low, medium or high"). The
   sync entry points work inside a running event loop (the verification runs on a worker thread)
   and run on a private loop, leaving the thread's current event loop as it was; `DCPTool.arun`
   awaits the verification, and the new `averify_bundle_tool_call` is the async form of the OpenAI
