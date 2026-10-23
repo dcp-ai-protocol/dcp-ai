@@ -71,9 +71,11 @@ dcp_verify_bundle({
 })
 ```
 
-The tool verifies the signatures with the DCP SDK verifier. Trust the bundle only when the result
-has `verified: true`; otherwise `errors` says why it was rejected. V1 bundles have no post-quantum
-signature and are rejected under the default policy.
+The tool verifies the signatures with the DCP SDK verifier, under the operator's verifier policy.
+Trust the bundle only when the result has `verified: true`; otherwise `errors` says why it was
+rejected, and the result names no agent. `verifier_policy` can only make the policy stricter (for
+example `{ default_mode: "hybrid_required" }`), never weaker. A verified bundle is signed by the keys
+it lists itself: it does not prove who the human principal is.
 
 ## End of session
 

@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { verifySignedBundle } from '@dcp-ai/sdk';
 import register, {
   getSession,
@@ -11,6 +11,7 @@ import register, {
   executeLogAction,
   executeGetAuditTrail,
   executeDeclareIntent,
+  configureVerifier,
 } from '../index.js';
 
 // The real SDK, with the V1 verifier wrapped so a test can check it is not called.
@@ -409,7 +410,7 @@ describe('executeVerifyBundle', () => {
       verifier_policy: { default_mode: 'none' as any },
     });
     expect(result.verified).toBe(false);
-    expect(result.errors.join(' ')).toMatch(/verification mode/);
+    expect(result.errors.join(' ')).toMatch(/default_mode/);
   });
 
   describe('V1 bundles', () => {
@@ -429,10 +430,27 @@ describe('executeVerifyBundle', () => {
       expect(result.dcp_version).toBe('1.0');
     });
 
-    it('rejects a V1 bundle under the default policy, whose high risk tier requires hybrid signatures', async () => {
+    it('verifies the V1 conformance bundle under the default policy', async () => {
+      // risk_tier medium (hybrid_preferred), a send_email intent with risk_score 0.21 (standard tier).
       const result = await executeVerifyBundle({ signed_bundle: v1Bundle() });
+      expect(result.errors).toEqual([]);
+      expect(result.verified).toBe(true);
+    });
+
+    it('refuses a V1 payment intent under the default policy without trying the V1 verifier', async () => {
+      const payment = v1Bundle();
+      payment.bundle.intent.action_type = 'initiate_payment';
+      vi.mocked(verifySignedBundle).mockClear();
+      const result = await executeVerifyBundle({ signed_bundle: payment });
       expect(result.verified).toBe(false);
-      expect(result.errors.join(' ')).toMatch(/V1/);
+      expect(result.errors.join(' ')).toMatch(/V1 bundles are not accepted here.*elevated/);
+      expect(verifySignedBundle).not.toHaveBeenCalled();
+    });
+
+    it('refuses V1 when verifier_policy sets allow_v1_bundles to false', async () => {
+      const result = await executeVerifyBundle({ signed_bundle: v1Bundle(), verifier_policy: { allow_v1_bundles: false } });
+      expect(result.verified).toBe(false);
+      expect(result.errors.join(' ')).toMatch(/allow_v1_bundles/);
     });
 
     it('rejects a V1 bundle when verifier_policy requires hybrid signatures', async () => {
@@ -588,5 +606,150 @@ describe('audit trail (log + get)', () => {
     expect(trail.entries).toHaveLength(2);
     expect(trail.entries[0].outcome).toBe('b');
     expect(trail.entries[1].outcome).toBe('c');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Shared interop vectors (tests/interop/v2/bundle_vectors.json)
+// ---------------------------------------------------------------------------
+
+describe('dcp_verify_bundle on the shared bundle vectors', () => {
+  const VECTORS = JSON.parse(
+    readFileSync(new URL('../../../../tests/interop/v2/bundle_vectors.json', import.meta.url), 'utf8'),
+  );
+  const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
+  const mutated = (signed: any, mutations: { path: (string | number)[]; value: unknown }[]) => {
+    const out = clone(signed);
+    for (const { path, value } of mutations) {
+      let node = out;
+      for (const key of path.slice(0, -1)) node = node[key];
+      node[path[path.length - 1]] = value;
+    }
+    return out;
+  };
+  // @dcp-ai/sdk 2.1.x does not verify the per-artifact signatures (VERIFICATION.md V2-8): expected
+  // failures until the dependency is raised to a release that does (`it.fails` then fails).
+  const SDK_21_GAPS = new Set([
+    'rpr_classical_signature_invalid',
+    'passport_pq_signature_invalid',
+    'intent_signatures_zeroed',
+    'intent_signed_by_principal',
+    'policy_decision_signed_under_intent_context',
+    'intent_pq_slot_holds_ed25519',
+    'passport_classical_slot_holds_ml_dsa',
+    'policy_decision_kid_names_another_algorithm',
+  ]);
+  // Rejected, but @dcp-ai/sdk 2.1.x words the error without the vector's error_contains.
+  const SDK_21_WORDING = new Set(['classical_only_bundle_signature_without_pq', 'bundle_pq_slot_holds_ed25519']);
+
+  // The default operator policy is the SDK's DEFAULT_VERIFIER_POLICY, the vectors' default_verifier_policy.
+  it('accepts signed_bundle and the must_accept bundles', async () => {
+    for (const signed of [VECTORS.signed_bundle, ...VECTORS.must_accept_bundles.map((c: any) => c.signed_bundle)]) {
+      const result = await executeVerifyBundle({ signed_bundle: clone(signed) });
+      expect(result.errors).toEqual([]);
+      expect(result.verified).toBe(true);
+    }
+  });
+
+  const reject = [
+    ...VECTORS.must_reject.map((c: any) => [c.name, mutated(VECTORS.signed_bundle, c.mutations), c.error_contains, c.spec_step]),
+    ...VECTORS.must_reject_bundles.map((c: any) => [c.name, c.signed_bundle, c.error_contains, c.spec_step]),
+  ];
+  for (const [name, signed, errorContains, step] of reject) {
+    const gap = SDK_21_GAPS.has(name);
+    (gap ? it.fails : it)(`rejects ${name} (${step})${gap ? ' [expected failure: per-artifact signature (V2-8), not verified by @dcp-ai/sdk 2.1.x]' : ''}`, async () => {
+      const result = await executeVerifyBundle({ signed_bundle: clone(signed) });
+      expect(result.verified).toBe(false);
+      expect(result.agent_id).toBeUndefined();
+      expect(result.human_id).toBeUndefined();
+      if (!SDK_21_WORDING.has(name)) expect(result.errors.join(' ').toLowerCase()).toContain(errorContains.toLowerCase());
+    });
+  }
+
+  for (const [mode, expected] of Object.entries(VECTORS.classical_only_routine_bundle.verified_by_mode)) {
+    it(`gives the classical-only routine control its verdict under ${mode}`, async () => {
+      const result = await executeVerifyBundle({
+        signed_bundle: clone(VECTORS.classical_only_routine_bundle.signed_bundle),
+        verifier_policy: { default_mode: mode as any },
+      });
+      expect(result.verified).toBe(expected);
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// The operator sets the policy; the calling model can only tighten it
+// ---------------------------------------------------------------------------
+
+describe('verifier policy: operator configuration and tool parameter', () => {
+  const VECTORS = JSON.parse(
+    readFileSync(new URL('../../../../tests/interop/v2/bundle_vectors.json', import.meta.url), 'utf8'),
+  );
+  const classicalOnly = () => JSON.parse(JSON.stringify(VECTORS.classical_only_routine_bundle.signed_bundle));
+  const nonceSplice = () =>
+    JSON.parse(JSON.stringify(VECTORS.must_reject_bundles.find((c: any) => c.name === 'intent_session_nonce_differs').signed_bundle));
+
+  afterEach(() => configureVerifier());
+
+  it('the parameter cannot lower the operator mode', async () => {
+    configureVerifier({ verifierPolicy: { default_mode: 'hybrid_required' } });
+    const result = await executeVerifyBundle({ signed_bundle: classicalOnly(), verifier_policy: { default_mode: 'classical_only' } });
+    expect(result.verified).toBe(false);
+    expect(result.verification_mode).toBe('hybrid_required');
+  });
+
+  it('the parameter can raise the mode', async () => {
+    const result = await executeVerifyBundle({ signed_bundle: classicalOnly(), verifier_policy: { default_mode: 'hybrid_required' } });
+    expect(result.verified).toBe(false);
+    expect(result.verification_mode).toBe('hybrid_required');
+  });
+
+  it('the parameter cannot turn session binding off', async () => {
+    const result = await executeVerifyBundle({ signed_bundle: nonceSplice(), verifier_policy: { require_session_binding: false } });
+    expect(result.verified).toBe(false);
+    expect(result.errors.join(' ')).toMatch(/nonce/i);
+  });
+
+  it('the parameter cannot allow V1 bundles the operator refuses', async () => {
+    configureVerifier({ verifierPolicy: { allow_v1_bundles: false } });
+    const v1 = JSON.parse(readFileSync(new URL('../../../../tests/conformance/examples/citizenship_bundle.signed.json', import.meta.url), 'utf8'));
+    const result = await executeVerifyBundle({ signed_bundle: v1, verifier_policy: { allow_v1_bundles: true } });
+    expect(result.verified).toBe(false);
+  });
+
+  it('an unknown parameter field is an error', async () => {
+    const result = await executeVerifyBundle({ signed_bundle: classicalOnly(), verifier_policy: { risk_overrides: { high: 'classical_only' } } as any });
+    expect(result.verified).toBe(false);
+    expect(result.errors.join(' ')).toMatch(/Unknown verifier_policy field: risk_overrides/);
+  });
+
+  it('a verified result echoes the verification mode; a rejected one names no agent', async () => {
+    const ok = await executeVerifyBundle({ signed_bundle: JSON.parse(JSON.stringify(VECTORS.signed_bundle)) });
+    expect(ok.verified).toBe(true);
+    expect(ok.verification_mode).toBe('hybrid_preferred');
+    expect(ok.agent_id).toBe('agent:interop-bot');
+
+    const forged = JSON.parse(JSON.stringify(VECTORS.signed_bundle));
+    forged.bundle.agent_passport.payload.agent_id = 'agent:someone-else';
+    const bad = await executeVerifyBundle({ signed_bundle: forged });
+    expect(bad.verified).toBe(false);
+    expect(bad.agent_id).toBeUndefined();
+    expect(bad.human_id).toBeUndefined();
+    expect(bad.session_nonce).toBeUndefined();
+    expect(bad.message).not.toContain('agent:someone-else');
+  });
+
+  it('register takes the operator policy and refuses an invalid one', async () => {
+    const tools = new Map<string, any>();
+    register({ registerTool: (tool: any) => tools.set(tool.name, tool) }, { verifierPolicy: { default_mode: 'hybrid_required' } });
+    const result = await tools.get('dcp_verify_bundle').execute('call-1', { signed_bundle: classicalOnly() });
+    expect(result.verified).toBe(false);
+    expect(() => register({ registerTool: () => {} }, { verifierPolicy: { defaultMode: 'classical_only' } as any })).toThrow(/defaultMode/);
+  });
+
+  it('keeps dcp-verify.ts identical to the Express copy', () => {
+    const here = readFileSync(new URL('../tools/dcp-verify.ts', import.meta.url), 'utf8');
+    const express = readFileSync(new URL('../../../express/src/dcp-verify.ts', import.meta.url), 'utf8');
+    expect(here).toBe(express);
   });
 });
