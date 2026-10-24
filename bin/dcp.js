@@ -45,13 +45,6 @@ function safePath(userPath) {
   return resolved;
 }
 
-/**
- * Write a file inside the working directory: to a new temporary file (O_EXCL, which never follows
- * a symlink) with exactly `mode`, in the target's directory, then renamed over the target. A
- * symlink or hard link at the target is replaced, never written through, and an existing secret
- * file does not keep a wider mode. The directory is checked again just before the rename; the
- * CLI assumes nothing else changes the working directory while a command runs.
- */
 /** safePath for a file the CLI writes: never the working directory or another directory. */
 function safeOutputPath(filePath) {
   const target = safePath(filePath);
@@ -68,6 +61,13 @@ function safeOutputPath(filePath) {
   return target;
 }
 
+/**
+ * Write a file inside the working directory: to a new temporary file (O_EXCL, which never follows
+ * a symlink) with exactly `mode`, in the target's directory, then renamed over the target. A
+ * symlink or hard link at the target is replaced, never written through, and an existing secret
+ * file does not keep a wider mode. The directory is checked again just before the rename; the
+ * CLI assumes nothing else changes the working directory while a command runs.
+ */
 function writeConfined(filePath, contents, mode = 0o644) {
   const target = safeOutputPath(filePath);
   const dir = path.dirname(target);
