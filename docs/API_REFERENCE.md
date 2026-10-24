@@ -789,7 +789,7 @@ Defined in [`spec/profiles/admission`](../spec/profiles/admission/README.md); gu
 | `createPrincipalTrustStore(trustSet)` | Validates a trust set and returns a store; throws `AdmissionConfigError` (`code`) |
 | `resolveStrictV1Profile(config)` | Validates a strict-v1 configuration and returns the frozen profile with its `policy` |
 | `admitSignedBundleV2(signedBundle, registry, { profile?, policy?, trust?, revocation?, now? })` | Verifies (under the profile's policy when there is one) and evaluates admission |
-| `evaluateAdmissionV2({ signedBundle, verification, profile?, trust?, revocation?, now })` | Evaluates admission from a verifier result; no cryptography, no I/O |
+| `evaluateAdmissionV2({ signedBundle, verification, profile?, trust?, revocation?, now })` | Evaluates admission from a verifier result; no cryptography, no I/O. It trusts `verification`: pass only the result of `verifySignedBundleV2` on that bundle, at that `now`, under `profile.policy` |
 | `revocationSubjects(signedBundle, verification)` | The agent id and verified signer kids a revocation source must answer for |
 | `revocationSnapshotFromDenyList(document, subjects)` | A snapshot from a complete deny list (the revocation service's `/.well-known/dcp-revocations.json`) |
 

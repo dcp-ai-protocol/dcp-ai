@@ -188,6 +188,8 @@ Given the signed bundle, an optional profile, an optional trust set (required by
 2. Verify the bundle (V2-1 to V2-14) at `now`, under the profile's policy, or the caller's policy without a profile. Not verified: `VERIFICATION_FAILED`.
 3. If verified: principal trust (§3) when a trust set is supplied; under the profile, the verified part of P4 and the revocation checks (§4.3).
 
+An implementation may expose step 3 on its own (`evaluateAdmissionV2` and its counterparts) so a caller can reuse a verification it already has. That function trusts the verification result it is given and does not re-verify: it must be the result of step 2 for the same bundle, at the same `now`, under the profile's policy when there is a profile. A result made up, from another bundle or under a weaker policy gives a wrong answer; the combined function (`admitSignedBundleV2`) does both steps.
+
 ### 5.2 Result
 
 | Field | Value |

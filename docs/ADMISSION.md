@@ -98,7 +98,7 @@ const result = await admitSignedBundleV2(signedBundle, registry, { profile, trus
 if (!result.admitted) throw new Error(result.errors.map((e) => e.code).join(', '));
 ```
 
-`evaluateAdmissionV2` takes a verifier result you already have (no cryptography, no I/O), and `revocationSubjects` tells a source what to answer for. Python, Go and Rust expose the same functions; see the spec, § 8.
+`evaluateAdmissionV2` takes a verifier result you already have (no cryptography, no I/O) and trusts it: pass only the result of verifying that same bundle, at the same `now`, under the profile's policy. `revocationSubjects` tells a source what to answer for. Python, Go and Rust expose the same functions; see the spec, § 8.
 
 ### Express (`@dcp-ai/express`)
 
@@ -118,7 +118,7 @@ A request reaches the route only when the bundle is admitted; `req.dcpAgent.admi
 
 ### FastAPI (`dcp_ai.fastapi`)
 
-`DCPVerifyMiddleware(app, trusted_principals=..., profile=..., revocation_source=..., tenant=...)`, with the same rules; see [`integrations/fastapi/README.md`](../integrations/fastapi/README.md).
+`DCPVerifyMiddleware(app, require_bundle=True, trusted_principals=..., profile=..., revocation_source=deny_list_revocation_source(url), tenant=...)`, with the same rules (`require_bundle` defaults to `False` in FastAPI, and must be `True` with trusted principals); see [`integrations/fastapi/README.md`](../integrations/fastapi/README.md).
 
 ### OpenClaw (`@dcp-ai/openclaw`)
 
