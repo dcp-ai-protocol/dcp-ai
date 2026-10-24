@@ -112,20 +112,39 @@ interface TrustedKey {
   readonly expiresAt?: number;
 }
 
-/** A Map that cannot be changed after it is built: a loaded trust set stays as it was validated. */
-class FrozenMap<K, V> extends Map<K, V> {
+/**
+ * A read-only view of a private Map: a loaded trust set stays as it was validated. Not a Map
+ * subclass, so Map.prototype.set.call cannot reach the entries either.
+ */
+class FrozenMap<K, V> implements ReadonlyMap<K, V> {
+  readonly #map: Map<K, V>;
   constructor(entries: Iterable<readonly [K, V]>) {
-    super(); // Map(entries) would call the set below
-    for (const [key, value] of entries) super.set(key, value);
+    this.#map = new Map(entries);
+    Object.freeze(this);
   }
-  override set(): this {
-    throw new TypeError('a loaded trust set cannot be changed');
+  get size() {
+    return this.#map.size;
   }
-  override delete(): boolean {
-    throw new TypeError('a loaded trust set cannot be changed');
+  get(key: K) {
+    return this.#map.get(key);
   }
-  override clear(): void {
-    throw new TypeError('a loaded trust set cannot be changed');
+  has(key: K) {
+    return this.#map.has(key);
+  }
+  forEach(callback: (value: V, key: K, map: ReadonlyMap<K, V>) => void) {
+    this.#map.forEach((value, key) => callback(value, key, this));
+  }
+  keys() {
+    return this.#map.keys();
+  }
+  values() {
+    return this.#map.values();
+  }
+  entries() {
+    return this.#map.entries();
+  }
+  [Symbol.iterator]() {
+    return this.#map.entries();
   }
 }
 

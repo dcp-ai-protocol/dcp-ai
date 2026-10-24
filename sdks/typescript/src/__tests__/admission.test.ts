@@ -133,6 +133,8 @@ describe('admission API', () => {
     expect(() => (store.principals as Map<string, unknown>).set('human:attacker', keys)).toThrow();
     expect(() => (store.principals as Map<string, unknown>).delete('human:acme-ops')).toThrow();
     expect(() => (keys as Map<string, unknown>).set('f'.repeat(32), {})).toThrow();
+    expect(() => Map.prototype.set.call(store.principals, 'human:attacker', keys)).toThrow();
+    expect(store.principals.has('human:attacker')).toBe(false);
     const [key] = keys.values();
     expect(() => {
       (key as any).status = 'active';

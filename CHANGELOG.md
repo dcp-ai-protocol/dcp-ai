@@ -160,8 +160,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - Reference verifier, server and CLI: `admitSignedBundle` in `lib/verify.js`, `POST /v2/admit`
     configured by `DCP_TRUSTED_PRINCIPALS_FILE`, `DCP_ADMISSION_PROFILE_FILE` and
     `DCP_REVOCATION_LIST_URL`, and `dcp admit-bundle`.
-  - `tests/interop/v2/admission_vectors.json`: 55 cases with hand-written expected outcomes and the
-    rule each checks, and 46 configuration cases, run by the four SDKs and by `npm run
+  - `tests/interop/v2/admission_vectors.json`: 65 cases with hand-written expected outcomes and the
+    rule each checks, and 49 configuration cases, run by the four SDKs and by `npm run
     conformance`.
 - Rust SDK: native V2 bundle building and signing, `dcp_ai::v2::bundle`. `build_bundle_v2(&rpr,
   &passport, &intent, &policy, &audit_entries, session_nonce)` checks each `payload_hash` and the
