@@ -67,7 +67,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `DCPVerifyMiddleware` argument; the OpenClaw operator policy below). `requireHybrid` raises every
   risk tier below `hybrid_required` to it (an operator's `pq_only` stays `pq_only`), and a
   `default_mode` without `risk_overrides` applies to every tier. The verifier's errors and
-  warnings are returned, and `composite_sig_valid` comes from it. Until `@dcp-ai/sdk` 2.2.0 is on npm, both TypeScript packages depend on the workspace SDK
+  warnings are returned, and `composite_sig_valid` comes from it. Until `@dcp-ai/sdk` 2.2.0 is on
+  npm, both TypeScript packages depend on the workspace SDK
   (`"@dcp-ai/sdk": "file:../../sdks/typescript"`), whose verifier has the fixes above; CI builds it
   before testing them, and all three pass every case of `tests/interop/v2/bundle_vectors.json`
   under its `verifier_policy_overrides`. Publishing them needs the dependency raised to `^2.2.0`
