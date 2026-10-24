@@ -514,9 +514,11 @@ if (cmd === "admit-bundle") {
     console.error("Usage: dcp admit-bundle <signed.json> --trust <trust.json> [--profile <profile.json>] [--revocation <snapshot.json>] [--now <RFC 3339>]");
     process.exit(2);
   }
-  const now = flags["--now"] === null ? Date.now() : Date.parse(flags["--now"]);
-  if (!Number.isFinite(now)) {
-    console.error("--now must be an RFC 3339 timestamp");
+  const { parseRfc3339 } = await import("@dcp-ai/sdk");
+  // RFC 3339 with a Z or ±hh:mm offset only, as the verifier reads timestamps: never local time.
+  const now = flags["--now"] === null ? Date.now() : parseRfc3339(flags["--now"]);
+  if (now === undefined) {
+    console.error("--now must be an RFC 3339 timestamp with a Z or ±hh:mm offset");
     process.exit(2);
   }
   const { admitSignedBundle } = await import("../lib/verify.js");

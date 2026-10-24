@@ -598,11 +598,19 @@ async def test_deny_list_source_unreachable():
         (("https://revocations.example/list",), {"timeout": 0}, ValueError),
         (("https://revocations.example/list",), {"timeout": True}, ValueError),
         (("https://revocations.example/list",), {"headers": {"Authorization": 1}}, TypeError),
+        # Without TLS only to a loopback host.
+        (("http://revocations.example/list",), {}, ValueError),
+        (("http://10.0.0.5/list",), {}, ValueError),
     ],
 )
 def test_deny_list_source_configuration(args, kwargs, error):
     with pytest.raises(error):
         deny_list_revocation_source(*args, **kwargs)
+
+
+@pytest.mark.parametrize("url", ["https://revocations.example/list", "http://localhost:3003/list", "http://127.0.0.1/list", "http://[::1]/list"])
+def test_deny_list_source_accepts_https_and_loopback_http(url):
+    deny_list_revocation_source(url)
 
 
 @pytest.mark.parametrize(

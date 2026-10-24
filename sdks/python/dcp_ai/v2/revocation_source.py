@@ -17,6 +17,7 @@ the operator's headers never go to another URL; HTTPS needs TLS 1.2 or later.
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import json
 import math
 import ssl
@@ -41,6 +42,18 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
+def _is_loopback(hostname: str | None) -> bool:
+    """localhost, 127.0.0.0/8 or ::1: the only hosts a deny list may be fetched from without TLS."""
+    if hostname is None:
+        return False
+    if hostname == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(hostname).is_loopback
+    except ValueError:
+        return False
+
+
 def deny_list_revocation_source(
     url: str,
     *,
@@ -49,7 +62,7 @@ def deny_list_revocation_source(
 ) -> Callable[..., Awaitable[dict[str, Any]]]:
     """An async revocation source, `source(subjects, tenant="")`, over the deny list at `url`.
 
-    `url` (http or https) and `headers` (for instance an Authorization header) come from
+    `url` (https, or http to a loopback host) and `headers` (for instance an Authorization header) come from
     the operator; `timeout` bounds the whole fetch, in seconds. Each call fetches the
     list again. Raises ValueError or TypeError here for an invalid configuration, and
     RevocationSourceError (code REVOCATION_UNAVAILABLE or REVOCATION_INVALID) from the
@@ -60,6 +73,8 @@ def deny_list_revocation_source(
     parts = urllib.parse.urlsplit(url)
     if parts.scheme not in ("http", "https") or not parts.netloc:
         raise ValueError("url must be an http or https URL")
+    if parts.scheme == "http" and not _is_loopback(parts.hostname):
+        raise ValueError("url must be https (http only to a loopback host)")
     if headers is not None and not (
         isinstance(headers, dict) and all(isinstance(k, str) and isinstance(v, str) for k, v in headers.items())
     ):

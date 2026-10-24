@@ -184,7 +184,14 @@ function loadAdmission() {
     DCP_REVOCATION_LIST_AUTHORIZATION: authorization,
     DCP_REVOCATION_TIMEOUT_MS: timeout,
   } = process.env;
-  if (!trustFile && !profileFile && !revocationUrl) return null;
+  const names = ["DCP_TRUSTED_PRINCIPALS_FILE", "DCP_ADMISSION_PROFILE_FILE", "DCP_REVOCATION_LIST_URL", "DCP_REVOCATION_LIST_AUTHORIZATION", "DCP_REVOCATION_TIMEOUT_MS"];
+  const given = names.filter((name) => process.env[name] !== undefined);
+  if (given.length === 0) return null;
+  // A variable set to nothing is a mistake, not an absent option: an empty profile file would
+  // otherwise leave the server in trust-only mode without saying so.
+  for (const name of given) {
+    if (process.env[name].trim() === "") throw new Error(`CONFIG_INVALID_VALUE: ${name} is set but empty`);
+  }
   const readJson = (file, label) => {
     try {
       return JSON.parse(fs.readFileSync(file, "utf8"));
@@ -195,15 +202,25 @@ function loadAdmission() {
   if (!trustFile) throw new Error("CONFIG_PROFILE_CONTRADICTION: admission needs DCP_TRUSTED_PRINCIPALS_FILE");
   if (profileFile && !revocationUrl) throw new Error("CONFIG_PROFILE_CONTRADICTION: strict-v1 needs DCP_REVOCATION_LIST_URL");
   if (revocationUrl && !profileFile) throw new Error("CONFIG_INVALID_VALUE: DCP_REVOCATION_LIST_URL is used by the strict-v1 profile only");
+  if ((authorization !== undefined || timeout !== undefined) && !revocationUrl) {
+    throw new Error("CONFIG_INVALID_VALUE: DCP_REVOCATION_LIST_AUTHORIZATION and DCP_REVOCATION_TIMEOUT_MS need DCP_REVOCATION_LIST_URL");
+  }
   const timeoutMs = timeout === undefined ? 5000 : Number(timeout);
   if (!(Number.isFinite(timeoutMs) && timeoutMs > 0)) throw new Error("CONFIG_INVALID_VALUE: DCP_REVOCATION_TIMEOUT_MS");
 
-  // The trust set is re-read when the file changes (a rotation needs no restart); a file that no
-  // longer loads refuses admission until it is fixed.
-  let loaded = { mtimeMs: fs.statSync(trustFile).mtimeMs, store: createPrincipalTrustStore(readJson(trustFile, "trust set")) };
+  // The trust set is read on every admission and loaded again whenever its content changes (a
+  // rotation needs no restart, and a replacement with the same mtime is not missed); a file that
+  // no longer loads refuses admission until it is fixed.
+  const load = (text) => ({ hash: crypto.createHash("sha256").update(text).digest("hex"), store: createPrincipalTrustStore(JSON.parse(text)) });
+  let loaded;
+  try {
+    loaded = load(fs.readFileSync(trustFile, "utf8"));
+  } catch (e) {
+    throw new Error(`trust set: cannot load ${trustFile}: ${e.message}`);
+  }
   const trust = () => {
-    const { mtimeMs } = fs.statSync(trustFile);
-    if (mtimeMs !== loaded.mtimeMs) loaded = { mtimeMs, store: createPrincipalTrustStore(readJson(trustFile, "trust set")) };
+    const text = fs.readFileSync(trustFile, "utf8");
+    if (crypto.createHash("sha256").update(text).digest("hex") !== loaded.hash) loaded = load(text);
     return loaded.store;
   };
   const profile = profileFile ? resolveStrictV1Profile(readJson(profileFile, "profile")) : undefined;

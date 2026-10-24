@@ -274,9 +274,10 @@ async function verifyV2Bundle(signedBundle: Record<string, any>, policy: Verifie
 }
 
 /**
- * dcp_verify_bundle with trusted principals: the bundle is reported verified only when it is
- * admitted (spec/profiles/admission § 5). Under the profile its policy applies and the tool
- * parameter is refused; otherwise the parameter can only tighten the operator policy.
+ * dcp_verify_bundle with trusted principals: the result says whether the bundle is admitted
+ * (spec/profiles/admission § 5) and names the agent only then; `verified` stays the verifier's
+ * verdict. Under the profile its policy applies and the tool parameter is refused; otherwise the
+ * parameter can only tighten the operator policy.
  */
 async function admitBundle(setup: AdmissionSetup, signedBundle: Record<string, any>, param: unknown): Promise<VerifyBundleResult> {
   const version = detectVersion(signedBundle);

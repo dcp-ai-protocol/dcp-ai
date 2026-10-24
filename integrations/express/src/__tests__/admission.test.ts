@@ -392,7 +392,23 @@ describe('denyListRevocationSource', () => {
     await expect(source(subjects, { tenant: '' })).rejects.toMatchObject({ code: expected });
   });
 
-  it('refuses a URL that is not http or https', () => {
-    expect(() => denyListRevocationSource({ url: 'file:///etc/revocations.json' })).toThrow(/http or https/);
+  it('refuses a URL that is not https, or http to a loopback host', () => {
+    expect(() => denyListRevocationSource({ url: 'file:///etc/revocations.json' })).toThrow(/https/);
+    expect(() => denyListRevocationSource({ url: 'http://revocation.example.com/list.json' })).toThrow(/https/);
+    for (const url of ['https://revocation.example.com/list.json', 'http://localhost:3003/list.json', 'http://127.0.0.1/list.json', 'http://[::1]/list.json']) {
+      expect(() => denyListRevocationSource({ url })).not.toThrow();
+    }
+  });
+
+  it.each([
+    ['declares a body over 16 MiB', (_req: any, res: any) => { res.setHeader('content-length', String(17 * 1024 * 1024)); res.end(); }],
+    ['streams a body over 16 MiB', (_req: any, res: any) => {
+      const chunk = Buffer.alloc(1024 * 1024, 0x20);
+      for (let i = 0; i < 17; i++) res.write(chunk);
+      res.end();
+    }],
+  ])('refuses a list that %s', async (_label, handler) => {
+    const url = await serve(handler);
+    await expect(denyListRevocationSource({ url, timeoutMs: 5000 })(subjects, { tenant: '' })).rejects.toMatchObject({ code: 'REVOCATION_INVALID' });
   });
 });

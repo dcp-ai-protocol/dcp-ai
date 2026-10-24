@@ -68,7 +68,7 @@ Revocation is resolved by a source the operator chooses; no central service is r
 
 `checked_at` is when the source established the statuses. A source that times out, fails or returns nothing makes the request fail with `REVOCATION_UNAVAILABLE`; nothing is ever treated as not revoked by default.
 
-`denyListRevocationSource` (TypeScript integrations, the reference verifier) and `deny_list_revocation_source` (Python) read a complete deny list in the format of the reference revocation service's `/.well-known/dcp-revocations.json`, with the operator's URL and headers, a timeout, and no redirects.
+`denyListRevocationSource` (TypeScript integrations, the reference verifier) and `deny_list_revocation_source` (Python) read a complete deny list in the format of the reference revocation service's `/.well-known/dcp-revocations.json`, with the operator's URL and headers, a timeout, no redirects and at most 16 MiB. The URL must be `https` (plain `http` only to a loopback host). A list without `revocations` or `kid_revocations` is invalid, not empty: it may have been truncated.
 
 ## Results
 
@@ -130,7 +130,7 @@ configureVerifier({ trustedPrincipals, profile: { profile: 'strict-v1', verifier
 
 ### Reference server and CLI
 
-The verification server (`npm run server`) exposes `POST /v2/admit` when the operator sets `DCP_TRUSTED_PRINCIPALS_FILE` (re-read when the file changes), and for strict-v1 also `DCP_ADMISSION_PROFILE_FILE` and `DCP_REVOCATION_LIST_URL` (with an optional `DCP_REVOCATION_LIST_AUTHORIZATION`). It refuses to start on a contradictory configuration. Offline:
+The verification server (`npm run server`) exposes `POST /v2/admit` when the operator sets `DCP_TRUSTED_PRINCIPALS_FILE` (loaded again whenever its content changes), and for strict-v1 also `DCP_ADMISSION_PROFILE_FILE` and `DCP_REVOCATION_LIST_URL` (with an optional `DCP_REVOCATION_LIST_AUTHORIZATION`). It refuses to start on a contradictory configuration, or with an admission variable set but empty. Offline:
 
 ```bash
 npx dcp-ai admit-bundle bundle.signed.json --trust trust.json --profile profile.json --revocation snapshot.json

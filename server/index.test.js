@@ -447,15 +447,16 @@ test("admission: strict-v1 against the operator's trust set, revocation list and
     assert.deepEqual((await admit(principal.signedBundle)).body.codes, ["REVOCATION_STALE"]);
     denyList = () => ({ status: 200, body: { updated_at: new Date().toISOString(), revocations: [], kid_revocations: [] } });
 
-    // The operator removes the principal from the trust set: no restart needed.
+    // The operator removes the principal from the trust set: no restart needed, and a
+    // replacement that keeps the file's mtime is not missed.
+    const { atime, mtime } = fs.statSync(trustFile);
     fs.writeFileSync(trustFile, JSON.stringify(trustSet("v2", null)));
-    fs.utimesSync(trustFile, new Date(), new Date(Date.now() + 5_000));
+    fs.utimesSync(trustFile, atime, mtime);
     const removed = await admit(principal.signedBundle);
     assert.deepEqual([removed.body.admitted, removed.body.trust_set_version, removed.body.codes], [false, "v2", ["TRUST_PRINCIPAL_UNKNOWN"]]);
 
     // A trust set that no longer loads refuses admission.
     fs.writeFileSync(trustFile, "{");
-    fs.utimesSync(trustFile, new Date(), new Date(Date.now() + 10_000));
     assert.equal((await admit(principal.signedBundle)).status, 503);
   } finally {
     proc.kill();
@@ -483,6 +484,9 @@ test("admission: the server refuses to start with a contradictory or invalid con
     { DCP_ADMISSION_PROFILE_FILE: weak, DCP_TRUSTED_PRINCIPALS_FILE: trust, DCP_REVOCATION_LIST_URL: url },
     { DCP_TRUSTED_PRINCIPALS_FILE: fakeKid },
     { DCP_TRUSTED_PRINCIPALS_FILE: trust, DCP_REVOCATION_LIST_URL: url },
+    { DCP_ADMISSION_PROFILE_FILE: profile, DCP_TRUSTED_PRINCIPALS_FILE: trust, DCP_REVOCATION_LIST_URL: "http://revocation.example.com/list.json" },
+    { DCP_ADMISSION_PROFILE_FILE: "", DCP_TRUSTED_PRINCIPALS_FILE: trust },
+    { DCP_TRUSTED_PRINCIPALS_FILE: trust, DCP_REVOCATION_LIST_AUTHORIZATION: "Bearer x" },
   ]) {
     await assert.rejects(startService(SERVER, env), /exited/, JSON.stringify(Object.keys(env)));
   }

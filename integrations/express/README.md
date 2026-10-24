@@ -167,7 +167,7 @@ app.use("/api/agents", dcpVerify({
 }));
 ```
 
-A refused request gets `403` with `{ verified, admitted: false, principal_trust, profile, profile_compliance, codes, errors }` and never reaches the route. A revocation source that fails, times out or returns nothing refuses the request (`REVOCATION_UNAVAILABLE`). With trusted principals, `requireBundle: false` throws `AdmissionConfigError` when the middleware is created: a request without a bundle would otherwise reach the route. Under the profile, `verifierPolicy`, `requireHybrid: false` and the `checkRevocation` options throw too. With trusted principals, V1 bundles are refused: they carry no principal signature to anchor. Runnable: `examples/strict-v1.mjs`.
+A refused request gets `403` with `{ verified, admitted: false, principal_trust, profile, profile_compliance, codes, errors }` and never reaches the route. `denyListRevocationSource` needs an `https` URL (plain `http` only to a loopback host), follows no redirect and reads at most 16 MiB. A revocation source that fails, times out or returns nothing refuses the request (`REVOCATION_UNAVAILABLE`). With trusted principals, `requireBundle: false` throws `AdmissionConfigError` when the middleware is created: a request without a bundle would otherwise reach the route. Under the profile, `verifierPolicy`, `requireHybrid: false` and the `checkRevocation` options throw too. With trusted principals, V1 bundles are refused: they carry no principal signature to anchor. Runnable: `examples/strict-v1.mjs`.
 
 The tests run every case of `tests/interop/v2/bundle_vectors.json`, each under its `verifier_policy_overrides`.
 

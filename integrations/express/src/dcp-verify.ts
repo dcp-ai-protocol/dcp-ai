@@ -429,11 +429,40 @@ class RevocationSourceError extends Error {
   }
 }
 
+/** The largest deny list a revocation source reads. */
+export const MAX_DENY_LIST_BYTES = 16 * 1024 * 1024;
+
+/** localhost, 127.0.0.0/8 or ::1: the only hosts a revocation list may be fetched from without TLS. */
+const isLoopback = (hostname: string) => hostname === 'localhost' || hostname === '[::1]' || /^127(\.\d{1,3}){3}$/.test(hostname);
+
+/** The body of `response`, at most `max` bytes; a larger one is REVOCATION_INVALID. */
+async function readCapped(response: Response, max: number): Promise<string> {
+  const tooLarge = () => new RevocationSourceError('REVOCATION_INVALID', 'revocation list is larger than 16 MiB');
+  const declared = Number(response.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > max) throw tooLarge();
+  if (!response.body) return '';
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > max) {
+      await reader.cancel().catch(() => {});
+      throw tooLarge();
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks).toString('utf8');
+}
+
 /**
  * A revocation source that fetches a complete deny list (revocationSnapshotFromDenyList from the
  * SDK: the reference revocation service's /.well-known/dcp-revocations.json format) from `url`, with the
- * operator's `headers`, within `timeoutMs` (default 5000), following no redirect. A network error,
- * a timeout or a non-2xx answer is REVOCATION_UNAVAILABLE; a body of another shape REVOCATION_INVALID.
+ * operator's `headers`, within `timeoutMs` (default 5000), following no redirect and reading at most
+ * 16 MiB. `url` must be https, or http to a loopback host. A network error, a timeout or a non-2xx
+ * answer is REVOCATION_UNAVAILABLE; a larger body or one of another shape REVOCATION_INVALID.
  */
 export function denyListRevocationSource(options: { url: string; headers?: Record<string, string>; timeoutMs?: number }): RevocationSource {
   const { url, headers = {}, timeoutMs = 5000 } = isObject(options) ? (options as typeof options) : ({} as typeof options);
@@ -443,8 +472,8 @@ export function denyListRevocationSource(options: { url: string; headers?: Recor
   } catch {
     throw new AdmissionConfigError('CONFIG_INVALID_VALUE', 'denyListRevocationSource: url must be an absolute URL');
   }
-  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
-    throw new AdmissionConfigError('CONFIG_INVALID_VALUE', 'denyListRevocationSource: url must be http or https');
+  if (parsed.protocol !== 'https:' && !(parsed.protocol === 'http:' && isLoopback(parsed.hostname))) {
+    throw new AdmissionConfigError('CONFIG_INVALID_VALUE', 'denyListRevocationSource: url must be https (http only to a loopback host)');
   }
   if (!isObject(headers) || !Object.values(headers).every((v) => typeof v === 'string')) {
     throw new AdmissionConfigError('CONFIG_INVALID_VALUE', 'denyListRevocationSource: headers must map names to strings');
@@ -460,13 +489,17 @@ export function denyListRevocationSource(options: { url: string; headers?: Recor
       throw new RevocationSourceError('REVOCATION_UNAVAILABLE', 'revocation list could not be fetched');
     }
     if (!response.ok) throw new RevocationSourceError('REVOCATION_UNAVAILABLE', `revocation list answered ${response.status}`);
+    let text: string;
+    try {
+      text = await readCapped(response, MAX_DENY_LIST_BYTES);
+    } catch (e) {
+      if (e instanceof RevocationSourceError) throw e;
+      throw new RevocationSourceError('REVOCATION_UNAVAILABLE', 'revocation list could not be read in time');
+    }
     let document: unknown;
     try {
-      document = await response.json();
-    } catch (e) {
-      if ((e as Error)?.name === 'TimeoutError' || (e as Error)?.name === 'AbortError') {
-        throw new RevocationSourceError('REVOCATION_UNAVAILABLE', 'revocation list timed out');
-      }
+      document = JSON.parse(text);
+    } catch {
       throw new RevocationSourceError('REVOCATION_INVALID', 'revocation list is not JSON');
     }
     return revocationSnapshotFromDenyList(document, subjects);
