@@ -174,6 +174,21 @@ Todas as structs derivam `Debug`, `Clone`, `Serialize`, `Deserialize`. Enums usa
 | `create_sub_mandate(ed, pq, classical, pq_key, &parent, SubMandateParams { .. })` | Submandato assinado pelo agente do mandato pai sob o contexto `DCP-AI.v2.SubMandate` |
 | `verify_mandate_chain(&chain, &revoked_ids, &MandateChainKeys { human_keys, agent_keys }, now_millis)` | Verifica a cadeia começando pela raiz e offline (assinaturas até o humano, vínculos e profundidade, `sub_delegation`, validade aninhada, atenuação de ações, `data_classes` e `limits`, piso de nível, revogação); retorna `MandateChainResult { valid, errors, depth, effective_tier }` |
 
+### Admissão: confiança no principal e strict-v1
+
+Um bundle verificado prova integridade e assinatura, não quem é o principal. A admissão ([spec/profiles/admission](../../spec/profiles/admission/README.md), guia em [docs/ADMISSION.md](../../docs/ADMISSION.md)) acrescenta um conjunto de confiança do operador que fixa as chaves de cada principal, e o perfil `strict-v1`, fixado pelo operador (assinaturas híbridas, audiência assinada, uma sessão assinada de no máximo 300 s e um snapshot de revogação de no máximo 300 s). Não faz E/S de rede e nunca autoriza uma ação: `action_authorized` é sempre `false`. Um conjunto de confiança ou perfil que não pode ser carregado retorna `AdmissionConfigError { code, message }`.
+
+| Função | Descrição |
+|---|---|
+| `verify_signed_bundle_v2_at(&b, &policy, now_ms)` | Verifica no instante dado; informa as chaves signatárias (`signer_keys`) |
+| `PrincipalTrustStore::from_json(&json)` | Carrega e valida um conjunto de confiança |
+| `resolve_strict_v1_profile(&json)` | Carrega e valida um perfil `strict-v1`, somente leitura |
+| `revocation_subjects(&b, &verification)` | O `agent_id` e os kids verificados que a fonte de revogação deve responder |
+| `evaluate_admission_v2(&b, &verification, &opts)` | Avalia a admissão a partir de um resultado do verificador, sem criptografia nem E/S |
+| `admit_signed_bundle_v2(&b, &opts)` | Verifica com a política do perfil e avalia |
+
+A seção completa, com um exemplo, está no [README em inglês](README.md#admission-dcp_aiv2-specprofilesadmission).
+
 ### Feature `wasm`
 
 Quando a feature `wasm` está habilitada, a crate expõe bindings WebAssembly:
