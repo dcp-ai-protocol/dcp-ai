@@ -65,8 +65,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   from `dcp_ai.v2`) and an Ed25519 / ML-DSA-65 / SLH-DSA-192f registry, under the configured
   policy over `DEFAULT_VERIFIER_POLICY` (`verifierPolicy`; `verifier_policy`, a new
   `DCPVerifyMiddleware` argument; the OpenClaw operator policy below). `requireHybrid` raises every
-  risk tier to at least `hybrid_required`, and a `default_mode` without `risk_overrides` applies to
-  every tier. The verifier's errors and warnings are returned, and `composite_sig_valid` comes from
+  risk tier below `hybrid_required` to it (an operator's `pq_only` stays `pq_only`), and a
+  `default_mode` without `risk_overrides` applies to every tier. The verifier's errors and warnings are returned, and `composite_sig_valid` comes from
   it. Until `@dcp-ai/sdk` 2.2.0 is on npm, both TypeScript packages depend on the workspace SDK
   (`"@dcp-ai/sdk": "file:../../sdks/typescript"`), whose verifier has the fixes above; CI builds it
   before testing them, and all three pass every case of `tests/interop/v2/bundle_vectors.json`
