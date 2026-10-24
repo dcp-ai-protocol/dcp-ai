@@ -424,7 +424,9 @@ def test_call_n_plus_1_is_refused_at_once_without_a_connection():
         await asyncio.sleep(0.05)
         assert server.connections == 2 and workers.stats()["saturated"] == 1
         server.answer("ok")
-        await until(lambda: workers.stats()["in_flight"] == 0)
+        # A thread frees its slot before its result reaches the loop, where it is counted as late:
+        # wait for both, bounded by until().
+        await until(lambda: workers.stats()["in_flight"] == 0 and workers.stats()["late_results"] == 2)
         assert workers.stats()["late_results"] == 2
         assert (await outcome(source))[0] == "ok"
     run(scenario)
