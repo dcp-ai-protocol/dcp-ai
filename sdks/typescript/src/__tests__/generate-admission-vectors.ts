@@ -259,6 +259,10 @@ async function main() {
     session_301_s: await build({ principalKeys: principal, agentKeys: agent, manifest: { session_expires_at: iso(ISSUED + 301_000) } }),
     session_300_001_s: await build({ principalKeys: principal, agentKeys: agent, manifest: { session_expires_at: iso(ISSUED + 300_001) } }),
     classical_only: await build({ principalKeys: principal, agentKeys: agent, classicalOnly: true }),
+    session_start_after_expiry: await build({ principalKeys: principal, agentKeys: agent, manifest: { session_issued_at: iso(ISSUED + 20_000), session_expires_at: iso(ISSUED + 10_000) } }),
+    session_expiry_not_rfc3339: await build({ principalKeys: principal, agentKeys: agent, manifest: { session_expires_at: '2026-11-02 10:05:00' } }),
+    // 300.0009 s: digits beyond the millisecond are dropped (V2-4), so the session is 300 s.
+    session_300_000_9_s: await build({ principalKeys: principal, agentKeys: agent, manifest: { session_expires_at: '2026-11-02T10:05:00.0009Z' } }),
     v1_bundle: JSON.parse(readFileSync(V1_BUNDLE, 'utf8')),
   };
   // The PQ signature over the manifest, one byte flipped (still canonical base64): present and invalid.
@@ -315,6 +319,11 @@ async function main() {
           trusted(rotated.pq, { not_before: '2026-11-02T09:00:00Z' }),
         ],
       }],
+    },
+    // The new keys become valid exactly at NOW.
+    rotation_valid_from_now: {
+      trust_set_version: version('rotation-valid-from-now'),
+      principals: [{ human_id: PRINCIPAL, keys: [trusted(rotated.classical, { not_before: iso(NOW) }), trusted(rotated.pq, { not_before: iso(NOW) })] }],
     },
     // The new keys become valid one millisecond after NOW.
     rotation_not_yet_valid: {
@@ -421,6 +430,7 @@ async function main() {
     await strict('D_overlap_old_keys_after_retirement', '§3 T2', 'After the rotation the old keys are retired in the trust set: a bundle signed with them is refused.', 'base', 'rotation_completed', untrusted(['TRUST_KEY_EXPIRED'])),
     await strict('D_overlap_ended_old_keys', '§3 T2', 'The overlap ended one millisecond before now: a bundle signed with the old keys is refused.', 'base', 'rotation_overlap_ended', untrusted(['TRUST_KEY_EXPIRED'])),
     await strict('D_overlap_ended_new_keys', '§2.2 rotation', 'After the overlap a bundle signed with the new keys is admitted.', 'rotated_keys', 'rotation_overlap_ended', ACCEPTED),
+    await strict('D_new_keys_valid_from_now', '§3 T2', 'not_before equal to now is not after now: the new keys are valid.', 'rotated_keys', 'rotation_valid_from_now', ACCEPTED),
     await strict('D_new_keys_before_not_before', '§3 T2', 'New keys whose not_before is one millisecond after now: not valid yet.', 'rotated_keys', 'rotation_not_yet_valid', untrusted(['TRUST_KEY_NOT_YET_VALID'])),
     await strict('E_escalated_decision_is_evidence', '§5.2', 'A bundle recording an escalate decision is admitted as evidence; action_authorized stays false.', 'escalated', 'principal', outcome({ recorded_decision: 'escalate', codes: [] })),
     await strict('E_blocked_decision_is_evidence', '§5.2', 'A bundle recording a block decision is admitted as evidence; action_authorized stays false.', 'blocked', 'principal', outcome({ recorded_decision: 'block', codes: [] })),
@@ -432,6 +442,16 @@ async function main() {
       name: '1_unknown_principal_trust_only', rule: '§3 T1', reason: 'The same bundle under the default policy with a trust set: verified, not admitted.',
       bundle: 'unknown_principal', now: iso(NOW), profile: null, trust: 'principal',
       expected: outcome({ principal_trust: 'untrusted', profile_compliance: 'not_evaluated', admitted: false, codes: ['TRUST_PRINCIPAL_UNKNOWN'] }),
+    },
+    {
+      name: '11_v1_bundle_trust_only', rule: '§5.1', reason: 'With a trust set and no profile, a V1 bundle does not verify as V2: nothing to anchor.',
+      bundle: 'v1_bundle', now: iso(NOW), profile: null, trust: 'principal',
+      expected: outcome({ verified: false, principal_trust: 'not_evaluated', profile_compliance: 'not_evaluated', admitted: false, recorded_decision: null, codes: ['VERIFICATION_FAILED'] }),
+    },
+    {
+      name: '4_pq_key_substituted_trust_only', rule: '§3 T2', reason: 'Under the default policy with a trust set, someone else\'s ML-DSA key is unanchored too.',
+      bundle: 'pq_key_substituted', now: iso(NOW), profile: null, trust: 'principal',
+      expected: outcome({ principal_trust: 'untrusted', profile_compliance: 'not_evaluated', admitted: false, codes: ['TRUST_KEY_NOT_ANCHORED'] }),
     },
     await strict('1_trusted_keys_under_another_human_id', '§3 T1', 'Keys trusted for human:stranger-2 do not make human:stranger trusted.', 'unknown_principal', 'stranger_trusted_too', untrusted(['TRUST_PRINCIPAL_UNKNOWN'])),
     await strict('2_attacker_uses_known_human_id', '§3 T2', 'The known human_id with the attacker\'s own keys: every principal component is unanchored.', 'attacker_claims_known_human_id', 'principal', untrusted(['TRUST_KEY_NOT_ANCHORED'])),
@@ -456,6 +476,9 @@ async function main() {
     await strict('10_operator_lowers_maximum', '§4.1', 'The operator lowered the maximum to 120 s: the 300 s session exceeds it.', 'base', 'principal', rejectedUnverified(['PROFILE_SESSION_TOO_LONG', 'VERIFICATION_FAILED']), { profile: 'strict_120_s' }),
     await strict('10_expires_exactly_now', '§4.2 P3', 'now equal to session_expires_at: not expired.', 'base', 'principal', ACCEPTED, { now: ISSUED + 300_000 }),
     await strict('10_expired_one_ms_ago', '§4.2 P3', 'now one millisecond after session_expires_at.', 'base', 'principal', rejectedUnverified(['PROFILE_SESSION_EXPIRED', 'VERIFICATION_FAILED']), { now: ISSUED + 300_001 }),
+    await strict('10_session_start_after_expiry', '§4.2 P3', 'The signed session starts after it expires.', 'session_start_after_expiry', 'principal', rejectedUnverified(['PROFILE_SESSION_TIME_INVALID', 'VERIFICATION_FAILED'])),
+    await strict('10_session_expiry_not_rfc3339', '§4.2 P3', 'The signed session_expires_at is not an RFC 3339 timestamp.', 'session_expiry_not_rfc3339', 'principal', rejectedUnverified(['PROFILE_SESSION_TIME_INVALID', 'VERIFICATION_FAILED'])),
+    await strict('10_sub_millisecond_digits_dropped', '§2.1', 'A 300.0009 s session is 300 s at millisecond precision: admitted.', 'session_300_000_9_s', 'principal', ACCEPTED),
     await strict('10_start_30_s_ahead', '§4.2 P3', 'session_issued_at 30 s after now is within the clock skew.', 'base', 'principal', ACCEPTED, { now: ISSUED - 30_000 }),
     await strict('10_start_30_001_s_ahead', '§4.2 P3', 'session_issued_at 30.001 s after now is beyond the clock skew.', 'base', 'principal', rejectedUnverified(['PROFILE_SESSION_NOT_STARTED', 'VERIFICATION_FAILED']), { now: ISSUED - 30_001 }),
 
@@ -482,6 +505,9 @@ async function main() {
     }),
     await strict('13_subject_missing', '§4.3 R5', 'The snapshot does not cover the agent.', 'base', 'principal', nonCompliant(['REVOCATION_UNKNOWN']), {
       revocation: await snapshot('base', NOW, (s) => { delete s.agents[AGENT]; }),
+    }),
+    await strict('13_key_subject_missing', '§4.3 R5', 'The snapshot does not cover one verified signer key.', 'base', 'principal', nonCompliant(['REVOCATION_UNKNOWN']), {
+      revocation: await snapshot('base', NOW, (s) => { delete s.keys[kidOf(agent.classical)]; }),
     }),
     await strict('13_stale_by_1_ms', '§4.3 R3', 'checked_at 300.001 s before now.', 'base', 'principal', nonCompliant(['REVOCATION_STALE']), {
       revocation: await snapshot('base', NOW, (s) => { s.checked_at = iso(NOW - 300_001); }),

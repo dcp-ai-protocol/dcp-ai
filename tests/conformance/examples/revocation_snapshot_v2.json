@@ -4,9 +4,9 @@
     "agent:acme-bot": "not_revoked"
   },
   "keys": {
-    "4f2aa7378738301773f601703351e57c": "not_revoked",
-    "ad4eb4f55560daa154c758f072014bc6": "not_revoked",
-    "be649c7b813fee038b739443ca539a84": "not_revoked",
-    "cf41c8c64ff924f6f1e27c7924ad7153": "not_revoked"
+    "50b32ce11c7da916b7ea09c043aa329f": "not_revoked",
+    "c75f8b95787487778f485919f8a9c8e3": "not_revoked",
+    "d158b3909929ee1a4fb88f342d0d8efb": "not_revoked",
+    "fb36d810d12bbf3cc1fa4dbf46d606d7": "not_revoked"
   }
 }

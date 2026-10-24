@@ -104,12 +104,38 @@ export interface PrincipalTrustSet {
 }
 
 interface TrustedKey {
-  alg: string;
-  bytes: Uint8Array;
-  status: TrustedPrincipalKey['status'];
-  notBefore?: number;
-  expiresAt?: number;
+  readonly alg: string;
+  /** Canonical base64: one encoding per key, so equal strings are equal bytes. */
+  readonly publicKeyB64: string;
+  readonly status: TrustedPrincipalKey['status'];
+  readonly notBefore?: number;
+  readonly expiresAt?: number;
 }
+
+/** A Map that cannot be changed after it is built: a loaded trust set stays as it was validated. */
+class FrozenMap<K, V> extends Map<K, V> {
+  constructor(entries: Iterable<readonly [K, V]>) {
+    super(); // Map(entries) would call the set below
+    for (const [key, value] of entries) super.set(key, value);
+  }
+  override set(): this {
+    throw new TypeError('a loaded trust set cannot be changed');
+  }
+  override delete(): boolean {
+    throw new TypeError('a loaded trust set cannot be changed');
+  }
+  override clear(): void {
+    throw new TypeError('a loaded trust set cannot be changed');
+  }
+}
+
+const deepFreeze = <T>(value: T): T => {
+  if (typeof value === 'object' && value !== null && !Object.isFrozen(value)) {
+    for (const v of Object.values(value)) deepFreeze(v);
+    Object.freeze(value);
+  }
+  return value;
+};
 
 /** A validated trust set: create it with createPrincipalTrustStore. */
 export interface PrincipalTrustStore {
@@ -174,18 +200,19 @@ export function createPrincipalTrustStore(trustSet: unknown): PrincipalTrustStor
       if (kids.has(kid)) fail('CONFIG_TRUST_DUPLICATE', `${at}: kid ${kid} is listed twice in the trust set`);
       if (!KEY_STATUSES.includes(k.status)) fail('CONFIG_INVALID_VALUE', `${at}.status must be active, revoked or expired`);
       kids.add(kid);
-      keys.set(kid, {
+      keys.set(kid, Object.freeze({
         alg: alg as string,
-        bytes: bytes as Uint8Array,
+        publicKeyB64: k.public_key_b64 as string,
         status: k.status as TrustedKey['status'],
         notBefore: optionalInstant(k.not_before, `${at}.not_before`),
         expiresAt: optionalInstant(k.expires_at, `${at}.expires_at`),
-      });
+      }));
     });
     principals.set(humanId, keys);
   });
 
-  const store: PrincipalTrustStore = Object.freeze({ version: set.trust_set_version as string, principals });
+  const frozen = new FrozenMap([...principals].map(([id, keys]) => [id, new FrozenMap(keys)] as const));
+  const store: PrincipalTrustStore = Object.freeze({ version: set.trust_set_version as string, principals: frozen });
   TRUST_STORES.add(store);
   return store;
 }
@@ -364,7 +391,7 @@ export function resolveStrictV1Profile(config: unknown): StrictV1Profile {
     verifierId,
     maxSessionDurationSeconds: maxSession,
     maxRevocationAgeSeconds: maxRevocation,
-    policy: Object.freeze(policy),
+    policy: deepFreeze(policy),
   });
   PROFILES.add(profile);
   return profile;
@@ -563,7 +590,6 @@ function hybridVerified(verification: VerifyV2Result, add: (c: AdmissionCode, m:
   }
 }
 
-const sameBytes = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.every((byte, i) => byte === b[i]);
 
 /** § 3: whether every verified component of the principal signatures is a trusted key of the principal. */
 function principalTrust(
@@ -589,8 +615,8 @@ function principalTrust(
   for (const use of uses) {
     const where = `${use.signature} ${use.component} key ${use.kid}`;
     const key = trusted.get(use.kid);
-    const bytes = canonicalB64Bytes(use.public_key_b64);
-    if (!key || key.alg !== use.alg || !bytes || !sameBytes(bytes, key.bytes)) {
+    // Both are canonical base64 (V2-13 for the verifier's key, § 2.2 for the trust set's).
+    if (!key || key.alg !== use.alg || !canonicalB64Bytes(use.public_key_b64) || use.public_key_b64 !== key.publicKeyB64) {
       reject('TRUST_KEY_NOT_ANCHORED', `${where} is not a trusted key of the principal`);
     } else if (key.status === 'revoked') {
       reject('TRUST_KEY_REVOKED', `${where} is revoked in the trust set`);
@@ -644,10 +670,17 @@ function revocationChecks(
 /**
  * § 5: admit a bundle given verifySignedBundleV2's result. No cryptography and no I/O. Throws
  * AdmissionConfigError for an invalid profile or trust set, or a profile without a trust set.
+ *
+ * It trusts `verification`: pass only the result of verifySignedBundleV2 on this same bundle, at
+ * this same `now`, under the profile's policy (profile.policy) when there is a profile. It does
+ * not re-verify, and a result made up, from another bundle or under another policy gives a wrong
+ * answer. admitSignedBundleV2 does both steps and is the safer entry point.
  */
 export function evaluateAdmissionV2(input: AdmissionInput): AdmissionResult {
-  const { signedBundle, verification, revocation, now } = input;
-  if (!Number.isFinite(now)) fail('CONFIG_INVALID_VALUE', 'now must be a finite number of milliseconds');
+  const { signedBundle, verification, revocation } = input;
+  if (!Number.isFinite(input.now)) fail('CONFIG_INVALID_VALUE', 'now must be a finite number of milliseconds');
+  // Whole milliseconds, as verifySignedBundleV2 uses it.
+  const now = Math.floor(input.now);
   const profile = input.profile === undefined ? undefined : resolveStrictV1Profile(input.profile);
   const trust = input.trust === undefined ? undefined : createPrincipalTrustStore(input.trust);
   if (profile && !trust) fail('CONFIG_PROFILE_CONTRADICTION', 'strict-v1 requires a trust set');
@@ -726,7 +759,7 @@ export async function admitSignedBundleV2(
   registry: AlgorithmRegistry,
   options: AdmitOptions = {},
 ): Promise<AdmissionResult> {
-  const now = options.now ?? Date.now();
+  const now = Math.floor(options.now ?? Date.now());
   const profile = options.profile === undefined ? undefined : resolveStrictV1Profile(options.profile);
   if (profile && options.policy !== undefined) {
     fail('CONFIG_PROFILE_CONTRADICTION', 'a strict-v1 profile sets its own verifier policy; do not pass one');

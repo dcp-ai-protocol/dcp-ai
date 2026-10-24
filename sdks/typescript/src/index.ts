@@ -207,6 +207,7 @@ export {
   verifySessionBinding,
   generateSessionExpiry,
   isSessionExpired,
+  parseRfc3339,
 } from './core/session-nonce.js';
 
 // ── V2 Emergency Revocation (Gap #13) ──

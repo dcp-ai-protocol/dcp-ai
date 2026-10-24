@@ -127,6 +127,23 @@ describe('admission API', () => {
     });
   });
 
+  it('a loaded trust set and profile cannot be changed afterwards', () => {
+    const store = createPrincipalTrustStore(VECTORS.trust_sets.principal);
+    const keys = store.principals.get('human:acme-ops')!;
+    expect(() => (store.principals as Map<string, unknown>).set('human:attacker', keys)).toThrow();
+    expect(() => (store.principals as Map<string, unknown>).delete('human:acme-ops')).toThrow();
+    expect(() => (keys as Map<string, unknown>).set('f'.repeat(32), {})).toThrow();
+    const [key] = keys.values();
+    expect(() => {
+      (key as any).status = 'active';
+    }).toThrow();
+    const profile = resolveStrictV1Profile(VECTORS.profiles.strict);
+    expect(() => {
+      (profile.policy.risk_overrides as any).high = 'classical_only';
+    }).toThrow();
+    expect(() => (profile.policy.accepted_pq_algs as string[]).push('dilithium2')).toThrow();
+  });
+
   it('a profile without a trust set, or with a caller policy, is a configuration error', async () => {
     const verification = await verifySignedBundleV2(base(), registry, DEFAULT_VERIFIER_POLICY, { now });
     expect(() => evaluateAdmissionV2({ signedBundle: base(), verification, profile: VECTORS.profiles.strict, now })).toThrow(

@@ -56,7 +56,7 @@ fn codes(result: &AdmissionResult) -> Vec<&'static str> {
 fn admission_vectors() {
     let v = vectors();
     let cases = v["cases"].as_array().expect("cases");
-    assert_eq!(cases.len(), 58);
+    assert!(cases.len() >= 65, "the vectors lost cases: {}", cases.len());
     let mut failures = Vec::new();
     for c in cases {
         let profile = c["profile"].as_str().map(|id| resolve_strict_v1_profile(&v["profiles"][id]).expect(id));
@@ -102,7 +102,7 @@ fn admission_vectors() {
 #[test]
 fn configuration_vectors_are_refused_with_their_code() {
     let cases = vectors()["config_cases"].as_array().expect("config_cases");
-    assert_eq!(cases.len(), 49);
+    assert!(cases.len() >= 49, "the vectors lost configuration cases: {}", cases.len());
     let mut failures = Vec::new();
     for c in cases {
         let refused = match c["kind"].as_str() {
@@ -123,7 +123,7 @@ fn configuration_vectors_are_refused_with_their_code() {
 #[test]
 fn accepted_profiles_load_with_their_limits() {
     let cases = vectors()["accepted_profiles"].as_array().expect("accepted_profiles");
-    assert_eq!(cases.len(), 2);
+    assert!(cases.len() >= 2, "the vectors lost accepted profiles: {}", cases.len());
     for c in cases {
         let profile = resolve_strict_v1_profile(&c["config"]).unwrap_or_else(|e| panic!("{}: {e}", c["name"]));
         let session = c["expected_max_session_duration_seconds"].as_u64();
