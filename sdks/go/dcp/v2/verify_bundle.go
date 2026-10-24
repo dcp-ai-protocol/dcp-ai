@@ -81,13 +81,14 @@ func VerifySignedBundleV2(registry *AlgorithmRegistry, signedBundleJSON []byte) 
 // VerifySignedBundleV2WithPolicy verifies a V2 signed bundle against the stricter
 // of the policy mode (DefaultMode, or the RiskOverrides entry for the passport's
 // risk_tier) and the security tier's mode (spec §14.3).
-// Besides DefaultMode and RiskOverrides, only the Phase 3 fields and the session
-// and audience fields are enforced, as in the TypeScript SDK:
-// AdvisoryRejectedAlgs, WarnClassicalOnlyDeprecated,
-// AllowClassicalFallbackDisable, MaxSessionDurationSeconds,
-// RequireSessionExpiry, RequireAudienceBinding and VerifierID. A policy that
-// changes any other field fails verification instead of having the setting
-// ignored.
+// Besides DefaultMode and RiskOverrides, only the Phase 3 fields, the accepted
+// signature algorithms and the session and audience fields are enforced, as in
+// the TypeScript SDK: AdvisoryRejectedAlgs, WarnClassicalOnlyDeprecated,
+// AllowClassicalFallbackDisable, AcceptedClassicalAlgs, AcceptedPQAlgs,
+// MaxSessionDurationSeconds, RequireSessionExpiry, RequireAudienceBinding and
+// VerifierID. AllowV1Bundles may take either value: this verifier never
+// accepts a V1 bundle. A policy that changes any other field fails
+// verification instead of having the setting ignored.
 func VerifySignedBundleV2WithPolicy(registry *AlgorithmRegistry, signedBundleJSON []byte, policy VerifierPolicy) *V2VerificationResult {
 	return VerifySignedBundleV2At(registry, signedBundleJSON, policy, time.Now())
 }
@@ -105,6 +106,8 @@ func VerifySignedBundleV2At(registry *AlgorithmRegistry, signedBundleJSON []byte
 	}
 	enforced := DefaultVerifierPolicy()
 	enforced.DefaultMode, enforced.RiskOverrides = policy.DefaultMode, policy.RiskOverrides
+	enforced.AcceptedClassicalAlgs, enforced.AcceptedPQAlgs = policy.AcceptedClassicalAlgs, policy.AcceptedPQAlgs
+	enforced.AllowV1Bundles = policy.AllowV1Bundles
 	enforced.AllowClassicalFallbackDisable = policy.AllowClassicalFallbackDisable
 	enforced.WarnClassicalOnlyDeprecated = policy.WarnClassicalOnlyDeprecated
 	enforced.AdvisoryRejectedAlgs = policy.AdvisoryRejectedAlgs
@@ -112,7 +115,7 @@ func VerifySignedBundleV2At(registry *AlgorithmRegistry, signedBundleJSON []byte
 	enforced.RequireSessionExpiry = policy.RequireSessionExpiry
 	enforced.RequireAudienceBinding, enforced.VerifierID = policy.RequireAudienceBinding, policy.VerifierID
 	if !reflect.DeepEqual(policy, enforced) {
-		result.Errors = append(result.Errors, "Verifier policy sets fields this verifier does not enforce: only DefaultMode, RiskOverrides, MaxSessionDurationSeconds, RequireSessionExpiry, RequireAudienceBinding, VerifierID and the Phase 3 fields may differ from DefaultVerifierPolicy")
+		result.Errors = append(result.Errors, "Verifier policy sets fields this verifier does not enforce: only DefaultMode, RiskOverrides, AcceptedClassicalAlgs, AcceptedPQAlgs, AllowV1Bundles, MaxSessionDurationSeconds, RequireSessionExpiry, RequireAudienceBinding, VerifierID and the Phase 3 fields may differ from DefaultVerifierPolicy")
 		return result
 	}
 
@@ -493,6 +496,12 @@ func resolveVerificationMode(bundle map[string]interface{}, policy VerifierPolic
 // verifier does. A PQ signature that is present must verify in every mode;
 // cvr.Valid covers both components for pq_over_classical.
 func checkMode(mode string, policy VerifierPolicy, cs *CompositeSignature, cvr *CompositeVerifyResult) (errs, warnings []string) {
+	if mode != "pq_only" && !slices.Contains(policy.AcceptedClassicalAlgs, cs.Classical.Alg) {
+		errs = append(errs, fmt.Sprintf("Classical algorithm %s not accepted by verifier policy", cs.Classical.Alg))
+	}
+	if cs.PQ != nil && !slices.Contains(policy.AcceptedPQAlgs, cs.PQ.Alg) {
+		errs = append(errs, fmt.Sprintf("PQ algorithm %s not accepted by verifier policy", cs.PQ.Alg))
+	}
 	if mode != "pq_only" && slices.Contains(policy.AdvisoryRejectedAlgs, cs.Classical.Alg) {
 		errs = append(errs, fmt.Sprintf("Classical algorithm %s rejected by active advisory", cs.Classical.Alg))
 	}
