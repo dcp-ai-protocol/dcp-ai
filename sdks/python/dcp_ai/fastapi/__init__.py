@@ -29,6 +29,7 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import functools
 import inspect
 import json
 import logging
@@ -67,6 +68,8 @@ from dcp_ai.v2.models import VerifierPolicy
 from dcp_ai.v2.revocation_source import RevocationSourceError, deny_list_revocation_source  # noqa: F401
 from dcp_ai.v2.verify import verify_signed_bundle_v2
 from dcp_ai.verify import verify_signed_bundle
+
+from ._source_supervisor import SourceSupervisor, seconds as _supervised_seconds
 
 _logger = logging.getLogger("dcp_ai.fastapi")
 
@@ -253,6 +256,56 @@ def _is_async_callable(fn: Any) -> bool:
     return inspect.iscoroutinefunction(fn) or inspect.iscoroutinefunction(getattr(fn, "__call__", None))
 
 
+def _is_async_source(fn: Any) -> bool:
+    """Whether a supervised trusted_principals is async, also through functools.partial."""
+    while isinstance(fn, functools.partial):
+        fn = fn.func
+    return _is_async_callable(fn)
+
+
+_SUPERVISE_KEYS = ("trust_timeout", "revocation")
+
+
+def _supervision(source_supervisor: Any, supervise: Any, trusted_principals: Any) -> tuple[SourceSupervisor, float] | None:
+    """source_supervisor and supervise, which go together and need an asynchronous trusted_principals."""
+    if source_supervisor is None and supervise is None:
+        return None
+    if source_supervisor is None or supervise is None:
+        raise AdmissionConfigError("CONFIG_PROFILE_CONTRADICTION", "source_supervisor and supervise go together")
+    if not isinstance(source_supervisor, SourceSupervisor):
+        raise AdmissionConfigError("CONFIG_INVALID_VALUE", "source_supervisor must be a dcp_ai.fastapi.SourceSupervisor")
+    if not isinstance(supervise, dict):
+        raise AdmissionConfigError("CONFIG_INVALID_VALUE", "supervise must be a dict")
+    for key in supervise:
+        if key not in _SUPERVISE_KEYS:
+            raise AdmissionConfigError("CONFIG_UNKNOWN_FIELD", f"Unknown supervise field: {str(key)[:64]!r}")
+    revocation = supervise.get("revocation", False)
+    if revocation is not False:
+        raise AdmissionConfigError(
+            "CONFIG_INVALID_VALUE", "supervise['revocation'] is not available: the revocation source keeps revocation_timeout"
+        )
+    if "trust_timeout" not in supervise:
+        raise AdmissionConfigError("CONFIG_INVALID_VALUE", "supervise needs trust_timeout")
+    trust_timeout = _supervised_seconds(supervise["trust_timeout"], "supervise['trust_timeout']", minimum_inclusive=False)
+    if trusted_principals is None or not callable(trusted_principals) or isinstance(trusted_principals, PrincipalTrustStore):
+        raise AdmissionConfigError(
+            "CONFIG_PROFILE_CONTRADICTION", "supervise needs trusted_principals as an async callable: a static trust set has no source to supervise"
+        )
+    if not _is_async_source(trusted_principals):
+        raise AdmissionConfigError(
+            "CONFIG_INVALID_VALUE", "supervise needs an async trusted_principals: a synchronous one would run on the event loop, where no deadline holds"
+        )
+    return source_supervisor, trust_timeout
+
+
+class _SupervisedTrustUnavailable(Exception):
+    """The supervised trust source gave no trust set in time (code: the supervisor's reason)."""
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
+
 def _failed_verification(error: str) -> dict[str, Any]:
     return {"verified": False, "errors": [error], "warnings": [], "details": {}}
 
@@ -336,6 +389,15 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
     their decompression, parse depth, time or a disconnect after the read, and it is
     a deployment limit, not part of the DCP protocol.
 
+    `source_supervisor` and `supervise` (keyword only, together, default None: as before): a
+    SourceSupervisor and {"trust_timeout": seconds} give an async trusted_principals a deadline and
+    a slot of the supervisor's capacity. The source runs as a Task the supervisor owns; a trust set
+    that arrives after the deadline (loop.time(), checked when it arrives), a call that finds no
+    free slot, a closed supervisor or one bound to another event loop gives the same 503 as a
+    failing source, and the slot stays taken until the Task really finishes. A static or
+    synchronous trusted_principals, or {"revocation": True}, raises AdmissionConfigError. It does
+    not stop a source that ignores cancellation or isolate CPU; one supervisor per event loop.
+
     Contradictions (`trusted_principals` or `profile` without `require_bundle=True`,
     a profile without `trusted_principals` or `revocation_source`, or with
     `verifier_policy`) raise AdmissionConfigError (CONFIG_PROFILE_CONTRADICTION), and
@@ -358,9 +420,12 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
         tenant: Callable[[Request], str] | None = None,
         clock: Callable[[], int] | None = None,
         max_body_bytes: int | None = None,
+        source_supervisor: SourceSupervisor | None = None,
+        supervise: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(app)
         self._max_body_bytes = _max_body_bytes(max_body_bytes)
+        self._supervision = _supervision(source_supervisor, supervise, trusted_principals)
         self.require_bundle = require_bundle
         self.header_name = header_name
         self.dcp_version = dcp_version
@@ -584,6 +649,14 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
         source = self._trusted_principals
         if isinstance(source, PrincipalTrustStore):
             return source
+        if self._supervision is not None:
+            supervisor, trust_timeout = self._supervision
+            status, value = await supervisor._run(tenant, trust_timeout, lambda: source(tenant))  # type: ignore[operator]
+            if status != "ok":
+                # A source that failed, cancelled itself, ran out of time, found no slot or a closed
+                # supervisor: the request gets the 503 of a failing source, never a cancellation.
+                raise _SupervisedTrustUnavailable("TRUST_SOURCE_FAILED" if status == "failed" else status)
+            return create_principal_trust_store(value)
         trust_set = source(tenant)  # type: ignore[operator]
         if inspect.isawaitable(trust_set):
             trust_set = await trust_set

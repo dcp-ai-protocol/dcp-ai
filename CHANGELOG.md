@@ -154,6 +154,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `dcp_ai.fastapi.DCPVerifyMiddleware`: a deadline and a capacity for an async `trusted_principals`,
+  opt-in. `SourceSupervisor(max_in_flight=..., max_in_flight_per_tenant=None)`, exported from
+  `dcp_ai.fastapi` only, and `source_supervisor` with `supervise={"trust_timeout": seconds}` (both
+  together). The source runs as a Task the supervisor owns. A trust set that arrives after the
+  deadline (`loop.time()`, checked on arrival and on use), a call with no free slot (no queue), a
+  closed supervisor or one bound to another event loop gives the same 503 as a failing source. A
+  slot is freed only when the Task really finishes. `close(drain_timeout)` and `stats()` are
+  provided. A static or synchronous `trusted_principals` with these options, or
+  `{"revocation": True}`, raises `AdmissionConfigError`. One supervisor per event loop; it does not
+  stop a source that ignores cancellation or isolate CPU. Without these options nothing changes.
 - `@dcp-ai/express` and `@dcp-ai/openclaw`: a deadline and a capacity for a `trustedPrincipals`
   function, opt-in. `createSourceSupervisor({ maxInFlight, maxInFlightPerTenant?, onSourceEvent? })`
   makes a supervisor, and `sourceSupervisor` with `supervise: { trustTimeoutMs }` applies it (both

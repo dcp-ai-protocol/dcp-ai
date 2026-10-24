@@ -84,6 +84,8 @@ app.add_middleware(
 | `revocation_timeout` | `float` | `5.0` | Keyword only. Seconds the revocation source has to answer. |
 | `tenant` | `callable \| None` | `None` | Keyword only. `(request) -> str`, sync or async, your own code (for instance the tenant of the caller your authentication set on `request.state`). Passed to the trust and revocation callables. Default: always `""`. |
 | `clock` | `callable \| None` | `None` | Keyword only, for tests: the time in milliseconds since the epoch. Default: the system clock. |
+| `source_supervisor` | `SourceSupervisor \| None` | `None` | Keyword only, with `supervise`. See [Supervising the trust source](#supervising-the-trust-source). |
+| `supervise` | `dict \| None` | `None` | Keyword only: `{"trust_timeout": seconds}`, more than 0 and up to 2147483.647, for an async `trusted_principals`. `{"revocation": True}` raises: revocation keeps `revocation_timeout`. |
 | `max_body_bytes` | `int \| None` | `None` | Keyword only. A positive integer (not a `bool`, `float`, string, `0` or negative): the request body bytes the middleware accepts. Needs Starlette 0.28.0 or later. Default: no budget, as before. See [Body budget](#body-budget). |
 
 #### Behavior
@@ -109,6 +111,30 @@ app.add_middleware(
 - The option therefore needs Starlette 0.28.0 or later: with an older Starlette, or one whose version cannot be read, `max_body_bytes` raises `AdmissionConfigError` (`CONFIG_INVALID_VALUE`) when the middleware is built. Upgrade FastAPI/Starlette or leave it unset. Without the option nothing is checked, and the package's own minimum versions are unchanged.
 
 It is a limit on the body bytes received, set by your deployment, not part of the DCP protocol: it does not bound decompression (it counts the bytes the ASGI server delivers), JSON depth, time or a disconnect after the read. Set it with your server's own limits.
+
+#### Supervising the trust source
+
+Without these options an async or sync `trusted_principals` runs as before, with no deadline. With them, an **async** one gets a deadline and a slot of a capacity:
+
+```python
+from dcp_ai.fastapi import DCPVerifyMiddleware, SourceSupervisor
+
+supervisor = SourceSupervisor(max_in_flight=64, max_in_flight_per_tenant=8)  # one per event loop / worker
+
+async def trust_set_for(tenant):
+    return await load_trust_set(tenant)
+
+app.add_middleware(DCPVerifyMiddleware, require_bundle=True, trusted_principals=trust_set_for,
+                   source_supervisor=supervisor, supervise={"trust_timeout": 2.0})
+```
+
+- **Deadline.** The source runs as a Task the supervisor owns. A trust set that arrives after `trust_timeout`, measured with `loop.time()` when it arrives and again when it is used, is not used. The request gets the same `503` as a failing source, and the Task is asked to cancel; nothing waits for it to cooperate.
+- **Capacity.** At most `max_in_flight` source calls run at once, with no queue. `max_in_flight_per_tenant` caps one tenant; without it, one tenant can take the whole capacity. A call that finds no free slot gets the `503` at once, without calling the source. **A slot is freed only when the source's Task really finishes**, not when the request is answered: a source that ignores cancellation keeps its slot. Once every slot is taken this way, every request gets `503` until those sources finish or the process restarts.
+- **Failures.** A source that cancels itself, a cancelled caller (whose source keeps its slot until it finishes) and an invalid trust set all fail closed. A static or synchronous `trusted_principals` with these options raises `AdmissionConfigError`: a synchronous one would run on the event loop, where no deadline holds.
+- **Scope.** The capacity is per `SourceSupervisor` object, shared by the middlewares you give it to. It binds to the first event loop that uses it, so give each worker process or loop its own. Calls from another loop or thread fail closed, and a `close()` from another loop raises `RuntimeError` without changing anything.
+- **`await supervisor.close(drain_timeout=0)`** refuses new calls, answers pending ones with `503`, asks every source Task to cancel and waits at most `drain_timeout` seconds. It returns `{"in_flight": n}`; those slots stay taken, and there is no reopening.
+- **`supervisor.stats()`** returns counters, with no tenant: `open`, `in_flight`, `tenants`, `timeouts`, `saturated`, `closed`, `wrong_loop`, `late_results`, `late_errors`. They stop at 2**53 - 1.
+- **What it does not do.** It does not stop work that ignores cancellation, bound work a source starts on its own, or isolate CPU. An `async def` that blocks the event loop delays every deadline. A server or `asyncio.run` shutting down may still wait for a source Task that ignores cancellation. Revocation keeps `revocation_timeout`. The trust source is still asked before the bundle is verified, as before.
 
 #### What "verified" means
 
