@@ -43,8 +43,8 @@ import starlette
 from fastapi import Request, HTTPException, Depends
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import ClientDisconnect
-from starlette.responses import JSONResponse
-from starlette.types import Receive, Scope, Send
+from starlette.responses import JSONResponse, Response
+from starlette.types import Message, Receive, Scope, Send
 
 # The registry, the verifier policy and the V1 rule are shared with the LangChain
 # and OpenAI bridges (dcp_ai._verify_any).
@@ -325,6 +325,120 @@ def _supervision(
     return _Supervision(source_supervisor, trust_timeout, supervised_revocation_timeout)
 
 
+class _ClientGone(Exception):
+    """cancel_on_disconnect: the client left during admission. Raised inside the admission only and
+    caught by dispatch, which answers _NothingSent: never raised through BaseHTTPMiddleware, whose
+    task group may wrap it in an ExceptionGroup (Starlette 0.28)."""
+
+
+class _NothingSent(Response):
+    """The answer to a client that left: it sends nothing at all (a server such as uvicorn logs
+    nothing for an application that sends nothing to a client that has gone)."""
+
+    def __init__(self) -> None:
+        super().__init__()
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        return None
+
+
+def _retrieve(task: "asyncio.Future[Any]") -> None:
+    if not task.cancelled():
+        task.exception()
+
+
+def _left(read: "asyncio.Future[Any] | None") -> bool:
+    """Whether the watched read has brought http.disconnect: the client left."""
+    if read is None or not read.done() or read.cancelled() or read.exception() is not None:
+        return False
+    message = read.result()
+    return isinstance(message, dict) and message.get("type") == "http.disconnect"
+
+
+def _stop_if_left(read: "asyncio.Future[Any] | None") -> None:
+    if _left(read):
+        raise _ClientGone
+
+
+class _ReceiveChannel:
+    """
+    A request's ASGI receive with one reader at a time (cancel_on_disconnect). Each read runs as a
+    Task of its own and a reader waits for it through shield, so a reader that is cancelled leaves
+    the read for the next one; only the reader that gets its message, or its error, clears it.
+    Nothing is read twice, taken by two readers, lost or reordered. The admission watches that same
+    read without taking it. A read nobody took is cancelled when the request ends, and its outcome
+    is retrieved, also if it ends later.
+    """
+
+    def __init__(self, receive: Receive) -> None:
+        self._receive = receive
+        self._lock = asyncio.Lock()
+        self._pending: asyncio.Task | None = None
+
+    def _read(self) -> asyncio.Task:
+        if self._pending is None:
+            self._pending = asyncio.ensure_future(self._receive())
+        return self._pending
+
+    def watch(self) -> asyncio.Task:
+        """The next read, to observe without taking it."""
+        return self._read()
+
+    async def __call__(self) -> Message:
+        async with self._lock:
+            read = self._read()
+            try:
+                message = await asyncio.shield(read)
+            except asyncio.CancelledError:
+                if read.cancelled() and self._pending is read:
+                    self._pending = None  # the read itself was cancelled: nothing to hand over
+                raise
+            except BaseException:
+                if self._pending is read:
+                    self._pending = None  # its failure goes to this reader, once
+                raise
+            if self._pending is read:
+                self._pending = None
+            return message
+
+    def close(self) -> None:
+        read, self._pending = self._pending, None
+        if read is None:
+            return
+        if not read.done():
+            read.cancel()
+        read.add_done_callback(_retrieve)
+
+
+def _cancel_on_disconnect(
+    value: Any, *, max_body_bytes: int | None, trusted_principals: Any, supervision: "_Supervision | None",
+    revocation_source: Any, tenant: Any,
+) -> bool:
+    """cancel_on_disconnect needs the whole body read first (max_body_bytes), something to cancel and
+    nothing that cannot be: every source callable supervised and a synchronous tenant callable."""
+    if not isinstance(value, bool):
+        raise AdmissionConfigError("CONFIG_INVALID_VALUE", "cancel_on_disconnect must be True or False")
+    if not value:
+        return False
+
+    def contradiction(why: str) -> AdmissionConfigError:
+        return AdmissionConfigError("CONFIG_PROFILE_CONTRADICTION", f"cancel_on_disconnect {why}")
+
+    if max_body_bytes is None:
+        raise contradiction("needs max_body_bytes: the middleware must hold the whole body before it watches for a disconnect")
+    if trusted_principals is None:
+        raise contradiction("needs trusted_principals: it cancels admission sources")
+    if supervision is None:
+        raise contradiction("needs source_supervisor and supervise: it cancels supervised sources only")
+    if not isinstance(trusted_principals, PrincipalTrustStore) and callable(trusted_principals) and supervision.trust_timeout is None:
+        raise contradiction("needs the trusted_principals callable supervised (trust_timeout)")
+    if revocation_source is not None and supervision.revocation_timeout is None:
+        raise contradiction("needs the revocation_source supervised ({'revocation': True})")
+    if tenant is not None and _is_async_source(tenant):
+        raise contradiction("needs a synchronous tenant callable: an async one could keep a request that is gone waiting")
+    return True
+
+
 class _SupervisedTrustUnavailable(Exception):
     """The supervised trust source gave no trust set in time (code: the supervisor's reason)."""
 
@@ -430,6 +544,16 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
     starts (deny_list_revocation_source fetches in asyncio.to_thread) or isolate CPU; one
     supervisor per event loop.
 
+    `cancel_on_disconnect` (keyword only, default False: as before): when the client really leaves
+    during admission, the supervised source invocation of that request is cancelled (its slot stays
+    taken until the source really ends) and nothing more is done or sent, not even an error. It
+    needs `max_body_bytes` (the whole body is read before a pending receive() watches for
+    http.disconnect; that read is handed over to the next reader, never read twice or lost), every
+    source callable supervised and a synchronous `tenant` callable; otherwise AdmissionConfigError
+    (CONFIG_PROFILE_CONTRADICTION). With it, a client that leaves in the middle of its body gets
+    nothing instead of the 400. It runs on asyncio only. Add this middleware after (outside) any
+    other BaseHTTPMiddleware: an outer one needs a response, and none is sent to a client that left.
+
     Contradictions (`trusted_principals` or `profile` without `require_bundle=True`,
     a profile without `trusted_principals` or `revocation_source`, or with
     `verifier_policy`) raise AdmissionConfigError (CONFIG_PROFILE_CONTRADICTION), and
@@ -454,6 +578,7 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
         max_body_bytes: int | None = None,
         source_supervisor: SourceSupervisor | None = None,
         supervise: dict[str, Any] | None = None,
+        cancel_on_disconnect: bool = False,
     ) -> None:
         super().__init__(app)
         self._max_body_bytes = _max_body_bytes(max_body_bytes)
@@ -493,11 +618,22 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
                 "CONFIG_PROFILE_CONTRADICTION",
                 "trusted_principals requires require_bundle=True: a request without a bundle must not reach the route",
             )
+        self._cancel_on_disconnect = _cancel_on_disconnect(
+            cancel_on_disconnect, max_body_bytes=self._max_body_bytes, trusted_principals=self._trusted_principals,
+            supervision=self._supervision, revocation_source=self._revocation_source, tenant=tenant,
+        )
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if self._max_body_bytes is not None and scope["type"] == "http":
             receive = _budgeted(receive, self._max_body_bytes)
-        await super().__call__(scope, receive, send)
+        if not (self._cancel_on_disconnect and scope["type"] == "http"):
+            await super().__call__(scope, receive, send)
+            return
+        channel = _ReceiveChannel(receive)
+        try:
+            await super().__call__(scope, channel, send)
+        finally:
+            channel.close()
 
     async def dispatch(self, request: Request, call_next: Any) -> Any:
         if self._max_body_bytes is not None:
@@ -531,6 +667,8 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         if self._trusted_principals is not None:
+            if self._cancel_on_disconnect:
+                return await self._admit_watching(request, signed_bundle, call_next)
             refusal = await self._admit(request, signed_bundle)
             if refusal is not None:
                 return refusal
@@ -628,21 +766,62 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
         except _BodyTooLarge:
             return _body_refusal(413, "Request body exceeds max_body_bytes")
         except ClientDisconnect:
+            if self._cancel_on_disconnect:
+                return _NothingSent()  # the client left: no 400 to send it
             return _body_refusal(400, "Request body could not be read")
         return None
 
     # ── Admission (spec/profiles/admission § 5, § 6) ──
 
-    async def _admit(self, request: Request, signed_bundle: Any) -> JSONResponse | None:
-        """None when the bundle is admitted (and request.state.dcp_agent set), else the refusal."""
+    async def _admit_watching(self, request: Request, signed_bundle: Any, call_next: Any) -> Any:
+        """_admit under cancel_on_disconnect: a client that leaves cancels it (its supervised
+        invocation keeps its slot until the source really ends) and gets nothing more."""
+        channel = request.receive
+        if not isinstance(channel, _ReceiveChannel):
+            raise RuntimeError("cancel_on_disconnect: the request does not come through DCPVerifyMiddleware")
+        read = channel.watch()  # after the whole body: only http.disconnect can come now
+        admission = asyncio.ensure_future(self._admit(request, signed_bundle, read))
+        try:
+            await asyncio.wait({admission, read}, return_when=asyncio.FIRST_COMPLETED)
+            if _left(read) and not admission.done():
+                admission.cancel()
+                # Prompt: every source is supervised (its caller is never kept waiting) and the
+                # tenant callable is synchronous.
+                await asyncio.gather(admission, return_exceptions=True)
+                return _NothingSent()
+            try:
+                refusal = await admission
+            except _ClientGone:  # a stage saw it leave
+                return _NothingSent()
+        finally:
+            if not admission.done():  # this dispatch itself was cancelled
+                admission.cancel()
+                admission.add_done_callback(_retrieve)
+        if _left(read):  # it left while the admission was ending
+            return _NothingSent()
+        if refusal is not None:
+            return refusal
+        return await call_next(request)  # the watched read goes to the next reader
+
+    async def _admit(self, request: Request, signed_bundle: Any, read: "asyncio.Future[Any] | None" = None) -> JSONResponse | None:
+        """None when the bundle is admitted (and request.state.dcp_agent set), else the refusal.
+        With `read` (cancel_on_disconnect), no stage starts once it has brought a disconnect."""
         now = self._clock()
+        _stop_if_left(read)
         try:
             tenant = self._tenant(request)
             if inspect.isawaitable(tenant):
+                if self._cancel_on_disconnect:  # never awaited: it could keep a request that is gone waiting
+                    if inspect.iscoroutine(tenant):
+                        tenant.close()
+                    raise TypeError("the tenant callable returned an awaitable; cancel_on_disconnect needs a value")
                 tenant = await tenant
             if not isinstance(tenant, str):
                 raise TypeError("the tenant callable did not return a string")
+            _stop_if_left(read)
             trust = await self._load_trust(tenant)
+        except _ClientGone:
+            raise
         except Exception as exc:  # the operator's tenant or trust source failed: fail closed
             _logger.error("DCP admission refused a request: the tenant or trust set could not be resolved (%s)",
                           getattr(exc, "code", type(exc).__name__))
@@ -656,9 +835,11 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
         if profile is not None and not (isinstance(bundle, dict) and bundle.get("dcp_bundle_version") == "2.0"):
             verification = _failed_verification("strict-v1 admits V2 bundles only")  # P1: not verified at all
         else:
+            _stop_if_left(read)
             verification = await self._verify_for_admission(signed_bundle, now)
         revocation = None
         if profile is not None and verification.get("verified") is True:
+            _stop_if_left(read)
             revocation = await self._revocation_snapshot(revocation_subjects(signed_bundle, verification), tenant)
         result = evaluate_admission_v2(
             signed_bundle, verification, profile=profile, trust=trust, revocation=revocation, now_ms=now

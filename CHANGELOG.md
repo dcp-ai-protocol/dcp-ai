@@ -154,6 +154,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Client disconnect, opt-in: `cancelOnDisconnect` in `@dcp-ai/express`,
+  `cancel_on_disconnect=True` in `dcp_ai.fastapi.DCPVerifyMiddleware`.
+  - **What it does.** When the client really leaves during admission, the supervised source
+    invocation of that request, and only that one, is cancelled. Its slot stays taken until the
+    source really settles. Nothing more is done or sent for the request: no handler, `next`,
+    cache write, `onFailure` or response.
+  - **Express.** Leaving means the response closing before it was sent, or the request closing with
+    its body incomplete; a healthy request's own `close` is not it.
+    - It needs every source function supervised, no `checkRevocation`, and a supervisor that supports
+      cancellation: the new `runWithSignal` capability of this version's supervisors (ESM and CJS,
+      both packages).
+    - `run`, its four arguments and `version: 1` are unchanged, and a supervisor from an older
+      package keeps working without the option.
+    - The decision of a supervised invocation is now taken once, before its signal is aborted: an
+      abort listener that re-enters `close()` changes nothing.
+    - New `cancelled` result, counter (`stats().cancelled`, optional in the type) and telemetry
+      reason.
+  - **FastAPI.** It needs `max_body_bytes`, every source callable supervised and a synchronous
+    `tenant` callable.
+    - The middleware watches one pending `receive()` during admission and hands it over to the next
+      reader: nothing is read twice or lost, and the `http.disconnect` sent after a complete
+      response is not taken as the client leaving.
+    - With the option, a client that leaves in the middle of its body gets nothing instead of the
+      400.
+    - The middleware must wrap the application's other `BaseHTTPMiddleware` layers (add it last):
+      an outer one needs a response, and none is sent to a client that left.
+    - `SourceSupervisor` and `DenyListWorkers` are unchanged. OpenClaw has no such option.
+  - Without the option nothing changes.
 - `dcp_ai.v2.DenyListWorkers` and `deny_list_revocation_source(..., workers=...)`, opt-in: a budget
   of real download threads for the Python deny-list helper (`max_workers` from 1 to 64,
   `max_workers_per_tenant` optional, per object). Each download runs in a non-daemon thread of its

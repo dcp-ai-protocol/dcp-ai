@@ -10,7 +10,8 @@
  *
  * This file is identical in @dcp-ai/express and @dcp-ai/openclaw. A supervisor created by either
  * package, in its ESM or CJS build, works with both: they reach it through a Symbol.for key, not
- * instanceof.
+ * instanceof. `run` keeps its four arguments; cancelling an invocation from outside (a client that
+ * left) is the separate capability `runWithSignal`, which a supervisor from an older package lacks.
  */
 
 const PROTOCOL = Symbol.for('dcp-ai.source-supervisor.v1');
@@ -18,7 +19,7 @@ const PROTOCOL = Symbol.for('dcp-ai.source-supervisor.v1');
 export const MAX_TIMER_MS = 2_147_483_647;
 
 export type SupervisedSource = 'trust' | 'revocation';
-export type SourceEventReason = 'timeout' | 'saturated' | 'closed' | 'late_result' | 'late_error';
+export type SourceEventReason = 'timeout' | 'saturated' | 'closed' | 'cancelled' | 'late_result' | 'late_error';
 
 /** What a supervisor reports: a fixed reason and a count, never a tenant or a source's content. */
 export interface SourceEvent {
@@ -48,6 +49,12 @@ export interface SourceSupervisorStats {
   timeouts: number;
   saturated: number;
   closed: number;
+  /**
+   * Invocations decided by a caller's own signal (runWithSignal), such as a client that left.
+   * Optional so that a supervisor from an older package, which lacks it, still type-checks: read it
+   * as `stats().cancelled ?? 0`. A supervisor from this version always reports a number.
+   */
+  cancelled?: number;
   lateResults: number;
   lateErrors: number;
   droppedEvents: number;
@@ -66,11 +73,19 @@ export interface SourceSupervisor {
 export type SupervisedOutcome<T> =
   | { status: 'ok'; value: T }
   | { status: 'failed'; error: unknown }
-  | { status: 'timeout' | 'saturated' | 'closed' };
+  | { status: 'timeout' | 'saturated' | 'closed' | 'cancelled' };
 
 interface SupervisorProtocol {
   readonly version: 1;
   run<T>(source: SupervisedSource, tenant: string, timeoutMs: number, call: (signal: AbortSignal) => T | PromiseLike<T>): Promise<SupervisedOutcome<T>>;
+  /** Absent from supervisors of older packages: the capability to cancel one invocation from outside. */
+  runWithSignal?<T>(
+    source: SupervisedSource,
+    tenant: string,
+    timeoutMs: number,
+    call: (signal: AbortSignal) => T | PromiseLike<T>,
+    signal: AbortSignal,
+  ): Promise<SupervisedOutcome<T>>;
 }
 
 const OPTION_KEYS = ['maxInFlight', 'maxInFlightPerTenant', 'onSourceEvent'];
@@ -102,7 +117,7 @@ export function createSourceSupervisor(options: SourceSupervisorOptions): Source
   const controllers = new Set<AbortController>();
   const undecided = new Set<() => void>();
   const drainWaiters = new Set<() => void>();
-  const counts = { timeouts: 0, saturated: 0, closed: 0, lateResults: 0, lateErrors: 0, droppedEvents: 0 };
+  const counts = { timeouts: 0, saturated: 0, closed: 0, cancelled: 0, lateResults: 0, lateErrors: 0, droppedEvents: 0 };
   const count = (name: keyof typeof counts) => {
     counts[name] = saturatingIncrement(counts[name]);
   };
@@ -149,14 +164,21 @@ export function createSourceSupervisor(options: SourceSupervisorOptions): Source
     if (inFlight === 0) for (const wake of [...drainWaiters]) wake();
   };
 
-  const run = <T>(
+  const invoke = <T>(
     source: SupervisedSource,
     tenant: string,
     timeoutMs: number,
     call: (signal: AbortSignal) => T | PromiseLike<T>,
+    external: AbortSignal | undefined,
   ): Promise<SupervisedOutcome<T>> => {
     if ((source !== 'trust' && source !== 'revocation') || typeof tenant !== 'string' || !isTimerMs(timeoutMs, 1) || typeof call !== 'function') {
       throw new TypeError('invalid supervised invocation');
+    }
+    if (external?.aborted) {
+      // Cancelled before it starts: no slot, no call.
+      count('cancelled');
+      emit(source, 'cancelled');
+      return Promise.resolve({ status: 'cancelled' });
     }
     if (!open) {
       count('closed');
@@ -178,33 +200,46 @@ export function createSourceSupervisor(options: SourceSupervisorOptions): Source
     return new Promise<SupervisedOutcome<T>>((resolve) => {
       let decided = false;
       let timer: ReturnType<typeof setTimeout> | undefined;
-      const decide = (outcome: SupervisedOutcome<T>) => {
+      // Decided once, before anything is aborted: a source's abort listener that re-enters close()
+      // or aborts again finds it decided and changes nothing. Its slot is still freed by settle only.
+      const decide = (outcome: SupervisedOutcome<T>): boolean => {
+        if (decided) return false;
         decided = true;
         clearTimeout(timer);
         undecided.delete(closeNow);
+        external?.removeEventListener('abort', cancel);
         resolve(outcome);
+        return true;
       };
       const timeOut = () => {
+        if (!decide({ status: 'timeout' })) return;
         count('timeouts');
-        controller.abort();
         emit(source, 'timeout');
-        decide({ status: 'timeout' });
+        controller.abort();
       };
       const closeNow = () => {
+        if (!decide({ status: 'closed' })) return;
         count('closed');
         emit(source, 'closed');
-        decide({ status: 'closed' });
+      };
+      const cancel = () => {
+        if (!decide({ status: 'cancelled' })) return;
+        count('cancelled');
+        emit(source, 'cancelled');
+        controller.abort();
       };
       undecided.add(closeNow);
+      external?.addEventListener('abort', cancel, { once: true });
       // Kept referenced: in a process with nothing else pending, it is what keeps the process alive
       // until the deadline can be answered. Cleared as soon as the invocation is decided.
-      timer = setTimeout(() => {
-        if (!decided) timeOut();
-      }, timeoutMs);
+      timer = setTimeout(timeOut, timeoutMs);
 
       const settle = (late: 'late_result' | 'late_error', outcome: SupervisedOutcome<T>) => {
         release(tenant, controller);
-        if (!decided && performance.now() <= deadline) return decide(outcome);
+        if (!decided && performance.now() <= deadline) {
+          decide(outcome);
+          return;
+        }
         // After the deadline, even if the timer has not run yet (a busy event loop): not used.
         if (!decided) timeOut();
         if (late === 'late_result') count('lateResults');
@@ -249,7 +284,19 @@ export function createSourceSupervisor(options: SourceSupervisorOptions): Source
       return { inFlight };
     },
   };
-  const protocol: SupervisorProtocol = Object.freeze({ version: 1 as const, run });
+  const run = <T>(source: SupervisedSource, tenant: string, timeoutMs: number, call: (signal: AbortSignal) => T | PromiseLike<T>) =>
+    invoke(source, tenant, timeoutMs, call, undefined);
+  const runWithSignal = <T>(
+    source: SupervisedSource,
+    tenant: string,
+    timeoutMs: number,
+    call: (signal: AbortSignal) => T | PromiseLike<T>,
+    signal: AbortSignal,
+  ) => {
+    if (!(signal instanceof AbortSignal)) throw new TypeError('invalid supervised invocation');
+    return invoke(source, tenant, timeoutMs, call, signal);
+  };
+  const protocol: SupervisorProtocol = Object.freeze({ version: 1 as const, run, runWithSignal });
   Object.defineProperty(supervisor, PROTOCOL, { value: protocol });
   return Object.freeze(supervisor);
 }
@@ -269,15 +316,27 @@ export function isSourceSupervisor(value: unknown): value is SourceSupervisor {
   return protocolOf(value) !== undefined && typeof (value as SourceSupervisor).stats === 'function';
 }
 
-/** Runs `call` under `supervisor`'s capacity and a `timeoutMs` deadline. */
+/** Whether `value` is a supervisor that can cancel one invocation from outside (runWithSignal). */
+export function supportsCancellation(value: unknown): boolean {
+  return typeof protocolOf(value)?.runWithSignal === 'function';
+}
+
+/**
+ * Runs `call` under `supervisor`'s capacity and a `timeoutMs` deadline. With `signal`, that signal
+ * also decides the invocation as cancelled (and aborts the call's own signal); the supervisor must
+ * support it (supportsCancellation).
+ */
 export function supervise<T>(
   supervisor: SourceSupervisor,
   source: SupervisedSource,
   tenant: string,
   timeoutMs: number,
   call: (signal: AbortSignal) => T | PromiseLike<T>,
+  signal?: AbortSignal,
 ): Promise<SupervisedOutcome<T>> {
   const protocol = protocolOf(supervisor);
   if (!protocol) throw new TypeError('not a source supervisor');
-  return protocol.run(source, tenant, timeoutMs, call);
+  if (signal === undefined) return protocol.run(source, tenant, timeoutMs, call);
+  if (typeof protocol.runWithSignal !== 'function') throw new TypeError('this source supervisor cannot be cancelled from outside');
+  return protocol.runWithSignal(source, tenant, timeoutMs, call, signal);
 }

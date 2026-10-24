@@ -174,6 +174,12 @@ configureVerifier({
 - It throws `AdmissionConfigError` (`CONFIG_PROFILE_CONTRADICTION`), keeping the previous configuration, when it would replace or remove a supervisor that still has calls in flight, whichever source it supervises. A call counts from the moment `executeVerifyBundle` starts, so also while it still verifies the bundle and has not called its source yet, and its slot counts until its source settles. That holds even after `supervisor.close({ drainMs })` returned with calls still in flight: closing refuses new calls but frees no slot. Replace it once `supervisor.stats().inFlight` is 0, or restart the process.
 - The model's parameters cannot set any of this.
 
+**Cancellation.**
+
+- Supervisors from this version also offer a cancellation capability, used by `@dcp-ai/express`'s `cancelOnDisconnect`.
+- `dcp_verify_bundle` has no such option: its host gives no signal of a caller that left, and `configureVerifier({ cancelOnDisconnect })` throws as an unknown option.
+- `stats().cancelled` is optional in the type, for supervisors of older packages: read it as `?? 0`.
+
 **What it does not do.** The same limits as in `@dcp-ai/express`:
 
 - it does not stop a function's work, bound the work it starts on its own, or isolate the CPU of an observer or a source;

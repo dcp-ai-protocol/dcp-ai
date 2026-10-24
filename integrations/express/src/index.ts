@@ -47,7 +47,7 @@ import {
   type TrustSource,
   type VerifierPolicyOptions,
 } from './dcp-verify.js';
-import type { SourceSupervisor } from './source-supervisor.js';
+import { supportsCancellation, type SourceSupervisor } from './source-supervisor.js';
 
 export type { SecurityTier, VerifierPolicyOptions, RevocationSource, SupervisedSources, TrustSource } from './dcp-verify.js';
 export { denyListRevocationSource } from './dcp-verify.js';
@@ -122,6 +122,16 @@ export interface DCPVerifyOptions {
    */
   supervise?: SupervisedSources;
   /**
+   * When the client really leaves during admission (the response closes before it is sent, or the
+   * upload is cut short; a request's own `close` after its body is not that), cancel the supervised
+   * source invocation of that request, and only that one: its slot stays taken until the source
+   * really settles. Nothing more is done for the request: no handler, cache write, onFailure or
+   * response. Needs every source function supervised (trustTimeoutMs for a trustedPrincipals
+   * function, `revocation: true` for revocationSource), a supervisor that supports it, and no
+   * checkRevocation. Default false.
+   */
+  cancelOnDisconnect?: boolean;
+  /**
    * The tenant of a request, from the operator's own authenticated context (never a header the
    * client chooses). It selects the trust set and separates cached verdicts. Default: one tenant.
    */
@@ -184,6 +194,7 @@ const OPTION_TYPES: Record<keyof DCPVerifyOptions, readonly string[]> = {
   revocationTimeoutMs: ['number'],
   sourceSupervisor: ['object'],
   supervise: ['object'],
+  cancelOnDisconnect: ['boolean'],
   tenant: ['function'],
   clock: ['function'],
 };
@@ -383,6 +394,65 @@ async function checkRevocationStatus(agentId: string, kids: string[], url: strin
 }
 
 /**
+ * cancelOnDisconnect needs something to cancel, and nothing that cannot be: every source function
+ * supervised, by a supervisor that supports cancellation, and no checkRevocation.
+ */
+function checkCancelOnDisconnect(options: DCPVerifyOptions, admission: ReturnType<typeof resolveAdmission>): void {
+  const contradiction = (why: string) => new AdmissionConfigError('CONFIG_PROFILE_CONTRADICTION', `cancelOnDisconnect ${why}`);
+  if (!admission) throw contradiction('needs trustedPrincipals: it cancels admission sources');
+  if (!admission.supervision) throw contradiction('needs sourceSupervisor and supervise: it cancels supervised sources only');
+  if (typeof admission.trust === 'function' && admission.supervision.trustTimeoutMs === undefined) {
+    throw contradiction('needs the trustedPrincipals function supervised (supervise.trustTimeoutMs)');
+  }
+  if (admission.revocationSource && !admission.supervision.revocation) {
+    throw contradiction('needs the revocationSource supervised (supervise.revocation: true)');
+  }
+  if (options.checkRevocation) throw contradiction('does not allow checkRevocation: it is neither supervised nor cancelled');
+  if (!supportsCancellation(admission.supervision.supervisor)) {
+    throw new AdmissionConfigError(
+      'CONFIG_INVALID_VALUE',
+      'cancelOnDisconnect needs a sourceSupervisor that supports cancellation: create it with this version of @dcp-ai/express or @dcp-ai/openclaw',
+    );
+  }
+}
+
+/**
+ * Whether the client really left: the response closed before it was sent, or the request closed
+ * before its body was complete. A request's `close` once its body is read is not that. `gone()`
+ * also reads the current state, not only events already dispatched. `dispose` removes the
+ * listeners; it runs on the response's finish or close and when the caller is done.
+ */
+function watchClient(req: Request, res: Response) {
+  const controller = new AbortController();
+  const abandon = () => controller.abort();
+  const left = () => (res.destroyed && !res.writableFinished) || (req.destroyed && req.complete === false);
+  const onResponseClose = () => {
+    if (!res.writableFinished) abandon();
+    dispose();
+  };
+  const onRequestClose = () => {
+    if (req.complete === false) abandon();
+  };
+  const dispose = () => {
+    res.off('close', onResponseClose);
+    res.off('finish', dispose);
+    req.off('close', onRequestClose);
+  };
+  if (left()) {
+    abandon(); // it left before the middleware looked
+  } else {
+    res.on('close', onResponseClose);
+    res.on('finish', dispose);
+    req.on('close', onRequestClose);
+  }
+  const gone = () => {
+    if (!controller.signal.aborted && left()) abandon();
+    return controller.signal.aborted;
+  };
+  return { signal: controller.signal, gone, dispose };
+}
+
+/**
  * Express middleware that verifies DCP signed bundles (V1 + V2).
  */
 export function dcpVerify(options: DCPVerifyOptions = {}) {
@@ -402,6 +472,8 @@ export function dcpVerify(options: DCPVerifyOptions = {}) {
     clock = Date.now,
   } = options;
   const admission = resolveAdmission(options);
+  const cancelOnDisconnect = options.cancelOnDisconnect === true;
+  if (cancelOnDisconnect) checkCancelOnDisconnect(options, admission);
   const policy = admissionPolicy(admission, resolveVerifierPolicy(options));
   const policyKey = policyFingerprint(policy);
 
@@ -433,7 +505,12 @@ export function dcpVerify(options: DCPVerifyOptions = {}) {
   };
 
   return async (req: Request & { dcpAgent?: DCPAgent }, res: Response, next: NextFunction) => {
+    // With cancelOnDisconnect: whether the client left, and its signal, from the moment the request
+    // enters. A client that left gets nothing more and nothing is written: checked before each
+    // stage and each answer (the bundle's verification itself is not interrupted).
+    const client = cancelOnDisconnect ? watchClient(req, res) : undefined;
     try {
+      if (client?.gone()) return;
       let signedBundle: any = null;
       const headerValue = req.headers[headerName];
       if (typeof headerValue === 'string') {
@@ -449,6 +526,7 @@ export function dcpVerify(options: DCPVerifyOptions = {}) {
       }
 
       if (!signedBundle) {
+        if (client?.gone()) return;
         if (requireBundle) {
           return fail(req, res, ['Missing DCP signed bundle. Provide via X-DCP-Bundle header or body.signed_bundle.']);
         }
@@ -464,20 +542,25 @@ export function dcpVerify(options: DCPVerifyOptions = {}) {
 
       // ── Admission: trusted principals, and the strict-v1 profile ──
       if (admission) {
+        if (client?.gone()) return;
         let verification = cached?.verification;
         let verdict: Awaited<ReturnType<typeof verifyV2>> | undefined;
         if (version === '2.0' && !verification) {
           verdict = await verifyV2(signedBundle, policy, now);
           verification = verdict.verification;
+          if (client?.gone()) return;
           if (cacheKey && verification.verified) cache.set(cacheKey, { verification }, verdictExpiry(signedBundle, cacheTtlSeconds, now), now);
         }
         let result: AdmissionResult;
         try {
-          result = await admit(admission, signedBundle, version === '2.0' ? verification : undefined, { tenant, now });
+          result = await admit(admission, signedBundle, version === '2.0' ? verification : undefined, { tenant, now, signal: client?.signal });
         } catch (err) {
+          if (client?.gone()) return;
           if (!(err instanceof TrustSourceError)) throw err;
           return trustUnavailable(req, res, verification?.verified === true, err);
         }
+        if (client?.gone()) return;
+        client?.dispose(); // the response or the handler comes next: no listener of ours stays
         if (!result.admitted) return refuse(req, res, result);
         if (requireActiveLifecycle && signedBundle.bundle.agent_passport.payload.status === 'decommissioned') {
           return fail(req, res, ['Agent is decommissioned (DCP-05 §5.1). Active lifecycle required.']);
@@ -553,9 +636,12 @@ export function dcpVerify(options: DCPVerifyOptions = {}) {
       req.dcpAgent = verdict.agent;
       next();
     } catch (err: any) {
+      if (client?.gone()) return;
       const errors = [`DCP verification error: ${err.message}`];
       if (onFailure) return onFailure(req, res, errors);
       return res.status(500).json({ verified: false, errors });
+    } finally {
+      client?.dispose();
     }
   };
 }

@@ -112,6 +112,7 @@ An unknown option, an unknown `verifierPolicy` field or a value of the wrong typ
 | `revocationTimeoutMs` | `number` | `5000` | How long the revocation source may take before the request is refused. Under `supervise.revocation`, the supervised deadline: an integer from 1 to 2147483647. |
 | `sourceSupervisor` | `object` | `undefined` | A supervisor from `createSourceSupervisor`, given together with `supervise` (see [Supervising the trust source](#supervising-the-trust-source)). |
 | `supervise` | `object` | `undefined` | `{ trustTimeoutMs?, revocation? }`, at least one: `trustTimeoutMs`, an integer from 1 to 2147483647, the deadline of a `trustedPrincipals` function under `sourceSupervisor`; `revocation: true` runs the profile's `revocationSource` under it, with `revocationTimeoutMs` (see [Supervising the revocation source](#supervising-the-revocation-source)). |
+| `cancelOnDisconnect` | `boolean` | `false` | When the client really leaves during admission, cancel its supervised source invocation (see [A client that leaves](#a-client-that-leaves)). |
 | `tenant` | `function` | one tenant | `(req) => string`, from your own authenticated context, never a header the client sets. Selects the trust set and separates cached verdicts. |
 | `clock` | `function` | `Date.now` | For tests. |
 
@@ -230,6 +231,34 @@ app.use("/api/agents", dcpVerify({
 - **`denyListRevocationSource`** aborts its fetch, and the read of its body, when the supervisor's `signal` aborts, as well as at its own `timeoutMs`.
 - **Telemetry.** Its events carry `source: 'revocation'`.
 - **Limits.** The same limits as for the trust source. The legacy `checkRevocation` / `revocationServiceUrl` path is not supervised.
+
+#### A client that leaves
+
+With `cancelOnDisconnect: true`, a client that really leaves while its request is being admitted stops that request's work:
+
+```typescript
+app.use("/api/agents", dcpVerify({
+  trustedPrincipals: ({ tenant, signal }) => loadTrustSet(tenant, { signal }),
+  sourceSupervisor: supervisor,
+  supervise: { trustTimeoutMs: 2000 },
+  cancelOnDisconnect: true,
+}));
+```
+
+- **What counts as leaving.** The response closes before it was sent, or the request closes before its body was complete. A request's own `close` once its body has been read, which also happens on healthy requests, does not count.
+- **What it cancels.**
+  - Only the supervised source invocation of that request: its `signal` is aborted and the invocation is counted in `stats().cancelled`, with `onSourceEvent` reason `'cancelled'`.
+  - Not the supervisor, nor any other request.
+  - Its slot stays taken until the source really settles, as after a deadline: a source that ignores `signal` keeps running.
+- **What happens to the request.** Nothing more:
+  - no handler and no `next()`;
+  - no cache write and no `onFailure`;
+  - no response is written.
+  - The bundle's verification is not interrupted; the middleware checks after it.
+- **Requirements.** Checked when the middleware is created:
+  - Every source function must be supervised: `trustTimeoutMs` for a `trustedPrincipals` function, and `revocation: true` for `revocationSource`. Neither `checkRevocation` nor a `cancelOnDisconnect` without a supervised source is allowed (`AdmissionConfigError`, `CONFIG_PROFILE_CONTRADICTION`).
+  - The supervisor must support cancellation (`CONFIG_INVALID_VALUE` otherwise). Supervisors from this version of `@dcp-ai/express` or `@dcp-ai/openclaw`, ESM or CJS, do; one from an older package does not, and without the option it keeps working as before.
+- **Reading `cancelled`.** `stats().cancelled` is optional in the type, so that a supervisor from an older package still type-checks: read it as `stats().cancelled ?? 0`.
 
 ### Cache
 

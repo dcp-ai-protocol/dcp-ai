@@ -448,14 +448,17 @@ function withTimeout<T>(value: T | Promise<T>, ms: number): Promise<T> {
   return Promise.race([Promise.resolve(value), timeout]).finally(() => clearTimeout(timer));
 }
 
-/** The revocation snapshot for `subjects`, or what stands for a source that could not answer. */
-async function revocationFor(setup: AdmissionSetup, subjects: RevocationSubjects, tenant: string): Promise<unknown> {
+/**
+ * The revocation snapshot for `subjects`, or what stands for a source that could not answer.
+ * `cancel` (a supervised source only) cancels this invocation, as a client that left does.
+ */
+async function revocationFor(setup: AdmissionSetup, subjects: RevocationSubjects, tenant: string, cancel?: AbortSignal): Promise<unknown> {
   if (setup.supervision?.revocation) {
     const source = setup.revocationSource!;
-    const outcome = await supervise(setup.supervision.supervisor, 'revocation', tenant, setup.revocationTimeoutMs, (signal) => source(subjects, { tenant, signal }));
+    const outcome = await supervise(setup.supervision.supervisor, 'revocation', tenant, setup.revocationTimeoutMs, (signal) => source(subjects, { tenant, signal }), cancel);
     if (outcome.status === 'ok') return outcome.value ?? null;
-    // A timeout, no free slot or a closed supervisor is unavailable, never not_revoked. An error
-    // counts as REVOCATION_INVALID only when it arrived in time: a late one is a timeout.
+    // A timeout, no free slot, a closed supervisor or a cancellation is unavailable, never
+    // not_revoked. An error counts as REVOCATION_INVALID only when it arrived in time.
     return outcome.status === 'failed' && (outcome.error as { code?: unknown })?.code === 'REVOCATION_INVALID' ? { source_error: 'invalid' } : null;
   }
   try {
@@ -476,7 +479,7 @@ export class TrustSourceError extends Error {
     readonly code: string,
     message: string,
     /** Under source supervision, why no trust set was used: for telemetry, never in a response. */
-    readonly reason?: 'timeout' | 'saturated' | 'closed',
+    readonly reason?: 'timeout' | 'saturated' | 'closed' | 'cancelled',
   ) {
     super(message);
     this.name = 'TrustSourceError';
@@ -488,14 +491,14 @@ export class TrustSourceError extends Error {
  * createPrincipalTrustStore. A configured source that returns nothing is a failure, never the
  * absence of a trust requirement (which evaluateAdmissionV2 reads `trust: undefined` as).
  */
-async function trustFor(setup: AdmissionSetup, tenant: string): Promise<PrincipalTrustStore> {
+async function trustFor(setup: AdmissionSetup, tenant: string, cancel?: AbortSignal): Promise<PrincipalTrustStore> {
   if (setup.staticTrust) return setup.staticTrust;
   const source = setup.trust as Exclude<TrustSource, PrincipalTrustSet | PrincipalTrustStore>;
   let value: unknown;
   const supervision = setup.supervision;
   if (supervision?.trustTimeoutMs !== undefined) {
     // The deadline is this configuration's, fixed when the invocation starts.
-    const outcome = await supervise(supervision.supervisor, 'trust', tenant, supervision.trustTimeoutMs, (signal) => source({ tenant, signal }));
+    const outcome = await supervise(supervision.supervisor, 'trust', tenant, supervision.trustTimeoutMs, (signal) => source({ tenant, signal }), cancel);
     if (outcome.status !== 'ok') {
       const reason = outcome.status === 'failed' ? undefined : outcome.status;
       throw new TrustSourceError('TRUST_SOURCE_FAILED', 'the trusted principals source failed', reason);
@@ -521,15 +524,16 @@ async function trustFor(setup: AdmissionSetup, tenant: string): Promise<Principa
  * set for `tenant` from the operator's source and, under the profile, the revocation snapshot from
  * the operator's revocation source, both evaluated now. A bundle that is not V2 gets a failed
  * verification: it carries no principal signature to anchor. Throws TrustSourceError when the
- * trust source fails or gives no valid trust set: the caller refuses the request.
+ * trust source fails or gives no valid trust set: the caller refuses the request. `signal` (a
+ * client that left) cancels the supervised invocations of this call, never the supervisor.
  */
 export async function admit(
   setup: AdmissionSetup,
   signedBundle: unknown,
   verification: VerifyV2Result | undefined,
-  { tenant, now }: { tenant: string; now: number },
+  { tenant, now, signal }: { tenant: string; now: number; signal?: AbortSignal },
 ): Promise<AdmissionResult> {
-  const trust = await trustFor(setup, tenant);
+  const trust = await trustFor(setup, tenant, signal);
   const checked = verification ?? {
     verified: false,
     errors: ['Only V2 bundles can be admitted against trusted principals'],
@@ -537,7 +541,7 @@ export async function admit(
     details: {},
   };
   const revocation =
-    setup.profile && checked.verified ? await revocationFor(setup, revocationSubjects(signedBundle, checked), tenant) : undefined;
+    setup.profile && checked.verified ? await revocationFor(setup, revocationSubjects(signedBundle, checked), tenant, signal) : undefined;
   return evaluateAdmissionV2({ signedBundle, verification: checked, profile: setup.profile, trust, revocation: revocation as RevocationSnapshot | null | undefined, now });
 }
 
