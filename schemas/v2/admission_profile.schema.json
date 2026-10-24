@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/admission_profile.schema.json",
+  "title": "AdmissionProfile",
+  "description": "Operator configuration of the strict-v1 admission profile (spec/profiles/admission). verifier_policy fields may only keep or tighten the profile's policy; implementations reject a value that would weaken it (CONFIG_PROFILE_CONTRADICTION).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["profile", "verifier_id"],
+  "properties": {
+    "profile": { "const": "strict-v1" },
+    "verifier_id": { "type": "string", "minLength": 1 },
+    "max_session_duration_seconds": { "type": "integer", "minimum": 1, "maximum": 300 },
+    "max_revocation_age_seconds": { "type": "integer", "minimum": 1, "maximum": 300 },
+    "verifier_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "default_mode": { "const": "hybrid_required" },
+        "risk_overrides": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "low": { "const": "hybrid_required" },
+            "medium": { "const": "hybrid_required" },
+            "high": { "const": "hybrid_required" }
+          }
+        },
+        "min_classical": { "type": "integer", "minimum": 1 },
+        "min_pq": { "type": "integer", "minimum": 1 },
+        "accepted_classical_algs": { "type": "array", "minItems": 1, "items": { "enum": ["ed25519"] } },
+        "accepted_pq_algs": { "type": "array", "minItems": 1, "items": { "enum": ["ml-dsa-65", "slh-dsa-192f"] } },
+        "accepted_hash_algs": { "type": "array", "minItems": 1, "items": { "enum": ["sha256", "sha384"] } },
+        "require_session_binding": { "const": true },
+        "require_composite_binding": { "const": true },
+        "require_session_expiry": { "const": true },
+        "require_audience_binding": { "const": true },
+        "allow_v1_bundles": { "const": false },
+        "allow_classical_fallback_disable": { "const": false },
+        "warn_classical_only_deprecated": { "type": "boolean" },
+        "advisory_rejected_algs": { "type": "array", "items": { "type": "string" } },
+        "max_key_age_days": { "type": "integer", "minimum": 0 },
+        "max_session_duration_seconds": { "type": "integer", "minimum": 1, "maximum": 300 },
+        "verifier_id": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
