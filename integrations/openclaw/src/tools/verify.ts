@@ -9,9 +9,14 @@
  */
 import { Type, type Static } from '@sinclair/typebox';
 import {
+  AdmissionConfigError,
   computeSecurityTier,
   verifySignedBundle,
   type IntentV2,
+  type PrincipalTrust,
+  type ProfileCompliance,
+  type StrictV1Profile,
+  type StrictV1ProfileConfig,
   type VerificationResult,
   type SignedBundle,
   type VerificationMode,
@@ -19,14 +24,20 @@ import {
 } from '@dcp-ai/sdk';
 import {
   RISK_TIERS,
+  admissionFailure,
+  admit,
   checkPolicyFields,
   detectVersion,
   isObject,
+  resolveAdmission,
   resolveVerifierPolicy,
   stricterMode,
   v1Refusal,
   verifyV2,
+  type AdmissionSetup,
+  type RevocationSource,
   type SecurityTier,
+  type TrustSource,
   type VerifierPolicyOptions,
 } from './dcp-verify.js';
 
@@ -67,15 +78,57 @@ export type VerifyBundleInput = Static<typeof VerifyBundleParams>;
 // ── Operator policy ──
 
 let operatorPolicy: VerifierPolicy = resolveVerifierPolicy(undefined);
+let admission: AdmissionSetup | undefined;
+let clock: () => number = Date.now;
+
+/** The operator's configuration of dcp_verify_bundle. */
+export interface VerifierConfiguration {
+  /** Fields over the SDK's DEFAULT_VERIFIER_POLICY; the tool parameter can only tighten them. */
+  verifierPolicy?: VerifierPolicyOptions;
+  /**
+   * The principals the operator trusts and their keys (schemas/v2/principal_trust_set.schema.json),
+   * or a function returning them. With it, the result says whether the bundle is admitted (V2,
+   * signed for a trusted principal with its trusted keys: spec/profiles/admission), and names the
+   * agent and principal only then; `verified` keeps its meaning, the verifier's verdict.
+   */
+  trustedPrincipals?: TrustSource;
+  /**
+   * The strict-v1 profile (schemas/v2/admission_profile.schema.json). Requires trustedPrincipals
+   * and revocationSource, and replaces verifierPolicy; the tool parameter cannot change it.
+   */
+  profile?: StrictV1ProfileConfig | StrictV1Profile;
+  /** The profile's revocation source, e.g. denyListRevocationSource({ url }). */
+  revocationSource?: RevocationSource;
+  /** Milliseconds the revocation source may take. Default 5000. */
+  revocationTimeoutMs?: number;
+  /** The clock, in milliseconds since the epoch. For tests; default Date.now. */
+  clock?: () => number;
+}
+
+const CONFIG_KEYS = ['verifierPolicy', 'trustedPrincipals', 'profile', 'revocationSource', 'revocationTimeoutMs', 'clock'];
 
 /**
- * Sets the verifier policy of dcp_verify_bundle: `verifierPolicy` fields over the SDK's
- * DEFAULT_VERIFIER_POLICY (a default_mode without risk_overrides applies to every risk tier).
- * Throws on an unknown field or a value of the wrong type. Called with no policy, it restores the
- * default. The tool's verifier_policy parameter can only make this policy stricter.
+ * Configures dcp_verify_bundle: the verifier policy (`verifierPolicy` fields over the SDK's
+ * DEFAULT_VERIFIER_POLICY, a default_mode without risk_overrides applying to every risk tier) and,
+ * optionally, trusted principals and the strict-v1 profile. Throws on an unknown option, a value of
+ * the wrong type or a contradiction (AdmissionConfigError), leaving the previous configuration in
+ * place. Called with no options, it restores the default. The tool's verifier_policy parameter can
+ * only make the policy stricter, and is refused under the profile.
  */
-export function configureVerifier(options: { verifierPolicy?: VerifierPolicyOptions } = {}): void {
-  operatorPolicy = resolveVerifierPolicy(options.verifierPolicy);
+export function configureVerifier(options: VerifierConfiguration = {}): void {
+  if (!isObject(options)) throw new TypeError('configureVerifier options must be an object');
+  for (const [key, value] of Object.entries(options)) {
+    if (value !== undefined && !CONFIG_KEYS.includes(key)) throw new Error(`Unknown configureVerifier option: ${key}`);
+  }
+  if (options.clock !== undefined && typeof options.clock !== 'function') throw new TypeError('clock must be a function');
+  if (options.profile !== undefined && options.verifierPolicy !== undefined) {
+    throw new AdmissionConfigError('CONFIG_PROFILE_CONTRADICTION', 'strict-v1 sets the verifier policy (profile.verifier_policy may tighten it); do not pass verifierPolicy');
+  }
+  const policy = resolveVerifierPolicy(options.verifierPolicy);
+  const setup = resolveAdmission(options);
+  operatorPolicy = policy;
+  admission = setup;
+  clock = options.clock ?? Date.now;
 }
 
 /**
@@ -121,6 +174,17 @@ export interface VerifyBundleResult {
   resolved_tier?: SecurityTier;
   /** V2: the verification mode the bundle was checked in (the stricter of the policy and its security tier). */
   verification_mode?: VerificationMode;
+  /** With trusted principals configured (spec/profiles/admission § 5.2): */
+  admitted?: boolean;
+  principal_trust?: PrincipalTrust;
+  profile?: 'strict-v1' | null;
+  profile_compliance?: ProfileCompliance;
+  /** Always false: admitting the evidence does not authorize an action. */
+  action_authorized?: false;
+  /** The decision the bundle records (approve, escalate, block). */
+  recorded_decision?: string | null;
+  trust_set_version?: string | null;
+  codes?: string[];
 }
 
 function failure(dcpVersion: VerifyBundleResult['dcp_version'], errors: string[], extra: Partial<VerifyBundleResult> = {}): VerifyBundleResult {
@@ -136,6 +200,8 @@ export async function executeVerifyBundle(
   if (!isObject(signedBundle) || (!signedBundle.bundle && !signedBundle.signature)) {
     return failure('unknown', ['Invalid input: signed_bundle must have "bundle" and "signature" fields.']);
   }
+
+  if (admission) return admitBundle(admission, signedBundle, params.verifier_policy);
 
   let policy: VerifierPolicy;
   try {
@@ -204,5 +270,72 @@ async function verifyV2Bundle(signedBundle: Record<string, any>, policy: Verifie
     human_id: humanId,
     session_nonce: nonce,
     ...context,
+  };
+}
+
+/**
+ * dcp_verify_bundle with trusted principals: the bundle is reported verified only when it is
+ * admitted (spec/profiles/admission § 5). Under the profile its policy applies and the tool
+ * parameter is refused; otherwise the parameter can only tighten the operator policy.
+ */
+async function admitBundle(setup: AdmissionSetup, signedBundle: Record<string, any>, param: unknown): Promise<VerifyBundleResult> {
+  const version = detectVersion(signedBundle);
+  const dcpVersion = version ?? 'unknown';
+  const refused = { admitted: false, action_authorized: false as const };
+  let policy: VerifierPolicy;
+  if (setup.profile) {
+    if (param !== undefined) {
+      return failure(dcpVersion, ['verifier_policy cannot change the operator\'s strict-v1 profile'], { ...refused, profile: 'strict-v1' });
+    }
+    policy = setup.profile.policy as VerifierPolicy;
+  } else {
+    try {
+      policy = tightenPolicy(operatorPolicy, param);
+    } catch (err) {
+      return failure(dcpVersion, [err instanceof Error ? err.message : String(err)], refused);
+    }
+  }
+
+  const now = clock();
+  const verdict = version === '2.0' ? await verifyV2(signedBundle, policy, now) : undefined;
+  const result = await admit(setup, signedBundle, verdict?.verification, { tenant: '', now });
+  const fields = {
+    admitted: result.admitted,
+    principal_trust: result.principal_trust,
+    profile: result.profile,
+    profile_compliance: result.profile_compliance,
+    action_authorized: false as const,
+    recorded_decision: result.recorded_decision,
+    trust_set_version: result.trust_set_version,
+    codes: [...new Set(result.errors.map((e) => e.code))].sort(),
+    resolved_tier: verdict?.securityTier,
+    verification_mode: verdict?.verificationMode,
+  };
+  if (!result.admitted) {
+    const body = admissionFailure(result);
+    return {
+      verified: result.verified,
+      dcp_version: dcpVersion,
+      errors: body.errors,
+      warnings: result.verification.warnings,
+      message: `NOT ADMITTED (${body.codes.join(', ')}): ${body.errors.join('; ')}`,
+      ...fields,
+    };
+  }
+  const bundle = signedBundle.bundle;
+  const agentId = bundle.agent_passport.payload.agent_id;
+  const humanId = bundle.responsible_principal_record.payload.human_id;
+  return {
+    verified: true,
+    dcp_version: '2.0',
+    errors: [],
+    warnings: result.verification.warnings,
+    message:
+      `V2 bundle admitted: principal ${humanId} trusted${result.profile ? ', strict-v1 met' : ''}. Agent ${agentId}. ` +
+      `It records the decision ${String(result.recorded_decision)}; this is evidence, not an authorization to act.`,
+    agent_id: agentId,
+    human_id: humanId,
+    session_nonce: bundle.manifest.session_nonce,
+    ...fields,
   };
 }

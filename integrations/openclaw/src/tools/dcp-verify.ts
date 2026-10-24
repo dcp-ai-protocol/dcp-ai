@@ -9,20 +9,35 @@
  * detection, and shape checks that give clearer errors.
  */
 import {
+  AdmissionConfigError,
   AlgorithmRegistry,
   DEFAULT_VERIFIER_POLICY,
   Ed25519Provider,
   MlDsa65Provider,
   SlhDsa192fProvider,
+  canonicalizeV2,
   computeSecurityTier,
+  createPrincipalTrustStore,
   effectiveVerificationMode,
+  evaluateAdmissionV2,
+  resolveStrictV1Profile,
+  revocationSubjects,
   verifySignedBundleV2,
+  type AdmissionResult,
   type IntentV2,
+  type PrincipalTrustSet,
+  type PrincipalTrustStore,
+  type RevocationSnapshot,
+  type RevocationSubjects,
   type SecurityTier,
   type SignedBundleV2,
+  type StrictV1Profile,
+  type StrictV1ProfileConfig,
   type VerificationMode,
   type VerifierPolicy,
+  type VerifyV2Result,
 } from '@dcp-ai/sdk';
+import { createHash } from 'node:crypto';
 
 export type { SecurityTier } from '@dcp-ai/sdk';
 export type RiskTier = keyof VerifierPolicy['risk_overrides'];
@@ -40,6 +55,8 @@ export interface V2Verdict {
   verificationMode?: VerificationMode;
   /** The security tier of the bundle's intent and policy decision (spec §14.2). */
   securityTier?: SecurityTier;
+  /** The verifier's full result (a failed one for a bundle the shape checks refused). */
+  verification: VerifyV2Result;
 }
 
 export const VERIFICATION_MODES: readonly VerificationMode[] = ['classical_only', 'hybrid_preferred', 'hybrid_required', 'pq_only'];
@@ -253,16 +270,231 @@ export function parseRfc3339(value: unknown): number | undefined {
   return t.getTime() - offset * 60_000;
 }
 
-/** Verifies a V2 signed bundle under `policy`: the shape checks above, then verifySignedBundleV2. */
-export async function verifyV2(signedBundle: unknown, policy: VerifierPolicy): Promise<V2Verdict> {
+/**
+ * Verifies a V2 signed bundle under `policy` at `now` (default the system clock): the shape checks
+ * above, then verifySignedBundleV2.
+ */
+export async function verifyV2(signedBundle: unknown, policy: VerifierPolicy, now?: number): Promise<V2Verdict> {
   const shapeErrors = v2ShapeErrors(signedBundle);
-  if (shapeErrors.length > 0) return { verified: false, errors: shapeErrors, warnings: [] };
-  const result = await verifySignedBundleV2(signedBundle as SignedBundleV2, registry, policy);
+  if (shapeErrors.length > 0) {
+    return { verified: false, errors: shapeErrors, warnings: [], verification: { verified: false, errors: shapeErrors, warnings: [], details: {} } };
+  }
+  const result = await verifySignedBundleV2(signedBundle as SignedBundleV2, registry, policy, { now });
   return {
     verified: result.verified,
     errors: result.errors,
     warnings: result.warnings,
     verificationMode: result.details?.verification_mode,
     securityTier: result.details?.resolved_tier,
+    verification: result,
+  };
+}
+
+// ── Admission: principal trust and the strict-v1 profile (spec/profiles/admission) ──
+
+/** The operator's trusted principals: a trust set, or a function of the operator's tenant that returns one. */
+export type TrustSource =
+  | PrincipalTrustSet
+  | PrincipalTrustStore
+  | ((context: { tenant: string }) => PrincipalTrustSet | PrincipalTrustStore | Promise<PrincipalTrustSet | PrincipalTrustStore>);
+
+/**
+ * The operator's revocation source: the status of `subjects` (the agent and the verified signer
+ * kids) and when it was established. Return null, throw or time out when it cannot answer: the
+ * request is then refused (REVOCATION_UNAVAILABLE). An error whose `code` is REVOCATION_INVALID
+ * reports an answer that could not be read (REVOCATION_INVALID).
+ */
+export type RevocationSource = (
+  subjects: RevocationSubjects,
+  context: { tenant: string },
+) => RevocationSnapshot | null | Promise<RevocationSnapshot | null>;
+
+export interface AdmissionOptions {
+  trustedPrincipals?: TrustSource;
+  profile?: StrictV1ProfileConfig | StrictV1Profile;
+  revocationSource?: RevocationSource;
+  revocationTimeoutMs?: number;
+}
+
+/** What the operator configured for admission, checked once. */
+export interface AdmissionSetup {
+  trust: TrustSource;
+  /** Loaded once when the trust set is static. */
+  staticTrust?: PrincipalTrustStore;
+  profile?: StrictV1Profile;
+  revocationSource?: RevocationSource;
+  revocationTimeoutMs: number;
+}
+
+const contradiction = (message: string) => new AdmissionConfigError('CONFIG_PROFILE_CONTRADICTION', message);
+
+/**
+ * The admission the operator configured, or undefined when neither trusted principals nor a
+ * profile is set. A profile needs trusted principals and a revocation source; a revocation source
+ * needs a profile. A static trust set and the profile are loaded here, so their errors
+ * (AdmissionConfigError) surface when the middleware or tool is configured.
+ */
+export function resolveAdmission(options: AdmissionOptions): AdmissionSetup | undefined {
+  const { trustedPrincipals, profile: profileConfig, revocationSource, revocationTimeoutMs = 5000 } = options;
+  if (!(Number.isFinite(revocationTimeoutMs) && revocationTimeoutMs > 0)) {
+    throw new AdmissionConfigError('CONFIG_INVALID_VALUE', 'revocationTimeoutMs must be a positive number');
+  }
+  if (revocationSource !== undefined && typeof revocationSource !== 'function') {
+    throw new AdmissionConfigError('CONFIG_INVALID_VALUE', 'revocationSource must be a function');
+  }
+  const profile = profileConfig === undefined ? undefined : resolveStrictV1Profile(profileConfig);
+  if (profile && trustedPrincipals === undefined) throw contradiction('strict-v1 requires trustedPrincipals');
+  if (profile && revocationSource === undefined) throw contradiction('strict-v1 requires a revocationSource');
+  if (!profile && revocationSource !== undefined) {
+    throw new AdmissionConfigError('CONFIG_INVALID_VALUE', 'revocationSource is used by the strict-v1 profile only; set profile');
+  }
+  if (trustedPrincipals === undefined) return undefined;
+  const staticTrust = typeof trustedPrincipals === 'function' ? undefined : createPrincipalTrustStore(trustedPrincipals);
+  return { trust: trustedPrincipals, staticTrust, profile, revocationSource, revocationTimeoutMs };
+}
+
+/** SHA-256 of the canonical form of a verifier policy: part of a cached verdict's identity. */
+export function policyFingerprint(policy: VerifierPolicy): string {
+  return createHash('sha256').update(canonicalizeV2(policy)).digest('hex');
+}
+
+/** The verifier policy of an admission setup with a profile, else `policy`. */
+export function admissionPolicy(setup: AdmissionSetup | undefined, policy: VerifierPolicy): VerifierPolicy {
+  return setup?.profile ? (setup.profile.policy as VerifierPolicy) : policy;
+}
+
+function withTimeout<T>(value: T | Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error('timed out')), ms);
+  });
+  return Promise.race([Promise.resolve(value), timeout]).finally(() => clearTimeout(timer));
+}
+
+/** The revocation snapshot for `subjects`, or what stands for a source that could not answer. */
+async function revocationFor(setup: AdmissionSetup, subjects: RevocationSubjects, tenant: string): Promise<unknown> {
+  try {
+    return (await withTimeout(setup.revocationSource!(subjects, { tenant }), setup.revocationTimeoutMs)) ?? null;
+  } catch (e) {
+    // A failure is never a not_revoked: unavailable, or an answer that could not be read.
+    return (e as { code?: unknown })?.code === 'REVOCATION_INVALID' ? { source_error: 'invalid' } : null;
+  }
+}
+
+/**
+ * Admission of a signed bundle (spec/profiles/admission § 5.1) given its verification: the trust
+ * set for `tenant` from the operator's source and, under the profile, the revocation snapshot from
+ * the operator's revocation source, both evaluated now. A bundle that is not V2 gets a failed
+ * verification: it carries no principal signature to anchor.
+ */
+export async function admit(
+  setup: AdmissionSetup,
+  signedBundle: unknown,
+  verification: VerifyV2Result | undefined,
+  { tenant, now }: { tenant: string; now: number },
+): Promise<AdmissionResult> {
+  const trust = setup.staticTrust ?? (await (setup.trust as Exclude<TrustSource, PrincipalTrustSet | PrincipalTrustStore>)({ tenant }));
+  const checked = verification ?? {
+    verified: false,
+    errors: ['Only V2 bundles can be admitted against trusted principals'],
+    warnings: [],
+    details: {},
+  };
+  const revocation =
+    setup.profile && checked.verified ? await revocationFor(setup, revocationSubjects(signedBundle, checked), tenant) : undefined;
+  return evaluateAdmissionV2({ signedBundle, verification: checked, profile: setup.profile, trust, revocation: revocation as RevocationSnapshot | null | undefined, now });
+}
+
+/** The fields of a refused admission a caller may see: codes and bounded messages, no keys. */
+export function admissionFailure(result: AdmissionResult) {
+  return {
+    verified: result.verified,
+    admitted: false as const,
+    principal_trust: result.principal_trust,
+    profile: result.profile,
+    profile_compliance: result.profile_compliance,
+    codes: [...new Set(result.errors.map((e) => e.code))].sort(),
+    errors: result.errors.map((e) => e.message),
+  };
+}
+
+class RevocationSourceError extends Error {
+  constructor(
+    readonly code: 'REVOCATION_UNAVAILABLE' | 'REVOCATION_INVALID',
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+/**
+ * A revocation snapshot for `subjects` from a complete deny list in the format of the reference
+ * revocation service's /.well-known/dcp-revocations.json: `updated_at` (RFC 3339), `revocations`
+ * (objects with an `agent_id`) and `kid_revocations` (objects with a `revoked_kid`). A listed agent
+ * or kid is revoked, every other subject not_revoked as of `updated_at`. Throws (code
+ * REVOCATION_INVALID) on a document of another shape.
+ */
+export function snapshotFromDenyList(document: unknown, subjects: RevocationSubjects): RevocationSnapshot {
+  const invalid = (why: string) => new RevocationSourceError('REVOCATION_INVALID', `revocation list: ${why}`);
+  if (!isObject(document) || typeof document.updated_at !== 'string' || parseRfc3339(document.updated_at) === undefined) {
+    throw invalid('updated_at is not an RFC 3339 timestamp');
+  }
+  const listed = (field: string, key: string): Set<string> => {
+    const items = document[field] ?? [];
+    if (!Array.isArray(items) || !items.every((item) => isObject(item) && typeof item[key] === 'string')) {
+      throw invalid(`${field} is not a list of objects with a ${key}`);
+    }
+    return new Set(items.map((item) => item[key] as string));
+  };
+  const agents = listed('revocations', 'agent_id');
+  const kids = listed('kid_revocations', 'revoked_kid');
+  const status = (set: Set<string>, id: string) => (set.has(id) ? ('revoked' as const) : ('not_revoked' as const));
+  return {
+    checked_at: document.updated_at,
+    agents: Object.fromEntries(subjects.agent_ids.map((id) => [id, status(agents, id)])),
+    keys: Object.fromEntries(subjects.kids.map((kid) => [kid, status(kids, kid)])),
+  };
+}
+
+/**
+ * A revocation source that fetches a complete deny list (snapshotFromDenyList) from `url`, with the
+ * operator's `headers`, within `timeoutMs` (default 5000), following no redirect. A network error,
+ * a timeout or a non-2xx answer is REVOCATION_UNAVAILABLE; a body of another shape REVOCATION_INVALID.
+ */
+export function denyListRevocationSource(options: { url: string; headers?: Record<string, string>; timeoutMs?: number }): RevocationSource {
+  const { url, headers = {}, timeoutMs = 5000 } = isObject(options) ? (options as typeof options) : ({} as typeof options);
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new AdmissionConfigError('CONFIG_INVALID_VALUE', 'denyListRevocationSource: url must be an absolute URL');
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    throw new AdmissionConfigError('CONFIG_INVALID_VALUE', 'denyListRevocationSource: url must be http or https');
+  }
+  if (!isObject(headers) || !Object.values(headers).every((v) => typeof v === 'string')) {
+    throw new AdmissionConfigError('CONFIG_INVALID_VALUE', 'denyListRevocationSource: headers must map names to strings');
+  }
+  if (!(Number.isFinite(timeoutMs) && timeoutMs > 0)) {
+    throw new AdmissionConfigError('CONFIG_INVALID_VALUE', 'denyListRevocationSource: timeoutMs must be a positive number');
+  }
+  return async (subjects) => {
+    let response: Response;
+    try {
+      response = await fetch(parsed, { headers, redirect: 'error', signal: AbortSignal.timeout(timeoutMs) });
+    } catch {
+      throw new RevocationSourceError('REVOCATION_UNAVAILABLE', 'revocation list could not be fetched');
+    }
+    if (!response.ok) throw new RevocationSourceError('REVOCATION_UNAVAILABLE', `revocation list answered ${response.status}`);
+    let document: unknown;
+    try {
+      document = await response.json();
+    } catch (e) {
+      if ((e as Error)?.name === 'TimeoutError' || (e as Error)?.name === 'AbortError') {
+        throw new RevocationSourceError('REVOCATION_UNAVAILABLE', 'revocation list timed out');
+      }
+      throw new RevocationSourceError('REVOCATION_INVALID', 'revocation list is not JSON');
+    }
+    return snapshotFromDenyList(document, subjects);
   };
 }
