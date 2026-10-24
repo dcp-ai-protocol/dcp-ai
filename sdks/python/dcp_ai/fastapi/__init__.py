@@ -231,7 +231,8 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
     - `trusted_principals`: the operator's trust set (a dict, validated here), or a
       callable `(tenant) -> trust set` (sync or async), called on every admission and
       validated with create_principal_trust_store. A synchronous one runs on the
-      event loop.
+      event loop. It needs `require_bundle=True`: otherwise a caller whose bundle
+      would be refused could just omit it.
     - `profile`: a strict-v1 configuration, loaded here with resolve_strict_v1_profile.
       It needs `trusted_principals`, `revocation_source` and `require_bundle=True`,
       and sets the verifier policy itself, so `verifier_policy` must not be given.
@@ -259,7 +260,9 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
     be resolved, 503. An admitted one gets request.state.dcp_agent with the
     admission fields set.
 
-    Contradictions raise AdmissionConfigError (CONFIG_PROFILE_CONTRADICTION), and
+    Contradictions (`trusted_principals` or `profile` without `require_bundle=True`,
+    a profile without `trusted_principals` or `revocation_source`, or with
+    `verifier_policy`) raise AdmissionConfigError (CONFIG_PROFILE_CONTRADICTION), and
     wrongly typed arguments AdmissionConfigError (CONFIG_INVALID_VALUE), when the
     middleware is built.
     """
@@ -309,6 +312,12 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
                 )
         elif self._revocation_source is not None:
             raise AdmissionConfigError("CONFIG_INVALID_VALUE", "revocation_source is evaluated under a profile only")
+        if self._trusted_principals is not None and not require_bundle:
+            # Otherwise a caller whose bundle would be refused just omits it.
+            raise AdmissionConfigError(
+                "CONFIG_PROFILE_CONTRADICTION",
+                "trusted_principals requires require_bundle=True: a request without a bundle must not reach the route",
+            )
 
     async def dispatch(self, request: Request, call_next: Any) -> Any:
         signed_bundle = None

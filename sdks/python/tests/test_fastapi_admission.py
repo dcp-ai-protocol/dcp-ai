@@ -345,11 +345,13 @@ def test_v1_bundles_are_refused_with_trusted_principals():
     assert reached == [] and calls == []
 
 
-def test_a_request_without_a_bundle_never_reaches_the_route_under_the_profile():
+@pytest.mark.parametrize("admission", [_strict(), {"trusted_principals": TRUST}], ids=["profile", "trust_only"])
+def test_a_request_without_a_bundle_never_reaches_the_route(admission):
     reached: list = []
-    client = _client(reached, **_strict())
+    client = _client(reached, **admission)
     assert client.post("/action", json={}).status_code == 403
     assert client.post("/action", json={"signed_bundle": {}}).status_code == 403
+    assert client.post("/action").status_code == 403
     assert reached == []
 
 
@@ -431,16 +433,20 @@ def _fixed(subjects, tenant):
         ({**_strict(), "require_bundle": True, "revocation_timeout": 0}, "CONFIG_INVALID_VALUE"),
         ({**_strict(), "require_bundle": True, "revocation_timeout": True}, "CONFIG_INVALID_VALUE"),
         ({**_strict(), "require_bundle": True, "revocation_timeout": float("inf")}, "CONFIG_INVALID_VALUE"),
-        ({"trusted_principals": TRUST, "tenant": "tenant-a"}, "CONFIG_INVALID_VALUE"),
-        ({"trusted_principals": TRUST, "clock": 0}, "CONFIG_INVALID_VALUE"),
-        ({"trusted_principals": TRUST, "revocation_source": _fixed}, "CONFIG_INVALID_VALUE"),
+        ({"trusted_principals": TRUST, "require_bundle": True, "tenant": "tenant-a"}, "CONFIG_INVALID_VALUE"),
+        ({"trusted_principals": TRUST, "require_bundle": True, "clock": 0}, "CONFIG_INVALID_VALUE"),
+        ({"trusted_principals": TRUST, "require_bundle": True, "revocation_source": _fixed}, "CONFIG_INVALID_VALUE"),
+        ({"trusted_principals": TRUST}, "CONFIG_PROFILE_CONTRADICTION"),  # require_bundle defaults to False
+        ({"trusted_principals": TRUST, "require_bundle": False}, "CONFIG_PROFILE_CONTRADICTION"),
+        ({"trusted_principals": lambda tenant: TRUST, "require_bundle": False}, "CONFIG_PROFILE_CONTRADICTION"),
     ],
     ids=[
         "profile_without_trust", "profile_without_revocation_source", "profile_with_verifier_policy",
         "profile_with_require_bundle_false", "profile_with_default_require_bundle", "profile_weakened",
         "profile_unknown_field", "trust_set_invalid", "trust_not_a_set", "trust_a_list", "source_not_callable",
         "timeout_zero", "timeout_bool", "timeout_infinite", "tenant_not_callable", "clock_not_callable",
-        "revocation_source_without_profile",
+        "revocation_source_without_profile", "trust_with_default_require_bundle", "trust_with_require_bundle_false",
+        "trust_callable_with_require_bundle_false",
     ],
 )
 def test_contradictions_and_wrong_types_raise_at_construction(kwargs, code):
