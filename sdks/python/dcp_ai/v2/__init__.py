@@ -226,7 +226,7 @@ from dcp_ai.v2.admission import (
     revocation_snapshot_from_deny_list,
     revocation_subjects,
 )
-from dcp_ai.v2.revocation_source import deny_list_revocation_source
+from dcp_ai.v2.revocation_source import DenyListWorkers, deny_list_revocation_source
 
 __all__ = [
     "assert_no_floats",
@@ -423,5 +423,6 @@ __all__ = [
     "revocation_snapshot_from_deny_list",
     "RevocationListError",
     "RevocationSourceError",
+    "DenyListWorkers",
     "deny_list_revocation_source",
 ]

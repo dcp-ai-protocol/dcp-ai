@@ -10,8 +10,9 @@ turns a failure into "not_revoked": a network error, a timeout or a non-2xx answ
 raises RevocationSourceError with code REVOCATION_UNAVAILABLE, and a body that is
 not JSON or not that shape raises it with code REVOCATION_INVALID.
 
-Standard library only (urllib in a worker thread). Redirects are not followed, so
-the operator's headers never go to another URL; HTTPS needs TLS 1.2 or later.
+Standard library only (urllib in a worker thread: asyncio.to_thread, or with `workers` a thread
+of a DenyListWorkers budget). Redirects are not followed, so the operator's headers never go to
+another URL; HTTPS needs TLS 1.2 or later.
 """
 
 from __future__ import annotations
@@ -26,6 +27,7 @@ import urllib.parse
 import urllib.request
 from typing import Any, Awaitable, Callable
 
+from dcp_ai.v2._deny_list_workers import DenyListWorkers
 from dcp_ai.v2.admission import (  # noqa: F401 (RevocationListError re-exported)
     RevocationListError,
     RevocationSourceError,
@@ -60,14 +62,22 @@ def deny_list_revocation_source(
     *,
     headers: dict[str, str] | None = None,
     timeout: float = 5.0,
+    workers: DenyListWorkers | None = None,
 ) -> Callable[..., Awaitable[dict[str, Any]]]:
     """An async revocation source, `source(subjects, tenant="")`, over the deny list at `url`.
 
     `url` (https, or http to a loopback host) and `headers` (for instance an Authorization header) come from
-    the operator; `timeout` bounds the whole fetch, in seconds. Each call fetches the
-    list again. Raises ValueError or TypeError here for an invalid configuration, and
-    RevocationSourceError (code REVOCATION_UNAVAILABLE or REVOCATION_INVALID) from the
-    source.
+    the operator; `timeout`, in seconds, bounds each socket operation and the reading of the
+    body, and how long a call waits; it does not bound DNS resolution or a status line and
+    headers sent slowly. Each call fetches the list again. Raises ValueError or TypeError here
+    for an invalid configuration, and RevocationSourceError (code REVOCATION_UNAVAILABLE or
+    REVOCATION_INVALID) from the source.
+
+    `workers` (default None: asyncio.to_thread, as before) is a DenyListWorkers: each download
+    then runs in a thread of that budget, reserved before it starts and held until it really
+    ends; a call that finds no free worker gets REVOCATION_UNAVAILABLE at once, and so does a
+    result that arrives or is used after `timeout`. The body is still checked and parsed on the
+    event loop, as without it.
     """
     if not isinstance(url, str):
         raise TypeError("url must be a string")
@@ -82,6 +92,8 @@ def deny_list_revocation_source(
         raise TypeError("headers must be a dict of strings")
     if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or timeout <= 0:
         raise ValueError("timeout must be a positive number of seconds")
+    if workers is not None and not isinstance(workers, DenyListWorkers):
+        raise TypeError("workers must be a DenyListWorkers")
 
     request_headers = {"Accept": "application/json", **(headers or {})}
     context = ssl.create_default_context()
@@ -93,8 +105,9 @@ def deny_list_revocation_source(
     )
 
     def fetch() -> bytes:
-        # The socket timeout bounds each read; the deadline bounds the whole fetch, so a source
-        # trickling bytes does not hold the worker thread past `timeout`.
+        # The socket timeout bounds each read; the deadline bounds the reading of the body, so a
+        # body trickling in does not hold the worker thread long past `timeout`. Neither bounds DNS
+        # resolution, nor a status line and headers that trickle in.
         deadline = time.monotonic() + timeout
         request = urllib.request.Request(url, headers=request_headers, method="GET")
         # A non-2xx answer (redirects included) raises urllib.error.HTTPError.
@@ -112,12 +125,22 @@ def deny_list_revocation_source(
             return b"".join(chunks)
 
     async def source(subjects: Any, tenant: str = "") -> dict[str, Any]:
-        try:
-            body = await asyncio.wait_for(asyncio.to_thread(fetch), timeout)
-        except Exception as exc:  # unreachable, timed out, non-2xx, connection reset, ...
-            raise RevocationSourceError(
-                "REVOCATION_UNAVAILABLE", f"the deny list could not be fetched ({type(exc).__name__})"
-            ) from None
+        if workers is None:
+            try:
+                body = await asyncio.wait_for(asyncio.to_thread(fetch), timeout)
+            except Exception as exc:  # unreachable, timed out, non-2xx, connection reset, ...
+                raise RevocationSourceError(
+                    "REVOCATION_UNAVAILABLE", f"the deny list could not be fetched ({type(exc).__name__})"
+                ) from None
+        else:
+            try:
+                body = await workers._download(fetch, tenant, timeout)
+            except RevocationSourceError:  # the budget's refusals and late results, with their own reason
+                raise
+            except Exception as exc:  # the download's own failure, mapped as without workers
+                raise RevocationSourceError(
+                    "REVOCATION_UNAVAILABLE", f"the deny list could not be fetched ({type(exc).__name__})"
+                ) from None
         if len(body) > _MAX_BODY:
             raise RevocationListError("the deny list is larger than 16 MiB")
         try:

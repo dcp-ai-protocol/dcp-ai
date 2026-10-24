@@ -252,7 +252,7 @@ result = await admit_signed_bundle_v2(signed_bundle, registry, profile=profile, 
 ```
 
 - `verify_signed_bundle_v2(bundle, registry, policy, now_ms=...)` takes an optional clock and reports `details["signer_keys"]`; without them it behaves as before.
-- `evaluate_admission_v2` evaluates a verifier result you already have (no cryptography, no I/O) and trusts it; `revocation_subjects` lists what a revocation source must answer for, and `deny_list_revocation_source(url)` reads the reference revocation service's deny list.
+- `evaluate_admission_v2` evaluates a verifier result you already have (no cryptography, no I/O) and trusts it; `revocation_subjects` lists what a revocation source must answer for, and `deny_list_revocation_source(url)` reads the reference revocation service's deny list; with `workers=DenyListWorkers(max_workers=...)` its download threads are counted and capped until they really end (opt-in; see the FastAPI README).
 - FastAPI: `DCPVerifyMiddleware(app, require_bundle=True, trusted_principals=..., profile=..., revocation_source=...)`; see [`integrations/fastapi/README.md`](../../integrations/fastapi/README.md). Guide: [`docs/ADMISSION.md`](../../docs/ADMISSION.md). Spec and codes: [`spec/profiles/admission`](../../spec/profiles/admission/README.md).
 
 ### Delegation Chains (DCP-09 §3.5)

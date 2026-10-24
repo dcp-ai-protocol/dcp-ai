@@ -152,7 +152,7 @@ app.add_middleware(DCPVerifyMiddleware, require_bundle=True, trusted_principals=
 - **The same responses.** Each answer gives the response it gives without supervision. A snapshot is evaluated as before. `None`, an exception, a timeout, a source that cancels itself, no free slot, a closed supervisor and a supervisor bound to another loop give `403` with `codes: ["REVOCATION_UNAVAILABLE"]`, never not revoked. An exception whose `code` is `REVOCATION_INVALID` gives `REVOCATION_INVALID` only when it arrives before the deadline.
 - **A changed case.** Without the option, `asyncio.wait_for` waits for a source that suppresses its cancellation, and uses the snapshot it then returns. With the option, the request gets `REVOCATION_UNAVAILABLE` at the deadline, and that late snapshot is never used.
 - **One capacity.** Trust and revocation calls take slots of the same supervisor, each held until its Task really finishes.
-- **A limit of `deny_list_revocation_source`.** It fetches in `asyncio.to_thread`. Cancelling its Task ends the Task, and frees its slot, but not the worker thread: that thread keeps its connection until its own `timeout` or the server closes it. The supervisor does not bound those threads, and does not cancel their I/O.
+- **A limit of `deny_list_revocation_source`.** By default it fetches in `asyncio.to_thread`. Cancelling its Task ends the Task, and frees its slot, but not the worker thread: that thread keeps its connection until urllib returns. The supervisor does not bound those threads, and does not cancel their I/O. To bound them, give the source a `DenyListWorkers` budget (see [Bounding deny-list downloads](#bounding-deny-list-downloads)).
 
 #### What "verified" means
 
@@ -184,12 +184,44 @@ app.add_middleware(
 - **Admitted requests** get `request.state.dcp_agent` as above, with `admitted=True`, `principal_trust`, `profile`, `profile_compliance`, `recorded_decision` (the bundle's `approve`, `escalate` or `block`) and `trust_set_version`. `action_authorized` is always `False`: admission says the evidence is authentic and comes from a trusted principal, not that an action may run.
 - **Every request is evaluated again**: the trust callable and the revocation source are called on each admission, so a principal removed from the trust set, a key marked `revoked` there or a revocation listed by the source refuses the same bundle on the next request.
 - **Revocation fails closed.** A source that raises, times out (`revocation_timeout`) or returns `None` gives `REVOCATION_UNAVAILABLE`; an exception whose `code` is `REVOCATION_INVALID`, or a snapshot outside `schemas/v2/revocation_snapshot.schema.json`, gives `REVOCATION_INVALID`. None of them is taken as not revoked.
-- **`deny_list_revocation_source(url, *, headers=None, timeout=5.0)`** reads a complete deny list in the format of the reference revocation service's `/.well-known/dcp-revocations.json` (`updated_at`, `revocations[].agent_id`, `kid_revocations[].revoked_kid`) with the standard library: the snapshot's `checked_at` is `updated_at`, a listed agent or key is revoked and every other subject not revoked. A network error, a timeout or a non-2xx answer is `REVOCATION_UNAVAILABLE`, a body of another shape `REVOCATION_INVALID`. It follows no redirects (your headers go only to your URL), and HTTPS needs TLS 1.2 or later. Use `https` and keep credentials in environment variables or a vault.
+- **`deny_list_revocation_source(url, *, headers=None, timeout=5.0, workers=None)`** reads a complete deny list in the format of the reference revocation service's `/.well-known/dcp-revocations.json` (`updated_at`, `revocations[].agent_id`, `kid_revocations[].revoked_kid`) with the standard library: the snapshot's `checked_at` is `updated_at`, a listed agent or key is revoked and every other subject not revoked. A network error, a timeout or a non-2xx answer is `REVOCATION_UNAVAILABLE`, a body of another shape `REVOCATION_INVALID`. It follows no redirects (your headers go only to your URL), and HTTPS needs TLS 1.2 or later. Use `https` and keep credentials in environment variables or a vault. `timeout` bounds each socket operation, the reading of the body and how long a call waits; it does not bound DNS resolution, nor a status line and headers that trickle in. `workers` is described below.
 - **Configuration comes only from your code.** The trust set, profile, policy, revocation source and tenant are never read from a request header, query or body: a request that names another tenant changes nothing.
 - **Configuration errors** raise `AdmissionConfigError` (with a `code`) when the middleware is built: `trusted_principals` or `profile` without `require_bundle=True`, a profile without `trusted_principals` or `revocation_source`, or with `verifier_policy` (`CONFIG_PROFILE_CONTRADICTION`); an invalid trust set or profile (its own code); a wrongly typed argument, or `revocation_source` without `profile` (`CONFIG_INVALID_VALUE`). Starlette builds the middleware stack on the first request, not in `add_middleware`, so such an error first shows as a `500` on every request (the route is never reached). To fail at startup instead, load the trust set and profile yourself (`create_principal_trust_store`, `resolve_strict_v1_profile`) and pass the loaded objects.
-- **A synchronous revocation source** runs in a worker thread; when it times out the request is refused at once, but the thread runs until the source returns. Prefer an async source, or one with its own timeout, such as `deny_list_revocation_source(url, timeout=...)`, which bounds the whole fetch, uses no proxy from the environment, follows no redirect and reads at most 16 MiB.
+- **A synchronous revocation source** runs in a worker thread; when it times out the request is refused at once, but the thread runs until the source returns. Prefer an async source, or one with its own timeout, such as `deny_list_revocation_source(url, timeout=...)`: it uses no proxy from the environment, follows no redirect and refuses a list larger than 16 MiB. Its `timeout` bounds each socket operation and the reading of the body, not DNS resolution or a status line that trickles in.
 
 Runnable, offline, on the shared admission vectors: `python integrations/fastapi/examples/strict_v1.py`.
+
+#### Bounding deny-list downloads
+
+By default each call of `deny_list_revocation_source` downloads in `asyncio.to_thread`, and nothing counts those threads once their call has stopped waiting. With a `DenyListWorkers` budget it counts them:
+
+```python
+from dcp_ai.v2 import DenyListWorkers, deny_list_revocation_source
+
+workers = DenyListWorkers(max_workers=8, max_workers_per_tenant=2)  # one per process
+source = deny_list_revocation_source(
+    "https://revocations.example.com/.well-known/dcp-revocations.json",
+    timeout=5.0,
+    workers=workers,
+)
+```
+
+- **Capacity.** At most `max_workers` downloads run at once (an integer from 1 to 64), and at most `max_workers_per_tenant` for one tenant; without it, one tenant can take them all.
+  - Each download runs in a thread of its own, started only after its slot is reserved.
+  - A call that finds no free slot gets `REVOCATION_UNAVAILABLE` at once, without connecting. There is no queue.
+  - The capacity is per object: give the same one to every source that should share it.
+- **The slot is held until the download really ends,** not when its call stops waiting: a timeout, a cancelled request, C3's supervisor deadline and a closed event loop do not free it.
+  - The budget counts downloads in progress. The thread that has just finished one still exists for a moment while it hands over its result and exits.
+- **The same answers.**
+  - The download is the same GET, with the same TLS, proxy, redirect and size rules.
+  - The body is still checked and parsed on the event loop.
+  - The errors are those without the option.
+  - A result that arrives, or is used, after `timeout` is `REVOCATION_UNAVAILABLE`, even when the loop was too busy to run the timer.
+- **`workers.close()`** refuses new downloads and returns `{"in_flight": n}`. It neither waits for nor stops the running ones, whose slots stay taken until they end; there is no reopening.
+- **`workers.stats()`** returns counters with no URL, tenant or header: `open`, `in_flight`, `tenants`, `saturated`, `closed`, `start_failed`, `late_results`, `dropped`.
+- **Process exit waits.** The threads are not daemon threads, so the interpreter waits, when the process exits, for a download still running. That is what already happens with `asyncio.to_thread`, and it may be long: nothing here stops DNS, TLS or urllib, and cancelling a call only stops waiting for it. To end a process that waits, rely on your process manager's kill after a grace period.
+- **One per process.** In a process forked after it was created, `stats()` and `close()` raise `RuntimeError` and the source gives `REVOCATION_UNAVAILABLE`, without touching the parent's lock or counters: create one in each worker process.
+- **What it does not do.** It bounds how many downloads run, not how long one takes. The body deadline is checked between blocking reads; a read already in progress may outlast it.
 
 ### `require_dcp(request)`
 

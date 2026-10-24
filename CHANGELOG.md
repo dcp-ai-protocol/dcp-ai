@@ -154,6 +154,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `dcp_ai.v2.DenyListWorkers` and `deny_list_revocation_source(..., workers=...)`, opt-in: a budget
+  of real download threads for the Python deny-list helper (`max_workers` from 1 to 64,
+  `max_workers_per_tenant` optional, per object). Each download runs in a non-daemon thread of its
+  own, started after its slot is reserved and freeing it only when the download has really ended,
+  also after a timeout, a cancelled call, C3's supervisor deadline or a closed event loop; a call
+  that finds no free slot gets `REVOCATION_UNAVAILABLE` at once, with no queue and no connection.
+  The download, the body checks, the parsing and the errors are those without the option; a result
+  that arrives or is used after `timeout` is `REVOCATION_UNAVAILABLE`. `close()` refuses new
+  downloads without waiting for or stopping running ones; `stats()` has no URL, tenant or header. In
+  a forked process it refuses without touching the parent's lock. Process exit waits for a download
+  still running, as it does with `asyncio.to_thread`; nothing stops DNS, TLS or urllib. Without
+  `workers` nothing changes. The documentation of `timeout` is corrected: it bounds each socket
+  operation and the reading of the body, not DNS resolution or a status line that trickles in.
 - Revocation under the source supervisor (C3), opt-in, in `@dcp-ai/express`, `@dcp-ai/openclaw`
   and `dcp_ai.fastapi.DCPVerifyMiddleware`: `supervise: { revocation: true }` /
   `supervise={"revocation": True}`, refused until now, runs the strict-v1 revocation source under
