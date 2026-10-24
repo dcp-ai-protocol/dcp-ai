@@ -1,6 +1,14 @@
 import { readFileSync } from 'node:fs';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { verifySignedBundle } from '@dcp-ai/sdk';
+import {
+  AlgorithmRegistry,
+  DCP_CONTEXTS,
+  Ed25519Provider,
+  MlDsa65Provider,
+  compositeSign,
+  preparePayload,
+  verifySignedBundle,
+} from '@dcp-ai/sdk';
 import register, {
   getSession,
   isIdentityReady,
@@ -703,6 +711,7 @@ describe('verifier policy: operator configuration and tool parameter', () => {
     ['pq_only', 'classical_only', 'hybrid_required'],
     ['classical_only', 'hybrid_preferred', 'hybrid_preferred'],
     ['hybrid_preferred', 'classical_only', 'hybrid_preferred'],
+    ['pq_only', 'hybrid_required', 'hybrid_required'],
   ])('operator %s with the parameter %s verifies in %s', async (operator, param, expected) => {
     configureVerifier({ verifierPolicy: { default_mode: operator as any } });
     const result = await executeVerifyBundle({
@@ -710,6 +719,54 @@ describe('verifier policy: operator configuration and tool parameter', () => {
       verifier_policy: { default_mode: param as any },
     });
     expect(result.verification_mode).toBe(expected);
+  });
+
+  // A bundle whose classical signatures are made with someone else's Ed25519 key under the
+  // owner's kid, each with a valid ML-DSA signature over it: only pq_only accepts it.
+  async function forgedClassicalBundle() {
+    const SESSION_ID = 'test-forged-classical';
+    clearSession(SESSION_ID);
+    const tools = new Map<string, any>();
+    register({ registerTool: (tool: any) => tools.set(tool.name, tool) });
+    await executeIdentitySetup({ session_id: SESSION_ID, owner_name: 'Forged Classical', jurisdiction: 'US' });
+    const intent = await executeDeclareIntent({ session_id: SESSION_ID, action_type: 'api_call', target_channel: 'api', estimated_impact: 'low' });
+    await executeLogAction({ session_id: SESSION_ID, intent_id: intent.intent_id, outcome: 'done' });
+    const { signed_bundle } = await tools.get('dcp_sign_bundle').execute('call-1', { session_id: SESSION_ID });
+
+    const registry = new AlgorithmRegistry();
+    registry.registerSigner(new Ed25519Provider());
+    registry.registerSigner(new MlDsa65Provider());
+    const owner = (getSession(SESSION_ID) as any).compositeKeys;
+    const someoneElse = await new Ed25519Provider().generateKeypair();
+    const keys = { classical: { ...owner.classical, secretKeyB64: someoneElse.secretKeyB64 }, pq: owner.pq };
+    const resign = async (payload: unknown, context: any) => compositeSign(registry, context, preparePayload(payload).canonicalBytes, keys);
+    const b = signed_bundle.bundle;
+    const artifacts: Array<[string, any]> = [
+      ['responsible_principal_record', DCP_CONTEXTS.ResponsiblePrincipal],
+      ['agent_passport', DCP_CONTEXTS.AgentPassport],
+      ['intent', DCP_CONTEXTS.Intent],
+      ['policy_decision', DCP_CONTEXTS.PolicyDecision],
+    ];
+    for (const [name, context] of artifacts) b[name].composite_sig = await resign(b[name].payload, context);
+    signed_bundle.signature.composite_sig = await resign(b.manifest, DCP_CONTEXTS.Bundle);
+    clearSession(SESSION_ID);
+    return signed_bundle;
+  }
+
+  it('the parameter pq_only does not accept a forged classical signature the operator requires', async () => {
+    const forged = await forgedClassicalBundle();
+    const run = (param?: any) => executeVerifyBundle({ signed_bundle: JSON.parse(JSON.stringify(forged)), verifier_policy: param });
+
+    configureVerifier({ verifierPolicy: { default_mode: 'pq_only' } });
+    expect((await run()).verified).toBe(true); // the PQ signatures are valid: pq_only, the operator's choice, accepts it
+
+    for (const operator of ['classical_only', 'hybrid_preferred', 'hybrid_required'] as const) {
+      configureVerifier({ verifierPolicy: { default_mode: operator } });
+      expect((await run()).verified).toBe(false);
+      const withParam = await run({ default_mode: 'pq_only' });
+      expect(withParam.verified).toBe(false);
+      expect(withParam.verification_mode).toBe('hybrid_required');
+    }
   });
 
   it('the parameter can raise the mode', async () => {

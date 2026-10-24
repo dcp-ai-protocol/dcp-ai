@@ -120,7 +120,12 @@ export function allTiers(mode: VerificationMode): VerifierPolicy['risk_overrides
 
 const MODE_RANK: Record<VerificationMode, number> = { classical_only: 0, hybrid_preferred: 1, hybrid_required: 2, pq_only: 3 };
 
-/** The stricter of two modes; pq_only counts as the strictest (spec §14.3: a pq_only policy stays pq_only). */
+/**
+ * The later of two modes in the order classical_only < hybrid_preferred < hybrid_required < pq_only,
+ * as the operator's requireHybrid applies it (spec §14.3: a pq_only policy stays pq_only). Not a
+ * combination of requirements: pq_only does not require the classical signature, so a policy that
+ * someone other than the operator tightens must not use it (the OpenClaw tool uses requireBoth).
+ */
 export function stricterMode(a: VerificationMode, b: VerificationMode): VerificationMode {
   return MODE_RANK[a] >= MODE_RANK[b] ? a : b;
 }
