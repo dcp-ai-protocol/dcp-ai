@@ -93,13 +93,13 @@ Required by `strict-v1`. The operator's adapter obtains it from a local or remot
 Evaluated only when a trust set is supplied and the bundle verified (V2-1 to V2-14); otherwise the result is `not_evaluated`. With `human_id` the RPR payload's `human_id`:
 
 - **T1.** `human_id` is not a principal of the trust set: `TRUST_PRINCIPAL_UNKNOWN`. Stop.
-- **T2.** For each verified component of each principal signature (§2.3), the trust set entry of that principal with the same `kid`:
+- **T2.** For each verified component of each principal signature (§2.3), the trust set entry of that principal with the same `kid`, with the first of these that applies:
   - none, or a different `alg` or different key bytes: `TRUST_KEY_NOT_ANCHORED`;
   - `status` `revoked`: `TRUST_KEY_REVOKED`;
   - `status` `expired`, or `expires_at` before `now`: `TRUST_KEY_EXPIRED`;
   - `not_before` after `now`: `TRUST_KEY_NOT_YET_VALID`.
 
-The principal is `trusted` when T1 and T2 add no code, `untrusted` otherwise. Every verified component counts: trusting only a principal's Ed25519 key does not make its PQ key, or any other key in the RPR, trusted.
+A verified bundle with no verified principal component at all also gets `TRUST_KEY_NOT_ANCHORED`. The principal is `trusted` when T1 and T2 add no code, `untrusted` otherwise. Every verified component counts: trusting only a principal's Ed25519 key does not make its PQ key, or any other key in the RPR, trusted.
 
 ## 4. The `strict-v1` profile
 
