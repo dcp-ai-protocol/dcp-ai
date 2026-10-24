@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import copy
 import json
+import runpy
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -458,6 +459,15 @@ def test_contradictions_and_wrong_types_raise_at_construction(kwargs, code):
 def test_unknown_arguments_raise_at_construction():
     with pytest.raises(TypeError):
         DCPVerifyMiddleware(FastAPI(), trusted_principals=TRUST, trust_header="x-tenant")
+
+
+def test_the_integration_example_runs(capsys):
+    runpy.run_path(str(REPO_ROOT / "integrations" / "fastapi" / "examples" / "strict_v1.py"), run_name="__main__")
+    lines = capsys.readouterr().out.splitlines()
+    assert [line.split(" ", 2)[:2] for line in lines] == [
+        ["base:", "200"], ["unknown_principal:", "403"], ["other_intended_verifier:", "403"],
+    ]
+    assert '"action_authorized": false' in lines[0] and "TRUST_PRINCIPAL_UNKNOWN" in lines[1]
 
 
 # ── deny_list_revocation_source ──
