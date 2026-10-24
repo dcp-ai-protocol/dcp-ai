@@ -257,6 +257,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Go and Rust V2 verifiers: a policy that narrows `accepted_classical_algs` or `accepted_pq_algs`
+  was refused as a field they did not enforce, so every bundle failed under it; they now enforce
+  both lists as TypeScript and Python do (the classical list except under `pq_only`), and a
+  signature with an algorithm outside them fails as not accepted by the verifier policy. They
+  also accept `allow_v1_bundles: false`, which strict-v1 sets: they verify V2 bundles only, so
+  the field changes nothing for them. Policies that verified before behave the same.
 - The reference verifier (`lib/verify.js`, `dcp verify-bundle`, the verification server and its
   Docker image) depends on the workspace `@dcp-ai/sdk` (`file:sdks/typescript`, packed through
   `install-links` in `.npmrc`) until 2.2.0 is on npm, so it runs the verifier fixes of this release
