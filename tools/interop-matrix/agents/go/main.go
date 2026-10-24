@@ -31,11 +31,18 @@ type agentState struct {
 	intents                 map[string]*intentState
 }
 
+// tenantConfig is the operator configuration of one tenant in the admission scenario.
+type tenantConfig struct {
+	trust   *v2.PrincipalTrustStore
+	profile *v2.StrictV1Profile
+}
+
 var (
 	registry = v2.NewAlgorithmRegistry()
 	ed       = &providers.Ed25519Provider{}
 	mldsa    = &providers.MlDsa65Provider{}
 	state    *agentState
+	tenants  = map[string]tenantConfig{}
 )
 
 func now() string { return time.Now().UTC().Format("2006-01-02T15:04:05.000Z") }
@@ -64,6 +71,14 @@ func newKeyPair() (keyPair, error) {
 	}
 	p, err := newKey(mldsa)
 	return keyPair{c, p}, err
+}
+
+func publicKeys(k keyPair) []map[string]string {
+	out := []map[string]string{}
+	for _, c := range []v2.CompositeKeyInfo{k.classical, k.pq} {
+		out = append(out, map[string]string{"kid": c.Kid, "alg": c.Alg, "public_key_b64": c.PublicKeyB64})
+	}
+	return out
 }
 
 func entries(k keyPair, at string) []v2.KeyEntry {
@@ -121,7 +136,10 @@ func identity(args json.RawMessage) (interface{}, error) {
 		return nil, err
 	}
 	state = s
-	return map[string]string{"agent_id": s.agentID, "human_id": s.humanID, "session_nonce": nonce}, nil
+	return map[string]interface{}{
+		"agent_id": s.agentID, "human_id": s.humanID, "session_nonce": nonce,
+		"principal_keys": publicKeys(human), "agent_keys": publicKeys(agent),
+	}, nil
 }
 
 func intent(args json.RawMessage) (interface{}, error) {
@@ -225,7 +243,10 @@ func act(args json.RawMessage) (interface{}, error) {
 
 func bundle(args json.RawMessage) (interface{}, error) {
 	var a struct {
-		IntentID string `json:"intent_id"`
+		IntentID         string `json:"intent_id"`
+		SessionIssuedAt  string `json:"session_issued_at"`
+		SessionExpiresAt string `json:"session_expires_at"`
+		IntendedVerifier string `json:"intended_verifier"`
 	}
 	if err := json.Unmarshal(args, &a); err != nil {
 		return nil, err
@@ -241,6 +262,9 @@ func bundle(args json.RawMessage) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+	b.Manifest.SessionIssuedAt = a.SessionIssuedAt
+	b.Manifest.SessionExpiresAt = a.SessionExpiresAt
+	b.Manifest.IntendedVerifier = a.IntendedVerifier
 	signed, err := v2.SignBundleV2(registry, b, state.human.classical, &state.human.pq)
 	if err != nil {
 		return nil, err
@@ -265,8 +289,98 @@ func verify(args json.RawMessage) (interface{}, error) {
 	return map[string]interface{}{"valid": r.Verified, "errors": r.Errors}, nil
 }
 
+// rotatePrincipal makes a new principal key pair and an RPR (same human_id) signed with it;
+// later bundles use it.
+func rotatePrincipal(json.RawMessage) (interface{}, error) {
+	if state == nil {
+		return nil, errors.New("no identity")
+	}
+	old, ok := state.rpr.Payload.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected RPR payload type %T", state.rpr.Payload)
+	}
+	human, err := newKeyPair()
+	if err != nil {
+		return nil, err
+	}
+	at := now()
+	rpr := map[string]interface{}{}
+	for k, v := range old {
+		rpr[k] = v
+	}
+	rpr["issued_at"], rpr["binding_keys"] = at, entries(human, at)
+	if state.rpr, err = sign(rpr, v2.CtxResponsiblePrincipal, human); err != nil {
+		return nil, err
+	}
+	state.human = human
+	return map[string]interface{}{"human_id": state.humanID, "principal_keys": publicKeys(human)}, nil
+}
+
+func configure(args json.RawMessage) (interface{}, error) {
+	var a struct {
+		Tenant   string          `json:"tenant"`
+		TrustSet json.RawMessage `json:"trust_set"`
+		Profile  json.RawMessage `json:"profile"`
+	}
+	if err := json.Unmarshal(args, &a); err != nil {
+		return nil, err
+	}
+	trust, err := v2.NewPrincipalTrustStore(a.TrustSet)
+	var profile *v2.StrictV1Profile
+	if err == nil {
+		profile, err = v2.ResolveStrictV1Profile(a.Profile)
+	}
+	var configErr *v2.AdmissionConfigError
+	if errors.As(err, &configErr) {
+		return map[string]interface{}{"config_error": configErr.Code}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	tenants[a.Tenant] = tenantConfig{trust: trust, profile: profile}
+	return map[string]interface{}{}, nil
+}
+
+func admit(args json.RawMessage) (interface{}, error) {
+	var a struct {
+		Tenant       string          `json:"tenant"`
+		SignedBundle json.RawMessage `json:"signed_bundle"`
+		Revocation   json.RawMessage `json:"revocation"`
+		NowMs        int64           `json:"now_ms"`
+	}
+	if err := json.Unmarshal(args, &a); err != nil {
+		return nil, err
+	}
+	t, ok := tenants[a.Tenant]
+	if !ok {
+		return nil, fmt.Errorf("unknown tenant %s", a.Tenant)
+	}
+	r, err := v2.AdmitSignedBundleV2(registry, a.SignedBundle, v2.AdmitOptions{
+		Profile: t.profile, Trust: t.trust, Revocation: a.Revocation, Now: time.UnixMilli(a.NowMs),
+	})
+	if err != nil {
+		return nil, err
+	}
+	// The SDK's own JSON form (§ 8), without the full verification result.
+	raw, err := json.Marshal(r)
+	if err != nil {
+		return nil, err
+	}
+	var out map[string]interface{}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, err
+	}
+	delete(out, "verification")
+	out["verification_errors"] = []string{}
+	if r.Verification != nil && r.Verification.Errors != nil {
+		out["verification_errors"] = r.Verification.Errors
+	}
+	return out, nil
+}
+
 var commands = map[string]func(json.RawMessage) (interface{}, error){
 	"identity": identity, "intent": intent, "act": act, "bundle": bundle, "verify": verify,
+	"rotate_principal": rotatePrincipal, "configure": configure, "admit": admit,
 	"shutdown": func(json.RawMessage) (interface{}, error) { return map[string]interface{}{}, nil },
 }
 

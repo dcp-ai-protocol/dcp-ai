@@ -15,6 +15,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "sdks" / "python"))
 
 from dcp_ai.providers.ed25519_provider import Ed25519Provider  # noqa: E402
 from dcp_ai.providers.ml_dsa_65_provider import MlDsa65Provider  # noqa: E402
+from dcp_ai.v2.admission import (  # noqa: E402
+    AdmissionConfigError,
+    admit_signed_bundle_v2,
+    create_principal_trust_store,
+    resolve_strict_v1_profile,
+)
 from dcp_ai.v2.bundle import BundleBuilderV2, sign_bundle_v2  # noqa: E402
 from dcp_ai.v2.canonicalize import canonicalize_v2  # noqa: E402
 from dcp_ai.v2.composite_ops import CompositeKeyInfo, composite_sign  # noqa: E402
@@ -31,6 +37,8 @@ registry.register_signer(Ed25519Provider())
 registry.register_signer(MlDsa65Provider())
 
 state = None
+# Operator configuration per tenant for the admission scenario: (trust store, profile).
+tenants = {}
 
 
 def now():
@@ -47,6 +55,10 @@ async def key_pair():
         k = await registry.get_signer(alg).generate_keypair()
         pair.append(CompositeKeyInfo(k["kid"], alg, k["secret_key_b64"], k["public_key_b64"]))
     return pair  # [classical, pq]
+
+
+def public_keys(keys):
+    return [{"kid": k.kid, "alg": k.alg, "public_key_b64": k.public_key_b64} for k in keys]
 
 
 def entries(keys, at):
@@ -92,7 +104,10 @@ async def identity(owner_name, jurisdiction):
         "rpr": await signed(rpr, "ResponsiblePrincipal", human),
         "passport": await signed(passport, "AgentPassport", agent),
     }
-    return {"agent_id": agent_id, "human_id": human_id, "session_nonce": nonce}
+    return {
+        "agent_id": agent_id, "human_id": human_id, "session_nonce": nonce,
+        "principal_keys": public_keys(human), "agent_keys": public_keys(agent),
+    }
 
 
 async def intent(action_type, channel, data_classes, estimated_impact, risk_score, applied_policy_hash):
@@ -138,7 +153,7 @@ async def act(intent_id, outcome, tool, result_ref):
     return {"audit_id": trail[-1]["audit_id"], "count": len(trail)}
 
 
-async def bundle(intent_id):
+async def bundle(intent_id, session_issued_at=None, session_expires_at=None, intended_verifier=None):
     it = lookup(intent_id)
     built = (
         BundleBuilderV2(state["nonce"])
@@ -149,8 +164,14 @@ async def bundle(intent_id):
         .add_audit_entries(it["trail"])
         .build()
     )
+    if session_issued_at:
+        built["manifest"]["session_issued_at"] = session_issued_at
     classical, pq = state["human"]
-    return {"signed_bundle": await sign_bundle_v2(built, registry, "human", state["human_id"], classical, pq)}
+    signed_bundle = await sign_bundle_v2(
+        built, registry, "human", state["human_id"], classical, pq,
+        session_expires_at=session_expires_at, intended_verifier=intended_verifier,
+    )
+    return {"signed_bundle": signed_bundle}
 
 
 async def verify(signed_bundle, mode):
@@ -161,11 +182,42 @@ async def verify(signed_bundle, mode):
     return {"valid": r["verified"] is True, "errors": r["errors"]}
 
 
+async def rotate_principal():
+    """A new principal key pair and an RPR (same human_id) signed with it; later bundles use it."""
+    if state is None:
+        raise ValueError("no identity")
+    human = await key_pair()
+    at = now()
+    rpr = {**state["rpr"]["payload"], "issued_at": at, "binding_keys": entries(human, at)}
+    state["rpr"] = await signed(rpr, "ResponsiblePrincipal", human)
+    state["human"] = human
+    return {"human_id": state["human_id"], "principal_keys": public_keys(human)}
+
+
+async def configure(tenant, trust_set, profile):
+    try:
+        tenants[tenant] = (create_principal_trust_store(trust_set), resolve_strict_v1_profile(profile))
+    except AdmissionConfigError as exc:
+        return {"config_error": exc.code}
+    return {}
+
+
+async def admit(tenant, signed_bundle, revocation, now_ms):
+    if tenant not in tenants:
+        raise ValueError(f"unknown tenant {tenant}")
+    trust, profile = tenants[tenant]
+    result = await admit_signed_bundle_v2(
+        signed_bundle, registry, profile=profile, trust=trust, revocation=revocation, now_ms=now_ms
+    )
+    verification = result.pop("verification")
+    return {**result, "verification_errors": verification["errors"]}
+
+
 async def shutdown():
     return {}
 
 
-COMMANDS = {f.__name__: f for f in (identity, intent, act, bundle, verify, shutdown)}
+COMMANDS = {f.__name__: f for f in (identity, intent, act, bundle, verify, rotate_principal, configure, admit, shutdown)}
 
 
 async def main():
