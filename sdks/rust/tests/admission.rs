@@ -56,7 +56,7 @@ fn codes(result: &AdmissionResult) -> Vec<&'static str> {
 fn admission_vectors() {
     let v = vectors();
     let cases = v["cases"].as_array().expect("cases");
-    assert_eq!(cases.len(), 55);
+    assert_eq!(cases.len(), 58);
     let mut failures = Vec::new();
     for c in cases {
         let profile = c["profile"].as_str().map(|id| resolve_strict_v1_profile(&v["profiles"][id]).expect(id));
@@ -102,7 +102,7 @@ fn admission_vectors() {
 #[test]
 fn configuration_vectors_are_refused_with_their_code() {
     let cases = vectors()["config_cases"].as_array().expect("config_cases");
-    assert_eq!(cases.len(), 46);
+    assert_eq!(cases.len(), 49);
     let mut failures = Vec::new();
     for c in cases {
         let refused = match c["kind"].as_str() {
@@ -428,27 +428,68 @@ fn configuration_errors_display_their_code() {
     assert!(error.message.chars().count() < 120, "{}", error.message);
 }
 
-/// The verifier fails closed on policy fields it does not enforce: a profile
-/// that narrows the accepted algorithms loads, and admits nothing.
+/// A profile may narrow the accepted classical and PQ algorithms, which the
+/// verifier enforces: the base bundle's ML-DSA-65 signatures are admitted
+/// under `["ml-dsa-65"]` and fail verification under `["slh-dsa-192f"]`.
 #[test]
-fn a_profile_tightening_a_field_the_verifier_does_not_enforce_admits_nothing() {
-    let config = json!({
-        "profile": "strict-v1", "verifier_id": "verifier:acme-api",
-        "verifier_policy": { "accepted_pq_algs": ["ml-dsa-65"] },
-    });
-    let (profile, trust) = (resolve_strict_v1_profile(&config).unwrap(), principal());
-    assert_eq!(profile.policy().accepted_pq_algs, ["ml-dsa-65"]);
-    let options = AdmitOptions {
-        profile: Some(&profile),
-        trust: Some(&trust),
-        revocation: case("A_known_principal_strict").get("revocation"),
-        now_ms: Some(now()),
-        ..Default::default()
+fn a_profile_narrowing_the_accepted_algorithms_is_enforced() {
+    let trust = principal();
+    let admit = |pq_algs: Value| {
+        let config = json!({
+            "profile": "strict-v1", "verifier_id": "verifier:acme-api",
+            "verifier_policy": { "accepted_classical_algs": ["ed25519"], "accepted_pq_algs": pq_algs },
+        });
+        let profile = resolve_strict_v1_profile(&config).unwrap();
+        let options = AdmitOptions {
+            profile: Some(&profile),
+            trust: Some(&trust),
+            revocation: case("A_known_principal_strict").get("revocation"),
+            now_ms: Some(now()),
+            ..Default::default()
+        };
+        admit_signed_bundle_v2(&bundle("base"), &options).unwrap()
     };
-    let result = admit_signed_bundle_v2(&bundle("base"), &options).unwrap();
+    let result = admit(json!(["ml-dsa-65"]));
+    assert!(result.admitted, "{:?}", result.errors);
+    let result = admit(json!(["slh-dsa-192f"]));
     assert!(!result.admitted);
     assert_eq!(codes(&result), ["VERIFICATION_FAILED"]);
-    assert!(result.verification.errors[0].contains("does not enforce"), "{:?}", result.verification.errors);
+    assert!(
+        result.verification.errors.iter().any(|e| e.contains("PQ algorithm ml-dsa-65 not accepted by verifier policy")),
+        "{:?}",
+        result.verification.errors
+    );
+}
+
+/// min_classical, min_pq, max_key_age_days and accepted_hash_algs are fixed:
+/// restating them loads, any other value is a contradiction.
+#[test]
+fn a_profile_fixes_the_fields_verifiers_do_not_enforce_alike() {
+    let load = |field: &str, value: Value| {
+        let config = json!({ "profile": "strict-v1", "verifier_id": "v", "verifier_policy": { field: value } });
+        resolve_strict_v1_profile(&config).map(|_| ()).map_err(|e| e.code)
+    };
+    for (field, value) in [
+        ("min_classical", json!(1)),
+        ("min_pq", json!(1.0)),
+        ("max_key_age_days", json!(365)),
+        ("accepted_hash_algs", json!(["sha384", "sha256"])),
+    ] {
+        assert_eq!(load(field, value.clone()), Ok(()), "{field}: {value}");
+    }
+    for (field, value, code) in [
+        ("min_classical", json!(2), "CONFIG_PROFILE_CONTRADICTION"),
+        ("min_pq", json!(0), "CONFIG_PROFILE_CONTRADICTION"),
+        ("min_pq", json!("1"), "CONFIG_INVALID_VALUE"),
+        ("max_key_age_days", json!(30), "CONFIG_PROFILE_CONTRADICTION"),
+        ("max_key_age_days", json!(365.5), "CONFIG_INVALID_VALUE"),
+        ("accepted_hash_algs", json!(["sha256"]), "CONFIG_PROFILE_CONTRADICTION"),
+        ("accepted_hash_algs", json!(["sha256", "sha256"]), "CONFIG_PROFILE_CONTRADICTION"),
+        ("accepted_hash_algs", json!(["sha256", "sha384", "sha384"]), "CONFIG_PROFILE_CONTRADICTION"),
+        ("accepted_hash_algs", json!("sha256"), "CONFIG_INVALID_VALUE"),
+    ] {
+        assert_eq!(load(field, value.clone()), Err(code), "{field}: {value}");
+    }
 }
 
 /// A field outside the schema is reported before any value of

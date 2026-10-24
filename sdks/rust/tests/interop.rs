@@ -575,10 +575,38 @@ fn signed_bundle_vectors() {
 
     let unknown = VerifierPolicy { default_mode: "strict".into(), risk_overrides: Default::default(), ..VerifierPolicy::default() };
     assert!(!verify_signed_bundle_v2_with_policy(signed, &unknown).verified, "an unknown policy mode must fail closed");
-    // Only default_mode and risk_overrides are enforced, so another setting
-    // must not pass silently.
-    let tuned = VerifierPolicy { accepted_classical_algs: vec!["ed448".into()], ..VerifierPolicy::default() };
-    assert!(!verify_signed_bundle_v2_with_policy(signed, &tuned).verified, "a policy field the verifier does not enforce must fail closed");
+    // A setting the verifier does not enforce must not pass silently.
+    let tuned = VerifierPolicy { min_pq: 2, ..VerifierPolicy::default() };
+    let result = verify_signed_bundle_v2_with_policy(signed, &tuned);
+    assert!(!result.verified, "a policy field the verifier does not enforce must fail closed");
+    assert!(result.errors[0].contains("does not enforce"), "{:?}", result.errors);
+
+    // The accepted algorithms are enforced, as in the TypeScript verifier: a
+    // subset that keeps the bundle's algorithms verifies, one that drops them
+    // does not. allow_v1_bundles false changes nothing for a V2 bundle.
+    let subset = |classical: &[&str], pq: &[&str]| VerifierPolicy {
+        accepted_classical_algs: classical.iter().map(|a| a.to_string()).collect(),
+        accepted_pq_algs: pq.iter().map(|a| a.to_string()).collect(),
+        allow_v1_bundles: false,
+        ..VerifierPolicy::default()
+    };
+    let result = verify_signed_bundle_v2_with_policy(signed, &subset(&["ed25519"], &["ml-dsa-65"]));
+    assert!(result.verified, "accepted_pq_algs [ml-dsa-65] must verify an ML-DSA-65 bundle: {:?}", result.errors);
+    for (policy, want) in [
+        (subset(&["ed25519"], &["slh-dsa-192f"]), "PQ algorithm ml-dsa-65 not accepted by verifier policy"),
+        (subset(&["ed448"], &["ml-dsa-65"]), "Classical algorithm ed25519 not accepted by verifier policy"),
+    ] {
+        let result = verify_signed_bundle_v2_with_policy(signed, &policy);
+        assert!(!result.verified && result.errors.iter().any(|e| e.contains(want)), "{want}: {:?}", result.errors);
+    }
+    // Under pq_only the classical algorithm is not required to be accepted.
+    let pq_only = VerifierPolicy {
+        default_mode: "pq_only".into(),
+        risk_overrides: Default::default(),
+        ..subset(&["ed448"], &["ml-dsa-65"])
+    };
+    let result = verify_signed_bundle_v2_with_policy(signed, &pq_only);
+    assert!(!result.errors.iter().any(|e| e.contains("Classical algorithm")), "{:?}", result.errors);
 }
 
 /// A bundle whose checkpoints, audit entries, artifacts, keys, session times,

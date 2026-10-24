@@ -187,7 +187,7 @@ Whether a verified V2 bundle is admitted as evidence from a principal the operat
 | `evaluate_admission_v2(&b, &verification, &AdmissionOptions { .. })` | Admission from a verification result, with no cryptography and no I/O |
 | `admit_signed_bundle_v2(&b, &AdmitOptions { .. })` | Verifies at `now_ms` (the system clock when `None`) under the profile's policy, or `policy` without a profile, then evaluates |
 
-A trust set or profile that cannot be loaded, a profile without a trust set and a profile with a caller policy return `AdmissionConfigError { code, message }`. `AdmissionResult` serializes with the keys of § 5.2 (`verified`, `verification`, `principal_trust`, `profile`, `profile_compliance`, `admitted`, `action_authorized`, `recorded_decision`, `trust_set_version`, `errors`); `action_authorized` is always `false`. This verifier fails closed on policy fields it does not enforce, so a profile whose `verifier_policy` changes `min_classical`, `min_pq`, `accepted_*_algs` or `max_key_age_days` admits nothing.
+A trust set or profile that cannot be loaded, a profile without a trust set and a profile with a caller policy return `AdmissionConfigError { code, message }`. `AdmissionResult` serializes with the keys of § 5.2 (`verified`, `verification`, `principal_trust`, `profile`, `profile_compliance`, `admitted`, `action_authorized`, `recorded_decision`, `trust_set_version`, `errors`); `action_authorized` is always `false`. A profile's `verifier_policy` may narrow `accepted_classical_algs` and `accepted_pq_algs`, which the verifier enforces; it fixes `min_classical`, `min_pq`, `accepted_hash_algs` and `max_key_age_days` at their defaults.
 
 ```rust
 use dcp_ai::v2::{

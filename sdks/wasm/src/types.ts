@@ -89,8 +89,9 @@ export interface SignerKeyUse {
 
 /**
  * Verifier policy for V2 bundles (schemas/v2/verifier_policy.schema.json), with every required
- * field. Without one, `verifyBundle` uses the default policy. Only default_mode, risk_overrides
- * and the optional fields may differ from it: the Phase 3 fields, max_session_duration_seconds,
+ * field. Without one, `verifyBundle` uses the default policy. Only default_mode, risk_overrides,
+ * accepted_classical_algs (not checked under pq_only), accepted_pq_algs and the optional fields
+ * may differ from it: the Phase 3 fields, max_session_duration_seconds,
  * require_session_expiry, require_audience_binding and verifier_id, all enforced as in the
  * TypeScript SDK. allow_v1_bundles may be false too: the V2 verifier never verifies a V1 bundle,
  * and a V1 bundle is rejected under any policy.

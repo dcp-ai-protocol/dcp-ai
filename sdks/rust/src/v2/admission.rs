@@ -352,12 +352,14 @@ fn hybrid_required(value: &Value, field: &str) -> Result<(), AdmissionConfigErro
     }
 }
 
-/// A non-negative integer policy field. The policy holds it as a u32; a larger
-/// value saturates, which bounds the same way.
-fn non_negative(value: &Value, field: &str) -> Result<u32, AdmissionConfigError> {
+/// An integer policy field the profile fixes at `fixed`.
+fn fixed_integer(value: &Value, field: &str, fixed: u32) -> Result<(), AdmissionConfigError> {
     match integer(value) {
-        Some(n) if n >= 0 => Ok(u32::try_from(n).unwrap_or(u32::MAX)),
-        _ => fail(CONFIG_INVALID_VALUE, format!("verifier_policy.{} must be a non-negative integer", field)),
+        None => fail(CONFIG_INVALID_VALUE, format!("verifier_policy.{} must be an integer", field)),
+        Some(n) if n != i64::from(fixed) => {
+            fail(CONFIG_PROFILE_CONTRADICTION, format!("strict-v1 fixes verifier_policy.{} at {}", field, fixed))
+        }
+        Some(_) => Ok(()),
     }
 }
 
@@ -440,31 +442,35 @@ pub fn resolve_strict_v1_profile(config: &Value) -> Result<StrictV1Profile, Admi
                         }
                     }
                 }
-                "min_classical" | "min_pq" => {
-                    let n = non_negative(value, field)?;
-                    if n < 1 {
+                // Fields the profile fixes: a composite signature has one classical and
+                // one PQ component, verifiers check the bundle hash_alg by V2-4 and only
+                // warn on key age, so another value would be weaker or not enforced the
+                // same way by every verifier.
+                "min_classical" | "min_pq" => fixed_integer(value, field, 1)?,
+                "max_key_age_days" => fixed_integer(value, field, VerifierPolicy::default().max_key_age_days)?,
+                "accepted_hash_algs" => {
+                    let Some(algs) = string_list(value) else {
+                        return fail(CONFIG_INVALID_VALUE, "verifier_policy.accepted_hash_algs must be a list of strings");
+                    };
+                    let distinct: BTreeSet<&str> = algs.iter().map(String::as_str).collect();
+                    if algs.len() != ACCEPTED_HASH_ALGS.len() || distinct != BTreeSet::from(ACCEPTED_HASH_ALGS) {
                         return fail(
                             CONFIG_PROFILE_CONTRADICTION,
-                            format!("strict-v1 requires verifier_policy.{} of at least 1", field),
+                            "strict-v1 fixes verifier_policy.accepted_hash_algs at sha256, sha384",
                         );
                     }
-                    if field == "min_classical" {
-                        policy.min_classical = n;
-                    } else {
-                        policy.min_pq = n;
-                    }
                 }
-                "accepted_classical_algs" | "accepted_pq_algs" | "accepted_hash_algs" => {
+                "accepted_classical_algs" | "accepted_pq_algs" => {
                     let Some(algs) = string_list(value) else {
                         return fail(
                             CONFIG_INVALID_VALUE,
                             format!("verifier_policy.{} must be a list of strings", field),
                         );
                     };
-                    let (allowed, slot): (&[&str], &mut Vec<String>) = match field {
-                        "accepted_classical_algs" => (&ACCEPTED_CLASSICAL_ALGS, &mut policy.accepted_classical_algs),
-                        "accepted_pq_algs" => (&ACCEPTED_PQ_ALGS, &mut policy.accepted_pq_algs),
-                        _ => (&ACCEPTED_HASH_ALGS, &mut policy.accepted_hash_algs),
+                    let (allowed, slot): (&[&str], &mut Vec<String>) = if field == "accepted_classical_algs" {
+                        (&ACCEPTED_CLASSICAL_ALGS, &mut policy.accepted_classical_algs)
+                    } else {
+                        (&ACCEPTED_PQ_ALGS, &mut policy.accepted_pq_algs)
                     };
                     if algs.is_empty() || algs.iter().any(|alg| !allowed.contains(&alg.as_str())) {
                         return fail(
@@ -487,7 +493,6 @@ pub fn resolve_strict_v1_profile(config: &Value) -> Result<StrictV1Profile, Admi
                         )
                     }
                 },
-                "max_key_age_days" => policy.max_key_age_days = non_negative(value, field)?,
                 "warn_classical_only_deprecated" => match value.as_bool() {
                     Some(warn) => policy.warn_classical_only_deprecated = warn,
                     None => {

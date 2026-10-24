@@ -79,7 +79,8 @@ pub fn verify_signed_bundle_v2(signed_bundle: &Value) -> V2VerificationResult {
 /// `risk_tier`) and the security tier's mode (spec §14.3). Besides those two
 /// fields, only these are enforced, as in the TypeScript SDK: the Phase 3
 /// `advisory_rejected_algs`, `warn_classical_only_deprecated` and
-/// `allow_classical_fallback_disable`, `max_session_duration_seconds`,
+/// `allow_classical_fallback_disable`, `accepted_classical_algs` (except under
+/// pq_only) and `accepted_pq_algs`, `max_session_duration_seconds`,
 /// `require_session_expiry`, and `require_audience_binding` with
 /// `verifier_id`. `allow_v1_bundles` may take either value: this verifier
 /// only verifies V2 bundles. A policy that changes any other field fails
@@ -97,6 +98,8 @@ pub fn verify_signed_bundle_v2_at(signed_bundle: &Value, policy: &VerifierPolicy
     let enforced = VerifierPolicy {
         default_mode: policy.default_mode.clone(),
         risk_overrides: policy.risk_overrides.clone(),
+        accepted_classical_algs: policy.accepted_classical_algs.clone(),
+        accepted_pq_algs: policy.accepted_pq_algs.clone(),
         allow_v1_bundles: policy.allow_v1_bundles,
         allow_classical_fallback_disable: policy.allow_classical_fallback_disable,
         warn_classical_only_deprecated: policy.warn_classical_only_deprecated,
@@ -109,7 +112,7 @@ pub fn verify_signed_bundle_v2_at(signed_bundle: &Value, policy: &VerifierPolicy
     };
     if *policy != enforced {
         r.errors.push(
-            "Verifier policy sets fields this verifier does not enforce: only default_mode, risk_overrides, allow_v1_bundles, the Phase 3 fields, max_session_duration_seconds, require_session_expiry, require_audience_binding and verifier_id may differ from the default"
+            "Verifier policy sets fields this verifier does not enforce: only default_mode, risk_overrides, accepted_classical_algs, accepted_pq_algs, allow_v1_bundles, the Phase 3 fields, max_session_duration_seconds, require_session_expiry, require_audience_binding and verifier_id may differ from the default"
                 .to_string(),
         );
         return r;
@@ -276,10 +279,11 @@ pub fn verify_signed_bundle_v2_at(signed_bundle: &Value, policy: &VerifierPolicy
     r
 }
 
-/// Apply the verification mode and the policy's Phase 3 settings to one verified
-/// composite signature (VERIFICATION.md V2-7, V2-10), as the TypeScript verifier
-/// does. Returns its errors and warnings. A PQ signature that is present must
-/// verify in every mode; `result.valid` covers both components for pq_over_classical.
+/// Apply the verification mode, the accepted algorithms and the policy's Phase 3
+/// settings to one verified composite signature (VERIFICATION.md V2-7, V2-10),
+/// as the TypeScript verifier does. Returns its errors and warnings. A PQ
+/// signature that is present must verify in every mode; `result.valid` covers
+/// both components for pq_over_classical.
 fn check_mode(
     mode: &str,
     policy: &VerifierPolicy,
@@ -287,6 +291,12 @@ fn check_mode(
     result: &CompositeVerifyResult,
 ) -> (Vec<String>, Vec<String>) {
     let (mut errors, mut warnings) = (Vec::new(), Vec::new());
+    if mode != "pq_only" && !policy.accepted_classical_algs.contains(&cs.classical.alg) {
+        errors.push(format!("Classical algorithm {} not accepted by verifier policy", cs.classical.alg));
+    }
+    if let Some(pq) = cs.pq.as_ref().filter(|pq| !policy.accepted_pq_algs.contains(&pq.alg)) {
+        errors.push(format!("PQ algorithm {} not accepted by verifier policy", pq.alg));
+    }
     let rejected = &policy.advisory_rejected_algs;
     if mode != "pq_only" && rejected.contains(&cs.classical.alg) {
         errors.push(format!("Classical algorithm {} rejected by active advisory", cs.classical.alg));
