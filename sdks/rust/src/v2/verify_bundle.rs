@@ -27,7 +27,7 @@ use crate::v2::security_tier::{compute_security_tier, effective_verification_mod
 use crate::v2::types::VerifierPolicy;
 
 /// Outcome of a V2 signed bundle verification.
-#[derive(Debug, Default, Serialize)]
+#[derive(Debug, Clone, Default, Serialize)]
 pub struct V2VerificationResult {
     pub verified: bool,
     pub dcp_version: String,
@@ -44,6 +44,27 @@ pub struct V2VerificationResult {
     /// The security tier of the bundle's intent and policy decision.
     #[serde(skip_serializing_if = "String::is_empty")]
     pub resolved_tier: String,
+    /// For every composite signature checked (the bundle signature, the four
+    /// artifacts, each PQ checkpoint), the key entry resolved for each
+    /// component and whether that component verified
+    /// (spec/profiles/admission § 2.3). Only components whose key was resolved
+    /// and reached the cryptographic check are listed.
+    pub signer_keys: Vec<SignerKeyUse>,
+}
+
+/// The key a signature component was verified with, as the verifier resolved it
+/// (spec/profiles/admission § 2.3).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SignerKeyUse {
+    /// `bundle`, `responsible_principal_record`, `agent_passport`, `intent`,
+    /// `policy_decision` or `pq_checkpoints[<checkpoint_id>]`.
+    pub signature: String,
+    /// `classical` or `pq`.
+    pub component: String,
+    pub kid: String,
+    pub alg: String,
+    pub public_key_b64: String,
+    pub verified: bool,
 }
 
 /// Verify a V2 signed bundle under the default verifier policy: structure,
@@ -60,13 +81,23 @@ pub fn verify_signed_bundle_v2(signed_bundle: &Value) -> V2VerificationResult {
 /// `advisory_rejected_algs`, `warn_classical_only_deprecated` and
 /// `allow_classical_fallback_disable`, `max_session_duration_seconds`,
 /// `require_session_expiry`, and `require_audience_binding` with
-/// `verifier_id`. A policy that changes any other field fails verification
-/// instead of having the setting ignored.
+/// `verifier_id`. `allow_v1_bundles` may take either value: this verifier
+/// only verifies V2 bundles. A policy that changes any other field fails
+/// verification instead of having the setting ignored. Time checks use the
+/// system clock; [`verify_signed_bundle_v2_at`] takes the instant.
 pub fn verify_signed_bundle_v2_with_policy(signed_bundle: &Value, policy: &VerifierPolicy) -> V2VerificationResult {
+    verify_signed_bundle_v2_at(signed_bundle, policy, unix_now_millis() as i64)
+}
+
+/// [`verify_signed_bundle_v2_with_policy`] at `now_ms`, in milliseconds since
+/// the Unix epoch: every time check (the signed session window, the RPR and
+/// key expiries) compares against it (spec/profiles/admission § 2.1).
+pub fn verify_signed_bundle_v2_at(signed_bundle: &Value, policy: &VerifierPolicy, now_ms: i64) -> V2VerificationResult {
     let mut r = V2VerificationResult { dcp_version: "2.0".into(), ..Default::default() };
     let enforced = VerifierPolicy {
         default_mode: policy.default_mode.clone(),
         risk_overrides: policy.risk_overrides.clone(),
+        allow_v1_bundles: policy.allow_v1_bundles,
         allow_classical_fallback_disable: policy.allow_classical_fallback_disable,
         warn_classical_only_deprecated: policy.warn_classical_only_deprecated,
         advisory_rejected_algs: policy.advisory_rejected_algs.clone(),
@@ -78,7 +109,7 @@ pub fn verify_signed_bundle_v2_with_policy(signed_bundle: &Value, policy: &Verif
     };
     if *policy != enforced {
         r.errors.push(
-            "Verifier policy sets fields this verifier does not enforce: only default_mode, risk_overrides, the Phase 3 fields, max_session_duration_seconds, require_session_expiry, require_audience_binding and verifier_id may differ from the default"
+            "Verifier policy sets fields this verifier does not enforce: only default_mode, risk_overrides, allow_v1_bundles, the Phase 3 fields, max_session_duration_seconds, require_session_expiry, require_audience_binding and verifier_id may differ from the default"
                 .to_string(),
         );
         return r;
@@ -122,8 +153,7 @@ pub fn verify_signed_bundle_v2_with_policy(signed_bundle: &Value, policy: &Verif
     // Artifact hashes against their payload_hash and the manifest (V2-3)
     if let Some(manifest) = bundle.get("manifest") {
         r.errors.extend(manifest_hash_errors(bundle, manifest));
-        let now = unix_now_millis() as i64;
-        r.errors.extend(session_time_errors(manifest, policy.max_session_duration_seconds, now));
+        r.errors.extend(session_time_errors(manifest, policy.max_session_duration_seconds, now_ms));
         r.errors.extend(manifest_policy_errors(manifest, policy));
     }
 
@@ -142,7 +172,7 @@ pub fn verify_signed_bundle_v2_with_policy(signed_bundle: &Value, policy: &Verif
 
     // The passport, intent, policy decision and audit entries name the same
     // principal, agent and intent (V2-14).
-    r.errors.extend(consistency_errors(bundle));
+    r.errors.extend(consistency_errors(bundle, now_ms));
 
     // Verification mode: the agent's risk_tier and intent can raise the policy
     // mode but never take it below the security tier's mode.
@@ -177,13 +207,14 @@ pub fn verify_signed_bundle_v2_with_policy(signed_bundle: &Value, policy: &Verif
         (None, _) => r.errors.push("Missing composite_sig in signature".to_string()),
         (Some(_), None) => {}
         (Some(cs_val), Some(manifest)) => {
-            match verify_composite_sig(CTX_BUNDLE, manifest, Some(cs_val), &rpr_keys, RPR_KEYS) {
-                Ok((cs, result)) => {
+            match verify_composite_sig("bundle", CTX_BUNDLE, manifest, Some(cs_val), &rpr_keys, RPR_KEYS) {
+                Ok(SigCheck { cs, result, keys }) => {
                     r.classical_valid = result.classical_valid;
                     r.pq_valid = result.pq_valid;
                     let (errors, warnings) = check_mode(mode, policy, &cs, &result);
                     r.errors.extend(errors.iter().map(|e| format!("Bundle {}", e)));
                     r.warnings.extend(warnings.iter().map(|w| format!("Bundle {}", w)));
+                    r.signer_keys.extend(keys);
                 }
                 Err(e) => r.errors.push(format!("Bundle signature: {}", e)),
             }
@@ -204,19 +235,20 @@ pub fn verify_signed_bundle_v2_with_policy(signed_bundle: &Value, policy: &Verif
             r.errors.push(format!("{} is not a SignedPayload object", field));
             continue;
         };
-        match verify_composite_sig(context, payload, artifact.get("composite_sig"), keys, keys_label) {
+        match verify_composite_sig(field, context, payload, artifact.get("composite_sig"), keys, keys_label) {
             Err(e) => r.errors.push(format!("{} signature: {}", field, e)),
-            Ok((cs, result)) => {
+            Ok(SigCheck { cs, result, keys }) => {
                 let (errors, warnings) = check_mode(mode, policy, &cs, &result);
                 r.errors.extend(errors.iter().map(|e| format!("{} {}", field, e)));
                 r.warnings.extend(warnings.iter().map(|w| format!("{} {}", field, w)));
+                r.signer_keys.extend(keys);
             }
         }
     }
 
     // PQ checkpoints, signed by the agent (V2-12).
     if let Some(manifest) = bundle.get("manifest") {
-        r.errors.extend(checkpoint_errors(bundle, manifest, mode, policy, &agent_keys));
+        r.errors.extend(checkpoint_errors(bundle, manifest, mode, policy, &agent_keys, &mut r.signer_keys));
     }
 
     // Audit entries tied to the signed manifest, and the validity of every
@@ -229,7 +261,7 @@ pub fn verify_signed_bundle_v2_with_policy(signed_bundle: &Value, policy: &Verif
         if let Some(status @ ("revoked" | "expired")) = key.get("status").and_then(Value::as_str) {
             r.errors.push(format!("Key {} is {}", kid, status));
         }
-        match check_expiry(key.get("expires_at")) {
+        match check_expiry(key.get("expires_at"), now_ms) {
             Ok(()) => {}
             Err(Expiry::Invalid) => {
                 r.errors.push(format!("Key {} has an invalid expires_at: {}", kid, display(key.get("expires_at"))))
@@ -381,7 +413,7 @@ fn session_nonce_errors(bundle: &Value, manifest_nonce: &str) -> Vec<String> {
 
 /// How far in the future a signed session start may be (VERIFICATION.md V2-4),
 /// the clock skew DCP-04 allows for timestamps.
-const SESSION_CLOCK_SKEW_MS: i64 = 30_000;
+pub(crate) const SESSION_CLOCK_SKEW_MS: i64 = 30_000;
 
 /// The manifest's signed session window (VERIFICATION.md V2-4).
 /// `session_expires_at` must not have passed. A `session_issued_at` must not be
@@ -520,8 +552,9 @@ fn same_id(a: Option<&Value>, b: Option<&Value>) -> bool {
 /// The artifacts describe one action, by one agent, for one principal
 /// (VERIFICATION.md V2-14). The signatures say who signed each one; these
 /// checks tie them together. A missing artifact or payload fails them, on top
-/// of the error that reports it.
-fn consistency_errors(bundle: &Value) -> Vec<String> {
+/// of the error that reports it. `now` is the verification time in Unix
+/// milliseconds.
+fn consistency_errors(bundle: &Value, now: i64) -> Vec<String> {
     let payload = |field: &str| bundle.get(field).and_then(|a| a.get("payload")).unwrap_or(&Value::Null);
     let rpr = payload("responsible_principal_record");
     let passport = payload("agent_passport");
@@ -535,7 +568,7 @@ fn consistency_errors(bundle: &Value) -> Vec<String> {
         errors.push(format!("agent_passport status is {}, not active (DCP-05 § 3.1)", display(status)));
     }
     let expires = rpr.get("expires_at");
-    match check_expiry(expires) {
+    match check_expiry(expires, now) {
         Ok(()) => {}
         Err(Expiry::Invalid) => {
             errors.push(format!("responsible_principal_record has an invalid expires_at: {}", display(expires)))
@@ -598,13 +631,15 @@ fn consistency_errors(bundle: &Value) -> Vec<String> {
 /// The bundle carries exactly the checkpoints its signed manifest lists, once
 /// each; each covers a contiguous run of audit entries, with their Merkle
 /// root, and is signed by the agent with both algorithms, the PQ one alone
-/// under pq_only (VERIFICATION.md V2-12).
+/// under pq_only (VERIFICATION.md V2-12). The keys of each checkpoint
+/// signature that reached the cryptographic check go to `signer_keys`.
 fn checkpoint_errors(
     bundle: &Value,
     manifest: &Value,
     mode: &str,
     policy: &VerifierPolicy,
     passport_keys: &[&Value],
+    signer_keys: &mut Vec<SignerKeyUse>,
 ) -> Vec<String> {
     // Absent or null lists nothing.
     fn list(value: Option<&Value>) -> Option<&[Value]> {
@@ -679,12 +714,13 @@ fn checkpoint_errors(
         }
         let mut payload = cp.clone();
         let sig = payload.as_object_mut().and_then(|p| p.remove("composite_sig"));
-        match verify_composite_sig(CTX_AUDIT_EVENT, &payload, sig.as_ref(), passport_keys, PASSPORT_KEYS) {
+        match verify_composite_sig(&label, CTX_AUDIT_EVENT, &payload, sig.as_ref(), passport_keys, PASSPORT_KEYS) {
             Err(e) => errors.push(format!("{}: {}", label, e)),
-            Ok((cs, result)) => {
+            Ok(SigCheck { cs, result, keys }) => {
                 // The verdict comes from the mode's errors, as for every artifact.
                 let (sig_errors, _) = check_mode(cp_mode, policy, &cs, &result);
                 errors.extend(sig_errors.iter().map(|e| format!("{}: {}", label, e)));
+                signer_keys.extend(keys);
             }
         }
     }
@@ -698,14 +734,14 @@ enum Expiry {
 }
 
 /// An optional expiry (a key's or the RPR's `expires_at`): absent or null
-/// never expires; anything else must be an RFC 3339 timestamp still in the
-/// future.
-fn check_expiry(value: Option<&Value>) -> Result<(), Expiry> {
+/// never expires; anything else must be an RFC 3339 timestamp not before `now`
+/// (Unix milliseconds).
+fn check_expiry(value: Option<&Value>, now: i64) -> Result<(), Expiry> {
     match value {
         None | Some(Value::Null) => Ok(()),
         Some(v) => match v.as_str().and_then(parse_rfc3339_millis) {
             None => Err(Expiry::Invalid),
-            Some(t) if t < unix_now_millis() as i64 => Err(Expiry::Passed),
+            Some(t) if t < now => Err(Expiry::Passed),
             Some(_) => Ok(()),
         },
     }
@@ -763,7 +799,7 @@ fn key_identity_error(kid: &str, alg: &str, public_key_b64: &str) -> Option<Stri
 /// other character), the one encoding every SDK decodes the same way. The
 /// strict engine refuses missing padding and trailing bits; re-encoding
 /// confirms the bytes have no other spelling.
-fn canonical_b64(value: &str) -> Option<Vec<u8>> {
+pub(crate) fn canonical_b64(value: &str) -> Option<Vec<u8>> {
     BASE64.decode(value).ok().filter(|bytes| BASE64.encode(bytes) == value)
 }
 
@@ -776,18 +812,27 @@ pub(crate) fn provider_for_alg(alg: &str) -> Result<Box<dyn CryptoProvider>, Str
     }
 }
 
+/// A composite signature that reached the cryptographic check.
+struct SigCheck {
+    cs: CompositeSignature,
+    result: CompositeVerifyResult,
+    /// The key entry resolved for each component, and whether it verified.
+    keys: Vec<SignerKeyUse>,
+}
+
 /// Verify a composite_sig over `payload` with the keys it names by kid, looked
 /// up in `keys` only (VERIFICATION.md V2-6, V2-7), each sig_b64 canonical
 /// base64 (V2-5) and each kid derived from its key (V2-13): pq_over_classical
 /// is valid only when both components verify; classical_only carries no PQ
-/// signature.
+/// signature. `signature` names it in the signer keys it reports.
 fn verify_composite_sig(
+    signature: &str,
     context: &str,
     payload: &Value,
     cs_val: Option<&Value>,
     keys: &[&Value],
     keys_label: &str,
-) -> Result<(CompositeSignature, CompositeVerifyResult), String> {
+) -> Result<SigCheck, String> {
     let cs: CompositeSignature = serde_json::from_value(cs_val.ok_or("missing composite_sig")?.clone())
         .map_err(|_| "invalid composite_sig structure".to_string())?;
     // Ed25519 cannot stand in for the PQ signature, nor ML-DSA for the classical one.
@@ -838,7 +883,19 @@ fn verify_composite_sig(
         classical.as_ref(), pq.as_deref(), context, canonical.as_bytes(), &cs, classical_pk, pq_pk,
     )
     .map_err(|e| e.to_string())?;
-    Ok((cs, result))
+    let used = |component: &str, kid: &str, alg: &str, public_key_b64: &str, verified: bool| SignerKeyUse {
+        signature: signature.to_string(),
+        component: component.to_string(),
+        kid: kid.to_string(),
+        alg: alg.to_string(),
+        public_key_b64: public_key_b64.to_string(),
+        verified,
+    };
+    let mut keys = vec![used("classical", &cs.classical.kid, classical_alg, classical_pk, result.classical_valid)];
+    if let Some((kid, alg, pk)) = pq_signer {
+        keys.push(used("pq", kid, alg, pk, result.pq_valid));
+    }
+    Ok(SigCheck { cs, result, keys })
 }
 
 #[cfg(test)]
@@ -982,6 +1039,19 @@ mod tests {
         }
     }
 
+    /// Key and RPR expiries compare against the verification instant, not the system clock.
+    #[test]
+    fn expiries_compare_against_the_given_instant() {
+        let expiry = json!("2026-11-02T10:00:00Z");
+        let at = parse_rfc3339_millis("2026-11-02T10:00:00Z").unwrap();
+        assert!(check_expiry(Some(&expiry), at).is_ok());
+        assert!(matches!(check_expiry(Some(&expiry), at + 1), Err(Expiry::Passed)));
+        let bundle = json!({ "responsible_principal_record": { "payload": { "expires_at": expiry } } });
+        assert!(!consistency_errors(&bundle, at).join("\n").contains("expired at"));
+        let errors = consistency_errors(&bundle, at + 1).join("\n");
+        assert!(errors.contains("responsible_principal_record expired at 2026-11-02T10:00:00Z"), "{errors}");
+    }
+
     #[test]
     fn identifiers_match_only_as_equal_strings() {
         assert!(same_id(Some(&json!("a")), Some(&json!("a"))));
@@ -994,7 +1064,7 @@ mod tests {
             assert!(!same_id(a.as_ref(), b.as_ref()), "{a:?} {b:?}");
         }
         // Missing artifacts and identifiers fail V2-14 instead of matching each other.
-        let errors = consistency_errors(&json!({ "intent": { "payload": 1 }, "audit_entries": [{}] })).join("\n");
+        let errors = consistency_errors(&json!({ "intent": { "payload": 1 }, "audit_entries": [{}] }), 0).join("\n");
         for want in [
             "agent_passport status is null",
             "agent_passport principal_binding_reference",
@@ -1022,7 +1092,7 @@ mod tests {
         let errors = |listed: Value, carried: Value| {
             let bundle = json!({ "audit_entries": entries, "pq_checkpoints": carried });
             let manifest = json!({ "session_nonce": "n", "pq_checkpoints": listed });
-            checkpoint_errors(&bundle, &manifest, "hybrid_preferred", &policy, &[]).join("\n")
+            checkpoint_errors(&bundle, &manifest, "hybrid_preferred", &policy, &[], &mut Vec::new()).join("\n")
         };
         assert_eq!(errors(Value::Null, Value::Null), "");
         assert_eq!(errors(json!([]), json!([])), "");
@@ -1114,8 +1184,9 @@ mod tests {
                 "pq": { "alg": "ml-dsa-65", "kid": "q", "sig_b64": pq },
             })
         };
-        let error =
-            |c: &str, p: &str| verify_composite_sig(CTX_BUNDLE, &json!({}), Some(&cs(c, p)), &[], "keys").unwrap_err();
+        let error = |c: &str, p: &str| {
+            verify_composite_sig("bundle", CTX_BUNDLE, &json!({}), Some(&cs(c, p)), &[], "keys").err().unwrap()
+        };
         // Junk after the padding, extra padding, a newline inside, a trailing bit set, no padding.
         const B64: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
         let last = sig.find('=').unwrap() - 1;
@@ -1228,9 +1299,13 @@ mod tests {
         let manifest = json!({ "session_nonce": "n", "pq_checkpoints": ["c"] });
         let keys: Vec<&Value> = passport_keys.iter().collect();
         let policy = VerifierPolicy::default();
-        assert_eq!(checkpoint_errors(&bundle, &manifest, "pq_only", &policy, &keys), Vec::<String>::new());
+        let mut used = Vec::new();
+        assert_eq!(checkpoint_errors(&bundle, &manifest, "pq_only", &policy, &keys, &mut used), Vec::<String>::new());
+        // Both keys reached the check: the classical one did not verify, the PQ one did.
+        let reported: Vec<_> = used.iter().map(|k| (k.signature.as_str(), k.component.as_str(), k.verified)).collect();
+        assert_eq!(reported, [("pq_checkpoints[c]", "classical", false), ("pq_checkpoints[c]", "pq", true)]);
         for mode in ["classical_only", "hybrid_preferred", "hybrid_required"] {
-            let errors = checkpoint_errors(&bundle, &manifest, mode, &policy, &keys).join("\n");
+            let errors = checkpoint_errors(&bundle, &manifest, mode, &policy, &keys, &mut Vec::new()).join("\n");
             assert!(errors.contains("pq_checkpoints[c]: signature verification failed"), "{mode}: {errors}");
         }
     }

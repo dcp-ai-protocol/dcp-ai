@@ -69,6 +69,22 @@ export interface V2VerificationResult {
   verification_mode?: 'classical_only' | 'hybrid_preferred' | 'hybrid_required' | 'pq_only';
   /** V2 only: the security tier of the bundle's intent and policy decision. */
   resolved_tier?: SecurityTierResult['tier'];
+  /**
+   * V2 only: for every composite signature checked, the key resolved for each component and
+   * whether that component verified (spec/profiles/admission § 2.3).
+   */
+  signer_keys?: SignerKeyUse[];
+}
+
+/** The key a signature component was verified with, as the verifier resolved it. */
+export interface SignerKeyUse {
+  /** bundle, responsible_principal_record, agent_passport, intent, policy_decision or pq_checkpoints[<id>]. */
+  signature: string;
+  component: 'classical' | 'pq';
+  kid: string;
+  alg: string;
+  public_key_b64: string;
+  verified: boolean;
 }
 
 /**
@@ -76,7 +92,8 @@ export interface V2VerificationResult {
  * field. Without one, `verifyBundle` uses the default policy. Only default_mode, risk_overrides
  * and the optional fields may differ from it: the Phase 3 fields, max_session_duration_seconds,
  * require_session_expiry, require_audience_binding and verifier_id, all enforced as in the
- * TypeScript SDK.
+ * TypeScript SDK. allow_v1_bundles may be false too: the V2 verifier never verifies a V1 bundle,
+ * and a V1 bundle is rejected under any policy.
  */
 export interface VerifierPolicy {
   default_mode: NonNullable<V2VerificationResult['verification_mode']>;
