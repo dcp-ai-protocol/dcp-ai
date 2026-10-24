@@ -161,12 +161,17 @@ configureVerifier({
 - At most `maxInFlight` calls run at once, with no queue. **A slot is freed only when the function really settles**: a source that never settles keeps its slot until the process restarts.
 - The capacity is per supervisor object, and a supervisor created by `@dcp-ai/express`, ESM or CJS, can be shared.
 - A Node process with nothing else pending stays alive until the deadline answers.
-- `supervise.revocation: true` throws: revocation keeps `revocationTimeoutMs`.
+- With the strict-v1 profile, `supervise: { revocation: true }` runs the `revocationSource` under the same supervisor, with `revocationTimeoutMs` as its deadline (then an integer from 1 to 2147483647). `supervise` takes `trustTimeoutMs`, `revocation: true` or both, and `revocation: true` works with a static trust set.
+  - The source gets `(subjects, { tenant, signal })`, and each answer gives the result it gives without supervision.
+  - `null`, a failure, a timeout, no free slot and a closed supervisor give `admitted: false` with `codes: ["REVOCATION_UNAVAILABLE"]`. `REVOCATION_INVALID` counts only before the deadline.
+  - Trust and revocation calls share the supervisor's slots.
+  - `denyListRevocationSource` also aborts its fetch when the supervisor's `signal` aborts.
+  - Without it, revocation keeps `revocationTimeoutMs` as before.
 
 **Reconfiguring.**
 
-- `configureVerifier` may keep the same supervisor with a new trust set, profile or deadline: its counters stay, and a call keeps the deadline it started with.
-- It throws `AdmissionConfigError` (`CONFIG_PROFILE_CONTRADICTION`), keeping the previous configuration, when it would replace or remove a supervisor that still has calls in flight. A call counts from the moment `executeVerifyBundle` starts, so also while it still verifies the bundle and has not called its source yet, and its slot counts until its source settles. That holds even after `supervisor.close({ drainMs })` returned with calls still in flight: closing refuses new calls but frees no slot. Replace it once `supervisor.stats().inFlight` is 0, or restart the process.
+- `configureVerifier` may keep the same supervisor with a new trust set, profile, deadline or choice of sources: its counters stay, and a call keeps the deadline it started with.
+- It throws `AdmissionConfigError` (`CONFIG_PROFILE_CONTRADICTION`), keeping the previous configuration, when it would replace or remove a supervisor that still has calls in flight, whichever source it supervises. A call counts from the moment `executeVerifyBundle` starts, so also while it still verifies the bundle and has not called its source yet, and its slot counts until its source settles. That holds even after `supervisor.close({ drainMs })` returned with calls still in flight: closing refuses new calls but frees no slot. Replace it once `supervisor.stats().inFlight` is 0, or restart the process.
 - The model's parameters cannot set any of this.
 
 **What it does not do.** The same limits as in `@dcp-ai/express`:

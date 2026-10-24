@@ -1,6 +1,6 @@
 /**
- * Source supervision (docs/reviews/admission-source-supervision-plan.md, step 1): a deadline and a
- * capacity for the operator's trustedPrincipals function.
+ * Source supervision (docs/reviews/admission-source-supervision-plan.md, steps 1 and 2): a deadline
+ * and a capacity for the operator's trustedPrincipals function and revocationSource.
  *
  * A supervisor is an object the operator creates and shares: its capacity is per object, not per
  * process. It counts each invocation the adapter starts until that invocation really settles, so a
@@ -17,7 +17,7 @@ const PROTOCOL = Symbol.for('dcp-ai.source-supervisor.v1');
 /** The largest delay setTimeout honours. */
 export const MAX_TIMER_MS = 2_147_483_647;
 
-export type SupervisedSource = 'trust';
+export type SupervisedSource = 'trust' | 'revocation';
 export type SourceEventReason = 'timeout' | 'saturated' | 'closed' | 'late_result' | 'late_error';
 
 /** What a supervisor reports: a fixed reason and a count, never a tenant or a source's content. */
@@ -155,7 +155,7 @@ export function createSourceSupervisor(options: SourceSupervisorOptions): Source
     timeoutMs: number,
     call: (signal: AbortSignal) => T | PromiseLike<T>,
   ): Promise<SupervisedOutcome<T>> => {
-    if (typeof tenant !== 'string' || !isTimerMs(timeoutMs, 1) || typeof call !== 'function') {
+    if ((source !== 'trust' && source !== 'revocation') || typeof tenant !== 'string' || !isTimerMs(timeoutMs, 1) || typeof call !== 'function') {
       throw new TypeError('invalid supervised invocation');
     }
     if (!open) {

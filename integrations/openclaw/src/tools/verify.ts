@@ -103,16 +103,24 @@ export interface VerifierConfiguration {
   profile?: StrictV1ProfileConfig | StrictV1Profile;
   /** The profile's revocation source, e.g. denyListRevocationSource({ url }). */
   revocationSource?: RevocationSource;
-  /** Milliseconds the revocation source may take. Default 5000. */
+  /**
+   * Milliseconds the revocation source may take. Default 5000. Under `supervise.revocation` it is
+   * the supervised deadline: an integer from 1 to 2147483647.
+   */
   revocationTimeoutMs?: number;
   /**
    * A supervisor from createSourceSupervisor (from this package or @dcp-ai/express), given with
-   * `supervise`: a trustedPrincipals function then gets `{ tenant, signal }`, a deadline and a slot
-   * of its capacity. While it has invocations in flight it cannot be replaced or removed, even
-   * after close(); the same object can be kept with a new trust set, profile or deadline.
+   * `supervise`: a supervised trustedPrincipals function or revocationSource then gets `signal` in
+   * its context, a deadline and a slot of its capacity, which both sources share. While it has
+   * invocations in flight it cannot be replaced or removed, even after close(), whichever source
+   * it supervises; the same object can be kept with a new trust set, profile, deadline or choice of
+   * sources.
    */
   sourceSupervisor?: SourceSupervisor;
-  /** `{ trustTimeoutMs }`: the deadline of the trustedPrincipals function under sourceSupervisor. */
+  /**
+   * `{ trustTimeoutMs?, revocation? }`: the deadline of the trustedPrincipals function, and
+   * `revocation: true` to supervise the revocationSource under revocationTimeoutMs. At least one.
+   */
   supervise?: SupervisedSources;
   /** The clock, in milliseconds since the epoch. For tests; default Date.now. */
   clock?: () => number;
@@ -302,8 +310,8 @@ async function verifyV2Bundle(signedBundle: Record<string, any>, policy: Verifie
  * parameter can only tighten the operator policy.
  */
 /**
- * Supervised admissions started and not answered yet. Each one may still call its trust source
- * under the supervisor it started with, so configureVerifier keeps that supervisor while this is
+ * Supervised admissions started and not answered yet. Each one may still call its trust or
+ * revocation source under the supervisor it started with, so configureVerifier keeps that supervisor while this is
  * above 0; all of them then started with the configured supervisor.
  */
 let supervisedAdmissions = 0;

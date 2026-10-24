@@ -101,17 +101,25 @@ export interface DCPVerifyOptions {
   profile?: StrictV1ProfileConfig | StrictV1Profile;
   /** The revocation source of the profile, e.g. denyListRevocationSource({ url }). */
   revocationSource?: RevocationSource;
-  /** Milliseconds the revocation source may take before the request is refused. Default 5000. */
+  /**
+   * Milliseconds the revocation source may take before the request is refused. Default 5000. Under
+   * `supervise.revocation` it is the supervised deadline: an integer from 1 to 2147483647.
+   */
   revocationTimeoutMs?: number;
   /**
    * A supervisor from createSourceSupervisor (from this package or @dcp-ai/openclaw), given with
    * `supervise`. Its capacity is per supervisor object: share one object between middlewares to
-   * share one capacity. A trustedPrincipals function then gets `{ tenant, signal }`, a deadline and
-   * a slot; a request whose source times out, finds no free slot or meets a closed supervisor gets
-   * the same 503 as a source that fails. It does not stop a source's work or isolate CPU.
+   * share one capacity, which the trust and revocation sources share too. A supervised source gets
+   * `signal` in its context, a deadline and a slot, held until it settles. A trustedPrincipals
+   * function that times out, finds no free slot or meets a closed supervisor gets the same 503 as a
+   * source that fails; a revocationSource, the same 403 REVOCATION_UNAVAILABLE as one that fails. It
+   * does not stop a source's work or isolate CPU.
    */
   sourceSupervisor?: SourceSupervisor;
-  /** `{ trustTimeoutMs }`: the deadline of the trustedPrincipals function under sourceSupervisor. */
+  /**
+   * `{ trustTimeoutMs?, revocation? }`: the deadline of the trustedPrincipals function, and
+   * `revocation: true` to supervise the revocationSource under revocationTimeoutMs. At least one.
+   */
   supervise?: SupervisedSources;
   /**
    * The tenant of a request, from the operator's own authenticated context (never a header the

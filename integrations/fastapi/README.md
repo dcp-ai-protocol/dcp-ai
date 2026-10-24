@@ -81,11 +81,11 @@ app.add_middleware(
 | `trusted_principals` | `dict \| callable \| None` | `None` | Keyword only. The principals you trust and their keys: a trust set (`schemas/v2/principal_trust_set.schema.json`, validated when the middleware is built), or `(tenant) -> trust set` (sync or async) called on every request. With it, only admitted V2 bundles reach the route, and `require_bundle=True` is required (see [Trusted principals and strict-v1](#trusted-principals-and-strict-v1)). |
 | `profile` | `dict \| None` | `None` | Keyword only. The strict-v1 profile (`schemas/v2/admission_profile.schema.json`), loaded when the middleware is built. Needs `trusted_principals` and `revocation_source`; sets the verifier policy itself. |
 | `revocation_source` | `callable \| None` | `None` | Keyword only, with `profile`. `(subjects, tenant) -> revocation snapshot \| None`, sync (run in a worker thread) or async, called on every admission of a verified bundle. `deny_list_revocation_source(url)` builds one. |
-| `revocation_timeout` | `float` | `5.0` | Keyword only. Seconds the revocation source has to answer. |
+| `revocation_timeout` | `float` | `5.0` | Keyword only. Seconds the revocation source has to answer. Under `{"revocation": True}`, the supervised deadline: more than 0 and up to 2147483.647. |
 | `tenant` | `callable \| None` | `None` | Keyword only. `(request) -> str`, sync or async, your own code (for instance the tenant of the caller your authentication set on `request.state`). Passed to the trust and revocation callables. Default: always `""`. |
 | `clock` | `callable \| None` | `None` | Keyword only, for tests: the time in milliseconds since the epoch. Default: the system clock. |
 | `source_supervisor` | `SourceSupervisor \| None` | `None` | Keyword only, with `supervise`. See [Supervising the trust source](#supervising-the-trust-source). |
-| `supervise` | `dict \| None` | `None` | Keyword only: `{"trust_timeout": seconds}`, more than 0 and up to 2147483.647, for an async `trusted_principals`. `{"revocation": True}` raises: revocation keeps `revocation_timeout`. |
+| `supervise` | `dict \| None` | `None` | Keyword only: `{"trust_timeout": seconds}`, more than 0 and up to 2147483.647, for an async `trusted_principals`; `{"revocation": True}` for an async `revocation_source`, under `revocation_timeout`; or both. See [Supervising the revocation source](#supervising-the-revocation-source). |
 | `max_body_bytes` | `int \| None` | `None` | Keyword only. A positive integer (not a `bool`, `float`, string, `0` or negative): the request body bytes the middleware accepts. Needs Starlette 0.28.0 or later. Default: no budget, as before. See [Body budget](#body-budget). |
 
 #### Behavior
@@ -134,7 +134,25 @@ app.add_middleware(DCPVerifyMiddleware, require_bundle=True, trusted_principals=
 - **Scope.** The capacity is per `SourceSupervisor` object, shared by the middlewares you give it to. It binds to the first event loop that uses it, so give each worker process or loop its own. Calls from another loop or thread fail closed, and a `close()` from another loop raises `RuntimeError` without changing anything.
 - **`await supervisor.close(drain_timeout=0)`** refuses new calls, answers pending ones with `503`, asks every source Task to cancel and waits at most `drain_timeout` seconds. It returns `{"in_flight": n}`; those slots stay taken, and there is no reopening.
 - **`supervisor.stats()`** returns counters, with no tenant: `open`, `in_flight`, `tenants`, `timeouts`, `saturated`, `closed`, `wrong_loop`, `late_results`, `late_errors`. They stop at 2**53 - 1.
-- **What it does not do.** It does not stop work that ignores cancellation, bound work a source starts on its own, or isolate CPU. An `async def` that blocks the event loop delays every deadline. A server or `asyncio.run` shutting down may still wait for a source Task that ignores cancellation. Revocation keeps `revocation_timeout`. The trust source is still asked before the bundle is verified, as before.
+- **What it does not do.** It does not stop work that ignores cancellation, bound work a source starts on its own, or isolate CPU. An `async def` that blocks the event loop delays every deadline. A server or `asyncio.run` shutting down may still wait for a source Task that ignores cancellation. Without `{"revocation": True}`, revocation keeps `revocation_timeout` as before. The trust source is still asked before the bundle is verified, as before.
+
+#### Supervising the revocation source
+
+With the strict-v1 profile, `supervise={"revocation": True}` runs an **async** `revocation_source` as a Task of the same kind of supervisor, with `revocation_timeout` as its deadline:
+
+```python
+app.add_middleware(DCPVerifyMiddleware, require_bundle=True, trusted_principals=TRUST_SET,  # static, or async with trust_timeout
+                   profile={"profile": "strict-v1", "verifier_id": "verifier:acme-api"},
+                   revocation_source=deny_list_revocation_source("https://revocations.example.com/.well-known/dcp-revocations.json"),
+                   revocation_timeout=2.0, source_supervisor=supervisor,
+                   supervise={"revocation": True})  # or {"trust_timeout": 2.0, "revocation": True}
+```
+
+- **Opt-in.** `supervise` takes `trust_timeout`, `"revocation": True` or both. `"revocation": True` needs an async `revocation_source` (an `async def`, an object with an async `__call__`, or either inside `functools.partial`), and works with a static trust set. A synchronous one raises `AdmissionConfigError`, because it would run in a worker thread the supervisor does not own. Without the option nothing changes: a synchronous source still runs in a worker thread, under `asyncio.wait_for`.
+- **The same responses.** Each answer gives the response it gives without supervision. A snapshot is evaluated as before. `None`, an exception, a timeout, a source that cancels itself, no free slot, a closed supervisor and a supervisor bound to another loop give `403` with `codes: ["REVOCATION_UNAVAILABLE"]`, never not revoked. An exception whose `code` is `REVOCATION_INVALID` gives `REVOCATION_INVALID` only when it arrives before the deadline.
+- **A changed case.** Without the option, `asyncio.wait_for` waits for a source that suppresses its cancellation, and uses the snapshot it then returns. With the option, the request gets `REVOCATION_UNAVAILABLE` at the deadline, and that late snapshot is never used.
+- **One capacity.** Trust and revocation calls take slots of the same supervisor, each held until its Task really finishes.
+- **A limit of `deny_list_revocation_source`.** It fetches in `asyncio.to_thread`. Cancelling its Task ends the Task, and frees its slot, but not the worker thread: that thread keeps its connection until its own `timeout` or the server closes it. The supervisor does not bound those threads, and does not cancel their I/O.
 
 #### What "verified" means
 

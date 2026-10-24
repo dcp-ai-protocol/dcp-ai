@@ -1,6 +1,7 @@
 """
 Source supervision for DCPVerifyMiddleware (docs/reviews/admission-source-supervision-plan.md,
-step 1): a deadline and a capacity for an asynchronous trusted_principals source.
+steps 1 and 2): a deadline and a capacity for an asynchronous trusted_principals and
+revocation_source.
 
 A SourceSupervisor is an object the operator creates and shares between middlewares of one event
 loop: its capacity is per object, and it binds to the first event loop that uses it, so a worker
@@ -71,8 +72,9 @@ class _Invocation:
 
 class SourceSupervisor:
     """
-    A deadline and a capacity for DCPVerifyMiddleware's asynchronous trusted_principals source,
-    given with ``supervise={"trust_timeout": seconds}``.
+    A deadline and a capacity for DCPVerifyMiddleware's asynchronous trusted_principals, given with
+    ``supervise={"trust_timeout": seconds}``, and revocation_source, with ``{"revocation": True}``.
+    Both share its capacity.
 
     ``max_in_flight`` source calls run at once, across tenants; ``max_in_flight_per_tenant`` caps
     one tenant, and without it one tenant can take the whole capacity. Both are positive integers

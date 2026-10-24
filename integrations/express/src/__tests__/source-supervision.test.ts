@@ -409,7 +409,7 @@ describe('configuration', () => {
     ['supervise without a supervisor', { trustedPrincipals: fn, supervise: { trustTimeoutMs: 100 } }, 'CONFIG_PROFILE_CONTRADICTION'],
     ['a static trust set', { trustedPrincipals: TRUSTED, sourceSupervisor: s, supervise: { trustTimeoutMs: 100 } }, 'CONFIG_PROFILE_CONTRADICTION'],
     ['no trustedPrincipals', { sourceSupervisor: s, supervise: { trustTimeoutMs: 100 } }, 'CONFIG_PROFILE_CONTRADICTION'],
-    ['revocation supervision', { trustedPrincipals: fn, sourceSupervisor: s, supervise: { trustTimeoutMs: 100, revocation: true } }, 'CONFIG_INVALID_VALUE'],
+    ['revocation supervision without a revocationSource', { trustedPrincipals: fn, sourceSupervisor: s, supervise: { trustTimeoutMs: 100, revocation: true } }, 'CONFIG_PROFILE_CONTRADICTION'],
     ['an unknown supervise field', { trustedPrincipals: fn, sourceSupervisor: s, supervise: { trustTimeoutMs: 100, queue: 10 } }, 'CONFIG_UNKNOWN_FIELD'],
     ['a look-alike supervisor', { trustedPrincipals: fn, sourceSupervisor: { stats: () => ({}), close: async () => ({}) }, supervise: { trustTimeoutMs: 100 } }, 'CONFIG_INVALID_VALUE'],
     ...[0, -1, 1.5, 2_147_483_648, Number.NaN, '100'].map((t): [string, unknown, string] => [`trustTimeoutMs ${String(t)}`, { trustedPrincipals: fn, sourceSupervisor: s, supervise: { trustTimeoutMs: t } }, 'CONFIG_INVALID_VALUE']),

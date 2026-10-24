@@ -37,7 +37,7 @@ import math
 import re
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any, Callable, NamedTuple
 
 import starlette
 from fastapi import Request, HTTPException, Depends
@@ -266,8 +266,22 @@ def _is_async_source(fn: Any) -> bool:
 _SUPERVISE_KEYS = ("trust_timeout", "revocation")
 
 
-def _supervision(source_supervisor: Any, supervise: Any, trusted_principals: Any) -> tuple[SourceSupervisor, float] | None:
-    """source_supervisor and supervise, which go together and need an asynchronous trusted_principals."""
+class _Supervision(NamedTuple):
+    supervisor: SourceSupervisor
+    #: The deadline of the supervised trusted_principals, or None when it is not supervised.
+    trust_timeout: float | None
+    #: The deadline of the supervised revocation_source, or None: it keeps asyncio.wait_for.
+    revocation_timeout: float | None
+
+
+def _supervision(
+    source_supervisor: Any, supervise: Any, trusted_principals: Any, revocation_source: Any, revocation_timeout: Any
+) -> _Supervision | None:
+    """
+    source_supervisor and supervise, which go together and supervise an async trusted_principals
+    (trust_timeout), the async revocation_source ({"revocation": True}, under revocation_timeout)
+    or both.
+    """
     if source_supervisor is None and supervise is None:
         return None
     if source_supervisor is None or supervise is None:
@@ -280,22 +294,35 @@ def _supervision(source_supervisor: Any, supervise: Any, trusted_principals: Any
         if key not in _SUPERVISE_KEYS:
             raise AdmissionConfigError("CONFIG_UNKNOWN_FIELD", f"Unknown supervise field: {str(key)[:64]!r}")
     revocation = supervise.get("revocation", False)
-    if revocation is not False:
-        raise AdmissionConfigError(
-            "CONFIG_INVALID_VALUE", "supervise['revocation'] is not available: the revocation source keeps revocation_timeout"
-        )
-    if "trust_timeout" not in supervise:
-        raise AdmissionConfigError("CONFIG_INVALID_VALUE", "supervise needs trust_timeout")
-    trust_timeout = _supervised_seconds(supervise["trust_timeout"], "supervise['trust_timeout']", minimum_inclusive=False)
-    if trusted_principals is None or not callable(trusted_principals) or isinstance(trusted_principals, PrincipalTrustStore):
-        raise AdmissionConfigError(
-            "CONFIG_PROFILE_CONTRADICTION", "supervise needs trusted_principals as an async callable: a static trust set has no source to supervise"
-        )
-    if not _is_async_source(trusted_principals):
-        raise AdmissionConfigError(
-            "CONFIG_INVALID_VALUE", "supervise needs an async trusted_principals: a synchronous one would run on the event loop, where no deadline holds"
-        )
-    return source_supervisor, trust_timeout
+    if revocation is not True and revocation is not False:
+        raise AdmissionConfigError("CONFIG_INVALID_VALUE", "supervise['revocation'] must be True or False")
+    if "trust_timeout" not in supervise and not revocation:
+        raise AdmissionConfigError("CONFIG_INVALID_VALUE", "supervise needs trust_timeout, {'revocation': True} or both")
+    trust_timeout = None
+    if "trust_timeout" in supervise:
+        trust_timeout = _supervised_seconds(supervise["trust_timeout"], "supervise['trust_timeout']", minimum_inclusive=False)
+        if trusted_principals is None or not callable(trusted_principals) or isinstance(trusted_principals, PrincipalTrustStore):
+            raise AdmissionConfigError(
+                "CONFIG_PROFILE_CONTRADICTION", "supervise needs trusted_principals as an async callable: a static trust set has no source to supervise"
+            )
+        if not _is_async_source(trusted_principals):
+            raise AdmissionConfigError(
+                "CONFIG_INVALID_VALUE", "supervise needs an async trusted_principals: a synchronous one would run on the event loop, where no deadline holds"
+            )
+    supervised_revocation_timeout = None
+    if revocation:
+        if revocation_source is None:
+            raise AdmissionConfigError(
+                "CONFIG_PROFILE_CONTRADICTION",
+                "supervise['revocation'] needs a revocation_source (the strict-v1 profile): there is no revocation source to supervise",
+            )
+        supervised_revocation_timeout = _supervised_seconds(revocation_timeout, "revocation_timeout", minimum_inclusive=False)
+        if not _is_async_source(revocation_source):
+            raise AdmissionConfigError(
+                "CONFIG_INVALID_VALUE",
+                "supervise['revocation'] needs an async revocation_source: a synchronous one runs in a worker thread the supervisor would not own",
+            )
+    return _Supervision(source_supervisor, trust_timeout, supervised_revocation_timeout)
 
 
 class _SupervisedTrustUnavailable(Exception):
@@ -391,12 +418,17 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
 
     `source_supervisor` and `supervise` (keyword only, together, default None: as before): a
     SourceSupervisor and {"trust_timeout": seconds} give an async trusted_principals a deadline and
-    a slot of the supervisor's capacity. The source runs as a Task the supervisor owns; a trust set
+    a slot of the supervisor's capacity; {"revocation": True} does the same for an async
+    revocation_source, with `revocation_timeout` (then at most 2147483.647 s) as its deadline; one
+    or both, sharing the capacity. A supervised source runs as a Task the supervisor owns; a value
     that arrives after the deadline (loop.time(), checked when it arrives), a call that finds no
-    free slot, a closed supervisor or one bound to another event loop gives the same 503 as a
-    failing source, and the slot stays taken until the Task really finishes. A static or
-    synchronous trusted_principals, or {"revocation": True}, raises AdmissionConfigError. It does
-    not stop a source that ignores cancellation or isolate CPU; one supervisor per event loop.
+    free slot, a closed supervisor or one bound to another event loop gives what a failing source
+    gives (503 for the trust set, 403 REVOCATION_UNAVAILABLE for revocation), and the slot stays
+    taken until the Task really finishes. A static or synchronous trusted_principals with
+    trust_timeout, or a synchronous revocation_source with {"revocation": True}, raises
+    AdmissionConfigError. It does not stop a source that ignores cancellation, threads a source
+    starts (deny_list_revocation_source fetches in asyncio.to_thread) or isolate CPU; one
+    supervisor per event loop.
 
     Contradictions (`trusted_principals` or `profile` without `require_bundle=True`,
     a profile without `trusted_principals` or `revocation_source`, or with
@@ -425,7 +457,7 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
     ) -> None:
         super().__init__(app)
         self._max_body_bytes = _max_body_bytes(max_body_bytes)
-        self._supervision = _supervision(source_supervisor, supervise, trusted_principals)
+        self._supervision = _supervision(source_supervisor, supervise, trusted_principals, revocation_source, revocation_timeout)
         self.require_bundle = require_bundle
         self.header_name = header_name
         self.dcp_version = dcp_version
@@ -649,8 +681,8 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
         source = self._trusted_principals
         if isinstance(source, PrincipalTrustStore):
             return source
-        if self._supervision is not None:
-            supervisor, trust_timeout = self._supervision
+        if self._supervision is not None and self._supervision.trust_timeout is not None:
+            supervisor, trust_timeout = self._supervision.supervisor, self._supervision.trust_timeout
             status, value = await supervisor._run(tenant, trust_timeout, lambda: source(tenant))  # type: ignore[operator]
             if status != "ok":
                 # A source that failed, cancelled itself, ran out of time, found no slot or a closed
@@ -680,6 +712,8 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
 
     async def _revocation_snapshot(self, subjects: dict[str, list[str]], tenant: str) -> Any:
         """The source's snapshot; None when it cannot answer (never "not revoked")."""
+        if self._supervision is not None and self._supervision.revocation_timeout is not None:
+            return await self._supervised_revocation_snapshot(subjects, tenant)
         try:
             return await asyncio.wait_for(self._ask_revocation_source(subjects, tenant), self._revocation_timeout)
         except Exception as exc:  # a timeout or the source's own failure
@@ -688,6 +722,22 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
             _logger.warning("DCP admission: the revocation source did not answer (%s)",
                             getattr(exc, "code", type(exc).__name__))
             return None
+
+    async def _supervised_revocation_snapshot(self, subjects: dict[str, list[str]], tenant: str) -> Any:
+        """Under {"revocation": True}: the snapshot only when it arrives in time, else None."""
+        supervisor, revocation_timeout = self._supervision.supervisor, self._supervision.revocation_timeout  # type: ignore[union-attr]
+        source = self._revocation_source
+        status, value = await supervisor._run(tenant, revocation_timeout, lambda: source(subjects, tenant))  # type: ignore[arg-type, misc]
+        if status == "ok":
+            return value
+        # A source that failed, cancelled itself, ran out of time, found no slot or a closed
+        # supervisor is unavailable, never "not revoked"; REVOCATION_INVALID only when that error
+        # arrived in time (a late one is a timeout).
+        if status == "failed" and getattr(value, "code", None) == "REVOCATION_INVALID":
+            return {"source_error": "invalid"}
+        # Only the supervisor's fixed status, never the source's code, message or type name.
+        _logger.warning("DCP admission: the revocation source did not answer (%s)", status)
+        return None
 
     async def _ask_revocation_source(self, subjects: dict[str, list[str]], tenant: str) -> Any:
         source = self._revocation_source

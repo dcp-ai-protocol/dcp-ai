@@ -154,6 +154,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Revocation under the source supervisor (C3), opt-in, in `@dcp-ai/express`, `@dcp-ai/openclaw`
+  and `dcp_ai.fastapi.DCPVerifyMiddleware`: `supervise: { revocation: true }` /
+  `supervise={"revocation": True}`, refused until now, runs the strict-v1 revocation source under
+  the supervisor with `revocationTimeoutMs` / `revocation_timeout` as its deadline, then limited
+  to the timer range (an integer from 1 to 2147483647 ms; up to 2147483.647 s). `supervise` takes
+  the trust deadline, `revocation` or both, so revocation can be supervised with a static trust
+  set; trust and revocation calls share the supervisor's capacity, and a slot is freed only when
+  its source really settles. The responses do not change: a timeout, no free slot or a closed
+  supervisor give the `REVOCATION_UNAVAILABLE` a failing source gives (403 in Express and
+  FastAPI), and a `REVOCATION_INVALID` error counts only before the deadline. TypeScript sources
+  get `(subjects, { tenant, signal })`, `denyListRevocationSource` also aborts its fetch on that
+  signal, and telemetry reports `source: 'revocation'`; OpenClaw's `configureVerifier` refuses to
+  replace a supervisor with calls in flight whichever source it supervises. FastAPI needs an async
+  `revocation_source`. Behaviour change with the option only: a FastAPI source that suppresses its
+  cancellation gives `REVOCATION_UNAVAILABLE` at the deadline instead of its late snapshot. Not
+  bounded: work a source starts on its own, such as `deny_list_revocation_source`'s
+  `asyncio.to_thread` worker, whose I/O is not cancelled. Without the option nothing changes.
 - `dcp_ai.fastapi.DCPVerifyMiddleware`: a deadline and a capacity for an async `trusted_principals`,
   opt-in. `SourceSupervisor(max_in_flight=..., max_in_flight_per_tenant=None)`, exported from
   `dcp_ai.fastapi` only, and `source_supervisor` with `supervise={"trust_timeout": seconds}` (both
@@ -161,8 +178,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   deadline (`loop.time()`, checked on arrival and on use), a call with no free slot (no queue), a
   closed supervisor or one bound to another event loop gives the same 503 as a failing source. A
   slot is freed only when the Task really finishes. `close(drain_timeout)` and `stats()` are
-  provided. A static or synchronous `trusted_principals` with these options, or
-  `{"revocation": True}`, raises `AdmissionConfigError`. One supervisor per event loop; it does not
+  provided. A static or synchronous `trusted_principals` with these options raises
+  `AdmissionConfigError`; so did `{"revocation": True}` in this first step, now accepted (see the
+  revocation entry above). One supervisor per event loop; it does not
   stop a source that ignores cancellation or isolate CPU. Without these options nothing changes.
 - `@dcp-ai/express` and `@dcp-ai/openclaw`: a deadline and a capacity for a `trustedPrincipals`
   function, opt-in. `createSourceSupervisor({ maxInFlight, maxInFlightPerTenant?, onSourceEvent? })`
@@ -176,8 +194,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   provided; counters stop at `Number.MAX_SAFE_INTEGER`. OpenClaw's `configureVerifier` refuses to
   replace or remove a supervisor while a call that started under it is in progress (also before it
   calls its source) or its source still runs, even after `close()`. It does not stop a source's
-  work or isolate CPU. Without these options nothing changes; `supervise.revocation: true` is
-  refused, and revocation keeps `revocationTimeoutMs`.
+  work or isolate CPU. Without these options nothing changes. In this first step
+  `supervise.revocation: true` was refused and revocation kept `revocationTimeoutMs`; it is now
+  accepted (see the revocation entry above).
 - `dcp_ai.fastapi.DCPVerifyMiddleware(max_body_bytes=...)`: an opt-in budget, in bytes, on the
   request body (default `None`, no budget, as before; a positive integer, else
   `AdmissionConfigError` `CONFIG_INVALID_VALUE`). The middleware then reads the body first, also

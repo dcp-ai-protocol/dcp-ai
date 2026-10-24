@@ -475,7 +475,7 @@ class _AsyncCallable:
         ({"source_supervisor": None}, "CONFIG_PROFILE_CONTRADICTION"),  # supervise without a supervisor
         ({"trusted_principals": TRUST}, "CONFIG_PROFILE_CONTRADICTION"),
         ({"trusted_principals": lambda tenant: TRUST}, "CONFIG_INVALID_VALUE"),
-        ({"supervise": {"trust_timeout": 1, "revocation": True}}, "CONFIG_INVALID_VALUE"),
+        ({"supervise": {"trust_timeout": 1, "revocation": True}}, "CONFIG_PROFILE_CONTRADICTION"),  # no revocation_source
         ({"supervise": {"trust_timeout": 1, "revocation": None}}, "CONFIG_INVALID_VALUE"),
         ({"supervise": {"trust_timeout": 1, "queue": 5}}, "CONFIG_UNKNOWN_FIELD"),
         ({"supervise": {}}, "CONFIG_INVALID_VALUE"),

@@ -109,9 +109,9 @@ An unknown option, an unknown `verifierPolicy` field or a value of the wrong typ
 | `trustedPrincipals` | `object` or `function` | `undefined` | The principals you trust and their keys: a trust set (`schemas/v2/principal_trust_set.schema.json`), or `({ tenant }) => trust set` called on every request. With it, only admitted V2 bundles reach the route (see below). A function that throws, or returns `undefined`, `null` or an invalid trust set, refuses the request with `503`. |
 | `profile` | `object` | `undefined` | The strict-v1 profile (`schemas/v2/admission_profile.schema.json`). Needs `trustedPrincipals` and `revocationSource`. |
 | `revocationSource` | `function` | `undefined` | `(subjects, { tenant }) => snapshot`, the profile's revocation source, e.g. `denyListRevocationSource({ url, headers })`. |
-| `revocationTimeoutMs` | `number` | `5000` | How long the revocation source may take before the request is refused. |
+| `revocationTimeoutMs` | `number` | `5000` | How long the revocation source may take before the request is refused. Under `supervise.revocation`, the supervised deadline: an integer from 1 to 2147483647. |
 | `sourceSupervisor` | `object` | `undefined` | A supervisor from `createSourceSupervisor`, given together with `supervise` (see [Supervising the trust source](#supervising-the-trust-source)). |
-| `supervise` | `object` | `undefined` | `{ trustTimeoutMs }`: an integer from 1 to 2147483647, the deadline of a `trustedPrincipals` function under `sourceSupervisor`. `revocation: true` throws: revocation keeps `revocationTimeoutMs`. |
+| `supervise` | `object` | `undefined` | `{ trustTimeoutMs?, revocation? }`, at least one: `trustTimeoutMs`, an integer from 1 to 2147483647, the deadline of a `trustedPrincipals` function under `sourceSupervisor`; `revocation: true` runs the profile's `revocationSource` under it, with `revocationTimeoutMs` (see [Supervising the revocation source](#supervising-the-revocation-source)). |
 | `tenant` | `function` | one tenant | `(req) => string`, from your own authenticated context, never a header the client sets. Selects the trust set and separates cached verdicts. |
 | `clock` | `function` | `Date.now` | For tests. |
 
@@ -207,7 +207,29 @@ app.use("/api/agents", dcpVerify({
 - **Scope.** The capacity is per supervisor object. Two supervisors are two capacities, so the bound of a process is the sum of the supervisors it creates. A supervisor created by `@dcp-ai/openclaw`, from its ESM or CJS build, works here too, and the reverse.
 - **`supervisor.close({ drainMs })`** refuses new calls, answers pending ones with `503`, aborts every `signal`, and waits at most `drainMs` (default 0) for calls in flight. It resolves with how many are still in flight; their slots stay taken.
 - **`supervisor.stats()`** returns counters: `open`, `inFlight`, `tenants`, `timeouts`, `saturated`, `closed`, `lateResults`, `lateErrors`, `droppedEvents`. `onSourceEvent` in `createSourceSupervisor` gets `{ source, reason, inFlight }`, never a tenant. It must be fast, because it runs on the same event loop: one call at a time, and events that arrive while one is queued or its promise is pending are dropped and counted. A returned promise or thenable is assimilated as `Promise.resolve` does: a thenable resolved with a pending promise keeps it busy, and a resolver called again later frees nothing. Its errors and rejections are ignored. Counters stop at `Number.MAX_SAFE_INTEGER`.
-- **What it does not do.** It does not stop a source's work: a function that ignores `signal` runs to its end. It does not bound work a function starts on its own and does not return. It does not help a function that blocks the event loop, which delays every deadline. The verification of a bundle still runs before the trust source. Revocation keeps `revocationTimeoutMs`.
+- **What it does not do.** It does not stop a source's work: a function that ignores `signal` runs to its end. It does not bound work a function starts on its own and does not return. It does not help a function that blocks the event loop, which delays every deadline. The verification of a bundle still runs before the trust source. Without `supervise.revocation`, revocation keeps `revocationTimeoutMs` as before.
+
+#### Supervising the revocation source
+
+With the strict-v1 profile, `supervise: { revocation: true }` runs the `revocationSource` under the same kind of supervisor, with `revocationTimeoutMs` as its deadline (then an integer from 1 to 2147483647):
+
+```typescript
+app.use("/api/agents", dcpVerify({
+  trustedPrincipals: trustSet, // a static trust set, or a function supervised with trustTimeoutMs
+  profile: { profile: "strict-v1", verifier_id: "verifier:acme-api" },
+  revocationSource: denyListRevocationSource({ url: "https://revocations.example.com/.well-known/dcp-revocations.json" }),
+  revocationTimeoutMs: 2000,
+  sourceSupervisor: supervisor,
+  supervise: { revocation: true }, // or { trustTimeoutMs: 2000, revocation: true }
+}));
+```
+
+- **Opt-in.** `supervise` takes `trustTimeoutMs`, `revocation: true` or both. `revocation: true` needs a `revocationSource`, and works with a static trust set. Without it, revocation keeps `revocationTimeoutMs` as before.
+- **The same responses.** The source gets `(subjects, { tenant, signal })`, and each answer gives the response it gives without supervision. A snapshot is evaluated as before. `null`, a failure, a timeout, a call with no free slot and a closed supervisor give `403` with `codes: ["REVOCATION_UNAVAILABLE"]`, never not revoked. An error whose `code` is `REVOCATION_INVALID` gives `REVOCATION_INVALID` only when it arrives before the deadline; after it, it is a timeout.
+- **One capacity.** Trust and revocation calls take slots of the same supervisor, each held until its source really settles. A late snapshot is never used, for its request or any other, and the verdict cache never holds one.
+- **`denyListRevocationSource`** aborts its fetch, and the read of its body, when the supervisor's `signal` aborts, as well as at its own `timeoutMs`.
+- **Telemetry.** Its events carry `source: 'revocation'`.
+- **Limits.** The same limits as for the trust source. The legacy `checkRevocation` / `revocationServiceUrl` path is not supervised.
 
 ### Cache
 
