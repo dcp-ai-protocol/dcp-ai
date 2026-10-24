@@ -240,6 +240,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Reference CLI (`bin/dcp.js`): `safePath` checked the path as written, not where it leads, so a
+  symlink inside the working directory let a command read a file outside it, and a dangling
+  symlink at an output path (`keygen`, `rotate-key`, `recovery-setup`, the governance commands)
+  made it create or overwrite a file outside it, secret keys included. Paths are now resolved with
+  their symlinks (a dangling one is refused) before the working-directory check, every file the
+  CLI writes goes through that check, and files are opened without following a symlink.
+
 - `@dcp-ai/anthropic-mcp` and `@dcp-ai/google-a2a`: the `"types"` export condition came first, so
   a CommonJS consumer got the ESM declarations (`dist/index.d.ts`) and TypeScript refused
   `require()` under `node16` with TS1471. The condition is removed, so `require` gets

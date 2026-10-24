@@ -122,7 +122,7 @@ jobs:
 
       - name: Server and service tests
         run: >-
-          node --test server/index.test.js services/revocation/index.test.js
+          node --test server/index.test.js services/revocation/index.test.js bin/dcp.test.js
           services/anchor/index.test.js services/transparency-log/index.test.js
 
       - name: Check protocol integrity
