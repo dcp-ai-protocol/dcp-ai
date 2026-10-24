@@ -110,6 +110,8 @@ An unknown option, an unknown `verifierPolicy` field or a value of the wrong typ
 | `profile` | `object` | `undefined` | The strict-v1 profile (`schemas/v2/admission_profile.schema.json`). Needs `trustedPrincipals` and `revocationSource`. |
 | `revocationSource` | `function` | `undefined` | `(subjects, { tenant }) => snapshot`, the profile's revocation source, e.g. `denyListRevocationSource({ url, headers })`. |
 | `revocationTimeoutMs` | `number` | `5000` | How long the revocation source may take before the request is refused. |
+| `sourceSupervisor` | `object` | `undefined` | A supervisor from `createSourceSupervisor`, given together with `supervise` (see [Supervising the trust source](#supervising-the-trust-source)). |
+| `supervise` | `object` | `undefined` | `{ trustTimeoutMs }`: an integer from 1 to 2147483647, the deadline of a `trustedPrincipals` function under `sourceSupervisor`. `revocation: true` throws: revocation keeps `revocationTimeoutMs`. |
 | `tenant` | `function` | one tenant | `(req) => string`, from your own authenticated context, never a header the client sets. Selects the trust set and separates cached verdicts. |
 | `clock` | `function` | `Date.now` | For tests. |
 
@@ -181,6 +183,31 @@ app.use("/api/agents", dcpVerify({
 A refused request gets `403` with `{ verified, admitted: false, principal_trust, profile, profile_compliance, codes, errors }` and never reaches the route. `denyListRevocationSource` needs an `https` URL (plain `http` only to a loopback host), follows no redirect and reads at most 16 MiB. A revocation source that fails, times out or returns nothing refuses the request (`REVOCATION_UNAVAILABLE`). With trusted principals, `requireBundle: false` throws `AdmissionConfigError` when the middleware is created: a request without a bundle would otherwise reach the route. Under the profile, `verifierPolicy`, `requireHybrid: false` and the `checkRevocation` options throw too. With trusted principals, V1 bundles are refused: they carry no principal signature to anchor. Runnable: `examples/strict-v1.mjs`, and over real HTTP with the bundle in the body and a body budget, `examples/strict-v1-body.mjs`.
 
 The tests run every case of `tests/interop/v2/bundle_vectors.json`, each under its `verifier_policy_overrides`.
+
+### Supervising the trust source
+
+Without these options a `trustedPrincipals` function has no deadline, as before. With them, it gets one, and a share of a capacity:
+
+```typescript
+import { createSourceSupervisor, dcpVerify } from "@dcp-ai/express";
+
+// One object per process, shared by every middleware (and by @dcp-ai/openclaw) that should share one capacity.
+const supervisor = createSourceSupervisor({ maxInFlight: 64, maxInFlightPerTenant: 8 });
+
+app.use("/api/agents", dcpVerify({
+  trustedPrincipals: ({ tenant, signal }) => loadTrustSet(tenant, { signal }),
+  sourceSupervisor: supervisor,
+  supervise: { trustTimeoutMs: 2000 },
+  tenant: (req) => req.auth.tenant,
+}));
+```
+
+- **Deadline.** The function gets `{ tenant, signal }`. A trust set that arrives after `trustTimeoutMs` is not used, also when the event loop was too busy to run the timer: the deadline is measured on a monotonic clock when the result arrives. The request then gets the same `503` as a source that fails (`TRUST_SOURCE_FAILED`), and `signal` is aborted.
+- **Capacity.** `maxInFlight` counts the calls the middleware started that have not settled yet, across every tenant; `maxInFlightPerTenant` caps one tenant, and without it one tenant can take the whole capacity. A call that finds no free slot gets the same `503` at once; there is no queue. **A slot is freed only when the function really settles**, not when the request times out: a source that never settles keeps its slot, and once every slot is taken the middleware refuses every request until you restart the process or create another supervisor.
+- **Scope.** The capacity is per supervisor object. Two supervisors are two capacities, so the bound of a process is the sum of the supervisors it creates. A supervisor created by `@dcp-ai/openclaw`, from its ESM or CJS build, works here too, and the reverse.
+- **`supervisor.close({ drainMs })`** refuses new calls, answers pending ones with `503`, aborts every `signal`, and waits at most `drainMs` (default 0) for calls in flight. It resolves with how many are still in flight; their slots stay taken.
+- **`supervisor.stats()`** returns counters: `open`, `inFlight`, `tenants`, `timeouts`, `saturated`, `closed`, `lateResults`, `lateErrors`, `droppedEvents`. `onSourceEvent` in `createSourceSupervisor` gets `{ source, reason, inFlight }`, never a tenant. It must be fast, because it runs on the same event loop: one call at a time, and events that arrive while one is queued or its promise is pending are dropped and counted. A returned promise or thenable is assimilated as `Promise.resolve` does: a thenable resolved with a pending promise keeps it busy, and a resolver called again later frees nothing. Its errors and rejections are ignored. Counters stop at `Number.MAX_SAFE_INTEGER`.
+- **What it does not do.** It does not stop a source's work: a function that ignores `signal` runs to its end. It does not bound work a function starts on its own and does not return. It does not help a function that blocks the event loop, which delays every deadline. The verification of a bundle still runs before the trust source. Revocation keeps `revocationTimeoutMs`.
 
 ### Cache
 

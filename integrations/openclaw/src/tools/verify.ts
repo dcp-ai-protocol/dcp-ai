@@ -39,9 +39,11 @@ import {
   type AdmissionSetup,
   type RevocationSource,
   type SecurityTier,
+  type SupervisedSources,
   type TrustSource,
   type VerifierPolicyOptions,
 } from './dcp-verify.js';
+import type { SourceSupervisor } from './source-supervisor.js';
 
 // ── Parameter Schema ──
 
@@ -103,18 +105,27 @@ export interface VerifierConfiguration {
   revocationSource?: RevocationSource;
   /** Milliseconds the revocation source may take. Default 5000. */
   revocationTimeoutMs?: number;
+  /**
+   * A supervisor from createSourceSupervisor (from this package or @dcp-ai/express), given with
+   * `supervise`: a trustedPrincipals function then gets `{ tenant, signal }`, a deadline and a slot
+   * of its capacity. While it has invocations in flight it cannot be replaced or removed, even
+   * after close(); the same object can be kept with a new trust set, profile or deadline.
+   */
+  sourceSupervisor?: SourceSupervisor;
+  /** `{ trustTimeoutMs }`: the deadline of the trustedPrincipals function under sourceSupervisor. */
+  supervise?: SupervisedSources;
   /** The clock, in milliseconds since the epoch. For tests; default Date.now. */
   clock?: () => number;
 }
 
-const CONFIG_KEYS = ['verifierPolicy', 'trustedPrincipals', 'profile', 'revocationSource', 'revocationTimeoutMs', 'clock'];
+const CONFIG_KEYS = ['verifierPolicy', 'trustedPrincipals', 'profile', 'revocationSource', 'revocationTimeoutMs', 'sourceSupervisor', 'supervise', 'clock'];
 
 /**
  * Configures dcp_verify_bundle: the verifier policy (`verifierPolicy` fields over the SDK's
  * DEFAULT_VERIFIER_POLICY, a default_mode without risk_overrides applying to every risk tier) and,
  * optionally, trusted principals and the strict-v1 profile. Throws on an unknown option, a value of
  * the wrong type or a contradiction (AdmissionConfigError), leaving the previous configuration in
- * place. Called with no options, it restores the default. The tool's verifier_policy parameter can
+ * place, also when it would replace or remove a source supervisor that has invocations in flight. Called with no options, it restores the default. The tool's verifier_policy parameter can
  * only make the policy stricter, and is refused under the profile.
  */
 export function configureVerifier(options: VerifierConfiguration = {}): void {
@@ -128,6 +139,15 @@ export function configureVerifier(options: VerifierConfiguration = {}): void {
   }
   const policy = resolveVerifierPolicy(options.verifierPolicy);
   const setup = resolveAdmission(options);
+  const current = admission?.supervision?.supervisor;
+  if (current && current !== setup?.supervision?.supervisor && (supervisedAdmissions > 0 || current.stats().inFlight > 0)) {
+    // An admission already started may still call its source under the current supervisor, and a
+    // timed-out source may still run: a new or no supervisor would not count them.
+    throw new AdmissionConfigError(
+      'CONFIG_PROFILE_CONTRADICTION',
+      'the source supervisor still has invocations in flight: keep it until they settle (it may get a new trust set, profile or deadline), or restart the process',
+    );
+  }
   operatorPolicy = policy;
   admission = setup;
   clock = options.clock ?? Date.now;
@@ -281,7 +301,25 @@ async function verifyV2Bundle(signedBundle: Record<string, any>, policy: Verifie
  * verdict. Under the profile its policy applies and the tool parameter is refused; otherwise the
  * parameter can only tighten the operator policy.
  */
+/**
+ * Supervised admissions started and not answered yet. Each one may still call its trust source
+ * under the supervisor it started with, so configureVerifier keeps that supervisor while this is
+ * above 0; all of them then started with the configured supervisor.
+ */
+let supervisedAdmissions = 0;
+
 async function admitBundle(setup: AdmissionSetup, signedBundle: Record<string, any>, param: unknown): Promise<VerifyBundleResult> {
+  if (!setup.supervision) return admitUnder(setup, signedBundle, param);
+  // Counted before the first await (the verification), released when the result is ready.
+  supervisedAdmissions++;
+  try {
+    return await admitUnder(setup, signedBundle, param);
+  } finally {
+    supervisedAdmissions--;
+  }
+}
+
+async function admitUnder(setup: AdmissionSetup, signedBundle: Record<string, any>, param: unknown): Promise<VerifyBundleResult> {
   const version = detectVersion(signedBundle);
   const dcpVersion = version ?? 'unknown';
   const refused = { admitted: false, action_authorized: false as const };

@@ -154,6 +154,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `@dcp-ai/express` and `@dcp-ai/openclaw`: a deadline and a capacity for a `trustedPrincipals`
+  function, opt-in. `createSourceSupervisor({ maxInFlight, maxInFlightPerTenant?, onSourceEvent? })`
+  makes a supervisor, and `sourceSupervisor` with `supervise: { trustTimeoutMs }` applies it (both
+  together, with `trustedPrincipals` as a function). The function then gets `{ tenant, signal }`.
+  A trust set that arrives after the deadline, measured on a monotonic clock when it arrives, is
+  not used, and neither is a call that finds no free slot (no queue) or a closed supervisor: the
+  result is the same as for a failing source (`TRUST_SOURCE_FAILED`, 503 in Express). A slot is
+  freed only when the function really settles. The capacity is per supervisor object, shareable
+  between both packages and their ESM and CJS builds. `close({ drainMs })` and `stats()` are
+  provided; counters stop at `Number.MAX_SAFE_INTEGER`. OpenClaw's `configureVerifier` refuses to
+  replace or remove a supervisor while a call that started under it is in progress (also before it
+  calls its source) or its source still runs, even after `close()`. It does not stop a source's
+  work or isolate CPU. Without these options nothing changes; `supervise.revocation: true` is
+  refused, and revocation keeps `revocationTimeoutMs`.
 - `dcp_ai.fastapi.DCPVerifyMiddleware(max_body_bytes=...)`: an opt-in budget, in bytes, on the
   request body (default `None`, no budget, as before; a positive integer, else
   `AdmissionConfigError` `CONFIG_INVALID_VALUE`). The middleware then reads the body first, also

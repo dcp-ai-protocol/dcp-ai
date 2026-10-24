@@ -39,6 +39,7 @@ import {
   type VerifyV2Result,
 } from '@dcp-ai/sdk';
 import { createHash } from 'node:crypto';
+import { isSourceSupervisor, isTimerMs, supervise, MAX_TIMER_MS, type SourceSupervisor } from './source-supervisor.js';
 
 export type { SecurityTier } from '@dcp-ai/sdk';
 export type RiskTier = keyof VerifierPolicy['risk_overrides'];
@@ -293,11 +294,15 @@ export async function verifyV2(signedBundle: unknown, policy: VerifierPolicy, no
 
 // ── Admission: principal trust and the strict-v1 profile (spec/profiles/admission) ──
 
-/** The operator's trusted principals: a trust set, or a function of the operator's tenant that returns one. */
+/**
+ * The operator's trusted principals: a trust set, or a function of the operator's tenant that returns
+ * one. Under source supervision the function also gets `signal`, aborted at its deadline or when the
+ * supervisor closes; a function that ignores it still keeps its supervisor slot until it settles.
+ */
 export type TrustSource =
   | PrincipalTrustSet
   | PrincipalTrustStore
-  | ((context: { tenant: string }) => PrincipalTrustSet | PrincipalTrustStore | Promise<PrincipalTrustSet | PrincipalTrustStore>);
+  | ((context: { tenant: string; signal?: AbortSignal }) => PrincipalTrustSet | PrincipalTrustStore | Promise<PrincipalTrustSet | PrincipalTrustStore>);
 
 /**
  * The operator's revocation source: the status of `subjects` (the agent and the verified signer
@@ -310,11 +315,21 @@ export type RevocationSource = (
   context: { tenant: string },
 ) => RevocationSnapshot | null | Promise<RevocationSnapshot | null>;
 
+/** What a source supervisor supervises. Revocation keeps revocationTimeoutMs: `revocation: true` is refused. */
+export interface SupervisedSources {
+  /** Milliseconds the trustedPrincipals function may take: an integer from 1 to 2147483647. */
+  trustTimeoutMs: number;
+  revocation?: false;
+}
+
 export interface AdmissionOptions {
   trustedPrincipals?: TrustSource;
   profile?: StrictV1ProfileConfig | StrictV1Profile;
   revocationSource?: RevocationSource;
   revocationTimeoutMs?: number;
+  /** A supervisor from createSourceSupervisor, given together with `supervise`. */
+  sourceSupervisor?: SourceSupervisor;
+  supervise?: SupervisedSources;
 }
 
 /** What the operator configured for admission, checked once. */
@@ -325,6 +340,8 @@ export interface AdmissionSetup {
   profile?: StrictV1Profile;
   revocationSource?: RevocationSource;
   revocationTimeoutMs: number;
+  /** The supervisor and deadline of the trustedPrincipals function, when the operator configured them. */
+  supervision?: { supervisor: SourceSupervisor; trustTimeoutMs: number };
 }
 
 const contradiction = (message: string) => new AdmissionConfigError('CONFIG_PROFILE_CONTRADICTION', message);
@@ -349,9 +366,40 @@ export function resolveAdmission(options: AdmissionOptions): AdmissionSetup | un
   if (!profile && revocationSource !== undefined) {
     throw new AdmissionConfigError('CONFIG_INVALID_VALUE', 'revocationSource is used by the strict-v1 profile only; set profile');
   }
+  const supervision = resolveSupervision(options);
   if (trustedPrincipals === undefined) return undefined;
   const staticTrust = typeof trustedPrincipals === 'function' ? undefined : createPrincipalTrustStore(trustedPrincipals);
-  return { trust: trustedPrincipals, staticTrust, profile, revocationSource, revocationTimeoutMs };
+  return { trust: trustedPrincipals, staticTrust, profile, revocationSource, revocationTimeoutMs, supervision };
+}
+
+const SUPERVISE_KEYS = ['trustTimeoutMs', 'revocation'];
+
+/**
+ * sourceSupervisor and supervise, which go together and need a trustedPrincipals function: a static
+ * trust set has no source to supervise.
+ */
+function resolveSupervision({ sourceSupervisor, supervise: sources, trustedPrincipals }: AdmissionOptions): AdmissionSetup['supervision'] {
+  if (sourceSupervisor === undefined && sources === undefined) return undefined;
+  if (sourceSupervisor === undefined || sources === undefined) {
+    throw contradiction('sourceSupervisor and supervise go together');
+  }
+  if (!isSourceSupervisor(sourceSupervisor)) {
+    throw new AdmissionConfigError('CONFIG_INVALID_VALUE', 'sourceSupervisor must come from createSourceSupervisor');
+  }
+  if (!isObject(sources)) throw new AdmissionConfigError('CONFIG_INVALID_VALUE', 'supervise must be an object');
+  for (const key of Object.keys(sources)) {
+    if (!SUPERVISE_KEYS.includes(key)) throw new AdmissionConfigError('CONFIG_UNKNOWN_FIELD', `Unknown supervise field: ${printable(key)}`);
+  }
+  if (sources.revocation !== undefined && sources.revocation !== false) {
+    throw new AdmissionConfigError('CONFIG_INVALID_VALUE', 'supervise.revocation is not available: the revocation source keeps revocationTimeoutMs');
+  }
+  if (!isTimerMs(sources.trustTimeoutMs, 1)) {
+    throw new AdmissionConfigError('CONFIG_INVALID_VALUE', `supervise.trustTimeoutMs must be an integer from 1 to ${MAX_TIMER_MS}`);
+  }
+  if (typeof trustedPrincipals !== 'function') {
+    throw contradiction('supervise needs trustedPrincipals as a function: a static trust set has no source to supervise');
+  }
+  return { supervisor: sourceSupervisor, trustTimeoutMs: sources.trustTimeoutMs };
 }
 
 /** SHA-256 of the canonical form of a verifier policy: part of a cached verdict's identity. */
@@ -391,6 +439,8 @@ export class TrustSourceError extends Error {
   constructor(
     readonly code: string,
     message: string,
+    /** Under source supervision, why no trust set was used: for telemetry, never in a response. */
+    readonly reason?: 'timeout' | 'saturated' | 'closed',
   ) {
     super(message);
     this.name = 'TrustSourceError';
@@ -404,11 +454,23 @@ export class TrustSourceError extends Error {
  */
 async function trustFor(setup: AdmissionSetup, tenant: string): Promise<PrincipalTrustStore> {
   if (setup.staticTrust) return setup.staticTrust;
+  const source = setup.trust as Exclude<TrustSource, PrincipalTrustSet | PrincipalTrustStore>;
   let value: unknown;
-  try {
-    value = await (setup.trust as Exclude<TrustSource, PrincipalTrustSet | PrincipalTrustStore>)({ tenant });
-  } catch {
-    throw new TrustSourceError('TRUST_SOURCE_FAILED', 'the trusted principals source failed');
+  if (setup.supervision) {
+    // The deadline is this configuration's, fixed when the invocation starts.
+    const { supervisor, trustTimeoutMs } = setup.supervision;
+    const outcome = await supervise(supervisor, 'trust', tenant, trustTimeoutMs, (signal) => source({ tenant, signal }));
+    if (outcome.status !== 'ok') {
+      const reason = outcome.status === 'failed' ? undefined : outcome.status;
+      throw new TrustSourceError('TRUST_SOURCE_FAILED', 'the trusted principals source failed', reason);
+    }
+    value = outcome.value;
+  } else {
+    try {
+      value = await source({ tenant });
+    } catch {
+      throw new TrustSourceError('TRUST_SOURCE_FAILED', 'the trusted principals source failed');
+    }
   }
   try {
     return createPrincipalTrustStore(value);

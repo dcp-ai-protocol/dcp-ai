@@ -354,8 +354,10 @@ export { getSession, isIdentityReady, clearSession, listSessions } from './state
 export { executeIdentitySetup, IdentitySetupParams } from './tools/identity.js';
 export { executeDeclareIntent, DeclareIntentParams } from './tools/intent.js';
 export { executeVerifyBundle, VerifyBundleParams, configureVerifier } from './tools/verify.js';
-export type { VerifierPolicyOptions, RevocationSource, TrustSource } from './tools/dcp-verify.js';
+export type { VerifierPolicyOptions, RevocationSource, SupervisedSources, TrustSource } from './tools/dcp-verify.js';
 export { denyListRevocationSource } from './tools/dcp-verify.js';
+export { createSourceSupervisor } from './tools/source-supervisor.js';
+export type { SourceEvent, SourceSupervisor, SourceSupervisorOptions, SourceSupervisorStats } from './tools/source-supervisor.js';
 export type { VerifierConfiguration, VerifyBundleResult } from './tools/verify.js';
 export {
   executeLogAction,

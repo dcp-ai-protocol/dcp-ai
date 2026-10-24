@@ -43,12 +43,16 @@ import {
   verifyV2,
   type RevocationSource,
   type SecurityTier,
+  type SupervisedSources,
   type TrustSource,
   type VerifierPolicyOptions,
 } from './dcp-verify.js';
+import type { SourceSupervisor } from './source-supervisor.js';
 
-export type { SecurityTier, VerifierPolicyOptions, RevocationSource, TrustSource } from './dcp-verify.js';
+export type { SecurityTier, VerifierPolicyOptions, RevocationSource, SupervisedSources, TrustSource } from './dcp-verify.js';
 export { denyListRevocationSource } from './dcp-verify.js';
+export { createSourceSupervisor } from './source-supervisor.js';
+export type { SourceEvent, SourceSupervisor, SourceSupervisorOptions, SourceSupervisorStats } from './source-supervisor.js';
 
 export interface DCPVerifyOptions {
   requireBundle?: boolean;
@@ -99,6 +103,16 @@ export interface DCPVerifyOptions {
   revocationSource?: RevocationSource;
   /** Milliseconds the revocation source may take before the request is refused. Default 5000. */
   revocationTimeoutMs?: number;
+  /**
+   * A supervisor from createSourceSupervisor (from this package or @dcp-ai/openclaw), given with
+   * `supervise`. Its capacity is per supervisor object: share one object between middlewares to
+   * share one capacity. A trustedPrincipals function then gets `{ tenant, signal }`, a deadline and
+   * a slot; a request whose source times out, finds no free slot or meets a closed supervisor gets
+   * the same 503 as a source that fails. It does not stop a source's work or isolate CPU.
+   */
+  sourceSupervisor?: SourceSupervisor;
+  /** `{ trustTimeoutMs }`: the deadline of the trustedPrincipals function under sourceSupervisor. */
+  supervise?: SupervisedSources;
   /**
    * The tenant of a request, from the operator's own authenticated context (never a header the
    * client chooses). It selects the trust set and separates cached verdicts. Default: one tenant.
@@ -160,6 +174,8 @@ const OPTION_TYPES: Record<keyof DCPVerifyOptions, readonly string[]> = {
   profile: ['object'],
   revocationSource: ['function'],
   revocationTimeoutMs: ['number'],
+  sourceSupervisor: ['object'],
+  supervise: ['object'],
   tenant: ['function'],
   clock: ['function'],
 };
