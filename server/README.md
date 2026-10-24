@@ -21,6 +21,7 @@ Default port: `3000`. Override with `PORT=4000 node server/index.js`. Set `OPERA
 | GET | `/` , `/health` | Health check — `{ ok, service, version, capabilities }` |
 | GET | `/.well-known/dcp-capabilities.json` | Protocol capability discovery (algorithms, features, wire formats) |
 | POST | `/verify` | Verify a signed bundle (auto-detects V1 or V2; V2 is checked against `VERIFIER_POLICY`) |
+| POST | `/v2/admit` | Admission against the operator's trusted principals, and strict-v1 when configured (`docs/ADMISSION.md`). Reads only `signed_bundle` from the body. 501 when not configured |
 | POST | `/anchor` | Stub — returns 501 (implement per operator) |
 
 ### V2: Identity & Intent
@@ -75,6 +76,9 @@ Default port: `3000`. Override with `PORT=4000 node server/index.js`. Set `OPERA
 | `TRUST_PROXY` | — | `true` only behind a proxy that appends the client IP to `X-Forwarded-For` (Fly, nginx). Rate limits then key on its last hop; otherwise on the socket address, since clients can forge the header |
 | `REGISTRATIONS_PER_HOUR` | `20` | `POST /v2/passport/register` calls per client per hour; more get 429 |
 | `MAX_REGISTERED_KEYS` | `10000` | Keys in the registry; new agents and rotations then get 507 (nothing is evicted) |
+| `DCP_TRUSTED_PRINCIPALS_FILE` | — | Trust set for `POST /v2/admit` (`schemas/v2/principal_trust_set.schema.json`), re-read when the file changes. An invalid file stops the server at startup and refuses admission (503) if it breaks later |
+| `DCP_ADMISSION_PROFILE_FILE` | — | strict-v1 profile (`schemas/v2/admission_profile.schema.json`). Needs the two variables around it; a contradiction stops the server |
+| `DCP_REVOCATION_LIST_URL` | — | Complete deny list in the revocation service's `/.well-known/dcp-revocations.json` format, for strict-v1. `DCP_REVOCATION_LIST_AUTHORIZATION` sets an `Authorization` header; `DCP_REVOCATION_TIMEOUT_MS` (default 5000) bounds the request |
 | `MAX_KEYS_PER_AGENT` | `64` | Keys an agent can register over its lifetime; further rotations get 409. Raise it for agents that rotate often (each retired key costs a ~100-byte tombstone) |
 
 `REQUIRE_SESSION_BINDING`, `REQUIRE_COMPOSITE_BINDING`, `MAX_KEY_AGE_DAYS`,
