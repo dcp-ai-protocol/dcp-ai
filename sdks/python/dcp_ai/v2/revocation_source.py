@@ -21,6 +21,7 @@ import ipaddress
 import json
 import math
 import ssl
+import time
 import urllib.parse
 import urllib.request
 from typing import Any, Awaitable, Callable
@@ -85,13 +86,30 @@ def deny_list_revocation_source(
     request_headers = {"Accept": "application/json", **(headers or {})}
     context = ssl.create_default_context()
     context.minimum_version = ssl.TLSVersion.TLSv1_2
-    opener = urllib.request.build_opener(_NoRedirect(), urllib.request.HTTPSHandler(context=context))
+    # No proxy from the environment (HTTP_PROXY, ...): the operator's headers go only to its URL,
+    # and the answer comes from it, as with the TypeScript fetch.
+    opener = urllib.request.build_opener(
+        urllib.request.ProxyHandler({}), _NoRedirect(), urllib.request.HTTPSHandler(context=context)
+    )
 
     def fetch() -> bytes:
+        # The socket timeout bounds each read; the deadline bounds the whole fetch, so a source
+        # trickling bytes does not hold the worker thread past `timeout`.
+        deadline = time.monotonic() + timeout
         request = urllib.request.Request(url, headers=request_headers, method="GET")
         # A non-2xx answer (redirects included) raises urllib.error.HTTPError.
         with opener.open(request, timeout=timeout) as response:
-            return response.read(_MAX_BODY + 1)
+            chunks: list[bytes] = []
+            size = 0
+            while size <= _MAX_BODY:
+                if time.monotonic() > deadline:
+                    raise TimeoutError("the deny list took longer than the timeout")
+                chunk = response.read(64 * 1024)
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                size += len(chunk)
+            return b"".join(chunks)
 
     async def source(subjects: Any, tenant: str = "") -> dict[str, Any]:
         try:

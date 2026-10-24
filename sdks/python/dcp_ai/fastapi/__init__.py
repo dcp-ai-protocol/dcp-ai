@@ -434,6 +434,8 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
         now = self._clock()
         try:
             tenant = self._tenant(request)
+            if inspect.isawaitable(tenant):
+                tenant = await tenant
             if not isinstance(tenant, str):
                 raise TypeError("the tenant callable did not return a string")
             trust = await self._load_trust(tenant)

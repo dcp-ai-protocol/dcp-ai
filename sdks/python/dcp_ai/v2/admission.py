@@ -733,7 +733,7 @@ def evaluate_admission_v2(
     § 5.1, with messages of at most 500 characters (and an ellipsis).
     """
     _check_now(now_ms)
-    now = now_ms
+    now = math.floor(now_ms)  # whole milliseconds, as the verifier uses them
     loaded_profile = None if profile is None else resolve_strict_v1_profile(profile)
     store = None if trust is None else create_principal_trust_store(trust)
     if loaded_profile is not None and store is None:

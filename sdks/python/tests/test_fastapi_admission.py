@@ -120,6 +120,29 @@ def test_an_admitted_request_reaches_the_route_with_the_admission_result():
     assert calls == [(SUBJECTS, "")]
 
 
+def test_an_async_tenant_callable_is_awaited():
+    reached: list = []
+
+    async def tenant(request):
+        return "tenant-a"
+
+    response = _post(_client(reached, **_strict(tenant=tenant)), _bundle())
+    assert response.status_code == 200, response.json()
+    assert reached[0].admitted is True
+
+
+def test_a_fractional_clock_is_read_in_whole_milliseconds():
+    # 0.5 ms after the session expiry is still that millisecond, for the verifier and admission alike.
+    expiry = rfc3339_epoch_ms(_bundle()["bundle"]["manifest"]["session_expires_at"])
+    reached: list = []
+
+    def source(subjects, tenant):
+        return _snapshot(subjects, checked_at=CASE_A["now"])
+
+    response = _post(_client(reached, clock=lambda: expiry + 0.5, **_strict(revocation_source=source)), _bundle())
+    assert response.status_code == 200, response.json()
+
+
 def test_an_async_revocation_source_and_trust_callable_are_awaited():
     reached: list = []
 
@@ -541,6 +564,17 @@ def deny_list_url():
     _SLOW.set()
     server.shutdown()
     server.server_close()
+
+
+@pytest.mark.asyncio
+async def test_deny_list_source_ignores_proxy_settings(deny_list_url, monkeypatch):
+    # A proxy from the environment would see the operator's headers and could answer for the list.
+    for name in ("HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy", "ALL_PROXY", "all_proxy"):
+        monkeypatch.setenv(name, "http://127.0.0.1:9")
+    for name in ("NO_PROXY", "no_proxy"):
+        monkeypatch.delenv(name, raising=False)
+    snapshot = await deny_list_revocation_source(f"{deny_list_url}/ok")(SUBJECTS, "")
+    assert snapshot == _snapshot(SUBJECTS)
 
 
 @pytest.mark.asyncio
