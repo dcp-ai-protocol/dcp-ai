@@ -515,14 +515,14 @@ describe('configuration', () => {
     expect((await post('older')).status).toBe(200);
   });
 
-  it("a supervisor made by @dcp-ai/openclaw's copy supports it; OpenClaw itself has no such option", async () => {
+  // That OpenClaw's configureVerifier has no such option is checked in @dcp-ai/openclaw's own
+  // suite (client-disconnect-config.test.ts): this package's CI job installs only its own deps.
+  it("a supervisor made by @dcp-ai/openclaw's copy supports it", async () => {
     const copy = createFromOpenClawCopy({ maxInFlight: 1 });
     expect(supportsCancellation(copy)).toBe(true);
     expect(supportsCancellation(older)).toBe(false);
     const { post } = await app(trustOptions(copy, fn));
     expect((await post('copy')).status).toBe(200);
-    const { configureVerifier } = (await import(`${OPENCLAW}tools/verify.ts`)) as any;
-    expect(() => configureVerifier({ trustedPrincipals: TRUSTED, cancelOnDisconnect: true })).toThrow(/Unknown configureVerifier option/);
   });
 
   it('the stats of a supervisor from an older package (no cancelled) still type-check as SourceSupervisorStats', () => {
