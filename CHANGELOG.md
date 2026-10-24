@@ -86,8 +86,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   parameter, which the calling model controls, and returned the unverified bundle's `agent_id` and
   `human_id` with a failed result. The policy is now the operator's (`register(api,
   { verifierPolicy })` or the new `configureVerifier`, over `DEFAULT_VERIFIER_POLICY`); the
-  parameter can only make it stricter (a stricter mode per tier, `require_*` only turned on,
-  `allow_v1_bundles` only turned off, any other field an error). The result echoes
+  parameter can only make it stricter (a stricter mode per tier, with `pq_only` and any other
+  mode giving `hybrid_required` so the model cannot drop the classical signature the operator
+  requires, `require_*` only turned on, `allow_v1_bundles` only turned off, any other field an
+  error). The result echoes
   `verification_mode`, and names the agent, principal and session only when the bundle verified.
 - `@dcp-ai/express`: the verdict cache was keyed by `signature.composite_sig` and shared by every
   middleware, so a different bundle carrying a cached signature, or a middleware with a stricter

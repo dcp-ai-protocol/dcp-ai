@@ -692,6 +692,26 @@ describe('verifier policy: operator configuration and tool parameter', () => {
     expect(result.verification_mode).toBe('hybrid_required');
   });
 
+  // pq_only requires the PQ signature only, so it is not stricter than a hybrid mode: switching
+  // to it would let a forged PQ signature through without the classical one the operator requires.
+  it.each([
+    ['hybrid_required', 'pq_only', 'hybrid_required'],
+    ['hybrid_preferred', 'pq_only', 'hybrid_required'],
+    ['classical_only', 'pq_only', 'hybrid_required'],
+    ['pq_only', 'pq_only', 'pq_only'],
+    ['pq_only', 'hybrid_preferred', 'hybrid_required'],
+    ['pq_only', 'classical_only', 'hybrid_required'],
+    ['classical_only', 'hybrid_preferred', 'hybrid_preferred'],
+    ['hybrid_preferred', 'classical_only', 'hybrid_preferred'],
+  ])('operator %s with the parameter %s verifies in %s', async (operator, param, expected) => {
+    configureVerifier({ verifierPolicy: { default_mode: operator as any } });
+    const result = await executeVerifyBundle({
+      signed_bundle: JSON.parse(JSON.stringify(VECTORS.signed_bundle)),
+      verifier_policy: { default_mode: param as any },
+    });
+    expect(result.verification_mode).toBe(expected);
+  });
+
   it('the parameter can raise the mode', async () => {
     const result = await executeVerifyBundle({ signed_bundle: classicalOnly(), verifier_policy: { default_mode: 'hybrid_required' } });
     expect(result.verified).toBe(false);

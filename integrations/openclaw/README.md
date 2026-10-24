@@ -112,7 +112,7 @@ import register, { configureVerifier } from '@dcp-ai/openclaw';
 configureVerifier({ verifierPolicy: { default_mode: 'hybrid_required', require_audience_binding: true, verifier_id: 'my-service' } });
 ```
 
-The tool's `verifier_policy` parameter is set by the calling model, so it can only make that policy stricter: `default_mode` raises every risk tier to at least that mode (`classical_only` < `hybrid_preferred` < `hybrid_required` < `pq_only`), `require_session_binding` and `require_composite_binding` can only be turned on, and `allow_v1_bundles` can only be turned off. Any other field is an error.
+The tool's `verifier_policy` parameter is set by the calling model, so it can only make that policy stricter: `default_mode` raises every risk tier to at least that mode (`classical_only` < `hybrid_preferred` < `hybrid_required`; `pq_only` combined with any other mode gives `hybrid_required`, because `pq_only` drops the classical signature the other modes require), `require_session_binding` and `require_composite_binding` can only be turned on, and `allow_v1_bundles` can only be turned off. Any other field is an error.
 
 ### What is checked
 
