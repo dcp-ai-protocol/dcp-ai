@@ -187,7 +187,20 @@ describe('admission API', () => {
       agents: { 'agent:acme-bot': 'not_revoked' },
       keys: { ['a'.repeat(32)]: 'not_revoked', ['b'.repeat(32)]: 'revoked' },
     });
-    for (const bad of [null, [], { revocations: [] }, { updated_at: 'now' }, { updated_at: '2026-11-02T10:00:30Z', revocations: ['agent:acme-bot'] }, { updated_at: '2026-11-02T10:00:30Z', kid_revocations: {} }]) {
+    const at = '2026-11-02T10:00:30Z';
+    for (const bad of [
+      null,
+      [],
+      { revocations: [] },
+      { updated_at: 'now' },
+      { updated_at: at, revocations: ['agent:acme-bot'], kid_revocations: [] },
+      { updated_at: at, revocations: [], kid_revocations: {} },
+      // A list missing either field may be truncated: it is not read as empty.
+      { updated_at: at },
+      { updated_at: at, revocations: [] },
+      { updated_at: at, kid_revocations: [] },
+      { updated_at: at, revocations: null, kid_revocations: [] },
+    ]) {
       expect(() => revocationSnapshotFromDenyList(bad, subjects)).toThrow(expect.objectContaining({ code: 'REVOCATION_INVALID' }));
     }
   });

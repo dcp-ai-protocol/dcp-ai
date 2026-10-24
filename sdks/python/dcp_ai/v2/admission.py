@@ -503,7 +503,6 @@ class RevocationListError(RevocationSourceError):
 
 def _listed(document: dict[str, Any], field: str, key: str) -> frozenset[str]:
     items = document.get(field)
-    items = [] if items is None else items
     if not isinstance(items, list) or not all(isinstance(i, dict) and isinstance(i.get(key), str) for i in items):
         raise RevocationListError(f"revocation list: {field} is not a list of objects with a {key}")
     return frozenset(i[key] for i in items)
@@ -518,7 +517,7 @@ def revocation_snapshot_from_deny_list(document: Any, subjects: dict[str, list[s
     """The revocation snapshot of `subjects` (revocation_subjects) from a complete deny list in
     the format of the reference revocation service's /.well-known/dcp-revocations.json:
     `updated_at` (RFC 3339), `revocations` (objects with an `agent_id`) and `kid_revocations`
-    (objects with a `revoked_kid`), a missing list counting as empty. A listed agent or kid is
+    (objects with a `revoked_kid`), both present: a list without one may be truncated. A listed agent or kid is
     revoked, every other subject not_revoked, as of `updated_at`. Raises RevocationListError
     (code REVOCATION_INVALID) for a document of another shape."""
     if not isinstance(document, dict) or rfc3339_epoch_ms(document.get("updated_at")) is None:

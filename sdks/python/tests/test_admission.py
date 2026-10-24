@@ -363,14 +363,15 @@ def test_a_complete_deny_list_reads_into_a_snapshot_and_another_shape_is_refused
         "agents": {"agent:acme-bot": "not_revoked"},
         "keys": {"a" * 32: "not_revoked", "b" * 32: "revoked"},
     }
-    # A missing list counts as empty, as in the TypeScript SDK.
-    assert revocation_snapshot_from_deny_list({"updated_at": "2026-11-02T10:00:30Z"}, subjects)["keys"] == {
-        "a" * 32: "not_revoked", "b" * 32: "not_revoked",
-    }
     for bad in (
         None,
         [],
         {"revocations": []},
+        # A list missing either field may be truncated: it is not read as empty.
+        {"updated_at": "2026-11-02T10:00:30Z"},
+        {"updated_at": "2026-11-02T10:00:30Z", "revocations": []},
+        {"updated_at": "2026-11-02T10:00:30Z", "kid_revocations": []},
+        {"updated_at": "2026-11-02T10:00:30Z", "revocations": None, "kid_revocations": []},
         {"updated_at": "now"},
         {"updated_at": "2026-11-02T10:00:30Z", "revocations": ["agent:acme-bot"]},
         {"updated_at": "2026-11-02T10:00:30Z", "kid_revocations": {}},

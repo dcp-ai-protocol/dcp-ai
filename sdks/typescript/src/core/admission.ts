@@ -425,16 +425,17 @@ export class RevocationListError extends Error {
 /**
  * The revocation snapshot of `subjects` from a complete deny list in the format of the reference
  * revocation service's /.well-known/dcp-revocations.json: `updated_at` (RFC 3339), `revocations`
- * (objects with an `agent_id`) and `kid_revocations` (objects with a `revoked_kid`). A listed agent
- * or kid is revoked, every other subject not_revoked, as of `updated_at`. Throws
+ * (objects with an `agent_id`) and `kid_revocations` (objects with a `revoked_kid`), both present. A
+ * listed agent or kid is revoked, every other subject not_revoked, as of `updated_at`. Throws
  * RevocationListError for a document of another shape.
  */
 export function revocationSnapshotFromDenyList(document: unknown, subjects: RevocationSubjects): RevocationSnapshot {
   if (!isObject(document) || typeof document.updated_at !== 'string' || parseRfc3339(document.updated_at) === undefined) {
     throw new RevocationListError('revocation list: updated_at is not an RFC 3339 timestamp');
   }
+  // Both lists must be present: a document without one may be truncated, and is not read as empty.
   const listed = (field: string, key: string): Set<string> => {
-    const items = document[field] ?? [];
+    const items = document[field];
     if (!Array.isArray(items) || !items.every((item) => isObject(item) && typeof item[key] === 'string')) {
       throw new RevocationListError(`revocation list: ${field} is not a list of objects with a ${key}`);
     }
