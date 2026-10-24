@@ -52,8 +52,24 @@ function safePath(userPath) {
  * file does not keep a wider mode. The directory is checked again just before the rename; the
  * CLI assumes nothing else changes the working directory while a command runs.
  */
-function writeConfined(filePath, contents, mode = 0o644) {
+/** safePath for a file the CLI writes: never the working directory or another directory. */
+function safeOutputPath(filePath) {
   const target = safePath(filePath);
+  let isDirectory = ALLOWED_BASE_DIRS.includes(target);
+  try {
+    isDirectory ||= fs.statSync(target).isDirectory();
+  } catch {
+    // does not exist yet
+  }
+  if (isDirectory) {
+    console.error(`Error: '${filePath}' is a directory, not a file to write`);
+    process.exit(2);
+  }
+  return target;
+}
+
+function writeConfined(filePath, contents, mode = 0o644) {
+  const target = safeOutputPath(filePath);
   const dir = path.dirname(target);
   const tmp = path.join(dir, `.${path.basename(target)}.${process.pid}.${crypto.randomBytes(6).toString("hex")}.tmp`);
   const flags = fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | (fs.constants.O_NOFOLLOW ?? 0);
@@ -418,7 +434,7 @@ if (cmd === "sign-bundle") {
     console.error("Usage: dcp sign-bundle <bundle.json> <secret_key.txt> [out.json]");
     process.exit(2);
   }
-  runTool("bundle_sign.js", [safePath(bundlePath), safePath(secretKeyPath), safePath(outPath)]);
+  runTool("bundle_sign.js", [safePath(bundlePath), safePath(secretKeyPath), safeOutputPath(outPath)]);
   process.exit(0);
 }
 

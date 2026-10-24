@@ -119,3 +119,20 @@ test("the CLI runs its own tools, not a tools/ directory planted in the working 
   run(work, "validate", "intent.schema.json", "intent.json");
   assert.equal(fs.existsSync(marker), false);
 });
+
+test("the working directory or another directory is not a file to write", () => {
+  const { root, work } = sandbox();
+  fs.mkdirSync(path.join(work, "kk"));
+  assert.equal(run(work, "keygen", "kk").status, 0);
+  fs.writeFileSync(path.join(work, "b.json"), "{}");
+  fs.writeFileSync(path.join(work, "advisory.json"), JSON.stringify({ advisory_id: "a" }));
+  for (const args of [
+    ["sign-bundle", "b.json", "kk/secret_key.txt", "."],
+    ["sign-bundle", "b.json", "kk/secret_key.txt", "kk"],
+  ]) {
+    const r = run(work, ...args);
+    assert.equal(r.status, 2, `${args.join(" ")}: ${r.stdout}${r.stderr}`);
+    assert.match(r.stderr, /is a directory/);
+  }
+  assert.deepEqual(fs.readdirSync(root).sort(), ["outside", "work"]);
+});
