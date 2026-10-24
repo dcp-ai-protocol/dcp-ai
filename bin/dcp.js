@@ -6,16 +6,54 @@ import crypto from "crypto";
 import { ml_dsa65 } from "@noble/post-quantum/ml-dsa.js";
 import nacl from "tweetnacl";
 
-const ALLOWED_BASE_DIRS = [process.cwd()];
+const ALLOWED_BASE_DIRS = [fs.realpathSync(process.cwd())];
+
+/**
+ * The real path of `userPath`, symlinks resolved: the deepest part that exists is resolved with
+ * realpath (a dangling symlink throws), the rest appended. A symlink cannot lead outside.
+ */
+function realResolve(userPath) {
+  let existing = path.resolve(userPath);
+  const rest = [];
+  for (;;) {
+    try {
+      fs.lstatSync(existing);
+      break;
+    } catch {
+      const parent = path.dirname(existing);
+      if (parent === existing) break;
+      rest.unshift(path.basename(existing));
+      existing = parent;
+    }
+  }
+  return path.join(fs.realpathSync(existing), ...rest);
+}
 
 function safePath(userPath) {
-  const resolved = path.resolve(userPath);
-  const isAllowed = ALLOWED_BASE_DIRS.some(base => resolved.startsWith(path.resolve(base) + path.sep) || resolved === path.resolve(base));
+  let resolved;
+  try {
+    resolved = realResolve(userPath);
+  } catch {
+    resolved = null; // a dangling symlink, or a path that cannot be resolved
+  }
+  const isAllowed = resolved !== null && ALLOWED_BASE_DIRS.some(base => resolved.startsWith(base + path.sep) || resolved === base);
   if (!isAllowed) {
     console.error(`Error: path '${userPath}' is outside the allowed working directory`);
     process.exit(2);
   }
   return resolved;
+}
+
+/** Write a file inside the working directory, never through a symlink at the last component. */
+function writeConfined(filePath, contents, mode = 0o644) {
+  const target = safePath(filePath);
+  const flags = fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_TRUNC | (fs.constants.O_NOFOLLOW ?? 0);
+  const fd = fs.openSync(target, flags, mode);
+  try {
+    fs.writeFileSync(fd, contents);
+  } finally {
+    fs.closeSync(fd);
+  }
 }
 
 function safeParseJSON(filePath, label) {
@@ -37,7 +75,7 @@ function safeParseInt(value, name) {
 }
 
 function writeSecretFile(filePath, contents) {
-  fs.writeFileSync(filePath, contents, { mode: 0o600 });
+  writeConfined(filePath, contents, 0o600);
 }
 
 const ALLOWED_ENDPOINT_PATTERN = /^https?:\/\/[a-zA-Z0-9._-]+(:\d{1,5})?(\/[a-zA-Z0-9._/-]*)?$/;
@@ -100,12 +138,13 @@ Usage:
 }
 
 function ensureDir(dir) {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  const target = safePath(dir);
+  if (!fs.existsSync(target)) fs.mkdirSync(target, { recursive: true });
 }
 
 function writeFileIfMissing(filePath, contents) {
   if (fs.existsSync(filePath)) return;
-  fs.writeFileSync(filePath, contents, "utf8");
+  writeConfined(filePath, contents);
 }
 
 function deriveKid(alg, publicKeyBytes) {
@@ -222,12 +261,12 @@ if (cmd === "keygen") {
     const classicalKid = deriveKid("ed25519", Buffer.from(classicalKp.publicKeyB64, "base64"));
     const pqKid = deriveKid("ml-dsa-65", pqPublicKey);
 
-    fs.writeFileSync(path.join(outDir, "ed25519_public_key.txt"), classicalKp.publicKeyB64 + "\n");
+    writeConfined(path.join(outDir, "ed25519_public_key.txt"), classicalKp.publicKeyB64 + "\n");
     writeSecretFile(path.join(outDir, "ed25519_secret_key.txt"), classicalKp.secretKeyB64 + "\n");
-    fs.writeFileSync(path.join(outDir, "ed25519_kid.txt"), classicalKid + "\n");
-    fs.writeFileSync(path.join(outDir, "ml_dsa_65_public_key.txt"), pqPublicKey.toString("base64") + "\n");
+    writeConfined(path.join(outDir, "ed25519_kid.txt"), classicalKid + "\n");
+    writeConfined(path.join(outDir, "ml_dsa_65_public_key.txt"), pqPublicKey.toString("base64") + "\n");
     writeSecretFile(path.join(outDir, "ml_dsa_65_secret_key.txt"), pqSecretKey.toString("base64") + "\n");
-    fs.writeFileSync(path.join(outDir, "ml_dsa_65_kid.txt"), pqKid + "\n");
+    writeConfined(path.join(outDir, "ml_dsa_65_kid.txt"), pqKid + "\n");
 
     console.log(`✅ Hybrid keypair written to ${outDir}/`);
     console.log(`   Ed25519 kid:   ${classicalKid}`);
@@ -246,18 +285,18 @@ if (cmd === "keygen") {
       const { generateKeypair } = await import("../tools/crypto.js");
       const kp = generateKeypair();
       const kid = deriveKid("ed25519", Buffer.from(kp.publicKeyB64, "base64"));
-      fs.writeFileSync(path.join(outDir, "public_key.txt"), kp.publicKeyB64 + "\n");
+      writeConfined(path.join(outDir, "public_key.txt"), kp.publicKeyB64 + "\n");
       writeSecretFile(path.join(outDir, "secret_key.txt"), kp.secretKeyB64 + "\n");
-      fs.writeFileSync(path.join(outDir, "kid.txt"), kid + "\n");
+      writeConfined(path.join(outDir, "kid.txt"), kid + "\n");
       console.log(`✅ Ed25519 keypair written to ${outDir}/ (kid: ${kid})`);
     } else if (specificAlg === "ml-dsa-65") {
       const pqKeys = ml_dsa65.keygen();
       const pk = Buffer.from(pqKeys.publicKey);
       const sk = Buffer.from(pqKeys.secretKey);
       const kid = deriveKid(specificAlg, pk);
-      fs.writeFileSync(path.join(outDir, "public_key.txt"), pk.toString("base64") + "\n");
+      writeConfined(path.join(outDir, "public_key.txt"), pk.toString("base64") + "\n");
       writeSecretFile(path.join(outDir, "secret_key.txt"), sk.toString("base64") + "\n");
-      fs.writeFileSync(path.join(outDir, "kid.txt"), kid + "\n");
+      writeConfined(path.join(outDir, "kid.txt"), kid + "\n");
       console.log(`✅ ${specificAlg} keypair written to ${outDir}/ (kid: ${kid})`);
     } else {
       console.error(`Algorithm ${specificAlg} keygen requires the corresponding SDK provider.`);
@@ -270,7 +309,7 @@ if (cmd === "keygen") {
   // Default V1 keygen
   const { generateKeypair } = await import("../tools/crypto.js");
   const kp = generateKeypair();
-  fs.writeFileSync(path.join(outDir, "public_key.txt"), kp.publicKeyB64 + "\n");
+  writeConfined(path.join(outDir, "public_key.txt"), kp.publicKeyB64 + "\n");
   writeSecretFile(path.join(outDir, "secret_key.txt"), kp.secretKeyB64 + "\n");
   console.log(`✅ Keypair written to ${outDir}/public_key.txt and ${outDir}/secret_key.txt`);
   process.exit(0);
@@ -339,7 +378,7 @@ if (cmd === "sign-bundle") {
       keys,
     });
 
-    fs.writeFileSync(safePath(outPath), JSON.stringify(signedBundle, null, 2));
+    writeConfined(outPath, JSON.stringify(signedBundle, null, 2));
     console.log(`✅ V2 composite-signed bundle written to ${outPath}`);
     process.exit(0);
   }
@@ -511,7 +550,7 @@ if (cmd === "recovery-setup") {
     created_at: new Date().toISOString(),
   };
 
-  fs.writeFileSync(path.join(outDir, "recovery_config.json"), JSON.stringify(config, null, 2));
+  writeConfined(path.join(outDir, "recovery_config.json"), JSON.stringify(config, null, 2));
   console.log(`✅ Recovery setup complete (${threshold}-of-${totalShares})`);
   console.log(`   Shares written to ${outDir}/share_*.txt`);
   console.log(`   Config written to ${outDir}/recovery_config.json`);
@@ -818,10 +857,10 @@ if (cmd === "keys" && args[1] === "rotate") {
   const rotDir = path.join(keyDir, "rotation");
   ensureDir(rotDir);
 
-  fs.writeFileSync(path.join(rotDir, "new_public_key.txt"), newPk.toString("base64") + "\n");
+  writeConfined(path.join(rotDir, "new_public_key.txt"), newPk.toString("base64") + "\n");
   writeSecretFile(path.join(rotDir, "new_secret_key.txt"), newSk.toString("base64") + "\n");
-  fs.writeFileSync(path.join(rotDir, "new_kid.txt"), newKid + "\n");
-  fs.writeFileSync(path.join(rotDir, "rotation_record.json"), JSON.stringify(rotationRecord, null, 2) + "\n");
+  writeConfined(path.join(rotDir, "new_kid.txt"), newKid + "\n");
+  writeConfined(path.join(rotDir, "rotation_record.json"), JSON.stringify(rotationRecord, null, 2) + "\n");
 
   console.log(`\nNew key kid:    ${newKid}`);
   console.log(`\nRotation record: ${path.join(rotDir, "rotation_record.json")}`);
@@ -881,7 +920,7 @@ if (cmd === "keys" && args[1] === "certify") {
 
       // Write certification receipt
       const receiptPath = path.join(rotDir, "certification_receipt.json");
-      fs.writeFileSync(receiptPath, JSON.stringify({
+      writeConfined(receiptPath, JSON.stringify({
         ...data,
         certified_at: new Date().toISOString(),
         gateway: endpoint,
@@ -962,7 +1001,7 @@ if (cmd === "governance" && args[1] === "ceremony") {
     ensureDir(pDir);
     writeSecretFile(path.join(pDir, "ed25519_secret_key.txt"), edSk.toString("base64") + "\n");
     writeSecretFile(path.join(pDir, "mldsa65_secret_key.txt"), pqSk.toString("base64") + "\n");
-    fs.writeFileSync(path.join(pDir, "participant.json"), JSON.stringify(participant, null, 2) + "\n");
+    writeConfined(path.join(pDir, "participant.json"), JSON.stringify(participant, null, 2) + "\n");
 
     console.log(`  Participant ${i}: ${participantId}`);
     console.log(`    Ed25519 kid:   ${edKid}`);
@@ -998,7 +1037,7 @@ if (cmd === "governance" && args[1] === "ceremony") {
 
   // Write governance keys document
   const keysDocPath = path.join(outDir, "governance-keys.json");
-  fs.writeFileSync(keysDocPath, JSON.stringify(ceremonySummary, null, 2) + "\n");
+  writeConfined(keysDocPath, JSON.stringify(ceremonySummary, null, 2) + "\n");
 
   console.log(`\n✅ Governance ceremony complete`);
   console.log(`   ID:        ${governanceKeySet.governance_id}`);
@@ -1097,7 +1136,7 @@ if (cmd === "governance" && args[1] === "sign-advisory") {
   };
 
   const sigOutPath = outPath || advisoryPath.replace(".json", `.sig.${participant.participant_id}.json`);
-  fs.writeFileSync(sigOutPath, JSON.stringify(governanceSig, null, 2) + "\n");
+  writeConfined(sigOutPath, JSON.stringify(governanceSig, null, 2) + "\n");
 
   console.log(`\n✅ Advisory signed`);
   console.log(`   Signature: ${sigOutPath}`);
