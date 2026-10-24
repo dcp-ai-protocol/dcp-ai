@@ -210,6 +210,19 @@ from dcp_ai.v2.verify import (
     PQ_ONLY_VERIFIER_POLICY,
     verify_signed_bundle_v2,
 )
+from dcp_ai.v2.admission import (
+    STRICT_V1,
+    STRICT_V1_MAX_SECONDS,
+    AdmissionConfigError,
+    PrincipalTrustStore,
+    StrictV1Profile,
+    TrustedKey,
+    admit_signed_bundle_v2,
+    create_principal_trust_store,
+    evaluate_admission_v2,
+    resolve_strict_v1_profile,
+    revocation_subjects,
+)
 
 __all__ = [
     "assert_no_floats",
@@ -391,4 +404,16 @@ __all__ = [
     "DEFAULT_VERIFIER_POLICY",
     "PQ_ONLY_VERIFIER_POLICY",
     "verify_signed_bundle_v2",
+    # Admission: principal trust and the strict-v1 profile (spec/profiles/admission)
+    "STRICT_V1",
+    "STRICT_V1_MAX_SECONDS",
+    "AdmissionConfigError",
+    "PrincipalTrustStore",
+    "StrictV1Profile",
+    "TrustedKey",
+    "admit_signed_bundle_v2",
+    "create_principal_trust_store",
+    "evaluate_admission_v2",
+    "resolve_strict_v1_profile",
+    "revocation_subjects",
 ]
