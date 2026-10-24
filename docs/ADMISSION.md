@@ -114,7 +114,7 @@ app.use('/api/agents', dcpVerify({
 }));
 ```
 
-A request reaches the route only when the bundle is admitted; `req.dcpAgent.admission` carries the result. The cache keeps only the cryptographic verification, keyed by the bundle, the verifier policy and the tenant; trust, the profile checks and revocation are evaluated on every request, so removing a principal or revoking a key takes effect on the next one. Runnable: [`integrations/express/examples/strict-v1.mjs`](../integrations/express/examples/strict-v1.mjs).
+A request reaches the route only when the bundle is admitted; `req.dcpAgent.admission` carries the result. A trust function that throws, or returns `undefined`, `null` or anything that is not a valid trust set (a tenant it has no entry for, say), refuses the request with `503`: it never means "no trust requirement". The cache keeps only the cryptographic verification, keyed by the bundle, the verifier policy and the tenant; trust, the profile checks and revocation are evaluated on every request, so removing a principal or revoking a key takes effect on the next one. Runnable: [`integrations/express/examples/strict-v1.mjs`](../integrations/express/examples/strict-v1.mjs).
 
 ### FastAPI (`dcp_ai.fastapi`)
 

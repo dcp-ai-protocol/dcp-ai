@@ -23,7 +23,8 @@ import express from "express";
 import { dcpVerify } from "@dcp-ai/express";
 
 const app = express();
-app.use(express.json());
+// The bundle travels in the JSON body: give the parser a budget sized for your bundles.
+app.use(express.json({ limit: "64kb" }));
 
 // Verify DCP on all routes
 app.use(dcpVerify());
@@ -43,20 +44,30 @@ app.listen(3000);
 
 ### Sending a bundle from the client
 
-The bundle is sent as JSON in the `X-DCP-Bundle` header or in `req.body.signed_bundle`:
+Send the bundle in `signed_bundle` of the JSON body. It is the recommended way for hybrid V2
+bundles, and the middleware also reads the `X-DCP-Bundle` header (first) for bundles that fit in
+one:
 
 ```bash
-# Via header
+# Via body (recommended)
+curl -X POST http://localhost:3000/api/action \
+  -H "Content-Type: application/json" \
+  -d '{"signed_bundle": {...}, "action": "test"}'
+
+# Via header: only for bundles that fit the header limits of the server and every proxy
 curl -X POST http://localhost:3000/api/action \
   -H "Content-Type: application/json" \
   -H "X-DCP-Bundle: $(cat signed_bundle.json)" \
   -d '{"action": "test"}'
-
-# Via body
-curl -X POST http://localhost:3000/api/action \
-  -H "Content-Type: application/json" \
-  -d '{"signed_bundle": {...}, "action": "test"}'
 ```
+
+A hybrid bundle (Ed25519 + ML-DSA-65) is about 33 KB: the base bundle of the admission vectors is
+32,996 bytes. Node's default limit for all request headers is 16 KiB, so in `X-DCP-Bundle` it gets
+`431` before Express runs; do not raise the limit to make it fit. In the body, the parser's
+`limit` is your budget: a larger body gets `413` before the middleware. The budget is your choice
+for your deployment, not a limit of the protocol: measure your largest bundle (it grows with the
+audit trail and PQ checkpoints), leave margin, and keep proxies in front at least as permissive.
+`examples/strict-v1-body.mjs` checks all of this over real HTTP (see `examples/README.md`).
 
 ## API Reference
 
@@ -90,12 +101,12 @@ An unknown option, an unknown `verifierPolicy` field or a value of the wrong typ
 | `revocationServiceUrl` | `string` | `"http://localhost:3003"` | Base URL of the revocation service. |
 | `cacheTtlSeconds` | `number` | `0` | Seconds to cache verification results. `0` disables caching. |
 | `cacheMaxEntries` | `number` | `1000` | Most verified bundles kept in the cache; the least recently used is evicted first. |
-| `headerName` | `string` | `"x-dcp-bundle"` | Name of the HTTP header where the bundle is sent. |
+| `headerName` | `string` | `"x-dcp-bundle"` | Name of the HTTP header the bundle may be sent in, read before `req.body.signed_bundle`. Only for bundles within the header limits of the server and every proxy (Node's default is 16 KiB for all headers): send hybrid bundles in the body. |
 | `onFailure` | `function` | `undefined` | Custom handler for verification errors. Receives `(req, res, errors)`, and for a refused admission the admission result as a fourth argument. |
 | `verifierPolicy` | `object` | `undefined` | Verifier policy fields (`VerifierPolicy` of `@dcp-ai/sdk`), merged over the SDK's `DEFAULT_VERIFIER_POLICY`. A `default_mode` given without `risk_overrides` applies to every risk tier; `risk_overrides` entries set their tiers over the others. |
 | `requireHybrid` | `boolean` | `false` | Every mode below `hybrid_required` becomes `hybrid_required`, and V1 bundles are refused. |
 | `requireActiveLifecycle` | `boolean` | `false` | Reject decommissioned agents (DCP-05 §5.1). V2 only. |
-| `trustedPrincipals` | `object` or `function` | `undefined` | The principals you trust and their keys: a trust set (`schemas/v2/principal_trust_set.schema.json`), or `({ tenant }) => trust set` called on every request. With it, only admitted V2 bundles reach the route (see below). |
+| `trustedPrincipals` | `object` or `function` | `undefined` | The principals you trust and their keys: a trust set (`schemas/v2/principal_trust_set.schema.json`), or `({ tenant }) => trust set` called on every request. With it, only admitted V2 bundles reach the route (see below). A function that throws, or returns `undefined`, `null` or an invalid trust set, refuses the request with `503`. |
 | `profile` | `object` | `undefined` | The strict-v1 profile (`schemas/v2/admission_profile.schema.json`). Needs `trustedPrincipals` and `revocationSource`. |
 | `revocationSource` | `function` | `undefined` | `(subjects, { tenant }) => snapshot`, the profile's revocation source, e.g. `denyListRevocationSource({ url, headers })`. |
 | `revocationTimeoutMs` | `number` | `5000` | How long the revocation source may take before the request is refused. |
@@ -167,7 +178,7 @@ app.use("/api/agents", dcpVerify({
 }));
 ```
 
-A refused request gets `403` with `{ verified, admitted: false, principal_trust, profile, profile_compliance, codes, errors }` and never reaches the route. `denyListRevocationSource` needs an `https` URL (plain `http` only to a loopback host), follows no redirect and reads at most 16 MiB. A revocation source that fails, times out or returns nothing refuses the request (`REVOCATION_UNAVAILABLE`). With trusted principals, `requireBundle: false` throws `AdmissionConfigError` when the middleware is created: a request without a bundle would otherwise reach the route. Under the profile, `verifierPolicy`, `requireHybrid: false` and the `checkRevocation` options throw too. With trusted principals, V1 bundles are refused: they carry no principal signature to anchor. Runnable: `examples/strict-v1.mjs`.
+A refused request gets `403` with `{ verified, admitted: false, principal_trust, profile, profile_compliance, codes, errors }` and never reaches the route. `denyListRevocationSource` needs an `https` URL (plain `http` only to a loopback host), follows no redirect and reads at most 16 MiB. A revocation source that fails, times out or returns nothing refuses the request (`REVOCATION_UNAVAILABLE`). With trusted principals, `requireBundle: false` throws `AdmissionConfigError` when the middleware is created: a request without a bundle would otherwise reach the route. Under the profile, `verifierPolicy`, `requireHybrid: false` and the `checkRevocation` options throw too. With trusted principals, V1 bundles are refused: they carry no principal signature to anchor. Runnable: `examples/strict-v1.mjs`, and over real HTTP with the bundle in the body and a body budget, `examples/strict-v1-body.mjs`.
 
 The tests run every case of `tests/interop/v2/bundle_vectors.json`, each under its `verifier_policy_overrides`.
 

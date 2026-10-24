@@ -383,10 +383,47 @@ async function revocationFor(setup: AdmissionSetup, subjects: RevocationSubjects
 }
 
 /**
+ * The operator configured trusted principals, but its source failed or gave no valid trust set
+ * (`undefined`, `null`, or a value that is not one): admission is refused. `code` is
+ * TRUST_SOURCE_FAILED when the source threw, else the AdmissionConfigError code of the value.
+ */
+export class TrustSourceError extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'TrustSourceError';
+  }
+}
+
+/**
+ * The trust set for `tenant`: the static one, or the source's answer, always validated with
+ * createPrincipalTrustStore. A configured source that returns nothing is a failure, never the
+ * absence of a trust requirement (which evaluateAdmissionV2 reads `trust: undefined` as).
+ */
+async function trustFor(setup: AdmissionSetup, tenant: string): Promise<PrincipalTrustStore> {
+  if (setup.staticTrust) return setup.staticTrust;
+  let value: unknown;
+  try {
+    value = await (setup.trust as Exclude<TrustSource, PrincipalTrustSet | PrincipalTrustStore>)({ tenant });
+  } catch {
+    throw new TrustSourceError('TRUST_SOURCE_FAILED', 'the trusted principals source failed');
+  }
+  try {
+    return createPrincipalTrustStore(value);
+  } catch (e) {
+    const code = e instanceof AdmissionConfigError ? e.code : 'CONFIG_INVALID_VALUE';
+    throw new TrustSourceError(code, `the trusted principals source returned no valid trust set (${code})`);
+  }
+}
+
+/**
  * Admission of a signed bundle (spec/profiles/admission § 5.1) given its verification: the trust
  * set for `tenant` from the operator's source and, under the profile, the revocation snapshot from
  * the operator's revocation source, both evaluated now. A bundle that is not V2 gets a failed
- * verification: it carries no principal signature to anchor.
+ * verification: it carries no principal signature to anchor. Throws TrustSourceError when the
+ * trust source fails or gives no valid trust set: the caller refuses the request.
  */
 export async function admit(
   setup: AdmissionSetup,
@@ -394,7 +431,7 @@ export async function admit(
   verification: VerifyV2Result | undefined,
   { tenant, now }: { tenant: string; now: number },
 ): Promise<AdmissionResult> {
-  const trust = setup.staticTrust ?? (await (setup.trust as Exclude<TrustSource, PrincipalTrustSet | PrincipalTrustStore>)({ tenant }));
+  const trust = await trustFor(setup, tenant);
   const checked = verification ?? {
     verified: false,
     errors: ['Only V2 bundles can be admitted against trusted principals'],

@@ -167,3 +167,50 @@ describe('configureVerifier', () => {
     expect(code(() => configureVerifier({ trustedPrincipalz: TRUSTED } as any))).toMatch(/Unknown configureVerifier option/);
   });
 });
+
+// A configured trust source that answers undefined, null or something that is not a trust set
+// is a failure, never "no trust requirement": the tool refuses, with a result, without throwing.
+describe('dcp_verify_bundle with a trust source that gives no valid trust set', () => {
+  const unavailable = (result: any, code: string) => {
+    expect(result).toMatchObject({ verified: true, admitted: false, principal_trust: 'not_evaluated', action_authorized: false, codes: [] });
+    expect(result.errors).toEqual([`The trusted principals are unavailable (${code})`]);
+    expect(result.message).toMatch(/^NOT ADMITTED/);
+    expect(result.agent_id).toBeUndefined();
+    expect(result.human_id).toBeUndefined();
+  };
+
+  it.each([
+    ['returns undefined', () => undefined, 'CONFIG_INVALID_VALUE'],
+    ['resolves to undefined', async () => undefined, 'CONFIG_INVALID_VALUE'],
+    ['returns null', () => null, 'CONFIG_INVALID_VALUE'],
+    ['returns a string', () => 'trust everyone', 'CONFIG_INVALID_VALUE'],
+    ['returns a set with a kid not derived from its key', () => VECTORS.config_cases.find((c: any) => c.name === '7_kid_not_derived').config, 'CONFIG_TRUST_KID_NOT_DERIVED'],
+    ['throws', () => { throw new Error('registry down'); }, 'TRUST_SOURCE_FAILED'],
+    ['has no entry for the tenant', ({ tenant }: { tenant: string }) => new Map([['tenant-a', TRUSTED]]).get(tenant), 'CONFIG_INVALID_VALUE'],
+  ])('refuses when the source %s', async (_label, source, code) => {
+    configureVerifier({ trustedPrincipals: source as any, clock: () => NOW });
+    unavailable(await executeVerifyBundle({ signed_bundle: bundle('unknown_principal') }), code);
+    unavailable(await executeVerifyBundle({ signed_bundle: bundle('base') }), code);
+  });
+
+  it('refuses on the next call once the source stops giving a trust set', async () => {
+    let current: unknown = TRUSTED;
+    configureVerifier({ trustedPrincipals: () => current as any, clock: () => NOW });
+    expect((await executeVerifyBundle({ signed_bundle: bundle('base') })).admitted).toBe(true);
+    current = undefined;
+    unavailable(await executeVerifyBundle({ signed_bundle: bundle('base') }), 'CONFIG_INVALID_VALUE');
+  });
+
+  it('still admits a known principal from a valid set and refuses one missing from an empty set', async () => {
+    configureVerifier({ trustedPrincipals: async () => TRUSTED as any, clock: () => NOW });
+    expect((await executeVerifyBundle({ signed_bundle: bundle('base') })).admitted).toBe(true);
+    configureVerifier({ trustedPrincipals: async () => VECTORS.trust_sets.empty, clock: () => NOW });
+    expect((await executeVerifyBundle({ signed_bundle: bundle('base') })).codes).toEqual(['TRUST_PRINCIPAL_UNKNOWN']);
+  });
+
+  it('keeps refusing under strict-v1', async () => {
+    strict({ trustedPrincipals: () => undefined });
+    const result = await executeVerifyBundle({ signed_bundle: bundle('base') });
+    expect(result).toMatchObject({ admitted: false, profile: 'strict-v1', principal_trust: 'not_evaluated' });
+  });
+});

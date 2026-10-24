@@ -12,6 +12,7 @@ import {
   AdmissionConfigError,
   computeSecurityTier,
   verifySignedBundle,
+  type AdmissionResult,
   type IntentV2,
   type PrincipalTrust,
   type ProfileCompliance,
@@ -32,6 +33,7 @@ import {
   resolveAdmission,
   resolveVerifierPolicy,
   stricterMode,
+  TrustSourceError,
   v1Refusal,
   verifyV2,
   type AdmissionSetup,
@@ -299,7 +301,27 @@ async function admitBundle(setup: AdmissionSetup, signedBundle: Record<string, a
 
   const now = clock();
   const verdict = version === '2.0' ? await verifyV2(signedBundle, policy, now) : undefined;
-  const result = await admit(setup, signedBundle, verdict?.verification, { tenant: '', now });
+  let result: AdmissionResult;
+  try {
+    result = await admit(setup, signedBundle, verdict?.verification, { tenant: '', now });
+  } catch (err) {
+    if (!(err instanceof TrustSourceError)) throw err;
+    // The operator's trust source failed or gave no valid trust set: refused, never admitted.
+    const errors = [`The trusted principals are unavailable (${err.code})`];
+    return failure(dcpVersion, errors, {
+      message: `NOT ADMITTED: ${errors[0]}`,
+      verified: verdict?.verified === true,
+      admitted: false,
+      action_authorized: false,
+      principal_trust: 'not_evaluated',
+      profile: setup.profile ? 'strict-v1' : null,
+      profile_compliance: 'not_evaluated',
+      trust_set_version: null,
+      codes: [],
+      resolved_tier: verdict?.securityTier,
+      verification_mode: verdict?.verificationMode,
+    });
+  }
   const fields = {
     admitted: result.admitted,
     principal_trust: result.principal_trust,

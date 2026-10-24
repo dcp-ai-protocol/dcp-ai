@@ -38,6 +38,7 @@ import {
   policyFingerprint,
   resolveAdmission,
   resolveVerifierPolicy as resolvePolicy,
+  TrustSourceError,
   v1Refusal,
   verifyV2,
   type RevocationSource,
@@ -392,6 +393,20 @@ export function dcpVerify(options: DCPVerifyOptions = {}) {
     if (onFailure) return onFailure(req, res, body.errors, result);
     return res.status(403).json(body);
   };
+  // The operator's trust source failed or gave no valid trust set: refused, never admitted.
+  const trustUnavailable = (req: Request, res: Response, verified: boolean, err: TrustSourceError) => {
+    const errors = [`The principal trust set is unavailable (${err.code})`];
+    if (onFailure) return onFailure(req, res, errors);
+    return res.status(503).json({
+      verified,
+      admitted: false,
+      principal_trust: 'not_evaluated',
+      profile: admission?.profile ? 'strict-v1' : null,
+      profile_compliance: 'not_evaluated',
+      codes: [],
+      errors,
+    });
+  };
 
   return async (req: Request & { dcpAgent?: DCPAgent }, res: Response, next: NextFunction) => {
     try {
@@ -432,7 +447,13 @@ export function dcpVerify(options: DCPVerifyOptions = {}) {
           verification = verdict.verification;
           if (cacheKey && verification.verified) cache.set(cacheKey, { verification }, verdictExpiry(signedBundle, cacheTtlSeconds, now), now);
         }
-        const result = await admit(admission, signedBundle, version === '2.0' ? verification : undefined, { tenant, now });
+        let result: AdmissionResult;
+        try {
+          result = await admit(admission, signedBundle, version === '2.0' ? verification : undefined, { tenant, now });
+        } catch (err) {
+          if (!(err instanceof TrustSourceError)) throw err;
+          return trustUnavailable(req, res, verification?.verified === true, err);
+        }
         if (!result.admitted) return refuse(req, res, result);
         if (requireActiveLifecycle && signedBundle.bundle.agent_passport.payload.status === 'decommissioned') {
           return fail(req, res, ['Agent is decommissioned (DCP-05 §5.1). Active lifecycle required.']);

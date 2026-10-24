@@ -305,7 +305,86 @@ describe('trusted principals without the profile', () => {
   it('a trust source that fails refuses the request', async () => {
     const { post, reached } = await app({ trustedPrincipals: () => { throw new Error('registry down'); }, clock: () => NOW });
     const r = await post('/protected', bundle('base'));
-    expect(r.status).toBe(500);
+    expect(r.status).toBe(503);
+    expect(r.body).toMatchObject({ admitted: false, principal_trust: 'not_evaluated', errors: ['The principal trust set is unavailable (TRUST_SOURCE_FAILED)'] });
+    expect(reached).toHaveLength(0);
+  });
+});
+
+// A configured trust source that answers undefined, null or something that is not a trust set
+// is a failure, never "no trust requirement": evaluateAdmissionV2 reads trust: undefined as the
+// absence of trust, so the helper must validate every answer.
+describe('a configured trust source that gives no valid trust set', () => {
+  const unknown = () => bundle('unknown_principal');
+  const unavailable = (r: { status: number; body: any }, code: string) => {
+    expect(r.status).toBe(503);
+    expect(r.body).toMatchObject({ verified: true, admitted: false, principal_trust: 'not_evaluated', codes: [] });
+    expect(r.body.errors).toEqual([`The principal trust set is unavailable (${code})`]);
+  };
+
+  it.each([
+    ['returns undefined', () => undefined, 'CONFIG_INVALID_VALUE'],
+    ['resolves to undefined', async () => undefined, 'CONFIG_INVALID_VALUE'],
+    ['returns null', () => null, 'CONFIG_INVALID_VALUE'],
+    ['returns a string', () => 'trust everyone', 'CONFIG_INVALID_VALUE'],
+    ['returns a set without principals', () => ({ trust_set_version: 'x' }), 'CONFIG_INVALID_VALUE'],
+    ['returns a set with a kid not derived from its key', () => VECTORS.config_cases.find((c: any) => c.name === '7_kid_not_derived').config, 'CONFIG_TRUST_KID_NOT_DERIVED'],
+  ])('refuses before the route when the source %s', async (_label, source, code) => {
+    const { post, reached } = await app({ trustedPrincipals: source as any, clock: () => NOW });
+    unavailable(await post('/protected', unknown()), code);
+    unavailable(await post('/protected', bundle('base')), code);
+    expect(reached).toHaveLength(0);
+  });
+
+  it('refuses a tenant the source has no entry for', async () => {
+    const byTenant = new Map<string, unknown>([['tenant-a', TRUSTED]]);
+    const { post, reached } = await app({ trustedPrincipals: ({ tenant }) => byTenant.get(tenant) as any, tenant: (req: any) => req.auth.tenant, clock: () => NOW });
+    expect((await post('/protected', bundle('base'), { token: 'token-a' })).status).toBe(200);
+    unavailable(await post('/protected', bundle('base'), { token: 'token-b' }), 'CONFIG_INVALID_VALUE');
+    expect(reached).toHaveLength(1);
+  });
+
+  it('refuses a cached bundle once the source stops giving a trust set', async () => {
+    let current: unknown = TRUSTED;
+    const { post, reached } = await app({ trustedPrincipals: () => current as any, cacheTtlSeconds: 60, clock: () => NOW });
+    expect((await post('/protected', bundle('base'))).status).toBe(200);
+    current = undefined;
+    unavailable(await post('/protected', bundle('base')), 'CONFIG_INVALID_VALUE');
+    expect(vi.mocked(verifySignedBundleV2)).toHaveBeenCalledTimes(1);
+    expect(reached).toHaveLength(1);
+  });
+
+  it('still admits a known principal from a valid set and refuses one missing from an empty set', async () => {
+    const { post, reached } = await app({ trustedPrincipals: async () => TRUSTED, clock: () => NOW });
+    expect((await post('/protected', bundle('base'))).status).toBe(200);
+    const { post: postEmpty } = await app({ trustedPrincipals: async () => EMPTY, clock: () => NOW });
+    const r = await postEmpty('/protected', bundle('base'));
+    expect(r.status).toBe(403);
+    expect(r.body.codes).toEqual(['TRUST_PRINCIPAL_UNKNOWN']);
+    expect(reached).toHaveLength(1);
+  });
+
+  it('keeps refusing under strict-v1', async () => {
+    const { options } = strictOptions({ trustedPrincipals: () => undefined as any });
+    const { post, reached } = await app(options);
+    const r = await post('/protected', bundle('base'));
+    expect(r.status).toBe(503);
+    expect(r.body).toMatchObject({ admitted: false, profile: 'strict-v1' });
+    expect(reached).toHaveLength(0);
+  });
+
+  it('hands the refusal to onFailure when there is one', async () => {
+    const seen: string[][] = [];
+    const { post, reached } = await app({
+      trustedPrincipals: () => undefined as any,
+      clock: () => NOW,
+      onFailure: (_req, res, errors) => {
+        seen.push(errors);
+        res.status(418).json({ refused: true });
+      },
+    });
+    expect((await post('/protected', bundle('base'))).status).toBe(418);
+    expect(seen).toEqual([['The principal trust set is unavailable (CONFIG_INVALID_VALUE)']]);
     expect(reached).toHaveLength(0);
   });
 });
