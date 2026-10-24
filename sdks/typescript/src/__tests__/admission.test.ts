@@ -169,7 +169,7 @@ describe('admission API', () => {
     const huge = base();
     huge.bundle.responsible_principal_record.payload.human_id = 'x'.repeat(100_000);
     const result = await admitSignedBundleV2(huge, registry, { trust: VECTORS.trust_sets.principal, now });
-    for (const e of result.errors) expect(e.message.length).toBeLessThanOrEqual(501);
+    for (const e of result.errors) expect(e.message.length).toBeLessThanOrEqual(500);
     const set = VECTORS.trust_sets.principal;
     const text = JSON.stringify(result.errors);
     for (const key of set.principals[0].keys) expect(text).not.toContain(key.public_key_b64);

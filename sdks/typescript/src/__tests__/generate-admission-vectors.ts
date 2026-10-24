@@ -349,6 +349,13 @@ async function main() {
     strict: { profile: 'strict-v1', verifier_id: VERIFIER_ID },
     strict_120_s: { profile: 'strict-v1', verifier_id: VERIFIER_ID, max_session_duration_seconds: 120 },
     strict_other_verifier: { profile: 'strict-v1', verifier_id: 'verifier:other-api' },
+    strict_slh_dsa_only: { profile: 'strict-v1', verifier_id: VERIFIER_ID, verifier_policy: { accepted_pq_algs: ['slh-dsa-192f'] } },
+    strict_ml_dsa_rejected_by_advisory: { profile: 'strict-v1', verifier_id: VERIFIER_ID, verifier_policy: { advisory_rejected_algs: ['ml-dsa-65'] } },
+    strict_restated_defaults: {
+      profile: 'strict-v1',
+      verifier_id: VERIFIER_ID,
+      verifier_policy: { min_classical: 1, min_pq: 1, accepted_hash_algs: ['sha384', 'sha256'], max_key_age_days: 365, accepted_pq_algs: ['ml-dsa-65'], warn_classical_only_deprecated: true },
+    },
   };
 
   // The revocation snapshot of a bundle: every subject not_revoked, checked 30 s before `now`.
@@ -455,6 +462,9 @@ async function main() {
     // ── 11–12: signatures ──
     await strict('11_v1_bundle', '§4.2 P1', 'strict-v1 admits V2 bundles only; nothing else is evaluated.', 'v1_bundle', 'principal', rejectedUnverified(['PROFILE_V2_REQUIRED']), { revocation: null }),
     await strict('11_classical_only_bundle', '§4.2 P4', 'Classical-only signatures: the profile requires both components.', 'classical_only', 'principal', rejectedUnverified(['PROFILE_HYBRID_REQUIRED', 'VERIFICATION_FAILED'])),
+    await strict('14_profile_narrows_pq_algs', '§4.1', 'The operator accepts only SLH-DSA-192f: a bundle signed with ML-DSA-65 does not verify.', 'base', 'principal', rejectedUnverified(['VERIFICATION_FAILED']), { profile: 'strict_slh_dsa_only' }),
+    await strict('14_profile_advisory_rejects_ml_dsa', '§4.1', 'An advisory the operator applies rejects ML-DSA-65.', 'base', 'principal', rejectedUnverified(['VERIFICATION_FAILED']), { profile: 'strict_ml_dsa_rejected_by_advisory' }),
+    await strict('14_profile_restates_fixed_values', '§4.1', 'Restating the fixed values and narrowing to ML-DSA-65 keeps the base bundle admitted.', 'base', 'principal', ACCEPTED, { profile: 'strict_restated_defaults' }),
     await strict('12_pq_signature_present_and_invalid', '§5.1', 'The PQ signature over the manifest is present and invalid: verification fails in every mode.', 'pq_signature_invalid', 'principal', rejectedUnverified(['VERIFICATION_FAILED'])),
 
     // ── 13: revocation ──
@@ -535,6 +545,9 @@ async function main() {
       ['14_hybrid_preferred_tier', { verifier_policy: { risk_overrides: { high: 'hybrid_preferred' } } }, 'CONFIG_PROFILE_CONTRADICTION'],
       ['14_pq_only_tier', { verifier_policy: { risk_overrides: { low: 'pq_only' } } }, 'CONFIG_PROFILE_CONTRADICTION'],
       ['14_min_pq_zero', { verifier_policy: { min_pq: 0 } }, 'CONFIG_PROFILE_CONTRADICTION'],
+      ['14_min_classical_two', { verifier_policy: { min_classical: 2 } }, 'CONFIG_PROFILE_CONTRADICTION'],
+      ['14_hash_algs_changed', { verifier_policy: { accepted_hash_algs: ['sha256'] } }, 'CONFIG_PROFILE_CONTRADICTION'],
+      ['14_key_age_changed', { verifier_policy: { max_key_age_days: 30 } }, 'CONFIG_PROFILE_CONTRADICTION'],
       ['14_no_pq_algs', { verifier_policy: { accepted_pq_algs: [] } }, 'CONFIG_PROFILE_CONTRADICTION'],
       ['14_extra_classical_alg', { verifier_policy: { accepted_classical_algs: ['ed25519', 'ecdsa-p256'] } }, 'CONFIG_PROFILE_CONTRADICTION'],
       ['14_longer_policy_session', { verifier_policy: { max_session_duration_seconds: 600 } }, 'CONFIG_PROFILE_CONTRADICTION'],

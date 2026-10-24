@@ -72,7 +72,7 @@ For every composite signature it checks (the bundle signature over the manifest,
   "public_key_b64": "…", "verified": true }
 ```
 
-`signature` is `bundle`, `responsible_principal_record`, `agent_passport`, `intent`, `policy_decision` or `pq_checkpoints[<checkpoint_id>]`; `component` is `classical` or `pq`. A component whose key the verifier did not resolve (a classical key absent under `pq_only`) is not reported. These are the keys that actually verified the signatures, resolved exactly as the verifier resolved them; admission never resolves keys a second way.
+`signature` is `bundle`, `responsible_principal_record`, `agent_passport`, `intent`, `policy_decision` or `pq_checkpoints[<checkpoint_id>]`; `component` is `classical` or `pq`. A component whose key the verifier did not resolve (a classical key absent under `pq_only`) is not reported. These are the keys that actually verified the signatures, resolved exactly as the verifier resolved them; admission never resolves keys a second way. The list is defined for a verified bundle; for one that did not verify, implementations may stop at the first failure or go on, and admission does not use it.
 
 The **principal signatures** are `bundle` and `responsible_principal_record`.
 
@@ -130,13 +130,15 @@ The profile sets requirements, not defaults. Its verifier policy is:
 | `allow_v1_bundles`, `allow_classical_fallback_disable` | `false` | Only `false` |
 | `verifier_id` | the profile's | Only the same value |
 | `max_session_duration_seconds` | the profile's | From 1 to the profile's value; the smaller applies |
-| `min_classical`, `min_pq` | `1` | At least 1 |
+| `min_classical`, `min_pq` | `1` | Only `1`: a composite signature has one classical and one PQ component |
+| `accepted_hash_algs` | `["sha256", "sha384"]` | Only these two, in any order: verifiers check the bundle `hash_alg` by V2-4 |
+| `max_key_age_days` | `365` | Only `365`: verifiers only warn on key age |
 | `accepted_classical_algs` | `["ed25519"]` | A non-empty subset |
 | `accepted_pq_algs` | `["ml-dsa-65", "slh-dsa-192f"]` | A non-empty subset |
-| `accepted_hash_algs` | `["sha256", "sha384"]` | A non-empty subset |
 | `advisory_rejected_algs` | `[]` | Any list of strings |
-| `max_key_age_days` | `365` | Any integer from 0 (warnings only, as in V2-13) |
-| `warn_classical_only_deprecated` | `false` | Any boolean |
+| `warn_classical_only_deprecated` | `false` | Any boolean (warnings only) |
+
+Every field `verifier_policy` may change is one every verifier enforces the same way, so a profile never loads with a requirement some SDK would silently ignore or refuse.
 
 Configuration errors, raised when the profile is loaded:
 
@@ -144,7 +146,9 @@ Configuration errors, raised when the profile is loaded:
 |---|---|
 | A field outside the schema, at the top level or in `verifier_policy` | `CONFIG_UNKNOWN_FIELD` |
 | A value of the wrong type; `profile` not `"strict-v1"` | `CONFIG_INVALID_VALUE` |
-| `verifier_id` missing or empty; a maximum below 1 or above 300; a `verifier_policy` value that weakens the table above | `CONFIG_PROFILE_CONTRADICTION` |
+| `verifier_id` missing or empty; a maximum below 1 or above 300; a `verifier_policy` value the table above does not allow | `CONFIG_PROFILE_CONTRADICTION` |
+
+When a configuration has several problems, the code of any one of them may be reported.
 
 An adapter that enables the profile also rejects, with `CONFIG_PROFILE_CONTRADICTION`, a missing trust set or revocation source, and any of its own options that would weaken the profile (accepting requests without a bundle, its own verifier policy, a fail-open revocation check).
 

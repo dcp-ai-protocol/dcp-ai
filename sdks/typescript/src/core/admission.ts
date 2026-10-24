@@ -308,15 +308,23 @@ export function resolveStrictV1Profile(config: unknown): StrictV1Profile {
             hybridRequired(mode, `verifier_policy.risk_overrides.${tier}`);
           }
           break;
+        // Fields the profile fixes: a composite signature has one classical and one PQ component,
+        // verifiers check the bundle hash_alg by V2-4 and only warn on key age, so another value
+        // would be either weaker or not enforced by any verifier.
         case 'min_classical':
         case 'min_pq':
-          if (!isInteger(value) || value < 0) fail('CONFIG_INVALID_VALUE', `verifier_policy.${field} must be a non-negative integer`);
-          if ((value as number) < 1) fail('CONFIG_PROFILE_CONTRADICTION', `strict-v1 requires verifier_policy.${field} of at least 1`);
-          policy[field] = value as number;
+        case 'max_key_age_days':
+          if (!isInteger(value)) fail('CONFIG_INVALID_VALUE', `verifier_policy.${field} must be an integer`);
+          if (value !== policy[field]) fail('CONFIG_PROFILE_CONTRADICTION', `strict-v1 fixes verifier_policy.${field} at ${policy[field]}`);
+          break;
+        case 'accepted_hash_algs':
+          if (!isStringList(value)) fail('CONFIG_INVALID_VALUE', 'verifier_policy.accepted_hash_algs must be a list of strings');
+          if (new Set(value as string[]).size !== (value as string[]).length || (value as string[]).length !== 2 || !ALG_SUBSETS.accepted_hash_algs.every((alg) => (value as string[]).includes(alg))) {
+            fail('CONFIG_PROFILE_CONTRADICTION', 'strict-v1 fixes verifier_policy.accepted_hash_algs at sha256, sha384');
+          }
           break;
         case 'accepted_classical_algs':
-        case 'accepted_pq_algs':
-        case 'accepted_hash_algs': {
+        case 'accepted_pq_algs': {
           if (!isStringList(value)) fail('CONFIG_INVALID_VALUE', `verifier_policy.${field} must be a list of strings`);
           const allowed = ALG_SUBSETS[field];
           if ((value as string[]).length === 0 || (value as string[]).some((alg) => !allowed.includes(alg))) {
@@ -328,10 +336,6 @@ export function resolveStrictV1Profile(config: unknown): StrictV1Profile {
         case 'advisory_rejected_algs':
           if (!isStringList(value)) fail('CONFIG_INVALID_VALUE', 'verifier_policy.advisory_rejected_algs must be a list of strings');
           policy.advisory_rejected_algs = [...(value as string[])];
-          break;
-        case 'max_key_age_days':
-          if (!isInteger(value) || value < 0) fail('CONFIG_INVALID_VALUE', 'verifier_policy.max_key_age_days must be a non-negative integer');
-          policy.max_key_age_days = value as number;
           break;
         case 'warn_classical_only_deprecated':
           if (typeof value !== 'boolean') fail('CONFIG_INVALID_VALUE', 'verifier_policy.warn_classical_only_deprecated must be a boolean');
@@ -495,7 +499,7 @@ export interface AdmissionInput {
 }
 
 const MAX_MESSAGE = 500;
-const bounded = (message: string) => (message.length > MAX_MESSAGE ? `${message.slice(0, MAX_MESSAGE)}…` : message);
+const bounded = (message: string) => (message.length > MAX_MESSAGE ? `${message.slice(0, MAX_MESSAGE - 1)}…` : message);
 
 function sessionChecks(manifest: Record<string, unknown>, profile: StrictV1Profile, now: number, add: (c: AdmissionCode, m: string) => void) {
   const audience = manifest.intended_verifier;
