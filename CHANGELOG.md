@@ -8,6 +8,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Security
 
+- **Acceptance change: Ed25519 signatures with S >= L are now rejected** by the TypeScript SDK
+  (`Ed25519Provider.verify`, hence every V2 and composite signature, `@dcp-ai/express` and
+  `@dcp-ai/openclaw`; and `verifyObject`, hence `verifySignedBundle` V1) and by the reference
+  verifier (`tools/crypto.js`, hence `lib/verify.js` V1, `bin/dcp.js`, conformance and the
+  transparency-log gossip). RFC 8032 §5.1.7 requires 0 <= S < L, and TweetNaCl does not check it,
+  so it accepted S + k·L, another encoding of a valid signature (§8.4, malleability). Python, Go
+  and Rust already rejected them. TweetNaCl is still the verifier: the range is checked only on
+  input it accepts, so its errors for wrong types, sizes and base64 are unchanged, as are the
+  decoding of keys and R and the acceptance of weak keys. Signers produce S < L, so no newly
+  generated signature changes verdict; a stored signature with S >= L that an earlier version
+  accepted no longer verifies. The repository inventory found such signatures only in the
+  intentional negative review corpus; it does not cover external stored evidence. Evidence
+  verified before this change is not re-signed automatically: keep it as historical, with its hash
+  and the version that verified it, or sign it again.
+- **The same acceptance change in `dcp-ai verify` (`@dcp-ai/cli`) and the playground**, which
+  called TweetNaCl directly. `dcp-ai verify` checks S < L in its own V1 check of
+  `signature.sig_b64`, and V2 bundles get it from `@dcp-ai/sdk`, whose verifier it now uses (see
+  Changed). The historical `signature.classical.value` path had the check too when it was added;
+  that path has since been removed and its format is rejected. The playground checks it in
+  `verifyDetached`. The check is the SDK's, made only on input TweetNaCl accepts, so its errors
+  are unchanged.
 - The four V2 verifiers split on non-canonical encodings of a valid signature: with junk after
   the padding, extra padding, a newline inside, trailing bits set or no padding, TypeScript
   accepted every variant, Python and Go some, Rust none. Every `sig_b64` must now be canonical
@@ -133,6 +154,107 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `dcp_ai.v2.DenyListWorkers` and `deny_list_revocation_source(..., workers=...)`, opt-in: a budget
+  of real download threads for the Python deny-list helper (`max_workers` from 1 to 64,
+  `max_workers_per_tenant` optional, per object). Each download runs in a non-daemon thread of its
+  own, started after its slot is reserved and freeing it only when the download has really ended,
+  also after a timeout, a cancelled call, C3's supervisor deadline or a closed event loop; a call
+  that finds no free slot gets `REVOCATION_UNAVAILABLE` at once, with no queue and no connection.
+  The download, the body checks, the parsing and the errors are those without the option; a result
+  that arrives or is used after `timeout` is `REVOCATION_UNAVAILABLE`. `close()` refuses new
+  downloads without waiting for or stopping running ones; `stats()` has no URL, tenant or header. In
+  a forked process it refuses without touching the parent's lock. Process exit waits for a download
+  still running, as it does with `asyncio.to_thread`; nothing stops DNS, TLS or urllib. Without
+  `workers` nothing changes. The documentation of `timeout` is corrected: it bounds each socket
+  operation and the reading of the body, not DNS resolution or a status line that trickles in.
+- Revocation under the source supervisor (C3), opt-in, in `@dcp-ai/express`, `@dcp-ai/openclaw`
+  and `dcp_ai.fastapi.DCPVerifyMiddleware`: `supervise: { revocation: true }` /
+  `supervise={"revocation": True}`, refused until now, runs the strict-v1 revocation source under
+  the supervisor with `revocationTimeoutMs` / `revocation_timeout` as its deadline, then limited
+  to the timer range (an integer from 1 to 2147483647 ms; up to 2147483.647 s). `supervise` takes
+  the trust deadline, `revocation` or both, so revocation can be supervised with a static trust
+  set; trust and revocation calls share the supervisor's capacity, and a slot is freed only when
+  its source really settles. The responses do not change: a timeout, no free slot or a closed
+  supervisor give the `REVOCATION_UNAVAILABLE` a failing source gives (403 in Express and
+  FastAPI), and a `REVOCATION_INVALID` error counts only before the deadline. TypeScript sources
+  get `(subjects, { tenant, signal })`, `denyListRevocationSource` also aborts its fetch on that
+  signal, and telemetry reports `source: 'revocation'`; OpenClaw's `configureVerifier` refuses to
+  replace a supervisor with calls in flight whichever source it supervises. FastAPI needs an async
+  `revocation_source`. Behaviour change with the option only: a FastAPI source that suppresses its
+  cancellation gives `REVOCATION_UNAVAILABLE` at the deadline instead of its late snapshot. Not
+  bounded: work a source starts on its own, such as `deny_list_revocation_source`'s
+  `asyncio.to_thread` worker, whose I/O is not cancelled. Without the option nothing changes.
+- `dcp_ai.fastapi.DCPVerifyMiddleware`: a deadline and a capacity for an async `trusted_principals`,
+  opt-in. `SourceSupervisor(max_in_flight=..., max_in_flight_per_tenant=None)`, exported from
+  `dcp_ai.fastapi` only, and `source_supervisor` with `supervise={"trust_timeout": seconds}` (both
+  together). The source runs as a Task the supervisor owns. A trust set that arrives after the
+  deadline (`loop.time()`, checked on arrival and on use), a call with no free slot (no queue), a
+  closed supervisor or one bound to another event loop gives the same 503 as a failing source. A
+  slot is freed only when the Task really finishes. `close(drain_timeout)` and `stats()` are
+  provided. A static or synchronous `trusted_principals` with these options raises
+  `AdmissionConfigError`; so did `{"revocation": True}` in this first step, now accepted (see the
+  revocation entry above). One supervisor per event loop; it does not
+  stop a source that ignores cancellation or isolate CPU. Without these options nothing changes.
+- `@dcp-ai/express` and `@dcp-ai/openclaw`: a deadline and a capacity for a `trustedPrincipals`
+  function, opt-in. `createSourceSupervisor({ maxInFlight, maxInFlightPerTenant?, onSourceEvent? })`
+  makes a supervisor, and `sourceSupervisor` with `supervise: { trustTimeoutMs }` applies it (both
+  together, with `trustedPrincipals` as a function). The function then gets `{ tenant, signal }`.
+  A trust set that arrives after the deadline, measured on a monotonic clock when it arrives, is
+  not used, and neither is a call that finds no free slot (no queue) or a closed supervisor: the
+  result is the same as for a failing source (`TRUST_SOURCE_FAILED`, 503 in Express). A slot is
+  freed only when the function really settles. The capacity is per supervisor object, shareable
+  between both packages and their ESM and CJS builds. `close({ drainMs })` and `stats()` are
+  provided; counters stop at `Number.MAX_SAFE_INTEGER`. OpenClaw's `configureVerifier` refuses to
+  replace or remove a supervisor while a call that started under it is in progress (also before it
+  calls its source) or its source still runs, even after `close()`. It does not stop a source's
+  work or isolate CPU. Without these options nothing changes. In this first step
+  `supervise.revocation: true` was refused and revocation kept `revocationTimeoutMs`; it is now
+  accepted (see the revocation entry above).
+- `dcp_ai.fastapi.DCPVerifyMiddleware(max_body_bytes=...)`: an opt-in budget, in bytes, on the
+  request body (default `None`, no budget, as before; a positive integer, else
+  `AdmissionConfigError` `CONFIG_INVALID_VALUE`). The middleware then reads the body first, also
+  with the bundle in the header or `require_bundle=False`: a `Content-Length` over the budget, or
+  received bytes over it (no `Content-Length`, chunked, or a wrong one), get `413` without
+  receiving the rest, parsing, resolving trust, verifying or reaching the route; an invalid or
+  repeated `Content-Length` or a disconnect while sending gets `400`. A body within the budget is
+  handled as before and still reaches the route. It bounds the bytes received, not
+  decompression, JSON depth or time, and it is a deployment limit, not part of the protocol.
+  The option needs Starlette 0.28.0 or later, which passes a body read in the middleware on to
+  the route; with an older or unidentified Starlette it raises `AdmissionConfigError`
+  `CONFIG_INVALID_VALUE` when the middleware is built. The package's minimum versions are
+  unchanged, and without the option nothing is checked.
+- Admission: trusted principals and the `strict-v1` profile (`spec/profiles/admission`,
+  `docs/ADMISSION.md`). A verified bundle proves integrity and signature by the keys it lists; an
+  operator trust set (`schemas/v2/principal_trust_set.schema.json`) now lets a verifier admit a
+  bundle only when the keys that verified its principal signatures (RPR and manifest, classical
+  and PQ) are trusted, active keys of that `human_id`. `strict-v1`
+  (`schemas/v2/admission_profile.schema.json`) adds operator-fixed requirements: V2 only, hybrid
+  signatures for every tier, session binding, a signed `intended_verifier` equal to the
+  operator's `verifier_id`, a signed session of at most 300 s, and a revocation snapshot
+  (`schemas/v2/revocation_snapshot.schema.json`) at most 300 s old covering the agent and every
+  verified signer key. Its configuration can only tighten it; a weakening value is a
+  `CONFIG_PROFILE_CONTRADICTION`. Results keep `verified` and add `principal_trust`,
+  `profile_compliance`, `admitted`, `recorded_decision`, `trust_set_version`, coded `errors`, and
+  `action_authorized`, always `false`: admission does not authorize an action.
+  - SDKs: TypeScript (`admitSignedBundleV2`, `evaluateAdmissionV2`, `createPrincipalTrustStore`,
+    `resolveStrictV1Profile`, `revocationSubjects`, `revocationSnapshotFromDenyList`), with the same
+    functions in Python, Go and Rust. The four verifiers take an optional clock and report the
+    key each signature component was verified with (`signer_keys`).
+  - Integrations: `@dcp-ai/express` `dcpVerify`, `dcp_ai.fastapi` `DCPVerifyMiddleware` and
+    `@dcp-ai/openclaw` `configureVerifier` take `trustedPrincipals`, `profile`,
+    `revocationSource` and, in the middlewares, an operator `tenant` function. A request reaches
+    the route only when admitted. A trust function that throws or returns no valid trust set
+    (`undefined`, `null`, an invalid set) refuses the request: `503` in the middlewares,
+    `admitted: false` in OpenClaw. The Express cache keeps only the cryptographic verification,
+    keyed by the bundle, the policy and the tenant; trust, the profile and revocation are
+    evaluated on every request. `denyListRevocationSource` reads a complete deny list; a source
+    that fails or times out refuses the request.
+  - Reference verifier, server and CLI: `admitSignedBundle` in `lib/verify.js`, `POST /v2/admit`
+    configured by `DCP_TRUSTED_PRINCIPALS_FILE`, `DCP_ADMISSION_PROFILE_FILE` and
+    `DCP_REVOCATION_LIST_URL`, and `dcp admit-bundle`.
+  - `tests/interop/v2/admission_vectors.json`: 65 cases with hand-written expected outcomes and the
+    rule each checks, and 49 configuration cases, run by the four SDKs and by `npm run
+    conformance`.
 - Rust SDK: native V2 bundle building and signing, `dcp_ai::v2::bundle`. `build_bundle_v2(&rpr,
   &passport, &intent, &policy, &audit_entries, session_nonce)` checks each `payload_hash` and the
   `session_nonce` of every artifact and audit entry, and writes the manifest with both audit
@@ -227,6 +349,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `dcp-ai verify` (`@dcp-ai/cli`) verifies V2 bundles (`bundle.dcp_bundle_version` "2.0" or a
+  `bundle.manifest`) with the normative verifier: the envelope and the four signed payloads are
+  validated against `schemas/v2`, whose copies ship in the package, then `verifySignedBundleV2`
+  from `@dcp-ai/sdk` runs under `DEFAULT_VERIFIER_POLICY` with the Ed25519, ML-DSA-65 and
+  SLH-DSA-192f providers. The pre-normative envelope (top-level `dcp_version` "2.0" or
+  `bundle_manifest`, or `signature.binding: "composite"`) is rejected before anything else, also
+  when those markers sit on a V1 or a V2 bundle, and its `signature.classical.value` check is
+  gone, with no classical fallback. When `.dcp/keys/ed25519_public.key` exists it pins the
+  principal's signing key among the RPR `binding_keys` (an empty file is rejected); without it the
+  bundle's own keys are used, which checks the signatures, not trust or admission. V1 verification
+  is unchanged. `dcp-ai sign` is unchanged too: it appends to `signatures[]`, a format `verify`
+  does not read; V2 bundles are signed with `signBundleV2` or `dcp sign-bundle --composite`. The
+  package now requires `@dcp-ai/sdk` `^2.2.0` and declares `ajv` and `ajv-formats`.
+- `dcp-ai verify` (`@dcp-ai/cli`) exits 0 only when it prints VALID. On V1 files it now exits 1,
+  where it exited 0, when the Ed25519 signature is INVALID, when there is no key or no usable
+  signature (it prints "No public key available", also when the key is there and the signature is
+  missing or empty), and when the file is not a signed bundle (an object without a truthy
+  `bundle`, an array or a primitive). Those messages are unchanged, and a missing argument or
+  file, invalid JSON, base64 or a wrong size still exit 1 with their error. A script that took
+  exit 0 to mean "ran" must now expect 1 in those cases. On a V1 file exit 0 means that the
+  Ed25519 signature over the canonical bundle verified, nothing more; on a V2 bundle it means the
+  schemas and the normative verifier passed (above). Neither is an admission decision.
+- Go and Rust V2 verifiers: a policy that narrows `accepted_classical_algs` or `accepted_pq_algs`
+  was refused as a field they did not enforce, so every bundle failed under it; they now enforce
+  both lists as TypeScript and Python do (the classical list except under `pq_only`), and a
+  signature with an algorithm outside them fails as not accepted by the verifier policy. They
+  also accept `allow_v1_bundles: false`, which strict-v1 sets: they verify V2 bundles only, so
+  the field changes nothing for them. Policies that verified before behave the same.
 - The reference verifier (`lib/verify.js`, `dcp verify-bundle`, the verification server and its
   Docker image) depends on the workspace `@dcp-ai/sdk` (`file:sdks/typescript`, packed through
   `install-links` in `.npmrc`) until 2.2.0 is on npm, so it runs the verifier fixes of this release

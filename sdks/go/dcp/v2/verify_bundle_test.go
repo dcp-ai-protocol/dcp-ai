@@ -338,7 +338,7 @@ func TestSessionTimesMillisecondPrecision(t *testing.T) {
 		policy := DefaultVerifierPolicy()
 		policy.MaxSessionDurationSeconds = maxSession
 		result := &V2VerificationResult{}
-		verifySessionTimes(manifest, policy, result)
+		verifySessionTimes(manifest, policy, truncateToMillis(time.Now().Round(0)), result)
 		return result.Errors
 	}
 	issued, _ := time.Parse(time.RFC3339, "2026-10-21T00:00:00Z")

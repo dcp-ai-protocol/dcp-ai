@@ -26,3 +26,15 @@ pub mod blinded_rpr;
 pub mod multi_party_auth;
 pub mod error_codes;
 pub mod verify_bundle;
+pub mod admission;
+
+// Verification at a given instant and admission (spec/profiles/admission § 8).
+pub use admission::{
+    admit_signed_bundle_v2, evaluate_admission_v2, resolve_strict_v1_profile, revocation_subjects,
+    AdmissionConfigError, AdmissionError, AdmissionOptions, AdmissionResult, AdmitOptions, PrincipalTrust,
+    PrincipalTrustStore, ProfileCompliance, RevocationSubjects, StrictV1Profile, STRICT_V1, STRICT_V1_MAX_SECONDS,
+};
+pub use verify_bundle::{
+    verify_signed_bundle_v2, verify_signed_bundle_v2_at, verify_signed_bundle_v2_with_policy, SignerKeyUse,
+    V2VerificationResult,
+};

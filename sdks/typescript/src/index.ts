@@ -207,6 +207,7 @@ export {
   verifySessionBinding,
   generateSessionExpiry,
   isSessionExpired,
+  parseRfc3339,
 } from './core/session-nonce.js';
 
 // ── V2 Emergency Revocation (Gap #13) ──
@@ -306,7 +307,41 @@ export type { SignBundleV2Options, SignBundleV2ClassicalOnlyOptions } from './bu
 
 // ── V2 Verification ──
 export { verifySignedBundleV2, DEFAULT_VERIFIER_POLICY } from './core/verify-v2.js';
-export type { VerifyV2Result } from './core/verify-v2.js';
+export type { VerifyV2Result, VerifyV2Options, SignerKeyUse } from './core/verify-v2.js';
+
+// ── Admission: principal trust and the strict-v1 profile (spec/profiles/admission) ──
+export {
+  STRICT_V1,
+  STRICT_V1_MAX_SECONDS,
+  AdmissionConfigError,
+  createPrincipalTrustStore,
+  isPrincipalTrustStore,
+  resolveStrictV1Profile,
+  isStrictV1Profile,
+  revocationSubjects,
+  revocationSnapshotFromDenyList,
+  RevocationListError,
+  evaluateAdmissionV2,
+  admitSignedBundleV2,
+} from './core/admission.js';
+export type {
+  AdmissionCode,
+  AdmissionConfigCode,
+  AdmissionError,
+  AdmissionInput,
+  AdmissionResult,
+  AdmitOptions,
+  PrincipalTrust,
+  PrincipalTrustSet,
+  PrincipalTrustStore,
+  ProfileCompliance,
+  RevocationSnapshot,
+  RevocationStatus,
+  RevocationSubjects,
+  StrictV1Profile,
+  StrictV1ProfileConfig,
+  TrustedPrincipalKey,
+} from './core/admission.js';
 
 // ── CBOR Wire Format ──
 export {

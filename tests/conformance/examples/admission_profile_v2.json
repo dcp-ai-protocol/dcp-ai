@@ -1,0 +1,18 @@
+{
+  "profile": "strict-v1",
+  "verifier_id": "verifier:acme-api",
+  "max_session_duration_seconds": 60,
+  "max_revocation_age_seconds": 30,
+  "verifier_policy": {
+    "accepted_pq_algs": [
+      "ml-dsa-65"
+    ],
+    "advisory_rejected_algs": [
+      "slh-dsa-192f"
+    ],
+    "max_session_duration_seconds": 45,
+    "require_session_binding": true,
+    "default_mode": "hybrid_required",
+    "verifier_id": "verifier:acme-api"
+  }
+}

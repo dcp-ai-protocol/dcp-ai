@@ -8,6 +8,12 @@ hybrid signatures, session binding, manifest integrity, audit chain, key validit
 A V1 bundle (one Ed25519 signature) is accepted only when no risk tier of the
 policy requires a post-quantum signature.
 
+Admission (spec/profiles/admission): with `trusted_principals` the middleware also
+requires the bundle to be signed for a principal of the operator's trust set, with
+keys that trust set lists, and with `profile` (strict-v1) the profile's fixed
+requirements and a fresh revocation status from `revocation_source`. A request
+reaches the route only when the bundle is admitted.
+
 Usage:
     from dcp_ai.fastapi import DCPVerifyMiddleware, require_dcp
 
@@ -22,13 +28,23 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
+import functools
+import inspect
 import json
+import logging
+import math
+import re
+import time
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable, NamedTuple
 
+import starlette
 from fastapi import Request, HTTPException, Depends
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import ClientDisconnect
 from starlette.responses import JSONResponse
+from starlette.types import Receive, Scope, Send
 
 # The registry, the verifier policy and the V1 rule are shared with the LangChain
 # and OpenAI bridges (dcp_ai._verify_any).
@@ -39,9 +55,23 @@ from dcp_ai._verify_any import (
     resolve_verifier_policy as _resolve_verifier_policy,
     v1_refusal as _v1_refusal,
 )
+from dcp_ai.v2.admission import (
+    AdmissionConfigError,
+    PrincipalTrustStore,
+    create_principal_trust_store,
+    evaluate_admission_v2,
+    resolve_strict_v1_profile,
+    revocation_subjects,
+)
 from dcp_ai.v2.models import VerifierPolicy
+# Re-exported for the middleware's revocation_source argument.
+from dcp_ai.v2.revocation_source import RevocationSourceError, deny_list_revocation_source  # noqa: F401
 from dcp_ai.v2.verify import verify_signed_bundle_v2
 from dcp_ai.verify import verify_signed_bundle
+
+from ._source_supervisor import SourceSupervisor, seconds as _supervised_seconds
+
+_logger = logging.getLogger("dcp_ai.fastapi")
 
 
 @dataclass
@@ -66,6 +96,15 @@ class DCPAgentContext:
     mandate_id: str = ""
     mandate_valid: bool = False
     warnings: list[str] = field(default_factory=list)
+    # Admission (spec/profiles/admission § 5.2). Set only by a middleware configured with
+    # trusted_principals (and optionally profile); otherwise admitted stays False.
+    admitted: bool = False
+    principal_trust: str = "not_evaluated"
+    profile: str | None = None
+    profile_compliance: str = "not_evaluated"
+    recorded_decision: str | None = None
+    trust_set_version: str | None = None
+    action_authorized: bool = False  # always False: admission does not authorize an action
 
 
 _SIGNED_ARTIFACTS = ("responsible_principal_record", "agent_passport", "intent", "policy_decision")
@@ -103,6 +142,215 @@ def _v2_shape_errors(signed_bundle: dict[str, Any]) -> list[str]:
     return errors
 
 
+def _v2_agent_context(signed_bundle: dict[str, Any], details: dict[str, Any], warnings: list[str]) -> DCPAgentContext:
+    """The context of a verified V2 bundle."""
+    bundle = signed_bundle["bundle"]
+    passport_payload = bundle["agent_passport"]["payload"]
+    rpr_payload = bundle["responsible_principal_record"]["payload"]
+    return DCPAgentContext(
+        dcp_version="2.0",
+        agent_id=passport_payload.get("agent_id", ""),
+        human_id=rpr_payload.get("human_id", ""),
+        session_nonce=details.get("session_nonce") or "",
+        capabilities=passport_payload.get("capabilities", []),
+        risk_tier=passport_payload.get("risk_tier", "medium"),
+        status=passport_payload.get("status", "active"),
+        passport=passport_payload,
+        rpr=rpr_payload,
+        intent=bundle["intent"]["payload"],
+        policy_decision=bundle["policy_decision"]["payload"],
+        composite_sig_valid=details.get("signature_valid") is True,
+        session_binding_valid=bool(details.get("session_nonce")),
+        blinded_rpr=rpr_payload.get("blinded", False) is True,
+        lifecycle_state=passport_payload.get("status", "active"),
+        warnings=warnings,
+    )
+
+
+def _system_clock_ms() -> int:
+    return time.time_ns() // 1_000_000
+
+
+def _no_tenant(request: Request) -> str:
+    return ""
+
+
+def _optional_callable(value: Any, name: str) -> Callable[..., Any] | None:
+    if value is not None and not callable(value):
+        raise AdmissionConfigError("CONFIG_INVALID_VALUE", f"{name} must be a callable")
+    return value
+
+
+def _trust_source(value: Any) -> PrincipalTrustStore | Callable[..., Any] | None:
+    """A trust set (validated now) or a callable of the tenant that returns one."""
+    if value is None or callable(value):
+        return value
+    if isinstance(value, (dict, PrincipalTrustStore)):
+        return create_principal_trust_store(value)
+    raise AdmissionConfigError(
+        "CONFIG_INVALID_VALUE", "trusted_principals must be a trust set or a callable of the tenant that returns one"
+    )
+
+
+def _positive_seconds(value: Any, name: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+        raise AdmissionConfigError("CONFIG_INVALID_VALUE", f"{name} must be a positive number of seconds")
+    return float(value)
+
+
+# max_body_bytes reads the body in dispatch, and BaseHTTPMiddleware passes a body read there on
+# to the route from Starlette 0.28.0; before that the route would wait for a body already read.
+_STARLETTE_BODY_REPLAY = (0, 28)
+
+
+def _starlette_passes_the_body_on(version: Any) -> bool:
+    match = re.match(r"([0-9]+)\.([0-9]+)", version) if isinstance(version, str) else None
+    return match is not None and (int(match[1]), int(match[2])) >= _STARLETTE_BODY_REPLAY
+
+
+def _max_body_bytes(value: Any) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise AdmissionConfigError("CONFIG_INVALID_VALUE", "max_body_bytes must be a positive integer number of bytes")
+    version = getattr(starlette, "__version__", None)
+    if not _starlette_passes_the_body_on(version):
+        raise AdmissionConfigError(
+            "CONFIG_INVALID_VALUE",
+            f"max_body_bytes needs Starlette 0.28.0 or later (installed: {version!r}): "
+            "upgrade FastAPI/Starlette or leave max_body_bytes unset",
+        )
+    return value
+
+
+class _BodyTooLarge(Exception):
+    """The request body went over max_body_bytes."""
+
+
+def _budgeted(receive: Receive, limit: int) -> Receive:
+    """`receive` that raises _BodyTooLarge on the first message that takes the body bytes
+    received over `limit` (ASGI has already delivered that message), whatever Content-Length
+    says, and receives nothing after it."""
+    received = 0
+
+    async def budgeted_receive() -> Any:
+        nonlocal received
+        message = await receive()
+        if message["type"] == "http.request":
+            received += len(message.get("body", b""))
+            if received > limit:
+                raise _BodyTooLarge
+        return message
+
+    return budgeted_receive
+
+
+_CONTENT_LENGTH = re.compile(r"[0-9]+")
+
+
+def _body_refusal(status_code: int, error: str) -> JSONResponse:
+    return JSONResponse(status_code=status_code, content={"verified": False, "errors": [error]})
+
+
+def _is_async_callable(fn: Any) -> bool:
+    return inspect.iscoroutinefunction(fn) or inspect.iscoroutinefunction(getattr(fn, "__call__", None))
+
+
+def _is_async_source(fn: Any) -> bool:
+    """Whether a supervised trusted_principals is async, also through functools.partial."""
+    while isinstance(fn, functools.partial):
+        fn = fn.func
+    return _is_async_callable(fn)
+
+
+_SUPERVISE_KEYS = ("trust_timeout", "revocation")
+
+
+class _Supervision(NamedTuple):
+    supervisor: SourceSupervisor
+    #: The deadline of the supervised trusted_principals, or None when it is not supervised.
+    trust_timeout: float | None
+    #: The deadline of the supervised revocation_source, or None: it keeps asyncio.wait_for.
+    revocation_timeout: float | None
+
+
+def _supervision(
+    source_supervisor: Any, supervise: Any, trusted_principals: Any, revocation_source: Any, revocation_timeout: Any
+) -> _Supervision | None:
+    """
+    source_supervisor and supervise, which go together and supervise an async trusted_principals
+    (trust_timeout), the async revocation_source ({"revocation": True}, under revocation_timeout)
+    or both.
+    """
+    if source_supervisor is None and supervise is None:
+        return None
+    if source_supervisor is None or supervise is None:
+        raise AdmissionConfigError("CONFIG_PROFILE_CONTRADICTION", "source_supervisor and supervise go together")
+    if not isinstance(source_supervisor, SourceSupervisor):
+        raise AdmissionConfigError("CONFIG_INVALID_VALUE", "source_supervisor must be a dcp_ai.fastapi.SourceSupervisor")
+    if not isinstance(supervise, dict):
+        raise AdmissionConfigError("CONFIG_INVALID_VALUE", "supervise must be a dict")
+    for key in supervise:
+        if key not in _SUPERVISE_KEYS:
+            raise AdmissionConfigError("CONFIG_UNKNOWN_FIELD", f"Unknown supervise field: {str(key)[:64]!r}")
+    revocation = supervise.get("revocation", False)
+    if revocation is not True and revocation is not False:
+        raise AdmissionConfigError("CONFIG_INVALID_VALUE", "supervise['revocation'] must be True or False")
+    if "trust_timeout" not in supervise and not revocation:
+        raise AdmissionConfigError("CONFIG_INVALID_VALUE", "supervise needs trust_timeout, {'revocation': True} or both")
+    trust_timeout = None
+    if "trust_timeout" in supervise:
+        trust_timeout = _supervised_seconds(supervise["trust_timeout"], "supervise['trust_timeout']", minimum_inclusive=False)
+        if trusted_principals is None or not callable(trusted_principals) or isinstance(trusted_principals, PrincipalTrustStore):
+            raise AdmissionConfigError(
+                "CONFIG_PROFILE_CONTRADICTION", "supervise needs trusted_principals as an async callable: a static trust set has no source to supervise"
+            )
+        if not _is_async_source(trusted_principals):
+            raise AdmissionConfigError(
+                "CONFIG_INVALID_VALUE", "supervise needs an async trusted_principals: a synchronous one would run on the event loop, where no deadline holds"
+            )
+    supervised_revocation_timeout = None
+    if revocation:
+        if revocation_source is None:
+            raise AdmissionConfigError(
+                "CONFIG_PROFILE_CONTRADICTION",
+                "supervise['revocation'] needs a revocation_source (the strict-v1 profile): there is no revocation source to supervise",
+            )
+        supervised_revocation_timeout = _supervised_seconds(revocation_timeout, "revocation_timeout", minimum_inclusive=False)
+        if not _is_async_source(revocation_source):
+            raise AdmissionConfigError(
+                "CONFIG_INVALID_VALUE",
+                "supervise['revocation'] needs an async revocation_source: a synchronous one runs in a worker thread the supervisor would not own",
+            )
+    return _Supervision(source_supervisor, trust_timeout, supervised_revocation_timeout)
+
+
+class _SupervisedTrustUnavailable(Exception):
+    """The supervised trust source gave no trust set in time (code: the supervisor's reason)."""
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
+
+def _failed_verification(error: str) -> dict[str, Any]:
+    return {"verified": False, "errors": [error], "warnings": [], "details": {}}
+
+
+def _admission_refusal(result: dict[str, Any]) -> dict[str, Any]:
+    """The 403 body of a bundle that is not admitted: codes, and bounded messages."""
+    messages = [f"{e['code']}: {e['message']}" for e in result["errors"]]
+    return {
+        "verified": result["verified"],
+        "admitted": False,
+        "principal_trust": result["principal_trust"],
+        "profile": result["profile"],
+        "profile_compliance": result["profile_compliance"],
+        "codes": sorted({e["code"] for e in result["errors"]}),
+        "errors": _bounded_result({"errors": messages})["errors"],
+    }
+
+
 class DCPVerifyMiddleware(BaseHTTPMiddleware):
     """
     FastAPI middleware that verifies DCP signed bundles (V1 and V2).
@@ -114,6 +362,79 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
     `dcp_version` is stored but not enforced: whether V1 bundles are accepted
     is up to the policy (allow_v1_bundles and the V1 rule of _v1_refusal), and
     require_dcp_v2 restricts a route to V2.
+
+    Admission (spec/profiles/admission), keyword arguments only; without them the
+    middleware behaves as above:
+
+    - `trusted_principals`: the operator's trust set (a dict, validated here), or a
+      callable `(tenant) -> trust set` (sync or async), called on every admission and
+      validated with create_principal_trust_store. A synchronous one runs on the
+      event loop. It needs `require_bundle=True`: otherwise a caller whose bundle
+      would be refused could just omit it.
+    - `profile`: a strict-v1 configuration, loaded here with resolve_strict_v1_profile.
+      It needs `trusted_principals`, `revocation_source` and `require_bundle=True`,
+      and sets the verifier policy itself, so `verifier_policy` must not be given.
+    - `revocation_source`: required with `profile`; a callable `(subjects, tenant) ->
+      revocation snapshot | None` (sync, run in a worker thread, or async), called on
+      every admission of a verified bundle with revocation_subjects(...), under
+      `revocation_timeout` seconds (default 5). A timeout, an exception or None is
+      REVOCATION_UNAVAILABLE; an exception whose `code` is REVOCATION_INVALID is
+      REVOCATION_INVALID. A failure is never taken as not revoked.
+      deny_list_revocation_source(url) builds one over a deny list.
+    - `tenant`: a callable `(request) -> str` of the operator's, for instance reading
+      an authenticated principal its own middleware set on request.state; default
+      always "". It is passed to the trust and revocation callables.
+    - `clock`: a callable returning the time in milliseconds since the epoch, for
+      tests; default the system clock.
+
+    The trust set, profile, policy, revocation source and tenant come only from these
+    arguments, never from a request header, query or body. With `trusted_principals`
+    a request reaches the route only when its bundle is admitted (spec A1): V1
+    bundles never are (they carry no principal signature to anchor), and a V2 bundle
+    is verified at the clock's time under the profile's policy (or `verifier_policy`)
+    and then evaluated with evaluate_admission_v2. A refused request gets 403 with
+    {"verified", "admitted": false, "principal_trust", "profile",
+    "profile_compliance", "codes", "errors"}; when the tenant or the trust set cannot
+    be resolved, 503. An admitted one gets request.state.dcp_agent with the
+    admission fields set.
+
+    `max_body_bytes` (keyword only, default None: no budget, as before): a positive
+    integer. The middleware then reads the whole request body itself, before it looks
+    at the bundle header, parses JSON, resolves the tenant or trust set, verifies or
+    reaches the route, and also when the bundle comes in the header or is optional.
+    A body over the budget, by its Content-Length or by the bytes actually received
+    (with no Content-Length, a chunked body or a wrong one), gets 413 {"verified":
+    false, "errors": ["Request body exceeds max_body_bytes"]}, and no message after
+    the one that went over is received. A Content-Length that is not one run of
+    ASCII digits, or that appears more than once, gets 400 ["Invalid Content-Length"];
+    a client that disconnects while sending gets 400 ["Request body could not be
+    read"]. A body within the budget stays available to the route (request.body(),
+    json(), stream()), as Starlette's BaseHTTPMiddleware passes on a body read in
+    dispatch from Starlette 0.28.0: the option needs it, and with an older or
+    unidentified Starlette it raises AdmissionConfigError (CONFIG_INVALID_VALUE).
+    Without the option nothing is required. It bounds the body bytes received, not
+    their decompression, parse depth, time or a disconnect after the read, and it is
+    a deployment limit, not part of the DCP protocol.
+
+    `source_supervisor` and `supervise` (keyword only, together, default None: as before): a
+    SourceSupervisor and {"trust_timeout": seconds} give an async trusted_principals a deadline and
+    a slot of the supervisor's capacity; {"revocation": True} does the same for an async
+    revocation_source, with `revocation_timeout` (then at most 2147483.647 s) as its deadline; one
+    or both, sharing the capacity. A supervised source runs as a Task the supervisor owns; a value
+    that arrives after the deadline (loop.time(), checked when it arrives), a call that finds no
+    free slot, a closed supervisor or one bound to another event loop gives what a failing source
+    gives (503 for the trust set, 403 REVOCATION_UNAVAILABLE for revocation), and the slot stays
+    taken until the Task really finishes. A static or synchronous trusted_principals with
+    trust_timeout, or a synchronous revocation_source with {"revocation": True}, raises
+    AdmissionConfigError. It does not stop a source that ignores cancellation, threads a source
+    starts (deny_list_revocation_source fetches in asyncio.to_thread) or isolate CPU; one
+    supervisor per event loop.
+
+    Contradictions (`trusted_principals` or `profile` without `require_bundle=True`,
+    a profile without `trusted_principals` or `revocation_source`, or with
+    `verifier_policy`) raise AdmissionConfigError (CONFIG_PROFILE_CONTRADICTION), and
+    wrongly typed arguments AdmissionConfigError (CONFIG_INVALID_VALUE), when the
+    middleware is built.
     """
 
     def __init__(
@@ -123,14 +444,67 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
         header_name: str = "x-dcp-bundle",
         dcp_version: str = "2.0",
         verifier_policy: dict[str, Any] | VerifierPolicy | None = None,
+        *,
+        trusted_principals: Any = None,
+        profile: Any = None,
+        revocation_source: Callable[..., Any] | None = None,
+        revocation_timeout: float = 5.0,
+        tenant: Callable[[Request], str] | None = None,
+        clock: Callable[[], int] | None = None,
+        max_body_bytes: int | None = None,
+        source_supervisor: SourceSupervisor | None = None,
+        supervise: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(app)
+        self._max_body_bytes = _max_body_bytes(max_body_bytes)
+        self._supervision = _supervision(source_supervisor, supervise, trusted_principals, revocation_source, revocation_timeout)
         self.require_bundle = require_bundle
         self.header_name = header_name
         self.dcp_version = dcp_version
         self.verifier_policy = _resolve_verifier_policy(verifier_policy)
 
+        self._profile = None if profile is None else resolve_strict_v1_profile(profile)
+        self._trusted_principals = _trust_source(trusted_principals)
+        self._revocation_source = _optional_callable(revocation_source, "revocation_source")
+        self._revocation_timeout = _positive_seconds(revocation_timeout, "revocation_timeout")
+        self._tenant = _optional_callable(tenant, "tenant") or _no_tenant
+        self._given_clock = _optional_callable(clock, "clock")
+        self._clock = self._given_clock or _system_clock_ms
+        if self._profile is not None:
+            if self._trusted_principals is None:
+                raise AdmissionConfigError("CONFIG_PROFILE_CONTRADICTION", "strict-v1 requires trusted_principals")
+            if self._revocation_source is None:
+                raise AdmissionConfigError("CONFIG_PROFILE_CONTRADICTION", "strict-v1 requires a revocation_source")
+            if verifier_policy is not None:
+                raise AdmissionConfigError(
+                    "CONFIG_PROFILE_CONTRADICTION",
+                    "strict-v1 sets its own verifier policy; do not pass verifier_policy",
+                )
+            if not require_bundle:
+                raise AdmissionConfigError(
+                    "CONFIG_PROFILE_CONTRADICTION",
+                    "strict-v1 requires require_bundle=True: a request without a bundle must not reach the route",
+                )
+        elif self._revocation_source is not None:
+            raise AdmissionConfigError("CONFIG_INVALID_VALUE", "revocation_source is evaluated under a profile only")
+        if self._trusted_principals is not None and not require_bundle:
+            # Otherwise a caller whose bundle would be refused just omits it.
+            raise AdmissionConfigError(
+                "CONFIG_PROFILE_CONTRADICTION",
+                "trusted_principals requires require_bundle=True: a request without a bundle must not reach the route",
+            )
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if self._max_body_bytes is not None and scope["type"] == "http":
+            receive = _budgeted(receive, self._max_body_bytes)
+        await super().__call__(scope, receive, send)
+
     async def dispatch(self, request: Request, call_next: Any) -> Any:
+        if self._max_body_bytes is not None:
+            refusal = await self._read_body_within_budget(request)
+            if refusal is not None:
+                return refusal
+
         signed_bundle = None
 
         header_value = request.headers.get(self.header_name)
@@ -156,6 +530,13 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
                 )
             return await call_next(request)
 
+        if self._trusted_principals is not None:
+            refusal = await self._admit(request, signed_bundle)
+            if refusal is not None:
+                return refusal
+            return await call_next(request)
+
+        clock = self._given_clock
         version = _detect_version(signed_bundle)
 
         if version == "2.0":
@@ -164,7 +545,12 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
                 result = {"verified": False, "errors": errors, "warnings": [], "details": {}}
             else:
                 try:
-                    result = await verify_signed_bundle_v2(signed_bundle, _REGISTRY, self.verifier_policy)
+                    if clock is None:
+                        result = await verify_signed_bundle_v2(signed_bundle, _REGISTRY, self.verifier_policy)
+                    else:
+                        result = await verify_signed_bundle_v2(
+                            signed_bundle, _REGISTRY, self.verifier_policy, now_ms=clock()
+                        )
                 except RecursionError:
                     result = {"verified": False, "errors": ["Signed bundle is nested too deeply"], "warnings": []}
             # Errors and warnings carry bundle text: bounded and escaped, as the bridges return them.
@@ -180,29 +566,7 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
                     },
                 )
 
-            details = result["details"]
-            bundle = signed_bundle["bundle"]
-            passport_payload = bundle["agent_passport"]["payload"]
-            rpr_payload = bundle["responsible_principal_record"]["payload"]
-
-            request.state.dcp_agent = DCPAgentContext(
-                dcp_version="2.0",
-                agent_id=passport_payload.get("agent_id", ""),
-                human_id=rpr_payload.get("human_id", ""),
-                session_nonce=details.get("session_nonce") or "",
-                capabilities=passport_payload.get("capabilities", []),
-                risk_tier=passport_payload.get("risk_tier", "medium"),
-                status=passport_payload.get("status", "active"),
-                passport=passport_payload,
-                rpr=rpr_payload,
-                intent=bundle["intent"]["payload"],
-                policy_decision=bundle["policy_decision"]["payload"],
-                composite_sig_valid=details.get("signature_valid") is True,
-                session_binding_valid=bool(details.get("session_nonce")),
-                blinded_rpr=rpr_payload.get("blinded", False) is True,
-                lifecycle_state=passport_payload.get("status", "active"),
-                warnings=bounded["warnings"],
-            )
+            request.state.dcp_agent = _v2_agent_context(signed_bundle, result["details"], bounded["warnings"])
         elif version == "1.0":
             refusal = _v1_refusal(self.verifier_policy, signed_bundle.get("bundle"))
             if refusal:
@@ -247,6 +611,143 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
             )
 
         return await call_next(request)
+
+    async def _read_body_within_budget(self, request: Request) -> JSONResponse | None:
+        """None once the whole body is read within max_body_bytes, which Starlette then keeps
+        for request.json() below and for the route; else the refusal."""
+        limit = self._max_body_bytes
+        lengths = request.headers.getlist("content-length")
+        if lengths:
+            if len(lengths) != 1 or not _CONTENT_LENGTH.fullmatch(lengths[0]):
+                return _body_refusal(400, "Invalid Content-Length")
+            declared = lengths[0].lstrip("0") or "0"
+            if len(declared) > len(str(limit)) or int(declared) > limit:
+                return _body_refusal(413, "Request body exceeds max_body_bytes")
+        try:
+            await request.body()  # through _budgeted: stops after the first message over the budget
+        except _BodyTooLarge:
+            return _body_refusal(413, "Request body exceeds max_body_bytes")
+        except ClientDisconnect:
+            return _body_refusal(400, "Request body could not be read")
+        return None
+
+    # ── Admission (spec/profiles/admission § 5, § 6) ──
+
+    async def _admit(self, request: Request, signed_bundle: Any) -> JSONResponse | None:
+        """None when the bundle is admitted (and request.state.dcp_agent set), else the refusal."""
+        now = self._clock()
+        try:
+            tenant = self._tenant(request)
+            if inspect.isawaitable(tenant):
+                tenant = await tenant
+            if not isinstance(tenant, str):
+                raise TypeError("the tenant callable did not return a string")
+            trust = await self._load_trust(tenant)
+        except Exception as exc:  # the operator's tenant or trust source failed: fail closed
+            _logger.error("DCP admission refused a request: the tenant or trust set could not be resolved (%s)",
+                          getattr(exc, "code", type(exc).__name__))
+            return JSONResponse(
+                status_code=503,
+                content={"verified": False, "admitted": False, "errors": ["The principal trust set is unavailable"]},
+            )
+
+        profile = self._profile
+        bundle = signed_bundle.get("bundle") if isinstance(signed_bundle, dict) else None
+        if profile is not None and not (isinstance(bundle, dict) and bundle.get("dcp_bundle_version") == "2.0"):
+            verification = _failed_verification("strict-v1 admits V2 bundles only")  # P1: not verified at all
+        else:
+            verification = await self._verify_for_admission(signed_bundle, now)
+        revocation = None
+        if profile is not None and verification.get("verified") is True:
+            revocation = await self._revocation_snapshot(revocation_subjects(signed_bundle, verification), tenant)
+        result = evaluate_admission_v2(
+            signed_bundle, verification, profile=profile, trust=trust, revocation=revocation, now_ms=now
+        )
+        if not result["admitted"]:
+            return JSONResponse(status_code=403, content=_admission_refusal(result))
+
+        context = _v2_agent_context(signed_bundle, verification["details"], _bounded_result(verification)["warnings"])
+        context.admitted = True
+        context.principal_trust = result["principal_trust"]
+        context.profile = result["profile"]
+        context.profile_compliance = result["profile_compliance"]
+        context.recorded_decision = result["recorded_decision"]
+        context.trust_set_version = result["trust_set_version"]
+        context.action_authorized = False
+        request.state.dcp_agent = context
+        return None
+
+    async def _load_trust(self, tenant: str) -> PrincipalTrustStore:
+        source = self._trusted_principals
+        if isinstance(source, PrincipalTrustStore):
+            return source
+        if self._supervision is not None and self._supervision.trust_timeout is not None:
+            supervisor, trust_timeout = self._supervision.supervisor, self._supervision.trust_timeout
+            status, value = await supervisor._run(tenant, trust_timeout, lambda: source(tenant))  # type: ignore[operator]
+            if status != "ok":
+                # A source that failed, cancelled itself, ran out of time, found no slot or a closed
+                # supervisor: the request gets the 503 of a failing source, never a cancellation.
+                raise _SupervisedTrustUnavailable("TRUST_SOURCE_FAILED" if status == "failed" else status)
+            return create_principal_trust_store(value)
+        trust_set = source(tenant)  # type: ignore[operator]
+        if inspect.isawaitable(trust_set):
+            trust_set = await trust_set
+        return create_principal_trust_store(trust_set)
+
+    async def _verify_for_admission(self, signed_bundle: Any, now: int) -> dict[str, Any]:
+        if not isinstance(signed_bundle, dict):
+            return _failed_verification("Signed bundle is not an object")
+        if _detect_version(signed_bundle) == "1.0":
+            return _failed_verification(
+                "V1 bundles are not admitted: they carry no principal signature to anchor in a trust set"
+            )
+        errors = _v2_shape_errors(signed_bundle)
+        if errors:
+            return {"verified": False, "errors": errors, "warnings": [], "details": {}}
+        policy = self._profile.policy if self._profile is not None else self.verifier_policy
+        try:
+            return await verify_signed_bundle_v2(signed_bundle, _REGISTRY, policy, now_ms=now)
+        except RecursionError:
+            return _failed_verification("Signed bundle is nested too deeply")
+
+    async def _revocation_snapshot(self, subjects: dict[str, list[str]], tenant: str) -> Any:
+        """The source's snapshot; None when it cannot answer (never "not revoked")."""
+        if self._supervision is not None and self._supervision.revocation_timeout is not None:
+            return await self._supervised_revocation_snapshot(subjects, tenant)
+        try:
+            return await asyncio.wait_for(self._ask_revocation_source(subjects, tenant), self._revocation_timeout)
+        except Exception as exc:  # a timeout or the source's own failure
+            if getattr(exc, "code", None) == "REVOCATION_INVALID":
+                return {"source_error": "invalid"}
+            _logger.warning("DCP admission: the revocation source did not answer (%s)",
+                            getattr(exc, "code", type(exc).__name__))
+            return None
+
+    async def _supervised_revocation_snapshot(self, subjects: dict[str, list[str]], tenant: str) -> Any:
+        """Under {"revocation": True}: the snapshot only when it arrives in time, else None."""
+        supervisor, revocation_timeout = self._supervision.supervisor, self._supervision.revocation_timeout  # type: ignore[union-attr]
+        source = self._revocation_source
+        status, value = await supervisor._run(tenant, revocation_timeout, lambda: source(subjects, tenant))  # type: ignore[arg-type, misc]
+        if status == "ok":
+            return value
+        # A source that failed, cancelled itself, ran out of time, found no slot or a closed
+        # supervisor is unavailable, never "not revoked"; REVOCATION_INVALID only when that error
+        # arrived in time (a late one is a timeout).
+        if status == "failed" and getattr(value, "code", None) == "REVOCATION_INVALID":
+            return {"source_error": "invalid"}
+        # Only the supervisor's fixed status, never the source's code, message or type name.
+        _logger.warning("DCP admission: the revocation source did not answer (%s)", status)
+        return None
+
+    async def _ask_revocation_source(self, subjects: dict[str, list[str]], tenant: str) -> Any:
+        source = self._revocation_source
+        if _is_async_callable(source):
+            snapshot = source(subjects, tenant)  # type: ignore[misc]
+        else:
+            snapshot = await asyncio.to_thread(source, subjects, tenant)  # type: ignore[arg-type]
+        if inspect.isawaitable(snapshot):
+            snapshot = await snapshot
+        return snapshot
 
 
 async def require_dcp(request: Request) -> DCPAgentContext:

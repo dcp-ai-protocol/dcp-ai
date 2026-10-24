@@ -124,9 +124,61 @@ The result carries the verifier's `errors` and `warnings`, `resolved_tier` (the 
 
 ### What "verified" means
 
-A verified bundle is internally consistent and signed by the keys it lists itself: the RPR `binding_keys` for the bundle signature, the passport keys for the agent's artifacts. It does not prove who the principal is: anyone can create keys and an RPR naming any `human_id`. That needs the verifier to pin the principal's trusted keys, and this plugin has no such option yet. A verified bundle can also be replayed until its session expires; the operator policy's `require_audience_binding` with a `verifier_id` (the bundle's `manifest.intended_verifier` must name it) and `require_session_expiry` / `max_session_duration_seconds` limit that.
+A verified bundle is internally consistent and signed by the keys it lists itself: the RPR `binding_keys` for the bundle signature, the passport keys for the agent's artifacts. It does not prove who the principal is: anyone can create keys and an RPR naming any `human_id`. For that, configure trusted principals (next section). A verified bundle can also be replayed until its session expires; the operator policy's `require_audience_binding` with a `verifier_id` (the bundle's `manifest.intended_verifier` must name it) and `require_session_expiry` / `max_session_duration_seconds` limit that, without making it single-use.
+
+### Trusted principals and strict-v1
+
+```typescript
+import { configureVerifier, denyListRevocationSource } from '@dcp-ai/openclaw';
+
+configureVerifier({
+  trustedPrincipals: trustSet,                     // or () => trust set, read on every call
+  profile: { profile: 'strict-v1', verifier_id: 'agent-gateway' },
+  revocationSource: denyListRevocationSource({ url: 'https://revocation.acme.example/.well-known/dcp-revocations.json' }),
+});
+```
+
+With `trustedPrincipals`, the result adds `admitted`, `principal_trust`, `profile`, `profile_compliance`, `codes`, `recorded_decision`, `trust_set_version` and `action_authorized` (always `false`), and names the agent and principal only for an admitted bundle (`docs/ADMISSION.md`, `spec/profiles/admission`). `verified` keeps its meaning, the verifier's verdict. Under the profile the model's `verifier_policy` parameter is refused, even a stricter one, and parameters the tool does not define (a trust set, an audience, a revocation snapshot) are ignored. `configureVerifier` throws `AdmissionConfigError` on a contradiction (a profile with `verifierPolicy`, or without trusted principals or a revocation source) and keeps the previous configuration. A `trustedPrincipals` function that throws, or returns `undefined`, `null` or an invalid trust set, gives `admitted: false` with the reason in `errors`; the tool does not throw. Runnable: `examples/strict-v1.mjs`.
 
 The tests run every case of `tests/interop/v2/bundle_vectors.json`, each under the operator policy with its `verifier_policy_overrides`.
+
+### Supervising the trust source
+
+```typescript
+import { configureVerifier, createSourceSupervisor } from '@dcp-ai/openclaw';
+
+const supervisor = createSourceSupervisor({ maxInFlight: 16 });
+configureVerifier({
+  trustedPrincipals: ({ tenant, signal }) => loadTrustSet(tenant, { signal }),
+  sourceSupervisor: supervisor,
+  supervise: { trustTimeoutMs: 2000 },
+});
+```
+
+**Deadline, capacity and scope.**
+
+- The function gets `{ tenant, signal }`. A trust set that arrives after `trustTimeoutMs` (an integer from 1 to 2147483647), measured on a monotonic clock when it arrives, is not used. The call then gives the same `admitted: false` as a failing source (`The trusted principals are unavailable (TRUST_SOURCE_FAILED)`).
+- At most `maxInFlight` calls run at once, with no queue. **A slot is freed only when the function really settles**: a source that never settles keeps its slot until the process restarts.
+- The capacity is per supervisor object, and a supervisor created by `@dcp-ai/express`, ESM or CJS, can be shared.
+- A Node process with nothing else pending stays alive until the deadline answers.
+- With the strict-v1 profile, `supervise: { revocation: true }` runs the `revocationSource` under the same supervisor, with `revocationTimeoutMs` as its deadline (then an integer from 1 to 2147483647). `supervise` takes `trustTimeoutMs`, `revocation: true` or both, and `revocation: true` works with a static trust set.
+  - The source gets `(subjects, { tenant, signal })`, and each answer gives the result it gives without supervision.
+  - `null`, a failure, a timeout, no free slot and a closed supervisor give `admitted: false` with `codes: ["REVOCATION_UNAVAILABLE"]`. `REVOCATION_INVALID` counts only before the deadline.
+  - Trust and revocation calls share the supervisor's slots.
+  - `denyListRevocationSource` also aborts its fetch when the supervisor's `signal` aborts.
+  - Without it, revocation keeps `revocationTimeoutMs` as before.
+
+**Reconfiguring.**
+
+- `configureVerifier` may keep the same supervisor with a new trust set, profile, deadline or choice of sources: its counters stay, and a call keeps the deadline it started with.
+- It throws `AdmissionConfigError` (`CONFIG_PROFILE_CONTRADICTION`), keeping the previous configuration, when it would replace or remove a supervisor that still has calls in flight, whichever source it supervises. A call counts from the moment `executeVerifyBundle` starts, so also while it still verifies the bundle and has not called its source yet, and its slot counts until its source settles. That holds even after `supervisor.close({ drainMs })` returned with calls still in flight: closing refuses new calls but frees no slot. Replace it once `supervisor.stats().inFlight` is 0, or restart the process.
+- The model's parameters cannot set any of this.
+
+**What it does not do.** The same limits as in `@dcp-ai/express`:
+
+- it does not stop a function's work, bound the work it starts on its own, or isolate the CPU of an observer or a source;
+- `onSourceEvent` must be fast; one call at a time, the rest dropped and counted. A promise or thenable it returns is assimilated as `Promise.resolve` does, so a thenable resolved with a pending promise keeps it busy. Promises a thenable starts and does not return are out of reach.
+- Counters stop at `Number.MAX_SAFE_INTEGER`.
 
 ## Concept Mapping: OpenClaw → DCP
 

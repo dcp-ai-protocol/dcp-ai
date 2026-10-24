@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/responsible_principal_record.schema.json",
+  "title": "ResponsiblePrincipalRecordV2",
+  "description": "DCP v2.0 Responsible Principal Record. Multi-key, session-bound.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dcp_version", "human_id", "session_nonce", "legal_name",
+    "entity_type", "jurisdiction", "liability_mode", "override_rights",
+    "issued_at", "expires_at", "binding_keys"
+  ],
+  "properties": {
+    "dcp_version": {
+      "type": "string",
+      "const": "2.0"
+    },
+    "human_id": {
+      "type": "string",
+      "minLength": 6
+    },
+    "session_nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "legal_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "entity_type": {
+      "type": "string",
+      "enum": ["natural_person", "organization"]
+    },
+    "jurisdiction": {
+      "type": "string",
+      "minLength": 2
+    },
+    "liability_mode": {
+      "type": "string",
+      "enum": ["owner_responsible"]
+    },
+    "override_rights": {
+      "type": "boolean"
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "contact": {
+      "type": ["string", "null"]
+    },
+    "binding_keys": {
+      "type": "array",
+      "items": { "$ref": "key_entry.schema.json" },
+      "minItems": 1
+    },
+    "pii_salt": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "32 bytes from a CSPRNG as lowercase hex. Salts pii_hash (spec §12.1); signed with the full RPR and never published. Required to blind the record."
+    }
+  }
+}

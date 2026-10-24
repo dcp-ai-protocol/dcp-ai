@@ -24,6 +24,7 @@ go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
 | ドメイン分離 | — | Yes |
 | デュアルハッシュ (SHA-256 + SHA3-256) | — | Yes |
 | バンドル検証 | Yes | Yes |
+| アドミッション: プリンシパルの信頼セット + `strict-v1` プロファイル (spec/profiles/admission) | — | Yes |
 | バンドル構築と署名 | — | Yes |
 | セキュリティティア計算 | — | Yes |
 | 所有証明 | — | Yes |
@@ -162,6 +163,21 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 | `v2.ComputeSecurityTier(input)` | 適応型セキュリティティア（routine/standard/elevated/maximum）と検証モード・チェックポイント間隔を計算（spec §14.2）。未知の値は `elevated` として扱う |
 | `v2.SecurityTierInputFromPayloads(intent, policyDecision)` | デコード済みの intent と PolicyDecision のペイロードからティア入力を作成（`risk_score` は PolicyDecision から取得。欠落しているか 0〜1000 の整数でない場合は未知を表す `RiskScore: -1` になる） |
 | `v2.EffectiveVerificationMode(policyMode, tier)` | ポリシーのモードとティアのモードのうち厳しい方。`pq_only` は変わらない |
+
+### アドミッション: プリンシパルの信頼と strict-v1
+
+検証済みのバンドルが証明するのは完全性と署名であり、プリンシパルが誰かではありません。アドミッション ([spec/profiles/admission](../../spec/profiles/admission/README.md)、ガイドは [docs/ADMISSION.md](../../docs/ADMISSION.md)) は、各プリンシパルの鍵を固定するオペレーターの信頼セットと、オペレーターが固定する `strict-v1` プロファイル (ハイブリッド署名、署名済みの宛先、最大 300 秒の署名済みセッション、最大 300 秒前の失効スナップショット) を追加します。ネットワーク I/O は行わず、アクションを許可することもありません: `ActionAuthorized` は常に `false` です。読み込めない信頼セットやプロファイルは `*v2.AdmissionConfigError` (`Code`) を返します。
+
+| 関数 | 説明 |
+|---|---|
+| `v2.VerifySignedBundleV2At(reg, json, policy, now)` | 指定した時刻で検証し、署名鍵 (`signer_keys`) を報告します |
+| `v2.NewPrincipalTrustStore(json)` | 信頼セットを読み込んで検証します |
+| `v2.ResolveStrictV1Profile(json)` | `strict-v1` プロファイルを読み込んで検証します (読み取り専用) |
+| `v2.RevocationSubjects(json, verification)` | 失効ソースが答えるべき `agent_id` と検証済みの kid |
+| `v2.EvaluateAdmissionV2(json, verification, opts)` | 検証結果からアドミッションを評価します (暗号処理も I/O もありません) |
+| `v2.AdmitSignedBundleV2(reg, json, opts)` | プロファイルのポリシーで検証して評価します |
+
+例を含む完全な説明は[英語の README](README.md#admission-principal-trust-and-strict-v1)にあります。
 
 ### 委任チェーン (DCP-09 §3.5)
 

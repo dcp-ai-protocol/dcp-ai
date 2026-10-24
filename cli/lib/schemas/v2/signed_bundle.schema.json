@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/signed_bundle.schema.json",
+  "title": "SignedBundleV2",
+  "description": "DCP v2.0 Signed Bundle. Composite signature over the manifest, not the entire bundle.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["bundle", "signature"],
+  "properties": {
+    "bundle": {
+      "type": "object",
+      "required": [
+        "dcp_bundle_version", "manifest",
+        "responsible_principal_record", "agent_passport",
+        "intent", "policy_decision", "audit_entries"
+      ],
+      "properties": {
+        "dcp_bundle_version": {
+          "type": "string",
+          "const": "2.0"
+        },
+        "manifest": {
+          "$ref": "bundle_manifest.schema.json"
+        },
+        "responsible_principal_record": {
+          "$ref": "signed_payload.schema.json"
+        },
+        "agent_passport": {
+          "$ref": "signed_payload.schema.json"
+        },
+        "intent": {
+          "$ref": "signed_payload.schema.json"
+        },
+        "policy_decision": {
+          "$ref": "signed_payload.schema.json"
+        },
+        "audit_entries": {
+          "type": "array",
+          "items": {
+            "$ref": "audit_entry.schema.json"
+          }
+        },
+        "pq_checkpoints": {
+          "type": "array",
+          "items": {
+            "$ref": "pq_checkpoint.schema.json"
+          }
+        }
+      }
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hash_alg", "created_at", "signer", "manifest_hash", "composite_sig"],
+      "properties": {
+        "hash_alg": {
+          "type": "string",
+          "enum": ["sha256", "sha256+sha3-256"]
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "signer": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "id", "kids"],
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["human", "organization"]
+            },
+            "id": {
+              "type": "string",
+              "minLength": 6
+            },
+            "kids": {
+              "type": "array",
+              "items": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+              "minItems": 1
+            }
+          }
+        },
+        "manifest_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "composite_sig": {
+          "$ref": "composite_signature.schema.json"
+        }
+      }
+    }
+  }
+}

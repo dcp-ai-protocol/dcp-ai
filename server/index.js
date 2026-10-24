@@ -16,6 +16,7 @@
  *   GET  /v2/keys/:kid                        — Key registry lookup
  *   POST /v2/keys/rotate                      — Key rotation with PoP
  *   POST /v2/emergency-revoke                 — Emergency revocation (panic button)
+ *   POST /v2/admit                            — Admission: trusted principals, strict-v1 (spec/profiles/admission)
  *
  * Phase 3 Endpoints:
  *   GET  /v2/policy                           — Current verifier policy (Phase 3)
@@ -29,6 +30,13 @@
  * Environment:
  *   PORT, OPERATOR_TOKEN, VERIFIER_MODE, ALLOW_V1_BUNDLES,
  *   TRUST_PROXY — "true" behind a proxy that appends X-Forwarded-For (rate limiting)
+ *   DCP_TRUSTED_PRINCIPALS_FILE — trust set (schemas/v2/principal_trust_set.schema.json) for
+ *     POST /v2/admit; re-read when the file changes
+ *   DCP_ADMISSION_PROFILE_FILE — strict-v1 profile (schemas/v2/admission_profile.schema.json);
+ *     needs DCP_TRUSTED_PRINCIPALS_FILE and DCP_REVOCATION_LIST_URL
+ *   DCP_REVOCATION_LIST_URL — complete deny list in the revocation service's
+ *     /.well-known/dcp-revocations.json format; DCP_REVOCATION_LIST_AUTHORIZATION — optional
+ *     Authorization header for it; DCP_REVOCATION_TIMEOUT_MS — default 5000
  */
 import http from "http";
 import crypto from "crypto";
@@ -37,9 +45,12 @@ import path from "path";
 import { fileURLToPath } from "url";
 import Ajv from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
-import { DCP_CONTEXTS, DEFAULT_VERIFIER_POLICY, verifyKeyRotation } from "@dcp-ai/sdk";
+import {
+  DCP_CONTEXTS, DEFAULT_VERIFIER_POLICY, createPrincipalTrustStore, resolveStrictV1Profile, verifyKeyRotation,
+} from "@dcp-ai/sdk";
 import {
   verifySignedBundle, isV2Bundle, verifyCompositeSig, v2Registry, isCanonicalB64, KEY_BYTES, SIG_BYTES,
+  admitSignedBundle, denyListRevocationSource,
 } from "../lib/verify.js";
 import { parseBody, getClientIp, isOperator, rateLimiter } from "../lib/http.js";
 import { computeSecurityTier } from "../lib/security-tier.js";
@@ -160,6 +171,65 @@ if (process.env.VERIFIER_MODE) {
   setVerifierMode(process.env.VERIFIER_MODE);
 }
 if (process.env.ALLOW_V1_BUNDLES === "false") VERIFIER_POLICY.allow_v1_bundles = false;
+
+// ── Admission (spec/profiles/admission): operator files and URLs only, checked at startup ──
+
+const ADMISSION = loadAdmission();
+
+function loadAdmission() {
+  const {
+    DCP_TRUSTED_PRINCIPALS_FILE: trustFile,
+    DCP_ADMISSION_PROFILE_FILE: profileFile,
+    DCP_REVOCATION_LIST_URL: revocationUrl,
+    DCP_REVOCATION_LIST_AUTHORIZATION: authorization,
+    DCP_REVOCATION_TIMEOUT_MS: timeout,
+  } = process.env;
+  const names = ["DCP_TRUSTED_PRINCIPALS_FILE", "DCP_ADMISSION_PROFILE_FILE", "DCP_REVOCATION_LIST_URL", "DCP_REVOCATION_LIST_AUTHORIZATION", "DCP_REVOCATION_TIMEOUT_MS"];
+  const given = names.filter((name) => process.env[name] !== undefined);
+  if (given.length === 0) return null;
+  // A variable set to nothing is a mistake, not an absent option: an empty profile file would
+  // otherwise leave the server in trust-only mode without saying so.
+  for (const name of given) {
+    if (process.env[name].trim() === "") throw new Error(`CONFIG_INVALID_VALUE: ${name} is set but empty`);
+  }
+  const readJson = (file, label) => {
+    try {
+      return JSON.parse(fs.readFileSync(file, "utf8"));
+    } catch (e) {
+      throw new Error(`${label}: cannot read ${file}: ${e.message}`);
+    }
+  };
+  if (!trustFile) throw new Error("CONFIG_PROFILE_CONTRADICTION: admission needs DCP_TRUSTED_PRINCIPALS_FILE");
+  if (profileFile && !revocationUrl) throw new Error("CONFIG_PROFILE_CONTRADICTION: strict-v1 needs DCP_REVOCATION_LIST_URL");
+  if (revocationUrl && !profileFile) throw new Error("CONFIG_INVALID_VALUE: DCP_REVOCATION_LIST_URL is used by the strict-v1 profile only");
+  if ((authorization !== undefined || timeout !== undefined) && !revocationUrl) {
+    throw new Error("CONFIG_INVALID_VALUE: DCP_REVOCATION_LIST_AUTHORIZATION and DCP_REVOCATION_TIMEOUT_MS need DCP_REVOCATION_LIST_URL");
+  }
+  const timeoutMs = timeout === undefined ? 5000 : Number(timeout);
+  if (!(Number.isFinite(timeoutMs) && timeoutMs > 0)) throw new Error("CONFIG_INVALID_VALUE: DCP_REVOCATION_TIMEOUT_MS");
+
+  // The trust set is read on every admission and loaded again whenever its content changes (a
+  // rotation needs no restart, and a replacement with the same mtime is not missed); a file that
+  // no longer loads refuses admission until it is fixed.
+  const load = (text) => ({ hash: crypto.createHash("sha256").update(text).digest("hex"), store: createPrincipalTrustStore(JSON.parse(text)) });
+  let loaded;
+  try {
+    loaded = load(fs.readFileSync(trustFile, "utf8"));
+  } catch (e) {
+    throw new Error(`trust set: cannot load ${trustFile}: ${e.message}`);
+  }
+  const trust = () => {
+    const text = fs.readFileSync(trustFile, "utf8");
+    if (crypto.createHash("sha256").update(text).digest("hex") !== loaded.hash) loaded = load(text);
+    return loaded.store;
+  };
+  const profile = profileFile ? resolveStrictV1Profile(readJson(profileFile, "profile")) : undefined;
+  const revocationSource = revocationUrl
+    ? denyListRevocationSource(revocationUrl, { headers: authorization ? { authorization } : {}, timeoutMs })
+    : undefined;
+  console.log(`[admission] trusted principals from ${trustFile}${profile ? `, profile strict-v1 for ${profile.verifierId}` : ""}`);
+  return { trust, profile, revocationSource, timeoutMs };
+}
 
 // Phase 3: POLICY_HASH is now computed dynamically via computePolicyHash()
 const POLICY_HASH = computePolicyHash();
@@ -495,6 +565,50 @@ const server = http.createServer(async (req, res) => {
       dcp_version: "1.0",
       errors: result.errors || [],
     }, "1.0");
+    return;
+  }
+
+  // ── V2: Admission against the operator's trusted principals (and strict-v1) ──
+  // Only signed_bundle is read from the body: the trust set, profile, audience and revocation
+  // source are the operator's.
+  if (req.method === "POST" && req.url === "/v2/admit") {
+    if (!ADMISSION) {
+      return send(res, 501, { error: "Admission is not configured (DCP_TRUSTED_PRINCIPALS_FILE)" }, "2.0");
+    }
+    let body;
+    try { body = await parseBody(req); }
+    catch (e) {
+      if (e.message === "PAYLOAD_TOO_LARGE") return send(res, 413, { error: "Request body too large (max 1 MB)" });
+      return send(res, 400, { admitted: false, errors: ["Invalid JSON body"] }, "2.0");
+    }
+    if (!body?.signed_bundle) return send(res, 400, { admitted: false, errors: ["Missing signed_bundle in body"] }, "2.0");
+    let trust;
+    try {
+      trust = ADMISSION.trust();
+    } catch (e) {
+      console.error(`[admission] trusted principals unavailable: ${e.message}`);
+      return send(res, 503, { admitted: false, errors: ["Trusted principals unavailable"] }, "2.0");
+    }
+    const result = await admitSignedBundle(body.signed_bundle, {
+      profile: ADMISSION.profile,
+      trust,
+      revocationSource: ADMISSION.revocationSource,
+      revocationTimeoutMs: ADMISSION.timeoutMs,
+      policy: ADMISSION.profile ? undefined : VERIFIER_POLICY,
+    });
+    send(res, 200, {
+      verified: result.verified,
+      admitted: result.admitted,
+      principal_trust: result.principal_trust,
+      profile: result.profile,
+      profile_compliance: result.profile_compliance,
+      action_authorized: result.action_authorized,
+      recorded_decision: result.recorded_decision,
+      trust_set_version: result.trust_set_version,
+      codes: [...new Set(result.errors.map((e) => e.code))].sort(),
+      errors: result.errors.map((e) => e.message),
+      warnings: result.verification.warnings ?? [],
+    }, "2.0");
     return;
   }
 

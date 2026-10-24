@@ -212,6 +212,24 @@ const bundle = new BundleBuilderV2()
 | `cborEncode(value)` | 将值编码为 CBOR 字节 |
 | `cborDecode(data)` | 将 CBOR 字节解码为值 |
 
+### 准入：受信任的委托人与 strict-v1
+
+已验证的凭证包由其自身列出的密钥签名，这并不能证明委托人是谁。准入只接受这样的凭证包：其委托人签名所用的密钥属于信任集中列出的委托人。还可以选择由运营方固定的 `strict-v1` 配置（混合签名、已签名的受众、最长 300 秒的会话、最新的吊销快照）。
+
+```typescript
+import { admitSignedBundleV2, createPrincipalTrustStore, resolveStrictV1Profile } from '@dcp-ai/sdk';
+
+const trust = createPrincipalTrustStore(trustSetJson); // AdmissionConfigError on a bad trust set
+const profile = resolveStrictV1Profile({ profile: 'strict-v1', verifier_id: 'api.acme.example' });
+const result = await admitSignedBundleV2(signedBundle, registry, { profile, trust, revocation: snapshot });
+// result.verified, result.principal_trust, result.profile_compliance, result.admitted,
+// result.action_authorized (always false), result.errors [{ code, message }]
+```
+
+- `verifySignedBundleV2(bundle, registry, policy, { now })` 接受可选的时钟并报告 `details.signer_keys`；不提供时行为与之前相同。
+- `evaluateAdmissionV2` 评估已有的验证结果（不做密码运算，也不做 I/O）；`revocationSubjects` 列出吊销来源需要回答的对象。
+- 指南：[`docs/ADMISSION.md`](../../docs/ADMISSION.md)。规范与错误码：[`spec/profiles/admission`](../../spec/profiles/admission/README.md)。
+
 ### 委派链 (DCP-09 §3.5)
 
 人类通过根授权将权限委派给一个智能体；该智能体可以通过自己签名的子授权，将其部分权限再委派给另一个智能体，依此类推。

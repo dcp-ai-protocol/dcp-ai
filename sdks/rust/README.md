@@ -174,6 +174,42 @@ All structs derive `Debug`, `Clone`, `Serialize`, `Deserialize`. Enums use `#[se
 | `create_sub_mandate(ed, pq, classical, pq_key, &parent, SubMandateParams { .. })` | Sub-mandate signed by the parent's agent under the `DCP-AI.v2.SubMandate` context |
 | `verify_mandate_chain(&chain, &revoked_ids, &MandateChainKeys { human_keys, agent_keys }, now_millis)` | Verifies the chain root first and offline (signatures back to the human, links and depth, `sub_delegation`, nested validity, attenuation of actions, `data_classes` and `limits`, tier floor, revocation); returns `MandateChainResult { valid, errors, depth, effective_tier }` |
 
+### Admission (`dcp_ai::v2`, spec/profiles/admission)
+
+Whether a verified V2 bundle is admitted as evidence from a principal the operator already trusts, optionally under the `strict-v1` profile. The trust set, the profile and the revocation source come from the operator, never from the bundle or the request.
+
+| Function | Description |
+|----------|-------------|
+| `verify_signed_bundle_v2_at(&b, &policy, now_ms)` | `verify_signed_bundle_v2_with_policy` at `now_ms` (milliseconds since the Unix epoch), which every time check uses; the other two verify functions use the system clock. `signer_keys` in the result lists, for each composite signature checked, the key resolved for each component and whether it verified |
+| `PrincipalTrustStore::from_json(&json)` | Loads a trust set (`schemas/v2/principal_trust_set.schema.json`) |
+| `resolve_strict_v1_profile(&json)` | Loads a `strict-v1` profile (`schemas/v2/admission_profile.schema.json`); `policy()`, `verifier_id()`, `max_session_duration_seconds()` and `max_revocation_age_seconds()` are read-only |
+| `revocation_subjects(&b, &verification)` | The passport `agent_id` and the sorted kids of the verified signer keys, for the operator's revocation source |
+| `evaluate_admission_v2(&b, &verification, &AdmissionOptions { .. })` | Admission from a verification result, with no cryptography and no I/O |
+| `admit_signed_bundle_v2(&b, &AdmitOptions { .. })` | Verifies at `now_ms` (the system clock when `None`) under the profile's policy, or `policy` without a profile, then evaluates |
+
+A trust set or profile that cannot be loaded, a profile without a trust set and a profile with a caller policy return `AdmissionConfigError { code, message }`. `AdmissionResult` serializes with the keys of § 5.2 (`verified`, `verification`, `principal_trust`, `profile`, `profile_compliance`, `admitted`, `action_authorized`, `recorded_decision`, `trust_set_version`, `errors`); `action_authorized` is always `false`. A profile's `verifier_policy` may narrow `accepted_classical_algs` and `accepted_pq_algs`, which the verifier enforces; it fixes `min_classical`, `min_pq`, `accepted_hash_algs` and `max_key_age_days` at their defaults.
+
+```rust
+use dcp_ai::v2::{
+    evaluate_admission_v2, resolve_strict_v1_profile, revocation_subjects, verify_signed_bundle_v2_at,
+    AdmissionOptions, PrincipalTrustStore,
+};
+
+let profile = resolve_strict_v1_profile(&profile_json)?;
+let trust = PrincipalTrustStore::from_json(&trust_set_json)?;
+let verification = verify_signed_bundle_v2_at(&signed_bundle, profile.policy(), now_ms);
+// Ask the operator's revocation source about these; None when it cannot answer.
+let snapshot: Option<serde_json::Value> = revocation_source(&revocation_subjects(&signed_bundle, &verification));
+let result = evaluate_admission_v2(
+    &signed_bundle,
+    &verification,
+    &AdmissionOptions { profile: Some(&profile), trust: Some(&trust), revocation: snapshot.as_ref(), now_ms },
+)?;
+if result.admitted {
+    // Authentic evidence from a trusted principal; not an authorization to act.
+}
+```
+
 ### Feature `wasm`
 
 When the `wasm` feature is enabled, the crate exposes WebAssembly bindings:

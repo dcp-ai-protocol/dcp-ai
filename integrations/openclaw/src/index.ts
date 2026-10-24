@@ -28,7 +28,7 @@ import {
 
 import { IdentitySetupParams, executeIdentitySetup } from './tools/identity.js';
 import { DeclareIntentParams, executeDeclareIntent } from './tools/intent.js';
-import { VerifyBundleParams, executeVerifyBundle, configureVerifier } from './tools/verify.js';
+import { VerifyBundleParams, executeVerifyBundle, configureVerifier, type VerifierConfiguration } from './tools/verify.js';
 import type { VerifierPolicyOptions } from './tools/dcp-verify.js';
 import {
   LogActionParams,
@@ -64,16 +64,17 @@ interface OpenClawPluginAPI {
 // ── Plugin Entry Point ──
 
 /** Operator configuration of the plugin. */
-export interface DcpPluginConfig {
+export interface DcpPluginConfig extends VerifierConfiguration {
   /**
    * Verifier policy of dcp_verify_bundle: fields over the SDK's DEFAULT_VERIFIER_POLICY. The
-   * tool's verifier_policy parameter can only make it stricter. See configureVerifier.
+   * tool's verifier_policy parameter can only make it stricter. See configureVerifier, which also
+   * takes trustedPrincipals, profile and revocationSource.
    */
   verifierPolicy?: VerifierPolicyOptions;
 }
 
 export default function register(api: OpenClawPluginAPI, config: DcpPluginConfig = {}): void {
-  if (config.verifierPolicy !== undefined) configureVerifier({ verifierPolicy: config.verifierPolicy });
+  if (Object.values(config).some((value) => value !== undefined)) configureVerifier(config);
 
   // ─── 1. dcp_identity_setup ───
   api.registerTool({
@@ -353,7 +354,11 @@ export { getSession, isIdentityReady, clearSession, listSessions } from './state
 export { executeIdentitySetup, IdentitySetupParams } from './tools/identity.js';
 export { executeDeclareIntent, DeclareIntentParams } from './tools/intent.js';
 export { executeVerifyBundle, VerifyBundleParams, configureVerifier } from './tools/verify.js';
-export type { VerifierPolicyOptions } from './tools/dcp-verify.js';
+export type { VerifierPolicyOptions, RevocationSource, SupervisedSources, TrustSource } from './tools/dcp-verify.js';
+export { denyListRevocationSource } from './tools/dcp-verify.js';
+export { createSourceSupervisor } from './tools/source-supervisor.js';
+export type { SourceEvent, SourceSupervisor, SourceSupervisorOptions, SourceSupervisorStats } from './tools/source-supervisor.js';
+export type { VerifierConfiguration, VerifyBundleResult } from './tools/verify.js';
 export {
   executeLogAction,
   LogActionParams,

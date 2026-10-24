@@ -237,6 +237,24 @@ result = await verify_signed_bundle_v2(signed, registry)  # DEFAULT_VERIFIER_POL
 
 The verifier also checks each artifact's own composite signature (the RPR against the principal's `binding_keys`, the rest against the passport keys) and, in every policy mode, rejects a PQ signature that is present but invalid. The mode is the stricter of the policy mode and the security tier's mode (spec §14.3), and `details["resolved_tier"]` reports the tier.
 
+### Admission: Trusted Principals and strict-v1
+
+A verified bundle is signed by the keys it lists; it does not prove who the principal is. Admission accepts a bundle only when its principal signatures were made with keys of a principal your trust set lists, and optionally under the operator-fixed `strict-v1` profile (hybrid signatures, signed audience, a session of at most 300 s, a fresh revocation snapshot).
+
+```python
+from dcp_ai.v2 import admit_signed_bundle_v2, create_principal_trust_store, resolve_strict_v1_profile
+
+trust = create_principal_trust_store(trust_set)  # AdmissionConfigError on a bad trust set
+profile = resolve_strict_v1_profile({"profile": "strict-v1", "verifier_id": "api.acme.example"})
+result = await admit_signed_bundle_v2(signed_bundle, registry, profile=profile, trust=trust, revocation=snapshot)
+# result["verified"], result["principal_trust"], result["profile_compliance"], result["admitted"],
+# result["action_authorized"] (always False), result["errors"] [{"code", "message"}]
+```
+
+- `verify_signed_bundle_v2(bundle, registry, policy, now_ms=...)` takes an optional clock and reports `details["signer_keys"]`; without them it behaves as before.
+- `evaluate_admission_v2` evaluates a verifier result you already have (no cryptography, no I/O) and trusts it; `revocation_subjects` lists what a revocation source must answer for, and `deny_list_revocation_source(url)` reads the reference revocation service's deny list; with `workers=DenyListWorkers(max_workers=...)` its download threads are counted and capped until they really end (opt-in; see the FastAPI README).
+- FastAPI: `DCPVerifyMiddleware(app, require_bundle=True, trusted_principals=..., profile=..., revocation_source=...)`; see [`integrations/fastapi/README.md`](../../integrations/fastapi/README.md). Guide: [`docs/ADMISSION.md`](../../docs/ADMISSION.md). Spec and codes: [`spec/profiles/admission`](../../spec/profiles/admission/README.md).
+
 ### Delegation Chains (DCP-09 §3.5)
 
 A root mandate is signed by the human (`create_delegation_mandate`); the agent holding it may issue a

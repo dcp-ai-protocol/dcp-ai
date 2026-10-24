@@ -51,8 +51,8 @@ The DCP Express middleware extracts and verifies signed bundles from incoming re
 Client (AI Agent)                    Express Server
   │                                      │
   │─── Request + DCP Bundle ────────────►│
-  │    (X-DCP-Bundle header              │
-  │     or body.signed_bundle)           │
+  │    (body.signed_bundle, recommended; │
+  │     or X-DCP-Bundle if it fits)      │
   │                                      ├─ dcpVerify() middleware
   │                                      │  ├─ Parse bundle (V1 or V2)
   │                                      │  ├─ Verify signatures
@@ -72,13 +72,15 @@ import express from 'express';
 import { dcpVerify, type DCPAgent } from '@dcp-ai/express';
 
 const app = express();
-app.use(express.json());
+// Bundles travel in the JSON body: a budget sized for them (see "Sending DCP Bundles").
+app.use(express.json({ limit: '64kb' }));
 
-// 1. Basic DCP verification — require a valid bundle on all /api routes
-app.use('/api/*', dcpVerify({ requireBundle: true }));
+// 1. Basic DCP verification — require a valid bundle on /api and every route under it
+//    (a path prefix: works on Express 4 and 5, unlike a '/api/*' pattern, which Express 5 rejects)
+app.use('/api', dcpVerify({ requireBundle: true }));
 
-// 2. Access verified agent identity in your handlers
-app.get('/api/data', (req: express.Request & { dcpAgent?: DCPAgent }, res) => {
+// 2. Access verified agent identity in your handlers (POST: the bundle comes in the body)
+app.post('/api/data', (req: express.Request & { dcpAgent?: DCPAgent }, res) => {
   const agent = req.dcpAgent!;
   
   res.json({
@@ -119,7 +121,8 @@ app.use(dcpVerify({
   // Require a DCP bundle (403 if missing). Default: true
   requireBundle: true,
 
-  // Header name for the bundle. Default: 'x-dcp-bundle'
+  // Header the bundle may be sent in, read before body.signed_bundle. Default: 'x-dcp-bundle'.
+  // Only for bundles within the header limits (Node: 16 KiB for all headers); hybrid ones go in the body.
   headerName: 'x-dcp-bundle',
 
   // Check agent revocation status against a service. Default: false
@@ -141,7 +144,7 @@ app.use(dcpVerify({
 
   // Custom failure handler
   onFailure: (req, res, errors) => {
-    res.status(403).json({ verified: false, errors, hint: 'Include X-DCP-Bundle header' });
+    res.status(403).json({ verified: false, errors, hint: 'Send the bundle in body.signed_bundle' });
   },
 }));
 ```
@@ -156,16 +159,8 @@ import { generateKeypair, BundleBuilder, signBundle } from '@dcp-ai/sdk';
 // Build and sign a bundle (see QUICKSTART.md for full example)
 const signed = signBundle(bundle, keys.secretKeyB64);
 
-// Send via header
+// Send via body (recommended, and the way for hybrid V2 bundles)
 const response = await fetch('http://localhost:3000/api/data', {
-  headers: {
-    'X-DCP-Bundle': JSON.stringify(signed),
-    'Content-Type': 'application/json',
-  },
-});
-
-// Or send via body
-const response2 = await fetch('http://localhost:3000/api/data', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
@@ -173,7 +168,24 @@ const response2 = await fetch('http://localhost:3000/api/data', {
     // ... other body fields
   }),
 });
+
+// Or via header, only for a bundle that fits the header limits of the server and every proxy
+const response2 = await fetch('http://localhost:3000/api/data', {
+  method: 'POST',
+  headers: {
+    'X-DCP-Bundle': JSON.stringify(signed),
+    'Content-Type': 'application/json',
+  },
+});
 ```
+
+A hybrid V2 bundle (Ed25519 + ML-DSA-65) is about 33 KB, while Node accepts 16 KiB of request
+headers by default: in `X-DCP-Bundle` it is refused with `431` before Express runs. Do not raise
+the header limit for it; send it in the body. The body parser's `limit` is your budget, a choice
+for your deployment and not a protocol limit: measure your largest bundle, leave margin, and keep
+any proxy in front at least as permissive. A larger body gets `413` before the middleware.
+`integrations/express/examples/strict-v1-body.mjs` runs the whole path over real HTTP with
+`strict-v1` admission.
 
 ---
 

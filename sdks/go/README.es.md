@@ -24,6 +24,7 @@ go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
 | Separación de dominio | — | Sí |
 | Hash dual (SHA-256 + SHA3-256) | — | Sí |
 | Verificación de bundle | Sí | Sí |
+| Admisión: conjunto de confianza del principal + perfil `strict-v1` (spec/profiles/admission) | — | Sí |
 | Construcción y firma de bundle | — | Sí |
 | Cálculo del nivel de seguridad | — | Sí |
 | Proof of possession | — | Sí |
@@ -162,6 +163,21 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 | `v2.ComputeSecurityTier(input)` | Calcula el nivel de seguridad adaptativo (routine/standard/elevated/maximum), su modo de verificación y su intervalo de checkpoint (spec §14.2); los valores desconocidos fallan de forma segura a `elevated` |
 | `v2.SecurityTierInputFromPayloads(intent, policyDecision)` | Construye la entrada del nivel a partir de los payloads decodificados del intent y de la PolicyDecision (`risk_score` sale de la PolicyDecision; si falta o no es un entero de 0 a 1000 queda en `RiskScore: -1`, que es desconocido) |
 | `v2.EffectiveVerificationMode(policyMode, tier)` | El modo más estricto entre el de la política y el del nivel; `pq_only` no cambia |
+
+### Admisión: confianza en el principal y strict-v1
+
+Un bundle verificado prueba integridad y firma, no quién es el principal. La admisión ([spec/profiles/admission](../../spec/profiles/admission/README.md), guía en [docs/ADMISSION.md](../../docs/ADMISSION.md)) añade un conjunto de confianza del operador que fija las claves de cada principal, y el perfil `strict-v1`, fijado por el operador (firmas híbridas, audiencia firmada, una sesión firmada de 300 s como máximo y una instantánea de revocación de 300 s como máximo). No hace E/S de red y nunca autoriza una acción: `ActionAuthorized` es siempre `false`. Un conjunto de confianza o un perfil que no se puede cargar devuelve `*v2.AdmissionConfigError` (`Code`).
+
+| Función | Descripción |
+|---|---|
+| `v2.VerifySignedBundleV2At(reg, json, policy, now)` | Verifica en el instante dado; reporta las claves firmantes (`signer_keys`) |
+| `v2.NewPrincipalTrustStore(json)` | Carga y valida un conjunto de confianza |
+| `v2.ResolveStrictV1Profile(json)` | Carga y valida un perfil `strict-v1`, de solo lectura |
+| `v2.RevocationSubjects(json, verification)` | El `agent_id` y los kids verificados que debe responder la fuente de revocación |
+| `v2.EvaluateAdmissionV2(json, verification, opts)` | Evalúa la admisión desde un resultado del verificador, sin criptografía ni E/S |
+| `v2.AdmitSignedBundleV2(reg, json, opts)` | Verifica con la política del perfil y evalúa |
+
+La sección completa, con un ejemplo, está en el [README en inglés](README.md#admission-principal-trust-and-strict-v1).
 
 ### Cadenas de Delegación (DCP-09 §3.5)
 

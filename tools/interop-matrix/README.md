@@ -15,8 +15,10 @@ The orchestrator is also the network in between: it tampers with bundles in tran
 verifier must reject every tampered bundle the same way. Any unexpected verdict, crash or timeout
 fails the run.
 
-This first scenario covers DCP-01 (identity), DCP-02 (intent and policy) and DCP-03 (audit). The
-A2A handshake of DCP-04 is the next scenario: it needs SDK work first (see the roadmap at the end).
+Scenario 1 (`run.mjs`) covers DCP-01 (identity), DCP-02 (intent and policy) and DCP-03 (audit).
+Scenario 2 (`admission.mjs`) covers admission under the `strict-v1` profile
+(`spec/profiles/admission`) across the four SDKs. The A2A handshake of DCP-04 needs SDK work first
+(see the roadmap at the end).
 
 ## Run
 
@@ -26,12 +28,16 @@ cd sdks/typescript && npm install && npm run build   # agents/ts imports sdks/ty
 pip install -e sdks/python                            # dependencies of agents/py
 node tools/interop-matrix/run.mjs                     # all four SDKs and the reference verifier
 node tools/interop-matrix/run.mjs --agents ts,py      # a subset
+node tools/interop-matrix/admission.mjs               # scenario 2, the four SDKs, with its negative control
 ```
 
 Go and a stable Rust toolchain must be on `PATH`; `run.mjs` builds `agents/go` and `agents/rust`.
 Options: `--agents a,b` (any of `ts`, `py`, `go`, `rust`, `ref`), `--python PATH` (default `$INTEROP_PYTHON` or `python3`), `--timeout MS`
 (per request, default 60000), `--out DIR` (default `tools/interop-matrix/out`, where the report
-and every bundle that produced an unexpected verdict are written).
+and every bundle that produced an unexpected verdict are written). `admission.mjs` takes the same
+options except `ref` (default `--out tools/interop-matrix/out/admission`), plus
+`--skip-negative-control`, `--negative-control`, `--check-negative-control` and `--replay FILE`
+(below).
 
 ## The agent protocol
 
@@ -50,7 +56,7 @@ as written; everything else is the SDK's own business, which is what the matrix 
 optional field an SDK adds on its own, such as Go's SHA3 `audit_merkle_root_secondary`, is fine
 as long as every verifier accepts it).
 
-### `identity` `{owner_name, jurisdiction}` → `{agent_id, human_id, session_nonce}`
+### `identity` `{owner_name, jurisdiction}` → `{agent_id, human_id, session_nonce, principal_keys, agent_keys}`
 
 Generates two composite key pairs (Ed25519 + ML-DSA-65): one for the human principal, one for the
 agent; a new session nonce (64 hex); `human_id` = `rpr:<uuid4>` and `agent_id` = `agent:<uuid4>`.
@@ -65,6 +71,9 @@ Key entries: `{kid, alg, public_key_b64, created_at: <now RFC 3339>, expires_at:
   `keys` = the two agent key entries, `principal_binding_reference` = `human_id`,
   `capabilities ["api_call", "payments"]`, `risk_tier "medium"`, `created_at` now,
   `status "active"`. Composite-signed by the **agent** keys under `AgentPassport`.
+
+`principal_keys` and `agent_keys` are the public halves, `[{kid, alg, public_key_b64}]`, classical
+first. Scenario 2 enrolls the principal from them, out of band.
 
 A second `identity` replaces the first, and the intents and trails that went with it.
 
@@ -95,7 +104,7 @@ entry, else `"sha256:" + hex(sha256(canonical(previous entry)))`; `hash_alg "sha
 `evidence {tool, result_ref, evidence_hash: "sha256:" + hex(sha256(utf8(result_ref)))}`;
 `pq_checkpoint_ref null`. `count` is the trail length.
 
-### `bundle` `{intent_id}` → `{signed_bundle}`
+### `bundle` `{intent_id, session_issued_at?, session_expires_at?, intended_verifier?}` → `{signed_bundle}`
 
 The citizenship bundle of that intent (`signed_bundle.schema.json`): the signed RPR, passport,
 intent and policy decision, the intent's whole trail, and the manifest: `session_nonce`,
@@ -105,12 +114,30 @@ intent and policy decision, the intent's whole trail, and the manifest: `session
 `signer {type: "human", id: human_id, kids: [human classical kid, human pq kid]}`,
 `manifest_hash`, `composite_sig` by the **human** keys under the `Bundle` context. Use the SDK's
 bundle builder and signer. The Go and Rust builders also write `audit_merkle_root_secondary`.
+The optional arguments go into the manifest before it is signed, exactly as given.
 
 ### `verify` `{signed_bundle, mode}` → `{valid, errors}`
 
 The SDK's V2 bundle verifier. `mode` `""` is the default verifier policy; any other value is a
 verification mode applied to `default_mode` and to every risk tier, as the interop tests do. A
 malformed bundle is a `valid: false` result, never an error response.
+
+### `rotate_principal` `{}` → `{human_id, principal_keys}`
+
+A new composite key pair for the principal and a new RPR with the same `human_id`, `issued_at`
+now and the new `binding_keys`, signed by the new keys. Later bundles use them.
+
+### `configure` `{tenant, trust_set, profile}` → `{}` or `{config_error}`
+
+The operator configuration of a tenant, loaded with the SDK's own loaders: the trust set
+(`createPrincipalTrustStore` and its counterparts) and the `strict-v1` profile
+(`resolveStrictV1Profile`). A configuration error is `{config_error: <CONFIG_* code>}`.
+
+### `admit` `{tenant, signed_bundle, revocation, now_ms}` → the admission result
+
+The SDK's combined admission API (`admitSignedBundleV2` and its counterparts) with the tenant's
+profile and trust set, the revocation snapshot and the clock. The result is the SDK's own JSON
+form (spec §8) without `verification`, plus `verification_errors`.
 
 ### `shutdown` `{}` → `{}`
 
@@ -142,6 +169,68 @@ each copy, in both modes unless noted:
 An agent that crashes, times out or answers out of turn is stopped and every later request to it
 fails at once, so a broken agent shows up as failures, never as a hung run.
 
+## Scenario 2: admission under `strict-v1`
+
+Every SDK as **producer**: `identity`, a routine intent (risk 100, so `approve`) with one `act`,
+and three bundles whose manifests sign the session window `[T0, T0 + 300 s]` (the profile's
+maximum): one for this verifier (`verifier:interop-admission`), one for another audience, and,
+after `rotate_principal`, one signed with the rotated principal keys.
+
+The orchestrator is the operator. It enrolls each principal from the public keys the producer
+reported (never from a bundle under admission), builds the trust sets, and serves the revocation
+snapshots: the producer's agent and keys, `checked_at` 10 s before the clock. Every admission runs
+at the fixed instant `T0 + 120 s` (the expiry case at the expiry plus 1 ms). Tenants A and B are
+a selection of operator configuration made by the harness; no integration or cache is involved.
+
+Every SDK as **consumer** runs the 13 cases below for every producer, in this order, in one
+process. The expected `verified`, `principal_trust`, `profile`, `profile_compliance`, `admitted`,
+`action_authorized` (always `false`), `recorded_decision`, `trust_set_version` and set of codes
+come from the spec, written in `admission.mjs`, never from an SDK.
+
+| Case | Configuration | Expected |
+|---|---|---|
+| `trusted_admitted` | tenant A trusts every enrolled principal | admitted |
+| `trust_withdrawn` | tenant A without this principal, same bundle | `TRUST_PRINCIPAL_UNKNOWN` |
+| `trust_restored` | tenant A as before, same bundle | admitted |
+| `tenant_b_empty_trust` | tenant B, empty trust set | `TRUST_PRINCIPAL_UNKNOWN` |
+| `principal_key_revoked` | a fresh snapshot revokes a principal key | `REVOCATION_REVOKED` |
+| `agent_key_revoked` | a fresh snapshot revokes an agent key | `REVOCATION_REVOKED` |
+| `other_audience` | the bundle signed for another verifier | `PROFILE_AUDIENCE_MISMATCH`, `VERIFICATION_FAILED` |
+| `session_expired` | clock 1 ms after the signed expiry | `PROFILE_SESSION_EXPIRED`, `VERIFICATION_FAILED` |
+| `rotation_new_keys_not_enrolled` | rotated bundle, trust set not updated | `TRUST_KEY_NOT_ANCHORED` |
+| `rotation_overlap_new_keys` | old and new keys active | admitted |
+| `rotation_overlap_old_keys` | the same, original bundle | admitted |
+| `rotation_old_keys_retired` | old keys `revoked`, original bundle | `TRUST_KEY_REVOKED` |
+| `rotation_new_keys_after_retirement` | the same, rotated bundle | admitted |
+
+A mismatch writes a minimal reproduction to the output directory: everything the consumer was
+given for that one admission, including the tenant's **effective** trust set and profile (the last
+ones loaded, also when an earlier case loaded them, with `configuration_loaded_in`), and what it
+returned. Only public material: no private key.
+
+```bash
+node tools/interop-matrix/admission.mjs --replay tools/interop-matrix/out/admission/<producer>-<consumer>-<case>.json
+```
+
+`--replay` starts a fresh consumer of the recorded SDK, configures the recorded tenant, admits the
+recorded bundle at the recorded clock and requires exactly the recorded output: every key of
+either side (the normalized fields, the codes, the verifier's errors, and `error` when a call
+failed), a key present on one side only being a difference, so two different errors never count
+as a reproduction. Exit 0 when it reproduces, 1 when it differs, 2 when the record is incomplete.
+
+**Negative control.** After the matrix, the runner starts itself with `--negative-control` on the
+`ts` pair, in a new temporary directory and with a new run id, at most 120 s. That run inverts the
+expected `admitted` of `trust_withdrawn`. The control passes only if the child exits 1 and its
+report is the one it wrote in this run (same run id) with `negative_control_run: true`, the one
+pair `ts>ts` at 12 of 13, and exactly one failure, field `admitted` of `trust_withdrawn`.
+`--check-negative-control` tests the control itself: it must accept a correct run and refuse a
+child that cannot start (no report, and a report left by an earlier run in the same directory)
+and a child that hangs (stopped at the time limit). `--negative-control-case NAME` inverts another
+case instead, to produce a reproduction file on purpose.
+
+First run: 16 pairs × 13 cases = 208 results as expected, and the negative control failed as
+required.
+
 ## What the first run found
 
 All 16 SDK pairs and the reference verifier agree on every bundle and every attack. Writing the
@@ -168,7 +257,7 @@ agents surfaced these SDK gaps, none of them a verdict divergence between SDK ve
 
 ## Roadmap
 
-1. This scenario (DCP-01 to 03), in CI.
+1. Scenarios 1 (DCP-01 to 03) and 2 (admission), in CI.
 2. DCP-04: today every SDK builds `A2A_HELLO` and `A2A_WELCOME`, but none implements
    `A2A_CONFIRM` / `A2A_ESTABLISHED` or the session-key derivation of DCP-04 §3.4, only TypeScript
    has the hybrid X25519 + ML-KEM-768 KEM the messages announce, and Rust has no session layer.

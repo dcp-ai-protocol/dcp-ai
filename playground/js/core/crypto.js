@@ -41,6 +41,32 @@ export function signDetached(payload, context, secretKey) {
   return nacl.sign.detached(msg, secretKey);
 }
 
+// RFC 8032 §5.1.7 requires S < L, which TweetNaCl does not check. Same check as
+// verifyDetached in sdks/typescript/src/core/ed25519-scalar.ts: the range is
+// checked only on input TweetNaCl accepts, so its errors stay the same.
+const L = [
+  0xed, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58, 0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde, 0x14,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10,
+];
+
+function scalarBelowL(sig) {
+  for (let i = 31; i >= 0; i--) {
+    if (sig[32 + i] !== L[i]) return sig[32 + i] < L[i];
+  }
+  return false; // S = L
+}
+
+function naclVerifyDetached(msg, sig, pk) {
+  if (
+    msg instanceof Uint8Array && sig instanceof Uint8Array && pk instanceof Uint8Array &&
+    sig.length === nacl.sign.signatureLength && pk.length === nacl.sign.publicKeyLength &&
+    !scalarBelowL(sig)
+  ) {
+    return false;
+  }
+  return nacl.sign.detached.verify(msg, sig, pk);
+}
+
 export function verifyDetached(payload, context, sigBytes, publicKey) {
   const canonical = typeof payload === 'string' ? payload : canonicalize(payload);
   const encoder = new TextEncoder();
@@ -51,5 +77,5 @@ export function verifyDetached(payload, context, sigBytes, publicKey) {
   msg.set(ctxBytes, 0);
   msg.set(sep, ctxBytes.length);
   msg.set(payloadBytes, ctxBytes.length + 1);
-  return nacl.sign.detached.verify(msg, sigBytes, publicKey);
+  return naclVerifyDetached(msg, sigBytes, publicKey);
 }

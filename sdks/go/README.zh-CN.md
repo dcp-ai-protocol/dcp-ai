@@ -24,6 +24,7 @@ go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
 | 域分离 | — | 是 |
 | 双哈希 (SHA-256 + SHA3-256) | — | 是 |
 | 凭证包验证 | 是 | 是 |
+| 准入：委托人信任集 + `strict-v1` 配置 (spec/profiles/admission) | — | 是 |
 | 凭证包构建与签名 | — | 是 |
 | 安全等级计算 | — | 是 |
 | 持有证明 | — | 是 |
@@ -162,6 +163,21 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 | `v2.ComputeSecurityTier(input)` | 计算自适应安全等级（routine/standard/elevated/maximum）及其验证模式和检查点间隔（spec §14.2）；未知值按 `elevated` 处理 |
 | `v2.SecurityTierInputFromPayloads(intent, policyDecision)` | 根据解码后的 intent 和 PolicyDecision 载荷构建等级输入（`risk_score` 取自 PolicyDecision；缺失或不是 0 到 1000 之间的整数时为 `RiskScore: -1`，即未知） |
 | `v2.EffectiveVerificationMode(policyMode, tier)` | 策略模式与等级模式中更严格的一个；`pq_only` 不变 |
+
+### 准入：委托人信任与 strict-v1
+
+已验证的凭证包证明的是完整性和签名，而不是委托人是谁。准入（[spec/profiles/admission](../../spec/profiles/admission/README.md)，指南见 [docs/ADMISSION.md](../../docs/ADMISSION.md)）在验证之上增加运营方的信任集（固定每个委托人的密钥）以及由运营方固定的 `strict-v1` 配置（混合签名、已签名的受众、最长 300 秒的已签名会话、不超过 300 秒的吊销快照）。它不做网络 I/O，也从不授权任何操作：`ActionAuthorized` 始终为 `false`。无法加载的信任集或配置返回 `*v2.AdmissionConfigError` (`Code`)。
+
+| 函数 | 说明 |
+|---|---|
+| `v2.VerifySignedBundleV2At(reg, json, policy, now)` | 在给定时刻验证，并报告签名密钥（`signer_keys`） |
+| `v2.NewPrincipalTrustStore(json)` | 加载并校验信任集 |
+| `v2.ResolveStrictV1Profile(json)` | 加载并校验 `strict-v1` 配置（只读） |
+| `v2.RevocationSubjects(json, verification)` | 吊销来源需要回答的 `agent_id` 和已验证的 kid |
+| `v2.EvaluateAdmissionV2(json, verification, opts)` | 根据验证结果评估准入（不做密码运算，也不做 I/O） |
+| `v2.AdmitSignedBundleV2(reg, json, opts)` | 按配置的策略验证并评估 |
+
+包含示例的完整说明见[英文 README](README.md#admission-principal-trust-and-strict-v1)。
 
 ### 委托链 (DCP-09 §3.5)
 

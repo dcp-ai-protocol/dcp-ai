@@ -30,6 +30,7 @@
 ## Operations
 
 - [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md) — Running a DCP verification service
+- [ADMISSION.md](ADMISSION.md) — Accepting bundles only from trusted principals, and the strict-v1 profile
 - [AGENT_CREATION_AND_CERTIFICATION.md](AGENT_CREATION_AND_CERTIFICATION.md) — Agent creation flow and certification
 
 ## Specifications

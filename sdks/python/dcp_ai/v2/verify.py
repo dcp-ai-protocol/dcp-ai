@@ -18,6 +18,11 @@ A PQ signature that is present (pq_over_classical) must verify in every mode;
 only an absent one (classical_only) may be tolerated, by hybrid_preferred and
 classical_only (VERIFICATION.md V2-7).
 
+Every time comparison uses one instant, `now_ms` (milliseconds since the Unix
+epoch, default the system clock). details["signer_keys"] reports, for every
+composite signature checked, the key entry the verifier resolved for each
+component and whether that component verified (spec/profiles/admission § 2.3).
+
 Not verified, as in the TypeScript SDK: the manifest's audit_merkle_root_secondary.
 Do not rely on it after verification.
 """
@@ -26,6 +31,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import math
 import re
 import time
 from typing import Any
@@ -137,7 +143,9 @@ def _key_identity_error(key: dict[str, Any]) -> str | None:
 
 
 # How far in the future a signed session start may be (V2-4), as DCP-04 allows for timestamps.
-_SESSION_CLOCK_SKEW_MS = 30_000
+# Also the skew spec/profiles/admission allows (SKEW).
+SESSION_CLOCK_SKEW_MS = 30_000
+_SESSION_CLOCK_SKEW_MS = SESSION_CLOCK_SKEW_MS
 
 # The hash algorithms a signature block may name (V2-4).
 _SIGNATURE_HASH_ALGS = ("sha256", "sha256+sha3-256")
@@ -160,17 +168,20 @@ async def _check_composite_sig(
     sig: Any,
     keys: list[dict[str, Any]],
     keys_label: str,
-) -> tuple[bool, list[str], list[str]]:
+) -> tuple[bool, list[str], list[str], list[dict[str, Any]]]:
     """Steps V2-6, V2-7 and V2-10 for one composite signature over `payload`.
 
-    Returns (valid, errors, warnings); signer keys are looked up by kid in `keys`.
+    Returns (valid, errors, warnings, used); signer keys are looked up by kid in
+    `keys`. `used` holds, for each component that reached the cryptographic check,
+    the key entry it was checked with and whether it verified, without the
+    "signature" field the caller adds.
     """
     errors: list[str] = []
     warnings: list[str] = []
     rejected = policy.get("advisory_rejected_algs") or []
 
-    def fail(error: str) -> tuple[bool, list[str], list[str]]:
-        return False, [*errors, error], warnings
+    def fail(error: str) -> tuple[bool, list[str], list[str], list[dict[str, Any]]]:
+        return False, [*errors, error], warnings, []
 
     if not isinstance(sig, dict) or not isinstance(sig.get("classical"), dict):
         return fail("Missing composite signature")
@@ -254,7 +265,23 @@ async def _check_composite_sig(
         # ponytail: TS has no default branch here; fail closed on a misconfigured policy.
         errors.append(f"Unknown verification mode: {mode}")
 
-    return result.valid, errors, warnings
+    used: list[dict[str, Any]] = []
+    if signer_key is not None:
+        used.append(_key_use("classical", signer_key, result.classical_valid))
+    if pq and pq_key is not None:
+        used.append(_key_use("pq", pq_key, result.pq_valid))
+    return result.valid, errors, warnings, used
+
+
+def _key_use(component: str, key: dict[str, Any], verified: Any) -> dict[str, Any]:
+    """A details["signer_keys"] entry, without its "signature" (spec/profiles/admission § 2.3)."""
+    return {
+        "component": component,
+        "kid": key.get("kid"),
+        "alg": key.get("alg"),
+        "public_key_b64": key.get("public_key_b64"),
+        "verified": bool(verified),
+    }
 
 
 def _signer_block_errors(signature: dict[str, Any], rpr: dict[str, Any], manifest: dict[str, Any]) -> list[str]:
@@ -290,7 +317,7 @@ def _signer_block_errors(signature: dict[str, Any], rpr: dict[str, Any], manifes
     return errors
 
 
-def _consistency_errors(bundle: dict[str, Any], intent_hash: str) -> list[str]:
+def _consistency_errors(bundle: dict[str, Any], intent_hash: str, now: int) -> list[str]:
     """V2-14: the artifacts describe one action, by one agent, for one principal.
 
     The signatures say who signed each artifact; these checks tie them together.
@@ -309,7 +336,7 @@ def _consistency_errors(bundle: dict[str, Any], intent_hash: str) -> list[str]:
         rpr_expires = rfc3339_epoch_ms(rpr_expires_at)
         if rpr_expires is None:
             errors.append(f"responsible_principal_record has an invalid expires_at: {rpr_expires_at}")
-        elif rpr_expires < _now_ms():
+        elif rpr_expires < now:
             errors.append(f"responsible_principal_record expired at {rpr_expires_at}")
     if not _same_id(passport.get("principal_binding_reference"), rpr.get("human_id")):
         errors.append("agent_passport principal_binding_reference is not the RPR human_id")
@@ -352,6 +379,7 @@ async def _check_pq_checkpoints(
     mode: str,
     bundle: dict[str, Any],
     passport_keys: list[dict[str, Any]],
+    signer_keys: list[dict[str, Any]],
 ) -> list[str]:
     """V2-12: the bundle carries exactly the checkpoints its signed manifest lists.
 
@@ -406,11 +434,12 @@ async def _check_pq_checkpoints(
             errors.append(f"{label}: merkle_root does not match its audit entries")
             continue
         payload = {k: v for k, v in cp.items() if k != "composite_sig"}
-        _, errs, _ = await _check_composite_sig(
+        _, errs, _, used = await _check_composite_sig(
             registry, policy, cp_mode, DCP_CONTEXTS["AuditEvent"], payload, cp.get("composite_sig"),
             passport_keys, "passport keys",
         )
         errors.extend(f"{label}: {e}" for e in errs)
+        signer_keys.extend({"signature": label, **k} for k in used)
     return errors
 
 
@@ -427,22 +456,40 @@ def _resolve_policy(policy: Any) -> dict[str, Any]:
     return VerifierPolicy.model_validate(policy).model_dump()
 
 
+def _clock(now_ms: Any) -> int:
+    """`now_ms` as whole milliseconds since the epoch; the system clock when None."""
+    if now_ms is None:
+        return _now_ms()
+    if isinstance(now_ms, bool) or not isinstance(now_ms, (int, float)) or not math.isfinite(now_ms):
+        raise TypeError("verify_signed_bundle_v2: now_ms must be a finite number of milliseconds")
+    return math.floor(now_ms)
+
+
 async def verify_signed_bundle_v2(
     signed_bundle: dict[str, Any],
     registry: AlgorithmRegistry,
     policy: Any = None,
+    *,
+    now_ms: int | None = None,
 ) -> dict[str, Any]:
     """Full V2 signed bundle verification.
 
     `policy` is a VerifierPolicy, a dict validated as one (see _resolve_policy;
     pydantic.ValidationError on unknown keys), or None for DEFAULT_VERIFIER_POLICY.
-    Returns {"verified", "errors", "warnings", "details"}. A structurally
-    malformed bundle fails verification instead of raising.
+    `now_ms` is the instant every time check uses (session expiry and start, RPR
+    and key expiry, key age), in milliseconds since the epoch; default the system
+    clock. Returns {"verified", "errors", "warnings", "details"}. details carries
+    "signer_keys" (spec/profiles/admission § 2.3): for the bundle signature, the
+    four artifacts and each "pq_checkpoints[<id>]", in that order, one
+    {"signature", "component", "kid", "alg", "public_key_b64", "verified"} per
+    component whose key was resolved and reached the cryptographic check. A
+    structurally malformed bundle fails verification instead of raising.
     """
     resolved = _resolve_policy(policy)
+    now = _clock(now_ms)
     result: dict[str, Any] = {"verified": False, "errors": [], "warnings": [], "details": {}}
     try:
-        await _verify(signed_bundle, registry, resolved, result)
+        await _verify(signed_bundle, registry, resolved, result, now)
     except (KeyError, TypeError, AttributeError, ValueError, IndexError) as exc:
         result["errors"].append(f"Malformed signed bundle: {exc!r}")
     result["verified"] = not result["errors"]
@@ -454,10 +501,13 @@ async def _verify(
     registry: AlgorithmRegistry,
     policy: dict[str, Any],
     result: dict[str, Any],
+    now: int,
 ) -> None:
     errors: list[str] = result["errors"]
     warnings: list[str] = result["warnings"]
     details: dict[str, Any] = result["details"]
+    signer_keys: list[dict[str, Any]] = []
+    details["signer_keys"] = signer_keys
     bundle, signature = signed_bundle["bundle"], signed_bundle["signature"]
 
     # 1. Basic structure
@@ -500,7 +550,7 @@ async def _verify(
         if expires is None:
             errors.append(f"Invalid session_expires_at: {expires_at}")
             return
-        if expires < _now_ms():
+        if expires < now:
             errors.append(f"Session expired at {expires_at}")
             return
     elif policy.get("require_session_expiry"):
@@ -517,7 +567,7 @@ async def _verify(
         if issued is None:
             errors.append(f"Invalid session_issued_at: {issued_at}")
             return
-        if issued > _now_ms() + _SESSION_CLOCK_SKEW_MS:
+        if issued > now + _SESSION_CLOCK_SKEW_MS:
             errors.append(f"session_issued_at {issued_at} is in the future")
             return
         if expires is not None and issued > expires:
@@ -575,7 +625,7 @@ async def _verify(
 
     # 4a. Cross-artifact consistency (V2-14), against the intent's payload hash,
     # which the manifest's intent_hash now matches.
-    errors.extend(_consistency_errors(bundle, manifest["intent_hash"]))
+    errors.extend(_consistency_errors(bundle, manifest["intent_hash"], now))
     if errors:
         return
 
@@ -602,7 +652,7 @@ async def _verify(
     # signs its own passport, so its keys cannot vouch for the principal.
     passport_keys = passport.get("keys") or []
     rpr_keys = bundle["responsible_principal_record"]["payload"].get("binding_keys") or []
-    valid, errs, warns = await _check_composite_sig(
+    valid, errs, warns, used = await _check_composite_sig(
         registry, policy, mode, DCP_CONTEXTS["Bundle"], manifest, signature.get("composite_sig"),
         rpr_keys, "RPR binding_keys",
     )
@@ -611,6 +661,7 @@ async def _verify(
     errors.extend(f"bundle: {e}" for e in errs)
     warnings.extend(f"bundle: {w}" for w in warns)
     details["signature_valid"] = valid
+    signer_keys.extend({"signature": "bundle", **k} for k in used)
 
     # 7. Per-artifact composite signatures (V2-8). The principal signs the RPR
     # with its binding_keys; the agent signs the rest with its passport keys.
@@ -621,15 +672,16 @@ async def _verify(
         ("policy_decision", "PolicyDecision", passport_keys, "passport keys"),
     ):
         signed = bundle[name]
-        _, errs, warns = await _check_composite_sig(
+        _, errs, warns, used = await _check_composite_sig(
             registry, policy, mode, DCP_CONTEXTS[context], signed["payload"], signed.get("composite_sig"),
             keys, keys_label,
         )
         errors.extend(f"{name}: {e}" for e in errs)
         warnings.extend(f"{name}: {w}" for w in warns)
+        signer_keys.extend({"signature": name, **k} for k in used)
 
     # 7a. PQ checkpoints (V2-12)
-    checkpoint_errors = await _check_pq_checkpoints(registry, policy, mode, bundle, passport_keys)
+    checkpoint_errors = await _check_pq_checkpoints(registry, policy, mode, bundle, passport_keys, signer_keys)
     errors.extend(checkpoint_errors)
     details["pq_checkpoints_valid"] = not checkpoint_errors
 
@@ -650,7 +702,6 @@ async def _verify(
 
     # 9. Key validity of every key that can sign: the passport keys and the RPR
     # binding_keys (V2-13)
-    now = _now_ms()
     max_age_days = policy.get("max_key_age_days") or 0
     for key in passport_keys + rpr_keys:
         if key.get("status") in ("revoked", "expired"):

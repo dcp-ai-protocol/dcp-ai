@@ -1,0 +1,12 @@
+{
+  "checked_at": "2026-11-02T10:00:30.000Z",
+  "agents": {
+    "agent:acme-bot": "not_revoked"
+  },
+  "keys": {
+    "50b32ce11c7da916b7ea09c043aa329f": "not_revoked",
+    "c75f8b95787487778f485919f8a9c8e3": "not_revoked",
+    "d158b3909929ee1a4fb88f342d0d8efb": "not_revoked",
+    "fb36d810d12bbf3cc1fa4dbf46d606d7": "not_revoked"
+  }
+}

@@ -237,6 +237,24 @@ result = await verify_signed_bundle_v2(signed, registry)  # DEFAULT_VERIFIER_POL
 
 検証器は各成果物自体の複合署名も検証し（RPR はプリンシパルの `binding_keys`、それ以外はパスポートの鍵で検証）、存在するのに無効な PQ 署名はどのポリシーモードでも拒否します。モードはポリシーのモードとセキュリティティアのモードのうち厳しい方で（spec §14.3）、`details["resolved_tier"]` がティアを返します。
 
+### アドミッション: 信頼済みプリンシパルと strict-v1
+
+検証済みのバンドルは、バンドル自身が列挙する鍵で署名されています。それだけでは、プリンシパルが誰かは証明されません。アドミッションは、プリンシパルの署名が信頼セットに登録されたプリンシパルの鍵で作られている場合にだけバンドルを受け入れます。オペレーターが固定する `strict-v1` プロファイル (ハイブリッド署名、署名済みの宛先、最大 300 秒のセッション、新しい失効スナップショット) も任意で適用できます。
+
+```python
+from dcp_ai.v2 import admit_signed_bundle_v2, create_principal_trust_store, resolve_strict_v1_profile
+
+trust = create_principal_trust_store(trust_set)  # AdmissionConfigError on a bad trust set
+profile = resolve_strict_v1_profile({"profile": "strict-v1", "verifier_id": "api.acme.example"})
+result = await admit_signed_bundle_v2(signed_bundle, registry, profile=profile, trust=trust, revocation=snapshot)
+# result["verified"], result["principal_trust"], result["profile_compliance"], result["admitted"],
+# result["action_authorized"] (always False), result["errors"] [{"code", "message"}]
+```
+
+- `verify_signed_bundle_v2(bundle, registry, policy, now_ms=...)` は任意の時刻を受け取り、`details["signer_keys"]` を返します。指定しなければ従来どおりに動作します。
+- `evaluate_admission_v2` は手元の検証結果を信頼して評価します (暗号処理も I/O もありません)。`revocation_subjects` は失効ソースが答えるべき対象を返し、`deny_list_revocation_source(url)` はリファレンスの失効サービスの拒否リストを読み込みます。
+- FastAPI: `DCPVerifyMiddleware(app, require_bundle=True, trusted_principals=..., profile=..., revocation_source=...)`。[`integrations/fastapi/README.md`](../../integrations/fastapi/README.md) を参照してください。ガイド: [`docs/ADMISSION.md`](../../docs/ADMISSION.md)。仕様とコード: [`spec/profiles/admission`](../../spec/profiles/admission/README.md)。
+
 ### 委任チェーン (DCP-09 §3.5)
 
 ルートマンデートは人間が署名します (`create_delegation_mandate`)。それを保持するエージェントは、自身の鍵で署名したサブマンデートを別のエージェントに発行できます (`create_sub_mandate`)。`verify_mandate_chain` はチェーンをルートから順に、オフラインで検査します：人間まで遡る署名、親へのリンクと深さ、`sub_delegation`、入れ子になった有効期間、権限の減衰 (アクション、`data_classes`、`limits` は狭めることしかできない)、セキュリティティアの下限、失効。
