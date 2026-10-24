@@ -355,7 +355,7 @@ export { executeIdentitySetup, IdentitySetupParams } from './tools/identity.js';
 export { executeDeclareIntent, DeclareIntentParams } from './tools/intent.js';
 export { executeVerifyBundle, VerifyBundleParams, configureVerifier } from './tools/verify.js';
 export type { VerifierPolicyOptions, RevocationSource, TrustSource } from './tools/dcp-verify.js';
-export { denyListRevocationSource, snapshotFromDenyList } from './tools/dcp-verify.js';
+export { denyListRevocationSource } from './tools/dcp-verify.js';
 export type { VerifierConfiguration, VerifyBundleResult } from './tools/verify.js';
 export {
   executeLogAction,

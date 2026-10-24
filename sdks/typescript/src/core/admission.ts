@@ -409,6 +409,43 @@ export function revocationSubjects(signedBundle: unknown, verification: VerifyV2
   return { agent_ids: typeof agentId === 'string' ? [agentId] : [], kids: [...kids].sort() };
 }
 
+/** A revocation list that cannot be read: admission reports REVOCATION_INVALID for it. */
+export class RevocationListError extends Error {
+  readonly code = 'REVOCATION_INVALID' as const;
+  constructor(message: string) {
+    super(message);
+    this.name = 'RevocationListError';
+  }
+}
+
+/**
+ * The revocation snapshot of `subjects` from a complete deny list in the format of the reference
+ * revocation service's /.well-known/dcp-revocations.json: `updated_at` (RFC 3339), `revocations`
+ * (objects with an `agent_id`) and `kid_revocations` (objects with a `revoked_kid`). A listed agent
+ * or kid is revoked, every other subject not_revoked, as of `updated_at`. Throws
+ * RevocationListError for a document of another shape.
+ */
+export function revocationSnapshotFromDenyList(document: unknown, subjects: RevocationSubjects): RevocationSnapshot {
+  if (!isObject(document) || typeof document.updated_at !== 'string' || parseRfc3339(document.updated_at) === undefined) {
+    throw new RevocationListError('revocation list: updated_at is not an RFC 3339 timestamp');
+  }
+  const listed = (field: string, key: string): Set<string> => {
+    const items = document[field] ?? [];
+    if (!Array.isArray(items) || !items.every((item) => isObject(item) && typeof item[key] === 'string')) {
+      throw new RevocationListError(`revocation list: ${field} is not a list of objects with a ${key}`);
+    }
+    return new Set(items.map((item) => (item as Record<string, string>)[key]));
+  };
+  const agents = listed('revocations', 'agent_id');
+  const kids = listed('kid_revocations', 'revoked_kid');
+  const status = (set: Set<string>, id: string): RevocationStatus => (set.has(id) ? 'revoked' : 'not_revoked');
+  return {
+    checked_at: document.updated_at as string,
+    agents: Object.fromEntries(subjects.agent_ids.map((id) => [id, status(agents, id)])),
+    keys: Object.fromEntries(subjects.kids.map((kid) => [kid, status(kids, kid)])),
+  };
+}
+
 function isRevocationSnapshot(value: unknown): value is RevocationSnapshot {
   if (!isObject(value) || Object.keys(value).some((k) => !['checked_at', 'agents', 'keys'].includes(k))) return false;
   if (parseRfc3339(value.checked_at) === undefined) return false;

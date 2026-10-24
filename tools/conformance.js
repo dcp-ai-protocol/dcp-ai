@@ -4,7 +4,8 @@ import fs from "fs";
 import crypto from "crypto";
 import { intentHash, hashObject, dualHashObject, canonicalize } from "./merkle.js";
 import { generateKeypair } from "./crypto.js";
-import { verifySignedBundle } from "../lib/verify.js";
+import { admitSignedBundle, verifySignedBundle } from "../lib/verify.js";
+import { createPrincipalTrustStore, resolveStrictV1Profile } from "@dcp-ai/sdk";
 import { buildV2Examples } from "../scripts/generate-v2-examples.js";
 
 // ═══════════════════════════════════════════════════════════════
@@ -306,6 +307,10 @@ const v2Examples = [
   { name: "DCP-09 Principal Mirror", schema: "schemas/v2/principal_mirror.schema.json", example: "tests/conformance/examples/principal_mirror_v2.json" },
   { name: "DCP-09 Interaction Record", schema: "schemas/v2/interaction_record.schema.json", example: "tests/conformance/examples/interaction_record_v2.json" },
   { name: "DCP-09 Awareness Threshold", schema: "schemas/v2/awareness_threshold.schema.json", example: "tests/conformance/examples/awareness_threshold_v2.json" },
+  // Admission profile (spec/profiles/admission)
+  { name: "Admission Principal Trust Set", schema: "schemas/v2/principal_trust_set.schema.json", example: "tests/conformance/examples/principal_trust_set_v2.json" },
+  { name: "Admission strict-v1 Profile", schema: "schemas/v2/admission_profile.schema.json", example: "tests/conformance/examples/admission_profile_v2.json" },
+  { name: "Admission Revocation Snapshot", schema: "schemas/v2/revocation_snapshot.schema.json", example: "tests/conformance/examples/revocation_snapshot_v2.json" },
 ];
 
 for (const check of v2Examples) {
@@ -320,6 +325,57 @@ for (const check of v2Examples) {
   } else {
     console.log(`⚠  ${check.name} — example not found, skipping`);
   }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Admission vectors through the reference verifier (spec/profiles/admission)
+// ═══════════════════════════════════════════════════════════════
+
+console.log("\n── Admission (principal trust, strict-v1) ──\n");
+
+{
+  const vectors = JSON.parse(fs.readFileSync("tests/interop/v2/admission_vectors.json", "utf8"));
+  const codes = (result) => [...new Set(result.errors.map((e) => e.code))].sort();
+  let passed = 0;
+  for (const c of vectors.cases) {
+    const result = await admitSignedBundle(structuredClone(vectors.signed_bundles[c.bundle]), {
+      profile: c.profile ? vectors.profiles[c.profile] : undefined,
+      trust: c.trust ? vectors.trust_sets[c.trust] : undefined,
+      revocationSource: c.revocation === undefined ? undefined : async () => c.revocation,
+      now: Date.parse(c.now),
+    });
+    const got = {
+      verified: result.verified,
+      principal_trust: result.principal_trust,
+      profile_compliance: result.profile_compliance,
+      admitted: result.admitted,
+      recorded_decision: result.recorded_decision,
+      action_authorized: result.action_authorized,
+      codes: codes(result),
+    };
+    if (JSON.stringify(got) === JSON.stringify(c.expected)) {
+      passed++;
+    } else {
+      console.error(`✖ admission ${c.name} (${c.rule}): expected ${JSON.stringify(c.expected)}, got ${JSON.stringify(got)}`);
+      failures++;
+    }
+  }
+  for (const c of vectors.config_cases) {
+    let code = "accepted";
+    try {
+      if (c.kind === "trust_set") createPrincipalTrustStore(structuredClone(c.config));
+      else resolveStrictV1Profile(structuredClone(c.config));
+    } catch (e) {
+      code = e.code ?? String(e);
+    }
+    if (code === c.expected_code) {
+      passed++;
+    } else {
+      console.error(`✖ admission configuration ${c.name}: expected ${c.expected_code}, got ${code}`);
+      failures++;
+    }
+  }
+  console.log(`✔ ${passed} of ${vectors.cases.length + vectors.config_cases.length} admission cases`);
 }
 
 // ═══════════════════════════════════════════════════════════════

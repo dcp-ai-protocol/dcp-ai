@@ -318,6 +318,8 @@ export {
   resolveStrictV1Profile,
   isStrictV1Profile,
   revocationSubjects,
+  revocationSnapshotFromDenyList,
+  RevocationListError,
   evaluateAdmissionV2,
   admitSignedBundleV2,
 } from './core/admission.js';

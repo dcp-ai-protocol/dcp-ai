@@ -1,0 +1,38 @@
+{
+  "trust_set_version": "2026-11-02.rotation-overlap",
+  "principals": [
+    {
+      "human_id": "human:acme-ops",
+      "keys": [
+        {
+          "kid": "47b4fefa98f4beec6c37491f43c551d2",
+          "alg": "ed25519",
+          "public_key_b64": "iPDOm+Md071xh/4qqRLKfd8MXg9aGXexQsp58yGyAUY=",
+          "status": "active",
+          "expires_at": "2026-11-02T12:00:00Z"
+        },
+        {
+          "kid": "ec90987e960ded8198462eb9b98a9ddf",
+          "alg": "ml-dsa-65",
+          "public_key_b64": "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",
+          "status": "active",
+          "expires_at": "2026-11-02T12:00:00Z"
+        },
+        {
+          "kid": "45f34722627a611842cdc1fb0b52250e",
+          "alg": "ed25519",
+          "public_key_b64": "Un99u4rnDjRKFs+DtpcNCabwcExFyCmllMBzDCrZ5KA=",
+          "status": "active",
+          "not_before": "2026-11-02T09:00:00Z"
+        },
+        {
+          "kid": "911d3accd00f06b4520d5e15822706c4",
+          "alg": "ml-dsa-65",
+          "public_key_b64": "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",
+          "status": "active",
+          "not_before": "2026-11-02T09:00:00Z"
+        }
+      ]
+    }
+  ]
+}

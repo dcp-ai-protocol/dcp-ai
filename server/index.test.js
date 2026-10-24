@@ -372,3 +372,118 @@ test("rate limiting ignores a spoofed X-Forwarded-For", async () => {
   }
   assert.deepEqual(statuses, [404, 404, 404, 404, 404, 429]);
 });
+
+// ── POST /v2/admit: trusted principals and strict-v1 (spec/profiles/admission) ──
+
+test("admission: off unless the operator configures it", async () => {
+  const r = await post("/v2/admit", { signed_bundle: signedBundle });
+  assert.equal(r.status, 501);
+});
+
+test("admission: strict-v1 against the operator's trust set, revocation list and audience", async () => {
+  const { createServer } = await import("node:http");
+  const os = await import("node:os");
+  const path = await import("node:path");
+  const VERIFIER = "verifier:reference-server";
+  const fresh = (intendedVerifier = VERIFIER) =>
+    buildV2Examples({ sessionExpiresAt: new Date(Date.now() + 240_000).toISOString(), intendedVerifier });
+  const principal = await fresh();
+  const stranger = await fresh();
+  const elsewhere = await fresh("verifier:another-server");
+  const trustSet = (version, rpr) => ({
+    trust_set_version: version,
+    principals: rpr ? [{ human_id: rpr.human_id, keys: rpr.binding_keys.map(({ kid, alg, public_key_b64 }) => ({ kid, alg, public_key_b64, status: "active" })) }] : [],
+  });
+
+  // The operator's deny list, which the test changes between requests.
+  let denyList = () => ({ status: 200, body: { updated_at: new Date().toISOString(), revocations: [], kid_revocations: [] } });
+  let seenAuthorization;
+  const listServer = createServer((req, res) => {
+    seenAuthorization = req.headers.authorization;
+    const { status, body } = denyList();
+    res.statusCode = status;
+    res.end(JSON.stringify(body));
+  });
+  await new Promise((r) => listServer.listen(0, "127.0.0.1", r));
+  const listUrl = `http://127.0.0.1:${listServer.address().port}/.well-known/dcp-revocations.json`;
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "dcp-admission-"));
+  const trustFile = path.join(dir, "trust.json");
+  const profileFile = path.join(dir, "profile.json");
+  fs.writeFileSync(trustFile, JSON.stringify(trustSet("v1", principal.rpr)));
+  fs.writeFileSync(profileFile, JSON.stringify({ profile: "strict-v1", verifier_id: VERIFIER }));
+  const env = {
+    DCP_TRUSTED_PRINCIPALS_FILE: trustFile,
+    DCP_ADMISSION_PROFILE_FILE: profileFile,
+    DCP_REVOCATION_LIST_URL: listUrl,
+    DCP_REVOCATION_LIST_AUTHORIZATION: "Bearer list-reader",
+  };
+  const { base: strict, proc } = await startService(SERVER, env);
+  const admit = (signed_bundle, extra = {}) => postTo(strict, "/v2/admit", { signed_bundle, ...extra });
+  try {
+    const ok = await admit(principal.signedBundle);
+    assert.equal(ok.status, 200);
+    assert.deepEqual(
+      { admitted: ok.body.admitted, trust: ok.body.principal_trust, compliance: ok.body.profile_compliance, codes: ok.body.codes, authorized: ok.body.action_authorized },
+      { admitted: true, trust: "trusted", compliance: "compliant", codes: [], authorized: false },
+    );
+    assert.equal(seenAuthorization, "Bearer list-reader");
+
+    // buildV2Examples always names the same human_id: a self-consistent bundle that claims the
+    // trusted principal with someone else's keys. The body cannot make those keys trusted.
+    const impostor = await admit(stranger.signedBundle, { trusted_principals: trustSet("x", stranger.rpr), profile: null, verifier_id: "verifier:another-server" });
+    assert.deepEqual([impostor.body.verified, impostor.body.admitted, impostor.body.codes], [true, false, ["TRUST_KEY_NOT_ANCHORED"]]);
+
+    const audience = await admit(elsewhere.signedBundle);
+    assert.equal(audience.body.admitted, false);
+    assert.ok(audience.body.codes.includes("PROFILE_AUDIENCE_MISMATCH"));
+
+    // The agent appears on the deny list; then the list cannot be read.
+    denyList = () => ({ status: 200, body: { updated_at: new Date().toISOString(), revocations: [{ agent_id: principal.passport.agent_id }], kid_revocations: [] } });
+    assert.deepEqual((await admit(principal.signedBundle)).body.codes, ["REVOCATION_REVOKED"]);
+    denyList = () => ({ status: 500, body: {} });
+    assert.deepEqual((await admit(principal.signedBundle)).body.codes, ["REVOCATION_UNAVAILABLE"]);
+    denyList = () => ({ status: 200, body: { updated_at: new Date(Date.now() - 301_000).toISOString(), revocations: [], kid_revocations: [] } });
+    assert.deepEqual((await admit(principal.signedBundle)).body.codes, ["REVOCATION_STALE"]);
+    denyList = () => ({ status: 200, body: { updated_at: new Date().toISOString(), revocations: [], kid_revocations: [] } });
+
+    // The operator removes the principal from the trust set: no restart needed.
+    fs.writeFileSync(trustFile, JSON.stringify(trustSet("v2", null)));
+    fs.utimesSync(trustFile, new Date(), new Date(Date.now() + 5_000));
+    const removed = await admit(principal.signedBundle);
+    assert.deepEqual([removed.body.admitted, removed.body.trust_set_version, removed.body.codes], [false, "v2", ["TRUST_PRINCIPAL_UNKNOWN"]]);
+
+    // A trust set that no longer loads refuses admission.
+    fs.writeFileSync(trustFile, "{");
+    fs.utimesSync(trustFile, new Date(), new Date(Date.now() + 10_000));
+    assert.equal((await admit(principal.signedBundle)).status, 503);
+  } finally {
+    proc.kill();
+    listServer.close();
+  }
+});
+
+test("admission: the server refuses to start with a contradictory or invalid configuration", async () => {
+  const os = await import("node:os");
+  const path = await import("node:path");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "dcp-admission-bad-"));
+  const write = (name, value) => {
+    const file = path.join(dir, name);
+    fs.writeFileSync(file, JSON.stringify(value));
+    return file;
+  };
+  const profile = write("profile.json", { profile: "strict-v1", verifier_id: "verifier:x" });
+  const weak = write("weak.json", { profile: "strict-v1", verifier_id: "verifier:x", verifier_policy: { allow_v1_bundles: true } });
+  const trust = write("trust.json", { trust_set_version: "v1", principals: [] });
+  const fakeKid = write("fake.json", { trust_set_version: "v1", principals: [{ human_id: "human:x", keys: [{ kid: "0".repeat(32), alg: "ed25519", public_key_b64: Buffer.alloc(32, 1).toString("base64"), status: "active" }] }] });
+  const url = "http://127.0.0.1:9/list.json";
+  for (const env of [
+    { DCP_ADMISSION_PROFILE_FILE: profile, DCP_REVOCATION_LIST_URL: url },
+    { DCP_ADMISSION_PROFILE_FILE: profile, DCP_TRUSTED_PRINCIPALS_FILE: trust },
+    { DCP_ADMISSION_PROFILE_FILE: weak, DCP_TRUSTED_PRINCIPALS_FILE: trust, DCP_REVOCATION_LIST_URL: url },
+    { DCP_TRUSTED_PRINCIPALS_FILE: fakeKid },
+    { DCP_TRUSTED_PRINCIPALS_FILE: trust, DCP_REVOCATION_LIST_URL: url },
+  ]) {
+    await assert.rejects(startService(SERVER, env), /exited/, JSON.stringify(Object.keys(env)));
+  }
+});

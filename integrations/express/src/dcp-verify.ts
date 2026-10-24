@@ -21,6 +21,7 @@ import {
   effectiveVerificationMode,
   evaluateAdmissionV2,
   resolveStrictV1Profile,
+  revocationSnapshotFromDenyList,
   revocationSubjects,
   verifySignedBundleV2,
   type AdmissionResult,
@@ -418,6 +419,7 @@ export function admissionFailure(result: AdmissionResult) {
   };
 }
 
+/** A revocation source that could not answer (REVOCATION_UNAVAILABLE) or answered unreadably (REVOCATION_INVALID). */
 class RevocationSourceError extends Error {
   constructor(
     readonly code: 'REVOCATION_UNAVAILABLE' | 'REVOCATION_INVALID',
@@ -428,36 +430,8 @@ class RevocationSourceError extends Error {
 }
 
 /**
- * A revocation snapshot for `subjects` from a complete deny list in the format of the reference
- * revocation service's /.well-known/dcp-revocations.json: `updated_at` (RFC 3339), `revocations`
- * (objects with an `agent_id`) and `kid_revocations` (objects with a `revoked_kid`). A listed agent
- * or kid is revoked, every other subject not_revoked as of `updated_at`. Throws (code
- * REVOCATION_INVALID) on a document of another shape.
- */
-export function snapshotFromDenyList(document: unknown, subjects: RevocationSubjects): RevocationSnapshot {
-  const invalid = (why: string) => new RevocationSourceError('REVOCATION_INVALID', `revocation list: ${why}`);
-  if (!isObject(document) || typeof document.updated_at !== 'string' || parseRfc3339(document.updated_at) === undefined) {
-    throw invalid('updated_at is not an RFC 3339 timestamp');
-  }
-  const listed = (field: string, key: string): Set<string> => {
-    const items = document[field] ?? [];
-    if (!Array.isArray(items) || !items.every((item) => isObject(item) && typeof item[key] === 'string')) {
-      throw invalid(`${field} is not a list of objects with a ${key}`);
-    }
-    return new Set(items.map((item) => item[key] as string));
-  };
-  const agents = listed('revocations', 'agent_id');
-  const kids = listed('kid_revocations', 'revoked_kid');
-  const status = (set: Set<string>, id: string) => (set.has(id) ? ('revoked' as const) : ('not_revoked' as const));
-  return {
-    checked_at: document.updated_at,
-    agents: Object.fromEntries(subjects.agent_ids.map((id) => [id, status(agents, id)])),
-    keys: Object.fromEntries(subjects.kids.map((kid) => [kid, status(kids, kid)])),
-  };
-}
-
-/**
- * A revocation source that fetches a complete deny list (snapshotFromDenyList) from `url`, with the
+ * A revocation source that fetches a complete deny list (revocationSnapshotFromDenyList from the
+ * SDK: the reference revocation service's /.well-known/dcp-revocations.json format) from `url`, with the
  * operator's `headers`, within `timeoutMs` (default 5000), following no redirect. A network error,
  * a timeout or a non-2xx answer is REVOCATION_UNAVAILABLE; a body of another shape REVOCATION_INVALID.
  */
@@ -495,6 +469,6 @@ export function denyListRevocationSource(options: { url: string; headers?: Recor
       }
       throw new RevocationSourceError('REVOCATION_INVALID', 'revocation list is not JSON');
     }
-    return snapshotFromDenyList(document, subjects);
+    return revocationSnapshotFromDenyList(document, subjects);
   };
 }

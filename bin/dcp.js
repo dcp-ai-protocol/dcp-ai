@@ -164,6 +164,8 @@ Usage:
     dcp kid <public_key_file> --alg <algorithm>           Compute deterministic kid
     dcp sign-bundle --composite <bundle.json> <ed_sk> <pq_sk> [out]  Composite sign
     dcp verify-bundle --policy <mode> <signed.json>       Verify with policy
+    dcp admit-bundle <signed.json> --trust <trust.json> [--profile <profile.json>]
+        [--revocation <snapshot.json>] [--now <RFC 3339>]  Admission (spec/profiles/admission)
     dcp recovery-setup --threshold <M> --shares <N> [out] Generate Shamir shares
     dcp emergency-revoke --agent <id> --token <secret>    Emergency revocation
     dcp rotate-key --old-kid <kid> --new-alg <alg>        Key rotation with PoP
@@ -492,6 +494,57 @@ if (cmd === "verify-bundle") {
   for (const e of result.errors || []) console.error(e);
   console.error("\nVerification failed.");
   process.exit(1);
+}
+
+// ── Admission: trusted principals and strict-v1 (offline, from the operator's files) ──
+if (cmd === "admit-bundle") {
+  const flags = { "--trust": null, "--profile": null, "--revocation": null, "--now": null };
+  let signedPath = null;
+  for (let i = 1; i < args.length; i++) {
+    if (Object.hasOwn(flags, args[i])) {
+      flags[args[i]] = args[++i] ?? null;
+    } else if (!signedPath) {
+      signedPath = args[i];
+    } else {
+      console.error(`Unexpected argument: ${args[i]}`);
+      process.exit(2);
+    }
+  }
+  if (!signedPath || !flags["--trust"]) {
+    console.error("Usage: dcp admit-bundle <signed.json> --trust <trust.json> [--profile <profile.json>] [--revocation <snapshot.json>] [--now <RFC 3339>]");
+    process.exit(2);
+  }
+  const now = flags["--now"] === null ? Date.now() : Date.parse(flags["--now"]);
+  if (!Number.isFinite(now)) {
+    console.error("--now must be an RFC 3339 timestamp");
+    process.exit(2);
+  }
+  const { admitSignedBundle } = await import("../lib/verify.js");
+  const snapshot = flags["--revocation"] === null ? null : safeParseJSON(safePath(flags["--revocation"]), "revocation snapshot");
+  let result;
+  try {
+    result = await admitSignedBundle(safeParseJSON(safePath(signedPath), "signed bundle"), {
+      trust: safeParseJSON(safePath(flags["--trust"]), "trust set"),
+      profile: flags["--profile"] === null ? undefined : safeParseJSON(safePath(flags["--profile"]), "profile"),
+      revocationSource: async () => snapshot,
+      now,
+    });
+  } catch (err) {
+    console.error(`❌ ${err.message}`);
+    process.exit(2);
+  }
+  console.log(JSON.stringify({
+    verified: result.verified,
+    admitted: result.admitted,
+    principal_trust: result.principal_trust,
+    profile: result.profile,
+    profile_compliance: result.profile_compliance,
+    action_authorized: result.action_authorized,
+    recorded_decision: result.recorded_decision,
+    trust_set_version: result.trust_set_version,
+    errors: result.errors,
+  }, null, 2));
+  process.exit(result.admitted ? 0 : 1);
 }
 
 // ── Bundle hash ──

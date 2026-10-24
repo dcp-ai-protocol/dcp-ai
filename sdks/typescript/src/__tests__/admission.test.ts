@@ -14,6 +14,7 @@ import {
   createPrincipalTrustStore,
   evaluateAdmissionV2,
   resolveStrictV1Profile,
+  revocationSnapshotFromDenyList,
   revocationSubjects,
   verifySignedBundleV2,
 } from '../index.js';
@@ -172,5 +173,22 @@ describe('admission API', () => {
     const set = VECTORS.trust_sets.principal;
     const text = JSON.stringify(result.errors);
     for (const key of set.principals[0].keys) expect(text).not.toContain(key.public_key_b64);
+  });
+
+  it('reads a complete deny list into a snapshot, and refuses a list of another shape', () => {
+    const subjects = { agent_ids: ['agent:acme-bot'], kids: ['a'.repeat(32), 'b'.repeat(32)] };
+    expect(
+      revocationSnapshotFromDenyList(
+        { dcp_version: '2.0', updated_at: '2026-11-02T10:00:30Z', revocations: [{ agent_id: 'agent:other' }], kid_revocations: [{ revoked_kid: 'b'.repeat(32) }] },
+        subjects,
+      ),
+    ).toEqual({
+      checked_at: '2026-11-02T10:00:30Z',
+      agents: { 'agent:acme-bot': 'not_revoked' },
+      keys: { ['a'.repeat(32)]: 'not_revoked', ['b'.repeat(32)]: 'revoked' },
+    });
+    for (const bad of [null, [], { revocations: [] }, { updated_at: 'now' }, { updated_at: '2026-11-02T10:00:30Z', revocations: ['agent:acme-bot'] }, { updated_at: '2026-11-02T10:00:30Z', kid_revocations: {} }]) {
+      expect(() => revocationSnapshotFromDenyList(bad, subjects)).toThrow(expect.objectContaining({ code: 'REVOCATION_INVALID' }));
+    }
   });
 });

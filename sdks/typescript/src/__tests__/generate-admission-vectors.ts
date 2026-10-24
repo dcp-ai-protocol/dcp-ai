@@ -628,6 +628,12 @@ async function main() {
     accepted_profiles: acceptedProfiles,
   };
   writeFileSync(OUTPUT_PATH, `${JSON.stringify(out, null, 2)}\n`);
+  // The conformance examples of the three admission schemas (tools/conformance.js).
+  const example = (file: string, value: unknown) =>
+    writeFileSync(resolve(ROOT, 'tests/conformance/examples', file), `${JSON.stringify(value, null, 2)}\n`);
+  example('principal_trust_set_v2.json', trustSets.rotation_overlap);
+  example('admission_profile_v2.json', acceptedProfiles[0].config);
+  example('revocation_snapshot_v2.json', cases.find((c) => c.name === 'A_known_principal_strict')!.revocation);
   console.log(`Wrote ${cases.length} cases, ${configCases.length} configuration cases and ${acceptedProfiles.length} accepted profiles to ${OUTPUT_PATH}`);
 }
 

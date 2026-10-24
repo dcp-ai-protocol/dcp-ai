@@ -47,7 +47,7 @@ import {
 } from './dcp-verify.js';
 
 export type { SecurityTier, VerifierPolicyOptions, RevocationSource, TrustSource } from './dcp-verify.js';
-export { denyListRevocationSource, snapshotFromDenyList } from './dcp-verify.js';
+export { denyListRevocationSource } from './dcp-verify.js';
 
 export interface DCPVerifyOptions {
   requireBundle?: boolean;
