@@ -8,6 +8,7 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import express from 'express';
+import { rateLimit } from 'express-rate-limit';
 import { verifySignedBundleV2 } from '@dcp-ai/sdk';
 import { dcpVerify, denyListRevocationSource, type DCPVerifyOptions } from '../index.js';
 
@@ -57,6 +58,7 @@ async function listen(app: express.Express | ((req: any, res: any) => void)): Pr
  */
 async function app(options: DCPVerifyOptions | Record<string, DCPVerifyOptions>) {
   const a = express();
+  a.use(rateLimit({ windowMs: 60_000, limit: 10_000 }));
   a.use(express.json({ limit: '5mb' }));
   const tenants: Record<string, string> = { 'token-a': 'tenant-a', 'token-b': 'tenant-b' };
   a.use((req: any, _res, next) => {

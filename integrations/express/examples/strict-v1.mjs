@@ -9,12 +9,15 @@
 
 import { readFileSync } from 'node:fs';
 import express from 'express';
+import { rateLimit } from 'express-rate-limit';
 import { dcpVerify } from '../dist/index.js';
 
 const vectors = JSON.parse(readFileSync(new URL('../../../tests/interop/v2/admission_vectors.json', import.meta.url), 'utf8'));
 const now = Date.parse(vectors.cases.find((c) => c.name === 'A_known_principal_strict').now);
 
 const app = express();
+// Verification and admission cost CPU (ML-DSA, a revocation lookup): rate-limit what reaches them.
+app.use(rateLimit({ windowMs: 60_000, limit: 120 }));
 app.use(express.json({ limit: '5mb' }));
 app.post(
   '/agent/action',
