@@ -53,7 +53,7 @@ export const VerifyBundleParams = Type.Object({
           Type.Literal('hybrid_preferred'),
           Type.Literal('hybrid_required'),
           Type.Literal('pq_only'),
-        ], { description: 'Raises the verification mode of every risk tier to at least this one.' }),
+        ], { description: 'Raises the verification mode of every risk tier to at least this one. pq_only combined with another mode requires both signatures (hybrid_required).' }),
       ),
       require_session_binding: Type.Optional(Type.Boolean({ description: 'true requires session binding; false changes nothing.' })),
       require_composite_binding: Type.Optional(Type.Boolean({ description: 'true requires composite binding; false changes nothing.' })),
@@ -78,13 +78,25 @@ export function configureVerifier(options: { verifierPolicy?: VerifierPolicyOpti
   operatorPolicy = resolveVerifierPolicy(options.verifierPolicy);
 }
 
+/**
+ * The mode that requires every signature either mode requires. pq_only requires the PQ signature
+ * only, and classical_only and the hybrid modes require the classical one, so pq_only with any
+ * other mode needs both: hybrid_required. A model choosing pq_only must not drop the classical
+ * signature the operator requires.
+ */
+function requireBoth(a: VerificationMode, b: VerificationMode): VerificationMode {
+  if (a === b) return a;
+  if (a === 'pq_only' || b === 'pq_only') return 'hybrid_required';
+  return stricterMode(a, b);
+}
+
 /** The operator policy made stricter, never weaker, by the tool's verifier_policy parameter. */
 function tightenPolicy(base: VerifierPolicy, param: unknown): VerifierPolicy {
   const fields = checkPolicyFields(param, 'verifier_policy', PARAM_POLICY_FIELDS);
   const policy: VerifierPolicy = { ...base, risk_overrides: { ...base.risk_overrides } };
   if (fields.default_mode) {
-    policy.default_mode = stricterMode(policy.default_mode, fields.default_mode);
-    for (const tier of RISK_TIERS) policy.risk_overrides[tier] = stricterMode(policy.risk_overrides[tier], fields.default_mode);
+    policy.default_mode = requireBoth(policy.default_mode, fields.default_mode);
+    for (const tier of RISK_TIERS) policy.risk_overrides[tier] = requireBoth(policy.risk_overrides[tier], fields.default_mode);
   }
   if (fields.require_session_binding) policy.require_session_binding = true;
   if (fields.require_composite_binding) policy.require_composite_binding = true;
