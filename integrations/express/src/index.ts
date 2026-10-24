@@ -181,10 +181,13 @@ function checkOptions(options: unknown): void {
   if (o.cacheMaxEntries !== undefined && !(Number.isInteger(o.cacheMaxEntries) && o.cacheMaxEntries >= 1)) {
     throw new Error('cacheMaxEntries must be a positive integer');
   }
+  if (o.trustedPrincipals !== undefined && o.requireBundle === false) {
+    // A request without a bundle would reach the route that refuses one with an unadmitted bundle.
+    throw new AdmissionConfigError('CONFIG_PROFILE_CONTRADICTION', 'trustedPrincipals does not allow requireBundle false: a request without a bundle would reach the route');
+  }
   if (o.profile !== undefined) {
     // The profile fixes what these options would otherwise loosen.
     const contradiction = (what: string) => new AdmissionConfigError('CONFIG_PROFILE_CONTRADICTION', `strict-v1 does not allow ${what}`);
-    if (o.requireBundle === false) throw contradiction('requireBundle false: a request without a bundle would reach the route');
     if (o.verifierPolicy !== undefined) throw contradiction('verifierPolicy: the profile sets the verifier policy (profile.verifier_policy may tighten it)');
     if (o.requireHybrid === false) throw contradiction('requireHybrid false');
     for (const key of ['checkRevocation', 'revocationServiceUrl', 'revocationFailClosed'] as const) {

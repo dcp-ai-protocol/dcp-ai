@@ -141,7 +141,7 @@ npx dcp-ai admit-bundle bundle.signed.json --trust trust.json --profile profile.
 - **No change without opting in.** `verifySignedBundleV2` / `verify_signed_bundle_v2` / `VerifySignedBundleV2WithPolicy` / `verify_signed_bundle_v2_with_policy` keep their results; `details.signer_keys` (or `SignerKeys`) is a new field.
 - **Bundles.** No wire change. strict-v1 needs bundles signed with `session_issued_at`, `session_expires_at` and `intended_verifier` in the manifest, which every SDK signer writes when given an expiry and an audience.
 - **With a trust set, V1 bundles are refused**: they carry no principal signature to anchor.
-- **Integration options.** New and optional. Under the profile, `requireBundle: false`, `verifierPolicy`, `requireHybrid: false` and the `checkRevocation` options (Express), `verifier_policy` and `require_bundle=False` (FastAPI) and `verifierPolicy` (OpenClaw) are configuration errors.
+- **Integration options.** New and optional. With trusted principals, `requireBundle: false` (Express) and `require_bundle=False` (FastAPI) are configuration errors: a request without a bundle would reach the route. Under the profile, so are `verifierPolicy`, `requireHybrid: false` and the `checkRevocation` options (Express), `verifier_policy` (FastAPI) and `verifierPolicy` (OpenClaw).
 
 ## Limits
 

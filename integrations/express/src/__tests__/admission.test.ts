@@ -323,6 +323,7 @@ describe('configuration', () => {
     ['without trustedPrincipals', { profile: STRICT, revocationSource: async (): Promise<null> => null }, 'CONFIG_PROFILE_CONTRADICTION'],
     ['without revocationSource', { profile: STRICT, trustedPrincipals: TRUSTED }, 'CONFIG_PROFILE_CONTRADICTION'],
     ['with requireBundle false', { ...base, requireBundle: false }, 'CONFIG_PROFILE_CONTRADICTION'],
+    ['trusted principals with requireBundle false', { trustedPrincipals: TRUSTED, requireBundle: false }, 'CONFIG_PROFILE_CONTRADICTION'],
     ['with verifierPolicy', { ...base, verifierPolicy: { default_mode: 'hybrid_required' } }, 'CONFIG_PROFILE_CONTRADICTION'],
     ['with requireHybrid false', { ...base, requireHybrid: false }, 'CONFIG_PROFILE_CONTRADICTION'],
     ['with checkRevocation', { ...base, checkRevocation: true }, 'CONFIG_PROFILE_CONTRADICTION'],

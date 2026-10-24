@@ -223,7 +223,7 @@ Messages are bounded and never contain private keys, tokens or the operator's co
 
 The core functions are deterministic and make no network call. Adapters (middleware, tools, servers) resolve the operator's configuration, call the trust and revocation sources, and enforce the decision:
 
-- **A1.** A request reaches the protected handler only when `admitted` is true. An adapter never proceeds on `verified` alone once trust or a profile is configured.
+- **A1.** A request reaches the protected handler only when `admitted` is true. An adapter never proceeds on `verified` alone once trust or a profile is configured, and refuses at configuration (`CONFIG_PROFILE_CONTRADICTION`) an option that would let a request without a bundle reach the handler.
 - **A2.** The profile, the trust set or its source, the revocation source, its URL and credentials, and the tenant come from the operator's code and configuration. No request field, header or tool parameter selects or changes them.
 - **A3.** A cache MAY keep the verifier's result (step 2 of §5.1), keyed by the SHA-256 of the canonical signed bundle, the SHA-256 of the canonical effective verifier policy and the operator-derived tenant, and kept no later than the earliest of its TTL, `session_expires_at`, the RPR `expires_at` and every key's `expires_at`. Principal trust, the profile checks and revocation are evaluated on every admission, at the current `now`, with the current trust set and a fresh revocation snapshot. A cached acceptance therefore never survives a trust set change, a revocation, a different policy or a different tenant.
 
