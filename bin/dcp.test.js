@@ -54,3 +54,68 @@ test("ordinary paths inside the working directory still work", () => {
   assert.equal(keygen.status, 0, keygen.stdout + keygen.stderr);
   assert.ok(fs.existsSync(path.join(work, "keys", "secret_key.txt")));
 });
+
+test("key rotation and advisory signing cannot read key directories outside", () => {
+  const { work, outside } = sandbox();
+  fs.writeFileSync(path.join(outside, "kid.txt"), "outside-kid\n");
+  fs.writeFileSync(path.join(outside, "participant.json"), JSON.stringify({ participant_id: "p" }));
+  fs.writeFileSync(path.join(work, "advisory.json"), JSON.stringify({ advisory_id: "a" }));
+  for (const args of [
+    ["keys", "rotate", "--key-dir", outside],
+    ["governance", "sign-advisory", "advisory.json", "--key-dir", outside],
+  ]) {
+    const r = run(work, ...args);
+    assert.equal(r.status, 2, `${args.join(" ")}: ${r.stdout}${r.stderr}`);
+    assert.doesNotMatch(r.stdout, /outside-kid/);
+  }
+  fs.mkdirSync(path.join(work, "keys"));
+  fs.symlinkSync(path.join(outside, "kid.txt"), path.join(work, "keys", "kid.txt"));
+  const rotate = run(work, "keys", "rotate", "--key-dir", "keys");
+  assert.equal(rotate.status, 2, rotate.stdout + rotate.stderr);
+  assert.doesNotMatch(rotate.stdout, /outside-kid/);
+});
+
+test("advisory verification cannot read signatures outside", () => {
+  const { work, outside } = sandbox();
+  fs.writeFileSync(path.join(outside, "sig.json"), "{}");
+  fs.writeFileSync(path.join(work, "advisory.json"), JSON.stringify({ advisory_id: "a" }));
+  fs.writeFileSync(path.join(work, "keys.json"), JSON.stringify({ participants: [] }));
+  const r = run(work, "governance", "verify-advisory", "advisory.json", "--keys", "keys.json", "--sigs", path.join(outside, "sig.json"));
+  assert.equal(r.status, 2, r.stdout + r.stderr);
+});
+
+test("a secret key replaces a hard link instead of writing through it, and gets mode 0600", () => {
+  const { work, outside } = sandbox();
+  const loot = path.join(outside, "loot");
+  fs.writeFileSync(loot, "untouched");
+  fs.chmodSync(loot, 0o666);
+  fs.mkdirSync(path.join(work, "keys"));
+  fs.linkSync(loot, path.join(work, "keys", "secret_key.txt"));
+  const r = run(work, "keygen", "keys");
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.equal(fs.readFileSync(loot, "utf8"), "untouched");
+  if (process.platform !== "win32") {
+    assert.equal(fs.statSync(path.join(work, "keys", "secret_key.txt")).mode & 0o777, 0o600);
+  }
+});
+
+test("an existing secret key file with a wider mode ends up 0600", { skip: process.platform === "win32" }, () => {
+  const { work } = sandbox();
+  fs.mkdirSync(path.join(work, "keys"));
+  fs.writeFileSync(path.join(work, "keys", "secret_key.txt"), "old");
+  fs.chmodSync(path.join(work, "keys", "secret_key.txt"), 0o644);
+  assert.equal(run(work, "keygen", "keys").status, 0);
+  assert.equal(fs.statSync(path.join(work, "keys", "secret_key.txt")).mode & 0o777, 0o600);
+});
+
+test("the CLI runs its own tools, not a tools/ directory planted in the working directory", () => {
+  const { work } = sandbox();
+  const marker = path.join(work, "planted-ran");
+  fs.mkdirSync(path.join(work, "tools"));
+  fs.writeFileSync(path.join(work, "tools", "validate.js"), `require("fs").writeFileSync(${JSON.stringify(marker)}, "x");`);
+  const repo = path.dirname(path.dirname(CLI));
+  fs.copyFileSync(path.join(repo, "schemas", "v1", "intent.schema.json"), path.join(work, "intent.schema.json"));
+  fs.copyFileSync(path.join(repo, "tests", "conformance", "examples", "intent.json"), path.join(work, "intent.json"));
+  run(work, "validate", "intent.schema.json", "intent.json");
+  assert.equal(fs.existsSync(marker), false);
+});
