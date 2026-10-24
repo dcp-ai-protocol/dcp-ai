@@ -61,5 +61,11 @@ try {
 } finally {
   fs.closeSync(fd);
 }
-fs.renameSync(tmp, outPath);
+try {
+  fs.renameSync(tmp, outPath);
+} catch (err) {
+  fs.rmSync(tmp, { force: true });
+  console.error(`Cannot write ${outPath}: ${err.message}`);
+  process.exit(1);
+}
 console.log(`✅ Signed bundle written to ${outPath}`);
