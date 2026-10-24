@@ -24,6 +24,7 @@ go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
 | Domain separation | — | Yes |
 | Dual hash (SHA-256 + SHA3-256) | — | Yes |
 | Bundle verification | Yes | Yes |
+| Admission: principal trust set + `strict-v1` profile (spec/profiles/admission) | — | Yes |
 | Bundle building & signing | — | Yes |
 | Security tier computation | — | Yes |
 | Proof of possession | — | Yes |
@@ -153,7 +154,52 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 | `v2.BuildBundleV2(input)` | Assembles a V2 bundle from signed artifacts, with manifest hashes and dual Merkle roots |
 | `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | Signs a bundle with composite or classical-only signature; the signer is the bundle's principal (`signer.id` = the RPR's `human_id`) |
 | `v2.VerifySignedBundleV2(reg, jsonBytes)` | Full V2 bundle verification (structure, hashes, signatures, audit chain) under `DefaultVerifierPolicy`, against the stricter of the policy mode and the security tier's mode (spec §14.3); reports `ResolvedTier` and `VerificationMode` |
-| `v2.VerifySignedBundleV2WithPolicy(reg, jsonBytes, policy)` | Same with your own `VerifierPolicy`; only `DefaultMode`, `RiskOverrides`, `MaxSessionDurationSeconds`, `RequireSessionExpiry`, `RequireAudienceBinding`, `VerifierID` and the Phase 3 fields (`AdvisoryRejectedAlgs`, `WarnClassicalOnlyDeprecated`, `AllowClassicalFallbackDisable`, as in TypeScript) may differ from `DefaultVerifierPolicy()`, any other change fails verification |
+| `v2.VerifySignedBundleV2WithPolicy(reg, jsonBytes, policy)` | Same with your own `VerifierPolicy`; only `DefaultMode`, `RiskOverrides`, `AcceptedClassicalAlgs`, `AcceptedPQAlgs`, `AllowV1Bundles` (a V1 bundle never verifies here), `MaxSessionDurationSeconds`, `RequireSessionExpiry`, `RequireAudienceBinding`, `VerifierID` and the Phase 3 fields (`AdvisoryRejectedAlgs`, `WarnClassicalOnlyDeprecated`, `AllowClassicalFallbackDisable`, as in TypeScript) may differ from `DefaultVerifierPolicy()`, any other change fails verification |
+| `v2.VerifySignedBundleV2At(reg, jsonBytes, policy, now)` | Same at the instant `now`: the session window, the RPR expiry and key expiry compare against it, at millisecond precision. The two functions above call it with `time.Now()` |
+
+Every result lists in `SignerKeys` (JSON `signer_keys`), for each composite signature checked (`bundle`, the four artifacts, each `pq_checkpoints[<id>]`), the key entry the verifier resolved for each component (`classical`, `pq`) and whether that component verified.
+
+### Admission: principal trust and strict-v1
+
+A verified bundle proves integrity and signature, not who the principal is. Admission ([spec/profiles/admission](../../spec/profiles/admission/README.md)) adds, on top of verification, an operator trust set that pins each principal's keys and the operator-fixed `strict-v1` profile (hybrid signatures for every tier, signed audience, a signed session of at most 300 s, a revocation snapshot at most 300 s old). It does no network I/O, and it never authorizes an action: `ActionAuthorized` is always `false`.
+
+| Function | Description |
+|----------|-------------|
+| `v2.NewPrincipalTrustStore(json)` | Validates a trust set (`schemas/v2/principal_trust_set.schema.json`) |
+| `v2.ResolveStrictV1Profile(json)` | Validates a strict-v1 configuration (`schemas/v2/admission_profile.schema.json`); the profile's getters (`VerifierPolicy()`, `VerifierID()`, `MaxSessionDurationSeconds()`, `MaxRevocationAgeSeconds()`) return copies |
+| `v2.RevocationSubjects(json, verification)` | The passport `agent_id` and the kid of every verified signer key, sorted: what the revocation snapshot must answer for |
+| `v2.EvaluateAdmissionV2(json, verification, v2.AdmissionOptions{...})` | Evaluates admission from the verifier's result at `Now`, with no cryptography |
+| `v2.AdmitSignedBundleV2(reg, json, v2.AdmitOptions{...})` | Verifies (under the profile's policy, or `Policy` without a profile) and evaluates |
+
+A trust set or profile that cannot be loaded, a profile without a trust set, or a profile together with a caller `Policy` returns an `*v2.AdmissionConfigError` whose `Code` is one of the `CONFIG_*` codes. An `AdmissionResult` has `Verified`, `Verification`, `PrincipalTrust`, `Profile`, `ProfileCompliance`, `Admitted`, `ActionAuthorized`, `RecordedDecision`, `TrustSetVersion` and `Errors` (`{Code, Message}`), with the field names of the spec in its JSON form. Proceed only when `Admitted` is true.
+
+```go
+trust, err := v2.NewPrincipalTrustStore(trustSetJSON) // operator configuration, never the bundle
+if err != nil {
+    log.Fatal(err) // *v2.AdmissionConfigError
+}
+profile, err := v2.ResolveStrictV1Profile([]byte(`{"profile":"strict-v1","verifier_id":"api.acme.example"}`))
+if err != nil {
+    log.Fatal(err)
+}
+
+now := time.Now()
+verification := v2.VerifySignedBundleV2At(reg, signedBundleJSON, profile.VerifierPolicy(), now)
+subjects := v2.RevocationSubjects(signedBundleJSON, verification)
+snapshot := lookupRevocation(subjects) // your source: a JSON snapshot, or nil when it cannot answer
+
+result, err := v2.EvaluateAdmissionV2(signedBundleJSON, verification, v2.AdmissionOptions{
+    Profile: profile, Trust: trust, Revocation: snapshot, Now: now,
+})
+if err != nil {
+    log.Fatal(err)
+}
+if !result.Admitted {
+    for _, e := range result.Errors {
+        fmt.Println(e.Code, e.Message) // e.g. TRUST_PRINCIPAL_UNKNOWN, REVOCATION_STALE
+    }
+}
+```
 
 ### Security Tiers
 
