@@ -104,7 +104,7 @@ def deny_list_revocation_source(
             while size <= _MAX_BODY:
                 if time.monotonic() > deadline:
                     raise TimeoutError("the deny list took longer than the timeout")
-                chunk = response.read(64 * 1024)
+                chunk = response.read1(64 * 1024)  # what has arrived, so the deadline is checked as bytes trickle in
                 if not chunk:
                     break
                 chunks.append(chunk)

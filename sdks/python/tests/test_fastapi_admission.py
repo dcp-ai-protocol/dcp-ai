@@ -12,6 +12,7 @@ import copy
 import json
 import runpy
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -671,3 +672,39 @@ def test_the_middleware_with_a_deny_list_source(deny_list_url, path, status, cod
     else:
         assert response.json()["codes"] == codes
         assert reached == []
+
+
+def test_deny_list_source_stops_reading_a_trickling_list_at_the_deadline():
+    # A list that sends one byte every 0.1 s must not keep the worker thread reading past the timeout.
+    stopped: dict = {}
+
+    class Trickle(BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def do_GET(self):  # noqa: N802 (http.server's name)
+            self.send_response(200)
+            self.end_headers()
+            start = time.monotonic()
+            try:
+                for _ in range(100):
+                    self.wfile.write(b" ")
+                    self.wfile.flush()
+                    time.sleep(0.1)
+            except OSError:
+                pass
+            stopped["after"] = time.monotonic() - start
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Trickle)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        source = deny_list_revocation_source(f"http://127.0.0.1:{server.server_address[1]}/list", timeout=0.5)
+        with pytest.raises(RevocationSourceError) as caught:
+            asyncio.run(source(SUBJECTS, ""))
+        assert caught.value.code == "REVOCATION_UNAVAILABLE"
+        deadline = time.monotonic() + 5
+        while "after" not in stopped and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert stopped.get("after", 99) < 2.5
+    finally:
+        server.shutdown()
