@@ -8,6 +8,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Security
 
+- **Acceptance change: Ed25519 signatures with S >= L are now rejected** by the TypeScript SDK
+  (`Ed25519Provider.verify`, hence every V2 and composite signature, `@dcp-ai/express` and
+  `@dcp-ai/openclaw`; and `verifyObject`, hence `verifySignedBundle` V1) and by the reference
+  verifier (`tools/crypto.js`, hence `lib/verify.js` V1, `bin/dcp.js`, conformance and the
+  transparency-log gossip). RFC 8032 §5.1.7 requires 0 <= S < L, and TweetNaCl does not check it,
+  so it accepted S + k·L, another encoding of a valid signature (§8.4, malleability). Python, Go
+  and Rust already rejected them. TweetNaCl is still the verifier: the range is checked only on
+  input it accepts, so its errors for wrong types, sizes and base64 are unchanged, as are the
+  decoding of keys and R and the acceptance of weak keys. Signers produce S < L, so no newly
+  generated signature changes verdict; a stored signature with S >= L that an earlier version
+  accepted no longer verifies. The repository inventory found such signatures only in the
+  intentional negative review corpus; it does not cover external stored evidence. Evidence
+  verified before this change is not re-signed automatically: keep it as historical, with its hash
+  and the version that verified it, or sign it again.
+- **The same acceptance change in `dcp-ai verify` (`@dcp-ai/cli`) and the playground**, which
+  called TweetNaCl directly. `dcp-ai verify` checks S < L in its own V1 check of
+  `signature.sig_b64`, and V2 bundles get it from `@dcp-ai/sdk`, whose verifier it now uses (see
+  Changed). The historical `signature.classical.value` path had the check too when it was added;
+  that path has since been removed and its format is rejected. The playground checks it in
+  `verifyDetached`. The check is the SDK's, made only on input TweetNaCl accepts, so its errors
+  are unchanged.
 - The four V2 verifiers split on non-canonical encodings of a valid signature: with junk after
   the padding, extra padding, a newline inside, trailing bits set or no padding, TypeScript
   accepted every variant, Python and Go some, Rust none. Every `sig_b64` must now be canonical
@@ -153,7 +174,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - Integrations: `@dcp-ai/express` `dcpVerify`, `dcp_ai.fastapi` `DCPVerifyMiddleware` and
     `@dcp-ai/openclaw` `configureVerifier` take `trustedPrincipals`, `profile`,
     `revocationSource` and, in the middlewares, an operator `tenant` function. A request reaches
-    the route only when admitted. The Express cache keeps only the cryptographic verification,
+    the route only when admitted. A trust function that throws or returns no valid trust set
+    (`undefined`, `null`, an invalid set) refuses the request: `503` in the middlewares,
+    `admitted: false` in OpenClaw. The Express cache keeps only the cryptographic verification,
     keyed by the bundle, the policy and the tenant; trust, the profile and revocation are
     evaluated on every request. `denyListRevocationSource` reads a complete deny list; a source
     that fails or times out refuses the request.
@@ -257,6 +280,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `dcp-ai verify` (`@dcp-ai/cli`) verifies V2 bundles (`bundle.dcp_bundle_version` "2.0" or a
+  `bundle.manifest`) with the normative verifier: the envelope and the four signed payloads are
+  validated against `schemas/v2`, whose copies ship in the package, then `verifySignedBundleV2`
+  from `@dcp-ai/sdk` runs under `DEFAULT_VERIFIER_POLICY` with the Ed25519, ML-DSA-65 and
+  SLH-DSA-192f providers. The pre-normative envelope (top-level `dcp_version` "2.0" or
+  `bundle_manifest`, or `signature.binding: "composite"`) is rejected before anything else, also
+  when those markers sit on a V1 or a V2 bundle, and its `signature.classical.value` check is
+  gone, with no classical fallback. When `.dcp/keys/ed25519_public.key` exists it pins the
+  principal's signing key among the RPR `binding_keys` (an empty file is rejected); without it the
+  bundle's own keys are used, which checks the signatures, not trust or admission. V1 verification
+  is unchanged. `dcp-ai sign` is unchanged too: it appends to `signatures[]`, a format `verify`
+  does not read; V2 bundles are signed with `signBundleV2` or `dcp sign-bundle --composite`. The
+  package now requires `@dcp-ai/sdk` `^2.2.0` and declares `ajv` and `ajv-formats`.
+- `dcp-ai verify` (`@dcp-ai/cli`) exits 0 only when it prints VALID. On V1 files it now exits 1,
+  where it exited 0, when the Ed25519 signature is INVALID, when there is no key or no usable
+  signature (it prints "No public key available", also when the key is there and the signature is
+  missing or empty), and when the file is not a signed bundle (an object without a truthy
+  `bundle`, an array or a primitive). Those messages are unchanged, and a missing argument or
+  file, invalid JSON, base64 or a wrong size still exit 1 with their error. A script that took
+  exit 0 to mean "ran" must now expect 1 in those cases. On a V1 file exit 0 means that the
+  Ed25519 signature over the canonical bundle verified, nothing more; on a V2 bundle it means the
+  schemas and the normative verifier passed (above). Neither is an admission decision.
 - Go and Rust V2 verifiers: a policy that narrows `accepted_classical_algs` or `accepted_pq_algs`
   was refused as a field they did not enforce, so every bundle failed under it; they now enforce
   both lists as TypeScript and Python do (the classical list except under `pq_only`), and a
