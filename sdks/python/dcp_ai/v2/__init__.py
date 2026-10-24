@@ -223,6 +223,7 @@ from dcp_ai.v2.admission import (
     resolve_strict_v1_profile,
     revocation_subjects,
 )
+from dcp_ai.v2.revocation_source import RevocationSourceError, deny_list_revocation_source
 
 __all__ = [
     "assert_no_floats",
@@ -416,4 +417,6 @@ __all__ = [
     "evaluate_admission_v2",
     "resolve_strict_v1_profile",
     "revocation_subjects",
+    "RevocationSourceError",
+    "deny_list_revocation_source",
 ]
