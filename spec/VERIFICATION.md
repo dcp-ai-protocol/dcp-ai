@@ -156,6 +156,14 @@ The signatures prove who signed each artifact; these checks make the artifacts d
 
 A bundle that records an escalated or blocked action is valid evidence of it: nothing here requires the decision to be `approve`. The status and expiry checks, like the key checks of Step V2-13, apply at the verification time; verifying archived evidence as of an earlier time is not defined yet.
 
+### Verification time and signer keys
+
+Every time comparison of V2-1 to V2-14 uses one verification instant. Implementations take it as an optional parameter, defaulting to the system clock, so a verdict can be reproduced at a given time. For every composite signature they check, verifiers report the key entry they resolved for each component and whether it verified (`signer_keys`); this is what the admission profile reads.
+
+### Beyond verification: admission
+
+Steps V2-1 to V2-14 decide whether a bundle is verified: intact, consistent and signed by the keys it lists. They do not decide who the principal is. Whether a verified bundle comes from a principal the verifier already trusts, and the operator-fixed `strict-v1` requirements, are defined by the admission profile, [`profiles/admission`](profiles/admission/README.md), on top of these steps and without changing them.
+
 ---
 
 ## Protocol integrity

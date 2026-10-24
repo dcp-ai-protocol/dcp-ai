@@ -133,6 +133,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Admission: trusted principals and the `strict-v1` profile (`spec/profiles/admission`,
+  `docs/ADMISSION.md`). A verified bundle proves integrity and signature by the keys it lists; an
+  operator trust set (`schemas/v2/principal_trust_set.schema.json`) now lets a verifier admit a
+  bundle only when the keys that verified its principal signatures (RPR and manifest, classical
+  and PQ) are trusted, active keys of that `human_id`. `strict-v1`
+  (`schemas/v2/admission_profile.schema.json`) adds operator-fixed requirements: V2 only, hybrid
+  signatures for every tier, session binding, a signed `intended_verifier` equal to the
+  operator's `verifier_id`, a signed session of at most 300 s, and a revocation snapshot
+  (`schemas/v2/revocation_snapshot.schema.json`) at most 300 s old covering the agent and every
+  verified signer key. Its configuration can only tighten it; a weakening value is a
+  `CONFIG_PROFILE_CONTRADICTION`. Results keep `verified` and add `principal_trust`,
+  `profile_compliance`, `admitted`, `recorded_decision`, `trust_set_version`, coded `errors`, and
+  `action_authorized`, always `false`: admission does not authorize an action.
+  - SDKs: TypeScript (`admitSignedBundleV2`, `evaluateAdmissionV2`, `createPrincipalTrustStore`,
+    `resolveStrictV1Profile`, `revocationSubjects`, `revocationSnapshotFromDenyList`), with the same
+    functions in Python, Go and Rust. The four verifiers take an optional clock and report the
+    key each signature component was verified with (`signer_keys`).
+  - Integrations: `@dcp-ai/express` `dcpVerify`, `dcp_ai.fastapi` `DCPVerifyMiddleware` and
+    `@dcp-ai/openclaw` `configureVerifier` take `trustedPrincipals`, `profile`,
+    `revocationSource` and, in the middlewares, an operator `tenant` function. A request reaches
+    the route only when admitted. The Express cache keeps only the cryptographic verification,
+    keyed by the bundle, the policy and the tenant; trust, the profile and revocation are
+    evaluated on every request. `denyListRevocationSource` reads a complete deny list; a source
+    that fails or times out refuses the request.
+  - Reference verifier, server and CLI: `admitSignedBundle` in `lib/verify.js`, `POST /v2/admit`
+    configured by `DCP_TRUSTED_PRINCIPALS_FILE`, `DCP_ADMISSION_PROFILE_FILE` and
+    `DCP_REVOCATION_LIST_URL`, and `dcp admit-bundle`.
+  - `tests/interop/v2/admission_vectors.json`: 55 cases with hand-written expected outcomes and the
+    rule each checks, and 46 configuration cases, run by the four SDKs and by `npm run
+    conformance`.
 - Rust SDK: native V2 bundle building and signing, `dcp_ai::v2::bundle`. `build_bundle_v2(&rpr,
   &passport, &intent, &policy, &audit_entries, session_nonce)` checks each `payload_hash` and the
   `session_nonce` of every artifact and audit entry, and writes the manifest with both audit

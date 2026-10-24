@@ -77,6 +77,12 @@ rejected, and the result names no agent. `verifier_policy` can only make the pol
 example `{ default_mode: "hybrid_required" }`), never weaker. A verified bundle is signed by the keys
 it lists itself: it does not prove who the human principal is.
 
+When the operator configured trusted principals, the result also has `admitted`: rely on the bundle
+only when `admitted` is true, never on `verified` alone. Under the operator's strict-v1 profile, do
+not pass `verifier_policy`. `action_authorized` is always false: an admitted bundle is evidence of
+what the agent declared and of the recorded decision (which may be `block` or `escalate`), not
+permission to act.
+
 ## End of session
 
 Build and sign the complete CitizenshipBundle for the session:

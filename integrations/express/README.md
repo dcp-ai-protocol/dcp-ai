@@ -91,10 +91,16 @@ An unknown option, an unknown `verifierPolicy` field or a value of the wrong typ
 | `cacheTtlSeconds` | `number` | `0` | Seconds to cache verification results. `0` disables caching. |
 | `cacheMaxEntries` | `number` | `1000` | Most verified bundles kept in the cache; the least recently used is evicted first. |
 | `headerName` | `string` | `"x-dcp-bundle"` | Name of the HTTP header where the bundle is sent. |
-| `onFailure` | `function` | `undefined` | Custom handler for verification errors. Receives `(req, res, errors)`. |
+| `onFailure` | `function` | `undefined` | Custom handler for verification errors. Receives `(req, res, errors)`, and for a refused admission the admission result as a fourth argument. |
 | `verifierPolicy` | `object` | `undefined` | Verifier policy fields (`VerifierPolicy` of `@dcp-ai/sdk`), merged over the SDK's `DEFAULT_VERIFIER_POLICY`. A `default_mode` given without `risk_overrides` applies to every risk tier; `risk_overrides` entries set their tiers over the others. |
 | `requireHybrid` | `boolean` | `false` | Every mode below `hybrid_required` becomes `hybrid_required`, and V1 bundles are refused. |
 | `requireActiveLifecycle` | `boolean` | `false` | Reject decommissioned agents (DCP-05 §5.1). V2 only. |
+| `trustedPrincipals` | `object` or `function` | `undefined` | The principals you trust and their keys: a trust set (`schemas/v2/principal_trust_set.schema.json`), or `({ tenant }) => trust set` called on every request. With it, only admitted V2 bundles reach the route (see below). |
+| `profile` | `object` | `undefined` | The strict-v1 profile (`schemas/v2/admission_profile.schema.json`). Needs `trustedPrincipals` and `revocationSource`. |
+| `revocationSource` | `function` | `undefined` | `(subjects, { tenant }) => snapshot`, the profile's revocation source, e.g. `denyListRevocationSource({ url, headers })`. |
+| `revocationTimeoutMs` | `number` | `5000` | How long the revocation source may take before the request is refused. |
+| `tenant` | `function` | one tenant | `(req) => string`, from your own authenticated context, never a header the client sets. Selects the trust set and separates cached verdicts. |
+| `clock` | `function` | `Date.now` | For tests. |
 
 ### `req.dcpAgent`
 
@@ -116,6 +122,15 @@ interface DCPAgent {
   warnings?: string[];      // V2: warnings of the SDK verifier (e.g. classical-only signature)
   verificationMode?: string; // V2: the mode the bundle was verified in
   securityTier?: string;     // V2: security tier of its intent and policy decision (spec §14.2)
+  admission?: {              // with trustedPrincipals
+    admitted: true;
+    principalTrust: "trusted";
+    profile: "strict-v1" | null;
+    profileCompliance: "compliant" | "not_evaluated";
+    recordedDecision: string | null; // approve, escalate, block: evidence, not a permission
+    trustSetVersion: string | null;
+    actionAuthorized: false;         // always: admission does not authorize an action
+  };
 }
 ```
 
@@ -132,15 +147,33 @@ interface DCPAgent {
 
 ### What "verified" means
 
-A verified bundle is internally consistent and signed by the keys it lists itself: the RPR `binding_keys` for the bundle signature, the passport keys for the agent's artifacts. It does not prove who the principal is: anyone can create keys and an RPR naming any `human_id`. Proving that needs the caller to pin the principal's trusted keys, and this middleware has no such option yet.
+A verified bundle is internally consistent and signed by the keys it lists itself: the RPR `binding_keys` for the bundle signature, the passport keys for the agent's artifacts. It does not prove who the principal is: anyone can create keys and an RPR naming any `human_id`. For that, set `trustedPrincipals` (next section).
 
-A verified bundle can be replayed by anyone who holds it until its session expires. Against replay, set `verifierPolicy.require_audience_binding: true` with your `verifier_id` (the bundle's `manifest.intended_verifier` must name this verifier), and `require_session_expiry` / `max_session_duration_seconds` to bound the session.
+A verified bundle can be replayed by anyone who holds it until its session expires. Against replay, set `verifierPolicy.require_audience_binding: true` with your `verifier_id` (the bundle's `manifest.intended_verifier` must name this verifier), and `require_session_expiry` / `max_session_duration_seconds` to bound the session, or use the strict-v1 profile. None of these makes a bundle single-use: keep your own record of consumed nonces if you need that.
+
+### Trusted principals and strict-v1
+
+With `trustedPrincipals`, a request reaches the route only when its bundle is **admitted** (`docs/ADMISSION.md`, `spec/profiles/admission`): a V2 bundle whose principal signatures (the RPR and the bundle manifest, classical and post-quantum) were made with keys your trust set lists for that `human_id`, active and in their validity window. With `profile`, the strict-v1 requirements apply as well: hybrid signatures for every risk tier, a signed `intended_verifier` equal to your `verifier_id`, a signed session of at most 300 s, and a fresh revocation snapshot.
+
+```typescript
+import { dcpVerify, denyListRevocationSource } from "@dcp-ai/express";
+
+app.use("/api/agents", dcpVerify({
+  trustedPrincipals: trustSet,
+  profile: { profile: "strict-v1", verifier_id: "api.acme.example" },
+  revocationSource: denyListRevocationSource({ url: "https://revocation.acme.example/.well-known/dcp-revocations.json" }),
+  tenant: (req) => req.auth.tenant,
+  cacheTtlSeconds: 60,
+}));
+```
+
+A refused request gets `403` with `{ verified, admitted: false, principal_trust, profile, profile_compliance, codes, errors }` and never reaches the route. A revocation source that fails, times out or returns nothing refuses the request (`REVOCATION_UNAVAILABLE`). Under the profile, `requireBundle: false`, `verifierPolicy`, `requireHybrid: false` and the `checkRevocation` options throw `AdmissionConfigError` when the middleware is created. With trusted principals, V1 bundles are refused: they carry no principal signature to anchor. Runnable: `examples/strict-v1.mjs`.
 
 The tests run every case of `tests/interop/v2/bundle_vectors.json`, each under its `verifier_policy_overrides`.
 
 ### Cache
 
-When `cacheTtlSeconds > 0`, each middleware keeps its own cache of verified bundles, keyed by the SHA-256 of the signed bundle's canonical form (`canonicalizeV2`): a cached verdict is only reused for the same bundle, under the same middleware options, and a bundle without a canonical form (a non-integer number such as `1e999`, or nesting too deep) is verified but not cached. An entry expires after `cacheTtlSeconds`, or earlier when the bundle's session (`manifest.session_expires_at`), the RPR, a passport key or an RPR binding key expires; a bundle with an expiry timestamp that is not RFC 3339 is not cached. The cache holds at most `cacheMaxEntries` bundles, evicting expired entries and then the least recently used. With `checkRevocation`, revocation is checked again on every cache hit.
+When `cacheTtlSeconds > 0`, each middleware keeps its own cache of verified bundles, keyed by the SHA-256 of the signed bundle's canonical form (`canonicalizeV2`), the fingerprint of the verifier policy and the tenant: a cached verdict is only reused for the same bundle, under the same policy, for the same tenant, and a bundle without a canonical form (a non-integer number such as `1e999`, or nesting too deep) is verified but not cached. An entry expires after `cacheTtlSeconds`, or earlier when the bundle's session (`manifest.session_expires_at`), the RPR, a passport key or an RPR binding key expires; a bundle with an expiry timestamp that is not RFC 3339 is not cached. The cache holds at most `cacheMaxEntries` bundles, evicting expired entries and then the least recently used. With `checkRevocation`, revocation is checked again on every cache hit. With `trustedPrincipals`, the cache holds only the cryptographic verification: principal trust, the profile checks and revocation are evaluated on every request, so a principal removed from the trust set or a key revoked is refused on the next request.
 
 ## Advanced Example — Selectively Protected Routes
 

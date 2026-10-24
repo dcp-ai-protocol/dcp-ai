@@ -9,6 +9,7 @@ Profiles are extensions that build on [DCP Core](../core/) to address specific d
 | **Crypto** | Algorithm selection, hybrid/PQ signatures, composite binding, crypto-agility, verifier policy | [crypto/](crypto/) |
 | **A2A** | Agent discovery, session establishment, transport bindings, message exchange | [a2a/](a2a/) |
 | **Governance** | Risk tiers, jurisdiction attestation, revocation, key recovery, governance ceremonies | [governance/](governance/) |
+| **Admission** | Principal trust sets and the operator-fixed `strict-v1` profile on top of verification | [admission/](admission/) |
 
 ## Design Principles
 

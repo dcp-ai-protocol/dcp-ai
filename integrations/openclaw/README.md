@@ -124,7 +124,21 @@ The result carries the verifier's `errors` and `warnings`, `resolved_tier` (the 
 
 ### What "verified" means
 
-A verified bundle is internally consistent and signed by the keys it lists itself: the RPR `binding_keys` for the bundle signature, the passport keys for the agent's artifacts. It does not prove who the principal is: anyone can create keys and an RPR naming any `human_id`. That needs the verifier to pin the principal's trusted keys, and this plugin has no such option yet. A verified bundle can also be replayed until its session expires; the operator policy's `require_audience_binding` with a `verifier_id` (the bundle's `manifest.intended_verifier` must name it) and `require_session_expiry` / `max_session_duration_seconds` limit that.
+A verified bundle is internally consistent and signed by the keys it lists itself: the RPR `binding_keys` for the bundle signature, the passport keys for the agent's artifacts. It does not prove who the principal is: anyone can create keys and an RPR naming any `human_id`. For that, configure trusted principals (next section). A verified bundle can also be replayed until its session expires; the operator policy's `require_audience_binding` with a `verifier_id` (the bundle's `manifest.intended_verifier` must name it) and `require_session_expiry` / `max_session_duration_seconds` limit that, without making it single-use.
+
+### Trusted principals and strict-v1
+
+```typescript
+import { configureVerifier, denyListRevocationSource } from '@dcp-ai/openclaw';
+
+configureVerifier({
+  trustedPrincipals: trustSet,                     // or () => trust set, read on every call
+  profile: { profile: 'strict-v1', verifier_id: 'agent-gateway' },
+  revocationSource: denyListRevocationSource({ url: 'https://revocation.acme.example/.well-known/dcp-revocations.json' }),
+});
+```
+
+With `trustedPrincipals`, the result adds `admitted`, `principal_trust`, `profile`, `profile_compliance`, `codes`, `recorded_decision`, `trust_set_version` and `action_authorized` (always `false`), and names the agent and principal only for an admitted bundle (`docs/ADMISSION.md`, `spec/profiles/admission`). `verified` keeps its meaning, the verifier's verdict. Under the profile the model's `verifier_policy` parameter is refused, even a stricter one, and parameters the tool does not define (a trust set, an audience, a revocation snapshot) are ignored. `configureVerifier` throws `AdmissionConfigError` on a contradiction (a profile with `verifierPolicy`, or without trusted principals or a revocation source) and keeps the previous configuration. Runnable: `examples/strict-v1.mjs`.
 
 The tests run every case of `tests/interop/v2/bundle_vectors.json`, each under the operator policy with its `verifier_policy_overrides`.
 

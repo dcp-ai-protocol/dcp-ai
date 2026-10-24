@@ -212,6 +212,24 @@ const bundle = new BundleBuilderV2()
 | `cborEncode(value)` | Codifica um valor em bytes CBOR |
 | `cborDecode(data)` | Decodifica bytes CBOR em um valor |
 
+### Admissão: Principais Confiáveis e strict-v1
+
+Um bundle verificado é assinado pelas chaves que ele mesmo lista; isso não prova quem é o principal. A admissão aceita um bundle somente quando as assinaturas do principal foram feitas com chaves de um principal que o seu conjunto de confiança lista, e opcionalmente sob o perfil `strict-v1`, fixado pelo operador (assinaturas híbridas, audiência assinada, uma sessão de no máximo 300 s e um snapshot de revogação recente).
+
+```typescript
+import { admitSignedBundleV2, createPrincipalTrustStore, resolveStrictV1Profile } from '@dcp-ai/sdk';
+
+const trust = createPrincipalTrustStore(trustSetJson); // AdmissionConfigError on a bad trust set
+const profile = resolveStrictV1Profile({ profile: 'strict-v1', verifier_id: 'api.acme.example' });
+const result = await admitSignedBundleV2(signedBundle, registry, { profile, trust, revocation: snapshot });
+// result.verified, result.principal_trust, result.profile_compliance, result.admitted,
+// result.action_authorized (always false), result.errors [{ code, message }]
+```
+
+- `verifySignedBundleV2(bundle, registry, policy, { now })` aceita um relógio opcional e informa `details.signer_keys`; sem eles se comporta como antes.
+- `evaluateAdmissionV2` avalia um resultado do verificador que você já tem (sem criptografia nem E/S); `revocationSubjects` lista o que uma fonte de revogação deve responder.
+- Guia: [`docs/ADMISSION.md`](../../docs/ADMISSION.md). Especificação e códigos: [`spec/profiles/admission`](../../spec/profiles/admission/README.md).
+
 ### Cadeias de Delegação (DCP-09 §3.5)
 
 Um humano delega a um agente com um mandato raiz; esse agente pode repassar parte da sua autoridade a outro agente
