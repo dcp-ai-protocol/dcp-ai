@@ -187,6 +187,16 @@ class Client:
         return json.loads(b"".join(m.get("body", b"") for m in self.sent if m["type"] == "http.response.body"))
 
 
+def terminated(client: "Client") -> bool:
+    """The ASGI response a client that left gets: 499, empty (Content-Length: 0), no-store. Two
+    internal messages; a server such as uvicorn writes nothing for a connection that is gone."""
+    starts = [m for m in client.sent if m["type"] == "http.response.start"]
+    bodies = [m for m in client.sent if m["type"] == "http.response.body"]
+    return (len(client.sent) == 2 and len(starts) == 1 and starts[0]["status"] == 499
+            and dict(starts[0]["headers"]) == {b"cache-control": b"no-store", b"content-length": b"0"}
+            and b"".join(m.get("body", b"") for m in bodies) == b"" and not any(m.get("more_body") for m in bodies))
+
+
 def build(*, trust=TRUST, supervisor=None, supervise=None, reached=None, **extra) -> FastAPI:
     app = FastAPI()
     options = {"require_bundle": True, "clock": lambda: NOW, "trusted_principals": trust, "max_body_bytes": 1 << 20,
@@ -369,7 +379,7 @@ def test_a_client_that_leaves_during_the_trust_source_gets_nothing_and_its_slot_
         await until(lambda: held.calls == 1)
         client.leave()
         await asyncio.wait_for(request, 5)
-        assert client.sent == [] and reached == []
+        assert terminated(client) and reached == []
         assert held.cancelled >= 1 and supervisor.stats()["in_flight"] == 1
         other = Client()
         await call(app, other)
@@ -416,7 +426,7 @@ def test_a_client_that_leaves_during_the_revocation_source_gets_nothing():
         await until(lambda: held.calls == 1)
         client.leave()
         await asyncio.wait_for(request, 5)
-        assert client.sent == [] and supervisor.stats()["in_flight"] == 1
+        assert terminated(client) and supervisor.stats()["in_flight"] == 1
         other = Client()
         await call(app, other)
         assert other.status() == 403 and other.json()["codes"] == ["REVOCATION_UNAVAILABLE"]
@@ -436,7 +446,7 @@ def test_a_client_already_gone_after_its_body_starts_nothing():
         client = Client()
         client.leave()  # its disconnect is there as soon as the body is read
         await call(app, client)
-        assert client.sent == [] and held.calls == 0
+        assert terminated(client) and held.calls == 0
         assert supervisor.stats() == {"open": True, "in_flight": 0, "tenants": 0, "timeouts": 0, "saturated": 0, "closed": 0,
                                       "wrong_loop": 0, "late_results": 0, "late_errors": 0}
     run(scenario)
@@ -455,7 +465,7 @@ def test_admission_that_ends_as_the_client_leaves_reaches_no_route():
         client = Client()
         clients.append(client)
         await call(app, client)
-        assert client.sent == [] and reached == []
+        assert terminated(client) and reached == []
     run(scenario)
 
 
@@ -525,7 +535,7 @@ def test_a_client_that_left_is_answered_by_dispatch_itself_no_exception_crosses_
         if case == "healthy":
             assert client.status() == 200  # the positive control: the same path answers a client that stays
         else:
-            assert client.sent == []
+            assert terminated(client)
     run(scenario)
 
 
@@ -575,7 +585,7 @@ def test_with_dcp_outside_the_other_base_http_middlewares_a_client_that_leaves_g
         await until(lambda: held.calls == 2)
         gone.leave()
         await asyncio.wait_for(request, 5)
-        assert gone.sent == [] and supervisor.stats()["in_flight"] == 1
+        assert terminated(gone) and supervisor.stats()["in_flight"] == 1
         held.release()
         await until(lambda: supervisor.stats()["in_flight"] == 0)
     run(scenario)
@@ -592,18 +602,17 @@ def test_with_dcp_outside_a_genuine_error_of_an_inner_layer_still_propagates():
     run(scenario)
 
 
-def test_a_base_http_middleware_outside_dcp_is_the_documented_limit():
-    # The documented order requirement: an outer BaseHTTPMiddleware needs a response start from the
-    # layers inside it, and DCP sends nothing to a client that left. It fails there (Starlette's
-    # "No response returned."); nothing is answered by DCP and the slot is still held.
+def test_a_base_http_middleware_outside_dcp_also_works():
+    # It replaced the former order requirement: the outer layer gets the 499 termination (it needs
+    # http.response.start), nothing fails there, and the slot is still held.
     async def scenario():
         app, held, supervisor = _layered(dcp_outermost=False)
         gone = Client()
         request = call(app, gone)
         await until(lambda: held.calls == 1)
         gone.leave()
-        with pytest.raises(RuntimeError, match="No response returned"):
-            await asyncio.wait_for(request, 5)
+        await asyncio.wait_for(request, 5)
+        assert terminated(gone)
         assert supervisor.stats()["in_flight"] == 1
         held.release()
         await until(lambda: supervisor.stats()["in_flight"] == 0)
@@ -638,7 +647,7 @@ def test_a_client_that_leaves_in_the_middle_of_its_body(option):
         client.leave()
         await call(app, client)
         if option:
-            assert client.sent == []  # nothing to send to a client that left
+            assert terminated(client)  # not the 400: the end of the response of a client that left
         else:
             assert (client.status(), client.json()) == (400, {"verified": False, "errors": ["Request body could not be read"]})
     run(scenario)

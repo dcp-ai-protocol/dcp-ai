@@ -154,6 +154,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `cancel_on_disconnect` in FastAPI works in any order of middlewares. The ASGI response of a client
+  that left now ends with an empty `499` ("client closed request": not registered, not a DCP
+  status), with `Content-Length: 0` and `Cache-Control: no-store`, instead of no message at all.
+  - These are two ASGI messages from DCP's response, sent only after `http.disconnect` was received,
+    never for a client that stays. A `BaseHTTPMiddleware` outside DCP needs `http.response.start`,
+    and before this it failed with "No response returned."; it now completes normally and records a
+    499.
+  - What reaches the network is up to the server: uvicorn (measured, 0.54 with h11) writes and logs
+    nothing for a connection that is gone; under ASGI another server may raise an `OSError` subclass.
+  - The admission's `request.state.dcp_agent` is now published only once the client is known to be
+    still there, so a client that left leaves no admitted context. A value set by the operator's own
+    code is left alone.
+  - A client that leaves in the middle of its body gets the same ending (instead of nothing).
+  - Genuine errors of any layer still propagate. Nothing else changes: options, defaults, the body
+    budget, the supervisor and `DenyListWorkers`.
 - Client disconnect, opt-in: `cancelOnDisconnect` in `@dcp-ai/express`,
   `cancel_on_disconnect=True` in `dcp_ai.fastapi.DCPVerifyMiddleware`.
   - **What it does.** When the client really leaves during admission, the supervised source
@@ -178,8 +193,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
       response is not taken as the client leaving.
     - With the option, a client that leaves in the middle of its body gets nothing instead of the
       400.
-    - The middleware must wrap the application's other `BaseHTTPMiddleware` layers (add it last):
-      an outer one needs a response, and none is sent to a client that left.
+    - In its first form the middleware had to wrap the application's other `BaseHTTPMiddleware`
+      layers; that requirement is gone (see the entry above).
     - `SourceSupervisor` and `DenyListWorkers` are unchanged. OpenClaw has no such option.
   - Without the option nothing changes.
 - `dcp_ai.v2.DenyListWorkers` and `deny_list_revocation_source(..., workers=...)`, opt-in: a budget

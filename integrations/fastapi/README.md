@@ -86,7 +86,7 @@ app.add_middleware(
 | `clock` | `callable \| None` | `None` | Keyword only, for tests: the time in milliseconds since the epoch. Default: the system clock. |
 | `source_supervisor` | `SourceSupervisor \| None` | `None` | Keyword only, with `supervise`. See [Supervising the trust source](#supervising-the-trust-source). |
 | `supervise` | `dict \| None` | `None` | Keyword only: `{"trust_timeout": seconds}`, more than 0 and up to 2147483.647, for an async `trusted_principals`; `{"revocation": True}` for an async `revocation_source`, under `revocation_timeout`; or both. See [Supervising the revocation source](#supervising-the-revocation-source). |
-| `cancel_on_disconnect` | `bool` | `False` | Keyword only. When the client really leaves during admission, cancel its supervised source invocation and send nothing. Needs `max_body_bytes`; see [A client that leaves](#a-client-that-leaves). |
+| `cancel_on_disconnect` | `bool` | `False` | Keyword only. When the client really leaves during admission, cancel its supervised source invocation; its response ends with an empty 499 the server does not deliver. Needs `max_body_bytes`; see [A client that leaves](#a-client-that-leaves). |
 | `max_body_bytes` | `int \| None` | `None` | Keyword only. A positive integer (not a `bool`, `float`, string, `0` or negative): the request body bytes the middleware accepts. Needs Starlette 0.28.0 or later. Default: no budget, as before. See [Body budget](#body-budget). |
 
 #### Behavior
@@ -162,9 +162,11 @@ With `cancel_on_disconnect=True`, a client that leaves while its request is bein
 - **How it is seen.** The middleware reads the whole body first: the option needs `max_body_bytes`, and so Starlette 0.28 or later. After that, it keeps one pending `receive()` while the request is admitted: once the body is read, the server can only send `http.disconnect` there.
 - **When the client leaves:**
   - The admission is cancelled. Its supervised invocation is cancelled too: `SourceSupervisor` cancels its Task without waiting for it, and the slot stays taken until it really ends. A `DenyListWorkers` thread keeps its slot the same way.
-  - No route runs, and no response is sent: not even an error.
-  - With uvicorn, an application that returns without a response to a client that has left logs nothing.
-  - A client that leaves in the middle of its body gets nothing either, instead of the 400 sent without the option.
+  - No route runs, and nothing of that admission is published in `request.state`: its `dcp_agent` is set only once the client is known to be still there, and a value your own code set is left alone.
+  - The ASGI response of that request ends with an empty `499` (nginx's "client closed request"; not registered, and not a DCP status), with `Content-Length: 0` and `Cache-Control: no-store`. These are two ASGI messages sent by DCP's response to the layer outside it, not an answer: they are sent only after `http.disconnect` has been received, never to a client that stays, and they let a `BaseHTTPMiddleware` outside DCP, which waits for a response, complete normally. So DCP works in **any order** of middlewares.
+  - What reaches the network depends on the server. Uvicorn writes nothing, logs nothing and sends no `500` for a connection that is gone (measured with uvicorn 0.54 and h11). Under the ASGI specification, another server may instead raise an `OSError` subclass when a response is sent on a closed connection.
+  - Layers outside DCP see that 499: a logging layer records a client that closed its request, never a success. A layer that transforms responses, or breaks ASGI, may change it; that is outside this guarantee. Genuine errors of any layer still propagate.
+  - A client that leaves in the middle of its body gets the same 499 ending, instead of the 400 sent without the option.
 - **Nothing is taken from the route.** It reads the same body, and that pending `receive()` is handed over to whoever reads next (the route, `request.is_disconnected()`, Starlette), never read twice nor lost. Only the reads that happen during admission are interpreted: the `http.disconnect` a server sends after a complete response is not taken as a client that left.
 - **Requirements.** Checked when the middleware is built:
   - `max_body_bytes`;
@@ -172,15 +174,7 @@ With `cancel_on_disconnect=True`, a client that leaves while its request is bein
   - a synchronous `tenant` callable, since an async one could keep a request that is gone waiting.
 
   Otherwise `AdmissionConfigError` (`CONFIG_PROFILE_CONTRADICTION`). With the option, a `tenant` callable that returns an awaitable gets the `503` of a tenant that cannot be resolved, without being awaited. Without the option nothing changes.
-- **Order of middlewares.** With the option, `DCPVerifyMiddleware` must wrap your other `BaseHTTPMiddleware` layers, so add it **last**: `add_middleware` puts each new layer outside the previous ones. A `BaseHTTPMiddleware` outside it needs a response from the layers inside, and DCP sends nothing to a client that left: Starlette then fails in that outer layer ("No response returned."). The slot is still held, and nothing is sent by DCP. Pure ASGI layers outside it are fine.
-
-  ```python
-  app.add_middleware(MyLoggingMiddleware)  # a BaseHTTPMiddleware: inside DCP
-  app.add_middleware(DCPVerifyMiddleware, require_bundle=True, max_body_bytes=1 << 20, trusted_principals=trust_set_for,
-                     source_supervisor=supervisor, supervise={"trust_timeout": 2.0}, cancel_on_disconnect=True)  # last: outermost
-  ```
-
-- **What it does not do.** It does not interrupt the bundle's verification or the tenant callable, and it does not stop a source that ignores cancellation. It runs on asyncio only. It needs a server that sends `http.disconnect` when the connection is lost: uvicorn does; the in-process httpx transport only sends it once the response is complete.
+- **What it does not do.** It does not interrupt the bundle's verification or the tenant callable, and it does not stop a source that ignores cancellation. It skips only the stages that start after it has seen the disconnect: behind outer layers the disconnect reaches it a few loop turns later, so a source may already have started (it is then cancelled, and keeps its slot until it ends). It runs on asyncio only. It needs a server that sends `http.disconnect` when the connection is lost: uvicorn does; the in-process httpx transport only sends it once the response is complete.
 
 #### What "verified" means
 

@@ -327,19 +327,27 @@ def _supervision(
 
 class _ClientGone(Exception):
     """cancel_on_disconnect: the client left during admission. Raised inside the admission only and
-    caught by dispatch, which answers _NothingSent: never raised through BaseHTTPMiddleware, whose
-    task group may wrap it in an ExceptionGroup (Starlette 0.28)."""
+    caught by dispatch, which answers _ClientGoneResponse: never raised through
+    BaseHTTPMiddleware, whose task group may wrap it in an ExceptionGroup (Starlette 0.28)."""
 
 
-class _NothingSent(Response):
-    """The answer to a client that left: it sends nothing at all (a server such as uvicorn logs
-    nothing for an application that sends nothing to a client that has gone)."""
+#: The status that ends the ASGI response of a client that left: nginx's "client closed request".
+#: Not registered with IANA and not a DCP status; a server such as uvicorn writes nothing for it.
+_CLIENT_CLOSED_REQUEST = 499
+
+
+class _ClientGoneResponse(Response):
+    """
+    The end of the ASGI response of a client that has left (cancel_on_disconnect): 499, an empty
+    body (Content-Length: 0) and Cache-Control: no-store. Never a success and never an admission;
+    sent only once http.disconnect has been received, so that a BaseHTTPMiddleware outside this one,
+    which needs http.response.start, completes normally. Its two ASGI messages go to the next layer
+    out, which may transform them; whether a server writes anything for a connection that is gone is
+    the server's choice (uvicorn writes nothing).
+    """
 
     def __init__(self) -> None:
-        super().__init__()
-
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        return None
+        super().__init__(status_code=_CLIENT_CLOSED_REQUEST, headers={"cache-control": "no-store"})
 
 
 def _retrieve(task: "asyncio.Future[Any]") -> None:
@@ -546,13 +554,17 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
 
     `cancel_on_disconnect` (keyword only, default False: as before): when the client really leaves
     during admission, the supervised source invocation of that request is cancelled (its slot stays
-    taken until the source really ends) and nothing more is done or sent, not even an error. It
+    taken until the source really ends), no route runs and nothing of the admission is published in
+    request.state (its dcp_agent is set only once the client is known to be there). It
     needs `max_body_bytes` (the whole body is read before a pending receive() watches for
     http.disconnect; that read is handed over to the next reader, never read twice or lost), every
     source callable supervised and a synchronous `tenant` callable; otherwise AdmissionConfigError
-    (CONFIG_PROFILE_CONTRADICTION). With it, a client that leaves in the middle of its body gets
-    nothing instead of the 400. It runs on asyncio only. Add this middleware after (outside) any
-    other BaseHTTPMiddleware: an outer one needs a response, and none is sent to a client that left.
+    (CONFIG_PROFILE_CONTRADICTION). A client that leaves in the middle of its body gets the ending
+    below instead of the 400. It runs on asyncio only. The response of a client that left
+    ends with an empty 499 (Content-Length: 0, Cache-Control: no-store; two ASGI messages, sent only
+    after http.disconnect), so a BaseHTTPMiddleware outside this one completes normally: any order of
+    middlewares works. Whether a server writes anything for a closed connection is the server's
+    choice (uvicorn writes nothing).
 
     Contradictions (`trusted_principals` or `profile` without `require_bundle=True`,
     a profile without `trusted_principals` or `revocation_source`, or with
@@ -767,7 +779,7 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
             return _body_refusal(413, "Request body exceeds max_body_bytes")
         except ClientDisconnect:
             if self._cancel_on_disconnect:
-                return _NothingSent()  # the client left: no 400 to send it
+                return _ClientGoneResponse()  # the client left: no 400 for it
             return _body_refusal(400, "Request body could not be read")
         return None
 
@@ -775,7 +787,9 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
 
     async def _admit_watching(self, request: Request, signed_bundle: Any, call_next: Any) -> Any:
         """_admit under cancel_on_disconnect: a client that leaves cancels it (its supervised
-        invocation keeps its slot until the source really ends) and gets nothing more."""
+        invocation keeps its slot until the source really ends), no route runs, and no admission
+        context is published to request.state until the final disconnect check passes. The ASGI
+        response ends with _ClientGoneResponse."""
         channel = request.receive
         if not isinstance(channel, _ReceiveChannel):
             raise RuntimeError("cancel_on_disconnect: the request does not come through DCPVerifyMiddleware")
@@ -788,24 +802,28 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
                 # Prompt: every source is supervised (its caller is never kept waiting) and the
                 # tenant callable is synchronous.
                 await asyncio.gather(admission, return_exceptions=True)
-                return _NothingSent()
+                return _ClientGoneResponse()
             try:
-                refusal = await admission
+                outcome = await admission
             except _ClientGone:  # a stage saw it leave
-                return _NothingSent()
+                return _ClientGoneResponse()
         finally:
             if not admission.done():  # this dispatch itself was cancelled
                 admission.cancel()
                 admission.add_done_callback(_retrieve)
-        if _left(read):  # it left while the admission was ending
-            return _NothingSent()
-        if refusal is not None:
-            return refusal
+        if _left(read):  # it left while the admission was ending: nothing was published
+            return _ClientGoneResponse()
+        if isinstance(outcome, JSONResponse):  # refused
+            return outcome
+        request.state.dcp_agent = outcome  # published only now, with the client still there
         return await call_next(request)  # the watched read goes to the next reader
 
-    async def _admit(self, request: Request, signed_bundle: Any, read: "asyncio.Future[Any] | None" = None) -> JSONResponse | None:
+    async def _admit(
+        self, request: Request, signed_bundle: Any, read: "asyncio.Future[Any] | None" = None
+    ) -> JSONResponse | DCPAgentContext | None:
         """None when the bundle is admitted (and request.state.dcp_agent set), else the refusal.
-        With `read` (cancel_on_disconnect), no stage starts once it has brought a disconnect."""
+        With `read` (cancel_on_disconnect), no stage starts once it has brought a disconnect, and an
+        admitted bundle's context is returned, not published: _admit_watching publishes it."""
         now = self._clock()
         _stop_if_left(read)
         try:
@@ -841,6 +859,7 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
         if profile is not None and verification.get("verified") is True:
             _stop_if_left(read)
             revocation = await self._revocation_snapshot(revocation_subjects(signed_bundle, verification), tenant)
+        _stop_if_left(read)  # after the last source, before anything is evaluated or published
         result = evaluate_admission_v2(
             signed_bundle, verification, profile=profile, trust=trust, revocation=revocation, now_ms=now
         )
@@ -855,6 +874,8 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
         context.recorded_decision = result["recorded_decision"]
         context.trust_set_version = result["trust_set_version"]
         context.action_authorized = False
+        if read is not None:
+            return context
         request.state.dcp_agent = context
         return None
 
