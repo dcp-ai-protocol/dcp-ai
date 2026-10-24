@@ -237,6 +237,24 @@ result = await verify_signed_bundle_v2(signed, registry)  # DEFAULT_VERIFIER_POL
 
 O verificador também confere a assinatura composta de cada artefato (o RPR com as `binding_keys` do principal, o restante com as chaves do passaporte) e rejeita, em qualquer modo de política, uma assinatura PQ presente mas inválida. O modo é o mais estrito entre o da política e o do nível de segurança (spec §14.3), e `details["resolved_tier"]` informa o nível.
 
+### Admissão: Principais Confiáveis e strict-v1
+
+Um bundle verificado é assinado pelas chaves que ele mesmo lista; isso não prova quem é o principal. A admissão aceita um bundle somente quando as assinaturas do principal foram feitas com chaves de um principal que o seu conjunto de confiança lista, e opcionalmente sob o perfil `strict-v1`, fixado pelo operador (assinaturas híbridas, audiência assinada, uma sessão de no máximo 300 s e um snapshot de revogação recente).
+
+```python
+from dcp_ai.v2 import admit_signed_bundle_v2, create_principal_trust_store, resolve_strict_v1_profile
+
+trust = create_principal_trust_store(trust_set)  # AdmissionConfigError on a bad trust set
+profile = resolve_strict_v1_profile({"profile": "strict-v1", "verifier_id": "api.acme.example"})
+result = await admit_signed_bundle_v2(signed_bundle, registry, profile=profile, trust=trust, revocation=snapshot)
+# result["verified"], result["principal_trust"], result["profile_compliance"], result["admitted"],
+# result["action_authorized"] (always False), result["errors"] [{"code", "message"}]
+```
+
+- `verify_signed_bundle_v2(bundle, registry, policy, now_ms=...)` aceita um relógio opcional e informa `details["signer_keys"]`; sem eles se comporta como antes.
+- `evaluate_admission_v2` avalia um resultado do verificador que você já tem (sem criptografia nem E/S) e confia nele; `revocation_subjects` lista o que uma fonte de revogação deve responder, e `deny_list_revocation_source(url)` lê a lista de revogações do serviço de referência.
+- FastAPI: `DCPVerifyMiddleware(app, require_bundle=True, trusted_principals=..., profile=..., revocation_source=...)`; veja [`integrations/fastapi/README.md`](../../integrations/fastapi/README.md). Guia: [`docs/ADMISSION.md`](../../docs/ADMISSION.md). Especificação e códigos: [`spec/profiles/admission`](../../spec/profiles/admission/README.md).
+
 ### Cadeias de Delegação (DCP-09 §3.5)
 
 Um mandato raiz é assinado pelo humano (`create_delegation_mandate`); o agente que o detém pode emitir um
