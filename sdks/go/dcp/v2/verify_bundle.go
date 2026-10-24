@@ -25,6 +25,25 @@ type V2VerificationResult struct {
 	// ResolvedTier the security tier of its intent and policy decision.
 	VerificationMode string `json:"verification_mode"`
 	ResolvedTier     string `json:"resolved_tier"`
+	// SignerKeys lists, for every composite signature checked, the key entry
+	// the verifier resolved for each component and whether that component
+	// verified (spec/profiles/admission § 2.3). A component whose signature
+	// did not reach the cryptographic check is not listed.
+	SignerKeys []SignerKeyUse `json:"signer_keys"`
+}
+
+// SignerKeyUse is the key one component of a composite signature was checked
+// with, as the verifier resolved it from the bundle.
+type SignerKeyUse struct {
+	// Signature is bundle, responsible_principal_record, agent_passport,
+	// intent, policy_decision or pq_checkpoints[<checkpoint_id>].
+	Signature string `json:"signature"`
+	// Component is classical or pq.
+	Component    string `json:"component"`
+	Kid          string `json:"kid"`
+	Alg          string `json:"alg"`
+	PublicKeyB64 string `json:"public_key_b64"`
+	Verified     bool   `json:"verified"`
 }
 
 // DefaultVerifierPolicy returns the default verifier policy, the same as
@@ -56,7 +75,7 @@ func DefaultVerifierPolicy() VerifierPolicy {
 // principal's composite signature over the manifest, each artifact's and each PQ
 // checkpoint's composite signature, and audit hash chain integrity.
 func VerifySignedBundleV2(registry *AlgorithmRegistry, signedBundleJSON []byte) *V2VerificationResult {
-	return VerifySignedBundleV2WithPolicy(registry, signedBundleJSON, DefaultVerifierPolicy())
+	return VerifySignedBundleV2At(registry, signedBundleJSON, DefaultVerifierPolicy(), time.Now())
 }
 
 // VerifySignedBundleV2WithPolicy verifies a V2 signed bundle against the stricter
@@ -70,10 +89,19 @@ func VerifySignedBundleV2(registry *AlgorithmRegistry, signedBundleJSON []byte) 
 // changes any other field fails verification instead of having the setting
 // ignored.
 func VerifySignedBundleV2WithPolicy(registry *AlgorithmRegistry, signedBundleJSON []byte, policy VerifierPolicy) *V2VerificationResult {
+	return VerifySignedBundleV2At(registry, signedBundleJSON, policy, time.Now())
+}
+
+// VerifySignedBundleV2At is VerifySignedBundleV2WithPolicy at the instant now:
+// every time check (the session window, the RPR expiry, key expiry) compares
+// against now, at millisecond precision (spec/profiles/admission § 2.1).
+func VerifySignedBundleV2At(registry *AlgorithmRegistry, signedBundleJSON []byte, policy VerifierPolicy, now time.Time) *V2VerificationResult {
+	now = truncateToMillis(now.Round(0))
 	result := &V2VerificationResult{
 		DCPVersion: "2.0",
 		Errors:     []string{},
 		Warnings:   []string{},
+		SignerKeys: []SignerKeyUse{},
 	}
 	enforced := DefaultVerifierPolicy()
 	enforced.DefaultMode, enforced.RiskOverrides = policy.DefaultMode, policy.RiskOverrides
@@ -140,9 +168,9 @@ func VerifySignedBundleV2WithPolicy(registry *AlgorithmRegistry, signedBundleJSO
 
 	verifyManifestHashes(bundle, manifest, result)
 	verifySessionNonceConsistency(bundle, manifestNonce, result)
-	verifySessionTimes(manifest, policy, result)
+	verifySessionTimes(manifest, policy, now, result)
 	verifyAudience(manifest, policy, result)
-	verifyConsistency(bundle, result)
+	verifyConsistency(bundle, now, result)
 	mode := resolveVerificationMode(bundle, policy, result)
 	if mode == "" {
 		result.Errors = append(result.Errors, "Unknown verification mode in verifier policy")
@@ -153,7 +181,7 @@ func VerifySignedBundleV2WithPolicy(registry *AlgorithmRegistry, signedBundleJSO
 	verifyArtifactSignatures(registry, bundle, mode, policy, result)
 	verifyPQCheckpoints(registry, bundle, manifest, mode, policy, result)
 	verifyAuditTrail(bundle, manifest, result)
-	verifyKeyValidity(bundle, result)
+	verifyKeyValidity(bundle, now, result)
 
 	result.Verified = len(result.Errors) == 0
 	return result
@@ -223,11 +251,6 @@ func truncateToMillis(t time.Time) time.Time {
 	return t.Add(-time.Duration(t.Nanosecond() % int(time.Millisecond)))
 }
 
-// nowMillis is the verification time at the precision timestamps compare at.
-func nowMillis() time.Time {
-	return truncateToMillis(time.Now().Round(0))
-}
-
 // sessionClockSkew is how far in the future a signed session start may be
 // (VERIFICATION.md V2-4), the clock skew DCP-04 allows for timestamps.
 const sessionClockSkew = 30 * time.Second
@@ -246,9 +269,9 @@ func secondsBetween(from, to time.Time) float64 {
 // MaxSessionDurationSeconds bounds session_expires_at minus session_issued_at
 // and requires both: signature.created_at is outside the signed manifest and
 // is never read, and a session without an expiry is not one that never ends.
-// RequireSessionExpiry requires session_expires_at under any policy.
-func verifySessionTimes(manifest map[string]interface{}, policy VerifierPolicy, result *V2VerificationResult) {
-	now := nowMillis()
+// RequireSessionExpiry requires session_expires_at under any policy. now is
+// the verification time, at millisecond precision.
+func verifySessionTimes(manifest map[string]interface{}, policy VerifierPolicy, now time.Time, result *V2VerificationResult) {
 	fail := func(format string, args ...interface{}) {
 		result.Errors = append(result.Errors, fmt.Sprintf(format, args...))
 	}
@@ -332,8 +355,9 @@ func sameID(a, b interface{}) bool {
 // verifyConsistency checks that the artifacts describe one action, by one
 // agent, for one principal (VERIFICATION.md V2-14). The signatures say who
 // signed each artifact; these checks tie them together. It reads the decoded
-// JSON, so a missing or non-string identifier never matches.
-func verifyConsistency(bundle map[string]interface{}, result *V2VerificationResult) {
+// JSON, so a missing or non-string identifier never matches. now is the
+// verification time.
+func verifyConsistency(bundle map[string]interface{}, now time.Time, result *V2VerificationResult) {
 	rpr := artifactPayload(bundle, "responsible_principal_record")
 	passport := artifactPayload(bundle, "agent_passport")
 	intent := artifactPayload(bundle, "intent")
@@ -349,7 +373,7 @@ func verifyConsistency(bundle map[string]interface{}, result *V2VerificationResu
 		switch expires, valid := parseRFC3339(raw); {
 		case !valid:
 			fail("responsible_principal_record has an invalid expires_at: %v", raw)
-		case expires.Before(time.Now()):
+		case expires.Before(now):
 			fail("responsible_principal_record expired at %v", raw)
 		}
 	}
@@ -560,75 +584,88 @@ func keyIdentityError(kid, alg string, publicKeyB64 interface{}) error {
 // names by kid in keys, the list keysLabel names (VERIFICATION.md V2-6, V2-7):
 // pq_over_classical is valid only when both components verify; classical_only
 // carries no PQ signature. A sig_b64 that is not canonical base64 (V2-5), or a
-// key whose kid is not derived from it (V2-13), verifies nothing.
-func verifyCompositeSig(registry *AlgorithmRegistry, context string, payload, csRaw interface{}, keys []interface{}, keysLabel string) (*CompositeSignature, *CompositeVerifyResult, error) {
+// key whose kid is not derived from it (V2-13), verifies nothing. It also
+// returns, under the label signature, the key entry of each component that
+// reached the cryptographic check and whether that component verified
+// (spec/profiles/admission § 2.3).
+func verifyCompositeSig(registry *AlgorithmRegistry, context string, payload, csRaw interface{}, keys []interface{}, keysLabel, signature string) (*CompositeSignature, *CompositeVerifyResult, []SignerKeyUse, error) {
 	if csRaw == nil {
-		return nil, nil, fmt.Errorf("missing composite_sig")
+		return nil, nil, nil, fmt.Errorf("missing composite_sig")
 	}
 	csBytes, err := json.Marshal(csRaw)
 	if err != nil {
-		return nil, nil, fmt.Errorf("invalid composite_sig structure")
+		return nil, nil, nil, fmt.Errorf("invalid composite_sig structure")
 	}
 	var cs CompositeSignature
 	if err := json.Unmarshal(csBytes, &cs); err != nil {
-		return nil, nil, fmt.Errorf("invalid composite_sig structure")
+		return nil, nil, nil, fmt.Errorf("invalid composite_sig structure")
 	}
 
 	// Ed25519 cannot stand in for the PQ signature, nor ML-DSA for the classical one.
 	if !classicalAlgs[cs.Classical.Alg] {
-		return nil, nil, fmt.Errorf("classical slot holds %q, which is not a classical algorithm", cs.Classical.Alg)
+		return nil, nil, nil, fmt.Errorf("classical slot holds %q, which is not a classical algorithm", cs.Classical.Alg)
 	}
 	if cs.PQ != nil && !pqAlgs[cs.PQ.Alg] {
-		return nil, nil, fmt.Errorf("PQ slot holds %q, which is not a PQ algorithm", cs.PQ.Alg)
+		return nil, nil, nil, fmt.Errorf("PQ slot holds %q, which is not a PQ algorithm", cs.PQ.Alg)
 	}
 	// One encoding per signature, the same bytes in every SDK (VERIFICATION.md V2-5).
 	if _, ok := canonicalB64Bytes(cs.Classical.SigB64); !ok {
-		return nil, nil, fmt.Errorf("Classical sig_b64 is not canonical base64 (V2-5)")
+		return nil, nil, nil, fmt.Errorf("Classical sig_b64 is not canonical base64 (V2-5)")
 	}
 	if cs.PQ != nil {
 		if _, ok := canonicalB64Bytes(cs.PQ.SigB64); !ok {
-			return nil, nil, fmt.Errorf("PQ sig_b64 is not canonical base64 (V2-5)")
+			return nil, nil, nil, fmt.Errorf("PQ sig_b64 is not canonical base64 (V2-5)")
 		}
 	}
 
 	classicalKey := findKeyByKid(keys, cs.Classical.Kid)
 	if classicalKey == nil {
-		return nil, nil, fmt.Errorf("classical signer key kid=%s not found in %s", cs.Classical.Kid, keysLabel)
+		return nil, nil, nil, fmt.Errorf("classical signer key kid=%s not found in %s", cs.Classical.Kid, keysLabel)
 	}
 	classicalAlg, _ := classicalKey["alg"].(string)
 	if classicalAlg != cs.Classical.Alg {
-		return nil, nil, fmt.Errorf("classical signer key kid=%s is %s, not %s", cs.Classical.Kid, classicalAlg, cs.Classical.Alg)
+		return nil, nil, nil, fmt.Errorf("classical signer key kid=%s is %s, not %s", cs.Classical.Kid, classicalAlg, cs.Classical.Alg)
 	}
 	var pqKey map[string]interface{}
 	if cs.PQ != nil {
 		if pqKey = findKeyByKid(keys, cs.PQ.Kid); pqKey == nil {
-			return nil, nil, fmt.Errorf("PQ signer key kid=%s not found in %s", cs.PQ.Kid, keysLabel)
+			return nil, nil, nil, fmt.Errorf("PQ signer key kid=%s not found in %s", cs.PQ.Kid, keysLabel)
 		}
 		if pqAlg, _ := pqKey["alg"].(string); pqAlg != cs.PQ.Alg {
-			return nil, nil, fmt.Errorf("PQ signer key kid=%s is %s, not %s", cs.PQ.Kid, pqAlg, cs.PQ.Alg)
+			return nil, nil, nil, fmt.Errorf("PQ signer key kid=%s is %s, not %s", cs.PQ.Kid, pqAlg, cs.PQ.Alg)
 		}
 	}
 	if err := keyIdentityError(cs.Classical.Kid, cs.Classical.Alg, classicalKey["public_key_b64"]); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	classicalPK, _ := classicalKey["public_key_b64"].(string)
 	var pqPK string
 	if pqKey != nil {
 		if err := keyIdentityError(cs.PQ.Kid, cs.PQ.Alg, pqKey["public_key_b64"]); err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		pqPK, _ = pqKey["public_key_b64"].(string)
 	}
 
 	canonical, err := CanonicalizeV2(payload)
 	if err != nil {
-		return nil, nil, fmt.Errorf("canonicalize: %w", err)
+		return nil, nil, nil, fmt.Errorf("canonicalize: %w", err)
 	}
 	cvr, err := CompositeVerify(registry, context, []byte(canonical), &cs, classicalPK, pqPK)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return &cs, cvr, nil
+	used := []SignerKeyUse{{
+		Signature: signature, Component: "classical", Kid: cs.Classical.Kid, Alg: classicalAlg,
+		PublicKeyB64: classicalPK, Verified: cvr.ClassicalValid,
+	}}
+	if pqKey != nil {
+		used = append(used, SignerKeyUse{
+			Signature: signature, Component: "pq", Kid: cs.PQ.Kid, Alg: cs.PQ.Alg,
+			PublicKeyB64: pqPK, Verified: cvr.PQValid,
+		})
+	}
+	return &cs, cvr, used, nil
 }
 
 func verifyBundleSignature(registry *AlgorithmRegistry, bundle, signature, manifest map[string]interface{}, mode string, policy VerifierPolicy, result *V2VerificationResult) {
@@ -645,11 +682,12 @@ func verifyBundleSignature(registry *AlgorithmRegistry, bundle, signature, manif
 	// (VERIFICATION.md V2-6, V2-7). The agent signs its own passport, so its
 	// keys cannot vouch for the principal.
 	keys := payloadKeys(bundle, "responsible_principal_record", "binding_keys")
-	cs, cvr, err := verifyCompositeSig(registry, CtxBundle, manifest, csRaw, keys, "RPR binding_keys")
+	cs, cvr, used, err := verifyCompositeSig(registry, CtxBundle, manifest, csRaw, keys, "RPR binding_keys", "bundle")
 	if err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("Bundle signature: %s", err))
 		return
 	}
+	result.SignerKeys = append(result.SignerKeys, used...)
 
 	result.ClassicalValid = cvr.ClassicalValid
 	result.PQValid = cvr.PQValid
@@ -726,11 +764,12 @@ func verifyArtifactSignatures(registry *AlgorithmRegistry, bundle map[string]int
 			result.Errors = append(result.Errors, fmt.Sprintf("%s is not a SignedPayload object", a.field))
 			continue
 		}
-		cs, cvr, err := verifyCompositeSig(registry, a.context, payload, sp["composite_sig"], a.keys, a.keysLabel)
+		cs, cvr, used, err := verifyCompositeSig(registry, a.context, payload, sp["composite_sig"], a.keys, a.keysLabel, a.field)
 		if err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("%s signature: %s", a.field, err))
 			continue
 		}
+		result.SignerKeys = append(result.SignerKeys, used...)
 		errs, warnings := checkMode(mode, policy, cs, cvr)
 		for _, e := range errs {
 			result.Errors = append(result.Errors, fmt.Sprintf("%s %s", a.field, e))
@@ -851,11 +890,12 @@ func verifyPQCheckpoints(registry *AlgorithmRegistry, bundle, manifest map[strin
 				payload[k] = v
 			}
 		}
-		cs, cvr, err := verifyCompositeSig(registry, CtxAuditEvent, payload, cp["composite_sig"], passportKeys, "passport keys")
+		cs, cvr, used, err := verifyCompositeSig(registry, CtxAuditEvent, payload, cp["composite_sig"], passportKeys, "passport keys", fmt.Sprintf("pq_checkpoints[%s]", id))
 		if err != nil {
 			fail(err.Error())
 			continue
 		}
+		result.SignerKeys = append(result.SignerKeys, used...)
 		modeErrs, warnings := checkMode(cpMode, policy, cs, cvr)
 		for _, e := range modeErrs {
 			fail(e)
@@ -911,11 +951,11 @@ func verifyAuditTrail(bundle, manifest map[string]interface{}, result *V2Verific
 }
 
 // verifyKeyValidity rejects a revoked or expired key among those that can sign:
-// the passport keys and the RPR binding_keys (VERIFICATION.md V2-13).
-func verifyKeyValidity(bundle map[string]interface{}, result *V2VerificationResult) {
+// the passport keys and the RPR binding_keys (VERIFICATION.md V2-13), at the
+// verification time now.
+func verifyKeyValidity(bundle map[string]interface{}, now time.Time, result *V2VerificationResult) {
 	keys := append(append([]interface{}{}, payloadKeys(bundle, "agent_passport", "keys")...),
 		payloadKeys(bundle, "responsible_principal_record", "binding_keys")...)
-	now := time.Now()
 	for _, raw := range keys {
 		key, _ := raw.(map[string]interface{})
 		kid, _ := key["kid"].(string)
