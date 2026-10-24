@@ -200,12 +200,6 @@ func jsonInteger(value interface{}) (float64, bool) {
 	return f, true
 }
 
-// clampInt converts an integral double to int, saturating far beyond any
-// meaningful policy value.
-func clampInt(f float64) int {
-	return int(math.Max(math.Min(f, math.MaxInt32), math.MinInt32))
-}
-
 func stringList(value interface{}) ([]string, bool) {
 	items, ok := value.([]interface{})
 	if !ok {
@@ -529,20 +523,30 @@ func ResolveStrictV1Profile(configJSON []byte) (*StrictV1Profile, error) {
 						return nil, err
 					}
 				}
-			case "min_classical", "min_pq":
+			// Fields the profile fixes: a composite signature has one classical
+			// and one PQ component, verifiers check the bundle hash_alg by V2-4
+			// and only warn on key age, so another value would be either weaker
+			// or not enforced the same way by every verifier.
+			case "min_classical", "min_pq", "max_key_age_days":
+				fixed := map[string]int{"min_classical": policy.MinClassical, "min_pq": policy.MinPQ, "max_key_age_days": policy.MaxKeyAgeDays}[field]
 				f, ok := jsonInteger(value)
-				if !ok || f < 0 {
-					return nil, configError("CONFIG_INVALID_VALUE", "verifier_policy.%s must be a non-negative integer", field)
+				if !ok {
+					return nil, configError("CONFIG_INVALID_VALUE", "verifier_policy.%s must be an integer", field)
 				}
-				if f < 1 {
-					return nil, configError("CONFIG_PROFILE_CONTRADICTION", "strict-v1 requires verifier_policy.%s of at least 1", field)
+				if f != float64(fixed) {
+					return nil, configError("CONFIG_PROFILE_CONTRADICTION", "strict-v1 fixes verifier_policy.%s at %d", field, fixed)
 				}
-				if field == "min_classical" {
-					policy.MinClassical = clampInt(f)
-				} else {
-					policy.MinPQ = clampInt(f)
+			case "accepted_hash_algs":
+				list, ok := stringList(value)
+				if !ok {
+					return nil, configError("CONFIG_INVALID_VALUE", "verifier_policy.accepted_hash_algs must be a list of strings")
 				}
-			case "accepted_classical_algs", "accepted_pq_algs", "accepted_hash_algs":
+				fixed := strictAlgSubsets["accepted_hash_algs"]
+				distinct := slices.Compact(slices.Sorted(slices.Values(list)))
+				if len(distinct) != len(list) || len(list) != len(fixed) || slices.ContainsFunc(fixed, func(alg string) bool { return !slices.Contains(list, alg) }) {
+					return nil, configError("CONFIG_PROFILE_CONTRADICTION", "strict-v1 fixes verifier_policy.accepted_hash_algs at %s", strings.Join(fixed, ", "))
+				}
+			case "accepted_classical_algs", "accepted_pq_algs":
 				list, ok := stringList(value)
 				if !ok {
 					return nil, configError("CONFIG_INVALID_VALUE", "verifier_policy.%s must be a list of strings", field)
@@ -551,13 +555,10 @@ func ResolveStrictV1Profile(configJSON []byte) (*StrictV1Profile, error) {
 				if len(list) == 0 || slices.ContainsFunc(list, func(alg string) bool { return !slices.Contains(allowed, alg) }) {
 					return nil, configError("CONFIG_PROFILE_CONTRADICTION", "strict-v1 requires verifier_policy.%s to be a non-empty subset of %s", field, strings.Join(allowed, ", "))
 				}
-				switch field {
-				case "accepted_classical_algs":
+				if field == "accepted_classical_algs" {
 					policy.AcceptedClassicalAlgs = list
-				case "accepted_pq_algs":
+				} else {
 					policy.AcceptedPQAlgs = list
-				default:
-					policy.AcceptedHashAlgs = list
 				}
 			case "advisory_rejected_algs":
 				list, ok := stringList(value)
@@ -565,12 +566,6 @@ func ResolveStrictV1Profile(configJSON []byte) (*StrictV1Profile, error) {
 					return nil, configError("CONFIG_INVALID_VALUE", "verifier_policy.advisory_rejected_algs must be a list of strings")
 				}
 				policy.AdvisoryRejectedAlgs = list
-			case "max_key_age_days":
-				f, ok := jsonInteger(value)
-				if !ok || f < 0 {
-					return nil, configError("CONFIG_INVALID_VALUE", "verifier_policy.max_key_age_days must be a non-negative integer")
-				}
-				policy.MaxKeyAgeDays = clampInt(f)
 			case "warn_classical_only_deprecated":
 				b, ok := value.(bool)
 				if !ok {
