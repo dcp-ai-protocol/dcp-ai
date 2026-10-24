@@ -10,7 +10,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { configureVerifier, createSourceSupervisor, executeVerifyBundle, type SourceSupervisor } from '../index.js';
 import { supervise } from '../tools/source-supervisor.js';
 
@@ -104,16 +104,18 @@ describe('dcp_verify_bundle with a supervised trustedPrincipals function', () =>
     expect((await run()).result.admitted).toBe(true);
   });
 
-  it('capacity: invocation N+1 is refused at once while the timed-out source still runs', async () => {
+  // The time of invocation N+1 includes the bundle's verification, so it is not asserted here; the
+  // fake-clock test below shows the supervisor answers saturated with no wait.
+  it('capacity: invocation N+1 is refused without calling the source while the timed-out source still runs', async () => {
     const pending = hold();
     let calls = 0;
     const s = supervisor({ maxInFlight: 1 });
     configure(s, () => (calls++ === 0 ? pending.promise : TRUSTED));
     expect((await run()).result.errors).toEqual([UNAVAILABLE]);
-    const refused = await run();
+    const refused = await run(); // the first source has not settled: its slot is still taken
     expect(refused.result.errors).toEqual([UNAVAILABLE]);
-    expect(refused.ms).toBeLessThan(80);
     expect(calls).toBe(1);
+    expect(s.stats()).toMatchObject({ inFlight: 1, timeouts: 1, saturated: 1 });
     pending.resolve(TRUSTED);
     await until(() => s.stats().inFlight === 0);
     expect((await run()).result.admitted).toBe(true);
@@ -239,6 +241,35 @@ describe('configureVerifier with a source supervisor', () => {
     occupy.resolve(TRUSTED);
     await occupied;
     expect((await run()).result.admitted).toBe(true);
+  });
+});
+
+describe('the supervisor on a fake clock', () => {
+  it('answers invocation N+1 saturated in microtasks: no timer advanced or added, no queue, no extra source call', async () => {
+    vi.useFakeTimers();
+    try {
+      const s = createSourceSupervisor({ maxInFlight: 1 });
+      const first = deferred();
+      let calls = 0;
+      const holding = supervise(s, 'trust', 't', 1000, () => (calls++, first.promise));
+      expect(vi.getTimerCount()).toBe(1); // the first invocation's own deadline
+      let outcome: unknown;
+      void supervise(s, 'trust', 't', 1000, () => (calls++, TRUSTED)).then((o) => {
+        outcome = o;
+      });
+      expect(vi.getTimerCount()).toBe(1); // nothing scheduled for the second
+      await Promise.resolve();
+      await Promise.resolve(); // microtasks only: no timer has run
+      expect(outcome).toEqual({ status: 'saturated' });
+      expect(calls).toBe(1);
+      expect(s.stats()).toMatchObject({ inFlight: 1, tenants: 1, saturated: 1, timeouts: 0 });
+      first.resolve(TRUSTED);
+      expect(await holding).toEqual({ status: 'ok', value: TRUSTED });
+      expect(vi.getTimerCount()).toBe(0); // its deadline timer was cleared
+      expect(s.stats()).toMatchObject({ inFlight: 0, tenants: 0, saturated: 1, timeouts: 0, lateResults: 0 });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

@@ -179,7 +179,9 @@ describe('a supervised trustedPrincipals function', () => {
     expect(s.stats()).toMatchObject({ timeouts: 1, lateResults: 1, inFlight: 0 });
   });
 
-  it('capacity: request N+1 is refused at once, and slots free only when the sources really settle', async () => {
+  // The response time of request N+1 includes HTTP and the bundle's verification, so it is not
+  // asserted here: OpenClaw's fake-clock test shows the supervisor answers saturated with no wait.
+  it('capacity: request N+1 is refused without calling the source, and slots free only when the sources really settle', async () => {
     const pending = [deferred(), deferred()];
     let calls = 0;
     const s = createSourceSupervisor({ maxInFlight: 2 });
@@ -190,9 +192,8 @@ describe('a supervised trustedPrincipals function', () => {
     const refused = await post(); // both responses are sent, but both sources still run
     expect(refused.status).toBe(503);
     expect(refused.body.errors).toEqual([UNAVAILABLE]);
-    expect(refused.ms).toBeLessThan(80);
     expect(calls).toBe(2);
-    expect(s.stats().saturated).toBe(1);
+    expect(s.stats()).toMatchObject({ inFlight: 2, timeouts: 2, saturated: 1 });
     pending.forEach((p) => p.resolve(TRUSTED));
     await until(() => s.stats().inFlight === 0);
     expect(s.stats().tenants).toBe(0);
