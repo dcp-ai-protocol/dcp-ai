@@ -2,21 +2,16 @@
 A revocation source over a deny list (spec/profiles/admission § 2.4).
 
 deny_list_revocation_source(url) fetches a deny list in the format of the reference
-revocation service's /.well-known/dcp-revocations.json (services/revocation):
+revocation service's /.well-known/dcp-revocations.json (services/revocation) and
+turns it into a revocation snapshot for a bundle's subjects with
+revocation_snapshot_from_deny_list: checked_at is updated_at, a listed agent or kid
+is "revoked" and every other subject "not_revoked" (the list is complete). It never
+turns a failure into "not_revoked": a network error, a timeout or a non-2xx answer
+raises RevocationSourceError with code REVOCATION_UNAVAILABLE, and a body that is
+not JSON or not that shape raises it with code REVOCATION_INVALID.
 
-    {"updated_at": "<RFC 3339>",
-     "revocations": [{"agent_id": "...", ...}],
-     "kid_revocations": [{"revoked_kid": "...", ...}], ...}
-
-and turns it into a revocation snapshot for a bundle's subjects: checked_at is
-updated_at, a listed agent or kid is "revoked" and every other subject
-"not_revoked" (the list is complete). It never turns a failure into
-"not_revoked": a network error, a timeout or a non-2xx answer raises
-RevocationSourceError with code REVOCATION_UNAVAILABLE, and a body that is not
-JSON or not that shape raises it with code REVOCATION_INVALID.
-
-Standard library only (urllib in a worker thread). Redirects are not followed,
-so the operator's headers never go to another URL; HTTPS needs TLS 1.2 or later.
+Standard library only (urllib in a worker thread). Redirects are not followed, so
+the operator's headers never go to another URL; HTTPS needs TLS 1.2 or later.
 """
 
 from __future__ import annotations
@@ -29,19 +24,14 @@ import urllib.parse
 import urllib.request
 from typing import Any, Awaitable, Callable
 
-from dcp_ai.v2.session_nonce import rfc3339_epoch_ms
+from dcp_ai.v2.admission import (  # noqa: F401 (RevocationListError re-exported)
+    RevocationListError,
+    RevocationSourceError,
+    revocation_snapshot_from_deny_list,
+)
 
 # The largest deny list read, in bytes.
 _MAX_BODY = 16 * 1024 * 1024
-
-
-class RevocationSourceError(Exception):
-    """A revocation source that could not answer (code REVOCATION_UNAVAILABLE) or answered
-    with something that is not a deny list (code REVOCATION_INVALID)."""
-
-    def __init__(self, code: str, message: str) -> None:
-        super().__init__(f"{code}: {message}")
-        self.code = code
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -49,36 +39,6 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 
     def redirect_request(self, req: Any, fp: Any, code: Any, msg: Any, headers: Any, newurl: Any) -> None:
         return None
-
-
-def _listed(records: Any, field: str, name: str) -> frozenset[str]:
-    if not isinstance(records, list) or not all(
-        isinstance(r, dict) and isinstance(r.get(field), str) for r in records
-    ):
-        raise RevocationSourceError("REVOCATION_INVALID", f"the deny list {name} is not a list of records with a string {field}")
-    return frozenset(r[field] for r in records)
-
-
-def _subject_ids(subjects: Any, key: str) -> list[str]:
-    ids = subjects.get(key) if isinstance(subjects, dict) else None
-    return [i for i in ids if isinstance(i, str)] if isinstance(ids, list) else []
-
-
-def _deny_list_snapshot(document: Any, subjects: Any) -> dict[str, Any]:
-    """The revocation snapshot a complete deny list gives for `subjects`
-    ({"agent_ids": [...], "kids": [...]}, as revocation_subjects returns them)."""
-    if not isinstance(document, dict):
-        raise RevocationSourceError("REVOCATION_INVALID", "the deny list is not a JSON object")
-    updated_at = document.get("updated_at")
-    if rfc3339_epoch_ms(updated_at) is None:
-        raise RevocationSourceError("REVOCATION_INVALID", "the deny list updated_at is not an RFC 3339 timestamp")
-    agents = _listed(document.get("revocations"), "agent_id", "revocations")
-    kids = _listed(document.get("kid_revocations"), "revoked_kid", "kid_revocations")
-    return {
-        "checked_at": updated_at,
-        "agents": {a: "revoked" if a in agents else "not_revoked" for a in _subject_ids(subjects, "agent_ids")},
-        "keys": {k: "revoked" if k in kids else "not_revoked" for k in _subject_ids(subjects, "kids")},
-    }
 
 
 def deny_list_revocation_source(
@@ -126,11 +86,11 @@ def deny_list_revocation_source(
                 "REVOCATION_UNAVAILABLE", f"the deny list could not be fetched ({type(exc).__name__})"
             ) from None
         if len(body) > _MAX_BODY:
-            raise RevocationSourceError("REVOCATION_INVALID", "the deny list is larger than 16 MiB")
+            raise RevocationListError("the deny list is larger than 16 MiB")
         try:
             document = json.loads(body.decode("utf-8"))
         except (UnicodeDecodeError, ValueError, RecursionError):
-            raise RevocationSourceError("REVOCATION_INVALID", "the deny list is not JSON") from None
-        return _deny_list_snapshot(document, subjects)
+            raise RevocationListError("the deny list is not JSON") from None
+        return revocation_snapshot_from_deny_list(document, subjects)
 
     return source

@@ -234,11 +234,12 @@ _PROFILE_FIELDS = (
 )
 _MODES = ("classical_only", "hybrid_preferred", "hybrid_required", "pq_only")
 _RISK_TIERS = ("low", "medium", "high")
+# The algorithm lists verifier_policy may narrow to a non-empty subset.
 _ALG_SUBSETS = {
     "accepted_classical_algs": ("ed25519",),
     "accepted_pq_algs": ("ml-dsa-65", "slh-dsa-192f"),
-    "accepted_hash_algs": ("sha256", "sha384"),
 }
+_FIXED_HASH_ALGS = ("sha256", "sha384")
 
 
 def _freeze(value: Any) -> Any:
@@ -363,7 +364,8 @@ def resolve_strict_v1_profile(config: Any) -> StrictV1Profile:
         "min_pq": 1,
         "accepted_classical_algs": list(_ALG_SUBSETS["accepted_classical_algs"]),
         "accepted_pq_algs": list(_ALG_SUBSETS["accepted_pq_algs"]),
-        "accepted_hash_algs": list(_ALG_SUBSETS["accepted_hash_algs"]),
+        "accepted_hash_algs": list(_FIXED_HASH_ALGS),
+        "max_key_age_days": 365,
         "require_session_binding": True,
         "require_composite_binding": True,
         "allow_v1_bundles": False,
@@ -393,12 +395,20 @@ def resolve_strict_v1_profile(config: Any) -> StrictV1Profile:
                 _reject_unknown_fields(value, _RISK_TIERS, "verifier_policy.risk_overrides")
                 for tier, mode in value.items():
                     _hybrid_required(mode, f"verifier_policy.risk_overrides.{tier}")
-            elif field in ("min_classical", "min_pq"):
-                if not _is_integer(value) or value < 0:
-                    _fail("CONFIG_INVALID_VALUE", f"verifier_policy.{field} must be a non-negative integer")
-                if value < 1:
-                    _fail("CONFIG_PROFILE_CONTRADICTION", f"strict-v1 requires verifier_policy.{field} of at least 1")
-                policy[field] = int(value)
+            # Fields the profile fixes: a composite signature has one classical and one PQ
+            # component, verifiers check the bundle hash_alg by V2-4 and only warn on key age,
+            # so another value would be either weaker or not enforced by any verifier.
+            elif field in ("min_classical", "min_pq", "max_key_age_days"):
+                if not _is_integer(value):
+                    _fail("CONFIG_INVALID_VALUE", f"verifier_policy.{field} must be an integer")
+                if value != policy[field]:
+                    _fail("CONFIG_PROFILE_CONTRADICTION", f"strict-v1 fixes verifier_policy.{field} at {policy[field]}")
+            elif field == "accepted_hash_algs":
+                if not _is_string_list(value):
+                    _fail("CONFIG_INVALID_VALUE", "verifier_policy.accepted_hash_algs must be a list of strings")
+                fixed = _FIXED_HASH_ALGS
+                if len(set(value)) != len(value) or len(value) != len(fixed) or any(alg not in value for alg in fixed):
+                    _fail("CONFIG_PROFILE_CONTRADICTION", f"strict-v1 fixes verifier_policy.accepted_hash_algs at {', '.join(fixed)}")
             elif field in _ALG_SUBSETS:
                 if not _is_string_list(value):
                     _fail("CONFIG_INVALID_VALUE", f"verifier_policy.{field} must be a list of strings")
@@ -413,10 +423,6 @@ def resolve_strict_v1_profile(config: Any) -> StrictV1Profile:
                 if not _is_string_list(value):
                     _fail("CONFIG_INVALID_VALUE", "verifier_policy.advisory_rejected_algs must be a list of strings")
                 policy[field] = list(value)
-            elif field == "max_key_age_days":
-                if not _is_integer(value) or value < 0:
-                    _fail("CONFIG_INVALID_VALUE", "verifier_policy.max_key_age_days must be a non-negative integer")
-                policy[field] = int(value)
             elif field == "warn_classical_only_deprecated":
                 if not isinstance(value, bool):
                     _fail("CONFIG_INVALID_VALUE", "verifier_policy.warn_classical_only_deprecated must be a boolean")
@@ -477,6 +483,55 @@ def revocation_subjects(signed_bundle: Any, verification: Any) -> dict[str, list
     return {"agent_ids": [agent_id] if isinstance(agent_id, str) else [], "kids": sorted(kids)}
 
 
+class RevocationSourceError(Exception):
+    """A revocation source that could not answer (code REVOCATION_UNAVAILABLE) or answered
+    with something that is not a revocation list (code REVOCATION_INVALID). An adapter
+    turns the first into no snapshot and the second into an invalid one; neither is ever
+    taken as not revoked."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(f"{code}: {message}")
+        self.code = code
+
+
+class RevocationListError(RevocationSourceError):
+    """A revocation list that cannot be read: admission reports REVOCATION_INVALID for it."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__("REVOCATION_INVALID", message)
+
+
+def _listed(document: dict[str, Any], field: str, key: str) -> frozenset[str]:
+    items = document.get(field)
+    items = [] if items is None else items
+    if not isinstance(items, list) or not all(isinstance(i, dict) and isinstance(i.get(key), str) for i in items):
+        raise RevocationListError(f"revocation list: {field} is not a list of objects with a {key}")
+    return frozenset(i[key] for i in items)
+
+
+def _subject_ids(subjects: Any, key: str) -> list[str]:
+    ids = subjects.get(key) if isinstance(subjects, dict) else None
+    return [i for i in ids if isinstance(i, str)] if isinstance(ids, list) else []
+
+
+def revocation_snapshot_from_deny_list(document: Any, subjects: dict[str, list[str]]) -> dict[str, Any]:
+    """The revocation snapshot of `subjects` (revocation_subjects) from a complete deny list in
+    the format of the reference revocation service's /.well-known/dcp-revocations.json:
+    `updated_at` (RFC 3339), `revocations` (objects with an `agent_id`) and `kid_revocations`
+    (objects with a `revoked_kid`), a missing list counting as empty. A listed agent or kid is
+    revoked, every other subject not_revoked, as of `updated_at`. Raises RevocationListError
+    (code REVOCATION_INVALID) for a document of another shape."""
+    if not isinstance(document, dict) or rfc3339_epoch_ms(document.get("updated_at")) is None:
+        raise RevocationListError("revocation list: updated_at is not an RFC 3339 timestamp")
+    agents = _listed(document, "revocations", "agent_id")
+    kids = _listed(document, "kid_revocations", "revoked_kid")
+    return {
+        "checked_at": document["updated_at"],
+        "agents": {a: "revoked" if a in agents else "not_revoked" for a in _subject_ids(subjects, "agent_ids")},
+        "keys": {k: "revoked" if k in kids else "not_revoked" for k in _subject_ids(subjects, "kids")},
+    }
+
+
 def _revocation_snapshot(value: Any) -> tuple[int, dict[str, str], dict[str, str]] | None:
     """A snapshot within schemas/v2/revocation_snapshot.schema.json as (checked_at in epoch
     ms, agents, keys), the maps copied into plain dicts; None for anything else."""
@@ -507,7 +562,8 @@ _AddError = Callable[[str, str], None]
 
 
 def _bounded(message: str) -> str:
-    return message if len(message) <= _MAX_MESSAGE else f"{message[:_MAX_MESSAGE]}…"
+    """At most 500 characters, the ellipsis included."""
+    return message if len(message) <= _MAX_MESSAGE else f"{message[:_MAX_MESSAGE - 1]}…"
 
 
 def _session_checks(manifest: dict[str, Any], profile: StrictV1Profile, now: float, add: _AddError) -> None:

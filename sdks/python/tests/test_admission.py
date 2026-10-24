@@ -20,11 +20,14 @@ from dcp_ai.v2 import (
     AdmissionConfigError,
     AlgorithmRegistry,
     PrincipalTrustStore,
+    RevocationListError,
+    RevocationSourceError,
     StrictV1Profile,
     admit_signed_bundle_v2,
     create_principal_trust_store,
     evaluate_admission_v2,
     resolve_strict_v1_profile,
+    revocation_snapshot_from_deny_list,
     revocation_subjects,
     verify_signed_bundle_v2,
 )
@@ -298,7 +301,7 @@ async def test_error_messages_are_bounded_and_carry_no_key_material(registry):
     result = await admit_signed_bundle_v2(huge, registry, trust=VECTORS["trust_sets"]["principal"], now_ms=NOW)
     assert result["errors"]
     for error in result["errors"]:
-        assert len(error["message"]) <= 501
+        assert len(error["message"]) <= 500
     text = json.dumps(result["errors"])
     for key in VECTORS["trust_sets"]["principal"]["principals"][0]["keys"]:
         assert key["public_key_b64"] not in text
@@ -307,7 +310,7 @@ async def test_error_messages_are_bounded_and_carry_no_key_material(registry):
     verification = await verify_signed_bundle_v2(_base(), registry, DEFAULT_VERIFIER_POLICY, now_ms=NOW)
     result = evaluate_admission_v2(huge, verification, trust=VECTORS["trust_sets"]["principal"], now_ms=NOW)
     assert [e["code"] for e in result["errors"]] == ["TRUST_PRINCIPAL_UNKNOWN"]
-    assert len(result["errors"][0]["message"]) <= 501
+    assert len(result["errors"][0]["message"]) <= 500
     text = json.dumps(result["errors"])
     for key in VECTORS["trust_sets"]["principal"]["principals"][0]["keys"]:
         assert key["public_key_b64"] not in text
@@ -345,6 +348,68 @@ async def test_special_keys_do_not_fool_the_lookups(registry):
             now_ms=NOW,
         )
         assert [e["code"] for e in result["errors"]] == ["REVOCATION_UNKNOWN"]
+
+
+def test_a_complete_deny_list_reads_into_a_snapshot_and_another_shape_is_refused():
+    subjects = {"agent_ids": ["agent:acme-bot"], "kids": ["a" * 32, "b" * 32]}
+    document = {
+        "dcp_version": "2.0",
+        "updated_at": "2026-11-02T10:00:30Z",
+        "revocations": [{"agent_id": "agent:other"}],
+        "kid_revocations": [{"revoked_kid": "b" * 32}],
+    }
+    assert revocation_snapshot_from_deny_list(document, subjects) == {
+        "checked_at": "2026-11-02T10:00:30Z",
+        "agents": {"agent:acme-bot": "not_revoked"},
+        "keys": {"a" * 32: "not_revoked", "b" * 32: "revoked"},
+    }
+    # A missing list counts as empty, as in the TypeScript SDK.
+    assert revocation_snapshot_from_deny_list({"updated_at": "2026-11-02T10:00:30Z"}, subjects)["keys"] == {
+        "a" * 32: "not_revoked", "b" * 32: "not_revoked",
+    }
+    for bad in (
+        None,
+        [],
+        {"revocations": []},
+        {"updated_at": "now"},
+        {"updated_at": "2026-11-02T10:00:30Z", "revocations": ["agent:acme-bot"]},
+        {"updated_at": "2026-11-02T10:00:30Z", "kid_revocations": {}},
+    ):
+        with pytest.raises(RevocationListError) as caught:
+            revocation_snapshot_from_deny_list(bad, subjects)
+        assert caught.value.code == "REVOCATION_INVALID"
+        assert isinstance(caught.value, RevocationSourceError)
+
+
+@pytest.mark.parametrize(
+    "field,value,code",
+    [
+        ("min_classical", 1, None),
+        ("min_pq", 1.0, None),
+        ("max_key_age_days", 365, None),
+        ("accepted_hash_algs", ["sha384", "sha256"], None),
+        ("min_classical", 2, "CONFIG_PROFILE_CONTRADICTION"),
+        ("min_pq", 0, "CONFIG_PROFILE_CONTRADICTION"),
+        ("max_key_age_days", 30, "CONFIG_PROFILE_CONTRADICTION"),
+        ("accepted_hash_algs", ["sha256"], "CONFIG_PROFILE_CONTRADICTION"),
+        ("accepted_hash_algs", ["sha256", "sha256", "sha384"], "CONFIG_PROFILE_CONTRADICTION"),
+        ("accepted_hash_algs", ["sha256", "sha512"], "CONFIG_PROFILE_CONTRADICTION"),
+        ("min_classical", True, "CONFIG_INVALID_VALUE"),
+        ("max_key_age_days", "365", "CONFIG_INVALID_VALUE"),
+        ("accepted_hash_algs", "sha256", "CONFIG_INVALID_VALUE"),
+    ],
+)
+def test_strict_v1_fixes_the_fields_no_verifier_enforces_the_same_way(field, value, code):
+    config = {"profile": "strict-v1", "verifier_id": "v", "verifier_policy": {field: value}}
+    if code is None:
+        profile = resolve_strict_v1_profile(config)
+        assert profile.policy["min_classical"] == profile.policy["min_pq"] == 1
+        assert profile.policy["max_key_age_days"] == 365
+        assert profile.policy["accepted_hash_algs"] == ("sha256", "sha384")
+    else:
+        with pytest.raises(AdmissionConfigError) as caught:
+            resolve_strict_v1_profile(config)
+        assert caught.value.code == code
 
 
 @pytest.mark.asyncio
