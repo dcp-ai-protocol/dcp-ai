@@ -154,6 +154,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `dcp_ai.fastapi.DCPVerifyMiddleware(max_body_bytes=...)`: an opt-in budget, in bytes, on the
+  request body (default `None`, no budget, as before; a positive integer, else
+  `AdmissionConfigError` `CONFIG_INVALID_VALUE`). The middleware then reads the body first, also
+  with the bundle in the header or `require_bundle=False`: a `Content-Length` over the budget, or
+  received bytes over it (no `Content-Length`, chunked, or a wrong one), get `413` without
+  receiving the rest, parsing, resolving trust, verifying or reaching the route; an invalid or
+  repeated `Content-Length` or a disconnect while sending gets `400`. A body within the budget is
+  handled as before and still reaches the route. It bounds the bytes received, not
+  decompression, JSON depth or time, and it is a deployment limit, not part of the protocol.
+  The option needs Starlette 0.28.0 or later, which passes a body read in the middleware on to
+  the route; with an older or unidentified Starlette it raises `AdmissionConfigError`
+  `CONFIG_INVALID_VALUE` when the middleware is built. The package's minimum versions are
+  unchanged, and without the option nothing is checked.
 - Admission: trusted principals and the `strict-v1` profile (`spec/profiles/admission`,
   `docs/ADMISSION.md`). A verified bundle proves integrity and signature by the keys it lists; an
   operator trust set (`schemas/v2/principal_trust_set.schema.json`) now lets a verifier admit a

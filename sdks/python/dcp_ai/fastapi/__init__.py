@@ -33,13 +33,17 @@ import inspect
 import json
 import logging
 import math
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+import starlette
 from fastapi import Request, HTTPException, Depends
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import ClientDisconnect
 from starlette.responses import JSONResponse
+from starlette.types import Receive, Scope, Send
 
 # The registry, the verifier policy and the V1 rule are shared with the LangChain
 # and OpenAI bridges (dcp_ai._verify_any).
@@ -191,6 +195,60 @@ def _positive_seconds(value: Any, name: str) -> float:
     return float(value)
 
 
+# max_body_bytes reads the body in dispatch, and BaseHTTPMiddleware passes a body read there on
+# to the route from Starlette 0.28.0; before that the route would wait for a body already read.
+_STARLETTE_BODY_REPLAY = (0, 28)
+
+
+def _starlette_passes_the_body_on(version: Any) -> bool:
+    match = re.match(r"([0-9]+)\.([0-9]+)", version) if isinstance(version, str) else None
+    return match is not None and (int(match[1]), int(match[2])) >= _STARLETTE_BODY_REPLAY
+
+
+def _max_body_bytes(value: Any) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise AdmissionConfigError("CONFIG_INVALID_VALUE", "max_body_bytes must be a positive integer number of bytes")
+    version = getattr(starlette, "__version__", None)
+    if not _starlette_passes_the_body_on(version):
+        raise AdmissionConfigError(
+            "CONFIG_INVALID_VALUE",
+            f"max_body_bytes needs Starlette 0.28.0 or later (installed: {version!r}): "
+            "upgrade FastAPI/Starlette or leave max_body_bytes unset",
+        )
+    return value
+
+
+class _BodyTooLarge(Exception):
+    """The request body went over max_body_bytes."""
+
+
+def _budgeted(receive: Receive, limit: int) -> Receive:
+    """`receive` that raises _BodyTooLarge on the first message that takes the body bytes
+    received over `limit` (ASGI has already delivered that message), whatever Content-Length
+    says, and receives nothing after it."""
+    received = 0
+
+    async def budgeted_receive() -> Any:
+        nonlocal received
+        message = await receive()
+        if message["type"] == "http.request":
+            received += len(message.get("body", b""))
+            if received > limit:
+                raise _BodyTooLarge
+        return message
+
+    return budgeted_receive
+
+
+_CONTENT_LENGTH = re.compile(r"[0-9]+")
+
+
+def _body_refusal(status_code: int, error: str) -> JSONResponse:
+    return JSONResponse(status_code=status_code, content={"verified": False, "errors": [error]})
+
+
 def _is_async_callable(fn: Any) -> bool:
     return inspect.iscoroutinefunction(fn) or inspect.iscoroutinefunction(getattr(fn, "__call__", None))
 
@@ -260,6 +318,24 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
     be resolved, 503. An admitted one gets request.state.dcp_agent with the
     admission fields set.
 
+    `max_body_bytes` (keyword only, default None: no budget, as before): a positive
+    integer. The middleware then reads the whole request body itself, before it looks
+    at the bundle header, parses JSON, resolves the tenant or trust set, verifies or
+    reaches the route, and also when the bundle comes in the header or is optional.
+    A body over the budget, by its Content-Length or by the bytes actually received
+    (with no Content-Length, a chunked body or a wrong one), gets 413 {"verified":
+    false, "errors": ["Request body exceeds max_body_bytes"]}, and no message after
+    the one that went over is received. A Content-Length that is not one run of
+    ASCII digits, or that appears more than once, gets 400 ["Invalid Content-Length"];
+    a client that disconnects while sending gets 400 ["Request body could not be
+    read"]. A body within the budget stays available to the route (request.body(),
+    json(), stream()), as Starlette's BaseHTTPMiddleware passes on a body read in
+    dispatch from Starlette 0.28.0: the option needs it, and with an older or
+    unidentified Starlette it raises AdmissionConfigError (CONFIG_INVALID_VALUE).
+    Without the option nothing is required. It bounds the body bytes received, not
+    their decompression, parse depth, time or a disconnect after the read, and it is
+    a deployment limit, not part of the DCP protocol.
+
     Contradictions (`trusted_principals` or `profile` without `require_bundle=True`,
     a profile without `trusted_principals` or `revocation_source`, or with
     `verifier_policy`) raise AdmissionConfigError (CONFIG_PROFILE_CONTRADICTION), and
@@ -281,8 +357,10 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
         revocation_timeout: float = 5.0,
         tenant: Callable[[Request], str] | None = None,
         clock: Callable[[], int] | None = None,
+        max_body_bytes: int | None = None,
     ) -> None:
         super().__init__(app)
+        self._max_body_bytes = _max_body_bytes(max_body_bytes)
         self.require_bundle = require_bundle
         self.header_name = header_name
         self.dcp_version = dcp_version
@@ -319,7 +397,17 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
                 "trusted_principals requires require_bundle=True: a request without a bundle must not reach the route",
             )
 
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if self._max_body_bytes is not None and scope["type"] == "http":
+            receive = _budgeted(receive, self._max_body_bytes)
+        await super().__call__(scope, receive, send)
+
     async def dispatch(self, request: Request, call_next: Any) -> Any:
+        if self._max_body_bytes is not None:
+            refusal = await self._read_body_within_budget(request)
+            if refusal is not None:
+                return refusal
+
         signed_bundle = None
 
         header_value = request.headers.get(self.header_name)
@@ -426,6 +514,25 @@ class DCPVerifyMiddleware(BaseHTTPMiddleware):
             )
 
         return await call_next(request)
+
+    async def _read_body_within_budget(self, request: Request) -> JSONResponse | None:
+        """None once the whole body is read within max_body_bytes, which Starlette then keeps
+        for request.json() below and for the route; else the refusal."""
+        limit = self._max_body_bytes
+        lengths = request.headers.getlist("content-length")
+        if lengths:
+            if len(lengths) != 1 or not _CONTENT_LENGTH.fullmatch(lengths[0]):
+                return _body_refusal(400, "Invalid Content-Length")
+            declared = lengths[0].lstrip("0") or "0"
+            if len(declared) > len(str(limit)) or int(declared) > limit:
+                return _body_refusal(413, "Request body exceeds max_body_bytes")
+        try:
+            await request.body()  # through _budgeted: stops after the first message over the budget
+        except _BodyTooLarge:
+            return _body_refusal(413, "Request body exceeds max_body_bytes")
+        except ClientDisconnect:
+            return _body_refusal(400, "Request body could not be read")
+        return None
 
     # ── Admission (spec/profiles/admission § 5, § 6) ──
 

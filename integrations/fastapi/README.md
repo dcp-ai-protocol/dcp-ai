@@ -84,9 +84,11 @@ app.add_middleware(
 | `revocation_timeout` | `float` | `5.0` | Keyword only. Seconds the revocation source has to answer. |
 | `tenant` | `callable \| None` | `None` | Keyword only. `(request) -> str`, sync or async, your own code (for instance the tenant of the caller your authentication set on `request.state`). Passed to the trust and revocation callables. Default: always `""`. |
 | `clock` | `callable \| None` | `None` | Keyword only, for tests: the time in milliseconds since the epoch. Default: the system clock. |
+| `max_body_bytes` | `int \| None` | `None` | Keyword only. A positive integer (not a `bool`, `float`, string, `0` or negative): the request body bytes the middleware accepts. Needs Starlette 0.28.0 or later. Default: no budget, as before. See [Body budget](#body-budget). |
 
 #### Behavior
 
+0. With `max_body_bytes`, the body is read first, within the budget (see [Body budget](#body-budget)).
 1. Extracts the signed bundle from the header or JSON body (`signed_bundle`). A header that is not JSON, holds an integer over Python's 4300-digit limit or is nested too deeply counts as no bundle (`403` with `require_bundle=True`), never a `500`.
 2. Verifies it with the Python SDK:
    - **V2** (`bundle.dcp_bundle_version: "2.0"`): `await verify_signed_bundle_v2(signed_bundle, registry, policy)` from `dcp_ai.v2`, with an Ed25519 / ML-DSA-65 / SLH-DSA-192f registry and the policy above. It checks the payload hashes and the manifest, session binding and expiry, the bundle's and every artifact's composite signature, the verification mode (the stricter of the policy's mode for the passport's risk tier and the intent's security tier), the audit hash chain and key validity. `composite_sig_valid` is the verifier's result for the bundle signature.
@@ -95,6 +97,18 @@ app.add_middleware(
 3. If valid: stores `DCPAgentContext` in `request.state.dcp_agent`, with the verifier's `warnings`
 4. If it fails: responds with `403`, the verifier's `errors` (and, for V2, `warnings`): at most 20 of each, of at most 500 characters, with the control and format characters of bundle-supplied text escaped. The context's `warnings` are bounded the same way.
 5. If no bundle and `require_bundle=False`: continues without verification
+
+#### Body budget
+
+`max_body_bytes` is opt-in; without it the middleware reads the body as before, with no limit of its own. With it, the middleware reads the whole request body before anything else (the bundle header, JSON parsing, the tenant and trust set, verification, revocation, the route), also when the bundle comes in the header and with `require_bundle=False`:
+
+- A `Content-Length` over the budget gets `413` `{"verified": false, "errors": ["Request body exceeds max_body_bytes"]}` before any body byte is received.
+- The bytes actually received are counted too, so a request with no `Content-Length`, a chunked body or a `Content-Length` that is too small gets the same `413` on the first ASGI message that takes them over the budget (that message has already been delivered), and nothing after it is received.
+- A `Content-Length` that is not a single run of ASCII digits (a sign, a decimal point, spaces, a list) or that appears twice gets `400` `["Invalid Content-Length"]`, and a client that disconnects while sending the body gets `400` `["Request body could not be read"]`. Neither reaches the route.
+- A body within the budget, empty or malformed bodies included, is handled exactly as without the option, and the route reads it as usual (`request.body()`, `request.json()`, `request.stream()`): Starlette's `BaseHTTPMiddleware` passes on a body read in the middleware from Starlette 0.28.0.
+- The option therefore needs Starlette 0.28.0 or later: with an older Starlette, or one whose version cannot be read, `max_body_bytes` raises `AdmissionConfigError` (`CONFIG_INVALID_VALUE`) when the middleware is built. Upgrade FastAPI/Starlette or leave it unset. Without the option nothing is checked, and the package's own minimum versions are unchanged.
+
+It is a limit on the body bytes received, set by your deployment, not part of the DCP protocol: it does not bound decompression (it counts the bytes the ASGI server delivers), JSON depth, time or a disconnect after the read. Set it with your server's own limits.
 
 #### What "verified" means
 
