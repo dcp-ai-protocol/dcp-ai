@@ -17,6 +17,8 @@ import type {
   CitizenshipBundleV2,
   SignedBundleV2,
   BuildBundleOptions,
+  ExperimentalCandidateIngressResult,
+  ExperimentalCandidateRejectClass,
 } from './types.js';
 
 export type * from './types.js';
@@ -219,6 +221,27 @@ export class DcpWasm {
       throw new Error(`canonicalize: ${JSON.parse(result).error}`);
     }
     return result;
+  }
+
+  /**
+   * EXPERIMENTAL, opt-in (inactive candidate dcp-jcs-v2, phase 1): the ingress of one unit from its
+   * original bytes. Returns the rejection class and byte offset, or the canonical bytes and their
+   * SHA-256; it verifies, signs or admits nothing and does not change dcp-jcs-v1. A wrong argument
+   * is a TypeError (the wasm glue would otherwise coerce it) and an internal error throws: neither
+   * is a rejection.
+   */
+  experimentalCandidateIngress(bytes: Uint8Array): ExperimentalCandidateIngressResult {
+    if (!(bytes instanceof Uint8Array)) {
+      throw new TypeError('experimentalCandidateIngress expects the original bytes as a Uint8Array');
+    }
+    const r = parseOrThrow<
+      | { status: 'accept'; canonical: string; canonical_sha256: string }
+      | { status: 'reject'; class: ExperimentalCandidateRejectClass; offset: number }
+    >(wasm().wasm_experimental_candidate_ingress(bytes), 'experimentalCandidateIngress');
+    if (r.status === 'accept') {
+      return { status: 'accept', canonical: new TextEncoder().encode(r.canonical), canonicalSha256: r.canonical_sha256 };
+    }
+    return { status: 'reject', class: r.class, offset: r.offset };
   }
 
   domainSeparatedMessage(context: string, payloadHex: string): string {

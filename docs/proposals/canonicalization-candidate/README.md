@@ -12,7 +12,7 @@
 > **Notice.** This document proposes a candidate profile and records its design. It does not change
 > `dcp-jcs-v1` or [`spec/CANONICALIZATION_PROFILE.md`](../../../spec/CANONICALIZATION_PROFILE.md), which
 > remain the only normative reference. No SDK, verifier, schema or conformance check uses the identifier
-> `dcp-jcs-v2`; the only CI job that touches it runs the lab tool's design model. A V2 verifier that checks the manifest's `canonicalization_profile` field, such as the
+> `dcp-jcs-v2`: the lab tool's CI job runs the design model, and the SDK test jobs run the experimental unit ingress of §15 on the corpus, which reads no profile and which no verifier, signer or default path calls. A V2 verifier that checks the manifest's `canonicalization_profile` field, such as the
 > TypeScript SDK's ([`verify-v2.ts`](../../../sdks/typescript/src/core/verify-v2.ts)), rejects it as an
 > unknown profile, which is the intended behavior. Nothing here is a conformance requirement. The lab
 > tool is an executable model of the design, not an implementation: it computes SHA-256 for its
@@ -264,7 +264,7 @@ re-canonicalized with `dcp-jcs-v1`, the profile is never inferred from content, 
 
 ## 9. Phases and acceptance gates
 
-None of this is implemented or activated. Moving to a later phase needs an explicit decision, taken
+Nothing here is activated, and only the experimental unit ingress of §15 is implemented. Moving to a later phase needs an explicit decision, taken
 apart from this document, and a change of default needs its own decision.
 
 **Phases.**
@@ -360,7 +360,7 @@ Exit code 1 means a case, a result or a control differs; 2 means the data is inv
 
 | Shown by the design model | Not done |
 |---|---|
-| The total precedence, with offsets, on 54 multi-defect documents and 12 multi-defect envelopes | A scanner in the TypeScript, Python, Go, Rust or WASM SDKs |
+| The total precedence, with offsets, on 54 multi-defect documents and 12 multi-defect envelopes | Transport extraction, profile selection or verification in the TypeScript, Python, Go, Rust or WASM SDKs (only the unit ingress of §15 exists) |
 | The unit, the transport and envelope independence | A bytes API in the integrations or the server |
 | Selection, policy and no retry, on synthetic bundles | Real bundles signed with the candidate, composite signatures verified |
 | That the candidate path does not depend on parser repairs | Measuring each SDK's historical parser on these cases |
@@ -386,3 +386,52 @@ Exit code 1 means a case, a result or a control differs; 2 means the data is inv
 - [RFC 7493](https://www.rfc-editor.org/rfc/rfc7493) (I-JSON) §2.1–§2.3.
 - [RFC 8785](https://www.rfc-editor.org/rfc/rfc8785) §3.1, §3.2.2 and §3.2.3 (UTF-16 key order, which this profile does not use).
 - [`spec/CANONICALIZATION_PROFILE.md`](../../../spec/CANONICALIZATION_PROFILE.md) (`dcp-jcs-v1`, unchanged).
+
+## 15. Experimental SDK ingress (phase 1)
+
+Phase 1 of the SDK implementation plan (not a phase of §9) adds an experimental, opt-in ingress of one
+unit to each SDK. It is not normative and nothing calls it. It changes no `dcp-jcs-v1` function,
+default, signer or verifier, and no SDK reads, emits or accepts `dcp-jcs-v2`.
+
+| SDK | API |
+|---|---|
+| TypeScript | `experimentalCandidateIngress(bytes: Uint8Array)`, exported by `@dcp-ai/sdk` |
+| Python | `dcp_ai.v2.experimental_candidate_ingress.experimental_candidate_ingress(data)`, not re-exported by `dcp_ai.v2` |
+| Go | `v2.ExperimentalCandidateIngress(input []byte)` |
+| Rust | `dcp_ai::v2::experimental_candidate_ingress::experimental_candidate_ingress(&[u8])` |
+| WASM | `wasm_experimental_candidate_ingress` in the Rust bindings, and `DcpWasm.experimentalCandidateIngress(bytes)` in `@dcp-ai/wasm` |
+
+**What it does.** It takes the original bytes of one unit and applies §3.1–§3.3, with the precedence
+and offsets of §6.1–§6.2. On acceptance it returns the exact value, its canonical bytes (§3.4) and their
+SHA-256; the WASM wrapper returns the bytes and the hash, not the value. A rejection is a result, with
+its class and byte offset. A wrong argument type and an internal error are reported apart, never as a
+rejection.
+
+**What it does not do:**
+- extract a unit from a transport (§5, §6.3);
+- select a profile or apply a policy (§6.4 steps 1, 5 and 6; §7);
+- delegate to `dcp-jcs-v1`;
+- verify, sign or admit anything.
+
+**Tests.** Each of the four SDKs (TypeScript, Python, Go and Rust) runs these cases against the
+stored expectations (the class and offset, or the canonical hash):
+- the 87 baseline units;
+- the 81 bare document cases of `corpus.json`.
+
+Each of the four also checks that its `dcp-jcs-v1` canonicalizer gives the same bytes over every
+accepted value, and adds focused examples: invalid UTF-8, BOM, duplicates through escapes,
+`__proto__`, long and saturated number literals, surrogate pairs, and 20 000 levels with and without a
+late grammar error.
+
+The WASM test runs the real Rust binding through the `@dcp-ai/wasm` wrapper on the same 168 cases,
+comparing class and offset or canonical bytes and hash; it gets no value, so it makes no `dcp-jcs-v1`
+comparison. It also checks the JS/WASM boundary:
+- bytes reach Rust unchanged (an invalid byte, a BOM, a NUL escape, a view of a larger buffer);
+- a 20 000-level unit returns;
+- an argument that is not a `Uint8Array` is a `TypeError`.
+
+In every SDK, the 77 bundle cases and the 29 envelope cases, the obsolete depth rule among them, belong
+to later phases: they are counted, not run.
+
+**Gates.** This is evidence toward gates 1, 3 and 4 of §9 for unit cases only. None of the ten gates is
+met by it, and the candidate stays inactive.
