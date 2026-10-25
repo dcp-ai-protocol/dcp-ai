@@ -7,7 +7,7 @@ design, the rules and what the model does and does not show are in [`docs/propos
 
 | File | Role |
 |---|---|
-| `model.py` | The design model (imported only by `run.py`). Its code is the approved model's; only its module docstring was adapted to public paths |
+| `model.py` | The design model (imported only by `run.py`). Its executable behavior is the approved model's; docstrings clarify public paths and the assumed last-duplicate rule |
 | `generate_corpus.py` | Writes `docs/proposals/canonicalization-candidate/corpus.json`; expectations are written by hand and it never imports the model |
 | `run.py` | Integrity, freshness, validity and coverage checks, the 274 cases, and 24 negative controls |
 

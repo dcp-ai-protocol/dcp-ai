@@ -314,7 +314,7 @@ assessed on their own.
 |---|---|
 | [`baseline-corpus.json`](baseline-corpus.json) | 87 single-defect cases (42 accept, 45 reject, 6 of them non-UTF-8 bytes), 10 profile-selection and 3 policy cases. A copy of the approved revision 2: only `proposal` and a `provenance` field differ. Its `domain.max_depth_scope` keeps the historical wording (depth over the whole input, envelope included); I4 supersedes it (depth from the unit root), as `corpus.json` records in `scope_revisions`. No case changes: every baseline case is a bare unit |
 | [`corpus.json`](corpus.json) | 187 design cases: multi-defect permutations (54), exact numbers (20), depth with and without an envelope (12), transport (19) and transport phases (12), selection (23), ingress (3), historical parsers (8), policy (5), configuration (9), migration (9), and the 10 + 3 baseline selection and policy cases on synthetic bundles. It references the 87 baseline cases by ID and input hash |
-| [`tools/canonicalization-lab/model.py`](../../../tools/canonicalization-lab/model.py) | The design model: transport extraction, an iterative byte scanner with the precedence of §6, N4, the output rules, selection and policy, and a synthetic bundle path whose hash checks stand in for payload hashes, the audit chain and the manifest signature. Its code is the approved model's (approved file SHA-256 `ab172c5f…`); only its module docstring was adapted to public paths. It computes SHA-256 for the synthetic commitments and signs or verifies nothing |
+| [`tools/canonicalization-lab/model.py`](../../../tools/canonicalization-lab/model.py) | The design model: transport extraction, an iterative byte scanner with the precedence of §6, N4, the output rules, selection and policy, and a synthetic bundle path whose hash checks stand in for payload hashes, the audit chain and the manifest signature. Its executable behavior is the approved model's (approved file SHA-256 `ab172c5f…`); its docstrings clarify public paths and the assumed last-duplicate rule. It computes SHA-256 for the synthetic commitments and signs or verifies nothing |
 | [`tools/canonicalization-lab/generate_corpus.py`](../../../tools/canonicalization-lab/generate_corpus.py) | Writes `corpus.json`. Expectations are written by hand with the rule each applies (`why`); it never imports the model |
 | [`tools/canonicalization-lab/run.py`](../../../tools/canonicalization-lab/run.py) | Checks integrity, freshness, validity and coverage, runs the model on all 274 cases, and runs 24 negative controls |
 
@@ -370,7 +370,11 @@ Exit code 1 means a case, a result or a control differs; 2 means the data is inv
 ## 13. Open questions
 
 - The preservation of `dcp-jcs-v1` verdicts depends on historical parsers reading the profile path with
-  the last-duplicate rule; it must be measured in each SDK before any implementation.
+  the last-duplicate rule; it must be measured on each actual verifier entry path before implementation.
+  A typed construction decoder is not necessarily the decoder used by a verifier. For object APIs,
+  the caller's or integration's bytes-to-object decoder is part of that path: it can discard a BOM,
+  repair invalid UTF-8, lose duplicate members or reject the body before verification. An adapter must preserve that
+  existing path explicitly; replacing it with one common decoder does not establish historical parity.
 - The byte-level transport contract changes the result for ambiguous envelopes and needs its own
   compatibility note.
 - Audit-chain continuity across profiles, the profile of artifacts without a manifest, and A2A remain
