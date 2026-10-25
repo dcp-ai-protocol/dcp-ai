@@ -1,6 +1,8 @@
 pub mod crypto_provider;
 pub mod domain_separation;
 pub mod canonicalize;
+/// EXPERIMENTAL, opt-in: ingress of one unit under the inactive candidate dcp-jcs-v2 (phase 1).
+pub mod experimental_candidate_ingress;
 pub mod dual_hash;
 pub mod composite_sig;
 pub mod composite_ops;

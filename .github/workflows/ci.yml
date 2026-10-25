@@ -36,6 +36,7 @@ jobs:
         with:
           filters: |
             typescript:
+              - 'docs/proposals/canonicalization-candidate/*.json'
               - 'sdks/typescript/**'
               - 'schemas/**'
               - 'spec/**'
@@ -44,18 +45,21 @@ jobs:
               - 'package-lock.json'
               - '.github/workflows/ci.yml'
             python:
+              - 'docs/proposals/canonicalization-candidate/*.json'
               - 'sdks/python/**'
               - 'schemas/**'
               - 'spec/**'
               - 'tests/**'
               - '.github/workflows/ci.yml'
             go:
+              - 'docs/proposals/canonicalization-candidate/*.json'
               - 'sdks/go/**'
               - 'schemas/**'
               - 'spec/**'
               - 'tests/**'
               - '.github/workflows/ci.yml'
             rust:
+              - 'docs/proposals/canonicalization-candidate/*.json'
               - 'sdks/rust/**'
               - 'sdks/wasm/**'
               - 'schemas/**'
@@ -63,6 +67,7 @@ jobs:
               - 'tests/**'
               - '.github/workflows/ci.yml'
             wasm:
+              - 'docs/proposals/canonicalization-candidate/*.json'
               - 'sdks/wasm/**'
               - 'sdks/rust/**'
               - 'schemas/**'

@@ -488,3 +488,19 @@ export interface AwarenessThreshold {
   timestamp: string;
   composite_sig: CompositeSignature;
 }
+
+/** EXPERIMENTAL, opt-in (inactive candidate dcp-jcs-v2, phase 1): rejection classes of the ingress. */
+export type ExperimentalCandidateRejectClass =
+  | 'BOM'
+  | 'UTF8_INVALID'
+  | 'SYNTAX'
+  | 'SURROGATE_UNPAIRED'
+  | 'DUPLICATE_KEY'
+  | 'NUMBER_NOT_INTEGER'
+  | 'NUMBER_OUT_OF_RANGE'
+  | 'DEPTH_EXCEEDED';
+
+/** EXPERIMENTAL, opt-in: the outcome of `experimentalCandidateIngress` for the data. */
+export type ExperimentalCandidateIngressResult =
+  | { status: 'accept'; canonical: Uint8Array; canonicalSha256: string }
+  | { status: 'reject'; class: ExperimentalCandidateRejectClass; offset: number };

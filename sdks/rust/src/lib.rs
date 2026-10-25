@@ -110,6 +110,27 @@ pub mod wasm {
         }
     }
 
+    // ── EXPERIMENTAL, opt-in: candidate dcp-jcs-v2 ingress of one unit (phase 1) ──
+
+    /// EXPERIMENTAL, opt-in: the candidate ingress of one unit from its original bytes. Returns
+    /// {"status":"accept","canonical":<text>,"canonical_sha256":<hex>} or
+    /// {"status":"reject","class":<class>,"offset":<byte offset>}; {"error":...} only for an
+    /// internal error, never for the data. It verifies, signs or admits nothing.
+    #[wasm_bindgen]
+    pub fn wasm_experimental_candidate_ingress(input: &[u8]) -> String {
+        use crate::v2::experimental_candidate_ingress::{experimental_candidate_ingress, CandidateIngressOutcome};
+        match experimental_candidate_ingress(input) {
+            Ok(CandidateIngressOutcome::Accept { canonical, canonical_sha256, .. }) => match String::from_utf8(canonical) {
+                Ok(text) => json!({"status": "accept", "canonical": text, "canonical_sha256": canonical_sha256}).to_string(),
+                Err(_) => json_err("canonical bytes are not UTF-8"),
+            },
+            Ok(CandidateIngressOutcome::Reject { class, offset }) => {
+                json!({"status": "reject", "class": class.as_str(), "offset": offset}).to_string()
+            }
+            Err(e) => json_err(&e.to_string()),
+        }
+    }
+
     // ── Keypair Generation ────────────────────────────────────────────────
 
     #[wasm_bindgen]

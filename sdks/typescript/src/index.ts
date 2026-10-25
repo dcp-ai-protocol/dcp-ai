@@ -197,6 +197,17 @@ export type { DcpContext } from './core/domain-separation.js';
 // ── V2 Canonicalization ──
 export { canonicalizeV2, assertNoFloats } from './core/canonicalize.js';
 
+// ── EXPERIMENTAL, opt-in: ingress of one unit under the inactive candidate dcp-jcs-v2 (phase 1) ──
+export {
+  experimentalCandidateIngress,
+  ExperimentalCandidateInternalError,
+} from './core/experimental-candidate-ingress.js';
+export type {
+  ExperimentalCandidateIngressResult,
+  ExperimentalCandidateRejectClass,
+  ExperimentalCandidateValue,
+} from './core/experimental-candidate-ingress.js';
+
 // ── V2 Signed Payload ──
 export { preparePayload, verifyPayloadHash } from './core/signed-payload.js';
 
