@@ -435,6 +435,7 @@ describe('phase 2: v1 parity on really signed bundles, bare, for every built-in 
     ]),
     ...Object.entries(variants).map(([k, v]) => [`variant ${k}`, v, nowVectors]),
   ] as [string, Uint8Array, number][];
+  const PARITY_TIMEOUT_MS = 30_000; // an explicit budget for these two tests only, not a global one
 
   it.each(Object.entries(TS_ADAPTERS))(
     "%s: the router never changes today's verdict",
@@ -469,6 +470,9 @@ describe('phase 2: v1 parity on really signed bundles, bare, for every built-in 
       );
       expect(accepted).toBeGreaterThan(10);
     },
+    // Each test verifies 125 really signed bundles on both sides: up to 250 cryptographic
+    // verifications (Ed25519 and ML-DSA-65). They took about 10 s on CI, over the 5 s default.
+    PARITY_TIMEOUT_MS,
   );
 });
 
