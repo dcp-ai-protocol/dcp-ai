@@ -131,6 +131,170 @@ pub mod wasm {
         }
     }
 
+    // ── EXPERIMENTAL, opt-in: candidate dcp-jcs-v2 router (phase 2) ──
+    //
+    // Stateless: `route` either ends or returns the decision point where the JS historical decoder must
+    // be consulted; `resume` recomputes everything from its own arguments, accepts the decoder's result
+    // only at that same point, and can only end in a rejection or a v1 delegation, never `candidate`.
+    // A misuse is {"usage_error": ...}, never a result for the data. The point checks coherence; it is
+    // not authentication: a caller can always lie about what its decoder returned.
+
+    use crate::v2::experimental_candidate_router::{
+        CandidateExtraction, CandidateHistorical, CandidateRoute, CandidateRouter, CandidateRouterConfig,
+        HistoricalAdapter, HistoricalDecode, HistoricalPoint,
+    };
+
+    fn candidate_router(config_json: &str) -> Result<CandidateRouter, String> {
+        let config: Value = serde_json::from_str(config_json)
+            .map_err(|_| json!({"config_error": {"code": "CONFIG_INVALID", "detail": "CONFIG"}}).to_string())?;
+        let name = config.get("historical").and_then(Value::as_str).unwrap_or("").to_string();
+        CandidateRouter::new(CandidateRouterConfig {
+            transport: config.get("transport").and_then(Value::as_str).unwrap_or("").into(),
+            accepted_profiles: config.get("accepted_profiles").cloned().unwrap_or(Value::Null),
+            historical: Some(HistoricalAdapter::custom(name, |_| {
+                Err(HistoricalDecode::Adapter("the wasm binding consults the JS decoder through resume".into()))
+            })),
+        })
+        .map_err(|e| json!({"config_error": {"code": e.code, "detail": e.detail}}).to_string())
+    }
+
+    fn normalized_config(router: &CandidateRouter) -> Value {
+        let (transport, profiles, historical) = router.configuration();
+        json!({"transport": transport, "accepted_profiles": profiles, "historical": historical})
+    }
+
+    fn point_json(router: &CandidateRouter, point: &HistoricalPoint, unit: &[u8]) -> Value {
+        use sha2::Digest;
+        json!({
+            "step": point.step,
+            "unit": [point.start, point.end],
+            "unit_sha256": hex::encode(sha2::Sha256::digest(unit)),
+            "diagnosis": point.diagnosis.as_ref().map(|d| json!({"class": d.class, "offset": d.offset})),
+            "scanner_profile": point.scanner_profile.map(|(p, o)| json!({"profile": p, "offset": o})),
+            "config": normalized_config(router),
+        })
+    }
+
+    fn route_json(route: &CandidateRoute) -> Value {
+        let attempts = route.attempts();
+        match route {
+            CandidateRoute::Reject { class, detail, offset, transport_offset, unit, profile } => json!({
+                "outcome": "reject", "class": class, "detail": detail, "offset": offset, "transport_offset": transport_offset,
+                "unit": unit.map(|(s, e)| json!({"start": s, "end": e})), "profile": profile, "attempts": attempts, "warnings": [],
+            }),
+            CandidateRoute::V1Path { unit, profile_source, warnings, historical } => json!({
+                "outcome": "v1_path", "unit": {"start": unit.start, "end": unit.end}, "profile": "dcp-jcs-v1",
+                "profile_source": profile_source, "attempts": attempts,
+                "warnings": warnings.iter().map(|w| json!({"class": w.class, "offset": w.offset, "transport_offset": w.transport_offset})).collect::<Vec<_>>(),
+                "historical": match &historical.decoded {
+                    Some(v) => json!({"adapter": historical.adapter, "decoded": v}),
+                    None => json!({"adapter": historical.adapter, "failed": historical.failed}),
+                },
+            }),
+            CandidateRoute::Candidate { unit, canonical, canonical_sha256, .. } => json!({
+                "outcome": "candidate", "unit": {"start": unit.start, "end": unit.end}, "profile": "dcp-jcs-v2",
+                "attempts": attempts, "warnings": [], "canonical": String::from_utf8_lossy(canonical), "canonical_sha256": canonical_sha256,
+            }),
+        }
+    }
+
+    enum CandidateStop {
+        Needs(Value),
+        Usage(String),
+        Internal(String),
+    }
+
+    impl From<crate::v2::experimental_candidate_ingress::CandidateIngressInternalError> for CandidateStop {
+        fn from(e: crate::v2::experimental_candidate_ingress::CandidateIngressInternalError) -> Self {
+            CandidateStop::Internal(e.to_string())
+        }
+    }
+
+    /// EXPERIMENTAL, opt-in: validates a router configuration before any input. Returns the normalized
+    /// configuration, or {"config_error": {"code", "detail"}}.
+    #[wasm_bindgen]
+    pub fn wasm_experimental_candidate_config(config_json: &str) -> String {
+        match candidate_router(config_json) {
+            Ok(router) => normalized_config(&router).to_string(),
+            Err(e) => e,
+        }
+    }
+
+    /// EXPERIMENTAL, opt-in: the unit of a transport (T1–T5), as offsets in the input.
+    #[wasm_bindgen]
+    pub fn wasm_experimental_candidate_extract(input: &[u8], transport: &str) -> String {
+        match crate::v2::experimental_candidate_router::extract_unit(input, transport) {
+            Ok(CandidateExtraction::Unit { start, end }) => json!({"status": "unit", "start": start, "end": end}).to_string(),
+            Ok(CandidateExtraction::Reject { class, detail, transport_offset }) => {
+                json!({"status": "reject", "class": class, "detail": detail, "transport_offset": transport_offset}).to_string()
+            }
+            Err(e) => json!({"usage_error": e}).to_string(),
+        }
+    }
+
+    /// EXPERIMENTAL, opt-in: the route, or {"needs_historical": point} where the JS decoder must be
+    /// consulted (once) before `wasm_experimental_candidate_resume`.
+    #[wasm_bindgen]
+    pub fn wasm_experimental_candidate_route(input: &[u8], config_json: &str) -> String {
+        let router = match candidate_router(config_json) {
+            Ok(r) => r,
+            Err(e) => return e,
+        };
+        let result = router.route_internal(input, &mut |point, unit| Err(CandidateStop::Needs(point_json(&router, point, unit))));
+        match result {
+            Ok(route) => route_json(&route).to_string(),
+            Err(CandidateStop::Needs(point)) => json!({"needs_historical": point}).to_string(),
+            Err(CandidateStop::Usage(m)) => json!({"usage_error": m}).to_string(),
+            Err(CandidateStop::Internal(m)) => json_err(&m),
+        }
+    }
+
+    /// EXPERIMENTAL, opt-in: finishes a route with the JS decoder's result: {"json": text} (the
+    /// wrapper's object path), {"text": text} (a text path) or {"failed": reason}. Everything is
+    /// recomputed from these arguments; the decoder's result is used only at the same decision point
+    /// (step, unit, unit hash, diagnosis, scanner reading and normalized configuration).
+    #[wasm_bindgen]
+    pub fn wasm_experimental_candidate_resume(input: &[u8], config_json: &str, point_json_text: &str, historical_json: &str) -> String {
+        let router = match candidate_router(config_json) {
+            Ok(r) => r,
+            Err(e) => return e,
+        };
+        let (given, historical): (Value, Value) = match (serde_json::from_str(point_json_text), serde_json::from_str(historical_json)) {
+            (Ok(p), Ok(h)) => (p, h),
+            _ => return json!({"usage_error": "the point and the historical result must be JSON"}).to_string(),
+        };
+        let mut consulted = false;
+        let result = router.route_internal(input, &mut |point, unit| {
+            consulted = true;
+            if point_json(&router, point, unit) != given {
+                return Err(CandidateStop::Usage("the decision point does not match this input and configuration".into()));
+            }
+            let (_, _, adapter) = router.configuration();
+            let parsed = |text: &str| match serde_json::from_str::<Value>(text) {
+                Ok(v) => CandidateHistorical { adapter: adapter.clone(), decoded: Some(v), failed: None },
+                Err(e) => CandidateHistorical { adapter: adapter.clone(), decoded: None, failed: Some(e.to_string()) },
+            };
+            let fields = (
+                historical.get("json").and_then(Value::as_str),
+                historical.get("text").and_then(Value::as_str),
+                historical.get("failed").and_then(Value::as_str),
+            );
+            match fields {
+                (Some(text), None, None) | (None, Some(text), None) => Ok(parsed(text)),
+                (None, None, Some(reason)) => Ok(CandidateHistorical { adapter: adapter.clone(), decoded: None, failed: Some(reason.into()) }),
+                _ => Err(CandidateStop::Usage("the historical result must be one of {json}, {text} or {failed}".into())),
+            }
+        });
+        match result {
+            Ok(_) if !consulted => json!({"usage_error": "resume without a historical step"}).to_string(),
+            Ok(CandidateRoute::Candidate { .. }) => json_err("resume produced a candidate"),
+            Ok(route) => route_json(&route).to_string(),
+            Err(CandidateStop::Needs(_)) => json_err("resume asked for the historical decoder again"),
+            Err(CandidateStop::Usage(m)) => json!({"usage_error": m}).to_string(),
+            Err(CandidateStop::Internal(m)) => json_err(&m),
+        }
+    }
+
     // ── Keypair Generation ────────────────────────────────────────────────
 
     #[wasm_bindgen]

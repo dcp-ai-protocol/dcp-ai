@@ -3,6 +3,8 @@ pub mod domain_separation;
 pub mod canonicalize;
 /// EXPERIMENTAL, opt-in: ingress of one unit under the inactive candidate dcp-jcs-v2 (phase 1).
 pub mod experimental_candidate_ingress;
+/// EXPERIMENTAL, opt-in: profile selection and delegation for the inactive candidate dcp-jcs-v2 (phase 2).
+pub mod experimental_candidate_router;
 pub mod dual_hash;
 pub mod composite_sig;
 pub mod composite_ops;

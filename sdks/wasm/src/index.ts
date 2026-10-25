@@ -19,6 +19,10 @@ import type {
   BuildBundleOptions,
   ExperimentalCandidateIngressResult,
   ExperimentalCandidateRejectClass,
+  ExperimentalWasmCandidateExtraction,
+  ExperimentalWasmCandidateRouteResult,
+  ExperimentalWasmCandidateRouter,
+  ExperimentalWasmHistoricalAdapter,
 } from './types.js';
 
 export type * from './types.js';
@@ -244,6 +248,40 @@ export class DcpWasm {
     return { status: 'reject', class: r.class, offset: r.offset };
   }
 
+  /**
+   * EXPERIMENTAL, opt-in (inactive candidate dcp-jcs-v2, phase 2): the unit of a transport, by the
+   * phases T1–T5 of the proposal for an envelope (the whole input for 'bare'), as offsets in the input.
+   */
+  experimentalCandidateExtractUnit(bytes: Uint8Array, transport: 'bare' | 'envelope'): ExperimentalWasmCandidateExtraction {
+    if (!(bytes instanceof Uint8Array)) {
+      throw new TypeError('experimentalCandidateExtractUnit expects the original bytes as a Uint8Array');
+    }
+    if (transport !== 'bare' && transport !== 'envelope') throw new TypeError("transport must be 'bare' or 'envelope'");
+    const r = JSON.parse(wasm().wasm_experimental_candidate_extract(bytes, transport));
+    if (r.status === 'unit') return { status: 'unit', start: r.start, end: r.end };
+    return { status: 'reject', class: r.class, detail: r.detail, transportOffset: r.transport_offset };
+  }
+
+  /**
+   * EXPERIMENTAL, opt-in (inactive candidate dcp-jcs-v2, phase 2): a router over a snapshot of
+   * `config`, validated here, before any input. The historical adapter is a JS decoder
+   * (experimentalWasmHistoricalAdapters, or one of the same shape); it is consulted lazily, once,
+   * through the binding's route/resume protocol, and its reading never selects the candidate.
+   */
+  createExperimentalCandidateRouter(config: {
+    transport: 'bare' | 'envelope';
+    acceptedProfiles: readonly string[];
+    historical: ExperimentalWasmHistoricalAdapter;
+  }): ExperimentalWasmCandidateRouter {
+    // A strict snapshot of primitives, in the order of the contract, before anything is serialized:
+    // boxed strings, objects with toJSON and bigints are refused here, never handed to JSON.stringify.
+    const { transport, policy, name, path, decode, historical } = snapshotWasmConfig(config);
+    const request = JSON.stringify({ transport, accepted_profiles: policy, historical: name });
+    const checked = JSON.parse(wasm().wasm_experimental_candidate_config(request));
+    if (checked.config_error) throw new ExperimentalWasmCandidateConfigError(checked.config_error.code, checked.config_error.detail);
+    return new WasmCandidateRouter(JSON.stringify(checked), checked, path, decode.bind(historical));
+  }
+
   domainSeparatedMessage(context: string, payloadHex: string): string {
     const result = wasm().wasm_domain_separated_message(context, payloadHex);
     if (result.startsWith('{"error"')) {
@@ -358,5 +396,203 @@ export class DcpWasm {
     const result = wasm().wasm_detect_version(JSON.stringify(value));
     if (result === 'null') return null;
     return JSON.parse(result);
+  }
+}
+
+// ── EXPERIMENTAL, opt-in: candidate dcp-jcs-v2 router (phase 2) ─────────────
+
+/** A configuration error, raised when the router is created and never for the data. */
+export class ExperimentalWasmCandidateConfigError extends Error {
+  constructor(
+    readonly code: string,
+    readonly detail: string,
+  ) {
+    super(`${code}: ${detail}`);
+    this.name = 'ExperimentalWasmCandidateConfigError';
+  }
+}
+
+/** A historical adapter that failed otherwise than by refusing the data; never a rejection. */
+export class ExperimentalWasmCandidateAdapterError extends Error {
+  constructor(
+    readonly adapter: string,
+    message: string,
+  ) {
+    super(`historical adapter ${adapter}: ${message}`);
+    this.name = 'ExperimentalWasmCandidateAdapterError';
+  }
+}
+
+function describe(e: unknown): string {
+  try {
+    return e instanceof Error ? `${e.name}: ${e.message}` : typeof e;
+  } catch {
+    return 'an unprintable value';
+  }
+}
+
+const decoders: Record<'textDecoder' | 'bufferUtf8', (u: Uint8Array) => string> = {
+  textDecoder: (u) => new TextDecoder().decode(u),
+  bufferUtf8: (u) => {
+    const B = (globalThis as { Buffer?: { from(u: Uint8Array): { toString(enc: string): string } } }).Buffer;
+    if (B === undefined) throw new Error('Buffer is not available here');
+    return B.from(u).toString('utf8');
+  },
+};
+
+function w1(name: string, decode: (u: Uint8Array) => string): ExperimentalWasmHistoricalAdapter {
+  return Object.freeze({
+    name,
+    path: 'w1' as const,
+    decode(u: Uint8Array) {
+      try {
+        // The wrapper's own path: the object a JS decoder produces, serialized again for Rust.
+        return { ok: true as const, text: JSON.stringify(JSON.parse(decode(u))) };
+      } catch (e) {
+        if (e instanceof SyntaxError || e instanceof RangeError) return { ok: false as const, reason: `${e.name}: ${e.message}` };
+        throw e;
+      }
+    },
+  });
+}
+
+function w2(name: string, decode: (u: Uint8Array) => string): ExperimentalWasmHistoricalAdapter {
+  return Object.freeze({ name, path: 'w2' as const, decode: (u: Uint8Array) => ({ ok: true as const, text: decode(u) }) });
+}
+
+/** The measured JS decoders for the two wasm paths, offered by name; none is a default. */
+export const experimentalWasmHistoricalAdapters = Object.freeze({
+  w1TextDecoderJsonParse: w1('w1.textDecoderJsonParse', decoders.textDecoder),
+  w1BufferUtf8JsonParse: w1('w1.bufferUtf8JsonParse', decoders.bufferUtf8),
+  w2TextDecoder: w2('w2.textDecoder', decoders.textDecoder),
+  w2BufferUtf8: w2('w2.bufferUtf8', decoders.bufferUtf8),
+});
+
+const PROFILES = ['dcp-jcs-v1', 'dcp-jcs-v2'];
+
+/** The router configuration as primitives, validated strictly and in the order of the contract. */
+function snapshotWasmConfig(config: unknown): {
+  transport: 'bare' | 'envelope';
+  policy: string[];
+  name: string;
+  path: 'w1' | 'w2';
+  decode: (u: Uint8Array) => unknown;
+  historical: object;
+} {
+  const fail = (code: string, detail: string) => new ExperimentalWasmCandidateConfigError(code, detail);
+  let transport: unknown, accepted: unknown, historical: unknown;
+  try {
+    if (config === null || typeof config !== 'object') throw fail('CONFIG_INVALID', 'CONFIG');
+    ({ transport, acceptedProfiles: accepted, historical } = config as Record<string, unknown>);
+  } catch (e) {
+    throw e instanceof ExperimentalWasmCandidateConfigError ? e : fail('CONFIG_INVALID', 'CONFIG');
+  }
+  if (accepted === undefined || accepted === null) throw fail('POLICY_INVALID', 'MISSING');
+  if (!Array.isArray(accepted) || accepted.length === 0) throw fail('POLICY_INVALID', 'NOT_A_NON_EMPTY_LIST');
+  const entries: unknown[] = [];
+  try {
+    for (let i = 0; i < accepted.length; i++) entries.push(accepted[i]);
+  } catch {
+    throw fail('CONFIG_INVALID', 'CONFIG');
+  }
+  if (!entries.every((p) => typeof p === 'string')) throw fail('POLICY_INVALID', 'NOT_STRINGS');
+  const policy = entries as string[];
+  if (new Set(policy).size !== policy.length) throw fail('POLICY_INVALID', 'REPEATED');
+  if (!policy.every((p) => PROFILES.includes(p))) throw fail('POLICY_INVALID', 'UNKNOWN_PROFILE');
+  if (typeof transport !== 'string' || (transport !== 'bare' && transport !== 'envelope')) throw fail('CONFIG_INVALID', 'TRANSPORT');
+  let name: unknown, path: unknown, decode: unknown;
+  try {
+    if (historical !== null && typeof historical === 'object') ({ name, path, decode } = historical as Record<string, unknown>);
+  } catch {
+    throw fail('CONFIG_INVALID', 'HISTORICAL_ADAPTER');
+  }
+  if (typeof name !== 'string' || name.length === 0 || (path !== 'w1' && path !== 'w2') || typeof decode !== 'function') {
+    throw fail('CONFIG_INVALID', 'HISTORICAL_ADAPTER');
+  }
+  return { transport, policy: [...policy], name, path, decode: decode as (u: Uint8Array) => unknown, historical: historical as object };
+}
+
+class WasmCandidateRouter implements ExperimentalWasmCandidateRouter {
+  readonly #config: string;
+  readonly #normalized: { transport: string; accepted_profiles: string[]; historical: string };
+  readonly #path: 'w1' | 'w2';
+  readonly #decode: (u: Uint8Array) => unknown;
+
+  constructor(config: string, normalized: { transport: string; accepted_profiles: string[]; historical: string }, path: 'w1' | 'w2', decode: (u: Uint8Array) => unknown) {
+    this.#config = config;
+    this.#normalized = { transport: normalized.transport, accepted_profiles: [...normalized.accepted_profiles], historical: normalized.historical };
+    this.#path = path;
+    this.#decode = decode;
+  }
+
+  get configuration(): { transport: string; acceptedProfiles: string[]; historical: string } {
+    const n = this.#normalized;
+    return { transport: n.transport, acceptedProfiles: [...n.accepted_profiles], historical: n.historical };
+  }
+
+  #call(json: string): any {
+    const r = JSON.parse(json);
+    if (r && typeof r === 'object' && ('error' in r || 'usage_error' in r || 'config_error' in r)) {
+      throw new Error(`experimental candidate router (wasm): ${JSON.stringify(r)}`);
+    }
+    return r;
+  }
+
+  /** The adapter, once, on its own copy of the unit; anything thrown is an adapter error. */
+  #consult(unit: Uint8Array): { json: string } | { text: string } | { failed: string } {
+    const name = this.#normalized.historical;
+    let r: unknown;
+    try {
+      r = this.#decode(unit.slice());
+    } catch (e) {
+      throw new ExperimentalWasmCandidateAdapterError(name, `decode threw ${describe(e)}`);
+    }
+    try {
+      const ok = (r as { ok?: unknown } | null)?.ok;
+      if (ok === false) return { failed: String((r as { reason?: unknown }).reason) };
+      const text = (r as { text?: unknown }).text;
+      if (ok !== true || typeof text !== 'string') throw new Error('decode must return { ok: true, text } or { ok: false, reason }');
+      return this.#path === 'w1' ? { json: text } : { text };
+    } catch (e) {
+      throw new ExperimentalWasmCandidateAdapterError(name, `inspecting the result of decode threw ${describe(e)}`);
+    }
+  }
+
+  route(bytes: Uint8Array): ExperimentalWasmCandidateRouteResult {
+    if (!(bytes instanceof Uint8Array)) throw new TypeError('route expects the original bytes as a Uint8Array');
+    const own = new Uint8Array(bytes); // a private copy, used for both calls
+    let r = this.#call(wasm().wasm_experimental_candidate_route(own, this.#config));
+    if (r.needs_historical) {
+      const point = r.needs_historical;
+      const historical = this.#consult(own.slice(point.unit[0], point.unit[1]));
+      r = this.#call(wasm().wasm_experimental_candidate_resume(own, this.#config, JSON.stringify(point), JSON.stringify(historical)));
+      if (r.needs_historical) throw new Error('experimental candidate router (wasm): resume asked for the decoder again');
+    }
+    const unit = r.unit ? { start: r.unit.start, end: r.unit.end } : null;
+    const withBytes = () => ({ ...unit!, bytes: own.slice(unit!.start, unit!.end) });
+    if (r.outcome === 'reject') {
+      return { outcome: 'reject', class: r.class, detail: r.detail, offset: r.offset, transportOffset: r.transport_offset, unit, profile: r.profile, attempts: [], warnings: [] };
+    }
+    if (r.outcome === 'v1_path') {
+      return {
+        outcome: 'v1_path',
+        unit: withBytes(),
+        profile: 'dcp-jcs-v1',
+        profileSource: r.profile_source,
+        attempts: ['dcp-jcs-v1'],
+        warnings: r.warnings.map((w: { class: string; offset: number; transport_offset: number }) => ({ class: w.class, offset: w.offset, transportOffset: w.transport_offset })),
+        historical: 'decoded' in r.historical ? { adapter: r.historical.adapter, decoded: r.historical.decoded } : { adapter: r.historical.adapter, failed: r.historical.failed },
+      };
+    }
+    if (r.outcome !== 'candidate') throw new Error(`experimental candidate router (wasm): unknown outcome ${JSON.stringify(r.outcome)}`);
+    return {
+      outcome: 'candidate',
+      unit: withBytes(),
+      profile: 'dcp-jcs-v2',
+      attempts: ['dcp-jcs-v2'],
+      warnings: [],
+      canonical: new TextEncoder().encode(r.canonical),
+      canonicalSha256: r.canonical_sha256,
+    };
   }
 }
