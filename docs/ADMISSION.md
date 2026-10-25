@@ -11,7 +11,7 @@ The normative definition, with every rule and error code, is [`spec/profiles/adm
 
 ## It is opt-in
 
-Nothing changes for code that does not set a trust set or a profile. Verification keeps its behaviour and the meaning of `verified`. The verifier gains an optional clock and reports the keys it used (`details.signer_keys`); both are additive.
+Admission applies only to code that sets a trust set or a profile, and `verified` keeps its meaning. The verifiers also gain an optional clock and report the keys they used, from the same verification. This release changes verification itself too, apart from admission: see [Compatibility](#compatibility).
 
 ## The trust set
 
@@ -138,7 +138,8 @@ npx dcp-ai admit-bundle bundle.signed.json --trust trust.json --profile profile.
 
 ## Compatibility
 
-- **No change without opting in.** `verifySignedBundleV2` / `verify_signed_bundle_v2` / `VerifySignedBundleV2WithPolicy` / `verify_signed_bundle_v2_with_policy` keep their results; `details.signer_keys` (or `SignerKeys`) is a new field.
+- **Verification API.** `verifySignedBundleV2` / `verify_signed_bundle_v2` / `VerifySignedBundleV2WithPolicy` / `verify_signed_bundle_v2_with_policy` keep their signatures. The signer keys are `details.signer_keys` in TypeScript and Python and the new `SignerKeys` field in Go. In Rust, `V2VerificationResult` keeps its ten fields, so code that builds it in full or destructures it without `..` still compiles; the signer keys come from the new `verify_signed_bundle_v2_at`, which returns `V2VerificationDetails` (`result` and `signer_keys`) and is what admission takes. Code written against the admission API before its release reads `verification.result.verified` instead of `verification.verified`.
+- **Verification behaviour.** This release also changes verification behaviour, apart from admission. Ed25519 signatures with S >= L are now rejected. Separately, the Go and Rust verifiers now apply a policy's `accepted_classical_algs` and `accepted_pq_algs`, which they used to refuse as not enforced: under such a policy a bundle outside the lists fails, and one inside them can now verify. The [CHANGELOG](../CHANGELOG.md) lists every change.
 - **Bundles.** No wire change. strict-v1 needs bundles signed with `session_issued_at`, `session_expires_at` and `intended_verifier` in the manifest, which every SDK signer writes when given an expiry and an audience.
 - **With a trust set, V1 bundles are refused**: they carry no principal signature to anchor.
 - **Integration options.** New and optional. With trusted principals, `requireBundle: false` (Express) and `require_bundle=False` (FastAPI) are configuration errors: a request without a bundle would reach the route. Under the profile, so are `verifierPolicy`, `requireHybrid: false` and the `checkRevocation` options (Express), `verifier_policy` (FastAPI) and `verifierPolicy` (OpenClaw).

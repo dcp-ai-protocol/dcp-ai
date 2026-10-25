@@ -282,7 +282,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - SDKs: TypeScript (`admitSignedBundleV2`, `evaluateAdmissionV2`, `createPrincipalTrustStore`,
     `resolveStrictV1Profile`, `revocationSubjects`, `revocationSnapshotFromDenyList`), with the same
     functions in Python, Go and Rust. The four verifiers take an optional clock and report the
-    key each signature component was verified with (`signer_keys`).
+    key each signature component was verified with (`signer_keys`). In Rust, `V2VerificationResult`
+    keeps its ten fields and `verify_signed_bundle_v2` / `verify_signed_bundle_v2_with_policy`
+    their types, so code built against them still compiles: the keys come from the new
+    `verify_signed_bundle_v2_at`, which returns `V2VerificationDetails` (`#[non_exhaustive]`; the
+    result as `result`, and `signer_keys`, from the same verification). Admission takes and returns
+    it; its JSON is the result's fields followed by `signer_keys`.
   - Integrations: `@dcp-ai/express` `dcpVerify`, `dcp_ai.fastapi` `DCPVerifyMiddleware` and
     `@dcp-ai/openclaw` `configureVerifier` take `trustedPrincipals`, `profile`,
     `revocationSource` and, in the middlewares, an operator `tenant` function. A request reaches
@@ -433,6 +438,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `denyListRevocationSource` (`@dcp-ai/express`, `@dcp-ai/openclaw`) left responses open. A non-2xx
+  answer or a declared `Content-Length` over 16 MiB was refused without reading or closing its
+  body: the response stayed open after the call settled and its slot was freed, out of reach of the
+  timeout and the caller's signal. And with Node 22.15 (undici 6.21.2), a garbage collection after
+  the headers kept the fetch's signal from reaching a body being read: its own timeout and the
+  supervisor's deadline no longer stopped a body still arriving, and the call never settled,
+  holding its slot. It now aborts its fetch and cancels the body on every exit, stops its own read
+  on its signal and releases the reader. Codes, defaults and capacities are unchanged; nothing is
+  drained, and the remote close is not waited for.
 - Reference CLI (`bin/dcp.js`): paths were confined to the working directory as written, not
   where they lead, and several reads and writes skipped the check. A symlink inside the working
   directory, or a path to another directory (`keys rotate --key-dir`, `governance sign-advisory

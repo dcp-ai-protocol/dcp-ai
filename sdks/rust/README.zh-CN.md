@@ -180,7 +180,7 @@ V2 包含针对 DCP-05 至 DCP-09 全部工件的 Serde 派生 struct：
 
 | 函数 | 说明 |
 |---|---|
-| `verify_signed_bundle_v2_at(&b, &policy, now_ms)` | 在给定时刻验证，并报告签名密钥（`signer_keys`） |
+| `verify_signed_bundle_v2_at(&b, &policy, now_ms)` | 在给定时刻验证，返回 `V2VerificationDetails`：同一个 `V2VerificationResult`（`result`）和签名密钥（`signer_keys`）。`V2VerificationResult` 保持其十个字段的结构，另外两个函数保持其签名 |
 | `PrincipalTrustStore::from_json(&json)` | 加载并校验信任集 |
 | `resolve_strict_v1_profile(&json)` | 加载并校验 `strict-v1` 配置（只读） |
 | `revocation_subjects(&b, &verification)` | 吊销来源需要回答的 `agent_id` 和已验证的 kid |

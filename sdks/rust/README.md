@@ -180,7 +180,7 @@ Whether a verified V2 bundle is admitted as evidence from a principal the operat
 
 | Function | Description |
 |----------|-------------|
-| `verify_signed_bundle_v2_at(&b, &policy, now_ms)` | `verify_signed_bundle_v2_with_policy` at `now_ms` (milliseconds since the Unix epoch), which every time check uses; the other two verify functions use the system clock. `signer_keys` in the result lists, for each composite signature checked, the key resolved for each component and whether it verified |
+| `verify_signed_bundle_v2_at(&b, &policy, now_ms)` | `verify_signed_bundle_v2_with_policy` at `now_ms` (milliseconds since the Unix epoch), which every time check uses; the other two verify functions use the system clock. It returns `V2VerificationDetails`: the same `V2VerificationResult` as `result`, and `signer_keys`, which lists, for each composite signature checked, the key resolved for each component and whether it verified. `V2VerificationResult` retains its ten-field shape and the other two functions retain their signatures |
 | `PrincipalTrustStore::from_json(&json)` | Loads a trust set (`schemas/v2/principal_trust_set.schema.json`) |
 | `resolve_strict_v1_profile(&json)` | Loads a `strict-v1` profile (`schemas/v2/admission_profile.schema.json`); `policy()`, `verifier_id()`, `max_session_duration_seconds()` and `max_revocation_age_seconds()` are read-only |
 | `revocation_subjects(&b, &verification)` | The passport `agent_id` and the sorted kids of the verified signer keys, for the operator's revocation source |

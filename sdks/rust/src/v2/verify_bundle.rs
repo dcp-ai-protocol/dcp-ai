@@ -44,11 +44,21 @@ pub struct V2VerificationResult {
     /// The security tier of the bundle's intent and policy decision.
     #[serde(skip_serializing_if = "String::is_empty")]
     pub resolved_tier: String,
+}
+
+/// A V2 verification and the keys its signatures were checked with, from one
+/// verification pass: what [`verify_signed_bundle_v2_at`] returns and admission
+/// reads (spec/profiles/admission § 2.3). Serializes as the result's fields
+/// followed by `signer_keys`.
+#[derive(Debug, Clone, Default, Serialize)]
+#[non_exhaustive]
+pub struct V2VerificationDetails {
+    #[serde(flatten)]
+    pub result: V2VerificationResult,
     /// For every composite signature checked (the bundle signature, the four
     /// artifacts, each PQ checkpoint), the key entry resolved for each
-    /// component and whether that component verified
-    /// (spec/profiles/admission § 2.3). Only components whose key was resolved
-    /// and reached the cryptographic check are listed.
+    /// component and whether that component verified. Only components whose
+    /// key was resolved and reached the cryptographic check are listed.
     pub signer_keys: Vec<SignerKeyUse>,
 }
 
@@ -85,15 +95,30 @@ pub fn verify_signed_bundle_v2(signed_bundle: &Value) -> V2VerificationResult {
 /// `verifier_id`. `allow_v1_bundles` may take either value: this verifier
 /// only verifies V2 bundles. A policy that changes any other field fails
 /// verification instead of having the setting ignored. Time checks use the
-/// system clock; [`verify_signed_bundle_v2_at`] takes the instant.
+/// system clock; [`verify_signed_bundle_v2_at`] takes the instant and also
+/// reports the signer keys.
 pub fn verify_signed_bundle_v2_with_policy(signed_bundle: &Value, policy: &VerifierPolicy) -> V2VerificationResult {
-    verify_signed_bundle_v2_at(signed_bundle, policy, unix_now_millis() as i64)
+    verify_signed_bundle_v2_at(signed_bundle, policy, unix_now_millis() as i64).result
 }
 
 /// [`verify_signed_bundle_v2_with_policy`] at `now_ms`, in milliseconds since
 /// the Unix epoch: every time check (the signed session window, the RPR and
-/// key expiries) compares against it (spec/profiles/admission § 2.1).
-pub fn verify_signed_bundle_v2_at(signed_bundle: &Value, policy: &VerifierPolicy, now_ms: i64) -> V2VerificationResult {
+/// key expiries) compares against it (spec/profiles/admission § 2.1). Its
+/// result also lists the signer keys (§ 2.3).
+pub fn verify_signed_bundle_v2_at(signed_bundle: &Value, policy: &VerifierPolicy, now_ms: i64) -> V2VerificationDetails {
+    let mut signer_keys = Vec::new();
+    let result = verify(signed_bundle, policy, now_ms, &mut signer_keys);
+    V2VerificationDetails { result, signer_keys }
+}
+
+/// The verification itself; the keys of each signature that reached the
+/// cryptographic check go to `signer_keys`.
+fn verify(
+    signed_bundle: &Value,
+    policy: &VerifierPolicy,
+    now_ms: i64,
+    signer_keys: &mut Vec<SignerKeyUse>,
+) -> V2VerificationResult {
     let mut r = V2VerificationResult { dcp_version: "2.0".into(), ..Default::default() };
     let enforced = VerifierPolicy {
         default_mode: policy.default_mode.clone(),
@@ -217,7 +242,7 @@ pub fn verify_signed_bundle_v2_at(signed_bundle: &Value, policy: &VerifierPolicy
                     let (errors, warnings) = check_mode(mode, policy, &cs, &result);
                     r.errors.extend(errors.iter().map(|e| format!("Bundle {}", e)));
                     r.warnings.extend(warnings.iter().map(|w| format!("Bundle {}", w)));
-                    r.signer_keys.extend(keys);
+                    signer_keys.extend(keys);
                 }
                 Err(e) => r.errors.push(format!("Bundle signature: {}", e)),
             }
@@ -244,14 +269,14 @@ pub fn verify_signed_bundle_v2_at(signed_bundle: &Value, policy: &VerifierPolicy
                 let (errors, warnings) = check_mode(mode, policy, &cs, &result);
                 r.errors.extend(errors.iter().map(|e| format!("{} {}", field, e)));
                 r.warnings.extend(warnings.iter().map(|w| format!("{} {}", field, w)));
-                r.signer_keys.extend(keys);
+                signer_keys.extend(keys);
             }
         }
     }
 
     // PQ checkpoints, signed by the agent (V2-12).
     if let Some(manifest) = bundle.get("manifest") {
-        r.errors.extend(checkpoint_errors(bundle, manifest, mode, policy, &agent_keys, &mut r.signer_keys));
+        r.errors.extend(checkpoint_errors(bundle, manifest, mode, policy, &agent_keys, signer_keys));
     }
 
     // Audit entries tied to the signed manifest, and the validity of every

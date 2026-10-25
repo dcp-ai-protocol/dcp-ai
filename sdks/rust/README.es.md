@@ -180,7 +180,7 @@ Un bundle verificado prueba integridad y firma, no quién es el principal. La ad
 
 | Función | Descripción |
 |---|---|
-| `verify_signed_bundle_v2_at(&b, &policy, now_ms)` | Verifica en el instante dado; reporta las claves firmantes (`signer_keys`) |
+| `verify_signed_bundle_v2_at(&b, &policy, now_ms)` | Verifica en el instante dado; devuelve `V2VerificationDetails`: el mismo `V2VerificationResult` (`result`) y las claves firmantes (`signer_keys`). `V2VerificationResult` conserva su forma de diez campos y las otras dos funciones conservan sus firmas |
 | `PrincipalTrustStore::from_json(&json)` | Carga y valida un conjunto de confianza |
 | `resolve_strict_v1_profile(&json)` | Carga y valida un perfil `strict-v1`, de solo lectura |
 | `revocation_subjects(&b, &verification)` | El `agent_id` y los kids verificados que debe responder la fuente de revocación |

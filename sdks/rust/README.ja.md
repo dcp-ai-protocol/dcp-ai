@@ -180,7 +180,7 @@ V2には、DCP-05からDCP-09までのすべての成果物のためのSerde由�
 
 | 関数 | 説明 |
 |---|---|
-| `verify_signed_bundle_v2_at(&b, &policy, now_ms)` | 指定した時刻で検証し、署名鍵 (`signer_keys`) を報告します |
+| `verify_signed_bundle_v2_at(&b, &policy, now_ms)` | 指定した時刻で検証し、`V2VerificationDetails`（同じ `V2VerificationResult` である `result` と署名鍵 `signer_keys`）を返します。`V2VerificationResult` は 10 フィールドの形を保ち、他の 2 つの関数はシグネチャを保ちます |
 | `PrincipalTrustStore::from_json(&json)` | 信頼セットを読み込んで検証します |
 | `resolve_strict_v1_profile(&json)` | `strict-v1` プロファイルを読み込んで検証します (読み取り専用) |
 | `revocation_subjects(&b, &verification)` | 失効ソースが答えるべき `agent_id` と検証済みの kid |

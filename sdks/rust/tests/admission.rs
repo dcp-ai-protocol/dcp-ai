@@ -158,7 +158,7 @@ fn profile_limits_are_integers_in_any_spelling() {
 fn the_verifier_reports_the_key_of_each_signature_component_it_verified() {
     let base = bundle("base");
     let result = verify_signed_bundle_v2_at(&base, &VerifierPolicy::default(), now());
-    assert!(result.verified, "{:?}", result.errors);
+    assert!(result.result.verified, "{:?}", result.result.errors);
     let rpr_keys = &base["bundle"]["responsible_principal_record"]["payload"]["binding_keys"];
     for signature in ["bundle", "responsible_principal_record"] {
         let reported: Vec<(&str, &str, bool)> = result
@@ -199,7 +199,7 @@ fn the_verifier_reports_the_key_of_each_signature_component_it_verified() {
 #[test]
 fn a_component_that_fails_verification_is_reported_as_not_verified() {
     let result = verify_signed_bundle_v2_at(&bundle("pq_signature_invalid"), &VerifierPolicy::default(), now());
-    assert!(!result.verified);
+    assert!(!result.result.verified);
     assert!(result.signer_keys.iter().any(|k| k.component == "pq" && !k.verified), "{:?}", result.signer_keys);
     // A signature that never reaches the cryptographic check reports no key.
     let mut no_key = bundle("base");
@@ -213,7 +213,7 @@ fn without_now_verification_and_admission_use_the_system_clock() {
     // The base bundle's session runs from 10:00 to 10:05 on 2 November 2026:
     // outside it, on the system clock, it does not verify; at the vector's now it does.
     let base = bundle("base");
-    assert!(verify_signed_bundle_v2_at(&base, &VerifierPolicy::default(), now()).verified);
+    assert!(verify_signed_bundle_v2_at(&base, &VerifierPolicy::default(), now()).result.verified);
     let in_window = |t: i64| t >= millis(&json!("2026-11-02T09:59:30Z")) && t <= millis(&json!("2026-11-02T10:05:00Z"));
     let clock = || std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as i64;
     let before = clock();
@@ -303,7 +303,7 @@ fn a_verification_under_a_permissive_policy_is_not_compliant_with_the_profile() 
         ..VerifierPolicy::default()
     };
     let verification = verify_signed_bundle_v2_at(&base, &permissive, now());
-    assert!(verification.verified, "{:?}", verification.errors);
+    assert!(verification.result.verified, "{:?}", verification.result.errors);
     let (profile, trust) = (strict(), principal());
     let options = AdmissionOptions {
         profile: Some(&profile),
@@ -455,9 +455,9 @@ fn a_profile_narrowing_the_accepted_algorithms_is_enforced() {
     assert!(!result.admitted);
     assert_eq!(codes(&result), ["VERIFICATION_FAILED"]);
     assert!(
-        result.verification.errors.iter().any(|e| e.contains("PQ algorithm ml-dsa-65 not accepted by verifier policy")),
+        result.verification.result.errors.iter().any(|e| e.contains("PQ algorithm ml-dsa-65 not accepted by verifier policy")),
         "{:?}",
-        result.verification.errors
+        result.verification.result.errors
     );
 }
 

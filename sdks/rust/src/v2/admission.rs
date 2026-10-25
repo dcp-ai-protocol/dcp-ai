@@ -14,7 +14,8 @@ use crate::v2::lifecycle::unix_now_millis;
 use crate::v2::session_nonce::parse_rfc3339_millis;
 use crate::v2::types::VerifierPolicy;
 use crate::v2::verify_bundle::{
-    canonical_b64, verify_signed_bundle_v2_at, SignerKeyUse, V2VerificationResult, SESSION_CLOCK_SKEW_MS,
+    canonical_b64, verify_signed_bundle_v2_at, SignerKeyUse, V2VerificationDetails, V2VerificationResult,
+    SESSION_CLOCK_SKEW_MS,
 };
 
 /// The profile identifier.
@@ -575,7 +576,7 @@ fn bundle_of(signed_bundle: &Value) -> Option<&Value> {
 
 /// The revocation subjects of a bundle (§ 2.4): the passport `agent_id` and
 /// the kid of every signer key that verified, sorted.
-pub fn revocation_subjects(signed_bundle: &Value, verification: &V2VerificationResult) -> RevocationSubjects {
+pub fn revocation_subjects(signed_bundle: &Value, verification: &V2VerificationDetails) -> RevocationSubjects {
     let agent_id = payload_field(bundle_of(signed_bundle), "agent_passport", "agent_id").and_then(Value::as_str);
     let kids: BTreeSet<&str> = verification.signer_keys.iter().filter(|k| k.verified).map(|k| k.kid.as_str()).collect();
     RevocationSubjects {
@@ -633,8 +634,8 @@ pub struct AdmissionError {
 pub struct AdmissionResult {
     /// The verifier's verdict, with its meaning unchanged.
     pub verified: bool,
-    /// The verifier's full result.
-    pub verification: V2VerificationResult,
+    /// The verifier's full result, with the signer keys.
+    pub verification: V2VerificationDetails,
     pub principal_trust: PrincipalTrust,
     /// [`STRICT_V1`], or None without a profile.
     pub profile: Option<&'static str>,
@@ -762,9 +763,10 @@ fn hybrid_declared(signed_bundle: &Value, bundle: Option<&Value>, codes: &mut Co
 
 /// P4, after verification: both components of both principal signatures
 /// verified, in hybrid_required.
-fn hybrid_verified(verification: &V2VerificationResult, codes: &mut Codes) {
-    if verification.verification_mode != "hybrid_required" {
-        let mode = if verification.verification_mode.is_empty() { "no mode" } else { &verification.verification_mode };
+fn hybrid_verified(verification: &V2VerificationDetails, codes: &mut Codes) {
+    let verification_mode = &verification.result.verification_mode;
+    if verification_mode != "hybrid_required" {
+        let mode = if verification_mode.is_empty() { "no mode" } else { verification_mode };
         codes.add("PROFILE_HYBRID_REQUIRED", format!("the bundle was verified in {}, not hybrid_required", mode));
     }
     for signature in PRINCIPAL_SIGNATURES {
@@ -787,7 +789,7 @@ fn hybrid_verified(verification: &V2VerificationResult, codes: &mut Codes) {
 /// trusted key of the principal.
 fn principal_trust(
     bundle: Option<&Value>,
-    verification: &V2VerificationResult,
+    verification: &V2VerificationDetails,
     store: &PrincipalTrustStore,
     now: i64,
     codes: &mut Codes,
@@ -882,7 +884,7 @@ fn revocation_checks(
 /// error (`CONFIG_PROFILE_CONTRADICTION`).
 pub fn evaluate_admission_v2(
     signed_bundle: &Value,
-    verification: &V2VerificationResult,
+    verification: &V2VerificationDetails,
     options: &AdmissionOptions<'_>,
 ) -> Result<AdmissionResult, AdmissionConfigError> {
     evaluate(signed_bundle, verification.clone(), options)
@@ -890,7 +892,7 @@ pub fn evaluate_admission_v2(
 
 fn evaluate(
     signed_bundle: &Value,
-    verification: V2VerificationResult,
+    verification: V2VerificationDetails,
     options: &AdmissionOptions<'_>,
 ) -> Result<AdmissionResult, AdmissionConfigError> {
     let AdmissionOptions { profile, trust, revocation, now_ms: now } = *options;
@@ -923,9 +925,9 @@ fn evaluate(
         session_checks(bundle.and_then(|b| b.get("manifest")).filter(|m| m.is_object()), profile, now, &mut codes);
         hybrid_declared(signed_bundle, bundle, &mut codes);
     }
-    let verified = result.verification.verified;
+    let verified = result.verification.result.verified;
     if !verified {
-        let reasons = result.verification.errors.iter().take(3).cloned().collect::<Vec<_>>().join("; ");
+        let reasons = result.verification.result.errors.iter().take(3).cloned().collect::<Vec<_>>().join("; ");
         let message = if reasons.is_empty() {
             "the bundle did not verify".to_string()
         } else {
@@ -985,10 +987,13 @@ pub fn admit_signed_bundle_v2(
         bundle_of(signed_bundle).and_then(|b| b.get("dcp_bundle_version")).and_then(Value::as_str) == Some("2.0");
     let default_policy = VerifierPolicy::default();
     let verification = match profile {
-        Some(_) if !is_v2 => V2VerificationResult {
-            dcp_version: "2.0".into(),
-            errors: vec!["strict-v1 admits V2 bundles only".into()],
-            ..Default::default()
+        Some(_) if !is_v2 => V2VerificationDetails {
+            result: V2VerificationResult {
+                dcp_version: "2.0".into(),
+                errors: vec!["strict-v1 admits V2 bundles only".into()],
+                ..Default::default()
+            },
+            signer_keys: Vec::new(),
         },
         Some(profile) => verify_signed_bundle_v2_at(signed_bundle, &profile.policy, now),
         None => verify_signed_bundle_v2_at(signed_bundle, options.policy.as_ref().unwrap_or(&default_policy), now),

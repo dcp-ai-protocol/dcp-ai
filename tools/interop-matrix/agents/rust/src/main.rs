@@ -332,7 +332,7 @@ fn admit(tenants: &Tenants, args: &Value) -> Res {
     let mut out = serde_json::to_value(&r).map_err(|e| e.to_string())?;
     if let Some(map) = out.as_object_mut() {
         map.remove("verification");
-        map.insert("verification_errors".into(), json!(r.verification.errors));
+        map.insert("verification_errors".into(), json!(r.verification.result.errors));
     }
     Ok(out)
 }

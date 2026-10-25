@@ -36,5 +36,5 @@ pub use admission::{
 };
 pub use verify_bundle::{
     verify_signed_bundle_v2, verify_signed_bundle_v2_at, verify_signed_bundle_v2_with_policy, SignerKeyUse,
-    V2VerificationResult,
+    V2VerificationDetails, V2VerificationResult,
 };
