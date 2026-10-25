@@ -1,6 +1,7 @@
 """Runner of the canonicalization design corpus: integrity, freshness, completeness and validity
 checks, the design model on every case (the 87 r2 cases by reference included), and negative
-controls that must fail. Experimental tool; not an SDK test and not part of CI.
+controls that must fail. Experimental tool: its own CI workflow (.github/workflows/canonicalization-lab.yml)
+runs this design model, but it is not an SDK test, a conformance check or a normative use of the candidate.
 
     python3 tools/canonicalization-lab/run.py --out RESULTS.json            # corpus run
     python3 tools/canonicalization-lab/run.py --controls --out CONTROLS.json # negative controls

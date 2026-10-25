@@ -11,8 +11,8 @@
 
 > **Notice.** This document proposes a candidate profile and records its design. It does not change
 > `dcp-jcs-v1` or [`spec/CANONICALIZATION_PROFILE.md`](../../../spec/CANONICALIZATION_PROFILE.md), which
-> remain the only normative reference. No SDK, verifier, schema or CI job uses the identifier
-> `dcp-jcs-v2`. A V2 verifier that checks the manifest's `canonicalization_profile` field, such as the
+> remain the only normative reference. No SDK, verifier, schema or conformance check uses the identifier
+> `dcp-jcs-v2`; the only CI job that touches it runs the lab tool's design model. A V2 verifier that checks the manifest's `canonicalization_profile` field, such as the
 > TypeScript SDK's ([`verify-v2.ts`](../../../sdks/typescript/src/core/verify-v2.ts)), rejects it as an
 > unknown profile, which is the intended behavior. Nothing here is a conformance requirement. The lab
 > tool is an executable model of the design, not an implementation: it computes SHA-256 for its
