@@ -12,12 +12,15 @@
 > **Notice.** This document proposes a candidate profile and records its design. It does not change
 > `dcp-jcs-v1` or [`spec/CANONICALIZATION_PROFILE.md`](../../../spec/CANONICALIZATION_PROFILE.md), which
 > remain the only normative reference. No existing verifier, signer, schema, conformance check or default
-> uses the identifier `dcp-jcs-v2`. The experimental, opt-in APIs of §15 and §16 recognize it without
-> activating it: no existing or default path calls them, only callers who opt in; they verify and sign
-> nothing. The lab tool's CI job runs the design model, and the SDK test jobs run those APIs on the
-> corpus. A V2 verifier that checks the manifest's `canonicalization_profile` field, such as the
-> TypeScript SDK's ([`verify-v2.ts`](../../../sdks/typescript/src/core/verify-v2.ts)), rejects it as an
-> unknown profile, which is the intended behavior. Nothing here is a conformance requirement. The lab
+> uses the identifier `dcp-jcs-v2`. The experimental, opt-in APIs of §15, §16 and §17 recognize it
+> without activating it: no existing or default path calls them, only callers who opt in. Those of §15
+> and §16 verify nothing; the verifier of §17 verifies candidate bundles from their original bytes, and
+> a verified bundle grants no trust or admission. No public API produces candidate bundles; the phase 3
+> vectors are signed by a test-only generator. The lab tool's CI job runs
+> the design model, and the SDK test jobs run those APIs on the corpus and the phase 3 vectors. The
+> existing V2 verifiers, such as the TypeScript SDK's
+> ([`verify-v2.ts`](../../../sdks/typescript/src/core/verify-v2.ts)), still reject the profile as
+> unknown when given a parsed object or text, which is the intended behavior. Nothing here is a conformance requirement. The lab
 > tool is an executable model of the design, not an implementation: it computes SHA-256 for its
 > synthetic commitments, but it signs nothing and verifies no signature.
 
@@ -267,7 +270,7 @@ re-canonicalized with `dcp-jcs-v1`, the profile is never inferred from content, 
 
 ## 9. Phases and acceptance gates
 
-Nothing here is activated, and only the experimental unit ingress (§15) and router (§16) are implemented. Moving to a later phase needs an explicit decision, taken
+Nothing here is activated. Only the experimental unit ingress (§15), router (§16) and bytes verifier (§17) are implemented. Moving to a later phase needs an explicit decision, taken
 apart from this document, and a change of default needs its own decision.
 
 **Phases.**
@@ -363,9 +366,9 @@ Exit code 1 means a case, a result or a control differs; 2 means the data is inv
 
 | Shown by the design model | Not done |
 |---|---|
-| The total precedence, with offsets, on 54 multi-defect documents and 12 multi-defect envelopes | Verification or signing of the candidate in the TypeScript, Python, Go, Rust or WASM SDKs (only the unit ingress of §15 and the router of §16 exist) |
+| The total precedence, with offsets, on 54 multi-defect documents and 12 multi-defect envelopes | A public API that produces candidate bundles (the verifier of §17 only verifies; its vectors are signed by a test-only generator) |
 | The unit, the transport and envelope independence | A bytes API in the integrations or the server |
-| Selection, policy and no retry, on synthetic bundles | Real bundles signed with the candidate, composite signatures verified |
+| Selection, policy and no retry, on synthetic bundles | Candidate bundles from more than one producer (§17 verifies 16 real signed bundles, all from one test generator) |
 | That the candidate path does not depend on parser repairs | The candidate matrices of §9 (cross signing, negative matrix, history over the conformance suites). Since phase 2, `tests/interop/candidate/phase2-adapter-expectations.json` records 160 readings of real decoders (16 units × 10 adapters) where the historical adapter decides; that is evidence for those units only |
 | The synthetic bundle's hash checks | A cross-SDK signing matrix, a negative matrix and a performance benchmark |
 | | That delegation preserves each SDK's `dcp-jcs-v1` verdict |
@@ -512,3 +515,113 @@ They also check:
 
 **Gates.** This is evidence toward gates 1, 8 and 9 of §9, for selection and delegation only. None of the ten
 gates is met by it, and the candidate stays inactive.
+
+## 17. Experimental SDK verifier (phase 3)
+
+Phase 3 of the SDK implementation plan adds an experimental, opt-in verifier of original bytes to each SDK.
+It routes the bytes once with the router of §16 and runs at most one verifier:
+- none for a rejection;
+- for `v1_path`, today's V2 verifier, on exactly what a current caller would hand it;
+- for `candidate`, today's V2 verifier, accepting exactly `dcp-jcs-v2` in the manifest.
+
+There is no second attempt under another profile. It is not normative, and no existing or default path calls
+it. `dcp-jcs-v1`, the existing verifiers and their defaults are unchanged, and their object and text APIs
+still reject `dcp-jcs-v2`. No public API produces candidate bundles yet: producers are the next phase,
+and the vectors below are signed by a test-only generator. A verified candidate bundle grants no trust or
+admission and authorizes nothing.
+
+| SDK | API |
+|---|---|
+| TypeScript | `createExperimentalCandidateVerifier(config).verify(bytes, registry, policy?, options?)` |
+| Python | `dcp_ai.v2.experimental_candidate_verify`: `create_verifier(...)` and `await verifier.verify(data, registry, policy=None, now_ms=None)` |
+| Go | `NewExperimentalCandidateVerifier(ExperimentalCandidateVerifierConfig)` and `VerifyAt(registry, input, policy, now)` |
+| Rust | `v2::experimental_candidate_verify`: `CandidateVerifier::new(config)` and `verify_at(input, policy, now_ms)` |
+| WASM | `DcpWasm.createExperimentalCandidateVerifier(config).verify(bytes, policy?)`, over the binding `wasm_experimental_candidate_verify` |
+
+**Configuration and parameters.** The configuration is the router's (§16): the transport, the accepted
+profiles and the historical adapter, all required and none with a default.
+- Go names its adapter by the closed name `encoding_json` and builds that decoder itself, so changing the
+  exported `ExperimentalHistoricalEncodingJSON` changes nothing.
+- The verification parameters are those of each SDK's V2 verifier, with the same defaults, the optional
+  cryptographic policy included.
+
+**Result.** The route, `entered` (`none`, `dcp-jcs-v1` or `dcp-jcs-v2`) and the verifier's result as is, which
+is `null` when none ran. `entered` names the verification path that was started, its policy validation
+included. It does not show that any cryptographic check ran: a verifier can stop at a policy, structure,
+hash or session check first, and its result says so.
+
+**The candidate path.** It is today's verifier with one change, the manifest profile it accepts; every hash,
+signature and helper is today's. On the exact values the candidate accepts, the `dcp-jcs-v1` canonicalizer
+gives the candidate's bytes (§3.4).
+- TypeScript, Python and Rust verify the exact value.
+- Go verifies the candidate's canonical bytes, so its parser never reads a literal the candidate normalized.
+
+**Delegation.** It hands today's verifier exactly the input a current caller gives it.
+- **TypeScript, Python and Rust:** the value the adapter decoded.
+  - A decoded `null` is data, and is delegated.
+  - When the decoder refused the data there is no value, and nothing runs (`entered: none`).
+- **Go:** the unit bytes go to `VerifySignedBundleV2At`, which parses them itself.
+- **WASM:** one `wasm_experimental_candidate_verify` call.
+  - When it needs the decoder, the decoder is consulted once, and `resume`, which never verifies, ends in a
+    rejection or a delegation.
+  - A delegation hands the decoder's own string to `wasm_verify_signed_bundle_v2`, with the policy JSON
+    `verifyBundle` sends: on `w1`, `JSON.stringify` of the decoded object; on `w2`, the text.
+  - A decoder that refused leaves no string.
+  - The binding keeps its V1 behavior: a V1 bundle verifies without a policy and is refused with one.
+
+**Vectors.** [`tests/interop/candidate/phase3-signed-vectors.json`](../../../tests/interop/candidate/phase3-signed-vectors.json)
+has 18 frozen bases and 57 cases.
+- **Bases:** 16 signed bundles, the V1 conformance bundle, and `null`.
+  - 15 are signed by a test-only generator of the TypeScript SDK (not a producer API).
+  - The 16th is `B-reordered`: the same signed bundle as `B-v2`, with its members in reverse order and
+    whitespace.
+- **Cases:** a case is a base plus byte edits.
+- **Expectations:** written by hand: the route, the adapter calls, `entered`, the verdict and the error
+  substrings of each SDK, with overrides per adapter where the decoders differ.
+
+| Group | Cases |
+|---|---|
+| Positives | 16: hybrid and classical-only; integers written as `1.0`, `1e2`, `-0` and 1 followed by 800, 801 or 5000 decimal zeros; ±(2^53-1); escapes; member order and whitespace; depth 64; a decoy profile outside the manifest; a new chain beside a v1 reference; a PQ checkpoint; keys named `__proto__` |
+| Rejections before any verifier | 17 |
+| Failures of the candidate | 14, each at the step it names |
+| Delegations | 10 |
+
+The generator's `--check` validates two things: the frozen bases (their hashes, payload and manifest hashes,
+and declared profile), and every case and expectation. The TypeScript test verifies the 81 signatures of the
+16 signed bases with the composite primitives, semantically invalid bases included.
+
+**Tests.** Each SDK and WASM run:
+- before any case, a check that the vectors carry exactly the 57 approved case IDs, each once; a missing,
+  repeated or unknown ID fails it;
+- the 57 cases, with each built-in adapter;
+- the parity of each delegation with a direct call;
+- an instrumented check that at most one verifier runs. It uses a test-only probe or counted bindings; no
+  public API skips verification;
+- the canonical bytes of every committed value of the positives: the unit, the manifest, the four payloads,
+  the audit entries and the checkpoints. The candidate ingress accepts the `dcp-jcs-v1` canonical bytes of
+  each, with the same exact value and the same bytes;
+- the configuration;
+- mutated buffers;
+- today's APIs still refusing `dcp-jcs-v2`.
+
+**Against the design model.**
+
+| Design model | Phase 3 |
+|---|---|
+| `accept_v2` | A candidate route with `verified: true` and the real manifest hash |
+| `COMMITMENT_MISMATCH` | `verified: false`, with the verifier's own errors. It may report several, and their order is not normative |
+| Rejections | The routes of §16 |
+| A delegation | Records today's verdict, which the model does not compute |
+| — | Cryptographic failures (signatures, policy, key validity, session and checkpoints): new expectations, with no model equivalent |
+
+**Gates.** None of the ten gates of §9 is declared met, and the candidate stays inactive.
+- **Evidence toward:**
+  - gate 1: the synthetic bundle cases, re-expressed as real signed bundles;
+  - gate 3: on the committed values of the positives;
+  - gate 7: defects injected into a signed candidate bundle are rejected before any verifier, and in a
+    `dcp-jcs-v1` bundle the delegated verdict is today's;
+  - gate 8: one verifier, instrumented.
+- **Not met:**
+  - gate 6, the cross signing matrix, which needs producers; every signed bundle here comes from one test
+    generator;
+  - gates 2, 9 and 10, which need their own runs.

@@ -487,6 +487,23 @@ export async function verifySignedBundleV2(
   policy: VerifierPolicy = DEFAULT_VERIFIER_POLICY,
   options: VerifyV2Options = {},
 ): Promise<VerifyV2Result> {
+  return verifySignedBundleV2WithProfile(signedBundle, registry, policy, options, 'dcp-jcs-v1');
+}
+
+/**
+ * @internal Not exported by the package: verifySignedBundleV2 with the canonicalization profile the
+ * manifest must name. 'dcp-jcs-v1' (the field absent or dcp-jcs-v1) is verifySignedBundleV2;
+ * 'dcp-jcs-v2' (exactly that value) is reached only from the original bytes, through the experimental
+ * candidate verifier. Every hash and signature is computed as for dcp-jcs-v1: the candidate keeps its
+ * output rules, so on the values it accepts the same canonicalizer gives its bytes.
+ */
+export async function verifySignedBundleV2WithProfile(
+  signedBundle: SignedBundleV2,
+  registry: AlgorithmRegistry,
+  policy: VerifierPolicy = DEFAULT_VERIFIER_POLICY,
+  options: VerifyV2Options = {},
+  acceptedProfile: 'dcp-jcs-v1' | 'dcp-jcs-v2',
+): Promise<VerifyV2Result> {
   const now = options.now ?? Date.now();
   if (!Number.isFinite(now)) throw new TypeError('verifySignedBundleV2: options.now must be a finite number of milliseconds');
   // A structurally malformed bundle (a missing or null bundle, signature,
@@ -494,7 +511,7 @@ export async function verifySignedBundleV2(
   // ...) fails verification instead of throwing, as in the Python, Go and
   // Rust verifiers (VERIFICATION.md V2-3, V2-5).
   try {
-    return await verifyV2(signedBundle, registry, policy, Math.floor(now));
+    return await verifyV2(signedBundle, registry, policy, Math.floor(now), acceptedProfile);
   } catch (e) {
     const reason = e instanceof Error ? e.message : String(e);
     return {
@@ -511,6 +528,7 @@ async function verifyV2(
   registry: AlgorithmRegistry,
   policy: VerifierPolicy,
   now: number,
+  acceptedProfile: 'dcp-jcs-v1' | 'dcp-jcs-v2',
 ): Promise<VerifyV2Result> {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -658,10 +676,14 @@ async function verifyV2(
 
   // Canonicalization profile: per spec/CANONICALIZATION_PROFILE.md § 4,
   // a missing field defaults to 'dcp-jcs-v1' (the only profile defined
-  // today). An unknown value is rejected; a future profile (dcp-jcs-v2)
-  // will register its own canonicalizer here.
-  const profile = bundle.manifest.canonicalization_profile;
-  if (profile !== undefined && profile !== 'dcp-jcs-v1') {
+  // today). An unknown value is rejected. The experimental candidate
+  // dcp-jcs-v2 is accepted only when the original bytes were routed to it.
+  const profile: string | undefined = bundle.manifest.canonicalization_profile;
+  if (
+    acceptedProfile === 'dcp-jcs-v1'
+      ? profile !== undefined && profile !== 'dcp-jcs-v1'
+      : profile !== acceptedProfile
+  ) {
     errors.push(`Unknown canonicalization_profile: ${profile}`);
   }
 

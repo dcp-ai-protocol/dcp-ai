@@ -22,8 +22,10 @@ import type {
   ExperimentalWasmCandidateExtraction,
   ExperimentalWasmCandidateRouteResult,
   ExperimentalWasmCandidateRouter,
+  ExperimentalWasmCandidateVerifier,
   ExperimentalWasmHistoricalAdapter,
 } from './types.js';
+import { WasmCandidateVerifier } from './experimental-candidate-verify.js';
 
 export type * from './types.js';
 
@@ -280,6 +282,37 @@ export class DcpWasm {
     const checked = JSON.parse(wasm().wasm_experimental_candidate_config(request));
     if (checked.config_error) throw new ExperimentalWasmCandidateConfigError(checked.config_error.code, checked.config_error.detail);
     return new WasmCandidateRouter(JSON.stringify(checked), checked, path, decode.bind(historical));
+  }
+
+  /**
+   * EXPERIMENTAL, opt-in (inactive candidate dcp-jcs-v2, phase 3): a verifier of original bytes over
+   * the configuration of createExperimentalCandidateRouter, validated here, before any input.
+   * `verify(bytes, policy?)` makes one wasm_experimental_candidate_verify call: a rejection runs no
+   * verifier, a candidate is verified with today's verifier accepting exactly dcp-jcs-v2, and a
+   * delegation hands the decoder's own string to the binding verifyBundle uses, with the same policy
+   * JSON. A verified bundle grants no trust or admission and authorizes nothing.
+   */
+  createExperimentalCandidateVerifier(config: {
+    transport: 'bare' | 'envelope';
+    acceptedProfiles: readonly string[];
+    historical: ExperimentalWasmHistoricalAdapter;
+  }): ExperimentalWasmCandidateVerifier {
+    const { transport, policy, name, path, decode, historical } = snapshotWasmConfig(config);
+    const request = JSON.stringify({ transport, accepted_profiles: policy, historical: name });
+    const checked = JSON.parse(wasm().wasm_experimental_candidate_config(request));
+    if (checked.config_error) throw new ExperimentalWasmCandidateConfigError(checked.config_error.code, checked.config_error.detail);
+    return new WasmCandidateVerifier({
+      config: JSON.stringify(checked),
+      normalized: checked,
+      path,
+      decode: decode.bind(historical),
+      bindings: {
+        verify: (input, c, p) => wasm().wasm_experimental_candidate_verify(input, c, p),
+        resume: (input, c, point, h) => wasm().wasm_experimental_candidate_resume(input, c, point, h),
+        verifyBundle: (text, p) => wasm().wasm_verify_signed_bundle_v2(text, p),
+      },
+      adapterError: (adapter, message) => new ExperimentalWasmCandidateAdapterError(adapter, message),
+    });
   }
 
   domainSeparatedMessage(context: string, payloadHex: string): string {
