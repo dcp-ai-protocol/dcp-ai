@@ -249,9 +249,10 @@ for (const c of fixture.cases) {
   check('parity inputs', inputs.length === 2 + vectors.must_accept_bundles.length + vectors.must_reject_bundles.length + 20 + 15, inputs.length);
   // Today's verdict on each path: w1 is the wrapper (object to JSON.stringify to Rust); w2 is the binding on the text.
   // A decoder refusal (JSON.parse) is not an acceptance. Every exception of today's binding is recorded with
-  // its input, path, side and class: the only one allowed is the known defect of the existing verifier, a
-  // RuntimeError 'unreachable' on the V1 bundle of the admission vectors, outside this phase.
+  // its input, path, side and class: none is allowed (the V1 path no longer traps in wasm), and the V1
+  // bundle of the admission vectors must verify on both sides of every path.
   const exceptions = [];
+  const v1Verdicts = [];
   const today = (path, decode) => (label, side, bytes) => {
     let text;
     try {
@@ -262,7 +263,12 @@ for (const c of fixture.cases) {
       throw e;
     }
     try {
-      return path === 'w1' ? dcp.verifyBundle(JSON.parse(text)).verified === true : JSON.parse(pkg.wasm_verify_signed_bundle_v2(text, undefined)).verified === true;
+      const verified =
+        path === 'w1'
+          ? dcp.verifyBundle(JSON.parse(text)).verified === true
+          : JSON.parse(pkg.wasm_verify_signed_bundle_v2(text, undefined)).verified === true;
+      if (label === 'admission v1_bundle') v1Verdicts.push({ side, verified });
+      return verified;
     } catch (e) {
       exceptions.push({ label, path, side, class: e?.constructor?.name, message: String(e?.message) });
       return `throws ${e?.constructor?.name}`;
@@ -285,11 +291,11 @@ for (const c of fixture.cases) {
     check(`parity ${name}`, differences.length === 0 && accepted > 10, { differences, accepted });
   }
   const expected = Object.keys(WASM).flatMap((name) => [`${name} today`, `${name} routed`]);
-  const known = exceptions.filter((e) => e.label === 'admission v1_bundle' && e.class === 'RuntimeError' && e.message.includes('unreachable'));
+  check('no exception on any input, path or side', exceptions.length === 0, exceptions);
   check(
-    'only the known V1 trap of the existing verifier, on both sides of every path',
-    exceptions.length === known.length && same(known.map((e) => e.side).sort(), expected.sort()),
-    exceptions,
+    'the V1 bundle verifies on both sides of every path',
+    same(v1Verdicts.map((v) => v.side).sort(), expected.sort()) && v1Verdicts.every((v) => v.verified === true),
+    v1Verdicts,
   );
 }
 
