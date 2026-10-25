@@ -62,7 +62,7 @@ Anchors a `bundle_hash` to a chain and returns an `anchor_receipt`. The operator
 - **Response (JSON):**
   - `anchor_receipt` (object): e.g. `{ "chain": "bitcoin", "tx_id": "...", "block_height": N }` or Ethereum-style fields.
 
-Implementation of `/anchor` depends on the operator's chain and tooling (Bitcoin OP_RETURN, Ethereum contract event, etc.).
+Implementation of `/anchor` depends on the operator's chain and tooling (Bitcoin OP_RETURN, Ethereum contract event, etc.). The reference anchor service (`services/anchor`) does not implement it yet: it records hashes locally, in memory, with `tx_hash: null` and `onchain: false`, and returns no `anchor_receipt`.
 
 ## Deployment
 
@@ -75,7 +75,7 @@ docker run -d -p 3000:3000 ghcr.io/dcp-ai-protocol/dcp-ai/verification:latest
 curl http://localhost:3000/health
 ```
 
-Multi-arch (`linux/amd64` + `linux/arm64`). Tags: `:latest`, the release semver tags (`:<major>.<minor>.<patch>`, `:<major>.<minor>`, `:<major>`) and `:sha-<short>`. The full stack (verification + anchor + transparency log + revocation) can be brought up with one `docker compose up -d` using the compose file in `docker/`.
+Multi-arch (`linux/amd64` + `linux/arm64`). Tags: `:latest`, the release semver tags (`:<major>.<minor>.<patch>`, `:<major>.<minor>`, `:<major>`) and `:sha-<short>`. The full stack (verification + anchor + two transparency logs + revocation, five containers) can be brought up with one `docker compose up -d` run in `docker/`, or with `docker compose -f docker/docker-compose.yml up -d` from the repo root.
 
 ### Option 2 — managed PaaS
 
@@ -105,16 +105,28 @@ See each SDK's README for the exact import path and API surface. Coverage of the
 
 ### Reference services keep state in memory only
 
-The reference gateway (`server/`) and services (`services/`) have no persistent store, except that the revocation service can keep its state in a file (`REVOCATION_STATE_PATH`, off by default). **A restart, a deploy or a crash wipes their state**, including a crash from running out of memory. That state is:
+The reference gateway (`server/`) and services (`services/`) have no persistent store, except that the revocation service can keep its state in a file (`REVOCATION_STATE_PATH`: off by default in the service, on in the compose file in `docker/`, which puts it on a volume). **A restart, a deploy or a crash wipes their state**, including a crash from running out of memory. That state is:
 
 - registered passports, keys and emergency tokens;
 - revocations;
 - the transparency log;
-- pending anchors.
+- pending anchors and local anchor records.
 
-After a wipe, revoked agents look valid again, and the first registration of any `agent_id` is trust on first use again. Add persistent storage before relying on these services in production.
+The one exception is the revocation service with `REVOCATION_STATE_PATH` on persistent storage (a volume): its registrations and revocations survive a restart.
 
-To keep memory bounded, they refuse work instead of evicting state:
+After a wipe, what was recorded is gone, but the gates stay:
+
+- **Registration.** Registering an `agent_id` still needs the operator token, also for an `agent_id` that was registered before the wipe, since every one is new again.
+- **Revocation lookups.** The revocation service no longer knows the revocations it recorded:
+  - `GET /check/<agent_id>` answers `revoked: false` for an agent revoked before the wipe;
+  - `/.well-known/dcp-revocations.json` no longer lists it, so a deny-list revocation source reads it as not revoked;
+  - `GET /v2/check/kid/<kid>` answers 404 (status unknown) for its keys.
+- **The gateway** forgets its passports, keys (revoked and retired ones included) and emergency tokens.
+- **No trust is gained.** A wipe alone does not make a principal trusted or a bundle admitted: admission still needs the operator's trust set and, under strict-v1, a revocation snapshot.
+
+Add persistent storage before relying on these services in production.
+
+To keep memory bounded, the identity, key and revocation registries refuse work instead of evicting state:
 
 | Service | Limit | Setting |
 |---------|-------|---------|
@@ -130,6 +142,11 @@ To keep memory bounded, they refuse work instead of evicting state:
 | Revocation | Text fields of at most 256 characters; 5 emergency revocations per client per minute | — |
 | Transparency log | Gossip exchanges need a tree head signed by a pinned peer (`GOSSIP_PEERS=<url>#<key>`); 16 KB bodies; the last 100 distinct alerts; polls read 16 KB at most, time out after one interval and never overlap | `GOSSIP_PEERS` |
 | All | 1 MB request bodies | — |
+
+Two parts of the gateway behave differently:
+
+- **DCP-05–09 record stores evict.** These are the stores for lifecycle, vitality, testaments, succession, disputes, jurisprudence, objections, rights, obligations, violations, mandates, advisory declarations, mirrors, interactions and awareness thresholds. Each keeps at most 10,000 entries, and 10,000 per agent in its per-agent lists, and evicts the oldest (FIFO): an evicted record is gone, without an error.
+- **Audit chains have no limit of their own** (`POST /v2/audit/append`). Only the request limits apply to them.
 
 The limits count per client IP. Behind a proxy that appends the client IP to `X-Forwarded-For`, set `TRUST_PROXY=true`; otherwise every client shares the proxy's address.
 
@@ -148,7 +165,7 @@ For `anchor`, `transparency-log`, and `revocation` env variables see their respe
 
 - **Verification only:** The service can limit itself to POST `/verify`, applying the full [VERIFICATION.md](../spec/VERIFICATION.md) checklist (schema, signature, intent_hash, audit chain, merkle). No blockchain needed.
 - **Verify anchor_receipt:** If the client sends an `anchor_receipt` with the bundle, the service can optionally check that `bundle_hash` appears at the given chain/log index using **public data only** (e.g. fetch tx from block explorer). No central server of the protocol is involved.
-- **Anchor (write):** The operator runs a node or uses RPC and writes hashes to an existing chain; the service returns `anchor_receipt` to the client. This is optional and operator-specific.
+- **Anchor (write):** The operator runs a node or uses RPC and writes hashes to an existing chain; the service returns `anchor_receipt` to the client. This is optional and operator-specific, and the reference anchor service does not do it yet (see [`services/anchor/README.md`](../services/anchor/README.md)).
 
 ---
 
@@ -379,7 +396,7 @@ All DCP-05–09 endpoints include:
 - **Rate limiting** — 100 requests/minute/IP on all POST endpoints
 - **Body size limits** — 1 MB maximum request body (returns 413)
 - **Input ID validation** — All IDs must match `^[\w:.\-]{1,256}$` (blocks injection attacks)
-- **Bounded storage** — In-memory stores capped at 10,000 entries with FIFO eviction
+- **Bounded storage** — each in-memory store keeps at most 10,000 entries and evicts the oldest (FIFO): an evicted record is gone. The identity registries refuse instead (507); see [Reference services keep state in memory only](#reference-services-keep-state-in-memory-only)
 - **Security headers** — X-Content-Type-Options, X-Frame-Options, Strict-Transport-Security, Cache-Control
 
 ## Reference
