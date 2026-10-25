@@ -26,6 +26,9 @@ import type {
   ExperimentalWasmHistoricalAdapter,
 } from './types.js';
 import { WasmCandidateVerifier } from './experimental-candidate-verify.js';
+import { createWasmCandidateProducer } from './experimental-candidate-produce.js';
+
+export { ExperimentalWasmCandidateProduceError } from './experimental-candidate-produce.js';
 
 export type * from './types.js';
 
@@ -312,6 +315,37 @@ export class DcpWasm {
         verifyBundle: (text, p) => wasm().wasm_verify_signed_bundle_v2(text, p),
       },
       adapterError: (adapter, message) => new ExperimentalWasmCandidateAdapterError(adapter, message),
+    });
+  }
+
+  /**
+   * EXPERIMENTAL, opt-in (inactive candidate dcp-jcs-v2, phase 4): signs one artifact
+   * `{payload, payload_hash, composite_sig}` under `context` (a DCP context), with no profile. `input`
+   * is `{ bytes }` (original bytes, checked by the ingress) or `{ value }` (a host value, checked
+   * strictly and encoded after the check). `keys` is `{ classical, pq? }` of `{ kid, alg,
+   * secretKeyB64, publicKeyB64 }`. Rejections are ExperimentalWasmCandidateProduceError, before any
+   * signer runs.
+   */
+  experimentalCandidateSignPayload(context: string, input: unknown, keys: unknown): { bytes: Uint8Array; signedPayload: Record<string, unknown> } {
+    return this.#producer().signPayload(context, input, keys);
+  }
+
+  /**
+   * EXPERIMENTAL, opt-in (inactive candidate dcp-jcs-v2, phase 4): assembles a bundle from `parts`
+   * (rpr, passport, intent, policyDecision, auditEntries, pqCheckpoints?: each `{ bytes }` or
+   * `{ value }`) and signs a new manifest that commits to dcp-jcs-v2. `signer` is `{ signerType,
+   * signerId, keys }`; `options` is `{ sessionNonce, sessionIssuedAt?, sessionExpiresAt?,
+   * intendedVerifier?, dualHash?, createdAt? }` (with an expiry, sessionIssuedAt is required;
+   * createdAt is outside every signature). A verified bundle grants no trust or admission.
+   */
+  experimentalCandidateSignBundle(parts: unknown, signer: unknown, options: unknown): { bytes: Uint8Array; signedBundle: Record<string, unknown> } {
+    return this.#producer().signBundle(parts, signer, options);
+  }
+
+  #producer() {
+    return createWasmCandidateProducer({
+      signPayload: (payload, context, keys) => wasm().wasm_experimental_candidate_sign_payload(payload, context, keys),
+      signBundle: (pieces, layout, signer, options) => wasm().wasm_experimental_candidate_sign_bundle(pieces, layout, signer, options),
     });
   }
 

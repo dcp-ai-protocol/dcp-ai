@@ -338,6 +338,105 @@ pub mod wasm {
         }
     }
 
+    // ── EXPERIMENTAL, opt-in: candidate producers (phase 4) ─────────────────
+    // Every piece arrives as its own bytes (a range of one buffer), never nested in a request: the
+    // ingress sees each piece's original bytes and the depth budget is the final unit's. Keys, signer
+    // and options are small JSON objects of labels, validated by the JS wrapper first.
+
+    fn candidate_keys(v: &Value) -> Result<crate::v2::experimental_candidate_produce::CandidateKeys, String> {
+        use crate::v2::composite_ops::CompositeKeyInfo;
+        let one = |k: &Value| -> Result<CompositeKeyInfo, String> {
+            let field = |name: &str| k.get(name).and_then(Value::as_str).map(String::from).ok_or_else(|| format!("key {} must be a string", name));
+            Ok(CompositeKeyInfo { kid: field("kid")?, alg: field("alg")?, secret_key_b64: field("secret_key_b64")?, public_key_b64: field("public_key_b64")? })
+        };
+        let classical = one(v.get("classical").ok_or("keys.classical is required")?)?;
+        let pq = match v.get("pq") {
+            None | Some(Value::Null) => None,
+            Some(k) => Some(one(k)?),
+        };
+        Ok(crate::v2::experimental_candidate_produce::CandidateKeys { classical, pq })
+    }
+
+    fn candidate_produce_error(e: crate::v2::experimental_candidate_produce::ProduceError) -> String {
+        use crate::v2::experimental_candidate_produce::ProduceError;
+        match e {
+            ProduceError::Reject(r) => json!({"reject": {"class": r.class, "part": r.part, "path": r.path, "offset": r.offset}}).to_string(),
+            ProduceError::Usage(m) => json!({"usage_error": m}).to_string(),
+            ProduceError::Provider(m) => json_err(&format!("provider: {}", m)),
+            ProduceError::Internal(m) => json_err(&m),
+        }
+    }
+
+    /// EXPERIMENTAL, opt-in (phase 4): signs one artifact over `payload` (the payload's own bytes)
+    /// under `context`. Returns {"canonical": artifact text} or {"reject": …} / {"usage_error": …}.
+    #[wasm_bindgen]
+    pub fn wasm_experimental_candidate_sign_payload(payload: &[u8], context: &str, keys_json: &str) -> String {
+        use crate::v2::experimental_candidate_produce::{sign_payload, CandidateInput};
+        let keys = match serde_json::from_str::<Value>(keys_json).map_err(|e| e.to_string()).and_then(|v| candidate_keys(&v)) {
+            Ok(k) => k,
+            Err(m) => return json!({"usage_error": m}).to_string(),
+        };
+        match sign_payload(context, &CandidateInput::Bytes(payload.to_vec()), &keys) {
+            Ok(p) => json!({"canonical": String::from_utf8_lossy(&p.bytes)}).to_string(),
+            Err(e) => candidate_produce_error(e),
+        }
+    }
+
+    /// EXPERIMENTAL, opt-in (phase 4): assembles and signs a candidate bundle. `pieces` holds every
+    /// part's own bytes; `layout_json` gives their ranges: {"rpr": [s, e], "passport", "intent",
+    /// "policy_decision", "audit_entries": [[s, e], …], "pq_checkpoints": [[s, e], …]}.
+    #[wasm_bindgen]
+    pub fn wasm_experimental_candidate_sign_bundle(pieces: &[u8], layout_json: &str, signer_json: &str, options_json: &str) -> String {
+        use crate::v2::experimental_candidate_produce::{sign_bundle, BundleOptions, BundleParts, BundleSigner, CandidateInput};
+        let parsed = (|| -> Result<(BundleParts, BundleSigner, BundleOptions), String> {
+            let layout: Value = serde_json::from_str(layout_json).map_err(|e| e.to_string())?;
+            // A range is exactly [start, end], converted to usize without truncation, inside the pieces.
+            let piece = |r: &Value| -> Result<CandidateInput, String> {
+                let bound = |v: &Value| v.as_u64().and_then(|n| usize::try_from(n).ok());
+                match r.as_array().map(Vec::as_slice) {
+                    Some([s, e]) => match (bound(s), bound(e)) {
+                        (Some(s), Some(e)) if s <= e && e <= pieces.len() => Ok(CandidateInput::Bytes(pieces[s..e].to_vec())),
+                        _ => Err("a piece range is outside the pieces".into()),
+                    },
+                    _ => Err("a piece range must be [start, end]".into()),
+                }
+            };
+            let list = |name: &str| -> Result<Vec<CandidateInput>, String> {
+                match layout.get(name) {
+                    None => Ok(vec![]),
+                    Some(Value::Array(a)) => a.iter().map(piece).collect(),
+                    Some(_) => Err(format!("layout.{} must be a list", name)),
+                }
+            };
+            let part = |name: &str| layout.get(name).ok_or(format!("layout.{} is required", name)).and_then(piece);
+            let parts = BundleParts { rpr: part("rpr")?, passport: part("passport")?, intent: part("intent")?, policy_decision: part("policy_decision")?,
+                audit_entries: list("audit_entries")?, pq_checkpoints: list("pq_checkpoints")? };
+            let s: Value = serde_json::from_str(signer_json).map_err(|e| e.to_string())?;
+            let text = |v: &Value, name: &str| v.get(name).and_then(Value::as_str).map(String::from).ok_or(format!("{} must be a string", name));
+            let signer = BundleSigner { signer_type: text(&s, "signer_type")?, signer_id: text(&s, "signer_id")?, keys: candidate_keys(s.get("keys").ok_or("signer.keys is required")?)? };
+            let o: Value = serde_json::from_str(options_json).map_err(|e| e.to_string())?;
+            let optional = |name: &str| -> Result<Option<String>, String> {
+                match o.get(name) {
+                    None => Ok(None),
+                    Some(Value::String(v)) => Ok(Some(v.clone())),
+                    Some(_) => Err(format!("options.{} must be a string", name)),
+                }
+            };
+            let options = BundleOptions { session_nonce: text(&o, "session_nonce")?, session_issued_at: optional("session_issued_at")?,
+                session_expires_at: optional("session_expires_at")?, intended_verifier: optional("intended_verifier")?, created_at: optional("created_at")?,
+                dual_hash: match o.get("dual_hash") { None => false, Some(Value::Bool(b)) => *b, Some(_) => return Err("options.dual_hash must be a bool".into()) } };
+            Ok((parts, signer, options))
+        })();
+        let (parts, signer, options) = match parsed {
+            Ok(p) => p,
+            Err(m) => return json!({"usage_error": m}).to_string(),
+        };
+        match sign_bundle(&parts, &signer, &options) {
+            Ok(b) => json!({"canonical": String::from_utf8_lossy(&b.bytes)}).to_string(),
+            Err(e) => candidate_produce_error(e),
+        }
+    }
+
     // ── Keypair Generation ────────────────────────────────────────────────
 
     #[wasm_bindgen]

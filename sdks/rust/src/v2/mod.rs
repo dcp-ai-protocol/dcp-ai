@@ -7,6 +7,8 @@ pub mod experimental_candidate_ingress;
 pub mod experimental_candidate_router;
 /// EXPERIMENTAL, opt-in: verification of original bytes under the inactive candidate dcp-jcs-v2 (phase 3).
 pub mod experimental_candidate_verify;
+/// EXPERIMENTAL, opt-in: producers of new candidate dcp-jcs-v2 evidence (phase 4).
+pub mod experimental_candidate_produce;
 pub mod dual_hash;
 pub mod composite_sig;
 pub mod composite_ops;
