@@ -504,3 +504,55 @@ export type ExperimentalCandidateRejectClass =
 export type ExperimentalCandidateIngressResult =
   | { status: 'accept'; canonical: Uint8Array; canonicalSha256: string }
   | { status: 'reject'; class: ExperimentalCandidateRejectClass; offset: number };
+
+/**
+ * EXPERIMENTAL, opt-in (inactive candidate dcp-jcs-v2, phase 2): a JS historical decoder for the wasm
+ * router. `path` names the historical path it reproduces: `w1` is the wrapper's own (the object it
+ * decodes, through JSON.stringify, to Rust); `w2` is a text handed to the binding. `decode` returns
+ * that text, or the decoder's refusal of the data as `{ ok: false }`.
+ */
+export interface ExperimentalWasmHistoricalAdapter {
+  readonly name: string;
+  readonly path: 'w1' | 'w2';
+  decode(unit: Uint8Array): { ok: true; text: string } | { ok: false; reason: string };
+}
+
+export type ExperimentalWasmCandidateExtraction =
+  | { status: 'unit'; start: number; end: number }
+  | { status: 'reject'; class: 'TRANSPORT_INVALID' | 'TRANSPORT_AMBIGUOUS'; detail: string; transportOffset: number | null };
+
+export type ExperimentalWasmCandidateRouteResult =
+  | {
+      outcome: 'reject';
+      class: string;
+      detail: string | null;
+      offset: number | null;
+      transportOffset: number | null;
+      unit: { start: number; end: number } | null;
+      profile: string | null;
+      attempts: [];
+      warnings: [];
+    }
+  | {
+      outcome: 'v1_path';
+      unit: { start: number; end: number; bytes: Uint8Array };
+      profile: 'dcp-jcs-v1';
+      profileSource: 'field' | 'absent' | 'historical';
+      attempts: ['dcp-jcs-v1'];
+      warnings: { class: string; offset: number; transportOffset: number }[];
+      historical: { adapter: string; decoded: unknown } | { adapter: string; failed: string };
+    }
+  | {
+      outcome: 'candidate';
+      unit: { start: number; end: number; bytes: Uint8Array };
+      profile: 'dcp-jcs-v2';
+      attempts: ['dcp-jcs-v2'];
+      warnings: [];
+      canonical: Uint8Array;
+      canonicalSha256: string;
+    };
+
+export interface ExperimentalWasmCandidateRouter {
+  readonly configuration: { transport: string; acceptedProfiles: string[]; historical: string };
+  route(bytes: Uint8Array): ExperimentalWasmCandidateRouteResult;
+}

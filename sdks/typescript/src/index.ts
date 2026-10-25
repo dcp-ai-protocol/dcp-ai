@@ -207,6 +207,26 @@ export type {
   ExperimentalCandidateRejectClass,
   ExperimentalCandidateValue,
 } from './core/experimental-candidate-ingress.js';
+export {
+  createExperimentalCandidateRouter,
+  experimentalCandidateExtractUnit,
+  experimentalHistoricalAdapters,
+  ExperimentalCandidateAdapterError,
+  ExperimentalCandidateConfigError,
+} from './core/experimental-candidate-router.js';
+export type {
+  ExperimentalCandidateExtraction,
+  ExperimentalCandidateHistorical,
+  ExperimentalCandidateProfile,
+  ExperimentalCandidateRouter,
+  ExperimentalCandidateRouteRejectClass,
+  ExperimentalCandidateRouteResult,
+  ExperimentalCandidateTransport,
+  ExperimentalCandidateUnitRange,
+  ExperimentalCandidateWarning,
+  ExperimentalHistoricalAdapter,
+  ExperimentalHistoricalDecode,
+} from './core/experimental-candidate-router.js';
 
 // ── V2 Signed Payload ──
 export { preparePayload, verifyPayloadHash } from './core/signed-payload.js';

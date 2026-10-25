@@ -11,8 +11,11 @@
 
 > **Notice.** This document proposes a candidate profile and records its design. It does not change
 > `dcp-jcs-v1` or [`spec/CANONICALIZATION_PROFILE.md`](../../../spec/CANONICALIZATION_PROFILE.md), which
-> remain the only normative reference. No SDK, verifier, schema or conformance check uses the identifier
-> `dcp-jcs-v2`: the lab tool's CI job runs the design model, and the SDK test jobs run the experimental unit ingress of §15 on the corpus, which reads no profile and which no verifier, signer or default path calls. A V2 verifier that checks the manifest's `canonicalization_profile` field, such as the
+> remain the only normative reference. No existing verifier, signer, schema, conformance check or default
+> uses the identifier `dcp-jcs-v2`. The experimental, opt-in APIs of §15 and §16 recognize it without
+> activating it: no existing or default path calls them, only callers who opt in; they verify and sign
+> nothing. The lab tool's CI job runs the design model, and the SDK test jobs run those APIs on the
+> corpus. A V2 verifier that checks the manifest's `canonicalization_profile` field, such as the
 > TypeScript SDK's ([`verify-v2.ts`](../../../sdks/typescript/src/core/verify-v2.ts)), rejects it as an
 > unknown profile, which is the intended behavior. Nothing here is a conformance requirement. The lab
 > tool is an executable model of the design, not an implementation: it computes SHA-256 for its
@@ -264,7 +267,7 @@ re-canonicalized with `dcp-jcs-v1`, the profile is never inferred from content, 
 
 ## 9. Phases and acceptance gates
 
-Nothing here is activated, and only the experimental unit ingress of §15 is implemented. Moving to a later phase needs an explicit decision, taken
+Nothing here is activated, and only the experimental unit ingress (§15) and router (§16) are implemented. Moving to a later phase needs an explicit decision, taken
 apart from this document, and a change of default needs its own decision.
 
 **Phases.**
@@ -360,10 +363,10 @@ Exit code 1 means a case, a result or a control differs; 2 means the data is inv
 
 | Shown by the design model | Not done |
 |---|---|
-| The total precedence, with offsets, on 54 multi-defect documents and 12 multi-defect envelopes | Transport extraction, profile selection or verification in the TypeScript, Python, Go, Rust or WASM SDKs (only the unit ingress of §15 exists) |
+| The total precedence, with offsets, on 54 multi-defect documents and 12 multi-defect envelopes | Verification or signing of the candidate in the TypeScript, Python, Go, Rust or WASM SDKs (only the unit ingress of §15 and the router of §16 exist) |
 | The unit, the transport and envelope independence | A bytes API in the integrations or the server |
 | Selection, policy and no retry, on synthetic bundles | Real bundles signed with the candidate, composite signatures verified |
-| That the candidate path does not depend on parser repairs | Measuring each SDK's historical parser on these cases |
+| That the candidate path does not depend on parser repairs | The candidate matrices of §9 (cross signing, negative matrix, history over the conformance suites). Since phase 2, `tests/interop/candidate/phase2-adapter-expectations.json` records 160 readings of real decoders (16 units × 10 adapters) where the historical adapter decides; that is evidence for those units only |
 | The synthetic bundle's hash checks | A cross-SDK signing matrix, a negative matrix and a performance benchmark |
 | | That delegation preserves each SDK's `dcp-jcs-v1` verdict |
 
@@ -390,8 +393,9 @@ Exit code 1 means a case, a result or a control differs; 2 means the data is inv
 ## 15. Experimental SDK ingress (phase 1)
 
 Phase 1 of the SDK implementation plan (not a phase of §9) adds an experimental, opt-in ingress of one
-unit to each SDK. It is not normative and nothing calls it. It changes no `dcp-jcs-v1` function,
-default, signer or verifier, and no SDK reads, emits or accepts `dcp-jcs-v2`.
+unit to each SDK. It is not normative, and no existing or default path calls it: only callers who opt in do.
+It changes no `dcp-jcs-v1` function, default, signer or verifier. The ingress itself does not read the
+profile (the router of §16 does) and no SDK emits `dcp-jcs-v2`.
 
 | SDK | API |
 |---|---|
@@ -435,3 +439,76 @@ to later phases: they are counted, not run.
 
 **Gates.** This is evidence toward gates 1, 3 and 4 of §9 for unit cases only. None of the ten gates is
 met by it, and the candidate stays inactive.
+
+## 16. Experimental SDK router (phase 2)
+
+Phase 2 of the SDK implementation plan adds an experimental, opt-in router to each SDK. It extracts the unit
+(§5, §6.3), reads the profile (§7) and applies §6.4 up to the decision: reject, delegate to `dcp-jcs-v1`, or
+select the candidate path. It is not normative, and no existing or default path calls it: only callers who
+opt in do. `dcp-jcs-v1`, its verifiers and every default are unchanged. `candidate` is never an acceptance: phase 3 would verify it. Nothing verifies or signs
+a candidate.
+
+| SDK | API |
+|---|---|
+| TypeScript | `createExperimentalCandidateRouter(config).route(bytes)`, `experimentalCandidateExtractUnit`, `experimentalHistoricalAdapters` |
+| Python | `dcp_ai.v2.experimental_candidate_router`: `create_router`, `extract_unit`, `JSON_LOADS_BYTES`, `JSON_LOADS_STRICT_DECODE` |
+| Go | `NewExperimentalCandidateRouter(cfg)` and `Route`, `ExperimentalCandidateExtractUnit`, `ExperimentalHistoricalEncodingJSON` |
+| Rust | `v2::experimental_candidate_router`: `CandidateRouter::new` and `route`, `extract_unit`, `HistoricalAdapter::serde_json_from_slice` |
+| WASM | `DcpWasm.createExperimentalCandidateRouter` over the bindings `wasm_experimental_candidate_route` and `_resume`, and `experimentalWasmHistoricalAdapters` |
+
+**Configuration.** The transport (`bare` or `envelope`), the accepted profiles and the historical adapter
+are required; none has a default.
+- They are validated with strict types when the router is created, before any input.
+- An invalid configuration is a configuration error (`POLICY_INVALID` or `CONFIG_INVALID`), never a
+  rejection of the data.
+- The router keeps a private snapshot, so later changes to the caller's objects change nothing.
+
+**Results.**
+- **`reject`:** the class (a transport class, a scanner class, `PROFILE_UNKNOWN` or `PROFILE_NOT_ACCEPTED`)
+  and its offsets. `offset` is relative to the unit; `transport_offset` is in the input.
+- **`v1_path`:** the unit, the warning (D7) and what the historical adapter returned.
+  - Its profile is always `dcp-jcs-v1`: a manifest without the field was produced under `dcp-jcs-v1`.
+  - `profile_source` says why: `field`, `absent`, or `historical` for a unit the scanner cannot walk.
+- **`candidate`:** the unit, its value and its canonical bytes. The WASM wrapper returns the canonical bytes
+  and their hash but not the value, as in phase 1.
+
+The names are equivalent across SDKs in each language's style: `profileSource`, `transportOffset` and
+`canonicalSha256` in TypeScript and the WASM wrapper; `profile_source`, `transport_offset` and
+`canonical_sha256` in Python, Rust and the WASM bindings; `ProfileSource`, `TransportOffset` and
+`CanonicalSHA256` in Go.
+
+**Historical adapters.** An adapter reproduces one real decoder, and the router consults it at most once, only
+where §6.4 needs it:
+- to decide on a unit the scanner cannot walk;
+- to produce the value of a delegation.
+
+Its reading never selects the candidate, and its result is what the real decoder returned, not sanitized by
+the candidate rules: NaN, infinities and lone surrogates are kept only where that decoder keeps them.
+`json.loads` accepts NaN and 1e999, `JSON.parse` gives Infinity for 1e999, and both keep lone surrogates.
+`encoding/json` and `serde_json` refuse 1e999. On the WASM `w1` path `JSON.stringify` turns Infinity into
+`null` and escapes lone surrogates again, which `serde_json` then refuses. An adapter that fails otherwise
+than by refusing the data is an adapter error, not a rejection.
+
+The WASM wrapper reproduces two distinct paths, measured separately and not assumed equivalent:
+- **`w1`:** an object, through `JSON.stringify`, to Rust;
+- **`w2`:** a text to the binding.
+
+Its bindings are stateless. `resume` recomputes the decision point from its own arguments and can only end
+in a rejection or a delegation.
+
+**Tests.** Each SDK and WASM run these cases:
+- the 9 configuration cases;
+- the 28 document envelope cases;
+- the 58 walkable bundle cases, where `accept_v2` and `COMMITMENT_MISMATCH` are checked only as `candidate`;
+- the public fixture `tests/interop/candidate/phase2-adapter-expectations.json`. For the 9 units the scanner
+  cannot walk and 7 synthetic units, it records what each real decoder returns, measured by running it; the
+  corpus parameter `historical` is not used as evidence.
+
+They also check:
+- a v1 parity with no differences: bare, `["dcp-jcs-v1"]`, every built-in adapter, on the public signed
+  bundles and variants generated from them;
+- the grammar walker against the phase 1 scanner;
+- laziness, the adapter contract and byte ownership.
+
+**Gates.** This is evidence toward gates 1, 8 and 9 of §9, for selection and delegation only. None of the ten
+gates is met by it, and the candidate stays inactive.
