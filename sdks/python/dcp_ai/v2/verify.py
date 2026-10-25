@@ -485,11 +485,26 @@ async def verify_signed_bundle_v2(
     component whose key was resolved and reached the cryptographic check. A
     structurally malformed bundle fails verification instead of raising.
     """
+    return await _verify_signed_bundle_v2_with_profile(signed_bundle, registry, policy, now_ms, "dcp-jcs-v1")
+
+
+async def _verify_signed_bundle_v2_with_profile(
+    signed_bundle: dict[str, Any],
+    registry: AlgorithmRegistry,
+    policy: Any,
+    now_ms: int | None,
+    accepted_profile: str,
+) -> dict[str, Any]:
+    """Internal: verify_signed_bundle_v2 with the canonicalization profile the manifest must name.
+    "dcp-jcs-v1" (the field absent or dcp-jcs-v1) is verify_signed_bundle_v2; "dcp-jcs-v2" (exactly
+    that value) is reached only from the original bytes, through experimental_candidate_verify. Every
+    hash and signature is computed as for dcp-jcs-v1: the candidate keeps its output rules, so on the
+    values it accepts the same canonicalizer gives its bytes."""
     resolved = _resolve_policy(policy)
     now = _clock(now_ms)
     result: dict[str, Any] = {"verified": False, "errors": [], "warnings": [], "details": {}}
     try:
-        await _verify(signed_bundle, registry, resolved, result, now)
+        await _verify(signed_bundle, registry, resolved, result, now, accepted_profile)
     except (KeyError, TypeError, AttributeError, ValueError, IndexError) as exc:
         result["errors"].append(f"Malformed signed bundle: {exc!r}")
     result["verified"] = not result["errors"]
@@ -502,6 +517,7 @@ async def _verify(
     policy: dict[str, Any],
     result: dict[str, Any],
     now: int,
+    accepted_profile: str,
 ) -> None:
     errors: list[str] = result["errors"]
     warnings: list[str] = result["warnings"]
@@ -602,8 +618,13 @@ async def _verify(
             return
 
     # 4. Manifest integrity. Per spec/CANONICALIZATION_PROFILE.md § 4 a missing
-    # canonicalization_profile means dcp-jcs-v1; any other value is rejected.
-    if "canonicalization_profile" in manifest and manifest["canonicalization_profile"] != "dcp-jcs-v1":
+    # canonicalization_profile means dcp-jcs-v1; any other value is rejected. The
+    # experimental candidate dcp-jcs-v2 is accepted only when the original bytes were routed to it.
+    if accepted_profile == "dcp-jcs-v1":
+        unknown = "canonicalization_profile" in manifest and manifest["canonicalization_profile"] != "dcp-jcs-v1"
+    else:
+        unknown = manifest.get("canonicalization_profile") != accepted_profile
+    if unknown:
         errors.append(f"Unknown canonicalization_profile: {manifest['canonicalization_profile']}")
     for name, field in _MANIFEST_HASH_FIELDS.items():
         expected = prepare_payload(bundle[name]["payload"])[1]

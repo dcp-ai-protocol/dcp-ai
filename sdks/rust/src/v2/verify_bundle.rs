@@ -106,8 +106,22 @@ pub fn verify_signed_bundle_v2_with_policy(signed_bundle: &Value, policy: &Verif
 /// key expiries) compares against it (spec/profiles/admission § 2.1). Its
 /// result also lists the signer keys (§ 2.3).
 pub fn verify_signed_bundle_v2_at(signed_bundle: &Value, policy: &VerifierPolicy, now_ms: i64) -> V2VerificationDetails {
+    verify_signed_bundle_v2_at_profile(signed_bundle, policy, now_ms, "dcp-jcs-v1")
+}
+
+/// [`verify_signed_bundle_v2_at`] with the canonicalization profile the manifest must name.
+/// `dcp-jcs-v1` (the field absent or dcp-jcs-v1) is `verify_signed_bundle_v2_at`; `dcp-jcs-v2`
+/// (exactly that value) is reached only from the original bytes, through the experimental candidate
+/// verifier. Every hash and signature is computed as for dcp-jcs-v1: the candidate keeps its output
+/// rules, so on the values it accepts the same canonicalizer gives its bytes.
+pub(crate) fn verify_signed_bundle_v2_at_profile(
+    signed_bundle: &Value,
+    policy: &VerifierPolicy,
+    now_ms: i64,
+    accepted_profile: &str,
+) -> V2VerificationDetails {
     let mut signer_keys = Vec::new();
-    let result = verify(signed_bundle, policy, now_ms, &mut signer_keys);
+    let result = verify(signed_bundle, policy, now_ms, &mut signer_keys, accepted_profile);
     V2VerificationDetails { result, signer_keys }
 }
 
@@ -118,6 +132,7 @@ fn verify(
     policy: &VerifierPolicy,
     now_ms: i64,
     signer_keys: &mut Vec<SignerKeyUse>,
+    accepted_profile: &str,
 ) -> V2VerificationResult {
     let mut r = V2VerificationResult { dcp_version: "2.0".into(), ..Default::default() };
     let enforced = VerifierPolicy {
@@ -186,11 +201,16 @@ fn verify(
     }
 
     // Per spec/CANONICALIZATION_PROFILE.md § 4 a missing canonicalization_profile
-    // means dcp-jcs-v1; any other value, string or not, is rejected.
-    if let Some(profile) = bundle.get("manifest").and_then(|m| m.get("canonicalization_profile")) {
-        if profile.as_str() != Some("dcp-jcs-v1") {
-            r.errors.push(format!("Unknown canonicalization_profile: {}", display(Some(profile))));
-        }
+    // means dcp-jcs-v1; any other value, string or not, is rejected. The experimental
+    // candidate dcp-jcs-v2 is accepted only when the original bytes were routed to it.
+    let profile = bundle.get("manifest").and_then(|m| m.get("canonicalization_profile"));
+    let unknown_profile = if accepted_profile == "dcp-jcs-v1" {
+        matches!(profile, Some(p) if p.as_str() != Some("dcp-jcs-v1"))
+    } else {
+        profile.and_then(Value::as_str) != Some(accepted_profile)
+    };
+    if unknown_profile {
+        r.errors.push(format!("Unknown canonicalization_profile: {}", display(profile)));
     }
 
     // Session nonce consistency across artifacts, audit entries and checkpoints (V2-4)

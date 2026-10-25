@@ -556,3 +556,20 @@ export interface ExperimentalWasmCandidateRouter {
   readonly configuration: { transport: string; acceptedProfiles: string[]; historical: string };
   route(bytes: Uint8Array): ExperimentalWasmCandidateRouteResult;
 }
+
+type RouteOf<O> = Extract<ExperimentalWasmCandidateRouteResult, { outcome: O }>;
+
+/**
+ * EXPERIMENTAL, opt-in (inactive candidate dcp-jcs-v2, phase 3): the route, the verifier it entered (at
+ * most one) and that verifier's result as is. A delegation whose decoder refused the data enters none.
+ */
+export type ExperimentalWasmCandidateVerifyResult =
+  | { route: RouteOf<'reject'>; entered: 'none'; verification: null }
+  | { route: RouteOf<'v1_path'>; entered: 'none'; verification: null }
+  | { route: RouteOf<'v1_path'>; entered: 'dcp-jcs-v1'; verification: V2VerificationResult }
+  | { route: RouteOf<'candidate'>; entered: 'dcp-jcs-v2'; verification: V2VerificationResult };
+
+export interface ExperimentalWasmCandidateVerifier {
+  readonly configuration: { transport: string; acceptedProfiles: string[]; historical: string };
+  verify(bytes: Uint8Array, policy?: VerifierPolicy): ExperimentalWasmCandidateVerifyResult;
+}

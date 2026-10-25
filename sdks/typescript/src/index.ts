@@ -228,6 +228,13 @@ export type {
   ExperimentalHistoricalDecode,
 } from './core/experimental-candidate-router.js';
 
+// ── EXPERIMENTAL, opt-in: verification of original bytes under the candidate dcp-jcs-v2 (phase 3) ──
+export { createExperimentalCandidateVerifier } from './core/experimental-candidate-verify.js';
+export type {
+  ExperimentalCandidateVerifier,
+  ExperimentalCandidateVerifyResult,
+} from './core/experimental-candidate-verify.js';
+
 // ── V2 Signed Payload ──
 export { preparePayload, verifyPayloadHash } from './core/signed-payload.js';
 

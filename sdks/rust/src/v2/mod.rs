@@ -5,6 +5,8 @@ pub mod canonicalize;
 pub mod experimental_candidate_ingress;
 /// EXPERIMENTAL, opt-in: profile selection and delegation for the inactive candidate dcp-jcs-v2 (phase 2).
 pub mod experimental_candidate_router;
+/// EXPERIMENTAL, opt-in: verification of original bytes under the inactive candidate dcp-jcs-v2 (phase 3).
+pub mod experimental_candidate_verify;
 pub mod dual_hash;
 pub mod composite_sig;
 pub mod composite_ops;

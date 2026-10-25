@@ -296,6 +296,48 @@ pub mod wasm {
         }
     }
 
+    /// EXPERIMENTAL, opt-in (phase 3): the route of `input` and, for a candidate, its verification
+    /// with today's verifier accepting exactly dcp-jcs-v2, on the exact value the router extracted from
+    /// `input` itself, the policy parsed and the clock read as `wasm_verify_signed_bundle_v2` does.
+    /// Returns {"route", "entered", "verification"} for a rejection (no verifier) or a candidate, or
+    /// {"needs_historical": point} unchanged: the decoder is consulted in JS, `resume` (which never
+    /// verifies) ends in a rejection or a delegation, and JS delegates the decoder's own string.
+    #[wasm_bindgen]
+    pub fn wasm_experimental_candidate_verify(input: &[u8], config_json: &str, policy_json: Option<String>) -> String {
+        let router = match candidate_router(config_json) {
+            Ok(r) => r,
+            Err(e) => return e,
+        };
+        let result = router.route_internal(input, &mut |point, unit| Err(CandidateStop::Needs(point_json(&router, point, unit))));
+        match result {
+            Ok(route @ CandidateRoute::Reject { .. }) => {
+                json!({"route": route_json(&route), "entered": "none", "verification": null}).to_string()
+            }
+            Ok(CandidateRoute::V1Path { .. }) => json_err("a delegation without a decision point"),
+            Ok(ref route @ CandidateRoute::Candidate { ref value, .. }) => {
+                let policy: crate::v2::types::VerifierPolicy = match policy_json.as_deref().map(serde_json::from_str) {
+                    None => Default::default(),
+                    Some(Ok(p)) => p,
+                    Some(Err(e)) => {
+                        return json!({
+                            "route": route_json(route), "entered": "dcp-jcs-v2",
+                            "verification": {"verified": false, "errors": [format!("Policy parse error: {}", e)]},
+                        })
+                        .to_string()
+                    }
+                };
+                let now = crate::v2::lifecycle::unix_now_millis() as i64;
+                match crate::v2::experimental_candidate_verify::verify_candidate(value, &policy, now, &mut |_| {}) {
+                    Ok(details) => json!({"route": route_json(route), "entered": "dcp-jcs-v2", "verification": details}).to_string(),
+                    Err(e) => json_err(&e.to_string()),
+                }
+            }
+            Err(CandidateStop::Needs(point)) => json!({"needs_historical": point}).to_string(),
+            Err(CandidateStop::Usage(m)) => json!({"usage_error": m}).to_string(),
+            Err(CandidateStop::Internal(m)) => json_err(&m),
+        }
+    }
+
     // ── Keypair Generation ────────────────────────────────────────────────
 
     #[wasm_bindgen]

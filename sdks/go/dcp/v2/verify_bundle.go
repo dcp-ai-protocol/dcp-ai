@@ -97,6 +97,16 @@ func VerifySignedBundleV2WithPolicy(registry *AlgorithmRegistry, signedBundleJSO
 // every time check (the session window, the RPR expiry, key expiry) compares
 // against now, at millisecond precision (spec/profiles/admission § 2.1).
 func VerifySignedBundleV2At(registry *AlgorithmRegistry, signedBundleJSON []byte, policy VerifierPolicy, now time.Time) *V2VerificationResult {
+	return verifySignedBundleV2AtProfile(registry, signedBundleJSON, policy, now, "dcp-jcs-v1")
+}
+
+// verifySignedBundleV2AtProfile is VerifySignedBundleV2At with the canonicalization profile the
+// manifest must name. "dcp-jcs-v1" (the field absent or dcp-jcs-v1) is VerifySignedBundleV2At;
+// "dcp-jcs-v2" (exactly that value) is reached only from the original bytes, through the experimental
+// candidate verifier, which hands it the candidate's canonical bytes. Every hash and signature is
+// computed as for dcp-jcs-v1: the candidate keeps its output rules, so on the values it accepts the
+// same canonicalizer gives its bytes.
+func verifySignedBundleV2AtProfile(registry *AlgorithmRegistry, signedBundleJSON []byte, policy VerifierPolicy, now time.Time, acceptedProfile string) *V2VerificationResult {
 	now = truncateToMillis(now.Round(0))
 	result := &V2VerificationResult{
 		DCPVersion: "2.0",
@@ -163,9 +173,14 @@ func VerifySignedBundleV2At(registry *AlgorithmRegistry, signedBundleJSON []byte
 
 	// Per spec/CANONICALIZATION_PROFILE.md § 4: a missing canonicalization_profile
 	// MUST be assumed equal to the only profile defined today, "dcp-jcs-v1".
-	// An unknown value is rejected; future profiles will register their own
-	// canonicalizer here.
-	if profile, ok := manifest["canonicalization_profile"]; ok && profile != "dcp-jcs-v1" {
+	// An unknown value is rejected. The experimental candidate dcp-jcs-v2 is
+	// accepted only when the original bytes were routed to it.
+	profile, ok := manifest["canonicalization_profile"]
+	unknownProfile := ok && profile != "dcp-jcs-v1"
+	if acceptedProfile != "dcp-jcs-v1" {
+		unknownProfile = profile != acceptedProfile
+	}
+	if unknownProfile {
 		result.Errors = append(result.Errors, fmt.Sprintf("Unknown canonicalization_profile: %v", profile))
 	}
 
