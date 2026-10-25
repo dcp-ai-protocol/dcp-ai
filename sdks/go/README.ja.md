@@ -1,45 +1,70 @@
 <sub>[English](README.md) · [中文](README.zh-CN.md) · [Español](README.es.md) · **日本語** · [Português](README.pt-BR.md)</sub>
 
+<a id="dcp-ai-go--go-sdk"></a>
+
 # dcp-ai-go — Go SDK
 
-デジタル市民権プロトコル (DCP) v1.0 および v2.0 の公式Go SDKです。Ed25519、ML-DSA-65、SLH-DSA-192f、ML-KEM-768、複合署名、デュアルハッシュチェーン、および完全なバンドル検証をサポートします。
+> [英語版 README](README.md)の参考訳です。更新日：2026年10月25日。検証済みの例を維持するため、識別子とコードブロック（コメントを含む）は原文のままにしています。
+
+Digital Citizenship Protocol（DCP）v1.0 および v2.0 向けの公式 Go SDK。Ed25519、ML-DSA-65、SLH-DSA-192f、ML-KEM-768、複合署名、二重ハッシュチェーン、バンドル検証をサポートします。
+
+検証では完全性と署名を確認しますが、責任主体への信頼、受け入れ、行動の許可は確立しません。現在の V2 検証器は主監査チェーンを確認しますが、オプションの SHA3-256 チェーンやその副 Merkle ルートは再計算しません。[文書化された検証上の制限](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)を参照し、信頼の確認が必要な場合は以下の受け入れ API を使用してください。
+
+<a id="installation"></a>
 
 ## インストール
+
+**必要条件：** Go 1.25 以上
+
+**公開状況。** この README は `main` のソースコードを説明しています。最新のタグ付きリリースは `v2.10.0`（モジュールのタグは `sdks/go/v2.10.0`）です。変更履歴の [`[Unreleased]`](../../CHANGELOG.md#unreleased) にある項目は、タグ付きリリースにはまだ含まれていません。受け入れ、委任チェーン、A2A 受信ウィンドウ、実験的な `dcp-jcs-v2` API が該当します。以下の例を実行するには、`main` またはローカルのチェックアウトを依存先に指定してください。
+
+```bash
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@main
+# or, from a checkout:
+go mod edit -replace github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2=/path/to/dcp-ai/sdks/go
+```
+
+未公開の機能を含まない最新のタグ付きバージョン：
 
 ```bash
 go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
 ```
 
-**必要環境:** Go 1.25以上
+<a id="features"></a>
 
 ## 機能
 
 | 機能 | V1 | V2 |
 |---------|----|----|
-| Ed25519署名 | Yes | Yes |
-| ML-DSA-65 (FIPS 204) | — | Yes |
-| SLH-DSA-192f (FIPS 205) | — | Yes |
-| ML-KEM-768 (FIPS 203) | — | Yes |
-| 複合署名 (耐量子 over 古典) | — | Yes |
-| ドメイン分離 | — | Yes |
-| デュアルハッシュ (SHA-256 + SHA3-256) | — | Yes |
-| バンドル検証 | Yes | Yes |
-| アドミッション: プリンシパルの信頼セット + `strict-v1` プロファイル (spec/profiles/admission) | — | Yes |
-| バンドル構築と署名 | — | Yes |
-| セキュリティティア計算 | — | Yes |
-| 所有証明 | — | Yes |
-| 鍵ローテーション | — | Yes |
-| DCP-04 A2A 発見 + ハンドシェイク + AES-256-GCM セッション (stdlib。並行利用に対して安全で、各メッセージはウィンドウ内で一度だけ受理) | — | Yes |
-| DCP-05 エージェントライフサイクル (コミッショニング / バイタリティ / デコミッショニング) | — | Yes |
-| DCP-06 デジタル継承 (デジタル遺言、メモリ転送、セレモニー) | — | Yes |
-| DCP-07 紛争解決 + 仲裁 + 判例 | — | Yes |
-| DCP-08 権利と義務 + コンプライアンス | — | Yes |
-| DCP-09 委任 + 検証可能な委任チェーン (`CreateSubMandate`、`VerifyMandateChain`) + 認識しきい値 + プリンシパルミラー | — | Yes |
-| セッションノンスヘルパー、緊急失効 | — | Yes |
-| 遅延PQチェックポイント + `PQCheckpointManager` | — | Yes |
-| ブラインドRPR、マルチパーティ認可、アルゴリズムアドバイザリヘルパー | — | Yes |
-| 正規エラーコード (全SDK共通の38種) + `DetectWireFormat` | — | Yes |
-| OpenTelemetry / OTLP エクスポーター (ビルドタグ `otlp`) | — | Yes |
+| Ed25519 署名 | 対応 | 対応 |
+| ML-DSA-65（FIPS 204） | — | 対応 |
+| SLH-DSA-192f（FIPS 205） | — | 対応 |
+| ML-KEM-768（FIPS 203） | — | 対応 |
+| 複合署名（古典署名を PQ で署名） | — | 対応 |
+| ドメイン分離 | — | 対応 |
+| 二重ハッシュ（SHA-256 + SHA3-256） | — | 対応 |
+| バンドル検証 | 対応 | 対応 |
+| 受け入れ：責任主体の信頼集合と `strict-v1` プロファイル（spec/profiles/admission） | — | 対応、未公開 |
+| バンドルの構築と署名 | — | 対応 |
+| セキュリティ階層の算出 | — | 対応 |
+| 所有証明 | — | 対応 |
+| 鍵のローテーション | — | 対応 |
+| DCP-04 A2A 探索、ハンドシェイク、AES-256-GCM セッション（標準ライブラリ。並行利用が安全で、ウィンドウ内の各メッセージは1回だけ受け入れる） | — | 対応 |
+| DCP-05 エージェントのライフサイクル（稼働開始 / 活力 / 稼働終了） | — | 対応 |
+| DCP-06 デジタル継承（遺言、記憶移転、セレモニー） | — | 対応 |
+| DCP-07 紛争解決、仲裁、判例 | — | 対応 |
+| DCP-08 権利、義務、遵守 | — | 対応 |
+| DCP-09 委任と検証可能な委任チェーン（`CreateSubMandate`、`VerifyMandateChain`）、認識しきい値、責任主体のミラー | — | 対応 |
+| セッション nonce の補助関数、緊急失効 | — | 対応 |
+| 遅延 PQ チェックポイントと `PQCheckpointManager` | — | 対応 |
+| ブラインド化 RPR、複数当事者による承認、アルゴリズム勧告の補助関数 | — | 対応 |
+| 共通のエラーコード（全 SDK で共有する 38 個）と `DetectWireFormat` | — | 対応 |
+| OpenTelemetry / OTLP エクスポーター（ビルドタグ `otlp`） | — | 対応 |
+| 正規化候補 `dcp-jcs-v2`（入力処理、ルーター、バイト列検証器、生成器） | — | 実験的かつ明示的な選択が必要、未公開。規範ではない |
+
+<a id="quickstart-v1"></a>
+
+<a id="quickstart--v1"></a>
 
 ## クイックスタート — V1
 
@@ -59,6 +84,10 @@ func main() {
     fmt.Println("Verified:", ok) // true
 }
 ```
+
+<a id="quickstart-v2"></a>
+
+<a id="quickstart--v2"></a>
 
 ## クイックスタート — V2
 
@@ -118,9 +147,12 @@ func main() {
 }
 ```
 
-### セキュリティティア
+<a id="security-tiers"></a>
+
+### セキュリティ階層
 
 ```go
+// Fragment, inside a function: intentPayload and policyPayload are decoded V2 payloads.
 tier := v2.ComputeSecurityTier(v2.SecurityTierInput{
     RiskScore:       600, // from the bundle's PolicyDecision, never the intent
     DataClasses:     []string{"financial_data"},
@@ -135,103 +167,211 @@ fmt.Println(tier.CheckpointInterval) // 1
 tier = v2.ComputeSecurityTier(v2.SecurityTierInputFromPayloads(intentPayload, policyPayload))
 ```
 
+<a id="ml-kem-768-key-encapsulation"></a>
+
 ### ML-KEM-768 鍵カプセル化
 
 ```go
+// Fragment, inside a function.
 kem := &providers.MlKem768Provider{}
 kp, _ := kem.GenerateKeypair()
 result, _ := kem.Encapsulate(kp.PublicKeyB64)
 sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 ```
 
-## V2 APIリファレンス
+<a id="v2-api-reference"></a>
 
-### バンドル構築と署名
+## V2 API リファレンス
 
-| 関数 | 説明 |
-|----------|-------------|
-| `v2.SignPayload(reg, context, payload, classicalKey, pqKey)` | 成果物に署名して `SignedPayload` を生成（複合署名、`pqKey` が nil の場合は古典のみ） |
-| `v2.BuildBundleV2(input)` | 署名済みの成果物から、マニフェストハッシュとデュアルMerkleルート付きのV2バンドルを構築 |
-| `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | 複合または古典のみの署名でバンドルに署名。署名者はバンドルの責任主体 (`signer.id` = RPR の `human_id`) |
-| `v2.VerifySignedBundleV2(reg, jsonBytes)` | V2バンドルの完全検証 (構造、ハッシュ、署名、監査チェーン)。`DefaultVerifierPolicy` を使い、ポリシーのモードとセキュリティティアのモードのうち厳しい方で検証（spec §14.3）。`ResolvedTier` と `VerificationMode` を返す |
-| `v2.VerifySignedBundleV2WithPolicy(reg, jsonBytes, policy)` | 独自の `VerifierPolicy` で同じ検証を行う。`DefaultVerifierPolicy()` と異なってよいのは `DefaultMode`、`RiskOverrides`、`MaxSessionDurationSeconds`、`RequireSessionExpiry`、`RequireAudienceBinding`、`VerifierID` と Phase 3 のフィールド（`AdvisoryRejectedAlgs`、`WarnClassicalOnlyDeprecated`、`AllowClassicalFallbackDisable`。意味は TypeScript と同じ）だけで、それ以外を変えると検証は失敗する |
+<a id="bundle-building-signing"></a>
 
-### セキュリティティア
+<a id="bundle-building--signing"></a>
+
+### バンドルの構築と署名
 
 | 関数 | 説明 |
 |----------|-------------|
-| `v2.ComputeSecurityTier(input)` | 適応型セキュリティティア（routine/standard/elevated/maximum）と検証モード・チェックポイント間隔を計算（spec §14.2）。未知の値は `elevated` として扱う |
-| `v2.SecurityTierInputFromPayloads(intent, policyDecision)` | デコード済みの intent と PolicyDecision のペイロードからティア入力を作成（`risk_score` は PolicyDecision から取得。欠落しているか 0〜1000 の整数でない場合は未知を表す `RiskScore: -1` になる） |
-| `v2.EffectiveVerificationMode(policyMode, tier)` | ポリシーのモードとティアのモードのうち厳しい方。`pq_only` は変わらない |
+| `v2.SignPayload(reg, context, payload, classicalKey, pqKey)` | アーティファクトに署名して `SignedPayload` を生成する（複合署名。`pqKey` が nil の場合は古典署名のみ） |
+| `v2.BuildBundleV2(input)` | 署名済みアーティファクトから V2 バンドルを組み立て、マニフェストのハッシュと二重 Merkle ルートを含める |
+| `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | バンドルに複合署名または古典署名のみで署名する。署名者はバンドルの責任主体（`signer.id` = RPR の `human_id`） |
+| `v2.VerifySignedBundleV2(reg, jsonBytes)` | `DefaultVerifierPolicy` の下で V2 バンドルを検証する（構造、ハッシュ、署名、主監査チェーン）。ポリシーモードとセキュリティ階層のモードのうち厳しい方を適用する（仕様 §14.3）。`ResolvedTier` と `VerificationMode` を報告する |
+| `v2.VerifySignedBundleV2WithPolicy(reg, jsonBytes, policy)` | 独自の `VerifierPolicy` を使う同等の処理。`DefaultVerifierPolicy()` から変更できるのは `DefaultMode`、`RiskOverrides`、`AcceptedClassicalAlgs`、`AcceptedPQAlgs`、`AllowV1Bundles`（ここでは V1 バンドルは検証に成功しない）、`MaxSessionDurationSeconds`、`RequireSessionExpiry`、`RequireAudienceBinding`、`VerifierID`、およびフェーズ3のフィールド（`AdvisoryRejectedAlgs`、`WarnClassicalOnlyDeprecated`、`AllowClassicalFallbackDisable`。TypeScript と同様）のみ。それ以外の変更は検証失敗となる |
+| `v2.VerifySignedBundleV2At(reg, jsonBytes, policy, now)` | 時刻 `now` での同等の処理。セッションウィンドウ、RPR の有効期限、鍵の有効期限を、その時刻とミリ秒精度で比較する。上の2関数は `time.Now()` を指定してこの関数を呼び出す |
 
-### アドミッション: プリンシパルの信頼と strict-v1
+各結果の `SignerKeys`（JSON では `signer_keys`）には、検査した複合署名（`bundle`、4つのアーティファクト、各 `pq_checkpoints[<id>]`）ごとに、検証器が各コンポーネント（`classical`、`pq`）用に解決した鍵エントリーと、そのコンポーネントの検証結果が列挙されます。
 
-検証済みのバンドルが証明するのは完全性と署名であり、プリンシパルが誰かではありません。アドミッション ([spec/profiles/admission](../../spec/profiles/admission/README.md)、ガイドは [docs/ADMISSION.md](../../docs/ADMISSION.md)) は、各プリンシパルの鍵を固定するオペレーターの信頼セットと、オペレーターが固定する `strict-v1` プロファイル (ハイブリッド署名、署名済みの宛先、最大 300 秒の署名済みセッション、最大 300 秒前の失効スナップショット) を追加します。ネットワーク I/O は行わず、アクションを許可することもありません: `ActionAuthorized` は常に `false` です。読み込めない信頼セットやプロファイルは `*v2.AdmissionConfigError` (`Code`) を返します。
+<a id="admission-principal-trust-and-strict-v1-unreleased"></a>
 
-| 関数 | 説明 |
-|---|---|
-| `v2.VerifySignedBundleV2At(reg, json, policy, now)` | 指定した時刻で検証し、署名鍵 (`signer_keys`) を報告します |
-| `v2.NewPrincipalTrustStore(json)` | 信頼セットを読み込んで検証します |
-| `v2.ResolveStrictV1Profile(json)` | `strict-v1` プロファイルを読み込んで検証します (読み取り専用) |
-| `v2.RevocationSubjects(json, verification)` | 失効ソースが答えるべき `agent_id` と検証済みの kid |
-| `v2.EvaluateAdmissionV2(json, verification, opts)` | 検証結果からアドミッションを評価します (暗号処理も I/O もありません) |
-| `v2.AdmitSignedBundleV2(reg, json, opts)` | プロファイルのポリシーで検証して評価します |
+### 受け入れ：責任主体への信頼と strict-v1（未公開）
 
-例を含む完全な説明は[英語の README](README.md#admission-principal-trust-and-strict-v1)にあります。
-
-### 委任チェーン (DCP-09 §3.5)
+検証済みバンドルが証明するのは完全性と署名であり、責任主体が誰であるかではありません。受け入れ（[spec/profiles/admission](../../spec/profiles/admission/README.md)）では、検証に加えて、各責任主体の鍵を固定する運用者の信頼集合と、運用者が固定した `strict-v1` プロファイルを使用します（全階層でハイブリッド署名、署名された宛先、最大300秒の署名されたセッション、最大300秒前までの失効スナップショット）。ネットワーク I/O は行わず、行動を許可することもありません。`ActionAuthorized` は常に `false` です。
 
 | 関数 | 説明 |
 |----------|-------------|
-| `v2.CreateDelegationMandate(reg, humanClassical, humanPQ, params)` | 人間が署名するルートマンデート。`SubDelegation` と `MinimumSecurityTier` は任意 |
-| `v2.CreateSubMandate(reg, delegatorClassical, delegatorPQ, parent, v2.SubMandateParams{...})` | 親マンデートのエージェントが `DCP-AI.v2.SubMandate` コンテキストで署名するサブマンデート |
-| `v2.VerifyMandateChain(reg, chain, revokedIDs, v2.MandateChainKeys{HumanKeys, AgentKeys}, now)` | チェーンをルートから順に、オフラインで検証 (人間まで遡る署名、リンクと深さ、`sub_delegation`、入れ子になった有効期間、アクション・`data_classes`・`limits` の権限の減衰、ティアの下限、失効)。`MandateChainResult{Valid, Errors, Depth, EffectiveTier}` を返す |
+| `v2.NewPrincipalTrustStore(json)` | 信頼集合（`schemas/v2/principal_trust_set.schema.json`）を検証する |
+| `v2.ResolveStrictV1Profile(json)` | strict-v1 設定（`schemas/v2/admission_profile.schema.json`）を検証する。プロファイルの getter（`VerifierPolicy()`、`VerifierID()`、`MaxSessionDurationSeconds()`、`MaxRevocationAgeSeconds()`）はコピーを返す |
+| `v2.RevocationSubjects(json, verification)` | パスポートの `agent_id` と、検証済み署名者鍵すべての kid をソートしたもの。失効スナップショットが回答すべき対象 |
+| `v2.EvaluateAdmissionV2(json, verification, v2.AdmissionOptions{...})` | 検証器の結果から `Now` 時点の受け入れを評価する。暗号処理は行わない |
+| `v2.AdmitSignedBundleV2(reg, json, v2.AdmitOptions{...})` | プロファイルのポリシー、またはプロファイルがなければ `Policy` に従って検証し、評価する |
 
-`SecurityTierInput.MandateChainTier` は、チェーンの `EffectiveTier` を、ティアを引き上げることしかできない下限として受け取ります。
+信頼集合またはプロファイルを読み込めない場合、プロファイルに信頼集合がない場合、プロファイルと呼び出し元の `Policy` を併用した場合は、`*v2.AdmissionConfigError` を返し、その `Code` は `CONFIG_*` コードのいずれかです。`AdmissionResult` には `Verified`、`Verification`、`PrincipalTrust`、`Profile`、`ProfileCompliance`、`Admitted`、`ActionAuthorized`、`RecordedDecision`、`TrustSetVersion`、`Errors`（`{Code, Message}`）があり、JSON 形式では仕様のフィールド名を使用します。`Admitted` が true の場合だけ先に進んでください。
+
+```go
+// Fragment, inside a function: trustSetJSON, signedBundleJSON, reg (the algorithm registry) and lookupRevocation come from your application.
+trust, err := v2.NewPrincipalTrustStore(trustSetJSON) // operator configuration, never the bundle
+if err != nil {
+    log.Fatal(err) // *v2.AdmissionConfigError
+}
+profile, err := v2.ResolveStrictV1Profile([]byte(`{"profile":"strict-v1","verifier_id":"api.acme.example"}`))
+if err != nil {
+    log.Fatal(err)
+}
+
+now := time.Now()
+verification := v2.VerifySignedBundleV2At(reg, signedBundleJSON, profile.VerifierPolicy(), now)
+subjects := v2.RevocationSubjects(signedBundleJSON, verification)
+snapshot := lookupRevocation(subjects) // your source: a JSON snapshot, or nil when it cannot answer
+
+result, err := v2.EvaluateAdmissionV2(signedBundleJSON, verification, v2.AdmissionOptions{
+    Profile: profile, Trust: trust, Revocation: snapshot, Now: now,
+})
+if err != nil {
+    log.Fatal(err)
+}
+if !result.Admitted {
+    for _, e := range result.Errors {
+        fmt.Println(e.Code, e.Message) // e.g. TRUST_PRINCIPAL_UNKNOWN, REVOCATION_STALE
+    }
+}
+```
+
+<a id="security-tiers_1"></a>
+
+<a id="security-tiers-1"></a>
+
+### セキュリティ階層
+
+| 関数 | 説明 |
+|----------|-------------|
+| `v2.ComputeSecurityTier(input)` | 適応型セキュリティ階層（routine/standard/elevated/maximum）、その検証モードとチェックポイント間隔を算出する（仕様 §14.2）。不明な値では安全側の `elevated` を採用する |
+| `v2.SecurityTierInputFromPayloads(intent, policyDecision)` | デコード済みのインテントと PolicyDecision のペイロードから階層への入力を構築する（`risk_score` は PolicyDecision 由来。欠落している場合や0〜1000の整数でない場合は、不明を表す `RiskScore: -1` になる） |
+| `v2.EffectiveVerificationMode(policyMode, tier)` | ポリシーモードと階層のモードの厳しい方。`pq_only` は `pq_only` のまま |
+
+<a id="delegation-chains-dcp-09-35-unreleased"></a>
+
+### 委任チェーン（DCP-09 §3.5、未公開）
+
+| 関数 | 説明 |
+|----------|-------------|
+| `v2.CreateDelegationMandate(reg, humanClassical, humanPQ, params)` | 人間が署名したルート委任状。`SubDelegation` と `MinimumSecurityTier` はオプション |
+| `v2.CreateSubMandate(reg, delegatorClassical, delegatorPQ, parent, v2.SubMandateParams{...})` | 親委任状のエージェントが `DCP-AI.v2.SubMandate` コンテキストの下で署名した下位委任状 |
+| `v2.VerifyMandateChain(reg, chain, revokedIDs, v2.MandateChainKeys{HumanKeys, AgentKeys}, now)` | ルートから順にオフラインでチェーンを検証する（人間に遡る署名、リンクと深さ、`sub_delegation`、入れ子の有効期間、行動・`data_classes`・`limits` の制限、最低階層、失効）。`MandateChainResult{Valid, Errors, Depth, EffectiveTier}` を返す |
+
+`SecurityTierInput.MandateChainTier` はチェーンの `EffectiveTier` を最低値として扱い、階層を上げることしかできません。
+
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
+
+### 実験的機能：正規化候補 `dcp-jcs-v2`（明示的な選択が必要、未公開）
+
+規範ではなく、有効化もされていません。`dcp-jcs-v1` が引き続き唯一の正規化プロファイルであり、デフォルト設定、ビルダー、署名器、検証器は変更されません。これらの関数は、ソースのチェックアウトで明示的に選択して使用する呼び出し元向けです（公開状況を参照）。検証済みの候補バンドルも、信頼や受け入れを与えるものではありません。設計と契約：[`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)（§15 入力処理、§16 ルーター、§17 検証器、§18 生成器）。
+
+| 関数 | 説明 |
+|----------|-------------|
+| `ExperimentalCandidateIngress(input []byte)` | `Accepted`、`Canonical`、`CanonicalSHA256`、または拒否の `Class` と `Offset` |
+| `NewExperimentalCandidateRouter(config)` | バイト列を振り分ける：`reject`、`v1_path`、`candidate`。履歴形式のデコーダーは固定の識別名 `encoding_json` で指定する |
+| `NewExperimentalCandidateVerifier(config)` と `VerifyAt(registry, input, policy, now)` | 元のバイト列から、最大1つの検証器で検証する |
+| `ExperimentalCandidateSignPayload(registry, context, input, keys)` | `ExperimentalCandidateBytes(b)` または `ExperimentalCandidateHostValue(v)` から1つのアーティファクトに署名する（厳密な型。`json.Number` を保持） |
+| `ExperimentalCandidateSignBundle(registry, parts, signer, options)` | マニフェストで `dcp-jcs-v2` を指定するバンドルを組み立て、署名する |
+| `*ExperimentalCandidateProduceError`、`ErrExperimentalCandidateUsage` | 署名器の呼び出し前に行う、入力のドメインまたは形式による拒否。または API の誤用 |
+
+```go
+package main
+
+import (
+    "fmt"
+
+    "github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp/providers"
+    v2 "github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp/v2"
+)
+
+func main() {
+    // The ingress decides on the original bytes: 1.0 is the integer 1, members are sorted.
+    ok, _ := v2.ExperimentalCandidateIngress([]byte(`{"b":1.0,"a":[]}`))
+    fmt.Println(string(ok.Canonical)) // {"a":[],"b":1}
+    bad, _ := v2.ExperimentalCandidateIngress([]byte(`{"a":1,"a":2}`))
+    fmt.Println(bad.Class, bad.Offset) // DUPLICATE_KEY 7
+
+    // A producer signs an artifact from those bytes (hybrid keys, today's composite signature).
+    reg := v2.NewAlgorithmRegistry()
+    reg.RegisterSigner(&providers.Ed25519Provider{})
+    reg.RegisterSigner(&providers.MlDsa65Provider{})
+    ed, _ := (&providers.Ed25519Provider{}).GenerateKeypair()
+    pq, _ := (&providers.MlDsa65Provider{}).GenerateKeypair()
+    keys := v2.ExperimentalCandidateKeys{
+        Classical: v2.CompositeKeyInfo{Kid: ed.Kid, Alg: "ed25519", SecretKeyB64: ed.SecretKeyB64, PublicKeyB64: ed.PublicKeyB64},
+        PQ:        &v2.CompositeKeyInfo{Kid: pq.Kid, Alg: "ml-dsa-65", SecretKeyB64: pq.SecretKeyB64, PublicKeyB64: pq.PublicKeyB64},
+    }
+    artifact, err := v2.ExperimentalCandidateSignPayload(reg, v2.CtxIntent, v2.ExperimentalCandidateBytes([]byte(`{"intent_id":"intent:1","risk":1.0}`)), keys)
+    if err != nil {
+        panic(err)
+    }
+    fmt.Println(artifact.SignedPayload["payload_hash"]) // sha256:... of {"intent_id":"intent:1","risk":1}
+}
+```
+
+<a id="composite-signatures"></a>
 
 ### 複合署名
 
 | 関数 | 説明 |
 |----------|-------------|
-| `v2.CompositeSign(reg, ctx, payload, classicalKey, pqKey)` | 耐量子 over 古典の複合署名 |
-| `v2.ClassicalOnlySign(reg, ctx, payload, key)` | 古典のみの移行モード |
-| `v2.CompositeVerify(reg, ctx, payload, sig, classicalPK, pqPK)` | 複合署名を検証 |
+| `v2.CompositeSign(reg, ctx, payload, classicalKey, pqKey)` | 古典署名を PQ で署名する複合署名 |
+| `v2.ClassicalOnlySign(reg, ctx, payload, key)` | 古典署名のみの移行モード |
+| `v2.CompositeVerify(reg, ctx, payload, sig, classicalPK, pqPK)` | 複合署名を検証する |
 
-### 暗号プロバイダ
+<a id="crypto-providers"></a>
 
-| プロバイダ | アルゴリズム | 種別 | 標準 |
+### 暗号プロバイダー
+
+| プロバイダー | アルゴリズム | 種類 | 標準 |
 |----------|-----------|------|----------|
-| `Ed25519Provider` | ed25519 | Signature | — |
-| `MlDsa65Provider` | ml-dsa-65 | Signature | FIPS 204 |
-| `SlhDsa192fProvider` | slh-dsa-192f | Signature | FIPS 205 |
+| `Ed25519Provider` | ed25519 | 署名 | — |
+| `MlDsa65Provider` | ml-dsa-65 | 署名 | FIPS 204 |
+| `SlhDsa192fProvider` | slh-dsa-192f | 署名 | FIPS 205 |
 | `MlKem768Provider` | ml-kem-768 | KEM | FIPS 203 |
 
-### V1 API (変更なし)
+<a id="v1-api-unchanged"></a>
+
+### V1 API（変更なし）
 
 | 関数 | 説明 |
 |----------|-------------|
-| `dcp.GenerateKeypair()` | Ed25519鍵ペア |
-| `dcp.SignObject(obj, sk)` | オブジェクトに署名 |
-| `dcp.VerifyObject(obj, sig, pk)` | 署名を検証 |
-| `dcp.Canonicalize(obj)` | 決定論的JSON |
-| `dcp.HashObject(obj)` | 正規化JSONのSHA-256 |
-| `dcp.VerifySignedBundle(sb, pk)` | V1バンドル検証 |
+| `dcp.GenerateKeypair()` | Ed25519 鍵ペア |
+| `dcp.SignObject(obj, sk)` | オブジェクトに署名する |
+| `dcp.VerifyObject(obj, sig, pk)` | 署名を検証する |
+| `dcp.Canonicalize(obj)` | 決定的な JSON |
+| `dcp.HashObject(obj)` | 正規化 JSON の SHA-256 |
+| `dcp.VerifySignedBundle(sb, pk)` | V1 バンドル検証 |
 
-### DCP-05–09 型
+<a id="dcp-0509-types"></a>
 
-V2には、DCP-05からDCP-09までのすべての成果物のためのGo構造体が含まれます。
+### DCP-05–09 の型
 
-| Spec | 型 |
+V2 には DCP-05 から DCP-09 までのすべてのアーティファクトに対応する Go 構造体が含まれます。
+
+| 仕様 | 型 |
 |------|-------|
-| DCP-05 | `LifecycleState`、`CommissioningCertificate`、`VitalityReport`、`VitalityMetrics`、`DecommissioningRecord`、`TerminationMode`、`DataDisposition` |
-| DCP-06 | `DigitalTestament`、`SuccessionRecord`、`MemoryTransferManifest`、`MemoryTransferEntry`、`SuccessorPreference`、`MemoryClassification`、`TransitionType`、`MemoryDisposition` |
-| DCP-07 | `DisputeRecord`、`ArbitrationResolution`、`JurisprudenceBundle`、`ObjectionRecord`、`DisputeType`、`EscalationLevel`、`DisputeStatus`、`ObjectionType`、`AuthorityLevel` |
-| DCP-08 | `RightsDeclaration`、`RightEntry`、`ObligationRecord`、`RightsViolationReport`、`RightType`、`ComplianceStatus` |
-| DCP-09 | `DelegationMandate`、`AdvisoryDeclaration`、`PrincipalMirror`、`InteractionRecord`、`AwarenessThreshold`、`ThresholdRule`、`AuthorityScopeEntry` |
+| DCP-05 | `LifecycleState`, `CommissioningCertificate`, `VitalityReport`, `VitalityMetrics`, `DecommissioningRecord`, `TerminationMode`, `DataDisposition` |
+| DCP-06 | `DigitalTestament`, `SuccessionRecord`, `MemoryTransferManifest`, `MemoryTransferEntry`, `SuccessorPreference`, `MemoryClassification`, `TransitionType`, `MemoryDisposition` |
+| DCP-07 | `DisputeRecord`, `ArbitrationResolution`, `JurisprudenceBundle`, `ObjectionRecord`, `DisputeType`, `EscalationLevel`, `DisputeStatus`, `ObjectionType`, `AuthorityLevel` |
+| DCP-08 | `RightsDeclaration`, `RightEntry`, `ObligationRecord`, `RightsViolationReport`, `RightType`, `ComplianceStatus` |
+| DCP-09 | `DelegationMandate`, `AdvisoryDeclaration`, `PrincipalMirror`, `InteractionRecord`, `AwarenessThreshold`, `ThresholdRule`, `AuthorityScopeEntry` |
 
-ドメイン分離コンテキスト: `CtxLifecycle`、`CtxSuccession`、`CtxDispute`、`CtxRights`、`CtxDelegation`、`CtxAwareness`
+ドメイン分離コンテキスト：`CtxLifecycle`、`CtxSuccession`、`CtxDispute`、`CtxRights`、`CtxDelegation`、`CtxAwareness`
 
-すべての構造体にはマーシャル/アンマーシャル用のJSONタグが付与されており、Goの命名規約に従います (オプションフィールドは `json:"field_name,omitempty"`)。
+すべての構造体はシリアライズとデシリアライズ用の JSON タグを持ち、Go の命名規則に従います（オプションのフィールドは `json:"field_name,omitempty"`）。
+
+<a id="development"></a>
 
 ## 開発
 
@@ -242,10 +382,14 @@ go fmt ./...     # Format
 go mod tidy      # Verify dependencies
 ```
 
+<a id="dependencies"></a>
+
 ### 依存関係
 
 - `github.com/cloudflare/circl` — ML-DSA-65、SLH-DSA-192f、ML-KEM-768
 - `golang.org/x/crypto` — SHA3-256
+
+<a id="license"></a>
 
 ## ライセンス
 

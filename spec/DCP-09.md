@@ -13,6 +13,7 @@ DCP-01 establishes that every agent is bound to a responsible principal. However
 In multi-agent systems, agents frequently act on behalf of human principals who cannot be present for every interaction. A purchasing agent negotiates with supplier agents, a compliance agent reviews policy on behalf of a governance officer, a research agent queries data sources on behalf of a scientist. In each case, the agent exercises delegated authority, and the scope and limits of that authority must be explicit, verifiable, and auditable.
 
 DCP-09 addresses five interconnected concerns:
+
 1. **Delegation**: How a principal formally grants authority to an agent
 2. **Awareness**: How an agent declares its understanding of delegated context and limitations
 3. **Advisory**: How an agent communicates uncertainty or recommendations to its principal
@@ -232,6 +233,7 @@ Reference implementations: `verifyMandateChain` (TypeScript), `verify_mandate_ch
 ### 3.6 Mandate Revocation
 
 A mandate may be revoked by:
+
 - **Principal revocation**: The delegating principal explicitly revokes the mandate
 - **Expiration**: The `effective_until` timestamp passes
 - **Agent decommissioning**: The delegate agent transitions to `decommissioned` (DCP-05)
@@ -328,6 +330,7 @@ Schema reference: `schemas/v2/awareness_threshold.schema.json`
 ### 4.3 Confidence Scores
 
 Confidence scores are floating-point values in [0, 1]:
+
 - **0.9–1.0**: High confidence. Agent has strong understanding and can act independently.
 - **0.7–0.9**: Moderate confidence. Agent can proceed but should monitor for unexpected conditions.
 - **0.5–0.7**: Low confidence. Agent should proceed cautiously and be prepared to escalate.
@@ -338,6 +341,7 @@ These thresholds are advisory. Organizations MAY define stricter or looser thres
 ### 4.4 Awareness Updates
 
 Awareness thresholds are versioned. As an agent gains experience operating under a mandate, it MAY update its awareness threshold to reflect improved or degraded understanding. Each update:
+
 - Increments the `version` field
 - References the previous version via `prev_hash`
 - Generates an audit entry
@@ -434,6 +438,7 @@ Schema reference: `schemas/v2/advisory_declaration.schema.json`
 ### 5.5 Principal Response
 
 The principal may respond to an advisory declaration with:
+
 - **Proceed**: Authorize the agent to continue with a specified option
 - **Override**: Provide a specific directive that overrides the agent's assessment
 - **Assume Control**: Take over the interaction directly
@@ -503,6 +508,7 @@ The principal MUST review and approve the mirror before it is used in interactio
 ### 6.4 Mirror Updates
 
 The principal mirror is versioned. Updates occur when:
+
 - The principal's role or context changes
 - The delegation mandate is updated
 - The agent's awareness threshold changes significantly
@@ -515,6 +521,7 @@ Each update produces a new version with an incremented version number, hash-chai
 ### 7.1 Purpose
 
 Interaction records capture agent interactions at two layers:
+
 - **Technical Layer**: Machine-verifiable data including message hashes, timestamps, sequence numbers, and cryptographic proofs
 - **Narrative Layer**: Human-readable summaries of what occurred, what decisions were made, and why
 
@@ -627,6 +634,7 @@ Schema reference: `schemas/v2/interaction_record.schema.json`
 ### 7.3 Technical Layer
 
 The technical layer is machine-verifiable and includes:
+
 - Hashes of all exchanged messages (enabling verification against the A2A audit chain)
 - References to intent declarations and policy outcomes
 - A dual-hash Merkle root over all message hashes, enabling compact verification
@@ -634,6 +642,7 @@ The technical layer is machine-verifiable and includes:
 ### 7.4 Narrative Layer
 
 The narrative layer is human-readable and includes:
+
 - A plain-language summary of the interaction
 - Key decisions with reasoning and confidence levels
 - Observations about counterparty behavior
@@ -645,6 +654,7 @@ The narrative layer enables principals to review agent actions efficiently witho
 ### 7.5 Delegation Compliance
 
 Each interaction record includes a compliance section that tracks:
+
 - Whether all actions were within the mandate's scope
 - Which permissions were exercised
 - Which prohibitions were respected
@@ -749,6 +759,7 @@ If both agents operate under delegation mandates, both include `delegation` fiel
 ### 10.1 Mandate Forgery
 
 A compromised agent could forge a delegation mandate to claim authority it was not granted. Mitigations:
+
 - Mandates are signed by the principal's key, which the agent does not possess
 - Counterparties verify the mandate signature against the principal's known public key
 - Mandate hashes are recorded in the audit chain at issuance time, providing an independent verification path
@@ -756,6 +767,7 @@ A compromised agent could forge a delegation mandate to claim authority it was n
 ### 10.2 Authority Escalation
 
 An agent could attempt to exceed its delegated authority by misrepresenting its mandate's scope. Mitigations:
+
 - Mandate permissions are explicit and machine-verifiable
 - Interaction records track which permissions were exercised
 - Counterparties verify that requested actions fall within the mandate's scope during A2A handshake
@@ -764,6 +776,7 @@ An agent could attempt to exceed its delegated authority by misrepresenting its 
 ### 10.3 Sub-Delegation Abuse
 
 Sub-delegation creates chains of authority that could be exploited. Mitigations:
+
 - Sub-delegation depth is limited by `sub_delegation.max_depth` of every ancestor (Section 3.5)
 - Sub-mandates MUST be narrower than the parent: a subset of actions and data classes, limits that are not looser, a validity window inside the parent's, and a `minimum_security_tier` that is not below the parent's, so a subagent can never lower the security tier of whoever delegated to it
 - The full mandate chain is verifiable offline back to the human principal: each hop is signed by the previous delegate and a revoked ancestor invalidates every descendant
@@ -772,6 +785,7 @@ Sub-delegation creates chains of authority that could be exploited. Mitigations:
 ### 10.4 Stale Awareness Thresholds
 
 An agent's awareness threshold might not reflect its actual understanding after significant time or experience changes. Mitigations:
+
 - Awareness thresholds are versioned and updated as understanding changes
 - Large confidence drops trigger advisory declarations
 - Principals review awareness thresholds during periodic mandate reviews
@@ -780,6 +794,7 @@ An agent's awareness threshold might not reflect its actual understanding after 
 ### 10.5 Narrative Manipulation
 
 The narrative layer of interaction records could be crafted to present a misleading account. Mitigations:
+
 - The technical layer provides cryptographic ground truth
 - Narrative claims can be verified against message hashes in the technical layer
 - Principal review of interaction records compares narrative to technical data
@@ -788,6 +803,7 @@ The narrative layer of interaction records could be crafted to present a mislead
 ### 10.6 Domain Separation
 
 This specification uses three domain separation tags:
+
 - `DCP-DELEGATION-SIG-v2` for delegation mandates, principal mirrors, and interaction records
 - `DCP-AWARENESS-SIG-v2` for awareness thresholds and advisory declarations
 - `DCP-AI.v2.SubMandate` for sub-mandates (Section 3.5), so a mandate signed by a delegating agent can never pass for one signed by a human principal
@@ -799,6 +815,7 @@ This separation prevents signatures from one context being replayed in another.
 ## 11. Conformance
 
 An implementation is DCP-09 conformant if it:
+
 1. Supports delegation mandate issuance, acknowledgment, and revocation as defined in Section 3
 2. Generates awareness thresholds with versioning and confidence scoring as defined in Section 4
 3. Supports advisory declarations with urgency levels and principal response as defined in Section 5
@@ -822,3 +839,35 @@ An implementation is DCP-09 conformant if it:
 ---
 
 *This specification recognizes that delegation is the fundamental act of trust between humans and AI agents. By making delegation explicit, scoped, and auditable — and by giving agents a formal mechanism to declare what they know and what they do not — DCP-09 creates a foundation for responsible autonomy within accountable boundaries.*
+
+## Implementation notes (informative)
+
+> **Added 25/10/2026. Not normative.** These notes add no requirement and change nothing above: they describe how
+> the reference code on `main` relates to this text. Where they differ, the normative text above stands.
+
+- **What the SDKs verify.** The mandate chain of §3.5 is implemented in the four signing SDKs and checked against
+  `tests/interop/v2/mandate_chain_vectors.json`. The rest of DCP-09 is records the SDKs build and sign, not protocol
+  steps they run or enforce.
+- **Records in `schemas/v2/`.** The schemas have other fields than the examples of §3 to §9. A mandate's window is
+  `valid_from` / `valid_until` (the `effective_until` of the §3.2 example and §3.6 is not in the schema), with
+  `authority_scope` and `revocable`. An awareness threshold is a list of `threshold_rules` (`dimension`, `operator`,
+  `value`, `action_if_triggered`), not the confidence declaration of §4.2. An advisory declaration carries an integer
+  `significance_score` (0–1000), `action_summary`, `recommended_response`, `response_deadline` and `human_response`,
+  without the urgency levels or categories of §5.3 and §5.4. A principal mirror carries `narrative`,
+  `decision_summary`, `action_count` and `audit_chain_hash`. An interaction record carries a `public_layer` (`terms`,
+  `decisions`, `commitments`), a `private_layer_hash` and a `mandate_id`, without the Merkle root or compliance section
+  of §7.3 and §7.5.
+- **Signatures.** A root mandate carries `human_composite_sig` (context `DCP-AI.v2.Delegation`) and a sub-mandate
+  `delegator_composite_sig` (`DCP-AI.v2.SubMandate`). Every other record carries one `composite_sig` by whoever holds
+  the keys passed in: `DCP-AI.v2.Awareness` for awareness thresholds and advisory declarations,
+  `DCP-AI.v2.Delegation` for principal mirrors and interaction records. There is no agent acknowledgment of a mandate
+  (§3.3) and no second, principal signature on a mirror (§6.3).
+- **What the helpers do.** `verifyMandateValidity` checks only a set of revoked IDs and the validity window, not the
+  signature or the scope. `revoke_delegation` (Python) adds the ID to a local set when the mandate is `revocable`; it
+  produces no signed revocation record (§3.6). `generateMirror` hashes the audit entries it receives (SHA-256) and signs
+  the narrative and summary the caller writes; it neither writes the narrative nor obtains approval. The `A2A_HELLO`
+  and `A2A_WELCOME` types have optional `mandate_id` and `mandate_hash` fields, but no SDK verifies a mandate during the
+  handshake (§8.3) and none sends `A2A_REJECT`.
+- The examples are illustrations with placeholders, not fixtures. Fractional values such as `"confidence": 0.95`
+  cannot be canonicalized under `dcp-jcs-v1`, so those records cannot be signed as written. For the SDK types, see
+  [docs/API_REFERENCE.md](../docs/API_REFERENCE.md).

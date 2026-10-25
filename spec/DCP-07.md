@@ -11,6 +11,7 @@ This specification defines a structured, auditable protocol for resolving confli
 As AI agents operating under DCP increasingly interact with one another (DCP-04), conflicts are inevitable. Agents may compete for shared resources, receive contradictory directives from different principals, disagree on capability boundaries, or interpret policies differently. Without a formal resolution mechanism, such conflicts either escalate to human operators with no structured context, or result in deadlocks and cascading failures.
 
 DCP-07 provides a protocol-level conflict resolution framework that:
+
 - Classifies disputes by type to enable appropriate resolution strategies
 - Defines a three-level escalation model, starting with agent-level negotiation
 - Creates auditable, signed records of every dispute, resolution attempt, and outcome
@@ -175,6 +176,7 @@ A dispute is `abandoned` if all escalation deadlines expire without resolution a
 The disputing agents attempt to resolve the conflict directly via DCP-04 A2A messaging.
 
 **Process:**
+
 1. Complainant opens the dispute by creating a dispute record and sending it to the respondent(s) via A2A
 2. Respondent(s) acknowledge and provide counter-evidence or proposed resolutions
 3. Agents exchange resolution proposals
@@ -182,6 +184,7 @@ The disputing agents attempt to resolve the conflict directly via DCP-04 A2A mes
 5. The resolution is recorded in an arbitration resolution record (Section 6)
 
 **Negotiation Strategies** (implementations MAY support):
+
 - **Time-sharing**: Agents take turns accessing the contested resource
 - **Priority-based**: Agent with higher priority (per policy or principal directive) proceeds first
 - **Capability-based**: Agent with greater capability relevance proceeds
@@ -194,6 +197,7 @@ The disputing agents attempt to resolve the conflict directly via DCP-04 A2A mes
 An arbitration panel is convened to resolve the dispute.
 
 **Panel Formation:**
+
 1. Each disputant nominates one or more panel candidates from a pre-approved arbitrator pool
 2. An M-of-N panel is assembled (minimum 3 members, default M=2, N=3)
 3. Panel members MUST NOT have active disputes with any disputant
@@ -201,6 +205,7 @@ An arbitration panel is convened to resolve the dispute.
 5. Panel members MUST be in `active` lifecycle state
 
 **Arbitration Process:**
+
 1. Panel reviews the dispute record, evidence, and cited precedents
 2. Panel MAY request additional evidence from disputants
 3. Panel members independently evaluate and propose resolutions
@@ -208,6 +213,7 @@ An arbitration panel is convened to resolve the dispute.
 5. The resolution is recorded with individual panel member votes
 
 **Panel Decision Types:**
+
 - `binding_resolution` — All parties must comply
 - `recommended_resolution` — Non-binding suggestion; parties may accept or escalate
 - `split_decision` — Panel could not reach M-of-N; auto-escalates to Level 3
@@ -217,12 +223,14 @@ An arbitration panel is convened to resolve the dispute.
 The dispute is escalated to human principals for resolution.
 
 **Process:**
+
 1. The full dispute record, evidence, arbitration history, and any objections are presented to the responsible principals of all disputants
 2. Principals may confer, negotiate, or apply organizational policy
 3. The human decision is recorded as a final, binding resolution
 4. If principals cannot agree, organizational escalation procedures apply (outside DCP scope)
 
 **Human Appeal Guarantees:**
+
 - Any disputant MAY escalate to human appeal at any time, bypassing earlier levels
 - Critical-severity disputes MAY begin at human appeal level
 - Human decisions are final within the DCP protocol
@@ -317,6 +325,7 @@ Schema reference: `schemas/v2/arbitration_resolution.schema.json`
 ### 6.2 Resolution Compliance
 
 After a binding resolution:
+
 1. All parties MUST comply by the specified deadline
 2. Compliance is verified via the method specified in the resolution (typically audit chain review)
 3. Non-compliance is itself a dispute (type: `policy_conflict`) and escalates directly to human appeal
@@ -397,6 +406,7 @@ Precedent is advisory, not strictly binding. Arbitration panels and human princi
 ### 7.4 Supersession
 
 A jurisprudence bundle may be superseded by a later ruling on the same issue. When superseded:
+
 - The `superseded_by` field is updated to reference the new jurisprudence bundle
 - The superseding bundle's `supersedes` field lists the old bundle(s)
 - Superseded bundles remain in the registry for historical reference but are deprioritized in precedent matching
@@ -488,6 +498,7 @@ All dispute lifecycle events generate DCP-03 audit entries:
 ### 9.2 Cross-Agent Audit Consistency
 
 Since disputes involve multiple agents, auditors SHOULD verify cross-chain consistency:
+
 1. Both disputants' audit chains should reference the same `dispute_id`
 2. Evidence submission timestamps should be consistent across chains
 3. Resolution records should be present in all disputants' chains
@@ -497,6 +508,7 @@ Since disputes involve multiple agents, auditors SHOULD verify cross-chain consi
 ### 10.1 Panel Independence
 
 Arbitration panel members MUST be independent of the disputants. Independence is verified by:
+
 - No active A2A sessions with any disputant in the preceding 30 days (configurable)
 - No shared principal with any disputant
 - No active disputes involving any disputant
@@ -505,6 +517,7 @@ Arbitration panel members MUST be independent of the disputants. Independence is
 ### 10.2 Evidence Integrity
 
 All evidence references are content-addressed (hashed). Evidence cannot be altered after submission without detection. Implementations SHOULD:
+
 - Store evidence immutably once submitted
 - Reject evidence with mismatched content hashes
 - Timestamp evidence submission in the audit chain
@@ -512,6 +525,7 @@ All evidence references are content-addressed (hashed). Evidence cannot be alter
 ### 10.3 Dispute Flooding
 
 A malicious agent could file spurious disputes to overwhelm counterparties or arbitration resources. Mitigations:
+
 - Rate limiting: Maximum disputes per agent per time period (configurable, default: 10 per 24h)
 - Filing cost: Agents that file disputes which are resolved against them accumulate a dispute score that raises their filing threshold
 - Severity validation: Critical-severity disputes require supporting evidence at filing time
@@ -519,6 +533,7 @@ A malicious agent could file spurious disputes to overwhelm counterparties or ar
 ### 10.4 Panel Collusion
 
 M-of-N arbitration mitigates individual bias but not coordinated collusion. Mitigations:
+
 - Panel members are drawn from a distributed pool across organizations
 - Panel member selection uses verifiable random functions when possible
 - Dissenting opinions are permanently recorded
@@ -531,6 +546,7 @@ All signatures under this specification use the domain separation tag `DCP-DISPU
 ## 11. Conformance
 
 An implementation is DCP-07 conformant if it:
+
 1. Supports all four dispute types as defined in Section 3
 2. Implements the three-level escalation model as defined in Section 5
 3. Supports M-of-N arbitration panels with configurable thresholds as defined in Section 5.2
@@ -552,3 +568,27 @@ An implementation is DCP-07 conformant if it:
 ---
 
 *This specification recognizes that conflict is not a failure of multi-agent systems but an inherent feature. The measure of a protocol is not whether conflicts arise, but whether they are resolved fairly, transparently, and with full accountability.*
+
+## Implementation notes (informative)
+
+> **Added 25/10/2026. Not normative.** These notes add no requirement and change nothing above: they describe how
+> the reference code on `main` relates to this text. Where they differ, the normative text above stands.
+
+- **Records in `schemas/v2/`.** The dispute record, arbitration resolution, jurisprudence bundle and objection record
+  that the SDKs build and that `schemas/v2/` validates have other fields than the examples of §4 to §8. A dispute has
+  one `respondent_agent_id`, `evidence_hashes` and no severity or deadline; its `status` is one of `open`,
+  `in_negotiation`, `arbitrated`, `appealed` or `resolved`, not the eight statuses of §4.2. An objection refers to a
+  `directive_hash` and its `objection_type` is `ethical`, `safety`, `policy_violation` or `capability_mismatch`, not
+  the four types of §8.3. A jurisprudence bundle's `authority_level` is `local`, `organizational` or `cross_org`.
+- **Signatures.** Each record carries one `composite_sig` (Ed25519 + ML-DSA-65) by whoever holds the keys passed in,
+  under the context `DCP-AI.v2.Dispute`; the SDKs do not use the tag `DCP-DISPUTE-SIG-v2`.
+- **What the helpers do.** They build and sign records; escalation and resolution happen only when the caller asks.
+  `createDispute` always starts at `direct_negotiation` with status `open`, whatever the dispute type.
+  `escalateDispute` moves one level up and sets `in_negotiation`; nothing escalates on a deadline, because there are no
+  timers. `resolveDispute` sets `resolved` at any level. `createArbitrationPanel` only checks that the threshold is at
+  least 1 and that there are at least that many arbitrator IDs; it does not check independence, vitality or lifecycle
+  state, and `submitResolution` signs the arbitrator IDs and text it receives with one key, without collecting votes.
+  `lookupPrecedent` filters by `category` and, optionally, one context; it does not rank.
+- These records are signed declarations of whoever signs them; a resolution is not enforced by the SDKs or services.
+  The examples are illustrations with placeholders, not fixtures. For the SDK types, see
+  [docs/API_REFERENCE.md](../docs/API_REFERENCE.md).

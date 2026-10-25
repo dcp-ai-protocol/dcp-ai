@@ -1,12 +1,26 @@
 # dcp_ai.langchain — LangChain Integration
 
-DCP integration with LangChain. Wraps LangChain agents with digital citizenship, generates audit trails with automatic hash-chaining, and provides verification tools.
+DCP integration with LangChain. Wraps a LangChain agent so that each call that completes leaves an entry in a hash-chained audit trail in the V2 shape, and provides a bundle verification tool and a callback handler.
+
+The wrapper keeps **unsigned records**: intents, policy decisions and audit entries are not signed, and the `secret_key` it accepts is not used. For signed, verifiable bundles of a LangChain agent, use the core SDK as in [docs/QUICKSTART_LANGCHAIN.md](../../docs/QUICKSTART_LANGCHAIN.md).
 
 ## Supported DCP Specifications
 
-DCP-01 through DCP-09.
+DCP-01 through DCP-09, partially: unsigned records in the shapes of these specifications, and bundle verification
+through `DCPTool`. It does not implement them in full.
 
 ## Installation
+
+> **Release status (25/10/2026).** PyPI has `dcp-ai` 2.9.0. In it, `DCPTool` sends every bundle to the V1 verifier: every V2 bundle is rejected, and a V1 bundle is accepted under no verifier policy. `DCPTool(verifier_policy=...)` and the V2 verification described below are in the source on `main` (see the `[Unreleased]` section of [CHANGELOG.md](../../CHANGELOG.md)).
+
+From a checkout (this page's version):
+
+```bash
+git clone https://github.com/dcp-ai-protocol/dcp-ai.git
+pip install "/path/to/dcp-ai/sdks/python[langchain]"
+```
+
+The published version (2.9.0), with the limits above:
 
 ```bash
 pip install "dcp-ai[langchain]"
@@ -15,66 +29,47 @@ pip install "dcp-ai[langchain]"
 ## Quickstart
 
 ```python
-from dcp_ai import generate_keypair
+import asyncio
+
 from dcp_ai.langchain import DCPAgentWrapper
 
-# Keypair of the responsible human
-keys = generate_keypair()
+# The wrapper reads agent_id from the passport and human_id from the RPR;
+# it does not check or sign them.
+passport = {"agent_id": "agent:research-assistant-001", "capabilities": ["browse", "api_call"]}
+rpr = {"human_id": "rpr:human-001"}
 
-# DCP agent data
-passport = {
-    "dcp_version": "1.0",
-    "agent_id": "langchain-agent-001",
-    "human_id": "human-001",
-    "agent_name": "ResearchAssistant",
-    "capabilities": ["browse", "api_call"],
-    "risk_tier": "medium",
-    "status": "active",
-    "created_at": "2025-01-01T00:00:00Z",
-    "expires_at": None,
-}
-rpr = {
-    "dcp_version": "1.0",
-    "human_id": "human-001",
-    "entity_type": "natural_person",
-    "jurisdiction": "ES",
-    "liability_mode": "full",
-    "created_at": "2025-01-01T00:00:00Z",
-    "expires_at": None,
-}
 
-# Wrap an existing LangChain agent
-wrapped = DCPAgentWrapper(
-    agent=my_langchain_agent,       # Your LangChain agent
-    passport=passport,
-    rpr=rpr,
-    secret_key=keys["secret_key_b64"],
-    auto_intent=True,               # Automatically generate intents
-)
+async def main() -> None:
+    wrapped = DCPAgentWrapper(
+        agent=my_langchain_agent,  # Fragment: your LangChain agent (ainvoke or invoke)
+        passport=passport,
+        rpr=rpr,
+    )
 
-# Execute with DCP governance
-result = wrapped.invoke({"input": "Search for information about AI"})
+    # invoke is a coroutine: await it
+    result = await wrapped.invoke({"input": "Search for information about AI"})
 
-# Query audit trail
-trail = wrapped.get_audit_trail()
-for entry in trail:
-    print(f"[{entry['timestamp']}] {entry['action_type']} -> {entry['outcome']}")
+    for entry in wrapped.get_audit_trail():
+        print(f"[{entry['timestamp']}] {entry['intent_id']}: {entry['policy_decision']} -> {entry['outcome']}")
+
+
+asyncio.run(main())
 ```
 
 ## API Reference
 
 ### `DCPAgentWrapper`
 
-Wraps a LangChain agent with full DCP citizenship.
-
 ```python
 DCPAgentWrapper(
-    agent: Any,                    # LangChain agent
-    passport: dict[str, Any],     # DCP Agent Passport
-    rpr: dict[str, Any],          # Responsible Principal Record
-    secret_key: str,              # Ed25519 secret key (base64)
-    auto_intent: bool = True,     # Auto-generate intents
-    policy_engine: Any = None,    # Custom policy engine (optional)
+    agent: Any,                         # LangChain agent: ainvoke is used when present, else invoke
+    passport: dict[str, Any],           # agent_id is read
+    rpr: dict[str, Any],                # human_id is read
+    secret_key: str = "",               # Accepted but not used: nothing is signed
+    session_nonce: str = "",            # A fresh one when empty
+    auto_intent: bool = True,           # Stored, not used: invoke always creates an intent
+    policy_engine: Any = None,          # Object with evaluate(intent) -> PolicyDecisionV2
+    pq_checkpoint_interval: int = 10,   # Stored, not used: no PQ checkpoints are made
 )
 ```
 
@@ -82,34 +77,34 @@ DCPAgentWrapper(
 
 | Method | Description |
 |--------|-------------|
-| `invoke(inputs, **kwargs)` | Executes the agent with DCP governance. Generates Intent, PolicyDecision, and AuditEntry. Blocks if decommissioned. |
-| `get_audit_trail()` | Returns the list of audit entries with hash-chaining. |
+| `await invoke(inputs, **kwargs)` | Creates an intent and a policy decision (local, not kept as lists), runs the agent and, if it returns, records an audit entry (see below). Returns an error dict, with no audit entry, when the agent is decommissioned or the decision is `block`; an exception from the agent propagates and leaves no audit entry. |
+| `get_audit_trail()` | The audit entries, hash-chained: the in-memory list itself, not a copy, so changing it changes the trail. |
+| `get_session_nonce()` | The session nonce. |
 | `commission(purpose, capabilities, risk_tier)` | Commission the agent (DCP-05 §3.1). |
 | `report_vitality(metrics_dict)` | Report vitality metrics and compute score (DCP-05 §4.1). |
 | `decommission(termination_mode, reason)` | Decommission the agent (DCP-05 §5.1). |
 | `declare_rights(rights, jurisdiction)` | Declare rights (DCP-08 §3.1). |
 
-#### Execution Flow
+#### What `invoke` does (on `main`, 25/10/2026)
 
-1. Creates an `Intent` declaring the action
-2. Evaluates the `PolicyDecision` (allow/deny)
-3. If `allow`: executes the LangChain agent
-4. Creates an `AuditEntry` with the result
-5. Chains hashes: `intent_hash` and `prev_hash` (GENESIS → hash(previous entry))
+1. Creates an intent: always `action_type: "api_call"`, channel `api`, `estimated_impact: "low"`, `data_classes: ["none"]`.
+2. Gets a policy decision. Without `policy_engine`, the decision is always `approve`. With one, its `evaluate(intent)` must return a `PolicyDecisionV2` (from `dcp_ai.v2.models`); a plain dict raises `AttributeError`.
+3. Runs the agent unless the decision is `block`; a blocked call returns an error dict and leaves **no audit entry**. An `escalate` decision does **not** stop the agent: it runs, and its audit entry records `policy_decision: "blocked"` with `outcome: "completed"`. Use `block` for anything that must not run until a human approves it.
+4. If the agent returns, records an audit entry and chains it: `intent_hash`, and `prev_hash` from `GENESIS` to the hash of the previous entry.
+
+`evidence.result_ref` holds the first 100 characters of the agent's result as text, not a hash, so it can contain personal data from the output. Treat the audit trail as data that needs the same protection as the output, or do not keep it.
 
 ### `DCPTool`
 
-LangChain tool for verifying DCP bundles from within an agent.
+LangChain-style tool for verifying DCP bundles from within an agent. It is a plain class (`name`, `description`, `run`, `arun`), not a LangChain `BaseTool`; wrap it for your LangChain version, for example:
 
 ```python
+from langchain_core.tools import StructuredTool
 from dcp_ai.langchain import DCPTool
 
-tool = DCPTool()
-
-# Use in a LangChain agent
-agent = initialize_agent(
-    tools=[tool, ...other_tools],
-    llm=llm,
+dcp = DCPTool()
+verify_tool = StructuredTool.from_function(
+    func=dcp.run, coroutine=dcp.arun, name=dcp.name, description=dcp.description,
 )
 ```
 
@@ -128,7 +123,8 @@ agent = initialize_agent(
 | `arun(signed_bundle_json)` | `(str \| dict) -> str` | Asynchronous verification |
 
 A V2 bundle is verified with `verify_signed_bundle_v2` from `dcp_ai.v2` (composite signatures,
-session binding, manifest, cross-artifact consistency, audit chain, key validity) under
+session binding, manifest, cross-artifact consistency, the SHA-256 audit chain (not the secondary SHA3-256 chain or
+root of V2-11), key validity) under
 `DCPTool(verifier_policy=...)`: a dict of `VerifierPolicy` fields set over
 `DEFAULT_VERIFIER_POLICY` (a `default_mode` without `risk_overrides` applies to every risk tier),
 or a full `VerifierPolicy`; the default is `DEFAULT_VERIFIER_POLICY`. A V1 bundle, which has an Ed25519 signature only, no
@@ -142,27 +138,38 @@ the verifier's errors. The text is bounded (at most 20 errors of 500 characters,
 200) and the parts that come from the bundle have their control and format characters escaped
 (`\u000a` for a newline), since they reach the model's context.
 
+`DCPTool` is cryptographic verification under the policy your code sets when it builds the tool
+(`DCPTool(verifier_policy=...)`), never taken from the bundle or the model. It is not admission of an anchored
+principal and authorizes no action (see [docs/ADMISSION.md](../../docs/ADMISSION.md)).
+
 ### `DCPCallback`
 
-Callback handler for automatic audit entry logging.
+Records LangChain chain events as audit entries in the V2 shape (unsigned, hash-chained). It is a plain class, not a LangChain `BaseCallbackHandler`: LangChain 1.x refuses it as a callback (`AttributeError`, checked with `langchain-core` 1.7), and it needs `run_id` as a string while LangChain passes a `UUID`. Call it from a handler of your own:
 
 ```python
+from langchain_core.callbacks import BaseCallbackHandler
 from dcp_ai.langchain import DCPCallback
 
-callback = DCPCallback(
-    agent_id="agent-001",
-    human_id="human-001",
-)
+dcp_log = DCPCallback(agent_id="agent:research-assistant-001", human_id="rpr:human-001")
 
-# Use as a callback in LangChain
-agent.invoke(
-    {"input": "..."},
-    callbacks=[callback],
-)
 
-# Get generated audit entries
-entries = callback.get_entries()
+class DCPHandler(BaseCallbackHandler):
+    """Hands LangChain's chain events to DCPCallback."""
+
+    # LangChain passes run_id as a UUID; DCPCallback records it as the entry's intent_id, a string
+    def on_chain_start(self, serialized, inputs, *, run_id, **kwargs):
+        dcp_log.on_chain_start(serialized or {}, inputs, run_id=str(run_id))
+
+    def on_chain_end(self, outputs, *, run_id, **kwargs):
+        dcp_log.on_chain_end(outputs, run_id=str(run_id))
+
+
+# Fragment: chain is your LangChain chain or agent
+chain.invoke({"input": "..."}, config={"callbacks": [DCPHandler()]})
+entries = dcp_log.get_entries()
 ```
+
+`on_chain_end` keeps the first 200 characters of the outputs as `evidence.result_ref`, which can contain personal data.
 
 #### Methods
 
@@ -173,29 +180,52 @@ entries = callback.get_entries()
 | `on_lifecycle_event(event_type, details)` | Records lifecycle events (DCP-05) |
 | `get_entries()` | Returns list of audit entries |
 
-## Advanced Example — Agent with Custom Policy Engine
+## Advanced Example — Agent with a Custom Policy Engine
+
+The wrapper's intents are always low-impact `api_call`s, so a policy engine decides on something else. Here, a stop switch a human controls:
 
 ```python
-class MyPolicyEngine:
-    def evaluate(self, intent):
-        # Deny high-impact actions
-        if intent.get("estimated_impact") == "high":
-            return {"decision": "deny", "matched_rules": ["no-high-impact"]}
-        return {"decision": "allow", "matched_rules": ["default-allow"]}
+from datetime import datetime, timezone
 
+from dcp_ai.langchain import DCPAgentWrapper
+from dcp_ai.v2.models import PolicyDecisionV2
+
+
+class StopSwitch:
+    """Approves until a human stops the agent; then blocks every call."""
+
+    def __init__(self) -> None:
+        self.stopped = False
+
+    def evaluate(self, intent):
+        return PolicyDecisionV2(
+            dcp_version="2.0",
+            intent_id=intent.intent_id,
+            session_nonce=intent.session_nonce,
+            decision="block" if self.stopped else "approve",
+            risk_score=1000 if self.stopped else 100,
+            reasons=["stopped by a human" if self.stopped else "default-allow"],
+            timestamp=datetime.now(timezone.utc).isoformat(),
+        )
+
+
+switch = StopSwitch()
 wrapped = DCPAgentWrapper(
-    agent=my_agent,
+    agent=my_agent,  # Fragment: your LangChain agent
     passport=passport,
     rpr=rpr,
-    secret_key=keys["secret_key_b64"],
-    policy_engine=MyPolicyEngine(),
+    policy_engine=switch,
 )
+# switch.stopped = True  ->  the next await wrapped.invoke(...) returns an error dict and does not run the agent
 ```
 
 ## Development
 
+From a checkout:
+
 ```bash
-pip install "dcp-ai[langchain,dev]"
+cd sdks/python
+pip install -e ".[langchain,dev]"
 pytest -v
 ```
 

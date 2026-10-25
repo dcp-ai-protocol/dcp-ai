@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | **Date** | 25/10/2026 |
-| **Version** | 1.0 |
+| **Version** | 1.1 |
 | **Classification** | Public |
-| **Status** | **Non-normative, experimental and inactive.** `dcp-jcs-v1` remains the only canonicalization profile |
+| **Status** | **Non-normative, experimental and inactive.** `dcp-jcs-v1` remains the only normative canonicalization profile and the default; the SDKs' candidate APIs (§15 to §18) are experimental and opt-in |
 | **Corpus** | [`corpus.json`](corpus.json) (revision `design-2`, 187 cases) and [`baseline-corpus.json`](baseline-corpus.json) (87 cases, plus 10 selection and 3 policy cases) |
 | **Lab tool** | [`tools/canonicalization-lab/`](../../../tools/canonicalization-lab/): design model, corpus generator and runner |
 
@@ -16,7 +16,8 @@
 > without activating it: no existing or default path calls them, only callers who opt in. Those of §15
 > and §16 verify nothing; the verifier of §17 verifies candidate bundles from their original bytes, and
 > a verified bundle grants no trust or admission. The producers of §18 make new candidate evidence for
-> those callers only; the phase 3 vectors are signed by a test-only generator. The lab tool's CI job runs
+> those callers only; the phase 3 vectors are signed by a test-only generator. These APIs are not
+> released as part of this work: the examples target the source checkout. The lab tool's CI job runs
 > the design model, the SDK test jobs run those APIs on the corpus and the phase 3 vectors, and the
 > phase 4 matrix has its own workflow. The
 > existing V2 verifiers, such as the TypeScript SDK's
@@ -114,7 +115,7 @@ fraction or exponent, `-0` as `0`; literal `null`, `true` and `false`; `{}` and 
 | D3 | **At most 64 nesting levels, counted from the root of the validated unit** (the signed bundle bytes), **never over a transport envelope** (§5) | Validity must not depend on a transport adding an envelope. 64 stays below the default recursion limit of `serde_json` (128). That is not a guarantee about other parsers, about numbers or other limits, or about operator budgets, which may be lower | Only units that select the candidate are affected |
 | D4 | **Exact value of the literal** (N1–N6) | The criterion is an exact integer in `[-(2^53-1), 2^53-1]`. Everything else is rejected: literals binary64 represents exactly but out of the domain (`0.5`, `2^53`) and literals binary64 would read as another value (`1e-400` as 0). The cost is linear; the length of a literal is a transport budget, not a profile rule | Only units that select the candidate are affected |
 | D5 | **Out of the activation scope:** artifacts without a manifest (revocations, key rotations, mandates) and A2A | The profile is declared in the signed manifest field; those artifacts have no such field. A later design can give each type its own signed field, and A2A one in the handshake transcript | They stay on `dcp-jcs-v1`. A verifier may apply the strict ingress to them by policy, but cannot claim the producer committed to the candidate |
-| D6 | **The candidate name `dcp-jcs-v2` is reserved.** No producer emits it until a normative document is approved | A draft suffix on the wire would be another identifier to maintain. Experimental tools enable it only through an explicit policy (§7), without emitting evidence | If the rules changed after an external publication, a new identifier would be needed (`dcp-jcs-v1` §5) |
+| D6 | **The candidate name `dcp-jcs-v2` is reserved.** Only the experimental, opt-in producers of §18 emit it, when a caller asks them to; no default path and no published package does. It stays a candidate name until a normative document is approved. (Revised in phase 4: before §18 there was no opt-in SDK producer; the phase 3 vectors came from a test-only generator.) | A draft suffix on the wire would be another identifier to maintain. Verifiers enable it only through an explicit policy (§7) | Evidence emitted under the candidate is experimental. If the rules changed after an external publication, a new identifier would be needed (`dcp-jcs-v1` §5) |
 | D7 | **Optional `dcp-jcs-v1` warnings.** With the bytes available, a verifier may add to a `dcp-jcs-v1` result a warning with the class and offset of the primary defect (§6) | It finds producers to fix before migrating | Never changes a `dcp-jcs-v1` verdict. An object-based API cannot emit it |
 
 ## 5. The validated unit and the transport
@@ -218,6 +219,7 @@ scanned after the five phases. For example, `{"bad":"<FF>","signed_bundle":{},"s
 ## 7. Profile selection and policy
 
 **Reading.**
+
 - **Exact path.** Only `bundle.manifest.canonicalization_profile`, from the unit root, selects. The same
   field elsewhere is data: at the root, in `bundle`, in `signature`, in a payload, or in a manifest that is
   an array.
@@ -234,7 +236,8 @@ same everywhere.
 **Delegation.** `v1_path` hands the unit, unchanged, to today's `dcp-jcs-v1` verifier. For a unit the
 scanner can walk, the scanner reads the field as a parser that keeps the last duplicate does; for one it
 cannot walk, today's parser decides. That `dcp-jcs-v1` verdicts are preserved is a **design argument**,
-resting on how parsers read the path; it is not measured in any SDK here.
+resting on how parsers read the path; the lab's design model does not measure it. What the SDK phases
+measured is in §16 to §18 (for example the decoder readings of §16 and the matrix of §18.1).
 
 **Policy.** `accepted_canonicalization_profiles` is a non-empty list of known identifiers without
 repeats. Anything else (an empty list, a bare string, `null`, non-string entries such as `[[]]`, `[{}]`
@@ -399,7 +402,7 @@ Exit code 1 means a case, a result or a control differs; 2 means the data is inv
 Phase 1 of the SDK implementation plan (not a phase of §9) adds an experimental, opt-in ingress of one
 unit to each SDK. It is not normative, and no existing or default path calls it: only callers who opt in do.
 It changes no `dcp-jcs-v1` function, default, signer or verifier. The ingress itself does not read the
-profile (the router of §16 does) and no SDK emits `dcp-jcs-v2`.
+profile (the router of §16 does) and emits nothing; the producers came in phase 4 (§18).
 
 | SDK | API |
 |---|---|
@@ -416,6 +419,7 @@ its class and byte offset. A wrong argument type and an internal error are repor
 rejection.
 
 **What it does not do:**
+
 - extract a unit from a transport (§5, §6.3);
 - select a profile or apply a policy (§6.4 steps 1, 5 and 6; §7);
 - delegate to `dcp-jcs-v1`;
@@ -423,6 +427,7 @@ rejection.
 
 **Tests.** Each of the four SDKs (TypeScript, Python, Go and Rust) runs these cases against the
 stored expectations (the class and offset, or the canonical hash):
+
 - the 87 baseline units;
 - the 81 bare document cases of `corpus.json`.
 
@@ -434,6 +439,7 @@ late grammar error.
 The WASM test runs the real Rust binding through the `@dcp-ai/wasm` wrapper on the same 168 cases,
 comparing class and offset or canonical bytes and hash; it gets no value, so it makes no `dcp-jcs-v1`
 comparison. It also checks the JS/WASM boundary:
+
 - bytes reach Rust unchanged (an invalid byte, a BOM, a NUL escape, a view of a larger buffer);
 - a 20 000-level unit returns;
 - an argument that is not a `Uint8Array` is a `TypeError`.
@@ -462,12 +468,14 @@ a candidate.
 
 **Configuration.** The transport (`bare` or `envelope`), the accepted profiles and the historical adapter
 are required; none has a default.
+
 - They are validated with strict types when the router is created, before any input.
 - An invalid configuration is a configuration error (`POLICY_INVALID` or `CONFIG_INVALID`), never a
   rejection of the data.
 - The router keeps a private snapshot, so later changes to the caller's objects change nothing.
 
 **Results.**
+
 - **`reject`:** the class (a transport class, a scanner class, `PROFILE_UNKNOWN` or `PROFILE_NOT_ACCEPTED`)
   and its offsets. `offset` is relative to the unit; `transport_offset` is in the input.
 - **`v1_path`:** the unit, the warning (D7) and what the historical adapter returned.
@@ -483,6 +491,7 @@ The names are equivalent across SDKs in each language's style: `profileSource`, 
 
 **Historical adapters.** An adapter reproduces one real decoder, and the router consults it at most once, only
 where §6.4 needs it:
+
 - to decide on a unit the scanner cannot walk;
 - to produce the value of a delegation.
 
@@ -494,6 +503,7 @@ the candidate rules: NaN, infinities and lone surrogates are kept only where tha
 than by refusing the data is an adapter error, not a rejection.
 
 The WASM wrapper reproduces two distinct paths, measured separately and not assumed equivalent:
+
 - **`w1`:** an object, through `JSON.stringify`, to Rust;
 - **`w2`:** a text to the binding.
 
@@ -501,6 +511,7 @@ Its bindings are stateless. `resume` recomputes the decision point from its own 
 in a rejection or a delegation.
 
 **Tests.** Each SDK and WASM run these cases:
+
 - the 9 configuration cases;
 - the 28 document envelope cases;
 - the 58 walkable bundle cases, where `accept_v2` and `COMMITMENT_MISMATCH` are checked only as `candidate`;
@@ -509,6 +520,7 @@ in a rejection or a delegation.
   corpus parameter `historical` is not used as evidence.
 
 They also check:
+
 - a v1 parity with no differences: bare, `["dcp-jcs-v1"]`, every built-in adapter, on the public signed
   bundles and variants generated from them;
 - the grammar walker against the phase 1 scanner;
@@ -521,6 +533,7 @@ gates is met by it, and the candidate stays inactive.
 
 Phase 3 of the SDK implementation plan adds an experimental, opt-in verifier of original bytes to each SDK.
 It routes the bytes once with the router of §16 and runs at most one verifier:
+
 - none for a rejection;
 - for `v1_path`, today's V2 verifier, on exactly what a current caller would hand it;
 - for `candidate`, today's V2 verifier, accepting exactly `dcp-jcs-v2` in the manifest.
@@ -541,6 +554,7 @@ admission and authorizes nothing.
 
 **Configuration and parameters.** The configuration is the router's (§16): the transport, the accepted
 profiles and the historical adapter, all required and none with a default.
+
 - Go names its adapter by the closed name `encoding_json` and builds that decoder itself, so changing the
   exported `ExperimentalHistoricalEncodingJSON` changes nothing.
 - The verification parameters are those of each SDK's V2 verifier, with the same defaults, the optional
@@ -554,10 +568,12 @@ hash or session check first, and its result says so.
 **The candidate path.** It is today's verifier with one change, the manifest profile it accepts; every hash,
 signature and helper is today's. On the exact values the candidate accepts, the `dcp-jcs-v1` canonicalizer
 gives the candidate's bytes (§3.4).
+
 - TypeScript, Python and Rust verify the exact value.
 - Go verifies the candidate's canonical bytes, so its parser never reads a literal the candidate normalized.
 
 **Delegation.** It hands today's verifier exactly the input a current caller gives it.
+
 - **TypeScript, Python and Rust:** the value the adapter decoded.
   - A decoded `null` is data, and is delegated.
   - When the decoder refused the data there is no value, and nothing runs (`entered: none`).
@@ -572,6 +588,7 @@ gives the candidate's bytes (§3.4).
 
 **Vectors.** [`tests/interop/candidate/phase3-signed-vectors.json`](../../../tests/interop/candidate/phase3-signed-vectors.json)
 has 18 frozen bases and 57 cases.
+
 - **Bases:** 16 signed bundles, the V1 conformance bundle, and `null`.
   - 15 are signed by a test-only generator of the TypeScript SDK (not a producer API).
   - The 16th is `B-reordered`: the same signed bundle as `B-v2`, with its members in reverse order and
@@ -592,6 +609,7 @@ and declared profile), and every case and expectation. The TypeScript test verif
 16 signed bases with the composite primitives, semantically invalid bases included.
 
 **Tests.** Each SDK and WASM run:
+
 - before any case, a check that the vectors carry exactly the 57 approved case IDs, each once; a missing,
   repeated or unknown ID fails it;
 - the 57 cases, with each built-in adapter;
@@ -617,6 +635,7 @@ and declared profile), and every case and expectation. The TypeScript test verif
 
 **Gates.** At phase 3, none of the ten gates of §9 was declared met; the ledger is §18.4, and the candidate
 stays inactive.
+
 - **Evidence toward:**
   - gate 1: the synthetic bundle cases, re-expressed as real signed bundles;
   - gate 3: on the committed values of the positives;
@@ -645,6 +664,7 @@ inactive and no package is published. A bundle they produce grants no trust or a
 | WASM | `DcpWasm.experimentalCandidateSignPayload(context, input, keys)` and `experimentalCandidateSignBundle(parts, signer, options)`, over the bindings `wasm_experimental_candidate_sign_payload` and `wasm_experimental_candidate_sign_bundle`, which receive only bytes |
 
 **Inputs.** Each piece is either:
+
 - **bytes:** the original bytes, checked by the phase 1 ingress (§15) before anything parses them. This is the
   way for JSON received from elsewhere: only the bytes keep what a parser repairs or loses;
 - **a host value:** checked by a strict walk over the exact types of the language and encoded after the check.
@@ -661,6 +681,7 @@ output bytes and gives them back unchanged.
 
 **`signBundle`** assembles the bundle over exact values. Parts are artifacts, audit entries and optional PQ
 checkpoints, each as bytes or a value.
+
 - Members it does not know are kept. Those outside a payload, an entry, a checkpoint or the manifest are not
   signed, so their integrity is not claimed.
 - Received evidence is never relabeled or recomputed. An artifact whose `payload_hash` is not its payload's
@@ -691,6 +712,7 @@ Five producers (TypeScript, Python, Go, Rust and WASM) sign the same input bytes
 Every consumer verifies every output with the verifier of §17. The runner and its specifications are in
 [`tests/interop/candidate/phase4/`](../../../tests/interop/candidate/phase4/); the synthetic keys are made per
 run and are never written outside the run directory.
+
 - **Positives:** 12 specifications (`S01`–`S12`) in bytes and value modes, plus a ring: `S01` assembled from the
   artifacts the next producer signed. That makes 115 units, each verified by 5 consumers: 575 results.
   They cover:
@@ -721,6 +743,7 @@ run and are never written outside the run directory.
 ### 18.2 Host values (gate 2)
 
 Each corpus ID is classified per language as:
+
 - **R:** represented exactly, with the class of the bytes;
 - **T:** represented only as an already transformed value, whose class may change;
 - **P:** refused by the parser first;
@@ -762,6 +785,7 @@ machine (Apple M5 Pro; Node 22.15, Python 3.12, Go 1.26, Rust 1.93 release):
 
 **Limits.** These times are not a measure of the canonicalization alone, and they show neither an improvement
 nor a regression:
+
 - **The outputs differ.** The v1 bytes are each SDK's JSON serialization (Python's has spaces), while the
   candidate's are canonical.
 - **The builders differ.** The Go, Rust and WASM v1 builders add the secondary root, and the candidate here

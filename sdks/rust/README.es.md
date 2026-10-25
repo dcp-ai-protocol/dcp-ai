@@ -1,56 +1,79 @@
 <sub>[English](README.md) · [中文](README.zh-CN.md) · **Español** · [日本語](README.ja.md) · [Português](README.pt-BR.md)</sub>
 
-# dcp-ai — SDK Rust
+<a id="dcp-ai-rust-sdk"></a>
 
-SDK oficial de Rust para el Digital Citizenship Protocol (DCP v2.0). Tipos basados en Serde, criptografía híbrida post-cuántica (Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768), firmas compuestas con enlace `pq_over_classical`, cadenas duales de hash, observabilidad con OpenTelemetry, comportamiento DCP-04..09 y soporte opcional para WebAssembly.
+# dcp-ai — SDK de Rust
+
+> Traducción informativa del [README en inglés](README.md), actualizada el 25/10/2026. Los identificadores y los bloques de código, incluidos sus comentarios, se conservan en el idioma original para mantener los ejemplos verificados.
+
+SDK oficial de Rust para el Digital Citizenship Protocol (DCP v2.0). Ofrece tipos basados en Serde, criptografía poscuántica híbrida (Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768), firmas compuestas con vinculación `pq_over_classical`, cadenas de hash duales, observabilidad con OpenTelemetry, comportamiento DCP-04..09 y soporte opcional para WebAssembly.
+
+La verificación comprueba integridad y firmas; no establece confianza en el principal, admisión ni autorización para actuar. El verificador V2 actual comprueba la cadena de auditoría primaria, pero no recalcula la cadena SHA3-256 opcional ni su raíz Merkle secundaria. Consulta [la limitación documentada del verificador](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains) y usa las API de admisión descritas más abajo cuando se requiera confianza.
+
+<a id="installation"></a>
 
 ## Instalación
 
-Agrega a `Cargo.toml`:
+**Estado de publicación.** Este README describe el código de `main`. La última versión etiquetada, `v2.10.0`, contiene `dcp-ai` 2.10.0. Lo que el historial enumera en [`[Unreleased]`](../../CHANGELOG.md#unreleased) todavía no forma parte de una versión etiquetada: construcción y firma de bundles V2 (`dcp_ai::v2::bundle`), admisión, cadenas de delegación, ventana de recepción A2A y API experimentales de `dcp-jcs-v2`. Para ejecutar los ejemplos siguientes, usa el repositorio o un checkout como dependencia:
+
+```toml
+[dependencies]
+dcp-ai = { git = "https://github.com/dcp-ai-protocol/dcp-ai", branch = "main" }
+# or, from a checkout:
+# dcp-ai = { path = "/path/to/dcp-ai/sdks/rust" }
+```
+
+El crate publicado, sin las funciones aún no publicadas:
 
 ```toml
 [dependencies]
 dcp-ai = "2.10"
 ```
 
-Con exportador OpenTelemetry/OTLP:
+Con exportación OpenTelemetry/OTLP:
 
 ```toml
 [dependencies]
 dcp-ai = { version = "2.10", features = ["otlp"] }
 ```
 
-Para soporte WebAssembly:
+Para soporte de WebAssembly:
 
 ```toml
 [dependencies]
 dcp-ai = { version = "2.10", features = ["wasm"] }
 ```
 
-## Características
+<a id="features"></a>
+
+## Funciones
 
 | Área | Estado |
 |---|---|
-| Providers Ed25519 / ML-DSA-65 / SLH-DSA-192f / ML-KEM-768 | Sí |
-| Firmas compuestas (`pq_over_classical`) + verificación | Sí |
-| JSON canónico v2 + separación de dominio | Sí |
-| Hash dual (SHA-256 + SHA3-256) + raíces de Merkle | Sí |
-| Verificación de bundle (V1 + V2; V2 con política de verificador y nivel de seguridad, `verify_signed_bundle_v2_with_policy`) | Sí |
-| Construcción y firma de bundles V2 (`dcp_ai::v2::bundle`: `build_bundle_v2`, `sign_bundle_v2`; `wasm_build_bundle` / `wasm_sign_bundle` de la feature `wasm` las llaman; aún sin checkpoints PQ) | Sí |
-| Ciclo de vida de agente DCP-05 (commissioning / vitalidad / decommissioning) | Sí |
+| Proveedores Ed25519 / ML-DSA-65 / SLH-DSA-192f / ML-KEM-768 | Sí |
+| Firmas compuestas (`pq_over_classical`) y verificación | Sí |
+| JSON canónico v2 y separación de dominios | Sí |
+| Hash dual (SHA-256 + SHA3-256) y raíces Merkle | Sí |
+| Verificación de bundles (V1 + V2; V2 bajo una política del verificador y el nivel de seguridad, `verify_signed_bundle_v2_with_policy`) | Sí |
+| Construcción y firma de bundles V2 (`dcp_ai::v2::bundle`: `build_bundle_v2`, `sign_bundle_v2`; `wasm_build_bundle` / `wasm_sign_bundle` de la función `wasm` las llaman; todavía sin checkpoints PQ) | Sí, sin publicar |
+| Ciclo de vida de agentes DCP-05 (puesta en servicio / vitalidad / retirada de servicio) | Sí |
 | Sucesión digital DCP-06 (testamento, transferencia de memoria, ceremonia) | Sí |
-| Resolución de disputas + arbitraje + jurisprudencia DCP-07 | Sí |
-| Derechos + obligaciones + compliance DCP-08 | Sí |
-| Delegación + cadenas de delegación verificables (`create_sub_mandate`, `verify_mandate_chain`, §3.5) + umbral de conciencia + espejo del principal DCP-09 | Sí |
-| Descubrimiento A2A DCP-04 + handshake + derivación de id de sesión | Sí |
-| Cifrado de sesión A2A AES-256-GCM DCP-04 | _Diferido a una release posterior_ |
-| Helpers de nonce de sesión, motor de nivel de seguridad (`compute_security_tier(&intent, Some(&policy_decision))`, spec §14.2; `compute_security_tier_with_floor` añade el nivel de una cadena de delegación), revocación de emergencia | Sí |
-| Checkpoints PQ perezosos + `PQCheckpointManager` | Sí |
-| RPR blinded, autorización multi-parte, helpers de aviso de algoritmo | Sí |
-| Códigos de error canónicos (38 compartidos entre todos los SDKs) + `detect_wire_format` | Sí |
-| Exportador OpenTelemetry / OTLP (feature opcional `otlp`) | Sí |
+| Resolución de disputas, arbitraje y jurisprudencia DCP-07 | Sí |
+| Derechos, obligaciones y cumplimiento DCP-08 | Sí |
+| Delegación DCP-09 y cadenas de delegación verificables (`create_sub_mandate`, `verify_mandate_chain`, §3.5), umbral de consciencia y espejo del principal | Sí |
+| Descubrimiento A2A DCP-04, handshake y derivación del identificador de sesión | Sí |
+| Cifrado de sesión A2A DCP-04 con AES-256-GCM | _Pospuesto a una versión posterior_ |
+| Funciones auxiliares del nonce de sesión, motor de niveles de seguridad (`compute_security_tier(&intent, Some(&policy_decision))`, especificación §14.2; `compute_security_tier_with_floor` añade el nivel de una cadena de delegación), revocación de emergencia | Sí |
+| Checkpoints PQ diferidos y `PQCheckpointManager` | Sí |
+| RPR cegado, autorización multipartita y funciones auxiliares de avisos sobre algoritmos | Sí |
+| Códigos de error canónicos (38 compartidos entre todos los SDK) y `detect_wire_format` | Sí |
+| Exportador OpenTelemetry / OTLP (función opcional `otlp`) | Sí |
+| Admisión: principales de confianza y perfil `strict-v1` | Sí, sin publicar |
+| Candidato de canonicalización `dcp-jcs-v2` (ingreso, router, verificador de bytes, productores) | Experimental y de activación explícita, sin publicar; no normativo |
 
-## Inicio Rápido
+<a id="quickstart"></a>
+
+## Inicio rápido
 
 ```rust
 use dcp_ai::crypto::{generate_keypair, sign_object, verify_object, hash_object};
@@ -78,9 +101,12 @@ fn main() {
 }
 ```
 
-### Verificar un Signed Bundle
+<a id="verify-a-signed-bundle"></a>
+
+### Verificar un bundle firmado
 
 ```rust
+// Needs citizenship_bundle.signed.json in the working directory and the signer's public key in place of BASE64_PUBLIC_KEY.
 use dcp_ai::verify::verify_signed_bundle;
 use serde_json;
 use std::fs;
@@ -91,39 +117,49 @@ fn main() {
 
     let result = verify_signed_bundle(&signed_bundle, Some("BASE64_PUBLIC_KEY"));
     println!("Verified: {}", result.verified);
-    if !result.errors.is_empty() {
-        println!("Errors: {:?}", result.errors);
+    if let Some(errors) = &result.errors {
+        println!("Errors: {:?}", errors);
     }
 }
 ```
 
+<a id="api-reference"></a>
+
 ## Referencia de API
 
-### Crypto (`dcp_ai::crypto`)
+<a id="crypto-dcp_aicrypto"></a>
+
+### Criptografía (`dcp_ai::crypto`)
 
 | Función | Firma | Descripción |
 |----------|-----------|-------------|
 | `generate_keypair()` | `() -> (String, String)` | Devuelve `(public_key_b64, secret_key_b64)` |
-| `sign_object(obj, secret_key_b64)` | `(&Value, &str) -> Result<String, String>` | Firma, devuelve base64 |
-| `verify_object(obj, sig_b64, pub_b64)` | `(&Value, &str, &str) -> Result<bool, String>` | Verifica firma |
-| `canonicalize(obj)` | `(&Value) -> String` | JSON determinístico |
-| `hash_object(obj)` | `(&Value) -> String` | SHA-256 hex |
-| `merkle_root_from_hex_leaves(leaves)` | `(&[String]) -> Option<String>` | Raíz de Merkle |
+| `sign_object(obj, secret_key_b64)` | `(&Value, &str) -> Result<String, String>` | Firma y devuelve base64 |
+| `verify_object(obj, sig_b64, pub_b64)` | `(&Value, &str, &str) -> Result<bool, String>` | Verifica la firma |
+| `canonicalize(obj)` | `(&Value) -> String` | JSON determinista |
+| `hash_object(obj)` | `(&Value) -> String` | SHA-256 hexadecimal |
+| `merkle_root_from_hex_leaves(leaves)` | `(&[String]) -> Option<String>` | Raíz Merkle |
+
+<a id="verification-dcp_aiverify"></a>
 
 ### Verificación (`dcp_ai::verify`)
 
 ```rust
+// Signature (not runnable)
 fn verify_signed_bundle(
     signed_bundle: &Value,
     public_key_b64: Option<&str>,
 ) -> VerificationResult
 ```
 
-Verifica: firma Ed25519, `bundle_hash`, `merkle_root`, cadena de `intent_hash`, cadena de `prev_hash`.
+Verifica: firma Ed25519, `bundle_hash`, `merkle_root`, cadena de `intent_hash` y cadena de `prev_hash`.
+
+<a id="types-dcp_aitypes"></a>
 
 ### Tipos (`dcp_ai::types`)
 
 ```rust
+// Declarations, fields elided (not runnable)
 pub struct ResponsiblePrincipalRecord { ... }
 pub struct AgentPassport { ... }
 pub struct Intent { ... }
@@ -141,13 +177,15 @@ pub struct VerificationResult {
 }
 ```
 
-Todos los structs implementan `Serialize` + `Deserialize` (serde).
+Todas las estructuras implementan `Serialize` + `Deserialize` (serde).
+
+<a id="v2-types-dcp_aiv2types"></a>
 
 ### Tipos V2 (`dcp_ai::v2::types`)
 
-V2 incluye structs derivados con Serde para todos los artefactos de DCP-05 a DCP-09:
+V2 incluye estructuras derivadas de Serde para todos los artefactos de DCP-05 a DCP-09:
 
-| Spec | Tipos |
+| Especificación | Tipos |
 |------|-------|
 | DCP-05 | `LifecycleState`, `CommissioningCertificate`, `VitalityReport`, `VitalityMetrics`, `DecommissioningRecord`, `TerminationMode`, `DataDisposition` |
 | DCP-06 | `DigitalTestament`, `SuccessionRecord`, `MemoryTransferManifest`, `MemoryTransferEntry`, `SuccessorPreference`, `MemoryClassification`, `TransitionType`, `MemoryDisposition` |
@@ -155,45 +193,117 @@ V2 incluye structs derivados con Serde para todos los artefactos de DCP-05 a DCP
 | DCP-08 | `RightsDeclaration`, `RightEntry`, `ObligationRecord`, `RightsViolationReport`, `RightType`, `ComplianceStatus` |
 | DCP-09 | `DelegationMandate`, `AdvisoryDeclaration`, `PrincipalMirror`, `InteractionRecord`, `AwarenessThreshold`, `ThresholdRule`, `AuthorityScopeEntry` |
 
-Constantes de separación de dominio: `CTX_LIFECYCLE`, `CTX_SUCCESSION`, `CTX_DISPUTE`, `CTX_RIGHTS`, `CTX_DELEGATION`, `CTX_AWARENESS`
+Constantes de separación de dominios: `CTX_LIFECYCLE`, `CTX_SUCCESSION`, `CTX_DISPUTE`, `CTX_RIGHTS`, `CTX_DELEGATION`, `CTX_AWARENESS`
 
-Todos los structs derivan `Debug`, `Clone`, `Serialize`, `Deserialize`. Los enums usan `#[serde(rename_all = "snake_case")]`. Los campos opcionales usan `Option<T>` con `#[serde(skip_serializing_if = "Option::is_none")]`.
+Todas las estructuras derivan `Debug`, `Clone`, `Serialize` y `Deserialize`. Las enumeraciones usan `#[serde(rename_all = "snake_case")]`. Los campos opcionales usan `Option<T>` con `#[serde(skip_serializing_if = "Option::is_none")]`.
 
-### Bundles (`dcp_ai::v2::bundle`)
+<a id="bundles-dcp_aiv2bundle-unreleased"></a>
 
-| Función | Descripción |
-|----------|-------------|
-| `build_bundle_v2(&rpr, &passport, &intent, &policy, &audit_entries, session_nonce)` | Construye el bundle V2 con los cuatro `SignedPayload` y la auditoría. Comprueba cada `payload_hash` y el `session_nonce` de cada artefacto y entrada de auditoría, y escribe el manifiesto con las dos raíces Merkle de la auditoría; una auditoría vacía lleva raíces de 64 ceros |
-| `sign_bundle_v2(bundle, &classical, &pq)` | Firma el manifiesto con firma compuesta bajo `CTX_BUNDLE` y devuelve `{bundle, signature}`, con `signer.id` igual al `human_id` del RPR. Pon `session_expires_at` o `intended_verifier` en el manifiesto antes de firmar; con `session_expires_at` y sin `session_issued_at`, fija `session_issued_at` al momento de la firma |
-
-### Cadenas de Delegación (`dcp_ai::v2::delegation`, DCP-09 §3.5)
+### Bundles (`dcp_ai::v2::bundle`, sin publicar)
 
 | Función | Descripción |
 |----------|-------------|
-| `create_delegation_mandate_with_options(ed, pq, human_classical, human_pq, params, &MandateChainOptions)` | Mandato raíz firmado por el humano, con `sub_delegation` y `minimum_security_tier` opcionales |
+| `build_bundle_v2(&rpr, &passport, &intent, &policy, &audit_entries, session_nonce)` | Construye el bundle V2 a partir de los cuatro `SignedPayload` y la traza de auditoría. Comprueba cada `payload_hash` y el `session_nonce` de cada artefacto y entrada de auditoría, y escribe el manifiesto con ambas raíces Merkle de auditoría; una traza vacía recibe raíces de 64 ceros |
+| `sign_bundle_v2(bundle, &classical, &pq)` | Firma el manifiesto con una firma compuesta bajo `CTX_BUNDLE` y devuelve `{bundle, signature}`, con `signer.id` igual al `human_id` de la RPR. Incluye `session_expires_at` o `intended_verifier` en el manifiesto antes de firmar; si existe `session_expires_at` y falta `session_issued_at`, establece `session_issued_at` en el momento de la firma |
+
+<a id="delegation-chains-dcp_aiv2delegation-dcp-09-35-unreleased"></a>
+
+### Cadenas de delegación (`dcp_ai::v2::delegation`, DCP-09 §3.5, sin publicar)
+
+| Función | Descripción |
+|----------|-------------|
+| `create_delegation_mandate_with_options(ed, pq, human_classical, human_pq, params, &MandateChainOptions)` | Mandato raíz firmado por la persona, con `sub_delegation` y `minimum_security_tier` opcionales |
 | `create_sub_mandate(ed, pq, classical, pq_key, &parent, SubMandateParams { .. })` | Submandato firmado por el agente del mandato padre bajo el contexto `DCP-AI.v2.SubMandate` |
-| `verify_mandate_chain(&chain, &revoked_ids, &MandateChainKeys { human_keys, agent_keys }, now_millis)` | Verifica la cadena empezando por la raíz y offline (firmas hasta el humano, enlaces y profundidad, `sub_delegation`, validez anidada, atenuación de acciones, `data_classes` y `limits`, nivel mínimo, revocación); devuelve `MandateChainResult { valid, errors, depth, effective_tier }` |
+| `verify_mandate_chain(&chain, &revoked_ids, &MandateChainKeys { human_keys, agent_keys }, now_millis)` | Verifica la cadena sin conexión, empezando por la raíz (firmas hasta la persona, enlaces y profundidad, `sub_delegation`, vigencia anidada, restricción de acciones, `data_classes` y `limits`, nivel mínimo y revocación); devuelve `MandateChainResult { valid, errors, depth, effective_tier }` |
 
-### Admisión: confianza en el principal y strict-v1
+<a id="admission-dcp_aiv2-specprofilesadmission-unreleased"></a>
 
-Un bundle verificado prueba integridad y firma, no quién es el principal. La admisión ([spec/profiles/admission](../../spec/profiles/admission/README.md), guía en [docs/ADMISSION.md](../../docs/ADMISSION.md)) añade un conjunto de confianza del operador que fija las claves de cada principal, y el perfil `strict-v1`, fijado por el operador (firmas híbridas, audiencia firmada, una sesión firmada de 300 s como máximo y una instantánea de revocación de 300 s como máximo). No hace E/S de red y nunca autoriza una acción: `action_authorized` es siempre `false`. Un conjunto de confianza o un perfil que no se puede cargar devuelve `AdmissionConfigError { code, message }`.
+### Admisión (`dcp_ai::v2`, spec/profiles/admission, sin publicar)
+
+Determina si un bundle V2 verificado se admite como evidencia de un principal en el que el operador ya confía, opcionalmente bajo el perfil `strict-v1`. El conjunto de confianza, el perfil y la fuente de revocación proceden del operador, nunca del bundle ni de la petición.
 
 | Función | Descripción |
-|---|---|
-| `verify_signed_bundle_v2_at(&b, &policy, now_ms)` | Verifica en el instante dado; devuelve `V2VerificationDetails`: el mismo `V2VerificationResult` (`result`) y las claves firmantes (`signer_keys`). `V2VerificationResult` conserva su forma de diez campos y las otras dos funciones conservan sus firmas |
-| `PrincipalTrustStore::from_json(&json)` | Carga y valida un conjunto de confianza |
-| `resolve_strict_v1_profile(&json)` | Carga y valida un perfil `strict-v1`, de solo lectura |
-| `revocation_subjects(&b, &verification)` | El `agent_id` y los kids verificados que debe responder la fuente de revocación |
-| `evaluate_admission_v2(&b, &verification, &opts)` | Evalúa la admisión desde un resultado del verificador, sin criptografía ni E/S |
-| `admit_signed_bundle_v2(&b, &opts)` | Verifica con la política del perfil y evalúa |
+|----------|-------------|
+| `verify_signed_bundle_v2_at(&b, &policy, now_ms)` | `verify_signed_bundle_v2_with_policy` en `now_ms` (milisegundos desde la época Unix), que se usa en todas las comprobaciones temporales; las otras dos funciones de verificación usan el reloj del sistema. Devuelve `V2VerificationDetails`: el mismo `V2VerificationResult` en `result` y `signer_keys`, que enumera, para cada firma compuesta comprobada, la clave resuelta de cada componente y si se verificó. `V2VerificationResult` conserva su forma de diez campos y las otras dos funciones conservan sus firmas |
+| `PrincipalTrustStore::from_json(&json)` | Carga un conjunto de confianza (`schemas/v2/principal_trust_set.schema.json`) |
+| `resolve_strict_v1_profile(&json)` | Carga un perfil `strict-v1` (`schemas/v2/admission_profile.schema.json`); `policy()`, `verifier_id()`, `max_session_duration_seconds()` y `max_revocation_age_seconds()` son de solo lectura |
+| `revocation_subjects(&b, &verification)` | El `agent_id` del pasaporte y los kid ordenados de las claves de firmantes verificadas, para la fuente de revocación del operador |
+| `evaluate_admission_v2(&b, &verification, &AdmissionOptions { .. })` | Admisión a partir de un resultado de verificación, sin criptografía ni E/S |
+| `admit_signed_bundle_v2(&b, &AdmitOptions { .. })` | Verifica en `now_ms` (reloj del sistema cuando es `None`) bajo la política del perfil, o bajo `policy` cuando no hay perfil, y después evalúa |
 
-La sección completa, con un ejemplo, está en el [README en inglés](README.md#admission-dcp_aiv2-specprofilesadmission).
-
-### Feature `wasm`
-
-Cuando el feature `wasm` está habilitado, el crate expone bindings WebAssembly:
+Un conjunto de confianza o perfil que no pueda cargarse, un perfil sin conjunto de confianza y un perfil con una política del llamador devuelven `AdmissionConfigError { code, message }`. `AdmissionResult` se serializa con las claves de §5.2 (`verified`, `verification`, `principal_trust`, `profile`, `profile_compliance`, `admitted`, `action_authorized`, `recorded_decision`, `trust_set_version`, `errors`); `action_authorized` siempre es `false`. La `verifier_policy` de un perfil puede restringir `accepted_classical_algs` y `accepted_pq_algs`, que el verificador aplica; fija `min_classical`, `min_pq`, `accepted_hash_algs` y `max_key_age_days` en sus valores predeterminados.
 
 ```rust
+// Fragment, inside a function returning a Result: profile_json, trust_set_json, signed_bundle, now_ms and revocation_source come from your application.
+use dcp_ai::v2::{
+    evaluate_admission_v2, resolve_strict_v1_profile, revocation_subjects, verify_signed_bundle_v2_at,
+    AdmissionOptions, PrincipalTrustStore,
+};
+
+let profile = resolve_strict_v1_profile(&profile_json)?;
+let trust = PrincipalTrustStore::from_json(&trust_set_json)?;
+let verification = verify_signed_bundle_v2_at(&signed_bundle, profile.policy(), now_ms);
+// Ask the operator's revocation source about these; None when it cannot answer.
+let snapshot: Option<serde_json::Value> = revocation_source(&revocation_subjects(&signed_bundle, &verification));
+let result = evaluate_admission_v2(
+    &signed_bundle,
+    &verification,
+    &AdmissionOptions { profile: Some(&profile), trust: Some(&trust), revocation: snapshot.as_ref(), now_ms },
+)?;
+if result.admitted {
+    // Authentic evidence from a trusted principal; not an authorization to act.
+}
+```
+
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
+
+### Experimental: candidato de canonicalización `dcp-jcs-v2` (activación explícita, sin publicar)
+
+No es normativo ni está activo: `dcp-jcs-v1` sigue siendo el único perfil de canonicalización y no cambia ningún valor predeterminado, constructor, firmante ni verificador. Estos módulos están disponibles para los llamadores que opten por usarlos desde un checkout del código (consulta el estado de publicación). Un bundle candidato verificado no otorga confianza ni admisión. Diseño y contrato: [`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md) (§15 ingreso, §16 router, §17 verificador, §18 productores).
+
+| Módulo | API |
+|---|---|
+| `dcp_ai::v2::experimental_candidate_ingress` | `experimental_candidate_ingress(&[u8])`: `CandidateIngressOutcome::Accept { value, canonical, canonical_sha256 }` o `Reject { class, offset }` |
+| `dcp_ai::v2::experimental_candidate_router` | `CandidateRouter::new(CandidateRouterConfig { transport, accepted_profiles, historical })`; decodificador `HistoricalAdapter::serde_json_from_slice()`, ninguno predeterminado |
+| `dcp_ai::v2::experimental_candidate_verify` | `CandidateVerifier::new(config)` y `verify_at(input, policy, now_ms)` |
+| `dcp_ai::v2::experimental_candidate_produce` | `sign_payload(context, &CandidateInput, &CandidateKeys)` y `sign_bundle(&BundleParts, &BundleSigner, &BundleOptions)`; `ProduceError::Reject` para el dominio o la forma de las entradas (antes de ejecutar cualquier firmante), `Usage`, `Provider` |
+
+```rust
+use dcp_ai::providers::{ed25519::Ed25519Provider, ml_dsa_65::MlDsa65Provider};
+use dcp_ai::v2::composite_ops::CompositeKeyInfo;
+use dcp_ai::v2::crypto_provider::CryptoProvider;
+use dcp_ai::v2::experimental_candidate_ingress::{experimental_candidate_ingress, CandidateIngressOutcome};
+use dcp_ai::v2::experimental_candidate_produce::{sign_payload, CandidateInput, CandidateKeys};
+
+fn main() {
+    // The ingress decides on the original bytes: 1.0 is the integer 1, members are sorted.
+    if let Ok(CandidateIngressOutcome::Accept { canonical, .. }) = experimental_candidate_ingress(br#"{"b":1.0,"a":[]}"#) {
+        println!("{}", String::from_utf8(canonical).unwrap()); // {"a":[],"b":1}
+    }
+    if let Ok(CandidateIngressOutcome::Reject { class, offset }) = experimental_candidate_ingress(br#"{"a":1,"a":2}"#) {
+        println!("{} {}", class.as_str(), offset); // DUPLICATE_KEY 7
+    }
+
+    // A producer signs an artifact from those bytes (hybrid keys, today's composite signature).
+    let key = |p: &dyn CryptoProvider| {
+        let k = p.generate_keypair().unwrap();
+        CompositeKeyInfo { kid: k.kid, alg: p.alg().to_string(), secret_key_b64: k.secret_key_b64, public_key_b64: k.public_key_b64 }
+    };
+    let keys = CandidateKeys { classical: key(&Ed25519Provider), pq: Some(key(&MlDsa65Provider)) };
+    let input = CandidateInput::Bytes(br#"{"intent_id":"intent:1","risk":1.0}"#.to_vec());
+    let artifact = sign_payload("DCP-AI.v2.Intent", &input, &keys).unwrap();
+    println!("{}", artifact.signed_payload["payload_hash"]); // "sha256:..." of {"intent_id":"intent:1","risk":1}
+}
+```
+
+<a id="feature-wasm"></a>
+
+### Función `wasm`
+
+Cuando se habilita la función `wasm`, el crate expone bindings de WebAssembly:
+
+```rust
+// Declarations of the wasm-bindgen exports, bodies elided (not runnable)
 // Available via wasm-bindgen
 fn wasm_verify_signed_bundle(json: &str, pub_key: Option<String>) -> String;
 fn wasm_verify_signed_bundle_v2(json: &str, policy_json: Option<String>) -> String; // default policy when None; V1 bundles are rejected under a policy
@@ -208,6 +318,8 @@ Compilar para WASM:
 ```bash
 cargo build --target wasm32-unknown-unknown --features wasm
 ```
+
+<a id="development"></a>
 
 ## Desarrollo
 
@@ -225,17 +337,21 @@ cargo build --features wasm
 cargo build --target wasm32-unknown-unknown --features wasm
 ```
 
+<a id="dependencies"></a>
+
 ### Dependencias
 
 - `serde` + `serde_json` — Serialización
 - `sha2` — SHA-256
-- `sha3` — SHA3-256 (cadenas de hash dobles)
+- `sha3` — SHA3-256 (cadenas de hash duales)
 - `ed25519-dalek` — Criptografía Ed25519
 - `fips203` / `fips204` / `fips205` — ML-KEM-768, ML-DSA-65 y SLH-DSA-192f (FIPS 203 / 204 / 205)
 - `rand` — Generación de números aleatorios
 - `base64` — Codificación Base64
-- `hex` — Codificación Hex
-- `wasm-bindgen` (opcional) — Bindings WASM
+- `hex` — Codificación hexadecimal
+- `wasm-bindgen` (opcional) — Bindings de WASM
+
+<a id="license"></a>
 
 ## Licencia
 

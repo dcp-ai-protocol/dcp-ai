@@ -9,14 +9,20 @@ passport's emergency revocation token. Re-registering is self-service, and revoc
 signed by the registered keys. State is in memory unless `REVOCATION_STATE_PATH` names a file
 (see [Configuration](#configuration)).
 
+The write examples below (`POST /revoke`, `POST /v2/register`, `POST /v2/revoke`, `POST /v2/emergency-revoke`) are
+templates: their signatures, passports and secrets are placeholders (`...`), so they do not run as they are, and they
+are not to be filled with invented values. `index.test.js` shows how real ones are built.
+
 ## Quickstart
 
 ```bash
-# Start the service
-node index.js
+# Start the service, from the root of a checkout: it imports @dcp-ai/sdk, so build the
+# workspace SDK and install the root package first
+(cd sdks/typescript && npm install && npm run build) && npm install
+node services/revocation/index.js
 
-# Or with Docker
-docker compose up revocation
+# Or with Docker, from the repo root
+docker compose -f docker/docker-compose.yml up revocation
 ```
 
 The service listens on `http://localhost:3003` by default.
@@ -201,7 +207,7 @@ curl -X POST http://localhost:3003/v2/revoke \
     "agent_id": "agent-001",
     "human_id": "human-001",
     "revoked_kid": "a1b2c3d4e5f6...",
-    "reason": "Key compromised",
+    "reason": "key_compromise",
     "composite_sig": {
       "classical": { "alg": "ed25519", "kid": "abc123", "sig_b64": "..." },
       "pq": { "alg": "ml-dsa-65", "kid": "def456", "sig_b64": "..." },
@@ -219,7 +225,7 @@ curl -X POST http://localhost:3003/v2/revoke \
 | `human_id` | `string` | No | ID of the responsible human |
 | `revoked_kid` | `string` | Yes | Key identifier to revoke |
 | `reason` | `string` | Yes | Reason for revocation |
-| `composite_sig` | `object` | Yes | Composite signature (classical + optional PQ) |
+| `composite_sig` | `object` | Yes | Composite signature: classical and PQ, both required (a classical-only signature is refused) |
 
 **Response (201):**
 
@@ -267,7 +273,7 @@ curl -X POST http://localhost:3003/v2/emergency-revoke \
   "ok": true,
   "agent_id": "agent-001",
   "revoked_at": "2026-03-01T00:00:00.000Z",
-  "keys_revoked": 3
+  "keys_revoked": 2
 }
 ```
 
@@ -297,7 +303,7 @@ curl "http://localhost:3003/v2/check/kid/a1b2c3d4e5f6"
   "revoked": true,
   "kid": "a1b2c3d4e5f6",
   "agent_id": "agent-001",
-  "reason": "Key compromised",
+  "reason": "key_compromise",
   "revoked_at": "2026-03-01T00:00:00.000Z"
 }
 ```
@@ -358,7 +364,7 @@ curl http://localhost:3003/.well-known/dcp-revocations.json
       "agent_id": "agent-001",
       "revoked_kid": "a1b2c3d4e5f6...",
       "timestamp": "2026-03-01T00:00:00.000Z",
-      "reason": "Key compromised"
+      "reason": "key_compromise"
     }
   ]
 }
@@ -369,6 +375,8 @@ This endpoint can be:
 - Queried by any verifier
 - Cached by CDNs
 - Served as a static file in production
+
+The list carries no signature: a verifier trusts it because of the URL and HTTPS it comes from, so a CDN or static copy must keep that trust. A cached copy is only as current as its last refresh: a newly added revocation is not reflected until the copy is refreshed. Other admission checks and freshness requirements still apply. The admission revocation source reads this format as a complete deny list and fails when it cannot fetch it ([docs/ADMISSION.md](../../docs/ADMISSION.md#revocation-sources)).
 
 ## Configuration
 
@@ -397,7 +405,7 @@ registrations from running the service out of memory. Records are also bounded:
 
 ### Querying from middleware
 
-The Express and FastAPI middlewares can use `checkRevocation: true` to automatically verify against this service before accepting a bundle.
+The Express middleware's `checkRevocation: true` queries `GET /check/:agent_id` and `GET /v2/check/kid/:kid` on every request. It lets the request through when the service does not answer, unless `revocationFailClosed: true`. Admission (Express, FastAPI, OpenClaw and the reference gateway, with the strict-v1 profile) reads `/.well-known/dcp-revocations.json` as a deny list instead, and refuses the request when it cannot.
 
 ### V2 flow
 
@@ -409,7 +417,7 @@ The Express and FastAPI middlewares can use `checkRevocation: true` to automatic
 ## Development
 
 ```bash
-PORT=3003 node index.js
+PORT=3003 node services/revocation/index.js   # from the repo root, after npm install there
 
 curl http://localhost:3003/health
 curl http://localhost:3003/check/test-001

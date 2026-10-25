@@ -3,10 +3,12 @@
 `run.mjs` starts one **agent process per SDK** (TypeScript, Python, Go, Rust) and makes them
 work with each other: an agent built on one SDK creates its identity, declares intents, acts and
 signs its citizenship bundles; an agent built on another SDK verifies them, as it would before
-trusting a counterparty. The processes share nothing but the messages the orchestrator relays,
+trusting a counterparty. Verifying here means the bundle is consistent and signed by the keys it lists; it is
+not trust in the counterparty, admission or authorization to act (scenario 2 covers admission, which authorizes
+no action either). The processes share nothing but the messages the orchestrator relays,
 so every pair (16 with four SDKs, each SDK against itself included) is a real interoperation, not
 a comparison of files. A fifth, verify-only agent, `ref`, runs the reference verifier
-`lib/verify.js` (what `npx dcp-ai verify` and the verification server run): it validates every
+`lib/verify.js` (what `node bin/dcp.js verify-bundle` and the verification server run): it validates every
 artifact against `schemas/v2` before the `@dcp-ai/sdk` verifier (the workspace SDK until 2.2.0 is
 on npm), which the SDK
 verifiers do not.
@@ -15,7 +17,8 @@ The orchestrator is also the network in between: it tampers with bundles in tran
 verifier must reject every tampered bundle the same way. Any unexpected verdict, crash or timeout
 fails the run.
 
-Scenario 1 (`run.mjs`) covers DCP-01 (identity), DCP-02 (intent and policy) and DCP-03 (audit).
+Scenario 1 (`run.mjs`) exercises parts of DCP-01 (identity), DCP-02 (intent and policy) and DCP-03 (audit)
+between the SDKs; it is not a full conformance test of those specifications.
 Scenario 2 (`admission.mjs`) covers admission under the `strict-v1` profile
 (`spec/profiles/admission`) across the four SDKs. The A2A handshake of DCP-04 needs SDK work first
 (see the roadmap at the end).
@@ -23,8 +26,8 @@ Scenario 2 (`admission.mjs`) covers admission under the `strict-v1` profile
 ## Run
 
 ```bash
-npm install                                           # agents/ref: the reference verifier
-cd sdks/typescript && npm install && npm run build   # agents/ts imports sdks/typescript/dist
+(cd sdks/typescript && npm install && npm run build) # agents/ts imports sdks/typescript/dist
+npm install                                           # agents/ref: the reference verifier, on that SDK
 pip install -e sdks/python                            # dependencies of agents/py
 node tools/interop-matrix/run.mjs                     # all four SDKs and the reference verifier
 node tools/interop-matrix/run.mjs --agents ts,py      # a subset
@@ -102,7 +105,8 @@ entry, else `"sha256:" + hex(sha256(canonical(previous entry)))`; `hash_alg "sha
 `intent_hash` = `"sha256:" + hex(sha256(canonical(intent payload)))`;
 `policy_decision` = `approved` / `escalated` / `blocked` from the decision; `outcome`;
 `evidence {tool, result_ref, evidence_hash: "sha256:" + hex(sha256(utf8(result_ref)))}`;
-`pq_checkpoint_ref null`. `count` is the trail length.
+`pq_checkpoint_ref null`. `count` is the trail length. The entry is a synthetic record: `act` performs nothing,
+and `outcome`, `tool` and `result_ref` are the strings the orchestrator sends.
 
 ### `bundle` `{intent_id, session_issued_at?, session_expires_at?, intended_verifier?}` → `{signed_bundle}`
 
@@ -254,6 +258,12 @@ agents surfaced these SDK gaps, none of them a verdict divergence between SDK ve
 - **An empty audit trail**: every verifier accepts a validly signed bundle with no audit entries,
   as `spec/VERIFICATION.md` allows (root of 64 zeros); the `auditEventsMerkleRoot` helpers, which
   serve PQ checkpoints, refuse an empty list in all four SDKs alike.
+
+> **Note (25/10/2026).** The findings above are kept as recorded at the first run. The first one no longer holds
+> on `main`: the four SDK verifiers now check the unsigned `signature` block against what is signed
+> (`spec/VERIFICATION.md` V2-4): `signer.id` must be the RPR `human_id`, `signer.kids` the kids of the composite
+> signature, `manifest_hash` the SHA-256 of the canonical manifest and `hash_alg` an allowed value, so zeros are
+> refused. `signature.created_at` is still unsigned metadata that no verifier authenticates.
 
 ## Roadmap
 

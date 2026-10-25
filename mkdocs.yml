@@ -8,7 +8,11 @@ repo_name: dcp-ai-protocol/dcp-ai
 repo_url: https://github.com/dcp-ai-protocol/dcp-ai
 edit_uri: edit/main/
 
-docs_dir: docs-site
+# Base configuration inherited by scripts/docs_site.py for each locale.
+# Complete build: bash scripts/build-docs-site.sh
+# Local preview: python3 scripts/docs_site.py preview --locale en
+# Live preview after preparation: mkdocs serve -f docs-site/en/mkdocs.yml
+docs_dir: docs-site/en/docs
 
 theme:
   name: material

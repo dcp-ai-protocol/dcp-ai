@@ -11,6 +11,7 @@ This specification defines the full lifecycle of a DCP-certified AI agent, from 
 DCP-01 through DCP-04 establish identity, intent, audit, and communication for AI agents. However, these specifications assume agents exist in a steady operational state. In practice, agents have finite lifespans: they are created, they operate, they degrade, and they are retired or terminated. DCP-05 fills this gap by defining a comprehensive lifecycle model.
 
 Without a lifecycle protocol, organizations face several risks:
+
 - No authoritative record of when an agent was placed into or removed from service
 - No continuous health monitoring that feeds into the trust model
 - No standardized process for orderly retirement or emergency termination
@@ -81,6 +82,7 @@ An agent MUST be in exactly one of the following states at any time:
 ```
 
 Valid transitions:
+
 1. `commissioned` -> `active` (activation)
 2. `active` -> `declining` (vitality drop or principal-initiated decline)
 3. `declining` -> `active` (reactivation, requires principal approval and vitality above threshold)
@@ -88,6 +90,7 @@ Valid transitions:
 5. `declining` -> `decommissioned` (termination from declining state)
 
 Invalid transitions:
+
 - `decommissioned` -> any state (terminal state, irreversible)
 - `commissioned` -> `declining` (must be activated first)
 - `commissioned` -> `decommissioned` (must be activated first, or use `termination_for_cause` if commissioning was erroneous, which implicitly activates and immediately decommissions)
@@ -209,6 +212,7 @@ Schema reference: `schemas/v2/commissioning_certificate.schema.json`
 ### 4.4 Countersignature Requirement
 
 The commissioning certificate MUST carry two signatures:
+
 - **Authority signature**: The entity authorized to commission agents (organizational root key or delegated commissioning key)
 - **Principal countersignature**: The responsible principal accepting accountability for the agent
 
@@ -243,6 +247,7 @@ Organizations configure two thresholds per agent in the commissioning certificat
 ### 5.3 Vitality Decay and Recovery
 
 Vitality is not static. Component scores change based on:
+
 - **Self-assessment**: Agent-reported capability test results
 - **External probes**: Verification service health checks
 - **Audit analysis**: Automated review of audit chain for anomalies
@@ -522,6 +527,7 @@ The decommissioning record includes Merkle root seals for both the audit chain a
 ### 8.4 Key Disposition
 
 Upon decommissioning:
+
 - Private keys MUST be securely destroyed
 - Public keys MUST be archived for future verification of historical artifacts
 - The destruction method and witness MUST be recorded
@@ -530,6 +536,7 @@ Upon decommissioning:
 ### 8.5 Sudden Failure Special Handling
 
 When an agent fails suddenly and cannot sign its own decommissioning record:
+
 1. The responsible principal signs the record using their own key
 2. The `signature.kid` references the principal's key, not the agent's
 3. A `principal_signed_on_behalf` flag is set to `true`
@@ -583,6 +590,7 @@ The hash-chained sequence of commissioning certificate, vitality reports, transi
 ### 10.2 Vitality Report Authenticity
 
 Vitality reports are self-reported by the agent. Implementations SHOULD supplement self-reported data with external validation:
+
 - Verification service health probes
 - Peer agent interaction quality reports
 - Organizational monitoring systems
@@ -593,6 +601,7 @@ A compromised agent could falsify its own vitality. External validation sources 
 ### 10.3 Termination Authorization
 
 Only authorized principals may initiate lifecycle transitions. The authorization model:
+
 - **Activation**: Commissioning authority or responsible principal
 - **Decline**: Automatic (vitality threshold) or responsible principal
 - **Reactivation**: Responsible principal only (requires explicit approval)
@@ -609,11 +618,13 @@ All signatures under this specification use the domain separation tag `DCP-LIFEC
 ### 10.6 Sudden Failure Risks
 
 Sudden failure presents unique security risks:
+
 - The agent cannot sign its own decommissioning record
 - The agent's private key material may be in an unknown state
 - In-flight operations may be in an inconsistent state
 
 Mitigations:
+
 - Principal-signed decommissioning records are clearly marked
 - Key material MUST be presumed compromised; revocation SHOULD be issued
 - Counterparty agents SHOULD treat in-flight data from the failed agent as potentially unreliable
@@ -621,6 +632,7 @@ Mitigations:
 ## 11. Conformance
 
 An implementation is DCP-05 conformant if it:
+
 1. Implements all four lifecycle states and valid transitions as defined in Section 3
 2. Generates commissioning certificates with dual signatures as defined in Section 4
 3. Produces hash-chained vitality reports at the configured interval as defined in Section 6
@@ -643,3 +655,31 @@ An implementation is DCP-05 conformant if it:
 ---
 
 *This specification acknowledges that AI agents, like all operational systems, have finite lifespans. A protocol for digital citizenship must account not only for how agents live, but for how they end — with dignity, accountability, and a complete record.*
+
+## Implementation notes (informative)
+
+> **Added 25/10/2026. Not normative.** These notes add no requirement and change nothing above: they describe how
+> the reference code on `main` relates to this text. Where they differ, the normative text above stands.
+
+- **Records in `schemas/v2/`.** The commissioning certificate, vitality report and decommissioning record that the
+  SDKs build and that `schemas/v2/` validates have other fields than the examples of §3 to §9: for example
+  `vitality_score`, `state`, `metrics` and `prev_report_hash` in the vitality report, and `final_vitality_score` and
+  `data_disposition` in the decommissioning record. None of them has `prev_hash_secondary`, `merkle_root`,
+  `countersignature` or `domain_sep`. There is no schema for the transition record of §3.3 or the audit entry of
+  §9.2.
+- **Signatures.** Each record carries one `composite_sig` (Ed25519 + ML-DSA-65) by whoever holds the keys passed in,
+  under the context `DCP-AI.v2.Lifecycle`; the SDKs do not use the tag `DCP-LIFECYCLE-SIG-v2` and do not produce the
+  authority signature plus principal countersignature of §4.4.
+- **Transitions.** `validateStateTransition` accepts six edges: the five of §3.2 and `commissioned` ->
+  `decommissioned`. It checks only the pair of states, not principal approval, vitality or who signs.
+- **Vitality score.** `computeVitalityScore` takes four metrics in [0, 1] (`task_completion_rate`, `error_rate`
+  inverted, `human_satisfaction`, `policy_alignment`) with the weights of §5.1 and rounds to the nearest integer
+  (`Math.round`); §5.1 uses other components scored 0–1000 and `floor`. The vitality chain links each report through
+  `prev_report_hash` (SHA-256 only).
+- **Fractional metrics.** `dcp-jcs-v1` accepts only integers, so a vitality report whose `metrics` hold a fraction
+  such as `0.83` cannot be canonicalized or signed; with the schema's range [0, 1], a signed report can only carry 0 or
+  1 per metric. The examples of §6 also hold fractions (`error_rate_percent`, `previous_pass_rate`): they are
+  illustrations with placeholders, not fixtures.
+- These records are signed declarations of whoever signs them; they do not prove that a state, a score or a
+  disposition is true, and nothing in the SDKs or services enforces the grace periods, the key destruction or the
+  session termination of §7 and §8. For the SDK types, see [docs/API_REFERENCE.md](../docs/API_REFERENCE.md).

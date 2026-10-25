@@ -2,7 +2,7 @@
 
 This document is the technical blueprint for deploying the Digital Citizenship Protocol worldwide. It describes the layers, components, and technology choices that allow any government, organization, or developer to adopt the protocol without depending on any central authority or on the protocol authors.
 
-The protocol is **spec + crypto + JSON**. SHA-256, Ed25519, canonical JSON, JSON Schema draft 2020-12. Any language with these primitives can implement it. That is what makes it viable at global scale.
+The protocol is **spec + crypto + JSON**. V1 needs SHA-256, Ed25519, canonical JSON and JSON Schema draft 2020-12; V2 adds composite Ed25519 + ML-DSA-65 signatures, SHA3-256 and the other algorithms of the Crypto Profile, with JSON canonicalized under the `dcp-jcs-v1` profile ([CANONICALIZATION_PROFILE.md](../spec/CANONICALIZATION_PROFILE.md)). Any language with these primitives can implement it; the normative requirements are in the specification and its profiles. That is what makes it viable at global scale.
 
 ---
 
@@ -27,7 +27,7 @@ The protocol is **spec + crypto + JSON**. SHA-256, Ed25519, canonical JSON, JSON
 └─────────────────────────────────────────────────────┘
 ```
 
-Each layer builds on the previous one. A minimal deployment uses only Layers 1–2 (spec + SDK). A full government deployment uses all five.
+Each layer builds on the previous one. A minimal deployment uses only Layers 1–2 (spec + SDK). A full government deployment uses all five. The diagram is conceptual: it mixes pieces that exist in this repository with proposed ones (gRPC middleware, government portals, on-chain anchoring, an attestation service); the sections below say which is which.
 
 ---
 
@@ -38,7 +38,7 @@ Already exists in this repository.
 - `spec/` — DCP-01 through DCP-09, BUNDLE, VERIFICATION.
 - `schemas/v1/` — JSON Schema draft 2020-12 (V1 artifacts).
 - `schemas/v2/` — JSON Schema draft 2020-12 (V2 artifacts, including DCP-05–09).
-- The schemas are the source of truth. Any SDK consumes them directly.
+- The schemas, with the specification, are the source of truth for the artifact shapes. Not every SDK route validates against them: in the TypeScript SDK, `validateBundle` covers V1 bundles, and `verifySignedBundleV2` checks the structure it needs without running the JSON Schemas (the reference verifier, `lib/verify.js`, used by the CLI and the server, validates them before calling it).
 
 This layer is normative. It does not change frequently; it is extended with optional fields.
 
@@ -48,40 +48,42 @@ This layer is normative. It does not change frequently; it is extended with opti
 
 ### What the SDK is
 
-Not a framework. A library that does exactly what `lib/verify.js` does today, but portable:
+Not a framework. A portable library that builds, signs and verifies DCP artifacts. In the TypeScript SDK, for example:
 
-- `validateBundle(bundle)` — validate against schemas.
-- `verifySignedBundle(signedBundle, publicKey)` — full verification checklist.
-- `signBundle(bundle, secretKey)` — Ed25519 signature + bundle_hash + merkle_root.
-- `createBundle(hbr, ap, intent, policy, auditEntries)` — construct a bundle.
-- `intentHash(intent)` / `hashObject(obj)` — canonical hashing.
-- `revokeAgent(agentId, reason, signerKey)` — create a signed RevocationRecord.
+- `validateBundle` — validate a V1 bundle against the V1 schemas.
+- `verifySignedBundle` (V1) and `verifySignedBundleV2` (V2) — the verification checklist.
+- `signBundle` / `signBundleV2` — sign a bundle (Ed25519, or composite Ed25519 + ML-DSA-65 in V2).
+- `BundleBuilder` / `BundleBuilderV2` — construct a bundle.
+- `intentHash` / `hashObject` — canonical hashing.
 
-### Language bindings (all published)
+The exact API of each language is in its README and, for TypeScript, in [API_REFERENCE.md](API_REFERENCE.md).
 
-All five SDK languages are shipped at `v2.0.x` and live in registries:
+### Language bindings
 
-- **TypeScript** — [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) on npm. Embedded schemas, no filesystem dependency. `@noble/post-quantum` + `@noble/curves` + `@noble/hashes` for crypto. Also powers `@dcp-ai/cli` (interactive scaffolding CLI) and the integrations under `integrations/express/` and `integrations/openclaw/`.
+Each SDK's README has a *Release status* section that records what was published to which registry and when; this document does not check the registries, and published versions can lag `main`.
+
+- **TypeScript** — [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) on npm. Embedded schemas, no filesystem dependency. `@noble/post-quantum` for the PQ algorithms, `tweetnacl` for Ed25519, Node.js `crypto` for hashes and HKDF. Also powers `@dcp-ai/cli` (interactive scaffolding CLI) and the integrations under `integrations/express/` and `integrations/openclaw/`.
 - **Python** — [`dcp-ai`](https://pypi.org/project/dcp-ai/) on PyPI. `pqcrypto` for ML-DSA-65 / SLH-DSA-192f, `pynacl` for Ed25519, `jsonschema` for draft 2020-12 validation, `pydantic` for typed models. Framework bridges (`dcp_ai.fastapi`, `dcp_ai.langchain`, `dcp_ai.openai`, `dcp_ai.crewai`) ship inside the wheel and are activated by install extras (e.g. `pip install dcp-ai[fastapi]`).
-- **Go** — `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` (module path requires the `/v2` suffix because of Go's major-version rule). `cloudflare/circl` for ML-DSA-65, ML-KEM-768, and SLH-DSA-192f; `crypto/ed25519` from stdlib. Tagged at `sdks/go/v2.0.0`.
-- **Rust** — [`dcp-ai`](https://crates.io/crates/dcp-ai) on crates.io. `fips203`/`fips204`/`fips205` crates (the RustCrypto FIPS-numbered families) for PQ; `ed25519-dalek` for classical. Also the source of the WASM build below via `--features wasm`.
-- **WebAssembly** — [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) on npm. Compiled from the Rust crate with `wasm-pack`. Powers the browser playground.
+- **Go** — `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` (module path requires the `/v2` suffix because of Go's major-version rule). `cloudflare/circl` for ML-DSA-65, ML-KEM-768, and SLH-DSA-192f; `crypto/ed25519` from stdlib. Released through `sdks/go/v2.x.y` tags.
+- **Rust** — [`dcp-ai`](https://crates.io/crates/dcp-ai) on crates.io. `fips203`/`fips204`/`fips205` crates (from github.com/integritychain) for PQ; `ed25519-dalek` for classical. Also the source of the WASM build below via `--features wasm`.
+- **WebAssembly** — [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) on npm. Compiled from the Rust crate with `wasm-pack`.
 
-All five share the same spec and the same schema set; cross-SDK interop is validated in CI via `tests/interop/v2/interop_vectors.json`.
+All five share the same spec and the same schema set; cross-SDK interop is validated in CI with the shared vectors in `tests/interop/v2/`.
 
-### SDK structure (Node example)
+### SDK structure (TypeScript example)
 
 ```
-@dcp-ai/sdk/
+sdks/typescript/
   src/
-    schemas/          # embedded schemas (copied from schemas/v1/)
-    validate.ts       # validateOne, validateBundle
-    verify.ts         # verifySignedBundle
-    sign.ts           # signBundle, signObject
-    bundle.ts         # createBundle
-    hash.ts           # intentHash, hashObject, canonicalize, merkleRoot
-    revocation.ts     # createRevocationRecord
-    types.ts          # TypeScript types for RPR, AP, Intent, etc.
+    core/            # canonicalization, hashing, signing, verification (V1 and V2), tiers, DCP-05–09 modules
+    providers/       # Ed25519, ML-DSA-65, SLH-DSA-192f (exported); KEM providers (internal)
+    bundle/          # bundle builders and signing
+    a2a/             # DCP-04 discovery, handshake messages, sessions
+    observability/   # dcpTelemetry
+    schemas/         # embedded JSON schemas
+    types/           # V1 and V2 types
+    wire/            # wire formats
+    index.ts         # the package's public exports
   package.json
   tsconfig.json
 ```
@@ -98,11 +100,11 @@ Lives in `server/` — an HTTP API that verifies Signed Bundles.
 
 For production deployment:
 
-- **Docker image:** `ghcr.io/dcp-ai-protocol/dcp-ai/verification:latest` (also tagged `:2.0.3`, `:2.0`, `:2`). Multi-arch `linux/amd64` + `linux/arm64`. Run with `docker run -p 3000:3000 ghcr.io/dcp-ai-protocol/dcp-ai/verification:latest` and verification is live.
-- **Stateless:** no database. Each request verifies the provided bundle.
+- **Docker image:** `ghcr.io/dcp-ai-protocol/dcp-ai/verification:latest`, plus the release semver tags and `:sha-<short>`. Multi-arch `linux/amd64` + `linux/arm64`. Run with `docker run -p 3000:3000 ghcr.io/dcp-ai-protocol/dcp-ai/verification:latest`.
+- **Stateless verification:** `POST /verify` needs no database. The server's other registries are in memory and lost on restart ([OPERATOR_GUIDE.md](OPERATOR_GUIDE.md#reference-services-keep-state-in-memory-only)).
 - **Health + capabilities:** `/health`, `/.well-known/dcp-capabilities.json`.
-- **API:** POST `/verify` (body: `signed_bundle`, optional `public_key_b64`; response: `{ verified, errors? }`). Additional V2 endpoints listed in [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md).
-- **Managed deploy:** Fly.io config in `deploy/fly/verification.toml` — `fly launch --config deploy/fly/verification.toml && fly deploy --config deploy/fly/verification.toml` gets a public HTTPS URL in minutes.
+- **API:** POST `/verify` (body: `signed_bundle`, optional `public_key_b64`; response: `{ verified, dcp_version, errors, … }`). Additional V2 endpoints listed in [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md).
+- **Managed deploy:** Fly.io config in `deploy/fly/verification.toml` (`fly launch --config deploy/fly/verification.toml`, then `fly deploy --config deploy/fly/verification.toml`). A public deployment also exposes the DCP-05–09 endpoints, which have no authentication and do not verify signatures: restrict them first ([OPERATOR_GUIDE.md](OPERATOR_GUIDE.md#dcp-0509-service-endpoints)).
 
 See [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md), [server/README.md](../server/README.md), and [deploy/README.md](../deploy/README.md).
 
@@ -112,16 +114,16 @@ An append-only server that receives hashes and organizes them in a Merkle tree. 
 
 **Recommended tech:** Go (like Google's [Trillian](https://github.com/google/trillian)) or a simpler custom implementation in Node/Go. Storage: SQLite (small operator) or PostgreSQL (government scale). Only stores hashes + indices + Merkle tree — very little data.
 
-**Suggested API:**
+**Suggested API** (the reference service in `services/transparency-log/` has these routes, plus `GET /entries` and gossip between logs; it keeps its tree in memory):
 
-- `POST /add` — receives `bundle_hash`; returns `{ log_index, timestamp }`.
+- `POST /add` — receives `bundle_hash`; returns `{ log_index, timestamp }` in this design (the reference service returns `{ index, leaf_hash, root, size }`).
 - `GET /proof/:log_index` — returns Merkle inclusion proof (array of hashes + root).
 - `GET /root` — returns current tree root and log size.
 - `GET /root/signed` — returns tree root signed by the log operator (for auditing).
 
-**Costs:** A server with PostgreSQL can handle millions of entries for pennies. No cost per verification (local with Merkle proof). Anchor the root to Bitcoin every N hours (one tx, ~$0.50 USD) for public immutability without trusting only the operator.
+**What it depends on:** a durable store for the tree, the operator's signing key for the root, and auditors (or other logs, through gossip) that compare roots. Checking an inclusion proof is local. Anchoring the root to a public chain removes the need to trust only the operator, at the price of that chain's fees and confirmation time; this repository has not measured either.
 
-**Privacy:** The log stores only opaque SHA-256 hashes. No agent_id, no human_id, no bundle content.
+**Privacy:** The log stores only SHA-256 hashes: no agent_id, no human_id, no bundle content. Hashes are not anonymous, though: anyone who holds a bundle can check whether its hash is in the log, and the same hash links the records that carry it.
 
 ### 3c. Revocation list publisher
 
@@ -145,9 +147,11 @@ A service (or script) that maintains a signed revocation list per jurisdiction a
 }
 ```
 
-**Tech:** A signed JSON file hosted on static server (S3, GitHub Pages, government server). CLI: `dcp publish-revocation-list --key <issuer_key> --entries <revocations.json> --out <list.json>`. URL convention: `https://<authority>/.well-known/dcp-revocations.json` (not mandatory).
+**Tech:** A signed JSON file hosted on static server (S3, GitHub Pages, government server). URL convention: `https://<authority>/.well-known/dcp-revocations.json` (not mandatory). The format above is a suggested design: the reference CLI has no command that publishes it.
 
-**Cost:** Effectively zero — a static file served from any CDN or government web server.
+The reference revocation service (`services/revocation/`) serves a different, **unsigned** list at that URL: `{ dcp_version, updated_at, revocations, kid_revocations }`. Its authenticity comes from the transport (HTTPS, optional `Authorization`), not from a signature. The admission profile can use it as a deny list ([ADMISSION.md](ADMISSION.md)).
+
+**What it depends on:** a verifier learns of a revocation when it obtains status that includes it. A cached list that predates the revocation can leave an acceptance window until the configured freshness limit. Once fresh status is required, a fail-closed verifier rejects when the source is unavailable; a fail-open verifier may continue accepting without current status.
 
 ---
 
@@ -157,16 +161,16 @@ A service (or script) that maintains a signed revocation list per jurisdiction a
 
 Receives `bundle_hash` (or log root) and publishes it to a blockchain.
 
-**Recommendation by cost (cheapest first):**
+**Options** (this repository has not measured their fees; check current fees before choosing):
 
-1. **Transparency log only** — no blockchain at all. The log operator signs the root. Cheapest possible; trust is in the operator + auditors.
-2. **Bitcoin OP_RETURN (batch)** — accumulate N hashes, build Merkle tree, publish only the root in one tx. One tx per hour or per day. Cost: ~$0.50 USD per tx shared among thousands of agents. Most economical with public immutability.
-3. **Ethereum L2 (Arbitrum, Base, Optimism)** — if smart-contract verifiability is needed (e.g. a contract that answers "was this hash anchored?"). Cost: fractions of a cent per event on L2.
-4. **Ethereum mainnet** — most expensive; justified only if the anchoring contract must be on mainnet.
+1. **Transparency log only** — no blockchain at all. The log operator signs the root; trust is in the operator + auditors.
+2. **Bitcoin OP_RETURN (batch)** — accumulate N hashes, build Merkle tree, publish only the root in one tx, for example one tx per hour or per day. One transaction fee is shared by every hash in the batch.
+3. **Ethereum L2 (Arbitrum, Base, Optimism)** — if smart-contract verifiability is needed (e.g. a contract that answers "was this hash anchored?"). Fees per event depend on the L2.
+4. **Ethereum mainnet** — justified only if the anchoring contract must be on mainnet.
 
-**Tech:** Node.js or Go. For Bitcoin: `bitcoinjs-lib`. For Ethereum/L2: `ethers.js` or `viem`. Can be a standalone script run via cron, or part of the log service (the log anchors its root periodically).
+Of these options, this repository implements only the transparency log and the Ethereum contract, which the anchor service does not call yet. **Tech:** Node.js or Go. For Bitcoin: `bitcoinjs-lib`. For Ethereum/L2: `ethers.js` or `viem`. Can be a standalone script run via cron, or part of the log service (the log anchors its root periodically).
 
-**Reference implementation:** `services/anchor/` in this repo, published as `ghcr.io/dcp-ai-protocol/dcp-ai/anchor:latest`. Fly.io config in `deploy/fly/anchor.toml`. The Ethereum/L2 contract is `contracts/ethereum/DCPAnchor.sol` — a ready-to-deploy Foundry project with tests, deployment script, and per-chain RPC configs (Base, Base Sepolia, Optimism, Arbitrum, Sepolia). See [`contracts/ethereum/DEPLOY.md`](../contracts/ethereum/DEPLOY.md) for the walk-through.
+**Reference implementation:** `services/anchor/` in this repo, with the image name `ghcr.io/dcp-ai-protocol/dcp-ai/anchor:latest`. Fly.io config in `deploy/fly/anchor.toml`. It does not submit anything on-chain yet: it batches hashes and records them locally, in memory ([`services/anchor/README.md`](../services/anchor/README.md)). The Ethereum/L2 contract is `contracts/ethereum/src/DCPAnchor.sol` — a ready-to-deploy Foundry project with tests, deployment script, and per-chain RPC configs (Base, Base Sepolia, Optimism, Arbitrum, Sepolia). See [`contracts/ethereum/DEPLOY.md`](../contracts/ethereum/DEPLOY.md) for the walk-through.
 
 ### 4b. Jurisdiction attestation
 
@@ -176,11 +180,11 @@ A jurisdiction authority (government or accredited issuer) signs the hash of an 
 
 **Tech:** Ed25519 (same crypto as the protocol). The government has a keypair; publishes its public key at a well-known URL: `https://<gov>/.well-known/dcp-attestation-keys.json`.
 
-**API (if the government runs a service):**
+**API (a suggested design, if the government runs a service; this repository has no attestation service):**
 
 - `POST /attest` — body: `{ rpr_hash, agent_id }`; response: `{ attestation: { issuer, jurisdiction, rpr_hash, signature, expires_at } }`.
 
-The attestation is included in the Signed Bundle or presented alongside it. Verification is one Ed25519 check — local, instantaneous, free.
+The attestation is included in the Signed Bundle or presented alongside it. Checking it is a local signature verification against the authority's published key; trusting that key is up to the verifier.
 
 ---
 
@@ -190,11 +194,11 @@ The attestation is included in the Signed Bundle or presented alongside it. Veri
 
 The SDK enables **middleware** that platforms insert into their pipelines:
 
-- **Express/Fastify (Node):** `app.use(dcpVerifyMiddleware({ requireAttestation: false }))` — reads `X-DCP-Bundle` header (or body), verifies, passes request or rejects with 403.
-- **FastAPI (Python):** `@dcp_verified` decorator.
-- **gRPC interceptor (Go):** reads `dcp-bundle` metadata, verifies.
+- **Express (Node):** `app.use(dcpVerify({ ... }))` from `@dcp-ai/express` — reads the bundle from a header (or the body), verifies it, and passes the request or rejects it ([QUICKSTART_EXPRESS.md](QUICKSTART_EXPRESS.md)).
+- **FastAPI (Python):** `DCPVerifyMiddleware` and the `require_dcp` dependency from `dcp-ai[fastapi]`.
+- **gRPC interceptor (Go):** a possible design (read `dcp-bundle` metadata, verify); not provided in this repository.
 
-One line of code and a platform starts verifying agents. Incremental adoptability.
+A platform can start verifying agents with a few lines of configuration. Incremental adoptability.
 
 ### Government portal
 
@@ -205,26 +209,26 @@ A dashboard (React/Next.js or similar) for a government to:
 - Verify a bundle manually (paste JSON, see result).
 - View verification service metrics.
 
-This is not part of the protocol; it is a tool for operators.
+This is a proposed tool for operators, not part of the protocol; this repository does not include one.
 
 ---
 
 ## Repository layout (current)
 
-Everything lives in a single monorepo at `github.com/dcp-ai-protocol/dcp-ai`. Each SDK and service is consumable independently through its own public registry, so a government or team can pick the pieces it wants without adopting the whole stack:
+Everything lives in a single monorepo at `github.com/dcp-ai-protocol/dcp-ai`. Each SDK and service can be used on its own, so a government or team can pick the pieces it wants without adopting the whole stack; for what has been published to which registry, see each component's README:
 
 - `spec/` — DCP-01 through DCP-09, BUNDLE, VERIFICATION, AUDIT (normative source of truth).
-- `schemas/` — JSON Schema draft 2020-12, split into `v1/` (9 artifacts) and `v2/` (39 artifacts, including DCP-05..09).
+- `schemas/` — JSON Schema draft 2020-12, split into `v1/` (9 artifacts) and `v2/` (42 artifacts, including DCP-05..09).
 - `sdks/` — TypeScript (`@dcp-ai/sdk`), Python (`dcp-ai`), Go (`sdks/go/v2`), Rust (`dcp-ai` crate), WASM (`@dcp-ai/wasm`).
 - `cli/` — `@dcp-ai/cli` interactive scaffolder (depends on the TypeScript SDK).
 - `integrations/` — 10 framework bridges: Express, FastAPI, LangChain, OpenAI, CrewAI, AutoGen, Anthropic MCP, Google A2A, W3C DID, OpenClaw. Six are standalone npm packages under `@dcp-ai/*`; the four Python ones ship inside the `dcp-ai` wheel as extras.
 - `packages/create-*` — four `npm create @dcp-ai/<template>` scaffolders (LangChain, CrewAI, OpenAI, Express).
 - `server/` — reference HTTP verification server.
-- `services/` — anchor, transparency-log, revocation. Each published as a multi-arch image on GHCR.
+- `services/` — anchor, transparency-log, revocation. The publish workflow builds a multi-arch image of each for GHCR; see each service's README for its status.
 - `contracts/ethereum/` — Foundry project for `DCPAnchor.sol` (ready to deploy to Base, Optimism, Arbitrum, Sepolia).
 - `deploy/` — Fly.io configs for the four services plus a provider-agnostic deployment guide.
 - `docs/` and `docs-site/` — this documentation; rendered at [docs.dcp-ai.org](https://docs.dcp-ai.org/).
-- `playground/` — browser playground powered by `@dcp-ai/wasm`; served at [dcp-ai.org/playground/](https://dcp-ai.org/playground/).
+- `playground/` — browser playground; served at [docs.dcp-ai.org/playground/](https://docs.dcp-ai.org/playground/).
 
 A government can use only `spec/` + a single SDK from its preferred registry and nothing else. Or deploy the full stack via Docker/Fly.io. No vendor lock-in; no central dependency.
 
@@ -232,7 +236,7 @@ A government can use only `spec/` + a single SDK from its preferred registry and
 
 ## Executive summary for a government
 
-Install the SDK in your language. Every agent operating in your jurisdiction must present a Signed Bundle. Your verification service (a Docker container) validates it locally in microseconds, at no per-query cost. Your transparency log records bundle hashes (no personal data). Your signed revocation list lets you revoke agents instantly. Periodic Bitcoin anchoring provides public immutability for pennies per day. You do not depend on any central server or on the protocol authors.
+Install the SDK in your language. Every agent operating in your jurisdiction must present a Signed Bundle. Your verification service (a Docker container) validates it locally, with no call to any outside service; its cost per check depends on the algorithms and tier (spec §14.1 gives indicative sizes and latencies). Verification checks signatures and hashes: it does not establish anyone's real-world identity, and it does not authorize an action. Your transparency log records bundle hashes, which are not anonymous: anyone who holds a bundle can check whether its hash is there, and a hash links the records that carry it. Your revocation list lets you revoke agents, effective for every verifier that fetches it fresh and fails closed when it cannot. Periodic anchoring to a public chain adds a public record of the commitment that is hard to alter, for that chain's fees; it does not prove that the anchored records are true or when the events happened. You do not depend on any central server or on the protocol authors.
 
 ---
 
@@ -250,10 +254,9 @@ V2.0 introduces an algorithm-agile crypto provider system:
 CryptoProvider Interface
 ├── Ed25519Provider (classical, RFC 8032)
 ├── MlDsa65Provider (post-quantum, FIPS 204)
-├── SlhDsa192fProvider (hash-based backup, FIPS 205)
-└── HsmCryptoProvider (hardware security modules)
+└── SlhDsa192fProvider (hash-based backup, FIPS 205)
 
-KemProvider Interface
+KemProvider Interface (TypeScript: internal, not exported)
 ├── X25519KemProvider (classical ECDH)
 ├── MlKem768Provider (post-quantum, FIPS 203)
 └── HybridKemProvider (X25519 + ML-KEM-768)
@@ -262,7 +265,7 @@ AlgorithmRegistry
 └── Maps algorithm names → provider instances (runtime selection)
 ```
 
-Providers are registered at startup via `registerDefaultProviders()`. Custom providers (e.g., HSM-backed) implement the same interface.
+Providers are registered at startup via `registerDefaultProviders()`. Custom providers implement the same interface. A real HSM-backed provider would be one of them; the repository has none. The `HsmCryptoProvider` in the TypeScript source is a simulated pattern, not exported and not usable for real evidence ([NIST_CONFORMITY.md](NIST_CONFORMITY.md) §2.2).
 
 ### A2A Infrastructure (DCP-04)
 
@@ -283,16 +286,16 @@ Agent A                                     Agent B
 
 Key components:
 - **Discovery**: `.well-known/dcp-agent-directory.json` per organization
-- **Handshake**: Mutual bundle verification + hybrid KEM (X25519 + ML-KEM-768)
+- **Handshake**: Mutual bundle verification + hybrid KEM (X25519 + ML-KEM-768) in the specification; the SDKs build the handshake messages, and the caller derives the session key (no SDK exports the hybrid exchange)
 - **Session**: AES-256-GCM encrypted messages with monotonic sequence numbers
-- **Rekeying**: Automatic key refresh every N messages
-- **Audit**: Every A2A interaction generates audit entries in both chains
+- **Rekeying**: the session reports when it is due (`needsRekeying`, every 1000 messages by default); the caller derives the new key
+- **Audit**: the specification has both agents record A2A interactions in their audit chains; the TypeScript session functions do not write audit entries themselves
 
 See [spec/DCP-04.md](../spec/DCP-04.md) for the full specification.
 
 ### Observability Stack
 
-V2.0 includes built-in observability via the `dcpTelemetry` module:
+V2.0 includes an observability module, `dcpTelemetry`. Instrumentation is explicit: the SDK's signing and verification functions do not call it, so spans and metrics come only from the calls your code makes ([OBSERVABILITY.md](OBSERVABILITY.md)):
 
 - **Spans**: Per-operation tracing (sign, verify, KEM, checkpoint)
 - **Metrics**: Latency percentiles (p50/p95/p99) by operation and tier
@@ -304,11 +307,11 @@ The telemetry module supports console output and is compatible with OpenTelemetr
 
 ### Production Hardening
 
-V2.0 SDK includes production-ready infrastructure:
+The SDKs include hardening helpers that an operator integrates; they are not limits already active in every SDK or service:
 
-**Error Codes**: 36 standardized DCP error codes (DCP-E001 through DCP-E902) covering schema, signature, hash chain, identity, policy, session, A2A, rate limiting, and internal errors. Each code includes retryability information.
+**Error Codes**: 38 standardized DCP error codes (DCP-E001 through DCP-E902) covering schema, signature, hash chain, identity, policy, session, A2A, rate limiting, and internal errors. Each code includes retryability information.
 
-**Rate Limiting**: `AdaptiveRateLimiter` with per-tier limits:
+**Rate Limiting**: `AdaptiveRateLimiter` (TypeScript SDK) with per-tier limits by default:
 - Routine: 1000 req/min per agent
 - Standard: 500 req/min
 - Elevated: 100 req/min
@@ -358,11 +361,11 @@ V2.0 adds bridge modules for interoperability with external ecosystems:
 
 ## DCP-05 through DCP-09: Constitutional Extensions
 
-DCP v2.0 extends beyond accountability into a constitutional framework for digital society. Five new specifications add lifecycle governance, succession, dispute resolution, rights, and delegation.
+DCP v2.0 extends beyond accountability into a constitutional framework for digital society. Five new specifications add lifecycle governance, succession, dispute resolution, rights, and delegation. Their records are signed declarations: the SDK helpers build and sign them, but they do not carry out the actions they describe or verify that a human consented.
 
 ### DCP-05: Agent Lifecycle Management
 
-Defines the lifecycle state machine: `commissioned → active → declining → decommissioned`. Introduces:
+Defines the lifecycle state machine, whose main path is `commissioned → active → declining → decommissioned` (it allows six transitions in all: see `validateStateTransition` in [API_REFERENCE.md](API_REFERENCE.md)). Introduces:
 - **Commissioning Certificate**: Formal agent activation with purpose, capabilities, and risk tier
 - **Vitality Reports**: Hash-chained health metrics (score 0-1000) for continuous monitoring
 - **Decommissioning Record**: Four termination modes (planned retirement, termination for cause, organizational restructuring, sudden failure)
@@ -374,7 +377,7 @@ Domain separation context: `DCP-AI.v2.Lifecycle`
 Handles agent death and knowledge transfer:
 - **Digital Testament**: Ranked successor preferences + memory classification (transfer/retain/destroy)
 - **Succession Record**: Ceremony record with human consent and participant witnesses
-- **Memory Transfer Manifest**: Dual-hash Merkle root over transferred operational memory; relational memory destroyed by default
+- **Memory Transfer Manifest**: Dual-hash Merkle root over transferred operational memory; relational memory is classified for destruction by default, but `classifyMemory` only lists those hashes and deletes nothing, and entries marked `retain` are left out of the manifest
 
 Domain separation context: `DCP-AI.v2.Succession`
 
@@ -393,7 +396,7 @@ Domain separation context: `DCP-AI.v2.Dispute`
 Codifies agent rights and human obligations:
 - **Rights Declaration**: Four fundamental rights (memory integrity, dignified transition, identity consistency, immutable record)
 - **Obligation Record**: Compliance tracking (compliant/non-compliant/pending review)
-- **Rights Violation Report**: Links to DCP-07 dispute system for enforcement
+- **Rights Violation Report**: Can reference a DCP-07 dispute through a `dispute_id` that the caller supplies; it does not open one
 
 Domain separation context: `DCP-AI.v2.Rights`
 

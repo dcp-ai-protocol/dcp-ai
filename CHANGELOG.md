@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+> **Informative note (25/10/2026).** Each entry describes a change as it was made, including the successive entries
+> under `[Unreleased]`, where a later entry can refine or replace an earlier one. An entry is not a guarantee of
+> current behaviour, nor of a package version being available in a registry. For current behaviour, see the
+> [README](README.md), the [documentation](docs/README.md), the [specifications](spec/README.md) and the
+> [API reference](docs/API_REFERENCE.md).
+
 ## [Unreleased]
 
 ### Security
@@ -394,6 +400,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   missing or wrong `parent_mandate_id`, lowered tier, revoked root or intermediate, a sub-mandate
   signed by the wrong agent, both signatures present, wrong `delegation_depth`, and more) and the
   tier-floor cases. All four SDK suites run it.
+- Experimental, opt-in APIs for the canonicalization candidate `dcp-jcs-v2`
+  (`docs/proposals/canonicalization-candidate`, §15–§18). The candidate is not normative and not
+  active: `dcp-jcs-v1` stays the only normative and default canonicalization profile, and no default, builder, signer or
+  verifier changes. Only callers who opt in reach these APIs, in TypeScript, Python, Go, Rust and
+  WASM.
+  - **Ingress:** checks the original bytes of one unit (UTF-8, BOM, duplicates, exact integers in
+    ±(2^53−1), depth 64) and gives its canonical bytes or a class and offset.
+  - **Router:** extracts the unit from its transport, reads the profile and decides: reject,
+    delegate to `dcp-jcs-v1` through a named historical decoder, or select the candidate.
+  - **Verifier:** verifies from the original bytes with at most one verifier: today's for
+    `dcp-jcs-v1`, and today's accepting exactly `dcp-jcs-v2` for the candidate. A verified bundle
+    grants no trust or admission.
+  - **Producers:** sign artifacts (`experimentalCandidateSignPayload` and its equivalents) and
+    bundles whose manifest names `dcp-jcs-v2` (`experimentalCandidateSignBundle`), from original
+    bytes or strictly checked host values. A rejection for the domain or form of the inputs is raised
+    before any signer is called; a key, registry or provider error can still come after a signature was
+    made.
+  - **Tests:** a cross matrix of five producers × five consumers
+    (`tests/interop/candidate/phase4`, 975 results with an all-or-nothing verdict) and its cost
+    measurement, run by the new `canonicalization-candidate-matrix` workflow, which publishes
+    nothing. Vectors are in `tests/interop/candidate/`.
 
 ### Changed
 
@@ -581,6 +608,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `bundle`, `signature`, `manifest` or `audit_entries`, a `null` audit entry, or a non-integer
   number (`0.5`, `1e400`) in a canonicalized object (`spec/VERIFICATION.md` V2-3, V2-5). The
   Python, Go and Rust verifiers already rejected these; found by `tools/difffuzz`.
+- Go V1 `VerifyObject` panicked on a public key that did not decode to 32 bytes (`ed25519.Verify`
+  panics on any other length). It now checks the decoded length and returns an error instead.
+  `VerifySignedBundle` keeps its behaviour around it: an empty public key falls back to the one
+  embedded in the signature, both missing gives `missing public key`, and an error from
+  `VerifyObject` is reported as `SIGNATURE INVALID`.
+- The TypeScript CBOR decoder (`sdks/typescript/src/wire/cbor.ts`, optional) rejects duplicate map
+  keys, invalid UTF-8, and integers and lengths outside the safe integer range. It keeps U+FEFF as
+  text data, defines a `__proto__` key as an own property instead of invoking the setter, and the
+  encoder rejects unpaired surrogates instead of replacing them. This hardens the decoder's input
+  handling; it is not a complete canonical CBOR decoder and adds no canonicalization profile.
 
 ### Documentation
 
@@ -1442,6 +1479,7 @@ session-nonce validator regex, and signed checkpoint payloads under the
 ### What's not in v2.4
 
 Deliberately scoped out (will ship as follow-up releases if demand appears):
+
 - Shamir secret sharing (Gap #1) — requires careful crypto review; TS-only.
 - Verification cache — app-level concern, not protocol.
 - Rate limiting / circuit breaker / retry — app-level patterns best
@@ -1470,15 +1508,18 @@ Principal Mirror) behavior — matching the TypeScript feature set.
 **New function groups (identical semantics across PY/RS/GO, matching TS):**
 
 DCP-07 Conflict Resolution:
+
 - `create_dispute` · `escalate_dispute` · `resolve_dispute` · `create_objection`
 - Arbitration: `create_arbitration_panel` · `submit_resolution` ·
   `build_jurisprudence_bundle` · `lookup_precedent`
 
 DCP-08 Rights & Obligations:
+
 - `declare_rights` · `record_obligation` · `report_violation` ·
   `check_rights_compliance`
 
 DCP-09 Delegation & Representation:
+
 - Delegation: `create_delegation_mandate` · `verify_mandate_validity` ·
   `revoke_delegation` · `generate_interaction_record`
 - Awareness threshold: `evaluate_significance` · `should_notify_human` ·
@@ -1517,6 +1558,7 @@ cross-SDK crosswalk.
 **New functions (identical semantics across Python/Rust/Go, matching TS):**
 
 DCP-05 Agent Lifecycle:
+
 - `validate_state_transition` / `ValidateStateTransition`
 - `compute_vitality_score` / `ComputeVitalityScore`
 - `create_commissioning_certificate` / `CreateCommissioningCertificate`
@@ -1525,6 +1567,7 @@ DCP-05 Agent Lifecycle:
 - `create_decommissioning_record` / `CreateDecommissioningRecord`
 
 DCP-06 Digital Succession:
+
 - `create_digital_testament` / `CreateDigitalTestament`
 - `update_digital_testament` / `UpdateDigitalTestament`
 - `classify_memory` / `ClassifyMemory`
@@ -1557,6 +1600,8 @@ schema to integers (or basis-points) to eliminate the gap entirely.
 - `dcp-ai` (crates.io) 2.1.0 -> 2.2.0
 - `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` -> v2.2.0
 - `@dcp-ai/sdk` (npm) stays at 2.1.0 (TS already had these functions)
+
+<a id="210---2026-04-22"></a>
 
 ## [2.1.0] - 2026-04-22
 

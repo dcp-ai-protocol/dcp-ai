@@ -4,9 +4,20 @@ DCP verification middleware for FastAPI. Automatically verifies Signed Bundles a
 
 ## Supported DCP Specifications
 
-DCP-01 through DCP-09.
+DCP-01 through DCP-09, partially: bundle verification and admission as described below, and a few fields of DCP-05 and DCP-09 (`lifecycle_state`, `mandate_id`); not a full implementation of those specifications.
 
 ## Installation
+
+> **Release status (25/10/2026).** PyPI has `dcp-ai` 2.9.0. Its FastAPI middleware **does not verify the signatures of V2 bundles**: it checks their structure, and sets `composite_sig_valid` from the `binding` field, so a forged or altered V2 bundle passes (fixed on `main`, see the `[Unreleased]` section of [CHANGELOG.md](../../CHANGELOG.md)). Do not rely on 2.9.0 for V2 bundles. Admission (`trusted_principals`, `profile`, `revocation_source`), `verifier_policy`, `max_body_bytes`, source supervision and `cancel_on_disconnect` are not in it either. This README follows the source on `main`.
+
+To use the version this page describes, install the Python SDK from a checkout:
+
+```bash
+git clone https://github.com/dcp-ai-protocol/dcp-ai.git
+pip install "/path/to/dcp-ai/sdks/python[fastapi]"
+```
+
+The published version (2.9.0), without the features listed above:
 
 ```bash
 pip install "dcp-ai[fastapi]"
@@ -40,6 +51,8 @@ async def agent_action(agent: DCPAgentContext = Depends(require_dcp)):
 ```
 
 ### Sending a bundle
+
+A hybrid V2 bundle is about 33 KB, more than the header limits of most servers and proxies: send it in the JSON body. The header is for bundles that fit every limit on the path. The body request below is a template: `{...}` stands for a real signed bundle.
 
 ```bash
 # Via header
@@ -94,7 +107,7 @@ app.add_middleware(
 0. With `max_body_bytes`, the body is read first, within the budget (see [Body budget](#body-budget)).
 1. Extracts the signed bundle from the header or JSON body (`signed_bundle`). A header that is not JSON, holds an integer over Python's 4300-digit limit or is nested too deeply counts as no bundle (`403` with `require_bundle=True`), never a `500`.
 2. Verifies it with the Python SDK:
-   - **V2** (`bundle.dcp_bundle_version: "2.0"`): `await verify_signed_bundle_v2(signed_bundle, registry, policy)` from `dcp_ai.v2`, with an Ed25519 / ML-DSA-65 / SLH-DSA-192f registry and the policy above. It checks the payload hashes and the manifest, session binding and expiry, the bundle's and every artifact's composite signature, the verification mode (the stricter of the policy's mode for the passport's risk tier and the intent's security tier), the audit hash chain and key validity. `composite_sig_valid` is the verifier's result for the bundle signature.
+   - **V2** (`bundle.dcp_bundle_version: "2.0"`): `await verify_signed_bundle_v2(signed_bundle, registry, policy)` from `dcp_ai.v2`, with an Ed25519 / ML-DSA-65 / SLH-DSA-192f registry and the policy above. It checks the payload hashes and the manifest, session binding and expiry, the bundle's and every artifact's composite signature, the verification mode (the stricter of the policy's mode for the passport's risk tier and the intent's security tier), the audit hash chain (the SHA-256 one: it does not recompute the secondary SHA3-256 chain or root of V2-11) and key validity. `composite_sig_valid` is the verifier's result for the bundle signature.
    - **V1** (`bundle.responsible_principal_record.dcp_version: "1.0"`): `verify_signed_bundle()`, only where VERIFICATION.md V2-10 would accept a classical-only bundle, since a V1 bundle has no post-quantum signature: `allow_v1_bundles` is true, the policy accepts ed25519 (in `accepted_classical_algs`, not in `advisory_rejected_algs`) and requires no audience binding, session expiry or maximum session duration (a V1 bundle has no `intended_verifier` and no session window), the bundle's `responsible_principal_record`, `agent_passport`, `intent` and `policy_decision` are objects and its `audit_entries` a list of objects, the passport's `agent_id` and the RPR's `human_id` are strings (and the passport's `public_key` and `status`, when present, strings, its `capabilities` a list of strings), since they go into the agent context, and the stricter of the policy mode for the V1 passport's `risk_tier` (`default_mode` when it has none) and the mode of the security tier of the V1 intent and policy decision (V1 `risk_score` is 0 to 1, scaled by 1000; a missing one counts as `elevated`) is `classical_only` or `hybrid_preferred`. Under `DEFAULT_VERIFIER_POLICY` a routine or standard V1 intent passes; a payment, sensitive data, a high estimated impact or a risk score of 0.5 or more is refused.
    - A bundle whose version cannot be detected is rejected.
 3. If valid: stores `DCPAgentContext` in `request.state.dcp_agent`, with the verifier's `warnings`
@@ -299,7 +312,7 @@ class DCPAgentContext:
 
 ### `require_dcp_commissioned(request)`
 
-FastAPI dependency that rejects decommissioned agents (DCP-05 §5.1).
+FastAPI dependency that rejects an agent whose `lifecycle_state` is `decommissioned`. The middleware fills `lifecycle_state` from the passport's `status`; it does not read a DCP-05 commissioning certificate or lifecycle record.
 
 ```python
 @app.post("/active-only")
@@ -309,7 +322,7 @@ async def active_only(agent: DCPAgentContext = Depends(require_dcp_commissioned)
 
 ### `require_dcp_mandated(request)`
 
-FastAPI dependency that requires a valid delegation mandate (DCP-09 §3.1).
+FastAPI dependency that requires a delegation mandate (DCP-09 §3.1), but only checks that `mandate_id` is not empty: it does not fetch the mandate, verify its signature or check `mandate_valid`. The middleware does not fill `mandate_id` itself, so every request gets `403` unless your own code sets it (and then you are responsible for checking the mandate).
 
 ```python
 @app.post("/delegated")
@@ -320,7 +333,7 @@ async def delegated(agent: DCPAgentContext = Depends(require_dcp_mandated)):
 ## Advanced Example — Global Middleware + Selective Routes
 
 ```python
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Request
 from dcp_ai.fastapi import DCPVerifyMiddleware, require_dcp, DCPAgentContext
 
 app = FastAPI()
@@ -342,7 +355,7 @@ async def execute(agent: DCPAgentContext = Depends(require_dcp)):
 
 # Route that uses the agent if available
 @app.get("/info")
-async def info(request):
+async def info(request: Request):
     agent = getattr(request.state, "dcp_agent", None)
     if agent:
         return {"mode": "verified", "agent": agent.agent_id}
@@ -351,9 +364,12 @@ async def info(request):
 
 ## Development
 
+From a checkout:
+
 ```bash
-pip install "dcp-ai[fastapi,dev]"
-pytest -v
+cd sdks/python
+pip install -e ".[fastapi,dev]"
+pytest tests/test_fastapi_*.py -v
 ```
 
 ### Dependencies

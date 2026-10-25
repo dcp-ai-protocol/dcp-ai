@@ -122,3 +122,22 @@ A jurisdiction may publish a **signed revocation list** — a JSON file listing 
 
 - Verification checklist: [VERIFICATION.md](VERIFICATION.md)
 - Storage and anchoring (revocation lists, transparency log): [docs/STORAGE_AND_ANCHORING.md](../docs/STORAGE_AND_ANCHORING.md)
+
+## Implementation notes (informative)
+
+> **Added 25/10/2026. Not normative.** These notes add no requirement and change nothing above: they describe how
+> the reference code on `main` relates to this text. Where they differ, the normative text above stands.
+
+- The artifacts and commands above are the **V1** ones (`schemas/v1/`). The V2 RPR and passport
+  (`schemas/v2/`, specified in [DCP-AI v2.0](DCP-AI-v2.0.md)) carry key lists (`binding_keys`, `keys`), a
+  `session_nonce` and composite signatures in `SignedPayload` envelopes; the V2 passport adds the lifecycle states of
+  DCP-05 and an optional `emergency_revocation_token`.
+- `<hbr.json>`, `<ap.json>` and the other names in angle brackets are placeholders for your own files.
+- The jurisdiction attestation object shown above has no V1 JSON Schema.
+  `schemas/v2/jurisdiction_attestation.schema.json` defines a V2 form that requires `dcp_version` and a `composite_sig`
+  and, with `additionalProperties: false`, does not allow the `signature` member shown above. The reference verifiers
+  (`lib/verify.js`, the SDK verifiers, `dcp verify-bundle`) do not check attestations; a verifier that uses them runs
+  the checks of this section itself.
+- Both `schemas/v1/signed_bundle.schema.json` and `schemas/v2/signed_bundle.schema.json` allow only `bundle` and
+  `signature` (`additionalProperties: false`). With the current forms an attestation travels alongside the Signed
+  Bundle, presented separately; adding it as an extra member makes the Signed Bundle fail schema validation.

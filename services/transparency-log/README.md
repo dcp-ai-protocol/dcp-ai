@@ -5,11 +5,11 @@ HTTP transparency log service inspired by Certificate Transparency (CT). Stores 
 ## Quickstart
 
 ```bash
-# Start the service
-node index.js
+# Start the service, from the root of a checkout after `npm install` there
+node services/transparency-log/index.js
 
-# Or with Docker
-docker compose up transparency-log
+# Or with Docker, from the repo root: the Compose stack runs two logs that gossip with each other
+docker compose -f docker/docker-compose.yml up transparency-log-a transparency-log-b
 ```
 
 The service listens on `http://localhost:3002` by default.
@@ -44,7 +44,7 @@ or a body over 1 MB, is a 400.
 ```bash
 curl -X POST http://localhost:3002/add \
   -H "Content-Type: application/json" \
-  -d '{"bundle_hash": "sha256:abc123..."}'
+  -d '{"bundle_hash": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"}'
 ```
 
 ```json
@@ -100,8 +100,9 @@ const { log_id, root, size, timestamp, signature } = sth;
 verifyObject({ log_id, root, size, timestamp }, signature, pinnedPublicKey); // true
 ```
 
-`OPERATOR_KEY` is the key's 32-byte seed, so the key survives restarts. Without it the log signs
-with an ephemeral key and earlier STHs stop verifying after a restart.
+`OPERATOR_KEY` is the key's 32-byte seed, so the signing key survives restarts; the tree does not, since it stays in
+memory. Without it the log signs with a new ephemeral key after each restart: earlier STHs still verify under the old
+key, if you archived or pinned it, but not under the new one.
 
 ### `GET /proof/:index`
 
@@ -200,13 +201,15 @@ To verify that an entry is in the log:
 3. Recombine the proof nodes in order, as raw bytes (the hex strings decoded):
    - If `direction == "left"`: `hash = SHA-256(0x01 || proof_hash || current)`
    - If `direction == "right"`: `hash = SHA-256(0x01 || current || proof_hash)`
-4. The final result must match the current `root`
+4. The final result must equal the `root` of a signed tree head that verifies under the log's pinned public key and
+   covers the tree the proof was built from (the same size). The `root` in the proof response alone is self-declared,
+   and a newer root stops matching once entries are added
 
 ## Development
 
 ```bash
-# Start in development mode
-PORT=3002 node index.js
+# Start in development mode, from the root of a checkout
+PORT=3002 node services/transparency-log/index.js
 
 # Test
 curl http://localhost:3002/health

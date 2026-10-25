@@ -1,16 +1,32 @@
 <sub>[English](README.md) · [中文](README.zh-CN.md) · **Español** · [日本語](README.ja.md) · [Português](README.pt-BR.md)</sub>
 
+<a id="dcp-aiwasm-webassembly-sdk-v20"></a>
+
 # @dcp-ai/wasm — SDK WebAssembly v2.0
 
-Módulo WebAssembly con todas las funcionalidades para el Digital Citizenship Protocol (DCP) v2.0, compilado desde el SDK de Rust. Proporciona firmas compuestas post-cuánticas, generación de claves híbridas, encapsulación de clave ML-KEM-768, hashing dual, construcción y verificación de bundles, y cálculo del nivel de seguridad — todo ejecutándose directamente en el navegador o Node.js, sin servidor requerido.
+> Traducción informativa del [README en inglés](README.md), actualizada el 25/10/2026. Los identificadores y los bloques de código, incluidos sus comentarios, se conservan para mantener los ejemplos probados.
+
+Módulo WebAssembly para el Digital Citizenship Protocol (DCP) v2.0, compilado a partir del SDK de Rust. Ofrece firmas compuestas poscuánticas, generación de claves híbridas, encapsulación de claves ML-KEM-768, hashes duales, construcción y verificación de bundles y cálculo del nivel de seguridad. Se ejecuta directamente en el navegador o en Node.js, sin servidor.
+
+<a id="installation"></a>
 
 ## Instalación
+
+**Estado de publicación.** Este README describe el código de `main`. La última versión etiquetada, `v2.10.0`, incluye `@dcp-ai/wasm` 2.1.0; no se consultó el registro npm para este README. Lo que el registro de cambios enumera en [`[Unreleased]`](../../CHANGELOG.md#unreleased) todavía no forma parte de una versión etiquetada, incluidas las API experimentales de `dcp-jcs-v2`. Para ejecutar los ejemplos siguientes, compila una copia del repositorio (véase Compilación) e instala su directorio:
+
+```bash
+npm install /path/to/dcp-ai/sdks/wasm
+```
+
+La instalación desde el registro obtiene la versión publicada:
 
 ```bash
 npm install @dcp-ai/wasm
 ```
 
-## Build
+<a id="build"></a>
+
+## Compilación
 
 ```bash
 # Build WASM + TypeScript wrapper
@@ -23,165 +39,281 @@ npm run build:wasm
 npm run build:wasm:node
 ```
 
-**Requisitos:** [wasm-pack](https://rustwasm.github.io/wasm-pack/installer/) y el toolchain de Rust con el target `wasm32-unknown-unknown`.
+**Requisitos:** [wasm-pack](https://rustwasm.github.io/wasm-pack/installer/) y la cadena de herramientas de Rust con el destino `wasm32-unknown-unknown`.
 
-## Inicio Rápido — Wrapper TypeScript
+<a id="initialization-browser-and-nodejs"></a>
 
-La forma recomendada de usar el SDK es a través del wrapper ergonómico de TypeScript:
+## Inicialización: navegador y Node.js
+
+`initDcp(wasmUrl?)` carga `dcp_ai_bg.wasm` una sola vez.
+
+- **Navegador** (o un empaquetador que sirva `pkg/`): `await initDcp()` obtiene el archivo situado junto a `pkg/dcp_ai.js`. También puedes pasar su URL: `await initDcp('/assets/dcp_ai_bg.wasm')`.
+- **Node.js:** su implementación de `fetch` no puede leer una URL `file:`, por lo que `initDcp()` sin argumentos falla en ese entorno. Lee el archivo y pásalo como URL `data:`:
 
 ```typescript
+import { readFileSync } from 'node:fs';
 import { initDcp } from '@dcp-ai/wasm';
 
-const dcp = await initDcp();
-
-// Generate hybrid Ed25519 + ML-DSA-65 keypair (here it signs for both the principal and the agent)
-const keys = dcp.generateHybridKeypair();
-const keyEntries = [keys.classical, keys.pq].map((k) => ({
-  kid: k.kid, alg: k.alg, public_key_b64: k.public_key_b64,
-  created_at: new Date().toISOString(), expires_at: null, status: 'active',
-}));
-const sessionNonce = dcp.generateSessionNonce();
-
-// Sign each artifact under its own context
-const sign = (context: string, payload: object) =>
-  dcp.signPayload(
-    context, { ...payload, session_nonce: sessionNonce },
-    keys.classical.secret_key_b64, keys.classical.kid!,
-    keys.pq.secret_key_b64, keys.pq.kid!,
-  );
-
-// Build a V2 bundle from the signed artifacts
-const bundle = dcp.buildBundle({
-  rpr: sign('DCP-AI.v2.ResponsiblePrincipal', { dcp_version: '2.0', human_id: 'human:alice', binding_keys: keyEntries /* ... */ }),
-  passport: sign('DCP-AI.v2.AgentPassport', { dcp_version: '2.0', agent_id: 'agent-001', keys: keyEntries, principal_binding_reference: 'human:alice', status: 'active' /* ... */ }),
-  intent: sign('DCP-AI.v2.Intent', { dcp_version: '2.0', intent_id: 'intent-001', agent_id: 'agent-001', human_id: 'human:alice', action_type: 'browse', data_classes: ['none'], estimated_impact: 'low' /* ... */ }),
-  policy: sign('DCP-AI.v2.PolicyDecision', { dcp_version: '2.0', intent_id: 'intent-001', decision: 'approve', risk_score: 100 /* ... */ }),
-  auditEntries: [],
-  sessionNonce,
-});
-
-// Sign the bundle with composite signature
-const signed = dcp.signBundle(
-  bundle,
-  keys.classical.secret_key_b64, keys.classical.kid!,
-  keys.pq.secret_key_b64, keys.pq.kid!,
-);
-
-// Verify the signed bundle
-const result = dcp.verifyBundle(signed);
-console.log(result.verified);       // true
-console.log(result.classical_valid); // true
-console.log(result.pq_valid);       // true
+// The .wasm file sits next to the `@dcp-ai/wasm/pkg` entry point.
+const wasmFile = new URL('dcp_ai_bg.wasm', import.meta.resolve('@dcp-ai/wasm/pkg'));
+const dcp = await initDcp(`data:application/wasm;base64,${readFileSync(wasmFile).toString('base64')}`);
 ```
 
-## Referencia de API
+wasm-bindgen puede advertir que esta forma del parámetro está obsoleta; aun así, inicializa el módulo.
+
+<a id="quickstart--typescript-wrapper"></a>
+
+<a id="quickstart-typescript-wrapper"></a>
+
+## Inicio rápido — Envoltorio de TypeScript
+
+Se recomienda utilizar el SDK mediante su envoltorio de TypeScript. En este bundle V2, el principal firma el RPR y el manifiesto; el agente firma el pasaporte, la intención y la decisión de política. Cada uno utiliza claves híbridas Ed25519 + ML-DSA-65. El ejemplo se ejecuta en Node.js; en un navegador, sustituye la inicialización por `await initDcp()`.
+
+```typescript
+import { readFileSync } from 'node:fs';
+import { initDcp } from '@dcp-ai/wasm';
+
+const wasmFile = new URL('dcp_ai_bg.wasm', import.meta.resolve('@dcp-ai/wasm/pkg'));
+const dcp = await initDcp(`data:application/wasm;base64,${readFileSync(wasmFile).toString('base64')}`);
+
+const principal = dcp.generateHybridKeypair();
+const agent = dcp.generateHybridKeypair();
+type Hybrid = ReturnType<typeof dcp.generateHybridKeypair>;
+const keyEntries = (keys: Hybrid) => [keys.classical, keys.pq].map((k) => ({
+  kid: k.kid ?? dcp.deriveKid(k.alg, k.public_key_b64), alg: k.alg, public_key_b64: k.public_key_b64,
+  created_at: '2026-01-01T00:00:00Z', expires_at: null, status: 'active',
+}));
+const sign = (context: string, payload: object, keys: Hybrid) =>
+  dcp.signPayload(
+    context, payload,
+    keys.classical.secret_key_b64, keys.classical.kid ?? dcp.deriveKid('ed25519', keys.classical.public_key_b64),
+    keys.pq.secret_key_b64, keys.pq.kid ?? dcp.deriveKid('ml-dsa-65', keys.pq.public_key_b64),
+  );
+
+const nonce = dcp.generateSessionNonce();
+const now = new Date().toISOString();
+const intent = {
+  dcp_version: '2.0', intent_id: 'intent:example-001', session_nonce: nonce, agent_id: 'agent:example-001',
+  human_id: 'human:example-001', timestamp: now, action_type: 'browse', target: { channel: 'web' },
+  data_classes: ['none'], estimated_impact: 'low', requires_consent: false,
+};
+
+const bundle = dcp.buildBundle({
+  rpr: sign('DCP-AI.v2.ResponsiblePrincipal', {
+    dcp_version: '2.0', human_id: 'human:example-001', session_nonce: nonce, legal_name: 'Example Principal',
+    entity_type: 'natural_person', jurisdiction: 'ES', liability_mode: 'owner_responsible', override_rights: true,
+    issued_at: now, expires_at: null, contact: null, binding_keys: keyEntries(principal),
+  }, principal),
+  passport: sign('DCP-AI.v2.AgentPassport', {
+    dcp_version: '2.0', agent_id: 'agent:example-001', session_nonce: nonce, keys: keyEntries(agent),
+    principal_binding_reference: 'human:example-001', capabilities: ['browse'], risk_tier: 'low',
+    created_at: now, status: 'active',
+  }, agent),
+  intent: sign('DCP-AI.v2.Intent', intent, agent),
+  policy: sign('DCP-AI.v2.PolicyDecision', {
+    dcp_version: '2.0', intent_id: intent.intent_id, session_nonce: nonce, decision: 'approve', risk_score: 50,
+    reasons: ['low-impact browse'], required_confirmation: null,
+    applied_policy_hash: dcp.preparePayload({ policy: 'default' }).payload_hash, timestamp: now,
+  }, agent),
+  auditEntries: [{
+    dcp_version: '2.0', audit_id: 'audit:example-001', session_nonce: nonce, prev_hash: 'GENESIS', hash_alg: 'sha256',
+    timestamp: now, agent_id: 'agent:example-001', human_id: 'human:example-001', intent_id: intent.intent_id,
+    intent_hash: dcp.preparePayload(intent).payload_hash, policy_decision: 'approved', outcome: 'page_read',
+    evidence: { tool: 'browser', result_ref: null, evidence_hash: null }, pq_checkpoint_ref: null,
+  }],
+  sessionNonce: nonce,
+});
+
+// The principal signs the manifest with a composite signature.
+const signed = dcp.signBundle(
+  bundle,
+  principal.classical.secret_key_b64, principal.classical.kid ?? dcp.deriveKid('ed25519', principal.classical.public_key_b64),
+  principal.pq.secret_key_b64, principal.pq.kid ?? dcp.deriveKid('ml-dsa-65', principal.pq.public_key_b64),
+);
+
+const result = dcp.verifyBundle(signed);
+console.log(result.verified, result.classical_valid, result.pq_valid); // true true true
+```
+
+<a id="api-reference"></a>
+
+## Referencia de la API
+
+<a id="initialization"></a>
 
 ### Inicialización
 
 #### `initDcp(wasmUrl?: string): Promise<DcpWasm>`
 
-Inicializa el módulo WASM. Debe llamarse una vez antes de usar cualquier API. Opcionalmente se puede pasar una URL personalizada para el archivo `.wasm`.
+Inicializa el módulo WASM. Debe llamarse una vez antes de utilizar cualquier API. Opcionalmente acepta la URL del archivo `.wasm`; en Node.js, pásala como URL `data:` (véase [Inicialización](#initialization-browser-and-nodejs)).
 
-### Generación de Pares de Claves
+<a id="keypair-generation"></a>
 
-| Método | Devuelve | Descripción |
-|--------|---------|-------------|
-| `generateEd25519Keypair()` | `KeypairResult` | Par de claves clásico Ed25519 |
-| `generateMlDsa65Keypair()` | `KeypairResult` | Par de claves post-cuántico de firma ML-DSA-65 |
-| `generateSlhDsa192fKeypair()` | `KeypairResult` | Par de claves sin estado de firma basada en hash SLH-DSA-192f |
-| `generateHybridKeypair()` | `HybridKeypairResult` | Par de claves híbrido Ed25519 + ML-DSA-65 en una sola llamada |
-
-### Encapsulación de Clave ML-KEM-768
+### Generación de pares de claves
 
 | Método | Devuelve | Descripción |
 |--------|---------|-------------|
-| `mlKem768Keygen()` | `KemKeypairResult` | Genera par de claves de encapsulación/desencapsulación ML-KEM-768 |
-| `mlKem768Encapsulate(pk)` | `KemEncapsulateResult` | Encapsula un secreto compartido usando una clave pública |
-| `mlKem768Decapsulate(ct, sk)` | `string` | Desencapsula el secreto compartido desde el ciphertext (devuelve hex) |
+| `generateEd25519Keypair()` | `KeypairResult` | Par de claves clásicas Ed25519 |
+| `generateMlDsa65Keypair()` | `KeypairResult` | Par de claves de firma poscuántica ML-DSA-65 |
+| `generateSlhDsa192fKeypair()` | `KeypairResult` | Par de claves de firma SLH-DSA-192f basada en hashes y sin estado |
+| `generateHybridKeypair()` | `HybridKeypairResult` | Par de claves híbridas Ed25519 + ML-DSA-65 en una sola llamada |
 
-### Firma Compuesta
+<a id="ml-kem-768-key-encapsulation"></a>
+
+### Encapsulación de claves ML-KEM-768
+
+| Método | Devuelve | Descripción |
+|--------|---------|-------------|
+| `mlKem768Keygen()` | `KemKeypairResult` | Genera un par de claves de encapsulación y desencapsulación ML-KEM-768 |
+| `mlKem768Encapsulate(pk)` | `KemEncapsulateResult` | Encapsula un secreto compartido mediante una clave pública |
+| `mlKem768Decapsulate(ct, sk)` | `string` | Desencapsula el secreto compartido a partir del texto cifrado; devuelve hexadecimal |
+
+<a id="composite-signing"></a>
+
+### Firma compuesta
 
 | Método | Descripción |
 |--------|-------------|
-| `compositeSign(context, payload, classicalSk, classicalKid, pqSk, pqKid)` | Firma híbrida completa (Ed25519 + ML-DSA-65) con vinculación `pq_over_classical` |
-| `classicalOnlySign(context, payload, sk, kid)` | Firma Ed25519 solo clásica (modo de transición) |
-| `signPayload(context, payload, classicalSk, classicalKid, pqSk, pqKid)` | Firma y envuelve en un sobre `SignedPayload` |
+| `compositeSign(context, payload, classicalSk, classicalKid, pqSk, pqKid)` | Firma híbrida completa Ed25519 + ML-DSA-65 con enlace `pq_over_classical` |
+| `classicalOnlySign(context, payload, sk, kid)` | Firma únicamente clásica Ed25519, para el modo de transición |
+| `signPayload(context, payload, classicalSk, classicalKid, pqSk, pqKid)` | Firma y envuelve el contenido en un sobre `SignedPayload` |
+
+<a id="verification"></a>
 
 ### Verificación
+
+La verificación no otorga confianza en el principal, admisión ni autorización para actuar. El verificador V2 comprueba la cadena de auditoría primaria y la raíz Merkle primaria; no recalcula la cadena secundaria opcional ni `audit_merkle_root_secondary` ([limitación de implementación](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)). El candidato experimental reutiliza estas comprobaciones.
 
 | Método | Devuelve | Descripción |
 |--------|---------|-------------|
 | `compositeVerify(context, payload, sig, classicalPk, pqPk?)` | `CompositeVerifyResult` | Verificación criptográfica de una firma compuesta |
-| `verifyBundle(signedBundle, policy?)` | `V2VerificationResult` | Verificación completa de bundle V2 (estructura + cripto + cadena de hash) contra el modo más estricto entre el de la política y el del nivel de seguridad (spec §14.3); informa `resolved_tier` y `verification_mode`. `policy` solo puede diferir del valor por defecto en `default_mode`, `risk_overrides`, los campos de Fase 3 (`advisory_rejected_algs`, `warn_classical_only_deprecated`, `allow_classical_fallback_disable`), `max_session_duration_seconds` (medido desde el `session_issued_at` firmado, que `signBundle` escribe cuando el manifiesto tiene `session_expires_at`), `require_session_expiry` (se rechaza un manifiesto sin `session_expires_at`) y `require_audience_binding` con `verifier_id` (se rechaza un manifiesto sin `intended_verifier`, o con otro distinto de `verifier_id`); con una política se rechazan los bundles V1 |
+| `verifyBundle(signedBundle, policy?)` | `V2VerificationResult` | Verifica un bundle V2 —estructura, criptografía y cadena de hashes primaria— con el más estricto de los modos de la política y del nivel de seguridad (spec §14.3); informa `resolved_tier` y `verification_mode`. `policy` solo puede diferir de los valores predeterminados en `default_mode`, `risk_overrides`, los campos de la fase 3 (`advisory_rejected_algs`, `warn_classical_only_deprecated`, `allow_classical_fallback_disable`), `max_session_duration_seconds` (medida desde el `session_issued_at` firmado, que `signBundle` escribe cuando el manifiesto contiene `session_expires_at`), `require_session_expiry` (rechaza un manifiesto sin `session_expires_at`) y `require_audience_binding` con `verifier_id` (rechaza un manifiesto sin `intended_verifier` o con un valor distinto de `verifier_id`). Cuando se proporciona una política, se rechazan los bundles V1 |
 
-### Operaciones de Hash
+<a id="hash-operations"></a>
+
+### Operaciones de hash
 
 | Método | Devuelve | Descripción |
 |--------|---------|-------------|
 | `dualHash(data)` | `DualHash` | Hash dual SHA-256 + SHA3-256 |
-| `sha3_256(data)` | `string` | Hash SHA3-256 (hex) |
+| `sha3_256(data)` | `string` | Hash SHA3-256 en hexadecimal |
 | `hashObject(obj)` | `string` | Hash SHA-256 de un objeto JSON |
-| `dualMerkleRoot(leaves)` | `DualHash` | Raíz de Merkle dual desde un array de hojas `DualHash` |
+| `dualMerkleRoot(leaves)` | `DualHash` | Raíz Merkle dual a partir de un arreglo de hojas `DualHash` |
 
-### Canonicalización y Separación de Dominio
+<a id="canonicalization-domain-separation"></a>
 
-| Método | Devuelve | Descripción |
-|--------|---------|-------------|
-| `canonicalize(value)` | `string` | Canonicalización `dcp-jcs-v1` (basada en RFC 8785 JCS) |
-| `domainSeparatedMessage(context, payloadHex)` | `string` | Mensaje separado por dominio (hex) |
-| `deriveKid(alg, publicKeyB64)` | `string` | ID de clave determinístico a partir de algoritmo + clave pública |
-
-### Sesión y Seguridad
+### Canonicalización y separación de dominios
 
 | Método | Devuelve | Descripción |
 |--------|---------|-------------|
-| `generateSessionNonce()` | `string` | Nonce aleatorio de 256 bits (64 caracteres hex) |
-| `verifySessionBinding(artifacts)` | `SessionBindingResult` | Verifica la consistencia del nonce a través de los artefactos |
-| `computeSecurityTier(intent, policyDecision?)` | `SecurityTierResult` | Calcula el nivel de seguridad adaptativo (routine/standard/elevated/maximum); `risk_score` sale de la decisión de política |
+| `canonicalize(value)` | `string` | Canonicalización `dcp-jcs-v1`, basada en RFC 8785 JCS |
+| `domainSeparatedMessage(context, payloadHex)` | `string` | Mensaje con separación de dominios, en hexadecimal |
+| `deriveKid(alg, publicKeyB64)` | `string` | Identificador de clave determinista a partir del algoritmo y la clave pública |
 
-### Preparación del Payload
+<a id="session-security"></a>
 
-| Método | Devuelve | Descripción |
-|--------|---------|-------------|
-| `preparePayload(payload)` | `PreparedPayload` | Canonicaliza + hashea un payload |
-
-### Construcción y Firma del Bundle
+### Sesión y seguridad
 
 | Método | Devuelve | Descripción |
 |--------|---------|-------------|
-| `buildBundle(opts)` | `CitizenshipBundleV2` | Construye un bundle V2 con manifiesto a partir de artefactos firmados con `signPayload`; `sessionNonce` toma por defecto el `session_nonce` del RPR |
-| `signBundle(bundle, classicalSk, classicalKid, pqSk, pqKid)` | `SignedBundleV2` | Firma un bundle con firma compuesta; `signer.id` es el `human_id` del RPR, y un manifiesto con `session_expires_at` y sin `session_issued_at` recibe `session_issued_at` con el momento de la firma |
+| `generateSessionNonce()` | `string` | Nonce aleatorio de 256 bits, representado por 64 caracteres hexadecimales |
+| `verifySessionBinding(artifacts)` | `SessionBindingResult` | Comprueba la coherencia del nonce entre artefactos |
+| `computeSecurityTier(intent, policyDecision?)` | `SecurityTierResult` | Calcula el nivel de seguridad adaptativo: routine/standard/elevated/maximum; `risk_score` procede de la decisión de política |
 
-### Proof of Possession
+<a id="payload-preparation"></a>
 
-| Método | Devuelve | Descripción |
-|--------|---------|-------------|
-| `generateRegistrationPop(challenge, sk, alg)` | `SignatureEntry` | Genera un PoP para el registro de clave |
-| `verifyRegistrationPop(challenge, pop, pk, alg)` | `PopResult` | Verifica un PoP |
-
-### Utilitario
+### Preparación del contenido
 
 | Método | Devuelve | Descripción |
 |--------|---------|-------------|
-| `detectVersion(value)` | `string \| null` | Detecta la versión del protocolo DCP desde un objeto JSON |
+| `preparePayload(payload)` | `PreparedPayload` | Canonicaliza el contenido y calcula su hash |
+
+<a id="bundle-building-signing"></a>
+
+### Construcción y firma de bundles
+
+| Método | Devuelve | Descripción |
+|--------|---------|-------------|
+| `buildBundle(opts)` | `CitizenshipBundleV2` | Construye un bundle V2 con manifiesto a partir de artefactos firmados con `signPayload`; `sessionNonce` usa por defecto el `session_nonce` del RPR |
+| `signBundle(bundle, classicalSk, classicalKid, pqSk, pqKid)` | `SignedBundleV2` | Firma un bundle con firma compuesta; `signer.id` es el `human_id` del RPR. Si el manifiesto tiene `session_expires_at` pero no `session_issued_at`, establece `session_issued_at` en el instante de firma |
+
+<a id="proof-of-possession"></a>
+
+### Prueba de posesión
+
+| Método | Devuelve | Descripción |
+|--------|---------|-------------|
+| `generateRegistrationPop(challenge, sk, alg)` | `SignatureEntry` | Genera una prueba de posesión (PoP) para registrar una clave |
+| `verifyRegistrationPop(challenge, pop, pk, alg)` | `PopResult` | Verifica una PoP |
+
+<a id="utility"></a>
+
+### Utilidades
+
+| Método | Devuelve | Descripción |
+|--------|---------|-------------|
+| `detectVersion(value)` | `string \| null` | Detecta la versión del protocolo DCP en un objeto JSON |
+
+<a id="dcp-0509-types"></a>
 
 ### Tipos DCP-05–09
 
-El SDK WASM incluye interfaces TypeScript para todos los artefactos de DCP-05 a DCP-09, reflejando los tipos del SDK Rust:
+El SDK WASM incluye interfaces de TypeScript para todos los artefactos DCP-05 a DCP-09, equivalentes a los tipos del SDK de Rust:
 
-| Spec | Interfaces |
+| Especificación | Interfaces |
 |------|-----------|
-| DCP-05 Ciclo de Vida | `LifecycleState`, `CommissioningCertificate`, `VitalityReport`, `VitalityMetrics`, `DecommissioningRecord`, `TerminationMode`, `DataDisposition` |
+| DCP-05 Ciclo de vida | `LifecycleState`, `CommissioningCertificate`, `VitalityReport`, `VitalityMetrics`, `DecommissioningRecord`, `TerminationMode`, `DataDisposition` |
 | DCP-06 Sucesión | `DigitalTestament`, `SuccessionRecord`, `MemoryTransferManifest`, `MemoryTransferEntry`, `SuccessorPreference`, `MemoryClassification`, `TransitionType`, `MemoryDisposition` |
 | DCP-07 Disputas | `DisputeRecord`, `ArbitrationResolution`, `JurisprudenceBundle`, `ObjectionRecord`, `DisputeType`, `EscalationLevel`, `DisputeStatus`, `ObjectionType`, `AuthorityLevel` |
 | DCP-08 Derechos | `RightsDeclaration`, `RightEntry`, `ObligationRecord`, `RightsViolationReport`, `RightType`, `ComplianceStatus` |
 | DCP-09 Delegación | `DelegationMandate`, `AdvisoryDeclaration`, `PrincipalMirror`, `InteractionRecord`, `AwarenessThreshold`, `ThresholdRule`, `AuthorityScopeEntry`, `ThresholdOperator`, `ThresholdAction` |
 
-Contextos de separación de dominio disponibles vía `domainSeparatedMessage()`: `Lifecycle`, `Succession`, `Dispute`, `Rights`, `Delegation`, `Awareness`
+Contextos de separación de dominios disponibles mediante `domainSeparatedMessage()`: `Lifecycle`, `Succession`, `Dispute`, `Rights`, `Delegation`, `Awareness`.
 
-## API de Bajo Nivel
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
 
-También puedes usar las funciones WASM crudas directamente (sin el wrapper TypeScript):
+## Experimental: candidato de canonicalización `dcp-jcs-v2` (activación explícita, sin publicar)
+
+No es normativo ni está activado: `dcp-jcs-v1` sigue siendo el único perfil de canonicalización y no cambian los valores predeterminados, constructores, firmantes ni verificadores. Estos métodos están disponibles para quien opte explícitamente por ellos en una compilación desde el repositorio (véase Estado de publicación). Los enlaces WASM reciben únicamente bytes; los valores del entorno anfitrión se comprueban primero en JavaScript. Un bundle verificado mediante el candidato no otorga confianza ni admisión. Diseño y contrato: [`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md) (§15 entrada, §16 enrutador, §17 verificador, §18 productores).
+
+| Método | Descripción |
+|--------|-------------|
+| `experimentalCandidateIngress(bytes)` | `{ status: 'accept', canonical, ... }` o `{ status: 'reject', class, offset }` |
+| `experimentalCandidateExtractUnit(bytes, transport)` | Unidad de un transporte `bare` o `envelope` |
+| `createExperimentalCandidateRouter(config)` | Enruta bytes; `historical` es uno de los `experimentalWasmHistoricalAdapters` (`w1…` para objetos mediante `JSON.stringify`, `w2…` para texto); ninguno se elige por defecto |
+| `createExperimentalCandidateVerifier(config).verify(bytes, policy?)` | Verifica desde los bytes originales con un máximo de un verificador; obtiene la hora de `Date.now` |
+| `experimentalCandidateSignPayload(context, input, keys)` | Firma un artefacto a partir de `{ bytes }` o `{ value }` |
+| `experimentalCandidateSignBundle(parts, signer, options)` | Ensambla y firma un bundle cuyo manifiesto identifica `dcp-jcs-v2` |
+| `ExperimentalWasmCandidateProduceError` | Rechazo del dominio o de la forma de las entradas, antes de que cualquier enlace WASM firme |
+
+```typescript
+import { readFileSync } from 'node:fs';
+import { initDcp } from '@dcp-ai/wasm';
+
+const wasmFile = new URL('dcp_ai_bg.wasm', import.meta.resolve('@dcp-ai/wasm/pkg'));
+const dcp = await initDcp(`data:application/wasm;base64,${readFileSync(wasmFile).toString('base64')}`);
+
+// The ingress decides on the original bytes: 1.0 is the integer 1, members are sorted.
+const accepted = dcp.experimentalCandidateIngress(new TextEncoder().encode('{"b":1.0,"a":[]}'));
+if (accepted.status === 'accept') console.log(new TextDecoder().decode(accepted.canonical)); // {"a":[],"b":1}
+
+// A producer signs an artifact from those bytes (hybrid keys, today's composite signature).
+const h = dcp.generateHybridKeypair();
+const key = (k: typeof h.classical) => ({
+  kid: k.kid ?? dcp.deriveKid(k.alg, k.public_key_b64), alg: k.alg, secretKeyB64: k.secret_key_b64, publicKeyB64: k.public_key_b64,
+});
+const artifact = dcp.experimentalCandidateSignPayload(
+  'DCP-AI.v2.Intent', { bytes: new TextEncoder().encode('{"intent_id":"intent:1","risk":1.0}') },
+  { classical: key(h.classical), pq: key(h.pq) },
+);
+console.log(artifact.signedPayload.payload_hash); // sha256:… of {"intent_id":"intent:1","risk":1}
+```
+
+<a id="low-level-api"></a>
+
+## API de bajo nivel
+
+También puedes utilizar directamente las funciones WASM, sin el envoltorio de TypeScript:
 
 ```javascript
 import init, {
@@ -204,33 +336,41 @@ const keys = JSON.parse(wasm_generate_hybrid_keypair());
 // ... use raw functions, all return JSON strings
 ```
 
-Consulta [example.html](./example.html) para una demo interactiva completa en navegador.
+Véase [example.html](./example.html) para una demostración interactiva completa en el navegador.
 
-## Niveles de Seguridad
+<a id="security-tiers"></a>
 
-`computeSecurityTier(intent, policyDecision?)` calcula el nivel de seguridad adaptativo (spec §14.2). `risk_score` sale de la decisión de política (0 si no hay); un valor de `action_type`, `estimated_impact` o `data_classes` desconocido o ausente, o un `risk_score` ausente o que no sea un entero de 0 a 1000, cuenta como `elevated`, e `intent.security_tier` solo puede subir el resultado. Se aplica el nivel más alto que coincida.
+## Niveles de seguridad
 
-| Nivel | Cuándo (cualquiera) | Modo de Verificación | Intervalo de Checkpoint |
+`computeSecurityTier(intent, policyDecision?)` calcula el nivel de seguridad adaptativo (spec §14.2). `risk_score` procede de la decisión de política (0 si no se proporciona una); un valor desconocido o ausente de `action_type`, `estimated_impact` o `data_classes`, o un `risk_score` ausente o que no sea un entero entre 0 y 1000, se considera `elevated`. `intent.security_tier` solo puede elevar el resultado. Se aplica el nivel más alto que coincida.
+
+| Nivel | Condición (cualquiera de ellas) | Modo de verificación | Intervalo de checkpoints |
 |------|---------------|-------------------|---------------------|
-| `routine` | ninguna de las siguientes | `classical_only` | 50 |
+| `routine` | Ninguna de las condiciones siguientes | `classical_only` | 50 |
 | `standard` | `risk_score` 200–499, `estimated_impact: medium` | `hybrid_preferred` | 10 |
 | `elevated` | `risk_score` 500–799, `pii` / `financial_data` / `health_data`, `initiate_payment`, `estimated_impact: high`, valores desconocidos | `hybrid_required` | 1 |
 | `maximum` | `risk_score` ≥ 800, `credentials` / `children_data` | `hybrid_required` | 1 |
 
-## Algoritmos Soportados
+<a id="algorithms-supported"></a>
+
+## Algoritmos compatibles
 
 | Categoría | Algoritmo | Estándar |
 |----------|-----------|----------|
 | Firma clásica | Ed25519 | RFC 8032 |
-| Firma post-cuántica | ML-DSA-65 | FIPS 204 |
-| Firma post-cuántica (sin estado) | SLH-DSA-192f | FIPS 205 |
-| Encapsulación de clave post-cuántica | ML-KEM-768 | FIPS 203 |
-| Hashing | SHA-256 + SHA3-256 | FIPS 180-4, FIPS 202 |
-| Canonicalización | `dcp-jcs-v1` | Basado en RFC 8785 (JCS) |
+| Firma poscuántica | ML-DSA-65 | FIPS 204 |
+| Firma poscuántica sin estado | SLH-DSA-192f | FIPS 205 |
+| Encapsulación de claves poscuántica | ML-KEM-768 | FIPS 203 |
+| Hashes | SHA-256 + SHA3-256 | FIPS 180-4, FIPS 202 |
+| Canonicalización | `dcp-jcs-v1` | Basada en RFC 8785 (JCS) |
+
+<a id="development"></a>
 
 ## Desarrollo
 
-### Prerrequisitos
+<a id="prerequisites"></a>
+
+### Requisitos previos
 
 ```bash
 # Install wasm-pack
@@ -240,12 +380,16 @@ curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 rustup target add wasm32-unknown-unknown
 ```
 
-### Ejecutar tests Rust WASM
+<a id="run-rust-wasm-tests"></a>
+
+### Ejecutar las pruebas WASM de Rust
 
 ```bash
 cd ../rust
 wasm-pack test --headless --chrome -- --features wasm
 ```
+
+<a id="license"></a>
 
 ## Licencia
 

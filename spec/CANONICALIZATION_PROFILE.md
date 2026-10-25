@@ -201,8 +201,8 @@ that decision will live in its own profile document.
 > Note on `NaN` / `±Infinity`: these values are not part of RFC 8259
 > JSON wire format. Most JSON parsers reject them at parse time, so
 > the canonicalizer never sees them. Where a parser does accept them
-> (e.g. Python `json.loads(allow_nan=True)`, JavaScript hand-built
-> values), Rule 4 still rejects them post-parse. The interop fixtures
+> (e.g. Python `json.loads("NaN")`, which accepts them by default, JavaScript
+> hand-built values), Rule 4 still rejects them post-parse. The interop fixtures
 > deliberately do not ship a NaN/Infinity vector because no portable
 > JSON syntax can express them; rejection is verified by per-SDK unit
 > tests (e.g. `sdks/rust/src/v2/canonicalize.rs` `test_rejects_non_finite`).
@@ -331,3 +331,20 @@ a release blocker.
 - `spec/DCP-AI-v2.0.md` § 15 — protocol-level summary.
 - `schemas/v2/bundle_manifest.schema.json` — manifest field declaration.
 - `tests/interop/v2/interop_vectors.json#canonicalization.edge_cases` — test fixtures.
+
+## Implementation notes (informative)
+
+> **Added 25/10/2026. Not normative.** These notes add no requirement and change nothing above: they describe how
+> the reference code on `main` relates to this text. Where they differ, the normative text above stands.
+
+- `dcp-jcs-v1` stays frozen (§5), and it is still the only normative canonicalization profile and the default. The
+  identifier `dcp-jcs-v2` names a non-normative candidate, described in
+  [docs/proposals/canonicalization-candidate](../docs/proposals/canonicalization-candidate/README.md), with
+  experimental, opt-in SDK APIs that no default path calls. The manifest schema still fixes
+  `canonicalization_profile` to `dcp-jcs-v1`, and the existing V2 verifiers reject the candidate identifier.
+- Rule 4 is decided on the parsed value, so what a producer or verifier canonicalizes depends on its JSON parser.
+  Parsers differ on inputs this profile does not pin: repeated member names, lone surrogate escapes, a leading byte
+  order mark, and number literals that a binary64 parser rounds (for example `1.0000000000000001` reads as `1`).
+  Two parsers can therefore canonicalize the same text differently; the candidate proposal records these cases.
+- The example in the note under Rule 9 was corrected on 25/10/2026: `json.loads` has no `allow_nan` argument (it
+  accepts `NaN` by default); `allow_nan` belongs to `json.dumps`. No rule changed.

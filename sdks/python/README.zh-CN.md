@@ -2,15 +2,35 @@
 
 # dcp-ai — Python SDK
 
-数字公民身份协议 (DCP v2.0) 的官方 Python SDK。Pydantic v2 模型、混合后量子签名 (Ed25519 + ML-DSA-65，另有 SLH-DSA-192f)、ML-KEM-768 KEM 原语、带 `pq_over_classical` 绑定的复合签名、V1 与 V2 凭证包签名与验证、OpenTelemetry 可观测性、DCP-04 至 DCP-09 行为，以及功能齐全的 CLI。
+> 本文是[英文版](README.md)的参考译文，更新于 25/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+
+Digital Citizenship Protocol（DCP v2.0）的官方 Python SDK。提供 Pydantic v2 模型、后量子混合签名（Ed25519 + ML-DSA-65，以及 SLH-DSA-192f）、ML-KEM-768 KEM 原语、带 `pq_over_classical` 绑定的复合签名、V1 和 V2 bundle 的签名与验证、OpenTelemetry 可观测性、DCP-04 至 DCP-09 的行为，以及功能完整的 CLI。
+
+<a id="installation"></a>
 
 ## 安装
+
+**发布状态。** 本 README 描述的是 `main` 上的源码。最新的带标签版本 `v2.10.0` 包含
+Python 的 `dcp-ai` 2.9.0。变更日志 [`[Unreleased]`](../../CHANGELOG.md#unreleased) 下列出的内容不在
+任何带标签的版本中：准入、委托链、A2A 接收窗口、有上限的拒绝列表工作线程以及
+实验性的 `dcp-jcs-v2` API。要运行下面的示例，请从检出副本安装：
+
+```bash
+git clone https://github.com/dcp-ai-protocol/dcp-ai.git
+pip install -e "dcp-ai/sdks/python"
+```
+
+从注册表安装得到的是已发布的版本，不含未发布的功能：
 
 ```bash
 pip install dcp-ai
 ```
 
-### 可选附加依赖
+<a id="optional-extras"></a>
+
+### 可选 extras
+
+来自注册表（已发布的版本）；从检出副本安装时同样适用这些 extras：`pip install -e "dcp-ai/sdks/python[fastapi]"`。
 
 ```bash
 pip install "dcp-ai[fastapi]"    # FastAPI middleware
@@ -20,102 +40,114 @@ pip install "dcp-ai[crewai]"     # CrewAI multi-agent
 pip install "dcp-ai[otlp]"       # OpenTelemetry OTLP exporter
 ```
 
+<a id="features"></a>
+
 ## 功能
 
-| 范畴 | 状态 |
+| 领域 | 状态 |
 |---|---|
-| Ed25519 / ML-DSA-65 (FIPS 204) provider | 是 |
-| SLH-DSA-192f provider | 是，FIPS 205（纯模式、空上下文），可与其他 SDK 互操作 |
-| ML-KEM-768 | KEM 原语：是（`MlKem768Provider`，FIPS 203）。DCP-04 的 X25519 + ML-KEM-768 混合密钥交换：暂不支持 |
-| 复合签名 (`pq_over_classical`) + 验证 | 是 |
+| Ed25519 / ML-DSA-65（FIPS 204）提供者 | 是 |
+| SLH-DSA-192f 提供者 | 是，FIPS 205（pure，空上下文），可与其他 SDK 互操作 |
+| ML-KEM-768 | KEM 原语：是（`MlKem768Provider`，FIPS 203）。DCP-04 的 X25519 + ML-KEM-768 混合密钥交换：尚未支持 |
+| 复合签名（`pq_over_classical`）+ 验证 | 是 |
 | 规范 JSON v2 + 域分离 | 是 |
-| 双哈希 (SHA-256 + SHA3-256) + Merkle 根 | 是 |
-| 凭证包签名与验证 | V1：是。V2 (`SignedBundleV2`)：是，`BundleBuilderV2` / `sign_bundle_v2` / `verify_signed_bundle_v2` |
+| 双哈希（SHA-256 + SHA3-256）+ Merkle 根 | 是 |
+| bundle 签名 + 验证 | V1：是。V2（`SignedBundleV2`）：是，`BundleBuilderV2` / `sign_bundle_v2` / `verify_signed_bundle_v2` |
 | DCP-04 A2A 发现 + 握手 + AES-256-GCM 会话（通过 `cryptography`）；在窗口内每条消息只接受一次（§8.4） | 是 |
-| DCP-05 代理生命周期（委任 / 活力 / 停用） | 是 |
-| DCP-06 数字继承（数字遗嘱、记忆迁移、交接仪式） | 是 |
+| DCP-05 智能体生命周期（启用 / 活力 / 停用） | 是 |
+| DCP-06 数字继承（遗嘱、记忆转移、仪式） | 是 |
 | DCP-07 争议解决 + 仲裁 + 判例 | 是 |
-| DCP-08 权利与义务 + 合规 | 是 |
-| DCP-09 委托 + 可验证的委托链（`create_sub_mandate`、`verify_mandate_chain`，§3.5）+ 感知阈值 + 主体镜像 | 是 |
-| 会话随机数助手、安全等级引擎（`compute_security_tier(intent, policy_decision, mandate_chain_tier)`，spec §14.2）、紧急撤销 | 是 |
+| DCP-08 权利 + 义务 + 合规 | 是 |
+| DCP-09 委托 + 可验证的委托链（`create_sub_mandate`、`verify_mandate_chain`，§3.5）+ 关注阈值 + 委托人镜像 | 是 |
+| 会话 nonce 工具、安全等级引擎（`compute_security_tier(intent, policy_decision, mandate_chain_tier)`，规范 §14.2）、紧急吊销 | 是 |
 | 惰性 PQ 检查点 + `PQCheckpointManager` | 是 |
-| 盲化 RPR、多方授权、算法建议助手 | 是 |
-| 规范错误码（38 项，跨所有 SDK 共享）+ `detect_wire_format` | 是 |
-| OpenTelemetry / OTLP 导出器（可选 `[otlp]` 附加依赖） | 是 |
+| 盲化 RPR、多方授权、算法公告工具 | 是 |
+| 规范错误码（所有 SDK 共享的 38 个）+ `detect_wire_format` | 是 |
+| OpenTelemetry / OTLP 导出器（可选的 `[otlp]` extra） | 是 |
+| 准入：受信任的委托人和 `strict-v1` 配置 | 是，未发布（参见发布状态） |
+| 规范化候选 `dcp-jcs-v2`（入口、路由器、字节验证器、生成器） | 实验性、选择加入、未发布；非规范性 |
+
+<a id="quickstart"></a>
 
 ## 快速开始
 
+用 Ed25519 签名的 V1 bundle。RPR 用委托人的密钥签名，护照用智能体的密钥签名，
+二者都针对去掉 `signature` 字段后对象的规范 JSON；`create_audit_entry` 计算
+`intent_hash` 和 `prev_hash` 链。`verify_signed_bundle` 检查 bundle 签名、其哈希和
+链，而不检查这些内部签名：请像下面这样自行检查。关于 V2 bundle，参见 [V2 bundle](#v2-bundles)。
+
 ```python
+from datetime import datetime, timezone
+
 from dcp_ai import (
-    BundleBuilder,
-    sign_bundle,
-    verify_signed_bundle,
-    generate_keypair,
-    ResponsiblePrincipalRecord,
     AgentPassport,
+    AuditEvidence,
+    BundleBuilder,
     Intent,
-    IntentTarget,
     PolicyDecision,
+    ResponsiblePrincipalRecord,
+    generate_keypair,
+    sign_bundle,
+    sign_object,
+    verify_object,
+    verify_signed_bundle,
 )
 
-# 1. Generate Ed25519 keypair
-keys = generate_keypair()
+now = datetime.now(timezone.utc).isoformat()
+principal_keys = generate_keypair()
+agent_keys = generate_keypair()
 
-# 2. Build a Citizenship Bundle
+# 1. The responsible principal, signed with the principal's key (the object without "signature")
+rpr_body = {
+    "dcp_version": "1.0", "human_id": "human:example-001", "legal_name": "Example Principal",
+    "entity_type": "natural_person", "jurisdiction": "ES", "liability_mode": "owner_responsible",
+    "override_rights": True, "issued_at": now, "expires_at": None, "contact": None,
+}
+rpr = {**rpr_body, "signature": sign_object(rpr_body, principal_keys["secret_key_b64"])}
+
+# 2. The agent passport, signed with the agent's key (the object without "signature")
+passport_body = {
+    "dcp_version": "1.0", "agent_id": "agent:example-001", "public_key": agent_keys["public_key_b64"],
+    "principal_binding_reference": "human:example-001", "capabilities": ["browse", "api_call"],
+    "risk_tier": "low", "created_at": now, "status": "active",
+}
+passport = {**passport_body, "signature": sign_object(passport_body, agent_keys["secret_key_b64"])}
+
+# 3. Intent, policy decision and one audit entry
+intent = Intent(
+    intent_id="intent:example-001", agent_id="agent:example-001", human_id="human:example-001",
+    timestamp=now, action_type="api_call", target={"channel": "api", "domain": "api.example.com"},
+    data_classes=["none"], estimated_impact="low", requires_consent=False,
+)
+policy = PolicyDecision(
+    intent_id="intent:example-001", decision="approve", risk_score=0.05, reasons=["low-impact call"],
+)
 bundle = (
     BundleBuilder()
-    .responsible_principal_record(ResponsiblePrincipalRecord(
-        dcp_version="1.0",
-        human_id="human-001",
-        entity_type="natural_person",
-        jurisdiction="ES",
-        liability_mode="full",
-        created_at="2025-01-01T00:00:00Z",
-        expires_at=None,
-    ))
-    .agent_passport(AgentPassport(
-        dcp_version="1.0",
-        agent_id="agent-001",
-        human_id="human-001",
-        agent_name="MyAgent",
-        capabilities=["browse", "api_call"],
-        risk_tier="medium",
-        status="active",
-        created_at="2025-01-01T00:00:00Z",
-        expires_at=None,
-    ))
-    .intent(Intent(
-        dcp_version="1.0",
-        agent_id="agent-001",
-        human_id="human-001",
-        timestamp="2025-01-01T00:00:00Z",
-        action_type="api_call",
-        target=IntentTarget(channel="api", endpoint="https://api.example.com/data"),
-        data_classes=["public"],
-        estimated_impact="low",
-    ))
-    .policy_decision(PolicyDecision(
-        dcp_version="1.0",
-        agent_id="agent-001",
-        human_id="human-001",
-        timestamp="2025-01-01T00:00:00Z",
-        decision="allow",
-        matched_rules=["default-allow"],
-    ))
+    .responsible_principal_record(ResponsiblePrincipalRecord(**rpr))
+    .agent_passport(AgentPassport(**passport))
+    .intent(intent)
+    .policy_decision(policy)
+    .create_audit_entry(
+        audit_id="audit:example-001", timestamp=now, agent_id="agent:example-001",
+        human_id="human:example-001", intent_id="intent:example-001", policy_decision="approved",
+        outcome="call_completed", evidence=AuditEvidence(tool="http", result_ref=None),
+    )
     .build()
 )
 
-# 3. Sign
-signed = sign_bundle(bundle, keys["secret_key_b64"])
+# 4. Sign with the principal's key and verify against the principal's public key
+signed = sign_bundle(bundle, principal_keys["secret_key_b64"])
+print(verify_signed_bundle(signed, principal_keys["public_key_b64"]))  # {'verified': True}
 
-# 4. Verify
-result = verify_signed_bundle(signed, keys["public_key_b64"])
-print(result)  # {"verified": True, "errors": []}
+# 5. The inner signatures, over the same objects without "signature"
+print(verify_object(rpr_body, rpr["signature"], principal_keys["public_key_b64"]))  # True
+print(verify_object(passport_body, passport["signature"], agent_keys["public_key_b64"]))  # True
 ```
 
 ## CLI
 
-SDK 包含一个使用 Typer 构建的 CLI。安装后可作为 `dcp` 使用。
+SDK 包含一个用 Typer 构建的 CLI。安装后可通过 `dcp` 使用。
 
 ```bash
 # Version
@@ -143,38 +175,50 @@ dcp merkle-root <bundle_path>
 dcp intent-hash-cmd <intent_path>
 ```
 
+<a id="api-reference"></a>
+
 ## API 参考
 
-### 加密
+<a id="crypto"></a>
 
-| 函数 | 签名 | 描述 |
+### 密码学
+
+| 函数 | 签名 | 说明 |
 |----------|-----------|-------------|
 | `generate_keypair()` | `() -> dict[str, str]` | 返回 `{"public_key_b64": ..., "secret_key_b64": ...}` |
-| `sign_object(obj, secret_key_b64)` | `(Any, str) -> str` | 签名，返回 base64 |
+| `sign_object(obj, secret_key_b64)` | `(Any, str) -> str` | 签名并返回 base64 |
 | `verify_object(obj, signature_b64, public_key_b64)` | `(Any, str, str) -> bool` | 验证签名 |
 | `canonicalize(obj)` | `(Any) -> str` | 确定性 JSON |
-| `public_key_from_secret(secret_key_b64)` | `(str) -> str` | 派生公钥 |
+| `public_key_from_secret(secret_key_b64)` | `(str) -> str` | 导出公钥 |
+
+<a id="merkle--hashing"></a>
+<a id="merkle-hashing"></a>
 
 ### Merkle 与哈希
 
-| 函数 | 签名 | 描述 |
+| 函数 | 签名 | 说明 |
 |----------|-----------|-------------|
 | `hash_object(obj)` | `(Any) -> str` | 规范化 JSON 的 SHA-256 |
 | `merkle_root_from_hex_leaves(leaves)` | `(list[str]) -> str \| None` | Merkle 根 |
 | `merkle_root_for_audit_entries(entries)` | `(list[Any]) -> str \| None` | 审计条目的 Merkle 根 |
 | `intent_hash(intent)` | `(Any) -> str` | 意图哈希 |
-| `prev_hash_for_entry(prev_entry)` | `(Any) -> str` | 前一条目哈希 |
+| `prev_hash_for_entry(prev_entry)` | `(Any) -> str` | 前一条目的哈希 |
 
-### Schema 验证
+<a id="schema-validation"></a>
 
-| 函数 | 签名 | 描述 |
+### 模式验证
+
+| 函数 | 签名 | 说明 |
 |----------|-----------|-------------|
 | `validate_schema(schema_name, data)` | `(str, Any) -> dict` | 返回 `{"valid": bool, "errors": [...]}` |
-| `validate_bundle(bundle)` | `(dict) -> dict` | 验证完整凭证包 |
+| `validate_bundle(bundle)` | `(dict) -> dict` | 验证完整的 bundle |
 
-### 凭证包构建器
+<a id="bundle-builder"></a>
+
+### bundle 构建器
 
 ```python
+# Fragment: rpr, passport, intent, policy and entry are the models built in the Quickstart.
 bundle = (
     BundleBuilder()
     .responsible_principal_record(rpr)
@@ -187,9 +231,12 @@ bundle = (
 )
 ```
 
-### 凭证包签名
+<a id="bundle-signing"></a>
+
+### bundle 签名
 
 ```python
+# Signature (not runnable)
 sign_bundle(
     bundle: CitizenshipBundle,
     secret_key_b64: str,
@@ -198,22 +245,28 @@ sign_bundle(
 ) -> dict[str, Any]
 ```
 
-### 凭证包验证
+<a id="bundle-verification"></a>
+
+### bundle 验证
 
 ```python
+# Signature (not runnable)
 verify_signed_bundle(
     signed_bundle: dict[str, Any],
     public_key_b64: str | None = None,
 ) -> dict[str, Any]  # {"verified": bool, "errors": [...]}
 ```
 
-验证项：schema、Ed25519 签名、`bundle_hash`、`merkle_root`、`intent_hash` 链、`prev_hash` 链。
+验证内容：模式、Ed25519 签名、`bundle_hash`、`merkle_root`、`intent_hash` 链、`prev_hash` 链。
 
-### V2 凭证包
+<a id="v2-bundles"></a>
 
-`dcp_ai.v2` 中的 `BundleBuilderV2`、`sign_bundle_v2` 和 `verify_signed_bundle_v2` 移植自 TypeScript SDK 的 `builder-v2.ts`、`signer-v2.ts` 和 `verify-v2.ts`。工件为 `SignedPayload` 字典（`{"payload", "payload_hash", "composite_sig"}`）；凭证包签名是对 manifest 的复合签名。
+### V2 bundle
+
+`BundleBuilderV2`、`sign_bundle_v2` 和 `verify_signed_bundle_v2`（位于 `dcp_ai.v2`）移植自 TypeScript SDK 的 `builder-v2.ts`、`signer-v2.ts` 和 `verify-v2.ts`。构件是 `SignedPayload` 字典（`{"payload", "payload_hash", "composite_sig"}`）；bundle 签名是针对清单的复合签名。
 
 ```python
+# Fragment, inside an async function: session_nonce, the signed artifacts (signed_rpr, signed_passport, signed_intent, signed_policy), audit_events, classical_key and pq_key come from your application.
 from dcp_ai.providers import Ed25519Provider, MlDsa65Provider
 from dcp_ai.v2 import AlgorithmRegistry, BundleBuilderV2, sign_bundle_v2, verify_signed_bundle_v2
 
@@ -235,13 +288,16 @@ result = await verify_signed_bundle_v2(signed, registry)  # DEFAULT_VERIFIER_POL
 # {"verified": bool, "errors": [...], "warnings": [...], "details": {...}}
 ```
 
-验证器还会检查每个工件自身的复合签名（RPR 使用主体的 `binding_keys`，其余使用护照密钥），并且在任何策略模式下都会拒绝存在但无效的 PQ 签名。模式取策略模式与安全等级模式中更严格的一个（spec §14.3），`details["resolved_tier"]` 返回该等级。
+验证器还会检查每个构件自身的复合签名（RPR 用委托人的 `binding_keys`，其余用护照密钥），并在所有策略模式下拒绝存在但无效的 PQ 签名。模式取策略模式与安全等级模式中较严格者（规范 §14.3），`details["resolved_tier"]` 报告该等级。
 
-### 准入：受信任的委托人与 strict-v1
+<a id="admission-trusted-principals-and-strict-v1-unreleased"></a>
 
-已验证的凭证包由其自身列出的密钥签名，这并不能证明委托人是谁。准入只接受这样的凭证包：其委托人签名所用的密钥属于信任集中列出的委托人。还可以选择由运营方固定的 `strict-v1` 配置（混合签名、已签名的受众、最长 300 秒的会话、最新的吊销快照）。
+### 准入：Trusted Principals 与 strict-v1（未发布）
+
+已验证的 bundle 是由其列出的密钥签署的；这并不能证明委托人是谁。只有当委托人签名是用你的信任集合中列出的某个委托人的密钥做出时，准入才会接受该 bundle；还可以选择在由运营方固定的 `strict-v1` 配置下进行（混合签名、已签名的受众、最长 300 秒的会话、新近的吊销快照）。
 
 ```python
+# Fragment, inside an async function: trust_set comes from operator configuration, signed_bundle from the request, snapshot from your revocation source, registry as in V2 Bundles.
 from dcp_ai.v2 import admit_signed_bundle_v2, create_principal_trust_store, resolve_strict_v1_profile
 
 trust = create_principal_trust_store(trust_set)  # AdmissionConfigError on a bad trust set
@@ -251,17 +307,22 @@ result = await admit_signed_bundle_v2(signed_bundle, registry, profile=profile, 
 # result["action_authorized"] (always False), result["errors"] [{"code", "message"}]
 ```
 
-- `verify_signed_bundle_v2(bundle, registry, policy, now_ms=...)` 接受可选的时钟并报告 `details["signer_keys"]`；不提供时行为与之前相同。
-- `evaluate_admission_v2` 评估并信任已有的验证结果（不做密码运算，也不做 I/O）；`revocation_subjects` 列出吊销来源需要回答的对象，`deny_list_revocation_source(url)` 读取参考吊销服务的拒绝列表。
-- FastAPI：`DCPVerifyMiddleware(app, require_bundle=True, trusted_principals=..., profile=..., revocation_source=...)`；参见 [`integrations/fastapi/README.md`](../../integrations/fastapi/README.md)。指南：[`docs/ADMISSION.md`](../../docs/ADMISSION.md)。规范与错误码：[`spec/profiles/admission`](../../spec/profiles/admission/README.md)。
+- `verify_signed_bundle_v2(bundle, registry, policy, now_ms=...)` 接受一个可选的时钟，并报告 `details["signer_keys"]`；不提供时行为与以前相同。
+- `evaluate_admission_v2` 评估你已有的验证结果（不做密码学运算，也没有 I/O）并信任该结果；`revocation_subjects` 列出吊销信息源必须回答的对象，`deny_list_revocation_source(url)` 读取参考吊销服务的拒绝列表；使用 `workers=DenyListWorkers(max_workers=...)` 时，其下载线程会被计数并设上限，直到真正结束（选择加入；参见 FastAPI 的 README）。
+- FastAPI：`DCPVerifyMiddleware(app, require_bundle=True, trusted_principals=..., profile=..., revocation_source=...)`；参见 [`integrations/fastapi/README.md`](../../integrations/fastapi/README.md)。指南：[`docs/ADMISSION.md`](../../docs/ADMISSION.md)。规范和代码：[`spec/profiles/admission`](../../spec/profiles/admission/README.md)。
 
-### 委托链 (DCP-09 §3.5)
+<a id="delegation-chains-dcp-09-35-unreleased"></a>
 
-根授权由人类签名（`create_delegation_mandate`）；持有根授权的智能体可以向另一个智能体签发子授权（`create_sub_mandate`），
-并用自己的密钥签名。`verify_mandate_chain` 离线验证以根授权开头的链：一直追溯到人类的签名、父级链接与深度、`sub_delegation`、
-嵌套的有效期窗口、权限衰减（动作、`data_classes` 和 `limits` 只能收窄）、安全等级下限以及撤销。
+### 委托链（DCP-09 §3.5，未发布）
+
+根委托书由人类签署（`create_delegation_mandate`）；持有它的智能体可以向另一个智能体签发
+子委托书（`create_sub_mandate`），用其自己的密钥签名。`verify_mandate_chain` 从根开始、离线地检查
+整条链：直到人类的签名、与父级的链接和深度、`sub_delegation`、
+嵌套的有效期窗口、权限收窄（操作、`data_classes` 和 `limits` 只能缩小）、安全等级
+下限以及吊销。
 
 ```python
+# Fragment, inside an async function: registry as in V2 Bundles; orchestrator_classical, orchestrator_pq, root_mandate, nonce and the key entries come from your delegation setup; intent and policy_decision are V2 payloads.
 from dcp_ai.v2 import create_sub_mandate, verify_mandate_chain, compute_security_tier
 
 sub = await create_sub_mandate(
@@ -278,41 +339,110 @@ result = await verify_mandate_chain(
 tier = compute_security_tier(intent, policy_decision, result["effective_tier"] if result["valid"] else None)
 ```
 
-### Pydantic 模型
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
 
-所有 DCP v1 工件均作为带自动验证的 Pydantic v2 模型提供：
+### 实验性：规范化候选 `dcp-jcs-v2`（选择加入，未发布）
 
-`ResponsiblePrincipalRecord`、`AgentPassport`、`Intent`、`IntentTarget`、`PolicyDecision`、`AuditEntry`、`AuditEvidence`、`CitizenshipBundle`、`SignedBundle`、`BundleSignature`、`SignerInfo`、`RevocationRecord`、`HumanConfirmation`
+非规范性，也未启用：`dcp-jcs-v1` 仍是唯一的规范化配置，任何默认值、构建器、
+签名器或验证器都不变。这些模块不由 `dcp_ai.v2` 重新导出；它们只为在源码检出副本中自行导入的调用方提供
+（参见发布状态）。已验证的候选 bundle 不授予信任或准入。
+设计和契约：[`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)
+（§15 入口、§16 路由器、§17 验证器、§18 生成器）。
 
-**V2 模型 (DCP-05–09)：**
-
-DCP-05 — 生命周期：`LifecycleState`、`TerminationMode`、`DataDisposition`、`VitalityMetrics`、`CommissioningCertificate`、`VitalityReport`、`DecommissioningRecord`
-
-DCP-06 — 继承：`TransitionType`、`MemoryDisposition`、`MemoryClassification`、`SuccessorPreference`、`DigitalTestament`、`SuccessionRecord`、`MemoryTransferEntry`、`DualHashRef`、`MemoryTransferManifest`
-
-DCP-07 — 争议：`DisputeType`、`EscalationLevel`、`DisputeStatus`、`ObjectionType`、`AuthorityLevel`、`DisputeRecord`、`ArbitrationResolution`、`JurisprudenceBundle`、`ObjectionRecord`
-
-DCP-08 — 权利：`RightType`、`ComplianceStatus`、`RightEntry`、`RightsDeclaration`、`ObligationRecord`、`RightsViolationReport`
-
-DCP-09 — 委托：`AuthorityScopeEntry`、`DelegationMandate`、`AdvisoryDeclaration`、`PrincipalMirror`、`InteractionRecord`、`ThresholdRule`、`ThresholdOperator`、`ThresholdAction`、`AwarenessThreshold`
+| 模块 | API |
+|---|---|
+| `dcp_ai.v2.experimental_candidate_ingress` | `experimental_candidate_ingress(data)`：`CandidateIngressAccept(value, canonical, canonical_sha256)` 或 `CandidateIngressReject(reject_class, offset)` |
+| `dcp_ai.v2.experimental_candidate_router` | `create_router(transport=..., accepted_profiles=..., historical=...)`；解码器 `JSON_LOADS_BYTES` 和 `JSON_LOADS_STRICT_DECODE`，都不是默认值 |
+| `dcp_ai.v2.experimental_candidate_verify` | `create_verifier(...)`，然后 `await verifier.verify(data, registry, policy=None, now_ms=None)`：路由、所进入的验证器及其结果 |
+| `dcp_ai.v2.experimental_candidate_produce` | `sign_payload(registry, context, input, keys)` 和 `sign_bundle(registry, parts, signer, options)`，在调用时检查并复制输入，返回一个 awaitable；`ExperimentalCandidateProduceError` 表示因输入的取值域或形式而产生的拒绝，在调用任何签名器之前抛出 |
 
 ```python
-# Example: Lifecycle management
-from dcp_ai.v2.models import CommissioningCertificate, LifecycleState
+import asyncio
 
-cert = CommissioningCertificate(
-    certificate_id="cert-001",
-    agent_id="agent-001",
-    commissioned_by="human-001",
-    commissioned_at="2026-03-01T00:00:00Z",
-    initial_state=LifecycleState.COMMISSIONED,
-    conditions=["Must complete onboarding within 30 days"],
-)
+from dcp_ai.providers import Ed25519Provider, MlDsa65Provider
+from dcp_ai.v2 import AlgorithmRegistry, DCP_CONTEXTS
+from dcp_ai.v2.experimental_candidate_ingress import experimental_candidate_ingress
+from dcp_ai.v2.experimental_candidate_produce import sign_payload
+
+# The ingress decides on the original bytes: 1.0 is the integer 1, members are sorted.
+print(experimental_candidate_ingress(b'{"b":1.0,"a":[]}').canonical)  # b'{"a":[],"b":1}'
+refused = experimental_candidate_ingress(b'{"a":1,"a":2}')
+print(refused.reject_class, refused.offset)  # DUPLICATE_KEY 7
+
+
+async def main():
+    registry = AlgorithmRegistry()
+    keys = {}
+    for name, provider in (("classical", Ed25519Provider()), ("pq", MlDsa65Provider())):
+        registry.register_signer(provider)
+        kp = await provider.generate_keypair()
+        keys[name] = {"kid": kp["kid"], "alg": provider.alg, "secret_key_b64": kp["secret_key_b64"], "public_key_b64": kp["public_key_b64"]}
+    artifact = await sign_payload(registry, DCP_CONTEXTS["Intent"], {"bytes": b'{"intent_id":"intent:1","risk":1.0}'}, keys)
+    print(artifact.signed_payload["payload_hash"])  # sha256:... of {"intent_id":"intent:1","risk":1}
+
+
+asyncio.run(main())
 ```
 
-### 域分离 (V2)
+<a id="pydantic-models"></a>
 
-**V2 域分离上下文：** `Bundle`、`Intent`、`Passport`、`Revocation`、`Governance`、`Lifecycle`、`Succession`、`Dispute`、`Rights`、`Delegation`、`Awareness`
+### Pydantic 模型
+
+所有 DCP v1 构件都以带自动验证的 Pydantic v2 模型提供：
+
+`ResponsiblePrincipalRecord`, `AgentPassport`, `Intent`, `IntentTarget`, `PolicyDecision`, `AuditEntry`, `AuditEvidence`, `CitizenshipBundle`, `SignedBundle`, `BundleSignature`, `SignerInfo`, `RevocationRecord`, `HumanConfirmation`
+
+**V2 模型**（`dcp_ai.v2.models`），带有 V2 模式的字段。枚举值（生命周期状态、
+终止模式、争议状态等）是这些模型的 `Literal` 字段，而不是单独的类：
+
+- 核心 V2：`ResponsiblePrincipalRecordV2`, `BlindedResponsiblePrincipalRecordV2`, `AgentPassportV2`, `KeyEntryV2`, `IntentV2`, `PolicyDecisionV2`, `AuditEventV2`, `PQCheckpoint`, `BundleManifest`, `VerifierPolicy`, `DcpCapabilities`
+- DCP-05 — 生命周期：`CommissioningCertificate`, `VitalityMetrics`, `VitalityReport`, `DecommissioningRecord`
+- DCP-06 — 继承：`DigitalTestament`, `SuccessorPreference`, `SuccessionRecord`, `MemoryTransferManifest`, `MemoryTransferEntry`, `DualHashRef`
+- DCP-07 — 争议：`DisputeRecord`, `ArbitrationResolution`, `JurisprudenceBundle`, `ObjectionRecord`
+- DCP-08 — 权利：`RightsDeclaration`, `RightEntry`, `ObligationRecord`, `RightsViolationReport`
+- DCP-09 — 委托：`DelegationMandate`, `SubMandate`, `SubDelegationPolicy`, `AuthorityScopeEntry`, `AdvisoryDeclaration`, `PrincipalMirror`, `InteractionRecord`, `AwarenessThreshold`, `ThresholdRule`
+
+```python
+# Example: DCP-05 commissioning, signed with a composite (Ed25519 + ML-DSA-65) signature
+import asyncio
+
+from dcp_ai.providers import Ed25519Provider, MlDsa65Provider
+from dcp_ai.v2 import (
+    AlgorithmRegistry, CompositeKeyInfo, create_commissioning_certificate, generate_session_nonce,
+    validate_state_transition,
+)
+from dcp_ai.v2.models import CommissioningCertificate
+
+
+async def main():
+    registry = AlgorithmRegistry()
+    keys = []
+    for provider in (Ed25519Provider(), MlDsa65Provider()):
+        registry.register_signer(provider)
+        kp = await provider.generate_keypair()
+        keys.append(CompositeKeyInfo(kp["kid"], provider.alg, kp["secret_key_b64"], kp["public_key_b64"]))
+
+    cert = await create_commissioning_certificate(
+        registry, *keys,
+        agent_id="agent:example-001", session_nonce=generate_session_nonce(), human_id="human:example-001",
+        commissioning_authority="human:example-001", purpose="Customer support triage",
+        initial_capabilities=["browse", "api_call"], risk_tier="low",
+        principal_binding_reference="human:example-001",
+    )
+    CommissioningCertificate(**cert)  # validates the fields
+    print(validate_state_transition("commissioned", "active"))  # True
+
+
+asyncio.run(main())
+```
+
+<a id="domain-separation-v2"></a>
+
+### 域分离（V2）
+
+**V2 域分离上下文：** `Bundle`, `Intent`, `Passport`, `Revocation`, `Governance`, `Lifecycle`, `Succession`, `Dispute`, `Rights`, `Delegation`, `Awareness`
+
+<a id="development"></a>
 
 ## 开发
 
@@ -327,6 +457,8 @@ pytest -v
 pytest -v --asyncio-mode=auto
 ```
 
+<a id="dependencies"></a>
+
 ### 依赖
 
 - `pynacl` — Ed25519 密码学
@@ -334,7 +466,9 @@ pytest -v --asyncio-mode=auto
 - `pydantic` v2 — 数据模型
 - `typer` — CLI 框架
 - `pqcrypto` ≥ 1.0 — ML-DSA-65、SLH-DSA-192f、ML-KEM-768（FIPS 204/205/203）
-- `cryptography` — DCP-04 A2A 会话的 AES-256-GCM
+- `cryptography` — 用于 DCP-04 A2A 会话的 AES-256-GCM
+
+<a id="license"></a>
 
 ## 许可证
 

@@ -4,8 +4,11 @@ Both run offline on the shared admission vectors (`tests/interop/v2/admission_ve
 synthetic keys and bundles, the operator's trust set and `strict-v1` profile, and a clock fixed at
 the vectors' time.
 
+From the repository root, first build the workspace SDK in a subshell so the following command still starts at that root:
+
 ```bash
-cd integrations/express && npm run build
+(cd sdks/typescript && npm install && npm run build)
+cd integrations/express && npm install && npm run build
 node examples/strict-v1-body.mjs      # the recommended transport, checked over real HTTP
 node examples/strict-v1.mjs           # the shortest strict-v1 setup
 ```

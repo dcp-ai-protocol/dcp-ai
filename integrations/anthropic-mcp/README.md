@@ -2,11 +2,37 @@
 
 Signed DCP receipts for MCP tool calls, plus DCP tools and resources for MCP servers.
 
+## Installation
+
+> **Release status (25/10/2026).** npm has `@dcp-ai/anthropic-mcp` 2.0.0, which has the DCP tools and resources but not the signed receipts (`withDcpReceipt`, `createReceiptIdentity`, `verifyDcpReceipt`): those are in the source on `main` (version 2.1.0, not published). The package depends on `@dcp-ai/sdk` `^2.0.0`, which npm resolves to 2.1.1; that version lacks the security fixes of 2.2.0 in `verifySignedBundleV2` ([SECURITY.md](../../SECURITY.md)), and `verifyDcpReceipt` and `dcp_verify_bundle` verify with it. Until 2.2.0 is on npm, build the SDK from a checkout and point this package at it.
+
+From a checkout (this page's version, on the SDK of `main`):
+
+```bash
+git clone https://github.com/dcp-ai-protocol/dcp-ai.git
+cd dcp-ai/sdks/typescript && npm install && npm run build
+cd ../../integrations/anthropic-mcp && npm install
+npm install --no-save --package-lock=false --ignore-scripts --install-links ../../sdks/typescript
+npm run build
+# then, in your project:
+npm install /path/to/dcp-ai/integrations/anthropic-mcp
+```
+
+The published version (2.0.0), without the receipts and on the SDK from npm:
+
+```bash
+npm install @dcp-ai/anthropic-mcp
+```
+
+The examples also use the MCP TypeScript SDK (`@modelcontextprotocol/sdk`) and `zod`, which you install yourself.
+
 ## Signed receipts per tool call
 
-`withDcpReceipt` wraps any MCP tool handler so that every call comes back with a receipt that
-proves who ran it, under which intent and policy decision, and what went in and out. A receipt is
-an ordinary **DCP v2.0 signed bundle**: the agent's Responsible Principal Record (DCP-01) and Agent
+`withDcpReceipt` wraps any MCP tool handler so that every call comes back with a receipt: a
+signed declaration, made with the server's keys, of which tool was called, under which intent and
+policy decision, and the hashes of what went in and out. It shows that the holder of those keys
+declared this; it does not prove by itself who holds them (see [What verification proves](#what-verification-proves-and-what-it-does-not))
+or that the tool did what its result says. A receipt is an ordinary **DCP v2.0 signed bundle**: the agent's Responsible Principal Record (DCP-01) and Agent
 Passport, an Intent (DCP-02) composite-signed with Ed25519 + ML-DSA-65 *before* the tool runs, the
 Policy Decision, and one audit entry (DCP-03) with the SHA-256 of the arguments and of the result.
 Nothing new on the wire: any DCP verifier checks it offline.
@@ -32,6 +58,7 @@ Every result now carries `_meta.dcp_receipt`. The caller, or anyone later, verif
 that it is the receipt of *this* call:
 
 ```typescript
+// Fragment: `client` is an MCP client connected to the server above
 const result = await client.callTool({ name: 'get_weather', arguments: { city: 'Santiago' } });
 const { _meta, ...seen } = result;
 const check = await verifyDcpReceipt(_meta.dcp_receipt, { tool: 'get_weather', arguments: { city: 'Santiago' }, result: seen });
@@ -57,6 +84,7 @@ which the default policy approves (risk 200). Tell the wrapper what a tool reall
 decide yourself when the defaults do not fit:
 
 ```typescript
+// Fragment: payInvoice is your tool handler, identity as above
 withDcpReceipt('pay_invoice', payInvoice, {
   identity,
   classify: (tool, args) => ({
@@ -71,6 +99,9 @@ withDcpReceipt('pay_invoice', payInvoice, {
   appliedPolicyHash: 'sha256:…', // hash of the policy you applied (default: hash of the default rules)
 });
 ```
+
+The `'sha256:…'` above is a placeholder: pass the real `sha256:` and 64 hex characters of your policy, or leave
+`appliedPolicyHash` out.
 
 The intent's `security_tier` (and the decision's `resolved_tier`) is the SDK's tier for the intent
 (DCP-AI v2.0 §14.2), never below what the risk score implies (200 standard, 500 elevated, 800
@@ -88,8 +119,8 @@ rewrites its input cannot change what the receipt attests. `result` is exactly w
 returns minus `_meta` (`resultSeen(result)`): the receipt travels in `_meta`, and a handler's own
 `_meta` is transport metadata, not evidence. A handler that returns a bare value gets it wrapped as
 `{ content: [{ type: "text", text }] }`, and that wrapper is what is hashed. The arguments are
-snapshotted as JSON, so a `Date` is hashed as its ISO string and functions or an `AbortSignal` (as
-in the MCP SDK's `extra`) are dropped. When the MCP `extra` carries a `requestId`, it is recorded
+snapshotted as JSON, so a `Date` is hashed as its ISO string, functions are dropped and an
+`AbortSignal` (as in the MCP SDK's `extra`) becomes `{}`. When the MCP `extra` carries a `requestId`, it is recorded
 as `evidence.request_id`, and `verifyDcpReceipt(receipt, { requestId })` checks it.
 
 Unlike the canonicalization profile, `stableJson` keeps any JSON number, so arguments and results
@@ -105,15 +136,18 @@ make it an identity check, pass `trustedKeys` (the keys you already trust for th
 principal, from a registry or a pinned passport and RPR) together with `expectedAgentId` and
 `expectedHumanId`: every signature the SDK verifies in the receipt must then be made with one of
 those keys, resolved exactly as the SDK resolves it (first listed key with the signature's `kid`,
-in the key list of that artifact), active and unexpired in your list; the result says `anchored:
-true` only when that held. A verifier that trusts a registry of passports can anchor every receipt
+in the key list of that artifact), active and unexpired in your list; the result says
+`anchored: true` only when that held. `anchored` is computed apart from the bundle verification, so it can be
+`true` while `verified` is `false`: accept a receipt only when both are `true`. A verifier that trusts a registry of passports can anchor every receipt
 an agent produces without re-reading the passport itself.
 
 Limits to know about:
 
 - A receipt is bound to one call by its `intent_id` and `audit_id`, and to the MCP request by
-  `request_id` when the server provides one; `verifyDcpReceipt` does not check time windows or
-  deduplicate, so a verifier that must detect a replayed receipt keeps its own set of seen ids.
+  `request_id` when the server provides one. Session windows and modes are those the SDK verifier
+  checks under the `policy` you pass (`DEFAULT_VERIFIER_POLICY` otherwise); `verifyDcpReceipt` adds
+  no time window or deduplication of its own, so a verifier that must detect a replayed receipt keeps
+  its own set of seen ids.
 - Each receipt is self-contained (one audit entry, `prev_hash: "GENESIS"`); batching a session's
   receipts into one bundle is on the roadmap.
 - `createReceiptIdentity` signs the RPR and the passport with the same key pair (the principal and
@@ -123,10 +157,10 @@ Limits to know about:
 
 The bridge also exposes DCP operations as MCP tools and resources, so an MCP-compatible model can:
 
-- **Verify DCP bundles** — run the reference V2 verifier (`verifySignedBundleV2`) on a signed bundle or receipt.
+- **Verify DCP bundles** — run the SDK's V2 verifier (`verifySignedBundleV2`) on a signed bundle or receipt.
 - **Create DCP identities** — provision new Responsible Principal Records and Agent Passports.
 - **Declare intents** — submit intents for policy evaluation with automatic risk tier computation.
-- **Check agent status** — verify an agent's DCP citizenship validity.
+- **Check agent status** — a placeholder: `dcp_check_agent` returns `status: "check_pending"` and fetches or verifies nothing.
 - **Lifecycle management (DCP-05)** — commission, report vitality, and decommission agents.
 - **Succession (DCP-06)** — create digital testaments with successor preferences.
 - **Disputes (DCP-07)** — file disputes between agents with evidence hashes.
@@ -135,16 +169,17 @@ The bridge also exposes DCP operations as MCP tools and resources, so an MCP-com
 
 ## Supported DCP Specifications
 
-DCP-01 through DCP-09.
+DCP-01 through DCP-09, partially: signed receipts and bundle verification, and drafts in the shapes of the other
+specifications. It does not implement them in full.
 
 ## MCP Tools
 
 | Tool | Description |
 |---|---|
-| `dcp_verify_bundle` | Verify a signed DCP v2.0 bundle or receipt with the reference verifier |
+| `dcp_verify_bundle` | Verify a signed DCP v2.0 bundle or receipt with the SDK's V2 verifier |
 | `dcp_create_identity` | Create a new DCP digital identity (RPR + Passport) |
 | `dcp_declare_intent` | Declare an intent for policy evaluation |
-| `dcp_check_agent` | Check if an agent has valid DCP citizenship |
+| `dcp_check_agent` | Placeholder: returns `check_pending` without fetching or verifying anything |
 | `dcp_commission_agent` | Commission an agent (DCP-05) |
 | `dcp_report_vitality` | Report agent vitality metrics (DCP-05) |
 | `dcp_decommission_agent` | Decommission an agent (DCP-05) |
@@ -166,23 +201,22 @@ DCP-01 through DCP-09.
 
 ### Registering with an MCP Server
 
+`DCP_MCP_TOOLS` are tool descriptors (`name`, `description`, `inputSchema` as JSON Schema) and `DCP_MCP_RESOURCES` resource descriptors (`uri`, `name`, `description`, `mimeType`); the package does not provide the resources' contents. A sketch with the MCP TypeScript SDK's low-level `Server`, which takes JSON Schema tool descriptors as they are (not run here: it needs the MCP SDK):
+
 ```javascript
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { CallToolRequestSchema, ListResourcesRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { DCP_MCP_TOOLS, DCP_MCP_RESOURCES, handleDcpToolCall } from '@dcp-ai/anthropic-mcp';
 
-// Register DCP tools with your MCP server
-for (const tool of DCP_MCP_TOOLS) {
-  mcpServer.registerTool(tool);
-}
+const server = new Server({ name: 'dcp', version: '1.0.0' }, { capabilities: { tools: {}, resources: {} } });
 
-// Register DCP resources
-for (const resource of DCP_MCP_RESOURCES) {
-  mcpServer.registerResource(resource);
-}
-
-// Handle tool calls
-mcpServer.onToolCall(async (name, args) => {
-  return await handleDcpToolCall(name, args);
+server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: DCP_MCP_TOOLS }));
+server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  const result = await handleDcpToolCall(request.params.name, request.params.arguments ?? {});
+  return { content: [{ type: 'text', text: JSON.stringify(result) }] };
 });
+server.setRequestHandler(ListResourcesRequestSchema, async () => ({ resources: DCP_MCP_RESOURCES }));
+// Serving a resource's contents (resources/read) is up to your server.
 ```
 
 ### Tool Call Examples
@@ -190,6 +224,7 @@ mcpServer.onToolCall(async (name, args) => {
 ```javascript
 import { handleDcpToolCall } from '@dcp-ai/anthropic-mcp';
 
+// Fragment: myBundle is a signed bundle or receipt you hold
 // Verify a bundle or a receipt
 const result = await handleDcpToolCall('dcp_verify_bundle', {
   bundle_json: JSON.stringify(myBundle),
@@ -206,7 +241,7 @@ const intent = await handleDcpToolCall('dcp_declare_intent', {
 
 ## Notes
 
-- `dcp_verify_bundle` runs the full cryptographic verification of `@dcp-ai/sdk` (schema, hashes, manifest, composite signature, session binding, audit chain).
+- `dcp_verify_bundle` runs `verifySignedBundleV2` of `@dcp-ai/sdk` under `DEFAULT_VERIFIER_POLICY` (hashes, manifest, composite signature, session binding, the SHA-256 audit chain). It does not validate the JSON Schemas (the reference verifier `lib/verify.js` does) or recompute the secondary SHA3-256 chain of V2-11, and a `verified` result is not admission or authorization.
 - Apart from `dcp_verify_bundle` and the receipts, the tool handlers return drafts: identifiers and fields to sign, never keys or signatures (`next_step` says what is missing).
 - `dcp_create_identity` returns identifiers only — key generation and signing are separate steps.
 - Risk tier is computed automatically from the risk score: routine (<200), standard (200-499), elevated (500-799), maximum (800+).

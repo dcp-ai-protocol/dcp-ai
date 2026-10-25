@@ -19,7 +19,8 @@ They do not activate `dcp-jcs-v2` or change any default.
 1. The TypeScript adapter writes the run's inputs:
    - new synthetic keys;
    - the input pieces of each specification as JSON text, the same bytes for every producer.
-2. Each producer signs every specification in bytes and value modes with its public opt-in API. It also
+2. Each producer signs every specification in the modes it lists (bytes and value for `S01` to `S10`, bytes
+   only for `S11`, value only for `S12`) with its public opt-in API. It also
    derives the key IDs and writes them for comparison.
 3. Each producer assembles the ring: `S01` from the artifacts the next producer signed (ts, py, go, rust,
    wasm, ts).
@@ -28,13 +29,16 @@ They do not activate `dcp-jcs-v2` or change any default.
    class, the verifier entered, the verdict and the calls it observed to its historical decoder.
 
 The verdict is all or nothing. It expects:
+
 - exactly 975 results: 575 positive (115 units × 5 consumers) and 400 negative (16 × 5 × 5);
 - every step, and each result fresh from this run;
 - the same `manifest_hash` from every producer for each specification;
 - the same unit from every producer, except for the ML-DSA signature values, which are masked only at their
   known places;
 - the same key IDs from every SDK;
-- the run finished before the deadline. At the deadline the whole process group of the step is killed.
+- the run finished before the deadline (`--deadline`, 1800 s by default). At the deadline the whole process group
+  of the step is killed: each step starts detached in its own POSIX process group, so this is not promised on
+  Windows.
 
 ## Running it
 
@@ -50,7 +54,7 @@ DCP_PHASE4_PYTHON=python3 node tests/interop/candidate/phase4/run.mjs --cost
 Each run writes a new directory under the system temporary directory, or under `--out <dir>`. The directory
 holds the keys, outputs, results, logs and `summary.json` (or `cost-summary.json`). It is private to whoever
 runs it: the keys are synthetic, but nothing in it is meant to be published. Exit code 0 means every check
-passed, 1 that something failed.
+passed, 1 that something failed, 2 an invalid configuration (a `--deadline` that is not a positive number).
 
 `--cost` measures gate 10 on one equivalent pair per platform. Both sides use the same keys, payloads, session
 and audit entries, and this is checked on the outputs. Each operation runs 20 times after 3 warm-ups, with at

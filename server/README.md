@@ -4,7 +4,10 @@ HTTP verification service implementing V1, V2, and Phase 3 (PQ-First) of the Dig
 
 ## Quick Start
 
+From the root of a checkout. The root package depends on the workspace SDK until `@dcp-ai/sdk` 2.2.0 is on npm, so build it first:
+
 ```bash
+(cd sdks/typescript && npm install && npm run build)
 npm install
 node server/index.js
 # or: npm run server
@@ -18,8 +21,8 @@ Default port: `3000`. Override with `PORT=4000 node server/index.js`. Set `OPERA
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/` , `/health` | Health check — `{ ok, service, version, capabilities }` |
-| GET | `/.well-known/dcp-capabilities.json` | Protocol capability discovery (algorithms, features, wire formats) |
+| GET | `/` , `/health` | Health check — `{ ok, service, supported_versions, registered_agents, registered_keys }` |
+| GET | `/.well-known/dcp-capabilities.json` | Protocol capability discovery (algorithms, features, wire formats). What the server advertises, not checked guarantees: it lists `hsm_provider: true` and `application/cbor`, but there is no HSM and bodies are read as JSON only |
 | POST | `/verify` | Verify a signed bundle (auto-detects V1 or V2; V2 is checked against `VERIFIER_POLICY`) |
 | POST | `/v2/admit` | Admission against the operator's trusted principals, and strict-v1 when configured (`docs/ADMISSION.md`). Reads only `signed_bundle` from the body. 501 when not configured |
 | POST | `/anchor` | Stub — returns 501 (implement per operator) |
@@ -29,7 +32,7 @@ Default port: `3000`. Override with `PORT=4000 node server/index.js`. Set `OPERA
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/v2/passport/register` | Register a self-signed agent passport; a new `agent_id` needs the operator token (see [Trust model](#trust-model)) |
-| POST | `/v2/intent/declare` | Declare intent, receive policy decision |
+| POST | `/v2/intent/declare` | Declare an intent of a registered agent, receive the server's (unsigned) policy decision; the intent's `composite_sig` is not verified |
 | POST | `/v2/audit/append` | Append audit event to agent's chain |
 | POST | `/v2/audit/compact` | Compact audit chain with Merkle summary |
 | POST | `/v2/bundle/verify` | Full V2 bundle verification: schema, manifest, composite Ed25519 + ML-DSA-65 signature, session binding and audit chain (via `lib/verify.js` and `@dcp-ai/sdk`), against `VERIFIER_POLICY`. V1 bundles get 400 |
@@ -65,6 +68,10 @@ Default port: `3000`. Override with `PORT=4000 node server/index.js`. Set `OPERA
 `Authorization: Bearer <OPERATOR_TOKEN>` and answer 401 otherwise; with no
 `OPERATOR_TOKEN` configured they stay locked.
 
+### DCP-05 to DCP-09
+
+31 endpoints for lifecycle, succession, disputes, rights and delegation records; they are listed in [docs/OPERATOR_GUIDE.md](../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints). They validate each record against its schema, but **they do not verify any signature and need no token**, and `OPERATOR_TOKEN` does not protect them: anyone who can reach the server can decommission or re-commission an agent, revoke a revocable mandate or mark a dispute resolved. Do not expose them to untrusted clients.
+
 ## Environment Variables
 
 | Variable | Default | Description |
@@ -92,8 +99,8 @@ age) applies, and `GET /v2/policy` shows it.
 - **Passport registration** verifies the passport's composite self-signature
   (`DCP-AI.v2.AgentPassport`, Ed25519 + ML-DSA-65; classical-only is accepted
   only in `classical_only` / `hybrid_preferred` mode) against the keys it lists.
-  That signature proves possession of the two signer keys, and only those are
-  registered: listing someone else's public key registers nothing. Keys and
+  That signature proves possession of the keys that made it (the classical key and,
+  when present, the PQ key), and only those are registered: listing someone else's public key registers nothing. Keys and
   signatures must be canonical base64 of exactly their algorithm's size.
 - Registering a **new** `agent_id` needs `Authorization: Bearer <OPERATOR_TOKEN>`
   (401 otherwise). A passport is only self-signed, and so is a principal's RPR,
@@ -128,7 +135,8 @@ age) applies, and `GET /v2/policy` shows it.
   `AlgorithmAdvisory` context tag yet, so the operator vouches for advisories.
 - The key registry refuses new agents and rotations (507) once it holds
   `MAX_REGISTERED_KEYS` keys (10,000) instead of evicting old ones, since an
-  evicted `agent_id` could be registered again by anyone. To keep one agent
+  evicted `agent_id` would lose the history that protects it (registering it again
+  still needs the operator token, but under any keys). To keep one agent
   from filling it, rotation keeps only the agent's 4 most recent retired keys,
   dropping the oldest before the cap check so a rotation still fits in a full
   registry. Dropped keys remain as tombstones: `GET /v2/keys/:kid` answers
@@ -141,6 +149,10 @@ age) applies, and `GET /v2/policy` shows it.
   passport.
 
 ## Usage Examples
+
+Except for the health check, the mode switch and capability discovery, the requests below are templates: their
+bundles, signatures and keys are placeholders (`...`, `<64 hex>`), so they do not run as they are, and they are not to
+be filled with invented values.
 
 ### Health Check
 
@@ -232,18 +244,30 @@ curl -s -X POST http://localhost:3000/v2/policy/mode \
 
 ### V2 Intent Declaration
 
+The body is the `SignedPayload` of an `IntentV2` of a registered agent. Its `composite_sig` must be present but is not verified. The server scores the intent itself and answers `{ ok, policy_decision, security_tier, verification_mode, checkpoint_interval }`; the policy decision is unsigned (`block` from risk 800, `escalate` from 500).
+
+The request below illustrates the shape only: replace the ellipses and placeholders with your signed payload before sending it. The literal `{ ... }` fragments are not valid JSON.
+
 ```bash
 curl -s -X POST http://localhost:3000/v2/intent/declare \
   -H "Content-Type: application/json" \
   -d '{
-    "agent_id": "agent-001",
-    "intent": {
-      "schema_id": "DCP-02",
-      "schema_version": "2.0",
-      "action": "data_query",
-      "target_resource": "user_profiles",
-      "data_classes": ["PII"],
-      "security_level": "elevated"
+    "signed_intent": {
+      "payload": {
+        "dcp_version": "2.0",
+        "intent_id": "intent:...",
+        "session_nonce": "<64 hex>",
+        "agent_id": "agent:research-bot-001",
+        "human_id": "human:alice-001",
+        "timestamp": "...",
+        "action_type": "api_call",
+        "target": { "channel": "api" },
+        "data_classes": ["pii"],
+        "estimated_impact": "medium",
+        "requires_consent": false
+      },
+      "payload_hash": "sha256:...",
+      "composite_sig": { "classical": { ... }, "pq": { ... }, "binding": "pq_over_classical" }
     }
   }'
 ```
@@ -321,14 +345,14 @@ curl -s http://localhost:3000/.well-known/dcp-capabilities.json | jq .
 ## Limitations
 
 - **In-memory storage**: all state (passports, keys, audit chains, advisories) is lost on restart. See [Persistence](#persistence).
-- **Signatures outside bundle verification**: bundle verification, passport registration, key rotation and multi-party authorization check real Ed25519 and ML-DSA-65 / SLH-DSA signatures. `/v2/advisory/publish` and `/v2/governance/register` do not (the operator token is their only guard), and neither do `/v2/intent/declare`, `/v2/audit/*` or the DCP-05 to DCP-09 endpoints.
+- **Signatures outside bundle verification**: bundle verification, passport registration, key rotation and multi-party authorization check real Ed25519 and ML-DSA-65 / SLH-DSA signatures. `/v2/advisory/publish` and `/v2/governance/register` do not (the operator token is their only guard), and neither do `/v2/intent/declare`, `/v2/audit/*` or the DCP-05 to DCP-09 endpoints, which also need no token (see [DCP-05 to DCP-09](#dcp-05-to-dcp-09)).
 - **Anchoring**: `POST /anchor` returns 501. Implement using your blockchain (Ethereum, Bitcoin) or transparency log.
 
 ## Persistence
 
 Nothing is written to disk. A restart, a deploy or a stopped machine wipes the
-passport and key registries, so after a wipe any `agent_id` can be registered
-again by whoever comes first, and emergency revocations are forgotten.
+passport and key registries, so after a wipe the registration history is gone: any `agent_id` can be registered again,
+under other keys, by whoever holds the operator token, and emergency revocations are forgotten.
 `deploy/fly/verification.toml` therefore keeps one machine running
 (`min_machines_running = 1`) instead of scaling to zero; deploys and restarts
 still start empty. Production deployments need a persistent store.

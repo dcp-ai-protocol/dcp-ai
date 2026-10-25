@@ -1,6 +1,6 @@
 # NIST KAT (Known Answer Test) Compliance
 
-This directory contains test vectors and property definitions for NIST KAT compliance of all DCP-AI cryptographic providers.
+This directory contains known-answer vectors and property tests used by DCP-AI cryptographic providers. Passing these tests establishes the covered behavior, not full algorithm conformance or NIST validation of a cryptographic module; see [NIST conformity and scope](../../docs/NIST_CONFORMITY.md).
 
 ## Structure
 
@@ -22,7 +22,7 @@ Ed25519 (RFC 8032) uses deterministic signing. The `vectors.json` contains exact
 
 ## ML-DSA-65
 
-ML-DSA-65 (FIPS 204) uses randomized signing. Direct KAT vectors require seed control which varies across implementations. Compliance is verified through:
+ML-DSA-65 (FIPS 204) signing is hedged (randomized) in the TypeScript and Rust providers and deterministic in the Go provider; both variants are valid and verify the same way. Direct KAT vectors require seed control which varies across implementations. The checks here cover:
 
 1. **Size conformance** - public key (1952 B), signature (3309 B)
 2. **Round-trip** - sign then verify succeeds
@@ -42,4 +42,4 @@ Both files record the ACVP-Server release and the SHA-256 of the source file. Va
 
 ## Phase 1 Gate
 
-No SDK ships V2 support without passing all KAT tests. This is enforced in CI via the conformance test suite.
+Each SDK's test job in CI runs its KAT tests: TypeScript `src/__tests__/nist-kat.test.ts`, Python `tests/test_nist_kat.py`, Go `dcp/nist_kat_test.go` (in `go test ./...`) and Rust `tests/nist_kat.rs`. A failing KAT fails that job.

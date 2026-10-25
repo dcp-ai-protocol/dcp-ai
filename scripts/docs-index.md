@@ -19,6 +19,12 @@ Cryptographically verifiable identity, machine-readable intent, tamper-evident a
 
 ## Install
 
+!!! note "Published packages and `main`"
+    These commands install the published versions. On 25/10/2026 npm's `latest` `@dcp-ai/sdk` was 2.1.1,
+    without the 2.2.0 verifier fixes; the guides follow the source on `main`, which also has unreleased
+    features. To run them as written, build the SDKs from a checkout: see the
+    [Quick Start](quickstart/QUICKSTART.md#published-packages-and-this-guide).
+
 === "Node.js"
 
     ```bash
@@ -139,7 +145,7 @@ Cryptographically verifiable identity, machine-readable intent, tamper-evident a
 
     ---
 
-    TypeScript, Python, Go, Rust, WebAssembly — all at feature parity, all published to their registries.
+    TypeScript, Python, Go, Rust, WebAssembly — the same core protocol and shared test vectors; each SDK README lists what it does not cover yet and its release status.
 
     `@dcp-ai/sdk`, `dcp-ai` (PyPI), `dcp-ai` (crates.io), `sdks/go/v2`, `@dcp-ai/wasm`
 
@@ -147,9 +153,12 @@ Cryptographically verifiable identity, machine-readable intent, tamper-evident a
 
     ---
 
-    Drop-in governance for the popular AI and web frameworks.
+    Bridges to popular AI and web frameworks. They differ in what they check: some verify signed bundles,
+    others record unsigned events or apply no policy, and some published packages lack fixes that are on
+    `main` ([supported versions](reference/SECURITY.md#supported-versions)). Read each one's limits before
+    relying on it:
 
-    Express, FastAPI, LangChain, OpenAI, CrewAI, Agno, OpenClaw, W3C DID, Google A2A, Anthropic MCP, AutoGen
+    [Express](reference/integrations/express/README.md), [FastAPI](reference/integrations/fastapi/README.md), [LangChain](reference/integrations/langchain/README.md), [OpenAI](reference/integrations/openai/README.md), [CrewAI](reference/integrations/crewai/README.md), [Agno](quickstart/QUICKSTART_AGNO.md), [OpenClaw](reference/integrations/openclaw/README.md), [W3C DID](reference/integrations/w3c-did/README.md), [Google A2A](reference/integrations/google-a2a/README.md), [Anthropic MCP](reference/integrations/anthropic-mcp/README.md), [AutoGen](reference/integrations/autogen/README.md)
 
 -   :material-shield-key:{ .lg .middle } **Hybrid post-quantum crypto**
 
@@ -163,7 +172,7 @@ Cryptographically verifiable identity, machine-readable intent, tamper-evident a
 
     ---
 
-    `dcp-ai` CLI, verification server, anchoring service, transparency log, revocation registry. Full Docker Compose stack.
+    `dcp-ai` CLI, verification server, anchoring service (local records; on-chain submission is not implemented), transparency log, revocation registry. Full Docker Compose stack.
 
     [Operator guide →](guides/OPERATOR_GUIDE.md)
 
@@ -178,8 +187,8 @@ If you use DCP-AI in your research, cite **both** the concept paper and the spec
 **Paper** — *Agents Don't Need a Better Brain — They Need a World: Toward a Digital Citizenship Protocol for Autonomous AI Systems*
 Naranjo Emparanza, D. (2026). Zenodo. [`10.5281/zenodo.19040913`](https://doi.org/10.5281/zenodo.19040913)
 
-**Software** (v2.0.2) — *DCP-AI v2.0.2 — Digital Citizenship Protocol for AI Agents (Reference Implementation)*
-Naranjo Emparanza, D. (2026). Zenodo. [`10.5281/zenodo.19656026`](https://doi.org/10.5281/zenodo.19656026)
+**Software** — cite the release you used. The concept DOI [`10.5281/zenodo.19656025`](https://doi.org/10.5281/zenodo.19656025) resolves to the latest archived version; v2.0.2 is
+*DCP-AI v2.0.2 — Digital Citizenship Protocol for AI Agents (Reference Implementation)*, Naranjo Emparanza, D. (2026). Zenodo. [`10.5281/zenodo.19656026`](https://doi.org/10.5281/zenodo.19656026)
 
 ---
 

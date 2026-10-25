@@ -4,9 +4,22 @@ DCP verification middleware for Express.js. Automatically verifies Signed Bundle
 
 ## Supported DCP Specifications
 
-DCP-01 through DCP-09.
+DCP-01 through DCP-09, partially: bundle verification and admission as described below, and a few fields of DCP-05 and DCP-09 (`requireActiveLifecycle`, `lifecycleState`, `mandateId`); not a full implementation of those specifications.
 
 ## Installation
+
+> **Release status (25/10/2026).** npm has `@dcp-ai/express` 2.0.0 only. It was published before most of this page, and **it does not verify the signatures of V2 bundles**: it checks their structure only, so a forged or altered V2 bundle passes (fixed on `main`, see the `[Unreleased]` section of [CHANGELOG.md](../../CHANGELOG.md)). Do not rely on 2.0.0 for V2 bundles. Admission (`trustedPrincipals`, `profile`, `revocationSource`), `revocationFailClosed`, source supervision and `cancelOnDisconnect` are not in it either. This README follows the source on `main`. Until `@dcp-ai/sdk` 2.2.0 is on npm, this package depends on the workspace SDK (`"@dcp-ai/sdk": "file:../../sdks/typescript"`); publishing it needs the dependency raised to `^2.2.0`, and the publish workflow refuses a package that depends on a local path.
+
+To use the version this page describes, build it from a checkout and install it from there:
+
+```bash
+git clone https://github.com/dcp-ai-protocol/dcp-ai.git
+cd dcp-ai/sdks/typescript && npm install && npm run build      # the SDK of main
+cd ../../integrations/express && npm install && npm run build  # this package
+cd /path/to/your-app && npm install /path/to/dcp-ai/integrations/express express
+```
+
+The published version (2.0.0), without the features listed above:
 
 ```bash
 npm install @dcp-ai/express @dcp-ai/sdk
@@ -14,13 +27,14 @@ npm install @dcp-ai/express @dcp-ai/sdk
 
 **Peer dependency:** Express 4.18+ or 5.x
 
-Until `@dcp-ai/sdk` 2.2.0 is on npm, this package depends on the workspace SDK (`"@dcp-ai/sdk": "file:../../sdks/typescript"`): build it first (`cd sdks/typescript && npm install && npm run build`). Publishing the package needs the dependency raised to `^2.2.0`; the publish workflow refuses a package that depends on a local path.
-
 ## Quickstart
 
 ```typescript
 import express from "express";
-import { dcpVerify } from "@dcp-ai/express";
+import { dcpVerify, type DCPAgent } from "@dcp-ai/express";
+
+// The middleware sets req.dcpAgent; the package does not augment Express's Request type
+type DCPRequest = express.Request & { dcpAgent?: DCPAgent };
 
 const app = express();
 // The bundle travels in the JSON body: give the parser a budget sized for your bundles.
@@ -29,9 +43,9 @@ app.use(express.json({ limit: "64kb" }));
 // Verify DCP on all routes
 app.use(dcpVerify());
 
-app.post("/api/action", (req, res) => {
+app.post("/api/action", (req: DCPRequest, res) => {
   // The verified agent is available at req.dcpAgent
-  const agent = req.dcpAgent;
+  const agent = req.dcpAgent!;
   console.log(`Agent ${agent.agentId} (human: ${agent.humanId})`);
   console.log(`Capabilities: ${agent.capabilities}`);
   console.log(`Risk tier: ${agent.riskTier}`);
@@ -46,7 +60,7 @@ app.listen(3000);
 
 Send the bundle in `signed_bundle` of the JSON body. It is the recommended way for hybrid V2
 bundles, and the middleware also reads the `X-DCP-Bundle` header (first) for bundles that fit in
-one:
+one. The first request below is a template: `{...}` stands for a real signed bundle.
 
 ```bash
 # Via body (recommended)
@@ -105,7 +119,7 @@ An unknown option, an unknown `verifierPolicy` field or a value of the wrong typ
 | `onFailure` | `function` | `undefined` | Custom handler for verification errors. Receives `(req, res, errors)`, and for a refused admission the admission result as a fourth argument. |
 | `verifierPolicy` | `object` | `undefined` | Verifier policy fields (`VerifierPolicy` of `@dcp-ai/sdk`), merged over the SDK's `DEFAULT_VERIFIER_POLICY`. A `default_mode` given without `risk_overrides` applies to every risk tier; `risk_overrides` entries set their tiers over the others. |
 | `requireHybrid` | `boolean` | `false` | Every mode below `hybrid_required` becomes `hybrid_required`, and V1 bundles are refused. |
-| `requireActiveLifecycle` | `boolean` | `false` | Reject decommissioned agents (DCP-05 §5.1). V2 only. |
+| `requireActiveLifecycle` | `boolean` | `false` | Reject an agent whose passport `status` is `decommissioned`. It reads the passport's status, not a DCP-05 commissioning certificate or lifecycle record. V2 only. |
 | `trustedPrincipals` | `object` or `function` | `undefined` | The principals you trust and their keys: a trust set (`schemas/v2/principal_trust_set.schema.json`), or `({ tenant }) => trust set` called on every request. With it, only admitted V2 bundles reach the route (see below). A function that throws, or returns `undefined`, `null` or an invalid trust set, refuses the request with `503`. |
 | `profile` | `object` | `undefined` | The strict-v1 profile (`schemas/v2/admission_profile.schema.json`). Needs `trustedPrincipals` and `revocationSource`. |
 | `revocationSource` | `function` | `undefined` | `(subjects, { tenant }) => snapshot`, the profile's revocation source, e.g. `denyListRevocationSource({ url, headers })`. |
@@ -152,8 +166,8 @@ interface DCPAgent {
 
 1. Extracts the signed bundle from the `X-DCP-Bundle` header (JSON) or from `req.body.signed_bundle`
 2. Verifies it:
-   - **V2** (`bundle.dcp_bundle_version: "2.0"`): `verifySignedBundleV2()` from `@dcp-ai/sdk`, with an Ed25519 / ML-DSA-65 / SLH-DSA-192f registry and the policy above. It checks the artifact payload hashes and the manifest; session binding, expiry and the signed session start (`session_issued_at`); the bundle signature over the manifest, made by the principal with the RPR `binding_keys`, and the unsigned `signature` block that must agree with it; each artifact's own signature; the verification mode, the stricter of the policy mode for the passport's `risk_tier` and the mode of the security tier of the intent and policy decision (spec §14.2); PQ checkpoints; cross-artifact consistency (passport status, RPR expiry, one agent, principal and intent across the artifacts and audit entries); the audit hash chain; and key validity, kid derivation and canonical base64 keys (`spec/VERIFICATION.md` V2-1 to V2-14). A malformed bundle is rejected with `403`, never accepted on its structure alone.
-   - **V1** (`bundle.responsible_principal_record.dcp_version: "1.0"`): `verifySignedBundle()`, only where VERIFICATION.md V2-10 would accept a classical-only bundle, since a V1 bundle has no post-quantum signature: `allow_v1_bundles` is `true`, `requireHybrid` is off, and the stricter of the policy mode for the V1 passport's `risk_tier` (`default_mode` when it has none) and the mode of the security tier of the V1 intent and policy decision (V1 `risk_score` is 0 to 1, scaled by 1000; a missing one counts as `elevated`) is `classical_only` or `hybrid_preferred`. Under the default policy a routine or standard V1 intent passes, while a payment, sensitive data, a high estimated impact or a risk score of 0.5 or more is refused.
+   - **V2** (`bundle.dcp_bundle_version: "2.0"`): `verifySignedBundleV2()` from `@dcp-ai/sdk`, with an Ed25519 / ML-DSA-65 / SLH-DSA-192f registry and the policy above. It checks the artifact payload hashes and the manifest; session binding, expiry and the signed session start (`session_issued_at`); the bundle signature over the manifest, made by the principal with the RPR `binding_keys`, and the unsigned `signature` block that must agree with it; each artifact's own signature; the verification mode, the stricter of the policy mode for the passport's `risk_tier` and the mode of the security tier of the intent and policy decision (spec §14.2); PQ checkpoints; cross-artifact consistency (passport status, RPR expiry, one agent, principal and intent across the artifacts and audit entries); the audit hash chain; and key validity, kid derivation and canonical base64 keys (`spec/VERIFICATION.md` V2-1 to V2-14). The audit chain and Merkle root it checks are the SHA-256 ones: it does not recompute the secondary SHA3-256 chain or root of V2-11, so the reference to VERIFICATION.md does not mean that every step there is checked. A malformed bundle is rejected with `403`, never accepted on its structure alone.
+   - **V1** (`bundle.responsible_principal_record.dcp_version: "1.0"`): `verifySignedBundle()`, only where VERIFICATION.md V2-10 would accept a classical-only bundle, since a V1 bundle has no post-quantum signature: `allow_v1_bundles` is `true`, `requireHybrid` is off, and the stricter of the policy mode for the V1 passport's `risk_tier` (`default_mode` when it has none) and the mode of the security tier of the V1 intent and policy decision (V1 `risk_score` is 0 to 1, scaled by 1000; a missing one counts as `elevated`) is `classical_only` or `hybrid_preferred`. Under the default policy a routine or standard V1 intent passes, while a payment, sensitive data, a high estimated impact or a risk score of 0.5 or more is refused. Only `allow_v1_bundles`, the mode and the tier apply to a V1 bundle: audience binding, session expiry and duration limits, an `accepted_classical_algs` without Ed25519 and advisories that reject Ed25519 are V2 checks, and a V1 bundle that passes the mode check is accepted even when they are set. If you need those controls, set `allow_v1_bundles: false` or `requireHybrid: true`, or use `trustedPrincipals` with the strict-v1 profile.
    - A bundle whose version cannot be detected is rejected with `403`.
 3. If valid: injects `req.dcpAgent` and calls `next()`
 4. If it fails: responds with `403`, the verifier's `errors` and `warnings` (or uses `onFailure` if configured)
@@ -163,7 +177,7 @@ interface DCPAgent {
 
 A verified bundle is internally consistent and signed by the keys it lists itself: the RPR `binding_keys` for the bundle signature, the passport keys for the agent's artifacts. It does not prove who the principal is: anyone can create keys and an RPR naming any `human_id`. For that, set `trustedPrincipals` (next section).
 
-A verified bundle can be replayed by anyone who holds it until its session expires. Against replay, set `verifierPolicy.require_audience_binding: true` with your `verifier_id` (the bundle's `manifest.intended_verifier` must name this verifier), and `require_session_expiry` / `max_session_duration_seconds` to bound the session, or use the strict-v1 profile. None of these makes a bundle single-use: keep your own record of consumed nonces if you need that.
+A verified bundle can be replayed by anyone who holds it until its session expires. Against replay of V2 bundles (these checks do not apply to V1 bundles, see Behavior), set `verifierPolicy.require_audience_binding: true` with your `verifier_id` (the bundle's `manifest.intended_verifier` must name this verifier), and `require_session_expiry` / `max_session_duration_seconds` to bound the session, or use the strict-v1 profile. None of these makes a bundle single-use: keep your own record of consumed nonces if you need that.
 
 ### Trusted principals and strict-v1
 
@@ -268,7 +282,9 @@ When `cacheTtlSeconds > 0`, each middleware keeps its own cache of verified bund
 
 ```typescript
 import express from "express";
-import { dcpVerify } from "@dcp-ai/express";
+import { dcpVerify, type DCPAgent } from "@dcp-ai/express";
+
+type DCPRequest = express.Request & { dcpAgent?: DCPAgent };
 
 const app = express();
 app.use(express.json());
@@ -277,32 +293,32 @@ app.use(express.json());
 app.get("/health", (req, res) => res.json({ ok: true }));
 
 // Protected routes (require DCP)
-const protected = express.Router();
-protected.use(dcpVerify({ cacheTtlSeconds: 60 }));
+const protectedRoutes = express.Router();
+protectedRoutes.use(dcpVerify({ cacheTtlSeconds: 60 }));
 
-protected.post("/agent/action", (req, res) => {
-  res.json({ agent: req.dcpAgent.agentId });
+protectedRoutes.post("/agent/action", (req: DCPRequest, res) => {
+  res.json({ agent: req.dcpAgent!.agentId });
 });
 
-protected.get("/agent/profile", (req, res) => {
+protectedRoutes.get("/agent/profile", (req: DCPRequest, res) => {
   res.json(req.dcpAgent);
 });
 
-app.use("/api", protected);
+app.use("/api", protectedRoutes);
 app.listen(3000);
 ```
 
 ## Development
 
 ```bash
-# Install dependencies
+# Build the workspace SDK first (see Installation), then:
 npm install
 
-# Build (ESM + CJS)
-npx tsup src/index.ts --format esm,cjs --dts
+# Build (ESM + CJS + types)
+npm run build
 
-# Type check
-npx tsc --noEmit
+# Tests
+npm test
 ```
 
 ### Dependencies

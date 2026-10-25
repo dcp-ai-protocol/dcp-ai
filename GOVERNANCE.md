@@ -12,7 +12,7 @@ DCP-AI uses an **open governance** model. The project is developed in the open, 
 
 ### Contributors
 
-Anyone who submits a pull request, files an issue, participates in discussions, or otherwise contributes to the project. Contributors are expected to follow the [Contributing Guide](CONTRIBUTING.md) and the project's code of conduct.
+Anyone who submits a pull request, files an issue, participates in discussions, or otherwise contributes to the project. Contributors are expected to follow the [Contributing Guide](CONTRIBUTING.md).
 
 ### Reviewers
 
@@ -70,7 +70,7 @@ Changes to the normative protocol specifications (`spec/`) require a higher bar:
    - `CHANGELOG.md` is updated with all notable changes
    - Release notes are published on GitHub
    - SDK packages are published to their respective registries (npm, PyPI, crates.io). The Go SDK is not published to a central registry — Go modules are discovered by tag at `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2`; pkg.go.dev indexes from there automatically.
-   - The publication is automated via the `publish.yml`, `publish-pypi.yml`, `publish-integrations.yml`, `publish-templates.yml`, and `publish-docker.yml` workflows — each triggered by a GitHub Release and each pre-checking whether the artefact is already on its registry so re-runs exit green.
+   - The publication is automated via the `publish.yml`, `publish-pypi.yml`, `publish-integrations.yml`, `publish-templates.yml`, and `publish-docker.yml` workflows — triggered by a GitHub Release or run by hand. The package workflows check for existing registry versions; the Docker workflow builds and pushes images without that version-existence check. `publish-docker.yml` also runs on every push to `main` that touches `server/`, `services/`, `lib/`, `tools/`, `schemas/`, `docker/Dockerfile` or the workflow itself, and pushes the `:latest`, `:main` and `:sha-…` image tags.
    - Where applicable, a Zenodo software DOI is created or linked so the release is citable in academic work (see [CITATION.cff](CITATION.cff)).
 
 4. **Hotfixes**: Critical security or correctness fixes may bypass the normal discussion period at maintainer discretion.
@@ -88,6 +88,8 @@ If you discover a security vulnerability in DCP-AI:
 5. A security advisory is published after the fix ships.
 
 For full details see [SECURITY.md](SECURITY.md), including the scope, SLA, and severity handling. Monetary rewards are handled case-by-case rather than as a fixed bounty tier.
+
+> **Note (25/10/2026): the documents disagree.** [SECURITY.md](SECURITY.md) lists fixed reward ranges per severity, while this document and [docs/EARLY_ADOPTERS.md](docs/EARLY_ADOPTERS.md) say rewards are case by case. Both texts are kept until a maintainer confirms which applies.
 
 ## Amendments
 

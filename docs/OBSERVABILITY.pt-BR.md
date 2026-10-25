@@ -1,42 +1,52 @@
 <sub>[English](OBSERVABILITY.md) · [中文](OBSERVABILITY.zh-CN.md) · [Español](OBSERVABILITY.es.md) · [日本語](OBSERVABILITY.ja.md) · **Português**</sub>
 
-# Observabilidade — Integração com OpenTelemetry
+<a id="observability--opentelemetry-integration"></a>
+<a id="observability-opentelemetry-integration"></a>
 
-A partir do release 2.1.0, todos os quatro SDKs core (**TypeScript, Python, Rust, Go**) podem emitir **traces e métricas** para qualquer backend compatível com OpenTelemetry. Se você usa Grafana, Jaeger, Honeycomb, Datadog, New Relic ou um OTel Collector self-hosted, você não precisa de nenhuma ponte customizada — o DCP-AI fala OTLP diretamente.
+# Observabilidade — integração com OpenTelemetry
+
+> Tradução informativa da [versão em inglês](OBSERVABILITY.md), atualizada em 25/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+
+A partir da versão 2.1.0, os quatro SDKs principais (**TypeScript, Python, Rust, Go**) podem emitir **rastros e métricas** para qualquer backend compatível com OpenTelemetry. Se você usa Grafana, Jaeger, Honeycomb, Datadog, New Relic ou um OTel Collector auto-hospedado, não precisa de nenhuma ponte personalizada: o DCP-AI fala OTLP diretamente.
 
 Esta página documenta as três coisas que você precisa saber:
 
-1. Como a API de telemetria se mapeia em spans e métricas OTel.
-2. Como ativar OTLP (TypeScript e Python).
-3. Três receitas prontas para backends comuns.
+1. Como a API de telemetria se mapeia para spans e métricas do OTel.
+2. Como ativar o OTLP (TypeScript e Python).
+3. Três receitas para copiar e colar com backends comuns.
 
 ---
 
+<a id="what-the-sdk-emits"></a>
+
 ## O que o SDK emite
 
-| Operação DCP | Primitiva OTel | Nome da métrica |
+| Operação DCP | Primitiva do OTel | Nome da métrica |
 |---|---|---|
-| `startSpan` / `endSpan` | Span | `dcp.<span-name>` (atributos: `dcp.service`, `dcp.duration_ms`, mais quaisquer que você anexar) |
-| `recordSignLatency(ms, alg)` | Histograma + Contador | `dcp.sign.latency_ms` + `dcp.signatures.created` |
-| `recordVerifyLatency(ms, alg)` | Histograma + Contador | `dcp.verify.latency_ms` + `dcp.signatures.verified` |
+| `startSpan` / `endSpan` | Span | `dcp.<span-name>` (atributos: `dcp.service`, `dcp.duration_ms` e os que você anexar) |
+| `recordSignLatency(ms, alg)` | Histograma + contador | `dcp.sign.latency_ms` + `dcp.signatures.created` |
+| `recordVerifyLatency(ms, alg)` | Histograma + contador | `dcp.verify.latency_ms` + `dcp.signatures.verified` |
 | `recordKemLatency(ms, op)` | Histograma | `dcp.kem.latency_ms` (atributo `operation=encapsulate\|decapsulate`) |
 | `recordCheckpointLatency(ms, tier)` | Histograma | `dcp.checkpoint.latency_ms` (atributo `tier=routine\|standard\|elevated\|maximum`) |
-| `recordBundleVerify(ms, success, tier)` | Histograma + Contador | `dcp.bundle_verify.latency_ms` + `dcp.bundles.verified` |
-| `recordCacheHit` / `recordCacheMiss` | Contadores em memória (expostos via `getMetricsSummary`) | `cacheHitRate` no sumário |
+| `recordBundleVerify(ms, success, tier)` | Histograma + contador | `dcp.bundle_verify.latency_ms` + `dcp.bundles.verified` |
+| `recordCacheHit` / `recordCacheMiss` | Contadores em memória (expostos via `getMetricsSummary`) | `cacheHitRate` no resumo |
 | `recordA2ASession` / `recordA2AMessage` | Contador | `dcp.a2a.sessions` / `dcp.a2a.messages` |
 | `recordError(op, err)` | Contador + status do span | `dcp.errors` (atributo `operation`) |
 
-Atributos de recurso enviados a cada export:
+Atributos de recurso enviados em cada exportação:
 - `service.name` → valor de `serviceName` passado para `init()`
 - `service.version` → versão do pacote `@dcp-ai/sdk` / `dcp-ai`
 
 ---
 
-## Ativando
+<a id="turning-it-on"></a>
+
+## Como ativar
 
 ### TypeScript
 
-Instale os pacotes OTel opcionais sobre o SDK:
+Instale os pacotes opcionais do OTel além do SDK (aqui `@dcp-ai/sdk` é a versão publicada; com o SDK
+compilado a partir de uma cópia do repositório, instale apenas os pacotes `@opentelemetry/*`):
 
 ```bash
 npm install @dcp-ai/sdk \
@@ -62,11 +72,11 @@ await dcpTelemetry.init({
 });
 ```
 
-A chamada `init()` retorna uma Promise quando `exporterType === 'otlp'`. Você não precisa usar await — eventos emitidos antes de a stack OTel estar pronta ainda alimentam as métricas em memória e a distribuição do listener `onEvent` — mas dar await garante que nenhum evento seja descartado da exportação OTLP.
+Com a telemetria ativada, `init()` retorna uma Promise quando `exporterType === 'otlp'`. Os eventos emitidos antes de a inicialização do OTLP terminar com sucesso continuam atualizando as métricas em memória e chegando aos listeners de `onEvent`, mas não são reenviados depois ao OTLP. Aguarde a inicialização antes de emitir os eventos que quiser encaminhar. Registre antes um listener de erros: uma Promise resolvida, por si só, não confirma o sucesso, pois falhas na inicialização são notificadas por eventos de erro. Aguardar a inicialização não garante a entrega das exportações; ela também depende do exportador e do backend.
 
-Se você esquecer de instalar um dos pacotes OTel, `init()` emite um evento de erro claro no barramento de listeners (você pode vê-lo subscrevendo com `dcpTelemetry.onEvent`) com os nomes exatos dos pacotes que ainda faltam. O SDK continua funcionando; somente o encaminhamento OTLP fica desabilitado.
+Se você esquecer de instalar algum dos pacotes do OTel, `init()` emite um evento de erro claro no barramento de listeners (você pode vê-lo assinando com `dcpTelemetry.onEvent`) com um comando de instalação que lista os pacotes opcionais do OTel. O SDK continua funcionando; só o encaminhamento por OTLP fica desativado.
 
-Ao desligar, esvazie as exportações pendentes:
+No encerramento, descarregue as exportações pendentes:
 
 ```typescript
 await dcpTelemetry.shutdown();
@@ -74,7 +84,8 @@ await dcpTelemetry.shutdown();
 
 ### Python
 
-Instale o extra OTLP sobre o SDK:
+Instale o extra de OTLP além do SDK (a versão publicada; a partir de uma cópia do repositório,
+`pip install -e "/path/to/dcp-ai/sdks/python[otlp]"`):
 
 ```bash
 pip install 'dcp-ai[otlp]'
@@ -93,15 +104,15 @@ dcp_telemetry.init(
 )
 ```
 
-Mesmas garantias do TypeScript: a instalação default é enxuta, os pacotes OTel são importados de forma preguiçosa apenas quando você aciona `exporter_type="otlp"`, e uma dependência ausente aparece como evento de erro em vez de derrubar a aplicação.
+As mesmas garantias do TypeScript: a instalação padrão é enxuta, os pacotes do OTel só são importados de forma preguiçosa quando você define `exporter_type="otlp"`, e uma dependência ausente aparece como evento de erro em vez de derrubar a aplicação.
 
 ### Rust
 
-Habilite a Cargo feature opcional `otlp`:
+Ative a feature opcional `otlp` do Cargo:
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.1", features = ["otlp"] }
+dcp-ai = { version = "2.10", features = ["otlp"] }
 ```
 
 Conecte na sua aplicação:
@@ -118,11 +129,11 @@ dcp_telemetry().init(TelemetryConfig {
 });
 ```
 
-A ponte OTLP exporta a partir de threads em segundo plano (processador de spans em lote e leitor periódico de métricas sobre um cliente HTTP bloqueante), portanto não precisa de um runtime do Tokio; chame `dcp_telemetry().shutdown()` antes do seu processo sair para esvaziar exportações pendentes. Sem a feature `otlp`, solicitar `ExporterType::Otlp` emite um evento de erro claro via `on_event` e os recorders continuam a alimentar o `MetricsSummary` em memória.
+A ponte OTLP exporta a partir de threads em segundo plano (processador de spans em lote e leitor periódico de métricas sobre um cliente HTTP bloqueante), então não precisa de um runtime Tokio; chame `dcp_telemetry().shutdown()` antes de o processo terminar para descarregar as exportações pendentes. Sem a feature `otlp`, pedir `ExporterType::Otlp` emite um evento de erro claro via `on_event`, e os registradores continuam alimentando o `MetricsSummary` em memória.
 
 ### Go
 
-Compile seu binário com a build tag `otlp`:
+Compile o binário com a build tag `otlp`:
 
 ```bash
 go build -tags otlp ./...
@@ -144,11 +155,15 @@ observability.Default().Init(observability.Config{
 defer observability.Default().Shutdown()
 ```
 
-Os pacotes `go.opentelemetry.io/otel` estão listados em `go.mod` mas o arquivo da ponte OTLP é protegido por `//go:build otlp` — binários default (`go build`) não fazem link do runtime OTel. Sem a tag, selecionar `ExporterOTLP` emite um evento de erro `otlp_init` pelo barramento de listeners; as métricas em memória continuam funcionando.
+Os pacotes `go.opentelemetry.io/otel` constam no `go.mod`, mas o arquivo da ponte OTLP é condicionado por `//go:build otlp`: os binários padrão (`go build`) não vinculam o runtime do OTel. Sem a tag, selecionar `ExporterOTLP` emite um evento de erro `otlp_init` pelo barramento de listeners; as métricas em memória continuam funcionando.
 
 ---
 
+<a id="recipes"></a>
+
 ## Receitas
+
+<a id="1-local-jaeger-free-docker-30-seconds"></a>
 
 ### 1. Jaeger local (grátis, docker, 30 segundos)
 
@@ -161,9 +176,11 @@ docker run -d --name jaeger \
 # In your app: otlpEndpoint: 'http://localhost:4318'
 ```
 
-Abra http://localhost:16686 — você verá traces sob o nome de serviço que você configurou.
+Abra http://localhost:16686: você verá rastros sob o nome de serviço que definiu.
 
-### 2. Grafana Cloud (gerenciado, free tier)
+<a id="2-grafana-cloud-managed-free-tier"></a>
+
+### 2. Grafana Cloud (gerenciado, nível gratuito)
 
 1. No Grafana Cloud, crie um endpoint OpenTelemetry (Observability → OpenTelemetry → Create integration). Você receberá uma URL e um token de API.
 2. Na sua aplicação:
@@ -195,18 +212,26 @@ await dcpTelemetry.init({
 });
 ```
 
-O SDK lê `OTEL_EXPORTER_OTLP_ENDPOINT` como fallback quando `otlpEndpoint` é omitido.
+O SDK lê `OTEL_EXPORTER_OTLP_ENDPOINT` como alternativa quando `otlpEndpoint` é omitido.
 
 ---
 
-## Caminhos de opt-out
+<a id="opt-out-paths"></a>
 
-- `exporterType: 'none'` (ou nenhuma chamada a `init`): zero overhead, nenhuma exportação, recorders são no-op.
-- `exporterType: 'console'`: cada evento é impresso em stdout como JSON. Útil em desenvolvimento sem rodar um collector.
-- `enabled: false`: tudo faz short-circuit, até os listeners de `onEvent` não recebem nada.
+## Formas de desativar
+
+- Sem chamada a `init`, ou com `enabled: false`: a telemetria fica desativada (o padrão); os registradores retornam imediatamente e os
+  listeners de `onEvent` não recebem nada.
+- `exporterType: 'none'` com `enabled: true`: nada é exportado, mas as métricas em memória
+  (`getMetricsSummary`) e os listeners de `onEvent` continuam funcionando.
+- `exporterType: 'console'`: cada evento também é impresso no stdout como `[DCP-AI Telemetry] <JSON>`. Útil durante
+  o desenvolvimento sem executar um collector.
 
 ---
 
-## Ferramentas companheiras
+<a id="companion-tools"></a>
 
-O canal `dcpTelemetry.onEvent(listener)` continua disponível com OTLP ligado ou desligado, então você também pode construir sua própria ponte — para um debugger websocket, um arquivo de log estruturado ou um dashboard customizado. Consulte a seção "Live events" do [Início Rápido](QUICKSTART.md) para padrões.
+## Ferramentas complementares
+
+O canal `dcpTelemetry.onEvent(listener)` continua disponível com o OTLP ativado ou não, então você também pode construir sua própria ponte: para um depurador via websocket, um arquivo de log estruturado ou um painel personalizado. O [Início rápido](QUICKSTART.md#6-telemetry--observability) mostra a API de telemetria, e a
+[referência da API](API_REFERENCE.md#dcptelemetryoneventlistener), o listener.

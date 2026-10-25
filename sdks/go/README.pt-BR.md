@@ -1,47 +1,74 @@
 <sub>[English](README.md) · [中文](README.zh-CN.md) · [Español](README.es.md) · [日本語](README.ja.md) · **Português**</sub>
 
+<a id="dcp-ai-go-go-sdk"></a>
+
+<a id="dcp-ai-go--go-sdk"></a>
+
 # dcp-ai-go — SDK Go
 
-SDK Go oficial para o Digital Citizenship Protocol (DCP) v1.0 e v2.0. Suporta Ed25519, ML-DSA-65, SLH-DSA-192f, ML-KEM-768, assinaturas compostas, cadeias de hash duplas e verificação completa de bundles (pacotes de cidadania).
+> Tradução informativa do [README em inglês](README.md), atualizada em 25/10/2026. Identificadores e blocos de código, incluindo comentários, são preservados no idioma original para manter os exemplos verificados.
+
+SDK oficial em Go para o Digital Citizenship Protocol (DCP) v1.0 e v2.0. Suporta Ed25519, ML-DSA-65, SLH-DSA-192f, ML-KEM-768, assinaturas compostas, cadeias de hash duplas e verificação de bundles.
+
+A verificação confere a integridade e as assinaturas; não estabelece confiança no principal, admissão nem autorização para agir. O verificador V2 atual confere a cadeia de auditoria primária, mas não recalcula a cadeia SHA3-256 opcional nem sua raiz Merkle secundária. Consulte [a limitação documentada do verificador](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains) e use as APIs de admissão abaixo quando for necessário estabelecer confiança.
+
+<a id="installation"></a>
 
 ## Instalação
+
+**Requer:** Go 1.25+
+
+**Estado da publicação.** Este README descreve o código em `main`. A última versão com tag é `v2.10.0` (tag do módulo `sdks/go/v2.10.0`). O que o histórico lista em [`[Unreleased]`](../../CHANGELOG.md#unreleased) ainda não está em uma versão com tag: admissão, cadeias de delegação, janela de recepção A2A e APIs experimentais de `dcp-jcs-v2`. Para executar os exemplos abaixo, use `main` ou um checkout local como dependência:
+
+```bash
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@main
+# or, from a checkout:
+go mod edit -replace github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2=/path/to/dcp-ai/sdks/go
+```
+
+A última versão com tag, sem as funcionalidades ainda não publicadas:
 
 ```bash
 go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
 ```
 
-**Requer:** Go 1.25+
+<a id="features"></a>
 
 ## Funcionalidades
 
 | Funcionalidade | V1 | V2 |
-|----------------|----|----|
+|---------|----|----|
 | Assinaturas Ed25519 | Sim | Sim |
 | ML-DSA-65 (FIPS 204) | — | Sim |
 | SLH-DSA-192f (FIPS 205) | — | Sim |
 | ML-KEM-768 (FIPS 203) | — | Sim |
 | Assinaturas compostas (PQ sobre clássica) | — | Sim |
-| Separação de domínio | — | Sim |
-| Dual hash (SHA-256 + SHA3-256) | — | Sim |
-| Verificação de bundle | Sim | Sim |
-| Admissão: conjunto de confiança do principal + perfil `strict-v1` (spec/profiles/admission) | — | Sim |
-| Construção e assinatura de bundle | — | Sim |
-| Cálculo de nível de segurança | — | Sim |
+| Separação de domínios | — | Sim |
+| Hash duplo (SHA-256 + SHA3-256) | — | Sim |
+| Verificação de bundles | Sim | Sim |
+| Admissão: conjunto de confiança do principal e perfil `strict-v1` (spec/profiles/admission) | — | Sim, não publicada |
+| Construção e assinatura de bundles | — | Sim |
+| Cálculo do nível de segurança | — | Sim |
 | Prova de posse | — | Sim |
 | Rotação de chaves | — | Sim |
-| DCP-04 descoberta A2A + handshake + sessão AES-256-GCM (stdlib; segura para uso concorrente, cada mensagem é aceita uma única vez dentro da janela) | — | Sim |
-| DCP-05 ciclo de vida de agentes (commissioning / vitality / decommissioning) | — | Sim |
-| DCP-06 sucessão digital (testamento digital, transferência de memória, cerimônia) | — | Sim |
-| DCP-07 resolução de disputas + arbitragem + jurisprudência | — | Sim |
-| DCP-08 direitos + obrigações + conformidade | — | Sim |
-| DCP-09 delegação + cadeias de delegação verificáveis (`CreateSubMandate`, `VerifyMandateChain`) + limiar de consciência + espelho do principal | — | Sim |
-| Helpers de nonce de sessão, revogação de emergência | — | Sim |
-| Checkpoints PQ lazy + `PQCheckpointManager` | — | Sim |
-| Helpers de RPR blindado, autorização multi-parte, advisory de algoritmo | — | Sim |
-| Códigos de erro canônicos (38 compartilhados entre todos os SDKs) + `DetectWireFormat` | — | Sim |
-| Exportador OpenTelemetry / OTLP (build tag `otlp`) | — | Sim |
+| Descoberta A2A DCP-04, handshake e sessão AES-256-GCM (biblioteca padrão; uso concorrente seguro, cada mensagem é aceita uma única vez dentro da janela) | — | Sim |
+| Ciclo de vida dos agentes DCP-05 (comissionamento / vitalidade / descomissionamento) | — | Sim |
+| Sucessão digital DCP-06 (testamento, transferência de memória, cerimônia) | — | Sim |
+| Resolução de disputas, arbitragem e jurisprudência DCP-07 | — | Sim |
+| Direitos, obrigações e conformidade DCP-08 | — | Sim |
+| Delegação DCP-09 e cadeias de delegação verificáveis (`CreateSubMandate`, `VerifyMandateChain`), limiar de consciência e espelho do principal | — | Sim |
+| Funções auxiliares de nonce de sessão, revogação de emergência | — | Sim |
+| Checkpoints PQ adiados e `PQCheckpointManager` | — | Sim |
+| RPR ocultado, autorização multipartes e funções auxiliares de avisos sobre algoritmos | — | Sim |
+| Códigos de erro canônicos (38 compartilhados entre todos os SDKs) e `DetectWireFormat` | — | Sim |
+| Exportador OpenTelemetry / OTLP (tag de compilação `otlp`) | — | Sim |
+| Candidato de canonicalização `dcp-jcs-v2` (entrada, roteador, verificador de bytes, produtores) | — | Experimental e de adesão explícita, não publicado; não normativo |
 
-## Início Rápido — V1
+<a id="quickstart-v1"></a>
+
+<a id="quickstart--v1"></a>
+
+## Início rápido — V1
 
 ```go
 package main
@@ -60,7 +87,11 @@ func main() {
 }
 ```
 
-## Início Rápido — V2
+<a id="quickstart-v2"></a>
+
+<a id="quickstart--v2"></a>
+
+## Início rápido — V2
 
 ```go
 package main
@@ -118,9 +149,12 @@ func main() {
 }
 ```
 
-### Níveis de Segurança
+<a id="security-tiers"></a>
+
+### Níveis de segurança
 
 ```go
+// Fragment, inside a function: intentPayload and policyPayload are decoded V2 payloads.
 tier := v2.ComputeSecurityTier(v2.SecurityTierInput{
     RiskScore:       600, // from the bundle's PolicyDecision, never the intent
     DataClasses:     []string{"financial_data"},
@@ -135,93 +169,199 @@ fmt.Println(tier.CheckpointInterval) // 1
 tier = v2.ComputeSecurityTier(v2.SecurityTierInputFromPayloads(intentPayload, policyPayload))
 ```
 
-### Encapsulamento de Chave ML-KEM-768
+<a id="ml-kem-768-key-encapsulation"></a>
+
+### Encapsulamento de chaves ML-KEM-768
 
 ```go
+// Fragment, inside a function.
 kem := &providers.MlKem768Provider{}
 kp, _ := kem.GenerateKeypair()
 result, _ := kem.Encapsulate(kp.PublicKeyB64)
 sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 ```
 
-## Referência de API V2
+<a id="v2-api-reference"></a>
 
-### Construção e Assinatura de Bundle
+## Referência da API V2
 
-| Função | Descrição |
-|--------|-----------|
-| `v2.SignPayload(reg, context, payload, classicalKey, pqKey)` | Assina um artefato como `SignedPayload` (composta, ou apenas clássica quando `pqKey` é nil) |
-| `v2.BuildBundleV2(input)` | Constrói um bundle V2 a partir de artefatos assinados, com hashes de manifesto e Merkle roots duplos |
-| `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | Assina um bundle com assinatura composta ou apenas clássica; o signatário é o principal do bundle (`signer.id` = o `human_id` do RPR) |
-| `v2.VerifySignedBundleV2(reg, jsonBytes)` | Verificação completa de bundle V2 (estrutura, hashes, assinaturas, cadeia de auditoria) com `DefaultVerifierPolicy`, contra o modo mais estrito entre o da política e o do nível de segurança (spec §14.3); informa `ResolvedTier` e `VerificationMode` |
-| `v2.VerifySignedBundleV2WithPolicy(reg, jsonBytes, policy)` | O mesmo, com a sua própria `VerifierPolicy`; só `DefaultMode`, `RiskOverrides`, `MaxSessionDurationSeconds`, `RequireSessionExpiry`, `RequireAudienceBinding`, `VerifierID` e os campos da Fase 3 (`AdvisoryRejectedAlgs`, `WarnClassicalOnlyDeprecated`, `AllowClassicalFallbackDisable`, como no TypeScript) podem diferir de `DefaultVerifierPolicy()`, qualquer outra mudança faz a verificação falhar |
+<a id="bundle-building-signing"></a>
 
-### Níveis de Segurança
+<a id="bundle-building--signing"></a>
+
+### Construção e assinatura de bundles
 
 | Função | Descrição |
-|--------|-----------|
-| `v2.ComputeSecurityTier(input)` | Calcula o nível de segurança adaptativo (routine/standard/elevated/maximum), seu modo de verificação e intervalo de checkpoint (spec §14.2); valores desconhecidos resultam em `elevated` |
-| `v2.SecurityTierInputFromPayloads(intent, policyDecision)` | Monta a entrada do nível a partir dos payloads decodificados do intent e da PolicyDecision (`risk_score` vem da PolicyDecision; se faltar ou não for um inteiro de 0 a 1000, vira `RiskScore: -1`, que é desconhecido) |
-| `v2.EffectiveVerificationMode(policyMode, tier)` | O modo mais estrito entre o da política e o do nível; `pq_only` não muda |
+|----------|-------------|
+| `v2.SignPayload(reg, context, payload, classicalKey, pqKey)` | Assina um artefato, produzindo um `SignedPayload` (assinatura composta, ou somente clássica quando `pqKey` é nil) |
+| `v2.BuildBundleV2(input)` | Monta um bundle V2 a partir de artefatos assinados, com hashes do manifesto e raízes Merkle duplas |
+| `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | Assina um bundle com assinatura composta ou somente clássica; o signatário é o principal do bundle (`signer.id` = `human_id` da RPR) |
+| `v2.VerifySignedBundleV2(reg, jsonBytes)` | Verificação de bundles V2 (estrutura, hashes, assinaturas, cadeia de auditoria primária) sob `DefaultVerifierPolicy`, aplicando o mais estrito entre o modo da política e o modo do nível de segurança (especificação §14.3); informa `ResolvedTier` e `VerificationMode` |
+| `v2.VerifySignedBundleV2WithPolicy(reg, jsonBytes, policy)` | O mesmo com sua própria `VerifierPolicy`; apenas `DefaultMode`, `RiskOverrides`, `AcceptedClassicalAlgs`, `AcceptedPQAlgs`, `AllowV1Bundles` (um bundle V1 nunca é verificado aqui), `MaxSessionDurationSeconds`, `RequireSessionExpiry`, `RequireAudienceBinding`, `VerifierID` e os campos da fase 3 (`AdvisoryRejectedAlgs`, `WarnClassicalOnlyDeprecated`, `AllowClassicalFallbackDisable`, como em TypeScript) podem diferir de `DefaultVerifierPolicy()`; qualquer outra mudança faz a verificação falhar |
+| `v2.VerifySignedBundleV2At(reg, jsonBytes, policy, now)` | O mesmo no instante `now`: a janela da sessão, a expiração da RPR e das chaves são comparadas a ele, com precisão de milissegundos. As duas funções acima a chamam com `time.Now()` |
 
-### Admissão: confiança no principal e strict-v1
+Cada resultado lista em `SignerKeys` (JSON `signer_keys`), para cada assinatura composta conferida (`bundle`, os quatro artefatos e cada `pq_checkpoints[<id>]`), a entrada de chave resolvida pelo verificador para cada componente (`classical`, `pq`) e se esse componente foi verificado.
 
-Um bundle verificado prova integridade e assinatura, não quem é o principal. A admissão ([spec/profiles/admission](../../spec/profiles/admission/README.md), guia em [docs/ADMISSION.md](../../docs/ADMISSION.md)) acrescenta um conjunto de confiança do operador que fixa as chaves de cada principal, e o perfil `strict-v1`, fixado pelo operador (assinaturas híbridas, audiência assinada, uma sessão assinada de no máximo 300 s e um snapshot de revogação de no máximo 300 s). Não faz E/S de rede e nunca autoriza uma ação: `ActionAuthorized` é sempre `false`. Um conjunto de confiança ou perfil que não pode ser carregado retorna `*v2.AdmissionConfigError` (`Code`).
+<a id="admission-principal-trust-and-strict-v1-unreleased"></a>
 
-| Função | Descrição |
-|---|---|
-| `v2.VerifySignedBundleV2At(reg, json, policy, now)` | Verifica no instante dado; informa as chaves signatárias (`signer_keys`) |
-| `v2.NewPrincipalTrustStore(json)` | Carrega e valida um conjunto de confiança |
-| `v2.ResolveStrictV1Profile(json)` | Carrega e valida um perfil `strict-v1`, somente leitura |
-| `v2.RevocationSubjects(json, verification)` | O `agent_id` e os kids verificados que a fonte de revogação deve responder |
-| `v2.EvaluateAdmissionV2(json, verification, opts)` | Avalia a admissão a partir de um resultado do verificador, sem criptografia nem E/S |
-| `v2.AdmitSignedBundleV2(reg, json, opts)` | Verifica com a política do perfil e avalia |
+### Admissão: confiança no principal e strict-v1 (não publicada)
 
-A seção completa, com um exemplo, está no [README em inglês](README.md#admission-principal-trust-and-strict-v1).
-
-### Cadeias de Delegação (DCP-09 §3.5)
+Um bundle verificado comprova integridade e assinatura, não quem é o principal. A admissão ([spec/profiles/admission](../../spec/profiles/admission/README.md)) acrescenta à verificação um conjunto de confiança do operador que fixa as chaves de cada principal e o perfil `strict-v1` fixado pelo operador (assinaturas híbridas para todos os níveis, destinatário assinado, sessão assinada de no máximo 300 s e snapshot de revogação com no máximo 300 s de idade). Não faz E/S de rede e nunca autoriza uma ação: `ActionAuthorized` é sempre `false`.
 
 | Função | Descrição |
-|--------|-----------|
-| `v2.CreateDelegationMandate(reg, humanClassical, humanPQ, params)` | Mandato raiz assinado pelo humano; `SubDelegation` e `MinimumSecurityTier` são opcionais |
+|----------|-------------|
+| `v2.NewPrincipalTrustStore(json)` | Valida um conjunto de confiança (`schemas/v2/principal_trust_set.schema.json`) |
+| `v2.ResolveStrictV1Profile(json)` | Valida uma configuração strict-v1 (`schemas/v2/admission_profile.schema.json`); os getters do perfil (`VerifierPolicy()`, `VerifierID()`, `MaxSessionDurationSeconds()`, `MaxRevocationAgeSeconds()`) retornam cópias |
+| `v2.RevocationSubjects(json, verification)` | O `agent_id` do passaporte e o kid de cada chave verificada de signatário, ordenados: os sujeitos que o snapshot de revogação deve cobrir |
+| `v2.EvaluateAdmissionV2(json, verification, v2.AdmissionOptions{...})` | Avalia a admissão a partir do resultado do verificador em `Now`, sem criptografia |
+| `v2.AdmitSignedBundleV2(reg, json, v2.AdmitOptions{...})` | Verifica (sob a política do perfil, ou `Policy` sem um perfil) e avalia |
+
+Um conjunto de confiança ou perfil que não pode ser carregado, um perfil sem conjunto de confiança, ou um perfil junto com uma `Policy` do chamador retorna um `*v2.AdmissionConfigError` cujo `Code` é um dos códigos `CONFIG_*`. Um `AdmissionResult` tem `Verified`, `Verification`, `PrincipalTrust`, `Profile`, `ProfileCompliance`, `Admitted`, `ActionAuthorized`, `RecordedDecision`, `TrustSetVersion` e `Errors` (`{Code, Message}`), com os nomes de campos da especificação em sua forma JSON. Prossiga somente quando `Admitted` for true.
+
+```go
+// Fragment, inside a function: trustSetJSON, signedBundleJSON, reg (the algorithm registry) and lookupRevocation come from your application.
+trust, err := v2.NewPrincipalTrustStore(trustSetJSON) // operator configuration, never the bundle
+if err != nil {
+    log.Fatal(err) // *v2.AdmissionConfigError
+}
+profile, err := v2.ResolveStrictV1Profile([]byte(`{"profile":"strict-v1","verifier_id":"api.acme.example"}`))
+if err != nil {
+    log.Fatal(err)
+}
+
+now := time.Now()
+verification := v2.VerifySignedBundleV2At(reg, signedBundleJSON, profile.VerifierPolicy(), now)
+subjects := v2.RevocationSubjects(signedBundleJSON, verification)
+snapshot := lookupRevocation(subjects) // your source: a JSON snapshot, or nil when it cannot answer
+
+result, err := v2.EvaluateAdmissionV2(signedBundleJSON, verification, v2.AdmissionOptions{
+    Profile: profile, Trust: trust, Revocation: snapshot, Now: now,
+})
+if err != nil {
+    log.Fatal(err)
+}
+if !result.Admitted {
+    for _, e := range result.Errors {
+        fmt.Println(e.Code, e.Message) // e.g. TRUST_PRINCIPAL_UNKNOWN, REVOCATION_STALE
+    }
+}
+```
+
+<a id="security-tiers_1"></a>
+
+<a id="security-tiers-1"></a>
+
+### Níveis de segurança
+
+| Função | Descrição |
+|----------|-------------|
+| `v2.ComputeSecurityTier(input)` | Calcula o nível de segurança adaptativo (routine/standard/elevated/maximum), seu modo de verificação e intervalo de checkpoints (especificação §14.2); valores desconhecidos adotam conservadoramente `elevated` |
+| `v2.SecurityTierInputFromPayloads(intent, policyDecision)` | Constrói a entrada do nível a partir dos payloads decodificados de intenção e PolicyDecision (`risk_score` vem da PolicyDecision; se faltar ou não for um inteiro de 0 a 1000, torna-se `RiskScore: -1`, que representa um valor desconhecido) |
+| `v2.EffectiveVerificationMode(policyMode, tier)` | O mais estrito entre o modo da política e o modo do nível; `pq_only` permanece `pq_only` |
+
+<a id="delegation-chains-dcp-09-35-unreleased"></a>
+
+### Cadeias de delegação (DCP-09 §3.5, não publicadas)
+
+| Função | Descrição |
+|----------|-------------|
+| `v2.CreateDelegationMandate(reg, humanClassical, humanPQ, params)` | Mandato raiz assinado pela pessoa; `SubDelegation` e `MinimumSecurityTier` são opcionais |
 | `v2.CreateSubMandate(reg, delegatorClassical, delegatorPQ, parent, v2.SubMandateParams{...})` | Submandato assinado pelo agente do mandato pai sob o contexto `DCP-AI.v2.SubMandate` |
-| `v2.VerifyMandateChain(reg, chain, revokedIDs, v2.MandateChainKeys{HumanKeys, AgentKeys}, now)` | Verifica a cadeia começando pela raiz e offline (assinaturas até o humano, vínculos e profundidade, `sub_delegation`, validade aninhada, atenuação de ações, `data_classes` e `limits`, piso de nível, revogação); retorna `MandateChainResult{Valid, Errors, Depth, EffectiveTier}` |
+| `v2.VerifyMandateChain(reg, chain, revokedIDs, v2.MandateChainKeys{HumanKeys, AgentKeys}, now)` | Verifica a cadeia offline, começando pela raiz (assinaturas até a pessoa, vínculos e profundidade, `sub_delegation`, validade aninhada, restrição de ações, `data_classes` e `limits`, nível mínimo e revogação); retorna `MandateChainResult{Valid, Errors, Depth, EffectiveTier}` |
 
-`SecurityTierInput.MandateChainTier` recebe o `EffectiveTier` da cadeia como um piso que só pode elevar o nível.
+`SecurityTierInput.MandateChainTier` usa o `EffectiveTier` da cadeia como um piso que só pode elevar o nível.
 
-### Assinaturas Compostas
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
+
+### Experimental: candidato de canonicalização `dcp-jcs-v2` (adesão explícita, não publicado)
+
+Não é normativo nem está ativo: `dcp-jcs-v1` continua sendo o único perfil de canonicalização, e nenhum padrão, construtor, assinante ou verificador muda. Essas funções estão disponíveis para chamadores que optem por usá-las em um checkout do código (consulte o estado da publicação). Um bundle candidato verificado não concede confiança nem admissão. Projeto e contrato: [`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md) (§15 entrada, §16 roteador, §17 verificador, §18 produtores).
 
 | Função | Descrição |
-|--------|-----------|
-| `v2.CompositeSign(reg, ctx, payload, classicalKey, pqKey)` | Assinatura composta PQ-sobre-clássico |
-| `v2.ClassicalOnlySign(reg, ctx, payload, key)` | Modo de transição apenas clássico |
+|----------|-------------|
+| `ExperimentalCandidateIngress(input []byte)` | `Accepted`, `Canonical`, `CanonicalSHA256`, ou `Class` e `Offset` da rejeição |
+| `NewExperimentalCandidateRouter(config)` | Roteia bytes: `reject`, `v1_path` ou `candidate`; o decodificador histórico é identificado pelo nome fechado `encoding_json` |
+| `NewExperimentalCandidateVerifier(config)` e `VerifyAt(registry, input, policy, now)` | Verifica a partir dos bytes originais com no máximo um verificador |
+| `ExperimentalCandidateSignPayload(registry, context, input, keys)` | Assina um artefato a partir de `ExperimentalCandidateBytes(b)` ou `ExperimentalCandidateHostValue(v)` (tipos exatos; `json.Number` preservado) |
+| `ExperimentalCandidateSignBundle(registry, parts, signer, options)` | Monta e assina um bundle cujo manifesto indica `dcp-jcs-v2` |
+| `*ExperimentalCandidateProduceError`, `ErrExperimentalCandidateUsage` | Rejeição pelo domínio ou pela forma das entradas, antes de chamar qualquer assinante; uso incorreto da API |
+
+```go
+package main
+
+import (
+    "fmt"
+
+    "github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp/providers"
+    v2 "github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp/v2"
+)
+
+func main() {
+    // The ingress decides on the original bytes: 1.0 is the integer 1, members are sorted.
+    ok, _ := v2.ExperimentalCandidateIngress([]byte(`{"b":1.0,"a":[]}`))
+    fmt.Println(string(ok.Canonical)) // {"a":[],"b":1}
+    bad, _ := v2.ExperimentalCandidateIngress([]byte(`{"a":1,"a":2}`))
+    fmt.Println(bad.Class, bad.Offset) // DUPLICATE_KEY 7
+
+    // A producer signs an artifact from those bytes (hybrid keys, today's composite signature).
+    reg := v2.NewAlgorithmRegistry()
+    reg.RegisterSigner(&providers.Ed25519Provider{})
+    reg.RegisterSigner(&providers.MlDsa65Provider{})
+    ed, _ := (&providers.Ed25519Provider{}).GenerateKeypair()
+    pq, _ := (&providers.MlDsa65Provider{}).GenerateKeypair()
+    keys := v2.ExperimentalCandidateKeys{
+        Classical: v2.CompositeKeyInfo{Kid: ed.Kid, Alg: "ed25519", SecretKeyB64: ed.SecretKeyB64, PublicKeyB64: ed.PublicKeyB64},
+        PQ:        &v2.CompositeKeyInfo{Kid: pq.Kid, Alg: "ml-dsa-65", SecretKeyB64: pq.SecretKeyB64, PublicKeyB64: pq.PublicKeyB64},
+    }
+    artifact, err := v2.ExperimentalCandidateSignPayload(reg, v2.CtxIntent, v2.ExperimentalCandidateBytes([]byte(`{"intent_id":"intent:1","risk":1.0}`)), keys)
+    if err != nil {
+        panic(err)
+    }
+    fmt.Println(artifact.SignedPayload["payload_hash"]) // sha256:... of {"intent_id":"intent:1","risk":1}
+}
+```
+
+<a id="composite-signatures"></a>
+
+### Assinaturas compostas
+
+| Função | Descrição |
+|----------|-------------|
+| `v2.CompositeSign(reg, ctx, payload, classicalKey, pqKey)` | Assinatura composta PQ sobre clássica |
+| `v2.ClassicalOnlySign(reg, ctx, payload, key)` | Modo de transição somente clássico |
 | `v2.CompositeVerify(reg, ctx, payload, sig, classicalPK, pqPK)` | Verifica assinaturas compostas |
 
-### Provedores de Criptografia
+<a id="crypto-providers"></a>
+
+### Provedores criptográficos
 
 | Provedor | Algoritmo | Tipo | Padrão |
-|----------|-----------|------|--------|
+|----------|-----------|------|----------|
 | `Ed25519Provider` | ed25519 | Assinatura | — |
 | `MlDsa65Provider` | ml-dsa-65 | Assinatura | FIPS 204 |
 | `SlhDsa192fProvider` | slh-dsa-192f | Assinatura | FIPS 205 |
 | `MlKem768Provider` | ml-kem-768 | KEM | FIPS 203 |
 
-### API V1 (inalterada)
+<a id="v1-api-unchanged"></a>
+
+### API V1 (sem mudanças)
 
 | Função | Descrição |
-|--------|-----------|
+|----------|-------------|
 | `dcp.GenerateKeypair()` | Par de chaves Ed25519 |
-| `dcp.SignObject(obj, sk)` | Assina objeto |
-| `dcp.VerifyObject(obj, sig, pk)` | Verifica assinatura |
+| `dcp.SignObject(obj, sk)` | Assina um objeto |
+| `dcp.VerifyObject(obj, sig, pk)` | Verifica a assinatura |
 | `dcp.Canonicalize(obj)` | JSON determinístico |
 | `dcp.HashObject(obj)` | SHA-256 do JSON canônico |
-| `dcp.VerifySignedBundle(sb, pk)` | Verificação de bundle V1 |
+| `dcp.VerifySignedBundle(sb, pk)` | Verificação de bundles V1 |
+
+<a id="dcp-0509-types"></a>
 
 ### Tipos DCP-05–09
 
-V2 inclui structs Go para todos os artefatos de DCP-05 a DCP-09:
+A V2 inclui estruturas Go para todos os artefatos de DCP-05 a DCP-09:
 
-| Spec | Tipos |
+| Especificação | Tipos |
 |------|-------|
 | DCP-05 | `LifecycleState`, `CommissioningCertificate`, `VitalityReport`, `VitalityMetrics`, `DecommissioningRecord`, `TerminationMode`, `DataDisposition` |
 | DCP-06 | `DigitalTestament`, `SuccessionRecord`, `MemoryTransferManifest`, `MemoryTransferEntry`, `SuccessorPreference`, `MemoryClassification`, `TransitionType`, `MemoryDisposition` |
@@ -229,9 +369,11 @@ V2 inclui structs Go para todos os artefatos de DCP-05 a DCP-09:
 | DCP-08 | `RightsDeclaration`, `RightEntry`, `ObligationRecord`, `RightsViolationReport`, `RightType`, `ComplianceStatus` |
 | DCP-09 | `DelegationMandate`, `AdvisoryDeclaration`, `PrincipalMirror`, `InteractionRecord`, `AwarenessThreshold`, `ThresholdRule`, `AuthorityScopeEntry` |
 
-Contextos de separação de domínio: `CtxLifecycle`, `CtxSuccession`, `CtxDispute`, `CtxRights`, `CtxDelegation`, `CtxAwareness`
+Contextos de separação de domínios: `CtxLifecycle`, `CtxSuccession`, `CtxDispute`, `CtxRights`, `CtxDelegation`, `CtxAwareness`
 
-Todas as structs incluem tags JSON para marshaling/unmarshaling e seguem as convenções de nomenclatura do Go (`json:"field_name,omitempty"` para campos opcionais).
+Todas as estruturas incluem tags JSON para serialização e desserialização e seguem as convenções de nomes do Go (`json:"field_name,omitempty"` para campos opcionais).
+
+<a id="development"></a>
 
 ## Desenvolvimento
 
@@ -242,10 +384,14 @@ go fmt ./...     # Format
 go mod tidy      # Verify dependencies
 ```
 
+<a id="dependencies"></a>
+
 ### Dependências
 
 - `github.com/cloudflare/circl` — ML-DSA-65, SLH-DSA-192f, ML-KEM-768
 - `golang.org/x/crypto` — SHA3-256
+
+<a id="license"></a>
 
 ## Licença
 

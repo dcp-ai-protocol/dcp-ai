@@ -1,6 +1,8 @@
 # DCP-AI Playground
 
-Interactive browser-based demonstration of the Digital Citizenship Protocol (DCP-01 through DCP-09).
+Interactive browser-based demonstration of the Digital Citizenship Protocol (DCP-01 through DCP-09), hosted at [docs.dcp-ai.org/playground/](https://docs.dcp-ai.org/playground/).
+
+It is a demonstration: its post-quantum signatures are simulated and its canonical form and Merkle root are simplified, so what it builds is not evidence and need not verify with the SDK verifiers (see [Limitations](#limitations)).
 
 ## Quick Start
 
@@ -18,7 +20,7 @@ The playground is a modular, no-build-step application using ES modules (`<scrip
 
 ```
 playground/
-  index.html                    # Shell: CDN scripts, CSS, navigation, containers (~585 lines)
+  index.html                    # Shell: CDN scripts, CSS, navigation, containers
   js/
     core/
       crypto.js                 # Ed25519 keygen, signing, verification, kid
@@ -45,7 +47,7 @@ playground/
       workflows.js              # Tab 11: Cross-Spec Workflows
 ```
 
-17 JS modules. ~3,200 lines total.
+20 JS modules (about 2,700 lines on 25/10/2026).
 
 ## Navigation
 
@@ -73,7 +75,7 @@ Two-level navigation:
 
 ## Cross-Spec Workflows
 
-4 guided workflows for NIST/IEEE reviewers:
+4 guided workflows:
 
 1. **Full Agent Lifecycle** (DCP-01 + 05 + 06): Identity creation through succession
 2. **Delegated Action with Dispute** (DCP-01 + 09 + 02 + 07): Delegation through dispute resolution
@@ -84,11 +86,11 @@ Two-level navigation:
 
 All cryptographic operations run **entirely in the browser**:
 
-- **Ed25519 signatures** via [tweetnacl](https://github.com/nickolai/nickel-nacl) loaded from CDN
+- **Ed25519 signatures** via [tweetnacl](https://github.com/dchest/tweetnacl-js) loaded from CDN
 - **SHA-256 hashing** via the Web Crypto API (`crypto.subtle.digest`)
 - **Key IDs (kid)** derived per spec: `hex(SHA-256(UTF8(alg) || 0x00 || pubkey_bytes))[0:32]`
 - **Domain separation** applied to all signatures: `UTF8(context_tag) || 0x00 || canonical_payload`
-- **JCS canonicalization** (sorted keys) for deterministic hashing
+- **Canonicalization** with sorted keys for deterministic hashing (a simplified form, not the full `dcp-jcs-v1` profile)
 - **Composite signatures**: `{ classical, pq, binding }` format per `composite_signature.schema.json`
 - **Session nonces**: 64-char hex (`crypto.getRandomValues(32)`)
 
@@ -101,7 +103,7 @@ All cryptographic operations run **entirely in the browser**:
 
 ## Limitations
 
-- **Post-quantum signatures are simulated**: ML-DSA-65 uses HMAC-based placeholder. Ed25519 is real. For production PQ crypto, use the WASM SDK (`sdks/wasm/`).
+- **Post-quantum signatures are simulated**: ML-DSA-65 uses an HMAC-based placeholder. Ed25519 is real. For real PQ signatures, use an SDK (for the browser, the WASM SDK in `sdks/wasm/`).
 - Merkle root computation uses simplified concatenation
 - No CBOR wire format (JSON only)
 - Signature verification limited to Ed25519 keys in the bundle's passport

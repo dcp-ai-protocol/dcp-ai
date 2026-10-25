@@ -115,8 +115,16 @@ full V2 procedure, security tier included.
 - **v2.7.0** — 38 canonical `DcpErrorCode` values + `detect_wire_format` helper aligned across all four core SDKs, so cross-SDK error handling matches on a single stable string.
 - **v2.8.0** — Canonicalization profile `dcp-jcs-v1` ([`spec/CANONICALIZATION_PROFILE.md`](spec/CANONICALIZATION_PROFILE.md)) pins the cases RFC 8785 leaves implementation-defined, closing the four-SDK divergence on `1.0`, `1e2` and `undefined`; 14 shared edge-case interop vectors.
 - **v2.8.1** — `canonicalization_profile` manifest field wired across the four SDKs: builders emit `"dcp-jcs-v1"`, verifiers treat an absent field as `dcp-jcs-v1` and reject unknown values.
-- **v2.10.0** (2026-10-22) — Verifiers in all four SDKs enforce VERIFICATION.md V2-7/V2-8, the security tier, audit-trail binding and key validity; a critical `@dcp-ai/sdk` verification bypass is fixed; the Blinded RPR commitment is salted; Python gains ML-KEM-768, FIPS 205 and V2 bundles; the services gain operator authentication, registration gates and denial-of-service limits.
 - **v2.9.0** (2026-10-21) — The reference verifier, CLI and server verify normative V2 bundles through `@dcp-ai/sdk`; Go and TypeScript canonicalization fixed against `dcp-jcs-v1`; all open dependency security alerts closed (Go and Rust 2.9.0, Python 2.8.2, `@dcp-ai/sdk` 2.1.2).
+- **v2.10.0** (2026-10-22) — Verifiers in all four SDKs enforce VERIFICATION.md V2-7/V2-8, the security tier, audit-trail binding and key validity; a critical `@dcp-ai/sdk` verification bypass is fixed; the Blinded RPR commitment is salted; Python gains ML-KEM-768, FIPS 205 and V2 bundles; the services gain operator authentication, registration gates and denial-of-service limits.
+
+### In the repository, not released yet
+
+These are on `main` after the `v2.10.0` tag and are not released as part of this work: use them from a
+source checkout (see the [`[Unreleased]` section of the changelog](CHANGELOG.md#unreleased)).
+
+- **Admission** — trusted principals and the `strict-v1` profile ([`docs/ADMISSION.md`](docs/ADMISSION.md), [`spec/profiles/admission`](spec/profiles/admission/README.md)) in the four SDKs, the Express, FastAPI and OpenClaw integrations, the reference verifier, the server and the CLI. Verification alone still grants no trust; admission never authorizes an action.
+- **Canonicalization candidate `dcp-jcs-v2`** — experimental, opt-in ingress, router, bytes verifier and producers in TypeScript, Python, Go, Rust and WASM, with a five-by-five cross matrix ([`docs/proposals/canonicalization-candidate`](docs/proposals/canonicalization-candidate/README.md)). Not normative and not active: `dcp-jcs-v1` stays the only profile, and moving the candidate to a later phase or making it a default needs its own decision.
 
 ### Out of scope for Phase 5
 

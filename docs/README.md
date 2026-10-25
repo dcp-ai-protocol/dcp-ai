@@ -2,27 +2,31 @@
 
 ## Quick Start
 
-- [QUICKSTART.md](QUICKSTART.md) — Get up and running in 60 seconds
+- [QUICKSTART.md](QUICKSTART.md) — Get up and running in a few minutes (published packages and a source checkout)
 - [QUICKSTART_EXPRESS.md](QUICKSTART_EXPRESS.md) — Express middleware integration
 - [QUICKSTART_LANGCHAIN.md](QUICKSTART_LANGCHAIN.md) — LangChain tool wrapping
-- [QUICKSTART_OPENAI.md](QUICKSTART_OPENAI.md) — OpenAI Agents SDK integration
+- [QUICKSTART_OPENAI.md](QUICKSTART_OPENAI.md) — OpenAI function calling (Node SDK, Chat Completions; Python client wrapper)
 - [QUICKSTART_CREWAI.md](QUICKSTART_CREWAI.md) — CrewAI multi-agent crews
+- [QUICKSTART_AGNO.md](QUICKSTART_AGNO.md) — Agno agents, teams and workflows with `agno-dcp`
 
 ## Architecture & Security
 
 - [TECHNICAL_ARCHITECTURE.md](TECHNICAL_ARCHITECTURE.md) — System architecture and deployment blueprint
 - [SECURITY_MODEL.md](SECURITY_MODEL.md) — Threat model, attack vectors, protection layers
 - [STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md) — P2P storage and optional blockchain anchoring
+- [ARCHITECTURE.md](ARCHITECTURE.md) — Map of the repository for contributors
+- [OBSERVABILITY.md](OBSERVABILITY.md) — OpenTelemetry traces and metrics from the SDKs
 
 ## Testing & Assurance
 
 - [tools/interop-matrix](../tools/interop-matrix/README.md) — Live agents on the four SDKs sign and verify each other's bundles, untouched and tampered with in transit
 - [tools/difffuzz](../tools/difffuzz/README.md) — Differential fuzzing of the four V2 verifiers
 - [tests/interop/v2](../tests/interop/v2/) — Shared vectors every SDK must accept or reject
+- [tests/interop/candidate/phase4](../tests/interop/candidate/phase4/README.md) — Cross matrix of the experimental `dcp-jcs-v2` producers (five SDKs)
 
 ## Reference
 
-- [API_REFERENCE.md](API_REFERENCE.md) — Complete TypeScript SDK API documentation
+- [API_REFERENCE.md](API_REFERENCE.md) — TypeScript SDK API reference, as on `main`
 - [NIST_CONFORMITY.md](NIST_CONFORMITY.md) — NIST FIPS 203/204/205 conformance statement
 - [EU_AI_ACT_MAPPING.md](EU_AI_ACT_MAPPING.md) — EU AI Act (Regulation (EU) 2024/1689) logging, human oversight and record-keeping obligations mapped to DCP artifacts
 - [MIGRATION_V1_V2.md](MIGRATION_V1_V2.md) — Migrating from DCP v1.0 to v2.0
@@ -30,7 +34,7 @@
 ## Operations
 
 - [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md) — Running a DCP verification service
-- [ADMISSION.md](ADMISSION.md) — Accepting bundles only from trusted principals, and the strict-v1 profile
+- [ADMISSION.md](ADMISSION.md) — Accepting bundles only from trusted principals, and the strict-v1 profile (unreleased)
 - [AGENT_CREATION_AND_CERTIFICATION.md](AGENT_CREATION_AND_CERTIFICATION.md) — Agent creation flow and certification
 
 ## Specifications
@@ -44,6 +48,11 @@
 - [spec/DCP-07.md](../spec/DCP-07.md) — Conflict Resolution & Dispute Arbitration
 - [spec/DCP-08.md](../spec/DCP-08.md) — Rights & Obligations Framework
 - [spec/DCP-09.md](../spec/DCP-09.md) — Personal Representation & Delegation
+- [spec/profiles](../spec/profiles/README.md) — Optional profiles: crypto, A2A, governance and admission
+
+## Proposals (experimental, not normative)
+
+- [proposals/canonicalization-candidate](proposals/canonicalization-candidate/README.md) — The inactive `dcp-jcs-v2` candidate and its opt-in SDK APIs (unreleased); `dcp-jcs-v1` stays the only profile
 
 ## Community & Vision
 

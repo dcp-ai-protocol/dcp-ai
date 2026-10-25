@@ -10,8 +10,8 @@ HTTP service meant to anchor Citizenship Bundle hashes to L2 blockchains (Base, 
 ## Quickstart
 
 ```bash
-# Start the service
-node index.js
+# Start the service, from the repo root after installing the root dependencies
+node services/anchor/index.js
 
 # Or with Docker, from the repo root
 docker compose -f docker/docker-compose.yml up anchor
@@ -50,7 +50,7 @@ is optional). Anything else, or a body over 1 MB, is a 400.
 ```bash
 curl -X POST http://localhost:3001/anchor \
   -H "Content-Type: application/json" \
-  -d '{"bundle_hash": "sha256:abc123..."}'
+  -d '{"bundle_hash": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"}'
 ```
 
 **Individual mode** — Records the hash at once, locally: `anchored: true` means recorded by this
@@ -59,7 +59,7 @@ service, not on chain (`onchain: false`, `tx_hash: null`):
 ```json
 {
   "anchored": true,
-  "hash": "sha256:abc123...",
+  "hash": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
   "count": 1,
   "timestamp": "2025-01-01T00:00:00.000Z",
   "tx_hash": null,
@@ -73,7 +73,7 @@ service, not on chain (`onchain: false`, `tx_hash: null`):
 ```json
 {
   "accepted": true,
-  "bundle_hash": "sha256:abc123...",
+  "bundle_hash": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
   "position": 3,
   "hint": "Will be anchored in next batch (interval: 60000ms)"
 }
@@ -84,13 +84,13 @@ service, not on chain (`onchain: false`, `tx_hash: null`):
 Query the status of an anchored hash.
 
 ```bash
-curl http://localhost:3001/status/sha256:abc123...
+curl http://localhost:3001/status/sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
 ```
 
 ```json
 {
   "anchored": true,
-  "hash": "sha256:abc123...",
+  "hash": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
   "count": 1,
   "timestamp": "2025-01-01T00:00:00.000Z",
   "tx_hash": null,
@@ -176,8 +176,8 @@ See [contracts/ethereum/README.md](../../contracts/ethereum/README.md) for contr
 ## Development
 
 ```bash
-# Start in development mode
-PORT=3001 ANCHOR_MODE=batch node index.js
+# Start in development mode, from the repo root
+PORT=3001 ANCHOR_MODE=batch node services/anchor/index.js
 
 # Test with curl
 curl http://localhost:3001/health
