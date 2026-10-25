@@ -365,7 +365,7 @@ def extract_unit(data):
 
 
 def last(node, key):
-    """The value of the LAST member named `key`, as every historical parser keeps it."""
+    """The value of the LAST member named `key`, as this model assumes; historical adapters need measurement."""
     if not isinstance(node, Obj):
         return None
     found = None
