@@ -13,6 +13,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer, type Server } from 'node:http';
 import express from 'express';
+import { rateLimit } from 'express-rate-limit';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createSourceSupervisor, dcpVerify, denyListRevocationSource, type RevocationSource, type SourceSupervisor } from '../index.js';
 
@@ -75,6 +76,7 @@ async function upstream(mode: Mode) {
 /** strict-v1 through Express, its revocation supervised by `supervisor` with a 5 s deadline. */
 async function app(revocationSource: RevocationSource, supervisor: SourceSupervisor) {
   const a = express();
+  a.use(rateLimit({ windowMs: 60_000, limit: 10 })); // each app here answers 2 requests
   a.use(express.json({ limit: '5mb' }));
   const options = {
     clock: () => NOW,
