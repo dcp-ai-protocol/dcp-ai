@@ -1,83 +1,73 @@
 # dcp_ai.openai — OpenAI Integration
 
-DCP wrapper for the OpenAI client. Adds automatic DCP governance to chat calls, function calling with DCP tools, and audit trail with hash-chaining.
+DCP wrapper for the OpenAI Python client. Creates an intent for each chat call and records an audit entry when the call returns, offers DCP tools for function calling, and keeps the audit trail hash-chained.
+
+The wrapper keeps **unsigned records** and evaluates **no policy**: every call runs, and its audit entry records `policy_decision: "approved"`. The `secret_key` it accepts is not used. For signed bundles and a policy gate around function calls, follow [docs/QUICKSTART_OPENAI.md](../../docs/QUICKSTART_OPENAI.md).
 
 ## Supported DCP Specifications
 
-DCP-01 through DCP-09.
+DCP-01 through DCP-09, partially: unsigned records and drafts in the shapes of these specifications, and bundle
+verification through `dcp_verify_bundle`. It does not implement them in full.
 
 ## Installation
+
+> **Release status (25/10/2026).** PyPI has `dcp-ai` 2.9.0. In it, the `dcp_verify_bundle` tool of `handle_dcp_tool_call` sends every bundle to the V1 verifier: every V2 bundle is rejected, and a V1 bundle is accepted under no verifier policy. The `verifier_policy` argument, `averify_bundle_tool_call` and the V2 verification described below are in the source on `main` (see the `[Unreleased]` section of [CHANGELOG.md](../../CHANGELOG.md)).
+
+From a checkout (this page's version):
+
+```bash
+git clone https://github.com/dcp-ai-protocol/dcp-ai.git
+pip install "/path/to/dcp-ai/sdks/python[openai]"
+```
+
+The published version (2.9.0), with the limits above:
 
 ```bash
 pip install "dcp-ai[openai]"
 ```
 
+The examples call the OpenAI API: they need `OPENAI_API_KEY` in the environment and are billed by OpenAI.
+
 ## Quickstart
 
 ```python
 from openai import OpenAI
-from dcp_ai import generate_keypair
 from dcp_ai.openai import DCPOpenAIClient
 
-# Setup
-keys = generate_keypair()
-client = OpenAI(api_key="sk-...")
+client = OpenAI()  # reads OPENAI_API_KEY from the environment
 
-passport = {
-    "dcp_version": "1.0",
-    "agent_id": "openai-agent-001",
-    "human_id": "human-001",
-    "agent_name": "GPTAssistant",
-    "capabilities": ["browse", "api_call"],
-    "risk_tier": "medium",
-    "status": "active",
-    "created_at": "2025-01-01T00:00:00Z",
-    "expires_at": None,
-}
-rpr = {
-    "dcp_version": "1.0",
-    "human_id": "human-001",
-    "entity_type": "natural_person",
-    "jurisdiction": "ES",
-    "liability_mode": "full",
-    "created_at": "2025-01-01T00:00:00Z",
-    "expires_at": None,
-}
+# The wrapper reads agent_id from the passport and human_id from the RPR;
+# it does not check or sign them.
+passport = {"agent_id": "agent:gpt-assistant-001", "capabilities": ["browse", "api_call"], "risk_tier": "medium"}
+rpr = {"human_id": "rpr:human-001"}
 
-# Wrap the OpenAI client
-dcp_client = DCPOpenAIClient(
-    openai_client=client,
-    passport=passport,
-    rpr=rpr,
-    secret_key=keys["secret_key_b64"],
-)
+dcp_client = DCPOpenAIClient(openai_client=client, passport=passport, rpr=rpr)
 
-# Use like the normal client
+# Without tools of your own, the DCP tools are added (auto_intent=True), so the
+# model may answer with tool calls instead of text.
 response = dcp_client.chat_completions_create(
     model="gpt-4",
     messages=[{"role": "user", "content": "Summarize today's news"}],
 )
-print(response.choices[0].message.content)
+message = response.choices[0].message
+print(message.content or message.tool_calls)
 
-# Query audit trail
-trail = dcp_client.get_audit_trail()
-for entry in trail:
-    print(f"[{entry['timestamp']}] {entry['action_type']}")
+for entry in dcp_client.get_audit_trail():
+    print(f"[{entry['timestamp']}] {entry['intent_id']} -> {entry['outcome']}")
 ```
 
 ## API Reference
 
 ### `DCPOpenAIClient`
 
-Wrapper for the OpenAI client with automatic DCP governance.
-
 ```python
 DCPOpenAIClient(
     openai_client: Any,           # OpenAI() instance
-    passport: dict[str, Any],    # DCP Agent Passport
-    rpr: dict[str, Any],         # Responsible Principal Record
-    secret_key: str = "",        # Ed25519 secret key (base64)
-    auto_intent: bool = True,    # Auto-inject DCP tools
+    passport: dict[str, Any],     # agent_id and, for commission, capabilities and risk_tier are read
+    rpr: dict[str, Any],          # human_id is read
+    secret_key: str = "",         # Accepted but not used: nothing is signed
+    session_nonce: str = "",      # A fresh one when empty
+    auto_intent: bool = True,     # Adds DCP_TOOLS to calls that pass no tools
 )
 ```
 
@@ -85,29 +75,30 @@ DCPOpenAIClient(
 
 | Method | Description |
 |--------|-------------|
-| `chat_completions_create(**kwargs)` | Creates a chat completion with DCP governance. Generates an Intent and AuditEntry for each call. |
-| `commission(purpose, capabilities?)` | Commission the agent (DCP-05 §3.1). |
-| `get_audit_trail()` | Returns the full list of audit entries with hash-chaining. |
+| `chat_completions_create(**kwargs)` | Creates an intent, calls `client.chat.completions.create(**kwargs)` and, if it returns, records an audit entry. A call that raises propagates its exception and leaves no audit entry. |
+| `commission(purpose, capabilities?)` | Commission the agent (DCP-05 §3.1); returns an unsigned certificate and records an audit entry. The certificate and the `commissioned` state are local: nothing is attested or sent elsewhere. |
+| `get_audit_trail()` | The audit entries, hash-chained: the in-memory list itself, not a copy, so changing it changes the trail. |
+| `get_session_nonce()` | The session nonce. |
 
 #### `chat_completions_create` Flow
 
-1. Creates an `Intent` declaring the `api_call` action
-2. Evaluates a `PolicyDecision`
-3. Executes `client.chat.completions.create()`
-4. Records an `AuditEntry` with the result
-5. Automatically chains hashes
+1. Creates an intent: `action_type: "api_call"`, channel `api`, `estimated_impact: "low"`, `data_classes: ["none"]`.
+2. Adds `DCP_TOOLS` when `auto_intent` is on and the call passes no `tools`.
+3. Executes `client.chat.completions.create()`. No policy decision is made: the call always runs.
+4. If the call returns, records an audit entry with `policy_decision: "approved"` and the response `id` as `evidence.result_ref`, chained to the previous entry.
 
 ### `DCP_TOOLS`
 
-List of OpenAI function calling tool definitions for DCP:
+OpenAI function calling tool definitions for DCP:
 
 ```python
+# Fragment: client as in the Quickstart
 from dcp_ai.openai import DCP_TOOLS
 
-# Inject into a chat call
+messages = [{"role": "user", "content": "Declare your intent to make an API call"}]
 response = client.chat.completions.create(
     model="gpt-4",
-    messages=[...],
+    messages=messages,
     tools=DCP_TOOLS,
 )
 ```
@@ -119,9 +110,9 @@ response = client.chat.completions.create(
 | `dcp_verify_bundle` | `signed_bundle_json: string` | Verifies a DCP Signed Bundle |
 | `dcp_declare_intent` | `action_type: enum`, `target_channel: enum`, `data_classes?: string[]`, `estimated_impact?: enum` | Declares intent before an action (DCP-02) |
 | `dcp_commission_agent` | `purpose: string`, `capabilities?: string[]`, `risk_tier?: enum` | Commission agent (DCP-05 §3.1) |
-| `dcp_report_vitality` | `task_completion_rate`, `error_rate`, `satisfaction`, `policy_alignment` | Report vitality metrics (DCP-05 §4.1) |
+| `dcp_report_vitality` | `task_completion_rate`, `error_rate`, `human_satisfaction`, `policy_alignment` | Report vitality metrics (DCP-05 §4.1) |
 | `dcp_declare_rights` | `rights: string[]`, `jurisdiction: string` | Declare agent rights (DCP-08 §3.1) |
-| `dcp_create_mandate` | `human_id: string`, `authority_scope: string[]` | Create delegation mandate (DCP-09 §3.1) |
+| `dcp_create_mandate` | `human_id: string`, `authority_scope: string[]`, `valid_from?: string`, `valid_until?: string` | Create delegation mandate (DCP-09 §3.1) |
 
 **`action_type`**: `browse`, `api_call`, `send_email`, `create_calendar_event`, `initiate_payment`, `update_crm`, `write_file`, `execute_code`
 
@@ -131,7 +122,9 @@ response = client.chat.completions.create(
 
 ### `handle_dcp_tool_call(tool_name, arguments, session_nonce="", verifier_policy=None)`
 
-Processes DCP tool calls returned by OpenAI.
+Processes DCP tool calls returned by OpenAI and returns a JSON string. Apart from `dcp_verify_bundle`, the tools return unsigned drafts (for example `dcp_declare_intent` returns `{"intent_declared": true, "intent": {...}}` with `agent_id` and `human_id` set to `"self"`). These drafts are not normative artifacts ready to sign: `"self"` is shorter
+than the 6 characters the schemas require for `agent_id` and `human_id`, and the certificate, rights and mandate drafts
+lack fields of their schemas. Adapt them, validate them against the schemas and sign them with the core SDK.
 
 `dcp_verify_bundle` verifies a V2 bundle with `verify_signed_bundle_v2` from `dcp_ai.v2` under
 `verifier_policy`: a dict of `VerifierPolicy` fields set over `DEFAULT_VERIFIER_POLICY` (a
@@ -148,12 +141,18 @@ format characters of bundle-supplied text escaped. It works with or without a ru
 and leaves the thread's current event loop as it was; async code can await
 `averify_bundle_tool_call(arguments, verifier_policy)` instead.
 
+`dcp_verify_bundle` is cryptographic verification under the policy your code passes: `verifier_policy` is an
+argument of your call, never read from the model's `arguments`. It is not admission of an anchored principal and
+authorizes no action (see [docs/ADMISSION.md](../../docs/ADMISSION.md)).
+
 ```python
+# Fragment: response is a chat completion with tool calls
+import json
+
 from dcp_ai.openai import handle_dcp_tool_call
 
-# After receiving a tool_call from the model
-for tool_call in response.choices[0].message.tool_calls:
-    if tool_call.function.name.startswith("dcp_"):
+for tool_call in response.choices[0].message.tool_calls or []:
+    if tool_call.type == "function" and tool_call.function.name.startswith("dcp_"):
         result = handle_dcp_tool_call(
             tool_call.function.name,
             json.loads(tool_call.function.arguments),
@@ -164,41 +163,33 @@ for tool_call in response.choices[0].message.tool_calls:
 ## Advanced Example — Function Calling with DCP
 
 ```python
-from openai import OpenAI
-from dcp_ai.openai import DCPOpenAIClient, DCP_TOOLS, handle_dcp_tool_call
+# Fragment: passport and rpr as in the Quickstart
 import json
 
-client = OpenAI()
-dcp_client = DCPOpenAIClient(
-    openai_client=client,
-    passport=passport,
-    rpr=rpr,
-    secret_key=keys["secret_key_b64"],
-)
+from openai import OpenAI
+from dcp_ai.openai import DCPOpenAIClient, handle_dcp_tool_call
 
-# First call: the model can use DCP tools
+dcp_client = DCPOpenAIClient(openai_client=OpenAI(), passport=passport, rpr=rpr)
+
+# No tools passed: the DCP tools are added, so the model can call them
 response = dcp_client.chat_completions_create(
     model="gpt-4",
-    messages=[
-        {"role": "user", "content": "Declare your intent to make an API call"},
-    ],
+    messages=[{"role": "user", "content": "Declare your intent to make an API call"}],
 )
 
-# Process tool calls
-message = response.choices[0].message
-if message.tool_calls:
-    for tc in message.tool_calls:
-        result = handle_dcp_tool_call(
-            tc.function.name,
-            json.loads(tc.function.arguments),
-        )
+for tc in response.choices[0].message.tool_calls or []:
+    if tc.type == "function":
+        result = handle_dcp_tool_call(tc.function.name, json.loads(tc.function.arguments))
         print(f"Tool: {tc.function.name} -> {result}")
 ```
 
 ## Development
 
+From a checkout:
+
 ```bash
-pip install "dcp-ai[openai,dev]"
+cd sdks/python
+pip install -e ".[openai,dev]"
 pytest -v
 ```
 

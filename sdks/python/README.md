@@ -6,11 +6,25 @@ Official Python SDK for the Digital Citizenship Protocol (DCP v2.0). Pydantic v2
 
 ## Installation
 
+**Release status.** This README describes the source on `main`. The last tagged release, `v2.10.0`, has
+`dcp-ai` 2.9.0 for Python. What the changelog lists under [`[Unreleased]`](../../CHANGELOG.md#unreleased) is not in
+a tagged release: admission, delegation chains, the A2A receive window, bounded deny-list workers and the
+experimental `dcp-jcs-v2` APIs. To run the examples below, install from a checkout:
+
+```bash
+git clone https://github.com/dcp-ai-protocol/dcp-ai.git
+pip install -e "dcp-ai/sdks/python"
+```
+
+The registry install gives the published version, without the unreleased features:
+
 ```bash
 pip install dcp-ai
 ```
 
 ### Optional extras
+
+From the registry (published version); from a checkout, the same extras apply: `pip install -e "dcp-ai/sdks/python[fastapi]"`.
 
 ```bash
 pip install "dcp-ai[fastapi]"    # FastAPI middleware
@@ -42,75 +56,83 @@ pip install "dcp-ai[otlp]"       # OpenTelemetry OTLP exporter
 | Blinded RPR, multi-party authorization, algorithm advisory helpers | Yes |
 | Canonical error codes (38 shared across all SDKs) + `detect_wire_format` | Yes |
 | OpenTelemetry / OTLP exporter (optional `[otlp]` extra) | Yes |
+| Admission: trusted principals and the `strict-v1` profile | Yes, unreleased (see Release status) |
+| Canonicalization candidate `dcp-jcs-v2` (ingress, router, bytes verifier, producers) | Experimental and opt-in, unreleased; not normative |
 
 ## Quickstart
 
+A V1 bundle signed with Ed25519. The RPR is signed with the principal's key and the passport with the agent's,
+each over the canonical JSON of the object without its `signature` field; `create_audit_entry` computes
+`intent_hash` and the `prev_hash` chain. `verify_signed_bundle` checks the bundle signature, its hashes and the
+chain, not these inner signatures: check those yourself, as below. For V2 bundles, see [V2 Bundles](#v2-bundles).
+
 ```python
+from datetime import datetime, timezone
+
 from dcp_ai import (
-    BundleBuilder,
-    sign_bundle,
-    verify_signed_bundle,
-    generate_keypair,
-    ResponsiblePrincipalRecord,
     AgentPassport,
+    AuditEvidence,
+    BundleBuilder,
     Intent,
-    IntentTarget,
     PolicyDecision,
+    ResponsiblePrincipalRecord,
+    generate_keypair,
+    sign_bundle,
+    sign_object,
+    verify_object,
+    verify_signed_bundle,
 )
 
-# 1. Generate Ed25519 keypair
-keys = generate_keypair()
+now = datetime.now(timezone.utc).isoformat()
+principal_keys = generate_keypair()
+agent_keys = generate_keypair()
 
-# 2. Build a Citizenship Bundle
+# 1. The responsible principal, signed with the principal's key (the object without "signature")
+rpr_body = {
+    "dcp_version": "1.0", "human_id": "human:example-001", "legal_name": "Example Principal",
+    "entity_type": "natural_person", "jurisdiction": "ES", "liability_mode": "owner_responsible",
+    "override_rights": True, "issued_at": now, "expires_at": None, "contact": None,
+}
+rpr = {**rpr_body, "signature": sign_object(rpr_body, principal_keys["secret_key_b64"])}
+
+# 2. The agent passport, signed with the agent's key (the object without "signature")
+passport_body = {
+    "dcp_version": "1.0", "agent_id": "agent:example-001", "public_key": agent_keys["public_key_b64"],
+    "principal_binding_reference": "human:example-001", "capabilities": ["browse", "api_call"],
+    "risk_tier": "low", "created_at": now, "status": "active",
+}
+passport = {**passport_body, "signature": sign_object(passport_body, agent_keys["secret_key_b64"])}
+
+# 3. Intent, policy decision and one audit entry
+intent = Intent(
+    intent_id="intent:example-001", agent_id="agent:example-001", human_id="human:example-001",
+    timestamp=now, action_type="api_call", target={"channel": "api", "domain": "api.example.com"},
+    data_classes=["none"], estimated_impact="low", requires_consent=False,
+)
+policy = PolicyDecision(
+    intent_id="intent:example-001", decision="approve", risk_score=0.05, reasons=["low-impact call"],
+)
 bundle = (
     BundleBuilder()
-    .responsible_principal_record(ResponsiblePrincipalRecord(
-        dcp_version="1.0",
-        human_id="human-001",
-        entity_type="natural_person",
-        jurisdiction="ES",
-        liability_mode="full",
-        created_at="2025-01-01T00:00:00Z",
-        expires_at=None,
-    ))
-    .agent_passport(AgentPassport(
-        dcp_version="1.0",
-        agent_id="agent-001",
-        human_id="human-001",
-        agent_name="MyAgent",
-        capabilities=["browse", "api_call"],
-        risk_tier="medium",
-        status="active",
-        created_at="2025-01-01T00:00:00Z",
-        expires_at=None,
-    ))
-    .intent(Intent(
-        dcp_version="1.0",
-        agent_id="agent-001",
-        human_id="human-001",
-        timestamp="2025-01-01T00:00:00Z",
-        action_type="api_call",
-        target=IntentTarget(channel="api", endpoint="https://api.example.com/data"),
-        data_classes=["public"],
-        estimated_impact="low",
-    ))
-    .policy_decision(PolicyDecision(
-        dcp_version="1.0",
-        agent_id="agent-001",
-        human_id="human-001",
-        timestamp="2025-01-01T00:00:00Z",
-        decision="allow",
-        matched_rules=["default-allow"],
-    ))
+    .responsible_principal_record(ResponsiblePrincipalRecord(**rpr))
+    .agent_passport(AgentPassport(**passport))
+    .intent(intent)
+    .policy_decision(policy)
+    .create_audit_entry(
+        audit_id="audit:example-001", timestamp=now, agent_id="agent:example-001",
+        human_id="human:example-001", intent_id="intent:example-001", policy_decision="approved",
+        outcome="call_completed", evidence=AuditEvidence(tool="http", result_ref=None),
+    )
     .build()
 )
 
-# 3. Sign
-signed = sign_bundle(bundle, keys["secret_key_b64"])
+# 4. Sign with the principal's key and verify against the principal's public key
+signed = sign_bundle(bundle, principal_keys["secret_key_b64"])
+print(verify_signed_bundle(signed, principal_keys["public_key_b64"]))  # {'verified': True}
 
-# 4. Verify
-result = verify_signed_bundle(signed, keys["public_key_b64"])
-print(result)  # {"verified": True, "errors": []}
+# 5. The inner signatures, over the same objects without "signature"
+print(verify_object(rpr_body, rpr["signature"], principal_keys["public_key_b64"]))  # True
+print(verify_object(passport_body, passport["signature"], agent_keys["public_key_b64"]))  # True
 ```
 
 ## CLI
@@ -175,6 +197,7 @@ dcp intent-hash-cmd <intent_path>
 ### Bundle Builder
 
 ```python
+# Fragment: rpr, passport, intent, policy and entry are the models built in the Quickstart.
 bundle = (
     BundleBuilder()
     .responsible_principal_record(rpr)
@@ -190,6 +213,7 @@ bundle = (
 ### Bundle Signing
 
 ```python
+# Signature (not runnable)
 sign_bundle(
     bundle: CitizenshipBundle,
     secret_key_b64: str,
@@ -201,6 +225,7 @@ sign_bundle(
 ### Bundle Verification
 
 ```python
+# Signature (not runnable)
 verify_signed_bundle(
     signed_bundle: dict[str, Any],
     public_key_b64: str | None = None,
@@ -214,6 +239,7 @@ Verifies: schema, Ed25519 signature, `bundle_hash`, `merkle_root`, `intent_hash`
 `BundleBuilderV2`, `sign_bundle_v2` and `verify_signed_bundle_v2` (in `dcp_ai.v2`) port the TypeScript SDK's `builder-v2.ts`, `signer-v2.ts` and `verify-v2.ts`. Artifacts are `SignedPayload` dicts (`{"payload", "payload_hash", "composite_sig"}`); the bundle signature is a composite signature over the manifest.
 
 ```python
+# Fragment, inside an async function: session_nonce, the signed artifacts (signed_rpr, signed_passport, signed_intent, signed_policy), audit_events, classical_key and pq_key come from your application.
 from dcp_ai.providers import Ed25519Provider, MlDsa65Provider
 from dcp_ai.v2 import AlgorithmRegistry, BundleBuilderV2, sign_bundle_v2, verify_signed_bundle_v2
 
@@ -237,11 +263,12 @@ result = await verify_signed_bundle_v2(signed, registry)  # DEFAULT_VERIFIER_POL
 
 The verifier also checks each artifact's own composite signature (the RPR against the principal's `binding_keys`, the rest against the passport keys) and, in every policy mode, rejects a PQ signature that is present but invalid. The mode is the stricter of the policy mode and the security tier's mode (spec §14.3), and `details["resolved_tier"]` reports the tier.
 
-### Admission: Trusted Principals and strict-v1
+### Admission: Trusted Principals and strict-v1 (unreleased)
 
 A verified bundle is signed by the keys it lists; it does not prove who the principal is. Admission accepts a bundle only when its principal signatures were made with keys of a principal your trust set lists, and optionally under the operator-fixed `strict-v1` profile (hybrid signatures, signed audience, a session of at most 300 s, a fresh revocation snapshot).
 
 ```python
+# Fragment, inside an async function: trust_set comes from operator configuration, signed_bundle from the request, snapshot from your revocation source, registry as in V2 Bundles.
 from dcp_ai.v2 import admit_signed_bundle_v2, create_principal_trust_store, resolve_strict_v1_profile
 
 trust = create_principal_trust_store(trust_set)  # AdmissionConfigError on a bad trust set
@@ -255,7 +282,7 @@ result = await admit_signed_bundle_v2(signed_bundle, registry, profile=profile, 
 - `evaluate_admission_v2` evaluates a verifier result you already have (no cryptography, no I/O) and trusts it; `revocation_subjects` lists what a revocation source must answer for, and `deny_list_revocation_source(url)` reads the reference revocation service's deny list; with `workers=DenyListWorkers(max_workers=...)` its download threads are counted and capped until they really end (opt-in; see the FastAPI README).
 - FastAPI: `DCPVerifyMiddleware(app, require_bundle=True, trusted_principals=..., profile=..., revocation_source=...)`; see [`integrations/fastapi/README.md`](../../integrations/fastapi/README.md). Guide: [`docs/ADMISSION.md`](../../docs/ADMISSION.md). Spec and codes: [`spec/profiles/admission`](../../spec/profiles/admission/README.md).
 
-### Delegation Chains (DCP-09 §3.5)
+### Delegation Chains (DCP-09 §3.5, unreleased)
 
 A root mandate is signed by the human (`create_delegation_mandate`); the agent holding it may issue a
 sub-mandate to another agent (`create_sub_mandate`), signed with its own keys. `verify_mandate_chain` checks
@@ -264,6 +291,7 @@ nested validity windows, attenuation (actions, `data_classes` and `limits` only 
 floor and revocation.
 
 ```python
+# Fragment, inside an async function: registry as in V2 Bundles; orchestrator_classical, orchestrator_pq, root_mandate, nonce and the key entries come from your delegation setup; intent and policy_decision are V2 payloads.
 from dcp_ai.v2 import create_sub_mandate, verify_mandate_chain, compute_security_tier
 
 sub = await create_sub_mandate(
@@ -280,36 +308,97 @@ result = await verify_mandate_chain(
 tier = compute_security_tier(intent, policy_decision, result["effective_tier"] if result["valid"] else None)
 ```
 
+### Experimental: Canonicalization Candidate `dcp-jcs-v2` (opt-in, unreleased)
+
+Not normative and not active: `dcp-jcs-v1` stays the only canonicalization profile, and no default, builder,
+signer or verifier changes. The modules are not re-exported by `dcp_ai.v2`; they exist for callers who import
+them, in a source checkout (see Release status). A verified candidate bundle grants no trust or admission.
+Design and contract: [`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)
+(§15 ingress, §16 router, §17 verifier, §18 producers).
+
+| Module | API |
+|---|---|
+| `dcp_ai.v2.experimental_candidate_ingress` | `experimental_candidate_ingress(data)`: `CandidateIngressAccept(value, canonical, canonical_sha256)` or `CandidateIngressReject(reject_class, offset)` |
+| `dcp_ai.v2.experimental_candidate_router` | `create_router(transport=..., accepted_profiles=..., historical=...)`; decoders `JSON_LOADS_BYTES` and `JSON_LOADS_STRICT_DECODE`, none a default |
+| `dcp_ai.v2.experimental_candidate_verify` | `create_verifier(...)`, then `await verifier.verify(data, registry, policy=None, now_ms=None)`: the route, the verifier entered and its result |
+| `dcp_ai.v2.experimental_candidate_produce` | `sign_payload(registry, context, input, keys)` and `sign_bundle(registry, parts, signer, options)`, which check and copy at the call and return an awaitable; `ExperimentalCandidateProduceError` for a rejection of the inputs' domain or form, raised before any signer is called |
+
+```python
+import asyncio
+
+from dcp_ai.providers import Ed25519Provider, MlDsa65Provider
+from dcp_ai.v2 import AlgorithmRegistry, DCP_CONTEXTS
+from dcp_ai.v2.experimental_candidate_ingress import experimental_candidate_ingress
+from dcp_ai.v2.experimental_candidate_produce import sign_payload
+
+# The ingress decides on the original bytes: 1.0 is the integer 1, members are sorted.
+print(experimental_candidate_ingress(b'{"b":1.0,"a":[]}').canonical)  # b'{"a":[],"b":1}'
+refused = experimental_candidate_ingress(b'{"a":1,"a":2}')
+print(refused.reject_class, refused.offset)  # DUPLICATE_KEY 7
+
+
+async def main():
+    registry = AlgorithmRegistry()
+    keys = {}
+    for name, provider in (("classical", Ed25519Provider()), ("pq", MlDsa65Provider())):
+        registry.register_signer(provider)
+        kp = await provider.generate_keypair()
+        keys[name] = {"kid": kp["kid"], "alg": provider.alg, "secret_key_b64": kp["secret_key_b64"], "public_key_b64": kp["public_key_b64"]}
+    artifact = await sign_payload(registry, DCP_CONTEXTS["Intent"], {"bytes": b'{"intent_id":"intent:1","risk":1.0}'}, keys)
+    print(artifact.signed_payload["payload_hash"])  # sha256:... of {"intent_id":"intent:1","risk":1}
+
+
+asyncio.run(main())
+```
+
 ### Pydantic Models
 
 All DCP v1 artifacts are available as Pydantic v2 models with automatic validation:
 
 `ResponsiblePrincipalRecord`, `AgentPassport`, `Intent`, `IntentTarget`, `PolicyDecision`, `AuditEntry`, `AuditEvidence`, `CitizenshipBundle`, `SignedBundle`, `BundleSignature`, `SignerInfo`, `RevocationRecord`, `HumanConfirmation`
 
-**V2 Models (DCP-05–09):**
+**V2 models** (`dcp_ai.v2.models`), with the fields of the V2 schemas. Enumerated values (lifecycle states,
+termination modes, dispute status and the like) are `Literal` fields of these models, not separate classes:
 
-DCP-05 — Lifecycle: `LifecycleState`, `TerminationMode`, `DataDisposition`, `VitalityMetrics`, `CommissioningCertificate`, `VitalityReport`, `DecommissioningRecord`
-
-DCP-06 — Succession: `TransitionType`, `MemoryDisposition`, `MemoryClassification`, `SuccessorPreference`, `DigitalTestament`, `SuccessionRecord`, `MemoryTransferEntry`, `DualHashRef`, `MemoryTransferManifest`
-
-DCP-07 — Disputes: `DisputeType`, `EscalationLevel`, `DisputeStatus`, `ObjectionType`, `AuthorityLevel`, `DisputeRecord`, `ArbitrationResolution`, `JurisprudenceBundle`, `ObjectionRecord`
-
-DCP-08 — Rights: `RightType`, `ComplianceStatus`, `RightEntry`, `RightsDeclaration`, `ObligationRecord`, `RightsViolationReport`
-
-DCP-09 — Delegation: `AuthorityScopeEntry`, `DelegationMandate`, `AdvisoryDeclaration`, `PrincipalMirror`, `InteractionRecord`, `ThresholdRule`, `ThresholdOperator`, `ThresholdAction`, `AwarenessThreshold`
+- Core V2: `ResponsiblePrincipalRecordV2`, `BlindedResponsiblePrincipalRecordV2`, `AgentPassportV2`, `KeyEntryV2`, `IntentV2`, `PolicyDecisionV2`, `AuditEventV2`, `PQCheckpoint`, `BundleManifest`, `VerifierPolicy`, `DcpCapabilities`
+- DCP-05 — Lifecycle: `CommissioningCertificate`, `VitalityMetrics`, `VitalityReport`, `DecommissioningRecord`
+- DCP-06 — Succession: `DigitalTestament`, `SuccessorPreference`, `SuccessionRecord`, `MemoryTransferManifest`, `MemoryTransferEntry`, `DualHashRef`
+- DCP-07 — Disputes: `DisputeRecord`, `ArbitrationResolution`, `JurisprudenceBundle`, `ObjectionRecord`
+- DCP-08 — Rights: `RightsDeclaration`, `RightEntry`, `ObligationRecord`, `RightsViolationReport`
+- DCP-09 — Delegation: `DelegationMandate`, `SubMandate`, `SubDelegationPolicy`, `AuthorityScopeEntry`, `AdvisoryDeclaration`, `PrincipalMirror`, `InteractionRecord`, `AwarenessThreshold`, `ThresholdRule`
 
 ```python
-# Example: Lifecycle management
-from dcp_ai.v2.models import CommissioningCertificate, LifecycleState
+# Example: DCP-05 commissioning, signed with a composite (Ed25519 + ML-DSA-65) signature
+import asyncio
 
-cert = CommissioningCertificate(
-    certificate_id="cert-001",
-    agent_id="agent-001",
-    commissioned_by="human-001",
-    commissioned_at="2026-03-01T00:00:00Z",
-    initial_state=LifecycleState.COMMISSIONED,
-    conditions=["Must complete onboarding within 30 days"],
+from dcp_ai.providers import Ed25519Provider, MlDsa65Provider
+from dcp_ai.v2 import (
+    AlgorithmRegistry, CompositeKeyInfo, create_commissioning_certificate, generate_session_nonce,
+    validate_state_transition,
 )
+from dcp_ai.v2.models import CommissioningCertificate
+
+
+async def main():
+    registry = AlgorithmRegistry()
+    keys = []
+    for provider in (Ed25519Provider(), MlDsa65Provider()):
+        registry.register_signer(provider)
+        kp = await provider.generate_keypair()
+        keys.append(CompositeKeyInfo(kp["kid"], provider.alg, kp["secret_key_b64"], kp["public_key_b64"]))
+
+    cert = await create_commissioning_certificate(
+        registry, *keys,
+        agent_id="agent:example-001", session_nonce=generate_session_nonce(), human_id="human:example-001",
+        commissioning_authority="human:example-001", purpose="Customer support triage",
+        initial_capabilities=["browse", "api_call"], risk_tier="low",
+        principal_binding_reference="human:example-001",
+    )
+    CommissioningCertificate(**cert)  # validates the fields
+    print(validate_state_transition("commissioned", "active"))  # True
+
+
+asyncio.run(main())
 ```
 
 ### Domain Separation (V2)

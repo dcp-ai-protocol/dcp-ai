@@ -73,6 +73,7 @@ Agents publish their availability via `.well-known/dcp-agent-directory.json`:
 ### 2.3 Capability Matching
 
 Capabilities are strings from a registry. Standard capabilities include:
+
 - `negotiate` — Can participate in negotiation flows
 - `purchase_order` — Can issue or receive purchase orders
 - `invoice` — Can issue or process invoices
@@ -199,6 +200,7 @@ session_id = SHA-256(
 ### 4.1 Session State
 
 Each session maintains:
+
 - `session_id`: Unique session identifier
 - `session_key`: Derived symmetric key
 - `message_counter_send`: Monotonically increasing counter for sent messages
@@ -224,6 +226,7 @@ Each session maintains:
 ```
 
 Encryption: AES-256-GCM with:
+
 - Key: `session_key`
 - IV: 12 random bytes per message
 - AAD: `session_id || sequence || sender_agent_id || timestamp`
@@ -307,6 +310,7 @@ If `max_depth` is 2: A trusts B, B trusts C, A MAY trust C. A depth of 0 means d
 ### 5.4 Trust Revocation
 
 If an agent's bundle is revoked during an active session:
+
 1. The session MUST be terminated immediately
 2. A `revocation` audit entry MUST be created
 3. In-flight messages MUST be discarded
@@ -319,13 +323,16 @@ If an agent's bundle is revoked during an active session:
 Every A2A interaction generates audit entries in both agents' audit chains:
 
 **Handshake events:**
+
 - `a2a_hello_sent` / `a2a_hello_received`
 - `a2a_session_established`
 
 **Message events:**
+
 - `a2a_message_sent` / `a2a_message_received`
 
 **Session events:**
+
 - `a2a_rekey`
 - `a2a_session_closed`
 - `a2a_session_resumed`
@@ -351,6 +358,7 @@ Every A2A interaction generates audit entries in both agents' audit chains:
 ### 6.3 Cross-Chain Verification
 
 Both agents' audit chains reference the same session. A third-party auditor can verify consistency by:
+
 1. Fetching both agents' audit entries for the session
 2. Verifying that message hashes match between sender and receiver
 3. Verifying sequence numbers are consistent
@@ -361,6 +369,7 @@ Both agents' audit chains reference the same session. A third-party auditor can 
 ### 7.1 Transport Requirements
 
 A2A messages MAY be transported over:
+
 - **WebSocket** (recommended for bidirectional, persistent connections)
 - **gRPC** (recommended for enterprise, high-throughput)
 - **HTTP/2 Server-Sent Events** (for unidirectional streams)
@@ -370,6 +379,7 @@ The handshake MUST complete within 10 seconds. Message delivery MUST have at-mos
 ### 7.2 CBOR Encoding
 
 A2A messages SHOULD use CBOR encoding (RFC 8949) for transport efficiency:
+
 - Handshake messages: JSON (for debuggability)
 - Session messages: CBOR (for performance)
 
@@ -388,6 +398,7 @@ The hybrid KEM (X25519 + ML-KEM-768) provides security against both classical an
 ### 8.3 Denial of Service
 
 Implementations SHOULD:
+
 - Rate-limit A2A_HELLO messages per source
 - Require valid bundle before KEM operations
 - Implement connection limits per agent
@@ -396,6 +407,7 @@ Implementations SHOULD:
 ### 8.4 Message Ordering
 
 Sequence numbers prevent replay and reordering. Implementations MUST reject messages with:
+
 - Duplicate sequence numbers
 - Sequence numbers more than 1000 ahead of the last received (window)
 - Sequence numbers below the last received (except within the window)
@@ -403,6 +415,7 @@ Sequence numbers prevent replay and reordering. Implementations MUST reject mess
 ## 9. Conformance
 
 An implementation is DCP-04 conformant if it:
+
 1. Implements the handshake protocol as defined in Section 3
 2. Uses hybrid KEM for key establishment
 3. Encrypts all session messages with AES-256-GCM
@@ -424,3 +437,22 @@ An implementation is DCP-04 conformant if it:
 ---
 
 *This specification was co-created by a human and an AI agent — the first A2A protocol for digital citizenship, designed to govern the very interactions it enables.*
+
+## Implementation notes (informative)
+
+> **Added 25/10/2026. Not normative.** These notes add no requirement and change nothing above: they describe how
+> the reference code on `main` relates to this text. Where they differ, the normative text above stands.
+
+- **What the SDKs implement.** On `main` every SDK builds `A2A_HELLO` and `A2A_WELCOME`; none implements
+  `A2A_CONFIRM` / `A2A_ESTABLISHED` or the key derivation of §3.4, only the TypeScript SDK has the hybrid
+  X25519 + ML-KEM-768 KEM, and the Rust SDK has no session layer
+  ([tools/interop-matrix](../tools/interop-matrix/README.md#roadmap)). No SDK or service claims DCP-04 conformance
+  as defined in §9.
+- **What the helpers do not do.** The TypeScript helpers build messages, directories and session objects, and encrypt
+  and decrypt session messages with a key the caller supplies: `createSession` takes the `session_key` as an
+  argument and does not derive it. They do not run the handshake, the KEM exchange, the verification or admission
+  of the counterparty's bundle, the network transport or the audit entries of §6; those are the caller's.
+- **Audit entries.** There is no JSON Schema for the A2A audit entry of §6.2; its shape (`event_id`, `event_type`)
+  differs from `schemas/v2/audit_entry.schema.json` (`audit_id`, `outcome`). The A2A messages of §2 to §4 have no
+  schema in `schemas/v2/` either. For the SDK types, see [docs/API_REFERENCE.md](../docs/API_REFERENCE.md).
+- The examples are illustrations with placeholders (`...`, `<hex>`, `<uuid>`), not fixtures.

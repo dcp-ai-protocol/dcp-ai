@@ -23,6 +23,7 @@ Quick smoke test on your laptop:
 
 ```bash
 docker run --rm -p 3000:3000 ghcr.io/dcp-ai-protocol/dcp-ai/verification:latest
+# in a second terminal, while the container runs in the foreground
 curl http://localhost:3000/health
 ```
 
@@ -45,6 +46,7 @@ docker compose up -d
 ```
 
 Services expose:
+
 - `http://localhost:3000` — verification
 - `http://localhost:3001` — anchor
 - `http://localhost:3002` — transparency-log (log-alpha)
@@ -95,7 +97,7 @@ fly launch --config revocation.toml      --no-deploy
 fly deploy --config revocation.toml
 ```
 
-Each service gets a public HTTPS URL like `https://dcp-ai-verification.fly.dev`.
+Each service gets a public HTTPS URL like `https://dcp-ai-verification.fly.dev`. On the verification app that also makes public its DCP-05 to DCP-09 endpoints, which need no token and do not verify signatures (see the operating notes).
 
 A gossip peer without its `#<public key>` is polled but its tree heads are ignored.
 
@@ -108,7 +110,7 @@ log has no persistence option.
 Set `OPERATOR_TOKEN` on the revocation app too, since registering a new `agent_id` there needs it,
 and on the anchor and transparency-log apps if you need `POST /flush` or `POST /gossip/peers`.
 
-For production you want **two** transparency-log instances in different regions, each with its own `OPERATOR_KEY` and pointing at the other via `GOSSIP_PEERS` with the other's public key pinned. That is what detects split-view attacks (DCP-03 §4).
+For production you want **two** transparency-log instances in different regions, each with its own `OPERATOR_KEY` and pointing at the other via `GOSSIP_PEERS` with the other's public key pinned. Gossip compares their signed tree heads and raises an alert when two heads of the same size have different roots (DCP-03 §4). That reveals a split view only if both logs are meant to hold the same entries in the same order: the logs do not replicate entries to each other, so two logs that legitimately received different entries also alert, and heads of different sizes are not compared (there is no consistency proof).
 
 ---
 
@@ -136,10 +138,11 @@ Create a new project from Docker image. For each service paste the GHCR image UR
 
 ## Operating notes
 
-- **Anchor**: on-chain submission is not implemented. Deploying `contracts/ethereum/DCPAnchor.sol` and setting `ANCHOR_CONTRACT` does not enable it: `ANCHOR_RPC_URL`, `ANCHOR_PRIVATE_KEY` and `ANCHOR_CONTRACT` are not read (setting `ANCHOR_RPC_URL` only logs a warning), so do not give the service a wallet key. It keeps local records in memory with `tx_hash: null` and `onchain: false`.
+- **Anchor**: on-chain submission is not implemented. Deploying `contracts/ethereum/src/DCPAnchor.sol` and setting `ANCHOR_CONTRACT` does not enable it: `ANCHOR_RPC_URL`, `ANCHOR_PRIVATE_KEY` and `ANCHOR_CONTRACT` are not read (setting `ANCHOR_RPC_URL` only logs a warning), so do not give the service a wallet key. It keeps local records in memory with `tx_hash: null` and `onchain: false`.
 - **Transparency log**: in memory only, with no persistence option: a restart starts a new, empty tree, and a volume does not change that. A fixed `OPERATOR_KEY` keeps the same signing key across restarts.
 - **Revocation**: the registry is authoritative only if every verifier in your policy points at *this* URL. Publish the URL in your `.well-known/dcp-capabilities.json`. Without `REVOCATION_STATE_PATH` on persistent storage, a restart forgets every registration and revocation.
 - **Verification**: not stateless. It keeps passports, keys, audit chains and the DCP-05–09 records in memory, and separate instances do not share them, so instances behind a load balancer would answer differently. Run one instance.
+- **Verification, DCP-05 to DCP-09 endpoints**: they need no token and do not verify signatures, and `OPERATOR_TOKEN` does not protect them, so anyone who reaches a public deployment (Fly, or Cloud Run with `--allow-unauthenticated`) can change lifecycle, dispute and mandate state. Put your own authorization in front of them, or do not route them ([docs/OPERATOR_GUIDE.md](../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)).
 
 ---
 

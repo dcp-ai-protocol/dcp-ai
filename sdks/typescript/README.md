@@ -6,67 +6,165 @@ Official TypeScript SDK for the Digital Citizenship Protocol (DCP-AI). Create, s
 
 ## Installation
 
+**Release status (25/10/2026).** The npm registry has `@dcp-ai/sdk` 2.1.1 as `latest`. This README describes the
+source on `main`, which has more:
+- version 2.2.0, tagged in `v2.10.0` but not on npm, which fixes a `verifySignedBundleV2` bypass (see
+  [`SECURITY.md`](../../SECURITY.md));
+- what the changelog lists under [`[Unreleased]`](../../CHANGELOG.md#unreleased): admission, delegation chains,
+  the A2A receive window and the experimental `dcp-jcs-v2` APIs.
+
+To run the examples below, build the SDK from a checkout and install it from there:
+
 ```bash
-npm install @dcp-ai/sdk
+git clone https://github.com/dcp-ai-protocol/dcp-ai.git
+cd dcp-ai/sdks/typescript && npm install && npm run build
+cd /path/to/your-project && npm install /path/to/dcp-ai/sdks/typescript
+```
+
+The registry install gives the published version, without the above:
+
+```bash
+npm install @dcp-ai/sdk   # 2.1.1 on 25/10/2026
 ```
 
 ## Quick Start (V1)
 
-```typescript
-import {
-  BundleBuilder,
-  signBundle,
-  verifySignedBundle,
-  generateKeypair,
-} from '@dcp-ai/sdk';
+A V1 bundle signed with Ed25519. The RPR is signed with the principal's key and the passport with the agent's,
+each over the canonical JSON of the object without its `signature` field; `createAuditEntry` computes
+`intent_hash` and the `prev_hash` chain. `verifySignedBundle` checks the bundle signature, its hashes and the
+chain, not these inner signatures: check those yourself, as below.
 
-const keys = generateKeypair();
+```typescript
+import { BundleBuilder, generateKeypair, signBundle, signObject, verifyObject, verifySignedBundle } from '@dcp-ai/sdk';
+import type { AgentPassport, ResponsiblePrincipalRecord } from '@dcp-ai/sdk';
+
+const now = new Date().toISOString();
+const principalKeys = generateKeypair();
+const agentKeys = generateKeypair();
+
+// Each artifact is signed over the object without its `signature` field.
+const rprBody: Omit<ResponsiblePrincipalRecord, 'signature'> = {
+  dcp_version: '1.0', human_id: 'human:example-001', legal_name: 'Example Principal',
+  entity_type: 'natural_person', jurisdiction: 'ES', liability_mode: 'owner_responsible',
+  override_rights: true, issued_at: now, expires_at: null, contact: null,
+};
+const rpr: ResponsiblePrincipalRecord = { ...rprBody, signature: signObject(rprBody, principalKeys.secretKeyB64) };
+
+const passportBody: Omit<AgentPassport, 'signature'> = {
+  dcp_version: '1.0', agent_id: 'agent:example-001', public_key: agentKeys.publicKeyB64,
+  principal_binding_reference: rpr.human_id, capabilities: ['browse', 'api_call'],
+  risk_tier: 'low', created_at: now, status: 'active',
+};
+const passport: AgentPassport = { ...passportBody, signature: signObject(passportBody, agentKeys.secretKeyB64) };
 
 const bundle = new BundleBuilder()
-  .responsiblePrincipalRecord({ dcp_version: '1.0', human_id: 'human-001', /* ... */ })
-  .agentPassport({ dcp_version: '1.0', agent_id: 'agent-001', /* ... */ })
-  .intent({ dcp_version: '1.0', agent_id: 'agent-001', /* ... */ })
-  .policyDecision({ dcp_version: '1.0', agent_id: 'agent-001', /* ... */ })
+  .responsiblePrincipalRecord(rpr)
+  .agentPassport(passport)
+  .intent({
+    dcp_version: '1.0', intent_id: 'intent:example-001', agent_id: passport.agent_id, human_id: rpr.human_id,
+    timestamp: now, action_type: 'api_call', target: { channel: 'api', domain: 'api.example.com' },
+    data_classes: ['none'], estimated_impact: 'low', requires_consent: false,
+  })
+  .policyDecision({
+    dcp_version: '1.0', intent_id: 'intent:example-001', decision: 'approve', risk_score: 0.05,
+    reasons: ['low-impact call'], required_confirmation: null,
+  })
+  .createAuditEntry({
+    dcp_version: '1.0', audit_id: 'audit:example-001', timestamp: now, agent_id: passport.agent_id,
+    human_id: rpr.human_id, intent_id: 'intent:example-001', policy_decision: 'approved',
+    outcome: 'call_completed', evidence: { tool: 'http', result_ref: null },
+  })
   .build();
 
-const signed = signBundle(bundle, {
-  secretKeyB64: keys.secretKeyB64,
-  signerType: 'human',
-  signerId: 'human-001',
-});
+const signed = signBundle(bundle, { secretKeyB64: principalKeys.secretKeyB64, signerType: 'human', signerId: rpr.human_id });
+console.log(verifySignedBundle(signed, principalKeys.publicKeyB64)); // { verified: true }
 
-const result = verifySignedBundle(signed, keys.publicKeyB64);
-console.log(result); // { verified: true, errors: [] }
+// The inner signatures, over the same objects without `signature`
+console.log(verifyObject(rprBody, rpr.signature, principalKeys.publicKeyB64)); // true
+console.log(verifyObject(passportBody, passport.signature, agentKeys.publicKeyB64)); // true
 ```
 
 ## Quick Start (V2)
 
+A V2 bundle with hybrid signatures (Ed25519 + ML-DSA-65): every artifact is a `SignedPayload`
+(`{ payload, payload_hash, composite_sig }`) signed under its domain-separation context, the principal signs
+the RPR and the manifest, the agent signs the passport, intent and policy decision.
+
 ```typescript
 import {
-  BundleBuilderV2,
-  signBundleV2,
-  verifySignedBundleV2,
-  generateKeypair,
-  registerDefaultProviders,
-  getDefaultRegistry,
-  computeSecurityTier,
+  AlgorithmRegistry, BundleBuilderV2, DCP_CONTEXTS, Ed25519Provider, MlDsa65Provider, compositeSign,
+  generateSessionNonce, preparePayload, sha256Hex, canonicalizeV2, signBundleV2, verifySignedBundleV2,
+} from '@dcp-ai/sdk';
+import type {
+  AgentPassportV2, AuditEventV2, CompositeKeyPair, DcpContext, IntentV2, KeyEntry, PolicyDecisionV2,
+  ResponsiblePrincipalRecordV2, SignedPayload,
 } from '@dcp-ai/sdk';
 
-// Register PQ crypto providers
-registerDefaultProviders();
-const registry = getDefaultRegistry();
+const registry = new AlgorithmRegistry();
+const ed25519 = new Ed25519Provider();
+const mlDsa65 = new MlDsa65Provider();
+registry.registerSigner(ed25519);
+registry.registerSigner(mlDsa65);
 
-// Generate Ed25519 keypair (for classical signing)
-const keys = generateKeypair();
+async function hybridKeys(): Promise<CompositeKeyPair> {
+  const c = await ed25519.generateKeypair();
+  const p = await mlDsa65.generateKeypair();
+  return {
+    classical: { kid: c.kid, alg: 'ed25519', secretKeyB64: c.secretKeyB64, publicKeyB64: c.publicKeyB64 },
+    pq: { kid: p.kid, alg: 'ml-dsa-65', secretKeyB64: p.secretKeyB64, publicKeyB64: p.publicKeyB64 },
+  };
+}
+const keyEntries = (keys: CompositeKeyPair): KeyEntry[] => [keys.classical, keys.pq].map((k) => ({
+  kid: k.kid, alg: k.alg, public_key_b64: k.publicKeyB64, created_at: '2026-01-01T00:00:00Z', expires_at: null, status: 'active',
+}));
+const sha256Of = (value: unknown) => `sha256:${sha256Hex(new TextEncoder().encode(canonicalizeV2(value)))}`;
+async function signed<T>(payload: T, context: DcpContext, keys: CompositeKeyPair): Promise<SignedPayload<T>> {
+  const { canonicalBytes, payloadHash } = preparePayload(payload);
+  return { payload, payload_hash: payloadHash, composite_sig: await compositeSign(registry, context, canonicalBytes, keys) };
+}
 
-// Build a V2 bundle with session nonce and security tier
-const bundle = new BundleBuilderV2()
-  .responsiblePrincipalRecord({ /* V2 RPR with keys[] */ })
-  .agentPassport({ /* V2 passport with capabilities */ })
-  .intent({ /* V2 intent with security_tier */ })
-  .policyDecision({ /* V2 policy decision with risk_score and resolved_tier */ })
-  .addAuditEntry({ /* V2 audit with dual-hash chain */ })
+const principal = await hybridKeys();
+const agent = await hybridKeys();
+const nonce = generateSessionNonce();
+const now = new Date().toISOString();
+
+const rpr: ResponsiblePrincipalRecordV2 = {
+  dcp_version: '2.0', human_id: 'human:example-001', session_nonce: nonce, legal_name: 'Example Principal',
+  entity_type: 'natural_person', jurisdiction: 'ES', liability_mode: 'owner_responsible', override_rights: true,
+  issued_at: now, expires_at: null, contact: null, binding_keys: keyEntries(principal),
+};
+const passport: AgentPassportV2 = {
+  dcp_version: '2.0', agent_id: 'agent:example-001', session_nonce: nonce, keys: keyEntries(agent),
+  principal_binding_reference: rpr.human_id, capabilities: ['browse', 'api_call'], risk_tier: 'low',
+  created_at: now, status: 'active',
+};
+const intent: IntentV2 = {
+  dcp_version: '2.0', intent_id: 'intent:example-001', session_nonce: nonce, agent_id: passport.agent_id,
+  human_id: rpr.human_id, timestamp: now, action_type: 'api_call', target: { channel: 'api', domain: 'api.example.com' },
+  data_classes: ['none'], estimated_impact: 'low', requires_consent: false,
+};
+const policy: PolicyDecisionV2 = {
+  dcp_version: '2.0', intent_id: intent.intent_id, session_nonce: nonce, decision: 'approve', risk_score: 50,
+  reasons: ['low-impact call'], required_confirmation: null, applied_policy_hash: sha256Of({ policy: 'default' }), timestamp: now,
+};
+const audit: AuditEventV2 = {
+  dcp_version: '2.0', audit_id: 'audit:example-001', session_nonce: nonce, prev_hash: 'GENESIS', hash_alg: 'sha256',
+  timestamp: now, agent_id: passport.agent_id, human_id: rpr.human_id, intent_id: intent.intent_id,
+  intent_hash: sha256Of(intent), policy_decision: 'approved', outcome: 'call_completed',
+  evidence: { tool: 'http', result_ref: null, evidence_hash: null }, pq_checkpoint_ref: null,
+};
+
+const bundle = new BundleBuilderV2(nonce)
+  .responsiblePrincipalRecord(await signed(rpr, DCP_CONTEXTS.ResponsiblePrincipal, principal))
+  .agentPassport(await signed(passport, DCP_CONTEXTS.AgentPassport, agent))
+  .intent(await signed(intent, DCP_CONTEXTS.Intent, agent))
+  .policyDecision(await signed(policy, DCP_CONTEXTS.PolicyDecision, agent))
+  .addAuditEntry(audit)
   .build();
+
+const signedBundle = await signBundleV2(bundle, { registry, signerType: 'human', signerId: rpr.human_id, keys: principal });
+const result = await verifySignedBundleV2(signedBundle, registry);
+console.log(result.verified, result.errors); // true []
 ```
 
 ## API Reference
@@ -131,7 +229,7 @@ const bundle = new BundleBuilderV2()
 | `presentCompact(bundle, pqCheckpointRef)` | Compact presentation: drops the PQ signature and references the nearest PQ checkpoint instead |
 | `presentReference(bundle, verificationEndpoint)` | Reference-only presentation: bundle hash, session nonce and an endpoint to verify or fetch the full bundle |
 | `presentIncremental(baseBundle, updatedBundle, baseAuditCount)` | Incremental presentation against a verified base bundle: new audit entries, PQ checkpoints, updated manifest and signature |
-| `VerificationCache` | Caches verification results to avoid redundant crypto work |
+| `VerificationCache` | Caches verification results by bundle hash only: it does not separate tenants or policies and does not recheck trust, revocation or the session on a hit, so verify again for admission or another context. `invalidateByAgent` currently removes nothing; use `invalidateByKid` or `clear()` ([details](../../docs/API_REFERENCE.md#verificationcache)) |
 
 ### PQ Checkpoints (V2)
 
@@ -202,7 +300,7 @@ const bundle = new BundleBuilderV2()
 | `buildEmergencyRevocation({ agentId, humanId, revocationSecret })` | Builds an emergency revocation request from the revocation secret |
 | `shamirSplit(secret, threshold, totalShares)` | Splits a secret into `totalShares` shares; any `threshold` of them reconstruct it |
 | `shamirReconstruct(shares)` | Reconstructs a secret from at least `threshold` shares |
-| `generatePiiSalt()` | Generates a `pii_salt` (32 random bytes as hex). Set it on the RPR before signing it; it is never published |
+| `generatePiiSalt()` | Generates a `pii_salt` (32 random bytes as hex). Set it on the RPR before signing and keep it private: `blindRpr` omits it from the blinded record, but the full RPR retains it |
 | `blindRpr(rpr)` | Replaces an RPR's PII (`legal_name`, `contact`) with a salted hash commitment; throws if `rpr.pii_salt` is missing or malformed |
 | `verifyBlindedRpr(fullRpr, blindedRpr)` | Checks that a blinded RPR matches the full record; `warnings` flags a legacy unsalted commitment |
 | `isBlindedRpr(rpr)` | Type guard for `BlindedResponsiblePrincipalRecordV2` |
@@ -212,11 +310,12 @@ const bundle = new BundleBuilderV2()
 | `cborEncode(value)` | Encodes a value to CBOR bytes |
 | `cborDecode(data)` | Decodes CBOR bytes to a value |
 
-### Admission: Trusted Principals and strict-v1
+### Admission: Trusted Principals and strict-v1 (unreleased)
 
 A verified bundle is signed by the keys it lists; it does not prove who the principal is. Admission accepts a bundle only when its principal signatures were made with keys of a principal your trust set lists, and optionally under the operator-fixed `strict-v1` profile (hybrid signatures, signed audience, a session of at most 300 s, a fresh revocation snapshot).
 
 ```typescript
+// Fragment, not a complete program: trustSetJson and the strict-v1 settings come from operator configuration, signedBundle from the request, snapshot from your revocation source, registry as in the V2 Quick Start.
 import { admitSignedBundleV2, createPrincipalTrustStore, resolveStrictV1Profile } from '@dcp-ai/sdk';
 
 const trust = createPrincipalTrustStore(trustSetJson); // AdmissionConfigError on a bad trust set
@@ -230,7 +329,7 @@ const result = await admitSignedBundleV2(signedBundle, registry, { profile, trus
 - `evaluateAdmissionV2` evaluates a verifier result you already have (no cryptography, no I/O); `revocationSubjects` lists what a revocation source must answer for.
 - Guide: [`docs/ADMISSION.md`](../../docs/ADMISSION.md). Spec and codes: [`spec/profiles/admission`](../../spec/profiles/admission/README.md).
 
-### Delegation Chains (DCP-09 §3.5)
+### Delegation Chains (DCP-09 §3.5, unreleased)
 
 A human delegates to an agent with a root mandate; that agent may pass part of its authority to another agent
 with a sub-mandate it signs itself, and so on. Every hop may only narrow what it received, and the whole chain
@@ -243,6 +342,7 @@ verifies offline back to the human.
 | `verifyMandateChain(registry, chain, revokedIds, keys, now?)` | Verifies the chain root first: signatures back to the human, parent links and depth, `sub_delegation`, nested validity windows, attenuation (actions, `data_classes` and `limits` only narrow), the security-tier floor and revocation; returns `{ valid, errors, depth, effective_tier }` |
 
 ```typescript
+// Fragment, not a complete program: registry and nonce as in the V2 Quick Start; rootMandate, orchestratorKeys and the key entries come from your delegation setup; intent and policyDecision are the V2 payloads.
 import { createSubMandate, verifyMandateChain, computeSecurityTier } from '@dcp-ai/sdk';
 
 const sub = await createSubMandate(registry, orchestratorKeys, rootMandate, {
@@ -263,6 +363,55 @@ const result = await verifyMandateChain(registry, [rootMandate, sub], new Set(),
 const tier = computeSecurityTier(intent, policyDecision, result.valid ? result.effective_tier : null);
 ```
 
+### Experimental: Canonicalization Candidate `dcp-jcs-v2` (opt-in, unreleased)
+
+Not normative and not active: `dcp-jcs-v1` stays the only canonicalization profile, and no default,
+builder, signer or verifier changes. These APIs exist only for callers who opt in, in a source checkout
+(see Release status). A verified candidate bundle grants no trust or admission. Design, rules and the full
+contract: [`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)
+(§15 ingress, §16 router, §17 verifier, §18 producers).
+
+| Export | Description |
+|--------|-------------|
+| `experimentalCandidateIngress(bytes)` | Checks the original bytes of one unit: `{ status: 'accept', value, canonical, canonicalSha256 }` or `{ status: 'reject', class, offset }` |
+| `experimentalCandidateExtractUnit(bytes, transport)` | Extracts the unit from a `bare` or `envelope` transport |
+| `createExperimentalCandidateRouter(config)` | Routes bytes: `reject`, `v1_path` (through a named historical decoder) or `candidate` |
+| `createExperimentalCandidateVerifier(config).verify(bytes, registry, policy?, options?)` | Verifies from the original bytes with at most one verifier: today's for `dcp-jcs-v1`, today's accepting exactly `dcp-jcs-v2` for the candidate |
+| `experimentalHistoricalAdapters` | The measured decoders (`bufferUtf8JsonParse`, `textDecoderJsonParse`); none is a default |
+| `experimentalCandidateSignPayload(registry, context, input, keys)` | Signs one artifact from `{ bytes }` or `{ value }`; no profile |
+| `experimentalCandidateSignBundle(registry, parts, signer, options)` | Assembles and signs a bundle whose manifest names `dcp-jcs-v2` |
+| `ExperimentalCandidateProduceError` | A rejection for the domain or form of the inputs, raised before any signer is called (`class`, `part`, `path`, `offset`); key, registry and provider errors stay today's |
+
+```typescript
+import {
+  AlgorithmRegistry, DCP_CONTEXTS, Ed25519Provider, MlDsa65Provider, experimentalCandidateIngress,
+  experimentalCandidateSignPayload,
+} from '@dcp-ai/sdk';
+
+// The ingress decides on the original bytes: 1.0 is the integer 1, members are sorted.
+const accepted = experimentalCandidateIngress(new TextEncoder().encode('{"b":1.0,"a":[]}'));
+if (accepted.status === 'accept') console.log(new TextDecoder().decode(accepted.canonical)); // {"a":[],"b":1}
+const refused = experimentalCandidateIngress(new TextEncoder().encode('{"a":1,"a":2}'));
+if (refused.status === 'reject') console.log(refused.class, refused.offset); // DUPLICATE_KEY 7
+
+// A producer signs an artifact from those bytes (hybrid keys, today's composite signature).
+const registry = new AlgorithmRegistry();
+const ed25519 = new Ed25519Provider();
+const mlDsa65 = new MlDsa65Provider();
+registry.registerSigner(ed25519);
+registry.registerSigner(mlDsa65);
+const c = await ed25519.generateKeypair();
+const p = await mlDsa65.generateKeypair();
+const keys = {
+  classical: { kid: c.kid, alg: 'ed25519', secretKeyB64: c.secretKeyB64, publicKeyB64: c.publicKeyB64 },
+  pq: { kid: p.kid, alg: 'ml-dsa-65', secretKeyB64: p.secretKeyB64, publicKeyB64: p.publicKeyB64 },
+};
+const artifact = await experimentalCandidateSignPayload(
+  registry, DCP_CONTEXTS.Intent, { bytes: new TextEncoder().encode('{"intent_id":"intent:1","risk":1.0}') }, keys,
+);
+console.log(artifact.signedPayload.payload_hash); // sha256:… of {"intent_id":"intent:1","risk":1}
+```
+
 ### DCP-05–09: Extended Protocol Modules
 
 | Module | Spec | Key Exports |
@@ -277,17 +426,22 @@ const tier = computeSecurityTier(intent, policyDecision, result.valid ? result.e
 | `principal-mirror` | DCP-09 | `PrincipalMirror` (re-export with builder utilities) |
 
 ```typescript
-// Example: Lifecycle management
-import { CommissioningCertificate, LifecycleState } from '@dcp-ai/sdk';
+// Fragment, not a complete program: registry, humanKeys (the principal's CompositeKeyPair) and nonce as in the V2 Quick Start.
+// Example: Lifecycle management (DCP-05), signed with the commissioning human's composite keys
+import { createCommissioningCertificate, validateStateTransition } from '@dcp-ai/sdk';
+import type { CommissioningCertificate } from '@dcp-ai/sdk';
 
-const cert: CommissioningCertificate = {
-  certificate_id: 'cert-001',
-  agent_id: 'agent-001',
-  commissioned_by: 'human-001',
-  commissioned_at: '2026-03-01T00:00:00Z',
-  initial_state: 'commissioned',
-  conditions: ['Must complete onboarding within 30 days'],
-};
+const cert: CommissioningCertificate = await createCommissioningCertificate(registry, humanKeys, {
+  agent_id: 'agent:agent-001',
+  session_nonce: nonce,
+  human_id: 'human:human-001',
+  commissioning_authority: 'human:human-001',
+  purpose: 'Customer support triage',
+  initial_capabilities: ['browse', 'api_call'],
+  risk_tier: 'low',
+  principal_binding_reference: 'human:human-001',
+});
+validateStateTransition('commissioned', 'active'); // true
 
 // Example: Delegation mandate (signed by the human)
 import { createDelegationMandate } from '@dcp-ai/sdk';
@@ -342,25 +496,26 @@ Key types exported by the SDK:
 Agent-to-agent encrypted communication:
 
 ```typescript
+// Fragment, not a complete program: sessionId and sessionKey come from the A2A handshake, remoteSession is the peer's session.
 import { createSession, encryptMessage, decryptMessage } from '@dcp-ai/sdk';
 
 // Create encrypted A2A session
 const session = createSession(sessionId, sessionKey, 'agent:a', 'agent:b', 'elevated');
-const encrypted = encryptMessage(session, { action: 'negotiate', data: {...} });
+const encrypted = encryptMessage(session, { action: 'negotiate', data: { offer: 10 } });
 const decrypted = decryptMessage(remoteSession, encrypted);
 // The same message delivered again throws: each sequence is accepted once.
 ```
 
 ## Observability
 
-All crypto operations are automatically instrumented:
+Telemetry requires explicit instrumentation: call the span and metric methods around the operations you want to observe. Initialization alone does not instrument crypto operations. This example only initializes telemetry and reads the current summary:
 
 ```typescript
 import { dcpTelemetry } from '@dcp-ai/sdk';
 
 dcpTelemetry.init({ serviceName: 'my-agent', enabled: true, exporterType: 'console' });
 
-// All crypto operations are automatically instrumented
+// Read metrics explicitly recorded so far; initialization alone records no crypto operations
 const summary = dcpTelemetry.getMetricsSummary();
 ```
 

@@ -52,6 +52,7 @@ Validate the Signed Bundle against `schemas/v2/signed_bundle.schema.json`, which
 ### Step V2-3: Validate manifest
 
 The bundle MUST contain a `manifest` object with the following required fields:
+
 - `session_nonce` — 64-character hex string
 - `rpr_hash`, `passport_hash`, `intent_hash`, `policy_hash` — SHA-256 hashes of the respective artifacts
 - `audit_merkle_root` — Merkle root of audit entries
@@ -76,6 +77,7 @@ Timestamps in these checks (`session_expires_at` here, a key's `expires_at` in S
 ### Step V2-5: Verify composite signature structure
 
 The bundle-level `signature` MUST contain a `composite_sig` object with:
+
 - `classical` — object with `alg`, `kid`, `sig_b64`
 - `binding` — one of `pq_over_classical`, `classical_only` (`schemas/v2/composite_signature.schema.json`)
 - `pq` — (required if binding is `pq_over_classical`) object with `alg`, `kid`, `sig_b64`
@@ -93,6 +95,7 @@ This binds the agent to whoever holds the RPR's `binding_keys`. It does not prov
 ### Step V2-7: Verify PQ signature (if present)
 
 If `composite_sig.binding` is `pq_over_classical`:
+
 1. Reconstruct the PQ signed message: `context_tag || 0x00 || canonical(manifest) || classical_sig_bytes`
 2. Verify `composite_sig.pq.sig_b64` against the public key identified by `composite_sig.pq.kid` in the RPR `binding_keys`, using the PQ algorithm (e.g., ML-DSA-65).
 
@@ -113,6 +116,7 @@ The effective mode is the stricter of the policy mode (`default_mode`, or the `r
 ### Step V2-10: Enforce verifier policy
 
 Apply the effective mode (Step V2-9) and the verifier's policy configuration to the bundle signature and to every artifact signature (Steps V2-6 to V2-8):
+
 - If the effective mode is `hybrid_required`, reject bundles with `classical_only` binding.
 - If the effective mode is `pq_only`, reject bundles without a PQ signature.
 - Check `accepted_classical_algs` and `accepted_pq_algs` — reject if bundle uses an algorithm not in these lists.
@@ -123,12 +127,14 @@ A `classical_only` bundle with an `initiate_payment` intent is therefore rejecte
 ### Step V2-11: Verify dual-hash audit chain (if present)
 
 If audit entries include `prev_hash_secondary`, verify the secondary hash chain:
+
 - First entry: `prev_hash_secondary` = `"GENESIS"`
 - Subsequent entries: `prev_hash_secondary` = SHA3-256(canonical(previous_entry))
 
 ### Step V2-12: Verify PQ checkpoints (if present)
 
 If the manifest lists `pq_checkpoints` or the bundle carries any, verify them:
+
 1. The bundle MUST carry exactly the checkpoints the manifest lists, once each, by `checkpoint_id`. A listed checkpoint that is missing, or a carried one the manifest does not list, fails verification: the manifest is signed, the checkpoint bodies are not.
 2. A checkpoint's `event_range` names a contiguous run of `audit_entries`, from the entry whose `audit_id` is `from_audit_id` to the one whose `audit_id` is `to_audit_id`, with `count` entries. Its `merkle_root` MUST be `sha256:` followed by the Merkle root of those entries, computed as `auditEventsMerkleRoot` computes it.
 3. Its `composite_sig` is the agent's: verify it with the passport `keys`, under the `DCP-AI.v2.AuditEvent` context, over the canonical checkpoint without `composite_sig`. Both the classical and the PQ signature MUST be present and valid (in `pq_only` mode, the PQ one); a checkpoint exists to carry the PQ signature.
@@ -137,6 +143,7 @@ If the manifest lists `pq_checkpoints` or the bundle carries any, verify them:
 ### Step V2-13: Key validity checks
 
 For each key identifier (`kid`) referenced in composite signatures (the bundle's, each artifact's and each checkpoint's):
+
 - The kid MUST be derived from the key that verifies the signature: `kid = hex(SHA-256(UTF8(alg) || 0x00 || raw_public_key))[0:32]`, with `alg` and `raw_public_key` from that key entry. Reject the bundle otherwise. A kid then names one key, whichever list holds it; without this check a key list can claim another party's kid for a key of its own.
 - That key's `public_key_b64` MUST be canonical base64 (RFC 4648 § 4, with padding and zero trailing bits), so every verifier decodes the same bytes from it.
 - Optionally check key status against a revocation service or local revocation list.
@@ -146,6 +153,7 @@ Reject the bundle if any key that can sign it, in the passport `keys` or the RPR
 ### Step V2-14: Cross-artifact consistency
 
 The signatures prove who signed each artifact; these checks make the artifacts describe one action, by one agent, for one principal. They carry the V1 checks on the RPR, the passport and `intent_hash` over to V2. Reject the bundle when:
+
 - `agent_passport.status` is neither `active` nor `declining`: a `commissioned`, `suspended`, `revoked` or `decommissioned` agent takes no action ([DCP-05](DCP-05.md) § 3.1);
 - the RPR's `expires_at` has passed or is not an RFC 3339 timestamp (Step V2-4); `null` never expires;
 - `agent_passport.principal_binding_reference` is not the RPR's `human_id`;
@@ -183,3 +191,21 @@ This checks the SHA-256 hash of each local schema against the canonical fingerpr
 - Security model: [docs/SECURITY_MODEL.md](../docs/SECURITY_MODEL.md)
 - Storage, anchoring, revocation lists, transparency logs: [docs/STORAGE_AND_ANCHORING.md](../docs/STORAGE_AND_ANCHORING.md)
 - Operator guide: [docs/OPERATOR_GUIDE.md](../docs/OPERATOR_GUIDE.md)
+
+## Implementation notes (informative)
+
+> **Added 25/10/2026. Not normative.** These notes add no requirement and change nothing above: they describe how
+> the reference code on `main` relates to this text. Where they differ, the normative text above stands.
+
+- Passing these steps shows that a bundle is verified as defined here: intact, consistent and signed by the keys it
+  lists. It does not certify the agent or the principal's identity, show compliance with any regulation, or
+  authorize an action; trust in the principal is the admission profile's ([docs/ADMISSION.md](../docs/ADMISSION.md)).
+- The optional V1 steps 8 to 11 (anchor receipt, jurisdictional revocation list, jurisdiction attestation,
+  transparency-log proof) are not run by `dcp verify-bundle`, `lib/verify.js` or the SDK verifiers; a verifier that
+  wants them runs them itself. Revocation snapshots are read by the admission profile, not by these steps.
+- Step V2-11: on `main` the SDK verifiers and `lib/verify.js` do not recompute the secondary SHA3-256 chain
+  (`prev_hash_secondary`) or `audit_merkle_root_secondary`. A bundle that carries them verifies on the SHA-256 chain
+  and root alone; a verifier that needs the secondary chain checks it itself.
+- Step 10 describes the attestation signature as made "over `rpr_hash`", while [DCP-01](DCP-01.md) describes it over
+  the canonical JSON of every field except `signature`, and the V2 schema uses a `composite_sig`. This note records
+  the difference; it does not decide which applies.

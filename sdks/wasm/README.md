@@ -6,6 +6,17 @@ Full-featured WebAssembly module for the Digital Citizenship Protocol (DCP) v2.0
 
 ## Installation
 
+**Release status.** This README describes the source on `main`. The last tagged release, `v2.10.0`, lists
+`@dcp-ai/wasm` 2.1.0; the npm registry was not checked for this README. What the changelog lists under
+[`[Unreleased]`](../../CHANGELOG.md#unreleased) is not in a tagged release, including the experimental
+`dcp-jcs-v2` APIs. To run the examples below, build from a checkout (see Build) and install the folder:
+
+```bash
+npm install /path/to/dcp-ai/sdks/wasm
+```
+
+The registry install gives the published version:
+
 ```bash
 npm install @dcp-ai/wasm
 ```
@@ -25,53 +36,99 @@ npm run build:wasm:node
 
 **Requirements:** [wasm-pack](https://rustwasm.github.io/wasm-pack/installer/) and the Rust toolchain with `wasm32-unknown-unknown` target.
 
-## Quickstart — TypeScript Wrapper
+## Initialization: browser and Node.js
 
-The recommended way to use the SDK is through the ergonomic TypeScript wrapper:
+`initDcp(wasmUrl?)` loads `dcp_ai_bg.wasm` once.
+
+- **Browser** (or a bundler that serves `pkg/`): `await initDcp()` fetches the file next to `pkg/dcp_ai.js`, or
+  pass its URL: `await initDcp('/assets/dcp_ai_bg.wasm')`.
+- **Node.js:** Node's `fetch` cannot read a `file:` URL, so `initDcp()` without an argument fails there. Read the
+  file and pass it as a `data:` URL:
 
 ```typescript
+import { readFileSync } from 'node:fs';
 import { initDcp } from '@dcp-ai/wasm';
 
-const dcp = await initDcp();
+// The .wasm file sits next to the `@dcp-ai/wasm/pkg` entry point.
+const wasmFile = new URL('dcp_ai_bg.wasm', import.meta.resolve('@dcp-ai/wasm/pkg'));
+const dcp = await initDcp(`data:application/wasm;base64,${readFileSync(wasmFile).toString('base64')}`);
+```
 
-// Generate hybrid Ed25519 + ML-DSA-65 keypair (here it signs for both the principal and the agent)
-const keys = dcp.generateHybridKeypair();
-const keyEntries = [keys.classical, keys.pq].map((k) => ({
-  kid: k.kid, alg: k.alg, public_key_b64: k.public_key_b64,
-  created_at: new Date().toISOString(), expires_at: null, status: 'active',
+wasm-bindgen may log that this form of the parameter is deprecated; it still initializes the module.
+
+<a id="quickstart--typescript-wrapper"></a>
+
+## Quickstart — TypeScript Wrapper
+
+The recommended way to use the SDK is through the ergonomic TypeScript wrapper. In this V2 bundle the principal
+signs the RPR and the manifest, the agent signs the passport, intent and policy decision, each with hybrid
+Ed25519 + ML-DSA-65 keys. The example runs in Node.js; in a browser, replace the initialization with
+`await initDcp()`.
+
+```typescript
+import { readFileSync } from 'node:fs';
+import { initDcp } from '@dcp-ai/wasm';
+
+const wasmFile = new URL('dcp_ai_bg.wasm', import.meta.resolve('@dcp-ai/wasm/pkg'));
+const dcp = await initDcp(`data:application/wasm;base64,${readFileSync(wasmFile).toString('base64')}`);
+
+const principal = dcp.generateHybridKeypair();
+const agent = dcp.generateHybridKeypair();
+type Hybrid = ReturnType<typeof dcp.generateHybridKeypair>;
+const keyEntries = (keys: Hybrid) => [keys.classical, keys.pq].map((k) => ({
+  kid: k.kid ?? dcp.deriveKid(k.alg, k.public_key_b64), alg: k.alg, public_key_b64: k.public_key_b64,
+  created_at: '2026-01-01T00:00:00Z', expires_at: null, status: 'active',
 }));
-const sessionNonce = dcp.generateSessionNonce();
-
-// Sign each artifact under its own context
-const sign = (context: string, payload: object) =>
+const sign = (context: string, payload: object, keys: Hybrid) =>
   dcp.signPayload(
-    context, { ...payload, session_nonce: sessionNonce },
-    keys.classical.secret_key_b64, keys.classical.kid!,
-    keys.pq.secret_key_b64, keys.pq.kid!,
+    context, payload,
+    keys.classical.secret_key_b64, keys.classical.kid ?? dcp.deriveKid('ed25519', keys.classical.public_key_b64),
+    keys.pq.secret_key_b64, keys.pq.kid ?? dcp.deriveKid('ml-dsa-65', keys.pq.public_key_b64),
   );
 
-// Build a V2 bundle from the signed artifacts
+const nonce = dcp.generateSessionNonce();
+const now = new Date().toISOString();
+const intent = {
+  dcp_version: '2.0', intent_id: 'intent:example-001', session_nonce: nonce, agent_id: 'agent:example-001',
+  human_id: 'human:example-001', timestamp: now, action_type: 'browse', target: { channel: 'web' },
+  data_classes: ['none'], estimated_impact: 'low', requires_consent: false,
+};
+
 const bundle = dcp.buildBundle({
-  rpr: sign('DCP-AI.v2.ResponsiblePrincipal', { dcp_version: '2.0', human_id: 'human:alice', binding_keys: keyEntries /* ... */ }),
-  passport: sign('DCP-AI.v2.AgentPassport', { dcp_version: '2.0', agent_id: 'agent-001', keys: keyEntries, principal_binding_reference: 'human:alice', status: 'active' /* ... */ }),
-  intent: sign('DCP-AI.v2.Intent', { dcp_version: '2.0', intent_id: 'intent-001', agent_id: 'agent-001', human_id: 'human:alice', action_type: 'browse', data_classes: ['none'], estimated_impact: 'low' /* ... */ }),
-  policy: sign('DCP-AI.v2.PolicyDecision', { dcp_version: '2.0', intent_id: 'intent-001', decision: 'approve', risk_score: 100 /* ... */ }),
-  auditEntries: [],
-  sessionNonce,
+  rpr: sign('DCP-AI.v2.ResponsiblePrincipal', {
+    dcp_version: '2.0', human_id: 'human:example-001', session_nonce: nonce, legal_name: 'Example Principal',
+    entity_type: 'natural_person', jurisdiction: 'ES', liability_mode: 'owner_responsible', override_rights: true,
+    issued_at: now, expires_at: null, contact: null, binding_keys: keyEntries(principal),
+  }, principal),
+  passport: sign('DCP-AI.v2.AgentPassport', {
+    dcp_version: '2.0', agent_id: 'agent:example-001', session_nonce: nonce, keys: keyEntries(agent),
+    principal_binding_reference: 'human:example-001', capabilities: ['browse'], risk_tier: 'low',
+    created_at: now, status: 'active',
+  }, agent),
+  intent: sign('DCP-AI.v2.Intent', intent, agent),
+  policy: sign('DCP-AI.v2.PolicyDecision', {
+    dcp_version: '2.0', intent_id: intent.intent_id, session_nonce: nonce, decision: 'approve', risk_score: 50,
+    reasons: ['low-impact browse'], required_confirmation: null,
+    applied_policy_hash: dcp.preparePayload({ policy: 'default' }).payload_hash, timestamp: now,
+  }, agent),
+  auditEntries: [{
+    dcp_version: '2.0', audit_id: 'audit:example-001', session_nonce: nonce, prev_hash: 'GENESIS', hash_alg: 'sha256',
+    timestamp: now, agent_id: 'agent:example-001', human_id: 'human:example-001', intent_id: intent.intent_id,
+    intent_hash: dcp.preparePayload(intent).payload_hash, policy_decision: 'approved', outcome: 'page_read',
+    evidence: { tool: 'browser', result_ref: null, evidence_hash: null }, pq_checkpoint_ref: null,
+  }],
+  sessionNonce: nonce,
 });
 
-// Sign the bundle with composite signature
+// The principal signs the manifest with a composite signature.
 const signed = dcp.signBundle(
   bundle,
-  keys.classical.secret_key_b64, keys.classical.kid!,
-  keys.pq.secret_key_b64, keys.pq.kid!,
+  principal.classical.secret_key_b64, principal.classical.kid ?? dcp.deriveKid('ed25519', principal.classical.public_key_b64),
+  principal.pq.secret_key_b64, principal.pq.kid ?? dcp.deriveKid('ml-dsa-65', principal.pq.public_key_b64),
 );
 
-// Verify the signed bundle
 const result = dcp.verifyBundle(signed);
-console.log(result.verified);       // true
-console.log(result.classical_valid); // true
-console.log(result.pq_valid);       // true
+console.log(result.verified, result.classical_valid, result.pq_valid); // true true true
 ```
 
 ## API Reference
@@ -80,7 +137,8 @@ console.log(result.pq_valid);       // true
 
 #### `initDcp(wasmUrl?: string): Promise<DcpWasm>`
 
-Initialize the WASM module. Must be called once before using any API. Optionally pass a custom URL for the `.wasm` file.
+Initialize the WASM module. Must be called once before using any API. Optionally pass a URL for the `.wasm`
+file; in Node.js, pass it as a `data:` URL (see [Initialization](#initialization-browser-and-nodejs)).
 
 ### Keypair Generation
 
@@ -109,10 +167,12 @@ Initialize the WASM module. Must be called once before using any API. Optionally
 
 ### Verification
 
+Verification does not grant principal trust, admission or action authorization. The V2 verifier checks the primary audit chain and primary Merkle root; it does not recompute the optional secondary chain or `audit_merkle_root_secondary` ([implementation gap](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)). The experimental candidate reuses these checks.
+
 | Method | Returns | Description |
 |--------|---------|-------------|
 | `compositeVerify(context, payload, sig, classicalPk, pqPk?)` | `CompositeVerifyResult` | Cryptographic verification of a composite signature |
-| `verifyBundle(signedBundle, policy?)` | `V2VerificationResult` | Full V2 bundle verification (structure + crypto + hash chain) against the stricter of the policy mode and the security tier's mode (spec §14.3); reports `resolved_tier` and `verification_mode`. `policy` may differ from the default only in `default_mode`, `risk_overrides`, the Phase 3 fields (`advisory_rejected_algs`, `warn_classical_only_deprecated`, `allow_classical_fallback_disable`), `max_session_duration_seconds` (measured from the signed `session_issued_at`, which `signBundle` writes when the manifest has `session_expires_at`), `require_session_expiry` (a manifest without `session_expires_at` is rejected) and `require_audience_binding` with `verifier_id` (a manifest without `intended_verifier`, or with one other than `verifier_id`, is rejected); with a policy V1 bundles are rejected |
+| `verifyBundle(signedBundle, policy?)` | `V2VerificationResult` | V2 bundle verification (structure + crypto + primary hash chain) against the stricter of the policy mode and the security tier's mode (spec §14.3); reports `resolved_tier` and `verification_mode`. `policy` may differ from the default only in `default_mode`, `risk_overrides`, the Phase 3 fields (`advisory_rejected_algs`, `warn_classical_only_deprecated`, `allow_classical_fallback_disable`), `max_session_duration_seconds` (measured from the signed `session_issued_at`, which `signBundle` writes when the manifest has `session_expires_at`), `require_session_expiry` (a manifest without `session_expires_at` is rejected) and `require_audience_binding` with `verifier_id` (a manifest without `intended_verifier`, or with one other than `verifier_id`, is rejected); with a policy V1 bundles are rejected |
 
 ### Hash Operations
 
@@ -178,6 +238,48 @@ The WASM SDK includes TypeScript interfaces for all DCP-05 through DCP-09 artifa
 | DCP-09 Delegation | `DelegationMandate`, `AdvisoryDeclaration`, `PrincipalMirror`, `InteractionRecord`, `AwarenessThreshold`, `ThresholdRule`, `AuthorityScopeEntry`, `ThresholdOperator`, `ThresholdAction` |
 
 Domain separation contexts available via `domainSeparatedMessage()`: `Lifecycle`, `Succession`, `Dispute`, `Rights`, `Delegation`, `Awareness`
+
+## Experimental: Canonicalization Candidate `dcp-jcs-v2` (opt-in, unreleased)
+
+Not normative and not active: `dcp-jcs-v1` stays the only canonicalization profile, and no default, builder,
+signer or verifier changes. These methods exist for callers who opt in, in a build from a checkout (see Release
+status). The bindings receive only bytes; host values are checked in JavaScript first. A verified candidate
+bundle grants no trust or admission. Design and contract:
+[`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)
+(§15 ingress, §16 router, §17 verifier, §18 producers).
+
+| Method | Description |
+|--------|-------------|
+| `experimentalCandidateIngress(bytes)` | `{ status: 'accept', canonical, ... }` or `{ status: 'reject', class, offset }` |
+| `experimentalCandidateExtractUnit(bytes, transport)` | The unit of a `bare` or `envelope` transport |
+| `createExperimentalCandidateRouter(config)` | Routes bytes; `historical` is one of `experimentalWasmHistoricalAdapters` (`w1…` objects through `JSON.stringify`, `w2…` text), none a default |
+| `createExperimentalCandidateVerifier(config).verify(bytes, policy?)` | Verifies from the original bytes with at most one verifier; reads the clock from `Date.now` |
+| `experimentalCandidateSignPayload(context, input, keys)` | Signs one artifact from `{ bytes }` or `{ value }` |
+| `experimentalCandidateSignBundle(parts, signer, options)` | Assembles and signs a bundle whose manifest names `dcp-jcs-v2` |
+| `ExperimentalWasmCandidateProduceError` | A rejection of the inputs' domain or form, before any binding signs |
+
+```typescript
+import { readFileSync } from 'node:fs';
+import { initDcp } from '@dcp-ai/wasm';
+
+const wasmFile = new URL('dcp_ai_bg.wasm', import.meta.resolve('@dcp-ai/wasm/pkg'));
+const dcp = await initDcp(`data:application/wasm;base64,${readFileSync(wasmFile).toString('base64')}`);
+
+// The ingress decides on the original bytes: 1.0 is the integer 1, members are sorted.
+const accepted = dcp.experimentalCandidateIngress(new TextEncoder().encode('{"b":1.0,"a":[]}'));
+if (accepted.status === 'accept') console.log(new TextDecoder().decode(accepted.canonical)); // {"a":[],"b":1}
+
+// A producer signs an artifact from those bytes (hybrid keys, today's composite signature).
+const h = dcp.generateHybridKeypair();
+const key = (k: typeof h.classical) => ({
+  kid: k.kid ?? dcp.deriveKid(k.alg, k.public_key_b64), alg: k.alg, secretKeyB64: k.secret_key_b64, publicKeyB64: k.public_key_b64,
+});
+const artifact = dcp.experimentalCandidateSignPayload(
+  'DCP-AI.v2.Intent', { bytes: new TextEncoder().encode('{"intent_id":"intent:1","risk":1.0}') },
+  { classical: key(h.classical), pq: key(h.pq) },
+);
+console.log(artifact.signedPayload.payload_hash); // sha256:… of {"intent_id":"intent:1","risk":1}
+```
 
 ## Low-Level API
 

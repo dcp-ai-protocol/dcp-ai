@@ -62,11 +62,18 @@ The packages do not share one version number; the `@dcp-ai/*` npm packages follo
 | 2.9.x (`dcp-ai` on PyPI, crates.io, Go module `sdks/go/v2`) | Yes |
 | 2.8.x (`dcp-ai` on PyPI and crates.io, Go module `sdks/go/v2`) | Yes |
 | 2.2.x (`@dcp-ai/sdk`) | Yes |
-| 2.1.x (`@dcp-ai/sdk`) | No: `verifySignedBundleV2` can be bypassed, upgrade to 2.2.x |
+| 2.1.x (`@dcp-ai/sdk`) | No: `verifySignedBundleV2` can be bypassed; the fix is in 2.2.x (see the note below) |
 | 2.1.x (`@dcp-ai/wasm`, `@dcp-ai/openclaw`) | Yes |
 | 2.0.x (`@dcp-ai/wasm`, `@dcp-ai/cli` and the other `@dcp-ai/*` npm packages) | Yes |
 | 1.0.x   | Yes (maintenance) |
 | < 1.0   | No        |
+
+`@dcp-ai/sdk` 2.2.0 is tagged in `v2.10.0` but is not on npm: on 25/10/2026 the npm registry had 2.0.0, 2.1.0
+and 2.1.1, with 2.1.1 as `latest`. Until 2.2.0 is published, the fix is only available by building the SDK from a
+checkout of this repository (`cd sdks/typescript && npm install && npm run build`); a version installed from npm
+stays affected.
+
+**Known affected integration releases (25/10/2026):** the support table does not mean that a published build contains every fix on `main`. `@dcp-ai/express` 2.0.0 and `@dcp-ai/openclaw` 2.0.0 on npm, and the FastAPI integration in `dcp-ai` 2.9.0 on PyPI, accept structurally valid V2 bundles without cryptographically verifying their signatures. These paths are corrected on `main`, but no corrected package has been published yet. Do not use those releases to verify V2 bundles. See the source-checkout instructions and release notices in the [Express](integrations/express/README.md), [OpenClaw](integrations/openclaw/README.md) and [FastAPI](integrations/fastapi/README.md) READMEs. This notice does not change the supported-version policy above.
 
 ## Disclosure Policy
 
@@ -85,6 +92,8 @@ DCP-AI runs a bug bounty program for security vulnerabilities:
 | Medium (tier downgrade, chain manipulation) | $500 - $1,000 |
 | Low (information disclosure, DoS) | $100 - $500 |
 
+> **Note (25/10/2026): the documents disagree.** This table gives fixed reward ranges, while [GOVERNANCE.md](GOVERNANCE.md) and [docs/EARLY_ADOPTERS.md](docs/EARLY_ADOPTERS.md) say rewards are decided case by case, with no fixed tiers. The texts are kept as they are until a maintainer confirms which applies; until then, treat any reward as unconfirmed and ask the maintainers.
+
 See [docs/EARLY_ADOPTERS.md](docs/EARLY_ADOPTERS.md) for full program details.
 
 ## Security Model
@@ -93,10 +102,10 @@ For a detailed analysis of the protocol's security architecture, attack vectors,
 
 ## Protocol Integrity
 
-Verify that your local implementation matches the canonical protocol:
+Compare the local V1 schema files with the local fingerprint manifest:
 
 ```bash
 dcp integrity
 ```
 
-This checks all schema fingerprints against `protocol_fingerprints.json`. See [docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md#protocol-fingerprints) for details.
+This compares the V1 schema bytes against `protocol_fingerprints.json`. It does not check V2 schemas, implementation behavior or conformance, and the local manifest is not an authenticated trust anchor. See [docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md#protocol-fingerprints) for details.

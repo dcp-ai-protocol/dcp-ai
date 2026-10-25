@@ -1,47 +1,72 @@
 <sub>[English](README.md) · **中文** · [Español](README.es.md) · [日本語](README.ja.md) · [Português](README.pt-BR.md)</sub>
 
+<a id="dcp-ai-go--go-sdk"></a>
+
 # dcp-ai-go — Go SDK
 
-数字公民身份协议 (DCP) v1.0 和 v2.0 的官方 Go SDK。支持 Ed25519、ML-DSA-65、SLH-DSA-192f、ML-KEM-768、复合签名、双哈希链，以及完整的凭证包验证。
+> 本文是[英文 README](README.md)的参考译文，更新于2026年10月25日。为保留经过验证的示例，标识符和代码块（包括注释）均保持原文。
+
+Digital Citizenship Protocol（DCP）v1.0 和 v2.0 的官方 Go SDK。支持 Ed25519、ML-DSA-65、SLH-DSA-192f、ML-KEM-768、复合签名、双哈希链和 bundle 验证。
+
+验证检查完整性和签名，不会建立对责任主体的信任、准入资格或行动授权。当前 V2 验证器检查主审计链，但不会重新计算可选的 SHA3-256 链及其次级 Merkle 根。请参阅[已记录的验证限制](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)；需要检查信任时，请使用下文的准入 API。
+
+<a id="installation"></a>
 
 ## 安装
+
+**要求：** Go 1.25 及以上
+
+**发布状态。** 本 README 描述 `main` 上的源代码。最新带标签的版本为 `v2.10.0`（模块标签为 `sdks/go/v2.10.0`）。变更日志 [`[Unreleased]`](../../CHANGELOG.md#unreleased) 下的内容尚未包含在带标签的版本中：准入、委托链、A2A 接收窗口和实验性 `dcp-jcs-v2` API。要运行以下示例，请将依赖指向 `main` 或本地检出的代码：
+
+```bash
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@main
+# or, from a checkout:
+go mod edit -replace github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2=/path/to/dcp-ai/sdks/go
+```
+
+最新带标签的版本，不含尚未发布的功能：
 
 ```bash
 go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
 ```
 
-**需要：** Go 1.25+
+<a id="features"></a>
 
-## 特性
+## 功能
 
-| 特性 | V1 | V2 |
+| 功能 | V1 | V2 |
 |---------|----|----|
-| Ed25519 签名 | 是 | 是 |
-| ML-DSA-65 (FIPS 204) | — | 是 |
-| SLH-DSA-192f (FIPS 205) | — | 是 |
-| ML-KEM-768 (FIPS 203) | — | 是 |
-| 复合签名（后量子覆盖经典） | — | 是 |
-| 域分离 | — | 是 |
-| 双哈希 (SHA-256 + SHA3-256) | — | 是 |
-| 凭证包验证 | 是 | 是 |
-| 准入：委托人信任集 + `strict-v1` 配置 (spec/profiles/admission) | — | 是 |
-| 凭证包构建与签名 | — | 是 |
-| 安全等级计算 | — | 是 |
-| 持有证明 | — | 是 |
-| 密钥轮换 | — | 是 |
-| DCP-04 A2A 发现 + 握手 + AES-256-GCM 会话（标准库；可安全并发使用，在窗口内每条消息只接受一次） | — | 是 |
-| DCP-05 代理生命周期（委任 / 活力 / 停用） | — | 是 |
-| DCP-06 数字继承（数字遗嘱、记忆迁移、交接仪式） | — | 是 |
-| DCP-07 争议解决 + 仲裁 + 判例 | — | 是 |
-| DCP-08 权利与义务 + 合规 | — | 是 |
-| DCP-09 委托 + 可验证的委托链（`CreateSubMandate`、`VerifyMandateChain`）+ 感知阈值 + 主体镜像 | — | 是 |
-| 会话随机数助手、紧急撤销 | — | 是 |
-| 惰性 PQ 检查点 + `PQCheckpointManager` | — | 是 |
-| 盲化 RPR、多方授权、算法建议助手 | — | 是 |
-| 规范错误码（38 项，跨所有 SDK 共享）+ `DetectWireFormat` | — | 是 |
-| OpenTelemetry / OTLP 导出器（构建标签 `otlp`） | — | 是 |
+| Ed25519 签名 | 支持 | 支持 |
+| ML-DSA-65（FIPS 204） | — | 支持 |
+| SLH-DSA-192f（FIPS 205） | — | 支持 |
+| ML-KEM-768（FIPS 203） | — | 支持 |
+| 复合签名（对经典签名再作 PQ 签名） | — | 支持 |
+| 域分离 | — | 支持 |
+| 双哈希（SHA-256 + SHA3-256） | — | 支持 |
+| Bundle 验证 | 支持 | 支持 |
+| 准入：责任主体信任集合与 `strict-v1` 配置（spec/profiles/admission） | — | 支持，尚未发布 |
+| Bundle 构建与签名 | — | 支持 |
+| 安全等级计算 | — | 支持 |
+| 持有证明 | — | 支持 |
+| 密钥轮换 | — | 支持 |
+| DCP-04 A2A 发现、握手与 AES-256-GCM 会话（标准库；支持安全并发使用，窗口内每条消息只接受一次） | — | 支持 |
+| DCP-05 智能体生命周期（启用 / 活力 / 停用） | — | 支持 |
+| DCP-06 数字继承（遗嘱、记忆转移、仪式） | — | 支持 |
+| DCP-07 争议解决、仲裁与判例 | — | 支持 |
+| DCP-08 权利、义务与合规 | — | 支持 |
+| DCP-09 委托与可验证委托链（`CreateSubMandate`、`VerifyMandateChain`）、认知阈值与责任主体镜像 | — | 支持 |
+| 会话 nonce 辅助函数、紧急撤销 | — | 支持 |
+| 延迟 PQ 检查点与 `PQCheckpointManager` | — | 支持 |
+| 盲化 RPR、多方授权、算法通告辅助函数 | — | 支持 |
+| 通用错误码（所有 SDK 共享 38 个）与 `DetectWireFormat` | — | 支持 |
+| OpenTelemetry / OTLP 导出器（构建标签 `otlp`） | — | 支持 |
+| 规范化候选方案 `dcp-jcs-v2`（入口处理、路由器、字节验证器、生成器） | — | 实验性，须显式选择，尚未发布；非规范性 |
 
-## 快速开始 — V1
+<a id="quickstart-v1"></a>
+
+<a id="quickstart--v1"></a>
+
+## 快速入门 — V1
 
 ```go
 package main
@@ -60,7 +85,11 @@ func main() {
 }
 ```
 
-## 快速开始 — V2
+<a id="quickstart-v2"></a>
+
+<a id="quickstart--v2"></a>
+
+## 快速入门 — V2
 
 ```go
 package main
@@ -118,9 +147,12 @@ func main() {
 }
 ```
 
+<a id="security-tiers"></a>
+
 ### 安全等级
 
 ```go
+// Fragment, inside a function: intentPayload and policyPayload are decoded V2 payloads.
 tier := v2.ComputeSecurityTier(v2.SecurityTierInput{
     RiskScore:       600, // from the bundle's PolicyDecision, never the intent
     DataClasses:     []string{"financial_data"},
@@ -135,103 +167,211 @@ fmt.Println(tier.CheckpointInterval) // 1
 tier = v2.ComputeSecurityTier(v2.SecurityTierInputFromPayloads(intentPayload, policyPayload))
 ```
 
+<a id="ml-kem-768-key-encapsulation"></a>
+
 ### ML-KEM-768 密钥封装
 
 ```go
+// Fragment, inside a function.
 kem := &providers.MlKem768Provider{}
 kp, _ := kem.GenerateKeypair()
 result, _ := kem.Encapsulate(kp.PublicKeyB64)
 sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 ```
 
+<a id="v2-api-reference"></a>
+
 ## V2 API 参考
 
-### 凭证包构建与签名
+<a id="bundle-building-signing"></a>
 
-| 函数 | 描述 |
+<a id="bundle-building--signing"></a>
+
+### Bundle 构建与签名
+
+| 函数 | 说明 |
 |----------|-------------|
-| `v2.SignPayload(reg, context, payload, classicalKey, pqKey)` | 将工件签名为 `SignedPayload`（复合签名；`pqKey` 为 nil 时仅经典签名） |
-| `v2.BuildBundleV2(input)` | 由已签名的工件构建 V2 凭证包，含清单哈希和双 Merkle 根 |
-| `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | 使用复合或仅经典签名签名凭证包；签名者是凭证包的主体（`signer.id` = RPR 的 `human_id`） |
-| `v2.VerifySignedBundleV2(reg, jsonBytes)` | 完整的 V2 凭证包验证（结构、哈希、签名、审计链），使用 `DefaultVerifierPolicy`，按策略模式与安全等级模式中更严格的一个验证（spec §14.3）；返回 `ResolvedTier` 和 `VerificationMode` |
-| `v2.VerifySignedBundleV2WithPolicy(reg, jsonBytes, policy)` | 相同，但使用自定义 `VerifierPolicy`；只有 `DefaultMode`、`RiskOverrides`、`MaxSessionDurationSeconds`、`RequireSessionExpiry`、`RequireAudienceBinding`、`VerifierID` 和 Phase 3 字段（`AdvisoryRejectedAlgs`、`WarnClassicalOnlyDeprecated`、`AllowClassicalFallbackDisable`，语义与 TypeScript 相同）可以与 `DefaultVerifierPolicy()` 不同，其他任何改动都会使验证失败 |
+| `v2.SignPayload(reg, context, payload, classicalKey, pqKey)` | 对产物签名，生成 `SignedPayload`（复合签名；`pqKey` 为 nil 时仅使用经典签名） |
+| `v2.BuildBundleV2(input)` | 从已签名产物组装 V2 bundle，包含清单哈希和双 Merkle 根 |
+| `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | 使用复合签名或仅经典签名对 bundle 签名；签名者为 bundle 的责任主体（`signer.id` = RPR 的 `human_id`） |
+| `v2.VerifySignedBundleV2(reg, jsonBytes)` | 遵循 `DefaultVerifierPolicy` 验证 V2 bundle（结构、哈希、签名、主审计链），采用策略模式和安全等级模式中更严格的模式（规范 §14.3）；报告 `ResolvedTier` 和 `VerificationMode` |
+| `v2.VerifySignedBundleV2WithPolicy(reg, jsonBytes, policy)` | 使用自定义 `VerifierPolicy` 的相同操作；只有 `DefaultMode`、`RiskOverrides`、`AcceptedClassicalAlgs`、`AcceptedPQAlgs`、`AllowV1Bundles`（V1 bundle 在此始终无法通过验证）、`MaxSessionDurationSeconds`、`RequireSessionExpiry`、`RequireAudienceBinding`、`VerifierID` 以及阶段3字段（`AdvisoryRejectedAlgs`、`WarnClassicalOnlyDeprecated`、`AllowClassicalFallbackDisable`，与 TypeScript 一致）可以不同于 `DefaultVerifierPolicy()`；任何其他更改都会导致验证失败 |
+| `v2.VerifySignedBundleV2At(reg, jsonBytes, policy, now)` | 在时刻 `now` 执行相同操作：会话窗口、RPR 到期时间和密钥到期时间均以毫秒精度与它比较。上面两个函数以 `time.Now()` 调用此函数 |
+
+每个结果在 `SignerKeys`（JSON 为 `signer_keys`）中，按每个已检查的复合签名（`bundle`、四个产物以及每个 `pq_checkpoints[<id>]`）列出验证器为各组件（`classical`、`pq`）解析得到的密钥条目，以及该组件是否验证通过。
+
+<a id="admission-principal-trust-and-strict-v1-unreleased"></a>
+
+### 准入：责任主体信任与 strict-v1（尚未发布）
+
+已验证的 bundle 证明完整性和签名，而不是责任主体是谁。准入（[spec/profiles/admission](../../spec/profiles/admission/README.md)）在验证之上增加运营方的信任集合，用于固定每个责任主体的密钥，并使用运营方固定的 `strict-v1` 配置（所有等级均使用混合签名、已签名的接收方、最长300秒的已签名会话、最多300秒前的撤销快照）。它不执行网络 I/O，也绝不授权行动：`ActionAuthorized` 始终为 `false`。
+
+| 函数 | 说明 |
+|----------|-------------|
+| `v2.NewPrincipalTrustStore(json)` | 验证信任集合（`schemas/v2/principal_trust_set.schema.json`） |
+| `v2.ResolveStrictV1Profile(json)` | 验证 strict-v1 配置（`schemas/v2/admission_profile.schema.json`）；配置的 getter（`VerifierPolicy()`、`VerifierID()`、`MaxSessionDurationSeconds()`、`MaxRevocationAgeSeconds()`）返回副本 |
+| `v2.RevocationSubjects(json, verification)` | 护照中的 `agent_id` 和每个已验证签名者密钥的 kid，按顺序排列；撤销快照必须覆盖这些主体 |
+| `v2.EvaluateAdmissionV2(json, verification, v2.AdmissionOptions{...})` | 根据验证器的结果评估 `Now` 时刻的准入，不执行密码学运算 |
+| `v2.AdmitSignedBundleV2(reg, json, v2.AdmitOptions{...})` | 遵循配置中的策略，或在无配置时使用 `Policy`，执行验证与评估 |
+
+信任集合或配置无法加载、配置没有信任集合、配置与调用方 `Policy` 同时使用时，会返回 `*v2.AdmissionConfigError`，其 `Code` 为某个 `CONFIG_*` 错误码。`AdmissionResult` 包含 `Verified`、`Verification`、`PrincipalTrust`、`Profile`、`ProfileCompliance`、`Admitted`、`ActionAuthorized`、`RecordedDecision`、`TrustSetVersion` 和 `Errors`（`{Code, Message}`），JSON 形式使用规范中的字段名。仅当 `Admitted` 为 true 时才继续。
+
+```go
+// Fragment, inside a function: trustSetJSON, signedBundleJSON, reg (the algorithm registry) and lookupRevocation come from your application.
+trust, err := v2.NewPrincipalTrustStore(trustSetJSON) // operator configuration, never the bundle
+if err != nil {
+    log.Fatal(err) // *v2.AdmissionConfigError
+}
+profile, err := v2.ResolveStrictV1Profile([]byte(`{"profile":"strict-v1","verifier_id":"api.acme.example"}`))
+if err != nil {
+    log.Fatal(err)
+}
+
+now := time.Now()
+verification := v2.VerifySignedBundleV2At(reg, signedBundleJSON, profile.VerifierPolicy(), now)
+subjects := v2.RevocationSubjects(signedBundleJSON, verification)
+snapshot := lookupRevocation(subjects) // your source: a JSON snapshot, or nil when it cannot answer
+
+result, err := v2.EvaluateAdmissionV2(signedBundleJSON, verification, v2.AdmissionOptions{
+    Profile: profile, Trust: trust, Revocation: snapshot, Now: now,
+})
+if err != nil {
+    log.Fatal(err)
+}
+if !result.Admitted {
+    for _, e := range result.Errors {
+        fmt.Println(e.Code, e.Message) // e.g. TRUST_PRINCIPAL_UNKNOWN, REVOCATION_STALE
+    }
+}
+```
+
+<a id="security-tiers_1"></a>
+
+<a id="security-tiers-1"></a>
 
 ### 安全等级
 
-| 函数 | 描述 |
+| 函数 | 说明 |
 |----------|-------------|
-| `v2.ComputeSecurityTier(input)` | 计算自适应安全等级（routine/standard/elevated/maximum）及其验证模式和检查点间隔（spec §14.2）；未知值按 `elevated` 处理 |
-| `v2.SecurityTierInputFromPayloads(intent, policyDecision)` | 根据解码后的 intent 和 PolicyDecision 载荷构建等级输入（`risk_score` 取自 PolicyDecision；缺失或不是 0 到 1000 之间的整数时为 `RiskScore: -1`，即未知） |
-| `v2.EffectiveVerificationMode(policyMode, tier)` | 策略模式与等级模式中更严格的一个；`pq_only` 不变 |
+| `v2.ComputeSecurityTier(input)` | 计算自适应安全等级（routine/standard/elevated/maximum）、验证模式与检查点间隔（规范 §14.2）；未知值采用保守的 `elevated` 等级 |
+| `v2.SecurityTierInputFromPayloads(intent, policyDecision)` | 从解码后的意图和 PolicyDecision payload 构建等级输入（`risk_score` 来自 PolicyDecision；若缺失或不是0至1000的整数，则转为表示未知值的 `RiskScore: -1`） |
+| `v2.EffectiveVerificationMode(policyMode, tier)` | 策略模式与等级模式中更严格的模式；`pq_only` 保持为 `pq_only` |
 
-### 准入：委托人信任与 strict-v1
+<a id="delegation-chains-dcp-09-35-unreleased"></a>
 
-已验证的凭证包证明的是完整性和签名，而不是委托人是谁。准入（[spec/profiles/admission](../../spec/profiles/admission/README.md)，指南见 [docs/ADMISSION.md](../../docs/ADMISSION.md)）在验证之上增加运营方的信任集（固定每个委托人的密钥）以及由运营方固定的 `strict-v1` 配置（混合签名、已签名的受众、最长 300 秒的已签名会话、不超过 300 秒的吊销快照）。它不做网络 I/O，也从不授权任何操作：`ActionAuthorized` 始终为 `false`。无法加载的信任集或配置返回 `*v2.AdmissionConfigError` (`Code`)。
+### 委托链（DCP-09 §3.5，尚未发布）
 
 | 函数 | 说明 |
-|---|---|
-| `v2.VerifySignedBundleV2At(reg, json, policy, now)` | 在给定时刻验证，并报告签名密钥（`signer_keys`） |
-| `v2.NewPrincipalTrustStore(json)` | 加载并校验信任集 |
-| `v2.ResolveStrictV1Profile(json)` | 加载并校验 `strict-v1` 配置（只读） |
-| `v2.RevocationSubjects(json, verification)` | 吊销来源需要回答的 `agent_id` 和已验证的 kid |
-| `v2.EvaluateAdmissionV2(json, verification, opts)` | 根据验证结果评估准入（不做密码运算，也不做 I/O） |
-| `v2.AdmitSignedBundleV2(reg, json, opts)` | 按配置的策略验证并评估 |
-
-包含示例的完整说明见[英文 README](README.md#admission-principal-trust-and-strict-v1)。
-
-### 委托链 (DCP-09 §3.5)
-
-| 函数 | 描述 |
 |----------|-------------|
-| `v2.CreateDelegationMandate(reg, humanClassical, humanPQ, params)` | 由人类签名的根授权；`SubDelegation` 和 `MinimumSecurityTier` 为可选项 |
-| `v2.CreateSubMandate(reg, delegatorClassical, delegatorPQ, parent, v2.SubMandateParams{...})` | 由父授权中的智能体在 `DCP-AI.v2.SubMandate` 上下文下签名的子授权 |
-| `v2.VerifyMandateChain(reg, chain, revokedIDs, v2.MandateChainKeys{HumanKeys, AgentKeys}, now)` | 离线验证以根授权开头的链（一直追溯到人类的签名、链接与深度、`sub_delegation`、嵌套有效期、动作、`data_classes` 和 `limits` 的权限衰减、等级下限、撤销）；返回 `MandateChainResult{Valid, Errors, Depth, EffectiveTier}` |
+| `v2.CreateDelegationMandate(reg, humanClassical, humanPQ, params)` | 由人类签署的根委托；`SubDelegation` 和 `MinimumSecurityTier` 可选 |
+| `v2.CreateSubMandate(reg, delegatorClassical, delegatorPQ, parent, v2.SubMandateParams{...})` | 由父委托的智能体在 `DCP-AI.v2.SubMandate` 域下签署的子委托 |
+| `v2.VerifyMandateChain(reg, chain, revokedIDs, v2.MandateChainKeys{HumanKeys, AgentKeys}, now)` | 从根开始离线验证委托链（追溯至人类的签名、链接与深度、`sub_delegation`、嵌套有效期、行动及 `data_classes` 和 `limits` 的权限收窄、最低等级、撤销状态）；返回 `MandateChainResult{Valid, Errors, Depth, EffectiveTier}` |
 
-`SecurityTierInput.MandateChainTier` 接受链的 `EffectiveTier` 作为下限，该下限只能提高等级。
+`SecurityTierInput.MandateChainTier` 将委托链的 `EffectiveTier` 作为下限，只能提高等级。
+
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
+
+### 实验性功能：规范化候选方案 `dcp-jcs-v2`（须显式选择，尚未发布）
+
+非规范性且未激活：`dcp-jcs-v1` 仍是唯一的规范化配置，默认设置、构建器、签名器和验证器均不改变。这些函数供调用方在源代码 checkout 中显式选择使用（请参阅发布状态）。验证通过的候选 bundle 也不赋予信任或准入资格。设计与契约：[`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)（§15 入口处理、§16 路由器、§17 验证器、§18 生成器）。
+
+| 函数 | 说明 |
+|----------|-------------|
+| `ExperimentalCandidateIngress(input []byte)` | `Accepted`、`Canonical`、`CanonicalSHA256`，或拒绝结果的 `Class` 和 `Offset` |
+| `NewExperimentalCandidateRouter(config)` | 对字节进行路由：`reject`、`v1_path` 或 `candidate`；历史解码器使用固定标识名 `encoding_json` 指定 |
+| `NewExperimentalCandidateVerifier(config)` 和 `VerifyAt(registry, input, policy, now)` | 从原始字节开始验证，最多使用一个验证器 |
+| `ExperimentalCandidateSignPayload(registry, context, input, keys)` | 从 `ExperimentalCandidateBytes(b)` 或 `ExperimentalCandidateHostValue(v)` 签署单个产物（要求确切类型；保留 `json.Number`） |
+| `ExperimentalCandidateSignBundle(registry, parts, signer, options)` | 组装并签署一个清单中指定 `dcp-jcs-v2` 的 bundle |
+| `*ExperimentalCandidateProduceError`、`ErrExperimentalCandidateUsage` | 在调用任何签名器之前，因输入的域或形式而拒绝；或 API 使用错误 |
+
+```go
+package main
+
+import (
+    "fmt"
+
+    "github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp/providers"
+    v2 "github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp/v2"
+)
+
+func main() {
+    // The ingress decides on the original bytes: 1.0 is the integer 1, members are sorted.
+    ok, _ := v2.ExperimentalCandidateIngress([]byte(`{"b":1.0,"a":[]}`))
+    fmt.Println(string(ok.Canonical)) // {"a":[],"b":1}
+    bad, _ := v2.ExperimentalCandidateIngress([]byte(`{"a":1,"a":2}`))
+    fmt.Println(bad.Class, bad.Offset) // DUPLICATE_KEY 7
+
+    // A producer signs an artifact from those bytes (hybrid keys, today's composite signature).
+    reg := v2.NewAlgorithmRegistry()
+    reg.RegisterSigner(&providers.Ed25519Provider{})
+    reg.RegisterSigner(&providers.MlDsa65Provider{})
+    ed, _ := (&providers.Ed25519Provider{}).GenerateKeypair()
+    pq, _ := (&providers.MlDsa65Provider{}).GenerateKeypair()
+    keys := v2.ExperimentalCandidateKeys{
+        Classical: v2.CompositeKeyInfo{Kid: ed.Kid, Alg: "ed25519", SecretKeyB64: ed.SecretKeyB64, PublicKeyB64: ed.PublicKeyB64},
+        PQ:        &v2.CompositeKeyInfo{Kid: pq.Kid, Alg: "ml-dsa-65", SecretKeyB64: pq.SecretKeyB64, PublicKeyB64: pq.PublicKeyB64},
+    }
+    artifact, err := v2.ExperimentalCandidateSignPayload(reg, v2.CtxIntent, v2.ExperimentalCandidateBytes([]byte(`{"intent_id":"intent:1","risk":1.0}`)), keys)
+    if err != nil {
+        panic(err)
+    }
+    fmt.Println(artifact.SignedPayload["payload_hash"]) // sha256:... of {"intent_id":"intent:1","risk":1}
+}
+```
+
+<a id="composite-signatures"></a>
 
 ### 复合签名
 
-| 函数 | 描述 |
+| 函数 | 说明 |
 |----------|-------------|
-| `v2.CompositeSign(reg, ctx, payload, classicalKey, pqKey)` | 后量子覆盖经典的复合签名 |
-| `v2.ClassicalOnlySign(reg, ctx, payload, key)` | 仅经典签名过渡模式 |
+| `v2.CompositeSign(reg, ctx, payload, classicalKey, pqKey)` | 对经典签名再作 PQ 签名的复合签名 |
+| `v2.ClassicalOnlySign(reg, ctx, payload, key)` | 仅经典签名的过渡模式 |
 | `v2.CompositeVerify(reg, ctx, payload, sig, classicalPK, pqPK)` | 验证复合签名 |
 
-### 加密 Provider
+<a id="crypto-providers"></a>
 
-| Provider | 算法 | 类型 | 标准 |
+### 密码学提供程序
+
+| 提供程序 | 算法 | 类型 | 标准 |
 |----------|-----------|------|----------|
 | `Ed25519Provider` | ed25519 | 签名 | — |
 | `MlDsa65Provider` | ml-dsa-65 | 签名 | FIPS 204 |
 | `SlhDsa192fProvider` | slh-dsa-192f | 签名 | FIPS 205 |
 | `MlKem768Provider` | ml-kem-768 | KEM | FIPS 203 |
 
-### V1 API（未变）
+<a id="v1-api-unchanged"></a>
 
-| 函数 | 描述 |
+### V1 API（不变）
+
+| 函数 | 说明 |
 |----------|-------------|
 | `dcp.GenerateKeypair()` | Ed25519 密钥对 |
 | `dcp.SignObject(obj, sk)` | 对对象签名 |
 | `dcp.VerifyObject(obj, sig, pk)` | 验证签名 |
 | `dcp.Canonicalize(obj)` | 确定性 JSON |
-| `dcp.HashObject(obj)` | 规范 JSON 的 SHA-256 |
-| `dcp.VerifySignedBundle(sb, pk)` | V1 凭证包验证 |
+| `dcp.HashObject(obj)` | 规范化 JSON 的 SHA-256 |
+| `dcp.VerifySignedBundle(sb, pk)` | V1 bundle 验证 |
+
+<a id="dcp-0509-types"></a>
 
 ### DCP-05–09 类型
 
-V2 包含针对 DCP-05 至 DCP-09 全部工件的 Go struct：
+V2 为 DCP-05 至 DCP-09 的所有产物提供 Go 结构体：
 
 | 规范 | 类型 |
 |------|-------|
-| DCP-05 | `LifecycleState`、`CommissioningCertificate`、`VitalityReport`、`VitalityMetrics`、`DecommissioningRecord`、`TerminationMode`、`DataDisposition` |
-| DCP-06 | `DigitalTestament`、`SuccessionRecord`、`MemoryTransferManifest`、`MemoryTransferEntry`、`SuccessorPreference`、`MemoryClassification`、`TransitionType`、`MemoryDisposition` |
-| DCP-07 | `DisputeRecord`、`ArbitrationResolution`、`JurisprudenceBundle`、`ObjectionRecord`、`DisputeType`、`EscalationLevel`、`DisputeStatus`、`ObjectionType`、`AuthorityLevel` |
-| DCP-08 | `RightsDeclaration`、`RightEntry`、`ObligationRecord`、`RightsViolationReport`、`RightType`、`ComplianceStatus` |
-| DCP-09 | `DelegationMandate`、`AdvisoryDeclaration`、`PrincipalMirror`、`InteractionRecord`、`AwarenessThreshold`、`ThresholdRule`、`AuthorityScopeEntry` |
+| DCP-05 | `LifecycleState`, `CommissioningCertificate`, `VitalityReport`, `VitalityMetrics`, `DecommissioningRecord`, `TerminationMode`, `DataDisposition` |
+| DCP-06 | `DigitalTestament`, `SuccessionRecord`, `MemoryTransferManifest`, `MemoryTransferEntry`, `SuccessorPreference`, `MemoryClassification`, `TransitionType`, `MemoryDisposition` |
+| DCP-07 | `DisputeRecord`, `ArbitrationResolution`, `JurisprudenceBundle`, `ObjectionRecord`, `DisputeType`, `EscalationLevel`, `DisputeStatus`, `ObjectionType`, `AuthorityLevel` |
+| DCP-08 | `RightsDeclaration`, `RightEntry`, `ObligationRecord`, `RightsViolationReport`, `RightType`, `ComplianceStatus` |
+| DCP-09 | `DelegationMandate`, `AdvisoryDeclaration`, `PrincipalMirror`, `InteractionRecord`, `AwarenessThreshold`, `ThresholdRule`, `AuthorityScopeEntry` |
 
 域分离上下文：`CtxLifecycle`、`CtxSuccession`、`CtxDispute`、`CtxRights`、`CtxDelegation`、`CtxAwareness`
 
-所有 struct 包含 JSON 标签用于序列化/反序列化，并遵循 Go 命名约定（可选字段使用 `json:"field_name,omitempty"`）。
+所有结构体都包含用于序列化与反序列化的 JSON 标签，并遵循 Go 命名约定（可选字段使用 `json:"field_name,omitempty"`）。
+
+<a id="development"></a>
 
 ## 开发
 
@@ -242,10 +382,14 @@ go fmt ./...     # Format
 go mod tidy      # Verify dependencies
 ```
 
+<a id="dependencies"></a>
+
 ### 依赖
 
 - `github.com/cloudflare/circl` — ML-DSA-65、SLH-DSA-192f、ML-KEM-768
 - `golang.org/x/crypto` — SHA3-256
+
+<a id="license"></a>
 
 ## 许可证
 

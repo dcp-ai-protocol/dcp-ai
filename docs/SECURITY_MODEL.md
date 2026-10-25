@@ -12,6 +12,8 @@ Verification is local. This is not a weakness; it is the core security property.
 - **Cryptographic guarantees are location-independent.** Ed25519 signatures and SHA-256 hashes produce the same result on any machine. You cannot "hack the math."
 - **The verifier does not trust the agent.** The agent presents a bundle; the verifier checks it with its own tools. A compromised agent cannot make a verifier accept an invalid bundle.
 
+Verification says that a bundle is intact and signed by the keys it names. Whether to trust those keys, and to act on the bundle, is a separate decision: admission against the operator's trusted principals ([ADMISSION.md](ADMISSION.md), unreleased), plus the operator's own authorization.
+
 Security comes from **layers of protection**, each addressing a different attack vector.
 
 ---
@@ -22,7 +24,7 @@ Security comes from **layers of protection**, each addressing a different attack
 
 **Attack:** an attacker modifies a field in a Signed Bundle (e.g. changes `agent_passport.status` from `"revoked"` to `"active"`).
 
-**Protection:** the Ed25519 signature covers the canonical JSON of the entire bundle. Any modification — even a single byte — invalidates the signature. The verifier recomputes `bundle_hash = SHA-256(canonical(bundle))` and checks it against the signed hash. Both checks fail if the bundle was modified.
+**Protection:** the Ed25519 signature covers the canonical JSON of the entire bundle (`dcp-jcs-v1`). Any change to the signed content — a value, a key, an element — invalidates the signature. Changes that leave the canonical form the same, such as whitespace or the order of keys, are not changes to the signed content and still verify. The verifier recomputes `bundle_hash = SHA-256(canonical(bundle))` and checks it against the signed hash. Both checks fail if the content was modified.
 
 **Strength:** cryptographic. Breaking Ed25519 requires solving the discrete logarithm problem on Curve25519; no known practical attack exists.
 
@@ -48,7 +50,7 @@ Security comes from **layers of protection**, each addressing a different attack
 - **Jurisdictional revocation list:** the government publishes a signed list of revoked agents at a well-known URL. Verifiers fetch and cache it.
 - **Key rotation:** generate a new keypair (`dcp keygen`), re-sign bundles, revoke the old key.
 
-**Strength:** depends on revocation propagation speed. With a cached revocation list (e.g. 1-hour TTL), a stolen key is useful for at most 1 hour after revocation.
+**Strength:** depends on revocation propagation and on what the verifier does when it cannot get fresh status. A cache TTL alone is not a bound: a stolen key stays useful until the owner publishes the revocation, and then until each verifier fetches a list that includes it. With a cached list (e.g. 1-hour TTL), the window after publication is about one hour only for a verifier that refreshes on time and fails closed when it cannot fetch the list. A verifier that keeps using a stale list, or that skips revocation when the source is unreachable, has no bound. The strict-v1 admission profile requires a revocation snapshot at most 300 seconds old and fails when the source is unavailable ([ADMISSION.md](ADMISSION.md#revocation-sources)).
 
 ### 4. Modified verifier (compromised verification code)
 
@@ -56,11 +58,11 @@ Security comes from **layers of protection**, each addressing a different attack
 
 **Protection:**
 
-- **Only fools the operator.** A modified verifier only affects the entity running it. Other verifiers (banks, governments, platforms) run their own unmodified code. A compromised verifier at one platform does not affect any other.
-- **Protocol integrity check:** `dcp integrity` verifies that local schemas match the canonical fingerprints (see below). If the schemas are modified, the check fails.
-- **Conformance tests:** `npm run conformance` validates the implementation against known-good fixtures. A modified implementation will fail conformance.
+- **Trust boundary.** A compromised verifier affects its operator and clients that rely on its results. Independently run verifiers do not inherit those results; a shared compromised dependency can affect multiple operators.
+- **Schema fingerprint check:** `dcp integrity` compares the local V1 schemas with the fingerprints in the local `protocol_fingerprints.json` (see below). It detects a V1 schema changed without its fingerprint; it does not check the verification code.
+- **Conformance tests:** `npm run conformance` validates the implementation against known-good fixtures. A modified implementation that changes the results on those fixtures fails conformance; a change outside what the fixtures exercise can still pass.
 
-**Strength:** there is no way to force all verifiers to use compromised code. The attack surface is limited to the single entity that modified its own verifier.
+**Strength:** the impact depends on how the compromised code is distributed and who relies on its results. Independent verification limits reliance on another verifier; it does not eliminate supply-chain risk.
 
 ### 5. Protocol fork (the real threat)
 
@@ -68,18 +70,18 @@ Security comes from **layers of protection**, each addressing a different attack
 
 **Protection:**
 
-- **Protocol fingerprints:** the file `protocol_fingerprints.json` at the repo root contains the SHA-256 hash of every canonical schema. Any implementation can verify its schemas match the fingerprints. If someone modifies a schema, the fingerprint changes.
-- **`dcp integrity` command:** verifies that all local schemas match the canonical fingerprints:
+- **Protocol fingerprints:** the file `protocol_fingerprints.json` at the repo root contains the SHA-256 hash of each V1 schema file. Any implementation can check its V1 schemas against them. If someone modifies a schema, its hash changes.
+- **`dcp integrity` command:** compares the V1 schemas in `schemas/v1/` with the fingerprints in the local `protocol_fingerprints.json`:
 
   ```bash
   dcp integrity
   # ✅ PROTOCOL INTEGRITY VERIFIED — all schemas match canonical fingerprints.
   ```
 
-- **Conformance as definition:** if an implementation passes `npm run conformance` with canonical schemas (matching fingerprints), it is DCP-conformant. If not, it is not. The name does not matter; the math does.
+- **Conformance evidence:** passing `npm run conformance` with schemas obtained from a trusted source demonstrates agreement on the cases that suite covers. It does not prove that every protocol requirement or input is handled correctly; review the implementation and the coverage of the applicable specification as well.
 - **Bundle-level version:** every artifact includes `dcp_version: "1.0"`. A verifier checks the version and uses the corresponding schemas. A fork with different schemas would need a different version, making it distinguishable.
 
-**Strength:** protocol fingerprints make it cryptographically detectable whether an implementation uses the real protocol. A fork cannot claim to be DCP v1.0 while using different schemas without failing the integrity check.
+**Strength:** limited. The fingerprints detect a V1 schema that differs from the fingerprint file next to it. They do not authenticate that file (it is not signed, and a fork can change both), they do not cover the V2 schemas, and they say nothing about the code. A match is not a certification of the implementation. Compare against fingerprints obtained from a source you trust, and run the conformance suite, to judge an implementation.
 
 ### 6. Retroactive modification (bundle changed after anchoring)
 
@@ -105,10 +107,11 @@ Layer 2: Attestation (jurisdiction signs RPR)
   Fake identities are detected if attestation is required.
 
 Layer 3: Revocation (signed lists by jurisdiction)
-  Stolen keys are invalidated within the revocation TTL.
+  Fresh status and fail-closed handling bound acceptance after revocation;
+  a cache TTL alone is not a propagation guarantee.
 
 Layer 4: Protocol integrity (fingerprints + dcp integrity)
-  Protocol forks are detected by schema hash mismatch.
+  A V1 schema changed without its fingerprint is detected.
 
 Layer 5: Transparency log (append-only Merkle tree)
   Retroactive modifications are detected by log proof mismatch.
@@ -117,13 +120,13 @@ Layer 6: Blockchain anchor (Bitcoin / Ethereum)
   Provides immutable, public proof of bundle existence at a point in time.
 ```
 
-Layers 1–4 are available in this repo today. Layers 5–6 are documented and designed ([docs/STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md)); implementations are operator-specific.
+Layers 1–4 are available in this repo today. Layer 5 has a reference service (`services/transparency-log/`, in memory). Layer 6 is designed ([docs/STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md)) and has an Ethereum contract (`contracts/ethereum/`), but the reference anchor service does not submit to a chain yet; production implementations are operator-specific.
 
 ---
 
 ## Protocol fingerprints
 
-The file `protocol_fingerprints.json` at the repo root contains the canonical SHA-256 hash of each schema file in `schemas/v1/`. Format:
+The file `protocol_fingerprints.json` at the repo root contains the SHA-256 hash of the bytes of each schema file in `schemas/v1/`. Format:
 
 ```json
 {
@@ -137,7 +140,7 @@ The file `protocol_fingerprints.json` at the repo root contains the canonical SH
 }
 ```
 
-Any implementation — in any language, on any platform — can compute the SHA-256 of its schema files and compare against these fingerprints. If they match, the implementation uses the canonical protocol. If not, it does not.
+Any implementation — in any language, on any platform — can compute the SHA-256 of its schema files and compare against these fingerprints. A match means its V1 schema files are byte-identical to the ones fingerprinted; it does not prove that its code verifies correctly, and the fingerprint file is only as trustworthy as the place you got it from.
 
 **Verify locally:**
 
@@ -149,9 +152,10 @@ dcp integrity
 
 ## What the protocol does NOT protect against
 
-- **A malicious human behind a valid bundle.** DCP ensures that every agent is bound to a human. It does not ensure the human is ethical. That is the jurisdiction's domain (law enforcement, regulation).
+- **A malicious human behind a valid bundle.** DCP can carry a principal binding and evidence checked against the operator's trust configuration. It does not establish a real-world identity automatically or ensure that the principal acts ethically. Law enforcement and regulation remain outside cryptographic verification.
 - **A compromised verifier accepting invalid bundles.** Each entity is responsible for running correct verification code. The protocol provides fingerprints and conformance tests; using them is the operator's responsibility.
-- **Denial of service.** Rate limiting is specified per-endpoint in the API (see `x-ratelimit` in `openapi.yaml`). DDoS mitigation at the infrastructure level is the operator's responsibility.
+- **Denial of service.** Rate limiting is specified per-endpoint in the API (see `x-ratelimit` in [`api/openapi.yaml`](../api/openapi.yaml)). DDoS mitigation at the infrastructure level is the operator's responsibility.
+- **Replay of a valid bundle.** A signed bundle can be presented again; see [Cross-Artifact Replay](#9-cross-artifact-replay) for what bounds it.
 
 ---
 
@@ -166,11 +170,11 @@ DCP v2.0 significantly strengthens the security model with post-quantum cryptogr
 **Attack:** A quantum adversary with access to a large-scale quantum computer (or a "harvest now, decrypt later" strategy) targets Ed25519 signatures and key exchanges.
 
 **Protection:**
-- **Hybrid composite signatures:** Every V2 signature is a composite of Ed25519 (classical) + ML-DSA-65 (post-quantum, FIPS 204). The PQ signature covers the classical signature (`pq_over_classical` binding), so breaking either alone is insufficient.
-- **Hybrid KEM:** Key exchange uses X25519 + ML-KEM-768 (FIPS 203). Session keys are secure if either component algorithm holds.
-- **Dual hash chains:** Audit trails use both SHA-256 and SHA3-256 in parallel. If one hash family is compromised, the other provides continuity.
+- **Hybrid composite signatures:** A V2 composite signature pairs Ed25519 (classical) with ML-DSA-65 (post-quantum, FIPS 204). The PQ signature covers the classical signature (`pq_over_classical` binding), so breaking either alone is insufficient. A V2 signature can also be `classical_only`; whether it is accepted depends on the verification mode (§8).
+- **Hybrid KEM:** The DCP-04 key exchange uses X25519 + ML-KEM-768 (FIPS 203), so session keys stay secure if either component algorithm holds. The SDKs do not run this exchange: the caller derives the session key ([NIST_CONFORMITY.md](NIST_CONFORMITY.md) §2.1).
+- **Dual hash chains:** the design uses SHA-256 and SHA3-256 in parallel to provide continuity if one hash family is compromised, provided both chains are verified. Current V2 bundle verifiers do not recompute the optional secondary audit chain or secondary Merkle root; a successful result therefore does not establish this additional protection ([STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)).
 
-**Strength:** NIST Level 3 post-quantum security. An attacker must break both classical AND post-quantum algorithms simultaneously.
+**Strength:** NIST Level 3 post-quantum security for signatures checked in `hybrid_required` mode (the mode of the elevated and maximum tiers): an attacker must break both the classical and the post-quantum algorithm.
 
 ### 8. Stripping Attacks (Composite Signature)
 
@@ -180,9 +184,9 @@ DCP v2.0 significantly strengthens the security model with post-quantum cryptogr
 1. `classical_sig = Ed25519.sign(context || 0x00 || payload)`
 2. `pq_sig = ML-DSA-65.sign(context || 0x00 || payload || classical_sig)`
 
-The PQ signature covers the classical signature. Removing either component causes verification to fail. A verifier with `hybrid_required` policy rejects bundles missing the PQ component.
+The PQ signature covers the classical signature, so a modified classical signature, or a PQ signature moved to another payload, fails verification. Stripping the PQ signature altogether leaves a `classical_only` signature, which only the effective mode decides: `hybrid_required` (and `pq_only`) rejects it, while `hybrid_preferred` accepts it with a warning and `classical_only` accepts it.
 
-**Strength:** Cryptographic. The binding is tamper-evident; any modification to either signature component is detectable.
+**Strength:** Cryptographic in `hybrid_required` mode. Under `hybrid_preferred` or `classical_only`, stripping is visible (the warning, the `classical_only` binding) but not rejected.
 
 ### 9. Cross-Artifact Replay
 
@@ -192,7 +196,9 @@ The PQ signature covers the classical signature. Removing either component cause
 - **Domain separation:** Every signature includes a context tag (e.g., `DCP-AI.v2.Intent`, `DCP-AI.v2.Bundle`). Signatures for one artifact type cannot be replayed for another.
 - **Session nonce:** Each bundle includes a 256-bit random session nonce. The manifest binds all artifacts to this nonce. Replaying artifacts from one session into another session breaks the manifest hash.
 
-**Strength:** Cryptographic domain separation + session binding.
+The nonce does not stop the same bundle from being presented again: a whole bundle replays as it is. A signed session expiry and a signed `intended_verifier` (both required by the strict-v1 admission profile) bound where and for how long a bundle can be replayed; they do not make it single-use. A verifier that needs single use keeps its own record of consumed nonces or bundle hashes ([ADMISSION.md](ADMISSION.md#limits)).
+
+**Strength:** Cryptographic domain separation + session binding, against mixing artifacts; not against replaying a whole bundle.
 
 ### 10. Security Tier Downgrade
 
@@ -211,35 +217,37 @@ The PQ signature covers the classical signature. Removing either component cause
 
 **Protection:**
 - **Mutual bundle verification:** Both agents verify each other's bundles before establishing a session.
-- **Hybrid KEM key exchange:** Ephemeral keys provide forward secrecy. Compromising long-term keys does not reveal past session keys.
+- **Hybrid KEM key exchange:** Ephemeral keys provide forward secrecy. Compromising long-term keys does not reveal past session keys. The SDKs leave this exchange to the caller.
 - **AES-256-GCM encryption:** All session messages are encrypted with authenticated encryption.
 - **Monotonic sequence numbers:** Prevent replay and reordering within a session.
-- **Periodic rekeying:** Session keys are refreshed every N messages.
-- **Revocation awareness:** If either agent is revoked during a session, the session terminates immediately.
+- **Periodic rekeying:** The session reports when a rekey is due (`needsRekeying`); the caller derives the new key.
+- **Revocation awareness:** The specification ends a session when either agent is revoked. The SDKs do not watch revocation during a session: the application must check it and close the session.
 
-**Strength:** Post-quantum forward secrecy + authenticated encryption.
+**Strength:** Post-quantum forward secrecy + authenticated encryption, when the caller runs the hybrid exchange and the rekeying.
 
 ### 12. Lifecycle State Manipulation (DCP-05)
 
 **Attack:** A malicious actor attempts to bypass lifecycle state transitions — e.g., reactivating a decommissioned agent or skipping the "declining" state to avoid data disposition procedures.
 
-**Protection:**
-- **State machine enforcement:** The server enforces a strict state machine: `commissioned → active → declining → decommissioned`. Invalid transitions are rejected with a 400 error.
-- **Signed lifecycle records:** Every state transition (commissioning certificate, vitality report, decommissioning record) is signed and hash-chained.
-- **Immutable decommissioning:** Once an agent reaches `decommissioned`, no further transitions are possible. The decommissioning record includes data disposition proof.
+**Protection (specification and SDK):**
+- **State machine:** `commissioned → active → declining → decommissioned`; invalid transitions are refused.
+- **Signed lifecycle records:** Every state transition (commissioning certificate, vitality report, decommissioning record) carries a composite signature, and vitality reports are hash-chained.
+- **Final decommissioning:** Once an agent reaches `decommissioned`, no further transitions are possible. The decommissioning record states the data disposition.
 
-**Strength:** State machine enforcement + cryptographic audit trail. Unauthorized transitions are rejected at both protocol and implementation level.
+**In the reference server:** the lifecycle endpoints refuse invalid transitions (409), but they do not verify the records' signatures and need no authentication; a new commissioning certificate for a decommissioned agent resets it to `commissioned` ([OPERATOR_GUIDE.md](OPERATOR_GUIDE.md#dcp-0509-service-endpoints)).
+
+**Strength:** where the records' signatures are verified (by the SDK functions, or by a service that calls them), the state machine plus the signed trail. The reference server alone gives neither.
 
 ### 13. Unauthorized Succession (DCP-06)
 
 **Attack:** An unauthorized party creates a digital testament or initiates succession for an agent they don't control, transferring memory and authority to a rogue successor.
 
 **Protection:**
-- **Testament signing:** Digital testaments must be signed by the agent's responsible principal. The `testament_id`, `agent_id`, and `successor_preferences` are bound by the signature.
+- **Testament signing:** Digital testaments carry a composite signature that binds the `agent_id` and `successor_preferences`. The reference server stores testaments without verifying it.
 - **Memory classification:** Memory transfers use classified access levels. Only entries matching the successor's clearance are transferred.
 - **Dual-hash manifests:** Memory transfer manifests use dual-hash (SHA-256 + SHA3-256) references to prevent tampering with transferred data.
 
-**Strength:** Cryptographic binding of succession authority + classified memory access control.
+**Strength:** Cryptographic binding of succession authority + classified memory access control, for a verifier that checks the signatures.
 
 ### 14. Delegation Abuse & Authority Escalation (DCP-09)
 
@@ -249,9 +257,9 @@ The PQ signature covers the classical signature. Removing either component cause
 - **Scoped delegation mandates:** Each mandate specifies `authority_scope` with explicit domains and actions. Actions outside scope are rejected.
 - **Awareness thresholds:** Configurable thresholds trigger alerts or require human confirmation when delegation parameters exceed defined limits (risk score, financial amount, data sensitivity).
 - **Principal mirrors:** The `PrincipalMirror` record maintains a verifiable snapshot of the principal's preferences, preventing drift between delegated authority and principal intent.
-- **Interaction logging:** Every interaction between delegate and principal is recorded with signed `InteractionRecord` entries.
+- **Interaction logging:** Interactions can be recorded as signed `InteractionRecord` entries; recording them is up to the application.
 
-**Strength:** Scoped authorization + threshold monitoring + cryptographic audit trail.
+**Strength:** Scoped authorization + threshold monitoring + cryptographic audit trail, for a verifier that checks mandates and their signatures. The reference server stores mandates without verifying their signatures, and lets anyone revoke a revocable one ([OPERATOR_GUIDE.md](OPERATOR_GUIDE.md#dcp-0509-service-endpoints)).
 
 ### Updated Protection Layers (V2.0)
 
@@ -262,12 +270,13 @@ Layer 1: Cryptography (Ed25519 + ML-DSA-65 composite, SHA-256 + SHA3-256 dual ha
 Layer 2: Attestation (jurisdiction signs RPR)
   Fake identities detected if attestation is required.
 
-Layer 3: Revocation (signed lists + emergency revocation via pre-image)
-  Stolen keys invalidated within revocation TTL.
-  Emergency revocation: reveal pre-image to instantly revoke all keys.
+Layer 3: Revocation (lists + emergency revocation via pre-image)
+  Stolen keys are refused by verifiers that fetch fresh status and fail closed.
+  Emergency revocation: revealing the pre-image revokes all keys without a signature,
+  effective for each verifier once it learns of it.
 
 Layer 4: Protocol integrity (fingerprints + dcp integrity)
-  Protocol forks detected by schema hash mismatch.
+  A V1 schema changed without its fingerprint is detected.
 
 Layer 5: Transparency log (append-only Merkle tree)
   Retroactive modifications detected by log proof mismatch.
@@ -285,7 +294,7 @@ Layer 9: Observability (V2.0)
   Telemetry, metrics, and alerting for anomalous behavior.
 
 Layer 10: Lifecycle Governance (DCP-05)
-  State machine enforcement prevents unauthorized agent state changes.
+  Signed lifecycle records and a state machine, where the signatures are verified.
 
 Layer 11: Succession Security (DCP-06)
   Signed testaments and classified memory transfers protect succession integrity.
@@ -316,7 +325,9 @@ For migration from V1.0 security model, see [MIGRATION_V1_V2.md](MIGRATION_V1_V2
 | **Elevated** | HSM/TPM integration (SHOULD). OS keychain integration |
 | **Maximum** | HSM/TPM integration (MUST). Air-gapped ceremony for key generation |
 
-All DCP CLI commands write secret key files with mode `0600` (owner-read-only). Operators MUST NOT relax these permissions.
+This repository has no HSM/TPM integration: the `HsmCryptoProvider` in the TypeScript source is a simulated pattern that must not be used for real evidence ([NIST_CONFORMITY.md](NIST_CONFORMITY.md) §2.2). The elevated and maximum rows need an integration of your own.
+
+The reference CLI (`bin/dcp.js`) and the Python SDK's CLI write secret key files with mode `0600` (owner read and write, no permissions for group or others). The interactive `@dcp-ai/cli init` does not: it writes them with default permissions (`0644` with the usual umask `022`), so run `chmod 600 .dcp/keys/*_secret.key`. Operators MUST NOT relax these permissions.
 
 ### Revocation Propagation SLAs
 
@@ -327,7 +338,7 @@ All DCP CLI commands write secret key files with mode `0600` (owner-read-only). 
 | **Elevated** | 15 minutes |
 | **Maximum** | Immediate (push notification + OCSP-like stapling) |
 
-Operators SHOULD configure revocation list cache TTL according to the highest tier they serve.
+These are targets for operators. The repository has no push notification or stapling; the closest is the strict-v1 admission profile, which requires a revocation snapshot at most 300 seconds old. Operators SHOULD configure revocation list cache TTL according to the highest tier they serve, and fail closed when the list cannot be fetched.
 
 ### API Security
 
@@ -357,18 +368,20 @@ Operators deploying DCP MUST:
 
 | Limitation | Mitigation |
 |---|---|
-| Self-declared identity at `routine` tier | Attestation required for `standard`+ tiers |
-| Verification cache may serve stale results | Cache MUST be invalidated on revocation list updates |
+| Self-declared identity at `routine` tier | Require attestation, or admission against a trust set, for `standard`+ tiers; the verifiers do not enforce it by themselves |
+| Verification cache may serve stale results | Cache MUST be invalidated on revocation list updates. The TypeScript `VerificationCache` is keyed only by the bundle hash and its `invalidateByAgent` does nothing, so clear it or do not cache across trust or revocation changes ([API_REFERENCE.md](API_REFERENCE.md)) |
+| V2 bundle verifiers do not recompute the optional secondary audit chain or secondary Merkle root | Rely only on the checks actually performed: primary SHA-256 commitments and signatures. Do not claim the additional protection specified in V2-11 from a successful result; the experimental candidate reuses these checks ([STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)) |
 | `agent_id` persistence enables tracking | Consider pseudonym rotation for high-privacy scenarios |
 | BlindedRPR exposes `entity_type` and `jurisdiction` | Future: ZKP-based credential presentation |
-| Python SDK has no `ml-kem-768` provider yet | For A2A sessions requiring ML-KEM, use the TypeScript, Rust, Go, or WASM SDK. Python ML-KEM provider is planned. |
-| ML-DSA-87 has no native software provider | Available only through the HSM interface for hardware-backed Maximum tier. Native software provider is reserved for a future SDK release. |
+| No SDK runs the X25519 + ML-KEM-768 exchange of DCP-04 | The caller derives the A2A session key. Python, Go, Rust and WASM expose ML-KEM-768 as a primitive; the TypeScript KEM providers are internal |
+| ML-DSA-87 is not implemented | The identifier is reserved in the key schema; no SDK can use it, and the simulated HSM pattern that lists it is not an implementation |
+| The reference server's DCP-05–09 endpoints have no authentication and do not verify signatures | Do not expose them to untrusted clients ([OPERATOR_GUIDE.md](OPERATOR_GUIDE.md#dcp-0509-service-endpoints)) |
 
 The following limitations that appeared in earlier drafts have been **closed**:
 
 - *PQ crypto in CLI was simulated (HMAC placeholder)* — resolved: the reference CLI (`bin/dcp.js`) now uses real ML-DSA-65 via `@noble/post-quantum` for key generation and signing.
 - *Shamir SSS in CLI was placeholder (random shares)* — resolved: the CLI uses `secrets.js-grempe`, a proper Shamir Secret Sharing library, for key recovery operations.
-- *DCP-04..09 behavior was TypeScript-only* — resolved in 2.2.0..2.7.0: lifecycle, succession, dispute resolution, arbitration, rights & obligations, delegation, awareness threshold, principal mirror, plus the full A2A handshake and AES-256-GCM session layer (Python + Go) are now available across Python, Rust, and Go with identical semantics to the TypeScript reference. See [CHANGELOG.md](../CHANGELOG.md#210---2026-04-22) for the release-by-release breakdown.
+- *DCP-04..09 behavior was TypeScript-only* — resolved in 2.2.0..2.7.0: lifecycle, succession, dispute resolution, arbitration, rights & obligations, delegation, awareness threshold and principal mirror are available across Python, Rust, and Go with the same semantics as the TypeScript reference. The A2A handshake messages and AES-256-GCM session layer are in Python and Go; Rust covers discovery, handshake messages and session IDs. See [CHANGELOG.md](../CHANGELOG.md#210---2026-04-22) for the release-by-release breakdown.
 - *Canonical error taxonomy was TS-only* — resolved in 2.7.0: 38 `DcpErrorCode` values with stable `DCP-E###` identifiers are now aligned across TypeScript, Python, Rust, and Go so cross-SDK error handling matches on a single string.
 - *Python CLI `keygen` wrote the secret key with default file mode* — resolved: `sdks/python/dcp_ai/cli.py` now creates `secret_key.txt` atomically with mode 0600 from the `os.open` call itself (no chmod race window) and sets the containing directory to mode 0700.
 

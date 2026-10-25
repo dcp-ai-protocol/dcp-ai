@@ -1,63 +1,84 @@
 <sub>[English](README.md) · [中文](README.zh-CN.md) · [Español](README.es.md) · **日本語** · [Português](README.pt-BR.md)</sub>
 
-# Specs — DCP-AI 規範仕様
+<a id="specs--dcp-ai-normative"></a>
+<a id="specs-dcp-ai-normative"></a>
 
-AIエージェントのためのデジタル市民権プロトコルの規範仕様です。フォーマットの真の情報源は `schemas/v1/` および `schemas/v2/` のJSONスキーマであり、これらのドキュメントはスコープ、成果物、および検証方法を定義します。
+# 仕様 — DCP-AI の規範
 
-## 基盤仕様 (DCP-01 – DCP-03)
+> [英語版](README.md)の参考訳です（25/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
-| Spec | スコープ | 成果物 |
+Digital Citizenship Protocol for AI Agents の規範的な仕様です。形式の正となるのは `schemas/v1/` と `schemas/v2/` の JSON Schema で、これらの文書は範囲、アーティファクト、検証の仕方を定義します。
+
+<a id="foundation-specifications-dcp-01--dcp-03"></a>
+<a id="foundation-specifications-dcp-01-dcp-03"></a>
+
+## 基礎の仕様（DCP-01 – DCP-03）
+
+| 仕様 | 範囲 | アーティファクト |
 |------|-------|-----------|
-| [DCP-01](DCP-01.md) | アイデンティティと責任主体バインディング | Responsible Principal Record、Agent Passport、Revocation Record |
-| [DCP-02](DCP-02.md) | 意図宣言とポリシーゲーティング | Intent、PolicyDecision、HumanConfirmation (オプション) |
-| [DCP-03](DCP-03.md) | 監査チェーンと透明性 | AuditEntry、prev_hashチェーン連結、オプションのMerkle |
-| [BUNDLE](BUNDLE.md) | 市民権バンドルと署名済みバンドル | Citizenship Bundle (L3)、Signed Bundle (Ed25519署名、bundle_hash、merkle_root) |
-| [VERIFICATION](VERIFICATION.md) | 検証チェックリスト | 署名済みバンドルを検証するための規範的ステップ (スキーマ、署名、有効期限、失効、intent_hash、監査チェーン、merkle; すべてローカル) |
+| [DCP-01](DCP-01.md) | アイデンティティとプリンシパルへの結び付け | Responsible Principal Record、Agent Passport、Revocation Record |
+| [DCP-02](DCP-02.md) | 意図の宣言とポリシーによる制御 | Intent、PolicyDecision、HumanConfirmation（省略可能） |
+| [DCP-03](DCP-03.md) | 監査チェーンと透明性 | AuditEntry、prev_hash によるチェーン、省略可能な Merkle |
+| [BUNDLE](BUNDLE.md) | Citizenship Bundle と Signed Bundle | Citizenship Bundle（L3）、Signed Bundle（Ed25519 の署名、bundle_hash、merkle_root） |
+| [VERIFICATION](VERIFICATION.md) | 検証のチェックリスト | Signed Bundle を検証する規範的な手順（スキーマ、署名、期限、失効、intent_hash、監査チェーン、Merkle。すべてローカル） |
 
-**検証:** `dcp validate <schema> <json>`、`dcp validate-bundle <bundle.json>`、`dcp verify-bundle [--policy <mode>] <signed.json> [public_key.txt]`、`dcp intent-hash <intent.json>`。
-**適合性:** `npm run conformance` はL3-OBJECTS + L3-BUNDLE + L3-SIGNED + intent_hash および prev_hash チェーンを検証します。
+**検証**（`dcp` はチェックアウトのリファレンスの CLI、`node bin/dcp.js`）：`dcp validate <schema> <json>`、`dcp validate-bundle <bundle.json>`、`dcp verify-bundle [--policy <mode>] <signed.json> [public_key.txt]`、`dcp intent-hash <intent.json>`。
+**適合性：** `npm run conformance` は L3-OBJECTS + L3-BUNDLE + L3-SIGNED + intent_hash と prev_hash のチェーンを検証します。
+
+これらのコマンドと DCP-01 から DCP-03 は V1 のアーティファクトを説明しています。V2 のアーティファクトと確認は
+[DCP-AI v2.0](DCP-AI-v2.0.md) と [VERIFICATION](VERIFICATION.md) の V2 のチェックリストにあります。検証を通るバンドルは一貫しており、
+列挙する鍵で署名されています。そのプリンシパルへの信頼は別の手順です（[docs/ADMISSION.md](../docs/ADMISSION.md)）。
 
 ---
 
-## 通信と暗号 (DCP-04、v2.0)
+<a id="communication--cryptography-dcp-04-v20"></a>
+<a id="communication-cryptography-dcp-04-v20"></a>
 
-| ドキュメント | スコープ |
+## 通信と暗号（DCP-04、v2.0）
+
+| 文書 | 範囲 |
 |----------|-------|
-| [DCP-04](DCP-04.md) | エージェント間通信 |
-| [DCP-AI v2.0](DCP-AI-v2.0.md) | 耐量子規範仕様 |
-| [Canonicalization Profile](CANONICALIZATION_PROFILE.md) | `dcp-jcs-v1` — すべての署名・ハッシュ・Merkleリーフに用いる、バイト単位で厳密なJSON正規化 |
-| [Security Audit](AUDIT-v2.0-FINAL.md) | v2.0最終セキュリティ監査 (13件のギャップ解消) |
+| [DCP-04](DCP-04.md) | エージェント間の通信 |
+| [DCP-AI v2.0](DCP-AI-v2.0.md) | ポスト量子の規範的な仕様 |
+| [正規化のプロファイル](CANONICALIZATION_PROFILE.md) | `dcp-jcs-v1` — すべての署名、ハッシュ、Merkle の葉のための、バイト単位で正確な JSON の正規化 |
+| [セキュリティ監査](AUDIT-v2.0-FINAL.md) | 2026 年 2 月 26 日の v2.0 最終セキュリティ監査（13 の欠落を解消）。過去の記録であり、後のレビューが限定した点についての注記がある |
 
 ---
 
-## 憲法的フレームワーク (DCP-05 – DCP-09)
+<a id="constitutional-framework-dcp-05--dcp-09"></a>
+<a id="constitutional-framework-dcp-05-dcp-09"></a>
 
-エージェントのライフサイクル、継承、紛争解決、権利、委任を統治する仕様 — プロトコルの憲法層です。
+## 憲法的な枠組み（DCP-05 – DCP-09）
 
-| Spec | スコープ | 主な成果物 |
+エージェントのライフサイクル、承継、紛争の解決、権利、委任を定める仕様で、プロトコルの憲法的な層です。
+
+| 仕様 | 範囲 | 主なアーティファクト |
 |------|-------|---------------|
-| [DCP-05](DCP-05.md) | エージェントライフサイクル管理 | CommissioningCertificate、VitalityReport、DecommissioningRecord |
-| [DCP-06](DCP-06.md) | デジタル継承と相続 | DigitalTestament、SuccessionRecord、MemoryTransferManifest |
-| [DCP-07](DCP-07.md) | 紛争解決と仲裁 | DisputeRecord、ArbitrationResolution、JurisprudenceBundle、ObjectionRecord |
-| [DCP-08](DCP-08.md) | 権利と義務のフレームワーク | RightsDeclaration、ObligationRecord、RightsViolationReport |
-| [DCP-09](DCP-09.md) | 人格代理と委任 | DelegationMandate、AdvisoryDeclaration、PrincipalMirror、AwarenessThreshold |
+| [DCP-05](DCP-05.md) | エージェントのライフサイクルの管理 | CommissioningCertificate、VitalityReport、DecommissioningRecord |
+| [DCP-06](DCP-06.md) | デジタルの承継と相続 | DigitalTestament、SuccessionRecord、MemoryTransferManifest |
+| [DCP-07](DCP-07.md) | 紛争の解決と仲裁 | DisputeRecord、ArbitrationResolution、JurisprudenceBundle、ObjectionRecord |
+| [DCP-08](DCP-08.md) | 権利と義務の枠組み | RightsDeclaration、ObligationRecord、RightsViolationReport |
+| [DCP-09](DCP-09.md) | 個人の代理と委任 | DelegationMandate、AdvisoryDeclaration、PrincipalMirror、AwarenessThreshold |
 
-**スキーマ:** `schemas/v2/` に、DCP-05–09のすべての成果物をカバーする18のJSONスキーマ。
-**サーバーエンドポイント:** 検証サーバーに31のRESTエンドポイント ([OPERATOR_GUIDE](../docs/OPERATOR_GUIDE.md) を参照)。
-**ドメイン分離:** 6つの新しいコンテキスト — `Lifecycle`、`Succession`、`Dispute`、`Rights`、`Delegation`、`Awareness`。
+**スキーマ：** DCP-05–09 のすべてのアーティファクトを扱う、`schemas/v2/` の 18 の JSON Schema。
+**サーバーのエンドポイント：** リファレンスの検証サーバーの 31 の REST エンドポイントで、認証も署名の検証もありません（[OPERATOR_GUIDE](../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints) を参照）。
+**ドメインの分離：** 7 つの新しいコンテキスト — `Lifecycle`、`Succession`、`Dispute`、`Rights`、`Delegation`、`Awareness`、`SubMandate`。
 
 ---
+
+<a id="core-and-profiles"></a>
 
 ## コアとプロファイル
 
-仕様は**コア** (最小の相互運用可能プロトコル) と**プロファイル** (特定のデプロイメントニーズのための拡張) に整理されつつあります。
+仕様は、**コア**（最小限の相互運用可能なプロトコル）と**プロファイル**（特定の展開の必要のための拡張）に整理されつつあります：
 
-| ディレクトリ | スコープ |
+| ディレクトリ | 範囲 |
 |-----------|-------|
-| [core/](core/) | DCP Core — 成果物、検証モデル、バンドル構造 |
-| [profiles/](profiles/) | プロファイル — crypto、A2A、governance拡張 |
-| [profiles/crypto/](profiles/crypto/) | アルゴリズム選択、複合署名、暗号アジリティ |
-| [profiles/a2a/](profiles/a2a/) | エージェントディスカバリ、ハンドシェイク、セッション管理 |
-| [profiles/governance/](profiles/governance/) | リスクティア、管轄、失効、鍵復旧 |
+| [core/](core/) | DCP コア — アーティファクト、検証のモデル、バンドルの構造 |
+| [profiles/](profiles/) | プロファイル — 暗号、A2A、ガバナンスの拡張 |
+| [profiles/crypto/](profiles/crypto/) | アルゴリズムの選択、複合署名、暗号の俊敏性 |
+| [profiles/a2a/](profiles/a2a/) | エージェントの発見、ハンドシェイク、セッションの管理 |
+| [profiles/governance/](profiles/governance/) | リスクティア、管轄区域、失効、鍵の回復 |
+| [profiles/admission/](profiles/admission/) | アドミッション：信頼するプリンシパルと strict-v1 のプロファイル（`main` の SDK にあり、まだリリースされていない） |
 
-既存の仕様 (DCP-01からDCP-09、BUNDLE、VERIFICATION、DCP-AI v2.0) は依然として権威的です。コアおよびプロファイルドキュメントは、編集上のコンテキストを提供し、関心の分離を明確化します。計画されている進化については [ROADMAP](../ROADMAP.md) を参照してください。
+既存の仕様（DCP-01 から DCP-09、BUNDLE、VERIFICATION、DCP-AI v2.0）が引き続き基準です。コアとプロファイルの文書は、編集上の文脈を与え、関心事の分離を明確にします。予定している発展については [ROADMAP](../ROADMAP.md) を参照してください。

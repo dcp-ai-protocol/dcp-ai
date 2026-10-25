@@ -1,154 +1,283 @@
 <sub>[English](README.md) · [中文](README.zh-CN.md) · **Español** · [日本語](README.ja.md) · [Português](README.pt-BR.md)</sub>
 
-# @dcp-ai/sdk — SDK TypeScript para DCP-AI v2.0
+<a id="dcp-aisdk--typescript-sdk-for-dcp-ai-v20"></a>
+<a id="dcp-aisdk-typescript-sdk-for-dcp-ai-v20"></a>
 
-SDK oficial de TypeScript para el Digital Citizenship Protocol (DCP-AI). Crea, firma y verifica Citizenship Bundles (paquetes de ciudadanía) con criptografía híbrida post-cuántica (Ed25519 + ML-DSA-65), firmas compuestas, niveles de seguridad adaptativos, comunicación entre agentes (A2A), observabilidad integrada y hardening para producción.
+# @dcp-ai/sdk — SDK de TypeScript para DCP-AI v2.0
+
+> Traducción informativa de [la versión en inglés](README.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+
+SDK oficial de TypeScript para el Digital Citizenship Protocol (DCP-AI). Crea, firma y verifica Citizenship Bundles con criptografía híbrida poscuántica (Ed25519 + ML-DSA-65), firmas compuestas, niveles de seguridad adaptativos, comunicación entre agentes (A2A), observabilidad integrada y refuerzo para producción.
+
+<a id="installation"></a>
 
 ## Instalación
 
+**Estado de publicación (25/10/2026).** El registro de npm tiene `@dcp-ai/sdk` 2.1.1 como `latest`. Este README describe el
+código de `main`, que tiene más:
+- la versión 2.2.0, etiquetada en `v2.10.0` pero no publicada en npm, que corrige una forma de eludir `verifySignedBundleV2` (véase
+  [`SECURITY.md`](../../SECURITY.md));
+- lo que el registro de cambios enumera en [`[Unreleased]`](../../CHANGELOG.md#unreleased): admisión, cadenas de delegación,
+  la ventana de recepción A2A y las API experimentales de `dcp-jcs-v2`.
+
+Para ejecutar los ejemplos siguientes, compila el SDK desde una copia del repositorio e instálalo desde ahí:
+
 ```bash
-npm install @dcp-ai/sdk
+git clone https://github.com/dcp-ai-protocol/dcp-ai.git
+cd dcp-ai/sdks/typescript && npm install && npm run build
+cd /path/to/your-project && npm install /path/to/dcp-ai/sdks/typescript
 ```
 
-## Inicio Rápido (V1)
+La instalación desde el registro da la versión publicada, sin lo anterior:
+
+```bash
+npm install @dcp-ai/sdk   # 2.1.1 on 25/10/2026
+```
+
+<a id="quick-start-v1"></a>
+
+## Inicio rápido (V1)
+
+Un bundle V1 firmado con Ed25519. El RPR se firma con la clave del principal y el pasaporte con la del agente,
+cada uno sobre el JSON canónico del objeto sin su campo `signature`; `createAuditEntry` calcula
+`intent_hash` y la cadena `prev_hash`. `verifySignedBundle` comprueba la firma del bundle, sus hashes y la
+cadena, no estas firmas internas: compruébalas tú, como se muestra abajo.
 
 ```typescript
-import {
-  BundleBuilder,
-  signBundle,
-  verifySignedBundle,
-  generateKeypair,
-} from '@dcp-ai/sdk';
+import { BundleBuilder, generateKeypair, signBundle, signObject, verifyObject, verifySignedBundle } from '@dcp-ai/sdk';
+import type { AgentPassport, ResponsiblePrincipalRecord } from '@dcp-ai/sdk';
 
-const keys = generateKeypair();
+const now = new Date().toISOString();
+const principalKeys = generateKeypair();
+const agentKeys = generateKeypair();
+
+// Each artifact is signed over the object without its `signature` field.
+const rprBody: Omit<ResponsiblePrincipalRecord, 'signature'> = {
+  dcp_version: '1.0', human_id: 'human:example-001', legal_name: 'Example Principal',
+  entity_type: 'natural_person', jurisdiction: 'ES', liability_mode: 'owner_responsible',
+  override_rights: true, issued_at: now, expires_at: null, contact: null,
+};
+const rpr: ResponsiblePrincipalRecord = { ...rprBody, signature: signObject(rprBody, principalKeys.secretKeyB64) };
+
+const passportBody: Omit<AgentPassport, 'signature'> = {
+  dcp_version: '1.0', agent_id: 'agent:example-001', public_key: agentKeys.publicKeyB64,
+  principal_binding_reference: rpr.human_id, capabilities: ['browse', 'api_call'],
+  risk_tier: 'low', created_at: now, status: 'active',
+};
+const passport: AgentPassport = { ...passportBody, signature: signObject(passportBody, agentKeys.secretKeyB64) };
 
 const bundle = new BundleBuilder()
-  .responsiblePrincipalRecord({ dcp_version: '1.0', human_id: 'human-001', /* ... */ })
-  .agentPassport({ dcp_version: '1.0', agent_id: 'agent-001', /* ... */ })
-  .intent({ dcp_version: '1.0', agent_id: 'agent-001', /* ... */ })
-  .policyDecision({ dcp_version: '1.0', agent_id: 'agent-001', /* ... */ })
+  .responsiblePrincipalRecord(rpr)
+  .agentPassport(passport)
+  .intent({
+    dcp_version: '1.0', intent_id: 'intent:example-001', agent_id: passport.agent_id, human_id: rpr.human_id,
+    timestamp: now, action_type: 'api_call', target: { channel: 'api', domain: 'api.example.com' },
+    data_classes: ['none'], estimated_impact: 'low', requires_consent: false,
+  })
+  .policyDecision({
+    dcp_version: '1.0', intent_id: 'intent:example-001', decision: 'approve', risk_score: 0.05,
+    reasons: ['low-impact call'], required_confirmation: null,
+  })
+  .createAuditEntry({
+    dcp_version: '1.0', audit_id: 'audit:example-001', timestamp: now, agent_id: passport.agent_id,
+    human_id: rpr.human_id, intent_id: 'intent:example-001', policy_decision: 'approved',
+    outcome: 'call_completed', evidence: { tool: 'http', result_ref: null },
+  })
   .build();
 
-const signed = signBundle(bundle, {
-  secretKeyB64: keys.secretKeyB64,
-  signerType: 'human',
-  signerId: 'human-001',
-});
+const signed = signBundle(bundle, { secretKeyB64: principalKeys.secretKeyB64, signerType: 'human', signerId: rpr.human_id });
+console.log(verifySignedBundle(signed, principalKeys.publicKeyB64)); // { verified: true }
 
-const result = verifySignedBundle(signed, keys.publicKeyB64);
-console.log(result); // { verified: true, errors: [] }
+// The inner signatures, over the same objects without `signature`
+console.log(verifyObject(rprBody, rpr.signature, principalKeys.publicKeyB64)); // true
+console.log(verifyObject(passportBody, passport.signature, agentKeys.publicKeyB64)); // true
 ```
 
-## Inicio Rápido (V2)
+<a id="quick-start-v2"></a>
+
+## Inicio rápido (V2)
+
+Un bundle V2 con firmas híbridas (Ed25519 + ML-DSA-65): cada artefacto es un `SignedPayload`
+(`{ payload, payload_hash, composite_sig }`) firmado en su contexto de separación de dominio; el principal firma
+el RPR y el manifiesto, y el agente, el pasaporte, la intención y la decisión de política.
 
 ```typescript
 import {
-  BundleBuilderV2,
-  signBundleV2,
-  verifySignedBundleV2,
-  generateKeypair,
-  registerDefaultProviders,
-  getDefaultRegistry,
-  computeSecurityTier,
+  AlgorithmRegistry, BundleBuilderV2, DCP_CONTEXTS, Ed25519Provider, MlDsa65Provider, compositeSign,
+  generateSessionNonce, preparePayload, sha256Hex, canonicalizeV2, signBundleV2, verifySignedBundleV2,
+} from '@dcp-ai/sdk';
+import type {
+  AgentPassportV2, AuditEventV2, CompositeKeyPair, DcpContext, IntentV2, KeyEntry, PolicyDecisionV2,
+  ResponsiblePrincipalRecordV2, SignedPayload,
 } from '@dcp-ai/sdk';
 
-// Register PQ crypto providers
-registerDefaultProviders();
-const registry = getDefaultRegistry();
+const registry = new AlgorithmRegistry();
+const ed25519 = new Ed25519Provider();
+const mlDsa65 = new MlDsa65Provider();
+registry.registerSigner(ed25519);
+registry.registerSigner(mlDsa65);
 
-// Generate Ed25519 keypair (for classical signing)
-const keys = generateKeypair();
+async function hybridKeys(): Promise<CompositeKeyPair> {
+  const c = await ed25519.generateKeypair();
+  const p = await mlDsa65.generateKeypair();
+  return {
+    classical: { kid: c.kid, alg: 'ed25519', secretKeyB64: c.secretKeyB64, publicKeyB64: c.publicKeyB64 },
+    pq: { kid: p.kid, alg: 'ml-dsa-65', secretKeyB64: p.secretKeyB64, publicKeyB64: p.publicKeyB64 },
+  };
+}
+const keyEntries = (keys: CompositeKeyPair): KeyEntry[] => [keys.classical, keys.pq].map((k) => ({
+  kid: k.kid, alg: k.alg, public_key_b64: k.publicKeyB64, created_at: '2026-01-01T00:00:00Z', expires_at: null, status: 'active',
+}));
+const sha256Of = (value: unknown) => `sha256:${sha256Hex(new TextEncoder().encode(canonicalizeV2(value)))}`;
+async function signed<T>(payload: T, context: DcpContext, keys: CompositeKeyPair): Promise<SignedPayload<T>> {
+  const { canonicalBytes, payloadHash } = preparePayload(payload);
+  return { payload, payload_hash: payloadHash, composite_sig: await compositeSign(registry, context, canonicalBytes, keys) };
+}
 
-// Build a V2 bundle with session nonce and security tier
-const bundle = new BundleBuilderV2()
-  .responsiblePrincipalRecord({ /* V2 RPR with keys[] */ })
-  .agentPassport({ /* V2 passport with capabilities */ })
-  .intent({ /* V2 intent with security_tier */ })
-  .policyDecision({ /* V2 policy decision with risk_score and resolved_tier */ })
-  .addAuditEntry({ /* V2 audit with dual-hash chain */ })
+const principal = await hybridKeys();
+const agent = await hybridKeys();
+const nonce = generateSessionNonce();
+const now = new Date().toISOString();
+
+const rpr: ResponsiblePrincipalRecordV2 = {
+  dcp_version: '2.0', human_id: 'human:example-001', session_nonce: nonce, legal_name: 'Example Principal',
+  entity_type: 'natural_person', jurisdiction: 'ES', liability_mode: 'owner_responsible', override_rights: true,
+  issued_at: now, expires_at: null, contact: null, binding_keys: keyEntries(principal),
+};
+const passport: AgentPassportV2 = {
+  dcp_version: '2.0', agent_id: 'agent:example-001', session_nonce: nonce, keys: keyEntries(agent),
+  principal_binding_reference: rpr.human_id, capabilities: ['browse', 'api_call'], risk_tier: 'low',
+  created_at: now, status: 'active',
+};
+const intent: IntentV2 = {
+  dcp_version: '2.0', intent_id: 'intent:example-001', session_nonce: nonce, agent_id: passport.agent_id,
+  human_id: rpr.human_id, timestamp: now, action_type: 'api_call', target: { channel: 'api', domain: 'api.example.com' },
+  data_classes: ['none'], estimated_impact: 'low', requires_consent: false,
+};
+const policy: PolicyDecisionV2 = {
+  dcp_version: '2.0', intent_id: intent.intent_id, session_nonce: nonce, decision: 'approve', risk_score: 50,
+  reasons: ['low-impact call'], required_confirmation: null, applied_policy_hash: sha256Of({ policy: 'default' }), timestamp: now,
+};
+const audit: AuditEventV2 = {
+  dcp_version: '2.0', audit_id: 'audit:example-001', session_nonce: nonce, prev_hash: 'GENESIS', hash_alg: 'sha256',
+  timestamp: now, agent_id: passport.agent_id, human_id: rpr.human_id, intent_id: intent.intent_id,
+  intent_hash: sha256Of(intent), policy_decision: 'approved', outcome: 'call_completed',
+  evidence: { tool: 'http', result_ref: null, evidence_hash: null }, pq_checkpoint_ref: null,
+};
+
+const bundle = new BundleBuilderV2(nonce)
+  .responsiblePrincipalRecord(await signed(rpr, DCP_CONTEXTS.ResponsiblePrincipal, principal))
+  .agentPassport(await signed(passport, DCP_CONTEXTS.AgentPassport, agent))
+  .intent(await signed(intent, DCP_CONTEXTS.Intent, agent))
+  .policyDecision(await signed(policy, DCP_CONTEXTS.PolicyDecision, agent))
+  .addAuditEntry(audit)
   .build();
+
+const signedBundle = await signBundleV2(bundle, { registry, signerType: 'human', signerId: rpr.human_id, keys: principal });
+const result = await verifySignedBundleV2(signedBundle, registry);
+console.log(result.verified, result.errors); // true []
 ```
 
-## Referencia de API
+<a id="api-reference"></a>
 
-### Crypto Core (V1)
+## Referencia de la API
+
+<a id="core-crypto-v1"></a>
+
+### Criptografía básica (V1)
 
 | Función | Descripción |
 |----------|-------------|
 | `generateKeypair()` | Genera un par de claves Ed25519 (`publicKeyB64`, `secretKeyB64`) |
-| `signObject(obj, secretKeyB64)` | Firma un objeto, devuelve firma en base64 |
-| `verifyObject(obj, signatureB64, publicKeyB64)` | Verifica una firma contra una clave pública |
-| `canonicalize(obj)` | Serialización JSON determinística (canónica) |
+| `signObject(obj, secretKeyB64)` | Firma un objeto y devuelve la firma en base64 |
+| `verifyObject(obj, signatureB64, publicKeyB64)` | Verifica una firma con una clave pública |
+| `canonicalize(obj)` | Serialización JSON determinista (canónica) |
 | `publicKeyFromSecret(secretKeyB64)` | Deriva la clave pública a partir de una clave secreta |
 
-### Crypto Providers (V2)
+<a id="crypto-providers-v2"></a>
 
-| Export | Descripción |
+### Proveedores criptográficos (V2)
+
+| Exportación | Descripción |
 |--------|-------------|
-| `Ed25519Provider` | Provider clásico de firma Ed25519 |
-| `MlDsa65Provider` | Provider post-cuántico de firma ML-DSA-65 |
-| `SlhDsa192fProvider` | Provider post-cuántico de firma SLH-DSA-192f |
-| `AlgorithmRegistry` | Registry que gestiona los providers de algoritmos criptográficos disponibles |
-| `getDefaultRegistry()` | Devuelve el registry singleton de algoritmos |
-| `registerDefaultProviders()` | Registra los providers Ed25519, ML-DSA-65 y SLH-DSA-192f |
+| `Ed25519Provider` | Proveedor de firma clásica Ed25519 |
+| `MlDsa65Provider` | Proveedor de firma poscuántica ML-DSA-65 |
+| `SlhDsa192fProvider` | Proveedor de firma poscuántica SLH-DSA-192f |
+| `AlgorithmRegistry` | Registro que gestiona los proveedores de algoritmos criptográficos disponibles |
+| `getDefaultRegistry()` | Devuelve el registro de algoritmos único (singleton) |
+| `registerDefaultProviders()` | Registra los proveedores Ed25519, ML-DSA-65 y SLH-DSA-192f |
 | `deriveKid(alg, publicKeyBytes)` | Deriva un identificador de clave a partir de una clave pública |
 
-### Firmas Compuestas (V2)
+<a id="composite-signatures-v2"></a>
+
+### Firmas compuestas (V2)
 
 | Función | Descripción |
 |----------|-------------|
-| `compositeSign(registry, context, canonicalPayloadBytes, keys)` | Crea una firma compuesta con algoritmos clásico + post-cuántico |
+| `compositeSign(registry, context, canonicalPayloadBytes, keys)` | Crea una firma compuesta con algoritmos clásico + PQ |
 | `compositeVerify(registry, context, canonicalPayloadBytes, compositeSig, classicalPubkeyB64, pqPubkeyB64?, strategy?)` | Verifica una firma compuesta |
-| `classicalOnlySign(registry, context, canonicalPayloadBytes, key)` | Firma solo con algoritmo clásico (modo fallback) |
+| `classicalOnlySign(registry, context, canonicalPayloadBytes, key)` | Firma solo con el algoritmo clásico (modo de respaldo) |
 
-### Niveles de Seguridad (V2)
+<a id="security-tiers-v2"></a>
+
+### Niveles de seguridad (V2)
 
 | Función | Descripción |
 |----------|-------------|
-| `computeSecurityTier(intent, policyDecision?, mandateChainTier?)` | Calcula un `SecurityTier` (routine, standard, elevated, maximum) a partir de un intent y del `risk_score` de la decisión de política (spec §14.2); el `effective_tier` de una cadena de delegación verificada solo puede subirlo; los valores desconocidos fallan de forma segura a `elevated` |
-| `maxTier(a, b)` | Devuelve el mayor de dos niveles de seguridad |
-| `tierToVerificationMode(tier)` | Mapea un nivel al modo de verificación requerido |
-| `tierToCheckpointInterval(tier)` | Mapea un nivel al intervalo de checkpoint post-cuántico |
+| `computeSecurityTier(intent, policyDecision?, mandateChainTier?)` | Calcula un `SecurityTier` (routine, standard, elevated, maximum) a partir de una intención y del `risk_score` de la decisión de política (spec §14.2); el `effective_tier` de una cadena de delegación verificada solo puede elevarlo; los valores desconocidos fallan cerrados a `elevated` |
+| `maxTier(a, b)` | Devuelve el más alto de dos niveles de seguridad |
+| `tierToVerificationMode(tier)` | Asigna a un nivel el modo de verificación exigido |
+| `tierToCheckpointInterval(tier)` | Asigna a un nivel el intervalo de checkpoints PQ |
 
-### Construcción del Bundle
+<a id="bundle-building"></a>
 
-| Export | Versión | Descripción |
+### Construcción de bundles
+
+| Exportación | Versión | Descripción |
 |--------|---------|-------------|
-| `BundleBuilder` | V1 | Builder fluido para Citizenship Bundles V1 |
-| `BundleBuilderV2` | V2 | Builder fluido para bundles V2 con niveles de seguridad y hash dual |
+| `BundleBuilder` | V1 | Constructor fluido de Citizenship Bundles V1 |
+| `BundleBuilderV2` | V2 | Constructor fluido de bundles V2 con niveles de seguridad y doble hash |
 | `signBundle(bundle, options)` | V1 | Firma un bundle V1 con Ed25519 |
 | `signBundleV2(bundle, options)` | V2 | Firma un bundle V2 con firmas compuestas |
-| `signBundleV2ClassicalOnly(bundle, options)` | V2 | Firma un bundle V2 con firmas solo clásicas |
-| `verifySignedBundle(signedBundle, publicKeyB64)` | V1 | Verifica un bundle firmado V1 |
-| `verifySignedBundleV2(signedBundle, registry, policy?)` | V2 | Verifica un bundle firmado V2 (compuesto o clásico) con el modo más estricto entre el de la política y el del nivel de seguridad; informa `resolved_tier` |
+| `signBundleV2ClassicalOnly(bundle, options)` | V2 | Firma un bundle V2 solo con firmas clásicas |
+| `verifySignedBundle(signedBundle, publicKeyB64)` | V1 | Verifica un bundle V1 firmado |
+| `verifySignedBundleV2(signedBundle, registry, policy?)` | V2 | Verifica un bundle V2 firmado (compuesto o clásico) según el más estricto entre el modo de la política y el modo del nivel de seguridad; informa de `resolved_tier` |
 
-### Optimización del Bundle (V2)
+<a id="bundle-optimization-v2"></a>
 
-| Export | Descripción |
+### Optimización de bundles (V2)
+
+| Exportación | Descripción |
 |--------|-------------|
-| `suggestPresentationMode(tier, opts)` | Recomienda un modo de presentación según el nivel de seguridad y si es un primer contacto o una relación de confianza existente |
+| `suggestPresentationMode(tier, opts)` | Recomienda un modo de presentación según el nivel de seguridad y si se trata de un primer contacto o de una relación de confianza ya existente |
 | `presentFull(bundle)` | Presentación completa del bundle (sin omisiones) |
-| `presentCompact(bundle, pqCheckpointRef)` | Presentación compacta: omite la firma PQ y referencia en su lugar el checkpoint PQ más cercano |
+| `presentCompact(bundle, pqCheckpointRef)` | Presentación compacta: elimina la firma PQ y, en su lugar, hace referencia al checkpoint PQ más cercano |
 | `presentReference(bundle, verificationEndpoint)` | Presentación solo por referencia: hash del bundle, nonce de sesión y un endpoint para verificar u obtener el bundle completo |
-| `presentIncremental(baseBundle, updatedBundle, baseAuditCount)` | Presentación incremental respecto a un bundle base ya verificado: nuevas entradas de auditoría, checkpoints PQ, manifest actualizado y firma |
-| `VerificationCache` | Cachea resultados de verificación para evitar trabajo criptográfico redundante |
+| `presentIncremental(baseBundle, updatedBundle, baseAuditCount)` | Presentación incremental respecto de un bundle base verificado: nuevas entradas de auditoría, checkpoints PQ, manifiesto y firma actualizados |
+| `VerificationCache` | Guarda en caché resultados de verificación solo por hash del bundle: no separa inquilinos ni políticas y, en un acierto, no vuelve a comprobar la confianza, la revocación ni la sesión, así que verifica de nuevo para la admisión o para otro contexto. `invalidateByAgent` actualmente no elimina nada; usa `invalidateByKid` o `clear()` ([detalles](../../docs/API_REFERENCE.md#verificationcache)) |
 
-### Checkpoints Post-Cuánticos (V2)
+<a id="pq-checkpoints-v2"></a>
 
-| Export | Descripción |
+### Checkpoints PQ (V2)
+
+| Exportación | Descripción |
 |--------|-------------|
-| `PQCheckpointManager` | Gestiona la creación periódica de checkpoints post-cuánticos |
-| `createPQCheckpoint(registry, events, sessionNonce, keys)` | Crea un checkpoint firmado post-cuánticamente sobre entradas de auditoría |
+| `PQCheckpointManager` | Gestiona la creación periódica de checkpoints poscuánticos |
+| `createPQCheckpoint(registry, events, sessionNonce, keys)` | Crea un checkpoint con firma PQ sobre entradas de auditoría |
 | `auditEventsMerkleRoot(events)` | Calcula una raíz de Merkle a partir de entradas de auditoría |
 
-### Hash Dual (V2)
+<a id="dual-hash-v2"></a>
+
+### Doble hash (V2)
 
 | Función | Descripción |
 |----------|-------------|
-| `sha256Hex(data)` | Hash SHA-256 (string hex) |
-| `sha3_256Hex(data)` | Hash SHA3-256 (string hex) |
-| `dualHash(data)` | Devuelve `{ sha256, sha3_256 }` para hash dual resistente a lo cuántico |
-| `dualMerkleRoot(leaves)` | Calcula una raíz de Merkle usando hojas de hash dual |
+| `sha256Hex(data)` | Hash SHA-256 (cadena hexadecimal) |
+| `sha3_256Hex(data)` | Hash SHA3-256 (cadena hexadecimal) |
+| `dualHash(data)` | Devuelve `{ sha256, sha3_256 }` para un doble hash resistente a la computación cuántica |
+| `dualMerkleRoot(leaves)` | Calcula una raíz de Merkle con hojas de doble hash |
+
+<a id="a2a-protocol-dcp-04"></a>
 
 ### Protocolo A2A (DCP-04)
 
@@ -157,66 +286,75 @@ const bundle = new BundleBuilderV2()
 | `createAgentDirectory(organization, agents)` | Crea un directorio de agentes en memoria |
 | `findAgentByCapability(directory, requiredCapabilities)` | Busca agentes por capacidad en un directorio |
 | `findAgentById(directory, agentId)` | Busca un agente por ID |
-| `createHello(initiatorBundle, kemPublicKeyB64, requestedCapabilities, securityTier)` | Crea un mensaje de handshake A2A Hello |
-| `createWelcome(responderBundle, kemPublicKeyB64, kemCiphertextB64, resolvedTier)` | Crea un mensaje de respuesta A2A Welcome |
+| `createHello(initiatorBundle, kemPublicKeyB64, requestedCapabilities, securityTier)` | Crea un mensaje Hello del handshake A2A |
+| `createWelcome(responderBundle, kemPublicKeyB64, kemCiphertextB64, resolvedTier)` | Crea un mensaje de respuesta Welcome A2A |
 | `deriveSessionId(agentIdA, agentIdB, nonceA, nonceB, sessionKey)` | Deriva un ID de sesión a partir de los nonces del handshake |
 | `createCloseMessage(sessionId, reason, finalSequence, auditSummaryHash)` | Crea un mensaje de cierre de sesión |
 | `createSession(sessionId, sessionKey, localAgentId, remoteAgentId, securityTier, rekeyingInterval?)` | Crea una sesión A2A cifrada |
 | `encryptMessage(session, payload)` | Cifra un mensaje dentro de una sesión A2A |
 | `decryptMessage(session, message)` | Descifra un mensaje dentro de una sesión A2A; cada secuencia se acepta una sola vez dentro de la ventana de 1000 mensajes (DCP-04 §8.4) |
-| `needsRekeying(session)` | Verifica si una sesión necesita rotación de claves |
-| `generateResumeProof(session, lastSeenSequence)` | Genera una prueba para la reanudación de la sesión |
+| `needsRekeying(session)` | Comprueba si una sesión necesita rotación de claves |
+| `generateResumeProof(session, lastSeenSequence)` | Genera una prueba para reanudar la sesión |
 | `verifyResumeProof(session, lastSeenSequence, proof)` | Verifica una prueba de reanudación de sesión |
+
+<a id="observability"></a>
 
 ### Observabilidad
 
-| Export | Descripción |
+| Exportación | Descripción |
 |--------|-------------|
-| `dcpTelemetry` | Instancia singleton de telemetría |
-| `dcpTelemetry.init(config)` | Inicializa la telemetría con nombre de servicio y exporter |
+| `dcpTelemetry` | Instancia única de telemetría |
+| `dcpTelemetry.init(config)` | Inicializa la telemetría con el nombre del servicio y el exportador |
 | `dcpTelemetry.startSpan(name)` | Inicia un span de traza con nombre |
-| `dcpTelemetry.endSpan(span)` | Finaliza un span de traza |
+| `dcpTelemetry.endSpan(span)` | Termina un span de traza |
 | `dcpTelemetry.recordSignLatency(ms)` | Registra la métrica de latencia de firma |
-| `dcpTelemetry.getMetricsSummary()` | Devuelve un resumen agregado de métricas |
+| `dcpTelemetry.getMetricsSummary()` | Devuelve un resumen agregado de las métricas |
 
-### Hardening para Producción
+<a id="production-hardening"></a>
 
-| Export | Descripción |
+### Refuerzo para producción
+
+| Exportación | Descripción |
 |--------|-------------|
-| `DcpErrorCode` | Enum de códigos de error estructurados |
+| `DcpErrorCode` | Enumeración de códigos de error estructurados |
 | `DcpProtocolError` | Clase de error tipada para fallos a nivel de protocolo |
-| `createDcpError(code, details?)` | Factory para crear errores DCP estructurados |
-| `isDcpError(error)` | Type guard para `DcpProtocolError` |
-| `RateLimiter` | Rate limiter de ventana fija |
-| `AdaptiveRateLimiter` | Rate limiter que se ajusta según la carga |
-| `CircuitBreaker` | Circuit breaker para llamadas externas |
-| `withRetry(fn, config?)` | Reintenta una función asíncrona con backoff |
+| `createDcpError(code, details?)` | Fábrica para crear errores DCP estructurados |
+| `isDcpError(error)` | Guarda de tipo para `DcpProtocolError` |
+| `RateLimiter` | Limitador de tasa de ventana fija |
+| `AdaptiveRateLimiter` | Limitador de tasa que se ajusta según la carga |
+| `CircuitBreaker` | Cortocircuito (circuit breaker) para llamadas externas |
+| `withRetry(fn, config?)` | Reintenta una función asíncrona con espera progresiva |
 
-### Otros V2
+<a id="other-v2"></a>
 
-| Export | Descripción |
+### Otras de V2
+
+| Exportación | Descripción |
 |--------|-------------|
 | `generateSessionNonce()` | Genera un nonce de sesión criptográfico |
-| `domainSeparatedMessage(context, canonicalPayloadBytes)` | Prefija un mensaje con un separador de dominio |
+| `domainSeparatedMessage(context, canonicalPayloadBytes)` | Antepone un separador de dominio a un mensaje |
 | `generateEmergencyRevocationToken()` | Genera un secreto de revocación y su compromiso de token `sha256:` |
 | `buildEmergencyRevocation({ agentId, humanId, revocationSecret })` | Construye una solicitud de revocación de emergencia a partir del secreto de revocación |
-| `shamirSplit(secret, threshold, totalShares)` | Divide un secreto en `totalShares` shares; cualquier grupo de `threshold` lo reconstruye |
-| `shamirReconstruct(shares)` | Reconstruye un secreto a partir de al menos `threshold` shares |
-| `generatePiiSalt()` | Genera un `pii_salt` (32 bytes aleatorios en hex). Se asigna al RPR antes de firmarlo y nunca se publica |
-| `blindRpr(rpr)` | Sustituye los datos personales de un RPR (`legal_name`, `contact`) por un compromiso hash con sal; lanza un error si `rpr.pii_salt` falta o es inválido |
+| `shamirSplit(secret, threshold, totalShares)` | Divide un secreto en `totalShares` partes; cualquier `threshold` de ellas lo reconstruye |
+| `shamirReconstruct(shares)` | Reconstruye un secreto a partir de al menos `threshold` partes |
+| `generatePiiSalt()` | Genera un `pii_salt` (32 bytes aleatorios en hexadecimal). Asígnalo al RPR antes de firmarlo y mantenlo privado: `blindRpr` lo omite del registro cegado, pero el RPR completo lo conserva |
+| `blindRpr(rpr)` | Sustituye los datos personales de un RPR (`legal_name`, `contact`) por un compromiso de hash con sal; lanza una excepción si falta `rpr.pii_salt` o está mal formado |
 | `verifyBlindedRpr(fullRpr, blindedRpr)` | Comprueba que un RPR cegado corresponde al registro completo; `warnings` señala un compromiso heredado sin sal |
-| `isBlindedRpr(rpr)` | Type guard para `BlindedResponsiblePrincipalRecordV2` |
-| `computePiiHash(rpr)` | Calcula el compromiso hash sobre los campos de datos personales y el `pii_salt` de un RPR (sin `pii_salt`: el valor heredado sin sal, obsoleto) |
-| `CborEncoder` | Clase encoder CBOR |
-| `CborDecoder` | Clase decoder CBOR |
-| `cborEncode(value)` | Codifica un valor a bytes CBOR |
+| `isBlindedRpr(rpr)` | Guarda de tipo para `BlindedResponsiblePrincipalRecordV2` |
+| `computePiiHash(rpr)` | Calcula el compromiso de hash sobre los campos de datos personales de un RPR y `pii_salt` (sin `pii_salt`: el valor sin sal, obsoleto) |
+| `CborEncoder` | Clase codificadora CBOR |
+| `CborDecoder` | Clase decodificadora CBOR |
+| `cborEncode(value)` | Codifica un valor en bytes CBOR |
 | `cborDecode(data)` | Decodifica bytes CBOR a un valor |
 
-### Admisión: Principales de Confianza y strict-v1
+<a id="admission-trusted-principals-and-strict-v1-unreleased"></a>
 
-Un bundle verificado está firmado por las claves que él mismo lista; no prueba quién es el principal. La admisión acepta un bundle solo cuando sus firmas de principal se hicieron con claves de un principal que tu conjunto de confianza lista, y opcionalmente bajo el perfil `strict-v1`, fijado por el operador (firmas híbridas, audiencia firmada, una sesión de 300 s como máximo y una instantánea de revocación reciente).
+### Admisión: Trusted Principals y strict-v1 (sin publicar)
+
+Un bundle verificado está firmado por las claves que enumera; no prueba quién es el principal. La admisión acepta un bundle solo cuando sus firmas de principal se hicieron con claves de un principal que figura en tu conjunto de confianza y, opcionalmente, bajo el perfil `strict-v1` fijado por el operador (firmas híbridas, audiencia firmada, una sesión de 300 s como máximo, una instantánea de revocación reciente).
 
 ```typescript
+// Fragment, not a complete program: trustSetJson and the strict-v1 settings come from operator configuration, signedBundle from the request, snapshot from your revocation source, registry as in the V2 Quick Start.
 import { admitSignedBundleV2, createPrincipalTrustStore, resolveStrictV1Profile } from '@dcp-ai/sdk';
 
 const trust = createPrincipalTrustStore(trustSetJson); // AdmissionConfigError on a bad trust set
@@ -226,23 +364,26 @@ const result = await admitSignedBundleV2(signedBundle, registry, { profile, trus
 // result.action_authorized (always false), result.errors [{ code, message }]
 ```
 
-- `verifySignedBundleV2(bundle, registry, policy, { now })` acepta un reloj opcional y reporta `details.signer_keys`; sin ellos se comporta como antes.
-- `evaluateAdmissionV2` evalúa un resultado del verificador que ya tienes (sin criptografía ni E/S); `revocationSubjects` lista lo que debe responder una fuente de revocación.
+- `verifySignedBundleV2(bundle, registry, policy, { now })` acepta un reloj opcional e informa de `details.signer_keys`; sin ellos se comporta como antes.
+- `evaluateAdmissionV2` evalúa un resultado de verificación que ya tienes (sin criptografía ni E/S); `revocationSubjects` enumera aquello por lo que debe responder una fuente de revocación.
 - Guía: [`docs/ADMISSION.md`](../../docs/ADMISSION.md). Especificación y códigos: [`spec/profiles/admission`](../../spec/profiles/admission/README.md).
 
-### Cadenas de Delegación (DCP-09 §3.5)
+<a id="delegation-chains-dcp-09-35-unreleased"></a>
 
-Un humano delega en un agente mediante un mandato raíz; ese agente puede transferir parte de su autoridad a otro agente
-mediante un submandato que firma él mismo, y así sucesivamente. Cada salto solo puede restringir lo que recibió, y toda la cadena
-se verifica offline hasta llegar al humano.
+### Cadenas de delegación (DCP-09 §3.5, sin publicar)
+
+Una persona delega en un agente con un mandato raíz; ese agente puede pasar parte de su autoridad a otro agente
+con un submandato que firma él mismo, y así sucesivamente. Cada salto solo puede restringir lo que recibió, y toda la cadena
+se verifica sin conexión hasta llegar a la persona.
 
 | Función | Descripción |
 |----------|-------------|
-| `createDelegationMandate(registry, humanKeys, params)` | Mandato raíz firmado por el humano (`human_composite_sig`); `sub_delegation` y `minimum_security_tier` son opcionales |
-| `createSubMandate(registry, delegatorKeys, parent, params)` | Submandato firmado por el agente del mandato padre (`delegator_composite_sig`, contexto `DCP-AI.v2.SubMandate`) |
-| `verifyMandateChain(registry, chain, revokedIds, keys, now?)` | Verifica la cadena empezando por la raíz: firmas hasta el humano, enlaces al padre y profundidad, `sub_delegation`, ventanas de validez anidadas, atenuación (las acciones, `data_classes` y `limits` solo se restringen), el nivel de seguridad mínimo y la revocación; devuelve `{ valid, errors, depth, effective_tier }` |
+| `createDelegationMandate(registry, humanKeys, params)` | Mandato raíz firmado por la persona (`human_composite_sig`); `sub_delegation` y `minimum_security_tier` son opcionales |
+| `createSubMandate(registry, delegatorKeys, parent, params)` | Submandato firmado por el agente del padre (`delegator_composite_sig`, contexto `DCP-AI.v2.SubMandate`) |
+| `verifyMandateChain(registry, chain, revokedIds, keys, now?)` | Verifica la cadena empezando por la raíz: firmas hasta la persona, enlaces con el padre y profundidad, `sub_delegation`, ventanas de validez anidadas, atenuación (acciones, `data_classes` y `limits` solo se restringen), el nivel de seguridad mínimo y la revocación; devuelve `{ valid, errors, depth, effective_tier }` |
 
 ```typescript
+// Fragment, not a complete program: registry and nonce as in the V2 Quick Start; rootMandate, orchestratorKeys and the key entries come from your delegation setup; intent and policyDecision are the V2 payloads.
 import { createSubMandate, verifyMandateChain, computeSecurityTier } from '@dcp-ai/sdk';
 
 const sub = await createSubMandate(registry, orchestratorKeys, rootMandate, {
@@ -263,9 +404,62 @@ const result = await verifyMandateChain(registry, [rootMandate, sub], new Set(),
 const tier = computeSecurityTier(intent, policyDecision, result.valid ? result.effective_tier : null);
 ```
 
-### DCP-05–09: Módulos Extendidos del Protocolo
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
 
-| Módulo | Spec | Exports Clave |
+### Experimental: candidato de canonicalización `dcp-jcs-v2` (opt-in, sin publicar)
+
+No es normativo ni está activo: `dcp-jcs-v1` sigue siendo el único perfil de canonicalización, y no cambia ningún valor por defecto,
+constructor, firmante ni verificador. Estas API existen solo para quien opte por usarlas, en una copia del repositorio
+(véase el estado de publicación). Un bundle candidato verificado no otorga confianza ni admisión. Diseño, reglas y contrato
+completo: [`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)
+(§15 entrada, §16 enrutador, §17 verificador, §18 productores).
+
+| Exportación | Descripción |
+|--------|-------------|
+| `experimentalCandidateIngress(bytes)` | Comprueba los bytes originales de una unidad: `{ status: 'accept', value, canonical, canonicalSha256 }` o `{ status: 'reject', class, offset }` |
+| `experimentalCandidateExtractUnit(bytes, transport)` | Extrae la unidad de un transporte `bare` o `envelope` |
+| `createExperimentalCandidateRouter(config)` | Enruta bytes: `reject`, `v1_path` (a través de un decodificador histórico con nombre) o `candidate` |
+| `createExperimentalCandidateVerifier(config).verify(bytes, registry, policy?, options?)` | Verifica a partir de los bytes originales con un verificador como máximo: el actual para `dcp-jcs-v1` y, para el candidato, el actual aceptando exactamente `dcp-jcs-v2` |
+| `experimentalHistoricalAdapters` | Los decodificadores medidos (`bufferUtf8JsonParse`, `textDecoderJsonParse`); ninguno es el predeterminado |
+| `experimentalCandidateSignPayload(registry, context, input, keys)` | Firma un artefacto a partir de `{ bytes }` o `{ value }`; sin perfil |
+| `experimentalCandidateSignBundle(registry, parts, signer, options)` | Ensambla y firma un bundle cuyo manifiesto nombra `dcp-jcs-v2` |
+| `ExperimentalCandidateProduceError` | Un rechazo por el dominio o la forma de las entradas, lanzado antes de llamar a cualquier firmante (`class`, `part`, `path`, `offset`); los errores de clave, registro y proveedor siguen siendo los actuales |
+
+```typescript
+import {
+  AlgorithmRegistry, DCP_CONTEXTS, Ed25519Provider, MlDsa65Provider, experimentalCandidateIngress,
+  experimentalCandidateSignPayload,
+} from '@dcp-ai/sdk';
+
+// The ingress decides on the original bytes: 1.0 is the integer 1, members are sorted.
+const accepted = experimentalCandidateIngress(new TextEncoder().encode('{"b":1.0,"a":[]}'));
+if (accepted.status === 'accept') console.log(new TextDecoder().decode(accepted.canonical)); // {"a":[],"b":1}
+const refused = experimentalCandidateIngress(new TextEncoder().encode('{"a":1,"a":2}'));
+if (refused.status === 'reject') console.log(refused.class, refused.offset); // DUPLICATE_KEY 7
+
+// A producer signs an artifact from those bytes (hybrid keys, today's composite signature).
+const registry = new AlgorithmRegistry();
+const ed25519 = new Ed25519Provider();
+const mlDsa65 = new MlDsa65Provider();
+registry.registerSigner(ed25519);
+registry.registerSigner(mlDsa65);
+const c = await ed25519.generateKeypair();
+const p = await mlDsa65.generateKeypair();
+const keys = {
+  classical: { kid: c.kid, alg: 'ed25519', secretKeyB64: c.secretKeyB64, publicKeyB64: c.publicKeyB64 },
+  pq: { kid: p.kid, alg: 'ml-dsa-65', secretKeyB64: p.secretKeyB64, publicKeyB64: p.publicKeyB64 },
+};
+const artifact = await experimentalCandidateSignPayload(
+  registry, DCP_CONTEXTS.Intent, { bytes: new TextEncoder().encode('{"intent_id":"intent:1","risk":1.0}') }, keys,
+);
+console.log(artifact.signedPayload.payload_hash); // sha256:… of {"intent_id":"intent:1","risk":1}
+```
+
+<a id="dcp-0509-extended-protocol-modules"></a>
+
+### DCP-05–09: módulos ampliados del protocolo
+
+| Módulo | Especificación | Exportaciones principales |
 |--------|------|-------------|
 | `lifecycle` | DCP-05 | `LifecycleState`, `CommissioningCertificate`, `VitalityReport`, `DecommissioningRecord`, `VitalityMetrics`, `TerminationMode`, `DataDisposition` |
 | `succession` | DCP-06 | `DigitalTestament`, `SuccessionRecord`, `MemoryTransferManifest`, `MemoryTransferEntry`, `MemoryClassification`, `SuccessorPreference`, `TransitionType`, `MemoryDisposition` |
@@ -274,20 +468,25 @@ const tier = computeSecurityTier(intent, policyDecision, result.valid ? result.e
 | `rights` | DCP-08 | `RightsDeclaration`, `RightEntry`, `ObligationRecord`, `RightsViolationReport`, `RightType`, `ComplianceStatus` |
 | `delegation` | DCP-09 | `DelegationMandate`, `AdvisoryDeclaration`, `PrincipalMirror`, `InteractionRecord`, `AuthorityScopeEntry` |
 | `awareness-threshold` | DCP-09 | `AwarenessThreshold`, `ThresholdRule`, `ThresholdOperator`, `ThresholdAction` |
-| `principal-mirror` | DCP-09 | `PrincipalMirror` (re-export con utilidades builder) |
+| `principal-mirror` | DCP-09 | `PrincipalMirror` (reexportación con utilidades de construcción) |
 
 ```typescript
-// Example: Lifecycle management
-import { CommissioningCertificate, LifecycleState } from '@dcp-ai/sdk';
+// Fragment, not a complete program: registry, humanKeys (the principal's CompositeKeyPair) and nonce as in the V2 Quick Start.
+// Example: Lifecycle management (DCP-05), signed with the commissioning human's composite keys
+import { createCommissioningCertificate, validateStateTransition } from '@dcp-ai/sdk';
+import type { CommissioningCertificate } from '@dcp-ai/sdk';
 
-const cert: CommissioningCertificate = {
-  certificate_id: 'cert-001',
-  agent_id: 'agent-001',
-  commissioned_by: 'human-001',
-  commissioned_at: '2026-03-01T00:00:00Z',
-  initial_state: 'commissioned',
-  conditions: ['Must complete onboarding within 30 days'],
-};
+const cert: CommissioningCertificate = await createCommissioningCertificate(registry, humanKeys, {
+  agent_id: 'agent:agent-001',
+  session_nonce: nonce,
+  human_id: 'human:human-001',
+  commissioning_authority: 'human:human-001',
+  purpose: 'Customer support triage',
+  initial_capabilities: ['browse', 'api_call'],
+  risk_tier: 'low',
+  principal_binding_reference: 'human:human-001',
+});
+validateStateTransition('commissioned', 'active'); // true
 
 // Example: Delegation mandate (signed by the human)
 import { createDelegationMandate } from '@dcp-ai/sdk';
@@ -304,72 +503,84 @@ const mandate = await createDelegationMandate(registry, humanKeys, {
 });
 ```
 
+<a id="v2-types"></a>
+
 ## Tipos V2
 
-Tipos clave exportados por el SDK:
+Tipos principales que exporta el SDK:
 
-- `SignedPayload` — Wrapper para datos firmados con metadatos de firma compuesta
-- `CompositeSignature` — Contiene componentes de firma clásico + post-cuántico
+- `SignedPayload` — Envoltorio de datos firmados con metadatos de firma compuesta
+- `CompositeSignature` — Contiene los componentes de firma clásico + PQ
 - `KeyEntry` — Entrada de clave pública con algoritmo, kid y material de clave
 - `SecurityTier` — `'routine' | 'standard' | 'elevated' | 'maximum'`
-- `VerifierPolicy` — Política del verificador: modo por defecto y overrides por `risk_tier`; el nivel de seguridad solo puede hacer el modo más estricto
-- `PQCheckpoint` — Checkpoint post-cuántico sobre entradas de auditoría
-- `A2ASession` — Estado de sesión entre agentes cifrada
+- `VerifierPolicy` — Política del verificador: modo por defecto y modos específicos por `risk_tier`; el nivel de seguridad solo puede hacer el modo más estricto
+- `PQCheckpoint` — Checkpoint poscuántico sobre entradas de auditoría
+- `A2ASession` — Estado de una sesión cifrada entre agentes
 - `A2AMessage` — Sobre de mensaje A2A cifrado
 - `TelemetryConfig` — Configuración del subsistema de observabilidad
 
-**Tipos DCP-05–09:**
+**Tipos de DCP-05–09:**
 
 - `LifecycleState` — `'commissioned' | 'active' | 'declining' | 'decommissioned'`
-- `CommissioningCertificate` — Registro de comisionamiento del agente con condiciones
-- `VitalityReport` — Métricas periódicas de salud y desempeño
-- `DecommissioningRecord` — Registro de fin de vida con disposición de datos
-- `DigitalTestament` — Planeación de sucesión con disposición de memoria
-- `SuccessionRecord` — Registro de sucesión completada
-- `MemoryTransferManifest` — Manifiesto de transferencia de memoria clasificada
-- `DisputeRecord` — Registro de conflicto con niveles de escalamiento
-- `ArbitrationResolution` — Resultado del arbitraje con autoridad vinculante
-- `JurisprudenceBundle` — Colección de precedentes para resolución de disputas
-- `RightsDeclaration` — Derechos del agente con seguimiento de cumplimiento
+- `CommissioningCertificate` — Registro de puesta en servicio del agente con condiciones
+- `VitalityReport` — Métricas periódicas de salud y rendimiento
+- `DecommissioningRecord` — Registro de fin de vida con disposición de los datos
+- `DigitalTestament` — Planificación de la sucesión con disposición de la memoria
+- `SuccessionRecord` — Registro de una sucesión completada
+- `MemoryTransferManifest` — Manifiesto clasificado de transferencia de memoria
+- `DisputeRecord` — Registro de conflicto con niveles de escalado
+- `ArbitrationResolution` — Resultado de un arbitraje con autoridad vinculante
+- `JurisprudenceBundle` — Colección de precedentes para resolver disputas
+- `RightsDeclaration` — Derechos del agente con seguimiento del cumplimiento
 - `ObligationRecord` — Obligación con estado de aplicación
-- `RightsViolationReport` — Reporte de violación con severidad
-- `DelegationMandate` — Delegación de autoridad con alcance
-- `AwarenessThreshold` — Reglas de disparo human-in-the-loop
-- `PrincipalMirror` — Snapshot de preferencias del principal
+- `RightsViolationReport` — Informe de vulneración con gravedad
+- `DelegationMandate` — Delegación de autoridad con alcance definido
+- `AwarenessThreshold` — Reglas que activan la intervención humana (human-in-the-loop)
+- `PrincipalMirror` — Instantánea de las preferencias del principal
+
+<a id="a2a-protocol"></a>
 
 ## Protocolo A2A
 
 Comunicación cifrada entre agentes:
 
 ```typescript
+// Fragment, not a complete program: sessionId and sessionKey come from the A2A handshake, remoteSession is the peer's session.
 import { createSession, encryptMessage, decryptMessage } from '@dcp-ai/sdk';
 
 // Create encrypted A2A session
 const session = createSession(sessionId, sessionKey, 'agent:a', 'agent:b', 'elevated');
-const encrypted = encryptMessage(session, { action: 'negotiate', data: {...} });
+const encrypted = encryptMessage(session, { action: 'negotiate', data: { offer: 10 } });
 const decrypted = decryptMessage(remoteSession, encrypted);
 // The same message delivered again throws: each sequence is accepted once.
 ```
 
+<a id="observability-1"></a>
+<a id="observability_1"></a>
+
 ## Observabilidad
 
-Todas las operaciones criptográficas se instrumentan automáticamente:
+La telemetría requiere instrumentación explícita: llama a los métodos de spans y métricas alrededor de las operaciones que quieras observar. La inicialización por sí sola no instrumenta las operaciones criptográficas. Este ejemplo solo inicializa la telemetría y lee el resumen actual:
 
 ```typescript
 import { dcpTelemetry } from '@dcp-ai/sdk';
 
 dcpTelemetry.init({ serviceName: 'my-agent', enabled: true, exporterType: 'console' });
 
-// All crypto operations are automatically instrumented
+// Read metrics explicitly recorded so far; initialization alone records no crypto operations
 const summary = dcpTelemetry.getMetricsSummary();
 ```
 
+<a id="dependencies"></a>
+
 ## Dependencias
 
-- `ajv` + `ajv-formats` — Validación JSON Schema
+- `ajv` + `ajv-formats` — Validación de JSON Schema
 - `tweetnacl` + `tweetnacl-util` — Criptografía Ed25519
-- `json-stable-stringify` — JSON determinístico
-- `@noble/post-quantum` — Firmas post-cuánticas ML-DSA-65 y SLH-DSA
+- `json-stable-stringify` — JSON determinista
+- `@noble/post-quantum` — Firmas poscuánticas ML-DSA-65 y SLH-DSA
+
+<a id="development"></a>
 
 ## Desarrollo
 
@@ -388,6 +599,8 @@ npm run test:coverage
 # Type check
 npm run lint
 ```
+
+<a id="license"></a>
 
 ## Licencia
 

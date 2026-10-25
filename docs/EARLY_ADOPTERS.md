@@ -34,11 +34,11 @@ You are not waiting on "access" to anything. These are already live:
 | Artifact | Where |
 |---|---|
 | 9 protocol specifications (DCP-01..09) | [docs.dcp-ai.org](https://docs.dcp-ai.org/) |
-| 5 SDKs at feature parity (TypeScript, Python, Go, Rust, WASM) | npm / PyPI / crates.io / Go modules |
+| 5 SDKs implementing the same core protocol (TypeScript, Python, Go, Rust, WASM); versions and coverage differ, see each SDK's *Release status* | npm / PyPI / crates.io / Go modules |
 | 11 framework integrations (LangChain, CrewAI, Agno, OpenAI, Express, FastAPI, Anthropic MCP, Google A2A, AutoGen, W3C DID, OpenClaw) | npm + dcp-ai[extras] + agno-dcp (PyPI) |
 | 4 `npm create @dcp-ai/*` scaffolders | npm |
 | Docker images for the four services | `ghcr.io/dcp-ai-protocol/dcp-ai/*` |
-| Interactive playground | [dcp-ai.org/playground](https://dcp-ai.org/playground/) |
+| Interactive playground | [docs.dcp-ai.org/playground](https://docs.dcp-ai.org/playground/) |
 | JSON-LD `@context` for Verifiable Credentials | [dcp-ai.org/credentials/v2](https://dcp-ai.org/credentials/v2) |
 
 ### What early adopters get on top
@@ -138,6 +138,8 @@ No dedicated Slack, Discord, or office-hours call exists at this time. The progr
 
 DCP-AI security issues are disclosed responsibly through GitHub's private vulnerability reporting. A monetary bug bounty may be offered on a case-by-case basis for high-impact findings; this is decided per-report based on severity and reproducibility, not a pre-committed tier. Researchers who prefer public credit are acknowledged in release notes.
 
+> **Note (25/10/2026): the documents disagree.** [SECURITY.md](../SECURITY.md) lists fixed reward ranges per severity, while this page and [GOVERNANCE.md](../GOVERNANCE.md) say rewards are decided per report. Both texts are kept until a maintainer confirms which applies.
+
 See [SECURITY_MODEL.md](SECURITY_MODEL.md) for the threat model and reporting guidance.
 
 ---
@@ -155,13 +157,18 @@ If you integrate DCP-AI and are willing to share the story — architectural dec
 ## FAQ
 
 **Q: Is DCP-AI production-ready?**
-A: Yes, for the deployments it is designed for. The v2.0 specification is complete, the v2.0 final security audit verified all 13 identified gaps as closed (see [spec/AUDIT-v2.0-FINAL.md](../spec/AUDIT-v2.0-FINAL.md)), and the 5 SDKs are published and used. DCP-04 through DCP-09 are labelled "Published — v2.0 (extension; revisions tracked via adopter feedback)" in their headers; the wire format is stable and tested, and point-release revisions will be driven by adopter feedback rather than by breaking changes.
+A: The v2.0 specification is complete and the 5 SDKs are published and used. DCP-04 through DCP-09 are labelled "Published — v2.0 (extension; revisions tracked via adopter feedback)" in their headers; the wire format is stable and tested, and point-release revisions will be driven by adopter feedback rather than by breaking changes. Whether it is ready for your deployment depends on the parts you use:
+
+- the SDK verifiers are the production path; the reference services keep their state in memory, and the reference gateway's DCP-05–09 endpoints have no authentication ([OPERATOR_GUIDE.md](OPERATOR_GUIDE.md));
+- the repository has no HSM integration, and the `@dcp-ai/cli init` wizard is a demo ([SECURITY_MODEL.md](SECURITY_MODEL.md), "Known Limitations and Mitigations").
+
+The v2.0 final security audit of 26/02/2026 ([spec/AUDIT-v2.0-FINAL.md](../spec/AUDIT-v2.0-FINAL.md)) is a dated record: later reviews found limits it did not report, such as its HSM gap being closed only by a simulated provider.
 
 **Q: Is there a cost to join the Early Adopter Program?**
 A: No. The program is free. The entire project is Apache-2.0.
 
 **Q: Do I need to use the post-quantum features?**
-A: For v2.0 bundles, yes — composite hybrid signatures (Ed25519 + ML-DSA-65) are required. The SDK does the heavy lifting. You do not write crypto by hand.
+A: It depends on the verifier. A V2 bundle can carry a classical-only signature; verifiers require the composite hybrid signature (Ed25519 + ML-DSA-65) in `hybrid_required` mode, which applies to elevated and maximum-tier actions and is the reference server's default. Use hybrid keys and the SDK signs both for you; you do not write crypto by hand.
 
 **Q: Can I participate as an individual developer?**
 A: Yes. Individual developers and small teams are welcome and often surface the most interesting edge cases.
@@ -170,7 +177,7 @@ A: Yes. Individual developers and small teams are welcome and often surface the 
 A: You keep using DCP-AI. Active contributors are invited to become Reviewers or Maintainers per [GOVERNANCE.md](../GOVERNANCE.md).
 
 **Q: Can I run my own hosted instance of the services?**
-A: Yes — that's the intended model. The verification server, anchor, transparency log, and revocation registry are all published as Docker images on GHCR with Fly.io configs ready in [`deploy/`](../deploy/). There is no first-party SaaS; every operator runs their own.
+A: Yes — that's the intended model. The verification server, anchor, transparency log, and revocation registry are all published as Docker images on GHCR with Fly.io configs ready in [`deploy/`](../deploy/). There is no first-party SaaS; every operator runs their own. They are reference services: add persistent storage, restrict the gateway's unauthenticated DCP-05–09 endpoints, and read [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md) before exposing them.
 
 **Q: How do I cite DCP-AI in a paper?**
 A: See [CITATION.cff](../CITATION.cff) for both the paper and software DOIs.

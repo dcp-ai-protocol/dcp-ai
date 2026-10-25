@@ -76,3 +76,17 @@ dcp verify-bundle [--policy <mode>] <signed_bundle_v2.json> [public_key.txt]   #
 ## Verification checklist
 
 For a normative, step-by-step verification checklist (schema, signature, expiry, revocation, intent_hash, audit chain, merkle, optional anchor), see [VERIFICATION.md](VERIFICATION.md). All steps are local; no server call is required.
+
+## Implementation notes (informative)
+
+> **Added 25/10/2026. Not normative.** These notes add no requirement and change nothing above: they describe how
+> the reference code on `main` relates to this text. Where they differ, the normative text above stands.
+
+- In V2 only the four primary artifacts (RPR, passport, intent and policy decision) are `SignedPayload` envelopes; the
+  audit entries are plain objects, committed by the manifest's Merkle root and covered by the bundle signature over
+  the manifest, not signed one by one.
+- A V1 Citizenship Bundle needs at least one audit entry; a V2 bundle may have an empty audit trail (its Merkle root is
+  64 zeros), as [VERIFICATION.md](VERIFICATION.md) allows.
+- A bundle that verifies is consistent and signed by the keys it lists; that alone does not establish who the
+  principal is, admit the bundle or authorize an action ([docs/ADMISSION.md](../docs/ADMISSION.md)).
+- `<bundle.json>` and the other names in angle brackets are placeholders for your own files.

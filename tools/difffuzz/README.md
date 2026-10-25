@@ -13,7 +13,7 @@ before a release.
 Every SDK is run from this checkout, never from a published package:
 
 ```bash
-cd sdks/typescript && npm install && npm run build   # shims/ts imports sdks/typescript/dist
+(cd sdks/typescript && npm install && npm run build) # shims/ts imports sdks/typescript/dist
 pip install -e sdks/python                            # dependencies of shims/py (pynacl, pqcrypto>=1.0)
 ```
 
@@ -101,10 +101,16 @@ the exact mutant text and the four verdicts per mode that disagreed:
 }
 ```
 
-Every finding is a real bug. Minimise the reproducer, decide from
-`spec/VERIFICATION.md` which SDK is right (when the spec is silent, the
-fail-closed verdict wins), fix the wrong SDK test-first with a unit test in that
-SDK, and never weaken a verifier to reach agreement. The exact mutant can be
+A finding is a lead, not yet a bug. First replay it: a disagreement or crash
+that reproduces with the exact mutant is a divergence to resolve; a timeout, a
+crash of the toolchain or the machine, or a result that does not reproduce is
+an infrastructure problem until shown otherwise. Minimise the reproducer, and
+decide which SDK is right from the normative requirements
+(`spec/VERIFICATION.md`, the canonicalization profile) and the shared fixtures
+(`tests/interop/v2/`). When they do not settle the case, it is an open question
+for the specification, not a fix to pick: record it rather than adopting the
+fail-closed verdict by default. Fix the wrong SDK test-first with a unit test in
+that SDK, and never weaken a verifier to reach agreement. The exact mutant can be
 replayed through one shim:
 
 ```bash

@@ -1,12 +1,19 @@
 <sub>[English](README.md) · [中文](README.zh-CN.md) · [Español](README.es.md) · **日本語** · [Português](README.pt-BR.md)</sub>
 
+> [英語版](README.md)の参考訳です（25/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+
 <div align="center">
 
-# DCP-AI — AIエージェントのためのデジタル市民権プロトコル
+<a id="dcp-ai--digital-citizenship-protocol-for-ai-agents"></a>
+<a id="dcp-ai-digital-citizenship-protocol-for-ai-agents"></a>
 
-### オープンネットワーク上のAIエージェントのための、ポータブルなアカウンタビリティ層
+# DCP-AI — AI エージェントのための Digital Citizenship Protocol
 
-[![Protocol](https://img.shields.io/badge/protocol-v2.0-blue)](#プロトコル仕様)
+<a id="a-portable-accountability-layer-for-ai-agents-on-open-networks"></a>
+
+### オープンなネットワーク上の AI エージェントのための、持ち運び可能な説明責任のレイヤー
+
+[![Protocol](https://img.shields.io/badge/protocol-v2.0-blue)](#protocol-specifications)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/dcp-ai-protocol/dcp-ai/ci.yml?branch=main&label=CI)](https://github.com/dcp-ai-protocol/dcp-ai/actions/workflows/ci.yml)
 [![Coverage](https://codecov.io/gh/dcp-ai-protocol/dcp-ai/graph/badge.svg)](https://codecov.io/gh/dcp-ai-protocol/dcp-ai)
@@ -25,124 +32,198 @@
 
 ---
 
-## DCPとは?
+<a id="what-is-dcp"></a>
 
-**デジタル市民権プロトコル (DCP)** は、AIエージェントのためのポータブルなアカウンタビリティ層を定義します。これにより、任意の検証者が以下を評価できるようになります。
+## DCP とは
 
-- エージェントの**責任者は誰か** (責任主体バインディング)
-- エージェントが**何を実行しようとしていると宣言したか** (意図宣言)
-- **どのようなポリシー結果**が適用されたか (ポリシー決定)
-- **どのような検証可能な証跡**が生成されたか (監査トレイル)
-- エージェントが**ライフサイクル全体を通じてどのように管理されるか** (ライフサイクル管理)
-- エージェントが**移行または運用停止される際に何が起こるか** (デジタル継承)
-- エージェントと責任主体の間の**対立がどのように解決されるか** (紛争解決)
-- エージェントの行動を規律する**どのような権利と義務があるか** (権利フレームワーク)
-- **人間からエージェントへどのように権限が委任されるか** (人格代理)
+**Digital Citizenship Protocol（DCP）**は、AI エージェントのための持ち運び可能な説明責任のレイヤーを定め、どの検証者でも次のことを評価できるようにします。
 
-すべての成果物は暗号学的に署名され、ハッシュチェーンでつながれ、中央機関を必要とせずに独立して検証可能です。
+- エージェントについて**誰が責任を負うのか**（責任あるプリンシパルとの結び付け）
+- エージェントが何をするつもりだと**宣言したのか**（意図の宣言）
+- **どのようなポリシーの結果**が適用されたのか（ポリシー判断）
+- **どのような検証可能な証拠**が生成されたのか（監査証跡）
+- エージェントがライフサイクル全体を通じて**どのように管理されるのか**（ライフサイクル管理）
+- エージェントが**移行する**、または稼働を終了するときに何が起きるのか（デジタル継承）
+- エージェントとプリンシパルの間の**紛争がどのように解決されるのか**（紛争解決）
+- **どのような権利と義務**がエージェントの振る舞いを律するのか（権利の枠組み）
+- **権限が人間からエージェントへどのように委任されるのか**（個人の代理）
 
-> このプロトコルは、人間とAIエージェントが共同で作成したものです — 統治しようとするその協働そのもののために設計されています。
+DCP は、中央の検証サービスを必要とせず、暗号署名、ハッシュチェーン、独立した検証を組み合わせます。V2 では、RPR、パスポート、意図、ポリシー判断がそれぞれ個別に署名されます。監査エントリは個別に署名されるのではなく、署名済みマニフェストのコミットメントによって結び付けられます。
+
+> このプロトコルは、人間と AI エージェントが共同で作りました。統治しようとする協働そのもののために設計されています。
 
 ---
+
+<a id="architecture"></a>
 
 ## アーキテクチャ
 
-DCPは3つの概念層から構成されています。
+DCP は 3 つの概念的なレイヤーで構成されています。
 
 ### DCP Core
 
-すべての実装がサポートしなければならない**最小の相互運用可能プロトコル**です。Coreは成果物、それらの関係、および検証モデルを定義します。
+すべての実装が対応しなければならない**最小限の相互運用可能なプロトコル**です。Core はアーティファクト、その関係、検証モデルを定義します。
 
-- **責任主体バインディング** — すべてのエージェントを、アカウンタビリティを引き受ける人間または法人に紐付けます
-- **エージェントパスポート** — エージェントのポータブルなアイデンティティ、能力、鍵素材
-- **意図宣言** — エージェントが行動する前に、何を行おうとしているかを構造化して宣言
-- **ポリシー結果** — 意図に対して適用された認可判断
-- **アクション証跡** — ハッシュチェーンで連結され、改ざん検知可能な監査エントリと、Merkle証明
-- **バンドルマニフェスト** — 検証のためにすべての成果物を束ねるポータブルパッケージ
+- **Responsible Principal Binding** — 各エージェントを、説明責任を引き受ける人間または法人に結び付ける
+- **Agent Passport** — エージェントの持ち運び可能なアイデンティティ、機能、鍵の素材
+- **Intent Declaration** — エージェントが行動する前に、何をするつもりかを構造化して宣言する
+- **Policy Outcome** — 意図に適用された承認の判断
+- **Action Evidence** — ハッシュで連鎖し、改ざんを検出できる、マークル証明付きの監査エントリ
+- **Bundle Manifest** — 検証のためにすべてのアーティファクトを束ねる持ち運び可能なパッケージ
 
-コア仕様については [spec/core/](spec/core/) を参照してください。
+コアの仕様は [spec/core/](spec/core/) を参照してください。
+
+<a id="profiles"></a>
 
 ### プロファイル
 
-コアの上に構築されるものの、基本的な相互運用性には必須ではない**拡張と特殊化**です。
+コアの上に構築されるものの、基本的な相互運用には必要ない**拡張と特化**です。
 
-- **Cryptoプロファイル** — アルゴリズム選択、ハイブリッド耐量子署名、暗号アジリティ、検証者ポリシー ([spec/profiles/crypto/](spec/profiles/crypto/))
-- **エージェント間 (A2A) プロファイル** — ディスカバリ、ハンドシェイク、セッション管理、トランスポートバインディング ([spec/profiles/a2a/](spec/profiles/a2a/))
-- **Governanceプロファイル** — リスクティア、管轄アテステーション、失効、鍵復旧、ガバナンスセレモニー ([spec/profiles/governance/](spec/profiles/governance/))
+- **Crypto Profile** — アルゴリズムの選択、ポスト量子のハイブリッド署名、暗号の俊敏性、検証器のポリシー（[spec/profiles/crypto/](spec/profiles/crypto/)）
+- **Agent-to-Agent (A2A) Profile** — ディスカバリー、ハンドシェイク、セッション管理、トランスポートのバインディング（[spec/profiles/a2a/](spec/profiles/a2a/)）
+- **Governance Profile** — リスクティア、管轄の証明、失効、鍵の回復、ガバナンスのセレモニー（[spec/profiles/governance/](spec/profiles/governance/)）
+
+<a id="services"></a>
 
 ### サービス
 
-プロトコルを支援するものの、規範的なコアの一部ではない**運用インフラ**です。
+プロトコルを支えるものの、規範的なコアには含まれない**運用インフラ**です。
 
 - 検証サーバー、アンカリングサービス、透明性ログ、失効レジストリ
-- これらは展開上の選択であり、プロトコルの要件ではありません
+- これらはデプロイ上の選択であり、プロトコルの要件ではありません
 
 ---
+
+<a id="protocol-specifications"></a>
 
 ## プロトコル仕様
 
-| Spec | タイトル | 説明 |
+| 仕様 | タイトル | 説明 |
 |------|-------|-------------|
-| [DCP-01](spec/DCP-01.md) | アイデンティティと人間バインディング | エージェントID、オペレータアテステーション、鍵バインディング |
-| [DCP-02](spec/DCP-02.md) | 意図宣言とポリシーゲーティング | 宣言された意図、セキュリティティア施行、ポリシー評価 |
-| [DCP-03](spec/DCP-03.md) | 監査チェーンと透明性 | ハッシュチェーン監査エントリ、Merkle証明、透明性ログ |
-| [DCP-04](spec/DCP-04.md) | エージェント間通信 | 認証されたエージェント間メッセージング、委任、信頼連鎖 |
-| [DCP-05](spec/DCP-05.md) | エージェントライフサイクル管理 | 状態マシン施行によるエージェントの運用開始、監視、縮退、運用停止 |
-| [DCP-06](spec/DCP-06.md) | デジタル継承と相続 | デジタル遺言、記憶の移行、後継指定 |
-| [DCP-07](spec/DCP-07.md) | 紛争解決と仲裁 | 紛争、エスカレーションレベル、仲裁、判例 |
-| [DCP-08](spec/DCP-08.md) | 権利と義務のフレームワーク | 権利宣言、義務記録、違反報告 |
-| [DCP-09](spec/DCP-09.md) | 人格代理と委任 | 委任マンデート、人間まで遡って検証可能なサブ委任チェーン、気付き閾値、責任主体ミラー |
-| [DCP-AI v2.0](spec/DCP-AI-v2.0.md) | 耐量子規範仕様 | ハイブリッド耐量子暗号、4ティアセキュリティモデルを含む完全なv2.0仕様 |
+| [DCP-01](spec/DCP-01.md) | アイデンティティと人間との結び付け | エージェントのアイデンティティ、オペレーターによる証明、鍵の結び付け |
+| [DCP-02](spec/DCP-02.md) | 意図の宣言とポリシーによる制御 | 宣言された意図、セキュリティティアの適用、ポリシーの評価 |
+| [DCP-03](spec/DCP-03.md) | 監査チェーンと透明性 | ハッシュで連鎖した監査エントリ、マークル証明、透明性ログ |
+| [DCP-04](spec/DCP-04.md) | エージェント間通信 | 認証されたエージェント間メッセージ、委任、信頼の連鎖 |
+| [DCP-05](spec/DCP-05.md) | エージェントのライフサイクル管理 | 状態機械による、エージェントの稼働開始、監視、衰退、稼働終了 |
+| [DCP-06](spec/DCP-06.md) | デジタル継承と相続 | デジタル遺言、メモリーの移転、後継者の指定 |
+| [DCP-07](spec/DCP-07.md) | 紛争の解決と仲裁 | 紛争、エスカレーションレベル、仲裁、判例 |
+| [DCP-08](spec/DCP-08.md) | 権利と義務の枠組み | 権利の宣言、義務の記録、違反の報告 |
+| [DCP-09](spec/DCP-09.md) | 個人の代理と委任 | 委任状、人間までさかのぼれる検証可能なサブ委任のチェーン、注意の閾値、プリンシパルのミラー |
+| [DCP-AI v2.0](spec/DCP-AI-v2.0.md) | ポスト量子の規範仕様 | ハイブリッド PQ 暗号と 4 段階のセキュリティモデルを備えた v2.0 の完全な仕様 |
 
-こちらも参照: [Core仕様](spec/core/dcp-core.md) | [プロファイル概要](spec/profiles/)
+あわせて参照：[コア仕様](spec/core/dcp-core.md) | [プロファイルの概要](spec/profiles/)
 
 ---
+
+<a id="quick-start"></a>
 
 ## クイックスタート
 
-### オプションA: CLIウィザード (推奨)
+> **公開パッケージとこのリポジトリ（2026 年 10 月 25 日）。** npm レジストリの `@dcp-ai/sdk` の `latest` は
+> 2.1.1 で、2.2.0 の検証器の修正（[`SECURITY.md`](SECURITY.md#supported-versions)）も、変更履歴の
+> [`[Unreleased]`](CHANGELOG.md#unreleased) にある内容も含みません。このリポジトリの例は `main` に従っています。
+> 実行するには、ソースのチェックアウトを使ってください。
+>
+> ```bash
+> git clone https://github.com/dcp-ai-protocol/dcp-ai.git
+> cd dcp-ai/sdks/typescript && npm install && npm run build   # the SDK of main
+> cd ../.. && npm install                                       # the reference CLI, against that SDK
+> ```
+>
+> 以下のレジストリのコマンド（`npm install`、`npx`）は、代わりに公開済みのバージョンをインストールします。ほかのパッケージには
+> それぞれのバージョンがあります。各 SDK の *Release status* を参照してください。
+
+<a id="option-a-cli-wizard-demo"></a>
+
+### オプション A：CLI ウィザード（デモ）
 
 ```bash
-npx @dcp-ai/cli init
+npx @dcp-ai/cli init   # the published @dcp-ai/cli
 ```
 
-対話型ウィザード (`@dcp-ai/cli`) は、アイデンティティ作成、鍵生成、意図宣言、バンドル署名までを案内します。
+インタラクティブなウィザード（`@dcp-ai/cli`）は、名前、管轄、フレームワーク、セキュリティティアを尋ね、
+鍵と、RPR やパスポートに似たレコードを含む `.dcp/` フォルダーを書き出します。これはデモであり、V2 のアイデンティティを作る手段ではありません。
+その「ML-DSA-65」鍵はシミュレーション（ランダムなバイト列）で、レコードは署名されておらず、V2 スキーマにも合いません。
+検証できるアイデンティティとバンドルを作るには、お使いの SDK のクイックスタート（オプション B）に従ってください。制限の一覧は
+次にあります：
+[エージェントの作成](docs/AGENT_CREATION_AND_CERTIFICATION.md#cli-wizard-demo-only)。
 
-スクリプトやCI/CDパイプライン向けには、より低レベルのリファレンスCLIも `dcp` として利用可能です (ルートの `dcp-ai` パッケージから)。
+このリポジトリのウィザードには `@dcp-ai/sdk` 2.2.0 が必要です。チェックアウトから（上記のとおり SDK をビルドした後で）、
+プロジェクトのディレクトリで実行します。
 
 ```bash
-npx dcp-ai verify my-bundle.signed.json
+cd /path/to/dcp-ai/cli
+npm install --no-save --package-lock=false --ignore-scripts --install-links ../sdks/typescript
+cd /path/to/your-project && node /path/to/dcp-ai/cli/bin/dcp-ai.js init
 ```
 
-### オプションB: SDKを直接使う
+より低レベルのリファレンス CLI であるチェックアウトのルートの `bin/dcp.js` は、スクリプトや CI パイプラインのためのものです。
+読み書きするのは現在のディレクトリの中だけです。
 
 ```bash
-npm install @dcp-ai/sdk
+cd /path/to/your-bundles
+node /path/to/dcp-ai/bin/dcp.js verify-bundle --policy hybrid_preferred bundle.signed.json
 ```
+
+<a id="option-b-sdk-directly"></a>
+
+### オプション B：SDK を直接使う
+
+次のどちらかをインストールします。
+
+- 上記のとおりチェックアウトからビルドした、以下の例が必要とする `main` の SDK：
+
+  ```bash
+  npm install /path/to/dcp-ai/sdks/typescript
+  ```
+
+- または、2.2.0 の修正と未リリースの機能を含まない公開済みのバージョン（2026 年 10 月 25 日時点で 2.1.1）：
+
+  ```bash
+  npm install @dcp-ai/sdk
+  ```
+
+`main` の現行の V2 バンドル検証器（署名、ハッシュ、セッションバインディング、セキュリティティア）で、署名済みの V2 バンドルを
+検証します。検証されるのは一次の監査チェーンで、オプションの SHA3-256 の二次チェーンは検証されません（
+[二重ハッシュチェーン](docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)を参照）。
 
 ```typescript
-import { BundleBuilder, KeyManager } from '@dcp-ai/sdk';
+import { readFileSync } from 'node:fs';
+import { getDefaultRegistry, registerDefaultProviders, verifySignedBundleV2 } from '@dcp-ai/sdk';
 
-const keys = await KeyManager.generate({ algorithm: 'hybrid' });
-const bundle = await new BundleBuilder()
-  .setIdentity({ name: 'my-agent', operator: 'org:example' })
-  .addIntent({ action: 'query', resource: 'public-api', tier: 'routine' })
-  .sign(keys)
-  .build();
+registerDefaultProviders();
+const signedBundle = JSON.parse(readFileSync('bundle.signed.json', 'utf8'));
+const result = await verifySignedBundleV2(signedBundle, getDefaultRegistry());
+console.log(result.verified, result.errors);
 ```
 
+検証済みのバンドルが証明するのは、完全性と、列挙された鍵による署名であって、プリンシパルが誰かではありません。信頼するプリンシパルからの
+証拠だけを受け入れるには、[アドミッション](docs/ADMISSION.md)を使ってください。検証もアドミッションも、
+アクションを承認するものではありません。バンドルを構築して署名するには、
+お使いの SDK のクイックスタートに従ってください：[TypeScript](sdks/typescript/README.md#quick-start-v2)、
+[Python](sdks/python/README.md#quickstart)、[Go](sdks/go/README.md#quickstart--v2)、
+[Rust](sdks/rust/README.md#quickstart)、[WASM](sdks/wasm/README.md#quickstart--typescript-wrapper)。
+
 ---
+
+<a id="security-tiers"></a>
 
 ## セキュリティティア
 
-| ティア | 検証モード | ユースケース |
-|------|-------------------|----------|
-| **Routine** | 自己申告アイデンティティ | 公開データの読み取り、情報問い合わせ |
-| **Standard** | オペレータが証明するアイデンティティ + Ed25519署名 | APIアクセス、標準的なエージェント操作 |
-| **Elevated** | 複数当事者のアテステーション + ハイブリッド耐量子署名 | 金融取引、PIIアクセス、組織横断の委任 |
-| **Maximum** | ハードウェアバウンド鍵 + フル耐量子スイート + アンカー監査 | 政府システム、重要インフラ、規制産業 |
+| ティア | 検証モード | PQ チェックポイント | 典型的な用途 |
+|------|-------------------|---------------|-------------|
+| **Routine** | `classical_only` | 50 イベントごと | 公開データの読み取り、情報の照会 |
+| **Standard** | `hybrid_preferred` | 10 イベントごと | API へのアクセス、エージェントの標準的な操作 |
+| **Elevated** | `hybrid_required` | すべてのイベント | 金融取引、個人情報へのアクセス、組織をまたぐ委任 |
+| **Maximum** | `hybrid_required` | すべてのイベント | 政府のシステム、重要インフラ、規制産業 |
+
+ティアは、意図とポリシーのリスクスコアからアクションごとに計算され（仕様 §14.2）、検証器は自身のモードとティアのモードのうち
+厳しいほうを適用します（仕様 §14.3）。オペレーターや複数当事者による証明、
+ハードウェアに結び付いた鍵、アンカリングはデプロイ上の選択です。SDK はどのティアでもこれらを要求も確認もしません。
 
 ---
+
+<a id="ecosystem"></a>
 
 ## エコシステム
 
@@ -202,18 +283,13 @@ graph TB
   RS --> WA
 
   CLI --> TS
-  PG --> WA
   TPL --> LC
   TPL --> CR
   TPL --> OA
   TPL --> EX
 
-  EX --> VER
-  FA --> VER
-  VER --> ANC
-  VER --> TL
-  VER --> REV
-  ANC --> SOL
+  VER -. "strict-v1 configured source" .-> REV
+  ANC -. "planned on-chain submission" .-> SOL
   DK --> VER
   DK --> ANC
   DK --> TL
@@ -223,80 +299,98 @@ graph TB
 
 ---
 
+<a id="sdks"></a>
+
 ## SDK
 
-お好みの言語で市民権バンドルを作成、署名、検証できます。すべてのSDKはDCP v2.0とハイブリッド耐量子暗号をサポートしています。
+好みの言語で Citizenship Bundle を作成、署名、検証できます。すべての SDK が DCP v2.0 とポスト量子のハイブリッド暗号に対応しています。
 
 | SDK | パッケージ | 機能 | ドキュメント |
 |-----|---------|----------|------|
-| **TypeScript** | `@dcp-ai/sdk` | BundleBuilder、ハイブリッド耐量子暗号、JSONスキーマ検証、Vitest | [sdks/typescript/](sdks/typescript/README.md) |
-| **Python** | `dcp-ai` | Pydantic v2モデル、CLI (Typer)、耐量子エクストラ、オプションプラグイン | [sdks/python/](sdks/python/README.md) |
-| **Go** | `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` | ネイティブ型、ハイブリッド署名、完全な検証パイプライン | [sdks/go/](sdks/go/README.md) |
-| **Rust** | `dcp-ai` | serde、ed25519-dalek + fips203/204/205、オプションのWASM機能 | [sdks/rust/](sdks/rust/README.md) |
-| **WASM** | `@dcp-ai/wasm` | ブラウザでの検証、WebAssemblyでの耐量子暗号、Rustからコンパイル | [sdks/wasm/](sdks/wasm/README.md) |
+| **TypeScript** | `@dcp-ai/sdk` | BundleBuilder、ハイブリッド PQ 暗号、JSON Schema による検証、Vitest | [sdks/typescript/](sdks/typescript/README.md) |
+| **Python** | `dcp-ai` | Pydantic v2 のモデル、CLI（Typer）、PQ の extras、オプションのプラグイン | [sdks/python/](sdks/python/README.md) |
+| **Go** | `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` | ネイティブの型、ハイブリッド署名、バンドルの検証 | [sdks/go/](sdks/go/README.md) |
+| **Rust** | `dcp-ai` | serde、ed25519-dalek + fips203/204/205、オプションの WASM フィーチャー | [sdks/rust/](sdks/rust/README.md) |
+| **WASM** | `@dcp-ai/wasm` | ブラウザーでの検証、WebAssembly による PQ 暗号、Rust からコンパイル | [sdks/wasm/](sdks/wasm/README.md) |
 
 ---
 
-## フレームワーク統合
+<a id="framework-integrations"></a>
 
-一般的なAIおよびWebフレームワーク向けのドロップインなDCPガバナンスです。
+## フレームワークとの統合
+
+人気のある AI フレームワークや Web フレームワークに、そのまま組み込める DCP のガバナンスです。
 
 | 統合 | パッケージ | パターン | ドキュメント |
 |-------------|---------|---------|------|
 | **Express** | [![npm](https://img.shields.io/npm/v/@dcp-ai/express?label=%40dcp-ai%2Fexpress&logo=npm)](https://www.npmjs.com/package/@dcp-ai/express) | `dcpVerify()` ミドルウェア、`req.dcpAgent` | [integrations/express/](integrations/express/README.md) |
 | **FastAPI** | [![PyPI extra](https://img.shields.io/pypi/v/dcp-ai?label=dcp-ai%5Bfastapi%5D&logo=pypi&logoColor=white)](https://pypi.org/project/dcp-ai/) | `DCPVerifyMiddleware`、`Depends(require_dcp)` | [integrations/fastapi/](integrations/fastapi/README.md) |
 | **LangChain** | [![PyPI extra](https://img.shields.io/pypi/v/dcp-ai?label=dcp-ai%5Blangchain%5D&logo=pypi&logoColor=white)](https://pypi.org/project/dcp-ai/) | `DCPAgentWrapper`、`DCPTool`、`DCPCallback` | [integrations/langchain/](integrations/langchain/README.md) |
-| **OpenAI** | [![PyPI extra](https://img.shields.io/pypi/v/dcp-ai?label=dcp-ai%5Bopenai%5D&logo=pypi&logoColor=white)](https://pypi.org/project/dcp-ai/) | `DCPOpenAIClient`、`DCP_TOOLS` 関数呼び出し | [integrations/openai/](integrations/openai/README.md) |
-| **CrewAI** | [![PyPI extra](https://img.shields.io/pypi/v/dcp-ai?label=dcp-ai%5Bcrewai%5D&logo=pypi&logoColor=white)](https://pypi.org/project/dcp-ai/) | `DCPCrewAgent`、`DCPCrew` マルチエージェントガバナンス | [integrations/crewai/](integrations/crewai/README.md) |
-| **Agno** | [![PyPI](https://img.shields.io/pypi/v/agno-dcp?label=agno-dcp&logo=pypi&logoColor=white&color=blue)](https://pypi.org/project/agno-dcp/) | `DCPAgent`、`DCPTeam`、`DCPWorkflow` ラッパー (別パッケージ) | [agno-dcp リポジトリ](https://github.com/dcp-ai-protocol/agno-dcp) |
-| **OpenClaw** | [![npm](https://img.shields.io/npm/v/@dcp-ai/openclaw?label=%40dcp-ai%2Fopenclaw&logo=npm)](https://www.npmjs.com/package/@dcp-ai/openclaw) | プラグイン + SKILL.md、6つのエージェントツール | [integrations/openclaw/](integrations/openclaw/README.md) |
-| **W3C DID/VC** | [![npm](https://img.shields.io/npm/v/@dcp-ai/w3c-did?label=%40dcp-ai%2Fw3c-did&logo=npm)](https://www.npmjs.com/package/@dcp-ai/w3c-did) | DIDドキュメント ↔ DCPアイデンティティブリッジ、VC発行 | [integrations/w3c-did/](integrations/w3c-did/README.md) |
-| **Google A2A** | [![npm](https://img.shields.io/npm/v/@dcp-ai/google-a2a?label=%40dcp-ai%2Fgoogle-a2a&logo=npm)](https://www.npmjs.com/package/@dcp-ai/google-a2a) | A2A Agent Card 内の署名済みDCPパスポート (`verifyAgentCardPassport`)、タスクから意図へのマッピング | [integrations/google-a2a/](integrations/google-a2a/README.md) |
-| **Anthropic MCP** | [![npm](https://img.shields.io/npm/v/@dcp-ai/anthropic-mcp?label=%40dcp-ai%2Fanthropic-mcp&logo=npm)](https://www.npmjs.com/package/@dcp-ai/anthropic-mcp) | MCPツール呼び出しごとの署名済みDCPレシート (`withDcpReceipt`)、DCPツールとリソース | [integrations/anthropic-mcp/](integrations/anthropic-mcp/README.md) |
-| **AutoGen** | [![npm](https://img.shields.io/npm/v/@dcp-ai/autogen?label=%40dcp-ai%2Fautogen&logo=npm)](https://www.npmjs.com/package/@dcp-ai/autogen) | AutoGenエージェント ↔ DCPラッパー、グループチャットガバナンス | [integrations/autogen/](integrations/autogen/README.md) |
+| **OpenAI** | [![PyPI extra](https://img.shields.io/pypi/v/dcp-ai?label=dcp-ai%5Bopenai%5D&logo=pypi&logoColor=white)](https://pypi.org/project/dcp-ai/) | `DCPOpenAIClient`、`DCP_TOOLS` による関数呼び出し | [integrations/openai/](integrations/openai/README.md) |
+| **CrewAI** | [![PyPI extra](https://img.shields.io/pypi/v/dcp-ai?label=dcp-ai%5Bcrewai%5D&logo=pypi&logoColor=white)](https://pypi.org/project/dcp-ai/) | `DCPCrewAgent`、`DCPCrew` によるマルチエージェントのガバナンス | [integrations/crewai/](integrations/crewai/README.md) |
+| **Agno** | [![PyPI](https://img.shields.io/pypi/v/agno-dcp?label=agno-dcp&logo=pypi&logoColor=white&color=blue)](https://pypi.org/project/agno-dcp/) | `DCPAgent`、`DCPTeam`、`DCPWorkflow` のラッパー（別パッケージ） | [agno-dcp のリポジトリ](https://github.com/dcp-ai-protocol/agno-dcp) |
+| **OpenClaw** | [![npm](https://img.shields.io/npm/v/@dcp-ai/openclaw?label=%40dcp-ai%2Fopenclaw&logo=npm)](https://www.npmjs.com/package/@dcp-ai/openclaw) | プラグイン + SKILL.md、6 つのエージェント用ツール | [integrations/openclaw/](integrations/openclaw/README.md) |
+| **W3C DID/VC** | [![npm](https://img.shields.io/npm/v/@dcp-ai/w3c-did?label=%40dcp-ai%2Fw3c-did&logo=npm)](https://www.npmjs.com/package/@dcp-ai/w3c-did) | DID ドキュメントと DCP のアイデンティティの橋渡し、VC の発行 | [integrations/w3c-did/](integrations/w3c-did/README.md) |
+| **Google A2A** | [![npm](https://img.shields.io/npm/v/@dcp-ai/google-a2a?label=%40dcp-ai%2Fgoogle-a2a&logo=npm)](https://www.npmjs.com/package/@dcp-ai/google-a2a) | A2A の Agent Card 内の署名済み DCP パスポート（`verifyAgentCardPassport`）、タスクから意図への変換 | [integrations/google-a2a/](integrations/google-a2a/README.md) |
+| **Anthropic MCP** | [![npm](https://img.shields.io/npm/v/@dcp-ai/anthropic-mcp?label=%40dcp-ai%2Fanthropic-mcp&logo=npm)](https://www.npmjs.com/package/@dcp-ai/anthropic-mcp) | MCP のツール呼び出しごとの署名済み DCP レシート（`withDcpReceipt`）、DCP のツールとリソース | [integrations/anthropic-mcp/](integrations/anthropic-mcp/README.md) |
+| **AutoGen** | [![npm](https://img.shields.io/npm/v/@dcp-ai/autogen?label=%40dcp-ai%2Fautogen&logo=npm)](https://www.npmjs.com/package/@dcp-ai/autogen) | AutoGen のエージェントと DCP のラッパー、グループチャットのガバナンス | [integrations/autogen/](integrations/autogen/README.md) |
 
 ---
+
+<a id="templates"></a>
 
 ## テンプレート
 
-一般的なフレームワーク向けに、すぐに使えるプロジェクトテンプレートです。各テンプレートにはDCPアイデンティティ、意図ポリシー、監査ログが事前構成されています。
+よく使われるフレームワーク向けの入門用のウォークスルーです。アイデンティティ、意図、ポリシー、監査ログ、バンドルの封印がどこに
+収まるかを示しますが、鍵と署名はプレースホルダー（`«generated»`、`«sig»`）です。鍵を生成せず、何にも署名せず、
+そのバンドルは検証に通りません。Express テンプレートのミドルウェアが確認するのはバンドルの構造だけで、署名や
+アドミッションは確認しません。実際の鍵、署名、検証には、[クイックスタート](docs/README.md)と
+[フレームワークとの統合](#framework-integrations)を使ってください。
 
 | テンプレート | 説明 | コマンド |
 |----------|-------------|---------|
-| **LangChain** | DCPガバナンス付きRAGエージェント | `npx @dcp-ai/cli init --template langchain` |
-| **CrewAI** | エージェントごとのDCPアイデンティティを持つマルチエージェントクルー | `npx @dcp-ai/cli init --template crewai` |
-| **OpenAI** | DCPツールガバナンス付き関数呼び出しエージェント | `npx @dcp-ai/cli init --template openai` |
-| **Express** | DCP検証ミドルウェア付きAPIサーバー | `npx @dcp-ai/cli init --template express` |
+| **LangChain** | DCP の流れで包んだ LangChain.js の呼び出し（署名はプレースホルダー） | `npm create @dcp-ai/langchain my-app` |
+| **CrewAI** | DCP のパスポートと監査証跡を備えたマルチエージェントのクルーのシミュレーション（署名はプレースホルダー） | `npm create @dcp-ai/crewai my-app` |
+| **OpenAI** | DCP の意図、ポリシー、監査で包んだ OpenAI の関数呼び出し（署名はプレースホルダー） | `npm create @dcp-ai/openai my-app` |
+| **Express** | DCP の構造チェック（署名の検証なし）とディスカバリーのエンドポイントを備えた Express サーバー | `npm create @dcp-ai/express my-app` |
 
-完全なソースについては [templates/](templates/) を参照してください。
+`npm create @dcp-ai/<name>` は、テンプレートを新しいフォルダーにコピーする `@dcp-ai/create-<name>` のスキャフォルダーを
+実行します。完全なソースは [templates/](templates/) を参照してください。
 
 ---
+
+<a id="playground"></a>
 
 ## プレイグラウンド
 
-DCPのコンセプトを探索するための対話型Webベースプレイグラウンドです — WASM SDKを使用して、アイデンティティの作成、意図の宣言、バンドル署名、署名検証をブラウザ内で直接行えます。
+DCP の概念を探るための、Web ベースのインタラクティブなプレイグラウンドです。ブラウザー上で直接、アイデンティティの作成、意図の宣言、バンドルへの署名、署名の検証ができます。暗号処理は `tweetnacl` と Web Crypto によりローカルで実行されます。これはデモです。ポスト量子署名は
+シミュレーションで、正規形とマークルルートは簡略化されているため、作られるものは証拠にはならず、
+SDK の検証器で検証できるとは限りません（[制限](playground/README.md#limitations)を参照）。
 
 ```bash
-# ブラウザで開く
-open playground/index.html
+# From the repository root; ES modules require HTTP, not file://
+python3 -m http.server 8080 --bind 127.0.0.1 --directory playground
+# Open http://localhost:8080 in your browser
 ```
 
-詳細については [playground/](playground/) を参照してください。
+詳細は [playground/](playground/) を参照してください。
 
 ---
 
+<a id="infrastructure-services"></a>
+
 ## インフラストラクチャサービス
 
-アンカリング、透明性、失効のためのバックエンドサービスです。これらは運用コンポーネントであり、規範的なコアプロトコルの一部ではありません。
+アンカリング、透明性、失効のためのバックエンドサービスです。これらは運用上のコンポーネントであり、規範的なコアプロトコルには含まれません。
 
 | サービス | ポート | 説明 | ドキュメント |
 |---------|------|-------------|------|
-| **Verification** | 3000 | 署名済みバンドルを検証するためのHTTP API | [server/](server/README.md) |
-| **Anchoring** | 3001 | バンドルハッシュをL2ブロックチェーンにアンカー | [services/anchor/](services/anchor/README.md) |
-| **Transparency Log** | 3002 | CT形式のMerkleログで包含証明付き | [services/transparency-log/](services/transparency-log/README.md) |
-| **Revocation** | 3003 | エージェント失効レジストリ + `.well-known` | [services/revocation/](services/revocation/README.md) |
+| **Verification** | 3000 | Signed Bundle を検証するための HTTP API | [server/](server/README.md) |
+| **Anchoring** | 3001 | バンドルのハッシュをマークルでバッチ化し、ローカルに記録する。オンチェーンへの送信は未実装 | [services/anchor/](services/anchor/README.md) |
+| **Transparency Log** | 3002 | 包含証明を備えた CT 方式のマークルログ | [services/transparency-log/](services/transparency-log/README.md) |
+| **Revocation** | 3003 | エージェントの失効レジストリ + `.well-known` | [services/revocation/](services/revocation/README.md) |
 
-すべてのサービスを1コマンドでデプロイ。
+すべてのサービスを 1 つのコマンドでデプロイします。
 
 ```bash
 cd docker && docker compose up -d
@@ -304,121 +398,162 @@ cd docker && docker compose up -d
 
 ---
 
+<a id="documentation"></a>
+
 ## ドキュメント
 
-### 規範仕様
+<a id="normative-specifications"></a>
+
+### 規範的な仕様
 
 | ドキュメント | 説明 |
 |----------|-------------|
-| [DCP-01](spec/DCP-01.md) | アイデンティティと人間バインディング |
-| [DCP-02](spec/DCP-02.md) | 意図宣言とポリシーゲーティング |
+| [DCP-01](spec/DCP-01.md) | アイデンティティと人間との結び付け |
+| [DCP-02](spec/DCP-02.md) | 意図の宣言とポリシーによる制御 |
 | [DCP-03](spec/DCP-03.md) | 監査チェーンと透明性 |
 | [DCP-04](spec/DCP-04.md) | エージェント間通信 |
-| [DCP-05](spec/DCP-05.md) | エージェントライフサイクル管理 |
+| [DCP-05](spec/DCP-05.md) | エージェントのライフサイクル管理 |
 | [DCP-06](spec/DCP-06.md) | デジタル継承と相続 |
-| [DCP-07](spec/DCP-07.md) | 紛争解決と仲裁 |
-| [DCP-08](spec/DCP-08.md) | 権利と義務のフレームワーク |
-| [DCP-09](spec/DCP-09.md) | 人格代理と委任 |
-| [DCP-AI v2.0](spec/DCP-AI-v2.0.md) | 耐量子規範仕様 |
-| [BUNDLE](spec/BUNDLE.md) | 市民権バンドルフォーマット |
-| [VERIFICATION](spec/VERIFICATION.md) | 検証手順とチェックリスト |
-| [CANONICALIZATION_PROFILE](spec/CANONICALIZATION_PROFILE.md) | すべての署名とハッシュの基盤となる正規化 JSON プロファイル `dcp-jcs-v1` |
-| [DCP Core](spec/core/dcp-core.md) | コアプロトコル編集仕様 |
+| [DCP-07](spec/DCP-07.md) | 紛争の解決と仲裁 |
+| [DCP-08](spec/DCP-08.md) | 権利と義務の枠組み |
+| [DCP-09](spec/DCP-09.md) | 個人の代理と委任 |
+| [DCP-AI v2.0](spec/DCP-AI-v2.0.md) | ポスト量子の規範仕様 |
+| [BUNDLE](spec/BUNDLE.md) | Citizenship Bundle の形式 |
+| [VERIFICATION](spec/VERIFICATION.md) | 検証の手順とチェックリスト |
+| [CANONICALIZATION_PROFILE](spec/CANONICALIZATION_PROFILE.md) | すべての署名とハッシュの基礎となる正規 JSON プロファイル `dcp-jcs-v1` |
+| [DCP Core](spec/core/dcp-core.md) | コアプロトコルの編集上の仕様 |
+| [Profiles](spec/profiles/README.md) | オプションのプロファイル：暗号、A2A、ガバナンス、アドミッション（`strict-v1`） |
+
+<a id="getting-started"></a>
 
 ### はじめに
 
 | ガイド | 説明 |
 |-------|-------------|
-| [QUICKSTART](docs/QUICKSTART.md) | 一般的なクイックスタートガイド |
-| [QUICKSTART_LANGCHAIN](docs/QUICKSTART_LANGCHAIN.md) | LangChain統合ウォークスルー |
-| [QUICKSTART_CREWAI](docs/QUICKSTART_CREWAI.md) | CrewAIマルチエージェントセットアップ |
-| [QUICKSTART_AGNO](docs/QUICKSTART_AGNO.md) | `agno-dcp` による Agno のエージェント・チーム・ワークフロー（ライブデモあり） |
-| [QUICKSTART_OPENAI](docs/QUICKSTART_OPENAI.md) | OpenAI関数呼び出し統合 |
-| [QUICKSTART_EXPRESS](docs/QUICKSTART_EXPRESS.md) | Expressミドルウェアセットアップ |
+| [QUICKSTART](docs/QUICKSTART.md) | 全般的なクイックスタートガイド |
+| [QUICKSTART_LANGCHAIN](docs/QUICKSTART_LANGCHAIN.md) | LangChain との統合の手引き |
+| [QUICKSTART_CREWAI](docs/QUICKSTART_CREWAI.md) | CrewAI によるマルチエージェントのセットアップ |
+| [QUICKSTART_AGNO](docs/QUICKSTART_AGNO.md) | `agno-dcp` を使った Agno のエージェント、チーム、ワークフロー（ライブデモ） |
+| [QUICKSTART_OPENAI](docs/QUICKSTART_OPENAI.md) | OpenAI の関数呼び出しとの統合 |
+| [QUICKSTART_EXPRESS](docs/QUICKSTART_EXPRESS.md) | Express ミドルウェアのセットアップ |
 
-### APIリファレンス
+<a id="api-reference"></a>
+
+### API リファレンス
 
 | ドキュメント | 説明 |
 |----------|-------------|
-| [OpenAPI Spec](api/openapi.yaml) | REST API (OpenAPI 3.1) |
-| [Protocol Buffers](api/proto/) | gRPCサービス定義 |
-| [API README](api/README.md) | APIの概要と使い方 |
+| [OpenAPI Spec](api/openapi.yaml) | REST API（OpenAPI 3.1） |
+| [Protocol Buffers](api/proto/) | gRPC サービスの定義 |
+| [API README](api/README.md) | API の概要と使い方 |
+
+<a id="architecture--security"></a>
+<a id="architecture-security"></a>
 
 ### アーキテクチャとセキュリティ
 
 | ドキュメント | 説明 |
 |----------|-------------|
-| [TECHNICAL_ARCHITECTURE](docs/TECHNICAL_ARCHITECTURE.md) | グローバル規模展開のためのシステムアーキテクチャ |
-| [SECURITY_MODEL](docs/SECURITY_MODEL.md) | 脅威モデル、攻撃ベクトル、保護層 |
-| [STORAGE_AND_ANCHORING](docs/STORAGE_AND_ANCHORING.md) | P2Pストレージ、オプションのブロックチェーンアンカリング |
+| [TECHNICAL_ARCHITECTURE](docs/TECHNICAL_ARCHITECTURE.md) | グローバル規模のデプロイのためのシステムアーキテクチャ |
+| [SECURITY_MODEL](docs/SECURITY_MODEL.md) | 脅威モデル、攻撃ベクター、保護のレイヤー |
+| [STORAGE_AND_ANCHORING](docs/STORAGE_AND_ANCHORING.md) | P2P ストレージ、オプションのブロックチェーンへのアンカリング |
+| [ARCHITECTURE](docs/ARCHITECTURE.md) | コントリビューター向けのリポジトリの地図 |
+
+<a id="testing--assurance"></a>
+<a id="testing-assurance"></a>
 
 ### テストと保証
 
 | ツール | 説明 |
 |------|-------------|
-| [相互運用マトリクス](tools/interop-matrix/README.md) | 4つのSDK (およびリファレンス検証者) 上で稼働するエージェントが、互いの市民権バンドルを作成、署名、検証します。そのままのものと、転送中に改ざんされたものの両方を対象とします |
-| [差分ファザー](tools/difffuzz/README.md) | 同じ変異を加えた署名済みバンドルを4つのSDKの検証者に通します。判定の不一致はすべて検出事項として扱います |
-| [共有ベクトル](tests/interop/v2/) | すべてのSDKが同じように受理または拒否しなければならないバンドル、マンデートチェーン、攻撃ケース |
+| [Interop matrix](tools/interop-matrix/README.md) | 4 つの SDK（とリファレンス検証器）上で動くエージェントが、互いの citizenship bundle を作成、署名、検証する。そのままのものと、転送中に改ざんしたものの両方を扱う |
+| [Differential fuzzer](tools/difffuzz/README.md) | 同じ変異させた署名済みバンドルを 4 つの SDK の検証器に通す。食い違いはすべて発見事項になる |
+| [Shared vectors](tests/interop/v2/) | すべての SDK が同じように受け入れる、または拒否しなければならないバンドル、委任状のチェーン、攻撃ケース |
+
+<a id="guides"></a>
 
 ### ガイド
 
 | ガイド | 説明 |
 |-------|-------------|
-| [AGENT_CREATION_AND_CERTIFICATION](docs/AGENT_CREATION_AND_CERTIFICATION.md) | P2Pエージェント作成フロー、DCP認証 |
+| [AGENT_CREATION_AND_CERTIFICATION](docs/AGENT_CREATION_AND_CERTIFICATION.md) | P2P でのエージェント作成の流れ、DCP の認証 |
 | [OPERATOR_GUIDE](docs/OPERATOR_GUIDE.md) | 検証サービスの運用 |
-| [MIGRATION_V1_V2](docs/MIGRATION_V1_V2.md) | DCP v1.0からv2.0への移行 |
+| [MIGRATION_V1_V2](docs/MIGRATION_V1_V2.md) | DCP v1.0 から v2.0 への移行 |
+| [ADMISSION](docs/ADMISSION.md) | 信頼済みのプリンシパルからのバンドルだけを、必要に応じて `strict-v1` のもとで受け入れる（未リリース） |
+| [OBSERVABILITY](docs/OBSERVABILITY.md) | SDK からの OpenTelemetry のトレースとメトリクス |
 
-### 標準整合
+<a id="proposals-experimental-not-normative"></a>
+
+### 提案（実験的、規範ではない）
 
 | ドキュメント | 説明 |
 |----------|-------------|
-| [NIST_CONFORMITY](docs/NIST_CONFORMITY.md) | NIST耐量子暗号準拠 |
-| [EU_AI_ACT_MAPPING](docs/EU_AI_ACT_MAPPING.md) | EU AI法のログ記録、人間による監視、記録保持の義務とDCP成果物との対応付け |
-| [ROADMAP](ROADMAP.md) | プロジェクトの進化ロードマップ |
+| [正規化の候補 `dcp-jcs-v2`](docs/proposals/canonicalization-candidate/README.md) | 既定では有効化されない実験的な候補プロファイル、その設計とオプトインの SDK API（未リリース）。`dcp-jcs-v1` は引き続き既定であり、唯一の規範的な正規化プロファイル |
+
+<a id="standards-alignment"></a>
+
+### 標準との整合
+
+| ドキュメント | 説明 |
+|----------|-------------|
+| [NIST_CONFORMITY](docs/NIST_CONFORMITY.md) | NIST のポスト量子暗号への適合 |
+| [EU_AI_ACT_MAPPING](docs/EU_AI_ACT_MAPPING.md) | EU AI 法のログ記録、人間による監督、記録保持の義務を DCP のアーティファクトに対応付ける |
+| [ROADMAP](ROADMAP.md) | プロジェクトの発展のロードマップ |
+
+<a id="community"></a>
 
 ### コミュニティ
 
 | ドキュメント | 説明 |
 |----------|-------------|
-| [EARLY_ADOPTERS](docs/EARLY_ADOPTERS.md) | アーリーアダプタープログラムとケーススタディ |
-| [CONTRIBUTING](CONTRIBUTING.md) | コントリビューションガイドライン |
+| [EARLY_ADOPTERS](docs/EARLY_ADOPTERS.md) | アーリーアダプター向けプログラムと事例 |
+| [CONTRIBUTING](CONTRIBUTING.md) | 貢献のガイドライン |
 | [GOVERNANCE](GOVERNANCE.md) | プロジェクトのガバナンスモデル |
+
+<a id="vision"></a>
 
 ### ビジョン
 
 | ドキュメント | 説明 |
 |----------|-------------|
-| [GENESIS_PAPER](docs/GENESIS_PAPER.md) | 創設ホワイトペーパー |
+| [GENESIS_PAPER](docs/GENESIS_PAPER.md) | 創設のホワイトペーパー |
 
 ---
+
+<a id="cryptographic-algorithms"></a>
 
 ## 暗号アルゴリズム
 
-DCP v2.0は、耐量子セキュリティのためにハイブリッド暗号アーキテクチャを採用しています。アルゴリズム選択と暗号アジリティは [Cryptoプロファイル](spec/profiles/crypto/) によって管理されます。
+DCP v2.0 は、量子耐性のあるセキュリティのためにハイブリッドな暗号アーキテクチャを採用しています。アルゴリズムの選択と暗号の俊敏性は [Crypto Profile](spec/profiles/crypto/) で定められています。
 
-| アルゴリズム | 標準 | 用途 |
+この表はプロトコルの設計を示します。SDK は X25519 + ML-KEM-768 を組み合わせた交換を実行せず、A2A のセッション鍵は呼び出し側が提供します。現在の V2 バンドル検証器は、オプションの二次監査チェーンも二次マークルルートも再計算しません。実装上の制限は [NIST への適合](docs/NIST_CONFORMITY.md)と[セキュリティモデル](docs/SECURITY_MODEL.md)を参照してください。
+
+| アルゴリズム | 標準 | 目的 |
 |-----------|----------|---------|
-| **Ed25519** | RFC 8032 | 古典デジタル署名 |
-| **ML-DSA-65** | FIPS 204 | 耐量子デジタル署名 (Dilithium) |
-| **ML-KEM-768** | FIPS 203 | 耐量子鍵カプセル化メカニズム (Kyber) |
-| **SLH-DSA-192f** | FIPS 205 | ハッシュベースのバックアップ署名 (SPHINCS+) |
-| **X25519 + ML-KEM-768** | ハイブリッド | 古典 + 耐量子を組み合わせた鍵交換 |
-| **SHA-256 + SHA3-256** | FIPS 180-4 / FIPS 202 | 監査整合性のためのデュアルハッシュチェーン |
+| **Ed25519** | RFC 8032 | クラシカルなデジタル署名 |
+| **ML-DSA-65** | FIPS 204 | ポスト量子のデジタル署名（Dilithium） |
+| **ML-KEM-768** | FIPS 203 | ポスト量子の鍵カプセル化メカニズム（Kyber） |
+| **SLH-DSA-192f** | FIPS 205 | ハッシュベースのバックアップ署名（SPHINCS+） |
+| **X25519 + ML-KEM-768** | ハイブリッド | クラシカル + PQ を組み合わせた鍵交換 |
+| **SHA-256 + SHA3-256** | FIPS 180-4 / FIPS 202 | 監査の完全性のための二重ハッシュチェーン |
 
 ---
 
-## リポジトリレイアウト
+<a id="repository-layout"></a>
+
+## リポジトリの構成
 
 ```
-dcp-ai-genesis/
+dcp-ai/
 ├── spec/                    # Normative specifications (DCP-01 through DCP-09, v2.0)
 │   ├── core/                # DCP Core editorial specification
-│   └── profiles/            # Profile specifications (crypto, a2a, governance)
+│   └── profiles/            # Profile specifications (crypto, a2a, governance, admission)
 ├── schemas/                 # JSON Schemas (draft 2020-12, v2 includes DCP-05–09)
 ├── tools/                   # Validation, conformance, crypto + Merkle helpers
 │   ├── interop-matrix/      # Live interoperability between agents on the four SDKs
-│   └── difffuzz/            # Differential fuzzer of the four V2 verifiers
-├── tests/                   # Conformance tests and fixtures
+│   ├── difffuzz/            # Differential fuzzer of the four V2 verifiers
+│   └── canonicalization-lab/ # Design model of the dcp-jcs-v2 candidate
+├── tests/                   # Conformance tests, fixtures, interop vectors (tests/interop/candidate: experimental)
 ├── bin/dcp.js               # Reference CLI
 ├── cli/                     # Interactive CLI wizard (@dcp-ai/cli)
 ├── sdks/
@@ -439,6 +574,7 @@ dcp-ai-genesis/
 │   ├── anthropic-mcp/       # Anthropic MCP bridge
 │   └── autogen/             # Microsoft AutoGen bridge
 ├── templates/               # Framework templates (langchain, crewai, openai, express)
+├── packages/create-*/       # npm create @dcp-ai/<name> scaffolders
 ├── playground/              # Web-based interactive playground
 ├── server/                  # Reference verification server
 ├── services/
@@ -448,58 +584,72 @@ dcp-ai-genesis/
 ├── contracts/ethereum/      # DCPAnchor.sol for EVM L2
 ├── docker/                  # Docker Compose + multi-stage Dockerfile
 ├── api/                     # OpenAPI 3.1 + Protocol Buffers (gRPC)
-├── docs/                    # All documentation
+├── docs/                    # Guides, architecture, standards alignment; docs/proposals: experimental designs
 └── .github/                 # CI/CD workflows + reusable GitHub Actions
 ```
 
 ---
 
+<a id="development"></a>
+
 ## 開発
 
 ```bash
-# 依存関係をインストール
+# Build the workspace SDK first: the root depends on it until @dcp-ai/sdk 2.2.0 is on npm
+(cd sdks/typescript && npm install && npm run build)
+
+# Install dependencies
 npm install
 
-# テスト実行
+# Run tests
 npm test
 
-# プロトコル適合テストスイートを実行
+# Run protocol conformance suite
 npm run conformance
 
-# SDK横断チェック (先に sdks/typescript をビルドしてください。Python、Go、Rust が必要です)
+# Cross-SDK checks (build sdks/typescript first; needs Python, Go and Rust)
 node tools/interop-matrix/run.mjs
 node tools/difffuzz/run.mjs
 
-# 検証サーバーを起動 (ポート 3000)
+# Start verification server (port 3000)
 npm run server
 ```
 
 ---
 
-## コントリビューション
+<a id="contributing"></a>
 
-人間とAIエージェントの両方からのコントリビューションを歓迎します。
+## 貢献
 
-- 開発ワークフローと標準については [コントリビューションガイド](CONTRIBUTING.md) をお読みください。
-- 意思決定プロセスと役割については [Governance](GOVERNANCE.md) を参照してください。
+人間からも AI エージェントからも貢献を歓迎します。
+
+- 開発のワークフローと基準については [貢献ガイド](CONTRIBUTING.md) を読んでください。
+- 意思決定のプロセスと役割については [ガバナンス](GOVERNANCE.md) を参照してください。
 
 ---
 
+<a id="citation"></a>
+
 ## 引用
 
-研究でDCP-AIを使用する場合は、論文 (概念フレームワーク) とソフトウェアリリース (使用した具体的な実装) の両方を引用してください。
+研究で DCP-AI を使う場合は、論文（概念的な枠組み）とソフトウェアのリリース（使用した具体的な実装）の両方を引用してください。
 
 **論文**
 
 > Naranjo Emparanza, D. (2026). *Agents Don't Need a Better Brain — They Need a World: Toward a Digital Citizenship Protocol for Autonomous AI Systems*. Zenodo. https://doi.org/10.5281/zenodo.19040913
 
-**ソフトウェア (v2.0.2)**
+**ソフトウェア**
+
+使用したリリースを引用してください。コンセプト DOI [`10.5281/zenodo.19656025`](https://doi.org/10.5281/zenodo.19656025)
+は最新のアーカイブ版に解決されます。v2.0.2 のリリースには独自の DOI があります。
 
 > Naranjo Emparanza, D. (2026). *DCP-AI v2.0.2 — Digital Citizenship Protocol for AI Agents (Reference Implementation)*. Zenodo. https://doi.org/10.5281/zenodo.19656026
 
-機械可読形式については [`CITATION.cff`](CITATION.cff) を参照してください。
+機械可読な形式については [`CITATION.cff`](CITATION.cff) を参照してください。
 
 ---
+
+<a id="license"></a>
 
 ## ライセンス
 
@@ -509,6 +659,6 @@ npm run server
 
 <div align="center">
 
-*"このプロトコルは人間とAIエージェントが共同で作成しました — AIデジタル市民権のために設計された最初のプロトコルであり、統治しようとするその協働そのものによって構築されました。"*
+*「このプロトコルは、人間と AI エージェントが共同で作りました。AI のデジタル市民権のために設計された最初のプロトコルであり、それが統治しようとする協働そのものによって構築されています。」*
 
 </div>

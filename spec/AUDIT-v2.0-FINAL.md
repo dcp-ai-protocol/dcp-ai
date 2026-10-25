@@ -5,6 +5,15 @@
 **Scope:** Complete gap closure verification for DCP-AI v2.0 Phase 3  
 **Result:** ALL 13 GAPS CLOSED  
 
+> **Historical record, kept as written.** This audit is dated 26/02/2026. Later reviews (October 2026) qualify some of its conclusions; the current state is in the documents linked here, not in this record:
+>
+> - **Gap #11 and the HSM reference implementation.** `HsmCryptoProvider` and `HsmProviderFactory` are a simulated pattern, not an HSM integration. They are not exported from `@dcp-ai/sdk` and have no PKCS#11 binding; `sign` returns a hash rather than a signature, and `verify` accepts any signature of the right length. They must not be used for real evidence ([docs/NIST_CONFORMITY.md](../docs/NIST_CONFORMITY.md) §2.2).
+> - **Gap #1.** The SDK's key recovery and `dcp recovery-setup` produce the Shamir shares but do not encrypt them with the hybrid KEM.
+> - **Gap #4.** The reference server checks the structure of an advisory's `composite_sig`, not its signature; the operator token is its guard ([server/README.md](../server/README.md)).
+> - **PQ-only mode.** `pq_only` still needs the classical signature bytes in the SDK verifiers: the PQ signature covers them under `pq_over_classical`, so it does not mean the classical component can be left out.
+> - **Gap #6.** The dual-hash helpers exist, but the verifiers do not recompute `prev_hash_secondary` or `audit_merkle_root_secondary` ([VERIFICATION.md](VERIFICATION.md), V2-11).
+> - **`dcp audit gaps`** checks that files exist and contain markers, not behaviour. On 25/10/2026 it reports Gap #7 as open, because it looks for `integrations/fastapi/__init__.py`, which is now `sdks/python/dcp_ai/fastapi/__init__.py`.
+
 ---
 
 ## Gap Verification Matrix

@@ -22,6 +22,8 @@ This separation ensures that:
 
 The set of approved signature algorithms (Ed25519, ML-DSA-65, ML-DSA-87, SLH-DSA-192f), key encapsulation mechanisms (X25519, ML-KEM-768, hybrid X25519+ML-KEM-768), and hash algorithms (SHA-256, SHA3-256, SHA-384).
 
+> *Informative note (25/10/2026), not part of the profile:* no DCP-AI SDK implements ML-DSA-87 yet, and none exports the hybrid X25519+ML-KEM-768 exchange ([docs/NIST_CONFORMITY.md](../../../docs/NIST_CONFORMITY.md)).
+
 See [DCP-AI v2.0](../../DCP-AI-v2.0.md) Section 2 for the full registry.
 
 ### Composite Signature Binding
@@ -74,3 +76,22 @@ See [DCP-AI v2.0](../../DCP-AI-v2.0.md) Section 10.3.
 - [DCP-AI v2.0](../../DCP-AI-v2.0.md) — Sections 2 (Algorithm Registry), 4 (Domain Separation), 5 (Composite Signatures), 7 (Verification Modes), 10.3 (Dual-Hash), 13.2 (Advisory System)
 - [NIST Conformity](../../../docs/NIST_CONFORMITY.md) — NIST post-quantum cryptography conformance
 - [Security Model](../../../docs/SECURITY_MODEL.md) — Threat model and protection layers
+
+## Implementation notes (informative)
+
+> **Added 25/10/2026. Not normative.** These notes add no requirement and change nothing above: they describe how
+> the reference code on `main` relates to this text. Where they differ, the normative text above stands.
+
+- The composite binding makes stripping detectable only where the verifier requires it. The mode that counts is
+  the effective one the verifier resolves, which can be stricter than the requested `default_mode` once the risk
+  tier, the security tier and the policy are applied. In the SDK verifiers, removing the PQ signature and
+  relabelling the binding as `classical_only` is accepted when the effective mode is `classical_only` or
+  `hybrid_preferred` (with a warning in `hybrid_preferred`), and refused when it is `hybrid_required` or `pq_only`.
+  Only an explicitly absent PQ signature can be tolerated: a PQ signature that is present under
+  `pq_over_classical` and invalid is refused in every mode, and every other check still applies.
+- `pq_only` in the SDK verifiers still expects the `pq_over_classical` binding with the classical signature bytes
+  present, since the PQ signature covers them; it does not accept a bundle that carries a PQ signature alone.
+- The advisory system is not automatic: a verifier applies an advisory when its operator loads it and calls the
+  advisory helpers or sets the policy accordingly.
+- The SDK verifiers check the SHA-256 audit chain and Merkle root; they do not recompute the secondary SHA3-256 chain
+  or root (V2-11 of [VERIFICATION.md](../../VERIFICATION.md)).

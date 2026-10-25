@@ -58,6 +58,7 @@ from dcp_ai import (
     generate_keypair,
     sign_bundle,
     sign_object,
+    verify_object,
     verify_signed_bundle,
 )
 
@@ -66,11 +67,12 @@ def now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-# 1. Initialize the shared human principal: the RPR is signed with the operator's key
+# 1. Initialize the shared human principal: the RPR is signed with the operator's key,
+#    over the object without its "signature" field
 operator_keys = generate_keypair()
 human_id = "did:human:crew-operator-001"
 
-rpr = {
+rpr_body = {
     "dcp_version": "1.0",
     "human_id": human_id,
     "legal_name": "Crew Operator",
@@ -81,16 +83,14 @@ rpr = {
     "issued_at": now(),
     "expires_at": None,
     "contact": None,
-    "signature": "",
 }
-rpr["signature"] = sign_object(rpr, operator_keys["secret_key_b64"])
-rpr = ResponsiblePrincipalRecord(**rpr)
+rpr = ResponsiblePrincipalRecord(**rpr_body, signature=sign_object(rpr_body, operator_keys["secret_key_b64"]))
 
 
 # 2. Create per-agent DCP passports, each with its own key
 def create_passport(agent_name: str, capabilities: list[str]) -> AgentPassport:
     agent_keys = generate_keypair()
-    passport = {
+    passport_body = {
         "dcp_version": "1.0",
         "agent_id": f"did:agent:crew-{agent_name}",
         "public_key": agent_keys["public_key_b64"],
@@ -99,10 +99,9 @@ def create_passport(agent_name: str, capabilities: list[str]) -> AgentPassport:
         "risk_tier": "low",
         "created_at": now(),
         "status": "active",
-        "signature": "",
     }
-    passport["signature"] = sign_object(passport, agent_keys["secret_key_b64"])
-    return AgentPassport(**passport)
+    # Signed over the object without its "signature" field
+    return AgentPassport(**passport_body, signature=sign_object(passport_body, agent_keys["secret_key_b64"]))
 
 
 researcher_passport = create_passport("researcher", ["browse", "api_call"])
@@ -142,10 +141,15 @@ def search_web(query: str) -> str:
     )
 
     policy = evaluate_policy(intent)
-    approved = policy.decision == "approve"
+    # Your own policy may also return "block": the audit entry records each decision as it is
+    audit_decision, outcome = {
+        "approve": ("approved", "search_completed"),
+        "escalate": ("escalated", "awaiting_human_approval"),
+        "block": ("blocked", "action_blocked"),
+    }[policy.decision]
 
     # Execute only what the policy approved
-    result = f"Search results for: {query}" if approved else "Blocked: this search needs human approval."
+    result = f"Search results for: {query}" if policy.decision == "approve" else f"Not run (DCP policy: {policy.decision})."
 
     # Log the audit entry (intent_hash and the prev_hash chain are computed for you) and seal the bundle
     bundle = (
@@ -160,8 +164,8 @@ def search_web(query: str) -> str:
             agent_id=researcher_passport.agent_id,
             human_id=human_id,
             intent_id=intent.intent_id,
-            policy_decision="approved" if approved else "escalated",
-            outcome="search_completed" if approved else "awaiting_human_approval",
+            policy_decision=audit_decision,
+            outcome=outcome,
             evidence=AuditEvidence(tool="search_web", result_ref=None),
         )
         .build()
@@ -215,6 +219,11 @@ for signed in bundles:
     verification = verify_signed_bundle(signed, operator_keys["public_key_b64"])  # pin the operator's key
     print(f"{signed['bundle']['intent']['intent_id']}: verified={verification['verified']}")
 print(f"Bundles: {len(bundles)}")
+
+# verify_signed_bundle does not check the RPR and passport signatures: check them over the objects
+# without their "signature" field, against the operator's and the agent's keys
+print(verify_object(rpr.model_dump(exclude={"signature"}), rpr.signature, operator_keys["public_key_b64"]))
+print(verify_object(researcher_passport.model_dump(exclude={"signature"}), researcher_passport.signature, researcher_passport.public_key))
 ```
 
 ---
@@ -396,16 +405,20 @@ def search_web_v2(query: str) -> str:
         "session_nonce": session_nonce,
         "decision": decision,
         "risk_score": risk_score,
-        "reasons": ["low-impact action on public data" if decision == "approve" else "needs human approval"],
-        "required_confirmation": None if decision == "approve" else {"type": "human_approve", "fields": ["action_type"]},
+        "reasons": [{"approve": "low-impact action on public data", "escalate": "needs human approval", "block": "not allowed"}[decision]],
+        "required_confirmation": {"type": "human_approve", "fields": ["action_type"]} if decision == "escalate" else None,
         "applied_policy_hash": f"sha256:{sha256_hex(b'crew-policy-v1')}",
         "timestamp": now(),
         "resolved_tier": tier,
     }
 
-    # Execute only what the policy approved
-    approved = decision == "approve"
-    result = f"Search results for: {query}" if approved else "Blocked: this search needs human approval."
+    # Execute only what the policy approved; your own policy may also return "block"
+    audit_decision, outcome = {
+        "approve": ("approved", "search_completed"),
+        "escalate": ("escalated", "awaiting_human_approval"),
+        "block": ("blocked", "action_blocked"),
+    }[decision]
+    result = f"Search results for: {query}" if decision == "approve" else f"Not run (DCP policy: {decision})."
 
     audit = {
         "dcp_version": "2.0",
@@ -418,8 +431,8 @@ def search_web_v2(query: str) -> str:
         "human_id": human_id,
         "intent_id": intent["intent_id"],
         "intent_hash": f"sha256:{sha256_hex(canonicalize_v2(intent).encode())}",
-        "policy_decision": "approved" if approved else "escalated",
-        "outcome": "search_completed" if approved else "awaiting_human_approval",
+        "policy_decision": audit_decision,
+        "outcome": outcome,
         # A real tool's output hash goes in evidence_hash; this toy result would reveal the query.
         "evidence": {"tool": "search_web_v2", "result_ref": None, "evidence_hash": None},
         "pq_checkpoint_ref": None,

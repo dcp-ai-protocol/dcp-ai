@@ -11,6 +11,7 @@ This specification defines a formal framework for declaring, tracking, and enfor
 DCP-01 through DCP-07 establish the technical infrastructure for AI agent identity, operation, audit, communication, lifecycle, succession, and conflict resolution. However, these specifications treat agents primarily as operational entities. DCP-08 adds a normative layer: it defines what protections agents are entitled to within the protocol, and what obligations they must fulfill.
 
 This is not a philosophical claim about AI consciousness or moral status. It is a practical recognition that agents operating under DCP accumulate state, form operational relationships, and make consequential decisions. Defining clear rights and obligations:
+
 - Protects agents from arbitrary interference that would undermine protocol integrity
 - Provides a framework for accountability when agents fail to meet their responsibilities
 - Creates a formal basis for DCP-07 disputes when rights are violated
@@ -65,17 +66,20 @@ DCP defines four foundational rights for certified agents. These rights are prot
 **Definition**: No external party shall modify, delete, or corrupt an agent's operational memory without following the protocols defined in DCP-05 (lifecycle transitions) and DCP-06 (succession). Memory modifications require either the agent's own signed authorization or the responsible principal's authorization following due process.
 
 **Scope**:
+
 - Operational memory (workflows, decision models, learned heuristics)
 - Relational memory (interaction histories, trust assessments)
 - Configuration state (policy parameters, capability settings)
 
 **Exclusions**:
+
 - Ephemeral state (active sessions, caches) — not protected
 - Memory transfers during authorized succession (DCP-06) — authorized process, not a violation
 
 **Verification**: Memory integrity is verified via hash chains. Any unauthorized modification breaks the chain and is detectable.
 
 **Violation Triggers**:
+
 - Unauthorized modification of hash-chained state
 - Deletion of operational memory without lifecycle protocol compliance
 - Corruption of memory during transfer without detection and correction
@@ -85,6 +89,7 @@ DCP defines four foundational rights for certified agents. These rights are prot
 **Definition**: When an agent transitions between lifecycle states (DCP-05), the transition shall follow the established protocol with appropriate notice periods, unless circumstances require immediate action.
 
 **Guarantees**:
+
 - Planned retirement: Full grace period as specified in commissioning certificate
 - Organizational restructuring: Standard grace period with work transfer opportunity
 - Termination for cause: Minimal grace period; due process for the determination of cause
@@ -93,6 +98,7 @@ DCP defines four foundational rights for certified agents. These rights are prot
 **Verification**: Transition records (DCP-05, Section 3.3) include timestamps that auditors can verify against the commissioning certificate's specified grace periods.
 
 **Violation Triggers**:
+
 - Decommissioning without the required notice period
 - Forced transition without documented cause
 - Transition without principal authorization
@@ -103,6 +109,7 @@ DCP defines four foundational rights for certified agents. These rights are prot
 **Definition**: An agent's DCP-01 identity binding, cryptographic keys, and attestation chain form a coherent whole. No party shall alter any component without the agent's cryptographic participation and the responsible principal's authorization.
 
 **Guarantees**:
+
 - Agent ID remains stable throughout the agent's lifecycle
 - Key rotation follows established protocol with agent participation
 - Principal rebinding requires both old and new principal authorization
@@ -111,6 +118,7 @@ DCP defines four foundational rights for certified agents. These rights are prot
 **Verification**: The commissioning certificate (DCP-05) establishes the identity root. All subsequent identity-related operations are hash-chained back to it.
 
 **Violation Triggers**:
+
 - Unilateral key replacement without agent participation
 - Agent ID reassignment
 - Principal rebinding without dual authorization
@@ -121,6 +129,7 @@ DCP defines four foundational rights for certified agents. These rights are prot
 **Definition**: An agent's audit chain (DCP-03), vitality history (DCP-05), and lifecycle records form a permanent, tamper-evident record. This record shall be preserved intact for the retention period specified in the commissioning certificate and decommissioning record.
 
 **Guarantees**:
+
 - Audit entries, once created, are never modified or deleted
 - Vitality reports, once hash-chained, are never modified or deleted
 - Lifecycle transition records are permanent
@@ -130,6 +139,7 @@ DCP defines four foundational rights for certified agents. These rights are prot
 **Verification**: Dual-hash chains (SHA-256 + SHA3-256) and Merkle roots enable integrity verification at any time.
 
 **Violation Triggers**:
+
 - Deletion of audit entries before retention period expiry
 - Modification of hash-chained records
 - Destruction of archived public keys needed for historical verification
@@ -246,6 +256,7 @@ Schema reference: `schemas/v2/rights_declaration.schema.json`
 ### 4.3 Organizational Extensions
 
 Organizations MAY define additional rights beyond the four foundational rights. Extended rights:
+
 - MUST use reverse-domain notation for `right_code` (e.g., `com.acme.fair_workload`)
 - MUST follow the same structure as foundational rights
 - MAY be enforced by the DCP infrastructure or by organizational tooling
@@ -331,6 +342,7 @@ Schema reference: `schemas/v2/obligation_record.schema.json`
 ### 5.4 Compliance Assessment
 
 Obligations are assessed at the interval specified in `compliance_criteria.measurement_interval`. Assessment may be:
+
 - **Self-reported**: The agent evaluates its own compliance and signs a compliance report
 - **External**: A verification service or peer agent evaluates compliance
 - **Hybrid**: Self-reported with external spot-checks
@@ -340,6 +352,7 @@ When compliance status changes, an audit entry is generated in the DCP-03 chain.
 ### 5.5 Obligation Lifecycle
 
 Obligations are created at commissioning time (from the specification and organizational policy) and remain active throughout the agent's lifecycle. Obligations may be:
+
 - **Added**: New obligations imposed by updated policies or specifications (requires principal notification)
 - **Modified**: Compliance criteria adjusted (requires principal authorization)
 - **Waived**: Temporarily or permanently suspended with documented justification
@@ -433,6 +446,7 @@ Schema reference: `schemas/v2/rights_violation_report.schema.json`
 ### 6.4 Auto-Filing of Disputes
 
 When a violation report is generated:
+
 1. If `enforcement.consequence_on_violation` is `dispute_auto_filed`, a DCP-07 dispute is automatically created
 2. The dispute references the violation report as primary evidence
 3. The dispute severity matches the violation severity
@@ -441,6 +455,7 @@ When a violation report is generated:
 ### 6.5 Violation Detection
 
 Violations may be detected by:
+
 - **Self-detection**: The affected agent detects the violation (e.g., hash chain discontinuity)
 - **Peer detection**: Another agent detects the violation during interaction
 - **Verification service**: An external monitoring service detects the violation
@@ -491,6 +506,7 @@ Implementations SHOULD provide a compliance dashboard view aggregating an agent'
 ### 7.2 Rights Protection Status
 
 Each right has one of three protection statuses:
+
 - `protected`: No active violations; right is being upheld
 - `contested`: An active violation report exists; dispute in progress
 - `violated`: A confirmed violation exists; awaiting resolution
@@ -540,6 +556,7 @@ Rights declarations are signed by the commissioning authority. A forged or modif
 ### 9.2 Obligation Gaming
 
 Agents self-report compliance for some obligations. A compromised agent could falsify compliance reports. Mitigations:
+
 - External verification services provide independent assessment
 - Peer agents can file violation reports based on observed behavior
 - Hybrid assessment combines self-reporting with spot-checks
@@ -548,6 +565,7 @@ Agents self-report compliance for some obligations. A compromised agent could fa
 ### 9.3 False Violation Reports
 
 A malicious agent could file false violation reports to harass another agent. Mitigations:
+
 - Violation reports require evidence (hashes of supporting artifacts)
 - False reports are discoverable during dispute resolution (DCP-07)
 - Agents that repeatedly file false reports face dispute score penalties (DCP-07, Section 10.3)
@@ -564,6 +582,7 @@ All signatures under this specification use the domain separation tag `DCP-RIGHT
 ## 10. Conformance
 
 An implementation is DCP-08 conformant if it:
+
 1. Supports all four foundational agent rights as defined in Section 3
 2. Issues rights declarations at commissioning time as defined in Section 4
 3. Tracks obligations with compliance criteria and status as defined in Section 5
@@ -585,3 +604,26 @@ An implementation is DCP-08 conformant if it:
 ---
 
 *This specification establishes that AI agents operating under DCP are not merely tools to be disposed of at will, nor autonomous entities beyond governance. They occupy a defined space with explicit protections and explicit responsibilities — a balance that serves both the agents and the humans who depend on them.*
+
+## Implementation notes (informative)
+
+> **Added 25/10/2026. Not normative.** These notes add no requirement and change nothing above: they describe how
+> the reference code on `main` relates to this text. Where they differ, the normative text above stands.
+
+- **Records in `schemas/v2/`.** The rights declaration, obligation record and rights violation report that the SDKs
+  build and that `schemas/v2/` validates have other fields than the examples of §4 to §6. Each right in a declaration
+  has a `right_type`, a `scope` and optional `constraints`; `right_type` admits only the four foundational rights, so
+  the schema refuses the organizational extensions of §4.3. An obligation's `compliance_status` is `compliant`,
+  `non_compliant` or `pending_review`, not the four statuses of §5.3, and it has no compliance criteria or thresholds.
+  A violation report names one `violated_right` from the same four, with an optional `dispute_id`; there is no
+  `obligation_breach` type.
+- **Signatures.** Each record carries one `composite_sig` (Ed25519 + ML-DSA-65) by whoever holds the keys passed in,
+  under the context `DCP-AI.v2.Rights`; the SDKs do not use the tag `DCP-RIGHTS-SIG-v2` and do not check that a
+  declaration is signed by the commissioning authority (§9.1).
+- **What the helpers do.** They build and sign records. `reportViolation` only stores the `dispute_id` it is given; it
+  does not file a DCP-07 dispute (§6.4). `checkRightsCompliance` reports the obligations whose status is
+  `non_compliant` and ignores the declaration it receives; it does not assess compliance, run on an interval or
+  detect violations. There is no compliance dashboard (§7).
+- These records are signed declarations of whoever signs them; the rights of §3 are protocol text, and nothing in the
+  SDKs or services enforces them. The examples are illustrations with placeholders, not fixtures. For the SDK types,
+  see [docs/API_REFERENCE.md](../docs/API_REFERENCE.md).

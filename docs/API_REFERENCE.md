@@ -1,6 +1,15 @@
 # DCP-AI API Reference
 
-Complete reference for the `@dcp-ai/sdk` TypeScript SDK (v2.0).
+Reference for the `@dcp-ai/sdk` TypeScript SDK as it is on `main` (package version 2.2.0, protocol DCP v2.0).
+
+> **Versions (25/10/2026).** The npm registry's `latest` is 2.1.1. Version 2.2.0 is tagged in `v2.10.0` but not
+> on npm, and sections marked *unreleased* describe what the changelog lists under
+> [`[Unreleased]`](../CHANGELOG.md#unreleased). To use what this reference describes, build the SDK from a checkout:
+> see the TypeScript SDK's [Release status](../sdks/typescript/README.md#installation).
+
+Code blocks here are declarations or fragments, not complete programs: names such as `registry`, `keys`,
+`payloadBytes` or `signedBundle` stand for values built as in the TypeScript SDK's
+[Quick Start (V2)](../sdks/typescript/README.md#quick-start-v2). Complete, runnable examples are in the SDK READMEs.
 
 ---
 
@@ -29,6 +38,9 @@ Complete reference for the `@dcp-ai/sdk` TypeScript SDK (v2.0).
 - [Bundle Presentation](#bundle-presentation)
 - [Verification Cache](#verification-cache)
 - [CBOR Wire Format](#cbor-wire-format)
+- [Crypto Providers](#crypto-providers)
+- [Version Detection](#version-detection)
+- [Experimental: Canonicalization Candidate](#experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased)
 
 ---
 
@@ -38,21 +50,22 @@ Import from `@dcp-ai/sdk`:
 
 ### ResponsiblePrincipalRecord
 
-Binds a human principal to an agent. The root of trust in DCP.
+Binds a human principal to an agent. On its own it is a declared, signed binding, not a root of trust: a verifier
+evaluates it against trust configured outside the bundle (see [ADMISSION.md](ADMISSION.md)).
 
 ```typescript
 interface ResponsiblePrincipalRecord {
-  dcp_version: '1.0';
+  dcp_version: string;
   human_id: string;
   legal_name: string;
-  entity_type: EntityType;          // 'natural_person' | 'organization'
-  jurisdiction: string;             // ISO jurisdiction code (e.g. 'US-CA')
-  liability_mode: LiabilityMode;    // 'owner_responsible'
+  entity_type: EntityType;
+  jurisdiction: string;
+  liability_mode: LiabilityMode;
   override_rights: boolean;
-  public_key: string;               // Base64-encoded Ed25519 public key
-  issued_at: string;                // ISO 8601 timestamp
+  issued_at: string;
   expires_at: string | null;
-  contact: string | null;
+  contact?: string | null;
+  signature: string;
 }
 ```
 
@@ -62,14 +75,15 @@ Identity document for an AI agent, bound to a human principal.
 
 ```typescript
 interface AgentPassport {
-  dcp_version: '1.0';
+  dcp_version: string;
   agent_id: string;
-  human_id: string;
   public_key: string;
-  capabilities: Capability[];       // ['browse', 'api_call', 'email', ...]
-  risk_tier: RiskTier;              // 'low' | 'medium' | 'high'
+  principal_binding_reference: string;
+  capabilities?: Capability[];
+  risk_tier?: RiskTier;
   created_at: string;
-  status: AgentStatus;              // 'active' | 'revoked' | 'suspended'
+  status: AgentStatus;
+  signature: string;
 }
 ```
 
@@ -79,7 +93,7 @@ Declaration of an action the agent wants to perform.
 
 ```typescript
 interface Intent {
-  dcp_version: '1.0';
+  dcp_version: string;
   intent_id: string;
   agent_id: string;
   human_id: string;
@@ -87,15 +101,16 @@ interface Intent {
   action_type: ActionType;
   target: IntentTarget;
   data_classes: DataClass[];
-  estimated_impact: Impact;         // 'low' | 'medium' | 'high'
-  requires_consent: boolean;
+  estimated_impact: Impact;
+  requires_consent?: boolean | null;
 }
 
 interface IntentTarget {
-  channel: Channel;                 // 'web' | 'api' | 'email' | ...
+  channel: Channel;
   to?: string | null;
   domain?: string | null;
   url?: string | null;
+  [key: string]: unknown;
 }
 ```
 
@@ -105,26 +120,25 @@ Result of the policy engine evaluating an intent.
 
 ```typescript
 interface PolicyDecision {
-  dcp_version: '1.0';
+  dcp_version: string;
   intent_id: string;
-  decision: PolicyDecisionType;     // 'approve' | 'escalate' | 'block'
+  decision: PolicyDecisionType;
   risk_score: number;
   reasons: string[];
-  required_confirmation: { type: 'human_approve'; fields?: string[] } | null;
-  applied_policy_hash: string;
-  timestamp: string;
+  required_confirmation?: RequiredConfirmation | null;
 }
 ```
 
 ### AuditEntry
 
-Immutable record of an executed action.
+Record of an executed action. The type does not make it immutable: an alteration becomes detectable when the entry
+is covered by the hash chain and the signed bundle (V1) or the signed manifest (V2) and that coverage is verified.
 
 ```typescript
 interface AuditEntry {
-  dcp_version: '1.0';
+  dcp_version: string;
   audit_id: string;
-  prev_hash: string;                // Hash chain link
+  prev_hash: string;
   timestamp: string;
   agent_id: string;
   human_id: string;
@@ -138,7 +152,7 @@ interface AuditEntry {
 interface AuditEvidence {
   tool?: string | null;
   result_ref?: string | null;
-  evidence_hash?: string | null;
+  [key: string]: unknown;
 }
 ```
 
@@ -175,7 +189,7 @@ type EntityType = 'natural_person' | 'organization';
 type LiabilityMode = 'owner_responsible';
 type Capability = 'browse' | 'api_call' | 'email' | 'calendar' | 'payments' | 'crm' | 'file_write' | 'code_exec';
 type RiskTier = 'low' | 'medium' | 'high';
-type AgentStatus = 'active' | 'revoked' | 'suspended' | 'commissioned' | 'declining' | 'decommissioned';
+type AgentStatus = 'active' | 'revoked' | 'suspended';
 type ActionType = 'browse' | 'api_call' | 'send_email' | 'create_calendar_event' | 'initiate_payment' | 'update_crm' | 'write_file' | 'execute_code';
 type Channel = 'web' | 'api' | 'email' | 'calendar' | 'payments' | 'crm' | 'filesystem' | 'runtime';
 type DataClass = 'none' | 'contact_info' | 'pii' | 'credentials' | 'financial_data' | 'health_data' | 'children_data' | 'company_confidential';
@@ -222,7 +236,7 @@ interface ResponsiblePrincipalRecordV2 {
   expires_at: string | null;
   contact: string | null;
   binding_keys: KeyEntry[];
-  pii_salt?: string;                // 32 random bytes as hex; signed, never published
+  pii_salt?: string;                // 32 random bytes as hex; signed; keep private (caller responsibility)
 }
 ```
 
@@ -250,7 +264,8 @@ interface BlindedResponsiblePrincipalRecordV2 {
 Helpers (exported by `@dcp-ai/sdk` 2.2.0 and later):
 
 ```typescript
-// 32 random bytes as hex. Set it as rpr.pii_salt before signing the RPR; never publish it.
+// 32 random bytes as hex. Set it as rpr.pii_salt before signing the RPR and keep it private:
+// blindRpr omits it from the blinded record, but the full RPR retains it.
 function generatePiiSalt(): string;
 // pii_hash = "sha256:" + hex(sha256(canonical({ contact, legal_name, pii_salt })))
 // Without pii_salt: the legacy unsalted value (deprecated), for opening old records.
@@ -362,6 +377,11 @@ interface BundleManifest {
   audit_merkle_root_secondary?: string;
   audit_count: number;
   pq_checkpoints?: string[];
+  /** When the session began, signed with the manifest (spec/VERIFICATION.md V2-4). */
+  session_issued_at?: string;
+  session_expires_at?: string;
+  intended_verifier?: string;
+  canonicalization_profile?: 'dcp-jcs-v1';
 }
 ```
 
@@ -388,11 +408,10 @@ type BindingMode = 'pq_over_classical' | 'classical_only';
 Envelope wrapping any artifact with its composite signature.
 
 ```typescript
-interface SignedPayload<T> {
+interface SignedPayload<T = unknown> {
   payload: T;
   payload_hash: string;
   composite_sig: CompositeSignature;
-  canonicalBytes?: Uint8Array;
 }
 ```
 
@@ -413,9 +432,20 @@ interface VerifierPolicy {
   require_composite_binding: boolean;
   max_key_age_days: number;
   allow_v1_bundles: boolean;
+  /** Phase 3: when true, classical signatures are not required even in hybrid mode */
   allow_classical_fallback_disable?: boolean;
+  /** Phase 3: emit deprecation warnings for classical-only bundles */
   warn_classical_only_deprecated?: boolean;
+  /** Phase 3: rejected algorithms from advisory auto-response */
   advisory_rejected_algs?: string[];
+  /** Require bundles to include session_expires_at */
+  require_session_expiry?: boolean;
+  /** Max allowed session duration in seconds (0 = no limit) */
+  max_session_duration_seconds?: number;
+  /** Require bundles to include intended_verifier matching this verifier's ID */
+  require_audience_binding?: boolean;
+  /** This verifier's identity for audience binding checks */
+  verifier_id?: string;
 }
 
 type VerificationMode = 'classical_only' | 'pq_only' | 'hybrid_required' | 'hybrid_preferred';
@@ -499,7 +529,9 @@ function verifyObject(obj: unknown, signatureB64: string, publicKeyB64: string):
 | `signatureB64` | `string` | Base64-encoded signature |
 | `publicKeyB64` | `string` | Base64-encoded Ed25519 public key |
 
-**Returns:** `true` if valid, `false` otherwise.
+**Returns:** `true` if the signature verifies, `false` if it does not. Malformed inputs can throw instead: an
+object that cannot be canonicalized, a signature or key that is not valid base64, or a decoded signature or key of
+the wrong length.
 
 ```typescript
 const valid = verifyObject({ action: 'transfer', amount: 100 }, sig, keys.publicKeyB64);
@@ -527,9 +559,12 @@ function publicKeyFromSecret(secretKeyB64: string): string;
 
 Import from `@dcp-ai/sdk`:
 
-### `compositeSign(registry, context, payload, keys)`
+### `compositeSign(registry, context, canonicalPayloadBytes, keys)`
 
-Produce a composite-bound hybrid signature where the PQ signature covers the classical signature, preventing stripping attacks.
+Produce a composite-bound hybrid signature where the PQ signature covers the classical signature, so the classical
+signature cannot be replaced without invalidating the PQ one. Removing the PQ signature (binding relabelled
+`classical_only`) is refused only where the effective mode is `hybrid_required` or `pq_only`; `classical_only` and
+`hybrid_preferred` accept it (see [MIGRATION_V1_V2.md](MIGRATION_V1_V2.md#step-4-switch-to-composite-signatures)).
 
 **Binding protocol:**
 1. `classical_sig = Classical.sign(context || 0x00 || payload)`
@@ -561,7 +596,7 @@ const sig = await compositeSign(registry, DCP_CONTEXTS.Bundle, payloadBytes, key
 // sig.binding === 'pq_over_classical'
 ```
 
-### `compositeVerify(registry, context, payload, sig, classicalPub, pqPub?, strategy?)`
+### `compositeVerify(registry, context, canonicalPayloadBytes, compositeSig, classicalPubkeyB64, pqPubkeyB64?, strategy?)`
 
 Verify a composite-bound hybrid signature.
 
@@ -585,13 +620,14 @@ async function compositeVerify(
 
 ```typescript
 interface CompositeVerifyResult {
-  valid: boolean;           // Both signatures valid
+  valid: boolean;           // pq_over_classical: both signatures valid; classical_only: the classical one (pq_valid false).
+                            // Not by itself a policy-mode, trust or admission decision
   classical_valid: boolean;
   pq_valid: boolean;
 }
 ```
 
-### `classicalOnlySign(registry, context, payload, key)`
+### `classicalOnlySign(registry, context, canonicalPayloadBytes, key)`
 
 Produce a classical-only composite signature (transition mode).
 
@@ -621,6 +657,8 @@ interface CompositeKeyInfo {
 ```
 
 ---
+
+<a id="v2-bundle-builder--signer"></a>
 
 ## V2 Bundle Builder & Signer
 
@@ -675,10 +713,12 @@ async function signBundleV2(
 
 interface SignBundleV2Options {
   registry: AlgorithmRegistry;
-  signerType: SignerType;       // 'human' | 'organization'
+  signerType: SignerType;
   signerId: string;
   keys: CompositeKeyPair;
   dualHash?: boolean;
+  sessionExpiresAt?: string;
+  intendedVerifier?: string;
 }
 ```
 
@@ -706,14 +746,14 @@ interface SignBundleV2ClassicalOnlyOptions {
 
 ### `verifySignedBundleV2(signedBundle, registry, policy?, options?)`
 
-Full V2 signed bundle verification with verifier-authoritative policy.
+V2 signed bundle verification with verifier-authoritative policy. The current verifier checks the primary audit chain and primary Merkle root, but does not recompute the optional secondary chain or `audit_merkle_root_secondary`; a successful result does not establish their consistency ([implementation gap](STORAGE_AND_ANCHORING.md#dual-hash-chains)). Verification also does not grant admission or action authorization.
 
 ```typescript
 async function verifySignedBundleV2(
   signedBundle: SignedBundleV2,
   registry: AlgorithmRegistry,
   policy?: VerifierPolicy,
-  options?: { now?: number },
+  options?: VerifyV2Options, // { now?: number }: the instant every time check uses (ms since the epoch); default Date.now()
 ): Promise<VerifyV2Result>;
 ```
 
@@ -733,6 +773,8 @@ interface VerifyV2Result {
   warnings: string[];
   details?: {
     session_nonce?: string;
+    session_expires_at?: string;
+    intended_verifier?: string;
     manifest_valid?: boolean;
     signature_valid?: boolean;
     policy_satisfied?: boolean;
@@ -741,8 +783,11 @@ interface VerifyV2Result {
     verification_mode?: VerificationMode;
     resolved_tier?: SecurityTier;
     advisory_rejected_algs?: string[];
-    /** Per checked signature component: the key the verifier resolved and whether it verified. */
-    signer_keys?: Array<{ signature: string; component: 'classical' | 'pq'; kid: string; alg: string; public_key_b64: string; verified: boolean }>;
+    /**
+     * For every composite signature checked, the key entry the verifier resolved for each
+     * component and whether that component verified (spec/profiles/admission § 2.3).
+     */
+    signer_keys?: SignerKeyUse[];
   };
 }
 ```
@@ -751,7 +796,7 @@ interface VerifyV2Result {
 
 **Verification pipeline:**
 
-1. Schema detection (V1 vs V2)
+1. Version and schema check: only v2.0 bundles are accepted and other versions are rejected; routing v1.0 bundles to `verifySignedBundle` is the caller's job ([MIGRATION_V1_V2.md](MIGRATION_V1_V2.md#32-coexistence-strategy))
 2. Payload hash verification for all signed artifacts
 3. Session nonce consistency across all artifacts
 4. Manifest integrity (recompute all artifact hashes + audit Merkle root)
@@ -780,7 +825,7 @@ if (result.verified) {
 }
 ```
 
-### Admission: trusted principals and strict-v1
+### Admission: trusted principals and strict-v1 (unreleased)
 
 Defined in [`spec/profiles/admission`](../spec/profiles/admission/README.md); guide in [ADMISSION.md](ADMISSION.md).
 
@@ -816,6 +861,9 @@ const DEFAULT_VERIFIER_POLICY: VerifierPolicy = {
   require_composite_binding: true,
   max_key_age_days: 365,
   allow_v1_bundles: true,
+  allow_classical_fallback_disable: false,
+  warn_classical_only_deprecated: false,
+  advisory_rejected_algs: [],
 };
 ```
 
@@ -924,9 +972,10 @@ effectiveVerificationMode('pq_only', 'maximum'); // 'pq_only'
 
 ## A2A Protocol (DCP-04)
 
-Agent-to-Agent secure communication protocol with post-quantum key exchange.
+Agent-to-Agent session protocol, designed around a hybrid X25519 + ML-KEM-768 key exchange. These functions do not
+perform that exchange: the caller performs it and supplies the resulting session key to `createSession`.
 
-### `createHello(bundle, kemPubKey, capabilities, tier)`
+### `createHello(initiatorBundle, kemPublicKeyB64, requestedCapabilities, securityTier)`
 
 Create an A2A_HELLO handshake message (initiator side).
 
@@ -944,20 +993,27 @@ interface A2AHello {
   type: 'A2A_HELLO';
   protocol_version: '2.0';
   initiator_bundle: Record<string, unknown>;
-  ephemeral_kem_public_key: { alg: string; public_key_b64: string };
+  ephemeral_kem_public_key: {
+    alg: string;
+    public_key_b64: string;
+  };
   nonce: string;
   supported_algorithms: {
-    signing: string[];   // ['ed25519', 'ml-dsa-65']
-    kem: string[];       // ['x25519-ml-kem-768']
-    cipher: string[];    // ['aes-256-gcm']
+    signing: string[];
+    kem: string[];
+    cipher: string[];
   };
   requested_capabilities: string[];
   security_tier: string;
   timestamp: string;
+  /** DCP-09: Optional delegation mandate reference for mutual verification */
+  mandate_id?: string;
+  /** DCP-09: Hash of the delegation mandate for integrity binding */
+  mandate_hash?: string;
 }
 ```
 
-### `createWelcome(bundle, kemPubKey, kemCiphertext, tier)`
+### `createWelcome(responderBundle, kemPublicKeyB64, kemCiphertextB64, resolvedTier)`
 
 Create an A2A_WELCOME handshake message (responder side).
 
@@ -970,7 +1026,7 @@ function createWelcome(
 ): A2AWelcome;
 ```
 
-### `createSession(sessionId, key, localId, remoteId, tier, rekeyInterval?)`
+### `createSession(sessionId, sessionKey, localAgentId, remoteAgentId, securityTier, rekeyingInterval?)`
 
 Create a new encrypted A2A session after handshake completion.
 
@@ -1070,7 +1126,7 @@ function generateResumeProof(session: A2ASession, lastSeenSequence: number): str
 function verifyResumeProof(session: A2ASession, lastSeenSequence: number, proof: string): boolean;
 ```
 
-### `deriveRekeyedSessionKey(oldKey, newSecret, sessionId)`
+### `deriveRekeyedSessionKey(oldSessionKey, newSharedSecret, sessionId)`
 
 Derive a new session key for rekeying operations.
 
@@ -1082,7 +1138,7 @@ function deriveRekeyedSessionKey(
 ): Uint8Array;
 ```
 
-### `createCloseMessage(sessionId, reason, finalSequence, auditHash)`
+### `createCloseMessage(sessionId, reason, finalSequence, auditSummaryHash)`
 
 Create an A2A_CLOSE message.
 
@@ -1105,6 +1161,8 @@ function generateNonce(): string;
 
 ---
 
+<a id="telemetry--observability"></a>
+
 ## Telemetry & Observability
 
 ### `dcpTelemetry`
@@ -1120,7 +1178,7 @@ import { dcpTelemetry } from '@dcp-ai/sdk';
 Initialize telemetry with the given configuration.
 
 ```typescript
-dcpTelemetry.init(config: Partial<DcpTelemetryConfig>): void;
+dcpTelemetry.init(config: Partial<DcpTelemetryConfig>): void | Promise<void>; // enabled: false returns nothing; with exporterType 'otlp', a Promise that settles after the setup attempt
 
 interface DcpTelemetryConfig {
   serviceName: string;              // Identifier for this agent/service
@@ -1138,6 +1196,12 @@ dcpTelemetry.init({
   exporterType: 'console',
 });
 ```
+
+With `exporterType: 'otlp'`, the Promise also resolves when the OTLP setup fails: the failure reaches `onEvent`
+listeners as an `error` event with `operation: 'telemetry.init_otlp'`. Events emitted before setup completes are not
+replayed to OTLP, and a resolved Promise does not guarantee delivery to the backend. Instrumentation is explicit:
+the SDK's signing and verification functions do not call the recorders, so spans and metrics come only from the
+`startSpan` and `record*` calls your code makes (see [OBSERVABILITY.md](OBSERVABILITY.md)).
 
 ### `dcpTelemetry.startSpan(name, attributes?)` / `endSpan(spanId, status?, error?)`
 
@@ -1282,6 +1346,8 @@ reset(): void;
 
 ---
 
+<a id="hashing--merkle-trees"></a>
+
 ## Hashing & Merkle Trees
 
 ### `hashObject(obj)`
@@ -1297,7 +1363,7 @@ function hashObject(obj: unknown): string;
 Compute a Merkle root from hex-encoded leaf hashes.
 
 ```typescript
-function merkleRootFromHexLeaves(leaves: string[]): string;
+function merkleRootFromHexLeaves(leaves: string[]): string | null; // null for no leaves
 ```
 
 ### `merkleRootForAuditEntries(auditEntries)`
@@ -1329,8 +1395,8 @@ function prevHashForEntry(prevEntry: unknown): string;
 Hex-encoded hashes.
 
 ```typescript
-function sha256Hex(data: Uint8Array | Buffer): string;
-function sha3_256Hex(data: Uint8Array | Buffer): string;
+function sha256Hex(data: Uint8Array | Buffer | string): string;
+function sha3_256Hex(data: Uint8Array | Buffer | string): string;
 ```
 
 ### `dualHash(data)` / `dualHashCanonical(canonicalJson)` / `dualMerkleRoot(leaves)`
@@ -1338,7 +1404,7 @@ function sha3_256Hex(data: Uint8Array | Buffer): string;
 Dual-hash (SHA-256 + SHA3-256) operations for V2. `dualHashCanonical` takes an already canonicalized JSON string; `dualMerkleRoot` returns `null` for no leaves.
 
 ```typescript
-function dualHash(data: Uint8Array): DualHash;
+function dualHash(data: Uint8Array | Buffer | string): DualHash;
 function dualHashCanonical(canonicalJson: string): DualHash;
 function dualMerkleRoot(leaves: DualHash[]): DualHash | null;
 
@@ -1397,7 +1463,7 @@ function validateStateTransition(from: LifecycleState, to: LifecycleState): bool
 type LifecycleState = 'commissioned' | 'active' | 'declining' | 'decommissioned';
 ```
 
-Valid transitions: `commissioned→active`, `active→declining`, `declining→decommissioned`, `active→decommissioned` (sudden failure).
+Valid transitions: `commissioned→active`, `commissioned→decommissioned`, `active→declining`, `active→decommissioned` (sudden failure), `declining→active`, `declining→decommissioned`. It checks only the edge, not the principal approval that the specification requires to reactivate from `declining` or any other authorization.
 
 ### `computeVitalityScore(metrics)`
 
@@ -1452,7 +1518,10 @@ type TransitionType = 'planned' | 'forced' | 'emergency';
 
 ### `classifyMemory(entries, classification)`
 
-Classify memory entries into operational (transferable) and relational (destroyed).
+Classify memory entries into operational (transferable) and relational (to be destroyed). It returns
+`{ operational, relationalDestroyed }`, where `relationalDestroyed` lists only the hashes of the entries classified
+`destroy` (also the default for a category with no entry); it deletes nothing, and actually destroying that memory is
+the caller's job. Entries classified `retain` appear in neither output.
 
 ---
 
@@ -1484,11 +1553,17 @@ Manage arbitration panels and precedent capture.
 type AuthorityLevel = 'local' | 'organizational' | 'cross_org';
 ```
 
-### `lookupPrecedent(category, bundles)`
+### `lookupPrecedent(jurisprudence, category, context?)`
 
-Search jurisprudence bundles for applicable precedents.
+Return the jurisprudence bundles of a category, optionally narrowed by context.
+
+```typescript
+function lookupPrecedent(jurisprudence: JurisprudenceBundle[], category: string, context?: string): JurisprudenceBundle[];
+```
 
 ---
+
+<a id="dcp-08-rights--obligations"></a>
 
 ## DCP-08: Rights & Obligations
 
@@ -1507,17 +1582,33 @@ interface RightEntry {
 }
 ```
 
-### `checkRightsCompliance(rights, obligations)`
+### `checkRightsCompliance(declaration, obligations)`
 
-Check whether all declared rights are being respected by current obligations.
+Check whether the obligations respect a rights declaration.
+
+```typescript
+function checkRightsCompliance(
+  declaration: RightsDeclaration,
+  obligations: ObligationRecord[],
+): { compliant: boolean; violations: string[] };
+```
 
 ---
 
+<a id="dcp-09-delegation--representation"></a>
+
 ## DCP-09: Delegation & Representation
 
-### `createDelegationMandate(...)` / `verifyMandateValidity(mandate)` / `revokeDelegation(mandate)`
+### `createDelegationMandate(...)` / `verifyMandateValidity(mandate, revokedMandateIds)` / `revokeDelegation(mandate, revokedMandateIds)`
 
-Create, validate, and revoke human-to-agent authority delegations.
+Create, validate, and revoke human-to-agent authority delegations. The caller keeps the set of revoked mandate ids:
+`verifyMandateValidity` checks it (and the validity window), and `revokeDelegation` adds the mandate to it when
+the mandate is revocable.
+
+```typescript
+function verifyMandateValidity(mandate: DelegationMandate, revokedMandateIds: Set<string>): { valid: boolean; reason?: string };
+function revokeDelegation(mandate: DelegationMandate, revokedMandateIds: Set<string>): { revoked: boolean; reason?: string };
+```
 
 ```typescript
 interface AuthorityScopeEntry {
@@ -1528,7 +1619,7 @@ interface AuthorityScopeEntry {
 }
 ```
 
-### `createSubMandate(registry, delegatorKeys, parent, params)` / `verifyMandateChain(registry, chain, revokedIds, keys, now?)`
+### `createSubMandate(registry, delegatorKeys, parent, params)` / `verifyMandateChain(registry, chain, revokedMandateIds, keys, now?)`
 
 Delegation chains (DCP-09 §3.5): the agent holding `parent` issues a sub-mandate to another agent, signed with its
 own keys under the `DCP-AI.v2.SubMandate` context. `verifyMandateChain` takes the chain root first, the revoked
@@ -1578,11 +1669,11 @@ Pre-defined domain separation contexts for different DCP operations.
 
 ```typescript
 const DCP_CONTEXTS: Record<string, DcpContext>;
-// 18 contexts: AgentPassport, ResponsiblePrincipal, Intent, PolicyDecision,
+// 19 contexts: AgentPassport, ResponsiblePrincipal, Intent, PolicyDecision,
 // AuditEvent, Bundle, Revocation, KeyRotation, ProofOfPossession,
 // JurisdictionAttestation, HumanConfirmation, MultiPartyAuth,
 // Lifecycle (DCP-05), Succession (DCP-06), Dispute (DCP-07),
-// Rights (DCP-08), Delegation (DCP-09), Awareness (DCP-09)
+// Rights (DCP-08), Delegation (DCP-09), Awareness (DCP-09), SubMandate (DCP-09)
 ```
 
 ### `domainSeparatedMessage(context, canonicalPayloadBytes)`
@@ -1726,6 +1817,11 @@ type PresentationMode = 'full' | 'incremental' | 'reference' | 'compact';
 
 Generate different presentation formats for bundle transmission. `presentCompact` drops the PQ signature and references a PQ checkpoint instead; `presentReference` sends only the bundle hash, the session nonce and a verification endpoint; `presentIncremental` sends the audit entries after `baseAuditCount`, the PQ checkpoints, the updated manifest and its signature.
 
+The checkpoint reference does not replace a PQ signature that the effective mode requires, and no presentation
+authorizes or admits anything. Only the `bundle` inside a full or compact presentation is a `SignedBundleV2` that
+`verifySignedBundleV2` takes directly (a compact one passes only where the effective mode tolerates a missing PQ
+signature); a reference or incremental presentation must first be resolved to the full signed bundle.
+
 ```typescript
 function presentFull(bundle: SignedBundleV2): FullPresentation;
 function presentCompact(bundle: SignedBundleV2, pqCheckpointRef: string | null): CompactPresentation;
@@ -1751,26 +1847,41 @@ function computeBundleHash(bundle: SignedBundleV2): string;
 
 ### `VerificationCache`
 
-In-memory LRU cache for verification results to avoid redundant cryptographic operations.
+In-memory cache of verification results, keyed by bundle hash, with a TTL per security tier.
+
+- **The key is the bundle hash only.** The cache does not separate tenants or verifier policies, and a hit does
+  not recheck the session window, key validity, principal trust or a fresh revocation snapshot. Do not reuse a
+  cached result for admission, or under another policy or tenant, without verifying again.
+- **Invalidation:** `invalidateByKid(kid)` removes the entries whose signer kids include `kid`; `clear()` removes
+  everything. `invalidateByAgent(agentId)` currently removes nothing and returns 0, so it does not revoke an
+  agent's entries: use `invalidateByKid` for each of the agent's kids, or `clear()`.
 
 ```typescript
 class VerificationCache {
   constructor(options?: VerificationCacheOptions);
-  get(key: string): CacheEntry | undefined;
-  set(key: string, entry: CacheEntry): void;
-  has(key: string): boolean;
+  get(bundleHash: string): VerifyV2Result | null;          // null when absent or expired
+  set(bundleHash: string, result: VerifyV2Result, signerKids: string[], tier: SecurityTier): void;
+  has(bundleHash: string): boolean;
+  invalidateByKid(kid: string): number;                   // entries removed
+  invalidateByAgent(agentId: string): number;            // currently a no-op: returns 0 (see above)
   clear(): void;
+  readonly size: number;
 }
 
 interface VerificationCacheOptions {
-  maxSize?: number;         // Default: 1000
-  ttlMs?: number;           // Default: 300000 (5 minutes)
+  /** TTL per tier in milliseconds. */
+  ttlByTier?: Partial<Record<SecurityTier, number>>;
+  /** Hard upper limit on entries to prevent unbounded growth. */
+  maxEntries?: number;
 }
 
 interface CacheEntry {
-  verified: boolean;
-  timestamp: number;
-  details?: unknown;
+  result: VerifyV2Result;
+  bundleHash: string;
+  signerKids: string[];
+  tier: SecurityTier;
+  createdAt: number;
+  expiresAt: number;
 }
 ```
 
@@ -1801,7 +1912,7 @@ function cborPayloadToJson(cbor: Record<string, unknown>): Record<string, unknow
 Detect whether data is JSON or CBOR encoded.
 
 ```typescript
-function detectWireFormat(data: Uint8Array | string): 'json' | 'cbor';
+function detectWireFormat(data: Uint8Array): 'cbor' | 'json';
 ```
 
 ---
@@ -1830,9 +1941,14 @@ Registry for algorithm providers.
 
 ```typescript
 class AlgorithmRegistry {
-  register(provider: CryptoProvider): void;
-  getSigner(alg: string): CryptoProvider;
-  has(alg: string): boolean;
+  registerSigner(provider: CryptoProvider): void;
+  registerKem(provider: KemProvider): void;
+  getSigner(alg: string): CryptoProvider;   // throws for an unregistered algorithm
+  getKem(alg: string): KemProvider;
+  hasSigner(alg: string): boolean;
+  hasKem(alg: string): boolean;
+  listSigners(): string[];
+  listKems(): string[];
 }
 ```
 
@@ -1848,10 +1964,22 @@ class AlgorithmRegistry {
 
 ```typescript
 interface CryptoProvider {
-  readonly algorithm: string;
-  generateKeyPair(): Promise<{ publicKeyB64: string; secretKeyB64: string }>;
+  readonly alg: string;
+  readonly keySize: number;
+  readonly sigSize: number;
+  readonly isConstantTime: boolean;
+
+  generateKeypair(): Promise<{
+    kid: string;
+    publicKeyB64: string;
+    secretKeyB64: string;
+  }>;
   sign(message: Uint8Array, secretKeyB64: string): Promise<Uint8Array>;
-  verify(message: Uint8Array, signature: Uint8Array, publicKeyB64: string): Promise<boolean>;
+  verify(
+    message: Uint8Array,
+    signature: Uint8Array,
+    publicKeyB64: string,
+  ): Promise<boolean>;
 }
 ```
 
@@ -1866,3 +1994,47 @@ Detect the DCP version of an artifact or bundle.
 ```typescript
 function detectDcpVersion(artifact: Record<string, unknown>): '1.0' | '2.0' | null;
 ```
+
+---
+
+## Experimental: Canonicalization Candidate `dcp-jcs-v2` (opt-in, unreleased)
+
+Experimental and off by default: `dcp-jcs-v1` stays the default and the only normative canonicalization profile,
+and the normal builders, signers and verifiers are unchanged. These exports exist for callers who opt in; a verified candidate bundle grants no
+trust or admission. The full contract is in
+[`docs/proposals/canonicalization-candidate`](proposals/canonicalization-candidate/README.md) (§15 ingress, §16
+router, §17 verifier, §18 producers).
+
+```typescript
+function experimentalCandidateIngress(bytes: Uint8Array): ExperimentalCandidateIngressResult;
+function experimentalCandidateExtractUnit(bytes: Uint8Array, transport: ExperimentalCandidateTransport): ExperimentalCandidateExtraction;
+function createExperimentalCandidateRouter(config: {
+  transport: ExperimentalCandidateTransport;       // 'bare' | 'envelope'
+  acceptedProfiles: readonly string[];             // no default
+  historical: ExperimentalHistoricalAdapter;       // no default; see experimentalHistoricalAdapters
+}): ExperimentalCandidateRouter;
+function createExperimentalCandidateVerifier(config: {
+  transport: ExperimentalCandidateTransport;
+  acceptedProfiles: readonly string[];
+  historical: ExperimentalHistoricalAdapter;
+}): ExperimentalCandidateVerifier;                 // verify(bytes, registry, policy?, options?)
+function experimentalCandidateSignPayload(
+  registry: AlgorithmRegistry, context: string, input: ExperimentalCandidateInput, keys: ExperimentalCandidateKeys,
+): Promise<{ bytes: Uint8Array; signedPayload: ExperimentalCandidateSignedPayload }>;
+function experimentalCandidateSignBundle(
+  registry: AlgorithmRegistry, parts: ExperimentalCandidateBundleParts, signer: ExperimentalCandidateBundleSigner,
+  options: ExperimentalCandidateBundleOptions,
+): Promise<{ bytes: Uint8Array; signedBundle: { [key: string]: ExperimentalCandidateValue } }>;
+```
+
+- `ExperimentalCandidateIngressResult`: `{ status: 'accept', value, canonical, canonicalSha256 }` or
+  `{ status: 'reject', class, offset }`.
+- `verify` returns `{ route, entered, verification }`: the route (`reject`, `v1_path` or `candidate`), the
+  verifier it entered (`none`, `dcp-jcs-v1` or `dcp-jcs-v2`, at most one) and that verifier's result as is.
+- `ExperimentalCandidateInput` is `{ bytes }` (original bytes, checked by the ingress) or `{ value }` (a host
+  value, checked strictly).
+- `ExperimentalCandidateProduceError` (`class`, `part`, `path`, `offset`) is a rejection of the inputs' domain or
+  form, raised before any signer is called; key, registry and provider errors stay today's.
+- Errors of the router and the verifier: `ExperimentalCandidateConfigError` (configuration),
+  `ExperimentalCandidateAdapterError` (a historical decoder that failed otherwise than by refusing the data) and
+  `ExperimentalCandidateInternalError`.

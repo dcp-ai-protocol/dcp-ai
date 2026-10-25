@@ -6,6 +6,11 @@ Verify DCP signed bundles in your Express.js APIs using the `@dcp-ai/express` mi
 
 ## Installation
 
+> **Versions.** The registry install below gives the published `@dcp-ai/express` and `@dcp-ai/sdk` (npm's
+> `latest` `@dcp-ai/sdk` was 2.1.1 on 25/10/2026). This guide follows `main`, where the middleware also has
+> admission (trusted principals and `strict-v1`, unreleased); to use it, build `sdks/typescript` and
+> `integrations/express` from a checkout (see the [Express README](../integrations/express/README.md)).
+
 ```bash
 npm install @dcp-ai/express @dcp-ai/sdk express
 ```
@@ -18,14 +23,19 @@ cd my-api
 npm install
 ```
 
-Produces a runnable `index.js` with the DCP verify middleware already wired to a sample route.
+Produces a runnable `index.js` with discovery endpoints and a middleware on a sample route that checks the
+structure of a bundle only: it verifies no signature, so a forged or altered bundle passes (see
+[templates/express](../templates/express/README.md)). To verify signed bundles, use `@dcp-ai/express` as below.
 
 ### Python equivalent (FastAPI)
 
-If your service is FastAPI rather than Express, use the Python bridge:
+If your service is FastAPI rather than Express, use the Python bridge. This example follows `main`: install the
+Python SDK from a checkout. The FastAPI middleware of `dcp-ai` 2.9.0 on PyPI checks the structure of V2 bundles but
+does not verify their signatures, so a forged V2 bundle passes it; do not rely on 2.9.0 for V2 bundles (see the
+[FastAPI README](../integrations/fastapi/README.md)).
 
 ```bash
-pip install 'dcp-ai[fastapi]'
+pip install "/path/to/dcp-ai/sdks/python[fastapi]"
 ```
 
 ```python
@@ -33,7 +43,7 @@ from fastapi import FastAPI, Depends
 from dcp_ai.fastapi import DCPVerifyMiddleware, require_dcp
 
 app = FastAPI()
-app.add_middleware(DCPVerifyMiddleware, require_bundle=True, dcp_version="2.0")
+app.add_middleware(DCPVerifyMiddleware, require_bundle=True)
 
 @app.post("/agent/action")
 async def agent_action(agent=Depends(require_dcp)):
@@ -115,6 +125,7 @@ app.listen(3000, () => console.log('DCP-protected API on :3000'));
 ## Configuration Options
 
 ```typescript
+// Fragment: `app` as in the Complete Working Example
 import { dcpVerify } from '@dcp-ai/express';
 
 app.use(dcpVerify({
@@ -128,6 +139,8 @@ app.use(dcpVerify({
   // Check agent revocation status against a service. Default: false
   checkRevocation: true,
   revocationServiceUrl: 'http://localhost:3003',
+  // Refuse the request (403) when the status cannot be read. Default: false, which lets it through (fail open)
+  revocationFailClosed: true,
 
   // Cache verification results (seconds). Default: 0 (no cache)
   cacheTtlSeconds: 60,
@@ -149,15 +162,18 @@ app.use(dcpVerify({
 }));
 ```
 
+On `main` (unreleased), `trustedPrincipals`, `profile`, `revocationSource` and `tenant` add admission: only bundles
+signed for a principal you trust, with its trusted keys, reach the route. See [ADMISSION.md](ADMISSION.md) and the
+[Express README](../integrations/express/README.md) for every option, including the cache, supervision and
+disconnect options.
+
 ---
 
 ## Sending DCP Bundles from a Client
 
 ```typescript
-import { generateKeypair, BundleBuilder, signBundle } from '@dcp-ai/sdk';
-
-// Build and sign a bundle (see QUICKSTART.md for full example)
-const signed = signBundle(bundle, keys.secretKeyB64);
+// Fragment: `signed` is a signed V1 or V2 bundle, built as in the TypeScript SDK's Quick Start
+// (../sdks/typescript/README.md).
 
 // Send via body (recommended, and the way for hybrid V2 bundles)
 const response = await fetch('http://localhost:3000/api/data', {
@@ -200,9 +216,10 @@ The middleware auto-detects V1 and V2 bundles. A V2 bundle is accepted only if `
 
 A V1 bundle has no post-quantum signature, so it is accepted only where a classical-only bundle would be (VERIFICATION.md V2-10): under the default policy a V1 bundle with a routine or standard intent passes, and one with a payment, sensitive data, a high estimated impact or a risk score of 0.5 or more is refused. `requireHybrid` and `allow_v1_bundles: false` refuse every V1 bundle.
 
-A verified bundle is internally consistent and signed by the keys it lists itself; it does not prove who the principal is unless you pin the principal's keys, which the middleware cannot do yet. See the package README for audience binding against replay.
+A verified bundle is internally consistent and signed by the keys it lists itself; it does not prove who the principal is. To accept bundles only from principals you trust, configure admission (`trustedPrincipals`, unreleased; see [ADMISSION.md](ADMISSION.md)). See the package README for audience binding against replay.
 
 ```typescript
+// Fragment: continues the Complete Working Example (`app`, `express`, `DCPAgent`)
 // V2-specific agent properties
 app.get('/api/secure', (req: express.Request & { dcpAgent?: DCPAgent }, res) => {
   const agent = req.dcpAgent!;
@@ -224,17 +241,39 @@ The verified agent identity attached to `req.dcpAgent`:
 
 ```typescript
 interface DCPAgent {
-  agentId: string;        // Unique agent identifier
-  humanId: string;        // Bound human principal
-  publicKey: string;      // Primary public key (base64)
-  capabilities: string[]; // ['browse', 'api_call', 'payments', ...]
-  riskTier: string;       // 'low' | 'medium' | 'high'
-  status: string;         // 'active' | 'revoked' | 'suspended'
+  agentId: string;
+  humanId: string;
+  publicKey: string;
+  capabilities: string[];
+  riskTier: string;
+  status: string;
   dcpVersion: '1.0' | '2.0';
-
-  // V2-only fields
-  kids?: string[];        // Key identifiers for all keys
-  sessionNonce?: string;  // Session nonce from bundle manifest
+  /** V2: Key identifiers of the passport keys. */
+  kids?: string[];
+  /** V2: Session nonce for the bundle. */
+  sessionNonce?: string;
+  /** DCP-05: Agent lifecycle state. */
+  lifecycleState?: string;
+  /** DCP-09: Active delegation mandate ID. */
+  mandateId?: string;
+  /** V2: Warnings of the SDK verifier for an accepted bundle (e.g. a classical-only signature). */
+  warnings?: string[];
+  /** V2: The verification mode the bundle was verified in. */
+  verificationMode?: VerificationMode;
+  /** V2: The security tier of the bundle's intent and policy decision (spec §14.2). */
+  securityTier?: SecurityTier;
+  /** With trustedPrincipals: the admission of the bundle (spec/profiles/admission § 5.2). */
+  admission?: {
+    admitted: true;
+    principalTrust: PrincipalTrust;
+    profile: 'strict-v1' | null;
+    profileCompliance: ProfileCompliance;
+    /** The decision the bundle records (approve, escalate, block): evidence, not a permission. */
+    recordedDecision: string | null;
+    trustSetVersion: string | null;
+    /** Always false: admitting the evidence does not authorize an action. */
+    actionAuthorized: false;
+  };
 }
 ```
 

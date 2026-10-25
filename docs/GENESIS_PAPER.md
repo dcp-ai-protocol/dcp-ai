@@ -1,5 +1,7 @@
 # Digital Citizenship: A Peer-to-Peer Protocol for Human-Bound AI Agents
 
+> **Historical document.** This is the founding text, kept as written. It states the protocol's aims, not the current state of the implementations: for that, see each SDK's *Release status*, [SECURITY_MODEL.md](SECURITY_MODEL.md) ("Known Limitations and Mitigations") and [NIST_CONFORMITY.md](NIST_CONFORMITY.md). For example, the X25519 + ML-KEM-768 key exchange of DCP-04 is specified, but no SDK runs it for you (status on 25/10/2026).
+
 The internet was built for humans. It is now being used by machines. Machines require citizenship.
 
 We propose a protocol: no AI agent may operate on open networks without a declared, verifiable, and auditable digital citizenship bound to a human or legal entity. Identity, intent, policy decisions, and audit trails become first-class, portable, and verifiable. This repo is the genesis implementation — schemas, CLI, and conformance tests that make the claim testable.

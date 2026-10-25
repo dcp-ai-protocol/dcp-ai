@@ -2,53 +2,74 @@
 
 # dcp-ai — Rust SDK
 
-デジタル市民権プロトコル (DCP v2.0) 公式Rust SDKです。Serdeベースの型、ハイブリッド耐量子暗号 (Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768)、`pq_over_classical` バインディングによる複合署名、デュアルハッシュチェーン、OpenTelemetryによるオブザーバビリティ、DCP-04..09の動作、およびオプションのWebAssemblyサポートを備えています。
+> [英語版 README](README.md)の参考訳です。更新日：2026年10月25日。検証済みの例を維持するため、識別子とコードブロック（コメントを含む）は原文のままにしています。
+
+Digital Citizenship Protocol（DCP v2.0）向けの公式 Rust SDK。Serde ベースの型、ハイブリッド耐量子暗号（Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768）、`pq_over_classical` による結合を持つ複合署名、二重ハッシュチェーン、OpenTelemetry による可観測性、DCP-04..09 の動作、オプションの WebAssembly サポートを提供します。
+
+検証では完全性と署名を確認しますが、責任主体への信頼、受け入れ、行動の許可は確立しません。現在の V2 検証器は主監査チェーンを確認しますが、オプションの SHA3-256 チェーンやその副 Merkle ルートは再計算しません。[文書化された検証上の制限](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)を参照し、信頼の確認が必要な場合は以下の受け入れ API を使用してください。
+
+<a id="installation"></a>
 
 ## インストール
 
-`Cargo.toml` に追加してください。
+**公開状況。** この README は `main` のソースコードを説明しています。最新のタグ付きリリース `v2.10.0` には `dcp-ai` 2.10.0 が含まれます。変更履歴の [`[Unreleased]`](../../CHANGELOG.md#unreleased) にある項目は、タグ付きリリースにはまだ含まれていません。V2 バンドルの構築と署名（`dcp_ai::v2::bundle`）、受け入れ、委任チェーン、A2A 受信ウィンドウ、実験的な `dcp-jcs-v2` API が該当します。以下の例を実行するには、リポジトリまたはチェックアウトを依存先に指定してください。
+
+```toml
+[dependencies]
+dcp-ai = { git = "https://github.com/dcp-ai-protocol/dcp-ai", branch = "main" }
+# or, from a checkout:
+# dcp-ai = { path = "/path/to/dcp-ai/sdks/rust" }
+```
+
+未公開の機能を含まない公開済み crate：
 
 ```toml
 [dependencies]
 dcp-ai = "2.10"
 ```
 
-OpenTelemetry/OTLPエクスポートの場合:
+OpenTelemetry/OTLP エクスポートを使用する場合：
 
 ```toml
 [dependencies]
 dcp-ai = { version = "2.10", features = ["otlp"] }
 ```
 
-WebAssemblyサポートの場合:
+WebAssembly サポートを使用する場合：
 
 ```toml
 [dependencies]
 dcp-ai = { version = "2.10", features = ["wasm"] }
 ```
 
+<a id="features"></a>
+
 ## 機能
 
-| 領域 | 状態 |
+| 分野 | 対応状況 |
 |---|---|
-| Ed25519 / ML-DSA-65 / SLH-DSA-192f / ML-KEM-768 プロバイダ | Yes |
-| 複合署名 (`pq_over_classical`) + 検証 | Yes |
-| 正規化JSON v2 + ドメイン分離 | Yes |
-| デュアルハッシュ (SHA-256 + SHA3-256) + Merkleルート | Yes |
-| バンドル検証 (V1 + V2。V2 は検証ポリシーとセキュリティティアを適用、`verify_signed_bundle_v2_with_policy`) | Yes |
-| V2 バンドルの構築と署名（`dcp_ai::v2::bundle`: `build_bundle_v2`、`sign_bundle_v2`。`wasm` フィーチャーの `wasm_build_bundle` / `wasm_sign_bundle` はこれらを呼び出します。PQ チェックポイントは未対応） | はい |
-| DCP-05 エージェントライフサイクル (コミッショニング / バイタリティ / デコミッショニング) | Yes |
-| DCP-06 デジタル継承 (デジタル遺言、メモリ転送、セレモニー) | Yes |
-| DCP-07 紛争解決 + 仲裁 + 判例 | Yes |
-| DCP-08 権利と義務 + コンプライアンス | Yes |
-| DCP-09 委任 + 検証可能な委任チェーン (`create_sub_mandate`、`verify_mandate_chain`、§3.5) + 認識しきい値 + プリンシパルミラー | Yes |
-| DCP-04 A2A 発見 + ハンドシェイク + セッションID導出 | Yes |
+| Ed25519 / ML-DSA-65 / SLH-DSA-192f / ML-KEM-768 プロバイダー | 対応 |
+| 複合署名（`pq_over_classical`）と検証 | 対応 |
+| 正規化 JSON v2 とドメイン分離 | 対応 |
+| 二重ハッシュ（SHA-256 + SHA3-256）と Merkle ルート | 対応 |
+| バンドル検証（V1 + V2。V2 は検証器ポリシーとセキュリティ階層に従う：`verify_signed_bundle_v2_with_policy`） | 対応 |
+| V2 バンドルの構築と署名（`dcp_ai::v2::bundle`：`build_bundle_v2`、`sign_bundle_v2`。`wasm` 機能の `wasm_build_bundle` / `wasm_sign_bundle` がこれらを呼び出す。PQ チェックポイントは未対応） | 対応、未公開 |
+| DCP-05 エージェントのライフサイクル（稼働開始 / 活力 / 稼働終了） | 対応 |
+| DCP-06 デジタル継承（遺言、記憶移転、セレモニー） | 対応 |
+| DCP-07 紛争解決、仲裁、判例 | 対応 |
+| DCP-08 権利、義務、遵守 | 対応 |
+| DCP-09 委任と検証可能な委任チェーン（`create_sub_mandate`、`verify_mandate_chain`、§3.5）、認識しきい値、責任主体のミラー | 対応 |
+| DCP-04 A2A 探索、ハンドシェイク、セッション ID の導出 | 対応 |
 | DCP-04 A2A AES-256-GCM セッション暗号化 | _後続リリースに延期_ |
-| セッションノンスヘルパー、セキュリティティアエンジン（`compute_security_tier(&intent, Some(&policy_decision))`、spec §14.2。`compute_security_tier_with_floor` は委任チェーンのティアを加味する）、緊急失効 | Yes |
-| 遅延PQチェックポイント + `PQCheckpointManager` | Yes |
-| ブラインドRPR、マルチパーティ認可、アルゴリズムアドバイザリヘルパー | Yes |
-| 正規エラーコード (全SDK共通の38種) + `detect_wire_format` | Yes |
-| OpenTelemetry / OTLP エクスポーター (オプションの `otlp` フィーチャー) | Yes |
+| セッション nonce の補助関数、セキュリティ階層エンジン（`compute_security_tier(&intent, Some(&policy_decision))`、仕様 §14.2。`compute_security_tier_with_floor` は委任チェーンの階層を加味する）、緊急失効 | 対応 |
+| 遅延 PQ チェックポイントと `PQCheckpointManager` | 対応 |
+| ブラインド化 RPR、複数当事者による承認、アルゴリズム勧告の補助関数 | 対応 |
+| 共通のエラーコード（全 SDK で共有する 38 個）と `detect_wire_format` | 対応 |
+| OpenTelemetry / OTLP エクスポーター（オプションの `otlp` 機能） | 対応 |
+| 受け入れ：信頼する責任主体と `strict-v1` プロファイル | 対応、未公開 |
+| 正規化候補 `dcp-jcs-v2`（入力処理、ルーター、バイト列検証器、生成器） | 実験的かつ明示的な選択が必要、未公開。規範ではない |
+
+<a id="quickstart"></a>
 
 ## クイックスタート
 
@@ -78,9 +99,12 @@ fn main() {
 }
 ```
 
-### 署名済みバンドルを検証する
+<a id="verify-a-signed-bundle"></a>
+
+### 署名済みバンドルの検証
 
 ```rust
+// Needs citizenship_bundle.signed.json in the working directory and the signer's public key in place of BASE64_PUBLIC_KEY.
 use dcp_ai::verify::verify_signed_bundle;
 use serde_json;
 use std::fs;
@@ -91,39 +115,49 @@ fn main() {
 
     let result = verify_signed_bundle(&signed_bundle, Some("BASE64_PUBLIC_KEY"));
     println!("Verified: {}", result.verified);
-    if !result.errors.is_empty() {
-        println!("Errors: {:?}", result.errors);
+    if let Some(errors) = &result.errors {
+        println!("Errors: {:?}", errors);
     }
 }
 ```
 
-## APIリファレンス
+<a id="api-reference"></a>
 
-### 暗号 (`dcp_ai::crypto`)
+## API リファレンス
+
+<a id="crypto-dcp_aicrypto"></a>
+
+### 暗号（`dcp_ai::crypto`）
 
 | 関数 | シグネチャ | 説明 |
 |----------|-----------|-------------|
 | `generate_keypair()` | `() -> (String, String)` | `(public_key_b64, secret_key_b64)` を返す |
-| `sign_object(obj, secret_key_b64)` | `(&Value, &str) -> Result<String, String>` | 署名し、base64を返す |
-| `verify_object(obj, sig_b64, pub_b64)` | `(&Value, &str, &str) -> Result<bool, String>` | 署名を検証 |
-| `canonicalize(obj)` | `(&Value) -> String` | 決定論的JSON |
-| `hash_object(obj)` | `(&Value) -> String` | SHA-256のhex |
-| `merkle_root_from_hex_leaves(leaves)` | `(&[String]) -> Option<String>` | Merkleルート |
+| `sign_object(obj, secret_key_b64)` | `(&Value, &str) -> Result<String, String>` | 署名し、base64 を返す |
+| `verify_object(obj, sig_b64, pub_b64)` | `(&Value, &str, &str) -> Result<bool, String>` | 署名を検証する |
+| `canonicalize(obj)` | `(&Value) -> String` | 決定的な JSON |
+| `hash_object(obj)` | `(&Value) -> String` | SHA-256 の16進表記 |
+| `merkle_root_from_hex_leaves(leaves)` | `(&[String]) -> Option<String>` | Merkle ルート |
 
-### 検証 (`dcp_ai::verify`)
+<a id="verification-dcp_aiverify"></a>
+
+### 検証（`dcp_ai::verify`）
 
 ```rust
+// Signature (not runnable)
 fn verify_signed_bundle(
     signed_bundle: &Value,
     public_key_b64: Option<&str>,
 ) -> VerificationResult
 ```
 
-検証する内容: Ed25519署名、`bundle_hash`、`merkle_root`、`intent_hash` チェーン、`prev_hash` チェーン。
+検証対象：Ed25519 署名、`bundle_hash`、`merkle_root`、`intent_hash` チェーン、`prev_hash` チェーン。
 
-### 型 (`dcp_ai::types`)
+<a id="types-dcp_aitypes"></a>
+
+### 型（`dcp_ai::types`）
 
 ```rust
+// Declarations, fields elided (not runnable)
 pub struct ResponsiblePrincipalRecord { ... }
 pub struct AgentPassport { ... }
 pub struct Intent { ... }
@@ -141,59 +175,133 @@ pub struct VerificationResult {
 }
 ```
 
-すべての構造体は `Serialize` + `Deserialize` (serde) を実装しています。
+すべての構造体は `Serialize` + `Deserialize`（serde）を実装しています。
 
-### V2 型 (`dcp_ai::v2::types`)
+<a id="v2-types-dcp_aiv2types"></a>
 
-V2には、DCP-05からDCP-09までのすべての成果物のためのSerde由来の構造体が含まれます。
+### V2 の型（`dcp_ai::v2::types`）
 
-| Spec | 型 |
+V2 には、DCP-05 から DCP-09 までのすべてのアーティファクトについて、Serde のトレイトを導出した構造体が含まれます。
+
+| 仕様 | 型 |
 |------|-------|
-| DCP-05 | `LifecycleState`、`CommissioningCertificate`、`VitalityReport`、`VitalityMetrics`、`DecommissioningRecord`、`TerminationMode`、`DataDisposition` |
-| DCP-06 | `DigitalTestament`、`SuccessionRecord`、`MemoryTransferManifest`、`MemoryTransferEntry`、`SuccessorPreference`、`MemoryClassification`、`TransitionType`、`MemoryDisposition` |
-| DCP-07 | `DisputeRecord`、`ArbitrationResolution`、`JurisprudenceBundle`、`ObjectionRecord`、`DisputeType`、`EscalationLevel`、`DisputeStatus`、`ObjectionType`、`AuthorityLevel` |
-| DCP-08 | `RightsDeclaration`、`RightEntry`、`ObligationRecord`、`RightsViolationReport`、`RightType`、`ComplianceStatus` |
-| DCP-09 | `DelegationMandate`、`AdvisoryDeclaration`、`PrincipalMirror`、`InteractionRecord`、`AwarenessThreshold`、`ThresholdRule`、`AuthorityScopeEntry` |
+| DCP-05 | `LifecycleState`, `CommissioningCertificate`, `VitalityReport`, `VitalityMetrics`, `DecommissioningRecord`, `TerminationMode`, `DataDisposition` |
+| DCP-06 | `DigitalTestament`, `SuccessionRecord`, `MemoryTransferManifest`, `MemoryTransferEntry`, `SuccessorPreference`, `MemoryClassification`, `TransitionType`, `MemoryDisposition` |
+| DCP-07 | `DisputeRecord`, `ArbitrationResolution`, `JurisprudenceBundle`, `ObjectionRecord`, `DisputeType`, `EscalationLevel`, `DisputeStatus`, `ObjectionType`, `AuthorityLevel` |
+| DCP-08 | `RightsDeclaration`, `RightEntry`, `ObligationRecord`, `RightsViolationReport`, `RightType`, `ComplianceStatus` |
+| DCP-09 | `DelegationMandate`, `AdvisoryDeclaration`, `PrincipalMirror`, `InteractionRecord`, `AwarenessThreshold`, `ThresholdRule`, `AuthorityScopeEntry` |
 
-ドメイン分離定数: `CTX_LIFECYCLE`、`CTX_SUCCESSION`、`CTX_DISPUTE`、`CTX_RIGHTS`、`CTX_DELEGATION`、`CTX_AWARENESS`
+ドメイン分離定数：`CTX_LIFECYCLE`、`CTX_SUCCESSION`、`CTX_DISPUTE`、`CTX_RIGHTS`、`CTX_DELEGATION`、`CTX_AWARENESS`
 
-すべての構造体は `Debug`、`Clone`、`Serialize`、`Deserialize` を導出します。enumは `#[serde(rename_all = "snake_case")]` を使用します。オプションフィールドは `Option<T>` と `#[serde(skip_serializing_if = "Option::is_none")]` を使用します。
+すべての構造体は `Debug`、`Clone`、`Serialize`、`Deserialize` を導出します。列挙型は `#[serde(rename_all = "snake_case")]` を使用します。オプションのフィールドは `Option<T>` と `#[serde(skip_serializing_if = "Option::is_none")]` を使用します。
 
-### バンドル (`dcp_ai::v2::bundle`)
+<a id="bundles-dcp_aiv2bundle-unreleased"></a>
 
-| 関数 | 説明 |
-|----------|-------------|
-| `build_bundle_v2(&rpr, &passport, &intent, &policy, &audit_entries, session_nonce)` | 4 つの `SignedPayload` と監査証跡から V2 バンドルを構築します。各 `payload_hash` と、すべてのアーティファクトおよび監査エントリの `session_nonce` を検査し、2 つの監査 Merkle ルートを含むマニフェストを書き込みます。監査証跡が空の場合、ルートは 64 個のゼロです |
-| `sign_bundle_v2(bundle, &classical, &pq)` | `CTX_BUNDLE` でマニフェストに複合署名し、`{bundle, signature}` を返します。`signer.id` は RPR の `human_id` です。`session_expires_at` や `intended_verifier` は署名前にマニフェストに入れてください。`session_expires_at` があり `session_issued_at` がなければ、`session_issued_at` に署名時刻を設定します |
-
-### 委任チェーン (`dcp_ai::v2::delegation`、DCP-09 §3.5)
+### バンドル（`dcp_ai::v2::bundle`、未公開）
 
 | 関数 | 説明 |
 |----------|-------------|
-| `create_delegation_mandate_with_options(ed, pq, human_classical, human_pq, params, &MandateChainOptions)` | 人間が署名するルートマンデート。`sub_delegation` と `minimum_security_tier` は任意 |
-| `create_sub_mandate(ed, pq, classical, pq_key, &parent, SubMandateParams { .. })` | 親マンデートのエージェントが `DCP-AI.v2.SubMandate` コンテキストで署名するサブマンデート |
-| `verify_mandate_chain(&chain, &revoked_ids, &MandateChainKeys { human_keys, agent_keys }, now_millis)` | チェーンをルートから順に、オフラインで検証 (人間まで遡る署名、リンクと深さ、`sub_delegation`、入れ子になった有効期間、アクション・`data_classes`・`limits` の権限の減衰、ティアの下限、失効)。`MandateChainResult { valid, errors, depth, effective_tier }` を返す |
+| `build_bundle_v2(&rpr, &passport, &intent, &policy, &audit_entries, session_nonce)` | 4 つの `SignedPayload` と監査証跡から V2 バンドルを構築する。各 `payload_hash` と、すべてのアーティファクトおよび監査エントリーの `session_nonce` を確認し、両方の監査 Merkle ルートをマニフェストに書き込む。証跡が空の場合、ルートは64個のゼロになる |
+| `sign_bundle_v2(bundle, &classical, &pq)` | `CTX_BUNDLE` の下でマニフェストに複合署名し、`{bundle, signature}` を返す。`signer.id` は RPR の `human_id`。署名前に `session_expires_at` または `intended_verifier` をマニフェストに設定する。`session_expires_at` があり `session_issued_at` がない場合、`session_issued_at` を署名時刻に設定する |
 
-### アドミッション: プリンシパルの信頼と strict-v1
+<a id="delegation-chains-dcp_aiv2delegation-dcp-09-35-unreleased"></a>
 
-検証済みのバンドルが証明するのは完全性と署名であり、プリンシパルが誰かではありません。アドミッション ([spec/profiles/admission](../../spec/profiles/admission/README.md)、ガイドは [docs/ADMISSION.md](../../docs/ADMISSION.md)) は、各プリンシパルの鍵を固定するオペレーターの信頼セットと、オペレーターが固定する `strict-v1` プロファイル (ハイブリッド署名、署名済みの宛先、最大 300 秒の署名済みセッション、最大 300 秒前の失効スナップショット) を追加します。ネットワーク I/O は行わず、アクションを許可することもありません: `action_authorized` は常に `false` です。読み込めない信頼セットやプロファイルは `AdmissionConfigError { code, message }` を返します。
+### 委任チェーン（`dcp_ai::v2::delegation`、DCP-09 §3.5、未公開）
 
 | 関数 | 説明 |
-|---|---|
-| `verify_signed_bundle_v2_at(&b, &policy, now_ms)` | 指定した時刻で検証し、`V2VerificationDetails`（同じ `V2VerificationResult` である `result` と署名鍵 `signer_keys`）を返します。`V2VerificationResult` は 10 フィールドの形を保ち、他の 2 つの関数はシグネチャを保ちます |
-| `PrincipalTrustStore::from_json(&json)` | 信頼セットを読み込んで検証します |
-| `resolve_strict_v1_profile(&json)` | `strict-v1` プロファイルを読み込んで検証します (読み取り専用) |
-| `revocation_subjects(&b, &verification)` | 失効ソースが答えるべき `agent_id` と検証済みの kid |
-| `evaluate_admission_v2(&b, &verification, &opts)` | 検証結果からアドミッションを評価します (暗号処理も I/O もありません) |
-| `admit_signed_bundle_v2(&b, &opts)` | プロファイルのポリシーで検証して評価します |
+|----------|-------------|
+| `create_delegation_mandate_with_options(ed, pq, human_classical, human_pq, params, &MandateChainOptions)` | 人間が署名したルート委任状。オプションで `sub_delegation` と `minimum_security_tier` を指定する |
+| `create_sub_mandate(ed, pq, classical, pq_key, &parent, SubMandateParams { .. })` | 親委任状のエージェントが `DCP-AI.v2.SubMandate` コンテキストの下で署名した下位委任状 |
+| `verify_mandate_chain(&chain, &revoked_ids, &MandateChainKeys { human_keys, agent_keys }, now_millis)` | ルートから順にオフラインでチェーンを検証する（人間に遡る署名、リンクと深さ、`sub_delegation`、入れ子の有効期間、行動・`data_classes`・`limits` の制限、最低階層、失効）。`MandateChainResult { valid, errors, depth, effective_tier }` を返す |
 
-例を含む完全な説明は[英語の README](README.md#admission-dcp_aiv2-specprofilesadmission)にあります。
+<a id="admission-dcp_aiv2-specprofilesadmission-unreleased"></a>
 
-### フィーチャー `wasm`
+### 受け入れ（`dcp_ai::v2`、spec/profiles/admission、未公開）
 
-`wasm` フィーチャーが有効化されている場合、crateはWebAssemblyバインディングを公開します。
+検証済み V2 バンドルを、運用者がすでに信頼する責任主体からの証拠として受け入れるかを判定します。オプションで `strict-v1` プロファイルを使用できます。信頼集合、プロファイル、失効情報源は運用者が指定し、バンドルやリクエストから取得することはありません。
+
+| 関数 | 説明 |
+|----------|-------------|
+| `verify_signed_bundle_v2_at(&b, &policy, now_ms)` | `verify_signed_bundle_v2_with_policy` を `now_ms`（Unix エポックからのミリ秒）で実行し、すべての時刻チェックでその値を使用する。他の2つの検証関数はシステムクロックを使用する。`V2VerificationDetails` を返し、`result` に同じ `V2VerificationResult` を格納する。さらに `signer_keys` が、検査した複合署名ごとに各コンポーネントで解決した鍵と検証結果を列挙する。`V2VerificationResult` の10フィールド構造と、他の2関数のシグネチャは変わらない |
+| `PrincipalTrustStore::from_json(&json)` | 信頼集合（`schemas/v2/principal_trust_set.schema.json`）を読み込む |
+| `resolve_strict_v1_profile(&json)` | `strict-v1` プロファイル（`schemas/v2/admission_profile.schema.json`）を読み込む。`policy()`、`verifier_id()`、`max_session_duration_seconds()`、`max_revocation_age_seconds()` は読み取り専用 |
+| `revocation_subjects(&b, &verification)` | 運用者の失効情報源に渡す、パスポートの `agent_id` と検証済み署名者鍵のソート済み kid |
+| `evaluate_admission_v2(&b, &verification, &AdmissionOptions { .. })` | 検証結果から受け入れを判定する。暗号処理も I/O も行わない |
+| `admit_signed_bundle_v2(&b, &AdmitOptions { .. })` | `now_ms`（`None` の場合はシステムクロック）で、プロファイルのポリシー、またはプロファイルがなければ `policy` に従って検証し、その後評価する |
+
+信頼集合またはプロファイルを読み込めない場合、プロファイルに信頼集合がない場合、プロファイルと呼び出し元のポリシーを併用した場合は、`AdmissionConfigError { code, message }` を返します。`AdmissionResult` は §5.2 のキー（`verified`、`verification`、`principal_trust`、`profile`、`profile_compliance`、`admitted`、`action_authorized`、`recorded_decision`、`trust_set_version`、`errors`）でシリアライズされ、`action_authorized` は常に `false` です。プロファイルの `verifier_policy` は `accepted_classical_algs` と `accepted_pq_algs` を絞り込むことができ、検証器はそれを適用します。`min_classical`、`min_pq`、`accepted_hash_algs`、`max_key_age_days` はデフォルト値に固定されます。
 
 ```rust
+// Fragment, inside a function returning a Result: profile_json, trust_set_json, signed_bundle, now_ms and revocation_source come from your application.
+use dcp_ai::v2::{
+    evaluate_admission_v2, resolve_strict_v1_profile, revocation_subjects, verify_signed_bundle_v2_at,
+    AdmissionOptions, PrincipalTrustStore,
+};
+
+let profile = resolve_strict_v1_profile(&profile_json)?;
+let trust = PrincipalTrustStore::from_json(&trust_set_json)?;
+let verification = verify_signed_bundle_v2_at(&signed_bundle, profile.policy(), now_ms);
+// Ask the operator's revocation source about these; None when it cannot answer.
+let snapshot: Option<serde_json::Value> = revocation_source(&revocation_subjects(&signed_bundle, &verification));
+let result = evaluate_admission_v2(
+    &signed_bundle,
+    &verification,
+    &AdmissionOptions { profile: Some(&profile), trust: Some(&trust), revocation: snapshot.as_ref(), now_ms },
+)?;
+if result.admitted {
+    // Authentic evidence from a trusted principal; not an authorization to act.
+}
+```
+
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
+
+### 実験的機能：正規化候補 `dcp-jcs-v2`（明示的な選択が必要、未公開）
+
+規範ではなく、有効化もされていません。`dcp-jcs-v1` が引き続き唯一の正規化プロファイルであり、デフォルト設定、ビルダー、署名器、検証器は変更されません。これらのモジュールは、ソースのチェックアウトから明示的に選択して利用する呼び出し元向けです（公開状況を参照）。検証済みの候補バンドルも、信頼や受け入れを与えるものではありません。設計と契約：[`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)（§15 入力処理、§16 ルーター、§17 検証器、§18 生成器）。
+
+| モジュール | API |
+|---|---|
+| `dcp_ai::v2::experimental_candidate_ingress` | `experimental_candidate_ingress(&[u8])`：`CandidateIngressOutcome::Accept { value, canonical, canonical_sha256 }` または `Reject { class, offset }` |
+| `dcp_ai::v2::experimental_candidate_router` | `CandidateRouter::new(CandidateRouterConfig { transport, accepted_profiles, historical })`。デコーダーは `HistoricalAdapter::serde_json_from_slice()`。いずれもデフォルトではない |
+| `dcp_ai::v2::experimental_candidate_verify` | `CandidateVerifier::new(config)` と `verify_at(input, policy, now_ms)` |
+| `dcp_ai::v2::experimental_candidate_produce` | `sign_payload(context, &CandidateInput, &CandidateKeys)` と `sign_bundle(&BundleParts, &BundleSigner, &BundleOptions)`。入力のドメインまたは形式については `ProduceError::Reject`（署名器の実行前）、その他に `Usage`、`Provider` |
+
+```rust
+use dcp_ai::providers::{ed25519::Ed25519Provider, ml_dsa_65::MlDsa65Provider};
+use dcp_ai::v2::composite_ops::CompositeKeyInfo;
+use dcp_ai::v2::crypto_provider::CryptoProvider;
+use dcp_ai::v2::experimental_candidate_ingress::{experimental_candidate_ingress, CandidateIngressOutcome};
+use dcp_ai::v2::experimental_candidate_produce::{sign_payload, CandidateInput, CandidateKeys};
+
+fn main() {
+    // The ingress decides on the original bytes: 1.0 is the integer 1, members are sorted.
+    if let Ok(CandidateIngressOutcome::Accept { canonical, .. }) = experimental_candidate_ingress(br#"{"b":1.0,"a":[]}"#) {
+        println!("{}", String::from_utf8(canonical).unwrap()); // {"a":[],"b":1}
+    }
+    if let Ok(CandidateIngressOutcome::Reject { class, offset }) = experimental_candidate_ingress(br#"{"a":1,"a":2}"#) {
+        println!("{} {}", class.as_str(), offset); // DUPLICATE_KEY 7
+    }
+
+    // A producer signs an artifact from those bytes (hybrid keys, today's composite signature).
+    let key = |p: &dyn CryptoProvider| {
+        let k = p.generate_keypair().unwrap();
+        CompositeKeyInfo { kid: k.kid, alg: p.alg().to_string(), secret_key_b64: k.secret_key_b64, public_key_b64: k.public_key_b64 }
+    };
+    let keys = CandidateKeys { classical: key(&Ed25519Provider), pq: Some(key(&MlDsa65Provider)) };
+    let input = CandidateInput::Bytes(br#"{"intent_id":"intent:1","risk":1.0}"#.to_vec());
+    let artifact = sign_payload("DCP-AI.v2.Intent", &input, &keys).unwrap();
+    println!("{}", artifact.signed_payload["payload_hash"]); // "sha256:..." of {"intent_id":"intent:1","risk":1}
+}
+```
+
+<a id="feature-wasm"></a>
+
+### `wasm` 機能
+
+`wasm` 機能を有効にすると、crate は WebAssembly バインディングを公開します。
+
+```rust
+// Declarations of the wasm-bindgen exports, bodies elided (not runnable)
 // Available via wasm-bindgen
 fn wasm_verify_signed_bundle(json: &str, pub_key: Option<String>) -> String;
 fn wasm_verify_signed_bundle_v2(json: &str, policy_json: Option<String>) -> String; // default policy when None; V1 bundles are rejected under a policy
@@ -203,11 +311,13 @@ fn wasm_build_bundle(rpr_json: &str, passport_json: &str, intent_json: &str, pol
 fn wasm_sign_bundle(bundle_json: &str, classical_sk_b64: &str, classical_kid: &str, pq_sk_b64: &str, pq_kid: &str) -> String;
 ```
 
-WASM向けにコンパイル:
+WASM 向けにコンパイル：
 
 ```bash
 cargo build --target wasm32-unknown-unknown --features wasm
 ```
+
+<a id="development"></a>
 
 ## 開発
 
@@ -225,17 +335,21 @@ cargo build --features wasm
 cargo build --target wasm32-unknown-unknown --features wasm
 ```
 
+<a id="dependencies"></a>
+
 ### 依存関係
 
-- `serde` + `serde_json` — シリアライゼーション
+- `serde` + `serde_json` — シリアライズ
 - `sha2` — SHA-256
 - `sha3` — SHA3-256（二重ハッシュチェーン）
-- `ed25519-dalek` — Ed25519暗号
+- `ed25519-dalek` — Ed25519 暗号
 - `fips203` / `fips204` / `fips205` — ML-KEM-768、ML-DSA-65、SLH-DSA-192f（FIPS 203 / 204 / 205）
 - `rand` — 乱数生成
-- `base64` — Base64エンコーディング
-- `hex` — Hexエンコーディング
-- `wasm-bindgen` (オプション) — WASMバインディング
+- `base64` — Base64 エンコーディング
+- `hex` — 16進エンコーディング
+- `wasm-bindgen`（オプション）— WASM バインディング
+
+<a id="license"></a>
 
 ## ライセンス
 

@@ -264,3 +264,19 @@ Result fields keep the names of §5.2 in every SDK's JSON form.
 ## 9. Test vectors
 
 [`tests/interop/v2/admission_vectors.json`](../../../tests/interop/v2/admission_vectors.json) holds the shared cases: signed bundles, trust sets, profiles, revocation snapshots, `now`, and for each case the expected `verified`, `principal_trust`, `profile_compliance`, `admitted` and set of codes, with the rule it checks. Configuration cases give the configuration and the expected error code. Every SDK runs them; agreement between SDKs is not the criterion, the expected values are.
+
+## Implementation notes (informative)
+
+> **Added 25/10/2026. Not normative.** These notes add no requirement and change nothing above: they describe how
+> the reference code on `main` relates to this text. Where they differ, the normative text above stands.
+
+- The references to V2-1 to V2-14 point to the normative checklist of [VERIFICATION.md](../../VERIFICATION.md). On
+  `main` the SDK verifiers do not recompute the secondary SHA3-256 chain or root of V2-11, so "verified under V2-1 to
+  V2-14" (§7) holds with that limit: for a bundle that carries a secondary chain, the audit-chain hash checks performed
+  are the SHA-256 chain and root. Every other verification check, principal trust and every `strict-v1` check still
+  apply; the SHA-256 chain alone never admits a bundle.
+- The JSON in §2.2, §2.3, §2.4 and §4.1 illustrates the shapes, with placeholders (`…`, `<kid>`) for keys and
+  identifiers; it is not a fixture and does not load as it is. The two `<kid>` entries of §2.4 stand for two different
+  real kids: an adapted snapshot has no duplicate JSON keys. The shared, runnable cases are in
+  [`tests/interop/v2/admission_vectors.json`](../../../tests/interop/v2/admission_vectors.json) (§9).
+- The APIs of §8 are in the SDKs on `main` and are not in a published release yet.

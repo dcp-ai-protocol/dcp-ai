@@ -6,10 +6,15 @@ Integrate the Digital Citizenship Protocol into your LangChain agents to add cry
 
 ## Installation
 
-This guide uses **LangChain.js** (TypeScript/Node). If you use **LangChain for Python** instead, skip to the Python section at the bottom.
+This guide uses **LangChain.js v1** (TypeScript/Node, Node.js 22 or later). If you use **LangChain for Python**
+instead, skip to the Python section at the bottom.
+
+The registry install gives the published `@dcp-ai/sdk` (npm's `latest` was 2.1.1 on 25/10/2026); the DCP code below
+works with it and with the SDK built from a checkout (see the TypeScript SDK's
+[Release status](../sdks/typescript/README.md#installation)).
 
 ```bash
-npm install @dcp-ai/sdk langchain @langchain/core @langchain/openai
+npm install @dcp-ai/sdk langchain @langchain/core @langchain/openai zod
 ```
 
 ### Zero-config scaffold (alternative)
@@ -20,172 +25,136 @@ cd my-app
 npm install
 ```
 
-Produces a runnable `index.js` with DCP identity + a LangChain agent + audited tool calls already wired up.
+Produces a runnable `index.js` that walks a LangChain.js call through the DCP flow with placeholder keys and
+signatures (`«generated»`, `«sig»`): it generates no keys, signs nothing, and its bundles are not verifiable
+evidence (see [templates/langchain](../templates/langchain/README.md)); the examples below use real keys and
+signatures. The scaffold pins LangChain.js **0.3**
+(`langchain` and `@langchain/openai` `^0.3.0`) and uses `ChatOpenAI` directly; the agent APIs of that line
+(`AgentExecutor`, `createOpenAIFunctionsAgent`) moved to `@langchain/classic` in LangChain.js v1; this guide follows the v1 API.
 
 ---
 
 ## How DCP Integrates with LangChain
 
-DCP wraps each LangChain tool invocation in a signed audit pipeline:
+DCP wraps each LangChain tool invocation in a policy gate and seals it as signed evidence:
 
-1. **Before execution** — Declare an intent and get a policy decision
-2. **After execution** — Log an audit entry with the outcome
-3. **At session end** — Seal everything into a signed Citizenship Bundle
+1. **Before execution:** declare an intent and get a policy decision from your own rules.
+2. **Execution:** only what the policy approved runs.
+3. **After execution:** record an audit entry (`intent_hash` and the `prev_hash` chain are computed for you) and
+   seal the call into a signed Citizenship Bundle.
 
 ```
 LangChain Agent
   └─ Tool call
-       ├─ DCP: declareIntent() → policy gate (approve/escalate/block)
-       ├─ Tool execution
-       ├─ DCP: logAudit() → hash-chained audit entry
-       └─ DCP: signBundle() → sealed proof
+       ├─ DCP: intent → your policy gate (approve / escalate / block)
+       ├─ Tool execution (approved calls only)
+       └─ DCP: audit entry → bundle signed by the operator
 ```
 
 ---
 
 ## Complete Working Example
 
+The DCP part runs as written with the TypeScript SDK. The LangChain part follows the LangChain.js v1 agents API
+(`createAgent` and `tool` from `langchain`) and calls the OpenAI API, so it needs `OPENAI_API_KEY`.
+
 ```typescript
-import { ChatOpenAI } from '@langchain/openai';
-import { AgentExecutor, createOpenAIFunctionsAgent } from 'langchain/agents';
-import { DynamicTool } from '@langchain/core/tools';
-import {
-  generateKeypair,
-  signObject,
-  BundleBuilder,
-  signBundle,
-  verifySignedBundle,
-} from '@dcp-ai/sdk';
+import { createAgent, tool } from 'langchain';
+import * as z from 'zod';
+import { BundleBuilder, generateKeypair, signBundle, signObject, verifyObject, verifySignedBundle } from '@dcp-ai/sdk';
+import type { AgentPassport, Intent, PolicyDecision, ResponsiblePrincipalRecord, SignedBundle } from '@dcp-ai/sdk';
 
-// 1. Initialize DCP identity
-const keys = generateKeypair();
-const agentId = `agent-${crypto.randomUUID().slice(0, 8)}`;
-const humanId = 'human-operator-001';
+const now = () => new Date().toISOString();
 
-const hbr = {
-  dcp_version: '1.0',
-  human_id: humanId,
-  legal_name: 'Operator',
-  entity_type: 'natural_person',
-  jurisdiction: 'US-CA',
-  liability_mode: 'owner_responsible',
-  override_rights: true,
-  public_key: keys.publicKeyB64,
-  issued_at: new Date().toISOString(),
-  expires_at: null,
-  contact: null,
+// 1. DCP identity: the operator signs the RPR, the agent its passport, each over the object without `signature`
+const operatorKeys = generateKeypair();
+const agentKeys = generateKeypair();
+const humanId = 'human:operator-001';
+const agentId = `agent:${crypto.randomUUID().slice(0, 8)}`;
+
+const rprBody: Omit<ResponsiblePrincipalRecord, 'signature'> = {
+  dcp_version: '1.0', human_id: humanId, legal_name: 'Operator', entity_type: 'natural_person',
+  jurisdiction: 'US-CA', liability_mode: 'owner_responsible', override_rights: true, issued_at: now(),
+  expires_at: null, contact: null,
 };
-
-const passport = {
-  dcp_version: '1.0',
-  agent_id: agentId,
-  human_id: humanId,
-  public_key: keys.publicKeyB64,
-  capabilities: ['browse', 'api_call'],
-  risk_tier: 'low',
-  created_at: new Date().toISOString(),
-  status: 'active',
+const rpr: ResponsiblePrincipalRecord = { ...rprBody, signature: signObject(rprBody, operatorKeys.secretKeyB64) };
+const passportBody: Omit<AgentPassport, 'signature'> = {
+  dcp_version: '1.0', agent_id: agentId, public_key: agentKeys.publicKeyB64, principal_binding_reference: humanId,
+  capabilities: ['browse', 'api_call'], risk_tier: 'low', created_at: now(), status: 'active',
 };
+const passport: AgentPassport = { ...passportBody, signature: signObject(passportBody, agentKeys.secretKeyB64) };
 
-// 2. Create a DCP-aware tool
-const auditLog: any[] = [];
-let auditSeq = 0;
-let prevHash = '0'.repeat(64);
-
-function dcpWrappedTool(name: string, description: string, fn: (input: string) => Promise<string>) {
-  return new DynamicTool({
-    name,
-    description,
-    func: async (input: string) => {
-      const intentId = `intent-${Date.now()}`;
-
-      // Declare intent
-      const intent = {
-        dcp_version: '1.0',
-        intent_id: intentId,
-        agent_id: agentId,
-        human_id: humanId,
-        timestamp: new Date().toISOString(),
-        action_type: 'api_call',
-        target: { channel: 'api', domain: name },
-        data_classes: ['none'],
-        estimated_impact: 'low',
-        requires_consent: false,
-      };
-
-      // Policy check
-      const policy = {
-        dcp_version: '1.0',
-        intent_id: intentId,
-        decision: 'approve',
-        risk_score: 10,
-        reasons: ['Low risk tool invocation'],
-        required_confirmation: null,
-        applied_policy_hash: 'sha256:policy-v1',
-        timestamp: new Date().toISOString(),
-      };
-
-      if (policy.decision !== 'approve') {
-        return `Action blocked by DCP policy: ${policy.reasons.join(', ')}`;
-      }
-
-      // Execute
-      const result = await fn(input);
-
-      // Audit
-      const audit = {
-        dcp_version: '1.0',
-        audit_id: `audit-${++auditSeq}`,
-        prev_hash: prevHash,
-        timestamp: new Date().toISOString(),
-        agent_id: agentId,
-        human_id: humanId,
-        intent_id: intentId,
-        intent_hash: signObject(intent, keys.secretKeyB64),
-        policy_decision: 'approved',
-        outcome: `${name}: ${result.slice(0, 100)}`,
-        evidence: { tool: name, result_ref: null },
-      };
-
-      prevHash = signObject(audit, keys.secretKeyB64);
-      auditLog.push({ intent, policy, audit });
-
-      return result;
-    },
-  });
+// 2. The policy gate: your rules decide before the tool runs
+function evaluatePolicy(intent: Intent): PolicyDecision {
+  const lowRisk = intent.estimated_impact === 'low' && intent.data_classes.every((d) => d === 'none');
+  return {
+    dcp_version: '1.0', intent_id: intent.intent_id, decision: lowRisk ? 'approve' : 'escalate',
+    risk_score: lowRisk ? 0.05 : 0.6, reasons: [lowRisk ? 'low-impact call on public data' : 'needs human approval'],
+    required_confirmation: lowRisk ? null : { type: 'human_approve' },
+  };
 }
 
-// 3. Define tools
-const tools = [
-  dcpWrappedTool('search', 'Search the web', async (query) => {
-    return `Results for: ${query}`;
-  }),
-  dcpWrappedTool('calculator', 'Do math', async (expr) => {
-    return String(eval(expr));
-  }),
-];
+// 3. A DCP gate around any tool function: each call is sealed into its own signed bundle;
+//    the tool input stays out of the record
+const bundles: SignedBundle[] = [];
+async function dcpGated(name: string, run: () => Promise<string>): Promise<string> {
+  const intent: Intent = {
+    dcp_version: '1.0', intent_id: `intent:${crypto.randomUUID()}`, agent_id: agentId, human_id: humanId,
+    timestamp: now(), action_type: 'api_call', target: { channel: 'api', domain: name },
+    data_classes: ['none'], estimated_impact: 'low', requires_consent: false,
+  };
+  const policy = evaluatePolicy(intent);
+  // Your own policy may also return 'block': the audit entry records each decision as it is
+  const [auditDecision, outcome] = ({
+    approve: ['approved', `${name}_completed`],
+    escalate: ['escalated', 'awaiting_human_approval'],
+    block: ['blocked', 'action_blocked'],
+  } as const)[policy.decision];
+  const result = policy.decision === 'approve'
+    ? await run()
+    : `Not run (DCP policy: ${policy.decision}): ${policy.reasons.join(', ')}`;
 
-// 4. Create agent
-const model = new ChatOpenAI({ modelName: 'gpt-4' });
-const agent = await createOpenAIFunctionsAgent({ llm: model, tools, prompt });
-const executor = new AgentExecutor({ agent, tools });
+  const bundle = new BundleBuilder()
+    .responsiblePrincipalRecord(rpr)
+    .agentPassport(passport)
+    .intent(intent)
+    .policyDecision(policy)
+    .createAuditEntry({
+      dcp_version: '1.0', audit_id: `audit:${crypto.randomUUID()}`, timestamp: now(), agent_id: agentId,
+      human_id: humanId, intent_id: intent.intent_id, policy_decision: auditDecision,
+      outcome, evidence: { tool: name, result_ref: null },
+    })
+    .build();
+  bundles.push(signBundle(bundle, { secretKeyB64: operatorKeys.secretKeyB64, signerType: 'human', signerId: humanId }));
+  return result;
+}
 
-// 5. Run agent
-const response = await executor.invoke({ input: 'What is 42 * 17?' });
+// 4. LangChain tools whose functions go through the gate (never evaluate model output as code)
+const search = tool(
+  async ({ query }) => dcpGated('search', async () => `Results for: ${query}`),
+  { name: 'search', description: 'Search the web', schema: z.object({ query: z.string() }) },
+);
+const multiply = tool(
+  async ({ a, b }) => dcpGated('multiply', async () => String(a * b)),
+  { name: 'multiply', description: 'Multiply two integers', schema: z.object({ a: z.number().int(), b: z.number().int() }) },
+);
 
-// 6. Seal the DCP bundle
-const lastEntry = auditLog[auditLog.length - 1];
-const bundle = new BundleBuilder()
-  .responsiblePrincipalRecord(hbr)
-  .agentPassport(passport)
-  .intent(lastEntry.intent)
-  .policyDecision(lastEntry.policy)
-  .addAuditEntry(lastEntry.audit)
-  .build();
+// 5. The agent (needs OPENAI_API_KEY)
+const agent = createAgent({
+  model: 'openai:gpt-4o-mini',
+  tools: [search, multiply],
+  systemPrompt: 'You are a helpful assistant. Use the tools when they help.',
+});
+const result = await agent.invoke({ messages: [{ role: 'user', content: 'What is 42 * 17?' }] });
+console.log(result.messages.at(-1)?.content); // the agent's final answer
 
-const signed = signBundle(bundle, keys.secretKeyB64);
-const verification = verifySignedBundle(signed);
-console.log('Bundle verified:', verification.verified);
+// 6. Verify each sealed bundle against the operator's key, and the inner signatures,
+//    which verifySignedBundle does not check
+for (const signed of bundles) {
+  console.log(signed.bundle.intent.intent_id, verifySignedBundle(signed, operatorKeys.publicKeyB64).verified);
+}
+console.log(verifyObject(rprBody, rpr.signature, operatorKeys.publicKeyB64));
+console.log(verifyObject(passportBody, passport.signature, agentKeys.publicKeyB64));
 ```
 
 ---
@@ -204,7 +173,8 @@ console.log('Bundle verified:', verification.verified);
 
 ## V2 Post-Quantum Upgrade
 
-For post-quantum security, use the V2 composite signature API:
+For post-quantum security, use the V2 composite signature API (a fragment; the TypeScript SDK's
+[Quick Start (V2)](../sdks/typescript/README.md#quick-start-v2) builds and signs a complete V2 bundle):
 
 ```typescript
 import {
@@ -231,15 +201,21 @@ pip install 'dcp-ai[langchain]'
 ```
 
 ```python
-from dcp_ai.langchain import DCPAgentWrapper, DCPTool, DCPCallback
+# Fragment, inside an async function: `agent` is your LangChain agent or runnable; `passport` and `rpr` are
+# V2 payload dicts (the agent's passport and the principal's RPR).
+from dcp_ai.langchain import DCPAgentWrapper
 
-# Wrap any LangChain agent so every tool invocation is DCP-gated and audited
-wrapped = DCPAgentWrapper(agent, passport=my_passport)
-result = wrapped.run("search for X and summarise")
-# result.audit_trail contains the signed hash-chained record
+wrapped = DCPAgentWrapper(agent=agent, passport=passport, rpr=rpr)
+result = await wrapped.invoke({"input": "search for X and summarise"})
+events = wrapped.get_audit_trail()  # V2 audit events, hash-chained; seal them into a bundle to sign them
 ```
 
-The API mirrors the TypeScript version above. Module-level docstrings in `dcp_ai.langchain` document the full surface.
+`DCPAgentWrapper` declares an intent and a policy decision for each invocation, refuses a `block`, and records an
+audit event; `DCPTool` lets an agent verify other agents' bundles, and `DCPCallback` records audit events from
+LangChain callbacks. The records are unsigned, the default policy approves every call, and an `escalate` still runs
+the agent; `DCPCallback` needs a handler of your own with LangChain 1.x, and on PyPI's 2.9.0 `DCPTool` sends every
+bundle to the V1 verifier. See [integrations/langchain/README.md](../integrations/langchain/README.md) for these
+limits and the full surface; the Python bridge is not the hand-written TypeScript example above.
 
 ---
 

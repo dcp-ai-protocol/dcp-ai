@@ -8,6 +8,12 @@ Add cryptographic identity, policy gating, and audit trails to OpenAI function-c
 
 This guide uses the **OpenAI Node SDK**. If you use Python instead, skip to the Python section at the bottom.
 
+The registry install gives the published `@dcp-ai/sdk` (npm's `latest` was 2.1.1 on 25/10/2026). The V1 example
+works with it; the V2 section follows `main`, so build the SDK from a checkout for it (see the TypeScript SDK's
+[Release status](../sdks/typescript/README.md#installation)). The examples use the Chat Completions API of the
+OpenAI Node SDK (`openai` v4 or later; recent versions add custom tool calls, which the loop refuses). Running them
+calls the OpenAI API and needs `OPENAI_API_KEY`.
+
 ```bash
 npm install @dcp-ai/sdk openai
 ```
@@ -20,22 +26,25 @@ cd my-app
 npm install
 ```
 
-Produces a runnable `index.js` with DCP identity + an OpenAI function-calling agent + audited tool calls already wired up.
+Produces a runnable `index.js` that walks an OpenAI function-calling agent through the DCP flow (identity,
+intents, policy decisions, audit entries) with placeholder keys and signatures (`«generated»`, `«sig»`): it
+generates no keys, signs nothing, and its bundles are not verifiable evidence (see
+[templates/openai](../templates/openai/README.md)). The examples below use real keys and signatures.
 
 ---
 
 ## How DCP Integrates with OpenAI
 
-DCP wraps OpenAI function calls in a signed audit pipeline. Each function call is declared as an intent, gated by policy, and logged to the audit chain.
+DCP wraps OpenAI function calls in a policy gate and seals each call as signed evidence: the call is declared as
+an intent, your policy decides, only an approved call runs, and an audit entry closes it.
 
 ```
 OpenAI Chat Completion
-  └─ function_call
-       ├─ DCP: declare intent
-       ├─ DCP: policy gate (approve/escalate/block)
-       ├─ execute function
-       ├─ DCP: log audit entry
-       └─ return result to model
+  └─ tool call
+       ├─ DCP: intent → your policy gate (approve / escalate / block)
+       ├─ execute the function (approved calls only)
+       ├─ DCP: audit entry → bundle signed by the operator
+       └─ return the result to the model
 ```
 
 ---
@@ -44,47 +53,31 @@ OpenAI Chat Completion
 
 ```typescript
 import OpenAI from 'openai';
-import {
-  generateKeypair,
-  signObject,
-  BundleBuilder,
-  signBundle,
-  verifySignedBundle,
-} from '@dcp-ai/sdk';
+import { BundleBuilder, generateKeypair, signBundle, signObject, verifyObject, verifySignedBundle } from '@dcp-ai/sdk';
+import type { AgentPassport, Intent, PolicyDecision, ResponsiblePrincipalRecord, SignedBundle } from '@dcp-ai/sdk';
 
-const openai = new OpenAI();
+const openai = new OpenAI(); // reads OPENAI_API_KEY
+const now = () => new Date().toISOString();
 
-// 1. Initialize DCP identity
-const keys = generateKeypair();
-const agentId = 'openai-agent-001';
-const humanId = 'operator-001';
+// 1. DCP identity: the operator signs the RPR, the agent its passport, each over the object without `signature`
+const operatorKeys = generateKeypair();
+const agentKeys = generateKeypair();
+const humanId = 'human:operator-001';
+const agentId = 'agent:openai-001';
 
-const hbr = {
-  dcp_version: '1.0',
-  human_id: humanId,
-  legal_name: 'AI Operator',
-  entity_type: 'natural_person',
-  jurisdiction: 'US-CA',
-  liability_mode: 'owner_responsible',
-  override_rights: true,
-  public_key: keys.publicKeyB64,
-  issued_at: new Date().toISOString(),
-  expires_at: null,
-  contact: null,
+const rprBody: Omit<ResponsiblePrincipalRecord, 'signature'> = {
+  dcp_version: '1.0', human_id: humanId, legal_name: 'AI Operator', entity_type: 'natural_person',
+  jurisdiction: 'US-CA', liability_mode: 'owner_responsible', override_rights: true, issued_at: now(),
+  expires_at: null, contact: null,
 };
-
-const passport = {
-  dcp_version: '1.0',
-  agent_id: agentId,
-  human_id: humanId,
-  public_key: keys.publicKeyB64,
-  capabilities: ['api_call', 'browse'],
-  risk_tier: 'low',
-  created_at: new Date().toISOString(),
-  status: 'active',
+const rpr: ResponsiblePrincipalRecord = { ...rprBody, signature: signObject(rprBody, operatorKeys.secretKeyB64) };
+const passportBody: Omit<AgentPassport, 'signature'> = {
+  dcp_version: '1.0', agent_id: agentId, public_key: agentKeys.publicKeyB64, principal_binding_reference: humanId,
+  capabilities: ['api_call', 'browse'], risk_tier: 'low', created_at: now(), status: 'active',
 };
+const passport: AgentPassport = { ...passportBody, signature: signObject(passportBody, agentKeys.secretKeyB64) };
 
-// 2. Define OpenAI tools
+// 2. OpenAI tools
 const tools: OpenAI.ChatCompletionTool[] = [
   {
     type: 'function',
@@ -93,136 +86,98 @@ const tools: OpenAI.ChatCompletionTool[] = [
       description: 'Get the current weather for a location',
       parameters: {
         type: 'object',
-        properties: {
-          location: { type: 'string', description: 'City name' },
-        },
+        properties: { location: { type: 'string', description: 'City name' } },
         required: ['location'],
       },
     },
   },
 ];
 
-// 3. DCP audit state
-const auditLog: Array<{ intent: any; policy: any; audit: any }> = [];
-let prevHash = '0'.repeat(64);
-let seq = 0;
-
-// 4. DCP-wrapped function executor
-async function executeFunctionCall(call: OpenAI.ChatCompletionMessageToolCall): Promise<string> {
-  const intentId = `intent-${++seq}`;
-  const args = JSON.parse(call.function.arguments);
-
-  // Declare intent
-  const intent = {
-    dcp_version: '1.0',
-    intent_id: intentId,
-    agent_id: agentId,
-    human_id: humanId,
-    timestamp: new Date().toISOString(),
-    action_type: 'api_call',
-    target: { channel: 'api', domain: call.function.name },
-    data_classes: ['none'],
-    estimated_impact: 'low',
-    requires_consent: false,
+// 3. The policy gate: your rules decide before the function runs
+function evaluatePolicy(intent: Intent): PolicyDecision {
+  const lowRisk = intent.estimated_impact === 'low' && intent.data_classes.every((d) => d === 'none');
+  return {
+    dcp_version: '1.0', intent_id: intent.intent_id, decision: lowRisk ? 'approve' : 'escalate',
+    risk_score: lowRisk ? 0.05 : 0.6, reasons: [lowRisk ? 'low-risk function call' : 'needs human approval'],
+    required_confirmation: lowRisk ? null : { type: 'human_approve' },
   };
+}
 
-  // Policy gate
-  const policy = {
-    dcp_version: '1.0',
-    intent_id: intentId,
-    decision: 'approve',
-    risk_score: 10,
-    reasons: ['Low-risk function call'],
-    required_confirmation: null,
-    applied_policy_hash: 'sha256:policy-v1',
-    timestamp: new Date().toISOString(),
+// 4. A DCP-gated function executor: each call is sealed into its own signed bundle;
+//    the arguments stay out of the record
+const bundles: SignedBundle[] = [];
+type FunctionToolCall = Extract<OpenAI.ChatCompletionMessageToolCall, { type: 'function' }>;
+async function executeFunctionCall(call: FunctionToolCall): Promise<string> {
+  const intent: Intent = {
+    dcp_version: '1.0', intent_id: `intent:${crypto.randomUUID()}`, agent_id: agentId, human_id: humanId,
+    timestamp: now(), action_type: 'api_call', target: { channel: 'api', domain: call.function.name },
+    data_classes: ['none'], estimated_impact: 'low', requires_consent: false,
   };
+  const policy = evaluatePolicy(intent);
+  // Your own policy may also return 'block': the audit entry records each decision as it is
+  const [auditDecision, outcome] = ({
+    approve: ['approved', `${call.function.name}_completed`],
+    escalate: ['escalated', 'awaiting_human_approval'],
+    block: ['blocked', 'action_blocked'],
+  } as const)[policy.decision];
 
-  if (policy.decision !== 'approve') {
-    return JSON.stringify({ error: `Blocked by DCP policy: ${policy.reasons.join(', ')}` });
-  }
-
-  // Execute the function
   let result: string;
-  switch (call.function.name) {
-    case 'get_weather':
-      result = JSON.stringify({ temp: 72, condition: 'sunny', location: args.location });
-      break;
-    default:
-      result = JSON.stringify({ error: 'Unknown function' });
+  if (policy.decision !== 'approve') {
+    result = JSON.stringify({ error: `Not run (DCP policy: ${policy.decision}): ${policy.reasons.join(', ')}` });
+  } else if (call.function.name === 'get_weather') {
+    const args = JSON.parse(call.function.arguments) as { location: string };
+    result = JSON.stringify({ temp: 72, condition: 'sunny', location: args.location });
+  } else {
+    result = JSON.stringify({ error: 'Unknown function' });
   }
 
-  // Log audit entry
-  const audit = {
-    dcp_version: '1.0',
-    audit_id: `audit-${seq}`,
-    prev_hash: prevHash,
-    timestamp: new Date().toISOString(),
-    agent_id: agentId,
-    human_id: humanId,
-    intent_id: intentId,
-    intent_hash: signObject(intent, keys.secretKeyB64),
-    policy_decision: 'approved',
-    outcome: `${call.function.name}(${call.function.arguments}) → ${result.slice(0, 100)}`,
-    evidence: { tool: call.function.name, result_ref: null },
-  };
-
-  prevHash = signObject(audit, keys.secretKeyB64);
-  auditLog.push({ intent, policy, audit });
-
+  const bundle = new BundleBuilder()
+    .responsiblePrincipalRecord(rpr)
+    .agentPassport(passport)
+    .intent(intent)
+    .policyDecision(policy)
+    .createAuditEntry({
+      dcp_version: '1.0', audit_id: `audit:${crypto.randomUUID()}`, timestamp: now(), agent_id: agentId,
+      human_id: humanId, intent_id: intent.intent_id, policy_decision: auditDecision,
+      outcome, evidence: { tool: call.function.name, result_ref: null },
+    })
+    .build();
+  bundles.push(signBundle(bundle, { secretKeyB64: operatorKeys.secretKeyB64, signerType: 'human', signerId: humanId }));
   return result;
 }
 
-// 5. Run the conversation loop
+// 5. The conversation loop
 async function runAgent(userMessage: string) {
   const messages: OpenAI.ChatCompletionMessageParam[] = [
     { role: 'system', content: 'You are a helpful assistant with DCP-verified identity.' },
     { role: 'user', content: userMessage },
   ];
-
-  while (true) {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages,
-      tools,
-    });
-
+  for (;;) {
+    const response = await openai.chat.completions.create({ model: 'gpt-4', messages, tools });
     const choice = response.choices[0];
-
-    if (choice.finish_reason === 'stop') {
-      console.log('Assistant:', choice.message.content);
-      break;
-    }
-
     if (choice.finish_reason === 'tool_calls' && choice.message.tool_calls) {
       messages.push(choice.message);
-
       for (const call of choice.message.tool_calls) {
-        const result = await executeFunctionCall(call);
-        messages.push({ role: 'tool', tool_call_id: call.id, content: result });
+        // Only function tools are defined here; current SDK versions also have custom tool calls
+        const content = call.type === 'function' ? await executeFunctionCall(call) : JSON.stringify({ error: 'Unsupported tool type' });
+        messages.push({ role: 'tool', tool_call_id: call.id, content });
       }
+      continue;
     }
-  }
-
-  // 6. Seal the DCP bundle
-  if (auditLog.length > 0) {
-    const last = auditLog[auditLog.length - 1];
-    const bundle = new BundleBuilder()
-      .responsiblePrincipalRecord(hbr)
-      .agentPassport(passport)
-      .intent(last.intent)
-      .policyDecision(last.policy)
-      .addAuditEntry(last.audit)
-      .build();
-
-    const signed = signBundle(bundle, keys.secretKeyB64);
-    const verification = verifySignedBundle(signed);
-    console.log('DCP Bundle verified:', verification.verified);
-    console.log('Audit entries:', auditLog.length);
+    console.log('Assistant:', choice.message.content);
+    break;
   }
 }
 
 await runAgent("What's the weather in San Francisco?");
+
+// 6. Verify each sealed bundle against the operator's key, and the inner signatures,
+//    which verifySignedBundle does not check
+for (const signed of bundles) {
+  console.log(signed.bundle.intent.intent_id, verifySignedBundle(signed, operatorKeys.publicKeyB64).verified);
+}
+console.log(verifyObject(rprBody, rpr.signature, operatorKeys.publicKeyB64));
+console.log(verifyObject(passportBody, passport.signature, agentKeys.publicKeyB64));
 ```
 
 ---
@@ -241,204 +196,103 @@ await runAgent("What's the weather in San Francisco?");
 
 ## Structured Outputs with DCP
 
-When using OpenAI structured outputs, DCP can validate the output schema against the declared intent:
+An intent declares the data and impact of a call; your policy gate is what acts on them:
 
 ```typescript
-const intent = {
-  // ...
-  action_type: 'api_call',
-  target: { channel: 'api', domain: 'structured-output' },
-  data_classes: ['contact_info'], // DCP tracks data sensitivity
+// Fragment: the intent of a structured-output call that handles contact data
+const intent: Intent = {
+  dcp_version: '1.0', intent_id: `intent:${crypto.randomUUID()}`, agent_id: agentId, human_id: humanId,
+  timestamp: now(), action_type: 'api_call', target: { channel: 'api', domain: 'structured-output' },
+  data_classes: ['contact_info'], // DCP records data sensitivity
   estimated_impact: 'medium',
-  requires_consent: true, // Triggers human confirmation
+  requires_consent: true,         // declares that the principal's consent is needed
 };
 ```
 
-The `requires_consent: true` flag will escalate to the human principal before executing, providing an additional safety layer for sensitive operations.
+`requires_consent: true` records the requirement; DCP does not ask the human by itself. In the example above,
+`evaluatePolicy` escalates such an intent (not low-impact, not `none` data), so the function does not run and the
+sealed bundle records `escalated` and `awaiting_human_approval` until your application gets the human's approval.
 
 ---
 
 ## V2.0 Upgrade
 
-DCP v2.0 adds post-quantum composite signatures, adaptive security tiers, and enhanced audit chains to OpenAI function-calling agents.
+DCP v2.0 adds post-quantum composite signatures, adaptive security tiers and session binding. This section
+follows `main`: build the SDK from a checkout (see Installation).
 
-### Installation (V2)
+### V2 identity
 
-```bash
-npm install @dcp-ai/sdk@latest openai
-npx @dcp-ai/cli init   # generates hybrid keypairs (Ed25519 + ML-DSA-65)
-```
+Build the registry, the hybrid keys of the principal and the agent, the session nonce, the signed RPR and passport
+and the `signed()` and `sha256Of()` helpers exactly as in the TypeScript SDK's
+[Quick Start (V2)](../sdks/typescript/README.md#quick-start-v2).
 
-### V2 Identity Setup
+### V2 sealing of a function call, with security tiers
 
-```typescript
-import {
-  getDefaultRegistry,
-  registerDefaultProviders,
-  deriveKid,
-  BundleBuilderV2,
-  signBundleV2,
-  verifySignedBundleV2,
-  computeSecurityTier,
-} from '@dcp-ai/sdk';
-
-// V2: Hybrid keypair via algorithm registry (Ed25519 + ML-DSA-65)
-const registry = getDefaultRegistry();
-registerDefaultProviders(registry);
-
-const ed25519 = registry.getSigner('ed25519');
-const mlDsa65 = registry.getSigner('ml-dsa-65');
-
-const classicalKp = await ed25519.generateKeyPair();
-const pqKp = await mlDsa65.generateKeyPair();
-
-const keys = {
-  classicalKid: deriveKid('ed25519', classicalKp.publicKey),
-  pqKid: deriveKid('ml-dsa-65', pqKp.publicKey),
-  classicalPub: Buffer.from(classicalKp.publicKey).toString('base64'),
-  pqPub: Buffer.from(pqKp.publicKey).toString('base64'),
-  classicalSecret: classicalKp.secretKey,
-  pqSecret: pqKp.secretKey,
-};
-
-const hbr = {
-  dcp_version: '2.0',
-  human_id: 'operator-001',
-  legal_name: 'AI Operator',
-  entity_type: 'natural_person',
-  jurisdiction: 'US-CA',
-  liability_mode: 'owner_responsible',
-  override_rights: true,
-  keys: [
-    { kid: keys.classicalKid, alg: 'ed25519', public_key_b64: keys.classicalPub },
-    { kid: keys.pqKid, alg: 'ml-dsa-65', public_key_b64: keys.pqPub },
-  ],
-  issued_at: new Date().toISOString(),
-  revocation_token: keys.revocationToken,
-};
-
-const passport = {
-  dcp_version: '2.0',
-  agent_id: 'openai-agent-001',
-  owner_rpr_hash: `sha256:${keys.hbrHash}`,
-  keys: [
-    { kid: keys.classicalKid, alg: 'ed25519', public_key_b64: keys.classicalPub },
-    { kid: keys.pqKid, alg: 'ml-dsa-65', public_key_b64: keys.pqPub },
-  ],
-  capabilities: ['api_call', 'browse'],
-  created_at: new Date().toISOString(),
-  status: 'active',
-};
-```
-
-### V2 Function Executor with Security Tiers
+A fragment that continues the Quick Start (V2). `sealCallV2` does not run the function: it seals the record of one
+call, with synthetic values, into a V2 bundle whose intent and policy decision the agent signs, sealed by the
+principal. Call it with the decision your policy made; when the decision is `approve`, the outcome it records
+(`<function>_completed`) is only true if your code ran the function and saw it finish.
 
 ```typescript
-async function executeFunctionCallV2(call: OpenAI.ChatCompletionMessageToolCall): Promise<string> {
-  const intentId = `intent-${++seq}`;
-  const args = JSON.parse(call.function.arguments);
+// Fragment: registry, principal, agent, nonce, rpr, passport, signed() and sha256Of() as in the Quick Start (V2)
+import { BundleBuilderV2, computeSecurityTier, signBundleV2, verifySignedBundleV2, DCP_CONTEXTS } from '@dcp-ai/sdk';
+import type { IntentV2, PolicyDecisionV2, AuditEventV2 } from '@dcp-ai/sdk';
 
-  // V2: Intent with risk scoring
-  const intent = {
-    dcp_version: '2.0',
-    intent_id: intentId,
-    agent_id: agentId,
-    timestamp: new Date().toISOString(),
-    action_type: 'api_call',
-    target: { channel: 'api', domain: call.function.name },
-    data_classes: ['none'],
-    estimated_impact: 'low',
+async function sealCallV2(functionName: string, decision: PolicyDecisionV2['decision']) {
+  const now = new Date().toISOString();
+  const intent: IntentV2 = {
+    dcp_version: '2.0', intent_id: `intent:${crypto.randomUUID()}`, session_nonce: nonce, agent_id: passport.agent_id,
+    human_id: rpr.human_id, timestamp: now, action_type: 'api_call', target: { channel: 'api', domain: functionName },
+    data_classes: ['none'], estimated_impact: 'low', requires_consent: false,
   };
-
-  // V2: Automatic security tier computation (risk_score comes from the policy decision)
-  const riskScore = 50;
-  const tier = computeSecurityTier(intent, { risk_score: riskScore }); // → 'routine'
-
-  const policy = {
-    dcp_version: '2.0',
-    intent_id: intentId,
-    decision: 'approve' as const,
-    risk_score: riskScore,
-    resolved_tier: tier,
-    timestamp: new Date().toISOString(),
+  // risk_score is an integer from 0 to 1000 and comes from your policy decision
+  const policy: PolicyDecisionV2 = {
+    dcp_version: '2.0', intent_id: intent.intent_id, session_nonce: nonce, decision,
+    risk_score: { approve: 50, escalate: 600, block: 900 }[decision],
+    reasons: [{ approve: 'low-risk function call', escalate: 'needs human approval', block: 'not allowed' }[decision]],
+    required_confirmation: decision === 'escalate' ? { type: 'human_approve' } : null,
+    applied_policy_hash: sha256Of({ policy: 'default' }), timestamp: now,
   };
-
-  // Execute the function
-  let result: string;
-  switch (call.function.name) {
-    case 'get_weather':
-      result = JSON.stringify({ temp: 72, condition: 'sunny', location: args.location });
-      break;
-    default:
-      result = JSON.stringify({ error: 'Unknown function' });
-  }
-
-  // V2: Dual hash chain audit entry
-  const audit = {
-    dcp_version: '2.0',
-    audit_id: `audit-${seq}`,
-    prev_hash: prevHash,                     // SHA-256
-    prev_hash_secondary: prevHashSecondary,  // SHA3-256
-    agent_id: agentId,
-    intent_id: intentId,
-    outcome: `${call.function.name}(${call.function.arguments}) → ${result.slice(0, 100)}`,
-    timestamp: new Date().toISOString(),
+  const [auditDecision, outcome] = ({
+    approve: ['approved', `${functionName}_completed`],
+    escalate: ['escalated', 'awaiting_human_approval'],
+    block: ['blocked', 'action_blocked'],
+  } as const)[decision];
+  const tier = computeSecurityTier(intent, policy); // 'routine' at 50, 'elevated' at 600, 'maximum' at 900
+  const audit: AuditEventV2 = {
+    dcp_version: '2.0', audit_id: `audit:${crypto.randomUUID()}`, session_nonce: nonce, prev_hash: 'GENESIS',
+    hash_alg: 'sha256', timestamp: now, agent_id: passport.agent_id, human_id: rpr.human_id,
+    intent_id: intent.intent_id, intent_hash: sha256Of(intent), policy_decision: auditDecision,
+    outcome,
+    evidence: { tool: functionName, result_ref: null, evidence_hash: null }, pq_checkpoint_ref: null,
   };
-
-  auditLog.push({ intent, policy, audit });
-  return result;
+  const bundle = new BundleBuilderV2(nonce)
+    .responsiblePrincipalRecord(await signed(rpr, DCP_CONTEXTS.ResponsiblePrincipal, principal))
+    .agentPassport(await signed(passport, DCP_CONTEXTS.AgentPassport, agent))
+    .intent(await signed(intent, DCP_CONTEXTS.Intent, agent))
+    .policyDecision(await signed(policy, DCP_CONTEXTS.PolicyDecision, agent))
+    .addAuditEntry(audit)
+    .build();
+  const signedBundle = await signBundleV2(bundle, { registry, signerType: 'human', signerId: rpr.human_id, keys: principal });
+  const result = await verifySignedBundleV2(signedBundle, registry);
+  return { tier, verified: result.verified, mode: result.details?.verification_mode };
 }
+
+console.log(await sealCallV2('get_weather', 'approve')); // { tier: 'routine', verified: true, mode: ... }
 ```
 
-### V2 Bundle Sealing with Composite Signatures
+A higher tier asks more of the verifier: at `elevated` and `maximum` the verification mode is `hybrid_required`, so
+the bundle must carry both signatures (spec §14.3).
 
-```typescript
-// After conversation, seal with V2 composite signature
-if (auditLog.length > 0) {
-  const last = auditLog[auditLog.length - 1];
-  const bundle = new BundleBuilderV2()
-    .responsiblePrincipalRecord(hbr)
-    .agentPassport(passport)
-    .intent(last.intent)
-    .policyDecision(last.policy)
-    .addAuditEntries(auditLog.map(e => e.audit))
-    .build(); // includes manifest with session_nonce
-
-  const signed = signBundleV2(bundle, keys); // Ed25519 + ML-DSA-65 composite
-  const verification = verifySignedBundleV2(signed);
-
-  console.log('DCP V2 Bundle verified:', verification.verified);
-  console.log('Security tier:', verification.resolvedTier);
-  console.log('PQ signature:', verification.checks.pq_sig);
-  console.log('Audit entries:', auditLog.length);
-}
-```
-
-### V2 DCP Integration Points for OpenAI
+### V2 DCP integration points for OpenAI
 
 | OpenAI Concept | DCP V1 Mapping | DCP V2 Additions |
 |----------------|---------------|-----------------|
-| System prompt identity | Passport + RPR | + hybrid keypairs, revocation token |
+| System prompt identity | Passport + RPR | + hybrid keys (`binding_keys`, `keys`) and session nonce |
 | Function definition | Capability | Unchanged |
-| Function call | Intent → Policy | + risk_score, security tier |
-| Function result | Audit entry | + dual hash chain, PQ checkpoints |
-| Conversation session | Bundle | + manifest, session_nonce, composite sig |
-
-### Structured Outputs with V2 Security Tiers
-
-```typescript
-// V2: High-risk intent triggers elevated tier automatically
-const sensitiveIntent = {
-  dcp_version: '2.0',
-  action_type: 'api_call',
-  data_classes: ['pii', 'financial_data'],  // sensitive data → elevated tier
-  estimated_impact: 'high',
-  requires_consent: true,
-};
-
-const tier = computeSecurityTier(sensitiveIntent, { risk_score: 600 }); // → 'elevated'
-// With elevated tier: hybrid_required verification, every-event PQ checkpoints
-```
+| Function call | Intent → Policy | + integer `risk_score` (0–1000), security tier, signed artifacts |
+| Function result | Audit entry | + `sha256:` hashes, optional dual hash chain and PQ checkpoints |
+| Conversation session | Bundle | + manifest, composite signature by the principal |
 
 See [MIGRATION_V1_V2.md](MIGRATION_V1_V2.md) for upgrading existing V1 OpenAI integrations.
 
@@ -446,25 +300,31 @@ See [MIGRATION_V1_V2.md](MIGRATION_V1_V2.md) for upgrading existing V1 OpenAI in
 
 ## Python equivalent
 
-If your agent is written with the OpenAI Python SDK, use the Python bridge:
+If your agent is written with the OpenAI Python SDK, use the Python bridge (the published version; from a
+checkout, `pip install -e "/path/to/dcp-ai/sdks/python[openai]"`):
 
 ```bash
 pip install 'dcp-ai[openai]'
 ```
 
 ```python
+# Fragment: passport and rpr are V2 payload dicts (the agent's passport and the principal's RPR)
+from openai import OpenAI
 from dcp_ai.openai import DCPOpenAIClient, DCP_TOOLS
 
-client = DCPOpenAIClient(api_key=OPENAI_KEY, passport=my_passport)
-response = client.chat.completions.create(
+client = DCPOpenAIClient(openai_client=OpenAI(), passport=passport, rpr=rpr)
+response = client.chat_completions_create(
     model="gpt-4o-mini",
-    messages=[...],
-    tools=DCP_TOOLS,        # tool schema that the agent can call to declare intents / verify bundles
+    messages=[{"role": "user", "content": "Hello"}],
+    tools=DCP_TOOLS,   # DCP operations the model may request (see below)
 )
-# response.audit_trail contains the signed hash-chained record
+events = client.get_audit_trail()  # V2 audit events, hash-chained; seal them into a bundle to sign them
 ```
 
-Same semantics as the TypeScript client above; the Python surface mirrors `DCP_TOOLS` and policy gating.
+`DCPOpenAIClient` declares an intent for each call and records a V2 audit event. `DCP_TOOLS` are function
+definitions for DCP operations the model may request: `dcp_verify_bundle`, `dcp_declare_intent`,
+`dcp_commission_agent`, `dcp_report_vitality`, `dcp_declare_rights` and `dcp_create_mandate`; your code executes
+them. The Python bridge is not the hand-written TypeScript example above: it keeps unsigned records, evaluates no policy, and records `policy_decision: "approved"` for calls without making an authorization decision. See the [Python integration README](../integrations/openai/README.md) for its scope and the published verifier limitations.
 
 ---
 

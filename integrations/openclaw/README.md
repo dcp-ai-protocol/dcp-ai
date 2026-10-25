@@ -1,31 +1,49 @@
 # @dcp-ai/openclaw — DCP Integration for OpenClaw
 
-[OpenClaw](https://github.com/nicepkg/openclaw) plugin that adds **Digital Citizenship Protocol (DCP)** governance to AI agents. Every action the agent takes is declared, risk-scored, and recorded in a cryptographically chained audit trail bound to a human owner.
+[OpenClaw](https://github.com/openclaw/openclaw) plugin that adds **Digital Citizenship Protocol (DCP)** tools to AI agents. An action is declared, risk-scored and
+recorded in a hash-chained audit trail bound to a human owner when the agent calls these tools: the plugin does not
+intercept the agent's other tools. To gate every sensitive action, the host must intercept those tool calls itself
+and call `dcp_declare_intent` / `dcp_log_action` around them. Session state lives in an in-memory `Map` and is lost
+when the process restarts.
 
 ## Supported DCP Specifications
 
-DCP-01 through DCP-09.
+DCP-01 through DCP-09, partially: the tools below create records in the shapes of these specifications, and
+`dcp_verify_bundle` verifies bundles. It does not implement them in full.
 
 ## Features
 
 - **Identity (DCP-01)** — Ed25519 keypair generation, Responsible Principal Record, Agent Passport
-- **Intent Declaration (DCP-02)** — Risk scoring and policy gating before sensitive actions
-- **Audit Trail (DCP-03)** — Hash-chained, immutable action log with evidence references
+- **Intent Declaration (DCP-02)** — Risk scoring and a policy decision before sensitive actions, which the host enforces
+- **Audit Trail (DCP-03)** — Hash-chained action log with evidence references: tamper-evident (an altered entry breaks the chain), not immutable, and kept in memory
 - **Lifecycle (DCP-05)** — Commission, vitality reporting, decommission agents
 - **Succession (DCP-06)** — Digital testament with successor preferences and memory classification
 - **Delegation (DCP-09)** — Create delegation mandates for human→agent authority transfer
 - **Bundle Verification** — V2 Signed Bundles are verified by the SDK's `verifySignedBundleV2` (signatures, hashes, session binding, audit chain, key validity) under the operator's verifier policy
-- **Bundle Signing** — Build and sign a complete CitizenshipBundle at session end
+- **Bundle Signing** — Build and sign a CitizenshipBundle at session end: one intent and its policy decision, with the session's audit entries (see the note under [Risk Scoring](#risk-scoring))
+- **DCP-05 to DCP-09 records** — Commissioning, vitality, decommissioning, testament and mandate records are kept in the session state; `dcp_sign_bundle` does not add them to the bundle and the plugin sends them nowhere
 - **SKILL.md** — Companion skill that teaches the agent how to use DCP tools
 
 ## Installation
+
+> **Release status (25/10/2026).** npm has `@dcp-ai/openclaw` 2.0.0 only; this README follows the source on `main` (version 2.1.0, not published). The published 2.0.0 **does not verify the signatures of V2 bundles** in `dcp_verify_bundle`: it checks their structure only, so a forged or altered V2 bundle passes (fixed on `main`, see the `[Unreleased]` section of [CHANGELOG.md](../../CHANGELOG.md)). Do not rely on 2.0.0 for V2 bundles; the operator policy, trusted principals and the source supervisor are not in it either. Until `@dcp-ai/sdk` 2.2.0 is on npm, this package depends on the workspace SDK (`"@dcp-ai/sdk": "file:../../sdks/typescript"`); publishing it needs the dependency raised to `^2.2.0`, and the publish workflow refuses a package that depends on a local path.
+
+To use the version this page describes, build it from a checkout and install it from there:
+
+```bash
+git clone https://github.com/dcp-ai-protocol/dcp-ai.git
+cd dcp-ai/sdks/typescript && npm install && npm run build       # the SDK of main
+cd ../../integrations/openclaw && npm install && npm run build  # this package
+# then, in your OpenClaw plugins directory:
+npm install /path/to/dcp-ai/integrations/openclaw
+```
+
+The published version (2.0.0), without those fixes and features:
 
 ```bash
 # In your OpenClaw plugins directory
 npm install @dcp-ai/openclaw
 ```
-
-Until `@dcp-ai/sdk` 2.2.0 is on npm, this package depends on the workspace SDK (`"@dcp-ai/sdk": "file:../../sdks/typescript"`): build it first (`cd sdks/typescript && npm install && npm run build`). Publishing the package needs the dependency raised to `^2.2.0`; the publish workflow refuses a package that depends on a local path.
 
 Add to your OpenClaw config:
 
@@ -116,9 +134,14 @@ The tool's `verifier_policy` parameter is set by the calling model, so it can on
 
 ### What is checked
 
-- **V2**: `verifySignedBundleV2` from `@dcp-ai/sdk`, with an Ed25519 / ML-DSA-65 / SLH-DSA-192f registry and the policy above. It checks the artifact payload hashes and the manifest; session binding, expiry and the signed session start (`session_issued_at`); the bundle signature over the manifest, made by the principal with the RPR `binding_keys`, and the unsigned `signature` block that must agree with it; each artifact's own signature; the verification mode, the stricter of the policy mode for the passport's `risk_tier` and the mode of the security tier of the intent and policy decision (spec §14.2); PQ checkpoints; cross-artifact consistency (passport status, RPR expiry, one agent, principal and intent across the artifacts and audit entries); the audit hash chain; and key validity, kid derivation and canonical base64 keys (`spec/VERIFICATION.md` V2-1 to V2-14).
+- **V2**: `verifySignedBundleV2` from `@dcp-ai/sdk`, with an Ed25519 / ML-DSA-65 / SLH-DSA-192f registry and the policy above. It checks the artifact payload hashes and the manifest; session binding, expiry and the signed session start (`session_issued_at`); the bundle signature over the manifest, made by the principal with the RPR `binding_keys`, and the unsigned `signature` block that must agree with it; each artifact's own signature; the verification mode, the stricter of the policy mode for the passport's `risk_tier` and the mode of the security tier of the intent and policy decision (spec §14.2); PQ checkpoints; cross-artifact consistency (passport status, RPR expiry, one agent, principal and intent across the artifacts and audit entries); the audit hash chain (SHA-256: the secondary SHA3-256 chain or root of V2-11 is not recomputed); and key validity, kid derivation and canonical base64 keys (`spec/VERIFICATION.md` V2-1 to V2-14).
 - **V1** (one Ed25519 signature): verified with `verifySignedBundle` only where VERIFICATION.md V2-10 would accept a classical-only bundle: `allow_v1_bundles` is true and the stricter of the policy mode for the V1 passport's `risk_tier` and the mode of the security tier of the V1 intent and policy decision (V1 `risk_score` is 0 to 1, scaled by 1000; a missing one counts as `elevated`) is `classical_only` or `hybrid_preferred`. Under the default policy a routine or standard V1 intent passes; a payment, sensitive data, a high estimated impact or a risk score of 0.5 or more is refused.
 - A bundle whose version cannot be detected is rejected.
+
+Only `allow_v1_bundles`, the mode and the tier apply to a V1 bundle: audience binding, session expiry and duration
+limits, an `accepted_classical_algs` without Ed25519 and advisories that reject Ed25519 are V2 checks, and a V1 bundle
+that passes the mode check is accepted even when they are set. If you need those controls, set
+`allow_v1_bundles: false`, or use trusted principals with the strict-v1 profile.
 
 The result carries the verifier's `errors` and `warnings`, `resolved_tier` (the security tier) and, for V2, `verification_mode`. `agent_id`, `human_id` and `session_nonce` are only returned for a verified bundle.
 
@@ -217,9 +240,18 @@ The intent declaration tool computes a risk score based on:
 - **Data classes** — PII, credentials, financial data increase the score
 
 Policy decisions:
-- **approve** (risk < 0.5) — proceed normally
-- **escalate** (0.5 ≤ risk < 0.8) — ask human for confirmation
-- **block** (risk ≥ 0.8) — action denied, requires explicit override
+
+- **approve** (risk < 500) — proceed normally
+- **escalate** (500 ≤ risk < 800) — ask human for confirmation
+- **block** (risk ≥ 800) — action denied, requires explicit override
+
+The score is an integer in millirisk, from 0 to 1000 (`risk: 650/1000` in the tool's answer). The decision is advice to the agent: nothing in the plugin stops an action that was escalated or
+blocked, or one that was never declared.
+
+`dcp_sign_bundle` takes one intent (its `intent_id`, or the most recent one) and **all** the session's audit
+entries. The verifier requires every audit entry to carry the bundle's `intent_id`, so a session that logged actions
+under more than one intent produces a bundle that `verifySignedBundleV2` refuses; the tool does not split one bundle
+per intent.
 
 ## Programmatic Usage
 

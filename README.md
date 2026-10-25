@@ -39,7 +39,7 @@ The **Digital Citizenship Protocol (DCP)** defines a portable accountability lay
 - **What rights and obligations** govern agent behavior (Rights Framework), and
 - **How authority is delegated** from humans to agents (Personal Representation).
 
-All artifacts are cryptographically signed, hash-chained, and independently verifiable — without requiring a central authority.
+DCP combines cryptographic signatures, hash chains and independent verification without requiring a central verification service. In V2, the RPR, passport, intent and policy decision are individually signed; audit entries are committed through the signed manifest rather than signed individually.
 
 > This protocol was co-created by a human and an AI agent — designed for the collaboration it seeks to govern.
 
@@ -100,47 +100,101 @@ See also: [Core specification](spec/core/dcp-core.md) | [Profiles overview](spec
 
 ## Quick Start
 
-### Option A: CLI Wizard (recommended)
+> **Published packages and this repository (25/10/2026).** The npm registry's `latest` for `@dcp-ai/sdk` is
+> 2.1.1, which lacks the 2.2.0 verifier fixes ([`SECURITY.md`](SECURITY.md#supported-versions)) and everything
+> under the changelog's [`[Unreleased]`](CHANGELOG.md#unreleased). The examples in this repository follow `main`.
+> To run them, use a source checkout:
+>
+> ```bash
+> git clone https://github.com/dcp-ai-protocol/dcp-ai.git
+> cd dcp-ai/sdks/typescript && npm install && npm run build   # the SDK of main
+> cd ../.. && npm install                                       # the reference CLI, against that SDK
+> ```
+>
+> The registry commands below (`npm install`, `npx`) install the published versions instead. Other packages
+> have their own versions: see each SDK's *Release status*.
+
+### Option A: CLI wizard (demo)
 
 ```bash
-npx @dcp-ai/cli init
+npx @dcp-ai/cli init   # the published @dcp-ai/cli
 ```
 
-The interactive wizard (`@dcp-ai/cli`) walks you through identity creation, key generation, intent declaration, and bundle signing.
+The interactive wizard (`@dcp-ai/cli`) asks for a name, a jurisdiction, a framework and a security tier, and writes
+a `.dcp/` folder with keys and RPR-like and passport-like records. It is a demo, not a way to create a V2 identity:
+its "ML-DSA-65" keys are simulated (random bytes), and the records are unsigned and do not match the V2 schemas.
+To create an identity and bundles that verify, follow the Quick start of your SDK (Option B). The limits are
+listed in
+[Agent creation](docs/AGENT_CREATION_AND_CERTIFICATION.md#cli-wizard-demo-only).
 
-A lower-level reference CLI is also available as `dcp` (from the root `dcp-ai` package) for scripting and CI/CD pipelines:
+The wizard in this repository needs `@dcp-ai/sdk` 2.2.0; from a checkout (after building the SDK as above), run it
+in your project's directory:
 
 ```bash
-npx dcp-ai verify my-bundle.signed.json
+cd /path/to/dcp-ai/cli
+npm install --no-save --package-lock=false --ignore-scripts --install-links ../sdks/typescript
+cd /path/to/your-project && node /path/to/dcp-ai/cli/bin/dcp-ai.js init
+```
+
+The lower-level reference CLI, `bin/dcp.js` at the root of the checkout, serves scripting and CI pipelines. It
+reads and writes only inside the current directory:
+
+```bash
+cd /path/to/your-bundles
+node /path/to/dcp-ai/bin/dcp.js verify-bundle --policy hybrid_preferred bundle.signed.json
 ```
 
 ### Option B: SDK directly
 
-```bash
-npm install @dcp-ai/sdk
-```
+Install one of the two:
+
+- the SDK of `main`, built from a checkout as above, which the example below needs:
+
+  ```bash
+  npm install /path/to/dcp-ai/sdks/typescript
+  ```
+
+- or the published version (2.1.1 on 25/10/2026), without 2.2.0's fixes and the unreleased features:
+
+  ```bash
+  npm install @dcp-ai/sdk
+  ```
+
+Verify a signed V2 bundle with the current V2 bundle verifier of `main` (signatures, hashes, session binding, the
+security tier). It checks the primary audit chain, not the optional SHA3-256 secondary chain (see
+[Dual Hash Chains](docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)):
 
 ```typescript
-import { BundleBuilder, KeyManager } from '@dcp-ai/sdk';
+import { readFileSync } from 'node:fs';
+import { getDefaultRegistry, registerDefaultProviders, verifySignedBundleV2 } from '@dcp-ai/sdk';
 
-const keys = await KeyManager.generate({ algorithm: 'hybrid' });
-const bundle = await new BundleBuilder()
-  .setIdentity({ name: 'my-agent', operator: 'org:example' })
-  .addIntent({ action: 'query', resource: 'public-api', tier: 'routine' })
-  .sign(keys)
-  .build();
+registerDefaultProviders();
+const signedBundle = JSON.parse(readFileSync('bundle.signed.json', 'utf8'));
+const result = await verifySignedBundleV2(signedBundle, getDefaultRegistry());
+console.log(result.verified, result.errors);
 ```
+
+A verified bundle proves integrity and signature by the keys it lists, not who the principal is: to accept
+evidence only from principals you trust, use [admission](docs/ADMISSION.md). Neither verification nor admission
+authorizes an action. To build and sign bundles, follow
+the Quick start of your SDK: [TypeScript](sdks/typescript/README.md#quick-start-v2),
+[Python](sdks/python/README.md#quickstart), [Go](sdks/go/README.md#quickstart--v2),
+[Rust](sdks/rust/README.md#quickstart) or [WASM](sdks/wasm/README.md#quickstart--typescript-wrapper).
 
 ---
 
 ## Security Tiers
 
-| Tier | Verification Mode | Use Case |
-|------|-------------------|----------|
-| **Routine** | Self-declared identity | Public data reads, informational queries |
-| **Standard** | Operator-attested identity + Ed25519 signature | API access, standard agent operations |
-| **Elevated** | Multi-party attestation + hybrid PQ signatures | Financial transactions, PII access, cross-org delegation |
-| **Maximum** | Hardware-bound keys + full PQ suite + anchored audit | Government systems, critical infrastructure, regulated industries |
+| Tier | Verification mode | PQ checkpoint | Typical use |
+|------|-------------------|---------------|-------------|
+| **Routine** | `classical_only` | every 50 events | Public data reads, informational queries |
+| **Standard** | `hybrid_preferred` | every 10 events | API access, standard agent operations |
+| **Elevated** | `hybrid_required` | every event | Financial transactions, PII access, cross-org delegation |
+| **Maximum** | `hybrid_required` | every event | Government systems, critical infrastructure, regulated industries |
+
+The tier is computed for each action from the intent and the policy's risk score (spec §14.2), and a verifier
+enforces the stricter of its own mode and the tier's (spec §14.3). Operator or multi-party attestation,
+hardware-bound keys and anchoring are deployment choices: the SDKs do not require or check them at any tier.
 
 ---
 
@@ -202,18 +256,13 @@ graph TB
   RS --> WA
 
   CLI --> TS
-  PG --> WA
   TPL --> LC
   TPL --> CR
   TPL --> OA
   TPL --> EX
 
-  EX --> VER
-  FA --> VER
-  VER --> ANC
-  VER --> TL
-  VER --> REV
-  ANC --> SOL
+  VER -. "strict-v1 configured source" .-> REV
+  ANC -. "planned on-chain submission" .-> SOL
   DK --> VER
   DK --> ANC
   DK --> TL
@@ -231,7 +280,7 @@ Create, sign, and verify Citizenship Bundles in your preferred language. All SDK
 |-----|---------|----------|------|
 | **TypeScript** | `@dcp-ai/sdk` | BundleBuilder, hybrid PQ crypto, JSON Schema validation, Vitest | [sdks/typescript/](sdks/typescript/README.md) |
 | **Python** | `dcp-ai` | Pydantic v2 models, CLI (Typer), PQ extras, optional plugins | [sdks/python/](sdks/python/README.md) |
-| **Go** | `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` | Native types, hybrid signatures, full verification pipeline | [sdks/go/](sdks/go/README.md) |
+| **Go** | `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` | Native types, hybrid signatures, bundle verification | [sdks/go/](sdks/go/README.md) |
 | **Rust** | `dcp-ai` | serde, ed25519-dalek + fips203/204/205, optional WASM feature | [sdks/rust/](sdks/rust/README.md) |
 | **WASM** | `@dcp-ai/wasm` | Browser verification, PQ crypto in WebAssembly, compiled from Rust | [sdks/wasm/](sdks/wasm/README.md) |
 
@@ -259,26 +308,34 @@ Drop-in DCP governance for popular AI and web frameworks.
 
 ## Templates
 
-Ready-to-use project templates for common frameworks. Each template includes DCP identity, intent policies, and audit logging pre-configured.
+Starter walkthroughs for common frameworks. They show where identity, intent, policy, audit logging and bundle
+sealing fit, with placeholder keys and signatures (`«generated»`, `«sig»`): they generate no keys, sign nothing,
+and their bundles do not verify. The Express template's middleware checks bundle structure only, not signatures or
+admission. For real keys, signatures and verification, use the [quickstarts](docs/README.md) and the
+[framework integrations](#framework-integrations).
 
 | Template | Description | Command |
 |----------|-------------|---------|
-| **LangChain** | RAG agent with DCP governance | `npx @dcp-ai/cli init --template langchain` |
-| **CrewAI** | Multi-agent crew with per-agent DCP identities | `npx @dcp-ai/cli init --template crewai` |
-| **OpenAI** | Function-calling agent with DCP tool governance | `npx @dcp-ai/cli init --template openai` |
-| **Express** | API server with DCP verification middleware | `npx @dcp-ai/cli init --template express` |
+| **LangChain** | LangChain.js call wrapped in the DCP flow, with placeholder signatures | `npm create @dcp-ai/langchain my-app` |
+| **CrewAI** | Multi-agent crew simulation with DCP passports and audit trail, with placeholder signatures | `npm create @dcp-ai/crewai my-app` |
+| **OpenAI** | OpenAI function calling with DCP intent, policy and audit wrapping, with placeholder signatures | `npm create @dcp-ai/openai my-app` |
+| **Express** | Express server with a structural DCP check (no signature verification) and discovery endpoints | `npm create @dcp-ai/express my-app` |
 
-See [templates/](templates/) for full source.
+`npm create @dcp-ai/<name>` runs the `@dcp-ai/create-<name>` scaffolder, which copies the template into a new
+folder. See [templates/](templates/) for full source.
 
 ---
 
 ## Playground
 
-An interactive web-based playground for exploring DCP concepts — create identities, declare intents, sign bundles, and verify signatures directly in the browser using the WASM SDK.
+An interactive web-based playground for exploring DCP concepts — create identities, declare intents, sign bundles, and verify signatures directly in the browser. Its cryptography runs locally with `tweetnacl` and Web Crypto. It is a demonstration: its post-quantum
+signatures are simulated and its canonical form and Merkle root are simplified, so what it builds is not evidence
+and need not verify with the SDK verifiers (see its [limitations](playground/README.md#limitations)).
 
 ```bash
-# Open in browser
-open playground/index.html
+# From the repository root; ES modules require HTTP, not file://
+python3 -m http.server 8080 --bind 127.0.0.1 --directory playground
+# Open http://localhost:8080 in your browser
 ```
 
 See [playground/](playground/) for details.
@@ -292,7 +349,7 @@ Backend services for anchoring, transparency, and revocation. These are operatio
 | Service | Port | Description | Docs |
 |---------|------|-------------|------|
 | **Verification** | 3000 | HTTP API for verifying Signed Bundles | [server/](server/README.md) |
-| **Anchoring** | 3001 | Anchor bundle hashes to L2 blockchains | [services/anchor/](services/anchor/README.md) |
+| **Anchoring** | 3001 | Merkle batching of bundle hashes, recorded locally; on-chain submission is not implemented | [services/anchor/](services/anchor/README.md) |
 | **Transparency Log** | 3002 | CT-style Merkle log with inclusion proofs | [services/transparency-log/](services/transparency-log/README.md) |
 | **Revocation** | 3003 | Agent revocation registry + `.well-known` | [services/revocation/](services/revocation/README.md) |
 
@@ -324,6 +381,7 @@ cd docker && docker compose up -d
 | [VERIFICATION](spec/VERIFICATION.md) | Verification procedures & checklist |
 | [CANONICALIZATION_PROFILE](spec/CANONICALIZATION_PROFILE.md) | Canonical JSON profile `dcp-jcs-v1` behind every signature and hash |
 | [DCP Core](spec/core/dcp-core.md) | Core protocol editorial specification |
+| [Profiles](spec/profiles/README.md) | Optional profiles: crypto, A2A, governance and admission (`strict-v1`) |
 
 ### Getting Started
 
@@ -351,6 +409,7 @@ cd docker && docker compose up -d
 | [TECHNICAL_ARCHITECTURE](docs/TECHNICAL_ARCHITECTURE.md) | System architecture for global-scale deployment |
 | [SECURITY_MODEL](docs/SECURITY_MODEL.md) | Threat model, attack vectors, protection layers |
 | [STORAGE_AND_ANCHORING](docs/STORAGE_AND_ANCHORING.md) | P2P storage, optional blockchain anchoring |
+| [ARCHITECTURE](docs/ARCHITECTURE.md) | Map of the repository for contributors |
 
 ### Testing & Assurance
 
@@ -367,6 +426,14 @@ cd docker && docker compose up -d
 | [AGENT_CREATION_AND_CERTIFICATION](docs/AGENT_CREATION_AND_CERTIFICATION.md) | P2P agent creation flow, DCP certification |
 | [OPERATOR_GUIDE](docs/OPERATOR_GUIDE.md) | Running a verification service |
 | [MIGRATION_V1_V2](docs/MIGRATION_V1_V2.md) | Migrating from DCP v1.0 to v2.0 |
+| [ADMISSION](docs/ADMISSION.md) | Accepting bundles only from trusted principals, optionally under `strict-v1` (unreleased) |
+| [OBSERVABILITY](docs/OBSERVABILITY.md) | OpenTelemetry traces and metrics from the SDKs |
+
+### Proposals (experimental, not normative)
+
+| Document | Description |
+|----------|-------------|
+| [Canonicalization candidate `dcp-jcs-v2`](docs/proposals/canonicalization-candidate/README.md) | Experimental candidate profile, disabled by default, its design and opt-in SDK APIs (unreleased); `dcp-jcs-v1` remains the default and the only normative canonicalization profile |
 
 ### Standards Alignment
 
@@ -396,6 +463,8 @@ cd docker && docker compose up -d
 
 DCP v2.0 employs a hybrid cryptographic architecture for quantum-resistant security. Algorithm selection and crypto-agility are governed by the [Crypto Profile](spec/profiles/crypto/).
 
+This table describes the protocol design. The SDKs do not execute the combined X25519 + ML-KEM-768 exchange; the caller supplies the A2A session key. Current V2 bundle verifiers do not recompute the optional secondary audit chain or secondary Merkle root. See [NIST conformity](docs/NIST_CONFORMITY.md) and the [security model](docs/SECURITY_MODEL.md) for implementation limits.
+
 | Algorithm | Standard | Purpose |
 |-----------|----------|---------|
 | **Ed25519** | RFC 8032 | Classical digital signatures |
@@ -410,15 +479,16 @@ DCP v2.0 employs a hybrid cryptographic architecture for quantum-resistant secur
 ## Repository Layout
 
 ```
-dcp-ai-genesis/
+dcp-ai/
 ├── spec/                    # Normative specifications (DCP-01 through DCP-09, v2.0)
 │   ├── core/                # DCP Core editorial specification
-│   └── profiles/            # Profile specifications (crypto, a2a, governance)
+│   └── profiles/            # Profile specifications (crypto, a2a, governance, admission)
 ├── schemas/                 # JSON Schemas (draft 2020-12, v2 includes DCP-05–09)
 ├── tools/                   # Validation, conformance, crypto + Merkle helpers
 │   ├── interop-matrix/      # Live interoperability between agents on the four SDKs
-│   └── difffuzz/            # Differential fuzzer of the four V2 verifiers
-├── tests/                   # Conformance tests and fixtures
+│   ├── difffuzz/            # Differential fuzzer of the four V2 verifiers
+│   └── canonicalization-lab/ # Design model of the dcp-jcs-v2 candidate
+├── tests/                   # Conformance tests, fixtures, interop vectors (tests/interop/candidate: experimental)
 ├── bin/dcp.js               # Reference CLI
 ├── cli/                     # Interactive CLI wizard (@dcp-ai/cli)
 ├── sdks/
@@ -439,6 +509,7 @@ dcp-ai-genesis/
 │   ├── anthropic-mcp/       # Anthropic MCP bridge
 │   └── autogen/             # Microsoft AutoGen bridge
 ├── templates/               # Framework templates (langchain, crewai, openai, express)
+├── packages/create-*/       # npm create @dcp-ai/<name> scaffolders
 ├── playground/              # Web-based interactive playground
 ├── server/                  # Reference verification server
 ├── services/
@@ -448,7 +519,7 @@ dcp-ai-genesis/
 ├── contracts/ethereum/      # DCPAnchor.sol for EVM L2
 ├── docker/                  # Docker Compose + multi-stage Dockerfile
 ├── api/                     # OpenAPI 3.1 + Protocol Buffers (gRPC)
-├── docs/                    # All documentation
+├── docs/                    # Guides, architecture, standards alignment; docs/proposals: experimental designs
 └── .github/                 # CI/CD workflows + reusable GitHub Actions
 ```
 
@@ -457,6 +528,9 @@ dcp-ai-genesis/
 ## Development
 
 ```bash
+# Build the workspace SDK first: the root depends on it until @dcp-ai/sdk 2.2.0 is on npm
+(cd sdks/typescript && npm install && npm run build)
+
 # Install dependencies
 npm install
 
@@ -493,7 +567,10 @@ If you use DCP-AI in your research, please cite both the paper (the conceptual f
 
 > Naranjo Emparanza, D. (2026). *Agents Don't Need a Better Brain — They Need a World: Toward a Digital Citizenship Protocol for Autonomous AI Systems*. Zenodo. https://doi.org/10.5281/zenodo.19040913
 
-**Software (v2.0.2)**
+**Software**
+
+Cite the release you used. The concept DOI [`10.5281/zenodo.19656025`](https://doi.org/10.5281/zenodo.19656025)
+resolves to the latest archived version; the v2.0.2 release has its own:
 
 > Naranjo Emparanza, D. (2026). *DCP-AI v2.0.2 — Digital Citizenship Protocol for AI Agents (Reference Implementation)*. Zenodo. https://doi.org/10.5281/zenodo.19656026
 

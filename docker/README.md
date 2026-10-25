@@ -9,7 +9,8 @@ cd docker
 docker compose up
 ```
 
-This starts the four services in five containers (two transparency logs):
+`docker compose up` stays in the foreground: run the checks below in a second terminal, or start the stack with
+`docker compose up -d`. This starts the four services in five containers (two transparency logs):
 
 | Container | Port | Description |
 |---------|------|-------------|
@@ -36,7 +37,9 @@ gossip (a log's `gossip_peers` counts configured peers, pinned or not).
 
 ### verification (`:3000`)
 
-Signed Bundle verification server for DCP (V1 + V2 + Phase 3).
+Signed Bundle verification server for DCP (V1 + V2 + Phase 3). The two verification requests below are templates:
+`{...}` and `...` stand for a real signed bundle, so they do not run as they are. The full example at the end of this
+page uses a test fixture instead.
 
 ```bash
 # V1 verification
@@ -77,10 +80,10 @@ Each service is configured via environment variables in `docker-compose.yml`:
 |----------|---------|-------------|
 | `PORT` | `3000` | HTTP port |
 | `VERIFIER_MODE` | `hybrid_required` | V2 verification mode |
-| `REQUIRE_SESSION_BINDING` | `true` | Enforce session nonce in V2 |
-| `REQUIRE_COMPOSITE_BINDING` | `true` | Require composite signatures |
-| `MAX_KEY_AGE_DAYS` | `365` | Max key age before rotation |
 | `ALLOW_V1_BUNDLES` | `true` | Accept V1 format bundles |
+| `REQUIRE_SESSION_BINDING`, `REQUIRE_COMPOSITE_BINDING`, `MAX_KEY_AGE_DAYS`, `PQ_CHECKPOINT_INTERVAL`, `ADVISORY_POLL_INTERVAL_MS` | set in the image and here | **Not read by the server yet.** Its built-in policy applies (session and composite binding required, 365-day key age); `GET /v2/policy` shows it |
+
+The gateway's DCP-05 to DCP-09 endpoints need no token and do not verify signatures; do not publish port 3000 to untrusted clients without your own authorization in front ([docs/OPERATOR_GUIDE.md](../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)).
 
 #### anchor
 
@@ -200,9 +203,8 @@ curl -X POST http://localhost:3000/verify \
   -H "Content-Type: application/json" \
   -d "{\"signed_bundle\": $(cat tests/conformance/examples/citizenship_bundle.signed.json)}"
 
-# 3. Compute the bundle hash locally and anchor it
-HASH="sha256:$(cat tests/conformance/examples/citizenship_bundle.signed.json \
-  | node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>console.log(require("crypto").createHash("sha256").update(d).digest("hex")))')"
+# 3. Take the bundle_hash the signature carries (computed over the canonical bundle) and anchor it
+HASH=$(node -e 'console.log(require("./tests/conformance/examples/citizenship_bundle.signed.json").signature.bundle_hash)')
 curl -X POST http://localhost:3001/anchor \
   -H "Content-Type: application/json" \
   -d "{\"bundle_hash\": \"$HASH\"}"

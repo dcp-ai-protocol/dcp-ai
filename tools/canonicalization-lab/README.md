@@ -2,7 +2,8 @@
 
 An executable **design model** of the non-normative `dcp-jcs-v2` candidate, with its corpus generator and
 runner. It is not an SDK, a verifier or a conformance check: it computes SHA-256 for its synthetic commitments,
-but it signs nothing and verifies no signature, and `dcp-jcs-v1` remains the only canonicalization profile. The
+but it signs nothing and verifies no signature, and `dcp-jcs-v1` remains the only normative and default
+canonicalization profile (the SDKs' candidate APIs are experimental and opt-in, see [CI](#ci)). The
 design, the rules and what the model does and does not show are in [`docs/proposals/canonicalization-candidate/README.md`](../../docs/proposals/canonicalization-candidate/README.md).
 
 | File | Role |
@@ -32,6 +33,7 @@ commands on Ubuntu with Python 3.9 (the documented minimum) and 3.12, standard l
 corpus and compares it byte for byte, runs the 274 cases and the 24 negative controls, and checks both
 counts; any failure fails the job.
 
-It checks the **design model** only. It is not SDK conformance: no SDK, verifier or profile runs the
-candidate, and `dcp-jcs-v1` does not change. A green run says the model, the corpus and its expectations
-agree; it says nothing about any implementation.
+It checks the **design model** only. It is not SDK conformance: the SDKs' opt-in candidate APIs (unreleased)
+are tested by their own suites and by the [phase 4 matrix](../../tests/interop/candidate/phase4/README.md); no
+profile and no default verifier runs the candidate, and `dcp-jcs-v1` does not change. A green run says the
+model, the corpus and its expectations agree; it says nothing about any implementation.

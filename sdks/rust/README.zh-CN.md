@@ -2,11 +2,26 @@
 
 # dcp-ai — Rust SDK
 
-数字公民身份协议 (DCP v2.0) 的官方 Rust SDK。基于 Serde 的类型、混合后量子密码学 (Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768)、带 `pq_over_classical` 绑定的复合签名、双哈希链、OpenTelemetry 可观测性、DCP-04..09 行为，以及可选的 WebAssembly 支持。
+> 本文是[英文 README](README.md)的参考译文，更新于2026年10月25日。为保留经过验证的示例，标识符和代码块（包括注释）均保持原文。
+
+Digital Citizenship Protocol（DCP v2.0）的官方 Rust SDK。提供基于 Serde 的类型、混合后量子密码学（Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768）、使用 `pq_over_classical` 绑定的复合签名、双哈希链、OpenTelemetry 可观测性、DCP-04..09 行为以及可选的 WebAssembly 支持。
+
+验证检查完整性和签名，不会建立对责任主体的信任、准入资格或行动授权。当前 V2 验证器检查主审计链，但不会重新计算可选的 SHA3-256 链及其次级 Merkle 根。请参阅[已记录的验证限制](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)；需要检查信任时，请使用下文的准入 API。
+
+<a id="installation"></a>
 
 ## 安装
 
-添加到 `Cargo.toml`：
+**发布状态。** 本 README 描述 `main` 上的源代码。最新带标签的版本 `v2.10.0` 包含 `dcp-ai` 2.10.0。变更日志 [`[Unreleased]`](../../CHANGELOG.md#unreleased) 下的内容尚未包含在带标签的版本中：V2 bundle 构建与签名（`dcp_ai::v2::bundle`）、准入、委托链、A2A 接收窗口和实验性 `dcp-jcs-v2` API。要运行以下示例，请将依赖指向仓库或本地检出的代码：
+
+```toml
+[dependencies]
+dcp-ai = { git = "https://github.com/dcp-ai-protocol/dcp-ai", branch = "main" }
+# or, from a checkout:
+# dcp-ai = { path = "/path/to/dcp-ai/sdks/rust" }
+```
+
+已发布的 crate，不含尚未发布的功能：
 
 ```toml
 [dependencies]
@@ -27,30 +42,36 @@ dcp-ai = { version = "2.10", features = ["otlp"] }
 dcp-ai = { version = "2.10", features = ["wasm"] }
 ```
 
+<a id="features"></a>
+
 ## 功能
 
-| 范畴 | 状态 |
+| 领域 | 状态 |
 |---|---|
-| Ed25519 / ML-DSA-65 / SLH-DSA-192f / ML-KEM-768 provider | 是 |
-| 复合签名 (`pq_over_classical`) + 验证 | 是 |
-| 规范 JSON v2 + 域分离 | 是 |
-| 双哈希 (SHA-256 + SHA3-256) + Merkle 根 | 是 |
-| 凭证包验证 (V1 + V2；V2 应用验证者策略和安全等级，`verify_signed_bundle_v2_with_policy`) | 是 |
-| V2 凭证包构建与签名（`dcp_ai::v2::bundle`：`build_bundle_v2`、`sign_bundle_v2`；`wasm` 特性的 `wasm_build_bundle` / `wasm_sign_bundle` 调用它们；暂不支持 PQ 检查点） | 是 |
-| DCP-05 代理生命周期（委任 / 活力 / 停用） | 是 |
-| DCP-06 数字继承（数字遗嘱、记忆迁移、交接仪式） | 是 |
-| DCP-07 争议解决 + 仲裁 + 判例 | 是 |
-| DCP-08 权利与义务 + 合规 | 是 |
-| DCP-09 委托 + 可验证的委托链（`create_sub_mandate`、`verify_mandate_chain`，§3.5）+ 感知阈值 + 主体镜像 | 是 |
-| DCP-04 A2A 发现 + 握手 + 会话 ID 派生 | 是 |
-| DCP-04 A2A AES-256-GCM 会话加密 | _延后至后续版本_ |
-| 会话随机数助手、安全等级引擎（`compute_security_tier(&intent, Some(&policy_decision))`，spec §14.2；`compute_security_tier_with_floor` 会加入委托链的等级）、紧急撤销 | 是 |
-| 惰性 PQ 检查点 + `PQCheckpointManager` | 是 |
-| 盲化 RPR、多方授权、算法建议助手 | 是 |
-| 规范错误码（38 项，跨所有 SDK 共享）+ `detect_wire_format` | 是 |
-| OpenTelemetry / OTLP 导出器（可选 `otlp` 特性） | 是 |
+| Ed25519 / ML-DSA-65 / SLH-DSA-192f / ML-KEM-768 提供程序 | 支持 |
+| 复合签名（`pq_over_classical`）及验证 | 支持 |
+| 规范化 JSON v2 与域分离 | 支持 |
+| 双哈希（SHA-256 + SHA3-256）与 Merkle 根 | 支持 |
+| Bundle 验证（V1 + V2；V2 遵循验证器策略和安全等级，`verify_signed_bundle_v2_with_policy`） | 支持 |
+| V2 bundle 构建与签名（`dcp_ai::v2::bundle`：`build_bundle_v2`、`sign_bundle_v2`；`wasm` 功能的 `wasm_build_bundle` / `wasm_sign_bundle` 调用它们；尚无 PQ 检查点） | 支持，尚未发布 |
+| DCP-05 智能体生命周期（启用 / 活力 / 停用） | 支持 |
+| DCP-06 数字继承（遗嘱、记忆转移、仪式） | 支持 |
+| DCP-07 争议解决、仲裁与判例 | 支持 |
+| DCP-08 权利、义务与合规 | 支持 |
+| DCP-09 委托与可验证委托链（`create_sub_mandate`、`verify_mandate_chain`、§3.5）、认知阈值与责任主体镜像 | 支持 |
+| DCP-04 A2A 发现、握手与会话 ID 派生 | 支持 |
+| DCP-04 A2A AES-256-GCM 会话加密 | _推迟到后续版本_ |
+| 会话 nonce 辅助函数、安全等级引擎（`compute_security_tier(&intent, Some(&policy_decision))`，规范 §14.2；`compute_security_tier_with_floor` 纳入委托链的等级）、紧急撤销 | 支持 |
+| 延迟 PQ 检查点与 `PQCheckpointManager` | 支持 |
+| 盲化 RPR、多方授权、算法通告辅助函数 | 支持 |
+| 通用错误码（所有 SDK 共享 38 个）与 `detect_wire_format` | 支持 |
+| OpenTelemetry / OTLP 导出器（可选 `otlp` 功能） | 支持 |
+| 准入：可信责任主体与 `strict-v1` 配置 | 支持，尚未发布 |
+| 规范化候选方案 `dcp-jcs-v2`（入口处理、路由器、字节验证器、生成器） | 实验性，须显式选择，尚未发布；非规范性 |
 
-## 快速开始
+<a id="quickstart"></a>
+
+## 快速入门
 
 ```rust
 use dcp_ai::crypto::{generate_keypair, sign_object, verify_object, hash_object};
@@ -78,9 +99,12 @@ fn main() {
 }
 ```
 
-### 验证已签名凭证包
+<a id="verify-a-signed-bundle"></a>
+
+### 验证已签名的 bundle
 
 ```rust
+// Needs citizenship_bundle.signed.json in the working directory and the signer's public key in place of BASE64_PUBLIC_KEY.
 use dcp_ai::verify::verify_signed_bundle;
 use serde_json;
 use std::fs;
@@ -91,39 +115,49 @@ fn main() {
 
     let result = verify_signed_bundle(&signed_bundle, Some("BASE64_PUBLIC_KEY"));
     println!("Verified: {}", result.verified);
-    if !result.errors.is_empty() {
-        println!("Errors: {:?}", result.errors);
+    if let Some(errors) = &result.errors {
+        println!("Errors: {:?}", errors);
     }
 }
 ```
 
+<a id="api-reference"></a>
+
 ## API 参考
 
-### 加密 (`dcp_ai::crypto`)
+<a id="crypto-dcp_aicrypto"></a>
 
-| 函数 | 签名 | 描述 |
+### 密码学（`dcp_ai::crypto`）
+
+| 函数 | 签名 | 说明 |
 |----------|-----------|-------------|
 | `generate_keypair()` | `() -> (String, String)` | 返回 `(public_key_b64, secret_key_b64)` |
-| `sign_object(obj, secret_key_b64)` | `(&Value, &str) -> Result<String, String>` | 签名，返回 base64 |
+| `sign_object(obj, secret_key_b64)` | `(&Value, &str) -> Result<String, String>` | 签名并返回 base64 |
 | `verify_object(obj, sig_b64, pub_b64)` | `(&Value, &str, &str) -> Result<bool, String>` | 验证签名 |
 | `canonicalize(obj)` | `(&Value) -> String` | 确定性 JSON |
-| `hash_object(obj)` | `(&Value) -> String` | SHA-256 十六进制 |
+| `hash_object(obj)` | `(&Value) -> String` | SHA-256 十六进制表示 |
 | `merkle_root_from_hex_leaves(leaves)` | `(&[String]) -> Option<String>` | Merkle 根 |
 
-### 验证 (`dcp_ai::verify`)
+<a id="verification-dcp_aiverify"></a>
+
+### 验证（`dcp_ai::verify`）
 
 ```rust
+// Signature (not runnable)
 fn verify_signed_bundle(
     signed_bundle: &Value,
     public_key_b64: Option<&str>,
 ) -> VerificationResult
 ```
 
-验证项：Ed25519 签名、`bundle_hash`、`merkle_root`、`intent_hash` 链、`prev_hash` 链。
+验证内容：Ed25519 签名、`bundle_hash`、`merkle_root`、`intent_hash` 链与 `prev_hash` 链。
 
-### 类型 (`dcp_ai::types`)
+<a id="types-dcp_aitypes"></a>
+
+### 类型（`dcp_ai::types`）
 
 ```rust
+// Declarations, fields elided (not runnable)
 pub struct ResponsiblePrincipalRecord { ... }
 pub struct AgentPassport { ... }
 pub struct Intent { ... }
@@ -141,59 +175,133 @@ pub struct VerificationResult {
 }
 ```
 
-所有 struct 均实现 `Serialize` + `Deserialize` (serde)。
+所有结构体均实现 `Serialize` + `Deserialize`（serde）。
 
-### V2 类型 (`dcp_ai::v2::types`)
+<a id="v2-types-dcp_aiv2types"></a>
 
-V2 包含针对 DCP-05 至 DCP-09 全部工件的 Serde 派生 struct：
+### V2 类型（`dcp_ai::v2::types`）
+
+V2 为 DCP-05 至 DCP-09 的所有产物提供派生了 Serde trait 的结构体：
 
 | 规范 | 类型 |
 |------|-------|
-| DCP-05 | `LifecycleState`、`CommissioningCertificate`、`VitalityReport`、`VitalityMetrics`、`DecommissioningRecord`、`TerminationMode`、`DataDisposition` |
-| DCP-06 | `DigitalTestament`、`SuccessionRecord`、`MemoryTransferManifest`、`MemoryTransferEntry`、`SuccessorPreference`、`MemoryClassification`、`TransitionType`、`MemoryDisposition` |
-| DCP-07 | `DisputeRecord`、`ArbitrationResolution`、`JurisprudenceBundle`、`ObjectionRecord`、`DisputeType`、`EscalationLevel`、`DisputeStatus`、`ObjectionType`、`AuthorityLevel` |
-| DCP-08 | `RightsDeclaration`、`RightEntry`、`ObligationRecord`、`RightsViolationReport`、`RightType`、`ComplianceStatus` |
-| DCP-09 | `DelegationMandate`、`AdvisoryDeclaration`、`PrincipalMirror`、`InteractionRecord`、`AwarenessThreshold`、`ThresholdRule`、`AuthorityScopeEntry` |
+| DCP-05 | `LifecycleState`, `CommissioningCertificate`, `VitalityReport`, `VitalityMetrics`, `DecommissioningRecord`, `TerminationMode`, `DataDisposition` |
+| DCP-06 | `DigitalTestament`, `SuccessionRecord`, `MemoryTransferManifest`, `MemoryTransferEntry`, `SuccessorPreference`, `MemoryClassification`, `TransitionType`, `MemoryDisposition` |
+| DCP-07 | `DisputeRecord`, `ArbitrationResolution`, `JurisprudenceBundle`, `ObjectionRecord`, `DisputeType`, `EscalationLevel`, `DisputeStatus`, `ObjectionType`, `AuthorityLevel` |
+| DCP-08 | `RightsDeclaration`, `RightEntry`, `ObligationRecord`, `RightsViolationReport`, `RightType`, `ComplianceStatus` |
+| DCP-09 | `DelegationMandate`, `AdvisoryDeclaration`, `PrincipalMirror`, `InteractionRecord`, `AwarenessThreshold`, `ThresholdRule`, `AuthorityScopeEntry` |
 
 域分离常量：`CTX_LIFECYCLE`、`CTX_SUCCESSION`、`CTX_DISPUTE`、`CTX_RIGHTS`、`CTX_DELEGATION`、`CTX_AWARENESS`
 
-所有 struct 派生 `Debug`、`Clone`、`Serialize`、`Deserialize`。枚举使用 `#[serde(rename_all = "snake_case")]`。可选字段使用 `Option<T>` 并带 `#[serde(skip_serializing_if = "Option::is_none")]`。
+所有结构体均派生 `Debug`、`Clone`、`Serialize`、`Deserialize`。枚举使用 `#[serde(rename_all = "snake_case")]`。可选字段使用 `Option<T>` 并配合 `#[serde(skip_serializing_if = "Option::is_none")]`。
 
-### 凭证包 (`dcp_ai::v2::bundle`)
+<a id="bundles-dcp_aiv2bundle-unreleased"></a>
 
-| 函数 | 描述 |
-|----------|-------------|
-| `build_bundle_v2(&rpr, &passport, &intent, &policy, &audit_entries, session_nonce)` | 用四个 `SignedPayload` 和审计记录构建 V2 凭证包。它检查每个 `payload_hash` 以及每个工件和审计条目的 `session_nonce`，并写入包含两个审计 Merkle 根的 manifest；审计记录为空时，根为 64 个零 |
-| `sign_bundle_v2(bundle, &classical, &pq)` | 在 `CTX_BUNDLE` 下对 manifest 进行复合签名，返回 `{bundle, signature}`，其中 `signer.id` 为 RPR 的 `human_id`。如需 `session_expires_at` 或 `intended_verifier`，请在签名前写入 manifest；有 `session_expires_at` 而无 `session_issued_at` 时，会将 `session_issued_at` 设为签名时间 |
-
-### 委托链 (`dcp_ai::v2::delegation`，DCP-09 §3.5)
-
-| 函数 | 描述 |
-|----------|-------------|
-| `create_delegation_mandate_with_options(ed, pq, human_classical, human_pq, params, &MandateChainOptions)` | 由人类签名的根授权，可选 `sub_delegation` 和 `minimum_security_tier` |
-| `create_sub_mandate(ed, pq, classical, pq_key, &parent, SubMandateParams { .. })` | 由父授权中的智能体在 `DCP-AI.v2.SubMandate` 上下文下签名的子授权 |
-| `verify_mandate_chain(&chain, &revoked_ids, &MandateChainKeys { human_keys, agent_keys }, now_millis)` | 离线验证以根授权开头的链（一直追溯到人类的签名、链接与深度、`sub_delegation`、嵌套有效期、动作、`data_classes` 和 `limits` 的权限衰减、等级下限、撤销）；返回 `MandateChainResult { valid, errors, depth, effective_tier }` |
-
-### 准入：委托人信任与 strict-v1
-
-已验证的凭证包证明的是完整性和签名，而不是委托人是谁。准入（[spec/profiles/admission](../../spec/profiles/admission/README.md)，指南见 [docs/ADMISSION.md](../../docs/ADMISSION.md)）在验证之上增加运营方的信任集（固定每个委托人的密钥）以及由运营方固定的 `strict-v1` 配置（混合签名、已签名的受众、最长 300 秒的已签名会话、不超过 300 秒的吊销快照）。它不做网络 I/O，也从不授权任何操作：`action_authorized` 始终为 `false`。无法加载的信任集或配置返回 `AdmissionConfigError { code, message }`。
+### Bundles（`dcp_ai::v2::bundle`，尚未发布）
 
 | 函数 | 说明 |
-|---|---|
-| `verify_signed_bundle_v2_at(&b, &policy, now_ms)` | 在给定时刻验证，返回 `V2VerificationDetails`：同一个 `V2VerificationResult`（`result`）和签名密钥（`signer_keys`）。`V2VerificationResult` 保持其十个字段的结构，另外两个函数保持其签名 |
-| `PrincipalTrustStore::from_json(&json)` | 加载并校验信任集 |
-| `resolve_strict_v1_profile(&json)` | 加载并校验 `strict-v1` 配置（只读） |
-| `revocation_subjects(&b, &verification)` | 吊销来源需要回答的 `agent_id` 和已验证的 kid |
-| `evaluate_admission_v2(&b, &verification, &opts)` | 根据验证结果评估准入（不做密码运算，也不做 I/O） |
-| `admit_signed_bundle_v2(&b, &opts)` | 按配置的策略验证并评估 |
+|----------|-------------|
+| `build_bundle_v2(&rpr, &passport, &intent, &policy, &audit_entries, session_nonce)` | 从四个 `SignedPayload` 和审计轨迹构建 V2 bundle。检查每个 `payload_hash` 以及每个产物和审计条目的 `session_nonce`，并将两个审计 Merkle 根写入清单；空轨迹的根为64个零 |
+| `sign_bundle_v2(bundle, &classical, &pq)` | 在 `CTX_BUNDLE` 域下对清单进行复合签名，返回 `{bundle, signature}`，其中 `signer.id` 为 RPR 的 `human_id`。在签名前将 `session_expires_at` 或 `intended_verifier` 放入清单；若存在 `session_expires_at` 而缺少 `session_issued_at`，则将 `session_issued_at` 设为签名时刻 |
 
-包含示例的完整说明见[英文 README](README.md#admission-dcp_aiv2-specprofilesadmission)。
+<a id="delegation-chains-dcp_aiv2delegation-dcp-09-35-unreleased"></a>
 
-### `wasm` 特性
+### 委托链（`dcp_ai::v2::delegation`，DCP-09 §3.5，尚未发布）
 
-启用 `wasm` 特性后，crate 会暴露 WebAssembly 绑定：
+| 函数 | 说明 |
+|----------|-------------|
+| `create_delegation_mandate_with_options(ed, pq, human_classical, human_pq, params, &MandateChainOptions)` | 由人类签署的根委托，带有可选的 `sub_delegation` 和 `minimum_security_tier` |
+| `create_sub_mandate(ed, pq, classical, pq_key, &parent, SubMandateParams { .. })` | 由父委托的智能体在 `DCP-AI.v2.SubMandate` 域下签署的子委托 |
+| `verify_mandate_chain(&chain, &revoked_ids, &MandateChainKeys { human_keys, agent_keys }, now_millis)` | 从根开始离线验证委托链（追溯至人类的签名、链接与深度、`sub_delegation`、嵌套有效期、行动及 `data_classes` 和 `limits` 的权限收窄、最低等级、撤销状态）；返回 `MandateChainResult { valid, errors, depth, effective_tier }` |
+
+<a id="admission-dcp_aiv2-specprofilesadmission-unreleased"></a>
+
+### 准入（`dcp_ai::v2`，spec/profiles/admission，尚未发布）
+
+判断是否将已验证的 V2 bundle 接受为来自运营方已信任责任主体的证据，可选择遵循 `strict-v1` 配置。信任集合、配置和撤销信息源由运营方指定，绝不从 bundle 或请求中获取。
+
+| 函数 | 说明 |
+|----------|-------------|
+| `verify_signed_bundle_v2_at(&b, &policy, now_ms)` | 在 `now_ms`（自 Unix 纪元起的毫秒数）运行 `verify_signed_bundle_v2_with_policy`，所有时间检查均使用该值；其他两个验证函数使用系统时钟。返回 `V2VerificationDetails`：`result` 中包含相同的 `V2VerificationResult`，`signer_keys` 列出每个已检查复合签名中各组件解析得到的密钥及其验证结果。`V2VerificationResult` 保持十字段结构，其他两个函数保持原有签名 |
+| `PrincipalTrustStore::from_json(&json)` | 加载信任集合（`schemas/v2/principal_trust_set.schema.json`） |
+| `resolve_strict_v1_profile(&json)` | 加载 `strict-v1` 配置（`schemas/v2/admission_profile.schema.json`）；`policy()`、`verifier_id()`、`max_session_duration_seconds()` 和 `max_revocation_age_seconds()` 均为只读 |
+| `revocation_subjects(&b, &verification)` | 护照中的 `agent_id` 和已验证签名者密钥的已排序 kid，供运营方的撤销信息源使用 |
+| `evaluate_admission_v2(&b, &verification, &AdmissionOptions { .. })` | 根据验证结果评估准入，不执行密码学运算或 I/O |
+| `admit_signed_bundle_v2(&b, &AdmitOptions { .. })` | 在 `now_ms`（为 `None` 时使用系统时钟）遵循配置中的策略验证；无配置时使用 `policy`，之后进行评估 |
+
+信任集合或配置无法加载、配置没有信任集合、配置与调用方策略同时使用时，均返回 `AdmissionConfigError { code, message }`。`AdmissionResult` 使用 §5.2 中的键序列化（`verified`、`verification`、`principal_trust`、`profile`、`profile_compliance`、`admitted`、`action_authorized`、`recorded_decision`、`trust_set_version`、`errors`）；`action_authorized` 始终为 `false`。配置中的 `verifier_policy` 可以缩小 `accepted_classical_algs` 和 `accepted_pq_algs` 的范围，验证器会执行这些限制；`min_classical`、`min_pq`、`accepted_hash_algs` 和 `max_key_age_days` 固定为默认值。
 
 ```rust
+// Fragment, inside a function returning a Result: profile_json, trust_set_json, signed_bundle, now_ms and revocation_source come from your application.
+use dcp_ai::v2::{
+    evaluate_admission_v2, resolve_strict_v1_profile, revocation_subjects, verify_signed_bundle_v2_at,
+    AdmissionOptions, PrincipalTrustStore,
+};
+
+let profile = resolve_strict_v1_profile(&profile_json)?;
+let trust = PrincipalTrustStore::from_json(&trust_set_json)?;
+let verification = verify_signed_bundle_v2_at(&signed_bundle, profile.policy(), now_ms);
+// Ask the operator's revocation source about these; None when it cannot answer.
+let snapshot: Option<serde_json::Value> = revocation_source(&revocation_subjects(&signed_bundle, &verification));
+let result = evaluate_admission_v2(
+    &signed_bundle,
+    &verification,
+    &AdmissionOptions { profile: Some(&profile), trust: Some(&trust), revocation: snapshot.as_ref(), now_ms },
+)?;
+if result.admitted {
+    // Authentic evidence from a trusted principal; not an authorization to act.
+}
+```
+
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
+
+### 实验性功能：规范化候选方案 `dcp-jcs-v2`（须显式选择，尚未发布）
+
+非规范性且未激活：`dcp-jcs-v1` 仍是唯一的规范化配置，默认设置、构建器、签名器和验证器均不改变。这些模块供调用方从源代码 checkout 中显式选择使用（请参阅发布状态）。验证通过的候选 bundle 也不赋予信任或准入资格。设计与契约：[`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)（§15 入口处理、§16 路由器、§17 验证器、§18 生成器）。
+
+| 模块 | API |
+|---|---|
+| `dcp_ai::v2::experimental_candidate_ingress` | `experimental_candidate_ingress(&[u8])`：`CandidateIngressOutcome::Accept { value, canonical, canonical_sha256 }` 或 `Reject { class, offset }` |
+| `dcp_ai::v2::experimental_candidate_router` | `CandidateRouter::new(CandidateRouterConfig { transport, accepted_profiles, historical })`；解码器 `HistoricalAdapter::serde_json_from_slice()`，均不是默认选项 |
+| `dcp_ai::v2::experimental_candidate_verify` | `CandidateVerifier::new(config)` 和 `verify_at(input, policy, now_ms)` |
+| `dcp_ai::v2::experimental_candidate_produce` | `sign_payload(context, &CandidateInput, &CandidateKeys)` 和 `sign_bundle(&BundleParts, &BundleSigner, &BundleOptions)`；输入的域或形式问题返回 `ProduceError::Reject`（在任何签名器运行之前），另有 `Usage`、`Provider` |
+
+```rust
+use dcp_ai::providers::{ed25519::Ed25519Provider, ml_dsa_65::MlDsa65Provider};
+use dcp_ai::v2::composite_ops::CompositeKeyInfo;
+use dcp_ai::v2::crypto_provider::CryptoProvider;
+use dcp_ai::v2::experimental_candidate_ingress::{experimental_candidate_ingress, CandidateIngressOutcome};
+use dcp_ai::v2::experimental_candidate_produce::{sign_payload, CandidateInput, CandidateKeys};
+
+fn main() {
+    // The ingress decides on the original bytes: 1.0 is the integer 1, members are sorted.
+    if let Ok(CandidateIngressOutcome::Accept { canonical, .. }) = experimental_candidate_ingress(br#"{"b":1.0,"a":[]}"#) {
+        println!("{}", String::from_utf8(canonical).unwrap()); // {"a":[],"b":1}
+    }
+    if let Ok(CandidateIngressOutcome::Reject { class, offset }) = experimental_candidate_ingress(br#"{"a":1,"a":2}"#) {
+        println!("{} {}", class.as_str(), offset); // DUPLICATE_KEY 7
+    }
+
+    // A producer signs an artifact from those bytes (hybrid keys, today's composite signature).
+    let key = |p: &dyn CryptoProvider| {
+        let k = p.generate_keypair().unwrap();
+        CompositeKeyInfo { kid: k.kid, alg: p.alg().to_string(), secret_key_b64: k.secret_key_b64, public_key_b64: k.public_key_b64 }
+    };
+    let keys = CandidateKeys { classical: key(&Ed25519Provider), pq: Some(key(&MlDsa65Provider)) };
+    let input = CandidateInput::Bytes(br#"{"intent_id":"intent:1","risk":1.0}"#.to_vec());
+    let artifact = sign_payload("DCP-AI.v2.Intent", &input, &keys).unwrap();
+    println!("{}", artifact.signed_payload["payload_hash"]); // "sha256:..." of {"intent_id":"intent:1","risk":1}
+}
+```
+
+<a id="feature-wasm"></a>
+
+### `wasm` 功能
+
+启用 `wasm` 功能后，crate 会暴露 WebAssembly 绑定：
+
+```rust
+// Declarations of the wasm-bindgen exports, bodies elided (not runnable)
 // Available via wasm-bindgen
 fn wasm_verify_signed_bundle(json: &str, pub_key: Option<String>) -> String;
 fn wasm_verify_signed_bundle_v2(json: &str, policy_json: Option<String>) -> String; // default policy when None; V1 bundles are rejected under a policy
@@ -208,6 +316,8 @@ fn wasm_sign_bundle(bundle_json: &str, classical_sk_b64: &str, classical_kid: &s
 ```bash
 cargo build --target wasm32-unknown-unknown --features wasm
 ```
+
+<a id="development"></a>
 
 ## 开发
 
@@ -225,6 +335,8 @@ cargo build --features wasm
 cargo build --target wasm32-unknown-unknown --features wasm
 ```
 
+<a id="dependencies"></a>
+
 ### 依赖
 
 - `serde` + `serde_json` — 序列化
@@ -236,6 +348,8 @@ cargo build --target wasm32-unknown-unknown --features wasm
 - `base64` — Base64 编码
 - `hex` — 十六进制编码
 - `wasm-bindgen`（可选）— WASM 绑定
+
+<a id="license"></a>
 
 ## 许可证
 

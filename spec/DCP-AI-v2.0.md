@@ -42,6 +42,8 @@ The Digital Citizenship Protocol for AI (DCP-AI) v2.0 defines a post-quantum-res
 | `slh-dsa-192f` | FIPS 205 | 48 B | 35664 B | NIST Level 3 PQ | ACTIVE (backup PQ) |
 | `slh-dsa-256f` | FIPS 205 | 64 B | 49856 B | NIST Level 5 PQ | RESERVED |
 
+> *Informative note (25/10/2026), not part of the normative text:* no DCP-AI SDK implements `ml-dsa-87` yet; the SDKs sign and verify with `ed25519`, `ml-dsa-65` and `slh-dsa-192f` ([docs/NIST_CONFORMITY.md](../docs/NIST_CONFORMITY.md)).
+
 ### 2.2 KEM Algorithms
 
 | Identifier | Standard | PubKey Size | Ciphertext Size | Security Level |
@@ -205,6 +207,7 @@ The security tier (§14.3) can only make the mode this policy selects stricter.
 ### 7.3 PQ-Only Mode (Phase 3)
 
 When `default_mode` is `pq_only`:
+
 - Classical signatures are accepted but not required
 - `min_classical` is 0, `min_pq` is 1
 - Composite binding is not required
@@ -288,6 +291,8 @@ After N events (default 1000), a compaction checkpoint is produced. Compacted ev
 
 Master secret is split via Shamir's Secret Sharing. Shares encrypted with hybrid KEM to recovery contacts.
 
+> *Informative note (25/10/2026), not part of the normative text:* the TypeScript SDK's key recovery and `dcp recovery-setup` produce the shares but do not encrypt them; encrypting them to the recovery contacts is left to the implementer.
+
 ### 11.3 Emergency Revocation
 
 Pre-registered `revocation_token = SHA-256(revocation_secret)`. Revealing the pre-image revokes all agent keys without cryptographic signature.
@@ -295,6 +300,8 @@ Pre-registered `revocation_token = SHA-256(revocation_secret)`. Revealing the pr
 ### 11.4 HSM/TPM Support
 
 Private keys SHOULD be stored in hardware security modules. The `CryptoProvider` interface supports `HsmCryptoProvider` that delegates all operations to the HSM via PKCS#11.
+
+> *Informative note (25/10/2026), not part of the normative text:* the `HsmCryptoProvider` in the TypeScript SDK source is a simulated pattern, not an HSM integration: it is not exported, has no PKCS#11 binding, and must not be used to sign or verify real evidence. No hardware backend is implemented in this repository, and no FIPS 140 validation is claimed ([docs/NIST_CONFORMITY.md](../docs/NIST_CONFORMITY.md) §2.2).
 
 ---
 
@@ -333,6 +340,7 @@ Signed advisories with actions: `warn`, `deprecate`, `revoke`. Automated verifie
 ### 13.3 Advisory Auto-Response
 
 Verifiers automatically:
+
 - Remove deprecated/revoked algorithms from accepted lists
 - Add replacement algorithms
 - Switch to pq_only if all classical algorithms are removed
@@ -471,6 +479,7 @@ them by UTF-16 code units. The two orders differ only for keys that mix
 supplementary-plane characters with characters in U+E000..U+FFFF.
 
 Summary:
+
 1. Keys sorted lexicographically by Unicode code point
 2. Compact form (no whitespace)
 3. Integer-only numbers, decided post-parse (`1.0`, `1e2`, `1.00` accepted; `0.1`, `NaN`, `Infinity` rejected)
@@ -596,3 +605,46 @@ V2 verifiers MUST support V1 indefinitely. Migration is gradual.
 ---
 
 *End of DCP-AI v2.0 Normative Specification*
+
+## Implementation notes (informative)
+
+> **Added 25/10/2026. Not normative.** These notes add no requirement and change nothing above: they describe how
+> the reference code on `main` relates to this text. Where they differ, the normative text above stands.
+
+- **§5.1 and §7.1, stripping.** In the SDK verifiers a present PQ signature that does not verify is refused in every
+  mode. A bundle whose PQ signature was removed and whose binding was relabelled `classical_only` is accepted when the
+  effective mode is `classical_only` or `hybrid_preferred` (with a warning in `hybrid_preferred`), and refused under
+  `hybrid_required` and `pq_only` ([VERIFICATION.md](VERIFICATION.md) V2-7 to V2-9).
+- **§7.3, `pq_only`.** The SDK verifiers still expect the `pq_over_classical` binding with the classical signature
+  bytes: the PQ signature covers them, so `pq_only` does not let the classical component be left out.
+- **§6, SignedPayload.** The envelope wraps the four primary artifacts of a bundle (passport, RPR, intent, policy
+  decision). The DCP-05 to DCP-09 records carry their signatures inside the object, usually as `composite_sig`; a
+  root delegation mandate carries `human_composite_sig` and a sub-mandate `delegator_composite_sig` (DCP-09 §3.5).
+- **§9 and §15, canonicalization.** `dcp-jcs-v1` is the only normative profile and the default. The candidate profile
+  of [docs/proposals/canonicalization-candidate](../docs/proposals/canonicalization-candidate/README.md) is reachable
+  only through experimental, opt-in APIs and does not change what a default verifier accepts.
+- **§10, audit trail.** Audit entries are not signed one by one: they are covered by the bundle signature through the
+  manifest. The `DCP-AI.v2.AuditEvent` context is used for PQ checkpoints and audit compaction, which the caller
+  produces with SDK helpers; nothing signs them automatically. The verifiers check the listed checkpoints and the
+  SHA-256 chain, but do not recompute the secondary SHA3-256 chain.
+- **§11.3, emergency revocation.** The RPR schemas have no `revocation_token`; the V2 passport has an optional
+  `emergency_revocation_token`.
+- **§12.1, erasure.** The text describes the cryptographic effect of deleting the salt. It is not an assessment of
+  compliance with the GDPR or any other law; see [docs/EU_AI_ACT_MAPPING.md](../docs/EU_AI_ACT_MAPPING.md).
+- **§13, advisories.** The reference server applies published advisories to its policy only when an operator calls
+  `POST /v2/advisory/auto-apply`; it checks the advisory's `composite_sig` only for structure, and there is no
+  automatic polling.
+- **§14.1, sizes and latencies.** The bundle size and latency columns are illustrative, not measurements of the code on
+  `main`; [docs/OPERATOR_GUIDE.md](../docs/OPERATOR_GUIDE.md) explains how to measure them.
+- **§1.1 and §19, anchoring.** The reference anchor service keeps its records locally and does not submit anything on
+  chain ([docker/README.md](../docker/README.md)).
+- **§16, wire formats.** CBOR is an optional encoder and decoder in the TypeScript SDK only, and the reference server
+  reads JSON bodies only. The 30–40% size figure is not backed by a measurement in this repository.
+  `api/proto/dcp.proto` is a definition: no gRPC server or client here implements it.
+- **§17, backward compatibility.** The table describes outcomes, not one entry point. `verifySignedBundleV2` in the
+  SDKs verifies V2 bundles only. `allow_v1_bundles` is read by the reference server and by the admission profile; the
+  root `verifySignedBundle` (`lib/verify.js`) sends V1 bundles to the V1 checks without reading it.
+- **§18, pipeline.** `verifySignedBundleV2` does not run JSON Schema validation (step 2): `lib/verify.js` and the
+  server do it before calling it. It does not use the verification cache the TypeScript SDK exports (step 13), and
+  step 12 reads the key status in the bundle; querying a revocation service belongs to admission
+  ([docs/ADMISSION.md](../docs/ADMISSION.md)). Verification is not admission, trust or authorization.

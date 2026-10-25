@@ -36,7 +36,8 @@ Resource attributes sent with every export:
 
 ### TypeScript
 
-Install the optional OTel packages on top of the SDK:
+Install the optional OTel packages on top of the SDK (`@dcp-ai/sdk` here is the published version; with the SDK
+built from a checkout, install only the `@opentelemetry/*` packages):
 
 ```bash
 npm install @dcp-ai/sdk \
@@ -62,9 +63,9 @@ await dcpTelemetry.init({
 });
 ```
 
-The `init()` call returns a Promise when `exporterType === 'otlp'`. You don't have to await it — events emitted before the OTel stack is ready still populate the in-memory metrics and the `onEvent` listener fan-out — but awaiting guarantees no events are dropped from the OTLP export.
+With telemetry enabled, `init()` returns a Promise when `exporterType === 'otlp'`. Events emitted before successful OTLP initialization still update in-memory metrics and reach `onEvent` listeners, but are not replayed to OTLP. Await initialization before emitting events you want forwarded. Register an error listener beforehand: a resolved Promise alone does not confirm success, because initialization failures are reported as error events. Awaiting initialization does not guarantee export delivery; that also depends on the exporter and backend.
 
-If you forget to install one of the OTel packages, `init()` emits a clear error event on the listener bus (you can see it by subscribing with `dcpTelemetry.onEvent`) with the exact package names you still need. The SDK keeps working; only the OTLP forwarding is disabled.
+If you forget to install one of the OTel packages, `init()` emits a clear error event on the listener bus (you can see it by subscribing with `dcpTelemetry.onEvent`) with an installation command listing the optional OTel packages. The SDK keeps working; only the OTLP forwarding is disabled.
 
 On shutdown, flush pending exports:
 
@@ -74,7 +75,8 @@ await dcpTelemetry.shutdown();
 
 ### Python
 
-Install the OTLP extra on top of the SDK:
+Install the OTLP extra on top of the SDK (the published version; from a checkout,
+`pip install -e "/path/to/dcp-ai/sdks/python[otlp]"`):
 
 ```bash
 pip install 'dcp-ai[otlp]'
@@ -101,7 +103,7 @@ Enable the optional `otlp` Cargo feature:
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.1", features = ["otlp"] }
+dcp-ai = { version = "2.10", features = ["otlp"] }
 ```
 
 Wire in your app:
@@ -201,12 +203,16 @@ The SDK reads `OTEL_EXPORTER_OTLP_ENDPOINT` as a fallback when `otlpEndpoint` is
 
 ## Opt-out paths
 
-- `exporterType: 'none'` (or no `init` call at all): zero overhead, no exports, recorders are no-ops.
-- `exporterType: 'console'`: each event is printed to stdout as JSON. Useful in development without running a collector.
-- `enabled: false`: everything short-circuits, even `onEvent` listeners receive nothing.
+- No `init` call, or `enabled: false`: telemetry is off (the default); recorders return at once and `onEvent`
+  listeners receive nothing.
+- `exporterType: 'none'` with `enabled: true`: nothing is exported, but the in-memory metrics
+  (`getMetricsSummary`) and the `onEvent` listeners still work.
+- `exporterType: 'console'`: each event is also printed to stdout as `[DCP-AI Telemetry] <JSON>`. Useful in
+  development without running a collector.
 
 ---
 
 ## Companion tools
 
-The `dcpTelemetry.onEvent(listener)` channel stays available whether OTLP is on or off, so you can also build your own bridge — to a websocket debugger, a structured log file, or a custom dashboard. See the "Live events" section of the [Quick Start](QUICKSTART.md) for patterns.
+The `dcpTelemetry.onEvent(listener)` channel stays available whether OTLP is on or off, so you can also build your own bridge — to a websocket debugger, a structured log file, or a custom dashboard. The [Quick Start](QUICKSTART.md#6-telemetry--observability) shows the telemetry API, and the
+[API reference](API_REFERENCE.md#dcptelemetryoneventlistener) the listener.

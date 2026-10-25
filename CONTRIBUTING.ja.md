@@ -1,18 +1,28 @@
 <sub>[English](CONTRIBUTING.md) · [中文](CONTRIBUTING.zh-CN.md) · [Español](CONTRIBUTING.es.md) · **日本語** · [Português](CONTRIBUTING.pt-BR.md)</sub>
 
+<a id="contributing-to-dcp-ai"></a>
+
 # DCP-AI へのコントリビューション
 
-AIエージェントのためのデジタル市民権プロトコルへのコントリビューションにご関心をお寄せいただきありがとうございます。このガイドでは、最初の一歩をお手伝いします。
+> [英語版](CONTRIBUTING.md)の参考訳です（25/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
-## 開発環境のセットアップ
+AI エージェントのための Digital Citizenship Protocol へのコントリビューションに関心を持っていただき、ありがとうございます。このガイドは作業を始める手助けになります。
+
+<a id="development-environment-setup"></a>
+
+## 開発環境の準備
+
+<a id="prerequisites"></a>
 
 ### 前提条件
 
-- **Node.js** >= 18 (コアプロトコルとTypeScript SDKに必要)
-- **Python** >= 3.12 (Python SDKに必要)
-- **Go** >= 1.25 (Go SDKに必要)
-- **Rust** (stableツールチェーン、Rust SDKに必要)
+- **Node.js** 20 以上（プロトコルの中核と TypeScript SDK。CI は 20 と 22 を使用）
+- **Python** 3.10 以上（Python SDK。CI は 3.12 を使用）
+- **Go** 1.25 以上（Go SDK に必要）
+- **Rust**（安定版ツールチェーン。Rust SDK に必要）
 - **Git**
+
+<a id="getting-started"></a>
 
 ### はじめに
 
@@ -21,121 +31,173 @@ AIエージェントのためのデジタル市民権プロトコルへのコン
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
 cd dcp-ai
 
-# Install root dependencies (core protocol + CLI)
+# The root package depends on the workspace SDK until @dcp-ai/sdk 2.2.0 is on npm: build it first
+(cd sdks/typescript && npm install && npm run build)
+
+# Install root dependencies (core protocol + reference CLI); reinstall after rebuilding the SDK
 npm install
 
 # Run conformance tests to verify your setup (should print "DCP-AI CONFORMANCE PASS (V1 + V2)")
 npm run conformance
 ```
 
-### SDKセットアップ
+<a id="sdk-setup"></a>
 
-各SDKは `sdks/` 配下の独自ディレクトリに置かれ、独立した依存関係を持ちます。
+### SDK の準備
+
+各 SDK は `sdks/` の下の独自のディレクトリにあり、依存関係もそれぞれ独立しています。以下のコマンドはリポジトリのルートから実行してください。各サブシェルは終了後にルートへ戻ります。
 
 ```bash
 # TypeScript SDK
-cd sdks/typescript && npm install
+(cd sdks/typescript && npm install)
 
 # Python SDK
-cd sdks/python && pip install -e ".[dev]"
+(cd sdks/python && pip install -e ".[dev]")
 
 # Go SDK
-cd sdks/go && go mod download
+(cd sdks/go && go mod download)
 
 # Rust SDK
-cd sdks/rust && cargo build
+(cd sdks/rust && cargo build)
 
 # WASM SDK (requires Rust + wasm-pack + Node.js)
-cd sdks/wasm && npm install
+(cd sdks/wasm && npm install && npm run build:wasm)
 ```
+
+<a id="running-tests"></a>
 
 ## テストの実行
 
-### コアプロトコル
+<a id="core-protocol"></a>
+
+### プロトコルの中核
 
 ```bash
 npm run conformance
 ```
 
+<a id="sdks"></a>
+
 ### SDK
 
 ```bash
 # TypeScript
-cd sdks/typescript
-npm run test              # Run tests
-npm run test:coverage     # Run tests with coverage
+(cd sdks/typescript && npm run test)           # Run tests
+(cd sdks/typescript && npm run test:coverage)  # Run tests with coverage
 
 # Python
-cd sdks/python
-pytest -v
+(cd sdks/python && pytest -v)
 
 # Go
-cd sdks/go
-go test ./...
+(cd sdks/go && go test ./...)
 
 # Rust
-cd sdks/rust
-cargo test
+(cd sdks/rust && cargo test)
 
 # WASM (build verification)
-cd sdks/wasm
-npm test
+(cd sdks/wasm && npm test)
 ```
 
-### SDK横断
+<a id="cross-sdk"></a>
 
-各SDKは、それぞれのテストスイートから `tests/interop/v2/` の共有ベクトルを読み込みます。SDK同士を相互に検査するツールが2つあります (先に `sdks/typescript` をビルドし、`sdks/python` をインストールしてください。Go と Rust は `PATH` 上にある必要があります)。
+### SDK 間
+
+各 SDK は、それぞれのテストスイートから `tests/interop/v2/` の共通ベクターを読み込みます。2 つのツールが SDK 同士を照合します（先に `sdks/typescript` をビルドし、`sdks/python` をインストールしてください。Go と Rust は `PATH` 上に必要です）。
 
 ```bash
 node tools/interop-matrix/run.mjs   # agents on the four SDKs sign and verify each other's bundles
 node tools/difffuzz/run.mjs         # the same mutated bundle through the four verifiers
 ```
 
-どちらもすべてのプルリクエストでCI上で実行されます。
+どちらも pull request ごとと毎晩、CI で実行されます。
+
+<a id="documentation-and-translations"></a>
+
+### ドキュメントと翻訳
+
+公開ドキュメントには、英語の原文と 4 つの翻訳（`<name>.es.md`、`<name>.pt-BR.md`、
+`<name>.ja.md`、`<name>.zh-CN.md`）があり、`scripts/docs-i18n.json` に一覧があります。内容が異なる場合は英語の原文が
+優先されます。チェックには CI がインストールするドキュメントのツール群が必要で、これは `markdown` と
+`yaml` のモジュールも提供します。
+
+```bash
+pip install 'mkdocs==1.6.*' 'mkdocs-material==9.5.*' 'pymdown-extensions==10.*'
+python3 scripts/docs_i18n.py check                             # coverage, reviewed hashes, structure and links
+python3 -m unittest discover -s scripts -p 'test_docs*.py' -v  # positive and negative controls of the gate
+bash scripts/build-docs-site.sh                                 # builds and validates all five languages
+```
+
+`build-docs-site.sh` はサイトのビルドと検証を行います。その後に `mkdocs build` を実行しないでください。1 つの言語だけを
+ローカルでプレビューするには次のようにします。これは完全なビルドではありません。
+
+```bash
+python3 scripts/docs_site.py preview --locale en
+mkdocs serve -f docs-site/en/mkdocs.yml
+```
+
+ドキュメントを変更したら、その 4 つの翻訳を完全な状態に保ち、注記、アンカー、コードブロックを
+英語と一致させてください。新しい英語の原文に照らして 4 つすべてを読んだ後でのみ、そのハッシュを記録します。
+
+```bash
+python3 scripts/docs_i18n.py record <source.md> --reviewed
+```
+
+これはハッシュを記録するだけで、翻訳の品質を証明するものではありません。翻訳を読んでいない
+ドキュメントは記録しないでください。
+
+<a id="code-style"></a>
 
 ## コードスタイル
 
-このプロジェクトでは、一貫したコードスタイルを強制するために自動化ツールを使用しています。
+このプロジェクトでは、一貫したコードスタイルを保つために自動化ツールを使っています。
 
-- **ESLint** JavaScript/TypeScript の lint (`.eslintrc.json` を参照)
-- **Prettier** コードフォーマット (`.prettierrc.json` を参照)
-- **EditorConfig** 基本的なエディタ設定 (`.editorconfig` を参照)
+- **ESLint**：JavaScript/TypeScript の静的解析（`.eslintrc.json` を参照）
+- **Prettier**：コードの整形（`.prettierrc.json` を参照）
+- **EditorConfig**：エディターの基本設定（`.editorconfig` を参照）
+
+<a id="key-rules"></a>
 
 ### 主なルール
 
-- デフォルトで `const` を使用すること。`var` は絶対に使用しないこと
-- 文字列にはシングルクォートを使用すること
-- 末尾のカンマは常に付けること
-- 最大行幅は100文字
-- 2スペースのインデントを使用すること (Makefileを除く)
+- 既定では `const` を使い、`var` は使わない
+- 文字列にはシングルクォートを使う
+- 末尾のカンマを常に付ける
+- 1 行の最大幅は 100 文字
+- インデントはスペース 2 つ（Makefile を除く）
 
-コミット前にコードをフォーマットしてください。
+コミットの前にコードを整形してください（ルートパッケージは Prettier も ESLint もインストールしないため、インストールされていなければ `npx` が取得します）。
 
 ```bash
 npx prettier --write .
 npx eslint --fix .
 ```
 
-## プルリクエストの送信
+<a id="submitting-pull-requests"></a>
 
-1. **リポジトリをフォーク**して、`main` から機能ブランチを作成します。
-2. フォーカスされた論理的なコミットで**変更を加えます**。
-3. 新機能やバグ修正には**テストを追加または更新します**。
-4. PRを開く前にローカルで**すべてのテストがパスすることを確認します**。
-5. 何が変わったか、なぜ変わったかを明確に記述した**プルリクエストを `main` に対して開きます**。
+## Pull request の提出
 
-### PRチェックリスト
+1. **リポジトリをフォーク**し、`main` から作業用のブランチを作成します。
+2. まとまりのある論理的なコミットで**変更を加えます**。
+3. 新しい機能や不具合の修正には**テストを書くか更新します**。
+4. PR を開く前に、ローカルで**すべてのテストが通ることを確認します**。
+5. 何をなぜ変えたのかを明確に説明して、`main` に対して **pull request を開きます**。
 
-- [ ] すべての既存テストがパスする
-- [ ] 新機能には新しいテストが追加されている
+<a id="pr-checklist"></a>
+
+### PR チェックリスト
+
+- [ ] 既存のテストがすべて通る
+- [ ] 新しい機能に対するテストを追加した
 - [ ] コードがプロジェクトのスタイルガイドラインに従っている
-- [ ] 該当する場合、ドキュメントがそのドキュメントのすべての言語版で更新されている
-- [ ] 署名、ハッシュ、正規化、検証に関わる変更の場合: 共有ベクトルが更新され、相互運用マトリクスがパスしている
-- [ ] コミットメッセージが以下のフォーマットに従っている
+- [ ] 該当する場合、ドキュメントを、その文書があるすべての言語で更新した
+- [ ] 署名、ハッシュ、正規化、検証に関わる変更：共通ベクターを更新し、相互運用マトリクスが通る
+- [ ] コミットメッセージが下記の形式に従っている
 
-## コミットメッセージのフォーマット
+<a id="commit-message-format"></a>
 
-コンベンショナルコミットメッセージを使用してください。
+## コミットメッセージの形式
+
+Conventional Commits 形式のメッセージを使ってください。
 
 ```
 <type>(<scope>): <short summary>
@@ -143,26 +205,32 @@ npx eslint --fix .
 <optional body>
 ```
 
-### タイプ
+<a id="types"></a>
 
-- **feat**: 新機能
-- **fix**: バグ修正
-- **docs**: ドキュメントのみの変更
-- **style**: フォーマット、セミコロンの欠落など (コード変更なし)
-- **refactor**: バグ修正も機能追加もしないコード変更
-- **test**: テストの追加または更新
-- **chore**: ビルドプロセス、依存関係の更新、ツーリング
+### 種類
+
+- **feat**：新しい機能
+- **fix**：不具合の修正
+- **docs**：ドキュメントのみの変更
+- **style**：整形、セミコロンの抜けなど（コードの変更なし）
+- **refactor**：不具合の修正でも機能の追加でもないコードの変更
+- **test**：テストの追加や更新
+- **chore**：ビルド処理、依存関係の更新、ツール
+
+<a id="scopes"></a>
 
 ### スコープ
 
-- **core**: コアプロトコル、CLI、スキーマ
-- **sdk/ts**: TypeScript SDK
-- **sdk/py**: Python SDK
-- **sdk/go**: Go SDK
-- **sdk/rust**: Rust SDK
-- **sdk/wasm**: WASM SDK
-- **integration/\***: フレームワーク統合
-- **ci**: CI/CDワークフロー
+- **core**：プロトコルの中核、CLI、スキーマ
+- **sdk/ts**：TypeScript SDK
+- **sdk/py**：Python SDK
+- **sdk/go**：Go SDK
+- **sdk/rust**：Rust SDK
+- **sdk/wasm**：WASM SDK
+- **integration/\***：フレームワークとの統合
+- **ci**：CI/CD のワークフロー
+
+<a id="examples"></a>
 
 ### 例
 
@@ -174,15 +242,19 @@ test(core): add conformance tests for expired bundles
 chore(ci): add code coverage to TypeScript SDK workflow
 ```
 
-## テスト要件
+<a id="testing-requirements"></a>
 
-- すべての新機能には対応するテストを含めてください。
-- バグ修正には、そのバグを捕捉できたはずのリグレッションテストを含めてください。
-- `tests/conformance/` の適合性テストは、すべての実装でプロトコル準拠を検証します。
-- すべてのSDKが施行するルールには `tests/interop/v2/` に共有ベクトルを用意し、4つのSDKを同じケースでテストします。
-- SDKテストでは、バンドル作成、署名、検証、エラーケースをカバーしてください。
-- PRがマージされる前にCIがパスする必要があります。テスト失敗は抑制されません — テストが失敗すると、ビルドも失敗します。
+## テストの要件
 
-## 質問?
+- 新しい機能にはすべて、対応するテストを含めてください。
+- 不具合の修正には、その不具合を検出できたはずの回帰テストを含めてください。
+- `tests/conformance/` の適合性テストは、すべての実装でプロトコルへの準拠を確認します。
+- すべての SDK が適用するルールには `tests/interop/v2/` に共通ベクターを追加し、4 つの SDK を同じケースでテストします。
+- SDK のテストは、バンドルの作成、署名、検証、エラーの場合を網羅してください。
+- PR をマージするには CI が通っている必要があります。テストの失敗を握りつぶすことはなく、テストが失敗すればビルドも失敗します。
 
-コントリビューションについて質問がある場合は、GitHub issueを開くか、ディスカッションを開始してください。喜んで最初の一歩をお手伝いします。
+<a id="questions"></a>
+
+## 質問
+
+コントリビューションについて質問があれば、GitHub で issue を開くか、ディスカッションを始めてください。喜んでお手伝いします。

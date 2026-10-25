@@ -6,9 +6,21 @@ DCP integration with CrewAI for multi-agent governance. Each agent has its own D
 
 ## Supported DCP Specifications
 
-DCP-01 through DCP-09.
+DCP-01 through DCP-09, partially: unsigned records in the shapes of these specifications. It does not implement
+them in full.
 
 ## Installation
+
+> **Release status (25/10/2026).** PyPI has `dcp-ai` 2.9.0. In it, the agents of a `DCPCrew` do not share the crew's session nonce: each agent's audit entries carry a different one. The shared nonce described below is in the source on `main` (see the `[Unreleased]` section of [CHANGELOG.md](../../CHANGELOG.md)).
+
+From a checkout (this page's version):
+
+```bash
+git clone https://github.com/dcp-ai-protocol/dcp-ai.git
+pip install "/path/to/dcp-ai/sdks/python[crewai]"
+```
+
+The published version (2.9.0):
 
 ```bash
 pip install "dcp-ai[crewai]"
@@ -117,6 +129,7 @@ entry = researcher.log_action(
 ```
 
 Each audit entry includes:
+
 - `intent_hash`: SHA-256 of the associated intent
 - `prev_hash`: `"GENESIS"` for the first entry, SHA-256 of the previous entry for subsequent ones
 
@@ -146,7 +159,9 @@ DCPCrew(
 
 ### `get_combined_audit_trail()`
 
-Combines and chronologically orders the audit trails of all agents:
+Combines and chronologically orders the audit trails of all agents. It is a view for reading: each entry is a copy
+with an added `_agent_role` field, which is not part of the V2 audit entry, and the combined list is not a hash chain
+(each agent's entries chain only within its own trail). Do not canonicalize, hash or sign these copies as audit entries.
 
 ```python
 combined = crew.get_combined_audit_trail()
@@ -186,15 +201,18 @@ for agent_id, trail in crew.get_agent_bundles().items():
 
 ## Development
 
+From a checkout:
+
 ```bash
-pip install "dcp-ai[crewai,dev]"
+cd sdks/python
+pip install -e ".[crewai,dev]"
 pytest -v
 ```
 
 ### Dependencies
 
 - `dcp-ai` — DCP SDK (merkle, models, bundle)
-- `crewai` — Multi-agent framework
+- `crewai` — Multi-agent framework (installed by the extra; `dcp_ai.crewai` itself does not import it)
 
 ## License
 

@@ -41,3 +41,17 @@ The following are explicitly outside the core and belong to profiles or services
 - Agent-to-agent discovery and communication → [A2A Profile](../profiles/a2a/)
 - Risk tiers, jurisdiction, revocation, governance → [Governance Profile](../profiles/governance/)
 - Verification servers, anchoring, transparency logs → Infrastructure Services
+
+## Implementation notes (informative)
+
+> **Added 25/10/2026. Not normative.** These notes add no requirement and change nothing above: they describe how
+> the reference code on `main` relates to this text. Where they differ, the normative text above stands.
+
+- The core artifacts exist in two wire versions. V1 (`schemas/v1/`): no manifest, no `SignedPayload` envelopes, no
+  `session_nonce`, one Ed25519 signature over the bundle, and at least one audit entry. V2 (`schemas/v2/`, specified in
+  [DCP-AI v2.0](../DCP-AI-v2.0.md)): a signed manifest that commits to each artifact, `SignedPayload` envelopes for the
+  RPR, passport, intent and policy decision, a session nonce, composite signatures, and an audit trail that may be
+  empty.
+- In V2 the RPR carries the principal's `binding_keys` and the passport is signed by the agent's own keys. A bundle
+  that verifies proves its signatures match the keys it lists, not who the principal is: trust comes from the
+  verifier's trust set ([docs/ADMISSION.md](../../docs/ADMISSION.md)).

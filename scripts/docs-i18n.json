@@ -1,0 +1,492 @@
+{
+  "version": 1,
+  "languages": [
+    "en",
+    "es",
+    "pt-BR",
+    "ja",
+    "zh-CN"
+  ],
+  "documents": [
+    {
+      "source": ".github/CICD.md",
+      "class": "current",
+      "site_path": "reference/github/CICD.md"
+    },
+    {
+      "source": "CHANGELOG.md",
+      "class": "mixed-historical",
+      "site_path": "CHANGELOG.md"
+    },
+    {
+      "source": "CONTRIBUTING.md",
+      "class": "current",
+      "site_path": "reference/CONTRIBUTING.md"
+    },
+    {
+      "source": "GOVERNANCE.md",
+      "class": "current",
+      "site_path": "reference/GOVERNANCE.md"
+    },
+    {
+      "source": "README.md",
+      "class": "current",
+      "site_path": "reference/README.md"
+    },
+    {
+      "source": "ROADMAP.md",
+      "class": "current",
+      "site_path": "reference/ROADMAP.md"
+    },
+    {
+      "source": "SECURITY.md",
+      "class": "current",
+      "site_path": "reference/SECURITY.md"
+    },
+    {
+      "source": "api/README.md",
+      "class": "current",
+      "site_path": "reference/api/README.md"
+    },
+    {
+      "source": "cli/TESTING.md",
+      "class": "contributor",
+      "site_path": "reference/cli/TESTING.md"
+    },
+    {
+      "source": "contracts/ethereum/DEPLOY.md",
+      "class": "current",
+      "site_path": "reference/contracts/ethereum/DEPLOY.md"
+    },
+    {
+      "source": "contracts/ethereum/README.md",
+      "class": "current",
+      "site_path": "reference/contracts/ethereum/README.md"
+    },
+    {
+      "source": "deploy/README.md",
+      "class": "current",
+      "site_path": "reference/deploy/README.md"
+    },
+    {
+      "source": "docker/README.md",
+      "class": "current",
+      "site_path": "reference/docker/README.md"
+    },
+    {
+      "source": "docs/ADMISSION.md",
+      "class": "current",
+      "site_path": "reference/docs/ADMISSION.md"
+    },
+    {
+      "source": "docs/AGENT_CREATION_AND_CERTIFICATION.md",
+      "class": "current",
+      "site_path": "guides/AGENT_CREATION_AND_CERTIFICATION.md"
+    },
+    {
+      "source": "docs/API_REFERENCE.md",
+      "class": "current",
+      "site_path": "guides/API_REFERENCE.md"
+    },
+    {
+      "source": "docs/ARCHITECTURE.md",
+      "class": "current",
+      "site_path": "reference/docs/ARCHITECTURE.md"
+    },
+    {
+      "source": "docs/EARLY_ADOPTERS.md",
+      "class": "current",
+      "site_path": "community/EARLY_ADOPTERS.md"
+    },
+    {
+      "source": "docs/EU_AI_ACT_MAPPING.md",
+      "class": "current",
+      "site_path": "reference/docs/EU_AI_ACT_MAPPING.md"
+    },
+    {
+      "source": "docs/GENESIS_PAPER.md",
+      "class": "historical",
+      "site_path": "community/GENESIS_PAPER.md"
+    },
+    {
+      "source": "docs/MIGRATION_V1_V2.md",
+      "class": "current",
+      "site_path": "guides/MIGRATION_V1_V2.md"
+    },
+    {
+      "source": "docs/NIST_CONFORMITY.md",
+      "class": "current",
+      "site_path": "architecture/NIST_CONFORMITY.md"
+    },
+    {
+      "source": "docs/OBSERVABILITY.md",
+      "class": "current",
+      "site_path": "reference/docs/OBSERVABILITY.md"
+    },
+    {
+      "source": "docs/OPERATOR_GUIDE.md",
+      "class": "current",
+      "site_path": "guides/OPERATOR_GUIDE.md"
+    },
+    {
+      "source": "docs/QUICKSTART.md",
+      "class": "current",
+      "site_path": "quickstart/QUICKSTART.md"
+    },
+    {
+      "source": "docs/QUICKSTART_AGNO.md",
+      "class": "current",
+      "site_path": "quickstart/QUICKSTART_AGNO.md"
+    },
+    {
+      "source": "docs/QUICKSTART_CREWAI.md",
+      "class": "current",
+      "site_path": "quickstart/QUICKSTART_CREWAI.md"
+    },
+    {
+      "source": "docs/QUICKSTART_EXPRESS.md",
+      "class": "current",
+      "site_path": "quickstart/QUICKSTART_EXPRESS.md"
+    },
+    {
+      "source": "docs/QUICKSTART_LANGCHAIN.md",
+      "class": "current",
+      "site_path": "quickstart/QUICKSTART_LANGCHAIN.md"
+    },
+    {
+      "source": "docs/QUICKSTART_OPENAI.md",
+      "class": "current",
+      "site_path": "quickstart/QUICKSTART_OPENAI.md"
+    },
+    {
+      "source": "docs/README.md",
+      "class": "current",
+      "site_path": "reference/docs/README.md"
+    },
+    {
+      "source": "docs/SECURITY_MODEL.md",
+      "class": "current",
+      "site_path": "architecture/SECURITY_MODEL.md"
+    },
+    {
+      "source": "docs/STORAGE_AND_ANCHORING.md",
+      "class": "current",
+      "site_path": "architecture/STORAGE_AND_ANCHORING.md"
+    },
+    {
+      "source": "docs/TECHNICAL_ARCHITECTURE.md",
+      "class": "current",
+      "site_path": "architecture/TECHNICAL_ARCHITECTURE.md"
+    },
+    {
+      "source": "docs/proposals/canonicalization-candidate/README.md",
+      "class": "proposal",
+      "site_path": "reference/docs/proposals/canonicalization-candidate/README.md"
+    },
+    {
+      "source": "integrations/anthropic-mcp/README.md",
+      "class": "current",
+      "site_path": "reference/integrations/anthropic-mcp/README.md"
+    },
+    {
+      "source": "integrations/autogen/README.md",
+      "class": "current",
+      "site_path": "reference/integrations/autogen/README.md"
+    },
+    {
+      "source": "integrations/crewai/README.md",
+      "class": "current",
+      "site_path": "reference/integrations/crewai/README.md"
+    },
+    {
+      "source": "integrations/express/README.md",
+      "class": "current",
+      "site_path": "reference/integrations/express/README.md"
+    },
+    {
+      "source": "integrations/express/examples/README.md",
+      "class": "current",
+      "site_path": "reference/integrations/express/examples/README.md"
+    },
+    {
+      "source": "integrations/fastapi/README.md",
+      "class": "current",
+      "site_path": "reference/integrations/fastapi/README.md"
+    },
+    {
+      "source": "integrations/google-a2a/README.md",
+      "class": "current",
+      "site_path": "reference/integrations/google-a2a/README.md"
+    },
+    {
+      "source": "integrations/langchain/README.md",
+      "class": "current",
+      "site_path": "reference/integrations/langchain/README.md"
+    },
+    {
+      "source": "integrations/openai/README.md",
+      "class": "current",
+      "site_path": "reference/integrations/openai/README.md"
+    },
+    {
+      "source": "integrations/openclaw/README.md",
+      "class": "current",
+      "site_path": "reference/integrations/openclaw/README.md"
+    },
+    {
+      "source": "integrations/w3c-did/README.md",
+      "class": "current",
+      "site_path": "reference/integrations/w3c-did/README.md"
+    },
+    {
+      "source": "keys/README.md",
+      "class": "contributor",
+      "site_path": "reference/keys/README.md"
+    },
+    {
+      "source": "playground/README.md",
+      "class": "current",
+      "site_path": "reference/playground/README.md"
+    },
+    {
+      "source": "scripts/docs-index.md",
+      "class": "current",
+      "site_path": "index.md",
+      "link_base": "site"
+    },
+    {
+      "source": "sdks/go/README.md",
+      "class": "current",
+      "site_path": "reference/sdks/go/README.md"
+    },
+    {
+      "source": "sdks/python/README.md",
+      "class": "current",
+      "site_path": "reference/sdks/python/README.md"
+    },
+    {
+      "source": "sdks/rust/README.md",
+      "class": "current",
+      "site_path": "reference/sdks/rust/README.md"
+    },
+    {
+      "source": "sdks/typescript/README.md",
+      "class": "current",
+      "site_path": "reference/sdks/typescript/README.md"
+    },
+    {
+      "source": "sdks/wasm/README.md",
+      "class": "current",
+      "site_path": "reference/sdks/wasm/README.md"
+    },
+    {
+      "source": "server/README.md",
+      "class": "current",
+      "site_path": "reference/server/README.md"
+    },
+    {
+      "source": "services/README.md",
+      "class": "current",
+      "site_path": "reference/services/README.md"
+    },
+    {
+      "source": "services/anchor/README.md",
+      "class": "current",
+      "site_path": "reference/services/anchor/README.md"
+    },
+    {
+      "source": "services/revocation/README.md",
+      "class": "current",
+      "site_path": "reference/services/revocation/README.md"
+    },
+    {
+      "source": "services/transparency-log/README.md",
+      "class": "current",
+      "site_path": "reference/services/transparency-log/README.md"
+    },
+    {
+      "source": "spec/AUDIT-v2.0-FINAL.md",
+      "class": "historical",
+      "site_path": "specs/AUDIT-v2.0-FINAL.md"
+    },
+    {
+      "source": "spec/BUNDLE.md",
+      "class": "normative",
+      "site_path": "specs/BUNDLE.md"
+    },
+    {
+      "source": "spec/CANONICALIZATION_PROFILE.md",
+      "class": "normative",
+      "site_path": "specs/CANONICALIZATION_PROFILE.md"
+    },
+    {
+      "source": "spec/DCP-01.md",
+      "class": "normative",
+      "site_path": "specs/DCP-01.md"
+    },
+    {
+      "source": "spec/DCP-02.md",
+      "class": "normative",
+      "site_path": "specs/DCP-02.md"
+    },
+    {
+      "source": "spec/DCP-03.md",
+      "class": "normative",
+      "site_path": "specs/DCP-03.md"
+    },
+    {
+      "source": "spec/DCP-04.md",
+      "class": "normative",
+      "site_path": "specs/DCP-04.md"
+    },
+    {
+      "source": "spec/DCP-05.md",
+      "class": "normative",
+      "site_path": "specs/DCP-05.md"
+    },
+    {
+      "source": "spec/DCP-06.md",
+      "class": "normative",
+      "site_path": "specs/DCP-06.md"
+    },
+    {
+      "source": "spec/DCP-07.md",
+      "class": "normative",
+      "site_path": "specs/DCP-07.md"
+    },
+    {
+      "source": "spec/DCP-08.md",
+      "class": "normative",
+      "site_path": "specs/DCP-08.md"
+    },
+    {
+      "source": "spec/DCP-09.md",
+      "class": "normative",
+      "site_path": "specs/DCP-09.md"
+    },
+    {
+      "source": "spec/DCP-AI-v2.0.md",
+      "class": "normative",
+      "site_path": "specs/DCP-AI-v2.0.md"
+    },
+    {
+      "source": "spec/README.md",
+      "class": "current",
+      "site_path": "specs/README.md"
+    },
+    {
+      "source": "spec/VERIFICATION.md",
+      "class": "normative",
+      "site_path": "specs/VERIFICATION.md"
+    },
+    {
+      "source": "spec/core/README.md",
+      "class": "normative",
+      "site_path": "reference/spec/core/README.md"
+    },
+    {
+      "source": "spec/core/dcp-core.md",
+      "class": "normative",
+      "site_path": "reference/spec/core/dcp-core.md"
+    },
+    {
+      "source": "spec/profiles/README.md",
+      "class": "normative",
+      "site_path": "reference/spec/profiles/README.md"
+    },
+    {
+      "source": "spec/profiles/a2a/README.md",
+      "class": "normative",
+      "site_path": "reference/spec/profiles/a2a/README.md"
+    },
+    {
+      "source": "spec/profiles/admission/README.md",
+      "class": "normative",
+      "site_path": "reference/spec/profiles/admission/README.md"
+    },
+    {
+      "source": "spec/profiles/crypto/README.md",
+      "class": "normative",
+      "site_path": "reference/spec/profiles/crypto/README.md"
+    },
+    {
+      "source": "spec/profiles/governance/README.md",
+      "class": "normative",
+      "site_path": "reference/spec/profiles/governance/README.md"
+    },
+    {
+      "source": "templates/README.md",
+      "class": "current",
+      "site_path": "reference/templates/README.md"
+    },
+    {
+      "source": "templates/crewai/README.md",
+      "class": "current",
+      "site_path": "reference/templates/crewai/README.md"
+    },
+    {
+      "source": "templates/express/README.md",
+      "class": "current",
+      "site_path": "reference/templates/express/README.md"
+    },
+    {
+      "source": "templates/langchain/README.md",
+      "class": "current",
+      "site_path": "reference/templates/langchain/README.md"
+    },
+    {
+      "source": "templates/openai/README.md",
+      "class": "current",
+      "site_path": "reference/templates/openai/README.md"
+    },
+    {
+      "source": "tests/interop/candidate/phase4/README.md",
+      "class": "contributor",
+      "site_path": "reference/tests/interop/candidate/phase4/README.md"
+    },
+    {
+      "source": "tests/nist-kat/README.md",
+      "class": "contributor",
+      "site_path": "reference/tests/nist-kat/README.md"
+    },
+    {
+      "source": "tools/canonicalization-lab/README.md",
+      "class": "contributor",
+      "site_path": "reference/tools/canonicalization-lab/README.md"
+    },
+    {
+      "source": "tools/difffuzz/README.md",
+      "class": "contributor",
+      "site_path": "reference/tools/difffuzz/README.md"
+    },
+    {
+      "source": "tools/interop-matrix/README.md",
+      "class": "contributor",
+      "site_path": "reference/tools/interop-matrix/README.md"
+    }
+  ],
+  "copies": [
+    {
+      "source": "packages/create-crewai/template/README.md",
+      "canonical": "templates/crewai/README.md"
+    },
+    {
+      "source": "packages/create-express/template/README.md",
+      "canonical": "templates/express/README.md"
+    },
+    {
+      "source": "packages/create-langchain/template/README.md",
+      "canonical": "templates/langchain/README.md"
+    },
+    {
+      "source": "packages/create-openai/template/README.md",
+      "canonical": "templates/openai/README.md"
+    }
+  ],
+  "excluded": [
+    {
+      "source": "integrations/openclaw/SKILL.md",
+      "reason": "Runtime instruction file consumed by agents; translating it would change the integration behavior."
+    }
+  ]
+}
