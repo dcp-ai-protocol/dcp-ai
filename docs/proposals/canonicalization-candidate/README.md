@@ -12,12 +12,13 @@
 > **Notice.** This document proposes a candidate profile and records its design. It does not change
 > `dcp-jcs-v1` or [`spec/CANONICALIZATION_PROFILE.md`](../../../spec/CANONICALIZATION_PROFILE.md), which
 > remain the only normative reference. No existing verifier, signer, schema, conformance check or default
-> uses the identifier `dcp-jcs-v2`. The experimental, opt-in APIs of §15, §16 and §17 recognize it
+> uses the identifier `dcp-jcs-v2`. The experimental, opt-in APIs of §15 to §18 recognize it
 > without activating it: no existing or default path calls them, only callers who opt in. Those of §15
 > and §16 verify nothing; the verifier of §17 verifies candidate bundles from their original bytes, and
-> a verified bundle grants no trust or admission. No public API produces candidate bundles; the phase 3
-> vectors are signed by a test-only generator. The lab tool's CI job runs
-> the design model, and the SDK test jobs run those APIs on the corpus and the phase 3 vectors. The
+> a verified bundle grants no trust or admission. The producers of §18 make new candidate evidence for
+> those callers only; the phase 3 vectors are signed by a test-only generator. The lab tool's CI job runs
+> the design model, the SDK test jobs run those APIs on the corpus and the phase 3 vectors, and the
+> phase 4 matrix has its own workflow. The
 > existing V2 verifiers, such as the TypeScript SDK's
 > ([`verify-v2.ts`](../../../sdks/typescript/src/core/verify-v2.ts)), still reject the profile as
 > unknown when given a parsed object or text, which is the intended behavior. Nothing here is a conformance requirement. The lab
@@ -270,7 +271,7 @@ re-canonicalized with `dcp-jcs-v1`, the profile is never inferred from content, 
 
 ## 9. Phases and acceptance gates
 
-Nothing here is activated. Only the experimental unit ingress (§15), router (§16) and bytes verifier (§17) are implemented. Moving to a later phase needs an explicit decision, taken
+Nothing here is activated. Only the experimental unit ingress (§15), router (§16), bytes verifier (§17) and producers (§18) are implemented. Moving to a later phase needs an explicit decision, taken
 apart from this document, and a change of default needs its own decision.
 
 **Phases.**
@@ -285,7 +286,7 @@ Verification of `dcp-jcs-v1` stays for historical evidence throughout: introduci
 make any `dcp-jcs-v1` evidence stop verifying or start verifying. Security fixes to `dcp-jcs-v1` are
 assessed on their own.
 
-**Gates before phase 2 or 3** (requirements, none met yet):
+**Gates before phase 2 or 3** (requirements; their status is in the ledger of §18.4):
 
 1. **Corpus parity.** The cases that fix ingress are the 87 raw baseline cases and the applicable design
    cases. On them, every SDK and WASM, through a bytes API, give the same `canonical_sha256` on the accept
@@ -366,12 +367,12 @@ Exit code 1 means a case, a result or a control differs; 2 means the data is inv
 
 | Shown by the design model | Not done |
 |---|---|
-| The total precedence, with offsets, on 54 multi-defect documents and 12 multi-defect envelopes | A public API that produces candidate bundles (the verifier of §17 only verifies; its vectors are signed by a test-only generator) |
+| The total precedence, with offsets, on 54 multi-defect documents and 12 multi-defect envelopes | A change of phase or of default: the producers of §18 are experimental and opt-in |
 | The unit, the transport and envelope independence | A bytes API in the integrations or the server |
-| Selection, policy and no retry, on synthetic bundles | Candidate bundles from more than one producer (§17 verifies 16 real signed bundles, all from one test generator) |
-| That the candidate path does not depend on parser repairs | The candidate matrices of §9 (cross signing, negative matrix, history over the conformance suites). Since phase 2, `tests/interop/candidate/phase2-adapter-expectations.json` records 160 readings of real decoders (16 units × 10 adapters) where the historical adapter decides; that is evidence for those units only |
-| The synthetic bundle's hash checks | A cross-SDK signing matrix, a negative matrix and a performance benchmark |
-| | That delegation preserves each SDK's `dcp-jcs-v1` verdict |
+| Selection, policy and no retry, on synthetic bundles | A proof of output equivalence over the whole domain (§18.4, gate 3, is shown on samples) |
+| That the candidate path does not depend on parser repairs | Historical readings beyond the units measured: `tests/interop/candidate/phase2-adapter-expectations.json` records 160 readings of real decoders (16 units × 10 adapters) where the historical adapter decides; that is evidence for those units only |
+| The synthetic bundle's hash checks | A per-class negative matrix of `dcp-jcs-v1` bundles (§18.4, gate 7) |
+| | That delegation preserves each SDK's `dcp-jcs-v1` verdict beyond the cases of §16 and §17 |
 
 ## 13. Open questions
 
@@ -526,8 +527,8 @@ It routes the bytes once with the router of §16 and runs at most one verifier:
 
 There is no second attempt under another profile. It is not normative, and no existing or default path calls
 it. `dcp-jcs-v1`, the existing verifiers and their defaults are unchanged, and their object and text APIs
-still reject `dcp-jcs-v2`. No public API produces candidate bundles yet: producers are the next phase,
-and the vectors below are signed by a test-only generator. A verified candidate bundle grants no trust or
+still reject `dcp-jcs-v2`. The producers came in phase 4 (§18); the vectors below are signed by a test-only
+generator. A verified candidate bundle grants no trust or
 admission and authorizes nothing.
 
 | SDK | API |
@@ -614,7 +615,8 @@ and declared profile), and every case and expectation. The TypeScript test verif
 | A delegation | Records today's verdict, which the model does not compute |
 | — | Cryptographic failures (signatures, policy, key validity, session and checkpoints): new expectations, with no model equivalent |
 
-**Gates.** None of the ten gates of §9 is declared met, and the candidate stays inactive.
+**Gates.** At phase 3, none of the ten gates of §9 was declared met; the ledger is §18.4, and the candidate
+stays inactive.
 - **Evidence toward:**
   - gate 1: the synthetic bundle cases, re-expressed as real signed bundles;
   - gate 3: on the committed values of the positives;
@@ -625,3 +627,167 @@ and declared profile), and every case and expectation. The TypeScript test verif
   - gate 6, the cross signing matrix, which needs producers; every signed bundle here comes from one test
     generator;
   - gates 2, 9 and 10, which need their own runs.
+
+## 18. Experimental SDK producers (phase 4)
+
+Phase 4 of the SDK implementation plan adds experimental, opt-in producers to each SDK and to WASM. They
+make **new** evidence: artifacts signed as today's, and bundles whose new manifest signs
+`canonicalization_profile: "dcp-jcs-v2"`. It is not normative, and no existing or default path calls them.
+`dcp-jcs-v1`, its builders, signers and verifiers, and every default are unchanged; the profile stays
+inactive and no package is published. A bundle they produce grants no trust or admission and authorizes nothing.
+
+| SDK | API |
+|---|---|
+| TypeScript | `experimentalCandidateSignPayload(registry, context, input, keys)` and `experimentalCandidateSignBundle(registry, parts, signer, options)` |
+| Python | `dcp_ai.v2.experimental_candidate_produce`: `sign_payload(registry, context, input, keys)` and `sign_bundle(registry, parts, signer, options)`, which check and copy at the call and return an awaitable |
+| Go | `ExperimentalCandidateSignPayload(registry, context, input, keys)` and `ExperimentalCandidateSignBundle(registry, parts, signer, options)`, with inputs `ExperimentalCandidateBytes` and `ExperimentalCandidateHostValue` |
+| Rust | `v2::experimental_candidate_produce`: `sign_payload(context, input, keys)` and `sign_bundle(parts, signer, options)`, with `CandidateInput::{Bytes, Value}` |
+| WASM | `DcpWasm.experimentalCandidateSignPayload(context, input, keys)` and `experimentalCandidateSignBundle(parts, signer, options)`, over the bindings `wasm_experimental_candidate_sign_payload` and `wasm_experimental_candidate_sign_bundle`, which receive only bytes |
+
+**Inputs.** Each piece is either:
+- **bytes:** the original bytes, checked by the phase 1 ingress (§15) before anything parses them. This is the
+  way for JSON received from elsewhere: only the bytes keep what a parser repairs or loses;
+- **a host value:** checked by a strict walk over the exact types of the language and encoded after the check.
+  A value cannot show the literal it was parsed from, so a value already repaired by a parser cannot be detected.
+
+Host values outside the domain are refused with `NUMBER_NOT_FINITE`, `NUMBER_NOT_INTEGER`,
+`NUMBER_OUT_OF_RANGE`, `SURROGATE_UNPAIRED`, `UTF8_INVALID` (Go), `DEPTH_EXCEEDED`, `TYPE_UNSUPPORTED` or
+`KEY_NOT_STRING` (Python). Integral floats, `-0` and, in TypeScript and WASM, BigInt are normalized to the
+integer. Getters and `toJSON` are never invoked. Structs and foreign types are refused, never converted.
+
+**`signPayload`** signs one artifact, `{payload, payload_hash, composite_sig}`, under a DCP context and with no
+profile. The payload has at most 63 levels, so that the artifact has at most 64. The ingress accepts the
+output bytes and gives them back unchanged.
+
+**`signBundle`** assembles the bundle over exact values. Parts are artifacts, audit entries and optional PQ
+checkpoints, each as bytes or a value.
+- Members it does not know are kept. Those outside a payload, an entry, a checkpoint or the manifest are not
+  signed, so their integrity is not claimed.
+- Received evidence is never relabeled or recomputed. An artifact whose `payload_hash` is not its payload's
+  is refused (`COMMITMENT_MISMATCH`), and the chain must start at `GENESIS` and link (`CHAIN_NOT_GENESIS`,
+  `CHAIN_BREAK`).
+- The signer must be the responsible principal (`SIGNER_MISMATCH`).
+- The session start is never stamped from the clock. With an expiry, `session_issued_at` is required
+  (`SESSION_ISSUED_AT_REQUIRED`), and the dates must be valid (`SESSION_INVALID`).
+- An empty audit trail gives `audit_count: 0` and roots of 64 zeros.
+- `dualHash` (default off) adds the SHA3-256 root and `hash_alg: sha256+sha3-256`.
+- `created_at` is outside every signature and is not protected.
+- The whole unit is checked to have at most 64 levels before any signature.
+- The router of §16 routes the output as `candidate`, with `canonical_sha256` equal to the SHA-256 of the
+  output bytes.
+
+**Errors.** A rejection of this contract carries its class, the part and a JSON Pointer or byte offset, and is
+raised before any signer is called (the tests count zero signer calls). A misuse of the API is a usage error:
+`TypeError`, `ErrExperimentalCandidateUsage` or `ProduceError::Usage`. Errors of the key, the registry or the
+provider stay today's.
+
+**Against today's builders.** These are new APIs, not options of the `dcp-jcs-v1` builders, and they differ
+on purpose: explicit dates, the same `dualHash` default everywhere (the Go, Rust and WASM v1 builders add the
+secondary root by default), and assembly over exact values.
+
+### 18.1 Cross matrix (`tests/interop/candidate/phase4/`)
+
+Five producers (TypeScript, Python, Go, Rust and WASM) sign the same input bytes with their public opt-in APIs.
+Every consumer verifies every output with the verifier of §17. The runner and its specifications are in
+[`tests/interop/candidate/phase4/`](../../../tests/interop/candidate/phase4/); the synthetic keys are made per
+run and are never written outside the run directory.
+- **Positives:** 12 specifications (`S01`–`S12`) in bytes and value modes, plus a ring: `S01` assembled from the
+  artifacts the next producer signed. That makes 115 units, each verified by 5 consumers: 575 results.
+  They cover:
+  - hybrid and classical-only signing, a dual hash, a PQ checkpoint;
+  - ±(2^53−1);
+  - keys with U+E000 and U+1F600;
+  - U+FEFF at the start of a string, U+FFFD, U+2028 and `\u0000`;
+  - depth 64;
+  - unsigned extension members;
+  - members named `__proto__`, `constructor` and `toJSON`;
+  - integers written with 800 and 5000 decimal zeros (bytes);
+  - `1.0` and `-0.0` (values).
+- **Negatives:** 16 byte-level edits of each producer's fresh output, verified by every consumer: 400 results.
+  - Before any verifier: a BOM, invalid UTF-8, a syntax error, a lone surrogate, a duplicate, a fraction, a
+    number out of range, depth 65, transport errors, an unknown profile and a profile not accepted.
+  - On the candidate path, failing there: a changed payload, a changed manifest, and a flipped classical or
+    PQ signature.
+- **Checks of the runner:**
+  - the exact set of 975 results, steps and fields;
+  - freshness: run ID, dates and file times;
+  - the decoder calls each consumer observed (1 for BOM, UTF-8 and syntax, 0 otherwise);
+  - for each specification, the same `manifest_hash` from every producer, and the same unit except for the
+    ML-DSA signature values (randomized), masked only at their known places;
+  - the same key IDs derived by every SDK;
+  - a deadline that kills the whole process group;
+  - `--self-test` checks each of these refusals.
+
+### 18.2 Host values (gate 2)
+
+Each corpus ID is classified per language as:
+- **R:** represented exactly, with the class of the bytes;
+- **T:** represented only as an already transformed value, whose class may change;
+- **P:** refused by the parser first;
+- **N:** not representable.
+
+Every R and T cell is tested in its SDK, P and N are documented. The marking `needs_original_bytes: false`
+only means that a parser can already refuse the case.
+
+| ID | Bytes | TS / WASM | Python | Go | Rust |
+|---|---|---|---|---|---|
+| `n-two53`, `n-1e20`, `n-1e21`, `n-fraction`, `s-depth-65`, `s-depth-129` | as in the corpus | R | R | R | R (depths built directly) |
+| `n-two53-plus-one`, `n-neg-two53-plus-one`, `n-int64-max`, `n-sci-over` | `NUMBER_OUT_OF_RANGE` | R with BigInt; T with number (rounded, still out of range) | R (int) | R (int64) | R (i64) |
+| `n-overflow` (`1e400`) | `NUMBER_OUT_OF_RANGE` | R with BigInt; T with number (`Infinity`: `NUMBER_NOT_FINITE`) | R (int); T with float (`inf`) | N as an integer; R as the `json.Number` literal; T with float64 (`+Inf`) | N |
+| `n-huge-exponent` (a 5000-digit exponent) | `NUMBER_OUT_OF_RANGE` | N as an integer (it cannot be materialized); T (`Infinity`) | N; T (`inf`) | R as the `json.Number` literal, refused without building the number; T (`+Inf`) | N |
+| `n-nan`, `n-negative-infinity` | `SYNTAX` | T (`NUMBER_NOT_FINITE`) | T | T | N |
+| 9 syntax IDs (leading zero, plus sign, bare dot, raw control, trailing comma or data, two values, empty input, NBSP) | `SYNTAX` | P | P | P | P |
+
+The T cells of `n-huge-exponent` use a shorter literal (`1e99999`) that a parser also turns into an infinity.
+The 22 cases marked `true` stay outside the reach of values; for them, the bytes are the way.
+
+### 18.3 Cost (gate 10)
+
+The cost is measured on one equivalent pair per platform. Both sides use the same keys, payloads, session and
+audit entries, and the runner checks this on the outputs before measuring: the same four `payload_hash`, the
+same nonce and session dates, and the same entries. The v1 bundle comes from each SDK's builder and signer, the
+candidate from the producer.
+
+Each operation runs 20 times after 3 warm-ups, with at most 60 s per platform, and the builds are timed
+apart. Run it with `node tests/interop/candidate/phase4/run.mjs --cost`. Medians in ms, from one run on one
+machine (Apple M5 Pro; Node 22.15, Python 3.12, Go 1.26, Rust 1.93 release):
+
+| Platform | Produce v1 | Produce candidate | Verify today | Verify v1 (`v1_path`) | Verify candidate |
+|---|---|---|---|---|---|
+| TypeScript | 40.3 | 48.1 | 20.2 | 20.7 | 32.0 |
+| Python | 22.8 | 27.6 | 3.5 | 7.7 | 7.7 |
+| Go | 3.2 | 7.0 | 2.1 | 2.9 | 2.5 |
+| Rust | 2.3 | 3.0 | 0.7 | 0.9 | 0.8 |
+| WASM | 4.1 | 4.8 | 1.5 | 2.1 | 1.4 |
+
+**Limits.** These times are not a measure of the canonicalization alone, and they show neither an improvement
+nor a regression:
+- **The outputs differ.** The v1 bytes are each SDK's JSON serialization (Python's has spaces), while the
+  candidate's are canonical.
+- **The builders differ.** The Go, Rust and WASM v1 builders add the secondary root, and the candidate here
+  does not.
+- **Go's entries.** The v1 builder takes typed entries, so its `AuditEvidenceV2` drops null members. Both
+  sides of the Go pair sign the same entries, rebuilt through it.
+- **What "Verify today" includes.** It includes decoding the bytes where the API takes an object or a value
+  (`JSON.parse`, `json.loads`, `serde_json::from_slice`). Go's API takes bytes and parses them itself.
+- **Variance.** Medians varied between runs on the same machine. For example, TypeScript's candidate
+  verification gave about 22 ms in a previous run.
+
+There is no SLA, and nothing was relaxed to compensate.
+
+### 18.4 Ledger of the ten gates (§9)
+
+This ledger records evidence; it activates nothing. A change of phase or default needs its own decision.
+
+| # | Gate | Status | Evidence | Limits |
+|---|---|---|---|---|
+| 1 | Corpus parity | Met | §15: the 87 baseline units and 81 bare design cases in four SDKs, and the same 168 cases in WASM. §17: the synthetic bundle cases as real signed bundles. §16: real decoder readings instead of the `historical` parameter | The v0.3 depth-rule cases demonstrate the model and are not requirements |
+| 2 | Object API scope | Met, with the scope of §18.2 | §18.2: every R and T cell tested per language, each refused with its class before signing. TypeScript, Python, Go and WASM count zero signer calls per cell. Rust's cells use keys that cannot sign, so a signer call would surface as a provider error instead; its counted zero calls are in its focused unit tests | The 22 cases marked `true` and the P and N cells are outside the reach of values |
+| 3 | Output equivalence on values | Met, on samples | §15: the `dcp-jcs-v1` comparison on accepted values. §17: the committed values of the positives. §18.1: 115 units equal across five producers. §18.3: the same payload hashes from the v1 signer and the producer | Shown on the corpus, the vectors and the matrix, not proven over the whole domain |
+| 4 | Ingress parity from bytes | Met | §15, in four SDKs and WASM | Unit cases |
+| 5 | Historical readings | Not a gate | §16 records them as diagnostics | — |
+| 6 | Cross signing matrix | Met | §18.1: 5 × 5 plus the ring, 975 of 975 results, with every boundary payload of the gate. The `dcp-jcs-v1` interop matrix (`tools/interop-matrix`, both scenarios) passes at closure | Local runs on one machine; the workflow runs it again on each change |
+| 7 | Negative matrix | Partial | §18.1: every class of the corpus, and the transport and profile classes, rejected before any verifier, 5 × 5. Candidate failures on the candidate path. §17: delegations of `dcp-jcs-v1` bundles keep today's verdict | The `dcp-jcs-v1` side rests on the delegations of §17 and the readings of §16; it was not repeated per class here |
+| 8 | Selection, precedence and policy | Met | §16 and §17, with one verifier instrumented | — |
+| 9 | History | Met | At closure, with the new code in place: conformance (V1 and V2, with the admission cases), every SDK's full test suite, the WASM tests (bundle vectors and V1 verification included) and the `dcp-jcs-v1` interop and admission matrices, all green. No campaign of phases 1 to 3 was repeated | Local runs on one machine |
+| 10 | Cost | Met | §18.3 | One machine, no SLA, the limits of §18.3 |

@@ -1,0 +1,415 @@
+{
+  "title": "Experimental candidate dcp-jcs-v2, phase 4: the producer x consumer matrix",
+  "status": "experimental, opt-in; dcp-jcs-v1 stays the default",
+  "runner": "tests/interop/candidate/phase4/run.mjs",
+  "how_to_read": {
+    "cases": "Each case adds target_json (raw JSON text) to the intent target of the base payloads, or sets an option. Inputs are generated per run with fresh synthetic keys; every producer signs the same input bytes.",
+    "modes": "bytes: each piece is given to the producer as its original bytes. value: the producer's own JSON decoder reads the bytes into a host value first.",
+    "ring": "R: the base assembled by each producer from the artifacts the next producer signed (ts, py, go, rust, wasm, ts), received as bytes.",
+    "negatives": "Byte edits of each producer's fresh output, then verified by every consumer; post-signature mutations reach the candidate verifier and fail.",
+    "decoder_calls": "How many times the consumer's historical decoder was called, observed by the adapter: 1 for a unit the scanner cannot walk (BOM, UTF8_INVALID, SYNTAX), 0 for every other rejection and for every candidate."
+  },
+  "session": {
+    "issued_at": "2026-10-21T00:00:00Z",
+    "expires_at": "2099-12-31T23:59:59+05:00",
+    "created_at": "2026-10-21T12:05:00Z",
+    "now": "2026-10-25T00:00:00Z"
+  },
+  "producers": [
+    "ts",
+    "py",
+    "go",
+    "rust",
+    "wasm"
+  ],
+  "cases": [
+    {
+      "id": "S01",
+      "modes": [
+        "bytes",
+        "value"
+      ],
+      "why": "The base: hybrid signatures, two audit entries."
+    },
+    {
+      "id": "S02",
+      "modes": [
+        "bytes",
+        "value"
+      ],
+      "classical": true,
+      "routine": true,
+      "why": "Classical-only keys, a low-risk passport and a routine intent."
+    },
+    {
+      "id": "S03",
+      "modes": [
+        "bytes",
+        "value"
+      ],
+      "dual_hash": true,
+      "why": "dualHash: the SHA3 root and hash_alg sha256+sha3-256."
+    },
+    {
+      "id": "S04",
+      "modes": [
+        "bytes",
+        "value"
+      ],
+      "checkpoint": true,
+      "why": "A PQ checkpoint signed by the agent over the two entries."
+    },
+    {
+      "id": "S05",
+      "modes": [
+        "bytes",
+        "value"
+      ],
+      "target_json": "{\"limits\": {\"max\": 9007199254740991, \"min\": -9007199254740991}}",
+      "why": "The limits \u00b1(2^53-1)."
+    },
+    {
+      "id": "S06",
+      "modes": [
+        "bytes",
+        "value"
+      ],
+      "target_json": "{\"keys\": {\"\\ud83d\\ude00\": 2, \"\\ue000\": 1}}",
+      "why": "Keys U+1F600 and U+E000: code point order differs from UTF-16 order."
+    },
+    {
+      "id": "S07",
+      "modes": [
+        "bytes",
+        "value"
+      ],
+      "target_json": "{\"strings\": [\"\\ufeffstart\", \"\\ufffd\", \"\\u2028\", \"\\u0000\"]}",
+      "why": "U+FEFF at the start of a string, U+FFFD, U+2028 and U+0000."
+    },
+    {
+      "id": "S08",
+      "modes": [
+        "bytes",
+        "value"
+      ],
+      "target_json": "{\"d\": [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[\"deep\"]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]}",
+      "why": "A payload 61 deep: the final unit is 64 levels deep, the limit."
+    },
+    {
+      "id": "S09",
+      "modes": [
+        "bytes",
+        "value"
+      ],
+      "target_json": "{\"x_payload_ext\": {\"kept\": 1}}",
+      "checkpoint": true,
+      "extensions": true,
+      "why": "Members the producer does not know, in a payload, an entry and a checkpoint (signed), and in an artifact and its composite_sig (not signed: kept without an integrity claim)."
+    },
+    {
+      "id": "S10",
+      "modes": [
+        "bytes",
+        "value"
+      ],
+      "target_json": "{\"__proto__\":\"data\",\"constructor\":\"data\",\"toJSON\":\"data\"}",
+      "why": "Members named __proto__, constructor and toJSON are data."
+    },
+    {
+      "id": "S11",
+      "modes": [
+        "bytes"
+      ],
+      "target_json": "{\"one_800\":1.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000,\"one_5000\":1.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000}",
+      "why": "1 followed by 800 and 5000 decimal zeros: exactly 1, from the original bytes only."
+    },
+    {
+      "id": "S12",
+      "modes": [
+        "value"
+      ],
+      "target_json": "{\"one\":1.0,\"zero\":-0.0}",
+      "why": "Integral floats of the host, normalized to the integer: values only."
+    }
+  ],
+  "negatives": [
+    {
+      "id": "NBOM",
+      "from": "S01-bytes",
+      "edit": "prefix BOM",
+      "config": {
+        "transport": "bare",
+        "accepted": [
+          "dcp-jcs-v2"
+        ]
+      },
+      "expect": {
+        "outcome": "reject",
+        "class": "BOM",
+        "entered": "none",
+        "decoder_calls": 1
+      }
+    },
+    {
+      "id": "NUTF8",
+      "from": "S01-bytes",
+      "edit": "0xFF inside bob@example.com",
+      "config": {
+        "transport": "bare",
+        "accepted": [
+          "dcp-jcs-v2"
+        ]
+      },
+      "expect": {
+        "outcome": "reject",
+        "class": "UTF8_INVALID",
+        "entered": "none",
+        "decoder_calls": 1
+      }
+    },
+    {
+      "id": "NSYNTAX",
+      "from": "S01-bytes",
+      "edit": "drop the last byte",
+      "config": {
+        "transport": "bare",
+        "accepted": [
+          "dcp-jcs-v2"
+        ]
+      },
+      "expect": {
+        "outcome": "reject",
+        "class": "SYNTAX",
+        "entered": "none",
+        "decoder_calls": 1
+      }
+    },
+    {
+      "id": "NSURR",
+      "from": "S01-bytes",
+      "edit": "a lone surrogate escape in bob@example.com",
+      "config": {
+        "transport": "bare",
+        "accepted": [
+          "dcp-jcs-v2"
+        ]
+      },
+      "expect": {
+        "outcome": "reject",
+        "class": "SURROGATE_UNPAIRED",
+        "entered": "none",
+        "decoder_calls": 0
+      }
+    },
+    {
+      "id": "NDUP",
+      "from": "S01-bytes",
+      "edit": "risk_score twice",
+      "config": {
+        "transport": "bare",
+        "accepted": [
+          "dcp-jcs-v2"
+        ]
+      },
+      "expect": {
+        "outcome": "reject",
+        "class": "DUPLICATE_KEY",
+        "entered": "none",
+        "decoder_calls": 0
+      }
+    },
+    {
+      "id": "NFRAC",
+      "from": "S01-bytes",
+      "edit": "risk_score 1.5",
+      "config": {
+        "transport": "bare",
+        "accepted": [
+          "dcp-jcs-v2"
+        ]
+      },
+      "expect": {
+        "outcome": "reject",
+        "class": "NUMBER_NOT_INTEGER",
+        "entered": "none",
+        "decoder_calls": 0
+      }
+    },
+    {
+      "id": "NRANGE",
+      "from": "S01-bytes",
+      "edit": "risk_score 2^53",
+      "config": {
+        "transport": "bare",
+        "accepted": [
+          "dcp-jcs-v2"
+        ]
+      },
+      "expect": {
+        "outcome": "reject",
+        "class": "NUMBER_OUT_OF_RANGE",
+        "entered": "none",
+        "decoder_calls": 0
+      }
+    },
+    {
+      "id": "NDEPTH",
+      "from": "S08-bytes",
+      "edit": "one more level around the innermost array",
+      "config": {
+        "transport": "bare",
+        "accepted": [
+          "dcp-jcs-v2"
+        ]
+      },
+      "expect": {
+        "outcome": "reject",
+        "class": "DEPTH_EXCEEDED",
+        "entered": "none",
+        "decoder_calls": 0
+      }
+    },
+    {
+      "id": "NTRANS",
+      "from": "S01-bytes",
+      "edit": "none",
+      "config": {
+        "transport": "envelope",
+        "accepted": [
+          "dcp-jcs-v2"
+        ]
+      },
+      "expect": {
+        "outcome": "reject",
+        "class": "TRANSPORT_INVALID",
+        "entered": "none",
+        "decoder_calls": 0
+      }
+    },
+    {
+      "id": "NAMBIG",
+      "from": "S01-bytes",
+      "edit": "an envelope with signed_bundle twice",
+      "config": {
+        "transport": "envelope",
+        "accepted": [
+          "dcp-jcs-v2"
+        ]
+      },
+      "expect": {
+        "outcome": "reject",
+        "class": "TRANSPORT_AMBIGUOUS",
+        "entered": "none",
+        "decoder_calls": 0
+      }
+    },
+    {
+      "id": "NPUNK",
+      "from": "S01-bytes",
+      "edit": "the profile dcp-jcs-v3",
+      "config": {
+        "transport": "bare",
+        "accepted": [
+          "dcp-jcs-v2"
+        ]
+      },
+      "expect": {
+        "outcome": "reject",
+        "class": "PROFILE_UNKNOWN",
+        "entered": "none",
+        "decoder_calls": 0
+      }
+    },
+    {
+      "id": "NPNA",
+      "from": "S01-bytes",
+      "edit": "none",
+      "config": {
+        "transport": "bare",
+        "accepted": [
+          "dcp-jcs-v1"
+        ]
+      },
+      "expect": {
+        "outcome": "reject",
+        "class": "PROFILE_NOT_ACCEPTED",
+        "entered": "none",
+        "decoder_calls": 0
+      }
+    },
+    {
+      "id": "NPAY",
+      "from": "S01-bytes",
+      "edit": "action_type send_fax",
+      "config": {
+        "transport": "bare",
+        "accepted": [
+          "dcp-jcs-v2"
+        ]
+      },
+      "expect": {
+        "outcome": "candidate",
+        "entered": "dcp-jcs-v2",
+        "verified": false,
+        "decoder_calls": 0
+      }
+    },
+    {
+      "id": "NMAN",
+      "from": "S01-bytes",
+      "edit": "session_expires_at a day earlier",
+      "config": {
+        "transport": "bare",
+        "accepted": [
+          "dcp-jcs-v2"
+        ]
+      },
+      "expect": {
+        "outcome": "candidate",
+        "entered": "dcp-jcs-v2",
+        "verified": false,
+        "decoder_calls": 0
+      }
+    },
+    {
+      "id": "NSIGC",
+      "from": "S01-bytes",
+      "edit": "the bundle's classical signature altered",
+      "config": {
+        "transport": "bare",
+        "accepted": [
+          "dcp-jcs-v2"
+        ]
+      },
+      "expect": {
+        "outcome": "candidate",
+        "entered": "dcp-jcs-v2",
+        "verified": false,
+        "decoder_calls": 0
+      }
+    },
+    {
+      "id": "NSIGQ",
+      "from": "S01-bytes",
+      "edit": "the bundle's PQ signature altered",
+      "config": {
+        "transport": "bare",
+        "accepted": [
+          "dcp-jcs-v2"
+        ]
+      },
+      "expect": {
+        "outcome": "candidate",
+        "entered": "dcp-jcs-v2",
+        "verified": false,
+        "decoder_calls": 0
+      }
+    }
+  ],
+  "positive_expect": {
+    "outcome": "candidate",
+    "entered": "dcp-jcs-v2",
+    "verified": true,
+    "decoder_calls": 0
+  }
+}

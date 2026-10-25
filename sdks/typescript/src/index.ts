@@ -235,6 +235,22 @@ export type {
   ExperimentalCandidateVerifyResult,
 } from './core/experimental-candidate-verify.js';
 
+// ── EXPERIMENTAL, opt-in: producers of new candidate dcp-jcs-v2 evidence (phase 4) ──
+export {
+  experimentalCandidateSignPayload,
+  experimentalCandidateSignBundle,
+  ExperimentalCandidateProduceError,
+} from './core/experimental-candidate-produce.js';
+export type {
+  ExperimentalCandidateBundleOptions,
+  ExperimentalCandidateBundleParts,
+  ExperimentalCandidateBundleSigner,
+  ExperimentalCandidateInput,
+  ExperimentalCandidateKeys,
+  ExperimentalCandidateProduceClass,
+  ExperimentalCandidateSignedPayload,
+} from './core/experimental-candidate-produce.js';
+
 // ── V2 Signed Payload ──
 export { preparePayload, verifyPayloadHash } from './core/signed-payload.js';
 
