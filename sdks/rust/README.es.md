@@ -174,6 +174,21 @@ Todos los structs derivan `Debug`, `Clone`, `Serialize`, `Deserialize`. Los enum
 | `create_sub_mandate(ed, pq, classical, pq_key, &parent, SubMandateParams { .. })` | Submandato firmado por el agente del mandato padre bajo el contexto `DCP-AI.v2.SubMandate` |
 | `verify_mandate_chain(&chain, &revoked_ids, &MandateChainKeys { human_keys, agent_keys }, now_millis)` | Verifica la cadena empezando por la raíz y offline (firmas hasta el humano, enlaces y profundidad, `sub_delegation`, validez anidada, atenuación de acciones, `data_classes` y `limits`, nivel mínimo, revocación); devuelve `MandateChainResult { valid, errors, depth, effective_tier }` |
 
+### Admisión: confianza en el principal y strict-v1
+
+Un bundle verificado prueba integridad y firma, no quién es el principal. La admisión ([spec/profiles/admission](../../spec/profiles/admission/README.md), guía en [docs/ADMISSION.md](../../docs/ADMISSION.md)) añade un conjunto de confianza del operador que fija las claves de cada principal, y el perfil `strict-v1`, fijado por el operador (firmas híbridas, audiencia firmada, una sesión firmada de 300 s como máximo y una instantánea de revocación de 300 s como máximo). No hace E/S de red y nunca autoriza una acción: `action_authorized` es siempre `false`. Un conjunto de confianza o un perfil que no se puede cargar devuelve `AdmissionConfigError { code, message }`.
+
+| Función | Descripción |
+|---|---|
+| `verify_signed_bundle_v2_at(&b, &policy, now_ms)` | Verifica en el instante dado; devuelve `V2VerificationDetails`: el mismo `V2VerificationResult` (`result`) y las claves firmantes (`signer_keys`). `V2VerificationResult` conserva su forma de diez campos y las otras dos funciones conservan sus firmas |
+| `PrincipalTrustStore::from_json(&json)` | Carga y valida un conjunto de confianza |
+| `resolve_strict_v1_profile(&json)` | Carga y valida un perfil `strict-v1`, de solo lectura |
+| `revocation_subjects(&b, &verification)` | El `agent_id` y los kids verificados que debe responder la fuente de revocación |
+| `evaluate_admission_v2(&b, &verification, &opts)` | Evalúa la admisión desde un resultado del verificador, sin criptografía ni E/S |
+| `admit_signed_bundle_v2(&b, &opts)` | Verifica con la política del perfil y evalúa |
+
+La sección completa, con un ejemplo, está en el [README en inglés](README.md#admission-dcp_aiv2-specprofilesadmission).
+
 ### Feature `wasm`
 
 Cuando el feature `wasm` está habilitado, el crate expone bindings WebAssembly:

@@ -1,0 +1,38 @@
+{
+  "trust_set_version": "2026-11-02.rotation-overlap",
+  "principals": [
+    {
+      "human_id": "human:acme-ops",
+      "keys": [
+        {
+          "kid": "d158b3909929ee1a4fb88f342d0d8efb",
+          "alg": "ed25519",
+          "public_key_b64": "RIDrs5Sqs42XgB7iv17DmXdF9TKLY78YD2X/ppg1yaw=",
+          "status": "active",
+          "expires_at": "2026-11-02T12:00:00Z"
+        },
+        {
+          "kid": "fb36d810d12bbf3cc1fa4dbf46d606d7",
+          "alg": "ml-dsa-65",
+          "public_key_b64": "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",
+          "status": "active",
+          "expires_at": "2026-11-02T12:00:00Z"
+        },
+        {
+          "kid": "4a1f992a38f0853c1f992987d817f41c",
+          "alg": "ed25519",
+          "public_key_b64": "v9lb8vGLiJv0mVVKl+yxtRlW8BiCkizAPazeTCZex5Y=",
+          "status": "active",
+          "not_before": "2026-11-02T09:00:00Z"
+        },
+        {
+          "kid": "d4104ed909ae4fa6b2d39bd554410529",
+          "alg": "ml-dsa-65",
+          "public_key_b64": "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",
+          "status": "active",
+          "not_before": "2026-11-02T09:00:00Z"
+        }
+      ]
+    }
+  ]
+}

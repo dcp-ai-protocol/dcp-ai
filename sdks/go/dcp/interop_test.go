@@ -796,6 +796,18 @@ func TestSignedBundleVectors(t *testing.T) {
 	if r := v2.VerifySignedBundleV2WithPolicy(reg, vecs.SignedBundle, tuned); r.Verified {
 		t.Error("a policy field the verifier does not enforce must fail closed")
 	}
+	// The accepted algorithms are enforced, as in the TS verifier: a subset
+	// that keeps the bundle's algorithms verifies, one that drops its PQ
+	// algorithm does not. AllowV1Bundles false changes nothing for a V2 bundle.
+	subset := v2.DefaultVerifierPolicy()
+	subset.AcceptedPQAlgs, subset.AllowV1Bundles = []string{"ml-dsa-65"}, false
+	if r := v2.VerifySignedBundleV2WithPolicy(reg, vecs.SignedBundle, subset); !r.Verified {
+		t.Errorf("accepted_pq_algs [ml-dsa-65] and allow_v1_bundles false must verify an ML-DSA-65 bundle: %v", r.Errors)
+	}
+	subset.AcceptedPQAlgs = []string{"slh-dsa-192f"}
+	if r := v2.VerifySignedBundleV2WithPolicy(reg, vecs.SignedBundle, subset); r.Verified || !strings.Contains(strings.Join(r.Errors, "\n"), "PQ algorithm ml-dsa-65 not accepted by verifier policy") {
+		t.Errorf("accepted_pq_algs without ml-dsa-65 must reject an ML-DSA-65 signature: %v", r.Errors)
+	}
 	// MaxSessionDurationSeconds bounds the signed window from session_issued_at
 	// to session_expires_at (V2-4), whatever the verification time: a maximum of
 	// exactly that duration verifies and one second less does not.

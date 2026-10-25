@@ -28,6 +28,7 @@ jobs:
       rust: ${{ steps.filter.outputs.rust }}
       wasm: ${{ steps.filter.outputs.wasm }}
       integrations: ${{ steps.filter.outputs.integrations }}
+      cli: ${{ steps.filter.outputs.cli }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -77,6 +78,12 @@ jobs:
               - 'tests/interop/v2/**'
               - 'tests/conformance/examples/**'
               - '.github/workflows/ci.yml'
+            cli:
+              - 'cli/**'
+              - 'sdks/typescript/**'
+              - 'schemas/**'
+              - 'tests/**'
+              - '.github/workflows/ci.yml'
 
   conformance:
     name: Conformance Tests
@@ -106,6 +113,11 @@ jobs:
       - name: Run conformance tests (V1 + V2)
         run: npm run conformance
 
+      # Ed25519 S < L (RFC 8032 §5.1.7) in the reference verifier (tools/crypto.js, lib/verify.js,
+      # the transparency-log gossip) and in the playground's verifyDetached.
+      - name: Ed25519 S range regressions (reference and playground)
+        run: node --test tools/crypto-s-range.test.mjs tools/playground-s-range.test.mjs
+
       - name: Generate V2 examples
         run: npm run examples:generate:v2
 
@@ -123,7 +135,7 @@ jobs:
       - name: Server and service tests
         run: >-
           node --test server/index.test.js services/revocation/index.test.js bin/dcp.test.js
-          services/anchor/index.test.js services/transparency-log/index.test.js
+          services/anchor/index.test.js services/transparency-log/index.test.js tests/helpers.test.js
 
       - name: Check protocol integrity
         run: node bin/dcp.js integrity
@@ -206,6 +218,69 @@ jobs:
 
       - name: Run tests
         run: npx vitest run
+
+  # @dcp-ai/cli runs its own tests against the workspace SDK it needs (2.2.0, not on npm yet). The
+  # SDK is built and installed into cli/ as a copy (--install-links), with the CLI's other
+  # dependencies, without writing a lockfile or package.json and without install scripts; the root
+  # is not installed, so nothing resolves through the root node_modules.
+  cli:
+    name: CLI (Node ${{ matrix.node-version }})
+    needs: changes
+    if: ${{ needs.changes.outputs.cli == 'true' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [20, 22]
+    defaults:
+      run:
+        working-directory: cli
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Build the workspace SDK
+        working-directory: sdks/typescript
+        run: |
+          npm install
+          npm run build
+
+      - name: Install the CLI with the workspace SDK
+        run: npm install --no-save --package-lock=false --ignore-scripts --install-links ../sdks/typescript
+
+      - name: Check the CLI resolves the workspace SDK, copied
+        run: |
+          test ! -L node_modules/@dcp-ai/sdk
+          test ! -e ../node_modules
+          diff -r ../sdks/typescript/dist node_modules/@dcp-ai/sdk/dist
+          node -e "const v = require('./node_modules/@dcp-ai/sdk/package.json').version; if (v !== require('../sdks/typescript/package.json').version) throw new Error('SDK ' + v)"
+          git diff --exit-code -- package.json
+          test ! -e package-lock.json
+
+      # Both suites: verify-s-range (V1, the Ed25519 S range, exit codes) and verify-v2-normative
+      # (the normative V2 verifier, the pre-normative envelope, the key pin, the packaged files).
+      - name: Run the CLI tests
+        run: npm test
+
+      # Each suite inverts one positive case: the run must fail on exactly those, on assertions.
+      - name: Negative control
+        run: npm run test:negative-control
+
+      - name: Check the packed files
+        run: |
+          npm pack --dry-run --json --ignore-scripts --offline > "$RUNNER_TEMP/pack.json"
+          node -e "
+            const files = require(process.env.RUNNER_TEMP + '/pack.json')[0].files.map((f) => f.path);
+            const need = ['bin/dcp-ai.js', 'lib/verify-v2.js', 'lib/schemas/v2/signed_bundle.schema.json'];
+            const missing = need.filter((f) => !files.includes(f));
+            const tests = files.filter((f) => f.startsWith('__tests__/'));
+            const schemas = files.filter((f) => f.startsWith('lib/schemas/v2/'));
+            if (missing.length || tests.length || schemas.length !== 11) throw new Error(JSON.stringify({ missing, tests, schemas }));
+            console.log(files.length + ' files packed');
+          "
 
   python-sdk:
     name: Python SDK

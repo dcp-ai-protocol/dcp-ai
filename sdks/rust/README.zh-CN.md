@@ -174,6 +174,21 @@ V2 包含针对 DCP-05 至 DCP-09 全部工件的 Serde 派生 struct：
 | `create_sub_mandate(ed, pq, classical, pq_key, &parent, SubMandateParams { .. })` | 由父授权中的智能体在 `DCP-AI.v2.SubMandate` 上下文下签名的子授权 |
 | `verify_mandate_chain(&chain, &revoked_ids, &MandateChainKeys { human_keys, agent_keys }, now_millis)` | 离线验证以根授权开头的链（一直追溯到人类的签名、链接与深度、`sub_delegation`、嵌套有效期、动作、`data_classes` 和 `limits` 的权限衰减、等级下限、撤销）；返回 `MandateChainResult { valid, errors, depth, effective_tier }` |
 
+### 准入：委托人信任与 strict-v1
+
+已验证的凭证包证明的是完整性和签名，而不是委托人是谁。准入（[spec/profiles/admission](../../spec/profiles/admission/README.md)，指南见 [docs/ADMISSION.md](../../docs/ADMISSION.md)）在验证之上增加运营方的信任集（固定每个委托人的密钥）以及由运营方固定的 `strict-v1` 配置（混合签名、已签名的受众、最长 300 秒的已签名会话、不超过 300 秒的吊销快照）。它不做网络 I/O，也从不授权任何操作：`action_authorized` 始终为 `false`。无法加载的信任集或配置返回 `AdmissionConfigError { code, message }`。
+
+| 函数 | 说明 |
+|---|---|
+| `verify_signed_bundle_v2_at(&b, &policy, now_ms)` | 在给定时刻验证，返回 `V2VerificationDetails`：同一个 `V2VerificationResult`（`result`）和签名密钥（`signer_keys`）。`V2VerificationResult` 保持其十个字段的结构，另外两个函数保持其签名 |
+| `PrincipalTrustStore::from_json(&json)` | 加载并校验信任集 |
+| `resolve_strict_v1_profile(&json)` | 加载并校验 `strict-v1` 配置（只读） |
+| `revocation_subjects(&b, &verification)` | 吊销来源需要回答的 `agent_id` 和已验证的 kid |
+| `evaluate_admission_v2(&b, &verification, &opts)` | 根据验证结果评估准入（不做密码运算，也不做 I/O） |
+| `admit_signed_bundle_v2(&b, &opts)` | 按配置的策略验证并评估 |
+
+包含示例的完整说明见[英文 README](README.md#admission-dcp_aiv2-specprofilesadmission)。
+
 ### `wasm` 特性
 
 启用 `wasm` 特性后，crate 会暴露 WebAssembly 绑定：

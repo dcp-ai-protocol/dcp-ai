@@ -3,17 +3,21 @@
 import { randomUUID } from 'node:crypto';
 import { createInterface } from 'node:readline';
 import {
+  AdmissionConfigError,
   AlgorithmRegistry,
   BundleBuilderV2,
   DCP_CONTEXTS,
   DEFAULT_VERIFIER_POLICY,
   Ed25519Provider,
   MlDsa65Provider,
+  admitSignedBundleV2,
   canonicalizeV2,
   compositeSign,
   computeSecurityTier,
+  createPrincipalTrustStore,
   generateSessionNonce,
   preparePayload,
+  resolveStrictV1Profile,
   sha256Hex,
   signBundleV2,
   verifySignedBundleV2,
@@ -26,6 +30,8 @@ registry.registerSigner(new MlDsa65Provider());
 const now = () => new Date().toISOString();
 const sha256 = (text) => `sha256:${sha256Hex(new TextEncoder().encode(text))}`;
 let state = null;
+// Operator configuration per tenant for the admission scenario: { trust, profile }.
+const tenants = new Map();
 
 async function keyPair() {
   const c = await registry.getSigner('ed25519').generateKeypair();
@@ -35,6 +41,7 @@ async function keyPair() {
     pq: { kid: p.kid, alg: 'ml-dsa-65', secretKeyB64: p.secretKeyB64, publicKeyB64: p.publicKeyB64 },
   };
 }
+const publicKeys = (keys) => [keys.classical, keys.pq].map((k) => ({ kid: k.kid, alg: k.alg, public_key_b64: k.publicKeyB64 }));
 const entries = (keys, at) =>
   [keys.classical, keys.pq].map((k) => ({ kid: k.kid, alg: k.alg, public_key_b64: k.publicKeyB64, created_at: at, expires_at: null, status: 'active' }));
 
@@ -64,7 +71,7 @@ const commands = {
       rpr: await signed(rpr, DCP_CONTEXTS.ResponsiblePrincipal, human),
       passport: await signed(passport, DCP_CONTEXTS.AgentPassport, agent),
     };
-    return { agent_id: agentId, human_id: humanId, session_nonce: nonce };
+    return { agent_id: agentId, human_id: humanId, session_nonce: nonce, principal_keys: publicKeys(human), agent_keys: publicKeys(agent) };
   },
 
   async intent({ action_type, channel, data_classes, estimated_impact, risk_score, applied_policy_hash }) {
@@ -107,7 +114,7 @@ const commands = {
     return { audit_id: it.trail.at(-1).audit_id, count: it.trail.length };
   },
 
-  async bundle({ intent_id }) {
+  async bundle({ intent_id, session_issued_at, session_expires_at, intended_verifier }) {
     const it = state?.intents.get(intent_id);
     if (!it) throw new Error(`unknown intent ${intent_id}`);
     const bundle = new BundleBuilderV2(state.nonce)
@@ -117,7 +124,11 @@ const commands = {
       .policyDecision(it.policy)
       .addAuditEntries(it.trail)
       .build();
-    const signed_bundle = await signBundleV2(bundle, { registry, signerType: 'human', signerId: state.humanId, keys: state.human });
+    if (session_issued_at) bundle.manifest.session_issued_at = session_issued_at;
+    const signed_bundle = await signBundleV2(bundle, {
+      registry, signerType: 'human', signerId: state.humanId, keys: state.human,
+      sessionExpiresAt: session_expires_at, intendedVerifier: intended_verifier,
+    });
     return { signed_bundle };
   },
 
@@ -127,6 +138,36 @@ const commands = {
       : DEFAULT_VERIFIER_POLICY;
     const r = await verifySignedBundleV2(signed_bundle, registry, policy);
     return { valid: r.verified === true, errors: r.errors };
+  },
+
+  // A new principal key pair and an RPR (same human_id) signed with it; later bundles use it.
+  async rotate_principal() {
+    if (!state) throw new Error('no identity');
+    const human = await keyPair();
+    const at = now();
+    const rpr = { ...state.rpr.payload, issued_at: at, binding_keys: entries(human, at) };
+    state.rpr = await signed(rpr, DCP_CONTEXTS.ResponsiblePrincipal, human);
+    state.human = human;
+    return { human_id: state.humanId, principal_keys: publicKeys(human) };
+  },
+
+  async configure({ tenant, trust_set, profile }) {
+    try {
+      tenants.set(tenant, { trust: createPrincipalTrustStore(trust_set), profile: resolveStrictV1Profile(profile) });
+    } catch (e) {
+      if (e instanceof AdmissionConfigError) return { config_error: e.code };
+      throw e;
+    }
+    return {};
+  },
+
+  async admit({ tenant, signed_bundle, revocation, now_ms }) {
+    const t = tenants.get(tenant);
+    if (!t) throw new Error(`unknown tenant ${tenant}`);
+    const { verification, ...result } = await admitSignedBundleV2(signed_bundle, registry, {
+      profile: t.profile, trust: t.trust, revocation, now: now_ms,
+    });
+    return { ...result, verification_errors: verification.errors };
   },
 
   async shutdown() {

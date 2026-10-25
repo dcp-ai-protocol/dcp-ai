@@ -704,7 +704,7 @@ interface SignBundleV2ClassicalOnlyOptions {
 
 ## V2 Verification
 
-### `verifySignedBundleV2(signedBundle, registry, policy?)`
+### `verifySignedBundleV2(signedBundle, registry, policy?, options?)`
 
 Full V2 signed bundle verification with verifier-authoritative policy.
 
@@ -713,6 +713,7 @@ async function verifySignedBundleV2(
   signedBundle: SignedBundleV2,
   registry: AlgorithmRegistry,
   policy?: VerifierPolicy,
+  options?: { now?: number },
 ): Promise<VerifyV2Result>;
 ```
 
@@ -721,6 +722,7 @@ async function verifySignedBundleV2(
 | `signedBundle` | `SignedBundleV2` | The signed bundle to verify |
 | `registry` | `AlgorithmRegistry` | Algorithm registry with providers |
 | `policy` | `VerifierPolicy` | Verifier policy (defaults to `DEFAULT_VERIFIER_POLICY`) |
+| `options.now` | `number` | The instant every time check uses, in milliseconds since the epoch (defaults to `Date.now()`) |
 
 **Returns:**
 
@@ -739,6 +741,8 @@ interface VerifyV2Result {
     verification_mode?: VerificationMode;
     resolved_tier?: SecurityTier;
     advisory_rejected_algs?: string[];
+    /** Per checked signature component: the key the verifier resolved and whether it verified. */
+    signer_keys?: Array<{ signature: string; component: 'classical' | 'pq'; kid: string; alg: string; public_key_b64: string; verified: boolean }>;
   };
 }
 ```
@@ -775,6 +779,21 @@ if (result.verified) {
   console.warn('Warnings:', result.warnings);
 }
 ```
+
+### Admission: trusted principals and strict-v1
+
+Defined in [`spec/profiles/admission`](../spec/profiles/admission/README.md); guide in [ADMISSION.md](ADMISSION.md).
+
+| Function | Description |
+|----------|-------------|
+| `createPrincipalTrustStore(trustSet)` | Validates a trust set and returns a store; throws `AdmissionConfigError` (`code`) |
+| `resolveStrictV1Profile(config)` | Validates a strict-v1 configuration and returns the frozen profile with its `policy` |
+| `admitSignedBundleV2(signedBundle, registry, { profile?, policy?, trust?, revocation?, now? })` | Verifies (under the profile's policy when there is one) and evaluates admission |
+| `evaluateAdmissionV2({ signedBundle, verification, profile?, trust?, revocation?, now })` | Evaluates admission from a verifier result; no cryptography, no I/O. It trusts `verification`: pass only the result of `verifySignedBundleV2` on that bundle, at that `now`, under `profile.policy` |
+| `revocationSubjects(signedBundle, verification)` | The agent id and verified signer kids a revocation source must answer for |
+| `revocationSnapshotFromDenyList(document, subjects)` | A snapshot from a complete deny list (the revocation service's `/.well-known/dcp-revocations.json`) |
+
+The result: `verified`, `verification`, `principal_trust`, `profile`, `profile_compliance`, `admitted`, `action_authorized` (always `false`), `recorded_decision`, `trust_set_version`, `errors: [{ code, message }]`.
 
 ### `DEFAULT_VERIFIER_POLICY`
 

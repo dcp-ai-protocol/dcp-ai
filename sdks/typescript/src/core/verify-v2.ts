@@ -56,7 +56,28 @@ export interface VerifyV2Result {
     verification_mode?: VerificationMode;
     resolved_tier?: SecurityTier;
     advisory_rejected_algs?: string[];
+    /**
+     * For every composite signature checked, the key entry the verifier resolved for each
+     * component and whether that component verified (spec/profiles/admission § 2.3).
+     */
+    signer_keys?: SignerKeyUse[];
   };
+}
+
+/** The key a signature component was verified with, as the verifier resolved it. */
+export interface SignerKeyUse {
+  /** bundle, responsible_principal_record, agent_passport, intent, policy_decision or pq_checkpoints[<id>]. */
+  signature: string;
+  component: 'classical' | 'pq';
+  kid: string;
+  alg: string;
+  public_key_b64: string;
+  verified: boolean;
+}
+
+export interface VerifyV2Options {
+  /** The instant every time check uses, in milliseconds since the epoch. Default: Date.now(). */
+  now?: number;
 }
 
 export const DEFAULT_VERIFIER_POLICY: VerifierPolicy = {
@@ -165,7 +186,7 @@ function findKeyByKid(keys: KeyEntry[], kid: string): KeyEntry | undefined {
 }
 
 /** The bytes of canonical base64 (RFC 4648 § 4, padded, zero trailing bits), or undefined. */
-function canonicalB64Bytes(value: unknown): Uint8Array | undefined {
+export function canonicalB64Bytes(value: unknown): Uint8Array | undefined {
   if (typeof value !== 'string' || value.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(value)) return undefined;
   const bytes = Buffer.from(value, 'base64');
   return bytes.toString('base64') === value ? new Uint8Array(bytes) : undefined;
@@ -184,7 +205,7 @@ function keyIdentityError(key: KeyEntry): string | undefined {
 }
 
 /** How far in the future a signed session start may be (V2-4), as DCP-04 allows for timestamps. */
-const SESSION_CLOCK_SKEW_MS = 30_000;
+export const SESSION_CLOCK_SKEW_MS = 30_000;
 
 /** The audit entry record of each policy decision (V2-14). */
 const AUDITED_DECISION: Record<string, string> = { approve: 'approved', escalate: 'escalated', block: 'blocked' };
@@ -196,6 +217,8 @@ interface SigCheck {
   valid: boolean;
   errors: string[];
   warnings: string[];
+  /** The resolved key of each component that reached the cryptographic check. */
+  keys: Array<Omit<SignerKeyUse, 'signature'>>;
 }
 
 /**
@@ -217,7 +240,7 @@ async function checkCompositeSig(
 ): Promise<SigCheck> {
   const errors: string[] = [];
   const warnings: string[] = [];
-  const fail = (error: string): SigCheck => ({ valid: false, errors: [...errors, error], warnings });
+  const fail = (error: string): SigCheck => ({ valid: false, errors: [...errors, error], warnings, keys: [] });
   const rejectedAlgs = policy.advisory_rejected_algs || [];
 
   if (!isObject(sig) || !isObject(sig.classical)) {
@@ -328,14 +351,21 @@ async function checkCompositeSig(
       errors.push('Unknown verification mode');
   }
 
-  return { valid: result.valid, errors, warnings };
+  const used: SigCheck['keys'] = [];
+  if (signerKey) {
+    used.push({ component: 'classical', kid: signerKey.kid, alg: signerKey.alg, public_key_b64: signerKey.public_key_b64, verified: result.classical_valid });
+  }
+  if (sig.pq && pqKey) {
+    used.push({ component: 'pq', kid: pqKey.kid, alg: pqKey.alg, public_key_b64: pqKey.public_key_b64, verified: result.pq_valid });
+  }
+  return { valid: result.valid, errors, warnings, keys: used };
 }
 
 /**
  * V2-14: the artifacts describe one action, by one agent, for one principal.
  * The signatures say who signed each one; these checks tie them together.
  */
-function consistencyErrors(bundle: SignedBundleV2['bundle'], intentHash: string): string[] {
+function consistencyErrors(bundle: SignedBundleV2['bundle'], intentHash: string, now: number): string[] {
   const errors: string[] = [];
   const rpr = bundle.responsible_principal_record.payload as unknown as Record<string, unknown>;
   const passport = bundle.agent_passport.payload as unknown as Record<string, unknown>;
@@ -349,7 +379,7 @@ function consistencyErrors(bundle: SignedBundleV2['bundle'], intentHash: string)
     const expires = parseRfc3339(rpr.expires_at);
     if (expires === undefined) {
       errors.push(`responsible_principal_record has an invalid expires_at: ${String(rpr.expires_at)}`);
-    } else if (expires < Date.now()) {
+    } else if (expires < now) {
       errors.push(`responsible_principal_record expired at ${String(rpr.expires_at)}`);
     }
   }
@@ -389,6 +419,7 @@ async function checkPQCheckpoints(
   mode: VerificationMode,
   bundle: SignedBundleV2['bundle'],
   passportKeys: KeyEntry[],
+  signerKeys: SignerKeyUse[],
 ): Promise<string[]> {
   const listed: unknown = bundle.manifest.pq_checkpoints ?? [];
   const carried: unknown = bundle.pq_checkpoints ?? [];
@@ -439,6 +470,7 @@ async function checkPQCheckpoints(
       registry, policy, cpMode, DCP_CONTEXTS.AuditEvent, payload, sig, passportKeys, 'passport keys',
     );
     errors.push(...check.errors.map((e) => `${label}: ${e}`));
+    signerKeys.push(...check.keys.map((k) => ({ signature: label, ...k })));
   }
   return errors;
 }
@@ -453,13 +485,16 @@ export async function verifySignedBundleV2(
   signedBundle: SignedBundleV2,
   registry: AlgorithmRegistry,
   policy: VerifierPolicy = DEFAULT_VERIFIER_POLICY,
+  options: VerifyV2Options = {},
 ): Promise<VerifyV2Result> {
+  const now = options.now ?? Date.now();
+  if (!Number.isFinite(now)) throw new TypeError('verifySignedBundleV2: options.now must be a finite number of milliseconds');
   // A structurally malformed bundle (a missing or null bundle, signature,
   // manifest or audit trail, a number the canonicalization profile rejects,
   // ...) fails verification instead of throwing, as in the Python, Go and
   // Rust verifiers (VERIFICATION.md V2-3, V2-5).
   try {
-    return await verifyV2(signedBundle, registry, policy);
+    return await verifyV2(signedBundle, registry, policy, Math.floor(now));
   } catch (e) {
     const reason = e instanceof Error ? e.message : String(e);
     return {
@@ -475,10 +510,12 @@ async function verifyV2(
   signedBundle: SignedBundleV2,
   registry: AlgorithmRegistry,
   policy: VerifierPolicy,
+  now: number,
 ): Promise<VerifyV2Result> {
   const errors: string[] = [];
   const warnings: string[] = [];
-  const details: VerifyV2Result['details'] = {};
+  const signerKeys: SignerKeyUse[] = [];
+  const details: VerifyV2Result['details'] = { signer_keys: signerKeys };
 
   const { bundle, signature } = signedBundle;
 
@@ -552,7 +589,7 @@ async function verifyV2(
       errors.push(`Invalid session_expires_at: ${String(sessionExpiresAt)}`);
       return { verified: false, errors, warnings, details };
     }
-    if (sessionExpires < Date.now()) {
+    if (sessionExpires < now) {
       errors.push(`Session expired at ${String(sessionExpiresAt)}`);
       return { verified: false, errors, warnings, details };
     }
@@ -571,7 +608,7 @@ async function verifyV2(
       errors.push(`Invalid session_issued_at: ${String(sessionIssuedAt)}`);
       return { verified: false, errors, warnings, details };
     }
-    if (sessionIssued > Date.now() + SESSION_CLOCK_SKEW_MS) {
+    if (sessionIssued > now + SESSION_CLOCK_SKEW_MS) {
       errors.push(`session_issued_at ${String(sessionIssuedAt)} is in the future`);
       return { verified: false, errors, warnings, details };
     }
@@ -667,7 +704,7 @@ async function verifyV2(
 
   // ── 4a. Cross-artifact consistency (V2-14) ──
 
-  errors.push(...consistencyErrors(bundle, expectedIntentHash));
+  errors.push(...consistencyErrors(bundle, expectedIntentHash, now));
   if (errors.length > 0) {
     return { verified: false, errors, warnings, details };
   }
@@ -738,6 +775,7 @@ async function verifyV2(
   errors.push(...bundleCheck.errors.map((e) => `bundle: ${e}`));
   warnings.push(...bundleCheck.warnings.map((w) => `bundle: ${w}`));
   details.signature_valid = bundleCheck.valid;
+  signerKeys.push(...bundleCheck.keys.map((k) => ({ signature: 'bundle', ...k })));
 
   // ── 7. Per-artifact composite signatures (V2-8) ──
   // The principal signs the RPR with its binding_keys; the agent signs the
@@ -757,11 +795,12 @@ async function verifyV2(
     );
     errors.push(...check.errors.map((e) => `${name}: ${e}`));
     warnings.push(...check.warnings.map((w) => `${name}: ${w}`));
+    signerKeys.push(...check.keys.map((k) => ({ signature: name, ...k })));
   }
 
   // ── 7a. PQ checkpoints (V2-12) ──
 
-  const checkpointErrors = await checkPQCheckpoints(registry, policy, mode, bundle, allKeys);
+  const checkpointErrors = await checkPQCheckpoints(registry, policy, mode, bundle, allKeys, signerKeys);
   errors.push(...checkpointErrors);
   details.pq_checkpoints_valid = checkpointErrors.length === 0;
 
@@ -790,7 +829,6 @@ async function verifyV2(
   // ── 9. Key validity checks ──
   // Every key that can sign: the passport keys and the RPR binding_keys (V2-13).
 
-  const now = new Date();
   for (const key of [...allKeys, ...rprKeys]) {
     if (key.status === 'revoked' || key.status === 'expired') {
       errors.push(`Key ${key.kid} is ${key.status}`);
@@ -799,13 +837,13 @@ async function verifyV2(
       const expires = parseRfc3339(key.expires_at);
       if (expires === undefined) {
         errors.push(`Key ${key.kid} has an invalid expires_at: ${String(key.expires_at)}`);
-      } else if (expires < now.getTime()) {
+      } else if (expires < now) {
         errors.push(`Key ${key.kid} has expired`);
       }
     }
     if (policy.max_key_age_days > 0) {
       const createdAt = new Date(key.created_at);
-      const ageDays = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24);
+      const ageDays = (now - createdAt.getTime()) / (1000 * 60 * 60 * 24);
       if (ageDays > policy.max_key_age_days) {
         warnings.push(`Key ${key.kid} exceeds max age of ${policy.max_key_age_days} days`);
       }

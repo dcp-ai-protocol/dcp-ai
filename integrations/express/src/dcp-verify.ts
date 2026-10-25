@@ -9,20 +9,37 @@
  * detection, and shape checks that give clearer errors.
  */
 import {
+  AdmissionConfigError,
   AlgorithmRegistry,
   DEFAULT_VERIFIER_POLICY,
   Ed25519Provider,
   MlDsa65Provider,
   SlhDsa192fProvider,
+  canonicalizeV2,
   computeSecurityTier,
+  createPrincipalTrustStore,
   effectiveVerificationMode,
+  evaluateAdmissionV2,
+  resolveStrictV1Profile,
+  revocationSnapshotFromDenyList,
+  revocationSubjects,
   verifySignedBundleV2,
+  type AdmissionResult,
   type IntentV2,
+  type PrincipalTrustSet,
+  type PrincipalTrustStore,
+  type RevocationSnapshot,
+  type RevocationSubjects,
   type SecurityTier,
   type SignedBundleV2,
+  type StrictV1Profile,
+  type StrictV1ProfileConfig,
   type VerificationMode,
   type VerifierPolicy,
+  type VerifyV2Result,
 } from '@dcp-ai/sdk';
+import { createHash } from 'node:crypto';
+import { isSourceSupervisor, isTimerMs, supervise, MAX_TIMER_MS, type SourceSupervisor } from './source-supervisor.js';
 
 export type { SecurityTier } from '@dcp-ai/sdk';
 export type RiskTier = keyof VerifierPolicy['risk_overrides'];
@@ -40,6 +57,8 @@ export interface V2Verdict {
   verificationMode?: VerificationMode;
   /** The security tier of the bundle's intent and policy decision (spec §14.2). */
   securityTier?: SecurityTier;
+  /** The verifier's full result (a failed one for a bundle the shape checks refused). */
+  verification: VerifyV2Result;
 }
 
 export const VERIFICATION_MODES: readonly VerificationMode[] = ['classical_only', 'hybrid_preferred', 'hybrid_required', 'pq_only'];
@@ -253,16 +272,413 @@ export function parseRfc3339(value: unknown): number | undefined {
   return t.getTime() - offset * 60_000;
 }
 
-/** Verifies a V2 signed bundle under `policy`: the shape checks above, then verifySignedBundleV2. */
-export async function verifyV2(signedBundle: unknown, policy: VerifierPolicy): Promise<V2Verdict> {
+/**
+ * Verifies a V2 signed bundle under `policy` at `now` (default the system clock): the shape checks
+ * above, then verifySignedBundleV2.
+ */
+export async function verifyV2(signedBundle: unknown, policy: VerifierPolicy, now?: number): Promise<V2Verdict> {
   const shapeErrors = v2ShapeErrors(signedBundle);
-  if (shapeErrors.length > 0) return { verified: false, errors: shapeErrors, warnings: [] };
-  const result = await verifySignedBundleV2(signedBundle as SignedBundleV2, registry, policy);
+  if (shapeErrors.length > 0) {
+    return { verified: false, errors: shapeErrors, warnings: [], verification: { verified: false, errors: shapeErrors, warnings: [], details: {} } };
+  }
+  const result = await verifySignedBundleV2(signedBundle as SignedBundleV2, registry, policy, { now });
   return {
     verified: result.verified,
     errors: result.errors,
     warnings: result.warnings,
     verificationMode: result.details?.verification_mode,
     securityTier: result.details?.resolved_tier,
+    verification: result,
+  };
+}
+
+// ── Admission: principal trust and the strict-v1 profile (spec/profiles/admission) ──
+
+/**
+ * The operator's trusted principals: a trust set, or a function of the operator's tenant that returns
+ * one. Under source supervision the function also gets `signal`, aborted at its deadline or when the
+ * supervisor closes; a function that ignores it still keeps its supervisor slot until it settles.
+ */
+export type TrustSource =
+  | PrincipalTrustSet
+  | PrincipalTrustStore
+  | ((context: { tenant: string; signal?: AbortSignal }) => PrincipalTrustSet | PrincipalTrustStore | Promise<PrincipalTrustSet | PrincipalTrustStore>);
+
+/**
+ * The operator's revocation source: the status of `subjects` (the agent and the verified signer
+ * kids) and when it was established. Return null, throw or time out when it cannot answer: the
+ * request is then refused (REVOCATION_UNAVAILABLE). An error whose `code` is REVOCATION_INVALID
+ * reports an answer that could not be read (REVOCATION_INVALID). Under `supervise.revocation` it
+ * also gets `signal`, aborted at its deadline or when the supervisor closes; a source that ignores
+ * it still keeps its supervisor slot until it settles.
+ */
+export type RevocationSource = (
+  subjects: RevocationSubjects,
+  context: { tenant: string; signal?: AbortSignal },
+) => RevocationSnapshot | null | Promise<RevocationSnapshot | null>;
+
+/** What a source supervisor supervises: the trustedPrincipals function, the revocationSource, or both. */
+export interface SupervisedSources {
+  /**
+   * Milliseconds the trustedPrincipals function may take: an integer from 1 to 2147483647. Without
+   * it the trust source is not supervised, and `revocation: true` is then required.
+   */
+  trustTimeoutMs?: number;
+  /**
+   * true: the revocationSource runs under the supervisor, with revocationTimeoutMs (then an integer
+   * from 1 to 2147483647) as its deadline. false or omitted: revocationTimeoutMs as before.
+   */
+  revocation?: boolean;
+}
+
+export interface AdmissionOptions {
+  trustedPrincipals?: TrustSource;
+  profile?: StrictV1ProfileConfig | StrictV1Profile;
+  revocationSource?: RevocationSource;
+  revocationTimeoutMs?: number;
+  /** A supervisor from createSourceSupervisor, given together with `supervise`. */
+  sourceSupervisor?: SourceSupervisor;
+  supervise?: SupervisedSources;
+}
+
+/** What the operator configured for admission, checked once. */
+export interface AdmissionSetup {
+  trust: TrustSource;
+  /** Loaded once when the trust set is static. */
+  staticTrust?: PrincipalTrustStore;
+  profile?: StrictV1Profile;
+  revocationSource?: RevocationSource;
+  revocationTimeoutMs: number;
+  /**
+   * The supervisor the operator configured: trustTimeoutMs when it supervises the trustedPrincipals
+   * function, revocation when it supervises the revocationSource (under revocationTimeoutMs).
+   */
+  supervision?: { supervisor: SourceSupervisor; trustTimeoutMs?: number; revocation: boolean };
+}
+
+const contradiction = (message: string) => new AdmissionConfigError('CONFIG_PROFILE_CONTRADICTION', message);
+
+/**
+ * The admission the operator configured, or undefined when neither trusted principals nor a
+ * profile is set. A profile needs trusted principals and a revocation source; a revocation source
+ * needs a profile. A static trust set and the profile are loaded here, so their errors
+ * (AdmissionConfigError) surface when the middleware or tool is configured.
+ */
+export function resolveAdmission(options: AdmissionOptions): AdmissionSetup | undefined {
+  const { trustedPrincipals, profile: profileConfig, revocationSource, revocationTimeoutMs = 5000 } = options;
+  if (!(Number.isFinite(revocationTimeoutMs) && revocationTimeoutMs > 0)) {
+    throw new AdmissionConfigError('CONFIG_INVALID_VALUE', 'revocationTimeoutMs must be a positive number');
+  }
+  if (revocationSource !== undefined && typeof revocationSource !== 'function') {
+    throw new AdmissionConfigError('CONFIG_INVALID_VALUE', 'revocationSource must be a function');
+  }
+  const profile = profileConfig === undefined ? undefined : resolveStrictV1Profile(profileConfig);
+  if (profile && trustedPrincipals === undefined) throw contradiction('strict-v1 requires trustedPrincipals');
+  if (profile && revocationSource === undefined) throw contradiction('strict-v1 requires a revocationSource');
+  if (!profile && revocationSource !== undefined) {
+    throw new AdmissionConfigError('CONFIG_INVALID_VALUE', 'revocationSource is used by the strict-v1 profile only; set profile');
+  }
+  const supervision = resolveSupervision(options, revocationTimeoutMs);
+  if (trustedPrincipals === undefined) return undefined;
+  const staticTrust = typeof trustedPrincipals === 'function' ? undefined : createPrincipalTrustStore(trustedPrincipals);
+  return { trust: trustedPrincipals, staticTrust, profile, revocationSource, revocationTimeoutMs, supervision };
+}
+
+const SUPERVISE_KEYS = ['trustTimeoutMs', 'revocation'];
+
+/**
+ * sourceSupervisor and supervise, which go together and supervise a trustedPrincipals function
+ * (trustTimeoutMs: a static trust set has no source to supervise), the revocationSource
+ * (revocation: true, under revocationTimeoutMs), or both.
+ */
+function resolveSupervision(
+  { sourceSupervisor, supervise: sources, trustedPrincipals, revocationSource }: AdmissionOptions,
+  revocationTimeoutMs: number,
+): AdmissionSetup['supervision'] {
+  if (sourceSupervisor === undefined && sources === undefined) return undefined;
+  if (sourceSupervisor === undefined || sources === undefined) {
+    throw contradiction('sourceSupervisor and supervise go together');
+  }
+  if (!isSourceSupervisor(sourceSupervisor)) {
+    throw new AdmissionConfigError('CONFIG_INVALID_VALUE', 'sourceSupervisor must come from createSourceSupervisor');
+  }
+  if (!isObject(sources)) throw new AdmissionConfigError('CONFIG_INVALID_VALUE', 'supervise must be an object');
+  for (const key of Object.keys(sources)) {
+    if (!SUPERVISE_KEYS.includes(key)) throw new AdmissionConfigError('CONFIG_UNKNOWN_FIELD', `Unknown supervise field: ${printable(key)}`);
+  }
+  const { trustTimeoutMs, revocation = false } = sources;
+  if (typeof revocation !== 'boolean') throw new AdmissionConfigError('CONFIG_INVALID_VALUE', 'supervise.revocation must be true or false');
+  if (trustTimeoutMs === undefined && !revocation) {
+    throw new AdmissionConfigError('CONFIG_INVALID_VALUE', 'supervise needs trustTimeoutMs, revocation: true or both');
+  }
+  if (trustTimeoutMs !== undefined) {
+    if (!isTimerMs(trustTimeoutMs, 1)) {
+      throw new AdmissionConfigError('CONFIG_INVALID_VALUE', `supervise.trustTimeoutMs must be an integer from 1 to ${MAX_TIMER_MS}`);
+    }
+    if (typeof trustedPrincipals !== 'function') {
+      throw contradiction('supervise needs trustedPrincipals as a function: a static trust set has no source to supervise');
+    }
+  }
+  if (revocation) {
+    if (revocationSource === undefined) {
+      throw contradiction('supervise.revocation needs a revocationSource (the strict-v1 profile): there is no revocation source to supervise');
+    }
+    if (!isTimerMs(revocationTimeoutMs, 1)) {
+      throw new AdmissionConfigError('CONFIG_INVALID_VALUE', `with supervise.revocation, revocationTimeoutMs must be an integer from 1 to ${MAX_TIMER_MS}`);
+    }
+  }
+  return { supervisor: sourceSupervisor, trustTimeoutMs, revocation };
+}
+
+/** SHA-256 of the canonical form of a verifier policy: part of a cached verdict's identity. */
+export function policyFingerprint(policy: VerifierPolicy): string {
+  return createHash('sha256').update(canonicalizeV2(policy)).digest('hex');
+}
+
+/** The verifier policy of an admission setup with a profile, else `policy`. */
+export function admissionPolicy(setup: AdmissionSetup | undefined, policy: VerifierPolicy): VerifierPolicy {
+  return setup?.profile ? (setup.profile.policy as VerifierPolicy) : policy;
+}
+
+function withTimeout<T>(value: T | Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error('timed out')), ms);
+  });
+  return Promise.race([Promise.resolve(value), timeout]).finally(() => clearTimeout(timer));
+}
+
+/**
+ * The revocation snapshot for `subjects`, or what stands for a source that could not answer.
+ * `cancel` (a supervised source only) cancels this invocation, as a client that left does.
+ */
+async function revocationFor(setup: AdmissionSetup, subjects: RevocationSubjects, tenant: string, cancel?: AbortSignal): Promise<unknown> {
+  if (setup.supervision?.revocation) {
+    const source = setup.revocationSource!;
+    const outcome = await supervise(setup.supervision.supervisor, 'revocation', tenant, setup.revocationTimeoutMs, (signal) => source(subjects, { tenant, signal }), cancel);
+    if (outcome.status === 'ok') return outcome.value ?? null;
+    // A timeout, no free slot, a closed supervisor or a cancellation is unavailable, never
+    // not_revoked. An error counts as REVOCATION_INVALID only when it arrived in time.
+    return outcome.status === 'failed' && (outcome.error as { code?: unknown })?.code === 'REVOCATION_INVALID' ? { source_error: 'invalid' } : null;
+  }
+  try {
+    return (await withTimeout(setup.revocationSource!(subjects, { tenant }), setup.revocationTimeoutMs)) ?? null;
+  } catch (e) {
+    // A failure is never a not_revoked: unavailable, or an answer that could not be read.
+    return (e as { code?: unknown })?.code === 'REVOCATION_INVALID' ? { source_error: 'invalid' } : null;
+  }
+}
+
+/**
+ * The operator configured trusted principals, but its source failed or gave no valid trust set
+ * (`undefined`, `null`, or a value that is not one): admission is refused. `code` is
+ * TRUST_SOURCE_FAILED when the source threw, else the AdmissionConfigError code of the value.
+ */
+export class TrustSourceError extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+    /** Under source supervision, why no trust set was used: for telemetry, never in a response. */
+    readonly reason?: 'timeout' | 'saturated' | 'closed' | 'cancelled',
+  ) {
+    super(message);
+    this.name = 'TrustSourceError';
+  }
+}
+
+/**
+ * The trust set for `tenant`: the static one, or the source's answer, always validated with
+ * createPrincipalTrustStore. A configured source that returns nothing is a failure, never the
+ * absence of a trust requirement (which evaluateAdmissionV2 reads `trust: undefined` as).
+ */
+async function trustFor(setup: AdmissionSetup, tenant: string, cancel?: AbortSignal): Promise<PrincipalTrustStore> {
+  if (setup.staticTrust) return setup.staticTrust;
+  const source = setup.trust as Exclude<TrustSource, PrincipalTrustSet | PrincipalTrustStore>;
+  let value: unknown;
+  const supervision = setup.supervision;
+  if (supervision?.trustTimeoutMs !== undefined) {
+    // The deadline is this configuration's, fixed when the invocation starts.
+    const outcome = await supervise(supervision.supervisor, 'trust', tenant, supervision.trustTimeoutMs, (signal) => source({ tenant, signal }), cancel);
+    if (outcome.status !== 'ok') {
+      const reason = outcome.status === 'failed' ? undefined : outcome.status;
+      throw new TrustSourceError('TRUST_SOURCE_FAILED', 'the trusted principals source failed', reason);
+    }
+    value = outcome.value;
+  } else {
+    try {
+      value = await source({ tenant });
+    } catch {
+      throw new TrustSourceError('TRUST_SOURCE_FAILED', 'the trusted principals source failed');
+    }
+  }
+  try {
+    return createPrincipalTrustStore(value);
+  } catch (e) {
+    const code = e instanceof AdmissionConfigError ? e.code : 'CONFIG_INVALID_VALUE';
+    throw new TrustSourceError(code, `the trusted principals source returned no valid trust set (${code})`);
+  }
+}
+
+/**
+ * Admission of a signed bundle (spec/profiles/admission § 5.1) given its verification: the trust
+ * set for `tenant` from the operator's source and, under the profile, the revocation snapshot from
+ * the operator's revocation source, both evaluated now. A bundle that is not V2 gets a failed
+ * verification: it carries no principal signature to anchor. Throws TrustSourceError when the
+ * trust source fails or gives no valid trust set: the caller refuses the request. `signal` (a
+ * client that left) cancels the supervised invocations of this call, never the supervisor.
+ */
+export async function admit(
+  setup: AdmissionSetup,
+  signedBundle: unknown,
+  verification: VerifyV2Result | undefined,
+  { tenant, now, signal }: { tenant: string; now: number; signal?: AbortSignal },
+): Promise<AdmissionResult> {
+  const trust = await trustFor(setup, tenant, signal);
+  const checked = verification ?? {
+    verified: false,
+    errors: ['Only V2 bundles can be admitted against trusted principals'],
+    warnings: [],
+    details: {},
+  };
+  const revocation =
+    setup.profile && checked.verified ? await revocationFor(setup, revocationSubjects(signedBundle, checked), tenant, signal) : undefined;
+  return evaluateAdmissionV2({ signedBundle, verification: checked, profile: setup.profile, trust, revocation: revocation as RevocationSnapshot | null | undefined, now });
+}
+
+/** The fields of a refused admission a caller may see: codes and bounded messages, no keys. */
+export function admissionFailure(result: AdmissionResult) {
+  return {
+    verified: result.verified,
+    admitted: false as const,
+    principal_trust: result.principal_trust,
+    profile: result.profile,
+    profile_compliance: result.profile_compliance,
+    codes: [...new Set(result.errors.map((e) => e.code))].sort(),
+    errors: result.errors.map((e) => e.message),
+  };
+}
+
+/** A revocation source that could not answer (REVOCATION_UNAVAILABLE) or answered unreadably (REVOCATION_INVALID). */
+class RevocationSourceError extends Error {
+  constructor(
+    readonly code: 'REVOCATION_UNAVAILABLE' | 'REVOCATION_INVALID',
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+/** The largest deny list a revocation source reads. */
+export const MAX_DENY_LIST_BYTES = 16 * 1024 * 1024;
+
+/** localhost, 127.0.0.0/8 or ::1: the only hosts a revocation list may be fetched from without TLS. */
+const isLoopback = (hostname: string) => hostname === 'localhost' || hostname === '[::1]' || /^127(\.\d{1,3}){3}$/.test(hostname);
+
+/**
+ * The body of `response`, at most `max` bytes, read until `signal` aborts; a larger one is
+ * REVOCATION_INVALID. `signal` cancels the read here, directly on the stream: with Node 22.15
+ * (undici 6.21.2) the fetch's own signal was observed not to reach a body being read once a garbage
+ * collection ran after the headers. The reader's lock is released on every exit.
+ */
+async function readCapped(response: Response, max: number, signal: AbortSignal): Promise<string> {
+  const tooLarge = () => new RevocationSourceError('REVOCATION_INVALID', 'revocation list is larger than 16 MiB');
+  const declared = Number(response.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > max) throw tooLarge();
+  if (!response.body) return '';
+  const reader = response.body.getReader();
+  const stop = () => void reader.cancel().catch(() => {});
+  signal.addEventListener('abort', stop, { once: true });
+  if (signal.aborted) stop();
+  try {
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (signal.aborted) throw new Error('aborted'); // a cancelled read ends as done, not as a whole body
+      if (done) break;
+      size += value.byteLength;
+      if (size > max) {
+        await reader.cancel().catch(() => {});
+        throw tooLarge();
+      }
+      chunks.push(value);
+    }
+    return Buffer.concat(chunks).toString('utf8');
+  } finally {
+    signal.removeEventListener('abort', stop);
+    reader.releaseLock();
+  }
+}
+
+/**
+ * A revocation source that fetches a complete deny list (revocationSnapshotFromDenyList from the
+ * SDK: the reference revocation service's /.well-known/dcp-revocations.json format) from `url`, with the
+ * operator's `headers`, within `timeoutMs` (default 5000), following no redirect and reading at most
+ * 16 MiB. `url` must be https, or http to a loopback host. A network error, a timeout or a non-2xx
+ * answer is REVOCATION_UNAVAILABLE; a larger body or one of another shape REVOCATION_INVALID. The
+ * `signal` of the call's context (a supervisor's) also aborts the fetch and the body read. However it
+ * settles, it aborts its own fetch first: an unread body (an error status, a declared or streamed
+ * oversize) is never left open, and nothing is drained.
+ */
+export function denyListRevocationSource(options: { url: string; headers?: Record<string, string>; timeoutMs?: number }): RevocationSource {
+  const { url, headers = {}, timeoutMs = 5000 } = isObject(options) ? (options as typeof options) : ({} as typeof options);
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new AdmissionConfigError('CONFIG_INVALID_VALUE', 'denyListRevocationSource: url must be an absolute URL');
+  }
+  if (parsed.protocol !== 'https:' && !(parsed.protocol === 'http:' && isLoopback(parsed.hostname))) {
+    throw new AdmissionConfigError('CONFIG_INVALID_VALUE', 'denyListRevocationSource: url must be https (http only to a loopback host)');
+  }
+  if (!isObject(headers) || !Object.values(headers).every((v) => typeof v === 'string')) {
+    throw new AdmissionConfigError('CONFIG_INVALID_VALUE', 'denyListRevocationSource: headers must map names to strings');
+  }
+  if (!(Number.isFinite(timeoutMs) && timeoutMs > 0)) {
+    throw new AdmissionConfigError('CONFIG_INVALID_VALUE', 'denyListRevocationSource: timeoutMs must be a positive number');
+  }
+  return async (subjects, context) => {
+    // Its own timeout or the caller's signal, whichever comes first (not AbortSignal.any: Node 18).
+    const outer = context?.signal instanceof AbortSignal ? context.signal : undefined;
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    let timeout: AbortSignal | undefined;
+    let response: Response | undefined;
+    try {
+      try {
+        // Inside this try, as before: a timeoutMs AbortSignal.timeout refuses is REVOCATION_UNAVAILABLE.
+        timeout = AbortSignal.timeout(timeoutMs);
+        timeout.addEventListener('abort', abort, { once: true });
+        outer?.addEventListener('abort', abort, { once: true });
+        if (outer?.aborted) abort();
+        response = await fetch(parsed, { headers, redirect: 'error', signal: controller.signal });
+      } catch {
+        throw new RevocationSourceError('REVOCATION_UNAVAILABLE', 'revocation list could not be fetched');
+      }
+      if (!response.ok) throw new RevocationSourceError('REVOCATION_UNAVAILABLE', `revocation list answered ${response.status}`);
+      let text: string;
+      try {
+        text = await readCapped(response, MAX_DENY_LIST_BYTES, controller.signal);
+      } catch (e) {
+        if (e instanceof RevocationSourceError) throw e;
+        throw new RevocationSourceError('REVOCATION_UNAVAILABLE', 'revocation list could not be read in time');
+      }
+      let document: unknown;
+      try {
+        document = JSON.parse(text);
+      } catch {
+        throw new RevocationSourceError('REVOCATION_INVALID', 'revocation list is not JSON');
+      }
+      return revocationSnapshotFromDenyList(document, subjects);
+    } finally {
+      // Before the signals are detached: whatever it did not read is closed, not left to a timer that
+      // no longer reaches it (both are no-ops once the body was read to the end). The body is also
+      // cancelled directly, as the fetch's signal may not reach it (see readCapped). Neither waits
+      // for the connection to close.
+      controller.abort();
+      void response?.body?.cancel().catch(() => {});
+      timeout?.removeEventListener('abort', abort);
+      outer?.removeEventListener('abort', abort);
+    }
   };
 }

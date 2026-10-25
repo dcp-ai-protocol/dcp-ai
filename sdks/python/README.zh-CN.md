@@ -237,6 +237,24 @@ result = await verify_signed_bundle_v2(signed, registry)  # DEFAULT_VERIFIER_POL
 
 验证器还会检查每个工件自身的复合签名（RPR 使用主体的 `binding_keys`，其余使用护照密钥），并且在任何策略模式下都会拒绝存在但无效的 PQ 签名。模式取策略模式与安全等级模式中更严格的一个（spec §14.3），`details["resolved_tier"]` 返回该等级。
 
+### 准入：受信任的委托人与 strict-v1
+
+已验证的凭证包由其自身列出的密钥签名，这并不能证明委托人是谁。准入只接受这样的凭证包：其委托人签名所用的密钥属于信任集中列出的委托人。还可以选择由运营方固定的 `strict-v1` 配置（混合签名、已签名的受众、最长 300 秒的会话、最新的吊销快照）。
+
+```python
+from dcp_ai.v2 import admit_signed_bundle_v2, create_principal_trust_store, resolve_strict_v1_profile
+
+trust = create_principal_trust_store(trust_set)  # AdmissionConfigError on a bad trust set
+profile = resolve_strict_v1_profile({"profile": "strict-v1", "verifier_id": "api.acme.example"})
+result = await admit_signed_bundle_v2(signed_bundle, registry, profile=profile, trust=trust, revocation=snapshot)
+# result["verified"], result["principal_trust"], result["profile_compliance"], result["admitted"],
+# result["action_authorized"] (always False), result["errors"] [{"code", "message"}]
+```
+
+- `verify_signed_bundle_v2(bundle, registry, policy, now_ms=...)` 接受可选的时钟并报告 `details["signer_keys"]`；不提供时行为与之前相同。
+- `evaluate_admission_v2` 评估并信任已有的验证结果（不做密码运算，也不做 I/O）；`revocation_subjects` 列出吊销来源需要回答的对象，`deny_list_revocation_source(url)` 读取参考吊销服务的拒绝列表。
+- FastAPI：`DCPVerifyMiddleware(app, require_bundle=True, trusted_principals=..., profile=..., revocation_source=...)`；参见 [`integrations/fastapi/README.md`](../../integrations/fastapi/README.md)。指南：[`docs/ADMISSION.md`](../../docs/ADMISSION.md)。规范与错误码：[`spec/profiles/admission`](../../spec/profiles/admission/README.md)。
+
 ### 委托链 (DCP-09 §3.5)
 
 根授权由人类签名（`create_delegation_mandate`）；持有根授权的智能体可以向另一个智能体签发子授权（`create_sub_mandate`），

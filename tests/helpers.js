@@ -1,6 +1,7 @@
 // Shared by the server/ and services/ node:test suites.
 import { spawn } from "node:child_process";
 import crypto from "node:crypto";
+import net from "node:net";
 import {
   AlgorithmRegistry,
   DCP_CONTEXTS,
@@ -16,20 +17,98 @@ export const registry = new AlgorithmRegistry();
 registry.registerSigner(new Ed25519Provider());
 registry.registerSigner(new MlDsa65Provider());
 
-let nextPort = 40000 + Math.floor(Math.random() * 10000);
-
-/** Spawn a service on a free-ish port and wait until it is listening. */
+/** Spawn a service on a port the OS reports free and wait until it is listening. */
 export async function startService(script, env = {}) {
-  const port = nextPort++;
-  const proc = spawn(process.execPath, [script], {
-    env: { ...process.env, PORT: String(port), ...env },
-    stdio: ["ignore", "pipe", "inherit"],
-  });
+  return startServiceWithin(script, env, { attempts: 3, deadlineMs: 30_000 });
+}
+
+/**
+ * startService with its limits explicit (the harness's own test uses short ones). Another process
+ * may take the port between the probe and the service's own listen: only that, the service exiting
+ * with EADDRINUSE before it is ready, is retried on a new port, at most `attempts` times in all and
+ * never once `deadlineMs` (monotonic) is spent. Any other exit, a spawn error or the deadline
+ * rejects, and only after the process is gone: past the deadline it gets SIGTERM, then SIGKILL after
+ * a short grace. Its stderr is passed through as before, and its first Error line is in the error.
+ */
+export async function startServiceWithin(script, env, { attempts, deadlineMs }) {
+  const deadline = performance.now() + deadlineMs;
+  let lost; // the last attempt that lost its port
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    const port = await freePort();
+    if (performance.now() >= deadline) break; // never launch with the budget spent
+    const outcome = await launch(script, { ...process.env, PORT: String(port), ...env }, deadline);
+    if (outcome.proc) return { base: `http://127.0.0.1:${port}`, proc: outcome.proc };
+    if (!outcome.addressInUse) throw outcome.error;
+    lost = outcome.error;
+    lost.message += ` (port taken on attempt ${attempt} of ${attempts})`;
+  }
+  throw lost ?? new Error(`${script} was not launched: the startup deadline was already spent`);
+}
+
+/** A port the OS reports free now, on the addresses the services listen on (all interfaces). */
+async function freePort() {
+  const probe = net.createServer();
   await new Promise((resolve, reject) => {
-    proc.stdout.on("data", (d) => /listening/i.test(d.toString()) && resolve());
-    proc.on("exit", (code) => reject(new Error(`${script} exited (${code})`)));
+    probe.once("error", reject);
+    probe.listen(0, resolve);
   });
-  return { base: `http://127.0.0.1:${port}`, proc };
+  const { port } = probe.address();
+  await new Promise((resolve) => probe.close(resolve));
+  return port;
+}
+
+const KILL_GRACE_MS = 2_000;
+const KEPT_OUTPUT = 64 * 1024;
+
+/** One start: { proc } once it prints "listening", else { error, addressInUse } once it is gone. */
+function launch(script, env, deadline) {
+  return new Promise((resolve) => {
+    const proc = spawn(process.execPath, [script], { env, stdio: ["ignore", "pipe", "pipe"] });
+    proc.stdout.setEncoding("utf8");
+    proc.stderr.setEncoding("utf8");
+    let stdout = "";
+    let stderr = "";
+    let late = false;
+    let grace;
+    const finish = (outcome) => {
+      clearTimeout(timer);
+      clearTimeout(grace);
+      proc.stdout.off("data", onStdout);
+      proc.off("close", onClose);
+      proc.off("error", onError);
+      if (outcome.proc) proc.stdout.resume(); // keep draining what the service prints
+      resolve(outcome);
+    };
+    // Accumulated (bounded): "listening" may arrive split across chunks.
+    const onStdout = (data) => {
+      stdout = (stdout + data).slice(-KEPT_OUTPUT);
+      if (!late && /listening/i.test(stdout)) finish({ proc });
+    };
+    // "close", not "exit": the process is gone and its stdio complete, so an EADDRINUSE it printed is there.
+    const onClose = (code, signal) => {
+      const cause = stderr.match(/^\w*Error\b.*$/m)?.[0]; // e.g. "Error: listen EADDRINUSE: …"
+      finish({
+        addressInUse: !late && /\bEADDRINUSE\b/.test(stderr),
+        error: late
+          ? new Error(`${script} did not report listening before the startup deadline`)
+          : new Error(`${script} exited (${code ?? signal})${cause ? `: ${cause}` : ""}`),
+      });
+    };
+    // The spawn itself failed: there is no process to wait for, and it is never retried.
+    const onError = (error) => proc.pid === undefined && finish({ error });
+    const timer = setTimeout(() => {
+      late = true;
+      proc.kill("SIGTERM");
+      grace = setTimeout(() => proc.kill("SIGKILL"), KILL_GRACE_MS);
+    }, Math.max(deadline - performance.now(), 0));
+    proc.stdout.on("data", onStdout);
+    proc.stderr.on("data", (data) => {
+      process.stderr.write(data); // the diagnostics stay visible, as with "inherit"
+      if (stderr.length < KEPT_OUTPUT) stderr += data;
+    });
+    proc.once("close", onClose);
+    proc.on("error", onError);
+  });
 }
 
 export const post = async (base, path, body, headers = {}) => {

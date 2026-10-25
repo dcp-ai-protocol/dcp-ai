@@ -174,6 +174,21 @@ V2には、DCP-05からDCP-09までのすべての成果物のためのSerde由�
 | `create_sub_mandate(ed, pq, classical, pq_key, &parent, SubMandateParams { .. })` | 親マンデートのエージェントが `DCP-AI.v2.SubMandate` コンテキストで署名するサブマンデート |
 | `verify_mandate_chain(&chain, &revoked_ids, &MandateChainKeys { human_keys, agent_keys }, now_millis)` | チェーンをルートから順に、オフラインで検証 (人間まで遡る署名、リンクと深さ、`sub_delegation`、入れ子になった有効期間、アクション・`data_classes`・`limits` の権限の減衰、ティアの下限、失効)。`MandateChainResult { valid, errors, depth, effective_tier }` を返す |
 
+### アドミッション: プリンシパルの信頼と strict-v1
+
+検証済みのバンドルが証明するのは完全性と署名であり、プリンシパルが誰かではありません。アドミッション ([spec/profiles/admission](../../spec/profiles/admission/README.md)、ガイドは [docs/ADMISSION.md](../../docs/ADMISSION.md)) は、各プリンシパルの鍵を固定するオペレーターの信頼セットと、オペレーターが固定する `strict-v1` プロファイル (ハイブリッド署名、署名済みの宛先、最大 300 秒の署名済みセッション、最大 300 秒前の失効スナップショット) を追加します。ネットワーク I/O は行わず、アクションを許可することもありません: `action_authorized` は常に `false` です。読み込めない信頼セットやプロファイルは `AdmissionConfigError { code, message }` を返します。
+
+| 関数 | 説明 |
+|---|---|
+| `verify_signed_bundle_v2_at(&b, &policy, now_ms)` | 指定した時刻で検証し、`V2VerificationDetails`（同じ `V2VerificationResult` である `result` と署名鍵 `signer_keys`）を返します。`V2VerificationResult` は 10 フィールドの形を保ち、他の 2 つの関数はシグネチャを保ちます |
+| `PrincipalTrustStore::from_json(&json)` | 信頼セットを読み込んで検証します |
+| `resolve_strict_v1_profile(&json)` | `strict-v1` プロファイルを読み込んで検証します (読み取り専用) |
+| `revocation_subjects(&b, &verification)` | 失効ソースが答えるべき `agent_id` と検証済みの kid |
+| `evaluate_admission_v2(&b, &verification, &opts)` | 検証結果からアドミッションを評価します (暗号処理も I/O もありません) |
+| `admit_signed_bundle_v2(&b, &opts)` | プロファイルのポリシーで検証して評価します |
+
+例を含む完全な説明は[英語の README](README.md#admission-dcp_aiv2-specprofilesadmission)にあります。
+
 ### フィーチャー `wasm`
 
 `wasm` フィーチャーが有効化されている場合、crateはWebAssemblyバインディングを公開します。

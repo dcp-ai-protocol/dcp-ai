@@ -9,6 +9,7 @@ import nacl from 'tweetnacl';
 import naclUtil from 'tweetnacl-util';
 import type { CryptoProvider } from '../core/crypto-provider.js';
 import { deriveKid } from '../core/crypto-provider.js';
+import { verifyDetached } from '../core/ed25519-scalar.js';
 
 const { encodeBase64, decodeBase64 } = naclUtil;
 
@@ -46,6 +47,6 @@ export class Ed25519Provider implements CryptoProvider {
     publicKeyB64: string,
   ): Promise<boolean> {
     const pk = decodeBase64(publicKeyB64);
-    return nacl.sign.detached.verify(message, signature, pk);
+    return verifyDetached(message, signature, pk);
   }
 }

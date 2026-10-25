@@ -6,6 +6,10 @@ use std::io::{self, BufRead, Write};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 
 use dcp_ai::providers::{ed25519::Ed25519Provider, ml_dsa_65::MlDsa65Provider};
+use dcp_ai::v2::admission::{
+    admit_signed_bundle_v2, resolve_strict_v1_profile, AdmitOptions, PrincipalTrustStore,
+    StrictV1Profile,
+};
 use dcp_ai::v2::bundle::{build_bundle_v2, sign_bundle_v2};
 use dcp_ai::v2::canonicalize::canonicalize_v2;
 use dcp_ai::v2::composite_ops::{composite_sign, CompositeKeyInfo};
@@ -78,6 +82,14 @@ fn key_pair() -> Result<Keys, String> {
     })
 }
 
+/// Operator configuration per tenant for the admission scenario.
+type Tenants = HashMap<String, (PrincipalTrustStore, StrictV1Profile)>;
+
+fn public_keys(keys: &Keys) -> Value {
+    let e = |k: &CompositeKeyInfo| json!({"kid": k.kid, "alg": k.alg, "public_key_b64": k.public_key_b64});
+    json!([e(&keys.classical), e(&keys.pq)])
+}
+
 fn entries(keys: &Keys, at: &str) -> Value {
     let e = |k: &CompositeKeyInfo| {
         json!({"kid": k.kid, "alg": k.alg, "public_key_b64": k.public_key_b64,
@@ -140,7 +152,8 @@ fn identity(state: &mut Option<State>, args: &Value) -> Res {
         "capabilities": ["api_call", "payments"], "risk_tier": "medium", "created_at": at,
         "status": "active",
     });
-    let result = json!({"agent_id": agent_id, "human_id": human_id, "session_nonce": nonce});
+    let result = json!({"agent_id": agent_id, "human_id": human_id, "session_nonce": nonce,
+                        "principal_keys": public_keys(&human), "agent_keys": public_keys(&agent)});
     *state = Some(State {
         rpr: signed(rpr, CTX_RESPONSIBLE_PRINCIPAL, &human)?,
         passport: signed(passport, CTX_AGENT_PASSPORT, &agent)?,
@@ -234,7 +247,7 @@ fn bundle(s: &State, args: &Value) -> Res {
         .intents
         .get(intent_id)
         .ok_or(format!("unknown intent {intent_id}"))?;
-    let bundle = build_bundle_v2(
+    let mut bundle = build_bundle_v2(
         &s.rpr,
         &s.passport,
         &it.intent,
@@ -242,6 +255,15 @@ fn bundle(s: &State, args: &Value) -> Res {
         &it.trail,
         &s.nonce,
     )?;
+    for field in [
+        "session_issued_at",
+        "session_expires_at",
+        "intended_verifier",
+    ] {
+        if let Some(value) = args.get(field).filter(|v| !v.is_null()) {
+            bundle["manifest"][field] = value.clone();
+        }
+    }
     let signed = sign_bundle_v2(bundle, &s.human.classical, &s.human.pq)?;
     Ok(json!({"signed_bundle": signed}))
 }
@@ -263,7 +285,59 @@ fn verify(args: &Value) -> Res {
     Ok(json!({"valid": r.verified, "errors": r.errors}))
 }
 
-fn handle(state: &mut Option<State>, cmd: &str, args: &Value) -> Res {
+/// A new principal key pair and an RPR (same human_id) signed with it; later bundles use it.
+fn rotate_principal(s: &mut State) -> Res {
+    let human = key_pair()?;
+    let at = now();
+    let mut rpr = s.rpr.payload.clone();
+    rpr["issued_at"] = json!(at);
+    rpr["binding_keys"] = entries(&human, &at);
+    s.rpr = signed(rpr, CTX_RESPONSIBLE_PRINCIPAL, &human)?;
+    let result = json!({"human_id": s.human_id, "principal_keys": public_keys(&human)});
+    s.human = human;
+    Ok(result)
+}
+
+fn configure(tenants: &mut Tenants, args: &Value) -> Res {
+    let (trust_set, profile) = (arg(args, "trust_set")?, arg(args, "profile")?);
+    let loaded = PrincipalTrustStore::from_json(trust_set)
+        .and_then(|trust| Ok((trust, resolve_strict_v1_profile(profile)?)));
+    match loaded {
+        Ok(config) => {
+            tenants.insert(arg_str(args, "tenant")?.to_string(), config);
+            Ok(json!({}))
+        }
+        Err(e) => Ok(json!({"config_error": e.code})),
+    }
+}
+
+fn admit(tenants: &Tenants, args: &Value) -> Res {
+    let tenant = arg_str(args, "tenant")?;
+    let (trust, profile) = tenants
+        .get(tenant)
+        .ok_or(format!("unknown tenant {tenant}"))?;
+    let now_ms = arg(args, "now_ms")?
+        .as_i64()
+        .ok_or("now_ms must be an integer")?;
+    let options = AdmitOptions {
+        profile: Some(profile),
+        policy: None,
+        trust: Some(trust),
+        revocation: args.get("revocation"),
+        now_ms: Some(now_ms),
+    };
+    let r = admit_signed_bundle_v2(arg(args, "signed_bundle")?, &options)
+        .map_err(|e| e.code.to_string())?;
+    // The SDK's own JSON form (§ 8), without the full verification result.
+    let mut out = serde_json::to_value(&r).map_err(|e| e.to_string())?;
+    if let Some(map) = out.as_object_mut() {
+        map.remove("verification");
+        map.insert("verification_errors".into(), json!(r.verification.result.errors));
+    }
+    Ok(out)
+}
+
+fn handle(state: &mut Option<State>, tenants: &mut Tenants, cmd: &str, args: &Value) -> Res {
     let no_identity = || "no identity".to_string();
     match cmd {
         "identity" => identity(state, args),
@@ -271,6 +345,9 @@ fn handle(state: &mut Option<State>, cmd: &str, args: &Value) -> Res {
         "act" => act(state.as_mut().ok_or_else(no_identity)?, args),
         "bundle" => bundle(state.as_ref().ok_or_else(no_identity)?, args),
         "verify" => verify(args),
+        "rotate_principal" => rotate_principal(state.as_mut().ok_or_else(no_identity)?),
+        "configure" => configure(tenants, args),
+        "admit" => admit(tenants, args),
         "shutdown" => Ok(json!({})),
         _ => Err(format!("unknown command {cmd}")),
     }
@@ -278,6 +355,7 @@ fn handle(state: &mut Option<State>, cmd: &str, args: &Value) -> Res {
 
 fn main() {
     let mut state: Option<State> = None;
+    let mut tenants = Tenants::new();
     let mut out = io::stdout().lock();
     for line in io::stdin().lock().lines() {
         let Ok(line) = line else { break };
@@ -291,8 +369,10 @@ fn main() {
         let result = if req.is_null() {
             Err("malformed request".to_string())
         } else {
-            catch_unwind(AssertUnwindSafe(|| handle(&mut state, cmd, &args)))
-                .unwrap_or_else(|_| Err(format!("panic in {cmd}")))
+            catch_unwind(AssertUnwindSafe(|| {
+                handle(&mut state, &mut tenants, cmd, &args)
+            }))
+            .unwrap_or_else(|_| Err(format!("panic in {cmd}")))
         };
         let resp = match result {
             Ok(result) => json!({"id": id, "ok": true, "result": result}),

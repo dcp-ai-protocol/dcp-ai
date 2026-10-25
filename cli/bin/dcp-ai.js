@@ -28,6 +28,33 @@ ${chalk.yellow('Options:')}
   --version, -v          Show version
 `;
 
+// RFC 8032 §5.1.7 requires S < L, which TweetNaCl does not check. Same check as
+// verifyDetached in sdks/typescript/src/core/ed25519-scalar.ts: the range is
+// checked only on input TweetNaCl accepts, so its errors stay the same. `nacl`
+// is passed in so that tweetnacl is still loaded only by the commands using it.
+const L = [
+  0xed, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58, 0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde, 0x14,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10,
+];
+
+function scalarBelowL(sig) {
+  for (let i = 31; i >= 0; i--) {
+    if (sig[32 + i] !== L[i]) return sig[32 + i] < L[i];
+  }
+  return false; // S = L
+}
+
+function verifyDetached(nacl, msg, sig, pk) {
+  if (
+    msg instanceof Uint8Array && sig instanceof Uint8Array && pk instanceof Uint8Array &&
+    sig.length === nacl.sign.signatureLength && pk.length === nacl.sign.publicKeyLength &&
+    !scalarBelowL(sig)
+  ) {
+    return false;
+  }
+  return nacl.sign.detached.verify(msg, sig, pk);
+}
+
 async function cmdInit() {
   const initPath = new URL('./dcp-init.js', import.meta.url).pathname;
   const { execFileSync } = await import('node:child_process');
@@ -94,77 +121,99 @@ async function cmdVerify(bundlePath) {
     console.log(chalk.bold('  Bundle Verification'));
     console.log(chalk.gray('  ─────────────────────────────'));
 
-    const isV2 = signed.dcp_version === '2.0' || signed.signature?.binding === 'composite';
-    console.log(`  ${chalk.green('✓')} Format: ${isV2 ? 'V2 composite' : 'V1 classical'}`);
-
-    if (signed.bundle) {
-      const nacl = (await import('tweetnacl')).default;
-      const naclUtil = (await import('tweetnacl-util')).default;
-
-      let publicKeyB64 = null;
-      const dcpDir = findConfigDir();
-      if (dcpDir) {
-        const pubKeyPath = join(dcpDir, 'keys', 'ed25519_public.key');
-        if (existsSync(pubKeyPath)) {
-          publicKeyB64 = (await readFile(pubKeyPath, 'utf-8')).trim();
-        }
-      }
-
-      if (!publicKeyB64) {
-        publicKeyB64 = signed.signature?.signer?.public_key_b64;
-      }
-      if (!publicKeyB64 && isV2) {
-        const edKey = signed.signature?.signer?.keys?.find(k => k.algorithm === 'Ed25519');
-        if (edKey) publicKeyB64 = edKey.public_key_b64;
-      }
-
-      if (publicKeyB64 && signed.signature?.sig_b64) {
-        const jsonStableStringify = (await import('json-stable-stringify')).default;
-        const canon = jsonStableStringify(signed.bundle);
-        const msg = naclUtil.decodeUTF8(canon);
-        const sig = naclUtil.decodeBase64(signed.signature.sig_b64);
-        const pk = naclUtil.decodeBase64(publicKeyB64);
-        const ok = nacl.sign.detached.verify(msg, sig, pk);
-        if (ok) {
-          console.log(`  ${chalk.green('✓')} Ed25519 signature VALID`);
-        } else {
-          console.log(`  ${chalk.red('✗')} Ed25519 signature INVALID`);
-        }
-      } else if (publicKeyB64 && isV2 && signed.signature?.classical?.value) {
-        const jsonStableStringify = (await import('json-stable-stringify')).default;
-        const domainTag = signed.signature.domain_sep || 'DCP-BUNDLE-SIG-v2';
-        const canon = jsonStableStringify(signed.bundle);
-        const msg = naclUtil.decodeUTF8(`${domainTag}|${canon}`);
-        const sig = naclUtil.decodeBase64(signed.signature.classical.value);
-        const pk = naclUtil.decodeBase64(publicKeyB64);
-        const ok = nacl.sign.detached.verify(msg, sig, pk);
-        if (ok) {
-          console.log(`  ${chalk.green('✓')} V2 classical signature VALID`);
-        } else {
-          console.log(`  ${chalk.red('✗')} V2 classical signature INVALID`);
-        }
-
-        if (signed.signature?.pq?.simulated) {
-          console.log(`  ${chalk.yellow('⚠')} PQ signature simulated (ML-DSA-65 placeholder)`);
-        }
-      } else {
-        console.log(chalk.yellow('  ⚠ No public key available for cryptographic verification'));
-      }
-
-      if (signed.bundle_manifest) {
-        console.log(`  ${chalk.green('✓')} Bundle manifest present`);
-      }
-      if (signed.session_nonce) {
-        console.log(`  ${chalk.green('✓')} Session nonce: ${signed.session_nonce.slice(0, 16)}...`);
-      }
+    // The pre-normative V2 envelope that earlier versions produced is rejected
+    // first, also when its markers sit on a V1 or a normative V2 bundle.
+    if (
+      signed.dcp_version === '2.0' ||
+      signed.bundle_manifest !== undefined ||
+      signed.signature?.binding === 'composite'
+    ) {
+      console.log(
+        `  ${chalk.red('✗')} Unsupported pre-normative V2 envelope (top-level dcp_version/bundle_manifest or signature.binding).`,
+      );
+      console.log(chalk.gray('    Re-sign with @dcp-ai/sdk signBundleV2 or `dcp sign-bundle --composite`.'));
+      process.exitCode = 1;
+    } else if (signed.bundle?.dcp_bundle_version === '2.0' || signed.bundle?.manifest !== undefined) {
+      await verifyV2(signed);
     } else {
-      console.log(chalk.yellow('  ⚠ Not a signed bundle format — structural check only'));
+      await verifyV1(signed);
     }
 
     console.log();
   } catch (err) {
     console.log(chalk.red(`\n  Error verifying bundle: ${err.message}\n`));
     process.exit(1);
+  }
+}
+
+// The local key, when .dcp/keys/ed25519_public.key exists, pins the principal's
+// signing key. Without it the keys are the bundle's own: the signature is checked,
+// not whether the principal is trusted or the bundle admitted.
+async function verifyV2(signed) {
+  console.log(`  ${chalk.green('✓')} Format: V2`);
+  const dcpDir = findConfigDir();
+  const keyPath = dcpDir && join(dcpDir, 'keys', 'ed25519_public.key');
+  const pinnedKeyB64 = keyPath && existsSync(keyPath) ? (await readFile(keyPath, 'utf-8')).trim() : undefined;
+
+  const { verifyBundleV2 } = await import('../lib/verify-v2.js');
+  const result = await verifyBundleV2(signed, pinnedKeyB64);
+  if (result.verified) {
+    console.log(`  ${chalk.green('✓')} V2 normative verification VALID`);
+  } else {
+    console.log(`  ${chalk.red('✗')} V2 normative verification INVALID`);
+    for (const error of result.errors) console.log(`    - ${error}`);
+    process.exitCode = 1;
+  }
+  for (const warning of result.warnings || []) console.log(`  ${chalk.yellow('⚠')} ${warning}`);
+  const keys = pinnedKeyB64 === undefined ? 'signer keys from the bundle' : 'signer pinned to .dcp/keys/ed25519_public.key';
+  console.log(chalk.gray(`  @dcp-ai/sdk verifySignedBundleV2, default verifier policy, ${keys}.`));
+  console.log(chalk.gray('  Signature verification only: not an admission or trust decision.'));
+}
+
+async function verifyV1(signed) {
+  console.log(`  ${chalk.green('✓')} Format: V1 classical`);
+
+  if (signed.bundle) {
+    const nacl = (await import('tweetnacl')).default;
+    const naclUtil = (await import('tweetnacl-util')).default;
+
+    let publicKeyB64 = null;
+    const dcpDir = findConfigDir();
+    if (dcpDir) {
+      const pubKeyPath = join(dcpDir, 'keys', 'ed25519_public.key');
+      if (existsSync(pubKeyPath)) {
+        publicKeyB64 = (await readFile(pubKeyPath, 'utf-8')).trim();
+      }
+    }
+
+    if (!publicKeyB64) {
+      publicKeyB64 = signed.signature?.signer?.public_key_b64;
+    }
+
+    if (publicKeyB64 && signed.signature?.sig_b64) {
+      const jsonStableStringify = (await import('json-stable-stringify')).default;
+      const canon = jsonStableStringify(signed.bundle);
+      const msg = naclUtil.decodeUTF8(canon);
+      const sig = naclUtil.decodeBase64(signed.signature.sig_b64);
+      const pk = naclUtil.decodeBase64(publicKeyB64);
+      const ok = verifyDetached(nacl, msg, sig, pk);
+      if (ok) {
+        console.log(`  ${chalk.green('✓')} Ed25519 signature VALID`);
+      } else {
+        console.log(`  ${chalk.red('✗')} Ed25519 signature INVALID`);
+        process.exitCode = 1;
+      }
+    } else {
+      console.log(chalk.yellow('  ⚠ No public key available for cryptographic verification'));
+      process.exitCode = 1;
+    }
+
+    if (signed.session_nonce) {
+      console.log(`  ${chalk.green('✓')} Session nonce: ${signed.session_nonce.slice(0, 16)}...`);
+    }
+  } else {
+    console.log(chalk.yellow('  ⚠ Not a signed bundle format — structural check only'));
+    process.exitCode = 1;
   }
 }
 

@@ -92,6 +92,13 @@ func VerifyObject(obj interface{}, signatureB64, publicKeyB64 string) (bool, err
 		tel.EndSpanWith(spanID, observability.SpanError, err.Error())
 		return false, fmt.Errorf("decode public key: %w", err)
 	}
+	// ed25519.Verify panics on a public key that is not 32 bytes long.
+	if len(pk) != ed25519.PublicKeySize {
+		err := fmt.Errorf("invalid public key length: got %d, want %d", len(pk), ed25519.PublicKeySize)
+		tel.RecordError("verify", err.Error())
+		tel.EndSpanWith(spanID, observability.SpanError, err.Error())
+		return false, err
+	}
 	ok := ed25519.Verify(ed25519.PublicKey(pk), []byte(canon), sig)
 	tel.RecordVerifyLatency(float64(time.Since(start).Microseconds())/1000.0, "ed25519")
 	tel.EndSpan(spanID)

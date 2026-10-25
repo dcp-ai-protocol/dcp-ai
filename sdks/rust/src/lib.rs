@@ -344,7 +344,8 @@ pub mod wasm {
     /// `require_session_expiry`, `require_audience_binding`, `verifier_id`);
     /// without it the default policy applies. The mode is the stricter of the policy mode and
     /// the security tier's mode (spec §14.3). The V1 verifier cannot apply a
-    /// policy, so with one a V1 bundle is rejected.
+    /// policy, so with one a V1 bundle is rejected. A V2 result also lists the
+    /// signer keys (`signer_keys`), from the same verification.
     #[wasm_bindgen]
     pub fn wasm_verify_signed_bundle_v2(signed_bundle_json: &str, policy_json: Option<String>) -> String {
         let policy: crate::v2::types::VerifierPolicy = match policy_json.as_deref().map(serde_json::from_str) {
@@ -370,7 +371,8 @@ pub mod wasm {
                 serde_json::to_string(&result).unwrap_or_else(|_| "{\"verified\":false}".to_string())
             },
             Some("2.0") => {
-                let result = crate::v2::verify_bundle::verify_signed_bundle_v2_with_policy(&val, &policy);
+                let now = crate::v2::lifecycle::unix_now_millis() as i64;
+                let result = crate::v2::verify_bundle::verify_signed_bundle_v2_at(&val, &policy, now);
                 serde_json::to_string(&result).unwrap_or_else(|_| "{\"verified\":false}".to_string())
             },
             _ => serde_json::to_string(&json!({

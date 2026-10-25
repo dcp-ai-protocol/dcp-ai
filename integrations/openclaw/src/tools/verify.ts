@@ -9,9 +9,15 @@
  */
 import { Type, type Static } from '@sinclair/typebox';
 import {
+  AdmissionConfigError,
   computeSecurityTier,
   verifySignedBundle,
+  type AdmissionResult,
   type IntentV2,
+  type PrincipalTrust,
+  type ProfileCompliance,
+  type StrictV1Profile,
+  type StrictV1ProfileConfig,
   type VerificationResult,
   type SignedBundle,
   type VerificationMode,
@@ -19,16 +25,25 @@ import {
 } from '@dcp-ai/sdk';
 import {
   RISK_TIERS,
+  admissionFailure,
+  admit,
   checkPolicyFields,
   detectVersion,
   isObject,
+  resolveAdmission,
   resolveVerifierPolicy,
   stricterMode,
+  TrustSourceError,
   v1Refusal,
   verifyV2,
+  type AdmissionSetup,
+  type RevocationSource,
   type SecurityTier,
+  type SupervisedSources,
+  type TrustSource,
   type VerifierPolicyOptions,
 } from './dcp-verify.js';
+import type { SourceSupervisor } from './source-supervisor.js';
 
 // ── Parameter Schema ──
 
@@ -67,15 +82,83 @@ export type VerifyBundleInput = Static<typeof VerifyBundleParams>;
 // ── Operator policy ──
 
 let operatorPolicy: VerifierPolicy = resolveVerifierPolicy(undefined);
+let admission: AdmissionSetup | undefined;
+let clock: () => number = Date.now;
+
+/** The operator's configuration of dcp_verify_bundle. */
+export interface VerifierConfiguration {
+  /** Fields over the SDK's DEFAULT_VERIFIER_POLICY; the tool parameter can only tighten them. */
+  verifierPolicy?: VerifierPolicyOptions;
+  /**
+   * The principals the operator trusts and their keys (schemas/v2/principal_trust_set.schema.json),
+   * or a function returning them. With it, the result says whether the bundle is admitted (V2,
+   * signed for a trusted principal with its trusted keys: spec/profiles/admission), and names the
+   * agent and principal only then; `verified` keeps its meaning, the verifier's verdict.
+   */
+  trustedPrincipals?: TrustSource;
+  /**
+   * The strict-v1 profile (schemas/v2/admission_profile.schema.json). Requires trustedPrincipals
+   * and revocationSource, and replaces verifierPolicy; the tool parameter cannot change it.
+   */
+  profile?: StrictV1ProfileConfig | StrictV1Profile;
+  /** The profile's revocation source, e.g. denyListRevocationSource({ url }). */
+  revocationSource?: RevocationSource;
+  /**
+   * Milliseconds the revocation source may take. Default 5000. Under `supervise.revocation` it is
+   * the supervised deadline: an integer from 1 to 2147483647.
+   */
+  revocationTimeoutMs?: number;
+  /**
+   * A supervisor from createSourceSupervisor (from this package or @dcp-ai/express), given with
+   * `supervise`: a supervised trustedPrincipals function or revocationSource then gets `signal` in
+   * its context, a deadline and a slot of its capacity, which both sources share. While it has
+   * invocations in flight it cannot be replaced or removed, even after close(), whichever source
+   * it supervises; the same object can be kept with a new trust set, profile, deadline or choice of
+   * sources.
+   */
+  sourceSupervisor?: SourceSupervisor;
+  /**
+   * `{ trustTimeoutMs?, revocation? }`: the deadline of the trustedPrincipals function, and
+   * `revocation: true` to supervise the revocationSource under revocationTimeoutMs. At least one.
+   */
+  supervise?: SupervisedSources;
+  /** The clock, in milliseconds since the epoch. For tests; default Date.now. */
+  clock?: () => number;
+}
+
+const CONFIG_KEYS = ['verifierPolicy', 'trustedPrincipals', 'profile', 'revocationSource', 'revocationTimeoutMs', 'sourceSupervisor', 'supervise', 'clock'];
 
 /**
- * Sets the verifier policy of dcp_verify_bundle: `verifierPolicy` fields over the SDK's
- * DEFAULT_VERIFIER_POLICY (a default_mode without risk_overrides applies to every risk tier).
- * Throws on an unknown field or a value of the wrong type. Called with no policy, it restores the
- * default. The tool's verifier_policy parameter can only make this policy stricter.
+ * Configures dcp_verify_bundle: the verifier policy (`verifierPolicy` fields over the SDK's
+ * DEFAULT_VERIFIER_POLICY, a default_mode without risk_overrides applying to every risk tier) and,
+ * optionally, trusted principals and the strict-v1 profile. Throws on an unknown option, a value of
+ * the wrong type or a contradiction (AdmissionConfigError), leaving the previous configuration in
+ * place, also when it would replace or remove a source supervisor that has invocations in flight. Called with no options, it restores the default. The tool's verifier_policy parameter can
+ * only make the policy stricter, and is refused under the profile.
  */
-export function configureVerifier(options: { verifierPolicy?: VerifierPolicyOptions } = {}): void {
-  operatorPolicy = resolveVerifierPolicy(options.verifierPolicy);
+export function configureVerifier(options: VerifierConfiguration = {}): void {
+  if (!isObject(options)) throw new TypeError('configureVerifier options must be an object');
+  for (const [key, value] of Object.entries(options)) {
+    if (value !== undefined && !CONFIG_KEYS.includes(key)) throw new Error(`Unknown configureVerifier option: ${key}`);
+  }
+  if (options.clock !== undefined && typeof options.clock !== 'function') throw new TypeError('clock must be a function');
+  if (options.profile !== undefined && options.verifierPolicy !== undefined) {
+    throw new AdmissionConfigError('CONFIG_PROFILE_CONTRADICTION', 'strict-v1 sets the verifier policy (profile.verifier_policy may tighten it); do not pass verifierPolicy');
+  }
+  const policy = resolveVerifierPolicy(options.verifierPolicy);
+  const setup = resolveAdmission(options);
+  const current = admission?.supervision?.supervisor;
+  if (current && current !== setup?.supervision?.supervisor && (supervisedAdmissions > 0 || current.stats().inFlight > 0)) {
+    // An admission already started may still call its source under the current supervisor, and a
+    // timed-out source may still run: a new or no supervisor would not count them.
+    throw new AdmissionConfigError(
+      'CONFIG_PROFILE_CONTRADICTION',
+      'the source supervisor still has invocations in flight: keep it until they settle (it may get a new trust set, profile or deadline), or restart the process',
+    );
+  }
+  operatorPolicy = policy;
+  admission = setup;
+  clock = options.clock ?? Date.now;
 }
 
 /**
@@ -121,6 +204,17 @@ export interface VerifyBundleResult {
   resolved_tier?: SecurityTier;
   /** V2: the verification mode the bundle was checked in (the stricter of the policy and its security tier). */
   verification_mode?: VerificationMode;
+  /** With trusted principals configured (spec/profiles/admission § 5.2): */
+  admitted?: boolean;
+  principal_trust?: PrincipalTrust;
+  profile?: 'strict-v1' | null;
+  profile_compliance?: ProfileCompliance;
+  /** Always false: admitting the evidence does not authorize an action. */
+  action_authorized?: false;
+  /** The decision the bundle records (approve, escalate, block). */
+  recorded_decision?: string | null;
+  trust_set_version?: string | null;
+  codes?: string[];
 }
 
 function failure(dcpVersion: VerifyBundleResult['dcp_version'], errors: string[], extra: Partial<VerifyBundleResult> = {}): VerifyBundleResult {
@@ -136,6 +230,8 @@ export async function executeVerifyBundle(
   if (!isObject(signedBundle) || (!signedBundle.bundle && !signedBundle.signature)) {
     return failure('unknown', ['Invalid input: signed_bundle must have "bundle" and "signature" fields.']);
   }
+
+  if (admission) return admitBundle(admission, signedBundle, params.verifier_policy);
 
   let policy: VerifierPolicy;
   try {
@@ -204,5 +300,111 @@ async function verifyV2Bundle(signedBundle: Record<string, any>, policy: Verifie
     human_id: humanId,
     session_nonce: nonce,
     ...context,
+  };
+}
+
+/**
+ * dcp_verify_bundle with trusted principals: the result says whether the bundle is admitted
+ * (spec/profiles/admission § 5) and names the agent only then; `verified` stays the verifier's
+ * verdict. Under the profile its policy applies and the tool parameter is refused; otherwise the
+ * parameter can only tighten the operator policy.
+ */
+/**
+ * Supervised admissions started and not answered yet. Each one may still call its trust or
+ * revocation source under the supervisor it started with, so configureVerifier keeps that supervisor while this is
+ * above 0; all of them then started with the configured supervisor.
+ */
+let supervisedAdmissions = 0;
+
+async function admitBundle(setup: AdmissionSetup, signedBundle: Record<string, any>, param: unknown): Promise<VerifyBundleResult> {
+  if (!setup.supervision) return admitUnder(setup, signedBundle, param);
+  // Counted before the first await (the verification), released when the result is ready.
+  supervisedAdmissions++;
+  try {
+    return await admitUnder(setup, signedBundle, param);
+  } finally {
+    supervisedAdmissions--;
+  }
+}
+
+async function admitUnder(setup: AdmissionSetup, signedBundle: Record<string, any>, param: unknown): Promise<VerifyBundleResult> {
+  const version = detectVersion(signedBundle);
+  const dcpVersion = version ?? 'unknown';
+  const refused = { admitted: false, action_authorized: false as const };
+  let policy: VerifierPolicy;
+  if (setup.profile) {
+    if (param !== undefined) {
+      return failure(dcpVersion, ['verifier_policy cannot change the operator\'s strict-v1 profile'], { ...refused, profile: 'strict-v1' });
+    }
+    policy = setup.profile.policy as VerifierPolicy;
+  } else {
+    try {
+      policy = tightenPolicy(operatorPolicy, param);
+    } catch (err) {
+      return failure(dcpVersion, [err instanceof Error ? err.message : String(err)], refused);
+    }
+  }
+
+  const now = clock();
+  const verdict = version === '2.0' ? await verifyV2(signedBundle, policy, now) : undefined;
+  let result: AdmissionResult;
+  try {
+    result = await admit(setup, signedBundle, verdict?.verification, { tenant: '', now });
+  } catch (err) {
+    if (!(err instanceof TrustSourceError)) throw err;
+    // The operator's trust source failed or gave no valid trust set: refused, never admitted.
+    const errors = [`The trusted principals are unavailable (${err.code})`];
+    return failure(dcpVersion, errors, {
+      message: `NOT ADMITTED: ${errors[0]}`,
+      verified: verdict?.verified === true,
+      admitted: false,
+      action_authorized: false,
+      principal_trust: 'not_evaluated',
+      profile: setup.profile ? 'strict-v1' : null,
+      profile_compliance: 'not_evaluated',
+      trust_set_version: null,
+      codes: [],
+      resolved_tier: verdict?.securityTier,
+      verification_mode: verdict?.verificationMode,
+    });
+  }
+  const fields = {
+    admitted: result.admitted,
+    principal_trust: result.principal_trust,
+    profile: result.profile,
+    profile_compliance: result.profile_compliance,
+    action_authorized: false as const,
+    recorded_decision: result.recorded_decision,
+    trust_set_version: result.trust_set_version,
+    codes: [...new Set(result.errors.map((e) => e.code))].sort(),
+    resolved_tier: verdict?.securityTier,
+    verification_mode: verdict?.verificationMode,
+  };
+  if (!result.admitted) {
+    const body = admissionFailure(result);
+    return {
+      verified: result.verified,
+      dcp_version: dcpVersion,
+      errors: body.errors,
+      warnings: result.verification.warnings,
+      message: `NOT ADMITTED (${body.codes.join(', ')}): ${body.errors.join('; ')}`,
+      ...fields,
+    };
+  }
+  const bundle = signedBundle.bundle;
+  const agentId = bundle.agent_passport.payload.agent_id;
+  const humanId = bundle.responsible_principal_record.payload.human_id;
+  return {
+    verified: true,
+    dcp_version: '2.0',
+    errors: [],
+    warnings: result.verification.warnings,
+    message:
+      `V2 bundle admitted: principal ${humanId} trusted${result.profile ? ', strict-v1 met' : ''}. Agent ${agentId}. ` +
+      `It records the decision ${String(result.recorded_decision)}; this is evidence, not an authorization to act.`,
+    agent_id: agentId,
+    human_id: humanId,
+    session_nonce: bundle.manifest.session_nonce,
+    ...fields,
   };
 }

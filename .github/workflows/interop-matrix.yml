@@ -54,6 +54,13 @@ jobs:
       - name: Run the matrix
         run: node tools/interop-matrix/run.mjs
 
+      # Scenario 2, admission under strict-v1 (tools/interop-matrix/admission.mjs): every SDK admits
+      # every SDK's evidence. By default it also runs its negative control, a run with one wrong
+      # expectation that must fail, and fails if that run does not. Its report goes to out/admission.
+      - name: Run the admission matrix
+        if: ${{ !cancelled() }}
+        run: node tools/interop-matrix/admission.mjs
+
       - name: Upload the report and failing bundles
         if: always()
         uses: actions/upload-artifact@v4

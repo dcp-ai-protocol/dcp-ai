@@ -212,6 +212,24 @@ const bundle = new BundleBuilderV2()
 | `cborEncode(value)` | 値をCBORバイト列にエンコード |
 | `cborDecode(data)` | CBORバイト列を値にデコード |
 
+### アドミッション: 信頼済みプリンシパルと strict-v1
+
+検証済みのバンドルは、バンドル自身が列挙する鍵で署名されています。それだけでは、プリンシパルが誰かは証明されません。アドミッションは、プリンシパルの署名が信頼セットに登録されたプリンシパルの鍵で作られている場合にだけバンドルを受け入れます。オペレーターが固定する `strict-v1` プロファイル (ハイブリッド署名、署名済みの宛先、最大 300 秒のセッション、新しい失効スナップショット) も任意で適用できます。
+
+```typescript
+import { admitSignedBundleV2, createPrincipalTrustStore, resolveStrictV1Profile } from '@dcp-ai/sdk';
+
+const trust = createPrincipalTrustStore(trustSetJson); // AdmissionConfigError on a bad trust set
+const profile = resolveStrictV1Profile({ profile: 'strict-v1', verifier_id: 'api.acme.example' });
+const result = await admitSignedBundleV2(signedBundle, registry, { profile, trust, revocation: snapshot });
+// result.verified, result.principal_trust, result.profile_compliance, result.admitted,
+// result.action_authorized (always false), result.errors [{ code, message }]
+```
+
+- `verifySignedBundleV2(bundle, registry, policy, { now })` は任意の時刻を受け取り、`details.signer_keys` を返します。指定しなければ従来どおりに動作します。
+- `evaluateAdmissionV2` は手元の検証結果を評価します (暗号処理も I/O もありません)。`revocationSubjects` は失効ソースが答えるべき対象を返します。
+- ガイド: [`docs/ADMISSION.md`](../../docs/ADMISSION.md)。仕様とコード: [`spec/profiles/admission`](../../spec/profiles/admission/README.md)。
+
 ### 委任チェーン (DCP-09 §3.5)
 
 人間はルートマンデートによってエージェントに委任します。そのエージェントは、自ら署名するサブマンデートによって権限の一部を別のエージェントに引き渡すことができ、以降も同様に続けられます。各ホップは受け取った権限を狭めることしかできず、チェーン全体は人間までオフラインで遡って検証できます。
