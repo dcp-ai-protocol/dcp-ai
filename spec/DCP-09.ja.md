@@ -12,6 +12,8 @@
 ## ステータス
 公開済み — v2.0（拡張。改訂は採用者からのフィードバックに基づいて管理）
 
+> **正誤表（25/10/2026、規範的）：** [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md) の正誤 E5、E6、E7、E8 は、署名のコンテキスト、マンデートの期限を持つフィールド、例の位置づけを訂正します。本仕様のその他の要件は変わりません。
+
 <a id="abstract"></a>
 
 ## 概要
@@ -69,7 +71,7 @@ DCP-09 は、相互に関連する 5 つの問題に取り組みます。
 
 **マンデートチェーン**: あるエージェントが自らの権限の一部を別のエージェントに委任した場合の、元の人間のプリンシパルから中間のエージェントを経て最終的な受任者に至るマンデートの連なり。
 
-**ドメイン分離タグ**: `DCP-DELEGATION-SIG-v2`（委任とやり取りの記録）、`DCP-AWARENESS-SIG-v2`（認識しきい値と助言の宣言）、`DCP-AI.v2.SubMandate`（サブマンデート、セクション 3.5）。
+**ドメイン分離コンテキスト**: `DCP-AI.v2.Delegation`（ルートマンデート、プリンシパルミラー、やり取りの記録）、`DCP-AI.v2.Awareness`（認識しきい値と助言の宣言）、`DCP-AI.v2.SubMandate`（サブマンデート、セクション 3.5）。正誤 E5。最初の 2 つは、以前はここにラベル `DCP-DELEGATION-SIG-v2` と `DCP-AWARENESS-SIG-v2` として記載されていました。
 
 <a id="3-delegation-mandate"></a>
 
@@ -86,6 +88,8 @@ DCP-09 は、相互に関連する 5 つの問題に取り組みます。
 ### 3.2 スキーマ
 
 スキーマの参照: `schemas/v2/delegation_mandate.schema.json`
+
+> **正誤 E6 と E7（25/10/2026）：** この例は概念的なものです。V2.0 のワイヤーフォーマットはスキーマです。期間は `valid_from` / `valid_until` で、署名は `human_composite_sig`（ルート）または `delegator_composite_sig`（サブマンデート）です（セクション 3.5）。署名済みのルートマンデートとサブマンデートは `tests/interop/v2/mandate_chain_vectors.json` にあります。[V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md) を参照してください。
 
 ```json
 {
@@ -219,6 +223,8 @@ DCP-09 は、相互に関連する 5 つの問題に取り組みます。
 6. 受領確認済みのマンデートが有効になる
 7. プリンシパルとエージェントの両方の監査チェーンに `delegation_mandate_issued` の監査エントリーが作成される
 
+> *参考注記（25/10/2026）：* V2.0 の `delegation_mandate` スキーマには、ステップ 5 のエージェントの確認応答のためのフィールドがありません。[V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md#4-requirements-the-v20-structures-do-not-represent-directly) を参照してください。
+
 <a id="34-mandate-hash"></a>
 
 ### 3.4 マンデートのハッシュ
@@ -272,7 +278,7 @@ DCP-09 は、相互に関連する 5 つの問題に取り組みます。
 マンデートは次によって失効することがあります。
 
 - **プリンシパルによる失効**: 委任したプリンシパルがマンデートを明示的に失効させる
-- **期限切れ**: `effective_until` のタイムスタンプを過ぎる
+- **期限切れ**: `valid_until` の時点を過ぎる（正誤 E6。RFC 3339 の時点として比較、セクション 3.5.2）
 - **エージェントの運用終了**: 受任エージェントが `decommissioned` に移る（DCP-05）
 - **ポリシー違反**: エージェントがマンデートに定められた条件に違反する
 
@@ -571,6 +577,8 @@ DCP-09 は、相互に関連する 5 つの問題に取り組みます。
 ### 6.3 プリンシパルの承認
 
 プリンシパルは、ミラーがやり取りに使われる前に、それをレビューし承認しなければなりません（MUST）。これにより、エージェントの叙述的な表現がプリンシパルの意図を正確に反映することが確保されます。両方の署名（エージェントとプリンシパル）が必要です。
+
+> *参考注記（25/10/2026）：* V2.0 の `principal_mirror` スキーマは `composite_sig` を 1 つだけ持ちます。[V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md#4-requirements-the-v20-structures-do-not-represent-directly) を参照してください。
 
 <a id="64-mirror-updates"></a>
 
@@ -913,13 +921,13 @@ A2A_HELLO メッセージ（DCP-04 のセクション 3.2）に、省略可能�
 
 ### 10.6 ドメイン分離
 
-本仕様は 3 つのドメイン分離タグを使います。
+本仕様は 3 つのドメイン分離コンテキストを使います（正誤 E5）。
 
-- `DCP-DELEGATION-SIG-v2`: 委任マンデート、プリンシパルミラー、やり取りの記録
-- `DCP-AWARENESS-SIG-v2`: 認識しきい値と助言の宣言
+- `DCP-AI.v2.Delegation`: ルート委任マンデート、プリンシパルミラー、やり取りの記録
+- `DCP-AI.v2.Awareness`: 認識しきい値と助言の宣言
 - `DCP-AI.v2.SubMandate`: サブマンデート（セクション 3.5）。これにより、委任するエージェントが署名したマンデートが、人間のプリンシパルが署名したものとして通ることは決してない
 
-DCP-AI v2.0 のワイヤー上では、最初の 2 つはコンテキストタグ `DCP-AI.v2.Delegation` と `DCP-AI.v2.Awareness` です（DCP-AI v2.0 §4.1）。
+最初の 2 つは、以前はここにラベル `DCP-DELEGATION-SIG-v2` と `DCP-AWARENESS-SIG-v2` として記載されていましたが、これらは V2.0 のコンテキストではありません（DCP-AI v2.0 §4.1）。
 
 この分離により、あるコンテキストの署名が別のコンテキストでリプレイされることを防ぎます。
 
@@ -937,7 +945,7 @@ DCP-AI v2.0 のワイヤー上では、最初の 2 つはコンテキストタ�
 6. セクション 8 で定義されたとおり、A2A ハンドシェイクをマンデートの検証で拡張している
 7. セクション 9 で定義されたとおり、すべての委任イベントについて DCP-03 の監査エントリーを作成している
 8. 有効化されている場合、範囲の縮小を強制する再委任に対応している
-9. すべての署名にドメイン分離タグ `DCP-DELEGATION-SIG-v2` と `DCP-AWARENESS-SIG-v2` を使っている
+9. ドメイン分離コンテキスト `DCP-AI.v2.Delegation`、`DCP-AI.v2.Awareness`、`DCP-AI.v2.SubMandate` を、セクション 10.6 の割り当てどおりに使っている（正誤 E5）
 
 <a id="references"></a>
 
@@ -960,13 +968,14 @@ DCP-AI v2.0 のワイヤー上では、最初の 2 つはコンテキストタ�
 ## 実装に関する注記（参考）
 
 > **2026 年 10 月 25 日に追加。規範的ではありません。** これらの注記は要件を加えず、上の内容を何も変えません。`main` のリファレンスの
-> コードがこの文書とどう関係するかを説明するものです。食い違う場合は、上の規範的な本文がそのまま有効です。
+> コードがこの文書とどう関係するかを説明するものです。食い違う場合は、上の規範的な本文が、
+> [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md) の正誤による訂正を含めて有効です。
 
 - **SDK が検証するもの。** §3.5 のマンデートチェーンは署名を行う 4 つの SDK に実装されており、
   `tests/interop/v2/mandate_chain_vectors.json` で確認されています。DCP-09 の残りは SDK が構築し署名する記録で
   あり、SDK が実行したり強制したりするプロトコルの手順ではありません。
 - **`schemas/v2/` の記録。** スキーマのフィールドは §3 から §9 の例とは異なります。マンデートの期間は
-  `valid_from` / `valid_until` で（§3.2 の例と §3.6 の `effective_until` はスキーマにありません）、
+  `valid_from` / `valid_until` で（§3.6 は正誤 E6 により `valid_until` と読みます。§3.2 の例は概念的なものです）、
   `authority_scope` と `revocable` を伴います。認識しきい値は `threshold_rules`（`dimension`、`operator`、
   `value`、`action_if_triggered`）のリストであり、§4.2 の確信度の宣言ではありません。助言の宣言は整数の
   `significance_score`（0〜1000）、`action_summary`、`recommended_response`、`response_deadline`、

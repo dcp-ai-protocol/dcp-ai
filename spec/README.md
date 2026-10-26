@@ -2,7 +2,7 @@
 
 # Specs — DCP-AI normative
 
-Normative specifications for the Digital Citizenship Protocol for AI Agents. The source of truth for formats is JSON Schema in `schemas/v1/` and `schemas/v2/`; these documents define scope, artifacts, and how to validate.
+Normative specifications for the Digital Citizenship Protocol for AI Agents. The source of truth for formats is JSON Schema in `schemas/v1/` and `schemas/v2/`; these documents define scope, artifacts, and how to validate. [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md) lists the errata that align the names, signature contexts and examples of DCP-05, DCP-08 and DCP-09 with that format, and the four layers (representable, schema-valid, verified, conformant) that are judged separately.
 
 ## Foundation Specifications (DCP-01 – DCP-03)
 

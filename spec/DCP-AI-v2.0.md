@@ -116,8 +116,16 @@ signed_bytes = UTF8(context_tag) || 0x00 || canonical_payload_bytes
 | `DCP-AI.v2.HumanConfirmation` | Human confirmation |
 | `DCP-AI.v2.AlgorithmAdvisory` | Algorithm deprecation advisory |
 | `DCP-AI.v2.Governance` | Governance operations |
-| `DCP-AI.v2.Delegation` | Root delegation mandate (human signature) and interaction records (DCP-09) |
+| `DCP-AI.v2.MultiPartyAuth` | Party authorization in a multi-party authorization (`multi_party_authorization.schema.json`) |
+| `DCP-AI.v2.Lifecycle` | Commissioning certificate, vitality report and decommissioning record (DCP-05) |
+| `DCP-AI.v2.Succession` | Digital testament, memory transfer manifest and succession record (DCP-06) |
+| `DCP-AI.v2.Dispute` | Dispute record, objection, arbitration resolution and jurisprudence bundle (DCP-07) |
+| `DCP-AI.v2.Rights` | Rights declaration, obligation record and rights violation report (DCP-08) |
+| `DCP-AI.v2.Delegation` | Root delegation mandate (human signature), principal mirrors and interaction records (DCP-09) |
+| `DCP-AI.v2.Awareness` | Awareness thresholds and advisory declarations (DCP-09) |
 | `DCP-AI.v2.SubMandate` | Sub-mandate signed by the delegating agent (DCP-09 §3.5) |
+
+> **Erratum E1 (25/10/2026, normative):** the rows `MultiPartyAuth`, `Lifecycle`, `Succession`, `Dispute`, `Rights` and `Awareness`, and principal mirrors in the `Delegation` row, document contexts already used by the SDKs and by `tests/interop/v2/interop_vectors.json#domain_separation_all_contexts`; they add no tag. See [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md).
 
 ---
 

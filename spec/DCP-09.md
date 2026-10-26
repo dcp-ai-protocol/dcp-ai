@@ -3,6 +3,8 @@
 ## Status
 Published — v2.0 (extension; revisions tracked via adopter feedback)
 
+> **Errata (25/10/2026, normative):** errata E5, E6, E7 and E8 of [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md) correct the signature contexts, the field that carries a mandate's expiry and the status of the examples. They change no other requirement of this specification.
+
 ## Abstract
 This specification defines the protocol for human-to-agent delegation of authority, agent awareness thresholds, advisory declarations, principal mirrors, and dual-layer interaction records. It provides mechanisms for a human principal to formally delegate specific authority to an AI agent, for agents to declare their understanding of delegated context, and for interactions to be recorded at both technical and human-readable layers. DCP-09 also extends the DCP-04 A2A handshake to include delegation mandate verification, ensuring that agents acting on behalf of principals can prove their authority to counterparties.
 
@@ -50,7 +52,7 @@ DCP-09 addresses five interconnected concerns:
 
 **Mandate Chain**: When an agent delegates a subset of its authority to another agent, the chain of mandates from the original human principal through intermediate agents to the final delegate.
 
-**Domain Separation Tags**: `DCP-DELEGATION-SIG-v2` (delegation and interaction records), `DCP-AWARENESS-SIG-v2` (awareness thresholds and advisory declarations), `DCP-AI.v2.SubMandate` (sub-mandates, Section 3.5).
+**Domain Separation Contexts**: `DCP-AI.v2.Delegation` (root mandates, principal mirrors and interaction records), `DCP-AI.v2.Awareness` (awareness thresholds and advisory declarations), `DCP-AI.v2.SubMandate` (sub-mandates, Section 3.5). Erratum E5; the first two were previously given here as the labels `DCP-DELEGATION-SIG-v2` and `DCP-AWARENESS-SIG-v2`.
 
 ## 3. Delegation Mandate
 
@@ -61,6 +63,8 @@ A delegation mandate is the formal instrument by which a human principal grants 
 ### 3.2 Schema
 
 Schema reference: `schemas/v2/delegation_mandate.schema.json`
+
+> **Errata E6 and E7 (25/10/2026):** this example is conceptual. The V2.0 wire format is the schema: the window is `valid_from` / `valid_until`, and the signature is `human_composite_sig` (root) or `delegator_composite_sig` (sub-mandate), Section 3.5. Signed root and sub-mandates are in `tests/interop/v2/mandate_chain_vectors.json`. See [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md).
 
 ```json
 {
@@ -192,6 +196,8 @@ Schema reference: `schemas/v2/delegation_mandate.schema.json`
 6. The acknowledged mandate becomes active
 7. An `delegation_mandate_issued` audit entry is created in both the principal's and agent's audit chains
 
+> *Informative note (25/10/2026):* the V2.0 `delegation_mandate` schema has no field for the agent's acknowledgment of step 5; see [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md#4-requirements-the-v20-structures-do-not-represent-directly).
+
 ### 3.4 Mandate Hash
 
 The `mandate_hash` is a SHA-256 hash of the canonical (deterministically serialized) mandate content, excluding signatures. This hash is used in A2A handshakes (Section 8) to allow counterparties to verify the agent's authority without accessing the full mandate.
@@ -235,7 +241,7 @@ Reference implementations: `verifyMandateChain` (TypeScript), `verify_mandate_ch
 A mandate may be revoked by:
 
 - **Principal revocation**: The delegating principal explicitly revokes the mandate
-- **Expiration**: The `effective_until` timestamp passes
+- **Expiration**: The `valid_until` instant passes (erratum E6; compared as an RFC 3339 instant, Section 3.5.2)
 - **Agent decommissioning**: The delegate agent transitions to `decommissioned` (DCP-05)
 - **Policy violation**: The agent violates a condition specified in the mandate
 
@@ -504,6 +510,8 @@ Schema reference: `schemas/v2/principal_mirror.schema.json`
 ### 6.3 Principal Approval
 
 The principal MUST review and approve the mirror before it is used in interactions. This ensures the agent's narrative representation accurately reflects the principal's intent. Both signatures (agent and principal) are required.
+
+> *Informative note (25/10/2026):* the V2.0 `principal_mirror` schema carries one `composite_sig`; see [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md#4-requirements-the-v20-structures-do-not-represent-directly).
 
 ### 6.4 Mirror Updates
 
@@ -802,13 +810,13 @@ The narrative layer of interaction records could be crafted to present a mislead
 
 ### 10.6 Domain Separation
 
-This specification uses three domain separation tags:
+This specification uses three domain separation contexts (erratum E5):
 
-- `DCP-DELEGATION-SIG-v2` for delegation mandates, principal mirrors, and interaction records
-- `DCP-AWARENESS-SIG-v2` for awareness thresholds and advisory declarations
+- `DCP-AI.v2.Delegation` for root delegation mandates, principal mirrors, and interaction records
+- `DCP-AI.v2.Awareness` for awareness thresholds and advisory declarations
 - `DCP-AI.v2.SubMandate` for sub-mandates (Section 3.5), so a mandate signed by a delegating agent can never pass for one signed by a human principal
 
-On the DCP-AI v2.0 wire the first two are the context tags `DCP-AI.v2.Delegation` and `DCP-AI.v2.Awareness` (DCP-AI v2.0 §4.1).
+The first two were previously given here as the labels `DCP-DELEGATION-SIG-v2` and `DCP-AWARENESS-SIG-v2`, which are not V2.0 contexts (DCP-AI v2.0 §4.1).
 
 This separation prevents signatures from one context being replayed in another.
 
@@ -824,7 +832,7 @@ An implementation is DCP-09 conformant if it:
 6. Extends the A2A handshake with mandate verification as defined in Section 8
 7. Creates DCP-03 audit entries for all delegation events as defined in Section 9
 8. Supports sub-delegation with scope reduction enforcement when enabled
-9. Uses domain separation tags `DCP-DELEGATION-SIG-v2` and `DCP-AWARENESS-SIG-v2` for all signatures
+9. Uses the domain separation contexts `DCP-AI.v2.Delegation`, `DCP-AI.v2.Awareness` and `DCP-AI.v2.SubMandate` as Section 10.6 assigns them (erratum E5)
 
 ## References
 
@@ -843,13 +851,14 @@ An implementation is DCP-09 conformant if it:
 ## Implementation notes (informative)
 
 > **Added 25/10/2026. Not normative.** These notes add no requirement and change nothing above: they describe how
-> the reference code on `main` relates to this text. Where they differ, the normative text above stands.
+> the reference code on `main` relates to this text. Where they differ, the normative text above stands, as corrected by the errata of
+> [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md).
 
 - **What the SDKs verify.** The mandate chain of §3.5 is implemented in the four signing SDKs and checked against
   `tests/interop/v2/mandate_chain_vectors.json`. The rest of DCP-09 is records the SDKs build and sign, not protocol
   steps they run or enforce.
 - **Records in `schemas/v2/`.** The schemas have other fields than the examples of §3 to §9. A mandate's window is
-  `valid_from` / `valid_until` (the `effective_until` of the §3.2 example and §3.6 is not in the schema), with
+  `valid_from` / `valid_until` (§3.6 reads `valid_until` by erratum E6; the §3.2 example is conceptual), with
   `authority_scope` and `revocable`. An awareness threshold is a list of `threshold_rules` (`dimension`, `operator`,
   `value`, `action_if_triggered`), not the confidence declaration of §4.2. An advisory declaration carries an integer
   `significance_score` (0–1000), `action_summary`, `recommended_response`, `response_deadline` and `human_response`,

@@ -9,6 +9,8 @@
 ## Status
 Publicada — v2.0 (extensão; as revisões são acompanhadas conforme o retorno de quem a adota)
 
+> **Erratas (25/10/2026, normativas):** as erratas E2, E3, E7 e E8 de [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md) corrigem o contexto de assinatura, o nome do campo de vitalidade e o caráter dos exemplos. Não alteram nenhum outro requisito desta especificação.
+
 <a id="abstract"></a>
 
 ## Resumo
@@ -61,7 +63,7 @@ Sem um protocolo de ciclo de vida, as organizações enfrentam vários riscos:
 
 **Modo de encerramento**: a forma como um agente passa ao estado `decommissioned`: `planned_retirement`, `termination_for_cause`, `organizational_restructuring` ou `sudden_failure`.
 
-**Tag de separação de domínio**: `DCP-LIFECYCLE-SIG-v2`, usada em todas as assinaturas produzidas segundo esta especificação para impedir a repetição entre protocolos.
+**Contexto de separação de domínio**: `DCP-AI.v2.Lifecycle` (DCP-AI v2.0 §4.1; errata E2; antes constava aqui a tag `DCP-LIFECYCLE-SIG-v2`), usado em todas as assinaturas produzidas segundo esta especificação para impedir a repetição entre protocolos.
 
 <a id="3-lifecycle-state-machine"></a>
 
@@ -248,7 +250,9 @@ O certificado de entrada em serviço deve (MUST) ter duas assinaturas:
 - **Assinatura da autoridade**: a entidade autorizada a colocar agentes em serviço (chave raiz da organização ou chave delegada de entrada em serviço)
 - **Referenda do principal**: o principal responsável que aceita a responsabilização pelo agente
 
-As duas assinaturas devem (MUST) usar a tag de separação de domínio `DCP-LIFECYCLE-SIG-v2`.
+As duas assinaturas devem (MUST) usar o contexto de separação de domínio `DCP-AI.v2.Lifecycle` (errata E2).
+
+> *Nota informativa (25/10/2026):* o schema V2.0 `commissioning_certificate` tem uma única `composite_sig` e nenhum campo para a referenda; veja [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md#4-requirements-the-v20-structures-do-not-represent-directly).
 
 <a id="5-vitality-metric"></a>
 
@@ -272,6 +276,8 @@ Vitalidade composta:
 vitality = floor(0.30 * capability_integrity + 0.25 * trust_standing +
                  0.25 * resource_health + 0.20 * policy_compliance)
 ```
+
+Em um relatório de vitalidade V2.0, esse valor vai no campo `vitality_score` (errata E3).
 
 <a id="52-thresholds"></a>
 
@@ -308,6 +314,8 @@ Os relatórios de vitalidade formam uma sequência encadeada por hash que fornec
 ### 6.2 Schema
 
 Referência do schema: `schemas/v2/vitality_report.schema.json`
+
+> **Erratas E3 e E7 (25/10/2026):** o campo `vitality` deste exemplo é `vitality_score` no formato de transmissão V2.0, e o exemplo como um todo é conceitual: o formato de transmissão é o schema, cujas `metrics` só são representáveis como 0 ou 1 com `dcp-jcs-v1`. Veja [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md).
 
 ```json
 {
@@ -703,7 +711,7 @@ Após a desativação, as chaves públicas do agente continuam arquivadas. Qualq
 
 ### 10.5 Separação de domínio
 
-Todas as assinaturas segundo esta especificação usam a tag de separação de domínio `DCP-LIFECYCLE-SIG-v2`. Isso impede que assinaturas criadas para o ciclo de vida sejam reutilizadas em outros contextos do protocolo DCP (por exemplo, declarações de intenção ou sessões A2A).
+Todas as assinaturas segundo esta especificação usam o contexto de separação de domínio `DCP-AI.v2.Lifecycle` (errata E2). Isso impede que assinaturas criadas para o ciclo de vida sejam reutilizadas em outros contextos do protocolo DCP (por exemplo, declarações de intenção ou sessões A2A).
 
 <a id="106-sudden-failure-risks"></a>
 
@@ -733,7 +741,7 @@ Uma implementação está em conformidade com o DCP-05 se:
 4. Oferece suporte aos quatro modos de encerramento definidos na seção 7
 5. Gera registros de desativação selados conforme a seção 8
 6. Cria entradas de auditoria do DCP-03 para todos os eventos do ciclo de vida conforme a seção 9
-7. Usa a tag de separação de domínio `DCP-LIFECYCLE-SIG-v2` em todas as assinaturas
+7. Usa o contexto de separação de domínio `DCP-AI.v2.Lifecycle` em todas as assinaturas (errata E2)
 8. Implementa hash duplo (SHA-256 + SHA3-256) em todos os elos das cadeias de hashes
 
 <a id="references"></a>
@@ -757,7 +765,8 @@ Uma implementação está em conformidade com o DCP-05 se:
 ## Notas de implementação (informativas)
 
 > **Acrescentadas em 25/10/2026. Não normativas.** Estas notas não acrescentam nenhum requisito nem mudam nada do que está acima: descrevem como
-> o código de referência em `main` se relaciona com este texto. Onde divergem, prevalece o texto normativo acima.
+> o código de referência em `main` se relaciona com este texto. Onde divergem, prevalece o texto normativo acima, com as correções das erratas de
+> [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md).
 
 - **Registros em `schemas/v2/`.** O certificado de entrada em serviço, o relatório de vitalidade e o registro de
   desativação que os SDKs constroem e que `schemas/v2/` valida têm campos diferentes dos exemplos de §3 a §9: por
@@ -766,8 +775,8 @@ Uma implementação está em conformidade com o DCP-05 se:
   `merkle_root`, `countersignature` ou `domain_sep`. Não há schema para o registro de transição de §3.3 nem para a
   entrada de auditoria de §9.2.
 - **Assinaturas.** Cada registro tem uma única `composite_sig` (Ed25519 + ML-DSA-65) de quem detém as chaves passadas,
-  com o contexto `DCP-AI.v2.Lifecycle`; os SDKs não usam a tag `DCP-LIFECYCLE-SIG-v2` nem produzem a assinatura da
-  autoridade mais a referenda do principal de §4.4.
+  com o contexto `DCP-AI.v2.Lifecycle` (errata E2); os SDKs não produzem a assinatura da autoridade mais a referenda do
+  principal de §4.4.
 - **Transições.** `validateStateTransition` aceita seis arestas: as cinco de §3.2 e `commissioned` ->
   `decommissioned`. Ela verifica apenas o par de estados, não a aprovação do principal, a vitalidade nem quem assina.
 - **Pontuação de vitalidade.** `computeVitalityScore` recebe quatro métricas em [0, 1] (`task_completion_rate`,

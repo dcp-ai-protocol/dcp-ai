@@ -118,6 +118,11 @@ jobs:
       - name: Run conformance tests (V1 + V2)
         run: npm run conformance
 
+      # Runner self-tests: missing/malformed fixtures, pinned case ids, negatives and fresh reports,
+      # exercised on temporary copies (tools/conformance/README.md).
+      - name: Conformance kit self-tests
+        run: node --test tools/conformance/conformance.test.mjs
+
       # Ed25519 S < L (RFC 8032 §5.1.7) in the reference verifier (tools/crypto.js, lib/verify.js,
       # the transparency-log gossip) and in the playground's verifyDetached.
       - name: Ed25519 S range regressions (reference and playground)

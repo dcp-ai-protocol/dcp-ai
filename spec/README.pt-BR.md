@@ -7,7 +7,7 @@
 
 > Tradução informativa da [versão em inglês](README.md), atualizada em 25/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
-Especificações normativas do Digital Citizenship Protocol for AI Agents. A fonte da verdade dos formatos é o JSON Schema em `schemas/v1/` e `schemas/v2/`; estes documentos definem o escopo, os artefatos e como validá-los.
+Especificações normativas do Digital Citizenship Protocol for AI Agents. A fonte da verdade dos formatos é o JSON Schema em `schemas/v1/` e `schemas/v2/`; estes documentos definem o escopo, os artefatos e como validá-los. [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md) lista as erratas que alinham os nomes, os contextos de assinatura e os exemplos do DCP-05, DCP-08 e DCP-09 com esse formato, e as quatro camadas (representável, válido segundo o schema, verificado, conforme) que são julgadas separadamente.
 
 <a id="foundation-specifications-dcp-01--dcp-03"></a>
 <a id="foundation-specifications-dcp-01-dcp-03"></a>

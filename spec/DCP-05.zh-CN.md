@@ -11,6 +11,8 @@
 ## 状态
 已发布 — v2.0（扩展；修订根据采用者的反馈跟踪）
 
+> **勘误（25/10/2026，规范性）：** [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md) 的勘误 E2、E3、E7 和 E8 更正了签名上下文、活力字段的名称以及示例的性质。它们不改变本规范的任何其他要求。
+
 <a id="abstract"></a>
 
 ## 摘要
@@ -63,7 +65,7 @@ DCP-01 至 DCP-04 确立了 AI 代理的身份、意图、审计和通信。然�
 
 **终止模式**：代理转入 `decommissioned` 状态的方式：`planned_retirement`、`termination_for_cause`、`organizational_restructuring` 或 `sudden_failure`。
 
-**域分离标签**：`DCP-LIFECYCLE-SIG-v2`，用于本规范下产生的所有签名，以防止跨协议重放。
+**域分离上下文**：`DCP-AI.v2.Lifecycle`（DCP-AI v2.0 §4.1；勘误 E2；此处原先写的是标签 `DCP-LIFECYCLE-SIG-v2`），用于本规范下产生的所有签名，以防止跨协议重放。
 
 <a id="3-lifecycle-state-machine"></a>
 
@@ -250,7 +252,9 @@ Schema 参考：`schemas/v2/commissioning_certificate.schema.json`
 - **机构签名**：获授权让代理投入运行的实体（组织根密钥或委派的投入运行密钥）
 - **主体副署**：对代理接受问责的负责主体
 
-两个签名都必须（MUST）使用域分离标签 `DCP-LIFECYCLE-SIG-v2`。
+两个签名都必须（MUST）使用域分离上下文 `DCP-AI.v2.Lifecycle`（勘误 E2）。
+
+> *参考说明（25/10/2026）：* V2.0 的 `commissioning_certificate` 模式只带一个 `composite_sig`，没有用于副署的字段；见 [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md#4-requirements-the-v20-structures-do-not-represent-directly)。
 
 <a id="5-vitality-metric"></a>
 
@@ -274,6 +278,8 @@ Schema 参考：`schemas/v2/commissioning_certificate.schema.json`
 vitality = floor(0.30 * capability_integrity + 0.25 * trust_standing +
                  0.25 * resource_health + 0.20 * policy_compliance)
 ```
+
+在 V2.0 活力报告中，该值放在字段 `vitality_score` 中（勘误 E3）。
 
 <a id="52-thresholds"></a>
 
@@ -310,6 +316,8 @@ vitality = floor(0.30 * capability_integrity + 0.25 * trust_standing +
 ### 6.2 Schema
 
 Schema 参考：`schemas/v2/vitality_report.schema.json`
+
+> **勘误 E3 和 E7（25/10/2026）：** 本示例中的字段 `vitality` 在 V2.0 传输格式中是 `vitality_score`，且整个示例是概念性的：传输格式是模式，其 `metrics` 在 `dcp-jcs-v1` 下只能表示为 0 或 1。见 [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md)。
 
 ```json
 {
@@ -705,7 +713,7 @@ Schema 参考：`schemas/v2/decommissioning_record.schema.json`
 
 ### 10.5 域分离
 
-本规范下的所有签名都使用域分离标签 `DCP-LIFECYCLE-SIG-v2`。这可以防止为生命周期目的创建的签名在其他 DCP 协议上下文（例如意图声明或 A2A 会话）中被重放。
+本规范下的所有签名都使用域分离上下文 `DCP-AI.v2.Lifecycle`（勘误 E2）。这可以防止为生命周期目的创建的签名在其他 DCP 协议上下文（例如意图声明或 A2A 会话）中被重放。
 
 <a id="106-sudden-failure-risks"></a>
 
@@ -735,7 +743,7 @@ Schema 参考：`schemas/v2/decommissioning_record.schema.json`
 4. 支持第 7 节定义的全部四种终止模式
 5. 按第 8 节的定义生成封存的退役记录
 6. 按第 9 节的定义为所有生命周期事件创建 DCP-03 审计条目
-7. 所有签名都使用域分离标签 `DCP-LIFECYCLE-SIG-v2`
+7. 所有签名都使用域分离上下文 `DCP-AI.v2.Lifecycle`（勘误 E2）
 8. 在所有哈希链链接中实现双哈希（SHA-256 + SHA3-256）
 
 <a id="references"></a>
@@ -759,14 +767,15 @@ Schema 参考：`schemas/v2/decommissioning_record.schema.json`
 ## 实现说明（参考性）
 
 > **2026 年 10 月 25 日添加。非规范性。** 这些说明不增加任何要求，也不改变上文任何内容：它们描述 `main` 上的参考代码
-> 与本文的关系。两者不一致时，以上文的规范性文本为准。
+> 与本文的关系。两者不一致时，以上文的规范性文本为准，并适用
+> [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md) 的勘误所作的更正。
 
 - **`schemas/v2/` 中的记录。** SDK 构建、`schemas/v2/` 验证的投入运行证书、活力报告和退役记录，其字段与
   §3 至 §9 的示例不同：例如活力报告中的 `vitality_score`、`state`、`metrics` 和 `prev_report_hash`，以及退役记录中的
   `final_vitality_score` 和 `data_disposition`。它们都没有 `prev_hash_secondary`、`merkle_root`、
   `countersignature` 或 `domain_sep`。§3.3 的转换记录和 §9.2 的审计条目没有 schema。
 - **签名。** 每条记录只带一个 `composite_sig`（Ed25519 + ML-DSA-65），由持有所传入密钥的一方在上下文
-  `DCP-AI.v2.Lifecycle` 下签署；SDK 不使用标签 `DCP-LIFECYCLE-SIG-v2`，也不产生 §4.4 的机构签名加主体副署。
+  `DCP-AI.v2.Lifecycle` 下签署（勘误 E2）；SDK 不产生 §4.4 的机构签名加主体副署。
 - **转换。** `validateStateTransition` 接受六条边：§3.2 的五条，以及 `commissioned` ->
   `decommissioned`。它只检查状态对，不检查主体批准、活力或签名者。
 - **活力得分。** `computeVitalityScore` 接收 [0, 1] 范围内的四个指标（`task_completion_rate`、取反的

@@ -148,8 +148,16 @@ signed_bytes = UTF8(context_tag) || 0x00 || canonical_payload_bytes
 | `DCP-AI.v2.HumanConfirmation` | Confirmação humana |
 | `DCP-AI.v2.AlgorithmAdvisory` | Aviso de descontinuação de algoritmo |
 | `DCP-AI.v2.Governance` | Operações de governança |
-| `DCP-AI.v2.Delegation` | Mandato de delegação raiz (assinatura da pessoa) e registros de interação (DCP-09) |
+| `DCP-AI.v2.MultiPartyAuth` | Autorização de uma parte em uma autorização multipartes (`multi_party_authorization.schema.json`) |
+| `DCP-AI.v2.Lifecycle` | Certificado de entrada em serviço, relatório de vitalidade e registro de desativação (DCP-05) |
+| `DCP-AI.v2.Succession` | Testamento digital, manifesto de transferência de memória e registro de sucessão (DCP-06) |
+| `DCP-AI.v2.Dispute` | Registro de disputa, objeção, resolução de arbitragem e pacote de jurisprudência (DCP-07) |
+| `DCP-AI.v2.Rights` | Declaração de direitos, registro de obrigação e relatório de violação de direitos (DCP-08) |
+| `DCP-AI.v2.Delegation` | Mandato de delegação raiz (assinatura da pessoa), espelhos do principal e registros de interação (DCP-09) |
+| `DCP-AI.v2.Awareness` | Limiares de consciência e declarações de alerta (DCP-09) |
 | `DCP-AI.v2.SubMandate` | Submandato assinado pelo agente que delega (DCP-09 §3.5) |
+
+> **Errata E1 (25/10/2026, normativa):** as linhas `MultiPartyAuth`, `Lifecycle`, `Succession`, `Dispute`, `Rights` e `Awareness`, e os espelhos do principal na linha `Delegation`, documentam contextos já usados pelos SDKs e por `tests/interop/v2/interop_vectors.json#domain_separation_all_contexts`; não acrescentam nenhuma tag. Veja [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md).
 
 ---
 

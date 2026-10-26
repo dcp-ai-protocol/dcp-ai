@@ -10,6 +10,8 @@
 ## Status
 Publicada — v2.0 (extensão; as revisões são acompanhadas conforme o retorno de quem a adota)
 
+> **Erratas (25/10/2026, normativas):** as erratas E5, E6, E7 e E8 de [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md) corrigem os contextos de assinatura, o campo que carrega a expiração de um mandato e o caráter dos exemplos. Não alteram nenhum outro requisito desta especificação.
+
 <a id="abstract"></a>
 
 ## Resumo
@@ -67,7 +69,7 @@ O DCP-09 trata de cinco questões interligadas:
 
 **Cadeia de mandatos**: quando um agente delega um subconjunto da sua autoridade a outro agente, a cadeia de mandatos do principal humano original, passando pelos agentes intermediários, até o delegado final.
 
-**Tags de separação de domínio**: `DCP-DELEGATION-SIG-v2` (registros de delegação e de interação), `DCP-AWARENESS-SIG-v2` (limiares de consciência e declarações de alerta), `DCP-AI.v2.SubMandate` (submandatos, seção 3.5).
+**Contextos de separação de domínio**: `DCP-AI.v2.Delegation` (mandatos raiz, espelhos do principal e registros de interação), `DCP-AI.v2.Awareness` (limiares de consciência e declarações de alerta), `DCP-AI.v2.SubMandate` (submandatos, seção 3.5). Errata E5; os dois primeiros constavam antes aqui como as tags `DCP-DELEGATION-SIG-v2` e `DCP-AWARENESS-SIG-v2`.
 
 <a id="3-delegation-mandate"></a>
 
@@ -82,6 +84,8 @@ Um mandato de delegação é o instrumento formal pelo qual um principal humano 
 ### 3.2 Schema
 
 Referência do schema: `schemas/v2/delegation_mandate.schema.json`
+
+> **Erratas E6 e E7 (25/10/2026):** este exemplo é conceitual. O formato de transmissão V2.0 é o schema: a janela é `valid_from` / `valid_until`, e a assinatura é `human_composite_sig` (raiz) ou `delegator_composite_sig` (submandato), seção 3.5. Há mandatos raiz e submandatos assinados em `tests/interop/v2/mandate_chain_vectors.json`. Veja [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md).
 
 ```json
 {
@@ -215,6 +219,8 @@ Referência do schema: `schemas/v2/delegation_mandate.schema.json`
 6. O mandato confirmado passa a estar ativo
 7. Uma entrada de auditoria `delegation_mandate_issued` é criada nas cadeias de auditoria do principal e do agente
 
+> *Nota informativa (25/10/2026):* o schema V2.0 `delegation_mandate` não tem nenhum campo para a confirmação do agente do passo 5; veja [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md#4-requirements-the-v20-structures-do-not-represent-directly).
+
 <a id="34-mandate-hash"></a>
 
 ### 3.4 Hash do mandato
@@ -268,7 +274,7 @@ Implementações de referência: `verifyMandateChain` (TypeScript), `verify_mand
 Um mandato pode ser revogado por:
 
 - **Revogação pelo principal**: o principal que delega revoga explicitamente o mandato
-- **Expiração**: o carimbo de data/hora `effective_until` é atingido
+- **Expiração**: o instante `valid_until` já passou (errata E6; comparado como instante RFC 3339, seção 3.5.2)
 - **Desativação do agente**: o agente delegado passa a `decommissioned` (DCP-05)
 - **Violação de política**: o agente viola uma condição especificada no mandato
 
@@ -561,6 +567,8 @@ Referência do schema: `schemas/v2/principal_mirror.schema.json`
 ### 6.3 Aprovação do principal
 
 O principal deve (MUST) revisar e aprovar o espelho antes que ele seja usado em interações. Isso garante que a representação narrativa do agente reflita com exatidão a intenção do principal. As duas assinaturas (do agente e do principal) são obrigatórias.
+
+> *Nota informativa (25/10/2026):* o schema V2.0 `principal_mirror` tem uma única `composite_sig`; veja [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md#4-requirements-the-v20-structures-do-not-represent-directly).
 
 <a id="64-mirror-updates"></a>
 
@@ -901,13 +909,13 @@ A camada narrativa dos registros de interação poderia ser redigida para aprese
 
 ### 10.6 Separação de domínio
 
-Esta especificação usa três tags de separação de domínio:
+Esta especificação usa três contextos de separação de domínio (errata E5):
 
-- `DCP-DELEGATION-SIG-v2` para mandatos de delegação, espelhos do principal e registros de interação
-- `DCP-AWARENESS-SIG-v2` para limiares de consciência e declarações de alerta
+- `DCP-AI.v2.Delegation` para mandatos de delegação raiz, espelhos do principal e registros de interação
+- `DCP-AI.v2.Awareness` para limiares de consciência e declarações de alerta
 - `DCP-AI.v2.SubMandate` para submandatos (seção 3.5), de modo que um mandato assinado por um agente que delega nunca possa se passar por um assinado por um principal humano
 
-No formato de transmissão do DCP-AI v2.0, as duas primeiras são as tags de contexto `DCP-AI.v2.Delegation` e `DCP-AI.v2.Awareness` (DCP-AI v2.0 §4.1).
+Os dois primeiros constavam antes aqui como as tags `DCP-DELEGATION-SIG-v2` e `DCP-AWARENESS-SIG-v2`, que não são contextos V2.0 (DCP-AI v2.0 §4.1).
 
 Essa separação impede que assinaturas de um contexto sejam reutilizadas em outro.
 
@@ -925,7 +933,7 @@ Uma implementação está em conformidade com o DCP-09 se:
 6. Estende o handshake A2A com a verificação do mandato conforme a seção 8
 7. Cria entradas de auditoria do DCP-03 para todos os eventos de delegação conforme a seção 9
 8. Oferece suporte à subdelegação com aplicação da redução de escopo quando habilitada
-9. Usa as tags de separação de domínio `DCP-DELEGATION-SIG-v2` e `DCP-AWARENESS-SIG-v2` em todas as assinaturas
+9. Usa os contextos de separação de domínio `DCP-AI.v2.Delegation`, `DCP-AI.v2.Awareness` e `DCP-AI.v2.SubMandate` como a seção 10.6 os atribui (errata E5)
 
 <a id="references"></a>
 
@@ -948,13 +956,14 @@ Uma implementação está em conformidade com o DCP-09 se:
 ## Notas de implementação (informativas)
 
 > **Acrescentadas em 25/10/2026. Não normativas.** Estas notas não acrescentam nenhum requisito nem mudam nada do que está acima: descrevem como
-> o código de referência em `main` se relaciona com este texto. Onde divergem, prevalece o texto normativo acima.
+> o código de referência em `main` se relaciona com este texto. Onde divergem, prevalece o texto normativo acima, com as correções das erratas de
+> [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md).
 
 - **O que os SDKs verificam.** A cadeia de mandatos de §3.5 está implementada nos quatro SDKs que assinam e é
   verificada com `tests/interop/v2/mandate_chain_vectors.json`. O restante do DCP-09 são registros que os SDKs
   constroem e assinam, não passos do protocolo que executem ou façam cumprir.
 - **Registros em `schemas/v2/`.** Os schemas têm campos diferentes dos exemplos de §3 a §9. A janela de um mandato é
-  `valid_from` / `valid_until` (o `effective_until` do exemplo de §3.2 e de §3.6 não está no schema), com
+  `valid_from` / `valid_until` (§3.6 é lido como `valid_until` pela errata E6; o exemplo de §3.2 é conceitual), com
   `authority_scope` e `revocable`. Um limiar de consciência é uma lista de `threshold_rules` (`dimension`, `operator`,
   `value`, `action_if_triggered`), não a declaração de confiança de §4.2. Uma declaração de alerta tem um
   `significance_score` inteiro (0–1000), `action_summary`, `recommended_response`, `response_deadline` e

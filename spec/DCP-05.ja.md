@@ -11,6 +11,8 @@
 ## ステータス
 公開済み — v2.0（拡張。改訂は採用者からのフィードバックに基づいて管理）
 
+> **正誤表（25/10/2026、規範的）：** [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md) の正誤 E2、E3、E7、E8 は、署名のコンテキスト、バイタリティのフィールド名、例の位置づけを訂正します。本仕様のその他の要件は変わりません。
+
 <a id="abstract"></a>
 
 ## 概要
@@ -63,7 +65,7 @@ DCP-01 から DCP-04 は、AI エージェントのアイデンティティ、�
 
 **終了モード**: エージェントが `decommissioned` 状態に移る方法: `planned_retirement`、`termination_for_cause`、`organizational_restructuring`、`sudden_failure`。
 
-**ドメイン分離タグ**: `DCP-LIFECYCLE-SIG-v2`。プロトコル間のリプレイを防ぐため、本仕様で作成されるすべての署名に使われます。
+**ドメイン分離コンテキスト**: `DCP-AI.v2.Lifecycle`（DCP-AI v2.0 §4.1。正誤 E2。以前はここにラベル `DCP-LIFECYCLE-SIG-v2` が記載されていました）。プロトコル間のリプレイを防ぐため、本仕様で作成されるすべての署名に使われます。
 
 <a id="3-lifecycle-state-machine"></a>
 
@@ -252,7 +254,9 @@ DCP-01 から DCP-04 は、AI エージェントのアイデンティティ、�
 - **権限者の署名**: エージェントの運用開始を認可された主体（組織のルート鍵、または委任された運用開始用の鍵）
 - **プリンシパルの副署**: エージェントについての説明責任を引き受ける、責任を負うプリンシパル
 
-どちらの署名もドメイン分離タグ `DCP-LIFECYCLE-SIG-v2` を使わなければなりません（MUST）。
+どちらの署名もドメイン分離コンテキスト `DCP-AI.v2.Lifecycle` を使わなければなりません（MUST）（正誤 E2）。
+
+> *参考注記（25/10/2026）：* V2.0 の `commissioning_certificate` スキーマは `composite_sig` を 1 つだけ持ち、副署のためのフィールドはありません。[V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md#4-requirements-the-v20-structures-do-not-represent-directly) を参照してください。
 
 <a id="5-vitality-metric"></a>
 
@@ -276,6 +280,8 @@ DCP-01 から DCP-04 は、AI エージェントのアイデンティティ、�
 vitality = floor(0.30 * capability_integrity + 0.25 * trust_standing +
                  0.25 * resource_health + 0.20 * policy_compliance)
 ```
+
+V2.0 のバイタリティレポートでは、この値はフィールド `vitality_score` に入ります（正誤 E3）。
 
 <a id="52-thresholds"></a>
 
@@ -314,6 +320,8 @@ vitality = floor(0.30 * capability_integrity + 0.25 * trust_standing +
 ### 6.2 スキーマ
 
 スキーマの参照: `schemas/v2/vitality_report.schema.json`
+
+> **正誤 E3 と E7（25/10/2026）：** この例のフィールド `vitality` は、V2.0 のワイヤーフォーマットでは `vitality_score` です。また、この例全体は概念的なものです。ワイヤーフォーマットはスキーマであり、その `metrics` は `dcp-jcs-v1` のもとでは 0 または 1 しか表現できません。[V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md) を参照してください。
 
 ```json
 {
@@ -711,7 +719,7 @@ vitality = floor(0.30 * capability_integrity + 0.25 * trust_standing +
 
 ### 10.5 ドメイン分離
 
-本仕様のすべての署名はドメイン分離タグ `DCP-LIFECYCLE-SIG-v2` を使います。これにより、ライフサイクルの目的で作成された署名が、DCP プロトコルの他のコンテキスト（たとえば意図の宣言や A2A セッション）でリプレイされることを防ぎます。
+本仕様のすべての署名はドメイン分離コンテキスト `DCP-AI.v2.Lifecycle` を使います（正誤 E2）。これにより、ライフサイクルの目的で作成された署名が、DCP プロトコルの他のコンテキスト（たとえば意図の宣言や A2A セッション）でリプレイされることを防ぎます。
 
 <a id="106-sudden-failure-risks"></a>
 
@@ -741,7 +749,7 @@ vitality = floor(0.30 * capability_integrity + 0.25 * trust_standing +
 4. セクション 7 で定義された 4 つの終了モードすべてに対応している
 5. セクション 8 で定義された封印済みの運用終了記録を生成している
 6. セクション 9 で定義されたとおり、すべてのライフサイクルイベントについて DCP-03 の監査エントリーを作成している
-7. すべての署名にドメイン分離タグ `DCP-LIFECYCLE-SIG-v2` を使っている
+7. すべての署名にドメイン分離コンテキスト `DCP-AI.v2.Lifecycle` を使っている（正誤 E2）
 8. ハッシュチェーンのすべてのリンクに二重ハッシュ（SHA-256 + SHA3-256）を実装している
 
 <a id="references"></a>
@@ -765,7 +773,8 @@ vitality = floor(0.30 * capability_integrity + 0.25 * trust_standing +
 ## 実装に関する注記（参考）
 
 > **2026 年 10 月 25 日に追加。規範的ではありません。** これらの注記は要件を加えず、上の内容を何も変えません。`main` のリファレンスの
-> コードがこの文書とどう関係するかを説明するものです。食い違う場合は、上の規範的な本文がそのまま有効です。
+> コードがこの文書とどう関係するかを説明するものです。食い違う場合は、上の規範的な本文が、
+> [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md) の正誤による訂正を含めて有効です。
 
 - **`schemas/v2/` の記録。** SDK が構築し `schemas/v2/` が検証する運用開始証明書、バイタリティレポート、
   運用終了記録のフィールドは、§3 から §9 の例とは異なります。たとえばバイタリティレポートには `vitality_score`、
@@ -773,8 +782,8 @@ vitality = floor(0.30 * capability_integrity + 0.25 * trust_standing +
   があります。どれにも `prev_hash_secondary`、`merkle_root`、`countersignature`、`domain_sep` はありません。
   §3.3 の遷移の記録と §9.2 の監査エントリーにはスキーマがありません。
 - **署名。** 各記録は、渡された鍵を持つ者による `composite_sig`（Ed25519 + ML-DSA-65）を 1 つだけ、
-  コンテキスト `DCP-AI.v2.Lifecycle` で持ちます。SDK はタグ `DCP-LIFECYCLE-SIG-v2` を使わず、§4.4 の
-  権限者の署名とプリンシパルの副署も作成しません。
+  コンテキスト `DCP-AI.v2.Lifecycle` で持ちます（正誤 E2）。SDK は §4.4 の権限者の署名とプリンシパルの副署を
+  作成しません。
 - **遷移。** `validateStateTransition` は 6 本の辺を受け入れます。§3.2 の 5 本と、`commissioned` ->
   `decommissioned` です。確認するのは状態の組だけで、プリンシパルの承認、バイタリティ、署名者は確認しません。
 - **バイタリティスコア。** `computeVitalityScore` は [0, 1] の 4 つの指標（`task_completion_rate`、反転した

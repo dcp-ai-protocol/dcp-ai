@@ -10,6 +10,8 @@
 ## Status
 Publicada — v2.0 (extensão; as revisões são acompanhadas conforme o retorno de quem a adota)
 
+> **Erratas (25/10/2026, normativas):** as erratas E4, E7 e E8 de [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md) corrigem o contexto de assinatura e o caráter dos exemplos. Não alteram nenhum outro requisito desta especificação.
+
 <a id="abstract"></a>
 
 ## Resumo
@@ -63,7 +65,7 @@ Isto não é uma afirmação filosófica sobre a consciência ou o status moral 
 
 **Status de conformidade**: o estado atual de uma obrigação: `compliant`, `at_risk`, `non_compliant` ou `exempt`.
 
-**Tag de separação de domínio**: `DCP-RIGHTS-SIG-v2`, usada em todas as assinaturas produzidas segundo esta especificação.
+**Contexto de separação de domínio**: `DCP-AI.v2.Rights` (DCP-AI v2.0 §4.1; errata E4; antes constava aqui a tag `DCP-RIGHTS-SIG-v2`), usado em todas as assinaturas produzidas segundo esta especificação.
 
 <a id="3-foundational-agent-rights"></a>
 
@@ -296,6 +298,8 @@ As organizações podem (MAY) definir direitos adicionais aos quatro fundamentai
 - Devem (MUST) seguir a mesma estrutura dos direitos fundamentais
 - Podem (MAY) ser aplicados pela infraestrutura DCP ou por ferramentas da organização
 - ESTÃO sujeitos ao mesmo mecanismo de relato de violações
+
+> *Nota informativa (25/10/2026):* o enum fechado `right_type` do schema V2.0 `rights_declaration` não representa os direitos ampliados; representá-los requer um projeto explícito e versionado. Veja [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md#4-requirements-the-v20-structures-do-not-represent-directly).
 
 <a id="5-obligation-tracking"></a>
 
@@ -658,7 +662,7 @@ As organizações que definirem direitos estendidos deveriam (SHOULD) agir com m
 
 ### 9.5 Separação de domínio
 
-Todas as assinaturas segundo esta especificação usam a tag de separação de domínio `DCP-RIGHTS-SIG-v2`, o que impede a repetição de assinaturas entre protocolos.
+Todas as assinaturas segundo esta especificação usam o contexto de separação de domínio `DCP-AI.v2.Rights` (errata E4), o que impede a repetição de assinaturas entre protocolos.
 
 <a id="10-conformance"></a>
 
@@ -673,7 +677,7 @@ Uma implementação está em conformidade com o DCP-08 se:
 5. Cria entradas de auditoria do DCP-03 para todos os eventos de direitos e obrigações conforme a seção 8
 6. Oferece suporte a extensões de direitos da organização com notação de domínio reverso
 7. Aplica a avaliação da conformidade nos intervalos configurados
-8. Usa a tag de separação de domínio `DCP-RIGHTS-SIG-v2` em todas as assinaturas
+8. Usa o contexto de separação de domínio `DCP-AI.v2.Rights` em todas as assinaturas (errata E4)
 
 <a id="references"></a>
 
@@ -695,7 +699,8 @@ Uma implementação está em conformidade com o DCP-08 se:
 ## Notas de implementação (informativas)
 
 > **Acrescentadas em 25/10/2026. Não normativas.** Estas notas não acrescentam nenhum requisito nem mudam nada do que está acima: descrevem como
-> o código de referência em `main` se relaciona com este texto. Onde divergem, prevalece o texto normativo acima.
+> o código de referência em `main` se relaciona com este texto. Onde divergem, prevalece o texto normativo acima, com as correções das erratas de
+> [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md).
 
 - **Registros em `schemas/v2/`.** A declaração de direitos, o registro de obrigação e o relatório de violação de
   direitos que os SDKs constroem e que `schemas/v2/` valida têm campos diferentes dos exemplos de §4 a §6. Cada direito
@@ -705,7 +710,7 @@ Uma implementação está em conformidade com o DCP-08 se:
   conformidade nem limites. Um relatório de violação nomeia um único `violated_right` entre esses mesmos quatro, com um
   `dispute_id` opcional; não existe o tipo `obligation_breach`.
 - **Assinaturas.** Cada registro tem uma única `composite_sig` (Ed25519 + ML-DSA-65) de quem detém as chaves passadas,
-  com o contexto `DCP-AI.v2.Rights`; os SDKs não usam a tag `DCP-RIGHTS-SIG-v2` nem verificam se uma declaração foi
+  com o contexto `DCP-AI.v2.Rights` (errata E4); os SDKs não verificam se uma declaração foi
   assinada pela autoridade de entrada em serviço (§9.1).
 - **O que as funções auxiliares fazem.** Elas constroem e assinam registros. `reportViolation` só guarda o
   `dispute_id` que recebe; não abre nenhuma disputa do DCP-07 (§6.4). `checkRightsCompliance` aponta as obrigações cujo
