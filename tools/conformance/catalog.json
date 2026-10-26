@@ -1,0 +1,355 @@
+{
+  "kit_version": "1.0.0",
+  "description": "DCP-AI conformance kit catalog. expected_cases pins every case id a suite must produce: a missing or extra case is an infrastructure error, never a silent reduction of coverage.",
+  "limits": [
+    "Passing the selected suites certifies those checks on these fixtures only; it does not certify a complete DCP implementation, another SDK or a deployment.",
+    "Schema suites prove schema validity only.",
+    "Inventory entries are not executed by this kit and are not counted in the totals.",
+    "verified and admitted never authorize an action.",
+    "Adapters (Express, FastAPI, OpenClaw, the verification server) are not part of this kit."
+  ],
+  "suites": [
+    {
+      "id": "v1.schema",
+      "title": "V1 core artifacts: JSON Schema",
+      "claim": "Each V1 example and the V1 signed bundle validate against their schemas/v1 schema. This proves schema validity only: not signatures, hashes, chaining or behaviour.",
+      "requirements": [
+        {
+          "spec": "spec/DCP-01.md, spec/DCP-02.md, spec/DCP-03.md, spec/BUNDLE.md",
+          "schemas": "schemas/v1/*.schema.json",
+          "fixtures": "tests/conformance/examples/{responsible_principal_record,agent_passport,intent,policy_decision,audit_entry,citizenship_bundle,citizenship_bundle.signed}.json"
+        }
+      ],
+      "expected_cases": [
+        "v1.schema.responsible_principal_record",
+        "v1.schema.agent_passport",
+        "v1.schema.intent",
+        "v1.schema.policy_decision",
+        "v1.schema.audit_entry",
+        "v1.schema.citizenship_bundle",
+        "v1.schema.signed_bundle"
+      ]
+    },
+    {
+      "id": "v1.integrity",
+      "title": "V1 signed bundle: signature, hashes and audit chain",
+      "claim": "The committed V1 signed fixture verifies (Ed25519 over the canonical bundle) with the public key its golden metadata declares, which must equal the fixture signer key and keys/public_key.txt; bundle_hash, Merkle root, intent_hash, audit entry hashes and the prev_hash chain are recomputed and compared with the signature block and with the golden values. One fixture through the reference code: it does not certify another implementation.",
+      "requirements": [
+        {
+          "spec": "spec/VERIFICATION.md (V1), spec/DCP-03.md",
+          "schemas": "schemas/v1/signed_bundle.schema.json",
+          "fixtures": "tests/conformance/examples/citizenship_bundle.signed.json, tests/conformance/examples/citizenship_bundle.json, keys/public_key.txt",
+          "vectors": "tests/conformance/v2/golden_vectors.json#v1_bundle_verification"
+        }
+      ],
+      "expected_cases": [
+        "v1.integrity.key_metadata_consistent",
+        "v1.integrity.signature",
+        "v1.integrity.bundle_hash",
+        "v1.integrity.merkle_root",
+        "v1.integrity.intent_hash_golden",
+        "v1.integrity.audit_entry_hashes_golden",
+        "v1.integrity.prev_hash_chain_golden",
+        "v1.integrity.chain_signed_bundle",
+        "v1.integrity.chain_unsigned_bundle"
+      ]
+    },
+    {
+      "id": "v2.canonicalization",
+      "title": "dcp-jcs-v1 canonical form",
+      "claim": "The reference canonicalizer (tools/merkle.js) produces the expected canonical bytes for the golden and interop vectors. The edge_cases block is run by the SDK suites, not here. The dcp-jcs-v2 candidate is outside this suite.",
+      "requirements": [
+        {
+          "spec": "spec/CANONICALIZATION_PROFILE.md, spec/DCP-AI-v2.0.md §15",
+          "vectors": "tests/conformance/v2/golden_vectors.json#canonicalization, #v2_canonicalization; tests/interop/v2/interop_vectors.json#canonicalization"
+        }
+      ],
+      "expected_cases": [
+        "v2.canonicalization.golden.simple_sorted_keys",
+        "v2.canonicalization.golden.nested_objects",
+        "v2.canonicalization.golden.mixed_types",
+        "v2.canonicalization.golden.integer_only_v2",
+        "v2.canonicalization.golden.with_null",
+        "v2.canonicalization.golden.unicode",
+        "v2.canonicalization.golden_v2.integer_only",
+        "v2.canonicalization.golden_v2.with_null",
+        "v2.canonicalization.interop.agent_passport",
+        "v2.canonicalization.interop.intent",
+        "v2.canonicalization.interop.audit_event"
+      ]
+    },
+    {
+      "id": "v2.hashes",
+      "title": "SHA-256 / SHA3-256 vectors, dual hashes and dual Merkle roots",
+      "claim": "Hash, dual-hash and dual Merkle root values match the golden vectors and the V1 fixture. Golden values only: the V2 verifiers do not recompute the secondary SHA3-256 chain.",
+      "requirements": [
+        {
+          "spec": "spec/DCP-AI-v2.0.md §2.3, §10.3",
+          "vectors": "tests/conformance/v2/golden_vectors.json#hash_vectors, #dual_hash_vectors"
+        }
+      ],
+      "expected_cases": [
+        "v2.hashes.sha256_hello",
+        "v2.hashes.sha3_256_hello",
+        "v2.hashes.sha256_empty",
+        "v2.hashes.sha3_256_empty",
+        "v2.hashes.dual.raw",
+        "v2.hashes.dual.intent_canonical",
+        "v2.hashes.dual.intent_matches_v1_fixture",
+        "v2.hashes.dual.audit_entries",
+        "v2.hashes.dual.merkle_roots"
+      ]
+    },
+    {
+      "id": "v2.signed_bundle",
+      "title": "V2 signed bundle through the reference verifier",
+      "claim": "A V2 bundle signed in memory with fresh keys (nothing written) verifies through lib/verify.js, and tampered, forged, stripped, pinned and legacy variants get the expected verdict under the stated mode. verified is not admission and does not authorize an action.",
+      "requirements": [
+        {
+          "spec": "spec/VERIFICATION.md (V2), spec/DCP-AI-v2.0.md §5, §7, §18",
+          "schemas": "schemas/v2/signed_bundle.schema.json and payload schemas",
+          "code": "scripts/generate-v2-examples.js (buildV2Examples), lib/verify.js"
+        }
+      ],
+      "expected_cases": [
+        "v2.signed_bundle.verifies",
+        "v2.signed_bundle.pinned_signer_key_verifies",
+        "v2.signed_bundle.pinned_other_key_rejected",
+        "v2.signed_bundle.pinned_under_pq_only_rejected",
+        "v2.signed_bundle.tampered_intent_rejected",
+        "v2.signed_bundle.forged_classical_signature_rejected",
+        "v2.signed_bundle.forged_pq_signature_rejected_hybrid_required",
+        "v2.signed_bundle.pq_stripped_rejected_hybrid_required",
+        "v2.signed_bundle.schema_invalid_payload_rejected",
+        "v2.signed_bundle.legacy_prenormative_envelope_rejected"
+      ]
+    },
+    {
+      "id": "v2.schema",
+      "title": "V2 core artifacts: JSON Schema",
+      "claim": "The V2 RPR, passport, intent and policy decision examples validate against schemas/v2. Schema validity only; on its own it does not make a V2 implementation, which also needs the canonicalization, hash and signature suites.",
+      "requirements": [
+        {
+          "spec": "spec/DCP-AI-v2.0.md, spec/core/dcp-core.md",
+          "schemas": "schemas/v2/{responsible_principal_record,agent_passport,intent,policy_decision}.schema.json",
+          "fixtures": "tests/conformance/examples/{rpr,passport,intent,policy_decision}_v2.json"
+        }
+      ],
+      "expected_cases": [
+        "v2.schema.responsible_principal_record",
+        "v2.schema.agent_passport",
+        "v2.schema.intent",
+        "v2.schema.policy_decision"
+      ]
+    },
+    {
+      "id": "ext.dcp05_09.schema",
+      "title": "DCP-05 to DCP-09 records: JSON Schema",
+      "claim": "The DCP-05 to DCP-09 example records validate against their schemas/v2 schema. Schema validity only: no signature, lifecycle, succession, dispute, rights or delegation behaviour is tested, and the records are signed declarations, not proof of what they state.",
+      "limits": [
+        "DCP-05: vitality_report metrics are numbers in [0, 1], but dcp-jcs-v1 only canonicalizes integers, so a signed report can only carry 0 or 1 per metric (unresolved).",
+        "DCP-08 §4.3 allows organizational rights in reverse-domain notation; the right_type enum of rights_declaration.schema.json refuses them (unresolved).",
+        "DCP-09 §3.2/§3.6 use effective_until; the schema and the SDKs use valid_until (unresolved).",
+        "DCP-04 to DCP-09 examples use DCP-*-SIG-v2 tags and fields that differ from the schemas and the DCP-AI.v2.* contexts of the SDKs; this suite does not test signatures."
+      ],
+      "requirements": [
+        {
+          "spec": "spec/DCP-05.md … spec/DCP-09.md",
+          "schemas": "schemas/v2/<record>.schema.json",
+          "fixtures": "tests/conformance/examples/<record>_v2.json"
+        }
+      ],
+      "expected_cases": [
+        "ext.schema.dcp05.commissioning_certificate",
+        "ext.schema.dcp05.vitality_report",
+        "ext.schema.dcp05.decommissioning_record",
+        "ext.schema.dcp06.digital_testament",
+        "ext.schema.dcp06.succession_record",
+        "ext.schema.dcp06.memory_transfer_manifest",
+        "ext.schema.dcp07.dispute_record",
+        "ext.schema.dcp07.arbitration_resolution",
+        "ext.schema.dcp07.jurisprudence_bundle",
+        "ext.schema.dcp07.objection_record",
+        "ext.schema.dcp08.rights_declaration",
+        "ext.schema.dcp08.obligation_record",
+        "ext.schema.dcp08.rights_violation_report",
+        "ext.schema.dcp09.delegation_mandate",
+        "ext.schema.dcp09.advisory_declaration",
+        "ext.schema.dcp09.principal_mirror",
+        "ext.schema.dcp09.interaction_record",
+        "ext.schema.dcp09.awareness_threshold"
+      ]
+    },
+    {
+      "id": "admission.strict_v1",
+      "title": "Admission: principal trust and the strict-v1 profile",
+      "claim": "The admission schemas validate their examples, and every admission vector gives the expected verified, principal_trust, profile_compliance, admitted, recorded_decision, action_authorized and error codes through admitSignedBundle; configuration vectors give the expected acceptance or error code. admitted is a recorded decision under the operator's trust set and profile; action_authorized is always false.",
+      "requirements": [
+        {
+          "spec": "spec/profiles/admission/README.md",
+          "schemas": "schemas/v2/{principal_trust_set,admission_profile,revocation_snapshot}.schema.json",
+          "vectors": "tests/interop/v2/admission_vectors.json"
+        }
+      ],
+      "expected_cases": [
+        "admission.schema.principal_trust_set",
+        "admission.schema.admission_profile",
+        "admission.schema.revocation_snapshot",
+        "admission.vector.A_known_principal_strict",
+        "admission.vector.B_general_verifier_unchanged",
+        "admission.vector.B_trust_without_profile",
+        "admission.vector.C_new_key_added_to_trust_set",
+        "admission.vector.C_new_key_not_yet_in_trust_set",
+        "admission.vector.D_overlap_old_keys_still_active",
+        "admission.vector.D_overlap_old_keys_after_retirement",
+        "admission.vector.D_overlap_ended_old_keys",
+        "admission.vector.D_overlap_ended_new_keys",
+        "admission.vector.D_new_keys_valid_from_now",
+        "admission.vector.D_new_keys_before_not_before",
+        "admission.vector.E_escalated_decision_is_evidence",
+        "admission.vector.E_blocked_decision_is_evidence",
+        "admission.vector.1_unknown_principal_strict",
+        "admission.vector.1_empty_trust_set",
+        "admission.vector.1_unknown_principal_trust_only",
+        "admission.vector.11_v1_bundle_trust_only",
+        "admission.vector.4_pq_key_substituted_trust_only",
+        "admission.vector.1_trusted_keys_under_another_human_id",
+        "admission.vector.2_attacker_uses_known_human_id",
+        "admission.vector.3_classical_key_substituted",
+        "admission.vector.4_pq_key_substituted",
+        "admission.vector.5_only_classical_key_trusted",
+        "admission.vector.5_only_pq_key_trusted",
+        "admission.vector.6_key_revoked_in_trust_set",
+        "admission.vector.6_key_status_expired_in_trust_set",
+        "admission.vector.6_key_expires_before_now",
+        "admission.vector.6_key_expires_exactly_now",
+        "admission.vector.8_no_intended_verifier",
+        "admission.vector.8_other_intended_verifier",
+        "admission.vector.8_profile_for_another_verifier",
+        "admission.vector.9_no_session_issued_at",
+        "admission.vector.9_no_session_expires_at",
+        "admission.vector.10_session_300_s_exactly",
+        "admission.vector.10_session_301_s",
+        "admission.vector.10_session_300_001_s",
+        "admission.vector.10_operator_lowers_maximum",
+        "admission.vector.10_expires_exactly_now",
+        "admission.vector.10_expired_one_ms_ago",
+        "admission.vector.10_session_start_after_expiry",
+        "admission.vector.10_session_expiry_not_rfc3339",
+        "admission.vector.10_sub_millisecond_digits_dropped",
+        "admission.vector.10_start_30_s_ahead",
+        "admission.vector.10_start_30_001_s_ahead",
+        "admission.vector.11_v1_bundle",
+        "admission.vector.11_classical_only_bundle",
+        "admission.vector.14_profile_narrows_pq_algs",
+        "admission.vector.14_profile_advisory_rejects_ml_dsa",
+        "admission.vector.14_profile_restates_fixed_values",
+        "admission.vector.12_pq_signature_present_and_invalid",
+        "admission.vector.13_agent_revoked",
+        "admission.vector.13_principal_key_revoked",
+        "admission.vector.13_agent_key_revoked",
+        "admission.vector.13_status_unknown",
+        "admission.vector.13_subject_missing",
+        "admission.vector.13_key_subject_missing",
+        "admission.vector.13_stale_by_1_ms",
+        "admission.vector.13_age_exactly_300_s",
+        "admission.vector.13_stale_and_revoked",
+        "admission.vector.13_checked_30_s_ahead",
+        "admission.vector.13_checked_30_001_s_ahead",
+        "admission.vector.13_checked_at_not_rfc3339",
+        "admission.vector.13_status_not_in_schema",
+        "admission.vector.13_extra_field",
+        "admission.vector.13_unavailable",
+        "admission.config.7_kid_not_derived",
+        "admission.config.7_kid_of_other_alg",
+        "admission.config.7_duplicate_human_id",
+        "admission.config.7_same_key_for_two_principals",
+        "admission.config.7_identical_key_twice",
+        "admission.config.7_empty_human_id",
+        "admission.config.7_missing_human_id",
+        "admission.config.7_key_wrong_length",
+        "admission.config.7_key_not_canonical_base64",
+        "admission.config.7_unknown_alg",
+        "admission.config.7_unknown_key_field",
+        "admission.config.7_unknown_top_field",
+        "admission.config.7_bad_status",
+        "admission.config.7_bad_expires_at",
+        "admission.config.7_missing_version",
+        "admission.config.7_empty_keys",
+        "admission.config.14_allow_v1_bundles",
+        "admission.config.14_no_session_binding",
+        "admission.config.14_no_session_expiry",
+        "admission.config.14_no_audience_binding",
+        "admission.config.14_no_composite_binding",
+        "admission.config.14_classical_fallback",
+        "admission.config.14_classical_only_mode",
+        "admission.config.14_pq_only_mode",
+        "admission.config.14_hybrid_preferred_tier",
+        "admission.config.14_pq_only_tier",
+        "admission.config.14_min_pq_zero",
+        "admission.config.14_min_classical_two",
+        "admission.config.14_hash_algs_changed",
+        "admission.config.14_key_age_changed",
+        "admission.config.14_no_pq_algs",
+        "admission.config.14_extra_classical_alg",
+        "admission.config.14_longer_policy_session",
+        "admission.config.14_policy_no_session_limit",
+        "admission.config.14_policy_other_verifier_id",
+        "admission.config.14_session_maximum_301",
+        "admission.config.14_session_maximum_0",
+        "admission.config.14_revocation_age_301",
+        "admission.config.14_no_verifier_id",
+        "admission.config.14_empty_verifier_id",
+        "admission.config.14_session_maximum_string",
+        "admission.config.14_session_maximum_fraction",
+        "admission.config.14_verifier_id_number",
+        "admission.config.14_unknown_profile",
+        "admission.config.14_bad_mode_value",
+        "admission.config.14_flag_as_string",
+        "admission.config.14_unknown_option",
+        "admission.config.14_unknown_policy_field",
+        "admission.config.14_unknown_risk_tier"
+      ]
+    }
+  ],
+  "inventory": [
+    {
+      "id": "interop.attack_vectors",
+      "where": "tests/interop/v2/interop_vectors.json#attack_vectors",
+      "count": 5,
+      "runs_in": "the four SDK test suites",
+      "note": "Not executed by this kit; listed so that its presence is not mistaken for a passed test."
+    },
+    {
+      "id": "interop.canonicalization.edge_cases",
+      "where": "tests/interop/v2/interop_vectors.json#canonicalization.edge_cases",
+      "count": 19,
+      "runs_in": "the four SDK test suites",
+      "note": "Not executed by this kit."
+    },
+    {
+      "id": "interop.other_categories",
+      "where": "tests/interop/v2/interop_vectors.json (kid_derivation, payload_hashes, blinded_rpr, domain separation, signatures, session_splicing, security_tier, rfc3339)",
+      "runs_in": "the four SDK test suites",
+      "note": "Not executed by this kit."
+    },
+    {
+      "id": "interop.bundle_and_mandate_vectors",
+      "where": "tests/interop/v2/bundle_vectors.json, tests/interop/v2/mandate_chain_vectors.json",
+      "runs_in": "the four SDK test suites",
+      "note": "Not executed by this kit."
+    },
+    {
+      "id": "nist_kat",
+      "where": "tests/nist-kat/",
+      "runs_in": "the SDK test suites",
+      "note": "Known-answer vectors (RFC 8032, NIST ACVP) and property tests with their own scope (see tests/nist-kat/README.md); not executed by this kit."
+    },
+    {
+      "id": "candidate.dcp_jcs_v2",
+      "where": "tests/interop/candidate/ (phase4 matrix, canonicalization-candidate-matrix workflow)",
+      "runs_in": "its own experimental suite",
+      "note": "Experimental opt-in candidate; outside dcp-jcs-v1 and outside this kit."
+    }
+  ]
+}
