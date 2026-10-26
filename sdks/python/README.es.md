@@ -5,7 +5,7 @@
 
 # dcp-ai — SDK de Python
 
-> Traducción informativa de [la versión en inglés](README.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](README.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 SDK oficial de Python para el Digital Citizenship Protocol (DCP v2.0). Modelos de Pydantic v2, firmas híbridas poscuánticas (Ed25519 + ML-DSA-65, además de SLH-DSA-192f), la primitiva KEM ML-KEM-768, firmas compuestas con vinculación `pq_over_classical`, firma y verificación de bundles V1 y V2, observabilidad con OpenTelemetry, el comportamiento de DCP-04 a DCP-09 y una CLI completa.
 
@@ -13,20 +13,21 @@ SDK oficial de Python para el Digital Citizenship Protocol (DCP v2.0). Modelos d
 
 ## Instalación
 
-**Estado de publicación.** Este README describe el código de `main`. La última versión etiquetada, `v2.10.0`, tiene
-`dcp-ai` 2.9.0 para Python. Lo que el registro de cambios enumera en [`[Unreleased]`](../../CHANGELOG.md#unreleased) no está en
-ninguna versión etiquetada: admisión, cadenas de delegación, la ventana de recepción A2A, hilos de lista de denegación acotados y las
-API experimentales de `dcp-jcs-v2`. Para ejecutar los ejemplos siguientes, instala desde una copia del repositorio:
+**SDK Python 2.10.0.** Esta versión incluye las correcciones del verificador V2, confianza en el principal y `strict-v1`, cadenas de delegación, ventana de recepción A2A, trabajadores de revocación acotados y las API experimentales opt-in de `dcp-jcs-v2`. También incluye los adaptadores FastAPI, LangChain, OpenAI y CrewAI corregidos. `dcp-jcs-v1` sigue siendo el predeterminado normativo. Instala esta versión con:
+
+```bash
+pip install "dcp-ai>=2.10.0,<3"
+```
+
+**Actualización desde 2.9.0.** FastAPI ahora verifica las firmas V2 en lugar de aceptar solo la estructura. La aceptación V1 en FastAPI y los adaptadores LangChain/OpenAI sigue la política del verificador. V2 también rechaza codificaciones no canónicas de firmas y evidencia inconsistente o vinculada incorrectamente que versiones anteriores aceptaban. Conserva la evidencia histórica y la versión que la verificó; no la vuelvas a firmar silenciosamente. La confianza, los presupuestos de recursos y la gestión de desconexiones siguen siendo decisiones explícitas del operador. Verificar o admitir no autoriza una acción.
+
+En Python 3.10, cancelar una descarga de lista de denegación con cupo también propaga la cancelación si el resultado acaba de llegar. El cupo se libera únicamente cuando el hilo de descarga termina realmente.
+
+Para desarrollar desde el código fuente, puedes usar un checkout editable:
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
 pip install -e "dcp-ai/sdks/python"
-```
-
-La instalación desde el registro da la versión publicada, sin las funciones sin publicar:
-
-```bash
-pip install dcp-ai
 ```
 
 <a id="optional-extras"></a>
@@ -36,11 +37,11 @@ pip install dcp-ai
 Desde el registro (versión publicada); desde una copia del repositorio se aplican los mismos extras: `pip install -e "dcp-ai/sdks/python[fastapi]"`.
 
 ```bash
-pip install "dcp-ai[fastapi]"    # FastAPI middleware
-pip install "dcp-ai[langchain]"  # LangChain integration
-pip install "dcp-ai[openai]"     # OpenAI wrapper
-pip install "dcp-ai[crewai]"     # CrewAI multi-agent
-pip install "dcp-ai[otlp]"       # OpenTelemetry OTLP exporter
+pip install "dcp-ai[fastapi]>=2.10.0,<3"    # FastAPI middleware
+pip install "dcp-ai[langchain]>=2.10.0,<3"  # LangChain integration
+pip install "dcp-ai[openai]>=2.10.0,<3"     # OpenAI wrapper
+pip install "dcp-ai[crewai]>=2.10.0,<3"     # CrewAI multi-agent
+pip install "dcp-ai[otlp]>=2.10.0,<3"       # OpenTelemetry OTLP exporter
 ```
 
 <a id="features"></a>
@@ -67,8 +68,8 @@ pip install "dcp-ai[otlp]"       # OpenTelemetry OTLP exporter
 | RPR cegado, autorización multiparte, utilidades de avisos sobre algoritmos | Sí |
 | Códigos de error canónicos (38 compartidos por todos los SDK) + `detect_wire_format` | Sí |
 | Exportador OpenTelemetry / OTLP (extra opcional `[otlp]`) | Sí |
-| Admisión: principales de confianza y el perfil `strict-v1` | Sí, sin publicar (véase el estado de publicación) |
-| Candidato de canonicalización `dcp-jcs-v2` (entrada, enrutador, verificador de bytes, productores) | Experimental y opt-in, sin publicar; no normativo |
+| Admisión: principales de confianza y el perfil `strict-v1` | Sí (2.10.0) |
+| Candidato de canonicalización `dcp-jcs-v2` (entrada, enrutador, verificador de bytes, productores) | Experimental y opt-in; no normativo |
 
 <a id="quickstart"></a>
 
@@ -293,9 +294,10 @@ result = await verify_signed_bundle_v2(signed, registry)  # DEFAULT_VERIFIER_POL
 
 El verificador también comprueba la firma compuesta propia de cada artefacto (el RPR con las `binding_keys` del principal y el resto con las claves del pasaporte) y, en todos los modos de política, rechaza una firma PQ presente pero no válida. El modo es el más estricto entre el modo de la política y el del nivel de seguridad (spec §14.3), y `details["resolved_tier"]` informa del nivel.
 
+<a id="admission-trusted-principals-and-strict-v1"></a>
 <a id="admission-trusted-principals-and-strict-v1-unreleased"></a>
 
-### Admisión: Trusted Principals y strict-v1 (sin publicar)
+### Admisión: Trusted Principals y strict-v1
 
 Un bundle verificado está firmado por las claves que enumera; no prueba quién es el principal. La admisión acepta un bundle solo cuando sus firmas de principal se hicieron con claves de un principal que figura en tu conjunto de confianza y, opcionalmente, bajo el perfil `strict-v1` fijado por el operador (firmas híbridas, audiencia firmada, una sesión de 300 s como máximo, una instantánea de revocación reciente).
 
@@ -314,9 +316,10 @@ result = await admit_signed_bundle_v2(signed_bundle, registry, profile=profile, 
 - `evaluate_admission_v2` evalúa un resultado de verificación que ya tienes (sin criptografía ni E/S) y confía en él; `revocation_subjects` enumera aquello por lo que debe responder una fuente de revocación, y `deny_list_revocation_source(url)` lee la lista de denegación del servicio de revocación de referencia; con `workers=DenyListWorkers(max_workers=...)` sus hilos de descarga se cuentan y se limitan hasta que terminan de verdad (opt-in; véase el README de FastAPI).
 - FastAPI: `DCPVerifyMiddleware(app, require_bundle=True, trusted_principals=..., profile=..., revocation_source=...)`; véase [`integrations/fastapi/README.md`](../../integrations/fastapi/README.md). Guía: [`docs/ADMISSION.md`](../../docs/ADMISSION.md). Especificación y códigos: [`spec/profiles/admission`](../../spec/profiles/admission/README.md).
 
+<a id="delegation-chains-dcp-09-35"></a>
 <a id="delegation-chains-dcp-09-35-unreleased"></a>
 
-### Cadenas de delegación (DCP-09 §3.5, sin publicar)
+### Cadenas de delegación (DCP-09 §3.5)
 
 La persona firma un mandato raíz (`create_delegation_mandate`); el agente que lo tiene puede emitir un
 submandato a otro agente (`create_sub_mandate`), firmado con sus propias claves. `verify_mandate_chain` comprueba
@@ -342,13 +345,14 @@ result = await verify_mandate_chain(
 tier = compute_security_tier(intent, policy_decision, result["effective_tier"] if result["valid"] else None)
 ```
 
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in"></a>
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
 
-### Experimental: candidato de canonicalización `dcp-jcs-v2` (opt-in, sin publicar)
+### Experimental: candidato de canonicalización `dcp-jcs-v2` (opt-in)
 
 No es normativo ni está activo: `dcp-jcs-v1` sigue siendo el único perfil de canonicalización, y no cambia ningún valor por defecto, constructor,
 firmante ni verificador. `dcp_ai.v2` no reexporta los módulos; existen para quien los importe,
-en una copia del repositorio (véase el estado de publicación). Un bundle candidato verificado no otorga confianza ni admisión.
+también en Python 2.10.0. Un bundle candidato verificado no otorga confianza ni admisión.
 Diseño y contrato: [`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)
 (§15 entrada, §16 enrutador, §17 verificador, §18 productores).
 

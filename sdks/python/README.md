@@ -6,20 +6,21 @@ Official Python SDK for the Digital Citizenship Protocol (DCP v2.0). Pydantic v2
 
 ## Installation
 
-**Release status.** This README describes the source on `main`. The last tagged release, `v2.10.0`, has
-`dcp-ai` 2.9.0 for Python. What the changelog lists under [`[Unreleased]`](../../CHANGELOG.md#unreleased) is not in
-a tagged release: admission, delegation chains, the A2A receive window, bounded deny-list workers and the
-experimental `dcp-jcs-v2` APIs. To run the examples below, install from a checkout:
+**Python SDK 2.10.0.** This version includes the V2 verifier fixes, principal trust and `strict-v1`, delegation chains, the A2A receive window, bounded revocation workers and the experimental opt-in `dcp-jcs-v2` APIs. It also includes the corrected FastAPI, LangChain, OpenAI and CrewAI bridges. `dcp-jcs-v1` remains the normative default. Install this version with:
+
+```bash
+pip install "dcp-ai>=2.10.0,<3"
+```
+
+**Upgrade from 2.9.0.** FastAPI now verifies V2 signatures instead of accepting structure alone. V1 acceptance in FastAPI and the LangChain/OpenAI bridges follows the verifier policy. V2 also rejects non-canonical signature encodings and inconsistent or incorrectly bound evidence that older versions accepted. Preserve historical evidence and its verification version; do not silently re-sign it. Trust, resource budgets and disconnect handling remain explicit operator choices. Verification and admission do not authorize an action.
+
+On Python 3.10, cancelling a supervised deny-list download also propagates cancellation if its result has just arrived. Its capacity is still released only when the download thread really finishes.
+
+For source development, an editable checkout remains available:
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
 pip install -e "dcp-ai/sdks/python"
-```
-
-The registry install gives the published version, without the unreleased features:
-
-```bash
-pip install dcp-ai
 ```
 
 ### Optional extras
@@ -27,11 +28,11 @@ pip install dcp-ai
 From the registry (published version); from a checkout, the same extras apply: `pip install -e "dcp-ai/sdks/python[fastapi]"`.
 
 ```bash
-pip install "dcp-ai[fastapi]"    # FastAPI middleware
-pip install "dcp-ai[langchain]"  # LangChain integration
-pip install "dcp-ai[openai]"     # OpenAI wrapper
-pip install "dcp-ai[crewai]"     # CrewAI multi-agent
-pip install "dcp-ai[otlp]"       # OpenTelemetry OTLP exporter
+pip install "dcp-ai[fastapi]>=2.10.0,<3"    # FastAPI middleware
+pip install "dcp-ai[langchain]>=2.10.0,<3"  # LangChain integration
+pip install "dcp-ai[openai]>=2.10.0,<3"     # OpenAI wrapper
+pip install "dcp-ai[crewai]>=2.10.0,<3"     # CrewAI multi-agent
+pip install "dcp-ai[otlp]>=2.10.0,<3"       # OpenTelemetry OTLP exporter
 ```
 
 ## Features
@@ -56,8 +57,8 @@ pip install "dcp-ai[otlp]"       # OpenTelemetry OTLP exporter
 | Blinded RPR, multi-party authorization, algorithm advisory helpers | Yes |
 | Canonical error codes (38 shared across all SDKs) + `detect_wire_format` | Yes |
 | OpenTelemetry / OTLP exporter (optional `[otlp]` extra) | Yes |
-| Admission: trusted principals and the `strict-v1` profile | Yes, unreleased (see Release status) |
-| Canonicalization candidate `dcp-jcs-v2` (ingress, router, bytes verifier, producers) | Experimental and opt-in, unreleased; not normative |
+| Admission: trusted principals and the `strict-v1` profile | Yes (2.10.0) |
+| Canonicalization candidate `dcp-jcs-v2` (ingress, router, bytes verifier, producers) | Experimental and opt-in; not normative |
 
 ## Quickstart
 
@@ -263,7 +264,9 @@ result = await verify_signed_bundle_v2(signed, registry)  # DEFAULT_VERIFIER_POL
 
 The verifier also checks each artifact's own composite signature (the RPR against the principal's `binding_keys`, the rest against the passport keys) and, in every policy mode, rejects a PQ signature that is present but invalid. The mode is the stricter of the policy mode and the security tier's mode (spec §14.3), and `details["resolved_tier"]` reports the tier.
 
-### Admission: Trusted Principals and strict-v1 (unreleased)
+<a id="admission-trusted-principals-and-strict-v1-unreleased"></a>
+
+### Admission: Trusted Principals and strict-v1
 
 A verified bundle is signed by the keys it lists; it does not prove who the principal is. Admission accepts a bundle only when its principal signatures were made with keys of a principal your trust set lists, and optionally under the operator-fixed `strict-v1` profile (hybrid signatures, signed audience, a session of at most 300 s, a fresh revocation snapshot).
 
@@ -282,7 +285,9 @@ result = await admit_signed_bundle_v2(signed_bundle, registry, profile=profile, 
 - `evaluate_admission_v2` evaluates a verifier result you already have (no cryptography, no I/O) and trusts it; `revocation_subjects` lists what a revocation source must answer for, and `deny_list_revocation_source(url)` reads the reference revocation service's deny list; with `workers=DenyListWorkers(max_workers=...)` its download threads are counted and capped until they really end (opt-in; see the FastAPI README).
 - FastAPI: `DCPVerifyMiddleware(app, require_bundle=True, trusted_principals=..., profile=..., revocation_source=...)`; see [`integrations/fastapi/README.md`](../../integrations/fastapi/README.md). Guide: [`docs/ADMISSION.md`](../../docs/ADMISSION.md). Spec and codes: [`spec/profiles/admission`](../../spec/profiles/admission/README.md).
 
-### Delegation Chains (DCP-09 §3.5, unreleased)
+<a id="delegation-chains-dcp-09-35-unreleased"></a>
+
+### Delegation Chains (DCP-09 §3.5)
 
 A root mandate is signed by the human (`create_delegation_mandate`); the agent holding it may issue a
 sub-mandate to another agent (`create_sub_mandate`), signed with its own keys. `verify_mandate_chain` checks
@@ -308,11 +313,13 @@ result = await verify_mandate_chain(
 tier = compute_security_tier(intent, policy_decision, result["effective_tier"] if result["valid"] else None)
 ```
 
-### Experimental: Canonicalization Candidate `dcp-jcs-v2` (opt-in, unreleased)
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
+
+### Experimental: Canonicalization Candidate `dcp-jcs-v2` (opt-in)
 
 Not normative and not active: `dcp-jcs-v1` stays the only canonicalization profile, and no default, builder,
 signer or verifier changes. The modules are not re-exported by `dcp_ai.v2`; they exist for callers who import
-them, in a source checkout (see Release status). A verified candidate bundle grants no trust or admission.
+them, including in Python 2.10.0. A verified candidate bundle grants no trust or admission.
 Design and contract: [`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)
 (§15 ingress, §16 router, §17 verifier, §18 producers).
 
