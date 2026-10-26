@@ -150,9 +150,15 @@ class DenyListWorkers:
                 raise _unavailable("worker not started") from None
             raise
         try:
-            status, value, arrived = await asyncio.wait_for(waiter, max(deadline - time.monotonic(), 0))
-        except asyncio.TimeoutError:
-            raise _unavailable("timed out") from None
+            # On Python 3.10, wait_for can swallow cancellation when its future
+            # has just completed. wait preserves the caller's cancellation;
+            # explicitly abandon the future below without releasing the worker.
+            done, _ = await asyncio.wait((waiter,), timeout=max(deadline - time.monotonic(), 0))
+            if not done:
+                raise _unavailable("timed out")
+            status, value, arrived = waiter.result()
+        finally:
+            waiter.cancel()  # no-op if done; late worker results are discarded
         if arrived > deadline or time.monotonic() > deadline:
             # Arrived, or used, after the deadline (a busy loop): never used, an error neither.
             with self._lock:

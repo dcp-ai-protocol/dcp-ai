@@ -351,13 +351,14 @@ async def _async_trust(tenant):
 
 def test_the_disconnect_a_server_sends_after_the_response_is_not_a_client_that_left(caplog):
     async def scenario():
+        baseline = asyncio.all_tasks()  # Python 3.10 also has run()'s watchdog task
         reached: list = []
         app = build(trust=_async_trust, supervisor=SourceSupervisor(max_in_flight=1), reached=reached)
         client = Client()
         await call(app, client)
         assert client.status() == 200 and len(reached) == 1
         await asyncio.sleep(0.01)
-        assert [t for t in asyncio.all_tasks() if t is not asyncio.current_task()] == []
+        assert asyncio.all_tasks() - baseline == set()
 
     with caplog.at_level(logging.WARNING):
         run(scenario)
@@ -471,6 +472,7 @@ def test_admission_that_ends_as_the_client_leaves_reaches_no_route():
 
 def test_nothing_is_left_behind_after_a_client_that_left(caplog):
     async def scenario():
+        baseline = asyncio.all_tasks()  # exclude only tasks present before DCP runs
         held = Held(TRUST)
         app = build(trust=held, supervisor=SourceSupervisor(max_in_flight=1))
         client = Client()
@@ -480,7 +482,7 @@ def test_nothing_is_left_behind_after_a_client_that_left(caplog):
         await asyncio.wait_for(request, 5)
         held.release()
         await asyncio.sleep(0.02)
-        assert [t for t in asyncio.all_tasks() if t is not asyncio.current_task()] == []
+        assert asyncio.all_tasks() - baseline == set()
 
     with caplog.at_level(logging.WARNING):
         run(scenario)

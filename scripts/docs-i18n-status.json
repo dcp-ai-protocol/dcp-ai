@@ -464,23 +464,23 @@
       }
     },
     "sdks/python/README.md": {
-      "source_sha256": "ae38a8878ac91a6c8e8a55bbd9515eb05c781203b42af719c85eaa855420e414",
+      "source_sha256": "8844137ec97a28188aaa53d0fea445702858804e919dee6f2f933aa4168f48de",
       "translations": {
         "es": {
-          "source_sha256": "ae38a8878ac91a6c8e8a55bbd9515eb05c781203b42af719c85eaa855420e414",
-          "sha256": "7f409b8ff663c2d9d53ef92af9139a904e5b54c76bf3820fa0dd6715567e3cf1"
+          "source_sha256": "8844137ec97a28188aaa53d0fea445702858804e919dee6f2f933aa4168f48de",
+          "sha256": "7f9b07ebbde1d790f939d3ee075fc6093314d02927dd1944b787819a5a322d5e"
         },
         "pt-BR": {
-          "source_sha256": "ae38a8878ac91a6c8e8a55bbd9515eb05c781203b42af719c85eaa855420e414",
-          "sha256": "59a8824df6762976cc6d7aeb5f868e02496549f1b49490e9c99ba681b69763f7"
+          "source_sha256": "8844137ec97a28188aaa53d0fea445702858804e919dee6f2f933aa4168f48de",
+          "sha256": "61066ff457ee47b4fe30fd686d5492eeaa5c0b64e4ccc15c03cdb8b39f2b519b"
         },
         "ja": {
-          "source_sha256": "ae38a8878ac91a6c8e8a55bbd9515eb05c781203b42af719c85eaa855420e414",
-          "sha256": "252deb1f0e9ba9a45e8964ca555301590727b0ee51fd0aadc13a12af8e3063ca"
+          "source_sha256": "8844137ec97a28188aaa53d0fea445702858804e919dee6f2f933aa4168f48de",
+          "sha256": "b0e63f38a3a1443f1f030545d35047ff079819abe9dd4219784facbeee873ead"
         },
         "zh-CN": {
-          "source_sha256": "ae38a8878ac91a6c8e8a55bbd9515eb05c781203b42af719c85eaa855420e414",
-          "sha256": "a48d5f731f06ff83e600cafec80b8b66c5973a5e9284f402fbe081d764656cd3"
+          "source_sha256": "8844137ec97a28188aaa53d0fea445702858804e919dee6f2f933aa4168f48de",
+          "sha256": "10bdb8aaae6acd5e46596879412aab068740016c116b1a8f2d73927711caf908"
         }
       }
     },

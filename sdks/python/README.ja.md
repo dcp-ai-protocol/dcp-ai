@@ -2,7 +2,7 @@
 
 # dcp-ai — Python SDK
 
-> [英語版](README.md)の参考訳です（25/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](README.md)の参考訳です（26/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 Digital Citizenship Protocol（DCP v2.0）の公式 Python SDK です。Pydantic v2 のモデル、ポスト量子のハイブリッド署名（Ed25519 + ML-DSA-65、および SLH-DSA-192f）、ML-KEM-768 の KEM プリミティブ、`pq_over_classical` バインディングを持つ複合署名、V1 と V2 のバンドルの署名と検証、OpenTelemetry によるオブザーバビリティ、DCP-04 から DCP-09 までの動作、そして充実した CLI を備えています。
 
@@ -10,20 +10,21 @@ Digital Citizenship Protocol（DCP v2.0）の公式 Python SDK です。Pydantic
 
 ## インストール
 
-**リリース状況。** この README は `main` のソースを説明しています。最新のタグ付きリリース `v2.10.0` には
-Python 向けの `dcp-ai` 2.9.0 が含まれます。変更履歴の [`[Unreleased]`](../../CHANGELOG.md#unreleased) に挙げられている内容は、
-どのタグ付きリリースにも含まれていません：アドミッション、委任チェーン、A2A の受信ウィンドウ、上限付きの拒否リストのワーカー、
-実験的な `dcp-jcs-v2` API。以下の例を実行するには、チェックアウトからインストールします。
+**Python SDK 2.10.0。** このバージョンには V2 検証器の修正、プリンシパルの信頼と `strict-v1`、委任チェーン、A2A 受信ウィンドウ、上限付き失効ワーカー、実験的なオプトインの `dcp-jcs-v2` API が含まれます。修正済みの FastAPI、LangChain、OpenAI、CrewAI アダプターも含まれます。`dcp-jcs-v1` が規範的な既定のままです。インストールするには：
+
+```bash
+pip install "dcp-ai>=2.10.0,<3"
+```
+
+**2.9.0 からの更新。** FastAPI は構造だけを受け入れるのではなく、V2 署名を検証します。FastAPI と LangChain/OpenAI アダプターでの V1 の受け入れは検証器のポリシーに従います。V2 は、以前のバージョンが受け入れた非正規な署名の表現や、不整合または誤って結び付けられた証拠も拒否します。過去の証拠と検証に使ったバージョンを保存し、黙って再署名しないでください。信頼、リソース予算、切断処理は引き続きオペレーターが明示的に選択します。検証や受け入れ判定は行為を認可しません。
+
+Python 3.10 でも、容量制限付き拒否リストのダウンロードをキャンセルすると、結果が到着した直後であってもキャンセルが伝播します。容量はダウンロードのスレッドが実際に終了したときだけ解放されます。
+
+ソース開発には編集可能なチェックアウトも利用できます：
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
 pip install -e "dcp-ai/sdks/python"
-```
-
-レジストリからインストールすると、未リリースの機能を含まない公開済みのバージョンになります。
-
-```bash
-pip install dcp-ai
 ```
 
 <a id="optional-extras"></a>
@@ -33,11 +34,11 @@ pip install dcp-ai
 レジストリから（公開済みのバージョン）。チェックアウトからでも同じ extras が使えます：`pip install -e "dcp-ai/sdks/python[fastapi]"`。
 
 ```bash
-pip install "dcp-ai[fastapi]"    # FastAPI middleware
-pip install "dcp-ai[langchain]"  # LangChain integration
-pip install "dcp-ai[openai]"     # OpenAI wrapper
-pip install "dcp-ai[crewai]"     # CrewAI multi-agent
-pip install "dcp-ai[otlp]"       # OpenTelemetry OTLP exporter
+pip install "dcp-ai[fastapi]>=2.10.0,<3"    # FastAPI middleware
+pip install "dcp-ai[langchain]>=2.10.0,<3"  # LangChain integration
+pip install "dcp-ai[openai]>=2.10.0,<3"     # OpenAI wrapper
+pip install "dcp-ai[crewai]>=2.10.0,<3"     # CrewAI multi-agent
+pip install "dcp-ai[otlp]>=2.10.0,<3"       # OpenTelemetry OTLP exporter
 ```
 
 <a id="features"></a>
@@ -64,8 +65,8 @@ pip install "dcp-ai[otlp]"       # OpenTelemetry OTLP exporter
 | ブラインド化された RPR、複数当事者による承認、アルゴリズムに関する勧告のユーティリティ | あり |
 | 正規のエラーコード（全 SDK で共通の 38 個）+ `detect_wire_format` | あり |
 | OpenTelemetry / OTLP エクスポーター（オプションの `[otlp]` extra） | あり |
-| アドミッション：信頼済みのプリンシパルと `strict-v1` プロファイル | あり、未リリース（リリース状況を参照） |
-| 正規化の候補 `dcp-jcs-v2`（入口、ルーター、バイト列の検証器、生成器） | 実験的でオプトイン、未リリース。規範ではない |
+| アドミッション：信頼済みのプリンシパルと `strict-v1` プロファイル | あり（2.10.0） |
+| 正規化の候補 `dcp-jcs-v2`（入口、ルーター、バイト列の検証器、生成器） | 実験的でオプトイン。規範ではない |
 
 <a id="quickstart"></a>
 
@@ -290,9 +291,10 @@ result = await verify_signed_bundle_v2(signed, registry)  # DEFAULT_VERIFIER_POL
 
 検証器は各アーティファクト自身の複合署名も確認します（RPR はプリンシパルの `binding_keys` で、それ以外はパスポートの鍵で）。また、どのポリシーモードでも、存在するが無効な PQ 署名は拒否します。モードはポリシーのモードとセキュリティティアのモードのうち厳しいほうで（仕様 §14.3）、`details["resolved_tier"]` がティアを報告します。
 
+<a id="admission-trusted-principals-and-strict-v1"></a>
 <a id="admission-trusted-principals-and-strict-v1-unreleased"></a>
 
-### アドミッション：Trusted Principals と strict-v1（未リリース）
+### アドミッション：Trusted Principals と strict-v1
 
 検証済みのバンドルは、そこに列挙された鍵で署名されています。それはプリンシパルが誰であるかを証明しません。アドミッションは、プリンシパルの署名が信頼セットに載っているプリンシパルの鍵で行われている場合にのみバンドルを受け入れます。オプションで、オペレーターが固定する `strict-v1` プロファイル（ハイブリッド署名、署名されたオーディエンス、最長 300 秒のセッション、新しい失効スナップショット）も適用できます。
 
@@ -311,9 +313,10 @@ result = await admit_signed_bundle_v2(signed_bundle, registry, profile=profile, 
 - `evaluate_admission_v2` は、手元にある検証結果を評価し（暗号処理も I/O も行いません）、それを信頼します。`revocation_subjects` は、失効情報の提供元が答えるべき対象を列挙します。`deny_list_revocation_source(url)` はリファレンスの失効サービスの拒否リストを読み込みます。`workers=DenyListWorkers(max_workers=...)` を指定すると、そのダウンロードスレッドは実際に終了するまで数えられ、上限が設けられます（オプトイン。FastAPI の README を参照）。
 - FastAPI：`DCPVerifyMiddleware(app, require_bundle=True, trusted_principals=..., profile=..., revocation_source=...)`。[`integrations/fastapi/README.md`](../../integrations/fastapi/README.md) を参照してください。ガイド：[`docs/ADMISSION.md`](../../docs/ADMISSION.md)。仕様とコード：[`spec/profiles/admission`](../../spec/profiles/admission/README.md)。
 
+<a id="delegation-chains-dcp-09-35"></a>
 <a id="delegation-chains-dcp-09-35-unreleased"></a>
 
-### 委任チェーン（DCP-09 §3.5、未リリース）
+### 委任チェーン（DCP-09 §3.5）
 
 ルートの委任状には人間が署名します（`create_delegation_mandate`）。それを持つエージェントは、自身の鍵で署名した
 サブ委任状を別のエージェントに発行できます（`create_sub_mandate`）。`verify_mandate_chain` は
@@ -339,13 +342,13 @@ result = await verify_mandate_chain(
 tier = compute_security_tier(intent, policy_decision, result["effective_tier"] if result["valid"] else None)
 ```
 
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in"></a>
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
 
-### 実験的：正規化の候補 `dcp-jcs-v2`（オプトイン、未リリース）
+### 実験的：正規化の候補 `dcp-jcs-v2`（オプトイン）
 
 規範ではなく、有効でもありません。`dcp-jcs-v1` が唯一の正規化プロファイルであり続け、既定値、ビルダー、
-署名器、検証器はいずれも変わりません。これらのモジュールは `dcp_ai.v2` から再エクスポートされず、ソースのチェックアウトで
-自らインポートする呼び出し側のためだけに存在します（リリース状況を参照）。検証済みの候補バンドルは、信頼もアドミッションも与えません。
+署名器、検証器はいずれも変わりません。これらのモジュールは `dcp_ai.v2` から再エクスポートされず、Python 2.10.0 を含め、自らインポートする呼び出し側のためだけに存在します。検証済みの候補バンドルは、信頼もアドミッションも与えません。
 設計と契約：[`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)
 （§15 入口、§16 ルーター、§17 検証器、§18 生成器）。
 

@@ -2,7 +2,7 @@
 
 # dcp-ai — Python SDK
 
-> 本文是[英文版](README.md)的参考译文，更新于 25/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](README.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 Digital Citizenship Protocol（DCP v2.0）的官方 Python SDK。提供 Pydantic v2 模型、后量子混合签名（Ed25519 + ML-DSA-65，以及 SLH-DSA-192f）、ML-KEM-768 KEM 原语、带 `pq_over_classical` 绑定的复合签名、V1 和 V2 bundle 的签名与验证、OpenTelemetry 可观测性、DCP-04 至 DCP-09 的行为，以及功能完整的 CLI。
 
@@ -10,20 +10,21 @@ Digital Citizenship Protocol（DCP v2.0）的官方 Python SDK。提供 Pydantic
 
 ## 安装
 
-**发布状态。** 本 README 描述的是 `main` 上的源码。最新的带标签版本 `v2.10.0` 包含
-Python 的 `dcp-ai` 2.9.0。变更日志 [`[Unreleased]`](../../CHANGELOG.md#unreleased) 下列出的内容不在
-任何带标签的版本中：准入、委托链、A2A 接收窗口、有上限的拒绝列表工作线程以及
-实验性的 `dcp-jcs-v2` API。要运行下面的示例，请从检出副本安装：
+**Python SDK 2.10.0。** 此版本包含 V2 验证器修复、委托人信任与 `strict-v1`、委托链、A2A 接收窗口、受限的吊销工作线程，以及实验性、需显式启用的 `dcp-jcs-v2` API。它还包含修复后的 FastAPI、LangChain、OpenAI 和 CrewAI 适配器。`dcp-jcs-v1` 仍是规范性默认配置。安装此版本：
+
+```bash
+pip install "dcp-ai>=2.10.0,<3"
+```
+
+**从 2.9.0 升级。** FastAPI 现在验证 V2 签名，而不是仅接受结构。FastAPI 和 LangChain/OpenAI 适配器对 V1 的接受遵循验证器策略。V2 还会拒绝旧版本曾接受的非规范签名编码、不一致或绑定错误的证据。请保留历史证据及其验证版本，不要静默重新签名。信任、资源预算和断开连接处理仍由运营方显式选择。验证或准入不授权任何操作。
+
+在 Python 3.10 中，取消受容量限制的拒绝列表下载时，即使结果刚刚到达，也会传播取消。容量仍仅在下载线程真正结束时释放。
+
+如需开发源码，也可使用可编辑的检出代码：
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
 pip install -e "dcp-ai/sdks/python"
-```
-
-从注册表安装得到的是已发布的版本，不含未发布的功能：
-
-```bash
-pip install dcp-ai
 ```
 
 <a id="optional-extras"></a>
@@ -33,11 +34,11 @@ pip install dcp-ai
 来自注册表（已发布的版本）；从检出副本安装时同样适用这些 extras：`pip install -e "dcp-ai/sdks/python[fastapi]"`。
 
 ```bash
-pip install "dcp-ai[fastapi]"    # FastAPI middleware
-pip install "dcp-ai[langchain]"  # LangChain integration
-pip install "dcp-ai[openai]"     # OpenAI wrapper
-pip install "dcp-ai[crewai]"     # CrewAI multi-agent
-pip install "dcp-ai[otlp]"       # OpenTelemetry OTLP exporter
+pip install "dcp-ai[fastapi]>=2.10.0,<3"    # FastAPI middleware
+pip install "dcp-ai[langchain]>=2.10.0,<3"  # LangChain integration
+pip install "dcp-ai[openai]>=2.10.0,<3"     # OpenAI wrapper
+pip install "dcp-ai[crewai]>=2.10.0,<3"     # CrewAI multi-agent
+pip install "dcp-ai[otlp]>=2.10.0,<3"       # OpenTelemetry OTLP exporter
 ```
 
 <a id="features"></a>
@@ -64,8 +65,8 @@ pip install "dcp-ai[otlp]"       # OpenTelemetry OTLP exporter
 | 盲化 RPR、多方授权、算法公告工具 | 是 |
 | 规范错误码（所有 SDK 共享的 38 个）+ `detect_wire_format` | 是 |
 | OpenTelemetry / OTLP 导出器（可选的 `[otlp]` extra） | 是 |
-| 准入：受信任的委托人和 `strict-v1` 配置 | 是，未发布（参见发布状态） |
-| 规范化候选 `dcp-jcs-v2`（入口、路由器、字节验证器、生成器） | 实验性、选择加入、未发布；非规范性 |
+| 准入：受信任的委托人和 `strict-v1` 配置 | 是（2.10.0） |
+| 规范化候选 `dcp-jcs-v2`（入口、路由器、字节验证器、生成器） | 实验性、选择加入；非规范性 |
 
 <a id="quickstart"></a>
 
@@ -290,9 +291,10 @@ result = await verify_signed_bundle_v2(signed, registry)  # DEFAULT_VERIFIER_POL
 
 验证器还会检查每个构件自身的复合签名（RPR 用委托人的 `binding_keys`，其余用护照密钥），并在所有策略模式下拒绝存在但无效的 PQ 签名。模式取策略模式与安全等级模式中较严格者（规范 §14.3），`details["resolved_tier"]` 报告该等级。
 
+<a id="admission-trusted-principals-and-strict-v1"></a>
 <a id="admission-trusted-principals-and-strict-v1-unreleased"></a>
 
-### 准入：Trusted Principals 与 strict-v1（未发布）
+### 准入：Trusted Principals 与 strict-v1
 
 已验证的 bundle 是由其列出的密钥签署的；这并不能证明委托人是谁。只有当委托人签名是用你的信任集合中列出的某个委托人的密钥做出时，准入才会接受该 bundle；还可以选择在由运营方固定的 `strict-v1` 配置下进行（混合签名、已签名的受众、最长 300 秒的会话、新近的吊销快照）。
 
@@ -311,9 +313,10 @@ result = await admit_signed_bundle_v2(signed_bundle, registry, profile=profile, 
 - `evaluate_admission_v2` 评估你已有的验证结果（不做密码学运算，也没有 I/O）并信任该结果；`revocation_subjects` 列出吊销信息源必须回答的对象，`deny_list_revocation_source(url)` 读取参考吊销服务的拒绝列表；使用 `workers=DenyListWorkers(max_workers=...)` 时，其下载线程会被计数并设上限，直到真正结束（选择加入；参见 FastAPI 的 README）。
 - FastAPI：`DCPVerifyMiddleware(app, require_bundle=True, trusted_principals=..., profile=..., revocation_source=...)`；参见 [`integrations/fastapi/README.md`](../../integrations/fastapi/README.md)。指南：[`docs/ADMISSION.md`](../../docs/ADMISSION.md)。规范和代码：[`spec/profiles/admission`](../../spec/profiles/admission/README.md)。
 
+<a id="delegation-chains-dcp-09-35"></a>
 <a id="delegation-chains-dcp-09-35-unreleased"></a>
 
-### 委托链（DCP-09 §3.5，未发布）
+### 委托链（DCP-09 §3.5）
 
 根委托书由人类签署（`create_delegation_mandate`）；持有它的智能体可以向另一个智能体签发
 子委托书（`create_sub_mandate`），用其自己的密钥签名。`verify_mandate_chain` 从根开始、离线地检查
@@ -339,13 +342,13 @@ result = await verify_mandate_chain(
 tier = compute_security_tier(intent, policy_decision, result["effective_tier"] if result["valid"] else None)
 ```
 
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in"></a>
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
 
-### 实验性：规范化候选 `dcp-jcs-v2`（选择加入，未发布）
+### 实验性：规范化候选 `dcp-jcs-v2`（选择加入）
 
 非规范性，也未启用：`dcp-jcs-v1` 仍是唯一的规范化配置，任何默认值、构建器、
-签名器或验证器都不变。这些模块不由 `dcp_ai.v2` 重新导出；它们只为在源码检出副本中自行导入的调用方提供
-（参见发布状态）。已验证的候选 bundle 不授予信任或准入。
+签名器或验证器都不变。这些模块不由 `dcp_ai.v2` 重新导出；它们只为自行导入的调用方提供，Python 2.10.0 也是如此。已验证的候选 bundle 不授予信任或准入。
 设计和契约：[`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)
 （§15 入口、§16 路由器、§17 验证器、§18 生成器）。
 
