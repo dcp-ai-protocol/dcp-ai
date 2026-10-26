@@ -1,6 +1,6 @@
 {
   "name": "@dcp-ai/create-openai",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Scaffold a DCP-AI governed openai agent project",
   "type": "module",
   "bin": {
