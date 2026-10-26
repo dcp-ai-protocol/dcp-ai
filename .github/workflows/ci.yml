@@ -104,7 +104,7 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
 
-      # The root depends on the workspace SDK until @dcp-ai/sdk 2.2.0 is on npm
+      # The root depends on the workspace SDK to test the checked-out source
       # (package.json, .npmrc): build it before installing the root.
       - name: Build the workspace SDK
         working-directory: sdks/typescript
@@ -191,9 +191,8 @@ jobs:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   # The npm integrations pin their own lockfiles, so dependency bumps there need their own test
-  # run. anthropic-mcp and google-a2a pull @dcp-ai/sdk from the registry; express and openclaw
-  # depend on the workspace SDK (file:../../sdks/typescript) until @dcp-ai/sdk 2.2.0 is on npm,
-  # so it is built before their install.
+  # run. All four integrations resolve @dcp-ai/sdk >=2.2.0 from the registry.
+  # The workspace build remains available for cross-package source regression tests.
   integrations:
     name: Integration (${{ matrix.integration }})
     needs: changes
@@ -229,7 +228,7 @@ jobs:
       - name: Run tests
         run: npx vitest run
 
-  # @dcp-ai/cli runs its own tests against the workspace SDK it needs (2.2.0, not on npm yet). The
+  # @dcp-ai/cli runs its source regression tests against the checked-out workspace SDK. The
   # SDK is built and installed into cli/ as a copy (--install-links), with the CLI's other
   # dependencies, without writing a lockfile or package.json and without install scripts; the root
   # is not installed, so nothing resolves through the root node_modules.

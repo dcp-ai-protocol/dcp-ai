@@ -19,7 +19,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@dcp-ai/sdk": "file:../../sdks/typescript",
+    "@dcp-ai/sdk": "^2.2.0",
     "@sinclair/typebox": "^0.34.0"
   },
   "devDependencies": {
