@@ -119,6 +119,8 @@ Veja também: [Especificação do núcleo](spec/core/dcp-core.md) | [Visão gera
 
 ## Início rápido
 
+**Publicação Go (26/10/2026).** O SDK Go `v2.11.0` está disponível pela tag `sdks/go/v2.11.0`, incluindo correções do verificador, admissão e APIs experimentais opt-in. A publicação Rust continua independente. Veja [Go v2.11.0](docs/GO_RELEASE.md).
+
 **Publicação Python (26/10/2026).** O `dcp-ai` 2.10.0 já está disponível no PyPI, incluindo as correções do verificador, a admissão e as APIs experimentais opt-in. As publicações de Go e Rust continuam independentes. Veja [Python 2.10.0](docs/PYTHON_RELEASE.md).
 
 > **Pacotes publicados (26/10/2026).** O npm já oferece `@dcp-ai/sdk` 2.2.0, `@dcp-ai/wasm` e `@dcp-ai/cli` 2.1.0, além dos adaptadores e geradores atualizados. Veja o [inventário de 13 pacotes](docs/NPM_RELEASES.md) e as [notas de atualização de segurança](SECURITY.md#supported-versions). Essas versões npm incluem as correções e funcionalidades documentadas; as publicações de Python, Go e Rust são independentes. Para executar o CLI de referência e os testes do repositório, compile o checkout:

@@ -2,6 +2,8 @@
 
 # DCP-AI Quick Start Guide
 
+**Go release (26/10/2026).** Go SDK `v2.11.0` is available from the module tag `sdks/go/v2.11.0`, including verifier fixes, admission and experimental opt-in APIs. Rust publication remains separate. See [Go v2.11.0](GO_RELEASE.md).
+
 Get up and running with the Digital Citizenship Protocol in under 5 minutes.
 
 ---
@@ -424,7 +426,7 @@ const encrypted = encryptMessage(session, { action: 'transfer', amount: 100 });
 ### Go
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@latest   # the latest tagged version; @main for main
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
 ```
 
 ```go

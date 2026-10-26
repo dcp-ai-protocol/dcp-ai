@@ -2,6 +2,8 @@
 
 # Pacotes publicados no npm
 
+**Publicação Go (26/10/2026).** O SDK Go `v2.11.0` está disponível pela tag `sdks/go/v2.11.0`, incluindo correções do verificador, admissão e APIs experimentais opt-in. A publicação Rust continua independente. Veja [Go v2.11.0](GO_RELEASE.md).
+
 **Publicação Python (26/10/2026).** O `dcp-ai` 2.10.0 já está disponível no PyPI, incluindo as correções do verificador, a admissão e as APIs experimentais opt-in. As publicações de Go e Rust continuam independentes. Veja [Python 2.10.0](PYTHON_RELEASE.md).
 
 > Tradução informativa da [versão em inglês](NPM_RELEASES.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês.

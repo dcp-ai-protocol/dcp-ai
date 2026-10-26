@@ -5,7 +5,9 @@
 
 # オペレーターガイド — 検証サービスの運用
 
-> [英語版](OPERATOR_GUIDE.md)の参考訳です（25/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+**Go の公開 (26/10/2026).** Go SDK `v2.11.0` はモジュールタグ `sdks/go/v2.11.0` から利用でき、検証器の修正、受け入れ、実験的なオプトイン API を含みます。Rust の公開は別です。参照： [Go v2.11.0](GO_RELEASE.md).
+
+> [英語版](OPERATOR_GUIDE.md)の参考訳です（26/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 このガイドは、「エージェント検証済み」サービス、つまり DCP の Signed Bundle を検証する（オプションでハッシュをブロックチェーンにアンカーする）HTTP API を運用したい**第三者**のためのものです。プロトコルは中央のサーバーを**必要としません**。検証はいつでも `dcp verify-bundle` でローカルに行えます。このサービスは**オプション**であり、オペレーターの判断で運用されます。
 
@@ -122,7 +124,7 @@ Fly.io 用の設定済みの構成が [`deploy/fly/`](../deploy/fly/) にあり�
 npm install @dcp-ai/sdk        # TypeScript / Node.js
 pip install dcp-ai             # Python
 cargo add dcp-ai               # Rust
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@latest
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
 ```
 
 正確なインポートパスと API の範囲は各 SDK の README を、公開済みのバージョンに欠けているものはその *Release status* を参照してください。`main` では、TypeScript、Python、Go、Rust の SDK が V1 と V2 のバンドルをネイティブに検証し、`@dcp-ai/wasm` が Rust の V2 検証器を公開しています。それらの V2 検証器は、各アーティファクトの署名（ステップ V2-8）と PQ チェックポイント（ステップ V2-12）を含め、[VERIFICATION.md](../spec/VERIFICATION.md) のチェックリストに従いますが、1 つ欠落があります。一次の監査チェーンとマークルルートは確認しますが、オプションの二次チェーンや `audit_merkle_root_secondary` は再計算しません（ステップ V2-11。[STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains) を参照）。

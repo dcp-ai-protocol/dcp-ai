@@ -2,6 +2,8 @@
 
 # Paquete Python publicado
 
+**Publicación Go (26/10/2026).** El SDK Go `v2.11.0` está disponible desde la etiqueta `sdks/go/v2.11.0`, incluidas las correcciones del verificador, admisión y API experimentales opt-in. La publicación Rust sigue siendo independiente. Véase [Go v2.11.0](GO_RELEASE.md).
+
 > Traducción informativa de [la versión en inglés](PYTHON_RELEASE.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés.
 
 Verificado el 26/10/2026: [`dcp-ai` 2.10.0](https://pypi.org/project/dcp-ai/2.10.0/) está disponible en PyPI. La versión de este paquete Python es independiente de la versión del formato/especificación DCP. Esta publicación no publica Go, Rust, paquetes npm ni contenedores.

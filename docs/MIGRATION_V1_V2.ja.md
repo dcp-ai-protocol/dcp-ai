@@ -4,6 +4,8 @@
 
 # 移行ガイド：DCP-AI v1.0 から v2.0 へ
 
+**Go の公開 (26/10/2026).** Go SDK `v2.11.0` はモジュールタグ `sdks/go/v2.11.0` から利用でき、検証器の修正、受け入れ、実験的なオプトイン API を含みます。Rust の公開は別です。参照： [Go v2.11.0](GO_RELEASE.md).
+
 **Python の公開 (26/10/2026).** `dcp-ai` 2.10.0 が PyPI で公開され、検証器の修正、受け入れ判定、実験的なオプトイン API を含みます。Go と Rust の公開は別です。参照： [Python 2.10.0](PYTHON_RELEASE.md).
 
 > [英語版](MIGRATION_V1_V2.md)の参考訳です（26/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
@@ -71,7 +73,7 @@ v1.0 のバンドルには Ed25519 の署名が 1 つあるだけでポスト量
 
 ### ステップ 1：SDK を更新する
 
-例は公開済みの TypeScript SDK 2.2.0 と Python `dcp-ai` 2.10.0 で動作します。[Python リリースノート](PYTHON_RELEASE.md)を参照してください。Go と Rust は各 SDK README を確認し、未公開の機能にはチェックアウトを使ってください。
+例は公開済みの TypeScript SDK 2.2.0、Python `dcp-ai` 2.10.0、Go `v2.11.0` で動作します。[Python](PYTHON_RELEASE.md) と [Go](GO_RELEASE.md) のリリースノートを参照してください。Rust は SDK README を確認し、未公開機能にはチェックアウトを使ってください。
 
 **TypeScript**（2026 年 10 月 26 日公開：2.2.0）：
 
@@ -89,7 +91,7 @@ pip install -e /path/to/dcp-ai/sdks/python     # main
 **Go**（Go モジュールが要求するメジャーバージョンの接尾辞 v2 に注意）：
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@main
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
 ```
 
 **Rust：**

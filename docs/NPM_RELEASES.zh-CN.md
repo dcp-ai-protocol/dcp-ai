@@ -2,6 +2,8 @@
 
 # 已发布的 npm 软件包
 
+**Go 发布 (26/10/2026).** Go SDK `v2.11.0` 已通过模块标签 `sdks/go/v2.11.0` 发布，包含验证器修复、准入和实验性显式启用 API。Rust 仍独立发布。见 [Go v2.11.0](GO_RELEASE.md).
+
 **Python 发布 (26/10/2026).** `dcp-ai` 2.10.0 已在 PyPI 发布，包含验证器修复、准入和实验性显式启用 API。Go 和 Rust 仍独立发布。见 [Python 2.10.0](PYTHON_RELEASE.md).
 
 > [英文版](NPM_RELEASES.md)的参考译文，更新于 26/10/2026。如有差异，以英文版为准。

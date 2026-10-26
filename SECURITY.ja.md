@@ -4,6 +4,8 @@
 
 # セキュリティポリシー
 
+**Go の公開 (26/10/2026).** Go SDK `v2.11.0` はモジュールタグ `sdks/go/v2.11.0` から利用でき、検証器の修正、受け入れ、実験的なオプトイン API を含みます。Rust の公開は別です。参照： [Go v2.11.0](docs/GO_RELEASE.md).
+
 > [英語版](SECURITY.md)の参考訳です（26/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 <a id="reporting-a-vulnerability"></a>
@@ -76,6 +78,7 @@ DCP-AI のプロトコル、SDK、サービス、スマートコントラクト�
 
 | バージョン | サポート |
 |---------|-----------|
+| 2.11.x (`github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2`) | あり |
 | 2.10.x（PyPI / crates.io の `dcp-ai`、Go モジュール `sdks/go/v2`） | あり |
 | 2.9.x（PyPI と crates.io の `dcp-ai`、Go モジュール `sdks/go/v2`） | あり |
 | 2.8.x（PyPI と crates.io の `dcp-ai`、Go モジュール `sdks/go/v2`） | あり |

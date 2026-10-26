@@ -4,6 +4,8 @@
 
 # ドキュメント
 
+**Go の公開 (26/10/2026).** Go SDK `v2.11.0` はモジュールタグ `sdks/go/v2.11.0` から利用でき、検証器の修正、受け入れ、実験的なオプトイン API を含みます。Rust の公開は別です。参照： [Go v2.11.0](GO_RELEASE.md).
+
 **Python の公開 (26/10/2026).** `dcp-ai` 2.10.0 が PyPI で公開され、検証器の修正、受け入れ判定、実験的なオプトイン API を含みます。Go と Rust の公開は別です。参照： [Python 2.10.0](PYTHON_RELEASE.md).
 
 **npm 公開（2026 年 10 月 26 日）。** [NPM_RELEASES.md](NPM_RELEASES.md) の 13 バージョンは、TypeScript/WASM の候補 API と TypeScript の受け入れ判定を含めて公開済みです。以下の項目は開発履歴として保持しています。`[Unreleased]` はこれらの npm 機能が利用できないことを意味しません。Python、Go、Rust の公開は別です。

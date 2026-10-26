@@ -1,5 +1,7 @@
 # Operator Guide — Running a Verification Service
 
+**Go release (26/10/2026).** Go SDK `v2.11.0` is available from the module tag `sdks/go/v2.11.0`, including verifier fixes, admission and experimental opt-in APIs. Rust publication remains separate. See [Go v2.11.0](GO_RELEASE.md).
+
 This guide is for **third parties** who want to run an "agent verified" service: an HTTP API that verifies DCP Signed Bundles (and optionally anchors hashes to a blockchain). The protocol does **not** require any central server; verification can always be done locally with `dcp verify-bundle`. This service is **optional** and is run at the operator's choice.
 
 ## What is an "agent verified" service?
@@ -94,7 +96,7 @@ If you want verification inside your existing application (no separate HTTP serv
 npm install @dcp-ai/sdk        # TypeScript / Node.js
 pip install dcp-ai             # Python
 cargo add dcp-ai               # Rust
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@latest
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
 ```
 
 See each SDK's README for the exact import path and API surface, and its *Release status* for what the published version lacks. On `main`, the TypeScript, Python, Go and Rust SDKs verify V1 and V2 bundles natively, and `@dcp-ai/wasm` exposes the Rust V2 verifier. Their V2 verifiers follow the checklist in [VERIFICATION.md](../spec/VERIFICATION.md), including each artifact's signature (Step V2-8) and the PQ checkpoints (Step V2-12), with one gap: they check the primary audit chain and Merkle root but do not recompute the optional secondary chain or `audit_merkle_root_secondary` (Step V2-11; see [STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)).

@@ -4,6 +4,8 @@
 
 # dcp-ai-go — Go SDK
 
+**Go 发布 (26/10/2026).** Go SDK `v2.11.0` 已通过模块标签 `sdks/go/v2.11.0` 发布，包含验证器修复、准入和实验性显式启用 API。Rust 仍独立发布。见 [Go v2.11.0](../../docs/GO_RELEASE.md).
+
 > 本文是[英文 README](README.md)的参考译文，更新于2026年10月25日。为保留经过验证的示例，标识符和代码块（包括注释）均保持原文。
 
 Digital Citizenship Protocol（DCP）v1.0 和 v2.0 的官方 Go SDK。支持 Ed25519、ML-DSA-65、SLH-DSA-192f、ML-KEM-768、复合签名、双哈希链和 bundle 验证。

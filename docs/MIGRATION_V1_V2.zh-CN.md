@@ -4,6 +4,8 @@
 
 # 迁移指南：从 DCP-AI v1.0 到 v2.0
 
+**Go 发布 (26/10/2026).** Go SDK `v2.11.0` 已通过模块标签 `sdks/go/v2.11.0` 发布，包含验证器修复、准入和实验性显式启用 API。Rust 仍独立发布。见 [Go v2.11.0](GO_RELEASE.md).
+
 **Python 发布 (26/10/2026).** `dcp-ai` 2.10.0 已在 PyPI 发布，包含验证器修复、准入和实验性显式启用 API。Go 和 Rust 仍独立发布。见 [Python 2.10.0](PYTHON_RELEASE.md).
 
 > 本文是[英文版](MIGRATION_V1_V2.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
@@ -71,7 +73,7 @@ v1.0 bundle 只有一个 Ed25519 签名，没有后量子签名，因此验证�
 
 ### 步骤 1：更新 SDK
 
-示例适用于已发布的 TypeScript SDK 2.2.0 和 Python `dcp-ai` 2.10.0。见 [Python 发布说明](PYTHON_RELEASE.md)。Go 和 Rust 请查看各 SDK README，未发布功能使用检出代码。
+示例适用于已发布的 TypeScript SDK 2.2.0、Python `dcp-ai` 2.10.0 和 Go `v2.11.0`。见 [Python](PYTHON_RELEASE.md) 和 [Go](GO_RELEASE.md) 发布说明。Rust 请查看 SDK README，未发布功能使用检出代码。
 
 **TypeScript**（2026 年 10 月 26 日已发布：2.2.0）：
 
@@ -89,7 +91,7 @@ pip install -e /path/to/dcp-ai/sdks/python     # main
 **Go**（注意 Go 模块要求的主版本后缀 v2）：
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@main
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
 ```
 
 **Rust：**

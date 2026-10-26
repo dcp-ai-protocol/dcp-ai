@@ -4,6 +4,8 @@
 
 # Política de segurança
 
+**Publicação Go (26/10/2026).** O SDK Go `v2.11.0` está disponível pela tag `sdks/go/v2.11.0`, incluindo correções do verificador, admissão e APIs experimentais opt-in. A publicação Rust continua independente. Veja [Go v2.11.0](docs/GO_RELEASE.md).
+
 > Tradução informativa da [versão em inglês](SECURITY.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 <a id="reporting-a-vulnerability"></a>
@@ -76,6 +78,7 @@ Os pacotes não compartilham um único número de versão; os pacotes npm `@dcp-
 
 | Versão | Suportada |
 |---------|-----------|
+| 2.11.x (`github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2`) | Sim |
 | 2.10.x (`dcp-ai` no PyPI / crates.io, módulo Go `sdks/go/v2`) | Sim |
 | 2.9.x (`dcp-ai` no PyPI e no crates.io, módulo Go `sdks/go/v2`) | Sim |
 | 2.8.x (`dcp-ai` no PyPI e no crates.io, módulo Go `sdks/go/v2`) | Sim |

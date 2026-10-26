@@ -5,7 +5,9 @@
 
 # Guía del operador — ejecutar un servicio de verificación
 
-> Traducción informativa de [la versión en inglés](OPERATOR_GUIDE.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+**Publicación Go (26/10/2026).** El SDK Go `v2.11.0` está disponible desde la etiqueta `sdks/go/v2.11.0`, incluidas las correcciones del verificador, admisión y API experimentales opt-in. La publicación Rust sigue siendo independiente. Véase [Go v2.11.0](GO_RELEASE.md).
+
+> Traducción informativa de [la versión en inglés](OPERATOR_GUIDE.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Esta guía es para **terceros** que quieran ejecutar un servicio de «agente verificado»: una API HTTP que verifica Signed Bundles de DCP (y, opcionalmente, ancla hashes en una blockchain). El protocolo **no** exige ningún servidor central; la verificación siempre puede hacerse localmente con `dcp verify-bundle`. Este servicio es **opcional** y lo ejecuta quien opere a su elección.
 
@@ -122,7 +124,7 @@ Si quieres la verificación dentro de tu aplicación actual (sin un servicio HTT
 npm install @dcp-ai/sdk        # TypeScript / Node.js
 pip install dcp-ai             # Python
 cargo add dcp-ai               # Rust
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@latest
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
 ```
 
 Consulta el README de cada SDK para la ruta de importación exacta y la superficie de la API, y su *Release status* para lo que le falta a la versión publicada. En `main`, los SDK de TypeScript, Python, Go y Rust verifican de forma nativa bundles V1 y V2, y `@dcp-ai/wasm` expone el verificador V2 de Rust. Sus verificadores V2 siguen la lista de comprobación de [VERIFICATION.md](../spec/VERIFICATION.md), incluida la firma de cada artefacto (paso V2-8) y los checkpoints PQ (paso V2-12), con una carencia: comprueban la cadena de auditoría primaria y la raíz de Merkle, pero no recalculan la cadena secundaria opcional ni `audit_merkle_root_secondary` (paso V2-11; véase [STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)).

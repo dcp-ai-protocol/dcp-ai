@@ -11,6 +11,8 @@ hide:
 
 # DCP-AI — Digital Citizenship Protocol para agentes de IA
 
+**Publicação Go (26/10/2026).** O SDK Go `v2.11.0` está disponível pela tag `sdks/go/v2.11.0`, incluindo correções do verificador, admissão e APIs experimentais opt-in. A publicação Rust continua independente. Veja [Go v2.11.0](reference/docs/GO_RELEASE.md).
+
 **Publicação Python (26/10/2026).** O `dcp-ai` 2.10.0 já está disponível no PyPI, incluindo as correções do verificador, a admissão e as APIs experimentais opt-in. As publicações de Go e Rust continuam independentes. Veja [Python 2.10.0](reference/docs/PYTHON_RELEASE.md).
 
 > Tradução informativa da [versão em inglês](docs-index.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
@@ -48,7 +50,7 @@ Identidade verificável criptograficamente, intenção legível por máquina, tr
 === "Go"
 
     ```bash
-    go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@latest
+    go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
     ```
 
 === "Rust"

@@ -6,6 +6,8 @@ hide:
 
 # DCP-AI — Digital Citizenship Protocol for AI Agents
 
+**Go release (26/10/2026).** Go SDK `v2.11.0` is available from the module tag `sdks/go/v2.11.0`, including verifier fixes, admission and experimental opt-in APIs. Rust publication remains separate. See [Go v2.11.0](reference/docs/GO_RELEASE.md).
+
 **Python release (26/10/2026).** `dcp-ai` 2.10.0 is now available on PyPI, including the verifier fixes, admission and the experimental opt-in APIs. Go and Rust publication remains separate. See [Python 2.10.0](reference/docs/PYTHON_RELEASE.md).
 
 > A portable accountability layer for AI agents on open networks.
@@ -39,7 +41,7 @@ Cryptographically verifiable identity, machine-readable intent, tamper-evident a
 === "Go"
 
     ```bash
-    go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@latest
+    go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
     ```
 
 === "Rust"

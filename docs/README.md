@@ -1,5 +1,7 @@
 # Documentation
 
+**Go release (26/10/2026).** Go SDK `v2.11.0` is available from the module tag `sdks/go/v2.11.0`, including verifier fixes, admission and experimental opt-in APIs. Rust publication remains separate. See [Go v2.11.0](GO_RELEASE.md).
+
 **Python release (26/10/2026).** `dcp-ai` 2.10.0 is now available on PyPI, including the verifier fixes, admission and the experimental opt-in APIs. Go and Rust publication remains separate. See [Python 2.10.0](PYTHON_RELEASE.md).
 
 **npm publication (26/10/2026).** The 13 versions in [NPM_RELEASES.md](NPM_RELEASES.md) are published, including the TypeScript/WASM candidate APIs and TypeScript admission. Entries below retain their development history; `[Unreleased]` does not mean these npm features are unavailable. Python, Go and Rust releases are separate.
