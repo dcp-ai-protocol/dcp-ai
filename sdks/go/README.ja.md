@@ -14,20 +14,20 @@ Digital Citizenship Protocol（DCP）v1.0 および v2.0 向けの公式 Go SDK�
 
 ## インストール
 
-**必要条件：** Go 1.25 以上
+**要件：** Go 1.25+
 
-**公開状況。** この README は `main` のソースコードを説明しています。最新のタグ付きリリースは `v2.10.0`（モジュールのタグは `sdks/go/v2.10.0`）です。変更履歴の [`[Unreleased]`](../../CHANGELOG.md#unreleased) にある項目は、タグ付きリリースにはまだ含まれていません。受け入れ、委任チェーン、A2A 受信ウィンドウ、実験的な `dcp-jcs-v2` API が該当します。以下の例を実行するには、`main` またはローカルのチェックアウトを依存先に指定してください。
+**Go SDK v2.11.0。** 検証器の修正、責任主体への信頼と `strict-v1`、委任チェーン、A2A 受信ウィンドウ、実験的なオプトイン `dcp-jcs-v2` API を含みます。モジュールのタグは `sdks/go/v2.11.0`、インポートパスは引き続き `/v2` です。変更は[変更履歴](../../CHANGELOG.md#unreleased)に残しています。
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@main
-# or, from a checkout:
-go mod edit -replace github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2=/path/to/dcp-ai/sdks/go
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
 ```
 
-未公開の機能を含まない最新のタグ付きバージョン：
+v2.10.0 から更新すると検証が厳密になり、以前受け入れられた不正形式や不整合の証拠が拒否される場合があります。V1 公開鍵の長さが不正な場合は panic せずエラーを返します。過去の証拠は保存してください。`dcp-jcs-v1` は規範的な既定値のままで、候補 API は実験的かつオプトインです。受け入れにはオペレーターの信頼設定が必要であり、行為を認可しません。
+
+ソース開発専用：
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
+go mod edit -replace github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2=/path/to/dcp-ai/sdks/go
 ```
 
 <a id="features"></a>
@@ -44,7 +44,7 @@ go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
 | ドメイン分離 | — | 対応 |
 | 二重ハッシュ（SHA-256 + SHA3-256） | — | 対応 |
 | バンドル検証 | 対応 | 対応 |
-| 受け入れ：責任主体の信頼集合と `strict-v1` プロファイル（spec/profiles/admission） | — | 対応、未公開 |
+| 受け入れ：責任主体の信頼集合と `strict-v1` プロファイル（spec/profiles/admission） | — | 対応 |
 | バンドルの構築と署名 | — | 対応 |
 | セキュリティ階層の算出 | — | 対応 |
 | 所有証明 | — | 対応 |
@@ -60,7 +60,7 @@ go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
 | ブラインド化 RPR、複数当事者による承認、アルゴリズム勧告の補助関数 | — | 対応 |
 | 共通のエラーコード（全 SDK で共有する 38 個）と `DetectWireFormat` | — | 対応 |
 | OpenTelemetry / OTLP エクスポーター（ビルドタグ `otlp`） | — | 対応 |
-| 正規化候補 `dcp-jcs-v2`（入力処理、ルーター、バイト列検証器、生成器） | — | 実験的かつ明示的な選択が必要、未公開。規範ではない |
+| 正規化候補 `dcp-jcs-v2`（入力処理、ルーター、バイト列検証器、生成器） | — | 実験的かつ明示的な選択が必要。規範ではない |
 
 <a id="quickstart-v1"></a>
 
@@ -202,7 +202,9 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 
 <a id="admission-principal-trust-and-strict-v1-unreleased"></a>
 
-### 受け入れ：責任主体への信頼と strict-v1（未公開）
+<a id="admission-principal-trust-and-strict-v1"></a>
+
+### 受け入れ：責任主体への信頼と strict-v1
 
 検証済みバンドルが証明するのは完全性と署名であり、責任主体が誰であるかではありません。受け入れ（[spec/profiles/admission](../../spec/profiles/admission/README.md)）では、検証に加えて、各責任主体の鍵を固定する運用者の信頼集合と、運用者が固定した `strict-v1` プロファイルを使用します（全階層でハイブリッド署名、署名された宛先、最大300秒の署名されたセッション、最大300秒前までの失効スナップショット）。ネットワーク I/O は行わず、行動を許可することもありません。`ActionAuthorized` は常に `false` です。
 
@@ -259,7 +261,9 @@ if !result.Admitted {
 
 <a id="delegation-chains-dcp-09-35-unreleased"></a>
 
-### 委任チェーン（DCP-09 §3.5、未公開）
+<a id="delegation-chains-dcp-09-35"></a>
+
+### 委任チェーン（DCP-09 §3.5）
 
 | 関数 | 説明 |
 |----------|-------------|
@@ -271,9 +275,11 @@ if !result.Admitted {
 
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
 
-### 実験的機能：正規化候補 `dcp-jcs-v2`（明示的な選択が必要、未公開）
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in"></a>
 
-規範ではなく、有効化もされていません。`dcp-jcs-v1` が引き続き唯一の正規化プロファイルであり、デフォルト設定、ビルダー、署名器、検証器は変更されません。これらの関数は、ソースのチェックアウトで明示的に選択して使用する呼び出し元向けです（公開状況を参照）。検証済みの候補バンドルも、信頼や受け入れを与えるものではありません。設計と契約：[`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)（§15 入力処理、§16 ルーター、§17 検証器、§18 生成器）。
+### 実験的機能：正規化候補 `dcp-jcs-v2`（明示的な選択が必要）
+
+規範ではなく、有効化もされていません。`dcp-jcs-v1` が引き続き唯一の正規化プロファイルであり、デフォルト設定、ビルダー、署名器、検証器は変更されません。これらの関数は v2.11.0 で明示的にオプトインする呼び出し元だけが利用できます。検証済みの候補バンドルも、信頼や受け入れを与えるものではありません。設計と契約：[`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)（§15 入力処理、§16 ルーター、§17 検証器、§18 生成器）。
 
 | 関数 | 説明 |
 |----------|-------------|
