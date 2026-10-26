@@ -29,15 +29,12 @@ Identidad verificable criptográficamente, intención legible por máquinas, tra
 ## Instalación
 
 !!! note "Paquetes publicados y `main`"
-    Estos comandos instalan las versiones publicadas. El 25/10/2026, el `latest` de `@dcp-ai/sdk` en npm era 2.1.1,
-    sin las correcciones del verificador de 2.2.0; las guías siguen el código de `main`, que además tiene funciones
-    sin publicar. Para ejecutarlas tal como están escritas, compila los SDK desde una copia del repositorio: véase el
-    [Inicio rápido](quickstart/QUICKSTART.md#published-packages-and-this-guide).
+    npm ya ofrece `@dcp-ai/sdk` 2.2.0, `@dcp-ai/wasm` y `@dcp-ai/cli` 2.1.0, además de los adaptadores y generadores actualizados. Consulta el [inventario npm](reference/docs/NPM_RELEASES.md). La publicación de Python, Go y Rust es independiente; el [inicio rápido](quickstart/QUICKSTART.md#published-packages-and-this-guide) distingue ejemplos del registro y del checkout.
 
 === "Node.js"
 
     ```bash
-    npm install @dcp-ai/sdk @dcp-ai/cli
+    npm install @dcp-ai/sdk@^2.2.0 @dcp-ai/cli
     ```
 
 === "Python"
@@ -61,7 +58,7 @@ Identidad verificable criptográficamente, intención legible por máquinas, tra
 === "WebAssembly"
 
     ```bash
-    npm install @dcp-ai/wasm
+    npm install @dcp-ai/wasm@^2.1.0
     ```
 
 ---

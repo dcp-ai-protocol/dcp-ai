@@ -119,19 +119,13 @@ Veja também: [Especificação do núcleo](spec/core/dcp-core.md) | [Visão gera
 
 ## Início rápido
 
-> **Pacotes publicados e este repositório (25/10/2026).** O `latest` do `@dcp-ai/sdk` no registro do npm é
-> 2.1.1, sem as correções do verificador da 2.2.0 ([`SECURITY.md`](SECURITY.md#supported-versions)) e sem nada do que
-> consta em [`[Unreleased]`](CHANGELOG.md#unreleased) do changelog. Os exemplos deste repositório seguem `main`.
-> Para executá-los, use uma cópia do repositório:
+> **Pacotes publicados (26/10/2026).** O npm já oferece `@dcp-ai/sdk` 2.2.0, `@dcp-ai/wasm` e `@dcp-ai/cli` 2.1.0, além dos adaptadores e geradores atualizados. Veja o [inventário de 13 pacotes](docs/NPM_RELEASES.md) e as [notas de atualização de segurança](SECURITY.md#supported-versions). Essas versões npm incluem as correções e funcionalidades documentadas; as publicações de Python, Go e Rust são independentes. Para executar o CLI de referência e os testes do repositório, compile o checkout:
 >
 > ```bash
 > git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-> cd dcp-ai/sdks/typescript && npm install && npm run build   # the SDK of main
-> cd ../.. && npm install                                       # the reference CLI, against that SDK
+> cd dcp-ai/sdks/typescript && npm install && npm run build
+> cd ../.. && npm install
 > ```
->
-> Os comandos de registro abaixo (`npm install`, `npx`) instalam, em vez disso, as versões publicadas. Os outros pacotes
-> têm as próprias versões: veja a seção *Release status* de cada SDK.
 
 <a id="option-a-cli-wizard-demo"></a>
 
@@ -171,16 +165,16 @@ node /path/to/dcp-ai/bin/dcp.js verify-bundle --policy hybrid_preferred bundle.s
 
 Instale uma das duas:
 
-- o SDK de `main`, compilado a partir de uma cópia do repositório como acima, de que o exemplo abaixo precisa:
+- o SDK de `main`, compilado de um checkout, para desenvolvimento do código-fonte:
 
   ```bash
   npm install /path/to/dcp-ai/sdks/typescript
   ```
 
-- ou a versão publicada (2.1.1 em 25/10/2026), sem as correções da 2.2.0 e os recursos não publicados:
+- ou o SDK 2.2.0 publicado, que inclui essas correções e funcionalidades:
 
   ```bash
-  npm install @dcp-ai/sdk
+  npm install @dcp-ai/sdk@^2.2.0
   ```
 
 Verifique um bundle V2 assinado com o verificador de bundles V2 atual de `main` (assinaturas, hashes, vinculação de sessão,
@@ -473,7 +467,7 @@ cd docker && docker compose up -d
 | [AGENT_CREATION_AND_CERTIFICATION](docs/AGENT_CREATION_AND_CERTIFICATION.md) | Fluxo de criação de agentes P2P, certificação DCP |
 | [OPERATOR_GUIDE](docs/OPERATOR_GUIDE.md) | Executar um serviço de verificação |
 | [MIGRATION_V1_V2](docs/MIGRATION_V1_V2.md) | Migrar do DCP v1.0 para o v2.0 |
-| [ADMISSION](docs/ADMISSION.md) | Aceitar bundles apenas de principais confiáveis, opcionalmente sob `strict-v1` (não publicado) |
+| [ADMISSION](docs/ADMISSION.md) | Aceitar bundles apenas de principais confiáveis, opcionalmente sob `strict-v1` |
 | [OBSERVABILITY](docs/OBSERVABILITY.md) | Rastros e métricas OpenTelemetry a partir dos SDKs |
 
 <a id="proposals-experimental-not-normative"></a>
@@ -482,7 +476,7 @@ cd docker && docker compose up -d
 
 | Documento | Descrição |
 |----------|-------------|
-| [Candidato de canonicalização `dcp-jcs-v2`](docs/proposals/canonicalization-candidate/README.md) | Perfil candidato experimental, desativado por padrão, seu projeto e as APIs opt-in dos SDKs (não publicado); `dcp-jcs-v1` continua sendo o perfil de canonicalização padrão e o único normativo |
+| [Candidato de canonicalização `dcp-jcs-v2`](docs/proposals/canonicalization-candidate/README.md) | Perfil candidato experimental, desativado por padrão, seu projeto e as APIs opt-in dos SDKs; `dcp-jcs-v1` continua sendo o perfil de canonicalização padrão e o único normativo |
 
 <a id="standards-alignment"></a>
 
@@ -589,7 +583,7 @@ dcp-ai/
 ## Desenvolvimento
 
 ```bash
-# Build the workspace SDK first: the root depends on it until @dcp-ai/sdk 2.2.0 is on npm
+# Build the workspace SDK first: the root uses it to test the checked-out source
 (cd sdks/typescript && npm install && npm run build)
 
 # Install dependencies

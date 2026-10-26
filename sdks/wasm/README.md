@@ -6,19 +6,19 @@ Full-featured WebAssembly module for the Digital Citizenship Protocol (DCP) v2.0
 
 ## Installation
 
-**Release status.** This README describes the source on `main`. The last tagged release, `v2.10.0`, lists
-`@dcp-ai/wasm` 2.1.0; the npm registry was not checked for this README. What the changelog lists under
-[`[Unreleased]`](../../CHANGELOG.md#unreleased) is not in a tagged release, including the experimental
-`dcp-jcs-v2` APIs. To run the examples below, build from a checkout (see Build) and install the folder:
+**Published on npm (26/10/2026).** `@dcp-ai/wasm` 2.1.0 is `latest` and includes the APIs described here, including the experimental `dcp-jcs-v2` APIs. Publishing them does not activate the candidate: it remains opt-in and non-normative, with `dcp-jcs-v1` unchanged. The Rust crate has a separate release lifecycle.
 
 ```bash
-npm install /path/to/dcp-ai/sdks/wasm
+npm install @dcp-ai/wasm@^2.1.0
 ```
 
-The registry install gives the published version:
+See the [npm release inventory](../../docs/NPM_RELEASES.md) for all package versions.
+
+For development against a source checkout, build and install the local package instead:
 
 ```bash
-npm install @dcp-ai/wasm
+# Build in sdks/wasm first (see Build)
+npm install /path/to/dcp-ai/sdks/wasm
 ```
 
 ## Build
@@ -239,11 +239,12 @@ The WASM SDK includes TypeScript interfaces for all DCP-05 through DCP-09 artifa
 
 Domain separation contexts available via `domainSeparatedMessage()`: `Lifecycle`, `Succession`, `Dispute`, `Rights`, `Delegation`, `Awareness`
 
-## Experimental: Canonicalization Candidate `dcp-jcs-v2` (opt-in, unreleased)
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
+
+## Experimental: Canonicalization Candidate `dcp-jcs-v2` (opt-in)
 
 Not normative and not active: `dcp-jcs-v1` stays the only canonicalization profile, and no default, builder,
-signer or verifier changes. These methods exist for callers who opt in, in a build from a checkout (see Release
-status). The bindings receive only bytes; host values are checked in JavaScript first. A verified candidate
+signer or verifier changes. These methods exist for callers who opt in, npm WASM 2.1.0 included. The bindings receive only bytes; host values are checked in JavaScript first. A verified candidate
 bundle grants no trust or admission. Design and contract:
 [`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)
 (§15 ingress, §16 router, §17 verifier, §18 producers).

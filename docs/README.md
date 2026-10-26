@@ -1,5 +1,7 @@
 # Documentation
 
+**npm publication (26/10/2026).** The 13 versions in [NPM_RELEASES.md](NPM_RELEASES.md) are published, including the TypeScript/WASM candidate APIs and TypeScript admission. Entries below retain their development history; `[Unreleased]` does not mean these npm features are unavailable. Python, Go and Rust releases are separate.
+
 ## Quick Start
 
 - [QUICKSTART.md](QUICKSTART.md) — Get up and running in a few minutes (published packages and a source checkout)
@@ -34,7 +36,7 @@
 ## Operations
 
 - [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md) — Running a DCP verification service
-- [ADMISSION.md](ADMISSION.md) — Accepting bundles only from trusted principals, and the strict-v1 profile (unreleased)
+- [ADMISSION.md](ADMISSION.md) — Accepting bundles only from trusted principals, and the strict-v1 profile
 - [AGENT_CREATION_AND_CERTIFICATION.md](AGENT_CREATION_AND_CERTIFICATION.md) — Agent creation flow and certification
 
 ## Specifications
@@ -52,7 +54,7 @@
 
 ## Proposals (experimental, not normative)
 
-- [proposals/canonicalization-candidate](proposals/canonicalization-candidate/README.md) — The inactive `dcp-jcs-v2` candidate and its opt-in SDK APIs (unreleased); `dcp-jcs-v1` stays the only profile
+- [proposals/canonicalization-candidate](proposals/canonicalization-candidate/README.md) — The inactive `dcp-jcs-v2` candidate and its opt-in SDK APIs; `dcp-jcs-v1` stays the only profile
 
 ## Community & Vision
 

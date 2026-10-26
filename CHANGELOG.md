@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 > [README](README.md), the [documentation](docs/README.md), the [specifications](spec/README.md) and the
 > [API reference](docs/API_REFERENCE.md).
 
+**npm publication (26/10/2026).** The 13 versions in [NPM_RELEASES.md](docs/NPM_RELEASES.md) are published, including the TypeScript/WASM candidate APIs and TypeScript admission. Entries below retain their development history; `[Unreleased]` does not mean these npm features are unavailable. Python, Go and Rust releases are separate.
+
 ## [Unreleased]
 
 ### Security

@@ -13,25 +13,20 @@ Digital Citizenship Protocol（DCP-AI）の公式 TypeScript SDK です。ポス
 
 ## インストール
 
-**リリース状況（2026 年 10 月 25 日）。** npm レジストリでは `@dcp-ai/sdk` 2.1.1 が `latest` です。この README は
-`main` のソースを説明しており、そこには次のものが追加されています。
-- `v2.10.0` でタグ付けされたものの npm には公開されていないバージョン 2.2.0。`verifySignedBundleV2` の回避を修正しています（
-  [`SECURITY.md`](../../SECURITY.md) を参照）。
-- 変更履歴の [`[Unreleased]`](../../CHANGELOG.md#unreleased) に挙げられている内容：アドミッション、委任チェーン、
-  A2A の受信ウィンドウ、実験的な `dcp-jcs-v2` API。
+**npm 公開済み（2026 年 10 月 26 日）。** `@dcp-ai/sdk` 2.2.0 が `latest` です。[SECURITY.md](../../SECURITY.md) に記載された検証器の修正、プリンシパルの信頼と `strict-v1`、委任チェーン、A2A 受信ウィンドウ、実験的な `dcp-jcs-v2` API を含みます。候補は明示的な選択が必要な非規範的機能のままで、既定は `dcp-jcs-v1` です。以下の例は公開済みパッケージで実行できます。
 
-以下の例を実行するには、チェックアウトから SDK をビルドし、そこからインストールします。
+```bash
+npm install @dcp-ai/sdk@^2.2.0
+```
+
+全パッケージのバージョンは [npm リリース一覧](../../docs/NPM_RELEASES.md)を参照してください。
+
+チェックアウトしたソースで開発する場合は、ローカルのパッケージをビルドしてインストールします。
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
 cd dcp-ai/sdks/typescript && npm install && npm run build
 cd /path/to/your-project && npm install /path/to/dcp-ai/sdks/typescript
-```
-
-レジストリからインストールすると、上記を含まない公開済みのバージョンになります。
-
-```bash
-npm install @dcp-ai/sdk   # 2.1.1 on 25/10/2026
 ```
 
 <a id="quick-start-v1"></a>
@@ -347,9 +342,10 @@ console.log(result.verified, result.errors); // true []
 | `cborEncode(value)` | 値を CBOR バイト列にエンコードする |
 | `cborDecode(data)` | CBOR バイト列を値にデコードする |
 
+<a id="admission-trusted-principals-and-strict-v1"></a>
 <a id="admission-trusted-principals-and-strict-v1-unreleased"></a>
 
-### アドミッション：Trusted Principals と strict-v1（未リリース）
+### アドミッション：Trusted Principals と strict-v1
 
 検証済みのバンドルは、そこに列挙された鍵で署名されています。それはプリンシパルが誰であるかを証明しません。アドミッションは、プリンシパルの署名が信頼セットに載っているプリンシパルの鍵で行われている場合にのみバンドルを受け入れます。オプションで、オペレーターが固定する `strict-v1` プロファイル（ハイブリッド署名、署名されたオーディエンス、最長 300 秒のセッション、新しい失効スナップショット）も適用できます。
 
@@ -368,9 +364,10 @@ const result = await admitSignedBundleV2(signedBundle, registry, { profile, trus
 - `evaluateAdmissionV2` は、手元にある検証結果を評価します（暗号処理も I/O も行いません）。`revocationSubjects` は、失効情報の提供元が答えるべき対象を列挙します。
 - ガイド：[`docs/ADMISSION.md`](../../docs/ADMISSION.md)。仕様とコード：[`spec/profiles/admission`](../../spec/profiles/admission/README.md)。
 
+<a id="delegation-chains-dcp-09-35"></a>
 <a id="delegation-chains-dcp-09-35-unreleased"></a>
 
-### 委任チェーン（DCP-09 §3.5、未リリース）
+### 委任チェーン（DCP-09 §3.5）
 
 人間はルートの委任状でエージェントに委任します。そのエージェントは、自ら署名するサブ委任状によって権限の一部を別のエージェントに渡すことができ、
 これを繰り返せます。各段階は受け取ったものを狭めることしかできず、チェーン全体は
@@ -404,13 +401,13 @@ const result = await verifyMandateChain(registry, [rootMandate, sub], new Set(),
 const tier = computeSecurityTier(intent, policyDecision, result.valid ? result.effective_tier : null);
 ```
 
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in"></a>
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
 
-### 実験的：正規化の候補 `dcp-jcs-v2`（オプトイン、未リリース）
+### 実験的：正規化の候補 `dcp-jcs-v2`（オプトイン）
 
 規範ではなく、有効でもありません。`dcp-jcs-v1` が唯一の正規化プロファイルであり続け、既定値、
-ビルダー、署名器、検証器はいずれも変わりません。これらの API は、ソースのチェックアウトでオプトインする呼び出し側のためだけに存在します
-（リリース状況を参照）。検証済みの候補バンドルは、信頼もアドミッションも与えません。設計、ルール、完全な
+ビルダー、署名器、検証器はいずれも変わりません。これらの API は、npm SDK 2.2.0 を含め、明示的に選択する呼び出し側のためだけに存在します。検証済みの候補バンドルは、信頼もアドミッションも与えません。設計、ルール、完全な
 契約：[`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)
 （§15 入口、§16 ルーター、§17 検証器、§18 生成器）。
 

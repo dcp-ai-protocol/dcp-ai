@@ -19,7 +19,7 @@ Microsoft AutoGen の会話のために、DCP の形をした記録を作りま�
 npm install @dcp-ai/autogen
 ```
 
-npm の 2.0.0（2026 年 10 月 25 日）は、`main` のソースと同じ `index.js` を持っています。依存関係はありません。
+npm の 2.0.1（2026 年 10 月 26 日）は、`main` のソースと同じ `index.js` を持っています。依存関係はありません。
 
 <a id="supported-dcp-specifications"></a>
 

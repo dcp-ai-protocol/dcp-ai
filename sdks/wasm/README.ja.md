@@ -10,16 +10,19 @@ Digital Citizenship Protocol（DCP）v2.0 向けの WebAssembly モジュール�
 
 ## インストール
 
-**公開状況。** この README は `main` のソースコードを説明しています。最新のタグ付きリリース `v2.10.0` には `@dcp-ai/wasm` 2.1.0 が記載されています。この README の作成にあたり npm レジストリは確認していません。変更履歴の [`[Unreleased]`](../../CHANGELOG.md#unreleased) にある内容は、実験的な `dcp-jcs-v2` API を含め、タグ付きリリースにはまだ含まれていません。以下の例を実行するには、リポジトリのチェックアウトからビルドし（「ビルド」を参照）、そのディレクトリをインストールしてください。
+**npm 公開済み（2026 年 10 月 26 日）。** `@dcp-ai/wasm` 2.1.0 が `latest` で、この文書の API と実験的な `dcp-jcs-v2` API を含みます。公開によって候補が有効になるわけではありません。候補は明示的な選択が必要な非規範的機能であり、`dcp-jcs-v1` は変更されません。Rust クレートのリリース周期は独立しています。
 
 ```bash
-npm install /path/to/dcp-ai/sdks/wasm
+npm install @dcp-ai/wasm@^2.1.0
 ```
 
-レジストリからインストールすると、公開済みのバージョンが取得されます。
+全パッケージのバージョンは [npm リリース一覧](../../docs/NPM_RELEASES.md)を参照してください。
+
+チェックアウトしたソースで開発する場合は、ローカルのパッケージをビルドしてインストールします。
 
 ```bash
-npm install @dcp-ai/wasm
+# Build in sdks/wasm first (see Build)
+npm install /path/to/dcp-ai/sdks/wasm
 ```
 
 <a id="build"></a>
@@ -268,11 +271,12 @@ WASM SDK には、DCP-05 から DCP-09 までのすべてのアーティファ�
 
 `domainSeparatedMessage()` で利用できるドメイン分離コンテキスト：`Lifecycle`、`Succession`、`Dispute`、`Rights`、`Delegation`、`Awareness`。
 
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in"></a>
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
 
-## 実験的機能：正規化候補 `dcp-jcs-v2`（明示的な選択が必要、未公開）
+## 実験的機能：正規化候補 `dcp-jcs-v2`（明示的な選択が必要）
 
-規範ではなく、既定では有効になっていません。`dcp-jcs-v1` が引き続き唯一の正規化プロファイルであり、既定値、ビルダー、署名処理、検証器は変更されません。これらのメソッドは、リポジトリからビルドし、明示的に選択した呼び出し元向けに提供されています（「公開状況」を参照）。WASM バインディングが受け取るのはバイト列のみで、ホスト側の値は先に JavaScript で検査されます。候補バンドルの検証に成功しても、信頼や受け入れは認められません。設計と契約：[`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)（§15 入力処理、§16 ルーター、§17 検証器、§18 生成側）。
+規範ではなく、既定では有効になっていません。`dcp-jcs-v1` が引き続き唯一の正規化プロファイルであり、既定値、ビルダー、署名処理、検証器は変更されません。これらのメソッドは、npm WASM 2.1.0 を含め、明示的に選択した呼び出し元向けに提供されています。WASM バインディングが受け取るのはバイト列のみで、ホスト側の値は先に JavaScript で検査されます。候補バンドルの検証に成功しても、信頼や受け入れは認められません。設計と契約：[`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)（§15 入力処理、§16 ルーター、§17 検証器、§18 生成側）。
 
 | メソッド | 説明 |
 |--------|-------------|

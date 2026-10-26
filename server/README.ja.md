@@ -12,7 +12,7 @@ Digital Citizenship Protocol の V1、V2、フェーズ 3（PQ 優先）を実�
 
 ## クイックスタート
 
-チェックアウトのルートから実行します。`@dcp-ai/sdk` 2.2.0 が npm に公開されるまで、ルートのパッケージはワークスペースの SDK に依存しているため、先にそれをビルドします。
+チェックアウトのルートから実行します。`@dcp-ai/sdk` 2.2.0 は npm で公開済みですが、ルートはそのソースをテストするため意図的にワークスペース SDK に依存しています。先にビルドしてください。
 
 ```bash
 (cd sdks/typescript && npm install && npm run build)
@@ -143,7 +143,7 @@ node server/index.js
   `{old_kid, new_kid, timestamp}` に `DCP-AI.v2.KeyRotation` のもとで署名し（保有の証明）、古い鍵が連署します。古い鍵は有効
   （失効しておらず、期限切れでない）でなければならず、その後は失効したものとして記録されます。
 - **マルチパーティ承認**：各当事者は `{operation, operation_payload, party_id, role}` に `DCP-AI.v2.MultiPartyAuth` のもとで
-  署名します（`sdks/typescript/src/core/multi-party-auth.ts` の `createPartyAuthorization`。`@dcp-ai/sdk` 2.1.1 はエクスポート
+  署名します（`sdks/typescript/src/core/multi-party-auth.ts` の `createPartyAuthorization`。`@dcp-ai/sdk` 2.2.0 はエクスポート
   していません）。当事者は `/v2/passport/register` で登録した身元であり、その署名の kid は、その `party_id` に登録された有効な
   （失効しておらず、期限切れでない）鍵でなければなりません。各当事者は、どの役割で署名しても、`required_parties` に対して
   1 回だけ数えられます。役割は署名者が主張するもので、どこかで照会されるわけではありません。

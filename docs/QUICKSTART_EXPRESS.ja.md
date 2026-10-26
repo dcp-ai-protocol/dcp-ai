@@ -15,13 +15,10 @@
 
 ## インストール
 
-> **バージョン。** 以下のレジストリからのインストールでは、公開済みの `@dcp-ai/express` と `@dcp-ai/sdk` が入ります（2026 年 10 月 25 日時点で npm の
-> `@dcp-ai/sdk` の `latest` は 2.1.1）。このガイドは `main` に従っており、そこではミドルウェアに
-> アドミッション（信頼済みのプリンシパルと `strict-v1`、未リリース）も備わっています。これを使うには、`sdks/typescript` と
-> `integrations/express` をチェックアウトからビルドしてください（[Express の README](../integrations/express/README.md) を参照）。
+> **バージョン（2026 年 10 月 26 日）。** 公開済み `@dcp-ai/express` 2.1.0 と `@dcp-ai/sdk` 2.2.0 を使ってください。修正済み検証器と、信頼するプリンシパルおよび `strict-v1` による受け入れ判定が含まれます。チェックアウトのビルドは不要です。[Express README](../integrations/express/README.md) を参照してください。
 
 ```bash
-npm install @dcp-ai/express @dcp-ai/sdk express
+npm install @dcp-ai/express@^2.1.0 @dcp-ai/sdk@^2.2.0 express
 ```
 
 <a id="zero-config-scaffold-alternative"></a>
@@ -181,7 +178,7 @@ app.use(dcpVerify({
 }));
 ```
 
-`main`（未リリース）では、`trustedPrincipals`、`profile`、`revocationSource`、`tenant` がアドミッションを加えます。ルートに届くのは、
+`main`では、`trustedPrincipals`、`profile`、`revocationSource`、`tenant` がアドミッションを加えます。ルートに届くのは、
 信頼するプリンシパルのために、その信頼済みの鍵で署名されたバンドルだけです。キャッシュ、監視、切断のオプションを含むすべてのオプションについては、
 [ADMISSION.md](ADMISSION.md) と [Express の README](../integrations/express/README.md) を
 参照してください。
@@ -239,7 +236,7 @@ const response2 = await fetch('http://localhost:3000/api/data', {
 
 V1 バンドルにはポスト量子署名がないため、受け入れられるのはクラシカルのみのバンドルが受け入れられる場合に限られます（VERIFICATION.md V2-10）。既定のポリシーでは、意図が routine または standard の V1 バンドルは通り、支払い、機微なデータ、高い推定影響、0.5 以上のリスクスコアを伴うものは拒否されます。`requireHybrid` と `allow_v1_bundles: false` は、すべての V1 バンドルを拒否します。
 
-検証済みのバンドルは内部的に一貫しており、それ自身が列挙する鍵で署名されています。それはプリンシパルが誰であるかを証明しません。信頼するプリンシパルからのバンドルだけを受け入れるには、アドミッションを設定してください（`trustedPrincipals`、未リリース。[ADMISSION.md](ADMISSION.md) を参照）。リプレイに対するオーディエンスのバインディングについては、パッケージの README を参照してください。
+検証済みのバンドルは内部的に一貫しており、それ自身が列挙する鍵で署名されています。それはプリンシパルが誰であるかを証明しません。信頼するプリンシパルからのバンドルだけを受け入れるには、アドミッションを設定してください（`trustedPrincipals`。[ADMISSION.md](ADMISSION.md) を参照）。リプレイに対するオーディエンスのバインディングについては、パッケージの README を参照してください。
 
 ```typescript
 // Fragment: continues the Complete Working Example (`app`, `express`, `DCPAgent`)

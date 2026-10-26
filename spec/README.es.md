@@ -79,6 +79,6 @@ La especificación se está organizando en un **núcleo** (protocolo mínimo int
 | [profiles/crypto/](profiles/crypto/) | Selección de algoritmos, firmas compuestas, agilidad criptográfica |
 | [profiles/a2a/](profiles/a2a/) | Descubrimiento de agentes, handshake, gestión de sesiones |
 | [profiles/governance/](profiles/governance/) | Niveles de riesgo, jurisdicción, revocación, recuperación de claves |
-| [profiles/admission/](profiles/admission/) | Admisión: principales de confianza y el perfil strict-v1 (en los SDK de `main`, aún sin publicar) |
+| [profiles/admission/](profiles/admission/) | Admisión: principales de confianza y el perfil strict-v1 (en los SDK de `main`; publicado en npm SDK 2.2.0, con publicaciones independientes en los demás ecosistemas) |
 
 Las especificaciones existentes (de DCP-01 a DCP-09, BUNDLE, VERIFICATION, DCP-AI v2.0) siguen siendo la referencia. Los documentos del núcleo y de los perfiles aportan contexto editorial y aclaran la separación de responsabilidades. Véase el [ROADMAP](../ROADMAP.md) para la evolución prevista.

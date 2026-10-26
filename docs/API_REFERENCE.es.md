@@ -8,10 +8,7 @@
 
 Referencia del SDK de TypeScript `@dcp-ai/sdk` tal como está en `main` (versión del paquete 2.2.0, protocolo DCP v2.0).
 
-> **Versiones (25/10/2026).** El `latest` del registro de npm es 2.1.1. La versión 2.2.0 está etiquetada en `v2.10.0`, pero no
-> está en npm, y las secciones marcadas como *sin publicar* describen lo que el registro de cambios enumera en
-> [`[Unreleased]`](../CHANGELOG.md#unreleased). Para usar lo que describe esta referencia, compila el SDK desde una copia del repositorio:
-> véase la sección [Release status](../sdks/typescript/README.md#installation) del SDK de TypeScript.
+> **Versiones npm (26/10/2026).** Esta referencia de TypeScript se aplica a `@dcp-ai/sdk` 2.2.0 publicado, incluida la confianza en el principal, `strict-v1` y las API experimentales opt-in del candidato. Véanse los [paquetes npm publicados](NPM_RELEASES.md) y las [instrucciones de instalación](../sdks/typescript/README.md#installation). `dcp-jcs-v1` sigue siendo el predeterminado normativo.
 
 Los bloques de código de esta página son declaraciones o fragmentos, no programas completos: nombres como `registry`, `keys`,
 `payloadBytes` o `signedBundle` representan valores construidos como en el
@@ -848,9 +845,10 @@ if (result.verified) {
 }
 ```
 
+<a id="admission-trusted-principals-and-strict-v1"></a>
 <a id="admission-trusted-principals-and-strict-v1-unreleased"></a>
 
-### Admisión: principales de confianza y strict-v1 (sin publicar)
+### Admisión: principales de confianza y strict-v1
 
 Definida en [`spec/profiles/admission`](../spec/profiles/admission/README.md); guía en [ADMISSION.md](ADMISSION.md).
 
@@ -2060,9 +2058,10 @@ function detectDcpVersion(artifact: Record<string, unknown>): '1.0' | '2.0' | nu
 
 ---
 
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in"></a>
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
 
-## Experimental: candidato de canonicalización `dcp-jcs-v2` (opt-in, sin publicar)
+## Experimental: candidato de canonicalización `dcp-jcs-v2` (opt-in)
 
 Experimental y desactivado por defecto: `dcp-jcs-v1` sigue siendo el perfil de canonicalización predeterminado y el único
 normativo, y los constructores, firmantes y verificadores habituales no cambian. Estas exportaciones existen para quien opte por usarlas; un bundle candidato verificado no otorga

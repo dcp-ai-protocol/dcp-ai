@@ -19,7 +19,7 @@
 npm install @dcp-ai/autogen
 ```
 
-npm 上的 2.0.0（2026 年 10 月 25 日）与 `main` 上源码中的 `index.js` 相同。它没有依赖。
+npm 上的 2.0.1（2026 年 10 月 26 日）与 `main` 上源码中的 `index.js` 相同。它没有依赖。
 
 <a id="supported-dcp-specifications"></a>
 

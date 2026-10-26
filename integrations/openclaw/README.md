@@ -26,23 +26,24 @@ DCP-01 through DCP-09, partially: the tools below create records in the shapes o
 
 ## Installation
 
-> **Release status (25/10/2026).** npm has `@dcp-ai/openclaw` 2.0.0 only; this README follows the source on `main` (version 2.1.0, not published). The published 2.0.0 **does not verify the signatures of V2 bundles** in `dcp_verify_bundle`: it checks their structure only, so a forged or altered V2 bundle passes (fixed on `main`, see the `[Unreleased]` section of [CHANGELOG.md](../../CHANGELOG.md)). Do not rely on 2.0.0 for V2 bundles; the operator policy, trusted principals and the source supervisor are not in it either. Until `@dcp-ai/sdk` 2.2.0 is on npm, this package depends on the workspace SDK (`"@dcp-ai/sdk": "file:../../sdks/typescript"`); publishing it needs the dependency raised to `^2.2.0`, and the publish workflow refuses a package that depends on a local path.
+**Published on npm (26/10/2026).** `@dcp-ai/openclaw` 2.1.0 is `latest` and depends on `@dcp-ai/sdk` `^2.2.0`. The features described below are available from npm.
 
-To use the version this page describes, build it from a checkout and install it from there:
+**Upgrade from 2.0.0:** that version checks V2 structure without verifying signatures. Use 2.1.0 for the corrected verifier, admission and source supervision. See [SECURITY.md](../../SECURITY.md).
+
+```bash
+npm install @dcp-ai/openclaw@^2.1.0
+```
+
+See the [npm release inventory](../../docs/NPM_RELEASES.md) for all package versions.
+
+For development against a source checkout, build and install the local package instead:
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-cd dcp-ai/sdks/typescript && npm install && npm run build       # the SDK of main
-cd ../../integrations/openclaw && npm install && npm run build  # this package
-# then, in your OpenClaw plugins directory:
+cd dcp-ai/integrations/openclaw
+npm ci && npm run build
+# then, in your project (or OpenClaw plugins directory):
 npm install /path/to/dcp-ai/integrations/openclaw
-```
-
-The published version (2.0.0), without those fixes and features:
-
-```bash
-# In your OpenClaw plugins directory
-npm install @dcp-ai/openclaw
 ```
 
 Add to your OpenClaw config:

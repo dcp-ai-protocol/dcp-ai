@@ -17,7 +17,7 @@ DCP のアーティファクトと、W3C の分散型識別子（DID）および
 npm install @dcp-ai/w3c-did
 ```
 
-npm の 2.0.0（2026 年 10 月 25 日）は、`main` のソースと同じ `index.js` を持っています。Node.js で動作し（`Buffer` を使います）、依存関係はありません。
+npm の 2.0.1（2026 年 10 月 26 日）は、`main` のソースと同じ `index.js` を持っています。Node.js で動作し（`Buffer` を使います）、依存関係はありません。
 
 <a id="limits-25102026"></a>
 

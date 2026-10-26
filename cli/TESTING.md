@@ -1,6 +1,6 @@
 # Testing `@dcp-ai/cli`
 
-The CLI needs `@dcp-ai/sdk` 2.2.0, which is not on npm yet, so it is tested against the SDK built in this repository.
+The published CLI 2.1.0 requires `@dcp-ai/sdk` `^2.2.0`, available on npm. These repository tests deliberately use the SDK built from the same checkout to cover source changes before a future release.
 
 ```bash
 cd sdks/typescript && npm install && npm run build

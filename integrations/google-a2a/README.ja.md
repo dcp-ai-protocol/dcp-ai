@@ -16,24 +16,24 @@
 
 ## インストール
 
-> **リリースの状況（2026 年 10 月 25 日）。** npm にある `@dcp-ai/google-a2a` 2.0.0 には、Agent Card の中のパスポート（`attachPassportToAgentCard`、`agentCardPassport`、`verifyAgentCardPassport`）がありません。それらは `main` のソース（バージョン 2.1.0、未公開）にあります。ソースのパッケージの `@dcp-ai/sdk` の依存関係は `^2.0.0` で、通常の npm のインストールでは 2.1.1 に解決されます。そのため、下のローカルの SDK での置き換えをせずにこのチェックアウトをビルドすると、古い暗号プロバイダーが使われます。`verifyAgentCardPassport` は SDK の複合署名の関数を使い、完全な検証器 `verifySignedBundleV2` は使いません。
+**npm 公開済み（2026 年 10 月 26 日）。** `@dcp-ai/google-a2a` 2.1.0 が `latest` で、`@dcp-ai/sdk` `^2.2.0` に依存します。以下で説明する機能は npm から利用できます。
 
-チェックアウトから（このページのバージョン、`main` の SDK を使用）：
+`verifyAgentCardPassport` は完全な検証器 `verifySignedBundleV2` ではなく複合署名の補助関数を使います。プリンシパルへの信頼や受け入れ判定を確立するものではありません。
+
+```bash
+npm install @dcp-ai/google-a2a@^2.1.0
+```
+
+全パッケージのバージョンは [npm リリース一覧](../../docs/NPM_RELEASES.md)を参照してください。
+
+チェックアウトしたソースで開発する場合は、ローカルのパッケージをビルドしてインストールします。
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-cd dcp-ai/sdks/typescript && npm install && npm run build
-cd ../../integrations/google-a2a && npm install
-npm install --no-save --package-lock=false --ignore-scripts --install-links ../../sdks/typescript
-npm run build
+cd dcp-ai/integrations/google-a2a
+npm ci && npm run build
 # then, in your project:
 npm install /path/to/dcp-ai/integrations/google-a2a
-```
-
-公開されたバージョン（2.0.0）：
-
-```bash
-npm install @dcp-ai/google-a2a
 ```
 
 <a id="the-passport-inside-the-agent-card"></a>

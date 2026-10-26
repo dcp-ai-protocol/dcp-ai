@@ -8,9 +8,7 @@
 
 **规范版本：** 2.0
 **最后更新：** 2026 年 10 月
-**适用于：** `main` 上的 SDK。已发布的软件包有各自的版本：2026 年 10 月 25 日，npm 上
-`@dcp-ai/sdk` 的 `latest` 为 2.1.1，不含 2.2.0 的验证器修复（参见 [`SECURITY.md`](../SECURITY.md#supported-versions)
-以及各 SDK 的 *Release status*）。
+**适用于：** `main` 上的 SDK 和已发布的 `@dcp-ai/sdk` 2.2.0。npm 版本已于 2026 年 10 月 26 日核实；见 [NPM_RELEASES.md](NPM_RELEASES.md) 和 [SECURITY.md](../SECURITY.md#supported-versions)。其他生态有独立的发布周期。
 
 本指南带你把现有的 DCP-AI v1.0 集成迁移到 v2.0。迁移会引入后量子复合签名、双哈希链、会话绑定、自适应安全等级和智能体间通信；同时，有效的 v1.0 bundle 在验证器策略允许的情况下仍可通过验证（参见 1.2）。
 
@@ -71,13 +69,12 @@ v1.0 bundle 只有一个 Ed25519 签名，没有后量子签名，因此验证�
 
 ### 步骤 1：更新 SDK
 
-示例以 `main` 为准。要按原样运行它们，请从源码检出副本构建或安装 SDK（各 SDK README 的 *Release status*
-中有相应命令）；下面的注册表命令安装的是已发布的版本。
+TypeScript 示例可使用已发布的 npm SDK。对于本文基于 `main` 描述的 Python、Go 和 Rust 功能，请查看各 SDK README 的发布状态；尚未发布的功能请使用检出代码。
 
-**TypeScript**（已发布：2026 年 10 月 25 日为 2.1.1；检出副本中为 2.2.0）：
+**TypeScript**（2026 年 10 月 26 日已发布：2.2.0）：
 
 ```bash
-npm install /path/to/dcp-ai/sdks/typescript   # main, built with `npm install && npm run build`
+npm install @dcp-ai/sdk@^2.2.0
 ```
 
 **Python：**

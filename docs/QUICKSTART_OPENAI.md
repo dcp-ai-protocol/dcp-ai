@@ -8,14 +8,10 @@ Add cryptographic identity, policy gating, and audit trails to OpenAI function-c
 
 This guide uses the **OpenAI Node SDK**. If you use Python instead, skip to the Python section at the bottom.
 
-The registry install gives the published `@dcp-ai/sdk` (npm's `latest` was 2.1.1 on 25/10/2026). The V1 example
-works with it; the V2 section follows `main`, so build the SDK from a checkout for it (see the TypeScript SDK's
-[Release status](../sdks/typescript/README.md#installation)). The examples use the Chat Completions API of the
-OpenAI Node SDK (`openai` v4 or later; recent versions add custom tool calls, which the loop refuses). Running them
-calls the OpenAI API and needs `OPENAI_API_KEY`.
+The registry install uses `@dcp-ai/sdk` 2.2.0 for both V1 and V2 examples; a source checkout is optional (see [installation](../sdks/typescript/README.md#installation)). The examples use the Chat Completions API of the OpenAI Node SDK (`openai` v4 or later; recent versions add custom tool calls, which the loop refuses). Running them calls the OpenAI API and needs `OPENAI_API_KEY`.
 
 ```bash
-npm install @dcp-ai/sdk openai
+npm install @dcp-ai/sdk@^2.2.0 openai
 ```
 
 ### Zero-config scaffold (alternative)

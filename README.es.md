@@ -119,19 +119,13 @@ Véase también: [Especificación del núcleo](spec/core/dcp-core.md) | [Resumen
 
 ## Inicio rápido
 
-> **Paquetes publicados y este repositorio (25/10/2026).** El `latest` de `@dcp-ai/sdk` en el registro de npm es
-> 2.1.1, sin las correcciones del verificador de 2.2.0 ([`SECURITY.md`](SECURITY.md#supported-versions)) ni nada de lo que
-> figura en [`[Unreleased]`](CHANGELOG.md#unreleased) del registro de cambios. Los ejemplos de este repositorio siguen `main`.
-> Para ejecutarlos, usa una copia del repositorio:
+> **Paquetes publicados (26/10/2026).** npm ya ofrece `@dcp-ai/sdk` 2.2.0, `@dcp-ai/wasm` y `@dcp-ai/cli` 2.1.0, además de los adaptadores y generadores actualizados. Consulta el [inventario de 13 paquetes](docs/NPM_RELEASES.md) y las [notas de actualización de seguridad](SECURITY.md#supported-versions). Estas versiones npm incluyen las correcciones y funciones documentadas; las publicaciones de Python, Go y Rust son independientes. Para ejecutar el CLI de referencia y las pruebas del repositorio, compila el checkout:
 >
 > ```bash
 > git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-> cd dcp-ai/sdks/typescript && npm install && npm run build   # the SDK of main
-> cd ../.. && npm install                                       # the reference CLI, against that SDK
+> cd dcp-ai/sdks/typescript && npm install && npm run build
+> cd ../.. && npm install
 > ```
->
-> Los comandos de registro de abajo (`npm install`, `npx`) instalan, en cambio, las versiones publicadas. Los demás paquetes
-> tienen sus propias versiones: véase la sección *Release status* de cada SDK.
 
 <a id="option-a-cli-wizard-demo"></a>
 
@@ -171,16 +165,16 @@ node /path/to/dcp-ai/bin/dcp.js verify-bundle --policy hybrid_preferred bundle.s
 
 Instala una de las dos:
 
-- el SDK de `main`, compilado desde una copia del repositorio como arriba, que necesita el ejemplo siguiente:
+- el SDK de `main`, compilado desde un checkout, para desarrollar el código fuente:
 
   ```bash
   npm install /path/to/dcp-ai/sdks/typescript
   ```
 
-- o la versión publicada (2.1.1 el 25/10/2026), sin las correcciones de 2.2.0 ni las funciones sin publicar:
+- o el SDK 2.2.0 publicado, que incluye estas correcciones y funciones:
 
   ```bash
-  npm install @dcp-ai/sdk
+  npm install @dcp-ai/sdk@^2.2.0
   ```
 
 Verifica un bundle V2 firmado con el verificador de bundles V2 actual de `main` (firmas, hashes, vinculación de sesión,
@@ -477,7 +471,7 @@ cd docker && docker compose up -d
 | [AGENT_CREATION_AND_CERTIFICATION](docs/AGENT_CREATION_AND_CERTIFICATION.md) | Flujo de creación de agentes P2P, certificación DCP |
 | [OPERATOR_GUIDE](docs/OPERATOR_GUIDE.md) | Ejecutar un servicio de verificación |
 | [MIGRATION_V1_V2](docs/MIGRATION_V1_V2.md) | Migrar de DCP v1.0 a v2.0 |
-| [ADMISSION](docs/ADMISSION.md) | Aceptar bundles solo de principales de confianza, opcionalmente bajo `strict-v1` (sin publicar) |
+| [ADMISSION](docs/ADMISSION.md) | Aceptar bundles solo de principales de confianza, opcionalmente bajo `strict-v1` |
 | [OBSERVABILITY](docs/OBSERVABILITY.md) | Trazas y métricas de OpenTelemetry desde los SDK |
 
 <a id="proposals-experimental-not-normative"></a>
@@ -486,7 +480,7 @@ cd docker && docker compose up -d
 
 | Documento | Descripción |
 |----------|-------------|
-| [Candidato de canonicalización `dcp-jcs-v2`](docs/proposals/canonicalization-candidate/README.md) | Perfil candidato experimental, desactivado por defecto, su diseño y las API opt-in de los SDK (sin publicar); `dcp-jcs-v1` sigue siendo el perfil de canonicalización predeterminado y el único normativo |
+| [Candidato de canonicalización `dcp-jcs-v2`](docs/proposals/canonicalization-candidate/README.md) | Perfil candidato experimental, desactivado por defecto, su diseño y las API opt-in de los SDK; `dcp-jcs-v1` sigue siendo el perfil de canonicalización predeterminado y el único normativo |
 
 <a id="standards-alignment"></a>
 
@@ -591,7 +585,7 @@ dcp-ai/
 ## Desarrollo
 
 ```bash
-# Build the workspace SDK first: the root depends on it until @dcp-ai/sdk 2.2.0 is on npm
+# Build the workspace SDK first: the root uses it to test the checked-out source
 (cd sdks/typescript && npm install && npm run build)
 
 # Install dependencies

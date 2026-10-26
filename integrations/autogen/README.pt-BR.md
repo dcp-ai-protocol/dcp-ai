@@ -19,7 +19,7 @@ Os registros são objetos simples: **não assinados, e sem hashes de conteúdo n
 npm install @dcp-ai/autogen
 ```
 
-A 2.0.0 do npm (25/10/2026) tem o mesmo `index.js` que o código-fonte em `main`. Não tem dependências.
+A 2.0.1 do npm (26/10/2026) tem o mesmo `index.js` que o código-fonte em `main`. Não tem dependências.
 
 <a id="supported-dcp-specifications"></a>
 

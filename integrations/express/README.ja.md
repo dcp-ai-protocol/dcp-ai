@@ -19,24 +19,27 @@ DCP-01 から DCP-09。部分的なもので、以下に述べるバンドルの
 
 ## インストール
 
-> **リリースの状況（2026 年 10 月 25 日）。** npm にあるのは `@dcp-ai/express` 2.0.0 だけです。このページの大部分より前に公開されたもので、**V2 のバンドルの署名を検証しません**。構造を確認するだけなので、偽造または改変された V2 のバンドルが通ってしまいます（`main` で修正済み。[CHANGELOG.md](../../CHANGELOG.md) の `[Unreleased]` の節を参照）。V2 のバンドルについて 2.0.0 を当てにしないでください。アドミッション（`trustedPrincipals`、`profile`、`revocationSource`）、`revocationFailClosed`、ソースの監督、`cancelOnDisconnect` も含まれていません。この README は `main` のソースに従っています。`@dcp-ai/sdk` 2.2.0 が npm に公開されるまで、このパッケージはワークスペースの SDK（`"@dcp-ai/sdk": "file:../../sdks/typescript"`）に依存しています。公開するには依存関係を `^2.2.0` に上げる必要があり、公開のワークフローはローカルのパスに依存するパッケージを拒否します。
+**npm 公開済み（2026 年 10 月 26 日）。** `@dcp-ai/express` 2.1.0 が `latest` で、`@dcp-ai/sdk` `^2.2.0` に依存します。以下で説明する機能は npm から利用できます。
 
-このページが説明するバージョンを使うには、チェックアウトからビルドし、そこからインストールします。
-
-```bash
-git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-cd dcp-ai/sdks/typescript && npm install && npm run build      # the SDK of main
-cd ../../integrations/express && npm install && npm run build  # this package
-cd /path/to/your-app && npm install /path/to/dcp-ai/integrations/express express
-```
-
-上に挙げた機能のない、公開されたバージョン（2.0.0）：
+**2.0.0 から更新してください。** そのバージョンは署名を検証せず V2 の構造だけを確認します。修正済み検証器、受け入れ判定、ソースの監督には 2.1.0 を使用してください。[SECURITY.md](../../SECURITY.md) を参照してください。
 
 ```bash
-npm install @dcp-ai/express @dcp-ai/sdk
+npm install @dcp-ai/express@^2.1.0 express
 ```
 
 **ピア依存関係：** Express 4.18+ または 5.x
+
+全パッケージのバージョンは [npm リリース一覧](../../docs/NPM_RELEASES.md)を参照してください。
+
+チェックアウトしたソースで開発する場合は、ローカルのパッケージをビルドしてインストールします。
+
+```bash
+git clone https://github.com/dcp-ai-protocol/dcp-ai.git
+cd dcp-ai/integrations/express
+npm ci && npm run build
+# then, in your project:
+npm install /path/to/dcp-ai/integrations/express express
+```
 
 <a id="quickstart"></a>
 
@@ -348,7 +351,7 @@ app.listen(3000);
 ## 開発
 
 ```bash
-# Build the workspace SDK first (see Installation), then:
+# Development build uses the published SDK from package-lock.json:
 npm install
 
 # Build (ESM + CJS + types)

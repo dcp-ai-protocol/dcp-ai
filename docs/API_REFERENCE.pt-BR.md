@@ -8,10 +8,7 @@
 
 Referência do SDK TypeScript `@dcp-ai/sdk` como está em `main` (versão do pacote 2.2.0, protocolo DCP v2.0).
 
-> **Versões (25/10/2026).** O `latest` do registro do npm é 2.1.1. A versão 2.2.0 está marcada em `v2.10.0`, mas não
-> está no npm, e as seções marcadas como *não publicadas* descrevem o que o changelog lista em
-> [`[Unreleased]`](../CHANGELOG.md#unreleased). Para usar o que esta referência descreve, compile o SDK a partir de uma cópia do repositório:
-> veja a seção [Release status](../sdks/typescript/README.md#installation) do SDK TypeScript.
+> **Versões npm (26/10/2026).** Esta referência de TypeScript se aplica ao `@dcp-ai/sdk` 2.2.0 publicado, incluindo confiança no principal, `strict-v1` e as APIs experimentais opt-in do candidato. Veja os [pacotes npm publicados](NPM_RELEASES.md) e as [instruções de instalação](../sdks/typescript/README.md#installation). `dcp-jcs-v1` continua sendo o padrão normativo.
 
 Os blocos de código desta página são declarações ou fragmentos, não programas completos: nomes como `registry`, `keys`,
 `payloadBytes` ou `signedBundle` representam valores construídos como no
@@ -848,9 +845,10 @@ if (result.verified) {
 }
 ```
 
+<a id="admission-trusted-principals-and-strict-v1"></a>
 <a id="admission-trusted-principals-and-strict-v1-unreleased"></a>
 
-### Admissão: principais confiáveis e strict-v1 (não publicada)
+### Admissão: principais confiáveis e strict-v1
 
 Definida em [`spec/profiles/admission`](../spec/profiles/admission/README.md); guia em [ADMISSION.md](ADMISSION.md).
 
@@ -2060,9 +2058,10 @@ function detectDcpVersion(artifact: Record<string, unknown>): '1.0' | '2.0' | nu
 
 ---
 
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in"></a>
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
 
-## Experimental: candidato de canonicalização `dcp-jcs-v2` (opt-in, não publicado)
+## Experimental: candidato de canonicalização `dcp-jcs-v2` (opt-in)
 
 Experimental e desativado por padrão: `dcp-jcs-v1` continua sendo o perfil de canonicalização padrão e o único
 normativo, e os construtores, assinantes e verificadores habituais não mudam. Estas exportações existem para quem optar por usá-las; um bundle candidato verificado não concede

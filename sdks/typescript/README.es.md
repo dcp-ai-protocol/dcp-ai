@@ -13,25 +13,20 @@ SDK oficial de TypeScript para el Digital Citizenship Protocol (DCP-AI). Crea, f
 
 ## Instalación
 
-**Estado de publicación (25/10/2026).** El registro de npm tiene `@dcp-ai/sdk` 2.1.1 como `latest`. Este README describe el
-código de `main`, que tiene más:
-- la versión 2.2.0, etiquetada en `v2.10.0` pero no publicada en npm, que corrige una forma de eludir `verifySignedBundleV2` (véase
-  [`SECURITY.md`](../../SECURITY.md));
-- lo que el registro de cambios enumera en [`[Unreleased]`](../../CHANGELOG.md#unreleased): admisión, cadenas de delegación,
-  la ventana de recepción A2A y las API experimentales de `dcp-jcs-v2`.
+**Publicado en npm (26/10/2026).** `@dcp-ai/sdk` 2.2.0 es `latest`. Incluye las correcciones del verificador descritas en [SECURITY.md](../../SECURITY.md), confianza en el principal y `strict-v1`, cadenas de delegación, la ventana de recepción A2A y las API experimentales de `dcp-jcs-v2`. El candidato sigue siendo opt-in y no normativo; `dcp-jcs-v1` sigue siendo el predeterminado. Los ejemplos siguientes funcionan con el paquete publicado.
 
-Para ejecutar los ejemplos siguientes, compila el SDK desde una copia del repositorio e instálalo desde ahí:
+```bash
+npm install @dcp-ai/sdk@^2.2.0
+```
+
+Consulta el [inventario de publicaciones npm](../../docs/NPM_RELEASES.md) para ver todas las versiones.
+
+Para desarrollar con una copia del repositorio, compila e instala el paquete local:
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
 cd dcp-ai/sdks/typescript && npm install && npm run build
 cd /path/to/your-project && npm install /path/to/dcp-ai/sdks/typescript
-```
-
-La instalación desde el registro da la versión publicada, sin lo anterior:
-
-```bash
-npm install @dcp-ai/sdk   # 2.1.1 on 25/10/2026
 ```
 
 <a id="quick-start-v1"></a>
@@ -347,9 +342,10 @@ console.log(result.verified, result.errors); // true []
 | `cborEncode(value)` | Codifica un valor en bytes CBOR |
 | `cborDecode(data)` | Decodifica bytes CBOR a un valor |
 
+<a id="admission-trusted-principals-and-strict-v1"></a>
 <a id="admission-trusted-principals-and-strict-v1-unreleased"></a>
 
-### Admisión: Trusted Principals y strict-v1 (sin publicar)
+### Admisión: Trusted Principals y strict-v1
 
 Un bundle verificado está firmado por las claves que enumera; no prueba quién es el principal. La admisión acepta un bundle solo cuando sus firmas de principal se hicieron con claves de un principal que figura en tu conjunto de confianza y, opcionalmente, bajo el perfil `strict-v1` fijado por el operador (firmas híbridas, audiencia firmada, una sesión de 300 s como máximo, una instantánea de revocación reciente).
 
@@ -368,9 +364,10 @@ const result = await admitSignedBundleV2(signedBundle, registry, { profile, trus
 - `evaluateAdmissionV2` evalúa un resultado de verificación que ya tienes (sin criptografía ni E/S); `revocationSubjects` enumera aquello por lo que debe responder una fuente de revocación.
 - Guía: [`docs/ADMISSION.md`](../../docs/ADMISSION.md). Especificación y códigos: [`spec/profiles/admission`](../../spec/profiles/admission/README.md).
 
+<a id="delegation-chains-dcp-09-35"></a>
 <a id="delegation-chains-dcp-09-35-unreleased"></a>
 
-### Cadenas de delegación (DCP-09 §3.5, sin publicar)
+### Cadenas de delegación (DCP-09 §3.5)
 
 Una persona delega en un agente con un mandato raíz; ese agente puede pasar parte de su autoridad a otro agente
 con un submandato que firma él mismo, y así sucesivamente. Cada salto solo puede restringir lo que recibió, y toda la cadena
@@ -404,13 +401,13 @@ const result = await verifyMandateChain(registry, [rootMandate, sub], new Set(),
 const tier = computeSecurityTier(intent, policyDecision, result.valid ? result.effective_tier : null);
 ```
 
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in"></a>
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
 
-### Experimental: candidato de canonicalización `dcp-jcs-v2` (opt-in, sin publicar)
+### Experimental: candidato de canonicalización `dcp-jcs-v2` (opt-in)
 
 No es normativo ni está activo: `dcp-jcs-v1` sigue siendo el único perfil de canonicalización, y no cambia ningún valor por defecto,
-constructor, firmante ni verificador. Estas API existen solo para quien opte por usarlas, en una copia del repositorio
-(véase el estado de publicación). Un bundle candidato verificado no otorga confianza ni admisión. Diseño, reglas y contrato
+constructor, firmante ni verificador. Estas API existen solo para quien opte por usarlas, también en npm SDK 2.2.0. Un bundle candidato verificado no otorga confianza ni admisión. Diseño, reglas y contrato
 completo: [`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)
 (§15 entrada, §16 enrutador, §17 verificador, §18 productores).
 

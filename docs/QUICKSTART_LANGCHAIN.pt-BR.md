@@ -18,12 +18,10 @@ Integre o Digital Citizenship Protocol aos seus agentes LangChain para adicionar
 Este guia usa o **LangChain.js v1** (TypeScript/Node, Node.js 22 ou posterior). Se você usa o **LangChain para Python**,
 vá para a seção de Python no final.
 
-A instalação pelo registro fornece o `@dcp-ai/sdk` publicado (o `latest` do npm era 2.1.1 em 25/10/2026); o código DCP abaixo
-funciona com ele e com o SDK compilado a partir de uma cópia do repositório (veja a seção
-[Release status](../sdks/typescript/README.md#installation) do SDK TypeScript).
+A instalação pelo registro usa `@dcp-ai/sdk` 2.2.0. Os exemplos DCP abaixo funcionam com esse SDK publicado; o checkout é opcional para desenvolvimento. Veja o [estado de publicação](../sdks/typescript/README.md#installation) do SDK TypeScript.
 
 ```bash
-npm install @dcp-ai/sdk langchain @langchain/core @langchain/openai zod
+npm install @dcp-ai/sdk@^2.2.0 langchain @langchain/core @langchain/openai zod
 ```
 
 <a id="zero-config-scaffold-alternative"></a>

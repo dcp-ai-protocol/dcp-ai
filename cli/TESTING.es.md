@@ -6,7 +6,7 @@
 
 > Traducción informativa de [la versión en inglés](TESTING.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
-La CLI necesita `@dcp-ai/sdk` 2.2.0, que aún no está en npm, así que se prueba contra el SDK compilado en este repositorio.
+El CLI 2.1.0 publicado requiere `@dcp-ai/sdk` `^2.2.0`, disponible en npm. Estas pruebas del repositorio usan deliberadamente el SDK compilado desde el mismo checkout para cubrir los cambios de código antes de una publicación futura.
 
 ```bash
 cd sdks/typescript && npm install && npm run build

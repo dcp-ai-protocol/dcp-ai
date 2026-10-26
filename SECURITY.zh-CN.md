@@ -81,14 +81,14 @@
 | 2.8.x（PyPI 和 crates.io 上的 `dcp-ai`、Go 模块 `sdks/go/v2`） | 是 |
 | 2.2.x（`@dcp-ai/sdk`） | 是 |
 | 2.1.x（`@dcp-ai/sdk`） | 否：`verifySignedBundleV2` 可被绕过；修复在 2.2.x 中（见下方说明） |
-| 2.1.x（`@dcp-ai/wasm`、`@dcp-ai/openclaw`） | 是 |
+| 2.1.x（`@dcp-ai/wasm`、`@dcp-ai/openclaw`, `@dcp-ai/cli`, `@dcp-ai/express`, `@dcp-ai/anthropic-mcp`, `@dcp-ai/google-a2a`） | 是 |
 | 2.0.x（`@dcp-ai/wasm`、`@dcp-ai/cli` 以及其他 npm `@dcp-ai/*` 软件包） | 是 |
 | 1.0.x   | 是（仅维护） |
 | < 1.0   | 否        |
 
-`@dcp-ai/sdk` 2.2.0 已在 `v2.10.0` 中打标签，但不在 npm 上：2026 年 10 月 25 日，npm 注册表中有 2.0.0、2.1.0 和 2.1.1，`latest` 为 2.1.1。在 2.2.0 发布之前，只能从本仓库的检出副本构建 SDK 来获得该修复（`cd sdks/typescript && npm install && npm run build`）；从 npm 安装的版本仍然受影响。
+`@dcp-ai/sdk` 2.2.0 已于 2026 年 10 月 26 日发布到 npm，并标记为 `latest`。它包含验证器修复；请使用 `npm install @dcp-ai/sdk@^2.2.0` 升级并更新 lockfile。受影响的旧版本不会自动获得修复。见[已发布的 npm 软件包清单](docs/NPM_RELEASES.md)。
 
-**已知受影响的集成版本（2026 年 10 月 25 日）：** 支持表并不表示已发布的构建包含 `main` 上的全部修复。npm 上的 `@dcp-ai/express` 2.0.0 和 `@dcp-ai/openclaw` 2.0.0，以及 PyPI 上 `dcp-ai` 2.9.0 中的 FastAPI 集成，会接受结构上有效的 V2 bundle，而不对其签名进行密码学验证。这些路径已在 `main` 中修正，但尚未发布任何修正后的软件包。请勿使用这些版本验证 V2 bundle。从检出副本使用的方法和发布说明，请参见 [Express](integrations/express/README.md)、[OpenClaw](integrations/openclaw/README.md) 和 [FastAPI](integrations/fastapi/README.md) 的 README。本说明不改变上面的版本支持策略。
+**受影响及已修复的集成版本（2026 年 10 月 26 日）。** `@dcp-ai/express` 2.0.0 和 `@dcp-ai/openclaw` 2.0.0 会在不验证签名的情况下接受结构有效的 V2 bundle。两者均已在 npm 版本 2.1.0 中修复，并使用 `@dcp-ai/sdk` `^2.2.0`。请勿使用 2.0.0 验证 V2 bundle。PyPI 上 `dcp-ai` 2.9.0 的 FastAPI 集成仍受影响：本次 npm 发布未发布 Python 修复。见 [Express](integrations/express/README.md)、[OpenClaw](integrations/openclaw/README.md) 和 [FastAPI](integrations/fastapi/README.md)。软件包受支持不代表其所有旧构建都包含修复。
 
 <a id="disclosure-policy"></a>
 

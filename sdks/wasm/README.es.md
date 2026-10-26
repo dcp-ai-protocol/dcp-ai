@@ -12,16 +12,19 @@ Módulo WebAssembly para el Digital Citizenship Protocol (DCP) v2.0, compilado a
 
 ## Instalación
 
-**Estado de publicación.** Este README describe el código de `main`. La última versión etiquetada, `v2.10.0`, incluye `@dcp-ai/wasm` 2.1.0; no se consultó el registro npm para este README. Lo que el registro de cambios enumera en [`[Unreleased]`](../../CHANGELOG.md#unreleased) todavía no forma parte de una versión etiquetada, incluidas las API experimentales de `dcp-jcs-v2`. Para ejecutar los ejemplos siguientes, compila una copia del repositorio (véase Compilación) e instala su directorio:
+**Publicado en npm (26/10/2026).** `@dcp-ai/wasm` 2.1.0 es `latest` e incluye las API descritas aquí, incluidas las experimentales de `dcp-jcs-v2`. Publicarlas no activa el candidato: sigue siendo opt-in y no normativo, sin cambios en `dcp-jcs-v1`. El crate de Rust tiene un ciclo de publicación independiente.
 
 ```bash
-npm install /path/to/dcp-ai/sdks/wasm
+npm install @dcp-ai/wasm@^2.1.0
 ```
 
-La instalación desde el registro obtiene la versión publicada:
+Consulta el [inventario de publicaciones npm](../../docs/NPM_RELEASES.md) para ver todas las versiones.
+
+Para desarrollar con una copia del repositorio, compila e instala el paquete local:
 
 ```bash
-npm install @dcp-ai/wasm
+# Build in sdks/wasm first (see Build)
+npm install /path/to/dcp-ai/sdks/wasm
 ```
 
 <a id="build"></a>
@@ -270,11 +273,12 @@ El SDK WASM incluye interfaces de TypeScript para todos los artefactos DCP-05 a 
 
 Contextos de separación de dominios disponibles mediante `domainSeparatedMessage()`: `Lifecycle`, `Succession`, `Dispute`, `Rights`, `Delegation`, `Awareness`.
 
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in"></a>
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
 
-## Experimental: candidato de canonicalización `dcp-jcs-v2` (activación explícita, sin publicar)
+## Experimental: candidato de canonicalización `dcp-jcs-v2` (activación explícita)
 
-No es normativo ni está activado: `dcp-jcs-v1` sigue siendo el único perfil de canonicalización y no cambian los valores predeterminados, constructores, firmantes ni verificadores. Estos métodos están disponibles para quien opte explícitamente por ellos en una compilación desde el repositorio (véase Estado de publicación). Los enlaces WASM reciben únicamente bytes; los valores del entorno anfitrión se comprueban primero en JavaScript. Un bundle verificado mediante el candidato no otorga confianza ni admisión. Diseño y contrato: [`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md) (§15 entrada, §16 enrutador, §17 verificador, §18 productores).
+No es normativo ni está activado: `dcp-jcs-v1` sigue siendo el único perfil de canonicalización y no cambian los valores predeterminados, constructores, firmantes ni verificadores. Estos métodos están disponibles para quien opte explícitamente por ellos también en npm WASM 2.1.0. Los enlaces WASM reciben únicamente bytes; los valores del entorno anfitrión se comprueban primero en JavaScript. Un bundle verificado mediante el candidato no otorga confianza ni admisión. Diseño y contrato: [`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md) (§15 entrada, §16 enrutador, §17 verificador, §18 productores).
 
 | Método | Descripción |
 |--------|-------------|

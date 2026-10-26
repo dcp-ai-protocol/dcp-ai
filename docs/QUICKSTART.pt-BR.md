@@ -29,7 +29,7 @@ Você só precisa da linguagem com que vai trabalhar. Todos os SDKs falam o mesm
 
 ## Pacotes publicados e este guia
 
-Os exemplos seguem o código de `main`. Em 25/10/2026, o `latest` do `@dcp-ai/sdk` no registro do npm era 2.1.1, sem as correções do verificador da 2.2.0 ([`SECURITY.md`](../SECURITY.md#supported-versions)) nem os recursos de [`[Unreleased]`](../CHANGELOG.md#unreleased) do changelog; os outros pacotes têm as próprias versões (o README de cada SDK tem uma seção *Release status*). Para executar os exemplos como estão escritos, use uma cópia do repositório:
+Os exemplos TypeScript funcionam com `@dcp-ai/sdk` 2.2.0 publicado, e o CLI npm é `@dcp-ai/cli` 2.1.0. Veja os [pacotes npm publicados](NPM_RELEASES.md) e [SECURITY.md](../SECURITY.md#supported-versions). Os outros ecossistemas têm publicações independentes. Para desenvolver a partir do código-fonte, ou usar funcionalidades Python ainda disponíveis somente no checkout, use:
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
@@ -100,20 +100,20 @@ Os arquivos de chaves secretas são gravados com as permissões padrão (`0644` 
 
 ## 3. SDK TypeScript
 
-Os exemplos abaixo seguem `main`: instale o SDK compilado a partir de uma cópia do repositório (veja [Pacotes publicados e este guia](#published-packages-and-this-guide)).
+Os exemplos TypeScript abaixo funcionam com o npm SDK 2.2.0 ou com um checkout de desenvolvimento (veja [Pacotes publicados e este guia](#published-packages-and-this-guide)).
 
 Instale uma das duas:
 
-- o SDK de `main`, de que os exemplos abaixo precisam:
+- o SDK de `main`, compilado de um checkout, para desenvolvimento do código-fonte:
 
   ```bash
   npm install /path/to/dcp-ai/sdks/typescript
   ```
 
-- ou a versão publicada (2.1.1 em 25/10/2026), sem as correções da 2.2.0 e os recursos não publicados:
+- ou o SDK 2.2.0 publicado, que inclui essas correções e funcionalidades:
 
   ```bash
-  npm install @dcp-ai/sdk
+  npm install @dcp-ai/sdk@^2.2.0
   ```
 
 <a id="create-and-sign-a-bundle-v1--ed25519"></a>
@@ -474,7 +474,7 @@ Os provedores de ML-DSA-65, ML-KEM-768, SLH-DSA-192f e Ed25519 ficam em `dcp_ai:
 ### WebAssembly (navegador)
 
 ```bash
-npm install @dcp-ai/wasm   # the published version; for main, see the WASM SDK's Release status
+npm install @dcp-ai/wasm@^2.1.0   # the published version; for main, see the WASM SDK's Release status
 ```
 
 Expõe as primitivas do SDK Rust a navegadores e ao Node.js. No Node.js, `initDcp()` precisa do arquivo `.wasm` como URL `data:`: veja [Inicialização](../sdks/wasm/README.md#initialization-browser-and-nodejs).

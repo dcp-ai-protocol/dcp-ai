@@ -6,25 +6,20 @@ Official TypeScript SDK for the Digital Citizenship Protocol (DCP-AI). Create, s
 
 ## Installation
 
-**Release status (25/10/2026).** The npm registry has `@dcp-ai/sdk` 2.1.1 as `latest`. This README describes the
-source on `main`, which has more:
-- version 2.2.0, tagged in `v2.10.0` but not on npm, which fixes a `verifySignedBundleV2` bypass (see
-  [`SECURITY.md`](../../SECURITY.md));
-- what the changelog lists under [`[Unreleased]`](../../CHANGELOG.md#unreleased): admission, delegation chains,
-  the A2A receive window and the experimental `dcp-jcs-v2` APIs.
+**Published on npm (26/10/2026).** `@dcp-ai/sdk` 2.2.0 is `latest`. It includes the verifier fixes described in [SECURITY.md](../../SECURITY.md), principal trust and `strict-v1`, delegation chains, the A2A receive window and the experimental `dcp-jcs-v2` APIs. The candidate remains opt-in and non-normative; `dcp-jcs-v1` remains the default. The examples below work with the published package.
 
-To run the examples below, build the SDK from a checkout and install it from there:
+```bash
+npm install @dcp-ai/sdk@^2.2.0
+```
+
+See the [npm release inventory](../../docs/NPM_RELEASES.md) for all package versions.
+
+For development against a source checkout, build and install the local package instead:
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
 cd dcp-ai/sdks/typescript && npm install && npm run build
 cd /path/to/your-project && npm install /path/to/dcp-ai/sdks/typescript
-```
-
-The registry install gives the published version, without the above:
-
-```bash
-npm install @dcp-ai/sdk   # 2.1.1 on 25/10/2026
 ```
 
 ## Quick Start (V1)
@@ -310,7 +305,9 @@ console.log(result.verified, result.errors); // true []
 | `cborEncode(value)` | Encodes a value to CBOR bytes |
 | `cborDecode(data)` | Decodes CBOR bytes to a value |
 
-### Admission: Trusted Principals and strict-v1 (unreleased)
+<a id="admission-trusted-principals-and-strict-v1-unreleased"></a>
+
+### Admission: Trusted Principals and strict-v1
 
 A verified bundle is signed by the keys it lists; it does not prove who the principal is. Admission accepts a bundle only when its principal signatures were made with keys of a principal your trust set lists, and optionally under the operator-fixed `strict-v1` profile (hybrid signatures, signed audience, a session of at most 300 s, a fresh revocation snapshot).
 
@@ -329,7 +326,9 @@ const result = await admitSignedBundleV2(signedBundle, registry, { profile, trus
 - `evaluateAdmissionV2` evaluates a verifier result you already have (no cryptography, no I/O); `revocationSubjects` lists what a revocation source must answer for.
 - Guide: [`docs/ADMISSION.md`](../../docs/ADMISSION.md). Spec and codes: [`spec/profiles/admission`](../../spec/profiles/admission/README.md).
 
-### Delegation Chains (DCP-09 §3.5, unreleased)
+<a id="delegation-chains-dcp-09-35-unreleased"></a>
+
+### Delegation Chains (DCP-09 §3.5)
 
 A human delegates to an agent with a root mandate; that agent may pass part of its authority to another agent
 with a sub-mandate it signs itself, and so on. Every hop may only narrow what it received, and the whole chain
@@ -363,11 +362,12 @@ const result = await verifyMandateChain(registry, [rootMandate, sub], new Set(),
 const tier = computeSecurityTier(intent, policyDecision, result.valid ? result.effective_tier : null);
 ```
 
-### Experimental: Canonicalization Candidate `dcp-jcs-v2` (opt-in, unreleased)
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
+
+### Experimental: Canonicalization Candidate `dcp-jcs-v2` (opt-in)
 
 Not normative and not active: `dcp-jcs-v1` stays the only canonicalization profile, and no default,
-builder, signer or verifier changes. These APIs exist only for callers who opt in, in a source checkout
-(see Release status). A verified candidate bundle grants no trust or admission. Design, rules and the full
+builder, signer or verifier changes. These APIs exist only for callers who opt in, npm SDK 2.2.0 included. A verified candidate bundle grants no trust or admission. Design, rules and the full
 contract: [`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)
 (§15 ingress, §16 router, §17 verifier, §18 producers).
 

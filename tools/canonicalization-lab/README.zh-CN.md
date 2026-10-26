@@ -38,7 +38,10 @@ python3 tools/canonicalization-lab/run.py --controls --out "$out/controls.json"
 语料库并逐字节比较，运行 274 个用例和 24 个阴性对照，并检查两个
 计数；任何失败都会使作业失败。
 
-它只检查**设计模型**。它不是 SDK 一致性：SDK 的显式启用候选 API（未发布）
+它只检查**设计模型**。它不是 SDK 一致性：SDK 的显式启用候选 API
 由它们各自的测试套件和[第 4 阶段矩阵](../../tests/interop/candidate/phase4/README.md)测试；没有任何
 配置文件或默认验证器运行该候选，`dcp-jcs-v1` 也不会改变。绿色的运行结果只说明
 模型、语料库及其预期结果彼此一致；它对任何实现都不说明什么。
+
+
+TypeScript 和 WASM 的显式启用 API 已包含在 `@dcp-ai/sdk` 2.2.0 和 `@dcp-ai/wasm` 2.1.0 中；其他 SDK 的发布独立进行。

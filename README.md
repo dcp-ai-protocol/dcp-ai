@@ -100,19 +100,13 @@ See also: [Core specification](spec/core/dcp-core.md) | [Profiles overview](spec
 
 ## Quick Start
 
-> **Published packages and this repository (25/10/2026).** The npm registry's `latest` for `@dcp-ai/sdk` is
-> 2.1.1, which lacks the 2.2.0 verifier fixes ([`SECURITY.md`](SECURITY.md#supported-versions)) and everything
-> under the changelog's [`[Unreleased]`](CHANGELOG.md#unreleased). The examples in this repository follow `main`.
-> To run them, use a source checkout:
+> **Published packages (26/10/2026).** npm now provides `@dcp-ai/sdk` 2.2.0, `@dcp-ai/wasm` and `@dcp-ai/cli` 2.1.0, and the updated adapters and scaffolders. See the [13-package inventory](docs/NPM_RELEASES.md) and [security upgrade notes](SECURITY.md#supported-versions). These npm versions include the documented verifier fixes and features; Python, Go and Rust releases are separate. To run the repository’s reference CLI and source tests, build the checkout:
 >
 > ```bash
 > git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-> cd dcp-ai/sdks/typescript && npm install && npm run build   # the SDK of main
-> cd ../.. && npm install                                       # the reference CLI, against that SDK
+> cd dcp-ai/sdks/typescript && npm install && npm run build
+> cd ../.. && npm install
 > ```
->
-> The registry commands below (`npm install`, `npx`) install the published versions instead. Other packages
-> have their own versions: see each SDK's *Release status*.
 
 ### Option A: CLI wizard (demo)
 
@@ -148,16 +142,16 @@ node /path/to/dcp-ai/bin/dcp.js verify-bundle --policy hybrid_preferred bundle.s
 
 Install one of the two:
 
-- the SDK of `main`, built from a checkout as above, which the example below needs:
+- the SDK of `main`, built from a checkout, for source development:
 
   ```bash
   npm install /path/to/dcp-ai/sdks/typescript
   ```
 
-- or the published version (2.1.1 on 25/10/2026), without 2.2.0's fixes and the unreleased features:
+- or the published SDK 2.2.0, which includes these fixes and features:
 
   ```bash
-  npm install @dcp-ai/sdk
+  npm install @dcp-ai/sdk@^2.2.0
   ```
 
 Verify a signed V2 bundle with the current V2 bundle verifier of `main` (signatures, hashes, session binding, the
@@ -426,14 +420,14 @@ cd docker && docker compose up -d
 | [AGENT_CREATION_AND_CERTIFICATION](docs/AGENT_CREATION_AND_CERTIFICATION.md) | P2P agent creation flow, DCP certification |
 | [OPERATOR_GUIDE](docs/OPERATOR_GUIDE.md) | Running a verification service |
 | [MIGRATION_V1_V2](docs/MIGRATION_V1_V2.md) | Migrating from DCP v1.0 to v2.0 |
-| [ADMISSION](docs/ADMISSION.md) | Accepting bundles only from trusted principals, optionally under `strict-v1` (unreleased) |
+| [ADMISSION](docs/ADMISSION.md) | Accepting bundles only from trusted principals, optionally under `strict-v1` |
 | [OBSERVABILITY](docs/OBSERVABILITY.md) | OpenTelemetry traces and metrics from the SDKs |
 
 ### Proposals (experimental, not normative)
 
 | Document | Description |
 |----------|-------------|
-| [Canonicalization candidate `dcp-jcs-v2`](docs/proposals/canonicalization-candidate/README.md) | Experimental candidate profile, disabled by default, its design and opt-in SDK APIs (unreleased); `dcp-jcs-v1` remains the default and the only normative canonicalization profile |
+| [Canonicalization candidate `dcp-jcs-v2`](docs/proposals/canonicalization-candidate/README.md) | Experimental candidate profile, disabled by default, its design and opt-in SDK APIs; `dcp-jcs-v1` remains the default and the only normative canonicalization profile |
 
 ### Standards Alignment
 
@@ -528,7 +522,7 @@ dcp-ai/
 ## Development
 
 ```bash
-# Build the workspace SDK first: the root depends on it until @dcp-ai/sdk 2.2.0 is on npm
+# Build the workspace SDK first: the root uses it to test the checked-out source
 (cd sdks/typescript && npm install && npm run build)
 
 # Install dependencies

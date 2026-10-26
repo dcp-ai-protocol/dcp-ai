@@ -13,9 +13,7 @@
 - **信頼済みのプリンシパル。** オペレーターは信頼セットを用意します。各プリンシパルの `human_id` と、そのプリンシパルが署名に使ってよい公開鍵です。バンドルが受け入れられるのは、プリンシパルの署名（RPR とバンドルのマニフェスト、クラシカルとポスト量子の両方）を実際に検証した鍵が、そのプリンシパルの信頼済みの鍵であり、有効で、有効期間内にある場合だけです。
 - **strict-v1 プロファイル。** オプションで、バージョン管理され、オペレーターが固定します。すべてのリスクティアでのハイブリッド署名、オペレーターの `verifier_id` と一致する署名済みの `intended_verifier`、最長 300 秒の署名済みのセッションウィンドウ、作成から 300 秒以内の失効スナップショットを求めます。
 
-> **リリース状況。** アドミッションは `main` にあり、変更履歴の
-> [`[Unreleased]`](../CHANGELOG.md#unreleased) に挙げられています。まだどのタグ付きリリースにも含まれていません。SDK、統合、
-> サーバー、CLI はソースのチェックアウトから使ってください（各 SDK の README の *Release status* にコマンドがあります）。
+> **リリース状況（2026 年 10 月 26 日）。** 受け入れ判定と `strict-v1` は `@dcp-ai/sdk` 2.2.0 および Express/OpenClaw 2.1.0 アダプターで公開済みです。[npm バージョン](NPM_RELEASES.md)を参照してください。Python、Go、Rust の公開は別です。それぞれのリリースに含まれるまで、この文書の API はソースのチェックアウトから使ってください。参照サーバーとルート CLI は引き続きチェックアウトから実行します。
 
 すべてのルールとエラーコードを含む規範的な定義は [`spec/profiles/admission`](../spec/profiles/admission/README.md) です。共通のテストベクターは [`tests/interop/v2/admission_vectors.json`](../tests/interop/v2/admission_vectors.json) にあります。
 
@@ -23,7 +21,7 @@
 
 ## オプトインである
 
-アドミッションは、信頼セットまたはプロファイルを設定したコードにだけ適用され、`verified` の意味は変わりません。検証器には、オプションのクロックと、同じ検証で使った鍵の報告も加わります。同じ未リリースの変更は、アドミッションとは別に検証そのものも変えます。[互換性](#compatibility)を参照してください。
+アドミッションは、信頼セットまたはプロファイルを設定したコードにだけ適用され、`verified` の意味は変わりません。検証器には、オプションのクロックと、同じ検証で使った鍵の報告も加わります。同じ変更は、アドミッションとは別に検証そのものも変えます。[互換性](#compatibility)を参照してください。
 
 <a id="the-trust-set"></a>
 
@@ -174,7 +172,7 @@ node /path/to/dcp-ai/bin/dcp.js admit-bundle bundle.signed.json --trust trust.js
 ## 互換性
 
 - **検証 API。** `verifySignedBundleV2` / `verify_signed_bundle_v2` / `VerifySignedBundleV2WithPolicy` / `verify_signed_bundle_v2_with_policy` のシグネチャは変わりません。署名鍵は、TypeScript と Python では `details.signer_keys`、Go では新しい `SignerKeys` フィールドです。Rust では `V2VerificationResult` が 10 個のフィールドを保つので、それを全フィールド指定で構築したり `..` なしで分割代入したりするコードも引き続きコンパイルできます。署名鍵は新しい `verify_signed_bundle_v2_at` から得られ、これは `V2VerificationDetails`（`result` と `signer_keys`）を返し、アドミッションが受け取るのもこれです。リリース前のアドミッション API に対して書かれたコードは、`verification.verified` ではなく `verification.result.verified` を読みます。
-- **検証の動作。** 同じ未リリースの変更は、アドミッションとは別に検証の動作も変えます。S >= L の Ed25519 署名は拒否されるようになりました。また、Go と Rust の検証器は、ポリシーの `accepted_classical_algs` と `accepted_pq_algs` を適用するようになりました。以前は、強制されないとしてこれらを拒否していました。そのようなポリシーのもとでは、リストにないバンドルは失敗し、リストにあるバンドルは検証できるようになります。すべての変更は [CHANGELOG](../CHANGELOG.md) に挙げられています。
+- **検証の動作。** 同じ変更は、アドミッションとは別に検証の動作も変えます。S >= L の Ed25519 署名は拒否されるようになりました。また、Go と Rust の検証器は、ポリシーの `accepted_classical_algs` と `accepted_pq_algs` を適用するようになりました。以前は、強制されないとしてこれらを拒否していました。そのようなポリシーのもとでは、リストにないバンドルは失敗し、リストにあるバンドルは検証できるようになります。すべての変更は [CHANGELOG](../CHANGELOG.md) に挙げられています。
 - **バンドル。** ワイヤ形式の変更はありません。strict-v1 には、マニフェストに `session_issued_at`、`session_expires_at`、`intended_verifier` を含めて署名したバンドルが必要です。すべての SDK の署名器は、有効期限とオーディエンスを与えられればこれらを書き込みます。
 - **信頼セットがある場合、V1 バンドルは拒否されます**。アンカーすべきプリンシパルの署名を持たないからです。
 - **統合のオプション。** 新しく、オプションです。信頼済みのプリンシパルを使う場合、`requireBundle: false`（Express）と `require_bundle=False`（FastAPI）は設定エラーです。バンドルのないリクエストがルートに届いてしまうからです。プロファイルのもとでは、`verifierPolicy`、`requireHybrid: false`、`checkRevocation` のオプション（Express）、`verifier_policy`（FastAPI）、`verifierPolicy`（OpenClaw）も同様です。

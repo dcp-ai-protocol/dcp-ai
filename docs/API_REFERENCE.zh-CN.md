@@ -8,10 +8,7 @@
 
 本文是 `main` 上的 TypeScript SDK `@dcp-ai/sdk`（软件包版本 2.2.0，协议 DCP v2.0）的参考文档。
 
-> **版本（2026 年 10 月 25 日）。** npm 注册表的 `latest` 为 2.1.1。2.2.0 版本已在 `v2.10.0` 中打标签，但
-> 不在 npm 上；标记为*未发布*的各节描述的是变更日志
-> [`[Unreleased]`](../CHANGELOG.md#unreleased) 下列出的内容。要使用本参考所描述的内容，请从检出副本构建 SDK：
-> 参见 TypeScript SDK 的 [Release status](../sdks/typescript/README.md#installation)。
+> **npm 版本（2026 年 10 月 26 日）。** 本 TypeScript 参考文档适用于已发布的 `@dcp-ai/sdk` 2.2.0，包括委托人信任、`strict-v1` 和需显式启用的候选实验性 API。见[已发布的 npm 软件包](NPM_RELEASES.md)与 SDK [安装说明](../sdks/typescript/README.md#installation)。`dcp-jcs-v1` 仍是规范性默认配置。
 
 本页的代码块是声明或片段，而不是完整的程序：`registry`、`keys`、
 `payloadBytes` 或 `signedBundle` 等名称代表按照 TypeScript SDK 的
@@ -845,9 +842,10 @@ if (result.verified) {
 }
 ```
 
+<a id="admission-trusted-principals-and-strict-v1"></a>
 <a id="admission-trusted-principals-and-strict-v1-unreleased"></a>
 
-### 准入：受信任的委托人与 strict-v1（未发布）
+### 准入：受信任的委托人与 strict-v1
 
 定义见 [`spec/profiles/admission`](../spec/profiles/admission/README.md)；指南见 [ADMISSION.md](ADMISSION.md)。
 
@@ -2055,9 +2053,10 @@ function detectDcpVersion(artifact: Record<string, unknown>): '1.0' | '2.0' | nu
 
 ---
 
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in"></a>
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
 
-## 实验性：规范化候选 `dcp-jcs-v2`（选择加入，未发布）
+## 实验性：规范化候选 `dcp-jcs-v2`（选择加入）
 
 实验性，默认不启用：`dcp-jcs-v1` 仍是默认且唯一的规范性规范化配置，
 常规的构建器、签名器和验证器都不变。这些导出只为选择加入的调用方提供；已验证的候选 bundle 不授予

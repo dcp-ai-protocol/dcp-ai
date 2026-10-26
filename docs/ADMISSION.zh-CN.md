@@ -13,9 +13,7 @@
 - **受信任的委托人。** 运营方提供一个信任集合：每个委托人的 `human_id` 及其可以用来签名的公钥。只有当实际验证了委托人签名（RPR 和 bundle 清单，经典和后量子两部分）的密钥是该委托人的受信任密钥、处于有效状态且在有效期窗口内时，bundle 才会被准入。
 - **strict-v1 配置。** 可选、有版本、由运营方固定：所有风险等级都要求混合签名、已签名的 `intended_verifier` 等于运营方的 `verifier_id`、已签名的会话窗口最长 300 秒，以及不超过 300 秒的吊销快照。
 
-> **发布状态。** 准入位于 `main` 上，并列在变更日志的
-> [`[Unreleased]`](../CHANGELOG.md#unreleased) 下：尚无任何带标签的版本包含它。请从源码检出副本使用 SDK、集成、
-> 服务器和 CLI（每个 SDK README 的 *Release status* 一节有相应命令）。
+> **发布状态（2026 年 10 月 26 日）。** 准入与 `strict-v1` 已在 `@dcp-ai/sdk` 2.2.0 和 Express/OpenClaw 2.1.0 适配器中发布。见 [npm 版本](NPM_RELEASES.md)。Python、Go 和 Rust 的发布独立进行；在各自发布版本包含这些 API 前，请使用源码检出。参考服务器和根目录 CLI 仍从检出代码运行。
 
 包含全部规则和错误码的规范性定义是 [`spec/profiles/admission`](../spec/profiles/admission/README.md)。共享的测试向量是 [`tests/interop/v2/admission_vectors.json`](../tests/interop/v2/admission_vectors.json)。
 
@@ -23,7 +21,7 @@
 
 ## 需要显式选择加入
 
-准入只适用于设置了信任集合或配置的代码，`verified` 的含义保持不变。验证器还新增了一个可选的时钟，并在同一次验证中报告所用的密钥。同一批未发布的改动在准入之外也改变了验证本身：参见[兼容性](#compatibility)。
+准入只适用于设置了信任集合或配置的代码，`verified` 的含义保持不变。验证器还新增了一个可选的时钟，并在同一次验证中报告所用的密钥。同一批改动在准入之外也改变了验证本身：参见[兼容性](#compatibility)。
 
 <a id="the-trust-set"></a>
 
@@ -174,7 +172,7 @@ node /path/to/dcp-ai/bin/dcp.js admit-bundle bundle.signed.json --trust trust.js
 ## 兼容性
 
 - **验证 API。** `verifySignedBundleV2` / `verify_signed_bundle_v2` / `VerifySignedBundleV2WithPolicy` / `verify_signed_bundle_v2_with_policy` 保持原有签名。签名密钥在 TypeScript 和 Python 中为 `details.signer_keys`，在 Go 中为新的 `SignerKeys` 字段。在 Rust 中，`V2VerificationResult` 保留其十个字段，因此完整构造它或不带 `..` 解构它的代码仍可编译；签名密钥来自新的 `verify_signed_bundle_v2_at`，它返回 `V2VerificationDetails`（`result` 和 `signer_keys`），准入接受的正是它。在准入 API 发布之前针对它编写的代码读取的是 `verification.result.verified`，而不是 `verification.verified`。
-- **验证行为。** 同一批未发布的改动在准入之外也改变了验证行为。S >= L 的 Ed25519 签名现在会被拒绝。另外，Go 和 Rust 验证器现在会应用策略中的 `accepted_classical_algs` 和 `accepted_pq_algs`，而以前它们以“未强制执行”为由拒绝这些字段：在这样的策略下，列表之外的 bundle 会失败，列表之内的 bundle 现在可以通过验证。[CHANGELOG](../CHANGELOG.md) 列出了全部改动。
+- **验证行为。** 同一批改动在准入之外也改变了验证行为。S >= L 的 Ed25519 签名现在会被拒绝。另外，Go 和 Rust 验证器现在会应用策略中的 `accepted_classical_algs` 和 `accepted_pq_algs`，而以前它们以“未强制执行”为由拒绝这些字段：在这样的策略下，列表之外的 bundle 会失败，列表之内的 bundle 现在可以通过验证。[CHANGELOG](../CHANGELOG.md) 列出了全部改动。
 - **bundle。** 线上格式没有变化。strict-v1 需要在清单中带有 `session_issued_at`、`session_expires_at` 和 `intended_verifier` 并签名的 bundle；只要提供了过期时间和受众，每个 SDK 的签名器都会写入它们。
 - **有信任集合时，V1 bundle 会被拒绝**：它们不带可供锚定的委托人签名。
 - **集成选项。** 新增且可选。使用受信任的委托人时，`requireBundle: false`（Express）和 `require_bundle=False`（FastAPI）属于配置错误：没有 bundle 的请求会到达路由。在配置之下，`verifierPolicy`、`requireHybrid: false` 和 `checkRevocation` 选项（Express）、`verifier_policy`（FastAPI）以及 `verifierPolicy`（OpenClaw）同样如此。

@@ -17,7 +17,7 @@
 npm install @dcp-ai/w3c-did
 ```
 
-npm 上的 2.0.0（2026 年 10 月 25 日）与 `main` 上源码中的 `index.js` 相同。它运行在 Node.js 上（使用 `Buffer`），没有依赖。
+npm 上的 2.0.1（2026 年 10 月 26 日）与 `main` 上源码中的 `index.js` 相同。它运行在 Node.js 上（使用 `Buffer`），没有依赖。
 
 <a id="limits-25102026"></a>
 

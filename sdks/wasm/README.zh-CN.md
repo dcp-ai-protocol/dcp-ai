@@ -10,16 +10,19 @@
 
 ## 安装
 
-**发布状态。** 本 README 描述 `main` 上的源代码。最近的带标签版本 `v2.10.0` 列出了 `@dcp-ai/wasm` 2.1.0；编写本 README 时未查询 npm 注册表。变更日志中 [`[Unreleased]`](../../CHANGELOG.md#unreleased) 下的内容尚未纳入带标签的版本，其中包括实验性的 `dcp-jcs-v2` API。要运行以下示例，请从仓库检出代码并构建（参见“构建”），然后安装相应目录：
+**已发布到 npm（2026 年 10 月 26 日）。** `@dcp-ai/wasm` 2.1.0 的标签为 `latest`，包含本文描述的 API 及实验性的 `dcp-jcs-v2` API。发布这些 API 不会启用候选方案：它仍需显式启用且不具规范性，`dcp-jcs-v1` 保持不变。Rust crate 有独立的发布周期。
 
 ```bash
-npm install /path/to/dcp-ai/sdks/wasm
+npm install @dcp-ai/wasm@^2.1.0
 ```
 
-从注册表安装会取得已发布的版本：
+所有软件包版本见 [npm 发布清单](../../docs/NPM_RELEASES.md)。
+
+如需使用检出源码进行开发，请构建并安装本地软件包：
 
 ```bash
-npm install @dcp-ai/wasm
+# Build in sdks/wasm first (see Build)
+npm install /path/to/dcp-ai/sdks/wasm
 ```
 
 <a id="build"></a>
@@ -268,11 +271,12 @@ WASM SDK 为 DCP-05 到 DCP-09 的所有工件提供 TypeScript 接口，与 Rus
 
 可通过 `domainSeparatedMessage()` 使用的域分离上下文：`Lifecycle`、`Succession`、`Dispute`、`Rights`、`Delegation`、`Awareness`。
 
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in"></a>
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
 
-## 实验性功能：规范化候选方案 `dcp-jcs-v2`（需显式启用，尚未发布）
+## 实验性功能：规范化候选方案 `dcp-jcs-v2`（需显式启用）
 
-该方案不具有规范效力，也未默认启用：`dcp-jcs-v1` 仍是唯一的规范化配置文件，默认值、构建器、签名器和验证器均不改变。这些方法供从仓库构建并显式选择使用它们的调用方使用（参见“发布状态”）。WASM 绑定只接收字节；宿主环境的值先在 JavaScript 中接受检查。候选 bundle 通过验证不会赋予信任或准入资格。设计与契约：[`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)（§15 输入处理、§16 路由器、§17 验证器、§18 生成端）。
+该方案不具有规范效力，也未默认启用：`dcp-jcs-v1` 仍是唯一的规范化配置文件，默认值、构建器、签名器和验证器均不改变。这些方法供显式选择使用它们的调用方使用，npm WASM 2.1.0 也是如此。WASM 绑定只接收字节；宿主环境的值先在 JavaScript 中接受检查。候选 bundle 通过验证不会赋予信任或准入资格。设计与契约：[`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)（§15 输入处理、§16 路由器、§17 验证器、§18 生成端）。
 
 | 方法 | 描述 |
 |--------|-------------|

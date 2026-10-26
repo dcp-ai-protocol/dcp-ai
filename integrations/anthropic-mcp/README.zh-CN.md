@@ -13,27 +13,25 @@
 
 ## 安装
 
-> **发布状态（2026 年 10 月 25 日）。** npm 上有 `@dcp-ai/anthropic-mcp` 2.0.0，它包含 DCP 工具和资源，但不包含已签名的回执（`withDcpReceipt`、`createReceiptIdentity`、`verifyDcpReceipt`）：这些位于 `main` 的源代码中（版本 2.1.0，未发布）。该软件包依赖 `@dcp-ai/sdk` `^2.0.0`，npm 将其解析为 2.1.1；该版本缺少 2.2.0 中 `verifySignedBundleV2` 的安全修复（[SECURITY.md](../../SECURITY.md)），而 `verifyDcpReceipt` 和 `dcp_verify_bundle` 正是用它来验证。在 2.2.0 发布到 npm 之前，请从检出的代码构建 SDK，并让此软件包指向它。
+**已发布到 npm（2026 年 10 月 26 日）。** `@dcp-ai/anthropic-mcp` 2.1.0 的标签为 `latest`，依赖 `@dcp-ai/sdk` `^2.2.0`。以下描述的功能已可从 npm 获取。
 
-从检出的代码安装（本页的版本，基于 `main` 的 SDK）：
+包含签名收据（`withDcpReceipt`、`createReceiptIdentity`、`verifyDcpReceipt`）。示例还需要 `@modelcontextprotocol/sdk` 和 `zod`，请另行安装。
+
+```bash
+npm install @dcp-ai/anthropic-mcp@^2.1.0
+```
+
+所有软件包版本见 [npm 发布清单](../../docs/NPM_RELEASES.md)。
+
+如需使用检出源码进行开发，请构建并安装本地软件包：
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-cd dcp-ai/sdks/typescript && npm install && npm run build
-cd ../../integrations/anthropic-mcp && npm install
-npm install --no-save --package-lock=false --ignore-scripts --install-links ../../sdks/typescript
-npm run build
+cd dcp-ai/integrations/anthropic-mcp
+npm ci && npm run build
 # then, in your project:
 npm install /path/to/dcp-ai/integrations/anthropic-mcp
 ```
-
-已发布的版本（2.0.0），不含回执，基于 npm 上的 SDK：
-
-```bash
-npm install @dcp-ai/anthropic-mcp
-```
-
-示例还使用 MCP TypeScript SDK（`@modelcontextprotocol/sdk`）和 `zod`，需要你自己安装。
 
 <a id="signed-receipts-per-tool-call"></a>
 

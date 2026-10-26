@@ -81,14 +81,14 @@ DCP-AI のプロトコル、SDK、サービス、スマートコントラクト�
 | 2.8.x（PyPI と crates.io の `dcp-ai`、Go モジュール `sdks/go/v2`） | あり |
 | 2.2.x（`@dcp-ai/sdk`） | あり |
 | 2.1.x（`@dcp-ai/sdk`） | なし：`verifySignedBundleV2` が回避されうるため。修正は 2.2.x にあります（下記の注記を参照） |
-| 2.1.x（`@dcp-ai/wasm`、`@dcp-ai/openclaw`） | あり |
+| 2.1.x（`@dcp-ai/wasm`、`@dcp-ai/openclaw`, `@dcp-ai/cli`, `@dcp-ai/express`, `@dcp-ai/anthropic-mcp`, `@dcp-ai/google-a2a`） | あり |
 | 2.0.x（`@dcp-ai/wasm`、`@dcp-ai/cli`、その他の npm `@dcp-ai/*` パッケージ） | あり |
 | 1.0.x   | あり（保守のみ） |
 | < 1.0   | なし        |
 
-`@dcp-ai/sdk` 2.2.0 は `v2.10.0` でタグ付けされていますが、npm にはありません。2026 年 10 月 25 日時点の npm レジストリには 2.0.0、2.1.0、2.1.1 があり、`latest` は 2.1.1 でした。2.2.0 が公開されるまでは、このリポジトリのチェックアウトから SDK をビルドする方法（`cd sdks/typescript && npm install && npm run build`）でしか修正を入手できず、npm からインストールしたバージョンは影響を受けたままです。
+`@dcp-ai/sdk` 2.2.0 は 2026 年 10 月 26 日に npm に公開され、`latest` になっています。検証器の修正を含みます。`npm install @dcp-ai/sdk@^2.2.0` で更新し、lockfile も更新してください。問題のある旧バージョンに修正が自動適用されるわけではありません。[公開済み npm パッケージの一覧](docs/NPM_RELEASES.md)を参照してください。
 
-**影響を受けることが判明している統合のリリース（2026 年 10 月 25 日時点）：** サポート表は、公開済みのビルドに `main` のすべての修正が含まれることを意味しません。npm の `@dcp-ai/express` 2.0.0 と `@dcp-ai/openclaw` 2.0.0、および PyPI の `dcp-ai` 2.9.0 に含まれる FastAPI 統合は、構造的に正しい V2 バンドルを、その署名を暗号的に検証せずに受け入れます。これらの経路は `main` で修正済みですが、修正済みのパッケージはまだ公開されていません。V2 バンドルの検証にこれらのリリースを使わないでください。チェックアウトから使う手順とリリースに関する注意は、[Express](integrations/express/README.md)、[OpenClaw](integrations/openclaw/README.md)、[FastAPI](integrations/fastapi/README.md) の README を参照してください。この注意は上記のサポート方針を変更するものではありません。
+**問題のある統合と修正済みリリース（2026 年 10 月 26 日）。** `@dcp-ai/express` 2.0.0 と `@dcp-ai/openclaw` 2.0.0 は、署名を検証せず構造が正しい V2 バンドルを受け入れます。両方とも `@dcp-ai/sdk` `^2.2.0` を使う npm バージョン 2.1.0 で修正済みです。V2 バンドルの検証に 2.0.0 を使わないでください。PyPI の `dcp-ai` 2.9.0 にある FastAPI 統合には問題が残ります。今回の npm 公開では Python の修正を公開していません。[Express](integrations/express/README.md)、[OpenClaw](integrations/openclaw/README.md)、[FastAPI](integrations/fastapi/README.md) を参照してください。パッケージのサポートは、すべての旧ビルドに修正が含まれることを意味しません。
 
 <a id="disclosure-policy"></a>
 

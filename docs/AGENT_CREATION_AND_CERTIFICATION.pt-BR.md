@@ -9,7 +9,7 @@
 
 Um sistema que cria agentes pode produzir, por padrão, agentes **certificados DCP**: vinculados a uma pessoa, com passaporte emitido e bundle assinado. **Sem registro em nenhum serviço central.** A verificação é local. Opcional: ancorar o bundle_hash num log ou cadeia pública (usando uma blockchain existente ou um serviço de terceiros).
 
-Nesta página, «certificado DCP» significa que um bundle passa nas verificações locais definidas abaixo. Não é um certificado emitido por uma autoridade, não confirma quem o principal realmente é e não decide se um verificador deve aceitar o agente: isso é a admissão, uma etapa à parte ([ADMISSION.md](ADMISSION.md), não publicada).
+Nesta página, «certificado DCP» significa que um bundle passa nas verificações locais definidas abaixo. Não é um certificado emitido por uma autoridade, não confirma quem o principal realmente é e não decide se um verificador deve aceitar o agente: isso é a admissão, uma etapa à parte ([ADMISSION.md](ADMISSION.md)).
 
 > **Ferramentas desta página.** `dcp` é a CLI de referência de uma cópia do repositório, `node /path/to/dcp-ai/bin/dcp.js`; ela só lê e grava dentro do diretório atual. O assistente interativo `@dcp-ai/cli init` é uma demonstração que não cria uma identidade V2 válida: veja [Assistente da CLI (somente demonstração)](#cli-wizard-demo-only).
 
@@ -122,7 +122,7 @@ Para gerar chaves híbridas reais a partir de uma cópia do repositório, `dcp k
 
 ### Assistente da CLI (somente demonstração)
 
-`npx @dcp-ai/cli init` (o `@dcp-ai/cli` publicado era a 2.0.0 em 25/10/2026, e seus arquivos de `init` eram idênticos aos deste repositório) faz algumas perguntas e grava:
+`npx @dcp-ai/cli init` (o `@dcp-ai/cli` publicado era a 2.1.0 em 26/10/2026, e seus arquivos de `init` eram idênticos aos deste repositório) faz algumas perguntas e grava:
 
 - `.dcp/config.json` — Configuração do agente
 - `.dcp/keys/` — um par de chaves Ed25519, mais um par de chaves «ML-DSA-65» se você escolher chaves híbridas

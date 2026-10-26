@@ -79,6 +79,6 @@ Digital Citizenship Protocol for AI Agents 的规范性规范。格式以 `schem
 | [profiles/crypto/](profiles/crypto/) | 算法选择、复合签名、密码敏捷性 |
 | [profiles/a2a/](profiles/a2a/) | 代理发现、握手、会话管理 |
 | [profiles/governance/](profiles/governance/) | 风险等级、司法管辖区、吊销、密钥恢复 |
-| [profiles/admission/](profiles/admission/) | 准入：受信任的委托人和 strict-v1 配置文件（在 `main` 的 SDK 中，尚未发布） |
+| [profiles/admission/](profiles/admission/) | 准入：受信任的委托人和 strict-v1 配置文件（在 `main` 的 SDK 中，已包含在 npm SDK 2.2.0 中，其他生态独立发布） |
 
 现有规范（DCP-01 至 DCP-09、BUNDLE、VERIFICATION、DCP-AI v2.0）仍具权威性。核心和配置文件文档提供编辑性背景，并澄清关注点的分离。计划中的演进见 [ROADMAP](../ROADMAP.md)。

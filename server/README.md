@@ -4,7 +4,7 @@ HTTP verification service implementing V1, V2, and Phase 3 (PQ-First) of the Dig
 
 ## Quick Start
 
-From the root of a checkout. The root package depends on the workspace SDK until `@dcp-ai/sdk` 2.2.0 is on npm, so build it first:
+Run from the root of a checkout. The root intentionally depends on the workspace SDK to test that source, even though `@dcp-ai/sdk` 2.2.0 is now published on npm. Build it first:
 
 ```bash
 (cd sdks/typescript && npm install && npm run build)
@@ -125,7 +125,7 @@ age) applies, and `GET /v2/policy` shows it.
 - **Multi-party authorization**: each party signs
   `{operation, operation_payload, party_id, role}` under
   `DCP-AI.v2.MultiPartyAuth` (`createPartyAuthorization` in
-  `sdks/typescript/src/core/multi-party-auth.ts`, not exported by `@dcp-ai/sdk` 2.1.1).
+  `sdks/typescript/src/core/multi-party-auth.ts`, not exported by `@dcp-ai/sdk` 2.2.0).
   A party is an identity registered through `/v2/passport/register`, and its
   signing kids must be active (not revoked, not expired) keys registered to its `party_id`. Each party
   counts once toward `required_parties`, whatever roles it signs for. Roles are

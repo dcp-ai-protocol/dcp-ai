@@ -18,12 +18,10 @@
 本指南使用 **LangChain.js v1**（TypeScript/Node，Node.js 22 或更高版本）。如果你使用的是 **Python 版 LangChain**，
 请跳到末尾的 Python 一节。
 
-从注册表安装得到的是已发布的 `@dcp-ai/sdk`（2026 年 10 月 25 日 npm 的 `latest` 为 2.1.1）；下面的 DCP 代码
-既适用于它，也适用于从检出副本构建的 SDK（参见 TypeScript SDK 的
-[Release status](../sdks/typescript/README.md#installation)）。
+从注册表安装使用 `@dcp-ai/sdk` 2.2.0。以下 DCP 示例可使用该已发布 SDK 运行；检出源码是开发时的可选方式。见 TypeScript SDK 的[发布状态](../sdks/typescript/README.md#installation)。
 
 ```bash
-npm install @dcp-ai/sdk langchain @langchain/core @langchain/openai zod
+npm install @dcp-ai/sdk@^2.2.0 langchain @langchain/core @langchain/openai zod
 ```
 
 <a id="zero-config-scaffold-alternative"></a>

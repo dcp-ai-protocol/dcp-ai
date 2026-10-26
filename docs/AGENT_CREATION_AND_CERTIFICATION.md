@@ -2,7 +2,7 @@
 
 A system that creates agents can produce **DCP-certified** agents by default: human bound, passport issued, signed bundle. **No registration with any central service.** Verification is local. Optional: anchor bundle_hash to a public log/chain (using existing blockchain or third-party service).
 
-"DCP-certified" on this page means that a bundle passes the local checks defined below. It is not a certificate issued by an authority, it does not confirm who the principal really is, and it does not decide whether a verifier should accept the agent: that is admission, a separate step ([ADMISSION.md](ADMISSION.md), unreleased).
+"DCP-certified" on this page means that a bundle passes the local checks defined below. It is not a certificate issued by an authority, it does not confirm who the principal really is, and it does not decide whether a verifier should accept the agent: that is admission, a separate step ([ADMISSION.md](ADMISSION.md)).
 
 > **Tools on this page.** `dcp` is the reference CLI of a source checkout, `node /path/to/dcp-ai/bin/dcp.js`; it reads and writes only inside the current directory. The interactive wizard `@dcp-ai/cli init` is a demo that does not create a valid V2 identity: see [CLI wizard (demo only)](#cli-wizard-demo-only).
 
@@ -93,7 +93,7 @@ To generate real hybrid keys from a checkout, `dcp keygen --hybrid <out_dir>` wr
 
 ### CLI wizard (demo only)
 
-`npx @dcp-ai/cli init` (the published `@dcp-ai/cli` was 2.0.0 on 25/10/2026, and its `init` files were identical to this repository's) asks a few questions and writes:
+`npx @dcp-ai/cli init` (the published `@dcp-ai/cli` was 2.1.0 on 26/10/2026, and its `init` files were identical to this repository's) asks a few questions and writes:
 
 - `.dcp/config.json` — Agent configuration
 - `.dcp/keys/` — an Ed25519 keypair, plus an "ML-DSA-65" keypair if you choose hybrid keys

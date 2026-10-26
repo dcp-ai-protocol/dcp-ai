@@ -9,7 +9,7 @@
 
 Uma API Express que mostra onde ficam as verificações de bundles do DCP em um servidor.
 
-> **Não verifica assinaturas.** O `verifyBundle` do template só confere a estrutura de um bundle (versão, campos do manifesto, a presença de assinaturas compostas, nonces de sessão). Não verifica nenhuma assinatura, então um bundle falsificado ou alterado passa. Use-o para ver as rotas e o fluxo, não como verificador. Para verificar bundles, use [`@dcp-ai/express`](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/integrations/express/README.md) (a partir de um checkout até a sua próxima versão) ou o `verifySignedBundleV2` do SDK, como em [docs/QUICKSTART_EXPRESS.md](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/docs/QUICKSTART_EXPRESS.md).
+> **Não verifica assinaturas.** O `verifyBundle` do template só confere a estrutura de um bundle (versão, campos do manifesto, a presença de assinaturas compostas, nonces de sessão). Não verifica nenhuma assinatura, então um bundle falsificado ou alterado passa. Use-o para ver as rotas e o fluxo, não como verificador. Para verificar bundles, use [`@dcp-ai/express`](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/integrations/express/README.md) 2.1.0 ou o `verifySignedBundleV2` do SDK, como em [docs/QUICKSTART_EXPRESS.md](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/docs/QUICKSTART_EXPRESS.md).
 
 <a id="quick-start"></a>
 

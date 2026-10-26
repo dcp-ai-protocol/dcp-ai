@@ -17,7 +17,7 @@ Converte entre artefatos do DCP e os identificadores descentralizados (DIDs) e c
 npm install @dcp-ai/w3c-did
 ```
 
-A 2.0.0 do npm (25/10/2026) tem o mesmo `index.js` que o código-fonte em `main`. Ela roda no Node.js (usa `Buffer`) e não tem dependências.
+A 2.0.1 do npm (26/10/2026) tem o mesmo `index.js` que o código-fonte em `main`. Ela roda no Node.js (usa `Buffer`) e não tem dependências.
 
 <a id="limits-25102026"></a>
 

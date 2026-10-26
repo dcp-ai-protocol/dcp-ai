@@ -12,7 +12,7 @@ Verification is local. This is not a weakness; it is the core security property.
 - **Cryptographic guarantees are location-independent.** Ed25519 signatures and SHA-256 hashes produce the same result on any machine. You cannot "hack the math."
 - **The verifier does not trust the agent.** The agent presents a bundle; the verifier checks it with its own tools. A compromised agent cannot make a verifier accept an invalid bundle.
 
-Verification says that a bundle is intact and signed by the keys it names. Whether to trust those keys, and to act on the bundle, is a separate decision: admission against the operator's trusted principals ([ADMISSION.md](ADMISSION.md), unreleased), plus the operator's own authorization.
+Verification says that a bundle is intact and signed by the keys it names. Whether to trust those keys, and to act on the bundle, is a separate decision: admission against the operator's trusted principals ([ADMISSION.md](ADMISSION.md)), plus the operator's own authorization.
 
 Security comes from **layers of protection**, each addressing a different attack vector.
 

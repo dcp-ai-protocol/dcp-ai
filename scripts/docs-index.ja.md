@@ -28,16 +28,13 @@ hide:
 
 ## インストール
 
-!!! note "公開パッケージと `main`"
-    これらのコマンドは公開済みのバージョンをインストールします。2026 年 10 月 25 日時点で npm の `@dcp-ai/sdk` の `latest` は 2.1.1 で、
-    2.2.0 の検証器の修正を含みません。ガイドは `main` のソースに従っており、そこには未リリースの機能もあります。
-    書かれたとおりに実行するには、リポジトリのチェックアウトから SDK をビルドしてください。
-    [クイックスタート](quickstart/QUICKSTART.md#published-packages-and-this-guide)を参照してください。
+!!! note "公開済みパッケージと `main`"
+    npm では `@dcp-ai/sdk` 2.2.0、`@dcp-ai/wasm` と `@dcp-ai/cli` 2.1.0、および更新済みアダプターと生成ツールを利用できます。[npm 一覧](reference/docs/NPM_RELEASES.md)を参照してください。Python、Go、Rust の公開は別です。[クイックスタート](quickstart/QUICKSTART.md#published-packages-and-this-guide)でレジストリとチェックアウトの例を区別しています。
 
 === "Node.js"
 
     ```bash
-    npm install @dcp-ai/sdk @dcp-ai/cli
+    npm install @dcp-ai/sdk@^2.2.0 @dcp-ai/cli
     ```
 
 === "Python"
@@ -61,7 +58,7 @@ hide:
 === "WebAssembly"
 
     ```bash
-    npm install @dcp-ai/wasm
+    npm install @dcp-ai/wasm@^2.1.0
     ```
 
 ---

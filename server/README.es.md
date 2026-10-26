@@ -12,7 +12,7 @@ Servicio HTTP de verificación que implementa V1, V2 y la fase 3 (PQ primero) de
 
 ## Inicio rápido
 
-Desde la raíz de un checkout. El paquete raíz depende del SDK del workspace hasta que `@dcp-ai/sdk` 2.2.0 esté en npm, así que compílalo primero:
+Ejecuta desde la raíz de un checkout. La raíz depende deliberadamente del SDK del workspace para probar ese código, aunque `@dcp-ai/sdk` 2.2.0 ya está publicado en npm. Compílalo primero:
 
 ```bash
 (cd sdks/typescript && npm install && npm run build)
@@ -146,7 +146,7 @@ compuesta obligatorias, antigüedad de clave de 365 días), y `GET /v2/policy` l
   refrenda. La clave antigua debe estar activa (no revocada, no caducada); después se marca como revocada.
 - **Autorización multiparte**: cada parte firma `{operation, operation_payload, party_id, role}` con
   `DCP-AI.v2.MultiPartyAuth` (`createPartyAuthorization` en `sdks/typescript/src/core/multi-party-auth.ts`, que
-  `@dcp-ai/sdk` 2.1.1 no exporta). Una parte es una identidad registrada mediante `/v2/passport/register`, y sus kids de
+  `@dcp-ai/sdk` 2.2.0 no exporta). Una parte es una identidad registrada mediante `/v2/passport/register`, y sus kids de
   firma deben ser claves activas (no revocadas, no caducadas) registradas a nombre de su `party_id`. Cada parte cuenta
   una sola vez para `required_parties`, firme por los roles que firme. Los roles los afirma quien firma; no se buscan en
   ningún sitio.

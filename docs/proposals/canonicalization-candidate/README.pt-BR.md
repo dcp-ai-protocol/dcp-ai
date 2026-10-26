@@ -22,8 +22,7 @@
 > sem ativá-lo: nenhum caminho existente ou padrão as chama, apenas quem as ativa explicitamente. As de §15
 > e §16 não verificam nada; o verificador de §17 verifica bundles candidatos a partir dos seus bytes originais, e
 > um bundle verificado não concede confiança nem admissão. Os produtores de §18 geram nova evidência candidata
-> apenas para esses chamadores; os vetores da fase 3 são assinados por um gerador exclusivo de testes. Estas APIs não são
-> publicadas como parte deste trabalho: os exemplos visam o checkout do código-fonte. O job de CI da ferramenta de laboratório executa
+> apenas para esses chamadores; os vetores da fase 3 são assinados por um gerador exclusivo de testes. As APIs experimentais opt-in estão disponíveis no npm SDK 2.2.0 e WASM 2.1.0; os outros ecossistemas têm publicações independentes. Veja os [pacotes npm publicados](../../NPM_RELEASES.md). O job de CI da ferramenta de laboratório executa
 > o modelo de design, os jobs de teste dos SDKs executam essas APIs sobre o corpus e os vetores da fase 3, e a
 > matriz da fase 4 tem o seu próprio workflow. Os
 > verificadores V2 existentes, como o do SDK de TypeScript
@@ -137,7 +136,7 @@ fração nem expoente, `-0` como `0`; `null`, `true` e `false` literais; `{}` e 
 | D3 | **No máximo 64 níveis de aninhamento, contados a partir da raiz da unidade validada** (os bytes do bundle assinado), **nunca sobre um envelope de transporte** (§5) | A validade não deve depender de um transporte acrescentar um envelope. 64 fica abaixo do limite de recursão padrão do `serde_json` (128). Isso não é uma garantia sobre outros parsers, sobre números ou outros limites, nem sobre os orçamentos do operador, que podem ser menores | Afeta apenas as unidades que selecionam o candidato |
 | D4 | **Valor exato do literal** (N1–N6) | O critério é um inteiro exato em `[-(2^53-1), 2^53-1]`. Todo o resto é rejeitado: literais que o binary64 representa exatamente mas que estão fora do domínio (`0.5`, `2^53`) e literais que o binary64 leria como outro valor (`1e-400` como 0). O custo é linear; o comprimento de um literal é um orçamento do transporte, não uma regra do perfil | Afeta apenas as unidades que selecionam o candidato |
 | D5 | **Fora do escopo de ativação:** artefatos sem manifesto (revogações, rotações de chaves, mandatos) e A2A | O perfil é declarado no campo assinado do manifesto; esses artefatos não têm esse campo. Um design posterior pode dar a cada tipo o seu próprio campo assinado, e ao A2A um na transcrição do handshake | Continuam em `dcp-jcs-v1`. Um verificador pode aplicar-lhes o ingresso estrito por política, mas não pode afirmar que o produtor se comprometeu com o candidato |
-| D6 | **O nome candidato `dcp-jcs-v2` está reservado.** Apenas os produtores experimentais e de ativação explícita de §18 o emitem, quando um chamador pede; nenhum caminho padrão e nenhum pacote publicado o faz. Continua sendo um nome candidato até que um documento normativo seja aprovado. (Revisado na fase 4: antes de §18 não havia nenhum produtor de SDK de ativação explícita; os vetores da fase 3 vinham de um gerador exclusivo de testes.) | Um sufixo de rascunho no fio seria mais um identificador a manter. Os verificadores só o habilitam por meio de uma política explícita (§7) | A evidência emitida sob o candidato é experimental. Se as regras mudassem após uma publicação externa, seria necessário um novo identificador (`dcp-jcs-v1` §5) |
+| D6 | **O nome candidato `dcp-jcs-v2` está reservado.** Apenas os produtores experimentais e de ativação explícita de §18 o emitem, quando um chamador pede; nenhum caminho padrão o faz, inclusive nos pacotes npm publicados. Continua sendo um nome candidato até que um documento normativo seja aprovado. (Revisado na fase 4: antes de §18 não havia nenhum produtor de SDK de ativação explícita; os vetores da fase 3 vinham de um gerador exclusivo de testes.) | Um sufixo de rascunho no fio seria mais um identificador a manter. Os verificadores só o habilitam por meio de uma política explícita (§7) | A evidência emitida sob o candidato é experimental. Se as regras mudassem após uma publicação externa, seria necessário um novo identificador (`dcp-jcs-v1` §5) |
 | D7 | **Avisos opcionais de `dcp-jcs-v1`.** Com os bytes disponíveis, um verificador pode acrescentar a um resultado de `dcp-jcs-v1` um aviso com a classe e o deslocamento do defeito principal (§6) | Permite encontrar produtores a corrigir antes de migrar | Nunca muda um veredito de `dcp-jcs-v1`. Uma API baseada em objetos não pode emiti-lo |
 
 <a id="5-the-validated-unit-and-the-transport"></a>
@@ -711,7 +710,7 @@ A fase 4 do plano de implementação nos SDKs adiciona produtores experimentais 
 geram evidência **nova**: artefatos assinados como os atuais, e bundles cujo novo manifesto assina
 `canonicalization_profile: "dcp-jcs-v2"`. Não é normativo, e nenhum caminho existente ou padrão os chama.
 `dcp-jcs-v1`, os seus construtores, assinadores e verificadores, e todos os padrões não mudam; o perfil continua
-inativo e nenhum pacote é publicado. Um bundle que eles produzem não concede confiança nem admissão e não autoriza nada.
+experimental e opt-in, inclusive no npm SDK 2.2.0 e WASM 2.1.0. Um bundle que eles produzem não concede confiança nem admissão e não autoriza nada.
 
 | SDK | API |
 |---|---|

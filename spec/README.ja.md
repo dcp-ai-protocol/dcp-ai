@@ -79,6 +79,6 @@ Digital Citizenship Protocol for AI Agents の規範的な仕様です。形式�
 | [profiles/crypto/](profiles/crypto/) | アルゴリズムの選択、複合署名、暗号の俊敏性 |
 | [profiles/a2a/](profiles/a2a/) | エージェントの発見、ハンドシェイク、セッションの管理 |
 | [profiles/governance/](profiles/governance/) | リスクティア、管轄区域、失効、鍵の回復 |
-| [profiles/admission/](profiles/admission/) | アドミッション：信頼するプリンシパルと strict-v1 のプロファイル（`main` の SDK にあり、まだリリースされていない） |
+| [profiles/admission/](profiles/admission/) | アドミッション：信頼するプリンシパルと strict-v1 のプロファイル（`main` の SDK にあり、npm SDK 2.2.0 で公開済み。他の環境の公開は別） |
 
 既存の仕様（DCP-01 から DCP-09、BUNDLE、VERIFICATION、DCP-AI v2.0）が引き続き基準です。コアとプロファイルの文書は、編集上の文脈を与え、関心事の分離を明確にします。予定している発展については [ROADMAP](../ROADMAP.md) を参照してください。

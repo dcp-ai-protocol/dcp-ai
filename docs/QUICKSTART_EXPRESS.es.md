@@ -15,13 +15,10 @@ Verifica bundles firmados DCP en tus API de Express.js con el middleware `@dcp-a
 
 ## Instalación
 
-> **Versiones.** La instalación desde el registro de abajo da los `@dcp-ai/express` y `@dcp-ai/sdk` publicados (el
-> `latest` de `@dcp-ai/sdk` en npm era 2.1.1 el 25/10/2026). Esta guía sigue `main`, donde el middleware tiene además
-> admisión (principales de confianza y `strict-v1`, sin publicar); para usarla, compila `sdks/typescript` e
-> `integrations/express` desde una copia del repositorio (véase el [README de Express](../integrations/express/README.md)).
+> **Versiones (26/10/2026).** Usa `@dcp-ai/express` 2.1.0 publicado con `@dcp-ai/sdk` 2.2.0. Incluyen el verificador corregido y la admisión con principales de confianza y `strict-v1`; no hace falta compilar un checkout. Véase el [README de Express](../integrations/express/README.md).
 
 ```bash
-npm install @dcp-ai/express @dcp-ai/sdk express
+npm install @dcp-ai/express@^2.1.0 @dcp-ai/sdk@^2.2.0 express
 ```
 
 <a id="zero-config-scaffold-alternative"></a>
@@ -181,7 +178,7 @@ app.use(dcpVerify({
 }));
 ```
 
-En `main` (sin publicar), `trustedPrincipals`, `profile`, `revocationSource` y `tenant` añaden la admisión: solo llegan a la ruta los bundles
+En `main`, `trustedPrincipals`, `profile`, `revocationSource` y `tenant` añaden la admisión: solo llegan a la ruta los bundles
 firmados para un principal en el que confías, con sus claves de confianza. Véanse [ADMISSION.md](ADMISSION.md) y el
 [README de Express](../integrations/express/README.md) para todas las opciones, incluidas las de caché, supervisión y
 desconexión.
@@ -239,7 +236,7 @@ El middleware detecta automáticamente los bundles V1 y V2. Un bundle V2 se acep
 
 Un bundle V1 no tiene firma poscuántica, así que solo se acepta donde se aceptaría un bundle solo clásico (VERIFICATION.md V2-10): con la política por defecto, un bundle V1 con una intención routine o standard pasa, y uno con un pago, datos sensibles, un impacto estimado alto o una puntuación de riesgo de 0.5 o más se rechaza. `requireHybrid` y `allow_v1_bundles: false` rechazan todos los bundles V1.
 
-Un bundle verificado es coherente internamente y está firmado por las claves que él mismo enumera; no prueba quién es el principal. Para aceptar bundles solo de principales en los que confías, configura la admisión (`trustedPrincipals`, sin publicar; véase [ADMISSION.md](ADMISSION.md)). Véase el README del paquete para la vinculación de audiencia contra la repetición.
+Un bundle verificado es coherente internamente y está firmado por las claves que él mismo enumera; no prueba quién es el principal. Para aceptar bundles solo de principales en los que confías, configura la admisión (`trustedPrincipals`; véase [ADMISSION.md](ADMISSION.md)). Véase el README del paquete para la vinculación de audiencia contra la repetición.
 
 ```typescript
 // Fragment: continues the Complete Working Example (`app`, `express`, `DCPAgent`)

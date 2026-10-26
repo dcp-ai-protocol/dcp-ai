@@ -33,7 +33,10 @@ commands on Ubuntu with Python 3.9 (the documented minimum) and 3.12, standard l
 corpus and compares it byte for byte, runs the 274 cases and the 24 negative controls, and checks both
 counts; any failure fails the job.
 
-It checks the **design model** only. It is not SDK conformance: the SDKs' opt-in candidate APIs (unreleased)
+It checks the **design model** only. It is not SDK conformance: the SDKs' opt-in candidate APIs
 are tested by their own suites and by the [phase 4 matrix](../../tests/interop/candidate/phase4/README.md); no
 profile and no default verifier runs the candidate, and `dcp-jcs-v1` does not change. A green run says the
 model, the corpus and its expectations agree; it says nothing about any implementation.
+
+
+The TypeScript and WASM opt-in APIs are available in `@dcp-ai/sdk` 2.2.0 and `@dcp-ai/wasm` 2.1.0; the other SDKs have separate releases.

@@ -14,24 +14,24 @@
 
 ## 安装
 
-> **发布状态（2026 年 10 月 25 日）。** npm 上有 `@dcp-ai/google-a2a` 2.0.0，其中没有 Agent Card 中的护照（`attachPassportToAgentCard`、`agentCardPassport`、`verifyAgentCardPassport`）：它们在 `main` 上的源码中（版本 2.1.0，未发布）。源码包的 `@dcp-ai/sdk` 依赖为 `^2.0.0`；普通的 npm 安装会把它解析为 2.1.1。因此，在不进行下面的本地 SDK 替换的情况下构建此检出代码，会使用较旧的密码提供程序。`verifyAgentCardPassport` 使用 SDK 的复合签名辅助函数，而不是其完整的验证器 `verifySignedBundleV2`。
+**已发布到 npm（2026 年 10 月 26 日）。** `@dcp-ai/google-a2a` 2.1.0 的标签为 `latest`，依赖 `@dcp-ai/sdk` `^2.2.0`。以下描述的功能已可从 npm 获取。
 
-从检出代码安装（本页的版本，使用 `main` 上的 SDK）：
+`verifyAgentCardPassport` 使用复合签名辅助函数，而非完整的 `verifySignedBundleV2` 验证器；它不建立委托人信任或准入。
+
+```bash
+npm install @dcp-ai/google-a2a@^2.1.0
+```
+
+所有软件包版本见 [npm 发布清单](../../docs/NPM_RELEASES.md)。
+
+如需使用检出源码进行开发，请构建并安装本地软件包：
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-cd dcp-ai/sdks/typescript && npm install && npm run build
-cd ../../integrations/google-a2a && npm install
-npm install --no-save --package-lock=false --ignore-scripts --install-links ../../sdks/typescript
-npm run build
+cd dcp-ai/integrations/google-a2a
+npm ci && npm run build
 # then, in your project:
 npm install /path/to/dcp-ai/integrations/google-a2a
-```
-
-已发布的版本（2.0.0）：
-
-```bash
-npm install @dcp-ai/google-a2a
 ```
 
 <a id="the-passport-inside-the-agent-card"></a>

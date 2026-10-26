@@ -17,14 +17,10 @@
 
 本指南使用 **OpenAI Node SDK**。如果你使用 Python，请跳到末尾的 Python 一节。
 
-从注册表安装得到的是已发布的 `@dcp-ai/sdk`（2026 年 10 月 25 日 npm 的 `latest` 为 2.1.1）。V1 示例
-可以用它运行；V2 一节以 `main` 为准，因此需要从检出副本构建 SDK（参见 TypeScript SDK 的
-[Release status](../sdks/typescript/README.md#installation)）。示例使用 OpenAI Node SDK 的 Chat Completions API
-（`openai` v4 或更高版本；较新版本增加了自定义工具调用，示例中的循环会拒绝它们）。运行它们
-会调用 OpenAI API，需要 `OPENAI_API_KEY`。
+从注册表安装时，V1 和 V2 示例均使用 `@dcp-ai/sdk` 2.2.0；源码检出是可选方式（见[安装说明](../sdks/typescript/README.md#installation)）。示例使用 OpenAI Node SDK 的 Chat Completions API（`openai` v4 或更高；近期版本增加了自定义工具调用，本循环会拒绝此类调用）。运行示例会调用 OpenAI API，并需要 `OPENAI_API_KEY`。
 
 ```bash
-npm install @dcp-ai/sdk openai
+npm install @dcp-ai/sdk@^2.2.0 openai
 ```
 
 <a id="zero-config-scaffold-alternative"></a>

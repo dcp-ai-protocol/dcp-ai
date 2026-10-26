@@ -15,13 +15,10 @@
 
 ## 安装
 
-> **版本。** 下面从注册表安装得到的是已发布的 `@dcp-ai/express` 和 `@dcp-ai/sdk`（2026 年 10 月 25 日 npm 上
-> `@dcp-ai/sdk` 的 `latest` 为 2.1.1）。本指南以 `main` 为准，其中的中间件还具备
-> 准入（受信任的委托人和 `strict-v1`，未发布）；要使用它，请从检出副本构建 `sdks/typescript` 和
-> `integrations/express`（参见 [Express README](../integrations/express/README.md)）。
+> **版本（2026 年 10 月 26 日）。** 请使用已发布的 `@dcp-ai/express` 2.1.0 与 `@dcp-ai/sdk` 2.2.0。它们包含修复后的验证器，以及受信任委托人和 `strict-v1` 准入功能；无需构建检出源码。见 [Express README](../integrations/express/README.md)。
 
 ```bash
-npm install @dcp-ai/express @dcp-ai/sdk express
+npm install @dcp-ai/express@^2.1.0 @dcp-ai/sdk@^2.2.0 express
 ```
 
 <a id="zero-config-scaffold-alternative"></a>
@@ -181,7 +178,7 @@ app.use(dcpVerify({
 }));
 ```
 
-在 `main` 上（未发布），`trustedPrincipals`、`profile`、`revocationSource` 和 `tenant` 加入了准入：只有为你所信任的委托人、
+在 `main` 上，`trustedPrincipals`、`profile`、`revocationSource` 和 `tenant` 加入了准入：只有为你所信任的委托人、
 用其受信任的密钥签署的 bundle 才能到达路由。所有选项（包括缓存、监管和
 断开连接选项）参见 [ADMISSION.md](ADMISSION.md) 和
 [Express README](../integrations/express/README.md)。
@@ -239,7 +236,7 @@ const response2 = await fetch('http://localhost:3000/api/data', {
 
 V1 bundle 没有后量子签名，因此只有在仅经典签名的 bundle 可被接受的情况下才会被接受（VERIFICATION.md V2-10）：在默认策略下，意图为 routine 或 standard 的 V1 bundle 会通过，而涉及支付、敏感数据、高预估影响或风险分数 0.5 及以上的 V1 bundle 会被拒绝。`requireHybrid` 和 `allow_v1_bundles: false` 会拒绝所有 V1 bundle。
 
-已验证的 bundle 在内部是一致的，并由它自己列出的密钥签署；这并不能证明委托人是谁。要只接受来自你所信任的委托人的 bundle，请配置准入（`trustedPrincipals`，未发布；参见 [ADMISSION.md](ADMISSION.md)）。关于防重放的受众绑定，参见该软件包的 README。
+已验证的 bundle 在内部是一致的，并由它自己列出的密钥签署；这并不能证明委托人是谁。要只接受来自你所信任的委托人的 bundle，请配置准入（`trustedPrincipals`；参见 [ADMISSION.md](ADMISSION.md)）。关于防重放的受众绑定，参见该软件包的 README。
 
 ```typescript
 // Fragment: continues the Complete Working Example (`app`, `express`, `DCPAgent`)

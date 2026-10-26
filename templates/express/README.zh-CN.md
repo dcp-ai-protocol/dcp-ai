@@ -9,7 +9,7 @@
 
 一个 Express API，展示 DCP bundle 检查在服务器中的位置。
 
-> **它不验证签名。** 模板的 `verifyBundle` 只检查 bundle 的结构（版本、清单字段、是否存在复合签名、会话 nonce）。它不验证任何签名，因此伪造或被篡改的 bundle 会通过。请用它来查看路由和流程，而不要把它当作验证器。要验证 bundle，请像 [docs/QUICKSTART_EXPRESS.md](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/docs/QUICKSTART_EXPRESS.md) 那样使用 [`@dcp-ai/express`](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/integrations/express/README.md)（在其下一个版本发布前从检出的代码使用）或 SDK 的 `verifySignedBundleV2`。
+> **它不验证签名。** 模板的 `verifyBundle` 只检查 bundle 的结构（版本、清单字段、是否存在复合签名、会话 nonce）。它不验证任何签名，因此伪造或被篡改的 bundle 会通过。请用它来查看路由和流程，而不要把它当作验证器。要验证 bundle，请像 [docs/QUICKSTART_EXPRESS.md](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/docs/QUICKSTART_EXPRESS.md) 那样使用 [`@dcp-ai/express`](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/integrations/express/README.md) 2.1.0或 SDK 的 `verifySignedBundleV2`。
 
 <a id="quick-start"></a>
 

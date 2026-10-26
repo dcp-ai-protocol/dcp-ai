@@ -16,24 +16,24 @@ e entradas de auditoria do DCP.
 
 ## Instalação
 
-> **Estado de publicação (25/10/2026).** O npm tem `@dcp-ai/google-a2a` 2.0.0, sem o passaporte na Agent Card (`attachPassportToAgentCard`, `agentCardPassport`, `verifyAgentCardPassport`): eles estão no código-fonte em `main` (versão 2.1.0, não publicada). A dependência `@dcp-ai/sdk` do pacote-fonte é `^2.0.0`; uma instalação comum com npm a resolve para 2.1.1. Portanto, compilar este checkout sem a substituição pelo SDK local abaixo usaria os provedores criptográficos mais antigos. `verifyAgentCardPassport` usa as funções de assinatura composta do SDK, não o seu verificador completo `verifySignedBundleV2`.
+**Publicado no npm (26/10/2026).** `@dcp-ai/google-a2a` 2.1.0 é `latest` e depende de `@dcp-ai/sdk` `^2.2.0`. As funcionalidades descritas abaixo estão disponíveis no npm.
 
-A partir de um checkout (a versão desta página, com o SDK de `main`):
+`verifyAgentCardPassport` usa auxiliares de assinatura composta, não o verificador completo `verifySignedBundleV2`; não estabelece confiança no principal nem admissão.
+
+```bash
+npm install @dcp-ai/google-a2a@^2.1.0
+```
+
+Veja o [inventário de publicações npm](../../docs/NPM_RELEASES.md) para todas as versões.
+
+Para desenvolver a partir de uma cópia do repositório, compile e instale o pacote local:
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-cd dcp-ai/sdks/typescript && npm install && npm run build
-cd ../../integrations/google-a2a && npm install
-npm install --no-save --package-lock=false --ignore-scripts --install-links ../../sdks/typescript
-npm run build
+cd dcp-ai/integrations/google-a2a
+npm ci && npm run build
 # then, in your project:
 npm install /path/to/dcp-ai/integrations/google-a2a
-```
-
-A versão publicada (2.0.0):
-
-```bash
-npm install @dcp-ai/google-a2a
 ```
 
 <a id="the-passport-inside-the-agent-card"></a>
