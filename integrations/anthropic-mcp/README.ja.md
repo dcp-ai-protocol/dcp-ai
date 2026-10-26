@@ -5,7 +5,7 @@
 
 # DCP-AI ↔ Model Context Protocol（MCP）のブリッジ
 
-> [英語版](README.md)の参考訳です（25/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](README.md)の参考訳です（26/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 MCP のツール呼び出しに対する DCP の署名付き受領書と、MCP サーバーのための DCP のツールとリソースです。
 
@@ -13,27 +13,25 @@ MCP のツール呼び出しに対する DCP の署名付き受領書と、MCP �
 
 ## インストール
 
-> **リリースの状況（2026 年 10 月 25 日）。** npm には `@dcp-ai/anthropic-mcp` 2.0.0 があり、DCP のツールとリソースはありますが、署名付きの受領書（`withDcpReceipt`、`createReceiptIdentity`、`verifyDcpReceipt`）はありません。それらは `main` のソース（バージョン 2.1.0、未公開）にあります。パッケージは `@dcp-ai/sdk` `^2.0.0` に依存し、npm はそれを 2.1.1 に解決します。そのバージョンには `verifySignedBundleV2` における 2.2.0 のセキュリティ修正がなく（[SECURITY.md](../../SECURITY.md)）、`verifyDcpReceipt` と `dcp_verify_bundle` はそれで検証します。2.2.0 が npm に出るまで、チェックアウトから SDK をビルドし、このパッケージをそれに向けてください。
+**npm 公開済み（2026 年 10 月 26 日）。** `@dcp-ai/anthropic-mcp` 2.1.0 が `latest` で、`@dcp-ai/sdk` `^2.2.0` に依存します。以下で説明する機能は npm から利用できます。
 
-チェックアウトから（このページのバージョン、`main` の SDK の上で）：
+署名付き受領書（`withDcpReceipt`、`createReceiptIdentity`、`verifyDcpReceipt`）を含みます。例には `@modelcontextprotocol/sdk` と `zod` も必要です。別途インストールしてください。
+
+```bash
+npm install @dcp-ai/anthropic-mcp@^2.1.0
+```
+
+全パッケージのバージョンは [npm リリース一覧](../../docs/NPM_RELEASES.md)を参照してください。
+
+チェックアウトしたソースで開発する場合は、ローカルのパッケージをビルドしてインストールします。
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-cd dcp-ai/sdks/typescript && npm install && npm run build
-cd ../../integrations/anthropic-mcp && npm install
-npm install --no-save --package-lock=false --ignore-scripts --install-links ../../sdks/typescript
-npm run build
+cd dcp-ai/integrations/anthropic-mcp
+npm ci && npm run build
 # then, in your project:
 npm install /path/to/dcp-ai/integrations/anthropic-mcp
 ```
-
-公開されたバージョン（2.0.0）、受領書なし、npm の SDK の上で：
-
-```bash
-npm install @dcp-ai/anthropic-mcp
-```
-
-例は MCP の TypeScript SDK（`@modelcontextprotocol/sdk`）と `zod` も使います。これらは自分でインストールしてください。
 
 <a id="signed-receipts-per-tool-call"></a>
 

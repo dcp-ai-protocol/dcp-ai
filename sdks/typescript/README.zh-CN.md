@@ -5,7 +5,7 @@
 
 # @dcp-ai/sdk — DCP-AI v2.0 的 TypeScript SDK
 
-> 本文是[英文版](README.md)的参考译文，更新于 25/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](README.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 Digital Citizenship Protocol（DCP-AI）的官方 TypeScript SDK。使用后量子混合密码学（Ed25519 + ML-DSA-65）、复合签名、自适应安全等级、智能体间（A2A）通信、内置可观测性和面向生产的加固，创建、签署并验证 Citizenship Bundle。
 
@@ -13,25 +13,20 @@ Digital Citizenship Protocol（DCP-AI）的官方 TypeScript SDK。使用后量�
 
 ## 安装
 
-**发布状态（2026 年 10 月 25 日）。** npm 注册表上 `@dcp-ai/sdk` 的 `latest` 为 2.1.1。本 README 描述的是
-`main` 上的源码，其中包含更多内容：
-- 2.2.0 版本，已在 `v2.10.0` 中打标签但未发布到 npm，修复了一个绕过 `verifySignedBundleV2` 的问题（参见
-  [`SECURITY.md`](../../SECURITY.md)）；
-- 变更日志 [`[Unreleased]`](../../CHANGELOG.md#unreleased) 下列出的内容：准入、委托链、
-  A2A 接收窗口以及实验性的 `dcp-jcs-v2` API。
+**已发布到 npm（2026 年 10 月 26 日）。** `@dcp-ai/sdk` 2.2.0 的标签为 `latest`。它包含 [SECURITY.md](../../SECURITY.md) 中的验证器修复、委托人信任与 `strict-v1`、委托链、A2A 接收窗口，以及实验性的 `dcp-jcs-v2` API。候选方案仍需显式启用且不具规范性；默认仍为 `dcp-jcs-v1`。以下示例可使用已发布的软件包运行。
 
-要运行下面的示例，请从检出副本构建 SDK 并从那里安装：
+```bash
+npm install @dcp-ai/sdk@^2.2.0
+```
+
+所有软件包版本见 [npm 发布清单](../../docs/NPM_RELEASES.md)。
+
+如需使用检出源码进行开发，请构建并安装本地软件包：
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
 cd dcp-ai/sdks/typescript && npm install && npm run build
 cd /path/to/your-project && npm install /path/to/dcp-ai/sdks/typescript
-```
-
-从注册表安装得到的是已发布的版本，不含上述内容：
-
-```bash
-npm install @dcp-ai/sdk   # 2.1.1 on 25/10/2026
 ```
 
 <a id="quick-start-v1"></a>
@@ -347,9 +342,10 @@ console.log(result.verified, result.errors); // true []
 | `cborEncode(value)` | 将值编码为 CBOR 字节 |
 | `cborDecode(data)` | 将 CBOR 字节解码为值 |
 
+<a id="admission-trusted-principals-and-strict-v1"></a>
 <a id="admission-trusted-principals-and-strict-v1-unreleased"></a>
 
-### 准入：Trusted Principals 与 strict-v1（未发布）
+### 准入：Trusted Principals 与 strict-v1
 
 已验证的 bundle 是由其列出的密钥签署的；这并不能证明委托人是谁。只有当委托人签名是用你的信任集合中列出的某个委托人的密钥做出时，准入才会接受该 bundle；还可以选择在由运营方固定的 `strict-v1` 配置下进行（混合签名、已签名的受众、最长 300 秒的会话、新近的吊销快照）。
 
@@ -368,9 +364,10 @@ const result = await admitSignedBundleV2(signedBundle, registry, { profile, trus
 - `evaluateAdmissionV2` 评估你已有的验证结果（不做密码学运算，也没有 I/O）；`revocationSubjects` 列出吊销信息源必须回答的对象。
 - 指南：[`docs/ADMISSION.md`](../../docs/ADMISSION.md)。规范和代码：[`spec/profiles/admission`](../../spec/profiles/admission/README.md)。
 
+<a id="delegation-chains-dcp-09-35"></a>
 <a id="delegation-chains-dcp-09-35-unreleased"></a>
 
-### 委托链（DCP-09 §3.5，未发布）
+### 委托链（DCP-09 §3.5）
 
 人类通过根委托书委托给一个智能体；该智能体可以用它自己签署的子委托书，将部分权限转交给另一个智能体，
 如此继续。每一跳只能缩小它所收到的权限，整条链
@@ -404,13 +401,13 @@ const result = await verifyMandateChain(registry, [rootMandate, sub], new Set(),
 const tier = computeSecurityTier(intent, policyDecision, result.valid ? result.effective_tier : null);
 ```
 
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in"></a>
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
 
-### 实验性：规范化候选 `dcp-jcs-v2`（选择加入，未发布）
+### 实验性：规范化候选 `dcp-jcs-v2`（选择加入）
 
 非规范性，也未启用：`dcp-jcs-v1` 仍是唯一的规范化配置，任何默认值、
-构建器、签名器或验证器都不变。这些 API 只为在源码检出副本中选择加入的调用方提供
-（参见发布状态）。已验证的候选 bundle 不授予信任或准入。设计、规则和完整
+构建器、签名器或验证器都不变。这些 API 只为显式选择使用它们的调用方提供，npm SDK 2.2.0 也是如此。已验证的候选 bundle 不授予信任或准入。设计、规则和完整
 契约：[`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)
 （§15 入口、§16 路由器、§17 验证器、§18 生成器）。
 

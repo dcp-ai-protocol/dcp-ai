@@ -8,7 +8,7 @@ Converts between DCP artifacts and W3C Decentralized Identifiers (DIDs) and Veri
 npm install @dcp-ai/w3c-did
 ```
 
-npm's 2.0.0 (25/10/2026) has the same `index.js` as the source on `main`. It runs on Node.js (it uses `Buffer`) and has no dependencies.
+npm's 2.0.1 (26/10/2026) has the same `index.js` as the source on `main`. It runs on Node.js (it uses `Buffer`) and has no dependencies.
 
 ## Limits (25/10/2026)
 

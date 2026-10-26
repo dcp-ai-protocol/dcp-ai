@@ -4,7 +4,7 @@
 
 # DCP-AI ロードマップ
 
-> [英語版](ROADMAP.md)の参考訳です（25/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](ROADMAP.md)の参考訳です（26/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 この文書は DCP-AI プロジェクトの予定された進化を説明します。ロードマップは重なり合うこともある段階（フェーズ）で構成されますが、依存関係の順序は守らなければなりません。
 
@@ -146,9 +146,11 @@
 
 <a id="in-the-repository-not-released-yet"></a>
 
-### リポジトリにあるが未リリースのもの
+<a id="after-v2100"></a>
 
-これらは `v2.10.0` タグ以降の `main` にあり、今回の作業の一部としてはリリースされません。リポジトリのチェックアウトから使ってください（[変更履歴の `[Unreleased]` セクション](CHANGELOG.md#unreleased)を参照）。
+### v2.10.0 以降
+
+これらの変更は `v2.10.0` タグ以降の `main` にあります。2026 年 10 月 26 日時点で、npm では SDK 2.2.0、WASM 2.1.0、更新済みのアダプターと CLI が公開されています。[公開済み一覧](docs/NPM_RELEASES.md)を参照してください。他の環境の公開は別です。[変更履歴の `[Unreleased]` セクション](CHANGELOG.md#unreleased)は開発履歴を保持しており、これらの npm 機能が利用できないという意味ではありません。
 
 - **アドミッション** — 信頼できるプリンシパルと `strict-v1` プロファイル（[`docs/ADMISSION.md`](docs/ADMISSION.md)、[`spec/profiles/admission`](spec/profiles/admission/README.md)）。4 つの SDK、Express・FastAPI・OpenClaw の統合、リファレンス検証器、サーバー、CLI にあります。検証だけでは引き続き信頼は与えられず、アドミッションがアクションを認可することもありません。
 - **正規化の候補 `dcp-jcs-v2`** — TypeScript、Python、Go、Rust、WASM の、実験的でオプトインの取り込み、ルーター、バイト検証器、生成側。5 × 5 のクロスマトリクス付き（[`docs/proposals/canonicalization-candidate`](docs/proposals/canonicalization-candidate/README.md)）。規範的ではなく有効化もされていません。プロファイルは引き続き `dcp-jcs-v1` だけで、候補を次の段階に進めたり既定にしたりするには、別途の判断が必要です。

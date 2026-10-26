@@ -5,7 +5,7 @@
 
 # Ponte DCP-AI ↔ Microsoft AutoGen
 
-> Tradução informativa da [versão em inglês](README.md), atualizada em 25/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](README.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Constrói registros no formato do DCP para conversas do Microsoft AutoGen: configurações de agentes com uma identidade DCP, entradas de auditoria para as mensagens, intenções para as chamadas de funções e mandatos de delegação.
 
@@ -19,7 +19,7 @@ Os registros são objetos simples: **não assinados, e sem hashes de conteúdo n
 npm install @dcp-ai/autogen
 ```
 
-A 2.0.0 do npm (25/10/2026) tem o mesmo `index.js` que o código-fonte em `main`. Não tem dependências.
+A 2.0.1 do npm (26/10/2026) tem o mesmo `index.js` que o código-fonte em `main`. Não tem dependências.
 
 <a id="supported-dcp-specifications"></a>
 

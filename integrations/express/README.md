@@ -8,24 +8,27 @@ DCP-01 through DCP-09, partially: bundle verification and admission as described
 
 ## Installation
 
-> **Release status (25/10/2026).** npm has `@dcp-ai/express` 2.0.0 only. It was published before most of this page, and **it does not verify the signatures of V2 bundles**: it checks their structure only, so a forged or altered V2 bundle passes (fixed on `main`, see the `[Unreleased]` section of [CHANGELOG.md](../../CHANGELOG.md)). Do not rely on 2.0.0 for V2 bundles. Admission (`trustedPrincipals`, `profile`, `revocationSource`), `revocationFailClosed`, source supervision and `cancelOnDisconnect` are not in it either. This README follows the source on `main`. Until `@dcp-ai/sdk` 2.2.0 is on npm, this package depends on the workspace SDK (`"@dcp-ai/sdk": "file:../../sdks/typescript"`); publishing it needs the dependency raised to `^2.2.0`, and the publish workflow refuses a package that depends on a local path.
+**Published on npm (26/10/2026).** `@dcp-ai/express` 2.1.0 is `latest` and depends on `@dcp-ai/sdk` `^2.2.0`. The features described below are available from npm.
 
-To use the version this page describes, build it from a checkout and install it from there:
-
-```bash
-git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-cd dcp-ai/sdks/typescript && npm install && npm run build      # the SDK of main
-cd ../../integrations/express && npm install && npm run build  # this package
-cd /path/to/your-app && npm install /path/to/dcp-ai/integrations/express express
-```
-
-The published version (2.0.0), without the features listed above:
+**Upgrade from 2.0.0:** that version checks V2 structure without verifying signatures. Use 2.1.0 for the corrected verifier, admission and source supervision. See [SECURITY.md](../../SECURITY.md).
 
 ```bash
-npm install @dcp-ai/express @dcp-ai/sdk
+npm install @dcp-ai/express@^2.1.0 express
 ```
 
 **Peer dependency:** Express 4.18+ or 5.x
+
+See the [npm release inventory](../../docs/NPM_RELEASES.md) for all package versions.
+
+For development against a source checkout, build and install the local package instead:
+
+```bash
+git clone https://github.com/dcp-ai-protocol/dcp-ai.git
+cd dcp-ai/integrations/express
+npm ci && npm run build
+# then, in your project:
+npm install /path/to/dcp-ai/integrations/express express
+```
 
 ## Quickstart
 
@@ -311,7 +314,7 @@ app.listen(3000);
 ## Development
 
 ```bash
-# Build the workspace SDK first (see Installation), then:
+# Development build uses the published SDK from package-lock.json:
 npm install
 
 # Build (ESM + CJS + types)

@@ -1,6 +1,6 @@
 <sub>[English](README.md) · **中文** · [Español](README.es.md) · [日本語](README.ja.md) · [Português](README.pt-BR.md)</sub>
 
-> 本文是[英文版](README.md)的参考译文，更新于 25/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](README.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 <div align="center">
 
@@ -119,19 +119,13 @@ DCP 分为三个概念层：
 
 ## 快速开始
 
-> **已发布的软件包与本仓库（2026 年 10 月 25 日）。** npm 注册表上 `@dcp-ai/sdk` 的 `latest` 为
-> 2.1.1，不含 2.2.0 的验证器修复（[`SECURITY.md`](SECURITY.md#supported-versions)），也不含变更日志
-> [`[Unreleased]`](CHANGELOG.md#unreleased) 下的任何内容。本仓库中的示例以 `main` 为准。
-> 要运行它们，请使用源码检出副本：
+> **已发布的软件包（2026 年 10 月 26 日）。** npm 已提供 `@dcp-ai/sdk` 2.2.0、`@dcp-ai/wasm` 和 `@dcp-ai/cli` 2.1.0，以及更新后的适配器和生成器。见 [13 个软件包的清单](docs/NPM_RELEASES.md)与[安全升级说明](SECURITY.md#supported-versions)。这些 npm 版本包含文档所述修复和功能；Python、Go 和 Rust 的发布相互独立。若要运行仓库的参考 CLI 和源码测试，请构建检出代码：
 >
 > ```bash
 > git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-> cd dcp-ai/sdks/typescript && npm install && npm run build   # the SDK of main
-> cd ../.. && npm install                                       # the reference CLI, against that SDK
+> cd dcp-ai/sdks/typescript && npm install && npm run build
+> cd ../.. && npm install
 > ```
->
-> 下面的注册表命令（`npm install`、`npx`）安装的则是已发布的版本。其他软件包
-> 有各自的版本：参见每个 SDK 的 *Release status*。
 
 <a id="option-a-cli-wizard-demo"></a>
 
@@ -171,16 +165,16 @@ node /path/to/dcp-ai/bin/dcp.js verify-bundle --policy hybrid_preferred bundle.s
 
 二选一安装：
 
-- 按上文从检出副本构建的 `main` 上的 SDK，下面的示例需要它：
+- 用于源码开发、从检出代码构建的 `main` SDK：
 
   ```bash
   npm install /path/to/dcp-ai/sdks/typescript
   ```
 
-- 或已发布的版本（2026 年 10 月 25 日为 2.1.1），不含 2.2.0 的修复和未发布的功能：
+- 或已发布的 SDK 2.2.0，其中包含这些修复和功能：
 
   ```bash
-  npm install @dcp-ai/sdk
+  npm install @dcp-ai/sdk@^2.2.0
   ```
 
 用 `main` 当前的 V2 bundle 验证器（签名、哈希、会话绑定、安全
@@ -477,7 +471,7 @@ cd docker && docker compose up -d
 | [AGENT_CREATION_AND_CERTIFICATION](docs/AGENT_CREATION_AND_CERTIFICATION.md) | P2P 智能体创建流程、DCP 认证 |
 | [OPERATOR_GUIDE](docs/OPERATOR_GUIDE.md) | 运行验证服务 |
 | [MIGRATION_V1_V2](docs/MIGRATION_V1_V2.md) | 从 DCP v1.0 迁移到 v2.0 |
-| [ADMISSION](docs/ADMISSION.md) | 只接受来自受信任委托人的 bundle，可选择在 `strict-v1` 下进行（未发布） |
+| [ADMISSION](docs/ADMISSION.md) | 只接受来自受信任委托人的 bundle，可选择在 `strict-v1` 下进行 |
 | [OBSERVABILITY](docs/OBSERVABILITY.md) | 来自 SDK 的 OpenTelemetry 追踪和指标 |
 
 <a id="proposals-experimental-not-normative"></a>
@@ -486,7 +480,7 @@ cd docker && docker compose up -d
 
 | 文档 | 说明 |
 |----------|-------------|
-| [规范化候选 `dcp-jcs-v2`](docs/proposals/canonicalization-candidate/README.md) | 默认不启用的实验性候选配置、其设计以及选择加入式 SDK API（未发布）；`dcp-jcs-v1` 仍是默认且唯一的规范性规范化配置 |
+| [规范化候选 `dcp-jcs-v2`](docs/proposals/canonicalization-candidate/README.md) | 默认不启用的实验性候选配置、其设计以及选择加入式 SDK API；`dcp-jcs-v1` 仍是默认且唯一的规范性规范化配置 |
 
 <a id="standards-alignment"></a>
 
@@ -593,7 +587,7 @@ dcp-ai/
 ## 开发
 
 ```bash
-# Build the workspace SDK first: the root depends on it until @dcp-ai/sdk 2.2.0 is on npm
+# Build the workspace SDK first: the root uses it to test the checked-out source
 (cd sdks/typescript && npm install && npm run build)
 
 # Install dependencies

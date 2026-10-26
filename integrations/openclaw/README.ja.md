@@ -5,7 +5,7 @@
 
 # @dcp-ai/openclaw — OpenClaw のための DCP の統合
 
-> [英語版](README.md)の参考訳です（25/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](README.md)の参考訳です（26/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 AI エージェントに **Digital Citizenship Protocol (DCP)** のツールを加える [OpenClaw](https://github.com/openclaw/openclaw) のプラグインです。エージェントがこれらのツールを呼んだとき、行動は宣言され、リスクを
 採点され、人の所有者に結び付いたハッシュチェーンの監査証跡に記録されます。プラグインはエージェントのほかのツールを
@@ -39,26 +39,27 @@ DCP-01 から DCP-09。部分的なもので、以下のツールはこれらの
 
 ## インストール
 
-> **リリースの状況（2026 年 10 月 25 日）。** npm には `@dcp-ai/openclaw` 2.0.0 しかありません。この README は `main` のソース（バージョン 2.1.0、未公開）に従っています。公開された 2.0.0 は `dcp_verify_bundle` で **V2 のバンドルの署名を検証しません**。構造を確認するだけなので、偽造または改変された V2 のバンドルが通ってしまいます（`main` で修正済み。[CHANGELOG.md](../../CHANGELOG.md) の `[Unreleased]` の節を参照）。V2 のバンドルについて 2.0.0 を当てにしないでください。運用者のポリシー、信頼するプリンシパル、ソースの監督者も含まれていません。`@dcp-ai/sdk` 2.2.0 が npm に出るまで、このパッケージはワークスペースの SDK（`"@dcp-ai/sdk": "file:../../sdks/typescript"`）に依存します。公開するには依存関係を `^2.2.0` に上げる必要があり、公開のワークフローはローカルのパスに依存するパッケージを拒否します。
+**npm 公開済み（2026 年 10 月 26 日）。** `@dcp-ai/openclaw` 2.1.0 が `latest` で、`@dcp-ai/sdk` `^2.2.0` に依存します。以下で説明する機能は npm から利用できます。
 
-このページが説明するバージョンを使うには、チェックアウトからビルドし、そこからインストールします：
+**2.0.0 から更新してください。** そのバージョンは署名を検証せず V2 の構造だけを確認します。修正済み検証器、受け入れ判定、ソースの監督には 2.1.0 を使用してください。[SECURITY.md](../../SECURITY.md) を参照してください。
+
+```bash
+npm install @dcp-ai/openclaw@^2.1.0
+```
+
+全パッケージのバージョンは [npm リリース一覧](../../docs/NPM_RELEASES.md)を参照してください。
+
+チェックアウトしたソースで開発する場合は、ローカルのパッケージをビルドしてインストールします。
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-cd dcp-ai/sdks/typescript && npm install && npm run build       # the SDK of main
-cd ../../integrations/openclaw && npm install && npm run build  # this package
-# then, in your OpenClaw plugins directory:
+cd dcp-ai/integrations/openclaw
+npm ci && npm run build
+# then, in your project (or OpenClaw plugins directory):
 npm install /path/to/dcp-ai/integrations/openclaw
 ```
 
-公開されたバージョン（2.0.0）、それらの修正と機能はありません：
-
-```bash
-# In your OpenClaw plugins directory
-npm install @dcp-ai/openclaw
-```
-
-OpenClaw の設定に追加します：
+OpenClaw の設定に追加します。
 
 ```yaml
 plugins:

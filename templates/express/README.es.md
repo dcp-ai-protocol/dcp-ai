@@ -5,11 +5,11 @@
 
 # Plantilla DCP-AI + servidor de API Express
 
-> Traducción informativa de [la versión en inglés](README.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](README.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Una API de Express que muestra dónde van las comprobaciones de bundles de DCP en un servidor.
 
-> **No verifica firmas.** El `verifyBundle` de la plantilla solo comprueba la estructura de un bundle (versión, campos del manifiesto, la presencia de firmas compuestas, nonces de sesión). No verifica ninguna firma, así que un bundle falsificado o alterado pasa. Úsala para ver las rutas y el flujo, no como verificador. Para verificar bundles, usa [`@dcp-ai/express`](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/integrations/express/README.md) (desde un checkout hasta su próxima versión) o `verifySignedBundleV2` del SDK, como en [docs/QUICKSTART_EXPRESS.md](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/docs/QUICKSTART_EXPRESS.md).
+> **No verifica firmas.** El `verifyBundle` de la plantilla solo comprueba la estructura de un bundle (versión, campos del manifiesto, la presencia de firmas compuestas, nonces de sesión). No verifica ninguna firma, así que un bundle falsificado o alterado pasa. Úsala para ver las rutas y el flujo, no como verificador. Para verificar bundles, usa [`@dcp-ai/express`](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/integrations/express/README.md) 2.1.0 o `verifySignedBundleV2` del SDK, como en [docs/QUICKSTART_EXPRESS.md](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/docs/QUICKSTART_EXPRESS.md).
 
 <a id="quick-start"></a>
 

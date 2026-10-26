@@ -4,7 +4,7 @@
 
 # DCP-AI 路线图
 
-> 本文是[英文版](ROADMAP.md)的参考译文，更新于 25/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](ROADMAP.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 本文档描述 DCP-AI 项目的计划演进。路线图按阶段组织，各阶段可以相互重叠，但必须遵循依赖顺序。
 
@@ -146,9 +146,11 @@
 
 <a id="in-the-repository-not-released-yet"></a>
 
-### 已在仓库中、尚未发布
+<a id="after-v2100"></a>
 
-这些内容在 `v2.10.0` 标签之后的 `main` 上，不作为本次工作的一部分发布：请从仓库检出副本使用（见[变更日志的 `[Unreleased]` 部分](CHANGELOG.md#unreleased)）。
+### v2.10.0 之后
+
+这些变更位于 `v2.10.0` 标签之后的 `main`。截至 2026 年 10 月 26 日，npm 已发布 SDK 2.2.0、WASM 2.1.0 以及更新后的适配器和 CLI；见[已发布清单](docs/NPM_RELEASES.md)。其他生态独立发布。[变更日志的 `[Unreleased]` 部分](CHANGELOG.md#unreleased)保留开发历史，并不表示这些 npm 功能不可用。
 
 - **准入** — 受信任的委托人和 `strict-v1` 配置（[`docs/ADMISSION.md`](docs/ADMISSION.md)、[`spec/profiles/admission`](spec/profiles/admission/README.md)），见于四个 SDK、Express、FastAPI 和 OpenClaw 集成、参考验证器、服务器和 CLI。仅有验证仍然不会授予信任；准入也从不授权任何操作。
 - **规范化候选方案 `dcp-jcs-v2`** — TypeScript、Python、Go、Rust 和 WASM 中实验性、需显式启用的接入、路由器、字节验证器和生成方，附五乘五的交叉矩阵（[`docs/proposals/canonicalization-candidate`](docs/proposals/canonicalization-candidate/README.md)）。它不是规范性的，也未启用：`dcp-jcs-v1` 仍是唯一的配置，将候选方案推进到后续阶段或设为默认需要单独决定。

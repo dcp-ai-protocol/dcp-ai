@@ -5,7 +5,7 @@
 
 # Puente DCP-AI ↔ protocolo A2A (Agent-to-Agent)
 
-> Traducción informativa de [la versión en inglés](README.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](README.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Lleva el Agent Passport firmado de DCP dentro de la Agent Card de A2A, para que un consumidor de A2A pueda verificar
 sin conexión el hash y la autofirma del pasaporte antes de delegar una tarea. El pasaporte nombra a un principal
@@ -16,24 +16,24 @@ a intenciones y entradas de auditoría de DCP.
 
 ## Instalación
 
-> **Estado de publicación (25/10/2026).** npm tiene `@dcp-ai/google-a2a` 2.0.0, sin el pasaporte en la Agent Card (`attachPassportToAgentCard`, `agentCardPassport`, `verifyAgentCardPassport`): están en el código fuente de `main` (versión 2.1.0, sin publicar). La dependencia `@dcp-ai/sdk` del paquete fuente es `^2.0.0`; una instalación normal con npm la resuelve a 2.1.1. Por tanto, compilar este checkout sin la sustitución por el SDK local de abajo usaría los proveedores criptográficos más antiguos. `verifyAgentCardPassport` usa las funciones de firma compuesta del SDK, no su verificador completo `verifySignedBundleV2`.
+**Publicado en npm (26/10/2026).** `@dcp-ai/google-a2a` 2.1.0 es `latest` y depende de `@dcp-ai/sdk` `^2.2.0`. Las funciones descritas abajo están disponibles en npm.
 
-Desde un checkout (la versión de esta página, con el SDK de `main`):
+`verifyAgentCardPassport` usa auxiliares de firma compuesta, no el verificador completo `verifySignedBundleV2`; no establece confianza en el principal ni admisión.
+
+```bash
+npm install @dcp-ai/google-a2a@^2.1.0
+```
+
+Consulta el [inventario de publicaciones npm](../../docs/NPM_RELEASES.md) para ver todas las versiones.
+
+Para desarrollar con una copia del repositorio, compila e instala el paquete local:
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-cd dcp-ai/sdks/typescript && npm install && npm run build
-cd ../../integrations/google-a2a && npm install
-npm install --no-save --package-lock=false --ignore-scripts --install-links ../../sdks/typescript
-npm run build
+cd dcp-ai/integrations/google-a2a
+npm ci && npm run build
 # then, in your project:
 npm install /path/to/dcp-ai/integrations/google-a2a
-```
-
-La versión publicada (2.0.0):
-
-```bash
-npm install @dcp-ai/google-a2a
 ```
 
 <a id="the-passport-inside-the-agent-card"></a>

@@ -7,24 +7,24 @@ It also maps A2A tasks onto DCP intents and audit entries.
 
 ## Installation
 
-> **Release status (25/10/2026).** npm has `@dcp-ai/google-a2a` 2.0.0, without the passport in the Agent Card (`attachPassportToAgentCard`, `agentCardPassport`, `verifyAgentCardPassport`): those are in the source on `main` (version 2.1.0, not published). The source package's `@dcp-ai/sdk` dependency is `^2.0.0`; an ordinary npm install resolves it to 2.1.1. Therefore, building this checkout without the local-SDK override below would use the older cryptographic providers. `verifyAgentCardPassport` uses the SDK's composite-signature helpers, not its full `verifySignedBundleV2` verifier.
+**Published on npm (26/10/2026).** `@dcp-ai/google-a2a` 2.1.0 is `latest` and depends on `@dcp-ai/sdk` `^2.2.0`. The features described below are available from npm.
 
-From a checkout (this page's version, on the SDK of `main`):
+`verifyAgentCardPassport` uses composite-signature helpers, not the full `verifySignedBundleV2` verifier; it does not establish principal trust or admission.
+
+```bash
+npm install @dcp-ai/google-a2a@^2.1.0
+```
+
+See the [npm release inventory](../../docs/NPM_RELEASES.md) for all package versions.
+
+For development against a source checkout, build and install the local package instead:
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-cd dcp-ai/sdks/typescript && npm install && npm run build
-cd ../../integrations/google-a2a && npm install
-npm install --no-save --package-lock=false --ignore-scripts --install-links ../../sdks/typescript
-npm run build
+cd dcp-ai/integrations/google-a2a
+npm ci && npm run build
 # then, in your project:
 npm install /path/to/dcp-ai/integrations/google-a2a
-```
-
-The published version (2.0.0):
-
-```bash
-npm install @dcp-ai/google-a2a
 ```
 
 ## The passport inside the Agent Card

@@ -4,27 +4,25 @@ Signed DCP receipts for MCP tool calls, plus DCP tools and resources for MCP ser
 
 ## Installation
 
-> **Release status (25/10/2026).** npm has `@dcp-ai/anthropic-mcp` 2.0.0, which has the DCP tools and resources but not the signed receipts (`withDcpReceipt`, `createReceiptIdentity`, `verifyDcpReceipt`): those are in the source on `main` (version 2.1.0, not published). The package depends on `@dcp-ai/sdk` `^2.0.0`, which npm resolves to 2.1.1; that version lacks the security fixes of 2.2.0 in `verifySignedBundleV2` ([SECURITY.md](../../SECURITY.md)), and `verifyDcpReceipt` and `dcp_verify_bundle` verify with it. Until 2.2.0 is on npm, build the SDK from a checkout and point this package at it.
+**Published on npm (26/10/2026).** `@dcp-ai/anthropic-mcp` 2.1.0 is `latest` and depends on `@dcp-ai/sdk` `^2.2.0`. The features described below are available from npm.
 
-From a checkout (this page's version, on the SDK of `main`):
+Signed receipts (`withDcpReceipt`, `createReceiptIdentity`, `verifyDcpReceipt`) are included. The examples also require `@modelcontextprotocol/sdk` and `zod`; install those separately.
+
+```bash
+npm install @dcp-ai/anthropic-mcp@^2.1.0
+```
+
+See the [npm release inventory](../../docs/NPM_RELEASES.md) for all package versions.
+
+For development against a source checkout, build and install the local package instead:
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-cd dcp-ai/sdks/typescript && npm install && npm run build
-cd ../../integrations/anthropic-mcp && npm install
-npm install --no-save --package-lock=false --ignore-scripts --install-links ../../sdks/typescript
-npm run build
+cd dcp-ai/integrations/anthropic-mcp
+npm ci && npm run build
 # then, in your project:
 npm install /path/to/dcp-ai/integrations/anthropic-mcp
 ```
-
-The published version (2.0.0), without the receipts and on the SDK from npm:
-
-```bash
-npm install @dcp-ai/anthropic-mcp
-```
-
-The examples also use the MCP TypeScript SDK (`@modelcontextprotocol/sdk`) and `zod`, which you install yourself.
 
 ## Signed receipts per tool call
 

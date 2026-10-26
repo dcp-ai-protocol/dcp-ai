@@ -21,10 +21,7 @@ You only need the language you plan to build with. All SDKs speak the same proto
 
 ## Published packages and this guide
 
-The examples follow the source on `main`. On 25/10/2026 the npm registry's `latest` for `@dcp-ai/sdk` was
-2.1.1, without the 2.2.0 verifier fixes ([`SECURITY.md`](../SECURITY.md#supported-versions)) or the changelog's
-[`[Unreleased]`](../CHANGELOG.md#unreleased) features; other packages have their own versions (each SDK README
-has a *Release status*). To run the examples as written, use a checkout:
+The TypeScript examples work with published `@dcp-ai/sdk` 2.2.0, and the npm CLI is `@dcp-ai/cli` 2.1.0. See [published npm packages](NPM_RELEASES.md) and [SECURITY.md](../SECURITY.md#supported-versions). Other ecosystems have separate releases. For source development, or Python features still available only in the checkout, use:
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
@@ -93,21 +90,20 @@ The secret key files are written with default permissions (`0644` with the usual
 
 ## 3. TypeScript SDK
 
-The examples below follow `main`: install the SDK built from a checkout (see
-[Published packages and this guide](#published-packages-and-this-guide)).
+The TypeScript examples below work with npm SDK 2.2.0 or a development checkout (see [Published packages and this guide](#published-packages-and-this-guide)).
 
 Install one of the two:
 
-- the SDK of `main`, which the examples below need:
+- the SDK of `main`, built from a checkout, for source development:
 
   ```bash
   npm install /path/to/dcp-ai/sdks/typescript
   ```
 
-- or the published version (2.1.1 on 25/10/2026), without 2.2.0's fixes and the unreleased features:
+- or the published SDK 2.2.0, which includes these fixes and features:
 
   ```bash
-  npm install @dcp-ai/sdk
+  npm install @dcp-ai/sdk@^2.2.0
   ```
 
 ### Create and Sign a Bundle (V1 — Ed25519)
@@ -449,7 +445,7 @@ Providers for ML-DSA-65, ML-KEM-768, SLH-DSA-192f, Ed25519 live under `dcp_ai::p
 ### WebAssembly (browser)
 
 ```bash
-npm install @dcp-ai/wasm   # the published version; for main, see the WASM SDK's Release status
+npm install @dcp-ai/wasm@^2.1.0   # the published version; for main, see the WASM SDK's Release status
 ```
 
 Exposes the Rust SDK's primitives to browsers and Node.js. In Node.js, `initDcp()` needs the `.wasm` file as a `data:` URL: see [Initialization](../sdks/wasm/README.md#initialization-browser-and-nodejs).

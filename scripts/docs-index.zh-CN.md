@@ -11,7 +11,7 @@ hide:
 
 # DCP-AI — 面向 AI 智能体的 Digital Citizenship Protocol
 
-> 本文是[英文版](docs-index.md)的参考译文，更新于 25/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](docs-index.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 > 面向开放网络上 AI 智能体的可移植问责层。
 
@@ -29,15 +29,12 @@ hide:
 ## 安装
 
 !!! note "已发布的软件包与 `main`"
-    这些命令安装的是已发布的版本。2026 年 10 月 25 日，npm 上 `@dcp-ai/sdk` 的 `latest` 为 2.1.1，
-    不含 2.2.0 的验证器修复；各指南以 `main` 上的源码为准，其中还有未发布的功能。
-    要按所写内容运行，请从仓库检出副本构建 SDK：参见
-    [快速开始](quickstart/QUICKSTART.md#published-packages-and-this-guide)。
+    npm 已提供 `@dcp-ai/sdk` 2.2.0、`@dcp-ai/wasm` 和 `@dcp-ai/cli` 2.1.0，以及更新后的适配器和生成器。见 [npm 清单](reference/docs/NPM_RELEASES.md)。Python、Go 和 Rust 的发布独立进行；[快速入门](quickstart/QUICKSTART.md#published-packages-and-this-guide)区分了注册表与源码检出的示例。
 
 === "Node.js"
 
     ```bash
-    npm install @dcp-ai/sdk @dcp-ai/cli
+    npm install @dcp-ai/sdk@^2.2.0 @dcp-ai/cli
     ```
 
 === "Python"
@@ -61,7 +58,7 @@ hide:
 === "WebAssembly"
 
     ```bash
-    npm install @dcp-ai/wasm
+    npm install @dcp-ai/wasm@^2.1.0
     ```
 
 ---

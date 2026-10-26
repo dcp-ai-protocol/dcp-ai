@@ -5,7 +5,7 @@
 
 # @dcp-ai/openclaw — 面向 OpenClaw 的 DCP 集成
 
-> 本文是[英文版](README.md)的参考译文，更新于 25/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](README.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 为 AI 代理添加 **Digital Citizenship Protocol (DCP)** 工具的 [OpenClaw](https://github.com/openclaw/openclaw) 插件。当代理调用这些工具时，操作会被声明、进行风险评分，
 并记录在与人类所有者绑定、以哈希链连接的审计轨迹中：插件不会
@@ -39,26 +39,27 @@ DCP-01 至 DCP-09，部分支持：下面的工具会创建采用这些规范形
 
 ## 安装
 
-> **发布状态（2026 年 10 月 25 日）。** npm 上只有 `@dcp-ai/openclaw` 2.0.0；本 README 以 `main` 上的源代码为准（版本 2.1.0，未发布）。已发布的 2.0.0 在 `dcp_verify_bundle` 中**不验证 V2 bundle 的签名**：它只检查结构，因此伪造或被篡改的 V2 bundle 会通过（已在 `main` 上修复，见 [CHANGELOG.md](../../CHANGELOG.md) 的 `[Unreleased]` 一节）。对于 V2 bundle，不要依赖 2.0.0；它也不包含运营方策略、受信任的委托人或来源监管器。在 `@dcp-ai/sdk` 2.2.0 发布到 npm 之前，此软件包依赖工作区中的 SDK（`"@dcp-ai/sdk": "file:../../sdks/typescript"`）；发布它需要把依赖提升到 `^2.2.0`，并且发布工作流会拒绝依赖本地路径的软件包。
+**已发布到 npm（2026 年 10 月 26 日）。** `@dcp-ai/openclaw` 2.1.0 的标签为 `latest`，依赖 `@dcp-ai/sdk` `^2.2.0`。以下描述的功能已可从 npm 获取。
 
-要使用本页所描述的版本，请从检出的代码构建，并从那里安装：
+**请从 2.0.0 升级：** 该版本仅检查 V2 结构，不验证签名。请使用 2.1.0 获取修复后的验证器、准入和来源监管功能。见 [SECURITY.md](../../SECURITY.md)。
+
+```bash
+npm install @dcp-ai/openclaw@^2.1.0
+```
+
+所有软件包版本见 [npm 发布清单](../../docs/NPM_RELEASES.md)。
+
+如需使用检出源码进行开发，请构建并安装本地软件包：
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-cd dcp-ai/sdks/typescript && npm install && npm run build       # the SDK of main
-cd ../../integrations/openclaw && npm install && npm run build  # this package
-# then, in your OpenClaw plugins directory:
+cd dcp-ai/integrations/openclaw
+npm ci && npm run build
+# then, in your project (or OpenClaw plugins directory):
 npm install /path/to/dcp-ai/integrations/openclaw
 ```
 
-已发布的版本（2.0.0），不含这些修复和功能：
-
-```bash
-# In your OpenClaw plugins directory
-npm install @dcp-ai/openclaw
-```
-
-添加到 OpenClaw 配置中：
+加入 OpenClaw 配置：
 
 ```yaml
 plugins:

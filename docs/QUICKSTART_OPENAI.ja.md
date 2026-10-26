@@ -5,7 +5,7 @@
 
 # DCP-AI + OpenAI クイックスタート
 
-> [英語版](QUICKSTART_OPENAI.md)の参考訳です（25/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](QUICKSTART_OPENAI.md)の参考訳です（26/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 OpenAI の関数呼び出しエージェントに、暗号学的なアイデンティティ、ポリシーによる制御、監査証跡を追加します。
 
@@ -17,14 +17,10 @@ OpenAI の関数呼び出しエージェントに、暗号学的なアイデン�
 
 このガイドは **OpenAI の Node SDK** を使います。Python を使う場合は、末尾の Python のセクションに進んでください。
 
-レジストリからインストールすると、公開済みの `@dcp-ai/sdk` になります（2026 年 10 月 25 日時点で npm の `latest` は 2.1.1）。V1 の例は
-それで動きます。V2 のセクションは `main` に従うので、そのためにはチェックアウトから SDK をビルドしてください（TypeScript SDK の
-[Release status](../sdks/typescript/README.md#installation) を参照）。例では OpenAI の Node SDK の Chat Completions API を
-使います（`openai` v4 以降。最近のバージョンではカスタムのツール呼び出しが加わっていますが、ループはそれを拒否します）。実行すると
-OpenAI API が呼び出され、`OPENAI_API_KEY` が必要です。
+レジストリからのインストールでは V1 と V2 の両方の例に `@dcp-ai/sdk` 2.2.0 を使います。チェックアウトは任意です（[インストール](../sdks/typescript/README.md#installation)を参照）。例は OpenAI Node SDK の Chat Completions API を使います（`openai` v4 以降。最近のバージョンにはカスタムツール呼び出しが追加されていますが、このループでは拒否します）。実行時には OpenAI API を呼び出し、`OPENAI_API_KEY` が必要です。
 
 ```bash
-npm install @dcp-ai/sdk openai
+npm install @dcp-ai/sdk@^2.2.0 openai
 ```
 
 <a id="zero-config-scaffold-alternative"></a>

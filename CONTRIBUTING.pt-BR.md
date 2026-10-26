@@ -4,7 +4,7 @@
 
 # Contribuir com o DCP-AI
 
-> Tradução informativa da [versão em inglês](CONTRIBUTING.md), atualizada em 25/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](CONTRIBUTING.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Obrigado pelo interesse em contribuir com o Digital Citizenship Protocol para agentes de IA. Este guia ajuda você a começar.
 
@@ -31,7 +31,7 @@ Obrigado pelo interesse em contribuir com o Digital Citizenship Protocol para ag
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
 cd dcp-ai
 
-# The root package depends on the workspace SDK until @dcp-ai/sdk 2.2.0 is on npm: build it first
+# The root package uses the workspace SDK to test the checked-out source: build it first
 (cd sdks/typescript && npm install && npm run build)
 
 # Install root dependencies (core protocol + reference CLI); reinstall after rebuilding the SDK

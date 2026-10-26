@@ -4,7 +4,7 @@
 
 # Admissão: principais confiáveis e o perfil strict-v1
 
-> Tradução informativa da [versão em inglês](ADMISSION.md), atualizada em 25/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](ADMISSION.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Um bundle verificado prova sua integridade e que foi assinado pelas chaves que lista. Qualquer pessoa pode criar um registro de principal responsável com qualquer `human_id` e chaves próprias, então a verificação sozinha não diz **quem** é o principal.
 
@@ -13,9 +13,7 @@ A admissão acrescenta o que um operador precisa para aceitar evidências apenas
 - **Principais confiáveis.** O operador fornece um conjunto de confiança: o `human_id` de cada principal e as chaves públicas com que ele pode assinar. Um bundle só é admitido se as chaves que de fato verificaram as assinaturas do principal (o RPR e o manifesto do bundle, clássica e pós-quântica) forem chaves confiáveis desse principal, ativas e dentro da janela de validade.
 - **O perfil strict-v1.** Opcional, versionado e fixado pelo operador: assinaturas híbridas em todos os níveis de risco, um `intended_verifier` assinado igual ao `verifier_id` do operador, uma janela de sessão assinada de no máximo 300 segundos e um snapshot de revogação com no máximo 300 segundos de idade.
 
-> **Status de publicação.** A admissão está em `main` e consta em
-> [`[Unreleased]`](../CHANGELOG.md#unreleased) do changelog: nenhuma versão marcada a inclui ainda. Use os SDKs, as integrações,
-> o servidor e a CLI a partir de uma cópia do repositório (a seção *Release status* do README de cada SDK tem os comandos).
+> **Estado de publicação (26/10/2026).** A admissão e `strict-v1` estão publicados em `@dcp-ai/sdk` 2.2.0 e nos adaptadores Express/OpenClaw 2.1.0. Veja as [versões npm](NPM_RELEASES.md). A publicação de Python, Go e Rust é independente; use seus checkouts para as APIs descritas aqui até que suas versões as incluam. O servidor de referência e o CLI raiz continuam sendo executados a partir de um checkout.
 
 A definição normativa, com todas as regras e códigos de erro, é [`spec/profiles/admission`](../spec/profiles/admission/README.md). Os vetores de teste compartilhados estão em [`tests/interop/v2/admission_vectors.json`](../tests/interop/v2/admission_vectors.json).
 
@@ -23,7 +21,7 @@ A definição normativa, com todas as regras e códigos de erro, é [`spec/profi
 
 ## É opt-in
 
-A admissão só se aplica ao código que define um conjunto de confiança ou um perfil, e `verified` mantém o seu significado. Os verificadores também ganham um relógio opcional e informam as chaves que usaram, na mesma verificação. As mesmas mudanças não publicadas também alteram a própria verificação, à parte da admissão: veja [Compatibilidade](#compatibility).
+A admissão só se aplica ao código que define um conjunto de confiança ou um perfil, e `verified` mantém o seu significado. Os verificadores também ganham um relógio opcional e informam as chaves que usaram, na mesma verificação. As mesmas mudanças também alteram a própria verificação, à parte da admissão: veja [Compatibilidade](#compatibility).
 
 <a id="the-trust-set"></a>
 
@@ -166,7 +164,7 @@ node /path/to/dcp-ai/bin/dcp.js admit-bundle bundle.signed.json --trust trust.js
 ## Compatibilidade
 
 - **API de verificação.** `verifySignedBundleV2` / `verify_signed_bundle_v2` / `VerifySignedBundleV2WithPolicy` / `verify_signed_bundle_v2_with_policy` mantêm as suas assinaturas. As chaves de assinatura são `details.signer_keys` em TypeScript e Python e o novo campo `SignerKeys` em Go. Em Rust, `V2VerificationResult` mantém seus dez campos, então o código que o constrói por inteiro ou o desestrutura sem `..` continua compilando; as chaves de assinatura vêm do novo `verify_signed_bundle_v2_at`, que retorna `V2VerificationDetails` (`result` e `signer_keys`) e é o que a admissão recebe. O código escrito contra a API de admissão antes da sua publicação lê `verification.result.verified` em vez de `verification.verified`.
-- **Comportamento da verificação.** As mesmas mudanças não publicadas alteram o comportamento da verificação, à parte da admissão. Assinaturas Ed25519 com S >= L agora são rejeitadas. Separadamente, os verificadores Go e Rust agora aplicam `accepted_classical_algs` e `accepted_pq_algs` de uma política, que antes recusavam por não serem aplicados: sob uma política assim, um bundle fora das listas falha, e um dentro delas agora pode ser verificado. O [CHANGELOG](../CHANGELOG.md) lista todas as mudanças.
+- **Comportamento da verificação.** As mesmas mudanças alteram o comportamento da verificação, à parte da admissão. Assinaturas Ed25519 com S >= L agora são rejeitadas. Separadamente, os verificadores Go e Rust agora aplicam `accepted_classical_algs` e `accepted_pq_algs` de uma política, que antes recusavam por não serem aplicados: sob uma política assim, um bundle fora das listas falha, e um dentro delas agora pode ser verificado. O [CHANGELOG](../CHANGELOG.md) lista todas as mudanças.
 - **Bundles.** Nenhuma mudança no formato de transmissão. strict-v1 precisa de bundles assinados com `session_issued_at`, `session_expires_at` e `intended_verifier` no manifesto, que todos os assinantes dos SDKs gravam quando recebem uma expiração e uma audiência.
 - **Com um conjunto de confiança, bundles V1 são recusados**: eles não trazem nenhuma assinatura de principal para ancorar.
 - **Opções das integrações.** Novas e opcionais. Com principais confiáveis, `requireBundle: false` (Express) e `require_bundle=False` (FastAPI) são erros de configuração: uma requisição sem bundle chegaria à rota. Sob o perfil, também o são `verifierPolicy`, `requireHybrid: false` e as opções `checkRevocation` (Express), `verifier_policy` (FastAPI) e `verifierPolicy` (OpenClaw).

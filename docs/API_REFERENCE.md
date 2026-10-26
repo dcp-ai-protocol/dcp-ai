@@ -2,10 +2,7 @@
 
 Reference for the `@dcp-ai/sdk` TypeScript SDK as it is on `main` (package version 2.2.0, protocol DCP v2.0).
 
-> **Versions (25/10/2026).** The npm registry's `latest` is 2.1.1. Version 2.2.0 is tagged in `v2.10.0` but not
-> on npm, and sections marked *unreleased* describe what the changelog lists under
-> [`[Unreleased]`](../CHANGELOG.md#unreleased). To use what this reference describes, build the SDK from a checkout:
-> see the TypeScript SDK's [Release status](../sdks/typescript/README.md#installation).
+> **npm versions (26/10/2026).** This TypeScript reference applies to published `@dcp-ai/sdk` 2.2.0, including principal trust, `strict-v1` and the experimental opt-in candidate APIs. See [published npm packages](NPM_RELEASES.md) and the SDK [installation instructions](../sdks/typescript/README.md#installation). `dcp-jcs-v1` remains the normative default.
 
 Code blocks here are declarations or fragments, not complete programs: names such as `registry`, `keys`,
 `payloadBytes` or `signedBundle` stand for values built as in the TypeScript SDK's
@@ -825,7 +822,9 @@ if (result.verified) {
 }
 ```
 
-### Admission: trusted principals and strict-v1 (unreleased)
+<a id="admission-trusted-principals-and-strict-v1-unreleased"></a>
+
+### Admission: trusted principals and strict-v1
 
 Defined in [`spec/profiles/admission`](../spec/profiles/admission/README.md); guide in [ADMISSION.md](ADMISSION.md).
 
@@ -1997,7 +1996,9 @@ function detectDcpVersion(artifact: Record<string, unknown>): '1.0' | '2.0' | nu
 
 ---
 
-## Experimental: Canonicalization Candidate `dcp-jcs-v2` (opt-in, unreleased)
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
+
+## Experimental: Canonicalization Candidate `dcp-jcs-v2` (opt-in)
 
 Experimental and off by default: `dcp-jcs-v1` stays the default and the only normative canonicalization profile,
 and the normal builders, signers and verifiers are unchanged. These exports exist for callers who opt in; a verified candidate bundle grants no

@@ -16,8 +16,7 @@
 > without activating it: no existing or default path calls them, only callers who opt in. Those of §15
 > and §16 verify nothing; the verifier of §17 verifies candidate bundles from their original bytes, and
 > a verified bundle grants no trust or admission. The producers of §18 make new candidate evidence for
-> those callers only; the phase 3 vectors are signed by a test-only generator. These APIs are not
-> released as part of this work: the examples target the source checkout. The lab tool's CI job runs
+> those callers only; the phase 3 vectors are signed by a test-only generator. The experimental opt-in APIs are available in npm SDK 2.2.0 and WASM 2.1.0; other ecosystems have separate releases. See [published npm packages](../../NPM_RELEASES.md). The lab tool's CI job runs
 > the design model, the SDK test jobs run those APIs on the corpus and the phase 3 vectors, and the
 > phase 4 matrix has its own workflow. The
 > existing V2 verifiers, such as the TypeScript SDK's
@@ -115,7 +114,7 @@ fraction or exponent, `-0` as `0`; literal `null`, `true` and `false`; `{}` and 
 | D3 | **At most 64 nesting levels, counted from the root of the validated unit** (the signed bundle bytes), **never over a transport envelope** (§5) | Validity must not depend on a transport adding an envelope. 64 stays below the default recursion limit of `serde_json` (128). That is not a guarantee about other parsers, about numbers or other limits, or about operator budgets, which may be lower | Only units that select the candidate are affected |
 | D4 | **Exact value of the literal** (N1–N6) | The criterion is an exact integer in `[-(2^53-1), 2^53-1]`. Everything else is rejected: literals binary64 represents exactly but out of the domain (`0.5`, `2^53`) and literals binary64 would read as another value (`1e-400` as 0). The cost is linear; the length of a literal is a transport budget, not a profile rule | Only units that select the candidate are affected |
 | D5 | **Out of the activation scope:** artifacts without a manifest (revocations, key rotations, mandates) and A2A | The profile is declared in the signed manifest field; those artifacts have no such field. A later design can give each type its own signed field, and A2A one in the handshake transcript | They stay on `dcp-jcs-v1`. A verifier may apply the strict ingress to them by policy, but cannot claim the producer committed to the candidate |
-| D6 | **The candidate name `dcp-jcs-v2` is reserved.** Only the experimental, opt-in producers of §18 emit it, when a caller asks them to; no default path and no published package does. It stays a candidate name until a normative document is approved. (Revised in phase 4: before §18 there was no opt-in SDK producer; the phase 3 vectors came from a test-only generator.) | A draft suffix on the wire would be another identifier to maintain. Verifiers enable it only through an explicit policy (§7) | Evidence emitted under the candidate is experimental. If the rules changed after an external publication, a new identifier would be needed (`dcp-jcs-v1` §5) |
+| D6 | **The candidate name `dcp-jcs-v2` is reserved.** Only the experimental, opt-in producers of §18 emit it, when a caller asks them to; no default path does, including in published npm packages. It stays a candidate name until a normative document is approved. (Revised in phase 4: before §18 there was no opt-in SDK producer; the phase 3 vectors came from a test-only generator.) | A draft suffix on the wire would be another identifier to maintain. Verifiers enable it only through an explicit policy (§7) | Evidence emitted under the candidate is experimental. If the rules changed after an external publication, a new identifier would be needed (`dcp-jcs-v1` §5) |
 | D7 | **Optional `dcp-jcs-v1` warnings.** With the bytes available, a verifier may add to a `dcp-jcs-v1` result a warning with the class and offset of the primary defect (§6) | It finds producers to fix before migrating | Never changes a `dcp-jcs-v1` verdict. An object-based API cannot emit it |
 
 ## 5. The validated unit and the transport
@@ -653,7 +652,7 @@ Phase 4 of the SDK implementation plan adds experimental, opt-in producers to ea
 make **new** evidence: artifacts signed as today's, and bundles whose new manifest signs
 `canonicalization_profile: "dcp-jcs-v2"`. It is not normative, and no existing or default path calls them.
 `dcp-jcs-v1`, its builders, signers and verifiers, and every default are unchanged; the profile stays
-inactive and no package is published. A bundle they produce grants no trust or admission and authorizes nothing.
+experimental and opt-in, including in npm SDK 2.2.0 and WASM 2.1.0. A bundle they produce grants no trust or admission and authorizes nothing.
 
 | SDK | API |
 |---|---|

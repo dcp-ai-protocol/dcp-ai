@@ -10,7 +10,7 @@ The records are plain objects: **unsigned, and without content hashes or a hash 
 npm install @dcp-ai/autogen
 ```
 
-npm's 2.0.0 (25/10/2026) has the same `index.js` as the source on `main`. It has no dependencies.
+npm's 2.0.1 (26/10/2026) has the same `index.js` as the source on `main`. It has no dependencies.
 
 ## Supported DCP Specifications
 

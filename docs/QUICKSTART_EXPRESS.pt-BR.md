@@ -5,7 +5,7 @@
 
 # DCP-AI + Express: início rápido
 
-> Tradução informativa da [versão em inglês](QUICKSTART_EXPRESS.md), atualizada em 25/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](QUICKSTART_EXPRESS.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Verifique bundles assinados DCP nas suas APIs Express.js com o middleware `@dcp-ai/express`.
 
@@ -15,13 +15,10 @@ Verifique bundles assinados DCP nas suas APIs Express.js com o middleware `@dcp-
 
 ## Instalação
 
-> **Versões.** A instalação pelo registro abaixo fornece os `@dcp-ai/express` e `@dcp-ai/sdk` publicados (o
-> `latest` do `@dcp-ai/sdk` no npm era 2.1.1 em 25/10/2026). Este guia segue `main`, onde o middleware também tem
-> admissão (principais confiáveis e `strict-v1`, não publicados); para usá-la, compile `sdks/typescript` e
-> `integrations/express` a partir de uma cópia do repositório (veja o [README do Express](../integrations/express/README.md)).
+> **Versões (26/10/2026).** Use `@dcp-ai/express` 2.1.0 publicado com `@dcp-ai/sdk` 2.2.0. Eles incluem o verificador corrigido e a admissão com principais confiáveis e `strict-v1`; não é necessário compilar um checkout. Veja o [README do Express](../integrations/express/README.md).
 
 ```bash
-npm install @dcp-ai/express @dcp-ai/sdk express
+npm install @dcp-ai/express@^2.1.0 @dcp-ai/sdk@^2.2.0 express
 ```
 
 <a id="zero-config-scaffold-alternative"></a>
@@ -181,7 +178,7 @@ app.use(dcpVerify({
 }));
 ```
 
-Em `main` (não publicado), `trustedPrincipals`, `profile`, `revocationSource` e `tenant` acrescentam a admissão: só chegam à rota os bundles
+Em `main`, `trustedPrincipals`, `profile`, `revocationSource` e `tenant` acrescentam a admissão: só chegam à rota os bundles
 assinados para um principal em que você confia, com as chaves confiáveis dele. Veja [ADMISSION.md](ADMISSION.md) e o
 [README do Express](../integrations/express/README.md) para todas as opções, inclusive as de cache, supervisão e
 desconexão.
@@ -239,7 +236,7 @@ O middleware detecta automaticamente bundles V1 e V2. Um bundle V2 só é aceito
 
 Um bundle V1 não tem assinatura pós-quântica, então só é aceito onde um bundle apenas clássico seria (VERIFICATION.md V2-10): sob a política padrão, um bundle V1 com uma intenção routine ou standard passa, e um com pagamento, dados sensíveis, impacto estimado alto ou pontuação de risco de 0.5 ou mais é recusado. `requireHybrid` e `allow_v1_bundles: false` recusam todos os bundles V1.
 
-Um bundle verificado é internamente consistente e assinado pelas chaves que ele mesmo lista; isso não prova quem é o principal. Para aceitar bundles apenas de principais em que você confia, configure a admissão (`trustedPrincipals`, não publicada; veja [ADMISSION.md](ADMISSION.md)). Veja o README do pacote para a vinculação de audiência contra repetição.
+Um bundle verificado é internamente consistente e assinado pelas chaves que ele mesmo lista; isso não prova quem é o principal. Para aceitar bundles apenas de principais em que você confia, configure a admissão (`trustedPrincipals`; veja [ADMISSION.md](ADMISSION.md)). Veja o README do pacote para a vinculação de audiência contra repetição.
 
 ```typescript
 // Fragment: continues the Complete Working Example (`app`, `express`, `DCPAgent`)

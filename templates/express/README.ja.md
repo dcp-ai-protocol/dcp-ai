@@ -5,11 +5,11 @@
 
 # DCP-AI + Express の API サーバーのテンプレート
 
-> [英語版](README.md)の参考訳です（25/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](README.md)の参考訳です（26/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 サーバーの中で DCP のバンドルの確認がどこに入るかを示す Express の API です。
 
-> **署名は検証しません。** テンプレートの `verifyBundle` はバンドルの構造（バージョン、マニフェストのフィールド、複合署名の有無、セッションの nonce）だけを確認します。署名は 1 つも検証しないため、偽造または改変されたバンドルが通ってしまいます。ルートと流れを見るために使い、検証器としては使わないでください。バンドルを検証するには、[`@dcp-ai/express`](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/integrations/express/README.md)（次のリリースまではチェックアウトから）か SDK の `verifySignedBundleV2` を、[docs/QUICKSTART_EXPRESS.md](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/docs/QUICKSTART_EXPRESS.md) のように使ってください。
+> **署名は検証しません。** テンプレートの `verifyBundle` はバンドルの構造（バージョン、マニフェストのフィールド、複合署名の有無、セッションの nonce）だけを確認します。署名は 1 つも検証しないため、偽造または改変されたバンドルが通ってしまいます。ルートと流れを見るために使い、検証器としては使わないでください。バンドルを検証するには、[`@dcp-ai/express`](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/integrations/express/README.md) 2.1.0か SDK の `verifySignedBundleV2` を、[docs/QUICKSTART_EXPRESS.md](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/docs/QUICKSTART_EXPRESS.md) のように使ってください。
 
 <a id="quick-start"></a>
 

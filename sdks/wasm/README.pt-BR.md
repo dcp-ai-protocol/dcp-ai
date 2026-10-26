@@ -4,7 +4,7 @@
 
 # @dcp-ai/wasm — SDK WebAssembly v2.0
 
-> Tradução informativa do [README em inglês](README.md), atualizada em 25/10/2026. Os identificadores e os blocos de código, incluindo seus comentários, foram preservados para manter os exemplos testados.
+> Tradução informativa do [README em inglês](README.md), atualizada em 26/10/2026. Os identificadores e os blocos de código, incluindo seus comentários, foram preservados para manter os exemplos testados.
 
 Módulo WebAssembly para o Digital Citizenship Protocol (DCP) v2.0, compilado a partir do SDK de Rust. Oferece assinaturas compostas pós-quânticas, geração de chaves híbridas, encapsulamento de chaves ML-KEM-768, hashes duplos, construção e verificação de bundles e cálculo do nível de segurança. Tudo é executado diretamente no navegador ou no Node.js, sem servidor.
 
@@ -12,16 +12,19 @@ Módulo WebAssembly para o Digital Citizenship Protocol (DCP) v2.0, compilado a 
 
 ## Instalação
 
-**Estado da publicação.** Este README descreve o código de `main`. A última versão com tag, `v2.10.0`, lista `@dcp-ai/wasm` 2.1.0; o registro npm não foi consultado para este README. O que aparece em [`[Unreleased]`](../../CHANGELOG.md#unreleased) no histórico de alterações ainda não faz parte de uma versão com tag, incluindo as APIs experimentais de `dcp-jcs-v2`. Para executar os exemplos abaixo, compile uma cópia do repositório (consulte Compilação) e instale sua pasta:
+**Publicado no npm (26/10/2026).** `@dcp-ai/wasm` 2.1.0 é `latest` e inclui as APIs descritas aqui, inclusive as experimentais de `dcp-jcs-v2`. Publicá-las não ativa o candidato: ele continua opt-in e não normativo, sem mudanças em `dcp-jcs-v1`. O crate Rust tem um ciclo de publicação separado.
 
 ```bash
-npm install /path/to/dcp-ai/sdks/wasm
+npm install @dcp-ai/wasm@^2.1.0
 ```
 
-A instalação pelo registro obtém a versão publicada:
+Veja o [inventário de publicações npm](../../docs/NPM_RELEASES.md) para todas as versões.
+
+Para desenvolver a partir de uma cópia do repositório, compile e instale o pacote local:
 
 ```bash
-npm install @dcp-ai/wasm
+# Build in sdks/wasm first (see Build)
+npm install /path/to/dcp-ai/sdks/wasm
 ```
 
 <a id="build"></a>
@@ -270,11 +273,12 @@ O SDK WASM inclui interfaces TypeScript para todos os artefatos DCP-05 a DCP-09,
 
 Contextos de separação de domínios disponíveis por `domainSeparatedMessage()`: `Lifecycle`, `Succession`, `Dispute`, `Rights`, `Delegation`, `Awareness`.
 
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in"></a>
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
 
-## Experimental: candidato de canonicalização `dcp-jcs-v2` (ativação explícita, não publicado)
+## Experimental: candidato de canonicalização `dcp-jcs-v2` (ativação explícita)
 
-Não é normativo nem está ativado: `dcp-jcs-v1` continua sendo o único perfil de canonicalização, e nenhum padrão, construtor, assinador ou verificador é alterado. Esses métodos estão disponíveis para quem os habilitar explicitamente em uma compilação do repositório (consulte Estado da publicação). As interfaces WASM recebem apenas bytes; os valores do ambiente hospedeiro são verificados primeiro em JavaScript. Um bundle verificado pelo candidato não concede confiança ou admissão. Projeto e contrato: [`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md) (§15 entrada, §16 roteador, §17 verificador, §18 produtores).
+Não é normativo nem está ativado: `dcp-jcs-v1` continua sendo o único perfil de canonicalização, e nenhum padrão, construtor, assinador ou verificador é alterado. Esses métodos estão disponíveis para quem os habilitar explicitamente inclusive no npm WASM 2.1.0. As interfaces WASM recebem apenas bytes; os valores do ambiente hospedeiro são verificados primeiro em JavaScript. Um bundle verificado pelo candidato não concede confiança ou admissão. Projeto e contrato: [`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md) (§15 entrada, §16 roteador, §17 verificador, §18 produtores).
 
 | Método | Descrição |
 |--------|-------------|

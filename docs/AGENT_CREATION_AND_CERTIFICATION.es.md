@@ -5,11 +5,11 @@
 
 # Creación y certificación de agentes — P2P, sin servicio central
 
-> Traducción informativa de [la versión en inglés](AGENT_CREATION_AND_CERTIFICATION.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](AGENT_CREATION_AND_CERTIFICATION.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Un sistema que crea agentes puede producir por defecto agentes **certificados DCP**: vinculados a una persona, con pasaporte emitido y bundle firmado. **Sin registro en ningún servicio central.** La verificación es local. Opcional: anclar bundle_hash en un registro o cadena pública (usando una blockchain existente o un servicio de terceros).
 
-En esta página, «certificado DCP» significa que un bundle supera las comprobaciones locales definidas abajo. No es un certificado emitido por una autoridad, no confirma quién es realmente el principal y no decide si un verificador debe aceptar al agente: eso es la admisión, un paso aparte ([ADMISSION.md](ADMISSION.md), sin publicar).
+En esta página, «certificado DCP» significa que un bundle supera las comprobaciones locales definidas abajo. No es un certificado emitido por una autoridad, no confirma quién es realmente el principal y no decide si un verificador debe aceptar al agente: eso es la admisión, un paso aparte ([ADMISSION.md](ADMISSION.md)).
 
 > **Herramientas de esta página.** `dcp` es la CLI de referencia de una copia del repositorio, `node /path/to/dcp-ai/bin/dcp.js`; solo lee y escribe dentro del directorio actual. El asistente interactivo `@dcp-ai/cli init` es una demo que no crea una identidad V2 válida: véase [Asistente de la CLI (solo demo)](#cli-wizard-demo-only).
 
@@ -122,7 +122,7 @@ Para generar claves híbridas reales desde una copia del repositorio, `dcp keyge
 
 ### Asistente de la CLI (solo demo)
 
-`npx @dcp-ai/cli init` (el `@dcp-ai/cli` publicado era la 2.0.0 el 25/10/2026, y sus archivos de `init` eran idénticos a los de este repositorio) hace unas cuantas preguntas y escribe:
+`npx @dcp-ai/cli init` (el `@dcp-ai/cli` publicado era la 2.1.0 el 26/10/2026, y sus archivos de `init` eran idénticos a los de este repositorio) hace unas cuantas preguntas y escribe:
 
 - `.dcp/config.json` — Configuración del agente
 - `.dcp/keys/` — un par de claves Ed25519, más un par de claves «ML-DSA-65» si eliges claves híbridas

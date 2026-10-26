@@ -4,7 +4,7 @@
 
 # Laboratorio de canonicalización
 
-> Traducción informativa de [la versión en inglés](README.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](README.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Un **modelo de diseño** ejecutable del candidato no normativo `dcp-jcs-v2`, con su generador de corpus y su
 ejecutor. No es un SDK, ni un verificador, ni una comprobación de conformidad: calcula SHA-256 para sus compromisos sintéticos,
@@ -39,7 +39,10 @@ comandos en Ubuntu con Python 3.9 (el mínimo documentado) y 3.12, solo con la b
 corpus y lo compara byte a byte, ejecuta los 274 casos y los 24 controles negativos, y comprueba ambos
 recuentos; cualquier fallo hace fallar el job.
 
-Comprueba solo el **modelo de diseño**. No es conformidad de los SDK: las API candidatas de activación explícita de los SDK (sin publicar)
+Comprueba solo el **modelo de diseño**. No es conformidad de los SDK: las API candidatas de activación explícita de los SDK
 se prueban con sus propias suites y con la [matriz de la fase 4](../../tests/interop/candidate/phase4/README.md); ningún
 perfil ni ningún verificador predeterminado ejecuta el candidato, y `dcp-jcs-v1` no cambia. Una ejecución en verde dice que el
 modelo, el corpus y sus expectativas coinciden; no dice nada de ninguna implementación.
+
+
+Las API opt-in de TypeScript y WASM están disponibles en `@dcp-ai/sdk` 2.2.0 y `@dcp-ai/wasm` 2.1.0; los demás SDK tienen publicaciones independientes.

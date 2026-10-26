@@ -5,7 +5,7 @@
 
 # @dcp-ai/openclaw — integración de DCP para OpenClaw
 
-> Traducción informativa de [la versión en inglés](README.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](README.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Plugin de [OpenClaw](https://github.com/openclaw/openclaw) que añade herramientas del **Digital Citizenship Protocol (DCP)** a los agentes de IA. Una acción se declara, se puntúa por riesgo y
 se registra en un registro de auditoría encadenado por hash y vinculado a un propietario humano cuando el agente llama a estas herramientas: el plugin no
@@ -39,23 +39,24 @@ De DCP-01 a DCP-09, de forma parcial: las herramientas de abajo crean registros 
 
 ## Instalación
 
-> **Estado de publicación (25/10/2026).** npm solo tiene `@dcp-ai/openclaw` 2.0.0; este README sigue el código fuente de `main` (versión 2.1.0, no publicada). La 2.0.0 publicada **no verifica las firmas de los bundles V2** en `dcp_verify_bundle`: solo comprueba su estructura, así que un bundle V2 falsificado o alterado pasa (corregido en `main`, véase la sección `[Unreleased]` de [CHANGELOG.md](../../CHANGELOG.md)). No confíes en la 2.0.0 para bundles V2; tampoco incluye la política del operador, los principales de confianza ni el supervisor de fuentes. Hasta que `@dcp-ai/sdk` 2.2.0 esté en npm, este paquete depende del SDK del workspace (`"@dcp-ai/sdk": "file:../../sdks/typescript"`); para publicarlo hay que subir la dependencia a `^2.2.0`, y el flujo de publicación rechaza un paquete que dependa de una ruta local.
+**Publicado en npm (26/10/2026).** `@dcp-ai/openclaw` 2.1.0 es `latest` y depende de `@dcp-ai/sdk` `^2.2.0`. Las funciones descritas abajo están disponibles en npm.
 
-Para usar la versión que describe esta página, compílala desde un checkout e instálala desde allí:
+**Actualiza desde 2.0.0:** esa versión comprueba la estructura V2 sin verificar firmas. Usa 2.1.0 para el verificador corregido, la admisión y la supervisión de fuentes. Véase [SECURITY.md](../../SECURITY.md).
+
+```bash
+npm install @dcp-ai/openclaw@^2.1.0
+```
+
+Consulta el [inventario de publicaciones npm](../../docs/NPM_RELEASES.md) para ver todas las versiones.
+
+Para desarrollar con una copia del repositorio, compila e instala el paquete local:
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-cd dcp-ai/sdks/typescript && npm install && npm run build       # the SDK of main
-cd ../../integrations/openclaw && npm install && npm run build  # this package
-# then, in your OpenClaw plugins directory:
+cd dcp-ai/integrations/openclaw
+npm ci && npm run build
+# then, in your project (or OpenClaw plugins directory):
 npm install /path/to/dcp-ai/integrations/openclaw
-```
-
-La versión publicada (2.0.0), sin esas correcciones y funcionalidades:
-
-```bash
-# In your OpenClaw plugins directory
-npm install @dcp-ai/openclaw
 ```
 
 Añade a la configuración de OpenClaw:

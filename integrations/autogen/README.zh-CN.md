@@ -5,7 +5,7 @@
 
 # DCP-AI ↔ Microsoft AutoGen 桥接
 
-> 本文是[英文版](README.md)的参考译文，更新于 25/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](README.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 为 Microsoft AutoGen 对话构建具有 DCP 形态的记录：带 DCP 身份的智能体配置、消息的审计条目、函数调用的意图以及委托授权书。
 
@@ -19,7 +19,7 @@
 npm install @dcp-ai/autogen
 ```
 
-npm 上的 2.0.0（2026 年 10 月 25 日）与 `main` 上源码中的 `index.js` 相同。它没有依赖。
+npm 上的 2.0.1（2026 年 10 月 26 日）与 `main` 上源码中的 `index.js` 相同。它没有依赖。
 
 <a id="supported-dcp-specifications"></a>
 

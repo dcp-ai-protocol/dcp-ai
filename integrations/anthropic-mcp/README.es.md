@@ -5,7 +5,7 @@
 
 # DCP-AI ↔ puente con Model Context Protocol (MCP)
 
-> Traducción informativa de [la versión en inglés](README.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](README.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Recibos firmados de DCP para las llamadas a herramientas de MCP, además de herramientas y recursos de DCP para servidores MCP.
 
@@ -13,27 +13,25 @@ Recibos firmados de DCP para las llamadas a herramientas de MCP, además de herr
 
 ## Instalación
 
-> **Estado de publicación (25/10/2026).** npm tiene `@dcp-ai/anthropic-mcp` 2.0.0, que incluye las herramientas y los recursos de DCP pero no los recibos firmados (`withDcpReceipt`, `createReceiptIdentity`, `verifyDcpReceipt`): esos están en el código fuente de `main` (versión 2.1.0, no publicada). El paquete depende de `@dcp-ai/sdk` `^2.0.0`, que npm resuelve a la 2.1.1; esa versión carece de las correcciones de seguridad de la 2.2.0 en `verifySignedBundleV2` ([SECURITY.md](../../SECURITY.md)), y `verifyDcpReceipt` y `dcp_verify_bundle` verifican con ella. Hasta que la 2.2.0 esté en npm, compila el SDK desde un checkout y apunta este paquete a él.
+**Publicado en npm (26/10/2026).** `@dcp-ai/anthropic-mcp` 2.1.0 es `latest` y depende de `@dcp-ai/sdk` `^2.2.0`. Las funciones descritas abajo están disponibles en npm.
 
-Desde un checkout (la versión de esta página, sobre el SDK de `main`):
+Incluye recibos firmados (`withDcpReceipt`, `createReceiptIdentity`, `verifyDcpReceipt`). Los ejemplos también necesitan `@modelcontextprotocol/sdk` y `zod`; instálalos por separado.
+
+```bash
+npm install @dcp-ai/anthropic-mcp@^2.1.0
+```
+
+Consulta el [inventario de publicaciones npm](../../docs/NPM_RELEASES.md) para ver todas las versiones.
+
+Para desarrollar con una copia del repositorio, compila e instala el paquete local:
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-cd dcp-ai/sdks/typescript && npm install && npm run build
-cd ../../integrations/anthropic-mcp && npm install
-npm install --no-save --package-lock=false --ignore-scripts --install-links ../../sdks/typescript
-npm run build
+cd dcp-ai/integrations/anthropic-mcp
+npm ci && npm run build
 # then, in your project:
 npm install /path/to/dcp-ai/integrations/anthropic-mcp
 ```
-
-La versión publicada (2.0.0), sin los recibos y sobre el SDK de npm:
-
-```bash
-npm install @dcp-ai/anthropic-mcp
-```
-
-Los ejemplos usan también el SDK de TypeScript de MCP (`@modelcontextprotocol/sdk`) y `zod`, que instalas tú.
 
 <a id="signed-receipts-per-tool-call"></a>
 

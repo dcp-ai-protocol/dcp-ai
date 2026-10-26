@@ -6,13 +6,10 @@ Verify DCP signed bundles in your Express.js APIs using the `@dcp-ai/express` mi
 
 ## Installation
 
-> **Versions.** The registry install below gives the published `@dcp-ai/express` and `@dcp-ai/sdk` (npm's
-> `latest` `@dcp-ai/sdk` was 2.1.1 on 25/10/2026). This guide follows `main`, where the middleware also has
-> admission (trusted principals and `strict-v1`, unreleased); to use it, build `sdks/typescript` and
-> `integrations/express` from a checkout (see the [Express README](../integrations/express/README.md)).
+> **Versions (26/10/2026).** Use published `@dcp-ai/express` 2.1.0 with `@dcp-ai/sdk` 2.2.0. They include the corrected verifier and admission with trusted principals and `strict-v1`; building a checkout is not required. See the [Express README](../integrations/express/README.md).
 
 ```bash
-npm install @dcp-ai/express @dcp-ai/sdk express
+npm install @dcp-ai/express@^2.1.0 @dcp-ai/sdk@^2.2.0 express
 ```
 
 ### Zero-config scaffold (alternative)
@@ -162,7 +159,7 @@ app.use(dcpVerify({
 }));
 ```
 
-On `main` (unreleased), `trustedPrincipals`, `profile`, `revocationSource` and `tenant` add admission: only bundles
+On `main`, `trustedPrincipals`, `profile`, `revocationSource` and `tenant` add admission: only bundles
 signed for a principal you trust, with its trusted keys, reach the route. See [ADMISSION.md](ADMISSION.md) and the
 [Express README](../integrations/express/README.md) for every option, including the cache, supervision and
 disconnect options.
@@ -216,7 +213,7 @@ The middleware auto-detects V1 and V2 bundles. A V2 bundle is accepted only if `
 
 A V1 bundle has no post-quantum signature, so it is accepted only where a classical-only bundle would be (VERIFICATION.md V2-10): under the default policy a V1 bundle with a routine or standard intent passes, and one with a payment, sensitive data, a high estimated impact or a risk score of 0.5 or more is refused. `requireHybrid` and `allow_v1_bundles: false` refuse every V1 bundle.
 
-A verified bundle is internally consistent and signed by the keys it lists itself; it does not prove who the principal is. To accept bundles only from principals you trust, configure admission (`trustedPrincipals`, unreleased; see [ADMISSION.md](ADMISSION.md)). See the package README for audience binding against replay.
+A verified bundle is internally consistent and signed by the keys it lists itself; it does not prove who the principal is. To accept bundles only from principals you trust, configure admission (`trustedPrincipals`; see [ADMISSION.md](ADMISSION.md)). See the package README for audience binding against replay.
 
 ```typescript
 // Fragment: continues the Complete Working Example (`app`, `express`, `DCPAgent`)

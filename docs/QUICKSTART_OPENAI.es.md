@@ -5,7 +5,7 @@
 
 # DCP-AI + OpenAI: inicio rápido
 
-> Traducción informativa de [la versión en inglés](QUICKSTART_OPENAI.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](QUICKSTART_OPENAI.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Añade identidad criptográfica, control por política y rastros de auditoría a agentes de OpenAI con llamadas a funciones.
 
@@ -17,14 +17,10 @@ Añade identidad criptográfica, control por política y rastros de auditoría a
 
 Esta guía usa el **SDK de OpenAI para Node**. Si usas Python, salta a la sección de Python al final.
 
-La instalación desde el registro da el `@dcp-ai/sdk` publicado (el `latest` de npm era 2.1.1 el 25/10/2026). El ejemplo V1
-funciona con él; la sección V2 sigue `main`, así que para ella compila el SDK desde una copia del repositorio (véase la sección
-[Release status](../sdks/typescript/README.md#installation) del SDK de TypeScript). Los ejemplos usan la API Chat Completions del
-SDK de OpenAI para Node (`openai` v4 o posterior; las versiones recientes añaden llamadas a herramientas personalizadas, que el bucle rechaza). Ejecutarlos
-llama a la API de OpenAI y necesita `OPENAI_API_KEY`.
+La instalación desde el registro usa `@dcp-ai/sdk` 2.2.0 para los ejemplos V1 y V2; el checkout es opcional (véase [instalación](../sdks/typescript/README.md#installation)). Los ejemplos usan la API Chat Completions del SDK Node de OpenAI (`openai` v4 o posterior; las versiones recientes añaden llamadas a herramientas personalizadas, que el bucle rechaza). Ejecutarlos llama a la API de OpenAI y requiere `OPENAI_API_KEY`.
 
 ```bash
-npm install @dcp-ai/sdk openai
+npm install @dcp-ai/sdk@^2.2.0 openai
 ```
 
 <a id="zero-config-scaffold-alternative"></a>

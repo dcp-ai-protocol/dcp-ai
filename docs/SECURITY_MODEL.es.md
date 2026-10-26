@@ -4,7 +4,7 @@
 
 # Modelo de seguridad
 
-> Traducción informativa de [la versión en inglés](SECURITY_MODEL.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](SECURITY_MODEL.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Cómo protege el protocolo frente a los ataques, desde los bundles falsificados hasta las bifurcaciones del protocolo.
 
@@ -20,7 +20,7 @@ La verificación es local. No es una debilidad; es la propiedad de seguridad cen
 - **Las garantías criptográficas no dependen del lugar.** Las firmas Ed25519 y los hashes SHA-256 dan el mismo resultado en cualquier máquina. No se pueden «hackear las matemáticas».
 - **El verificador no confía en el agente.** El agente presenta un bundle; el verificador lo comprueba con sus propias herramientas. Un agente comprometido no puede hacer que un verificador acepte un bundle no válido.
 
-La verificación dice que un bundle está intacto y firmado por las claves que nombra. Confiar en esas claves, y actuar según el bundle, es una decisión aparte: la admisión frente a los principales de confianza del operador ([ADMISSION.md](ADMISSION.md), sin publicar), más la autorización propia del operador.
+La verificación dice que un bundle está intacto y firmado por las claves que nombra. Confiar en esas claves, y actuar según el bundle, es una decisión aparte: la admisión frente a los principales de confianza del operador ([ADMISSION.md](ADMISSION.md)), más la autorización propia del operador.
 
 La seguridad procede de **capas de protección**, cada una dirigida a un vector de ataque distinto.
 

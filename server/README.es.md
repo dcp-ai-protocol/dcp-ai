@@ -4,7 +4,7 @@
 
 # Pasarela de referencia de DCP
 
-> Traducción informativa de [la versión en inglés](README.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](README.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Servicio HTTP de verificación que implementa V1, V2 y la fase 3 (PQ primero) del Digital Citizenship Protocol. **Almacenamiento en memoria**: no necesita ninguna base de datos externa, y nada sobrevive a un reinicio (véase [Persistencia](#persistence)). Pensado para que lo ejecute cualquier tercero; el protocolo no exige un servidor central.
 
@@ -12,7 +12,7 @@ Servicio HTTP de verificación que implementa V1, V2 y la fase 3 (PQ primero) de
 
 ## Inicio rápido
 
-Desde la raíz de un checkout. El paquete raíz depende del SDK del workspace hasta que `@dcp-ai/sdk` 2.2.0 esté en npm, así que compílalo primero:
+Ejecuta desde la raíz de un checkout. La raíz depende deliberadamente del SDK del workspace para probar ese código, aunque `@dcp-ai/sdk` 2.2.0 ya está publicado en npm. Compílalo primero:
 
 ```bash
 (cd sdks/typescript && npm install && npm run build)
@@ -146,7 +146,7 @@ compuesta obligatorias, antigüedad de clave de 365 días), y `GET /v2/policy` l
   refrenda. La clave antigua debe estar activa (no revocada, no caducada); después se marca como revocada.
 - **Autorización multiparte**: cada parte firma `{operation, operation_payload, party_id, role}` con
   `DCP-AI.v2.MultiPartyAuth` (`createPartyAuthorization` en `sdks/typescript/src/core/multi-party-auth.ts`, que
-  `@dcp-ai/sdk` 2.1.1 no exporta). Una parte es una identidad registrada mediante `/v2/passport/register`, y sus kids de
+  `@dcp-ai/sdk` 2.2.0 no exporta). Una parte es una identidad registrada mediante `/v2/passport/register`, y sus kids de
   firma deben ser claves activas (no revocadas, no caducadas) registradas a nombre de su `party_id`. Cada parte cuenta
   una sola vez para `required_parties`, firme por los roles que firme. Los roles los afirma quien firma; no se buscan en
   ningún sitio.

@@ -2,9 +2,7 @@
 
 **Specification version:** 2.0
 **Last updated:** October 2026
-**Applies to:** the SDKs on `main`. Published packages carry their own versions: on 25/10/2026 npm's `latest`
-`@dcp-ai/sdk` was 2.1.1, without the 2.2.0 verifier fixes (see [`SECURITY.md`](../SECURITY.md#supported-versions)
-and each SDK's *Release status*).
+**Applies to:** the SDKs on `main` and published `@dcp-ai/sdk` 2.2.0. npm versions were verified on 26/10/2026; see [NPM_RELEASES.md](NPM_RELEASES.md) and [SECURITY.md](../SECURITY.md#supported-versions). Other ecosystems have separate releases.
 
 This guide walks you through migrating an existing DCP-AI v1.0 integration to v2.0. The migration introduces post-quantum composite signatures, dual-hash chains, session binding, adaptive security tiers, and agent-to-agent communication — while valid v1.0 bundles keep verifying where the verifier's policy allows them (see 1.2).
 
@@ -55,13 +53,12 @@ The migration is **additive**: v2.0 introduces new fields and structures alongsi
 
 ### Step 1: Update SDK
 
-The examples follow `main`. Build or install the SDKs from a source checkout to run them as written (each SDK
-README's *Release status* has the commands); the registry commands below install the published versions.
+The TypeScript examples work with the published npm SDK. For the Python, Go and Rust features described from `main`, check each SDK README’s release status and use a checkout where those features are not yet released.
 
-**TypeScript** (published: 2.1.1 on 25/10/2026; 2.2.0 from a checkout):
+**TypeScript** (published: 2.2.0 on 26/10/2026):
 
 ```bash
-npm install /path/to/dcp-ai/sdks/typescript   # main, built with `npm install && npm run build`
+npm install @dcp-ai/sdk@^2.2.0
 ```
 
 **Python:**

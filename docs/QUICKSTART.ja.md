@@ -4,7 +4,7 @@
 
 # DCP-AI クイックスタートガイド
 
-> [英語版](QUICKSTART.md)の参考訳です（25/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](QUICKSTART.md)の参考訳です（26/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 5 分以内で Digital Citizenship Protocol を使い始められます。
 
@@ -29,7 +29,7 @@
 
 ## 公開パッケージとこのガイド
 
-例は `main` のソースに従っています。2026 年 10 月 25 日時点で、npm レジストリの `@dcp-ai/sdk` の `latest` は 2.1.1 で、2.2.0 の検証器の修正（[`SECURITY.md`](../SECURITY.md#supported-versions)）も、変更履歴の [`[Unreleased]`](../CHANGELOG.md#unreleased) の機能も含みません。ほかのパッケージにはそれぞれのバージョンがあります（各 SDK の README に *Release status* があります）。例を書かれたとおりに実行するには、チェックアウトを使ってください。
+TypeScript の例は公開済みの `@dcp-ai/sdk` 2.2.0 で動作し、npm の CLI は `@dcp-ai/cli` 2.1.0 です。[公開済み npm パッケージ](NPM_RELEASES.md)と [SECURITY.md](../SECURITY.md#supported-versions)を参照してください。他の環境の公開は別です。ソース開発や、まだチェックアウトにしかない Python 機能を使う場合は、次の手順を使います。
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
@@ -98,20 +98,20 @@ npx @dcp-ai/cli init   # or: node /path/to/dcp-ai/cli/bin/dcp-ai.js init
 
 ## 3. TypeScript SDK
 
-以下の例は `main` に従います。チェックアウトからビルドした SDK をインストールしてください（[公開パッケージとこのガイド](#published-packages-and-this-guide)を参照）。
+以下の TypeScript の例は npm SDK 2.2.0 または開発用チェックアウトで動作します（[公開パッケージとこのガイド](#published-packages-and-this-guide)を参照）。
 
 次のどちらかをインストールします。
 
-- 以下の例が必要とする `main` の SDK：
+- ソース開発用にチェックアウトからビルドした `main` の SDK：
 
   ```bash
   npm install /path/to/dcp-ai/sdks/typescript
   ```
 
-- または、2.2.0 の修正と未リリースの機能を含まない公開済みのバージョン（2026 年 10 月 25 日時点で 2.1.1）：
+- または、これらの修正と機能を含む公開済み SDK 2.2.0：
 
   ```bash
-  npm install @dcp-ai/sdk
+  npm install @dcp-ai/sdk@^2.2.0
   ```
 
 <a id="create-and-sign-a-bundle-v1--ed25519"></a>
@@ -470,7 +470,7 @@ ML-DSA-65、ML-KEM-768、SLH-DSA-192f、Ed25519 のプロバイダーは `dcp_ai
 ### WebAssembly（ブラウザー）
 
 ```bash
-npm install @dcp-ai/wasm   # the published version; for main, see the WASM SDK's Release status
+npm install @dcp-ai/wasm@^2.1.0   # the published version; for main, see the WASM SDK's Release status
 ```
 
 Rust SDK の基本機能をブラウザーと Node.js に公開します。Node.js では、`initDcp()` は `.wasm` ファイルを `data:` URL として必要とします。[初期化](../sdks/wasm/README.md#initialization-browser-and-nodejs)を参照してください。

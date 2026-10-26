@@ -1,6 +1,6 @@
 <sub>[English](README.md) · [中文](README.zh-CN.md) · [Español](README.es.md) · **日本語** · [Português](README.pt-BR.md)</sub>
 
-> [英語版](README.md)の参考訳です（25/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](README.md)の参考訳です（26/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 <div align="center">
 
@@ -119,19 +119,13 @@ DCP は 3 つの概念的なレイヤーで構成されています。
 
 ## クイックスタート
 
-> **公開パッケージとこのリポジトリ（2026 年 10 月 25 日）。** npm レジストリの `@dcp-ai/sdk` の `latest` は
-> 2.1.1 で、2.2.0 の検証器の修正（[`SECURITY.md`](SECURITY.md#supported-versions)）も、変更履歴の
-> [`[Unreleased]`](CHANGELOG.md#unreleased) にある内容も含みません。このリポジトリの例は `main` に従っています。
-> 実行するには、ソースのチェックアウトを使ってください。
+> **公開済みパッケージ（2026 年 10 月 26 日）。** npm では `@dcp-ai/sdk` 2.2.0、`@dcp-ai/wasm` と `@dcp-ai/cli` 2.1.0、および更新済みアダプターと生成ツールを利用できます。[13 パッケージの一覧](docs/NPM_RELEASES.md)と[セキュリティ更新の注意](SECURITY.md#supported-versions)を参照してください。これらの npm バージョンには文書化された修正と機能が含まれます。Python、Go、Rust の公開は別です。リポジトリの参照 CLI とソースのテストを実行するには、チェックアウトをビルドします。
 >
 > ```bash
 > git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-> cd dcp-ai/sdks/typescript && npm install && npm run build   # the SDK of main
-> cd ../.. && npm install                                       # the reference CLI, against that SDK
+> cd dcp-ai/sdks/typescript && npm install && npm run build
+> cd ../.. && npm install
 > ```
->
-> 以下のレジストリのコマンド（`npm install`、`npx`）は、代わりに公開済みのバージョンをインストールします。ほかのパッケージには
-> それぞれのバージョンがあります。各 SDK の *Release status* を参照してください。
 
 <a id="option-a-cli-wizard-demo"></a>
 
@@ -171,16 +165,16 @@ node /path/to/dcp-ai/bin/dcp.js verify-bundle --policy hybrid_preferred bundle.s
 
 次のどちらかをインストールします。
 
-- 上記のとおりチェックアウトからビルドした、以下の例が必要とする `main` の SDK：
+- ソース開発用にチェックアウトからビルドした `main` の SDK：
 
   ```bash
   npm install /path/to/dcp-ai/sdks/typescript
   ```
 
-- または、2.2.0 の修正と未リリースの機能を含まない公開済みのバージョン（2026 年 10 月 25 日時点で 2.1.1）：
+- または、これらの修正と機能を含む公開済み SDK 2.2.0：
 
   ```bash
-  npm install @dcp-ai/sdk
+  npm install @dcp-ai/sdk@^2.2.0
   ```
 
 `main` の現行の V2 バンドル検証器（署名、ハッシュ、セッションバインディング、セキュリティティア）で、署名済みの V2 バンドルを
@@ -479,7 +473,7 @@ cd docker && docker compose up -d
 | [AGENT_CREATION_AND_CERTIFICATION](docs/AGENT_CREATION_AND_CERTIFICATION.md) | P2P でのエージェント作成の流れ、DCP の認証 |
 | [OPERATOR_GUIDE](docs/OPERATOR_GUIDE.md) | 検証サービスの運用 |
 | [MIGRATION_V1_V2](docs/MIGRATION_V1_V2.md) | DCP v1.0 から v2.0 への移行 |
-| [ADMISSION](docs/ADMISSION.md) | 信頼済みのプリンシパルからのバンドルだけを、必要に応じて `strict-v1` のもとで受け入れる（未リリース） |
+| [ADMISSION](docs/ADMISSION.md) | 信頼済みのプリンシパルからのバンドルだけを、必要に応じて `strict-v1` のもとで受け入れる |
 | [OBSERVABILITY](docs/OBSERVABILITY.md) | SDK からの OpenTelemetry のトレースとメトリクス |
 
 <a id="proposals-experimental-not-normative"></a>
@@ -488,7 +482,7 @@ cd docker && docker compose up -d
 
 | ドキュメント | 説明 |
 |----------|-------------|
-| [正規化の候補 `dcp-jcs-v2`](docs/proposals/canonicalization-candidate/README.md) | 既定では有効化されない実験的な候補プロファイル、その設計とオプトインの SDK API（未リリース）。`dcp-jcs-v1` は引き続き既定であり、唯一の規範的な正規化プロファイル |
+| [正規化の候補 `dcp-jcs-v2`](docs/proposals/canonicalization-candidate/README.md) | 既定では有効化されない実験的な候補プロファイル、その設計とオプトインの SDK API。`dcp-jcs-v1` は引き続き既定であり、唯一の規範的な正規化プロファイル |
 
 <a id="standards-alignment"></a>
 
@@ -595,7 +589,7 @@ dcp-ai/
 ## 開発
 
 ```bash
-# Build the workspace SDK first: the root depends on it until @dcp-ai/sdk 2.2.0 is on npm
+# Build the workspace SDK first: the root uses it to test the checked-out source
 (cd sdks/typescript && npm install && npm run build)
 
 # Install dependencies

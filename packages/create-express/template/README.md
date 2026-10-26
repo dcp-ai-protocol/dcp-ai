@@ -2,7 +2,7 @@
 
 An Express API that shows where DCP bundle checks go in a server.
 
-> **It does not verify signatures.** The template's `verifyBundle` checks the structure of a bundle only (version, manifest fields, the presence of composite signatures, session nonces). It verifies no signature, so a forged or altered bundle passes. Use it to see the routes and the flow, not as a verifier. To verify bundles, use [`@dcp-ai/express`](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/integrations/express/README.md) (from a checkout until its next release) or the SDK's `verifySignedBundleV2`, as in [docs/QUICKSTART_EXPRESS.md](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/docs/QUICKSTART_EXPRESS.md).
+> **It does not verify signatures.** The template's `verifyBundle` checks the structure of a bundle only (version, manifest fields, the presence of composite signatures, session nonces). It verifies no signature, so a forged or altered bundle passes. Use it to see the routes and the flow, not as a verifier. To verify bundles, use [`@dcp-ai/express`](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/integrations/express/README.md) 2.1.0 or the SDK's `verifySignedBundleV2`, as in [docs/QUICKSTART_EXPRESS.md](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/docs/QUICKSTART_EXPRESS.md).
 
 ## Quick Start
 

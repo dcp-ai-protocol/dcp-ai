@@ -5,7 +5,7 @@
 
 # Ponte DCP-AI ↔ W3C DID/VC
 
-> Tradução informativa da [versão em inglês](README.md), atualizada em 25/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](README.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Converte entre artefatos do DCP e os identificadores descentralizados (DIDs) e credenciais verificáveis (VCs) do W3C.
 
@@ -17,7 +17,7 @@ Converte entre artefatos do DCP e os identificadores descentralizados (DIDs) e c
 npm install @dcp-ai/w3c-did
 ```
 
-A 2.0.0 do npm (25/10/2026) tem o mesmo `index.js` que o código-fonte em `main`. Ela roda no Node.js (usa `Buffer`) e não tem dependências.
+A 2.0.1 do npm (26/10/2026) tem o mesmo `index.js` que o código-fonte em `main`. Ela roda no Node.js (usa `Buffer`) e não tem dependências.
 
 <a id="limits-25102026"></a>
 

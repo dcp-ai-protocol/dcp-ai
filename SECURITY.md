@@ -63,17 +63,14 @@ The packages do not share one version number; the `@dcp-ai/*` npm packages follo
 | 2.8.x (`dcp-ai` on PyPI and crates.io, Go module `sdks/go/v2`) | Yes |
 | 2.2.x (`@dcp-ai/sdk`) | Yes |
 | 2.1.x (`@dcp-ai/sdk`) | No: `verifySignedBundleV2` can be bypassed; the fix is in 2.2.x (see the note below) |
-| 2.1.x (`@dcp-ai/wasm`, `@dcp-ai/openclaw`) | Yes |
+| 2.1.x (`@dcp-ai/wasm`, `@dcp-ai/cli`, `@dcp-ai/express`, `@dcp-ai/openclaw`, `@dcp-ai/anthropic-mcp`, `@dcp-ai/google-a2a`) | Yes |
 | 2.0.x (`@dcp-ai/wasm`, `@dcp-ai/cli` and the other `@dcp-ai/*` npm packages) | Yes |
 | 1.0.x   | Yes (maintenance) |
 | < 1.0   | No        |
 
-`@dcp-ai/sdk` 2.2.0 is tagged in `v2.10.0` but is not on npm: on 25/10/2026 the npm registry had 2.0.0, 2.1.0
-and 2.1.1, with 2.1.1 as `latest`. Until 2.2.0 is published, the fix is only available by building the SDK from a
-checkout of this repository (`cd sdks/typescript && npm install && npm run build`); a version installed from npm
-stays affected.
+`@dcp-ai/sdk` 2.2.0 was published to npm on 26/10/2026 and is `latest`. It includes the verifier fixes; upgrade with `npm install @dcp-ai/sdk@^2.2.0` and refresh your lockfile. Earlier affected versions do not gain the fixes automatically. See the [published npm package inventory](docs/NPM_RELEASES.md).
 
-**Known affected integration releases (25/10/2026):** the support table does not mean that a published build contains every fix on `main`. `@dcp-ai/express` 2.0.0 and `@dcp-ai/openclaw` 2.0.0 on npm, and the FastAPI integration in `dcp-ai` 2.9.0 on PyPI, accept structurally valid V2 bundles without cryptographically verifying their signatures. These paths are corrected on `main`, but no corrected package has been published yet. Do not use those releases to verify V2 bundles. See the source-checkout instructions and release notices in the [Express](integrations/express/README.md), [OpenClaw](integrations/openclaw/README.md) and [FastAPI](integrations/fastapi/README.md) READMEs. This notice does not change the supported-version policy above.
+**Affected and corrected integration releases (26/10/2026).** `@dcp-ai/express` 2.0.0 and `@dcp-ai/openclaw` 2.0.0 accept structurally valid V2 bundles without verifying their signatures. Both are corrected in npm version 2.1.0, with `@dcp-ai/sdk` `^2.2.0`. Do not use 2.0.0 to verify V2 bundles. The FastAPI integration in `dcp-ai` 2.9.0 on PyPI remains affected: this npm publication does not publish the Python fix. See [Express](integrations/express/README.md), [OpenClaw](integrations/openclaw/README.md) and [FastAPI](integrations/fastapi/README.md). Package support does not mean every older build contains the fixes.
 
 ## Disclosure Policy
 

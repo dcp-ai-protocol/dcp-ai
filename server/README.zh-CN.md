@@ -4,7 +4,7 @@
 
 # DCP 参考网关
 
-> 本文是[英文版](README.md)的参考译文，更新于 25/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](README.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 实现 Digital Citizenship Protocol 的 V1、V2 和第 3 阶段（PQ 优先）的 HTTP 验证服务。**内存存储**：不需要外部数据库，重启后什么都不会保留（参见[持久化](#persistence)）。设计为可由任何第三方运行；协议不需要中央服务器。
 
@@ -12,7 +12,7 @@
 
 ## 快速开始
 
-从检出代码的根目录运行。在 `@dcp-ai/sdk` 2.2.0 发布到 npm 之前，根包依赖工作区中的 SDK，因此请先构建它：
+从检出代码的根目录运行。虽然 `@dcp-ai/sdk` 2.2.0 已发布到 npm，根目录仍有意依赖工作区 SDK 来测试该源码。请先构建：
 
 ```bash
 (cd sdks/typescript && npm install && npm run build)
@@ -137,7 +137,7 @@ node server/index.js
   下对 `{old_kid, new_kid, timestamp}` 签名（持有证明），旧密钥对其进行会签。旧密钥必须有效（未撤销、未过期）；之后它会被
   标记为已撤销。
 - **多方授权**：每一方在 `DCP-AI.v2.MultiPartyAuth` 下对 `{operation, operation_payload, party_id, role}` 签名
-  （`sdks/typescript/src/core/multi-party-auth.ts` 中的 `createPartyAuthorization`，`@dcp-ai/sdk` 2.1.1 未导出）。一方是
+  （`sdks/typescript/src/core/multi-party-auth.ts` 中的 `createPartyAuthorization`，`@dcp-ai/sdk` 2.2.0 未导出）。一方是
   通过 `/v2/passport/register` 登记的身份，其签名 kid 必须是登记在其 `party_id` 名下的有效（未撤销、未过期）密钥。无论以
   哪些角色签名，每一方对 `required_parties` 只计一次。角色由签名者自行声明，不会在任何地方查证。
 - **运营方端点**只由 `OPERATOR_TOKEN` 保护。通告的 `composite_sig` 只做结构检查：`@dcp-ai/sdk` 目前还没有

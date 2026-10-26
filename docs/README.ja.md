@@ -4,7 +4,9 @@
 
 # ドキュメント
 
-> [英語版](README.md)の参考訳です（25/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+**npm 公開（2026 年 10 月 26 日）。** [NPM_RELEASES.md](NPM_RELEASES.md) の 13 バージョンは、TypeScript/WASM の候補 API と TypeScript の受け入れ判定を含めて公開済みです。以下の項目は開発履歴として保持しています。`[Unreleased]` はこれらの npm 機能が利用できないことを意味しません。Python、Go、Rust の公開は別です。
+
+> [英語版](README.md)の参考訳です（26/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 <a id="quick-start"></a>
 
@@ -52,7 +54,7 @@
 ## 運用
 
 - [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md) — DCP 検証サービスの運用
-- [ADMISSION.md](ADMISSION.md) — 信頼できるプリンシパルからのバンドルだけを受け入れる方法と strict-v1 プロファイル（未リリース）
+- [ADMISSION.md](ADMISSION.md) — 信頼できるプリンシパルからのバンドルだけを受け入れる方法と strict-v1 プロファイル
 - [AGENT_CREATION_AND_CERTIFICATION.md](AGENT_CREATION_AND_CERTIFICATION.md) — エージェントの作成と認証の流れ
 
 <a id="specifications"></a>
@@ -74,7 +76,7 @@
 
 ## 提案（実験的、規範的ではない）
 
-- [proposals/canonicalization-candidate](proposals/canonicalization-candidate/README.md) — 有効化されていない候補 `dcp-jcs-v2` と、SDK のオプトイン API（未リリース）。プロファイルは引き続き `dcp-jcs-v1` だけです
+- [proposals/canonicalization-candidate](proposals/canonicalization-candidate/README.md) — 有効化されていない候補 `dcp-jcs-v2` と、SDK のオプトイン API。プロファイルは引き続き `dcp-jcs-v1` だけです
 
 <a id="community--vision"></a>
 <a id="community-vision"></a>

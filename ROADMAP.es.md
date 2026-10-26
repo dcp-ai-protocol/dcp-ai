@@ -4,7 +4,7 @@
 
 # Hoja de ruta de DCP-AI
 
-> Traducción informativa de [la versión en inglés](ROADMAP.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](ROADMAP.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Este documento describe la evolución prevista del proyecto DCP-AI. La hoja de ruta se organiza en fases que pueden solaparse, pero que deben respetar el orden de dependencias.
 
@@ -146,9 +146,11 @@ Siete versiones menores publicadas el 2026-04-22..23 (v2.1.0 a v2.7.0) cerraron 
 
 <a id="in-the-repository-not-released-yet"></a>
 
-### En el repositorio, aún sin publicar
+<a id="after-v2100"></a>
 
-Están en `main` después de la etiqueta `v2.10.0` y no se publican como parte de este trabajo: úsalos desde una copia del repositorio (véase la [sección `[Unreleased]` del registro de cambios](CHANGELOG.md#unreleased)).
+### Después de v2.10.0
+
+Estos cambios están en `main` después de la etiqueta `v2.10.0`. Al 26 de octubre de 2026, las publicaciones npm incluyen SDK 2.2.0, WASM 2.1.0 y los adaptadores y CLI actualizados; véase el [inventario publicado](docs/NPM_RELEASES.md). Los demás ecosistemas tienen publicaciones independientes. La [sección `[Unreleased]` del registro de cambios](CHANGELOG.md#unreleased) conserva la historia de desarrollo; no significa que estas funciones npm no estén disponibles.
 
 - **Admisión** — principales de confianza y el perfil `strict-v1` ([`docs/ADMISSION.md`](docs/ADMISSION.md), [`spec/profiles/admission`](spec/profiles/admission/README.md)) en los cuatro SDK, en las integraciones de Express, FastAPI y OpenClaw, en el verificador de referencia, el servidor y la CLI. La verificación por sí sola sigue sin otorgar confianza; la admisión nunca autoriza una acción.
 - **Candidato de canonicalización `dcp-jcs-v2`** — ingesta, enrutador, verificador de bytes y productores experimentales y opt-in en TypeScript, Python, Go, Rust y WASM, con una matriz cruzada de cinco por cinco ([`docs/proposals/canonicalization-candidate`](docs/proposals/canonicalization-candidate/README.md)). No es normativo ni está activo: `dcp-jcs-v1` sigue siendo el único perfil, y pasar el candidato a una fase posterior o convertirlo en valor por defecto requiere una decisión propia.

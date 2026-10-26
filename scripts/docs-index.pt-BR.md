@@ -11,7 +11,7 @@ hide:
 
 # DCP-AI — Digital Citizenship Protocol para agentes de IA
 
-> Tradução informativa da [versão em inglês](docs-index.md), atualizada em 25/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](docs-index.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 > Uma camada portátil de prestação de contas para agentes de IA em redes abertas.
 
@@ -29,15 +29,12 @@ Identidade verificável criptograficamente, intenção legível por máquina, tr
 ## Instalação
 
 !!! note "Pacotes publicados e `main`"
-    Estes comandos instalam as versões publicadas. Em 25/10/2026, o `latest` do `@dcp-ai/sdk` no npm era 2.1.1,
-    sem as correções do verificador da 2.2.0; os guias seguem o código de `main`, que também tem recursos não
-    publicados. Para executá-los como estão escritos, compile os SDKs a partir de uma cópia do repositório: veja o
-    [Início rápido](quickstart/QUICKSTART.md#published-packages-and-this-guide).
+    O npm já oferece `@dcp-ai/sdk` 2.2.0, `@dcp-ai/wasm` e `@dcp-ai/cli` 2.1.0, além dos adaptadores e geradores atualizados. Veja o [inventário npm](reference/docs/NPM_RELEASES.md). A publicação de Python, Go e Rust é independente; o [início rápido](quickstart/QUICKSTART.md#published-packages-and-this-guide) distingue exemplos do registro e do checkout.
 
 === "Node.js"
 
     ```bash
-    npm install @dcp-ai/sdk @dcp-ai/cli
+    npm install @dcp-ai/sdk@^2.2.0 @dcp-ai/cli
     ```
 
 === "Python"
@@ -61,7 +58,7 @@ Identidade verificável criptograficamente, intenção legível por máquina, tr
 === "WebAssembly"
 
     ```bash
-    npm install @dcp-ai/wasm
+    npm install @dcp-ai/wasm@^2.1.0
     ```
 
 ---

@@ -4,7 +4,7 @@
 
 # Roteiro do DCP-AI
 
-> Tradução informativa da [versão em inglês](ROADMAP.md), atualizada em 25/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](ROADMAP.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Este documento descreve a evolução planejada do projeto DCP-AI. O roteiro está organizado em fases que podem se sobrepor, mas devem respeitar a ordem de dependências.
 
@@ -146,9 +146,11 @@ Sete versões menores publicadas em 2026-04-22..23 (v2.1.0 a v2.7.0) fecharam a 
 
 <a id="in-the-repository-not-released-yet"></a>
 
-### No repositório, ainda não publicado
+<a id="after-v2100"></a>
 
-Estão em `main` depois da tag `v2.10.0` e não são publicados como parte deste trabalho: use-os a partir de uma cópia do repositório (veja a [seção `[Unreleased]` do changelog](CHANGELOG.md#unreleased)).
+### Depois de v2.10.0
+
+Estas mudanças estão em `main` depois da tag `v2.10.0`. Em 26 de outubro de 2026, as publicações npm incluem SDK 2.2.0, WASM 2.1.0 e os adaptadores e CLI atualizados; veja o [inventário publicado](docs/NPM_RELEASES.md). Os outros ecossistemas têm publicações independentes. A [seção `[Unreleased]` do changelog](CHANGELOG.md#unreleased) preserva o histórico de desenvolvimento; não significa que essas funcionalidades npm estejam indisponíveis.
 
 - **Admissão** — principais confiáveis e o perfil `strict-v1` ([`docs/ADMISSION.md`](docs/ADMISSION.md), [`spec/profiles/admission`](spec/profiles/admission/README.md)) nos quatro SDKs, nas integrações Express, FastAPI e OpenClaw, no verificador de referência, no servidor e na CLI. A verificação sozinha continua não concedendo confiança; a admissão nunca autoriza uma ação.
 - **Candidato de canonicalização `dcp-jcs-v2`** — ingestão, roteador, verificador de bytes e produtores experimentais e opt-in em TypeScript, Python, Go, Rust e WASM, com uma matriz cruzada de cinco por cinco ([`docs/proposals/canonicalization-candidate`](docs/proposals/canonicalization-candidate/README.md)). Não é normativo nem está ativo: `dcp-jcs-v1` continua sendo o único perfil, e levar o candidato a uma fase posterior ou torná-lo padrão exige uma decisão própria.

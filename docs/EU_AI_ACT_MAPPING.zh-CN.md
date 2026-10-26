@@ -5,7 +5,7 @@
 
 # DCP-AI 与欧盟《人工智能法》— 日志记录、人工监督和记录保存义务的对应
 
-> 本文是[英文版](EU_AI_ACT_MAPPING.md)的参考译文，更新于 25/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](EU_AI_ACT_MAPPING.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 **规范版本：** 2.0
 **最后更新：** 2026 年 10 月
@@ -294,7 +294,7 @@ DCP-AI 规范用“human”和“principal”称呼由 RPR 绑定的人。本文
 | **上市后监测计划（第 72 条第 (3) 款）** | 它是提供者附件 IV 文档的一部分；DCP 的记录是它的输入数据。 |
 | **保留的强制执行** | 没有任何 DCP 字段或验证器规则强制保留期限；DCP-08 §3.5 陈述了原则，由组织实施。停用记录的 `data_disposition`（`transferred`、`archived`、`destroyed`）记录一个决定，并不强制执行它。DCP-05 §8.2 示例中的 `archive_retention_period` 不是 `schemas/v2/decommissioning_record.schema.json` 的字段。 |
 | **意图关卡之外的行为** | 模型推理、UI 事件和未声明为意图的工具调用不会产生任何 DCP 记录。 |
-| **PQ 检查点的内容（v2.10.0）** | 在 v2.10.0 发布版本中，没有 SDK 验证器检查 PQ 检查点的内容（`spec/VERIFICATION.md` V2-12，[OPERATOR_GUIDE.md](OPERATOR_GUIDE.md)）：检查点会被生成和签名，但验证器只检查链和 Merkle 根。**在 `main` 上，SDK 验证器已经会检查它们**，但尚未包含在发布版本中（[CHANGELOG.md](../CHANGELOG.md)，Unreleased）。 |
+| **PQ 检查点的内容（v2.10.0）** | 在 v2.10.0 发布版本中，没有 SDK 验证器检查 PQ 检查点的内容（`spec/VERIFICATION.md` V2-12，[OPERATOR_GUIDE.md](OPERATOR_GUIDE.md)）：检查点会被生成和签名，但验证器只检查链和 Merkle 根。**`main` 上的 SDK 验证器已经检查其内容**；npm SDK 2.2.0 和 WASM 2.1.0 也包含这些检查。其他生态独立发布（[CHANGELOG.md](../CHANGELOG.md)、[npm 清单](NPM_RELEASES.md)）。 |
 | **参考服务中的持久存储** | 参考网关、锚定和透明日志把状态保存在内存中；撤销服务也是如此，除非 `REVOCATION_STATE_PATH` 指向持久存储（需显式启用）。锚定服务不提交链上交易。 |
 | **参考网关 DCP-05–09 端点的身份验证** | 它们校验 schema，但不验证签名，也不要求令牌；任何能访问它们的人都可以更改生命周期、争议和授权书的状态（[OPERATOR_GUIDE.md](OPERATOR_GUIDE.md#dcp-0509-service-endpoints)）。 |
 

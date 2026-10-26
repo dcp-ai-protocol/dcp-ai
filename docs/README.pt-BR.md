@@ -4,7 +4,9 @@
 
 # Documentação
 
-> Tradução informativa da [versão em inglês](README.md), atualizada em 25/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+**Publicação npm (26/10/2026).** As 13 versões em [NPM_RELEASES.md](NPM_RELEASES.md) estão publicadas, incluindo as APIs candidatas TypeScript/WASM e a admissão TypeScript. As entradas abaixo mantêm seu histórico de desenvolvimento; `[Unreleased]` não significa que essas funcionalidades npm estejam indisponíveis. As publicações de Python, Go e Rust são independentes.
+
+> Tradução informativa da [versão em inglês](README.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 <a id="quick-start"></a>
 
@@ -52,7 +54,7 @@
 ## Operação
 
 - [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md) — Executar um serviço de verificação DCP
-- [ADMISSION.md](ADMISSION.md) — Aceitar bundles apenas de principais confiáveis, e o perfil strict-v1 (não publicado)
+- [ADMISSION.md](ADMISSION.md) — Aceitar bundles apenas de principais confiáveis, e o perfil strict-v1
 - [AGENT_CREATION_AND_CERTIFICATION.md](AGENT_CREATION_AND_CERTIFICATION.md) — Fluxo de criação e certificação de agentes
 
 <a id="specifications"></a>
@@ -74,7 +76,7 @@
 
 ## Propostas (experimentais, não normativas)
 
-- [proposals/canonicalization-candidate](proposals/canonicalization-candidate/README.md) — O candidato inativo `dcp-jcs-v2` e suas APIs opt-in nos SDKs (não publicadas); `dcp-jcs-v1` continua sendo o único perfil
+- [proposals/canonicalization-candidate](proposals/canonicalization-candidate/README.md) — O candidato inativo `dcp-jcs-v2` e suas APIs opt-in nos SDKs; `dcp-jcs-v1` continua sendo o único perfil
 
 <a id="community--vision"></a>
 <a id="community-vision"></a>

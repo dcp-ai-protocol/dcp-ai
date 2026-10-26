@@ -4,14 +4,11 @@
 
 # DCP-AI API リファレンス
 
-> [英語版](API_REFERENCE.md)の参考訳です（25/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](API_REFERENCE.md)の参考訳です（26/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 `main` にある TypeScript SDK `@dcp-ai/sdk`（パッケージのバージョン 2.2.0、プロトコル DCP v2.0）のリファレンスです。
 
-> **バージョン（2026 年 10 月 25 日）。** npm レジストリの `latest` は 2.1.1 です。バージョン 2.2.0 は `v2.10.0` でタグ付けされていますが
-> npm にはなく、*未リリース*と記したセクションは、変更履歴の
-> [`[Unreleased]`](../CHANGELOG.md#unreleased) に挙げられた内容を説明しています。このリファレンスの内容を使うには、チェックアウトから SDK をビルドしてください。
-> TypeScript SDK の [Release status](../sdks/typescript/README.md#installation) を参照してください。
+> **npm バージョン（2026 年 10 月 26 日）。** この TypeScript リファレンスは公開済みの `@dcp-ai/sdk` 2.2.0 に適用され、プリンシパルの信頼、`strict-v1`、明示的な選択が必要な候補の実験的 API を含みます。[公開済み npm パッケージ](NPM_RELEASES.md)と SDK の[インストール手順](../sdks/typescript/README.md#installation)を参照してください。`dcp-jcs-v1` が規範的な既定のままです。
 
 このページのコードブロックは宣言や断片であり、完全なプログラムではありません。`registry`、`keys`、
 `payloadBytes`、`signedBundle` などの名前は、TypeScript SDK の
@@ -847,9 +844,10 @@ if (result.verified) {
 }
 ```
 
+<a id="admission-trusted-principals-and-strict-v1"></a>
 <a id="admission-trusted-principals-and-strict-v1-unreleased"></a>
 
-### アドミッション：信頼済みのプリンシパルと strict-v1（未リリース）
+### アドミッション：信頼済みのプリンシパルと strict-v1
 
 [`spec/profiles/admission`](../spec/profiles/admission/README.md) で定義されています。ガイドは [ADMISSION.md](ADMISSION.md) です。
 
@@ -2059,9 +2057,10 @@ function detectDcpVersion(artifact: Record<string, unknown>): '1.0' | '2.0' | nu
 
 ---
 
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in"></a>
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
 
-## 実験的：正規化の候補 `dcp-jcs-v2`（オプトイン、未リリース）
+## 実験的：正規化の候補 `dcp-jcs-v2`（オプトイン）
 
 実験的で、既定では無効です。`dcp-jcs-v1` が引き続き既定であり、唯一の規範的な正規化プロファイルであり、通常のビルダー、
 署名器、検証器は変わりません。これらのエクスポートはオプトインする呼び出し側のために存在し、検証済みの候補バンドルは

@@ -5,7 +5,7 @@
 
 # @dcp-ai/express — middleware para Express
 
-> Tradução informativa da [versão em inglês](README.md), atualizada em 25/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](README.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Middleware de verificação do DCP para Express.js. Verifica automaticamente os Signed Bundles em cada requisição e injeta os dados do agente verificado.
 
@@ -19,24 +19,27 @@ Do DCP-01 ao DCP-09, de forma parcial: a verificação de bundles e a admissão 
 
 ## Instalação
 
-> **Estado de publicação (25/10/2026).** O npm só tem `@dcp-ai/express` 2.0.0. Ele foi publicado antes da maior parte desta página e **não verifica as assinaturas dos bundles V2**: só checa a estrutura deles, então um bundle V2 falsificado ou alterado passa (corrigido em `main`, veja a seção `[Unreleased]` do [CHANGELOG.md](../../CHANGELOG.md)). Não confie na 2.0.0 para bundles V2. Ele também não inclui a admissão (`trustedPrincipals`, `profile`, `revocationSource`), `revocationFailClosed`, a supervisão de fontes nem `cancelOnDisconnect`. Este README segue o código-fonte em `main`. Até que `@dcp-ai/sdk` 2.2.0 esteja no npm, este pacote depende do SDK do workspace (`"@dcp-ai/sdk": "file:../../sdks/typescript"`); para publicá-lo, é preciso subir a dependência para `^2.2.0`, e o fluxo de publicação recusa um pacote que dependa de um caminho local.
+**Publicado no npm (26/10/2026).** `@dcp-ai/express` 2.1.0 é `latest` e depende de `@dcp-ai/sdk` `^2.2.0`. As funcionalidades descritas abaixo estão disponíveis no npm.
 
-Para usar a versão que esta página descreve, compile-a a partir de um checkout e instale-a de lá:
+**Atualize da 2.0.0:** essa versão verifica a estrutura V2 sem verificar assinaturas. Use 2.1.0 para o verificador corrigido, a admissão e a supervisão de fontes. Veja [SECURITY.md](../../SECURITY.md).
+
+```bash
+npm install @dcp-ai/express@^2.1.0 express
+```
+
+**Dependência peer:** Express 4.18+ ou 5.x
+
+Veja o [inventário de publicações npm](../../docs/NPM_RELEASES.md) para todas as versões.
+
+Para desenvolver a partir de uma cópia do repositório, compile e instale o pacote local:
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-cd dcp-ai/sdks/typescript && npm install && npm run build      # the SDK of main
-cd ../../integrations/express && npm install && npm run build  # this package
-cd /path/to/your-app && npm install /path/to/dcp-ai/integrations/express express
+cd dcp-ai/integrations/express
+npm ci && npm run build
+# then, in your project:
+npm install /path/to/dcp-ai/integrations/express express
 ```
-
-A versão publicada (2.0.0), sem as funcionalidades listadas acima:
-
-```bash
-npm install @dcp-ai/express @dcp-ai/sdk
-```
-
-**Dependência par:** Express 4.18+ ou 5.x
 
 <a id="quickstart"></a>
 
@@ -347,7 +350,7 @@ app.listen(3000);
 ## Desenvolvimento
 
 ```bash
-# Build the workspace SDK first (see Installation), then:
+# Development build uses the published SDK from package-lock.json:
 npm install
 
 # Build (ESM + CJS + types)

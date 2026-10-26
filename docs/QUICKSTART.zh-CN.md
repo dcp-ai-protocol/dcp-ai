@@ -4,7 +4,7 @@
 
 # DCP-AI 快速开始指南
 
-> 本文是[英文版](QUICKSTART.md)的参考译文，更新于 25/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](QUICKSTART.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 在 5 分钟内开始使用 Digital Citizenship Protocol。
 
@@ -29,7 +29,7 @@
 
 ## 已发布的软件包与本指南
 
-示例以 `main` 上的源码为准。2026 年 10 月 25 日，npm 注册表上 `@dcp-ai/sdk` 的 `latest` 为 2.1.1，不含 2.2.0 的验证器修复（[`SECURITY.md`](../SECURITY.md#supported-versions)），也不含变更日志 [`[Unreleased]`](../CHANGELOG.md#unreleased) 中的功能；其他软件包有各自的版本（每个 SDK 的 README 都有 *Release status* 一节）。要按所写内容运行示例，请使用检出副本：
+TypeScript 示例可使用已发布的 `@dcp-ai/sdk` 2.2.0，npm CLI 为 `@dcp-ai/cli` 2.1.0。见[已发布的 npm 软件包](NPM_RELEASES.md)与 [SECURITY.md](../SECURITY.md#supported-versions)。其他生态有独立的发布周期。如需开发源码，或使用仍仅存在于检出代码中的 Python 功能，请使用：
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
@@ -98,20 +98,20 @@ npx @dcp-ai/cli init   # or: node /path/to/dcp-ai/cli/bin/dcp-ai.js init
 
 ## 3. TypeScript SDK
 
-下面的示例以 `main` 为准：请安装从检出副本构建的 SDK（参见[已发布的软件包与本指南](#published-packages-and-this-guide)）。
+下面的 TypeScript 示例适用于 npm SDK 2.2.0 或开发检出代码（参见[已发布的软件包与本指南](#published-packages-and-this-guide)）。
 
 二选一安装：
 
-- 下面的示例所需的 `main` 上的 SDK：
+- 用于源码开发、从检出代码构建的 `main` SDK：
 
   ```bash
   npm install /path/to/dcp-ai/sdks/typescript
   ```
 
-- 或已发布的版本（2026 年 10 月 25 日为 2.1.1），不含 2.2.0 的修复和未发布的功能：
+- 或已发布的 SDK 2.2.0，其中包含这些修复和功能：
 
   ```bash
-  npm install @dcp-ai/sdk
+  npm install @dcp-ai/sdk@^2.2.0
   ```
 
 <a id="create-and-sign-a-bundle-v1--ed25519"></a>
@@ -470,7 +470,7 @@ ML-DSA-65、ML-KEM-768、SLH-DSA-192f、Ed25519 的提供者位于 `dcp_ai::prov
 ### WebAssembly（浏览器）
 
 ```bash
-npm install @dcp-ai/wasm   # the published version; for main, see the WASM SDK's Release status
+npm install @dcp-ai/wasm@^2.1.0   # the published version; for main, see the WASM SDK's Release status
 ```
 
 将 Rust SDK 的基础功能提供给浏览器和 Node.js。在 Node.js 中，`initDcp()` 需要以 `data:` URL 的形式提供 `.wasm` 文件：参见[初始化](../sdks/wasm/README.md#initialization-browser-and-nodejs)。

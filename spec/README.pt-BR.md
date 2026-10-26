@@ -5,7 +5,7 @@
 
 # Especificações — DCP-AI normativo
 
-> Tradução informativa da [versão em inglês](README.md), atualizada em 25/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](README.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Especificações normativas do Digital Citizenship Protocol for AI Agents. A fonte da verdade dos formatos é o JSON Schema em `schemas/v1/` e `schemas/v2/`; estes documentos definem o escopo, os artefatos e como validá-los. [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md) lista as erratas que alinham os nomes, os contextos de assinatura e os exemplos do DCP-05, DCP-08 e DCP-09 com esse formato, e as quatro camadas (representável, válido segundo o schema, verificado, conforme) que são julgadas separadamente.
 
@@ -79,6 +79,6 @@ A especificação está sendo organizada em um **núcleo** (protocolo mínimo in
 | [profiles/crypto/](profiles/crypto/) | Seleção de algoritmos, assinaturas compostas, agilidade criptográfica |
 | [profiles/a2a/](profiles/a2a/) | Descoberta de agentes, handshake, gestão de sessões |
 | [profiles/governance/](profiles/governance/) | Níveis de risco, jurisdição, revogação, recuperação de chaves |
-| [profiles/admission/](profiles/admission/) | Admissão: principais confiáveis e o perfil strict-v1 (nos SDKs em `main`, ainda não publicado) |
+| [profiles/admission/](profiles/admission/) | Admissão: principais confiáveis e o perfil strict-v1 (nos SDKs em `main`; publicado no npm SDK 2.2.0, com publicações independentes nos outros ecossistemas) |
 
 As especificações existentes (do DCP-01 ao DCP-09, BUNDLE, VERIFICATION, DCP-AI v2.0) continuam sendo a referência. Os documentos do núcleo e dos perfis oferecem contexto editorial e esclarecem a separação de responsabilidades. Veja o [ROADMAP](../ROADMAP.md) para a evolução prevista.

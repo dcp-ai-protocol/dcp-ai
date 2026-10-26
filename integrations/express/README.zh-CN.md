@@ -5,7 +5,7 @@
 
 # @dcp-ai/express — Express 中间件
 
-> 本文是[英文版](README.md)的参考译文，更新于 25/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](README.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 面向 Express.js 的 DCP 验证中间件。在每个请求上自动验证 Signed Bundle，并注入已验证的智能体数据。
 
@@ -19,24 +19,27 @@ DCP-01 至 DCP-09，属于部分支持：下面描述的 bundle 验证和准入�
 
 ## 安装
 
-> **发布状态（2026 年 10 月 25 日）。** npm 上只有 `@dcp-ai/express` 2.0.0。它发布于本页大部分内容之前，并且**不验证 V2 bundle 的签名**：它只检查其结构，因此伪造或被篡改的 V2 bundle 也能通过（已在 `main` 上修复，参见 [CHANGELOG.md](../../CHANGELOG.md) 的 `[Unreleased]` 小节）。不要在 V2 bundle 上依赖 2.0.0。它也不包含准入（`trustedPrincipals`、`profile`、`revocationSource`）、`revocationFailClosed`、来源监管和 `cancelOnDisconnect`。本 README 依据的是 `main` 上的源码。在 `@dcp-ai/sdk` 2.2.0 发布到 npm 之前，本包依赖工作区中的 SDK（`"@dcp-ai/sdk": "file:../../sdks/typescript"`）；发布它需要把依赖提升到 `^2.2.0`，而发布工作流会拒绝依赖本地路径的包。
+**已发布到 npm（2026 年 10 月 26 日）。** `@dcp-ai/express` 2.1.0 的标签为 `latest`，依赖 `@dcp-ai/sdk` `^2.2.0`。以下描述的功能已可从 npm 获取。
 
-要使用本页所描述的版本，请从检出代码构建并从那里安装：
-
-```bash
-git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-cd dcp-ai/sdks/typescript && npm install && npm run build      # the SDK of main
-cd ../../integrations/express && npm install && npm run build  # this package
-cd /path/to/your-app && npm install /path/to/dcp-ai/integrations/express express
-```
-
-已发布的版本（2.0.0），不含上面列出的功能：
+**请从 2.0.0 升级：** 该版本仅检查 V2 结构，不验证签名。请使用 2.1.0 获取修复后的验证器、准入和来源监管功能。见 [SECURITY.md](../../SECURITY.md)。
 
 ```bash
-npm install @dcp-ai/express @dcp-ai/sdk
+npm install @dcp-ai/express@^2.1.0 express
 ```
 
 **对等依赖：** Express 4.18+ 或 5.x
+
+所有软件包版本见 [npm 发布清单](../../docs/NPM_RELEASES.md)。
+
+如需使用检出源码进行开发，请构建并安装本地软件包：
+
+```bash
+git clone https://github.com/dcp-ai-protocol/dcp-ai.git
+cd dcp-ai/integrations/express
+npm ci && npm run build
+# then, in your project:
+npm install /path/to/dcp-ai/integrations/express express
+```
 
 <a id="quickstart"></a>
 
@@ -346,7 +349,7 @@ app.listen(3000);
 ## 开发
 
 ```bash
-# Build the workspace SDK first (see Installation), then:
+# Development build uses the published SDK from package-lock.json:
 npm install
 
 # Build (ESM + CJS + types)
