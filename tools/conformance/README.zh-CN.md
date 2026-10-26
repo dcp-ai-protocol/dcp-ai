@@ -60,6 +60,7 @@ fixture 副本（自测在临时副本上使用该选项）。
 | `v2.signed_bundle` | 10 | `VERIFICATION.md`（V2） | `lib/verify.js`、在内存中构建的 bundle | 参考验证器对有效和被篡改 bundle 的判定；已验证不等于准入 |
 | `v2.schema` | 4 | DCP-AI-v2.0 | `schemas/v2`、`*_v2.json` 示例 | 仅模式有效性 |
 | `ext.dcp05_09.schema` | 18 | DCP-05 至 DCP-09 | `schemas/v2`、`<record>_v2.json` 示例 | 仅模式有效性 |
+| `ext.dcp05_09.wire` | 28 | DCP-05、DCP-08、DCP-09、`V2-WIRE-COMPATIBILITY.md` | `schemas/v2`、在内存中签名的记录、`interop_vectors.json#domain_separation_all_contexts` | 将这些记录的表示、模式有效性和签名作为不同层次分别检查；不代表功能合规 |
 | `admission.strict_v1` | 117 | `spec/profiles/admission` | `admission_vectors.json` | 预期的准入结果和错误码；`action_authorized` 始终为 false |
 
 <a id="limits"></a>
@@ -70,10 +71,11 @@ fixture 副本（自测在临时副本上使用该选项）。
   测试集只证明模式有效性；没有规范化、哈希和签名测试集，仅凭 V2 模式测试集不构成 V2 实现。
 - `verified` 和 `admitted` 从不授权任何操作。
 - 适配器（Express、FastAPI、OpenClaw、验证服务器）不属于该套件。
-- 尚未解决的协议问题，由 `ext.dcp05_09.schema` 列出，套件不作裁定：DCP-05 的 `vitality_report` 指标是
-  [0, 1] 区间内的数值，而 `dcp-jcs-v1` 只规范化整数；`right_type` 枚举拒绝 DCP-08 §4.3 中反向域名表示的
-  权利；DCP-09 使用 `effective_until`，而模式和 SDK 使用 `valid_until`；DCP-04 至 DCP-09 的示例使用的
-  签名标签和字段与模式及 SDK 上下文不一致。
+- 协议问题（依据 `spec/V2-WIRE-COMPATIBILITY.md`）：DCP-09 的到期字段（`valid_until`）以及 DCP-05、DCP-08 和
+  DCP-09 的签名上下文已由勘误更正，并由 `ext.dcp05_09.wire` 测试。仍有待明确的、有版本的设计、套件不作裁定的有：
+  DCP-05 `vitality_report` 的小数指标（在 `dcp-jcs-v1` 下只能表示 0 和 1）、DCP-08 §4.3 中以反向域名表示的权利
+  （被 `right_type` 枚举拒绝），以及第二签名者或确认（DCP-05 §4.4、DCP-09 §3.3 和 §6.3）。DCP-04、DCP-06 和
+  DCP-07 的示例不在这些勘误范围内。
 
 <a id="inventory"></a>
 

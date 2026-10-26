@@ -130,6 +130,7 @@ nav:
       - Canonicalization Profile (dcp-jcs-v1): specs/CANONICALIZATION_PROFILE.md
       - Citizenship Bundle Format: specs/BUNDLE.md
       - Verification Procedures: specs/VERIFICATION.md
+      - V2.0 Wire Compatibility (DCP-05/08/09 errata): specs/V2-WIRE-COMPATIBILITY.md
       - Security Audit (v2.0 Final): specs/AUDIT-v2.0-FINAL.md
   - Architecture:
       - Technical Architecture: architecture/TECHNICAL_ARCHITECTURE.md

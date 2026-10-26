@@ -65,6 +65,7 @@ node --test tools/conformance/conformance.test.mjs     # runner self-tests (temp
 | `v2.signed_bundle` | 10 | `VERIFICATION.md`（V2） | `lib/verify.js`、メモリ内で構築したバンドル | 正当なバンドルと改ざんされたバンドルに対するリファレンス検証器の判定。検証済みは受け入れではない |
 | `v2.schema` | 4 | DCP-AI-v2.0 | `schemas/v2`、`*_v2.json` の例 | スキーマの妥当性のみ |
 | `ext.dcp05_09.schema` | 18 | DCP-05〜DCP-09 | `schemas/v2`、`<record>_v2.json` の例 | スキーマの妥当性のみ |
+| `ext.dcp05_09.wire` | 28 | DCP-05、DCP-08、DCP-09、`V2-WIRE-COMPATIBILITY.md` | `schemas/v2`、メモリ内で署名した記録、`interop_vectors.json#domain_separation_all_contexts` | これらの記録の表現、スキーマの妥当性、署名を別々の層として確認。機能的な適合ではない |
 | `admission.strict_v1` | 117 | `spec/profiles/admission` | `admission_vectors.json` | 期待される受け入れ結果とエラーコード。`action_authorized` は常に false |
 
 <a id="limits"></a>
@@ -76,11 +77,12 @@ node --test tools/conformance/conformance.test.mjs     # runner self-tests (temp
   証明します。V2 スキーマのスイートだけでは、正規化・ハッシュ・署名のスイートなしに V2 実装にはなりません。
 - `verified` と `admitted` がアクションを認可することはありません。
 - アダプター（Express、FastAPI、OpenClaw、検証サーバー）はキットに含まれません。
-- 未解決のプロトコル上の論点（`ext.dcp05_09.schema` に列挙され、キットは判断しません）：
-  DCP-05 の `vitality_report` のメトリクスは [0, 1] の数値ですが、`dcp-jcs-v1` は整数しか正規化しません。
-  DCP-08 §4.3 の逆ドメイン表記の権利は `right_type` の enum で拒否されます。DCP-09 は `effective_until`
-  を使いますが、スキーマと SDK は `valid_until` を使います。DCP-04〜DCP-09 の例は、スキーマや SDK の
-  コンテキストと異なる署名タグとフィールドを使っています。
+- プロトコル上の論点（`spec/V2-WIRE-COMPATIBILITY.md` による）：DCP-09 の期限のフィールド（`valid_until`）と、
+  DCP-05、DCP-08、DCP-09 の署名コンテキストは正誤で訂正され、`ext.dcp05_09.wire` でテストされます。明示的で
+  バージョン管理された設計を待っており、キットが判断しないもの：DCP-05 の `vitality_report` の小数のメトリクス
+  （`dcp-jcs-v1` では 0 と 1 しか表現できない）、DCP-08 §4.3 の逆ドメイン表記の権利（`right_type` の enum で
+  拒否される）、2 人目の署名者や確認応答（DCP-05 §4.4、DCP-09 §3.3 と §6.3）。DCP-04、DCP-06、DCP-07 の例は
+  これらの正誤の対象外です。
 
 <a id="inventory"></a>
 

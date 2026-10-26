@@ -3,6 +3,8 @@
 ## Status
 Published — v2.0 (extension; revisions tracked via adopter feedback)
 
+> **Errata (25/10/2026, normative):** errata E2, E3, E7 and E8 of [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md) correct the signature context, the name of the vitality field and the status of the examples. They change no other requirement of this specification.
+
 ## Abstract
 This specification defines the full lifecycle of a DCP-certified AI agent, from commissioning through active service, declining capability, and eventual decommissioning. It introduces lifecycle state machines, vitality metrics, commissioning certificates, vitality reports, and decommissioning records — all cryptographically signed, hash-chained, and independently verifiable. The protocol ensures that an agent's operational history is tamper-evident, that transitions between lifecycle states are authorized and auditable, and that four distinct termination modes accommodate the full range of end-of-life scenarios.
 
@@ -45,7 +47,7 @@ Without a lifecycle protocol, organizations face several risks:
 
 **Termination Mode**: The manner in which an agent transitions to the `decommissioned` state: `planned_retirement`, `termination_for_cause`, `organizational_restructuring`, or `sudden_failure`.
 
-**Domain Separation Tag**: `DCP-LIFECYCLE-SIG-v2` — used for all signatures produced under this specification to prevent cross-protocol replay.
+**Domain Separation Context**: `DCP-AI.v2.Lifecycle` (DCP-AI v2.0 §4.1; erratum E2, previously given here as the label `DCP-LIFECYCLE-SIG-v2`) — used for all signatures produced under this specification to prevent cross-protocol replay.
 
 ## 3. Lifecycle State Machine
 
@@ -216,7 +218,9 @@ The commissioning certificate MUST carry two signatures:
 - **Authority signature**: The entity authorized to commission agents (organizational root key or delegated commissioning key)
 - **Principal countersignature**: The responsible principal accepting accountability for the agent
 
-Both signatures MUST use the domain separation tag `DCP-LIFECYCLE-SIG-v2`.
+Both signatures MUST use the domain separation context `DCP-AI.v2.Lifecycle` (erratum E2).
+
+> *Informative note (25/10/2026):* the V2.0 `commissioning_certificate` schema carries one `composite_sig` and has no field for the countersignature; see [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md#4-requirements-the-v20-structures-do-not-represent-directly).
 
 ## 5. Vitality Metric
 
@@ -236,6 +240,8 @@ Composite vitality:
 vitality = floor(0.30 * capability_integrity + 0.25 * trust_standing +
                  0.25 * resource_health + 0.20 * policy_compliance)
 ```
+
+In a V2.0 vitality report this value is carried in the field `vitality_score` (erratum E3).
 
 ### 5.2 Thresholds
 
@@ -264,6 +270,8 @@ Vitality reports form a hash-chained sequence providing a tamper-evident history
 ### 6.2 Schema
 
 Schema reference: `schemas/v2/vitality_report.schema.json`
+
+> **Errata E3 and E7 (25/10/2026):** the field `vitality` of this example is `vitality_score` in the V2.0 wire format, and the example as a whole is conceptual: the wire format is the schema, whose `metrics` are representable as 0 or 1 only under `dcp-jcs-v1`. See [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md).
 
 ```json
 {
@@ -613,7 +621,7 @@ After decommissioning, the agent's public keys remain archived. Any party can ve
 
 ### 10.5 Domain Separation
 
-All signatures under this specification use the domain separation tag `DCP-LIFECYCLE-SIG-v2`. This prevents signatures created for lifecycle purposes from being replayed in other DCP protocol contexts (e.g., intent declarations or A2A sessions).
+All signatures under this specification use the domain separation context `DCP-AI.v2.Lifecycle` (erratum E2). This prevents signatures created for lifecycle purposes from being replayed in other DCP protocol contexts (e.g., intent declarations or A2A sessions).
 
 ### 10.6 Sudden Failure Risks
 
@@ -639,7 +647,7 @@ An implementation is DCP-05 conformant if it:
 4. Supports all four termination modes as defined in Section 7
 5. Generates sealed decommissioning records as defined in Section 8
 6. Creates DCP-03 audit entries for all lifecycle events as defined in Section 9
-7. Uses the domain separation tag `DCP-LIFECYCLE-SIG-v2` for all signatures
+7. Uses the domain separation context `DCP-AI.v2.Lifecycle` for all signatures (erratum E2)
 8. Implements dual-hash (SHA-256 + SHA3-256) for all hash chain links
 
 ## References
@@ -659,7 +667,8 @@ An implementation is DCP-05 conformant if it:
 ## Implementation notes (informative)
 
 > **Added 25/10/2026. Not normative.** These notes add no requirement and change nothing above: they describe how
-> the reference code on `main` relates to this text. Where they differ, the normative text above stands.
+> the reference code on `main` relates to this text. Where they differ, the normative text above stands, as corrected by the errata of
+> [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md).
 
 - **Records in `schemas/v2/`.** The commissioning certificate, vitality report and decommissioning record that the
   SDKs build and that `schemas/v2/` validates have other fields than the examples of §3 to §9: for example
@@ -668,8 +677,8 @@ An implementation is DCP-05 conformant if it:
   `countersignature` or `domain_sep`. There is no schema for the transition record of §3.3 or the audit entry of
   §9.2.
 - **Signatures.** Each record carries one `composite_sig` (Ed25519 + ML-DSA-65) by whoever holds the keys passed in,
-  under the context `DCP-AI.v2.Lifecycle`; the SDKs do not use the tag `DCP-LIFECYCLE-SIG-v2` and do not produce the
-  authority signature plus principal countersignature of §4.4.
+  under the context `DCP-AI.v2.Lifecycle` (erratum E2); the SDKs do not produce the authority signature plus principal
+  countersignature of §4.4.
 - **Transitions.** `validateStateTransition` accepts six edges: the five of §3.2 and `commissioned` ->
   `decommissioned`. It checks only the pair of states, not principal approval, vitality or who signs.
 - **Vitality score.** `computeVitalityScore` takes four metrics in [0, 1] (`task_completion_rate`, `error_rate`

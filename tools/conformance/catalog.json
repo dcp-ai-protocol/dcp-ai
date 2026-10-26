@@ -1,5 +1,5 @@
 {
-  "kit_version": "1.0.0",
+  "kit_version": "1.1.0",
   "description": "DCP-AI conformance kit catalog. expected_cases pins every case id a suite must produce: a missing or extra case is an infrastructure error, never a silent reduction of coverage.",
   "limits": [
     "Passing the selected suites certifies those checks on these fixtures only; it does not certify a complete DCP implementation, another SDK or a deployment.",
@@ -147,10 +147,10 @@
       "title": "DCP-05 to DCP-09 records: JSON Schema",
       "claim": "The DCP-05 to DCP-09 example records validate against their schemas/v2 schema. Schema validity only: no signature, lifecycle, succession, dispute, rights or delegation behaviour is tested, and the records are signed declarations, not proof of what they state.",
       "limits": [
-        "DCP-05: vitality_report metrics are numbers in [0, 1], but dcp-jcs-v1 only canonicalizes integers, so a signed report can only carry 0 or 1 per metric (unresolved).",
-        "DCP-08 §4.3 allows organizational rights in reverse-domain notation; the right_type enum of rights_declaration.schema.json refuses them (unresolved).",
-        "DCP-09 §3.2/§3.6 use effective_until; the schema and the SDKs use valid_until (unresolved).",
-        "DCP-04 to DCP-09 examples use DCP-*-SIG-v2 tags and fields that differ from the schemas and the DCP-AI.v2.* contexts of the SDKs; this suite does not test signatures."
+        "DCP-05 §6: the schema types vitality_report metrics as numbers in [0, 1], but dcp-jcs-v1 only canonicalizes integers, so only 0 and 1 are representable and signable in the V2.0 wire format. Fractional metrics need an explicit versioned design (pending; spec/V2-WIRE-COMPATIBILITY.md §4).",
+        "DCP-08 §4.3: the closed right_type enum does not represent organizational rights in reverse-domain notation; representing them needs an explicit versioned design (pending; spec/V2-WIRE-COMPATIBILITY.md §4).",
+        "DCP-09 §3.6: expiry is read from valid_until (erratum E6 of spec/V2-WIRE-COMPATIBILITY.md); the §3.2 example is conceptual.",
+        "The example fixtures carry placeholder signatures and are schema evidence only; signatures, contexts and layer disagreements are tested by ext.dcp05_09.wire. The DCP-04, DCP-06 and DCP-07 examples are outside the errata of spec/V2-WIRE-COMPATIBILITY.md."
       ],
       "requirements": [
         {
@@ -178,6 +178,56 @@
         "ext.schema.dcp09.principal_mirror",
         "ext.schema.dcp09.interaction_record",
         "ext.schema.dcp09.awareness_threshold"
+      ]
+    },
+    {
+      "id": "ext.dcp05_09.wire",
+      "title": "DCP-05, DCP-08 and DCP-09 records by layer: representation, schema and signature",
+      "claim": "Records built in memory with @dcp-ai/sdk (fresh keys, nothing written) are representable under dcp-jcs-v1, validate against schemas/v2 and verify under their DCP-AI.v2.* context; the same records do not verify under another context, under the DCP-*-SIG-v2 labels or after tampering. Cases where the layers disagree are pinned: a fractional metric is schema-valid but not representable, a right outside the enum is signed by the helper but refused by the schema, a mandate with effective_until is refused. The existing example fixtures are classified as schema-valid only, and the context registry of DCP-AI-v2.0 §4.1 must list every context the SDK and the shared vectors use (it also lists contexts the SDK does not define, which this suite does not cover). This proves representation, schema validity and authenticity of these records; it does not show functional conformance (the §5.1 calculation, second signers, ceremonies, enforcement).",
+      "limits": [
+        "Records are signed and verified with the TypeScript SDK only; the other SDKs run their own suites.",
+        "A signature authenticates a declaration by whoever holds the keys; it does not show that a score, state or right is true or was computed as the specification requires.",
+        "The vitality score helpers are not tested: they use other quantities than DCP-05 §5.1 and round instead of flooring, and their tie rounding differs between SDKs (for task_completion_rate 0, error_rate 1, human_satisfaction 0.002 and policy_alignment 0: TypeScript 1, Python 0); this stays a separate pending item.",
+        "Not directly represented by the V2.0 schemas and not tested: the DCP-05 §4.4 principal countersignature, the DCP-08 §9.1 check of the commissioning authority, the DCP-09 §3.3 acknowledgment and the §6.3 principal signature."
+      ],
+      "requirements": [
+        {
+          "spec": "spec/V2-WIRE-COMPATIBILITY.md, spec/DCP-AI-v2.0.md §4.1, spec/DCP-05.md, spec/DCP-08.md, spec/DCP-09.md, spec/CANONICALIZATION_PROFILE.md",
+          "schemas": "schemas/v2/{commissioning_certificate,vitality_report,rights_declaration,awareness_threshold,delegation_mandate}.schema.json",
+          "fixtures": "tests/conformance/examples/{vitality_report,awareness_threshold,…}_v2.json (unchanged)",
+          "vectors": "tests/interop/v2/interop_vectors.json#domain_separation_all_contexts",
+          "code": "@dcp-ai/sdk (workspace build): create* helpers, canonicalizeV2, compositeVerify, verifyMandateChain"
+        }
+      ],
+      "expected_cases": [
+        "ext.wire.dcp05.commissioning_certificate.signed",
+        "ext.wire.dcp05.vitality_report.integer_metrics.signed",
+        "ext.wire.dcp08.rights_declaration.signed",
+        "ext.wire.dcp09.awareness_threshold.signed",
+        "ext.wire.dcp09.root_mandate.signed",
+        "ext.wire.dcp09.sub_mandate.signed",
+        "ext.wire.dcp09.mandate_chain.accepted",
+        "ext.wire.context.lifecycle_under_rights_rejected",
+        "ext.wire.context.rights_under_lifecycle_rejected",
+        "ext.wire.context.awareness_under_delegation_rejected",
+        "ext.wire.context.root_under_submandate_rejected",
+        "ext.wire.context.sub_under_delegation_rejected",
+        "ext.wire.context.lifecycle_label_rejected",
+        "ext.wire.context.rights_label_rejected",
+        "ext.wire.context.awareness_label_rejected",
+        "ext.wire.context.delegation_label_rejected",
+        "ext.wire.tamper.vitality_score_changed",
+        "ext.wire.dcp05.fractional_metric.schema_valid_not_representable",
+        "ext.wire.dcp05.fractional_metric.not_signable",
+        "ext.wire.dcp08.extension_signed_but_schema_invalid",
+        "ext.wire.dcp09.effective_until.schema_rejected",
+        "ext.wire.dcp09.effective_until.chain_rejected",
+        "ext.wire.dcp05.countersignature.schema_rejected",
+        "ext.wire.dcp05.vitality_field_name.schema_rejected",
+        "ext.wire.fixture.vitality_report.schema_valid_not_representable",
+        "ext.wire.fixture.awareness_threshold.schema_valid_not_representable",
+        "ext.wire.fixture.placeholder_signatures_not_evidence",
+        "ext.wire.contexts.registry_documented"
       ]
     },
     {

@@ -51,6 +51,7 @@ fixtures (the self-tests use it on temporary copies).
 | `v2.signed_bundle` | 10 | `VERIFICATION.md` (V2) | `lib/verify.js`, bundle built in memory | Verdicts of the reference verifier for valid and tampered bundles; verified is not admission |
 | `v2.schema` | 4 | DCP-AI-v2.0 | `schemas/v2`, `*_v2.json` examples | Schema validity only |
 | `ext.dcp05_09.schema` | 18 | DCP-05 to DCP-09 | `schemas/v2`, `<record>_v2.json` examples | Schema validity only |
+| `ext.dcp05_09.wire` | 28 | DCP-05, DCP-08, DCP-09, `V2-WIRE-COMPATIBILITY.md` | `schemas/v2`, records signed in memory, `interop_vectors.json#domain_separation_all_contexts` | Representation, schema validity and signature of these records as separate layers; not functional conformance |
 | `admission.strict_v1` | 117 | `spec/profiles/admission` | `admission_vectors.json` | Expected admission outcome and error codes; `action_authorized` is always false |
 
 ## Limits
@@ -60,11 +61,12 @@ fixtures (the self-tests use it on temporary copies).
   make a V2 implementation without the canonicalization, hash and signature suites.
 - `verified` and `admitted` never authorize an action.
 - Adapters (Express, FastAPI, OpenClaw, the verification server) are not part of the kit.
-- Unresolved protocol points, listed by `ext.dcp05_09.schema` and not decided by the kit:
-  DCP-05 `vitality_report` metrics are numbers in [0, 1] while `dcp-jcs-v1` only canonicalizes integers;
-  DCP-08 §4.3 reverse-domain rights are refused by the `right_type` enum; DCP-09 uses `effective_until`
-  where the schema and SDKs use `valid_until`; DCP-04 to DCP-09 examples use signature tags and fields
-  that differ from the schemas and SDK contexts.
+- Protocol points, per `spec/V2-WIRE-COMPATIBILITY.md`: the DCP-09 expiry field (`valid_until`) and the
+  signature contexts of DCP-05, DCP-08 and DCP-09 are corrected by errata and tested by `ext.dcp05_09.wire`.
+  Still pending an explicit, versioned design, and not decided by the kit: fractional DCP-05
+  `vitality_report` metrics (only 0 and 1 are representable under `dcp-jcs-v1`), DCP-08 §4.3 reverse-domain
+  rights (refused by the `right_type` enum), and second signers or acknowledgments (DCP-05 §4.4, DCP-09 §3.3
+  and §6.3). The DCP-04, DCP-06 and DCP-07 examples are outside these errata.
 
 ## Inventory
 

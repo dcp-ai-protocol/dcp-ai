@@ -148,8 +148,16 @@ signed_bytes = UTF8(context_tag) || 0x00 || canonical_payload_bytes
 | `DCP-AI.v2.HumanConfirmation` | 人工确认 |
 | `DCP-AI.v2.AlgorithmAdvisory` | 算法弃用建议 |
 | `DCP-AI.v2.Governance` | 治理操作 |
-| `DCP-AI.v2.Delegation` | 根委托授权书（人类签名）和交互记录（DCP-09） |
+| `DCP-AI.v2.MultiPartyAuth` | 多方授权中某一方的授权（`multi_party_authorization.schema.json`） |
+| `DCP-AI.v2.Lifecycle` | 投入运行证书、活力报告和退役记录（DCP-05） |
+| `DCP-AI.v2.Succession` | 数字遗嘱、记忆转移清单和继承记录（DCP-06） |
+| `DCP-AI.v2.Dispute` | 争议记录、异议、仲裁裁决和判例包（DCP-07） |
+| `DCP-AI.v2.Rights` | 权利声明、义务记录和权利侵害报告（DCP-08） |
+| `DCP-AI.v2.Delegation` | 根委托授权书（人类签名）、主体镜像和交互记录（DCP-09） |
+| `DCP-AI.v2.Awareness` | 认知阈值和建议声明（DCP-09） |
 | `DCP-AI.v2.SubMandate` | 由委托代理签署的子授权书（DCP-09 §3.5） |
+
+> **勘误 E1（25/10/2026，规范性）：** `MultiPartyAuth`、`Lifecycle`、`Succession`、`Dispute`、`Rights` 和 `Awareness` 这几行，以及 `Delegation` 行中的主体镜像，记录的是 SDK 和 `tests/interop/v2/interop_vectors.json#domain_separation_all_contexts` 已在使用的上下文；它们不新增任何标签。见 [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md)。
 
 ---
 

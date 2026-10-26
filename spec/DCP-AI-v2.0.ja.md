@@ -148,8 +148,16 @@ signed_bytes = UTF8(context_tag) || 0x00 || canonical_payload_bytes
 | `DCP-AI.v2.HumanConfirmation` | 人間による確認 |
 | `DCP-AI.v2.AlgorithmAdvisory` | アルゴリズムの非推奨化の勧告 |
 | `DCP-AI.v2.Governance` | ガバナンスの操作 |
-| `DCP-AI.v2.Delegation` | ルートの委任マンデート（人間の署名）とやり取りの記録（DCP-09） |
+| `DCP-AI.v2.MultiPartyAuth` | 複数当事者の認可における各当事者の認可（`multi_party_authorization.schema.json`） |
+| `DCP-AI.v2.Lifecycle` | 運用開始証明書、バイタリティレポート、廃止記録（DCP-05） |
+| `DCP-AI.v2.Succession` | デジタル遺言、メモリ移転マニフェスト、承継記録（DCP-06） |
+| `DCP-AI.v2.Dispute` | 紛争記録、異議、仲裁の解決、判例バンドル（DCP-07） |
+| `DCP-AI.v2.Rights` | 権利宣言、義務記録、権利侵害報告（DCP-08） |
+| `DCP-AI.v2.Delegation` | ルートの委任マンデート（人間の署名）、プリンシパルミラー、やり取りの記録（DCP-09） |
+| `DCP-AI.v2.Awareness` | 認識しきい値と助言の宣言（DCP-09） |
 | `DCP-AI.v2.SubMandate` | 委任するエージェントが署名したサブマンデート（DCP-09 §3.5） |
+
+> **正誤 E1（25/10/2026、規範的）：** `MultiPartyAuth`、`Lifecycle`、`Succession`、`Dispute`、`Rights`、`Awareness` の行と、`Delegation` の行のプリンシパルミラーは、SDK と `tests/interop/v2/interop_vectors.json#domain_separation_all_contexts` がすでに使っているコンテキストを記載するもので、タグを追加するものではありません。[V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md) を参照してください。
 
 ---
 

@@ -65,6 +65,7 @@ dos fixtures (os autotestes o usam com cópias temporárias).
 | `v2.signed_bundle` | 10 | `VERIFICATION.md` (V2) | `lib/verify.js`, bundle construído em memória | Vereditos do verificador de referência para bundles válidos e adulterados; verificado não é admissão |
 | `v2.schema` | 4 | DCP-AI-v2.0 | `schemas/v2`, exemplos `*_v2.json` | Apenas validade de esquema |
 | `ext.dcp05_09.schema` | 18 | DCP-05 a DCP-09 | `schemas/v2`, exemplos `<record>_v2.json` | Apenas validade de esquema |
+| `ext.dcp05_09.wire` | 28 | DCP-05, DCP-08, DCP-09, `V2-WIRE-COMPATIBILITY.md` | `schemas/v2`, registros assinados em memória, `interop_vectors.json#domain_separation_all_contexts` | Representação, validade de esquema e assinatura destes registros como camadas separadas; não conformidade funcional |
 | `admission.strict_v1` | 117 | `spec/profiles/admission` | `admission_vectors.json` | Resultado de admissão e códigos de erro esperados; `action_authorized` é sempre false |
 
 <a id="limits"></a>
@@ -77,11 +78,13 @@ dos fixtures (os autotestes o usam com cópias temporárias).
   assinaturas.
 - `verified` e `admitted` nunca autorizam uma ação.
 - Os adaptadores (Express, FastAPI, OpenClaw, o servidor de verificação) não fazem parte do kit.
-- Pontos do protocolo não resolvidos, listados por `ext.dcp05_09.schema` e que o kit não decide:
-  as métricas de `vitality_report` do DCP-05 são números em [0, 1], enquanto `dcp-jcs-v1` só canonicaliza
-  inteiros; o enum `right_type` recusa os direitos em notação de domínio reverso do DCP-08 §4.3; o DCP-09 usa
-  `effective_until` onde o esquema e os SDKs usam `valid_until`; os exemplos do DCP-04 ao DCP-09 usam tags de
-  assinatura e campos que diferem dos esquemas e dos contextos dos SDKs.
+- Pontos do protocolo, segundo `spec/V2-WIRE-COMPATIBILITY.md`: o campo de expiração do DCP-09
+  (`valid_until`) e os contextos de assinatura do DCP-05, DCP-08 e DCP-09 estão corrigidos por erratas e são
+  testados por `ext.dcp05_09.wire`. Continuam pendentes de um projeto explícito e versionado, e o kit não os
+  decide: as métricas fracionárias de `vitality_report` do DCP-05 (com `dcp-jcs-v1` só 0 e 1 são
+  representáveis), os direitos em notação de domínio reverso do DCP-08 §4.3 (recusados pelo enum `right_type`)
+  e os segundos signatários ou confirmações (DCP-05 §4.4, DCP-09 §3.3 e §6.3). Os exemplos do DCP-04, DCP-06 e
+  DCP-07 ficam fora destas erratas.
 
 <a id="inventory"></a>
 

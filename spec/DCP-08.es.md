@@ -12,6 +12,8 @@
 ## Estado
 Publicada — v2.0 (extensión; las revisiones se gestionan según los comentarios de quienes la adoptan)
 
+> **Erratas (25/10/2026, normativas):** las erratas E4, E7 y E8 de [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md) corrigen el contexto de firma y el carácter de los ejemplos. No cambian ningún otro requisito de esta especificación.
+
 <a id="abstract"></a>
 
 ## Resumen
@@ -65,7 +67,7 @@ No se trata de una afirmación filosófica sobre la conciencia o el estatus mora
 
 **Estado de cumplimiento**: el estado actual de una obligación: `compliant`, `at_risk`, `non_compliant` o `exempt`.
 
-**Etiqueta de separación de dominio**: `DCP-RIGHTS-SIG-v2`, usada en todas las firmas producidas según esta especificación.
+**Contexto de separación de dominio**: `DCP-AI.v2.Rights` (DCP-AI v2.0 §4.1; errata E4; antes figuraba aquí la etiqueta `DCP-RIGHTS-SIG-v2`), usado en todas las firmas producidas según esta especificación.
 
 <a id="3-foundational-agent-rights"></a>
 
@@ -300,6 +302,8 @@ Las organizaciones pueden (MAY) definir derechos adicionales a los cuatro fundam
 - Deben (MUST) seguir la misma estructura que los derechos fundamentales
 - Pueden (MAY) hacerse cumplir por la infraestructura DCP o por herramientas de la organización
 - ESTÁN sujetos al mismo mecanismo de notificación de vulneraciones
+
+> *Nota informativa (25/10/2026):* el enum cerrado `right_type` del esquema V2.0 `rights_declaration` no representa los derechos ampliados; representarlos requiere un diseño explícito y versionado. Véase [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md#4-requirements-the-v20-structures-do-not-represent-directly).
 
 <a id="5-obligation-tracking"></a>
 
@@ -664,7 +668,7 @@ Las organizaciones que definan derechos ampliados deberían (SHOULD) actuar con 
 
 ### 9.5 Separación de dominio
 
-Todas las firmas según esta especificación usan la etiqueta de separación de dominio `DCP-RIGHTS-SIG-v2`, lo que impide la reproducción de firmas entre protocolos.
+Todas las firmas según esta especificación usan el contexto de separación de dominio `DCP-AI.v2.Rights` (errata E4), lo que impide la reproducción de firmas entre protocolos.
 
 <a id="10-conformance"></a>
 
@@ -679,7 +683,7 @@ Una implementación es conforme con DCP-08 si:
 5. Crea entradas de auditoría de DCP-03 para todos los eventos de derechos y obligaciones según la sección 8
 6. Admite ampliaciones de derechos de la organización con notación de dominio inverso
 7. Aplica la evaluación del cumplimiento con los intervalos configurados
-8. Usa la etiqueta de separación de dominio `DCP-RIGHTS-SIG-v2` en todas las firmas
+8. Usa el contexto de separación de dominio `DCP-AI.v2.Rights` en todas las firmas (errata E4)
 
 <a id="references"></a>
 
@@ -701,7 +705,8 @@ Una implementación es conforme con DCP-08 si:
 ## Notas de implementación (informativas)
 
 > **Añadidas el 25/10/2026. No normativas.** Estas notas no añaden ningún requisito ni cambian nada de lo anterior: describen cómo
-> se relaciona el código de referencia de `main` con este texto. Donde difieren, prevalece el texto normativo anterior.
+> se relaciona el código de referencia de `main` con este texto. Donde difieren, prevalece el texto normativo anterior, con las correcciones de las erratas de
+> [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md).
 
 - **Registros en `schemas/v2/`.** La declaración de derechos, el registro de obligación y el informe de vulneración de
   derechos que construyen los SDK y que valida `schemas/v2/` tienen campos distintos de los ejemplos de §4 a §6. Cada
@@ -711,7 +716,7 @@ Una implementación es conforme con DCP-08 si:
   §5.3, y no tiene criterios de cumplimiento ni umbrales. Un informe de vulneración nombra un único `violated_right` de
   esos mismos cuatro, con un `dispute_id` opcional; no existe el tipo `obligation_breach`.
 - **Firmas.** Cada registro lleva una única `composite_sig` (Ed25519 + ML-DSA-65) de quien tenga las claves que se
-  pasan, con el contexto `DCP-AI.v2.Rights`; los SDK no usan la etiqueta `DCP-RIGHTS-SIG-v2` ni comprueban que una
+  pasan, con el contexto `DCP-AI.v2.Rights` (errata E4); los SDK no comprueban que una
   declaración esté firmada por la autoridad de puesta en servicio (§9.1).
 - **Lo que hacen las funciones auxiliares.** Construyen y firman registros. `reportViolation` solo guarda el
   `dispute_id` que recibe; no presenta ninguna disputa de DCP-07 (§6.4). `checkRightsCompliance` informa de las

@@ -12,6 +12,8 @@
 ## 状态
 已发布 — v2.0（扩展；修订根据采用者的反馈跟踪）
 
+> **勘误（25/10/2026，规范性）：** [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md) 的勘误 E5、E6、E7 和 E8 更正了签名上下文、承载授权书到期时间的字段以及示例的性质。它们不改变本规范的任何其他要求。
+
 <a id="abstract"></a>
 
 ## 摘要
@@ -69,7 +71,7 @@ DCP-09 应对五个相互关联的问题：
 
 **授权书链**：当一个代理将其部分权限委托给另一个代理时，从最初的人类主体经由中间代理直到最终受托者的授权书链。
 
-**域分离标签**：`DCP-DELEGATION-SIG-v2`（委托和交互记录）、`DCP-AWARENESS-SIG-v2`（认知阈值和建议声明）、`DCP-AI.v2.SubMandate`（子授权书，第 3.5 节）。
+**域分离上下文**：`DCP-AI.v2.Delegation`（根授权书、主体镜像和交互记录）、`DCP-AI.v2.Awareness`（认知阈值和建议声明）、`DCP-AI.v2.SubMandate`（子授权书，第 3.5 节）。勘误 E5；前两个此处原先写作标签 `DCP-DELEGATION-SIG-v2` 和 `DCP-AWARENESS-SIG-v2`。
 
 <a id="3-delegation-mandate"></a>
 
@@ -84,6 +86,8 @@ DCP-09 应对五个相互关联的问题：
 ### 3.2 Schema
 
 Schema 参考：`schemas/v2/delegation_mandate.schema.json`
+
+> **勘误 E6 和 E7（25/10/2026）：** 本示例是概念性的。V2.0 传输格式是模式：有效期窗口是 `valid_from` / `valid_until`，签名是 `human_composite_sig`（根）或 `delegator_composite_sig`（子授权书），见第 3.5 节。已签名的根授权书和子授权书见 `tests/interop/v2/mandate_chain_vectors.json`。见 [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md)。
 
 ```json
 {
@@ -217,6 +221,8 @@ Schema 参考：`schemas/v2/delegation_mandate.schema.json`
 6. 经确认的授权书生效
 7. 在主体和代理双方的审计链中都创建一条 `delegation_mandate_issued` 审计条目
 
+> *参考说明（25/10/2026）：* V2.0 `delegation_mandate` 模式没有用于第 5 步代理确认的字段；见 [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md#4-requirements-the-v20-structures-do-not-represent-directly)。
+
 <a id="34-mandate-hash"></a>
 
 ### 3.4 授权书哈希
@@ -270,7 +276,7 @@ Schema 参考：`schemas/v2/delegation_mandate.schema.json`
 授权书可能因以下原因被撤销：
 
 - **主体撤销**：委托主体明确撤销授权书
-- **到期**：已过 `effective_until` 时间戳
+- **到期**：已过 `valid_until` 时刻（勘误 E6；按 RFC 3339 时刻比较，第 3.5.2 节）
 - **代理退役**：受托代理转入 `decommissioned`（DCP-05）
 - **策略违规**：代理违反了授权书中规定的条件
 
@@ -563,6 +569,8 @@ Schema 参考：`schemas/v2/principal_mirror.schema.json`
 ### 6.3 主体批准
 
 主体必须（MUST）在镜像用于交互之前对其进行审查和批准。这确保代理的叙述性表达准确反映主体的意图。两个签名（代理和主体）都是必需的。
+
+> *参考说明（25/10/2026）：* V2.0 `principal_mirror` 模式只带一个 `composite_sig`；见 [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md#4-requirements-the-v20-structures-do-not-represent-directly)。
 
 <a id="64-mirror-updates"></a>
 
@@ -903,13 +911,13 @@ A2A_HELLO 消息（DCP-04 第 3.2 节）扩展了一个可选的 `delegation` �
 
 ### 10.6 域分离
 
-本规范使用三个域分离标签：
+本规范使用三个域分离上下文（勘误 E5）：
 
-- `DCP-DELEGATION-SIG-v2` 用于委托授权书、主体镜像和交互记录
-- `DCP-AWARENESS-SIG-v2` 用于认知阈值和建议声明
+- `DCP-AI.v2.Delegation` 用于根委托授权书、主体镜像和交互记录
+- `DCP-AI.v2.Awareness` 用于认知阈值和建议声明
 - `DCP-AI.v2.SubMandate` 用于子授权书（第 3.5 节），使委托代理签署的授权书永远无法冒充人类主体签署的授权书
 
-在 DCP-AI v2.0 的传输格式中，前两个是上下文标签 `DCP-AI.v2.Delegation` 和 `DCP-AI.v2.Awareness`（DCP-AI v2.0 §4.1）。
+前两个此处原先写作标签 `DCP-DELEGATION-SIG-v2` 和 `DCP-AWARENESS-SIG-v2`，它们不是 V2.0 上下文（DCP-AI v2.0 §4.1）。
 
 这种分离防止一个上下文中的签名在另一个上下文中被重放。
 
@@ -927,7 +935,7 @@ A2A_HELLO 消息（DCP-04 第 3.2 节）扩展了一个可选的 `delegation` �
 6. 按第 8 节的定义以授权书验证扩展 A2A 握手
 7. 按第 9 节的定义为所有委托事件创建 DCP-03 审计条目
 8. 启用时支持再委托，并强制执行范围收窄
-9. 所有签名都使用域分离标签 `DCP-DELEGATION-SIG-v2` 和 `DCP-AWARENESS-SIG-v2`
+9. 按第 10.6 节的分配使用域分离上下文 `DCP-AI.v2.Delegation`、`DCP-AI.v2.Awareness` 和 `DCP-AI.v2.SubMandate`（勘误 E5）
 
 <a id="references"></a>
 
@@ -950,12 +958,13 @@ A2A_HELLO 消息（DCP-04 第 3.2 节）扩展了一个可选的 `delegation` �
 ## 实现说明（参考性）
 
 > **2026 年 10 月 25 日添加。非规范性。** 这些说明不增加任何要求，也不改变上文任何内容：它们描述 `main` 上的参考代码
-> 与本文的关系。两者不一致时，以上文的规范性文本为准。
+> 与本文的关系。两者不一致时，以上文的规范性文本为准，并适用
+> [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md) 的勘误所作的更正。
 
 - **SDK 验证什么。** §3.5 的授权书链已在四个签名 SDK 中实现，并用 `tests/interop/v2/mandate_chain_vectors.json`
   检查。DCP-09 的其余部分是 SDK 构建并签署的记录，而不是它们执行或强制的协议步骤。
 - **`schemas/v2/` 中的记录。** schema 的字段与 §3 至 §9 的示例不同。授权书的有效期窗口是 `valid_from` /
-  `valid_until`（§3.2 示例和 §3.6 中的 `effective_until` 不在 schema 中），并带有 `authority_scope` 和
+  `valid_until`（§3.6 依勘误 E6 读作 `valid_until`；§3.2 示例是概念性的），并带有 `authority_scope` 和
   `revocable`。认知阈值是一个 `threshold_rules` 列表（`dimension`、`operator`、`value`、`action_if_triggered`），
   而不是 §4.2 的置信度声明。建议声明带有整数 `significance_score`（0–1000）、`action_summary`、
   `recommended_response`、`response_deadline` 和 `human_response`，没有 §5.3 和 §5.4 的紧急程度或类别。主体镜像带有

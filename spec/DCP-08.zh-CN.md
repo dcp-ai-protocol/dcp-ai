@@ -12,6 +12,8 @@
 ## 状态
 已发布 — v2.0（扩展；修订根据采用者的反馈跟踪）
 
+> **勘误（25/10/2026，规范性）：** [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md) 的勘误 E4、E7 和 E8 更正了签名上下文以及示例的性质。它们不改变本规范的任何其他要求。
+
 <a id="abstract"></a>
 
 ## 摘要
@@ -65,7 +67,7 @@ DCP-01 至 DCP-07 为 AI 代理的身份、运行、审计、通信、生命周�
 
 **合规状态**：义务的当前状态：`compliant`、`at_risk`、`non_compliant` 或 `exempt`。
 
-**域分离标签**：`DCP-RIGHTS-SIG-v2`，用于本规范下产生的所有签名。
+**域分离上下文**：`DCP-AI.v2.Rights`（DCP-AI v2.0 §4.1；勘误 E4；此处原先写的是标签 `DCP-RIGHTS-SIG-v2`），用于本规范下产生的所有签名。
 
 <a id="3-foundational-agent-rights"></a>
 
@@ -298,6 +300,8 @@ Schema 参考：`schemas/v2/rights_declaration.schema.json`
 - 必须（MUST）遵循与基本权利相同的结构
 - 可以（MAY）由 DCP 基础设施或组织工具执行
 - 同样适用相同的违规报告机制
+
+> *参考说明（25/10/2026）：* V2.0 `rights_declaration` 模式中封闭的枚举 `right_type` 不能表示扩展权利；要表示它们，需要明确的、有版本的设计。见 [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md#4-requirements-the-v20-structures-do-not-represent-directly)。
 
 <a id="5-obligation-tracking"></a>
 
@@ -660,7 +664,7 @@ Schema 参考：`schemas/v2/rights_violation_report.schema.json`
 
 ### 9.5 域分离
 
-本规范下的所有签名都使用域分离标签 `DCP-RIGHTS-SIG-v2`，以防止跨协议的签名重放。
+本规范下的所有签名都使用域分离上下文 `DCP-AI.v2.Rights`（勘误 E4），以防止跨协议的签名重放。
 
 <a id="10-conformance"></a>
 
@@ -675,7 +679,7 @@ Schema 参考：`schemas/v2/rights_violation_report.schema.json`
 5. 按第 8 节的定义为所有权利和义务事件创建 DCP-03 审计条目
 6. 支持使用反向域名表示法的组织权利扩展
 7. 按配置的间隔执行合规评估
-8. 所有签名都使用域分离标签 `DCP-RIGHTS-SIG-v2`
+8. 所有签名都使用域分离上下文 `DCP-AI.v2.Rights`（勘误 E4）
 
 <a id="references"></a>
 
@@ -697,7 +701,8 @@ Schema 参考：`schemas/v2/rights_violation_report.schema.json`
 ## 实现说明（参考性）
 
 > **2026 年 10 月 25 日添加。非规范性。** 这些说明不增加任何要求，也不改变上文任何内容：它们描述 `main` 上的参考代码
-> 与本文的关系。两者不一致时，以上文的规范性文本为准。
+> 与本文的关系。两者不一致时，以上文的规范性文本为准，并适用
+> [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md) 的勘误所作的更正。
 
 - **`schemas/v2/` 中的记录。** SDK 构建、`schemas/v2/` 验证的权利声明、义务记录和权利侵犯报告，其字段与 §4 至
   §6 的示例不同。声明中的每项权利有 `right_type`、`scope` 和可选的 `constraints`；`right_type` 只接受四项基本权利，
@@ -705,7 +710,7 @@ Schema 参考：`schemas/v2/rights_violation_report.schema.json`
   `pending_review`，而不是 §5.3 的四种状态，也没有合规标准或阈值。违规报告从同样的四项中指明一个
   `violated_right`，并带有可选的 `dispute_id`；不存在 `obligation_breach` 类型。
 - **签名。** 每条记录只带一个 `composite_sig`（Ed25519 + ML-DSA-65），由持有所传入密钥的一方在上下文
-  `DCP-AI.v2.Rights` 下签署；SDK 不使用标签 `DCP-RIGHTS-SIG-v2`，也不检查声明是否由投入运行机构签署（§9.1）。
+  `DCP-AI.v2.Rights` 下签署（勘误 E4）；SDK 不检查声明是否由投入运行机构签署（§9.1）。
 - **辅助函数做什么。** 它们构建并签署记录。`reportViolation` 只保存收到的 `dispute_id`；它不会提起任何 DCP-07
   争议（§6.4）。`checkRightsCompliance` 报告状态为 `non_compliant` 的义务，并忽略收到的声明；它不评估合规、不按
   间隔运行，也不检测违规。没有合规仪表板（§7）。

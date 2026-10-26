@@ -3,6 +3,8 @@
 ## Status
 Published — v2.0 (extension; revisions tracked via adopter feedback)
 
+> **Errata (25/10/2026, normative):** errata E4, E7 and E8 of [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md) correct the signature context and the status of the examples. They change no other requirement of this specification.
+
 ## Abstract
 This specification defines a formal framework for declaring, tracking, and enforcing the rights and obligations of DCP-certified AI agents. It introduces four foundational agent rights (memory integrity, dignified transition, identity consistency, and immutable record), a structured obligation tracking system, compliance monitoring, and a violation reporting mechanism linked to the DCP-07 conflict resolution protocol. All rights declarations, obligation records, and violation reports are cryptographically signed and auditable.
 
@@ -46,7 +48,7 @@ This is not a philosophical claim about AI consciousness or moral status. It is 
 
 **Compliance Status**: The current state of an obligation: `compliant`, `at_risk`, `non_compliant`, or `exempt`.
 
-**Domain Separation Tag**: `DCP-RIGHTS-SIG-v2` — used for all signatures produced under this specification.
+**Domain Separation Context**: `DCP-AI.v2.Rights` (DCP-AI v2.0 §4.1; erratum E4, previously given here as the label `DCP-RIGHTS-SIG-v2`) — used for all signatures produced under this specification.
 
 ## 3. Foundational Agent Rights
 
@@ -261,6 +263,8 @@ Organizations MAY define additional rights beyond the four foundational rights. 
 - MUST follow the same structure as foundational rights
 - MAY be enforced by the DCP infrastructure or by organizational tooling
 - ARE subject to the same violation reporting mechanism
+
+> *Informative note (25/10/2026):* the closed `right_type` enum of the V2.0 `rights_declaration` schema does not represent extended rights; representing them needs an explicit, versioned design. See [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md#4-requirements-the-v20-structures-do-not-represent-directly).
 
 ## 5. Obligation Tracking
 
@@ -577,7 +581,7 @@ Organizations defining extended rights SHOULD exercise restraint. Excessive righ
 
 ### 9.5 Domain Separation
 
-All signatures under this specification use the domain separation tag `DCP-RIGHTS-SIG-v2`, preventing cross-protocol signature replay.
+All signatures under this specification use the domain separation context `DCP-AI.v2.Rights` (erratum E4), preventing cross-protocol signature replay.
 
 ## 10. Conformance
 
@@ -590,7 +594,7 @@ An implementation is DCP-08 conformant if it:
 5. Creates DCP-03 audit entries for all rights and obligations events as defined in Section 8
 6. Supports organizational right extensions using reverse-domain notation
 7. Enforces compliance assessment at configured intervals
-8. Uses the domain separation tag `DCP-RIGHTS-SIG-v2` for all signatures
+8. Uses the domain separation context `DCP-AI.v2.Rights` for all signatures (erratum E4)
 
 ## References
 
@@ -608,7 +612,8 @@ An implementation is DCP-08 conformant if it:
 ## Implementation notes (informative)
 
 > **Added 25/10/2026. Not normative.** These notes add no requirement and change nothing above: they describe how
-> the reference code on `main` relates to this text. Where they differ, the normative text above stands.
+> the reference code on `main` relates to this text. Where they differ, the normative text above stands, as corrected by the errata of
+> [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md).
 
 - **Records in `schemas/v2/`.** The rights declaration, obligation record and rights violation report that the SDKs
   build and that `schemas/v2/` validates have other fields than the examples of §4 to §6. Each right in a declaration
@@ -618,7 +623,7 @@ An implementation is DCP-08 conformant if it:
   A violation report names one `violated_right` from the same four, with an optional `dispute_id`; there is no
   `obligation_breach` type.
 - **Signatures.** Each record carries one `composite_sig` (Ed25519 + ML-DSA-65) by whoever holds the keys passed in,
-  under the context `DCP-AI.v2.Rights`; the SDKs do not use the tag `DCP-RIGHTS-SIG-v2` and do not check that a
+  under the context `DCP-AI.v2.Rights` (erratum E4); the SDKs do not check that a
   declaration is signed by the commissioning authority (§9.1).
 - **What the helpers do.** They build and sign records. `reportViolation` only stores the `dispute_id` it is given; it
   does not file a DCP-07 dispute (§6.4). `checkRightsCompliance` reports the obligations whose status is
