@@ -5,7 +5,7 @@
 
 # Plantilla DCP-AI + servidor de API Express
 
-> Traducción informativa de [la versión en inglés](README.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](README.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Una API de Express que muestra dónde van las comprobaciones de bundles de DCP en un servidor.
 

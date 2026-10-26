@@ -4,7 +4,7 @@
 
 # Hoja de ruta de DCP-AI
 
-> Traducción informativa de [la versión en inglés](ROADMAP.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](ROADMAP.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Este documento describe la evolución prevista del proyecto DCP-AI. La hoja de ruta se organiza en fases que pueden solaparse, pero que deben respetar el orden de dependencias.
 

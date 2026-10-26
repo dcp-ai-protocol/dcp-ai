@@ -4,7 +4,7 @@
 
 # Laboratorio de canonicalización
 
-> Traducción informativa de [la versión en inglés](README.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](README.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Un **modelo de diseño** ejecutable del candidato no normativo `dcp-jcs-v2`, con su generador de corpus y su
 ejecutor. No es un SDK, ni un verificador, ni una comprobación de conformidad: calcula SHA-256 para sus compromisos sintéticos,

@@ -4,7 +4,7 @@
 
 # Guía de inicio rápido de DCP-AI
 
-> Traducción informativa de [la versión en inglés](QUICKSTART.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](QUICKSTART.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Empieza a usar el Digital Citizenship Protocol en menos de 5 minutos.
 

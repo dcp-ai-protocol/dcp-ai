@@ -4,7 +4,7 @@
 
 # Testes do `@dcp-ai/cli`
 
-> Tradução informativa da [versão em inglês](TESTING.md), atualizada em 25/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](TESTING.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 O CLI 2.1.0 publicado requer `@dcp-ai/sdk` `^2.2.0`, disponível no npm. Estes testes do repositório usam deliberadamente o SDK compilado do mesmo checkout para cobrir mudanças de código antes de uma publicação futura.
 

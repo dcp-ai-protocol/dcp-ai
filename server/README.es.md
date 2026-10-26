@@ -4,7 +4,7 @@
 
 # Pasarela de referencia de DCP
 
-> Traducción informativa de [la versión en inglés](README.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](README.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Servicio HTTP de verificación que implementa V1, V2 y la fase 3 (PQ primero) del Digital Citizenship Protocol. **Almacenamiento en memoria**: no necesita ninguna base de datos externa, y nada sobrevive a un reinicio (véase [Persistencia](#persistence)). Pensado para que lo ejecute cualquier tercero; el protocolo no exige un servidor central.
 

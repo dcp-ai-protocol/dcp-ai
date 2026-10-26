@@ -4,7 +4,7 @@
 
 # Admisión: principales de confianza y el perfil strict-v1
 
-> Traducción informativa de [la versión en inglés](ADMISSION.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](ADMISSION.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Un bundle verificado prueba su integridad y que fue firmado por las claves que enumera. Cualquiera puede crear un registro de principal responsable con cualquier `human_id` y claves propias, así que la verificación por sí sola no te dice **quién** es el principal.
 

@@ -5,7 +5,7 @@
 
 # Ponte DCP-AI ↔ Microsoft AutoGen
 
-> Tradução informativa da [versão em inglês](README.md), atualizada em 25/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](README.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Constrói registros no formato do DCP para conversas do Microsoft AutoGen: configurações de agentes com uma identidade DCP, entradas de auditoria para as mensagens, intenções para as chamadas de funções e mandatos de delegação.
 

@@ -5,7 +5,7 @@
 
 # Creación y certificación de agentes — P2P, sin servicio central
 
-> Traducción informativa de [la versión en inglés](AGENT_CREATION_AND_CERTIFICATION.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](AGENT_CREATION_AND_CERTIFICATION.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Un sistema que crea agentes puede producir por defecto agentes **certificados DCP**: vinculados a una persona, con pasaporte emitido y bundle firmado. **Sin registro en ningún servicio central.** La verificación es local. Opcional: anclar bundle_hash en un registro o cadena pública (usando una blockchain existente o un servicio de terceros).
 

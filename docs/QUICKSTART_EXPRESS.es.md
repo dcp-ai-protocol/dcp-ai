@@ -5,7 +5,7 @@
 
 # DCP-AI + Express: inicio rápido
 
-> Traducción informativa de [la versión en inglés](QUICKSTART_EXPRESS.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](QUICKSTART_EXPRESS.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Verifica bundles firmados DCP en tus API de Express.js con el middleware `@dcp-ai/express`.
 

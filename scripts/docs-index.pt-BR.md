@@ -11,7 +11,7 @@ hide:
 
 # DCP-AI — Digital Citizenship Protocol para agentes de IA
 
-> Tradução informativa da [versão em inglês](docs-index.md), atualizada em 25/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](docs-index.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 > Uma camada portátil de prestação de contas para agentes de IA em redes abertas.
 

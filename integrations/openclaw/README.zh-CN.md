@@ -5,7 +5,7 @@
 
 # @dcp-ai/openclaw — 面向 OpenClaw 的 DCP 集成
 
-> 本文是[英文版](README.md)的参考译文，更新于 25/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](README.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 为 AI 代理添加 **Digital Citizenship Protocol (DCP)** 工具的 [OpenClaw](https://github.com/openclaw/openclaw) 插件。当代理调用这些工具时，操作会被声明、进行风险评分，
 并记录在与人类所有者绑定、以哈希链连接的审计轨迹中：插件不会

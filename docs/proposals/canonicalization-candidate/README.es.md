@@ -4,7 +4,7 @@
 
 # Candidato de canonicalización `dcp-jcs-v2`
 
-> Traducción informativa de [la versión en inglés](README.md), actualizada el 25/10/2026. Propuesta experimental y no normativa; si difieren, prevalece la versión en inglés. Los identificadores y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](README.md), actualizada el 26/10/2026. Propuesta experimental y no normativa; si difieren, prevalece la versión en inglés. Los identificadores y bloques de código se conservan sin traducir.
 
 | | |
 |---|---|

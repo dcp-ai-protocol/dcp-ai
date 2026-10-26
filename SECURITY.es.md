@@ -4,7 +4,7 @@
 
 # Política de seguridad
 
-> Traducción informativa de [la versión en inglés](SECURITY.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](SECURITY.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 <a id="reporting-a-vulnerability"></a>
 

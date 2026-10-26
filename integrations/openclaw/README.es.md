@@ -5,7 +5,7 @@
 
 # @dcp-ai/openclaw — integración de DCP para OpenClaw
 
-> Traducción informativa de [la versión en inglés](README.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](README.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Plugin de [OpenClaw](https://github.com/openclaw/openclaw) que añade herramientas del **Digital Citizenship Protocol (DCP)** a los agentes de IA. Una acción se declara, se puntúa por riesgo y
 se registra en un registro de auditoría encadenado por hash y vinculado a un propietario humano cuando el agente llama a estas herramientas: el plugin no

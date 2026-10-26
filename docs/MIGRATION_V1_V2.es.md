@@ -4,7 +4,7 @@
 
 # Guía de migración: de DCP-AI v1.0 a v2.0
 
-> Traducción informativa de [la versión en inglés](MIGRATION_V1_V2.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](MIGRATION_V1_V2.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 **Versión de la especificación:** 2.0
 **Última actualización:** octubre de 2026

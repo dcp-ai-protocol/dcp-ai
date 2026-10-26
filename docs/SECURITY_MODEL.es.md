@@ -4,7 +4,7 @@
 
 # Modelo de seguridad
 
-> Traducción informativa de [la versión en inglés](SECURITY_MODEL.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](SECURITY_MODEL.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Cómo protege el protocolo frente a los ataques, desde los bundles falsificados hasta las bifurcaciones del protocolo.
 

@@ -4,7 +4,7 @@
 
 # Contribuir a DCP-AI
 
-> Traducción informativa de [la versión en inglés](CONTRIBUTING.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](CONTRIBUTING.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Gracias por tu interés en contribuir al Digital Citizenship Protocol para agentes de IA. Esta guía te ayudará a empezar.
 

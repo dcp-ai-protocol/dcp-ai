@@ -5,7 +5,7 @@
 
 # Puente DCP-AI ↔ W3C DID/VC
 
-> Traducción informativa de [la versión en inglés](README.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](README.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Convierte entre artefactos de DCP y los identificadores descentralizados (DID) y credenciales verificables (VC) del W3C.
 

@@ -5,7 +5,7 @@
 
 # DCP-AI y el Reglamento de IA de la UE — correspondencia de las obligaciones de registro, supervisión humana y conservación de registros
 
-> Traducción informativa de [la versión en inglés](EU_AI_ACT_MAPPING.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](EU_AI_ACT_MAPPING.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 **Versión de la especificación:** 2.0
 **Última actualización:** octubre de 2026

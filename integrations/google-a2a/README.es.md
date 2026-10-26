@@ -5,7 +5,7 @@
 
 # Puente DCP-AI ↔ protocolo A2A (Agent-to-Agent)
 
-> Traducción informativa de [la versión en inglés](README.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](README.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Lleva el Agent Passport firmado de DCP dentro de la Agent Card de A2A, para que un consumidor de A2A pueda verificar
 sin conexión el hash y la autofirma del pasaporte antes de delegar una tarea. El pasaporte nombra a un principal

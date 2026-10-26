@@ -5,7 +5,7 @@
 
 # DCP-AI + Express 快速开始
 
-> 本文是[英文版](QUICKSTART_EXPRESS.md)的参考译文，更新于 25/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](QUICKSTART_EXPRESS.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 使用 `@dcp-ai/express` 中间件，在你的 Express.js API 中验证 DCP 已签名 bundle。
 

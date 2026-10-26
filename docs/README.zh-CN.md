@@ -6,7 +6,7 @@
 
 **npm 发布（2026 年 10 月 26 日）。** [NPM_RELEASES.md](NPM_RELEASES.md) 中的 13 个版本已发布，包括 TypeScript/WASM 候选 API 和 TypeScript 准入功能。以下条目保留开发历史；`[Unreleased]` 不表示这些 npm 功能不可用。Python、Go 和 Rust 的发布独立进行。
 
-> 本文是[英文版](README.md)的参考译文，更新于 25/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](README.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 <a id="quick-start"></a>
 

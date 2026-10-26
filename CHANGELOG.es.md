@@ -4,7 +4,7 @@
 
 # Registro de cambios
 
-> Traducción informativa de [la versión en inglés](CHANGELOG.md), actualizada el 25/10/2026. Cada entrada, también las de `[Unreleased]`, describe un cambio en su momento y no garantiza el comportamiento actual; las versiones publicadas son **registro histórico con fecha**. Si difieren, prevalece la versión en inglés.
+> Traducción informativa de [la versión en inglés](CHANGELOG.md), actualizada el 26/10/2026. Cada entrada, también las de `[Unreleased]`, describe un cambio en su momento y no garantiza el comportamiento actual; las versiones publicadas son **registro histórico con fecha**. Si difieren, prevalece la versión en inglés.
 
 **Publicación npm (26/10/2026).** Las 13 versiones de [NPM_RELEASES.md](docs/NPM_RELEASES.md) están publicadas, incluidas las API candidatas TypeScript/WASM y la admisión TypeScript. Las entradas siguientes conservan su historial de desarrollo; `[Unreleased]` no significa que estas funciones npm no estén disponibles. Las publicaciones de Python, Go y Rust son independientes.
 

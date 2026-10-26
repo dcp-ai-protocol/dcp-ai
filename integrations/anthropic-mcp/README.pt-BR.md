@@ -5,7 +5,7 @@
 
 # DCP-AI ↔ ponte com o Model Context Protocol (MCP)
 
-> Tradução informativa da [versão em inglês](README.md), atualizada em 25/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](README.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Recibos assinados do DCP para as chamadas de ferramentas do MCP, além de ferramentas e recursos do DCP para servidores MCP.
 

@@ -4,7 +4,7 @@
 
 # Gateway de referência do DCP
 
-> Tradução informativa da [versão em inglês](README.md), atualizada em 25/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](README.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Serviço HTTP de verificação que implementa a V1, a V2 e a fase 3 (PQ primeiro) do Digital Citizenship Protocol. **Armazenamento em memória**: não precisa de nenhum banco de dados externo, e nada sobrevive a uma reinicialização (veja [Persistência](#persistence)). Projetado para ser executado por qualquer terceiro; o protocolo não exige um servidor central.
 

@@ -4,7 +4,7 @@
 
 # Roteiro do DCP-AI
 
-> Tradução informativa da [versão em inglês](ROADMAP.md), atualizada em 25/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](ROADMAP.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Este documento descreve a evolução planejada do projeto DCP-AI. O roteiro está organizado em fases que podem se sobrepor, mas devem respeitar a ordem de dependências.
 

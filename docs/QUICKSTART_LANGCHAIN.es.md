@@ -5,7 +5,7 @@
 
 # DCP-AI + LangChain: inicio rápido
 
-> Traducción informativa de [la versión en inglés](QUICKSTART_LANGCHAIN.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](QUICKSTART_LANGCHAIN.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Integra el Digital Citizenship Protocol en tus agentes de LangChain para añadir identidad criptográfica, control por política y rastros de auditoría.
 
