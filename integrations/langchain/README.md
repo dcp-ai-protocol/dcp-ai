@@ -11,19 +11,19 @@ through `DCPTool`. It does not implement them in full.
 
 ## Installation
 
-> **Release status (25/10/2026).** PyPI has `dcp-ai` 2.9.0. In it, `DCPTool` sends every bundle to the V1 verifier: every V2 bundle is rejected, and a V1 bundle is accepted under no verifier policy. `DCPTool(verifier_policy=...)` and the V2 verification described below are in the source on `main` (see the `[Unreleased]` section of [CHANGELOG.md](../../CHANGELOG.md)).
+**Published on PyPI (26/10/2026).** `dcp-ai` 2.10.0 includes the implementation described here. Upgrade from 2.9.0 and refresh your environment or lockfile. See [Python release notes](../../docs/PYTHON_RELEASE.md).
 
-From a checkout (this page's version):
+Version 2.9.0 routes every bundle to V1. Version 2.10.0 verifies V2 with the normative verifier and enforces the configured policy for V1 and V2; the unsigned-record and callback limitations below remain.
+
+```bash
+pip install "dcp-ai[langchain]>=2.10.0,<3"
+```
+
+For source development:
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-pip install "/path/to/dcp-ai/sdks/python[langchain]"
-```
-
-The published version (2.9.0), with the limits above:
-
-```bash
-pip install "dcp-ai[langchain]"
+pip install -e "/path/to/dcp-ai/sdks/python[langchain]"
 ```
 
 ## Quickstart

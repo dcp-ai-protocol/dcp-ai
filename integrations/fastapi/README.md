@@ -8,19 +8,19 @@ DCP-01 through DCP-09, partially: bundle verification and admission as described
 
 ## Installation
 
-> **Release status (25/10/2026).** PyPI has `dcp-ai` 2.9.0. Its FastAPI middleware **does not verify the signatures of V2 bundles**: it checks their structure, and sets `composite_sig_valid` from the `binding` field, so a forged or altered V2 bundle passes (fixed on `main`, see the `[Unreleased]` section of [CHANGELOG.md](../../CHANGELOG.md)). Do not rely on 2.9.0 for V2 bundles. Admission (`trusted_principals`, `profile`, `revocation_source`), `verifier_policy`, `max_body_bytes`, source supervision and `cancel_on_disconnect` are not in it either. This README follows the source on `main`.
+**Published on PyPI (26/10/2026).** `dcp-ai` 2.10.0 includes the implementation described here. Upgrade from 2.9.0 and refresh your environment or lockfile. See [Python release notes](../../docs/PYTHON_RELEASE.md).
 
-To use the version this page describes, install the Python SDK from a checkout:
+Version 2.9.0 does not verify V2 signatures; do not use it for V2 verification. Version 2.10.0 includes the corrected verifier, principal trust, `strict-v1`, body budgets, supervised trust/revocation sources and disconnect handling. Admission does not authorize an action.
+
+```bash
+pip install "dcp-ai[fastapi]>=2.10.0,<3"
+```
+
+For source development:
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-pip install "/path/to/dcp-ai/sdks/python[fastapi]"
-```
-
-The published version (2.9.0), without the features listed above:
-
-```bash
-pip install "dcp-ai[fastapi]"
+pip install -e "/path/to/dcp-ai/sdks/python[fastapi]"
 ```
 
 ## Quickstart

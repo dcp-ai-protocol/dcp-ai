@@ -4,6 +4,8 @@
 
 # Guia de migração: do DCP-AI v1.0 para o v2.0
 
+**Publicação Python (26/10/2026).** O `dcp-ai` 2.10.0 já está disponível no PyPI, incluindo as correções do verificador, a admissão e as APIs experimentais opt-in. As publicações de Go e Rust continuam independentes. Veja [Python 2.10.0](PYTHON_RELEASE.md).
+
 > Tradução informativa da [versão em inglês](MIGRATION_V1_V2.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 **Versão da especificação:** 2.0
@@ -69,7 +71,7 @@ A migração é **aditiva**: a v2.0 introduz campos e estruturas novos ao lado d
 
 ### Etapa 1: atualizar o SDK
 
-Os exemplos TypeScript funcionam com o SDK npm publicado. Para as funcionalidades Python, Go e Rust descritas a partir de `main`, confira o estado de publicação de cada SDK e use um checkout quando ainda não estiverem publicadas.
+Os exemplos funcionam com TypeScript SDK 2.2.0 e Python `dcp-ai` 2.10.0 publicados. Veja as [notas de Python](PYTHON_RELEASE.md). Para Go e Rust, confira o README de cada SDK e use um checkout para funcionalidades ainda não publicadas.
 
 **TypeScript** (publicado: 2.2.0 em 26/10/2026):
 

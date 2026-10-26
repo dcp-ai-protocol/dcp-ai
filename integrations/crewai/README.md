@@ -11,19 +11,19 @@ them in full.
 
 ## Installation
 
-> **Release status (25/10/2026).** PyPI has `dcp-ai` 2.9.0. In it, the agents of a `DCPCrew` do not share the crew's session nonce: each agent's audit entries carry a different one. The shared nonce described below is in the source on `main` (see the `[Unreleased]` section of [CHANGELOG.md](../../CHANGELOG.md)).
+**Published on PyPI (26/10/2026).** `dcp-ai` 2.10.0 includes the implementation described here. Upgrade from 2.9.0 and refresh your environment or lockfile. See [Python release notes](../../docs/PYTHON_RELEASE.md).
 
-From a checkout (this page's version):
+Version 2.10.0 shares the crew session nonce with eligible agents as described below, correcting 2.9.0. These helpers still produce unsigned records and do not run CrewAI; use the SDK signing APIs for verifiable bundles.
+
+```bash
+pip install "dcp-ai[crewai]>=2.10.0,<3"
+```
+
+For source development:
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-pip install "/path/to/dcp-ai/sdks/python[crewai]"
-```
-
-The published version (2.9.0):
-
-```bash
-pip install "dcp-ai[crewai]"
+pip install -e "/path/to/dcp-ai/sdks/python[crewai]"
 ```
 
 ## Quickstart

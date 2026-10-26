@@ -58,7 +58,7 @@ The packages do not share one version number; the `@dcp-ai/*` npm packages follo
 
 | Version | Supported |
 |---------|-----------|
-| 2.10.x (`dcp-ai` on crates.io, Go module `sdks/go/v2`) | Yes |
+| 2.10.x (`dcp-ai` on PyPI / crates.io, Go module `sdks/go/v2`) | Yes |
 | 2.9.x (`dcp-ai` on PyPI, crates.io, Go module `sdks/go/v2`) | Yes |
 | 2.8.x (`dcp-ai` on PyPI and crates.io, Go module `sdks/go/v2`) | Yes |
 | 2.2.x (`@dcp-ai/sdk`) | Yes |
@@ -70,7 +70,7 @@ The packages do not share one version number; the `@dcp-ai/*` npm packages follo
 
 `@dcp-ai/sdk` 2.2.0 was published to npm on 26/10/2026 and is `latest`. It includes the verifier fixes; upgrade with `npm install @dcp-ai/sdk@^2.2.0` and refresh your lockfile. Earlier affected versions do not gain the fixes automatically. See the [published npm package inventory](docs/NPM_RELEASES.md).
 
-**Affected and corrected integration releases (26/10/2026).** `@dcp-ai/express` 2.0.0 and `@dcp-ai/openclaw` 2.0.0 accept structurally valid V2 bundles without verifying their signatures. Both are corrected in npm version 2.1.0, with `@dcp-ai/sdk` `^2.2.0`. Do not use 2.0.0 to verify V2 bundles. The FastAPI integration in `dcp-ai` 2.9.0 on PyPI remains affected: this npm publication does not publish the Python fix. See [Express](integrations/express/README.md), [OpenClaw](integrations/openclaw/README.md) and [FastAPI](integrations/fastapi/README.md). Package support does not mean every older build contains the fixes.
+**Affected and corrected integration releases (26/10/2026).** `@dcp-ai/express` 2.0.0 and `@dcp-ai/openclaw` 2.0.0 accept structurally valid V2 bundles without verifying their signatures. Both are corrected in npm version 2.1.0, with `@dcp-ai/sdk` `^2.2.0`. Do not use 2.0.0 to verify V2 bundles. The FastAPI integration in `dcp-ai` 2.9.0 remains affected; the corrected implementation is now published in PyPI version 2.10.0. See the [Python upgrade notes](docs/PYTHON_RELEASE.md). See [Express](integrations/express/README.md), [OpenClaw](integrations/openclaw/README.md) and [FastAPI](integrations/fastapi/README.md). Package support does not mean every older build contains the fixes.
 
 ## Disclosure Policy
 

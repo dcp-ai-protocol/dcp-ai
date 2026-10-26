@@ -216,7 +216,7 @@ const registry = getDefaultRegistry();
 LangChain のスタックが Node ではなく Python の場合は、代わりに Python SDK の組み込みのブリッジを使います。
 
 ```bash
-pip install 'dcp-ai[langchain]'
+pip install "dcp-ai[langchain]>=2.10.0,<3"
 ```
 
 ```python
@@ -232,8 +232,7 @@ events = wrapped.get_audit_trail()  # V2 audit events, hash-chained; seal them i
 `DCPAgentWrapper` は呼び出しごとに意図とポリシー判断を宣言し、`block` を拒否し、
 監査イベントを記録します。`DCPTool` はエージェントがほかのエージェントのバンドルを検証できるようにし、`DCPCallback` は
 LangChain のコールバックから監査イベントを記録します。レコードは署名されず、既定のポリシーはすべての呼び出しを承認し、`escalate` でも
-エージェントは実行されます。LangChain 1.x では `DCPCallback` に自前のハンドラーが必要で、PyPI の 2.9.0 では `DCPTool` がすべての
-バンドルを V1 の検証器に送ります。これらの制限と全体の API については [integrations/langchain/README.md](../integrations/langchain/README.md) を参照してください。
+エージェントは実行されます。LangChain 1.x では `DCPCallback` に自前のハンドラーが必要で、PyPI 2.10.0 は設定したポリシーで V1 と V2 を検証します（2.9.0 はすべてを V1 に送っていました）。これらの制限と全体の API については [integrations/langchain/README.md](../integrations/langchain/README.md) を参照してください。
 Python のブリッジは、上の手書きの TypeScript の例とは別物です。
 
 ---

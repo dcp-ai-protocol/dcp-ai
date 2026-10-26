@@ -1,5 +1,7 @@
 # Changelog
 
+**Python release (26/10/2026).** `dcp-ai` 2.10.0 is now available on PyPI, including the verifier fixes, admission and the experimental opt-in APIs. Go and Rust publication remains separate. See [Python 2.10.0](docs/PYTHON_RELEASE.md).
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).

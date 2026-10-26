@@ -7,7 +7,7 @@ Admission adds what an operator needs to accept evidence only from principals it
 - **Trusted principals.** The operator supplies a trust set: each principal's `human_id` and the public keys it may sign with. A bundle is admitted only if the keys that actually verified the principal's signatures (the RPR and the bundle manifest, classical and post-quantum) are trusted keys of that principal, active and in their validity window.
 - **The strict-v1 profile.** Optional, versioned and operator-fixed: hybrid signatures for every risk tier, a signed `intended_verifier` equal to the operator's `verifier_id`, a signed session window of at most 300 seconds, and a revocation snapshot at most 300 seconds old.
 
-> **Release status (26/10/2026).** Admission and `strict-v1` are published in `@dcp-ai/sdk` 2.2.0 and the Express/OpenClaw 2.1.0 adapters. See [npm versions](NPM_RELEASES.md). Python, Go and Rust publication is separate; use their source checkouts for the APIs described here until their respective releases include them. The reference server and root CLI still run from a checkout.
+> **Release status (26/10/2026).** Admission and `strict-v1` are published in `@dcp-ai/sdk` 2.2.0, Express/OpenClaw 2.1.0 and Python `dcp-ai` 2.10.0. See [npm versions](NPM_RELEASES.md) and [Python](PYTHON_RELEASE.md). Go and Rust releases are separate; use their checkouts for APIs not yet released. The reference server and root CLI still run from a checkout.
 
 The normative definition, with every rule and error code, is [`spec/profiles/admission`](../spec/profiles/admission/README.md). The shared test vectors are [`tests/interop/v2/admission_vectors.json`](../tests/interop/v2/admission_vectors.json).
 

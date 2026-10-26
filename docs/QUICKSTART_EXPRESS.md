@@ -26,13 +26,10 @@ structure of a bundle only: it verifies no signature, so a forged or altered bun
 
 ### Python equivalent (FastAPI)
 
-If your service is FastAPI rather than Express, use the Python bridge. This example follows `main`: install the
-Python SDK from a checkout. The FastAPI middleware of `dcp-ai` 2.9.0 on PyPI checks the structure of V2 bundles but
-does not verify their signatures, so a forged V2 bundle passes it; do not rely on 2.9.0 for V2 bundles (see the
-[FastAPI README](../integrations/fastapi/README.md)).
+For FastAPI services, install the Python bridge from PyPI 2.10.0. It includes V2 signature verification and the admission/resource controls documented in the [FastAPI README](../integrations/fastapi/README.md). The older 2.9.0 middleware checks V2 structure without verifying signatures; upgrade before relying on it for V2.
 
 ```bash
-pip install "/path/to/dcp-ai/sdks/python[fastapi]"
+pip install "dcp-ai[fastapi]>=2.10.0,<3"
 ```
 
 ```python

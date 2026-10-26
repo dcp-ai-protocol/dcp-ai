@@ -216,7 +216,7 @@ const registry = getDefaultRegistry();
 如果你的 LangChain 技术栈是 Python 而不是 Node，请改用 Python SDK 内置的桥接：
 
 ```bash
-pip install 'dcp-ai[langchain]'
+pip install "dcp-ai[langchain]>=2.10.0,<3"
 ```
 
 ```python
@@ -232,8 +232,7 @@ events = wrapped.get_audit_trail()  # V2 audit events, hash-chained; seal them i
 `DCPAgentWrapper` 为每次调用声明一个意图和一个策略决定，拒绝 `block`，并记录一条
 审计事件；`DCPTool` 让智能体可以验证其他智能体的 bundle，`DCPCallback` 则根据
 LangChain 回调记录审计事件。这些记录没有签名，默认策略会批准所有调用，`escalate` 时仍会运行
-智能体；在 LangChain 1.x 下 `DCPCallback` 需要你自己的处理器，而在 PyPI 的 2.9.0 中 `DCPTool` 会把所有
-bundle 发送给 V1 验证器。这些限制和完整接口参见 [integrations/langchain/README.md](../integrations/langchain/README.md)；
+智能体；在 LangChain 1.x 下 `DCPCallback` 需要你自己的处理器，PyPI 2.10.0 使用配置的策略验证 V1 和 V2（2.9.0 将所有 bundle 发送给 V1）。这些限制和完整接口参见 [integrations/langchain/README.md](../integrations/langchain/README.md)；
 Python 桥接并不是上面那个手写的 TypeScript 示例。
 
 ---

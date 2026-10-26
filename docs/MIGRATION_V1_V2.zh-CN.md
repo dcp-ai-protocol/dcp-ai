@@ -4,6 +4,8 @@
 
 # 迁移指南：从 DCP-AI v1.0 到 v2.0
 
+**Python 发布 (26/10/2026).** `dcp-ai` 2.10.0 已在 PyPI 发布，包含验证器修复、准入和实验性显式启用 API。Go 和 Rust 仍独立发布。见 [Python 2.10.0](PYTHON_RELEASE.md).
+
 > 本文是[英文版](MIGRATION_V1_V2.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 **规范版本：** 2.0
@@ -69,7 +71,7 @@ v1.0 bundle 只有一个 Ed25519 签名，没有后量子签名，因此验证�
 
 ### 步骤 1：更新 SDK
 
-TypeScript 示例可使用已发布的 npm SDK。对于本文基于 `main` 描述的 Python、Go 和 Rust 功能，请查看各 SDK README 的发布状态；尚未发布的功能请使用检出代码。
+示例适用于已发布的 TypeScript SDK 2.2.0 和 Python `dcp-ai` 2.10.0。见 [Python 发布说明](PYTHON_RELEASE.md)。Go 和 Rust 请查看各 SDK README，未发布功能使用检出代码。
 
 **TypeScript**（2026 年 10 月 26 日已发布：2.2.0）：
 

@@ -5,7 +5,7 @@
 
 # dcp_ai.langchain — LangChain との統合
 
-> [英語版](README.md)の参考訳です（25/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](README.md)の参考訳です（26/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 DCP と LangChain の統合です。LangChain のエージェントを包み、完了した呼び出しのたびに、V2 の形のハッシュチェーンでつながった監査証跡にエントリーを残します。また、バンドルの検証ツールとコールバックのハンドラーを提供します。
 
@@ -22,19 +22,19 @@ DCP-01 から DCP-09。部分的なもので、これらの仕様の形に沿っ
 
 ## インストール
 
-> **リリースの状況（2026 年 10 月 25 日）。** PyPI には `dcp-ai` 2.9.0 があります。そこでは、`DCPTool` はすべてのバンドルを V1 の検証器に送ります。V2 のバンドルはすべて拒否され、V1 のバンドルはどの検証器のポリシーにもよらず受け入れられます。`DCPTool(verifier_policy=...)` と以下で説明する V2 の検証は `main` のソースにあります（[CHANGELOG.md](../../CHANGELOG.md) の `[Unreleased]` の節を参照）。
+**PyPI 公開済み（26/10/2026）。** `dcp-ai` 2.10.0 はここで説明する実装を含みます。2.9.0 から更新し、環境またはロックファイルを更新してください。[Python のリリースノート](../../docs/PYTHON_RELEASE.md)を参照してください。
 
-チェックアウトから（このページのバージョン）：
+2.9.0 はすべてのバンドルを V1 に送ります。2.10.0 は規範的検証器で V2 を検証し、V1 と V2 に設定したポリシーを適用します。以下の未署名記録とコールバックの制限は変わりません。
+
+```bash
+pip install "dcp-ai[langchain]>=2.10.0,<3"
+```
+
+ソース開発の場合：
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-pip install "/path/to/dcp-ai/sdks/python[langchain]"
-```
-
-公開されたバージョン（2.9.0）、上記の制限あり：
-
-```bash
-pip install "dcp-ai[langchain]"
+pip install -e "/path/to/dcp-ai/sdks/python[langchain]"
 ```
 
 <a id="quickstart"></a>

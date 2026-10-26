@@ -1,5 +1,7 @@
 # DCP-AI Roadmap
 
+**Python release (26/10/2026).** `dcp-ai` 2.10.0 is now available on PyPI, including the verifier fixes, admission and the experimental opt-in APIs. Go and Rust publication remains separate. See [Python 2.10.0](docs/PYTHON_RELEASE.md).
+
 This document describes the planned evolution of the DCP-AI project. The roadmap is organized in phases that can overlap but must respect dependency order.
 
 ---

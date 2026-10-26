@@ -11,6 +11,8 @@ hide:
 
 # DCP-AI — AI エージェントのための Digital Citizenship Protocol
 
+**Python の公開 (26/10/2026).** `dcp-ai` 2.10.0 が PyPI で公開され、検証器の修正、受け入れ判定、実験的なオプトイン API を含みます。Go と Rust の公開は別です。参照： [Python 2.10.0](reference/docs/PYTHON_RELEASE.md).
+
 > [英語版](docs-index.md)の参考訳です（26/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 > オープンなネットワーク上の AI エージェントのための、持ち運べる説明責任の層。

@@ -5,7 +5,7 @@
 
 # dcp_ai.langchain — integración con LangChain
 
-> Traducción informativa de [la versión en inglés](README.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](README.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Integración de DCP con LangChain. Envuelve un agente de LangChain para que cada llamada que se completa deje una entrada en un registro de auditoría encadenado por hash con la forma de V2, y proporciona una herramienta de verificación de bundles y un manejador de callbacks.
 
@@ -22,19 +22,19 @@ bundles mediante `DCPTool`. No las implementa por completo.
 
 ## Instalación
 
-> **Estado de publicación (25/10/2026).** PyPI tiene `dcp-ai` 2.9.0. En ella, `DCPTool` envía todos los bundles al verificador V1: todo bundle V2 se rechaza, y un bundle V1 se acepta sin ninguna política de verificador. `DCPTool(verifier_policy=...)` y la verificación V2 descrita abajo están en el código fuente de `main` (véase la sección `[Unreleased]` de [CHANGELOG.md](../../CHANGELOG.md)).
+**Publicado en PyPI (26/10/2026).** `dcp-ai` 2.10.0 incluye la implementación descrita aquí. Actualiza desde 2.9.0 y renueva tu entorno o archivo de bloqueo. Véanse las [notas de Python](../../docs/PYTHON_RELEASE.md).
 
-Desde un checkout (la versión de esta página):
+La versión 2.9.0 envía todos los bundles a V1. La 2.10.0 verifica V2 con el verificador normativo y aplica la política configurada a V1 y V2; se mantienen las limitaciones sobre registros sin firmar y callbacks descritas abajo.
+
+```bash
+pip install "dcp-ai[langchain]>=2.10.0,<3"
+```
+
+Para desarrollar desde el código fuente:
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-pip install "/path/to/dcp-ai/sdks/python[langchain]"
-```
-
-La versión publicada (2.9.0), con los límites anteriores:
-
-```bash
-pip install "dcp-ai[langchain]"
+pip install -e "/path/to/dcp-ai/sdks/python[langchain]"
 ```
 
 <a id="quickstart"></a>

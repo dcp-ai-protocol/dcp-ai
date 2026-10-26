@@ -1,5 +1,7 @@
 # DCP-AI and the EU AI Act — Mapping of Logging, Human Oversight and Record-Keeping Obligations
 
+**Python release (26/10/2026).** `dcp-ai` 2.10.0 is now available on PyPI, including the verifier fixes, admission and the experimental opt-in APIs. Go and Rust publication remains separate. See [Python 2.10.0](PYTHON_RELEASE.md).
+
 **Specification version:** 2.0
 **Last updated:** October 2026
 **Legal review date:** 22 October 2026

@@ -5,7 +5,7 @@
 
 # DCP-AI + CrewAI 快速开始
 
-> 本文是[英文版](QUICKSTART_CREWAI.md)的参考译文，更新于 25/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](QUICKSTART_CREWAI.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 为你的 CrewAI 多智能体团队加入密码学身份、策略管控和审计轨迹。
 
@@ -16,7 +16,7 @@
 ## 安装
 
 ```bash
-pip install 'dcp-ai[crewai]'
+pip install "dcp-ai[crewai]>=2.10.0,<3"
 ```
 
 `[crewai]` extra 会安装 `crewai` 运行时。下面的示例直接使用核心 SDK；SDK 自带的 CrewAI 辅助工具，即 `dcp_ai.crewai` 中的 `DCPCrewAgent` 和 `DCPCrew`，在 [integrations/crewai](../integrations/crewai/README.md) 中介绍。
@@ -284,7 +284,7 @@ DCP v2.0 为 CrewAI 团队增加了后量子复合签名、自适应安全等级
 ### 安装（V2）
 
 ```bash
-pip install 'dcp-ai[crewai]>=2.9.0'
+pip install "dcp-ai[crewai]>=2.10.0,<3"
 ```
 
 <a id="v2-crew-setup-with-security-tiers"></a>
@@ -518,7 +518,7 @@ signed_bundles = asyncio.run(seal())
 
 ### 固定到运营方的 V2 验证
 
-`verify_signed_bundle_v2` 用 bundle 自身携带的密钥来检查 bundle，因此别人用自己的密钥签署的 bundle 本身也是自洽的。验证团队 bundle 的一方需要固定签名者：运营方公布其 RPR 的哈希和它的 kid，bundle 必须携带该 RPR 并指明这些 kid。此外，每个 kid 都必须由其公钥导出（spec/VERIFICATION.md V2-13）。本仓库中的验证器会检查这一点，但 PyPI 上的 dcp-ai 2.9.0 版本不会，所以本指南也自行检查。由于默认策略允许 routine 等级仅使用 Ed25519 签名，`hybrid_required` 策略要求两种签名，并且 bundle 必须带有会话过期时间。
+`verify_signed_bundle_v2` 用 bundle 自身携带的密钥来检查 bundle，因此别人用自己的密钥签署的 bundle 本身也是自洽的。验证团队 bundle 的一方需要固定签名者：运营方公布其 RPR 的哈希和它的 kid，bundle 必须携带该 RPR 并指明这些 kid。此外，每个 kid 都必须由其公钥导出（spec/VERIFICATION.md V2-13）。已发布的 dcp-ai 2.10.0 验证此绑定；2.9.0 未执行该检查。本指南保留显式检查和运营方固定。由于默认策略允许 routine 等级仅使用 Ed25519 签名，`hybrid_required` 策略要求两种签名，并且 bundle 必须带有会话过期时间。
 
 `verified` 涵盖的是完整性和签名者；操作是否获批，由 bundle 中的策略决定说明。
 

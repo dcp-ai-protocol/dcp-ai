@@ -2,6 +2,8 @@
 
 # Paquetes publicados en npm
 
+**Publicación Python (26/10/2026).** `dcp-ai` 2.10.0 ya está disponible en PyPI, incluidas las correcciones del verificador, la admisión y las API experimentales opt-in. Las publicaciones de Go y Rust siguen siendo independientes. Véase [Python 2.10.0](PYTHON_RELEASE.md).
+
 > Traducción informativa de [la versión en inglés](NPM_RELEASES.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés.
 
 Verificado el 26/10/2026. Estas 13 versiones exactas están publicadas con la etiqueta `latest`. Su integridad en el registro coincidió con los tarballs probados y una instalación nueva desde npm pasó 383 comprobaciones. Las versiones de los paquetes son independientes de la versión del formato/especificación DCP y de las etiquetas del repositorio.

@@ -11,22 +11,20 @@ verification through `dcp_verify_bundle`. It does not implement them in full.
 
 ## Installation
 
-> **Release status (25/10/2026).** PyPI has `dcp-ai` 2.9.0. In it, the `dcp_verify_bundle` tool of `handle_dcp_tool_call` sends every bundle to the V1 verifier: every V2 bundle is rejected, and a V1 bundle is accepted under no verifier policy. The `verifier_policy` argument, `averify_bundle_tool_call` and the V2 verification described below are in the source on `main` (see the `[Unreleased]` section of [CHANGELOG.md](../../CHANGELOG.md)).
+**Published on PyPI (26/10/2026).** `dcp-ai` 2.10.0 includes the implementation described here. Upgrade from 2.9.0 and refresh your environment or lockfile. See [Python release notes](../../docs/PYTHON_RELEASE.md).
 
-From a checkout (this page's version):
+Version 2.9.0 routes every bundle to V1. Version 2.10.0 verifies V2 and enforces verifier policy for both versions, including the asynchronous `averify_bundle_tool_call` entry point. Tool descriptions and audit records alone are not signed evidence or authorization.
+
+```bash
+pip install "dcp-ai[openai]>=2.10.0,<3"
+```
+
+For source development:
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-pip install "/path/to/dcp-ai/sdks/python[openai]"
+pip install -e "/path/to/dcp-ai/sdks/python[openai]"
 ```
-
-The published version (2.9.0), with the limits above:
-
-```bash
-pip install "dcp-ai[openai]"
-```
-
-The examples call the OpenAI API: they need `OPENAI_API_KEY` in the environment and are billed by OpenAI.
 
 ## Quickstart
 

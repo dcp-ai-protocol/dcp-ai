@@ -1,5 +1,7 @@
 # Canonicalization lab
 
+**Python release (26/10/2026).** `dcp-ai` 2.10.0 is now available on PyPI, including the verifier fixes, admission and the experimental opt-in APIs. Go and Rust publication remains separate. See [Python 2.10.0](../../docs/PYTHON_RELEASE.md).
+
 An executable **design model** of the non-normative `dcp-jcs-v2` candidate, with its corpus generator and
 runner. It is not an SDK, a verifier or a conformance check: it computes SHA-256 for its synthetic commitments,
 but it signs nothing and verifies no signature, and `dcp-jcs-v1` remains the only normative and default

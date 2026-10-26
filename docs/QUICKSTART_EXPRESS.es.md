@@ -39,13 +39,10 @@ estructura de un bundle: no verifica ninguna firma, así que un bundle falsifica
 
 ### Equivalente en Python (FastAPI)
 
-Si tu servicio es FastAPI en lugar de Express, usa el puente de Python. Este ejemplo sigue `main`: instala el
-SDK de Python desde una copia del repositorio. El middleware de FastAPI de `dcp-ai` 2.9.0 en PyPI comprueba la estructura de los bundles V2, pero
-no verifica sus firmas, así que un bundle V2 falsificado lo supera; no confíes en 2.9.0 para bundles V2 (véase el
-[README de FastAPI](../integrations/fastapi/README.md)).
+Para servicios FastAPI, instala el puente Python desde PyPI 2.10.0. Incluye verificación de firmas V2 y los controles de admisión/recursos del [README de FastAPI](../integrations/fastapi/README.md). El middleware antiguo 2.9.0 comprueba la estructura V2 sin verificar firmas; actualiza antes de usarlo para V2.
 
 ```bash
-pip install "/path/to/dcp-ai/sdks/python[fastapi]"
+pip install "dcp-ai[fastapi]>=2.10.0,<3"
 ```
 
 ```python

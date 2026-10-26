@@ -5,7 +5,7 @@
 
 # DCP-AI + CrewAI: início rápido
 
-> Tradução informativa da [versão em inglês](QUICKSTART_CREWAI.md), atualizada em 25/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](QUICKSTART_CREWAI.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Adicione identidade criptográfica, controle por política e trilhas de auditoria às suas equipes multiagente do CrewAI.
 
@@ -16,7 +16,7 @@ Adicione identidade criptográfica, controle por política e trilhas de auditori
 ## Instalação
 
 ```bash
-pip install 'dcp-ai[crewai]'
+pip install "dcp-ai[crewai]>=2.10.0,<3"
 ```
 
 O extra `[crewai]` instala o runtime do `crewai`. Os exemplos abaixo usam diretamente o SDK principal; os utilitários de CrewAI do próprio SDK, `DCPCrewAgent` e `DCPCrew` em `dcp_ai.crewai`, são descritos em [integrations/crewai](../integrations/crewai/README.md).
@@ -284,7 +284,7 @@ O DCP v2.0 acrescenta às equipes do CrewAI assinaturas compostas pós-quântica
 ### Instalação (V2)
 
 ```bash
-pip install 'dcp-ai[crewai]>=2.9.0'
+pip install "dcp-ai[crewai]>=2.10.0,<3"
 ```
 
 <a id="v2-crew-setup-with-security-tiers"></a>
@@ -518,7 +518,7 @@ signed_bundles = asyncio.run(seal())
 
 ### Verificação V2 ancorada no operador
 
-`verify_signed_bundle_v2` verifica um bundle com as chaves que o próprio bundle traz, então um bundle que outra pessoa assinou com as próprias chaves também é consistente consigo mesmo. Quem verifica os bundles da equipe fixa o assinante: o operador publica o hash do seu RPR e os seus kids, e um bundle precisa trazer esse RPR e nomear esses kids. Além disso, cada kid precisa ser derivado da sua chave pública (spec/VERIFICATION.md V2-13). O verificador deste repositório confere isso, mas a versão dcp-ai 2.9.0 do PyPI não, então o guia também confere. Uma política `hybrid_required` exige as duas assinaturas, já que a política padrão aceita uma assinatura Ed25519 sem assinatura pós-quântica no nível routine, e os bundles precisam trazer uma expiração de sessão.
+`verify_signed_bundle_v2` verifica um bundle com as chaves que o próprio bundle traz, então um bundle que outra pessoa assinou com as próprias chaves também é consistente consigo mesmo. Quem verifica os bundles da equipe fixa o assinante: o operador publica o hash do seu RPR e os seus kids, e um bundle precisa trazer esse RPR e nomear esses kids. Além disso, cada kid precisa ser derivado da sua chave pública (spec/VERIFICATION.md V2-13). O verificador publicado como dcp-ai 2.10.0 confere esse vínculo; a 2.9.0 não conferia. O guia mantém as verificações explícitas e a fixação do operador. Uma política `hybrid_required` exige as duas assinaturas, já que a política padrão aceita uma assinatura Ed25519 sem assinatura pós-quântica no nível routine, e os bundles precisam trazer uma expiração de sessão.
 
 `verified` cobre a integridade e o assinante; se a ação foi aprovada é o que diz a decisão de política contida no bundle.
 

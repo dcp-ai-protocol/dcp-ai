@@ -4,6 +4,8 @@
 
 # Registro de alterações
 
+**Publicação Python (26/10/2026).** O `dcp-ai` 2.10.0 já está disponível no PyPI, incluindo as correções do verificador, a admissão e as APIs experimentais opt-in. As publicações de Go e Rust continuam independentes. Veja [Python 2.10.0](docs/PYTHON_RELEASE.md).
+
 > Tradução informativa da [versão em inglês](CHANGELOG.md), atualizada em 26/10/2026. Cada entrada, inclusive as de `[Unreleased]`, descreve uma mudança no momento em que foi feita e não garante o comportamento atual; as versões publicadas são **registro histórico datado**. Em caso de divergência, prevalece a versão em inglês.
 
 **Publicação npm (26/10/2026).** As 13 versões em [NPM_RELEASES.md](docs/NPM_RELEASES.md) estão publicadas, incluindo as APIs candidatas TypeScript/WASM e a admissão TypeScript. As entradas abaixo mantêm seu histórico de desenvolvimento; `[Unreleased]` não significa que essas funcionalidades npm estejam indisponíveis. As publicações de Python, Go e Rust são independentes.
@@ -12,7 +14,7 @@ Todas as alterações relevantes deste projeto serão documentadas neste arquivo
 
 O formato se baseia no [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-> **Nota informativa (25/10/2026).** Cada entrada descreve uma mudança como ela foi feita, inclusive as entradas
+> **Nota informativa (26/10/2026).** Cada entrada descreve uma mudança como ela foi feita, inclusive as entradas
 > sucessivas de `[Unreleased]`, em que uma entrada posterior pode precisar ou substituir uma anterior. Uma entrada não
 > garante o comportamento atual nem que uma versão de um pacote esteja disponível em um registro. Para o comportamento
 > atual, consulte o [README](README.md), a [documentação](docs/README.md), as [especificações](spec/README.md) e a
