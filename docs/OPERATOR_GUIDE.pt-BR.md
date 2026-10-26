@@ -5,7 +5,9 @@
 
 # Guia do operador — executar um serviço de verificação
 
-> Tradução informativa da [versão em inglês](OPERATOR_GUIDE.md), atualizada em 25/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+**Publicação Go (26/10/2026).** O SDK Go `v2.11.0` está disponível pela tag `sdks/go/v2.11.0`, incluindo correções do verificador, admissão e APIs experimentais opt-in. A publicação Rust continua independente. Veja [Go v2.11.0](GO_RELEASE.md).
+
+> Tradução informativa da [versão em inglês](OPERATOR_GUIDE.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Este guia é para **terceiros** que queiram executar um serviço de «agente verificado»: uma API HTTP que verifica Signed Bundles do DCP (e, opcionalmente, ancora hashes numa blockchain). O protocolo **não** exige nenhum servidor central; a verificação sempre pode ser feita localmente com `dcp verify-bundle`. Este serviço é **opcional** e executado por escolha do operador.
 
@@ -122,7 +124,7 @@ Se você quer a verificação dentro da sua aplicação atual (sem um serviço H
 npm install @dcp-ai/sdk        # TypeScript / Node.js
 pip install dcp-ai             # Python
 cargo add dcp-ai               # Rust
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@latest
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
 ```
 
 Veja o README de cada SDK para o caminho de importação exato e a superfície da API, e o *Release status* dele para o que falta na versão publicada. Em `main`, os SDKs TypeScript, Python, Go e Rust verificam nativamente bundles V1 e V2, e `@dcp-ai/wasm` expõe o verificador V2 do Rust. Os verificadores V2 deles seguem o checklist de [VERIFICATION.md](../spec/VERIFICATION.md), inclusive a assinatura de cada artefato (etapa V2-8) e os checkpoints PQ (etapa V2-12), com uma lacuna: verificam a cadeia de auditoria primária e a raiz de Merkle, mas não recalculam a cadeia secundária opcional nem `audit_merkle_root_secondary` (etapa V2-11; veja [STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)).

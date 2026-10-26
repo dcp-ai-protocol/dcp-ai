@@ -1,5 +1,7 @@
 # Canonicalization lab
 
+**Go release (26/10/2026).** Go SDK `v2.11.0` is available from the module tag `sdks/go/v2.11.0`, including verifier fixes, admission and experimental opt-in APIs. Rust publication remains separate. See [Go v2.11.0](../../docs/GO_RELEASE.md).
+
 **Python release (26/10/2026).** `dcp-ai` 2.10.0 is now available on PyPI, including the verifier fixes, admission and the experimental opt-in APIs. Go and Rust publication remains separate. See [Python 2.10.0](../../docs/PYTHON_RELEASE.md).
 
 An executable **design model** of the non-normative `dcp-jcs-v2` candidate, with its corpus generator and

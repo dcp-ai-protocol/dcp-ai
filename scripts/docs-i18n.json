@@ -129,6 +129,11 @@
       "site_path": "reference/docs/PYTHON_RELEASE.md"
     },
     {
+      "source": "docs/GO_RELEASE.md",
+      "class": "current",
+      "site_path": "reference/docs/GO_RELEASE.md"
+    },
+    {
       "source": "docs/OBSERVABILITY.md",
       "class": "current",
       "site_path": "reference/docs/OBSERVABILITY.md"

@@ -1,5 +1,7 @@
 # Migration Guide: DCP-AI v1.0 to v2.0
 
+**Go release (26/10/2026).** Go SDK `v2.11.0` is available from the module tag `sdks/go/v2.11.0`, including verifier fixes, admission and experimental opt-in APIs. Rust publication remains separate. See [Go v2.11.0](GO_RELEASE.md).
+
 **Python release (26/10/2026).** `dcp-ai` 2.10.0 is now available on PyPI, including the verifier fixes, admission and the experimental opt-in APIs. Go and Rust publication remains separate. See [Python 2.10.0](PYTHON_RELEASE.md).
 
 **Specification version:** 2.0
@@ -55,7 +57,7 @@ The migration is **additive**: v2.0 introduces new fields and structures alongsi
 
 ### Step 1: Update SDK
 
-The examples work with published TypeScript SDK 2.2.0 and Python `dcp-ai` 2.10.0. See [Python release notes](PYTHON_RELEASE.md). For Go and Rust, check each SDK README and use a checkout for features not yet released.
+The examples work with published TypeScript SDK 2.2.0, Python `dcp-ai` 2.10.0 and Go `v2.11.0`. See the [Python](PYTHON_RELEASE.md) and [Go](GO_RELEASE.md) release notes. For Rust, check its SDK README and use a checkout for features not yet released.
 
 **TypeScript** (published: 2.2.0 on 26/10/2026):
 
@@ -73,7 +75,7 @@ pip install -e /path/to/dcp-ai/sdks/python     # main
 **Go** (note the v2 major suffix required by Go modules):
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@main
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
 ```
 
 **Rust:**

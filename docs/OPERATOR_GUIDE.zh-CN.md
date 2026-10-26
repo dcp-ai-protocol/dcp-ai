@@ -5,7 +5,9 @@
 
 # 运营方指南 — 运行验证服务
 
-> 本文是[英文版](OPERATOR_GUIDE.md)的参考译文，更新于 25/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+**Go 发布 (26/10/2026).** Go SDK `v2.11.0` 已通过模块标签 `sdks/go/v2.11.0` 发布，包含验证器修复、准入和实验性显式启用 API。Rust 仍独立发布。见 [Go v2.11.0](GO_RELEASE.md).
+
+> 本文是[英文版](OPERATOR_GUIDE.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 本指南面向希望运行“智能体已验证”服务的**第三方**：一个验证 DCP Signed Bundle 的 HTTP API（还可以选择把哈希锚定到区块链上）。协议**不**要求任何中央服务器；验证随时都可以用 `dcp verify-bundle` 在本地完成。此服务是**可选的**，由运营方自行决定是否运行。
 
@@ -122,7 +124,7 @@ Fly.io 的预配置文件位于 [`deploy/fly/`](../deploy/fly/)；[部署指南]
 npm install @dcp-ai/sdk        # TypeScript / Node.js
 pip install dcp-ai             # Python
 cargo add dcp-ai               # Rust
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@latest
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
 ```
 
 确切的导入路径和 API 范围参见各 SDK 的 README，已发布版本缺少的内容参见其 *Release status*。在 `main` 上，TypeScript、Python、Go 和 Rust SDK 原生验证 V1 和 V2 bundle，`@dcp-ai/wasm` 公开了 Rust 的 V2 验证器。它们的 V2 验证器遵循 [VERIFICATION.md](../spec/VERIFICATION.md) 中的检查清单，包括每个构件的签名（步骤 V2-8）和 PQ 检查点（步骤 V2-12），但有一个缺口：它们检查主审计链和 Merkle 根，却不重新计算可选的次级链或 `audit_merkle_root_secondary`（步骤 V2-11；参见 [STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)）。

@@ -13,7 +13,7 @@
 - **信頼済みのプリンシパル。** オペレーターは信頼セットを用意します。各プリンシパルの `human_id` と、そのプリンシパルが署名に使ってよい公開鍵です。バンドルが受け入れられるのは、プリンシパルの署名（RPR とバンドルのマニフェスト、クラシカルとポスト量子の両方）を実際に検証した鍵が、そのプリンシパルの信頼済みの鍵であり、有効で、有効期間内にある場合だけです。
 - **strict-v1 プロファイル。** オプションで、バージョン管理され、オペレーターが固定します。すべてのリスクティアでのハイブリッド署名、オペレーターの `verifier_id` と一致する署名済みの `intended_verifier`、最長 300 秒の署名済みのセッションウィンドウ、作成から 300 秒以内の失効スナップショットを求めます。
 
-> **公開状況（26/10/2026）。** 受け入れ判定と `strict-v1` は `@dcp-ai/sdk` 2.2.0、Express/OpenClaw 2.1.0、Python `dcp-ai` 2.10.0 で公開済みです。[npm](NPM_RELEASES.md) と [Python](PYTHON_RELEASE.md) を参照してください。Go と Rust の公開は別です。未公開 API はチェックアウトを使います。参照サーバーとルートの CLI は引き続きチェックアウトから実行します。
+> **公開状況（26/10/2026）。** 受け入れと `strict-v1` は `@dcp-ai/sdk` 2.2.0、Express/OpenClaw 2.1.0、Python `dcp-ai` 2.10.0、Go `v2.11.0` で公開済みです。[npm](NPM_RELEASES.md)、[Python](PYTHON_RELEASE.md)、[Go](GO_RELEASE.md) を参照してください。Rust の公開は別です。未公開 API はチェックアウトを使います。参照サーバーとルートの CLI は引き続きチェックアウトから実行します。
 
 すべてのルールとエラーコードを含む規範的な定義は [`spec/profiles/admission`](../spec/profiles/admission/README.md) です。共通のテストベクターは [`tests/interop/v2/admission_vectors.json`](../tests/interop/v2/admission_vectors.json) にあります。
 
