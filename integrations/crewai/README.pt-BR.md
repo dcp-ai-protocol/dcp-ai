@@ -5,7 +5,7 @@
 
 # dcp_ai.crewai — integração com o CrewAI
 
-> Tradução informativa da [versão em inglês](README.md), atualizada em 25/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](README.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Integração do DCP com o CrewAI para a governança multiagente. Cada agente tem o seu próprio passaporte do DCP e a sua própria trilha de auditoria, com a possibilidade de combinar as trilhas de toda a equipe.
 
@@ -22,19 +22,19 @@ por completo.
 
 ## Instalação
 
-> **Estado de publicação (25/10/2026).** O PyPI tem `dcp-ai` 2.9.0. Nela, os agentes de um `DCPCrew` não compartilham o nonce de sessão da equipe: as entradas de auditoria de cada agente levam um diferente. O nonce compartilhado descrito abaixo está no código-fonte em `main` (veja a seção `[Unreleased]` do [CHANGELOG.md](../../CHANGELOG.md)).
+**Publicado no PyPI (26/10/2026).** O `dcp-ai` 2.10.0 inclui a implementação descrita aqui. Atualize da 2.9.0 e renove seu ambiente ou arquivo de lock. Veja as [notas de Python](../../docs/PYTHON_RELEASE.md).
 
-A partir de um checkout (a versão desta página):
+A versão 2.10.0 compartilha o nonce da sessão da equipe com os agentes elegíveis, conforme descrito abaixo, corrigindo a 2.9.0. Esses auxiliares continuam produzindo registros não assinados e não executam CrewAI; use as APIs de assinatura do SDK para bundles verificáveis.
+
+```bash
+pip install "dcp-ai[crewai]>=2.10.0,<3"
+```
+
+Para desenvolvimento do código-fonte:
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-pip install "/path/to/dcp-ai/sdks/python[crewai]"
-```
-
-A versão publicada (2.9.0):
-
-```bash
-pip install "dcp-ai[crewai]"
+pip install -e "/path/to/dcp-ai/sdks/python[crewai]"
 ```
 
 <a id="quickstart"></a>

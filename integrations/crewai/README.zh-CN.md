@@ -5,7 +5,7 @@
 
 # dcp_ai.crewai — CrewAI 集成
 
-> 本文是[英文版](README.md)的参考译文，更新于 25/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](README.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 DCP 与 CrewAI 的集成，用于多代理治理。每个代理都有自己的 DCP 护照和审计轨迹，并支持合并整个团队的轨迹。
 
@@ -21,19 +21,19 @@ DCP-01 至 DCP-09，部分支持：采用这些规范形式的未签名记录。
 
 ## 安装
 
-> **发布状态（2026 年 10 月 25 日）。** PyPI 上有 `dcp-ai` 2.9.0。其中，`DCPCrew` 的代理不共享团队的会话 nonce：每个代理的审计条目带有不同的 nonce。下文描述的共享 nonce 位于 `main` 的源代码中（见 [CHANGELOG.md](../../CHANGELOG.md) 的 `[Unreleased]` 一节）。
+**已发布到 PyPI（26/10/2026）。** `dcp-ai` 2.10.0 包含本文描述的实现。请从 2.9.0 升级并更新环境或锁定文件。见 [Python 发布说明](../../docs/PYTHON_RELEASE.md)。
 
-从检出的代码安装（本页的版本）：
+2.10.0 按下文条件与符合条件的智能体共享团队会话 nonce，修复了 2.9.0 的行为。这些辅助功能仍生成未签名记录，也不运行 CrewAI；要获得可验证的 bundle，请使用 SDK 签名 API。
+
+```bash
+pip install "dcp-ai[crewai]>=2.10.0,<3"
+```
+
+源码开发：
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-pip install "/path/to/dcp-ai/sdks/python[crewai]"
-```
-
-已发布的版本（2.9.0）：
-
-```bash
-pip install "dcp-ai[crewai]"
+pip install -e "/path/to/dcp-ai/sdks/python[crewai]"
 ```
 
 <a id="quickstart"></a>

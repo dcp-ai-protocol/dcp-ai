@@ -76,7 +76,7 @@ Los paquetes no comparten un único número de versión; los paquetes npm `@dcp-
 
 | Versión | Soportada |
 |---------|-----------|
-| 2.10.x (`dcp-ai` en crates.io, módulo Go `sdks/go/v2`) | Sí |
+| 2.10.x (`dcp-ai` en PyPI / crates.io, módulo Go `sdks/go/v2`) | Sí |
 | 2.9.x (`dcp-ai` en PyPI y crates.io, módulo Go `sdks/go/v2`) | Sí |
 | 2.8.x (`dcp-ai` en PyPI y crates.io, módulo Go `sdks/go/v2`) | Sí |
 | 2.2.x (`@dcp-ai/sdk`) | Sí |
@@ -88,7 +88,7 @@ Los paquetes no comparten un único número de versión; los paquetes npm `@dcp-
 
 `@dcp-ai/sdk` 2.2.0 se publicó en npm el 26/10/2026 y es `latest`. Incluye las correcciones del verificador; actualiza con `npm install @dcp-ai/sdk@^2.2.0` y renueva el lockfile. Las versiones anteriores afectadas no reciben las correcciones automáticamente. Véase el [inventario de paquetes npm publicados](docs/NPM_RELEASES.md).
 
-**Integraciones afectadas y corregidas (26/10/2026).** `@dcp-ai/express` 2.0.0 y `@dcp-ai/openclaw` 2.0.0 aceptan bundles V2 con estructura válida sin verificar sus firmas. Ambos están corregidos en la versión npm 2.1.0, con `@dcp-ai/sdk` `^2.2.0`. No uses 2.0.0 para verificar bundles V2. La integración FastAPI de `dcp-ai` 2.9.0 en PyPI sigue afectada: esta publicación npm no publica la corrección Python. Véanse [Express](integrations/express/README.md), [OpenClaw](integrations/openclaw/README.md) y [FastAPI](integrations/fastapi/README.md). El soporte de un paquete no significa que todas sus compilaciones antiguas incluyan las correcciones.
+**Integraciones afectadas y corregidas (26/10/2026).** `@dcp-ai/express` 2.0.0 y `@dcp-ai/openclaw` 2.0.0 aceptan bundles V2 con estructura válida sin verificar sus firmas. Ambos están corregidos en la versión npm 2.1.0, con `@dcp-ai/sdk` `^2.2.0`. No uses 2.0.0 para verificar bundles V2. La integración FastAPI de `dcp-ai` 2.9.0 sigue afectada; la implementación corregida ya está publicada en PyPI 2.10.0. Véanse las [notas de actualización Python](docs/PYTHON_RELEASE.md). Véanse [Express](integrations/express/README.md), [OpenClaw](integrations/openclaw/README.md) y [FastAPI](integrations/fastapi/README.md). El soporte de un paquete no significa que todas sus compilaciones antiguas incluyan las correcciones.
 
 <a id="disclosure-policy"></a>
 

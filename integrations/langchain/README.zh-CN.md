@@ -5,7 +5,7 @@
 
 # dcp_ai.langchain — LangChain 集成
 
-> 本文是[英文版](README.md)的参考译文，更新于 25/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](README.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 DCP 与 LangChain 的集成。它包装 LangChain 代理，使每次完成的调用都在 V2 形式、以哈希链连接的审计轨迹中留下一个条目，并提供 bundle 验证工具和回调处理器。
 
@@ -22,19 +22,19 @@ DCP-01 至 DCP-09，部分支持：采用这些规范形式的未签名记录，
 
 ## 安装
 
-> **发布状态（2026 年 10 月 25 日）。** PyPI 上有 `dcp-ai` 2.9.0。其中，`DCPTool` 会把每个 bundle 发送给 V1 验证器：所有 V2 bundle 都会被拒绝，而 V1 bundle 不受任何验证器策略约束就被接受。`DCPTool(verifier_policy=...)` 和下文描述的 V2 验证位于 `main` 的源代码中（见 [CHANGELOG.md](../../CHANGELOG.md) 的 `[Unreleased]` 一节）。
+**已发布到 PyPI（26/10/2026）。** `dcp-ai` 2.10.0 包含本文描述的实现。请从 2.9.0 升级并更新环境或锁定文件。见 [Python 发布说明](../../docs/PYTHON_RELEASE.md)。
 
-从检出的代码安装（本页的版本）：
+2.9.0 将所有 bundle 发送到 V1。2.10.0 使用规范性验证器验证 V2，并对 V1 和 V2 强制执行所配置的策略；下文的未签名记录和回调限制保持不变。
+
+```bash
+pip install "dcp-ai[langchain]>=2.10.0,<3"
+```
+
+源码开发：
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-pip install "/path/to/dcp-ai/sdks/python[langchain]"
-```
-
-已发布的版本（2.9.0），带有上述限制：
-
-```bash
-pip install "dcp-ai[langchain]"
+pip install -e "/path/to/dcp-ai/sdks/python[langchain]"
 ```
 
 <a id="quickstart"></a>

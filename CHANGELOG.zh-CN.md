@@ -4,6 +4,8 @@
 
 # 变更日志
 
+**Python 发布 (26/10/2026).** `dcp-ai` 2.10.0 已在 PyPI 发布，包含验证器修复、准入和实验性显式启用 API。Go 和 Rust 仍独立发布。见 [Python 2.10.0](docs/PYTHON_RELEASE.md).
+
 > 本文是[英文版](CHANGELOG.md)的参考译文，更新于 26/10/2026。每个条目（包括 `[Unreleased]` 下的条目）描述的是当时所作的变更，并不保证当前行为；已发布的各版本是**带日期的历史记录**。如有出入，以英文版为准。
 
 **npm 发布（2026 年 10 月 26 日）。** [NPM_RELEASES.md](docs/NPM_RELEASES.md) 中的 13 个版本已发布，包括 TypeScript/WASM 候选 API 和 TypeScript 准入功能。以下条目保留开发历史；`[Unreleased]` 不表示这些 npm 功能不可用。Python、Go 和 Rust 的发布独立进行。

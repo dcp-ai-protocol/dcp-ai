@@ -5,7 +5,7 @@
 
 # dcp_ai.fastapi — middleware para FastAPI
 
-> Traducción informativa de [la versión en inglés](README.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](README.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Middleware de verificación de DCP para FastAPI. Verifica automáticamente los Signed Bundles y proporciona inyección de dependencias para las rutas protegidas.
 
@@ -19,19 +19,19 @@ De DCP-01 a DCP-09, de forma parcial: la verificación de bundles y la admisión
 
 ## Instalación
 
-> **Estado de publicación (25/10/2026).** PyPI tiene `dcp-ai` 2.9.0. Su middleware de FastAPI **no verifica las firmas de los bundles V2**: comprueba su estructura y fija `composite_sig_valid` a partir del campo `binding`, así que un bundle V2 falsificado o alterado pasa (corregido en `main`, véase la sección `[Unreleased]` de [CHANGELOG.md](../../CHANGELOG.md)). No confíes en la 2.9.0 para bundles V2. Tampoco incluye la admisión (`trusted_principals`, `profile`, `revocation_source`), `verifier_policy`, `max_body_bytes`, la supervisión de fuentes ni `cancel_on_disconnect`. Este README sigue el código fuente de `main`.
+**Publicado en PyPI (26/10/2026).** `dcp-ai` 2.10.0 incluye la implementación descrita aquí. Actualiza desde 2.9.0 y renueva tu entorno o archivo de bloqueo. Véanse las [notas de Python](../../docs/PYTHON_RELEASE.md).
 
-Para usar la versión que describe esta página, instala el SDK de Python desde un checkout:
+La versión 2.9.0 no verifica las firmas V2; no la uses para verificar V2. La 2.10.0 incluye el verificador corregido, confianza en el principal, `strict-v1`, presupuestos de cuerpo, supervisión de fuentes de confianza/revocación y gestión de desconexiones. La admisión no autoriza una acción.
+
+```bash
+pip install "dcp-ai[fastapi]>=2.10.0,<3"
+```
+
+Para desarrollar desde el código fuente:
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-pip install "/path/to/dcp-ai/sdks/python[fastapi]"
-```
-
-La versión publicada (2.9.0), sin las funciones enumeradas arriba:
-
-```bash
-pip install "dcp-ai[fastapi]"
+pip install -e "/path/to/dcp-ai/sdks/python[fastapi]"
 ```
 
 <a id="quickstart"></a>

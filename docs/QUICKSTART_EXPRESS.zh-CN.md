@@ -39,13 +39,10 @@ npm install
 
 ### Python 中的等效做法（FastAPI）
 
-如果你的服务是 FastAPI 而不是 Express，请使用 Python 桥接。此示例以 `main` 为准：请从检出副本安装
-Python SDK。PyPI 上 `dcp-ai` 2.9.0 的 FastAPI 中间件会检查 V2 bundle 的结构，但
-不验证其签名，因此伪造的 V2 bundle 也能通过；对于 V2 bundle，不要依赖 2.9.0（参见
-[FastAPI README](../integrations/fastapi/README.md)）。
+FastAPI 服务请从 PyPI 2.10.0 安装 Python 桥接，其中包含 V2 签名验证和 [FastAPI README](../integrations/fastapi/README.md) 中的准入/资源控制。旧版 2.9.0 仅检查 V2 结构而不验证签名；用于 V2 之前请升级。
 
 ```bash
-pip install "/path/to/dcp-ai/sdks/python[fastapi]"
+pip install "dcp-ai[fastapi]>=2.10.0,<3"
 ```
 
 ```python

@@ -5,6 +5,8 @@
 
 # DCP-AI + OpenAI: início rápido
 
+**Publicação Python (26/10/2026).** O `dcp-ai` 2.10.0 já está disponível no PyPI, incluindo as correções do verificador, a admissão e as APIs experimentais opt-in. As publicações de Go e Rust continuam independentes. Veja [Python 2.10.0](PYTHON_RELEASE.md).
+
 > Tradução informativa da [versão em inglês](QUICKSTART_OPENAI.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Adicione identidade criptográfica, controle por política e trilhas de auditoria a agentes da OpenAI com chamadas de função.
@@ -234,8 +236,7 @@ bundle selado registra `escalated` e `awaiting_human_approval` até que a sua ap
 
 ## Atualização para a V2.0
 
-O DCP v2.0 acrescenta assinaturas compostas pós-quânticas, níveis de segurança adaptativos e vinculação de sessão. Esta seção
-segue `main`: compile o SDK a partir de uma cópia do repositório (veja Instalação).
+O DCP v2.0 acrescenta assinaturas compostas pós-quânticas, níveis de segurança adaptativos e vinculação de sessão. Esta seção funciona com `@dcp-ai/sdk` 2.2.0 publicado (veja Instalação).
 
 <a id="v2-identity"></a>
 
@@ -329,7 +330,7 @@ Se o seu agente é escrito com o SDK da OpenAI para Python, use a ponte Python (
 cópia do repositório, `pip install -e "/path/to/dcp-ai/sdks/python[openai]"`):
 
 ```bash
-pip install 'dcp-ai[openai]'
+pip install "dcp-ai[openai]>=2.10.0,<3"
 ```
 
 ```python

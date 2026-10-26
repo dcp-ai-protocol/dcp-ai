@@ -5,7 +5,7 @@
 
 # dcp_ai.fastapi — FastAPI のミドルウェア
 
-> [英語版](README.md)の参考訳です（25/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](README.md)の参考訳です（26/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 FastAPI 向けの DCP の検証ミドルウェアです。Signed Bundle を自動で検証し、保護するルートのための依存性注入を提供します。
 
@@ -19,19 +19,19 @@ DCP-01 から DCP-09。部分的なもので、以下に述べるバンドルの
 
 ## インストール
 
-> **リリースの状況（2026 年 10 月 25 日）。** PyPI には `dcp-ai` 2.9.0 があります。その FastAPI のミドルウェアは **V2 のバンドルの署名を検証しません**。構造を確認し、`binding` フィールドから `composite_sig_valid` を設定するため、偽造または改変された V2 のバンドルが通ってしまいます（`main` で修正済み。[CHANGELOG.md](../../CHANGELOG.md) の `[Unreleased]` の節を参照）。V2 のバンドルについて 2.9.0 を当てにしないでください。アドミッション（`trusted_principals`、`profile`、`revocation_source`）、`verifier_policy`、`max_body_bytes`、ソースの監督、`cancel_on_disconnect` も含まれていません。この README は `main` のソースに従っています。
+**PyPI 公開済み（26/10/2026）。** `dcp-ai` 2.10.0 はここで説明する実装を含みます。2.9.0 から更新し、環境またはロックファイルを更新してください。[Python のリリースノート](../../docs/PYTHON_RELEASE.md)を参照してください。
 
-このページが説明するバージョンを使うには、チェックアウトから Python SDK をインストールします。
+2.9.0 は V2 署名を検証しないため、V2 検証には使用しないでください。2.10.0 は修正済み検証器、プリンシパルの信頼、`strict-v1`、本文の予算、信頼・失効ソースの監督、切断処理を含みます。受け入れ判定は行為を認可しません。
+
+```bash
+pip install "dcp-ai[fastapi]>=2.10.0,<3"
+```
+
+ソース開発の場合：
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-pip install "/path/to/dcp-ai/sdks/python[fastapi]"
-```
-
-上に挙げた機能のない、公開されたバージョン（2.9.0）：
-
-```bash
-pip install "dcp-ai[fastapi]"
+pip install -e "/path/to/dcp-ai/sdks/python[fastapi]"
 ```
 
 <a id="quickstart"></a>

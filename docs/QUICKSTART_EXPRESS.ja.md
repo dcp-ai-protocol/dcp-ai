@@ -39,13 +39,10 @@ npm install
 
 ### Python での同等の方法（FastAPI）
 
-サービスが Express ではなく FastAPI の場合は、Python のブリッジを使います。この例は `main` に従っているので、
-Python SDK はチェックアウトからインストールしてください。PyPI の `dcp-ai` 2.9.0 の FastAPI ミドルウェアは V2 バンドルの構造を確認しますが、
-署名は検証しないため、偽造された V2 バンドルも通ってしまいます。V2 バンドルについては 2.9.0 に頼らないでください（
-[FastAPI の README](../integrations/fastapi/README.md) を参照）。
+FastAPI サービスでは PyPI 2.10.0 の Python ブリッジをインストールしてください。V2 署名検証と [FastAPI README](../integrations/fastapi/README.md) の受け入れ・リソース制御を含みます。旧 2.9.0 は V2 の構造のみ確認し、署名は検証しません。V2 に使う前に更新してください。
 
 ```bash
-pip install "/path/to/dcp-ai/sdks/python[fastapi]"
+pip install "dcp-ai[fastapi]>=2.10.0,<3"
 ```
 
 ```python

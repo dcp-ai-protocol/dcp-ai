@@ -5,6 +5,8 @@
 
 # Especificaciones — DCP-AI normativo
 
+**Publicación Python (26/10/2026).** `dcp-ai` 2.10.0 ya está disponible en PyPI, incluidas las correcciones del verificador, la admisión y las API experimentales opt-in. Las publicaciones de Go y Rust siguen siendo independientes. Véase [Python 2.10.0](../docs/PYTHON_RELEASE.md).
+
 > Traducción informativa de [la versión en inglés](README.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Especificaciones normativas del Digital Citizenship Protocol for AI Agents. La fuente de verdad de los formatos es el JSON Schema de `schemas/v1/` y `schemas/v2/`; estos documentos definen el alcance, los artefactos y cómo validarlos. [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md) enumera las erratas que alinean los nombres, los contextos de firma y los ejemplos de DCP-05, DCP-08 y DCP-09 con ese formato, y las cuatro capas (representable, válido según el esquema, verificado, conforme) que se juzgan por separado.

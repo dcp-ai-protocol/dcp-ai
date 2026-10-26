@@ -76,7 +76,7 @@
 
 | 版本 | 是否支持 |
 |---------|-----------|
-| 2.10.x（crates.io 上的 `dcp-ai`、Go 模块 `sdks/go/v2`） | 是 |
+| 2.10.x（PyPI / crates.io 上的 `dcp-ai`、Go 模块 `sdks/go/v2`） | 是 |
 | 2.9.x（PyPI 和 crates.io 上的 `dcp-ai`、Go 模块 `sdks/go/v2`） | 是 |
 | 2.8.x（PyPI 和 crates.io 上的 `dcp-ai`、Go 模块 `sdks/go/v2`） | 是 |
 | 2.2.x（`@dcp-ai/sdk`） | 是 |
@@ -88,7 +88,7 @@
 
 `@dcp-ai/sdk` 2.2.0 已于 2026 年 10 月 26 日发布到 npm，并标记为 `latest`。它包含验证器修复；请使用 `npm install @dcp-ai/sdk@^2.2.0` 升级并更新 lockfile。受影响的旧版本不会自动获得修复。见[已发布的 npm 软件包清单](docs/NPM_RELEASES.md)。
 
-**受影响及已修复的集成版本（2026 年 10 月 26 日）。** `@dcp-ai/express` 2.0.0 和 `@dcp-ai/openclaw` 2.0.0 会在不验证签名的情况下接受结构有效的 V2 bundle。两者均已在 npm 版本 2.1.0 中修复，并使用 `@dcp-ai/sdk` `^2.2.0`。请勿使用 2.0.0 验证 V2 bundle。PyPI 上 `dcp-ai` 2.9.0 的 FastAPI 集成仍受影响：本次 npm 发布未发布 Python 修复。见 [Express](integrations/express/README.md)、[OpenClaw](integrations/openclaw/README.md) 和 [FastAPI](integrations/fastapi/README.md)。软件包受支持不代表其所有旧构建都包含修复。
+**受影响及已修复的集成版本（2026 年 10 月 26 日）。** `@dcp-ai/express` 2.0.0 和 `@dcp-ai/openclaw` 2.0.0 会在不验证签名的情况下接受结构有效的 V2 bundle。两者均已在 npm 版本 2.1.0 中修复，并使用 `@dcp-ai/sdk` `^2.2.0`。请勿使用 2.0.0 验证 V2 bundle。`dcp-ai` 2.9.0 的 FastAPI 集成仍受影响；修复后的实现已在 PyPI 2.10.0 发布。见 [Python 升级说明](docs/PYTHON_RELEASE.md)。见 [Express](integrations/express/README.md)、[OpenClaw](integrations/openclaw/README.md) 和 [FastAPI](integrations/fastapi/README.md)。软件包受支持不代表其所有旧构建都包含修复。
 
 <a id="disclosure-policy"></a>
 

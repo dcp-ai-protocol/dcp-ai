@@ -29,7 +29,7 @@
 
 ## 已发布的软件包与本指南
 
-TypeScript 示例可使用已发布的 `@dcp-ai/sdk` 2.2.0，npm CLI 为 `@dcp-ai/cli` 2.1.0。见[已发布的 npm 软件包](NPM_RELEASES.md)与 [SECURITY.md](../SECURITY.md#supported-versions)。其他生态有独立的发布周期。如需开发源码，或使用仍仅存在于检出代码中的 Python 功能，请使用：
+TypeScript 示例使用已发布的 `@dcp-ai/sdk` 2.2.0，npm CLI 为 `@dcp-ai/cli` 2.1.0，Python 为 PyPI 上的 `dcp-ai` 2.10.0。见 [npm](NPM_RELEASES.md)、[Python](PYTHON_RELEASE.md) 与 [SECURITY.md](../SECURITY.md#supported-versions)。Go 和 Rust 独立发布。源码开发请使用：
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
@@ -275,16 +275,16 @@ console.log(result.verified, result.errors); // true []
 
 二选一安装：
 
-- 下面的示例所用的 `main` 上的 SDK：
+- 用于 SDK 开发的检出代码：
 
   ```bash
   pip install -e /path/to/dcp-ai/sdks/python
   ```
 
-- 或已发布的版本，不含未发布的功能：
+- 或已发布的 2.10.0，包含本文描述的修复和 API：
 
   ```bash
-  pip install dcp-ai
+  pip install "dcp-ai>=2.10.0,<3"
   ```
 
 <a id="create-and-verify-a-bundle"></a>

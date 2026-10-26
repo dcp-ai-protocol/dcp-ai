@@ -11,6 +11,8 @@ hide:
 
 # DCP-AI — Digital Citizenship Protocol para agentes de IA
 
+**Publicación Python (26/10/2026).** `dcp-ai` 2.10.0 ya está disponible en PyPI, incluidas las correcciones del verificador, la admisión y las API experimentales opt-in. Las publicaciones de Go y Rust siguen siendo independientes. Véase [Python 2.10.0](reference/docs/PYTHON_RELEASE.md).
+
 > Traducción informativa de [la versión en inglés](docs-index.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 > Una capa portátil de rendición de cuentas para agentes de IA en redes abiertas.

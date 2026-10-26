@@ -4,6 +4,8 @@
 
 # Documentação
 
+**Publicação Python (26/10/2026).** O `dcp-ai` 2.10.0 já está disponível no PyPI, incluindo as correções do verificador, a admissão e as APIs experimentais opt-in. As publicações de Go e Rust continuam independentes. Veja [Python 2.10.0](PYTHON_RELEASE.md).
+
 **Publicação npm (26/10/2026).** As 13 versões em [NPM_RELEASES.md](NPM_RELEASES.md) estão publicadas, incluindo as APIs candidatas TypeScript/WASM e a admissão TypeScript. As entradas abaixo mantêm seu histórico de desenvolvimento; `[Unreleased]` não significa que essas funcionalidades npm estejam indisponíveis. As publicações de Python, Go e Rust são independentes.
 
 > Tradução informativa da [versão em inglês](README.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.

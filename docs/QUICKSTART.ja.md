@@ -29,7 +29,7 @@
 
 ## 公開パッケージとこのガイド
 
-TypeScript の例は公開済みの `@dcp-ai/sdk` 2.2.0 で動作し、npm の CLI は `@dcp-ai/cli` 2.1.0 です。[公開済み npm パッケージ](NPM_RELEASES.md)と [SECURITY.md](../SECURITY.md#supported-versions)を参照してください。他の環境の公開は別です。ソース開発や、まだチェックアウトにしかない Python 機能を使う場合は、次の手順を使います。
+TypeScript の例は公開済みの `@dcp-ai/sdk` 2.2.0、npm CLI は `@dcp-ai/cli` 2.1.0、Python は PyPI の `dcp-ai` 2.10.0 を使います。[npm](NPM_RELEASES.md)、[Python](PYTHON_RELEASE.md)、[SECURITY.md](../SECURITY.md#supported-versions) を参照してください。Go と Rust の公開は別です。ソース開発には次を使います。
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
@@ -275,16 +275,16 @@ console.log(result.verified, result.errors); // true []
 
 次のどちらかをインストールします。
 
-- 以下の例が使う `main` の SDK：
+- SDK 開発用のチェックアウト：
 
   ```bash
   pip install -e /path/to/dcp-ai/sdks/python
   ```
 
-- または、未リリースの機能を含まない公開済みのバージョン：
+- または、ここで説明する修正と API を含む公開済みの 2.10.0：
 
   ```bash
-  pip install dcp-ai
+  pip install "dcp-ai>=2.10.0,<3"
   ```
 
 <a id="create-and-verify-a-bundle"></a>

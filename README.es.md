@@ -119,6 +119,8 @@ Véase también: [Especificación del núcleo](spec/core/dcp-core.md) | [Resumen
 
 ## Inicio rápido
 
+**Publicación Python (26/10/2026).** `dcp-ai` 2.10.0 ya está disponible en PyPI, incluidas las correcciones del verificador, la admisión y las API experimentales opt-in. Las publicaciones de Go y Rust siguen siendo independientes. Véase [Python 2.10.0](docs/PYTHON_RELEASE.md).
+
 > **Paquetes publicados (26/10/2026).** npm ya ofrece `@dcp-ai/sdk` 2.2.0, `@dcp-ai/wasm` y `@dcp-ai/cli` 2.1.0, además de los adaptadores y generadores actualizados. Consulta el [inventario de 13 paquetes](docs/NPM_RELEASES.md) y las [notas de actualización de seguridad](SECURITY.md#supported-versions). Estas versiones npm incluyen las correcciones y funciones documentadas; las publicaciones de Python, Go y Rust son independientes. Para ejecutar el CLI de referencia y las pruebas del repositorio, compila el checkout:
 >
 > ```bash

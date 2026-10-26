@@ -5,7 +5,7 @@
 
 # dcp_ai.openai — OpenAI との統合
 
-> [英語版](README.md)の参考訳です（25/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](README.md)の参考訳です（26/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 OpenAI の Python クライアントのための DCP のラッパーです。チャットの呼び出しごとに意図を作り、呼び出しが戻ったときに監査エントリーを記録し、関数呼び出しのための DCP のツールを提供し、監査証跡をハッシュチェーンでつないで保持します。
 
@@ -22,22 +22,20 @@ DCP-01 から DCP-09。部分的なもので、これらの仕様の形に沿っ
 
 ## インストール
 
-> **リリースの状況（2026 年 10 月 25 日）。** PyPI には `dcp-ai` 2.9.0 があります。そこでは、`handle_dcp_tool_call` の `dcp_verify_bundle` ツールはすべてのバンドルを V1 の検証器に送ります。V2 のバンドルはすべて拒否され、V1 のバンドルはどの検証器のポリシーにもよらず受け入れられます。`verifier_policy` 引数、`averify_bundle_tool_call`、そして以下で説明する V2 の検証は `main` のソースにあります（[CHANGELOG.md](../../CHANGELOG.md) の `[Unreleased]` の節を参照）。
+**PyPI 公開済み（26/10/2026）。** `dcp-ai` 2.10.0 はここで説明する実装を含みます。2.9.0 から更新し、環境またはロックファイルを更新してください。[Python のリリースノート](../../docs/PYTHON_RELEASE.md)を参照してください。
 
-チェックアウトから（このページのバージョン）：
+2.9.0 はすべてのバンドルを V1 に送ります。2.10.0 は V2 を検証し、非同期の `averify_bundle_tool_call` を含め両方のバージョンに検証ポリシーを適用します。ツールの説明や監査記録だけでは署名付き証拠や認可になりません。
+
+```bash
+pip install "dcp-ai[openai]>=2.10.0,<3"
+```
+
+ソース開発の場合：
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-pip install "/path/to/dcp-ai/sdks/python[openai]"
+pip install -e "/path/to/dcp-ai/sdks/python[openai]"
 ```
-
-公開されたバージョン（2.9.0）、上記の制限あり：
-
-```bash
-pip install "dcp-ai[openai]"
-```
-
-例は OpenAI の API を呼び出します。環境に `OPENAI_API_KEY` が必要で、OpenAI から課金されます。
 
 <a id="quickstart"></a>
 

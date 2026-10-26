@@ -5,7 +5,7 @@
 
 # dcp_ai.fastapi — FastAPI 中间件
 
-> 本文是[英文版](README.md)的参考译文，更新于 25/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](README.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 用于 FastAPI 的 DCP 验证中间件。它会自动验证 Signed Bundle，并为受保护的路由提供依赖注入。
 
@@ -19,19 +19,19 @@ DCP-01 至 DCP-09，部分支持：下文描述的 bundle 验证和准入，以�
 
 ## 安装
 
-> **发布状态（2026 年 10 月 25 日）。** PyPI 上有 `dcp-ai` 2.9.0。它的 FastAPI 中间件**不验证 V2 bundle 的签名**：它检查结构，并根据 `binding` 字段设置 `composite_sig_valid`，因此伪造或被篡改的 V2 bundle 会通过（已在 `main` 上修复，见 [CHANGELOG.md](../../CHANGELOG.md) 的 `[Unreleased]` 一节）。对于 V2 bundle，不要依赖 2.9.0。它也不包含准入（`trusted_principals`、`profile`、`revocation_source`）、`verifier_policy`、`max_body_bytes`、来源监督或 `cancel_on_disconnect`。本 README 以 `main` 上的源代码为准。
+**已发布到 PyPI（26/10/2026）。** `dcp-ai` 2.10.0 包含本文描述的实现。请从 2.9.0 升级并更新环境或锁定文件。见 [Python 发布说明](../../docs/PYTHON_RELEASE.md)。
 
-要使用本页所描述的版本，请从检出的代码安装 Python SDK：
+2.9.0 不验证 V2 签名，请勿用于 V2 验证。2.10.0 包含修复后的验证器、委托人信任、`strict-v1`、正文预算、信任/吊销来源监管及断开连接处理。准入不授权任何操作。
+
+```bash
+pip install "dcp-ai[fastapi]>=2.10.0,<3"
+```
+
+源码开发：
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-pip install "/path/to/dcp-ai/sdks/python[fastapi]"
-```
-
-已发布的版本（2.9.0），不含上述功能：
-
-```bash
-pip install "dcp-ai[fastapi]"
+pip install -e "/path/to/dcp-ai/sdks/python[fastapi]"
 ```
 
 <a id="quickstart"></a>

@@ -1,5 +1,7 @@
 # Canonicalization candidate `dcp-jcs-v2`
 
+**Python release (26/10/2026).** `dcp-ai` 2.10.0 is now available on PyPI, including the verifier fixes, admission and the experimental opt-in APIs. Go and Rust publication remains separate. See [Python 2.10.0](../../PYTHON_RELEASE.md).
+
 | | |
 |---|---|
 | **Date** | 25/10/2026 |

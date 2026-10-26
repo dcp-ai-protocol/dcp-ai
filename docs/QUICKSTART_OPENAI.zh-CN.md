@@ -5,6 +5,8 @@
 
 # DCP-AI + OpenAI 快速开始
 
+**Python 发布 (26/10/2026).** `dcp-ai` 2.10.0 已在 PyPI 发布，包含验证器修复、准入和实验性显式启用 API。Go 和 Rust 仍独立发布。见 [Python 2.10.0](PYTHON_RELEASE.md).
+
 > 本文是[英文版](QUICKSTART_OPENAI.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 为 OpenAI 函数调用智能体加入密码学身份、策略管控和审计轨迹。
@@ -234,8 +236,7 @@ const intent: Intent = {
 
 ## 升级到 V2.0
 
-DCP v2.0 增加了后量子复合签名、自适应安全等级和会话绑定。本节
-以 `main` 为准：请从检出副本构建 SDK（参见“安装”）。
+DCP v2.0 增加后量子复合签名、自适应安全等级和会话绑定。本节适用于已发布的 `@dcp-ai/sdk` 2.2.0（见安装说明）。
 
 <a id="v2-identity"></a>
 
@@ -329,7 +330,7 @@ bundle 必须带有两种签名（规范 §14.3）。
 检出副本安装时为 `pip install -e "/path/to/dcp-ai/sdks/python[openai]"`）：
 
 ```bash
-pip install 'dcp-ai[openai]'
+pip install "dcp-ai[openai]>=2.10.0,<3"
 ```
 
 ```python

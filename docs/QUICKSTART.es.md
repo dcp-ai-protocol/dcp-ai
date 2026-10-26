@@ -29,7 +29,7 @@ Solo necesitas el lenguaje con el que vayas a trabajar. Todos los SDK hablan el 
 
 ## Paquetes publicados y esta guía
 
-Los ejemplos TypeScript funcionan con `@dcp-ai/sdk` 2.2.0 publicado y el CLI npm es `@dcp-ai/cli` 2.1.0. Véanse los [paquetes npm publicados](NPM_RELEASES.md) y [SECURITY.md](../SECURITY.md#supported-versions). Los demás ecosistemas tienen publicaciones independientes. Para desarrollar desde el código fuente, o usar funciones Python que aún solo están en el checkout, utiliza:
+Los ejemplos TypeScript usan `@dcp-ai/sdk` 2.2.0 publicado, el CLI npm es `@dcp-ai/cli` 2.1.0 y Python es `dcp-ai` 2.10.0 en PyPI. Véanse [npm](NPM_RELEASES.md), [Python](PYTHON_RELEASE.md) y [SECURITY.md](../SECURITY.md#supported-versions). Go y Rust se publican por separado. Para desarrollar desde el código fuente, utiliza:
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
@@ -279,16 +279,16 @@ console.log(result.verified, result.errors); // true []
 
 Instala una de las dos:
 
-- el SDK de `main`, que usa el ejemplo siguiente:
+- un checkout para desarrollar el SDK:
 
   ```bash
   pip install -e /path/to/dcp-ai/sdks/python
   ```
 
-- o la versión publicada, sin las funciones sin publicar:
+- o la versión publicada 2.10.0, incluidas las correcciones y API descritas aquí:
 
   ```bash
-  pip install dcp-ai
+  pip install "dcp-ai>=2.10.0,<3"
   ```
 
 <a id="create-and-verify-a-bundle"></a>

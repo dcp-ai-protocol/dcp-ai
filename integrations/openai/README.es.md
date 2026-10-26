@@ -5,7 +5,7 @@
 
 # dcp_ai.openai — integración con OpenAI
 
-> Traducción informativa de [la versión en inglés](README.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](README.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Envoltorio de DCP para el cliente de Python de OpenAI. Crea una intención por cada llamada de chat y registra una entrada de auditoría cuando la llamada devuelve un resultado, ofrece herramientas de DCP para la llamada a funciones y mantiene el registro de auditoría encadenado por hash.
 
@@ -22,22 +22,20 @@ verificación de bundles mediante `dcp_verify_bundle`. No las implementa por com
 
 ## Instalación
 
-> **Estado de publicación (25/10/2026).** PyPI tiene `dcp-ai` 2.9.0. En ella, la herramienta `dcp_verify_bundle` de `handle_dcp_tool_call` envía todos los bundles al verificador V1: todo bundle V2 se rechaza, y un bundle V1 se acepta sin ninguna política de verificador. El argumento `verifier_policy`, `averify_bundle_tool_call` y la verificación V2 descrita abajo están en el código fuente de `main` (véase la sección `[Unreleased]` de [CHANGELOG.md](../../CHANGELOG.md)).
+**Publicado en PyPI (26/10/2026).** `dcp-ai` 2.10.0 incluye la implementación descrita aquí. Actualiza desde 2.9.0 y renueva tu entorno o archivo de bloqueo. Véanse las [notas de Python](../../docs/PYTHON_RELEASE.md).
 
-Desde un checkout (la versión de esta página):
+La versión 2.9.0 envía todos los bundles a V1. La 2.10.0 verifica V2 y aplica la política del verificador a ambas versiones, incluido el punto de entrada asíncrono `averify_bundle_tool_call`. Las descripciones de herramientas y los registros de auditoría por sí solos no son evidencia firmada ni autorización.
+
+```bash
+pip install "dcp-ai[openai]>=2.10.0,<3"
+```
+
+Para desarrollar desde el código fuente:
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
-pip install "/path/to/dcp-ai/sdks/python[openai]"
+pip install -e "/path/to/dcp-ai/sdks/python[openai]"
 ```
-
-La versión publicada (2.9.0), con los límites anteriores:
-
-```bash
-pip install "dcp-ai[openai]"
-```
-
-Los ejemplos llaman a la API de OpenAI: necesitan `OPENAI_API_KEY` en el entorno y OpenAI los factura.
 
 <a id="quickstart"></a>
 

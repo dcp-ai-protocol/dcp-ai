@@ -5,6 +5,8 @@
 
 # 仕様 — DCP-AI の規範
 
+**Python の公開 (26/10/2026).** `dcp-ai` 2.10.0 が PyPI で公開され、検証器の修正、受け入れ判定、実験的なオプトイン API を含みます。Go と Rust の公開は別です。参照： [Python 2.10.0](../docs/PYTHON_RELEASE.md).
+
 > [英語版](README.md)の参考訳です（26/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 Digital Citizenship Protocol for AI Agents の規範的な仕様です。形式の正となるのは `schemas/v1/` と `schemas/v2/` の JSON Schema で、これらの文書は範囲、アーティファクト、検証の仕方を定義します。[V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md) は、DCP-05、DCP-08、DCP-09 の名前、署名のコンテキスト、例をその形式に合わせる正誤と、別々に判断される 4 つの層（表現可能、スキーマ上有効、検証済み、適合）を示します。

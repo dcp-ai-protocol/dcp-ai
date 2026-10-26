@@ -5,6 +5,8 @@
 
 # DCP-AI + OpenAI クイックスタート
 
+**Python の公開 (26/10/2026).** `dcp-ai` 2.10.0 が PyPI で公開され、検証器の修正、受け入れ判定、実験的なオプトイン API を含みます。Go と Rust の公開は別です。参照： [Python 2.10.0](PYTHON_RELEASE.md).
+
 > [英語版](QUICKSTART_OPENAI.md)の参考訳です（26/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 OpenAI の関数呼び出しエージェントに、暗号学的なアイデンティティ、ポリシーによる制御、監査証跡を追加します。
@@ -233,8 +235,7 @@ const intent: Intent = {
 
 ## V2.0 へのアップグレード
 
-DCP v2.0 は、ポスト量子の複合署名、適応型のセキュリティティア、セッションバインディングを追加します。このセクションは
-`main` に従います。チェックアウトから SDK をビルドしてください（「インストール」を参照）。
+DCP v2.0 はポスト量子複合署名、適応型セキュリティティア、セッションバインディングを追加します。このセクションは公開済みの `@dcp-ai/sdk` 2.2.0 で動作します（インストールを参照）。
 
 <a id="v2-identity"></a>
 
@@ -328,7 +329,7 @@ console.log(await sealCallV2('get_weather', 'approve')); // { tier: 'routine', v
 `pip install -e "/path/to/dcp-ai/sdks/python[openai]"`）。
 
 ```bash
-pip install 'dcp-ai[openai]'
+pip install "dcp-ai[openai]>=2.10.0,<3"
 ```
 
 ```python

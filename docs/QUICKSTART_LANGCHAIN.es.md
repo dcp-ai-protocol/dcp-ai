@@ -216,7 +216,7 @@ const registry = getDefaultRegistry();
 Si tu stack de LangChain es Python en lugar de Node, usa en su lugar el puente integrado del SDK de Python:
 
 ```bash
-pip install 'dcp-ai[langchain]'
+pip install "dcp-ai[langchain]>=2.10.0,<3"
 ```
 
 ```python
@@ -232,8 +232,7 @@ events = wrapped.get_audit_trail()  # V2 audit events, hash-chained; seal them i
 `DCPAgentWrapper` declara una intención y una decisión de política para cada invocación, rechaza un `block` y registra un
 evento de auditoría; `DCPTool` permite a un agente verificar los bundles de otros agentes, y `DCPCallback` registra eventos de auditoría a partir de
 callbacks de LangChain. Los registros no están firmados, la política por defecto aprueba todas las llamadas y un `escalate` sigue ejecutando
-el agente; `DCPCallback` necesita un handler propio con LangChain 1.x, y en la 2.9.0 de PyPI `DCPTool` envía todos los
-bundles al verificador V1. Véase [integrations/langchain/README.md](../integrations/langchain/README.md) para estos
+el agente; `DCPCallback` necesita un handler propio con LangChain 1.x, y PyPI 2.10.0 verifica V1 y V2 con la política configurada (2.9.0 enviaba todos los bundles a V1). Véase [integrations/langchain/README.md](../integrations/langchain/README.md) para estos
 límites y la superficie completa; el puente de Python no es el ejemplo de TypeScript escrito a mano de arriba.
 
 ---
