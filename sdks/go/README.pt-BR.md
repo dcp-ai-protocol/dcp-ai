@@ -6,7 +6,7 @@
 
 # dcp-ai-go — SDK Go
 
-> Tradução informativa do [README em inglês](README.md), atualizada em 25/10/2026. Identificadores e blocos de código, incluindo comentários, são preservados no idioma original para manter os exemplos verificados.
+> Tradução informativa do [README em inglês](README.md), atualizada em 26/10/2026. Identificadores e blocos de código, incluindo comentários, são preservados no idioma original para manter os exemplos verificados.
 
 SDK oficial em Go para o Digital Citizenship Protocol (DCP) v1.0 e v2.0. Suporta Ed25519, ML-DSA-65, SLH-DSA-192f, ML-KEM-768, assinaturas compostas, cadeias de hash duplas e verificação de bundles.
 
@@ -18,18 +18,18 @@ A verificação confere a integridade e as assinaturas; não estabelece confian�
 
 **Requer:** Go 1.25+
 
-**Estado da publicação.** Este README descreve o código em `main`. A última versão com tag é `v2.10.0` (tag do módulo `sdks/go/v2.10.0`). O que o histórico lista em [`[Unreleased]`](../../CHANGELOG.md#unreleased) ainda não está em uma versão com tag: admissão, cadeias de delegação, janela de recepção A2A e APIs experimentais de `dcp-jcs-v2`. Para executar os exemplos abaixo, use `main` ou um checkout local como dependência:
+**SDK Go v2.11.0.** Esta versão inclui as correções do verificador, confiança no principal e `strict-v1`, cadeias de delegação, janela de recepção A2A e APIs experimentais opt-in de `dcp-jcs-v2`. A tag do módulo é `sdks/go/v2.11.0`; o caminho de importação mantém `/v2`. As mudanças continuam registradas no [histórico](../../CHANGELOG.md#unreleased).
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@main
-# or, from a checkout:
-go mod edit -replace github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2=/path/to/dcp-ai/sdks/go
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
 ```
 
-A última versão com tag, sem as funcionalidades ainda não publicadas:
+Atualizar da v2.10.0 torna a verificação mais rigorosa: evidências malformadas ou inconsistentes antes aceitas podem ser rejeitadas. Comprimentos inválidos de chave pública V1 retornam erro em vez de provocar panic. Preserve as evidências históricas. `dcp-jcs-v1` continua como padrão normativo; as APIs candidatas continuam experimentais e opt-in. A admissão exige configuração de confiança pelo operador e não autoriza ações.
+
+Somente para desenvolvimento do código-fonte:
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
+go mod edit -replace github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2=/path/to/dcp-ai/sdks/go
 ```
 
 <a id="features"></a>
@@ -46,7 +46,7 @@ go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
 | Separação de domínios | — | Sim |
 | Hash duplo (SHA-256 + SHA3-256) | — | Sim |
 | Verificação de bundles | Sim | Sim |
-| Admissão: conjunto de confiança do principal e perfil `strict-v1` (spec/profiles/admission) | — | Sim, não publicada |
+| Admissão: conjunto de confiança do principal e perfil `strict-v1` (spec/profiles/admission) | — | Sim |
 | Construção e assinatura de bundles | — | Sim |
 | Cálculo do nível de segurança | — | Sim |
 | Prova de posse | — | Sim |
@@ -62,7 +62,7 @@ go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
 | RPR ocultado, autorização multipartes e funções auxiliares de avisos sobre algoritmos | — | Sim |
 | Códigos de erro canônicos (38 compartilhados entre todos os SDKs) e `DetectWireFormat` | — | Sim |
 | Exportador OpenTelemetry / OTLP (tag de compilação `otlp`) | — | Sim |
-| Candidato de canonicalização `dcp-jcs-v2` (entrada, roteador, verificador de bytes, produtores) | — | Experimental e de adesão explícita, não publicado; não normativo |
+| Candidato de canonicalização `dcp-jcs-v2` (entrada, roteador, verificador de bytes, produtores) | — | Experimental e de adesão explícita; não normativo |
 
 <a id="quickstart-v1"></a>
 
@@ -204,7 +204,9 @@ Cada resultado lista em `SignerKeys` (JSON `signer_keys`), para cada assinatura 
 
 <a id="admission-principal-trust-and-strict-v1-unreleased"></a>
 
-### Admissão: confiança no principal e strict-v1 (não publicada)
+<a id="admission-principal-trust-and-strict-v1"></a>
+
+### Admissão: confiança no principal e strict-v1
 
 Um bundle verificado comprova integridade e assinatura, não quem é o principal. A admissão ([spec/profiles/admission](../../spec/profiles/admission/README.md)) acrescenta à verificação um conjunto de confiança do operador que fixa as chaves de cada principal e o perfil `strict-v1` fixado pelo operador (assinaturas híbridas para todos os níveis, destinatário assinado, sessão assinada de no máximo 300 s e snapshot de revogação com no máximo 300 s de idade). Não faz E/S de rede e nunca autoriza uma ação: `ActionAuthorized` é sempre `false`.
 
@@ -261,7 +263,9 @@ if !result.Admitted {
 
 <a id="delegation-chains-dcp-09-35-unreleased"></a>
 
-### Cadeias de delegação (DCP-09 §3.5, não publicadas)
+<a id="delegation-chains-dcp-09-35"></a>
+
+### Cadeias de delegação (DCP-09 §3.5)
 
 | Função | Descrição |
 |----------|-------------|
@@ -273,9 +277,11 @@ if !result.Admitted {
 
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
 
-### Experimental: candidato de canonicalização `dcp-jcs-v2` (adesão explícita, não publicado)
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in"></a>
 
-Não é normativo nem está ativo: `dcp-jcs-v1` continua sendo o único perfil de canonicalização, e nenhum padrão, construtor, assinante ou verificador muda. Essas funções estão disponíveis para chamadores que optem por usá-las em um checkout do código (consulte o estado da publicação). Um bundle candidato verificado não concede confiança nem admissão. Projeto e contrato: [`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md) (§15 entrada, §16 roteador, §17 verificador, §18 produtores).
+### Experimental: candidato de canonicalização `dcp-jcs-v2` (adesão explícita)
+
+Não é normativo nem está ativo: `dcp-jcs-v1` continua sendo o único perfil de canonicalização, e nenhum padrão, construtor, assinante ou verificador muda. Essas funções estão disponíveis na v2.11.0 somente para chamadores que optem explicitamente por usá-las. Um bundle candidato verificado não concede confiança nem admissão. Projeto e contrato: [`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md) (§15 entrada, §16 roteador, §17 verificador, §18 produtores).
 
 | Função | Descrição |
 |----------|-------------|

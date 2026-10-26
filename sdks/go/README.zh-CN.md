@@ -14,20 +14,20 @@ Digital Citizenship Protocol（DCP）v1.0 和 v2.0 的官方 Go SDK。支持 Ed2
 
 ## 安装
 
-**要求：** Go 1.25 及以上
+**要求：** Go 1.25+
 
-**发布状态。** 本 README 描述 `main` 上的源代码。最新带标签的版本为 `v2.10.0`（模块标签为 `sdks/go/v2.10.0`）。变更日志 [`[Unreleased]`](../../CHANGELOG.md#unreleased) 下的内容尚未包含在带标签的版本中：准入、委托链、A2A 接收窗口和实验性 `dcp-jcs-v2` API。要运行以下示例，请将依赖指向 `main` 或本地检出的代码：
+**Go SDK v2.11.0。** 此版本包含验证器修复、责任主体信任与 `strict-v1`、委托链、A2A 接收窗口和实验性显式启用的 `dcp-jcs-v2` API。模块标签为 `sdks/go/v2.11.0`，导入路径仍保留 `/v2`。变更继续记录在[变更日志](../../CHANGELOG.md#unreleased)中。
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@main
-# or, from a checkout:
-go mod edit -replace github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2=/path/to/dcp-ai/sdks/go
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
 ```
 
-最新带标签的版本，不含尚未发布的功能：
+从 v2.10.0 升级后验证更严格，之前接受的格式错误或不一致证据可能被拒绝。V1 公钥长度无效时返回错误而非 panic。请保留历史证据。`dcp-jcs-v1` 仍是规范性默认值；候选 API 仍为实验性且须显式启用。准入仍需运营方配置信任，不授权任何操作。
+
+仅用于源码开发：
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
+go mod edit -replace github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2=/path/to/dcp-ai/sdks/go
 ```
 
 <a id="features"></a>
@@ -44,7 +44,7 @@ go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
 | 域分离 | — | 支持 |
 | 双哈希（SHA-256 + SHA3-256） | — | 支持 |
 | Bundle 验证 | 支持 | 支持 |
-| 准入：责任主体信任集合与 `strict-v1` 配置（spec/profiles/admission） | — | 支持，尚未发布 |
+| 准入：责任主体信任集合与 `strict-v1` 配置（spec/profiles/admission） | — | 支持 |
 | Bundle 构建与签名 | — | 支持 |
 | 安全等级计算 | — | 支持 |
 | 持有证明 | — | 支持 |
@@ -60,7 +60,7 @@ go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
 | 盲化 RPR、多方授权、算法通告辅助函数 | — | 支持 |
 | 通用错误码（所有 SDK 共享 38 个）与 `DetectWireFormat` | — | 支持 |
 | OpenTelemetry / OTLP 导出器（构建标签 `otlp`） | — | 支持 |
-| 规范化候选方案 `dcp-jcs-v2`（入口处理、路由器、字节验证器、生成器） | — | 实验性，须显式选择，尚未发布；非规范性 |
+| 规范化候选方案 `dcp-jcs-v2`（入口处理、路由器、字节验证器、生成器） | — | 实验性，须显式选择；非规范性 |
 
 <a id="quickstart-v1"></a>
 
@@ -202,7 +202,9 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 
 <a id="admission-principal-trust-and-strict-v1-unreleased"></a>
 
-### 准入：责任主体信任与 strict-v1（尚未发布）
+<a id="admission-principal-trust-and-strict-v1"></a>
+
+### 准入：责任主体信任与 strict-v1
 
 已验证的 bundle 证明完整性和签名，而不是责任主体是谁。准入（[spec/profiles/admission](../../spec/profiles/admission/README.md)）在验证之上增加运营方的信任集合，用于固定每个责任主体的密钥，并使用运营方固定的 `strict-v1` 配置（所有等级均使用混合签名、已签名的接收方、最长300秒的已签名会话、最多300秒前的撤销快照）。它不执行网络 I/O，也绝不授权行动：`ActionAuthorized` 始终为 `false`。
 
@@ -259,7 +261,9 @@ if !result.Admitted {
 
 <a id="delegation-chains-dcp-09-35-unreleased"></a>
 
-### 委托链（DCP-09 §3.5，尚未发布）
+<a id="delegation-chains-dcp-09-35"></a>
+
+### 委托链（DCP-09 §3.5）
 
 | 函数 | 说明 |
 |----------|-------------|
@@ -271,9 +275,11 @@ if !result.Admitted {
 
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
 
-### 实验性功能：规范化候选方案 `dcp-jcs-v2`（须显式选择，尚未发布）
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in"></a>
 
-非规范性且未激活：`dcp-jcs-v1` 仍是唯一的规范化配置，默认设置、构建器、签名器和验证器均不改变。这些函数供调用方在源代码 checkout 中显式选择使用（请参阅发布状态）。验证通过的候选 bundle 也不赋予信任或准入资格。设计与契约：[`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)（§15 入口处理、§16 路由器、§17 验证器、§18 生成器）。
+### 实验性功能：规范化候选方案 `dcp-jcs-v2`（须显式选择）
+
+非规范性且未激活：`dcp-jcs-v1` 仍是唯一的规范化配置，默认设置、构建器、签名器和验证器均不改变。这些函数在 v2.11.0 中仅供显式启用的调用方使用。验证通过的候选 bundle 也不赋予信任或准入资格。设计与契约：[`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)（§15 入口处理、§16 路由器、§17 验证器、§18 生成器）。
 
 | 函数 | 说明 |
 |----------|-------------|

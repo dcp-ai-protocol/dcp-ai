@@ -10,21 +10,18 @@ Verification checks integrity and signatures; it does not establish principal tr
 
 **Requires:** Go 1.25+
 
-**Release status.** This README describes the source on `main`. The last tagged release is `v2.10.0` (module tag
-`sdks/go/v2.10.0`). What the changelog lists under [`[Unreleased]`](../../CHANGELOG.md#unreleased) is not in a
-tagged release: admission, delegation chains, the A2A receive window and the experimental `dcp-jcs-v2` APIs. To
-run the examples below, depend on `main` or on a local checkout:
+**Go SDK v2.11.0.** This version includes the verifier fixes, principal trust and `strict-v1`, delegation chains, the A2A receive window and the experimental opt-in `dcp-jcs-v2` APIs. The module tag is `sdks/go/v2.11.0`; the import path keeps `/v2`. Changes remain recorded in the [changelog](../../CHANGELOG.md#unreleased).
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@main
-# or, from a checkout:
-go mod edit -replace github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2=/path/to/dcp-ai/sdks/go
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
 ```
 
-The latest tagged version, without the unreleased features:
+Upgrading from v2.10.0 makes verification stricter: malformed or inconsistent evidence previously accepted may now be rejected. Invalid V1 public-key lengths return an error instead of panicking. Preserve historical evidence. `dcp-jcs-v1` remains the normative default; candidate APIs stay experimental and opt-in. Admission still requires operator trust configuration and does not authorize actions.
+
+For source development only:
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
+go mod edit -replace github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2=/path/to/dcp-ai/sdks/go
 ```
 
 ## Features
@@ -39,7 +36,7 @@ go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
 | Domain separation | — | Yes |
 | Dual hash (SHA-256 + SHA3-256) | — | Yes |
 | Bundle verification | Yes | Yes |
-| Admission: principal trust set + `strict-v1` profile (spec/profiles/admission) | — | Yes, unreleased |
+| Admission: principal trust set + `strict-v1` profile (spec/profiles/admission) | — | Yes |
 | Bundle building & signing | — | Yes |
 | Security tier computation | — | Yes |
 | Proof of possession | — | Yes |
@@ -55,7 +52,7 @@ go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp
 | Blinded RPR, multi-party authorization, algorithm advisory helpers | — | Yes |
 | Canonical error codes (38 shared across all SDKs) + `DetectWireFormat` | — | Yes |
 | OpenTelemetry / OTLP exporter (build tag `otlp`) | — | Yes |
-| Canonicalization candidate `dcp-jcs-v2` (ingress, router, bytes verifier, producers) | — | Experimental and opt-in, unreleased; not normative |
+| Canonicalization candidate `dcp-jcs-v2` (ingress, router, bytes verifier, producers) | — | Experimental and opt-in; not normative |
 
 ## Quickstart — V1
 
@@ -179,7 +176,9 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 
 Every result lists in `SignerKeys` (JSON `signer_keys`), for each composite signature checked (`bundle`, the four artifacts, each `pq_checkpoints[<id>]`), the key entry the verifier resolved for each component (`classical`, `pq`) and whether that component verified.
 
-### Admission: principal trust and strict-v1 (unreleased)
+<a id="admission-principal-trust-and-strict-v1-unreleased"></a>
+
+### Admission: principal trust and strict-v1
 
 A verified bundle proves integrity and signature, not who the principal is. Admission ([spec/profiles/admission](../../spec/profiles/admission/README.md)) adds, on top of verification, an operator trust set that pins each principal's keys and the operator-fixed `strict-v1` profile (hybrid signatures for every tier, signed audience, a signed session of at most 300 s, a revocation snapshot at most 300 s old). It does no network I/O, and it never authorizes an action: `ActionAuthorized` is always `false`.
 
@@ -230,7 +229,9 @@ if !result.Admitted {
 | `v2.SecurityTierInputFromPayloads(intent, policyDecision)` | Builds the tier input from decoded intent and PolicyDecision payloads (`risk_score` comes from the PolicyDecision; one that is missing or not an integer from 0 to 1000 becomes `RiskScore: -1`, which is unknown) |
 | `v2.EffectiveVerificationMode(policyMode, tier)` | The stricter of the policy mode and the tier's mode; `pq_only` stays `pq_only` |
 
-### Delegation Chains (DCP-09 §3.5, unreleased)
+<a id="delegation-chains-dcp-09-35-unreleased"></a>
+
+### Delegation Chains (DCP-09 §3.5)
 
 | Function | Description |
 |----------|-------------|
@@ -240,11 +241,12 @@ if !result.Admitted {
 
 `SecurityTierInput.MandateChainTier` takes the chain's `EffectiveTier` as a floor that can only raise the tier.
 
-### Experimental: Canonicalization Candidate `dcp-jcs-v2` (opt-in, unreleased)
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
+
+### Experimental: Canonicalization Candidate `dcp-jcs-v2` (opt-in)
 
 Not normative and not active: `dcp-jcs-v1` stays the only canonicalization profile, and no default, builder,
-signer or verifier changes. These functions exist for callers who opt in, in a source checkout (see Release
-status). A verified candidate bundle grants no trust or admission. Design and contract:
+signer or verifier changes. These functions are available in v2.11.0 only to callers that explicitly opt in. A verified candidate bundle grants no trust or admission. Design and contract:
 [`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)
 (§15 ingress, §16 router, §17 verifier, §18 producers).
 
