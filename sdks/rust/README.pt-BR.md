@@ -4,7 +4,7 @@
 
 # dcp-ai — SDK Rust
 
-> Tradução informativa do [README em inglês](README.md), atualizada em 25/10/2026. Identificadores e blocos de código, incluindo comentários, são preservados no idioma original para manter os exemplos verificados.
+> Tradução informativa do [README em inglês](README.md), atualizada em 26/10/2026. Identificadores e blocos de código, incluindo comentários, são preservados no idioma original para manter os exemplos verificados.
 
 SDK oficial em Rust para o Digital Citizenship Protocol (DCP v2.0). Oferece tipos baseados em Serde, criptografia pós-quântica híbrida (Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768), assinaturas compostas com vinculação `pq_over_classical`, cadeias de hash duplas, observabilidade com OpenTelemetry, comportamento DCP-04..09 e suporte opcional a WebAssembly.
 
@@ -14,34 +14,25 @@ A verificação confere a integridade e as assinaturas; não estabelece confian�
 
 ## Instalação
 
-**Estado da publicação.** Este README descreve o código em `main`. A última versão com tag, `v2.10.0`, contém `dcp-ai` 2.10.0. O que o histórico lista em [`[Unreleased]`](../../CHANGELOG.md#unreleased) ainda não está em uma versão com tag: construção e assinatura de bundles V2 (`dcp_ai::v2::bundle`), admissão, cadeias de delegação, janela de recepção A2A e APIs experimentais de `dcp-jcs-v2`. Para executar os exemplos abaixo, use o repositório ou um checkout como dependência:
+**SDK Rust 2.11.0.** Esta versão inclui construção e assinatura de bundles V2, admissão com confiança explícita no principal e `strict-v1`, cadeias de delegação, correções do verificador e APIs experimentais opt-in de `dcp-jcs-v2`. `dcp-jcs-v1` continua normativo e padrão. Evidências inválidas aceitas por versões anteriores podem agora ser rejeitadas. A criptografia de sessões A2A e sua janela de replay não estão implementadas em Rust; as funções de descoberta e handshake continuam disponíveis.
 
 ```toml
 [dependencies]
-dcp-ai = { git = "https://github.com/dcp-ai-protocol/dcp-ai", branch = "main" }
-# or, from a checkout:
-# dcp-ai = { path = "/path/to/dcp-ai/sdks/rust" }
-```
-
-O crate publicado, sem as funcionalidades ainda não publicadas:
-
-```toml
-[dependencies]
-dcp-ai = "2.10"
+dcp-ai = "2.11.0"
 ```
 
 Com exportação OpenTelemetry/OTLP:
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.10", features = ["otlp"] }
+dcp-ai = { version = "2.11.0", features = ["otlp"] }
 ```
 
 Para suporte a WebAssembly:
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.10", features = ["wasm"] }
+dcp-ai = { version = "2.11.0", features = ["wasm"] }
 ```
 
 <a id="features"></a>
@@ -55,7 +46,7 @@ dcp-ai = { version = "2.10", features = ["wasm"] }
 | JSON canônico v2 e separação de domínios | Sim |
 | Hash duplo (SHA-256 + SHA3-256) e raízes Merkle | Sim |
 | Verificação de bundles (V1 + V2; V2 sob uma política do verificador e o nível de segurança, `verify_signed_bundle_v2_with_policy`) | Sim |
-| Construção e assinatura de bundles V2 (`dcp_ai::v2::bundle`: `build_bundle_v2`, `sign_bundle_v2`; `wasm_build_bundle` / `wasm_sign_bundle` da funcionalidade `wasm` as chamam; ainda sem checkpoints PQ) | Sim, não publicada |
+| Construção e assinatura de bundles V2 (`dcp_ai::v2::bundle`: `build_bundle_v2`, `sign_bundle_v2`; `wasm_build_bundle` / `wasm_sign_bundle` da funcionalidade `wasm` as chamam; ainda sem checkpoints PQ) | Sim |
 | Ciclo de vida dos agentes DCP-05 (comissionamento / vitalidade / descomissionamento) | Sim |
 | Sucessão digital DCP-06 (testamento, transferência de memória, cerimônia) | Sim |
 | Resolução de disputas, arbitragem e jurisprudência DCP-07 | Sim |
@@ -68,8 +59,8 @@ dcp-ai = { version = "2.10", features = ["wasm"] }
 | RPR ocultado, autorização multipartes e funções auxiliares de avisos sobre algoritmos | Sim |
 | Códigos de erro canônicos (38 compartilhados entre todos os SDKs) e `detect_wire_format` | Sim |
 | Exportador OpenTelemetry / OTLP (funcionalidade opcional `otlp`) | Sim |
-| Admissão: principais confiáveis e perfil `strict-v1` | Sim, não publicada |
-| Candidato de canonicalização `dcp-jcs-v2` (entrada, roteador, verificador de bytes, produtores) | Experimental e de adesão explícita, não publicado; não normativo |
+| Admissão: principais confiáveis e perfil `strict-v1` | Sim |
+| Candidato de canonicalização `dcp-jcs-v2` (entrada, roteador, verificador de bytes, produtores) | Experimental e de adesão explícita; não normativo |
 
 <a id="quickstart"></a>
 
@@ -199,7 +190,7 @@ Todas as estruturas derivam `Debug`, `Clone`, `Serialize` e `Deserialize`. As en
 
 <a id="bundles-dcp_aiv2bundle-unreleased"></a>
 
-### Bundles (`dcp_ai::v2::bundle`, não publicados)
+### Bundles (`dcp_ai::v2::bundle`)
 
 | Função | Descrição |
 |----------|-------------|
@@ -207,8 +198,9 @@ Todas as estruturas derivam `Debug`, `Clone`, `Serialize` e `Deserialize`. As en
 | `sign_bundle_v2(bundle, &classical, &pq)` | Aplica uma assinatura composta ao manifesto sob `CTX_BUNDLE` e retorna `{bundle, signature}`, com `signer.id` igual ao `human_id` da RPR. Coloque `session_expires_at` ou `intended_verifier` no manifesto antes de assinar; com `session_expires_at` e sem `session_issued_at`, define `session_issued_at` como o instante da assinatura |
 
 <a id="delegation-chains-dcp_aiv2delegation-dcp-09-35-unreleased"></a>
+<a id="delegation-chains-dcp_aiv2delegation-dcp-09-35"></a>
 
-### Cadeias de delegação (`dcp_ai::v2::delegation`, DCP-09 §3.5, não publicadas)
+### Cadeias de delegação (`dcp_ai::v2::delegation`, DCP-09 §3.5)
 
 | Função | Descrição |
 |----------|-------------|
@@ -217,8 +209,9 @@ Todas as estruturas derivam `Debug`, `Clone`, `Serialize` e `Deserialize`. As en
 | `verify_mandate_chain(&chain, &revoked_ids, &MandateChainKeys { human_keys, agent_keys }, now_millis)` | Verifica a cadeia offline, começando pela raiz (assinaturas até a pessoa, vínculos e profundidade, `sub_delegation`, validade aninhada, restrição de ações, `data_classes` e `limits`, nível mínimo e revogação); retorna `MandateChainResult { valid, errors, depth, effective_tier }` |
 
 <a id="admission-dcp_aiv2-specprofilesadmission-unreleased"></a>
+<a id="admission-dcp_aiv2-specprofilesadmission"></a>
 
-### Admissão (`dcp_ai::v2`, spec/profiles/admission, não publicada)
+### Admissão (`dcp_ai::v2`, spec/profiles/admission)
 
 Determina se um bundle V2 verificado é admitido como evidência de um principal no qual o operador já confia, opcionalmente sob o perfil `strict-v1`. O conjunto de confiança, o perfil e a fonte de revogação vêm do operador, nunca do bundle nem da requisição.
 
@@ -256,10 +249,11 @@ if result.admitted {
 ```
 
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in"></a>
 
-### Experimental: candidato de canonicalização `dcp-jcs-v2` (adesão explícita, não publicado)
+### Experimental: candidato de canonicalização `dcp-jcs-v2` (adesão explícita)
 
-Não é normativo nem está ativo: `dcp-jcs-v1` continua sendo o único perfil de canonicalização, e nenhum padrão, construtor, assinante ou verificador muda. Esses módulos estão disponíveis para chamadores que optem por usá-los a partir de um checkout do código (consulte o estado da publicação). Um bundle candidato verificado não concede confiança nem admissão. Projeto e contrato: [`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md) (§15 entrada, §16 roteador, §17 verificador, §18 produtores).
+Não é normativo nem está ativo: `dcp-jcs-v1` continua sendo o único perfil de canonicalização, e nenhum padrão, construtor, assinante ou verificador muda. Esses módulos estão disponíveis em 2.11.0 somente por adesão explícita. Um bundle candidato verificado não concede confiança nem admissão. Projeto e contrato: [`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md) (§15 entrada, §16 roteador, §17 verificador, §18 produtores).
 
 | Módulo | API |
 |---|---|

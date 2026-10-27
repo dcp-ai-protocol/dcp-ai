@@ -12,34 +12,25 @@ Digital Citizenship Protocol（DCP v2.0）向けの公式 Rust SDK。Serde ベ�
 
 ## インストール
 
-**公開状況。** この README は `main` のソースコードを説明しています。最新のタグ付きリリース `v2.10.0` には `dcp-ai` 2.10.0 が含まれます。変更履歴の [`[Unreleased]`](../../CHANGELOG.md#unreleased) にある項目は、タグ付きリリースにはまだ含まれていません。V2 バンドルの構築と署名（`dcp_ai::v2::bundle`）、受け入れ、委任チェーン、A2A 受信ウィンドウ、実験的な `dcp-jcs-v2` API が該当します。以下の例を実行するには、リポジトリまたはチェックアウトを依存先に指定してください。
+**Rust SDK 2.11.0。** V2 バンドルの構築と署名、責任主体への明示的な信頼と `strict-v1` による受け入れ、委任チェーン、検証器の修正、実験的なオプトイン `dcp-jcs-v2` API を含みます。`dcp-jcs-v1` は引き続き規範かつデフォルトです。旧版で受理された不正な証拠が拒否される場合があります。Rust では A2A セッション暗号化とそのリプレイウィンドウは未実装です。検出とハンドシェイクの補助機能は利用できます。
 
 ```toml
 [dependencies]
-dcp-ai = { git = "https://github.com/dcp-ai-protocol/dcp-ai", branch = "main" }
-# or, from a checkout:
-# dcp-ai = { path = "/path/to/dcp-ai/sdks/rust" }
-```
-
-未公開の機能を含まない公開済み crate：
-
-```toml
-[dependencies]
-dcp-ai = "2.10"
+dcp-ai = "2.11.0"
 ```
 
 OpenTelemetry/OTLP エクスポートを使用する場合：
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.10", features = ["otlp"] }
+dcp-ai = { version = "2.11.0", features = ["otlp"] }
 ```
 
 WebAssembly サポートを使用する場合：
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.10", features = ["wasm"] }
+dcp-ai = { version = "2.11.0", features = ["wasm"] }
 ```
 
 <a id="features"></a>
@@ -53,7 +44,7 @@ dcp-ai = { version = "2.10", features = ["wasm"] }
 | 正規化 JSON v2 とドメイン分離 | 対応 |
 | 二重ハッシュ（SHA-256 + SHA3-256）と Merkle ルート | 対応 |
 | バンドル検証（V1 + V2。V2 は検証器ポリシーとセキュリティ階層に従う：`verify_signed_bundle_v2_with_policy`） | 対応 |
-| V2 バンドルの構築と署名（`dcp_ai::v2::bundle`：`build_bundle_v2`、`sign_bundle_v2`。`wasm` 機能の `wasm_build_bundle` / `wasm_sign_bundle` がこれらを呼び出す。PQ チェックポイントは未対応） | 対応、未公開 |
+| V2 バンドルの構築と署名（`dcp_ai::v2::bundle`：`build_bundle_v2`、`sign_bundle_v2`。`wasm` 機能の `wasm_build_bundle` / `wasm_sign_bundle` がこれらを呼び出す。PQ チェックポイントは未対応） | 対応 |
 | DCP-05 エージェントのライフサイクル（稼働開始 / 活力 / 稼働終了） | 対応 |
 | DCP-06 デジタル継承（遺言、記憶移転、セレモニー） | 対応 |
 | DCP-07 紛争解決、仲裁、判例 | 対応 |
@@ -66,8 +57,8 @@ dcp-ai = { version = "2.10", features = ["wasm"] }
 | ブラインド化 RPR、複数当事者による承認、アルゴリズム勧告の補助関数 | 対応 |
 | 共通のエラーコード（全 SDK で共有する 38 個）と `detect_wire_format` | 対応 |
 | OpenTelemetry / OTLP エクスポーター（オプションの `otlp` 機能） | 対応 |
-| 受け入れ：信頼する責任主体と `strict-v1` プロファイル | 対応、未公開 |
-| 正規化候補 `dcp-jcs-v2`（入力処理、ルーター、バイト列検証器、生成器） | 実験的かつ明示的な選択が必要、未公開。規範ではない |
+| 受け入れ：信頼する責任主体と `strict-v1` プロファイル | 対応 |
+| 正規化候補 `dcp-jcs-v2`（入力処理、ルーター、バイト列検証器、生成器） | 実験的かつ明示的な選択が必要。規範ではない |
 
 <a id="quickstart"></a>
 
@@ -196,8 +187,9 @@ V2 には、DCP-05 から DCP-09 までのすべてのアーティファクト�
 すべての構造体は `Debug`、`Clone`、`Serialize`、`Deserialize` を導出します。列挙型は `#[serde(rename_all = "snake_case")]` を使用します。オプションのフィールドは `Option<T>` と `#[serde(skip_serializing_if = "Option::is_none")]` を使用します。
 
 <a id="bundles-dcp_aiv2bundle-unreleased"></a>
+<a id="bundles-dcp_aiv2bundle"></a>
 
-### バンドル（`dcp_ai::v2::bundle`、未公開）
+### バンドル（`dcp_ai::v2::bundle`）
 
 | 関数 | 説明 |
 |----------|-------------|
@@ -205,8 +197,9 @@ V2 には、DCP-05 から DCP-09 までのすべてのアーティファクト�
 | `sign_bundle_v2(bundle, &classical, &pq)` | `CTX_BUNDLE` の下でマニフェストに複合署名し、`{bundle, signature}` を返す。`signer.id` は RPR の `human_id`。署名前に `session_expires_at` または `intended_verifier` をマニフェストに設定する。`session_expires_at` があり `session_issued_at` がない場合、`session_issued_at` を署名時刻に設定する |
 
 <a id="delegation-chains-dcp_aiv2delegation-dcp-09-35-unreleased"></a>
+<a id="delegation-chains-dcp_aiv2delegation-dcp-09-35"></a>
 
-### 委任チェーン（`dcp_ai::v2::delegation`、DCP-09 §3.5、未公開）
+### 委任チェーン（`dcp_ai::v2::delegation`、DCP-09 §3.5）
 
 | 関数 | 説明 |
 |----------|-------------|
@@ -215,8 +208,9 @@ V2 には、DCP-05 から DCP-09 までのすべてのアーティファクト�
 | `verify_mandate_chain(&chain, &revoked_ids, &MandateChainKeys { human_keys, agent_keys }, now_millis)` | ルートから順にオフラインでチェーンを検証する（人間に遡る署名、リンクと深さ、`sub_delegation`、入れ子の有効期間、行動・`data_classes`・`limits` の制限、最低階層、失効）。`MandateChainResult { valid, errors, depth, effective_tier }` を返す |
 
 <a id="admission-dcp_aiv2-specprofilesadmission-unreleased"></a>
+<a id="admission-dcp_aiv2-specprofilesadmission"></a>
 
-### 受け入れ（`dcp_ai::v2`、spec/profiles/admission、未公開）
+### 受け入れ（`dcp_ai::v2`、spec/profiles/admission）
 
 検証済み V2 バンドルを、運用者がすでに信頼する責任主体からの証拠として受け入れるかを判定します。オプションで `strict-v1` プロファイルを使用できます。信頼集合、プロファイル、失効情報源は運用者が指定し、バンドルやリクエストから取得することはありません。
 
@@ -254,10 +248,11 @@ if result.admitted {
 ```
 
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in"></a>
 
-### 実験的機能：正規化候補 `dcp-jcs-v2`（明示的な選択が必要、未公開）
+### 実験的機能：正規化候補 `dcp-jcs-v2`（明示的な選択が必要）
 
-規範ではなく、有効化もされていません。`dcp-jcs-v1` が引き続き唯一の正規化プロファイルであり、デフォルト設定、ビルダー、署名器、検証器は変更されません。これらのモジュールは、ソースのチェックアウトから明示的に選択して利用する呼び出し元向けです（公開状況を参照）。検証済みの候補バンドルも、信頼や受け入れを与えるものではありません。設計と契約：[`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)（§15 入力処理、§16 ルーター、§17 検証器、§18 生成器）。
+規範ではなく、有効化もされていません。`dcp-jcs-v1` が引き続き唯一の正規化プロファイルであり、デフォルト設定、ビルダー、署名器、検証器は変更されません。これらのモジュールは 2.11.0 で明示的に選択した場合にのみ利用できます。検証済みの候補バンドルも、信頼や受け入れを与えるものではありません。設計と契約：[`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)（§15 入力処理、§16 ルーター、§17 検証器、§18 生成器）。
 
 | モジュール | API |
 |---|---|

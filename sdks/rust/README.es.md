@@ -4,7 +4,7 @@
 
 # dcp-ai — SDK de Rust
 
-> Traducción informativa del [README en inglés](README.md), actualizada el 25/10/2026. Los identificadores y los bloques de código, incluidos sus comentarios, se conservan en el idioma original para mantener los ejemplos verificados.
+> Traducción informativa del [README en inglés](README.md), actualizada el 26/10/2026. Los identificadores y los bloques de código, incluidos sus comentarios, se conservan en el idioma original para mantener los ejemplos verificados.
 
 SDK oficial de Rust para el Digital Citizenship Protocol (DCP v2.0). Ofrece tipos basados en Serde, criptografía poscuántica híbrida (Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768), firmas compuestas con vinculación `pq_over_classical`, cadenas de hash duales, observabilidad con OpenTelemetry, comportamiento DCP-04..09 y soporte opcional para WebAssembly.
 
@@ -14,34 +14,25 @@ La verificación comprueba integridad y firmas; no establece confianza en el pri
 
 ## Instalación
 
-**Estado de publicación.** Este README describe el código de `main`. La última versión etiquetada, `v2.10.0`, contiene `dcp-ai` 2.10.0. Lo que el historial enumera en [`[Unreleased]`](../../CHANGELOG.md#unreleased) todavía no forma parte de una versión etiquetada: construcción y firma de bundles V2 (`dcp_ai::v2::bundle`), admisión, cadenas de delegación, ventana de recepción A2A y API experimentales de `dcp-jcs-v2`. Para ejecutar los ejemplos siguientes, usa el repositorio o un checkout como dependencia:
+**SDK Rust 2.11.0.** Esta versión incluye construcción y firma de bundles V2, admisión con confianza explícita en el principal y `strict-v1`, cadenas de delegación, correcciones del verificador y API experimentales opt-in de `dcp-jcs-v2`. `dcp-jcs-v1` conserva el carácter normativo y predeterminado. La evidencia inválida aceptada por versiones anteriores puede ser rechazada ahora. El cifrado de sesiones A2A y su ventana de replay no están implementados en Rust; siguen disponibles las funciones de descubrimiento y handshake.
 
 ```toml
 [dependencies]
-dcp-ai = { git = "https://github.com/dcp-ai-protocol/dcp-ai", branch = "main" }
-# or, from a checkout:
-# dcp-ai = { path = "/path/to/dcp-ai/sdks/rust" }
-```
-
-El crate publicado, sin las funciones aún no publicadas:
-
-```toml
-[dependencies]
-dcp-ai = "2.10"
+dcp-ai = "2.11.0"
 ```
 
 Con exportación OpenTelemetry/OTLP:
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.10", features = ["otlp"] }
+dcp-ai = { version = "2.11.0", features = ["otlp"] }
 ```
 
 Para soporte de WebAssembly:
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.10", features = ["wasm"] }
+dcp-ai = { version = "2.11.0", features = ["wasm"] }
 ```
 
 <a id="features"></a>
@@ -55,7 +46,7 @@ dcp-ai = { version = "2.10", features = ["wasm"] }
 | JSON canónico v2 y separación de dominios | Sí |
 | Hash dual (SHA-256 + SHA3-256) y raíces Merkle | Sí |
 | Verificación de bundles (V1 + V2; V2 bajo una política del verificador y el nivel de seguridad, `verify_signed_bundle_v2_with_policy`) | Sí |
-| Construcción y firma de bundles V2 (`dcp_ai::v2::bundle`: `build_bundle_v2`, `sign_bundle_v2`; `wasm_build_bundle` / `wasm_sign_bundle` de la función `wasm` las llaman; todavía sin checkpoints PQ) | Sí, sin publicar |
+| Construcción y firma de bundles V2 (`dcp_ai::v2::bundle`: `build_bundle_v2`, `sign_bundle_v2`; `wasm_build_bundle` / `wasm_sign_bundle` de la función `wasm` las llaman; todavía sin checkpoints PQ) | Sí |
 | Ciclo de vida de agentes DCP-05 (puesta en servicio / vitalidad / retirada de servicio) | Sí |
 | Sucesión digital DCP-06 (testamento, transferencia de memoria, ceremonia) | Sí |
 | Resolución de disputas, arbitraje y jurisprudencia DCP-07 | Sí |
@@ -68,8 +59,8 @@ dcp-ai = { version = "2.10", features = ["wasm"] }
 | RPR cegado, autorización multipartita y funciones auxiliares de avisos sobre algoritmos | Sí |
 | Códigos de error canónicos (38 compartidos entre todos los SDK) y `detect_wire_format` | Sí |
 | Exportador OpenTelemetry / OTLP (función opcional `otlp`) | Sí |
-| Admisión: principales de confianza y perfil `strict-v1` | Sí, sin publicar |
-| Candidato de canonicalización `dcp-jcs-v2` (ingreso, router, verificador de bytes, productores) | Experimental y de activación explícita, sin publicar; no normativo |
+| Admisión: principales de confianza y perfil `strict-v1` | Sí |
+| Candidato de canonicalización `dcp-jcs-v2` (ingreso, router, verificador de bytes, productores) | Experimental y de activación explícita; no normativo |
 
 <a id="quickstart"></a>
 
@@ -199,7 +190,7 @@ Todas las estructuras derivan `Debug`, `Clone`, `Serialize` y `Deserialize`. Las
 
 <a id="bundles-dcp_aiv2bundle-unreleased"></a>
 
-### Bundles (`dcp_ai::v2::bundle`, sin publicar)
+### Bundles (`dcp_ai::v2::bundle`)
 
 | Función | Descripción |
 |----------|-------------|
@@ -207,8 +198,9 @@ Todas las estructuras derivan `Debug`, `Clone`, `Serialize` y `Deserialize`. Las
 | `sign_bundle_v2(bundle, &classical, &pq)` | Firma el manifiesto con una firma compuesta bajo `CTX_BUNDLE` y devuelve `{bundle, signature}`, con `signer.id` igual al `human_id` de la RPR. Incluye `session_expires_at` o `intended_verifier` en el manifiesto antes de firmar; si existe `session_expires_at` y falta `session_issued_at`, establece `session_issued_at` en el momento de la firma |
 
 <a id="delegation-chains-dcp_aiv2delegation-dcp-09-35-unreleased"></a>
+<a id="delegation-chains-dcp_aiv2delegation-dcp-09-35"></a>
 
-### Cadenas de delegación (`dcp_ai::v2::delegation`, DCP-09 §3.5, sin publicar)
+### Cadenas de delegación (`dcp_ai::v2::delegation`, DCP-09 §3.5)
 
 | Función | Descripción |
 |----------|-------------|
@@ -217,8 +209,9 @@ Todas las estructuras derivan `Debug`, `Clone`, `Serialize` y `Deserialize`. Las
 | `verify_mandate_chain(&chain, &revoked_ids, &MandateChainKeys { human_keys, agent_keys }, now_millis)` | Verifica la cadena sin conexión, empezando por la raíz (firmas hasta la persona, enlaces y profundidad, `sub_delegation`, vigencia anidada, restricción de acciones, `data_classes` y `limits`, nivel mínimo y revocación); devuelve `MandateChainResult { valid, errors, depth, effective_tier }` |
 
 <a id="admission-dcp_aiv2-specprofilesadmission-unreleased"></a>
+<a id="admission-dcp_aiv2-specprofilesadmission"></a>
 
-### Admisión (`dcp_ai::v2`, spec/profiles/admission, sin publicar)
+### Admisión (`dcp_ai::v2`, spec/profiles/admission)
 
 Determina si un bundle V2 verificado se admite como evidencia de un principal en el que el operador ya confía, opcionalmente bajo el perfil `strict-v1`. El conjunto de confianza, el perfil y la fuente de revocación proceden del operador, nunca del bundle ni de la petición.
 
@@ -256,10 +249,11 @@ if result.admitted {
 ```
 
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in"></a>
 
-### Experimental: candidato de canonicalización `dcp-jcs-v2` (activación explícita, sin publicar)
+### Experimental: candidato de canonicalización `dcp-jcs-v2` (activación explícita)
 
-No es normativo ni está activo: `dcp-jcs-v1` sigue siendo el único perfil de canonicalización y no cambia ningún valor predeterminado, constructor, firmante ni verificador. Estos módulos están disponibles para los llamadores que opten por usarlos desde un checkout del código (consulta el estado de publicación). Un bundle candidato verificado no otorga confianza ni admisión. Diseño y contrato: [`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md) (§15 ingreso, §16 router, §17 verificador, §18 productores).
+No es normativo ni está activo: `dcp-jcs-v1` sigue siendo el único perfil de canonicalización y no cambia ningún valor predeterminado, constructor, firmante ni verificador. Estos módulos están disponibles en 2.11.0 únicamente mediante activación explícita. Un bundle candidato verificado no otorga confianza ni admisión. Diseño y contrato: [`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md) (§15 ingreso, §16 router, §17 verificador, §18 productores).
 
 | Módulo | API |
 |---|---|
