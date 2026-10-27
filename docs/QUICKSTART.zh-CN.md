@@ -4,6 +4,8 @@
 
 # DCP-AI 快速开始指南
 
+**Rust 发布 (26/10/2026).** Rust `dcp-ai` 2.11.0 已在 crates.io 发布，包含验证器修复、准入和实验性显式启用 API。`dcp-jcs-v1` 仍是规范性默认配置。见 [Rust 2.11.0](RUST_RELEASE.md).
+
 **Go 发布 (26/10/2026).** Go SDK `v2.11.0` 已通过模块标签 `sdks/go/v2.11.0` 发布，包含验证器修复、准入和实验性显式启用 API。Rust 仍独立发布。见 [Go v2.11.0](GO_RELEASE.md).
 
 > 本文是[英文版](QUICKSTART.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
@@ -462,7 +464,7 @@ canonical, _ := dcp.Canonicalize(map[string]string{"b": "2", "a": "1"})
 ### Rust
 
 ```bash
-cargo add dcp-ai   # the published crate; for main, see the Rust SDK's Release status
+cargo add dcp-ai@2.11.0
 ```
 
 ML-DSA-65、ML-KEM-768、SLH-DSA-192f、Ed25519 的提供者位于 `dcp_ai::providers::*`。完整接口参见 [docs.rs 上的 `dcp-ai` crate 文档](https://docs.rs/dcp-ai)。

@@ -103,7 +103,7 @@ Enable the optional `otlp` Cargo feature:
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.10", features = ["otlp"] }
+dcp-ai = { version = "2.11.0", features = ["otlp"] }
 ```
 
 Wire in your app:

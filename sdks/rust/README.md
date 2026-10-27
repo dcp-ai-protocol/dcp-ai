@@ -2,6 +2,8 @@
 
 # dcp-ai — Rust SDK
 
+**Rust release (26/10/2026).** Rust `dcp-ai` 2.11.0 is published on crates.io, including verifier fixes, admission and experimental opt-in APIs. `dcp-jcs-v1` remains the normative default. See [Rust 2.11.0](../../docs/RUST_RELEASE.md).
+
 Official Rust SDK for the Digital Citizenship Protocol (DCP v2.0). Serde-based types, hybrid post-quantum cryptography (Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768), composite signatures with `pq_over_classical` binding, dual hash chains, OpenTelemetry observability, DCP-04..09 behavior, and optional WebAssembly support.
 
 Verification checks integrity and signatures; it does not establish principal trust, admission or authorization to act. The current V2 verifier checks the primary audit chain but does not recompute the optional SHA3-256 chain or its secondary Merkle root. See [the documented verification limit](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains) and use the admission APIs below when trust is required.

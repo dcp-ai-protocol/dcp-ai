@@ -1,5 +1,7 @@
 # Migration Guide: DCP-AI v1.0 to v2.0
 
+**Rust release (26/10/2026).** Rust `dcp-ai` 2.11.0 is published on crates.io, including verifier fixes, admission and experimental opt-in APIs. `dcp-jcs-v1` remains the normative default. See [Rust 2.11.0](RUST_RELEASE.md).
+
 **Go release (26/10/2026).** Go SDK `v2.11.0` is available from the module tag `sdks/go/v2.11.0`, including verifier fixes, admission and experimental opt-in APIs. Rust publication remains separate. See [Go v2.11.0](GO_RELEASE.md).
 
 **Python release (26/10/2026).** `dcp-ai` 2.10.0 is now available on PyPI, including the verifier fixes, admission and the experimental opt-in APIs. Go and Rust publication remains separate. See [Python 2.10.0](PYTHON_RELEASE.md).
@@ -57,7 +59,7 @@ The migration is **additive**: v2.0 introduces new fields and structures alongsi
 
 ### Step 1: Update SDK
 
-The examples work with published TypeScript SDK 2.2.0, Python `dcp-ai` 2.10.0 and Go `v2.11.0`. See the [Python](PYTHON_RELEASE.md) and [Go](GO_RELEASE.md) release notes. For Rust, check its SDK README and use a checkout for features not yet released.
+The examples work with published TypeScript SDK 2.2.0, Python `dcp-ai` 2.10.0, Go `v2.11.0` and Rust `dcp-ai` 2.11.0. See the [Python](PYTHON_RELEASE.md), [Go](GO_RELEASE.md) and [Rust](RUST_RELEASE.md) release notes and each SDK README for its documented limits.
 
 **TypeScript** (published: 2.2.0 on 26/10/2026):
 
@@ -81,7 +83,7 @@ go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
 **Rust:**
 
 ```toml
-dcp-ai = { git = "https://github.com/dcp-ai-protocol/dcp-ai", branch = "main" }
+dcp-ai = "2.11.0"
 ```
 
 **WebAssembly:** build `sdks/wasm` from a checkout (`npm run build`), then `npm install /path/to/dcp-ai/sdks/wasm`.

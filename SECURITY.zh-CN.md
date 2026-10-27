@@ -4,6 +4,8 @@
 
 # 安全策略
 
+**Rust 发布 (26/10/2026).** Rust `dcp-ai` 2.11.0 已在 crates.io 发布，包含验证器修复、准入和实验性显式启用 API。`dcp-jcs-v1` 仍是规范性默认配置。见 [Rust 2.11.0](docs/RUST_RELEASE.md).
+
 **Go 发布 (26/10/2026).** Go SDK `v2.11.0` 已通过模块标签 `sdks/go/v2.11.0` 发布，包含验证器修复、准入和实验性显式启用 API。Rust 仍独立发布。见 [Go v2.11.0](docs/GO_RELEASE.md).
 
 > 本文是[英文版](SECURITY.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
@@ -78,7 +80,7 @@
 
 | 版本 | 是否支持 |
 |---------|-----------|
-| 2.11.x (`github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2`) | 是 |
+| 2.11.x (`github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2`, Rust `dcp-ai` on crates.io) | 是 |
 | 2.10.x（PyPI / crates.io 上的 `dcp-ai`、Go 模块 `sdks/go/v2`） | 是 |
 | 2.9.x（PyPI 和 crates.io 上的 `dcp-ai`、Go 模块 `sdks/go/v2`） | 是 |
 | 2.8.x（PyPI 和 crates.io 上的 `dcp-ai`、Go 模块 `sdks/go/v2`） | 是 |

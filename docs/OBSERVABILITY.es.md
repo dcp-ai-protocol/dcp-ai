@@ -112,7 +112,7 @@ Activa la feature opcional de Cargo `otlp`:
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.10", features = ["otlp"] }
+dcp-ai = { version = "2.11.0", features = ["otlp"] }
 ```
 
 Conéctalo en tu aplicación:

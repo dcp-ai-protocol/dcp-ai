@@ -11,6 +11,8 @@ hide:
 
 # DCP-AI — Digital Citizenship Protocol para agentes de IA
 
+**Publicación Rust (26/10/2026).** Rust `dcp-ai` 2.11.0 está publicado en crates.io, incluidas las correcciones del verificador, admisión y API experimentales opt-in. `dcp-jcs-v1` sigue siendo el perfil normativo predeterminado. Véase [Rust 2.11.0](reference/docs/RUST_RELEASE.md).
+
 **Publicación Go (26/10/2026).** El SDK Go `v2.11.0` está disponible desde la etiqueta `sdks/go/v2.11.0`, incluidas las correcciones del verificador, admisión y API experimentales opt-in. La publicación Rust sigue siendo independiente. Véase [Go v2.11.0](reference/docs/GO_RELEASE.md).
 
 **Publicación Python (26/10/2026).** `dcp-ai` 2.10.0 ya está disponible en PyPI, incluidas las correcciones del verificador, la admisión y las API experimentales opt-in. Las publicaciones de Go y Rust siguen siendo independientes. Véase [Python 2.10.0](reference/docs/PYTHON_RELEASE.md).
@@ -56,7 +58,7 @@ Identidad verificable criptográficamente, intención legible por máquinas, tra
 === "Rust"
 
     ```bash
-    cargo add dcp-ai
+    cargo add dcp-ai@2.11.0
     ```
 
 === "WebAssembly"
