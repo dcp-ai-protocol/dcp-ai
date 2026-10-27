@@ -112,7 +112,7 @@ dcp_telemetry.init(
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.10", features = ["otlp"] }
+dcp-ai = { version = "2.11.0", features = ["otlp"] }
 ```
 
 在你的应用中接入：

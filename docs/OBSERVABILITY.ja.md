@@ -112,7 +112,7 @@ TypeScript と同じことが保証されます。既定のインストールは
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.10", features = ["otlp"] }
+dcp-ai = { version = "2.11.0", features = ["otlp"] }
 ```
 
 アプリケーションに組み込みます。

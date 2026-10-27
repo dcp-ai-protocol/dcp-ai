@@ -13,7 +13,7 @@
 - **受信任的委托人。** 运营方提供一个信任集合：每个委托人的 `human_id` 及其可以用来签名的公钥。只有当实际验证了委托人签名（RPR 和 bundle 清单，经典和后量子两部分）的密钥是该委托人的受信任密钥、处于有效状态且在有效期窗口内时，bundle 才会被准入。
 - **strict-v1 配置。** 可选、有版本、由运营方固定：所有风险等级都要求混合签名、已签名的 `intended_verifier` 等于运营方的 `verifier_id`、已签名的会话窗口最长 300 秒，以及不超过 300 秒的吊销快照。
 
-> **发布状态（26/10/2026）。** 准入和 `strict-v1` 已在 `@dcp-ai/sdk` 2.2.0、Express/OpenClaw 2.1.0、Python `dcp-ai` 2.10.0 及 Go `v2.11.0` 发布。见 [npm](NPM_RELEASES.md)、[Python](PYTHON_RELEASE.md) 和 [Go](GO_RELEASE.md)。Rust 独立发布；未发布 API 请使用检出代码。参考服务器和根目录 CLI 仍从检出代码运行。
+> **发布状态（26/10/2026）。** 准入和 `strict-v1` 已在 `@dcp-ai/sdk` 2.2.0、Express/OpenClaw 2.1.0、Python `dcp-ai` 2.10.0、Go `v2.11.0` 及 Rust `dcp-ai` 2.11.0 发布。见 [npm](NPM_RELEASES.md)、[Python](PYTHON_RELEASE.md)、[Go](GO_RELEASE.md) 和 [Rust](RUST_RELEASE.md)。参考服务器和根目录 CLI 仍从检出代码运行。
 
 包含全部规则和错误码的规范性定义是 [`spec/profiles/admission`](../spec/profiles/admission/README.md)。共享的测试向量是 [`tests/interop/v2/admission_vectors.json`](../tests/interop/v2/admission_vectors.json)。
 

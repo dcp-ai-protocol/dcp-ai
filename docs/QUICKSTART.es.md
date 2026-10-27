@@ -4,6 +4,8 @@
 
 # Guía de inicio rápido de DCP-AI
 
+**Publicación Rust (26/10/2026).** Rust `dcp-ai` 2.11.0 está publicado en crates.io, incluidas las correcciones del verificador, admisión y API experimentales opt-in. `dcp-jcs-v1` sigue siendo el perfil normativo predeterminado. Véase [Rust 2.11.0](RUST_RELEASE.md).
+
 **Publicación Go (26/10/2026).** El SDK Go `v2.11.0` está disponible desde la etiqueta `sdks/go/v2.11.0`, incluidas las correcciones del verificador, admisión y API experimentales opt-in. La publicación Rust sigue siendo independiente. Véase [Go v2.11.0](GO_RELEASE.md).
 
 > Traducción informativa de [la versión en inglés](QUICKSTART.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
@@ -466,7 +468,7 @@ canonical, _ := dcp.Canonicalize(map[string]string{"b": "2", "a": "1"})
 ### Rust
 
 ```bash
-cargo add dcp-ai   # the published crate; for main, see the Rust SDK's Release status
+cargo add dcp-ai@2.11.0
 ```
 
 Los proveedores de ML-DSA-65, ML-KEM-768, SLH-DSA-192f y Ed25519 están en `dcp_ai::providers::*`. Consulta la [documentación del crate `dcp-ai` en docs.rs](https://docs.rs/dcp-ai) para ver toda la superficie.
