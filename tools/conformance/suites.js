@@ -14,6 +14,7 @@ const EX = "tests/conformance/examples";
 const GOLDEN = "tests/conformance/v2/golden_vectors.json";
 const INTEROP = "tests/interop/v2/interop_vectors.json";
 const ADMISSION = "tests/interop/v2/admission_vectors.json";
+const SECONDARY = "tests/interop/v2/secondary_sha3_vectors.json";
 
 const isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 const need = (cond, what) => { if (!cond) throw new ExpectationError(what); };
@@ -182,6 +183,29 @@ async function v2SignedBundle(ctx) {
     await ctx.checkAsync(`v2.signed_bundle.${id}`, async () => {
       const r = await verifySignedBundle(bundle, key, undefined, options);
       return r.verified === expected || `verified=${r.verified}, expected ${expected}: ${JSON.stringify(r.errors)}`;
+    });
+  }
+}
+
+// ── V2 secondary SHA3-256 fields through the reference verifier ──
+
+async function v2SecondarySha3(ctx) {
+  const v = ctx.json(SECONDARY);
+  need(Array.isArray(v.cases) && isObj(v.base?.artifacts), `${SECONDARY}: cases and base.artifacts missing`);
+  const assemble = (p) => ({
+    bundle: { dcp_bundle_version: "2.0", manifest: p.manifest, ...v.base.artifacts, audit_entries: p.audit_entries },
+    signature: p.signature,
+  });
+  for (const c of v.cases) {
+    await ctx.checkAsync(`v2.secondary.${c?.name}`, async () => {
+      need(c.expect === "accept" || c.expect === "reject", `${c.name}: expect must be accept or reject`);
+      const r = await verifySignedBundle(assemble(c));
+      if (c.expect === "accept") return r.verified === true || `rejected: ${JSON.stringify(r.errors)}`;
+      need(typeof c.error_contains === "string" && isObj(c.control), `${c.name}: a reject case needs error_contains and control`);
+      if (r.verified !== false) return "accepted";
+      if (!r.errors.some((e) => String(e).includes(c.error_contains))) return `no error names ${c.error_contains}: ${JSON.stringify(r.errors)}`;
+      const control = await verifySignedBundle(assemble(c.control));
+      return control.verified === true || `control rejected: ${JSON.stringify(control.errors)}`;
     });
   }
 }
@@ -457,6 +481,7 @@ export const SUITES = {
   "v2.canonicalization": v2Canonicalization,
   "v2.hashes": v2Hashes,
   "v2.signed_bundle": v2SignedBundle,
+  "v2.secondary_sha3": v2SecondarySha3,
   "v2.schema": v2CoreSchema,
   "ext.dcp05_09.schema": extensionsSchema,
   "ext.dcp05_09.wire": extensionsWire,

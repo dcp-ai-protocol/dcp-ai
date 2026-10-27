@@ -125,7 +125,7 @@ cargo add dcp-ai@2.11.0
 go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
 ```
 
-确切的导入路径和 API 范围参见各 SDK 的 README，已发布版本缺少的内容参见其 *Release status*。在 `main` 上，TypeScript、Python、Go 和 Rust SDK 原生验证 V1 和 V2 bundle，`@dcp-ai/wasm` 公开了 Rust 的 V2 验证器。它们的 V2 验证器遵循 [VERIFICATION.md](../spec/VERIFICATION.md) 中的检查清单，包括每个构件的签名（步骤 V2-8）和 PQ 检查点（步骤 V2-12），但有一个缺口：它们检查主审计链和 Merkle 根，却不重新计算可选的次级链或 `audit_merkle_root_secondary`（步骤 V2-11；参见 [STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)）。
+确切的导入路径和 API 范围参见各 SDK 的 README，已发布版本缺少的内容参见其 *Release status*。在 `main` 上，TypeScript、Python、Go 和 Rust SDK 原生验证 V1 和 V2 bundle，`@dcp-ai/wasm` 公开了 Rust 的 V2 验证器。它们的 V2 验证器遵循 [VERIFICATION.md](../spec/VERIFICATION.md) 中的检查清单，包括每个构件的签名（步骤 V2-8）和 PQ 检查点（步骤 V2-12），并且在尚未发布的源代码中还检查存在的步骤 V2-11 次级字段：已发布的软件包检查主审计链和 Merkle 根，但不检查可选的次级链或 `audit_merkle_root_secondary`（参见 [STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)）。
 
 <a id="stateless-by-design"></a>
 
@@ -201,7 +201,7 @@ go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
 
 ## 区块链与验证
 
-- **仅验证：** 服务可以只提供 POST `/verify`，应用 [VERIFICATION.md](../spec/VERIFICATION.md) 的检查清单（模式、签名、intent_hash、审计链、merkle；SDK 验证器尚不重新计算可选的次级链）。不需要区块链。
+- **仅验证：** 服务可以只提供 POST `/verify`，应用 [VERIFICATION.md](../spec/VERIFICATION.md) 的检查清单（模式、签名、intent_hash、审计链、merkle；尚未发布的源代码中的 SDK 验证器也会检查存在的可选次级链字段；已发布的软件包不会）。不需要区块链。
 - **验证 anchor_receipt：** 如果客户端随 bundle 发送了 `anchor_receipt`，服务可以选择**只使用公开数据**（例如从区块浏览器获取交易）检查 `bundle_hash` 是否出现在指定的链或日志索引处。不涉及协议的任何中央服务器。
 - **锚定（写入）：** 运营方运行节点或使用 RPC，把哈希写入现有的链；服务向客户端返回 `anchor_receipt`。这是可选的、因运营方而异的，参考锚定服务目前还不做这件事（参见 [`services/anchor/README.md`](../services/anchor/README.md)）。
 

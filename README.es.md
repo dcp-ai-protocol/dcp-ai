@@ -518,7 +518,7 @@ cd docker && docker compose up -d
 
 DCP v2.0 emplea una arquitectura criptográfica híbrida para una seguridad resistente a la computación cuántica. La selección de algoritmos y la agilidad criptográfica se rigen por el [Crypto Profile](spec/profiles/crypto/).
 
-Esta tabla describe el diseño del protocolo. Los SDK no ejecutan el intercambio combinado X25519 + ML-KEM-768; el llamador proporciona la clave de sesión A2A. Los verificadores actuales de bundles V2 no recalculan la cadena de auditoría secundaria opcional ni la raíz de Merkle secundaria. Consulta la [conformidad NIST](docs/NIST_CONFORMITY.md) y el [modelo de seguridad](docs/SECURITY_MODEL.md) para conocer los límites de implementación.
+Esta tabla describe el diseño del protocolo. Los SDK no ejecutan el intercambio combinado X25519 + ML-KEM-768; el llamador proporciona la clave de sesión A2A. Los verificadores V2 del código fuente aún no publicado comprueban los enlaces de la cadena de auditoría secundaria opcional y la raíz de Merkle secundaria que estén presentes; los paquetes publicados son anteriores a esa comprobación ([cadenas de doble hash](docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)). Consulta la [conformidad NIST](docs/NIST_CONFORMITY.md) y el [modelo de seguridad](docs/SECURITY_MODEL.md) para conocer los límites de implementación.
 
 | Algoritmo | Estándar | Propósito |
 |-----------|----------|---------|

@@ -276,8 +276,7 @@ const message = domainSeparatedMessage(DCP_CONTEXTS.Bundle, new TextEncoder().en
 
 New fields: `session_nonce`, `hash_alg`, `evidence.evidence_hash` and `pq_checkpoint_ref`; hashes carry the
 `sha256:` prefix. A dual-hash chain adds `prev_hash_secondary` (SHA3-256) and `hash_alg: "sha256+sha3-256"`.
-Current V2 verifiers, the experimental candidate included, do not recompute the secondary chain or
-`audit_merkle_root_secondary`: producing these fields does not establish the additional protection
+In the unreleased source code, the V2 verifiers, the experimental candidate included, check the secondary links, intent hashes and `audit_merkle_root_secondary` that are present; absent ones are not required, and the published packages predate this check, so producing these fields establishes the additional protection only where both the producer and the verifier include it
 ([STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)).
 Audit entries are not signed one by one: the manifest commits to them through the audit Merkle root, and PQ
 checkpoints sign ranges of them.
@@ -600,8 +599,8 @@ Run through this checklist to confirm your migration is complete:
 - [ ] **Composite signing**: `signBundleV2` produces valid composite signatures
 - [ ] **Domain separation**: Signatures include context tags
 - [ ] **Composite binding**: PQ signature covers classical signature bytes
-- [ ] **Dual-hash chain**: Audit entries include `prev_hash_secondary` (SHA3-256); current V2 verifiers do not recompute it (Step 6)
-- [ ] **Manifest**: Bundle manifest contains all artifact hashes and, with a dual-hash chain, the secondary Merkle root, which current V2 verifiers do not recompute
+- [ ] **Dual-hash chain**: Audit entries include `prev_hash_secondary` (SHA3-256); verifiers in the unreleased source code check every link present (Step 6); the published packages do not
+- [ ] **Manifest**: Bundle manifest contains all artifact hashes and, with a dual-hash chain, the secondary Merkle root, which verifiers in the unreleased source code check when present
 - [ ] **Session nonce**: All artifacts in a bundle share the same nonce
 - [ ] **V2 verification**: `verifySignedBundleV2` (or `dcp verify-bundle`) passes for correctly signed v2.0 bundles
 - [ ] **V1 compatibility**: v1.0 bundles still verify with the V1 function `verifySignedBundle` (which accepts only v1.0), with `dcp verify-bundle` or with a version router as in 3.2; the V2 function `verifySignedBundleV2` accepts only v2.0

@@ -164,6 +164,24 @@ Se as entradas de auditoria incluírem `prev_hash_secondary`, verifique a cadeia
 - Primeira entrada: `prev_hash_secondary` = `"GENESIS"`
 - Entradas seguintes: `prev_hash_secondary` = SHA3-256(canonical(previous_entry))
 
+> **Errata (27/10/2026, normativa).** Esclarece o passo acima e os campos secundários; não altera nenhum hash, nenhuma
+> canonicalização nem nenhum outro passo.
+>
+> - Cada campo secundário é OPCIONAL e só é verificado quando presente; `hash_alg` não torna nenhum deles obrigatório.
+> - `prev_hash_secondary`: na primeira entrada, se presente, DEVE ser o literal `"GENESIS"`. Em qualquer entrada
+>   posterior, se presente, DEVE ser `sha3-256:` seguido do SHA3-256 em hexadecimal minúsculo dos bytes `dcp-jcs-v1` da
+>   entrada imediatamente anterior tal como consta no bundle, tenha ou não essa entrada seu próprio campo secundário. Uma
+>   entrada que o omite não é incoerente; um bundle que omite alguns elos não contém uma cadeia secundária completa.
+> - `intent_hash_secondary`, se presente, DEVE ser `sha3-256:` seguido do SHA3-256 dos bytes `dcp-jcs-v1` do payload
+>   da intenção.
+> - `audit_merkle_root_secondary`, se presente no manifesto, DEVE ser `sha3-256:` seguido da raiz de Merkle SHA3-256 das
+>   entradas de auditoria, calculada como `audit_merkle_root` (folhas sobre os bytes `dcp-jcs-v1` de cada entrada, pares
+>   sobre os digests de 32 bytes concatenados, o último nó duplicado em uma camada ímpar, ordem do bundle); para uma
+>   trilha vazia é `sha3-256:` seguido de 64 zeros.
+> - Um valor presente que seja `null` ou não seja uma string faz a verificação falhar. Onde se espera um hash, o valor DEVE
+>   ser `sha3-256:` seguido de 64 dígitos hexadecimais minúsculos e igual ao calculado; o único outro valor admitido é o
+>   literal `"GENESIS"` para `prev_hash_secondary` na primeira entrada.
+
 <a id="step-v2-12-verify-pq-checkpoints-if-present"></a>
 
 ### Passo V2-12: Verificar os checkpoints PQ (se presentes)
@@ -252,9 +270,7 @@ Isso confere o hash SHA-256 de cada schema local contra as impressões digitais 
 - Os passos V1 opcionais 8 a 11 (recibo de ancoragem, lista de revogação jurisdicional, atestação de jurisdição,
   prova do log de transparência) não são executados por `dcp verify-bundle`, `lib/verify.js` nem pelos verificadores dos SDKs; um verificador que
   os queira os executa ele mesmo. Os snapshots de revogação são lidos pelo perfil de admissão, não por estes passos.
-- Passo V2-11: em `main`, os verificadores dos SDKs e `lib/verify.js` não recalculam a cadeia secundária SHA3-256
-  (`prev_hash_secondary`) nem `audit_merkle_root_secondary`. Um bundle que as traz é verificado apenas pela cadeia e pela raiz
-  SHA-256; um verificador que precise da cadeia secundária a confere ele mesmo.
+- Passo V2-11: no código-fonte ainda não publicado (27/10/2026), os verificadores dos SDKs verificam os campos secundários presentes, como indica a errata, e `lib/verify.js` também quando usa o SDK compilado desse código-fonte; os pacotes publicados são anteriores e não o fazem: com eles, um bundle que traz os campos secundários é verificado apenas pela cadeia e pela raiz SHA-256, e um verificador que precise da cadeia secundária a confere ele mesmo.
 - O passo 10 descreve a assinatura da atestação como feita “sobre `rpr_hash`”, enquanto o [DCP-01](DCP-01.md) a descreve sobre
   o JSON canônico de todos os campos exceto `signature`, e o schema V2 usa um `composite_sig`. Esta nota registra
   a diferença; ela não decide qual se aplica.

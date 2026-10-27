@@ -23,6 +23,16 @@
 
 ### 安全
 
+- **接受范围变更（尚未发布的源代码，2026 年 10 月 27 日）：存在的二级 SHA3-256 字段会被验证。** TypeScript、Python、
+  Go 和 Rust 的 V2 验证器，以及基于 Rust SDK 构建的 WASM，现在按 `spec/VERIFICATION.md` 的 V2-11 及其 2026 年 10 月
+  27 日的勘误，检查 `audit_merkle_root_secondary`（按主树方式构建的 SHA3-256 树；空记录为 `sha3-256:` 后接 64 个零）、
+  每个 `prev_hash_secondary`（第一个条目为 `"GENESIS"`，之后为 bundle 中原样的前一条目的 SHA3-256）以及每个
+  `intent_hash_secondary`（意图载荷的 SHA3-256）。不存在的字段不作要求，因此已验证的 bundle 仍可能没有完整的二级链；
+  存在的字段如果是 `null`、不是字符串或不正确，则被拒绝。准入和实验性候选路由复用这些检查；API、结果字段、规范化和
+  `hash_alg` 的处理均不变。`prev_hash_secondary` 的模式也接受 OpenClaw 在第一个条目中写入的 `"GENESIS"`。共享向量：
+  `tests/interop/v2/secondary_sha3_vectors.json`。这尚未包含在任何已发布的软件包中：
+  [已发布版本](docs/README.md#published-versions)中的版本不检查二级字段。
+
 - **接受范围变更：现在会拒绝 S >= L 的 Ed25519 签名。** 涉及 TypeScript SDK
   （`Ed25519Provider.verify`，因而包括所有 V2 签名和复合签名、`@dcp-ai/express` 和
   `@dcp-ai/openclaw`；以及 `verifyObject`，因而包括 `verifySignedBundle` V1）和参考验证方

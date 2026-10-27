@@ -199,7 +199,7 @@ Entry N:
 
 二次チェーンはオプションです（監査エントリのスキーマの `prev_hash_secondary` と `intent_hash_secondary`）。仕様は、二次チェーンが存在する場合はそれを独立に検証することを要求しています（[VERIFICATION.md、V2-11](../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present)）。これは多層防御の設計であり、その保護は、実際に両方のチェーンを確認し、信頼できるコミットメントを保持することにかかっています。
 
-**実装上の欠落（2026 年 10 月 25 日）：** 現在の TypeScript、Python、Go、Rust の V2 バンドルの検証器は、一次の `prev_hash` のチェーンと一次のマークルルートを確認しますが、二次チェーンや `audit_merkle_root_secondary` は再計算しません。バンドルの検証の成功を、二次チェーンが一貫していることの証拠と解釈しないでください。実験的な候補の経路もこれらの検証のチェックを再利用するため、候補を選んでもこの欠落は解消されません。
+**実装の状況（2026 年 10 月 27 日）：** 未公開のソースコードでは、TypeScript、Python、Go、Rust の V2 バンドルの検証器と、Rust SDK からの WASM ビルドが、存在するすべての二次フィールドを確認します（[VERIFICATION.md の V2-11 とその正誤](../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present)）。各 `prev_hash_secondary` を直前のエントリーと、各 `intent_hash_secondary` を意図と、`audit_merkle_root_secondary` をエントリーと照合します。存在しないフィールドは要求されないため、検証に成功しても、バンドルが完全な二次チェーンを持つことは示されません。実験的な候補の経路もこれらの確認を再利用します。[公開済みバージョン](README.md#published-versions)に載っている公開済みのパッケージはこの変更より前のもので、二次フィールドを確認しません。この変更を含むリリースが出るまでは、それらによる検証の成功を、二次チェーンが一貫していることの証拠と解釈しないでください。
 
 マークルツリーは一次（SHA-256）のチェーンに対して計算されます。SHA3-256 のハッシュに対する二次のマークルルートは、`audit_merkle_root_secondary` としてバンドルのマニフェストに含まれます。
 

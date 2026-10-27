@@ -403,7 +403,8 @@ fn manifest_hash_errors(bundle: &Value, manifest: &Value) -> Vec<String> {
 }
 
 /// Tie the audit entries to the signed manifest, as the TS verifier does:
-/// `audit_count`, `audit_merkle_root` and the `prev_hash` chain from GENESIS.
+/// `audit_count`, `audit_merkle_root`, the `prev_hash` chain from GENESIS and
+/// the secondary SHA3-256 fields that are present.
 fn audit_trail_errors(bundle: &Value, manifest: &Value) -> Vec<String> {
     let Some(entries) = bundle.get("audit_entries").and_then(Value::as_array) else {
         return vec!["Missing audit_entries in bundle".to_string()];
@@ -436,6 +437,64 @@ fn audit_trail_errors(bundle: &Value, manifest: &Value) -> Vec<String> {
     let root = merkle_root_from_hex_leaves(&leaves).unwrap_or_else(|| "0".repeat(64));
     if manifest.get("audit_merkle_root").and_then(Value::as_str) != Some(format!("sha256:{}", root).as_str()) {
         errors.push("Manifest audit_merkle_root mismatch".to_string());
+    }
+    errors.extend(secondary_errors(bundle, manifest, entries));
+    errors
+}
+
+/// The secondary SHA3-256 fields that are present (VERIFICATION.md V2-11 and
+/// its erratum of 27/10/2026): the manifest's `audit_merkle_root_secondary`
+/// (the SHA3-256 tree built like `audit_merkle_root`, 64 zeros for an empty
+/// trail), each entry's `prev_hash_secondary` ("GENESIS" on the first entry,
+/// then the SHA3-256 of the entry before it as carried) and
+/// `intent_hash_secondary` (the intent's SHA3-256). Absent fields are not
+/// required, so a bundle that omits some links does not carry a complete
+/// secondary chain. The entries are those `audit_trail_errors` canonicalized.
+fn secondary_errors(bundle: &Value, manifest: &Value, entries: &[Value]) -> Vec<String> {
+    let sha3_ref = |v: &Value| canonicalize_v2(v).ok().map(|c| format!("sha3-256:{}", dual_hash::sha3_256_hex(c.as_bytes())));
+    let mut errors = Vec::new();
+    if let Some(got) = manifest.get("audit_merkle_root_secondary") {
+        let leaves: Vec<String> = entries
+            .iter()
+            .map(|e| canonicalize_v2(e).map(|c| dual_hash::sha3_256_hex(c.as_bytes())).unwrap_or_default())
+            .collect();
+        let expected = format!("sha3-256:{}", dual_hash::sha3_merkle_root_hex(&leaves).unwrap_or_else(|| "0".repeat(64)));
+        match got.as_str() {
+            None => errors.push(format!("Manifest audit_merkle_root_secondary is invalid: {}", got)),
+            Some(s) if s != expected => errors.push("Manifest audit_merkle_root_secondary mismatch".to_string()),
+            Some(_) => {}
+        }
+    }
+    let mut intent_ref: Option<Option<String>> = None;
+    for (i, entry) in entries.iter().enumerate() {
+        let Some(entry) = entry.as_object() else { continue };
+        if let Some(got) = entry.get("prev_hash_secondary") {
+            let expected = if i == 0 { Some("GENESIS".to_string()) } else { sha3_ref(&entries[i - 1]) };
+            match got.as_str() {
+                None => errors.push(format!("prev_hash_secondary invalid at entry[{}]: {}", i, got)),
+                Some(s) if Some(s) != expected.as_deref() => errors.push(format!(
+                    "prev_hash_secondary chain break at entry[{}]: expected {}, got {}",
+                    i,
+                    expected.as_deref().unwrap_or("?"),
+                    s
+                )),
+                Some(_) => {}
+            }
+        }
+        if let Some(got) = entry.get("intent_hash_secondary") {
+            let expected = intent_ref
+                .get_or_insert_with(|| sha3_ref(bundle.get("intent").and_then(|i| i.get("payload")).unwrap_or(&Value::Null)))
+                .clone();
+            match got.as_str() {
+                None => errors.push(format!("intent_hash_secondary invalid at entry[{}]: {}", i, got)),
+                Some(s) if Some(s) != expected.as_deref() => errors.push(format!(
+                    "intent_hash_secondary mismatch at entry[{}]: expected {}",
+                    i,
+                    expected.as_deref().unwrap_or("?")
+                )),
+                Some(_) => {}
+            }
+        }
     }
     errors
 }

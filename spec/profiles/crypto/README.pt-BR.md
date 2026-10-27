@@ -121,5 +121,4 @@ Veja a seção 10.3 do [DCP-AI v2.0](../../DCP-AI-v2.0.md).
   presentes, porque a assinatura PQ os cobre; ele não aceita um bundle que traga apenas uma assinatura PQ.
 - O sistema de avisos não é automático: um verificador aplica um aviso quando o seu operador o carrega e chama os
   auxiliares de avisos ou ajusta a política de acordo.
-- Os verificadores dos SDKs verificam a cadeia de auditoria SHA-256 e a raiz de Merkle; eles não recalculam a cadeia nem a raiz
-  secundárias SHA3-256 (V2-11 do [VERIFICATION.md](../../VERIFICATION.md)).
+- Os verificadores dos SDKs verificam a cadeia de auditoria SHA-256 e a raiz de Merkle; no código-fonte ainda não publicado, também verificam os campos secundários SHA3-256 presentes (V2-11 do [VERIFICATION.md](../../VERIFICATION.md) e sua errata), o que os pacotes publicados não fazem.

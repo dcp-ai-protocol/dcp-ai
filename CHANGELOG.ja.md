@@ -24,6 +24,18 @@
 
 ### セキュリティ
 
+- **受け入れの変更（未公開のソースコード、2026 年 10 月 27 日）：二次の SHA3-256 フィールドは、存在する場合に検証されます。**
+  TypeScript、Python、Go、Rust の V2 検証器と、Rust SDK からの WASM ビルドは、`spec/VERIFICATION.md` の V2-11 と
+  2026 年 10 月 27 日の正誤のとおり、`audit_merkle_root_secondary`（一次と同じ方法で作る SHA3-256 の木。空の記録では
+  `sha3-256:` に 64 個のゼロを続けた値）、各 `prev_hash_secondary`（最初のエントリーでは `"GENESIS"`、以降はバンドルに
+  含まれているとおりの直前のエントリーの SHA3-256）、各 `intent_hash_secondary`（インテントのペイロードの SHA3-256）を
+  確認するようになりました。存在しないフィールドは要求されないため、検証済みのバンドルが完全な二次チェーンを持たない
+  こともあります。存在するフィールドが `null`、文字列でない、または誤っている場合は拒否されます。受け入れと実験的な
+  候補の経路もこれらの確認を再利用します。API、結果のフィールド、正規化、`hash_alg` の扱いは変わりません。
+  `prev_hash_secondary` のスキーマのパターンは、OpenClaw が最初のエントリーに書く `"GENESIS"` も受け入れます。共有
+  ベクター：`tests/interop/v2/secondary_sha3_vectors.json`。まだどの公開済みパッケージにも含まれていません。
+  [公開済みバージョン](docs/README.md#published-versions)のバージョンは二次フィールドを確認しません。
+
 - **受け入れの変更: S >= L の Ed25519 署名を拒否するようになりました。** 対象は TypeScript SDK
   （`Ed25519Provider.verify`、したがってすべての V2 署名と複合署名、`@dcp-ai/express` と
   `@dcp-ai/openclaw`。さらに `verifyObject`、したがって `verifySignedBundle` V1）と、リファレンスの検証者

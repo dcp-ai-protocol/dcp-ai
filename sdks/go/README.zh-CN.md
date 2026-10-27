@@ -10,7 +10,7 @@
 
 Digital Citizenship Protocol（DCP）v1.0 和 v2.0 的官方 Go SDK。支持 Ed25519、ML-DSA-65、SLH-DSA-192f、ML-KEM-768、复合签名、双哈希链和 bundle 验证。
 
-验证检查完整性和签名，不会建立对责任主体的信任、准入资格或行动授权。当前 V2 验证器检查主审计链，但不会重新计算可选的 SHA3-256 链及其次级 Merkle 根。请参阅[已记录的验证限制](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)；需要检查信任时，请使用下文的准入 API。
+验证检查完整性和签名，不会建立对责任主体的信任、准入资格或行动授权。尚未发布的源代码中的 V2 验证器检查主审计链，以及存在的可选 SHA3-256 次级链接、意图哈希和次级 Merkle 根（不存在的不作要求）；已发布的 v2.11.0 不检查次级字段。请参阅[已记录的验证限制](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)；需要检查信任时，请使用下文的准入 API。
 
 <a id="installation"></a>
 

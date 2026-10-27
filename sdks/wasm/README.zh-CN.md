@@ -183,7 +183,7 @@ console.log(result.verified, result.classical_valid, result.pq_valid); // true t
 
 ### 验证
 
-验证成功不会赋予对责任主体的信任、准入资格或操作授权。V2 验证器检查主审计链和主 Merkle 根，但不会重新计算可选的次级链或 `audit_merkle_root_secondary`（[实现缺口](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)）。实验性候选方案复用这些检查。
+验证成功不会赋予对责任主体的信任、准入资格或操作授权。V2 验证器检查主审计链和主 Merkle 根，基于尚未发布的源代码构建时，也会检查存在的可选次级链接、意图哈希和 `audit_merkle_root_secondary`，而已发布的 2.1.0 不检查（[实现缺口](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)）。实验性候选方案复用这些检查。
 
 | 方法 | 返回值 | 描述 |
 |--------|---------|-------------|

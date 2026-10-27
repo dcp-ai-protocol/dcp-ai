@@ -30,7 +30,7 @@
     },
     "prev_hash_secondary": {
       "type": "string",
-      "pattern": "^sha3-256:[0-9a-f]{64}$"
+      "pattern": "^(sha3-256:[0-9a-f]{64}|GENESIS)$"
     },
     "hash_alg": {
       "type": "string",

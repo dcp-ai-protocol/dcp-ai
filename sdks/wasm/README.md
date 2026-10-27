@@ -167,7 +167,7 @@ file; in Node.js, pass it as a `data:` URL (see [Initialization](#initialization
 
 ### Verification
 
-Verification does not grant principal trust, admission or action authorization. The V2 verifier checks the primary audit chain and primary Merkle root; it does not recompute the optional secondary chain or `audit_merkle_root_secondary` ([implementation gap](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)). The experimental candidate reuses these checks.
+Verification does not grant principal trust, admission or action authorization. The V2 verifier checks the primary audit chain and primary Merkle root; built from the unreleased source, it also checks the optional secondary links, intent hashes and `audit_merkle_root_secondary` that are present, while the published 2.1.0 does not ([implementation gap](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)). The experimental candidate reuses these checks.
 
 | Method | Returns | Description |
 |--------|---------|-------------|

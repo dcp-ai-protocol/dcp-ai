@@ -763,7 +763,7 @@ interface SignBundleV2ClassicalOnlyOptions {
 
 ### `verifySignedBundleV2(signedBundle, registry, policy?, options?)`
 
-使用由验证器决定的策略对已签名的 V2 bundle 进行验证。当前验证器会检查主审计链和主 Merkle 根，但不会重新计算可选的次级链或 `audit_merkle_root_secondary`；验证成功并不能证明它们一致（[实现缺口](STORAGE_AND_ANCHORING.md#dual-hash-chains)）。验证也不授予准入或操作授权。
+使用由验证器决定的策略对已签名的 V2 bundle 进行验证。尚未发布的源代码中的验证器会检查主审计链和 Merkle 根，也会检查存在的次级 `prev_hash_secondary`、`intent_hash_secondary` 和 `audit_merkle_root_secondary`（不存在的不作要求；已发布的 2.2.0 不检查它们，因此用它验证成功并不能证明它们一致）（[实现状态](STORAGE_AND_ANCHORING.md#dual-hash-chains)）。验证也不授予准入或操作授权。
 
 ```typescript
 async function verifySignedBundleV2(

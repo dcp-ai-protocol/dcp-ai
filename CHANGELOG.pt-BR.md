@@ -24,6 +24,19 @@ O formato se baseia no [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Segurança
 
+- **Mudança de aceitação (código-fonte ainda não publicado, 27/10/2026): os campos secundários SHA3-256 são
+  verificados quando presentes.** Os verificadores V2 de TypeScript, Python, Go e Rust, e a compilação WASM a partir do
+  SDK de Rust, agora verificam `audit_merkle_root_secondary` (a árvore SHA3-256 construída como a primária; `sha3-256:`
+  seguido de 64 zeros para uma trilha vazia), cada `prev_hash_secondary` (`"GENESIS"` na primeira entrada e, depois, o
+  SHA3-256 da entrada anterior tal como consta) e cada `intent_hash_secondary` (o SHA3-256 do payload da intenção), como
+  indicam `spec/VERIFICATION.md` V2-11 e sua errata de 27/10/2026. Os campos ausentes não são exigidos, então um bundle
+  verificado pode não conter uma cadeia secundária completa; um campo presente que seja `null`, não seja uma string ou
+  esteja errado é rejeitado. A admissão e as rotas do candidato experimental reutilizam essas verificações; não muda
+  nenhuma API, campo de resultado, canonicalização nem o tratamento de `hash_alg`. O padrão do schema de
+  `prev_hash_secondary` também aceita `"GENESIS"`, que o OpenClaw escreve na primeira entrada. Vetores compartilhados:
+  `tests/interop/v2/secondary_sha3_vectors.json`. Ainda não está em nenhum pacote publicado: as versões em
+  [Versões publicadas](docs/README.md#published-versions) não verificam os campos secundários.
+
 - **Mudança de aceitação: assinaturas Ed25519 com S >= L agora são rejeitadas** pelo SDK de TypeScript
   (`Ed25519Provider.verify`, e portanto toda assinatura V2 e composta, `@dcp-ai/express` e
   `@dcp-ai/openclaw`; e `verifyObject`, e portanto `verifySignedBundle` V1) e pelo verificador de

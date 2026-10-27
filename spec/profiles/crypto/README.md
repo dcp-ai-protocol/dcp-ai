@@ -93,5 +93,4 @@ See [DCP-AI v2.0](../../DCP-AI-v2.0.md) Section 10.3.
   present, since the PQ signature covers them; it does not accept a bundle that carries a PQ signature alone.
 - The advisory system is not automatic: a verifier applies an advisory when its operator loads it and calls the
   advisory helpers or sets the policy accordingly.
-- The SDK verifiers check the SHA-256 audit chain and Merkle root; they do not recompute the secondary SHA3-256 chain
-  or root (V2-11 of [VERIFICATION.md](../../VERIFICATION.md)).
+- The SDK verifiers check the SHA-256 audit chain and Merkle root; in the unreleased source code they also check the secondary SHA3-256 fields that are present (V2-11 of [VERIFICATION.md](../../VERIFICATION.md) and its erratum), which the published packages do not.

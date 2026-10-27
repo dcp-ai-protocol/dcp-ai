@@ -743,7 +743,7 @@ interface SignBundleV2ClassicalOnlyOptions {
 
 ### `verifySignedBundleV2(signedBundle, registry, policy?, options?)`
 
-V2 signed bundle verification with verifier-authoritative policy. The current verifier checks the primary audit chain and primary Merkle root, but does not recompute the optional secondary chain or `audit_merkle_root_secondary`; a successful result does not establish their consistency ([implementation gap](STORAGE_AND_ANCHORING.md#dual-hash-chains)). Verification also does not grant admission or action authorization.
+V2 signed bundle verification with verifier-authoritative policy. The verifier in the unreleased source code checks the primary audit chain and Merkle root, and also the secondary `prev_hash_secondary`, `intent_hash_secondary` and `audit_merkle_root_secondary` that are present (absent ones are not required; the published 2.2.0 package does not check them, so with it a successful result does not establish their consistency) ([implementation status](STORAGE_AND_ANCHORING.md#dual-hash-chains)). Verification also does not grant admission or action authorization.
 
 ```typescript
 async function verifySignedBundleV2(

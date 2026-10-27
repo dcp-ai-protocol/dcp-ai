@@ -63,6 +63,7 @@ node --test tools/conformance/conformance.test.mjs     # runner self-tests (temp
 | `v2.canonicalization` | 11 | `CANONICALIZATION_PROFILE.md` | `golden_vectors.json#canonicalization`、`#v2_canonicalization`、`interop_vectors.json#canonicalization` | リファレンス正規化器の `dcp-jcs-v1` バイト列 |
 | `v2.hashes` | 9 | DCP-AI-v2.0 §2.3、§10.3 | `golden_vectors.json#hash_vectors`、`#dual_hash_vectors` | SHA-256 / SHA3-256 の値、デュアルハッシュ、デュアル Merkle ルート |
 | `v2.signed_bundle` | 10 | `VERIFICATION.md`（V2） | `lib/verify.js`、メモリ内で構築したバンドル | 正当なバンドルと改ざんされたバンドルに対するリファレンス検証器の判定。検証済みは受け入れではない |
+| `v2.secondary_sha3` | 51 | `VERIFICATION.md` の V2-11 とその正誤 | `secondary_sha3_vectors.json`、`lib/verify.js` | 存在する二次の SHA3-256 フィールドに対するリファレンス検証器の判定。拒否される各ケースに対照あり。完全な二次チェーンではない |
 | `v2.schema` | 4 | DCP-AI-v2.0 | `schemas/v2`、`*_v2.json` の例 | スキーマの妥当性のみ |
 | `ext.dcp05_09.schema` | 18 | DCP-05〜DCP-09 | `schemas/v2`、`<record>_v2.json` の例 | スキーマの妥当性のみ |
 | `ext.dcp05_09.wire` | 28 | DCP-05、DCP-08、DCP-09、`V2-WIRE-COMPATIBILITY.md` | `schemas/v2`、メモリ内で署名した記録、`interop_vectors.json#domain_separation_all_contexts` | これらの記録の表現、スキーマの妥当性、署名を別々の層として確認。機能的な適合ではない |

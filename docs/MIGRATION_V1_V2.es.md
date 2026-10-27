@@ -301,8 +301,7 @@ const message = domainSeparatedMessage(DCP_CONTEXTS.Bundle, new TextEncoder().en
 
 Campos nuevos: `session_nonce`, `hash_alg`, `evidence.evidence_hash` y `pq_checkpoint_ref`; los hashes llevan el
 prefijo `sha256:`. Una cadena de doble hash añade `prev_hash_secondary` (SHA3-256) y `hash_alg: "sha256+sha3-256"`.
-Los verificadores V2 actuales, incluido el candidato experimental, no recalculan la cadena secundaria ni
-`audit_merkle_root_secondary`: producir estos campos no acredita la protección adicional
+En el código fuente aún no publicado, los verificadores V2, incluido el candidato experimental, comprueban los enlaces secundarios, los hashes de intención y `audit_merkle_root_secondary` que estén presentes; los ausentes no se exigen y los paquetes publicados son anteriores a esta comprobación, así que producir estos campos solo acredita la protección adicional cuando tanto el productor como el verificador la incluyen
 ([STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)).
 Las entradas de auditoría no se firman una a una: el manifiesto se compromete con ellas mediante la raíz de Merkle de la auditoría, y los checkpoints
 PQ firman rangos de ellas.
@@ -667,8 +666,8 @@ Recorre esta lista para confirmar que la migración está completa:
 - [ ] **Firma compuesta**: `signBundleV2` produce firmas compuestas válidas
 - [ ] **Separación de dominio**: las firmas incluyen etiquetas de contexto
 - [ ] **Vinculación compuesta**: la firma PQ cubre los bytes de la firma clásica
-- [ ] **Cadena de doble hash**: las entradas de auditoría incluyen `prev_hash_secondary` (SHA3-256); los verificadores V2 actuales no la recalculan (paso 6)
-- [ ] **Manifiesto**: el manifiesto del bundle contiene todos los hashes de los artefactos y, con una cadena de doble hash, la raíz de Merkle secundaria, que los verificadores V2 actuales no recalculan
+- [ ] **Cadena de doble hash**: las entradas de auditoría incluyen `prev_hash_secondary` (SHA3-256); los verificadores del código fuente aún no publicado comprueban cada enlace presente (paso 6); los paquetes publicados no
+- [ ] **Manifiesto**: el manifiesto del bundle contiene todos los hashes de los artefactos y, con una cadena de doble hash, la raíz de Merkle secundaria, que los verificadores del código fuente aún no publicado comprueban cuando está presente
 - [ ] **Nonce de sesión**: todos los artefactos de un bundle comparten el mismo nonce
 - [ ] **Verificación V2**: `verifySignedBundleV2` (o `dcp verify-bundle`) pasa con bundles v2.0 firmados correctamente
 - [ ] **Compatibilidad V1**: los bundles v1.0 siguen verificándose con la función V1 `verifySignedBundle` (que solo acepta v1.0), con `dcp verify-bundle` o con un enrutador por versión como el de 3.2; la función V2 `verifySignedBundleV2` solo acepta v2.0

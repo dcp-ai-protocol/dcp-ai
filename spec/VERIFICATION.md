@@ -131,6 +131,24 @@ If audit entries include `prev_hash_secondary`, verify the secondary hash chain:
 - First entry: `prev_hash_secondary` = `"GENESIS"`
 - Subsequent entries: `prev_hash_secondary` = SHA3-256(canonical(previous_entry))
 
+> **Erratum (27/10/2026, normative).** This clarifies the step above and the secondary fields; it changes no hash, no
+> canonicalization and no other step.
+>
+> - Each secondary field is OPTIONAL and checked only when present; `hash_alg` does not make any of them required.
+> - `prev_hash_secondary`: on the first entry, when present, it MUST be the literal `"GENESIS"`. On any later entry,
+>   when present, it MUST be `sha3-256:` followed by the lowercase hex SHA3-256 of the `dcp-jcs-v1` bytes of the
+>   immediately preceding entry as carried in the bundle, whether or not that entry carries its own secondary field.
+>   An entry that omits it is not inconsistent; a bundle that omits some links does not carry a complete secondary chain.
+> - `intent_hash_secondary`, when present, MUST be `sha3-256:` followed by the SHA3-256 of the `dcp-jcs-v1` bytes of
+>   the intent payload.
+> - `audit_merkle_root_secondary`, when present in the manifest, MUST be `sha3-256:` followed by the SHA3-256 Merkle
+>   root of the audit entries, computed as `audit_merkle_root` is (leaves over the `dcp-jcs-v1` bytes of each entry,
+>   pairs over the concatenated 32-byte digests, the last node duplicated on an odd layer, bundle order); for an empty
+>   trail it is `sha3-256:` followed by 64 zeros.
+> - A present value that is `null` or not a string fails verification. Where a hash is expected, the value MUST be
+>   `sha3-256:` followed by 64 lowercase hex digits and equal to the computed one; the only other value allowed is the
+>   literal `"GENESIS"` for `prev_hash_secondary` on the first entry.
+
 ### Step V2-12: Verify PQ checkpoints (if present)
 
 If the manifest lists `pq_checkpoints` or the bundle carries any, verify them:
@@ -203,9 +221,7 @@ This checks the SHA-256 hash of each local schema against the canonical fingerpr
 - The optional V1 steps 8 to 11 (anchor receipt, jurisdictional revocation list, jurisdiction attestation,
   transparency-log proof) are not run by `dcp verify-bundle`, `lib/verify.js` or the SDK verifiers; a verifier that
   wants them runs them itself. Revocation snapshots are read by the admission profile, not by these steps.
-- Step V2-11: on `main` the SDK verifiers and `lib/verify.js` do not recompute the secondary SHA3-256 chain
-  (`prev_hash_secondary`) or `audit_merkle_root_secondary`. A bundle that carries them verifies on the SHA-256 chain
-  and root alone; a verifier that needs the secondary chain checks it itself.
+- Step V2-11: in the unreleased source code (27/10/2026) the SDK verifiers check the secondary fields that are present, as the erratum states, and `lib/verify.js` does when it resolves the SDK built from that source; the published packages predate this and do not: with them, a bundle that carries the secondary fields verifies on the SHA-256 chain and root alone, and a verifier that needs the secondary chain checks it itself.
 - Step 10 describes the attestation signature as made "over `rpr_hash`", while [DCP-01](DCP-01.md) describes it over
   the canonical JSON of every field except `signature`, and the V2 schema uses a `composite_sig`. This note records
   the difference; it does not decide which applies.

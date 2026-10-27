@@ -164,6 +164,19 @@ bundle 的签名者是负责的委托人：只在 RPR 的 `binding_keys` 中查�
 - 第一个条目：`prev_hash_secondary` = `"GENESIS"`
 - 后续条目：`prev_hash_secondary` = SHA3-256(canonical(previous_entry))
 
+> **勘误（27/10/2026，规范性）。** 本勘误澄清上述步骤和二级字段；不改变任何哈希、规范化或其他步骤。
+>
+> - 每个二级字段都是可选的（OPTIONAL），仅在存在时检查；`hash_alg` 不会使其中任何字段变为必需。
+> - `prev_hash_secondary`：在第一个条目中，如果存在，必须（MUST）是字面量 `"GENESIS"`。在之后的任何条目中，如果存在，
+>   必须（MUST）是 `sha3-256:` 后接紧邻的前一条目（按其在 bundle 中的原样，无论该条目是否带有自己的二级字段）的
+>   `dcp-jcs-v1` 字节的 SHA3-256 小写十六进制值。省略该字段的条目并非不一致；省略部分链接的 bundle 不具备完整的二级链。
+> - `intent_hash_secondary` 如果存在，必须（MUST）是 `sha3-256:` 后接意图载荷的 `dcp-jcs-v1` 字节的 SHA3-256 值。
+> - `audit_merkle_root_secondary` 如果存在于清单中，必须（MUST）是 `sha3-256:` 后接审计条目的 SHA3-256 Merkle 根，其计算方式
+>   与 `audit_merkle_root` 相同（以每个条目的 `dcp-jcs-v1` 字节为叶子，以拼接的 32 字节摘要为配对，奇数层复制最后一个节点，
+>   按 bundle 顺序）；空记录则为 `sha3-256:` 后接 64 个零。
+> - 存在的值如果是 `null` 或不是字符串，验证即失败。在应为哈希值的位置，该值必须（MUST）是 `sha3-256:` 后接 64 位小写
+>   十六进制数字，并与计算值相等；唯一允许的其他值是第一个条目中 `prev_hash_secondary` 的字面量 `"GENESIS"`。
+
 <a id="step-v2-12-verify-pq-checkpoints-if-present"></a>
 
 ### 步骤 V2-12：验证 PQ 检查点（如果存在）
@@ -252,9 +265,7 @@ dcp integrity
 - 可选的 V1 步骤 8 至 11（锚定回执、司法管辖区吊销列表、司法管辖区证明、
   透明日志证明）不由 `dcp verify-bundle`、`lib/verify.js` 或 SDK 验证器执行；需要它们的验证器
   需自行执行。吊销快照由准入配置文件读取，而不是由这些步骤读取。
-- 步骤 V2-11：在 `main` 上，SDK 验证器和 `lib/verify.js` 不重新计算二级 SHA3-256 链
-  （`prev_hash_secondary`）或 `audit_merkle_root_secondary`。带有它们的 bundle 只按 SHA-256 链和
-  根通过验证；需要二级链的验证器需自行检查。
+- 步骤 V2-11：在尚未发布的源代码（2026 年 10 月 27 日）中，SDK 验证器按勘误检查存在的二级字段，`lib/verify.js` 在使用由该源代码构建的 SDK 时也会检查；已发布的软件包早于这一变更，不作检查：使用它们时，带有二级字段的 bundle 只按 SHA-256 链和根通过验证，需要二级链的验证器需自行检查。
 - 步骤 10 把证明签名描述为“对 `rpr_hash`”所作，而 [DCP-01](DCP-01.md) 将其描述为对
   除 `signature` 以外所有字段的规范 JSON 所作，V2 schema 则使用 `composite_sig`。本说明记录
   这一差异；并不决定适用哪一种。

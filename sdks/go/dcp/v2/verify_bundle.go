@@ -931,8 +931,8 @@ func verifyPQCheckpoints(registry *AlgorithmRegistry, bundle, manifest map[strin
 }
 
 // verifyAuditTrail ties the audit entries to the signed manifest, as the TS
-// verifier does: audit_count, audit_merkle_root, and the prev_hash chain that
-// starts at GENESIS.
+// verifier does: audit_count, audit_merkle_root, the prev_hash chain that
+// starts at GENESIS, and the secondary SHA3-256 fields that are present.
 func verifyAuditTrail(bundle, manifest map[string]interface{}, result *V2VerificationResult) {
 	if manifest == nil {
 		return // reported as missing by VerifySignedBundleV2
@@ -971,6 +971,69 @@ func verifyAuditTrail(bundle, manifest map[string]interface{}, result *V2Verific
 	}
 	if root, _ := manifest["audit_merkle_root"].(string); root != "sha256:"+expected {
 		result.Errors = append(result.Errors, "Manifest audit_merkle_root mismatch")
+	}
+	verifySecondary(bundle, manifest, entries, result)
+}
+
+// verifySecondary checks the secondary SHA3-256 fields that are present
+// (VERIFICATION.md V2-11 and its erratum of 27/10/2026): the manifest's
+// audit_merkle_root_secondary (the SHA3-256 tree built like audit_merkle_root,
+// 64 zeros for an empty trail), each entry's prev_hash_secondary ("GENESIS" on
+// the first entry, then the SHA3-256 of the entry before it as carried) and
+// intent_hash_secondary (the intent's SHA3-256). Absent fields are not required,
+// so a bundle that omits some links does not carry a complete secondary chain.
+// The entries are those verifyAuditTrail already canonicalized.
+func verifySecondary(bundle, manifest map[string]interface{}, entries []interface{}, result *V2VerificationResult) {
+	sha3Ref := func(v interface{}) (string, bool) {
+		canonical, err := CanonicalizeV2(v)
+		if err != nil {
+			return "", false
+		}
+		return "sha3-256:" + SHA3256Hex([]byte(canonical)), true
+	}
+	if got, present := manifest["audit_merkle_root_secondary"]; present {
+		leaves := make([]string, 0, len(entries))
+		for _, e := range entries {
+			canonical, _ := CanonicalizeV2(e)
+			leaves = append(leaves, SHA3256Hex([]byte(canonical)))
+		}
+		expected := strings.Repeat("0", 64)
+		if len(leaves) > 0 {
+			expected = computeMerkleRoot(leaves, merkleHashSHA3)
+		}
+		if s, ok := got.(string); !ok {
+			result.Errors = append(result.Errors, fmt.Sprintf("Manifest audit_merkle_root_secondary is invalid: %v", got))
+		} else if s != "sha3-256:"+expected {
+			result.Errors = append(result.Errors, "Manifest audit_merkle_root_secondary mismatch")
+		}
+	}
+	var intentRef string
+	intentOK, intentDone := false, false
+	for i, raw := range entries {
+		entry, _ := raw.(map[string]interface{})
+		if got, present := entry["prev_hash_secondary"]; present {
+			expected := "GENESIS"
+			if i > 0 {
+				expected, _ = sha3Ref(entries[i-1])
+			}
+			if s, ok := got.(string); !ok {
+				result.Errors = append(result.Errors, fmt.Sprintf("prev_hash_secondary invalid at entry[%d]: %v", i, got))
+			} else if s != expected {
+				result.Errors = append(result.Errors, fmt.Sprintf("prev_hash_secondary chain break at entry[%d]: expected %s, got %s", i, expected, s))
+			}
+		}
+		if got, present := entry["intent_hash_secondary"]; present {
+			if !intentDone {
+				intent, _ := bundle["intent"].(map[string]interface{})
+				intentRef, intentOK = sha3Ref(intent["payload"])
+				intentDone = true
+			}
+			if s, ok := got.(string); !ok {
+				result.Errors = append(result.Errors, fmt.Sprintf("intent_hash_secondary invalid at entry[%d]: %v", i, got))
+			} else if !intentOK || s != intentRef {
+				result.Errors = append(result.Errors, fmt.Sprintf("intent_hash_secondary mismatch at entry[%d]: expected %s", i, intentRef))
+			}
+		}
 	}
 }
 

@@ -299,7 +299,7 @@ const message = domainSeparatedMessage(DCP_CONTEXTS.Bundle, new TextEncoder().en
 
 新字段：`session_nonce`、`hash_alg`、`evidence.evidence_hash` 和 `pq_checkpoint_ref`；哈希带有
 `sha256:` 前缀。双哈希链会增加 `prev_hash_secondary`（SHA3-256）和 `hash_alg: "sha256+sha3-256"`。
-当前的 V2 验证器（包括实验性候选）不会重新计算次级链或 `audit_merkle_root_secondary`：生成这些字段并不能证明存在这种额外保护
+在尚未发布的源代码中，V2 验证器（包括实验性候选）会检查存在的次级链接、意图哈希和 `audit_merkle_root_secondary`；不存在的不作要求，而已发布的软件包早于这项检查，因此只有生成方和验证方都包含它时，生成这些字段才能带来额外保护
 （[STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)）。
 审计条目不逐条签名：清单通过审计 Merkle 根对它们作出承诺，PQ
 检查点则对其中的区间签名。
@@ -656,8 +656,8 @@ if (version === '2.0') {
 - [ ] **复合签名**：`signBundleV2` 生成有效的复合签名
 - [ ] **域分离**：签名包含上下文标签
 - [ ] **复合绑定**：PQ 签名覆盖经典签名的字节
-- [ ] **双哈希链**：审计条目包含 `prev_hash_secondary`（SHA3-256）；当前的 V2 验证器不会重新计算它（步骤 6）
-- [ ] **清单**：bundle 清单包含所有构件的哈希，使用双哈希链时还包含次级 Merkle 根，当前的 V2 验证器不会重新计算该根
+- [ ] **双哈希链**：审计条目包含 `prev_hash_secondary`（SHA3-256）；尚未发布的源代码中的验证器会检查每个存在的链接（步骤 6）；已发布的软件包不会
+- [ ] **清单**：bundle 清单包含所有构件的哈希，使用双哈希链时还包含次级 Merkle 根，尚未发布的源代码中的验证器会在该根存在时检查它
 - [ ] **会话 nonce**：bundle 中的所有构件共享同一个 nonce
 - [ ] **V2 验证**：正确签名的 v2.0 bundle 能通过 `verifySignedBundleV2`（或 `dcp verify-bundle`）
 - [ ] **V1 兼容性**：v1.0 bundle 仍能通过 V1 函数 `verifySignedBundle`（只接受 v1.0）、`dcp verify-bundle` 或 3.2 中那样的按版本分流的路由器验证；V2 函数 `verifySignedBundleV2` 只接受 v2.0

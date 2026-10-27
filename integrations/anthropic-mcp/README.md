@@ -239,7 +239,7 @@ const intent = await handleDcpToolCall('dcp_declare_intent', {
 
 ## Notes
 
-- `dcp_verify_bundle` runs `verifySignedBundleV2` of `@dcp-ai/sdk` under `DEFAULT_VERIFIER_POLICY` (hashes, manifest, composite signature, session binding, the SHA-256 audit chain). It does not validate the JSON Schemas (the reference verifier `lib/verify.js` does) or recompute the secondary SHA3-256 chain of V2-11, and a `verified` result is not admission or authorization.
+- `dcp_verify_bundle` runs `verifySignedBundleV2` of `@dcp-ai/sdk` under `DEFAULT_VERIFIER_POLICY` (hashes, manifest, composite signature, session binding, the SHA-256 audit chain). It does not validate the JSON Schemas (the reference verifier `lib/verify.js` does) and the published `@dcp-ai/sdk` 2.2.0 it depends on does not check the secondary SHA3-256 fields of V2-11 (the unreleased SDK source checks those present), and a `verified` result is not admission or authorization.
 - Apart from `dcp_verify_bundle` and the receipts, the tool handlers return drafts: identifiers and fields to sign, never keys or signatures (`next_step` says what is missing).
 - `dcp_create_identity` returns identifiers only — key generation and signing are separate steps.
 - Risk tier is computed automatically from the risk score: routine (<200), standard (200-499), elevated (500-799), maximum (800+).
