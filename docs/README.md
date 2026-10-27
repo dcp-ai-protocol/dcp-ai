@@ -1,16 +1,33 @@
 # Documentation
 
-**Rust release (26/10/2026).** Rust `dcp-ai` 2.11.0 is published on crates.io, including verifier fixes, admission and experimental opt-in APIs. `dcp-jcs-v1` remains the normative default. See [Rust 2.11.0](RUST_RELEASE.md).
+This index lists the DCP-AI documentation by task: getting started, architecture and security, testing, reference,
+operations, specifications and proposals. The current package versions for every registry are in
+[Published versions](#published-versions).
 
-**Go release (26/10/2026).** Go SDK `v2.11.0` is available from the module tag `sdks/go/v2.11.0`, including verifier fixes, admission and experimental opt-in APIs. Rust publication remains separate. See [Go v2.11.0](GO_RELEASE.md).
+## Published versions
 
-**Python release (26/10/2026).** `dcp-ai` 2.10.0 is now available on PyPI, including the verifier fixes, admission and the experimental opt-in APIs. Go and Rust publication remains separate. See [Python 2.10.0](PYTHON_RELEASE.md).
+Verified on 26/10/2026. Package versions are independent of the DCP wire and specification version (2.0).
 
-**npm publication (26/10/2026).** The 13 versions in [NPM_RELEASES.md](NPM_RELEASES.md) are published, including the TypeScript/WASM candidate APIs and TypeScript admission. Entries below retain their development history; `[Unreleased]` does not mean these npm features are unavailable. Python, Go and Rust releases are separate.
+| Registry | Package | Version | Release notes |
+|---|---|---|---|
+| npm | [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) (TypeScript SDK) | 2.2.0 | [npm packages](NPM_RELEASES.md) |
+| npm | [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) | 2.1.0 | [npm packages](NPM_RELEASES.md) |
+| npm | [`@dcp-ai/cli`](https://www.npmjs.com/package/@dcp-ai/cli) | 2.1.0 | [npm packages](NPM_RELEASES.md) |
+| PyPI | [`dcp-ai`](https://pypi.org/project/dcp-ai/2.10.0/) (Python SDK) | 2.10.0 | [Python release](PYTHON_RELEASE.md) |
+| Go modules | `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` | v2.11.0 | [Go release](GO_RELEASE.md) |
+| crates.io | [`dcp-ai`](https://crates.io/crates/dcp-ai/2.11.0) (Rust SDK) | 2.11.0 | [Rust release](RUST_RELEASE.md) |
+
+- The npm adapters and scaffolders are optional and separate from the protocol core; their exact versions are in
+  [NPM_RELEASES.md](NPM_RELEASES.md), which lists all 13 npm packages.
+- Affected earlier versions and upgrade notes are in [SECURITY.md](../SECURITY.md#supported-versions); moving from
+  DCP v1.0 is covered by [MIGRATION_V1_V2.md](MIGRATION_V1_V2.md).
+- In every SDK, `dcp-jcs-v1` remains the normative and default canonicalization; the `dcp-jcs-v2` APIs are
+  experimental and opt-in. Verification does not establish principal trust, admission or authorization.
+- This inventory covers the four registries above; it does not cover container images.
 
 ## Quick Start
 
-- [QUICKSTART.md](QUICKSTART.md) — Get up and running in a few minutes (published packages and a source checkout)
+- [QUICKSTART.md](QUICKSTART.md) — Produce and verify evidence with an SDK (published packages or a source checkout); demos are marked separately
 - [QUICKSTART_EXPRESS.md](QUICKSTART_EXPRESS.md) — Express middleware integration
 - [QUICKSTART_LANGCHAIN.md](QUICKSTART_LANGCHAIN.md) — LangChain tool wrapping
 - [QUICKSTART_OPENAI.md](QUICKSTART_OPENAI.md) — OpenAI function calling (Node SDK, Chat Completions; Python client wrapper)

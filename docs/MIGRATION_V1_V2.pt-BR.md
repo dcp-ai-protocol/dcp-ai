@@ -4,17 +4,11 @@
 
 # Guia de migração: do DCP-AI v1.0 para o v2.0
 
-**Publicação Rust (26/10/2026).** Rust `dcp-ai` 2.11.0 está publicado no crates.io, incluindo correções do verificador, admissão e APIs experimentais opt-in. `dcp-jcs-v1` continua sendo o perfil normativo padrão. Veja [Rust 2.11.0](RUST_RELEASE.md).
-
-**Publicação Go (26/10/2026).** O SDK Go `v2.11.0` está disponível pela tag `sdks/go/v2.11.0`, incluindo correções do verificador, admissão e APIs experimentais opt-in. A publicação Rust continua independente. Veja [Go v2.11.0](GO_RELEASE.md).
-
-**Publicação Python (26/10/2026).** O `dcp-ai` 2.10.0 já está disponível no PyPI, incluindo as correções do verificador, a admissão e as APIs experimentais opt-in. As publicações de Go e Rust continuam independentes. Veja [Python 2.10.0](PYTHON_RELEASE.md).
-
-> Tradução informativa da [versão em inglês](MIGRATION_V1_V2.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](MIGRATION_V1_V2.md), atualizada em 27/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 **Versão da especificação:** 2.0
 **Última atualização:** outubro de 2026
-**Aplica-se a:** os SDKs de `main` e `@dcp-ai/sdk` 2.2.0 publicado. As versões npm foram verificadas em 26/10/2026; veja [NPM_RELEASES.md](NPM_RELEASES.md) e [SECURITY.md](../SECURITY.md#supported-versions). Os outros ecossistemas têm publicações independentes.
+**Aplica-se a:** os SDKs de `main` e `@dcp-ai/sdk` 2.2.0 publicado. As versões npm foram verificadas em 26/10/2026; veja [NPM_RELEASES.md](NPM_RELEASES.md) e [SECURITY.md](../SECURITY.md#supported-versions). As versões dos outros SDKs estão em [Versões publicadas](README.md#published-versions).
 
 Este guia conduz você na migração de uma integração existente do DCP-AI v1.0 para o v2.0. A migração introduz assinaturas compostas pós-quânticas, cadeias de hash duplo, vinculação de sessão, níveis de segurança adaptativos e comunicação entre agentes, enquanto os bundles v1.0 válidos continuam sendo verificados onde a política do verificador os permitir (veja 1.2).
 

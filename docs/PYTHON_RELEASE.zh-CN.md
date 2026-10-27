@@ -2,11 +2,7 @@
 
 # 已发布的 Python 软件包
 
-**Rust 发布 (26/10/2026).** Rust `dcp-ai` 2.11.0 已在 crates.io 发布，包含验证器修复、准入和实验性显式启用 API。`dcp-jcs-v1` 仍是规范性默认配置。见 [Rust 2.11.0](RUST_RELEASE.md).
-
-**Go 发布 (26/10/2026).** Go SDK `v2.11.0` 已通过模块标签 `sdks/go/v2.11.0` 发布，包含验证器修复、准入和实验性显式启用 API。Rust 仍独立发布。见 [Go v2.11.0](GO_RELEASE.md).
-
-> [英文版](PYTHON_RELEASE.md)的参考译文，更新于 26/10/2026。如有差异，以英文版为准。
+> [英文版](PYTHON_RELEASE.md)的参考译文，更新于 27/10/2026。如有差异，以英文版为准。
 
 26/10/2026 已确认：[`dcp-ai` 2.10.0](https://pypi.org/project/dcp-ai/2.10.0/) 已在 PyPI 发布。Python 软件包版本与 DCP 线格式/规范版本独立。本次未发布 Go、Rust、npm 软件包或容器。
 
@@ -42,3 +38,9 @@ pip install "dcp-ai[otlp]>=2.10.0,<3"
 已安装 wheel 在 Python 3.12 上通过 1,866 项测试；已安装源码分发在 Python 3.10 上通过 1,863 项测试，预期跳过 3 项 Python 3.12 专属任务工厂测试。两种分发均通过元数据检查，全部 59 个 Python 源模块匹配。CI 覆盖 Python 3.10 和 3.12。
 
 ML-DSA 依赖在有界签名尝试耗尽时可能抛出 `ValueError`。一个 CI fixture 在创建签名时遇到了此失败；验证并未被绕过。调用方须将失败视为错误，不得视为已签名证据。
+
+<a id="related-releases"></a>
+
+## 相关发布
+
+各注册表中的当前版本见[已发布版本](README.md#published-versions)。其他发布说明：[npm 软件包](NPM_RELEASES.md)、[Go v2.11.0](GO_RELEASE.md)、[Rust 2.11.0](RUST_RELEASE.md)。

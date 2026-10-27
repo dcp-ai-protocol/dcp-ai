@@ -4,15 +4,9 @@
 
 # Hoja de ruta de DCP-AI
 
-**Publicación Rust (26/10/2026).** Rust `dcp-ai` 2.11.0 está publicado en crates.io, incluidas las correcciones del verificador, admisión y API experimentales opt-in. `dcp-jcs-v1` sigue siendo el perfil normativo predeterminado. Véase [Rust 2.11.0](docs/RUST_RELEASE.md).
+> Traducción informativa de [la versión en inglés](ROADMAP.md), actualizada el 27/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
-**Publicación Go (26/10/2026).** El SDK Go `v2.11.0` está disponible desde la etiqueta `sdks/go/v2.11.0`, incluidas las correcciones del verificador, admisión y API experimentales opt-in. La publicación Rust sigue siendo independiente. Véase [Go v2.11.0](docs/GO_RELEASE.md).
-
-**Publicación Python (26/10/2026).** `dcp-ai` 2.10.0 ya está disponible en PyPI, incluidas las correcciones del verificador, la admisión y las API experimentales opt-in. Las publicaciones de Go y Rust siguen siendo independientes. Véase [Python 2.10.0](docs/PYTHON_RELEASE.md).
-
-> Traducción informativa de [la versión en inglés](ROADMAP.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
-
-Este documento describe la evolución prevista del proyecto DCP-AI. La hoja de ruta se organiza en fases que pueden solaparse, pero que deben respetar el orden de dependencias.
+Este documento describe la evolución prevista del proyecto DCP-AI. La hoja de ruta se organiza en fases que pueden solaparse, pero que deben respetar el orden de dependencias. Lo que está publicado hoy figura en [Versiones publicadas](docs/README.md#published-versions).
 
 ---
 

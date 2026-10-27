@@ -4,15 +4,9 @@
 
 # Registro de alterações
 
-**Publicação Rust (26/10/2026).** Rust `dcp-ai` 2.11.0 está publicado no crates.io, incluindo correções do verificador, admissão e APIs experimentais opt-in. `dcp-jcs-v1` continua sendo o perfil normativo padrão. Veja [Rust 2.11.0](docs/RUST_RELEASE.md).
+> Tradução informativa da [versão em inglês](CHANGELOG.md), atualizada em 27/10/2026. Cada entrada, inclusive as de `[Unreleased]`, descreve uma mudança no momento em que foi feita e não garante o comportamento atual; as versões publicadas são **registro histórico datado**. Em caso de divergência, prevalece a versão em inglês.
 
-**Publicação Go (26/10/2026).** O SDK Go `v2.11.0` está disponível pela tag `sdks/go/v2.11.0`, incluindo correções do verificador, admissão e APIs experimentais opt-in. A publicação Rust continua independente. Veja [Go v2.11.0](docs/GO_RELEASE.md).
-
-**Publicação Python (26/10/2026).** O `dcp-ai` 2.10.0 já está disponível no PyPI, incluindo as correções do verificador, a admissão e as APIs experimentais opt-in. As publicações de Go e Rust continuam independentes. Veja [Python 2.10.0](docs/PYTHON_RELEASE.md).
-
-> Tradução informativa da [versão em inglês](CHANGELOG.md), atualizada em 26/10/2026. Cada entrada, inclusive as de `[Unreleased]`, descreve uma mudança no momento em que foi feita e não garante o comportamento atual; as versões publicadas são **registro histórico datado**. Em caso de divergência, prevalece a versão em inglês.
-
-**Publicação npm (26/10/2026).** As 13 versões em [NPM_RELEASES.md](docs/NPM_RELEASES.md) estão publicadas, incluindo as APIs candidatas TypeScript/WASM e a admissão TypeScript. As entradas abaixo mantêm seu histórico de desenvolvimento; `[Unreleased]` não significa que essas funcionalidades npm estejam indisponíveis. As publicações de Python, Go e Rust são independentes.
+**Versões publicadas (26/10/2026).** Estão publicados npm (13 pacotes, incluindo `@dcp-ai/sdk` 2.2.0), Python `dcp-ai` 2.10.0, Go `v2.11.0` e Rust `dcp-ai` 2.11.0, com as correções do verificador, a admissão e as APIs experimentais opt-in; `dcp-jcs-v1` continua sendo o padrão normativo. Veja [Versões publicadas](docs/README.md#published-versions). As entradas abaixo mantêm seu histórico de desenvolvimento; `[Unreleased]` não significa que essas funcionalidades não estejam publicadas.
 
 Todas as alterações relevantes deste projeto serão documentadas neste arquivo.
 

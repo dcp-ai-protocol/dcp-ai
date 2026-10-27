@@ -4,17 +4,11 @@
 
 # 迁移指南：从 DCP-AI v1.0 到 v2.0
 
-**Rust 发布 (26/10/2026).** Rust `dcp-ai` 2.11.0 已在 crates.io 发布，包含验证器修复、准入和实验性显式启用 API。`dcp-jcs-v1` 仍是规范性默认配置。见 [Rust 2.11.0](RUST_RELEASE.md).
-
-**Go 发布 (26/10/2026).** Go SDK `v2.11.0` 已通过模块标签 `sdks/go/v2.11.0` 发布，包含验证器修复、准入和实验性显式启用 API。Rust 仍独立发布。见 [Go v2.11.0](GO_RELEASE.md).
-
-**Python 发布 (26/10/2026).** `dcp-ai` 2.10.0 已在 PyPI 发布，包含验证器修复、准入和实验性显式启用 API。Go 和 Rust 仍独立发布。见 [Python 2.10.0](PYTHON_RELEASE.md).
-
-> 本文是[英文版](MIGRATION_V1_V2.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](MIGRATION_V1_V2.md)的参考译文，更新于 27/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 **规范版本：** 2.0
 **最后更新：** 2026 年 10 月
-**适用于：** `main` 上的 SDK 和已发布的 `@dcp-ai/sdk` 2.2.0。npm 版本已于 2026 年 10 月 26 日核实；见 [NPM_RELEASES.md](NPM_RELEASES.md) 和 [SECURITY.md](../SECURITY.md#supported-versions)。其他生态有独立的发布周期。
+**适用于：** `main` 上的 SDK 和已发布的 `@dcp-ai/sdk` 2.2.0。npm 版本已于 2026 年 10 月 26 日核实；见 [NPM_RELEASES.md](NPM_RELEASES.md) 和 [SECURITY.md](../SECURITY.md#supported-versions)。其他 SDK 的版本见[已发布版本](README.md#published-versions)。
 
 本指南带你把现有的 DCP-AI v1.0 集成迁移到 v2.0。迁移会引入后量子复合签名、双哈希链、会话绑定、自适应安全等级和智能体间通信；同时，有效的 v1.0 bundle 在验证器策略允许的情况下仍可通过验证（参见 1.2）。
 

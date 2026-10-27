@@ -1,15 +1,9 @@
 # DCP-AI and the EU AI Act — Mapping of Logging, Human Oversight and Record-Keeping Obligations
 
-**Rust release (26/10/2026).** Rust `dcp-ai` 2.11.0 is published on crates.io, including verifier fixes, admission and experimental opt-in APIs. `dcp-jcs-v1` remains the normative default. See [Rust 2.11.0](RUST_RELEASE.md).
-
-**Go release (26/10/2026).** Go SDK `v2.11.0` is available from the module tag `sdks/go/v2.11.0`, including verifier fixes, admission and experimental opt-in APIs. Rust publication remains separate. See [Go v2.11.0](GO_RELEASE.md).
-
-**Python release (26/10/2026).** `dcp-ai` 2.10.0 is now available on PyPI, including the verifier fixes, admission and the experimental opt-in APIs. Go and Rust publication remains separate. See [Python 2.10.0](PYTHON_RELEASE.md).
-
 **Specification version:** 2.0
 **Last updated:** October 2026
 **Legal review date:** 22 October 2026
-**Status:** Informative. The legal sources were read on 22 October 2026 (Section 7); the implementation mapping describes the specifications, schemas and SDKs on `main` on 25 October 2026 and says where the last release, v2.10.0, differs, and where a specification requires something that the SDK functions do not do
+**Status:** Informative. The legal sources were read on 22 October 2026 (Section 7); the implementation mapping describes the specifications, schemas and SDKs on `main` on 25 October 2026 and says where the historical repository tag v2.10.0 (22/10/2026) differs, and where a specification requires something that the SDK functions do not do. That tag is not the current release and is not the Python `dcp-ai` 2.10.0 package verified on 26/10/2026; the current versions are in [Published versions](README.md#published-versions)
 
 This document maps the obligations of Regulation (EU) 2024/1689 (the "AI Act"), as amended by Regulation (EU) 2026/1744 (the "Digital Omnibus on AI"), that concern traceability, logging, human oversight, record-keeping, explanation and incident evidence to the artifacts, services and SDK functions of DCP-AI. It follows the structure of [NIST_CONFORMITY.md](NIST_CONFORMITY.md): numbered sections, a mapping table, an implementer checklist and an explicit list of gaps.
 
@@ -248,7 +242,7 @@ These are stated so that nobody cites DCP for them.
 | **Post-market monitoring plan (Art. 72(3))** | Part of the provider's Annex IV documentation; DCP records are inputs to it. |
 | **Retention enforcement** | No DCP field or verifier rule enforces a retention period; DCP-08 §3.5 states the principle and the organisation implements it. The `data_disposition` of the decommissioning record (`transferred`, `archived`, `destroyed`) records a decision, it does not enforce one. The `archive_retention_period` shown in the DCP-05 §8.2 example is not a field of `schemas/v2/decommissioning_record.schema.json`. |
 | **Actions outside intent gating** | Model inference, interface events and tool calls not declared as intents produce no DCP record. |
-| **PQ checkpoint contents (v2.10.0)** | In the v2.10.0 release, no SDK verifier checks PQ checkpoint contents (`spec/VERIFICATION.md` V2-12, [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md)): checkpoints are produced and signed, but a verifier only checks the chain and the Merkle roots. **On `main` the SDK verifiers already check them**; npm SDK 2.2.0 and WASM 2.1.0 include those checks. Other ecosystems have separate releases ([CHANGELOG.md](../CHANGELOG.md), [npm inventory](NPM_RELEASES.md)). |
+| **PQ checkpoint contents (historical tag v2.10.0)** | In the historical repository tag v2.10.0, no SDK verifier checks PQ checkpoint contents (`spec/VERIFICATION.md` V2-12, [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md)): checkpoints are produced and signed, but a verifier only checks the chain and the Merkle roots. **On `main` the SDK verifiers already check them**, and according to their release notes the current packages include those checks: npm `@dcp-ai/sdk` 2.2.0 and `@dcp-ai/wasm` 2.1.0 ([npm](NPM_RELEASES.md)), Python `dcp-ai` 2.10.0 ([Python](PYTHON_RELEASE.md)), Go v2.11.0 ([Go](GO_RELEASE.md)) and Rust `dcp-ai` 2.11.0 ([Rust](RUST_RELEASE.md)). See also [CHANGELOG.md](../CHANGELOG.md) and [Published versions](README.md#published-versions). |
 | **Durable storage in the reference services** | The reference gateway, anchor and transparency log keep their state in memory; the revocation service does too unless `REVOCATION_STATE_PATH` points to persistent storage (an opt-in). The anchor service does not submit on-chain transactions. |
 | **Authentication of the reference gateway's DCP-05–09 endpoints** | They validate schemas but do not verify signatures or require a token; anyone who can reach them can change lifecycle, dispute and mandate state ([OPERATOR_GUIDE.md](OPERATOR_GUIDE.md#dcp-0509-service-endpoints)). |
 

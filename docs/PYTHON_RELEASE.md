@@ -1,9 +1,5 @@
 # Published Python package
 
-**Rust release (26/10/2026).** Rust `dcp-ai` 2.11.0 is published on crates.io, including verifier fixes, admission and experimental opt-in APIs. `dcp-jcs-v1` remains the normative default. See [Rust 2.11.0](RUST_RELEASE.md).
-
-**Go release (26/10/2026).** Go SDK `v2.11.0` is available from the module tag `sdks/go/v2.11.0`, including verifier fixes, admission and experimental opt-in APIs. Rust publication remains separate. See [Go v2.11.0](GO_RELEASE.md).
-
 Verified on 26/10/2026: [`dcp-ai` 2.10.0](https://pypi.org/project/dcp-ai/2.10.0/) is available on PyPI. This Python package version is independent of the DCP wire/specification version. This release does not publish Go, Rust, npm packages or containers.
 
 ## Install
@@ -32,3 +28,7 @@ FastAPI in 2.9.0 accepts structurally valid V2 bundles without verifying their s
 The installed wheel passed 1,866 tests on Python 3.12; the installed source distribution passed 1,863 tests on Python 3.10 with three expected skips for Python 3.12-only task factories. Both distributions passed metadata checks and matched all 59 Python source modules. CI covers Python 3.10 and 3.12.
 
 The ML-DSA dependency can raise `ValueError` if its bounded signing attempts are exhausted. A CI fixture hit this failure while creating a signature; verification was not bypassed. Callers must handle signing failure as an error, never as signed evidence.
+
+## Related releases
+
+The current versions in every registry are listed in [Published versions](README.md#published-versions). Other release notes: [npm packages](NPM_RELEASES.md), [Go v2.11.0](GO_RELEASE.md) and [Rust 2.11.0](RUST_RELEASE.md).

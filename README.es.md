@@ -1,6 +1,6 @@
 <sub>[English](README.md) · [中文](README.zh-CN.md) · **Español** · [日本語](README.ja.md) · [Português](README.pt-BR.md)</sub>
 
-> Traducción informativa de [la versión en inglés](README.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](README.md), actualizada el 27/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 <div align="center">
 
@@ -119,19 +119,15 @@ Véase también: [Especificación del núcleo](spec/core/dcp-core.md) | [Resumen
 
 ## Inicio rápido
 
-**Publicación Rust (26/10/2026).** Rust `dcp-ai` 2.11.0 está publicado en crates.io, incluidas las correcciones del verificador, admisión y API experimentales opt-in. `dcp-jcs-v1` sigue siendo el perfil normativo predeterminado. Véase [Rust 2.11.0](docs/RUST_RELEASE.md).
-
-**Publicación Go (26/10/2026).** El SDK Go `v2.11.0` está disponible desde la etiqueta `sdks/go/v2.11.0`, incluidas las correcciones del verificador, admisión y API experimentales opt-in. La publicación Rust sigue siendo independiente. Véase [Go v2.11.0](docs/GO_RELEASE.md).
-
-**Publicación Python (26/10/2026).** `dcp-ai` 2.10.0 ya está disponible en PyPI, incluidas las correcciones del verificador, la admisión y las API experimentales opt-in. Las publicaciones de Go y Rust siguen siendo independientes. Véase [Python 2.10.0](docs/PYTHON_RELEASE.md).
-
-> **Paquetes publicados (26/10/2026).** npm ya ofrece `@dcp-ai/sdk` 2.2.0, `@dcp-ai/wasm` y `@dcp-ai/cli` 2.1.0, además de los adaptadores y generadores actualizados. Consulta el [inventario de 13 paquetes](docs/NPM_RELEASES.md) y las [notas de actualización de seguridad](SECURITY.md#supported-versions). Estas versiones npm incluyen las correcciones y funciones documentadas; las publicaciones de Python, Go y Rust son independientes. Para ejecutar el CLI de referencia y las pruebas del repositorio, compila el checkout:
+> **Paquetes publicados.** Las versiones actuales en npm, PyPI, módulos Go y crates.io están en [Versiones publicadas](docs/README.md#published-versions), con las [notas de actualización de seguridad](SECURITY.md#supported-versions). Para ejecutar el CLI de referencia y las pruebas del repositorio, compila el checkout:
 >
 > ```bash
 > git clone https://github.com/dcp-ai-protocol/dcp-ai.git
 > cd dcp-ai/sdks/typescript && npm install && npm run build
 > cd ../.. && npm install
 > ```
+
+Para producir y verificar evidencias, usa la [opción B: SDK directamente](#option-b-sdk-directly). La opción A es una demo: incluye claves PQ simuladas y registros sin firmar.
 
 <a id="option-a-cli-wizard-demo"></a>
 

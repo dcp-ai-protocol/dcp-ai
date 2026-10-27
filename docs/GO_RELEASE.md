@@ -1,7 +1,5 @@
 # Published Go module
 
-**Rust release (26/10/2026).** Rust `dcp-ai` 2.11.0 is published on crates.io, including verifier fixes, admission and experimental opt-in APIs. `dcp-jcs-v1` remains the normative default. See [Rust 2.11.0](RUST_RELEASE.md).
-
 Verified on 26/10/2026: Go SDK `v2.11.0` is published through the [`sdks/go/v2.11.0` tag](https://github.com/dcp-ai-protocol/dcp-ai/tree/sdks/go/v2.11.0/sdks/go). The module and its import paths retain `/v2`. The SDK version is independent of the DCP wire/specification version. Go requires no separate registry token: consumers resolve the repository tag through the Go module system.
 
 ## Install
@@ -22,3 +20,7 @@ Verification is stricter than v2.10.0: malformed or inconsistent evidence previo
 ## Validation
 
 The default suite and the `-race -tags otlp` suite each passed 1,154 tests/subtests; one test is intentionally reserved for the separate live producer/consumer matrix. `go mod tidy -diff`, build and vet passed. An external consumer passed 137 tests/subtests; its deliberately inverted runner control failed as expected. The published module was downloaded into a fresh cache through the public proxy with checksum verification; its source bytes matched the reviewed commit. The external consumer then passed without any local `replace` directive. For the separate Rust publication, see [Rust 2.11.0](RUST_RELEASE.md).
+
+## Related releases
+
+The current versions in every registry are listed in [Published versions](README.md#published-versions). Other release notes: [npm packages](NPM_RELEASES.md), [Python 2.10.0](PYTHON_RELEASE.md) and [Rust 2.11.0](RUST_RELEASE.md).

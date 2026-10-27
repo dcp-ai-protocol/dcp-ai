@@ -4,21 +4,40 @@
 
 # Documentación
 
-**Publicación Rust (26/10/2026).** Rust `dcp-ai` 2.11.0 está publicado en crates.io, incluidas las correcciones del verificador, admisión y API experimentales opt-in. `dcp-jcs-v1` sigue siendo el perfil normativo predeterminado. Véase [Rust 2.11.0](RUST_RELEASE.md).
+> Traducción informativa de [la versión en inglés](README.md), actualizada el 27/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
-**Publicación Go (26/10/2026).** El SDK Go `v2.11.0` está disponible desde la etiqueta `sdks/go/v2.11.0`, incluidas las correcciones del verificador, admisión y API experimentales opt-in. La publicación Rust sigue siendo independiente. Véase [Go v2.11.0](GO_RELEASE.md).
+Este índice organiza la documentación de DCP-AI por tarea: primeros pasos, arquitectura y seguridad, pruebas, referencia,
+operaciones, especificaciones y propuestas. Las versiones actuales de los paquetes en cada registro están en
+[Versiones publicadas](#published-versions).
 
-**Publicación Python (26/10/2026).** `dcp-ai` 2.10.0 ya está disponible en PyPI, incluidas las correcciones del verificador, la admisión y las API experimentales opt-in. Las publicaciones de Go y Rust siguen siendo independientes. Véase [Python 2.10.0](PYTHON_RELEASE.md).
+<a id="published-versions"></a>
 
-**Publicación npm (26/10/2026).** Las 13 versiones de [NPM_RELEASES.md](NPM_RELEASES.md) están publicadas, incluidas las API candidatas TypeScript/WASM y la admisión TypeScript. Las entradas siguientes conservan su historial de desarrollo; `[Unreleased]` no significa que estas funciones npm no estén disponibles. Las publicaciones de Python, Go y Rust son independientes.
+## Versiones publicadas
 
-> Traducción informativa de [la versión en inglés](README.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+Verificadas el 26/10/2026. Las versiones de los paquetes son independientes de la versión del formato de intercambio y de la especificación de DCP (2.0).
+
+| Registro | Paquete | Versión | Notas de publicación |
+|---|---|---|---|
+| npm | [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) (SDK de TypeScript) | 2.2.0 | [paquetes npm](NPM_RELEASES.md) |
+| npm | [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) | 2.1.0 | [paquetes npm](NPM_RELEASES.md) |
+| npm | [`@dcp-ai/cli`](https://www.npmjs.com/package/@dcp-ai/cli) | 2.1.0 | [paquetes npm](NPM_RELEASES.md) |
+| PyPI | [`dcp-ai`](https://pypi.org/project/dcp-ai/2.10.0/) (SDK de Python) | 2.10.0 | [publicación de Python](PYTHON_RELEASE.md) |
+| Go modules | `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` | v2.11.0 | [publicación de Go](GO_RELEASE.md) |
+| crates.io | [`dcp-ai`](https://crates.io/crates/dcp-ai/2.11.0) (SDK de Rust) | 2.11.0 | [publicación de Rust](RUST_RELEASE.md) |
+
+- Los adaptadores y generadores de proyectos de npm son opcionales e independientes del núcleo del protocolo; sus versiones exactas
+  están en [NPM_RELEASES.md](NPM_RELEASES.md), que lista los 13 paquetes npm.
+- Las versiones anteriores afectadas y las notas de actualización están en [SECURITY.md](../SECURITY.md#supported-versions); el paso
+  desde DCP v1.0 se explica en [MIGRATION_V1_V2.md](MIGRATION_V1_V2.md).
+- En todos los SDK, `dcp-jcs-v1` sigue siendo la canonicalización normativa y predeterminada; las API de `dcp-jcs-v2` son
+  experimentales y opt-in. La verificación no establece la confianza en el principal, la admisión ni la autorización.
+- Este inventario cubre los cuatro registros anteriores; no cubre las imágenes de contenedores.
 
 <a id="quick-start"></a>
 
 ## Inicio rápido
 
-- [QUICKSTART.md](QUICKSTART.md) — Empezar en pocos minutos (paquetes publicados y copia del repositorio)
+- [QUICKSTART.md](QUICKSTART.md) — Producir y verificar evidencias con un SDK (paquetes publicados o copia del repositorio); las demos se señalan aparte
 - [QUICKSTART_EXPRESS.md](QUICKSTART_EXPRESS.md) — Integración del middleware de Express
 - [QUICKSTART_LANGCHAIN.md](QUICKSTART_LANGCHAIN.md) — Envolver herramientas de LangChain
 - [QUICKSTART_OPENAI.md](QUICKSTART_OPENAI.md) — Llamadas a funciones de OpenAI (SDK de Node, Chat Completions; wrapper del cliente de Python)

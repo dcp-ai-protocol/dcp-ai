@@ -1,6 +1,6 @@
 <sub>[English](README.md) · [中文](README.zh-CN.md) · [Español](README.es.md) · **日本語** · [Português](README.pt-BR.md)</sub>
 
-> [英語版](README.md)の参考訳です（26/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](README.md)の参考訳です（27/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 <div align="center">
 
@@ -119,19 +119,15 @@ DCP は 3 つの概念的なレイヤーで構成されています。
 
 ## クイックスタート
 
-**Rust の公開 (26/10/2026).** Rust `dcp-ai` 2.11.0 は crates.io で公開済みで、検証器の修正、受け入れ、実験的なオプトイン API を含みます。`dcp-jcs-v1` は引き続き規範かつデフォルトです。参照： [Rust 2.11.0](docs/RUST_RELEASE.md).
-
-**Go の公開 (26/10/2026).** Go SDK `v2.11.0` はモジュールタグ `sdks/go/v2.11.0` から利用でき、検証器の修正、受け入れ、実験的なオプトイン API を含みます。Rust の公開は別です。参照： [Go v2.11.0](docs/GO_RELEASE.md).
-
-**Python の公開 (26/10/2026).** `dcp-ai` 2.10.0 が PyPI で公開され、検証器の修正、受け入れ判定、実験的なオプトイン API を含みます。Go と Rust の公開は別です。参照： [Python 2.10.0](docs/PYTHON_RELEASE.md).
-
-> **公開済みパッケージ（2026 年 10 月 26 日）。** npm では `@dcp-ai/sdk` 2.2.0、`@dcp-ai/wasm` と `@dcp-ai/cli` 2.1.0、および更新済みアダプターと生成ツールを利用できます。[13 パッケージの一覧](docs/NPM_RELEASES.md)と[セキュリティ更新の注意](SECURITY.md#supported-versions)を参照してください。これらの npm バージョンには文書化された修正と機能が含まれます。Python、Go、Rust の公開は別です。リポジトリの参照 CLI とソースのテストを実行するには、チェックアウトをビルドします。
+> **公開済みパッケージ。** npm、PyPI、Go モジュール、crates.io の現在のバージョンは、[セキュリティ更新の注意](SECURITY.md#supported-versions)とともに[公開済みバージョン](docs/README.md#published-versions)に載っています。リポジトリの参照 CLI とソースのテストを実行するには、チェックアウトをビルドします：
 >
 > ```bash
 > git clone https://github.com/dcp-ai-protocol/dcp-ai.git
 > cd dcp-ai/sdks/typescript && npm install && npm run build
 > cd ../.. && npm install
 > ```
+
+証拠を作成・検証するには、[オプション B：SDK を直接使う](#option-b-sdk-directly)を使ってください。オプション A はデモで、模擬的な PQ 鍵と署名されていない記録を含みます。
 
 <a id="option-a-cli-wizard-demo"></a>
 

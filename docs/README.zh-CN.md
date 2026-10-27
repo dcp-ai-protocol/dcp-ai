@@ -4,21 +4,39 @@
 
 # 文档
 
-**Rust 发布 (26/10/2026).** Rust `dcp-ai` 2.11.0 已在 crates.io 发布，包含验证器修复、准入和实验性显式启用 API。`dcp-jcs-v1` 仍是规范性默认配置。见 [Rust 2.11.0](RUST_RELEASE.md).
+> 本文是[英文版](README.md)的参考译文，更新于 27/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
-**Go 发布 (26/10/2026).** Go SDK `v2.11.0` 已通过模块标签 `sdks/go/v2.11.0` 发布，包含验证器修复、准入和实验性显式启用 API。Rust 仍独立发布。见 [Go v2.11.0](GO_RELEASE.md).
+本索引按任务整理 DCP-AI 文档：入门、架构与安全、测试、参考、运维、规范和提案。各注册表中软件包的当前版本见
+[已发布版本](#published-versions)。
 
-**Python 发布 (26/10/2026).** `dcp-ai` 2.10.0 已在 PyPI 发布，包含验证器修复、准入和实验性显式启用 API。Go 和 Rust 仍独立发布。见 [Python 2.10.0](PYTHON_RELEASE.md).
+<a id="published-versions"></a>
 
-**npm 发布（2026 年 10 月 26 日）。** [NPM_RELEASES.md](NPM_RELEASES.md) 中的 13 个版本已发布，包括 TypeScript/WASM 候选 API 和 TypeScript 准入功能。以下条目保留开发历史；`[Unreleased]` 不表示这些 npm 功能不可用。Python、Go 和 Rust 的发布独立进行。
+## 已发布版本
 
-> 本文是[英文版](README.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+于 26/10/2026 核实。软件包版本独立于 DCP 传输格式和规范的版本（2.0）。
+
+| 注册表 | 软件包 | 版本 | 发布说明 |
+|---|---|---|---|
+| npm | [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) (TypeScript SDK) | 2.2.0 | [npm 软件包](NPM_RELEASES.md) |
+| npm | [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) | 2.1.0 | [npm 软件包](NPM_RELEASES.md) |
+| npm | [`@dcp-ai/cli`](https://www.npmjs.com/package/@dcp-ai/cli) | 2.1.0 | [npm 软件包](NPM_RELEASES.md) |
+| PyPI | [`dcp-ai`](https://pypi.org/project/dcp-ai/2.10.0/) (Python SDK) | 2.10.0 | [Python 发布](PYTHON_RELEASE.md) |
+| Go modules | `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` | v2.11.0 | [Go 发布](GO_RELEASE.md) |
+| crates.io | [`dcp-ai`](https://crates.io/crates/dcp-ai/2.11.0) (Rust SDK) | 2.11.0 | [Rust 发布](RUST_RELEASE.md) |
+
+- npm 适配器和项目脚手架是可选的，独立于协议核心；它们的确切版本见列出全部 13 个 npm 软件包的
+  [NPM_RELEASES.md](NPM_RELEASES.md)。
+- 受影响的早期版本和升级说明见 [SECURITY.md](../SECURITY.md#supported-versions)；从 DCP v1.0 迁移见
+  [MIGRATION_V1_V2.md](MIGRATION_V1_V2.md)。
+- 在所有 SDK 中，`dcp-jcs-v1` 仍是规范性的默认规范化方式；`dcp-jcs-v2` 的 API 属于实验性、需选择启用。验证不建立
+  对主体的信任，也不构成准入或授权。
+- 本清单覆盖上述四个注册表；不覆盖容器镜像。
 
 <a id="quick-start"></a>
 
 ## 快速开始
 
-- [QUICKSTART.md](QUICKSTART.md) — 几分钟内上手（已发布的软件包和仓库检出副本）
+- [QUICKSTART.md](QUICKSTART.md) — 用 SDK 生成并验证证据（已发布的软件包或仓库检出副本）；演示另行标注
 - [QUICKSTART_EXPRESS.md](QUICKSTART_EXPRESS.md) — Express 中间件集成
 - [QUICKSTART_LANGCHAIN.md](QUICKSTART_LANGCHAIN.md) — 包装 LangChain 工具
 - [QUICKSTART_OPENAI.md](QUICKSTART_OPENAI.md) — OpenAI 函数调用（Node SDK、Chat Completions；Python 客户端包装器）

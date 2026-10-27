@@ -4,13 +4,28 @@
 
 # Guia de início rápido do DCP-AI
 
-**Publicação Rust (26/10/2026).** Rust `dcp-ai` 2.11.0 está publicado no crates.io, incluindo correções do verificador, admissão e APIs experimentais opt-in. `dcp-jcs-v1` continua sendo o perfil normativo padrão. Veja [Rust 2.11.0](RUST_RELEASE.md).
+> Tradução informativa da [versão em inglês](QUICKSTART.md), atualizada em 27/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
-**Publicação Go (26/10/2026).** O SDK Go `v2.11.0` está disponível pela tag `sdks/go/v2.11.0`, incluindo correções do verificador, admissão e APIs experimentais opt-in. A publicação Rust continua independente. Veja [Go v2.11.0](GO_RELEASE.md).
+Este guia mostra como produzir e verificar evidências DCP com um SDK, e quais ferramentas são demonstrações.
 
-> Tradução informativa da [versão em inglês](QUICKSTART.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+<a id="choose-a-path"></a>
 
-Comece a usar o Digital Citizenship Protocol em menos de 5 minutos.
+## Escolha um caminho
+
+- **Produzir e verificar evidências com um SDK.** Instale um SDK publicado. Os exemplos de [§3 TypeScript](#3-typescript-sdk)
+  e [§4 Python](#4-python-sdk) criam bundles assinados e os verificam; [Outros SDKs](#other-sdks) traz a instalação e as
+  referências de Go, Rust e WebAssembly. A verificação confere a integridade e as assinaturas; não estabelece a confiança
+  no principal, a admissão nem a autorização (veja [Admissão](ADMISSION.md)).
+- **Explorar com uma demonstração.** O playground e os projetos iniciais dos
+  [atalhos sem instalação](#zero-install-shortcuts), e o assistente da CLI de [§1](#1-install-the-cli) e
+  [§2](#2-initialize-your-agent), mostram os conceitos. Seus limites variam (chaves ou assinaturas PQ simuladas, chaves
+  de exemplo, registros não assinados, verificações apenas de estrutura), e o que produzem não é evidência de
+  verificação.
+- **Executar um verificador sem instalar um SDK.** A imagem Docker opcional do servidor de verificação de referência,
+  nos mesmos atalhos e em [Executar os serviços de referência](#run-the-reference-services), verifica bundles; não os
+  cria.
+
+As versões atuais dos pacotes estão em [Versões publicadas](README.md#published-versions).
 
 ---
 
@@ -25,7 +40,7 @@ Conforme o SDK que você usar:
 - **Go** 1.25+ — para o SDK Go
 - **Rust** estável — para o crate Rust
 
-Você só precisa da linguagem com que vai trabalhar. Todos os SDKs falam o mesmo protocolo, então misturar linguagens entre agentes e verificadores funciona de imediato.
+Você só precisa da linguagem com que vai trabalhar. Todos os SDKs implementam o mesmo formato de transmissão V2; os [vetores compartilhados](../tests/interop/v2/) e a [matriz de interoperabilidade](../tools/interop-matrix/README.md) testam a assinatura e a verificação entre SDKs, e o README de cada SDK lista o que ainda falta.
 
 ---
 
@@ -50,10 +65,10 @@ Os comandos de registro deste guia instalam as versões publicadas.
 
 ## Atalhos sem instalação
 
-Quer ver o DCP funcionando antes de instalar qualquer coisa? Estes usam pacotes e imagens publicados, não `main`:
+Estes atalhos usam pacotes e imagens publicados, não `main`. O playground e os projetos iniciais são demonstrações e não produzem evidências de verificação de um SDK (limites abaixo); a imagem Docker executa o servidor de verificação de referência, que verifica bundles mas não os cria:
 
 - **Playground interativo:** https://docs.dcp-ai.org/playground/ — gere identidades, construa bundles e verifique assinaturas no navegador.
-- **Projeto inicial com scaffold:** execute `npm create @dcp-ai/langchain my-app` (ou `/crewai`, `/openai`, `/express`) para ter um projeto funcionando em ~2 minutos.
+- **Projeto inicial com scaffold:** execute `npm create @dcp-ai/langchain my-app` (ou `/crewai`, `/openai`, `/express`) para gerar um projeto inicial.
 - **Docker numa linha:** `docker run -p 3000:3000 ghcr.io/dcp-ai-protocol/dcp-ai/verification:latest` inicia o servidor de verificação de referência sem clonar nada.
 
 O [playground](../playground/README.md) é uma demonstração: suas assinaturas PQ são simuladas e a canonicalização e o tratamento de Merkle são simplificados, portanto seus bundles não são evidência para a verificação dos SDKs. Os [templates iniciais](../templates/README.md) também têm limites: LangChain, CrewAI e OpenAI usam chaves e assinaturas de preenchimento; Express verifica apenas a estrutura. Use os exemplos dos SDKs abaixo para obter bundles verificáveis.

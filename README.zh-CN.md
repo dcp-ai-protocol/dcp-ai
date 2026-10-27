@@ -1,6 +1,6 @@
 <sub>[English](README.md) · **中文** · [Español](README.es.md) · [日本語](README.ja.md) · [Português](README.pt-BR.md)</sub>
 
-> 本文是[英文版](README.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](README.md)的参考译文，更新于 27/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 <div align="center">
 
@@ -119,19 +119,15 @@ DCP 分为三个概念层：
 
 ## 快速开始
 
-**Rust 发布 (26/10/2026).** Rust `dcp-ai` 2.11.0 已在 crates.io 发布，包含验证器修复、准入和实验性显式启用 API。`dcp-jcs-v1` 仍是规范性默认配置。见 [Rust 2.11.0](docs/RUST_RELEASE.md).
-
-**Go 发布 (26/10/2026).** Go SDK `v2.11.0` 已通过模块标签 `sdks/go/v2.11.0` 发布，包含验证器修复、准入和实验性显式启用 API。Rust 仍独立发布。见 [Go v2.11.0](docs/GO_RELEASE.md).
-
-**Python 发布 (26/10/2026).** `dcp-ai` 2.10.0 已在 PyPI 发布，包含验证器修复、准入和实验性显式启用 API。Go 和 Rust 仍独立发布。见 [Python 2.10.0](docs/PYTHON_RELEASE.md).
-
-> **已发布的软件包（2026 年 10 月 26 日）。** npm 已提供 `@dcp-ai/sdk` 2.2.0、`@dcp-ai/wasm` 和 `@dcp-ai/cli` 2.1.0，以及更新后的适配器和生成器。见 [13 个软件包的清单](docs/NPM_RELEASES.md)与[安全升级说明](SECURITY.md#supported-versions)。这些 npm 版本包含文档所述修复和功能；Python、Go 和 Rust 的发布相互独立。若要运行仓库的参考 CLI 和源码测试，请构建检出代码：
+> **已发布的软件包。** npm、PyPI、Go 模块和 crates.io 上的当前版本见[已发布版本](docs/README.md#published-versions)，另见[安全升级说明](SECURITY.md#supported-versions)。若要运行仓库的参考 CLI 和源码测试，请构建检出代码：
 >
 > ```bash
 > git clone https://github.com/dcp-ai-protocol/dcp-ai.git
 > cd dcp-ai/sdks/typescript && npm install && npm run build
 > cd ../.. && npm install
 > ```
+
+若要生成并验证证据，请使用[选项 B：直接使用 SDK](#option-b-sdk-directly)。选项 A 是演示：它包含模拟的 PQ 密钥和未签名的记录。
 
 <a id="option-a-cli-wizard-demo"></a>
 

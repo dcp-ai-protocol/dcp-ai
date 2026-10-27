@@ -5,13 +5,7 @@
 
 # 规范 — DCP-AI 规范性文档
 
-**Rust 发布 (26/10/2026).** Rust `dcp-ai` 2.11.0 已在 crates.io 发布，包含验证器修复、准入和实验性显式启用 API。`dcp-jcs-v1` 仍是规范性默认配置。见 [Rust 2.11.0](../docs/RUST_RELEASE.md).
-
-**Go 发布 (26/10/2026).** Go SDK `v2.11.0` 已通过模块标签 `sdks/go/v2.11.0` 发布，包含验证器修复、准入和实验性显式启用 API。Rust 仍独立发布。见 [Go v2.11.0](../docs/GO_RELEASE.md).
-
-**Python 发布 (26/10/2026).** `dcp-ai` 2.10.0 已在 PyPI 发布，包含验证器修复、准入和实验性显式启用 API。Go 和 Rust 仍独立发布。见 [Python 2.10.0](../docs/PYTHON_RELEASE.md).
-
-> 本文是[英文版](README.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](README.md)的参考译文，更新于 27/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 Digital Citizenship Protocol for AI Agents 的规范性规范。格式以 `schemas/v1/` 和 `schemas/v2/` 中的 JSON Schema 为准；这些文档定义范围、工件以及如何校验。[V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md) 列出了使 DCP-05、DCP-08 和 DCP-09 的名称、签名上下文和示例与该格式一致的勘误，以及分别判断的四个层次（可表示、符合模式、已验证、合规）。
 

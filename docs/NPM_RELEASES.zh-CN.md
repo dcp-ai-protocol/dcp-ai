@@ -2,13 +2,7 @@
 
 # 已发布的 npm 软件包
 
-**Rust 发布 (26/10/2026).** Rust `dcp-ai` 2.11.0 已在 crates.io 发布，包含验证器修复、准入和实验性显式启用 API。`dcp-jcs-v1` 仍是规范性默认配置。见 [Rust 2.11.0](RUST_RELEASE.md).
-
-**Go 发布 (26/10/2026).** Go SDK `v2.11.0` 已通过模块标签 `sdks/go/v2.11.0` 发布，包含验证器修复、准入和实验性显式启用 API。Rust 仍独立发布。见 [Go v2.11.0](GO_RELEASE.md).
-
-**Python 发布 (26/10/2026).** `dcp-ai` 2.10.0 已在 PyPI 发布，包含验证器修复、准入和实验性显式启用 API。Go 和 Rust 仍独立发布。见 [Python 2.10.0](PYTHON_RELEASE.md).
-
-> [英文版](NPM_RELEASES.md)的参考译文，更新于 26/10/2026。如有差异，以英文版为准。
+> [英文版](NPM_RELEASES.md)的参考译文，更新于 27/10/2026。如有差异，以英文版为准。
 
 已于 2026 年 10 月 26 日核实。以下 13 个确切版本均已使用 `latest` 标签发布。注册表中的完整性值与经过测试的 tarball 一致，从 npm 全新安装后通过了 383 项检查。软件包版本与 DCP 线格式/规范版本及仓库标签相互独立。
 
@@ -44,3 +38,9 @@ npx --package=@dcp-ai/cli@2.1.0 dcp-ai --help
 `@dcp-ai/sdk` 2.2.0 包含委托人信任、`strict-v1`、验证器修复和候选方案的实验性 API。`@dcp-ai/express` 和 `@dcp-ai/openclaw` 2.1.0 包含修复后的 V2 签名验证和文档所述准入控制。其 2.0.0 版本仍受影响；见 [SECURITY.md](../SECURITY.md)。发布软件包并不会让已验证的 bundle 自动获得信任，也不会授权任何操作。
 
 在 `@dcp-ai/sdk` 2.2.0 和 `@dcp-ai/wasm` 2.1.0 中，`dcp-jcs-v2` 仍是实验性、非规范性且需显式启用的功能。`dcp-jcs-v1` 仍是唯一的规范性默认配置。生成器和桥接辅助函数保留 README 中的限制；发布它们不会把演示流程变成生产验证器。
+
+<a id="related-releases"></a>
+
+## 相关发布
+
+各注册表中的当前版本见[已发布版本](README.md#published-versions)。其他发布说明：[Python 2.10.0](PYTHON_RELEASE.md)、[Go v2.11.0](GO_RELEASE.md)、[Rust 2.11.0](RUST_RELEASE.md)。
