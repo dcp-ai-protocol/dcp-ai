@@ -1,11 +1,5 @@
 # Changelog
 
-**Rust release (26/10/2026).** Rust `dcp-ai` 2.11.0 is published on crates.io, including verifier fixes, admission and experimental opt-in APIs. `dcp-jcs-v1` remains the normative default. See [Rust 2.11.0](docs/RUST_RELEASE.md).
-
-**Go release (26/10/2026).** Go SDK `v2.11.0` is available from the module tag `sdks/go/v2.11.0`, including verifier fixes, admission and experimental opt-in APIs. Rust publication remains separate. See [Go v2.11.0](docs/GO_RELEASE.md).
-
-**Python release (26/10/2026).** `dcp-ai` 2.10.0 is now available on PyPI, including the verifier fixes, admission and the experimental opt-in APIs. Go and Rust publication remains separate. See [Python 2.10.0](docs/PYTHON_RELEASE.md).
-
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
@@ -16,7 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 > [README](README.md), the [documentation](docs/README.md), the [specifications](spec/README.md) and the
 > [API reference](docs/API_REFERENCE.md).
 
-**npm publication (26/10/2026).** The 13 versions in [NPM_RELEASES.md](docs/NPM_RELEASES.md) are published, including the TypeScript/WASM candidate APIs and TypeScript admission. Entries below retain their development history; `[Unreleased]` does not mean these npm features are unavailable. Python, Go and Rust releases are separate.
+**Published versions (26/10/2026).** npm (13 packages, including `@dcp-ai/sdk` 2.2.0), Python `dcp-ai` 2.10.0, Go `v2.11.0` and Rust `dcp-ai` 2.11.0 are published, including the verifier fixes, admission and the experimental opt-in APIs; `dcp-jcs-v1` remains the normative default. See [Published versions](docs/README.md#published-versions). Entries below retain their development history; `[Unreleased]` does not mean these features are unpublished.
 
 ## [Unreleased]
 

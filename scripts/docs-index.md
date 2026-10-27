@@ -6,12 +6,6 @@ hide:
 
 # DCP-AI — Digital Citizenship Protocol for AI Agents
 
-**Rust release (26/10/2026).** Rust `dcp-ai` 2.11.0 is published on crates.io, including verifier fixes, admission and experimental opt-in APIs. `dcp-jcs-v1` remains the normative default. See [Rust 2.11.0](reference/docs/RUST_RELEASE.md).
-
-**Go release (26/10/2026).** Go SDK `v2.11.0` is available from the module tag `sdks/go/v2.11.0`, including verifier fixes, admission and experimental opt-in APIs. Rust publication remains separate. See [Go v2.11.0](reference/docs/GO_RELEASE.md).
-
-**Python release (26/10/2026).** `dcp-ai` 2.10.0 is now available on PyPI, including the verifier fixes, admission and the experimental opt-in APIs. Go and Rust publication remains separate. See [Python 2.10.0](reference/docs/PYTHON_RELEASE.md).
-
 > A portable accountability layer for AI agents on open networks.
 
 Cryptographically verifiable identity, machine-readable intent, tamper-evident audit trails, authenticated agent-to-agent communication, lifecycle governance, procedural accountability, and delegated representation — in a single hybrid post-quantum protocol stack.
@@ -26,7 +20,7 @@ Cryptographically verifiable identity, machine-readable intent, tamper-evident a
 ## Install
 
 !!! note "Published packages and `main`"
-    npm now provides `@dcp-ai/sdk` 2.2.0, `@dcp-ai/wasm` and `@dcp-ai/cli` 2.1.0, plus the updated adapters and scaffolders. See the [npm inventory](reference/docs/NPM_RELEASES.md). Python, Go and Rust publication is separate; the [Quick Start](quickstart/QUICKSTART.md#published-packages-and-this-guide) distinguishes registry and checkout examples.
+    The current versions on npm, PyPI, Go modules and crates.io are listed in [Published versions](reference/docs/README.md#published-versions). The [Quick Start](quickstart/QUICKSTART.md#published-packages-and-this-guide) distinguishes registry and checkout examples.
 
 === "Node.js"
 
@@ -157,8 +151,8 @@ Cryptographically verifiable identity, machine-readable intent, tamper-evident a
     ---
 
     Bridges to popular AI and web frameworks. They differ in what they check: some verify signed bundles,
-    others record unsigned events or apply no policy, and some published packages lack fixes that are on
-    `main` ([supported versions](reference/SECURITY.md#supported-versions)). Read each one's limits before
+    others record unsigned events or apply no policy, and earlier published versions can lack fixes included
+    in the current releases ([supported versions](reference/SECURITY.md#supported-versions)). Read each one's limits before
     relying on it:
 
     [Express](reference/integrations/express/README.md), [FastAPI](reference/integrations/fastapi/README.md), [LangChain](reference/integrations/langchain/README.md), [OpenAI](reference/integrations/openai/README.md), [CrewAI](reference/integrations/crewai/README.md), [Agno](quickstart/QUICKSTART_AGNO.md), [OpenClaw](reference/integrations/openclaw/README.md), [W3C DID](reference/integrations/w3c-did/README.md), [Google A2A](reference/integrations/google-a2a/README.md), [Anthropic MCP](reference/integrations/anthropic-mcp/README.md), [AutoGen](reference/integrations/autogen/README.md)

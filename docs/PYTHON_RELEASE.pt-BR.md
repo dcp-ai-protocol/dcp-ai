@@ -2,11 +2,7 @@
 
 # Pacote Python publicado
 
-**Publicação Rust (26/10/2026).** Rust `dcp-ai` 2.11.0 está publicado no crates.io, incluindo correções do verificador, admissão e APIs experimentais opt-in. `dcp-jcs-v1` continua sendo o perfil normativo padrão. Veja [Rust 2.11.0](RUST_RELEASE.md).
-
-**Publicação Go (26/10/2026).** O SDK Go `v2.11.0` está disponível pela tag `sdks/go/v2.11.0`, incluindo correções do verificador, admissão e APIs experimentais opt-in. A publicação Rust continua independente. Veja [Go v2.11.0](GO_RELEASE.md).
-
-> Tradução informativa da [versão em inglês](PYTHON_RELEASE.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês.
+> Tradução informativa da [versão em inglês](PYTHON_RELEASE.md), atualizada em 27/10/2026. Em caso de divergência, prevalece a versão em inglês.
 
 Verificado em 26/10/2026: [`dcp-ai` 2.10.0](https://pypi.org/project/dcp-ai/2.10.0/) está disponível no PyPI. A versão deste pacote Python é independente da versão do formato/especificação DCP. Esta publicação não publica Go, Rust, pacotes npm ou contêineres.
 
@@ -42,3 +38,9 @@ O FastAPI na 2.9.0 aceita bundles V2 com estrutura válida sem verificar suas as
 O wheel instalado passou em 1.866 testes no Python 3.12; a distribuição fonte instalada passou em 1.863 testes no Python 3.10 com três omissões esperadas de fábricas de tarefas exclusivas do Python 3.12. Ambas passaram nas verificações de metadados e coincidiram nos 59 módulos-fonte Python. A CI cobre Python 3.10 e 3.12.
 
 A dependência ML-DSA pode lançar `ValueError` se esgotar suas tentativas limitadas de assinatura. Uma fixture de CI encontrou essa falha ao criar uma assinatura; a verificação não foi contornada. Chamadores devem tratar a falha como erro, nunca como evidência assinada.
+
+<a id="related-releases"></a>
+
+## Publicações relacionadas
+
+As versões atuais em cada registro estão em [Versões publicadas](README.md#published-versions). Outras notas de publicação: [pacotes npm](NPM_RELEASES.md), [Go v2.11.0](GO_RELEASE.md) e [Rust 2.11.0](RUST_RELEASE.md).

@@ -11,13 +11,7 @@ hide:
 
 # DCP-AI — 面向 AI 智能体的 Digital Citizenship Protocol
 
-**Rust 发布 (26/10/2026).** Rust `dcp-ai` 2.11.0 已在 crates.io 发布，包含验证器修复、准入和实验性显式启用 API。`dcp-jcs-v1` 仍是规范性默认配置。见 [Rust 2.11.0](reference/docs/RUST_RELEASE.md).
-
-**Go 发布 (26/10/2026).** Go SDK `v2.11.0` 已通过模块标签 `sdks/go/v2.11.0` 发布，包含验证器修复、准入和实验性显式启用 API。Rust 仍独立发布。见 [Go v2.11.0](reference/docs/GO_RELEASE.md).
-
-**Python 发布 (26/10/2026).** `dcp-ai` 2.10.0 已在 PyPI 发布，包含验证器修复、准入和实验性显式启用 API。Go 和 Rust 仍独立发布。见 [Python 2.10.0](reference/docs/PYTHON_RELEASE.md).
-
-> 本文是[英文版](docs-index.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](docs-index.md)的参考译文，更新于 27/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 > 面向开放网络上 AI 智能体的可移植问责层。
 
@@ -35,7 +29,7 @@ hide:
 ## 安装
 
 !!! note "已发布的软件包与 `main`"
-    npm 已提供 `@dcp-ai/sdk` 2.2.0、`@dcp-ai/wasm` 和 `@dcp-ai/cli` 2.1.0，以及更新后的适配器和生成器。见 [npm 清单](reference/docs/NPM_RELEASES.md)。Python、Go 和 Rust 的发布独立进行；[快速入门](quickstart/QUICKSTART.md#published-packages-and-this-guide)区分了注册表与源码检出的示例。
+    npm、PyPI、Go 模块和 crates.io 上的当前版本见[已发布版本](reference/docs/README.md#published-versions)。[快速入门](quickstart/QUICKSTART.md#published-packages-and-this-guide)区分了注册表与源码检出的示例。
 
 === "Node.js"
 
@@ -170,7 +164,7 @@ hide:
     ---
 
     与流行的 AI 和 Web 框架之间的桥接。它们检查的内容各不相同：有的验证已签名的 bundle，
-    有的只记录未签名的事件或不应用任何策略，还有一些已发布的软件包缺少 `main` 上已有的修复
+    有的只记录未签名的事件或不应用任何策略，而早期发布的版本可能缺少当前发布中已包含的修复
     （[支持的版本](reference/SECURITY.md#supported-versions)）。在依赖之前，
     请阅读每个集成的限制：
 

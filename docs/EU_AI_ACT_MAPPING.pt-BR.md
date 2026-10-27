@@ -5,18 +5,12 @@
 
 # DCP-AI e o Regulamento de IA da UE — correspondência das obrigações de registro, supervisão humana e manutenção de registros
 
-**Publicação Rust (26/10/2026).** Rust `dcp-ai` 2.11.0 está publicado no crates.io, incluindo correções do verificador, admissão e APIs experimentais opt-in. `dcp-jcs-v1` continua sendo o perfil normativo padrão. Veja [Rust 2.11.0](RUST_RELEASE.md).
-
-**Publicação Go (26/10/2026).** O SDK Go `v2.11.0` está disponível pela tag `sdks/go/v2.11.0`, incluindo correções do verificador, admissão e APIs experimentais opt-in. A publicação Rust continua independente. Veja [Go v2.11.0](GO_RELEASE.md).
-
-**Publicação Python (26/10/2026).** O `dcp-ai` 2.10.0 já está disponível no PyPI, incluindo as correções do verificador, a admissão e as APIs experimentais opt-in. As publicações de Go e Rust continuam independentes. Veja [Python 2.10.0](PYTHON_RELEASE.md).
-
-> Tradução informativa da [versão em inglês](EU_AI_ACT_MAPPING.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](EU_AI_ACT_MAPPING.md), atualizada em 27/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 **Versão da especificação:** 2.0
 **Última atualização:** outubro de 2026
 **Data da revisão jurídica:** 22/10/2026
-**Status:** Informativo. As fontes jurídicas foram lidas em 22/10/2026 (seção 7); a correspondência de implementação descreve as especificações, schemas e SDKs de `main` em 25/10/2026 e indica onde a última versão publicada, v2.10.0, difere, e onde uma especificação exige algo que as funções dos SDKs não fazem
+**Status:** Informativo. As fontes jurídicas foram lidas em 22/10/2026 (seção 7); a correspondência de implementação descreve as especificações, schemas e SDKs de `main` em 25/10/2026 e indica onde a tag histórica do repositório v2.10.0 (22/10/2026) difere, e onde uma especificação exige algo que as funções dos SDKs não fazem. Essa tag não é a publicação atual nem o pacote Python `dcp-ai` 2.10.0 verificado em 26/10/2026; as versões atuais estão em [Versões publicadas](README.md#published-versions)
 
 Este documento faz a correspondência entre as obrigações do Regulamento (UE) 2024/1689 (o «Regulamento de IA»), alterado pelo Regulamento (UE) 2026/1744 (o «Digital Omnibus on AI»), relativas a rastreabilidade, registro, supervisão humana, manutenção de registros, explicação e evidência de incidentes e os artefatos, serviços e funções dos SDKs do DCP-AI. Segue a estrutura de [NIST_CONFORMITY.md](NIST_CONFORMITY.md): seções numeradas, uma tabela de correspondência, uma lista de verificação para implementadores e uma lista explícita de lacunas.
 
@@ -300,7 +294,7 @@ Indicadas para que ninguém cite o DCP para elas.
 | **Plano de acompanhamento pós-comercialização (art. 72(3))** | Faz parte da documentação do anexo IV do prestador; os registros do DCP são dados de entrada para ele. |
 | **Imposição da retenção** | Nenhum campo do DCP nem regra do verificador impõe um período de retenção; DCP-08 §3.5 enuncia o princípio e a organização o implementa. A `data_disposition` do registro de desativação (`transferred`, `archived`, `destroyed`) registra uma decisão, não a impõe. O `archive_retention_period` que o exemplo de DCP-05 §8.2 mostra não é um campo de `schemas/v2/decommissioning_record.schema.json`. |
 | **Ações fora do controle de intenções** | A inferência do modelo, os eventos da interface e as chamadas de ferramentas não declaradas como intenções não produzem nenhum registro do DCP. |
-| **Conteúdo dos checkpoints PQ (v2.10.0)** | Na versão publicada v2.10.0, nenhum verificador de SDK checa o conteúdo dos checkpoints PQ (`spec/VERIFICATION.md` V2-12, [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md)): os checkpoints são produzidos e assinados, mas um verificador só checa a cadeia e as raízes de Merkle. **Em `main` os verificadores dos SDKs já os checam**; npm SDK 2.2.0 e WASM 2.1.0 incluem essas verificações. Os outros ecossistemas têm publicações independentes ([CHANGELOG.md](../CHANGELOG.md), [inventário npm](NPM_RELEASES.md)). |
+| **Conteúdo dos checkpoints PQ (tag histórica v2.10.0)** | Na tag histórica do repositório v2.10.0, nenhum verificador de SDK checa o conteúdo dos checkpoints PQ (`spec/VERIFICATION.md` V2-12, [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md)): os checkpoints são produzidos e assinados, mas um verificador só checa a cadeia e as raízes de Merkle. **Em `main` os verificadores dos SDKs já os checam**, e segundo suas notas de publicação os pacotes atuais incluem essas verificações: npm `@dcp-ai/sdk` 2.2.0 e `@dcp-ai/wasm` 2.1.0 ([npm](NPM_RELEASES.md)), Python `dcp-ai` 2.10.0 ([Python](PYTHON_RELEASE.md)), Go v2.11.0 ([Go](GO_RELEASE.md)) e Rust `dcp-ai` 2.11.0 ([Rust](RUST_RELEASE.md)). Veja também [CHANGELOG.md](../CHANGELOG.md) e [Versões publicadas](README.md#published-versions). |
 | **Armazenamento durável nos serviços de referência** | O gateway, a ancoragem e o log de transparência de referência guardam o estado em memória; o serviço de revogação também, a menos que `REVOCATION_STATE_PATH` aponte para um armazenamento persistente (opcional). O serviço de ancoragem não envia transações on-chain. |
 | **Autenticação dos endpoints DCP-05–09 do gateway de referência** | Eles validam schemas, mas não verificam assinaturas nem exigem token; qualquer pessoa que consiga alcançá-los pode alterar o estado de ciclo de vida, de disputas e de mandatos ([OPERATOR_GUIDE.md](OPERATOR_GUIDE.md#dcp-0509-service-endpoints)). |
 

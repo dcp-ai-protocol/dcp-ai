@@ -2,11 +2,7 @@
 
 # Paquete Python publicado
 
-**Publicación Rust (26/10/2026).** Rust `dcp-ai` 2.11.0 está publicado en crates.io, incluidas las correcciones del verificador, admisión y API experimentales opt-in. `dcp-jcs-v1` sigue siendo el perfil normativo predeterminado. Véase [Rust 2.11.0](RUST_RELEASE.md).
-
-**Publicación Go (26/10/2026).** El SDK Go `v2.11.0` está disponible desde la etiqueta `sdks/go/v2.11.0`, incluidas las correcciones del verificador, admisión y API experimentales opt-in. La publicación Rust sigue siendo independiente. Véase [Go v2.11.0](GO_RELEASE.md).
-
-> Traducción informativa de [la versión en inglés](PYTHON_RELEASE.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés.
+> Traducción informativa de [la versión en inglés](PYTHON_RELEASE.md), actualizada el 27/10/2026. Si difieren, prevalece la versión en inglés.
 
 Verificado el 26/10/2026: [`dcp-ai` 2.10.0](https://pypi.org/project/dcp-ai/2.10.0/) está disponible en PyPI. La versión de este paquete Python es independiente de la versión del formato/especificación DCP. Esta publicación no publica Go, Rust, paquetes npm ni contenedores.
 
@@ -42,3 +38,9 @@ FastAPI en 2.9.0 acepta bundles V2 con estructura válida sin verificar sus firm
 El wheel instalado pasó 1.866 pruebas en Python 3.12; la distribución fuente instalada pasó 1.863 pruebas en Python 3.10 con tres omisiones esperadas de fábricas de tareas exclusivas de Python 3.12. Ambas distribuciones pasaron los controles de metadatos y coincidieron en los 59 módulos fuente Python. CI cubre Python 3.10 y 3.12.
 
 La dependencia ML-DSA puede lanzar `ValueError` si agota sus intentos acotados de firma. Un fixture de CI encontró este fallo al crear una firma; no se eludió la verificación. Los llamadores deben tratar el fallo como un error, nunca como evidencia firmada.
+
+<a id="related-releases"></a>
+
+## Publicaciones relacionadas
+
+Las versiones actuales en cada registro están en [Versiones publicadas](README.md#published-versions). Otras notas de publicación: [paquetes npm](NPM_RELEASES.md), [Go v2.11.0](GO_RELEASE.md) y [Rust 2.11.0](RUST_RELEASE.md).

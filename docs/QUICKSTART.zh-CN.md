@@ -4,13 +4,24 @@
 
 # DCP-AI 快速开始指南
 
-**Rust 发布 (26/10/2026).** Rust `dcp-ai` 2.11.0 已在 crates.io 发布，包含验证器修复、准入和实验性显式启用 API。`dcp-jcs-v1` 仍是规范性默认配置。见 [Rust 2.11.0](RUST_RELEASE.md).
+> 本文是[英文版](QUICKSTART.md)的参考译文，更新于 27/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
-**Go 发布 (26/10/2026).** Go SDK `v2.11.0` 已通过模块标签 `sdks/go/v2.11.0` 发布，包含验证器修复、准入和实验性显式启用 API。Rust 仍独立发布。见 [Go v2.11.0](GO_RELEASE.md).
+本指南说明如何用 SDK 生成并验证 DCP 证据，以及哪些工具只是演示。
 
-> 本文是[英文版](QUICKSTART.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+<a id="choose-a-path"></a>
 
-在 5 分钟内开始使用 Digital Citizenship Protocol。
+## 选择路径
+
+- **用 SDK 生成并验证证据。** 安装已发布的 SDK。[§3 TypeScript](#3-typescript-sdk) 和 [§4 Python](#4-python-sdk) 的
+  示例会创建已签名的 bundle 并加以验证；[其他 SDK](#other-sdks) 给出 Go、Rust 和 WebAssembly 的安装方法和参考。
+  验证检查完整性和签名；它不建立对主体的信任，也不构成准入或授权（见[准入](ADMISSION.md)）。
+- **通过演示了解概念。** [免安装的捷径](#zero-install-shortcuts)中的 playground 和起步项目，以及
+  [§1](#1-install-the-cli) 和 [§2](#2-initialize-your-agent) 的 CLI 向导，用于展示概念。它们的限制各不相同（模拟的 PQ
+  密钥或签名、占位密钥、未签名的记录、仅检查结构），其产出不是验证证据。
+- **不安装 SDK 运行验证器。** 同一组捷径和[运行参考服务](#run-the-reference-services)中提到的参考验证服务器的可选
+  Docker 镜像可以验证 bundle，但不创建 bundle。
+
+软件包的当前版本见[已发布版本](README.md#published-versions)。
 
 ---
 
@@ -25,7 +36,7 @@
 - **Go** 1.25+ — 用于 Go SDK
 - **Rust** 稳定版 — 用于 Rust crate
 
-你只需要打算使用的那种语言。所有 SDK 都使用同一协议，因此在智能体和验证器之间混用语言可以直接工作。
+你只需要打算使用的那种语言。所有 SDK 都实现同一 V2 传输格式；[共享向量](../tests/interop/v2/)和[互操作矩阵](../tools/interop-matrix/README.md)测试跨 SDK 的签名与验证，各 SDK 的 README 列出了其尚缺的部分。
 
 ---
 
@@ -50,10 +61,10 @@ pip install -e /path/to/dcp-ai/sdks/python                                  # Py
 
 ## 免安装的捷径
 
-想在安装任何东西之前先看看 DCP 的运行效果？以下方式使用的是已发布的软件包和镜像，而不是 `main`：
+这些捷径使用的是已发布的软件包和镜像，而不是 `main`。playground 和起步项目是演示，不产生 SDK 的验证证据（限制见下文）；Docker 镜像运行参考验证服务器，它验证 bundle，但不创建 bundle：
 
 - **交互式 playground：** https://docs.dcp-ai.org/playground/ — 在浏览器中生成身份、构建 bundle、验证签名。
-- **脚手架起步项目：** 运行 `npm create @dcp-ai/langchain my-app`（或 `/crewai`、`/openai`、`/express`），约 2 分钟即可得到一个可运行的项目。
+- **脚手架起步项目：** 运行 `npm create @dcp-ai/langchain my-app`（或 `/crewai`、`/openai`、`/express`），即可生成一个起步项目。
 - **Docker 一行命令：** `docker run -p 3000:3000 ghcr.io/dcp-ai-protocol/dcp-ai/verification:latest` 无需克隆任何内容即可启动参考验证服务器。
 
 [playground](../playground/README.md) 仅为演示：其 PQ 签名是模拟的，规范化和 Merkle 处理也经过简化，因此其 bundle 不能作为供 SDK 验证的证据。[起步模板](../templates/README.md) 也有限制：LangChain、CrewAI 和 OpenAI 使用占位密钥和签名；Express 只检查结构。要生成可验证的 bundle，请使用下面的 SDK 示例。

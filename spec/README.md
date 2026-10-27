@@ -2,12 +2,6 @@
 
 # Specs — DCP-AI normative
 
-**Rust release (26/10/2026).** Rust `dcp-ai` 2.11.0 is published on crates.io, including verifier fixes, admission and experimental opt-in APIs. `dcp-jcs-v1` remains the normative default. See [Rust 2.11.0](../docs/RUST_RELEASE.md).
-
-**Go release (26/10/2026).** Go SDK `v2.11.0` is available from the module tag `sdks/go/v2.11.0`, including verifier fixes, admission and experimental opt-in APIs. Rust publication remains separate. See [Go v2.11.0](../docs/GO_RELEASE.md).
-
-**Python release (26/10/2026).** `dcp-ai` 2.10.0 is now available on PyPI, including the verifier fixes, admission and the experimental opt-in APIs. Go and Rust publication remains separate. See [Python 2.10.0](../docs/PYTHON_RELEASE.md).
-
 Normative specifications for the Digital Citizenship Protocol for AI Agents. The source of truth for formats is JSON Schema in `schemas/v1/` and `schemas/v2/`; these documents define scope, artifacts, and how to validate. [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md) lists the errata that align the names, signature contexts and examples of DCP-05, DCP-08 and DCP-09 with that format, and the four layers (representable, schema-valid, verified, conformant) that are judged separately.
 
 ## Foundation Specifications (DCP-01 – DCP-03)

@@ -5,18 +5,12 @@
 
 # DCP-AI 与欧盟《人工智能法》— 日志记录、人工监督和记录保存义务的对应
 
-**Rust 发布 (26/10/2026).** Rust `dcp-ai` 2.11.0 已在 crates.io 发布，包含验证器修复、准入和实验性显式启用 API。`dcp-jcs-v1` 仍是规范性默认配置。见 [Rust 2.11.0](RUST_RELEASE.md).
-
-**Go 发布 (26/10/2026).** Go SDK `v2.11.0` 已通过模块标签 `sdks/go/v2.11.0` 发布，包含验证器修复、准入和实验性显式启用 API。Rust 仍独立发布。见 [Go v2.11.0](GO_RELEASE.md).
-
-**Python 发布 (26/10/2026).** `dcp-ai` 2.10.0 已在 PyPI 发布，包含验证器修复、准入和实验性显式启用 API。Go 和 Rust 仍独立发布。见 [Python 2.10.0](PYTHON_RELEASE.md).
-
-> 本文是[英文版](EU_AI_ACT_MAPPING.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](EU_AI_ACT_MAPPING.md)的参考译文，更新于 27/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 **规范版本：** 2.0
 **最后更新：** 2026 年 10 月
 **法律审阅日期：** 2026 年 10 月 22 日
-**状态：** 参考性。法律资料于 2026 年 10 月 22 日阅读（第 7 节）；实现对应描述的是 2026 年 10 月 25 日 `main` 上的规范、schema 和 SDK，并指出上一个发布版本 v2.10.0 的不同之处，以及规范有要求但 SDK 函数并未执行的地方
+**状态：** 参考性。法律资料于 2026 年 10 月 22 日阅读（第 7 节）；实现对应描述的是 2026 年 10 月 25 日 `main` 上的规范、schema 和 SDK，并指出仓库历史标签 v2.10.0（2026 年 10 月 22 日）的不同之处，以及规范有要求但 SDK 函数并未执行的地方。该标签不是当前发布，也不是 2026 年 10 月 26 日核实的 Python 软件包 `dcp-ai` 2.10.0；当前版本见[已发布版本](README.md#published-versions)
 
 本文档把经第 (EU) 2026/1744 号条例（“Digital Omnibus on AI”）修订的第 (EU) 2024/1689 号条例（“《人工智能法》”）中涉及可追溯性、日志记录、人工监督、记录保存、解释和事件证据的义务，与 DCP-AI 的构件、服务和 SDK 函数对应起来。它沿用 [NIST_CONFORMITY.md](NIST_CONFORMITY.md) 的结构：编号的章节、一张对应表、一份实现者检查清单，以及一份明确的缺口清单。
 
@@ -300,7 +294,7 @@ DCP-AI 规范用“human”和“principal”称呼由 RPR 绑定的人。本文
 | **上市后监测计划（第 72 条第 (3) 款）** | 它是提供者附件 IV 文档的一部分；DCP 的记录是它的输入数据。 |
 | **保留的强制执行** | 没有任何 DCP 字段或验证器规则强制保留期限；DCP-08 §3.5 陈述了原则，由组织实施。停用记录的 `data_disposition`（`transferred`、`archived`、`destroyed`）记录一个决定，并不强制执行它。DCP-05 §8.2 示例中的 `archive_retention_period` 不是 `schemas/v2/decommissioning_record.schema.json` 的字段。 |
 | **意图关卡之外的行为** | 模型推理、UI 事件和未声明为意图的工具调用不会产生任何 DCP 记录。 |
-| **PQ 检查点的内容（v2.10.0）** | 在 v2.10.0 发布版本中，没有 SDK 验证器检查 PQ 检查点的内容（`spec/VERIFICATION.md` V2-12，[OPERATOR_GUIDE.md](OPERATOR_GUIDE.md)）：检查点会被生成和签名，但验证器只检查链和 Merkle 根。**`main` 上的 SDK 验证器已经检查其内容**；npm SDK 2.2.0 和 WASM 2.1.0 也包含这些检查。其他生态独立发布（[CHANGELOG.md](../CHANGELOG.md)、[npm 清单](NPM_RELEASES.md)）。 |
+| **PQ 检查点的内容（历史标签 v2.10.0）** | 在仓库历史标签 v2.10.0 中，没有 SDK 验证器检查 PQ 检查点的内容（`spec/VERIFICATION.md` V2-12，[OPERATOR_GUIDE.md](OPERATOR_GUIDE.md)）：检查点会被生成和签名，但验证器只检查链和 Merkle 根。**`main` 上的 SDK 验证器已经检查其内容**，并且根据各自的发布说明，当前软件包也包含这些检查：npm `@dcp-ai/sdk` 2.2.0 和 `@dcp-ai/wasm` 2.1.0（[npm](NPM_RELEASES.md)）、Python `dcp-ai` 2.10.0（[Python](PYTHON_RELEASE.md)）、Go v2.11.0（[Go](GO_RELEASE.md)）和 Rust `dcp-ai` 2.11.0（[Rust](RUST_RELEASE.md)）。另见 [CHANGELOG.md](../CHANGELOG.md) 和[已发布版本](README.md#published-versions)。 |
 | **参考服务中的持久存储** | 参考网关、锚定和透明日志把状态保存在内存中；撤销服务也是如此，除非 `REVOCATION_STATE_PATH` 指向持久存储（需显式启用）。锚定服务不提交链上交易。 |
 | **参考网关 DCP-05–09 端点的身份验证** | 它们校验 schema，但不验证签名，也不要求令牌；任何能访问它们的人都可以更改生命周期、争议和授权书的状态（[OPERATOR_GUIDE.md](OPERATOR_GUIDE.md#dcp-0509-service-endpoints)）。 |
 

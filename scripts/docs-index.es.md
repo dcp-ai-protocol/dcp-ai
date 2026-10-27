@@ -11,13 +11,7 @@ hide:
 
 # DCP-AI — Digital Citizenship Protocol para agentes de IA
 
-**Publicación Rust (26/10/2026).** Rust `dcp-ai` 2.11.0 está publicado en crates.io, incluidas las correcciones del verificador, admisión y API experimentales opt-in. `dcp-jcs-v1` sigue siendo el perfil normativo predeterminado. Véase [Rust 2.11.0](reference/docs/RUST_RELEASE.md).
-
-**Publicación Go (26/10/2026).** El SDK Go `v2.11.0` está disponible desde la etiqueta `sdks/go/v2.11.0`, incluidas las correcciones del verificador, admisión y API experimentales opt-in. La publicación Rust sigue siendo independiente. Véase [Go v2.11.0](reference/docs/GO_RELEASE.md).
-
-**Publicación Python (26/10/2026).** `dcp-ai` 2.10.0 ya está disponible en PyPI, incluidas las correcciones del verificador, la admisión y las API experimentales opt-in. Las publicaciones de Go y Rust siguen siendo independientes. Véase [Python 2.10.0](reference/docs/PYTHON_RELEASE.md).
-
-> Traducción informativa de [la versión en inglés](docs-index.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](docs-index.md), actualizada el 27/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 > Una capa portátil de rendición de cuentas para agentes de IA en redes abiertas.
 
@@ -35,7 +29,7 @@ Identidad verificable criptográficamente, intención legible por máquinas, tra
 ## Instalación
 
 !!! note "Paquetes publicados y `main`"
-    npm ya ofrece `@dcp-ai/sdk` 2.2.0, `@dcp-ai/wasm` y `@dcp-ai/cli` 2.1.0, además de los adaptadores y generadores actualizados. Consulta el [inventario npm](reference/docs/NPM_RELEASES.md). La publicación de Python, Go y Rust es independiente; el [inicio rápido](quickstart/QUICKSTART.md#published-packages-and-this-guide) distingue ejemplos del registro y del checkout.
+    Las versiones actuales en npm, PyPI, módulos Go y crates.io están en [Versiones publicadas](reference/docs/README.md#published-versions). El [inicio rápido](quickstart/QUICKSTART.md#published-packages-and-this-guide) distingue ejemplos del registro y del checkout.
 
 === "Node.js"
 
@@ -170,8 +164,8 @@ Identidad verificable criptográficamente, intención legible por máquinas, tra
     ---
 
     Puentes con frameworks web y de IA populares. Difieren en lo que comprueban: algunos verifican bundles firmados,
-    otros registran eventos sin firmar o no aplican ninguna política, y algunos paquetes publicados carecen de correcciones que están en
-    `main` ([versiones admitidas](reference/SECURITY.md#supported-versions)). Lee los límites de cada uno antes de
+    otros registran eventos sin firmar o no aplican ninguna política, y las versiones publicadas anteriores pueden carecer de correcciones incluidas
+    en las publicaciones actuales ([versiones admitidas](reference/SECURITY.md#supported-versions)). Lee los límites de cada uno antes de
     confiar en él:
 
     [Express](reference/integrations/express/README.md), [FastAPI](reference/integrations/fastapi/README.md), [LangChain](reference/integrations/langchain/README.md), [OpenAI](reference/integrations/openai/README.md), [CrewAI](reference/integrations/crewai/README.md), [Agno](quickstart/QUICKSTART_AGNO.md), [OpenClaw](reference/integrations/openclaw/README.md), [W3C DID](reference/integrations/w3c-did/README.md), [Google A2A](reference/integrations/google-a2a/README.md), [Anthropic MCP](reference/integrations/anthropic-mcp/README.md), [AutoGen](reference/integrations/autogen/README.md)

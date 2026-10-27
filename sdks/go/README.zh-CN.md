@@ -4,8 +4,6 @@
 
 # dcp-ai-go — Go SDK
 
-**Rust 发布 (26/10/2026).** Rust `dcp-ai` 2.11.0 已在 crates.io 发布，包含验证器修复、准入和实验性显式启用 API。`dcp-jcs-v1` 仍是规范性默认配置。见 [Rust 2.11.0](../../docs/RUST_RELEASE.md).
-
 **Go 发布 (26/10/2026).** Go SDK `v2.11.0` 已通过模块标签 `sdks/go/v2.11.0` 发布，包含验证器修复、准入和实验性显式启用 API。Rust 仍独立发布。见 [Go v2.11.0](../../docs/GO_RELEASE.md).
 
 > 本文是[英文 README](README.md)的参考译文，更新于2026年10月25日。为保留经过验证的示例，标识符和代码块（包括注释）均保持原文。

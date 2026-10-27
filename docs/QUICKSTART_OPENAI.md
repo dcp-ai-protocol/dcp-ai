@@ -1,7 +1,5 @@
 # DCP-AI + OpenAI Quick Start
 
-**Python release (26/10/2026).** `dcp-ai` 2.10.0 is now available on PyPI, including the verifier fixes, admission and the experimental opt-in APIs. Go and Rust publication remains separate. See [Python 2.10.0](PYTHON_RELEASE.md).
-
 Add cryptographic identity, policy gating, and audit trails to OpenAI function-calling agents.
 
 ---

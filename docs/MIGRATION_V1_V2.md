@@ -1,14 +1,8 @@
 # Migration Guide: DCP-AI v1.0 to v2.0
 
-**Rust release (26/10/2026).** Rust `dcp-ai` 2.11.0 is published on crates.io, including verifier fixes, admission and experimental opt-in APIs. `dcp-jcs-v1` remains the normative default. See [Rust 2.11.0](RUST_RELEASE.md).
-
-**Go release (26/10/2026).** Go SDK `v2.11.0` is available from the module tag `sdks/go/v2.11.0`, including verifier fixes, admission and experimental opt-in APIs. Rust publication remains separate. See [Go v2.11.0](GO_RELEASE.md).
-
-**Python release (26/10/2026).** `dcp-ai` 2.10.0 is now available on PyPI, including the verifier fixes, admission and the experimental opt-in APIs. Go and Rust publication remains separate. See [Python 2.10.0](PYTHON_RELEASE.md).
-
 **Specification version:** 2.0
 **Last updated:** October 2026
-**Applies to:** the SDKs on `main` and published `@dcp-ai/sdk` 2.2.0. npm versions were verified on 26/10/2026; see [NPM_RELEASES.md](NPM_RELEASES.md) and [SECURITY.md](../SECURITY.md#supported-versions). Other ecosystems have separate releases.
+**Applies to:** the SDKs on `main` and published `@dcp-ai/sdk` 2.2.0. npm versions were verified on 26/10/2026; see [NPM_RELEASES.md](NPM_RELEASES.md) and [SECURITY.md](../SECURITY.md#supported-versions). The versions of the other SDKs are in [Published versions](README.md#published-versions).
 
 This guide walks you through migrating an existing DCP-AI v1.0 integration to v2.0. The migration introduces post-quantum composite signatures, dual-hash chains, session binding, adaptive security tiers, and agent-to-agent communication — while valid v1.0 bundles keep verifying where the verifier's policy allows them (see 1.2).
 

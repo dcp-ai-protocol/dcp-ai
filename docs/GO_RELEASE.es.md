@@ -2,9 +2,7 @@
 
 # Módulo Go publicado
 
-**Publicación Rust (26/10/2026).** Rust `dcp-ai` 2.11.0 está publicado en crates.io, incluidas las correcciones del verificador, admisión y API experimentales opt-in. `dcp-jcs-v1` sigue siendo el perfil normativo predeterminado. Véase [Rust 2.11.0](RUST_RELEASE.md).
-
-> Traducción informativa de [la versión en inglés](GO_RELEASE.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés.
+> Traducción informativa de [la versión en inglés](GO_RELEASE.md), actualizada el 27/10/2026. Si difieren, prevalece la versión en inglés.
 
 Verificado el 26/10/2026: el SDK Go `v2.11.0` está publicado mediante la [etiqueta `sdks/go/v2.11.0`](https://github.com/dcp-ai-protocol/dcp-ai/tree/sdks/go/v2.11.0/sdks/go). El módulo y sus importaciones conservan `/v2`. La versión del SDK es independiente del formato/especificación DCP. Go no requiere un token de registro adicional: los consumidores resuelven la etiqueta del repositorio mediante el sistema de módulos Go.
 
@@ -32,3 +30,9 @@ La verificación es más estricta que en v2.10.0: puede rechazarse evidencia mal
 ## Validación
 
 La suite predeterminada y la suite `-race -tags otlp` pasaron 1.154 pruebas/subpruebas cada una; una prueba se reserva intencionalmente para la matriz en vivo de productores/consumidores. Pasaron `go mod tidy -diff`, compilación y vet. Un consumidor externo pasó 137 pruebas/subpruebas y su control negativo falló como debía. El módulo publicado se descargó en una caché nueva mediante el proxy público y verificación de checksums; sus fuentes coincidieron con el commit revisado. Después, el consumidor pasó sin ninguna directiva `replace` local. Para la publicación independiente de Rust, véase [Rust 2.11.0](RUST_RELEASE.md).
+
+<a id="related-releases"></a>
+
+## Publicaciones relacionadas
+
+Las versiones actuales en cada registro están en [Versiones publicadas](README.md#published-versions). Otras notas de publicación: [paquetes npm](NPM_RELEASES.md), [Python 2.10.0](PYTHON_RELEASE.md) y [Rust 2.11.0](RUST_RELEASE.md).

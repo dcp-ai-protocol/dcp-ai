@@ -2,13 +2,7 @@
 
 # Pacotes publicados no npm
 
-**Publicação Rust (26/10/2026).** Rust `dcp-ai` 2.11.0 está publicado no crates.io, incluindo correções do verificador, admissão e APIs experimentais opt-in. `dcp-jcs-v1` continua sendo o perfil normativo padrão. Veja [Rust 2.11.0](RUST_RELEASE.md).
-
-**Publicação Go (26/10/2026).** O SDK Go `v2.11.0` está disponível pela tag `sdks/go/v2.11.0`, incluindo correções do verificador, admissão e APIs experimentais opt-in. A publicação Rust continua independente. Veja [Go v2.11.0](GO_RELEASE.md).
-
-**Publicação Python (26/10/2026).** O `dcp-ai` 2.10.0 já está disponível no PyPI, incluindo as correções do verificador, a admissão e as APIs experimentais opt-in. As publicações de Go e Rust continuam independentes. Veja [Python 2.10.0](PYTHON_RELEASE.md).
-
-> Tradução informativa da [versão em inglês](NPM_RELEASES.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês.
+> Tradução informativa da [versão em inglês](NPM_RELEASES.md), atualizada em 27/10/2026. Em caso de divergência, prevalece a versão em inglês.
 
 Verificado em 26/10/2026. Estas 13 versões exatas estão publicadas com a tag `latest`. A integridade no registro correspondeu aos tarballs testados, e uma instalação nova pelo npm passou em 383 verificações. As versões dos pacotes são independentes da versão do formato/especificação DCP e das tags do repositório.
 
@@ -44,3 +38,9 @@ Esta publicação abrange apenas o npm. Não publica um pacote Python no PyPI, u
 `@dcp-ai/sdk` 2.2.0 inclui confiança no principal, `strict-v1`, as correções do verificador e as APIs experimentais do candidato. `@dcp-ai/express` e `@dcp-ai/openclaw` 2.1.0 incluem a verificação corrigida de assinaturas V2 e os controles de admissão documentados. Suas versões 2.0.0 continuam afetadas; veja [SECURITY.md](../SECURITY.md). Publicar os pacotes não torna um bundle verificado confiável nem autoriza uma ação.
 
 Tanto em `@dcp-ai/sdk` 2.2.0 quanto em `@dcp-ai/wasm` 2.1.0, `dcp-jcs-v2` continua experimental, não normativo e opt-in. `dcp-jcs-v1` continua sendo o único padrão normativo. Os geradores e auxiliares de integração mantêm as limitações de seus READMEs; publicá-los não transforma demonstrações em verificadores de produção.
+
+<a id="related-releases"></a>
+
+## Publicações relacionadas
+
+As versões atuais em cada registro estão em [Versões publicadas](README.md#published-versions). Outras notas de publicação: [Python 2.10.0](PYTHON_RELEASE.md), [Go v2.11.0](GO_RELEASE.md) e [Rust 2.11.0](RUST_RELEASE.md).

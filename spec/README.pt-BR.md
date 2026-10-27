@@ -5,13 +5,7 @@
 
 # Especificações — DCP-AI normativo
 
-**Publicação Rust (26/10/2026).** Rust `dcp-ai` 2.11.0 está publicado no crates.io, incluindo correções do verificador, admissão e APIs experimentais opt-in. `dcp-jcs-v1` continua sendo o perfil normativo padrão. Veja [Rust 2.11.0](../docs/RUST_RELEASE.md).
-
-**Publicação Go (26/10/2026).** O SDK Go `v2.11.0` está disponível pela tag `sdks/go/v2.11.0`, incluindo correções do verificador, admissão e APIs experimentais opt-in. A publicação Rust continua independente. Veja [Go v2.11.0](../docs/GO_RELEASE.md).
-
-**Publicação Python (26/10/2026).** O `dcp-ai` 2.10.0 já está disponível no PyPI, incluindo as correções do verificador, a admissão e as APIs experimentais opt-in. As publicações de Go e Rust continuam independentes. Veja [Python 2.10.0](../docs/PYTHON_RELEASE.md).
-
-> Tradução informativa da [versão em inglês](README.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](README.md), atualizada em 27/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Especificações normativas do Digital Citizenship Protocol for AI Agents. A fonte da verdade dos formatos é o JSON Schema em `schemas/v1/` e `schemas/v2/`; estes documentos definem o escopo, os artefatos e como validá-los. [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md) lista as erratas que alinham os nomes, os contextos de assinatura e os exemplos do DCP-05, DCP-08 e DCP-09 com esse formato, e as quatro camadas (representável, válido segundo o schema, verificado, conforme) que são julgadas separadamente.
 

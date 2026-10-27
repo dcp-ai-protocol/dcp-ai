@@ -2,11 +2,23 @@
 
 # DCP-AI Quick Start Guide
 
-**Rust release (26/10/2026).** Rust `dcp-ai` 2.11.0 is published on crates.io, including verifier fixes, admission and experimental opt-in APIs. `dcp-jcs-v1` remains the normative default. See [Rust 2.11.0](RUST_RELEASE.md).
+This guide shows how to produce and verify DCP evidence with an SDK, and which tools are demos.
 
-**Go release (26/10/2026).** Go SDK `v2.11.0` is available from the module tag `sdks/go/v2.11.0`, including verifier fixes, admission and experimental opt-in APIs. Rust publication remains separate. See [Go v2.11.0](GO_RELEASE.md).
+## Choose a path
 
-Get up and running with the Digital Citizenship Protocol in under 5 minutes.
+- **Produce and verify evidence with an SDK.** Install a published SDK. The examples of [§3 TypeScript](#3-typescript-sdk)
+  and [§4 Python](#4-python-sdk) create signed bundles and verify them; [Other SDKs](#other-sdks) gives the
+  installation and references for Go, Rust and WebAssembly. Verification checks integrity and signatures; it does not
+  establish principal trust, admission or authorization (see [Admission](ADMISSION.md)).
+- **Look around with a demo.** The playground and the starter projects of the
+  [zero-install shortcuts](#zero-install-shortcuts), and the CLI wizard of [§1](#1-install-the-cli) and
+  [§2](#2-initialize-your-agent), show the concepts. Their limits differ (simulated PQ keys or signatures, placeholder
+  keys, unsigned records, structure-only checks), and what they produce is not verification evidence.
+- **Run a verifier without installing an SDK.** The optional Docker image of the reference verification server, in
+  the same shortcuts and in [Run the reference services](#run-the-reference-services), verifies bundles; it does not
+  create them.
+
+The current package versions are listed in [Published versions](README.md#published-versions).
 
 ---
 
@@ -19,7 +31,7 @@ Depending on which SDK you use:
 - **Go** 1.25+ — for the Go SDK
 - **Rust** stable — for the Rust crate
 
-You only need the language you plan to build with. All SDKs speak the same protocol, so mixing languages across agents/verifiers works out of the box.
+You only need the language you plan to build with. All SDKs implement the same V2 wire format; the [shared vectors](../tests/interop/v2/) and the [interoperability matrix](../tools/interop-matrix/README.md) test signing and verification across SDKs, and each SDK README lists its remaining gaps.
 
 ---
 
@@ -40,10 +52,10 @@ The registry commands in this guide install the published versions.
 
 ## Zero-install shortcuts
 
-Want to see DCP running before installing anything? These use published packages and images, not `main`:
+These shortcuts use published packages and images, not `main`. The playground and the starters are demos and do not produce SDK verification evidence (limits below); the Docker image runs the reference verification server, which verifies bundles but does not create them:
 
 - **Interactive playground:** https://docs.dcp-ai.org/playground/ — generate identities, build bundles, verify signatures in the browser.
-- **Scaffolded starter:** run `npm create @dcp-ai/langchain my-app` (or `/crewai`, `/openai`, `/express`) to get a working project in ~2 minutes.
+- **Scaffolded starter:** run `npm create @dcp-ai/langchain my-app` (or `/crewai`, `/openai`, `/express`) to generate a starter project.
 - **Docker one-liner:** `docker run -p 3000:3000 ghcr.io/dcp-ai-protocol/dcp-ai/verification:latest` starts the reference verification server without cloning anything.
 
 The [playground](../playground/README.md) is a demo: its PQ signatures are simulated and its canonicalization and Merkle handling are simplified, so its bundles are not SDK verification evidence. The [starter templates](../templates/README.md) also have limits: LangChain, CrewAI and OpenAI use placeholder keys/signatures; Express checks structure only. Use the SDK examples below for verifiable bundles.

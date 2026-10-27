@@ -11,13 +11,7 @@ hide:
 
 # DCP-AI — AI エージェントのための Digital Citizenship Protocol
 
-**Rust の公開 (26/10/2026).** Rust `dcp-ai` 2.11.0 は crates.io で公開済みで、検証器の修正、受け入れ、実験的なオプトイン API を含みます。`dcp-jcs-v1` は引き続き規範かつデフォルトです。参照： [Rust 2.11.0](reference/docs/RUST_RELEASE.md).
-
-**Go の公開 (26/10/2026).** Go SDK `v2.11.0` はモジュールタグ `sdks/go/v2.11.0` から利用でき、検証器の修正、受け入れ、実験的なオプトイン API を含みます。Rust の公開は別です。参照： [Go v2.11.0](reference/docs/GO_RELEASE.md).
-
-**Python の公開 (26/10/2026).** `dcp-ai` 2.10.0 が PyPI で公開され、検証器の修正、受け入れ判定、実験的なオプトイン API を含みます。Go と Rust の公開は別です。参照： [Python 2.10.0](reference/docs/PYTHON_RELEASE.md).
-
-> [英語版](docs-index.md)の参考訳です（26/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](docs-index.md)の参考訳です（27/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 > オープンなネットワーク上の AI エージェントのための、持ち運べる説明責任の層。
 
@@ -35,7 +29,7 @@ hide:
 ## インストール
 
 !!! note "公開済みパッケージと `main`"
-    npm では `@dcp-ai/sdk` 2.2.0、`@dcp-ai/wasm` と `@dcp-ai/cli` 2.1.0、および更新済みアダプターと生成ツールを利用できます。[npm 一覧](reference/docs/NPM_RELEASES.md)を参照してください。Python、Go、Rust の公開は別です。[クイックスタート](quickstart/QUICKSTART.md#published-packages-and-this-guide)でレジストリとチェックアウトの例を区別しています。
+    npm、PyPI、Go モジュール、crates.io の現在のバージョンは[公開済みバージョン](reference/docs/README.md#published-versions)にあります。[クイックスタート](quickstart/QUICKSTART.md#published-packages-and-this-guide)でレジストリとチェックアウトの例を区別しています。
 
 === "Node.js"
 
@@ -170,7 +164,7 @@ hide:
     ---
 
     よく使われる AI と Web のフレームワークとの橋渡しです。何を確認するかはそれぞれ異なります。署名済みのバンドルを検証するものもあれば、
-    署名のないイベントを記録するだけのものやポリシーを適用しないものもあり、公開済みのパッケージの中には `main` にある修正を含まないものもあります
+    署名のないイベントを記録するだけのものやポリシーを適用しないものもあり、以前に公開されたバージョンには、現在のリリースに含まれる修正が欠けている場合があります
     （[サポートされるバージョン](reference/SECURITY.md#supported-versions)）。頼る前に、
     それぞれの制限を読んでください。
 
