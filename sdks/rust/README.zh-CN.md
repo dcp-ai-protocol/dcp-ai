@@ -12,34 +12,25 @@ Digital Citizenship Protocol（DCP v2.0）的官方 Rust SDK。提供基于 Serd
 
 ## 安装
 
-**发布状态。** 本 README 描述 `main` 上的源代码。最新带标签的版本 `v2.10.0` 包含 `dcp-ai` 2.10.0。变更日志 [`[Unreleased]`](../../CHANGELOG.md#unreleased) 下的内容尚未包含在带标签的版本中：V2 bundle 构建与签名（`dcp_ai::v2::bundle`）、准入、委托链、A2A 接收窗口和实验性 `dcp-jcs-v2` API。要运行以下示例，请将依赖指向仓库或本地检出的代码：
+**Rust SDK 2.11.0。** 本版本包含 V2 bundle 构建与签名、基于显式责任主体信任和 `strict-v1` 的准入、委托链、验证器修复以及实验性显式启用的 `dcp-jcs-v2` API。`dcp-jcs-v1` 仍是规范性默认配置。旧版本接受的无效证据现在可能被拒绝。Rust 尚未实现 A2A 会话加密及其重放窗口；发现和握手辅助功能仍可用。
 
 ```toml
 [dependencies]
-dcp-ai = { git = "https://github.com/dcp-ai-protocol/dcp-ai", branch = "main" }
-# or, from a checkout:
-# dcp-ai = { path = "/path/to/dcp-ai/sdks/rust" }
-```
-
-已发布的 crate，不含尚未发布的功能：
-
-```toml
-[dependencies]
-dcp-ai = "2.10"
+dcp-ai = "2.11.0"
 ```
 
 启用 OpenTelemetry/OTLP 导出：
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.10", features = ["otlp"] }
+dcp-ai = { version = "2.11.0", features = ["otlp"] }
 ```
 
 启用 WebAssembly 支持：
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.10", features = ["wasm"] }
+dcp-ai = { version = "2.11.0", features = ["wasm"] }
 ```
 
 <a id="features"></a>
@@ -53,7 +44,7 @@ dcp-ai = { version = "2.10", features = ["wasm"] }
 | 规范化 JSON v2 与域分离 | 支持 |
 | 双哈希（SHA-256 + SHA3-256）与 Merkle 根 | 支持 |
 | Bundle 验证（V1 + V2；V2 遵循验证器策略和安全等级，`verify_signed_bundle_v2_with_policy`） | 支持 |
-| V2 bundle 构建与签名（`dcp_ai::v2::bundle`：`build_bundle_v2`、`sign_bundle_v2`；`wasm` 功能的 `wasm_build_bundle` / `wasm_sign_bundle` 调用它们；尚无 PQ 检查点） | 支持，尚未发布 |
+| V2 bundle 构建与签名（`dcp_ai::v2::bundle`：`build_bundle_v2`、`sign_bundle_v2`；`wasm` 功能的 `wasm_build_bundle` / `wasm_sign_bundle` 调用它们；尚无 PQ 检查点） | 支持 |
 | DCP-05 智能体生命周期（启用 / 活力 / 停用） | 支持 |
 | DCP-06 数字继承（遗嘱、记忆转移、仪式） | 支持 |
 | DCP-07 争议解决、仲裁与判例 | 支持 |
@@ -66,8 +57,8 @@ dcp-ai = { version = "2.10", features = ["wasm"] }
 | 盲化 RPR、多方授权、算法通告辅助函数 | 支持 |
 | 通用错误码（所有 SDK 共享 38 个）与 `detect_wire_format` | 支持 |
 | OpenTelemetry / OTLP 导出器（可选 `otlp` 功能） | 支持 |
-| 准入：可信责任主体与 `strict-v1` 配置 | 支持，尚未发布 |
-| 规范化候选方案 `dcp-jcs-v2`（入口处理、路由器、字节验证器、生成器） | 实验性，须显式选择，尚未发布；非规范性 |
+| 准入：可信责任主体与 `strict-v1` 配置 | 支持 |
+| 规范化候选方案 `dcp-jcs-v2`（入口处理、路由器、字节验证器、生成器） | 实验性，须显式选择；非规范性 |
 
 <a id="quickstart"></a>
 
@@ -196,8 +187,9 @@ V2 为 DCP-05 至 DCP-09 的所有产物提供派生了 Serde trait 的结构体
 所有结构体均派生 `Debug`、`Clone`、`Serialize`、`Deserialize`。枚举使用 `#[serde(rename_all = "snake_case")]`。可选字段使用 `Option<T>` 并配合 `#[serde(skip_serializing_if = "Option::is_none")]`。
 
 <a id="bundles-dcp_aiv2bundle-unreleased"></a>
+<a id="bundles-dcp_aiv2bundle"></a>
 
-### Bundles（`dcp_ai::v2::bundle`，尚未发布）
+### Bundles（`dcp_ai::v2::bundle`）
 
 | 函数 | 说明 |
 |----------|-------------|
@@ -205,8 +197,9 @@ V2 为 DCP-05 至 DCP-09 的所有产物提供派生了 Serde trait 的结构体
 | `sign_bundle_v2(bundle, &classical, &pq)` | 在 `CTX_BUNDLE` 域下对清单进行复合签名，返回 `{bundle, signature}`，其中 `signer.id` 为 RPR 的 `human_id`。在签名前将 `session_expires_at` 或 `intended_verifier` 放入清单；若存在 `session_expires_at` 而缺少 `session_issued_at`，则将 `session_issued_at` 设为签名时刻 |
 
 <a id="delegation-chains-dcp_aiv2delegation-dcp-09-35-unreleased"></a>
+<a id="delegation-chains-dcp_aiv2delegation-dcp-09-35"></a>
 
-### 委托链（`dcp_ai::v2::delegation`，DCP-09 §3.5，尚未发布）
+### 委托链（`dcp_ai::v2::delegation`，DCP-09 §3.5）
 
 | 函数 | 说明 |
 |----------|-------------|
@@ -215,8 +208,9 @@ V2 为 DCP-05 至 DCP-09 的所有产物提供派生了 Serde trait 的结构体
 | `verify_mandate_chain(&chain, &revoked_ids, &MandateChainKeys { human_keys, agent_keys }, now_millis)` | 从根开始离线验证委托链（追溯至人类的签名、链接与深度、`sub_delegation`、嵌套有效期、行动及 `data_classes` 和 `limits` 的权限收窄、最低等级、撤销状态）；返回 `MandateChainResult { valid, errors, depth, effective_tier }` |
 
 <a id="admission-dcp_aiv2-specprofilesadmission-unreleased"></a>
+<a id="admission-dcp_aiv2-specprofilesadmission"></a>
 
-### 准入（`dcp_ai::v2`，spec/profiles/admission，尚未发布）
+### 准入（`dcp_ai::v2`，spec/profiles/admission）
 
 判断是否将已验证的 V2 bundle 接受为来自运营方已信任责任主体的证据，可选择遵循 `strict-v1` 配置。信任集合、配置和撤销信息源由运营方指定，绝不从 bundle 或请求中获取。
 
@@ -254,10 +248,11 @@ if result.admitted {
 ```
 
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in"></a>
 
-### 实验性功能：规范化候选方案 `dcp-jcs-v2`（须显式选择，尚未发布）
+### 实验性功能：规范化候选方案 `dcp-jcs-v2`（须显式选择）
 
-非规范性且未激活：`dcp-jcs-v1` 仍是唯一的规范化配置，默认设置、构建器、签名器和验证器均不改变。这些模块供调用方从源代码 checkout 中显式选择使用（请参阅发布状态）。验证通过的候选 bundle 也不赋予信任或准入资格。设计与契约：[`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)（§15 入口处理、§16 路由器、§17 验证器、§18 生成器）。
+非规范性且未激活：`dcp-jcs-v1` 仍是唯一的规范化配置，默认设置、构建器、签名器和验证器均不改变。这些模块在 2.11.0 中仅供调用方显式启用。验证通过的候选 bundle 也不赋予信任或准入资格。设计与契约：[`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)（§15 入口处理、§16 路由器、§17 验证器、§18 生成器）。
 
 | 模块 | API |
 |---|---|

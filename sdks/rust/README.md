@@ -8,38 +8,25 @@ Verification checks integrity and signatures; it does not establish principal tr
 
 ## Installation
 
-**Release status.** This README describes the source on `main`. The last tagged release, `v2.10.0`, has
-`dcp-ai` 2.10.0. What the changelog lists under [`[Unreleased]`](../../CHANGELOG.md#unreleased) is not in a tagged
-release: V2 bundle building and signing (`dcp_ai::v2::bundle`), admission, delegation chains, the A2A receive
-window and the experimental `dcp-jcs-v2` APIs. To run the examples below, depend on the repository or on a
-checkout:
+**Rust SDK 2.11.0.** This version includes V2 bundle building and signing, admission with explicit principal trust and `strict-v1`, delegation chains, verifier corrections and experimental opt-in `dcp-jcs-v2` APIs. `dcp-jcs-v1` remains the normative default. Invalid evidence accepted by older versions may now be rejected. Rust A2A session encryption and its replay window are not implemented; discovery and handshake helpers remain available.
 
 ```toml
 [dependencies]
-dcp-ai = { git = "https://github.com/dcp-ai-protocol/dcp-ai", branch = "main" }
-# or, from a checkout:
-# dcp-ai = { path = "/path/to/dcp-ai/sdks/rust" }
-```
-
-The published crate, without the unreleased features:
-
-```toml
-[dependencies]
-dcp-ai = "2.10"
+dcp-ai = "2.11.0"
 ```
 
 With OpenTelemetry/OTLP export:
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.10", features = ["otlp"] }
+dcp-ai = { version = "2.11.0", features = ["otlp"] }
 ```
 
 For WebAssembly support:
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.10", features = ["wasm"] }
+dcp-ai = { version = "2.11.0", features = ["wasm"] }
 ```
 
 ## Features
@@ -51,7 +38,7 @@ dcp-ai = { version = "2.10", features = ["wasm"] }
 | Canonical JSON v2 + domain separation | Yes |
 | Dual hash (SHA-256 + SHA3-256) + Merkle roots | Yes |
 | Bundle verification (V1 + V2; V2 under a verifier policy and the security tier, `verify_signed_bundle_v2_with_policy`) | Yes |
-| V2 bundle building & signing (`dcp_ai::v2::bundle`: `build_bundle_v2`, `sign_bundle_v2`; the `wasm` feature's `wasm_build_bundle` / `wasm_sign_bundle` call them; no PQ checkpoints yet) | Yes, unreleased |
+| V2 bundle building & signing (`dcp_ai::v2::bundle`: `build_bundle_v2`, `sign_bundle_v2`; the `wasm` feature's `wasm_build_bundle` / `wasm_sign_bundle` call them; no PQ checkpoints yet) | Yes |
 | DCP-05 agent lifecycle (commissioning / vitality / decommissioning) | Yes |
 | DCP-06 digital succession (testament, memory transfer, ceremony) | Yes |
 | DCP-07 dispute resolution + arbitration + jurisprudence | Yes |
@@ -64,8 +51,8 @@ dcp-ai = { version = "2.10", features = ["wasm"] }
 | Blinded RPR, multi-party authorization, algorithm advisory helpers | Yes |
 | Canonical error codes (38 shared across all SDKs) + `detect_wire_format` | Yes |
 | OpenTelemetry / OTLP exporter (optional `otlp` feature) | Yes |
-| Admission: trusted principals and the `strict-v1` profile | Yes, unreleased |
-| Canonicalization candidate `dcp-jcs-v2` (ingress, router, bytes verifier, producers) | Experimental and opt-in, unreleased; not normative |
+| Admission: trusted principals and the `strict-v1` profile | Yes |
+| Canonicalization candidate `dcp-jcs-v2` (ingress, router, bytes verifier, producers) | Experimental and opt-in; not normative |
 
 ## Quickstart
 
@@ -179,14 +166,18 @@ Domain separation constants: `CTX_LIFECYCLE`, `CTX_SUCCESSION`, `CTX_DISPUTE`, `
 
 All structs derive `Debug`, `Clone`, `Serialize`, `Deserialize`. Enums use `#[serde(rename_all = "snake_case")]`. Optional fields use `Option<T>` with `#[serde(skip_serializing_if = "Option::is_none")]`.
 
-### Bundles (`dcp_ai::v2::bundle`, unreleased)
+<a id="bundles-dcp_aiv2bundle-unreleased"></a>
+
+### Bundles (`dcp_ai::v2::bundle`)
 
 | Function | Description |
 |----------|-------------|
 | `build_bundle_v2(&rpr, &passport, &intent, &policy, &audit_entries, session_nonce)` | Builds the V2 bundle from the four `SignedPayload`s and the audit trail. It checks each `payload_hash` and the `session_nonce` of every artifact and audit entry, and writes the manifest with both audit Merkle roots; an empty trail gets roots of 64 zeros |
 | `sign_bundle_v2(bundle, &classical, &pq)` | Composite-signs the manifest under `CTX_BUNDLE` and returns `{bundle, signature}`, with `signer.id` the RPR's `human_id`. Put `session_expires_at` or `intended_verifier` in the manifest before signing; with `session_expires_at` and no `session_issued_at`, it sets `session_issued_at` to the signing time |
 
-### Delegation Chains (`dcp_ai::v2::delegation`, DCP-09 §3.5, unreleased)
+<a id="delegation-chains-dcp_aiv2delegation-dcp-09-35-unreleased"></a>
+
+### Delegation Chains (`dcp_ai::v2::delegation`, DCP-09 §3.5)
 
 | Function | Description |
 |----------|-------------|
@@ -194,7 +185,9 @@ All structs derive `Debug`, `Clone`, `Serialize`, `Deserialize`. Enums use `#[se
 | `create_sub_mandate(ed, pq, classical, pq_key, &parent, SubMandateParams { .. })` | Sub-mandate signed by the parent's agent under the `DCP-AI.v2.SubMandate` context |
 | `verify_mandate_chain(&chain, &revoked_ids, &MandateChainKeys { human_keys, agent_keys }, now_millis)` | Verifies the chain root first and offline (signatures back to the human, links and depth, `sub_delegation`, nested validity, attenuation of actions, `data_classes` and `limits`, tier floor, revocation); returns `MandateChainResult { valid, errors, depth, effective_tier }` |
 
-### Admission (`dcp_ai::v2`, spec/profiles/admission, unreleased)
+<a id="admission-dcp_aiv2-specprofilesadmission-unreleased"></a>
+
+### Admission (`dcp_ai::v2`, spec/profiles/admission)
 
 Whether a verified V2 bundle is admitted as evidence from a principal the operator already trusts, optionally under the `strict-v1` profile. The trust set, the profile and the revocation source come from the operator, never from the bundle or the request.
 
@@ -231,11 +224,12 @@ if result.admitted {
 }
 ```
 
-### Experimental: Canonicalization Candidate `dcp-jcs-v2` (opt-in, unreleased)
+<a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
+
+### Experimental: Canonicalization Candidate `dcp-jcs-v2` (opt-in)
 
 Not normative and not active: `dcp-jcs-v1` stays the only canonicalization profile, and no default, builder,
-signer or verifier changes. These modules exist for callers who opt in, from a source checkout (see Release
-status). A verified candidate bundle grants no trust or admission. Design and contract:
+signer or verifier changes. These modules are available in 2.11.0 only to callers who explicitly opt in. A verified candidate bundle grants no trust or admission. Design and contract:
 [`docs/proposals/canonicalization-candidate`](../../docs/proposals/canonicalization-candidate/README.md)
 (§15 ingress, §16 router, §17 verifier, §18 producers).
 

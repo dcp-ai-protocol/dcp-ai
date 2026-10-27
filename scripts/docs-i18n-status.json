@@ -23,23 +23,23 @@
       }
     },
     "sdks/rust/README.md": {
-      "source_sha256": "5cf98c094636d195de741aac8421c1a97d2a23dcaa190d7f9c7d8f34dd47563f",
+      "source_sha256": "7e32291548b3bf4e335f2fc485af17adfce7867f88caa61b259d4e90918f2a12",
       "translations": {
         "es": {
-          "source_sha256": "5cf98c094636d195de741aac8421c1a97d2a23dcaa190d7f9c7d8f34dd47563f",
-          "sha256": "c815da1401c0f5bbef560f2e9ea05a378610e22117870073a6c3af8cb27fb8a9"
+          "source_sha256": "7e32291548b3bf4e335f2fc485af17adfce7867f88caa61b259d4e90918f2a12",
+          "sha256": "e1e5753b936e193159fb3382ec85009b5f023c6e9d587bcc71b86f539023c83d"
         },
         "pt-BR": {
-          "source_sha256": "5cf98c094636d195de741aac8421c1a97d2a23dcaa190d7f9c7d8f34dd47563f",
-          "sha256": "b5235accfb45157989bd2b158573bc5218b3d9377123bbe124b7230c8d0b36d1"
+          "source_sha256": "7e32291548b3bf4e335f2fc485af17adfce7867f88caa61b259d4e90918f2a12",
+          "sha256": "aceb9f9c663bf1d1364f85029e72524b2509ea94dd8ed2bf7f0f54d72cb89172"
         },
         "ja": {
-          "source_sha256": "5cf98c094636d195de741aac8421c1a97d2a23dcaa190d7f9c7d8f34dd47563f",
-          "sha256": "6a3dcf5baa4f5b05ac9cf84f5d709c236032045875eeb04d86c53491ac53a027"
+          "source_sha256": "7e32291548b3bf4e335f2fc485af17adfce7867f88caa61b259d4e90918f2a12",
+          "sha256": "ef91c635080152d0bd8760dbf943c5c8d3255c7dae173fdadd725f2652152840"
         },
         "zh-CN": {
-          "source_sha256": "5cf98c094636d195de741aac8421c1a97d2a23dcaa190d7f9c7d8f34dd47563f",
-          "sha256": "7ceef495e66bfcfdd749244c1ad54c690883faa3ca65e21c7018a6bcb5c4fd17"
+          "source_sha256": "7e32291548b3bf4e335f2fc485af17adfce7867f88caa61b259d4e90918f2a12",
+          "sha256": "3a30d5f989c6084a2e6f58459bef6617c93f6518279ead3113105138d6dd876d"
         }
       }
     },
