@@ -147,8 +147,7 @@ verify_tool = StructuredTool.from_function(
 | `arun(signed_bundle_json)` | `(str \| dict) -> str` | Verificação assíncrona |
 
 Um bundle V2 é verificado com `verify_signed_bundle_v2` de `dcp_ai.v2` (assinaturas compostas, vinculação de sessão,
-manifesto, coerência entre artefatos, a cadeia de auditoria SHA-256 — não a cadeia nem a raiz secundárias SHA3-256 do
-V2-11 — e validade das chaves) sob `DCPTool(verifier_policy=...)`: um dict de campos de `VerifierPolicy` definidos
+manifesto, coerência entre artefatos, a cadeia de auditoria SHA-256 — e, no código-fonte ainda não publicado do SDK mas não no 2.10.0 publicado, os campos secundários SHA3-256 do V2-11 presentes — e validade das chaves) sob `DCPTool(verifier_policy=...)`: um dict de campos de `VerifierPolicy` definidos
 sobre `DEFAULT_VERIFIER_POLICY` (um `default_mode` sem `risk_overrides` se aplica a todos os níveis de risco), ou uma
 `VerifierPolicy` completa; o padrão é `DEFAULT_VERIFIER_POLICY`. Um bundle V1, que só tem uma assinatura Ed25519, sem
 intended_verifier nem janela de sessão, só é aceito quando a política tem `allow_v1_bundles`, aceita ed25519

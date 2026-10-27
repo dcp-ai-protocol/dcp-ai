@@ -1,5 +1,5 @@
 {
-  "kit_version": "1.1.0",
+  "kit_version": "1.2.0",
   "description": "DCP-AI conformance kit catalog. expected_cases pins every case id a suite must produce: a missing or extra case is an infrastructure error, never a silent reduction of coverage.",
   "limits": [
     "Passing the selected suites certifies those checks on these fixtures only; it does not certify a complete DCP implementation, another SDK or a deployment.",
@@ -81,7 +81,7 @@
     {
       "id": "v2.hashes",
       "title": "SHA-256 / SHA3-256 vectors, dual hashes and dual Merkle roots",
-      "claim": "Hash, dual-hash and dual Merkle root values match the golden vectors and the V1 fixture. Golden values only: the V2 verifiers do not recompute the secondary SHA3-256 chain.",
+      "claim": "Hash, dual-hash and dual Merkle root values match the golden vectors and the V1 fixture. Golden values only; the verifiers' checks of the secondary SHA3-256 fields are the suite v2.secondary_sha3.",
       "requirements": [
         {
           "spec": "spec/DCP-AI-v2.0.md §2.3, §10.3",
@@ -122,6 +122,76 @@
         "v2.signed_bundle.pq_stripped_rejected_hybrid_required",
         "v2.signed_bundle.schema_invalid_payload_rejected",
         "v2.signed_bundle.legacy_prenormative_envelope_rejected"
+      ]
+    },
+    {
+      "id": "v2.secondary_sha3",
+      "title": "Secondary SHA3-256 fields through the reference verifier",
+      "claim": "Each signed bundle of the shared secondary vectors gets the expected verdict from lib/verify.js (schema validation plus the workspace @dcp-ai/sdk verifier): accepted cases verify, rejected ones fail with an error naming the secondary field, and the control of each rejected case (the same entries without secondary fields, primary chain and root recomputed, signed again) verifies. This proves the secondary root, chain links and intent hashes that are present; absent fields are not required, so it does not show that a bundle carries a complete secondary chain.",
+      "limits": [
+        "Runs the reference verifier only. The TypeScript, Python, Go and Rust suites run the same vectors through their verifier, admission and candidate v1 route; the WASM suite through verifyBundle and the candidate v1 route (the WASM package has no admission API).",
+        "lib/verify.js uses the @dcp-ai/sdk installed at the repository root: rebuild sdks/typescript and reinstall the root (or resolve @dcp-ai/sdk to that build) before running this suite on a source change; with the published 2.2.0 the well-formed secondary defects verify."
+      ],
+      "requirements": [
+        {
+          "spec": "spec/VERIFICATION.md V2-11 and its erratum of 27/10/2026",
+          "schemas": "schemas/v2/audit_entry.schema.json, schemas/v2/bundle_manifest.schema.json",
+          "vectors": "tests/interop/v2/secondary_sha3_vectors.json",
+          "code": "lib/verify.js, @dcp-ai/sdk verifySignedBundleV2"
+        }
+      ],
+      "expected_cases": [
+        "v2.secondary.root_ok_0_entries",
+        "v2.secondary.root_ok_1_entries",
+        "v2.secondary.root_ok_2_entries",
+        "v2.secondary.root_ok_3_entries",
+        "v2.secondary.root_ok_5_entries",
+        "v2.secondary.root_ok_8_entries",
+        "v2.secondary.root_absent_sha256_only",
+        "v2.secondary.chain_generator_form_entry0_absent",
+        "v2.secondary.chain_openclaw_form_genesis",
+        "v2.secondary.chain_single_entry_genesis",
+        "v2.secondary.chain_only_genesis_of_several",
+        "v2.secondary.chain_only_last_link",
+        "v2.secondary.chain_gap_in_middle",
+        "v2.secondary.chain_link_over_previous_without_secondary",
+        "v2.secondary.chain_all_absent",
+        "v2.secondary.mixed_root_only_builder_form",
+        "v2.secondary.mixed_chain_only",
+        "v2.secondary.mixed_intent_only",
+        "v2.secondary.mixed_intent_on_one_entry",
+        "v2.secondary.mixed_all_three",
+        "v2.secondary.hash_alg_dual_without_fields",
+        "v2.secondary.hash_alg_sha256_with_all_fields",
+        "v2.secondary.root_wrong_value",
+        "v2.secondary.root_over_reordered_entries",
+        "v2.secondary.root_without_odd_duplication",
+        "v2.secondary.root_sha256_tree_under_sha3_prefix",
+        "v2.secondary.root_zeros_on_non_empty_trail",
+        "v2.secondary.root_non_zero_on_empty_trail",
+        "v2.secondary.root_null",
+        "v2.secondary.root_number",
+        "v2.secondary.root_uppercase_hex",
+        "v2.secondary.root_sha256_prefix",
+        "v2.secondary.root_63_hex",
+        "v2.secondary.chain_wrong_link_at_1",
+        "v2.secondary.chain_wrong_link_at_last",
+        "v2.secondary.chain_link_over_previous_without_its_secondary",
+        "v2.secondary.chain_link_over_entry_before_previous",
+        "v2.secondary.chain_genesis_after_first",
+        "v2.secondary.chain_entry0_hash_instead_of_genesis",
+        "v2.secondary.chain_null",
+        "v2.secondary.chain_null_on_entry0",
+        "v2.secondary.chain_number",
+        "v2.secondary.chain_uppercase_hex",
+        "v2.secondary.chain_sha256_prefix",
+        "v2.secondary.chain_lowercase_genesis",
+        "v2.secondary.intent_wrong_value",
+        "v2.secondary.intent_sha256_digest_under_sha3_prefix",
+        "v2.secondary.intent_over_signed_intent_envelope",
+        "v2.secondary.intent_null",
+        "v2.secondary.intent_number",
+        "v2.secondary.intent_on_one_entry_of_several"
       ]
     },
     {

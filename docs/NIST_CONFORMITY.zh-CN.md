@@ -461,7 +461,7 @@ DCP-AI 与 NIST 发布的后量子密码过渡指南保持一致：
 | 使用 FIPS 203/204/205 批准的算法 | ML-KEM-768、ML-DSA-65、SLH-DSA-192f（ML-DSA-87 已保留，未实现） |
 | 保持密码敏捷性 | 算法注册表 + 通告系统 + 提供程序抽象 |
 | 为算法弃用做好计划 | 由治理签名并带自动响应的通告 |
-| 保护长期数据 | 哈希链接的审计轨迹；会生成双哈希链，但当前的 V2 验证器不会重新计算次级链（[STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)） |
+| 保护长期数据 | 哈希链接的审计轨迹；会生成双哈希链，尚未发布的源代码中的 V2 验证器会检查存在的次级字段（已发布的软件包尚不检查）（[STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)） |
 | 过渡期间使用混合构造 | `pq_over_classical` 复合绑定 |
 | 用硬件安全模块存储密钥 | 未实现：没有 HSM/TPM 集成；源码中的 `HsmCryptoProvider` 是模拟实现（§2.2） |
 | 测试互操作性 | 跨 SDK 的 KAT 验证、符合性测试套件 |

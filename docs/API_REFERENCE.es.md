@@ -766,7 +766,7 @@ interface SignBundleV2ClassicalOnlyOptions {
 
 ### `verifySignedBundleV2(signedBundle, registry, policy?, options?)`
 
-Verificación de bundles V2 firmados con una política decidida por el verificador. El verificador actual comprueba la cadena de auditoría primaria y la raíz de Merkle primaria, pero no recalcula la cadena secundaria opcional ni `audit_merkle_root_secondary`; un resultado satisfactorio no establece su coherencia ([carencia de implementación](STORAGE_AND_ANCHORING.md#dual-hash-chains)). La verificación tampoco concede admisión ni autorización de acciones.
+Verificación de bundles V2 firmados con una política decidida por el verificador. El verificador del código fuente aún no publicado comprueba la cadena de auditoría primaria y la raíz de Merkle, y también los `prev_hash_secondary`, `intent_hash_secondary` y `audit_merkle_root_secondary` secundarios que estén presentes (los ausentes no se exigen; el paquete publicado 2.2.0 no los comprueba, así que con él un resultado satisfactorio no establece su coherencia) ([estado de la implementación](STORAGE_AND_ANCHORING.md#dual-hash-chains)). La verificación tampoco concede admisión ni autorización de acciones.
 
 ```typescript
 async function verifySignedBundleV2(

@@ -185,7 +185,7 @@ Inicializa el módulo WASM. Debe llamarse una vez antes de utilizar cualquier AP
 
 ### Verificación
 
-La verificación no otorga confianza en el principal, admisión ni autorización para actuar. El verificador V2 comprueba la cadena de auditoría primaria y la raíz Merkle primaria; no recalcula la cadena secundaria opcional ni `audit_merkle_root_secondary` ([limitación de implementación](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)). El candidato experimental reutiliza estas comprobaciones.
+La verificación no otorga confianza en el principal, admisión ni autorización para actuar. El verificador V2 comprueba la cadena de auditoría primaria y la raíz Merkle primaria; compilado desde el código fuente aún no publicado, también comprueba los enlaces secundarios opcionales, los hashes de intención y `audit_merkle_root_secondary` que estén presentes, mientras que la versión publicada 2.1.0 no ([limitación de implementación](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)). El candidato experimental reutiliza estas comprobaciones.
 
 | Método | Devuelve | Descripción |
 |--------|---------|-------------|

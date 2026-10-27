@@ -6,7 +6,7 @@
 
 Official Go SDK for the Digital Citizenship Protocol (DCP) v1.0 and v2.0. Supports Ed25519, ML-DSA-65, SLH-DSA-192f, ML-KEM-768, composite signatures, dual hash chains, and bundle verification.
 
-Verification checks integrity and signatures; it does not establish principal trust, admission or authorization to act. The current V2 verifier checks the primary audit chain but does not recompute the optional SHA3-256 chain or its secondary Merkle root. See [the documented verification limit](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains) and use the admission APIs below when trust is required.
+Verification checks integrity and signatures; it does not establish principal trust, admission or authorization to act. The V2 verifier in the unreleased source code checks the primary audit chain and the optional secondary SHA3-256 links, intent hashes and Merkle root that are present (absent ones are not required); the published v2.11.0 does not check the secondary fields. See [the documented verification limit](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains) and use the admission APIs below when trust is required.
 
 ## Installation
 

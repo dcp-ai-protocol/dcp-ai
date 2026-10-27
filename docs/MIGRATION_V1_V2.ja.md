@@ -300,8 +300,7 @@ const message = domainSeparatedMessage(DCP_CONTEXTS.Bundle, new TextEncoder().en
 
 新しいフィールドは `session_nonce`、`hash_alg`、`evidence.evidence_hash`、`pq_checkpoint_ref` で、ハッシュには
 `sha256:` の接頭辞が付きます。二重ハッシュチェーンでは `prev_hash_secondary`（SHA3-256）と `hash_alg: "sha256+sha3-256"` が加わります。
-現在の V2 検証器は、実験的な候補も含め、二次チェーンも `audit_merkle_root_secondary` も再計算しません。これらのフィールドを
-生成しても、追加の保護があることは示されません（[STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)）。
+未公開のソースコードでは、V2 検証器は実験的な候補も含め、存在する二次のリンク、意図のハッシュ、`audit_merkle_root_secondary` を確認します。存在しないものは要求されず、公開済みのパッケージはこの確認より前のものなので、これらのフィールドを生成しても、追加の保護が得られるのは生成側と検証側の両方がそれを含む場合だけです（[STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)）。
 監査エントリは 1 件ずつ署名されるわけではありません。マニフェストが監査のマークルルートを通じてそれらにコミットし、PQ チェックポイントが
 その範囲に署名します。
 
@@ -657,8 +656,8 @@ V1 と V2 の完全なエンベロープは[ステップ 7](#step-7-construct-bu
 - [ ] **複合署名**：`signBundleV2` が有効な複合署名を生成する
 - [ ] **ドメイン分離**：署名にコンテキストタグが含まれる
 - [ ] **複合バインディング**：PQ 署名がクラシカルな署名のバイト列を覆う
-- [ ] **二重ハッシュチェーン**：監査エントリに `prev_hash_secondary`（SHA3-256）が含まれる。現在の V2 検証器はこれを再計算しない（ステップ 6）
-- [ ] **マニフェスト**：バンドルのマニフェストにすべてのアーティファクトのハッシュが含まれ、二重ハッシュチェーンでは二次マークルルートも含まれる。現在の V2 検証器は二次マークルルートを再計算しない
+- [ ] **二重ハッシュチェーン**：監査エントリに `prev_hash_secondary`（SHA3-256）が含まれる。未公開のソースコードの検証器は存在するリンクをすべて確認する（ステップ 6）。公開済みのパッケージは確認しない
+- [ ] **マニフェスト**：バンドルのマニフェストにすべてのアーティファクトのハッシュが含まれ、二重ハッシュチェーンでは二次マークルルートも含まれる。未公開のソースコードの検証器は、存在する場合に二次マークルルートを確認する
 - [ ] **セッションの nonce**：バンドル内のすべてのアーティファクトが同じ nonce を共有する
 - [ ] **V2 の検証**：正しく署名された v2.0 のバンドルが `verifySignedBundleV2`（または `dcp verify-bundle`）に合格する
 - [ ] **V1 との互換性**：v1.0 のバンドルが、V1 の関数 `verifySignedBundle`（v1.0 しか受け付けない）、`dcp verify-bundle`、または 3.2 のようなバージョンによるルーターで引き続き検証できる。V2 の関数 `verifySignedBundleV2` は v2.0 しか受け付けない

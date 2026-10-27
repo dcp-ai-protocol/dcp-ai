@@ -716,8 +716,7 @@ Os verificadores V2 devem (MUST) oferecer suporte à V1 indefinidamente. A migra
   APIs experimentais e opt-in, e não muda o que um verificador padrão aceita.
 - **§10, trilha de auditoria.** As entradas de auditoria não são assinadas uma a uma: são cobertas pela assinatura do
   bundle por meio do manifesto. O contexto `DCP-AI.v2.AuditEvent` é usado nos checkpoints PQ e na compactação da
-  auditoria, que quem chama produz com funções auxiliares do SDK; nada os assina automaticamente. Os verificadores
-  checam os checkpoints listados e a cadeia SHA-256, mas não recalculam a cadeia secundária SHA3-256.
+  auditoria, que quem chama produz com funções auxiliares do SDK; nada os assina automaticamente. Os verificadores checam os checkpoints listados e a cadeia SHA-256; no código-fonte ainda não publicado (27/10/2026), também checam os campos secundários SHA3-256 presentes (errata do V2-11), o que os pacotes publicados não fazem.
 - **§11.3, revogação de emergência.** Os schemas do RPR não têm `revocation_token`; o passaporte V2 tem um
   `emergency_revocation_token` opcional.
 - **§12.1, eliminação.** O texto descreve o efeito criptográfico de apagar o sal. Não é uma avaliação de conformidade

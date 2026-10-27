@@ -10,7 +10,7 @@
 
 SDK oficial de Rust para el Digital Citizenship Protocol (DCP v2.0). Ofrece tipos basados en Serde, criptografía poscuántica híbrida (Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768), firmas compuestas con vinculación `pq_over_classical`, cadenas de hash duales, observabilidad con OpenTelemetry, comportamiento DCP-04..09 y soporte opcional para WebAssembly.
 
-La verificación comprueba integridad y firmas; no establece confianza en el principal, admisión ni autorización para actuar. El verificador V2 actual comprueba la cadena de auditoría primaria, pero no recalcula la cadena SHA3-256 opcional ni su raíz Merkle secundaria. Consulta [la limitación documentada del verificador](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains) y usa las API de admisión descritas más abajo cuando se requiera confianza.
+La verificación comprueba integridad y firmas; no establece confianza en el principal, admisión ni autorización para actuar. El verificador V2 del código fuente aún no publicado comprueba la cadena de auditoría primaria y los enlaces, hashes de intención y raíz Merkle secundarios SHA3-256 opcionales que estén presentes (los ausentes no se exigen); la versión publicada 2.11.0 no comprueba los campos secundarios. Consulta [la limitación documentada del verificador](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains) y usa las API de admisión descritas más abajo cuando se requiera confianza.
 
 <a id="installation"></a>
 

@@ -633,8 +633,7 @@ V2 verifiers MUST support V1 indefinitely. Migration is gradual.
   only through experimental, opt-in APIs and does not change what a default verifier accepts.
 - **§10, audit trail.** Audit entries are not signed one by one: they are covered by the bundle signature through the
   manifest. The `DCP-AI.v2.AuditEvent` context is used for PQ checkpoints and audit compaction, which the caller
-  produces with SDK helpers; nothing signs them automatically. The verifiers check the listed checkpoints and the
-  SHA-256 chain, but do not recompute the secondary SHA3-256 chain.
+  produces with SDK helpers; nothing signs them automatically. The verifiers check the listed checkpoints and the SHA-256 chain; in the unreleased source code (27/10/2026) they also check the secondary SHA3-256 fields that are present (V2-11 erratum), which the published packages do not.
 - **§11.3, emergency revocation.** The RPR schemas have no `revocation_token`; the V2 passport has an optional
   `emergency_revocation_token`.
 - **§12.1, erasure.** The text describes the cryptographic effect of deleting the salt. It is not an assessment of

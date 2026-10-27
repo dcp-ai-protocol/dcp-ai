@@ -199,7 +199,7 @@ Entry N:
 
 次级链是可选的（审计条目模式中的 `prev_hash_secondary` 和 `intent_hash_secondary`）。规范要求在存在次级链时对其进行独立验证（[VERIFICATION.md，V2-11](../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present)）。这是一种纵深防御设计：其保护作用取决于实际检查两条链并保存受信任的承诺。
 
-**实现缺口（2026 年 10 月 25 日）：** 当前的 TypeScript、Python、Go 和 Rust V2 bundle 验证器会检查主 `prev_hash` 链和主 Merkle 根，但不会重新计算次级链或 `audit_merkle_root_secondary`。不要把 bundle 验证成功解读为次级链一致的证据。实验性候选的路由复用这些验证检查；选择加入候选并不能弥补这一缺口。
+**实现状态（2026 年 10 月 27 日）：** 在尚未发布的源代码中，TypeScript、Python、Go 和 Rust 的 V2 bundle 验证器，以及基于 Rust SDK 构建的 WASM，会检查所有存在的次级字段（[VERIFICATION.md 的 V2-11 及其勘误](../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present)）：每个 `prev_hash_secondary` 对照前一个条目，每个 `intent_hash_secondary` 对照意图，`audit_merkle_root_secondary` 对照各条目。不存在的字段不作要求，因此验证成功并不表明 bundle 带有完整的次级链。实验性候选的路由复用这些检查。[已发布版本](README.md#published-versions)中列出的已发布软件包早于这一变更，不检查次级字段：在包含它的发布出现之前，不要把它们的验证成功解读为次级链一致的证据。
 
 Merkle 树基于主（SHA-256）链计算。基于 SHA3-256 哈希的次级 Merkle 根以 `audit_merkle_root_secondary` 的形式包含在 bundle 清单中。
 

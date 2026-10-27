@@ -28,7 +28,7 @@ import type {
   KeyEntry,
 } from '../types/v2.js';
 import { canonicalizeV2 } from './canonicalize.js';
-import { sha256Hex } from './dual-hash.js';
+import { sha256Hex, sha3_256Hex } from './dual-hash.js';
 import { compositeVerify } from './composite-ops.js';
 import type { CompositeVerifyResult } from './composite-ops.js';
 import type { CompositeSignature } from './composite-sig.js';
@@ -131,10 +131,10 @@ function payloadHashHex(payload: unknown): string {
   return sha256Hex(Buffer.from(canonical, 'utf8'));
 }
 
-function auditMerkleRootHex(entries: AuditEventV2[]): string {
+function auditMerkleRootHex(entries: AuditEventV2[], hashHex: (data: Buffer) => string = sha256Hex): string {
   let leaves = entries.map((e) => {
     const canonical = canonicalizeV2(e);
-    return sha256Hex(Buffer.from(canonical, 'utf8'));
+    return hashHex(Buffer.from(canonical, 'utf8'));
   });
 
   while (leaves.length > 1) {
@@ -142,7 +142,7 @@ function auditMerkleRootHex(entries: AuditEventV2[]): string {
     const next: string[] = [];
     for (let i = 0; i < leaves.length; i += 2) {
       next.push(
-        sha256Hex(
+        hashHex(
           Buffer.concat([
             Buffer.from(leaves[i], 'hex'),
             Buffer.from(leaves[i + 1], 'hex'),
@@ -154,6 +154,46 @@ function auditMerkleRootHex(entries: AuditEventV2[]): string {
   }
 
   return leaves[0];
+}
+
+const sha3Ref = (value: unknown) => `sha3-256:${sha3_256Hex(Buffer.from(canonicalizeV2(value), 'utf8'))}`;
+
+/**
+ * The manifest's audit_merkle_root_secondary, when present (VERIFICATION.md V2-11 erratum): the SHA3-256 tree
+ * built like audit_merkle_root, 64 zeros for an empty trail. Absent is not checked.
+ */
+function secondaryRootErrors(manifest: Record<string, unknown>, entries: AuditEventV2[]): string[] {
+  if (!Object.hasOwn(manifest, 'audit_merkle_root_secondary')) return [];
+  const got = manifest.audit_merkle_root_secondary;
+  if (typeof got !== 'string') return [`Manifest audit_merkle_root_secondary is invalid: ${JSON.stringify(got)}`];
+  const expected = `sha3-256:${entries.length > 0 ? auditMerkleRootHex(entries, sha3_256Hex) : '0'.repeat(64)}`;
+  return got === expected ? [] : ['Manifest audit_merkle_root_secondary mismatch'];
+}
+
+/**
+ * Every present prev_hash_secondary and intent_hash_secondary (VERIFICATION.md V2-11 erratum): "GENESIS" on the
+ * first entry, then the SHA3-256 of the entry before it as carried; the intent's SHA3-256. Absent fields are not
+ * required, so a bundle that omits some links has no complete secondary chain.
+ */
+function secondaryChainErrors(entries: AuditEventV2[], intentPayload: unknown): string[] {
+  const errors: string[] = [];
+  let intentRef: string | undefined;
+  entries.forEach((entry, i) => {
+    const e = entry as unknown as Record<string, unknown>;
+    if (Object.hasOwn(e, 'prev_hash_secondary')) {
+      const got = e.prev_hash_secondary;
+      const expected = i === 0 ? 'GENESIS' : sha3Ref(entries[i - 1]);
+      if (typeof got !== 'string') errors.push(`prev_hash_secondary invalid at entry[${i}]: ${JSON.stringify(got)}`);
+      else if (got !== expected) errors.push(`prev_hash_secondary chain break at entry[${i}]: expected ${expected}, got ${got}`);
+    }
+    if (Object.hasOwn(e, 'intent_hash_secondary')) {
+      const got = e.intent_hash_secondary;
+      intentRef ??= sha3Ref(intentPayload);
+      if (typeof got !== 'string') errors.push(`intent_hash_secondary invalid at entry[${i}]: ${JSON.stringify(got)}`);
+      else if (got !== intentRef) errors.push(`intent_hash_secondary mismatch at entry[${i}]: expected ${intentRef}`);
+    }
+  });
+  return errors;
 }
 
 const VERIFICATION_MODES: readonly unknown[] = [
@@ -712,6 +752,7 @@ async function verifyV2(
   if (bundle.manifest.audit_merkle_root !== expectedMerkleRoot) {
     errors.push(`Manifest audit_merkle_root mismatch`);
   }
+  errors.push(...secondaryRootErrors(bundle.manifest as unknown as Record<string, unknown>, bundle.audit_entries));
 
   if (bundle.manifest.audit_count !== bundle.audit_entries.length) {
     errors.push(
@@ -845,6 +886,7 @@ async function verifyV2(
     const canonical = canonicalizeV2(entry);
     prevHashExpected = `sha256:${sha256Hex(Buffer.from(canonical, 'utf8'))}`;
   }
+  errors.push(...secondaryChainErrors(bundle.audit_entries, bundle.intent.payload));
 
   details.hash_chain_valid = errors.length === 0;
 

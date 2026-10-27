@@ -23,14 +23,18 @@ epoch, default the system clock). details["signer_keys"] reports, for every
 composite signature checked, the key entry the verifier resolved for each
 component and whether that component verified (spec/profiles/admission § 2.3).
 
-Not verified, as in the TypeScript SDK: the manifest's audit_merkle_root_secondary.
-Do not rely on it after verification.
+The secondary SHA3-256 fields (VERIFICATION.md V2-11 and its erratum of 27/10/2026)
+are checked when present, as in the TypeScript SDK: the manifest's
+audit_merkle_root_secondary with the manifest, and each entry's prev_hash_secondary
+and intent_hash_secondary with the audit chain. Absent fields are not required, so a
+bundle that omits some links does not carry a complete secondary chain.
 """
 
 from __future__ import annotations
 
 import base64
 import binascii
+import hashlib
 import math
 import re
 import time
@@ -41,6 +45,7 @@ from dcp_ai.v2.composite_ops import composite_verify
 from dcp_ai.v2.crypto_provider import derive_kid
 from dcp_ai.v2.crypto_registry import AlgorithmRegistry
 from dcp_ai.v2.domain_separation import DCP_CONTEXTS
+from dcp_ai.v2.dual_hash import _merkle_root_hex
 from dcp_ai.v2.models import VerifierPolicy
 from dcp_ai.v2.pq_checkpoint import audit_events_merkle_root
 from dcp_ai.v2.security_tier import compute_security_tier, effective_verification_mode
@@ -366,6 +371,49 @@ def _consistency_errors(bundle: dict[str, Any], intent_hash: str, now: int) -> l
     return errors
 
 
+def _sha3_ref(value: Any) -> str:
+    return "sha3-256:" + hashlib.sha3_256(canonicalize_v2(value).encode("utf-8")).hexdigest()
+
+
+def _secondary_root_errors(manifest: dict[str, Any], entries: list[Any]) -> list[str]:
+    """The manifest's audit_merkle_root_secondary, when present: the SHA3-256 tree built
+    like audit_merkle_root, 64 zeros for an empty trail."""
+    if "audit_merkle_root_secondary" not in manifest:
+        return []
+    got = manifest["audit_merkle_root_secondary"]
+    if not isinstance(got, str):
+        return [f"Manifest audit_merkle_root_secondary is invalid: {got!r}"]
+    leaves = [hashlib.sha3_256(canonicalize_v2(e).encode("utf-8")).hexdigest() for e in entries]
+    expected = "sha3-256:" + (_merkle_root_hex(leaves, hashlib.sha3_256) if leaves else "0" * 64)
+    return [] if got == expected else ["Manifest audit_merkle_root_secondary mismatch"]
+
+
+def _secondary_chain_errors(entries: list[Any], intent_payload: Any) -> list[str]:
+    """Every present prev_hash_secondary ("GENESIS" on the first entry, then the SHA3-256
+    of the entry before it as carried) and intent_hash_secondary (the intent's SHA3-256)."""
+    errors: list[str] = []
+    intent_ref: str | None = None
+    for i, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            continue  # a malformed entry already failed the consistency checks (V2-14)
+        if "prev_hash_secondary" in entry:
+            got = entry["prev_hash_secondary"]
+            expected = "GENESIS" if i == 0 else _sha3_ref(entries[i - 1])
+            if not isinstance(got, str):
+                errors.append(f"prev_hash_secondary invalid at entry[{i}]: {got!r}")
+            elif got != expected:
+                errors.append(f"prev_hash_secondary chain break at entry[{i}]: expected {expected}, got {got}")
+        if "intent_hash_secondary" in entry:
+            got = entry["intent_hash_secondary"]
+            if intent_ref is None:
+                intent_ref = _sha3_ref(intent_payload)
+            if not isinstance(got, str):
+                errors.append(f"intent_hash_secondary invalid at entry[{i}]: {got!r}")
+            elif got != intent_ref:
+                errors.append(f"intent_hash_secondary mismatch at entry[{i}]: expected {intent_ref}")
+    return errors
+
+
 def _audit_index(entries: list[Any], audit_id: Any) -> int:
     """Index of the first audit entry whose audit_id is the string `audit_id`, or -1."""
     if not isinstance(audit_id, str):
@@ -636,6 +684,7 @@ async def _verify(
     expected_root = audit_events_merkle_root(audit_entries) if audit_entries else "0" * 64
     if manifest.get("audit_merkle_root") != f"sha256:{expected_root}":
         errors.append("Manifest audit_merkle_root mismatch")
+    errors.extend(_secondary_root_errors(manifest, audit_entries))
     if manifest.get("audit_count") != len(audit_entries):
         errors.append(
             f"Manifest audit_count={manifest.get('audit_count')} but bundle has {len(audit_entries)} entries"
@@ -719,6 +768,7 @@ async def _verify(
             )
             break
         prev_hash = prepare_payload(entry)[1]
+    errors.extend(_secondary_chain_errors(audit_entries, bundle["intent"]["payload"]))
     details["hash_chain_valid"] = not errors
 
     # 9. Key validity of every key that can sign: the passport keys and the RPR

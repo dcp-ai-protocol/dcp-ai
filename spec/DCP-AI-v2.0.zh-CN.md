@@ -714,8 +714,7 @@ V2 验证方必须（MUST）无限期支持 V1。迁移是渐进的。
   [docs/proposals/canonicalization-candidate](../docs/proposals/canonicalization-candidate/README.md) 中的候选配置文件
   只能通过实验性、需显式启用的 API 使用，不会改变默认验证方接受的内容。
 - **§10，审计轨迹。** 审计条目不是逐条签名的：它们通过清单由 bundle 签名覆盖。`DCP-AI.v2.AuditEvent` 上下文用于
-  PQ 检查点和审计压缩，由调用方使用 SDK 辅助函数生成；没有任何机制自动签署它们。验证方检查所列的检查点和 SHA-256
-  链，但不会重新计算辅助的 SHA3-256 链。
+  PQ 检查点和审计压缩，由调用方使用 SDK 辅助函数生成；没有任何机制自动签署它们。验证方检查所列的检查点和 SHA-256 链；在尚未发布的源代码（2026 年 10 月 27 日）中，它们也检查存在的辅助 SHA3-256 字段（V2-11 勘误），已发布的软件包则不检查。
 - **§11.3，紧急撤销。** RPR schema 中没有 `revocation_token`；V2 护照有一个可选的 `emergency_revocation_token`。
 - **§12.1，删除。** 本文描述的是删除盐的密码学效果。它不是对 GDPR 或任何其他法律合规性的评估；请参阅
   [docs/EU_AI_ACT_MAPPING.md](../docs/EU_AI_ACT_MAPPING.md)。

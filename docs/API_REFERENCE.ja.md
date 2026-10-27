@@ -765,7 +765,7 @@ interface SignBundleV2ClassicalOnlyOptions {
 
 ### `verifySignedBundleV2(signedBundle, registry, policy?, options?)`
 
-検証者が決めるポリシーによる、署名済みの V2 バンドルの検証です。現在の検証器は一次の監査チェーンと一次のマークルルートを確認しますが、オプションの二次チェーンや `audit_merkle_root_secondary` は再計算しません。検証に成功しても、それらの一貫性は保証されません（[実装上の欠落](STORAGE_AND_ANCHORING.md#dual-hash-chains)）。検証は、アドミッションやアクションの承認も与えません。
+検証者が決めるポリシーによる、署名済みの V2 バンドルの検証です。未公開のソースコードの検証器は、一次の監査チェーンとマークルルートに加え、存在する二次の `prev_hash_secondary`、`intent_hash_secondary`、`audit_merkle_root_secondary` も確認します（存在しないものは要求しません。公開済みの 2.2.0 はこれらを確認しないため、それを使った検証の成功はそれらの一貫性を保証しません）（[実装の状況](STORAGE_AND_ANCHORING.md#dual-hash-chains)）。検証は、アドミッションやアクションの承認も与えません。
 
 ```typescript
 async function verifySignedBundleV2(

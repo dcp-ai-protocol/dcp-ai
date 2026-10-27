@@ -58,6 +58,7 @@ fixture 副本（自测在临时副本上使用该选项）。
 | `v2.canonicalization` | 11 | `CANONICALIZATION_PROFILE.md` | `golden_vectors.json#canonicalization`、`#v2_canonicalization`、`interop_vectors.json#canonicalization` | 参考规范化器输出的 `dcp-jcs-v1` 字节 |
 | `v2.hashes` | 9 | DCP-AI-v2.0 §2.3、§10.3 | `golden_vectors.json#hash_vectors`、`#dual_hash_vectors` | SHA-256 / SHA3-256 值、双哈希和双 Merkle 根 |
 | `v2.signed_bundle` | 10 | `VERIFICATION.md`（V2） | `lib/verify.js`、在内存中构建的 bundle | 参考验证器对有效和被篡改 bundle 的判定；已验证不等于准入 |
+| `v2.secondary_sha3` | 51 | `VERIFICATION.md` 的 V2-11 及其勘误 | `secondary_sha3_vectors.json`、`lib/verify.js` | 参考验证器对存在的二级 SHA3-256 字段的判定，每个被拒绝的用例都有对照；不代表完整的二级链 |
 | `v2.schema` | 4 | DCP-AI-v2.0 | `schemas/v2`、`*_v2.json` 示例 | 仅模式有效性 |
 | `ext.dcp05_09.schema` | 18 | DCP-05 至 DCP-09 | `schemas/v2`、`<record>_v2.json` 示例 | 仅模式有效性 |
 | `ext.dcp05_09.wire` | 28 | DCP-05、DCP-08、DCP-09、`V2-WIRE-COMPATIBILITY.md` | `schemas/v2`、在内存中签名的记录、`interop_vectors.json#domain_separation_all_contexts` | 将这些记录的表示、模式有效性和签名作为不同层次分别检查；不代表功能合规 |

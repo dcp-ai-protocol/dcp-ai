@@ -270,10 +270,7 @@ Result fields keep the names of §5.2 in every SDK's JSON form.
 > **Added 25/10/2026. Not normative.** These notes add no requirement and change nothing above: they describe how
 > the reference code on `main` relates to this text. Where they differ, the normative text above stands.
 
-- The references to V2-1 to V2-14 point to the normative checklist of [VERIFICATION.md](../../VERIFICATION.md). On
-  `main` the SDK verifiers do not recompute the secondary SHA3-256 chain or root of V2-11, so "verified under V2-1 to
-  V2-14" (§7) holds with that limit: for a bundle that carries a secondary chain, the audit-chain hash checks performed
-  are the SHA-256 chain and root. Every other verification check, principal trust and every `strict-v1` check still
+- The references to V2-1 to V2-14 point to the normative checklist of [VERIFICATION.md](../../VERIFICATION.md). The published SDK packages do not check the secondary SHA3-256 fields of V2-11, so with them "verified under V2-1 to V2-14" (§7) holds with that limit; in the unreleased source code (27/10/2026) the SDK verifiers check the secondary fields that are present, and absent ones are not required. Every other verification check, principal trust and every `strict-v1` check still
   apply; the SHA-256 chain alone never admits a bundle.
 - The JSON in §2.2, §2.3, §2.4 and §4.1 illustrates the shapes, with placeholders (`…`, `<kid>`) for keys and
   identifiers; it is not a fixture and does not load as it is. The two `<kid>` entries of §2.4 stand for two different

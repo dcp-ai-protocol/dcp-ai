@@ -269,7 +269,7 @@ const intent = await handleDcpToolCall('dcp_declare_intent', {
 
 ## 说明
 
-- `dcp_verify_bundle` 在 `DEFAULT_VERIFIER_POLICY` 下运行 `@dcp-ai/sdk` 的 `verifySignedBundleV2`（哈希、清单、复合签名、会话绑定、SHA-256 审计链）。它不校验 JSON Schema（参考验证器 `lib/verify.js` 会校验），也不重新计算 V2-11 的二级 SHA3-256 链，并且 `verified` 结果既不是准入也不是授权。
+- `dcp_verify_bundle` 在 `DEFAULT_VERIFIER_POLICY` 下运行 `@dcp-ai/sdk` 的 `verifySignedBundleV2`（哈希、清单、复合签名、会话绑定、SHA-256 审计链）。它不校验 JSON Schema（参考验证器 `lib/verify.js` 会校验），它所依赖的已发布 `@dcp-ai/sdk` 2.2.0 也不检查 V2-11 的二级 SHA3-256 字段（SDK 的尚未发布的源代码会检查存在的字段），并且 `verified` 结果既不是准入也不是授权。
 - 除 `dcp_verify_bundle` 和回执外，工具处理器返回的都是草稿：需要签名的标识符和字段，绝不包含密钥或签名（`next_step` 说明缺少什么）。
 - `dcp_create_identity` 只返回标识符 — 密钥生成和签名是单独的步骤。
 - 风险等级根据风险评分自动计算：routine（<200）、standard（200-499）、elevated（500-799）、maximum（800+）。

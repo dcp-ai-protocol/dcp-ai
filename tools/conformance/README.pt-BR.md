@@ -63,6 +63,7 @@ dos fixtures (os autotestes o usam com cópias temporárias).
 | `v2.canonicalization` | 11 | `CANONICALIZATION_PROFILE.md` | `golden_vectors.json#canonicalization`, `#v2_canonicalization`, `interop_vectors.json#canonicalization` | Bytes `dcp-jcs-v1` do canonicalizador de referência |
 | `v2.hashes` | 9 | DCP-AI-v2.0 §2.3, §10.3 | `golden_vectors.json#hash_vectors`, `#dual_hash_vectors` | Valores SHA-256 / SHA3-256, hashes duplos e raízes de Merkle duplas |
 | `v2.signed_bundle` | 10 | `VERIFICATION.md` (V2) | `lib/verify.js`, bundle construído em memória | Vereditos do verificador de referência para bundles válidos e adulterados; verificado não é admissão |
+| `v2.secondary_sha3` | 51 | `VERIFICATION.md` V2-11 e sua errata | `secondary_sha3_vectors.json`, `lib/verify.js` | Vereditos do verificador de referência sobre os campos secundários SHA3-256 presentes, com um controle por caso rejeitado; não uma cadeia secundária completa |
 | `v2.schema` | 4 | DCP-AI-v2.0 | `schemas/v2`, exemplos `*_v2.json` | Apenas validade de esquema |
 | `ext.dcp05_09.schema` | 18 | DCP-05 a DCP-09 | `schemas/v2`, exemplos `<record>_v2.json` | Apenas validade de esquema |
 | `ext.dcp05_09.wire` | 28 | DCP-05, DCP-08, DCP-09, `V2-WIRE-COMPATIBILITY.md` | `schemas/v2`, registros assinados em memória, `interop_vectors.json#domain_separation_all_contexts` | Representação, validade de esquema e assinatura destes registros como camadas separadas; não conformidade funcional |

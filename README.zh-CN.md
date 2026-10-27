@@ -520,7 +520,7 @@ cd docker && docker compose up -d
 
 DCP v2.0 采用混合密码架构以实现抗量子安全。算法选择和密码学敏捷性由 [Crypto Profile](spec/profiles/crypto/) 规定。
 
-此表描述协议设计。SDK 不执行 X25519 + ML-KEM-768 的组合交换；A2A 会话密钥由调用方提供。当前的 V2 bundle 验证器不会重新计算可选的次级审计链或次级 Merkle 根。实现限制参见 [NIST 符合性](docs/NIST_CONFORMITY.md)和[安全模型](docs/SECURITY_MODEL.md)。
+此表描述协议设计。SDK 不执行 X25519 + ML-KEM-768 的组合交换；A2A 会话密钥由调用方提供。尚未发布的源代码中的 V2 验证器会检查存在的可选次级审计链链接和次级 Merkle 根；已发布的软件包早于这项检查（[双哈希链](docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)）。实现限制参见 [NIST 符合性](docs/NIST_CONFORMITY.md)和[安全模型](docs/SECURITY_MODEL.md)。
 
 | 算法 | 标准 | 用途 |
 |-----------|----------|---------|

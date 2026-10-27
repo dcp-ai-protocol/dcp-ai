@@ -147,7 +147,7 @@ verify_tool = StructuredTool.from_function(
 | `arun(signed_bundle_json)` | `(str \| dict) -> str` | 异步验证 |
 
 V2 bundle 在 `DCPTool(verifier_policy=...)` 下用 `dcp_ai.v2` 的 `verify_signed_bundle_v2` 验证（复合签名、会话绑定、清单、
-工件间一致性、SHA-256 审计链（不是 V2-11 的二级 SHA3-256 链或根）以及密钥有效性）。策略可以是在
+工件间一致性、SHA-256 审计链（以及在 SDK 的尚未发布的源代码中、而非已发布的 2.10.0 中，存在的 V2-11 二级 SHA3-256 字段）以及密钥有效性）。策略可以是在
 `DEFAULT_VERIFIER_POLICY` 之上设置 `VerifierPolicy` 字段的 dict（不带 `risk_overrides` 的 `default_mode` 适用于所有风险
 等级），也可以是完整的 `VerifierPolicy`；默认为 `DEFAULT_VERIFIER_POLICY`。V1 bundle 只有 Ed25519 签名，没有
 intended_verifier，也没有会话时间窗口，只有当策略具有 `allow_v1_bundles`、接受 ed25519（在 `accepted_classical_algs` 中，

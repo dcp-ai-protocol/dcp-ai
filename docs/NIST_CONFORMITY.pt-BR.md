@@ -457,7 +457,7 @@ O DCP-AI se alinha às diretrizes de transição publicadas pelo NIST para a cri
 | Usar algoritmos aprovados das FIPS 203/204/205 | ML-KEM-768, ML-DSA-65, SLH-DSA-192f (ML-DSA-87 reservado, não implementado) |
 | Manter a agilidade criptográfica | Registro de algoritmos + sistema de avisos + abstração de provedores |
 | Planejar a obsolescência de algoritmos | Avisos assinados pela governança com resposta automática |
-| Proteger dados de longa duração | Trilhas de auditoria encadeadas por hash; as cadeias de hash duplo são produzidas, mas os verificadores V2 atuais não recalculam a cadeia secundária ([STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)) |
+| Proteger dados de longa duração | Trilhas de auditoria encadeadas por hash; as cadeias de hash duplo são produzidas, e os verificadores V2 do código-fonte ainda não publicado verificam os campos secundários presentes (ainda não os pacotes publicados) ([STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)) |
 | Usar construções híbridas durante a transição | Vinculação composta `pq_over_classical` |
 | Módulos de segurança de hardware para guardar as chaves | Não implementado: não há integração com HSM/TPM; o `HsmCryptoProvider` do código-fonte é uma simulação (§2.2) |
 | Testar a interoperabilidade | Validação KAT entre SDKs, suíte de testes de conformidade |

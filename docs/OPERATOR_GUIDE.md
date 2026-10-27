@@ -97,7 +97,7 @@ cargo add dcp-ai@2.11.0
 go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
 ```
 
-See each SDK's README for the exact import path and API surface, and its *Release status* for what the published version lacks. On `main`, the TypeScript, Python, Go and Rust SDKs verify V1 and V2 bundles natively, and `@dcp-ai/wasm` exposes the Rust V2 verifier. Their V2 verifiers follow the checklist in [VERIFICATION.md](../spec/VERIFICATION.md), including each artifact's signature (Step V2-8) and the PQ checkpoints (Step V2-12), with one gap: they check the primary audit chain and Merkle root but do not recompute the optional secondary chain or `audit_merkle_root_secondary` (Step V2-11; see [STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)).
+See each SDK's README for the exact import path and API surface, and its *Release status* for what the published version lacks. On `main`, the TypeScript, Python, Go and Rust SDKs verify V1 and V2 bundles natively, and `@dcp-ai/wasm` exposes the Rust V2 verifier. Their V2 verifiers follow the checklist in [VERIFICATION.md](../spec/VERIFICATION.md), including each artifact's signature (Step V2-8) and the PQ checkpoints (Step V2-12), and, in the unreleased source code, the secondary fields of Step V2-11 that are present: the published packages check the primary audit chain and Merkle root but not the optional secondary chain or `audit_merkle_root_secondary` (see [STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)).
 
 ### Stateless by design
 
@@ -165,7 +165,7 @@ For `anchor`, `transparency-log`, and `revocation` env variables see their respe
 
 ## Blockchain and verification
 
-- **Verification only:** The service can limit itself to POST `/verify`, applying the [VERIFICATION.md](../spec/VERIFICATION.md) checklist (schema, signature, intent_hash, audit chain, merkle; the SDK verifiers do not yet recompute the optional secondary chain). No blockchain needed.
+- **Verification only:** The service can limit itself to POST `/verify`, applying the [VERIFICATION.md](../spec/VERIFICATION.md) checklist (schema, signature, intent_hash, audit chain, merkle; the SDK verifiers in the unreleased source code also check the optional secondary chain fields that are present; the published packages do not). No blockchain needed.
 - **Verify anchor_receipt:** If the client sends an `anchor_receipt` with the bundle, the service can optionally check that `bundle_hash` appears at the given chain/log index using **public data only** (e.g. fetch tx from block explorer). No central server of the protocol is involved.
 - **Anchor (write):** The operator runs a node or uses RPC and writes hashes to an existing chain; the service returns `anchor_receipt` to the client. This is optional and operator-specific, and the reference anchor service does not do it yet (see [`services/anchor/README.md`](../services/anchor/README.md)).
 

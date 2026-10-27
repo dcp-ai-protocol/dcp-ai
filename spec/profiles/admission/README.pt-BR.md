@@ -316,10 +316,7 @@ Os campos do resultado mantêm os nomes do §5.2 na forma JSON de cada SDK.
 > **Acrescentadas em 25/10/2026. Não normativas.** Estas notas não acrescentam nenhum requisito nem mudam nada do que está acima: descrevem como
 > o código de referência em `main` se relaciona com este texto. Onde divergem, prevalece o texto normativo acima.
 
-- As referências a V2-1 a V2-14 remetem à lista de verificação normativa do [VERIFICATION.md](../../VERIFICATION.md). Em
-  `main` os verificadores dos SDKs não recalculam a cadeia nem a raiz secundárias SHA3-256 do V2-11, então “foi verificado segundo V2-1 a
-  V2-14” (§7) vale com esse limite: para um bundle que traz uma cadeia secundária, as verificações de hash da cadeia de auditoria realizadas
-  são as da cadeia e da raiz SHA-256. Todas as demais verificações, a confiança no principal e todas as verificações do
+- As referências a V2-1 a V2-14 remetem à lista de verificação normativa do [VERIFICATION.md](../../VERIFICATION.md). Os pacotes publicados dos SDKs não verificam os campos secundários SHA3-256 do V2-11, então com eles “foi verificado segundo V2-1 a V2-14” (§7) vale com esse limite; no código-fonte ainda não publicado (27/10/2026), os verificadores dos SDKs verificam os campos secundários presentes, e os ausentes não são exigidos. Todas as demais verificações, a confiança no principal e todas as verificações do
   `strict-v1` continuam valendo; a cadeia SHA-256 sozinha nunca admite um bundle.
 - O JSON dos §2.2, §2.3, §2.4 e §4.1 ilustra as formas, com marcadores de posição (`…`, `<kid>`) para chaves e
   identificadores; não é um fixture e não é carregado como está. As duas entradas `<kid>` do §2.4 representam dois kids reais

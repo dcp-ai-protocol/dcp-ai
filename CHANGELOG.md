@@ -16,6 +16,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Security
 
+- **Acceptance change (unreleased source code, 27/10/2026): the secondary SHA3-256 fields are verified when present.**
+  The TypeScript, Python, Go and Rust V2 verifiers, and the WASM build from the Rust SDK, now check
+  `audit_merkle_root_secondary` (the SHA3-256 tree built like the primary one; `sha3-256:` followed by 64 zeros for an
+  empty trail), each `prev_hash_secondary` (`"GENESIS"` on the first entry, then the SHA3-256 of the entry before it as
+  carried) and each `intent_hash_secondary` (the SHA3-256 of the intent payload), as `spec/VERIFICATION.md` V2-11 and
+  its erratum of 27/10/2026 state. Absent fields are not required, so a verified bundle may still lack a complete
+  secondary chain; a present field that is `null`, not a string or wrong is rejected. Admission and the experimental
+  candidate routes reuse these checks; no API, result field, canonicalization or `hash_alg` handling changes. The
+  `prev_hash_secondary` schema pattern also accepts `"GENESIS"`, which OpenClaw writes on the first entry. Shared
+  vectors: `tests/interop/v2/secondary_sha3_vectors.json`. This is not in any published package yet: the versions in
+  [Published versions](docs/README.md#published-versions) do not check the secondary fields.
+
 - **Acceptance change: Ed25519 signatures with S >= L are now rejected** by the TypeScript SDK
   (`Ed25519Provider.verify`, hence every V2 and composite signature, `@dcp-ai/express` and
   `@dcp-ai/openclaw`; and `verifyObject`, hence `verifySignedBundle` V1) and by the reference
