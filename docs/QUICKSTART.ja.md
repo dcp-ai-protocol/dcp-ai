@@ -4,7 +4,7 @@
 
 # DCP-AI クイックスタートガイド
 
-> [英語版](QUICKSTART.md)の参考訳です（27/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](QUICKSTART.md)の参考訳です（28/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 このガイドでは、SDK で DCP の証拠を作成・検証する方法と、どのツールがデモかを説明します。
 
@@ -46,7 +46,7 @@
 
 ## 公開パッケージとこのガイド
 
-TypeScript の例は公開済みの `@dcp-ai/sdk` 2.2.0、npm CLI は `@dcp-ai/cli` 2.1.0、Python は PyPI の `dcp-ai` 2.10.0 を使います。[npm](NPM_RELEASES.md)、[Python](PYTHON_RELEASE.md)、[SECURITY.md](../SECURITY.md#supported-versions) を参照してください。Go と Rust の公開は別です。ソース開発には次を使います。
+TypeScript の例は公開済みの `@dcp-ai/sdk` 2.2.1、npm CLI は `@dcp-ai/cli` 2.1.1、Python は PyPI の `dcp-ai` 2.10.1 を使います。[npm](NPM_RELEASES.md)、[Python](PYTHON_RELEASE.md)、[SECURITY.md](../SECURITY.md#supported-versions) を参照してください。Go と Rust の公開は別です。ソース開発には次を使います。
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
@@ -115,7 +115,7 @@ npx @dcp-ai/cli init   # or: node /path/to/dcp-ai/cli/bin/dcp-ai.js init
 
 ## 3. TypeScript SDK
 
-以下の TypeScript の例は npm SDK 2.2.0 または開発用チェックアウトで動作します（[公開パッケージとこのガイド](#published-packages-and-this-guide)を参照）。
+以下の TypeScript の例は npm SDK 2.2.1 または開発用チェックアウトで動作します（[公開パッケージとこのガイド](#published-packages-and-this-guide)を参照）。
 
 次のどちらかをインストールします。
 
@@ -125,10 +125,10 @@ npx @dcp-ai/cli init   # or: node /path/to/dcp-ai/cli/bin/dcp-ai.js init
   npm install /path/to/dcp-ai/sdks/typescript
   ```
 
-- または、これらの修正と機能を含む公開済み SDK 2.2.0：
+- または、これらの修正と機能を含む公開済み SDK 2.2.1：
 
   ```bash
-  npm install @dcp-ai/sdk@^2.2.0
+  npm install @dcp-ai/sdk@^2.2.1
   ```
 
 <a id="create-and-sign-a-bundle-v1--ed25519"></a>
@@ -298,10 +298,10 @@ console.log(result.verified, result.errors); // true []
   pip install -e /path/to/dcp-ai/sdks/python
   ```
 
-- または、ここで説明する修正と API を含む公開済みの 2.10.0：
+- または、ここで説明する修正と API を含む公開済みの 2.10.1：
 
   ```bash
-  pip install "dcp-ai>=2.10.0,<3"
+  pip install "dcp-ai>=2.10.1,<3"
   ```
 
 <a id="create-and-verify-a-bundle"></a>
@@ -464,7 +464,7 @@ const encrypted = encryptMessage(session, { action: 'transfer', amount: 100 });
 ### Go
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.1
 ```
 
 ```go
@@ -477,7 +477,7 @@ canonical, _ := dcp.Canonicalize(map[string]string{"b": "2", "a": "1"})
 ### Rust
 
 ```bash
-cargo add dcp-ai@2.11.0
+cargo add dcp-ai@2.11.1
 ```
 
 ML-DSA-65、ML-KEM-768、SLH-DSA-192f、Ed25519 のプロバイダーは `dcp_ai::providers::*` にあります。すべての API は [docs.rs の `dcp-ai` クレートのドキュメント](https://docs.rs/dcp-ai)を参照してください。
@@ -487,7 +487,7 @@ ML-DSA-65、ML-KEM-768、SLH-DSA-192f、Ed25519 のプロバイダーは `dcp_ai
 ### WebAssembly（ブラウザー）
 
 ```bash
-npm install @dcp-ai/wasm@^2.1.0   # the published version; for main, see the WASM SDK's Release status
+npm install @dcp-ai/wasm@^2.1.1   # the published version; for main, see the WASM SDK's Release status
 ```
 
 Rust SDK の基本機能をブラウザーと Node.js に公開します。Node.js では、`initDcp()` は `.wasm` ファイルを `data:` URL として必要とします。[初期化](../sdks/wasm/README.md#initialization-browser-and-nodejs)を参照してください。

@@ -4,7 +4,7 @@
 
 # DCP-AI 与 NIST 后量子密码标准的符合性声明
 
-> 本文是[英文版](NIST_CONFORMITY.md)的参考译文，更新于 25/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](NIST_CONFORMITY.md)的参考译文，更新于 28/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 **规范版本：** 2.0
 **最后更新：** 2026 年 10 月 25 日
@@ -461,7 +461,7 @@ DCP-AI 与 NIST 发布的后量子密码过渡指南保持一致：
 | 使用 FIPS 203/204/205 批准的算法 | ML-KEM-768、ML-DSA-65、SLH-DSA-192f（ML-DSA-87 已保留，未实现） |
 | 保持密码敏捷性 | 算法注册表 + 通告系统 + 提供程序抽象 |
 | 为算法弃用做好计划 | 由治理签名并带自动响应的通告 |
-| 保护长期数据 | 哈希链接的审计轨迹；会生成双哈希链，尚未发布的源代码中的 V2 验证器会检查存在的次级字段（已发布的软件包尚不检查）（[STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)） |
+| 保护长期数据 | 哈希链接的审计轨迹；会生成双哈希链，自 `@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`dcp-ai` 2.10.1（PyPI）、Go v2.11.1 和 Rust `dcp-ai` 2.11.1 起，V2 验证器会检查存在的次级字段（更早的版本不检查）（[STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)） |
 | 过渡期间使用混合构造 | `pq_over_classical` 复合绑定 |
 | 用硬件安全模块存储密钥 | 未实现：没有 HSM/TPM 集成；源码中的 `HsmCryptoProvider` 是模拟实现（§2.2） |
 | 测试互操作性 | 跨 SDK 的 KAT 验证、符合性测试套件 |

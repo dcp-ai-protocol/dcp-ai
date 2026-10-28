@@ -4,9 +4,9 @@
 
 # 变更日志
 
-> 本文是[英文版](CHANGELOG.md)的参考译文，更新于 27/10/2026。每个条目（包括 `[Unreleased]` 下的条目）描述的是当时所作的变更，并不保证当前行为；已发布的各版本是**带日期的历史记录**。如有出入，以英文版为准。
+> 本文是[英文版](CHANGELOG.md)的参考译文，更新于 28/10/2026。每个条目（包括 `[Unreleased]` 下的条目）描述的是当时所作的变更，并不保证当前行为；已发布的各版本是**带日期的历史记录**。如有出入，以英文版为准。
 
-**已发布版本（2026 年 10 月 26 日）。** npm（13 个软件包，包括 `@dcp-ai/sdk` 2.2.0）、Python `dcp-ai` 2.10.0、Go `v2.11.0` 和 Rust `dcp-ai` 2.11.0 均已发布，包含验证器修复、准入功能和实验性的选择启用 API；`dcp-jcs-v1` 仍是规范性默认值。见[已发布版本](docs/README.md#published-versions)。以下条目保留开发历史；`[Unreleased]` 不表示这些功能尚未发布。
+**已发布版本（2026 年 10 月 26 日）。** npm（13 个软件包，包括 `@dcp-ai/sdk` 2.2.0）、Python `dcp-ai` 2.10.0、Go `v2.11.0` 和 Rust `dcp-ai` 2.11.0 均已发布，包含验证器修复、准入功能和实验性的选择启用 API；`dcp-jcs-v1` 仍是规范性默认值。见[已发布版本](docs/README.md#published-versions)。以下条目保留开发历史；`[Unreleased]` 不表示这些功能尚未发布。2026 年 10 月 28 日的六个修复版本见[单独的章节](#2026-10-28-sha3-patch-releases)。
 
 本项目的所有重要变更都会记录在此文件中。
 
@@ -17,21 +17,37 @@
 > 当前行为，请参阅 [README](README.md)、[文档](docs/README.md)、[规范](spec/README.md)和
 > [API 参考](docs/API_REFERENCE.md)。
 
-## [Unreleased]
+<a id="2026-10-28-sha3-patch-releases"></a>
 
-<a id="security"></a>
+## [2026-10-28] SHA3 修复版本
 
-### 安全
+发布于 2026 年 10 月 28 日：npm 上的 `@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1 和 `@dcp-ai/cli` 2.1.1，PyPI 上的 `dcp-ai` 2.10.1，Go 模块 `v2.11.1`（标签 `sdks/go/v2.11.1`），以及 crates.io 上的 Rust `dcp-ai` 2.11.1。其他十个 npm 软件包不变。见[已发布版本](docs/README.md#published-versions)以及 [npm](docs/NPM_RELEASES.md)、[Python](docs/PYTHON_RELEASE.md)、[Go](docs/GO_RELEASE.md) 和 [Rust](docs/RUST_RELEASE.md) 的发布说明。
 
-- **接受范围变更（尚未发布的源代码，2026 年 10 月 27 日）：存在的二级 SHA3-256 字段会被验证。** TypeScript、Python、
+<a id="secondary-sha3-256-verification"></a>
+
+### 二级 SHA3-256 验证
+
+- **接受范围变更：存在的二级 SHA3-256 字段会被验证**（开发于 2026 年 10 月 27 日）。 TypeScript、Python、
   Go 和 Rust 的 V2 验证器，以及基于 Rust SDK 构建的 WASM，现在按 `spec/VERIFICATION.md` 的 V2-11 及其 2026 年 10 月
   27 日的勘误，检查 `audit_merkle_root_secondary`（按主树方式构建的 SHA3-256 树；空记录为 `sha3-256:` 后接 64 个零）、
   每个 `prev_hash_secondary`（第一个条目为 `"GENESIS"`，之后为 bundle 中原样的前一条目的 SHA3-256）以及每个
   `intent_hash_secondary`（意图载荷的 SHA3-256）。不存在的字段不作要求，因此已验证的 bundle 仍可能没有完整的二级链；
   存在的字段如果是 `null`、不是字符串或不正确，则被拒绝。准入和实验性候选路由复用这些检查；API、结果字段、规范化和
   `hash_alg` 的处理均不变。`prev_hash_secondary` 的模式也接受 OpenClaw 在第一个条目中写入的 `"GENESIS"`。共享向量：
-  `tests/interop/v2/secondary_sha3_vectors.json`。这尚未包含在任何已发布的软件包中：
-  [已发布版本](docs/README.md#published-versions)中的版本不检查二级字段。
+  `tests/interop/v2/secondary_sha3_vectors.json`。更早的版本不检查这些字段。 已发布的适配器 `@dcp-ai/express`、`@dcp-ai/openclaw`、`@dcp-ai/anthropic-mcp` 和 `@dcp-ai/google-a2a` 2.1.0 没有重新发布：它们依赖 `@dcp-ai/sdk` `^2.2.0`，当你的锁定文件解析到 `@dcp-ai/sdk` 2.2.1 或更高版本时即获得二级检查。
+
+<a id="package-metadata"></a>
+
+### 软件包元数据
+
+- `@dcp-ai/cli` 2.1.1 需要 `@dcp-ai/sdk` `^2.2.1`，`dcp-ai --version` 显示 `2.1.1`，而不再是过时的 `1.0.0`。
+- 遥测报告新版本：Go 的 `SDKVersion` 为 `2.11.1`；TypeScript、Python 和 Rust SDK 读取各自软件包的版本。
+
+## [Unreleased]
+
+<a id="security"></a>
+
+### 安全
 
 - **接受范围变更：现在会拒绝 S >= L 的 Ed25519 签名。** 涉及 TypeScript SDK
   （`Ed25519Provider.verify`，因而包括所有 V2 签名和复合签名、`@dcp-ai/express` 和

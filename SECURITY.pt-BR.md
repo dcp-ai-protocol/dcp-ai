@@ -4,7 +4,7 @@
 
 # Política de segurança
 
-> Tradução informativa da [versão em inglês](SECURITY.md), atualizada em 27/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](SECURITY.md), atualizada em 28/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 <a id="reporting-a-vulnerability"></a>
 
@@ -87,7 +87,9 @@ Os pacotes não compartilham um único número de versão; os pacotes npm `@dcp-
 | 1.0.x   | Sim (manutenção) |
 | < 1.0   | Não        |
 
-`@dcp-ai/sdk` 2.2.0 foi publicado no npm em 26/10/2026 e é `latest`. Inclui as correções do verificador; atualize com `npm install @dcp-ai/sdk@^2.2.0` e renove o lockfile. As versões anteriores afetadas não recebem as correções automaticamente. Veja o [inventário de pacotes npm publicados](docs/NPM_RELEASES.md).
+`@dcp-ai/sdk` 2.2.0 foi publicado no npm em 26/10/2026 como `latest`, com as correções do verificador. As versões anteriores afetadas não recebem as correções automaticamente.
+
+**Campos secundários SHA3-256 (28/10/2026).** `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1 e Rust `dcp-ai` 2.11.1 verificam os campos secundários SHA3-256 opcionais do [V2-11](spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) quando estão presentes; as versões anteriores, incluindo 2.2.0, 2.1.0, 2.10.0 e 2.11.0, não o fazem. Atualize com `npm install @dcp-ai/sdk@^2.2.1` ou o equivalente do seu ecossistema, e renove o lockfile. Os adaptadores publicados `@dcp-ai/express`, `@dcp-ai/openclaw`, `@dcp-ai/anthropic-mcp` e `@dcp-ai/google-a2a` 2.1.0 não foram republicados: dependem de `@dcp-ai/sdk` `^2.2.0` e obtêm as verificações secundárias quando seu lockfile resolve `@dcp-ai/sdk` 2.2.1 ou posterior. Veja o [inventário de pacotes npm publicados](docs/NPM_RELEASES.md) e [Versões publicadas](docs/README.md#published-versions).
 
 **Integrações afetadas e corrigidas (26/10/2026).** `@dcp-ai/express` 2.0.0 e `@dcp-ai/openclaw` 2.0.0 aceitam bundles V2 com estrutura válida sem verificar suas assinaturas. Ambos estão corrigidos na versão npm 2.1.0, com `@dcp-ai/sdk` `^2.2.0`. Não use 2.0.0 para verificar bundles V2. A integração FastAPI de `dcp-ai` 2.9.0 continua afetada; a implementação corrigida já está publicada no PyPI 2.10.0. Veja as [notas de atualização Python](docs/PYTHON_RELEASE.md). Veja [Express](integrations/express/README.md), [OpenClaw](integrations/openclaw/README.md) e [FastAPI](integrations/fastapi/README.md). O suporte a um pacote não significa que todas as versões antigas contenham as correções.
 

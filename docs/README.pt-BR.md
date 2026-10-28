@@ -4,7 +4,7 @@
 
 # Documentação
 
-> Tradução informativa da [versão em inglês](README.md), atualizada em 27/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](README.md), atualizada em 28/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Este índice organiza a documentação do DCP-AI por tarefa: primeiros passos, arquitetura e segurança, testes, referência,
 operações, especificações e propostas. As versões atuais dos pacotes em cada registro estão em
@@ -14,17 +14,18 @@ operações, especificações e propostas. As versões atuais dos pacotes em cad
 
 ## Versões publicadas
 
-Verificadas em 26/10/2026. As versões dos pacotes são independentes da versão do formato de transmissão e da especificação do DCP (2.0).
+Verificadas em 28/10/2026. As versões dos pacotes são independentes da versão do formato de transmissão e da especificação do DCP (2.0).
 
 | Registro | Pacote | Versão | Notas de publicação |
 |---|---|---|---|
-| npm | [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) (SDK TypeScript) | 2.2.0 | [pacotes npm](NPM_RELEASES.md) |
-| npm | [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) | 2.1.0 | [pacotes npm](NPM_RELEASES.md) |
-| npm | [`@dcp-ai/cli`](https://www.npmjs.com/package/@dcp-ai/cli) | 2.1.0 | [pacotes npm](NPM_RELEASES.md) |
-| PyPI | [`dcp-ai`](https://pypi.org/project/dcp-ai/2.10.0/) (SDK Python) | 2.10.0 | [publicação Python](PYTHON_RELEASE.md) |
-| Go modules | `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` | v2.11.0 | [publicação Go](GO_RELEASE.md) |
-| crates.io | [`dcp-ai`](https://crates.io/crates/dcp-ai/2.11.0) (SDK Rust) | 2.11.0 | [publicação Rust](RUST_RELEASE.md) |
+| npm | [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) (SDK TypeScript) | 2.2.1 | [pacotes npm](NPM_RELEASES.md) |
+| npm | [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) | 2.1.1 | [pacotes npm](NPM_RELEASES.md) |
+| npm | [`@dcp-ai/cli`](https://www.npmjs.com/package/@dcp-ai/cli) | 2.1.1 | [pacotes npm](NPM_RELEASES.md) |
+| PyPI | [`dcp-ai`](https://pypi.org/project/dcp-ai/2.10.1/) (SDK Python) | 2.10.1 | [publicação Python](PYTHON_RELEASE.md) |
+| Go modules | `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` | v2.11.1 | [publicação Go](GO_RELEASE.md) |
+| crates.io | [`dcp-ai`](https://crates.io/crates/dcp-ai/2.11.1) (SDK Rust) | 2.11.1 | [publicação Rust](RUST_RELEASE.md) |
 
+- Estas versões verificam os campos secundários SHA3-256 opcionais do V2-11 quando estão presentes; os ausentes não são exigidos, então um bundle verificado pode não ter uma cadeia secundária completa, e um campo presente inconsistente é rejeitado. As versões anteriores não os verificam. Os adaptadores publicados `@dcp-ai/express`, `@dcp-ai/openclaw`, `@dcp-ai/anthropic-mcp` e `@dcp-ai/google-a2a` 2.1.0 não foram republicados: dependem de `@dcp-ai/sdk` `^2.2.0` e obtêm as verificações secundárias quando seu lockfile resolve `@dcp-ai/sdk` 2.2.1 ou posterior.
 - Os adaptadores e geradores de projetos npm são opcionais e independentes do núcleo do protocolo; suas versões exatas
   estão em [NPM_RELEASES.md](NPM_RELEASES.md), que lista os 13 pacotes npm.
 - As versões anteriores afetadas e as notas de atualização estão em [SECURITY.md](../SECURITY.md#supported-versions); a migração

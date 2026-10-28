@@ -37,7 +37,7 @@ You only need the language you plan to build with. All SDKs implement the same V
 
 ## Published packages and this guide
 
-The TypeScript examples use published `@dcp-ai/sdk` 2.2.0, the npm CLI is `@dcp-ai/cli` 2.1.0, and Python is `dcp-ai` 2.10.0 on PyPI. See [npm](NPM_RELEASES.md), [Python](PYTHON_RELEASE.md) and [SECURITY.md](../SECURITY.md#supported-versions). Go and Rust releases are separate. For source development, use:
+The TypeScript examples use published `@dcp-ai/sdk` 2.2.1, the npm CLI is `@dcp-ai/cli` 2.1.1, and Python is `dcp-ai` 2.10.1 on PyPI. See [npm](NPM_RELEASES.md), [Python](PYTHON_RELEASE.md) and [SECURITY.md](../SECURITY.md#supported-versions). Go and Rust releases are separate. For source development, use:
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
@@ -106,7 +106,7 @@ The secret key files are written with default permissions (`0644` with the usual
 
 ## 3. TypeScript SDK
 
-The TypeScript examples below work with npm SDK 2.2.0 or a development checkout (see [Published packages and this guide](#published-packages-and-this-guide)).
+The TypeScript examples below work with npm SDK 2.2.1 or a development checkout (see [Published packages and this guide](#published-packages-and-this-guide)).
 
 Install one of the two:
 
@@ -116,10 +116,10 @@ Install one of the two:
   npm install /path/to/dcp-ai/sdks/typescript
   ```
 
-- or the published SDK 2.2.0, which includes these fixes and features:
+- or the published SDK 2.2.1, which includes these fixes and features:
 
   ```bash
-  npm install @dcp-ai/sdk@^2.2.0
+  npm install @dcp-ai/sdk@^2.2.1
   ```
 
 ### Create and Sign a Bundle (V1 — Ed25519)
@@ -283,10 +283,10 @@ Install one of the two:
   pip install -e /path/to/dcp-ai/sdks/python
   ```
 
-- or the published version 2.10.0, including the fixes and APIs described here:
+- or the published version 2.10.1, including the fixes and APIs described here:
 
   ```bash
-  pip install "dcp-ai>=2.10.0,<3"
+  pip install "dcp-ai>=2.10.1,<3"
   ```
 
 ### Create and Verify a Bundle
@@ -440,7 +440,7 @@ const encrypted = encryptMessage(session, { action: 'transfer', amount: 100 });
 ### Go
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.1
 ```
 
 ```go
@@ -453,7 +453,7 @@ canonical, _ := dcp.Canonicalize(map[string]string{"b": "2", "a": "1"})
 ### Rust
 
 ```bash
-cargo add dcp-ai@2.11.0
+cargo add dcp-ai@2.11.1
 ```
 
 Providers for ML-DSA-65, ML-KEM-768, SLH-DSA-192f, Ed25519 live under `dcp_ai::providers::*`. See the [`dcp-ai` crate docs on docs.rs](https://docs.rs/dcp-ai) for the full surface.
@@ -461,7 +461,7 @@ Providers for ML-DSA-65, ML-KEM-768, SLH-DSA-192f, Ed25519 live under `dcp_ai::p
 ### WebAssembly (browser)
 
 ```bash
-npm install @dcp-ai/wasm@^2.1.0   # the published version; for main, see the WASM SDK's Release status
+npm install @dcp-ai/wasm@^2.1.1   # the published version; for main, see the WASM SDK's Release status
 ```
 
 Exposes the Rust SDK's primitives to browsers and Node.js. In Node.js, `initDcp()` needs the `.wasm` file as a `data:` URL: see [Initialization](../sdks/wasm/README.md#initialization-browser-and-nodejs).

@@ -5,7 +5,7 @@
 
 # DCP-AI ↔ puente con Model Context Protocol (MCP)
 
-> Traducción informativa de [la versión en inglés](README.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](README.md), actualizada el 28/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Recibos firmados de DCP para las llamadas a herramientas de MCP, además de herramientas y recursos de DCP para servidores MCP.
 
@@ -272,7 +272,7 @@ const intent = await handleDcpToolCall('dcp_declare_intent', {
 
 ## Notas
 
-- `dcp_verify_bundle` ejecuta `verifySignedBundleV2` de `@dcp-ai/sdk` bajo `DEFAULT_VERIFIER_POLICY` (hashes, manifiesto, firma compuesta, vinculación de sesión, la cadena de auditoría SHA-256). No valida los JSON Schemas (lo hace el verificador de referencia `lib/verify.js`) y el `@dcp-ai/sdk` 2.2.0 publicado del que depende no comprueba los campos secundarios SHA3-256 de V2-11 (el código fuente aún no publicado del SDK comprueba los presentes), y un resultado `verified` no es admisión ni autorización.
+- `dcp_verify_bundle` ejecuta `verifySignedBundleV2` de `@dcp-ai/sdk` bajo `DEFAULT_VERIFIER_POLICY` (hashes, manifiesto, firma compuesta, vinculación de sesión, la cadena de auditoría SHA-256). No valida los JSON Schemas (lo hace el verificador de referencia `lib/verify.js`) y `@dcp-ai/sdk` 2.2.0 no comprueba los campos secundarios SHA3-256 de V2-11 (2.2.1 y posteriores comprueban los presentes, cuando tu lockfile lo resuelve), y un resultado `verified` no es admisión ni autorización.
 - Aparte de `dcp_verify_bundle` y los recibos, los manejadores de herramientas devuelven borradores: identificadores y campos para firmar, nunca claves ni firmas (`next_step` dice lo que falta).
 - `dcp_create_identity` devuelve solo identificadores — la generación de claves y la firma son pasos aparte.
 - El nivel de riesgo se calcula automáticamente a partir de la puntuación de riesgo: routine (<200), standard (200-499), elevated (500-799), maximum (800+).

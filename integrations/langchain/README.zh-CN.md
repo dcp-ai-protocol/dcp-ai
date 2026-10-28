@@ -5,7 +5,7 @@
 
 # dcp_ai.langchain — LangChain 集成
 
-> 本文是[英文版](README.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](README.md)的参考译文，更新于 28/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 DCP 与 LangChain 的集成。它包装 LangChain 代理，使每次完成的调用都在 V2 形式、以哈希链连接的审计轨迹中留下一个条目，并提供 bundle 验证工具和回调处理器。
 
@@ -27,7 +27,7 @@ DCP-01 至 DCP-09，部分支持：采用这些规范形式的未签名记录，
 2.9.0 将所有 bundle 发送到 V1。2.10.0 使用规范性验证器验证 V2，并对 V1 和 V2 强制执行所配置的策略；下文的未签名记录和回调限制保持不变。
 
 ```bash
-pip install "dcp-ai[langchain]>=2.10.0,<3"
+pip install "dcp-ai[langchain]>=2.10.1,<3"
 ```
 
 源码开发：
@@ -147,7 +147,7 @@ verify_tool = StructuredTool.from_function(
 | `arun(signed_bundle_json)` | `(str \| dict) -> str` | 异步验证 |
 
 V2 bundle 在 `DCPTool(verifier_policy=...)` 下用 `dcp_ai.v2` 的 `verify_signed_bundle_v2` 验证（复合签名、会话绑定、清单、
-工件间一致性、SHA-256 审计链（以及在 SDK 的尚未发布的源代码中、而非已发布的 2.10.0 中，存在的 V2-11 二级 SHA3-256 字段）以及密钥有效性）。策略可以是在
+工件间一致性、SHA-256 审计链（以及自 2.10.1 起、而非 2.10.0 中，存在的 V2-11 二级 SHA3-256 字段）以及密钥有效性）。策略可以是在
 `DEFAULT_VERIFIER_POLICY` 之上设置 `VerifierPolicy` 字段的 dict（不带 `risk_overrides` 的 `default_mode` 适用于所有风险
 等级），也可以是完整的 `VerifierPolicy`；默认为 `DEFAULT_VERIFIER_POLICY`。V1 bundle 只有 Ed25519 签名，没有
 intended_verifier，也没有会话时间窗口，只有当策略具有 `allow_v1_bundles`、接受 ed25519（在 `accepted_classical_algs` 中，

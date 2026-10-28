@@ -5,7 +5,7 @@
 
 # オペレーターガイド — 検証サービスの運用
 
-> [英語版](OPERATOR_GUIDE.md)の参考訳です（27/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](OPERATOR_GUIDE.md)の参考訳です（28/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 このガイドは、「エージェント検証済み」サービス、つまり DCP の Signed Bundle を検証する（オプションでハッシュをブロックチェーンにアンカーする）HTTP API を運用したい**第三者**のためのものです。プロトコルは中央のサーバーを**必要としません**。検証はいつでも `dcp verify-bundle` でローカルに行えます。このサービスは**オプション**であり、オペレーターの判断で運用されます。
 
@@ -121,11 +121,11 @@ Fly.io 用の設定済みの構成が [`deploy/fly/`](../deploy/fly/) にあり�
 ```bash
 npm install @dcp-ai/sdk        # TypeScript / Node.js
 pip install dcp-ai             # Python
-cargo add dcp-ai@2.11.0
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
+cargo add dcp-ai@2.11.1
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.1
 ```
 
-正確なインポートパスと API の範囲は各 SDK の README を、公開済みのバージョンに欠けているものはその *Release status* を参照してください。`main` では、TypeScript、Python、Go、Rust の SDK が V1 と V2 のバンドルをネイティブに検証し、`@dcp-ai/wasm` が Rust の V2 検証器を公開しています。それらの V2 検証器は、各アーティファクトの署名（ステップ V2-8）と PQ チェックポイント（ステップ V2-12）を含め、[VERIFICATION.md](../spec/VERIFICATION.md) のチェックリストに従いますが、未公開のソースコードでは、存在するステップ V2-11 の二次フィールドも確認します。公開済みのパッケージは一次の監査チェーンとマークルルートを確認しますが、オプションの二次チェーンや `audit_merkle_root_secondary` は確認しません（[STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains) を参照）。
+正確なインポートパスと API の範囲は各 SDK の README を、公開済みのバージョンに欠けているものはその *Release status* を参照してください。`main` では、TypeScript、Python、Go、Rust の SDK が V1 と V2 のバンドルをネイティブに検証し、`@dcp-ai/wasm` が Rust の V2 検証器を公開しています。それらの V2 検証器は、各アーティファクトの署名（ステップ V2-8）と PQ チェックポイント（ステップ V2-12）を含め、[VERIFICATION.md](../spec/VERIFICATION.md) のチェックリストに従い、`@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`dcp-ai` 2.10.1（PyPI）、Go v2.11.1、Rust `dcp-ai` 2.11.1 以降では、存在するステップ V2-11 の二次フィールドも確認します。それより前のバージョンは一次の監査チェーンとマークルルートを確認しますが、オプションの二次チェーンや `audit_merkle_root_secondary` は確認しません（[STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains) を参照）。
 
 <a id="stateless-by-design"></a>
 
@@ -201,7 +201,7 @@ go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
 
 ## ブロックチェーンと検証
 
-- **検証のみ：** サービスは POST `/verify` だけに限定し、[VERIFICATION.md](../spec/VERIFICATION.md) のチェックリスト（スキーマ、署名、intent_hash、監査チェーン、merkle。未公開のソースコードの SDK の検証器は、存在するオプションの二次チェーンのフィールドも確認する。公開済みのパッケージは確認しない）を適用できます。ブロックチェーンは不要です。
+- **検証のみ：** サービスは POST `/verify` だけに限定し、[VERIFICATION.md](../spec/VERIFICATION.md) のチェックリスト（スキーマ、署名、intent_hash、監査チェーン、merkle。`@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`dcp-ai` 2.10.1（PyPI）、Go v2.11.1、Rust `dcp-ai` 2.11.1 以降の SDK の検証器は、存在するオプションの二次チェーンのフィールドも確認する。それより前のバージョンは確認しない）を適用できます。ブロックチェーンは不要です。
 - **anchor_receipt の確認：** クライアントがバンドルと一緒に `anchor_receipt` を送ってきた場合、サービスはオプションで、`bundle_hash` が指定されたチェーンやログのインデックスに現れることを、**公開データだけ**を使って確認できます（例：ブロックエクスプローラーからトランザクションを取得する）。プロトコルの中央サーバーは関与しません。
 - **アンカー（書き込み）：** オペレーターはノードを運用するか RPC を使って既存のチェーンにハッシュを書き込み、サービスはクライアントに `anchor_receipt` を返します。これはオプションでオペレーターごとに異なり、リファレンスのアンカーサービスはまだこれを行いません（[`services/anchor/README.md`](../services/anchor/README.md) を参照）。
 

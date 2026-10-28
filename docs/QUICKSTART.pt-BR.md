@@ -4,7 +4,7 @@
 
 # Guia de início rápido do DCP-AI
 
-> Tradução informativa da [versão em inglês](QUICKSTART.md), atualizada em 27/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](QUICKSTART.md), atualizada em 28/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Este guia mostra como produzir e verificar evidências DCP com um SDK, e quais ferramentas são demonstrações.
 
@@ -48,7 +48,7 @@ Você só precisa da linguagem com que vai trabalhar. Todos os SDKs implementam 
 
 ## Pacotes publicados e este guia
 
-Os exemplos TypeScript usam `@dcp-ai/sdk` 2.2.0 publicado, o CLI npm é `@dcp-ai/cli` 2.1.0 e Python é `dcp-ai` 2.10.0 no PyPI. Veja [npm](NPM_RELEASES.md), [Python](PYTHON_RELEASE.md) e [SECURITY.md](../SECURITY.md#supported-versions). Go e Rust têm publicações separadas. Para desenvolvimento do código-fonte, use:
+Os exemplos TypeScript usam `@dcp-ai/sdk` 2.2.1 publicado, o CLI npm é `@dcp-ai/cli` 2.1.1 e Python é `dcp-ai` 2.10.1 no PyPI. Veja [npm](NPM_RELEASES.md), [Python](PYTHON_RELEASE.md) e [SECURITY.md](../SECURITY.md#supported-versions). Go e Rust têm publicações separadas. Para desenvolvimento do código-fonte, use:
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
@@ -119,7 +119,7 @@ Os arquivos de chaves secretas são gravados com as permissões padrão (`0644` 
 
 ## 3. SDK TypeScript
 
-Os exemplos TypeScript abaixo funcionam com o npm SDK 2.2.0 ou com um checkout de desenvolvimento (veja [Pacotes publicados e este guia](#published-packages-and-this-guide)).
+Os exemplos TypeScript abaixo funcionam com o npm SDK 2.2.1 ou com um checkout de desenvolvimento (veja [Pacotes publicados e este guia](#published-packages-and-this-guide)).
 
 Instale uma das duas:
 
@@ -129,10 +129,10 @@ Instale uma das duas:
   npm install /path/to/dcp-ai/sdks/typescript
   ```
 
-- ou o SDK 2.2.0 publicado, que inclui essas correções e funcionalidades:
+- ou o SDK 2.2.1 publicado, que inclui essas correções e funcionalidades:
 
   ```bash
-  npm install @dcp-ai/sdk@^2.2.0
+  npm install @dcp-ai/sdk@^2.2.1
   ```
 
 <a id="create-and-sign-a-bundle-v1--ed25519"></a>
@@ -304,10 +304,10 @@ Instale uma das duas:
   pip install -e /path/to/dcp-ai/sdks/python
   ```
 
-- ou a versão publicada 2.10.0, incluindo as correções e APIs descritas aqui:
+- ou a versão publicada 2.10.1, incluindo as correções e APIs descritas aqui:
 
   ```bash
-  pip install "dcp-ai>=2.10.0,<3"
+  pip install "dcp-ai>=2.10.1,<3"
   ```
 
 <a id="create-and-verify-a-bundle"></a>
@@ -470,7 +470,7 @@ const encrypted = encryptMessage(session, { action: 'transfer', amount: 100 });
 ### Go
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.1
 ```
 
 ```go
@@ -483,7 +483,7 @@ canonical, _ := dcp.Canonicalize(map[string]string{"b": "2", "a": "1"})
 ### Rust
 
 ```bash
-cargo add dcp-ai@2.11.0
+cargo add dcp-ai@2.11.1
 ```
 
 Os provedores de ML-DSA-65, ML-KEM-768, SLH-DSA-192f e Ed25519 ficam em `dcp_ai::providers::*`. Veja a [documentação do crate `dcp-ai` no docs.rs](https://docs.rs/dcp-ai) para a superfície completa.
@@ -493,7 +493,7 @@ Os provedores de ML-DSA-65, ML-KEM-768, SLH-DSA-192f e Ed25519 ficam em `dcp_ai:
 ### WebAssembly (navegador)
 
 ```bash
-npm install @dcp-ai/wasm@^2.1.0   # the published version; for main, see the WASM SDK's Release status
+npm install @dcp-ai/wasm@^2.1.1   # the published version; for main, see the WASM SDK's Release status
 ```
 
 Expõe as primitivas do SDK Rust a navegadores e ao Node.js. No Node.js, `initDcp()` precisa do arquivo `.wasm` como URL `data:`: veja [Inicialização](../sdks/wasm/README.md#initialization-browser-and-nodejs).

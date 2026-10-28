@@ -5,7 +5,7 @@
 
 # DCP-AI + Express: inicio rápido
 
-> Traducción informativa de [la versión en inglés](QUICKSTART_EXPRESS.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](QUICKSTART_EXPRESS.md), actualizada el 28/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Verifica bundles firmados DCP en tus API de Express.js con el middleware `@dcp-ai/express`.
 
@@ -15,10 +15,10 @@ Verifica bundles firmados DCP en tus API de Express.js con el middleware `@dcp-a
 
 ## Instalación
 
-> **Versiones (26/10/2026).** Usa `@dcp-ai/express` 2.1.0 publicado con `@dcp-ai/sdk` 2.2.0. Incluyen el verificador corregido y la admisión con principales de confianza y `strict-v1`; no hace falta compilar un checkout. Véase el [README de Express](../integrations/express/README.md).
+> **Versiones (28/10/2026).** Usa `@dcp-ai/express` 2.1.0 publicado con `@dcp-ai/sdk` 2.2.1. Incluyen el verificador corregido y la admisión con principales de confianza y `strict-v1`; no hace falta compilar un checkout. Véase el [README de Express](../integrations/express/README.md).
 
 ```bash
-npm install @dcp-ai/express@^2.1.0 @dcp-ai/sdk@^2.2.0 express
+npm install @dcp-ai/express@^2.1.0 @dcp-ai/sdk@^2.2.1 express
 ```
 
 <a id="zero-config-scaffold-alternative"></a>
@@ -39,10 +39,10 @@ estructura de un bundle: no verifica ninguna firma, así que un bundle falsifica
 
 ### Equivalente en Python (FastAPI)
 
-Para servicios FastAPI, instala el puente Python desde PyPI 2.10.0. Incluye verificación de firmas V2 y los controles de admisión/recursos del [README de FastAPI](../integrations/fastapi/README.md). El middleware antiguo 2.9.0 comprueba la estructura V2 sin verificar firmas; actualiza antes de usarlo para V2.
+Para servicios FastAPI, instala el puente Python desde PyPI 2.10.1. Incluye verificación de firmas V2 y los controles de admisión/recursos del [README de FastAPI](../integrations/fastapi/README.md). El middleware antiguo 2.9.0 comprueba la estructura V2 sin verificar firmas; actualiza antes de usarlo para V2.
 
 ```bash
-pip install "dcp-ai[fastapi]>=2.10.0,<3"
+pip install "dcp-ai[fastapi]>=2.10.1,<3"
 ```
 
 ```python

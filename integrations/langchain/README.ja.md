@@ -5,7 +5,7 @@
 
 # dcp_ai.langchain — LangChain との統合
 
-> [英語版](README.md)の参考訳です（26/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](README.md)の参考訳です（28/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 DCP と LangChain の統合です。LangChain のエージェントを包み、完了した呼び出しのたびに、V2 の形のハッシュチェーンでつながった監査証跡にエントリーを残します。また、バンドルの検証ツールとコールバックのハンドラーを提供します。
 
@@ -27,7 +27,7 @@ DCP-01 から DCP-09。部分的なもので、これらの仕様の形に沿っ
 2.9.0 はすべてのバンドルを V1 に送ります。2.10.0 は規範的検証器で V2 を検証し、V1 と V2 に設定したポリシーを適用します。以下の未署名記録とコールバックの制限は変わりません。
 
 ```bash
-pip install "dcp-ai[langchain]>=2.10.0,<3"
+pip install "dcp-ai[langchain]>=2.10.1,<3"
 ```
 
 ソース開発の場合：
@@ -147,7 +147,7 @@ verify_tool = StructuredTool.from_function(
 | `arun(signed_bundle_json)` | `(str \| dict) -> str` | 非同期の検証 |
 
 V2 のバンドルは、`DCPTool(verifier_policy=...)` のもとで、`dcp_ai.v2` の `verify_signed_bundle_v2` によって検証されます
-（複合署名、セッションの結び付け、マニフェスト、アーティファクト間の一貫性、SHA-256 の監査チェーン（SDK の未公開のソースコードでは、公開済みの 2.10.0 とは異なり、存在する V2-11 の二次の SHA3-256 のフィールドも）、鍵の有効性）。ポリシーは、`DEFAULT_VERIFIER_POLICY` の上に設定する
+（複合署名、セッションの結び付け、マニフェスト、アーティファクト間の一貫性、SHA-256 の監査チェーン（2.10.1 以降では、2.10.0 とは異なり、存在する V2-11 の二次の SHA3-256 のフィールドも）、鍵の有効性）。ポリシーは、`DEFAULT_VERIFIER_POLICY` の上に設定する
 `VerifierPolicy` のフィールドの dict（`risk_overrides` なしの `default_mode` はすべてのリスクティアに適用されます）か、
 完全な `VerifierPolicy` で、既定は `DEFAULT_VERIFIER_POLICY` です。Ed25519 の署名しかなく、intended_verifier もセッションの
 期間も持たない V1 のバンドルは、ポリシーが `allow_v1_bundles` を持ち、ed25519 を受け入れ（`accepted_classical_algs`、

@@ -5,7 +5,7 @@
 
 # dcp_ai.openai — integración con OpenAI
 
-> Traducción informativa de [la versión en inglés](README.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](README.md), actualizada el 28/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Envoltorio de DCP para el cliente de Python de OpenAI. Crea una intención por cada llamada de chat y registra una entrada de auditoría cuando la llamada devuelve un resultado, ofrece herramientas de DCP para la llamada a funciones y mantiene el registro de auditoría encadenado por hash.
 
@@ -27,7 +27,7 @@ verificación de bundles mediante `dcp_verify_bundle`. No las implementa por com
 La versión 2.9.0 envía todos los bundles a V1. La 2.10.0 verifica V2 y aplica la política del verificador a ambas versiones, incluido el punto de entrada asíncrono `averify_bundle_tool_call`. Las descripciones de herramientas y los registros de auditoría por sí solos no son evidencia firmada ni autorización.
 
 ```bash
-pip install "dcp-ai[openai]>=2.10.0,<3"
+pip install "dcp-ai[openai]>=2.10.1,<3"
 ```
 
 Para desarrollar desde el código fuente:

@@ -5,7 +5,7 @@
 
 # DCP-AI + LangChain 快速开始
 
-> 本文是[英文版](QUICKSTART_LANGCHAIN.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](QUICKSTART_LANGCHAIN.md)的参考译文，更新于 28/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 将 Digital Citizenship Protocol 集成到你的 LangChain 智能体中，加入密码学身份、策略管控和审计轨迹。
 
@@ -18,10 +18,10 @@
 本指南使用 **LangChain.js v1**（TypeScript/Node，Node.js 22 或更高版本）。如果你使用的是 **Python 版 LangChain**，
 请跳到末尾的 Python 一节。
 
-从注册表安装使用 `@dcp-ai/sdk` 2.2.0。以下 DCP 示例可使用该已发布 SDK 运行；检出源码是开发时的可选方式。见 TypeScript SDK 的[发布状态](../sdks/typescript/README.md#installation)。
+从注册表安装使用 `@dcp-ai/sdk` 2.2.1。以下 DCP 示例可使用该已发布 SDK 运行；检出源码是开发时的可选方式。见 TypeScript SDK 的[发布状态](../sdks/typescript/README.md#installation)。
 
 ```bash
-npm install @dcp-ai/sdk@^2.2.0 langchain @langchain/core @langchain/openai zod
+npm install @dcp-ai/sdk@^2.2.1 langchain @langchain/core @langchain/openai zod
 ```
 
 <a id="zero-config-scaffold-alternative"></a>
@@ -216,7 +216,7 @@ const registry = getDefaultRegistry();
 如果你的 LangChain 技术栈是 Python 而不是 Node，请改用 Python SDK 内置的桥接：
 
 ```bash
-pip install "dcp-ai[langchain]>=2.10.0,<3"
+pip install "dcp-ai[langchain]>=2.10.1,<3"
 ```
 
 ```python
@@ -232,7 +232,7 @@ events = wrapped.get_audit_trail()  # V2 audit events, hash-chained; seal them i
 `DCPAgentWrapper` 为每次调用声明一个意图和一个策略决定，拒绝 `block`，并记录一条
 审计事件；`DCPTool` 让智能体可以验证其他智能体的 bundle，`DCPCallback` 则根据
 LangChain 回调记录审计事件。这些记录没有签名，默认策略会批准所有调用，`escalate` 时仍会运行
-智能体；在 LangChain 1.x 下 `DCPCallback` 需要你自己的处理器，PyPI 2.10.0 使用配置的策略验证 V1 和 V2（2.9.0 将所有 bundle 发送给 V1）。这些限制和完整接口参见 [integrations/langchain/README.md](../integrations/langchain/README.md)；
+智能体；在 LangChain 1.x 下 `DCPCallback` 需要你自己的处理器，PyPI 2.10.1 使用配置的策略验证 V1 和 V2（2.9.0 将所有 bundle 发送给 V1）。这些限制和完整接口参见 [integrations/langchain/README.md](../integrations/langchain/README.md)；
 Python 桥接并不是上面那个手写的 TypeScript 示例。
 
 ---

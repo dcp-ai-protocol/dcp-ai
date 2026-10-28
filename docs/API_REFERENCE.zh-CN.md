@@ -4,11 +4,11 @@
 
 # DCP-AI API 参考
 
-> 本文是[英文版](API_REFERENCE.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](API_REFERENCE.md)的参考译文，更新于 28/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
-本文是 `main` 上的 TypeScript SDK `@dcp-ai/sdk`（软件包版本 2.2.0，协议 DCP v2.0）的参考文档。
+本文是 `main` 上的 TypeScript SDK `@dcp-ai/sdk`（软件包版本 2.2.1，协议 DCP v2.0）的参考文档。
 
-> **npm 版本（2026 年 10 月 26 日）。** 本 TypeScript 参考文档适用于已发布的 `@dcp-ai/sdk` 2.2.0，包括委托人信任、`strict-v1` 和需显式启用的候选实验性 API。见[已发布的 npm 软件包](NPM_RELEASES.md)与 SDK [安装说明](../sdks/typescript/README.md#installation)。`dcp-jcs-v1` 仍是规范性默认配置。
+> **npm 版本（2026 年 10 月 28 日）。** 本 TypeScript 参考文档适用于已发布的 `@dcp-ai/sdk` 2.2.1，包括委托人信任、`strict-v1` 和需显式启用的候选实验性 API。见[已发布的 npm 软件包](NPM_RELEASES.md)与 SDK [安装说明](../sdks/typescript/README.md#installation)。`dcp-jcs-v1` 仍是规范性默认配置。
 
 本页的代码块是声明或片段，而不是完整的程序：`registry`、`keys`、
 `payloadBytes` 或 `signedBundle` 等名称代表按照 TypeScript SDK 的
@@ -763,7 +763,7 @@ interface SignBundleV2ClassicalOnlyOptions {
 
 ### `verifySignedBundleV2(signedBundle, registry, policy?, options?)`
 
-使用由验证器决定的策略对已签名的 V2 bundle 进行验证。尚未发布的源代码中的验证器会检查主审计链和 Merkle 根，也会检查存在的次级 `prev_hash_secondary`、`intent_hash_secondary` 和 `audit_merkle_root_secondary`（不存在的不作要求；已发布的 2.2.0 不检查它们，因此用它验证成功并不能证明它们一致）（[实现状态](STORAGE_AND_ANCHORING.md#dual-hash-chains)）。验证也不授予准入或操作授权。
+使用由验证器决定的策略对已签名的 V2 bundle 进行验证。验证器会检查主审计链和 Merkle 根，自 2.2.1 起也会检查存在的次级 `prev_hash_secondary`、`intent_hash_secondary` 和 `audit_merkle_root_secondary`（不存在的不作要求，因此验证成功并不表示次级链完整；2.2.0 不检查它们，因此用它验证成功并不能证明它们一致）（[实现状态](STORAGE_AND_ANCHORING.md#dual-hash-chains)）。验证也不授予准入或操作授权。
 
 ```typescript
 async function verifySignedBundleV2(

@@ -4,11 +4,11 @@
 
 # Referencia de la API de DCP-AI
 
-> Traducción informativa de [la versión en inglés](API_REFERENCE.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](API_REFERENCE.md), actualizada el 28/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
-Referencia del SDK de TypeScript `@dcp-ai/sdk` tal como está en `main` (versión del paquete 2.2.0, protocolo DCP v2.0).
+Referencia del SDK de TypeScript `@dcp-ai/sdk` tal como está en `main` (versión del paquete 2.2.1, protocolo DCP v2.0).
 
-> **Versiones npm (26/10/2026).** Esta referencia de TypeScript se aplica a `@dcp-ai/sdk` 2.2.0 publicado, incluida la confianza en el principal, `strict-v1` y las API experimentales opt-in del candidato. Véanse los [paquetes npm publicados](NPM_RELEASES.md) y las [instrucciones de instalación](../sdks/typescript/README.md#installation). `dcp-jcs-v1` sigue siendo el predeterminado normativo.
+> **Versiones npm (28/10/2026).** Esta referencia de TypeScript se aplica a `@dcp-ai/sdk` 2.2.1 publicado, incluida la confianza en el principal, `strict-v1` y las API experimentales opt-in del candidato. Véanse los [paquetes npm publicados](NPM_RELEASES.md) y las [instrucciones de instalación](../sdks/typescript/README.md#installation). `dcp-jcs-v1` sigue siendo el predeterminado normativo.
 
 Los bloques de código de esta página son declaraciones o fragmentos, no programas completos: nombres como `registry`, `keys`,
 `payloadBytes` o `signedBundle` representan valores construidos como en el
@@ -766,7 +766,7 @@ interface SignBundleV2ClassicalOnlyOptions {
 
 ### `verifySignedBundleV2(signedBundle, registry, policy?, options?)`
 
-Verificación de bundles V2 firmados con una política decidida por el verificador. El verificador del código fuente aún no publicado comprueba la cadena de auditoría primaria y la raíz de Merkle, y también los `prev_hash_secondary`, `intent_hash_secondary` y `audit_merkle_root_secondary` secundarios que estén presentes (los ausentes no se exigen; el paquete publicado 2.2.0 no los comprueba, así que con él un resultado satisfactorio no establece su coherencia) ([estado de la implementación](STORAGE_AND_ANCHORING.md#dual-hash-chains)). La verificación tampoco concede admisión ni autorización de acciones.
+Verificación de bundles V2 firmados con una política decidida por el verificador. El verificador comprueba la cadena de auditoría primaria y la raíz de Merkle y, desde 2.2.1, también los `prev_hash_secondary`, `intent_hash_secondary` y `audit_merkle_root_secondary` secundarios que estén presentes (los ausentes no se exigen, así que un resultado satisfactorio no muestra una cadena secundaria completa; 2.2.0 no los comprueba, así que con él un resultado satisfactorio no establece su coherencia) ([estado de la implementación](STORAGE_AND_ANCHORING.md#dual-hash-chains)). La verificación tampoco concede admisión ni autorización de acciones.
 
 ```typescript
 async function verifySignedBundleV2(

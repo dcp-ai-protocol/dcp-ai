@@ -4,11 +4,11 @@
 
 # 迁移指南：从 DCP-AI v1.0 到 v2.0
 
-> 本文是[英文版](MIGRATION_V1_V2.md)的参考译文，更新于 27/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](MIGRATION_V1_V2.md)的参考译文，更新于 28/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 **规范版本：** 2.0
 **最后更新：** 2026 年 10 月
-**适用于：** `main` 上的 SDK 和已发布的 `@dcp-ai/sdk` 2.2.0。npm 版本已于 2026 年 10 月 26 日核实；见 [NPM_RELEASES.md](NPM_RELEASES.md) 和 [SECURITY.md](../SECURITY.md#supported-versions)。其他 SDK 的版本见[已发布版本](README.md#published-versions)。
+**适用于：** `main` 上的 SDK 和已发布的 `@dcp-ai/sdk` 2.2.1。npm 版本已于 2026 年 10 月 28 日核实；见 [NPM_RELEASES.md](NPM_RELEASES.md) 和 [SECURITY.md](../SECURITY.md#supported-versions)。其他 SDK 的版本见[已发布版本](README.md#published-versions)。
 
 本指南带你把现有的 DCP-AI v1.0 集成迁移到 v2.0。迁移会引入后量子复合签名、双哈希链、会话绑定、自适应安全等级和智能体间通信；同时，有效的 v1.0 bundle 在验证器策略允许的情况下仍可通过验证（参见 1.2）。
 
@@ -69,12 +69,12 @@ v1.0 bundle 只有一个 Ed25519 签名，没有后量子签名，因此验证�
 
 ### 步骤 1：更新 SDK
 
-示例适用于已发布的 TypeScript SDK 2.2.0、Python `dcp-ai` 2.10.0、Go `v2.11.0` 和 Rust `dcp-ai` 2.11.0。见 [Python](PYTHON_RELEASE.md)、[Go](GO_RELEASE.md)、[Rust](RUST_RELEASE.md) 发布说明及各 SDK README 中记录的限制。
+示例适用于已发布的 TypeScript SDK 2.2.1、Python `dcp-ai` 2.10.1、Go `v2.11.1` 和 Rust `dcp-ai` 2.11.1。见 [Python](PYTHON_RELEASE.md)、[Go](GO_RELEASE.md)、[Rust](RUST_RELEASE.md) 发布说明及各 SDK README 中记录的限制。
 
-**TypeScript**（2026 年 10 月 26 日已发布：2.2.0）：
+**TypeScript**（2026 年 10 月 28 日已发布：2.2.1）：
 
 ```bash
-npm install @dcp-ai/sdk@^2.2.0
+npm install @dcp-ai/sdk@^2.2.1
 ```
 
 **Python：**
@@ -87,13 +87,13 @@ pip install -e /path/to/dcp-ai/sdks/python     # main
 **Go**（注意 Go 模块要求的主版本后缀 v2）：
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.1
 ```
 
 **Rust：**
 
 ```toml
-dcp-ai = "2.11.0"
+dcp-ai = "2.11.1"
 ```
 
 **WebAssembly：** 从检出副本构建 `sdks/wasm`（`npm run build`），然后执行 `npm install /path/to/dcp-ai/sdks/wasm`。
@@ -299,7 +299,7 @@ const message = domainSeparatedMessage(DCP_CONTEXTS.Bundle, new TextEncoder().en
 
 新字段：`session_nonce`、`hash_alg`、`evidence.evidence_hash` 和 `pq_checkpoint_ref`；哈希带有
 `sha256:` 前缀。双哈希链会增加 `prev_hash_secondary`（SHA3-256）和 `hash_alg: "sha256+sha3-256"`。
-在尚未发布的源代码中，V2 验证器（包括实验性候选）会检查存在的次级链接、意图哈希和 `audit_merkle_root_secondary`；不存在的不作要求，而已发布的软件包早于这项检查，因此只有生成方和验证方都包含它时，生成这些字段才能带来额外保护
+自 `@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`dcp-ai` 2.10.1（PyPI）、Go v2.11.1 和 Rust `dcp-ai` 2.11.1 起，V2 验证器（包括实验性候选）会检查存在的次级链接、意图哈希和 `audit_merkle_root_secondary`；不存在的不作要求，而更早的版本不检查它们，因此只有生成方和验证方都包含它时，生成这些字段才能带来额外保护
 （[STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)）。
 审计条目不逐条签名：清单通过审计 Merkle 根对它们作出承诺，PQ
 检查点则对其中的区间签名。
@@ -656,8 +656,8 @@ if (version === '2.0') {
 - [ ] **复合签名**：`signBundleV2` 生成有效的复合签名
 - [ ] **域分离**：签名包含上下文标签
 - [ ] **复合绑定**：PQ 签名覆盖经典签名的字节
-- [ ] **双哈希链**：审计条目包含 `prev_hash_secondary`（SHA3-256）；尚未发布的源代码中的验证器会检查每个存在的链接（步骤 6）；已发布的软件包不会
-- [ ] **清单**：bundle 清单包含所有构件的哈希，使用双哈希链时还包含次级 Merkle 根，尚未发布的源代码中的验证器会在该根存在时检查它
+- [ ] **双哈希链**：审计条目包含 `prev_hash_secondary`（SHA3-256）；自 `@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`dcp-ai` 2.10.1（PyPI）、Go v2.11.1 和 Rust `dcp-ai` 2.11.1 起，验证器会检查每个存在的链接（步骤 6）；更早的版本不会
+- [ ] **清单**：bundle 清单包含所有构件的哈希，使用双哈希链时还包含次级 Merkle 根，自 `@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`dcp-ai` 2.10.1（PyPI）、Go v2.11.1 和 Rust `dcp-ai` 2.11.1 起，验证器会在该根存在时检查它
 - [ ] **会话 nonce**：bundle 中的所有构件共享同一个 nonce
 - [ ] **V2 验证**：正确签名的 v2.0 bundle 能通过 `verifySignedBundleV2`（或 `dcp verify-bundle`）
 - [ ] **V1 兼容性**：v1.0 bundle 仍能通过 V1 函数 `verifySignedBundle`（只接受 v1.0）、`dcp verify-bundle` 或 3.2 中那样的按版本分流的路由器验证；V2 函数 `verifySignedBundleV2` 只接受 v2.0

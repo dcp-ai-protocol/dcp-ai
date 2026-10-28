@@ -221,7 +221,7 @@ This checks the SHA-256 hash of each local schema against the canonical fingerpr
 - The optional V1 steps 8 to 11 (anchor receipt, jurisdictional revocation list, jurisdiction attestation,
   transparency-log proof) are not run by `dcp verify-bundle`, `lib/verify.js` or the SDK verifiers; a verifier that
   wants them runs them itself. Revocation snapshots are read by the admission profile, not by these steps.
-- Step V2-11: in the unreleased source code (27/10/2026) the SDK verifiers check the secondary fields that are present, as the erratum states, and `lib/verify.js` does when it resolves the SDK built from that source; the published packages predate this and do not: with them, a bundle that carries the secondary fields verifies on the SHA-256 chain and root alone, and a verifier that needs the secondary chain checks it itself.
+- Step V2-11: the SDK verifiers from `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1 and Rust `dcp-ai` 2.11.1 check the secondary fields that are present, as the erratum states, and `lib/verify.js` does when it resolves `@dcp-ai/sdk` 2.2.1 or later; earlier versions do not: with them, a bundle that carries the secondary fields verifies on the SHA-256 chain and root alone, and a verifier that needs the secondary chain checks it itself.
 - Step 10 describes the attestation signature as made "over `rpr_hash`", while [DCP-01](DCP-01.md) describes it over
   the canonical JSON of every field except `signature`, and the V2 schema uses a `composite_sig`. This note records
   the difference; it does not decide which applies.

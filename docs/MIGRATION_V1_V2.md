@@ -2,7 +2,7 @@
 
 **Specification version:** 2.0
 **Last updated:** October 2026
-**Applies to:** the SDKs on `main` and published `@dcp-ai/sdk` 2.2.0. npm versions were verified on 26/10/2026; see [NPM_RELEASES.md](NPM_RELEASES.md) and [SECURITY.md](../SECURITY.md#supported-versions). The versions of the other SDKs are in [Published versions](README.md#published-versions).
+**Applies to:** the SDKs on `main` and published `@dcp-ai/sdk` 2.2.1. npm versions were verified on 28/10/2026; see [NPM_RELEASES.md](NPM_RELEASES.md) and [SECURITY.md](../SECURITY.md#supported-versions). The versions of the other SDKs are in [Published versions](README.md#published-versions).
 
 This guide walks you through migrating an existing DCP-AI v1.0 integration to v2.0. The migration introduces post-quantum composite signatures, dual-hash chains, session binding, adaptive security tiers, and agent-to-agent communication — while valid v1.0 bundles keep verifying where the verifier's policy allows them (see 1.2).
 
@@ -53,12 +53,12 @@ The migration is **additive**: v2.0 introduces new fields and structures alongsi
 
 ### Step 1: Update SDK
 
-The examples work with published TypeScript SDK 2.2.0, Python `dcp-ai` 2.10.0, Go `v2.11.0` and Rust `dcp-ai` 2.11.0. See the [Python](PYTHON_RELEASE.md), [Go](GO_RELEASE.md) and [Rust](RUST_RELEASE.md) release notes and each SDK README for its documented limits.
+The examples work with published TypeScript SDK 2.2.1, Python `dcp-ai` 2.10.1, Go `v2.11.1` and Rust `dcp-ai` 2.11.1. See the [Python](PYTHON_RELEASE.md), [Go](GO_RELEASE.md) and [Rust](RUST_RELEASE.md) release notes and each SDK README for its documented limits.
 
-**TypeScript** (published: 2.2.0 on 26/10/2026):
+**TypeScript** (published: 2.2.1 on 28/10/2026):
 
 ```bash
-npm install @dcp-ai/sdk@^2.2.0
+npm install @dcp-ai/sdk@^2.2.1
 ```
 
 **Python:**
@@ -71,13 +71,13 @@ pip install -e /path/to/dcp-ai/sdks/python     # main
 **Go** (note the v2 major suffix required by Go modules):
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.1
 ```
 
 **Rust:**
 
 ```toml
-dcp-ai = "2.11.0"
+dcp-ai = "2.11.1"
 ```
 
 **WebAssembly:** build `sdks/wasm` from a checkout (`npm run build`), then `npm install /path/to/dcp-ai/sdks/wasm`.
@@ -276,7 +276,7 @@ const message = domainSeparatedMessage(DCP_CONTEXTS.Bundle, new TextEncoder().en
 
 New fields: `session_nonce`, `hash_alg`, `evidence.evidence_hash` and `pq_checkpoint_ref`; hashes carry the
 `sha256:` prefix. A dual-hash chain adds `prev_hash_secondary` (SHA3-256) and `hash_alg: "sha256+sha3-256"`.
-In the unreleased source code, the V2 verifiers, the experimental candidate included, check the secondary links, intent hashes and `audit_merkle_root_secondary` that are present; absent ones are not required, and the published packages predate this check, so producing these fields establishes the additional protection only where both the producer and the verifier include it
+The V2 verifiers from `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1 and Rust `dcp-ai` 2.11.1, the experimental candidate included, check the secondary links, intent hashes and `audit_merkle_root_secondary` that are present; absent ones are not required, and earlier versions do not check them, so producing these fields establishes the additional protection only where both the producer and the verifier include it
 ([STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)).
 Audit entries are not signed one by one: the manifest commits to them through the audit Merkle root, and PQ
 checkpoints sign ranges of them.
@@ -599,8 +599,8 @@ Run through this checklist to confirm your migration is complete:
 - [ ] **Composite signing**: `signBundleV2` produces valid composite signatures
 - [ ] **Domain separation**: Signatures include context tags
 - [ ] **Composite binding**: PQ signature covers classical signature bytes
-- [ ] **Dual-hash chain**: Audit entries include `prev_hash_secondary` (SHA3-256); verifiers in the unreleased source code check every link present (Step 6); the published packages do not
-- [ ] **Manifest**: Bundle manifest contains all artifact hashes and, with a dual-hash chain, the secondary Merkle root, which verifiers in the unreleased source code check when present
+- [ ] **Dual-hash chain**: Audit entries include `prev_hash_secondary` (SHA3-256); verifiers from `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1 and Rust `dcp-ai` 2.11.1 check every link present (Step 6); earlier versions do not
+- [ ] **Manifest**: Bundle manifest contains all artifact hashes and, with a dual-hash chain, the secondary Merkle root, which verifiers from `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1 and Rust `dcp-ai` 2.11.1 check when present
 - [ ] **Session nonce**: All artifacts in a bundle share the same nonce
 - [ ] **V2 verification**: `verifySignedBundleV2` (or `dcp verify-bundle`) passes for correctly signed v2.0 bundles
 - [ ] **V1 compatibility**: v1.0 bundles still verify with the V1 function `verifySignedBundle` (which accepts only v1.0), with `dcp verify-bundle` or with a version router as in 3.2; the V2 function `verifySignedBundleV2` accepts only v2.0

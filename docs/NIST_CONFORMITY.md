@@ -395,7 +395,7 @@ DCP-AI aligns with NIST's published transition guidance for post-quantum cryptog
 | Use FIPS 203/204/205 approved algorithms | ML-KEM-768, ML-DSA-65, SLH-DSA-192f (ML-DSA-87 reserved, not implemented) |
 | Maintain crypto-agility | Algorithm registry + advisory system + provider abstraction |
 | Plan for algorithm deprecation | Governance-signed advisories with auto-response |
-| Protect long-lived data | Hash-chained audit trails; dual-hash chains are produced, and the V2 verifiers in the unreleased source code check the secondary fields that are present (not yet the published packages) ([STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)) |
+| Protect long-lived data | Hash-chained audit trails; dual-hash chains are produced, and the V2 verifiers from `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1 and Rust `dcp-ai` 2.11.1 check the secondary fields that are present (earlier versions do not) ([STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)) |
 | Use hybrid constructions during transition | `pq_over_classical` composite binding |
 | Hardware security modules for key storage | Not implemented: no HSM/TPM integration; the `HsmCryptoProvider` in the source is a simulation (§2.2) |
 | Test interoperability | Cross-SDK KAT validation, conformance test suite |

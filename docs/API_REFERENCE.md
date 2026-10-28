@@ -1,8 +1,8 @@
 # DCP-AI API Reference
 
-Reference for the `@dcp-ai/sdk` TypeScript SDK as it is on `main` (package version 2.2.0, protocol DCP v2.0).
+Reference for the `@dcp-ai/sdk` TypeScript SDK as it is on `main` (package version 2.2.1, protocol DCP v2.0).
 
-> **npm versions (26/10/2026).** This TypeScript reference applies to published `@dcp-ai/sdk` 2.2.0, including principal trust, `strict-v1` and the experimental opt-in candidate APIs. See [published npm packages](NPM_RELEASES.md) and the SDK [installation instructions](../sdks/typescript/README.md#installation). `dcp-jcs-v1` remains the normative default.
+> **npm versions (28/10/2026).** This TypeScript reference applies to published `@dcp-ai/sdk` 2.2.1, including principal trust, `strict-v1` and the experimental opt-in candidate APIs. See [published npm packages](NPM_RELEASES.md) and the SDK [installation instructions](../sdks/typescript/README.md#installation). `dcp-jcs-v1` remains the normative default.
 
 Code blocks here are declarations or fragments, not complete programs: names such as `registry`, `keys`,
 `payloadBytes` or `signedBundle` stand for values built as in the TypeScript SDK's
@@ -743,7 +743,7 @@ interface SignBundleV2ClassicalOnlyOptions {
 
 ### `verifySignedBundleV2(signedBundle, registry, policy?, options?)`
 
-V2 signed bundle verification with verifier-authoritative policy. The verifier in the unreleased source code checks the primary audit chain and Merkle root, and also the secondary `prev_hash_secondary`, `intent_hash_secondary` and `audit_merkle_root_secondary` that are present (absent ones are not required; the published 2.2.0 package does not check them, so with it a successful result does not establish their consistency) ([implementation status](STORAGE_AND_ANCHORING.md#dual-hash-chains)). Verification also does not grant admission or action authorization.
+V2 signed bundle verification with verifier-authoritative policy. The verifier checks the primary audit chain and Merkle root and, from 2.2.1, also the secondary `prev_hash_secondary`, `intent_hash_secondary` and `audit_merkle_root_secondary` that are present (absent ones are not required, so a successful result does not show a complete secondary chain; 2.2.0 does not check them, so with it a successful result does not establish their consistency) ([implementation status](STORAGE_AND_ANCHORING.md#dual-hash-chains)). Verification also does not grant admission or action authorization.
 
 ```typescript
 async function verifySignedBundleV2(

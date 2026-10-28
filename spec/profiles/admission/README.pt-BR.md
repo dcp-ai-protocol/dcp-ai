@@ -4,7 +4,7 @@
 
 # Perfil de admissão: confiança no principal e `strict-v1`
 
-> Tradução informativa da [especificação em inglês](README.md), atualizada em 25/10/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
+> Tradução informativa da [especificação em inglês](README.md), atualizada em 28/10/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
 
 **Estado:** Rascunho, v1
 **Escopo:** Se um verificador admite um bundle V2 assinado como evidência vinda de um principal em que já confia, sob um perfil definido pelo operador
@@ -316,7 +316,7 @@ Os campos do resultado mantêm os nomes do §5.2 na forma JSON de cada SDK.
 > **Acrescentadas em 25/10/2026. Não normativas.** Estas notas não acrescentam nenhum requisito nem mudam nada do que está acima: descrevem como
 > o código de referência em `main` se relaciona com este texto. Onde divergem, prevalece o texto normativo acima.
 
-- As referências a V2-1 a V2-14 remetem à lista de verificação normativa do [VERIFICATION.md](../../VERIFICATION.md). Os pacotes publicados dos SDKs não verificam os campos secundários SHA3-256 do V2-11, então com eles “foi verificado segundo V2-1 a V2-14” (§7) vale com esse limite; no código-fonte ainda não publicado (27/10/2026), os verificadores dos SDKs verificam os campos secundários presentes, e os ausentes não são exigidos. Todas as demais verificações, a confiança no principal e todas as verificações do
+- As referências a V2-1 a V2-14 remetem à lista de verificação normativa do [VERIFICATION.md](../../VERIFICATION.md). Os pacotes dos SDKs anteriores a `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1 e Rust `dcp-ai` 2.11.1 não verificam os campos secundários SHA3-256 do V2-11, então com eles “foi verificado segundo V2-1 a V2-14” (§7) vale com esse limite; a partir dessas versões, os verificadores dos SDKs verificam os campos secundários presentes, e os ausentes não são exigidos. Todas as demais verificações, a confiança no principal e todas as verificações do
   `strict-v1` continuam valendo; a cadeia SHA-256 sozinha nunca admite um bundle.
 - O JSON dos §2.2, §2.3, §2.4 e §4.1 ilustra as formas, com marcadores de posição (`…`, `<kid>`) para chaves e
   identificadores; não é um fixture e não é carregado como está. As duas entradas `<kid>` do §2.4 representam dois kids reais

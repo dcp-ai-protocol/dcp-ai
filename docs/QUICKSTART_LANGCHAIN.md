@@ -9,10 +9,10 @@ Integrate the Digital Citizenship Protocol into your LangChain agents to add cry
 This guide uses **LangChain.js v1** (TypeScript/Node, Node.js 22 or later). If you use **LangChain for Python**
 instead, skip to the Python section at the bottom.
 
-The registry install uses `@dcp-ai/sdk` 2.2.0. The DCP examples below work with that published SDK; a source checkout is optional for development. See the TypeScript SDK’s [release status](../sdks/typescript/README.md#installation).
+The registry install uses `@dcp-ai/sdk` 2.2.1. The DCP examples below work with that published SDK; a source checkout is optional for development. See the TypeScript SDK’s [release status](../sdks/typescript/README.md#installation).
 
 ```bash
-npm install @dcp-ai/sdk@^2.2.0 langchain @langchain/core @langchain/openai zod
+npm install @dcp-ai/sdk@^2.2.1 langchain @langchain/core @langchain/openai zod
 ```
 
 ### Zero-config scaffold (alternative)
@@ -195,7 +195,7 @@ const registry = getDefaultRegistry();
 If your LangChain stack is Python rather than Node, use the Python SDK's built-in bridge instead:
 
 ```bash
-pip install "dcp-ai[langchain]>=2.10.0,<3"
+pip install "dcp-ai[langchain]>=2.10.1,<3"
 ```
 
 ```python
@@ -211,7 +211,7 @@ events = wrapped.get_audit_trail()  # V2 audit events, hash-chained; seal them i
 `DCPAgentWrapper` declares an intent and a policy decision for each invocation, refuses a `block`, and records an
 audit event; `DCPTool` lets an agent verify other agents' bundles, and `DCPCallback` records audit events from
 LangChain callbacks. The records are unsigned, the default policy approves every call, and an `escalate` still runs
-the agent; `DCPCallback` needs a handler of your own with LangChain 1.x, and PyPI 2.10.0 verifies both V1 and V2 with the configured policy (2.9.0 routed every bundle to V1). See [integrations/langchain/README.md](../integrations/langchain/README.md) for these
+the agent; `DCPCallback` needs a handler of your own with LangChain 1.x, and PyPI 2.10.1 verifies both V1 and V2 with the configured policy (2.9.0 routed every bundle to V1). See [integrations/langchain/README.md](../integrations/langchain/README.md) for these
 limits and the full surface; the Python bridge is not the hand-written TypeScript example above.
 
 ---

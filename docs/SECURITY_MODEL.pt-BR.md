@@ -4,7 +4,7 @@
 
 # Modelo de segurança
 
-> Tradução informativa da [versão em inglês](SECURITY_MODEL.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](SECURITY_MODEL.md), atualizada em 28/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Como o protocolo protege contra ataques, de bundles forjados a bifurcações do protocolo.
 
@@ -204,7 +204,7 @@ O DCP v2.0 reforça consideravelmente o modelo de segurança com criptografia p�
 **Proteção:**
 - **Assinaturas compostas híbridas:** uma assinatura composta V2 combina Ed25519 (clássica) com ML-DSA-65 (pós-quântica, FIPS 204). A assinatura PQ cobre a assinatura clássica (vinculação `pq_over_classical`), então quebrar só uma delas não basta. Uma assinatura V2 também pode ser `classical_only`; se ela é aceita depende do modo de verificação (§8).
 - **KEM híbrido:** a troca de chaves do DCP-04 usa X25519 + ML-KEM-768 (FIPS 203), então as chaves de sessão continuam seguras enquanto qualquer um dos dois algoritmos resistir. Os SDKs não executam essa troca: quem chama deriva a chave de sessão ([NIST_CONFORMITY.md](NIST_CONFORMITY.md) §2.1).
-- **Cadeias de hash duplo:** o projeto usa SHA-256 e SHA3-256 em paralelo para dar continuidade se uma família de hash for comprometida, desde que ambas as cadeias sejam verificadas. Os verificadores de bundles V2 do código-fonte ainda não publicado verificam os elos secundários opcionais e a raiz de Merkle secundária que estejam presentes, mas não os exigem, e os pacotes publicados não os verificam; portanto, um resultado bem-sucedido não comprova essa proteção adicional ([STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)).
+- **Cadeias de hash duplo:** o projeto usa SHA-256 e SHA3-256 em paralelo para dar continuidade se uma família de hash for comprometida, desde que ambas as cadeias sejam verificadas. Os verificadores de bundles V2 desde `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1 e Rust `dcp-ai` 2.11.1 verificam os elos secundários opcionais e a raiz de Merkle secundária que estejam presentes, mas não os exigem, e as versões anteriores não os verificam; portanto, um resultado bem-sucedido não comprova essa proteção adicional ([STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)).
 
 **Robustez:** segurança pós-quântica de nível 3 do NIST para as assinaturas verificadas no modo `hybrid_required` (o modo dos níveis elevated e maximum): um atacante precisa quebrar tanto o algoritmo clássico quanto o pós-quântico.
 
@@ -433,7 +433,7 @@ Os operadores que implantam o DCP DEVEM:
 |---|---|
 | Identidade autodeclarada no nível `routine` | Exigir atestação, ou admissão diante de um conjunto de confiança, para os níveis `standard` e superiores; os verificadores não impõem isso por conta própria |
 | O cache de verificação pode servir resultados desatualizados | O cache DEVE ser invalidado quando a lista de revogações é atualizada. O `VerificationCache` do TypeScript é indexado apenas pelo hash do bundle e o `invalidateByAgent` dele não faz nada, então limpe-o ou não use o cache através de mudanças de confiança ou de revogação ([API_REFERENCE.md](API_REFERENCE.md)) |
-| Os verificadores V2 publicados não verificam a cadeia de auditoria secundária opcional nem a raiz de Merkle secundária; no código-fonte ainda não publicado, os campos presentes são verificados e os ausentes não são exigidos | Com os pacotes publicados, confie apenas nas verificações realmente feitas: os compromissos SHA-256 primários e as assinaturas, e não atribua a um resultado bem-sucedido a proteção adicional especificada em V2-11. No código-fonte ainda não publicado, um resultado bem-sucedido cobre os campos secundários presentes, não uma cadeia secundária completa; o candidato experimental reutiliza essas verificações ([STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)) |
+| Os verificadores V2 publicados antes de 28/10/2026 não verificam a cadeia de auditoria secundária opcional nem a raiz de Merkle secundária; desde `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1 e Rust `dcp-ai` 2.11.1, os campos presentes são verificados e os ausentes não são exigidos | Com as versões anteriores, confie apenas nas verificações realmente feitas: os compromissos SHA-256 primários e as assinaturas, e não atribua a um resultado bem-sucedido a proteção adicional especificada em V2-11. A partir dessas versões, um resultado bem-sucedido cobre os campos secundários presentes, não uma cadeia secundária completa; o candidato experimental reutiliza essas verificações ([STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)) |
 | A persistência do `agent_id` permite rastreamento | Considerar a rotação de pseudônimos em cenários de alta privacidade |
 | O BlindedRPR expõe `entity_type` e `jurisdiction` | Futuro: apresentação de credenciais baseada em ZKP |
 | Nenhum SDK executa a troca X25519 + ML-KEM-768 do DCP-04 | Quem chama deriva a chave de sessão A2A. Python, Go, Rust e WASM expõem o ML-KEM-768 como primitiva; os provedores KEM do TypeScript são internos |

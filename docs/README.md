@@ -6,17 +6,18 @@ operations, specifications and proposals. The current package versions for every
 
 ## Published versions
 
-Verified on 26/10/2026. Package versions are independent of the DCP wire and specification version (2.0).
+Verified on 28/10/2026. Package versions are independent of the DCP wire and specification version (2.0).
 
 | Registry | Package | Version | Release notes |
 |---|---|---|---|
-| npm | [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) (TypeScript SDK) | 2.2.0 | [npm packages](NPM_RELEASES.md) |
-| npm | [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) | 2.1.0 | [npm packages](NPM_RELEASES.md) |
-| npm | [`@dcp-ai/cli`](https://www.npmjs.com/package/@dcp-ai/cli) | 2.1.0 | [npm packages](NPM_RELEASES.md) |
-| PyPI | [`dcp-ai`](https://pypi.org/project/dcp-ai/2.10.0/) (Python SDK) | 2.10.0 | [Python release](PYTHON_RELEASE.md) |
-| Go modules | `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` | v2.11.0 | [Go release](GO_RELEASE.md) |
-| crates.io | [`dcp-ai`](https://crates.io/crates/dcp-ai/2.11.0) (Rust SDK) | 2.11.0 | [Rust release](RUST_RELEASE.md) |
+| npm | [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) (TypeScript SDK) | 2.2.1 | [npm packages](NPM_RELEASES.md) |
+| npm | [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) | 2.1.1 | [npm packages](NPM_RELEASES.md) |
+| npm | [`@dcp-ai/cli`](https://www.npmjs.com/package/@dcp-ai/cli) | 2.1.1 | [npm packages](NPM_RELEASES.md) |
+| PyPI | [`dcp-ai`](https://pypi.org/project/dcp-ai/2.10.1/) (Python SDK) | 2.10.1 | [Python release](PYTHON_RELEASE.md) |
+| Go modules | `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` | v2.11.1 | [Go release](GO_RELEASE.md) |
+| crates.io | [`dcp-ai`](https://crates.io/crates/dcp-ai/2.11.1) (Rust SDK) | 2.11.1 | [Rust release](RUST_RELEASE.md) |
 
+- These versions verify the optional secondary SHA3-256 fields of V2-11 when they are present; absent fields are not required, so a verified bundle may lack a complete secondary chain, and a present inconsistent field is rejected. Earlier versions do not check them. The published adapters `@dcp-ai/express`, `@dcp-ai/openclaw`, `@dcp-ai/anthropic-mcp` and `@dcp-ai/google-a2a` 2.1.0 were not republished: they depend on `@dcp-ai/sdk` `^2.2.0` and get the secondary checks once your lockfile resolves `@dcp-ai/sdk` 2.2.1 or later.
 - The npm adapters and scaffolders are optional and separate from the protocol core; their exact versions are in
   [NPM_RELEASES.md](NPM_RELEASES.md), which lists all 13 npm packages.
 - Affected earlier versions and upgrade notes are in [SECURITY.md](../SECURITY.md#supported-versions); moving from

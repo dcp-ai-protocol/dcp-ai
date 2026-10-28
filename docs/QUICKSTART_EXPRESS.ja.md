@@ -5,7 +5,7 @@
 
 # DCP-AI + Express クイックスタート
 
-> [英語版](QUICKSTART_EXPRESS.md)の参考訳です（26/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](QUICKSTART_EXPRESS.md)の参考訳です（28/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 `@dcp-ai/express` ミドルウェアを使って、Express.js の API で DCP の署名済みバンドルを検証します。
 
@@ -15,10 +15,10 @@
 
 ## インストール
 
-> **バージョン（2026 年 10 月 26 日）。** 公開済み `@dcp-ai/express` 2.1.0 と `@dcp-ai/sdk` 2.2.0 を使ってください。修正済み検証器と、信頼するプリンシパルおよび `strict-v1` による受け入れ判定が含まれます。チェックアウトのビルドは不要です。[Express README](../integrations/express/README.md) を参照してください。
+> **バージョン（2026 年 10 月 28 日）。** 公開済み `@dcp-ai/express` 2.1.0 と `@dcp-ai/sdk` 2.2.1 を使ってください。修正済み検証器と、信頼するプリンシパルおよび `strict-v1` による受け入れ判定が含まれます。チェックアウトのビルドは不要です。[Express README](../integrations/express/README.md) を参照してください。
 
 ```bash
-npm install @dcp-ai/express@^2.1.0 @dcp-ai/sdk@^2.2.0 express
+npm install @dcp-ai/express@^2.1.0 @dcp-ai/sdk@^2.2.1 express
 ```
 
 <a id="zero-config-scaffold-alternative"></a>
@@ -39,10 +39,10 @@ npm install
 
 ### Python での同等の方法（FastAPI）
 
-FastAPI サービスでは PyPI 2.10.0 の Python ブリッジをインストールしてください。V2 署名検証と [FastAPI README](../integrations/fastapi/README.md) の受け入れ・リソース制御を含みます。旧 2.9.0 は V2 の構造のみ確認し、署名は検証しません。V2 に使う前に更新してください。
+FastAPI サービスでは PyPI 2.10.1 の Python ブリッジをインストールしてください。V2 署名検証と [FastAPI README](../integrations/fastapi/README.md) の受け入れ・リソース制御を含みます。旧 2.9.0 は V2 の構造のみ確認し、署名は検証しません。V2 に使う前に更新してください。
 
 ```bash
-pip install "dcp-ai[fastapi]>=2.10.0,<3"
+pip install "dcp-ai[fastapi]>=2.10.1,<3"
 ```
 
 ```python

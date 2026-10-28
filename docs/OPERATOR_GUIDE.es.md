@@ -5,7 +5,7 @@
 
 # Guía del operador — ejecutar un servicio de verificación
 
-> Traducción informativa de [la versión en inglés](OPERATOR_GUIDE.md), actualizada el 27/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](OPERATOR_GUIDE.md), actualizada el 28/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Esta guía es para **terceros** que quieran ejecutar un servicio de «agente verificado»: una API HTTP que verifica Signed Bundles de DCP (y, opcionalmente, ancla hashes en una blockchain). El protocolo **no** exige ningún servidor central; la verificación siempre puede hacerse localmente con `dcp verify-bundle`. Este servicio es **opcional** y lo ejecuta quien opere a su elección.
 
@@ -121,11 +121,11 @@ Si quieres la verificación dentro de tu aplicación actual (sin un servicio HTT
 ```bash
 npm install @dcp-ai/sdk        # TypeScript / Node.js
 pip install dcp-ai             # Python
-cargo add dcp-ai@2.11.0
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
+cargo add dcp-ai@2.11.1
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.1
 ```
 
-Consulta el README de cada SDK para la ruta de importación exacta y la superficie de la API, y su *Release status* para lo que le falta a la versión publicada. En `main`, los SDK de TypeScript, Python, Go y Rust verifican de forma nativa bundles V1 y V2, y `@dcp-ai/wasm` expone el verificador V2 de Rust. Sus verificadores V2 siguen la lista de comprobación de [VERIFICATION.md](../spec/VERIFICATION.md), incluida la firma de cada artefacto (paso V2-8) y los checkpoints PQ (paso V2-12), y, en el código fuente aún no publicado, los campos secundarios del paso V2-11 que estén presentes: los paquetes publicados comprueban la cadena de auditoría primaria y la raíz de Merkle, pero no la cadena secundaria opcional ni `audit_merkle_root_secondary` (véase [STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)).
+Consulta el README de cada SDK para la ruta de importación exacta y la superficie de la API, y su *Release status* para lo que le falta a la versión publicada. En `main`, los SDK de TypeScript, Python, Go y Rust verifican de forma nativa bundles V1 y V2, y `@dcp-ai/wasm` expone el verificador V2 de Rust. Sus verificadores V2 siguen la lista de comprobación de [VERIFICATION.md](../spec/VERIFICATION.md), incluida la firma de cada artefacto (paso V2-8) y los checkpoints PQ (paso V2-12), y, desde `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1 y Rust `dcp-ai` 2.11.1, los campos secundarios del paso V2-11 que estén presentes: las versiones anteriores comprueban la cadena de auditoría primaria y la raíz de Merkle, pero no la cadena secundaria opcional ni `audit_merkle_root_secondary` (véase [STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)).
 
 <a id="stateless-by-design"></a>
 
@@ -201,7 +201,7 @@ Para las variables de entorno de `anchor`, `transparency-log` y `revocation`, v�
 
 ## Blockchain y verificación
 
-- **Solo verificación:** el servicio puede limitarse a POST `/verify`, aplicando la lista de comprobación de [VERIFICATION.md](../spec/VERIFICATION.md) (esquema, firma, intent_hash, cadena de auditoría, merkle; los verificadores de los SDK en el código fuente aún no publicado también comprueban los campos de la cadena secundaria opcional que estén presentes; los paquetes publicados no). No hace falta blockchain.
+- **Solo verificación:** el servicio puede limitarse a POST `/verify`, aplicando la lista de comprobación de [VERIFICATION.md](../spec/VERIFICATION.md) (esquema, firma, intent_hash, cadena de auditoría, merkle; los verificadores de los SDK desde `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1 y Rust `dcp-ai` 2.11.1 también comprueban los campos de la cadena secundaria opcional que estén presentes; las versiones anteriores no). No hace falta blockchain.
 - **Verificar anchor_receipt:** si el cliente envía un `anchor_receipt` con el bundle, el servicio puede comprobar opcionalmente que `bundle_hash` aparece en la cadena o en el índice del registro indicados usando **solo datos públicos** (p. ej., obteniendo la transacción de un explorador de bloques). No interviene ningún servidor central del protocolo.
 - **Anclar (escritura):** el operador ejecuta un nodo o usa RPC y escribe hashes en una cadena existente; el servicio devuelve `anchor_receipt` al cliente. Es opcional y específico de cada operador, y el servicio de anclaje de referencia todavía no lo hace (véase [`services/anchor/README.md`](../services/anchor/README.md)).
 

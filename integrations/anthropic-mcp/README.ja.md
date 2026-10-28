@@ -5,7 +5,7 @@
 
 # DCP-AI ↔ Model Context Protocol（MCP）のブリッジ
 
-> [英語版](README.md)の参考訳です（26/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](README.md)の参考訳です（28/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 MCP のツール呼び出しに対する DCP の署名付き受領書と、MCP サーバーのための DCP のツールとリソースです。
 
@@ -270,7 +270,7 @@ const intent = await handleDcpToolCall('dcp_declare_intent', {
 
 ## 注記
 
-- `dcp_verify_bundle` は `DEFAULT_VERIFIER_POLICY` のもとで `@dcp-ai/sdk` の `verifySignedBundleV2` を実行します（ハッシュ、マニフェスト、複合署名、セッションの結び付け、SHA-256 の監査チェーン）。JSON Schema の検証はせず（リファレンスの検証器 `lib/verify.js` が行います）、依存する公開済みの `@dcp-ai/sdk` 2.2.0 は V2-11 の二次の SHA3-256 のフィールドを確認しません（SDK の未公開のソースコードは存在するものを確認します）。また、`verified` の結果はアドミッションでも認可でもありません。
+- `dcp_verify_bundle` は `DEFAULT_VERIFIER_POLICY` のもとで `@dcp-ai/sdk` の `verifySignedBundleV2` を実行します（ハッシュ、マニフェスト、複合署名、セッションの結び付け、SHA-256 の監査チェーン）。JSON Schema の検証はせず（リファレンスの検証器 `lib/verify.js` が行います）、`@dcp-ai/sdk` 2.2.0 は V2-11 の二次の SHA3-256 のフィールドを確認しません（ロックファイルが 2.2.1 以降を解決すると、存在するものが確認されます）。また、`verified` の結果はアドミッションでも認可でもありません。
 - `dcp_verify_bundle` と受領書を除き、ツールのハンドラーは下書きを返します。署名するための識別子とフィールドで、鍵や署名は決して返しません（`next_step` が何が足りないかを示します）。
 - `dcp_create_identity` は識別子だけを返します — 鍵の生成と署名は別の手順です。
 - リスクティアはリスクスコアから自動で計算されます：routine（<200）、standard（200-499）、elevated（500-799）、maximum（800+）。

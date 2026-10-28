@@ -5,7 +5,7 @@
 
 # 存储与锚定 — P2P，本地验证
 
-> 本文是[英文版](STORAGE_AND_ANCHORING.md)的参考译文，更新于 25/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](STORAGE_AND_ANCHORING.md)的参考译文，更新于 28/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 协议不依赖任何中央服务。验证在本地进行；可选的锚定使用**现有的**公共区块链或**第三方**服务。协议并不指向任何规范的“DCP 注册中心”或“dcp.ai” URL。
 
@@ -198,6 +198,8 @@ Entry N:
 ```
 
 次级链是可选的（审计条目模式中的 `prev_hash_secondary` 和 `intent_hash_secondary`）。规范要求在存在次级链时对其进行独立验证（[VERIFICATION.md，V2-11](../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present)）。这是一种纵深防御设计：其保护作用取决于实际检查两条链并保存受信任的承诺。
+
+**实现状态（2026 年 10 月 28 日）：** 下文作为历史保留的 2026 年 10 月 27 日状态中所述的检查，自 `@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`dcp-ai` 2.10.1（PyPI）、Go v2.11.1 和 Rust `dcp-ai` 2.11.1 起已发布（[已发布版本](README.md#published-versions)）。不存在的字段仍不作要求，因此验证成功并不表明次级链完整；更早的版本不检查次级字段。已发布的适配器 `@dcp-ai/express`、`@dcp-ai/openclaw`、`@dcp-ai/anthropic-mcp` 和 `@dcp-ai/google-a2a` 2.1.0 没有重新发布：它们依赖 `@dcp-ai/sdk` `^2.2.0`，当你的锁定文件解析到 `@dcp-ai/sdk` 2.2.1 或更高版本时即获得二级检查。
 
 **实现状态（2026 年 10 月 27 日）：** 在尚未发布的源代码中，TypeScript、Python、Go 和 Rust 的 V2 bundle 验证器，以及基于 Rust SDK 构建的 WASM，会检查所有存在的次级字段（[VERIFICATION.md 的 V2-11 及其勘误](../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present)）：每个 `prev_hash_secondary` 对照前一个条目，每个 `intent_hash_secondary` 对照意图，`audit_merkle_root_secondary` 对照各条目。不存在的字段不作要求，因此验证成功并不表明 bundle 带有完整的次级链。实验性候选的路由复用这些检查。[已发布版本](README.md#published-versions)中列出的已发布软件包早于这一变更，不检查次级字段：在包含它的发布出现之前，不要把它们的验证成功解读为次级链一致的证据。
 

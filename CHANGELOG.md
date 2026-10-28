@@ -10,13 +10,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 > [README](README.md), the [documentation](docs/README.md), the [specifications](spec/README.md) and the
 > [API reference](docs/API_REFERENCE.md).
 
-**Published versions (26/10/2026).** npm (13 packages, including `@dcp-ai/sdk` 2.2.0), Python `dcp-ai` 2.10.0, Go `v2.11.0` and Rust `dcp-ai` 2.11.0 are published, including the verifier fixes, admission and the experimental opt-in APIs; `dcp-jcs-v1` remains the normative default. See [Published versions](docs/README.md#published-versions). Entries below retain their development history; `[Unreleased]` does not mean these features are unpublished.
+**Published versions (26/10/2026).** npm (13 packages, including `@dcp-ai/sdk` 2.2.0), Python `dcp-ai` 2.10.0, Go `v2.11.0` and Rust `dcp-ai` 2.11.0 are published, including the verifier fixes, admission and the experimental opt-in APIs; `dcp-jcs-v1` remains the normative default. See [Published versions](docs/README.md#published-versions). Entries below retain their development history; `[Unreleased]` does not mean these features are unpublished. The six patch releases of 28/10/2026 are in [their own section](#2026-10-28-sha3-patch-releases).
 
-## [Unreleased]
+## [2026-10-28] SHA3 patch releases
 
-### Security
+Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/cli` 2.1.1 on npm, `dcp-ai` 2.10.1 on PyPI, the Go module `v2.11.1` (tag `sdks/go/v2.11.1`) and Rust `dcp-ai` 2.11.1 on crates.io. The other ten npm packages are unchanged. See [Published versions](docs/README.md#published-versions) and the release notes for [npm](docs/NPM_RELEASES.md), [Python](docs/PYTHON_RELEASE.md), [Go](docs/GO_RELEASE.md) and [Rust](docs/RUST_RELEASE.md).
 
-- **Acceptance change (unreleased source code, 27/10/2026): the secondary SHA3-256 fields are verified when present.**
+### Secondary SHA3-256 verification
+
+- **Acceptance change: the secondary SHA3-256 fields are verified when present** (developed on 27/10/2026).
   The TypeScript, Python, Go and Rust V2 verifiers, and the WASM build from the Rust SDK, now check
   `audit_merkle_root_secondary` (the SHA3-256 tree built like the primary one; `sha3-256:` followed by 64 zeros for an
   empty trail), each `prev_hash_secondary` (`"GENESIS"` on the first entry, then the SHA3-256 of the entry before it as
@@ -25,8 +27,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   secondary chain; a present field that is `null`, not a string or wrong is rejected. Admission and the experimental
   candidate routes reuse these checks; no API, result field, canonicalization or `hash_alg` handling changes. The
   `prev_hash_secondary` schema pattern also accepts `"GENESIS"`, which OpenClaw writes on the first entry. Shared
-  vectors: `tests/interop/v2/secondary_sha3_vectors.json`. This is not in any published package yet: the versions in
-  [Published versions](docs/README.md#published-versions) do not check the secondary fields.
+  vectors: `tests/interop/v2/secondary_sha3_vectors.json`. Earlier versions do not check these fields. The published adapters `@dcp-ai/express`, `@dcp-ai/openclaw`, `@dcp-ai/anthropic-mcp` and `@dcp-ai/google-a2a` 2.1.0 were not republished: they depend on `@dcp-ai/sdk` `^2.2.0` and get the secondary checks once your lockfile resolves `@dcp-ai/sdk` 2.2.1 or later.
+
+### Package metadata
+
+- `@dcp-ai/cli` 2.1.1 requires `@dcp-ai/sdk` `^2.2.1`, and `dcp-ai --version` reports `2.1.1` instead of the stale `1.0.0`.
+- Telemetry reports the new versions: Go `SDKVersion` `2.11.1`; the TypeScript, Python and Rust SDKs read their package version.
+
+## [Unreleased]
+
+### Security
 
 - **Acceptance change: Ed25519 signatures with S >= L are now rejected** by the TypeScript SDK
   (`Ed25519Provider.verify`, hence every V2 and composite signature, `@dcp-ai/express` and

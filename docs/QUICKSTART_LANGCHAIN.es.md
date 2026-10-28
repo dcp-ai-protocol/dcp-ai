@@ -5,7 +5,7 @@
 
 # DCP-AI + LangChain: inicio rápido
 
-> Traducción informativa de [la versión en inglés](QUICKSTART_LANGCHAIN.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](QUICKSTART_LANGCHAIN.md), actualizada el 28/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Integra el Digital Citizenship Protocol en tus agentes de LangChain para añadir identidad criptográfica, control por política y rastros de auditoría.
 
@@ -18,10 +18,10 @@ Integra el Digital Citizenship Protocol en tus agentes de LangChain para añadir
 Esta guía usa **LangChain.js v1** (TypeScript/Node, Node.js 22 o posterior). Si usas **LangChain para Python**,
 salta a la sección de Python al final.
 
-La instalación desde el registro usa `@dcp-ai/sdk` 2.2.0. Los ejemplos DCP siguientes funcionan con ese SDK publicado; el checkout es opcional para desarrollar. Véase el [estado de publicación](../sdks/typescript/README.md#installation) del SDK TypeScript.
+La instalación desde el registro usa `@dcp-ai/sdk` 2.2.1. Los ejemplos DCP siguientes funcionan con ese SDK publicado; el checkout es opcional para desarrollar. Véase el [estado de publicación](../sdks/typescript/README.md#installation) del SDK TypeScript.
 
 ```bash
-npm install @dcp-ai/sdk@^2.2.0 langchain @langchain/core @langchain/openai zod
+npm install @dcp-ai/sdk@^2.2.1 langchain @langchain/core @langchain/openai zod
 ```
 
 <a id="zero-config-scaffold-alternative"></a>
@@ -216,7 +216,7 @@ const registry = getDefaultRegistry();
 Si tu stack de LangChain es Python en lugar de Node, usa en su lugar el puente integrado del SDK de Python:
 
 ```bash
-pip install "dcp-ai[langchain]>=2.10.0,<3"
+pip install "dcp-ai[langchain]>=2.10.1,<3"
 ```
 
 ```python
@@ -232,7 +232,7 @@ events = wrapped.get_audit_trail()  # V2 audit events, hash-chained; seal them i
 `DCPAgentWrapper` declara una intención y una decisión de política para cada invocación, rechaza un `block` y registra un
 evento de auditoría; `DCPTool` permite a un agente verificar los bundles de otros agentes, y `DCPCallback` registra eventos de auditoría a partir de
 callbacks de LangChain. Los registros no están firmados, la política por defecto aprueba todas las llamadas y un `escalate` sigue ejecutando
-el agente; `DCPCallback` necesita un handler propio con LangChain 1.x, y PyPI 2.10.0 verifica V1 y V2 con la política configurada (2.9.0 enviaba todos los bundles a V1). Véase [integrations/langchain/README.md](../integrations/langchain/README.md) para estos
+el agente; `DCPCallback` necesita un handler propio con LangChain 1.x, y PyPI 2.10.1 verifica V1 y V2 con la política configurada (2.9.0 enviaba todos los bundles a V1). Véase [integrations/langchain/README.md](../integrations/langchain/README.md) para estos
 límites y la superficie completa; el puente de Python no es el ejemplo de TypeScript escrito a mano de arriba.
 
 ---
