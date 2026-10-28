@@ -16,7 +16,7 @@ them in full.
 Version 2.10.0 shares the crew session nonce with eligible agents as described below, correcting 2.9.0. These helpers still produce unsigned records and do not run CrewAI; use the SDK signing APIs for verifiable bundles.
 
 ```bash
-pip install "dcp-ai[crewai]>=2.10.0,<3"
+pip install "dcp-ai[crewai]>=2.10.1,<3"
 ```
 
 For source development:

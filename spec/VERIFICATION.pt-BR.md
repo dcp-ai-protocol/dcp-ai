@@ -5,7 +5,7 @@
 
 # Lista de verificação — Signed Bundle
 
-> Tradução informativa da [especificação em inglês](VERIFICATION.md), atualizada em 25/10/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
+> Tradução informativa da [especificação em inglês](VERIFICATION.md), atualizada em 28/10/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
 
 Todos os passos são **locais**; nenhuma chamada a uma API ou servidor é necessária. Um verificador precisa apenas do Signed Bundle (e, opcionalmente, de um conjunto de RevocationRecords assinados, vindos de um par, de um arquivo ou de uma lista ancorada).
 
@@ -270,7 +270,7 @@ Isso confere o hash SHA-256 de cada schema local contra as impressões digitais 
 - Os passos V1 opcionais 8 a 11 (recibo de ancoragem, lista de revogação jurisdicional, atestação de jurisdição,
   prova do log de transparência) não são executados por `dcp verify-bundle`, `lib/verify.js` nem pelos verificadores dos SDKs; um verificador que
   os queira os executa ele mesmo. Os snapshots de revogação são lidos pelo perfil de admissão, não por estes passos.
-- Passo V2-11: no código-fonte ainda não publicado (27/10/2026), os verificadores dos SDKs verificam os campos secundários presentes, como indica a errata, e `lib/verify.js` também quando usa o SDK compilado desse código-fonte; os pacotes publicados são anteriores e não o fazem: com eles, um bundle que traz os campos secundários é verificado apenas pela cadeia e pela raiz SHA-256, e um verificador que precise da cadeia secundária a confere ele mesmo.
+- Passo V2-11: os verificadores dos SDKs desde `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1 e Rust `dcp-ai` 2.11.1 verificam os campos secundários presentes, como indica a errata, e `lib/verify.js` também quando resolve `@dcp-ai/sdk` 2.2.1 ou posterior; as versões anteriores não o fazem: com elas, um bundle que traz os campos secundários é verificado apenas pela cadeia e pela raiz SHA-256, e um verificador que precise da cadeia secundária a confere ele mesmo.
 - O passo 10 descreve a assinatura da atestação como feita “sobre `rpr_hash`”, enquanto o [DCP-01](DCP-01.md) a descreve sobre
   o JSON canônico de todos os campos exceto `signature`, e o schema V2 usa um `composite_sig`. Esta nota registra
   a diferença; ela não decide qual se aplica.

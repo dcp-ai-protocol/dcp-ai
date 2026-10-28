@@ -5,7 +5,7 @@
 
 # DCP-AI ↔ ponte com o Model Context Protocol (MCP)
 
-> Tradução informativa da [versão em inglês](README.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](README.md), atualizada em 28/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Recibos assinados do DCP para as chamadas de ferramentas do MCP, além de ferramentas e recursos do DCP para servidores MCP.
 
@@ -272,7 +272,7 @@ const intent = await handleDcpToolCall('dcp_declare_intent', {
 
 ## Notas
 
-- `dcp_verify_bundle` executa `verifySignedBundleV2` de `@dcp-ai/sdk` sob `DEFAULT_VERIFIER_POLICY` (hashes, manifesto, assinatura composta, vinculação de sessão, a cadeia de auditoria SHA-256). Não valida os JSON Schemas (o verificador de referência `lib/verify.js` o faz) e o `@dcp-ai/sdk` 2.2.0 publicado de que depende não verifica os campos secundários SHA3-256 do V2-11 (o código-fonte ainda não publicado do SDK verifica os presentes), e um resultado `verified` não é admissão nem autorização.
+- `dcp_verify_bundle` executa `verifySignedBundleV2` de `@dcp-ai/sdk` sob `DEFAULT_VERIFIER_POLICY` (hashes, manifesto, assinatura composta, vinculação de sessão, a cadeia de auditoria SHA-256). Não valida os JSON Schemas (o verificador de referência `lib/verify.js` o faz) e o `@dcp-ai/sdk` 2.2.0 não verifica os campos secundários SHA3-256 do V2-11 (2.2.1 e posteriores verificam os presentes, quando seu lockfile o resolve), e um resultado `verified` não é admissão nem autorização.
 - Fora `dcp_verify_bundle` e os recibos, os manipuladores de ferramentas devolvem rascunhos: identificadores e campos para assinar, nunca chaves nem assinaturas (`next_step` diz o que falta).
 - `dcp_create_identity` devolve só identificadores — a geração de chaves e a assinatura são etapas separadas.
 - O nível de risco é calculado automaticamente a partir da pontuação de risco: routine (<200), standard (200-499), elevated (500-799), maximum (800+).

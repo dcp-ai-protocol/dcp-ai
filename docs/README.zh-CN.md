@@ -4,7 +4,7 @@
 
 # 文档
 
-> 本文是[英文版](README.md)的参考译文，更新于 27/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](README.md)的参考译文，更新于 28/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 本索引按任务整理 DCP-AI 文档：入门、架构与安全、测试、参考、运维、规范和提案。各注册表中软件包的当前版本见
 [已发布版本](#published-versions)。
@@ -13,17 +13,18 @@
 
 ## 已发布版本
 
-于 26/10/2026 核实。软件包版本独立于 DCP 传输格式和规范的版本（2.0）。
+于 28/10/2026 核实。软件包版本独立于 DCP 传输格式和规范的版本（2.0）。
 
 | 注册表 | 软件包 | 版本 | 发布说明 |
 |---|---|---|---|
-| npm | [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) (TypeScript SDK) | 2.2.0 | [npm 软件包](NPM_RELEASES.md) |
-| npm | [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) | 2.1.0 | [npm 软件包](NPM_RELEASES.md) |
-| npm | [`@dcp-ai/cli`](https://www.npmjs.com/package/@dcp-ai/cli) | 2.1.0 | [npm 软件包](NPM_RELEASES.md) |
-| PyPI | [`dcp-ai`](https://pypi.org/project/dcp-ai/2.10.0/) (Python SDK) | 2.10.0 | [Python 发布](PYTHON_RELEASE.md) |
-| Go modules | `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` | v2.11.0 | [Go 发布](GO_RELEASE.md) |
-| crates.io | [`dcp-ai`](https://crates.io/crates/dcp-ai/2.11.0) (Rust SDK) | 2.11.0 | [Rust 发布](RUST_RELEASE.md) |
+| npm | [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) (TypeScript SDK) | 2.2.1 | [npm 软件包](NPM_RELEASES.md) |
+| npm | [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) | 2.1.1 | [npm 软件包](NPM_RELEASES.md) |
+| npm | [`@dcp-ai/cli`](https://www.npmjs.com/package/@dcp-ai/cli) | 2.1.1 | [npm 软件包](NPM_RELEASES.md) |
+| PyPI | [`dcp-ai`](https://pypi.org/project/dcp-ai/2.10.1/) (Python SDK) | 2.10.1 | [Python 发布](PYTHON_RELEASE.md) |
+| Go modules | `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` | v2.11.1 | [Go 发布](GO_RELEASE.md) |
+| crates.io | [`dcp-ai`](https://crates.io/crates/dcp-ai/2.11.1) (Rust SDK) | 2.11.1 | [Rust 发布](RUST_RELEASE.md) |
 
+- 这些版本会在 V2-11 的可选二级 SHA3-256 字段存在时验证它们；不存在的字段不作要求，因此已验证的 bundle 可能没有完整的二级链，存在但不一致的字段会被拒绝。更早的版本不检查这些字段。 已发布的适配器 `@dcp-ai/express`、`@dcp-ai/openclaw`、`@dcp-ai/anthropic-mcp` 和 `@dcp-ai/google-a2a` 2.1.0 没有重新发布：它们依赖 `@dcp-ai/sdk` `^2.2.0`，当你的锁定文件解析到 `@dcp-ai/sdk` 2.2.1 或更高版本时即获得二级检查。
 - npm 适配器和项目脚手架是可选的，独立于协议核心；它们的确切版本见列出全部 13 个 npm 软件包的
   [NPM_RELEASES.md](NPM_RELEASES.md)。
 - 受影响的早期版本和升级说明见 [SECURITY.md](../SECURITY.md#supported-versions)；从 DCP v1.0 迁移见

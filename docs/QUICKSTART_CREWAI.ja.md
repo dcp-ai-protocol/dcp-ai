@@ -5,7 +5,7 @@
 
 # DCP-AI + CrewAI クイックスタート
 
-> [英語版](QUICKSTART_CREWAI.md)の参考訳です（26/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](QUICKSTART_CREWAI.md)の参考訳です（28/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 CrewAI のマルチエージェントのクルーに、暗号学的なアイデンティティ、ポリシーによる制御、監査証跡を追加します。
 
@@ -16,7 +16,7 @@ CrewAI のマルチエージェントのクルーに、暗号学的なアイデ�
 ## インストール
 
 ```bash
-pip install "dcp-ai[crewai]>=2.10.0,<3"
+pip install "dcp-ai[crewai]>=2.10.1,<3"
 ```
 
 `[crewai]` の extra は `crewai` のランタイムをインストールします。以下の例ではコア SDK を直接使います。SDK 独自の CrewAI 用ヘルパーである `dcp_ai.crewai` の `DCPCrewAgent` と `DCPCrew` については、[integrations/crewai](../integrations/crewai/README.md) で説明しています。
@@ -284,7 +284,7 @@ DCP v2.0 は、CrewAI のクルーにポスト量子の複合署名、適応型�
 ### インストール（V2）
 
 ```bash
-pip install "dcp-ai[crewai]>=2.10.0,<3"
+pip install "dcp-ai[crewai]>=2.10.1,<3"
 ```
 
 <a id="v2-crew-setup-with-security-tiers"></a>

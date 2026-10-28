@@ -130,7 +130,7 @@
       "claim": "Each signed bundle of the shared secondary vectors gets the expected verdict from lib/verify.js (schema validation plus the workspace @dcp-ai/sdk verifier): accepted cases verify, rejected ones fail with an error naming the secondary field, and the control of each rejected case (the same entries without secondary fields, primary chain and root recomputed, signed again) verifies. This proves the secondary root, chain links and intent hashes that are present; absent fields are not required, so it does not show that a bundle carries a complete secondary chain.",
       "limits": [
         "Runs the reference verifier only. The TypeScript, Python, Go and Rust suites run the same vectors through their verifier, admission and candidate v1 route; the WASM suite through verifyBundle and the candidate v1 route (the WASM package has no admission API).",
-        "lib/verify.js uses the @dcp-ai/sdk installed at the repository root: rebuild sdks/typescript and reinstall the root (or resolve @dcp-ai/sdk to that build) before running this suite on a source change; with the published 2.2.0 the well-formed secondary defects verify."
+        "lib/verify.js uses the @dcp-ai/sdk installed at the repository root: rebuild sdks/typescript and reinstall the root (or resolve @dcp-ai/sdk to that build) before running this suite on a source change; with @dcp-ai/sdk earlier than 2.2.1 the well-formed secondary defects verify."
       ],
       "requirements": [
         {

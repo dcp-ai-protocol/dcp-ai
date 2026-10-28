@@ -5,7 +5,7 @@
 
 # Almacenamiento y anclaje — P2P, verificación local
 
-> Traducción informativa de [la versión en inglés](STORAGE_AND_ANCHORING.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](STORAGE_AND_ANCHORING.md), actualizada el 28/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 El protocolo no depende de ningún servicio central. La verificación es local; el anclaje opcional usa blockchains públicas **existentes** o servicios **de terceros**. El protocolo no apunta a ningún «registro DCP» canónico ni a ninguna URL «dcp.ai».
 
@@ -198,6 +198,8 @@ Entry N:
 ```
 
 La cadena secundaria es opcional (`prev_hash_secondary` e `intent_hash_secondary` en el esquema de la entrada de auditoría). La especificación exige verificar de forma independiente la cadena secundaria cuando está presente ([VERIFICATION.md, V2-11](../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present)). Es un diseño de defensa en profundidad: su protección depende de comprobar realmente ambas cadenas y de conservar compromisos de confianza.
+
+**Estado de la implementación (28/10/2026):** las comprobaciones descritas en el estado del 27/10/2026 que sigue, conservado como historial, están publicadas desde `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1 y Rust `dcp-ai` 2.11.1 ([Versiones publicadas](README.md#published-versions)). Los campos ausentes siguen sin exigirse, así que una verificación satisfactoria no demuestra una cadena secundaria completa; las versiones anteriores no comprueban los campos secundarios. Los adaptadores publicados `@dcp-ai/express`, `@dcp-ai/openclaw`, `@dcp-ai/anthropic-mcp` y `@dcp-ai/google-a2a` 2.1.0 no se volvieron a publicar: dependen de `@dcp-ai/sdk` `^2.2.0` y obtienen las comprobaciones secundarias cuando tu lockfile resuelve `@dcp-ai/sdk` 2.2.1 o posterior.
 
 **Estado de la implementación (27/10/2026):** en el código fuente aún no publicado, los verificadores de bundles V2 de TypeScript, Python, Go y Rust, y la compilación WASM a partir del SDK de Rust, comprueban todos los campos secundarios presentes ([VERIFICATION.md V2-11 y su errata](../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present)): cada `prev_hash_secondary` frente a la entrada anterior, cada `intent_hash_secondary` frente a la intención y `audit_merkle_root_secondary` frente a las entradas. Los campos ausentes no se exigen, así que una verificación satisfactoria no demuestra que un bundle contenga una cadena secundaria completa. Las rutas del candidato experimental reutilizan estas comprobaciones. Los paquetes publicados que figuran en [Versiones publicadas](README.md#published-versions) son anteriores a este cambio y no comprueban los campos secundarios: hasta que una publicación lo incluya, no interpretes su verificación satisfactoria como evidencia de que la cadena secundaria es coherente.
 

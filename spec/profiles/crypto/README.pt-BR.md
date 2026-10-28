@@ -4,7 +4,7 @@
 
 # Perfil Crypto
 
-> Tradução informativa da [especificação em inglês](README.md), atualizada em 25/10/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
+> Tradução informativa da [especificação em inglês](README.md), atualizada em 28/10/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
 
 **Estado:** Publicado — v2.0  
 **Escopo:** Seleção de algoritmos criptográficos, assinaturas compostas, agilidade criptográfica e política de verificador  
@@ -121,4 +121,4 @@ Veja a seção 10.3 do [DCP-AI v2.0](../../DCP-AI-v2.0.md).
   presentes, porque a assinatura PQ os cobre; ele não aceita um bundle que traga apenas uma assinatura PQ.
 - O sistema de avisos não é automático: um verificador aplica um aviso quando o seu operador o carrega e chama os
   auxiliares de avisos ou ajusta a política de acordo.
-- Os verificadores dos SDKs verificam a cadeia de auditoria SHA-256 e a raiz de Merkle; no código-fonte ainda não publicado, também verificam os campos secundários SHA3-256 presentes (V2-11 do [VERIFICATION.md](../../VERIFICATION.md) e sua errata), o que os pacotes publicados não fazem.
+- Os verificadores dos SDKs verificam a cadeia de auditoria SHA-256 e a raiz de Merkle; desde `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1 e Rust `dcp-ai` 2.11.1, também verificam os campos secundários SHA3-256 presentes (V2-11 do [VERIFICATION.md](../../VERIFICATION.md) e sua errata), o que as versões anteriores não fazem.

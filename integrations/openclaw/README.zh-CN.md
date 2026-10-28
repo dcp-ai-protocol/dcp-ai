@@ -5,7 +5,7 @@
 
 # @dcp-ai/openclaw — 面向 OpenClaw 的 DCP 集成
 
-> 本文是[英文版](README.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](README.md)的参考译文，更新于 28/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 为 AI 代理添加 **Digital Citizenship Protocol (DCP)** 工具的 [OpenClaw](https://github.com/openclaw/openclaw) 插件。当代理调用这些工具时，操作会被声明、进行风险评分，
 并记录在与人类所有者绑定、以哈希链连接的审计轨迹中：插件不会
@@ -160,7 +160,7 @@ configureVerifier({ verifierPolicy: { default_mode: 'hybrid_required', require_a
 
 ### 检查哪些内容
 
-- **V2**：使用 `@dcp-ai/sdk` 的 `verifySignedBundleV2`，配合 Ed25519 / ML-DSA-65 / SLH-DSA-192f 注册表和上述策略。它检查工件载荷哈希和清单；会话绑定、到期和已签名的会话开始时间（`session_issued_at`）；委托人用 RPR 的 `binding_keys` 对清单所做的 bundle 签名，以及必须与之一致的未签名 `signature` 块；每个工件自己的签名；验证模式，即护照 `risk_tier` 的策略模式与意图和策略决定的安全等级模式两者中更严格的一个（spec §14.2）；PQ 检查点；工件间一致性（护照状态、RPR 到期、各工件和审计条目中只有一个代理、委托人和意图）；审计哈希链（使用已发布的 `@dcp-ai/sdk` 2.2.0 时只有 SHA-256；SDK 的尚未发布的源代码也会检查存在的 V2-11 二级 SHA3-256 字段）；以及密钥有效性、kid 推导和规范 base64 密钥（`spec/VERIFICATION.md` V2-1 至 V2-14）。
+- **V2**：使用 `@dcp-ai/sdk` 的 `verifySignedBundleV2`，配合 Ed25519 / ML-DSA-65 / SLH-DSA-192f 注册表和上述策略。它检查工件载荷哈希和清单；会话绑定、到期和已签名的会话开始时间（`session_issued_at`）；委托人用 RPR 的 `binding_keys` 对清单所做的 bundle 签名，以及必须与之一致的未签名 `signature` 块；每个工件自己的签名；验证模式，即护照 `risk_tier` 的策略模式与意图和策略决定的安全等级模式两者中更严格的一个（spec §14.2）；PQ 检查点；工件间一致性（护照状态、RPR 到期、各工件和审计条目中只有一个代理、委托人和意图）；审计哈希链（使用 `@dcp-ai/sdk` 2.2.0 时只有 SHA-256；当你的锁定文件解析到 `@dcp-ai/sdk` 2.2.1 或更高版本时，也会检查存在的 V2-11 二级 SHA3-256 字段）；以及密钥有效性、kid 推导和规范 base64 密钥（`spec/VERIFICATION.md` V2-1 至 V2-14）。
 - **V1**（一个 Ed25519 签名）：仅当 VERIFICATION.md 的 V2-10 会接受纯经典 bundle 时，才用 `verifySignedBundle` 验证：`allow_v1_bundles` 为 true，并且 V1 护照 `risk_tier` 的策略模式与 V1 意图及策略决定的安全等级模式（V1 的 `risk_score` 在 0 到 1 之间，乘以 1000；缺失时按 `elevated` 处理）两者中更严格的一个是 `classical_only` 或 `hybrid_preferred`。在默认策略下，routine 或 standard 的 V1 意图可以通过；支付、敏感数据、高预估影响或不低于 0.5 的风险评分会被拒绝。
 - 无法识别版本的 bundle 会被拒绝。
 

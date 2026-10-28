@@ -7,7 +7,7 @@ Add cryptographic identity, policy gating, and audit trails to your CrewAI multi
 ## Installation
 
 ```bash
-pip install "dcp-ai[crewai]>=2.10.0,<3"
+pip install "dcp-ai[crewai]>=2.10.1,<3"
 ```
 
 The `[crewai]` extra installs the `crewai` runtime. The examples below use the core SDK directly; the SDK's own CrewAI helpers, `DCPCrewAgent` and `DCPCrew` in `dcp_ai.crewai`, are described in [integrations/crewai](../integrations/crewai/README.md).
@@ -261,7 +261,7 @@ DCP v2.0 adds post-quantum composite signatures, adaptive security tiers, and se
 ### Installation (V2)
 
 ```bash
-pip install "dcp-ai[crewai]>=2.10.0,<3"
+pip install "dcp-ai[crewai]>=2.10.1,<3"
 ```
 
 ### V2 Crew Setup with Security Tiers

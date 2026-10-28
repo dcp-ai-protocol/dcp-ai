@@ -4,11 +4,11 @@
 
 # 移行ガイド：DCP-AI v1.0 から v2.0 へ
 
-> [英語版](MIGRATION_V1_V2.md)の参考訳です（27/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](MIGRATION_V1_V2.md)の参考訳です（28/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 **仕様バージョン：** 2.0
 **最終更新：** 2026 年 10 月
-**対象：** `main` の SDK と公開済み `@dcp-ai/sdk` 2.2.0。npm バージョンは 2026 年 10 月 26 日に確認済みです。[NPM_RELEASES.md](NPM_RELEASES.md) と [SECURITY.md](../SECURITY.md#supported-versions) を参照してください。他の SDK のバージョンは[公開済みバージョン](README.md#published-versions)にあります。
+**対象：** `main` の SDK と公開済み `@dcp-ai/sdk` 2.2.1。npm バージョンは 2026 年 10 月 28 日に確認済みです。[NPM_RELEASES.md](NPM_RELEASES.md) と [SECURITY.md](../SECURITY.md#supported-versions) を参照してください。他の SDK のバージョンは[公開済みバージョン](README.md#published-versions)にあります。
 
 このガイドでは、既存の DCP-AI v1.0 の統合を v2.0 に移行する手順を説明します。移行によって、ポスト量子の複合署名、二重ハッシュチェーン、セッションバインディング、適応型のセキュリティティア、エージェント間通信が導入されます。一方で、有効な v1.0 のバンドルは、検証器のポリシーが許す範囲で引き続き検証できます（1.2 を参照）。
 
@@ -69,12 +69,12 @@ v1.0 のバンドルには Ed25519 の署名が 1 つあるだけでポスト量
 
 ### ステップ 1：SDK を更新する
 
-例は公開済みの TypeScript SDK 2.2.0、Python `dcp-ai` 2.10.0、Go `v2.11.0`、Rust `dcp-ai` 2.11.0 で動作します。[Python](PYTHON_RELEASE.md)、[Go](GO_RELEASE.md)、[Rust](RUST_RELEASE.md) のリリースノートと各 SDK README の制限を参照してください。
+例は公開済みの TypeScript SDK 2.2.1、Python `dcp-ai` 2.10.1、Go `v2.11.1`、Rust `dcp-ai` 2.11.1 で動作します。[Python](PYTHON_RELEASE.md)、[Go](GO_RELEASE.md)、[Rust](RUST_RELEASE.md) のリリースノートと各 SDK README の制限を参照してください。
 
-**TypeScript**（2026 年 10 月 26 日公開：2.2.0）：
+**TypeScript**（2026 年 10 月 28 日公開：2.2.1）：
 
 ```bash
-npm install @dcp-ai/sdk@^2.2.0
+npm install @dcp-ai/sdk@^2.2.1
 ```
 
 **Python：**
@@ -87,13 +87,13 @@ pip install -e /path/to/dcp-ai/sdks/python     # main
 **Go**（Go モジュールが要求するメジャーバージョンの接尾辞 v2 に注意）：
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.1
 ```
 
 **Rust：**
 
 ```toml
-dcp-ai = "2.11.0"
+dcp-ai = "2.11.1"
 ```
 
 **WebAssembly：** チェックアウトから `sdks/wasm` をビルドし（`npm run build`）、その後 `npm install /path/to/dcp-ai/sdks/wasm` を実行します。
@@ -300,7 +300,7 @@ const message = domainSeparatedMessage(DCP_CONTEXTS.Bundle, new TextEncoder().en
 
 新しいフィールドは `session_nonce`、`hash_alg`、`evidence.evidence_hash`、`pq_checkpoint_ref` で、ハッシュには
 `sha256:` の接頭辞が付きます。二重ハッシュチェーンでは `prev_hash_secondary`（SHA3-256）と `hash_alg: "sha256+sha3-256"` が加わります。
-未公開のソースコードでは、V2 検証器は実験的な候補も含め、存在する二次のリンク、意図のハッシュ、`audit_merkle_root_secondary` を確認します。存在しないものは要求されず、公開済みのパッケージはこの確認より前のものなので、これらのフィールドを生成しても、追加の保護が得られるのは生成側と検証側の両方がそれを含む場合だけです（[STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)）。
+`@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`dcp-ai` 2.10.1（PyPI）、Go v2.11.1、Rust `dcp-ai` 2.11.1 以降の V2 検証器は、実験的な候補も含め、存在する二次のリンク、意図のハッシュ、`audit_merkle_root_secondary` を確認します。存在しないものは要求されず、それより前のバージョンはこれらを確認しないので、これらのフィールドを生成しても、追加の保護が得られるのは生成側と検証側の両方がそれを含む場合だけです（[STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)）。
 監査エントリは 1 件ずつ署名されるわけではありません。マニフェストが監査のマークルルートを通じてそれらにコミットし、PQ チェックポイントが
 その範囲に署名します。
 
@@ -656,8 +656,8 @@ V1 と V2 の完全なエンベロープは[ステップ 7](#step-7-construct-bu
 - [ ] **複合署名**：`signBundleV2` が有効な複合署名を生成する
 - [ ] **ドメイン分離**：署名にコンテキストタグが含まれる
 - [ ] **複合バインディング**：PQ 署名がクラシカルな署名のバイト列を覆う
-- [ ] **二重ハッシュチェーン**：監査エントリに `prev_hash_secondary`（SHA3-256）が含まれる。未公開のソースコードの検証器は存在するリンクをすべて確認する（ステップ 6）。公開済みのパッケージは確認しない
-- [ ] **マニフェスト**：バンドルのマニフェストにすべてのアーティファクトのハッシュが含まれ、二重ハッシュチェーンでは二次マークルルートも含まれる。未公開のソースコードの検証器は、存在する場合に二次マークルルートを確認する
+- [ ] **二重ハッシュチェーン**：監査エントリに `prev_hash_secondary`（SHA3-256）が含まれる。`@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`dcp-ai` 2.10.1（PyPI）、Go v2.11.1、Rust `dcp-ai` 2.11.1 以降の検証器は存在するリンクをすべて確認する（ステップ 6）。それより前のバージョンは確認しない
+- [ ] **マニフェスト**：バンドルのマニフェストにすべてのアーティファクトのハッシュが含まれ、二重ハッシュチェーンでは二次マークルルートも含まれる。`@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`dcp-ai` 2.10.1（PyPI）、Go v2.11.1、Rust `dcp-ai` 2.11.1 以降の検証器は、存在する場合に二次マークルルートを確認する
 - [ ] **セッションの nonce**：バンドル内のすべてのアーティファクトが同じ nonce を共有する
 - [ ] **V2 の検証**：正しく署名された v2.0 のバンドルが `verifySignedBundleV2`（または `dcp verify-bundle`）に合格する
 - [ ] **V1 との互換性**：v1.0 のバンドルが、V1 の関数 `verifySignedBundle`（v1.0 しか受け付けない）、`dcp verify-bundle`、または 3.2 のようなバージョンによるルーターで引き続き検証できる。V2 の関数 `verifySignedBundleV2` は v2.0 しか受け付けない

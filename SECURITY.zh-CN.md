@@ -4,7 +4,7 @@
 
 # 安全策略
 
-> 本文是[英文版](SECURITY.md)的参考译文，更新于 27/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](SECURITY.md)的参考译文，更新于 28/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 <a id="reporting-a-vulnerability"></a>
 
@@ -87,7 +87,9 @@
 | 1.0.x   | 是（仅维护） |
 | < 1.0   | 否        |
 
-`@dcp-ai/sdk` 2.2.0 已于 2026 年 10 月 26 日发布到 npm，并标记为 `latest`。它包含验证器修复；请使用 `npm install @dcp-ai/sdk@^2.2.0` 升级并更新 lockfile。受影响的旧版本不会自动获得修复。见[已发布的 npm 软件包清单](docs/NPM_RELEASES.md)。
+`@dcp-ai/sdk` 2.2.0 已于 2026 年 10 月 26 日以 `latest` 标签发布到 npm，包含验证器修复。受影响的旧版本不会自动获得修复。
+
+**二级 SHA3-256 字段（2026 年 10 月 28 日）。** `@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`dcp-ai` 2.10.1（PyPI）、Go v2.11.1 和 Rust `dcp-ai` 2.11.1 会在 [V2-11](spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) 的可选二级 SHA3-256 字段存在时验证它们；更早的版本（包括 2.2.0、2.1.0、2.10.0 和 2.11.0）不验证。请使用 `npm install @dcp-ai/sdk@^2.2.1` 或你所用生态的等效方式升级，并更新 lockfile。已发布的适配器 `@dcp-ai/express`、`@dcp-ai/openclaw`、`@dcp-ai/anthropic-mcp` 和 `@dcp-ai/google-a2a` 2.1.0 没有重新发布：它们依赖 `@dcp-ai/sdk` `^2.2.0`，当你的锁定文件解析到 `@dcp-ai/sdk` 2.2.1 或更高版本时即获得二级检查。见[已发布的 npm 软件包清单](docs/NPM_RELEASES.md)和[已发布版本](docs/README.md#published-versions)。
 
 **受影响及已修复的集成版本（2026 年 10 月 26 日）。** `@dcp-ai/express` 2.0.0 和 `@dcp-ai/openclaw` 2.0.0 会在不验证签名的情况下接受结构有效的 V2 bundle。两者均已在 npm 版本 2.1.0 中修复，并使用 `@dcp-ai/sdk` `^2.2.0`。请勿使用 2.0.0 验证 V2 bundle。`dcp-ai` 2.9.0 的 FastAPI 集成仍受影响；修复后的实现已在 PyPI 2.10.0 发布。见 [Python 升级说明](docs/PYTHON_RELEASE.md)。见 [Express](integrations/express/README.md)、[OpenClaw](integrations/openclaw/README.md) 和 [FastAPI](integrations/fastapi/README.md)。软件包受支持不代表其所有旧构建都包含修复。
 

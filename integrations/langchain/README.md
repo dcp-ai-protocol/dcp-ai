@@ -16,7 +16,7 @@ through `DCPTool`. It does not implement them in full.
 Version 2.9.0 routes every bundle to V1. Version 2.10.0 verifies V2 with the normative verifier and enforces the configured policy for V1 and V2; the unsigned-record and callback limitations below remain.
 
 ```bash
-pip install "dcp-ai[langchain]>=2.10.0,<3"
+pip install "dcp-ai[langchain]>=2.10.1,<3"
 ```
 
 For source development:
@@ -123,7 +123,7 @@ verify_tool = StructuredTool.from_function(
 | `arun(signed_bundle_json)` | `(str \| dict) -> str` | Asynchronous verification |
 
 A V2 bundle is verified with `verify_signed_bundle_v2` from `dcp_ai.v2` (composite signatures,
-session binding, manifest, cross-artifact consistency, the SHA-256 audit chain (and, in the unreleased SDK source but not the published 2.10.0, the secondary SHA3-256 fields of V2-11 that are present), key validity) under
+session binding, manifest, cross-artifact consistency, the SHA-256 audit chain (and, from 2.10.1 but not in 2.10.0, the secondary SHA3-256 fields of V2-11 that are present), key validity) under
 `DCPTool(verifier_policy=...)`: a dict of `VerifierPolicy` fields set over
 `DEFAULT_VERIFIER_POLICY` (a `default_mode` without `risk_overrides` applies to every risk tier),
 or a full `VerifierPolicy`; the default is `DEFAULT_VERIFIER_POLICY`. A V1 bundle, which has an Ed25519 signature only, no

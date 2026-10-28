@@ -4,7 +4,7 @@
 
 # Especificação normativa do DCP-AI v2.0
 
-> Tradução informativa da [especificação em inglês](DCP-AI-v2.0.md), atualizada em 25/10/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
+> Tradução informativa da [especificação em inglês](DCP-AI-v2.0.md), atualizada em 28/10/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
 
 **Status:** Final  
 **Versão:** 2.0.0  
@@ -716,7 +716,7 @@ Os verificadores V2 devem (MUST) oferecer suporte à V1 indefinidamente. A migra
   APIs experimentais e opt-in, e não muda o que um verificador padrão aceita.
 - **§10, trilha de auditoria.** As entradas de auditoria não são assinadas uma a uma: são cobertas pela assinatura do
   bundle por meio do manifesto. O contexto `DCP-AI.v2.AuditEvent` é usado nos checkpoints PQ e na compactação da
-  auditoria, que quem chama produz com funções auxiliares do SDK; nada os assina automaticamente. Os verificadores checam os checkpoints listados e a cadeia SHA-256; no código-fonte ainda não publicado (27/10/2026), também checam os campos secundários SHA3-256 presentes (errata do V2-11), o que os pacotes publicados não fazem.
+  auditoria, que quem chama produz com funções auxiliares do SDK; nada os assina automaticamente. Os verificadores checam os checkpoints listados e a cadeia SHA-256; desde `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1 e Rust `dcp-ai` 2.11.1, também checam os campos secundários SHA3-256 presentes (errata do V2-11), o que as versões anteriores não fazem.
 - **§11.3, revogação de emergência.** Os schemas do RPR não têm `revocation_token`; o passaporte V2 tem um
   `emergency_revocation_token` opcional.
 - **§12.1, eliminação.** O texto descreve o efeito criptográfico de apagar o sal. Não é uma avaliação de conformidade

@@ -5,7 +5,7 @@
 
 # dcp_ai.fastapi — FastAPI のミドルウェア
 
-> [英語版](README.md)の参考訳です（26/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](README.md)の参考訳です（28/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 FastAPI 向けの DCP の検証ミドルウェアです。Signed Bundle を自動で検証し、保護するルートのための依存性注入を提供します。
 
@@ -24,7 +24,7 @@ DCP-01 から DCP-09。部分的なもので、以下に述べるバンドルの
 2.9.0 は V2 署名を検証しないため、V2 検証には使用しないでください。2.10.0 は修正済み検証器、プリンシパルの信頼、`strict-v1`、本文の予算、信頼・失効ソースの監督、切断処理を含みます。受け入れ判定は行為を認可しません。
 
 ```bash
-pip install "dcp-ai[fastapi]>=2.10.0,<3"
+pip install "dcp-ai[fastapi]>=2.10.1,<3"
 ```
 
 ソース開発の場合：
@@ -128,7 +128,7 @@ app.add_middleware(
 0. `max_body_bytes` を使うと、まず予算の範囲内でボディを読みます（[ボディの予算](#body-budget)を参照）。
 1. ヘッダーまたは JSON のボディ（`signed_bundle`）から署名付きバンドルを取り出します。JSON でないヘッダー、Python の 4300 桁の上限を超える整数を含むヘッダー、入れ子が深すぎるヘッダーは、バンドルがないものとして扱われ（`require_bundle=True` では `403`）、決して `500` にはなりません。
 2. Python SDK で検証します。
-   - **V2**（`bundle.dcp_bundle_version: "2.0"`）：Ed25519 / ML-DSA-65 / SLH-DSA-192f のレジストリと上記のポリシーで、`dcp_ai.v2` の `await verify_signed_bundle_v2(signed_bundle, registry, policy)` を使います。ペイロードのハッシュとマニフェスト、セッションの結び付けと期限、バンドルと各アーティファクトの複合署名、検証モード（パスポートのリスクティアに対するポリシーのモードと、意図のセキュリティティアのうち厳しい方）、監査のハッシュチェーン（公開済みの `dcp-ai` 2.10.0 では SHA-256 のものだけ。SDK の未公開のソースコードは、存在する V2-11 の二次の SHA3-256 のフィールドも確認します）、鍵の有効性を確認します。`composite_sig_valid` は、バンドルの署名についての検証器の結果です。
+   - **V2**（`bundle.dcp_bundle_version: "2.0"`）：Ed25519 / ML-DSA-65 / SLH-DSA-192f のレジストリと上記のポリシーで、`dcp_ai.v2` の `await verify_signed_bundle_v2(signed_bundle, registry, policy)` を使います。ペイロードのハッシュとマニフェスト、セッションの結び付けと期限、バンドルと各アーティファクトの複合署名、検証モード（パスポートのリスクティアに対するポリシーのモードと、意図のセキュリティティアのうち厳しい方）、監査のハッシュチェーン（`dcp-ai` 2.10.0 では SHA-256 のものだけ。2.10.1 以降は、存在する V2-11 の二次の SHA3-256 のフィールドも確認します）、鍵の有効性を確認します。`composite_sig_valid` は、バンドルの署名についての検証器の結果です。
    - **V1**（`bundle.responsible_principal_record.dcp_version: "1.0"`）：V1 のバンドルにはポスト量子の署名がないため、VERIFICATION.md の V2-10 がクラシカルのみのバンドルを受け入れる場合にだけ `verify_signed_bundle()` を使います。つまり、`allow_v1_bundles` が真で、ポリシーが ed25519 を受け入れ（`accepted_classical_algs` にあり、`advisory_rejected_algs` にない）、オーディエンスの結び付け、セッションの期限、セッションの最大期間を求めず（V1 のバンドルには `intended_verifier` もセッションの期間もありません）、バンドルの `responsible_principal_record`、`agent_passport`、`intent`、`policy_decision` がオブジェクトで、その `audit_entries` がオブジェクトのリストであり、パスポートの `agent_id` と RPR の `human_id` が文字列で（パスポートの `public_key` と `status` は、あれば文字列、その `capabilities` は文字列のリスト。エージェントのコンテキストに入るため）、V1 のパスポートの `risk_tier` に対するポリシーのモード（それがなければ `default_mode`）と、V1 の意図とポリシー判断のセキュリティティアのモード（V1 の `risk_score` は 0 から 1 で、1000 倍される。ない場合は `elevated` として扱う）のうち厳しい方が `classical_only` または `hybrid_preferred` の場合です。`DEFAULT_VERIFIER_POLICY` では、routine または standard の V1 の意図は通り、支払い、機密データ、高い推定影響、0.5 以上のリスクスコアは拒否されます。
    - バージョンを判別できないバンドルは拒否されます。
 3. 有効なら：検証器の `warnings` とともに、`DCPAgentContext` を `request.state.dcp_agent` に保存します

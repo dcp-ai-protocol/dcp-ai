@@ -5,7 +5,7 @@
 
 # dcp_ai.crewai — integração com o CrewAI
 
-> Tradução informativa da [versão em inglês](README.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](README.md), atualizada em 28/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Integração do DCP com o CrewAI para a governança multiagente. Cada agente tem o seu próprio passaporte do DCP e a sua própria trilha de auditoria, com a possibilidade de combinar as trilhas de toda a equipe.
 
@@ -27,7 +27,7 @@ por completo.
 A versão 2.10.0 compartilha o nonce da sessão da equipe com os agentes elegíveis, conforme descrito abaixo, corrigindo a 2.9.0. Esses auxiliares continuam produzindo registros não assinados e não executam CrewAI; use as APIs de assinatura do SDK para bundles verificáveis.
 
 ```bash
-pip install "dcp-ai[crewai]>=2.10.0,<3"
+pip install "dcp-ai[crewai]>=2.10.1,<3"
 ```
 
 Para desenvolvimento do código-fonte:

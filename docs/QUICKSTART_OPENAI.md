@@ -8,10 +8,10 @@ Add cryptographic identity, policy gating, and audit trails to OpenAI function-c
 
 This guide uses the **OpenAI Node SDK**. If you use Python instead, skip to the Python section at the bottom.
 
-The registry install uses `@dcp-ai/sdk` 2.2.0 for both V1 and V2 examples; a source checkout is optional (see [installation](../sdks/typescript/README.md#installation)). The examples use the Chat Completions API of the OpenAI Node SDK (`openai` v4 or later; recent versions add custom tool calls, which the loop refuses). Running them calls the OpenAI API and needs `OPENAI_API_KEY`.
+The registry install uses `@dcp-ai/sdk` 2.2.1 for both V1 and V2 examples; a source checkout is optional (see [installation](../sdks/typescript/README.md#installation)). The examples use the Chat Completions API of the OpenAI Node SDK (`openai` v4 or later; recent versions add custom tool calls, which the loop refuses). Running them calls the OpenAI API and needs `OPENAI_API_KEY`.
 
 ```bash
-npm install @dcp-ai/sdk@^2.2.0 openai
+npm install @dcp-ai/sdk@^2.2.1 openai
 ```
 
 ### Zero-config scaffold (alternative)
@@ -213,7 +213,7 @@ sealed bundle records `escalated` and `awaiting_human_approval` until your appli
 
 ## V2.0 Upgrade
 
-DCP v2.0 adds post-quantum composite signatures, adaptive security tiers and session binding. This section works with published `@dcp-ai/sdk` 2.2.0 (see Installation).
+DCP v2.0 adds post-quantum composite signatures, adaptive security tiers and session binding. This section works with published `@dcp-ai/sdk` 2.2.1 (see Installation).
 
 ### V2 identity
 
@@ -299,7 +299,7 @@ If your agent is written with the OpenAI Python SDK, use the Python bridge (the 
 checkout, `pip install -e "/path/to/dcp-ai/sdks/python[openai]"`):
 
 ```bash
-pip install "dcp-ai[openai]>=2.10.0,<3"
+pip install "dcp-ai[openai]>=2.10.1,<3"
 ```
 
 ```python

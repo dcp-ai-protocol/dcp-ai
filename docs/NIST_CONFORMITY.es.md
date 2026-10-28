@@ -4,7 +4,7 @@
 
 # Declaración de conformidad de DCP-AI con la criptografía poscuántica del NIST
 
-> Traducción informativa de [la versión en inglés](NIST_CONFORMITY.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](NIST_CONFORMITY.md), actualizada el 28/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 **Versión de la especificación:** 2.0
 **Última actualización:** 25/10/2026
@@ -457,7 +457,7 @@ DCP-AI se alinea con las directrices de transición publicadas por el NIST para 
 | Usar algoritmos aprobados de FIPS 203/204/205 | ML-KEM-768, ML-DSA-65, SLH-DSA-192f (ML-DSA-87 reservado, no implementado) |
 | Mantener la agilidad criptográfica | Registro de algoritmos + sistema de avisos + abstracción de proveedores |
 | Planificar la obsolescencia de algoritmos | Avisos firmados por la gobernanza con respuesta automática |
-| Proteger los datos de larga duración | Rastros de auditoría encadenados por hash; las cadenas de doble hash se producen, y los verificadores V2 del código fuente aún no publicado comprueban los campos secundarios presentes (todavía no los paquetes publicados) ([STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)) |
+| Proteger los datos de larga duración | Rastros de auditoría encadenados por hash; las cadenas de doble hash se producen, y los verificadores V2 desde `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1 y Rust `dcp-ai` 2.11.1 comprueban los campos secundarios presentes (las versiones anteriores no) ([STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)) |
 | Usar construcciones híbridas durante la transición | Vinculación compuesta `pq_over_classical` |
 | Módulos de seguridad de hardware para guardar las claves | No implementado: no hay integración con HSM/TPM; el `HsmCryptoProvider` del código fuente es una simulación (§2.2) |
 | Probar la interoperabilidad | Validación KAT entre SDK, suite de pruebas de conformidad |

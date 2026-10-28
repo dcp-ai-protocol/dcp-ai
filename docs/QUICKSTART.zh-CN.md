@@ -4,7 +4,7 @@
 
 # DCP-AI 快速开始指南
 
-> 本文是[英文版](QUICKSTART.md)的参考译文，更新于 27/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](QUICKSTART.md)的参考译文，更新于 28/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 本指南说明如何用 SDK 生成并验证 DCP 证据，以及哪些工具只是演示。
 
@@ -44,7 +44,7 @@
 
 ## 已发布的软件包与本指南
 
-TypeScript 示例使用已发布的 `@dcp-ai/sdk` 2.2.0，npm CLI 为 `@dcp-ai/cli` 2.1.0，Python 为 PyPI 上的 `dcp-ai` 2.10.0。见 [npm](NPM_RELEASES.md)、[Python](PYTHON_RELEASE.md) 与 [SECURITY.md](../SECURITY.md#supported-versions)。Go 和 Rust 独立发布。源码开发请使用：
+TypeScript 示例使用已发布的 `@dcp-ai/sdk` 2.2.1，npm CLI 为 `@dcp-ai/cli` 2.1.1，Python 为 PyPI 上的 `dcp-ai` 2.10.1。见 [npm](NPM_RELEASES.md)、[Python](PYTHON_RELEASE.md) 与 [SECURITY.md](../SECURITY.md#supported-versions)。Go 和 Rust 独立发布。源码开发请使用：
 
 ```bash
 git clone https://github.com/dcp-ai-protocol/dcp-ai.git
@@ -113,7 +113,7 @@ npx @dcp-ai/cli init   # or: node /path/to/dcp-ai/cli/bin/dcp-ai.js init
 
 ## 3. TypeScript SDK
 
-下面的 TypeScript 示例适用于 npm SDK 2.2.0 或开发检出代码（参见[已发布的软件包与本指南](#published-packages-and-this-guide)）。
+下面的 TypeScript 示例适用于 npm SDK 2.2.1 或开发检出代码（参见[已发布的软件包与本指南](#published-packages-and-this-guide)）。
 
 二选一安装：
 
@@ -123,10 +123,10 @@ npx @dcp-ai/cli init   # or: node /path/to/dcp-ai/cli/bin/dcp-ai.js init
   npm install /path/to/dcp-ai/sdks/typescript
   ```
 
-- 或已发布的 SDK 2.2.0，其中包含这些修复和功能：
+- 或已发布的 SDK 2.2.1，其中包含这些修复和功能：
 
   ```bash
-  npm install @dcp-ai/sdk@^2.2.0
+  npm install @dcp-ai/sdk@^2.2.1
   ```
 
 <a id="create-and-sign-a-bundle-v1--ed25519"></a>
@@ -296,10 +296,10 @@ console.log(result.verified, result.errors); // true []
   pip install -e /path/to/dcp-ai/sdks/python
   ```
 
-- 或已发布的 2.10.0，包含本文描述的修复和 API：
+- 或已发布的 2.10.1，包含本文描述的修复和 API：
 
   ```bash
-  pip install "dcp-ai>=2.10.0,<3"
+  pip install "dcp-ai>=2.10.1,<3"
   ```
 
 <a id="create-and-verify-a-bundle"></a>
@@ -462,7 +462,7 @@ const encrypted = encryptMessage(session, { action: 'transfer', amount: 100 });
 ### Go
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.1
 ```
 
 ```go
@@ -475,7 +475,7 @@ canonical, _ := dcp.Canonicalize(map[string]string{"b": "2", "a": "1"})
 ### Rust
 
 ```bash
-cargo add dcp-ai@2.11.0
+cargo add dcp-ai@2.11.1
 ```
 
 ML-DSA-65、ML-KEM-768、SLH-DSA-192f、Ed25519 的提供者位于 `dcp_ai::providers::*`。完整接口参见 [docs.rs 上的 `dcp-ai` crate 文档](https://docs.rs/dcp-ai)。
@@ -485,7 +485,7 @@ ML-DSA-65、ML-KEM-768、SLH-DSA-192f、Ed25519 的提供者位于 `dcp_ai::prov
 ### WebAssembly（浏览器）
 
 ```bash
-npm install @dcp-ai/wasm@^2.1.0   # the published version; for main, see the WASM SDK's Release status
+npm install @dcp-ai/wasm@^2.1.1   # the published version; for main, see the WASM SDK's Release status
 ```
 
 将 Rust SDK 的基础功能提供给浏览器和 Node.js。在 Node.js 中，`initDcp()` 需要以 `data:` URL 的形式提供 `.wasm` 文件：参见[初始化](../sdks/wasm/README.md#initialization-browser-and-nodejs)。

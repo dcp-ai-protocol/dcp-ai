@@ -123,7 +123,7 @@ To create an identity and bundles that verify, follow the Quick start of your SD
 listed in
 [Agent creation](docs/AGENT_CREATION_AND_CERTIFICATION.md#cli-wizard-demo-only).
 
-The wizard in this repository needs `@dcp-ai/sdk` 2.2.0; from a checkout (after building the SDK as above), run it
+The wizard in this repository needs `@dcp-ai/sdk` 2.2.1; from a checkout (after building the SDK as above), run it
 in your project's directory:
 
 ```bash
@@ -150,10 +150,10 @@ Install one of the two:
   npm install /path/to/dcp-ai/sdks/typescript
   ```
 
-- or the published SDK 2.2.0, which includes these fixes and features:
+- or the published SDK 2.2.1, which includes these fixes and features:
 
   ```bash
-  npm install @dcp-ai/sdk@^2.2.0
+  npm install @dcp-ai/sdk@^2.2.1
   ```
 
 Verify a signed V2 bundle with the current V2 bundle verifier of `main` (signatures, hashes, session binding, the
@@ -459,7 +459,7 @@ cd docker && docker compose up -d
 
 DCP v2.0 employs a hybrid cryptographic architecture for quantum-resistant security. Algorithm selection and crypto-agility are governed by the [Crypto Profile](spec/profiles/crypto/).
 
-This table describes the protocol design. The SDKs do not execute the combined X25519 + ML-KEM-768 exchange; the caller supplies the A2A session key. The V2 verifiers in the unreleased source code check the optional secondary audit chain links and secondary Merkle root that are present; the published packages predate that check ([dual-hash chains](docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)). See [NIST conformity](docs/NIST_CONFORMITY.md) and the [security model](docs/SECURITY_MODEL.md) for implementation limits.
+This table describes the protocol design. The SDKs do not execute the combined X25519 + ML-KEM-768 exchange; the caller supplies the A2A session key. The V2 verifiers from `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1 and Rust `dcp-ai` 2.11.1 check the optional secondary audit chain links and secondary Merkle root that are present; earlier versions do not ([dual-hash chains](docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)). See [NIST conformity](docs/NIST_CONFORMITY.md) and the [security model](docs/SECURITY_MODEL.md) for implementation limits.
 
 | Algorithm | Standard | Purpose |
 |-----------|----------|---------|

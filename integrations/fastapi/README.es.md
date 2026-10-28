@@ -5,7 +5,7 @@
 
 # dcp_ai.fastapi — middleware para FastAPI
 
-> Traducción informativa de [la versión en inglés](README.md), actualizada el 26/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](README.md), actualizada el 28/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Middleware de verificación de DCP para FastAPI. Verifica automáticamente los Signed Bundles y proporciona inyección de dependencias para las rutas protegidas.
 
@@ -24,7 +24,7 @@ De DCP-01 a DCP-09, de forma parcial: la verificación de bundles y la admisión
 La versión 2.9.0 no verifica las firmas V2; no la uses para verificar V2. La 2.10.0 incluye el verificador corregido, confianza en el principal, `strict-v1`, presupuestos de cuerpo, supervisión de fuentes de confianza/revocación y gestión de desconexiones. La admisión no autoriza una acción.
 
 ```bash
-pip install "dcp-ai[fastapi]>=2.10.0,<3"
+pip install "dcp-ai[fastapi]>=2.10.1,<3"
 ```
 
 Para desarrollar desde el código fuente:
@@ -128,7 +128,7 @@ app.add_middleware(
 0. Con `max_body_bytes`, primero se lee el cuerpo, dentro del presupuesto (véase [Presupuesto del cuerpo](#body-budget)).
 1. Extrae el bundle firmado de la cabecera o del cuerpo JSON (`signed_bundle`). Una cabecera que no es JSON, que contiene un entero por encima del límite de 4300 dígitos de Python o que está anidada demasiado profundamente cuenta como ausencia de bundle (`403` con `require_bundle=True`), nunca como un `500`.
 2. Lo verifica con el SDK de Python:
-   - **V2** (`bundle.dcp_bundle_version: "2.0"`): `await verify_signed_bundle_v2(signed_bundle, registry, policy)` de `dcp_ai.v2`, con un registro Ed25519 / ML-DSA-65 / SLH-DSA-192f y la política anterior. Comprueba los hashes de los payloads y el manifiesto, la vinculación y la caducidad de la sesión, la firma compuesta del bundle y de cada artefacto, el modo de verificación (el más estricto entre el modo de la política para el nivel de riesgo del pasaporte y el nivel de seguridad de la intención), la cadena de hash de auditoría (en el `dcp-ai` 2.10.0 publicado, solo la SHA-256; el código fuente aún no publicado del SDK también comprueba los campos secundarios SHA3-256 de V2-11 presentes) y la validez de las claves. `composite_sig_valid` es el resultado del verificador para la firma del bundle.
+   - **V2** (`bundle.dcp_bundle_version: "2.0"`): `await verify_signed_bundle_v2(signed_bundle, registry, policy)` de `dcp_ai.v2`, con un registro Ed25519 / ML-DSA-65 / SLH-DSA-192f y la política anterior. Comprueba los hashes de los payloads y el manifiesto, la vinculación y la caducidad de la sesión, la firma compuesta del bundle y de cada artefacto, el modo de verificación (el más estricto entre el modo de la política para el nivel de riesgo del pasaporte y el nivel de seguridad de la intención), la cadena de hash de auditoría (en `dcp-ai` 2.10.0, solo la SHA-256; 2.10.1 y posteriores también comprueban los campos secundarios SHA3-256 de V2-11 presentes) y la validez de las claves. `composite_sig_valid` es el resultado del verificador para la firma del bundle.
    - **V1** (`bundle.responsible_principal_record.dcp_version: "1.0"`): `verify_signed_bundle()`, solo donde VERIFICATION.md V2-10 aceptaría un bundle solo clásico, porque un bundle V1 no tiene firma poscuántica: `allow_v1_bundles` es verdadero, la política acepta ed25519 (en `accepted_classical_algs`, no en `advisory_rejected_algs`) y no exige vinculación de audiencia, caducidad de la sesión ni duración máxima de la sesión (un bundle V1 no tiene `intended_verifier` ni ventana de sesión), los `responsible_principal_record`, `agent_passport`, `intent` y `policy_decision` del bundle son objetos y sus `audit_entries` una lista de objetos, el `agent_id` del pasaporte y el `human_id` del RPR son cadenas (y la `public_key` y el `status` del pasaporte, si están, cadenas, y sus `capabilities` una lista de cadenas), porque van al contexto del agente, y el más estricto entre el modo de la política para el `risk_tier` del pasaporte V1 (`default_mode` si no tiene ninguno) y el modo del nivel de seguridad de la intención y la decisión de política V1 (el `risk_score` V1 va de 0 a 1, escalado por 1000; si falta, cuenta como `elevated`) es `classical_only` o `hybrid_preferred`. Con `DEFAULT_VERIFIER_POLICY`, una intención V1 routine o standard pasa; un pago, datos sensibles, un impacto estimado alto o una puntuación de riesgo de 0,5 o más se rechazan.
    - Un bundle cuya versión no puede detectarse se rechaza.
 3. Si es válido: guarda `DCPAgentContext` en `request.state.dcp_agent`, con los `warnings` del verificador

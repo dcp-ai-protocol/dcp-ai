@@ -1,6 +1,6 @@
 <sub>[English](README.md) · [中文](README.zh-CN.md) · **Español** · [日本語](README.ja.md) · [Português](README.pt-BR.md)</sub>
 
-> Traducción informativa de [la versión en inglés](README.md), actualizada el 27/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](README.md), actualizada el 28/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 <div align="center">
 
@@ -144,7 +144,7 @@ Para crear una identidad y bundles que verifiquen, sigue el inicio rápido de tu
 en
 [Creación de agentes](docs/AGENT_CREATION_AND_CERTIFICATION.md#cli-wizard-demo-only).
 
-El asistente de este repositorio necesita `@dcp-ai/sdk` 2.2.0; desde una copia del repositorio (tras compilar el SDK como arriba), ejecútalo
+El asistente de este repositorio necesita `@dcp-ai/sdk` 2.2.1; desde una copia del repositorio (tras compilar el SDK como arriba), ejecútalo
 en el directorio de tu proyecto:
 
 ```bash
@@ -173,10 +173,10 @@ Instala una de las dos:
   npm install /path/to/dcp-ai/sdks/typescript
   ```
 
-- o el SDK 2.2.0 publicado, que incluye estas correcciones y funciones:
+- o el SDK 2.2.1 publicado, que incluye estas correcciones y funciones:
 
   ```bash
-  npm install @dcp-ai/sdk@^2.2.0
+  npm install @dcp-ai/sdk@^2.2.1
   ```
 
 Verifica un bundle V2 firmado con el verificador de bundles V2 actual de `main` (firmas, hashes, vinculación de sesión,
@@ -518,7 +518,7 @@ cd docker && docker compose up -d
 
 DCP v2.0 emplea una arquitectura criptográfica híbrida para una seguridad resistente a la computación cuántica. La selección de algoritmos y la agilidad criptográfica se rigen por el [Crypto Profile](spec/profiles/crypto/).
 
-Esta tabla describe el diseño del protocolo. Los SDK no ejecutan el intercambio combinado X25519 + ML-KEM-768; el llamador proporciona la clave de sesión A2A. Los verificadores V2 del código fuente aún no publicado comprueban los enlaces de la cadena de auditoría secundaria opcional y la raíz de Merkle secundaria que estén presentes; los paquetes publicados son anteriores a esa comprobación ([cadenas de doble hash](docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)). Consulta la [conformidad NIST](docs/NIST_CONFORMITY.md) y el [modelo de seguridad](docs/SECURITY_MODEL.md) para conocer los límites de implementación.
+Esta tabla describe el diseño del protocolo. Los SDK no ejecutan el intercambio combinado X25519 + ML-KEM-768; el llamador proporciona la clave de sesión A2A. Los verificadores V2 desde `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1 y Rust `dcp-ai` 2.11.1 comprueban los enlaces de la cadena de auditoría secundaria opcional y la raíz de Merkle secundaria que estén presentes; las versiones anteriores no ([cadenas de doble hash](docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)). Consulta la [conformidad NIST](docs/NIST_CONFORMITY.md) y el [modelo de seguridad](docs/SECURITY_MODEL.md) para conocer los límites de implementación.
 
 | Algoritmo | Estándar | Propósito |
 |-----------|----------|---------|

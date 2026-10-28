@@ -11,7 +11,7 @@ hide:
 
 # DCP-AI — AI エージェントのための Digital Citizenship Protocol
 
-> [英語版](docs-index.md)の参考訳です（27/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](docs-index.md)の参考訳です（28/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 > オープンなネットワーク上の AI エージェントのための、持ち運べる説明責任の層。
 
@@ -34,7 +34,7 @@ hide:
 === "Node.js"
 
     ```bash
-    npm install @dcp-ai/sdk@^2.2.0 @dcp-ai/cli
+    npm install @dcp-ai/sdk@^2.2.1 @dcp-ai/cli
     ```
 
 === "Python"
@@ -46,19 +46,19 @@ hide:
 === "Go"
 
     ```bash
-    go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
+    go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.1
     ```
 
 === "Rust"
 
     ```bash
-    cargo add dcp-ai@2.11.0
+    cargo add dcp-ai@2.11.1
     ```
 
 === "WebAssembly"
 
     ```bash
-    npm install @dcp-ai/wasm@^2.1.0
+    npm install @dcp-ai/wasm@^2.1.1
     ```
 
 ---

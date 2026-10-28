@@ -1,6 +1,6 @@
 <sub>[English](README.md) · **中文** · [Español](README.es.md) · [日本語](README.ja.md) · [Português](README.pt-BR.md)</sub>
 
-> 本文是[英文版](README.md)的参考译文，更新于 27/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](README.md)的参考译文，更新于 28/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 <div align="center">
 
@@ -144,7 +144,7 @@ npx @dcp-ai/cli init   # the published @dcp-ai/cli
 以下文档中：
 [智能体创建](docs/AGENT_CREATION_AND_CERTIFICATION.md#cli-wizard-demo-only)。
 
-本仓库中的向导需要 `@dcp-ai/sdk` 2.2.0；使用检出副本时（按上文构建 SDK 之后），请在
+本仓库中的向导需要 `@dcp-ai/sdk` 2.2.1；使用检出副本时（按上文构建 SDK 之后），请在
 你的项目目录中运行它：
 
 ```bash
@@ -173,10 +173,10 @@ node /path/to/dcp-ai/bin/dcp.js verify-bundle --policy hybrid_preferred bundle.s
   npm install /path/to/dcp-ai/sdks/typescript
   ```
 
-- 或已发布的 SDK 2.2.0，其中包含这些修复和功能：
+- 或已发布的 SDK 2.2.1，其中包含这些修复和功能：
 
   ```bash
-  npm install @dcp-ai/sdk@^2.2.0
+  npm install @dcp-ai/sdk@^2.2.1
   ```
 
 用 `main` 当前的 V2 bundle 验证器（签名、哈希、会话绑定、安全
@@ -520,7 +520,7 @@ cd docker && docker compose up -d
 
 DCP v2.0 采用混合密码架构以实现抗量子安全。算法选择和密码学敏捷性由 [Crypto Profile](spec/profiles/crypto/) 规定。
 
-此表描述协议设计。SDK 不执行 X25519 + ML-KEM-768 的组合交换；A2A 会话密钥由调用方提供。尚未发布的源代码中的 V2 验证器会检查存在的可选次级审计链链接和次级 Merkle 根；已发布的软件包早于这项检查（[双哈希链](docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)）。实现限制参见 [NIST 符合性](docs/NIST_CONFORMITY.md)和[安全模型](docs/SECURITY_MODEL.md)。
+此表描述协议设计。SDK 不执行 X25519 + ML-KEM-768 的组合交换；A2A 会话密钥由调用方提供。自 `@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`dcp-ai` 2.10.1（PyPI）、Go v2.11.1 和 Rust `dcp-ai` 2.11.1 起，V2 验证器会检查存在的可选次级审计链链接和次级 Merkle 根；更早的版本不检查（[双哈希链](docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)）。实现限制参见 [NIST 符合性](docs/NIST_CONFORMITY.md)和[安全模型](docs/SECURITY_MODEL.md)。
 
 | 算法 | 标准 | 用途 |
 |-----------|----------|---------|

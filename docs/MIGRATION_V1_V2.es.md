@@ -4,11 +4,11 @@
 
 # Guía de migración: de DCP-AI v1.0 a v2.0
 
-> Traducción informativa de [la versión en inglés](MIGRATION_V1_V2.md), actualizada el 27/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](MIGRATION_V1_V2.md), actualizada el 28/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 **Versión de la especificación:** 2.0
 **Última actualización:** octubre de 2026
-**Se aplica a:** los SDK de `main` y `@dcp-ai/sdk` 2.2.0 publicado. Las versiones npm se verificaron el 26/10/2026; véanse [NPM_RELEASES.md](NPM_RELEASES.md) y [SECURITY.md](../SECURITY.md#supported-versions). Las versiones de los demás SDK están en [Versiones publicadas](README.md#published-versions).
+**Se aplica a:** los SDK de `main` y `@dcp-ai/sdk` 2.2.1 publicado. Las versiones npm se verificaron el 28/10/2026; véanse [NPM_RELEASES.md](NPM_RELEASES.md) y [SECURITY.md](../SECURITY.md#supported-versions). Las versiones de los demás SDK están en [Versiones publicadas](README.md#published-versions).
 
 Esta guía te acompaña en la migración de una integración existente de DCP-AI v1.0 a v2.0. La migración introduce firmas compuestas poscuánticas, cadenas de doble hash, vinculación de sesión, niveles de seguridad adaptativos y comunicación entre agentes, mientras que los bundles v1.0 válidos siguen verificándose donde la política del verificador los permita (véase 1.2).
 
@@ -69,12 +69,12 @@ La migración es **aditiva**: v2.0 introduce campos y estructuras nuevos junto a
 
 ### Paso 1: actualizar el SDK
 
-Los ejemplos funcionan con TypeScript SDK 2.2.0, Python `dcp-ai` 2.10.0, Go `v2.11.0` y Rust `dcp-ai` 2.11.0 publicados. Véanse las notas de [Python](PYTHON_RELEASE.md), [Go](GO_RELEASE.md) y [Rust](RUST_RELEASE.md), y los límites documentados en el README de cada SDK.
+Los ejemplos funcionan con TypeScript SDK 2.2.1, Python `dcp-ai` 2.10.1, Go `v2.11.1` y Rust `dcp-ai` 2.11.1 publicados. Véanse las notas de [Python](PYTHON_RELEASE.md), [Go](GO_RELEASE.md) y [Rust](RUST_RELEASE.md), y los límites documentados en el README de cada SDK.
 
-**TypeScript** (publicado: 2.2.0 el 26/10/2026):
+**TypeScript** (publicado: 2.2.1 el 28/10/2026):
 
 ```bash
-npm install @dcp-ai/sdk@^2.2.0
+npm install @dcp-ai/sdk@^2.2.1
 ```
 
 **Python:**
@@ -87,13 +87,13 @@ pip install -e /path/to/dcp-ai/sdks/python     # main
 **Go** (fíjate en el sufijo de versión mayor v2 que exigen los módulos de Go):
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.1
 ```
 
 **Rust:**
 
 ```toml
-dcp-ai = "2.11.0"
+dcp-ai = "2.11.1"
 ```
 
 **WebAssembly:** compila `sdks/wasm` desde una copia del repositorio (`npm run build`) y después `npm install /path/to/dcp-ai/sdks/wasm`.
@@ -301,7 +301,7 @@ const message = domainSeparatedMessage(DCP_CONTEXTS.Bundle, new TextEncoder().en
 
 Campos nuevos: `session_nonce`, `hash_alg`, `evidence.evidence_hash` y `pq_checkpoint_ref`; los hashes llevan el
 prefijo `sha256:`. Una cadena de doble hash añade `prev_hash_secondary` (SHA3-256) y `hash_alg: "sha256+sha3-256"`.
-En el código fuente aún no publicado, los verificadores V2, incluido el candidato experimental, comprueban los enlaces secundarios, los hashes de intención y `audit_merkle_root_secondary` que estén presentes; los ausentes no se exigen y los paquetes publicados son anteriores a esta comprobación, así que producir estos campos solo acredita la protección adicional cuando tanto el productor como el verificador la incluyen
+Los verificadores V2 desde `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1 y Rust `dcp-ai` 2.11.1, incluido el candidato experimental, comprueban los enlaces secundarios, los hashes de intención y `audit_merkle_root_secondary` que estén presentes; los ausentes no se exigen y las versiones anteriores no los comprueban, así que producir estos campos solo acredita la protección adicional cuando tanto el productor como el verificador la incluyen
 ([STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)).
 Las entradas de auditoría no se firman una a una: el manifiesto se compromete con ellas mediante la raíz de Merkle de la auditoría, y los checkpoints
 PQ firman rangos de ellas.
@@ -666,8 +666,8 @@ Recorre esta lista para confirmar que la migración está completa:
 - [ ] **Firma compuesta**: `signBundleV2` produce firmas compuestas válidas
 - [ ] **Separación de dominio**: las firmas incluyen etiquetas de contexto
 - [ ] **Vinculación compuesta**: la firma PQ cubre los bytes de la firma clásica
-- [ ] **Cadena de doble hash**: las entradas de auditoría incluyen `prev_hash_secondary` (SHA3-256); los verificadores del código fuente aún no publicado comprueban cada enlace presente (paso 6); los paquetes publicados no
-- [ ] **Manifiesto**: el manifiesto del bundle contiene todos los hashes de los artefactos y, con una cadena de doble hash, la raíz de Merkle secundaria, que los verificadores del código fuente aún no publicado comprueban cuando está presente
+- [ ] **Cadena de doble hash**: las entradas de auditoría incluyen `prev_hash_secondary` (SHA3-256); los verificadores desde `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1 y Rust `dcp-ai` 2.11.1 comprueban cada enlace presente (paso 6); las versiones anteriores no
+- [ ] **Manifiesto**: el manifiesto del bundle contiene todos los hashes de los artefactos y, con una cadena de doble hash, la raíz de Merkle secundaria, que los verificadores desde `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1 y Rust `dcp-ai` 2.11.1 comprueban cuando está presente
 - [ ] **Nonce de sesión**: todos los artefactos de un bundle comparten el mismo nonce
 - [ ] **Verificación V2**: `verifySignedBundleV2` (o `dcp verify-bundle`) pasa con bundles v2.0 firmados correctamente
 - [ ] **Compatibilidad V1**: los bundles v1.0 siguen verificándose con la función V1 `verifySignedBundle` (que solo acepta v1.0), con `dcp verify-bundle` o con un enrutador por versión como el de 3.2; la función V2 `verifySignedBundleV2` solo acepta v2.0

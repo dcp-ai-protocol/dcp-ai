@@ -5,7 +5,7 @@
 
 # DCP-AI + OpenAI: inicio rápido
 
-> Traducción informativa de [la versión en inglés](QUICKSTART_OPENAI.md), actualizada el 27/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](QUICKSTART_OPENAI.md), actualizada el 28/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Añade identidad criptográfica, control por política y rastros de auditoría a agentes de OpenAI con llamadas a funciones.
 
@@ -17,10 +17,10 @@ Añade identidad criptográfica, control por política y rastros de auditoría a
 
 Esta guía usa el **SDK de OpenAI para Node**. Si usas Python, salta a la sección de Python al final.
 
-La instalación desde el registro usa `@dcp-ai/sdk` 2.2.0 para los ejemplos V1 y V2; el checkout es opcional (véase [instalación](../sdks/typescript/README.md#installation)). Los ejemplos usan la API Chat Completions del SDK Node de OpenAI (`openai` v4 o posterior; las versiones recientes añaden llamadas a herramientas personalizadas, que el bucle rechaza). Ejecutarlos llama a la API de OpenAI y requiere `OPENAI_API_KEY`.
+La instalación desde el registro usa `@dcp-ai/sdk` 2.2.1 para los ejemplos V1 y V2; el checkout es opcional (véase [instalación](../sdks/typescript/README.md#installation)). Los ejemplos usan la API Chat Completions del SDK Node de OpenAI (`openai` v4 o posterior; las versiones recientes añaden llamadas a herramientas personalizadas, que el bucle rechaza). Ejecutarlos llama a la API de OpenAI y requiere `OPENAI_API_KEY`.
 
 ```bash
-npm install @dcp-ai/sdk@^2.2.0 openai
+npm install @dcp-ai/sdk@^2.2.1 openai
 ```
 
 <a id="zero-config-scaffold-alternative"></a>
@@ -234,7 +234,7 @@ bundle sellado registra `escalated` y `awaiting_human_approval` hasta que tu apl
 
 ## Actualización a V2.0
 
-DCP v2.0 añade firmas compuestas poscuánticas, niveles de seguridad adaptativos y vinculación de sesión. Esta sección funciona con `@dcp-ai/sdk` 2.2.0 publicado (véase Instalación).
+DCP v2.0 añade firmas compuestas poscuánticas, niveles de seguridad adaptativos y vinculación de sesión. Esta sección funciona con `@dcp-ai/sdk` 2.2.1 publicado (véase Instalación).
 
 <a id="v2-identity"></a>
 
@@ -328,7 +328,7 @@ Si tu agente está escrito con el SDK de OpenAI para Python, usa el puente de Py
 copia del repositorio, `pip install -e "/path/to/dcp-ai/sdks/python[openai]"`):
 
 ```bash
-pip install "dcp-ai[openai]>=2.10.0,<3"
+pip install "dcp-ai[openai]>=2.10.1,<3"
 ```
 
 ```python

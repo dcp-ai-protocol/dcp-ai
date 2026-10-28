@@ -4,9 +4,9 @@
 
 # 変更履歴
 
-> [英語版](CHANGELOG.md)の参考訳です（27/10/2026 更新）。各エントリーは、`[Unreleased]` のものも含め、その時点での変更を記述したもので、現在の動作を保証するものではありません。公開済みの各バージョンは**日付のある過去の記録**です。内容が異なる場合は英語版が優先されます。
+> [英語版](CHANGELOG.md)の参考訳です（28/10/2026 更新）。各エントリーは、`[Unreleased]` のものも含め、その時点での変更を記述したもので、現在の動作を保証するものではありません。公開済みの各バージョンは**日付のある過去の記録**です。内容が異なる場合は英語版が優先されます。
 
-**公開済みバージョン（2026 年 10 月 26 日）。** npm（`@dcp-ai/sdk` 2.2.0 を含む 13 パッケージ）、Python `dcp-ai` 2.10.0、Go `v2.11.0`、Rust `dcp-ai` 2.11.0 が、検証器の修正、受け入れ判定、実験的なオプトイン API を含めて公開済みです。`dcp-jcs-v1` は引き続き規範的なデフォルトです。[公開済みバージョン](docs/README.md#published-versions)を参照してください。以下の項目は開発履歴として保持しています。`[Unreleased]` はこれらの機能が未公開であることを意味しません。
+**公開済みバージョン（2026 年 10 月 26 日）。** npm（`@dcp-ai/sdk` 2.2.0 を含む 13 パッケージ）、Python `dcp-ai` 2.10.0、Go `v2.11.0`、Rust `dcp-ai` 2.11.0 が、検証器の修正、受け入れ判定、実験的なオプトイン API を含めて公開済みです。`dcp-jcs-v1` は引き続き規範的なデフォルトです。[公開済みバージョン](docs/README.md#published-versions)を参照してください。以下の項目は開発履歴として保持しています。`[Unreleased]` はこれらの機能が未公開であることを意味しません。2026 年 10 月 28 日の 6 つの修正リリースは[専用のセクション](#2026-10-28-sha3-patch-releases)にあります。
 
 このプロジェクトの重要な変更はすべてこのファイルに記録します。
 
@@ -18,13 +18,17 @@
 > ついては、[README](README.md)、[ドキュメント](docs/README.md)、[仕様](spec/README.md)、
 > [API リファレンス](docs/API_REFERENCE.md)を参照してください。
 
-## [Unreleased]
+<a id="2026-10-28-sha3-patch-releases"></a>
 
-<a id="security"></a>
+## [2026-10-28] SHA3 の修正リリース
 
-### セキュリティ
+2026 年 10 月 28 日に公開：npm の `@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`@dcp-ai/cli` 2.1.1、PyPI の `dcp-ai` 2.10.1、Go モジュール `v2.11.1`（タグ `sdks/go/v2.11.1`）、crates.io の Rust `dcp-ai` 2.11.1。その他の 10 の npm パッケージは変わりません。[公開済みバージョン](docs/README.md#published-versions)と、[npm](docs/NPM_RELEASES.md)、[Python](docs/PYTHON_RELEASE.md)、[Go](docs/GO_RELEASE.md)、[Rust](docs/RUST_RELEASE.md) のリリースノートを参照してください。
 
-- **受け入れの変更（未公開のソースコード、2026 年 10 月 27 日）：二次の SHA3-256 フィールドは、存在する場合に検証されます。**
+<a id="secondary-sha3-256-verification"></a>
+
+### 二次 SHA3-256 の検証
+
+- **受け入れの変更：二次の SHA3-256 フィールドは、存在する場合に検証されます**（2026 年 10 月 27 日に開発）。
   TypeScript、Python、Go、Rust の V2 検証器と、Rust SDK からの WASM ビルドは、`spec/VERIFICATION.md` の V2-11 と
   2026 年 10 月 27 日の正誤のとおり、`audit_merkle_root_secondary`（一次と同じ方法で作る SHA3-256 の木。空の記録では
   `sha3-256:` に 64 個のゼロを続けた値）、各 `prev_hash_secondary`（最初のエントリーでは `"GENESIS"`、以降はバンドルに
@@ -33,8 +37,20 @@
   こともあります。存在するフィールドが `null`、文字列でない、または誤っている場合は拒否されます。受け入れと実験的な
   候補の経路もこれらの確認を再利用します。API、結果のフィールド、正規化、`hash_alg` の扱いは変わりません。
   `prev_hash_secondary` のスキーマのパターンは、OpenClaw が最初のエントリーに書く `"GENESIS"` も受け入れます。共有
-  ベクター：`tests/interop/v2/secondary_sha3_vectors.json`。まだどの公開済みパッケージにも含まれていません。
-  [公開済みバージョン](docs/README.md#published-versions)のバージョンは二次フィールドを確認しません。
+  ベクター：`tests/interop/v2/secondary_sha3_vectors.json`。以前のバージョンはこれらのフィールドを確認しません。 公開済みのアダプター `@dcp-ai/express`、`@dcp-ai/openclaw`、`@dcp-ai/anthropic-mcp`、`@dcp-ai/google-a2a` 2.1.0 は再公開していません。これらは `@dcp-ai/sdk` `^2.2.0` に依存しており、ロックファイルが `@dcp-ai/sdk` 2.2.1 以降を解決すると二次の確認が行われます。
+
+<a id="package-metadata"></a>
+
+### パッケージのメタデータ
+
+- `@dcp-ai/cli` 2.1.1 は `@dcp-ai/sdk` `^2.2.1` を必要とし、`dcp-ai --version` は古い `1.0.0` ではなく `2.1.1` を表示します。
+- テレメトリーは新しいバージョンを報告します：Go の `SDKVersion` は `2.11.1`。TypeScript、Python、Rust の SDK は自身のパッケージのバージョンを読み取ります。
+
+## [Unreleased]
+
+<a id="security"></a>
+
+### セキュリティ
 
 - **受け入れの変更: S >= L の Ed25519 署名を拒否するようになりました。** 対象は TypeScript SDK
   （`Ed25519Provider.verify`、したがってすべての V2 署名と複合署名、`@dcp-ai/express` と

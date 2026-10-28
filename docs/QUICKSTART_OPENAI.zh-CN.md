@@ -5,7 +5,7 @@
 
 # DCP-AI + OpenAI 快速开始
 
-> 本文是[英文版](QUICKSTART_OPENAI.md)的参考译文，更新于 27/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](QUICKSTART_OPENAI.md)的参考译文，更新于 28/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 为 OpenAI 函数调用智能体加入密码学身份、策略管控和审计轨迹。
 
@@ -17,10 +17,10 @@
 
 本指南使用 **OpenAI Node SDK**。如果你使用 Python，请跳到末尾的 Python 一节。
 
-从注册表安装时，V1 和 V2 示例均使用 `@dcp-ai/sdk` 2.2.0；源码检出是可选方式（见[安装说明](../sdks/typescript/README.md#installation)）。示例使用 OpenAI Node SDK 的 Chat Completions API（`openai` v4 或更高；近期版本增加了自定义工具调用，本循环会拒绝此类调用）。运行示例会调用 OpenAI API，并需要 `OPENAI_API_KEY`。
+从注册表安装时，V1 和 V2 示例均使用 `@dcp-ai/sdk` 2.2.1；源码检出是可选方式（见[安装说明](../sdks/typescript/README.md#installation)）。示例使用 OpenAI Node SDK 的 Chat Completions API（`openai` v4 或更高；近期版本增加了自定义工具调用，本循环会拒绝此类调用）。运行示例会调用 OpenAI API，并需要 `OPENAI_API_KEY`。
 
 ```bash
-npm install @dcp-ai/sdk@^2.2.0 openai
+npm install @dcp-ai/sdk@^2.2.1 openai
 ```
 
 <a id="zero-config-scaffold-alternative"></a>
@@ -234,7 +234,7 @@ const intent: Intent = {
 
 ## 升级到 V2.0
 
-DCP v2.0 增加后量子复合签名、自适应安全等级和会话绑定。本节适用于已发布的 `@dcp-ai/sdk` 2.2.0（见安装说明）。
+DCP v2.0 增加后量子复合签名、自适应安全等级和会话绑定。本节适用于已发布的 `@dcp-ai/sdk` 2.2.1（见安装说明）。
 
 <a id="v2-identity"></a>
 
@@ -328,7 +328,7 @@ bundle 必须带有两种签名（规范 §14.3）。
 检出副本安装时为 `pip install -e "/path/to/dcp-ai/sdks/python[openai]"`）：
 
 ```bash
-pip install "dcp-ai[openai]>=2.10.0,<3"
+pip install "dcp-ai[openai]>=2.10.1,<3"
 ```
 
 ```python

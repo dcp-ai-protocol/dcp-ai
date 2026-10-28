@@ -16,7 +16,7 @@ verification through `dcp_verify_bundle`. It does not implement them in full.
 Version 2.9.0 routes every bundle to V1. Version 2.10.0 verifies V2 and enforces verifier policy for both versions, including the asynchronous `averify_bundle_tool_call` entry point. Tool descriptions and audit records alone are not signed evidence or authorization.
 
 ```bash
-pip install "dcp-ai[openai]>=2.10.0,<3"
+pip install "dcp-ai[openai]>=2.10.1,<3"
 ```
 
 For source development:

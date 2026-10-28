@@ -4,11 +4,11 @@
 
 # DCP-AI API リファレンス
 
-> [英語版](API_REFERENCE.md)の参考訳です（26/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](API_REFERENCE.md)の参考訳です（28/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
-`main` にある TypeScript SDK `@dcp-ai/sdk`（パッケージのバージョン 2.2.0、プロトコル DCP v2.0）のリファレンスです。
+`main` にある TypeScript SDK `@dcp-ai/sdk`（パッケージのバージョン 2.2.1、プロトコル DCP v2.0）のリファレンスです。
 
-> **npm バージョン（2026 年 10 月 26 日）。** この TypeScript リファレンスは公開済みの `@dcp-ai/sdk` 2.2.0 に適用され、プリンシパルの信頼、`strict-v1`、明示的な選択が必要な候補の実験的 API を含みます。[公開済み npm パッケージ](NPM_RELEASES.md)と SDK の[インストール手順](../sdks/typescript/README.md#installation)を参照してください。`dcp-jcs-v1` が規範的な既定のままです。
+> **npm バージョン（2026 年 10 月 28 日）。** この TypeScript リファレンスは公開済みの `@dcp-ai/sdk` 2.2.1 に適用され、プリンシパルの信頼、`strict-v1`、明示的な選択が必要な候補の実験的 API を含みます。[公開済み npm パッケージ](NPM_RELEASES.md)と SDK の[インストール手順](../sdks/typescript/README.md#installation)を参照してください。`dcp-jcs-v1` が規範的な既定のままです。
 
 このページのコードブロックは宣言や断片であり、完全なプログラムではありません。`registry`、`keys`、
 `payloadBytes`、`signedBundle` などの名前は、TypeScript SDK の
@@ -765,7 +765,7 @@ interface SignBundleV2ClassicalOnlyOptions {
 
 ### `verifySignedBundleV2(signedBundle, registry, policy?, options?)`
 
-検証者が決めるポリシーによる、署名済みの V2 バンドルの検証です。未公開のソースコードの検証器は、一次の監査チェーンとマークルルートに加え、存在する二次の `prev_hash_secondary`、`intent_hash_secondary`、`audit_merkle_root_secondary` も確認します（存在しないものは要求しません。公開済みの 2.2.0 はこれらを確認しないため、それを使った検証の成功はそれらの一貫性を保証しません）（[実装の状況](STORAGE_AND_ANCHORING.md#dual-hash-chains)）。検証は、アドミッションやアクションの承認も与えません。
+検証者が決めるポリシーによる、署名済みの V2 バンドルの検証です。検証器は一次の監査チェーンとマークルルートを確認し、2.2.1 以降は存在する二次の `prev_hash_secondary`、`intent_hash_secondary`、`audit_merkle_root_secondary` も確認します（存在しないものは要求しないため、検証の成功は完全な二次チェーンを示しません。2.2.0 はこれらを確認しないため、それを使った検証の成功はそれらの一貫性を保証しません）（[実装の状況](STORAGE_AND_ANCHORING.md#dual-hash-chains)）。検証は、アドミッションやアクションの承認も与えません。
 
 ```typescript
 async function verifySignedBundleV2(

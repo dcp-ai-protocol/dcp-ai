@@ -5,7 +5,7 @@
 
 # DCP-AI + LangChain クイックスタート
 
-> [英語版](QUICKSTART_LANGCHAIN.md)の参考訳です（26/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](QUICKSTART_LANGCHAIN.md)の参考訳です（28/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 Digital Citizenship Protocol を LangChain のエージェントに統合し、暗号学的なアイデンティティ、ポリシーによる制御、監査証跡を追加します。
 
@@ -18,10 +18,10 @@ Digital Citizenship Protocol を LangChain のエージェントに統合し、�
 このガイドは **LangChain.js v1**（TypeScript/Node、Node.js 22 以降）を使います。**Python 版の LangChain** を使う場合は、
 末尾の Python のセクションに進んでください。
 
-レジストリからのインストールには `@dcp-ai/sdk` 2.2.0 を使います。以下の DCP の例はその公開済み SDK で動作し、ソースのチェックアウトは開発時の選択肢です。TypeScript SDK の[リリース状況](../sdks/typescript/README.md#installation)を参照してください。
+レジストリからのインストールには `@dcp-ai/sdk` 2.2.1 を使います。以下の DCP の例はその公開済み SDK で動作し、ソースのチェックアウトは開発時の選択肢です。TypeScript SDK の[リリース状況](../sdks/typescript/README.md#installation)を参照してください。
 
 ```bash
-npm install @dcp-ai/sdk@^2.2.0 langchain @langchain/core @langchain/openai zod
+npm install @dcp-ai/sdk@^2.2.1 langchain @langchain/core @langchain/openai zod
 ```
 
 <a id="zero-config-scaffold-alternative"></a>
@@ -216,7 +216,7 @@ const registry = getDefaultRegistry();
 LangChain のスタックが Node ではなく Python の場合は、代わりに Python SDK の組み込みのブリッジを使います。
 
 ```bash
-pip install "dcp-ai[langchain]>=2.10.0,<3"
+pip install "dcp-ai[langchain]>=2.10.1,<3"
 ```
 
 ```python
@@ -232,7 +232,7 @@ events = wrapped.get_audit_trail()  # V2 audit events, hash-chained; seal them i
 `DCPAgentWrapper` は呼び出しごとに意図とポリシー判断を宣言し、`block` を拒否し、
 監査イベントを記録します。`DCPTool` はエージェントがほかのエージェントのバンドルを検証できるようにし、`DCPCallback` は
 LangChain のコールバックから監査イベントを記録します。レコードは署名されず、既定のポリシーはすべての呼び出しを承認し、`escalate` でも
-エージェントは実行されます。LangChain 1.x では `DCPCallback` に自前のハンドラーが必要で、PyPI 2.10.0 は設定したポリシーで V1 と V2 を検証します（2.9.0 はすべてを V1 に送っていました）。これらの制限と全体の API については [integrations/langchain/README.md](../integrations/langchain/README.md) を参照してください。
+エージェントは実行されます。LangChain 1.x では `DCPCallback` に自前のハンドラーが必要で、PyPI 2.10.1 は設定したポリシーで V1 と V2 を検証します（2.9.0 はすべてを V1 に送っていました）。これらの制限と全体の API については [integrations/langchain/README.md](../integrations/langchain/README.md) を参照してください。
 Python のブリッジは、上の手書きの TypeScript の例とは別物です。
 
 ---

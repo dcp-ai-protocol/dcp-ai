@@ -25,7 +25,7 @@ Cryptographically verifiable identity, machine-readable intent, tamper-evident a
 === "Node.js"
 
     ```bash
-    npm install @dcp-ai/sdk@^2.2.0 @dcp-ai/cli
+    npm install @dcp-ai/sdk@^2.2.1 @dcp-ai/cli
     ```
 
 === "Python"
@@ -37,19 +37,19 @@ Cryptographically verifiable identity, machine-readable intent, tamper-evident a
 === "Go"
 
     ```bash
-    go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
+    go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.1
     ```
 
 === "Rust"
 
     ```bash
-    cargo add dcp-ai@2.11.0
+    cargo add dcp-ai@2.11.1
     ```
 
 === "WebAssembly"
 
     ```bash
-    npm install @dcp-ai/wasm@^2.1.0
+    npm install @dcp-ai/wasm@^2.1.1
     ```
 
 ---

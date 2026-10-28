@@ -5,7 +5,7 @@
 
 # DCP-AI + CrewAI 快速开始
 
-> 本文是[英文版](QUICKSTART_CREWAI.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](QUICKSTART_CREWAI.md)的参考译文，更新于 28/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 为你的 CrewAI 多智能体团队加入密码学身份、策略管控和审计轨迹。
 
@@ -16,7 +16,7 @@
 ## 安装
 
 ```bash
-pip install "dcp-ai[crewai]>=2.10.0,<3"
+pip install "dcp-ai[crewai]>=2.10.1,<3"
 ```
 
 `[crewai]` extra 会安装 `crewai` 运行时。下面的示例直接使用核心 SDK；SDK 自带的 CrewAI 辅助工具，即 `dcp_ai.crewai` 中的 `DCPCrewAgent` 和 `DCPCrew`，在 [integrations/crewai](../integrations/crewai/README.md) 中介绍。
@@ -284,7 +284,7 @@ DCP v2.0 为 CrewAI 团队增加了后量子复合签名、自适应安全等级
 ### 安装（V2）
 
 ```bash
-pip install "dcp-ai[crewai]>=2.10.0,<3"
+pip install "dcp-ai[crewai]>=2.10.1,<3"
 ```
 
 <a id="v2-crew-setup-with-security-tiers"></a>

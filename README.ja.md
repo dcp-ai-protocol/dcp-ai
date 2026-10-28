@@ -1,6 +1,6 @@
 <sub>[English](README.md) · [中文](README.zh-CN.md) · [Español](README.es.md) · **日本語** · [Português](README.pt-BR.md)</sub>
 
-> [英語版](README.md)の参考訳です（27/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](README.md)の参考訳です（28/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 <div align="center">
 
@@ -144,7 +144,7 @@ npx @dcp-ai/cli init   # the published @dcp-ai/cli
 次にあります：
 [エージェントの作成](docs/AGENT_CREATION_AND_CERTIFICATION.md#cli-wizard-demo-only)。
 
-このリポジトリのウィザードには `@dcp-ai/sdk` 2.2.0 が必要です。チェックアウトから（上記のとおり SDK をビルドした後で）、
+このリポジトリのウィザードには `@dcp-ai/sdk` 2.2.1 が必要です。チェックアウトから（上記のとおり SDK をビルドした後で）、
 プロジェクトのディレクトリで実行します。
 
 ```bash
@@ -173,10 +173,10 @@ node /path/to/dcp-ai/bin/dcp.js verify-bundle --policy hybrid_preferred bundle.s
   npm install /path/to/dcp-ai/sdks/typescript
   ```
 
-- または、これらの修正と機能を含む公開済み SDK 2.2.0：
+- または、これらの修正と機能を含む公開済み SDK 2.2.1：
 
   ```bash
-  npm install @dcp-ai/sdk@^2.2.0
+  npm install @dcp-ai/sdk@^2.2.1
   ```
 
 `main` の現行の V2 バンドル検証器（署名、ハッシュ、セッションバインディング、セキュリティティア）で、署名済みの V2 バンドルを
@@ -522,7 +522,7 @@ cd docker && docker compose up -d
 
 DCP v2.0 は、量子耐性のあるセキュリティのためにハイブリッドな暗号アーキテクチャを採用しています。アルゴリズムの選択と暗号の俊敏性は [Crypto Profile](spec/profiles/crypto/) で定められています。
 
-この表はプロトコルの設計を示します。SDK は X25519 + ML-KEM-768 を組み合わせた交換を実行せず、A2A のセッション鍵は呼び出し側が提供します。未公開のソースコードの V2 検証器は、存在するオプションの二次監査チェーンのリンクと二次マークルルートを確認します。公開済みのパッケージはこの確認より前のものです（[二重ハッシュチェーン](docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)）。実装上の制限は [NIST への適合](docs/NIST_CONFORMITY.md)と[セキュリティモデル](docs/SECURITY_MODEL.md)を参照してください。
+この表はプロトコルの設計を示します。SDK は X25519 + ML-KEM-768 を組み合わせた交換を実行せず、A2A のセッション鍵は呼び出し側が提供します。`@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`dcp-ai` 2.10.1（PyPI）、Go v2.11.1、Rust `dcp-ai` 2.11.1 以降の V2 検証器は、存在するオプションの二次監査チェーンのリンクと二次マークルルートを確認します。それより前のバージョンは確認しません（[二重ハッシュチェーン](docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)）。実装上の制限は [NIST への適合](docs/NIST_CONFORMITY.md)と[セキュリティモデル](docs/SECURITY_MODEL.md)を参照してください。
 
 | アルゴリズム | 標準 | 目的 |
 |-----------|----------|---------|

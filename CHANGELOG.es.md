@@ -4,9 +4,9 @@
 
 # Registro de cambios
 
-> Traducción informativa de [la versión en inglés](CHANGELOG.md), actualizada el 27/10/2026. Cada entrada, también las de `[Unreleased]`, describe un cambio en su momento y no garantiza el comportamiento actual; las versiones publicadas son **registro histórico con fecha**. Si difieren, prevalece la versión en inglés.
+> Traducción informativa de [la versión en inglés](CHANGELOG.md), actualizada el 28/10/2026. Cada entrada, también las de `[Unreleased]`, describe un cambio en su momento y no garantiza el comportamiento actual; las versiones publicadas son **registro histórico con fecha**. Si difieren, prevalece la versión en inglés.
 
-**Versiones publicadas (26/10/2026).** Están publicados npm (13 paquetes, incluido `@dcp-ai/sdk` 2.2.0), Python `dcp-ai` 2.10.0, Go `v2.11.0` y Rust `dcp-ai` 2.11.0, con las correcciones del verificador, la admisión y las API experimentales opt-in; `dcp-jcs-v1` sigue siendo el valor normativo predeterminado. Véase [Versiones publicadas](docs/README.md#published-versions). Las entradas siguientes conservan su historial de desarrollo; `[Unreleased]` no significa que estas funciones no estén publicadas.
+**Versiones publicadas (26/10/2026).** Están publicados npm (13 paquetes, incluido `@dcp-ai/sdk` 2.2.0), Python `dcp-ai` 2.10.0, Go `v2.11.0` y Rust `dcp-ai` 2.11.0, con las correcciones del verificador, la admisión y las API experimentales opt-in; `dcp-jcs-v1` sigue siendo el valor normativo predeterminado. Véase [Versiones publicadas](docs/README.md#published-versions). Las entradas siguientes conservan su historial de desarrollo; `[Unreleased]` no significa que estas funciones no estén publicadas. Las seis publicaciones de corrección del 28/10/2026 están en [su propia sección](#2026-10-28-sha3-patch-releases).
 
 Todos los cambios relevantes de este proyecto se documentarán en este archivo.
 
@@ -18,14 +18,18 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 > actual, consulta el [README](README.md), la [documentación](docs/README.md), las [especificaciones](spec/README.md)
 > y la [referencia de la API](docs/API_REFERENCE.md).
 
-## [Unreleased]
+<a id="2026-10-28-sha3-patch-releases"></a>
 
-<a id="security"></a>
+## [2026-10-28] Publicaciones de corrección SHA3
 
-### Seguridad
+Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cli` 2.1.1 en npm, `dcp-ai` 2.10.1 en PyPI, el módulo Go `v2.11.1` (etiqueta `sdks/go/v2.11.1`) y Rust `dcp-ai` 2.11.1 en crates.io. Los otros diez paquetes npm no cambian. Véanse [Versiones publicadas](docs/README.md#published-versions) y las notas de publicación de [npm](docs/NPM_RELEASES.md), [Python](docs/PYTHON_RELEASE.md), [Go](docs/GO_RELEASE.md) y [Rust](docs/RUST_RELEASE.md).
 
-- **Cambio de aceptación (código fuente aún no publicado, 27/10/2026): los campos secundarios SHA3-256 se verifican
-  cuando están presentes.** Los verificadores V2 de TypeScript, Python, Go y Rust, y la compilación WASM a partir del SDK
+<a id="secondary-sha3-256-verification"></a>
+
+### Verificación secundaria SHA3-256
+
+- **Cambio de aceptación: los campos secundarios SHA3-256 se verifican cuando están presentes** (desarrollado el
+  27/10/2026). Los verificadores V2 de TypeScript, Python, Go y Rust, y la compilación WASM a partir del SDK
   de Rust, comprueban ahora `audit_merkle_root_secondary` (el árbol SHA3-256 construido como el primario; `sha3-256:`
   seguido de 64 ceros para una traza vacía), cada `prev_hash_secondary` (`"GENESIS"` en la primera entrada y, después, el
   SHA3-256 de la entrada anterior tal como figura) y cada `intent_hash_secondary` (el SHA3-256 del payload de la
@@ -34,8 +38,20 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   cadena o sea incorrecto se rechaza. La admisión y las rutas del candidato experimental reutilizan estas comprobaciones;
   no cambia ninguna API, campo de resultado, canonicalización ni el tratamiento de `hash_alg`. El patrón del esquema de
   `prev_hash_secondary` acepta también `"GENESIS"`, que OpenClaw escribe en la primera entrada. Vectores compartidos:
-  `tests/interop/v2/secondary_sha3_vectors.json`. Todavía no está en ningún paquete publicado: las versiones de
-  [Versiones publicadas](docs/README.md#published-versions) no comprueban los campos secundarios.
+  `tests/interop/v2/secondary_sha3_vectors.json`. Las versiones anteriores no comprueban estos campos. Los adaptadores publicados `@dcp-ai/express`, `@dcp-ai/openclaw`, `@dcp-ai/anthropic-mcp` y `@dcp-ai/google-a2a` 2.1.0 no se volvieron a publicar: dependen de `@dcp-ai/sdk` `^2.2.0` y obtienen las comprobaciones secundarias cuando tu lockfile resuelve `@dcp-ai/sdk` 2.2.1 o posterior.
+
+<a id="package-metadata"></a>
+
+### Metadatos de los paquetes
+
+- `@dcp-ai/cli` 2.1.1 requiere `@dcp-ai/sdk` `^2.2.1`, y `dcp-ai --version` informa `2.1.1` en lugar del obsoleto `1.0.0`.
+- La telemetría informa las versiones nuevas: Go `SDKVersion` `2.11.1`; los SDK de TypeScript, Python y Rust leen la versión de su paquete.
+
+## [Unreleased]
+
+<a id="security"></a>
+
+### Seguridad
 
 - **Cambio de aceptación: las firmas Ed25519 con S >= L ahora se rechazan** en el SDK de TypeScript
   (`Ed25519Provider.verify`, y por tanto toda firma V2 y compuesta, `@dcp-ai/express` y

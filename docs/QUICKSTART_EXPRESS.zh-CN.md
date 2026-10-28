@@ -5,7 +5,7 @@
 
 # DCP-AI + Express 快速开始
 
-> 本文是[英文版](QUICKSTART_EXPRESS.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](QUICKSTART_EXPRESS.md)的参考译文，更新于 28/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 使用 `@dcp-ai/express` 中间件，在你的 Express.js API 中验证 DCP 已签名 bundle。
 
@@ -15,10 +15,10 @@
 
 ## 安装
 
-> **版本（2026 年 10 月 26 日）。** 请使用已发布的 `@dcp-ai/express` 2.1.0 与 `@dcp-ai/sdk` 2.2.0。它们包含修复后的验证器，以及受信任委托人和 `strict-v1` 准入功能；无需构建检出源码。见 [Express README](../integrations/express/README.md)。
+> **版本（2026 年 10 月 28 日）。** 请使用已发布的 `@dcp-ai/express` 2.1.0 与 `@dcp-ai/sdk` 2.2.1。它们包含修复后的验证器，以及受信任委托人和 `strict-v1` 准入功能；无需构建检出源码。见 [Express README](../integrations/express/README.md)。
 
 ```bash
-npm install @dcp-ai/express@^2.1.0 @dcp-ai/sdk@^2.2.0 express
+npm install @dcp-ai/express@^2.1.0 @dcp-ai/sdk@^2.2.1 express
 ```
 
 <a id="zero-config-scaffold-alternative"></a>
@@ -39,10 +39,10 @@ npm install
 
 ### Python 中的等效做法（FastAPI）
 
-FastAPI 服务请从 PyPI 2.10.0 安装 Python 桥接，其中包含 V2 签名验证和 [FastAPI README](../integrations/fastapi/README.md) 中的准入/资源控制。旧版 2.9.0 仅检查 V2 结构而不验证签名；用于 V2 之前请升级。
+FastAPI 服务请从 PyPI 2.10.1 安装 Python 桥接，其中包含 V2 签名验证和 [FastAPI README](../integrations/fastapi/README.md) 中的准入/资源控制。旧版 2.9.0 仅检查 V2 结构而不验证签名；用于 V2 之前请升级。
 
 ```bash
-pip install "dcp-ai[fastapi]>=2.10.0,<3"
+pip install "dcp-ai[fastapi]>=2.10.1,<3"
 ```
 
 ```python

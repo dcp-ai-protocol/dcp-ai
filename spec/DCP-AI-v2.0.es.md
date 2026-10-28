@@ -4,7 +4,7 @@
 
 # Especificación normativa de DCP-AI v2.0
 
-> Traducción informativa de [la especificación en inglés](DCP-AI-v2.0.md), actualizada el 25/10/2026. **La versión normativa es la inglesa**: esta traducción no tiene valor normativo y, si difieren, prevalece el inglés. Los identificadores y bloques de código se conservan sin traducir.
+> Traducción informativa de [la especificación en inglés](DCP-AI-v2.0.md), actualizada el 28/10/2026. **La versión normativa es la inglesa**: esta traducción no tiene valor normativo y, si difieren, prevalece el inglés. Los identificadores y bloques de código se conservan sin traducir.
 
 **Estado:** Final  
 **Versión:** 2.0.0  
@@ -717,7 +717,7 @@ Los verificadores V2 deben (MUST) admitir V1 indefinidamente. La migración es g
 - **§10, pista de auditoría.** Las entradas de auditoría no se firman una a una: las cubre la firma del bundle a través
   del manifiesto. El contexto `DCP-AI.v2.AuditEvent` se usa en los checkpoints PQ y en la compactación de la auditoría,
   que produce quien llama con funciones auxiliares del SDK; nada los firma de forma automática. Los verificadores
-  comprueban los checkpoints enumerados y la cadena SHA-256; en el código fuente aún no publicado (27/10/2026) también comprueban los campos secundarios SHA3-256 presentes (errata de V2-11), que los paquetes publicados no comprueban.
+  comprueban los checkpoints enumerados y la cadena SHA-256; desde `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1 y Rust `dcp-ai` 2.11.1 también comprueban los campos secundarios SHA3-256 presentes (errata de V2-11), que las versiones anteriores no comprueban.
 - **§11.3, revocación de emergencia.** Los esquemas del RPR no tienen `revocation_token`; el pasaporte V2 tiene un
   `emergency_revocation_token` opcional.
 - **§12.1, supresión.** El texto describe el efecto criptográfico de borrar la sal. No es una evaluación del

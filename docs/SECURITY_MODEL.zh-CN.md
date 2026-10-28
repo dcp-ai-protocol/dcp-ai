@@ -4,7 +4,7 @@
 
 # 安全模型
 
-> 本文是[英文版](SECURITY_MODEL.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](SECURITY_MODEL.md)的参考译文，更新于 28/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 协议如何防范各种攻击，从伪造的 bundle 到协议分叉。
 
@@ -204,7 +204,7 @@ DCP v2.0 通过后量子密码学、复合签名、自适应安全等级和智�
 **防护：**
 - **混合复合签名：** V2 复合签名把 Ed25519（经典）与 ML-DSA-65（后量子，FIPS 204）结合在一起。PQ 签名覆盖经典签名（`pq_over_classical` 绑定），因此只攻破其中之一是不够的。V2 签名也可以是 `classical_only`；它是否被接受取决于验证模式（§8）。
 - **混合 KEM：** DCP-04 的密钥交换使用 X25519 + ML-KEM-768（FIPS 203），因此只要其中任一算法仍然安全，会话密钥就保持安全。SDK 不执行这一交换：由调用方导出会话密钥（[NIST_CONFORMITY.md](NIST_CONFORMITY.md) §2.1）。
-- **双哈希链：** 设计并行使用 SHA-256 和 SHA3-256，以便在一个哈希家族被攻破时保持连续性，前提是两条链都经过验证。尚未发布的源代码中的 V2 bundle 验证器会检查存在的可选次级链接和次级 Merkle 根，但不要求它们存在，已发布的软件包也不检查它们，因此验证成功并不能证明存在这种额外保护（[STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)）。
+- **双哈希链：** 设计并行使用 SHA-256 和 SHA3-256，以便在一个哈希家族被攻破时保持连续性，前提是两条链都经过验证。自 `@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`dcp-ai` 2.10.1（PyPI）、Go v2.11.1 和 Rust `dcp-ai` 2.11.1 起，V2 bundle 验证器会检查存在的可选次级链接和次级 Merkle 根，但不要求它们存在，更早的版本也不检查它们，因此验证成功并不能证明存在这种额外保护（[STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)）。
 
 **强度：** 对于在 `hybrid_required` 模式（elevated 和 maximum 等级的模式）下检查的签名，具有 NIST 第 3 级后量子安全性：攻击者必须同时攻破经典算法和后量子算法。
 
@@ -433,7 +433,7 @@ Layer 14: Delegation Control (DCP-09)
 |---|---|
 | `routine` 等级下的身份是自我声明的 | 对 `standard` 及以上等级要求证明，或按信任集合进行准入；验证器本身不会强制这一点 |
 | 验证缓存可能返回过时的结果 | 吊销列表更新时必须（MUST）使缓存失效。TypeScript 的 `VerificationCache` 只以 bundle 哈希为键，其 `invalidateByAgent` 不做任何事，因此请清空缓存，或不要在信任或吊销变化前后沿用缓存（[API_REFERENCE.md](API_REFERENCE.md)） |
-| 已发布的 V2 验证器不检查可选的次级审计链或次级 Merkle 根；在尚未发布的源代码中会检查存在的字段，不存在的不作要求 | 使用已发布的软件包时，只依赖实际执行的检查：主 SHA-256 承诺和签名，不要因验证成功就声称获得了 V2-11 中规定的额外保护。在尚未发布的源代码中，验证成功覆盖的是存在的次级字段，而不是完整的次级链；实验性候选也复用这些检查（[STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)） |
+| 2026 年 10 月 28 日之前发布的 V2 验证器不检查可选的次级审计链或次级 Merkle 根；自 `@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`dcp-ai` 2.10.1（PyPI）、Go v2.11.1 和 Rust `dcp-ai` 2.11.1 起会检查存在的字段，不存在的不作要求 | 使用更早的版本时，只依赖实际执行的检查：主 SHA-256 承诺和签名，不要因验证成功就声称获得了 V2-11 中规定的额外保护。自这些版本起，验证成功覆盖的是存在的次级字段，而不是完整的次级链；实验性候选也复用这些检查（[STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)） |
 | `agent_id` 的持久性使追踪成为可能 | 在高隐私场景中考虑轮换化名 |
 | BlindedRPR 暴露 `entity_type` 和 `jurisdiction` | 未来：基于 ZKP 的凭证出示 |
 | 没有任何 SDK 执行 DCP-04 的 X25519 + ML-KEM-768 交换 | 由调用方导出 A2A 会话密钥。Python、Go、Rust 和 WASM 把 ML-KEM-768 作为原语公开；TypeScript 的 KEM 提供者是内部的 |
