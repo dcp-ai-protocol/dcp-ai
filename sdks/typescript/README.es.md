@@ -13,10 +13,12 @@ SDK oficial de TypeScript para el Digital Citizenship Protocol (DCP-AI). Crea, f
 
 ## Instalación
 
-**Publicado en npm (26/10/2026).** `@dcp-ai/sdk` 2.2.0 es `latest`. Incluye las correcciones del verificador descritas en [SECURITY.md](../../SECURITY.md), confianza en el principal y `strict-v1`, cadenas de delegación, la ventana de recepción A2A y las API experimentales de `dcp-jcs-v2`. El candidato sigue siendo opt-in y no normativo; `dcp-jcs-v1` sigue siendo el predeterminado. Los ejemplos siguientes funcionan con el paquete publicado.
+**Publicado en npm (26/10/2026).** `@dcp-ai/sdk` 2.2.0 se publicó como `latest` en esa fecha. Incluía las correcciones del verificador descritas en [SECURITY.md](../../SECURITY.md), confianza en el principal y `strict-v1`, cadenas de delegación, la ventana de recepción A2A y las API experimentales de `dcp-jcs-v2`. El candidato seguía siendo opt-in y no normativo, con `dcp-jcs-v1` como predeterminado. Los ejemplos siguientes usan API disponibles desde la 2.2.0.
+
+**`@dcp-ai/sdk` 2.2.1.** Esta versión también verifica los campos secundarios SHA3-256 de [VERIFICATION.md V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) cuando están presentes: `audit_merkle_root_secondary`, cada `prev_hash_secondary` y cada `intent_hash_secondary`. Los campos ausentes no se exigen, así que un bundle verificado puede no tener una cadena secundaria completa; un campo presente que sea `null`, no sea una cadena o sea incoherente se rechaza. No cambian las API, los campos de resultado, `dcp-jcs-v1` ni el tratamiento de `hash_alg`. La versión 2.2.0 no comprueba estos campos. Los comandos de instalación siguientes indican esta versión; para su disponibilidad en el registro, véase [Versiones publicadas](../../docs/README.md#published-versions).
 
 ```bash
-npm install @dcp-ai/sdk@^2.2.0
+npm install @dcp-ai/sdk@^2.2.1
 ```
 
 Consulta el [inventario de publicaciones npm](../../docs/NPM_RELEASES.md) para ver todas las versiones.

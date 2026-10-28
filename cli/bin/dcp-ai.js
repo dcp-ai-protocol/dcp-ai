@@ -8,7 +8,7 @@ import chalk from 'chalk';
 import { loadConfig, findConfigDir } from '../lib/config.js';
 
 const VERSION = '2.0';
-const CLI_VERSION = '1.0.0';
+const CLI_VERSION = '2.1.1';
 
 const HELP = `
 ${chalk.bold('dcp-ai')} — DCP Digital Citizenship Protocol CLI

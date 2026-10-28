@@ -13,10 +13,12 @@ Digital Citizenship Protocol（DCP-AI）的官方 TypeScript SDK。使用后量�
 
 ## 安装
 
-**已发布到 npm（2026 年 10 月 26 日）。** `@dcp-ai/sdk` 2.2.0 的标签为 `latest`。它包含 [SECURITY.md](../../SECURITY.md) 中的验证器修复、委托人信任与 `strict-v1`、委托链、A2A 接收窗口，以及实验性的 `dcp-jcs-v2` API。候选方案仍需显式启用且不具规范性；默认仍为 `dcp-jcs-v1`。以下示例可使用已发布的软件包运行。
+**已发布到 npm（2026 年 10 月 26 日）。** `@dcp-ai/sdk` 2.2.0 于该日以 `latest` 标签发布。它包含了 [SECURITY.md](../../SECURITY.md) 中的验证器修复、委托人信任与 `strict-v1`、委托链、A2A 接收窗口，以及实验性的 `dcp-jcs-v2` API。候选方案当时仍需显式启用且不具规范性，默认为 `dcp-jcs-v1`。以下示例使用自 2.2.0 起提供的 API。
+
+**`@dcp-ai/sdk` 2.2.1。** 此版本还会在 [VERIFICATION.md 的 V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) 中的二级 SHA3-256 字段存在时验证它们：`audit_merkle_root_secondary`、每个 `prev_hash_secondary` 和每个 `intent_hash_secondary`。不存在的字段不作要求，因此已验证的 bundle 可能没有完整的二级链；存在的字段如果是 `null`、不是字符串或不一致，则被拒绝。API、结果字段、`dcp-jcs-v1` 和 `hash_alg` 的处理均不变。2.2.0 不检查这些字段。下面的安装命令指定的是此版本；它在注册表中的可用情况见[已发布版本](../../docs/README.md#published-versions)。
 
 ```bash
-npm install @dcp-ai/sdk@^2.2.0
+npm install @dcp-ai/sdk@^2.2.1
 ```
 
 所有软件包版本见 [npm 发布清单](../../docs/NPM_RELEASES.md)。

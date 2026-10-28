@@ -8,31 +8,33 @@
 
 Digital Citizenship Protocol（DCP v2.0）的官方 Rust SDK。提供基于 Serde 的类型、混合后量子密码学（Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768）、使用 `pq_over_classical` 绑定的复合签名、双哈希链、OpenTelemetry 可观测性、DCP-04..09 行为以及可选的 WebAssembly 支持。
 
-验证检查完整性和签名，不会建立对责任主体的信任、准入资格或行动授权。尚未发布的源代码中的 V2 验证器检查主审计链，以及存在的可选 SHA3-256 次级链接、意图哈希和次级 Merkle 根（不存在的不作要求）；已发布的 2.11.0 不检查次级字段。请参阅[已记录的验证限制](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)；需要检查信任时，请使用下文的准入 API。
+验证检查完整性和签名，不会建立对责任主体的信任、准入资格或行动授权。V2 验证器检查主审计链，自 2.11.1 起还检查存在的可选 SHA3-256 次级链接、意图哈希和次级 Merkle 根（不存在的不作要求）；2.11.0 不检查次级字段。请参阅[已记录的验证限制](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)；需要检查信任时，请使用下文的准入 API。
 
 <a id="installation"></a>
 
 ## 安装
 
-**Rust SDK 2.11.0。** 本版本包含 V2 bundle 构建与签名、基于显式责任主体信任和 `strict-v1` 的准入、委托链、验证器修复以及实验性显式启用的 `dcp-jcs-v2` API。`dcp-jcs-v1` 仍是规范性默认配置。旧版本接受的无效证据现在可能被拒绝。Rust 尚未实现 A2A 会话加密及其重放窗口；发现和握手辅助功能仍可用。
+**Rust SDK。** 自 2.11.0 起，本 SDK 包含 V2 bundle 构建与签名、基于显式责任主体信任和 `strict-v1` 的准入、委托链、验证器修复以及实验性显式启用的 `dcp-jcs-v2` API。`dcp-jcs-v1` 仍是规范性默认配置。旧版本接受的无效证据现在可能被拒绝。Rust 尚未实现 A2A 会话加密及其重放窗口；发现和握手辅助功能仍可用。
+
+**Rust SDK 2.11.1。** 此版本还会在 [VERIFICATION.md 的 V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) 中的二级 SHA3-256 字段存在时验证它们：`audit_merkle_root_secondary`、每个 `prev_hash_secondary` 和每个 `intent_hash_secondary`。不存在的字段不作要求，因此已验证的 bundle 可能没有完整的二级链；存在的字段如果是 `null`、不是字符串或不一致，则被拒绝。API、结果字段、`dcp-jcs-v1` 和 `hash_alg` 的处理均不变。2.11.0 不检查这些字段。下面的安装命令指定的是此版本；它在注册表中的可用情况见[已发布版本](../../docs/README.md#published-versions)。
 
 ```toml
 [dependencies]
-dcp-ai = "2.11.0"
+dcp-ai = "2.11.1"
 ```
 
 启用 OpenTelemetry/OTLP 导出：
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.11.0", features = ["otlp"] }
+dcp-ai = { version = "2.11.1", features = ["otlp"] }
 ```
 
 启用 WebAssembly 支持：
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.11.0", features = ["wasm"] }
+dcp-ai = { version = "2.11.1", features = ["wasm"] }
 ```
 
 <a id="features"></a>

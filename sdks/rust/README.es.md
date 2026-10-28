@@ -10,31 +10,33 @@
 
 SDK oficial de Rust para el Digital Citizenship Protocol (DCP v2.0). Ofrece tipos basados en Serde, criptografía poscuántica híbrida (Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768), firmas compuestas con vinculación `pq_over_classical`, cadenas de hash duales, observabilidad con OpenTelemetry, comportamiento DCP-04..09 y soporte opcional para WebAssembly.
 
-La verificación comprueba integridad y firmas; no establece confianza en el principal, admisión ni autorización para actuar. El verificador V2 del código fuente aún no publicado comprueba la cadena de auditoría primaria y los enlaces, hashes de intención y raíz Merkle secundarios SHA3-256 opcionales que estén presentes (los ausentes no se exigen); la versión publicada 2.11.0 no comprueba los campos secundarios. Consulta [la limitación documentada del verificador](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains) y usa las API de admisión descritas más abajo cuando se requiera confianza.
+La verificación comprueba integridad y firmas; no establece confianza en el principal, admisión ni autorización para actuar. El verificador V2 comprueba la cadena de auditoría primaria y, desde la 2.11.1, los enlaces, hashes de intención y raíz Merkle secundarios SHA3-256 opcionales que estén presentes (los ausentes no se exigen); la versión 2.11.0 no comprueba los campos secundarios. Consulta [la limitación documentada del verificador](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains) y usa las API de admisión descritas más abajo cuando se requiera confianza.
 
 <a id="installation"></a>
 
 ## Instalación
 
-**SDK Rust 2.11.0.** Esta versión incluye construcción y firma de bundles V2, admisión con confianza explícita en el principal y `strict-v1`, cadenas de delegación, correcciones del verificador y API experimentales opt-in de `dcp-jcs-v2`. `dcp-jcs-v1` conserva el carácter normativo y predeterminado. La evidencia inválida aceptada por versiones anteriores puede ser rechazada ahora. El cifrado de sesiones A2A y su ventana de replay no están implementados en Rust; siguen disponibles las funciones de descubrimiento y handshake.
+**SDK Rust.** Desde la 2.11.0, este SDK incluye construcción y firma de bundles V2, admisión con confianza explícita en el principal y `strict-v1`, cadenas de delegación, correcciones del verificador y API experimentales opt-in de `dcp-jcs-v2`. `dcp-jcs-v1` conserva el carácter normativo y predeterminado. La evidencia inválida aceptada por versiones anteriores puede ser rechazada ahora. El cifrado de sesiones A2A y su ventana de replay no están implementados en Rust; siguen disponibles las funciones de descubrimiento y handshake.
+
+**SDK Rust 2.11.1.** Esta versión también verifica los campos secundarios SHA3-256 de [VERIFICATION.md V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) cuando están presentes: `audit_merkle_root_secondary`, cada `prev_hash_secondary` y cada `intent_hash_secondary`. Los campos ausentes no se exigen, así que un bundle verificado puede no tener una cadena secundaria completa; un campo presente que sea `null`, no sea una cadena o sea incoherente se rechaza. No cambian las API, los campos de resultado, `dcp-jcs-v1` ni el tratamiento de `hash_alg`. La versión 2.11.0 no comprueba estos campos. Los comandos de instalación siguientes indican esta versión; para su disponibilidad en el registro, véase [Versiones publicadas](../../docs/README.md#published-versions).
 
 ```toml
 [dependencies]
-dcp-ai = "2.11.0"
+dcp-ai = "2.11.1"
 ```
 
 Con exportación OpenTelemetry/OTLP:
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.11.0", features = ["otlp"] }
+dcp-ai = { version = "2.11.1", features = ["otlp"] }
 ```
 
 Para soporte de WebAssembly:
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.11.0", features = ["wasm"] }
+dcp-ai = { version = "2.11.1", features = ["wasm"] }
 ```
 
 <a id="features"></a>

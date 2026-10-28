@@ -10,10 +10,12 @@ Digital Citizenship Protocol（DCP v2.0）的官方 Python SDK。提供 Pydantic
 
 ## 安装
 
-**Python SDK 2.10.0。** 此版本包含 V2 验证器修复、委托人信任与 `strict-v1`、委托链、A2A 接收窗口、受限的吊销工作线程，以及实验性、需显式启用的 `dcp-jcs-v2` API。它还包含修复后的 FastAPI、LangChain、OpenAI 和 CrewAI 适配器。`dcp-jcs-v1` 仍是规范性默认配置。安装此版本：
+**Python SDK。** 自 2.10.0 起，此 SDK 包含 V2 验证器修复、委托人信任与 `strict-v1`、委托链、A2A 接收窗口、受限的吊销工作线程，以及实验性、需显式启用的 `dcp-jcs-v2` API。它还包含修复后的 FastAPI、LangChain、OpenAI 和 CrewAI 适配器。`dcp-jcs-v1` 仍是规范性默认配置。安装：
+
+**Python SDK 2.10.1。** 此版本还会在 [VERIFICATION.md 的 V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) 中的二级 SHA3-256 字段存在时验证它们：`audit_merkle_root_secondary`、每个 `prev_hash_secondary` 和每个 `intent_hash_secondary`。不存在的字段不作要求，因此已验证的 bundle 可能没有完整的二级链；存在的字段如果是 `null`、不是字符串或不一致，则被拒绝。API、结果字段、`dcp-jcs-v1` 和 `hash_alg` 的处理均不变。2.10.0 不检查这些字段。下面的安装命令指定的是此版本；它在注册表中的可用情况见[已发布版本](../../docs/README.md#published-versions)。
 
 ```bash
-pip install "dcp-ai>=2.10.0,<3"
+pip install "dcp-ai>=2.10.1,<3"
 ```
 
 **从 2.9.0 升级。** FastAPI 现在验证 V2 签名，而不是仅接受结构。FastAPI 和 LangChain/OpenAI 适配器对 V1 的接受遵循验证器策略。V2 还会拒绝旧版本曾接受的非规范签名编码、不一致或绑定错误的证据。请保留历史证据及其验证版本，不要静默重新签名。信任、资源预算和断开连接处理仍由运营方显式选择。验证或准入不授权任何操作。
@@ -31,14 +33,14 @@ pip install -e "dcp-ai/sdks/python"
 
 ### 可选 extras
 
-来自注册表（已发布的版本）；从检出副本安装时同样适用这些 extras：`pip install -e "dcp-ai/sdks/python[fastapi]"`。
+来自注册表（2.10.1 或更高版本）；从检出副本安装时同样适用这些 extras：`pip install -e "dcp-ai/sdks/python[fastapi]"`。
 
 ```bash
-pip install "dcp-ai[fastapi]>=2.10.0,<3"    # FastAPI middleware
-pip install "dcp-ai[langchain]>=2.10.0,<3"  # LangChain integration
-pip install "dcp-ai[openai]>=2.10.0,<3"     # OpenAI wrapper
-pip install "dcp-ai[crewai]>=2.10.0,<3"     # CrewAI multi-agent
-pip install "dcp-ai[otlp]>=2.10.0,<3"       # OpenTelemetry OTLP exporter
+pip install "dcp-ai[fastapi]>=2.10.1,<3"    # FastAPI middleware
+pip install "dcp-ai[langchain]>=2.10.1,<3"  # LangChain integration
+pip install "dcp-ai[openai]>=2.10.1,<3"     # OpenAI wrapper
+pip install "dcp-ai[crewai]>=2.10.1,<3"     # CrewAI multi-agent
+pip install "dcp-ai[otlp]>=2.10.1,<3"       # OpenTelemetry OTLP exporter
 ```
 
 <a id="features"></a>

@@ -12,10 +12,12 @@ Módulo WebAssembly para o Digital Citizenship Protocol (DCP) v2.0, compilado a 
 
 ## Instalação
 
-**Publicado no npm (26/10/2026).** `@dcp-ai/wasm` 2.1.0 é `latest` e inclui as APIs descritas aqui, inclusive as experimentais de `dcp-jcs-v2`. Publicá-las não ativa o candidato: ele continua opt-in e não normativo, sem mudanças em `dcp-jcs-v1`. O crate Rust tem um ciclo de publicação separado.
+**Publicado no npm (26/10/2026).** `@dcp-ai/wasm` 2.1.0 foi publicado como `latest` nessa data e incluía as APIs descritas aqui, inclusive as experimentais de `dcp-jcs-v2`. Publicá-las não ativou o candidato: ele continuou opt-in e não normativo, sem mudanças em `dcp-jcs-v1`. O crate Rust tem um ciclo de publicação separado.
+
+**`@dcp-ai/wasm` 2.1.1.** Esta versão também verifica os campos secundários SHA3-256 do [VERIFICATION.md V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) quando estão presentes: `audit_merkle_root_secondary`, cada `prev_hash_secondary` e cada `intent_hash_secondary`. Os campos ausentes não são exigidos, então um bundle verificado pode não ter uma cadeia secundária completa; um campo presente que seja `null`, não seja uma string ou seja inconsistente é rejeitado. Não mudam as APIs, os campos de resultado, `dcp-jcs-v1` nem o tratamento de `hash_alg`. A versão 2.1.0 não verifica esses campos. Os comandos de instalação abaixo indicam esta versão; para a disponibilidade dela no registro, veja [Versões publicadas](../../docs/README.md#published-versions).
 
 ```bash
-npm install @dcp-ai/wasm@^2.1.0
+npm install @dcp-ai/wasm@^2.1.1
 ```
 
 Veja o [inventário de publicações npm](../../docs/NPM_RELEASES.md) para todas as versões.
@@ -185,7 +187,7 @@ Inicializa o módulo WASM. Deve ser chamada uma vez antes de usar qualquer API. 
 
 ### Verificação
 
-A verificação não concede confiança no principal, admissão ou autorização para agir. O verificador V2 confere a cadeia de auditoria primária e a raiz Merkle primária; compilado a partir do código-fonte ainda não publicado, também verifica os elos secundários opcionais, os hashes de intenção e `audit_merkle_root_secondary` que estejam presentes, enquanto a versão publicada 2.1.0 não ([limitação da implementação](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)). O candidato experimental reutiliza essas verificações.
+A verificação não concede confiança no principal, admissão ou autorização para agir. O verificador V2 confere a cadeia de auditoria primária e a raiz Merkle primária; desde a 2.1.1 também verifica os elos secundários opcionais, os hashes de intenção e `audit_merkle_root_secondary` que estejam presentes, enquanto a 2.1.0 não ([cadeias de hash duplo](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)). O candidato experimental reutiliza essas verificações.
 
 | Método | Retorno | Descrição |
 |--------|---------|-------------|

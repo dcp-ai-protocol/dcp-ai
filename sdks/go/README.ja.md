@@ -10,7 +10,7 @@
 
 Digital Citizenship Protocol（DCP）v1.0 および v2.0 向けの公式 Go SDK。Ed25519、ML-DSA-65、SLH-DSA-192f、ML-KEM-768、複合署名、二重ハッシュチェーン、バンドル検証をサポートします。
 
-検証では完全性と署名を確認しますが、責任主体への信頼、受け入れ、行動の許可は確立しません。未公開のソースコードの V2 検証器は、主監査チェーンと、存在するオプションの SHA3-256 の副のリンク、意図のハッシュ、副 Merkle ルートを確認します（存在しないものは要求しません）。公開済みの v2.11.0 は副フィールドを確認しません。[文書化された検証上の制限](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)を参照し、信頼の確認が必要な場合は以下の受け入れ API を使用してください。
+検証では完全性と署名を確認しますが、責任主体への信頼、受け入れ、行動の許可は確立しません。V2 検証器は主監査チェーンを確認し、v2.11.1 以降は、存在するオプションの SHA3-256 の副のリンク、意図のハッシュ、副 Merkle ルートも確認します（存在しないものは要求しません）。v2.11.0 は副フィールドを確認しません。[文書化された検証上の制限](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)を参照し、信頼の確認が必要な場合は以下の受け入れ API を使用してください。
 
 <a id="installation"></a>
 
@@ -18,10 +18,12 @@ Digital Citizenship Protocol（DCP）v1.0 および v2.0 向けの公式 Go SDK�
 
 **要件：** Go 1.25+
 
-**Go SDK v2.11.0。** 検証器の修正、責任主体への信頼と `strict-v1`、委任チェーン、A2A 受信ウィンドウ、実験的なオプトイン `dcp-jcs-v2` API を含みます。モジュールのタグは `sdks/go/v2.11.0`、インポートパスは引き続き `/v2` です。変更は[変更履歴](../../CHANGELOG.md#unreleased)に残しています。
+**Go SDK。** v2.11.0 以降、検証器の修正、責任主体への信頼と `strict-v1`、委任チェーン、A2A 受信ウィンドウ、実験的なオプトイン `dcp-jcs-v2` API を含みます。v2.11.0 のモジュールのタグは `sdks/go/v2.11.0`、インポートパスは引き続き `/v2` です。変更は[変更履歴](../../CHANGELOG.md#unreleased)に残しています。
+
+**Go SDK v2.11.1。** このバージョンは、[VERIFICATION.md の V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) の二次の SHA3-256 フィールドが存在する場合、それらも検証します：`audit_merkle_root_secondary`、各 `prev_hash_secondary`、各 `intent_hash_secondary`。存在しないフィールドは要求されないため、検証済みのバンドルが完全な二次チェーンを持たないこともあります。存在するフィールドが `null`、文字列でない、または不整合の場合は拒否されます。API、結果のフィールド、`dcp-jcs-v1`、`hash_alg` の扱いは変わりません。v2.11.0 はこれらのフィールドを確認しません。以下のインストールコマンドはこのバージョンを指定しています。レジストリでの提供状況は[公開済みバージョン](../../docs/README.md#published-versions)を参照してください。
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.1
 ```
 
 v2.10.0 から更新すると検証が厳密になり、以前受け入れられた不正形式や不整合の証拠が拒否される場合があります。V1 公開鍵の長さが不正な場合は panic せずエラーを返します。過去の証拠は保存してください。`dcp-jcs-v1` は規範的な既定値のままで、候補 API は実験的かつオプトインです。受け入れにはオペレーターの信頼設定が必要であり、行為を認可しません。

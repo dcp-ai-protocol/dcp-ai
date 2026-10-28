@@ -6,10 +6,12 @@ Official Python SDK for the Digital Citizenship Protocol (DCP v2.0). Pydantic v2
 
 ## Installation
 
-**Python SDK 2.10.0.** This version includes the V2 verifier fixes, principal trust and `strict-v1`, delegation chains, the A2A receive window, bounded revocation workers and the experimental opt-in `dcp-jcs-v2` APIs. It also includes the corrected FastAPI, LangChain, OpenAI and CrewAI bridges. `dcp-jcs-v1` remains the normative default. Install this version with:
+**Python SDK.** Since 2.10.0 this SDK includes the V2 verifier fixes, principal trust and `strict-v1`, delegation chains, the A2A receive window, bounded revocation workers and the experimental opt-in `dcp-jcs-v2` APIs. It also includes the corrected FastAPI, LangChain, OpenAI and CrewAI bridges. `dcp-jcs-v1` remains the normative default. Install with:
+
+**Python SDK 2.10.1.** This version also verifies the secondary SHA3-256 fields of [VERIFICATION.md V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) when they are present: `audit_merkle_root_secondary`, each `prev_hash_secondary` and each `intent_hash_secondary`. Absent fields are not required, so a verified bundle may lack a complete secondary chain; a present field that is `null`, not a string or inconsistent is rejected. APIs, result fields, `dcp-jcs-v1` and `hash_alg` handling are unchanged. 2.10.0 does not check these fields. The installation commands below name this version; for its registry availability, see [Published versions](../../docs/README.md#published-versions).
 
 ```bash
-pip install "dcp-ai>=2.10.0,<3"
+pip install "dcp-ai>=2.10.1,<3"
 ```
 
 **Upgrade from 2.9.0.** FastAPI now verifies V2 signatures instead of accepting structure alone. V1 acceptance in FastAPI and the LangChain/OpenAI bridges follows the verifier policy. V2 also rejects non-canonical signature encodings and inconsistent or incorrectly bound evidence that older versions accepted. Preserve historical evidence and its verification version; do not silently re-sign it. Trust, resource budgets and disconnect handling remain explicit operator choices. Verification and admission do not authorize an action.
@@ -25,14 +27,14 @@ pip install -e "dcp-ai/sdks/python"
 
 ### Optional extras
 
-From the registry (published version); from a checkout, the same extras apply: `pip install -e "dcp-ai/sdks/python[fastapi]"`.
+From the registry (2.10.1 or later); from a checkout, the same extras apply: `pip install -e "dcp-ai/sdks/python[fastapi]"`.
 
 ```bash
-pip install "dcp-ai[fastapi]>=2.10.0,<3"    # FastAPI middleware
-pip install "dcp-ai[langchain]>=2.10.0,<3"  # LangChain integration
-pip install "dcp-ai[openai]>=2.10.0,<3"     # OpenAI wrapper
-pip install "dcp-ai[crewai]>=2.10.0,<3"     # CrewAI multi-agent
-pip install "dcp-ai[otlp]>=2.10.0,<3"       # OpenTelemetry OTLP exporter
+pip install "dcp-ai[fastapi]>=2.10.1,<3"    # FastAPI middleware
+pip install "dcp-ai[langchain]>=2.10.1,<3"  # LangChain integration
+pip install "dcp-ai[openai]>=2.10.1,<3"     # OpenAI wrapper
+pip install "dcp-ai[crewai]>=2.10.1,<3"     # CrewAI multi-agent
+pip install "dcp-ai[otlp]>=2.10.1,<3"       # OpenTelemetry OTLP exporter
 ```
 
 ## Features

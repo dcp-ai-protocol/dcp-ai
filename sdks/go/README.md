@@ -6,16 +6,18 @@
 
 Official Go SDK for the Digital Citizenship Protocol (DCP) v1.0 and v2.0. Supports Ed25519, ML-DSA-65, SLH-DSA-192f, ML-KEM-768, composite signatures, dual hash chains, and bundle verification.
 
-Verification checks integrity and signatures; it does not establish principal trust, admission or authorization to act. The V2 verifier in the unreleased source code checks the primary audit chain and the optional secondary SHA3-256 links, intent hashes and Merkle root that are present (absent ones are not required); the published v2.11.0 does not check the secondary fields. See [the documented verification limit](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains) and use the admission APIs below when trust is required.
+Verification checks integrity and signatures; it does not establish principal trust, admission or authorization to act. The V2 verifier checks the primary audit chain and, from v2.11.1, the optional secondary SHA3-256 links, intent hashes and Merkle root that are present (absent ones are not required); v2.11.0 does not check the secondary fields. See [the documented verification limit](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains) and use the admission APIs below when trust is required.
 
 ## Installation
 
 **Requires:** Go 1.25+
 
-**Go SDK v2.11.0.** This version includes the verifier fixes, principal trust and `strict-v1`, delegation chains, the A2A receive window and the experimental opt-in `dcp-jcs-v2` APIs. The module tag is `sdks/go/v2.11.0`; the import path keeps `/v2`. Changes remain recorded in the [changelog](../../CHANGELOG.md#unreleased).
+**Go SDK.** Since v2.11.0 this SDK includes the verifier fixes, principal trust and `strict-v1`, delegation chains, the A2A receive window and the experimental opt-in `dcp-jcs-v2` APIs. The v2.11.0 module tag is `sdks/go/v2.11.0`; the import path keeps `/v2`. Changes remain recorded in the [changelog](../../CHANGELOG.md#unreleased).
+
+**Go SDK v2.11.1.** This version also verifies the secondary SHA3-256 fields of [VERIFICATION.md V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) when they are present: `audit_merkle_root_secondary`, each `prev_hash_secondary` and each `intent_hash_secondary`. Absent fields are not required, so a verified bundle may lack a complete secondary chain; a present field that is `null`, not a string or inconsistent is rejected. APIs, result fields, `dcp-jcs-v1` and `hash_alg` handling are unchanged. v2.11.0 does not check these fields. The installation commands below name this version; for its registry availability, see [Published versions](../../docs/README.md#published-versions).
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.1
 ```
 
 Upgrading from v2.10.0 makes verification stricter: malformed or inconsistent evidence previously accepted may now be rejected. Invalid V1 public-key lengths return an error instead of panicking. Preserve historical evidence. `dcp-jcs-v1` remains the normative default; candidate APIs stay experimental and opt-in. Admission still requires operator trust configuration and does not authorize actions.
