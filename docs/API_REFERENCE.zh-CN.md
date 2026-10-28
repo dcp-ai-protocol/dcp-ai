@@ -1895,30 +1895,69 @@ function computeBundleHash(bundle: SignedBundleV2): string;
 
 内存中的验证结果缓存，以 bundle 哈希为键，并按安全等级设置 TTL。
 
-- **键只是 bundle 哈希。** 缓存不区分租户或验证器策略，命中时也不会
-  重新检查会话窗口、密钥有效性、委托人信任或新近的吊销快照。不要在没有重新验证的情况下，
-  把缓存的结果用于准入，或在其他策略、其他租户下重用。
-- **失效：** `invalidateByKid(kid)` 删除签名者 kid 中包含 `kid` 的条目；`clear()` 删除
-  全部内容。`invalidateByAgent(agentId)` 目前不删除任何内容并返回 0，因此它不会吊销某个
-  智能体的条目：请对该智能体的每个 kid 使用 `invalidateByKid`，或使用 `clear()`。
+> **版本（2026 年 10 月 28 日）。** 本节描述 `main` 上尚未发布的源代码。已发布的 `@dcp-ai/sdk` 2.2.1 及更早版本
+> 保持此前的行为：键只是 bundle 哈希，`get` 返回所存储的对象本身，不校验选项，过期只看挂钟时间，`invalidateByAgent`
+> 不删除任何内容并返回 0。
+
+- **命中不会重新验证证据或信任。** 只检查条目是否过期，不会重新检查会话窗口、密钥有效性、委托人信任或新近的吊销快照；信任、吊销或策略
+  变化时也不会自动使任何条目失效。命中既不是准入也不是授权：这些情况请重新验证。
+- **键与上下文。** 不传 `context` 时，键与以前一样是 bundle 哈希：旧式调用无论租户或策略如何都共享条目。使用
+  `set(..., { context })` 以及 `get` 或 `has(hash, { context })` 时，条目只对相同的上下文字符串返回，旧式路径和各
+  上下文互相看不到对方的条目。上下文由调用方选择并负责：每当决策输入的内容（验证器策略、租户、受信任的委托人、
+  吊销状态）发生变化，上下文都必须随之改变，例如由调用方对这些内容计算的摘要。内容变化后仍重复使用的标签不能隔离
+  任何东西。缓存只保证按完全相同的字符串隔离。
+- **失效。** `invalidateByKid(kid)` 在所有上下文中删除签名者 kid 包含 `kid` 的条目；`result.details.signer_keys`
+  中的 kid 与调用方提供的 kid 一起建立索引。`invalidateByAgent(agentId)` 删除以包含 `agentId` 的 `agentIds` 存储
+  的条目，并有意删除所有未关联智能体而存储的条目（旧式调用，或 `agentIds` 缺失或为空），因为缓存无法判断它们属于
+  谁；只关联到其他智能体的条目会保留。返回值是删除的总数，因此非零并不表示该智能体有条目。`agentIds` 是调用方的
+  标签：不经检查，也不会从结果中推导任何内容。`clear()` 删除全部内容。
+- **过期。** 只要任一时钟上的 TTL 已到期，条目即视为未命中：单调时钟（`performance.now()`）或挂钟（`Date.now()`，记录在 `createdAt` 和 `expiresAt` 中）；读数等于期限时也已视为过期。任一时钟的读数早于创建时的读数，或读数不是有限数时，均视为未命中并移除
+  该条目。挂钟回拨后若仍晚于创建时间，则由单调期限加以限制。系统挂起期间单调时钟可能不前进；挂钟上限仍然适用，但
+  缓存不承诺绝对的真实时间。TTL 为 0 的条目从不存储，以该 TTL 调用 `set` 会删除该键上的条目。
+- **副本。** `set` 存储结果的深拷贝（`structuredClone`）以及 kid 和智能体列表的副本；`get` 每次命中都返回一个新的
+  可变深拷贝；`has` 不复制。
+- **错误。** 调用抛出错误时，缓存中的任何内容都不会改变。
+  - 构造函数：`options` 或 `ttlByTier` 不是对象时抛出 `TypeError`；TTL 不是 0 到 `Number.MAX_SAFE_INTEGER` 之间
+    的数，或 `maxEntries` 不是 1 到 `Number.MAX_SAFE_INTEGER` 之间的安全整数时抛出 `RangeError`（显式的 `undefined` 保留默认值）；
+    `performance.now()` 不可用时抛出 `Error`。
+  - `set`：哈希不是字符串、结果不是对象、`signerKids` 或 `agentIds` 不是字符串数组（智能体须为非空字符串；空位按
+    `undefined` 处理）或上下文不是字符串时抛出 `TypeError`；时钟读数不是有限数或期限（时钟 + TTL）超过
+    `Number.MAX_SAFE_INTEGER` 时抛出 `RangeError`；结果无法克隆时抛出 `DataCloneError`。
+  - `get` 和 `has`：哈希或上下文不是字符串时抛出 `TypeError`。`invalidateByAgent`：`agentId` 不是非空字符串时
+    抛出 `TypeError`。
 
 ```typescript
 class VerificationCache {
   constructor(options?: VerificationCacheOptions);
-  get(bundleHash: string): VerifyV2Result | null;          // null when absent or expired
-  set(bundleHash: string, result: VerifyV2Result, signerKids: string[], tier: SecurityTier): void;
-  has(bundleHash: string): boolean;
-  invalidateByKid(kid: string): number;                   // entries removed
-  invalidateByAgent(agentId: string): number;            // currently a no-op: returns 0 (see above)
+  get(bundleHash: string, options?: VerificationCacheLookupOptions): VerifyV2Result | null; // new copy; null when absent or expired
+  set(
+    bundleHash: string,
+    result: VerifyV2Result,
+    signerKids: string[],
+    tier: SecurityTier,
+    options?: VerificationCacheSetOptions,
+  ): void;
+  has(bundleHash: string, options?: VerificationCacheLookupOptions): boolean;
+  invalidateByKid(kid: string): number;       // entries removed, in every context
+  invalidateByAgent(agentId: string): number; // the agent's entries + every entry without agentIds
   clear(): void;
-  readonly size: number;
+  readonly size: number;                      // every context, including expired entries not yet read
 }
 
 interface VerificationCacheOptions {
-  /** TTL per tier in milliseconds. */
+  /** TTL per tier in milliseconds, from 0 to Number.MAX_SAFE_INTEGER. */
   ttlByTier?: Partial<Record<SecurityTier, number>>;
-  /** Hard upper limit on entries to prevent unbounded growth. */
+  /** Hard upper limit on entries: a safe integer from 1 to Number.MAX_SAFE_INTEGER. */
   maxEntries?: number;
+}
+
+interface VerificationCacheSetOptions {
+  agentIds?: readonly string[]; // the caller's label for invalidateByAgent; not checked
+  context?: string;             // exact-string isolation chosen by the caller
+}
+
+interface VerificationCacheLookupOptions {
+  context?: string;
 }
 
 interface CacheEntry {
@@ -1926,8 +1965,8 @@ interface CacheEntry {
   bundleHash: string;
   signerKids: string[];
   tier: SecurityTier;
-  createdAt: number;
-  expiresAt: number;
+  createdAt: number; // Date.now() at set
+  expiresAt: number; // createdAt + TTL
 }
 ```
 

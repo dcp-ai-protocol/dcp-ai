@@ -322,6 +322,8 @@ export { VerificationCache } from './core/verification-cache.js';
 export type {
   CacheEntry,
   VerificationCacheOptions,
+  VerificationCacheSetOptions,
+  VerificationCacheLookupOptions,
 } from './core/verification-cache.js';
 
 // ── V2 PQ Checkpoints ──

@@ -53,6 +53,21 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
 
 ### Seguridad
 
+- **`VerificationCache` de TypeScript (código fuente de `main`, no publicado; `@dcp-ai/sdk` 2.2.1
+  mantiene el comportamiento anterior).** La clave de la caché sigue siendo el hash del bundle para
+  las llamadas existentes, y un `context` opcional elegido por quien llama separa los resultados con
+  claves internas etiquetadas con las que un hash legacy no puede colisionar. `invalidateByAgent`,
+  que no eliminaba nada, ahora elimina las entradas guardadas con ese agente en la nueva opción
+  `agentIds` y todas las guardadas sin ella. Reemplazar una entrada ya no deja sus kids antiguos en
+  el índice (con el límite predeterminado el índice crecía sin límite) ni expulsa otra entrada;
+  también se indexan los kids de `result.details.signer_keys`; `''` como hash ya no desactiva
+  `maxEntries`. **Cambios de aceptación:** las opciones inválidas (TTL `NaN`, `Infinity`, negativos
+  o no numéricos, TTL por encima de `Number.MAX_SAFE_INTEGER`, un `maxEntries` que no sea un entero seguro de 1 a `Number.MAX_SAFE_INTEGER`) lanzan un error en lugar de desactivar la expiración o el límite; `set` copia el resultado y
+  `get` devuelve una copia nueva en cada acierto; una entrada expira exactamente al cumplirse su
+  TTL, medido con el reloj monotónico además del reloj de pared, así que un retroceso del reloj ya
+  no la prolonga; un TTL de 0 nunca se guarda; `set` valida sus argumentos (un hueco en `signerKids`
+  o `agentIds` cuenta como `undefined`) y no cambia nada cuando lanza un error. Un acierto sigue sin volver a verificar la evidencia ni la confianza y no es admisión, y nada se invalida automáticamente. Véase
+  [API_REFERENCE.md](docs/API_REFERENCE.md#verificationcache).
 - **Cambio de aceptación: las firmas Ed25519 con S >= L ahora se rechazan** en el SDK de TypeScript
   (`Ed25519Provider.verify`, y por tanto toda firma V2 y compuesta, `@dcp-ai/express` y
   `@dcp-ai/openclaw`; y `verifyObject`, y por tanto `verifySignedBundle` V1) y en el verificador

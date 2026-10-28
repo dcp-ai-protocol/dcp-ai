@@ -38,6 +38,20 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Security
 
+- **TypeScript `VerificationCache` (source on `main`, not published; `@dcp-ai/sdk` 2.2.1 keeps the
+  previous behaviour).** The cache key stays the bundle hash for existing calls, and an opt-in
+  `context` chosen by the caller separates results under tagged internal keys that a legacy hash
+  cannot collide with. `invalidateByAgent`, which removed nothing, now removes the entries stored
+  with that agent in the new `agentIds` option and every entry stored without one. Replacing an
+  entry no longer leaves its old kids in the index (with the default bound the index grew without
+  limit) or evicts another entry; the kids of `result.details.signer_keys` are indexed too; `''` as
+  a hash no longer disables `maxEntries`. **Acceptance changes:** invalid options (`NaN`,
+  `Infinity`, negative or non-number TTLs, TTLs above `Number.MAX_SAFE_INTEGER`, a `maxEntries` that is not a safe integer from 1 to `Number.MAX_SAFE_INTEGER`) throw instead of disabling expiry or the bound; `set` copies the result and
+  `get` returns a new copy on every hit; an entry expires at exactly its TTL, measured on the
+  monotonic clock as well as the wall clock, so a clock step back no longer extends it; a TTL of 0
+  is never stored; `set` validates its arguments (a hole in `signerKids` or `agentIds` counts as
+  `undefined`) and changes nothing when it throws. A hit still does not verify the evidence or trust again and is not admission, and nothing is invalidated automatically. See
+  [API_REFERENCE.md](docs/API_REFERENCE.md#verificationcache).
 - **Acceptance change: Ed25519 signatures with S >= L are now rejected** by the TypeScript SDK
   (`Ed25519Provider.verify`, hence every V2 and composite signature, `@dcp-ai/express` and
   `@dcp-ai/openclaw`; and `verifyObject`, hence `verifySignedBundle` V1) and by the reference

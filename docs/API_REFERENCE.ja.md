@@ -1899,30 +1899,78 @@ function computeBundleHash(bundle: SignedBundleV2): string;
 
 バンドルのハッシュをキーとし、セキュリティティアごとの TTL を持つ、検証結果のメモリー内のキャッシュです。
 
-- **キーはバンドルのハッシュだけです。** キャッシュはテナントや検証器のポリシーを区別せず、ヒットしても
-  セッションウィンドウ、鍵の有効性、プリンシパルの信頼、新しい失効スナップショットを再確認しません。キャッシュした
-  結果を、改めて検証せずにアドミッションに使ったり、別のポリシーやテナントのもとで再利用したりしないでください。
-- **無効化：** `invalidateByKid(kid)` は、署名者の kid に `kid` を含むエントリを削除します。`clear()` は
-  すべてを削除します。`invalidateByAgent(agentId)` は現在何も削除せずに 0 を返すため、エージェントのエントリを
-  失効させません。エージェントの各 kid に `invalidateByKid` を使うか、`clear()` を使ってください。
+> **バージョン（2026 年 10 月 28 日）。** この節は、公開されていない `main` のソースコードを説明します。公開済みの
+> `@dcp-ai/sdk` 2.2.1 とそれ以前のバージョンは以前の動作のままです。キーはバンドルのハッシュだけで、`get` は保存した
+> オブジェクトそのものを返し、オプションは検証されず、期限は壁時計だけで判断し、`invalidateByAgent` は何も削除せずに
+> 0 を返します。
+
+- **ヒットしても、証拠や信頼を再検証しません。** 確認するのはエントリの期限だけで、セッションウィンドウ、鍵の有効性、プリンシパルの信頼、新しい失効スナップショットを
+  再確認せず、信頼、失効、ポリシーが変わっても自動的に無効化されるものはありません。ヒットはアドミッションでも認可でも
+  ありません。それらには改めて検証してください。
+- **キーとコンテキスト。** `context` がない場合、キーはこれまでどおりバンドルのハッシュです。レガシーの呼び出しは、
+  テナントやポリシーにかかわらずエントリを共有します。`set(..., { context })` と `get` または
+  `has(hash, { context })` を使うと、エントリは同じコンテキスト文字列に対してだけ返され、レガシーの経路と各コンテキストは
+  互いのエントリを見ません。コンテキストは呼び出し側が選び、その責任を負います。判断の入力の内容（検証器のポリシー、
+  テナント、信頼するプリンシパル、失効の状態）が変わるたびに変わらなければなりません。たとえば、呼び出し側がその内容から
+  計算するダイジェストです。内容が変わった後に再利用したラベルは何も分離しません。キャッシュが保証するのは、文字列の
+  完全一致による分離だけです。
+- **無効化。** `invalidateByKid(kid)` は、すべてのコンテキストで、署名者の kid に `kid` を含むエントリを削除します。
+  `result.details.signer_keys` の kid も呼び出し側の kid と一緒に索引付けされます。`invalidateByAgent(agentId)` は、
+  `agentIds` に `agentId` を含めて保存したエントリに加え、エージェントとの関連付けなしで保存したすべてのエントリ
+  （レガシーの呼び出し、または `agentIds` がない、あるいは空のもの）を意図的に削除します。キャッシュにはそれらが誰の
+  ものか分からないためです。他のエージェントだけに関連付けたエントリは残ります。戻り値は削除した総数なので、0 でなくても
+  そのエージェントのエントリがあったとは限りません。`agentIds` は呼び出し側のラベルで、確認されず、結果から何かが導出
+  されることもありません。`clear()` はすべてを削除します。
+- **期限。** エントリは、単調時計（`performance.now()`）と壁時計（`Date.now()`。`createdAt` と `expiresAt` に記録されます）のどちらか一方で TTL が経過した時点でミスになります。読みが期限と等しい場合もすでにミスです。どちらかの時計の読みが作成時より前になった場合や、
+  読みが有限でない場合はミスとなり、エントリを削除します。作成時より後にとどまる壁時計の巻き戻しは、単調時計の期限で
+  抑えられます。システムのサスペンド中は単調時計が進まないことがあります。その場合も壁時計の上限は適用されますが、
+  キャッシュは絶対的な実時間を約束しません。TTL が 0 のエントリは保存されず、その TTL での `set` はそのキーのエントリを
+  削除します。
+- **コピー。** `set` は結果のディープコピー（`structuredClone`）と、kid とエージェントのリストのコピーを保存します。
+  `get` はヒットのたびに新しい変更可能なディープコピーを返します。`has` はコピーしません。
+- **エラー。** 呼び出しがエラーを投げた場合、キャッシュは何も変わりません。
+  - コンストラクター：`options` または `ttlByTier` がオブジェクトでなければ `TypeError`。TTL が 0 から
+    `Number.MAX_SAFE_INTEGER` までの数値でない場合、または `maxEntries` が 1 から `Number.MAX_SAFE_INTEGER` までの安全な整数でない場合は `RangeError`
+    （明示的な `undefined` は既定値のまま）。`performance.now()` が使えなければ `Error`。
+  - `set`：ハッシュが文字列でない、結果がオブジェクトでない、`signerKids` または `agentIds` が文字列の配列でない
+    （エージェントは空でない文字列。穴は `undefined` として扱います）、コンテキストが文字列でない場合は `TypeError`。
+    時計の読みが有限でない場合、または期限（時計 + TTL）が `Number.MAX_SAFE_INTEGER` を超える場合は `RangeError`。
+    結果を複製できない場合は `DataCloneError`。
+  - `get` と `has`：ハッシュまたはコンテキストが文字列でなければ `TypeError`。`invalidateByAgent`：`agentId` が
+    空でない文字列でなければ `TypeError`。
 
 ```typescript
 class VerificationCache {
   constructor(options?: VerificationCacheOptions);
-  get(bundleHash: string): VerifyV2Result | null;          // null when absent or expired
-  set(bundleHash: string, result: VerifyV2Result, signerKids: string[], tier: SecurityTier): void;
-  has(bundleHash: string): boolean;
-  invalidateByKid(kid: string): number;                   // entries removed
-  invalidateByAgent(agentId: string): number;            // currently a no-op: returns 0 (see above)
+  get(bundleHash: string, options?: VerificationCacheLookupOptions): VerifyV2Result | null; // new copy; null when absent or expired
+  set(
+    bundleHash: string,
+    result: VerifyV2Result,
+    signerKids: string[],
+    tier: SecurityTier,
+    options?: VerificationCacheSetOptions,
+  ): void;
+  has(bundleHash: string, options?: VerificationCacheLookupOptions): boolean;
+  invalidateByKid(kid: string): number;       // entries removed, in every context
+  invalidateByAgent(agentId: string): number; // the agent's entries + every entry without agentIds
   clear(): void;
-  readonly size: number;
+  readonly size: number;                      // every context, including expired entries not yet read
 }
 
 interface VerificationCacheOptions {
-  /** TTL per tier in milliseconds. */
+  /** TTL per tier in milliseconds, from 0 to Number.MAX_SAFE_INTEGER. */
   ttlByTier?: Partial<Record<SecurityTier, number>>;
-  /** Hard upper limit on entries to prevent unbounded growth. */
+  /** Hard upper limit on entries: a safe integer from 1 to Number.MAX_SAFE_INTEGER. */
   maxEntries?: number;
+}
+
+interface VerificationCacheSetOptions {
+  agentIds?: readonly string[]; // the caller's label for invalidateByAgent; not checked
+  context?: string;             // exact-string isolation chosen by the caller
+}
+
+interface VerificationCacheLookupOptions {
+  context?: string;
 }
 
 interface CacheEntry {
@@ -1930,8 +1978,8 @@ interface CacheEntry {
   bundleHash: string;
   signerKids: string[];
   tier: SecurityTier;
-  createdAt: number;
-  expiresAt: number;
+  createdAt: number; // Date.now() at set
+  expiresAt: number; // createdAt + TTL
 }
 ```
 

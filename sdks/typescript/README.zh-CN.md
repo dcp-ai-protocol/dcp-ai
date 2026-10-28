@@ -5,7 +5,7 @@
 
 # @dcp-ai/sdk — DCP-AI v2.0 的 TypeScript SDK
 
-> 本文是[英文版](README.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](README.md)的参考译文，更新于 28/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 Digital Citizenship Protocol（DCP-AI）的官方 TypeScript SDK。使用后量子混合密码学（Ed25519 + ML-DSA-65）、复合签名、自适应安全等级、智能体间（A2A）通信、内置可观测性和面向生产的加固，创建、签署并验证 Citizenship Bundle。
 
@@ -251,7 +251,7 @@ console.log(result.verified, result.errors); // true []
 | `presentCompact(bundle, pqCheckpointRef)` | 紧凑呈现：去掉 PQ 签名，改为引用最近的 PQ 检查点 |
 | `presentReference(bundle, verificationEndpoint)` | 仅引用的呈现：bundle 哈希、会话 nonce，以及用于验证或获取完整 bundle 的端点 |
 | `presentIncremental(baseBundle, updatedBundle, baseAuditCount)` | 相对于已验证基础 bundle 的增量呈现：新的审计条目、PQ 检查点、更新后的清单和签名 |
-| `VerificationCache` | 仅按 bundle 哈希缓存验证结果：不区分租户或策略，命中时也不重新检查信任、吊销或会话，因此在准入或其他上下文中请重新验证。`invalidateByAgent` 目前不会删除任何内容；请使用 `invalidateByKid` 或 `clear()`（[详情](../../docs/API_REFERENCE.md#verificationcache)） |
+| `VerificationCache` | 按 bundle 哈希缓存验证结果。命中时不重新检查信任、吊销或会话，也不会自动使任何条目失效，因此准入时请重新验证。在 `main` 上的源代码（尚未发布）中，由调用方选择的可选 `context` 区分租户或策略，`get` 返回副本，`invalidateByAgent` 删除该智能体的条目以及所有未带 `agentIds` 存储的条目；在已发布的 2.2.1 中，键只是哈希，`invalidateByAgent` 不删除任何内容，因此请使用 `invalidateByKid` 或 `clear()`（[详情](../../docs/API_REFERENCE.md#verificationcache)） |
 
 <a id="pq-checkpoints-v2"></a>
 

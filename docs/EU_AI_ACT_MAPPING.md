@@ -7,7 +7,7 @@
 
 > **Note (27/10/2026).** Only the row on the dual-hash chain in Section 3 (Art. 19(1) and Art. 26(6)) reflects the unreleased source-code work of 27 October 2026 on the secondary SHA3-256 fields. The legal reading date (22 October 2026) and the 25 October 2026 implementation snapshot of the rest of this document are unchanged.
 
-> **Note (28/10/2026).** That row now refers to the published SHA3 patch releases of 28 October 2026; the rest of this document is unchanged.
+> **Note (28/10/2026).** That row now refers to the published SHA3 patch releases of 28 October 2026; the rest of this document is unchanged, except the checklist item on the verification cache, which now separates the published packages from the unreleased source on `main`.
 
 This document maps the obligations of Regulation (EU) 2024/1689 (the "AI Act"), as amended by Regulation (EU) 2026/1744 (the "Digital Omnibus on AI"), that concern traceability, logging, human oversight, record-keeping, explanation and incident evidence to the artifacts, services and SDK functions of DCP-AI. It follows the structure of [NIST_CONFORMITY.md](NIST_CONFORMITY.md): numbered sections, a mapping table, an implementer checklist and an explicit list of gaps.
 
@@ -202,7 +202,7 @@ What a deployer or operator must configure or operate for the `supports` rows of
 - [ ] Policy rules return `escalate` with `required_confirmation` for the action types, data classes and impact levels the deployer wants a human to approve; the application blocks on a missing or `deny` Human Confirmation.
 - [ ] Awareness thresholds are declared per mandate with `action_if_triggered` set to `escalate` or `block` for the dimensions that matter; advisory declarations carry a `response_deadline` consistent with DCP-09 §5.3, and `proceeded_without_response` is monitored.
 - [ ] An emergency revocation secret exists for every agent, is held by the responsible principal outside the agent's runtime, and the application has a kill switch that halts the process when revocation is triggered (revocation alone does not stop a running process).
-- [ ] Verifiers check revocation state within the propagation latency of the highest tier served ([SECURITY_MODEL.md](SECURITY_MODEL.md), "Revocation Propagation SLAs"), and the verification cache TTL follows core §14.5. The TypeScript `VerificationCache` is keyed only by the bundle hash and its `invalidateByAgent` does nothing, so clear it when revocation or trust changes ([API_REFERENCE.md](API_REFERENCE.md)).
+- [ ] Verifiers check revocation state within the propagation latency of the highest tier served ([SECURITY_MODEL.md](SECURITY_MODEL.md), "Revocation Propagation SLAs"), and the verification cache TTL follows core §14.5. In published `@dcp-ai/sdk` 2.2.1 and earlier, the TypeScript `VerificationCache` is keyed only by the bundle hash and its `invalidateByAgent` does nothing; the source on `main` (not published) adds agent invalidation and an opt-in context, but nothing is invalidated automatically. With either, invalidate or clear it when revocation or trust changes ([API_REFERENCE.md](API_REFERENCE.md#verificationcache)).
 - [ ] For remote biometric identification, the two-person rule of Art. 14(5) is implemented with multi-party authorization over the intent and documented as a deployer process.
 
 ### 5.4 Key custody and verifier policy

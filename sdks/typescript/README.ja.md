@@ -5,7 +5,7 @@
 
 # @dcp-ai/sdk — DCP-AI v2.0 用 TypeScript SDK
 
-> [英語版](README.md)の参考訳です（26/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](README.md)の参考訳です（28/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 Digital Citizenship Protocol（DCP-AI）の公式 TypeScript SDK です。ポスト量子のハイブリッド暗号（Ed25519 + ML-DSA-65）、複合署名、適応型セキュリティティア、エージェント間（A2A）通信、組み込みのオブザーバビリティ、本番向けの堅牢化を備え、Citizenship Bundle の作成、署名、検証を行えます。
 
@@ -251,7 +251,7 @@ console.log(result.verified, result.errors); // true []
 | `presentCompact(bundle, pqCheckpointRef)` | コンパクトな提示：PQ 署名を省き、代わりに最も近い PQ チェックポイントを参照する |
 | `presentReference(bundle, verificationEndpoint)` | 参照のみの提示：バンドルのハッシュ、セッションの nonce、バンドル全体を検証または取得するためのエンドポイント |
 | `presentIncremental(baseBundle, updatedBundle, baseAuditCount)` | 検証済みのベースバンドルに対する増分の提示：新しい監査エントリ、PQ チェックポイント、更新されたマニフェストと署名 |
-| `VerificationCache` | 検証結果をバンドルのハッシュだけをキーにキャッシュする。テナントやポリシーを区別せず、ヒット時に信頼、失効、セッションを再確認しないため、アドミッションや別のコンテキストでは改めて検証すること。`invalidateByAgent` は現在何も削除しないので、`invalidateByKid` か `clear()` を使う（[詳細](../../docs/API_REFERENCE.md#verificationcache)） |
+| `VerificationCache` | 検証結果をバンドルのハッシュをキーにキャッシュする。ヒット時に信頼、失効、セッションを再確認せず、自動的に無効化されるものもないため、アドミッションには改めて検証すること。`main` のソースコード（未公開）では、呼び出し側が選ぶオプトインの `context` でテナントやポリシーを分け、`get` はコピーを返し、`invalidateByAgent` はそのエージェントのエントリと `agentIds` なしで保存したすべてのエントリを削除する。公開済みの 2.2.1 ではキーはハッシュだけで、`invalidateByAgent` は何も削除しないので、`invalidateByKid` か `clear()` を使う（[詳細](../../docs/API_REFERENCE.md#verificationcache)） |
 
 <a id="pq-checkpoints-v2"></a>
 

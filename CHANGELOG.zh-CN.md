@@ -49,6 +49,19 @@
 
 ### 安全
 
+- **TypeScript 的 `VerificationCache`（`main` 上的源代码，尚未发布；
+  `@dcp-ai/sdk` 2.2.1 保持此前的行为）。** 对现有调用，缓存键仍是 bundle 哈希；
+  由调用方选择的可选 `context` 用带标签的内部键分隔结果，旧式哈希无法与之冲突。
+  原先不删除任何内容的 `invalidateByAgent`，现在会删除通过新的 `agentIds` 选项与该智能体关联存储的条目，以及所有未带该选项存储的条目。
+  替换条目时不再把旧的 kid 留在索引中（在默认上限下，索引会无限增长），也不再驱逐其他条目；
+  `result.details.signer_keys` 中的 kid 也会建立索引；
+  以 `''` 为哈希不再使 `maxEntries` 失效。
+  **接受范围变更：** 无效选项（`NaN`、`Infinity`、负数或非数字的 TTL，超过 `Number.MAX_SAFE_INTEGER` 的 TTL，不是 1 到 `Number.MAX_SAFE_INTEGER` 之间安全整数的 `maxEntries`）会抛出错误，而不再使过期或上限失效；
+  `set` 复制结果，`get` 每次命中都返回新的副本；
+  条目恰好在 TTL 到期时过期，除挂钟外还用单调时钟计时，因此时钟回拨不再延长其寿命；TTL 为 0 的条目从不存储；
+  `set` 会校验参数（`signerKids` 或 `agentIds` 中的空位按 `undefined` 处理），抛出错误时不改变任何内容。
+  命中仍不会重新验证证据或信任，也不是准入；不会自动使任何条目失效。
+  见 [API_REFERENCE.md](docs/API_REFERENCE.md#verificationcache)。
 - **接受范围变更：现在会拒绝 S >= L 的 Ed25519 签名。** 涉及 TypeScript SDK
   （`Ed25519Provider.verify`，因而包括所有 V2 签名和复合签名、`@dcp-ai/express` 和
   `@dcp-ai/openclaw`；以及 `verifyObject`，因而包括 `verifySignedBundle` V1）和参考验证方
