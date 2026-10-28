@@ -52,6 +52,20 @@
 
 ### セキュリティ
 
+- **TypeScript の `VerificationCache`（`main` のソースコード、未公開。
+  `@dcp-ai/sdk` 2.2.1 は以前の動作のまま）。**
+  既存の呼び出しではキャッシュのキーは引き続きバンドルのハッシュで、呼び出し側が選ぶオプトインの `context` は、レガシーのハッシュと衝突しないタグ付きの内部キーで結果を分けます。
+  何も削除しなかった `invalidateByAgent` は、新しい `agentIds` オプションでそのエージェントを付けて保存したエントリと、それなしで保存したすべてのエントリを削除するようになりました。
+  エントリを置き換えても、古い kid が索引に残ること（既定の上限では索引が際限なく増えていました）や、別のエントリを追い出すことはなくなりました。
+  `result.details.signer_keys` の kid も索引付けされます。
+  ハッシュ `''` が `maxEntries` を無効にすることもなくなりました。
+  **受け入れの変更：** 不正なオプション（`NaN`、`Infinity`、負または数値でない TTL、`Number.MAX_SAFE_INTEGER` を超える TTL、1 から `Number.MAX_SAFE_INTEGER` までの安全な整数でない `maxEntries`）は、期限や上限を無効にする代わりにエラーを投げます。
+  `set` は結果をコピーし、`get` はヒットのたびに新しいコピーを返します。
+  エントリは TTL ちょうどで期限切れになり、壁時計に加えて単調時計でも測るため、時計の巻き戻しで延びることはなくなりました。
+  TTL が 0 のエントリは保存されません。
+  `set` は引数を検証し（`signerKids` や `agentIds` の穴は `undefined` として扱います）、エラーを投げたときは何も変えません。
+  ヒットは引き続き証拠や信頼を再検証せず、アドミッションではありません。自動的に無効化されるものもありません。
+  [API_REFERENCE.md](docs/API_REFERENCE.md#verificationcache) を参照してください。
 - **受け入れの変更: S >= L の Ed25519 署名を拒否するようになりました。** 対象は TypeScript SDK
   （`Ed25519Provider.verify`、したがってすべての V2 署名と複合署名、`@dcp-ai/express` と
   `@dcp-ai/openclaw`。さらに `verifyObject`、したがって `verifySignedBundle` V1）と、リファレンスの検証者

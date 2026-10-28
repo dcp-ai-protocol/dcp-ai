@@ -226,7 +226,7 @@ console.log(result.verified, result.errors); // true []
 | `presentCompact(bundle, pqCheckpointRef)` | Compact presentation: drops the PQ signature and references the nearest PQ checkpoint instead |
 | `presentReference(bundle, verificationEndpoint)` | Reference-only presentation: bundle hash, session nonce and an endpoint to verify or fetch the full bundle |
 | `presentIncremental(baseBundle, updatedBundle, baseAuditCount)` | Incremental presentation against a verified base bundle: new audit entries, PQ checkpoints, updated manifest and signature |
-| `VerificationCache` | Caches verification results by bundle hash only: it does not separate tenants or policies and does not recheck trust, revocation or the session on a hit, so verify again for admission or another context. `invalidateByAgent` currently removes nothing; use `invalidateByKid` or `clear()` ([details](../../docs/API_REFERENCE.md#verificationcache)) |
+| `VerificationCache` | Caches verification results by bundle hash. A hit does not recheck trust, revocation or the session, and nothing is invalidated automatically, so verify again for admission. In the source on `main` (not published), an opt-in `context` chosen by the caller separates tenants or policies, `get` returns a copy, and `invalidateByAgent` removes the agent's entries and every entry stored without `agentIds`; in published 2.2.1 the key is the hash only and `invalidateByAgent` removes nothing, so use `invalidateByKid` or `clear()` ([details](../../docs/API_REFERENCE.md#verificationcache)) |
 
 ### PQ Checkpoints (V2)
 

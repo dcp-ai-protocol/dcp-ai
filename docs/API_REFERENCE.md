@@ -1848,30 +1848,78 @@ function computeBundleHash(bundle: SignedBundleV2): string;
 
 In-memory cache of verification results, keyed by bundle hash, with a TTL per security tier.
 
-- **The key is the bundle hash only.** The cache does not separate tenants or verifier policies, and a hit does
-  not recheck the session window, key validity, principal trust or a fresh revocation snapshot. Do not reuse a
-  cached result for admission, or under another policy or tenant, without verifying again.
-- **Invalidation:** `invalidateByKid(kid)` removes the entries whose signer kids include `kid`; `clear()` removes
-  everything. `invalidateByAgent(agentId)` currently removes nothing and returns 0, so it does not revoke an
-  agent's entries: use `invalidateByKid` for each of the agent's kids, or `clear()`.
+> **Versions (28/10/2026).** This section describes the source on `main`, which is not published. Published
+> `@dcp-ai/sdk` 2.2.1 and earlier keep the previous behaviour: the key is the bundle hash only, `get` returns the
+> stored object, options are not validated, expiry uses only the wall clock, and `invalidateByAgent` removes nothing
+> and returns 0.
+
+- **A hit does not verify the evidence or trust again.** It checks only the entry's expiry; it does not recheck the session window, key validity, principal trust or a fresh
+  revocation snapshot, and nothing is invalidated automatically when trust, revocation or policy change. A hit is not
+  admission or authorization: verify again for those.
+- **Key and context.** Without `context`, the key is the bundle hash, as before: legacy calls share their entries,
+  whatever their tenant or policy. With `set(..., { context })` and `get` or `has(hash, { context })`, an entry is
+  returned only for the same context string, and the legacy route and the contexts never see each other's entries.
+  The caller chooses the context and is responsible for it: it must change whenever the content of an input to the
+  decision changes (the verifier policy, the tenant, the trusted principals, the revocation state), for example a
+  digest the caller computes over that content. A label reused after its content changed isolates nothing. The cache
+  guarantees only exact-string separation.
+- **Invalidation.** `invalidateByKid(kid)` removes, in every context, the entries whose signer kids include `kid`;
+  the kids in `result.details.signer_keys` are indexed with the caller's. `invalidateByAgent(agentId)` removes the
+  entries stored with `agentId` in `agentIds` and, deliberately, every entry stored without an agent association
+  (legacy calls, or `agentIds` absent or empty), since the cache cannot tell whose those are; entries associated only
+  with other agents stay. It returns the total removed, so a non-zero count does not mean the agent had entries.
+  `agentIds` is the caller's label: it is not checked, and nothing is derived from the result. `clear()` removes
+  everything.
+- **Expiry.** An entry is a miss as soon as its TTL has passed on either clock, the monotonic clock (`performance.now()`) or the wall clock (`Date.now()`, recorded in `createdAt` and `expiresAt`); a reading equal to a deadline is already a miss. A reading of either clock earlier than at
+  creation, or a reading that is not finite, is a miss that evicts the entry. A wall-clock step back that stays after
+  creation is bounded by the monotonic deadline. During a system suspend the monotonic clock may not advance; the
+  wall-clock limit still applies, but the cache does not promise absolute real time. A TTL of 0 is never stored, and
+  `set` with it removes the entry at that key.
+- **Copies.** `set` stores a deep copy (`structuredClone`) of the result and copies of the kid and agent lists; `get`
+  returns a new mutable deep copy on every hit; `has` does not copy.
+- **Errors.** Nothing in the cache changes when a call throws.
+  - Constructor: `TypeError` when `options` or `ttlByTier` is not an object; `RangeError` when a TTL is not a number
+    from 0 to `Number.MAX_SAFE_INTEGER` or `maxEntries` is not a safe integer from 1 to `Number.MAX_SAFE_INTEGER` (an explicit `undefined` keeps the
+    default); `Error` when `performance.now()` is unavailable.
+  - `set`: `TypeError` for a hash that is not a string, a result that is not an object, `signerKids` or `agentIds`
+    that are not arrays of strings (non-empty for agents; a hole counts as `undefined`), or a context that is not a
+    string; `RangeError` when a clock reading is not finite or a deadline (clock + TTL) exceeds
+    `Number.MAX_SAFE_INTEGER`; `DataCloneError` when the result cannot be cloned.
+  - `get` and `has`: `TypeError` for a hash or context that is not a string. `invalidateByAgent`: `TypeError` for an
+    `agentId` that is not a non-empty string.
 
 ```typescript
 class VerificationCache {
   constructor(options?: VerificationCacheOptions);
-  get(bundleHash: string): VerifyV2Result | null;          // null when absent or expired
-  set(bundleHash: string, result: VerifyV2Result, signerKids: string[], tier: SecurityTier): void;
-  has(bundleHash: string): boolean;
-  invalidateByKid(kid: string): number;                   // entries removed
-  invalidateByAgent(agentId: string): number;            // currently a no-op: returns 0 (see above)
+  get(bundleHash: string, options?: VerificationCacheLookupOptions): VerifyV2Result | null; // new copy; null when absent or expired
+  set(
+    bundleHash: string,
+    result: VerifyV2Result,
+    signerKids: string[],
+    tier: SecurityTier,
+    options?: VerificationCacheSetOptions,
+  ): void;
+  has(bundleHash: string, options?: VerificationCacheLookupOptions): boolean;
+  invalidateByKid(kid: string): number;       // entries removed, in every context
+  invalidateByAgent(agentId: string): number; // the agent's entries + every entry without agentIds
   clear(): void;
-  readonly size: number;
+  readonly size: number;                      // every context, including expired entries not yet read
 }
 
 interface VerificationCacheOptions {
-  /** TTL per tier in milliseconds. */
+  /** TTL per tier in milliseconds, from 0 to Number.MAX_SAFE_INTEGER. */
   ttlByTier?: Partial<Record<SecurityTier, number>>;
-  /** Hard upper limit on entries to prevent unbounded growth. */
+  /** Hard upper limit on entries: a safe integer from 1 to Number.MAX_SAFE_INTEGER. */
   maxEntries?: number;
+}
+
+interface VerificationCacheSetOptions {
+  agentIds?: readonly string[]; // the caller's label for invalidateByAgent; not checked
+  context?: string;             // exact-string isolation chosen by the caller
+}
+
+interface VerificationCacheLookupOptions {
+  context?: string;
 }
 
 interface CacheEntry {
@@ -1879,8 +1927,8 @@ interface CacheEntry {
   bundleHash: string;
   signerKids: string[];
   tier: SecurityTier;
-  createdAt: number;
-  expiresAt: number;
+  createdAt: number; // Date.now() at set
+  expiresAt: number; // createdAt + TTL
 }
 ```
 

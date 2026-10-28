@@ -1900,30 +1900,78 @@ function computeBundleHash(bundle: SignedBundleV2): string;
 
 Cache em memória de resultados de verificação, indexado pelo hash do bundle, com um TTL por nível de segurança.
 
-- **A chave é apenas o hash do bundle.** O cache não separa locatários nem políticas de verificador, e um acerto não
-  verifica de novo a janela de sessão, a validade das chaves, a confiança no principal nem um snapshot de revogação recente. Não reutilize um
-  resultado em cache para a admissão, nem sob outra política ou outro locatário, sem verificar novamente.
-- **Invalidação:** `invalidateByKid(kid)` remove as entradas cujos kids de assinatura incluem `kid`; `clear()` remove
-  tudo. `invalidateByAgent(agentId)` atualmente não remove nada e retorna 0, então não revoga as entradas
-  de um agente: use `invalidateByKid` para cada kid do agente, ou `clear()`.
+> **Versões (28/10/2026).** Esta seção descreve o código-fonte de `main`, que não está publicado. O
+> `@dcp-ai/sdk` 2.2.1 publicado e as versões anteriores mantêm o comportamento anterior: a chave é apenas o hash do
+> bundle, `get` retorna o objeto armazenado, as opções não são validadas, a expiração usa apenas o relógio de parede e
+> `invalidateByAgent` não remove nada e retorna 0.
+
+- **Um acerto não verifica de novo a evidência nem a confiança.** Só verifica a expiração da entrada; não verifica de novo a janela de sessão, a validade das chaves, a confiança
+  no principal nem um snapshot de revogação recente, e nada é invalidado automaticamente quando a confiança, a
+  revogação ou a política mudam. Um acerto não é admissão nem autorização: para isso, verifique novamente.
+- **Chave e contexto.** Sem `context`, a chave é o hash do bundle, como antes: as chamadas legadas compartilham suas
+  entradas, qualquer que seja o locatário ou a política. Com `set(..., { context })` e `get` ou
+  `has(hash, { context })`, uma entrada só é retornada para a mesma string de contexto, e a rota legada e os contextos
+  nunca veem as entradas uns dos outros. Quem chama escolhe o contexto e responde por ele: ele deve mudar sempre que
+  mudar o conteúdo de uma entrada da decisão (a política do verificador, o locatário, os principais confiáveis, o
+  estado de revogação); por exemplo, um digest que quem chama calcula sobre esse conteúdo. Um rótulo reutilizado
+  depois que seu conteúdo mudou não isola nada. O cache garante apenas a separação por string exata.
+- **Invalidação.** `invalidateByKid(kid)` remove, em todos os contextos, as entradas cujos kids de assinatura incluem
+  `kid`; os kids de `result.details.signer_keys` são indexados junto com os de quem chama.
+  `invalidateByAgent(agentId)` remove as entradas armazenadas com `agentId` em `agentIds` e, deliberadamente, todas as
+  entradas armazenadas sem associação a um agente (chamadas legadas, ou `agentIds` ausente ou vazio), porque o cache
+  não tem como saber de quem são; as entradas associadas apenas a outros agentes são mantidas. Retorna o total
+  removido, então um número diferente de zero não significa que o agente tinha entradas. `agentIds` é um rótulo de
+  quem chama: não é verificado, e nada é derivado do resultado. `clear()` remove tudo.
+- **Expiração.** Uma entrada é uma falha assim que seu TTL tiver passado em qualquer um dos dois relógios, o monotônico (`performance.now()`) ou o de parede (`Date.now()`, registrado em `createdAt` e `expiresAt`); uma leitura igual a um prazo já é uma falha. Uma leitura de qualquer
+  um dos relógios anterior à da criação, ou uma leitura não finita, é uma falha que remove a entrada. Um recuo do
+  relógio de parede que fica depois da criação é limitado pelo prazo monotônico. Durante uma suspensão do sistema o
+  relógio monotônico pode não avançar; o limite do relógio de parede continua valendo, mas o cache não promete tempo
+  real absoluto. Um TTL de 0 nunca é armazenado, e `set` com ele remove a entrada dessa chave.
+- **Cópias.** `set` armazena uma cópia profunda (`structuredClone`) do resultado e cópias das listas de kids e de
+  agentes; `get` retorna a cada acerto uma nova cópia profunda e mutável; `has` não copia.
+- **Erros.** Nada muda no cache quando uma chamada lança um erro.
+  - Construtor: `TypeError` se `options` ou `ttlByTier` não forem objetos; `RangeError` se um TTL não for um número
+    de 0 a `Number.MAX_SAFE_INTEGER` ou `maxEntries` não for um inteiro seguro de 1 a `Number.MAX_SAFE_INTEGER` (um `undefined` explícito mantém o
+    padrão); `Error` se `performance.now()` não estiver disponível.
+  - `set`: `TypeError` se o hash não for uma string, o resultado não for um objeto, `signerKids` ou `agentIds` não
+    forem arrays de strings (não vazias no caso dos agentes; um buraco conta como `undefined`) ou o contexto não for
+    uma string; `RangeError` se uma leitura de relógio não for finita ou um prazo (relógio + TTL) exceder
+    `Number.MAX_SAFE_INTEGER`; `DataCloneError` se o resultado não puder ser clonado.
+  - `get` e `has`: `TypeError` se o hash ou o contexto não forem strings. `invalidateByAgent`: `TypeError` se
+    `agentId` não for uma string não vazia.
 
 ```typescript
 class VerificationCache {
   constructor(options?: VerificationCacheOptions);
-  get(bundleHash: string): VerifyV2Result | null;          // null when absent or expired
-  set(bundleHash: string, result: VerifyV2Result, signerKids: string[], tier: SecurityTier): void;
-  has(bundleHash: string): boolean;
-  invalidateByKid(kid: string): number;                   // entries removed
-  invalidateByAgent(agentId: string): number;            // currently a no-op: returns 0 (see above)
+  get(bundleHash: string, options?: VerificationCacheLookupOptions): VerifyV2Result | null; // new copy; null when absent or expired
+  set(
+    bundleHash: string,
+    result: VerifyV2Result,
+    signerKids: string[],
+    tier: SecurityTier,
+    options?: VerificationCacheSetOptions,
+  ): void;
+  has(bundleHash: string, options?: VerificationCacheLookupOptions): boolean;
+  invalidateByKid(kid: string): number;       // entries removed, in every context
+  invalidateByAgent(agentId: string): number; // the agent's entries + every entry without agentIds
   clear(): void;
-  readonly size: number;
+  readonly size: number;                      // every context, including expired entries not yet read
 }
 
 interface VerificationCacheOptions {
-  /** TTL per tier in milliseconds. */
+  /** TTL per tier in milliseconds, from 0 to Number.MAX_SAFE_INTEGER. */
   ttlByTier?: Partial<Record<SecurityTier, number>>;
-  /** Hard upper limit on entries to prevent unbounded growth. */
+  /** Hard upper limit on entries: a safe integer from 1 to Number.MAX_SAFE_INTEGER. */
   maxEntries?: number;
+}
+
+interface VerificationCacheSetOptions {
+  agentIds?: readonly string[]; // the caller's label for invalidateByAgent; not checked
+  context?: string;             // exact-string isolation chosen by the caller
+}
+
+interface VerificationCacheLookupOptions {
+  context?: string;
 }
 
 interface CacheEntry {
@@ -1931,8 +1979,8 @@ interface CacheEntry {
   bundleHash: string;
   signerKids: string[];
   tier: SecurityTier;
-  createdAt: number;
-  expiresAt: number;
+  createdAt: number; // Date.now() at set
+  expiresAt: number; // createdAt + TTL
 }
 ```
 

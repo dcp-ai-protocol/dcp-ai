@@ -53,6 +53,22 @@ Publicado em 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 e `@dcp-ai/cl
 
 ### Segurança
 
+- **`VerificationCache` do TypeScript (código-fonte de `main`, não publicado; o `@dcp-ai/sdk` 2.2.1
+  mantém o comportamento anterior).** A chave do cache continua sendo o hash do bundle para as
+  chamadas existentes, e um `context` opcional escolhido por quem chama separa os resultados com
+  chaves internas etiquetadas com as quais um hash legado não pode colidir. `invalidateByAgent`, que
+  não removia nada, agora remove as entradas armazenadas com esse agente na nova opção `agentIds` e
+  todas as armazenadas sem ela. Substituir uma entrada não deixa mais seus kids antigos no índice
+  (com o limite padrão o índice crescia sem limite) nem remove outra entrada; os kids de
+  `result.details.signer_keys` também são indexados; `''` como hash não desativa mais `maxEntries`.
+  **Mudanças de aceitação:** opções inválidas (TTL `NaN`, `Infinity`, negativos ou não numéricos,
+  TTL acima de `Number.MAX_SAFE_INTEGER`, um `maxEntries` que não seja um inteiro seguro de 1 a `Number.MAX_SAFE_INTEGER`) lançam um
+  erro em vez de desativar a expiração ou o limite; `set` copia o resultado e `get` retorna uma nova
+  cópia a cada acerto; uma entrada expira exatamente ao completar seu TTL, medido no relógio
+  monotônico além do relógio de parede, então um recuo do relógio não a prolonga mais; um TTL de 0
+  nunca é armazenado; `set` valida seus argumentos (um buraco em `signerKids` ou `agentIds` conta
+  como `undefined`) e não muda nada quando lança um erro. Um acerto continua sem verificar de novo a evidência nem a confiança e não é admissão, e nada é invalidado automaticamente. Veja
+  [API_REFERENCE.md](docs/API_REFERENCE.md#verificationcache).
 - **Mudança de aceitação: assinaturas Ed25519 com S >= L agora são rejeitadas** pelo SDK de TypeScript
   (`Ed25519Provider.verify`, e portanto toda assinatura V2 e composta, `@dcp-ai/express` e
   `@dcp-ai/openclaw`; e `verifyObject`, e portanto `verifySignedBundle` V1) e pelo verificador de

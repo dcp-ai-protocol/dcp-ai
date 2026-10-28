@@ -14,7 +14,7 @@
 
 > **说明（2026 年 10 月 27 日）。** 只有第 3 节中关于双哈希链的那一行（第 19(1) 条和第 26(6) 条）反映了 2026 年 10 月 27 日在尚未发布的源代码中对二级 SHA3-256 字段所做的工作。法律资料的阅读日期（2026 年 10 月 22 日）以及本文档其余部分 2026 年 10 月 25 日的实现快照保持不变。
 
-> **说明（2026 年 10 月 28 日）。** 该行现在引用 2026 年 10 月 28 日发布的 SHA3 补丁版本；本文档其余部分保持不变。
+> **说明（2026 年 10 月 28 日）。** 该行现在引用 2026 年 10 月 28 日发布的 SHA3 补丁版本；本文档其余部分保持不变，但关于验证缓存的检查清单条目除外，该条目现在区分已发布的软件包与 `main` 上尚未发布的源代码。
 
 本文档把经第 (EU) 2026/1744 号条例（“Digital Omnibus on AI”）修订的第 (EU) 2024/1689 号条例（“《人工智能法》”）中涉及可追溯性、日志记录、人工监督、记录保存、解释和事件证据的义务，与 DCP-AI 的构件、服务和 SDK 函数对应起来。它沿用 [NIST_CONFORMITY.md](NIST_CONFORMITY.md) 的结构：编号的章节、一张对应表、一份实现者检查清单，以及一份明确的缺口清单。
 
@@ -245,7 +245,7 @@ DCP-AI 规范用“human”和“principal”称呼由 RPR 绑定的人。本文
 - [ ] 对于部署者希望由人批准的行为类型、数据类别和影响级别，策略规则返回带 `required_confirmation` 的 `escalate`；当 Human Confirmation 缺失或为 `deny` 时，应用会阻断。
 - [ ] 为重要的维度按授权书声明感知阈值，`action_if_triggered` 为 `escalate` 或 `block`；建议声明带有与 DCP-09 §5.3 一致的 `response_deadline`，并监测 `proceeded_without_response`。
 - [ ] 每个智能体都有紧急撤销秘密值，由责任委托人在智能体运行环境之外持有，并且应用有一个在撤销触发时停止进程的终止开关（仅靠撤销不会停止正在运行的进程）。
-- [ ] 验证器在其所服务的最高等级的传播延迟内检查撤销状态（[SECURITY_MODEL.md](SECURITY_MODEL.md)，“Revocation Propagation SLAs”），验证缓存的 TTL 遵循 core §14.5。TypeScript 的 `VerificationCache` 仅以 bundle 哈希为键，其 `invalidateByAgent` 不起任何作用，因此在撤销或信任发生变化时请清空它（[API_REFERENCE.md](API_REFERENCE.md)）。
+- [ ] 验证器在其所服务的最高等级的传播延迟内检查撤销状态（[SECURITY_MODEL.md](SECURITY_MODEL.md)，“Revocation Propagation SLAs”），验证缓存的 TTL 遵循 core §14.5。在已发布的 `@dcp-ai/sdk` 2.2.1 及更早版本中，TypeScript 的 `VerificationCache` 仅以 bundle 哈希为键，其 `invalidateByAgent` 不起任何作用；`main` 上的源代码（尚未发布）增加了按智能体失效和可选的上下文，但不会自动使任何条目失效。无论哪种情况，在撤销或信任发生变化时都请使其失效或清空它（[API_REFERENCE.md](API_REFERENCE.md#verificationcache)）。
 - [ ] 对于远程生物特征识别，第 14 条第 (5) 款的两人规则通过对意图的多方授权实现，并作为部署者的流程记录在案。
 
 <a id="54-key-custody-and-verifier-policy"></a>

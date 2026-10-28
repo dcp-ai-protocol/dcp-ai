@@ -5,7 +5,7 @@
 
 # @dcp-ai/sdk — SDK TypeScript para o DCP-AI v2.0
 
-> Tradução informativa da [versão em inglês](README.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](README.md), atualizada em 28/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 SDK oficial em TypeScript para o Digital Citizenship Protocol (DCP-AI). Crie, assine e verifique Citizenship Bundles com criptografia híbrida pós-quântica (Ed25519 + ML-DSA-65), assinaturas compostas, níveis de segurança adaptativos, comunicação entre agentes (A2A), observabilidade integrada e reforço para produção.
 
@@ -251,7 +251,7 @@ console.log(result.verified, result.errors); // true []
 | `presentCompact(bundle, pqCheckpointRef)` | Apresentação compacta: remove a assinatura PQ e, no lugar dela, referencia o checkpoint PQ mais próximo |
 | `presentReference(bundle, verificationEndpoint)` | Apresentação só por referência: hash do bundle, nonce de sessão e um endpoint para verificar ou obter o bundle completo |
 | `presentIncremental(baseBundle, updatedBundle, baseAuditCount)` | Apresentação incremental em relação a um bundle base verificado: novas entradas de auditoria, checkpoints PQ, manifesto e assinatura atualizados |
-| `VerificationCache` | Armazena em cache resultados de verificação apenas pelo hash do bundle: não separa locatários nem políticas e, num acerto, não verifica de novo a confiança, a revogação nem a sessão; portanto, verifique novamente para a admissão ou para outro contexto. `invalidateByAgent` atualmente não remove nada; use `invalidateByKid` ou `clear()` ([detalhes](../../docs/API_REFERENCE.md#verificationcache)) |
+| `VerificationCache` | Armazena em cache resultados de verificação pelo hash do bundle. Um acerto não verifica de novo a confiança, a revogação nem a sessão, e nada é invalidado automaticamente; portanto, verifique novamente para a admissão. No código-fonte de `main` (não publicado), um `context` opcional escolhido por quem chama separa locatários ou políticas, `get` retorna uma cópia e `invalidateByAgent` remove as entradas do agente e todas as armazenadas sem `agentIds`; na 2.2.1 publicada a chave é apenas o hash e `invalidateByAgent` não remove nada; portanto, use `invalidateByKid` ou `clear()` ([detalhes](../../docs/API_REFERENCE.md#verificationcache)) |
 
 <a id="pq-checkpoints-v2"></a>
 
