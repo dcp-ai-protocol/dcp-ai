@@ -171,6 +171,11 @@
 
 ### 新增
 
+- **外部符合性运行器（`tools/conformance-external.js`）。** 它针对以 argv 指定的任意实现，运行一个单独的、带版本的目录（`tools/conformance/external-catalog.json`，契约 `dcp-ai-conformance-external/1`），通过 stdin 上的一个 JSON 请求和 stdout 上的一个 JSON 响应进行：
+  30 个 `dcp-jcs-v1` 规范化用例（包括已提交的 19 个 `edge_cases`，其中 3 个必须被拒绝）和 8 个 SHA-256 / SHA3-256 摘要，全部使用已提交的预期值。
+  随附 `@dcp-ai/sdk` 和 Python `dcp_ai` 的包装器，CI 会运行两者。
+  现有的符合性命令、目录和报告保持不变。通过只表明这 38 个用例通过。
+  见 [tools/conformance/README.md](tools/conformance/README.md#external-implementations)。
 - FastAPI 中的 `cancel_on_disconnect` 现在在任何中间件顺序下都能工作。对已离开客户端的 ASGI 响应现在以一个空的
   `499` 结束（“client closed request”：不是已注册的状态码，也不是 DCP 状态），带有 `Content-Length: 0` 和
   `Cache-Control: no-store`，而不是没有任何消息。

@@ -150,6 +150,46 @@ jobs:
       - name: Check protocol integrity
         run: node bin/dcp.js integrity
 
+  # External implementations through the stdin/stdout contract (tools/conformance/README.md#external-implementations).
+  # Both wrappers are required: DCP_EXTERNAL_REQUIRE_PYTHON turns a missing interpreter into a failure, not a skip.
+  conformance-external:
+    name: External conformance (TypeScript and Python wrappers)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build the workspace SDK
+        working-directory: sdks/typescript
+        run: |
+          npm install
+          npm run build
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install the Python SDK from the checkout
+        run: pip install ./sdks/python
+
+      - name: External runner self-tests (Python required)
+        env:
+          DCP_EXTERNAL_REQUIRE_PYTHON: "1"
+        run: DCP_EXTERNAL_PYTHON="$(command -v python)" node --test tools/conformance/external.test.mjs
+
+      - name: TypeScript SDK wrapper (38 cases)
+        run: node tools/conformance-external.js --report external-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs
+
+      - name: Python SDK wrapper (38 cases)
+        run: node tools/conformance-external.js --report external-python.json -- "$(command -v python)" -I tools/conformance/wrappers/python_sdk.py
+
   typescript-sdk:
     name: TypeScript SDK
     needs: changes

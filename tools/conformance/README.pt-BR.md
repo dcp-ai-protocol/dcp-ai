@@ -4,7 +4,7 @@
 
 # Kit de conformidade do DCP-AI
 
-> Tradução informativa da [versão em inglês](README.md), atualizada em 25/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](README.md), atualizada em 28/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 `tools/conformance.js` executa as suítes declaradas em [`catalog.json`](catalog.json) contra os fixtures e
 vetores do repositório. O catálogo é versionado (`kit_version`) e fixa, para cada suíte, os IDs exatos dos
@@ -97,3 +97,79 @@ aprovado. Os vetores de ataque, os casos-limite de canonicalização e as demais
 `tests/nist-kat/` contém vetores de resposta conhecida e testes de propriedades, cada um com seu próprio
 escopo (veja [seu README](../../tests/nist-kat/README.pt-BR.md)); eles também rodam nas suítes dos SDKs. O candidato `dcp-jcs-v2` é experimental, fica fora do `dcp-jcs-v1` e tem sua própria suíte
 (`tests/interop/candidate/`).
+
+<a id="external-implementations"></a>
+
+## Implementações externas
+
+`tools/conformance-external.js` executa um catálogo separado, [`external-catalog.json`](external-catalog.json)
+(contrato `dcp-ai-conformance-external/1`), contra uma implementação que você indica como argv depois de `--`. A
+implementação pode ser escrita em qualquer linguagem: ela lê uma requisição JSON pelo stdin e escreve uma resposta
+JSON pelo stdout. O runner precisa do Node 20 ou posterior e usa apenas módulos nativos. O comando, o catálogo e o
+relatório acima não mudam.
+
+```bash
+node tools/conformance-external.js --list
+node tools/conformance-external.js --report /tmp/external.json -- node tools/conformance/wrappers/ts-sdk.mjs
+node tools/conformance-external.js -- /path/to/python -I tools/conformance/wrappers/python_sdk.py
+node tools/conformance-external.js --suite external.digest -- ./my-implementation --its-own-flag
+node --test tools/conformance/external.test.mjs
+DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 node --test tools/conformance/external.test.mjs
+```
+
+Sem `DCP_EXTERNAL_PYTHON`, `node --test` pula o wrapper de Python e informa isso; com
+`DCP_EXTERNAL_REQUIRE_PYTHON=1`, a falta do interpretador é uma falha. O último comando executa todos os testes.
+
+| Suíte | Casos | Vetores |
+|-------|-------|---------|
+| `external.dcp-jcs-v1.canonicalize` | 30 | `golden_vectors.json#canonicalization`, `#v2_canonicalization`; `interop_vectors.json#canonicalization` e seus 19 `edge_cases`, 3 dos quais devem ser rejeitados |
+| `external.digest` | 8 | `golden_vectors.json#hash_vectors`; `#dual_hash_vectors` raw e intent, SHA-256 e SHA3-256 |
+
+Uma troca mínima, o SHA-256 de zero bytes, que você pode executar contra o wrapper de TypeScript:
+
+```bash
+printf '%s' '{"contract":"dcp-ai-conformance-external/1","run_id":"00000000-0000-4000-8000-000000000000","nonce":"00000000000000000000000000000000","cases":[{"id":"c1","op":"digest","alg":"sha256","input_b64":""}]}' | node tools/conformance/wrappers/ts-sdk.mjs
+```
+
+Uma resposta válida para essa requisição (o wrapper também adiciona `resolved_from` e `runtime`):
+
+```json
+{"contract":"dcp-ai-conformance-external/1","run_id":"00000000-0000-4000-8000-000000000000","nonce":"00000000000000000000000000000000","implementation":{"name":"example","version":"0.0.1"},"results":[{"id":"c1","status":"ok","hex":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}]}
+```
+
+- **Envelopes:** a requisição e a resposta são JSON em UTF-8. A resposta é exatamente um documento JSON no stdout, e
+  o processo termina com código 0.
+- **Requisição:** `contract`, `run_id`, `nonce` e `cases`, cada um com `id`, `op` (`canonicalize` com `profile`
+  `dcp-jcs-v1`, ou `digest` com `alg` `sha256` ou `sha3-256`) e `input_b64`. Os IDs são aleatórios a cada execução e
+  nenhuma expectativa é enviada. A entrada de canonicalize é texto JSON: um vetor `input_json` exatamente como está no
+  repositório, e um valor `input` como `JSON.stringify` o escreve.
+- **Resposta:** os mesmos `contract`, `run_id` e `nonce`; `implementation` (`name`, `version`, e opcionalmente
+  `resolved_from` e `runtime`, todos declarados pela implementação); e `results`, um array com exatamente um objeto
+  por caso, cada um com o `id` desse caso e um `status`: `ok` com `output_b64` (os bytes canônicos) ou `hex`,
+  `rejected` com `code` `parse` ou `profile`, `error` com `message`, ou `unsupported`. Nenhum outro campo é aceito.
+- **Codificações:** `input_b64` e `output_b64` são base64 RFC 4648 com o alfabeto padrão, padding e sem quebras de
+  linha, na forma canônica; `hex` tem exatamente 64 caracteres hexadecimais minúsculos.
+- **Avaliação:** os bytes são comparados exatamente, e um vetor que deve ser rejeitado só passa se for rejeitado. Um
+  resultado `error` ou `unsupported`, um resultado malformado, ausente, duplicado ou extra, um `run_id` ou `nonce`
+  obsoleto, uma saída inválida, um código de saída diferente de zero ou um sinal, um timeout e um stdout acima de
+  4 MiB são erros, nunca um sucesso. Os códigos de saída são os do [contrato](#contract).
+- **Processo:** iniciado sem shell, em seu próprio grupo de processos em POSIX. Um único prazo (`--timeout-ms`,
+  padrão 30 000) é medido com um relógio monotônico; depois, SIGTERM, SIGKILL 2 s depois e uma espera limitada de 2 s
+  pelo fechamento dos pipes (senão, `cleanup_incomplete`). O stderr é mantido até 64 KiB e nunca é interpretado.
+- **O catálogo e os fixtures** são validados antes: IDs únicos, ponteiros existentes, expectativas coerentes com os
+  vetores, e cada membro de cada coleção fixado uma vez por operação e algoritmo. Um defeito dá exit 3. O relatório
+  registra os hashes do catálogo, dos fixtures e da requisição, e a identidade declarada pela implementação separada
+  do que o runner observou.
+- **Relatório:** um valor de `--report` ausente, que pareça uma opção ou repetido é um erro de uso (exit 2) e nenhum
+  relatório é escrito, porque o caminho é ambíguo. Como no comando acima, um relatório antigo também pode permanecer
+  se o Node não iniciar, o relatório não puder ser escrito ou o runner for encerrado. Verifique sempre o código de
+  saída e, depois, o `run.id` e o `status` do relatório.
+- **Wrappers:** `wrappers/ts-sdk.mjs` (`@dcp-ai/sdk`; `--sdk <path>` é opcional) e `wrappers/python_sdk.py` (o
+  `dcp_ai` instalado; execute-o com `-I`). Cada um chama o canonicalizador real uma vez e só informa
+  `rejected`/`profile` para a rejeição de números não inteiros documentada do SDK. Os SDKs não têm códigos de erro
+  estáveis, então ela é reconhecida pelo tipo e pela mensagem: se mudarem, uma rejeição correta aparece como erro,
+  nunca como sucesso. A CI executa os dois wrappers.
+- **Limites:** um sucesso mostra que o argv executado passa nestes 38 casos, através do parser que ele usa; não é uma
+  implementação completa de `dcp-jcs-v1` nem conformidade DCP, e a identidade é declarada pela implementação. Não é
+  um sandbox: a implementação roda com seus privilégios e seu ambiente, descendentes que saem do grupo de processos
+  (`setsid`) não são vistos, e no Windows só o filho direto é encerrado.

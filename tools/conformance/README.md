@@ -77,3 +77,76 @@ categories, and bundle and mandate vectors run in the SDK test suites. `tests/ni
 known-answer vectors and property tests, each with its own scope (see
 [its README](../../tests/nist-kat/README.md)); they also run in the SDK test suites. The `dcp-jcs-v2`
 candidate is experimental, outside `dcp-jcs-v1`, and has its own suite (`tests/interop/candidate/`).
+
+## External implementations
+
+`tools/conformance-external.js` runs a separate catalog, [`external-catalog.json`](external-catalog.json)
+(contract `dcp-ai-conformance-external/1`), against an implementation you give as argv after `--`. The
+implementation can be written in any language: it reads one JSON request on stdin and writes one JSON response
+on stdout. The runner needs Node 20 or later and uses only built-in modules. The command, catalog and report above
+are unchanged.
+
+```bash
+node tools/conformance-external.js --list
+node tools/conformance-external.js --report /tmp/external.json -- node tools/conformance/wrappers/ts-sdk.mjs
+node tools/conformance-external.js -- /path/to/python -I tools/conformance/wrappers/python_sdk.py
+node tools/conformance-external.js --suite external.digest -- ./my-implementation --its-own-flag
+node --test tools/conformance/external.test.mjs
+DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 node --test tools/conformance/external.test.mjs
+```
+
+Without `DCP_EXTERNAL_PYTHON`, `node --test` skips the Python wrapper and says so; with
+`DCP_EXTERNAL_REQUIRE_PYTHON=1`, a missing interpreter is a failure instead. The last command runs every test.
+
+| Suite | Cases | Vectors |
+|-------|-------|---------|
+| `external.dcp-jcs-v1.canonicalize` | 30 | `golden_vectors.json#canonicalization`, `#v2_canonicalization`; `interop_vectors.json#canonicalization` and its 19 `edge_cases`, 3 of which must be rejected |
+| `external.digest` | 8 | `golden_vectors.json#hash_vectors`; `#dual_hash_vectors` raw and intent, SHA-256 and SHA3-256 |
+
+A minimal exchange, the SHA-256 of zero bytes, which you can run against the TypeScript wrapper:
+
+```bash
+printf '%s' '{"contract":"dcp-ai-conformance-external/1","run_id":"00000000-0000-4000-8000-000000000000","nonce":"00000000000000000000000000000000","cases":[{"id":"c1","op":"digest","alg":"sha256","input_b64":""}]}' | node tools/conformance/wrappers/ts-sdk.mjs
+```
+
+A valid response to that request (the wrapper also adds `resolved_from` and `runtime`):
+
+```json
+{"contract":"dcp-ai-conformance-external/1","run_id":"00000000-0000-4000-8000-000000000000","nonce":"00000000000000000000000000000000","implementation":{"name":"example","version":"0.0.1"},"results":[{"id":"c1","status":"ok","hex":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}]}
+```
+
+- **Envelopes:** the request and the response are UTF-8 JSON. The response is exactly one JSON document on stdout,
+  and the process exits with code 0.
+- **Request:** `contract`, `run_id`, `nonce` and `cases`, each with `id`, `op` (`canonicalize` with `profile`
+  `dcp-jcs-v1`, or `digest` with `alg` `sha256` or `sha3-256`) and `input_b64`. Ids are random per run and no
+  expectation is sent. A canonicalize input is JSON text: an `input_json` vector exactly as committed, an `input`
+  value as `JSON.stringify` writes it.
+- **Response:** the same `contract`, `run_id` and `nonce`; `implementation` (`name`, `version`, optional
+  `resolved_from` and `runtime`, all self-declared); and `results`, an array with exactly one object per case, each
+  carrying that case's `id` and a `status`: `ok` with `output_b64` (the canonical bytes) or `hex`, `rejected` with
+  `code` `parse` or `profile`, `error` with `message`, or `unsupported`. No other field is accepted.
+- **Encodings:** `input_b64` and `output_b64` are RFC 4648 base64 with the standard alphabet, padding and no line
+  breaks, in canonical form; `hex` is exactly 64 lowercase hexadecimal characters.
+- **Judgement:** bytes are compared exactly, and a vector that must be rejected passes only when rejected. An
+  `error` or `unsupported` result, a malformed, missing, duplicate or extra result, a stale `run_id` or `nonce`,
+  invalid output, a non-zero exit or a signal, a timeout and stdout over 4 MiB are errors, never a pass. The exit
+  codes are those of the [contract](#contract).
+- **Process:** started without a shell, in its own process group on POSIX. One deadline (`--timeout-ms`, default
+  30 000) is measured on a monotonic clock; then SIGTERM, SIGKILL 2 s later and a bounded 2 s wait for the pipes to
+  close (`cleanup_incomplete` otherwise). stderr is kept up to 64 KiB and never parsed.
+- **Catalog and fixtures** are validated first: unique ids, existing pointers, expectations consistent with the
+  vectors, and every member of each collection pinned once per operation and algorithm. A defect is exit 3. The
+  report records the catalog, fixture and request hashes, and the implementation's self-declared identity apart from
+  what the runner observed.
+- **Report:** a missing, option-like or repeated `--report` value is a usage error (exit 2) and no report is written,
+  because the path is ambiguous. As with the command above, an older report can also remain if Node cannot start,
+  the report cannot be written or the runner is killed. Always check the exit code, then the report's `run.id` and
+  `status`.
+- **Wrappers:** `wrappers/ts-sdk.mjs` (`@dcp-ai/sdk`; `--sdk <path>` is optional) and `wrappers/python_sdk.py` (the
+  installed `dcp_ai`; run it with `-I`). Each calls the real canonicalizer once and reports `rejected`/`profile` only
+  for the SDK's documented float rejection. The SDKs have no stable error codes, so it is recognised by its type and
+  message: if those change, a correct rejection shows as an error, never as a pass. CI runs both wrappers.
+- **Limits:** a pass shows that the argv that was run passes these 38 cases, through the parser it uses; it is not
+  a complete `dcp-jcs-v1` implementation or DCP conformance, and the identity is self-declared. This is not a
+  sandbox: the implementation runs with your privileges and environment, descendants that leave the process group
+  (`setsid`) are not seen, and on Windows only the direct child is killed.

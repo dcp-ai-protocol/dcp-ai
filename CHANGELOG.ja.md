@@ -208,6 +208,11 @@
 
 ### 追加
 
+- **外部適合性ランナー（`tools/conformance-external.js`）。** 別のバージョン付きカタログ（`tools/conformance/external-catalog.json`、契約 `dcp-ai-conformance-external/1`）を、argv として指定した任意の実装に対して、stdin の JSON リクエスト 1 つと stdout の JSON レスポンス 1 つで実行します。
+  対象は `dcp-jcs-v1` の正規化 30 ケース（コミット済みの 19 の `edge_cases` を含み、うち 3 つは拒否されなければならない）と SHA-256 / SHA3-256 のダイジェスト 8 ケースで、いずれもコミット済みの期待値を使います。
+  `@dcp-ai/sdk` と Python の `dcp_ai` のラッパーを含み、CI は両方を実行します。
+  既存の適合性コマンド、カタログ、レポートは変わりません。合格が示すのは、この 38 ケースに合格したことだけです。
+  [tools/conformance/README.md](tools/conformance/README.md#external-implementations) を参照してください。
 - FastAPI の `cancel_on_disconnect` が、ミドルウェアの順序にかかわらず動作するようになりました。去った
   クライアントへの ASGI 応答は、何のメッセージもない状態ではなく、空の `499`（「client closed request」: 登録済みの
   ステータスではなく、DCP のステータスでもない）、`Content-Length: 0`、`Cache-Control: no-store` で終わります。

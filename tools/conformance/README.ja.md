@@ -4,7 +4,7 @@
 
 # DCP-AI 適合性キット
 
-> [英語版](README.md)の参考訳です（25/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](README.md)の参考訳です（28/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 `tools/conformance.js` は、[`catalog.json`](catalog.json) で宣言されたスイートを、リポジトリにコミット済みの
 フィクスチャとベクターに対して実行します。カタログはバージョン管理され（`kit_version`）、スイートごとに
@@ -95,3 +95,80 @@ node --test tools/conformance/conformance.test.mjs     # runner self-tests (temp
 プロパティテストがあり、それぞれ独自の範囲を持ちます（[その README](../../tests/nist-kat/README.ja.md)
 を参照）。これらも SDK のテストスイートで実行されます。`dcp-jcs-v2` 候補は実験的で、
 `dcp-jcs-v1` の外にあり、独自のスイート（`tests/interop/candidate/`）を持ちます。
+
+<a id="external-implementations"></a>
+
+## 外部実装
+
+`tools/conformance-external.js` は、別のカタログ [`external-catalog.json`](external-catalog.json)（契約
+`dcp-ai-conformance-external/1`）を、`--` の後に argv として指定した実装に対して実行します。実装はどの言語で書いても
+かまいません。stdin から JSON のリクエストを 1 つ読み、stdout に JSON のレスポンスを 1 つ書きます。ランナーには
+Node 20 以降が必要で、組み込みモジュールだけを使います。上記のコマンド、カタログ、レポートは変わりません。
+
+```bash
+node tools/conformance-external.js --list
+node tools/conformance-external.js --report /tmp/external.json -- node tools/conformance/wrappers/ts-sdk.mjs
+node tools/conformance-external.js -- /path/to/python -I tools/conformance/wrappers/python_sdk.py
+node tools/conformance-external.js --suite external.digest -- ./my-implementation --its-own-flag
+node --test tools/conformance/external.test.mjs
+DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 node --test tools/conformance/external.test.mjs
+```
+
+`DCP_EXTERNAL_PYTHON` がないと、`node --test` は Python のラッパーをスキップし、その旨を表示します。
+`DCP_EXTERNAL_REQUIRE_PYTHON=1` を指定すると、インタープリターがないことは失敗になります。最後のコマンドは
+すべてのテストを実行します。
+
+| スイート | ケース | ベクター |
+|----------|--------|----------|
+| `external.dcp-jcs-v1.canonicalize` | 30 | `golden_vectors.json#canonicalization`、`#v2_canonicalization`、`interop_vectors.json#canonicalization` とその 19 の `edge_cases`（うち 3 つは拒否されなければならない） |
+| `external.digest` | 8 | `golden_vectors.json#hash_vectors`、`#dual_hash_vectors` の raw と intent（SHA-256 と SHA3-256） |
+
+最小のやり取りとして、0 バイトの SHA-256 を TypeScript のラッパーに対して実行できます。
+
+```bash
+printf '%s' '{"contract":"dcp-ai-conformance-external/1","run_id":"00000000-0000-4000-8000-000000000000","nonce":"00000000000000000000000000000000","cases":[{"id":"c1","op":"digest","alg":"sha256","input_b64":""}]}' | node tools/conformance/wrappers/ts-sdk.mjs
+```
+
+このリクエストに対する有効なレスポンスです（ラッパーはさらに `resolved_from` と `runtime` を加えます）。
+
+```json
+{"contract":"dcp-ai-conformance-external/1","run_id":"00000000-0000-4000-8000-000000000000","nonce":"00000000000000000000000000000000","implementation":{"name":"example","version":"0.0.1"},"results":[{"id":"c1","status":"ok","hex":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}]}
+```
+
+- **封筒：** リクエストとレスポンスは UTF-8 の JSON です。レスポンスは stdout 上のちょうど 1 つの JSON 文書で、
+  プロセスは終了コード 0 で終了します。
+- **リクエスト：** `contract`、`run_id`、`nonce`、`cases`。各ケースは `id`、`op`（`profile` が `dcp-jcs-v1` の
+  `canonicalize`、または `alg` が `sha256` か `sha3-256` の `digest`）、`input_b64` を持ちます。ID は実行ごとに
+  ランダムで、期待値は送りません。canonicalize の入力は JSON テキストです。`input_json` のベクターはコミットされた
+  とおりに、`input` の値は `JSON.stringify` が書くとおりに送ります。
+- **レスポンス：** 同じ `contract`、`run_id`、`nonce`、`implementation`（`name`、`version`、任意の `resolved_from`
+  と `runtime`。いずれも実装の自己申告）、そして `results` です。`results` はケースごとにちょうど 1 つのオブジェクト
+  を持つ配列で、各オブジェクトはそのケースの `id` と `status` を持ちます。`status` は、`output_b64`（正規化された
+  バイト列）または `hex` を持つ `ok`、`code` が `parse` か `profile` の `rejected`、`message` を持つ `error`、
+  または `unsupported` です。それ以外のフィールドは受け付けません。
+- **エンコーディング：** `input_b64` と `output_b64` は、標準のアルファベット、パディングあり、改行なしの
+  RFC 4648 base64 の正規形です。`hex` はちょうど 64 文字の小文字の 16 進数です。
+- **判定：** バイト列は完全に比較し、拒否されなければならないベクターは拒否されたときだけ合格です。`error` や
+  `unsupported` の結果、不正な形式・欠落・重複・余分な結果、古い `run_id` や `nonce`、不正な出力、0 以外の終了
+  コードやシグナル、タイムアウト、4 MiB を超える stdout はエラーであり、合格にはなりません。終了コードは
+  [契約](#contract)のとおりです。
+- **プロセス：** シェルを使わずに起動し、POSIX では独自のプロセスグループに入れます。期限は 1 つ
+  （`--timeout-ms`、既定 30 000）で、単調時計で測ります。その後 SIGTERM、2 秒後に SIGKILL を送り、パイプが閉じる
+  のを最大 2 秒待ちます（閉じなければ `cleanup_incomplete`）。stderr は 64 KiB まで保持し、解釈はしません。
+- **カタログとフィクスチャ** は事前に検証します。ID が一意であること、ポインターが存在すること、期待値がベクターと
+  整合していること、各コレクションのすべてのメンバーが操作とアルゴリズムごとに 1 回ずつ固定されていることです。
+  欠陥があれば exit 3 です。レポートには、カタログ、フィクスチャ、リクエストのハッシュと、実装が自己申告した
+  識別情報をランナーが観測した内容と分けて記録します。
+- **レポート：** `--report` の値がない、オプションのように見える、または繰り返されている場合は使い方のエラー
+  （exit 2）で、パスがあいまいなためレポートは書きません。上記のコマンドと同様に、Node が起動しない場合、レポートを
+  書けない場合、ランナーが強制終了された場合にも古いレポートが残ることがあります。必ず終了コードを確認し、その後で
+  レポートの `run.id` と `status` を確認してください。
+- **ラッパー：** `wrappers/ts-sdk.mjs`（`@dcp-ai/sdk`。`--sdk <path>` は任意）と `wrappers/python_sdk.py`
+  （インストール済みの `dcp_ai`。`-I` で実行）。どちらも実際の正規化関数を 1 回だけ呼び、SDK が文書化している
+  非整数の拒否に対してだけ `rejected`/`profile` を返します。SDK には安定したエラーコードがないため、型とメッセージ
+  で判別します。これらが変わると、正しい拒否はエラーとして表示され、合格にはなりません。CI は両方のラッパーを
+  実行します。
+- **制限：** 合格が示すのは、実行した argv が、それが使うパーサーを通してこれら 38 ケースに合格したことです。完全な
+  `dcp-jcs-v1` の実装や DCP への適合を示すものではなく、識別情報は自己申告です。サンドボックスではありません。実装は
+  あなたの権限と環境で実行され、プロセスグループから離れた子孫（`setsid`）は見えず、Windows では直接の子だけを終了
+  させます。
