@@ -12,7 +12,7 @@
 
 SDK oficial de Go para el Digital Citizenship Protocol (DCP) v1.0 y v2.0. Admite Ed25519, ML-DSA-65, SLH-DSA-192f, ML-KEM-768, firmas compuestas, cadenas de hash duales y verificación de bundles.
 
-La verificación comprueba integridad y firmas; no establece confianza en el principal, admisión ni autorización para actuar. El verificador V2 del código fuente aún no publicado comprueba la cadena de auditoría primaria y los enlaces, hashes de intención y raíz Merkle secundarios SHA3-256 opcionales que estén presentes (los ausentes no se exigen); la versión publicada v2.11.0 no comprueba los campos secundarios. Consulta [la limitación documentada del verificador](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains) y usa las API de admisión descritas más abajo cuando se requiera confianza.
+La verificación comprueba integridad y firmas; no establece confianza en el principal, admisión ni autorización para actuar. El verificador V2 comprueba la cadena de auditoría primaria y, desde la v2.11.1, los enlaces, hashes de intención y raíz Merkle secundarios SHA3-256 opcionales que estén presentes (los ausentes no se exigen); la versión v2.11.0 no comprueba los campos secundarios. Consulta [la limitación documentada del verificador](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains) y usa las API de admisión descritas más abajo cuando se requiera confianza.
 
 <a id="installation"></a>
 
@@ -20,10 +20,12 @@ La verificación comprueba integridad y firmas; no establece confianza en el pri
 
 **Requiere:** Go 1.25+
 
-**SDK Go v2.11.0.** Esta versión incluye las correcciones del verificador, confianza en el principal y `strict-v1`, cadenas de delegación, ventana de recepción A2A y API experimentales opt-in de `dcp-jcs-v2`. La etiqueta del módulo es `sdks/go/v2.11.0`; la ruta de importación conserva `/v2`. Los cambios siguen registrados en el [historial](../../CHANGELOG.md#unreleased).
+**SDK Go.** Desde la v2.11.0, este SDK incluye las correcciones del verificador, confianza en el principal y `strict-v1`, cadenas de delegación, ventana de recepción A2A y API experimentales opt-in de `dcp-jcs-v2`. La etiqueta del módulo de la v2.11.0 es `sdks/go/v2.11.0`; la ruta de importación conserva `/v2`. Los cambios siguen registrados en el [historial](../../CHANGELOG.md#unreleased).
+
+**SDK Go v2.11.1.** Esta versión también verifica los campos secundarios SHA3-256 de [VERIFICATION.md V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) cuando están presentes: `audit_merkle_root_secondary`, cada `prev_hash_secondary` y cada `intent_hash_secondary`. Los campos ausentes no se exigen, así que un bundle verificado puede no tener una cadena secundaria completa; un campo presente que sea `null`, no sea una cadena o sea incoherente se rechaza. No cambian las API, los campos de resultado, `dcp-jcs-v1` ni el tratamiento de `hash_alg`. La versión v2.11.0 no comprueba estos campos. Los comandos de instalación siguientes indican esta versión; para su disponibilidad en el registro, véase [Versiones publicadas](../../docs/README.md#published-versions).
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.1
 ```
 
 Actualizar desde v2.10.0 hace más estricta la verificación: puede rechazarse evidencia malformada o inconsistente antes aceptada. Las longitudes inválidas de clave pública V1 devuelven un error en lugar de provocar un panic. Conserva la evidencia histórica. `dcp-jcs-v1` sigue siendo el predeterminado normativo; las API candidatas siguen experimentales y opt-in. La admisión requiere configurar confianza por el operador y no autoriza acciones.

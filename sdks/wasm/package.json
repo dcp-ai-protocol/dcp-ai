@@ -1,6 +1,6 @@
 {
   "name": "@dcp-ai/wasm",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "WebAssembly module for DCP-AI v2.0 — post-quantum crypto, composite signatures, and full verification in the browser",
   "type": "module",
   "main": "./dist/index.js",

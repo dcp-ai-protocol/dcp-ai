@@ -1,6 +1,6 @@
 {
   "name": "@dcp-ai/cli",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Interactive CLI for DCP-AI Digital Citizenship Protocol",
   "type": "module",
   "bin": {
@@ -17,7 +17,7 @@
     "test:negative-control": "node __tests__/negative-control.mjs"
   },
   "dependencies": {
-    "@dcp-ai/sdk": "^2.2.0",
+    "@dcp-ai/sdk": "^2.2.1",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
     "chalk": "^5.3.0",

@@ -10,10 +10,12 @@ Digital Citizenship Protocol（DCP v2.0）の公式 Python SDK です。Pydantic
 
 ## インストール
 
-**Python SDK 2.10.0。** このバージョンには V2 検証器の修正、プリンシパルの信頼と `strict-v1`、委任チェーン、A2A 受信ウィンドウ、上限付き失効ワーカー、実験的なオプトインの `dcp-jcs-v2` API が含まれます。修正済みの FastAPI、LangChain、OpenAI、CrewAI アダプターも含まれます。`dcp-jcs-v1` が規範的な既定のままです。インストールするには：
+**Python SDK。** 2.10.0 以降、この SDK には V2 検証器の修正、プリンシパルの信頼と `strict-v1`、委任チェーン、A2A 受信ウィンドウ、上限付き失効ワーカー、実験的なオプトインの `dcp-jcs-v2` API が含まれます。修正済みの FastAPI、LangChain、OpenAI、CrewAI アダプターも含まれます。`dcp-jcs-v1` が規範的な既定のままです。インストールするには：
+
+**Python SDK 2.10.1。** このバージョンは、[VERIFICATION.md の V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) の二次の SHA3-256 フィールドが存在する場合、それらも検証します：`audit_merkle_root_secondary`、各 `prev_hash_secondary`、各 `intent_hash_secondary`。存在しないフィールドは要求されないため、検証済みのバンドルが完全な二次チェーンを持たないこともあります。存在するフィールドが `null`、文字列でない、または不整合の場合は拒否されます。API、結果のフィールド、`dcp-jcs-v1`、`hash_alg` の扱いは変わりません。2.10.0 はこれらのフィールドを確認しません。以下のインストールコマンドはこのバージョンを指定しています。レジストリでの提供状況は[公開済みバージョン](../../docs/README.md#published-versions)を参照してください。
 
 ```bash
-pip install "dcp-ai>=2.10.0,<3"
+pip install "dcp-ai>=2.10.1,<3"
 ```
 
 **2.9.0 からの更新。** FastAPI は構造だけを受け入れるのではなく、V2 署名を検証します。FastAPI と LangChain/OpenAI アダプターでの V1 の受け入れは検証器のポリシーに従います。V2 は、以前のバージョンが受け入れた非正規な署名の表現や、不整合または誤って結び付けられた証拠も拒否します。過去の証拠と検証に使ったバージョンを保存し、黙って再署名しないでください。信頼、リソース予算、切断処理は引き続きオペレーターが明示的に選択します。検証や受け入れ判定は行為を認可しません。
@@ -31,14 +33,14 @@ pip install -e "dcp-ai/sdks/python"
 
 ### オプションの extras
 
-レジストリから（公開済みのバージョン）。チェックアウトからでも同じ extras が使えます：`pip install -e "dcp-ai/sdks/python[fastapi]"`。
+レジストリから（2.10.1 以降）。チェックアウトからでも同じ extras が使えます：`pip install -e "dcp-ai/sdks/python[fastapi]"`。
 
 ```bash
-pip install "dcp-ai[fastapi]>=2.10.0,<3"    # FastAPI middleware
-pip install "dcp-ai[langchain]>=2.10.0,<3"  # LangChain integration
-pip install "dcp-ai[openai]>=2.10.0,<3"     # OpenAI wrapper
-pip install "dcp-ai[crewai]>=2.10.0,<3"     # CrewAI multi-agent
-pip install "dcp-ai[otlp]>=2.10.0,<3"       # OpenTelemetry OTLP exporter
+pip install "dcp-ai[fastapi]>=2.10.1,<3"    # FastAPI middleware
+pip install "dcp-ai[langchain]>=2.10.1,<3"  # LangChain integration
+pip install "dcp-ai[openai]>=2.10.1,<3"     # OpenAI wrapper
+pip install "dcp-ai[crewai]>=2.10.1,<3"     # CrewAI multi-agent
+pip install "dcp-ai[otlp]>=2.10.1,<3"       # OpenTelemetry OTLP exporter
 ```
 
 <a id="features"></a>

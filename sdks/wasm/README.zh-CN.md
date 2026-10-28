@@ -10,10 +10,12 @@
 
 ## 安装
 
-**已发布到 npm（2026 年 10 月 26 日）。** `@dcp-ai/wasm` 2.1.0 的标签为 `latest`，包含本文描述的 API 及实验性的 `dcp-jcs-v2` API。发布这些 API 不会启用候选方案：它仍需显式启用且不具规范性，`dcp-jcs-v1` 保持不变。Rust crate 有独立的发布周期。
+**已发布到 npm（2026 年 10 月 26 日）。** `@dcp-ai/wasm` 2.1.0 于该日以 `latest` 标签发布，包含本文描述的 API 及实验性的 `dcp-jcs-v2` API。发布这些 API 并未启用候选方案：它当时仍需显式启用且不具规范性，`dcp-jcs-v1` 保持不变。Rust crate 有独立的发布周期。
+
+**`@dcp-ai/wasm` 2.1.1。** 此版本还会在 [VERIFICATION.md 的 V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) 中的二级 SHA3-256 字段存在时验证它们：`audit_merkle_root_secondary`、每个 `prev_hash_secondary` 和每个 `intent_hash_secondary`。不存在的字段不作要求，因此已验证的 bundle 可能没有完整的二级链；存在的字段如果是 `null`、不是字符串或不一致，则被拒绝。API、结果字段、`dcp-jcs-v1` 和 `hash_alg` 的处理均不变。2.1.0 不检查这些字段。下面的安装命令指定的是此版本；它在注册表中的可用情况见[已发布版本](../../docs/README.md#published-versions)。
 
 ```bash
-npm install @dcp-ai/wasm@^2.1.0
+npm install @dcp-ai/wasm@^2.1.1
 ```
 
 所有软件包版本见 [npm 发布清单](../../docs/NPM_RELEASES.md)。
@@ -183,7 +185,7 @@ console.log(result.verified, result.classical_valid, result.pq_valid); // true t
 
 ### 验证
 
-验证成功不会赋予对责任主体的信任、准入资格或操作授权。V2 验证器检查主审计链和主 Merkle 根，基于尚未发布的源代码构建时，也会检查存在的可选次级链接、意图哈希和 `audit_merkle_root_secondary`，而已发布的 2.1.0 不检查（[实现缺口](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)）。实验性候选方案复用这些检查。
+验证成功不会赋予对责任主体的信任、准入资格或操作授权。V2 验证器检查主审计链和主 Merkle 根，自 2.1.1 起也会检查存在的可选次级链接、意图哈希和 `audit_merkle_root_secondary`，而 2.1.0 不检查（[双哈希链](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)）。实验性候选方案复用这些检查。
 
 | 方法 | 返回值 | 描述 |
 |--------|---------|-------------|

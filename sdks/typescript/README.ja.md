@@ -13,10 +13,12 @@ Digital Citizenship Protocol（DCP-AI）の公式 TypeScript SDK です。ポス
 
 ## インストール
 
-**npm 公開済み（2026 年 10 月 26 日）。** `@dcp-ai/sdk` 2.2.0 が `latest` です。[SECURITY.md](../../SECURITY.md) に記載された検証器の修正、プリンシパルの信頼と `strict-v1`、委任チェーン、A2A 受信ウィンドウ、実験的な `dcp-jcs-v2` API を含みます。候補は明示的な選択が必要な非規範的機能のままで、既定は `dcp-jcs-v1` です。以下の例は公開済みパッケージで実行できます。
+**npm 公開済み（2026 年 10 月 26 日）。** この日、`@dcp-ai/sdk` 2.2.0 が `latest` として公開されました。[SECURITY.md](../../SECURITY.md) に記載された検証器の修正、プリンシパルの信頼と `strict-v1`、委任チェーン、A2A 受信ウィンドウ、実験的な `dcp-jcs-v2` API を含んでいました。候補は明示的な選択が必要な非規範的機能のままで、既定は `dcp-jcs-v1` でした。以下の例は 2.2.0 以降で利用できる API を使います。
+
+**`@dcp-ai/sdk` 2.2.1。** このバージョンは、[VERIFICATION.md の V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) の二次の SHA3-256 フィールドが存在する場合、それらも検証します：`audit_merkle_root_secondary`、各 `prev_hash_secondary`、各 `intent_hash_secondary`。存在しないフィールドは要求されないため、検証済みのバンドルが完全な二次チェーンを持たないこともあります。存在するフィールドが `null`、文字列でない、または不整合の場合は拒否されます。API、結果のフィールド、`dcp-jcs-v1`、`hash_alg` の扱いは変わりません。2.2.0 はこれらのフィールドを確認しません。以下のインストールコマンドはこのバージョンを指定しています。レジストリでの提供状況は[公開済みバージョン](../../docs/README.md#published-versions)を参照してください。
 
 ```bash
-npm install @dcp-ai/sdk@^2.2.0
+npm install @dcp-ai/sdk@^2.2.1
 ```
 
 全パッケージのバージョンは [npm リリース一覧](../../docs/NPM_RELEASES.md)を参照してください。

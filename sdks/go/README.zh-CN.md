@@ -10,7 +10,7 @@
 
 Digital Citizenship Protocol（DCP）v1.0 和 v2.0 的官方 Go SDK。支持 Ed25519、ML-DSA-65、SLH-DSA-192f、ML-KEM-768、复合签名、双哈希链和 bundle 验证。
 
-验证检查完整性和签名，不会建立对责任主体的信任、准入资格或行动授权。尚未发布的源代码中的 V2 验证器检查主审计链，以及存在的可选 SHA3-256 次级链接、意图哈希和次级 Merkle 根（不存在的不作要求）；已发布的 v2.11.0 不检查次级字段。请参阅[已记录的验证限制](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)；需要检查信任时，请使用下文的准入 API。
+验证检查完整性和签名，不会建立对责任主体的信任、准入资格或行动授权。V2 验证器检查主审计链，自 v2.11.1 起还检查存在的可选 SHA3-256 次级链接、意图哈希和次级 Merkle 根（不存在的不作要求）；v2.11.0 不检查次级字段。请参阅[已记录的验证限制](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)；需要检查信任时，请使用下文的准入 API。
 
 <a id="installation"></a>
 
@@ -18,10 +18,12 @@ Digital Citizenship Protocol（DCP）v1.0 和 v2.0 的官方 Go SDK。支持 Ed2
 
 **要求：** Go 1.25+
 
-**Go SDK v2.11.0。** 此版本包含验证器修复、责任主体信任与 `strict-v1`、委托链、A2A 接收窗口和实验性显式启用的 `dcp-jcs-v2` API。模块标签为 `sdks/go/v2.11.0`，导入路径仍保留 `/v2`。变更继续记录在[变更日志](../../CHANGELOG.md#unreleased)中。
+**Go SDK。** 自 v2.11.0 起，此 SDK 包含验证器修复、责任主体信任与 `strict-v1`、委托链、A2A 接收窗口和实验性显式启用的 `dcp-jcs-v2` API。v2.11.0 的模块标签为 `sdks/go/v2.11.0`，导入路径仍保留 `/v2`。变更继续记录在[变更日志](../../CHANGELOG.md#unreleased)中。
+
+**Go SDK v2.11.1。** 此版本还会在 [VERIFICATION.md 的 V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) 中的二级 SHA3-256 字段存在时验证它们：`audit_merkle_root_secondary`、每个 `prev_hash_secondary` 和每个 `intent_hash_secondary`。不存在的字段不作要求，因此已验证的 bundle 可能没有完整的二级链；存在的字段如果是 `null`、不是字符串或不一致，则被拒绝。API、结果字段、`dcp-jcs-v1` 和 `hash_alg` 的处理均不变。v2.11.0 不检查这些字段。下面的安装命令指定的是此版本；它在注册表中的可用情况见[已发布版本](../../docs/README.md#published-versions)。
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.0
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.1
 ```
 
 从 v2.10.0 升级后验证更严格，之前接受的格式错误或不一致证据可能被拒绝。V1 公钥长度无效时返回错误而非 panic。请保留历史证据。`dcp-jcs-v1` 仍是规范性默认值；候选 API 仍为实验性且须显式启用。准入仍需运营方配置信任，不授权任何操作。

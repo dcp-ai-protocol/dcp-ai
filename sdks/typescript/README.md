@@ -6,10 +6,12 @@ Official TypeScript SDK for the Digital Citizenship Protocol (DCP-AI). Create, s
 
 ## Installation
 
-**Published on npm (26/10/2026).** `@dcp-ai/sdk` 2.2.0 is `latest`. It includes the verifier fixes described in [SECURITY.md](../../SECURITY.md), principal trust and `strict-v1`, delegation chains, the A2A receive window and the experimental `dcp-jcs-v2` APIs. The candidate remains opt-in and non-normative; `dcp-jcs-v1` remains the default. The examples below work with the published package.
+**Published on npm (26/10/2026).** `@dcp-ai/sdk` 2.2.0 was published as `latest` on that date. It included the verifier fixes described in [SECURITY.md](../../SECURITY.md), principal trust and `strict-v1`, delegation chains, the A2A receive window and the experimental `dcp-jcs-v2` APIs. The candidate remained opt-in and non-normative, with `dcp-jcs-v1` as the default. The examples below use APIs available since 2.2.0.
+
+**`@dcp-ai/sdk` 2.2.1.** This version also verifies the secondary SHA3-256 fields of [VERIFICATION.md V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) when they are present: `audit_merkle_root_secondary`, each `prev_hash_secondary` and each `intent_hash_secondary`. Absent fields are not required, so a verified bundle may lack a complete secondary chain; a present field that is `null`, not a string or inconsistent is rejected. APIs, result fields, `dcp-jcs-v1` and `hash_alg` handling are unchanged. 2.2.0 does not check these fields. The installation commands below name this version; for its registry availability, see [Published versions](../../docs/README.md#published-versions).
 
 ```bash
-npm install @dcp-ai/sdk@^2.2.0
+npm install @dcp-ai/sdk@^2.2.1
 ```
 
 See the [npm release inventory](../../docs/NPM_RELEASES.md) for all package versions.

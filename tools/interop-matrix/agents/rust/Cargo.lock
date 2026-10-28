@@ -89,7 +89,7 @@ dependencies = [
 
 [[package]]
 name = "dcp-ai"
-version = "2.11.0"
+version = "2.11.1"
 dependencies = [
  "base64",
  "ed25519-dalek",

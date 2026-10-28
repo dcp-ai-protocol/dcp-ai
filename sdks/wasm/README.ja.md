@@ -10,10 +10,12 @@ Digital Citizenship Protocol（DCP）v2.0 向けの WebAssembly モジュール�
 
 ## インストール
 
-**npm 公開済み（2026 年 10 月 26 日）。** `@dcp-ai/wasm` 2.1.0 が `latest` で、この文書の API と実験的な `dcp-jcs-v2` API を含みます。公開によって候補が有効になるわけではありません。候補は明示的な選択が必要な非規範的機能であり、`dcp-jcs-v1` は変更されません。Rust クレートのリリース周期は独立しています。
+**npm 公開済み（2026 年 10 月 26 日）。** この日、`@dcp-ai/wasm` 2.1.0 が `latest` として公開され、この文書の API と実験的な `dcp-jcs-v2` API を含んでいました。公開によって候補が有効になったわけではありません。候補は明示的な選択が必要な非規範的機能であり、`dcp-jcs-v1` は変更されません。Rust クレートのリリース周期は独立しています。
+
+**`@dcp-ai/wasm` 2.1.1。** このバージョンは、[VERIFICATION.md の V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) の二次の SHA3-256 フィールドが存在する場合、それらも検証します：`audit_merkle_root_secondary`、各 `prev_hash_secondary`、各 `intent_hash_secondary`。存在しないフィールドは要求されないため、検証済みのバンドルが完全な二次チェーンを持たないこともあります。存在するフィールドが `null`、文字列でない、または不整合の場合は拒否されます。API、結果のフィールド、`dcp-jcs-v1`、`hash_alg` の扱いは変わりません。2.1.0 はこれらのフィールドを確認しません。以下のインストールコマンドはこのバージョンを指定しています。レジストリでの提供状況は[公開済みバージョン](../../docs/README.md#published-versions)を参照してください。
 
 ```bash
-npm install @dcp-ai/wasm@^2.1.0
+npm install @dcp-ai/wasm@^2.1.1
 ```
 
 全パッケージのバージョンは [npm リリース一覧](../../docs/NPM_RELEASES.md)を参照してください。
@@ -183,7 +185,7 @@ WASM モジュールを初期化します。各 API を使う前に一度呼び�
 
 ### 検証
 
-検証に成功しても、責任主体への信頼、受け入れ判定（admission）、行為の実行権限は与えられません。V2 検証器は主監査チェーンと主 Merkle ルートを確認しますが、未公開のソースコードからビルドしたものは、存在する任意の副のリンク、意図のハッシュ、`audit_merkle_root_secondary` も確認します。公開済みの 2.1.0 は確認しません（[実装上の不足](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)）。実験的候補もこれらの検証処理を再利用します。
+検証に成功しても、責任主体への信頼、受け入れ判定（admission）、行為の実行権限は与えられません。V2 検証器は主監査チェーンと主 Merkle ルートを確認しますが、2.1.1 以降は、存在する任意の副のリンク、意図のハッシュ、`audit_merkle_root_secondary` も確認します。2.1.0 は確認しません（[二重ハッシュチェーン](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)）。実験的候補もこれらの検証処理を再利用します。
 
 | メソッド | 戻り値 | 説明 |
 |--------|---------|-------------|

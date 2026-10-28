@@ -8,31 +8,33 @@
 
 Digital Citizenship Protocol（DCP v2.0）向けの公式 Rust SDK。Serde ベースの型、ハイブリッド耐量子暗号（Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768）、`pq_over_classical` による結合を持つ複合署名、二重ハッシュチェーン、OpenTelemetry による可観測性、DCP-04..09 の動作、オプションの WebAssembly サポートを提供します。
 
-検証では完全性と署名を確認しますが、責任主体への信頼、受け入れ、行動の許可は確立しません。未公開のソースコードの V2 検証器は、主監査チェーンと、存在するオプションの SHA3-256 の副のリンク、意図のハッシュ、副 Merkle ルートを確認します（存在しないものは要求しません）。公開済みの 2.11.0 は副フィールドを確認しません。[文書化された検証上の制限](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)を参照し、信頼の確認が必要な場合は以下の受け入れ API を使用してください。
+検証では完全性と署名を確認しますが、責任主体への信頼、受け入れ、行動の許可は確立しません。V2 検証器は主監査チェーンを確認し、2.11.1 以降は、存在するオプションの SHA3-256 の副のリンク、意図のハッシュ、副 Merkle ルートも確認します（存在しないものは要求しません）。2.11.0 は副フィールドを確認しません。[文書化された検証上の制限](../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)を参照し、信頼の確認が必要な場合は以下の受け入れ API を使用してください。
 
 <a id="installation"></a>
 
 ## インストール
 
-**Rust SDK 2.11.0。** V2 バンドルの構築と署名、責任主体への明示的な信頼と `strict-v1` による受け入れ、委任チェーン、検証器の修正、実験的なオプトイン `dcp-jcs-v2` API を含みます。`dcp-jcs-v1` は引き続き規範かつデフォルトです。旧版で受理された不正な証拠が拒否される場合があります。Rust では A2A セッション暗号化とそのリプレイウィンドウは未実装です。検出とハンドシェイクの補助機能は利用できます。
+**Rust SDK。** 2.11.0 以降、V2 バンドルの構築と署名、責任主体への明示的な信頼と `strict-v1` による受け入れ、委任チェーン、検証器の修正、実験的なオプトイン `dcp-jcs-v2` API を含みます。`dcp-jcs-v1` は引き続き規範かつデフォルトです。旧版で受理された不正な証拠が拒否される場合があります。Rust では A2A セッション暗号化とそのリプレイウィンドウは未実装です。検出とハンドシェイクの補助機能は利用できます。
+
+**Rust SDK 2.11.1。** このバージョンは、[VERIFICATION.md の V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) の二次の SHA3-256 フィールドが存在する場合、それらも検証します：`audit_merkle_root_secondary`、各 `prev_hash_secondary`、各 `intent_hash_secondary`。存在しないフィールドは要求されないため、検証済みのバンドルが完全な二次チェーンを持たないこともあります。存在するフィールドが `null`、文字列でない、または不整合の場合は拒否されます。API、結果のフィールド、`dcp-jcs-v1`、`hash_alg` の扱いは変わりません。2.11.0 はこれらのフィールドを確認しません。以下のインストールコマンドはこのバージョンを指定しています。レジストリでの提供状況は[公開済みバージョン](../../docs/README.md#published-versions)を参照してください。
 
 ```toml
 [dependencies]
-dcp-ai = "2.11.0"
+dcp-ai = "2.11.1"
 ```
 
 OpenTelemetry/OTLP エクスポートを使用する場合：
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.11.0", features = ["otlp"] }
+dcp-ai = { version = "2.11.1", features = ["otlp"] }
 ```
 
 WebAssembly サポートを使用する場合：
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.11.0", features = ["wasm"] }
+dcp-ai = { version = "2.11.1", features = ["wasm"] }
 ```
 
 <a id="features"></a>

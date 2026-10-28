@@ -13,10 +13,12 @@ SDK oficial de Python para el Digital Citizenship Protocol (DCP v2.0). Modelos d
 
 ## Instalación
 
-**SDK Python 2.10.0.** Esta versión incluye las correcciones del verificador V2, confianza en el principal y `strict-v1`, cadenas de delegación, ventana de recepción A2A, trabajadores de revocación acotados y las API experimentales opt-in de `dcp-jcs-v2`. También incluye los adaptadores FastAPI, LangChain, OpenAI y CrewAI corregidos. `dcp-jcs-v1` sigue siendo el predeterminado normativo. Instala esta versión con:
+**SDK Python.** Desde la 2.10.0, este SDK incluye las correcciones del verificador V2, confianza en el principal y `strict-v1`, cadenas de delegación, ventana de recepción A2A, trabajadores de revocación acotados y las API experimentales opt-in de `dcp-jcs-v2`. También incluye los adaptadores FastAPI, LangChain, OpenAI y CrewAI corregidos. `dcp-jcs-v1` sigue siendo el predeterminado normativo. Instala con:
+
+**SDK Python 2.10.1.** Esta versión también verifica los campos secundarios SHA3-256 de [VERIFICATION.md V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) cuando están presentes: `audit_merkle_root_secondary`, cada `prev_hash_secondary` y cada `intent_hash_secondary`. Los campos ausentes no se exigen, así que un bundle verificado puede no tener una cadena secundaria completa; un campo presente que sea `null`, no sea una cadena o sea incoherente se rechaza. No cambian las API, los campos de resultado, `dcp-jcs-v1` ni el tratamiento de `hash_alg`. La versión 2.10.0 no comprueba estos campos. Los comandos de instalación siguientes indican esta versión; para su disponibilidad en el registro, véase [Versiones publicadas](../../docs/README.md#published-versions).
 
 ```bash
-pip install "dcp-ai>=2.10.0,<3"
+pip install "dcp-ai>=2.10.1,<3"
 ```
 
 **Actualización desde 2.9.0.** FastAPI ahora verifica las firmas V2 en lugar de aceptar solo la estructura. La aceptación V1 en FastAPI y los adaptadores LangChain/OpenAI sigue la política del verificador. V2 también rechaza codificaciones no canónicas de firmas y evidencia inconsistente o vinculada incorrectamente que versiones anteriores aceptaban. Conserva la evidencia histórica y la versión que la verificó; no la vuelvas a firmar silenciosamente. La confianza, los presupuestos de recursos y la gestión de desconexiones siguen siendo decisiones explícitas del operador. Verificar o admitir no autoriza una acción.
@@ -34,14 +36,14 @@ pip install -e "dcp-ai/sdks/python"
 
 ### Extras opcionales
 
-Desde el registro (versión publicada); desde una copia del repositorio se aplican los mismos extras: `pip install -e "dcp-ai/sdks/python[fastapi]"`.
+Desde el registro (2.10.1 o posterior); desde una copia del repositorio se aplican los mismos extras: `pip install -e "dcp-ai/sdks/python[fastapi]"`.
 
 ```bash
-pip install "dcp-ai[fastapi]>=2.10.0,<3"    # FastAPI middleware
-pip install "dcp-ai[langchain]>=2.10.0,<3"  # LangChain integration
-pip install "dcp-ai[openai]>=2.10.0,<3"     # OpenAI wrapper
-pip install "dcp-ai[crewai]>=2.10.0,<3"     # CrewAI multi-agent
-pip install "dcp-ai[otlp]>=2.10.0,<3"       # OpenTelemetry OTLP exporter
+pip install "dcp-ai[fastapi]>=2.10.1,<3"    # FastAPI middleware
+pip install "dcp-ai[langchain]>=2.10.1,<3"  # LangChain integration
+pip install "dcp-ai[openai]>=2.10.1,<3"     # OpenAI wrapper
+pip install "dcp-ai[crewai]>=2.10.1,<3"     # CrewAI multi-agent
+pip install "dcp-ai[otlp]>=2.10.1,<3"       # OpenTelemetry OTLP exporter
 ```
 
 <a id="features"></a>
