@@ -4,7 +4,7 @@
 
 # DCP-AI 一致性测试套件
 
-> 本文是[英文版](README.md)的参考译文，更新于 25/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](README.md)的参考译文，更新于 28/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 `tools/conformance.js` 针对仓库中已提交的 fixture 和向量，运行 [`catalog.json`](catalog.json) 中声明的各个
 测试集。目录带有版本（`kit_version`），并为每个测试集固定其必须产生的确切用例 ID。该套件只读取 fixture：
@@ -87,3 +87,72 @@ fixture 副本（自测在临时副本上使用该选项）。
 的测试套件中运行。`tests/nist-kat/` 包含已知答案向量和属性测试，各有其适用范围（见
 [其 README](../../tests/nist-kat/README.zh-CN.md)）；它们同样在各 SDK 的测试套件中运行。`dcp-jcs-v2` 候选方案属于实验性质，不在 `dcp-jcs-v1` 范围内，有自己的测试集
 （`tests/interop/candidate/`）。
+
+<a id="external-implementations"></a>
+
+## 外部实现
+
+`tools/conformance-external.js` 针对你在 `--` 之后以 argv 指定的实现，运行一个单独的目录
+[`external-catalog.json`](external-catalog.json)（契约 `dcp-ai-conformance-external/1`）。实现可以用任何语言编写：
+它从 stdin 读取一个 JSON 请求，并向 stdout 写出一个 JSON 响应。运行器需要 Node 20 或更高版本，只使用内置模块。
+上文的命令、目录和报告保持不变。
+
+```bash
+node tools/conformance-external.js --list
+node tools/conformance-external.js --report /tmp/external.json -- node tools/conformance/wrappers/ts-sdk.mjs
+node tools/conformance-external.js -- /path/to/python -I tools/conformance/wrappers/python_sdk.py
+node tools/conformance-external.js --suite external.digest -- ./my-implementation --its-own-flag
+node --test tools/conformance/external.test.mjs
+DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 node --test tools/conformance/external.test.mjs
+```
+
+未设置 `DCP_EXTERNAL_PYTHON` 时，`node --test` 会跳过 Python 包装器并加以说明；设置
+`DCP_EXTERNAL_REQUIRE_PYTHON=1` 时，缺少解释器会算作失败。最后一条命令运行全部测试。
+
+| 套件 | 用例 | 向量 |
+|------|------|------|
+| `external.dcp-jcs-v1.canonicalize` | 30 | `golden_vectors.json#canonicalization`、`#v2_canonicalization`；`interop_vectors.json#canonicalization` 及其 19 个 `edge_cases`，其中 3 个必须被拒绝 |
+| `external.digest` | 8 | `golden_vectors.json#hash_vectors`；`#dual_hash_vectors` 的 raw 与 intent，SHA-256 和 SHA3-256 |
+
+一个最小的交互示例是零字节的 SHA-256，你可以针对 TypeScript 包装器运行它：
+
+```bash
+printf '%s' '{"contract":"dcp-ai-conformance-external/1","run_id":"00000000-0000-4000-8000-000000000000","nonce":"00000000000000000000000000000000","cases":[{"id":"c1","op":"digest","alg":"sha256","input_b64":""}]}' | node tools/conformance/wrappers/ts-sdk.mjs
+```
+
+对该请求的一个有效响应（包装器还会加上 `resolved_from` 和 `runtime`）：
+
+```json
+{"contract":"dcp-ai-conformance-external/1","run_id":"00000000-0000-4000-8000-000000000000","nonce":"00000000000000000000000000000000","implementation":{"name":"example","version":"0.0.1"},"results":[{"id":"c1","status":"ok","hex":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}]}
+```
+
+- **封装：** 请求和响应都是 UTF-8 的 JSON。响应是 stdout 上恰好一个 JSON 文档，进程以退出码 0 结束。
+- **请求：** `contract`、`run_id`、`nonce` 和 `cases`，每个用例包含 `id`、`op`（`profile` 为 `dcp-jcs-v1` 的
+  `canonicalize`，或 `alg` 为 `sha256` 或 `sha3-256` 的 `digest`）和 `input_b64`。ID 每次运行随机生成，不发送任何
+  预期值。canonicalize 的输入是 JSON 文本：`input_json` 向量按提交时的原样发送，`input` 值按 `JSON.stringify`
+  的输出发送。
+- **响应：** 相同的 `contract`、`run_id` 和 `nonce`；`implementation`（`name`、`version`，以及可选的
+  `resolved_from` 和 `runtime`，均由实现自行声明）；以及 `results`，这是一个数组，每个用例恰好一个对象，每个对象
+  带有该用例的 `id` 和一个 `status`：带 `output_b64`（规范字节）或 `hex` 的 `ok`，`code` 为 `parse` 或
+  `profile` 的 `rejected`，带 `message` 的 `error`，或 `unsupported`。不接受其他任何字段。
+- **编码：** `input_b64` 和 `output_b64` 是使用标准字母表、带填充且不换行的 RFC 4648 base64 规范形式；`hex`
+  恰好是 64 个小写十六进制字符。
+- **判定：** 字节按完全相等比较；必须被拒绝的向量只有被拒绝时才通过。`error` 或 `unsupported` 结果，格式错误、
+  缺失、重复或多余的结果，过时的 `run_id` 或 `nonce`，无效输出，非零退出码或信号，超时，以及超过 4 MiB 的 stdout
+  都是错误，绝不算通过。退出码与[契约](#contract)相同。
+- **进程：** 不经 shell 启动，在 POSIX 上放入独立的进程组。只有一个期限（`--timeout-ms`，默认 30 000），用单调
+  时钟计时；之后发送 SIGTERM，2 秒后发送 SIGKILL，并最多等待 2 秒让管道关闭（否则标记 `cleanup_incomplete`）。
+  stderr 最多保留 64 KiB，且从不解析。
+- **目录和测试数据** 会先经过校验：ID 唯一、指针存在、预期值与向量一致，并且每个集合的每个成员按操作和算法
+  各固定一次。存在缺陷时退出码为 3。报告记录目录、测试数据和请求的哈希，并把实现自行声明的身份与运行器观察到的
+  内容分开记录。
+- **报告：** `--report` 的值缺失、看起来像选项或重复出现时，属于用法错误（退出码 2），并且由于路径不明确，不会写入
+  任何报告。与上文的命令一样，如果 Node 无法启动、无法写入报告或运行器被终止，旧报告也可能保留。请始终先检查
+  退出码，再检查报告中的 `run.id` 和 `status`。
+- **包装器：** `wrappers/ts-sdk.mjs`（`@dcp-ai/sdk`；`--sdk <path>` 可选）和 `wrappers/python_sdk.py`（已安装的
+  `dcp_ai`；请用 `-I` 运行）。二者都只调用一次真正的规范化函数，并且只对 SDK 文档所述的非整数拒绝返回
+  `rejected`/`profile`。SDK 没有稳定的错误码，因此按类型和消息识别：如果它们变化，正确的拒绝会显示为错误，绝不会
+  算作通过。CI 会运行这两个包装器。
+- **限制：** 通过表明所运行的 argv 经由其使用的解析器通过了这 38 个用例；它不代表完整的 `dcp-jcs-v1` 实现或
+  DCP 符合性，身份也只是自行声明。这不是沙箱：实现以你的权限和环境运行，离开进程组的后代进程（`setsid`）无法
+  看到，在 Windows 上只会终止直接子进程。

@@ -198,6 +198,14 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Added
 
+- **External conformance runner (`tools/conformance-external.js`).** It runs a separate, versioned
+  catalog (`tools/conformance/external-catalog.json`, contract `dcp-ai-conformance-external/1`)
+  against any implementation given as argv, through one JSON request on stdin and one JSON response
+  on stdout: 30 `dcp-jcs-v1` canonicalization cases (including the 19 committed `edge_cases`, 3 of
+  which must be rejected) and 8 SHA-256 / SHA3-256 digests, all with committed expectations.
+  Wrappers for `@dcp-ai/sdk` and the Python `dcp_ai` are included, and CI runs both. The existing
+  conformance command, catalog and report are unchanged. A pass shows these 38 cases passed, nothing more. See
+  [tools/conformance/README.md](tools/conformance/README.md#external-implementations).
 - `cancel_on_disconnect` in FastAPI works in any order of middlewares. The ASGI response of a client
   that left now ends with an empty `499` ("client closed request": not registered, not a DCP
   status), with `Content-Length: 0` and `Cache-Control: no-store`, instead of no message at all.
