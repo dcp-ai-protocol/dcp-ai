@@ -532,6 +532,20 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Fixed
 
+- **Acceptance change: Go `v2.VerifyPayloadHash` now checks the normative `payload_hash`** (source on
+  `main`, not published; Go v2.11.1 keeps the defect). It compared the bare hex SHA-256 with
+  `payload_hash`, so it returned `false` for `SignPayload` output and for every schema-valid value
+  (`sha256:<hex>`), and `true` for the bare digest. It now returns `true` only when `payload_hash` is
+  exactly `"sha256:"` followed by the lowercase hex SHA-256 of the `dcp-jcs-v1` bytes, the value that
+  `SignPayload`, `schemas/v2/signed_payload.schema.json` and the TypeScript, Python and Rust helpers
+  use. A bare digest, uppercase hex, surrounding spaces or any other form is now `false, nil`.
+  Migration: pass `payload_hash` as received; to build it from `PreparePayload`, write
+  `"sha256:" + hash`. `PreparePayload` still returns the bare digest (its comment now says so), the
+  `nil` and canonicalization errors are unchanged, and the bundle verifier, which never used this
+  helper, does not change. The helper checks hash consistency only, not the signature, the keys, the
+  policy or admission. New `sdks/go/dcp/v2/signed_payload_test.go`. The Go README and the
+  `AuditEvidenceV2` comment now also say that decoding a received bundle into the typed structs drops
+  `null` and unknown `evidence` members, so the received bytes are the ones to keep and verify.
 - **Acceptance change: WASM `wasm_dual_merkle_root` and `@dcp-ai/wasm` `dualMerkleRoot` now compute
   the V2-11 dual Merkle root** (source on `main`, not published; `@dcp-ai/wasm` 2.1.1 and earlier
   keep the old helper). The helper hashed the hex text of two digests concatenated and promoted the

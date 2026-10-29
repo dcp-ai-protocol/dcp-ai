@@ -96,6 +96,16 @@ type PolicyDecisionV2 struct {
 }
 
 // AuditEvidenceV2 represents evidence attached to a V2 audit event.
+//
+// It is for producing entries; it is not a lossless representation for
+// forwarding signed evidence. In audit evidence, explicit null members and
+// unrecognized members are lost by this struct; recognized string-valued
+// members and an empty evidence object keep their values. These member losses
+// change the canonical evidence and may invalidate the prev_hash chain or the
+// audit Merkle root. Keep the bytes of a received bundle and verify those
+// bytes (VerifySignedBundleV2 takes them). Do not automatically repair,
+// recompute or re-sign received evidence to make it verify; an explicit
+// migration should be a separate step that keeps the original.
 type AuditEvidenceV2 struct {
 	Tool         *string `json:"tool,omitempty"`
 	ResultRef    *string `json:"result_ref,omitempty"`

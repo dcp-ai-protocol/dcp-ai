@@ -8,7 +8,7 @@
 
 **Publicación Go (26/10/2026).** El SDK Go `v2.11.0` está disponible desde la etiqueta `sdks/go/v2.11.0`, incluidas las correcciones del verificador, admisión y API experimentales opt-in. La publicación Rust sigue siendo independiente. Véase [Go v2.11.0](../../docs/GO_RELEASE.md).
 
-> Traducción informativa del [README en inglés](README.md), actualizada el 27/10/2026. Los identificadores y los bloques de código, incluidos sus comentarios, se conservan en el idioma original para mantener los ejemplos verificados.
+> Traducción informativa del [README en inglés](README.md), actualizada el 29/10/2026. Los identificadores y los bloques de código, incluidos sus comentarios, se conservan en el idioma original para mantener los ejemplos verificados.
 
 SDK oficial de Go para el Digital Citizenship Protocol (DCP) v1.0 y v2.0. Admite Ed25519, ML-DSA-65, SLH-DSA-192f, ML-KEM-768, firmas compuestas, cadenas de hash duales y verificación de bundles.
 
@@ -198,6 +198,8 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 | Función | Descripción |
 |----------|-------------|
 | `v2.SignPayload(reg, context, payload, classicalKey, pqKey)` | Firma un artefacto y lo convierte en un `SignedPayload` (firma compuesta, o solo clásica cuando `pqKey` es nil) |
+| `v2.PreparePayload(payload)` | Devuelve los bytes canónicos `dcp-jcs-v1` y su SHA-256 en hex en minúsculas, sin prefijo; el campo `payload_hash` es `"sha256:"` seguido de ese digest |
+| `v2.VerifyPayloadHash(signed)` | `true` solo cuando `payload_hash` es exactamente `"sha256:"` seguido del SHA-256 del payload canónico; cualquier otro valor, incluido un digest sin prefijo, es `false`. Solo comprueba la consistencia del hash, no la firma, las claves, la política ni la admisión. Código fuente en `main`, no publicado: v2.11.1 compara el digest sin prefijo, así que rechaza la salida de `SignPayload` y acepta la forma sin prefijo |
 | `v2.BuildBundleV2(input)` | Ensambla un bundle V2 a partir de artefactos firmados, con hashes del manifiesto y raíces Merkle duales |
 | `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | Firma un bundle con una firma compuesta o solo clásica; el firmante es el principal del bundle (`signer.id` = `human_id` de la RPR) |
 | `v2.VerifySignedBundleV2(reg, jsonBytes)` | Verificación de bundles V2 (estructura, hashes, firmas, cadena de auditoría primaria) bajo `DefaultVerifierPolicy`, aplicando el más estricto entre el modo de la política y el modo del nivel de seguridad (especificación §14.3); informa `ResolvedTier` y `VerificationMode` |
@@ -205,6 +207,8 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 | `v2.VerifySignedBundleV2At(reg, jsonBytes, policy, now)` | Lo mismo en el instante `now`: la ventana de sesión, la caducidad de la RPR y la de las claves se comparan con ese instante, con precisión de milisegundos. Las dos funciones anteriores la llaman con `time.Now()` |
 
 Cada resultado enumera en `SignerKeys` (JSON `signer_keys`), para cada firma compuesta comprobada (`bundle`, los cuatro artefactos y cada `pq_checkpoints[<id>]`), la entrada de clave que el verificador resolvió para cada componente (`classical`, `pq`) y si ese componente se verificó.
+
+**Structs tipados y bundles recibidos.** `AuditEventV2`, `CitizenshipBundleV2` y `SignedBundleV2` sirven para producir bundles. En la evidencia de auditoría, estos structs pierden los miembros con `null` explícito y los miembros no reconocidos (distintos de `tool`, `result_ref` y `evidence_hash`); los miembros reconocidos con valor de cadena y un objeto `evidence` vacío conservan sus valores. Esas pérdidas de miembros cambian la evidencia canónica y pueden invalidar la cadena `prev_hash` o la raíz Merkle de auditoría. Estos structs no son una representación sin pérdidas para reenviar evidencia firmada. Conserva los bytes recibidos y verifica esos bytes: las funciones de verificación de arriba reciben bytes. No repares, recalcules ni vuelvas a firmar automáticamente la evidencia recibida para que verifique; una migración explícita es un paso aparte que conserva el original.
 
 <a id="admission-principal-trust-and-strict-v1-unreleased"></a>
 

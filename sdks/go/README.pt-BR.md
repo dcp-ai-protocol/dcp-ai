@@ -8,7 +8,7 @@
 
 **Publicação Go (26/10/2026).** O SDK Go `v2.11.0` está disponível pela tag `sdks/go/v2.11.0`, incluindo correções do verificador, admissão e APIs experimentais opt-in. A publicação Rust continua independente. Veja [Go v2.11.0](../../docs/GO_RELEASE.md).
 
-> Tradução informativa do [README em inglês](README.md), atualizada em 27/10/2026. Identificadores e blocos de código, incluindo comentários, são preservados no idioma original para manter os exemplos verificados.
+> Tradução informativa do [README em inglês](README.md), atualizada em 29/10/2026. Identificadores e blocos de código, incluindo comentários, são preservados no idioma original para manter os exemplos verificados.
 
 SDK oficial em Go para o Digital Citizenship Protocol (DCP) v1.0 e v2.0. Suporta Ed25519, ML-DSA-65, SLH-DSA-192f, ML-KEM-768, assinaturas compostas, cadeias de hash duplas e verificação de bundles.
 
@@ -198,6 +198,8 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 | Função | Descrição |
 |----------|-------------|
 | `v2.SignPayload(reg, context, payload, classicalKey, pqKey)` | Assina um artefato, produzindo um `SignedPayload` (assinatura composta, ou somente clássica quando `pqKey` é nil) |
+| `v2.PreparePayload(payload)` | Devolve os bytes canônicos `dcp-jcs-v1` e seu SHA-256 em hex minúsculo, sem prefixo; o campo `payload_hash` é `"sha256:"` seguido desse digest |
+| `v2.VerifyPayloadHash(signed)` | `true` somente quando `payload_hash` é exatamente `"sha256:"` seguido do SHA-256 do payload canônico; qualquer outro valor, inclusive um digest sem prefixo, é `false`. Só confere a consistência do hash, não a assinatura, as chaves, a política nem a admissão. Código-fonte em `main`, não publicado: a v2.11.1 compara o digest sem prefixo, então rejeita a saída de `SignPayload` e aceita a forma sem prefixo |
 | `v2.BuildBundleV2(input)` | Monta um bundle V2 a partir de artefatos assinados, com hashes do manifesto e raízes Merkle duplas |
 | `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | Assina um bundle com assinatura composta ou somente clássica; o signatário é o principal do bundle (`signer.id` = `human_id` da RPR) |
 | `v2.VerifySignedBundleV2(reg, jsonBytes)` | Verificação de bundles V2 (estrutura, hashes, assinaturas, cadeia de auditoria primária) sob `DefaultVerifierPolicy`, aplicando o mais estrito entre o modo da política e o modo do nível de segurança (especificação §14.3); informa `ResolvedTier` e `VerificationMode` |
@@ -205,6 +207,8 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 | `v2.VerifySignedBundleV2At(reg, jsonBytes, policy, now)` | O mesmo no instante `now`: a janela da sessão, a expiração da RPR e das chaves são comparadas a ele, com precisão de milissegundos. As duas funções acima a chamam com `time.Now()` |
 
 Cada resultado lista em `SignerKeys` (JSON `signer_keys`), para cada assinatura composta conferida (`bundle`, os quatro artefatos e cada `pq_checkpoints[<id>]`), a entrada de chave resolvida pelo verificador para cada componente (`classical`, `pq`) e se esse componente foi verificado.
+
+**Structs tipados e bundles recebidos.** `AuditEventV2`, `CitizenshipBundleV2` e `SignedBundleV2` servem para produzir bundles. Na evidência de auditoria, esses structs perdem os membros com `null` explícito e os membros não reconhecidos (diferentes de `tool`, `result_ref` e `evidence_hash`); os membros reconhecidos com valor string e um objeto `evidence` vazio mantêm seus valores. Essas perdas de membros mudam a evidência canônica e podem invalidar a cadeia `prev_hash` ou a raiz Merkle de auditoria. Esses structs não são uma representação sem perdas para encaminhar evidência assinada. Guarde os bytes recebidos e verifique esses bytes: as funções de verificação acima recebem bytes. Não repare, recalcule nem assine de novo automaticamente a evidência recebida para que ela seja verificada; uma migração explícita é uma etapa separada que preserva o original.
 
 <a id="admission-principal-trust-and-strict-v1-unreleased"></a>
 
