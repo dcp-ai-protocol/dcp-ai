@@ -150,3 +150,51 @@ A valid response to that request (the wrapper also adds `resolved_from` and `run
   a complete `dcp-jcs-v1` implementation or DCP conformance, and the identity is self-declared. This is not a
   sandbox: the implementation runs with your privileges and environment, descendants that leave the process group
   (`setsid`) are not seen, and on Windows only the direct child is killed.
+
+### Go, Rust and WASM wrappers
+
+Three more wrappers run the same 38 cases and the same contract against the Go SDK, the Rust SDK and the
+WASM build of the Rust SDK, all from this checkout. `build.mjs` compiles them into
+`tools/conformance/wrappers/.build/` (ignored by Git); it needs Go 1.25 or later, Cargo, and `wasm-pack` with the
+`wasm32-unknown-unknown` target. It installs or publishes no DCP package and changes no SDK manifest or
+lockfile. Without `--offline`, Cargo and `wasm-pack` may download build tools and the pinned dependencies into their
+caches; `--offline` sets `GOPROXY=off`, Cargo `--offline` and `wasm-pack --mode no-install`, and needs those caches
+already filled.
+
+```bash
+node tools/conformance/wrappers/build.mjs all
+node tools/conformance/wrappers/build.mjs --offline go rust wasm
+node tools/conformance-external.js -- tools/conformance/wrappers/.build/go-wrapper
+node tools/conformance-external.js -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+node tools/conformance-external.js -- node tools/conformance/wrappers/wasm.mjs
+DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-native.test.mjs
+```
+
+- **Builds:** Go builds with `-mod=readonly` against the wrapper's `go.mod` and `go.sum`, whose versions are a
+  subset of the SDK's own; Cargo builds with `--locked`, the native wrapper with its `Cargo.lock` (a copy of the
+  SDK's lock, resolved offline, with the same pinned versions) and the WASM artifact with the SDK's `Cargo.lock`.
+  `--offline` uses only the local caches. No SDK manifest or lockfile changes.
+- **Go** (`wrappers/go`): the input must be UTF-8 (checked first, because `encoding/json` would replace invalid
+  bytes), then `json.Unmarshal` into `interface{}`, as the SDK's own interop test does, then one call to
+  `v2.CanonicalizeV2`; only its documented rejection (`non-integer float at`, `non-finite float at`) is
+  `rejected`/`profile`. Digests: `v2.SHA256Hex`, `v2.SHA3256Hex`. The version is reported as the local checkout.
+- **Rust** (`wrappers/rust`): fatal UTF-8 decoding, `serde_json::from_str`, then one call to
+  `dcp_ai::v2::canonicalize::canonicalize_v2`; only its documented rejection (`Non-integer number in V2 canonical form:`, `Non-finite number in V2 canonical form:`, behind path prefixes) is `rejected`/`profile`. Digests:
+  `sha256_hex`, `sha3_256_hex`. The version is `DCP_SDK_VERSION`.
+- **WASM** (`wrappers/wasm.mjs`): it loads the real `.wasm` that `wasm-pack` compiled from `sdks/rust` with the
+  `wasm` feature (`--target web`) and reports its SHA-256. The raw JSON text goes to one call of
+  `wasm_canonicalize_v2`, with no `JSON.parse` or `JSON.stringify` in JavaScript before the call;
+  afterwards the input and the output are only inspected to mark ambiguity, and no bytes are recomputed. That export reports errors in band
+  as `{"error": "…"}`, which a valid input can also produce, so a single-key `{"error": string}` result is an
+  ambiguous `error` when the input is itself a root object whose only key is `error` (whatever its value), and
+  otherwise a rejection only for the documented messages. The digest exports take text: the 8 digest inputs are text, and bytes that are not UTF-8
+  are an `error`, never substituted.
+- **Errors:** in all three, a request with a wrong type (for example `input_b64` that is a number or `null`, or
+  `cases` that is not an array) is invalid and the wrapper exits with 2; any error other than the documented
+  rejection is `error`. Without `DCP_EXTERNAL_REQUIRE_NATIVE=1`, `node --test` skips what is not built and says so;
+  with it, a missing toolchain or artifact fails. CI builds the three wrappers from the checkout and runs the 38
+  cases through each, so the five wrappers are required there.
+- **Limits:** the WASM wrapper calls the raw wasm-bindgen exports hosted in Node: it does not cover the
+  `@dcp-ai/wasm` package's JavaScript API (such as `DcpClient`) or a browser. The classification of rejections depends on message text,
+  since the SDKs have no stable error codes, and through WASM a root single-key `{"error": …}` input is an ambiguous
+  error only when the export returns the `{"error": string}` envelope (`{"error":5}` stays `ok`). A pass shows these 38 cases pass through each wrapper, nothing more.

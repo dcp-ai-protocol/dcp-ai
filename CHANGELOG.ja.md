@@ -4,7 +4,7 @@
 
 # 変更履歴
 
-> [英語版](CHANGELOG.md)の参考訳です（28/10/2026 更新）。各エントリーは、`[Unreleased]` のものも含め、その時点での変更を記述したもので、現在の動作を保証するものではありません。公開済みの各バージョンは**日付のある過去の記録**です。内容が異なる場合は英語版が優先されます。
+> [英語版](CHANGELOG.md)の参考訳です（29/10/2026 更新）。各エントリーは、`[Unreleased]` のものも含め、その時点での変更を記述したもので、現在の動作を保証するものではありません。公開済みの各バージョンは**日付のある過去の記録**です。内容が異なる場合は英語版が優先されます。
 
 **公開済みバージョン（2026 年 10 月 26 日）。** npm（`@dcp-ai/sdk` 2.2.0 を含む 13 パッケージ）、Python `dcp-ai` 2.10.0、Go `v2.11.0`、Rust `dcp-ai` 2.11.0 が、検証器の修正、受け入れ判定、実験的なオプトイン API を含めて公開済みです。`dcp-jcs-v1` は引き続き規範的なデフォルトです。[公開済みバージョン](docs/README.md#published-versions)を参照してください。以下の項目は開発履歴として保持しています。`[Unreleased]` はこれらの機能が未公開であることを意味しません。2026 年 10 月 28 日の 6 つの修正リリースは[専用のセクション](#2026-10-28-sha3-patch-releases)にあります。
 
@@ -208,6 +208,12 @@
 
 ### 追加
 
+- **外部適合性ランナー向けの Go、Rust、WASM のラッパー。** `tools/conformance/wrappers/build.mjs` は、このチェックアウトから Go SDK、Rust SDK、Rust SDK の WASM ビルドのラッパーをビルドします（`-mod=readonly`、`--locked`。
+  SDK のマニフェストやロックファイルは変わりません）。
+  各ラッパーは実際の API で同じ 38 ケースを実行し、正規化関数を 1 回だけ呼び、文書化された拒否だけを拒否として扱います。
+  WASM のラッパーはブラウザーではなく Node 上で実際の `.wasm` を実行し、エクスポートが結果の中で返す `{"error": …}` との衝突を保守的に扱います。
+  CI は 3 つをビルドし、必須のジョブとして実行します。パッケージは公開しません。
+  [tools/conformance/README.md](tools/conformance/README.md#go-rust-and-wasm-wrappers) を参照してください。
 - **外部適合性ランナー（`tools/conformance-external.js`）。** 別のバージョン付きカタログ（`tools/conformance/external-catalog.json`、契約 `dcp-ai-conformance-external/1`）を、argv として指定した任意の実装に対して、stdin の JSON リクエスト 1 つと stdout の JSON レスポンス 1 つで実行します。
   対象は `dcp-jcs-v1` の正規化 30 ケース（コミット済みの 19 の `edge_cases` を含み、うち 3 つは拒否されなければならない）と SHA-256 / SHA3-256 のダイジェスト 8 ケースで、いずれもコミット済みの期待値を使います。
   `@dcp-ai/sdk` と Python の `dcp_ai` のラッパーを含み、CI は両方を実行します。

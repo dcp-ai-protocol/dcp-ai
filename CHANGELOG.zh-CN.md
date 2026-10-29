@@ -4,7 +4,7 @@
 
 # 变更日志
 
-> 本文是[英文版](CHANGELOG.md)的参考译文，更新于 28/10/2026。每个条目（包括 `[Unreleased]` 下的条目）描述的是当时所作的变更，并不保证当前行为；已发布的各版本是**带日期的历史记录**。如有出入，以英文版为准。
+> 本文是[英文版](CHANGELOG.md)的参考译文，更新于 29/10/2026。每个条目（包括 `[Unreleased]` 下的条目）描述的是当时所作的变更，并不保证当前行为；已发布的各版本是**带日期的历史记录**。如有出入，以英文版为准。
 
 **已发布版本（2026 年 10 月 26 日）。** npm（13 个软件包，包括 `@dcp-ai/sdk` 2.2.0）、Python `dcp-ai` 2.10.0、Go `v2.11.0` 和 Rust `dcp-ai` 2.11.0 均已发布，包含验证器修复、准入功能和实验性的选择启用 API；`dcp-jcs-v1` 仍是规范性默认值。见[已发布版本](docs/README.md#published-versions)。以下条目保留开发历史；`[Unreleased]` 不表示这些功能尚未发布。2026 年 10 月 28 日的六个修复版本见[单独的章节](#2026-10-28-sha3-patch-releases)。
 
@@ -171,6 +171,11 @@
 
 ### 新增
 
+- **外部符合性运行器的 Go、Rust 和 WASM 包装器。** `tools/conformance/wrappers/build.mjs` 从本检出副本为 Go SDK、Rust SDK 和 Rust SDK 的 WASM 构建构建包装器（`-mod=readonly`、`--locked`；
+  SDK 的清单和锁定文件不变），每个包装器都通过真实 API 运行同样的 38 个用例，只调用一次规范化函数，并且只把文档所述的拒绝归为拒绝。
+  WASM 包装器在 Node 而不是浏览器中运行真实的 `.wasm`，并保守地处理导出函数在结果中返回 `{"error": …}` 所造成的冲突。
+  CI 构建这三个包装器并作为必需任务运行。不发布任何软件包。
+  见 [tools/conformance/README.md](tools/conformance/README.md#go-rust-and-wasm-wrappers)。
 - **外部符合性运行器（`tools/conformance-external.js`）。** 它针对以 argv 指定的任意实现，运行一个单独的、带版本的目录（`tools/conformance/external-catalog.json`，契约 `dcp-ai-conformance-external/1`），通过 stdin 上的一个 JSON 请求和 stdout 上的一个 JSON 响应进行：
   30 个 `dcp-jcs-v1` 规范化用例（包括已提交的 19 个 `edge_cases`，其中 3 个必须被拒绝）和 8 个 SHA-256 / SHA3-256 摘要，全部使用已提交的预期值。
   随附 `@dcp-ai/sdk` 和 Python `dcp_ai` 的包装器，CI 会运行两者。
