@@ -303,3 +303,105 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
   バンドルの判定は受け入れ、プリンシパルへの信頼、行為の認可のいずれでもありません。
   `stripping_pq_with_downgrade` は `classical_valid` と `pq_valid` で判定され、それを拒否するのは `hybrid_required` のポリシーの役割です。
   二次フィールドは存在する場合にだけ確認されるため、合格は完全な二次チェーンを示しません。WASM 経由では、時刻は置き換えたホストの時計です。
+  `error_contains` の文字列は SDK の診断用の文言であり、規範ではありません。`spec/VERIFICATION.md` はエラーコードを定めていません。
+  これら 146 ケースの合格はその文言との一致を示すだけです。同じ判定で別のメッセージを返す検証器はそれらに失敗しますが、その失敗だけでは判定の誤りを示しません。
+
+<a id="admission-catalog-strict-v1-admission"></a>
+
+### アドミッションのカタログ：strict-v1 のアドミッション
+
+`--catalog admission` は 2 つ目のオプトインのカタログ [`external-admission-catalog.json`](external-admission-catalog.json)
+（契約 `dcp-ai-conformance-external/3`、140 ケース）を選び、同じ種類の argv に対して実行します。これは
+[`spec/profiles/admission`](../../spec/profiles/admission/README.md) のアドミッションの判断を、コミット済みの
+[`admission_vectors.json`](../../tests/interop/v2/admission_vectors.json) で判定します。カタログはこのファイルを
+`bundle_vectors.json` とともに SHA-256 で固定します。契約 `/1` と `/2` とそのカタログは変わりません。TypeScript、
+Python、Go、Rust のラッパーは SDK を通じて `/3` に答えます。WASM のビルドにはアドミッションの API がないため、その
+ラッパーは `/3` を拒否し（exit 2）、何もそれをエミュレートしません。
+
+```bash
+node tools/conformance-external.js --catalog admission --list
+node tools/conformance-external.js --catalog admission --report /tmp/admission-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
+node tools/conformance-external.js --catalog admission -- /path/to/python -I tools/conformance/wrappers/python_sdk.py
+node tools/conformance-external.js --catalog admission -- tools/conformance/wrappers/.build/go-wrapper
+node tools/conformance-external.js --catalog admission -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+node --test tools/conformance/external-admission.test.mjs
+DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-admission-wrappers.test.mjs
+```
+
+| スイート | ケース | 出典 |
+|-------|-------|--------|
+| `external.admission.outcomes` | 65 | `admission_vectors.json` の結果のベクトル |
+| `external.admission.config` | 71 | その 49 の拒否される設定、最大値つきの 2 つの受け入れられるプロファイル、ベクトルが使う 14 の信頼セットと 6 つのプロファイルの読み込み |
+| `external.admission.composed` | 4 | ベクトルの入力からカタログに書いたもの：信頼セットのないプロファイル、呼び出し元の検証器のポリシーを伴うプロファイル、そしてアルファベット順ではコードの位置がずれる 2 つの組み合わせ |
+
+- **操作：** `admit_signed_bundle_v2` は `bundle_b64`、`now`、`profile`、`trust_set`、`verifier_policy`、
+  `revocation` を常に 6 つすべて受け取り、`load_admission_config` は `kind`（`trust_set` または `profile`）と
+  `config` を受け取ります。
+  - `now` は正確に `YYYY-MM-DDTHH:mm:ss.sssZ` で、0001 年から 9999 年の実在する日付です。これはこのトランスポートの
+    範囲にすぎず、プロトコルのタイムスタンプは何も変えません。
+  - `revocation` は、プロファイルがなければ `null`、`{"state": "unavailable"}`（スナップショットなし、R1）、または
+    `{"state": "snapshot", "snapshot": {…}}`（完全かどうかにかかわらず SDK が判定するオブジェクト）です。プロファイルが
+    あるときに限って与えられます。
+  - `profile`、`trust_set`、`verifier_policy` はオブジェクトか `null` です。信頼セットとプロファイルは運用者の設定で
+    あり、リクエストの中で帯域外から与えられ、バンドルから取られることは決してありません。プロファイルがなければ、
+    リクエストは完全な検証器のポリシーを持ちます：`default_verifier_policy` の 14 のフィールドに、
+    `require_session_expiry: false`、`require_audience_binding: false`、`max_session_duration_seconds: 0` を加えた
+    もの。プロファイルがあるときはポリシーを持ちません。ただし、その拒否を確かめるケースは例外です。
+  - それ以外の形のリクエストでは、ラッパーは SDK を呼ぶ前に 2 で終了します。
+- **答え：** `ok` は、正確に `verified`、`principal_trust`、`profile`、`profile_compliance`、`admitted`、
+  `action_authorized`、`recorded_decision`、`trust_set_version`、`codes`（`errors` のコードを出た順に、繰り返しも
+  含めて）、`verification_verified` を持ちます。設定では `accepted: true`、プロファイルではさらに 2 つの最大値を
+  持ちます。`rejected` は、SDK が型付きの設定エラーを投げたときに限って `CONFIG_*` のコードを持ちます。`error` と
+  `unsupported` は決して合格になりません。
+- **判定**（この順）：
+  - フィールドの型（`malformed_result`）。
+  - spec/profiles/admission から導かれる規則（`contradictory_result`）：`action_authorized` は `false`。`admitted` は
+    コードが 1 つも加えられなかったときに限って成り立つ。プリンシパルへの信頼は、信頼セットがあり、バンドルが検証を
+    通ったときだけ評価される。
+  - 正確なフィールドとコードの集合。
+  - 生の並びの順序。§5.1 と §5.2 の段階に従い、P1、T1、R1、R2 の停止を含む（`order`）。
+  - 繰り返し（`cardinality`）：複数の構成要素や対象に当てはまる P4、T2、R4、R5 だけが、そのコードを繰り返して
+    かまいません。
+
+  拒否される設定は、その `allowed_codes` のどれかで合格します。それは自身のコードか、2 つの問題を持つ 3 つの信頼
+  セットでは当てはまる 2 つのコードのどちらかです（§2.2）。プロファイルは実効の最大値で判定されます（§4.1）。
+- **対照：** 否定のケースは、その対照が推移的に合格した場合にだけ数えられます。そうでなければ `control_failed`
+  というエラーです。
+  - 結果の否定のケースのうち 29 は、同じバンドルの肯定のケースを対照とします。
+  - 19 は同じバンドルに肯定のケースがなく、スイートの単位で対照されます。これはより弱い保証です。
+  - 設定の拒否は、有効な信頼セットかプロファイルの読み込みを対照とします。
+  - 組み合わせたケースは、組み合わせたベクトルを対照とします。
+
+  `--suite` は、選んだケースが必要とする対照も実行し、それを報告します（`controls_included`、
+  `included_for_controls`）。
+- **プロセスとエラー：** `/1` と `/2` と同じです（run id、nonce、ランダムなケース id、プロセスグループ、制限）。
+  このカタログの既定のタイムアウトは 300 000 ms です。起動の失敗、0 以外の exit、シグナル、タイムアウト、古い id、
+  あるいは不正な形の、欠けた、重複した、余分な結果はエラーであり、拒否や「アドミッションされない」になることは
+  決してありません。カタログとそのフィクスチャーは読み込むときに検証されます（固定したハッシュ、正確なキーと型、
+  本文と整合する各期待値）。欠陥は exit 3 です。
+- **ラッパー：** ケースごとに 1 回、SDK の組み合わせた関数または読み込み関数を、システムの時計ではなくリクエストの
+  `now` で呼びます：`admitSignedBundleV2`、`createPrincipalTrustStore`、`resolveStrictV1Profile`（TypeScript）、
+  `admit_signed_bundle_v2`、`create_principal_trust_store`、`resolve_strict_v1_profile`（Python）、
+  `AdmitSignedBundleV2`、`NewPrincipalTrustStore`、`ResolveStrictV1Profile`（Go）、`admit_signed_bundle_v2`、
+  `PrincipalTrustStore::from_json`、`resolve_strict_v1_profile`（Rust）。プロバイダーは Ed25519 と ML-DSA-65 です。
+  拒否になるのは型付きのエラーだけです：`AdmissionConfigError`（TypeScript、Python、Rust）、または `errors.As` を
+  通した `*AdmissionConfigError`（Go）。`DCP_CONFORMANCE_WRAPPER_FAULT` はセルフテスト専用で、答えをエラーに変える
+  ことしかできません。
+- **セルフテスト：**
+  - `external-admission.test.mjs` は、カタログ自身の期待値から作った合成の答えを、SDK なしで判定します：誤った判断、
+    順序、カーディナリティ、設定のコード、インフラの失敗、改ざんしたカタログとフィクスチャー。
+  - `external-admission-wrappers.test.mjs` は 4 つのラッパーを SDK を通じて実行します：それぞれ 140 ケース、
+    リクエストの時計（1 つのケースを 3 つの時刻で）、不正な形のリクエスト、注入した失敗、読み込めない実装、WASM の
+    拒否、そしてバンドルから信頼を取る SDK（TypeScript を通じて）。
+
+  CI は 4 つのラッパーを必須として両方を実行します。
+- **制限：**
+  - **合格が示すこと。** 実行した argv がこれら 140 ケースに合格すること、それだけです。アドミッションは決して認可では
+    ありません：`action_authorized` は常に `false` です。
+  - **射影。** 答えはアドミッションの結果の射影です。内包する検証（そのエラー、警告、詳細、`signer_keys`、モード、
+    階層）は判定しません。`verification_verified` は実装自身が報告するものです。
+  - **型付きのエラー。** 拒否はそのコードで判定されます。それが SDK の型付きのエラーから来たかどうかを見るのは
+    ラッパーであり、ランナーではありません。
+  - **より弱い保証。** スイートの単位の 19 の対照と、ベクトルではなくカタログに書いた 4 つの組み合わせの期待値です。
+  - **このカタログの外。** アダプター、信頼と失効の情報源、TLS、テナント、キャッシュ、一度限りの使用。コーパスは
+    コミット済みのベクトルとこの 4 つの組み合わせであり、あらゆる入力ではありません。

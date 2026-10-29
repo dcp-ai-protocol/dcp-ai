@@ -171,6 +171,14 @@
 
 ### 新增
 
+- 外部一致性工具包：选择性启用的准入目录 `--catalog admission`（契约 `dcp-ai-conformance-external/3`、
+  `tools/conformance/external-admission-catalog.json`，140 个用例：`admission_vectors.json` 的 65 个结果向量、71 个配置用例，
+  以及依据向量输入组合出的 4 个用例）。TypeScript、Python、Go 和 Rust 包装器通过各自 SDK 的组合准入函数和加载函数，使用请求的
+  `now` 作答。判定检查字段类型、spec/profiles/admission 的规则（`action_authorized` 为 `false`；`admitted` 恰在未添加任何代码时
+  成立）、精确的字段，以及按阶段的原始代码顺序及其重复；否定用例只有在其对照通过时才计数。应答是一种投影：内含的验证不作判定。
+  WASM 构建没有准入 API，不作模拟。CI 运行判定器的自测（60）、包装器测试（26，四个包装器均为必需），并通过四个包装器各运行
+  140 个用例。证据自测的伪实现现在通过异步 spawn 到达 TypeScript 包装器，带有截止时间并检查其退出：观察到用同步 spawn 传入
+  9 MB 请求时会一直等待到截止时间。`/1` 和 `/2` 不变。
 - **规范化候选：在 `dcp-jcs-v1` 一侧测量关卡 7。** 新的公开 fixture `tests/interop/candidate/gate7-v1-negatives.json` 在 18 个字节位置，把 8 个单元类别各自的缺陷注入两个冻结的 `dcp-jcs-v1` 基准：38 个用例，其中包括作为对照的 2 个基准。
   它为五个实现的 10 种配置记录了推理得出的预期：TypeScript、Python、Go 和 Rust SDK，以及在 Node 中运行的 WASM 软件包。
   各实现中的新测试运行这 380 次比较：实验性验证器必须在相同的字节、时钟和策略下给出同一实现当前路径的结果，两者都必须等于预期。
@@ -567,6 +575,15 @@
 
 ### 文档
 
+- `spec/profiles/admission/README.md`（准入配置文件）：编辑性澄清，不改变任何向量、schema 或 SDK 行为；四个 SDK 已经按这些内容运行。
+  第 5.1 节第 2 步将 bundle 作为 V2 已签名 bundle 验证：不是 V2 的 bundle 无论 `allow_v1_bundles` 如何设置都不会通过验证，
+  在配置文件下 P1 会在验证之前停止，并将 bundle 报告为未通过验证。配置文件需要信任集：组合函数和单独的第 3 步会以
+  `CONFIG_PROFILE_CONTRADICTION` 拒绝没有信任集的配置文件，组合函数也会以同一代码拒绝同时给出配置文件和调用方验证器策略的调用；
+  不规定这发生在验证之前还是之后。在第 4.1 节中，四种模式的枚举之外的模式与类型错误的值一样为 `CONFIG_INVALID_VALUE`，
+  而该枚举中除 `hybrid_required` 以外的模式或允许子集之外的算法为 `CONFIG_PROFILE_CONTRADICTION`。第 2.2 节：信任集有多个问题时，
+  可以报告其中任何一个的代码；无论报告哪个都会被拒绝，不规定优先顺序。第 5.2 节：`errors` 遵循第 5.1 节各阶段的顺序，
+  检查可以为每个组件或主体各添加一次代码，阶段内不规定顺序。`tools/conformance/README.md`：证据目录判定的 `error_contains`
+  字符串（其 241 个用例中的 146 个）是 SDK 的诊断措辞，不具规范效力。
 - `docs/QUICKSTART_CREWAI.md`：两个示例都无法运行。V1 示例导入了 Python SDK 中并不存在的 `build_bundle`，并在
   `intent_hash` 和 `prev_hash` 应填哈希的位置写入了签名；V2 示例使用了一个从未发布的 API，并声称 Python SDK 没有
   V2 bundle 的构建器、签名方或验证方，而 `dcp_ai.v2` 实际上（从 2.9.0 起）就包含这些。现在两个示例都按 SDK 的

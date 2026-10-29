@@ -216,6 +216,20 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
 
 ### Añadido
 
+- Kit de conformidad externa: un catálogo de admisión opt-in, `--catalog admission` (contrato
+  `dcp-ai-conformance-external/3`, `tools/conformance/external-admission-catalog.json`, 140 casos:
+  los 65 vectores de resultado de `admission_vectors.json`, 71 casos de configuración y 4 casos
+  compuestos a partir de las entradas de los vectores). Los wrappers de TypeScript, Python, Go y
+  Rust responden mediante la función combinada de admisión y los cargadores de su SDK, con el `now`
+  de la petición. El juez comprueba los tipos de los campos, las reglas de spec/profiles/admission
+  (`action_authorized` es `false`; `admitted` exactamente cuando no se añadió ningún código), los
+  campos exactos, el orden de los códigos crudos por fase y su repetición; un negativo cuenta solo
+  si sus controles pasaron. La respuesta es una proyección: la verificación incluida no se juzga. La
+  compilación WASM no tiene API de admisión y no se emula. La CI ejecuta las autopruebas del juez
+  (60), las pruebas de los wrappers (26, con los cuatro wrappers obligatorios) y los 140 casos con
+  cada uno de los cuatro wrappers. El fake de las autopruebas de evidencia llega ahora al wrapper de
+  TypeScript con un spawn asíncrono, con plazo y comprobación de su salida: un spawn síncrono con la
+  petición de 9 MB se observó esperando hasta el plazo. `/1` y `/2` no cambian.
 - **Candidato de canonicalización: la puerta 7 medida en el lado de `dcp-jcs-v1`.** El nuevo fixture público
   `tests/interop/candidate/gate7-v1-negatives.json` inyecta un defecto de cada una de las 8 clases de unidad, en 18
   posiciones de bytes, en dos bases congeladas de `dcp-jcs-v1`: 38 casos, con las 2 bases incluidas como controles.
@@ -762,6 +776,23 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
 
 ### Documentación
 
+- `spec/profiles/admission/README.md` (perfil de admisión): precisiones editoriales, sin cambiar
+  ningún vector, esquema ni comportamiento de los SDK; los cuatro SDK ya se comportan como dicen. El
+  paso 2 de §5.1 verifica el bundle como bundle V2 firmado: un bundle que no es V2 no se verifica,
+  diga lo que diga `allow_v1_bundles`, y bajo el perfil P1 se detiene antes de la verificación e
+  informa el bundle como no verificado. Un perfil exige un conjunto de confianza: la función
+  combinada y el paso 3 por sí solo rechazan un perfil sin él con `CONFIG_PROFILE_CONTRADICTION`, y
+  la función combinada rechaza con el mismo código un perfil junto con una política de verificador
+  de quien llama; no se fija si eso ocurre antes o después de la verificación. En §4.1, un modo
+  fuera de la enumeración de los cuatro modos es `CONFIG_INVALID_VALUE`, como un valor de tipo
+  erróneo, mientras que un modo de esa enumeración distinto de `hybrid_required`, o un algoritmo
+  fuera del subconjunto permitido, es `CONFIG_PROFILE_CONTRADICTION`. §2.2: cuando un conjunto de
+  confianza tiene varios problemas, puede informarse del código de cualquiera de ellos; se rechaza
+  sea cual sea el informado, sin precedencia definida. §5.2: `errors` sigue el orden de las fases de
+  §5.1, una comprobación puede añadir su código una vez por componente o sujeto, y dentro de una
+  fase no se fija ningún orden. `tools/conformance/README.md`: las cadenas `error_contains` que
+  juzga el catálogo de evidencia (146 de sus 241 casos) son la redacción de diagnóstico de los SDK,
+  no son normativas.
 - `docs/QUICKSTART_CREWAI.md`: ninguno de los dos ejemplos funcionaba. El V1 importaba `build_bundle`, que el
   SDK de Python no tiene, y escribía firmas donde `intent_hash` y `prev_hash` llevan hashes;
   el V2 usaba una API que nunca se publicó y decía que el SDK de Python no tenía constructor, firmante ni

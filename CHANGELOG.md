@@ -198,6 +198,19 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Added
 
+- External conformance kit: an opt-in admission catalog, `--catalog admission` (contract
+  `dcp-ai-conformance-external/3`, `tools/conformance/external-admission-catalog.json`, 140 cases:
+  the 65 outcome vectors of `admission_vectors.json`, 71 configuration cases and 4 cases composed
+  from the vectors' inputs). The TypeScript, Python, Go and Rust wrappers answer through their SDK's
+  combined admission function and loaders, at the request's `now`. The judge checks the field types,
+  the rules of spec/profiles/admission (`action_authorized` is `false`; `admitted` exactly when no
+  code was added), the exact fields, the order of the raw codes by phase and their repetition; a
+  negative counts only if its controls passed. The answer is a projection: the embedded verification
+  is not judged. The WASM build has no admission API and is not emulated. CI runs the judge's
+  self-tests (60), the wrapper tests (26, the four wrappers required) and the 140 cases through each
+  of the four wrappers. The fake of the evidence self-tests now reaches the TypeScript wrapper
+  through an asynchronous spawn, with a deadline and its exit checked: a synchronous spawn with the
+  9 MB request was observed waiting until the deadline. `/1` and `/2` are unchanged.
 - **Canonicalization candidate: gate 7 measured on the `dcp-jcs-v1` side.** The new public fixture
   `tests/interop/candidate/gate7-v1-negatives.json` injects a defect of each of the 8 unit classes, at 18 byte
   positions, into two frozen `dcp-jcs-v1` bases: 38 cases, the 2 bases included as controls. It records a reasoned
@@ -729,6 +742,22 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Documentation
 
+- `spec/profiles/admission/README.md` (admission profile): editorial precisions, with no change to
+  any vector, schema or SDK behaviour; the four SDKs already behave as they say. §5.1 step 2
+  verifies the bundle as a V2 signed bundle: a bundle that is not V2 is not verified, whatever
+  `allow_v1_bundles` says, and under the profile P1 stops before verification and reports the bundle
+  as not verified. A profile requires a trust set: the combined function and step 3 on its own
+  refuse a profile without one with `CONFIG_PROFILE_CONTRADICTION`, and the combined function
+  refuses a profile together with a caller's verifier policy with the same code; whether that
+  happens before or after verification is not fixed. In §4.1, a mode outside the enumeration of the
+  four modes is `CONFIG_INVALID_VALUE`, like a value of the wrong type, while a mode of that
+  enumeration other than `hybrid_required`, or an algorithm outside the allowed subset, is
+  `CONFIG_PROFILE_CONTRADICTION`. §2.2: when a trust set has several problems, the code of any one
+  of them may be reported; it is rejected whichever is reported, with no precedence defined. §5.2:
+  `errors` follow the order of the phases of §5.1, a check may add its code once per component or
+  subject, and no order is fixed within a phase. `tools/conformance/README.md`: the `error_contains`
+  strings that the evidence catalog judges (146 of its 241 cases) are the SDKs' diagnostic wording,
+  not normative.
 - `docs/QUICKSTART_CREWAI.md`: neither example ran. The V1 one imported `build_bundle`, which the
   Python SDK does not have, and wrote signatures where `intent_hash` and `prev_hash` take hashes;
   the V2 one used an API that was never released and said the Python SDK had no V2 bundle

@@ -5,13 +5,15 @@
 // invalid bytes), then json.Unmarshal into interface{} as the SDK's own interop test does (a failure is
 // rejected/parse), then ONE call to v2.CanonicalizeV2. Only its documented rejection ("non-integer float
 // at" / "non-finite float at", a plain error with no stable type or code) is rejected/profile; any other
-// error is an error. digest: v2.SHA256Hex / v2.SHA3256Hex of the decoded bytes.
+// error is an error. digest: v2.SHA256Hex / v2.SHA3256Hex of the decoded bytes. Contracts /2 and /3 (opt-in) are
+// described where they are handled below.
 package main
 
 import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -28,6 +30,7 @@ import (
 
 const contract = "dcp-ai-conformance-external/1"
 const contractV2 = "dcp-ai-conformance-external/2"
+const contractV3 = "dcp-ai-conformance-external/3"
 
 // evidence is set when the request is contract /2 (opt-in): dual_merkle_root, composite_verify and
 // verify_signed_bundle_v2 are then accepted, one call per case to v2.DualMerkleRoot, v2.CompositeVerify or
@@ -124,6 +127,142 @@ func runEvidenceCase(id, op string, c map[string]json.RawMessage) map[string]int
 		}
 		return map[string]interface{}{"id": id, "status": "ok", "verified": r.Verified, "errors": errs}
 	}
+}
+
+// admission is set when the request is contract /3 (opt-in, spec/profiles/admission): admit_signed_bundle_v2 and
+// load_admission_config are then accepted, one call per case to v2.AdmitSignedBundleV2 (the combined function, at the
+// request's now, never the system clock), after v2.ResolveStrictV1Profile and v2.NewPrincipalTrustStore load the
+// operator's configuration, or one call to either loader. Only a *v2.AdmissionConfigError (errors.As) is a rejection,
+// with its Code; any other error is an error. DCP_CONFORMANCE_WRAPPER_FAULT (self-tests only) can only turn an answer
+// into an error: "untyped" replaces each SDK call by an untyped error carrying a configuration code, "panic" panics.
+var admission bool
+
+// /3's now is exactly YYYY-MM-DDTHH:mm:ss.sssZ, a real date in the years 0001-9999: time.Parse refuses an impossible
+// date, the round trip any other spelling of the same instant, and year 0000 is refused explicitly.
+var nowMs = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$`)
+
+const nowLayout = "2006-01-02T15:04:05.000Z"
+
+func fault() error {
+	switch os.Getenv("DCP_CONFORMANCE_WRAPPER_FAULT") {
+	case "untyped":
+		return errors.New("CONFIG_INVALID_VALUE: injected by DCP_CONFORMANCE_WRAPPER_FAULT")
+	case "panic":
+		panic("injected by DCP_CONFORMANCE_WRAPPER_FAULT")
+	}
+	return nil
+}
+
+// classify turns an SDK error into the result: rejected for the SDK's typed configuration error, else an error.
+func classify(id string, err error) map[string]interface{} {
+	var ce *v2.AdmissionConfigError
+	if errors.As(err, &ce) {
+		return map[string]interface{}{"id": id, "status": "rejected", "code": ce.Code}
+	}
+	msg := fmt.Sprintf("%T: %s", err, err.Error())
+	if len(msg) > 500 {
+		msg = msg[:500]
+	}
+	return map[string]interface{}{"id": id, "status": "error", "message": msg}
+}
+
+func runAdmissionCase(id, op string, c map[string]json.RawMessage) map[string]interface{} {
+	if op == "load_admission_config" {
+		if !exactKeys(c, "id", "op", "kind", "config") {
+			fail("case " + id + ": load_admission_config fields do not match")
+		}
+		kind := mustStr(c, "kind", "case "+id)
+		if kind != "trust_set" && kind != "profile" {
+			fail("case " + id + ": kind must be trust_set or profile")
+		}
+		if err := fault(); err != nil {
+			return classify(id, err)
+		}
+		if kind == "trust_set" {
+			if _, err := v2.NewPrincipalTrustStore(c["config"]); err != nil {
+				return classify(id, err)
+			}
+			return map[string]interface{}{"id": id, "status": "ok", "accepted": true}
+		}
+		p, err := v2.ResolveStrictV1Profile(c["config"])
+		if err != nil {
+			return classify(id, err)
+		}
+		return map[string]interface{}{"id": id, "status": "ok", "accepted": true,
+			"max_session_duration_seconds": p.MaxSessionDurationSeconds(), "max_revocation_age_seconds": p.MaxRevocationAgeSeconds()}
+	}
+	if !exactKeys(c, "id", "op", "bundle_b64", "now", "profile", "trust_set", "verifier_policy", "revocation") {
+		fail("case " + id + ": admit_signed_bundle_v2 fields do not match")
+	}
+	bundle, ok := decodeBase64Strict(mustStr(c, "bundle_b64", "case "+id))
+	if !ok || !utf8.Valid(bundle) || !json.Valid(bundle) {
+		fail("case " + id + ": bundle_b64 is not canonical base64 of UTF-8 JSON")
+	}
+	t := mustStr(c, "now", "case "+id)
+	now, err := time.Parse(nowLayout, t)
+	if err != nil || !nowMs.MatchString(t) || now.UTC().Format(nowLayout) != t || now.Year() < 1 {
+		fail("case " + id + ": now is not YYYY-MM-DDTHH:mm:ss.sssZ with a real date in the years 0001-9999")
+	}
+	for _, k := range []string{"profile", "trust_set", "verifier_policy", "revocation"} {
+		if kind := jsonKind(c[k]); kind != 'n' && kind != '{' {
+			fail("case " + id + ": " + k + " must be an object or null")
+		}
+	}
+	var snapshot json.RawMessage
+	hasProfile, hasRevocation := jsonKind(c["profile"]) == '{', jsonKind(c["revocation"]) == '{'
+	if hasRevocation {
+		var rev map[string]json.RawMessage
+		if json.Unmarshal(c["revocation"], &rev) != nil {
+			fail("case " + id + ": revocation must be an object")
+		}
+		state, _ := str(rev, "state")
+		switch {
+		case state == "unavailable" && exactKeys(rev, "state"):
+		case state == "snapshot" && exactKeys(rev, "state", "snapshot") && jsonKind(rev["snapshot"]) == '{':
+			// An object, complete or not: the SDK judges its content.
+			snapshot = rev["snapshot"]
+		default:
+			fail("case " + id + ": revocation is {state: unavailable} or {state: snapshot, snapshot: <object>}")
+		}
+	}
+	if hasProfile != hasRevocation {
+		fail("case " + id + ": revocation is given exactly under a profile")
+	}
+	if err := fault(); err != nil {
+		return classify(id, err)
+	}
+	opts := v2.AdmitOptions{Now: now, Revocation: snapshot}
+	if hasProfile {
+		if opts.Profile, err = v2.ResolveStrictV1Profile(c["profile"]); err != nil {
+			return classify(id, err)
+		}
+	}
+	if jsonKind(c["trust_set"]) == '{' {
+		if opts.Trust, err = v2.NewPrincipalTrustStore(c["trust_set"]); err != nil {
+			return classify(id, err)
+		}
+	}
+	if jsonKind(c["verifier_policy"]) == '{' {
+		var policy v2.VerifierPolicy
+		if err := json.Unmarshal(c["verifier_policy"], &policy); err != nil {
+			return classify(id, fmt.Errorf("verifier_policy: %w", err))
+		}
+		opts.Policy = &policy
+	}
+	r, err := v2.AdmitSignedBundleV2(registry(), bundle, opts)
+	if err != nil {
+		return classify(id, err)
+	}
+	if r.Verification == nil {
+		return map[string]interface{}{"id": id, "status": "error", "message": "the admission result has no verification"}
+	}
+	codes := make([]string, 0, len(r.Errors))
+	for _, e := range r.Errors {
+		codes = append(codes, e.Code)
+	}
+	return map[string]interface{}{"id": id, "status": "ok", "verified": r.Verified, "principal_trust": r.PrincipalTrust, "profile": r.Profile,
+		"profile_compliance": r.ProfileCompliance, "admitted": r.Admitted, "action_authorized": r.ActionAuthorized,
+		"recorded_decision": r.RecordedDecision, "trust_set_version": r.TrustSetVersion, "codes": codes, "verification_verified": r.Verification.Verified}
 }
 
 var documentedRejection = regexp.MustCompile(`^non-(integer|finite) float at `)
@@ -223,6 +362,9 @@ func runCase(raw json.RawMessage) map[string]interface{} {
 	if evidence && (op == "dual_merkle_root" || op == "composite_verify" || op == "verify_signed_bundle_v2") {
 		return runEvidenceCase(id, op, c)
 	}
+	if admission && (op == "admit_signed_bundle_v2" || op == "load_admission_config") {
+		return runAdmissionCase(id, op, c)
+	}
 	switch op {
 	case "canonicalize":
 		if !exactKeys(c, "id", "op", "profile", "input_b64") {
@@ -291,6 +433,8 @@ func main() {
 	case contract:
 	case contractV2:
 		evidence = true
+	case contractV3:
+		admission = true
 	default:
 		fail("unknown contract")
 	}

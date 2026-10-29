@@ -270,3 +270,92 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
   `composite_verify` 是给定绑定和密钥的原语，bundle 的结论不是准入、对委托人的信任或对行为的授权。
   `stripping_pq_with_downgrade` 按 `classical_valid` 和 `pq_valid` 判定；拒绝它属于 `hybrid_required` 策略。
   二级字段只在存在时检查，因此通过并不表明二级链完整。经 WASM 时，时间是被替换的宿主时钟。
+  `error_contains` 字符串是 SDK 的诊断措辞，不具规范效力：`spec/VERIFICATION.md` 没有定义错误代码。
+  这 146 个用例通过只表明与该措辞一致；判定相同但消息不同的验证器会在这些用例上失败，而仅凭该失败并不能说明判定错误。
+
+<a id="admission-catalog-strict-v1-admission"></a>
+
+### 准入目录：strict-v1 准入
+
+`--catalog admission` 选择第二个选择性启用的目录 [`external-admission-catalog.json`](external-admission-catalog.json)
+（契约 `dcp-ai-conformance-external/3`，140 个用例），针对同类 argv 运行。它在已提交的
+[`admission_vectors.json`](../../tests/interop/v2/admission_vectors.json) 上判定
+[`spec/profiles/admission`](../../spec/profiles/admission/README.md) 的准入决定；目录用 SHA-256 固定该文件以及
+`bundle_vectors.json`。契约 `/1` 和 `/2` 及其目录不变。TypeScript、Python、Go 和 Rust 包装器通过各自的 SDK 应答
+`/3`；WASM 构建没有准入 API，因此其包装器拒绝 `/3`（exit 2），也没有任何东西模拟它。
+
+```bash
+node tools/conformance-external.js --catalog admission --list
+node tools/conformance-external.js --catalog admission --report /tmp/admission-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
+node tools/conformance-external.js --catalog admission -- /path/to/python -I tools/conformance/wrappers/python_sdk.py
+node tools/conformance-external.js --catalog admission -- tools/conformance/wrappers/.build/go-wrapper
+node tools/conformance-external.js --catalog admission -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+node --test tools/conformance/external-admission.test.mjs
+DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-admission-wrappers.test.mjs
+```
+
+| 套件 | 用例 | 来源 |
+|-------|-------|--------|
+| `external.admission.outcomes` | 65 | `admission_vectors.json` 的结果向量 |
+| `external.admission.config` | 71 | 其中 49 个被拒绝的配置、2 个带最大值的被接受配置文件，以及加载这些向量所用的 14 个信任集和 6 个配置文件 |
+| `external.admission.composed` | 4 | 依据向量的输入写在目录中：没有信任集的配置文件、带调用方验证器策略的配置文件，以及两个按字母顺序会把代码排错位置的组合 |
+
+- **操作：** `admit_signed_bundle_v2` 接收 `bundle_b64`、`now`、`profile`、`trust_set`、`verifier_policy` 和
+  `revocation`，六个总是全部给出；`load_admission_config` 接收 `kind`（`trust_set` 或 `profile`）和 `config`。
+  - `now` 必须正好是 `YYYY-MM-DDTHH:mm:ss.sssZ`，即 0001 年至 9999 年间真实存在的日期。这只是此传输的范围，不改变
+    协议的任何时间戳。
+  - `revocation` 在没有配置文件时为 `null`，否则为 `{"state": "unavailable"}`（没有快照，R1）或
+    `{"state": "snapshot", "snapshot": {…}}`，其中是一个由 SDK 判定的对象，完整与否均可。它恰好在有配置文件时给出。
+  - `profile`、`trust_set` 和 `verifier_policy` 是对象或 `null`。信任集和配置文件是运营方的配置，在请求中带外给出，
+    绝不取自 bundle。没有配置文件时，请求携带完整的验证器策略：`default_verifier_policy` 的 14 个字段，加上
+    `require_session_expiry: false`、`require_audience_binding: false` 和 `max_session_duration_seconds: 0`。有配置
+    文件时不携带策略，只有检查其拒绝的那个用例例外。
+  - 其他形式的请求会让包装器在调用 SDK 之前以 2 退出。
+- **应答：** `ok` 正好包含 `verified`、`principal_trust`、`profile`、`profile_compliance`、`admitted`、
+  `action_authorized`、`recorded_decision`、`trust_set_version`、`codes`（`errors` 的代码，按发出顺序，保留重复）和
+  `verification_verified`；对于配置为 `accepted: true`，对于配置文件还有它的两个最大值。`rejected` 只有在 SDK 抛出其
+  带类型的配置错误时才携带 `CONFIG_*` 代码。`error` 和 `unsupported` 绝不算通过。
+- **判定**，按以下顺序：
+  - 字段类型（`malformed_result`）；
+  - 由 spec/profiles/admission 推出的规则（`contradictory_result`）：`action_authorized` 为 `false`；`admitted` 恰在
+    没有添加任何代码时成立；只有在有信任集且 bundle 通过验证时才评估委托人信任；
+  - 精确的字段和代码集合；
+  - 原始序列的顺序，按第 5.1 节和第 5.2 节的阶段，包括 P1、T1、R1 和 R2 的停止（`order`）；
+  - 重复（`cardinality`）：只有适用于多个组件或主体的 P4、T2、R4 和 R5 可以重复其代码。
+
+  被拒绝的配置以其 `allowed_codes` 之一通过：它自己的代码，或者对于有两个问题的三个信任集，两个适用代码中的任意一个
+  （第 2.2 节）。配置文件按其有效最大值判定（第 4.1 节）。
+- **对照：** 否定用例只有在其对照传递地通过时才计数；否则为 `control_failed`，即错误。
+  - 29 个结果否定用例以同一 bundle 上的肯定用例为对照。
+  - 19 个在其 bundle 上没有肯定用例，在套件层面对照，这是较弱的保证。
+  - 配置拒绝以加载有效的信任集或配置文件为对照。
+  - 组合用例以其组合的向量为对照。
+
+  `--suite` 也会运行所选用例需要的对照，并报告它们（`controls_included`、`included_for_controls`）。
+- **进程与错误：** 与 `/1` 和 `/2` 相同（run id、nonce、随机用例 id、进程组和限制）；此目录的默认超时为 300 000 ms。
+  启动失败、非零 exit、信号、超时、过期的 id，或者格式错误、缺失、重复或多余的结果都是错误，绝不算拒绝或“未准入”。
+  目录及其测试数据在加载时验证（固定的哈希、精确的键和类型、每个期望值与正文一致）；缺陷为 exit 3。
+- **包装器：** 每个用例调用一次 SDK 的组合函数或加载函数，使用请求的 `now`，绝不使用系统时钟：
+  `admitSignedBundleV2`、`createPrincipalTrustStore` 和 `resolveStrictV1Profile`（TypeScript）；
+  `admit_signed_bundle_v2`、`create_principal_trust_store` 和 `resolve_strict_v1_profile`（Python）；
+  `AdmitSignedBundleV2`、`NewPrincipalTrustStore` 和 `ResolveStrictV1Profile`（Go）；`admit_signed_bundle_v2`、
+  `PrincipalTrustStore::from_json` 和 `resolve_strict_v1_profile`（Rust），使用 Ed25519 和 ML-DSA-65 提供者。只有带
+  类型的错误才算拒绝：`AdmissionConfigError`（TypeScript、Python、Rust）或通过 `errors.As` 得到的
+  `*AdmissionConfigError`（Go）。`DCP_CONFORMANCE_WRAPPER_FAULT` 仅供自测使用，只能把应答变成错误。
+- **自测：**
+  - `external-admission.test.mjs` 判定依据目录自身期望值构造的合成应答，不使用 SDK：错误的决定、顺序、基数、配置
+    代码、基础设施失败，以及被篡改的目录和测试数据。
+  - `external-admission-wrappers.test.mjs` 通过各自的 SDK 运行四个包装器：每个 140 个用例、请求的时钟（一个用例在
+    三个时刻）、格式错误的请求、注入的失败、无法加载的实现、WASM 的拒绝，以及（通过 TypeScript）一个从 bundle 获取
+    信任的 SDK。
+
+  CI 运行这两者，四个包装器均为必需。
+- **局限：**
+  - **通过表明什么。** 所运行的 argv 通过这 140 个用例，仅此而已。准入绝不是授权：`action_authorized` 始终为
+    `false`。
+  - **一种投影。** 应答是准入结果的投影。其中内含的验证（其错误、警告、详情、`signer_keys`、模式和层级）不作判定；
+    `verification_verified` 由实现自己报告。
+  - **带类型的错误。** 拒绝按其代码判定。它是否来自 SDK 带类型的错误，由包装器而非运行器看到。
+  - **较弱的保证。** 19 个套件层面的对照，以及写在目录而非向量中的 4 个组合期望值。
+  - **此目录之外。** 适配器、信任与吊销来源、TLS、租户、缓存和一次性使用。语料是已提交的向量和这四个组合，而不是
+    任意输入。

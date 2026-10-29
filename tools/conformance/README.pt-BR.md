@@ -305,4 +305,108 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
   chaves dados, e o veredito de um bundle não é admissão, confiança no principal nem autorização de uma ação.
   `stripping_pq_with_downgrade` é julgado por `classical_valid` e `pq_valid`; rejeitá-lo cabe a uma política
   `hybrid_required`. Os campos secundários são verificados onde estão presentes, então um sucesso não mostra uma
-  cadeia secundária completa. Via WASM, o horário é o relógio do host substituído.
+  cadeia secundária completa. Via WASM, o horário é o relógio do host substituído. As strings `error_contains` são a
+  redação de diagnóstico dos SDKs, não são normativas: `spec/VERIFICATION.md` não define códigos de erro. Um sucesso
+  nesses 146 casos mostra concordância com essa redação; um verificador com os mesmos veredictos e outras mensagens
+  falha neles, e essa falha por si só não mostra um veredito errado.
+
+<a id="admission-catalog-strict-v1-admission"></a>
+
+### Catálogo de admissão: admissão strict-v1
+
+`--catalog admission` seleciona um segundo catálogo opt-in, [`external-admission-catalog.json`](external-admission-catalog.json)
+(contrato `dcp-ai-conformance-external/3`, 140 casos), executado contra o mesmo tipo de argv. Ele julga a decisão de
+admissão de [`spec/profiles/admission`](../../spec/profiles/admission/README.md) sobre o
+[`admission_vectors.json`](../../tests/interop/v2/admission_vectors.json) versionado, que o catálogo fixa por SHA-256
+junto com `bundle_vectors.json`. Os contratos `/1` e `/2` e seus catálogos não mudam. Os wrappers de TypeScript, Python,
+Go e Rust respondem a `/3` por meio do seu SDK; o build WASM não tem API de admissão, então o seu wrapper recusa `/3`
+(exit 2) e nada o emula.
+
+```bash
+node tools/conformance-external.js --catalog admission --list
+node tools/conformance-external.js --catalog admission --report /tmp/admission-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
+node tools/conformance-external.js --catalog admission -- /path/to/python -I tools/conformance/wrappers/python_sdk.py
+node tools/conformance-external.js --catalog admission -- tools/conformance/wrappers/.build/go-wrapper
+node tools/conformance-external.js --catalog admission -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+node --test tools/conformance/external-admission.test.mjs
+DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-admission-wrappers.test.mjs
+```
+
+| Suíte | Casos | Origem |
+|-------|-------|--------|
+| `external.admission.outcomes` | 65 | Os vetores de resultado de `admission_vectors.json` |
+| `external.admission.config` | 71 | As suas 49 configurações rejeitadas, os seus 2 perfis aceitos com seus máximos, e o carregamento dos 14 conjuntos de confiança e 6 perfis que os vetores usam |
+| `external.admission.composed` | 4 | Escritos no catálogo a partir das entradas dos vetores: um perfil sem conjunto de confiança, um perfil com uma política de verificador de quem chama, e duas composições cujos códigos uma ordem alfabética deslocaria |
+
+- **Operações:** `admit_signed_bundle_v2` recebe `bundle_b64`, `now`, `profile`, `trust_set`, `verifier_policy` e
+  `revocation`, sempre os seis; `load_admission_config` recebe `kind` (`trust_set` ou `profile`) e `config`.
+  - `now` é exatamente `YYYY-MM-DDTHH:mm:ss.sssZ`, uma data real dos anos 0001 a 9999. É só o intervalo deste
+    transporte: não muda nenhum timestamp do protocolo.
+  - `revocation` é `null` sem perfil, `{"state": "unavailable"}` (sem snapshot, R1) ou
+    `{"state": "snapshot", "snapshot": {…}}` com um objeto, completo ou não, que o SDK julga. Ela é dada exatamente
+    quando há perfil.
+  - `profile`, `trust_set` e `verifier_policy` são objetos ou `null`. O conjunto de confiança e o perfil são a
+    configuração do operador, dada fora de banda na requisição, nunca tirada do bundle. Sem perfil, a requisição leva uma
+    política de verificador completa: os 14 campos de `default_verifier_policy`, mais `require_session_expiry: false`,
+    `require_audience_binding: false` e `max_session_duration_seconds: 0`. Com perfil não leva nenhuma, exceto no caso
+    que verifica a sua recusa.
+  - Uma requisição de outra forma faz o wrapper sair com 2 antes de chamar o SDK.
+- **Respostas:** `ok` com exatamente `verified`, `principal_trust`, `profile`, `profile_compliance`, `admitted`,
+  `action_authorized`, `recorded_decision`, `trust_set_version`, `codes` (os códigos de `errors`, na ordem emitida, com
+  as repetições) e `verification_verified`; para uma configuração, `accepted: true`, e para um perfil os seus dois
+  máximos. `rejected` leva um código `CONFIG_*`, somente quando o SDK lançou o seu erro de configuração tipado. `error` e
+  `unsupported` nunca são um sucesso.
+- **Julgamento**, nesta ordem:
+  - os tipos dos campos (`malformed_result`);
+  - as regras que decorrem de spec/profiles/admission (`contradictory_result`): `action_authorized` é `false`;
+    `admitted` vale exatamente quando nenhum código foi acrescentado; a confiança no principal só é avaliada com um
+    conjunto de confiança e um bundle verificado;
+  - os campos exatos e o conjunto de códigos;
+  - a ordem da sequência bruta pelas fases dos §5.1 e §5.2, com as paradas de P1, T1, R1 e R2 (`order`);
+  - as repetições (`cardinality`): só P4, T2, R4 e R5, que se aplicam a vários componentes ou sujeitos, podem repetir o
+    seu código.
+
+  Uma configuração rejeitada passa com um dos seus `allowed_codes`: o seu próprio código, ou qualquer um dos dois
+  aplicáveis nos três conjuntos de confiança com dois problemas (§2.2). Os perfis são julgados pelos seus máximos
+  efetivos (§4.1).
+- **Controles:** um negativo só conta se os seus controles passaram, de forma transitiva; caso contrário é
+  `control_failed`, um erro.
+  - 29 negativos de resultado são controlados pelo positivo do seu próprio bundle.
+  - 19 não têm positivo no seu bundle e são controlados no nível da suíte, uma garantia mais fraca.
+  - As rejeições de configuração são controladas pelo carregamento de um conjunto de confiança ou de um perfil válido.
+  - Os casos compostos são controlados pelos vetores que compõem.
+
+  `--suite` executa também os controles de que um caso selecionado precisa e os informa (`controls_included`,
+  `included_for_controls`).
+- **Processo e erros:** como em `/1` e `/2` (run id, nonce, ids de caso aleatórios, grupo de processos e limites); o
+  timeout padrão deste catálogo é de 300 000 ms. Uma falha ao iniciar, um exit diferente de zero, um sinal, um timeout,
+  ids obsoletos, ou um resultado malformado, ausente, duplicado ou extra é um erro, nunca uma rejeição nem um “não
+  admitido”. O catálogo e as suas fixtures são validados ao carregar (hashes fixados, chaves e tipos exatos, cada
+  expectativa coerente com o texto); um defeito é exit 3.
+- **Wrappers:** uma chamada por caso à função combinada ou aos carregadores do SDK, com o `now` da requisição, nunca o
+  relógio do sistema: `admitSignedBundleV2`, `createPrincipalTrustStore` e `resolveStrictV1Profile` (TypeScript);
+  `admit_signed_bundle_v2`, `create_principal_trust_store` e `resolve_strict_v1_profile` (Python);
+  `AdmitSignedBundleV2`, `NewPrincipalTrustStore` e `ResolveStrictV1Profile` (Go); `admit_signed_bundle_v2`,
+  `PrincipalTrustStore::from_json` e `resolve_strict_v1_profile` (Rust), com os provedores Ed25519 e ML-DSA-65. Só o erro
+  tipado é uma rejeição: `AdmissionConfigError` (TypeScript, Python, Rust) ou `*AdmissionConfigError` por meio de
+  `errors.As` (Go). `DCP_CONFORMANCE_WRAPPER_FAULT` serve só aos autotestes e só pode transformar uma resposta em erro.
+- **Autotestes:**
+  - `external-admission.test.mjs` julga respostas sintéticas construídas a partir das expectativas do próprio catálogo,
+    sem SDK: decisões erradas, ordem, cardinalidade, códigos de configuração, falhas de infraestrutura, e catálogos e
+    fixtures adulterados.
+  - `external-admission-wrappers.test.mjs` executa os quatro wrappers com os seus SDKs: os 140 casos de cada um, o
+    relógio da requisição (um caso em três instantes), requisições malformadas, falhas injetadas, uma implementação que
+    não consegue carregar, a recusa do WASM, e um SDK que tira a confiança do bundle, por meio do TypeScript.
+
+  A CI executa os dois, com os quatro wrappers obrigatórios.
+- **Limites:**
+  - **O que um sucesso mostra.** O argv executado passa nestes 140 casos, nada mais. A admissão nunca é uma autorização:
+    `action_authorized` é sempre `false`.
+  - **Uma projeção.** A resposta é uma projeção do resultado de admissão. A verificação incluída (os seus erros, avisos,
+    detalhes, `signer_keys`, modo e nível) não é julgada; `verification_verified` é informado pela própria implementação.
+  - **Erros tipados.** Uma rejeição é julgada pelo seu código. Se ela veio do erro tipado do SDK, quem vê é o wrapper,
+    não o runner.
+  - **Garantias mais fracas.** Os 19 controles no nível da suíte, e as 4 expectativas compostas, que estão escritas no
+    catálogo e não nos vetores.
+  - **Fora deste catálogo.** Os adaptadores, as fontes de confiança e de revogação, TLS, os inquilinos, o cache e o uso
+    único. O corpus são os vetores versionados e estas quatro composições, não qualquer entrada.

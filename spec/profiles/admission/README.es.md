@@ -4,7 +4,7 @@
 
 # Perfil de admisión: confianza en el principal y `strict-v1`
 
-> Traducción informativa de [la especificación en inglés](README.md), actualizada el 28/10/2026. **La versión normativa es la inglesa**: esta traducción no tiene valor normativo y, si difieren, prevalece el inglés. Los identificadores y bloques de código se conservan sin traducir.
+> Traducción informativa de [la especificación en inglés](README.md), actualizada el 29/10/2026. **La versión normativa es la inglesa**: esta traducción no tiene valor normativo y, si difieren, prevalece el inglés. Los identificadores y bloques de código se conservan sin traducir.
 
 **Estado:** Borrador, v1
 **Alcance:** Si un verificador admite un bundle V2 firmado como evidencia procedente de un principal en el que ya confía, bajo un perfil fijado por el operador
@@ -70,6 +70,8 @@ Un conjunto de confianza se valida cuando se carga. Se rechaza, con el código d
 | Un `human_id` listado dos veces, o un `kid` listado dos veces en todo el conjunto (bajo un principal o bajo dos) | `CONFIG_TRUST_DUPLICATE` |
 
 Cualquier duplicado se rechaza, sea idéntico o no: un operador que fusiona fuentes los resuelve antes de cargarlas. Un conjunto de confianza sin principales es válido y no confía en nadie.
+
+Cuando un conjunto de confianza tiene varios de estos problemas, puede informarse del código de cualquiera de los problemas que tiene. El conjunto de confianza se rechaza sea cual sea el código informado, y no se define ningún orden de precedencia entre los códigos.
 
 El estado de una clave que prevalece es el del conjunto de confianza. Un bundle que lista una clave como `active` no puede rehabilitar una que el conjunto de confianza marca como `revoked` o `expired`, o cuyo `expires_at` ya ha pasado.
 
@@ -169,8 +171,8 @@ Errores de configuración, que se lanzan cuando se carga el perfil:
 | Condición | Código |
 |---|---|
 | Un campo fuera del esquema, en el nivel superior o en `verifier_policy` | `CONFIG_UNKNOWN_FIELD` |
-| Un valor de tipo erróneo; `profile` que no es `"strict-v1"` | `CONFIG_INVALID_VALUE` |
-| `verifier_id` ausente o vacío; un máximo por debajo de 1 o por encima de 300; un valor de `verifier_policy` que la tabla anterior no permite | `CONFIG_PROFILE_CONTRADICTION` |
+| Un valor de tipo erróneo, o un modo (`default_mode`, un valor de `risk_overrides`) fuera de la enumeración `classical_only`, `hybrid_preferred`, `hybrid_required`, `pq_only`; `profile` que no es `"strict-v1"` | `CONFIG_INVALID_VALUE` |
+| `verifier_id` ausente o vacío; un máximo por debajo de 1 o por encima de 300; otro valor de `verifier_policy` que la tabla anterior no permite, como un modo de esa enumeración distinto de `hybrid_required`, o un algoritmo fuera del subconjunto permitido, sea conocido o no | `CONFIG_PROFILE_CONTRADICTION` |
 
 Cuando una configuración tiene varios problemas, puede informarse del código de cualquiera de ellos.
 
@@ -216,11 +218,13 @@ Una instantánea antigua que marca un sujeto como revocado informa de ambos cód
 
 Dados el bundle firmado, un perfil opcional, un conjunto de confianza opcional (obligatorio con el perfil), una instantánea de revocación (evaluada solo bajo el perfil) y `now`:
 
-1. Bajo el perfil, P1; después P2, P3 y la parte estructural de P4.
-2. Verifica el bundle (V2-1 a V2-14) en `now`, bajo la política del perfil, o bajo la política de quien llama si no hay perfil. No verificado: `VERIFICATION_FAILED`.
+1. Bajo el perfil, P1: cuando aplica, no se evalúa nada más y el bundle se informa como no verificado. En otro caso, P2, P3 y la parte estructural de P4.
+2. Verifica el bundle como bundle V2 firmado (V2-1 a V2-14) en `now`, bajo la política del perfil, o bajo la política de quien llama si no hay perfil. No verificado: `VERIFICATION_FAILED`. Un bundle que no es V2 no se verifica aquí, diga lo que diga `allow_v1_bundles` en la política ([DCP-AI-v2.0](../../DCP-AI-v2.0.md#implementation-notes-informative), nota sobre §17).
 3. Si está verificado: confianza en el principal (§3) cuando se aporta un conjunto de confianza; bajo el perfil, la parte verificada de P4 y las comprobaciones de revocación (§4.3).
 
 Una implementación puede exponer el paso 3 por sí solo (`evaluateAdmissionV2` y sus equivalentes) para que quien llama reutilice una verificación que ya tiene. Esa función confía en el resultado de verificación que recibe y no vuelve a verificar: debe ser el resultado del paso 2 para el mismo bundle, en el mismo `now`, bajo la política del perfil cuando hay perfil. Un resultado inventado, de otro bundle o bajo una política más débil da una respuesta errónea; la función combinada (`admitSignedBundleV2`) hace ambos pasos.
+
+Un perfil exige un conjunto de confianza. Una llamada con perfil y sin conjunto de confianza se rechaza con `CONFIG_PROFILE_CONTRADICTION`, tanto en la función combinada como en el paso 3 expuesto por sí solo, igual que la rechazan los adaptadores (§4.1). La función combinada también acepta la política de verificador de quien llama, para usarla sin perfil; con perfil, rechaza esa política con el mismo código, porque el perfil fija la suya. Este texto no fija si estos rechazos ocurren antes o después de la verificación.
 
 <a id="52-result"></a>
 
@@ -237,7 +241,7 @@ Una implementación puede exponer el paso 3 por sí solo (`evaluateAdmissionV2` 
 | `action_authorized` | Siempre `false` en esta versión (§7) |
 | `recorded_decision` | El `decision` de la decisión de política (`approve`, `escalate`, `block`) de un bundle verificado; si no, null |
 | `trust_set_version` | La versión del conjunto de confianza, o null |
-| `errors` | `{ code, message }` por cada código añadido, en el orden de §5.1 |
+| `errors` | `{ code, message }` por cada código añadido, en el orden de §5.1: P1; P2; P3; la parte estructural de P4; `VERIFICATION_FAILED`; confianza en el principal; la parte verificada de P4; revocación. Una comprobación que se aplica a varios componentes o sujetos puede añadir su código una vez por cada uno. El orden es solo entre estas fases: dentro de una fase, como la confianza en el principal o la revocación, no se fija ningún orden |
 
 `profile_compliance` es `compliant` cuando el bundle se verificó y no se añadió ningún código `PROFILE_*` ni `REVOCATION_*`. Un bundle que registra una decisión `block` o `escalate` puede admitirse como evidencia de esa decisión; `action_authorized` sigue siendo `false`.
 
@@ -322,4 +326,4 @@ Los campos del resultado conservan los nombres de §5.2 en la forma JSON de cada
   identificadores; no es un fixture y no se carga tal cual. Las dos entradas `<kid>` de §2.4 representan dos kids reales
   distintos: una instantánea adaptada no tiene claves JSON duplicadas. Los casos compartidos y ejecutables están en
   [`tests/interop/v2/admission_vectors.json`](../../../tests/interop/v2/admission_vectors.json) (§9).
-- Las API de §8 están en los SDK de `main` y aún no están en una versión publicada.
+- El 25/10/2026 las API de §8 estaban en los SDK de `main` y no en una versión publicada. *Actualización del 29/10/2026, que sustituye esa disponibilidad:* están publicadas en `@dcp-ai/sdk` desde 2.2.0, `dcp-ai` (PyPI) desde 2.10.0, Go desde v2.11.0 y Rust `dcp-ai` desde 2.11.0; consulta las notas de publicación de [npm](../../../docs/NPM_RELEASES.md), [Python](../../../docs/PYTHON_RELEASE.md), [Go](../../../docs/GO_RELEASE.md) y [Rust](../../../docs/RUST_RELEASE.md). `@dcp-ai/wasm` no tiene API de admisión.
