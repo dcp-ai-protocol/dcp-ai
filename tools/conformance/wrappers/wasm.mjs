@@ -25,8 +25,53 @@ const CONTRACT = "dcp-ai-conformance-external/1";
 const isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 const exactKeys = (o, keys) => isObj(o) && Object.keys(o).length === keys.length && keys.every((k) => Object.hasOwn(o, k));
 const utf8 = (buf) => new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(buf);
-// json_err in sdks/rust/src/lib.rs replaces '"' with "'", so path prefixes read key '…': and array[i]: .
-const PROFILE_REJECTION = /^(?:(?:key '.*?'|array\[\d+\]): )*Non-(?:integer|finite) number in V2 canonical form: /s;
+
+// The documented rejection of canonicalize_v2 behind any number of path prefixes. json_err in
+// sdks/rust/src/lib.rs replaces '"' with "'", so a prefix reads `key '<k>': ` (<k> may itself contain "': ")
+// or `array[<digits>]: `. A regular expression for this backtracks exponentially, so a small automaton is
+// run over the characters instead: one pass, a constant number of states per character. A message longer
+// than MAX_REJECTION_MESSAGE UTF-8 bytes (1 MiB, the same measure as the Rust wrapper) is never classified
+// as a profile rejection: it is reported as an error. The limit applies to this classifier only.
+const MAX_REJECTION_MESSAGE = 1 << 20;
+const REJECTION_TEXTS = ["Non-integer number in V2 canonical form: ", "Non-finite number in V2 canonical form: "];
+const KEY_OPEN = "key '";
+const ARRAY_OPEN = "array[";
+// States, as bits: B at a prefix boundary; K1..K4 inside "key '"; KB inside the key; E1/E2 after "'" and "':"
+// of a possible key end; A1..A5 inside "array["; D0 before the first digit; D in the digits; F1/F2 after
+// "]" and "]:".
+const B = 1, KB = 1 << 5, E1 = 1 << 6, E2 = 1 << 7, D0 = 1 << 13, D = 1 << 14, F1 = 1 << 15, F2 = 1 << 16;
+const K = (i) => 1 << i;       // K1..K4: bits 1..4
+const A = (i) => 1 << (7 + i); // A1..A5: bits 8..12
+
+function step(set, c) {
+  let next = 0;
+  if (set & B) {
+    if (c === KEY_OPEN[0]) next |= K(1);
+    if (c === ARRAY_OPEN[0]) next |= A(1);
+  }
+  for (let i = 1; i <= 4; i++) if (set & K(i) && c === KEY_OPEN[i]) next |= i < 4 ? K(i + 1) : KB;
+  if (set & KB) next |= c === "'" ? KB | E1 : KB;
+  if (set & E1 && c === ":") next |= E2;
+  if (set & E2 && c === " ") next |= B;
+  for (let i = 1; i <= 5; i++) if (set & A(i) && c === ARRAY_OPEN[i]) next |= i < 5 ? A(i + 1) : D0;
+  const digit = c >= "0" && c <= "9";
+  if (set & (D0 | D) && digit) next |= D;
+  if (set & D && c === "]") next |= F1;
+  if (set & F1 && c === ":") next |= F2;
+  if (set & F2 && c === " ") next |= B;
+  return next;
+}
+
+function isDocumentedRejection(msg) {
+  if (Buffer.byteLength(msg, "utf8") > MAX_REJECTION_MESSAGE) return false;
+  let set = B;
+  for (let i = 0; set !== 0; i++) {
+    if (set & B && REJECTION_TEXTS.some((t) => msg.startsWith(t, i))) return true;
+    if (i === msg.length) return false;
+    set = step(set, msg[i]);
+  }
+  return false;
+}
 
 function fail(message) {
   process.stderr.write(`wasm wrapper: ${message}\n`);
@@ -71,7 +116,7 @@ function canonicalize(id, text) {
       return { id, status: "error", message: "ambiguous: the input is a single-key {\"error\": …} object, so the export's in-band error cannot be told apart from its canonical form" };
     }
     if (parsed.error.startsWith("JSON parse: ")) return { id, status: "rejected", code: "parse" };
-    if (PROFILE_REJECTION.test(parsed.error)) return { id, status: "rejected", code: "profile" };
+    if (isDocumentedRejection(parsed.error)) return { id, status: "rejected", code: "profile" };
     return { id, status: "error", message: `ambiguous single-key {"error": …} result: ${parsed.error}`.slice(0, 500) };
   }
   return { id, status: "ok", output_b64: Buffer.from(out, "utf8").toString("base64") };

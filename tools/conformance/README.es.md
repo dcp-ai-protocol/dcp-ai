@@ -215,8 +215,10 @@ DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-native.test
   (sea cual sea su valor), y en otro caso solo es un rechazo para los mensajes documentados. Las exportaciones de digest reciben
   texto: las 8 entradas de digest son texto, y los bytes que no son UTF-8 son un `error`, nunca se sustituyen.
 - **Errores:** en los tres, una petición con un tipo erróneo (por ejemplo `input_b64` numérico o `null`, o `cases`
-  que no es un array) es inválida y el wrapper termina con 2; cualquier error distinto del rechazo documentado es
-  `error`. Sin `DCP_EXTERNAL_REQUIRE_NATIVE=1`, `node --test` omite lo que no está compilado y lo indica; con ella,
+  que no es un array) es inválida y el wrapper termina con 2; cualquier error distinto del rechazo documentado es `error`. En Rust y WASM, el rechazo documentado de
+  números se reconoce en una sola pasada lineal, sin expresiones regulares con backtracking; un mensaje de más de
+  1 MiB en UTF-8 es un `error`, nunca un rechazo (el límite se aplica a ese clasificador, no a los errores de
+  parseo). Sin `DCP_EXTERNAL_REQUIRE_NATIVE=1`, `node --test` omite lo que no está compilado y lo indica; con ella,
   la falta de una herramienta o de un artefacto es un fallo. La CI compila los tres wrappers desde el checkout y
   ejecuta los 38 casos con cada uno, así que allí los cinco wrappers son obligatorios.
 - **Límites:** el wrapper WASM llama a las exportaciones crudas de wasm-bindgen alojadas en Node: no cubre la API

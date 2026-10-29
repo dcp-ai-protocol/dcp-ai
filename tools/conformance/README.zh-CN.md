@@ -194,7 +194,9 @@ DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-native.test
   只有文档所述的消息才算拒绝。摘要导出函数接收文本：8 个摘要输入都是文本，不是 UTF-8 的字节是 `error`，绝不会
   被替换。
 - **错误：** 在三者中，类型错误的请求（例如 `input_b64` 为数字或 `null`，或 `cases` 不是数组）都是无效的，包装器
-  以 2 退出；文档所述拒绝之外的任何错误都是 `error`。未设置 `DCP_EXTERNAL_REQUIRE_NATIVE=1` 时，`node --test`
+  以 2 退出；文档所述拒绝之外的任何错误都是 `error`。在 Rust 和 WASM 中，文档所述的数字拒绝通过一次线性扫描
+  识别，不使用会回溯的正则表达式；UTF-8 长度超过 1 MiB 的消息是 `error`，绝不算拒绝（该上限只适用于这一判定，
+  不适用于解析错误）。未设置 `DCP_EXTERNAL_REQUIRE_NATIVE=1` 时，`node --test`
   会跳过未构建的部分并加以说明；设置后，缺少工具或产物即为失败。CI 从检出副本构建这三个包装器，并用每个包装器
   运行 38 个用例，因此在 CI 中五个包装器都是必需的。
 - **限制：** WASM 包装器在 Node 中调用 wasm-bindgen 的原始导出函数：它不覆盖 `@dcp-ai/wasm` 软件包的

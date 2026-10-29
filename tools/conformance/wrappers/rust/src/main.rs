@@ -32,20 +32,60 @@ fn decode_base64_strict(s: &str) -> Option<Vec<u8>> {
     (STANDARD.encode(&b) == s).then_some(b)
 }
 
-/// The documented rejection text of canonicalize_v2, behind any number of path prefixes. A key may
-/// itself contain `": `, so every possible end of a `key "…": ` prefix is tried.
+/// A message longer than this many UTF-8 bytes (1 MiB, the same measure as the WASM wrapper) is never
+/// classified as a profile rejection: it is reported as an error. The limit applies to this classifier only.
+const MAX_REJECTION_MESSAGE: usize = 1 << 20;
+const REJECTION_TEXTS: [&[u8]; 2] = [b"Non-integer number in V2 canonical form: ", b"Non-finite number in V2 canonical form: "];
+
+/// The documented rejection text of canonicalize_v2, behind any number of `key "<k>": ` prefixes (<k> may
+/// itself contain `": `) and `array[<digits>]: ` prefixes. Trying every possible end of a key backtracks
+/// exponentially, so a small automaton runs over the bytes instead: one pass, a constant number of states
+/// per byte. States, as bits: B at a prefix boundary; K1..K4 inside `key "`; KB inside the key; E1/E2 after
+/// `"` and `":`; A1..A5 inside `array[`; D0 before the first digit; D in the digits; F1/F2 after `]` and `]:`.
 fn is_documented_rejection(msg: &str) -> bool {
-    if msg.starts_with("Non-integer number in V2 canonical form: ") || msg.starts_with("Non-finite number in V2 canonical form: ") {
-        return true;
+    const KEY_OPEN: &[u8] = b"key \"";
+    const ARRAY_OPEN: &[u8] = b"array[";
+    const B: u32 = 1;
+    const KB: u32 = 1 << 5;
+    const E1: u32 = 1 << 6;
+    const E2: u32 = 1 << 7;
+    const D0: u32 = 1 << 13;
+    const D: u32 = 1 << 14;
+    const F1: u32 = 1 << 15;
+    const F2: u32 = 1 << 16;
+    let k = |i: usize| 1u32 << i; // K1..K4: bits 1..4
+    let a = |i: usize| 1u32 << (7 + i); // A1..A5: bits 8..12
+    let bytes = msg.as_bytes();
+    if bytes.len() > MAX_REJECTION_MESSAGE {
+        return false;
     }
-    if let Some(after) = msg.strip_prefix("array[") {
-        return match after.find("]: ") {
-            Some(i) if i > 0 && after[..i].bytes().all(|b| b.is_ascii_digit()) => is_documented_rejection(&after[i + 3..]),
-            _ => false,
-        };
-    }
-    if let Some(after) = msg.strip_prefix("key \"") {
-        return after.match_indices("\": ").any(|(i, _)| is_documented_rejection(&after[i + 3..]));
+    let mut set = B;
+    let mut i = 0;
+    while set != 0 {
+        if set & B != 0 && REJECTION_TEXTS.iter().any(|t| bytes[i..].starts_with(t)) {
+            return true;
+        }
+        let Some(&c) = bytes.get(i) else { return false };
+        let mut next = 0;
+        if set & B != 0 {
+            if c == KEY_OPEN[0] { next |= k(1); }
+            if c == ARRAY_OPEN[0] { next |= a(1); }
+        }
+        for j in 1..=4 {
+            if set & k(j) != 0 && c == KEY_OPEN[j] { next |= if j < 4 { k(j + 1) } else { KB }; }
+        }
+        if set & KB != 0 { next |= if c == b'"' { KB | E1 } else { KB }; }
+        if set & E1 != 0 && c == b':' { next |= E2; }
+        if set & E2 != 0 && c == b' ' { next |= B; }
+        for j in 1..=5 {
+            if set & a(j) != 0 && c == ARRAY_OPEN[j] { next |= if j < 5 { a(j + 1) } else { D0 }; }
+        }
+        if set & (D0 | D) != 0 && c.is_ascii_digit() { next |= D; }
+        if set & D != 0 && c == b']' { next |= F1; }
+        if set & F1 != 0 && c == b':' { next |= F2; }
+        if set & F2 != 0 && c == b' ' { next |= B; }
+        set = next;
+        i += 1;
     }
     false
 }

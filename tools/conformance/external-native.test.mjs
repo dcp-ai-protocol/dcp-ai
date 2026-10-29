@@ -41,9 +41,9 @@ function available(t, ok, why) {
 const hasTool = (cmd, args = ["--version"]) => !spawnSync(cmd, args, { stdio: "ignore" }).error;
 
 let n = 0;
-function runner(argv, env = {}) {
+function runner(argv, env = {}, options = []) {
   const report = path.join(TMP, `report-${++n}.json`);
-  const r = spawnSync(process.execPath, [CLI, "--report", report, "--", ...argv], { encoding: "utf8", env: { ...process.env, ...env }, timeout: 120000 });
+  const r = spawnSync(process.execPath, [CLI, "--report", report, ...options, "--", ...argv], { encoding: "utf8", env: { ...process.env, ...env }, timeout: 120000 });
   return { code: r.status, report: JSON.parse(fs.readFileSync(report, "utf8")), stderr: r.stderr };
 }
 function call(argv, input, env = {}) {
@@ -120,6 +120,7 @@ const OUTCOMES = [
   ["a top-level fraction", canon("{\"n\":0.5}"), { status: "rejected", code: "profile" }],
   ["a fraction behind a key and an array index", canon("{\"a\":{\"b\":[1,2.5]}}"), { status: "rejected", code: "profile" }],
   ["a fraction under a key with quotes and colons", canon("{\"k\\\": x\":0.25}"), { status: "rejected", code: "profile" }],
+  ["a fraction under a key with an apostrophe and colons", canon("{\"k': x\":0.25}"), { status: "rejected", code: "profile" }],
   ["an accepted value", canon("{\"b\":1,\"a\":[true,null]}"), { status: "ok", output_b64: b64("{\"a\":[true,null],\"b\":1}") }],
 ];
 for (const [name, w] of Object.entries(WRAPPERS)) {
@@ -195,6 +196,31 @@ function expectInternalErrors(r) {
   assert.ok(canonCases.every((c) => c.status === "error" && c.kind === "implementation"), JSON.stringify(canonCases.map((c) => [c.status, c.kind])));
 }
 
+// Rejection messages built to make a backtracking classifier explode, and long ones. Each run has the
+// runner's deadline (20 s) and spawnSync's (120 s); the classification must finish well before either.
+function expectAdversarial(argv) {
+  const opts = ["--timeout-ms", "20000"];
+  const t0 = Date.now();
+  const none = runner(argv, { FAKE_MODE: "adversarial-no-text" }, opts);
+  assert.equal(none.report.implementation.observed.timed_out, false);
+  expectInternalErrors(none);
+  const long = runner(argv, { FAKE_MODE: "adversarial-long-prefixes" }, opts);
+  assert.equal(long.report.implementation.observed.timed_out, false);
+  assert.equal(long.code, 1, "every canonicalize case is a documented rejection: the 27 accepted inputs fail");
+  const canonCases = long.report.suites.find((s) => s.id === "external.dcp-jcs-v1.canonicalize").cases;
+  assert.equal(canonCases.filter((c) => c.status === "fail").length, 27);
+  assert.deepEqual(canonCases.filter((c) => c.status === "pass").map((c) => c.id).sort(), [...FRACTIONS].sort());
+  const over = runner(argv, { FAKE_MODE: "adversarial-over-limit" }, opts);
+  assert.equal(over.report.implementation.observed.timed_out, false);
+  expectInternalErrors(over);
+  // 110 000 prefixes with a 3-byte key: about 0.99 M UTF-16 code units but 1.21 MB of UTF-8, so the
+  // 1 MiB limit (UTF-8 bytes in both wrappers) applies and the result is an error, never a rejection.
+  const multibyte = runner(argv, { FAKE_MODE: "adversarial-over-limit-multibyte" }, opts);
+  assert.equal(multibyte.report.implementation.observed.timed_out, false);
+  expectInternalErrors(multibyte);
+  assert.ok(Date.now() - t0 < 60000, `adversarial runs took ${Date.now() - t0} ms`);
+}
+
 test("go: a fake SDK that accepts fractions or fails internally is not hidden", (t) => {
   if (!available(t, hasTool("go", ["version"]), "the go toolchain is not available")) return;
   const fake = path.join(TMP, "go-fake");
@@ -253,6 +279,10 @@ pub mod v2 {
         pub fn canonicalize_v2(value: &Value) -> Result<String, String> {
             match std::env::var("FAKE_MODE").as_deref() {
                 Ok("internal-error") => Err("internal failure".to_string()),
+                Ok("adversarial-no-text") => Err(format!("key \\"{}x", "\\": key \\"".repeat(100_000))),
+                Ok("adversarial-long-prefixes") => Err(format!("{}Non-integer number in V2 canonical form: 0.5", "key \\"a\\": ".repeat(50_000))),
+                Ok("adversarial-over-limit") => Err(format!("{}Non-integer number in V2 canonical form: 0.5", "key \\"a\\": ".repeat(150_000))),
+                Ok("adversarial-over-limit-multibyte") => Err(format!("{}Non-integer number in V2 canonical form: 0.5", "key \\"\u20ac\\": ".repeat(110_000))),
                 Ok("accept-fractions") => super::real::canonicalize_v2(value).or_else(|_| Ok(serde_json::to_string(value).unwrap())),
                 _ => super::real::canonicalize_v2(value),
             }
@@ -275,6 +305,7 @@ pub mod v2 {
   const bin = path.join(target, "debug", `dcp-ai-conformance-wrapper${process.platform === "win32" ? ".exe" : ""}`);
   expectFractionsAccepted(runner([bin], { FAKE_MODE: "accept-fractions" }));
   expectInternalErrors(runner([bin], { FAKE_MODE: "internal-error" }));
+  expectAdversarial([bin]);
   assert.equal(runner([bin]).code, 0, "the fake in its default mode is the real canonicalizer");
 });
 
@@ -291,6 +322,10 @@ export function wasm_canonicalize_v2(text) {
   const mode = process.env.FAKE_MODE;
   if (mode === "internal-error") return '{"error":"RuntimeError: unreachable executed"}';
   if (mode === "throws") throw new WebAssembly.RuntimeError("unreachable");
+  if (mode === "adversarial-no-text") return JSON.stringify({ error: "key '" + "': key '".repeat(100000) + "x" });
+  if (mode === "adversarial-long-prefixes") return JSON.stringify({ error: "key 'a': ".repeat(50000) + "Non-integer number in V2 canonical form: 0.5" });
+  if (mode === "adversarial-over-limit") return JSON.stringify({ error: "key 'a': ".repeat(150000) + "Non-integer number in V2 canonical form: 0.5" });
+  if (mode === "adversarial-over-limit-multibyte") return JSON.stringify({ error: "key '\u20ac': ".repeat(110000) + "Non-integer number in V2 canonical form: 0.5" });
   const out = real.wasm_canonicalize_v2(text);
   return mode === "accept-fractions" && out.startsWith('{"error":') ? JSON.stringify(JSON.parse(text)) : out;
 }
@@ -299,6 +334,7 @@ export function wasm_canonicalize_v2(text) {
   expectFractionsAccepted(runner(argv, { FAKE_MODE: "accept-fractions" }));
   expectInternalErrors(runner(argv, { FAKE_MODE: "internal-error" }));
   expectInternalErrors(runner(argv, { FAKE_MODE: "throws" }));
+  expectAdversarial(argv);
   const plain = runner(argv);
   assert.equal(plain.code, 0);
   assert.match(plain.report.implementation.self_declared.version, /^unknown \(package fake-wasm\)$/);
