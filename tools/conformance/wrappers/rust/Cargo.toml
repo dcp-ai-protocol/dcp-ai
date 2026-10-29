@@ -1,0 +1,16 @@
+# External conformance wrapper for the Rust SDK in this checkout (tools/conformance/README.md).
+# dcp-ai comes from ../../../../sdks/rust by path. Cargo.lock started as a copy of the SDK's lock and was
+# resolved offline, so every shared crate keeps the SDK's pinned version; builds use --locked.
+# Build with tools/conformance/wrappers/build.mjs. Not published.
+[package]
+name = "dcp-ai-conformance-wrapper"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+dcp-ai = { path = "../../../../sdks/rust" }
+serde_json = "1.0"
+base64 = "0.22"
+
+[workspace]

@@ -198,6 +198,14 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Added
 
+- **Go, Rust and WASM wrappers for the external conformance runner.**
+  `tools/conformance/wrappers/build.mjs` builds wrappers for the Go SDK, the Rust SDK and the WASM
+  build of the Rust SDK from this checkout (`-mod=readonly`, `--locked`; no SDK manifest or lockfile
+  changes), and each runs the same 38 cases through the real API, with one call to the canonicalizer
+  and only its documented rejection classified as such. The WASM wrapper runs the real `.wasm`
+  hosted in Node, not in a browser, and treats the export's in-band `{"error": …}` collision
+  conservatively. CI builds the three and runs them as required jobs. No package is published. See
+  [tools/conformance/README.md](tools/conformance/README.md#go-rust-and-wasm-wrappers).
 - **External conformance runner (`tools/conformance-external.js`).** It runs a separate, versioned
   catalog (`tools/conformance/external-catalog.json`, contract `dcp-ai-conformance-external/1`)
   against any implementation given as argv, through one JSON request on stdin and one JSON response

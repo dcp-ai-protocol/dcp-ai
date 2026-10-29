@@ -190,6 +190,48 @@ jobs:
       - name: Python SDK wrapper (38 cases)
         run: node tools/conformance-external.js --report external-python.json -- "$(command -v python)" -I tools/conformance/wrappers/python_sdk.py
 
+  # Go, Rust and WASM wrappers (tools/conformance/README.md#go-rust-and-wasm-wrappers), built once from this
+  # checkout and reused for the self-tests and the 38 cases each. DCP_EXTERNAL_REQUIRE_NATIVE turns a missing
+  # toolchain or artifact into a failure, not a skip. The runner uses Node built-ins only: no npm install.
+  conformance-external-native:
+    name: External conformance (Go, Rust and WASM wrappers)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: sdks/go/go.mod
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Build the Go, Rust and WASM wrappers from the checkout
+        run: node tools/conformance/wrappers/build.mjs all
+
+      - name: Native wrapper self-tests (every wrapper required)
+        env:
+          DCP_EXTERNAL_REQUIRE_NATIVE: "1"
+        run: node --test tools/conformance/external-native.test.mjs
+
+      - name: Go SDK wrapper (38 cases)
+        run: node tools/conformance-external.js --report external-go.json -- tools/conformance/wrappers/.build/go-wrapper
+
+      - name: Rust SDK wrapper (38 cases)
+        run: node tools/conformance-external.js --report external-rust.json -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+
+      - name: WASM build wrapper (38 cases, Node-hosted)
+        run: node tools/conformance-external.js --report external-wasm.json -- node tools/conformance/wrappers/wasm.mjs
+
   typescript-sdk:
     name: TypeScript SDK
     needs: changes

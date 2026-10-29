@@ -4,7 +4,7 @@
 
 # DCP-AI 適合性キット
 
-> [英語版](README.md)の参考訳です（28/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](README.md)の参考訳です（29/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 `tools/conformance.js` は、[`catalog.json`](catalog.json) で宣言されたスイートを、リポジトリにコミット済みの
 フィクスチャとベクターに対して実行します。カタログはバージョン管理され（`kit_version`）、スイートごとに
@@ -172,3 +172,59 @@ printf '%s' '{"contract":"dcp-ai-conformance-external/1","run_id":"00000000-0000
   `dcp-jcs-v1` の実装や DCP への適合を示すものではなく、識別情報は自己申告です。サンドボックスではありません。実装は
   あなたの権限と環境で実行され、プロセスグループから離れた子孫（`setsid`）は見えず、Windows では直接の子だけを終了
   させます。
+
+<a id="go-rust-and-wasm-wrappers"></a>
+
+### Go、Rust、WASM のラッパー
+
+さらに 3 つのラッパーが、同じ 38 ケースと同じ契約を、このチェックアウトの Go SDK、Rust SDK、Rust SDK の
+WASM ビルドに対して実行します。`build.mjs` はそれらを `tools/conformance/wrappers/.build/`（Git の対象外）に
+コンパイルします。Go 1.25 以降、Cargo、`wasm32-unknown-unknown` ターゲット付きの `wasm-pack` が必要です。
+DCP のパッケージをインストールや公開することはなく、SDK のマニフェストやロックファイルも変更しません。`--offline`
+なしでは、Cargo と `wasm-pack` がビルドツールや固定された依存関係をキャッシュにダウンロードすることがあります。
+`--offline` は `GOPROXY=off`、Cargo の `--offline`、`wasm-pack --mode no-install` を使い、それらのキャッシュが
+すでに埋まっている必要があります。
+
+```bash
+node tools/conformance/wrappers/build.mjs all
+node tools/conformance/wrappers/build.mjs --offline go rust wasm
+node tools/conformance-external.js -- tools/conformance/wrappers/.build/go-wrapper
+node tools/conformance-external.js -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+node tools/conformance-external.js -- node tools/conformance/wrappers/wasm.mjs
+DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-native.test.mjs
+```
+
+- **ビルド：** Go はラッパーの `go.mod` と `go.sum` に対して `-mod=readonly` でビルドします。そのバージョンは SDK
+  自身のものの部分集合です。Cargo は `--locked` でビルドします。ネイティブのラッパーはその `Cargo.lock`（SDK の
+  ロックのコピーをオフラインで解決したもので、固定されたバージョンは同じ）を、WASM の成果物は SDK の
+  `Cargo.lock` を使います。`--offline` はローカルのキャッシュだけを使います。SDK のマニフェストやロックファイルは
+  変わりません。
+- **Go**（`wrappers/go`）：入力は UTF-8 でなければなりません（`encoding/json` は不正なバイトを置き換えるため、
+  先に確認します）。その後、SDK 自身の interop テストと同じく `interface{}` に `json.Unmarshal` し、
+  `v2.CanonicalizeV2` を 1 回だけ呼びます。`rejected`/`profile` になるのは文書化された拒否（`non-integer float at`、`non-finite float at`）だけです。ダイジェストは `v2.SHA256Hex`、`v2.SHA3256Hex`。バージョンはローカルの
+  チェックアウトとして報告します。
+- **Rust**（`wrappers/rust`）：致命的な UTF-8 デコード、`serde_json::from_str`、そして
+  `dcp_ai::v2::canonicalize::canonicalize_v2` を 1 回だけ呼びます。`rejected`/`profile` になるのは文書化された
+  拒否（パスの接頭辞の後に続く `Non-integer number in V2 canonical form:`、`Non-finite number in V2 canonical form:`）だけです。ダイジェストは `sha256_hex`、`sha3_256_hex`。バージョンは `DCP_SDK_VERSION` です。
+- **WASM**（`wrappers/wasm.mjs`）：`wasm-pack` が `sdks/rust` から `wasm` フィーチャー（`--target web`）で
+  コンパイルした実際の `.wasm` を読み込み、その SHA-256 を報告します。生の JSON テキストを
+  `wasm_canonicalize_v2` に 1 回だけ渡し、呼び出し前に JavaScript で `JSON.parse` や
+  `JSON.stringify` は使いません。呼び出し後は、曖昧さを示すためだけに入力と出力を調べ、バイト列を計算し直すことは
+  ありません。この
+  エクスポートはエラーを結果の中で `{"error": "…"}` として返しますが、有効な入力も同じものを生成し得ます。その
+  ため、単一キーの `{"error": string}` の結果は、入力自体が唯一のキーが `error` であるルートオブジェクト（値の型は問わない）であれば曖昧な `error`
+  とし、それ以外では文書化されたメッセージの場合にだけ拒否とします。ダイジェストのエクスポートはテキストを
+  受け取ります。8 つのダイジェスト入力はテキストで、UTF-8 でないバイト列は `error` となり、置き換えはしません。
+- **エラー：** 3 つとも、型が誤っているリクエスト（たとえば数値や `null` の `input_b64`、配列でない `cases`）は
+  不正で、ラッパーは 2 で終了します。文書化された拒否以外のエラーは `error` です。Rust と WASM では、文書化された数値の拒否は、
+  バックトラックする正規表現を使わず 1 回の線形な走査で判別します。UTF-8 で 1 MiB を超えるメッセージは拒否ではなく
+  `error` になります（この上限はその判別にだけ適用され、構文解析のエラーには適用されません）。`DCP_EXTERNAL_REQUIRE_NATIVE=1`
+  がないと、`node --test` はビルドされていないものをスキップし、その旨を表示します。指定すると、ツールや成果物が
+  ないことは失敗になります。CI はチェックアウトから 3 つのラッパーをビルドし、それぞれで 38 ケースを実行するため、
+  そこでは 5 つのラッパーすべてが必須です。
+- **制限：** WASM のラッパーは、Node 上で wasm-bindgen の生のエクスポートを呼びます。`@dcp-ai/wasm`
+  パッケージの JavaScript API（`DcpClient` など）やブラウザーは対象外です。SDK に安定したエラーコードがないため、拒否の判別は
+  メッセージの文字列に依存します。また、WASM では、ルートが単一キーの `{"error": …}` の入力は、
+  エクスポートが `{"error": string}` の封筒を返した場合にだけ曖昧なエラーになります（`{"error":5}` は `ok` の
+  ままです）。
+  合格が示すのは、これら 38 ケースが各ラッパーで合格することだけです。

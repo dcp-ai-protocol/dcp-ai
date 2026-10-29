@@ -4,7 +4,7 @@
 
 # Kit de conformidad de DCP-AI
 
-> Traducción informativa de [la versión en inglés](README.md), actualizada el 28/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](README.md), actualizada el 29/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 `tools/conformance.js` ejecuta las suites declaradas en [`catalog.json`](catalog.json) contra los fixtures y
 vectores del repositorio. El catálogo está versionado (`kit_version`) y fija, para cada suite, los IDs exactos
@@ -173,3 +173,56 @@ Una respuesta válida a esa petición (el wrapper añade además `resolved_from`
   implementación completa de `dcp-jcs-v1` ni conformidad DCP, y la identidad es declarada por la implementación. No
   es un sandbox: la implementación se ejecuta con tus privilegios y tu entorno, los descendientes que salen del grupo
   de procesos (`setsid`) no se ven, y en Windows solo se mata al hijo directo.
+
+<a id="go-rust-and-wasm-wrappers"></a>
+
+### Wrappers de Go, Rust y WASM
+
+Tres wrappers más ejecutan los mismos 38 casos y el mismo contrato contra el SDK de Go, el SDK de Rust y la
+compilación WASM del SDK de Rust, todos de este checkout. `build.mjs` los compila en
+`tools/conformance/wrappers/.build/` (ignorado por Git); necesita Go 1.25 o posterior, Cargo y `wasm-pack` con el
+target `wasm32-unknown-unknown`. No instala ni publica ningún paquete de DCP ni cambia manifests ni lockfiles
+del SDK. Sin `--offline`, Cargo y `wasm-pack` pueden descargar herramientas de compilación y las dependencias
+fijadas a sus cachés; `--offline` usa `GOPROXY=off`, Cargo `--offline` y `wasm-pack --mode no-install`, y
+necesita esas cachés ya llenas.
+
+```bash
+node tools/conformance/wrappers/build.mjs all
+node tools/conformance/wrappers/build.mjs --offline go rust wasm
+node tools/conformance-external.js -- tools/conformance/wrappers/.build/go-wrapper
+node tools/conformance-external.js -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+node tools/conformance-external.js -- node tools/conformance/wrappers/wasm.mjs
+DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-native.test.mjs
+```
+
+- **Compilación:** Go compila con `-mod=readonly` contra el `go.mod` y el `go.sum` del wrapper, cuyas versiones son
+  un subconjunto de las del propio SDK; Cargo compila con `--locked`, el wrapper nativo con su `Cargo.lock` (una
+  copia del lock del SDK, resuelta sin red, con las mismas versiones fijadas) y el artefacto WASM con el
+  `Cargo.lock` del SDK. `--offline` usa solo las cachés locales. No cambia ningún manifest ni lockfile del SDK.
+- **Go** (`wrappers/go`): la entrada debe ser UTF-8 (se comprueba primero, porque `encoding/json` reemplazaría los
+  bytes inválidos), después `json.Unmarshal` en `interface{}`, como hace el propio test de interop del SDK, y una
+  sola llamada a `v2.CanonicalizeV2`; solo su rechazo documentado (`non-integer float at`, `non-finite float at`)
+  es `rejected`/`profile`. Digests: `v2.SHA256Hex`, `v2.SHA3256Hex`. La versión se informa como el checkout local.
+- **Rust** (`wrappers/rust`): decodificación UTF-8 fatal, `serde_json::from_str` y una sola llamada a
+  `dcp_ai::v2::canonicalize::canonicalize_v2`; solo su rechazo documentado (`Non-integer number in V2 canonical form:`, `Non-finite number in V2 canonical form:`, tras prefijos de ruta) es `rejected`/`profile`. Digests:
+  `sha256_hex`, `sha3_256_hex`. La versión es `DCP_SDK_VERSION`.
+- **WASM** (`wrappers/wasm.mjs`): carga el `.wasm` real que `wasm-pack` compiló desde `sdks/rust` con la feature
+  `wasm` (`--target web`) e informa su SHA-256. El texto JSON crudo va a una sola llamada de `wasm_canonicalize_v2`,
+  sin `JSON.parse` ni `JSON.stringify` en JavaScript antes de la llamada;
+  después, la entrada y la salida solo se inspeccionan para marcar la ambigüedad, sin recalcular bytes. Esa exportación informa los errores dentro del propio
+  resultado como `{"error": "…"}`, que una entrada válida también puede producir, así que un resultado
+  `{"error": string}` de una sola clave es un `error` ambiguo cuando la entrada es a su vez un objeto raíz cuya única clave es `error`
+  (sea cual sea su valor), y en otro caso solo es un rechazo para los mensajes documentados. Las exportaciones de digest reciben
+  texto: las 8 entradas de digest son texto, y los bytes que no son UTF-8 son un `error`, nunca se sustituyen.
+- **Errores:** en los tres, una petición con un tipo erróneo (por ejemplo `input_b64` numérico o `null`, o `cases`
+  que no es un array) es inválida y el wrapper termina con 2; cualquier error distinto del rechazo documentado es `error`. En Rust y WASM, el rechazo documentado de
+  números se reconoce en una sola pasada lineal, sin expresiones regulares con backtracking; un mensaje de más de
+  1 MiB en UTF-8 es un `error`, nunca un rechazo (el límite se aplica a ese clasificador, no a los errores de
+  parseo). Sin `DCP_EXTERNAL_REQUIRE_NATIVE=1`, `node --test` omite lo que no está compilado y lo indica; con ella,
+  la falta de una herramienta o de un artefacto es un fallo. La CI compila los tres wrappers desde el checkout y
+  ejecuta los 38 casos con cada uno, así que allí los cinco wrappers son obligatorios.
+- **Límites:** el wrapper WASM llama a las exportaciones crudas de wasm-bindgen alojadas en Node: no cubre la API
+  JavaScript del paquete `@dcp-ai/wasm` (como `DcpClient`) ni un navegador. La clasificación de los rechazos depende del
+  texto de los mensajes, porque los SDK no tienen códigos de error estables, y, a través de WASM, una entrada raíz `{"error": …}` de una
+  sola clave solo es un error ambiguo cuando la exportación devuelve el sobre `{"error": string}`
+  (`{"error":5}` sigue siendo `ok`). Un pase muestra que estos 38 casos pasan con cada wrapper, nada más.

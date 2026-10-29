@@ -4,7 +4,7 @@
 
 # DCP-AI 一致性测试套件
 
-> 本文是[英文版](README.md)的参考译文，更新于 28/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](README.md)的参考译文，更新于 29/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 `tools/conformance.js` 针对仓库中已提交的 fixture 和向量，运行 [`catalog.json`](catalog.json) 中声明的各个
 测试集。目录带有版本（`kit_version`），并为每个测试集固定其必须产生的确切用例 ID。该套件只读取 fixture：
@@ -156,3 +156,49 @@ printf '%s' '{"contract":"dcp-ai-conformance-external/1","run_id":"00000000-0000
 - **限制：** 通过表明所运行的 argv 经由其使用的解析器通过了这 38 个用例；它不代表完整的 `dcp-jcs-v1` 实现或
   DCP 符合性，身份也只是自行声明。这不是沙箱：实现以你的权限和环境运行，离开进程组的后代进程（`setsid`）无法
   看到，在 Windows 上只会终止直接子进程。
+
+<a id="go-rust-and-wasm-wrappers"></a>
+
+### Go、Rust 和 WASM 包装器
+
+另外三个包装器针对本检出副本中的 Go SDK、Rust SDK 以及 Rust SDK 的 WASM 构建，运行同样的 38 个用例和
+同样的契约。`build.mjs` 把它们编译到 `tools/conformance/wrappers/.build/`（被 Git 忽略）；需要 Go 1.25 或更高
+版本、Cargo，以及带 `wasm32-unknown-unknown` 目标的 `wasm-pack`，它不安装也不发布任何 DCP 软件包，也不改变 SDK 的清单或锁定
+文件。不带 `--offline` 时，Cargo 和 `wasm-pack` 可能会把构建工具和固定的依赖下载到各自的缓存中；`--offline` 使用
+`GOPROXY=off`、Cargo `--offline` 和 `wasm-pack --mode no-install`，并要求这些缓存已经准备好。
+
+```bash
+node tools/conformance/wrappers/build.mjs all
+node tools/conformance/wrappers/build.mjs --offline go rust wasm
+node tools/conformance-external.js -- tools/conformance/wrappers/.build/go-wrapper
+node tools/conformance-external.js -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+node tools/conformance-external.js -- node tools/conformance/wrappers/wasm.mjs
+DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-native.test.mjs
+```
+
+- **构建：** Go 以 `-mod=readonly` 针对包装器的 `go.mod` 和 `go.sum` 构建，其版本是 SDK 自身版本的子集；Cargo
+  以 `--locked` 构建，原生包装器使用它自己的 `Cargo.lock`（SDK 锁定文件的副本，离线解析，固定的版本相同），WASM
+  产物使用 SDK 的 `Cargo.lock`。`--offline` 只使用本地缓存。SDK 的清单和锁定文件不会改变。
+- **Go**（`wrappers/go`）：输入必须是 UTF-8（先检查，因为 `encoding/json` 会替换无效字节），然后像 SDK 自己的
+  interop 测试那样 `json.Unmarshal` 到 `interface{}`，再调用一次 `v2.CanonicalizeV2`；只有文档所述的拒绝
+  （`non-integer float at`、`non-finite float at`）才是 `rejected`/`profile`。摘要：`v2.SHA256Hex`、
+  `v2.SHA3256Hex`。版本报告为本地检出副本。
+- **Rust**（`wrappers/rust`）：严格的 UTF-8 解码、`serde_json::from_str`，然后调用一次
+  `dcp_ai::v2::canonicalize::canonicalize_v2`；只有文档所述的拒绝（路径前缀之后的 `Non-integer number in V2 canonical form:`、`Non-finite number in V2 canonical form:`）才是 `rejected`/`profile`。摘要：`sha256_hex`、
+  `sha3_256_hex`。版本为 `DCP_SDK_VERSION`。
+- **WASM**（`wrappers/wasm.mjs`）：加载 `wasm-pack` 以 `wasm` 特性（`--target web`）从 `sdks/rust` 编译出的真实
+  `.wasm`，并报告其 SHA-256。原始 JSON 文本直接传给一次 `wasm_canonicalize_v2` 调用，JavaScript 中不使用
+  `JSON.parse` 或 `JSON.stringify`（调用之前）；调用之后只检查输入和输出以标记歧义，不会重新计算
+  字节。该导出函数在结果中以 `{"error": "…"}` 报告错误，而有效输入也可能产生同样的
+  结果，因此当输入本身是唯一键为 `error` 的根对象（无论其值是什么类型）时，单键的 `{"error": string}` 结果是一个有歧义的 `error`；其他情况下，
+  只有文档所述的消息才算拒绝。摘要导出函数接收文本：8 个摘要输入都是文本，不是 UTF-8 的字节是 `error`，绝不会
+  被替换。
+- **错误：** 在三者中，类型错误的请求（例如 `input_b64` 为数字或 `null`，或 `cases` 不是数组）都是无效的，包装器
+  以 2 退出；文档所述拒绝之外的任何错误都是 `error`。在 Rust 和 WASM 中，文档所述的数字拒绝通过一次线性扫描
+  识别，不使用会回溯的正则表达式；UTF-8 长度超过 1 MiB 的消息是 `error`，绝不算拒绝（该上限只适用于这一判定，
+  不适用于解析错误）。未设置 `DCP_EXTERNAL_REQUIRE_NATIVE=1` 时，`node --test`
+  会跳过未构建的部分并加以说明；设置后，缺少工具或产物即为失败。CI 从检出副本构建这三个包装器，并用每个包装器
+  运行 38 个用例，因此在 CI 中五个包装器都是必需的。
+- **限制：** WASM 包装器在 Node 中调用 wasm-bindgen 的原始导出函数：它不覆盖 `@dcp-ai/wasm` 软件包的
+  JavaScript API（例如 `DcpClient`），也不覆盖浏览器。由于 SDK 没有稳定的错误码，拒绝的判定依赖消息文本；通过 WASM 时，根为单键的 `{"error": …}` 输入只有在导出
+  函数返回 `{"error": string}` 封装时才是有歧义的错误（`{"error":5}` 仍为 `ok`）。通过只表明这 38 个用例在每个包装器上通过，仅此而已。

@@ -4,7 +4,7 @@
 
 # Registro de cambios
 
-> Traducción informativa de [la versión en inglés](CHANGELOG.md), actualizada el 28/10/2026. Cada entrada, también las de `[Unreleased]`, describe un cambio en su momento y no garantiza el comportamiento actual; las versiones publicadas son **registro histórico con fecha**. Si difieren, prevalece la versión en inglés.
+> Traducción informativa de [la versión en inglés](CHANGELOG.md), actualizada el 29/10/2026. Cada entrada, también las de `[Unreleased]`, describe un cambio en su momento y no garantiza el comportamiento actual; las versiones publicadas son **registro histórico con fecha**. Si difieren, prevalece la versión en inglés.
 
 **Versiones publicadas (26/10/2026).** Están publicados npm (13 paquetes, incluido `@dcp-ai/sdk` 2.2.0), Python `dcp-ai` 2.10.0, Go `v2.11.0` y Rust `dcp-ai` 2.11.0, con las correcciones del verificador, la admisión y las API experimentales opt-in; `dcp-jcs-v1` sigue siendo el valor normativo predeterminado. Véase [Versiones publicadas](docs/README.md#published-versions). Las entradas siguientes conservan su historial de desarrollo; `[Unreleased]` no significa que estas funciones no estén publicadas. Las seis publicaciones de corrección del 28/10/2026 están en [su propia sección](#2026-10-28-sha3-patch-releases).
 
@@ -216,6 +216,15 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
 
 ### Añadido
 
+- **Wrappers de Go, Rust y WASM para el runner de conformidad externo.**
+  `tools/conformance/wrappers/build.mjs` compila desde este checkout wrappers para el SDK de Go, el
+  SDK de Rust y la compilación WASM del SDK de Rust (`-mod=readonly`, `--locked`; no cambia ningún
+  manifest ni lockfile del SDK), y cada uno ejecuta los mismos 38 casos con la API real, con una
+  sola llamada al canonicalizador y clasificando como rechazo solo el documentado. El wrapper WASM
+  ejecuta el `.wasm` real alojado en Node, no en un navegador, y trata de forma conservadora la
+  colisión del `{"error": …}` que la exportación devuelve dentro del resultado. La CI compila los
+  tres y los ejecuta como jobs obligatorios. No se publica ningún paquete. Véase
+  [tools/conformance/README.md](tools/conformance/README.md#go-rust-and-wasm-wrappers).
 - **Runner de conformidad externo (`tools/conformance-external.js`).** Ejecuta un catálogo aparte y
   versionado (`tools/conformance/external-catalog.json`, contrato `dcp-ai-conformance-external/1`)
   contra cualquier implementación indicada como argv, mediante una petición JSON por stdin y una
