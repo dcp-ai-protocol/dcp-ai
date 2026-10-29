@@ -487,3 +487,7 @@ mod tests {
         assert!(!exact.result.verified && exact.result.errors.iter().any(|e| e == "Unknown canonicalization_profile: dcp-jcs-v2"));
     }
 }
+
+#[cfg(test)]
+#[path = "experimental_candidate_gate7_tests.rs"]
+mod gate7_tests;

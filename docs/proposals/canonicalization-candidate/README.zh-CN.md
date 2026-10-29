@@ -4,14 +4,14 @@
 
 # 规范化候选 `dcp-jcs-v2`
 
-> 本文是[英文版](README.md)的参考译文，更新于 27/10/2026。这是实验性、非规范的提案；如有出入，以英文版为准。标识符和代码块保持原文，不作翻译。
+> 本文是[英文版](README.md)的参考译文，更新于 29/10/2026。这是实验性、非规范的提案；如有出入，以英文版为准。标识符和代码块保持原文，不作翻译。
 
 实验性、需选择启用的候选 API 包含在[已发布版本](../../README.md#published-versions)所列的 SDK 版本中。
 
 | | |
 |---|---|
-| **日期** | 2026 年 10 月 25 日 |
-| **版本** | 1.1 |
+| **日期** | 2026 年 10 月 29 日 |
+| **版本** | 1.2 |
 | **分类** | 公开 |
 | **状态** | **非规范、实验性且未启用。** `dcp-jcs-v1` 仍是唯一具有规范效力的规范化配置文件，也是默认配置；SDK 的候选 API（第 15 至 18 节）是实验性的、需显式启用 |
 | **语料库** | [`corpus.json`](corpus.json)（修订版 `design-2`，187 个用例）和 [`baseline-corpus.json`](baseline-corpus.json)（87 个用例，另加 10 个选择用例和 3 个策略用例） |
@@ -25,7 +25,7 @@
 > 和第 16 节的 API 不验证任何内容；第 17 节的验证器从原始字节验证候选 bundle，
 > 而通过验证的 bundle 不授予信任或准入。第 18 节的生产方只为这些调用方生成新的候选证据；
 > 第 3 阶段的向量由仅用于测试的生成器签名。实验性、需显式启用的 API 已包含在 npm SDK 2.2.0 和 WASM 2.1.0 中；其他生态独立发布。见[已发布的 npm 软件包](../../NPM_RELEASES.md)。实验室工具的 CI 作业运行
-> 设计模型，SDK 测试作业在语料库和第 3 阶段向量上运行这些 API，
+> 设计模型，SDK 测试作业在语料库、第 3 阶段向量和关卡 7 的 fixture 上运行这些 API，
 > 第 4 阶段矩阵有自己的工作流。
 > 现有的 V2 验证器，例如 TypeScript SDK 的验证器
 > （[`verify-v2.ts`](../../../sdks/typescript/src/core/verify-v2.ts)），在收到已解析对象或文本时
@@ -421,8 +421,8 @@ python3 tools/canonicalization-lab/run.py --controls --out "$out/controls.json"
 | 单元、传输以及与封装无关 | 集成或服务器中的字节 API |
 | 在合成 bundle 上的选择、策略和不重试 | 在整个值域上的输出等价证明（第 18.4 节关卡 3 只在样本上展示） |
 | 候选路径不依赖解析器的修复 | 超出所测单元的历史读取：`tests/interop/candidate/phase2-adapter-expectations.json` 记录了由历史适配器决定时真实解码器的 160 次读取（16 个单元 × 10 个适配器）；这只是这些单元的证据 |
-| 合成 bundle 的哈希检查 | `dcp-jcs-v1` bundle 的按类别阴性矩阵（第 18.4 节，关卡 7） |
-| | 委托在第 16 节和第 17 节的用例之外保持每个 SDK 的 `dcp-jcs-v1` 判定 |
+| 合成 bundle 的哈希检查 | 证明 `dcp-jcs-v1` bundle 中的每个缺陷都保持其判定：第 18.5 节只对没有封装的单元，在两个基准上的 18 个位置抽样了 8 个单元类别 |
+| | 委托在第 16 节、第 17 节和第 18.5 节的用例之外，或对封装和服务器，保持每个 SDK 的 `dcp-jcs-v1` 判定 |
 
 <a id="13-open-questions"></a>
 
@@ -430,12 +430,13 @@ python3 tools/canonicalization-lab/run.py --controls --out "$out/controls.json"
 
 - `dcp-jcs-v1` 判定能否保留取决于历史解析器是否以最后重复规则读取配置文件路径；
   必须在实现之前在每个实际的验证器入口路径上测量。
+  第 16 节、第 17 节和第 18.5 节针对没有封装的单元，用每个 SDK 的内置适配器测量了这一点。
   有类型的构造解码器不一定是验证器使用的解码器。对于对象 API，
   调用方或集成的字节到对象解码器是该路径的一部分：它可能丢弃 BOM、
   修复无效 UTF-8、丢失重复成员，或在验证之前拒绝请求体。适配器必须显式保留该
   现有路径；用一个通用解码器替换它并不能建立与历史的一致。
 - 字节级传输契约会改变歧义封装的结果，需要其自身的
-  兼容性说明。
+  兼容性说明。第 18.5 节记录了三个封装边界用例，但不主张与任何服务器等价。
 - 跨配置文件的审计链连续性、没有清单的工件的配置文件以及 A2A 仍
   在本设计范围之外。
 
@@ -878,7 +879,126 @@ SDK 实现计划的第 4 阶段为每个 SDK 和 WASM 添加了实验性、需�
 | 4 | 从字节出发的输入一致 | 已达成 | 第 15 节，在四个 SDK 和 WASM 中 | 单元用例 |
 | 5 | 历史读取 | 不是关卡 | 第 16 节将其记录为诊断 | — |
 | 6 | 交叉签名矩阵 | 已达成 | 第 18.1 节：5 × 5 加上环，975 个结果全部符合，包含该关卡的所有边界载荷。`dcp-jcs-v1` 互操作矩阵（`tools/interop-matrix`，两个场景）在收尾时通过 | 在一台机器上的本地运行；工作流在每次更改时重新运行 |
-| 7 | 阴性矩阵 | 部分 | 第 18.1 节：语料库的每个类别，以及传输和配置文件类别，都在任何验证器之前被拒绝，5 × 5。候选路径上的候选失败。第 17 节：`dcp-jcs-v1` bundle 的委托保持当前判定 | `dcp-jcs-v1` 一侧依赖第 17 节的委托和第 16 节的读取；此处没有按类别重复 |
+| 7 | 阴性矩阵 | 在样本上达成 | 候选一侧：第 18.1 节，语料库的每个类别，以及传输和配置文件类别，都在任何验证器之前被拒绝，5 × 5，以及候选路径上的候选失败。`dcp-jcs-v1` 一侧：第 18.5 节，38 个用例（两个基准上 8 个单元类别的 18 个变异，加上 2 个对照）× 四个 SDK 和 WASM 中的 10 种配置，380 次比较：实验性验证器给出当前的结果，两者都等于已提交的预期 | 抽样的类别和位置，不是普遍的证明。只覆盖没有封装的单元：不主张封装或服务器的等价。WASM 在 Node 中运行，并在其绑定边界处测量 |
 | 8 | 选择、优先级与策略 | 已达成 | 第 16 节和第 17 节，用一个经插桩的验证器 | — |
 | 9 | 历史 | 已达成 | 在收尾时、新代码就位的情况下：一致性（V1 和 V2，包括准入用例）、每个 SDK 的完整测试套件、WASM 测试（包括 bundle 向量和 V1 验证）以及 `dcp-jcs-v1` 互操作和准入矩阵，全部通过。第 1 至 3 阶段的测试轮次没有重复 | 在一台机器上的本地运行 |
 | 10 | 成本 | 已达成 | 第 18.3 节 | 一台机器，没有 SLA，第 18.3 节的局限 |
+
+<a id="185-gate-7-on-the-dcp-jcs-v1-side-testsinteropcandidategate7-v1-negativesjson"></a>
+
+### 18.5 `dcp-jcs-v1` 一侧的关卡 7（`tests/interop/candidate/gate7-v1-negatives.json`）
+
+关卡 7 要求两件事。候选一侧（注入候选 bundle 的每个类别的缺陷，都在任何验证器之前以该类别被拒绝）见第 18.1 节和第 17 节。
+本节是另一侧：在字节层面把同样的缺陷注入 `dcp-jcs-v1` bundle，当这些字节经过第 17 节的实验性验证器时，当前的判定保持不变。
+它只覆盖没有封装的单元。
+
+**语料库。** 该 fixture 通过引用和哈希复用第 3 阶段向量中两个冻结的基准：`B-v1`（清单指定 `dcp-jcs-v1`）和 `B-absent`（没有该字段）。
+不重新签署任何内容。相同的 18 个字节级变异应用于两个基准：
+
+| ID | 类别 | 位置 |
+|---|---|---|
+| M01 | `BOM` | 单元之前 |
+| M02, M03 | `UTF8_INVALID` | 未签名的成员；已签名的意图 |
+| M04, M05 | `SYNTAX` | 末尾的逗号；被截断的单元 |
+| M06, M07 | `SURROGATE_UNPAIRED` | 未签名的成员；已签名的意图 |
+| M08, M09, M10 | `DUPLICATE_KEY` | 未签名的成员；最后一个为相同值的已签名意图；最后一个为另一值的已签名意图 |
+| M11, M12, M13 | `NUMBER_NOT_INTEGER` | 未签名的成员；已签名的策略决定；一条审计条目 |
+| M14, M15 | `NUMBER_OUT_OF_RANGE` | 未签名成员中的 `2^53+1`；已签名策略决定中的 `2^53+1` |
+| M16, M17, M18 | `DEPTH_EXCEEDED` | 未签名成员中 64 层嵌套数组（第 65 层）；199 层（第 200 层）；用 64 层替换已签名的 `risk_score` |
+
+由此得到 38 个用例（18 个变异 × 2 个基准，再加上作为对照的 2 个基准）。每个用例对 10 种配置各有一个预期，分布在五个实现中：
+TypeScript、Python、Go 和 Rust SDK，以及在 Node 中（不是浏览器中）运行的 WASM 软件包。
+
+| 实现 | 配置（内置适配器或路径） |
+|---|---|
+| TypeScript | `textDecoderJsonParse`, `bufferUtf8JsonParse` |
+| Python | `json_loads_bytes`, `json_loads_strict_decode` |
+| Go | `encoding_json` |
+| Rust | `serde_json_from_slice` |
+| WASM | `w1TextDecoderJsonParse`, `w1BufferUtf8JsonParse`, `w2TextDecoder`, `w2BufferUtf8` |
+
+共有 380 次无封装的比较。三个封装用例（`G7E-1` 至 `G7E-3`）组成单独的边界部分，另有 30 次检查，不主张等价（见下文）。
+
+**两条路径。** 对每个用例和配置，两条路径接收相同的字节、相同的时钟和默认的验证器策略：
+
+- 第 17 节的实验性验证器，无封装，接受 `["dcp-jcs-v1"]`；
+- 同一实现的当前路径，在测试中直接写出：真实的解码器，然后是当前的 V2 验证器。
+  它从不经过适配器对象或路由器。在 Go 中，验证器自己解析字节；在 WASM 的 `w1` 上，先 `JSON.parse` 再
+  `verifyBundle`；在 `w2` 上，文本直接交给绑定。
+
+**判定方式。**
+
+- 两个结果必须在该实现结果的每个已声明字段上深度相等；新增字段会让测试失败，直到它被声明。
+- 两者都必须等于已提交的预期。预期固定路径（结果、类别、配置文件来源、警告、解码器是否成功）、解码器调用、
+  进入的验证器、当前路径的结果，并通过一个有名称的共享形状固定 `verified`、错误子串和精确的错误数、警告、
+  模式、等级和 `manifest_valid`。
+- 预期是从解析器和验证器推理得出的，从不由输出生成；每个形状都说明了理由。一个推理得出的 WASM 错误文本，
+  在根据 `serde_json` 的代码解释之后作了更正：后面没有 `\u` 的前导代理项会给出 "unexpected end of hex escape"。
+  两条路径返回了相同的文本。
+
+**当前路径的结果。**
+
+- `verified_result`：验证器返回了结果。
+- `host_decode_error`：在任何验证器之前运行的宿主解码器拒绝了这些字节（TypeScript 和 WASM 的 `w1`：
+  `SyntaxError`；Python：`JSONDecodeError` 或 `UnicodeDecodeError`；Rust：serde 的类别）。
+- `in_band_parse_error`：自己解析输入的验证器在其结果中返回了解析失败（Go，以及 `w1` 和 `w2` 上的 WASM
+  绑定）。只有在其严格形式下、且同一解析器拒绝同一输入时才计入；否则就是验证器错误。
+- 验证器的异常、panic 或错误封装，以及任何测试框架的失败，都绝不算一致，也绝不算拒绝。
+
+当解析失败时，实验性路径可能以三种方式结束，每个用例由 fixture 指明是哪一种：
+
+- 被拒绝，没有验证器（扫描器无法遍历、并被其解码器拒绝的单元）；
+- 带着解码器的失败被委托，没有验证器（Rust，对孤立的代理项或 200 层）；
+- 被委托，验证器仍然解析并在结果中失败（Go，以及 M06、M07 和 M17 的 WASM）。
+
+**对照。**
+
+- 实际进入的验证器是观测得到的，而不是从结果中读取：TypeScript 和 Go 的测试探针、Python 的模块引用、
+  Rust 的 `verify_routed` 探针，以及 WASM 中在绑定边界处计数的绑定（一次 verify，每次解码器调用一次 resume，
+  恰好在进入 `dcp-jcs-v1` 时一次委托）。只接受对 `dcp-jcs-v1` 零次或一次进入；进入候选或第二次进入都会失败。
+- 在 Go、Rust 和 WASM 中，公开的验证器必须给出与插桩路径相同的结果。
+- 每次调用之后输入缓冲区都不得改变。
+- 两个对照必须验证通过；失败或缺失的对照会使其基准上的所有用例无效。
+- 每个测试都检查所有预期的比较都已运行，一个都没运行时就失败。
+- 自测表明判定可能失败：更晚的时钟、改动的一条错误、两侧的验证器异常、多出或缺少的进入，以及两条路径
+  全部拒绝或全部接受的伪实现。
+- WASM 的绑定读取 `Date.now`：两条路径上的每次调用都在其被固定为 fixture 时刻的情况下运行，并在 `finally`
+  中恢复它，抛出异常之后也是如此。
+- 检查器 [`gate7-v1-negatives.py`](../../../tests/interop/candidate/gate7-v1-negatives.py) 重建每个输入并严格
+  检查 fixture：确切的 ID 和配置、每个哈希、每个变异的类别、位置和编辑的标识、按配置封闭的解码器错误种类，
+  以及每个预期的一致性。其阴性对照是
+  [`test_gate7_v1_negatives.py`](../../../tests/interop/candidate/test_gate7_v1_negatives.py)。
+
+**边界：封装单独处理。** `G7E-1` 把 `B-v1` 放进有效的封装：它必须以与无封装对照相同的字段验证通过。
+`G7E-2`（第二个 `signed_bundle` 成员）和 `G7E-3`（封装之前的 BOM）由传输拒绝，没有解码器调用，也没有进入任何验证器。
+没有任何历史 SDK API 读取封装；参考服务器保留最后一个重复项。不主张与任何传输或服务器等价。
+配置、传输和配置文件类别仍处在第 16 节和第 17 节已经确定并测试的边界上。
+
+**复现。** 测试文件是 [TypeScript](../../../sdks/typescript/src/__tests__/experimental-candidate-gate7.test.ts)、
+[Python](../../../sdks/python/tests/test_experimental_candidate_gate7.py)、
+[Go](../../../sdks/go/dcp/v2/experimental_candidate_gate7_test.go)、
+[Rust](../../../sdks/rust/src/v2/experimental_candidate_gate7_tests.rs) 和
+[WASM](../../../sdks/wasm/test/experimental-candidate-gate7.mjs)。Python 测试需要安装带开发附加依赖的 SDK；
+WASM 测试需要先运行 `npm run build`。
+
+```bash
+python3 -I tests/interop/candidate/gate7-v1-negatives.py --check
+python3 -I tests/interop/candidate/test_gate7_v1_negatives.py
+(cd sdks/typescript && ./node_modules/.bin/vitest run src/__tests__/experimental-candidate-gate7.test.ts)
+(cd sdks/python && python -m pytest tests/test_experimental_candidate_gate7.py)
+(cd sdks/go && go test ./dcp/v2 -run TestGate7)
+(cd sdks/rust && cargo test --all-features --lib gate7_tests)
+(cd sdks/wasm && node test/experimental-candidate-gate7.mjs)
+```
+
+在 CI 中，一致性作业运行检查器及其对照，每个 SDK 的作业运行各自的文件。收尾时，380 次比较和 30 次边界检查全部通过，
+没有任何路径出现分歧。
+
+**局限。**
+
+- 抽样的类别和位置：两个基准上 18 个位置的 8 个类别。这不是对所有缺陷或所有 bundle 的证明；关卡 3 也仍然
+  只在样本上展示。
+- 只覆盖没有封装的单元。封装、服务器以及配置、传输和配置文件类别都不在范围内。
+- 当前的判定只作记录，不作评判；实现之间出现差异时，那是 `dcp-jcs-v1` 的诊断（关卡 5）。
+- WASM 在 Node 中运行，而不是在浏览器中，并在其绑定边界处测量；模块内部的密码学调用不计数。
+- 候选仍是实验性的、需显式启用；`dcp-jcs-v1` 和所有默认值不变，不启用任何内容。

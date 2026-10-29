@@ -4,14 +4,14 @@
 
 # Candidato de canonicalização `dcp-jcs-v2`
 
-> Tradução informativa da [versão em inglês](README.md), atualizada em 27/10/2026. Proposta experimental e não normativa; em caso de divergência, prevalece a versão em inglês. Identificadores e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](README.md), atualizada em 29/10/2026. Proposta experimental e não normativa; em caso de divergência, prevalece a versão em inglês. Identificadores e blocos de código são mantidos sem tradução.
 
 As APIs candidatas experimentais e opt-in estão incluídas nas versões de SDK listadas em [Versões publicadas](../../README.md#published-versions).
 
 | | |
 |---|---|
-| **Data** | 25/10/2026 |
-| **Versão** | 1.1 |
+| **Data** | 29/10/2026 |
+| **Versão** | 1.2 |
 | **Classificação** | Pública |
 | **Estado** | **Não normativo, experimental e inativo.** `dcp-jcs-v1` continua sendo o único perfil de canonicalização normativo e o padrão; as APIs candidatas dos SDKs (§15 a §18) são experimentais e de ativação explícita |
 | **Corpus** | [`corpus.json`](corpus.json) (revisão `design-2`, 187 casos) e [`baseline-corpus.json`](baseline-corpus.json) (87 casos, mais 10 de seleção e 3 de política) |
@@ -25,7 +25,7 @@ As APIs candidatas experimentais e opt-in estão incluídas nas versões de SDK 
 > e §16 não verificam nada; o verificador de §17 verifica bundles candidatos a partir dos seus bytes originais, e
 > um bundle verificado não concede confiança nem admissão. Os produtores de §18 geram nova evidência candidata
 > apenas para esses chamadores; os vetores da fase 3 são assinados por um gerador exclusivo de testes. As APIs experimentais opt-in estão disponíveis no npm SDK 2.2.0 e WASM 2.1.0; os outros ecossistemas têm publicações independentes. Veja os [pacotes npm publicados](../../NPM_RELEASES.md). O job de CI da ferramenta de laboratório executa
-> o modelo de design, os jobs de teste dos SDKs executam essas APIs sobre o corpus e os vetores da fase 3, e a
+> o modelo de design, os jobs de teste dos SDKs executam essas APIs sobre o corpus, os vetores da fase 3 e o fixture do portão 7, e a
 > matriz da fase 4 tem o seu próprio workflow. Os
 > verificadores V2 existentes, como o do SDK de TypeScript
 > ([`verify-v2.ts`](../../../sdks/typescript/src/core/verify-v2.ts)), continuam rejeitando o perfil como
@@ -421,8 +421,8 @@ O código de saída 1 significa que um caso, um resultado ou um controle difere;
 | A unidade, o transporte e a independência do envelope | Uma API de bytes nas integrações ou no servidor |
 | A seleção, a política e a ausência de novas tentativas, sobre bundles sintéticos | Uma prova de equivalência de saída sobre todo o domínio (§18.4, portão 3, é mostrado sobre amostras) |
 | Que o caminho do candidato não depende de reparos do parser | Leituras históricas além das unidades medidas: `tests/interop/candidate/phase2-adapter-expectations.json` registra 160 leituras de decodificadores reais (16 unidades × 10 adaptadores) onde decide o adaptador histórico; isso é evidência apenas para essas unidades |
-| As verificações de hash do bundle sintético | Uma matriz negativa por classe de bundles de `dcp-jcs-v1` (§18.4, portão 7) |
-| | Que a delegação preserve o veredito de `dcp-jcs-v1` de cada SDK além dos casos de §16 e §17 |
+| As verificações de hash do bundle sintético | Uma prova de que todo defeito em um bundle de `dcp-jcs-v1` mantém seu veredito: §18.5 amostra as 8 classes de unidade em 18 posições sobre duas bases, apenas para a unidade sem envelope |
+| | Que a delegação preserve o veredito de `dcp-jcs-v1` de cada SDK além dos casos de §16, §17 e §18.5, ou para envelopes e servidores |
 
 <a id="13-open-questions"></a>
 
@@ -430,12 +430,13 @@ O código de saída 1 significa que um caso, um resultado ou um controle difere;
 
 - A preservação dos vereditos de `dcp-jcs-v1` depende de os parsers históricos lerem o caminho do perfil com
   a regra do último duplicado; isso deve ser medido em cada caminho de entrada real do verificador antes da implementação.
+  §16, §17 e §18.5 medem isso para a unidade sem envelope com os adaptadores embutidos de cada SDK.
   Um decodificador de construção tipado não é necessariamente o decodificador usado por um verificador. Para as APIs de objetos,
   o decodificador de bytes para objeto de quem chama ou da integração faz parte desse caminho: ele pode descartar um BOM,
   reparar UTF-8 inválido, perder membros duplicados ou rejeitar o corpo antes da verificação. Um adaptador deve preservar esse
   caminho existente de forma explícita; substituí-lo por um decodificador comum não estabelece a paridade histórica.
 - O contrato de transporte em nível de bytes muda o resultado para envelopes ambíguos e precisa da sua própria
-  nota de compatibilidade.
+  nota de compatibilidade. §18.5 registra três casos de fronteira com envelope, sem afirmar equivalência com nenhum servidor.
 - A continuidade da cadeia de auditoria entre perfis, o perfil dos artefatos sem manifesto e o A2A ficam
   fora deste design.
 
@@ -878,7 +879,146 @@ Este registro reúne evidência; ele não ativa nada. Uma mudança de fase ou de
 | 4 | Paridade do ingresso a partir de bytes | Cumprido | §15, em quatro SDKs e no WASM | Casos de unidades |
 | 5 | Leituras históricas | Não é um portão | §16 as registra como diagnósticos | — |
 | 6 | Matriz cruzada de assinatura | Cumprido | §18.1: 5 × 5 mais o anel, 975 de 975 resultados, com todas as cargas úteis de fronteira do portão. A matriz de interoperabilidade de `dcp-jcs-v1` (`tools/interop-matrix`, os dois cenários) passa no fechamento | Execuções locais em uma máquina; o workflow a executa de novo a cada mudança |
-| 7 | Matriz negativa | Parcial | §18.1: todas as classes do corpus, e as classes de transporte e de perfil, rejeitadas antes de qualquer verificador, 5 × 5. Falhas do candidato no caminho do candidato. §17: as delegações de bundles de `dcp-jcs-v1` mantêm o veredito atual | O lado de `dcp-jcs-v1` se apoia nas delegações de §17 e nas leituras de §16; aqui não foi repetido por classe |
+| 7 | Matriz negativa | Cumprido, sobre amostras | Lado do candidato: §18.1, todas as classes do corpus, e as classes de transporte e de perfil, rejeitadas antes de qualquer verificador, 5 × 5, e as falhas do candidato no caminho do candidato. Lado de `dcp-jcs-v1`: §18.5, 38 casos (18 mutações das 8 classes de unidade sobre duas bases, mais 2 controles) × 10 configurações em quatro SDKs e WASM, 380 comparações: o verificador experimental dá o resultado atual, e ambos coincidem com expectativas versionadas | Classes e posições amostradas, não uma prova universal. Apenas a unidade sem envelope: não se afirma equivalência para envelopes nem servidores. O WASM é hospedado no Node e medido na sua fronteira de binding |
 | 8 | Seleção, precedência e política | Cumprido | §16 e §17, com um verificador instrumentado | — |
 | 9 | Histórico | Cumprido | No fechamento, com o código novo no lugar: conformidade (V1 e V2, com os casos de admissão), a suíte de testes completa de cada SDK, os testes do WASM (incluindo os vetores de bundles e a verificação V1) e as matrizes de interoperabilidade e de admissão de `dcp-jcs-v1`, tudo verde. Nenhuma campanha das fases 1 a 3 foi repetida | Execuções locais em uma máquina |
 | 10 | Custo | Cumprido | §18.3 | Uma máquina, sem SLA, os limites de §18.3 |
+
+<a id="185-gate-7-on-the-dcp-jcs-v1-side-testsinteropcandidategate7-v1-negativesjson"></a>
+
+### 18.5 O portão 7 no lado de `dcp-jcs-v1` (`tests/interop/candidate/gate7-v1-negatives.json`)
+
+O portão 7 pede duas coisas. O lado do candidato (um defeito de cada classe, injetado em um bundle candidato, é
+rejeitado com essa classe antes de qualquer verificador) está em §18.1 e §17. Esta seção é o outro lado: o mesmo
+defeito, injetado em nível de bytes em um bundle de `dcp-jcs-v1`, mantém o veredito atual quando os bytes passam pelo
+verificador experimental de §17. Ela cobre apenas a unidade sem envelope.
+
+**Corpus.** O fixture reutiliza duas bases congeladas dos vetores da fase 3, por referência e hash: `B-v1` (o manifesto
+nomeia `dcp-jcs-v1`) e `B-absent` (o campo está ausente). Nada é assinado de novo. As mesmas 18 mutações em nível de
+bytes se aplicam às duas bases:
+
+| ID | Classe | Posição |
+|---|---|---|
+| M01 | `BOM` | antes da unidade |
+| M02, M03 | `UTF8_INVALID` | um membro não assinado; a intenção assinada |
+| M04, M05 | `SYNTAX` | uma vírgula final; a unidade cortada |
+| M06, M07 | `SURROGATE_UNPAIRED` | um membro não assinado; a intenção assinada |
+| M08, M09, M10 | `DUPLICATE_KEY` | um membro não assinado; a intenção assinada com o mesmo valor por último; com outro valor por último |
+| M11, M12, M13 | `NUMBER_NOT_INTEGER` | um membro não assinado; a decisão de política assinada; uma entrada de auditoria |
+| M14, M15 | `NUMBER_OUT_OF_RANGE` | `2^53+1` em um membro não assinado; na decisão de política assinada |
+| M16, M17, M18 | `DEPTH_EXCEEDED` | 64 arrays aninhados em um membro não assinado (nível 65); 199 (nível 200); 64 no lugar do `risk_score` assinado |
+
+Isso dá 38 casos (18 mutações × 2 bases, mais as 2 bases como controles). Cada caso tem uma expectativa para cada uma
+de 10 configurações, em cinco implementações: os SDKs de TypeScript, Python, Go e Rust, e o pacote WASM hospedado no
+Node (não em um navegador).
+
+| Implementação | Configurações (adaptadores embutidos ou caminhos) |
+|---|---|
+| TypeScript | `textDecoderJsonParse`, `bufferUtf8JsonParse` |
+| Python | `json_loads_bytes`, `json_loads_strict_decode` |
+| Go | `encoding_json` |
+| Rust | `serde_json_from_slice` |
+| WASM | `w1TextDecoderJsonParse`, `w1BufferUtf8JsonParse`, `w2TextDecoder`, `w2BufferUtf8` |
+
+São 380 comparações sem envelope. Três casos com envelope (`G7E-1` a `G7E-3`) formam uma seção de fronteira à parte,
+mais 30 verificações, sem afirmar equivalência (abaixo).
+
+**Os dois caminhos.** Para cada caso e configuração, dois caminhos recebem os mesmos bytes, o mesmo relógio e a política
+padrão do verificador:
+
+- o verificador experimental de §17, sem envelope, aceitando `["dcp-jcs-v1"]`;
+- o caminho atual da mesma implementação, escrito no teste: o decodificador real e depois o verificador V2 atual.
+  Ele nunca passa pelo objeto adaptador nem pelo roteador. No Go, o verificador analisa os bytes ele mesmo; no WASM
+  `w1`, `JSON.parse` e depois `verifyBundle`; no `w2`, o texto vai direto para o binding.
+
+**Julgamento.**
+
+- Os dois resultados devem ser iguais em profundidade em cada campo declarado do resultado da implementação; um campo
+  novo faz o teste falhar até ser declarado.
+- Ambos devem coincidir com a expectativa versionada. Ela fixa o caminho (resultado, classe, origem do perfil, avisos,
+  se o decodificador teve sucesso), as chamadas ao decodificador, o verificador em que se entrou, o resultado atual e,
+  por meio de uma forma compartilhada com nome, `verified`, substrings de erro e o número exato de erros, os avisos, o
+  modo, o nível e `manifest_valid`.
+- As expectativas foram raciocinadas a partir dos parsers e verificadores, nunca geradas a partir de uma saída; cada
+  forma diz por quê. Um texto de erro do WASM raciocinado foi corrigido depois de explicado a partir do código do
+  `serde_json`: um surrogate inicial não seguido de `\u` dá "unexpected end of hex escape". Os dois caminhos devolveram o
+  mesmo texto.
+
+**Resultados do caminho atual.**
+
+- `verified_result`: o verificador devolveu um resultado.
+- `host_decode_error`: o decodificador do host que roda antes de qualquer verificador recusou os bytes (TypeScript e
+  WASM `w1`: `SyntaxError`; Python: `JSONDecodeError` ou `UnicodeDecodeError`; Rust: a categoria do serde).
+- `in_band_parse_error`: um verificador que analisa a entrada ele mesmo devolveu a falha de análise dentro do seu
+  resultado (Go, e o binding do WASM em `w1` e `w2`). Só conta na sua forma estrita e quando o mesmo parser recusa a
+  mesma entrada; caso contrário, é um erro do verificador.
+- Uma exceção, um panic ou um envelope de erro do verificador, e qualquer falha do harness, nunca é paridade nem uma
+  rejeição.
+
+Quando uma análise falha, o caminho experimental pode terminar de três formas, e o fixture diz qual para cada caso:
+
+- rejeitado, sem verificador (uma unidade que o scanner não consegue percorrer, recusada pelo seu decodificador);
+- delegado com a falha do decodificador, sem verificador (Rust, para um surrogate isolado ou 200 níveis);
+- delegado, com o verificador ainda analisando e falhando dentro do resultado (Go, e WASM para M06, M07 e M17).
+
+**Controles.**
+
+- Os verificadores em que realmente se entrou são observados, não lidos do resultado: as sondas de teste do
+  TypeScript e do Go, as referências do módulo no Python, a sonda de `verify_routed` no Rust, e no WASM os bindings
+  contados na fronteira do binding (um verify, um resume por chamada ao decodificador, uma delegação exatamente quando
+  se entra em `dcp-jcs-v1`). Só se aceita nenhuma ou uma entrada em `dcp-jcs-v1`; uma entrada no candidato ou uma
+  segunda entrada faz falhar.
+- No Go, Rust e WASM, o verificador público deve dar o resultado do caminho instrumentado.
+- O buffer de entrada não deve mudar depois de cada chamada.
+- Os dois controles devem ser verificados; um controle que falha ou que falta invalida todos os casos da sua base.
+- Cada teste confere que todas as comparações esperadas rodaram, e falha quando nenhuma rodou.
+- Os autotestes mostram que o julgamento pode falhar: um relógio posterior, um erro alterado, uma exceção do
+  verificador nos dois lados, uma entrada a mais ou faltando, e falsos em que os dois caminhos rejeitam tudo ou
+  aceitam tudo.
+- O binding do WASM lê `Date.now`: cada chamada dos dois caminhos roda com ele fixado no instante do fixture e o
+  restaura em `finally`, também depois de uma exceção.
+- O verificador do fixture [`gate7-v1-negatives.py`](../../../tests/interop/candidate/gate7-v1-negatives.py)
+  reconstrói cada entrada e confere o fixture de forma estrita: os IDs e as configurações exatos, cada hash, uma
+  identidade da classe, da posição e das edições de cada mutação, os tipos de erro do decodificador fechados por
+  configuração e a coerência de cada expectativa. Seus controles negativos são
+  [`test_gate7_v1_negatives.py`](../../../tests/interop/candidate/test_gate7_v1_negatives.py).
+
+**Fronteira: os envelopes, à parte.** `G7E-1` coloca `B-v1` em um envelope válido: ele deve ser verificado com os
+mesmos campos que o controle sem envelope. `G7E-2` (um segundo membro `signed_bundle`) e `G7E-3` (um BOM antes do
+envelope) são rejeitados pelo transporte, sem chamada ao decodificador nem entrada em um verificador. Nenhuma API
+histórica dos SDKs lê um envelope; o servidor de referência fica com o último duplicado. Não se afirma equivalência
+com nenhum transporte nem servidor. As classes de configuração, transporte e perfil continuam na fronteira já
+estabelecida e testada por §16 e §17.
+
+**Reproduzir.** Os arquivos de teste são os de [TypeScript](../../../sdks/typescript/src/__tests__/experimental-candidate-gate7.test.ts),
+[Python](../../../sdks/python/tests/test_experimental_candidate_gate7.py),
+[Go](../../../sdks/go/dcp/v2/experimental_candidate_gate7_test.go),
+[Rust](../../../sdks/rust/src/v2/experimental_candidate_gate7_tests.rs) e
+[WASM](../../../sdks/wasm/test/experimental-candidate-gate7.mjs). O teste de Python precisa do SDK instalado com seus
+extras de desenvolvimento; o de WASM precisa antes de `npm run build`.
+
+```bash
+python3 -I tests/interop/candidate/gate7-v1-negatives.py --check
+python3 -I tests/interop/candidate/test_gate7_v1_negatives.py
+(cd sdks/typescript && ./node_modules/.bin/vitest run src/__tests__/experimental-candidate-gate7.test.ts)
+(cd sdks/python && python -m pytest tests/test_experimental_candidate_gate7.py)
+(cd sdks/go && go test ./dcp/v2 -run TestGate7)
+(cd sdks/rust && cargo test --all-features --lib gate7_tests)
+(cd sdks/wasm && node test/experimental-candidate-gate7.mjs)
+```
+
+Na CI, o job de conformidade executa o verificador do fixture e seus controles, e o job de cada SDK executa o seu
+arquivo. No fechamento, as 380 comparações e as 30 verificações de fronteira passam, e nenhum caminho divergiu.
+
+**Limites.**
+
+- Classes e posições amostradas: 8 classes em 18 posições sobre duas bases. Não é uma prova sobre todos os defeitos
+  nem todos os bundles; o portão 3 também continua sobre amostras.
+- Apenas a unidade sem envelope. Os envelopes, os servidores e as classes de configuração, transporte e perfil ficam
+  de fora.
+- Os vereditos atuais são registrados, não julgados; quando as implementações diferem, isso é um diagnóstico de
+  `dcp-jcs-v1` (portão 5).
+- O WASM é hospedado no Node, não em um navegador, e é medido na sua fronteira de binding; as chamadas criptográficas
+  dentro do módulo não são contadas.
+- O candidato continua experimental e de ativação explícita; `dcp-jcs-v1` e todos os valores padrão não mudam, e nada
+  é ativado.

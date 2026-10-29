@@ -127,6 +127,12 @@ jobs:
       - name: Merkle vectors match their generator
         run: python3 -I tests/conformance/v2/generate-merkle-vectors.py --check
 
+      # Gate 7 fixture (dcp-jcs-v1 side): the strict checker and its negative controls, standard library only.
+      - name: Gate 7 fixture checker and its controls
+        run: |
+          python3 -I tests/interop/candidate/gate7-v1-negatives.py --check
+          python3 -I tests/interop/candidate/test_gate7_v1_negatives.py
+
       # Ed25519 S < L (RFC 8032 §5.1.7) in the reference verifier (tools/crypto.js, lib/verify.js,
       # the transparency-log gossip) and in the playground's verifyDetached.
       - name: Ed25519 S range regressions (reference and playground)
