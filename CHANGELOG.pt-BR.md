@@ -216,6 +216,18 @@ Publicado em 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 e `@dcp-ai/cl
 
 ### Adicionado
 
+- **Candidato de canonicalização: o portão 7 medido no lado de `dcp-jcs-v1`.** O novo fixture público
+  `tests/interop/candidate/gate7-v1-negatives.json` injeta um defeito de cada uma das 8 classes de unidade, em 18
+  posições de bytes, em duas bases congeladas de `dcp-jcs-v1`: 38 casos, com as 2 bases incluídas como controles.
+  Ele registra uma expectativa raciocinada para 10 configurações de cinco implementações: os SDKs de TypeScript,
+  Python, Go e Rust, e o pacote WASM hospedado no Node. Novos testes em cada uma executam as 380 comparações: o
+  verificador experimental deve dar o resultado do caminho atual da mesma implementação com os mesmos bytes, relógio
+  e política, e ambos devem coincidir com a expectativa. Três casos com envelope (30 verificações) ficam como uma
+  fronteira à parte, sem afirmar equivalência. Um verificador estrito com a biblioteca padrão e seus controles
+  negativos rodam no job de conformidade da CI. O registro marca o portão 7 como cumprido, sobre amostras. Apenas
+  testes e documentação: nenhuma mudança em API de SDK, perfis, valores padrão nem `dcp-jcs-v1`; o candidato continua
+  experimental e de ativação explícita, e nada é publicado. Veja
+  [docs/proposals/canonicalization-candidate/README.md](docs/proposals/canonicalization-candidate/README.pt-BR.md#185-gate-7-on-the-dcp-jcs-v1-side-testsinteropcandidategate7-v1-negativesjson).
 - **Catálogo de evidência para o runner de conformidade externo: Merkle e verificação de assinaturas.**
   `--catalog evidence` executa um catálogo opcional (`tools/conformance/external-evidence-catalog.json`,
   contrato `dcp-ai-conformance-external/2`, 241 casos) sobre fixtures públicos versionados: raízes

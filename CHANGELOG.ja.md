@@ -208,6 +208,12 @@
 
 ### 追加
 
+- **正規化の候補：`dcp-jcs-v1` の側のゲート 7 を測定。** 新しい公開フィクスチャ `tests/interop/candidate/gate7-v1-negatives.json` は、単位の 8 つのクラスそれぞれの欠陥を、18 のバイトの位置で、`dcp-jcs-v1` の凍結した 2 つの基準に注入します。制御としての 2 つの基準を含めて 38 ケースです。
+  5 つの実装の 10 の構成について、推論した期待値を記録しています。TypeScript、Python、Go、Rust の SDK と、Node 上の WASM パッケージです。
+  それぞれの新しいテストが 380 件の比較を実行します。実験的な検証器は、同じバイト列、時計、ポリシーで、同じ実装の現在の経路の結果を返さなければならず、両方が期待値と一致しなければなりません。
+  エンベロープの 3 ケース（30 件の確認）は別の境界として扱い、等価性は主張しません。標準ライブラリだけの厳密なチェッカーとその陰性の制御は、CI の適合性のジョブで実行します。
+  記録表はゲート 7 をサンプルで満たしたとしています。テストと文書だけの変更で、SDK の API、プロファイル、既定値、`dcp-jcs-v1` は変わりません。候補は実験的でオプトインのままで、何も公開しません。
+  [docs/proposals/canonicalization-candidate/README.md](docs/proposals/canonicalization-candidate/README.ja.md#185-gate-7-on-the-dcp-jcs-v1-side-testsinteropcandidategate7-v1-negativesjson) を参照してください。
 - **外部適合性ランナーの証拠カタログ：マークルと署名の検証。** `--catalog evidence` は、任意で選ぶカタログ（`tools/conformance/external-evidence-catalog.json`、契約 `dcp-ai-conformance-external/2`、241 ケース）をコミット済みの公開フィクスチャに対して実行します。
   葉が 1、2、3、5 枚の正確な二重マークルルート、コミット済みの攻撃と決定的な改変を含む複合署名と古典署名のみの署名の検証、各ケースのコミット済みのオーバーライドを適用した `default_verifier_policy` による `bundle_vectors.json` の規範的な V2 署名済みバンドルの検証、二次 SHA3-256 ベクターを、すべて固定した `verification_time` で扱います。
   陰性ケースは対照が合格した場合にだけ数えられ、エラーを伴う `verified: true`、`error`、`unsupported` は決して合格になりません。

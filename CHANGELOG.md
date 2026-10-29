@@ -198,6 +198,17 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Added
 
+- **Canonicalization candidate: gate 7 measured on the `dcp-jcs-v1` side.** The new public fixture
+  `tests/interop/candidate/gate7-v1-negatives.json` injects a defect of each of the 8 unit classes, at 18 byte
+  positions, into two frozen `dcp-jcs-v1` bases: 38 cases, the 2 bases included as controls. It records a reasoned
+  expectation for 10 configurations of five implementations: the TypeScript, Python, Go and Rust SDKs, and the WASM
+  package hosted in Node. New tests in each run the 380 comparisons: the experimental verifier must give the result
+  of today's route of the same implementation on the same bytes, clock and policy, and both must match the
+  expectation. Three envelope cases (30 checks) stay a separate boundary, with no equivalence claimed. A strict
+  standard-library checker and its negative controls run in the conformance CI job. The ledger marks gate 7 met, on
+  samples. Tests and documentation only: no SDK API, profile, default or `dcp-jcs-v1` change; the candidate stays
+  experimental and opt-in, and nothing is published. See
+  [docs/proposals/canonicalization-candidate/README.md](docs/proposals/canonicalization-candidate/README.md#185-gate-7-on-the-dcp-jcs-v1-side-testsinteropcandidategate7-v1-negativesjson).
 - **Evidence catalog for the external conformance runner: Merkle and signature verification.**
   `--catalog evidence` runs an opt-in catalog (`tools/conformance/external-evidence-catalog.json`,
   contract `dcp-ai-conformance-external/2`, 241 cases) on committed public fixtures: exact dual Merkle

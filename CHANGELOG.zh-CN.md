@@ -171,6 +171,12 @@
 
 ### 新增
 
+- **规范化候选：在 `dcp-jcs-v1` 一侧测量关卡 7。** 新的公开 fixture `tests/interop/candidate/gate7-v1-negatives.json` 在 18 个字节位置，把 8 个单元类别各自的缺陷注入两个冻结的 `dcp-jcs-v1` 基准：38 个用例，其中包括作为对照的 2 个基准。
+  它为五个实现的 10 种配置记录了推理得出的预期：TypeScript、Python、Go 和 Rust SDK，以及在 Node 中运行的 WASM 软件包。
+  各实现中的新测试运行这 380 次比较：实验性验证器必须在相同的字节、时钟和策略下给出同一实现当前路径的结果，两者都必须等于预期。
+  三个封装用例（30 次检查）作为单独的边界，不主张等价。一个仅用标准库的严格检查器及其阴性对照在 CI 的一致性作业中运行。
+  台账将关卡 7 标为在样本上达成。仅涉及测试和文档：SDK API、配置文件、默认值和 `dcp-jcs-v1` 都没有变化；候选仍是实验性的、需显式启用，不发布任何内容。
+  见 [docs/proposals/canonicalization-candidate/README.md](docs/proposals/canonicalization-candidate/README.zh-CN.md#185-gate-7-on-the-dcp-jcs-v1-side-testsinteropcandidategate7-v1-negativesjson)。
 - **外部符合性运行器的证据目录：Merkle 与签名验证。** `--catalog evidence` 针对已提交的公开 fixture 运行一个可选目录（`tools/conformance/external-evidence-catalog.json`，契约 `dcp-ai-conformance-external/2`，241 个用例）：
   1、2、3、5 个叶子的精确双 Merkle 根，含已提交攻击和确定性改动的复合签名与仅经典签名验证，在应用每个用例已提交覆盖项的 `default_verifier_policy` 下对 `bundle_vectors.json` 进行的规范 V2 已签名 bundle 验证，以及二级 SHA3-256 向量，全部使用固定的 `verification_time`。
   反例只有在其对照通过时才计入；带错误的 `verified: true`、`error` 和 `unsupported` 永远不算通过。
