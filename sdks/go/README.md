@@ -172,6 +172,8 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 | Function | Description |
 |----------|-------------|
 | `v2.SignPayload(reg, context, payload, classicalKey, pqKey)` | Signs an artifact into a `SignedPayload` (composite, or classical-only when `pqKey` is nil) |
+| `v2.PreparePayload(payload)` | Returns the `dcp-jcs-v1` canonical bytes and their SHA-256 as bare lowercase hex; the `payload_hash` field is `"sha256:"` followed by that digest |
+| `v2.VerifyPayloadHash(signed)` | `true` only when `payload_hash` is exactly `"sha256:"` followed by the SHA-256 of the canonical payload; any other value, a bare digest included, is `false`. Checks hash consistency only, not the signature, the keys, the policy or admission. Source on `main`, not published: v2.11.1 compares the bare digest, so it rejects `SignPayload` output and accepts the bare form |
 | `v2.BuildBundleV2(input)` | Assembles a V2 bundle from signed artifacts, with manifest hashes and dual Merkle roots |
 | `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | Signs a bundle with composite or classical-only signature; the signer is the bundle's principal (`signer.id` = the RPR's `human_id`) |
 | `v2.VerifySignedBundleV2(reg, jsonBytes)` | V2 bundle verification (structure, hashes, signatures, primary audit chain) under `DefaultVerifierPolicy`, against the stricter of the policy mode and the security tier's mode (spec §14.3); reports `ResolvedTier` and `VerificationMode` |
@@ -179,6 +181,8 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 | `v2.VerifySignedBundleV2At(reg, jsonBytes, policy, now)` | Same at the instant `now`: the session window, the RPR expiry and key expiry compare against it, at millisecond precision. The two functions above call it with `time.Now()` |
 
 Every result lists in `SignerKeys` (JSON `signer_keys`), for each composite signature checked (`bundle`, the four artifacts, each `pq_checkpoints[<id>]`), the key entry the verifier resolved for each component (`classical`, `pq`) and whether that component verified.
+
+**Typed structs and received bundles.** `AuditEventV2`, `CitizenshipBundleV2` and `SignedBundleV2` are for producing bundles. In audit evidence, explicit `null` members and unrecognized members (other than `tool`, `result_ref` and `evidence_hash`) are lost by these structs; recognized string-valued members and an empty `evidence` object keep their values. These member losses change the canonical evidence and may invalidate the `prev_hash` chain or the audit Merkle root. These structs are not a lossless representation for forwarding signed evidence. Keep the received bytes and verify those bytes: the verification functions above take bytes. Do not automatically repair, recompute or re-sign received evidence to make it verify; an explicit migration is a separate step that keeps the original.
 
 <a id="admission-principal-trust-and-strict-v1-unreleased"></a>
 

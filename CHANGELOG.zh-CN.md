@@ -424,6 +424,14 @@
 
 ### 修复
 
+- **接受范围变更：Go 的 `v2.VerifyPayloadHash` 现在检查规范的 `payload_hash`**（`main` 上的源代码，尚未发布；Go v2.11.1 仍有该缺陷）。
+  它原先把不带前缀的十六进制 SHA-256 与 `payload_hash` 比较，因此对 `SignPayload` 的输出和所有符合 schema 的值（`sha256:<hex>`）返回 `false`，对不带前缀的摘要返回 `true`。
+  现在只有当 `payload_hash` 恰好是 `"sha256:"` 后接 `dcp-jcs-v1` 字节的小写十六进制 SHA-256 时才返回 `true`，这正是 `SignPayload`、`schemas/v2/signed_payload.schema.json` 以及 TypeScript、Python 和 Rust 辅助函数使用的值。
+  不带前缀的摘要、大写十六进制、前后空格或任何其他形式现在都返回 `false, nil`。
+  迁移：按收到的原样传入 `payload_hash`；若要从 `PreparePayload` 构造，写作 `"sha256:" + hash`。
+  `PreparePayload` 仍返回不带前缀的摘要（其注释现已说明），`nil` 和规范化错误保持不变；从未使用该辅助函数的 bundle 验证器也不变。
+  该辅助函数只检查哈希一致性，不检查签名、密钥、策略或准入。新增 `sdks/go/dcp/v2/signed_payload_test.go`。
+  Go 的 README 和 `AuditEvidenceV2` 的注释现在还说明：把收到的 bundle 解码到类型化结构体会丢失 `evidence` 中的 `null` 成员和未知成员，因此应保留并验证收到的字节。
 - **接受范围变更：WASM 的 `wasm_dual_merkle_root` 和 `@dcp-ai/wasm` 的 `dualMerkleRoot` 现在计算 V2-11 的双 Merkle 根**（`main` 上的源代码，尚未发布；
   `@dcp-ai/wasm` 2.1.1 及更早版本保留旧的辅助函数）。
   该辅助函数对两个摘要拼接后的十六进制文本做哈希，并把奇数节点直接上移，因此在 2 个或更多叶子时，其根既不符合 `spec/VERIFICATION.md` V2-11（拼接 32 字节的原始摘要，奇数层复制最后一个节点），也不同于 TypeScript、Python、Go 和 Rust SDK。

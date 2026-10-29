@@ -555,6 +555,22 @@ Publicado em 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 e `@dcp-ai/cl
 
 ### Corrigido
 
+- **Mudança de aceitação: `v2.VerifyPayloadHash` do Go agora confere o `payload_hash` normativo**
+  (código-fonte de `main`, não publicado; o Go v2.11.1 mantém o defeito). Ele comparava o SHA-256 em
+  hex sem prefixo com `payload_hash`, então devolvia `false` para a saída de `SignPayload` e para todo
+  valor válido segundo o schema (`sha256:<hex>`), e `true` para o digest sem prefixo. Agora devolve
+  `true` somente quando `payload_hash` é exatamente `"sha256:"` seguido do SHA-256 em hex minúsculo
+  dos bytes `dcp-jcs-v1`, o valor usado por `SignPayload`, `schemas/v2/signed_payload.schema.json` e
+  pelos helpers de TypeScript, Python e Rust. Um digest sem prefixo, hex em maiúsculas, espaços ao
+  redor ou qualquer outra forma agora devolve `false, nil`. Migração: passe `payload_hash` como foi
+  recebido; para construí-lo a partir de `PreparePayload`, escreva `"sha256:" + hash`.
+  `PreparePayload` continua devolvendo o digest sem prefixo (seu comentário agora diz isso), os erros
+  de `nil` e de canonicalização não mudam, e o verificador de bundles, que nunca usou este helper, não
+  muda. O helper só confere a consistência do hash, não a assinatura, as chaves, a política nem a
+  admissão. Novo `sdks/go/dcp/v2/signed_payload_test.go`. O README do Go e o comentário de
+  `AuditEvidenceV2` agora também dizem que decodificar um bundle recebido nos structs tipados descarta
+  os membros `null` e desconhecidos de `evidence`, então os bytes recebidos são os que devem ser
+  guardados e verificados.
 - **Mudança de aceitação: `wasm_dual_merkle_root` do WASM e `dualMerkleRoot` do `@dcp-ai/wasm` agora
   calculam a raiz Merkle dupla do V2-11** (código-fonte de `main`, não publicado; o `@dcp-ai/wasm`
   2.1.1 e anteriores mantêm o helper antigo). O helper fazia o hash do texto hexadecimal de dois

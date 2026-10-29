@@ -517,6 +517,14 @@
 
 ### 修正
 
+- **受け入れの変更：Go の `v2.VerifyPayloadHash` が規範的な `payload_hash` を確認するようになりました**（`main` のソースコード、未公開。Go v2.11.1 は欠陥を残したまま）。
+  以前は接頭辞のない 16 進の SHA-256 を `payload_hash` と比較していたため、`SignPayload` の出力とスキーマ上有効なすべての値（`sha256:<hex>`）に対して `false` を、接頭辞のないダイジェストに対して `true` を返していました。
+  現在は、`payload_hash` が `"sha256:"` の後に `dcp-jcs-v1` バイト列の SHA-256（小文字の 16 進数）を続けた値と完全に一致する場合にだけ `true` を返します。これは `SignPayload`、`schemas/v2/signed_payload.schema.json`、TypeScript、Python、Rust のヘルパーが使う値です。
+  接頭辞のないダイジェスト、大文字の 16 進数、前後の空白、その他の形はすべて `false, nil` になります。
+  移行：`payload_hash` を受け取ったまま渡してください。`PreparePayload` から作る場合は `"sha256:" + hash` と書きます。
+  `PreparePayload` は引き続き接頭辞のないダイジェストを返し（そのコメントで明記しました）、`nil` と正規化のエラーは変わりません。このヘルパーを使っていなかったバンドル検証器も変わりません。
+  このヘルパーが確認するのはハッシュの整合性だけで、署名、鍵、ポリシー、受け入れは確認しません。新しい `sdks/go/dcp/v2/signed_payload_test.go` を追加しました。
+  Go の README と `AuditEvidenceV2` のコメントでは、受信したバンドルを型付きの構造体にデコードすると `evidence` の `null` のメンバーと未知のメンバーが失われるため、保持して検証すべきなのは受信したバイト列であることも説明しています。
 - **受け入れの変更：WASM の `wasm_dual_merkle_root` と `@dcp-ai/wasm` の `dualMerkleRoot` が V2-11 の二重マークルルートを計算するようになりました**（`main` のソースコード、未公開。
   `@dcp-ai/wasm` 2.1.1 以前は古いヘルパーのまま）。
   このヘルパーは 2 つのダイジェストの 16 進テキストを連結してハッシュし、奇数のノードを繰り上げていたため、2 枚以上の葉ではルートが `spec/VERIFICATION.md` V2-11（32 バイトの生のダイジェストを連結し、奇数の層では最後のノードを複製）とも、TypeScript、Python、Go、Rust の SDK とも一致しませんでした。

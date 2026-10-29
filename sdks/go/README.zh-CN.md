@@ -6,7 +6,7 @@
 
 **Go 发布 (26/10/2026).** Go SDK `v2.11.0` 已通过模块标签 `sdks/go/v2.11.0` 发布，包含验证器修复、准入和实验性显式启用 API。Rust 仍独立发布。见 [Go v2.11.0](../../docs/GO_RELEASE.md).
 
-> 本文是[英文 README](README.md)的参考译文，更新于2026年10月25日。为保留经过验证的示例，标识符和代码块（包括注释）均保持原文。
+> 本文是[英文 README](README.md)的参考译文，更新于2026年10月29日。为保留经过验证的示例，标识符和代码块（包括注释）均保持原文。
 
 Digital Citizenship Protocol（DCP）v1.0 和 v2.0 的官方 Go SDK。支持 Ed25519、ML-DSA-65、SLH-DSA-192f、ML-KEM-768、复合签名、双哈希链和 bundle 验证。
 
@@ -196,6 +196,8 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 | 函数 | 说明 |
 |----------|-------------|
 | `v2.SignPayload(reg, context, payload, classicalKey, pqKey)` | 对产物签名，生成 `SignedPayload`（复合签名；`pqKey` 为 nil 时仅使用经典签名） |
+| `v2.PreparePayload(payload)` | 返回 `dcp-jcs-v1` 规范字节及其不带前缀的小写十六进制 SHA-256；`payload_hash` 字段是 `"sha256:"` 后接该摘要 |
+| `v2.VerifyPayloadHash(signed)` | 只有当 `payload_hash` 恰好是 `"sha256:"` 后接规范 payload 的 SHA-256 时才为 `true`；其他任何值（包括不带前缀的摘要）都为 `false`。只检查哈希一致性，不检查签名、密钥、策略或准入。`main` 上的源代码，尚未发布：v2.11.1 与不带前缀的摘要比较，因此会拒绝 `SignPayload` 的输出并接受不带前缀的形式 |
 | `v2.BuildBundleV2(input)` | 从已签名产物组装 V2 bundle，包含清单哈希和双 Merkle 根 |
 | `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | 使用复合签名或仅经典签名对 bundle 签名；签名者为 bundle 的责任主体（`signer.id` = RPR 的 `human_id`） |
 | `v2.VerifySignedBundleV2(reg, jsonBytes)` | 遵循 `DefaultVerifierPolicy` 验证 V2 bundle（结构、哈希、签名、主审计链），采用策略模式和安全等级模式中更严格的模式（规范 §14.3）；报告 `ResolvedTier` 和 `VerificationMode` |
@@ -203,6 +205,8 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 | `v2.VerifySignedBundleV2At(reg, jsonBytes, policy, now)` | 在时刻 `now` 执行相同操作：会话窗口、RPR 到期时间和密钥到期时间均以毫秒精度与它比较。上面两个函数以 `time.Now()` 调用此函数 |
 
 每个结果在 `SignerKeys`（JSON 为 `signer_keys`）中，按每个已检查的复合签名（`bundle`、四个产物以及每个 `pq_checkpoints[<id>]`）列出验证器为各组件（`classical`、`pq`）解析得到的密钥条目，以及该组件是否验证通过。
+
+**类型化结构体与收到的 bundle。** `AuditEventV2`、`CitizenshipBundleV2` 和 `SignedBundleV2` 用于生成 bundle。在审计证据中，这些结构体会丢失显式为 `null` 的成员和无法识别的成员（`tool`、`result_ref`、`evidence_hash` 以外的成员）；可识别的字符串值成员和空的 `evidence` 对象会保留其值。这些成员的丢失会改变规范化后的证据，并可能使 `prev_hash` 链或审计 Merkle 根失效。这些结构体不是用于转发已签名证据的无损表示。请保留收到的字节并验证这些字节：上面的验证函数接收字节。不要为了让收到的证据通过验证而自动修复、重新计算或重新签名；显式迁移应是保留原始数据的单独步骤。
 
 <a id="admission-principal-trust-and-strict-v1-unreleased"></a>
 
