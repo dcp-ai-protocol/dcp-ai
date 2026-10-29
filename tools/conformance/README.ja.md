@@ -228,3 +228,78 @@ DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-native.test
   エクスポートが `{"error": string}` の封筒を返した場合にだけ曖昧なエラーになります（`{"error":5}` は `ok` の
   ままです）。
   合格が示すのは、これら 38 ケースが各ラッパーで合格することだけです。
+
+<a id="evidence-catalog-merkle-and-signature-verification"></a>
+
+### 証拠カタログ：マークルと署名の検証
+
+`--catalog evidence` は任意で選ぶカタログ [`external-evidence-catalog.json`](external-evidence-catalog.json)
+（契約 `dcp-ai-conformance-external/2`、241 ケース）を選択し、同じ種類の argv に対して実行します。
+既定のカタログ、契約 `/1` とその 38 ケースは変わりません。カタログの `contract` が読み込みと判定の方法を決めます。
+5 つのラッパーはどちらの契約も受け付け、リクエストの契約で応答します。
+使うのはコミット済みの公開フィクスチャだけで、鍵を生成することも何かに署名することもありません。
+
+```bash
+node tools/conformance-external.js --catalog evidence --list
+node tools/conformance-external.js --catalog evidence --report /tmp/evidence-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
+node tools/conformance-external.js --catalog evidence -- /path/to/python -I tools/conformance/wrappers/python_sdk.py
+node tools/conformance-external.js --catalog evidence -- tools/conformance/wrappers/.build/go-wrapper
+node tools/conformance-external.js --catalog evidence -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+node tools/conformance-external.js --catalog evidence -- node tools/conformance/wrappers/wasm.mjs
+DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-evidence.test.mjs
+```
+
+| スイート | ケース数 | ベクター |
+|----------|----------|----------|
+| `external.merkle.dual_root` | 6 | `tests/conformance/v2/merkle_vectors.json`：葉が 1、2、3、5 枚の場合と並べ替えた葉（`spec/VERIFICATION.md` V2-11）。Python の標準ライブラリでオフラインに生成 |
+| `external.signature.composite` | 24 | `interop_vectors.json`：複合署名と古典署名のみの署名、コミット済みの攻撃、各陽性ケースの決定的な改変 |
+| `external.v2.bundle_vectors` | 131 | `bundle_vectors.json`：署名済みバンドル、コミット済みの 38 の変異、受理される 9 のバンドルと別途構築された拒否される 79 のバンドル、4 つのモードでの古典署名のみのルーチンバンドル |
+| `external.v2.secondary_sha3` | 80 | `secondary_sha3_vectors.json`：受理されるケースと拒否されるケース、拒否される各ケースのコミット済みの対照 |
+
+- **操作：** `dual_merkle_root` は `leaves`（小文字の 64 桁の 16 進文字列からなる `{sha256, sha3_256}` の空でない配列）を受け取り、
+  `sha256` と `sha3_256`（小文字の 64 桁の 16 進数）を持つ `ok` で応答します。
+  `composite_verify` は `context`、`payload_b64`（ペイロードの正規バイト列）、コミットされたままの `composite_sig`、
+  `classical_public_key_b64`、`pq_public_key_b64`（または `null`）を受け取り、`valid` と `classical_valid`（ブール値）、
+  `pq_valid`（ブール値または `null`）を持つ `ok` で応答します。
+  `verify_signed_bundle_v2` は `bundle_b64`（署名済みバンドルの JSON）、`policy`（検証器のポリシーのオブジェクト）、
+  `verification_time`（`Z` またはオフセット付きの RFC 3339）を受け取り、`verified`（ブール値）と `errors`（文字列の配列）を持つ `ok` で応答します。
+  形の正しくないリクエスト（空または大文字の葉、文字列でない葉、タイムゾーンのない時刻、未知のフィールド）では、ラッパーは 2 で終了します。
+- **判定：** 複合署名のケースはフィクスチャがコミットしたフィールドだけを比較します。バンドルの判定は一致しなければならず、
+  拒否はコミット済みの `error_contains` を含まなければなりません（大文字と小文字を区別せず、連結したエラーに対して）。
+  エラーを伴う `verified: true` は `contradictory_result` のエラーです。
+  コミット済みの入力はすべて解析できるため、`code` が `parse` の `rejected` は不合格です。`error` と `unsupported` は決して合格になりません。
+- **対照：** 陰性ケースは対照が合格した場合にだけ数えられ、そうでなければエラーの `control_failed` になります。
+  基準の署名済みバンドルはその 38 の変異の対照です。同じペイロードの陽性ケースはその改変とコミット済みの攻撃の対照です。
+  古典署名のみのバンドルの有効なモードは、拒否するモードの対照です。拒否される二次ケースにはそれぞれコミット済みの対照があります。
+  79 の `must_reject_bundles` にはケースごとの対照がありません。基準と受理される 9 のバンドルが合格した場合にだけ数えられ
+  （スイート単位の対照で、より弱い保証）、コミット済みの `error_contains` で判定されます。
+  レポートには各ケースの `source`、`input_sha256`、`controls` が記録されます。
+- **PQ 署名の欠落：** PQ 部分のない `pq_over_classical` 署名に対して、Rust の `composite_verify` はエラーを返し、
+  WASM のエクスポートはインバンドのエラー `Signature error: pq_over_classical binding requires PQ signature` を返します。
+  この 2 つのラッパーは、その正確なエラーで、かつ入力がそのバインディングと `pq: null` を持つ場合にだけ、
+  `code` が `missing_pq_signature` の `rejected` として報告します。
+  ランナーがそれを受け入れるのは、フィクスチャが `valid: false` だけをコミットしている場所（`stripping_pq_removal`）で、
+  その陽性の対照が合格した場合だけです。有効な署名や他の陰性ケースに対する同じコードは不合格です。
+  TypeScript、Python、Go はそのケースにブール値で応答します。
+- **ペイロードの改変**は正規ペイロードの最初の文字列値の最後の文字を変えるため、ペイロードは有効な正規 JSON のままであり
+  （WASM のエクスポートはペイロードの JSON を受け取ります）、パーサーのエラーが暗号上の失敗として数えられることはありません。
+- **時刻：** バンドルの各ケースは `verification_time` を送ります。基準のバンドルと検証に成功すべき各バンドルの有効期間内にある
+  2026-10-22T00:00:00Z（一部の陰性ケースは、その時点で意図的に期限切れまたはまだ有効でない状態です）、または二次ベクターのコミット済みの時刻です。TypeScript は `{ now }`、Python は `now_ms`、
+  Go は `VerifySignedBundleV2At`、Rust は `verify_signed_bundle_v2_at` を使います。
+  WASM のエクスポートは `Date.now` を読むため、WASM ラッパーは同期呼び出しの間だけ `Date.now` をその時刻に置き換え、
+  呼び出しが例外を投げた場合も含めて `finally` で元に戻します。その旨は `runtime` に記載されます。
+  セルフテストは、各ラッパーが基準のバンドルを 2020-01-01 では拒否し、2026-10-22 では受理し、2100-01-01 では拒否すること、
+  そして例外の後に元に戻ることを示します。
+- **WASM 経由のマークル：** ラッパーはこのチェックアウトからビルドした `wasm_dual_merkle_root` を使い、これは Rust のコアに委譲します。
+  `@dcp-ai/wasm` 2.1.1 以前で公開されたヘルパーは、複数の葉のケースで不合格になります（CHANGELOG を参照）。
+- **セルフテスト：** `external-evidence.test.mjs` は 241 ケースを 5 つのラッパーで実行し、時刻の証明、不正な形のリクエスト、
+  そして TypeScript ラッパーの実際の応答から作った偽の実装を実行します。偽の実装は、すべてを検証する、すべてを拒否する、
+  矛盾した結果、誤ったエラーテキスト、順序を無視するか 16 進テキストをハッシュするマークル縮約、不合格になる基準、
+  正しい場所と誤った場所での `missing_pq_signature`、陰性ケースでのエラーや `unsupported` を試します。
+  改ざんしたフィクスチャとカタログはインフラのエラー（終了コード 3）です。このカタログの既定のタイムアウトは 300 000 ms です（`--timeout-ms`）。
+  2 つの `REQUIRE` 変数を設定すると、ラッパーがない場合はスキップではなく不合格になります。CI では 5 つすべてを実行します。
+- **制限：** 合格が示すのは、実行した argv がこれら 241 ケースに合格することだけです。ポリシーは、各ケースのコミット済みの
+  `verifier_policy_overrides` を適用した `default_verifier_policy` と、古典署名のみのバンドルの 4 つのモードであり、それ以外のポリシーは試しません。`composite_verify` はバインディングと鍵を与えられたプリミティブであり、
+  バンドルの判定は受け入れ、プリンシパルへの信頼、行為の認可のいずれでもありません。
+  `stripping_pq_with_downgrade` は `classical_valid` と `pq_valid` で判定され、それを拒否するのは `hybrid_required` のポリシーの役割です。
+  二次フィールドは存在する場合にだけ確認されるため、合格は完全な二次チェーンを示しません。WASM 経由では、時刻は置き換えたホストの時計です。

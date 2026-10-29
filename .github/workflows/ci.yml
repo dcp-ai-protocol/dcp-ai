@@ -123,6 +123,10 @@ jobs:
       - name: Conformance kit self-tests
         run: node --test tools/conformance/conformance.test.mjs
 
+      # The Merkle vectors are generated offline with the Python standard library (no SDK); they must match.
+      - name: Merkle vectors match their generator
+        run: python3 -I tests/conformance/v2/generate-merkle-vectors.py --check
+
       # Ed25519 S < L (RFC 8032 §5.1.7) in the reference verifier (tools/crypto.js, lib/verify.js,
       # the transparency-log gossip) and in the playground's verifyDetached.
       - name: Ed25519 S range regressions (reference and playground)
@@ -190,9 +194,17 @@ jobs:
       - name: Python SDK wrapper (38 cases)
         run: node tools/conformance-external.js --report external-python.json -- "$(command -v python)" -I tools/conformance/wrappers/python_sdk.py
 
+      - name: TypeScript SDK wrapper (evidence catalog, 241 cases)
+        run: node tools/conformance-external.js --catalog evidence --report evidence-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
+
+      - name: Python SDK wrapper (evidence catalog, 241 cases)
+        run: node tools/conformance-external.js --catalog evidence --report evidence-python.json -- "$(command -v python)" -I tools/conformance/wrappers/python_sdk.py
+
   # Go, Rust and WASM wrappers (tools/conformance/README.md#go-rust-and-wasm-wrappers), built once from this
   # checkout and reused for the self-tests and the 38 cases each. DCP_EXTERNAL_REQUIRE_NATIVE turns a missing
-  # toolchain or artifact into a failure, not a skip. The runner uses Node built-ins only: no npm install.
+  # toolchain or artifact into a failure, not a skip. The runner uses Node built-ins only: no root npm install.
+  # The evidence self-tests need all five wrappers, so this job also builds the TypeScript SDK and installs
+  # the Python SDK from the checkout; DCP_EXTERNAL_REQUIRE_PYTHON makes the Python wrapper required too.
   conformance-external-native:
     name: External conformance (Go, Rust and WASM wrappers)
     runs-on: ubuntu-latest
@@ -207,6 +219,10 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: sdks/go/go.mod
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -223,6 +239,21 @@ jobs:
           DCP_EXTERNAL_REQUIRE_NATIVE: "1"
         run: node --test tools/conformance/external-native.test.mjs
 
+      - name: Build the workspace TypeScript SDK
+        working-directory: sdks/typescript
+        run: |
+          npm install
+          npm run build
+
+      - name: Install the Python SDK from the checkout
+        run: pip install ./sdks/python
+
+      - name: Evidence catalog self-tests (all five wrappers required)
+        env:
+          DCP_EXTERNAL_REQUIRE_PYTHON: "1"
+          DCP_EXTERNAL_REQUIRE_NATIVE: "1"
+        run: DCP_EXTERNAL_PYTHON="$(command -v python)" node --test tools/conformance/external-evidence.test.mjs
+
       - name: Go SDK wrapper (38 cases)
         run: node tools/conformance-external.js --report external-go.json -- tools/conformance/wrappers/.build/go-wrapper
 
@@ -231,6 +262,15 @@ jobs:
 
       - name: WASM build wrapper (38 cases, Node-hosted)
         run: node tools/conformance-external.js --report external-wasm.json -- node tools/conformance/wrappers/wasm.mjs
+
+      - name: Go SDK wrapper (evidence catalog, 241 cases)
+        run: node tools/conformance-external.js --catalog evidence --report evidence-go.json -- tools/conformance/wrappers/.build/go-wrapper
+
+      - name: Rust SDK wrapper (evidence catalog, 241 cases)
+        run: node tools/conformance-external.js --catalog evidence --report evidence-rust.json -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+
+      - name: WASM build wrapper (evidence catalog, 241 cases, Node-hosted)
+        run: node tools/conformance-external.js --catalog evidence --report evidence-wasm.json -- node tools/conformance/wrappers/wasm.mjs
 
   typescript-sdk:
     name: TypeScript SDK
@@ -519,3 +559,7 @@ jobs:
       # wasm verifier runs; the Rust job only compiles the wasm32 tests.
       - name: Verify the bundle vectors through the wasm build
         run: npm test
+
+      # Exact dual Merkle roots (tests/conformance/v2/merkle_vectors.json) through the real export and DcpClient.
+      - name: Dual Merkle roots through the wasm build
+        run: node test/dual-merkle-root.mjs

@@ -2,7 +2,10 @@
 // Runs the external conformance suites (tools/conformance/external-catalog.json) against an implementation
 // given as argv after `--`, through the contract dcp-ai-conformance-external/1 (tools/conformance/README.md).
 //
-//   node tools/conformance-external.js [--list] [--suite <id>]... [--report <file>] [--timeout-ms <n>] -- <argv...>
+//   node tools/conformance-external.js [--list] [--catalog evidence|<file>] [--suite <id>]... [--report <file>] [--timeout-ms <n>] -- <argv...>
+//
+// Without --catalog, the default catalog (contract /1, 38 cases) runs exactly as before. --catalog evidence selects
+// the opt-in evidence catalog (contract /2: Merkle roots, composite signatures, V2 bundle verification).
 //
 // Exit codes: 0 every selected case passed, 1 a discrepancy, 2 usage error, 3 infrastructure or
 // implementation error. With --report, an "incomplete" placeholder is written before anything else and is
@@ -13,9 +16,10 @@ import crypto from "crypto";
 import {
   LIMITS, UsageError, InfraError, loadPlan, runExternal, exitCodeFor, EXTERNAL_CATALOG_PATH, REPO_ROOT,
 } from "./conformance/external.js";
+import { EVIDENCE_CATALOG_PATH, EVIDENCE_CONTRACT, EVIDENCE_TIMEOUT_MS, loadEvidencePlan, runEvidence } from "./conformance/external-evidence.js";
 
 function parseArgs(args) {
-  const opts = { suites: [], list: false, report: undefined, timeoutMs: LIMITS.timeoutMs, root: REPO_ROOT, catalog: EXTERNAL_CATALOG_PATH, argv: null };
+  const opts = { suites: [], list: false, report: undefined, timeoutMs: undefined, root: REPO_ROOT, catalog: EXTERNAL_CATALOG_PATH, argv: null };
   const sep = args.indexOf("--");
   const own = sep === -1 ? args : args.slice(0, sep);
   if (sep !== -1) opts.argv = args.slice(sep + 1);
@@ -33,7 +37,7 @@ function parseArgs(args) {
       opts.report = value();
     }
     else if (a === "--root") opts.root = path.resolve(value());
-    else if (a === "--catalog") opts.catalog = path.resolve(value());
+    else if (a === "--catalog") { const v = value(); opts.catalog = v === "evidence" ? EVIDENCE_CATALOG_PATH : path.resolve(v); }
     else if (a === "--timeout-ms") {
       const n = Number(value());
       if (!Number.isSafeInteger(n) || n < 1 || n > LIMITS.maxTimeoutMs) throw new UsageError(`--timeout-ms must be an integer from 1 to ${LIMITS.maxTimeoutMs}`);
@@ -90,8 +94,12 @@ async function main(args) {
   };
   let opts;
   try { opts = parseArgs(args); } catch (e) { return fail(2, "usage", e.message); }
+  // The catalog's contract decides the plan: /2 is the evidence catalog, anything else the /1 loader.
+  let evidence = false;
+  try { evidence = JSON.parse(fs.readFileSync(opts.catalog, "utf8")).contract === EVIDENCE_CONTRACT; } catch { /* the loader reports it */ }
+  const timeoutMs = opts.timeoutMs ?? (evidence ? EVIDENCE_TIMEOUT_MS : LIMITS.timeoutMs);
   let plan;
-  try { plan = loadPlan({ root: opts.root, catalogFile: opts.catalog, select: opts.suites }); }
+  try { plan = (evidence ? loadEvidencePlan : loadPlan)({ root: opts.root, catalogFile: opts.catalog, select: opts.suites }); }
   catch (e) {
     if (e instanceof UsageError) return fail(2, "usage", e.message);
     if (e instanceof InfraError) return fail(3, "catalog", e.message);
@@ -103,7 +111,7 @@ async function main(args) {
     return 0;
   }
   let report;
-  try { report = await runExternal({ plan, argv: opts.argv, timeoutMs: opts.timeoutMs, run }); }
+  try { report = await (evidence ? runEvidence : runExternal)({ plan, argv: opts.argv, timeoutMs, run }); }
   catch (e) { return fail(3, "exception", e.stack ?? String(e)); }
   for (const s of report.suites) {
     console.log(`\n── ${s.id}: ${s.title} ──`);

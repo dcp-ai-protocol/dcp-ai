@@ -223,20 +223,18 @@ function expectAdversarial(argv) {
 
 test("go: a fake SDK that accepts fractions or fails internally is not hidden", (t) => {
   if (!available(t, hasTool("go", ["version"]), "the go toolchain is not available")) return;
+  // The fake is a copy of the real SDK (the /2 operations need its whole surface) with one line of
+  // canonicalize.go routed through fakeCheck.
   const fake = path.join(TMP, "go-fake");
+  fs.cpSync(path.join(REPO, "sdks", "go"), fake, { recursive: true, filter: (src) => !src.endsWith("_test.go") && !/README/.test(path.basename(src)) });
   const pkg = path.join(fake, "dcp", "v2");
-  fs.mkdirSync(pkg, { recursive: true });
-  fs.writeFileSync(path.join(fake, "go.mod"), "module github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2\n\ngo 1.25.0\n");
-  const real = fs.readFileSync(path.join(REPO, "sdks", "go", "dcp", "v2", "canonicalize.go"), "utf8");
+  const real = fs.readFileSync(path.join(pkg, "canonicalize.go"), "utf8");
   const check = "if err := AssertNoFloats(raw); err != nil {";
   assert.equal(real.split(check).length, 2, "the fake patches one known line of canonicalize.go");
   fs.writeFileSync(path.join(pkg, "canonicalize.go"), real.replace(check, "if err := fakeCheck(raw); err != nil {"));
   fs.writeFileSync(path.join(pkg, "fake.go"), `package v2
 
 import (
-	"crypto/sha256"
-	"crypto/sha3"
-	"encoding/hex"
 	"errors"
 	"os"
 )
@@ -250,13 +248,13 @@ func fakeCheck(raw interface{}) error {
 	}
 	return AssertNoFloats(raw)
 }
-
-func SHA256Hex(b []byte) string  { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
-func SHA3256Hex(b []byte) string { h := sha3.Sum256(b); return hex.EncodeToString(h[:]) }
 `);
+  // The wrapper's own go.mod and go.sum, with the replace pointed at the fake.
   const modfile = path.join(TMP, "go-fake-wrapper.mod");
-  fs.writeFileSync(modfile, `module github.com/dcp-ai-protocol/dcp-ai/tools/conformance/wrappers/go\n\ngo 1.25.0\n\nrequire github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2 v2.0.0\n\nreplace github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2 => ${fake}\n`);
-  fs.writeFileSync(modfile.replace(/\.mod$/, ".sum"), "");
+  const mod = fs.readFileSync(path.join(HERE, "wrappers", "go", "go.mod"), "utf8");
+  assert.equal(mod.split("=> ../../../../sdks/go").length, 2, "the wrapper's go.mod replaces the SDK once");
+  fs.writeFileSync(modfile, mod.replace("=> ../../../../sdks/go", `=> ${fake}`));
+  fs.copyFileSync(path.join(HERE, "wrappers", "go", "go.sum"), modfile.replace(/\.mod$/, ".sum"));
   const bin = path.join(TMP, "go-fake-wrapper");
   const b = spawnSync("go", ["build", `-modfile=${modfile}`, "-o", bin, "."], { cwd: path.join(HERE, "wrappers", "go"), encoding: "utf8", env: { ...process.env, GOFLAGS: "-mod=mod", GOPROXY: "off" } });
   assert.equal(b.status, 0, b.stderr);
@@ -267,31 +265,27 @@ func SHA3256Hex(b []byte) string { h := sha3.Sum256(b); return hex.EncodeToStrin
 
 test("rust: a fake SDK that accepts fractions or fails internally is not hidden", (t) => {
   if (!available(t, hasTool("cargo") && WRAPPERS.rust.built(), "cargo or the Rust wrapper build (for the dependency cache) is not available")) return;
+  // The fake is a copy of the real SDK (the /2 operations need its whole surface) whose canonicalize_v2
+  // goes through FAKE_MODE before the real function, renamed real_canonicalize_v2.
   const fake = path.join(TMP, "rust-fake-sdk");
-  fs.mkdirSync(path.join(fake, "src"), { recursive: true });
-  fs.writeFileSync(path.join(fake, "Cargo.toml"), `[package]\nname = "dcp-ai"\nversion = "0.0.0-fake"\nedition = "2021"\npublish = false\n\n[dependencies]\nserde_json = "1.0"\nsha2 = "0.10"\nsha3 = "0.10"\nhex = "0.4"\n`);
-  fs.writeFileSync(path.join(fake, "src", "lib.rs"), `pub mod observability { pub const DCP_SDK_VERSION: &str = "0.0.0-fake"; }
-pub mod v2 {
-    #[path = ${JSON.stringify(path.join(REPO, "sdks", "rust", "src", "v2", "canonicalize.rs"))}]
-    mod real;
-    pub mod canonicalize {
-        use serde_json::Value;
-        pub fn canonicalize_v2(value: &Value) -> Result<String, String> {
-            match std::env::var("FAKE_MODE").as_deref() {
-                Ok("internal-error") => Err("internal failure".to_string()),
-                Ok("adversarial-no-text") => Err(format!("key \\"{}x", "\\": key \\"".repeat(100_000))),
-                Ok("adversarial-long-prefixes") => Err(format!("{}Non-integer number in V2 canonical form: 0.5", "key \\"a\\": ".repeat(50_000))),
-                Ok("adversarial-over-limit") => Err(format!("{}Non-integer number in V2 canonical form: 0.5", "key \\"a\\": ".repeat(150_000))),
-                Ok("adversarial-over-limit-multibyte") => Err(format!("{}Non-integer number in V2 canonical form: 0.5", "key \\"\u20ac\\": ".repeat(110_000))),
-                Ok("accept-fractions") => super::real::canonicalize_v2(value).or_else(|_| Ok(serde_json::to_string(value).unwrap())),
-                _ => super::real::canonicalize_v2(value),
-            }
-        }
-    }
-    pub mod dual_hash {
-        use sha2::Digest;
-        pub fn sha256_hex(b: &[u8]) -> String { hex::encode(sha2::Sha256::digest(b)) }
-        pub fn sha3_256_hex(b: &[u8]) -> String { hex::encode(sha3::Sha3_256::digest(b)) }
+  fs.cpSync(path.join(REPO, "sdks", "rust", "src"), path.join(fake, "src"), { recursive: true });
+  const manifest = fs.readFileSync(path.join(REPO, "sdks", "rust", "Cargo.toml"), "utf8");
+  assert.equal(manifest.split(/^version = "[^"]+"$/m).length, 2, "the fake renames one known version line");
+  fs.writeFileSync(path.join(fake, "Cargo.toml"), manifest.replace(/^version = "[^"]+"$/m, 'version = "0.0.0-fake"').replace(/^readme = .*$/m, ""));
+  const canon = path.join(fake, "src", "v2", "canonicalize.rs");
+  const signature = "pub fn canonicalize_v2(value: &Value) -> Result<String, String> {";
+  const real = fs.readFileSync(canon, "utf8");
+  assert.equal(real.split(signature).length, 2, "the fake patches one known line of canonicalize.rs");
+  fs.writeFileSync(canon, real.replace(signature, "pub fn real_canonicalize_v2(value: &Value) -> Result<String, String> {") + `
+pub fn canonicalize_v2(value: &Value) -> Result<String, String> {
+    match std::env::var("FAKE_MODE").as_deref() {
+        Ok("internal-error") => Err("internal failure".to_string()),
+        Ok("adversarial-no-text") => Err(format!("key \\"{}x", "\\": key \\"".repeat(100_000))),
+        Ok("adversarial-long-prefixes") => Err(format!("{}Non-integer number in V2 canonical form: 0.5", "key \\"a\\": ".repeat(50_000))),
+        Ok("adversarial-over-limit") => Err(format!("{}Non-integer number in V2 canonical form: 0.5", "key \\"a\\": ".repeat(150_000))),
+        Ok("adversarial-over-limit-multibyte") => Err(format!("{}Non-integer number in V2 canonical form: 0.5", "key \\"\u20ac\\": ".repeat(110_000))),
+        Ok("accept-fractions") => real_canonicalize_v2(value).or_else(|_| Ok(serde_json::to_string(value).unwrap())),
+        _ => real_canonicalize_v2(value),
     }
 }
 `);

@@ -216,6 +216,19 @@ Publicado em 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 e `@dcp-ai/cl
 
 ### Adicionado
 
+- **Catálogo de evidência para o runner de conformidade externo: Merkle e verificação de assinaturas.**
+  `--catalog evidence` executa um catálogo opcional (`tools/conformance/external-evidence-catalog.json`,
+  contrato `dcp-ai-conformance-external/2`, 241 casos) sobre fixtures públicos versionados: raízes
+  Merkle duplas exatas para 1, 2, 3 e 5 folhas, verificação de assinaturas compostas e só clássicas com
+  os ataques versionados e alterações determinísticas, verificação normativa V2 de bundles assinados de
+  `bundle_vectors.json` com `default_verifier_policy` e os overrides versionados de cada caso, e os
+  vetores secundários SHA3-256, tudo com um `verification_time` fixado. Um caso negativo só conta se seu
+  controle passou; `verified: true` com erros, `error` e `unsupported` nunca são um sucesso. Os cinco
+  wrappers aceitam os dois contratos; o catálogo padrão, o contrato `/1` e seus 38 casos não mudam. A CI
+  executa os 241 casos e os self-tests com os cinco wrappers. Um sucesso não é admissão, confiança nem
+  autorização. Além da correção de `wasm_dual_merkle_root` em Corrigido, não há mudanças nos SDKs;
+  nenhum pacote é publicado. Veja
+  [tools/conformance/README.md](tools/conformance/README.md#evidence-catalog-merkle-and-signature-verification).
 - **Wrappers de Go, Rust e WASM para o runner de conformidade externo.**
   `tools/conformance/wrappers/build.mjs` compila a partir deste checkout wrappers para o SDK de Go,
   o SDK de Rust e a compilação WASM do SDK de Rust (`-mod=readonly`, `--locked`; nenhum manifest ou
@@ -542,6 +555,24 @@ Publicado em 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 e `@dcp-ai/cl
 
 ### Corrigido
 
+- **Mudança de aceitação: `wasm_dual_merkle_root` do WASM e `dualMerkleRoot` do `@dcp-ai/wasm` agora
+  calculam a raiz Merkle dupla do V2-11** (código-fonte de `main`, não publicado; o `@dcp-ai/wasm`
+  2.1.1 e anteriores mantêm o helper antigo). O helper fazia o hash do texto hexadecimal de dois
+  digests concatenados e promovia o nó ímpar, então com 2 ou mais folhas suas raízes não coincidiam
+  nem com `spec/VERIFICATION.md` V2-11 (digests de 32 bytes brutos concatenados, o último nó
+  duplicado em uma camada ímpar) nem com os SDKs de TypeScript, Python, Go e Rust. Agora delega ao
+  núcleo de Rust `v2::dual_hash::dual_merkle_root`. A mudança não se limita às raízes de várias
+  folhas: estas mudam porque eram incompatíveis com o V2-11; uma folha que não é um digest
+  hexadecimal de 32 bytes agora é um erro em vez de ter o hash calculado como texto; e as raízes são
+  sempre hex em minúsculas, então uma única folha dada em maiúsculas agora volta em minúsculas. Uma
+  única folha válida em minúsculas, o formato do resultado e os erros para um array vazio e para uma
+  entrada que não é JSON não mudam. A verificação de bundles, incluindo o verificador WASM, já usava
+  a redução correta e não muda; os bundles anteriores e sua evidência não são reescritos nem
+  assinados de novo, porque a mudança se limita a este helper. Os
+  novos vetores públicos `tests/conformance/v2/merkle_vectors.json` (raízes exatas para 1, 2, 3 e 5
+  folhas e para folhas reordenadas, geradas offline com a biblioteca padrão do Python e ancoradas
+  nas raízes golden de 2 folhas) são verificados por `sdks/wasm/test/dual-merkle-root.mjs` e
+  `sdks/rust/tests/dual_merkle_vectors.rs`.
 - `denyListRevocationSource` (`@dcp-ai/express`, `@dcp-ai/openclaw`) deixava respostas abertas. Uma resposta
   que não era 2xx ou um `Content-Length` declarado acima de 16 MiB era recusado sem ler nem fechar seu
   corpo: a resposta continuava aberta depois que a chamada terminava e sua vaga era liberada, fora do alcance do

@@ -225,3 +225,84 @@ DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-native.test
   JavaScript do pacote `@dcp-ai/wasm` (como `DcpClient`) nem um navegador. A classificação das rejeições depende do
   texto das mensagens, porque os SDKs não têm códigos de erro estáveis, e, via WASM, uma entrada raiz `{"error": …}` de uma única chave só é
   um erro ambíguo quando a exportação devolve o envelope `{"error": string}` (`{"error":5}` continua `ok`). Um sucesso mostra que estes 38 casos passam com cada wrapper, nada mais.
+
+<a id="evidence-catalog-merkle-and-signature-verification"></a>
+
+### Catálogo de evidência: Merkle e verificação de assinaturas
+
+`--catalog evidence` seleciona um catálogo opcional, [`external-evidence-catalog.json`](external-evidence-catalog.json)
+(contrato `dcp-ai-conformance-external/2`, 241 casos), executado contra o mesmo tipo de argv. O catálogo padrão,
+o contrato `/1` e seus 38 casos não mudam; o `contract` do catálogo decide como ele é carregado e julgado. Os
+cinco wrappers aceitam os dois contratos e respondem com o contrato da requisição. Só são usados fixtures
+públicos versionados: nenhuma chave é gerada e nada é assinado.
+
+```bash
+node tools/conformance-external.js --catalog evidence --list
+node tools/conformance-external.js --catalog evidence --report /tmp/evidence-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
+node tools/conformance-external.js --catalog evidence -- /path/to/python -I tools/conformance/wrappers/python_sdk.py
+node tools/conformance-external.js --catalog evidence -- tools/conformance/wrappers/.build/go-wrapper
+node tools/conformance-external.js --catalog evidence -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+node tools/conformance-external.js --catalog evidence -- node tools/conformance/wrappers/wasm.mjs
+DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-evidence.test.mjs
+```
+
+| Suíte | Casos | Vetores |
+|-------|-------|---------|
+| `external.merkle.dual_root` | 6 | `tests/conformance/v2/merkle_vectors.json`: 1, 2, 3 e 5 folhas e folhas reordenadas (`spec/VERIFICATION.md` V2-11), geradas offline com a biblioteca padrão do Python |
+| `external.signature.composite` | 24 | `interop_vectors.json`: assinaturas compostas e só clássicas, seus ataques versionados e alterações determinísticas de cada positivo |
+| `external.v2.bundle_vectors` | 131 | `bundle_vectors.json`: o bundle assinado, suas 38 mutações versionadas, 9 bundles aceitos e 79 rejeitados construídos à parte, o bundle de rotina só clássico em 4 modos |
+| `external.v2.secondary_sha3` | 80 | `secondary_sha3_vectors.json`: casos aceitos e rejeitados e o controle versionado de cada caso rejeitado |
+
+- **Operações:** `dual_merkle_root` recebe `leaves`, um array não vazio de `{sha256, sha3_256}` com strings
+  hexadecimais de 64 caracteres em minúsculas, e responde `ok` com `sha256` e `sha3_256` (64 hex em minúsculas).
+  `composite_verify` recebe `context`, `payload_b64` (os bytes canônicos do payload), `composite_sig` como está
+  versionada, `classical_public_key_b64` e `pq_public_key_b64` (ou `null`), e responde `ok` com `valid` e
+  `classical_valid` (booleanos) e `pq_valid` (booleano ou `null`). `verify_signed_bundle_v2` recebe `bundle_b64`
+  (o JSON do bundle assinado), `policy` (um objeto de política do verificador) e `verification_time` (RFC 3339
+  com `Z` ou um deslocamento), e responde `ok` com `verified` (booleano) e `errors` (um array de strings). Uma
+  requisição com formato errado (uma folha vazia ou em maiúsculas, uma folha que não é string, um horário sem
+  fuso, um campo desconhecido) faz o wrapper sair com 2.
+- **Julgamento:** os casos compostos comparam só os campos que o fixture fixa; o veredito de um bundle deve
+  coincidir, e uma rejeição deve conter o `error_contains` versionado (sem diferenciar maiúsculas, sobre os erros
+  unidos). `verified: true` com erros é um erro `contradictory_result`. `rejected` com `code` `parse` falha,
+  porque toda entrada versionada pode ser analisada; `error` e `unsupported` nunca são um sucesso.
+- **Controles:** um caso negativo só conta se seu controle passou; caso contrário, é `control_failed`, um erro. O
+  bundle assinado base controla suas 38 mutações; o positivo do mesmo payload controla suas alterações e os
+  ataques versionados; um modo válido do bundle só clássico controla seus modos que rejeitam; cada caso secundário
+  rejeitado tem seu controle versionado. Os 79 `must_reject_bundles` não têm controle por caso: só contam se a base
+  e os 9 bundles aceitos passam (um controle no nível da suíte, uma garantia mais fraca) e são julgados pelo seu
+  `error_contains` versionado. O relatório dá para cada caso seu `source`, seu `input_sha256` e seus `controls`.
+- **Assinatura PQ ausente:** diante de uma assinatura `pq_over_classical` sem parte PQ, `composite_verify` do Rust
+  devolve um erro e a exportação WASM o erro em banda
+  `Signature error: pq_over_classical binding requires PQ signature`. Esses dois wrappers o reportam como
+  `rejected` com `code` `missing_pq_signature`, só para esse erro exato e só quando a entrada tem esse binding e `pq: null`. O runner só o aceita onde o fixture fixa apenas
+  `valid: false` (`stripping_pq_removal`) e seu controle positivo passou; o mesmo código diante de uma assinatura
+  válida ou de qualquer outro negativo falha. TypeScript, Python e Go respondem a esse caso com booleanos.
+- **As alterações do payload** mudam o último caractere do primeiro valor string do payload canônico, de modo que
+  o payload continua sendo JSON canônico válido (a exportação WASM recebe o JSON do payload) e um erro do
+  analisador nunca é contado como uma falha criptográfica.
+- **Horário:** cada caso de bundle envia `verification_time`: 2026-10-22T00:00:00Z, dentro da janela de validade
+  do bundle base e de cada bundle que deve ser verificado (alguns negativos estão expirados ou ainda não são
+  válidos nesse instante de propósito), ou o horário versionado dos vetores secundários. TypeScript passa `{ now }`, Python
+  `now_ms`, Go `VerifySignedBundleV2At` e Rust `verify_signed_bundle_v2_at`. A exportação WASM lê `Date.now`,
+  então o wrapper WASM substitui `Date.now` por esse instante só durante a chamada síncrona e o restaura em
+  `finally`, também quando a chamada lança uma exceção; seu `runtime` informa isso. Os self-tests mostram que cada
+  wrapper rejeita o bundle base em 2020-01-01, o aceita em 2026-10-22 e o rejeita em 2100-01-01, e a restauração
+  após uma exceção.
+- **Merkle via WASM:** o wrapper usa o `wasm_dual_merkle_root` compilado a partir deste checkout, que delega ao
+  núcleo de Rust; o helper publicado no `@dcp-ai/wasm` 2.1.1 e anteriores falha nos casos de várias folhas (veja o
+  CHANGELOG).
+- **Self-tests:** `external-evidence.test.mjs` executa os 241 casos com os cinco wrappers, a prova do relógio,
+  requisições malformadas e uma implementação falsa construída a partir das respostas reais do wrapper de
+  TypeScript: verificar tudo, rejeitar tudo, resultados contraditórios, um texto de erro errado, uma redução Merkle
+  que ignora a ordem ou que faz o hash do texto hexadecimal, uma base que falha, `missing_pq_signature` no lugar
+  certo e fora dele, e erros ou `unsupported` nos negativos. Fixtures e catálogos adulterados são erros de
+  infraestrutura (saída 3). O tempo limite padrão deste catálogo é de 300 000 ms (`--timeout-ms`). Com as duas
+  variáveis `REQUIRE`, um wrapper ausente falha em vez de ser pulado; a CI executa os cinco.
+- **Limites:** um sucesso mostra que o argv executado passa nestes 241 casos, nada mais. A política é
+  `default_verifier_policy` com os `verifier_policy_overrides` versionados de cada caso, mais os 4 modos do
+  bundle só clássico; nenhuma outra política é testada. `composite_verify` é uma primitiva com o binding e as
+  chaves dados, e o veredito de um bundle não é admissão, confiança no principal nem autorização de uma ação.
+  `stripping_pq_with_downgrade` é julgado por `classical_valid` e `pq_valid`; rejeitá-lo cabe a uma política
+  `hybrid_required`. Os campos secundários são verificados onde estão presentes, então um sucesso não mostra uma
+  cadeia secundária completa. Via WASM, o horário é o relógio do host substituído.
