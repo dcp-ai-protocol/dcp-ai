@@ -10,7 +10,7 @@ canonicalize: strict UTF-8 decoding and ``json.loads`` with NaN/Infinity refused
 rejected/parse), then ONE call to ``canonicalize_v2``. Only the documented rejection (a ``TypeError``
 whose message starts "Non-integer number at" or "Non-finite number at"; the SDK has no stable error
 code) is reported as rejected/profile; any other exception is an error. digest: ``sha256_hex`` /
-``sha3_256_hex`` of the decoded bytes.
+``sha3_256_hex`` of the decoded bytes. Contracts /2 and /3 (opt-in) are described where they are handled below.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ import os
 import platform
 import re
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 import dcp_ai
 from dcp_ai.v2.canonicalize import canonicalize_v2
@@ -133,9 +133,89 @@ def run_evidence_case(c: dict) -> dict:
     return {"id": c["id"], "status": "ok", "verified": r["verified"], "errors": r["errors"]}
 
 
-def run_case(c: dict, v2: bool = False) -> dict:
+CONTRACT_V3 = "dcp-ai-conformance-external/3"
+ADMISSION = {
+    "admit_signed_bundle_v2": ["id", "op", "bundle_b64", "now", "profile", "trust_set", "verifier_policy", "revocation"],
+    "load_admission_config": ["id", "op", "kind", "config"],
+}
+
+
+# /3's now is exactly YYYY-MM-DDTHH:mm:ss.sssZ, a real date in the years 0001-9999 (datetime has no year 0) that
+# formats back to the same text.
+NOW_MS = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z")
+EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
+
+
+def exact_now_ms(t: object) -> int | None:
+    if not isinstance(t, str) or not NOW_MS.fullmatch(t):
+        return None
+    try:
+        dt = datetime.fromisoformat(t[:-1] + "+00:00")
+    except ValueError:
+        return None
+    back = f"{dt.year:04d}-{dt.month:02d}-{dt.day:02d}T{dt.hour:02d}:{dt.minute:02d}:{dt.second:02d}.{dt.microsecond // 1000:03d}Z"
+    return (dt - EPOCH) // timedelta(milliseconds=1) if back == t else None
+
+
+def fault() -> None:
+    # Self-tests only: DCP_CONFORMANCE_WRAPPER_FAULT=untyped replaces each /3 SDK call by a ValueError (the base class
+    # of AdmissionConfigError, not that class) whose text carries a configuration code: it can only become an error.
+    if os.environ.get("DCP_CONFORMANCE_WRAPPER_FAULT") == "untyped":
+        raise ValueError("CONFIG_INVALID_VALUE: injected by DCP_CONFORMANCE_WRAPPER_FAULT")
+
+
+def run_admission_case(c: dict) -> dict:
+    """Contract /3 (opt-in admission, spec/profiles/admission): one call per case to admit_signed_bundle_v2 (the
+    combined function, at the request's now, never the system clock), create_principal_trust_store or
+    resolve_strict_v1_profile. Only the SDK's AdmissionConfigError is a rejection, with its code; any other exception
+    is an error."""
+    if not exact_keys(c, ADMISSION[c["op"]]):
+        fail(f"case fields do not match op {c['op']}")
+    from dcp_ai.v2.admission import AdmissionConfigError, admit_signed_bundle_v2, create_principal_trust_store, resolve_strict_v1_profile
+    if c["op"] == "load_admission_config":
+        if c["kind"] not in ("trust_set", "profile"):
+            fail(f"case {c['id']}: kind must be trust_set or profile")
+        try:
+            fault()
+            if c["kind"] == "trust_set":
+                create_principal_trust_store(c["config"])
+                return {"id": c["id"], "status": "ok", "accepted": True}
+            p = resolve_strict_v1_profile(c["config"])
+            return {"id": c["id"], "status": "ok", "accepted": True,
+                    "max_session_duration_seconds": p.max_session_duration_seconds, "max_revocation_age_seconds": p.max_revocation_age_seconds}
+        except AdmissionConfigError as e:
+            return {"id": c["id"], "status": "rejected", "code": e.code}
+    data = decode_base64_strict(c["bundle_b64"])
+    now_ms = exact_now_ms(c["now"])
+    rev = c["revocation"]
+    # A snapshot is an object, complete or not (the SDK judges its content); null is the separate unavailable state.
+    rev_ok = rev is None or (exact_keys(rev, ["state"]) and rev["state"] == "unavailable") or (
+        exact_keys(rev, ["state", "snapshot"]) and rev["state"] == "snapshot" and isinstance(rev["snapshot"], dict))
+    if (data is None or now_ms is None or not rev_ok or (c["profile"] is None) != (rev is None)
+            or not all(c[k] is None or isinstance(c[k], dict) for k in ("profile", "trust_set", "verifier_policy"))):
+        fail(f"case {c['id']}: admit_signed_bundle_v2 fields have the wrong types")
+    try:
+        signed = json.loads(data.decode("utf-8"), parse_constant=refuse_constant)
+    except (UnicodeDecodeError, ValueError):
+        fail(f"case {c['id']}: bundle_b64 is not UTF-8 JSON")
+    try:
+        fault()
+        r = asyncio.run(admit_signed_bundle_v2(
+            signed, registry(), profile=c["profile"], policy=c["verifier_policy"], trust=c["trust_set"],
+            revocation=rev["snapshot"] if rev is not None and rev["state"] == "snapshot" else None, now_ms=now_ms))
+    except AdmissionConfigError as e:
+        return {"id": c["id"], "status": "rejected", "code": e.code}
+    return {"id": c["id"], "status": "ok", "verified": r["verified"], "principal_trust": r["principal_trust"], "profile": r["profile"],
+            "profile_compliance": r["profile_compliance"], "admitted": r["admitted"], "action_authorized": r["action_authorized"],
+            "recorded_decision": r["recorded_decision"], "trust_set_version": r["trust_set_version"],
+            "codes": [e["code"] for e in r["errors"]], "verification_verified": r["verification"]["verified"]}
+
+
+def run_case(c: dict, v2: bool = False, v3: bool = False) -> dict:
     if v2 and isinstance(c, dict) and isinstance(c.get("id"), str) and c.get("op") in EVIDENCE:
         return run_evidence_case(c)
+    if v3 and isinstance(c, dict) and isinstance(c.get("id"), str) and c.get("op") in ADMISSION:
+        return run_admission_case(c)
     op = c.get("op") if isinstance(c, dict) else None
     known = {"canonicalize": ["id", "op", "profile", "input_b64"], "digest": ["id", "op", "alg", "input_b64"]}.get(op)
     if known is None:
@@ -173,13 +253,13 @@ def main() -> None:
         request = json.loads(sys.stdin.buffer.read().decode("utf-8"))
     except (UnicodeDecodeError, ValueError) as e:
         fail(f"the request is not UTF-8 JSON ({e})")
-    if (not exact_keys(request, ["contract", "run_id", "nonce", "cases"]) or request["contract"] not in (CONTRACT, CONTRACT_V2)
+    if (not exact_keys(request, ["contract", "run_id", "nonce", "cases"]) or request["contract"] not in (CONTRACT, CONTRACT_V2, CONTRACT_V3)
             or not isinstance(request["run_id"], str) or not isinstance(request["nonce"], str) or not isinstance(request["cases"], list)):
-        fail("the request needs exactly contract dcp-ai-conformance-external/1, run_id, nonce and cases")
+        fail("the request needs exactly contract dcp-ai-conformance-external/1, /2 or /3, run_id, nonce and cases")
     results = []
     for c in request["cases"]:
         try:
-            results.append(run_case(c, request["contract"] == CONTRACT_V2))
+            results.append(run_case(c, request["contract"] == CONTRACT_V2, request["contract"] == CONTRACT_V3))
         except Exception as e:  # an unexpected exception is the implementation's error, never a rejection
             results.append({"id": c.get("id") if isinstance(c, dict) else None, "status": "error", "message": f"{type(e).__name__}: {e}"[:500]})
     response = {

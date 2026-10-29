@@ -5,7 +5,8 @@
 //! call to dcp_ai::v2::canonicalize::canonicalize_v2. Only its documented rejection ("Non-integer number
 //! in V2 canonical form:" / "Non-finite number in V2 canonical form:", possibly behind `key "…": ` and
 //! `array[i]: ` path prefixes; an Err(String) with no stable code) is rejected/profile; any other Err is
-//! an error. digest: dcp_ai::v2::dual_hash::sha256_hex / sha3_256_hex of the decoded bytes.
+//! an error. digest: dcp_ai::v2::dual_hash::sha256_hex / sha3_256_hex of the decoded bytes. Contracts /2 and /3
+//! (opt-in) are described where they are handled below.
 
 use std::io::{Read, Write};
 
@@ -21,10 +22,12 @@ use dcp_ai::v2::dual_hash::{dual_merkle_root, sha256_hex, sha3_256_hex, DualHash
 use dcp_ai::v2::session_nonce::parse_rfc3339_millis;
 use dcp_ai::v2::types::VerifierPolicy;
 use dcp_ai::v2::verify_bundle::verify_signed_bundle_v2_at;
+use dcp_ai::v2::{admit_signed_bundle_v2, resolve_strict_v1_profile, AdmissionConfigError, AdmitOptions, PrincipalTrustStore};
 use serde_json::{json, Map, Value};
 
 const CONTRACT: &str = "dcp-ai-conformance-external/1";
 const CONTRACT_V2: &str = "dcp-ai-conformance-external/2";
+const CONTRACT_V3: &str = "dcp-ai-conformance-external/3";
 
 fn fail(msg: &str) -> ! {
     eprintln!("rust wrapper: {msg}");
@@ -170,7 +173,83 @@ fn run_evidence_case(id: &str, op: &str, o: &Map<String, Value>) -> Value {
     }
 }
 
-fn run_case(c: &Value, v2: bool) -> Value {
+/// /3's now: exactly YYYY-MM-DDTHH:MM:SS.sssZ with a real calendar date and time (no leap second) in the years
+/// 0001-9999, in milliseconds.
+fn exact_now_ms(t: &str) -> Option<i64> {
+    let b = t.as_bytes();
+    if b.len() != 24 || b[4] != b'-' || b[7] != b'-' || b[10] != b'T' || b[13] != b':' || b[16] != b':' || b[19] != b'.' || b[23] != b'Z' {
+        return None;
+    }
+    let num = |r: std::ops::Range<usize>| -> Option<u32> { let s = &t[r]; s.bytes().all(|c| c.is_ascii_digit()).then(|| s.parse().ok()).flatten() };
+    let (year, month, day, hour, minute, second) = (num(0..4)?, num(5..7)?, num(8..10)?, num(11..13)?, num(14..16)?, num(17..19)?);
+    num(20..23)?;
+    let leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
+    let days = [31, if leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    if year == 0 || !(1..=12).contains(&month) || day == 0 || day > days[(month - 1) as usize] || hour > 23 || minute > 59 || second > 59 {
+        return None;
+    }
+    parse_rfc3339_millis(t)
+}
+
+/// Contract /3 (opt-in admission, spec/profiles/admission): one call per case to admit_signed_bundle_v2 (the combined
+/// function, at the request's now, never the system clock), after resolve_strict_v1_profile and
+/// PrincipalTrustStore::from_json load the operator's configuration, or one call to either loader. They return only
+/// AdmissionConfigError, a rejection with its code; a policy the SDK cannot deserialize is an error, and anything
+/// unexpected is a panic, which ends the process (never a rejection). DCP_CONFORMANCE_WRAPPER_FAULT=panic (self-tests
+/// only) panics before each /3 SDK call.
+fn run_admission_case(id: &str, op: &str, o: &Map<String, Value>) -> Value {
+    let rejected = |e: AdmissionConfigError| json!({"id": id, "status": "rejected", "code": e.code});
+    let fault = || if std::env::var("DCP_CONFORMANCE_WRAPPER_FAULT").as_deref() == Ok("panic") { panic!("injected by DCP_CONFORMANCE_WRAPPER_FAULT") };
+    if op == "load_admission_config" {
+        if !exact_keys(o, &["id", "op", "kind", "config"]) { fail(&format!("case {id}: fields do not match op {op}")); }
+        let config = &o["config"];
+        return match o["kind"].as_str() {
+            Some("trust_set") => { fault(); match PrincipalTrustStore::from_json(config) { Ok(_) => json!({"id": id, "status": "ok", "accepted": true}), Err(e) => rejected(e) } }
+            Some("profile") => { fault(); match resolve_strict_v1_profile(config) {
+                Ok(p) => json!({"id": id, "status": "ok", "accepted": true, "max_session_duration_seconds": p.max_session_duration_seconds(), "max_revocation_age_seconds": p.max_revocation_age_seconds()}),
+                Err(e) => rejected(e),
+            } }
+            _ => fail(&format!("case {id}: kind must be trust_set or profile")),
+        };
+    }
+    if !exact_keys(o, &["id", "op", "bundle_b64", "now", "profile", "trust_set", "verifier_policy", "revocation"]) {
+        fail(&format!("case {id}: fields do not match op {op}"));
+    }
+    let bytes = o["bundle_b64"].as_str().and_then(decode_base64_strict).unwrap_or_else(|| fail(&format!("case {id}: bundle_b64 is not canonical base64")));
+    let signed: Value = std::str::from_utf8(&bytes).ok().and_then(|t| serde_json::from_str(t).ok()).unwrap_or_else(|| fail(&format!("case {id}: bundle_b64 is not UTF-8 JSON")));
+    let now = o["now"].as_str().and_then(exact_now_ms)
+        .unwrap_or_else(|| fail(&format!("case {id}: now is not YYYY-MM-DDTHH:mm:ss.sssZ with a real date in the years 0001-9999")));
+    let object_or_null = |k: &str| -> Option<&Value> { match &o[k] { Value::Null => None, v @ Value::Object(_) => Some(v), _ => fail(&format!("case {id}: {k} must be an object or null")) } };
+    let (profile_cfg, trust_cfg, policy_cfg) = (object_or_null("profile"), object_or_null("trust_set"), object_or_null("verifier_policy"));
+    // Three states: no revocation (no profile), unavailable (None to the SDK, R1) and a snapshot.
+    let (has_revocation, snapshot) = match &o["revocation"] {
+        Value::Null => (false, None),
+        Value::Object(m) if exact_keys(m, &["state"]) && m["state"] == "unavailable" => (true, None),
+        // A snapshot is an object, complete or not: the SDK judges its content.
+        Value::Object(m) if exact_keys(m, &["state", "snapshot"]) && m["state"] == "snapshot" && m["snapshot"].is_object() => (true, Some(&m["snapshot"])),
+        _ => fail(&format!("case {id}: revocation is null, {{state: unavailable}} or {{state: snapshot, snapshot: <object>}}")),
+    };
+    if profile_cfg.is_some() != has_revocation { fail(&format!("case {id}: revocation is given exactly under a profile")); }
+    fault();
+    let profile = match profile_cfg.map(resolve_strict_v1_profile).transpose() { Ok(p) => p, Err(e) => return rejected(e) };
+    let trust = match trust_cfg.map(PrincipalTrustStore::from_json).transpose() { Ok(t) => t, Err(e) => return rejected(e) };
+    let policy: Option<VerifierPolicy> = match policy_cfg.map(|v| serde_json::from_value(v.clone())).transpose() {
+        Ok(p) => p,
+        Err(e) => return json!({"id": id, "status": "error", "message": format!("verifier_policy: {e}").chars().take(500).collect::<String>()}),
+    };
+    let options = AdmitOptions { profile: profile.as_ref(), policy, trust: trust.as_ref(), revocation: snapshot, now_ms: Some(now) };
+    match admit_signed_bundle_v2(&signed, &options) {
+        Ok(r) => json!({
+            "id": id, "status": "ok", "verified": r.verified, "principal_trust": r.principal_trust, "profile": r.profile,
+            "profile_compliance": r.profile_compliance, "admitted": r.admitted, "action_authorized": r.action_authorized,
+            "recorded_decision": r.recorded_decision, "trust_set_version": r.trust_set_version,
+            "codes": r.errors.iter().map(|e| e.code).collect::<Vec<_>>(), "verification_verified": r.verification.result.verified,
+        }),
+        Err(e) => rejected(e),
+    }
+}
+
+fn run_case(c: &Value, v2: bool, v3: bool) -> Value {
     let o = c.as_object().unwrap_or_else(|| fail("a case must be an object"));
     let id = o.get("id").and_then(Value::as_str).unwrap_or_else(|| fail("a case needs a string id")).to_string();
     // A missing or non-string op, alg or profile is an invalid request (exit 2), never "unsupported".
@@ -178,6 +257,9 @@ fn run_case(c: &Value, v2: bool) -> Value {
     let op = need_str("op");
     if v2 && matches!(op, "dual_merkle_root" | "composite_verify" | "verify_signed_bundle_v2") {
         return run_evidence_case(&id, op, o);
+    }
+    if v3 && matches!(op, "admit_signed_bundle_v2" | "load_admission_config") {
+        return run_admission_case(&id, op, o);
     }
     let fields: &[&str] = match op {
         "canonicalize" => &["id", "op", "profile", "input_b64"],
@@ -223,14 +305,14 @@ fn main() {
     let req: Value = serde_json::from_str(text).unwrap_or_else(|e| fail(&format!("the request is not JSON: {e}")));
     let r = req.as_object().unwrap_or_else(|| fail("the request must be an object"));
     let contract = r.get("contract").and_then(Value::as_str).unwrap_or("");
-    if !exact_keys(r, &["contract", "run_id", "nonce", "cases"]) || (contract != CONTRACT && contract != CONTRACT_V2) {
-        fail("the request needs exactly contract dcp-ai-conformance-external/1 or /2, run_id, nonce and cases");
+    if !exact_keys(r, &["contract", "run_id", "nonce", "cases"]) || ![CONTRACT, CONTRACT_V2, CONTRACT_V3].contains(&contract) {
+        fail("the request needs exactly contract dcp-ai-conformance-external/1, /2 or /3, run_id, nonce and cases");
     }
-    let v2 = contract == CONTRACT_V2;
+    let (v2, v3) = (contract == CONTRACT_V2, contract == CONTRACT_V3);
     let (Some(run_id), Some(nonce), Some(cases)) = (r["run_id"].as_str(), r["nonce"].as_str(), r["cases"].as_array()) else {
         fail("run_id and nonce must be strings and cases an array");
     };
-    let results: Vec<Value> = cases.iter().map(|c| run_case(c, v2)).collect();
+    let results: Vec<Value> = cases.iter().map(|c| run_case(c, v2, v3)).collect();
     let resp = json!({
         "contract": contract,
         "run_id": run_id,

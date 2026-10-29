@@ -4,7 +4,7 @@
 
 # 准入配置文件：委托人信任与 `strict-v1`
 
-> 本文是[英文规范](README.md)的参考译文，更新于 28/10/2026。**具有规范效力的是英文版**：本译文不具规范效力，如有出入，以英文版为准。标识符和代码块保持原文，不作翻译。
+> 本文是[英文规范](README.md)的参考译文，更新于 29/10/2026。**具有规范效力的是英文版**：本译文不具规范效力，如有出入，以英文版为准。标识符和代码块保持原文，不作翻译。
 
 **状态：** 草案，v1
 **范围：** 在运营方固定的配置文件下，验证器是否把 V2 已签名 bundle 作为来自其已信任委托人的证据予以准入
@@ -70,6 +70,8 @@
 | 某个 `human_id` 列出两次，或某个 `kid` 在整个集合中列出两次（在一个委托人下或两个委托人下） | `CONFIG_TRUST_DUPLICATE` |
 
 任何重复项都会被拒绝，无论是否相同：合并多个来源的运营方要在加载前解决重复。没有委托人的信任集是有效的，它不信任任何人。
+
+当一个信任集有多个这类问题时，可以报告它实际存在的任何一个问题的代码。无论报告哪个代码，该信任集都会被拒绝，各代码之间不规定优先顺序。
 
 密钥以信任集中的状态为准。将某个密钥列为 `active` 的 bundle 不能恢复信任集标记为 `revoked` 或 `expired`、或其 `expires_at` 已过期的密钥。
 
@@ -169,8 +171,8 @@ Schema：[`admission_profile.schema.json`](../../../schemas/v2/admission_profile
 | 条件 | 代码 |
 |---|---|
 | 顶层或 `verifier_policy` 中 schema 之外的字段 | `CONFIG_UNKNOWN_FIELD` |
-| 类型错误的值；`profile` 不是 `"strict-v1"` | `CONFIG_INVALID_VALUE` |
-| `verifier_id` 缺失或为空；某个最大值小于 1 或大于 300；上表不允许的 `verifier_policy` 值 | `CONFIG_PROFILE_CONTRADICTION` |
+| 类型错误的值，或在枚举 `classical_only`、`hybrid_preferred`、`hybrid_required`、`pq_only` 之外的模式（`default_mode`、`risk_overrides` 的值）；`profile` 不是 `"strict-v1"` | `CONFIG_INVALID_VALUE` |
+| `verifier_id` 缺失或为空；某个最大值小于 1 或大于 300；上表不允许的其他 `verifier_policy` 值，例如该枚举中除 `hybrid_required` 以外的模式，或在允许子集之外的算法（无论是否为已知算法） | `CONFIG_PROFILE_CONTRADICTION` |
 
 当一个配置有多个问题时，可以报告其中任何一个的代码。
 
@@ -216,11 +218,13 @@ P2 和 P3 以代码的形式重复了配置文件策略让 V2-4 执行的内容�
 
 给定已签名 bundle、可选的配置文件、可选的信任集（使用配置文件时必需）、吊销快照（只在配置文件下评估）以及 `now`：
 
-1. 在配置文件下，先 P1；然后 P2、P3 以及 P4 的结构部分。
-2. 在 `now` 时刻，按配置文件的策略（没有配置文件时按调用方的策略）验证 bundle（V2-1 至 V2-14）。未通过验证：`VERIFICATION_FAILED`。
+1. 在配置文件下，先 P1：它适用时，不再评估其他任何内容，并将 bundle 报告为未通过验证。否则，执行 P2、P3 以及 P4 的结构部分。
+2. 在 `now` 时刻，按配置文件的策略（没有配置文件时按调用方的策略）将 bundle 作为 V2 已签名 bundle 验证（V2-1 至 V2-14）。未通过验证：`VERIFICATION_FAILED`。不是 V2 的 bundle 在这里不会通过验证，无论策略中的 `allow_v1_bundles` 如何设置（[DCP-AI-v2.0](../../DCP-AI-v2.0.md#implementation-notes-informative)，关于第 17 节的说明）。
 3. 如果通过验证：提供了信任集时评估委托人信任（第 3 节）；在配置文件下，评估 P4 的已验证部分和吊销检查（第 4.3 节）。
 
 实现可以单独公开第 3 步（`evaluateAdmissionV2` 及其对应项），以便调用方复用已有的验证结果。该函数信任它收到的验证结果，不重新验证：它必须是针对同一 bundle、在同一 `now`、有配置文件时按配置文件策略执行的第 2 步结果。伪造的结果、来自其他 bundle 的结果或在较弱策略下得到的结果都会给出错误答案；组合函数（`admitSignedBundleV2`）会执行两个步骤。
+
+配置文件需要信任集。带配置文件但没有信任集的调用会被以 `CONFIG_PROFILE_CONTRADICTION` 拒绝，组合函数和单独公开的第 3 步都是如此，与适配器的做法相同（第 4.1 节）。组合函数也接受调用方的验证器策略，供没有配置文件时使用；有配置文件时，它会以同一代码拒绝这样的策略，因为配置文件规定了自己的策略。本文不规定这些拒绝发生在验证之前还是之后。
 
 <a id="52-result"></a>
 
@@ -237,7 +241,7 @@ P2 和 P3 以代码的形式重复了配置文件策略让 V2-4 执行的内容�
 | `action_authorized` | 在此版本中始终为 `false`（第 7 节） |
 | `recorded_decision` | 已验证 bundle 的策略决定的 `decision`（`approve`、`escalate`、`block`），否则为 null |
 | `trust_set_version` | 信任集的版本，或 null |
-| `errors` | 每个添加的代码对应一个 `{ code, message }`，按第 5.1 节的顺序 |
+| `errors` | 每个添加的代码对应一个 `{ code, message }`，按第 5.1 节的顺序：P1；P2；P3；P4 的结构部分；`VERIFICATION_FAILED`；委托人信任；P4 的已验证部分；吊销。适用于多个组件或主体的检查可以为每一个各添加一次其代码。该顺序只在这些阶段之间：在一个阶段内（例如委托人信任或吊销），不规定顺序 |
 
 当 bundle 通过验证且没有添加任何 `PROFILE_*` 或 `REVOCATION_*` 代码时，`profile_compliance` 为 `compliant`。记录了 `block` 或 `escalate` 决定的 bundle 可以作为该决定的证据被准入；`action_authorized` 仍为 `false`。
 
@@ -322,4 +326,4 @@ P2 和 P3 以代码的形式重复了配置文件策略让 V2-4 执行的内容�
   它不是测试数据，也不能原样加载。第 2.4 节中的两个 `<kid>` 条目代表两个不同的真实
   kid：调整后的快照中没有重复的 JSON 键。共享的可运行用例见
   [`tests/interop/v2/admission_vectors.json`](../../../tests/interop/v2/admission_vectors.json)（第 9 节）。
-- 第 8 节的 API 位于 `main` 的 SDK 中，尚未包含在任何已发布的版本中。
+- 截至 25/10/2026，第 8 节的 API 位于 `main` 的 SDK 中，尚未包含在已发布的版本中。*29/10/2026 更新，取代上述可用性说明：* 它们已在 `@dcp-ai/sdk` 2.2.0 起、`dcp-ai`（PyPI）2.10.0 起、Go v2.11.0 起和 Rust `dcp-ai` 2.11.0 起发布；参见 [npm](../../../docs/NPM_RELEASES.md)、[Python](../../../docs/PYTHON_RELEASE.md)、[Go](../../../docs/GO_RELEASE.md) 和 [Rust](../../../docs/RUST_RELEASE.md) 的发布说明。`@dcp-ai/wasm` 没有准入 API。

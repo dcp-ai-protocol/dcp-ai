@@ -120,12 +120,28 @@ const FAKE = path.join(TMP, "fake.mjs");
 fs.writeFileSync(FAKE, `
 import fs from "fs";
 import crypto from "crypto";
-import { spawnSync } from "child_process";
+import { spawn } from "child_process";
 const mode = process.argv[2];
 const input = fs.readFileSync(0);
 const req = JSON.parse(input);
-const real = spawnSync(process.execPath, ${JSON.stringify(TS.slice(1))}, { input, maxBuffer: 1 << 26 });
-const resp = JSON.parse(real.stdout);
+// The same bytes to the real TS wrapper through an asynchronous spawn: stdin written and closed, a deadline, and the
+// exit, signal and stdout size checked. A synchronous spawn with this 9 MB input was observed waiting until the deadline,
+// the wrapper blocked reading a stdin that had not closed.
+const child = spawn(process.execPath, ${JSON.stringify(TS.slice(1))}, { stdio: ["pipe", "pipe", "pipe"] });
+const chunks = [];
+let bytes = 0;
+child.stdout.on("data", (d) => { bytes += d.length; if (bytes > 1 << 26) child.kill("SIGKILL"); else chunks.push(d); });
+child.stderr.resume();
+child.stdin.on("error", () => {});
+child.stdin.end(input);
+const deadline = setTimeout(() => child.kill("SIGKILL"), 240000);
+const [code, signal] = await new Promise((resolve, reject) => { child.on("error", reject); child.on("close", (c, s) => resolve([c, s])); });
+clearTimeout(deadline);
+if (code !== 0 || signal !== null || bytes > 1 << 26) {
+  process.stderr.write("fake: the TS wrapper ended with exit " + code + ", signal " + signal + ", " + bytes + " stdout bytes\\n");
+  process.exit(1);
+}
+const resp = JSON.parse(Buffer.concat(chunks));
 const B = JSON.parse(fs.readFileSync(${JSON.stringify(path.join(REPO, "tests/interop/v2/bundle_vectors.json"))}, "utf8"));
 const baseB64 = Buffer.from(JSON.stringify(B.signed_bundle)).toString("base64");
 const H = (alg, buf) => crypto.createHash(alg).update(buf).digest();

@@ -162,6 +162,7 @@ jobs:
 
   # External implementations through the stdin/stdout contract (tools/conformance/README.md#external-implementations).
   # Both wrappers are required: DCP_EXTERNAL_REQUIRE_PYTHON turns a missing interpreter into a failure, not a skip.
+  # The admission catalog (contract /3) runs here for TypeScript and Python, with the judge's self-tests.
   conformance-external:
     name: External conformance (TypeScript and Python wrappers)
     runs-on: ubuntu-latest
@@ -206,11 +207,22 @@ jobs:
       - name: Python SDK wrapper (evidence catalog, 241 cases)
         run: node tools/conformance-external.js --catalog evidence --report evidence-python.json -- "$(command -v python)" -I tools/conformance/wrappers/python_sdk.py
 
+      - name: Admission catalog self-tests (the judge, on synthetic answers)
+        run: node --test tools/conformance/external-admission.test.mjs
+
+      - name: TypeScript SDK wrapper (admission catalog, 140 cases)
+        run: node tools/conformance-external.js --catalog admission --report admission-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
+
+      - name: Python SDK wrapper (admission catalog, 140 cases)
+        run: node tools/conformance-external.js --catalog admission --report admission-python.json -- "$(command -v python)" -I tools/conformance/wrappers/python_sdk.py
+
   # Go, Rust and WASM wrappers (tools/conformance/README.md#go-rust-and-wasm-wrappers), built once from this
   # checkout and reused for the self-tests and the 38 cases each. DCP_EXTERNAL_REQUIRE_NATIVE turns a missing
   # toolchain or artifact into a failure, not a skip. The runner uses Node built-ins only: no root npm install.
   # The evidence self-tests need all five wrappers, so this job also builds the TypeScript SDK and installs
   # the Python SDK from the checkout; DCP_EXTERNAL_REQUIRE_PYTHON makes the Python wrapper required too.
+  # The admission wrapper tests need the four SDK wrappers (TypeScript, Python, Go, Rust), all required. WASM has no
+  # admission API: those tests only check that its wrapper refuses contract /3, and no step emulates it.
   conformance-external-native:
     name: External conformance (Go, Rust and WASM wrappers)
     runs-on: ubuntu-latest
@@ -277,6 +289,18 @@ jobs:
 
       - name: WASM build wrapper (evidence catalog, 241 cases, Node-hosted)
         run: node tools/conformance-external.js --catalog evidence --report evidence-wasm.json -- node tools/conformance/wrappers/wasm.mjs
+
+      - name: Admission wrapper tests (four SDK wrappers required)
+        env:
+          DCP_EXTERNAL_REQUIRE_PYTHON: "1"
+          DCP_EXTERNAL_REQUIRE_NATIVE: "1"
+        run: DCP_EXTERNAL_PYTHON="$(command -v python)" node --test tools/conformance/external-admission-wrappers.test.mjs
+
+      - name: Go SDK wrapper (admission catalog, 140 cases)
+        run: node tools/conformance-external.js --catalog admission --report admission-go.json -- tools/conformance/wrappers/.build/go-wrapper
+
+      - name: Rust SDK wrapper (admission catalog, 140 cases)
+        run: node tools/conformance-external.js --catalog admission --report admission-rust.json -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
 
   typescript-sdk:
     name: TypeScript SDK

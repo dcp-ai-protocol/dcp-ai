@@ -57,6 +57,8 @@ A trust set is validated when it is loaded. It is rejected, with the configurati
 
 Any duplicate is rejected, identical or not: an operator merging sources resolves them before loading. A trust set with no principals is valid and trusts no one.
 
+When a trust set has several of these problems, the code of any one of the problems it has may be reported. The trust set is rejected whichever code is reported, and no order of precedence among the codes is defined.
+
 The authoritative status of a key is the trust set's. A bundle that lists a key as `active` cannot reinstate one the trust set marks `revoked` or `expired`, or whose `expires_at` has passed.
 
 **Rotation** is an explicit update of the trust set (a new `trust_set_version`): the operator adds the new key, keeps the old one `active` for an overlap if needed, then retires it (`revoked`, `expired`, an `expires_at`, or removal). A bundle cannot authorize its own rotation, because its keys are never a source of trust.
@@ -145,8 +147,8 @@ Configuration errors, raised when the profile is loaded:
 | Condition | Code |
 |---|---|
 | A field outside the schema, at the top level or in `verifier_policy` | `CONFIG_UNKNOWN_FIELD` |
-| A value of the wrong type; `profile` not `"strict-v1"` | `CONFIG_INVALID_VALUE` |
-| `verifier_id` missing or empty; a maximum below 1 or above 300; a `verifier_policy` value the table above does not allow | `CONFIG_PROFILE_CONTRADICTION` |
+| A value of the wrong type, or a mode (`default_mode`, a `risk_overrides` value) outside the enumeration `classical_only`, `hybrid_preferred`, `hybrid_required`, `pq_only`; `profile` not `"strict-v1"` | `CONFIG_INVALID_VALUE` |
+| `verifier_id` missing or empty; a maximum below 1 or above 300; another `verifier_policy` value the table above does not allow, such as a mode of that enumeration other than `hybrid_required`, or an algorithm outside the allowed subset, known or not | `CONFIG_PROFILE_CONTRADICTION` |
 
 When a configuration has several problems, the code of any one of them may be reported.
 
@@ -184,11 +186,13 @@ A stale snapshot that marks a subject revoked reports both codes. None of these 
 
 Given the signed bundle, an optional profile, an optional trust set (required by the profile), a revocation snapshot (evaluated only under the profile) and `now`:
 
-1. Under the profile, P1; then P2, P3 and the structural part of P4.
-2. Verify the bundle (V2-1 to V2-14) at `now`, under the profile's policy, or the caller's policy without a profile. Not verified: `VERIFICATION_FAILED`.
+1. Under the profile, P1: when it applies, nothing else is evaluated and the bundle is reported as not verified. Otherwise P2, P3 and the structural part of P4.
+2. Verify the bundle as a V2 signed bundle (V2-1 to V2-14) at `now`, under the profile's policy, or the caller's policy without a profile. Not verified: `VERIFICATION_FAILED`. A bundle that is not V2 is not verified here, whatever the policy's `allow_v1_bundles` says ([DCP-AI-v2.0](../../DCP-AI-v2.0.md#implementation-notes-informative), note on §17).
 3. If verified: principal trust (§3) when a trust set is supplied; under the profile, the verified part of P4 and the revocation checks (§4.3).
 
 An implementation may expose step 3 on its own (`evaluateAdmissionV2` and its counterparts) so a caller can reuse a verification it already has. That function trusts the verification result it is given and does not re-verify: it must be the result of step 2 for the same bundle, at the same `now`, under the profile's policy when there is a profile. A result made up, from another bundle or under a weaker policy gives a wrong answer; the combined function (`admitSignedBundleV2`) does both steps.
+
+A profile requires a trust set. A call with a profile and no trust set is refused with `CONFIG_PROFILE_CONTRADICTION`, by the combined function and by step 3 exposed on its own, as adapters refuse it (§4.1). The combined function also accepts the caller's verifier policy, for use without a profile; with a profile, it refuses such a policy with the same code, because the profile sets its own. This text does not fix whether these refusals come before or after verification.
 
 ### 5.2 Result
 
@@ -203,7 +207,7 @@ An implementation may expose step 3 on its own (`evaluateAdmissionV2` and its co
 | `action_authorized` | Always `false` in this version (§7) |
 | `recorded_decision` | The policy decision's `decision` (`approve`, `escalate`, `block`) of a verified bundle, else null |
 | `trust_set_version` | The trust set's version, or null |
-| `errors` | `{ code, message }` for every code added, in the order of §5.1 |
+| `errors` | `{ code, message }` for every code added, in the order of §5.1: P1; P2; P3; the structural part of P4; `VERIFICATION_FAILED`; principal trust; the verified part of P4; revocation. A check that applies to several components or subjects may add its code once for each. The order is between these phases only: within one phase, such as principal trust or revocation, no order is fixed |
 
 `profile_compliance` is `compliant` when the bundle verified and no `PROFILE_*` or `REVOCATION_*` code was added. A bundle that records a `block` or `escalate` decision can be admitted as evidence of that decision; `action_authorized` stays `false`.
 
@@ -276,4 +280,4 @@ Result fields keep the names of §5.2 in every SDK's JSON form.
   identifiers; it is not a fixture and does not load as it is. The two `<kid>` entries of §2.4 stand for two different
   real kids: an adapted snapshot has no duplicate JSON keys. The shared, runnable cases are in
   [`tests/interop/v2/admission_vectors.json`](../../../tests/interop/v2/admission_vectors.json) (§9).
-- The APIs of §8 are in the SDKs on `main` and are not in a published release yet.
+- On 25/10/2026 the APIs of §8 were in the SDKs on `main` and not in a published release. *Updated 29/10/2026, replacing that availability:* they are published in `@dcp-ai/sdk` from 2.2.0, `dcp-ai` (PyPI) from 2.10.0, Go from v2.11.0 and Rust `dcp-ai` from 2.11.0; see the release notes for [npm](../../../docs/NPM_RELEASES.md), [Python](../../../docs/PYTHON_RELEASE.md), [Go](../../../docs/GO_RELEASE.md) and [Rust](../../../docs/RUST_RELEASE.md). `@dcp-ai/wasm` has no admission API.
