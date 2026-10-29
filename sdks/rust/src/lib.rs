@@ -759,7 +759,10 @@ pub mod wasm {
     }
 
     /// Compute dual Merkle root from an array of dual-hash leaves.
-    /// Input: JSON array of {"sha256":"...","sha3_256":"..."} objects.
+    /// Input: JSON array of {"sha256":"...","sha3_256":"..."} objects, each a 32-byte digest in hex.
+    /// Delegates to v2::dual_hash::dual_merkle_root, the reduction of spec/VERIFICATION.md V2-11 that the
+    /// bundle verifier uses (raw digests concatenated, the last node duplicated on an odd layer). A leaf
+    /// that is not a 32-byte hex digest is an error, never hashed as text.
     #[wasm_bindgen]
     pub fn wasm_dual_merkle_root(leaves_json: &str) -> String {
         let leaves: Vec<dual_hash::DualHash> = match serde_json::from_str(leaves_json) {
@@ -769,40 +772,17 @@ pub mod wasm {
         if leaves.is_empty() {
             return json_err("Empty leaves array");
         }
-
-        fn merkle_reduce(hashes: Vec<String>, use_sha3: bool) -> String {
-            if hashes.len() == 1 {
-                return hashes[0].clone();
-            }
-            let mut next = Vec::new();
-            let mut i = 0;
-            while i < hashes.len() {
-                if i + 1 < hashes.len() {
-                    let combined = format!("{}{}", hashes[i], hashes[i + 1]);
-                    if use_sha3 {
-                        next.push(dual_hash::sha3_256_hex(combined.as_bytes()));
-                    } else {
-                        next.push(dual_hash::sha256_hex(combined.as_bytes()));
-                    }
-                    i += 2;
-                } else {
-                    next.push(hashes[i].clone());
-                    i += 1;
-                }
-            }
-            merkle_reduce(next, use_sha3)
+        let is_digest = |h: &str| h.len() == 64 && h.bytes().all(|b| b.is_ascii_hexdigit());
+        if let Some(i) = leaves.iter().position(|l| !is_digest(&l.sha256) || !is_digest(&l.sha3_256)) {
+            return json_err(&format!("Leaf {} is not a 32-byte hex digest", i));
         }
-
-        let sha256_leaves: Vec<String> = leaves.iter().map(|l| l.sha256.clone()).collect();
-        let sha3_leaves: Vec<String> = leaves.iter().map(|l| l.sha3_256.clone()).collect();
-
-        let sha256_root = merkle_reduce(sha256_leaves, false);
-        let sha3_root = merkle_reduce(sha3_leaves, true);
-
-        serde_json::to_string(&json!({
-            "sha256": sha256_root,
-            "sha3_256": sha3_root
-        })).unwrap()
+        match dual_hash::dual_merkle_root(&leaves) {
+            Some(root) => serde_json::to_string(&json!({
+                "sha256": root.sha256,
+                "sha3_256": root.sha3_256
+            })).unwrap(),
+            None => json_err("Empty leaves array"),
+        }
     }
 
     // ── Session Nonce ─────────────────────────────────────────────────────

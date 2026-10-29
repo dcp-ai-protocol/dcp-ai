@@ -1,0 +1,151 @@
+{
+  "_description": "Exact dual Merkle roots from leaves (spec/VERIFICATION.md V2-11 and its erratum): leaves are 32-byte digests in lowercase hex; a node is H(left || right) over the raw digests; an odd layer duplicates its last node; one leaf is its own root; order matters. An empty list has no root here (the manifest rule for an empty trail is 64 zeros). two_leaves_golden reproduces golden_vectors.json#dual_hash_vectors.",
+  "_generator": "tests/conformance/v2/generate-merkle-vectors.py (Python standard library only; no SDK)",
+  "leaf_inputs": {
+    "leaf_0": {
+      "ascii": "dcp-ai merkle leaf 0",
+      "sha256": "6d64b1551bdf65edf039e12ba179e9a8f52530a35e75499cb3e8177c41786fc7",
+      "sha3_256": "e3f8c0994eabdfcba3e826979f44b1528cef6de3638b5a501c05ce08393222a6"
+    },
+    "leaf_1": {
+      "ascii": "dcp-ai merkle leaf 1",
+      "sha256": "551de34f91d153d775b26c03c4d2b7e48c396a6a53ca83b779447ba3deaebdb5",
+      "sha3_256": "5c1c923553e287b00c514b85996806916d186d29f1074f0183ba1b66c71ecfde"
+    },
+    "leaf_2": {
+      "ascii": "dcp-ai merkle leaf 2",
+      "sha256": "0650b5053d4bc676aa3d6c05d19daab8e36c8bc1f156e41e8474826180a1682f",
+      "sha3_256": "86b581f9bc68ceadacc4d6e886fe753b87cf8eacb521aa126e15da6b391e4529"
+    },
+    "leaf_3": {
+      "ascii": "dcp-ai merkle leaf 3",
+      "sha256": "f65afb8d5b8284b4f3e176761760425e034cbb110ebb86c10fb811bdef599d02",
+      "sha3_256": "15f5ce45165acdabd5cb7e407fc00d74114dcbaf33e02cfcb2581cd62ddfa554"
+    },
+    "leaf_4": {
+      "ascii": "dcp-ai merkle leaf 4",
+      "sha256": "5a1cbf26356d70fcb62355955095fb3c1be3558bf31899c247b1d95a3b760d99",
+      "sha3_256": "26242a0fa5be8ca51b08bc4f85cc146485fe6f3e8b57aed26550d3e0244272eb"
+    }
+  },
+  "cases": [
+    {
+      "name": "one_leaf",
+      "leaves": [
+        {
+          "sha256": "6d64b1551bdf65edf039e12ba179e9a8f52530a35e75499cb3e8177c41786fc7",
+          "sha3_256": "e3f8c0994eabdfcba3e826979f44b1528cef6de3638b5a501c05ce08393222a6"
+        }
+      ],
+      "expected": {
+        "sha256": "6d64b1551bdf65edf039e12ba179e9a8f52530a35e75499cb3e8177c41786fc7",
+        "sha3_256": "e3f8c0994eabdfcba3e826979f44b1528cef6de3638b5a501c05ce08393222a6"
+      }
+    },
+    {
+      "name": "two_leaves_golden",
+      "leaves": [
+        {
+          "sha256": "c38c1981665e57883e11376fea5f6f8dcc8bc6e5784fb7995c844e9f7b02e0ab",
+          "sha3_256": "b829ceb13e6366a7350b3295ffffb68fdf1dabb3c313d5aaa0a229b6b1fce65a"
+        },
+        {
+          "sha256": "b020424b62b1530a305237b9cdeef4470eb090adb945b30c13818161a94e1715",
+          "sha3_256": "21be423021f224274fc98a84b1e2e779c6d82a971574d09a9fe6929845724775"
+        }
+      ],
+      "expected": {
+        "sha256": "b80928bc53f1adf75227dbfd240fff4c63fbe6bdb8c3717a1752ac9fce3aadce",
+        "sha3_256": "636620aaa940e796326bed4b73e170f68a1a10c0176d6882f837097da2a0dad9"
+      }
+    },
+    {
+      "name": "two_leaves_golden_reordered",
+      "leaves": [
+        {
+          "sha256": "b020424b62b1530a305237b9cdeef4470eb090adb945b30c13818161a94e1715",
+          "sha3_256": "21be423021f224274fc98a84b1e2e779c6d82a971574d09a9fe6929845724775"
+        },
+        {
+          "sha256": "c38c1981665e57883e11376fea5f6f8dcc8bc6e5784fb7995c844e9f7b02e0ab",
+          "sha3_256": "b829ceb13e6366a7350b3295ffffb68fdf1dabb3c313d5aaa0a229b6b1fce65a"
+        }
+      ],
+      "expected": {
+        "sha256": "afc1a650645e9784f6631f6b0a9777804459cdfaf9478c0d7aa2680e0e2007a5",
+        "sha3_256": "cd5359e48486a77bb12a432ae6d094cef0fd2c44caaeb5ee456f2c99225d45a7"
+      }
+    },
+    {
+      "name": "three_leaves",
+      "leaves": [
+        {
+          "sha256": "6d64b1551bdf65edf039e12ba179e9a8f52530a35e75499cb3e8177c41786fc7",
+          "sha3_256": "e3f8c0994eabdfcba3e826979f44b1528cef6de3638b5a501c05ce08393222a6"
+        },
+        {
+          "sha256": "551de34f91d153d775b26c03c4d2b7e48c396a6a53ca83b779447ba3deaebdb5",
+          "sha3_256": "5c1c923553e287b00c514b85996806916d186d29f1074f0183ba1b66c71ecfde"
+        },
+        {
+          "sha256": "0650b5053d4bc676aa3d6c05d19daab8e36c8bc1f156e41e8474826180a1682f",
+          "sha3_256": "86b581f9bc68ceadacc4d6e886fe753b87cf8eacb521aa126e15da6b391e4529"
+        }
+      ],
+      "expected": {
+        "sha256": "6e5a06b5aa6add96d9f6cfd911f669d5425c8ffc87c82e831284ae94981b16aa",
+        "sha3_256": "ec8aaea3a0bdd5b7d17d881b323912ca3a4fc31d3bacc2475f778374095da819"
+      }
+    },
+    {
+      "name": "three_leaves_reordered",
+      "leaves": [
+        {
+          "sha256": "0650b5053d4bc676aa3d6c05d19daab8e36c8bc1f156e41e8474826180a1682f",
+          "sha3_256": "86b581f9bc68ceadacc4d6e886fe753b87cf8eacb521aa126e15da6b391e4529"
+        },
+        {
+          "sha256": "551de34f91d153d775b26c03c4d2b7e48c396a6a53ca83b779447ba3deaebdb5",
+          "sha3_256": "5c1c923553e287b00c514b85996806916d186d29f1074f0183ba1b66c71ecfde"
+        },
+        {
+          "sha256": "6d64b1551bdf65edf039e12ba179e9a8f52530a35e75499cb3e8177c41786fc7",
+          "sha3_256": "e3f8c0994eabdfcba3e826979f44b1528cef6de3638b5a501c05ce08393222a6"
+        }
+      ],
+      "expected": {
+        "sha256": "6f284d8e973d71588858822b657594d33e476982b7a913ccc0dafdb642d1e857",
+        "sha3_256": "c2dd92d3fc413cb6781709e05d9a1e1985e25b444201307936804886ae9421ac"
+      }
+    },
+    {
+      "name": "five_leaves",
+      "leaves": [
+        {
+          "sha256": "6d64b1551bdf65edf039e12ba179e9a8f52530a35e75499cb3e8177c41786fc7",
+          "sha3_256": "e3f8c0994eabdfcba3e826979f44b1528cef6de3638b5a501c05ce08393222a6"
+        },
+        {
+          "sha256": "551de34f91d153d775b26c03c4d2b7e48c396a6a53ca83b779447ba3deaebdb5",
+          "sha3_256": "5c1c923553e287b00c514b85996806916d186d29f1074f0183ba1b66c71ecfde"
+        },
+        {
+          "sha256": "0650b5053d4bc676aa3d6c05d19daab8e36c8bc1f156e41e8474826180a1682f",
+          "sha3_256": "86b581f9bc68ceadacc4d6e886fe753b87cf8eacb521aa126e15da6b391e4529"
+        },
+        {
+          "sha256": "f65afb8d5b8284b4f3e176761760425e034cbb110ebb86c10fb811bdef599d02",
+          "sha3_256": "15f5ce45165acdabd5cb7e407fc00d74114dcbaf33e02cfcb2581cd62ddfa554"
+        },
+        {
+          "sha256": "5a1cbf26356d70fcb62355955095fb3c1be3558bf31899c247b1d95a3b760d99",
+          "sha3_256": "26242a0fa5be8ca51b08bc4f85cc146485fe6f3e8b57aed26550d3e0244272eb"
+        }
+      ],
+      "expected": {
+        "sha256": "49d544e0013636c8f4b3ac3288a654432a73d4d04809f8aa8472678d17625926",
+        "sha3_256": "b2f8ce281afd6cd337a6fa67d673d4e85496e98c64aacb16d050e8253475e01e"
+      }
+    }
+  ]
+}

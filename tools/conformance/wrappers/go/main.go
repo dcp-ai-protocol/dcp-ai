@@ -19,12 +19,112 @@ import (
 	"runtime"
 	"runtime/debug"
 	"sort"
+	"time"
 	"unicode/utf8"
 
+	"github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp/providers"
 	v2 "github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2/dcp/v2"
 )
 
 const contract = "dcp-ai-conformance-external/1"
+const contractV2 = "dcp-ai-conformance-external/2"
+
+// evidence is set when the request is contract /2 (opt-in): dual_merkle_root, composite_verify and
+// verify_signed_bundle_v2 are then accepted, one call per case to v2.DualMerkleRoot, v2.CompositeVerify or
+// v2.VerifySignedBundleV2At, with the Ed25519 and ML-DSA-65 providers registered as the SDK's interop tests do.
+var evidence bool
+
+var hex64 = regexp.MustCompile(`^[0-9a-f]{64}$`)
+
+// The kit's contract: RFC 3339 with an explicit zone (Z or ±HH:MM).
+var rfc3339 = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$`)
+
+func registry() *v2.AlgorithmRegistry {
+	reg := v2.NewAlgorithmRegistry()
+	reg.RegisterSigner(&providers.Ed25519Provider{})
+	reg.RegisterSigner(&providers.MlDsa65Provider{})
+	return reg
+}
+
+func runEvidenceCase(id, op string, c map[string]json.RawMessage) map[string]interface{} {
+	switch op {
+	case "dual_merkle_root":
+		if !exactKeys(c, "id", "op", "leaves") || jsonKind(c["leaves"]) != '[' {
+			fail("case " + id + ": dual_merkle_root needs exactly id, op and a leaves array")
+		}
+		var raws []json.RawMessage
+		if json.Unmarshal(c["leaves"], &raws) != nil {
+			fail("case " + id + ": leaves must be an array")
+		}
+		leaves := make([]v2.DualHash, 0, len(raws))
+		for _, r := range raws {
+			var l map[string]json.RawMessage
+			if jsonKind(r) != '{' || json.Unmarshal(r, &l) != nil || !exactKeys(l, "sha256", "sha3_256") {
+				fail("case " + id + ": a leaf must be {sha256, sha3_256}")
+			}
+			leaf := v2.DualHash{SHA256: mustStr(l, "sha256", "case "+id), SHA3256: mustStr(l, "sha3_256", "case "+id)}
+			if !hex64.MatchString(leaf.SHA256) || !hex64.MatchString(leaf.SHA3256) {
+				fail("case " + id + ": a leaf must be lowercase 64-hex strings")
+			}
+			leaves = append(leaves, leaf)
+		}
+		if len(leaves) == 0 {
+			fail("case " + id + ": leaves must not be empty")
+		}
+		root, ok := v2.DualMerkleRoot(leaves)
+		if !ok {
+			return map[string]interface{}{"id": id, "status": "error", "message": "DualMerkleRoot returned no root"}
+		}
+		return map[string]interface{}{"id": id, "status": "ok", "sha256": root.SHA256, "sha3_256": root.SHA3256}
+	case "composite_verify":
+		if !exactKeys(c, "id", "op", "context", "payload_b64", "composite_sig", "classical_public_key_b64", "pq_public_key_b64") || jsonKind(c["composite_sig"]) != '{' {
+			fail("case " + id + ": composite_verify fields do not match")
+		}
+		payload, ok := decodeBase64Strict(mustStr(c, "payload_b64", "case "+id))
+		if !ok {
+			fail("case " + id + ": payload_b64 is not canonical base64")
+		}
+		pq := ""
+		if jsonKind(c["pq_public_key_b64"]) != 'n' {
+			pq = mustStr(c, "pq_public_key_b64", "case "+id)
+		}
+		var sig v2.CompositeSignature
+		if err := json.Unmarshal(c["composite_sig"], &sig); err != nil {
+			fail("case " + id + ": composite_sig: " + err.Error())
+		}
+		r, err := v2.CompositeVerify(registry(), mustStr(c, "context", "case "+id), payload, &sig, mustStr(c, "classical_public_key_b64", "case "+id), pq)
+		if err != nil {
+			return map[string]interface{}{"id": id, "status": "error", "message": fmt.Sprintf("%T: %s", err, err.Error())}
+		}
+		return map[string]interface{}{"id": id, "status": "ok", "valid": r.Valid, "classical_valid": r.ClassicalValid, "pq_valid": r.PQValid}
+	default: // verify_signed_bundle_v2
+		if !exactKeys(c, "id", "op", "bundle_b64", "policy", "verification_time") || jsonKind(c["policy"]) != '{' {
+			fail("case " + id + ": verify_signed_bundle_v2 fields do not match")
+		}
+		bundle, ok := decodeBase64Strict(mustStr(c, "bundle_b64", "case "+id))
+		if !ok {
+			fail("case " + id + ": bundle_b64 is not canonical base64")
+		}
+		t := mustStr(c, "verification_time", "case "+id)
+		now, err := time.Parse(time.RFC3339Nano, t)
+		if err != nil || !rfc3339.MatchString(t) {
+			fail("case " + id + ": verification_time is not RFC 3339")
+		}
+		var policy v2.VerifierPolicy
+		if err := json.Unmarshal(c["policy"], &policy); err != nil {
+			fail("case " + id + ": policy: " + err.Error())
+		}
+		if !utf8.Valid(bundle) || !json.Valid(bundle) {
+			return map[string]interface{}{"id": id, "status": "rejected", "code": "parse"}
+		}
+		r := v2.VerifySignedBundleV2At(registry(), bundle, policy, now)
+		errs := r.Errors
+		if errs == nil {
+			errs = []string{}
+		}
+		return map[string]interface{}{"id": id, "status": "ok", "verified": r.Verified, "errors": errs}
+	}
+}
 
 var documentedRejection = regexp.MustCompile(`^non-(integer|finite) float at `)
 
@@ -120,6 +220,9 @@ func runCase(raw json.RawMessage) map[string]interface{} {
 	}
 	id := mustStr(c, "id", "a case")
 	op := mustStr(c, "op", "case "+id)
+	if evidence && (op == "dual_merkle_root" || op == "composite_verify" || op == "verify_signed_bundle_v2") {
+		return runEvidenceCase(id, op, c)
+	}
 	switch op {
 	case "canonicalize":
 		if !exactKeys(c, "id", "op", "profile", "input_b64") {
@@ -184,7 +287,11 @@ func main() {
 	if !exactKeys(req, "contract", "run_id", "nonce", "cases") {
 		fail("the request needs exactly contract, run_id, nonce and cases")
 	}
-	if mustStr(req, "contract", "the request") != contract {
+	switch mustStr(req, "contract", "the request") {
+	case contract:
+	case contractV2:
+		evidence = true
+	default:
 		fail("unknown contract")
 	}
 	runID := mustStr(req, "run_id", "the request")
@@ -199,7 +306,7 @@ func main() {
 	}
 	version, module := sdkVersion()
 	resp := map[string]interface{}{
-		"contract": contract,
+		"contract": mustStr(req, "contract", "the request"),
 		"run_id":   runID,
 		"nonce":    nonce,
 		"implementation": map[string]interface{}{

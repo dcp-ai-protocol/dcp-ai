@@ -199,3 +199,80 @@ DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-native.test
   `@dcp-ai/wasm` package's JavaScript API (such as `DcpClient`) or a browser. The classification of rejections depends on message text,
   since the SDKs have no stable error codes, and through WASM a root single-key `{"error": …}` input is an ambiguous
   error only when the export returns the `{"error": string}` envelope (`{"error":5}` stays `ok`). A pass shows these 38 cases pass through each wrapper, nothing more.
+
+### Evidence catalog: Merkle and signature verification
+
+`--catalog evidence` selects an opt-in catalog, [`external-evidence-catalog.json`](external-evidence-catalog.json)
+(contract `dcp-ai-conformance-external/2`, 241 cases), run against the same kind of argv. The default catalog,
+contract `/1` and its 38 cases do not change; the catalog's `contract` chooses how it is loaded and judged. The
+five wrappers accept both contracts and answer with the contract of the request. Only committed public fixtures
+are used: no key is generated and nothing is signed.
+
+```bash
+node tools/conformance-external.js --catalog evidence --list
+node tools/conformance-external.js --catalog evidence --report /tmp/evidence-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
+node tools/conformance-external.js --catalog evidence -- /path/to/python -I tools/conformance/wrappers/python_sdk.py
+node tools/conformance-external.js --catalog evidence -- tools/conformance/wrappers/.build/go-wrapper
+node tools/conformance-external.js --catalog evidence -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+node tools/conformance-external.js --catalog evidence -- node tools/conformance/wrappers/wasm.mjs
+DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-evidence.test.mjs
+```
+
+| Suite | Cases | Vectors |
+|-------|-------|---------|
+| `external.merkle.dual_root` | 6 | `tests/conformance/v2/merkle_vectors.json`: 1, 2, 3 and 5 leaves and reordered leaves (`spec/VERIFICATION.md` V2-11), generated offline with the Python standard library |
+| `external.signature.composite` | 24 | `interop_vectors.json`: composite and classical-only signatures, their committed attacks and deterministic alterations of each positive |
+| `external.v2.bundle_vectors` | 131 | `bundle_vectors.json`: the signed bundle, its 38 committed mutations, 9 accepted and 79 separately built rejected bundles, the classical-only routine bundle in 4 modes |
+| `external.v2.secondary_sha3` | 80 | `secondary_sha3_vectors.json`: accepted and rejected cases and the committed control of each rejected case |
+
+- **Operations:** `dual_merkle_root` takes `leaves`, a non-empty array of `{sha256, sha3_256}` lowercase 64-hex
+  strings, and answers `ok` with `sha256` and `sha3_256` (64 lowercase hex). `composite_verify` takes `context`,
+  `payload_b64` (the canonical payload bytes), `composite_sig` as committed, `classical_public_key_b64` and
+  `pq_public_key_b64` (or `null`), and answers `ok` with `valid` and `classical_valid` (booleans) and `pq_valid`
+  (a boolean or `null`). `verify_signed_bundle_v2` takes `bundle_b64` (the signed bundle JSON), `policy` (a
+  verifier policy object) and `verification_time` (RFC 3339 with `Z` or an offset), and answers `ok` with
+  `verified` (a boolean) and `errors` (an array of strings). A request of the wrong shape (an empty or uppercase
+  leaf, a leaf that is not a string, a time without a zone, an unknown field) makes the wrapper exit with 2.
+- **Judgement:** composite cases compare only the fields the fixture commits; a bundle verdict must match, and a
+  rejection must contain the committed `error_contains` (case-insensitive, over the joined errors).
+  `verified: true` with errors is a `contradictory_result` error. `rejected` with `code` `parse` fails, because
+  every committed input parses; `error` and `unsupported` are never a pass.
+- **Controls:** a negative case counts only if its control passed; otherwise it is `control_failed`, an error. The
+  base signed bundle controls its 38 mutations; the positive of the same payload controls its alterations and the
+  committed attacks; a valid mode of the classical-only bundle controls its rejecting modes; each rejected
+  secondary case has its committed control. The 79 `must_reject_bundles` have no per-case control: they count only
+  if the base and the 9 accepted bundles pass (a suite-level control, a weaker guarantee) and are judged on their
+  committed `error_contains`. The report gives each case's `source`, `input_sha256` and `controls`.
+- **Missing PQ signature:** for a `pq_over_classical` signature without a PQ part, Rust `composite_verify` returns
+  an error and the WASM export the in-band error
+  `Signature error: pq_over_classical binding requires PQ signature`. Those two wrappers report it as
+  `rejected` with `code` `missing_pq_signature`, only for that exact error and only when the input has that binding and `pq: null`. The runner accepts it only where the fixture
+  commits `valid: false` alone (`stripping_pq_removal`) and its positive control passed; the same code on a valid
+  signature or on any other negative fails. TypeScript, Python and Go answer that case with booleans.
+- **Payload alterations** change the last character of the first string value of the canonical payload, so the
+  payload stays valid canonical JSON (the WASM export takes payload JSON) and a parser error is never counted as a
+  cryptographic failure.
+- **Time:** every bundle case sends `verification_time`: 2026-10-22T00:00:00Z, inside the validity window
+  of the base bundle and of every bundle expected to verify (some negatives are intentionally expired or not yet
+  valid at that instant), or the committed time of the secondary vectors. TypeScript passes `{ now }`, Python `now_ms`, Go
+  `VerifySignedBundleV2At` and Rust `verify_signed_bundle_v2_at`. The WASM export reads `Date.now`, so the WASM
+  wrapper replaces `Date.now` with that instant during the synchronous call only and restores it in `finally`,
+  also when the call throws; its `runtime` says so. The self-tests show each wrapper rejecting the base bundle at
+  2020-01-01, accepting it at 2026-10-22 and rejecting it at 2100-01-01, and the restoration after a throw.
+- **Merkle through WASM:** the wrapper uses the `wasm_dual_merkle_root` built from this checkout, which delegates
+  to the Rust core; the helper published in `@dcp-ai/wasm` 2.1.1 and earlier fails the multi-leaf cases (see
+  the CHANGELOG).
+- **Self-tests:** `external-evidence.test.mjs` runs the 241 cases through the five wrappers, the clock proof,
+  malformed requests, and a fake implementation built from the TypeScript wrapper's real answers: verifying
+  everything, rejecting everything, contradictory results, the wrong error text, an order-blind or hex-text Merkle
+  reduction, a failing base, `missing_pq_signature` in and out of place, and errors or `unsupported` on negatives.
+  Tampered fixtures and catalogs are infrastructure errors (exit 3). The default timeout of this catalog is
+  300 000 ms (`--timeout-ms`). With the two `REQUIRE` variables a missing wrapper fails instead of being skipped;
+  CI runs all five.
+- **Limits:** a pass shows that the argv that was run passes these 241 cases, nothing more. The policy is
+  `default_verifier_policy` with each case's committed `verifier_policy_overrides`, plus the 4 modes of the
+  classical-only bundle; no other policy is tried. `composite_verify` is a primitive with
+  the binding and keys given, and a bundle verdict is not admission, trust in the principal or authorization of an
+  action. `stripping_pq_with_downgrade` is judged on `classical_valid` and `pq_valid`; rejecting it belongs to a
+  `hybrid_required` policy. Secondary fields are checked where present, so a pass does not show a complete
+  secondary chain. Through WASM, the time is the substituted host clock.

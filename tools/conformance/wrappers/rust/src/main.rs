@@ -12,10 +12,19 @@ use std::io::{Read, Write};
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use dcp_ai::v2::canonicalize::canonicalize_v2;
-use dcp_ai::v2::dual_hash::{sha256_hex, sha3_256_hex};
+use dcp_ai::providers::ed25519::Ed25519Provider;
+use dcp_ai::providers::ml_dsa_65::MlDsa65Provider;
+use dcp_ai::v2::composite_ops::composite_verify;
+use dcp_ai::v2::composite_sig::CompositeSignature;
+use dcp_ai::v2::crypto_provider::CryptoProvider;
+use dcp_ai::v2::dual_hash::{dual_merkle_root, sha256_hex, sha3_256_hex, DualHash};
+use dcp_ai::v2::session_nonce::parse_rfc3339_millis;
+use dcp_ai::v2::types::VerifierPolicy;
+use dcp_ai::v2::verify_bundle::verify_signed_bundle_v2_at;
 use serde_json::{json, Map, Value};
 
 const CONTRACT: &str = "dcp-ai-conformance-external/1";
+const CONTRACT_V2: &str = "dcp-ai-conformance-external/2";
 
 fn fail(msg: &str) -> ! {
     eprintln!("rust wrapper: {msg}");
@@ -90,12 +99,86 @@ fn is_documented_rejection(msg: &str) -> bool {
     false
 }
 
-fn run_case(c: &Value) -> Value {
+fn is_hex64(v: &Value) -> bool {
+    v.as_str().is_some_and(|s| s.len() == 64 && s.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)))
+}
+
+/// YYYY-MM-DDTHH:MM:SS[.fraction] followed by Z or ±HH:MM (the kit's contract; no local or implicit zone).
+fn is_rfc3339_with_zone(t: &str) -> bool {
+    let b = t.as_bytes();
+    let digits = |r: std::ops::Range<usize>| r.clone().all(|i| b.get(i).is_some_and(u8::is_ascii_digit));
+    if b.len() < 20 || !digits(0..4) || b[4] != b'-' || !digits(5..7) || b[7] != b'-' || !digits(8..10) || b[10] != b'T'
+        || !digits(11..13) || b[13] != b':' || !digits(14..16) || b[16] != b':' || !digits(17..19) {
+        return false;
+    }
+    let mut i = 19;
+    if b[i] == b'.' { i += 1; let s = i; while i < b.len() && b[i].is_ascii_digit() { i += 1; } if i == s { return false; } }
+    &t[i..] == "Z" || (b.len() == i + 6 && (b[i] == b'+' || b[i] == b'-') && digits(i + 1..i + 3) && b[i + 3] == b':' && digits(i + 4..i + 6))
+}
+
+/// Contract /2 (opt-in evidence): one call per case to dual_merkle_root, composite_verify (Ed25519 and
+/// ML-DSA-65 providers, as the SDK's interop tests pass them) or verify_signed_bundle_v2_at.
+fn run_evidence_case(id: &str, op: &str, o: &Map<String, Value>) -> Value {
+    let need_str = |k: &str| -> &str { o.get(k).and_then(Value::as_str).unwrap_or_else(|| fail(&format!("case {id}: {k} must be a string"))) };
+    match op {
+        "dual_merkle_root" => {
+            if !exact_keys(o, &["id", "op", "leaves"]) { fail(&format!("case {id}: fields do not match op {op}")); }
+            let leaves: Vec<DualHash> = match o["leaves"].as_array() {
+                Some(a) if !a.is_empty() && a.iter().all(|l| l.as_object().is_some_and(|m| exact_keys(m, &["sha256", "sha3_256"]) && m.values().all(is_hex64))) =>
+                    serde_json::from_value(o["leaves"].clone()).unwrap_or_else(|e| fail(&format!("case {id}: leaves: {e}"))),
+                _ => fail(&format!("case {id}: leaves must be {{sha256, sha3_256}} strings")),
+            };
+            match dual_merkle_root(&leaves) {
+                Some(r) => json!({"id": id, "status": "ok", "sha256": r.sha256, "sha3_256": r.sha3_256}),
+                None => json!({"id": id, "status": "error", "message": "dual_merkle_root returned no root"}),
+            }
+        }
+        "composite_verify" => {
+            if !exact_keys(o, &["id", "op", "context", "payload_b64", "composite_sig", "classical_public_key_b64", "pq_public_key_b64"]) || !o["composite_sig"].is_object() {
+                fail(&format!("case {id}: fields do not match op {op}"));
+            }
+            let payload = decode_base64_strict(need_str("payload_b64")).unwrap_or_else(|| fail(&format!("case {id}: payload_b64 is not canonical base64")));
+            let pq = match &o["pq_public_key_b64"] { Value::Null => None, Value::String(s) => Some(s.as_str()), _ => fail(&format!("case {id}: pq_public_key_b64 must be a string or null")) };
+            let sig: CompositeSignature = serde_json::from_value(o["composite_sig"].clone()).unwrap_or_else(|e| fail(&format!("case {id}: composite_sig: {e}")));
+            let ml = MlDsa65Provider;
+            match composite_verify(&Ed25519Provider, Some(&ml as &dyn CryptoProvider), need_str("context"), &payload, &sig, need_str("classical_public_key_b64"), pq) {
+                Ok(r) => json!({"id": id, "status": "ok", "valid": r.valid, "classical_valid": r.classical_valid, "pq_valid": r.pq_valid}),
+                // The SDK reports an absent PQ signature under a pq_over_classical binding as an Err (its interop test
+                // accepts that as the rejection). Only that exact error, for that exact input, is
+                // rejected(missing_pq_signature); any other Err is an error.
+                Err(e) if format!("{e:?}") == r#"SignatureError("pq_over_classical binding requires PQ signature")"#
+                    && o["composite_sig"]["binding"] == "pq_over_classical" && o["composite_sig"]["pq"].is_null() =>
+                    json!({"id": id, "status": "rejected", "code": "missing_pq_signature"}),
+                Err(e) => json!({"id": id, "status": "error", "message": format!("{e:?}").chars().take(500).collect::<String>()}),
+            }
+        }
+        _ => {
+            if !exact_keys(o, &["id", "op", "bundle_b64", "policy", "verification_time"]) || !o["policy"].is_object() {
+                fail(&format!("case {id}: fields do not match op {op}"));
+            }
+            let bytes = decode_base64_strict(need_str("bundle_b64")).unwrap_or_else(|| fail(&format!("case {id}: bundle_b64 is not canonical base64")));
+            let t = need_str("verification_time");
+            let now = if is_rfc3339_with_zone(t) { parse_rfc3339_millis(t) } else { None }
+                .unwrap_or_else(|| fail(&format!("case {id}: verification_time is not RFC 3339 with an explicit zone")));
+            let policy: VerifierPolicy = serde_json::from_value(o["policy"].clone()).unwrap_or_else(|e| fail(&format!("case {id}: policy: {e}")));
+            let Some(signed) = std::str::from_utf8(&bytes).ok().and_then(|t| serde_json::from_str::<Value>(t).ok()) else {
+                return json!({"id": id, "status": "rejected", "code": "parse"});
+            };
+            let r = verify_signed_bundle_v2_at(&signed, &policy, now).result;
+            json!({"id": id, "status": "ok", "verified": r.verified, "errors": r.errors})
+        }
+    }
+}
+
+fn run_case(c: &Value, v2: bool) -> Value {
     let o = c.as_object().unwrap_or_else(|| fail("a case must be an object"));
     let id = o.get("id").and_then(Value::as_str).unwrap_or_else(|| fail("a case needs a string id")).to_string();
     // A missing or non-string op, alg or profile is an invalid request (exit 2), never "unsupported".
     let need_str = |k: &str| -> &str { o.get(k).and_then(Value::as_str).unwrap_or_else(|| fail(&format!("case {id}: {k} must be a string"))) };
     let op = need_str("op");
+    if v2 && matches!(op, "dual_merkle_root" | "composite_verify" | "verify_signed_bundle_v2") {
+        return run_evidence_case(&id, op, o);
+    }
     let fields: &[&str] = match op {
         "canonicalize" => &["id", "op", "profile", "input_b64"],
         "digest" => &["id", "op", "alg", "input_b64"],
@@ -139,15 +222,17 @@ fn main() {
     let text = std::str::from_utf8(&data).unwrap_or_else(|_| fail("the request is not UTF-8"));
     let req: Value = serde_json::from_str(text).unwrap_or_else(|e| fail(&format!("the request is not JSON: {e}")));
     let r = req.as_object().unwrap_or_else(|| fail("the request must be an object"));
-    if !exact_keys(r, &["contract", "run_id", "nonce", "cases"]) || r.get("contract").and_then(Value::as_str) != Some(CONTRACT) {
-        fail("the request needs exactly contract dcp-ai-conformance-external/1, run_id, nonce and cases");
+    let contract = r.get("contract").and_then(Value::as_str).unwrap_or("");
+    if !exact_keys(r, &["contract", "run_id", "nonce", "cases"]) || (contract != CONTRACT && contract != CONTRACT_V2) {
+        fail("the request needs exactly contract dcp-ai-conformance-external/1 or /2, run_id, nonce and cases");
     }
+    let v2 = contract == CONTRACT_V2;
     let (Some(run_id), Some(nonce), Some(cases)) = (r["run_id"].as_str(), r["nonce"].as_str(), r["cases"].as_array()) else {
         fail("run_id and nonce must be strings and cases an array");
     };
-    let results: Vec<Value> = cases.iter().map(run_case).collect();
+    let results: Vec<Value> = cases.iter().map(|c| run_case(c, v2)).collect();
     let resp = json!({
-        "contract": CONTRACT,
+        "contract": contract,
         "run_id": run_id,
         "nonce": nonce,
         "implementation": {

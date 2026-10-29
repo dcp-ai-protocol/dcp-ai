@@ -202,3 +202,71 @@ DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-native.test
 - **限制：** WASM 包装器在 Node 中调用 wasm-bindgen 的原始导出函数：它不覆盖 `@dcp-ai/wasm` 软件包的
   JavaScript API（例如 `DcpClient`），也不覆盖浏览器。由于 SDK 没有稳定的错误码，拒绝的判定依赖消息文本；通过 WASM 时，根为单键的 `{"error": …}` 输入只有在导出
   函数返回 `{"error": string}` 封装时才是有歧义的错误（`{"error":5}` 仍为 `ok`）。通过只表明这 38 个用例在每个包装器上通过，仅此而已。
+
+<a id="evidence-catalog-merkle-and-signature-verification"></a>
+
+### 证据目录：Merkle 与签名验证
+
+`--catalog evidence` 选择一个可选目录 [`external-evidence-catalog.json`](external-evidence-catalog.json)
+（契约 `dcp-ai-conformance-external/2`，241 个用例），针对同类 argv 运行。默认目录、契约 `/1` 及其 38 个用例不变；
+目录的 `contract` 决定其加载和判定方式。五个包装器都接受两种契约，并以请求的契约作答。
+只使用已提交的公开 fixture：不生成任何密钥，也不签署任何内容。
+
+```bash
+node tools/conformance-external.js --catalog evidence --list
+node tools/conformance-external.js --catalog evidence --report /tmp/evidence-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
+node tools/conformance-external.js --catalog evidence -- /path/to/python -I tools/conformance/wrappers/python_sdk.py
+node tools/conformance-external.js --catalog evidence -- tools/conformance/wrappers/.build/go-wrapper
+node tools/conformance-external.js --catalog evidence -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+node tools/conformance-external.js --catalog evidence -- node tools/conformance/wrappers/wasm.mjs
+DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-evidence.test.mjs
+```
+
+| 套件 | 用例数 | 向量 |
+|------|--------|------|
+| `external.merkle.dual_root` | 6 | `tests/conformance/v2/merkle_vectors.json`：1、2、3、5 个叶子以及重新排序的叶子（`spec/VERIFICATION.md` V2-11），用 Python 标准库离线生成 |
+| `external.signature.composite` | 24 | `interop_vectors.json`：复合签名和仅经典签名、已提交的攻击，以及对每个正例的确定性改动 |
+| `external.v2.bundle_vectors` | 131 | `bundle_vectors.json`：已签名 bundle、其 38 个已提交的变异、9 个被接受的 bundle 和 79 个单独构建的被拒绝 bundle，以及 4 种模式下的仅经典例行 bundle |
+| `external.v2.secondary_sha3` | 80 | `secondary_sha3_vectors.json`：被接受和被拒绝的用例，以及每个被拒绝用例已提交的对照 |
+
+- **操作：** `dual_merkle_root` 接收 `leaves`（由小写 64 位十六进制字符串组成的 `{sha256, sha3_256}` 非空数组），
+  以带 `sha256` 和 `sha3_256`（小写 64 位十六进制）的 `ok` 作答。
+  `composite_verify` 接收 `context`、`payload_b64`（payload 的规范字节）、按原样提交的 `composite_sig`、
+  `classical_public_key_b64` 和 `pq_public_key_b64`（或 `null`），以带 `valid` 和 `classical_valid`（布尔值）
+  及 `pq_valid`（布尔值或 `null`）的 `ok` 作答。
+  `verify_signed_bundle_v2` 接收 `bundle_b64`（已签名 bundle 的 JSON）、`policy`（验证器策略对象）和
+  `verification_time`（带 `Z` 或偏移量的 RFC 3339），以带 `verified`（布尔值）和 `errors`（字符串数组）的 `ok` 作答。
+  形状错误的请求（空叶子或大写叶子、不是字符串的叶子、没有时区的时间、未知字段）会使包装器以 2 退出。
+- **判定：** 复合签名用例只比较 fixture 提交的字段；bundle 的结论必须一致，拒绝必须包含已提交的 `error_contains`
+  （不区分大小写，针对拼接后的错误）。带错误的 `verified: true` 是 `contradictory_result` 错误。
+  由于所有已提交的输入都能解析，`code` 为 `parse` 的 `rejected` 判为失败；`error` 和 `unsupported` 永远不算通过。
+- **对照：** 反例只有在其对照通过时才计入，否则为 `control_failed`，属于错误。基准已签名 bundle 是其 38 个变异的对照；
+  同一 payload 的正例是其改动和已提交攻击的对照；仅经典 bundle 的一个有效模式是其拒绝模式的对照；
+  每个被拒绝的二级用例都有其已提交的对照。79 个 `must_reject_bundles` 没有逐用例对照：只有在基准和 9 个被接受的
+  bundle 通过时才计入（套件级对照，保证较弱），并按其已提交的 `error_contains` 判定。
+  报告给出每个用例的 `source`、`input_sha256` 和 `controls`。
+- **缺少 PQ 签名：** 对没有 PQ 部分的 `pq_over_classical` 签名，Rust 的 `composite_verify` 返回错误，
+  WASM 导出函数返回带内错误 `Signature error: pq_over_classical binding requires PQ signature`。
+  这两个包装器只有在出现这一确切错误、且输入具有该绑定和 `pq: null` 时，才将其报告为 `code` 为
+  `missing_pq_signature` 的 `rejected`。运行器只在 fixture 仅提交 `valid: false` 的位置（`stripping_pq_removal`）
+  且其正例对照通过时接受它；对有效签名或任何其他反例给出同一代码都判为失败。
+  TypeScript、Python 和 Go 对该用例以布尔值作答。
+- **payload 改动**修改规范 payload 中第一个字符串值的最后一个字符，使 payload 仍是有效的规范 JSON
+  （WASM 导出函数接收 payload 的 JSON），解析器错误永远不会被计为密码学失败。
+- **时间：** 每个 bundle 用例都发送 `verification_time`：位于基准 bundle 及每个应通过验证的 bundle 有效期内的 2026-10-22T00:00:00Z（部分反例在该时刻有意处于已过期或尚未生效的状态），
+  或二级向量已提交的时间。TypeScript 传入 `{ now }`，Python 传入 `now_ms`，Go 使用 `VerifySignedBundleV2At`，
+  Rust 使用 `verify_signed_bundle_v2_at`。WASM 导出函数读取 `Date.now`，因此 WASM 包装器只在同步调用期间把
+  `Date.now` 替换为该时刻，并在 `finally` 中恢复，调用抛出异常时也是如此；其 `runtime` 会说明这一点。
+  自测表明每个包装器在 2020-01-01 拒绝基准 bundle、在 2026-10-22 接受、在 2100-01-01 拒绝，并表明异常之后的恢复。
+- **经 WASM 的 Merkle：** 包装器使用从本 checkout 构建的 `wasm_dual_merkle_root`，它委托给 Rust 核心；
+  `@dcp-ai/wasm` 2.1.1 及更早版本中发布的辅助函数在多叶子用例上失败（见 CHANGELOG）。
+- **自测：** `external-evidence.test.mjs` 用五个包装器运行 241 个用例、时间证明、格式错误的请求，以及一个由
+  TypeScript 包装器真实回答构建的伪实现：全部验证通过、全部拒绝、矛盾结果、错误的错误文本、忽略顺序或对十六进制文本
+  做哈希的 Merkle 归约、失败的基准、在正确与错误位置出现的 `missing_pq_signature`，以及反例上的错误或 `unsupported`。
+  被篡改的 fixture 和目录属于基础设施错误（退出码 3）。该目录的默认超时为 300 000 ms（`--timeout-ms`）。
+  设置两个 `REQUIRE` 变量后，缺少包装器会判为失败而不是跳过；CI 运行全部五个。
+- **局限：** 通过只表明所运行的 argv 通过这 241 个用例，仅此而已。策略为应用每个用例已提交的 `verifier_policy_overrides` 的
+  `default_verifier_policy`，外加仅经典 bundle 的 4 种模式；不尝试其他策略。
+  `composite_verify` 是给定绑定和密钥的原语，bundle 的结论不是准入、对委托人的信任或对行为的授权。
+  `stripping_pq_with_downgrade` 按 `classical_valid` 和 `pq_valid` 判定；拒绝它属于 `hybrid_required` 策略。
+  二级字段只在存在时检查，因此通过并不表明二级链完整。经 WASM 时，时间是被替换的宿主时钟。

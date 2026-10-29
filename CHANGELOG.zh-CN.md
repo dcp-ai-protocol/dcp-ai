@@ -171,6 +171,13 @@
 
 ### 新增
 
+- **外部符合性运行器的证据目录：Merkle 与签名验证。** `--catalog evidence` 针对已提交的公开 fixture 运行一个可选目录（`tools/conformance/external-evidence-catalog.json`，契约 `dcp-ai-conformance-external/2`，241 个用例）：
+  1、2、3、5 个叶子的精确双 Merkle 根，含已提交攻击和确定性改动的复合签名与仅经典签名验证，在应用每个用例已提交覆盖项的 `default_verifier_policy` 下对 `bundle_vectors.json` 进行的规范 V2 已签名 bundle 验证，以及二级 SHA3-256 向量，全部使用固定的 `verification_time`。
+  反例只有在其对照通过时才计入；带错误的 `verified: true`、`error` 和 `unsupported` 永远不算通过。
+  五个包装器都接受两种契约；默认目录、契约 `/1` 及其 38 个用例不变。
+  CI 用全部五个包装器运行这 241 个用例和自测。通过不代表准入、信任或授权。
+  除“修复”中的 `wasm_dual_merkle_root` 修正外，SDK 没有变更；不发布任何包。
+  见 [tools/conformance/README.md](tools/conformance/README.md#evidence-catalog-merkle-and-signature-verification)。
 - **外部符合性运行器的 Go、Rust 和 WASM 包装器。** `tools/conformance/wrappers/build.mjs` 从本检出副本为 Go SDK、Rust SDK 和 Rust SDK 的 WASM 构建构建包装器（`-mod=readonly`、`--locked`；
   SDK 的清单和锁定文件不变），每个包装器都通过真实 API 运行同样的 38 个用例，只调用一次规范化函数，并且只把文档所述的拒绝归为拒绝。
   WASM 包装器在 Node 而不是浏览器中运行真实的 `.wasm`，并保守地处理导出函数在结果中返回 `{"error": …}` 所造成的冲突。
@@ -417,6 +424,14 @@
 
 ### 修复
 
+- **接受范围变更：WASM 的 `wasm_dual_merkle_root` 和 `@dcp-ai/wasm` 的 `dualMerkleRoot` 现在计算 V2-11 的双 Merkle 根**（`main` 上的源代码，尚未发布；
+  `@dcp-ai/wasm` 2.1.1 及更早版本保留旧的辅助函数）。
+  该辅助函数对两个摘要拼接后的十六进制文本做哈希，并把奇数节点直接上移，因此在 2 个或更多叶子时，其根既不符合 `spec/VERIFICATION.md` V2-11（拼接 32 字节的原始摘要，奇数层复制最后一个节点），也不同于 TypeScript、Python、Go 和 Rust SDK。
+  现在它委托给 Rust 核心 `v2::dual_hash::dual_merkle_root`。
+  变更不只涉及多叶子根：已发布的辅助函数产生的多叶子根会改变，因为它们与 V2-11 不兼容；不是 32 字节十六进制摘要的叶子现在是错误，而不再被当作文本做哈希；根始终是小写十六进制，因此以大写给出的单个叶子现在以小写返回。
+  以小写给出的单个有效叶子、结果格式，以及空数组和非 JSON 输入的错误保持不变。
+  bundle 验证（包括 WASM 验证器）本来就使用正确的归约，不会改变；由于变更仅限于该辅助函数，以前的 bundle 及其证据不会被重写或重新签名。
+  新的公开向量 `tests/conformance/v2/merkle_vectors.json`（1、2、3、5 个叶子以及重新排序的叶子的精确根，用 Python 标准库离线生成，并以 2 个叶子的 golden 根为基准）由 `sdks/wasm/test/dual-merkle-root.mjs` 和 `sdks/rust/tests/dual_merkle_vectors.rs` 检查。
 - `denyListRevocationSource`（`@dcp-ai/express`、`@dcp-ai/openclaw`）会让响应保持打开。非 2xx 的响应，或声明的
   `Content-Length` 超过 16 MiB 的响应，会在不读取也不关闭其响应体的情况下被拒绝：调用结束、其位置被释放之后，
   响应仍然打开，超时和调用方的信号都无法触及。此外，在 Node 22.15（undici 6.21.2）下，读取响应头之后的一次垃圾

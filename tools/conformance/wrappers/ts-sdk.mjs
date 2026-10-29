@@ -51,13 +51,61 @@ try {
 } catch (e) {
   fail(`the request is not UTF-8 JSON (${e.message})`);
 }
-if (!exactKeys(request, ["contract", "run_id", "nonce", "cases"]) || request.contract !== "dcp-ai-conformance-external/1" || !Array.isArray(request.cases)) {
-  fail("the request needs exactly contract dcp-ai-conformance-external/1, run_id, nonce and cases");
+const V2 = request?.contract === "dcp-ai-conformance-external/2";
+if (!exactKeys(request, ["contract", "run_id", "nonce", "cases"]) || (request.contract !== "dcp-ai-conformance-external/1" && !V2) ||
+    typeof request.run_id !== "string" || typeof request.nonce !== "string" || !Array.isArray(request.cases)) {
+  fail("the request needs exactly contract dcp-ai-conformance-external/1 or /2, string run_id and nonce, and cases");
+}
+
+// Contract /2 (opt-in evidence): one call per case to dualMerkleRoot, compositeVerify or verifySignedBundleV2,
+// with the Ed25519 and ML-DSA-65 providers registered as the SDK's interop tests do.
+const HEX64 = /^[0-9a-f]{64}$/;
+// typeof first: RegExp.test coerces its argument, so ["<hex>"] would match.
+const isHex64 = (v) => typeof v === "string" && HEX64.test(v);
+// The kit's contract: RFC 3339 with an explicit zone (Z or ±HH:MM); Date.parse alone accepts local and other forms.
+const RFC3339 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
+let registry;
+const getRegistry = () => {
+  if (!registry) {
+    registry = new sdk.AlgorithmRegistry();
+    registry.registerSigner(new sdk.Ed25519Provider());
+    registry.registerSigner(new sdk.MlDsa65Provider());
+  }
+  return registry;
+};
+const EVIDENCE = {
+  dual_merkle_root: ["id", "op", "leaves"],
+  composite_verify: ["id", "op", "context", "payload_b64", "composite_sig", "classical_public_key_b64", "pq_public_key_b64"],
+  verify_signed_bundle_v2: ["id", "op", "bundle_b64", "policy", "verification_time"],
+};
+async function runEvidenceCase(c) {
+  if (!exactKeys(c, EVIDENCE[c.op])) fail(`case fields do not match op ${c.op}`);
+  if (c.op === "dual_merkle_root") {
+    if (!Array.isArray(c.leaves) || c.leaves.length === 0 || !c.leaves.every((l) => exactKeys(l, ["sha256", "sha3_256"]) && isHex64(l.sha256) && isHex64(l.sha3_256))) fail(`case ${c.id}: leaves must be a non-empty array of {sha256, sha3_256} lowercase 64-hex strings`);
+    const root = sdk.dualMerkleRoot(c.leaves);
+    if (!root) return { id: c.id, status: "error", message: "dualMerkleRoot returned no root" };
+    return { id: c.id, status: "ok", sha256: root.sha256, sha3_256: root.sha3_256 };
+  }
+  if (c.op === "composite_verify") {
+    const payload = decodeBase64Strict(c.payload_b64);
+    if (typeof c.context !== "string" || !payload || !isObj(c.composite_sig) || typeof c.classical_public_key_b64 !== "string" ||
+        (c.pq_public_key_b64 !== null && typeof c.pq_public_key_b64 !== "string")) fail(`case ${c.id}: composite_verify fields have the wrong types`);
+    const r = await sdk.compositeVerify(getRegistry(), c.context, new Uint8Array(payload), c.composite_sig, c.classical_public_key_b64, c.pq_public_key_b64 ?? undefined);
+    return { id: c.id, status: "ok", valid: r.valid, classical_valid: r.classical_valid, pq_valid: r.pq_valid };
+  }
+  const bytes = decodeBase64Strict(c.bundle_b64);
+  const now = typeof c.verification_time === "string" && RFC3339.test(c.verification_time) ? Date.parse(c.verification_time) : NaN;
+  if (!bytes || !isObj(c.policy) || !Number.isFinite(now)) fail(`case ${c.id}: verify_signed_bundle_v2 fields have the wrong types`);
+  let signed;
+  try { signed = JSON.parse(new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes)); } catch { return { id: c.id, status: "rejected", code: "parse" }; }
+  const r = await sdk.verifySignedBundleV2(signed, getRegistry(), c.policy, { now });
+  return { id: c.id, status: "ok", verified: r.verified, errors: r.errors };
 }
 
 const isDocumentedRejection = (e) => e?.constructor === Error && /^Float value prohibited in DCP v2\.0 at /.test(e.message);
 
 function runCase(c) {
+  if (V2 && isObj(c) && typeof c.id === "string" && Object.hasOwn(EVIDENCE, c.op)) return runEvidenceCase(c);
   const known = c.op === "canonicalize" ? ["id", "op", "profile", "input_b64"] : c.op === "digest" ? ["id", "op", "alg", "input_b64"] : null;
   if (!known) return isObj(c) && typeof c.id === "string" ? { id: c.id, status: "unsupported" } : fail("a case needs an id");
   if (!exactKeys(c, known) || typeof c.id !== "string") fail(`case fields do not match op ${c.op}`);
@@ -85,13 +133,14 @@ function runCase(c) {
   return { id: c.id, status: "ok", output_b64: Buffer.from(out, "utf8").toString("base64") };
 }
 
-const results = request.cases.map((c) => {
+const results = [];
+for (const c of request.cases) {
   try {
-    return runCase(c);
+    results.push(await runCase(c));
   } catch (e) {
-    return { id: c.id, status: "error", message: `${e?.name ?? "Error"}: ${e?.message ?? String(e)}`.slice(0, 500) };
+    results.push({ id: c.id, status: "error", message: `${e?.name ?? "Error"}: ${e?.message ?? String(e)}`.slice(0, 500) });
   }
-});
+}
 
 process.stdout.write(JSON.stringify({
   contract: request.contract,

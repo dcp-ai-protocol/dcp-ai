@@ -26,10 +26,10 @@ export const LIMITS = {
 export class UsageError extends Error {}
 export class InfraError extends Error {}
 
-const isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+export const isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 // Fatal UTF-8 decoding, BOM kept: invalid bytes are refused, never replaced with U+FFFD.
-const utf8 = (buf) => new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(buf);
-const sha256 = (buf) => crypto.createHash("sha256").update(buf).digest("hex");
+export const utf8 = (buf) => new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(buf);
+export const sha256 = (buf) => crypto.createHash("sha256").update(buf).digest("hex");
 const OPS = new Set(["canonicalize", "digest"]);
 const ALGS = new Set(["sha256", "sha3-256"]);
 const HEX64 = /^[0-9a-f]{64}$/;
@@ -43,7 +43,7 @@ export function decodeBase64Strict(s) {
   return buf.toString("base64") === s ? buf : null;
 }
 
-function exactKeys(obj, required, optional = []) {
+export function exactKeys(obj, required, optional = []) {
   if (!isObj(obj)) return false;
   const allowed = new Set([...required, ...optional]);
   return required.every((k) => k in obj) && Object.keys(obj).every((k) => allowed.has(k));
@@ -334,7 +334,7 @@ const RESULT_FIELDS = {
   unsupported: [],
 };
 
-function runLevel(observed) {
+export function runLevel(observed) {
   if (observed.spawn_error) return { kind: "spawn", message: `cannot start the implementation: ${observed.spawn_error}` };
   if (observed.output_limit) return { kind: "output_limit", message: `stdout exceeded ${LIMITS.stdoutBytes} bytes` };
   if (observed.timed_out) return { kind: "timeout", message: "the process had not exited with its pipes closed before the deadline" };
@@ -343,7 +343,7 @@ function runLevel(observed) {
   return null;
 }
 
-function parseResponse(stdout, request) {
+export function parseResponse(stdout, request) {
   let doc;
   try {
     doc = JSON.parse(utf8(stdout));
@@ -355,7 +355,7 @@ function parseResponse(stdout, request) {
       Object.values(doc.implementation).some((v) => typeof v !== "string")) {
     return { error: { kind: "invalid_output", message: "the response must have exactly contract, run_id, nonce, implementation {name, version[, resolved_from, runtime]} and results" } };
   }
-  if (doc.contract !== CONTRACT || doc.run_id !== request.run_id || doc.nonce !== request.nonce) {
+  if (doc.contract !== request.contract || doc.run_id !== request.run_id || doc.nonce !== request.nonce) {
     return { error: { kind: "stale", message: "contract, run_id or nonce does not match this run" }, implementation: doc.implementation };
   }
   return { doc };

@@ -100,7 +100,8 @@ try { const p = JSON.parse(fs.readFileSync(path.join(pkg, "package.json"), "utf8
 
 let request;
 try { request = JSON.parse(utf8(fs.readFileSync(0))); } catch (e) { fail(`the request is not UTF-8 JSON (${e.message})`); }
-if (!exactKeys(request, ["contract", "run_id", "nonce", "cases"]) || request.contract !== CONTRACT ||
+const V2 = request?.contract === "dcp-ai-conformance-external/2";
+if (!exactKeys(request, ["contract", "run_id", "nonce", "cases"]) || (request.contract !== CONTRACT && !V2) ||
     typeof request.run_id !== "string" || typeof request.nonce !== "string" || !Array.isArray(request.cases)) {
   fail("the request needs exactly contract dcp-ai-conformance-external/1, string run_id and nonce, and a cases array");
 }
@@ -122,9 +123,73 @@ function canonicalize(id, text) {
   return { id, status: "ok", output_b64: Buffer.from(out, "utf8").toString("base64") };
 }
 
+// Contract /2 (opt-in evidence): one call per case to the raw exports wasm_dual_merkle_root,
+// wasm_composite_verify or wasm_verify_signed_bundle_v2. Their errors come in band as {"error": "<message>"}.
+const HEX64 = /^[0-9a-f]{64}$/;
+// typeof first: RegExp.test coerces its argument, so ["<hex>"] would match.
+const isHex64 = (v) => typeof v === "string" && HEX64.test(v);
+// The kit's contract: RFC 3339 with an explicit zone (Z or ±HH:MM).
+const RFC3339 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
+const MISSING_PQ = "Signature error: pq_over_classical binding requires PQ signature";
+const EVIDENCE = {
+  dual_merkle_root: ["id", "op", "leaves"],
+  composite_verify: ["id", "op", "context", "payload_b64", "composite_sig", "classical_public_key_b64", "pq_public_key_b64"],
+  verify_signed_bundle_v2: ["id", "op", "bundle_b64", "policy", "verification_time"],
+};
+const inBandError = (out) => { try { const v = JSON.parse(out); return exactKeys(v, ["error"]) && typeof v.error === "string" ? v.error : null; } catch { return null; } };
+
+// wasm_verify_signed_bundle_v2 reads the host clock (Date.now, through js_date_now) and takes no time. This
+// test-only shim makes Date.now return verification_time synchronously around the one call and restores it in
+// finally, also when the call throws; nothing else runs in between.
+function atHostTime(ms, call) {
+  const realNow = Date.now;
+  Date.now = () => ms;
+  try { return call(); } finally { Date.now = realNow; }
+}
+
+function runEvidenceCase(c) {
+  if (!exactKeys(c, EVIDENCE[c.op])) fail(`case ${c.id}: fields do not match op ${c.op}`);
+  if (c.op === "dual_merkle_root") {
+    if (!Array.isArray(c.leaves) || c.leaves.length === 0 || !c.leaves.every((l) => exactKeys(l, ["sha256", "sha3_256"]) && isHex64(l.sha256) && isHex64(l.sha3_256))) {
+      fail(`case ${c.id}: leaves must be a non-empty array of {sha256, sha3_256} lowercase 64-hex strings`);
+    }
+    const out = mod.wasm_dual_merkle_root(JSON.stringify(c.leaves));
+    const err = inBandError(out);
+    if (err !== null) return { id: c.id, status: "error", message: err.slice(0, 500) };
+    const r = JSON.parse(out);
+    return { id: c.id, status: "ok", sha256: r.sha256, sha3_256: r.sha3_256 };
+  }
+  if (c.op === "composite_verify") {
+    const payload = decodeBase64Strict(c.payload_b64);
+    if (typeof c.context !== "string" || !payload || !isObj(c.composite_sig) || typeof c.classical_public_key_b64 !== "string" ||
+        (c.pq_public_key_b64 !== null && typeof c.pq_public_key_b64 !== "string")) fail(`case ${c.id}: composite_verify fields have the wrong types`);
+    let text;
+    try { text = utf8(payload); } catch { return { id: c.id, status: "rejected", code: "parse" }; }
+    // The export takes payload JSON and canonicalizes it inside; the kit sends canonical payload text.
+    const out = mod.wasm_composite_verify(c.context, text, JSON.stringify(c.composite_sig), c.classical_public_key_b64, c.pq_public_key_b64 ?? undefined);
+    const err = inBandError(out);
+    if (err === MISSING_PQ && c.composite_sig.binding === "pq_over_classical" && c.composite_sig.pq === null) return { id: c.id, status: "rejected", code: "missing_pq_signature" };
+    if (err !== null) return { id: c.id, status: "error", message: err.slice(0, 500) };
+    const r = JSON.parse(out);
+    return { id: c.id, status: "ok", valid: r.valid, classical_valid: r.classical_valid, pq_valid: r.pq_valid };
+  }
+  const bytes = decodeBase64Strict(c.bundle_b64);
+  if (!bytes || !isObj(c.policy) || typeof c.verification_time !== "string" || !RFC3339.test(c.verification_time)) fail(`case ${c.id}: verify_signed_bundle_v2 fields have the wrong types`);
+  const ms = Date.parse(c.verification_time);
+  if (!Number.isFinite(ms)) fail(`case ${c.id}: verification_time is not a valid instant`);
+  let text;
+  try { text = utf8(bytes); JSON.parse(text); } catch { return { id: c.id, status: "rejected", code: "parse" }; }
+  const out = atHostTime(ms, () => mod.wasm_verify_signed_bundle_v2(text, JSON.stringify(c.policy)));
+  const err = inBandError(out);
+  if (err !== null) return { id: c.id, status: "error", message: err.slice(0, 500) };
+  const r = JSON.parse(out);
+  return { id: c.id, status: "ok", verified: r.verified, errors: r.errors };
+}
+
 function runCase(c) {
   if (!isObj(c) || typeof c.id !== "string") fail("a case must be an object with a string id");
   if (typeof c.op !== "string") fail(`case ${c.id}: op must be a string`);
+  if (V2 && Object.hasOwn(EVIDENCE, c.op)) return runEvidenceCase(c);
   const fields = c.op === "canonicalize" ? ["id", "op", "profile", "input_b64"] : c.op === "digest" ? ["id", "op", "alg", "input_b64"] : null;
   if (!fields) return { id: c.id, status: "unsupported" };
   if (!exactKeys(c, fields)) fail(`case ${c.id}: fields do not match op ${c.op}`);
@@ -149,14 +214,14 @@ const results = request.cases.map((c) => {
 });
 
 process.stdout.write(JSON.stringify({
-  contract: CONTRACT,
+  contract: request.contract,
   run_id: request.run_id,
   nonce: request.nonce,
   implementation: {
     name: "dcp-ai Rust SDK compiled to WASM (wasm-bindgen, --target web) via tools/conformance/wrappers/wasm.mjs",
     version,
     resolved_from: `${wasmFile} (sha256 ${crypto.createHash("sha256").update(wasmBytes).digest("hex")})`,
-    runtime: `node ${process.version} (Node-hosted WebAssembly, not a browser)`,
+    runtime: `node ${process.version} (Node-hosted WebAssembly, not a browser${V2 ? "; host clock (Date.now) substituted by verification_time during each verification call" : ""})`,
   },
   results,
 }) + "\n");

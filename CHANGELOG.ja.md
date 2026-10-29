@@ -208,6 +208,13 @@
 
 ### 追加
 
+- **外部適合性ランナーの証拠カタログ：マークルと署名の検証。** `--catalog evidence` は、任意で選ぶカタログ（`tools/conformance/external-evidence-catalog.json`、契約 `dcp-ai-conformance-external/2`、241 ケース）をコミット済みの公開フィクスチャに対して実行します。
+  葉が 1、2、3、5 枚の正確な二重マークルルート、コミット済みの攻撃と決定的な改変を含む複合署名と古典署名のみの署名の検証、各ケースのコミット済みのオーバーライドを適用した `default_verifier_policy` による `bundle_vectors.json` の規範的な V2 署名済みバンドルの検証、二次 SHA3-256 ベクターを、すべて固定した `verification_time` で扱います。
+  陰性ケースは対照が合格した場合にだけ数えられ、エラーを伴う `verified: true`、`error`、`unsupported` は決して合格になりません。
+  5 つのラッパーはどちらの契約も受け付けます。既定のカタログ、契約 `/1` とその 38 ケースは変わりません。
+  CI は 241 ケースとセルフテストを 5 つすべてのラッパーで実行します。合格は受け入れ、信頼、認可のいずれでもありません。
+  「修正」の `wasm_dual_merkle_root` の修正を除き SDK の変更はなく、パッケージも公開しません。
+  [tools/conformance/README.md](tools/conformance/README.md#evidence-catalog-merkle-and-signature-verification) を参照してください。
 - **外部適合性ランナー向けの Go、Rust、WASM のラッパー。** `tools/conformance/wrappers/build.mjs` は、このチェックアウトから Go SDK、Rust SDK、Rust SDK の WASM ビルドのラッパーをビルドします（`-mod=readonly`、`--locked`。
   SDK のマニフェストやロックファイルは変わりません）。
   各ラッパーは実際の API で同じ 38 ケースを実行し、正規化関数を 1 回だけ呼び、文書化された拒否だけを拒否として扱います。
@@ -510,6 +517,15 @@
 
 ### 修正
 
+- **受け入れの変更：WASM の `wasm_dual_merkle_root` と `@dcp-ai/wasm` の `dualMerkleRoot` が V2-11 の二重マークルルートを計算するようになりました**（`main` のソースコード、未公開。
+  `@dcp-ai/wasm` 2.1.1 以前は古いヘルパーのまま）。
+  このヘルパーは 2 つのダイジェストの 16 進テキストを連結してハッシュし、奇数のノードを繰り上げていたため、2 枚以上の葉ではルートが `spec/VERIFICATION.md` V2-11（32 バイトの生のダイジェストを連結し、奇数の層では最後のノードを複製）とも、TypeScript、Python、Go、Rust の SDK とも一致しませんでした。
+  現在は Rust のコア `v2::dual_hash::dual_merkle_root` に委譲します。
+  変更は複数の葉のルートに限りません。公開済みのヘルパーが生成した複数の葉のルートは V2-11 と互換性がなかったため変わります。32 バイトの 16 進ダイジェストでない葉は、テキストとしてハッシュされる代わりにエラーになります。ルートは常に小文字の 16 進数になるため、大文字で渡した 1 枚の葉は小文字で返るようになりました。
+  小文字で渡した有効な 1 枚の葉、結果の形式、空の配列と JSON でない入力に対するエラーは変わりません。
+  バンドルの検証は、WASM の検証器も含め、すでに正しい縮約を使っており、変わりません。変更はこのヘルパーに限られるため、以前のバンドルとその証拠を書き換えたり署名し直したりはしません。
+  新しい公開ベクター `tests/conformance/v2/merkle_vectors.json`（葉が 1、2、3、5 枚の場合と並べ替えた葉の正確なルート。
+  Python の標準ライブラリでオフラインに生成し、2 枚の葉の golden ルートを基準にしています）は、`sdks/wasm/test/dual-merkle-root.mjs` と `sdks/rust/tests/dual_merkle_vectors.rs` で確認します。
 - `denyListRevocationSource`（`@dcp-ai/express`、`@dcp-ai/openclaw`）が応答を開いたままにしていました。2xx 以外の
   応答や、16 MiB を超える `Content-Length` を宣言した応答は、本文を読みも閉じもせずに拒否されていました。応答は、
   呼び出しが終わって枠が解放された後も開いたままで、タイムアウトや呼び出し側のシグナルが届かない状態でした。
