@@ -311,7 +311,66 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
   host sustituido. Las cadenas `error_contains` son la redacción de diagnóstico de los SDK, no son normativas:
   `spec/VERIFICATION.md` no define códigos de error. Un pase de esos 146 casos muestra acuerdo con esa redacción; un
   verificador con los mismos veredictos y otros mensajes los falla, y ese fallo por sí solo no muestra un veredicto
-  erróneo.
+  erróneo. La [evaluación por veredicto](#verdict-assessment) juzga esos casos solo por el veredicto.
+
+<a id="verdict-assessment"></a>
+
+#### Evaluación por veredicto
+
+`spec/VERIFICATION.md` define cuándo un bundle no se verifica, no la redacción de sus errores. `--assessment verdict`
+juzga este catálogo solo por los veredictos, para implementaciones con mensajes propios. Sin la opción, o con
+`--assessment legacy`, el juicio, el informe y los códigos de salida son exactamente los descritos arriba. La opción
+solo se aplica a un catálogo `/2`, el versionado o un archivo propio; con el catálogo `/1` o `/3` es un error de uso,
+también `legacy`, porque sus códigos forman parte del contrato o son normativos.
+
+```bash
+node tools/conformance-external.js --catalog evidence --assessment verdict --list
+node tools/conformance-external.js --catalog evidence --assessment verdict --report /tmp/evidence-verdict.json -- ./my-implementation
+DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-evidence-assessment.test.mjs
+```
+
+- **Qué cambia:** solo los 146 rechazos que llevan un `error_contains` (38 mutaciones, 79 bundles construidos por
+  separado y 29 casos secundarios). Cada uno pasa cuando su resultado es `ok`, está bien formado y no es
+  contradictorio, dice `verified: false` y sus controles pasaron en la misma ejecución; los mensajes no se juzgan.
+  Todas las demás reglas son las del juicio anterior, controles incluidos. Con las mismas respuestas, un caso que pasa
+  con `legacy` pasa con `verdict`, y todo caso fuera de esos 146 obtiene el mismo estado y el mismo tipo.
+- **Anclajes y premisas:** cada uno de esos casos indica su paso de `spec/VERIFICATION.md` (`anchor`): el
+  `spec_step` de los vectores de bundle (V2-1 a V2-14), o V2-11 y el campo de la errata del grupo secundario
+  (`audit_merkle_root_secondary`, `prev_hash_secondary` o `intent_hash_secondary`). Todo control debe ser un positivo
+  simple: se espera que verifique (o que sea válido), sin `error_contains` y sin controles propios, de modo que la
+  evaluación nunca cambia el resultado de un control. Ambas cosas se comprueban antes de la ejecución; un plan que no
+  las cumple da salida 3 con `verdict` (con `legacy` aún puede pasar, por ejemplo con un `--root` propio), y la
+  propiedad anterior solo vale para planes válidos en las dos evaluaciones.
+- **Diagnóstico:** la redacción de un rechazo que pasa se informa como `matched` (contiene el `error_contains`
+  versionado), `differs` o `no_message` (`errors: []`). Cualquier otro resultado es `not_evaluated`, con su `reason`:
+  `run_error`, `missing`, `duplicate`, `malformed_result`, `implementation`, `unsupported`, `rejected`,
+  `contradictory_result`, `wrong_verdict` o `control_failed`. Un veredicto equivocado nunca pasa, sea cual sea su
+  mensaje, y la redacción nunca cambia un estado, un total ni el código de salida.
+- **Informe:** `kit.contract` sigue siendo `/2`; el informe añade `assessment` (su `schema` es
+  `dcp-ai-conformance-assessment/1`, aparte del contrato del wire) y `diagnostic_totals`. Sus `claim` y `limits`
+  indican lo que comprueba esta evaluación, fijados por el runner para cada suite sea cual sea la prosa del catálogo;
+  esa prosa se conserva literal en `catalog_claim` y `catalog_limits` y no es un resultado comprobado. Cada uno de los
+  146 casos muestra `expect: {"verified": false}`, su `anchor` y su `diagnostic`. Un informe legacy no tiene ninguno de
+  los campos nuevos (`assessment`, `diagnostic_totals`, `catalog_claim`, `catalog_limits`, `anchor`, `diagnostic`), y
+  sus `claim`, `limits` y `expect` (con `error_contains`) quedan como estaban. `--list` con `--assessment` indica el
+  modo; sin ella, su salida no cambia.
+- **Códigos de salida y frescura:** los del [contrato](#contract). Solo el estado `pass` (salida 0) significa que la
+  ejecución pasó: los diagnósticos de una ejecución con estado `fail` o `error`, por ejemplo con un resultado de más,
+  son detalle parcial, nunca conformidad. Todo error de `--assessment` (un valor desconocido, repetido o ausente, un
+  catálogo `/1` o `/3`, un anclaje que falta) llega después del marcador, así que reemplaza un informe anterior por un
+  error nuevo con un `run.id` nuevo; solo las excepciones descritas para el [comando](#external-implementations) no
+  dejan informe.
+- **Self-tests:** `external-evidence-assessment.test.mjs` ejecuta en las dos evaluaciones un fake construido con las
+  respuestas reales del wrapper de TypeScript: veredictos correctos con el mensaje esperado, uno neutral o ninguno;
+  veredictos equivocados con el mensaje esperado; verificarlo o rechazarlo todo; resultados con error,
+  `unsupported`, ausentes, duplicados, malformados, rechazados y de más; controles fallidos, una ejecución fallida y
+  un timeout; cada suite seleccionada sola; la propiedad anterior en todos los modos, incluidos un Merkle que ignora
+  el orden, la antigua promoción del nodo impar y `missing_pq_signature` en su sitio y fuera de él; anclajes y
+  premisas; informes frescos sobre un pase anterior; formas del informe y `--list`. También ejecuta los 241 casos con
+  los cinco wrappers con `verdict`; la CI lo ejecuta con todos los wrappers obligatorios.
+- **Límites:** un pase con `verdict` muestra veredictos correctos en estos casos, con la argv ejecutada y con las
+  mismas políticas; no evalúa si los mensajes son exactos o útiles. El contrato del wire `/2`, el catálogo, los
+  fixtures y los wrappers no cambian.
 
 <a id="admission-catalog-strict-v1-admission"></a>
 

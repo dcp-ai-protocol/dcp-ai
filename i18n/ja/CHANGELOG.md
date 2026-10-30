@@ -208,6 +208,10 @@
 
 ### 追加
 
+- 外部適合性キットのエビデンスカタログ（契約 `/2`）に `--assessment verdict` を追加しました。`error_contains` を持つ 146 件の拒否を `verified: false` だけで判定し、それ以外の規則、制御、終了コードは変えません。これにより、判定が正しく独自のメッセージを返す実装がそれを示せます。
+  文言は診断として報告されます（`matched`、`differs`、`no_message`、または理由付きの `not_evaluated`）。これらの各ケースは `spec/VERIFICATION.md` の手順を示し、ランナーは実行前にそのアンカーと、すべての制御が単純な肯定ケースであることを確認します。
+  レポートは `/2` の wire の契約とは別に `dcp-ai-conformance-assessment/1` を宣言し、カタログの文章を `catalog_claim` と `catalog_limits` に残します。オプションなし、または `--assessment legacy` では判定とレポートは変わらず、`/1` と `/3` のカタログはこのオプションを拒否します。
+  カタログ、フィクスチャ、ラッパーは変わりません。CI は 5 つのラッパーをすべて必須にしてこの評価を実行します。
 - 外部の適合性キット：オプトインのアドミッションのカタログ `--catalog admission`（契約 `dcp-ai-conformance-external/3`、
   `tools/conformance/external-admission-catalog.json`、140 ケース：`admission_vectors.json` の 65 の結果のベクトル、71 の設定のケース、
   ベクトルの入力から組み合わせた 4 つのケース）。TypeScript、Python、Go、Rust のラッパーは、SDK の組み合わせたアドミッションの関数と

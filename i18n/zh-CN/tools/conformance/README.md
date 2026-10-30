@@ -271,7 +271,41 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
   `stripping_pq_with_downgrade` 按 `classical_valid` 和 `pq_valid` 判定；拒绝它属于 `hybrid_required` 策略。
   二级字段只在存在时检查，因此通过并不表明二级链完整。经 WASM 时，时间是被替换的宿主时钟。
   `error_contains` 字符串是 SDK 的诊断措辞，不具规范效力：`spec/VERIFICATION.md` 没有定义错误代码。
-  这 146 个用例通过只表明与该措辞一致；判定相同但消息不同的验证器会在这些用例上失败，而仅凭该失败并不能说明判定错误。
+  这 146 个用例通过只表明与该措辞一致；判定相同但消息不同的验证器会在这些用例上失败，而仅凭该失败并不能说明判定错误。[按判定评估](#verdict-assessment)只按判定评判这些用例。
+
+<a id="verdict-assessment"></a>
+
+#### 按判定评估
+
+`spec/VERIFICATION.md` 规定的是 bundle 何时验证不通过，而不是错误的措辞。`--assessment verdict` 只按判定评判本目录，供使用自有消息的实现使用。
+不加该选项，或使用 `--assessment legacy` 时，评判、报告和退出码与上文完全相同。
+该选项只适用于 `/2` 目录（已提交的目录或你自己的文件）；对 `/1` 或 `/3` 目录，包括 `legacy` 在内都是用法错误，因为它们的代码属于契约或具有规范效力。
+
+```bash
+node tools/conformance-external.js --catalog evidence --assessment verdict --list
+node tools/conformance-external.js --catalog evidence --assessment verdict --report /tmp/evidence-verdict.json -- ./my-implementation
+DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-evidence-assessment.test.mjs
+```
+
+- **变化之处：** 只涉及带有 `error_contains` 的 146 个拒绝用例（38 个变异、79 个单独构建的 bundle、29 个二级用例）。
+  当结果为 `ok`、格式正确且不矛盾、给出 `verified: false`，并且其对照在同一次运行中通过时，该用例通过；不评判消息。
+  其余规则（包括对照）与原有评判相同。对同样的回答，在 `legacy` 下通过的用例在 `verdict` 下也通过，这 146 个之外的每个用例状态和类别都相同。
+- **锚点与前提：** 每个这样的用例都标出其在 `spec/VERIFICATION.md` 中的步骤（`anchor`）：bundle 向量的 `spec_step`（V2-1 至 V2-14），或二级分组对应的 V2-11 与勘误字段（`audit_merkle_root_secondary`、`prev_hash_secondary` 或 `intent_hash_secondary`）。
+  每个对照都必须是简单的正向用例：预期验证通过（或有效），没有 `error_contains`，也没有自己的对照，因此评估方式永远不会改变对照的结果。
+  两者都在运行前检查；不满足的计划在 `verdict` 下退出码为 3（在 `legacy` 下仍可能通过，例如使用自己的 `--root` 时），上述性质只对两种评估都有效的计划成立。
+- **诊断：** 通过的拒绝的措辞报告为 `matched`（包含已提交的 `error_contains`）、`differs` 或 `no_message`（`errors: []`）。
+  其他任何结果都是 `not_evaluated`，并给出其 `reason`：`run_error`、`missing`、`duplicate`、`malformed_result`、`implementation`、`unsupported`、`rejected`、`contradictory_result`、`wrong_verdict` 或 `control_failed`。
+  错误的判定无论消息如何都不会通过，措辞也永远不会改变状态、总数或退出码。
+- **报告：** `kit.contract` 仍为 `/2`；报告增加 `assessment`（其 `schema` 为 `dcp-ai-conformance-assessment/1`，独立于 wire 契约）和 `diagnostic_totals`。
+  其 `claim` 和 `limits` 说明本评估实际检查的内容，由运行器按套件设定，与目录的文字无关；该文字原样保留在 `catalog_claim` 和 `catalog_limits` 中，并不是已检查的结果。
+  146 个用例中的每一个都显示 `expect: {"verified": false}`、其 `anchor` 和其 `diagnostic`。legacy 报告没有任何新字段（`assessment`、`diagnostic_totals`、`catalog_claim`、`catalog_limits`、`anchor`、`diagnostic`），其 `claim`、`limits` 和 `expect`（含 `error_contains`）保持原样。
+  带 `--assessment` 的 `--list` 会注明模式；不带时输出不变。
+- **退出码与报告时效：** 与[契约](#contract)相同。只有状态 `pass`（退出码 0）表示运行通过；状态为 `fail` 或 `error` 的运行（例如有多余结果时）中的诊断只是部分细节，绝不表示符合。
+  每个 `--assessment` 错误（未知、重复或缺失的值，`/1` 或 `/3` 目录，缺失的锚点）都发生在占位内容写入之后，因此会用带新 `run.id` 的新错误替换旧报告；只有[命令](#external-implementations)中说明的例外不会留下报告。
+- **自测：** `external-evidence-assessment.test.mjs` 在两种评估下运行一个由 TypeScript 包装器的真实回答构建的 fake：判定正确且消息符合预期、中性或没有消息；判定错误但消息符合预期；全部验证通过或全部拒绝；错误、`unsupported`、缺失、重复、格式错误、被拒绝和多余的结果；对照失败、运行失败和超时；单独选择每个套件；所有模式下的上述性质（包括忽略顺序的 Merkle、旧的奇数节点提升，以及在正确位置和其他位置的 `missing_pq_signature`）；锚点与前提；在旧的通过报告之上写入的新报告；报告形态和 `--list`。
+  它还用五个包装器在 `verdict` 下运行 241 个用例；CI 在所有包装器都必需的情况下运行它。
+- **限制：** `verdict` 通过表明，在所运行的 argv 和相同策略下，这些用例的判定正确；它不评估消息是否准确或有用。
+  `/2` 的 wire 契约、目录、测试夹具和包装器都不变。
 
 <a id="admission-catalog-strict-v1-admission"></a>
 

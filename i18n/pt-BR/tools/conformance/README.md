@@ -308,7 +308,66 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
   cadeia secundária completa. Via WASM, o horário é o relógio do host substituído. As strings `error_contains` são a
   redação de diagnóstico dos SDKs, não são normativas: `spec/VERIFICATION.md` não define códigos de erro. Um sucesso
   nesses 146 casos mostra concordância com essa redação; um verificador com os mesmos veredictos e outras mensagens
-  falha neles, e essa falha por si só não mostra um veredito errado.
+  falha neles, e essa falha por si só não mostra um veredito errado. A [avaliação por veredito](#verdict-assessment) julga esses casos apenas pelo veredito.
+
+<a id="verdict-assessment"></a>
+
+#### Avaliação por veredito
+
+`spec/VERIFICATION.md` define quando um bundle não é verificado, não a redação dos seus erros. `--assessment verdict`
+julga este catálogo apenas pelos vereditos, para implementações com mensagens próprias. Sem a opção, ou com
+`--assessment legacy`, o julgamento, o relatório e os códigos de saída são exatamente os descritos acima. A opção só
+se aplica a um catálogo `/2`, o versionado ou um arquivo próprio; com o catálogo `/1` ou `/3` é um erro de uso,
+inclusive `legacy`, porque seus códigos fazem parte do contrato ou são normativos.
+
+```bash
+node tools/conformance-external.js --catalog evidence --assessment verdict --list
+node tools/conformance-external.js --catalog evidence --assessment verdict --report /tmp/evidence-verdict.json -- ./my-implementation
+DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-evidence-assessment.test.mjs
+```
+
+- **O que muda:** apenas as 146 rejeições que trazem um `error_contains` (38 mutações, 79 bundles construídos à
+  parte e 29 casos secundários). Cada uma passa quando seu resultado é `ok`, bem formado e não contraditório, diz
+  `verified: false` e seus controles passaram na mesma execução; as mensagens não são julgadas. Todas as demais
+  regras são as do julgamento anterior, controles incluídos. Com as mesmas respostas, um caso que passa com `legacy`
+  passa com `verdict`, e todo caso fora dessas 146 recebe o mesmo status e o mesmo tipo.
+- **Âncoras e premissas:** cada um desses casos indica seu passo de `spec/VERIFICATION.md` (`anchor`): o
+  `spec_step` dos vetores de bundle (V2-1 a V2-14), ou V2-11 e o campo da errata do grupo secundário
+  (`audit_merkle_root_secondary`, `prev_hash_secondary` ou `intent_hash_secondary`). Todo controle deve ser um
+  positivo simples: espera-se que verifique (ou que seja válido), sem `error_contains` e sem controles próprios, de
+  modo que a avaliação nunca muda o resultado de um controle. Ambas as coisas são verificadas antes da execução; um
+  plano que não as cumpre dá saída 3 com `verdict` (com `legacy` ainda pode passar, por exemplo com um `--root`
+  próprio), e a propriedade acima só vale para planos válidos nas duas avaliações.
+- **Diagnóstico:** a redação de uma rejeição que passa é informada como `matched` (contém o `error_contains`
+  versionado), `differs` ou `no_message` (`errors: []`). Qualquer outro resultado é `not_evaluated`, com seu
+  `reason`: `run_error`, `missing`, `duplicate`, `malformed_result`, `implementation`, `unsupported`, `rejected`,
+  `contradictory_result`, `wrong_verdict` ou `control_failed`. Um veredito errado nunca passa, qualquer que seja sua
+  mensagem, e a redação nunca muda um status, um total nem o código de saída.
+- **Relatório:** `kit.contract` continua `/2`; o relatório acrescenta `assessment` (seu `schema` é
+  `dcp-ai-conformance-assessment/1`, à parte do contrato do wire) e `diagnostic_totals`. Seus `claim` e `limits`
+  indicam o que esta avaliação verifica, definidos pelo runner para cada suite independentemente da prosa do
+  catálogo; essa prosa é mantida literal em `catalog_claim` e `catalog_limits` e não é um resultado verificado. Cada
+  um dos 146 casos mostra `expect: {"verified": false}`, sua `anchor` e seu `diagnostic`. Um relatório legacy não tem
+  nenhum dos campos novos (`assessment`, `diagnostic_totals`, `catalog_claim`, `catalog_limits`, `anchor`,
+  `diagnostic`), e seus `claim`, `limits` e `expect` (com `error_contains`) ficam como estavam. `--list` com
+  `--assessment` indica o modo; sem ela, sua saída não muda.
+- **Códigos de saída e atualização:** os do [contrato](#contract). Só o status `pass` (saída 0) significa que a
+  execução passou: os diagnósticos de uma execução com status `fail` ou `error`, por exemplo com um resultado a mais,
+  são detalhe parcial, nunca conformidade. Todo erro de `--assessment` (um valor desconhecido, repetido ou ausente, um
+  catálogo `/1` ou `/3`, uma âncora ausente) vem depois do marcador, então substitui um relatório anterior por um
+  erro novo com um `run.id` novo; só as exceções descritas para o [comando](#external-implementations) não deixam
+  relatório.
+- **Self-tests:** `external-evidence-assessment.test.mjs` executa nas duas avaliações um fake construído com as
+  respostas reais do wrapper de TypeScript: vereditos corretos com a mensagem esperada, uma neutra ou nenhuma;
+  vereditos errados com a mensagem esperada; verificar ou rejeitar tudo; resultados com erro, `unsupported`,
+  ausentes, duplicados, malformados, rejeitados e a mais; controles com falha, uma execução com falha e um timeout;
+  cada suite selecionada sozinha; a propriedade acima em todos os modos, incluídos um Merkle que ignora a ordem, a
+  antiga promoção do nó ímpar e `missing_pq_signature` no lugar certo e fora dele; âncoras e premissas; relatórios
+  atualizados sobre um sucesso anterior; formas do relatório e `--list`. Também executa os 241 casos com os cinco
+  wrappers com `verdict`; a CI o executa com todos os wrappers obrigatórios.
+- **Limites:** um sucesso com `verdict` mostra vereditos corretos nesses casos, com a argv executada e com as mesmas
+  políticas; não avalia se as mensagens são exatas ou úteis. O contrato do wire `/2`, o catálogo, os fixtures e os
+  wrappers não mudam.
 
 <a id="admission-catalog-strict-v1-admission"></a>
 

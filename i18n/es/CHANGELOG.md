@@ -216,6 +216,16 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
 
 ### Añadido
 
+- `--assessment verdict` para el catálogo de evidencia (contrato `/2`) del kit de conformidad externa: los 146
+  rechazos que llevan un `error_contains` se juzgan solo por `verified: false`, con todas las demás reglas,
+  controles y códigos de salida sin cambios, para que una implementación con veredictos correctos y mensajes
+  propios pueda demostrarlo. La redacción se informa como diagnóstico: `matched`, `differs`, `no_message`, o
+  `not_evaluated` con su motivo. Cada uno de esos casos indica su paso de `spec/VERIFICATION.md`, y antes de la
+  ejecución el runner comprueba esos anclajes y que todo control sea un positivo simple. El informe declara
+  `dcp-ai-conformance-assessment/1`, aparte del contrato del wire `/2`, y conserva la prosa del catálogo en
+  `catalog_claim` y `catalog_limits`. Sin la opción, o con `--assessment legacy`, el juicio y el informe no
+  cambian, y los catálogos `/1` y `/3` la rechazan. El catálogo, los fixtures y los wrappers no cambian; la CI
+  ejecuta la evaluación con los cinco wrappers, todos obligatorios.
 - Kit de conformidad externa: un catálogo de admisión opt-in, `--catalog admission` (contrato
   `dcp-ai-conformance-external/3`, `tools/conformance/external-admission-catalog.json`, 140 casos:
   los 65 vectores de resultado de `admission_vectors.json`, 71 casos de configuración y 4 casos
