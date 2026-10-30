@@ -32,13 +32,15 @@ class RoutingTests(unittest.TestCase):
         return site.rewrite_link(self.root, self.manifest, self.doc, locale, href, image=image)
 
     def test_cross_reference_uses_current_language(self):
-        self.assertEqual(self.rewrite("../sdks/go/README.md#installation"), "../reference/sdks/go/README.md#installation")
+        # From i18n/es/docs/A.md: the English source and the Spanish translation give the same page.
+        for href in ("../../../sdks/go/README.md#installation", "../sdks/go/README.md#installation"):
+            self.assertEqual(self.rewrite(href), "../reference/sdks/go/README.md#installation")
 
     def test_english_source_notice_stays_english(self):
-        self.assertEqual(self.rewrite("A.md"), site.SITE + "guides/A/")
+        self.assertEqual(self.rewrite("../../../docs/A.md"), site.SITE + "guides/A/")
 
     def test_explicit_other_language_stays_explicit(self):
-        self.assertEqual(self.rewrite("../sdks/go/README.ja.md"), site.SITE + "ja/reference/sdks/go/")
+        self.assertEqual(self.rewrite("../../ja/sdks/go/README.md"), site.SITE + "ja/reference/sdks/go/")
 
     def test_external_and_fragment_untouched(self):
         for value in ("#here", "https://example.org/a?b=c#d", "mailto:person@example.org"):
@@ -49,19 +51,19 @@ class RoutingTests(unittest.TestCase):
         self.assertEqual(site.rewrite_link(self.root, self.manifest, doc, "es", "guides/A.md"), "guides/A.md")
 
     def test_directory_readme_resolves_to_site(self):
-        self.assertEqual(self.rewrite("../sdks/go/"), "../reference/sdks/go/README.md")
+        self.assertEqual(self.rewrite("../../../sdks/go/"), "../reference/sdks/go/README.md")
 
     def test_source_file_uses_github_with_query_fragment(self):
         (self.root / "code.py").write_text("pass\n")
-        self.assertEqual(self.rewrite("../code.py?raw=1#L1"), site.REPO + "blob/main/code.py?raw=1#L1")
+        self.assertEqual(self.rewrite("../../../code.py?raw=1#L1"), site.REPO + "blob/main/code.py?raw=1#L1")
 
     def test_image_stays_image(self):
         (self.root / "diagram.png").write_bytes(b"fixture")
-        self.assertEqual(self.rewrite("../diagram.png", image=True), "../_assets/diagram.png")
+        self.assertEqual(self.rewrite("../../../diagram.png", image=True), "../_assets/diagram.png")
 
     def test_unknown_target_does_not_silently_become_github_link(self):
         with self.assertRaises(ValueError):
-            self.rewrite("../missing.md")
+            self.rewrite("../../../missing.md")
 
     def test_selector_readme_and_root_routes(self):
         self.assertEqual(site.route_url("reference/sdks/go/README.md"), "reference/sdks/go/")
@@ -78,15 +80,18 @@ class RoutingTests(unittest.TestCase):
                          '<a href="../playground/">Try</a>')
 
     def test_site_banner_deduplication_preserves_examples(self):
-        banner = '<sub>**English** · [中文](README.zh-CN.md) · [日本語](README.ja.md)</sub>\n\n'
         body = '# Title\n\n```html\n<div align="center">\n```\n'
-        self.assertEqual(site.site_markdown(banner + body, "sdks/go/README.md"), body)
-        chinese_banner = '<sub>[English](README.md) · **中文** · [日本語](README.ja.md)</sub>\n\n'
-        self.assertEqual(site.site_markdown(chinese_banner + body, "sdks/go/README.md"), body)
-        self.assertEqual(site.site_markdown('<sub>Unrelated content</sub>\n' + body, "other.md"), '<sub>Unrelated content</sub>\n' + body)
+        for banner in (
+                '<sub>**English** · [中文](i18n/zh-CN/README.md) · [日本語](i18n/ja/README.md)</sub>\n\n',
+                '<sub>**English** · [中文](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/i18n/zh-CN/sdks/go/README.md)'
+                ' · [日本語](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/i18n/ja/sdks/go/README.md)</sub>\n\n',
+                '<sub>[English](../../../../sdks/go/README.md) · **中文** · [日本語](../../ja/sdks/go/README.md)</sub>\n\n'):
+            self.assertEqual(site.site_markdown(banner + body, "sdks/go/README.md"), body)
+        for other in ('<sub>Unrelated content</sub>\n', '<sub>English · 日本語 glossary</sub>\n'):
+            self.assertEqual(site.site_markdown(other + body, "other.md"), other + body)
 
     def test_missing_locale_cannot_prepare_fallback(self):
-        (self.root / "docs/A.es.md").unlink()
+        (self.root / gate.localized("docs/A.md", "es")).unlink()
         with self.assertRaisesRegex(ValueError, "missing document"):
             site.prepare(self.root, self.manifest, "es")
         self.assertFalse((self.root / "docs-site").exists())
@@ -159,9 +164,10 @@ class BuildIntegrationTests(unittest.TestCase):
                 for lang in gate.LANGUAGES:
                     name = gate.localized(src, lang)
                     paths.append(name)
-                    notice = "" if lang == "en" else f'> {notices[lang]} [English]({src}), 2026-10-25.\n\n'
+                    notice = "" if lang == "en" else f'> {notices[lang]} [English](../../{src}), 2026-10-25.\n\n'
                     alias = '' if lang == 'en' else '<a id="example"></a>\n\n'
                     body = f'{notice}{alias}# {titles[lang]}\n\n[Log](CHANGELOG.md#example)\n\n```text\nunchanged\n```\n'
+                    (root / name).parent.mkdir(parents=True, exist_ok=True)
                     (root / name).write_text(body, encoding="utf-8")
                 gate.record_review(root, manifest, status, src)
             (root / "scripts/docs-i18n-status.json").write_text(json.dumps(status))
@@ -176,6 +182,9 @@ class BuildIntegrationTests(unittest.TestCase):
             result = site.validate_site(root / "site", manifest)
             self.assertTrue(result["passed"], result)
             self.assertEqual(result["html_pages"], 16)  # 2 docs + 404 per locale, and playground.
+            # Edit links name the translation's own source file; the page URL stays the same.
+            self.assertIn("/edit/main/i18n/es/README.md", (root / "site/es/index.html").read_text(encoding="utf-8"))
+            self.assertIn("/edit/main/README.md", (root / "site/index.html").read_text(encoding="utf-8"))
             (root / "site/ja/CHANGELOG/index.html").unlink()
             self.assertFalse(site.validate_site(root / "site", manifest)["passed"])
 

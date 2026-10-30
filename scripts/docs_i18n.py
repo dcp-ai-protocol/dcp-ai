@@ -7,6 +7,8 @@ maintainer has reviewed the complete translations; it does not certify language
 quality. A changed source or translation invalidates that recorded review.
 The manifest covers public tracked Markdown, including explicit runtime-file
 exclusions and scaffold copies. Private untracked research is not published.
+English sources stay where they are; each translation lives at
+i18n/<locale>/<English source path>, and nothing else may live under i18n/.
 """
 from __future__ import annotations
 
@@ -34,6 +36,8 @@ NOTICES = {
 }
 PRECEDENCE = {"es": r"prevalece", "pt-BR": r"prevalece", "ja": r"優先", "zh-CN": r"为准"}
 DATE = re.compile(r"(?:\d{2}/\d{2}/\d{4}|\d{4}[-年]\d{1,2}[-月]\d{1,2}日?)")
+# Links to this repository's main branch are checked like local links.
+REPOSITORY = "https://github.com/dcp-ai-protocol/dcp-ai/"
 
 
 def digest(path: Path) -> str:
@@ -41,8 +45,7 @@ def digest(path: Path) -> str:
 
 
 def localized(source: str, locale: str) -> str:
-    p = PurePosixPath(source)
-    return source if locale == "en" else str(p.with_name(f"{p.stem}.{locale}.md"))
+    return source if locale == "en" else f"i18n/{locale}/{source}"
 
 
 def safe_path(value: object) -> bool:
@@ -59,7 +62,7 @@ def load_manifest(root: Path) -> dict:
     seen, routes = set(), set()
     for item in data["documents"]:
         src, route = item["source"], item["site_path"]
-        if not safe_path(src) or not src.endswith(".md") or src in seen:
+        if not safe_path(src) or not src.endswith(".md") or src in seen or src.split("/")[0] == "i18n":
             raise ValueError(f"Invalid/duplicate source: {src}")
         if not safe_path(route) or not route.endswith(".md") or route in routes:
             raise ValueError(f"Invalid/duplicate site path: {route}")
@@ -177,11 +180,13 @@ def check(root: Path, manifest: dict, reviews: dict, tracked: list[str]) -> dict
             cache[path] = Page((root / path).read_text(encoding="utf-8"))
         return cache[path]
 
-    known = {localized(d["source"], lang) for d in manifest["documents"] for lang in LANGUAGES}
-    known.update(d["source"] for d in manifest["copies"] + manifest["excluded"])
+    translations = {localized(d["source"], lang) for d in manifest["documents"] for lang in LANGUAGES[1:]}
+    known = translations | {d["source"] for d in manifest["documents"] + manifest["copies"] + manifest["excluded"]}
     for path in tracked:
         if path.lower().endswith(".md") and path not in known:
             issue(path, "unclassified-document")
+        if path.split("/")[0] == "i18n" and path not in translations:
+            issue(path, "unclassified-i18n-file")
     expected_reviews = {d["source"] for d in manifest["documents"]}
     for source in reviews.keys() - expected_reviews:
         issue(source, "unknown-review")
@@ -221,13 +226,20 @@ def check(root: Path, manifest: dict, reviews: dict, tracked: list[str]) -> dict
                 issue(path, "duplicate-anchor", ", ".join(duplicates))
             for link in rendered.links:
                 url = urlsplit(link)
-                if url.scheme or url.netloc:
+                if link.startswith((REPOSITORY + "blob/main/", REPOSITORY + "tree/main/")):
+                    resolved = root.resolve().joinpath(unquote(url.path.split("/main/", 1)[1])).resolve()
+                elif url.scheme or url.netloc:
                     continue
-                resolved = local_target(root, path, link, doc, manifest)
+                else:
+                    resolved = local_target(root, path, link, doc, manifest)
                 if not resolved.is_relative_to(root.resolve()):
                     issue(path, "link-outside-repository", link)
                 elif not resolved.exists():
                     issue(path, "broken-local-link", link)
+                elif (resolved.relative_to(root.resolve()).parts[:1] == ("i18n",)
+                      and resolved.relative_to(root.resolve()).as_posix() not in translations):
+                    # A mirror directory or stray file there is never the intended target.
+                    issue(path, "link-into-i18n-non-translation", link)
                 elif url.fragment and resolved.suffix == ".md" and resolved.is_file():
                     if unquote(url.fragment) not in page(str(resolved.relative_to(root.resolve()))).ids:
                         issue(path, "broken-local-anchor", link)
@@ -236,7 +248,11 @@ def check(root: Path, manifest: dict, reviews: dict, tracked: list[str]) -> dict
             # Require a visible notice near the beginning, not a hidden marker in code.
             notices = [line for line in text[:2500].splitlines() if line.startswith(">")]
             notice = "\n".join(notices)
-            if not re.search(NOTICES[locale], notice) or not DATE.search(notice) or PurePosixPath(src).name not in notice:
+            # The notice must link to the exact English source, not merely name it.
+            source_link = any(not urlsplit(h).scheme and not urlsplit(h).netloc and urlsplit(h).path
+                              and local_target(root, path, h, doc, manifest) == (root / src).resolve()
+                              for h in Page(notice).links)
+            if not re.search(NOTICES[locale], notice) or not DATE.search(notice) or not source_link:
                 issue(path, "missing-translation-notice")
             if doc["class"] == "normative" and not re.search(PRECEDENCE[locale], notice):
                 issue(path, "missing-english-precedence-notice")

@@ -1,4 +1,4 @@
-<sub>**English** · [中文](README.zh-CN.md) · [Español](README.es.md) · [日本語](README.ja.md) · [Português](README.pt-BR.md)</sub>
+<sub>**English** · [中文](i18n/zh-CN/README.md) · [Español](i18n/es/README.md) · [日本語](i18n/ja/README.md) · [Português](i18n/pt-BR/README.md)</sub>
 
 <div align="center">
 

@@ -1,4 +1,4 @@
-<sub>**English** · [中文](QUICKSTART.zh-CN.md) · [Español](QUICKSTART.es.md) · [日本語](QUICKSTART.ja.md) · [Português](QUICKSTART.pt-BR.md)</sub>
+<sub>**English** · [中文](../i18n/zh-CN/docs/QUICKSTART.md) · [Español](../i18n/es/docs/QUICKSTART.md) · [日本語](../i18n/ja/docs/QUICKSTART.md) · [Português](../i18n/pt-BR/docs/QUICKSTART.md)</sub>
 
 # DCP-AI Quick Start Guide
 

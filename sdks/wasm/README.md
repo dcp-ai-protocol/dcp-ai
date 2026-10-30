@@ -1,4 +1,4 @@
-<sub>**English** · [中文](README.zh-CN.md) · [Español](README.es.md) · [日本語](README.ja.md) · [Português](README.pt-BR.md)</sub>
+<sub>**English** · [中文](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/i18n/zh-CN/sdks/wasm/README.md) · [Español](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/i18n/es/sdks/wasm/README.md) · [日本語](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/i18n/ja/sdks/wasm/README.md) · [Português](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/i18n/pt-BR/sdks/wasm/README.md)</sub>
 
 # @dcp-ai/wasm — WebAssembly SDK v2.0
 

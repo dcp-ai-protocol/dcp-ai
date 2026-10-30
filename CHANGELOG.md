@@ -515,6 +515,18 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Changed
 
+- Translations now live under `i18n/<locale>/`, at the same path as their English source, which does not move:
+  `<dir>/<name>.<locale>.md` is now `i18n/<locale>/<dir>/<name>.md` for `es`, `pt-BR`, `ja` and `zh-CN` (388
+  files). The move changed only link paths: those in the moved files, and the language links of ten English
+  documents. The English README of each SDK links to its translations by absolute URL, so its language links do not
+  depend on paths outside the package. The documentation site keeps its URLs, anchors and language selector in all
+  five languages. The old paths no longer exist on `main` and there are no redirect files; an earlier commit or tag
+  still has each file at its old path. Future versions of the npm packages of the SDKs and integrations, packaged
+  from this tree, no longer include the translated READMEs; packages already published are not modified, and their
+  links to the old GitHub paths may become outdated. The documentation check (`scripts/docs_i18n.py`) also rejects
+  files under `i18n/` that are not a listed translation, links into `i18n/` that do not reach one, and translation
+  notices that do not link to the exact English source, and it checks links to this repository's `main` branch like
+  local links.
 - `dcp-ai verify` (`@dcp-ai/cli`) verifies V2 bundles (`bundle.dcp_bundle_version` "2.0" or a
   `bundle.manifest`) with the normative verifier: the envelope and the four signed payloads are
   validated against `schemas/v2`, whose copies ship in the package, then `verifySignedBundleV2`

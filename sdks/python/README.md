@@ -1,4 +1,4 @@
-<sub>**English** · [中文](README.zh-CN.md) · [Español](README.es.md) · [日本語](README.ja.md) · [Português](README.pt-BR.md)</sub>
+<sub>**English** · [中文](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/i18n/zh-CN/sdks/python/README.md) · [Español](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/i18n/es/sdks/python/README.md) · [日本語](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/i18n/ja/sdks/python/README.md) · [Português](https://github.com/dcp-ai-protocol/dcp-ai/blob/main/i18n/pt-BR/sdks/python/README.md)</sub>
 
 # dcp-ai — Python SDK
 

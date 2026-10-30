@@ -1,4 +1,4 @@
-<sub>**English** · [中文](OBSERVABILITY.zh-CN.md) · [Español](OBSERVABILITY.es.md) · [日本語](OBSERVABILITY.ja.md) · [Português](OBSERVABILITY.pt-BR.md)</sub>
+<sub>**English** · [中文](../i18n/zh-CN/docs/OBSERVABILITY.md) · [Español](../i18n/es/docs/OBSERVABILITY.md) · [日本語](../i18n/ja/docs/OBSERVABILITY.md) · [Português](../i18n/pt-BR/docs/OBSERVABILITY.md)</sub>
 
 # Observability — OpenTelemetry integration
 

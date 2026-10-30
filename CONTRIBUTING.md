@@ -1,4 +1,4 @@
-<sub>**English** · [中文](CONTRIBUTING.zh-CN.md) · [Español](CONTRIBUTING.es.md) · [日本語](CONTRIBUTING.ja.md) · [Português](CONTRIBUTING.pt-BR.md)</sub>
+<sub>**English** · [中文](i18n/zh-CN/CONTRIBUTING.md) · [Español](i18n/es/CONTRIBUTING.md) · [日本語](i18n/ja/CONTRIBUTING.md) · [Português](i18n/pt-BR/CONTRIBUTING.md)</sub>
 
 # Contributing to DCP-AI
 
@@ -94,9 +94,12 @@ Both run in CI on every pull request, and nightly.
 
 ### Documentation and translations
 
-Public documents have an English source and four translations (`<name>.es.md`, `<name>.pt-BR.md`,
-`<name>.ja.md`, `<name>.zh-CN.md`), listed in `scripts/docs-i18n.json`; where they differ, the English text
-prevails. The checks need the documentation toolchain that CI installs, which also provides the `markdown` and
+Public documents have an English source and four translations, listed in `scripts/docs-i18n.json`; where they
+differ, the English text prevails. The English source keeps its own path, and each translation has the same path
+under `i18n/<locale>/` (`es`, `pt-BR`, `ja` or `zh-CN`): the Spanish translation of `spec/DCP-01.md` is
+`i18n/es/spec/DCP-01.md`. Translations used to sit next to their source as `<dir>/<name>.<locale>.md`. Those paths
+no longer exist on `main` and there are no redirect files; an earlier commit or tag still has each file at its old
+path. The checks need the documentation toolchain that CI installs, which also provides the `markdown` and
 `yaml` modules:
 
 ```bash
