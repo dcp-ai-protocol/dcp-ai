@@ -439,3 +439,34 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
   - **より弱い保証。** スイートの単位の 19 の対照と、ベクトルではなくカタログに書いた 4 つの組み合わせの期待値です。
   - **このカタログの外。** アダプター、信頼と失効の情報源、TLS、テナント、キャッシュ、一度限りの使用。コーパスは
     コミット済みのベクトルとこの 4 つの組み合わせであり、あらゆる入力ではありません。
+
+<a id="performance-baseline"></a>
+
+## 性能ベースライン
+
+`tools/conformance-perf.js` は、このチェックアウトの 5 つの SDK の規範的な V2 検証器を、同じ入力バイト列、同じポリシー、同じ検証時刻で測定します（契約 `dcp-ai-perf/1`）。
+小さく再現可能なローカルのベースラインであり、このハーネスのベンチマーク、セキュリティのランキング、速度の要件ではありません。CI は速度を一切確認しません。
+
+```bash
+node tools/conformance-perf.js --list
+node tools/conformance-perf.js --offline --warmup 5 --samples 20 --rounds 1 --python /path/to/python --report /tmp/perf-sanity.json
+node tools/conformance-perf.js --no-build --warmup 20 --samples 100 --rounds 3 --python /path/to/python --report /tmp/perf.json
+DCP_PERF_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/perf.test.mjs
+```
+
+- **ワークロード：** コミット済みの 6 つのバンドルを読み込むだけで、決して再署名しません。`default_verifier_policy`、2026-10-22T00:00:00Z で、`hybrid_ok`、`classical_sig_invalid`（RPR の Ed25519 署名）、`pq_sig_invalid`（バンドルの ML-DSA-65 署名）、`secondary_root_ok`、`secondary_root_wrong`、`secondary_all_ok` です。
+  二次のペアは基本の成果物とエントリーを共有し、マニフェストの `audit_merkle_root_secondary` と、それを覆うバンドル署名（`manifest_hash`、両方の署名値、`signature.hash_alg`）が異なります。1 つのフィールドのコストを切り出す実験ではありません。
+- **測定する内容：** 呼び出しごとに、SDK ごとに 1 つのプロセスで測り、サンプルごとにプロセスを起動しません。TypeScript は `JSON.parse` と `await verifySignedBundleV2`（公開パッケージではなくローカルの `dist`）、Python は 1 つの永続的な `asyncio` ループの中で `json.loads` と `await verify_signed_bundle_v2`（チェックアウトの `dcp_ai`）、Go はバイト列 API が解析を含む `VerifySignedBundleV2At`、Rust は `serde_json::from_slice` と `verify_signed_bundle_v2_at`（release の example）です。
+  WASM はデコード、`wasm_verify_signed_bundle_v2`、その結果の `JSON.parse` で、呼び出しの間 `Date.now` を検証時刻に置き換えます。公開境界のコストを含め、その旨を明記します。レジストリとポリシーは一度だけ用意し、結果はキャッシュしません。
+- **確認：** ウォームアップと計測の呼び出しはワークロード間でラウンドロビンに実行し、各呼び出しを確認します。期待する判定、肯定ケースでエラーがないこと、否定ケースでエラーがあることです。確認に失敗すると、その子プロセスは止まり、時間を含まない `check_failed` を返して終了コード 0 で終わります。ランナーはその実行を失敗として報告します（ランナーの終了コード 1）。レポートには他の子プロセスの結果が残り、その場合はベースラインではありません（`baseline: false`）。失敗した子プロセスの時間は決して提示しません。
+  子プロセスは、すべてのサンプルを持つ成功か、その失敗のどちらかを返します。ランナーは契約、実行の識別、SDK とエントリーポイント、件数、各サンプルがナノ秒の正の安全な整数であることを確認します。
+- **統計：** すべてのサンプルを順に保持します。SDK とワークロードごとに、`n`、`min`、中央値（`n` が偶数なら中央 2 値の平均）、最近接順位による p90 と p99、`max`、IQR です。ランキングも割り当てた割合もありません。否定ケースは最初の失敗した確認で止まることがあり、その `errors_first` は診断にすぎません。
+- **来歴：** 既定では、ツールは測定対象（TypeScript の `dist`、`.build` 配下に `-o` で出力する Go の子プロセス、release の Rust の example と WASM、独自のフォルダーの WASM）を、上限のある 1 つのビルド期限のもとでビルドします。
+  その後、選択した各 SDK について、ソースツリー、マニフェストとロック、子プロセス、成果物のハッシュ（`dist` 全体、`.wasm` とその JS グルー、バイナリ）、ツールのバージョン、ビルドオプションを記録し、どれかが欠けていれば何も測定しません。
+  `--no-build` は要求された SDK についてそれらすべてを再計算し、差異や欠落を拒否します。時刻、コミット、dirty フラグは参考情報です。各子プロセスは読み込んだものを報告します（TypeScript：`dist` から解決した各 import とそのパッケージマニフェストとハッシュ、Python：チェックアウトの `dcp_ai` と実際に import されたモジュール）。
+  この記録は成果物をこのチェックアウトに結び付けますが、サプライチェーンを保証するものではありません。
+- **プロセスとレポート：** 各子プロセスは外部キットのランナー（期限、プロセスグループ、出力の上限）のもとで実行します。レポートにはまず `incomplete` のプレースホルダーが書かれ、どの経路でも置き換えられます。曖昧な `--report`（欠落、オプションのような値、重複）は何も書きません。
+  ランナーの終了コードは 0 が合格、1 が確認の失敗、2 が使用法、3 がインフラ、ビルド、来歴です。`--child-argv` はハーネスのテストのためだけに子プロセスを置き換え、そのレポートは決してベースラインになりません。
+- **セルフテスト：** `perf.test.mjs` は、5 つの子プロセスの必須のスモーク実行（W=1、N=2、R=1）、偽の子プロセス（欠落、重複、未知の結果、誤った件数、不正または安全でないサンプル、誤った識別、矛盾、accept-all、ウォームアップとサンプルでの失敗、不正な失敗、有効な出力の後のゼロ以外の終了、ハング）、誤った肯定の期待を与えた実際の子プロセス、古い合格の上の新しいレポート、偽造、古い、不完全な来歴、一時ツリーでの選択、SIGTERM を無視するビルド手順を実行します。
+  CI はすべての子プロセスを必須にしてネイティブのジョブでこれらを実行します。
+- **制限：** 1 台のマシンと小さなサンプルです。周波数、熱と電源の状態、バックグラウンドの負荷は制御しません（CPU と OS は記録します）。各 SDK はそれぞれの暗号ライブラリを含めてそのまま測定し、Rust のプロファイルは既定の release です。結果はローカルにとどめ、この節は数値ではなく手法を記述します。

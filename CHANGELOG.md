@@ -198,6 +198,14 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Added
 
+- A performance baseline tool for the external conformance kit, `tools/conformance-perf.js` (contract
+  `dcp-ai-perf/1`): the normative V2 verifier of the five SDKs of this checkout on six committed workloads (a
+  hybrid bundle, an invalid Ed25519 and an invalid ML-DSA-65 signature, and three secondary SHA3-256 cases), with
+  the same input bytes, policy and verification instant. One in-process child per SDK through its public entry
+  point, warmed and timed round-robin, every call checked; every sample is kept, with nearest-rank statistics. It
+  builds what it measures and records sources, manifests and locks, artifact hashes and tool versions per SDK
+  (`--no-build` refuses any difference or gap). No speed threshold, ranking or attributed percentage; results stay
+  local. CI runs its self-tests and a five-SDK smoke run in the native job.
 - `RawAuditEventV2` in the Rust (`dcp_ai::v2::types`) and Go (`v2`) SDKs: one received V2 audit entry kept as it
   was decoded, every member at every depth with its presence and `null`-ness, unknown members included, so wherever
   the dcp-jcs-v1 canonicalizer accepts it its canonical bytes, `prev_hash` and Merkle leaf stay those of the input.
