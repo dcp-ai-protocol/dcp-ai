@@ -473,3 +473,67 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
     el catálogo y no en los vectores.
   - **Fuera de este catálogo.** Los adaptadores, las fuentes de confianza y de revocación, TLS, los inquilinos, la caché y
     el uso único. El corpus son los vectores versionados y estas cuatro composiciones, no cualquier entrada.
+
+<a id="performance-baseline"></a>
+
+## Línea base de rendimiento
+
+`tools/conformance-perf.js` mide el verificador V2 normativo de los cinco SDK de este checkout con los mismos bytes de
+entrada, la misma política y el mismo instante de verificación (contrato `dcp-ai-perf/1`). Es una línea base local,
+pequeña y reproducible; no es un benchmark de este harness, ni un ranking de seguridad, ni un requisito de velocidad:
+la CI nunca comprueba una velocidad.
+
+```bash
+node tools/conformance-perf.js --list
+node tools/conformance-perf.js --offline --warmup 5 --samples 20 --rounds 1 --python /path/to/python --report /tmp/perf-sanity.json
+node tools/conformance-perf.js --no-build --warmup 20 --samples 100 --rounds 3 --python /path/to/python --report /tmp/perf.json
+DCP_PERF_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/perf.test.mjs
+```
+
+- **Cargas:** seis bundles versionados, que se leen y nunca se vuelven a firmar, con `default_verifier_policy` en
+  2026-10-22T00:00:00Z: `hybrid_ok`, `classical_sig_invalid` (la firma Ed25519 del RPR), `pq_sig_invalid` (la firma
+  ML-DSA-65 del bundle), `secondary_root_ok`, `secondary_root_wrong` y `secondary_all_ok`. El par secundario comparte
+  los artefactos base y las entradas, y difiere en `audit_merkle_root_secondary` del manifest y en la firma del bundle
+  que lo cubre (`manifest_hash`, los dos valores de firma, `signature.hash_alg`): no es un experimento que aísle el
+  coste de un solo campo.
+- **Qué se mide,** por llamada, en un proceso por SDK, sin arrancar un proceso por muestra: TypeScript `JSON.parse` y
+  `await verifySignedBundleV2` (el `dist` local, no un paquete publicado); Python `json.loads` y
+  `await verify_signed_bundle_v2` en un único loop `asyncio` persistente (el `dcp_ai` del checkout); Go
+  `VerifySignedBundleV2At`, cuya API de bytes incluye el parseo; Rust `serde_json::from_slice` y
+  `verify_signed_bundle_v2_at` (un example en release); WASM la decodificación, `wasm_verify_signed_bundle_v2` y
+  `JSON.parse` de su resultado, con `Date.now` sustituido por el instante de verificación durante la llamada, con los
+  costes de la frontera pública incluidos y nombrados. Los registries y las políticas se preparan una vez; ningún
+  resultado se cachea.
+- **Comprobaciones:** las llamadas de calentamiento y las medidas se ejecutan en round-robin sobre las cargas, y cada
+  llamada se comprueba: el veredicto esperado, ningún error en un positivo, errores en un negativo. Una comprobación
+  fallida detiene ese hijo: responde `check_failed` sin tiempos y termina con salida 0, y el runner informa la
+  ejecución como fallida (su salida 1). El informe conserva los resultados de los demás hijos y entonces no es una
+  línea base (`baseline: false`); nunca se presenta ningún tiempo del hijo fallido. Un hijo responde o bien un éxito
+  con todas las muestras o bien ese fallo; el runner comprueba el contrato, la identidad de la ejecución, el SDK y la
+  entrada, los recuentos, y que cada muestra sea un entero seguro positivo de nanosegundos.
+- **Estadísticas:** se conservan todas las muestras, en orden; por SDK y carga, `n`, `min`, la mediana (la media de los
+  dos valores centrales para un `n` par), p90 y p99 por rango más cercano, `max` y el IQR. Sin ranking y sin porcentajes
+  atribuidos; un negativo puede detenerse en su primera comprobación fallida, y su `errors_first` es solo diagnóstico.
+- **Procedencia:** por defecto la herramienta construye lo que mide (el `dist` de TypeScript, el hijo Go con `-o` bajo
+  `.build`, el example de Rust y WASM en release, WASM en su propia carpeta) bajo un único plazo de build acotado. Después
+  registra, para cada SDK seleccionado, los árboles de fuente, manifests y locks, hijos, hashes de artefactos (todo el
+  `dist`, el `.wasm` y su glue JS, los binarios), versiones de herramientas y opciones de build, y no mide nada si falta
+  alguno. `--no-build` recalcula todo eso para los SDK pedidos y rechaza cualquier diferencia o hueco; la hora, el commit
+  y el indicador dirty son informativos. Cada hijo informa de lo que cargó (TypeScript: cada import resuelto desde
+  `dist`, con su manifest de paquete y su hash; Python: el `dcp_ai` del checkout y los módulos realmente importados). El
+  record liga los artefactos a este checkout; no certifica la cadena de suministro.
+- **Procesos e informe:** cada hijo se ejecuta bajo el runner del kit externo (plazo, grupo de procesos, límites de
+  salida). El informe recibe primero un marcador `incomplete` y se reemplaza en todos los casos; un `--report` ambiguo
+  (ausente, con forma de opción o repetido) no escribe nada. Códigos de salida del runner: 0 pasa, 1 una comprobación fallida, 2
+  uso, 3 infraestructura, build o procedencia. `--child-argv` sustituye un hijo solo para probar el harness; ese informe
+  nunca es una línea base.
+- **Self-tests:** `perf.test.mjs` ejecuta un humo obligatorio de los cinco hijos (W=1, N=2, R=1); hijos falsos
+  (resultados ausentes, duplicados o desconocidos, recuentos erróneos, muestras malformadas o no seguras, una identidad
+  equivocada, contradicciones, accept-all, fallos en el calentamiento y en las muestras, un fallo malformado, una salida
+  válida seguida de un exit distinto de cero, un cuelgue); un hijo real con un positivo esperado erróneo; informes
+  frescos sobre un pase anterior; procedencia falsificada, rancia e incompleta; una selección en un árbol temporal; y un
+  paso de build que ignora SIGTERM. La CI los ejecuta en el job nativo con todos los hijos obligatorios.
+- **Límites:** una sola máquina y una muestra pequeña: la frecuencia, el estado térmico y de energía y la carga de fondo
+  no se controlan (se registran la CPU y el SO). Cada SDK se mide tal como está, con sus propias bibliotecas
+  criptográficas; el perfil de Rust es el release por defecto. Los resultados se quedan en local: esta sección
+  documenta el método, no cifras.

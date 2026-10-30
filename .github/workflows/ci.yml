@@ -310,6 +310,15 @@ jobs:
       - name: Rust SDK wrapper (admission catalog, 140 cases)
         run: node tools/conformance-external.js --catalog admission --report admission-rust.json -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
 
+      # The performance harness (tools/conformance/README.md#performance-baseline): its self-tests, and a mandatory
+      # smoke run of the five children (W=1, N=2, R=1) built in release (Rust example, WASM). It checks the protocol,
+      # the verdicts and the provenance; it never checks a speed.
+      - name: Performance harness self-tests and five-SDK smoke run (all required)
+        env:
+          DCP_EXTERNAL_REQUIRE_PYTHON: "1"
+          DCP_EXTERNAL_REQUIRE_NATIVE: "1"
+        run: DCP_PERF_PYTHON="$(command -v python)" node --test tools/conformance/perf.test.mjs
+
   typescript-sdk:
     name: TypeScript SDK
     needs: changes

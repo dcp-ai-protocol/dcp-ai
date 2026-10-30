@@ -393,3 +393,34 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
   - **较弱的保证。** 19 个套件层面的对照，以及写在目录而非向量中的 4 个组合期望值。
   - **此目录之外。** 适配器、信任与吊销来源、TLS、租户、缓存和一次性使用。语料是已提交的向量和这四个组合，而不是
     任意输入。
+
+<a id="performance-baseline"></a>
+
+## 性能基线
+
+`tools/conformance-perf.js` 用相同的输入字节、相同的策略和相同的验证时刻，测量本检出代码中五个 SDK 的规范性 V2 验证器（契约 `dcp-ai-perf/1`）。
+这是一个小规模、可复现的本地基线，不是对此测试工具的基准测试，不是安全排名，也不是速度要求：CI 从不检查速度。
+
+```bash
+node tools/conformance-perf.js --list
+node tools/conformance-perf.js --offline --warmup 5 --samples 20 --rounds 1 --python /path/to/python --report /tmp/perf-sanity.json
+node tools/conformance-perf.js --no-build --warmup 20 --samples 100 --rounds 3 --python /path/to/python --report /tmp/perf.json
+DCP_PERF_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/perf.test.mjs
+```
+
+- **工作负载：** 六个已提交的 bundle，只读取、从不重新签名，使用 `default_verifier_policy`，时刻为 2026-10-22T00:00:00Z：`hybrid_ok`、`classical_sig_invalid`（RPR 的 Ed25519 签名）、`pq_sig_invalid`（bundle 的 ML-DSA-65 签名）、`secondary_root_ok`、`secondary_root_wrong` 和 `secondary_all_ok`。
+  二级这一对共享基础制品和条目，不同之处在于清单的 `audit_merkle_root_secondary` 以及覆盖它的 bundle 签名（`manifest_hash`、两个签名值、`signature.hash_alg`）：它不是隔离单个字段成本的实验。
+- **测量的内容：** 按每次调用、每个 SDK 一个进程测量，不为每个样本启动进程。TypeScript 为 `JSON.parse` 和 `await verifySignedBundleV2`（本地 `dist`，不是已发布的包）；Python 在一个持久的 `asyncio` 循环中执行 `json.loads` 和 `await verify_signed_bundle_v2`（检出代码中的 `dcp_ai`）；Go 为 `VerifySignedBundleV2At`，其字节 API 包含解析；Rust 为 `serde_json::from_slice` 和 `verify_signed_bundle_v2_at`（release 的 example）。
+  WASM 为解码、`wasm_verify_signed_bundle_v2` 以及对其结果的 `JSON.parse`，调用期间 `Date.now` 被替换为验证时刻；公开边界的成本包含在内并予以注明。注册表和策略只准备一次；不缓存任何结果。
+- **检查：** 预热和计时调用在各工作负载之间轮流执行，每次调用都会检查：判定符合预期、正向用例没有错误、负向用例有错误。检查失败会使该子进程停止：它返回不含任何时间的 `check_failed`，并以退出码 0 结束；运行器则将该次运行报告为失败（运行器的退出码 1）。报告保留其他子进程的结果，此时不是基线（`baseline: false`）；失败子进程的时间从不呈现。
+  子进程要么返回包含全部样本的成功，要么返回这样的失败；运行器检查契约、运行标识、SDK 和入口、计数，以及每个样本都是以纳秒为单位的正安全整数。
+- **统计：** 按顺序保留所有样本；按 SDK 和工作负载给出 `n`、`min`、中位数（`n` 为偶数时取中间两个值的平均）、按最近秩计算的 p90 和 p99、`max` 以及 IQR。不做排名，也不归因百分比；负向用例可能在第一次失败的检查处停止，其 `errors_first` 仅供诊断。
+- **来源：** 默认情况下，工具在一个有上限的构建期限内构建它所测量的内容（TypeScript 的 `dist`、用 `-o` 输出到 `.build` 下的 Go 子进程、release 的 Rust example 和 WASM，WASM 输出到自己的文件夹）。
+  随后为每个选定的 SDK 记录源码树、清单和锁文件、子进程、制品哈希（整个 `dist`、`.wasm` 及其 JS 胶水代码、二进制文件）、工具版本和构建选项，任何一项缺失都不进行测量。
+  `--no-build` 会为所请求的 SDK 重新计算这些内容，并拒绝任何差异或缺口；时间、提交和 dirty 标志仅供参考。每个子进程报告它加载的内容（TypeScript：从 `dist` 解析的每个 import 及其包清单和哈希；Python：检出代码中的 `dcp_ai` 和实际导入的模块）。
+  该记录将制品与本检出代码绑定；它不认证供应链。
+- **进程与报告：** 每个子进程都在外部工具包的运行器下运行（期限、进程组、输出上限）。报告先写入 `incomplete` 占位内容，在任何路径上都会被替换；含义不明确的 `--report`（缺失、形如选项或重复）不写任何内容。
+  运行器的退出码：0 通过，1 检查失败，2 用法错误，3 基础设施、构建或来源错误。`--child-argv` 仅为测试此工具而替换子进程；这样的报告永远不是基线。
+- **自测：** `perf.test.mjs` 运行五个子进程的必需冒烟运行（W=1、N=2、R=1）；伪造子进程（缺失、重复或未知的结果、错误的计数、格式错误或不安全的样本、错误的标识、矛盾、accept-all、预热和样本中的失败、格式错误的失败、有效输出后非零退出、挂起）；给定错误正向预期的真实子进程；在旧的通过报告之上写入的新报告；伪造、过期和不完整的来源；临时目录树中的选择；以及忽略 SIGTERM 的构建步骤。
+  CI 在原生 job 中运行它们，所有子进程均为必需。
+- **限制：** 单台机器、小样本：频率、热与电源状态以及后台负载不受控制（会记录 CPU 和操作系统）。每个 SDK 都按原样测量，包含其自身的密码库；Rust 的配置为默认 release。结果保留在本地：本节记录方法，而非数字。

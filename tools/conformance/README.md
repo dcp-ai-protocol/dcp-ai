@@ -430,3 +430,60 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
     and not in the vectors.
   - **Outside this catalog.** Adapters, trust and revocation sources, TLS, tenants, caching and single use. The corpus
     is the committed vectors and these four compositions, not every input.
+
+## Performance baseline
+
+`tools/conformance-perf.js` measures the normative V2 verifier of the five SDKs of this checkout on the same input
+bytes, policy and verification instant (contract `dcp-ai-perf/1`). It is a small, reproducible local baseline, not a
+benchmark of this harness, a security ranking or a speed requirement; CI never checks a speed.
+
+```bash
+node tools/conformance-perf.js --list
+node tools/conformance-perf.js --offline --warmup 5 --samples 20 --rounds 1 --python /path/to/python --report /tmp/perf-sanity.json
+node tools/conformance-perf.js --no-build --warmup 20 --samples 100 --rounds 3 --python /path/to/python --report /tmp/perf.json
+DCP_PERF_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/perf.test.mjs
+```
+
+- **Workloads:** six committed bundles, read and never re-signed, under `default_verifier_policy` at
+  2026-10-22T00:00:00Z: `hybrid_ok`, `classical_sig_invalid` (the Ed25519 signature of the RPR), `pq_sig_invalid` (the
+  ML-DSA-65 signature of the bundle), `secondary_root_ok`, `secondary_root_wrong` and `secondary_all_ok`. The secondary
+  pair shares the base artifacts and the entries, and differs in the manifest's `audit_merkle_root_secondary` and in
+  the bundle signature that covers it (`manifest_hash`, both signature values, `signature.hash_alg`): it is not an
+  experiment that isolates the cost of one field.
+- **What is timed,** per call, in one process per SDK, with no process start per sample: TypeScript `JSON.parse` and
+  `await verifySignedBundleV2` (the local `dist`, not a published package); Python `json.loads` and
+  `await verify_signed_bundle_v2` in one persistent `asyncio` loop (the checkout's `dcp_ai`); Go
+  `VerifySignedBundleV2At`, whose bytes API includes the parsing; Rust `serde_json::from_slice` and
+  `verify_signed_bundle_v2_at` (a release example); WASM the decode, `wasm_verify_signed_bundle_v2` and `JSON.parse` of
+  its result, with `Date.now` replaced by the verification instant during the call, public-boundary costs included and
+  named. Registries and policies are set up once; no result is cached.
+- **Checks:** warmup and timed calls run round-robin over the workloads, and every call is checked: the expected
+  verdict, no errors on a positive, errors on a negative. A failed check stops that child: it answers `check_failed`
+  with no timing and exits 0, and the runner reports the run as failed (its exit 1). The report keeps the other
+  children's results and is then not a baseline (`baseline: false`); no timing of the failed child is ever presented.
+  A child answers either a success with every sample or such a failure; the runner checks the contract, the run
+  identity, the SDK and entry point, the counts, and that every sample is a positive safe integer of nanoseconds.
+- **Statistics:** every sample is kept, in order; per SDK and workload, `n`, `min`, the median (the mean of the two
+  middle values for an even `n`), p90 and p99 by nearest rank, `max` and the IQR. No ranking and no attributed
+  percentage; a negative can stop at its first failed check, and its `errors_first` is a diagnostic only.
+- **Provenance:** by default the tool builds what it measures (TypeScript `dist`, the Go child with `-o` under
+  `.build`, the Rust example and WASM in release, WASM in its own folder) under one bounded build deadline. It then
+  records, for each selected SDK, the source trees, manifests and locks, children, artifact hashes (the whole `dist`,
+  the `.wasm` and its JS glue, the binaries), tool versions and build options, and measures nothing if any of them is
+  missing. `--no-build` recomputes all of that for the requested SDKs and refuses any difference or gap; the time, the
+  commit and the dirty flag are informational. Each child reports what it loaded (TypeScript: every import resolved
+  from `dist`, with its package manifest and hash; Python: the checkout's `dcp_ai` and the modules actually imported).
+  The record ties the artifacts to this checkout; it does not certify the supply chain.
+- **Processes and report:** each child runs under the runner of the external kit (deadline, process group, output
+  limits). The report gets an `incomplete` placeholder first and is replaced on every path; an ambiguous `--report`
+  (missing, option-like or repeated) writes nothing. The runner's exit codes: 0 pass, 1 a failed check, 2 usage, 3 infrastructure,
+  build or provenance. `--child-argv` replaces a child for testing the harness only; such a report is never a baseline.
+- **Self-tests:** `perf.test.mjs` runs a mandatory smoke run of the five children (W=1, N=2, R=1); fake children
+  (missing, duplicate or unknown results, wrong counts, malformed or unsafe samples, a wrong identity, contradictions,
+  accept-all, failures in warmup and in samples, a malformed failure, valid output then a non-zero exit, a hang); a
+  real child given a wrong expected positive; fresh reports over an older pass; forged, stale and incomplete
+  provenance; a selection in a temporary tree; and a build step that ignores SIGTERM. CI runs them in the native job
+  with every child required.
+- **Limits:** one machine and a small sample: frequency, thermal and power state and background load are not
+  controlled (the CPU and OS are recorded). Each SDK is measured as it is, with its own cryptographic libraries; the
+  Rust profile is the default release one. Results stay local: this section documents the method, not numbers.
