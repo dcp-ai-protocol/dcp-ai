@@ -2,7 +2,7 @@
 
 # Módulo Go publicado
 
-> Tradução informativa da [versão em inglês](../../../docs/GO_RELEASE.md), atualizada em 28/10/2026. Em caso de divergência, prevalece a versão em inglês.
+> Tradução informativa da [versão em inglês](../../../docs/GO_RELEASE.md), atualizada em 30/10/2026. Em caso de divergência, prevalece a versão em inglês.
 
 Verificado em 28/10/2026: o SDK Go `v2.11.1` está publicado pela [tag `sdks/go/v2.11.1`](https://github.com/dcp-ai-protocol/dcp-ai/tree/sdks/go/v2.11.1/sdks/go), e o proxy público de módulos e a base de dados de checksums o servem. A publicação anterior, `v2.11.0` ([`sdks/go/v2.11.0`](https://github.com/dcp-ai-protocol/dcp-ai/tree/sdks/go/v2.11.0/sdks/go)), foi verificada em 26/10/2026; suas notas são mantidas abaixo. O módulo e suas importações mantêm `/v2`. A versão do SDK é independente do formato/especificação DCP. Go não exige token adicional de registro: os consumidores resolvem a tag do repositório pelo sistema de módulos Go.
 
@@ -38,6 +38,17 @@ A verificação é mais rigorosa que na v2.10.0: evidências malformadas ou inco
 Para a v2.11.1, os 84 arquivos do zip do módulo servido pelo proxy são idênticos a `main` (o Go acrescenta ao zip o `LICENSE` raiz do repositório), e o proxy e a base de dados de checksums confirmaram a versão. Um consumidor externo que resolve `v2.11.1` pelo proxy, sem `replace` local, passou em 189 testes.
 
 Para a v2.11.0 (26/10/2026), a suíte padrão e a suíte `-race -tags otlp` passaram em 1.154 testes/subtestes cada; um teste é reservado intencionalmente para a matriz ao vivo de produtores/consumidores. Passaram `go mod tidy -diff`, compilação e vet. Um consumidor externo passou em 137 testes/subtestes e seu controle negativo falhou como esperado. O módulo publicado foi baixado em cache novo pelo proxy público com verificação de checksums; as fontes coincidiram com o commit revisado. Depois, o consumidor passou sem diretiva `replace` local. Para a publicação independente do Rust, veja [Rust](../../../docs/RUST_RELEASE.md).
+
+<a id="prepared-not-published-v2120"></a>
+
+## Preparada, não publicada: v2.12.0
+
+A v2.12.0 está preparada no repositório desde 30/10/2026, mas não publicada: a tag `sdks/go/v2.12.0` não existe, então o proxy de módulos não serve esta versão e o `go get` não consegue resolvê-la. O comando de instalação acima continua na v2.11.1. Em relação à v2.11.1, a v2.12.0:
+
+- **Corrige `v2.VerifyPayloadHash` (mudança de aceitação).** Retorna `true` somente quando `payload_hash` é exatamente `"sha256:"` seguido do SHA-256 em hex minúsculo do payload canônico `dcp-jcs-v1`. A saída de `v2.SignPayload` passa a ser aceita e um digest sem prefixo passa a ser rejeitado; a v2.11.1 fazia o contrário. A função só confere a consistência do hash, não a assinatura, as chaves, a política, a confiança no principal nem a admissão. A verificação de bundles nunca a usou e não muda.
+- **Adiciona `v2.RawAuditEventV2`.** Ele mantém os bytes literais de uma entrada de auditoria recebida, de modo que membros `null` explícitos e membros desconhecidos sobrevivem ao reenvio; `Typed()` é uma visão com perda. `AuditEventV2` e os demais structs tipados continuam sendo tipos para produzir e mantêm seu comportamento.
+
+As demais APIs, a verificação de bundles, `dcp-jcs-v1` e as APIs experimentais opt-in `dcp-jcs-v2` não mudam; os novos testes do candidato experimental não mudam nenhum padrão. A telemetria do SDK informa `2.12.0`. O módulo não contém mais os READMEs traduzidos, que agora ficam na árvore `i18n/` do repositório. Veja o [README do SDK](../../../sdks/go/README.md) e o [changelog](../../../CHANGELOG.md).
 
 <a id="related-releases"></a>
 

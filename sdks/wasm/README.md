@@ -16,6 +16,8 @@ npm install @dcp-ai/wasm@^2.1.1
 
 See the [npm release inventory](../../docs/NPM_RELEASES.md) for all package versions.
 
+**`@dcp-ai/wasm` 2.1.2 (prepared, not published).** It corrects `dualMerkleRoot`, which in 2.1.1 and earlier gives roots that differ from V2-11 for two or more leaves (see Hash Operations below). It is not on npm: the command above stays on 2.1.1. See [npm packages](../../docs/NPM_RELEASES.md).
+
 For development against a source checkout, build and install the local package instead:
 
 ```bash
@@ -183,7 +185,7 @@ Verification does not grant principal trust, admission or action authorization. 
 | `dualHash(data)` | `DualHash` | SHA-256 + SHA3-256 dual hash |
 | `sha3_256(data)` | `string` | SHA3-256 hash (hex) |
 | `hashObject(obj)` | `string` | SHA-256 hash of a JSON object |
-| `dualMerkleRoot(leaves)` | `DualHash` | Dual Merkle root from an array of `DualHash` leaves |
+| `dualMerkleRoot(leaves)` | `DualHash` | Dual Merkle root of [VERIFICATION.md V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) from a non-empty array of `DualHash` leaves, each a 32-byte hex digest; throws on an empty array or an invalid leaf. The root is lowercase hex. Prepared for 2.1.2, not published: 2.1.1 and earlier hash the hex text, so their roots of two or more leaves differ |
 
 ### Canonicalization & Domain Separation
 

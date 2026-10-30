@@ -4,7 +4,7 @@
 
 # Registro de cambios
 
-> Traducción informativa de [la versión en inglés](../../CHANGELOG.md), actualizada el 29/10/2026. Cada entrada, también las de `[Unreleased]`, describe un cambio en su momento y no garantiza el comportamiento actual; las versiones publicadas son **registro histórico con fecha**. Si difieren, prevalece la versión en inglés.
+> Traducción informativa de [la versión en inglés](../../CHANGELOG.md), actualizada el 30/10/2026. Cada entrada, también las de `[Unreleased]`, describe un cambio en su momento y no garantiza el comportamiento actual; las versiones publicadas son **registro histórico con fecha**. Si difieren, prevalece la versión en inglés.
 
 **Versiones publicadas (26/10/2026).** Están publicados npm (13 paquetes, incluido `@dcp-ai/sdk` 2.2.0), Python `dcp-ai` 2.10.0, Go `v2.11.0` y Rust `dcp-ai` 2.11.0, con las correcciones del verificador, la admisión y las API experimentales opt-in; `dcp-jcs-v1` sigue siendo el valor normativo predeterminado. Véase [Versiones publicadas](../../docs/README.md#published-versions). Las entradas siguientes conservan su historial de desarrollo; `[Unreleased]` no significa que estas funciones no estén publicadas. Las seis publicaciones de corrección del 28/10/2026 están en [su propia sección](#2026-10-28-sha3-patch-releases).
 
@@ -17,6 +17,17 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 > el comportamiento actual ni que una versión de un paquete esté disponible en un registro. Para el comportamiento
 > actual, consulta el [README](../../README.md), la [documentación](../../docs/README.md), las [especificaciones](../../spec/README.md)
 > y la [referencia de la API](../../docs/API_REFERENCE.md).
+
+<a id="prepared-not-published-go-v2120-rust-2120-and-dcp-aiwasm-212"></a>
+
+## Preparadas, no publicadas: Go v2.12.0, Rust 2.12.0 y `@dcp-ai/wasm` 2.1.2
+
+Preparadas en el repositorio el 30/10/2026 y **no publicadas**: no existe la etiqueta `sdks/go/v2.12.0`, y crates.io y npm no tienen estas versiones. [Versiones publicadas](../../docs/README.md#published-versions) y los comandos de instalación siguen nombrando las versiones del registro (Go `v2.11.1`, Rust `dcp-ai` 2.11.1, `@dcp-ai/wasm` 2.1.1). Los cambios se describen en `[Unreleased]` y en las notas de publicación de [Go](../../docs/GO_RELEASE.md), [Rust](../../docs/RUST_RELEASE.md) y [npm](../../docs/NPM_RELEASES.md).
+
+- **Go v2.12.0:** el cambio de aceptación de `v2.VerifyPayloadHash` (acepta la salida de `SignPayload` y rechaza un digest sin prefijo; solo comprueba el hash) y el aditivo `v2.RawAuditEventV2`. `SDKVersion` es `2.12.0`.
+- **Rust `dcp-ai` 2.12.0:** los aditivos `v2::types::RawAuditEventV2` y `RawAuditEventError` y, con la feature `wasm`, el `wasm_dual_merkle_root` corregido. La telemetría lee la versión del paquete.
+- **`@dcp-ai/wasm` 2.1.2:** `dualMerkleRoot` y `wasm_dual_merkle_root` calculan la raíz Merkle dual de V2-11; no se añade ninguna API JavaScript.
+- Los nuevos tests del candidato experimental (gate 7) no cambian ningún valor predeterminado. `dcp-jcs-v1`, los perfiles, el formato de transmisión, las dependencias y la criptografía no cambian. Los tres paquetes ya no incluyen los README traducidos, que están en `i18n/`.
 
 <a id="2026-10-28-sha3-patch-releases"></a>
 

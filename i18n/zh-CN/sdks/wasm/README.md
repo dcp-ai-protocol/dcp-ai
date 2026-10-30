@@ -2,7 +2,7 @@
 
 # @dcp-ai/wasm — WebAssembly SDK v2.0
 
-> 本文是[英文 README](../../../../sdks/wasm/README.md)的参考译文，更新于 2026年10月25日。为保留已测试的示例，标识符和代码块（包括注释）保持原样。
+> 本文是[英文 README](../../../../sdks/wasm/README.md)的参考译文，更新于 2026年10月30日。为保留已测试的示例，标识符和代码块（包括注释）保持原样。
 
 这是用于 Digital Citizenship Protocol（DCP）v2.0 的 WebAssembly 模块，由 Rust SDK 编译而成。它提供后量子复合签名、混合密钥生成、ML-KEM-768 密钥封装、双哈希、bundle 构建与验证以及安全等级计算。所有功能都可直接在浏览器或 Node.js 中运行，无需服务器。
 
@@ -19,6 +19,8 @@ npm install @dcp-ai/wasm@^2.1.1
 ```
 
 所有软件包版本见 [npm 发布清单](../../../../docs/NPM_RELEASES.md)。
+
+**`@dcp-ai/wasm` 2.1.2（已准备，尚未发布）。** 它修正了 `dualMerkleRoot`：在 2.1.1 及更早版本中，两个或更多叶节点时得到的根与 V2-11 不同（见下文“哈希操作”）。它不在 npm 上：上面的命令仍为 2.1.1。参见 [npm 包](../../../../docs/NPM_RELEASES.md)。
 
 如需使用检出源码进行开发，请构建并安装本地软件包：
 
@@ -201,7 +203,7 @@ console.log(result.verified, result.classical_valid, result.pq_valid); // true t
 | `dualHash(data)` | `DualHash` | SHA-256 + SHA3-256 双哈希 |
 | `sha3_256(data)` | `string` | SHA3-256 哈希，返回十六进制字符串 |
 | `hashObject(obj)` | `string` | JSON 对象的 SHA-256 哈希 |
-| `dualMerkleRoot(leaves)` | `DualHash` | 根据 `DualHash` 叶节点数组计算双 Merkle 根 |
+| `dualMerkleRoot(leaves)` | `DualHash` | 根据非空的 `DualHash` 叶节点数组（每个都是 32 字节十六进制摘要）计算 [VERIFICATION.md 的 V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) 双 Merkle 根；数组为空或叶节点无效时抛出异常。根为小写十六进制。2.1.2 已准备、尚未发布：2.1.1 及更早版本对十六进制文本做哈希，因此两个或更多叶节点的根不同 |
 
 <a id="canonicalization-domain-separation"></a>
 

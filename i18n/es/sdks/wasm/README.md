@@ -4,7 +4,7 @@
 
 # @dcp-ai/wasm — SDK WebAssembly v2.0
 
-> Traducción informativa del [README en inglés](../../../../sdks/wasm/README.md), actualizada el 26/10/2026. Los identificadores y los bloques de código, incluidos sus comentarios, se conservan para mantener los ejemplos probados.
+> Traducción informativa del [README en inglés](../../../../sdks/wasm/README.md), actualizada el 30/10/2026. Los identificadores y los bloques de código, incluidos sus comentarios, se conservan para mantener los ejemplos probados.
 
 Módulo WebAssembly para el Digital Citizenship Protocol (DCP) v2.0, compilado a partir del SDK de Rust. Ofrece firmas compuestas poscuánticas, generación de claves híbridas, encapsulación de claves ML-KEM-768, hashes duales, construcción y verificación de bundles y cálculo del nivel de seguridad. Se ejecuta directamente en el navegador o en Node.js, sin servidor.
 
@@ -21,6 +21,8 @@ npm install @dcp-ai/wasm@^2.1.1
 ```
 
 Consulta el [inventario de publicaciones npm](../../../../docs/NPM_RELEASES.md) para ver todas las versiones.
+
+**`@dcp-ai/wasm` 2.1.2 (preparada, no publicada).** Corrige `dualMerkleRoot`, que en 2.1.1 y anteriores da raíces distintas de las de V2-11 con dos o más hojas (véase Operaciones de hash más abajo). No está en npm: el comando de arriba sigue en 2.1.1. Véanse los [paquetes npm](../../../../docs/NPM_RELEASES.md).
 
 Para desarrollar con una copia del repositorio, compila e instala el paquete local:
 
@@ -203,7 +205,7 @@ La verificación no otorga confianza en el principal, admisión ni autorización
 | `dualHash(data)` | `DualHash` | Hash dual SHA-256 + SHA3-256 |
 | `sha3_256(data)` | `string` | Hash SHA3-256 en hexadecimal |
 | `hashObject(obj)` | `string` | Hash SHA-256 de un objeto JSON |
-| `dualMerkleRoot(leaves)` | `DualHash` | Raíz Merkle dual a partir de un arreglo de hojas `DualHash` |
+| `dualMerkleRoot(leaves)` | `DualHash` | Raíz Merkle dual de [VERIFICATION.md V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) a partir de un arreglo no vacío de hojas `DualHash`, cada una un digest hex de 32 bytes; lanza una excepción con un arreglo vacío o con una hoja no válida. La raíz va en hex en minúsculas. 2.1.2 preparada, sin publicar: 2.1.1 y anteriores hashean el texto hex, así que sus raíces de dos o más hojas difieren |
 
 <a id="canonicalization-domain-separation"></a>
 

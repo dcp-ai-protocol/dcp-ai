@@ -4,7 +4,7 @@
 
 # 变更日志
 
-> 本文是[英文版](../../CHANGELOG.md)的参考译文，更新于 29/10/2026。每个条目（包括 `[Unreleased]` 下的条目）描述的是当时所作的变更，并不保证当前行为；已发布的各版本是**带日期的历史记录**。如有出入，以英文版为准。
+> 本文是[英文版](../../CHANGELOG.md)的参考译文，更新于 30/10/2026。每个条目（包括 `[Unreleased]` 下的条目）描述的是当时所作的变更，并不保证当前行为；已发布的各版本是**带日期的历史记录**。如有出入，以英文版为准。
 
 **已发布版本（2026 年 10 月 26 日）。** npm（13 个软件包，包括 `@dcp-ai/sdk` 2.2.0）、Python `dcp-ai` 2.10.0、Go `v2.11.0` 和 Rust `dcp-ai` 2.11.0 均已发布，包含验证器修复、准入功能和实验性的选择启用 API；`dcp-jcs-v1` 仍是规范性默认值。见[已发布版本](../../docs/README.md#published-versions)。以下条目保留开发历史；`[Unreleased]` 不表示这些功能尚未发布。2026 年 10 月 28 日的六个修复版本见[单独的章节](#2026-10-28-sha3-patch-releases)。
 
@@ -16,6 +16,17 @@
 > 如此；其中较晚的条目可能细化或取代较早的条目。条目既不保证当前行为，也不保证某个包版本可在注册表中获取。关于
 > 当前行为，请参阅 [README](../../README.md)、[文档](../../docs/README.md)、[规范](../../spec/README.md)和
 > [API 参考](../../docs/API_REFERENCE.md)。
+
+<a id="prepared-not-published-go-v2120-rust-2120-and-dcp-aiwasm-212"></a>
+
+## 已准备、尚未发布：Go v2.12.0、Rust 2.12.0 和 `@dcp-ai/wasm` 2.1.2
+
+已于 30/10/2026 在仓库中准备好，**尚未发布**：`sdks/go/v2.12.0` 标签不存在，crates.io 和 npm 上也没有这些版本。[已发布版本](../../docs/README.md#published-versions)和安装命令仍指向注册表中的版本（Go `v2.11.1`、Rust `dcp-ai` 2.11.1、`@dcp-ai/wasm` 2.1.1）。变更内容见 `[Unreleased]` 以及 [Go](../../docs/GO_RELEASE.md)、[Rust](../../docs/RUST_RELEASE.md) 和 [npm](../../docs/NPM_RELEASES.md) 的发布说明。
+
+- **Go v2.12.0：** `v2.VerifyPayloadHash` 的接受范围变更（接受 `SignPayload` 的输出，拒绝不带前缀的摘要；只检查哈希），以及新增的 `v2.RawAuditEventV2`。`SDKVersion` 为 `2.12.0`。
+- **Rust `dcp-ai` 2.12.0：** 新增的 `v2::types::RawAuditEventV2` 和 `RawAuditEventError`，以及启用 `wasm` 特性时修正后的 `wasm_dual_merkle_root`。遥测读取软件包版本。
+- **`@dcp-ai/wasm` 2.1.2：** `dualMerkleRoot` 和 `wasm_dual_merkle_root` 计算 V2-11 的双 Merkle 根；没有新增 JavaScript API。
+- 实验性候选的新测试（gate 7）不改变任何默认值。`dcp-jcs-v1`、配置文件、传输格式、依赖和密码学均不变。三个软件包不再包含翻译版 README，它们位于 `i18n/` 中。
 
 <a id="2026-10-28-sha3-patch-releases"></a>
 

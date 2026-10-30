@@ -27,6 +27,15 @@ For v2.11.1, the 84 files of the module zip served by the proxy are identical to
 
 For v2.11.0 (26/10/2026), the default suite and the `-race -tags otlp` suite each passed 1,154 tests/subtests; one test is intentionally reserved for the separate live producer/consumer matrix. `go mod tidy -diff`, build and vet passed. An external consumer passed 137 tests/subtests; its deliberately inverted runner control failed as expected. The published module was downloaded into a fresh cache through the public proxy with checksum verification; its source bytes matched the reviewed commit. The external consumer then passed without any local `replace` directive. For the separate Rust publication, see [Rust](RUST_RELEASE.md).
 
+## Prepared, not published: v2.12.0
+
+v2.12.0 is prepared in the repository on 30/10/2026 but not published: the `sdks/go/v2.12.0` tag does not exist, so the module proxy does not serve this version and `go get` cannot resolve it. The install command above stays on v2.11.1. Compared with v2.11.1, v2.12.0:
+
+- **Corrects `v2.VerifyPayloadHash` (acceptance change).** It returns `true` only when `payload_hash` is exactly `"sha256:"` followed by the lowercase hex SHA-256 of the `dcp-jcs-v1` canonical payload. The output of `v2.SignPayload` is now accepted and a bare digest is now rejected; v2.11.1 did the opposite. The function checks hash consistency only, not the signature, the keys, the policy, principal trust or admission. Bundle verification never used it and does not change.
+- **Adds `v2.RawAuditEventV2`.** It keeps a received audit entry’s literal bytes, so explicit `null` and unknown members survive forwarding; `Typed()` is a lossy view. `AuditEventV2` and the other typed structs remain producer types and keep their behavior.
+
+The other APIs, bundle verification, `dcp-jcs-v1` and the experimental opt-in `dcp-jcs-v2` APIs are unchanged; new tests of the experimental candidate change no default. SDK telemetry reports `2.12.0`. The module no longer contains the translated READMEs, which are now in the repository’s `i18n/` tree. See the [SDK README](../sdks/go/README.md) and the [changelog](../CHANGELOG.md).
+
 ## Related releases
 
 The current versions in every registry are listed in [Published versions](README.md#published-versions). Other release notes: [npm packages](NPM_RELEASES.md), [Python 2.10.1](PYTHON_RELEASE.md) and [Rust 2.11.1](RUST_RELEASE.md).

@@ -4,7 +4,7 @@
 
 # 変更履歴
 
-> [英語版](../../CHANGELOG.md)の参考訳です（29/10/2026 更新）。各エントリーは、`[Unreleased]` のものも含め、その時点での変更を記述したもので、現在の動作を保証するものではありません。公開済みの各バージョンは**日付のある過去の記録**です。内容が異なる場合は英語版が優先されます。
+> [英語版](../../CHANGELOG.md)の参考訳です（30/10/2026 更新）。各エントリーは、`[Unreleased]` のものも含め、その時点での変更を記述したもので、現在の動作を保証するものではありません。公開済みの各バージョンは**日付のある過去の記録**です。内容が異なる場合は英語版が優先されます。
 
 **公開済みバージョン（2026 年 10 月 26 日）。** npm（`@dcp-ai/sdk` 2.2.0 を含む 13 パッケージ）、Python `dcp-ai` 2.10.0、Go `v2.11.0`、Rust `dcp-ai` 2.11.0 が、検証器の修正、受け入れ判定、実験的なオプトイン API を含めて公開済みです。`dcp-jcs-v1` は引き続き規範的なデフォルトです。[公開済みバージョン](../../docs/README.md#published-versions)を参照してください。以下の項目は開発履歴として保持しています。`[Unreleased]` はこれらの機能が未公開であることを意味しません。2026 年 10 月 28 日の 6 つの修正リリースは[専用のセクション](#2026-10-28-sha3-patch-releases)にあります。
 
@@ -17,6 +17,17 @@
 > あります。エントリーは現在の動作も、パッケージのバージョンがレジストリで入手できることも保証しません。現在の動作に
 > ついては、[README](../../README.md)、[ドキュメント](../../docs/README.md)、[仕様](../../spec/README.md)、
 > [API リファレンス](../../docs/API_REFERENCE.md)を参照してください。
+
+<a id="prepared-not-published-go-v2120-rust-2120-and-dcp-aiwasm-212"></a>
+
+## 準備済み・未公開: Go v2.12.0、Rust 2.12.0、`@dcp-ai/wasm` 2.1.2
+
+30/10/2026 にリポジトリで準備済みで、**公開されていません**。`sdks/go/v2.12.0` タグは存在せず、crates.io と npm にもこれらのバージョンはありません。[公開済みバージョン](../../docs/README.md#published-versions)とインストールコマンドは、引き続きレジストリのバージョン（Go `v2.11.1`、Rust `dcp-ai` 2.11.1、`@dcp-ai/wasm` 2.1.1）を示します。変更内容は `[Unreleased]` と、[Go](../../docs/GO_RELEASE.md)、[Rust](../../docs/RUST_RELEASE.md)、[npm](../../docs/NPM_RELEASES.md) のリリースノートに記載されています。
+
+- **Go v2.12.0：** `v2.VerifyPayloadHash` の受け入れの変更（`SignPayload` の出力を受け入れ、接頭辞のないダイジェストを拒否する。確認するのはハッシュだけ）と、追加された `v2.RawAuditEventV2`。`SDKVersion` は `2.12.0` です。
+- **Rust `dcp-ai` 2.12.0：** 追加された `v2::types::RawAuditEventV2` と `RawAuditEventError`、および `wasm` フィーチャー使用時の修正済み `wasm_dual_merkle_root`。テレメトリーはパッケージのバージョンを読み取ります。
+- **`@dcp-ai/wasm` 2.1.2：** `dualMerkleRoot` と `wasm_dual_merkle_root` が V2-11 の二重マークルルートを計算します。JavaScript API の追加はありません。
+- 実験的候補の新しいテスト（ゲート 7）はどのデフォルトも変更しません。`dcp-jcs-v1`、プロファイル、ワイヤーフォーマット、依存関係、暗号は変わりません。3 つのパッケージには翻訳版 README が含まれなくなりました。これらは `i18n/` にあります。
 
 <a id="2026-10-28-sha3-patch-releases"></a>
 

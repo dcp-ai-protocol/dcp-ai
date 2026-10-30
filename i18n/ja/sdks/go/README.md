@@ -6,7 +6,7 @@
 
 **Go の公開 (26/10/2026).** Go SDK `v2.11.0` はモジュールタグ `sdks/go/v2.11.0` から利用でき、検証器の修正、受け入れ、実験的なオプトイン API を含みます。Rust の公開は別です。参照： [Go v2.11.0](../../../../docs/GO_RELEASE.md).
 
-> [英語版 README](../../../../sdks/go/README.md)の参考訳です。更新日：2026年10月29日。検証済みの例を維持するため、識別子とコードブロック（コメントを含む）は原文のままにしています。
+> [英語版 README](../../../../sdks/go/README.md)の参考訳です。更新日：2026年10月30日。検証済みの例を維持するため、識別子とコードブロック（コメントを含む）は原文のままにしています。
 
 Digital Citizenship Protocol（DCP）v1.0 および v2.0 向けの公式 Go SDK。Ed25519、ML-DSA-65、SLH-DSA-192f、ML-KEM-768、複合署名、二重ハッシュチェーン、バンドル検証をサポートします。
 
@@ -197,7 +197,7 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 |----------|-------------|
 | `v2.SignPayload(reg, context, payload, classicalKey, pqKey)` | アーティファクトに署名して `SignedPayload` を生成する（複合署名。`pqKey` が nil の場合は古典署名のみ） |
 | `v2.PreparePayload(payload)` | `dcp-jcs-v1` の正規バイト列と、その SHA-256（接頭辞なしの小文字 16 進数）を返す。`payload_hash` フィールドは `"sha256:"` の後にそのダイジェストを続けたもの |
-| `v2.VerifyPayloadHash(signed)` | `payload_hash` が `"sha256:"` の後に正規ペイロードの SHA-256 を続けた値と完全に一致する場合にだけ `true`。接頭辞のないダイジェストを含め、それ以外の値は `false`。確認するのはハッシュの整合性だけで、署名、鍵、ポリシー、受け入れは確認しない。`main` のソースコードで未公開。v2.11.1 は接頭辞のないダイジェストと比較するため、`SignPayload` の出力を拒否し、接頭辞のない形を受け入れる |
+| `v2.VerifyPayloadHash(signed)` | `payload_hash` が `"sha256:"` の後に正規ペイロードの SHA-256 を続けた値と完全に一致する場合にだけ `true`。接頭辞のないダイジェストを含め、それ以外の値は `false`。確認するのはハッシュの整合性だけで、署名、鍵、ポリシー、受け入れは確認しない。v2.12.0 は準備済みで未公開。v2.11.1 は接頭辞のないダイジェストと比較するため、`SignPayload` の出力を拒否し、接頭辞のない形を受け入れる |
 | `v2.BuildBundleV2(input)` | 署名済みアーティファクトから V2 バンドルを組み立て、マニフェストのハッシュと二重 Merkle ルートを含める |
 | `v2.SignBundleV2(reg, bundle, classicalKey, pqKey)` | バンドルに複合署名または古典署名のみで署名する。署名者はバンドルの責任主体（`signer.id` = RPR の `human_id`） |
 | `v2.VerifySignedBundleV2(reg, jsonBytes)` | `DefaultVerifierPolicy` の下で V2 バンドルを検証する（構造、ハッシュ、署名、主監査チェーン）。ポリシーモードとセキュリティ階層のモードのうち厳しい方を適用する（仕様 §14.3）。`ResolvedTier` と `VerificationMode` を報告する |
@@ -206,7 +206,7 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 
 各結果の `SignerKeys`（JSON では `signer_keys`）には、検査した複合署名（`bundle`、4つのアーティファクト、各 `pq_checkpoints[<id>]`）ごとに、検証器が各コンポーネント（`classical`、`pq`）用に解決した鍵エントリーと、そのコンポーネントの検証結果が列挙されます。
 
-**型付きの構造体と受信したバンドル。** `AuditEventV2`、`CitizenshipBundleV2`、`SignedBundleV2` はバンドルを生成するためのものです。監査の証拠では、これらの構造体は明示的な `null` のメンバーと認識されないメンバー（`tool`、`result_ref`、`evidence_hash` 以外）を失います。認識される文字列値のメンバーと空の `evidence` オブジェクトは値を保ちます。エントリー自体では、`null` または空の `prev_hash_secondary` や `intent_hash_secondary` と未知のメンバーが失われ、存在しない `pq_checkpoint_ref` は `null` になります。こうしたメンバーの喪失は正規化された証拠を変え、`prev_hash` のチェーンまたは監査のマークルルートを無効にすることがあります。これらの構造体は、署名済みの証拠を転送するための損失のない表現ではありません。受信した監査エントリーを保持するには `v2.RawAuditEventV2`（未公開）を使用してください。エントリーのバイト列をそのまま、入力時と出力時にコピーして保持し、`Bytes()` と `MarshalJSON()` を直接呼べばそのまま返します（それを包む `json.Marshal` は、デコードされる値を変えずに空白を詰め、`<`、`>`、`&`、U+2028、U+2029 をエスケープすることがあります）。そのため、未知のメンバーも含め、各メンバーの有無と `null` が保たれます。厳密に 1 つの JSON オブジェクトでない入力（`null` を含む）だけを拒否し、修復や再署名は決して行わず、無効な証拠もそのまま保持するため、検証器は同じ理由でそれを拒否します。`json.Unmarshal` のエラーは必ず確認してください。失敗した場合、`RawAuditEventV2` は以前の内容を保ちますが、それは失敗した入力を表しません。複数の goroutine から読むのは、その値に対して `UnmarshalJSON` が実行されていない間だけにしてください。ゼロ値はエントリーを持たず、`MarshalJSON()` と `Typed()` はエラーを返し、`Bytes()` は `nil` を返します。nil の `*RawAuditEventV2` は、`MarshalJSON` を呼ばずに `encoding/json` 自身が `null` としてエンコードします。`Typed()` はフィールドを読むための、損失のあるビューです。受信したバンドルを保持するには、受信したバイト列を保持し、そのバイト列を検証してください。上の検証関数はバイト列を受け取ります。受信した証拠を検証に通すために自動で修復、再計算、再署名しないでください。明示的な移行は、元のデータを保持する別の手順として行います。
+**型付きの構造体と受信したバンドル。** `AuditEventV2`、`CitizenshipBundleV2`、`SignedBundleV2` はバンドルを生成するためのものです。監査の証拠では、これらの構造体は明示的な `null` のメンバーと認識されないメンバー（`tool`、`result_ref`、`evidence_hash` 以外）を失います。認識される文字列値のメンバーと空の `evidence` オブジェクトは値を保ちます。エントリー自体では、`null` または空の `prev_hash_secondary` や `intent_hash_secondary` と未知のメンバーが失われ、存在しない `pq_checkpoint_ref` は `null` になります。こうしたメンバーの喪失は正規化された証拠を変え、`prev_hash` のチェーンまたは監査のマークルルートを無効にすることがあります。これらの構造体は、署名済みの証拠を転送するための損失のない表現ではありません。受信した監査エントリーを保持するには `v2.RawAuditEventV2`（v2.12.0 は準備済み・未公開）を使用してください。エントリーのバイト列をそのまま、入力時と出力時にコピーして保持し、`Bytes()` と `MarshalJSON()` を直接呼べばそのまま返します（それを包む `json.Marshal` は、デコードされる値を変えずに空白を詰め、`<`、`>`、`&`、U+2028、U+2029 をエスケープすることがあります）。そのため、未知のメンバーも含め、各メンバーの有無と `null` が保たれます。厳密に 1 つの JSON オブジェクトでない入力（`null` を含む）だけを拒否し、修復や再署名は決して行わず、無効な証拠もそのまま保持するため、検証器は同じ理由でそれを拒否します。`json.Unmarshal` のエラーは必ず確認してください。失敗した場合、`RawAuditEventV2` は以前の内容を保ちますが、それは失敗した入力を表しません。複数の goroutine から読むのは、その値に対して `UnmarshalJSON` が実行されていない間だけにしてください。ゼロ値はエントリーを持たず、`MarshalJSON()` と `Typed()` はエラーを返し、`Bytes()` は `nil` を返します。nil の `*RawAuditEventV2` は、`MarshalJSON` を呼ばずに `encoding/json` 自身が `null` としてエンコードします。`Typed()` はフィールドを読むための、損失のあるビューです。受信したバンドルを保持するには、受信したバイト列を保持し、そのバイト列を検証してください。上の検証関数はバイト列を受け取ります。受信した証拠を検証に通すために自動で修復、再計算、再署名しないでください。明示的な移行は、元のデータを保持する別の手順として行います。
 
 <a id="admission-principal-trust-and-strict-v1-unreleased"></a>
 
