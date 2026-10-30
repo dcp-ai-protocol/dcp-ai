@@ -170,6 +170,8 @@ Domain separation constants: `CTX_LIFECYCLE`, `CTX_SUCCESSION`, `CTX_DISPUTE`, `
 
 All structs derive `Debug`, `Clone`, `Serialize`, `Deserialize`. Enums use `#[serde(rename_all = "snake_case")]`. Optional fields use `Option<T>` with `#[serde(skip_serializing_if = "Option::is_none")]`.
 
+**Received audit entries (unreleased).** `AuditEventV2` and `AuditEvidenceV2` are for producing entries. Decoding a received entry into them and encoding it again loses an explicit `null` (in `evidence`, `prev_hash_secondary` and `intent_hash_secondary`) and any unknown member, and turns an absent `pq_checkpoint_ref` into `null`. That changes the entry's canonical bytes and may break the `prev_hash` chain or the audit Merkle root. To keep a received entry, use `RawAuditEventV2`: it holds the decoded `serde_json::Value`, so every member at every depth keeps its presence and `null`-ness, unknown members included, and it serializes that value as it is. It refuses only what is not a JSON object (`RawAuditEventError`). It keeps what `serde_json` decoded, not the original text, never repairs or re-signs, and keeps invalid evidence as it is, so a verifier rejects it for the same reason. `typed()` is a lossy view for reading fields. To keep a received bundle, keep it as received and verify that.
+
 <a id="bundles-dcp_aiv2bundle-unreleased"></a>
 
 ### Bundles (`dcp_ai::v2::bundle`)

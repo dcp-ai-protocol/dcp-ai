@@ -206,7 +206,7 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 
 每个结果在 `SignerKeys`（JSON 为 `signer_keys`）中，按每个已检查的复合签名（`bundle`、四个产物以及每个 `pq_checkpoints[<id>]`）列出验证器为各组件（`classical`、`pq`）解析得到的密钥条目，以及该组件是否验证通过。
 
-**类型化结构体与收到的 bundle。** `AuditEventV2`、`CitizenshipBundleV2` 和 `SignedBundleV2` 用于生成 bundle。在审计证据中，这些结构体会丢失显式为 `null` 的成员和无法识别的成员（`tool`、`result_ref`、`evidence_hash` 以外的成员）；可识别的字符串值成员和空的 `evidence` 对象会保留其值。这些成员的丢失会改变规范化后的证据，并可能使 `prev_hash` 链或审计 Merkle 根失效。这些结构体不是用于转发已签名证据的无损表示。请保留收到的字节并验证这些字节：上面的验证函数接收字节。不要为了让收到的证据通过验证而自动修复、重新计算或重新签名；显式迁移应是保留原始数据的单独步骤。
+**类型化结构体与收到的 bundle。** `AuditEventV2`、`CitizenshipBundleV2` 和 `SignedBundleV2` 用于生成 bundle。在审计证据中，这些结构体会丢失显式为 `null` 的成员和无法识别的成员（`tool`、`result_ref`、`evidence_hash` 以外的成员）；可识别的字符串值成员和空的 `evidence` 对象会保留其值。在条目本身中，值为 `null` 或为空的 `prev_hash_secondary`、`intent_hash_secondary` 以及任何未知成员都会丢失，缺失的 `pq_checkpoint_ref` 会变成 `null`。这些成员的丢失会改变规范化后的证据，并可能使 `prev_hash` 链或审计 Merkle 根失效。这些结构体不是用于转发已签名证据的无损表示。要保留收到的审计条目，请使用 `v2.RawAuditEventV2`（尚未发布）：它保存条目的原始字节，输入和输出时都会复制，直接调用 `Bytes()` 和 `MarshalJSON()` 时按原样返回（包裹它的 `json.Marshal` 可能会压缩空白并转义 `<`、`>`、`&`、U+2028 和 U+2029，但不改变解码后的值），因此每个成员（包括未知成员）都保留其存在与否和 `null`；它只拒绝不是恰好一个 JSON 对象的输入（包括 `null`），从不修复或重新签名，并按原样保留无效证据，使验证器以相同原因拒绝它。务必检查 `json.Unmarshal` 的错误：失败时，`RawAuditEventV2` 会保留之前的内容，而这些内容并不描述失败的输入。只有在没有 `UnmarshalJSON` 作用于它时，才可从多个 goroutine 读取它。零值不包含任何条目：`MarshalJSON()` 和 `Typed()` 返回错误，`Bytes()` 返回 `nil`；nil 的 `*RawAuditEventV2` 由 `encoding/json` 自身编码为 `null`，不会调用 `MarshalJSON`。`Typed()` 是用于读取字段的有损视图。要保留收到的 bundle，请保留收到的字节并验证这些字节：上面的验证函数接收字节。不要为了让收到的证据通过验证而自动修复、重新计算或重新签名；显式迁移应是保留原始数据的单独步骤。
 
 <a id="admission-principal-trust-and-strict-v1-unreleased"></a>
 

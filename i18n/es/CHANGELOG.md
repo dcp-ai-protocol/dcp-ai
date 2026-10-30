@@ -216,6 +216,19 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
 
 ### Añadido
 
+- `RawAuditEventV2` en los SDK de Rust (`dcp_ai::v2::types`) y Go (`v2`): una entrada de auditoría V2 recibida,
+  conservada tal como se decodificó, con cada miembro a cualquier profundidad, su presencia y su `null`, también
+  los desconocidos, de modo que, siempre que el canonicalizador dcp-jcs-v1 la acepte, sus bytes canónicos, su
+  `prev_hash` y su hoja de Merkle siguen siendo los de la entrada. Rust guarda el `serde_json::Value` decodificado
+  (`RawAuditEventError` para todo lo que no es un objeto); Go guarda los bytes literales, copiados al entrar y al
+  salir, y rechaza todo lo que no sea exactamente un objeto JSON. Ninguno repara ni vuelve a firmar: la evidencia
+  inválida sigue siendo inválida, por el mismo motivo. `AuditEventV2` y `AuditEvidenceV2` no cambian y ahora se
+  documentan como con pérdidas para reenviar (un `null` explícito, un miembro desconocido, un `pq_checkpoint_ref`
+  ausente que pasa a ser `null`). Los nuevos vectores compartidos,
+  `tests/interop/v2/audit_entry_roundtrip_vectors.json`, dan 14 entradas con su texto dcp-jcs-v1 escrito a mano,
+  que reproducen los canonicalizadores de TypeScript, Python, Go y Rust, y un bundle firmado cuyas mutaciones el
+  tipo nuevo mantiene rechazadas con los mismos errores. El builder de bundles de Go, los tipos V1 y el modelo
+  `AuditEventV2` de Python no cambian.
 - `--assessment verdict` para el catálogo de evidencia (contrato `/2`) del kit de conformidad externa: los 146
   rechazos que llevan un `error_contains` se juzgan solo por `verified: false`, con todas las demás reglas,
   controles y códigos de salida sin cambios, para que una implementación con veredictos correctos y mensajes
