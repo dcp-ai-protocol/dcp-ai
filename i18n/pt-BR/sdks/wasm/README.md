@@ -4,7 +4,7 @@
 
 # @dcp-ai/wasm — SDK WebAssembly v2.0
 
-> Tradução informativa do [README em inglês](../../../../sdks/wasm/README.md), atualizada em 26/10/2026. Os identificadores e os blocos de código, incluindo seus comentários, foram preservados para manter os exemplos testados.
+> Tradução informativa do [README em inglês](../../../../sdks/wasm/README.md), atualizada em 30/10/2026. Os identificadores e os blocos de código, incluindo seus comentários, foram preservados para manter os exemplos testados.
 
 Módulo WebAssembly para o Digital Citizenship Protocol (DCP) v2.0, compilado a partir do SDK de Rust. Oferece assinaturas compostas pós-quânticas, geração de chaves híbridas, encapsulamento de chaves ML-KEM-768, hashes duplos, construção e verificação de bundles e cálculo do nível de segurança. Tudo é executado diretamente no navegador ou no Node.js, sem servidor.
 
@@ -21,6 +21,8 @@ npm install @dcp-ai/wasm@^2.1.1
 ```
 
 Veja o [inventário de publicações npm](../../../../docs/NPM_RELEASES.md) para todas as versões.
+
+**`@dcp-ai/wasm` 2.1.2 (preparada, não publicada).** Corrige `dualMerkleRoot`, que na 2.1.1 e anteriores dá raízes diferentes das da V2-11 para duas ou mais folhas (veja Operações de hash abaixo). Não está no npm: o comando acima continua na 2.1.1. Veja os [pacotes npm](../../../../docs/NPM_RELEASES.md).
 
 Para desenvolver a partir de uma cópia do repositório, compile e instale o pacote local:
 
@@ -203,7 +205,7 @@ A verificação não concede confiança no principal, admissão ou autorização
 | `dualHash(data)` | `DualHash` | Hash duplo SHA-256 + SHA3-256 |
 | `sha3_256(data)` | `string` | Hash SHA3-256 em hexadecimal |
 | `hashObject(obj)` | `string` | Hash SHA-256 de um objeto JSON |
-| `dualMerkleRoot(leaves)` | `DualHash` | Raiz Merkle dupla de um array de folhas `DualHash` |
+| `dualMerkleRoot(leaves)` | `DualHash` | Raiz Merkle dupla da [VERIFICATION.md V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) de um array não vazio de folhas `DualHash`, cada uma um digest hex de 32 bytes; lança exceção com um array vazio ou uma folha inválida. A raiz é hex em minúsculas. 2.1.2 preparada, não publicada: a 2.1.1 e anteriores fazem hash do texto hex, então suas raízes de duas ou mais folhas diferem |
 
 <a id="canonicalization-domain-separation"></a>
 

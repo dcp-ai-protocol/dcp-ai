@@ -2,7 +2,7 @@
 
 # Paquetes publicados en npm
 
-> Traducción informativa de [la versión en inglés](../../../docs/NPM_RELEASES.md), actualizada el 28/10/2026. Si difieren, prevalece la versión en inglés.
+> Traducción informativa de [la versión en inglés](../../../docs/NPM_RELEASES.md), actualizada el 30/10/2026. Si difieren, prevalece la versión en inglés.
 
 Verificado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cli` 2.1.1 están publicados con la etiqueta `latest`; los otros diez paquetes de la tabla no cambian. Las versiones de los paquetes son independientes de la versión del formato/especificación DCP y de las etiquetas del repositorio.
 
@@ -48,6 +48,16 @@ Cada publicación npm cubre solo npm. No publica un paquete Python en PyPI, un c
 Desde la 2.2.0, `@dcp-ai/sdk` incluye confianza en el principal, `strict-v1`, las correcciones del verificador y las API experimentales del candidato. `@dcp-ai/express` y `@dcp-ai/openclaw` 2.1.0 incluyen la verificación corregida de firmas V2 y los controles de admisión documentados. Sus versiones 2.0.0 siguen afectadas; véase [SECURITY.md](../../../SECURITY.md). Publicar los paquetes no convierte un bundle verificado en confiable ni autoriza una acción.
 
 En `@dcp-ai/sdk` 2.2.0 y posteriores y en `@dcp-ai/wasm` 2.1.0 y posteriores, `dcp-jcs-v2` sigue siendo experimental, no normativo y opt-in. `dcp-jcs-v1` sigue siendo el único predeterminado normativo. Los generadores y auxiliares de integración conservan las limitaciones de sus README; publicarlos no convierte las demostraciones en verificadores de producción.
+
+<a id="prepared-not-published-dcp-aiwasm-212"></a>
+
+## Preparada, no publicada: `@dcp-ai/wasm` 2.1.2
+
+`@dcp-ai/wasm` 2.1.2 está preparada en el repositorio desde el 30/10/2026, pero no publicada en npm. La tabla y los comandos de instalación de arriba siguen en las versiones del registro.
+
+Corrige `dualMerkleRoot` y la exportación cruda `wasm_dual_merkle_root`: ahora calculan la raíz Merkle dual con la reducción de [VERIFICATION.md V2-11](../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) que ya usaba `verifyBundle` (digests crudos de 32 bytes; en una capa impar se duplica el último nodo). La 2.1.1 y anteriores hashean el texto hex y suben sin cambios el último nodo impar, así que sus raíces de dos o más hojas difieren de V2-11. Las hojas malformadas, que la 2.1.1 y anteriores aceptaban, son ahora un error: cada hoja debe ser un digest hex de 32 bytes. El hex en mayúsculas se acepta y la raíz se devuelve en minúsculas. Un arreglo vacío da el mismo error que antes (`dualMerkleRoot` lanza una excepción) y el resultado conserva sus dos campos, `sha256` y `sha3_256`.
+
+`verifyBundle`, las demás API, `dcp-jcs-v1` y las API experimentales opt-in `dcp-jcs-v2` no cambian, y no se añade ninguna API JavaScript. El tarball ya no contiene los README traducidos, que ahora están en el árbol `i18n/` del repositorio. El WebAssembly procede de Rust `dcp-ai` 2.12.0, también preparado y sin publicar (véase [Rust](../../../docs/RUST_RELEASE.md)).
 
 <a id="related-releases"></a>
 

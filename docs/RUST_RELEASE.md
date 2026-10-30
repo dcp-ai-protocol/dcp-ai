@@ -34,6 +34,15 @@ For 2.11.1, the release workflow published the crate; every file of the registry
 
 For 2.11.0 (26/10/2026), the default suite passed 261 tests and the all-features suite passed 267, including doctests. The WASM library and tests compiled for `wasm32-unknown-unknown`; this compilation is not a browser runtime test. Cargo packaged and verified 71 files, and publication dry-run passed. An external consumer passed 72 tests against the extracted crate, covering admission, compatibility, candidate ingress/router and verifier regressions; its inverted negative control failed as expected. After publication, a fresh registry cache resolved exactly 2.11.0 without a local path or patch, and the same 72 tests passed. The registry archive checksum and packaged source bytes matched the reviewed release. Shared fixtures for these tests come from the repository; applications do not need those fixtures.
 
+## Prepared, not published: 2.12.0
+
+2.12.0 is prepared in the repository on 30/10/2026 but not published on crates.io. The install commands above stay on 2.11.1. Compared with 2.11.1, 2.12.0:
+
+- **Adds `dcp_ai::v2::types::RawAuditEventV2` and `RawAuditEventError`.** `RawAuditEventV2` holds a received audit entry as the decoded `serde_json::Value`, so every member keeps its presence and `null`-ness, unknown members included. It keeps the decoded value, not the original text: serializing it or canonicalizing it with `dcp-jcs-v1` gives the bytes of that value. `typed()` is a lossy view; `AuditEventV2` keeps its behavior. Whole-bundle parsing, verification and canonicalization are unchanged.
+- **Corrects `wasm_dual_merkle_root` (with the `wasm` feature).** It now computes the dual Merkle root with the reduction of [VERIFICATION.md V2-11](../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) that the bundle verifier uses (raw 32-byte digests, the last node duplicated on an odd layer), and it returns an error for a leaf that is not a 32-byte hex digest instead of accepting malformed input. The npm package built from this crate is `@dcp-ai/wasm` 2.1.2, also prepared and not published (see [npm packages](NPM_RELEASES.md)).
+
+The other APIs, `dcp-jcs-v1` and the experimental opt-in `dcp-jcs-v2` APIs are unchanged; new tests of the experimental candidate change no default. Telemetry reports `2.12.0`. The crate no longer contains the translated READMEs, which are now in the repository's `i18n/` tree. See the [SDK README](../sdks/rust/README.md) and the [changelog](../CHANGELOG.md).
+
 ## Related releases
 
 The current versions in every registry are listed in [Published versions](README.md#published-versions). Other release notes: [npm packages](NPM_RELEASES.md), [Python 2.10.1](PYTHON_RELEASE.md) and [Go v2.11.1](GO_RELEASE.md).

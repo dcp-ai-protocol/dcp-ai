@@ -4,7 +4,7 @@
 
 **Rust の公開 (26/10/2026).** Rust `dcp-ai` 2.11.0 は crates.io で公開済みで、検証器の修正、受け入れ、実験的なオプトイン API を含みます。`dcp-jcs-v1` は引き続き規範かつデフォルトです。参照： [Rust 2.11.0](../../../../docs/RUST_RELEASE.md).
 
-> [英語版 README](../../../../sdks/rust/README.md)の参考訳です。更新日：2026年10月25日。検証済みの例を維持するため、識別子とコードブロック（コメントを含む）は原文のままにしています。
+> [英語版 README](../../../../sdks/rust/README.md)の参考訳です。更新日：2026年10月30日。検証済みの例を維持するため、識別子とコードブロック（コメントを含む）は原文のままにしています。
 
 Digital Citizenship Protocol（DCP v2.0）向けの公式 Rust SDK。Serde ベースの型、ハイブリッド耐量子暗号（Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768）、`pq_over_classical` による結合を持つ複合署名、二重ハッシュチェーン、OpenTelemetry による可観測性、DCP-04..09 の動作、オプションの WebAssembly サポートを提供します。
 
@@ -190,7 +190,7 @@ V2 には、DCP-05 から DCP-09 までのすべてのアーティファクト�
 
 すべての構造体は `Debug`、`Clone`、`Serialize`、`Deserialize` を導出します。列挙型は `#[serde(rename_all = "snake_case")]` を使用します。オプションのフィールドは `Option<T>` と `#[serde(skip_serializing_if = "Option::is_none")]` を使用します。
 
-**受信した監査エントリー（未公開）。** `AuditEventV2` と `AuditEvidenceV2` はエントリーを生成するためのものです。受信したエントリーをこれらにデコードして再びエンコードすると、明示的な `null`（`evidence`、`prev_hash_secondary`、`intent_hash_secondary` 内）と未知のメンバーが失われ、存在しない `pq_checkpoint_ref` は `null` になります。これはエントリーの正規化されたバイト列を変え、`prev_hash` のチェーンや監査のマークルルートを壊すことがあります。受信したエントリーを保持するには `RawAuditEventV2` を使用してください。デコードされた `serde_json::Value` を保持するため、未知のメンバーも含め、あらゆる深さの各メンバーの有無と `null` が保たれ、その値をそのままシリアライズします。JSON オブジェクトでないものだけを拒否します（`RawAuditEventError`）。保持するのは `serde_json` がデコードしたものであって元のテキストではなく、修復や再署名は決して行わず、無効な証拠もそのまま保持するため、検証器は同じ理由でそれを拒否します。`typed()` はフィールドを読むための、損失のあるビューです。受信したバンドルを保持するには、受信したまま保持し、それを検証してください。
+**受信した監査エントリー（2.12.0 は準備済み・未公開）。** `AuditEventV2` と `AuditEvidenceV2` はエントリーを生成するためのものです。受信したエントリーをこれらにデコードして再びエンコードすると、明示的な `null`（`evidence`、`prev_hash_secondary`、`intent_hash_secondary` 内）と未知のメンバーが失われ、存在しない `pq_checkpoint_ref` は `null` になります。これはエントリーの正規化されたバイト列を変え、`prev_hash` のチェーンや監査のマークルルートを壊すことがあります。受信したエントリーを保持するには `RawAuditEventV2` を使用してください。デコードされた `serde_json::Value` を保持するため、未知のメンバーも含め、あらゆる深さの各メンバーの有無と `null` が保たれ、その値をそのままシリアライズします。JSON オブジェクトでないものだけを拒否します（`RawAuditEventError`）。保持するのは `serde_json` がデコードしたものであって元のテキストではなく、修復や再署名は決して行わず、無効な証拠もそのまま保持するため、検証器は同じ理由でそれを拒否します。`typed()` はフィールドを読むための、損失のあるビューです。受信したバンドルを保持するには、受信したまま保持し、それを検証してください。
 
 <a id="bundles-dcp_aiv2bundle-unreleased"></a>
 <a id="bundles-dcp_aiv2bundle"></a>

@@ -2,7 +2,7 @@
 
 # @dcp-ai/wasm — WebAssembly SDK v2.0
 
-> [英語版 README](../../../../sdks/wasm/README.md)の参考訳です。更新日：2026年10月25日。検証済みの例を維持するため、識別子とコードブロック（コメントを含む）は原文のままにしています。
+> [英語版 README](../../../../sdks/wasm/README.md)の参考訳です。更新日：2026年10月30日。検証済みの例を維持するため、識別子とコードブロック（コメントを含む）は原文のままにしています。
 
 Digital Citizenship Protocol（DCP）v2.0 向けの WebAssembly モジュールで、Rust SDK からコンパイルされます。耐量子複合署名、ハイブリッド鍵生成、ML-KEM-768 による鍵カプセル化、二重ハッシュ、バンドルの構築・検証、セキュリティ階層の算出を提供します。ブラウザーまたは Node.js で直接動作し、サーバーは不要です。
 
@@ -19,6 +19,8 @@ npm install @dcp-ai/wasm@^2.1.1
 ```
 
 全パッケージのバージョンは [npm リリース一覧](../../../../docs/NPM_RELEASES.md)を参照してください。
+
+**`@dcp-ai/wasm` 2.1.2（準備済み・未公開）。** `dualMerkleRoot` を修正します。2.1.1 以前では、2 個以上の葉に対して V2-11 と異なるルートを返します（後述の「ハッシュ操作」を参照）。npm にはないため、上記のコマンドは 2.1.1 のままです。[npm パッケージ](../../../../docs/NPM_RELEASES.md)を参照してください。
 
 チェックアウトしたソースで開発する場合は、ローカルのパッケージをビルドしてインストールします。
 
@@ -201,7 +203,7 @@ WASM モジュールを初期化します。各 API を使う前に一度呼び�
 | `dualHash(data)` | `DualHash` | SHA-256 + SHA3-256 の二重ハッシュ |
 | `sha3_256(data)` | `string` | SHA3-256 ハッシュを16進数で返す |
 | `hashObject(obj)` | `string` | JSON オブジェクトの SHA-256 ハッシュ |
-| `dualMerkleRoot(leaves)` | `DualHash` | `DualHash` の葉の配列から二重 Merkle ルートを算出 |
+| `dualMerkleRoot(leaves)` | `DualHash` | 空でない `DualHash` の葉（それぞれ 32 バイトの 16 進ダイジェスト）の配列から [VERIFICATION.md の V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) の二重 Merkle ルートを算出。空の配列や無効な葉では例外を投げる。ルートは小文字の 16 進。2.1.2 は準備済み・未公開：2.1.1 以前は 16 進テキストをハッシュするため、2 個以上の葉のルートが異なる |
 
 <a id="canonicalization-domain-separation"></a>
 

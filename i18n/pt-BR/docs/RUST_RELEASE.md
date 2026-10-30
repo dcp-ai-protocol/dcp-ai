@@ -2,7 +2,7 @@
 
 # Crate Rust publicado
 
-> Tradução informativa do [original em inglês](../../../docs/RUST_RELEASE.md), revisada em 28/10/2026. Os identificadores e exemplos de código são preservados sem tradução.
+> Tradução informativa do [original em inglês](../../../docs/RUST_RELEASE.md), revisada em 30/10/2026. Os identificadores e exemplos de código são preservados sem tradução.
 
 Verificado em 28/10/2026: [`dcp-ai` 2.11.1](https://crates.io/crates/dcp-ai/2.11.1) está disponível no crates.io. A publicação anterior, [2.11.0](https://crates.io/crates/dcp-ai/2.11.0), foi verificada em 26/10/2026; suas notas são mantidas abaixo. A versão do crate é independente da versão do formato/especificação DCP. O crate Rust é publicado de forma independente de npm, Python, Go e contêineres.
 
@@ -45,6 +45,17 @@ A verificação é mais estrita que em 2.10.0: pode rejeitar evidências malform
 Para a 2.11.1, o fluxo de publicação publicou o crate; todos os arquivos do crate do registro coincidem com os revisados, exceto `.cargo_vcs_info.json`, que registra o commit limpo de `main`. Um consumidor externo que resolve 2.11.1 pelo crates.io passou em 73 testes.
 
 Para a 2.11.0 (26/10/2026), a suíte padrão passou em 261 testes e a de todas as funcionalidades, em 267, incluindo doctests. A biblioteca e os testes WASM compilaram para `wasm32-unknown-unknown`; isso não é um teste de execução no navegador. O Cargo empacotou e verificou 71 arquivos, e a simulação de publicação passou. Um consumidor externo passou em 72 testes do crate extraído: admissão, compatibilidade, entrada/roteador candidato e regressões do verificador; o controle negativo invertido falhou como esperado. Após publicar, um cache novo do registro resolveu exatamente 2.11.0 sem caminhos locais nem patches, e os mesmos 72 testes passaram. O checksum do arquivo público e os bytes das fontes empacotadas coincidiram com a versão revisada. As fixtures compartilhadas desses testes vêm do repositório; as aplicações não precisam delas.
+
+<a id="prepared-not-published-2120"></a>
+
+## Preparada, não publicada: 2.12.0
+
+A 2.12.0 está preparada no repositório desde 30/10/2026, mas não publicada no crates.io. Os comandos de instalação acima continuam na 2.11.1. Em relação à 2.11.1, a 2.12.0:
+
+- **Adiciona `dcp_ai::v2::types::RawAuditEventV2` e `RawAuditEventError`.** `RawAuditEventV2` guarda uma entrada de auditoria recebida como o `serde_json::Value` decodificado, de modo que cada membro mantém sua presença e sua condição de `null`, inclusive os desconhecidos. Ele mantém o valor decodificado, não o texto original: serializá-lo ou canonicalizá-lo com `dcp-jcs-v1` dá os bytes desse valor. `typed()` é uma visão com perda; `AuditEventV2` mantém seu comportamento. O parsing, a verificação e a canonicalização do bundle inteiro não mudam.
+- **Corrige `wasm_dual_merkle_root` (com a feature `wasm`).** Agora calcula a raiz Merkle dupla com a redução da [VERIFICATION.md V2-11](../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) que o verificador de bundles usa (digests brutos de 32 bytes; numa camada ímpar o último nó é duplicado), e devolve um erro para uma folha que não é um digest hex de 32 bytes em vez de aceitar uma entrada malformada. O pacote npm construído a partir deste crate é `@dcp-ai/wasm` 2.1.2, também preparado e não publicado (veja os [pacotes npm](../../../docs/NPM_RELEASES.md)).
+
+As demais APIs, `dcp-jcs-v1` e as APIs experimentais opt-in `dcp-jcs-v2` não mudam; os novos testes do candidato experimental não mudam nenhum padrão. A telemetria informa `2.12.0`. O crate não contém mais os READMEs traduzidos, que agora ficam na árvore `i18n/` do repositório. Veja o [README do SDK](../../../sdks/rust/README.md) e o [changelog](../../../CHANGELOG.md).
 
 <a id="related-releases"></a>
 

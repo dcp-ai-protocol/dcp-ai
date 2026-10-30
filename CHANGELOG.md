@@ -12,6 +12,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 **Published versions (26/10/2026).** npm (13 packages, including `@dcp-ai/sdk` 2.2.0), Python `dcp-ai` 2.10.0, Go `v2.11.0` and Rust `dcp-ai` 2.11.0 are published, including the verifier fixes, admission and the experimental opt-in APIs; `dcp-jcs-v1` remains the normative default. See [Published versions](docs/README.md#published-versions). Entries below retain their development history; `[Unreleased]` does not mean these features are unpublished. The six patch releases of 28/10/2026 are in [their own section](#2026-10-28-sha3-patch-releases).
 
+## Prepared, not published: Go v2.12.0, Rust 2.12.0 and `@dcp-ai/wasm` 2.1.2
+
+Prepared in the repository on 30/10/2026 and **not published**: there is no `sdks/go/v2.12.0` tag, and crates.io and npm do not have these versions. [Published versions](docs/README.md#published-versions) and the installation commands keep naming the registry versions (Go `v2.11.1`, Rust `dcp-ai` 2.11.1, `@dcp-ai/wasm` 2.1.1). The changes are described in `[Unreleased]` and in the release notes for [Go](docs/GO_RELEASE.md), [Rust](docs/RUST_RELEASE.md) and [npm](docs/NPM_RELEASES.md).
+
+- **Go v2.12.0:** the acceptance change of `v2.VerifyPayloadHash` (the output of `SignPayload` is accepted and a bare digest is rejected; it checks the hash only) and the additive `v2.RawAuditEventV2`. `SDKVersion` is `2.12.0`.
+- **Rust `dcp-ai` 2.12.0:** the additive `v2::types::RawAuditEventV2` and `RawAuditEventError`, and, with the `wasm` feature, the corrected `wasm_dual_merkle_root`. Telemetry reads the package version.
+- **`@dcp-ai/wasm` 2.1.2:** `dualMerkleRoot` and `wasm_dual_merkle_root` compute the V2-11 dual Merkle root; no JavaScript API is added.
+- New tests of the experimental candidate (gate 7) change no default. `dcp-jcs-v1`, the profiles, the wire format, the dependencies and the cryptography are unchanged. The three packages no longer include the translated READMEs, which are under `i18n/`.
+
 ## [2026-10-28] SHA3 patch releases
 
 Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/cli` 2.1.1 on npm, `dcp-ai` 2.10.1 on PyPI, the Go module `v2.11.1` (tag `sdks/go/v2.11.1`) and Rust `dcp-ai` 2.11.1 on crates.io. The other ten npm packages are unchanged. See [Published versions](docs/README.md#published-versions) and the release notes for [npm](docs/NPM_RELEASES.md), [Python](docs/PYTHON_RELEASE.md), [Go](docs/GO_RELEASE.md) and [Rust](docs/RUST_RELEASE.md).

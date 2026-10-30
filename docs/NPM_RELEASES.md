@@ -41,6 +41,14 @@ Since 2.2.0, `@dcp-ai/sdk` includes principal trust, `strict-v1`, the verifier f
 
 In `@dcp-ai/sdk` 2.2.0 and later and `@dcp-ai/wasm` 2.1.0 and later, `dcp-jcs-v2` remains experimental, non-normative and opt-in. `dcp-jcs-v1` remains the only normative default. Scaffolders and bridge helpers keep the limitations stated in their READMEs; publishing them does not turn demo flows into production verifiers.
 
+## Prepared, not published: `@dcp-ai/wasm` 2.1.2
+
+`@dcp-ai/wasm` 2.1.2 is prepared in the repository on 30/10/2026 but not published on npm. The table and the install commands above stay on the registry versions.
+
+It corrects `dualMerkleRoot` and the raw export `wasm_dual_merkle_root`: they now compute the dual Merkle root with the reduction of [VERIFICATION.md V2-11](../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) that `verifyBundle` already used (raw 32-byte digests, the last node duplicated on an odd layer). 2.1.1 and earlier hash the hex text and carry an odd last node up unchanged, so their roots of two or more leaves differ from V2-11. Malformed leaves, which 2.1.1 and earlier accepted, are now an error: each leaf must be a 32-byte hex digest. Uppercase hex is accepted and the root is returned in lowercase. An empty array gives the same error as before (`dualMerkleRoot` throws), and the result keeps its two fields, `sha256` and `sha3_256`.
+
+`verifyBundle`, the other APIs, `dcp-jcs-v1` and the experimental opt-in `dcp-jcs-v2` APIs are unchanged, and no JavaScript API is added. The tarball no longer contains the translated READMEs, which are now in the repository’s `i18n/` tree. The WebAssembly comes from Rust `dcp-ai` 2.12.0, also prepared and not published (see [Rust](RUST_RELEASE.md)).
+
 ## Related releases
 
 The current versions in every registry are listed in [Published versions](README.md#published-versions). Other release notes: [Python 2.10.1](PYTHON_RELEASE.md), [Go v2.11.1](GO_RELEASE.md) and [Rust 2.11.1](RUST_RELEASE.md).
