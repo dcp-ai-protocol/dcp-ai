@@ -198,6 +198,18 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Added
 
+- `RawAuditEventV2` in the Rust (`dcp_ai::v2::types`) and Go (`v2`) SDKs: one received V2 audit entry kept as it
+  was decoded, every member at every depth with its presence and `null`-ness, unknown members included, so wherever
+  the dcp-jcs-v1 canonicalizer accepts it its canonical bytes, `prev_hash` and Merkle leaf stay those of the input.
+  Rust holds the decoded `serde_json::Value` (`RawAuditEventError` for anything but an object); Go holds the
+  literal bytes, copied in and out, and refuses anything but exactly one JSON object. Neither repairs nor re-signs:
+  invalid evidence stays invalid, for the same reason. The existing `AuditEventV2` and `AuditEvidenceV2` are
+  unchanged and now documented as lossy for forwarding (an explicit `null`, an unknown member, an absent
+  `pq_checkpoint_ref` that becomes `null`). New shared vectors,
+  `tests/interop/v2/audit_entry_roundtrip_vectors.json`, give 14 entries with their hand-written dcp-jcs-v1 text,
+  which the TypeScript, Python, Go and Rust canonicalizers reproduce, and a signed bundle whose mutations the new
+  type keeps rejected with the same errors. The Go bundle builder, the V1 types and the Python `AuditEventV2` model
+  are unchanged.
 - `--assessment verdict` for the evidence catalog (contract `/2`) of the external conformance kit: the 146
   rejections that carry an `error_contains` are judged on `verified: false` alone, with every other rule, control
   and exit code unchanged, so an implementation with correct verdicts and messages of its own can show it. The

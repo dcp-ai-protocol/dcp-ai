@@ -208,6 +208,10 @@
 
 ### 追加
 
+- Rust（`dcp_ai::v2::types`）と Go（`v2`）の SDK に `RawAuditEventV2` を追加しました。受信した V2 の監査エントリーをデコードしたとおりに保持し、未知のメンバーも含め、あらゆる深さの各メンバーの有無と `null` を保つため、dcp-jcs-v1 の正規化器が受け入れる限り、正規化されたバイト列、`prev_hash`、マークルの葉は入力のものと同じです。
+  Rust はデコードされた `serde_json::Value` を保持し（オブジェクト以外には `RawAuditEventError`）、Go はバイト列をそのまま、入力時と出力時にコピーして保持し、厳密に 1 つの JSON オブジェクト以外を拒否します。どちらも修復や再署名は行わず、無効な証拠は同じ理由で無効のままです。
+  既存の `AuditEventV2` と `AuditEvidenceV2` は変わらず、転送には損失があることを文書化しました（明示的な `null`、未知のメンバー、`null` になる存在しない `pq_checkpoint_ref`）。
+  新しい共有ベクトル `tests/interop/v2/audit_entry_roundtrip_vectors.json` は、手書きの dcp-jcs-v1 テキストを持つ 14 のエントリー（TypeScript、Python、Go、Rust の正規化器が再現します）と、新しい型が同じエラーで拒否し続ける変更を持つ署名済みバンドルを提供します。Go のバンドルビルダー、V1 の型、Python の `AuditEventV2` モデルは変わりません。
 - 外部適合性キットのエビデンスカタログ（契約 `/2`）に `--assessment verdict` を追加しました。`error_contains` を持つ 146 件の拒否を `verified: false` だけで判定し、それ以外の規則、制御、終了コードは変えません。これにより、判定が正しく独自のメッセージを返す実装がそれを示せます。
   文言は診断として報告されます（`matched`、`differs`、`no_message`、または理由付きの `not_evaluated`）。これらの各ケースは `spec/VERIFICATION.md` の手順を示し、ランナーは実行前にそのアンカーと、すべての制御が単純な肯定ケースであることを確認します。
   レポートは `/2` の wire の契約とは別に `dcp-ai-conformance-assessment/1` を宣言し、カタログの文章を `catalog_claim` と `catalog_limits` に残します。オプションなし、または `--assessment legacy` では判定とレポートは変わらず、`/1` と `/3` のカタログはこのオプションを拒否します。

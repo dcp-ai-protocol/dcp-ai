@@ -171,6 +171,10 @@
 
 ### 新增
 
+- 在 Rust（`dcp_ai::v2::types`）和 Go（`v2`）SDK 中新增 `RawAuditEventV2`：按解码时的样子保留一条收到的 V2 审计条目，任意深度的每个成员（包括未知成员）都保留其存在与否和 `null`，因此只要 dcp-jcs-v1 规范化器接受它，其规范化字节、`prev_hash` 和 Merkle 叶就与输入相同。
+  Rust 保存解码得到的 `serde_json::Value`（非对象时返回 `RawAuditEventError`）；Go 保存原始字节，输入和输出时都会复制，并拒绝任何不是恰好一个 JSON 对象的输入。两者都不修复、不重新签名：无效证据仍以相同原因无效。
+  现有的 `AuditEventV2` 和 `AuditEvidenceV2` 不变，现已注明其用于转发时有损（显式的 `null`、未知成员、缺失后变成 `null` 的 `pq_checkpoint_ref`）。
+  新的共享向量 `tests/interop/v2/audit_entry_roundtrip_vectors.json` 提供 14 条附有手写 dcp-jcs-v1 文本的条目（TypeScript、Python、Go 和 Rust 的规范化器都能复现），以及一个签名 bundle，新类型会以相同错误继续拒绝其各项变更。Go 的 bundle 构建器、V1 类型和 Python 的 `AuditEventV2` 模型不变。
 - 为外部一致性工具包的证据目录（契约 `/2`）新增 `--assessment verdict`：带有 `error_contains` 的 146 个拒绝用例只按 `verified: false` 评判，其他所有规则、对照和退出码不变，使判定正确且使用自有消息的实现能够证明这一点。
   措辞作为诊断报告：`matched`、`differs`、`no_message`，或带原因的 `not_evaluated`。每个这样的用例都标出其在 `spec/VERIFICATION.md` 中的步骤，运行器在运行前检查这些锚点，并检查每个对照都是简单的正向用例。
   报告声明独立于 `/2` wire 契约的 `dcp-ai-conformance-assessment/1`，并把目录的文字保留在 `catalog_claim` 和 `catalog_limits` 中。不加该选项或使用 `--assessment legacy` 时，评判和报告不变；`/1` 和 `/3` 目录拒绝该选项。

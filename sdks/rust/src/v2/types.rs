@@ -115,6 +115,12 @@ pub struct PolicyDecisionV2 {
 
 // ── DCP-03: Audit Chain & Transparency ──
 
+/// Evidence attached to a V2 audit event, for producing entries.
+///
+/// Not a lossless representation of received evidence: an explicit `null` member and any member other than these
+/// three are lost when it is decoded and encoded again, which changes the entry's dcp-jcs-v1 bytes and can break the
+/// `prev_hash` chain or the audit Merkle root. To keep a received entry, use [`RawAuditEventV2`]; to keep a received
+/// bundle, keep and verify its bytes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuditEvidenceV2 {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -125,6 +131,11 @@ pub struct AuditEvidenceV2 {
     pub evidence_hash: Option<String>,
 }
 
+/// A V2 audit event, for producing entries.
+///
+/// Not a lossless representation of a received entry: decoding and encoding it again drops a `null`
+/// `prev_hash_secondary` or `intent_hash_secondary`, turns an absent `pq_checkpoint_ref` into `null`, drops unknown
+/// members, and loses evidence as [`AuditEvidenceV2`] does. Use [`RawAuditEventV2`] to keep a received entry.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuditEventV2 {
     pub dcp_version: String,
@@ -145,6 +156,88 @@ pub struct AuditEventV2 {
     pub outcome: String,
     pub evidence: AuditEvidenceV2,
     pub pq_checkpoint_ref: Option<String>,
+}
+
+/// The input of a [`RawAuditEventV2`] was not a JSON object.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RawAuditEventError {
+    found: &'static str,
+}
+
+impl RawAuditEventError {
+    /// The JSON type found instead of an object: `array`, `string`, `number`, `boolean` or `null`.
+    pub fn found(&self) -> &'static str {
+        self.found
+    }
+}
+
+impl std::fmt::Display for RawAuditEventError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "an audit entry must be a JSON object, found {}", self.found)
+    }
+}
+
+impl std::error::Error for RawAuditEventError {}
+
+/// One V2 audit entry exactly as it was decoded: every member at every depth, with its presence and `null`-ness and
+/// unknown members included, in the entry and in its evidence. Whatever the dcp-jcs-v1 canonicalizer accepts in it
+/// gives the same bytes before and after a decode and encode, and so the same `prev_hash` and Merkle leaf.
+///
+/// It keeps what the existing parser produced (`serde_json`, as in the verifier), not the original text: number
+/// spelling, repeated member names and escapes are the parser's. It never normalizes, repairs or re-signs, and it
+/// keeps invalid evidence as it is, so a verifier rejects it for the same reason. The only check is that the entry is
+/// a JSON object. [`RawAuditEventV2::typed`] is a lossy view for reading fields, not for forwarding.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(transparent)]
+pub struct RawAuditEventV2(serde_json::Value);
+
+impl RawAuditEventV2 {
+    /// Keeps `value` as given; refuses anything that is not a JSON object.
+    pub fn from_value(value: serde_json::Value) -> Result<Self, RawAuditEventError> {
+        let found = match &value {
+            serde_json::Value::Object(_) => return Ok(Self(value)),
+            serde_json::Value::Array(_) => "array",
+            serde_json::Value::String(_) => "string",
+            serde_json::Value::Number(_) => "number",
+            serde_json::Value::Bool(_) => "boolean",
+            serde_json::Value::Null => "null",
+        };
+        Err(RawAuditEventError { found })
+    }
+
+    pub fn as_value(&self) -> &serde_json::Value {
+        &self.0
+    }
+
+    pub fn into_value(self) -> serde_json::Value {
+        self.0
+    }
+
+    /// A lossy, typed view of the entry (see [`AuditEventV2`]); never serialize it to forward the entry.
+    pub fn typed(&self) -> Result<AuditEventV2, serde_json::Error> {
+        AuditEventV2::deserialize(&self.0)
+    }
+}
+
+impl TryFrom<serde_json::Value> for RawAuditEventV2 {
+    type Error = RawAuditEventError;
+
+    fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
+        Self::from_value(value)
+    }
+}
+
+impl From<RawAuditEventV2> for serde_json::Value {
+    fn from(entry: RawAuditEventV2) -> Self {
+        entry.0
+    }
+}
+
+impl<'de> Deserialize<'de> for RawAuditEventV2 {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        Self::from_value(value).map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

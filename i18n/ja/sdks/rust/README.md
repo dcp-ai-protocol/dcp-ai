@@ -190,6 +190,8 @@ V2 には、DCP-05 から DCP-09 までのすべてのアーティファクト�
 
 すべての構造体は `Debug`、`Clone`、`Serialize`、`Deserialize` を導出します。列挙型は `#[serde(rename_all = "snake_case")]` を使用します。オプションのフィールドは `Option<T>` と `#[serde(skip_serializing_if = "Option::is_none")]` を使用します。
 
+**受信した監査エントリー（未公開）。** `AuditEventV2` と `AuditEvidenceV2` はエントリーを生成するためのものです。受信したエントリーをこれらにデコードして再びエンコードすると、明示的な `null`（`evidence`、`prev_hash_secondary`、`intent_hash_secondary` 内）と未知のメンバーが失われ、存在しない `pq_checkpoint_ref` は `null` になります。これはエントリーの正規化されたバイト列を変え、`prev_hash` のチェーンや監査のマークルルートを壊すことがあります。受信したエントリーを保持するには `RawAuditEventV2` を使用してください。デコードされた `serde_json::Value` を保持するため、未知のメンバーも含め、あらゆる深さの各メンバーの有無と `null` が保たれ、その値をそのままシリアライズします。JSON オブジェクトでないものだけを拒否します（`RawAuditEventError`）。保持するのは `serde_json` がデコードしたものであって元のテキストではなく、修復や再署名は決して行わず、無効な証拠もそのまま保持するため、検証器は同じ理由でそれを拒否します。`typed()` はフィールドを読むための、損失のあるビューです。受信したバンドルを保持するには、受信したまま保持し、それを検証してください。
+
 <a id="bundles-dcp_aiv2bundle-unreleased"></a>
 <a id="bundles-dcp_aiv2bundle"></a>
 

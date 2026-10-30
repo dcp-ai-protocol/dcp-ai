@@ -190,6 +190,8 @@ V2 为 DCP-05 至 DCP-09 的所有产物提供派生了 Serde trait 的结构体
 
 所有结构体均派生 `Debug`、`Clone`、`Serialize`、`Deserialize`。枚举使用 `#[serde(rename_all = "snake_case")]`。可选字段使用 `Option<T>` 并配合 `#[serde(skip_serializing_if = "Option::is_none")]`。
 
+**收到的审计条目（尚未发布）。** `AuditEventV2` 和 `AuditEvidenceV2` 用于生成条目。把收到的条目解码到它们中再重新编码，会丢失显式的 `null`（位于 `evidence`、`prev_hash_secondary` 和 `intent_hash_secondary` 中）和任何未知成员，并把缺失的 `pq_checkpoint_ref` 变成 `null`。这会改变条目的规范化字节，并可能破坏 `prev_hash` 链或审计 Merkle 根。要保留收到的条目，请使用 `RawAuditEventV2`：它保存解码得到的 `serde_json::Value`，因此任意深度的每个成员（包括未知成员）都保留其存在与否和 `null`，并按原样序列化该值。它只拒绝不是 JSON 对象的输入（`RawAuditEventError`）。它保留的是 `serde_json` 解码的结果而不是原始文本，从不修复或重新签名，并按原样保留无效证据，使验证器以相同原因拒绝它。`typed()` 是用于读取字段的有损视图。要保留收到的 bundle，请按收到时的样子保留并验证它。
+
 <a id="bundles-dcp_aiv2bundle-unreleased"></a>
 <a id="bundles-dcp_aiv2bundle"></a>
 

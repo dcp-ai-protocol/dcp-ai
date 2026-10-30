@@ -192,6 +192,8 @@ Constantes de separação de domínios: `CTX_LIFECYCLE`, `CTX_SUCCESSION`, `CTX_
 
 Todas as estruturas derivam `Debug`, `Clone`, `Serialize` e `Deserialize`. As enumerações usam `#[serde(rename_all = "snake_case")]`. Campos opcionais usam `Option<T>` com `#[serde(skip_serializing_if = "Option::is_none")]`.
 
+**Entradas de auditoria recebidas (não publicado).** `AuditEventV2` e `AuditEvidenceV2` servem para produzir entradas. Decodificar neles uma entrada recebida e codificá-la de novo perde um `null` explícito (em `evidence`, `prev_hash_secondary` e `intent_hash_secondary`) e qualquer membro desconhecido, e transforma um `pq_checkpoint_ref` ausente em `null`. Isso muda os bytes canônicos da entrada e pode quebrar a cadeia `prev_hash` ou a raiz Merkle de auditoria. Para guardar uma entrada recebida, use `RawAuditEventV2`: ele guarda o `serde_json::Value` decodificado, então cada membro, em qualquer profundidade, mantém sua presença e seu `null`, inclusive os desconhecidos, e serializa esse valor como está. Só rejeita o que não é um objeto JSON (`RawAuditEventError`). Mantém o que o `serde_json` decodificou, não o texto original, nunca repara nem assina de novo, e mantém a evidência inválida como está, para que um verificador a rejeite pelo mesmo motivo. `typed()` é uma visão com perdas para ler campos. Para guardar um bundle recebido, guarde-o como chegou e verifique isso.
+
 <a id="bundles-dcp_aiv2bundle-unreleased"></a>
 
 ### Bundles (`dcp_ai::v2::bundle`)

@@ -102,10 +102,11 @@ type PolicyDecisionV2 struct {
 // unrecognized members are lost by this struct; recognized string-valued
 // members and an empty evidence object keep their values. These member losses
 // change the canonical evidence and may invalidate the prev_hash chain or the
-// audit Merkle root. Keep the bytes of a received bundle and verify those
-// bytes (VerifySignedBundleV2 takes them). Do not automatically repair,
-// recompute or re-sign received evidence to make it verify; an explicit
-// migration should be a separate step that keeps the original.
+// audit Merkle root. To keep a received audit entry, use RawAuditEventV2; to
+// keep a received bundle, keep its bytes and verify those bytes
+// (VerifySignedBundleV2 takes them). Do not automatically repair, recompute or
+// re-sign received evidence to make it verify; an explicit migration should be
+// a separate step that keeps the original.
 type AuditEvidenceV2 struct {
 	Tool         *string `json:"tool,omitempty"`
 	ResultRef    *string `json:"result_ref,omitempty"`
@@ -113,6 +114,12 @@ type AuditEvidenceV2 struct {
 }
 
 // AuditEventV2 represents a DCP v2 Audit Event.
+//
+// It is for producing entries, not a lossless representation of a received
+// one: decoding and encoding it again drops a null or empty
+// prev_hash_secondary or intent_hash_secondary, turns an absent
+// pq_checkpoint_ref into null, drops unknown members, and loses evidence as
+// AuditEvidenceV2 does. Use RawAuditEventV2 to keep a received entry.
 type AuditEventV2 struct {
 	DCPVersion            string           `json:"dcp_version"`
 	AuditID               string           `json:"audit_id"`
