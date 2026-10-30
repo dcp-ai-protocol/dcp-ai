@@ -171,6 +171,10 @@
 
 ### 新增
 
+- 为外部一致性工具包的证据目录（契约 `/2`）新增 `--assessment verdict`：带有 `error_contains` 的 146 个拒绝用例只按 `verified: false` 评判，其他所有规则、对照和退出码不变，使判定正确且使用自有消息的实现能够证明这一点。
+  措辞作为诊断报告：`matched`、`differs`、`no_message`，或带原因的 `not_evaluated`。每个这样的用例都标出其在 `spec/VERIFICATION.md` 中的步骤，运行器在运行前检查这些锚点，并检查每个对照都是简单的正向用例。
+  报告声明独立于 `/2` wire 契约的 `dcp-ai-conformance-assessment/1`，并把目录的文字保留在 `catalog_claim` 和 `catalog_limits` 中。不加该选项或使用 `--assessment legacy` 时，评判和报告不变；`/1` 和 `/3` 目录拒绝该选项。
+  目录、测试夹具和包装器都不变；CI 在五个包装器都必需的情况下运行该评估。
 - 外部一致性工具包：选择性启用的准入目录 `--catalog admission`（契约 `dcp-ai-conformance-external/3`、
   `tools/conformance/external-admission-catalog.json`，140 个用例：`admission_vectors.json` 的 65 个结果向量、71 个配置用例，
   以及依据向量输入组合出的 4 个用例）。TypeScript、Python、Go 和 Rust 包装器通过各自 SDK 的组合准入函数和加载函数，使用请求的

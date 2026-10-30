@@ -272,6 +272,14 @@ jobs:
           DCP_EXTERNAL_REQUIRE_NATIVE: "1"
         run: DCP_EXTERNAL_PYTHON="$(command -v python)" node --test tools/conformance/external-evidence.test.mjs
 
+      # The verdict assessment of the evidence catalog: its self-tests on the fake, and the 241 cases through each of
+      # the five wrappers (T15), every one required, so no other step repeats them.
+      - name: Evidence verdict assessment self-tests and five wrappers (all required)
+        env:
+          DCP_EXTERNAL_REQUIRE_PYTHON: "1"
+          DCP_EXTERNAL_REQUIRE_NATIVE: "1"
+        run: DCP_EXTERNAL_PYTHON="$(command -v python)" node --test tools/conformance/external-evidence-assessment.test.mjs
+
       - name: Go SDK wrapper (38 cases)
         run: node tools/conformance-external.js --report external-go.json -- tools/conformance/wrappers/.build/go-wrapper
 

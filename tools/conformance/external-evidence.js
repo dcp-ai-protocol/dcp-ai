@@ -118,7 +118,7 @@ const BUILDERS = {
     const overrides = (c) => { need(c.verifier_policy_overrides === undefined || isObj(c.verifier_policy_overrides), `${c.name}: verifier_policy_overrides must be an object`); return { ...policy, ...(c.verifier_policy_overrides ?? {}) }; };
     for (const c of B.must_reject) {
       need(nonEmpty(c.name) && nonEmpty(c.error_contains) && Array.isArray(c.mutations) && c.mutations.length > 0, `must_reject ${c.name}: needs a name, a non-empty error_contains and mutations`);
-      out.push(verifyCase(`external.v2.bundle_vectors.must_reject.${c.name}`, src(`must_reject/${c.name}`), mutated(B.signed_bundle, c.mutations), policy, BUNDLE_TIME, { verified: false, error_contains: c.error_contains }, [base]));
+      out.push({ ...verifyCase(`external.v2.bundle_vectors.must_reject.${c.name}`, src(`must_reject/${c.name}`), mutated(B.signed_bundle, c.mutations), policy, BUNDLE_TIME, { verified: false, error_contains: c.error_contains }, [base]), anchor_source: { spec_step: c.spec_step } });
     }
     const accepted = [base];
     for (const c of B.must_accept_bundles) {
@@ -131,7 +131,7 @@ const BUILDERS = {
     // of the same generator (a suite-level control, a weaker guarantee), plus their specific error_contains.
     for (const c of B.must_reject_bundles) {
       need(nonEmpty(c.name) && nonEmpty(c.error_contains) && isObj(c.signed_bundle), `must_reject_bundles ${c.name}: needs a name, a non-empty error_contains and a signed_bundle`);
-      out.push(verifyCase(`external.v2.bundle_vectors.must_reject_bundles.${c.name}`, src(`must_reject_bundles/${c.name}`), c.signed_bundle, overrides(c), BUNDLE_TIME, { verified: false, error_contains: c.error_contains }, accepted));
+      out.push({ ...verifyCase(`external.v2.bundle_vectors.must_reject_bundles.${c.name}`, src(`must_reject_bundles/${c.name}`), c.signed_bundle, overrides(c), BUNDLE_TIME, { verified: false, error_contains: c.error_contains }, accepted), anchor_source: { spec_step: c.spec_step } });
     }
     const modes = Object.entries(B.classical_only_routine_bundle.verified_by_mode);
     need(modes.every(([, v]) => typeof v === "boolean") && modes.some(([, v]) => v), "classical_only_routine_bundle.verified_by_mode must hold booleans, at least one true");
@@ -152,7 +152,7 @@ const BUILDERS = {
       if (c.expect === "accept") { out.push(verifyCase(id, source, assemble(c), B.default_verifier_policy, V.verification_time, { verified: true })); continue; }
       need(c.expect === "reject" && isObj(c.control) && nonEmpty(c.error_contains), `secondary ${c.name}: needs expect, a control and a non-empty error_contains`);
       out.push(verifyCase(`${id}.control`, `${source}/control`, assemble(c.control), B.default_verifier_policy, V.verification_time, { verified: true }));
-      out.push(verifyCase(id, source, assemble(c), B.default_verifier_policy, V.verification_time, { verified: false, error_contains: c.error_contains }, [`${id}.control`]));
+      out.push({ ...verifyCase(id, source, assemble(c), B.default_verifier_policy, V.verification_time, { verified: false, error_contains: c.error_contains }, [`${id}.control`]), anchor_source: { group: c.group } });
     }
     return out;
   },
@@ -212,7 +212,91 @@ const RESULT_FIELDS = {
   verify_signed_bundle_v2: ["verified", "errors"],
 };
 
-function judge(c, results) {
+// ── Assessment: legacy (default, unchanged) or verdict (opt-in, --assessment verdict) ──
+// spec/VERIFICATION.md defines when a bundle does not verify, not the wording of the errors. Under "verdict", the
+// cases that carry an error_contains are judged on verified=false alone, every other rule is the legacy one, and the
+// wording is a diagnostic. The report of a verdict run declares its own schema, apart from the /2 wire contract.
+export const ASSESSMENTS = ["legacy", "verdict"];
+export const ASSESSMENT_SCHEMA = "dcp-ai-conformance-assessment/1";
+const ERRATUM_FIELD = { root: "audit_merkle_root_secondary", chain: "prev_hash_secondary", intent: "intent_hash_secondary" };
+const isWordingCase = (c) => c.expect?.error_contains !== undefined;
+const isPlainPositive = (c) => c.controls === undefined && c.expect?.error_contains === undefined && (c.expect?.verified === true || c.expect?.valid === true);
+
+/** The normative step of a case judged on its verdict alone, or null. */
+export function anchorOf(c) {
+  const a = c.anchor_source ?? {};
+  if (Object.hasOwn(a, "spec_step")) return typeof a.spec_step === "string" && /^V2-(?:[1-9]|1[0-4])$/.test(a.spec_step) ? { document: "spec/VERIFICATION.md", step: a.spec_step } : null;
+  if (Object.hasOwn(a, "group")) return typeof a.group === "string" && Object.hasOwn(ERRATUM_FIELD, a.group) ? { document: "spec/VERIFICATION.md", step: "V2-11", field: ERRATUM_FIELD[a.group] } : null;
+  return null;
+}
+
+/**
+ * The premises of a verdict run, checked at load: every case judged on its verdict has a normative anchor, and every
+ * control is a plain positive (expect.verified or expect.valid true, no error_contains, no controls of its own), so
+ * the assessment can never change the outcome of a control. A fact of the current builders, checked, not assumed.
+ */
+export function assertVerdictPlan(plan) {
+  const all = new Map(plan.suites.flatMap((s) => s.cases.map((c) => [c.id, c])));
+  for (const c of all.values()) {
+    if (isWordingCase(c)) need(anchorOf(c), `${c.id}: no normative anchor for the verdict assessment (spec_step V2-1 to V2-14, or a secondary group root, chain or intent)`);
+    for (const k of c.controls ?? []) need(all.has(k) && isPlainPositive(all.get(k)), `${c.id}: control ${k} is not a plain positive (expect verified or valid true, no error_contains, no controls)`);
+  }
+}
+
+// The claims and limits a verdict run states are the runner's, per suite id: what this assessment checks, whatever
+// the prose of the catalog in use. That prose is kept verbatim in the report as catalog_claim and catalog_limits.
+const NOT_JUDGED = "Rejection messages are not judged; their agreement with each committed error_contains is reported as a diagnostic.";
+export const VERDICT_TEXT = {
+  limits: [
+    "Opt-in evidence on committed public fixtures: a pass shows these cases pass for the argv that was run, nothing more. The default catalog (external-catalog.json, contract /1) is unchanged.",
+    "verification_time is pinned by each implementation through its API; the WASM wrapper substitutes the host clock (Date.now) during each call and restores it, and states so.",
+    "No key is generated and nothing is signed; only public test keys of interop_vectors.json are used. Ed25519 policy points E3 to E6 are not defined here.",
+    `Verdict assessment (${ASSESSMENT_SCHEMA}): a pass shows correct verdicts for these cases with the argv that was run; rejection messages are not assessed, and their agreement with each committed error_contains is only a diagnostic. Only status pass (exit 0) means the run passed: per-case diagnostics in a run with status fail or error are partial detail.`,
+  ],
+  suites: {
+    "external.merkle.dual_root": {
+      claim: "The implementation returns the exact SHA-256 and SHA3-256 dual Merkle roots of tests/conformance/v2/merkle_vectors.json (1, 2, 3 and 5 leaves, and reordered leaves; spec/VERIFICATION.md V2-11), generated offline without any SDK.",
+      limits: ["Roots from leaves only: the leaf hashing of audit entries and the empty-trail rule are covered by the bundle suites."],
+    },
+    "external.signature.composite": {
+      claim: "Committed composite and classical-only signatures verify; committed attacks give the committed per-field results; deterministic alterations of each positive (a signature byte, a byte of a signed string value, the context) fail, each counted only if its positive passed.",
+      limits: [
+        "A primitive with domain separation, binding and keys given: not policy, not trust, not admission. stripping_pq_with_downgrade is judged on classical_valid and pq_valid only; its rejection belongs to a hybrid_required policy.",
+        "A committed attack counts only if the positive of its payload passes. rejected/missing_pq_signature (the Rust and WASM error for a pq_over_classical signature without a PQ part) passes only where the attack commits valid:false alone with that binding and pq null (stripping_pq_removal); that code anywhere else fails.",
+        "A payload alteration changes one character of a signed string value and keeps the payload valid, canonical JSON, so a parser error is never counted as a cryptographic failure (the WASM export takes payload JSON).",
+      ],
+    },
+    "external.v2.bundle_vectors": {
+      claim: `Under default_verifier_policy with each case's committed verifier_policy_overrides, at 2026-10-22T00:00:00Z (inside the validity window of the base bundle and of every bundle expected to verify; some negatives are intentionally expired or not yet valid then), the signed bundle verifies, every committed mutation of it is rejected (verified false; the base is the control), the accepted bundles verify, the separately built rejected bundles are rejected (verified false), and the classical-only routine bundle gets its verdict per mode. ${NOT_JUDGED}`,
+      limits: [
+        "default_verifier_policy with each case's committed verifier_policy_overrides, plus the 4 modes for the classical-only bundle; no other policy is tried, although the vectors also claim every mode.",
+        "must_reject_bundles are separately built bundles with no per-case control: each counts only if the base and the accepted bundles pass (a suite-level control, a weaker guarantee than a per-case control), and is judged on its verdict alone; its committed error_contains is only a diagnostic.",
+        "A verifier verdict: not admission, not trust in the principal, not authorization of an action.",
+      ],
+    },
+    "external.v2.secondary_sha3": {
+      claim: `At the committed verification_time and under default_verifier_policy, the accepted cases verify, every committed control verifies, and every rejected case is rejected (verified false), counted only if its control passed. ${NOT_JUDGED}`,
+      limits: ["Present secondary fields are checked; absent ones are not required, so a pass does not show a complete secondary chain."],
+    },
+  },
+};
+
+// Why the wording of a case was not evaluated: only a well-formed rejection with the expected verdict and every
+// control passed is.
+function notEvaluatedReason(outcome, results, fatal) {
+  if (fatal) return "run_error";
+  if (outcome.kind === "discrepancy") return results[0]?.status === "rejected" ? "rejected" : "wrong_verdict";
+  return outcome.kind;
+}
+
+function wordingDiagnostic(c, outcome, results, fatal) {
+  if (outcome.status !== "pass") return { wording: "not_evaluated", reason: notEvaluatedReason(outcome, results, fatal), expected_wording: c.expect.error_contains };
+  const errors = results[0].errors;
+  const wording = errors.length === 0 ? "no_message" : errors.join("\n").toLowerCase().includes(c.expect.error_contains.toLowerCase()) ? "matched" : "differs";
+  return { wording, expected_wording: c.expect.error_contains };
+}
+
+function judge(c, results, assessment = "legacy") {
   if (results.length === 0) return { status: "error", kind: "missing", message: "no result for this case" };
   if (results.length > 1) return { status: "error", kind: "duplicate", message: `${results.length} results for this case` };
   const r = results[0];
@@ -243,14 +327,16 @@ function judge(c, results) {
   if (typeof r.verified !== "boolean" || !Array.isArray(r.errors) || !r.errors.every((e) => typeof e === "string")) return { status: "error", kind: "malformed_result", message: "verified is a boolean and errors an array of strings" };
   if (r.verified && r.errors.length > 0) return { status: "error", kind: "contradictory_result", message: `verified=true with errors: ${JSON.stringify(r.errors).slice(0, 300)}` };
   if (r.verified !== c.expect.verified) return { status: "fail", kind: "discrepancy", message: `verified=${r.verified}, expected ${c.expect.verified}: ${JSON.stringify(r.errors).slice(0, 300)}` };
-  if (c.expect.error_contains && !r.errors.join("\n").toLowerCase().includes(c.expect.error_contains.toLowerCase())) {
+  if (assessment === "legacy" && c.expect.error_contains && !r.errors.join("\n").toLowerCase().includes(c.expect.error_contains.toLowerCase())) {
     return { status: "fail", kind: "discrepancy", message: `no error contains ${JSON.stringify(c.expect.error_contains)}: ${JSON.stringify(r.errors).slice(0, 300)}` };
   }
   return { status: "pass" };
 }
 
 /** Runs the evidence plan against argv and returns the report (status pass, fail or error). */
-export async function runEvidence({ plan, argv, timeoutMs = EVIDENCE_TIMEOUT_MS, run = { id: crypto.randomUUID(), started_at: new Date().toISOString() } }) {
+export async function runEvidence({ plan, argv, timeoutMs = EVIDENCE_TIMEOUT_MS, run = { id: crypto.randomUUID(), started_at: new Date().toISOString() }, assessment = "legacy" }) {
+  if (!ASSESSMENTS.includes(assessment)) throw new UsageError(`unknown assessment ${assessment}`);
+  if (assessment === "verdict") assertVerdictPlan(plan);
   const nonce = crypto.randomBytes(16).toString("hex");
   const sent = [];
   for (const s of plan.suites) for (const c of s.cases) sent.push({ wire: crypto.randomBytes(8).toString("hex"), c, suite: s.id });
@@ -267,7 +353,7 @@ export async function runEvidence({ plan, argv, timeoutMs = EVIDENCE_TIMEOUT_MS,
     if (parsed.error) fatal = parsed.error;
     else for (const r of parsed.doc.results) { if (isObj(r) && typeof r.id === "string" && byWire.has(r.id)) byWire.get(r.id).push(r); else extra++; }
   }
-  const outcome = new Map(sent.map(({ wire, c }) => [c.id, fatal ? { status: "error", ...fatal } : judge(c, byWire.get(wire))]));
+  const outcome = new Map(sent.map(({ wire, c }) => [c.id, fatal ? { status: "error", ...fatal } : judge(c, byWire.get(wire), assessment)]));
   // A negative counts only if its control passed in the same run.
   for (const { c } of sent) {
     const failed = (c.controls ?? []).filter((k) => outcome.get(k)?.status !== "pass");
@@ -275,6 +361,8 @@ export async function runEvidence({ plan, argv, timeoutMs = EVIDENCE_TIMEOUT_MS,
       outcome.set(c.id, { status: "error", kind: "control_failed", message: `control(s) did not pass: ${failed.slice(0, 5).join(", ")}${failed.length > 5 ? ", …" : ""}` });
     }
   }
+  const verdict = assessment === "verdict";
+  const diagnostic = new Map(verdict ? sent.filter(({ c }) => isWordingCase(c)).map(({ wire, c }) => [c.id, wordingDiagnostic(c, outcome.get(c.id), byWire.get(wire) ?? [], fatal)]) : []);
   const report = {
     kit: { name: "dcp-ai-conformance-external", contract: EVIDENCE_CONTRACT, catalog_version: plan.catalog.version, catalog_sha256: plan.catalog.sha256, fixtures_sha256: plan.fixtures },
     run: { id: run.id, nonce, started_at: run.started_at, finished_at: new Date().toISOString(), node: process.version, request_sha256: sha256(requestBytes), timeout_ms: timeoutMs },
@@ -288,16 +376,39 @@ export async function runEvidence({ plan, argv, timeoutMs = EVIDENCE_TIMEOUT_MS,
   for (const s of plan.suites) {
     const cases = sent.filter((x) => x.suite === s.id).map(({ c }) => ({
       id: c.id, op: c.op, source: c.source, input_sha256: sha256(Buffer.from(JSON.stringify(c.request), "utf8")),
-      ...(c.controls ? { controls: c.controls } : {}), expect: c.expect, ...outcome.get(c.id),
+      ...(c.controls ? { controls: c.controls } : {}),
+      // Under verdict, a case judged on its verdict alone states that expectation, its anchor and its diagnostic.
+      ...(diagnostic.has(c.id) ? { expect: { verified: false }, anchor: anchorOf(c), ...outcome.get(c.id), diagnostic: diagnostic.get(c.id) } : { expect: c.expect, ...outcome.get(c.id) }),
     }));
     if (!fatal && extra > 0) cases.push({ id: `${s.id}#extra`, status: "error", kind: "extra", message: `${extra} result(s) with an id that was not sent` });
     const totals = { cases: cases.length, executed: 0, pass: 0, fail: 0, error: 0 };
     for (const r of cases) { totals[r.status]++; if (r.status !== "error") totals.executed++; }
-    report.suites.push({ id: s.id, title: s.title, claim: s.claim, limits: s.limits, status: totals.error ? "error" : totals.fail ? "fail" : "pass", totals, cases });
+    const status = totals.error ? "error" : totals.fail ? "fail" : "pass";
+    const text = VERDICT_TEXT.suites[s.id];
+    report.suites.push(verdict
+      ? { id: s.id, title: s.title, claim: text.claim, limits: text.limits, catalog_claim: s.claim, catalog_limits: s.limits, status, totals, cases }
+      : { id: s.id, title: s.title, claim: s.claim, limits: s.limits, status, totals, cases });
     for (const k of Object.keys(totals)) report.totals[k] += totals[k];
   }
   report.status = report.totals.error || report.totals.executed === 0 ? "error" : report.totals.fail ? "fail" : "pass";
-  return report;
+  if (!verdict) return report;
+  // A verdict report: the same fields in the same order, plus the assessment, the diagnostic totals and the verbatim
+  // catalog limits. The diagnostics of a run whose status is not pass are partial detail, never conformance.
+  const diagnostic_totals = { matched: 0, differs: 0, no_message: 0, not_evaluated: 0 };
+  for (const d of diagnostic.values()) diagnostic_totals[d.wording]++;
+  const { limits: _catalogLimits, ...rest } = report;
+  return {
+    ...rest,
+    assessment: {
+      schema: ASSESSMENT_SCHEMA, mode: "verdict", basis: "spec/VERIFICATION.md V2-1 to V2-14",
+      wording: "diagnostic, not judged", wording_cases: diagnostic.size,
+      premises: ["every case judged on its verdict has a normative anchor", "every control is a plain positive: expect verified or valid true, no error_contains, no controls (checked at load)"],
+      conformance: "only status pass (exit 0) means every selected case passed; per-case diagnostics in a run with status fail or error are partial detail",
+    },
+    diagnostic_totals,
+    limits: VERDICT_TEXT.limits,
+    catalog_limits: plan.catalog.limits,
+  };
 }
 
 /** The ids each builder produces from the committed fixtures, to write expected_cases into the catalog. */

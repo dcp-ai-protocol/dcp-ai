@@ -304,7 +304,41 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
   `stripping_pq_with_downgrade` は `classical_valid` と `pq_valid` で判定され、それを拒否するのは `hybrid_required` のポリシーの役割です。
   二次フィールドは存在する場合にだけ確認されるため、合格は完全な二次チェーンを示しません。WASM 経由では、時刻は置き換えたホストの時計です。
   `error_contains` の文字列は SDK の診断用の文言であり、規範ではありません。`spec/VERIFICATION.md` はエラーコードを定めていません。
-  これら 146 ケースの合格はその文言との一致を示すだけです。同じ判定で別のメッセージを返す検証器はそれらに失敗しますが、その失敗だけでは判定の誤りを示しません。
+  これら 146 ケースの合格はその文言との一致を示すだけです。同じ判定で別のメッセージを返す検証器はそれらに失敗しますが、その失敗だけでは判定の誤りを示しません。[判定による評価](#verdict-assessment)では、これらのケースを判定だけで評価します。
+
+<a id="verdict-assessment"></a>
+
+#### 判定による評価
+
+`spec/VERIFICATION.md` が定めるのは bundle が検証に通らない条件であり、エラーの文言ではありません。`--assessment verdict` は、独自のメッセージを返す実装のために、このカタログを判定だけで評価します。
+オプションを指定しない場合、または `--assessment legacy` の場合、判定、レポート、終了コードは上記のとおりで変わりません。
+このオプションは `/2` のカタログ（コミット済みのもの、または独自のファイル）にだけ適用されます。`/1` や `/3` のカタログでは `legacy` も含めて使用法エラーになります。それらのコードは契約の一部であるか、規範だからです。
+
+```bash
+node tools/conformance-external.js --catalog evidence --assessment verdict --list
+node tools/conformance-external.js --catalog evidence --assessment verdict --report /tmp/evidence-verdict.json -- ./my-implementation
+DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-evidence-assessment.test.mjs
+```
+
+- **変わる点：** `error_contains` を持つ 146 件の拒否（38 件の変更、別途構築された 79 件の bundle、29 件の二次ケース）だけです。
+  結果が `ok` で、形式が正しく、矛盾がなく、`verified: false` を返し、同じ実行で制御が合格していれば、それぞれ合格します。メッセージは判定しません。
+  それ以外の規則は制御も含めて従来どおりです。同じ回答に対して、`legacy` で合格するケースは `verdict` でも合格し、146 件以外のケースはすべて同じ状態と種別になります。
+- **アンカーと前提：** これらの各ケースは `spec/VERIFICATION.md` の手順（`anchor`）を示します。bundle ベクトルでは `spec_step`（V2-1 から V2-14）、二次グループでは V2-11 とエラッタのフィールド（`audit_merkle_root_secondary`、`prev_hash_secondary`、`intent_hash_secondary`）です。
+  すべての制御は単純な肯定ケースでなければなりません。検証に通る（または有効である）ことが期待され、`error_contains` も独自の制御も持ちません。そのため、評価方法によって制御の結果が変わることはありません。
+  どちらも実行前に確認され、満たさない計画は `verdict` では終了コード 3 になります（`legacy` では、たとえば独自の `--root` で合格することがあります）。上記の性質は、両方の評価で有効な計画にだけ成り立ちます。
+- **診断：** 合格した拒否の文言は、`matched`（コミット済みの `error_contains` を含む）、`differs`、`no_message`（`errors: []`）として報告されます。
+  それ以外の結果は `not_evaluated` で、その `reason` は `run_error`、`missing`、`duplicate`、`malformed_result`、`implementation`、`unsupported`、`rejected`、`contradictory_result`、`wrong_verdict`、`control_failed` のいずれかです。
+  誤った判定は、メッセージがどうであれ合格せず、文言が状態、合計、終了コードを変えることはありません。
+- **レポート：** `kit.contract` は `/2` のままです。レポートには `assessment`（その `schema` は wire の契約とは別の `dcp-ai-conformance-assessment/1`）と `diagnostic_totals` が加わります。
+  `claim` と `limits` は、この評価が実際に確認する内容を示し、カタログの文章に関係なくランナーがスイートごとに定めます。その文章は `catalog_claim` と `catalog_limits` にそのまま残り、確認済みの結果ではありません。
+  146 件の各ケースは `expect: {"verified": false}`、`anchor`、`diagnostic` を示します。legacy のレポートには新しいフィールド（`assessment`、`diagnostic_totals`、`catalog_claim`、`catalog_limits`、`anchor`、`diagnostic`）はなく、`claim`、`limits`、`expect`（`error_contains` を含む）は従来どおりです。
+  `--assessment` を付けた `--list` はモードを示し、付けない場合の出力は変わりません。
+- **終了コードと鮮度：** [契約](#contract)のとおりです。実行が合格したことを意味するのは状態 `pass`（終了コード 0）だけです。状態が `fail` や `error` の実行（たとえば余分な結果がある場合）の診断は部分的な情報であり、適合を意味しません。
+  `--assessment` のエラー（不明、重複、欠落した値、`/1` や `/3` のカタログ、欠けたアンカー）はすべてプレースホルダーの後に起こるため、古いレポートを新しい `run.id` を持つ新しいエラーで置き換えます。レポートが残らないのは、[コマンド](#external-implementations)で説明した例外だけです。
+- **セルフテスト：** `external-evidence-assessment.test.mjs` は、TypeScript ラッパーの実際の回答から作った fake を両方の評価で実行します。期待どおりのメッセージ、中立的なメッセージ、メッセージなしの正しい判定、期待どおりのメッセージを伴う誤った判定、すべてを検証またはすべてを拒否する回答、エラー、`unsupported`、欠落、重複、形式不正、拒否、余分な結果、制御の失敗、実行の失敗とタイムアウト、各スイートの単独選択、全モードでの上記の性質（順序を無視する Merkle、奇数ノードの旧来の昇格、正しい場所とそれ以外での `missing_pq_signature` を含む）、アンカーと前提、古い合格の上に書かれる新しいレポート、レポートの形と `--list` を扱います。
+  さらに、5 つのラッパーで 241 ケースを `verdict` で実行します。CI はすべてのラッパーを必須にして実行します。
+- **制限：** `verdict` での合格が示すのは、実行した argv と同じポリシーでのこれらのケースの判定が正しいことです。メッセージが正確か有用かは評価しません。
+  `/2` の wire の契約、カタログ、フィクスチャ、ラッパーは変わりません。
 
 <a id="admission-catalog-strict-v1-admission"></a>
 

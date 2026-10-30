@@ -2,11 +2,13 @@
 // Runs the external conformance suites (tools/conformance/external-catalog.json) against an implementation
 // given as argv after `--`, through the contract dcp-ai-conformance-external/1 (tools/conformance/README.md).
 //
-//   node tools/conformance-external.js [--list] [--catalog evidence|admission|<file>] [--suite <id>]... [--report <file>] [--timeout-ms <n>] -- <argv...>
+//   node tools/conformance-external.js [--list] [--catalog evidence|admission|<file>] [--assessment legacy|verdict] [--suite <id>]... [--report <file>] [--timeout-ms <n>] -- <argv...>
 //
 // Without --catalog, the default catalog (contract /1, 38 cases) runs exactly as before. --catalog evidence selects
 // the opt-in evidence catalog (contract /2: Merkle roots, composite signatures, V2 bundle verification), and
 // --catalog admission the opt-in admission catalog (contract /3: strict-v1 admission and its configuration).
+// --assessment applies to a /2 catalog only: legacy (the default) judges as before; verdict judges the rejections that
+// carry an error_contains on verified=false alone and reports their wording as a diagnostic.
 //
 // Exit codes: 0 every selected case passed, 1 a discrepancy, 2 usage error, 3 infrastructure or
 // implementation error. With --report, an "incomplete" placeholder is written before anything else and is
@@ -17,11 +19,13 @@ import crypto from "crypto";
 import {
   LIMITS, UsageError, InfraError, loadPlan, runExternal, exitCodeFor, EXTERNAL_CATALOG_PATH, REPO_ROOT,
 } from "./conformance/external.js";
-import { EVIDENCE_CATALOG_PATH, EVIDENCE_CONTRACT, EVIDENCE_TIMEOUT_MS, loadEvidencePlan, runEvidence } from "./conformance/external-evidence.js";
+import {
+  EVIDENCE_CATALOG_PATH, EVIDENCE_CONTRACT, EVIDENCE_TIMEOUT_MS, ASSESSMENTS, ASSESSMENT_SCHEMA, loadEvidencePlan, runEvidence, assertVerdictPlan,
+} from "./conformance/external-evidence.js";
 import { ADMISSION_CATALOG_PATH, ADMISSION_CONTRACT, ADMISSION_TIMEOUT_MS, loadAdmissionPlan, runAdmission } from "./conformance/external-admission.js";
 
 function parseArgs(args) {
-  const opts = { suites: [], list: false, report: undefined, timeoutMs: undefined, root: REPO_ROOT, catalog: EXTERNAL_CATALOG_PATH, argv: null };
+  const opts = { suites: [], list: false, report: undefined, timeoutMs: undefined, root: REPO_ROOT, catalog: EXTERNAL_CATALOG_PATH, assessment: undefined, argv: null };
   const sep = args.indexOf("--");
   const own = sep === -1 ? args : args.slice(0, sep);
   if (sep !== -1) opts.argv = args.slice(sep + 1);
@@ -40,6 +44,13 @@ function parseArgs(args) {
     }
     else if (a === "--root") opts.root = path.resolve(value());
     else if (a === "--catalog") { const v = value(); opts.catalog = v === "evidence" ? EVIDENCE_CATALOG_PATH : v === "admission" ? ADMISSION_CATALOG_PATH : path.resolve(v); }
+    // Not in VALUE_OPTIONS: every --assessment error comes after the placeholder, so it replaces an older report.
+    else if (a === "--assessment") {
+      if (opts.assessment !== undefined) throw new UsageError("--assessment given more than once");
+      const v = value();
+      if (!ASSESSMENTS.includes(v)) throw new UsageError(`--assessment must be ${ASSESSMENTS.join(" or ")}`);
+      opts.assessment = v;
+    }
     else if (a === "--timeout-ms") {
       const n = Number(value());
       if (!Number.isSafeInteger(n) || n < 1 || n > LIMITS.maxTimeoutMs) throw new UsageError(`--timeout-ms must be an integer from 1 to ${LIMITS.maxTimeoutMs}`);
@@ -111,22 +122,35 @@ async function main(args) {
     if (e instanceof InfraError) return fail(3, "catalog", e.message);
     return fail(3, "exception", e.stack ?? String(e));
   }
+  // /1 and /3 have contract or normative codes, not wording: --assessment is refused there, legacy included.
+  if (opts.assessment !== undefined && kind !== "evidence") return fail(2, "usage", "--assessment applies only to an evidence catalog (contract /2)");
+  const assessment = opts.assessment ?? "legacy";
+  if (assessment === "verdict") {
+    try { assertVerdictPlan(plan); }
+    catch (e) { return e instanceof InfraError ? fail(3, "catalog", e.message) : fail(3, "exception", e.stack ?? String(e)); }
+  }
+  const wordingCases = (s) => s.cases.filter((c) => c.expect?.error_contains !== undefined).length;
   if (opts.list) {
     console.log(`dcp-ai-conformance-external, catalog ${plan.catalog.version} (sha256 ${plan.catalog.sha256})`);
-    for (const s of plan.suites) console.log(`  ${s.id}  ${s.cases.length} cases  ${s.title}`);
+    if (opts.assessment !== undefined) console.log(`assessment: ${assessment} (${ASSESSMENT_SCHEMA})`);
+    for (const s of plan.suites) console.log(`  ${s.id}  ${s.cases.length} cases  ${s.title}${assessment === "verdict" ? `  (${wordingCases(s)} rejections judged on the verdict alone, wording as a diagnostic)` : ""}`);
     return 0;
   }
   let report;
-  try { report = await runner({ plan, argv: opts.argv, timeoutMs, run }); }
+  try { report = await runner({ plan, argv: opts.argv, timeoutMs, run, ...(kind === "evidence" ? { assessment } : {}) }); }
   catch (e) { return fail(3, "exception", e.stack ?? String(e)); }
+  const note = (c) => !c.diagnostic ? "" : c.diagnostic.wording === "not_evaluated" ? ` (wording not evaluated: ${c.diagnostic.reason})`
+    : c.diagnostic.wording === "matched" ? "" : ` — wording ${c.diagnostic.wording === "differs" ? "differs" : "absent"} (diagnostic)`;
   for (const s of report.suites) {
     console.log(`\n── ${s.id}: ${s.title} ──`);
-    for (const c of s.cases) console.log(`${c.status === "pass" ? "✔" : c.status === "fail" ? "✖" : "!"} ${c.id}${c.message ? ` — ${c.message}` : ""}`);
+    for (const c of s.cases) console.log(`${c.status === "pass" ? "✔" : c.status === "fail" ? "✖" : "!"} ${c.id}${c.message ? ` — ${c.message}` : ""}${note(c)}`);
   }
   const o = report.implementation.observed;
   const who = report.implementation.self_declared;
   console.log(`\nimplementation (self-declared): ${who ? `${who.name} ${who.version}` : "none"}; exit ${o.exit_code}, signal ${o.signal}, ${o.duration_ms} ms`);
-  console.log(`${report.status.toUpperCase()}: ${report.totals.pass} pass, ${report.totals.fail} fail, ${report.totals.error} error of ${report.totals.cases}`);
+  const d = report.diagnostic_totals;
+  console.log(`${report.status.toUpperCase()}: ${report.totals.pass} pass, ${report.totals.fail} fail, ${report.totals.error} error of ${report.totals.cases}${d
+    ? ` — verdict assessment (${ASSESSMENT_SCHEMA}): ${report.assessment.wording_cases} rejections judged on the verdict alone; wording matched ${d.matched}, differs ${d.differs}, no message ${d.no_message}, not evaluated ${d.not_evaluated}` : ""}`);
   if (reportFile !== undefined) {
     try { writeJson(reportFile, report); } catch (e) { console.error(`cannot write the report ${reportFile}: ${e.message}`); return 3; }
   }
