@@ -77,8 +77,9 @@ def site_markdown(text: str, source: str) -> str:
     # MkDocs already removed YAML metadata. Replace only the initial GitHub
     # language banner, leaving arbitrary <sub> content and fenced examples alone.
     banner = re.match(r"\A\s*<sub>([^\n]+)</sub>\s*\n", text)
+    # The banner links into the i18n/<locale>/ tree (or across it, from a translation).
     if (banner and all(token in banner.group(1) for token in ("English", "日本語"))
-            and re.search(r"\.(?:es|pt-BR|ja|zh-CN)\.md", banner.group(1))):
+            and re.search(r"[(/](?:es|pt-BR|ja|zh-CN)/", banner.group(1))):
         text = text[banner.end():]
     if source == "README.md":
         text = text.replace('<div align="center">', '<div align="center" markdown="1">', 1)

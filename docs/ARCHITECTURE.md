@@ -56,6 +56,7 @@ spec edits need all five SDKs to stay in lockstep; a doc edit is self-contained.
 | [`tools/`](../tools/) | Repo-internal CLIs (`validate.js`, `conformance.js`, `crypto.js`, `merkle.js`). Not published. | — |
 | [`scripts/`](../scripts/) | One-off build helpers (example generators, protocol fingerprint emit). | — |
 | [`docs/`](../docs/) | Hand-written docs: QUICKSTART, OBSERVABILITY, ARCHITECTURE (this file), SECURITY notes, migration guides. | Consumed by MkDocs. |
+| `i18n/` | Translations of the public documents: `i18n/<locale>/` holds the Spanish, Brazilian Portuguese, Japanese or Simplified Chinese translation of each document at the same path as its English source, which prevails where they differ. | Consumed by MkDocs, one site per language. |
 | `docs-site/` | Generated and not tracked (`.gitignore`): the per-language staging tree that `scripts/docs_site.py` writes for the MkDocs build. The site configuration is [`mkdocs.yml`](../mkdocs.yml). | — |
 | `site/` | Generated and not tracked (`.gitignore`): the five-language documentation site that `bash scripts/build-docs-site.sh` builds. | GitHub Pages, by `.github/workflows/docs.yml`. |
 | [`playground/`](../playground/) | In-browser interactive playground (plain JavaScript; Ed25519 with `tweetnacl`, SHA-256 with WebCrypto; its ML-DSA / SLH-DSA signatures are simulated, as the page says). | Hosted at docs.dcp-ai.org/playground/. |
