@@ -90,7 +90,7 @@ func wellFormed(s string) []byte {
 	if utf8.ValidString(s) {
 		return []byte(s)
 	}
-	b := make([]byte, 0, len(s)+8)
+	b := make([]byte, 0, len(s)) // append grows it, with the runtime's own size checks
 	for i := 0; i < len(s); {
 		r, size := utf8.DecodeRuneInString(s[i:])
 		if r == utf8.RuneError && size == 1 {

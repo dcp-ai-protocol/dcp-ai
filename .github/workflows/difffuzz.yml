@@ -57,6 +57,10 @@ jobs:
       - name: Install the Python SDK
         run: pip install -e sdks/python
 
+      - name: Go diagnostic helper tests
+        working-directory: tools/difffuzz/shims/go
+        run: go test -mod=readonly .
+
       - name: Bounded diagnostic tests with the four SDKs
         run: node --test tools/difffuzz/real-shims.test.mjs
 
