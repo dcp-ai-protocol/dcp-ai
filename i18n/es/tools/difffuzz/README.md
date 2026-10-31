@@ -32,6 +32,7 @@ node tools/difffuzz/run.mjs                       # 200 iterations, seed 1
 node tools/difffuzz/run.mjs --iterations 2000 --seed 7 --report /tmp/difffuzz.json
 node tools/difffuzz/run.mjs --replay tools/difffuzz/findings/<file>.json
 node --test tools/difffuzz/difffuzz.test.mjs      # self-tests of the harness (no SDK)
+node --test tools/difffuzz/real-shims.test.mjs    # bounded diagnostic tests with all four SDKs
 ```
 
 | Opción | Predeterminado | Significado |
@@ -91,10 +92,18 @@ Decide qué SDK es correcto a partir de los requisitos normativos (`spec/VERIFIC
 
 ## Shims
 
-`--batch` es el protocolo del controlador (`dcp-difffuzz/2`): un proceso finito por lote, mediante `runProcess` de `tools/conformance/external.js`, con un plazo, grupo de procesos propio, SIGTERM seguido de SIGKILL, salida limitada y limpieza. La solicitud en stdin es `{protocol, run_id, nonce, now_ms, cases: [{id, policy, bundle_b64}]}`, con IDs aleatorios y sin expectativa ni nombre de semilla. La respuesta en stdout es un documento JSON `{protocol, run_id, nonce, results}` con un resultado por caso y después salida 0. Una solicitud malformada sale con 2. El shim Go escribe `errors` nil como `[]`; el de Rust decodifica base64 solo con `std`.
+`--batch` es el protocolo del controlador (`dcp-difffuzz/3`): un proceso finito por lote, mediante `runProcess` de `tools/conformance/external.js`, con un plazo, grupo de procesos propio, SIGTERM seguido de SIGKILL, salida limitada y limpieza. La solicitud en stdin es `{protocol, run_id, nonce, now_ms, cases: [{id, policy, bundle_b64}]}`, con IDs aleatorios y sin expectativa ni nombre de semilla. La respuesta en stdout es un documento JSON `{protocol, run_id, nonce, results}` con un resultado por caso y después salida 0. Una solicitud malformada sale con 2. El shim Go escribe `errors` nil como `[]`; el de Rust decodifica base64 solo con `std`.
+
+En este protocolo interno del arnés, los diagnósticos de veredicto por lote conservan como máximo 8 `errors`, cada uno como prefijo literal de hasta 256 puntos de código Unicode. Una lista o cadena recortada lleva `truncated` con `original_count` (cantidad original), `kept` (cantidad conservada), `original_code_points` (total original) y `sha256` (digest de la lista original). Los diagnósticos dentro de esos límites no cambian. Los tipos de diagnóstico malformados siguen siendo fallos de protocolo; nunca se convierten en rechazos válidos. Esto no cambia los formatos de intercambio de DCP ni las decisiones del verificador.
+
+El digest procesa cada diagnóstico original en orden: primero su longitud en bytes UTF-8 como entero de 4 bytes big-endian y después sus bytes UTF-8. TypeScript y Python reemplazan los sustitutos aislados por U+FFFD para este hash; el prefijo diagnóstico no se normaliza. Go reemplaza cada byte UTF-8 inválido por U+FFFD para el hash; las cadenas de Rust son UTF-8 válido. Los textos difieren entre SDK, por lo que estos digests identifican diagnósticos de un shim concreto, no equivalencia entre SDK.
+
+El controlador comprueba los límites y la coherencia del marcador, incluida evidencia de que realmente se omitió algo. El marcador acompaña los resultados registrados. No puede autenticar el texto original sin disponer de él, ni demostrar que un shim no recortó silenciosamente un mensaje corto que por lo demás es válido. Los hallazgos históricos de `dcp-difffuzz/2` siguen siendo reproducibles, incluidos sus diagnósticos originales sin cota; las respuestas en vivo deben usar `dcp-difffuzz/3` y cumplir sus límites. La salida manual y del bucle conserva su comportamiento anterior.
+
+`stats.truncated_diagnostic_observations` cuenta observaciones de diagnósticos recortados por SDK, incluidas las repetidas durante los reintentos de aislamiento y la minimización; no cuenta entradas distintas. Las cotas limitan el transporte de diagnósticos, no el cálculo ni la memoria interna del SDK. Siguen aplicándose los límites de salida existentes: un `--stdout-bytes` configurado más pequeño puede producir legítimamente `output_limit`, y un lote fallido sigue impidiendo aprobar la ejecución.
 
 Sin `--batch`, cada shim conserva su forma anterior para uso manual: un documento en stdin, o uno por línea con `--loop`, `{"valid": bool, "errors": [string]}` por documento, modo opcional como primer argumento, la política predeterminada propia de cada SDK y el reloj del sistema.
 
 ## CI
 
-`.github/workflows/difffuzz.yml` ejecuta las autopruebas y después 300 iteraciones en cada pull request, 3000 cada noche, y acepta `iterations` y `seed` mediante `workflow_dispatch`. Si falla el job, se suben los hallazgos y el informe como artefacto `difffuzz-findings`.
+`.github/workflows/difffuzz.yml` ejecuta las autopruebas y las pruebas acotadas de diagnóstico con los cuatro SDK, y después 300 iteraciones en cada pull request, 3000 cada noche, y acepta `iterations` y `seed` mediante `workflow_dispatch`. Si falla el job, se suben los hallazgos y el informe como artefacto `difffuzz-findings`.

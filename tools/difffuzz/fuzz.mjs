@@ -13,7 +13,12 @@ import { bounded, treeDigest } from '../conformance/perf.js';
 
 export const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(HERE, '..', '..');
-export const PROTOCOL = 'dcp-difffuzz/2';
+export const PROTOCOL = 'dcp-difffuzz/3';
+// /3: in a verdict, `errors` is a bounded diagnostic summary (at most ERRORS_MAX strings of at most ERROR_CODEPOINTS_MAX
+// code points), with a `truncated` marker whenever a shim cut the SDK's list. It bounds the diagnostic transport, not the
+// memory or work inside the SDK, which has already produced the full list.
+export const ERRORS_MAX = 8;
+export const ERROR_CODEPOINTS_MAX = 256;
 export const VERIFICATION_TIME = '2026-10-22T00:00:00Z';
 export const NOW_MS = Date.parse(VERIFICATION_TIME);
 export const SDKS = ['ts', 'py', 'go', 'rust'];
@@ -36,10 +41,49 @@ const HARNESS_FAULTS = new Set(['protocol', 'unsupported']);
 const CATEGORIES = new Set(['verdict', 'parse_rejected', ...NONDEFINITIVE]);
 const CLASSES = new Set([...NONDEFINITIVE, 'disagreement', 'expectation', 'reorder']);
 
-/** A recorded outcome, typed: a verdict has exactly a boolean verified and string errors; any other category at most a message. */
+/** Code points of a string as JavaScript iterates it (a lone surrogate counts one), counted up to cap + 1 at most. */
+export function codePoints(s, cap = Infinity) {
+  let n = 0;
+  for (let i = 0; i < s.length && n <= cap; n++) i += s.codePointAt(i) > 0xffff ? 2 : 1;
+  return n;
+}
+const isCount = (v) => Number.isSafeInteger(v) && v >= 0;
+/**
+ * A truncation marker coherent with the errors it comes with: exact keys, non-negative safe integers, kept equal to
+ * min(original_count, ERRORS_MAX) and to errors.length, every kept error within the bound, original_code_points at
+ * least what was kept, and a cut that is possible: fewer errors kept (the omitted ones may be empty, so the code
+ * points may all have been kept), or, with every error kept, more original code points and at least one kept prefix
+ * cut at exactly ERROR_CODEPOINTS_MAX. Coherence only: whether the shim cut what it says, and the sha256 of originals
+ * the driver never sees, cannot be checked here.
+ */
+export function validMarker(errors, t) {
+  if (!exactKeys(t, ['original_count', 'kept', 'original_code_points', 'sha256'])) return false;
+  if (!isCount(t.original_count) || !isCount(t.kept) || !isCount(t.original_code_points) || typeof t.sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(t.sha256)) return false;
+  if (t.kept !== Math.min(t.original_count, ERRORS_MAX) || t.kept !== errors.length) return false;
+  let kept = 0;
+  let atBound = false;
+  for (const e of errors) {
+    const n = codePoints(e, ERROR_CODEPOINTS_MAX);
+    if (n > ERROR_CODEPOINTS_MAX) return false;
+    kept += n;
+    atBound ||= n === ERROR_CODEPOINTS_MAX;
+  }
+  if (t.original_code_points < kept) return false;
+  return t.original_count > t.kept || (t.original_code_points > kept && atBound);
+}
+/** The live bound of protocol /3: a verdict's errors within the bounds, or cut with a coherent marker. */
+const boundedVerdict = (r) => (r.truncated !== undefined ? validMarker(r.errors, r.truncated)
+  : r.errors.length <= ERRORS_MAX && r.errors.every((e) => codePoints(e, ERROR_CODEPOINTS_MAX) <= ERROR_CODEPOINTS_MAX));
+
+/**
+ * A recorded outcome, typed: a verdict has exactly a boolean verified and string errors, and a coherent truncation
+ * marker if it has one; any other category at most a message. No length bound: findings recorded under /2 keep their
+ * full errors and replay as they are; the bounds of /3 apply to live responses (judgeResponse).
+ */
 export function validOutcome(o) {
   if (!isObj(o) || !CATEGORIES.has(o.category)) return false;
-  if (o.category === 'verdict') return exactKeys(o, ['category', 'verified', 'errors']) && typeof o.verified === 'boolean' && Array.isArray(o.errors) && o.errors.every((e) => typeof e === 'string');
+  if (o.category === 'verdict') return exactKeys(o, ['category', 'verified', 'errors'], ['truncated']) && typeof o.verified === 'boolean' && Array.isArray(o.errors) && o.errors.every((e) => typeof e === 'string')
+    && (o.truncated === undefined || validMarker(o.errors, o.truncated));
   return exactKeys(o, ['category'], ['message']) && (o.message === undefined || typeof o.message === 'string');
 }
 const validOutcomes = (m) => isObj(m) && Object.keys(m).length === SDKS.length && SDKS.every((s) => validOutcome(m[s]));
@@ -336,6 +380,7 @@ export const MUTATOR_NAMES = Object.keys(makeMutators(makeRng('x')));
 
 // ── One finite batch through one shim ──
 const RESULT_KEYS = { verdict: ['verified', 'errors'], parse_rejected: ['message'], error: ['message'], unsupported: [] };
+const RESULT_OPTIONAL = { verdict: ['truncated'] };
 
 /** Judges one response against its request. Returns { ok: true, results: Map(id → outcome) } or a batch failure. */
 export function judgeResponse(stdout, observed, request) {
@@ -357,11 +402,12 @@ export function judgeResponse(stdout, observed, request) {
     if (!wanted.has(r.id)) return fail('protocol', `unknown result id ${JSON.stringify(r.id).slice(0, 80)}`);
     if (results.has(r.id)) return fail('protocol', `duplicate result id ${r.id}`);
     const fields = RESULT_KEYS[r.status];
-    if (!fields || !exactKeys(r, ['id', 'status', ...fields])) return fail('protocol', `malformed result for ${r.id}`);
+    if (!fields || !exactKeys(r, ['id', 'status', ...fields], RESULT_OPTIONAL[r.status])) return fail('protocol', `malformed result for ${r.id}`);
     if (r.status === 'verdict' && (typeof r.verified !== 'boolean' || !Array.isArray(r.errors) || !r.errors.every((e) => typeof e === 'string'))) return fail('protocol', `malformed verdict for ${r.id}`);
+    if (r.status === 'verdict' && !boundedVerdict(r)) return fail('protocol', `diagnostics of ${r.id} exceed ${ERRORS_MAX} errors of ${ERROR_CODEPOINTS_MAX} code points without a coherent truncation marker`);
     if ((r.status === 'parse_rejected' || r.status === 'error') && typeof r.message !== 'string') return fail('protocol', `malformed ${r.status} for ${r.id}`);
     const category = r.status === 'error' ? 'sdk_error' : r.status;
-    results.set(r.id, category === 'verdict' ? { category, verified: r.verified, errors: r.errors } : { category, ...(r.message !== undefined ? { message: r.message.slice(0, 500) } : {}) });
+    results.set(r.id, category === 'verdict' ? { category, verified: r.verified, errors: r.errors, ...(r.truncated !== undefined ? { truncated: r.truncated } : {}) } : { category, ...(r.message !== undefined ? { message: r.message.slice(0, 500) } : {}) });
   }
   if (results.size !== wanted.size) return fail('protocol', `${wanted.size - results.size} result(s) missing`);
   return { ok: true, results };
@@ -526,7 +572,10 @@ export async function runCampaign(o, { commands: injected, seedsOverride, mutato
   writeReport();
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dcp-difffuzz-'));
   const stats = { iterations: 0, jobs: 0, batches: 0, batch_failures: 0, retries: 0, agreements: 0, skipped_oversize: 0, jobs_not_run: 0,
-    findings_suppressed: 0, from_valid: 0, by_mutator: {}, minimize_runs: 0, observed_classes: {} };
+    findings_suppressed: 0, from_valid: 0, by_mutator: {}, minimize_runs: 0, observed_classes: {},
+    // Results received with a truncation marker, per SDK: observations (baseline, mutants, isolation retries and
+    // minimization steps each count once per result), not unique cases.
+    truncated_diagnostic_observations: Object.fromEntries(SDKS.map((s) => [s, 0])) };
   // Severity comes from every observation the driver receives (baseline, mutants and minimization steps), never
   // from the findings it had room to record: --max-findings limits files, not what a run is judged to be.
   let harnessSeen = false;
@@ -563,7 +612,8 @@ export async function runCampaign(o, { commands: injected, seedsOverride, mutato
       const settled = await Promise.allSettled(SDKS.map(async (sdk) => {
         stats.batches++;
         const b = await runBatch(cmds[sdk], jobs, o);
-        if (b.judged.ok) { jobs.forEach((j, i) => { outcomes[i][sdk] = b.judged.results.get(j.wireId); }); return; }
+        const note = (r) => { if (r?.truncated) stats.truncated_diagnostic_observations[sdk]++; return r; };
+        if (b.judged.ok) { jobs.forEach((j, i) => { outcomes[i][sdk] = note(b.judged.results.get(j.wireId)); }); return; }
         stats.batch_failures++;
         const event = { sdk, category: b.judged.category, detail: b.judged.detail, stderr: b.judged.stderr?.slice(0, 1000), jobs: jobs.length, isolated: [] };
         events.push(event);
@@ -573,7 +623,7 @@ export async function runCampaign(o, { commands: injected, seedsOverride, mutato
           if (stats.retries >= o.maxRetries) throw new InfraError(`retry budget of ${o.maxRetries} exhausted after a ${b.judged.category} batch failure of ${sdk}`);
           stats.retries++;
           const one = await runBatch(cmds[sdk], [jobs[i]], o);
-          outcomes[i][sdk] = one.judged.ok ? one.judged.results.get(jobs[i].wireId) : { category: one.judged.category, message: one.judged.detail };
+          outcomes[i][sdk] = one.judged.ok ? note(one.judged.results.get(jobs[i].wireId)) : { category: one.judged.category, message: one.judged.detail };
           if (!one.judged.ok) event.isolated.push({ job: i, category: one.judged.category });
         }
         if (!event.isolated.length) {

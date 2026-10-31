@@ -32,6 +32,7 @@ node tools/difffuzz/run.mjs                       # 200 iterations, seed 1
 node tools/difffuzz/run.mjs --iterations 2000 --seed 7 --report /tmp/difffuzz.json
 node tools/difffuzz/run.mjs --replay tools/difffuzz/findings/<file>.json
 node --test tools/difffuzz/difffuzz.test.mjs      # self-tests of the harness (no SDK)
+node --test tools/difffuzz/real-shims.test.mjs    # bounded diagnostic tests with all four SDKs
 ```
 
 | 选项 | 默认值 | 含义 |
@@ -93,10 +94,18 @@ node --test tools/difffuzz/difffuzz.test.mjs      # self-tests of the harness (n
 
 ## 封装程序
 
-`--batch` 是驱动协议（`dcp-difffuzz/2`），通过外部一致性套件的 `runProcess`（位于 `tools/conformance/external.js`）为每批运行一个有限生命周期进程，具有截止时间、独立进程组、SIGTERM 后 SIGKILL、有界输出和清理。stdin 请求为 `{protocol, run_id, nonce, now_ms, cases: [{id, policy, bundle_b64}]}`，使用随机 ID，不包含预期或种子名。stdout 响应为一个 JSON 文档 `{protocol, run_id, nonce, results}`，每个用例恰好一个结果，之后退出 0。畸形请求退出 2。Go 封装程序将 nil 的 `errors` 写为 `[]`；Rust 封装程序仅使用 `std` 解码 base64。
+`--batch` 是驱动协议（`dcp-difffuzz/3`），通过外部一致性套件的 `runProcess`（位于 `tools/conformance/external.js`）为每批运行一个有限生命周期进程，具有截止时间、独立进程组、SIGTERM 后 SIGKILL、有界输出和清理。stdin 请求为 `{protocol, run_id, nonce, now_ms, cases: [{id, policy, bundle_b64}]}`，使用随机 ID，不包含预期或种子名。stdout 响应为一个 JSON 文档 `{protocol, run_id, nonce, results}`，每个用例恰好一个结果，之后退出 0。畸形请求退出 2。Go 封装程序将 nil 的 `errors` 写为 `[]`；Rust 封装程序仅使用 `std` 解码 base64。
+
+在此测试工具的内部协议中，批次判定诊断最多保留 8 条 `errors`，每条均为原文前缀，最多 256 个 Unicode 码点。列表或字符串被截短时，`truncated` 记录 `original_count`（原始条数）、`kept`（保留条数）、`original_code_points`（原始总码点数）和 `sha256`（原始列表的摘要）。范围内的普通诊断保持不变。诊断类型畸形仍是协议故障，绝不会被转换为有效拒绝。此变更不改变 DCP 传输格式或验证器判定。
+
+摘要按顺序处理每条原始诊断：先写入以 4 字节大端整数表示的 UTF-8 字节长度，再写入 UTF-8 字节。TypeScript 和 Python 在计算此哈希时将孤立代理项替换为 U+FFFD，但不会规范化诊断前缀本身。Go 在计算哈希时将每个无效 UTF-8 字节替换为 U+FFFD；Rust 字符串为有效 UTF-8。不同 SDK 的诊断文字不同，因此这些摘要标识特定封装程序的诊断，不代表 SDK 间的等价性。
+
+驱动检查上限和标记的一致性，包括确实有所省略的证据。标记随结果一起保存。但在没有原文时，它无法认证原文，也无法证明封装程序没有悄悄缩短一条形式上有效的短消息。`dcp-difffuzz/2` 的历史发现项仍可重放，包括其原来不受此上限约束的诊断；当前响应必须使用 `dcp-difffuzz/3` 并满足其限制。手动和循环输出保留原有行为。
+
+`stats.truncated_diagnostic_observations` 按 SDK 统计诊断截短的观测次数，包括隔离重试和缩减期间的重复观测；它不是不同输入的数量。这些上限约束的是诊断传输，而非 SDK 计算或内部内存。现有输出限制仍然适用：将 `--stdout-bytes` 设置得更小可能合理地触发 `output_limit`，失败批次仍会阻止整次运行通过。
 
 不带 `--batch` 时，各封装程序保留原来的手动形式：stdin 一个文档，或用 `--loop` 每行一个文档；每文档返回 `{"valid": bool, "errors": [string]}`，第一个参数可选模式，使用各 SDK 自身的默认策略和系统时钟。
 
 ## CI
 
-`.github/workflows/difffuzz.yml` 先执行自测，再在每个 pull request 中执行 300 次迭代、每晚执行 3000 次，并通过 `workflow_dispatch` 接受 `iterations` 和 `seed`。作业失败时，发现项和报告作为 `difffuzz-findings` 构建产物上传。
+`.github/workflows/difffuzz.yml` 先执行自测和四个 SDK 的有界诊断测试，再在每个 pull request 中执行 300 次迭代、每晚执行 3000 次，并通过 `workflow_dispatch` 接受 `iterations` 和 `seed`。作业失败时，发现项和报告作为 `difffuzz-findings` 构建产物上传。

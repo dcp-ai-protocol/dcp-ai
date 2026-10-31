@@ -40,6 +40,7 @@ node tools/difffuzz/run.mjs                       # 200 iterations, seed 1
 node tools/difffuzz/run.mjs --iterations 2000 --seed 7 --report /tmp/difffuzz.json
 node tools/difffuzz/run.mjs --replay tools/difffuzz/findings/<file>.json
 node --test tools/difffuzz/difffuzz.test.mjs      # self-tests of the harness (no SDK)
+node --test tools/difffuzz/real-shims.test.mjs    # bounded diagnostic tests with all four SDKs
 ```
 
 | Option | Default | Meaning |
@@ -144,7 +145,7 @@ agreement.
 
 ## Shims
 
-`--batch` is the driver's protocol (`dcp-difffuzz/2`), one finite process per batch, run through the external
+`--batch` is the driver's protocol (`dcp-difffuzz/3`), one finite process per batch, run through the external
 conformance kit's process runner (`runProcess` in `tools/conformance/external.js`: one deadline, its own
 process group, SIGTERM then SIGKILL, bounded output and cleanup). The request on stdin is
 `{protocol, run_id, nonce, now_ms, cases: [{id, policy, bundle_b64}]}` with random ids and no expectation or
@@ -152,12 +153,35 @@ seed name; the response on stdout is one JSON document `{protocol, run_id, nonce
 result per case, then exit 0. A malformed request exits 2. The Go shim writes nil `errors` as `[]`; the Rust
 shim decodes base64 with `std` only.
 
+In this internal harness protocol, batch verdict diagnostics keep at most 8 `errors`, each a literal prefix
+of at most 256 Unicode code points. A shortened list or string carries `truncated` with `original_count` (original
+count), `kept` (retained count), `original_code_points` (original total) and `sha256` (digest of the original list).
+Ordinary diagnostics within those bounds remain unchanged. Malformed diagnostic types remain protocol
+failures; they never become valid rejections. This does not change DCP wire formats or verifier decisions.
+
+The digest hashes each original diagnostic in order as its 4-byte big-endian UTF-8 byte length followed by
+its UTF-8 bytes. TypeScript and Python replace lone surrogates with U+FFFD for this hash; the diagnostic
+prefix itself is not normalized. Go replaces each invalid UTF-8 byte with U+FFFD for the hash; Rust strings
+are valid UTF-8. Diagnostic text differs
+between SDKs, so these digests identify diagnostics from a particular shim, not cross-SDK equivalence.
+
+The driver checks the bounds and marker coherence, including evidence that something was actually omitted.
+The marker travels with recorded outcomes. It cannot authenticate the original text without that text, or
+prove that a shim did not silently shorten an otherwise valid short message. Historical findings from
+`dcp-difffuzz/2` remain replayable, including their original unbounded diagnostics; live responses must use
+`dcp-difffuzz/3` and meet its bounds. Manual and loop output retain their previous behavior.
+
+`stats.truncated_diagnostic_observations` counts bounded diagnostic observations per SDK, including repeated observations
+from isolation retries and minimization; it is not a count of distinct inputs. The caps limit diagnostic
+transport, not SDK computation or internal memory. Existing output limits still apply: a smaller configured
+`--stdout-bytes` may legitimately yield `output_limit`, and a failed batch still prevents a passing run.
+
 Without `--batch`, each shim keeps its earlier form for manual use: one document on stdin (or one per line
 with `--loop`), `{"valid": bool, "errors": [string]}` per document, an optional mode as first argument, each
 SDK's own default policy and the system clock.
 
 ## CI
 
-`.github/workflows/difffuzz.yml` runs the self-tests, then 300 iterations on every pull request, 3000
+`.github/workflows/difffuzz.yml` runs the self-tests and the bounded four-SDK diagnostic tests, then 300 iterations on every pull request, 3000
 nightly, and takes `iterations` and `seed` inputs on `workflow_dispatch`. Findings and the report are uploaded
 as the `difffuzz-findings` artifact when the job fails.

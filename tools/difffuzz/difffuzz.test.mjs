@@ -7,7 +7,11 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { DEFAULTS, HERE, loadSeeds, parseArgs, provenance, replayFinding, runCampaign } from './fuzz.mjs';
+import crypto from 'node:crypto';
+import {
+  DEFAULTS, ERRORS_MAX, ERROR_CODEPOINTS_MAX, HERE, PROTOCOL, codePoints, judgeResponse, loadSeeds, parseArgs, provenance, replayFinding,
+  runCampaign, validMarker, validOutcome,
+} from './fuzz.mjs';
 
 const FAKE = path.join(HERE, 'test', 'fake-shim.mjs');
 const fake = (b) => [process.execPath, FAKE, b];
@@ -375,4 +379,128 @@ test('a harness fault seen only during minimization still makes the run a harnes
   assert.ok(r.report.stats.minimize_runs > 0);
   assert.equal(r.exit, 3);
   assert.equal(r.report.status, 'error');
+});
+
+// ── Protocol /3: bounded diagnostics ──
+const ASTRAL = '\u{1F600}';
+const okObserved = { exit_code: 0, signal: null, output_limit: false, timed_out: false, cleanup_incomplete: false, group_alive_after_exit: false, spawn_error: null, stderr_excerpt: '' };
+const judgeOne = (result) => {
+  const request = { run_id: 'r', nonce: 'n', cases: [{ id: 'c' }] };
+  return judgeResponse(Buffer.from(JSON.stringify({ protocol: PROTOCOL, run_id: 'r', nonce: 'n', results: [{ id: 'c', status: 'verdict', verified: false, ...result }] })), okObserved, request);
+};
+const coherent = (errors, original_count, original_code_points) => ({ original_count, kept: errors.length, original_code_points, sha256: '0'.repeat(64) });
+
+test('protocol /3 bounds: 8 errors of 256 code points pass unmarked, one more needs a coherent marker, in ASCII, multibyte and astral', () => {
+  assert.deepEqual([ERRORS_MAX, ERROR_CODEPOINTS_MAX, PROTOCOL], [8, 256, 'dcp-difffuzz/3']);
+  for (const ch of ['a', '\u00e9', ASTRAL]) {
+    assert.deepEqual([255, 256, 257].map((n) => codePoints(ch.repeat(n))), [255, 256, 257], ch);
+    assert.equal(judgeOne({ errors: [ch.repeat(255)] }).ok, true, `${ch} 255`);
+    assert.equal(judgeOne({ errors: [ch.repeat(256)] }).ok, true, `${ch} 256`);
+    assert.equal(judgeOne({ errors: [ch.repeat(257)] }).ok, false, `${ch} 257 unmarked`);
+    const kept = [ch.repeat(256)];
+    const r = judgeOne({ errors: kept, truncated: coherent(kept, 1, 257) });
+    assert.equal(r.ok, true, `${ch} 257 marked`);
+    assert.deepEqual(r.results.get('c').truncated, coherent(kept, 1, 257), 'the marker is kept in the outcome');
+  }
+  assert.equal(codePoints('\ud800x'), 2, 'a lone surrogate counts one code point');
+  for (const n of [7, 8]) assert.equal(judgeOne({ errors: Array(n).fill('m') }).ok, true, `${n} messages`);
+  assert.equal(judgeOne({ errors: Array(9).fill('m') }).ok, false, '9 messages unmarked');
+  assert.equal(judgeOne({ errors: Array(8).fill('m'), truncated: coherent(Array(8).fill('m'), 9, 9) }).ok, true, '9 messages marked');
+  assert.deepEqual(judgeOne({ errors: ['short one', 'short two'] }).results.get('c'), { category: 'verdict', verified: false, errors: ['short one', 'short two'] }, 'normal errors unchanged');
+});
+
+test('protocol /3 marker: exact keys, safe non-negative integers, kept = min(count, 8) = errors, enough code points, and a real cut', () => {
+  const kept = Array(8).fill('m');
+  const ok = coherent(kept, 9, 8);
+  assert.equal(validMarker(kept, ok), true, 'a count cut keeps every code point when the omitted errors are empty');
+  assert.equal(validMarker(['a'.repeat(256)], coherent(['a'.repeat(256)], 1, 300)), true, 'a length cut leaves a prefix at the bound');
+  assert.equal(validMarker(Array(8).fill('a'.repeat(256)), coherent(Array(8).fill('a'.repeat(256)), 9, 2048)), true, 'count cut, omitted error empty, prefixes at the bound');
+  for (const [why, t, errors = kept] of [
+    ['superfluous: nothing was cut', coherent(kept, 8, 8)],
+    ['impossible length cut: every error kept, more code points, no prefix at the bound', coherent(['a'], 1, 300), ['a']],
+    ['impossible length cut with 8 errors under the bound', coherent(Array(8).fill('a'.repeat(255)), 8, 3000), Array(8).fill('a'.repeat(255))],
+    ['kept is not min(count, 8)', { ...ok, kept: 7 }],
+    ['kept is not errors.length', ok, Array(7).fill('m')],
+    ['string count', { ...ok, original_count: '9' }],
+    ['negative', { ...ok, original_code_points: -1 }],
+    ['unsafe integer', { ...ok, original_count: 2 ** 53 }],
+    ['fraction', { ...ok, original_code_points: 8.5 }],
+    ['extra key', { ...ok, note: 1 }],
+    ['missing key', { original_count: 9, kept: 8, original_code_points: 8 }],
+    ['fewer original code points than kept', coherent(kept, 9, 7)],
+    ['uppercase sha256', { ...ok, sha256: 'A'.repeat(64) }],
+    ['kept error over the bound', coherent(['x'.repeat(257)], 1, 300), ['x'.repeat(257)]],
+  ]) {
+    assert.equal(validMarker(errors, t), false, why);
+    assert.equal(judgeOne({ errors, truncated: t }).ok, false, `judged: ${why}`);
+  }
+  assert.equal(judgeOne({ errors: 'not a list' }).ok, false, 'mistyped errors stay a protocol fault');
+  assert.equal(judgeOne({ errors: [1] }).ok, false, 'non-string errors stay a protocol fault');
+});
+
+test('unbounded or incoherently marked diagnostics, mistyped errors and a /2 answer are harness faults (exit 3), never agreement', async () => {
+  for (const b of ['long-unmarked', 'many-unmarked', 'errors-string', 'proto2', 'marker-superfluous', 'marker-kept', 'marker-type', 'marker-negative', 'marker-unsafe', 'marker-extra', 'marker-impossible', 'marker-sha']) {
+    const r = await runCampaign(opts(), { commands: shims(b), seedsOverride: synthetic([bundle(), bundle({ ok: false })]), log: quiet });
+    assert.equal(r.exit, 3, b);
+    assert.ok(classes(r.report).includes('protocol'), `${b}: ${classes(r.report)}`);
+    assert.equal(r.report.stats.agreements, 0, b);
+  }
+});
+
+test('bounded diagnostics change no verdict or category; markers are counted as observations and kept in findings', async () => {
+  const seeds = synthetic([bundle(), bundle({ ok: false })]);
+  for (const b of ['at-bounds', 'marked']) {
+    const r = await runCampaign(opts(), { commands: shims(b, b), seedsOverride: seeds, log: quiet });
+    assert.equal(r.exit, 0, b);
+    assert.equal(r.report.stats.agreements, 2, b);
+  }
+  const marked = await runCampaign(opts(), { commands: shims('marked', 'marked'), seedsOverride: seeds, log: quiet });
+  assert.deepEqual(marked.report.stats.truncated_diagnostic_observations, { ts: 1, py: 1, go: 1, rust: 1 }, 'one marked rejection per SDK');
+  const out = tmpdir();
+  const split = await runCampaign(opts({ out }), { commands: shims('marked-reject-all', 'by-field'), seedsOverride: seeds, log: quiet });
+  const f = split.report.findings.find((x) => x.classes.includes('disagreement'));
+  assert.ok(f, JSON.stringify(split.report.findings.map((x) => x.classes)));
+  assert.ok(validMarker(f.outcomes.ts.errors, f.outcomes.ts.truncated) && f.outcomes.py.truncated === undefined, 'the marker is in the finding');
+  const again = await replayFinding({ ...opts(), replay: path.join(out, f.file) }, { commands: shims('marked-reject-all', 'by-field'), seedsOverride: seeds, log: quiet });
+  assert.equal(again.exit, 0, JSON.stringify(again.report));
+});
+
+test('a 9 MiB answer is still an output_limit finding under the default limits, and fails the run', async () => {
+  const r = await runCampaign(opts(), { commands: shims('nine-mib'), seedsOverride: synthetic([bundle({ ok: 'n/a' })]), log: quiet });
+  assert.equal(r.exit, 1);
+  assert.deepEqual(r.report.findings.map((f) => f.classes), [['output_limit']]);
+});
+
+test('historical /2 findings with long unmarked errors still replay; a finding with an incoherent marker does not', async () => {
+  const { seeds, file, saved } = await oneFinding();
+  const long = { ...saved.outcomes.ts, errors: Array(20).fill('x'.repeat(5000)) };
+  assert.equal(validOutcome(long), true, 'historical validation has no length bound');
+  fs.writeFileSync(file, JSON.stringify({ ...saved, outcomes: { ...saved.outcomes, ts: long } }));
+  assert.equal((await replay(file, seeds)).exit, 0);
+  const kept = Array(8).fill('m');
+  fs.writeFileSync(file, JSON.stringify({ ...saved, outcomes: { ...saved.outcomes, ts: { ...saved.outcomes.ts, errors: kept, truncated: coherent(kept, 9, 8) } } }));
+  assert.equal((await replay(file, seeds)).exit, 0, 'a new finding with a marker replays');
+  fs.writeFileSync(file, JSON.stringify({ ...saved, outcomes: { ...saved.outcomes, ts: { ...saved.outcomes.ts, errors: kept, truncated: coherent(kept, 8, 8) } } }));
+  const bad = await replay(file, seeds);
+  assert.equal(bad.exit, 3);
+  assert.match(bad.report.error, /four typed SDK outcomes/);
+});
+
+// Python's json.dumps default: ", " and ": " separators and ensure_ascii (an astral code point is 12 bytes).
+const pyStr = (v) => JSON.stringify(v).replace(/[\u0080-\uffff]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
+const pyDumps = (v) => (Array.isArray(v) ? `[${v.map(pyDumps).join(', ')}]`
+  : v && typeof v === 'object' ? `{${Object.entries(v).map(([k, x]) => `${pyStr(k)}: ${pyDumps(x)}`).join(', ')}}` : typeof v === 'string' ? pyStr(v) : JSON.stringify(v));
+
+test('the worst bounded answer to 256 cases with real request ids fits the default stdout, also as Python writes it', () => {
+  assert.equal(pyDumps({ a: ['\u00e9', ASTRAL] }), '{"a": ["\\u00e9", "\\ud83d\\ude00"]}');
+  const ids = Array.from({ length: 256 }, () => crypto.randomBytes(12).toString('hex')); // as the driver makes them
+  const request = { run_id: crypto.randomUUID(), nonce: crypto.randomBytes(16).toString('hex'), cases: ids.map((id) => ({ id })) };
+  const errors = Array(ERRORS_MAX).fill(ASTRAL.repeat(ERROR_CODEPOINTS_MAX));
+  const worst = { original_count: Number.MAX_SAFE_INTEGER, kept: ERRORS_MAX, original_code_points: Number.MAX_SAFE_INTEGER, sha256: 'f'.repeat(64) };
+  const response = { protocol: PROTOCOL, run_id: request.run_id, nonce: request.nonce, results: ids.map((id) => ({ id, status: 'verdict', verified: false, errors, truncated: worst })) };
+  const py = Buffer.byteLength(pyDumps(response) + '\n');
+  const js = Buffer.byteLength(JSON.stringify(response) + '\n');
+  assert.ok(py <= DEFAULTS.stdoutBytes, `Python JSON ${py} bytes`);
+  assert.ok(py > 6 * 1000 * 1000 && js < py, `Python ${py}, JSON ${js}`);
+  assert.equal(judgeResponse(Buffer.from(JSON.stringify(response)), okObserved, request).ok, true);
 });

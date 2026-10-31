@@ -32,6 +32,7 @@ node tools/difffuzz/run.mjs                       # 200 iterations, seed 1
 node tools/difffuzz/run.mjs --iterations 2000 --seed 7 --report /tmp/difffuzz.json
 node tools/difffuzz/run.mjs --replay tools/difffuzz/findings/<file>.json
 node --test tools/difffuzz/difffuzz.test.mjs      # self-tests of the harness (no SDK)
+node --test tools/difffuzz/real-shims.test.mjs    # bounded diagnostic tests with all four SDKs
 ```
 
 | オプション | デフォルト | 意味 |
@@ -91,10 +92,18 @@ node --test tools/difffuzz/difffuzz.test.mjs      # self-tests of the harness (n
 
 ## Shims
 
-`--batch` は制御モジュールのプロトコル（`dcp-difffuzz/2`）です。外部適合性キットの `runProcess`（`tools/conformance/external.js`）で、1 バッチにつき有限のプロセスを実行します。期限、専用プロセスグループ、SIGTERM に続く SIGKILL、出力上限、後片付けを備えます。標準入力は `{protocol, run_id, nonce, now_ms, cases: [{id, policy, bundle_b64}]}` で、ID はランダム、期待値やシード名は含めません。標準出力は各ケースにつき 1 結果を含む JSON 文書 `{protocol, run_id, nonce, results}` で、その後に 0 で終了します。不正なリクエストは 2 で終了します。Go shim は nil の `errors` を `[]` として出力し、Rust shim は `std` のみで base64 をデコードします。
+`--batch` は制御モジュールのプロトコル（`dcp-difffuzz/3`）です。外部適合性キットの `runProcess`（`tools/conformance/external.js`）で、1 バッチにつき有限のプロセスを実行します。期限、専用プロセスグループ、SIGTERM に続く SIGKILL、出力上限、後片付けを備えます。標準入力は `{protocol, run_id, nonce, now_ms, cases: [{id, policy, bundle_b64}]}` で、ID はランダム、期待値やシード名は含めません。標準出力は各ケースにつき 1 結果を含む JSON 文書 `{protocol, run_id, nonce, results}` で、その後に 0 で終了します。不正なリクエストは 2 で終了します。Go shim は nil の `errors` を `[]` として出力し、Rust shim は `std` のみで base64 をデコードします。
+
+このハーネス内部プロトコルでは、バッチの判定診断は最大 8 件の `errors` を保持し、各文字列は最大 256 Unicode コードポイントの元の接頭辞とします。リストまたは文字列を切り詰めた場合、`truncated` に `original_count`（元の件数）、`kept`（保持件数）、`original_code_points`（元の合計）、`sha256`（元のリストのダイジェスト）を記録します。範囲内の通常の診断は変わりません。診断の型が不正なら引き続きプロトコル障害となり、有効な拒否には変換されません。DCP のワイヤ形式や検証器の判定は変更しません。
+
+ダイジェストは元の診断を順番に処理し、各診断の UTF-8 バイト長を 4 バイトのビッグエンディアン整数で表した値に続けて UTF-8 バイト列をハッシュします。TypeScript と Python はこのハッシュのために孤立サロゲートを U+FFFD に置換しますが、診断の接頭辞自体は正規化しません。Go はハッシュのために不正な UTF-8 バイトごとに U+FFFD を使用し、Rust の文字列は有効な UTF-8 です。診断文は SDK 間で異なるため、このダイジェストは特定の shim の診断を識別するもので、SDK 間の同値性を示すものではありません。
+
+ドライバーは上限とマーカーの整合性を検査し、実際に省略があったことを示す情報も要求します。マーカーは記録された結果に保持されます。ただし、元のテキストなしにその真正性を確認したり、形式上有効な短いメッセージを shim が黙って短縮していないと証明したりすることはできません。`dcp-difffuzz/2` の過去の発見項目は、元の無制限の診断を含めて引き続き再実行できます。現在の応答には `dcp-difffuzz/3` とその上限が必要です。手動およびループ出力の従来の動作は維持します。
+
+`stats.truncated_diagnostic_observations` は SDK ごとに切り詰めた診断の観測回数を数え、分離再試行や縮小中の重複観測も含みます。異なる入力の数ではありません。上限が制限するのは診断の転送量であり、SDK の計算や内部メモリではありません。既存の出力上限も適用されます。`--stdout-bytes` を小さく設定すれば正当に `output_limit` が発生し得ます。失敗したバッチがある実行は引き続き合格になりません。
 
 `--batch` がない場合は手動利用向けの従来形式を保ちます。標準入力に 1 文書（`--loop` なら 1 行に 1 文書）、文書ごとに `{"valid": bool, "errors": [string]}`、第 1 引数に任意のモード、各 SDK 固有のデフォルトポリシーとシステム時計です。
 
 ## CI
 
-`.github/workflows/difffuzz.yml` は自己テストの後、各 pull request で 300 回、毎晩 3000 回の反復を実行し、`workflow_dispatch` では `iterations` と `seed` を受け取ります。ジョブ失敗時は検出事項とレポートを `difffuzz-findings` 成果物としてアップロードします。
+`.github/workflows/difffuzz.yml` は自己テストと 4 SDK の有界診断テストの後、各 pull request で 300 回、毎晩 3000 回の反復を実行し、`workflow_dispatch` では `iterations` と `seed` を受け取ります。ジョブ失敗時は検出事項とレポートを `difffuzz-findings` 成果物としてアップロードします。

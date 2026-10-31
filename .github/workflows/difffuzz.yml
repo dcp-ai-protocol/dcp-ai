@@ -57,6 +57,9 @@ jobs:
       - name: Install the Python SDK
         run: pip install -e sdks/python
 
+      - name: Bounded diagnostic tests with the four SDKs
+        run: node --test tools/difffuzz/real-shims.test.mjs
+
       - name: Fuzz
         env:
           ITERATIONS: ${{ github.event_name == 'schedule' && '3000' || github.event.inputs.iterations || '300' }}
