@@ -307,6 +307,48 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
 - **限制：** `verdict` 通过表明，在所运行的 argv 和相同策略下，这些用例的判定正确；它不评估消息是否准确或有用。
   `/2` 的 wire 契约、目录、测试夹具和包装器都不变。
 
+<a id="schema-boundary-diagnostic-opt-in"></a>
+
+#### 模式边界诊断（明确选择）
+
+独立的 [`external-schema-catalog.json`](../../../../tools/conformance/external-schema-catalog.json) 使用契约 `/2`，运行新模式封闭性语料中的 15 个用例。它保留 V2-2 的规范预期：封闭对象的未知成员必须被拒绝，即使哈希和签名仍然有效。基础数据和允许的扩展是正向对照；未更新签名和承诺的扩展是另一种完整性负向用例。此诊断不改变默认证据目录的 241 个用例。
+
+```bash
+node tools/conformance-external.js --catalog tools/conformance/external-schema-catalog.json --assessment verdict --list
+node tools/conformance-external.js --catalog tools/conformance/external-schema-catalog.json --assessment verdict --report /tmp/schema-diagnostic.json -- ./my-implementation
+node --test tools/conformance/external-schema.test.mjs
+```
+
+SDK 已知的模式验证缺口仍是失败用例，不是可接受的例外。`schema-boundary.js` 分别报告参考模式校验、仅限此有限语料的完整性检查，以及在语料时间下组合模式与 TypeScript SDK 的检查。组合通过不能证明 SDK 自身执行 V2-2，也不代表向参考 API 注入时钟后运行。完整性辅助函数不是通用规范验证器。自测检查诊断工具、对照和预期；自测通过不能认证 SDK 的一致性。参见[覆盖映射](../../docs/conformance/SECURITY_COVERAGE.md)和[实现者指南](../../docs/conformance/IMPLEMENTER_GUIDE.md)。
+
+<a id="verifier-policy-catalog-opt-in"></a>
+
+#### 验证器策略目录（显式选择）
+
+[`external-policy-catalog.json`](../../../../tools/conformance/external-policy-catalog.json) 使用 `/2` 契约测试固定时刻的 74 个用例：10 个正向对照、覆盖四种请求模式的 24 个存在但无效的 PQ 签名用例、14 个算法列表及安全通告用例，以及 26 个等级用例。默认证据目录不变。每个负向用例要求其正向对照通过；不评估诊断措辞。
+
+```bash
+node tools/conformance-external.js --catalog tools/conformance/external-policy-catalog.json --assessment verdict --list
+node tools/conformance-external.js --catalog tools/conformance/external-policy-catalog.json --assessment verdict --report /tmp/policy-conformance.json -- ./my-implementation
+node --test tools/conformance/external-policy.test.mjs
+```
+
+routine 混合签名正向用例达到实际生效的 `classical_only`；standard 正向用例将该请求提升为 `hybrid_preferred`。记录的等级与模式推导用于说明，不评估结果字段。等级用例使用分别签名的已版本控制 bundle，不是单一变化的配对。`pq_only` 下的经典算法排除仍待澄清解释，暂不运行且不指定预期判定。剩余范围见语料问题和覆盖图。CI 执行语料及运行器自测，并通过五个 SDK 封装程序运行该目录；通过仅证明这些用例符合预期。
+
+<a id="structural-catalog-opt-in"></a>
+
+#### 结构目录（显式启用）
+
+[`external-structural-catalog.json`](../../../../tools/conformance/external-structural-catalog.json)通过 `/2` 和有效模式 `hybrid_preferred` 运行16个固定时间案例：2个正向对照和14个结构负向案例。每个负向案例都依赖基础对照，会话时间顺序颠倒的案例还依赖其对应的正向对照。默认目录保持不变。
+
+```bash
+node tools/conformance-external.js --catalog tools/conformance/external-structural-catalog.json --assessment verdict --list
+node tools/conformance-external.js --catalog tools/conformance/external-structural-catalog.json --assessment verdict --report /tmp/structural-conformance.json -- ./my-implementation
+node --test tools/conformance/external-structural.test.mjs
+```
+
+仅评估判定结果。语料记录签名来源和缺陷隔离限制，尤其是含小数载荷中的旧证据，以及逆向范围不存在有效根的情况。CI运行语料和运行器自测以及全部5个SDK包装器。通过仅适用于这些案例和此策略，不代表完全符合V2规范。
+
 <a id="admission-catalog-strict-v1-admission"></a>
 
 ### 准入目录：strict-v1 准入

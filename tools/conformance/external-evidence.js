@@ -23,6 +23,13 @@ const FIXTURES = {
   bundles: "tests/interop/v2/bundle_vectors.json",
   secondary: "tests/interop/v2/secondary_sha3_vectors.json",
 };
+// Fixtures that only an opt-in suite reads: loaded (and recorded in the report) only when a catalog lists that suite,
+// so the committed evidence catalog loads exactly the fixtures it always did.
+const SUITE_FIXTURES = {
+  "external.v2.schema_closure": { schema: "tests/interop/v2/schema_closure_vectors.json" },
+  "external.v2.verifier_policy": { policy: "tests/interop/v2/verifier_policy_vectors.json" },
+  "external.v2.structural": { structural: "tests/interop/v2/structural_vectors.json" },
+};
 
 const need = (cond, msg) => { if (!cond) throw new InfraError(msg); };
 const isHex64 = (v) => typeof v === "string" && HEX64.test(v);
@@ -141,6 +148,77 @@ const BUILDERS = {
     }
     return out;
   },
+  // Diagnostic of spec/VERIFICATION.md V2-2 (schema_closure_vectors.json): the normative verdict of each case, with the
+  // base as the same-run control of every negative and, where the corpus names one, the twin positive that carries the
+  // same member with every commitment redone. A verifier that accepts a closed-object case fails it: a gap, never a pass.
+  "external.v2.schema_closure": ({ schema: Z }) => {
+    const rel = SUITE_FIXTURES["external.v2.schema_closure"].schema;
+    need(isObj(Z?.base) && isObj(Z.verifier_policy) && typeof Z.verification_time === "string" && Array.isArray(Z.cases) && Z.cases.length > 0, `${rel}: malformed`);
+    const base = "external.v2.schema_closure.base";
+    const out = [verifyCase(base, `${rel}#base`, Z.base, Z.verifier_policy, Z.verification_time, { verified: true })];
+    const byName = new Map(Z.cases.map((c) => [c.name, c]));
+    for (const c of Z.cases) {
+      need(nonEmpty(c.name) && isObj(c.signed_bundle) && typeof c.expect?.verified === "boolean" && nonEmpty(c.expect?.schema?.pointer) && nonEmpty(c.expect?.schema?.rule) && nonEmpty(c.spec_step),
+        `schema_closure ${c.name}: needs a name, a signed_bundle, expect.verified, a schema pointer and rule, and a spec_step`);
+      need(c.twin === undefined || byName.get(c.twin)?.expect?.verified === true, `schema_closure ${c.name}: twin ${c.twin} is not a positive case`);
+      const controls = c.expect.verified ? undefined : [base, ...(c.twin ? [`external.v2.schema_closure.${c.twin}`] : [])];
+      out.push({ ...verifyCase(`external.v2.schema_closure.${c.name}`, `${rel}#cases/${c.name} (${c.expect.schema.pointer}; ${c.expect.schema.rule})`, c.signed_bundle, Z.verifier_policy, Z.verification_time, { verified: c.expect.verified }, controls), anchor_source: { spec_step: c.spec_step } });
+    }
+    return out;
+  },
+  // Opt-in policy suite (verifier_policy_vectors.json, spec/VERIFICATION.md V2-7, V2-9, V2-10, V2-12): each case carries
+  // its exact policy and instant; committed bundles are taken from bundle_vectors.json only if their recorded sha256
+  // still matches. The requested and effective modes go into the source text for the reader; only the verdict is judged.
+  "external.v2.verifier_policy": ({ policy: P, bundles: B }) => {
+    const rel = SUITE_FIXTURES["external.v2.verifier_policy"].policy;
+    need(isObj(P?.bundles) && Array.isArray(P.cases) && P.cases.length > 0, `${rel}: malformed`);
+    const signedOf = (name) => {
+      const e = P.bundles[name];
+      need(isObj(e), `${rel}: unknown bundle ${name}`);
+      if (e.signed_bundle !== undefined) return e.signed_bundle;
+      const [file, pointer = ""] = String(e.source).split("#");
+      const [coll, n] = pointer.split("/");
+      need(file === FIXTURES.bundles, `${name}: source outside ${FIXTURES.bundles}`);
+      const signed = coll === "classical_only_routine_bundle" ? B.classical_only_routine_bundle?.signed_bundle : B[coll]?.find?.((c) => c.name === n)?.signed_bundle;
+      need(isObj(signed) && sha256(JSON.stringify(signed)) === e.sha256, `${name}: ${e.source} is missing or differs from its recorded sha256`);
+      return signed;
+    };
+    return P.cases.map((c) => {
+      need(nonEmpty(c.name) && isObj(c.policy) && nonEmpty(c.verification_time) && typeof c.expect?.verified === "boolean" && nonEmpty(c.spec_step) && (c.expect.verified || c.controls?.length > 0),
+        `verifier_policy ${c.name}: needs a name, a policy, a verification_time, expect.verified, a spec_step and, if negative, controls`);
+      let signed = signedOf(c.bundle);
+      if (c.mutation !== undefined) {
+        const [k, loc] = String(c.mutation).split(".");
+        const m = P.bundles[c.bundle]?.[k]?.[loc];
+        need(Array.isArray(m?.path) && typeof m.value === "string", `verifier_policy ${c.name}: unknown mutation ${c.mutation}`);
+        signed = mutated(signed, [m]);
+      }
+      const id = (n) => `external.v2.verifier_policy.${n}`;
+      return { ...verifyCase(id(c.name), `${rel}#cases/${c.name} (requested ${c.requested_mode}, tier ${c.tier}, effective ${c.effective_mode})`, signed, c.policy, c.verification_time, { verified: c.expect.verified }, c.controls?.map(id)), anchor_source: { spec_step: c.spec_step } };
+    });
+  },
+  // Opt-in structural suite (structural_vectors.json, spec/VERIFICATION.md V2-3, V2-4, V2-5, V2-6, V2-12): the base and
+  // the positives verify; each case breaks one structural rule and counts only if the base, and its twin where the
+  // corpus names one, verified in the same run. One policy and one instant, those of the corpus, for every case.
+  "external.v2.structural": ({ structural: S }) => {
+    const rel = SUITE_FIXTURES["external.v2.structural"].structural;
+    need(isObj(S?.base) && isObj(S.verifier_policy) && nonEmpty(S.verification_time) && Array.isArray(S.positives) && Array.isArray(S.cases) && S.cases.length > 0, `${rel}: malformed`);
+    const id = (n) => `external.v2.structural.${n}`;
+    const run = (name, source, signed, verified, controls) => verifyCase(id(name), `${rel}#${source}`, signed, S.verifier_policy, S.verification_time, { verified }, controls);
+    const out = [run("base", "base", S.base, true)];
+    const positives = new Set();
+    for (const p of S.positives) {
+      need(nonEmpty(p.name) && isObj(p.signed_bundle) && p.expect?.verified === true && nonEmpty(p.spec_step), `structural positive ${p.name}: needs a name, a signed_bundle, expect.verified true and a spec_step`);
+      positives.add(p.name);
+      out.push({ ...run(p.name, `positives/${p.name}`, p.signed_bundle, true), anchor_source: { spec_step: p.spec_step } });
+    }
+    for (const c of S.cases) {
+      need(nonEmpty(c.name) && isObj(c.signed_bundle) && c.expect?.verified === false && nonEmpty(c.spec_step) && (c.twin === undefined || positives.has(c.twin)),
+        `structural ${c.name}: needs a name, a signed_bundle, expect.verified false, a spec_step and, if named, a positive twin`);
+      out.push({ ...run(c.name, `cases/${c.name} (${c.spec_step})`, c.signed_bundle, false, [id("base"), ...(c.twin ? [id(c.twin)] : [])]), anchor_source: { spec_step: c.spec_step } });
+    }
+    return out;
+  },
   "external.v2.secondary_sha3": ({ secondary: V, bundles: B }) => {
     need(Array.isArray(V.cases) && isObj(V.base?.artifacts) && typeof V.verification_time === "string", `${FIXTURES.secondary}: malformed`);
     const assemble = (p) => ({ bundle: { dcp_bundle_version: "2.0", manifest: p.manifest, ...V.base.artifacts, audit_entries: p.audit_entries }, signature: p.signature });
@@ -174,6 +252,15 @@ export function loadEvidencePlan({ root = REPO_ROOT, catalogFile = EVIDENCE_CATA
     try { buf = fs.readFileSync(path.join(root, rel)); } catch (e) { throw new InfraError(`required fixture ${rel} is missing or unreadable (${e.code ?? e.message})`); }
     try { docs[k] = JSON.parse(utf8(buf)); } catch (e) { throw new InfraError(`required fixture ${rel} is not valid UTF-8 JSON (${e.message})`); }
     fixtures[rel] = sha256(buf);
+  }
+  for (const s of cat.suites) {
+    for (const [k, rel] of Object.entries(isObj(s) ? SUITE_FIXTURES[s.id] ?? {} : {})) {
+      if (docs[k] !== undefined) continue;
+      let buf;
+      try { buf = fs.readFileSync(path.join(root, rel)); } catch (e) { throw new InfraError(`required fixture ${rel} is missing or unreadable (${e.code ?? e.message})`); }
+      try { docs[k] = JSON.parse(utf8(buf)); } catch (e) { throw new InfraError(`required fixture ${rel} is not valid UTF-8 JSON (${e.message})`); }
+      fixtures[rel] = sha256(buf);
+    }
   }
   const ids = new Set();
   const suites = cat.suites.map((s) => {
@@ -272,6 +359,27 @@ export const VERDICT_TEXT = {
         "default_verifier_policy with each case's committed verifier_policy_overrides, plus the 4 modes for the classical-only bundle; no other policy is tried, although the vectors also claim every mode.",
         "must_reject_bundles are separately built bundles with no per-case control: each counts only if the base and the accepted bundles pass (a suite-level control, a weaker guarantee than a per-case control), and is judged on its verdict alone; its committed error_contains is only a diagnostic.",
         "A verifier verdict: not admission, not trust in the principal, not authorization of an action.",
+      ],
+    },
+    "external.v2.schema_closure": {
+      claim: `Diagnostic of spec/VERIFICATION.md V2-2 at the corpus verification_time under its verifier_policy: the base and the permitted extensions verify, and every case that adds a member to a closed object, or a value outside an enumeration, of the V2 schemas is rejected (verified false), even when every signature and hash is valid; a verifier that accepts one shows a gap, never conformance. ${NOT_JUDGED}`,
+      limits: [
+        "The wrappers call each SDK's fixed-time verification API, not the reference verifyV2SignedBundle; a failure here concerns that API, and a pass of validateV2Bundle composed with a verifier is a composition, not that API enforcing V2-2.",
+        "One member per case: a sample of the closure rules, not every closed object of the schemas.",
+      ],
+    },
+    "external.v2.verifier_policy": {
+      claim: `Each case of tests/interop/v2/verifier_policy_vectors.json is run under its exact policy and verification_time: hybrid positives verify under each requested mode; a present and invalid PQ signature of the bundle, the passport or a checkpoint is rejected in every mode; a policy whose accepted or advisory lists exclude an algorithm the bundle uses rejects it; and committed classical-only bundles whose tier demands hybrid_required are rejected under a requested classical_only or hybrid_preferred mode. Every negative counts only if its positive control, the same bundle or the committed classical-only routine bundle under the same requested mode, passed in the same run. Rejection messages are not judged (no error_contains).`,
+      limits: [
+        "Only the verdict is judged: the tier and effective mode in each case are derived for the reader (DCP-AI-v2.0.md § 14.2, VERIFICATION.md V2-9) and are not compared with any resolved tier or mode an implementation reports.",
+        "A classical list or advisory exclusion under pq_only is left out pending an interpretation (question Q1 of the corpus): no expectation, not run. The other questions of the corpus record coverage not built here.",
+      ],
+    },
+    "external.v2.structural": {
+      claim: "Under the corpus verifier_policy at its verification_time (effective mode hybrid_preferred), the base and the positives of tests/interop/v2/structural_vectors.json verify, and every case is rejected (verified false): a non-canonical sig_b64 of an artifact or checkpoint with its bytes unchanged (V2-5), a checkpoint without PQ, with an invalid classical component under a valid PQ one, or with an event_range that is backwards or names an absent audit_id (V2-12), audit_count, passport_hash or policy_hash off in a validly signed manifest, a payload fraction (V2-3), session_issued_at after session_expires_at (V2-4), and an invalid bundle classical signature under a valid PQ one (V2-6). Each negative counts only if the base, and its twin where named, passed in the same run. Rejection messages are not judged (no error_contains).",
+      limits: [
+        "Only the verdict is judged. The corpus and its SDK-free checks show the violation each bundle is built to carry; they show neither which check of an implementation rejected it nor an exhaustive list of its defects (for the payload fraction the integrity layer stops at canonicalization). No wording, tier, mode or signer_keys output is compared (deferred, D2).",
+        "The payload fraction cannot be signed under dcp-jcs-v1, so its stale hashes and signatures also reject it; the corpus records this and the other isolation limits.",
       ],
     },
     "external.v2.secondary_sha3": {
@@ -413,6 +521,7 @@ export async function runEvidence({ plan, argv, timeoutMs = EVIDENCE_TIMEOUT_MS,
 
 /** The ids each builder produces from the committed fixtures, to write expected_cases into the catalog. */
 export function producedIds(root = REPO_ROOT) {
-  const docs = Object.fromEntries(Object.entries(FIXTURES).map(([k, rel]) => [k, JSON.parse(fs.readFileSync(path.join(root, rel), "utf8"))]));
+  const all = { ...FIXTURES, ...Object.assign({}, ...Object.values(SUITE_FIXTURES)) };
+  const docs = Object.fromEntries(Object.entries(all).map(([k, rel]) => [k, JSON.parse(fs.readFileSync(path.join(root, rel), "utf8"))]));
   return Object.fromEntries(Object.entries(BUILDERS).map(([id, b]) => [id, b(docs).map((c) => c.id)]));
 }

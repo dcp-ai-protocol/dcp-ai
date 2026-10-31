@@ -4,7 +4,7 @@
 
 # 安全模型
 
-> 本文是[英文版](../../../docs/SECURITY_MODEL.md)的参考译文，更新于 28/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/SECURITY_MODEL.md)的参考译文，更新于 31/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 协议如何防范各种攻击，从伪造的 bundle 到协议分叉。
 
@@ -14,15 +14,17 @@
 
 ## 设计原则
 
-验证在本地进行。这不是弱点，而是核心的安全属性。本地验证意味着：
+验证可以在本地完成。这使运营方能够自行选择所依赖的实现、策略和信任来源：
 
-- **没有单一的被攻破点。** 不存在一旦被攻破就会让所有智能体失效的中央服务器。每个验证者运行自己的代码，自己核对数学运算。
-- **密码学保证与地点无关。** Ed25519 签名和 SHA-256 哈希在任何机器上都得出相同的结果。你无法“攻破数学”。
-- **验证者不信任智能体。** 智能体出示 bundle；验证者用自己的工具检查它。被攻破的智能体无法让验证者接受无效的 bundle。
+- **无需强制使用中央验证器。** 运营方可以独立验证。但共享依赖、信任来源或签名密钥被攻破，仍可能影响多个运营方。
+- **可复现的输入和决策。** 各实现必须就规范字节和适用规则达成一致。比较结果时应使用相同策略和验证时刻；仅靠密码算法不能避免解析器差异或实现缺陷。
+- **检查证据，而非预设其诚实。** 验证器检查所提供的签名及关联。持有合法密钥的被攻破智能体仍能签署虚假声明或有害意图；密码学上有效的证据不会使声明成为事实，也不会使操作变得安全。
 
 验证说明的是 bundle 未被篡改，并由它所指明的密钥签署。是否信任这些密钥、是否据此行事，是另一项决定：需要按照运营方受信任的委托人进行准入（[ADMISSION.md](../../../docs/ADMISSION.md)），再加上运营方自己的授权。
 
 安全来自**多层防护**，每一层应对不同的攻击向量。
+
+[安全覆盖图](conformance/SECURITY_COVERAGE.md)将这些层次与规范及可执行案例对应起来，也列出尚未测试的边界。通过这些案例提供的是有明确范围的证据，并不保证某个实现或部署不存在漏洞。
 
 ---
 
@@ -36,9 +38,11 @@
 
 **攻击：** 攻击者修改 Signed Bundle 中的某个字段（例如把 `agent_passport.status` 从 `"revoked"` 改为 `"active"`）。
 
-**防护：** Ed25519 签名覆盖整个 bundle 的规范 JSON（`dcp-jcs-v1`）。对已签名内容的任何更改——一个值、一个键、一个元素——都会使签名失效。不改变规范形式的更改，例如空白或键的顺序，并不是对已签名内容的更改，仍能通过验证。验证者会重新计算 `bundle_hash = SHA-256(canonical(bundle))`，并与已签名的哈希比对。如果内容被修改，这两项检查都会失败。
+**防护：** V1 验证针对规范化 bundle 的 Ed25519 签名，并重新计算 bundle 哈希。V2 验证经过域分离的清单上的签名；清单承诺各工件的哈希和审计根，同时还要验证各工件的独立签名及其关联。适用的检查清单见 [VERIFICATION.md](../../../spec/VERIFICATION.md)。
 
-**强度：** 密码学级别。攻破 Ed25519 需要解决 Curve25519 上的离散对数问题；目前没有已知的实际攻击。
+在保留旧签名的情况下修改已签名内容，只要执行了规定的检查，就能在算法的安全假设下被发现。保留规范表示的更改，例如无意义的空白或对象键顺序，不改变已签名内容。V2 还包含未签名的外层元数据：它们必须接受模式及一致性检查，不能替代已签名的值。不要假设外层 JSON 的每个成员都被直接签名。
+
+**强度：** 取决于密码学假设、签名密钥的保护，以及对整个适用检查清单的正确实现。持有合法密钥的签名者可以创建另一份有效记录；验证并不证明其中的声明属实。
 
 <a id="2-forged-identity-fake-rpr"></a>
 
@@ -50,7 +54,7 @@
 
 - **Jurisdiction Attestation**（参见 [spec/DCP-01.md](../../../spec/DCP-01.md)）：政府或经认可的机构签署 RPR 的哈希，证明身份。要求证明的验证者会拒绝没有证明的 bundle。
 - **公钥绑定：** 验证者可以要求签名者的公钥是已知的（例如由该实体公布）。假的“Google” bundle 不会有 Google 真正的公钥。
-- **透明度日志：** 如果真实实体的 `bundle_hash` 在日志中而伪造的不在，伪造就可以被发现。
+- **透明度日志：** 包含证明可以表明，某个承诺已被记录在验证器信任其根的日志中。仅凭包含或缺失不能确定签名者的身份：日志也可能收录冒名者签署的声明。
 
 **强度：** 取决于是否要求证明。没有证明时，身份是自我声明的（类似自签名证书）。有证明时，身份由权威机构背书。
 
@@ -83,8 +87,9 @@
 **强度：** 影响取决于被攻破的代码如何分发，以及谁依赖其结果。独立验证可以限制对另一个验证器的依赖，但不能消除供应链风险。
 
 <a id="5-protocol-fork-the-real-threat"></a>
+<a id="5-incompatible-protocol-fork"></a>
 
-### 5. 协议分叉（真正的威胁）
+### 5. 不兼容的协议分叉
 
 **攻击：** 有人分叉协议，削弱模式（删除必需字段、放宽验证），并声称与 DCP 兼容。如果被广泛采用，这会侵蚀生态系统中的信任。
 
@@ -99,7 +104,7 @@
   ```
 
 - **一致性证据：** 使用从可信来源获得的模式通过 `npm run conformance`，可以证明在该测试套件所覆盖的用例上是一致的。它并不能证明协议的所有要求或所有输入都被正确处理；还应审查实现以及所适用规范的覆盖情况。
-- **bundle 级版本：** 每个构件都包含 `dcp_version: "1.0"`。验证者检查版本并使用相应的模式。使用不同模式的分叉需要不同的版本，从而可以被区分出来。
+- **版本选择：** 验证器检查适用的 V1 或 V2 版本字段，并执行对应规则。版本标签是声明，不是合规性证明：不兼容的分叉也可以保留同一标签，因此还必须检查实际结构和行为。
 
 **强度：** 有限。指纹能发现与其旁边的指纹文件不一致的 V1 模式。它们并不认证该文件本身（该文件没有签名，分叉可以同时修改二者），不覆盖 V2 模式，也不说明任何关于代码的事情。匹配并不是对实现的认证。要评判一个实现，请与从你信任的来源获得的指纹进行比较，并运行一致性测试套件。
 
@@ -111,11 +116,11 @@
 
 **防护：**
 
-- **锚定的不可变性：** Bitcoin（OP_RETURN）或 Ethereum（事件）中的 `bundle_hash` 是不可变的。攻击者无法更改链上的哈希。
-- **验证：** 验证者根据 bundle 重新计算 `bundle_hash` 并与锚定进行比较。如果 bundle 被修改，哈希就不匹配。
-- **透明度日志证明：** 日志记录了原始的 `bundle_hash`。Merkle 包含证明把该哈希与已签名的根联系起来。如果 bundle 被修改，证明就会失败。
+- **外部承诺：** 运营方可以将适用于 bundle 的承诺记录在外部账本或透明度日志中。运营方必须按照自身信任策略确认账本的最终性，或认证日志根。
+- **验证：** 验证器按照规定的表示重新计算承诺，并与已记录的值比较。在哈希安全假设成立时，对承诺内容的修改可以被检测到。
+- **透明度日志证明：** Merkle 包含证明将一个承诺关联到特定根。仅凭包含并不能证明日志只能追加，也不能证明日志向所有观察者展示了相同历史；这些属性需要额外的一致性检查和监控。
 
-**强度：** 密码学 + 区块链不可变性。只要锚定或日志条目存在，追溯性修改就可以被发现。
+**强度：** 取决于哈希、经过认证的参考承诺，以及外部系统的完整性和可用性。锚定证明的是在这些假设下某个承诺被记录了，并不证明 bundle 描述的事件确实发生。
 
 ---
 
@@ -141,7 +146,7 @@ Layer 5: Transparency log (append-only Merkle tree)
   Retroactive modifications are detected by log proof mismatch.
 
 Layer 6: Blockchain anchor (Bitcoin / Ethereum)
-  Provides immutable, public proof of bundle existence at a point in time.
+  Records a public commitment, subject to the ledger's finality and trust assumptions.
 ```
 
 第 1–4 层目前在本仓库中可用。第 5 层有一个参考服务（`services/transparency-log/`，内存实现）。第 6 层已经设计（[docs/STORAGE_AND_ANCHORING.md](../../../docs/STORAGE_AND_ANCHORING.md)），并有一个 Ethereum 合约（`contracts/ethereum/`），但参考锚定服务尚未向链上提交；生产实现因运营方而异。
@@ -303,7 +308,7 @@ nonce 并不能阻止同一个 bundle 被再次出示：整个 bundle 会原样�
 **防护：**
 - **有范围限定的委托书：** 每份委托书都指定 `authority_scope`，其中有明确的领域和操作。超出范围的操作会被拒绝。
 - **关注阈值：** 当委托参数超出定义的限值（风险分数、金额、数据敏感度）时，可配置的阈值会触发告警或要求人工确认。
-- **委托人镜像：** `PrincipalMirror` 记录保存委托人偏好的可验证快照，防止委托权限与委托人意图之间发生偏离。
+- **委托人镜像：** `PrincipalMirror` 记录可以承载委托人偏好的可验证快照。要发现偏离，需要将其与适用的授权书以及当前可信的偏好比较；仅记录快照并不能强制执行这些偏好。
 - **交互记录：** 交互可以记录为已签名的 `InteractionRecord` 条目；是否记录取决于应用。
 
 **强度：** 对于检查委托书及其签名的验证者，提供有范围的授权 + 阈值监控 + 密码学审计轨迹。参考服务器存储委托书时不验证其签名，并允许任何人吊销可吊销的委托书（[OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)）。
@@ -331,7 +336,7 @@ Layer 5: Transparency log (append-only Merkle tree)
   Retroactive modifications detected by log proof mismatch.
 
 Layer 6: Blockchain anchor (Bitcoin / Ethereum L2)
-  Immutable, public proof of bundle existence.
+  Public commitment subject to the ledger's finality and trust assumptions.
 
 Layer 7: Security Tiers (V2.0)
   Risk-adaptive cryptographic requirements. High-risk = full PQ.
@@ -349,13 +354,13 @@ Layer 11: Succession Security (DCP-06)
   Signed testaments and classified memory transfers protect succession integrity.
 
 Layer 12: Dispute Resolution (DCP-07)
-  Structured escalation prevents unresolved conflicts from compromising operations.
+  Records support structured escalation; resolution and enforcement remain operational decisions.
 
 Layer 13: Rights Enforcement (DCP-08)
-  Declared rights and obligations create verifiable compliance boundaries.
+  Records express rights and obligations; applications must enforce the applicable decisions.
 
 Layer 14: Delegation Control (DCP-09)
-  Scoped mandates and awareness thresholds prevent authority escalation.
+  Scoped mandates and thresholds support checks that applications must apply before acting.
 ```
 
 关于 NIST 后量子密码学符合性的详情，参见 [NIST_CONFORMITY.md](../../../docs/NIST_CONFORMITY.md)。

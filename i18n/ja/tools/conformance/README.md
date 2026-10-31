@@ -340,6 +340,48 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
 - **制限：** `verdict` での合格が示すのは、実行した argv と同じポリシーでのこれらのケースの判定が正しいことです。メッセージが正確か有用かは評価しません。
   `/2` の wire の契約、カタログ、フィクスチャ、ラッパーは変わりません。
 
+<a id="schema-boundary-diagnostic-opt-in"></a>
+
+#### スキーマ境界の診断（明示的選択）
+
+別の [`external-schema-catalog.json`](../../../../tools/conformance/external-schema-catalog.json) は、新しいスキーマ閉鎖コーパスの 15 ケースを契約 `/2` で実行します。V2-2 の規範上の期待値を維持し、閉じたオブジェクトの未知のメンバーは、ハッシュと署名が有効でも拒否を要求します。基準データと許可された拡張が肯定対照です。署名を更新していない拡張は、別の整合性に関する否定ケースです。この診断はデフォルトの証拠カタログの 241 ケースを変更しません。
+
+```bash
+node tools/conformance-external.js --catalog tools/conformance/external-schema-catalog.json --assessment verdict --list
+node tools/conformance-external.js --catalog tools/conformance/external-schema-catalog.json --assessment verdict --report /tmp/schema-diagnostic.json -- ./my-implementation
+node --test tools/conformance/external-schema.test.mjs
+```
+
+SDK の既知のスキーマ検証不足は、許容された例外ではなく失敗ケースのままです。`schema-boundary.js` は、参照スキーマ検証、この有限コーパスに限定した整合性検査、コーパスの時刻でのスキーマと TypeScript SDK の組み合わせを別々に報告します。組み合わせの合格は SDK 単体が V2-2 を実施する証明ではなく、時刻を注入して参照 API を実行したものでもありません。整合性ヘルパーは汎用の規範検証器ではありません。自己テストは診断、その対照、期待値を確認します。その合格は SDK の適合性を認証しません。[カバレッジマップ](../../docs/conformance/SECURITY_COVERAGE.md)と[実装者ガイド](../../docs/conformance/IMPLEMENTER_GUIDE.md)を参照してください。
+
+<a id="verifier-policy-catalog-opt-in"></a>
+
+#### 検証器ポリシーカタログ（明示的選択）
+
+[`external-policy-catalog.json`](../../../../tools/conformance/external-policy-catalog.json) は `/2` 契約で固定時刻の 74 ケースを扱います。肯定対照 10、4 要求モードにわたる存在する無効な PQ 署名 24、アルゴリズムリストとアドバイザリ 14、ティアケース 26 です。既定の証拠カタログは変更しません。各否定ケースには肯定対照の成功が必要で、診断文言は評価しません。
+
+```bash
+node tools/conformance-external.js --catalog tools/conformance/external-policy-catalog.json --assessment verdict --list
+node tools/conformance-external.js --catalog tools/conformance/external-policy-catalog.json --assessment verdict --report /tmp/policy-conformance.json -- ./my-implementation
+node --test tools/conformance/external-policy.test.mjs
+```
+
+routine のハイブリッド肯定例は実効 `classical_only` に到達しますが、standard の肯定例はその要求を `hybrid_preferred` に引き上げます。記録されたティア・モードの導出は説明であり、結果フィールドの評価ではありません。ティアケースは別々に署名された既存 bundle を使い、単一変更の対ではありません。`pq_only` での古典アルゴリズム除外は、解釈の明確化まで期待判定なしで除外します。残る範囲はコーパスの質問とカバレッジマップを参照してください。CI はコーパスとランナーの自己テスト、および 5 SDK ラッパーを通じたカタログ検査を実行します。合格が示すのはこれらのケースだけです。
+
+<a id="structural-catalog-opt-in"></a>
+
+#### 構造カタログ（オプトイン）
+
+[`external-structural-catalog.json`](../../../../tools/conformance/external-structural-catalog.json)は、`/2` と実効モード `hybrid_preferred` で時刻を固定した16ケースを実行します。陽性対照2件と構造上の陰性ケース14件です。各陰性ケースには基本対照が必要であり、時刻順序が逆のセッションには対応する陽性対照も必要です。既定のカタログは変わりません。
+
+```bash
+node tools/conformance-external.js --catalog tools/conformance/external-structural-catalog.json --assessment verdict --list
+node tools/conformance-external.js --catalog tools/conformance/external-structural-catalog.json --assessment verdict --report /tmp/structural-conformance.json -- ./my-implementation
+node --test tools/conformance/external-structural.test.mjs
+```
+
+評価対象は判定結果のみです。コーパスには署名の出所と分離の限界を記録しています。特に、小数を含むペイロードの古い証拠と、逆向きの範囲に有効なルートが存在しない点を明示しています。CIはコーパスとランナーの自己テスト、および5つのSDKラッパーを実行します。合格はこれらのケースとポリシーに限られ、V2の完全な適合性を示しません。
+
 <a id="admission-catalog-strict-v1-admission"></a>
 
 ### アドミッションのカタログ：strict-v1 のアドミッション

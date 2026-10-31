@@ -109,6 +109,11 @@
       "site_path": "community/GENESIS_PAPER.md"
     },
     {
+      "source": "docs/GO_RELEASE.md",
+      "class": "current",
+      "site_path": "reference/docs/GO_RELEASE.md"
+    },
+    {
       "source": "docs/MIGRATION_V1_V2.md",
       "class": "current",
       "site_path": "guides/MIGRATION_V1_V2.md"
@@ -124,21 +129,6 @@
       "site_path": "reference/docs/NPM_RELEASES.md"
     },
     {
-      "source": "docs/PYTHON_RELEASE.md",
-      "class": "current",
-      "site_path": "reference/docs/PYTHON_RELEASE.md"
-    },
-    {
-      "source": "docs/GO_RELEASE.md",
-      "class": "current",
-      "site_path": "reference/docs/GO_RELEASE.md"
-    },
-    {
-      "source": "docs/RUST_RELEASE.md",
-      "class": "current",
-      "site_path": "reference/docs/RUST_RELEASE.md"
-    },
-    {
       "source": "docs/OBSERVABILITY.md",
       "class": "current",
       "site_path": "reference/docs/OBSERVABILITY.md"
@@ -147,6 +137,11 @@
       "source": "docs/OPERATOR_GUIDE.md",
       "class": "current",
       "site_path": "guides/OPERATOR_GUIDE.md"
+    },
+    {
+      "source": "docs/PYTHON_RELEASE.md",
+      "class": "current",
+      "site_path": "reference/docs/PYTHON_RELEASE.md"
     },
     {
       "source": "docs/QUICKSTART.md",
@@ -184,6 +179,11 @@
       "site_path": "reference/docs/README.md"
     },
     {
+      "source": "docs/RUST_RELEASE.md",
+      "class": "current",
+      "site_path": "reference/docs/RUST_RELEASE.md"
+    },
+    {
       "source": "docs/SECURITY_MODEL.md",
       "class": "current",
       "site_path": "architecture/SECURITY_MODEL.md"
@@ -197,6 +197,16 @@
       "source": "docs/TECHNICAL_ARCHITECTURE.md",
       "class": "current",
       "site_path": "architecture/TECHNICAL_ARCHITECTURE.md"
+    },
+    {
+      "source": "docs/conformance/IMPLEMENTER_GUIDE.md",
+      "class": "current",
+      "site_path": "guides/conformance/IMPLEMENTER_GUIDE.md"
+    },
+    {
+      "source": "docs/conformance/SECURITY_COVERAGE.md",
+      "class": "current",
+      "site_path": "guides/conformance/SECURITY_COVERAGE.md"
     },
     {
       "source": "docs/proposals/canonicalization-candidate/README.md",

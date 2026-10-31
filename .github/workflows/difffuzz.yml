@@ -49,14 +49,26 @@ jobs:
           npm install
           npm run build
 
+      # Controlled child processes test the harness, not SDK verdicts. Run after the build because
+      # the provenance test also requires the actual TypeScript source and dist fingerprints.
+      - name: Self-tests of the fuzzer
+        run: node --test tools/difffuzz/difffuzz.test.mjs
+
       - name: Install the Python SDK
         run: pip install -e sdks/python
+
+      - name: Go diagnostic helper tests
+        working-directory: tools/difffuzz/shims/go
+        run: go test -mod=readonly .
+
+      - name: Bounded diagnostic tests with the four SDKs
+        run: node --test tools/difffuzz/real-shims.test.mjs
 
       - name: Fuzz
         env:
           ITERATIONS: ${{ github.event_name == 'schedule' && '3000' || github.event.inputs.iterations || '300' }}
           SEED: ${{ github.event.inputs.seed || github.run_id }}
-        run: node tools/difffuzz/run.mjs --iterations "$ITERATIONS" --seed "$SEED"
+        run: node tools/difffuzz/run.mjs --iterations "$ITERATIONS" --seed "$SEED" --report tools/difffuzz/findings/report.json
 
       - name: Upload findings
         if: failure()

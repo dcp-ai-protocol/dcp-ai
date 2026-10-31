@@ -372,6 +372,48 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
   mismas políticas; no evalúa si los mensajes son exactos o útiles. El contrato del wire `/2`, el catálogo, los
   fixtures y los wrappers no cambian.
 
+<a id="schema-boundary-diagnostic-opt-in"></a>
+
+#### Diagnóstico del límite de esquemas (opcional)
+
+El catálogo separado [`external-schema-catalog.json`](../../../../tools/conformance/external-schema-catalog.json) usa el contrato `/2` para 15 casos del corpus nuevo de cierre de esquemas. Conserva la expectativa normativa V2-2: un miembro desconocido de un objeto cerrado debe rechazarse aunque sus hashes y firmas sigan siendo válidos. La base y las extensiones permitidas son controles positivos; una extensión firmada desactualizada es un negativo distinto de integridad. Este diagnóstico no cambia los 241 casos del catálogo de evidencia predeterminado.
+
+```bash
+node tools/conformance-external.js --catalog tools/conformance/external-schema-catalog.json --assessment verdict --list
+node tools/conformance-external.js --catalog tools/conformance/external-schema-catalog.json --assessment verdict --report /tmp/schema-diagnostic.json -- ./my-implementation
+node --test tools/conformance/external-schema.test.mjs
+```
+
+Los huecos conocidos de validación de esquemas de los SDK siguen siendo casos fallidos, no excepciones aceptadas. `schema-boundary.js` informa por separado la validación de esquemas de referencia, una comprobación de integridad limitada a este corpus finito y la composición de esquema con SDK TypeScript en el instante del corpus. Que pase la composición no demuestra que el SDK solo aplique V2-2; tampoco es la API de referencia ejecutada con un reloj inyectado. El helper de integridad no es un verificador normativo general. Las autopruebas ejercitan el diagnóstico, sus controles y expectativas; que pasen no certifica la conformidad de los SDK. Véanse el [mapa de cobertura](../../docs/conformance/SECURITY_COVERAGE.md) y la [guía del implementador](../../docs/conformance/IMPLEMENTER_GUIDE.md).
+
+<a id="verifier-policy-catalog-opt-in"></a>
+
+#### Catálogo de políticas del verificador (opt-in)
+
+[`external-policy-catalog.json`](../../../../tools/conformance/external-policy-catalog.json) usa el contrato `/2` para 74 casos con tiempo fijo: 10 controles positivos, 24 casos de PQ presente inválida en cuatro modos solicitados, 14 casos de listas de algoritmos y advisories y 26 casos de tier. El catálogo de evidencia predeterminado no cambia. Cada negativo exige que pase su control positivo; no se evalúa la redacción del diagnóstico.
+
+```bash
+node tools/conformance-external.js --catalog tools/conformance/external-policy-catalog.json --assessment verdict --list
+node tools/conformance-external.js --catalog tools/conformance/external-policy-catalog.json --assessment verdict --report /tmp/policy-conformance.json -- ./my-implementation
+node --test tools/conformance/external-policy.test.mjs
+```
+
+El positivo híbrido routine alcanza `classical_only` efectivo; el positivo standard eleva esa solicitud a `hybrid_preferred`. La derivación registrada de tier y modo es explicativa, no una evaluación de campos del resultado. Los casos de tier usan bundles versionados firmados por separado, no gemelos de un solo cambio. Las exclusiones de algoritmos clásicos bajo `pq_only` siguen omitidas sin veredicto esperado hasta aclarar la interpretación. Consulta las preguntas del corpus y el mapa de cobertura para los límites restantes. CI ejecuta las autopruebas del corpus y runner y el catálogo mediante los cinco wrappers SDK; aprobar solo acredita estos casos.
+
+<a id="structural-catalog-opt-in"></a>
+
+#### Catálogo estructural (opt-in)
+
+[`external-structural-catalog.json`](../../../../tools/conformance/external-structural-catalog.json) ejecuta 16 casos con tiempo fijo mediante `/2` y `hybrid_preferred` efectivo: dos controles positivos y 14 negativos estructurales. Cada negativo depende del control base, y el caso de sesión invertida también depende de su gemelo positivo. Los catálogos predeterminados no cambian.
+
+```bash
+node tools/conformance-external.js --catalog tools/conformance/external-structural-catalog.json --assessment verdict --list
+node tools/conformance-external.js --catalog tools/conformance/external-structural-catalog.json --assessment verdict --report /tmp/structural-conformance.json -- ./my-implementation
+node --test tools/conformance/external-structural.test.mjs
+```
+
+Solo se evalúan los veredictos. El corpus registra la procedencia de las firmas y los límites de aislamiento, especialmente la evidencia obsoleta del payload con fracción y la inexistencia de una raíz válida para un rango invertido. CI ejecuta las autopruebas del corpus y runner y los cinco wrappers SDK. Aprobar se limita a estos casos y esta política; no acredita conformidad V2 completa.
+
 <a id="admission-catalog-strict-v1-admission"></a>
 
 ### Catálogo de admisión: admisión strict-v1
