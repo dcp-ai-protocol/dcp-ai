@@ -4,7 +4,7 @@
 
 # Modelo de seguridad
 
-> Traducción informativa de [la versión en inglés](../../../docs/SECURITY_MODEL.md), actualizada el 28/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../docs/SECURITY_MODEL.md), actualizada el 31/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Cómo protege el protocolo frente a los ataques, desde los bundles falsificados hasta las bifurcaciones del protocolo.
 
@@ -14,15 +14,17 @@ Cómo protege el protocolo frente a los ataques, desde los bundles falsificados 
 
 ## Principio de diseño
 
-La verificación es local. No es una debilidad; es la propiedad de seguridad central. La verificación local significa:
+La verificación puede realizarse localmente. Esto permite al operador elegir la implementación, la política y las fuentes de confianza de las que depende:
 
-- **Ningún punto único de compromiso.** No hay un servidor central que, si se compromete, invalide a todos los agentes. Cada verificador ejecuta su propio código y comprueba sus propias matemáticas.
-- **Las garantías criptográficas no dependen del lugar.** Las firmas Ed25519 y los hashes SHA-256 dan el mismo resultado en cualquier máquina. No se pueden «hackear las matemáticas».
-- **El verificador no confía en el agente.** El agente presenta un bundle; el verificador lo comprueba con sus propias herramientas. Un agente comprometido no puede hacer que un verificador acepte un bundle no válido.
+- **Ningún verificador central obligatorio.** Los operadores pueden verificar de forma independiente. Una dependencia compartida, una fuente de confianza o una clave de firma comprometidas pueden afectar igualmente a varios operadores.
+- **Entradas y decisiones reproducibles.** Las implementaciones deben coincidir en los bytes canónicos y las reglas aplicables. Compara resultados con la misma política y el mismo instante de verificación; los algoritmos criptográficos por sí solos no evitan diferencias entre parsers ni defectos de implementación.
+- **La evidencia se comprueba, no se presume honesta.** El verificador comprueba las firmas y relaciones presentadas. Un agente comprometido con claves legítimas puede firmar afirmaciones falsas o intenciones perjudiciales; la evidencia criptográfica válida no hace verdaderas esas afirmaciones ni seguras esas acciones.
 
 La verificación dice que un bundle está intacto y firmado por las claves que nombra. Confiar en esas claves, y actuar según el bundle, es una decisión aparte: la admisión frente a los principales de confianza del operador ([ADMISSION.md](../../../docs/ADMISSION.md)), más la autorización propia del operador.
 
 La seguridad procede de **capas de protección**, cada una dirigida a un vector de ataque distinto.
+
+El [mapa de cobertura de seguridad](conformance/SECURITY_COVERAGE.md) vincula estas capas con la especificación y casos ejecutables, incluidos los límites no probados. Superar esos casos aporta evidencia con un alcance declarado, no una garantía de que la implementación o el despliegue carezcan de vulnerabilidades.
 
 ---
 
@@ -36,9 +38,11 @@ La seguridad procede de **capas de protección**, cada una dirigida a un vector 
 
 **Ataque:** un atacante modifica un campo de un Signed Bundle (p. ej., cambia `agent_passport.status` de `"revoked"` a `"active"`).
 
-**Protección:** la firma Ed25519 cubre el JSON canónico de todo el bundle (`dcp-jcs-v1`). Cualquier cambio en el contenido firmado —un valor, una clave, un elemento— invalida la firma. Los cambios que dejan igual la forma canónica, como los espacios en blanco o el orden de las claves, no son cambios del contenido firmado y siguen verificándose. El verificador recalcula `bundle_hash = SHA-256(canonical(bundle))` y lo compara con el hash firmado. Ambas comprobaciones fallan si el contenido se modificó.
+**Protección:** V1 verifica una firma Ed25519 sobre el bundle canónico y recalcula su hash. V2 verifica firmas sobre un manifiesto con separación de dominios, que compromete los hashes de los artefactos y la raíz de auditoría, y comprueba las firmas individuales de los artefactos y sus relaciones. Véase [VERIFICATION.md](../../../spec/VERIFICATION.md) para la lista de comprobación aplicable.
 
-**Solidez:** criptográfica. Romper Ed25519 exige resolver el problema del logaritmo discreto en Curve25519; no se conoce ningún ataque práctico.
+Cambiar contenido firmado conservando las firmas antiguas se detecta cuando se realizan las comprobaciones exigidas, bajo los supuestos de seguridad de los algoritmos. Los cambios que preservan la representación canónica, como espacios insignificantes u orden de claves, no cambian el contenido firmado. V2 también tiene metadatos de envoltura no firmados: están sujetos a comprobaciones de esquema y coherencia y no deben sustituir valores firmados. No supongas que cada miembro del JSON exterior está firmado directamente.
+
+**Solidez:** depende de los supuestos criptográficos, la protección de las claves de firma y la implementación correcta de toda la lista aplicable. Un firmante que posee las claves legítimas puede crear otro registro válido; la verificación no establece que sus afirmaciones sean verdaderas.
 
 <a id="2-forged-identity-fake-rpr"></a>
 
@@ -50,7 +54,7 @@ La seguridad procede de **capas de protección**, cada una dirigida a un vector 
 
 - **Jurisdiction Attestation** (véase [spec/DCP-01.md](../../../spec/DCP-01.md)): un gobierno o una autoridad acreditada firma el hash del RPR y certifica la identidad. Un verificador que exija atestación rechazará los bundles que no la tengan.
 - **Vinculación de la clave pública:** el verificador puede exigir que la clave pública del firmante sea conocida (p. ej., publicada por la entidad). Un bundle falso de «Google» no tendrá la clave pública real de Google.
-- **Registro de transparencia:** si el `bundle_hash` de la entidad real está en el registro y el falso no, la falsificación es detectable.
+- **Registro de transparencia:** una prueba de inclusión puede establecer que un compromiso concreto fue registrado por un log en cuya raíz confía el verificador. La inclusión o ausencia por sí sola no establece la identidad del firmante: un log también puede contener una afirmación firmada por un impostor.
 
 **Solidez:** depende de si se exige atestación. Sin atestación, la identidad es autodeclarada (como un certificado autofirmado). Con atestación, la identidad está respaldada por una autoridad.
 
@@ -83,8 +87,9 @@ La seguridad procede de **capas de protección**, cada una dirigida a un vector 
 **Solidez:** el impacto depende de cómo se distribuya el código comprometido y de quién dependa de sus resultados. La verificación independiente limita la dependencia de otro verificador; no elimina el riesgo de la cadena de suministro.
 
 <a id="5-protocol-fork-the-real-threat"></a>
+<a id="5-incompatible-protocol-fork"></a>
 
-### 5. Bifurcación del protocolo (la amenaza real)
+### 5. Bifurcación incompatible del protocolo
 
 **Ataque:** alguien bifurca el protocolo, debilita los esquemas (elimina campos obligatorios, relaja la validación) y afirma ser compatible con DCP. Si se adopta ampliamente, esto erosiona la confianza en el ecosistema.
 
@@ -99,7 +104,7 @@ La seguridad procede de **capas de protección**, cada una dirigida a un vector 
   ```
 
 - **Evidencia de conformidad:** superar `npm run conformance` con esquemas obtenidos de una fuente de confianza demuestra el acuerdo en los casos que cubre esa suite. No prueba que se traten correctamente todos los requisitos del protocolo ni todas las entradas; revisa también la implementación y la cobertura de la especificación aplicable.
-- **Versión a nivel de bundle:** cada artefacto incluye `dcp_version: "1.0"`. Un verificador comprueba la versión y usa los esquemas correspondientes. Una bifurcación con esquemas distintos necesitaría otra versión, lo que la haría distinguible.
+- **Selección de versión:** el verificador comprueba los campos de versión V1 o V2 aplicables y aplica las reglas correspondientes. Una etiqueta de versión es una afirmación, no una prueba de conformidad: una bifurcación incompatible puede conservar la misma etiqueta, por lo que también deben comprobarse la estructura y el comportamiento reales.
 
 **Solidez:** limitada. Las huellas detectan un esquema V1 que difiere del archivo de huellas que tiene al lado. No autentican ese archivo (no está firmado, y una bifurcación puede cambiar ambos), no cubren los esquemas V2 y no dicen nada del código. Una coincidencia no es una certificación de la implementación. Compara con huellas obtenidas de una fuente en la que confíes, y ejecuta la suite de conformidad, para juzgar una implementación.
 
@@ -111,11 +116,11 @@ La seguridad procede de **capas de protección**, cada una dirigida a un vector 
 
 **Protección:**
 
-- **Inmutabilidad del anclaje:** el `bundle_hash` en Bitcoin (OP_RETURN) o Ethereum (evento) es inmutable. El atacante no puede cambiar el hash on-chain.
-- **Verificación:** el verificador recalcula `bundle_hash` a partir del bundle y lo compara con el anclaje. Si el bundle se modificó, el hash no coincide.
-- **Prueba del registro de transparencia:** el registro guardó el `bundle_hash` original. Una prueba de inclusión de Merkle vincula el hash con la raíz firmada. Si el bundle se modificó, la prueba falla.
+- **Compromiso externo:** el operador puede registrar el compromiso aplicable al bundle en un registro externo o log de transparencia. Debe establecer el carácter definitivo de los registros del libro mayor o autenticar la raíz del log según su propia política de confianza.
+- **Verificación:** el verificador recalcula el compromiso usando la representación especificada y lo compara con el valor registrado. Un cambio al contenido comprometido es detectable bajo los supuestos de seguridad del hash.
+- **Prueba del registro de transparencia:** una prueba de inclusión de Merkle vincula un compromiso con una raíz concreta. La inclusión por sí sola no demuestra que el log solo permita añadir entradas ni que mostrara la misma historia a todos los observadores; eso requiere comprobaciones adicionales de consistencia y supervisión.
 
-**Solidez:** criptográfica + inmutabilidad de la blockchain. La modificación retroactiva es detectable mientras exista el anclaje o la entrada del registro.
+**Solidez:** condicionada al hash, el compromiso de referencia autenticado y la integridad y disponibilidad del sistema externo. Un anclaje demuestra que se registró un compromiso bajo esos supuestos; no demuestra que ocurrieran los hechos descritos en el bundle.
 
 ---
 
@@ -141,7 +146,7 @@ Layer 5: Transparency log (append-only Merkle tree)
   Retroactive modifications are detected by log proof mismatch.
 
 Layer 6: Blockchain anchor (Bitcoin / Ethereum)
-  Provides immutable, public proof of bundle existence at a point in time.
+  Records a public commitment, subject to the ledger's finality and trust assumptions.
 ```
 
 Las capas 1–4 están disponibles hoy en este repositorio. La capa 5 tiene un servicio de referencia (`services/transparency-log/`, en memoria). La capa 6 está diseñada ([docs/STORAGE_AND_ANCHORING.md](../../../docs/STORAGE_AND_ANCHORING.md)) y tiene un contrato de Ethereum (`contracts/ethereum/`), pero el servicio de anclaje de referencia todavía no envía a ninguna cadena; las implementaciones de producción son específicas de cada operador.
@@ -303,7 +308,7 @@ El nonce no impide que el mismo bundle vuelva a presentarse: un bundle completo 
 **Protección:**
 - **Mandatos de delegación con alcance:** cada mandato especifica un `authority_scope` con dominios y acciones explícitos. Las acciones fuera de alcance se rechazan.
 - **Umbrales de atención:** umbrales configurables disparan alertas o exigen confirmación humana cuando los parámetros de la delegación superan los límites definidos (puntuación de riesgo, importe económico, sensibilidad de los datos).
-- **Espejos del principal:** el registro `PrincipalMirror` mantiene una instantánea verificable de las preferencias del principal, lo que evita que la autoridad delegada se aleje de la intención del principal.
+- **Espejos del principal:** el registro `PrincipalMirror` puede contener una instantánea verificable de las preferencias del principal. Detectar desviaciones exige compararla con el mandato aplicable y las preferencias actuales de confianza; registrar una instantánea por sí solo no las hace cumplir.
 - **Registro de interacciones:** las interacciones pueden registrarse como entradas `InteractionRecord` firmadas; registrarlas depende de la aplicación.
 
 **Solidez:** autorización con alcance + supervisión por umbrales + rastro de auditoría criptográfico, para un verificador que compruebe los mandatos y sus firmas. El servidor de referencia guarda los mandatos sin verificar sus firmas y permite que cualquiera revoque uno revocable ([OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)).
@@ -331,7 +336,7 @@ Layer 5: Transparency log (append-only Merkle tree)
   Retroactive modifications detected by log proof mismatch.
 
 Layer 6: Blockchain anchor (Bitcoin / Ethereum L2)
-  Immutable, public proof of bundle existence.
+  Public commitment subject to the ledger's finality and trust assumptions.
 
 Layer 7: Security Tiers (V2.0)
   Risk-adaptive cryptographic requirements. High-risk = full PQ.
@@ -349,13 +354,13 @@ Layer 11: Succession Security (DCP-06)
   Signed testaments and classified memory transfers protect succession integrity.
 
 Layer 12: Dispute Resolution (DCP-07)
-  Structured escalation prevents unresolved conflicts from compromising operations.
+  Records support structured escalation; resolution and enforcement remain operational decisions.
 
 Layer 13: Rights Enforcement (DCP-08)
-  Declared rights and obligations create verifiable compliance boundaries.
+  Records express rights and obligations; applications must enforce the applicable decisions.
 
 Layer 14: Delegation Control (DCP-09)
-  Scoped mandates and awareness thresholds prevent authority escalation.
+  Scoped mandates and thresholds support checks that applications must apply before acting.
 ```
 
 Para los detalles de conformidad con la criptografía poscuántica del NIST, véase [NIST_CONFORMITY.md](../../../docs/NIST_CONFORMITY.md).

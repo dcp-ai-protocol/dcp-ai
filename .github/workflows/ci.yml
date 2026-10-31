@@ -280,6 +280,33 @@ jobs:
           DCP_EXTERNAL_REQUIRE_NATIVE: "1"
         run: DCP_EXTERNAL_PYTHON="$(command -v python)" node --test tools/conformance/external-evidence-assessment.test.mjs
 
+      # Tests the opt-in diagnostic's corpus, layers and runner controls. This is not a claim that SDK APIs
+      # satisfy V2-2: the diagnostic retains their known schema failures as failures.
+      - name: Schema-boundary diagnostic self-tests (not SDK conformance)
+        run: node --test tools/conformance/external-schema.test.mjs
+
+      - name: Opt-in verifier-policy corpus and runner self-tests
+        run: node --test tools/conformance/external-policy.test.mjs
+
+      - name: Verifier-policy catalog (74 cases per SDK, five wrappers required)
+        run: |
+          node tools/conformance-external.js --catalog tools/conformance/external-policy-catalog.json --assessment verdict --report policy-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
+          node tools/conformance-external.js --catalog tools/conformance/external-policy-catalog.json --assessment verdict --report policy-python.json -- python -I tools/conformance/wrappers/python_sdk.py
+          node tools/conformance-external.js --catalog tools/conformance/external-policy-catalog.json --assessment verdict --report policy-go.json -- tools/conformance/wrappers/.build/go-wrapper
+          node tools/conformance-external.js --catalog tools/conformance/external-policy-catalog.json --assessment verdict --report policy-rust.json -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+          node tools/conformance-external.js --catalog tools/conformance/external-policy-catalog.json --assessment verdict --report policy-wasm.json -- node tools/conformance/wrappers/wasm.mjs
+
+      - name: Opt-in structural corpus and runner self-tests
+        run: node --test tools/conformance/external-structural.test.mjs
+
+      - name: Structural catalog (16 cases per SDK, five wrappers required)
+        run: |
+          node tools/conformance-external.js --catalog tools/conformance/external-structural-catalog.json --assessment verdict --report structural-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
+          node tools/conformance-external.js --catalog tools/conformance/external-structural-catalog.json --assessment verdict --report structural-python.json -- python -I tools/conformance/wrappers/python_sdk.py
+          node tools/conformance-external.js --catalog tools/conformance/external-structural-catalog.json --assessment verdict --report structural-go.json -- tools/conformance/wrappers/.build/go-wrapper
+          node tools/conformance-external.js --catalog tools/conformance/external-structural-catalog.json --assessment verdict --report structural-rust.json -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+          node tools/conformance-external.js --catalog tools/conformance/external-structural-catalog.json --assessment verdict --report structural-wasm.json -- node tools/conformance/wrappers/wasm.mjs
+
       - name: Go SDK wrapper (38 cases)
         run: node tools/conformance-external.js --report external-go.json -- tools/conformance/wrappers/.build/go-wrapper
 

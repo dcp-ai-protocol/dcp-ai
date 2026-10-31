@@ -6,15 +6,17 @@ How the protocol protects against attacks — from forged bundles to protocol fo
 
 ## Design principle
 
-Verification is local. This is not a weakness; it is the core security property. Local verification means:
+Verification can be performed locally. This gives an operator control over which implementation, policy and trust sources it relies on:
 
-- **No single point of compromise.** There is no central server that, if hacked, invalidates all agents. Each verifier runs its own code, checks its own math.
-- **Cryptographic guarantees are location-independent.** Ed25519 signatures and SHA-256 hashes produce the same result on any machine. You cannot "hack the math."
-- **The verifier does not trust the agent.** The agent presents a bundle; the verifier checks it with its own tools. A compromised agent cannot make a verifier accept an invalid bundle.
+- **No mandatory central verifier.** Operators can verify independently. A shared compromised dependency, trust source or signing key can still affect several operators.
+- **Reproducible inputs and decisions.** Implementations must agree on the canonical bytes and applicable rules. Compare results using the same policy and verification time; cryptographic algorithms alone do not prevent parser differences or implementation defects.
+- **Evidence is checked, not assumed honest.** The verifier checks the presented signatures and relationships. A compromised agent with legitimate keys can still sign false claims or harmful intentions; valid cryptographic evidence does not make those claims true or actions safe.
 
 Verification says that a bundle is intact and signed by the keys it names. Whether to trust those keys, and to act on the bundle, is a separate decision: admission against the operator's trusted principals ([ADMISSION.md](ADMISSION.md)), plus the operator's own authorization.
 
 Security comes from **layers of protection**, each addressing a different attack vector.
+
+The [security coverage map](conformance/SECURITY_COVERAGE.md) links these layers to the specification and executable cases, including untested boundaries. Passing those cases is evidence with a stated scope, not a guarantee that an implementation or deployment has no vulnerabilities.
 
 ---
 
@@ -24,9 +26,11 @@ Security comes from **layers of protection**, each addressing a different attack
 
 **Attack:** an attacker modifies a field in a Signed Bundle (e.g. changes `agent_passport.status` from `"revoked"` to `"active"`).
 
-**Protection:** the Ed25519 signature covers the canonical JSON of the entire bundle (`dcp-jcs-v1`). Any change to the signed content — a value, a key, an element — invalidates the signature. Changes that leave the canonical form the same, such as whitespace or the order of keys, are not changes to the signed content and still verify. The verifier recomputes `bundle_hash = SHA-256(canonical(bundle))` and checks it against the signed hash. Both checks fail if the content was modified.
+**Protection:** V1 verifies an Ed25519 signature over the canonical bundle and recomputes its bundle hash. V2 verifies signatures over a domain-separated manifest, which commits to the artifact hashes and audit root, and verifies the individual artifact signatures and their relationships. See [VERIFICATION.md](../spec/VERIFICATION.md) for the applicable checklist.
 
-**Strength:** cryptographic. Breaking Ed25519 requires solving the discrete logarithm problem on Curve25519; no known practical attack exists.
+Changing signed content while keeping the old signatures is detected when the required checks are performed, under the security assumptions of the algorithms. Changes that preserve the canonical representation, such as insignificant whitespace or object-key order, do not change the signed content. V2 also has unsigned wrapper metadata: it is subject to schema and consistency checks and must not replace signed values. Do not assume that every outer JSON member is signed directly.
+
+**Strength:** depends on the cryptographic assumptions, protected signing keys and correct implementation of the complete applicable checklist. A signer holding the legitimate keys can create a different valid record; verification does not establish that its statements are true.
 
 ### 2. Forged identity (fake RPR)
 
@@ -36,7 +40,7 @@ Security comes from **layers of protection**, each addressing a different attack
 
 - **Jurisdiction Attestation** (see [spec/DCP-01.md](../spec/DCP-01.md)): a government or accredited authority signs the RPR hash, certifying the identity. A verifier that requires attestation will reject bundles without it.
 - **Public key binding:** the verifier can require that the signer's public key is known (e.g. published by the entity). A fake "Google" bundle won't have Google's real public key.
-- **Transparency log:** if the real entity's `bundle_hash` is in the log and the fake one is not, the fake is detectable.
+- **Transparency log:** an inclusion proof can establish that a particular commitment was recorded by a log whose root the verifier trusts. Inclusion or absence alone does not establish the signer's identity: a log can contain an impostor's signed claim too.
 
 **Strength:** depends on whether attestation is required. Without attestation, identity is self-declared (like a self-signed certificate). With attestation, identity is authority-backed.
 
@@ -64,7 +68,9 @@ Security comes from **layers of protection**, each addressing a different attack
 
 **Strength:** the impact depends on how the compromised code is distributed and who relies on its results. Independent verification limits reliance on another verifier; it does not eliminate supply-chain risk.
 
-### 5. Protocol fork (the real threat)
+<a id="5-protocol-fork-the-real-threat"></a>
+
+### 5. Incompatible protocol fork
 
 **Attack:** someone forks the protocol, weakens the schemas (removes required fields, loosens validation), and claims compatibility with DCP. If widely adopted, this erodes trust in the ecosystem.
 
@@ -79,7 +85,7 @@ Security comes from **layers of protection**, each addressing a different attack
   ```
 
 - **Conformance evidence:** passing `npm run conformance` with schemas obtained from a trusted source demonstrates agreement on the cases that suite covers. It does not prove that every protocol requirement or input is handled correctly; review the implementation and the coverage of the applicable specification as well.
-- **Bundle-level version:** every artifact includes `dcp_version: "1.0"`. A verifier checks the version and uses the corresponding schemas. A fork with different schemas would need a different version, making it distinguishable.
+- **Version selection:** a verifier checks the applicable V1 or V2 version fields and applies the corresponding rules. A version label is a claim, not proof of conformance: an incompatible fork can retain the same label, so the actual structure and behavior must also be checked.
 
 **Strength:** limited. The fingerprints detect a V1 schema that differs from the fingerprint file next to it. They do not authenticate that file (it is not signed, and a fork can change both), they do not cover the V2 schemas, and they say nothing about the code. A match is not a certification of the implementation. Compare against fingerprints obtained from a source you trust, and run the conformance suite, to judge an implementation.
 
@@ -89,11 +95,11 @@ Security comes from **layers of protection**, each addressing a different attack
 
 **Protection:**
 
-- **Anchor immutability:** the `bundle_hash` in Bitcoin (OP_RETURN) or Ethereum (event) is immutable. The attacker cannot change the on-chain hash.
-- **Verification:** the verifier recomputes `bundle_hash` from the bundle and compares it to the anchor. If the bundle was modified, the hash does not match.
-- **Transparency log proof:** the log recorded the original `bundle_hash`. A Merkle inclusion proof links the hash to the signed root. If the bundle was modified, the proof fails.
+- **External commitment:** an operator can record the applicable bundle commitment in an external ledger or transparency log. It must establish the ledger's finality or authenticate the log root under its own trust policy.
+- **Verification:** the verifier recomputes the commitment using its specified representation and compares it to the recorded value. A change to the committed content is detectable under the hash's security assumptions.
+- **Transparency log proof:** a Merkle inclusion proof links a commitment to a particular root. Inclusion alone does not prove that a log is append-only or that it showed the same history to every observer; those require additional consistency and monitoring checks.
 
-**Strength:** cryptographic + blockchain immutability. Retroactive modification is detectable as long as the anchor or log entry exists.
+**Strength:** conditional on the hash, authenticated reference commitment and the external system's integrity and availability. An anchor proves a commitment was recorded under those assumptions; it does not prove that the events described in the bundle occurred.
 
 ---
 
@@ -117,7 +123,7 @@ Layer 5: Transparency log (append-only Merkle tree)
   Retroactive modifications are detected by log proof mismatch.
 
 Layer 6: Blockchain anchor (Bitcoin / Ethereum)
-  Provides immutable, public proof of bundle existence at a point in time.
+  Records a public commitment, subject to the ledger's finality and trust assumptions.
 ```
 
 Layers 1–4 are available in this repo today. Layer 5 has a reference service (`services/transparency-log/`, in memory). Layer 6 is designed ([docs/STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md)) and has an Ethereum contract (`contracts/ethereum/`), but the reference anchor service does not submit to a chain yet; production implementations are operator-specific.
@@ -256,7 +262,7 @@ The nonce does not stop the same bundle from being presented again: a whole bund
 **Protection:**
 - **Scoped delegation mandates:** Each mandate specifies `authority_scope` with explicit domains and actions. Actions outside scope are rejected.
 - **Awareness thresholds:** Configurable thresholds trigger alerts or require human confirmation when delegation parameters exceed defined limits (risk score, financial amount, data sensitivity).
-- **Principal mirrors:** The `PrincipalMirror` record maintains a verifiable snapshot of the principal's preferences, preventing drift between delegated authority and principal intent.
+- **Principal mirrors:** The `PrincipalMirror` record can carry a verifiable snapshot of the principal's preferences. Detecting drift requires comparing it with the applicable mandate and current trusted preferences; recording a snapshot alone does not enforce them.
 - **Interaction logging:** Interactions can be recorded as signed `InteractionRecord` entries; recording them is up to the application.
 
 **Strength:** Scoped authorization + threshold monitoring + cryptographic audit trail, for a verifier that checks mandates and their signatures. The reference server stores mandates without verifying their signatures, and lets anyone revoke a revocable one ([OPERATOR_GUIDE.md](OPERATOR_GUIDE.md#dcp-0509-service-endpoints)).
@@ -282,7 +288,7 @@ Layer 5: Transparency log (append-only Merkle tree)
   Retroactive modifications detected by log proof mismatch.
 
 Layer 6: Blockchain anchor (Bitcoin / Ethereum L2)
-  Immutable, public proof of bundle existence.
+  Public commitment subject to the ledger's finality and trust assumptions.
 
 Layer 7: Security Tiers (V2.0)
   Risk-adaptive cryptographic requirements. High-risk = full PQ.
@@ -300,13 +306,13 @@ Layer 11: Succession Security (DCP-06)
   Signed testaments and classified memory transfers protect succession integrity.
 
 Layer 12: Dispute Resolution (DCP-07)
-  Structured escalation prevents unresolved conflicts from compromising operations.
+  Records support structured escalation; resolution and enforcement remain operational decisions.
 
 Layer 13: Rights Enforcement (DCP-08)
-  Declared rights and obligations create verifiable compliance boundaries.
+  Records express rights and obligations; applications must enforce the applicable decisions.
 
 Layer 14: Delegation Control (DCP-09)
-  Scoped mandates and awareness thresholds prevent authority escalation.
+  Scoped mandates and thresholds support checks that applications must apply before acting.
 ```
 
 For NIST post-quantum compliance details, see [NIST_CONFORMITY.md](NIST_CONFORMITY.md).

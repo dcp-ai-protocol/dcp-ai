@@ -335,6 +335,42 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
   policies; it does not assess whether the messages are accurate or helpful. The `/2` wire contract, the catalog,
   the fixtures and the wrappers are unchanged.
 
+#### Schema-boundary diagnostic (opt-in)
+
+The separate [`external-schema-catalog.json`](external-schema-catalog.json) uses contract `/2` for 15 cases from the new schema-closure corpus. It preserves the normative V2-2 expectation: an unknown member in a closed object must be rejected even when its hashes and signatures remain valid. The base and permitted extensions are positive controls; a stale signed extension is a distinct integrity negative. This diagnostic does not change the default evidence catalog's 241 cases.
+
+```bash
+node tools/conformance-external.js --catalog tools/conformance/external-schema-catalog.json --assessment verdict --list
+node tools/conformance-external.js --catalog tools/conformance/external-schema-catalog.json --assessment verdict --report /tmp/schema-diagnostic.json -- ./my-implementation
+node --test tools/conformance/external-schema.test.mjs
+```
+
+Known SDK schema-validation gaps remain failed cases, not accepted exceptions. `schema-boundary.js` separately reports reference schema validation, an integrity check limited to this finite corpus, and schema-plus-TypeScript-SDK composition at the corpus time. A passing composition does not prove that the SDK alone performs V2-2; this is not the reference API running with an injected clock. The integrity helper is not a general normative verifier. The self-tests exercise the diagnostic, its controls and its expectations; their passing does not certify SDK conformance. See the [coverage map](../../docs/conformance/SECURITY_COVERAGE.md) and [implementer guide](../../docs/conformance/IMPLEMENTER_GUIDE.md).
+
+#### Verifier-policy catalog (opt-in)
+
+[`external-policy-catalog.json`](external-policy-catalog.json) uses contract `/2` for 74 fixed-time cases: 10 positive controls, 24 invalid-present-PQ cases across four requested modes, 14 algorithm-list/advisory cases and 26 tier cases. It leaves the default evidence catalog unchanged. Each negative requires its positive control to pass; diagnostic wording is not assessed.
+
+```bash
+node tools/conformance-external.js --catalog tools/conformance/external-policy-catalog.json --assessment verdict --list
+node tools/conformance-external.js --catalog tools/conformance/external-policy-catalog.json --assessment verdict --report /tmp/policy-conformance.json -- ./my-implementation
+node --test tools/conformance/external-policy.test.mjs
+```
+
+The routine hybrid positive reaches effective `classical_only`; the standard positive raises that request to `hybrid_preferred`. Recorded tier/mode derivation is explanatory, not an assessment of result fields. Tier cases use separately signed committed bundles, not single-change twins. Classical algorithm exclusions under `pq_only` remain omitted without an expected verdict pending clarification. See the corpus questions and the coverage map for the remaining scope. CI runs the corpus/runner self-tests and the catalog through all five SDK wrappers; a pass concerns these cases only.
+
+#### Structural catalog (opt-in)
+
+[`external-structural-catalog.json`](external-structural-catalog.json) runs 16 fixed-time cases under `/2` and effective `hybrid_preferred`: two positive controls and 14 structural negatives. Each negative depends on the base, and the reversed-session case also depends on its positive twin. The default catalogs remain unchanged.
+
+```bash
+node tools/conformance-external.js --catalog tools/conformance/external-structural-catalog.json --assessment verdict --list
+node tools/conformance-external.js --catalog tools/conformance/external-structural-catalog.json --assessment verdict --report /tmp/structural-conformance.json -- ./my-implementation
+node --test tools/conformance/external-structural.test.mjs
+```
+
+Only verdicts are assessed. The corpus records its signing provenance and isolation limits, especially stale evidence for a fractional payload and the nonexistent valid root of a backwards range. CI runs the corpus/runner self-tests and all five SDK wrappers. A pass applies to these cases and this policy; it is not complete V2 conformance.
+
 ### Admission catalog: strict-v1 admission
 
 `--catalog admission` selects a second opt-in catalog, [`external-admission-catalog.json`](external-admission-catalog.json)

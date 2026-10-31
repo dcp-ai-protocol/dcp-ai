@@ -33,6 +33,11 @@ jobs:
         with:
           node-version: 20
 
+      # The harness itself, against controlled child processes (no SDK): protocol faults, crashes, hangs,
+      # isolation, declared expectations, key reorder, minimization and CLI errors.
+      - name: Self-tests of the fuzzer
+        run: node --test tools/difffuzz/difffuzz.test.mjs
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -56,7 +61,7 @@ jobs:
         env:
           ITERATIONS: ${{ github.event_name == 'schedule' && '3000' || github.event.inputs.iterations || '300' }}
           SEED: ${{ github.event.inputs.seed || github.run_id }}
-        run: node tools/difffuzz/run.mjs --iterations "$ITERATIONS" --seed "$SEED"
+        run: node tools/difffuzz/run.mjs --iterations "$ITERATIONS" --seed "$SEED" --report tools/difffuzz/findings/report.json
 
       - name: Upload findings
         if: failure()

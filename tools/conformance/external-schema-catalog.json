@@ -1,0 +1,37 @@
+{
+  "contract": "dcp-ai-conformance-external/2",
+  "catalog_version": "2026-10-31.schema-closure-1 (diagnostic, opt-in)",
+  "suites": [
+    {
+      "id": "external.v2.schema_closure",
+      "title": "Diagnostic: V2-2 schema closure (schema_closure_vectors.json)",
+      "claim": "At the corpus verification_time under its verifier_policy, the base and the permitted extensions (bundle.x_ext, unsigned in an open object; audit_entries[0].evidence.x_ext, open and re-signed with every commitment redone) verify, and every case that adds a member to a closed object of the V2 schemas, or a value outside an enumeration, is rejected (verified false), even when every signature and hash is independently valid. A verifier that accepts such a case fails it: a recorded gap, never conformance.",
+      "limits": [
+        "Diagnostic and opt-in: its failures stay failures. It does not change the default catalog (/1, 38 cases), the evidence catalog (/2, 241 cases) or the admission catalog (/3, 140 cases).",
+        "The wrappers call each SDK's fixed-time verification API. The reference verifyV2SignedBundle (lib/verify.js) has no injectable clock and is not run here; validateV2Bundle composed with a verifier is a composition, reported apart by tools/conformance/schema-boundary.js, not an API enforcing V2-2.",
+        "One member per case: a sample of the closure rules (root, signature, signer, composite_sig, SignedPayload envelope, binding enumeration, manifest, intent payload, audit entry, key entry), not every closed object of the schemas.",
+        "Every negative counts only if the base passed in the same run; the stale evidence case also needs its re-signed twin to pass. Rejection messages are not judged (no error_contains)."
+      ],
+      "expected_cases": [
+        "external.v2.schema_closure.base",
+        "external.v2.schema_closure.root_unknown_member",
+        "external.v2.schema_closure.signature_unknown_member",
+        "external.v2.schema_closure.signer_unknown_member",
+        "external.v2.schema_closure.composite_sig_unknown_member",
+        "external.v2.schema_closure.envelope_unknown_member",
+        "external.v2.schema_closure.binding_outside_enumeration",
+        "external.v2.schema_closure.manifest_unknown_member_resigned",
+        "external.v2.schema_closure.intent_payload_unknown_member_resigned",
+        "external.v2.schema_closure.audit_entry_unknown_member_resigned",
+        "external.v2.schema_closure.key_entry_unknown_member_resigned",
+        "external.v2.schema_closure.bundle_open_member",
+        "external.v2.schema_closure.evidence_open_member_resigned",
+        "external.v2.schema_closure.evidence_open_member_stale",
+        "external.v2.schema_closure.manifest_unknown_member_stale"
+      ]
+    }
+  ],
+  "limits": [
+    "Built only from tests/interop/v2/schema_closure_vectors.json, signed with the committed TEST-ONLY keys of interop_vectors.json#test_keys; nothing is generated or signed by the runner."
+  ]
+}

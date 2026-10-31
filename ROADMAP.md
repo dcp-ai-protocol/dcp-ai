@@ -165,19 +165,27 @@ did, and how can a third party check it without trusting the operator?
 1. **Operational security (weeks).** Publish without long-lived tokens (npm and
    crates.io trusted publishing, as PyPI already does). Turn every vulnerability
    of the v2.10 round into a negative vector that all four SDKs must reject.
-   Differential fuzzing: the same mutated bundle goes to every verifier and any
-   disagreement is a bug. An external audit. A second maintainer with admin rights.
-2. **A small core and one verifier.** A DCP Core 3.0 limited to the Responsible
-   Principal Record, passport, intent, policy decision, action evidence and
-   bundle, with DCP-05 to DCP-09 as experimental profiles until they have
-   production users. One normative verifier (candidate: the Rust crate, which
-   already compiles to wasm) with bindings; the other SDKs build bundles.
+   Differential fuzzing: send the same bytes, policy and verification time to
+   each verifier, check known outcomes as controls, and investigate disagreements
+   against the specification. A disagreement is a lead, not automatically a
+   verifier defect; a test tool can also be wrong. An external audit. A second
+   maintainer with admin rights.
+2. **A small core and independently conformant verifiers.** The specification
+   remains normative; no SDK's behavior becomes the standard. Rust/WASM can be
+   a reference implementation with bindings, while independent implementations
+   continue to verify evidence against the same requirements. Use the
+   [security coverage map](docs/conformance/SECURITY_COVERAGE.md) to distinguish
+   core, profile and adapter claims, and the
+   [implementer guide](docs/conformance/IMPLEMENTER_GUIDE.md) to prepare external
+   validation. A possible Core 3.0 reorganization remains a separate design
+   question: this proposal does not move existing artifacts to experimental
+   status, remove SDK verification, or change compatibility or defaults.
 3. **Delegation chains.** Human, agent, subagent, tool and payment: every hop is
    signed and may only narrow permissions, never widen them; the chain verifies
    offline back to the responsible human; a subagent cannot lower the security
    tier of whoever delegated to it (the intent already cannot lower its own).
-   They extend the DCP-09 delegation mandate, which would move into the core if
-   Priority 2 is adopted.
+   They would extend the DCP-09 delegation mandate. Any move into the core needs
+   its own reviewed design and compatibility decision.
 4. **Integrate, do not compete.** A signed receipt per tool call in the existing
    MCP integration; the DCP passport carried inside the A2A Agent Card (the
    `google-a2a` integration already converts between the two); HTTP Message
@@ -212,8 +220,8 @@ did, and how can a third party check it without trusting the operator?
 
 - Is a Core 3.0 cut acceptable given the guiding principle "additive over
   subtractive"? Moving DCP-05 to DCP-09 to experimental profiles is a breaking change.
-- Which implementation becomes the normative verifier, and what is the migration
-  path for the SDKs that stop verifying?
+- Which components benefit from a shared Rust/WASM reference implementation,
+  while retaining independent implementations and specification-based conformance?
 - Should delegation chains reuse an existing capability format (UCAN, Biscuit) or
   stay DCP-native?
 - Who is the second maintainer, and how is admin access shared safely?
