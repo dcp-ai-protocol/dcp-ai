@@ -33,11 +33,6 @@ jobs:
         with:
           node-version: 20
 
-      # The harness itself, against controlled child processes (no SDK): protocol faults, crashes, hangs,
-      # isolation, declared expectations, key reorder, minimization and CLI errors.
-      - name: Self-tests of the fuzzer
-        run: node --test tools/difffuzz/difffuzz.test.mjs
-
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -53,6 +48,11 @@ jobs:
         run: |
           npm install
           npm run build
+
+      # Controlled child processes test the harness, not SDK verdicts. Run after the build because
+      # the provenance test also requires the actual TypeScript source and dist fingerprints.
+      - name: Self-tests of the fuzzer
+        run: node --test tools/difffuzz/difffuzz.test.mjs
 
       - name: Install the Python SDK
         run: pip install -e sdks/python
