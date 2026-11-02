@@ -151,7 +151,19 @@ def check_route(route, exp: dict) -> None:
         assert ("decoded" if route.historical.ok else "failed") == r["historical"]
 
 
-def check_verification(verification, exp: dict) -> None:
+# The phase 3 vectors whose Python expectation V2-2 changes (old errors_contain.py -> new schema diagnostics). The
+# fixture keeps its bytes and every other SDK's expectation; the deeper checks stay covered elsewhere: the intent
+# payload hash by schema-valid rows of bundle_vectors.json, the fraction by deep_negatives.json; a V1 bundle and null
+# on the V2 path are structural (no V2 check applies).
+V2_2_PY = {
+    "F01": {"was": ["intent: payload_hash mismatch"], "now": ["schema: /bundle/intent/payload/action_type enum"]},
+    "D07": {"was": ["Unsupported bundle version"], "now": ["schema: /bundle required dcp_bundle_version", "schema: /bundle required manifest"], "truncated": True},
+    "D08": {"was": ["Malformed signed bundle"], "now": ["schema: /bundle/policy_decision/payload/risk_score type"]},
+    "D09": {"was": ["Malformed signed bundle"], "now": ["schema: / type"]},
+}
+
+
+def check_verification(verification, exp: dict, case_id: str | None = None) -> None:
     if exp["verification"] is None:
         assert verification is None
         return
@@ -159,6 +171,18 @@ def check_verification(verification, exp: dict) -> None:
     assert verification["verified"] is exp["verification"]["verified"], verification["errors"]
     if exp["verification"]["verified"]:
         assert verification["errors"] == []
+    v22 = V2_2_PY.get(case_id)
+    if v22:
+        # V2-2 decides it first in Python: the old wording is the check it no longer reaches.
+        assert exp["verification"]["errors_contain"]["py"] == v22["was"]
+        assert all(e.startswith("schema: ") for e in verification["errors"]), verification["errors"]
+        if v22.get("truncated"):
+            assert verification["errors"][-1] == "schema: further errors not listed"
+        else:
+            assert len(verification["errors"]) == len(v22["now"])
+        assert all(e in verification["errors"] for e in v22["now"]), verification["errors"]
+        assert verification["details"] == {}
+        return
     for s in exp["verification"]["errors_contain"]["py"]:
         assert any(s in e for e in verification["errors"]), f"{s} in {verification['errors']}"
 
@@ -177,7 +201,7 @@ def test_signed_vectors(c, name, monkeypatch):
     assert count.calls == exp["adapter_calls"]
     assert r.entered == exp["entered"]
     assert count.entries == ([] if exp["entered"] == "none" else [exp["entered"]])
-    check_verification(r.verification, exp)
+    check_verification(r.verification, exp, c["id"])
 
     if isinstance(r.route, RouteCandidate) and "manifest_sha256" in exp:
         unit = r.route.value
@@ -300,7 +324,8 @@ def test_a_decoded_none_is_data_and_is_delegated(monkeypatch):
     r = asyncio.run(verifier.verify(input_of(case("D01")), REGISTRY, None, now_ms=NOW))
     assert r.route.historical.ok and r.route.historical.decoded is None
     assert (r.entered, count.entries) == ("dcp-jcs-v1", ["dcp-jcs-v1"])
-    assert r.verification["verified"] is False and "Malformed signed bundle" in " ".join(r.verification["errors"])
+    # V2-2 rejects null as the root type before the verifier body that used to report "Malformed signed bundle".
+    assert r.verification["verified"] is False and r.verification["errors"] == ["schema: / type"]
     monkeypatch.undo()
     assert r.verification == asyncio.run(verify_signed_bundle_v2(None, REGISTRY, None, now_ms=NOW))
 
@@ -330,11 +355,12 @@ def test_the_caller_mutating_its_buffer_after_the_call_changes_nothing():
 def test_todays_api_still_refuses_dcp_jcs_v2_also_given_the_exact_value():
     parsed = json.loads(input_of(case("P01")))
     r = asyncio.run(verify_signed_bundle_v2(parsed, REGISTRY, None, now_ms=NOW))
-    assert r["verified"] is False and "Unknown canonicalization_profile: dcp-jcs-v2" in r["errors"]
+    # The default path refuses the candidate identifier through V2-2 (const dcp-jcs-v1) before the profile check.
+    assert r["verified"] is False and r["errors"] == ["schema: /bundle/manifest/canonicalization_profile const"]
     verifier = create_verifier(transport="bare", accepted_profiles=["dcp-jcs-v2"], historical=JSON_LOADS_BYTES)
     routed = asyncio.run(verifier.verify(input_of(case("P01")), REGISTRY, None, now_ms=NOW))
     exact = asyncio.run(verify_signed_bundle_v2(routed.route.value, REGISTRY, None, now_ms=NOW))
-    assert exact["verified"] is False and "Unknown canonicalization_profile: dcp-jcs-v2" in exact["errors"]
+    assert exact["verified"] is False and exact["errors"] == ["schema: /bundle/manifest/canonicalization_profile const"]
 
 
 def test_nothing_internal_is_exported():

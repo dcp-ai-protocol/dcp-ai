@@ -3,6 +3,7 @@
 // only compiles. Needs `npm run build:wasm` and `npm run build:ts` first.
 import { readFileSync } from 'node:fs';
 import { initDcp } from '../dist/index.js';
+import { isSchemaRejection, schemaFirstRow } from './schema-regression-map.mjs';
 
 const B = JSON.parse(readFileSync(new URL('../../../tests/interop/v2/bundle_vectors.json', import.meta.url), 'utf8'));
 const dcp = await initDcp({ module_or_path: readFileSync(new URL('../pkg/dcp_ai_bg.wasm', import.meta.url)) });
@@ -29,8 +30,16 @@ const check = (name, ok, result) => {
   checks += 1;
   if (!ok) failures.push(`${name}: ${JSON.stringify(result?.errors ?? result)}`);
 };
-const rejects = (name, result, errorContains) =>
-  check(name, result.verified === false && result.errors.join('\n').toLowerCase().includes(errorContains), result);
+// V2-2 now rejects the schema-invalid rows first, with exactly the oracles' schema errors; the deeper check their
+// error_contains named stays covered where regression_map.json says (test/schema-v2.mjs). Two of those rows never
+// reach the V2 verifier here: the binding's version dispatch (detect_dcp_version) refuses a dcp_bundle_version other
+// than 2.0 first, as it did before V2-2, so they keep their historical assertion with that exact error.
+const DISPATCH_FIRST = new Set(['dcp_bundle_version_1_0', 'dcp_bundle_version_3_0']);
+const rejects = (name, result, errorContains, row, caseName) =>
+  check(name, DISPATCH_FIRST.has(caseName)
+    ? result.verified === false && JSON.stringify(result.errors) === '["Unknown DCP version"]' && result.errors.join('\n').toLowerCase().includes(errorContains)
+    : row ? isSchemaRejection(result, row)
+    : result.verified === false && result.errors.join('\n').toLowerCase().includes(errorContains), result);
 
 check('signed_bundle without a policy', dcp.verifyBundle(B.signed_bundle).verified === true);
 for (const mode of MODES) {
@@ -44,8 +53,10 @@ for (const mode of MODES) {
     result = verifyCase(c);
     check(`${mode}: ${c.name}`, result.verified === true, result);
   }
-  for (const c of B.must_reject) rejects(`${mode}: ${c.name}`, verify(mutated(B.signed_bundle, c.mutations)), c.error_contains);
-  for (const c of B.must_reject_bundles) rejects(`${mode}: ${c.name}`, verifyCase(c), c.error_contains);
+  for (const c of B.must_reject) {
+    rejects(`${mode}: ${c.name}`, verify(mutated(B.signed_bundle, c.mutations)), c.error_contains, schemaFirstRow('bundle_vectors.json', c.name), c.name);
+  }
+  for (const c of B.must_reject_bundles) rejects(`${mode}: ${c.name}`, verifyCase(c), c.error_contains, schemaFirstRow('bundle_vectors.json', c.name), c.name);
   const control = B.classical_only_routine_bundle;
   result = verify(control.signed_bundle);
   check(`${mode}: classical_only_routine_bundle`, result.verified === control.verified_by_mode[mode], result);

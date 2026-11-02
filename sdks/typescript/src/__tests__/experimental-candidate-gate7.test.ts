@@ -143,8 +143,44 @@ function undeclared(r: Json): string[] {
   return out;
 }
 
+// ── V2-2 in TypeScript (old -> new), the fixture unchanged ──
+// verifySignedBundleV2 now checks V2-2 first. These cases change their TypeScript expectation from the fixture's
+// shape (was) to a V2-2 shape (now): a new member x at the root or in an audit entry is a closed-object violation (the
+// unsigned root member, accepted before, is the V2-2 gap closed: an acceptance change), and an action_type or a
+// risk_score outside its schema is rejected before the payload hash or the canonicalizer that used to report it. Both
+// routes still run the same verifier, so "each route equals today" keeps its meaning. The deeper checks stay covered:
+// payload hashes by schema-valid rows of bundle_vectors.json, fractions by schema_validation/deep_negatives.json.
+const v22 = (error: string, why: string): Json => ({
+  verified: false, errors_contain: [error], error_count: 1, warnings: [],
+  fields: { manifest_valid: null, verification_mode: null, resolved_tier: null }, why,
+});
+const V2_2_SHAPES: Record<string, Json> = {
+  'ts.v2_2.root_unknown_x': v22('schema: / additionalProperties x', 'V2-2: the signed bundle root is closed; the member x is unknown.'),
+  'ts.v2_2.intent_action_type': v22('schema: /bundle/intent/payload/action_type enum', 'V2-2: action_type outside its enum, before any payload hash.'),
+  'ts.v2_2.policy_risk_score_type': v22('schema: /bundle/policy_decision/payload/risk_score type', 'V2-2: risk_score is not an integer, before canonicalization.'),
+  'ts.v2_2.policy_risk_score_maximum': v22('schema: /bundle/policy_decision/payload/risk_score maximum', 'V2-2: risk_score above 1000, before any payload hash.'),
+  'ts.v2_2.audit_unknown_x': v22('schema: /bundle/audit_entries/0 additionalProperties x', 'V2-2: an audit entry is closed; the member x is unknown.'),
+};
+const SHAPES: Record<string, Json> = { ...F.verification_shapes, ...V2_2_SHAPES };
+const V2_2_EXPECTED: Record<string, { was: string; now: string }> = Object.fromEntries(['V1', 'AB'].flatMap((b) => [
+  ...['M02', 'M06', 'M08', 'M11', 'M14', 'M16', 'M17'].map((m) => [`G7-${b}-${m}`, { was: 'ts.ok', now: 'ts.v2_2.root_unknown_x' }]),
+  ...['M03', 'M07', 'M10'].map((m) => [`G7-${b}-${m}`, { was: 'ts.intent_mismatch', now: 'ts.v2_2.intent_action_type' }]),
+  [`G7-${b}-M12`, { was: 'ts.malformed_policy_float', now: 'ts.v2_2.policy_risk_score_type' }],
+  [`G7-${b}-M13`, { was: 'ts.malformed_audit_float', now: 'ts.v2_2.audit_unknown_x' }],
+  [`G7-${b}-M15`, { was: 'ts.policy_mismatch', now: 'ts.v2_2.policy_risk_score_maximum' }],
+  [`G7-${b}-M18`, { was: 'ts.policy_mismatch', now: 'ts.v2_2.policy_risk_score_type' }],
+]));
+/** The fixture's expectation for TypeScript, with the V2-2 shape where the map says so (and only if it still says "was"). */
+function expectedFor(c: Json, cfg: Config): Json {
+  const exp = c.expected[cfg];
+  const m = V2_2_EXPECTED[c.id];
+  if (!m) return exp;
+  if (exp.verification !== m.was) throw new Error(`${c.id} ${cfg}: the fixture expects ${exp.verification}, the V2-2 map was written for ${m.was}`);
+  return { ...exp, verification: m.now };
+}
+
 function shapeProblems(r: Json, name: string): string[] {
-  const s = F.verification_shapes[name];
+  const s = SHAPES[name];
   const p: string[] = [];
   if (r.verified !== s.verified) p.push(`verified ${r.verified}, expected ${s.verified}`);
   if (!Array.isArray(r.errors) || r.errors.length !== s.error_count) p.push(`${r.errors?.length} errors, expected ${s.error_count}: ${JSON.stringify(r.errors)}`);
@@ -200,7 +236,7 @@ async function runCase(c: Json, cfg: Config): Promise<{ problems: string[]; t: T
   const t = await today(cfg, bytes);
   const afterToday = sha(bytes);
   const x = await experimental(cfg, bytes);
-  const problems = judge(c.expected[cfg], t, x);
+  const problems = judge(expectedFor(c, cfg), t, x);
   if (afterToday !== before || sha(bytes) !== before) problems.push('the input buffer was changed');
   return { problems, t, x };
 }
@@ -282,10 +318,10 @@ describe('gate 7: the judgement can fail (sensitivity and self-similarity)', () 
 
   it('reports one changed error entry', async () => {
     const { t, x } = await runCase(m10, cfg);
-    expect(judge(m10.expected[cfg], t, x)).toEqual([]);
+    expect(judge(expectedFor(m10, cfg), t, x)).toEqual([]);
     if (x.outcome !== 'returned' || x.value.verification === null) throw new Error('M10 must enter a verifier');
     const altered = { ...x, value: { ...x.value, verification: { ...x.value.verification, errors: ['intent: payload_hash mismatch (altered)'] } } } as Experimental;
-    expect(judge(m10.expected[cfg], t, altered).some((m) => m.startsWith('the routes differ'))).toBe(true);
+    expect(judge(expectedFor(m10, cfg), t, altered).some((m) => m.startsWith('the routes differ'))).toBe(true);
   });
 
   it('reports a verifier exception on either side, even when both throw', () => {
@@ -315,7 +351,7 @@ describe('gate 7: the judgement can fail (sensitivity and self-similarity)', () 
   });
 
   async function fakeRun(make: (c: Json) => { t: Today; x: Experimental }): Promise<Outcome[]> {
-    return gate(F.cases.map((c: Json) => ({ id: c.id, cfg, problems: judge(c.expected[cfg], make(c).t, make(c).x) })));
+    return gate(F.cases.map((c: Json) => ({ id: c.id, cfg, problems: judge(expectedFor(c, cfg), make(c).t, make(c).x) })));
   }
 
   it('fails a fake in which both routes reject everything', async () => {
@@ -340,7 +376,7 @@ describe('gate 7: the judgement can fail (sensitivity and self-similarity)', () 
         value: { route: { outcome: 'v1_path', profileSource: 'field', warnings: [], historical: { adapter: 'x', decoded: null } }, entered: 'dcp-jcs-v1', verification: ok } as Json,
       },
     }));
-    const negatives = F.cases.filter((c: Json) => c.expected[cfg].verification !== 'ts.ok').map((c: Json) => c.id);
+    const negatives = F.cases.filter((c: Json) => expectedFor(c, cfg).verification !== 'ts.ok').map((c: Json) => c.id);
     expect(negatives.length).toBeGreaterThan(10);
     for (const id of negatives) expect(out.find((o) => o.id === id)!.problems.length, id).toBeGreaterThan(0);
   });

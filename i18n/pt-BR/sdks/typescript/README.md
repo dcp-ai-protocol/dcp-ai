@@ -5,7 +5,7 @@
 
 # @dcp-ai/sdk — SDK TypeScript para o DCP-AI v2.0
 
-> Tradução informativa da [versão em inglês](../../../../sdks/typescript/README.md), atualizada em 28/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../../sdks/typescript/README.md), atualizada em 02/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 SDK oficial em TypeScript para o Digital Citizenship Protocol (DCP-AI). Crie, assine e verifique Citizenship Bundles com criptografia híbrida pós-quântica (Ed25519 + ML-DSA-65), assinaturas compostas, níveis de segurança adaptativos, comunicação entre agentes (A2A), observabilidade integrada e reforço para produção.
 
@@ -239,6 +239,8 @@ console.log(result.verified, result.errors); // true []
 | `signBundleV2ClassicalOnly(bundle, options)` | V2 | Assina um bundle V2 somente com assinaturas clássicas |
 | `verifySignedBundle(signedBundle, publicKeyB64)` | V1 | Verifica um bundle V1 assinado |
 | `verifySignedBundleV2(signedBundle, registry, policy?)` | V2 | Verifica um bundle V2 assinado (composto ou clássico) pelo mais estrito entre o modo da política e o modo do nível de segurança; informa `resolved_tier` |
+
+**Validação de esquemas (V2-2; na `main`, não em uma versão publicada).** `verifySignedBundleV2` e as demais funções de verificação V2 validam primeiro o envelope do bundle assinado e os quatro payloads contra `schemas/v2`, depois das verificações de política e de relógio e antes de o verificador conferir o manifesto, os hashes dos payloads, as chaves e as assinaturas; `admitSignedBundleV2`, que verifica primeiro, e o verificador experimental do candidato passam pela mesma barreira, enquanto `evaluateAdmissionV2` recebe um resultado anterior e não a executa. Um bundle que falha retorna `verified: false` com erros `schema: <JSON pointer> <keyword>[ <member>]` (no máximo 16, depois `schema: further errors not listed`) e sem detalhes criptográficos. Membros desconhecidos de objetos fechados são rejeitados; em objetos abertos, como o `target` do intent, os membros declarados mantêm suas restrições e apenas os adicionais não são inspecionados. `session_issued_at` e `session_expires_at` do manifesto devem ser strings quando presentes, não `null`. `date-time` segue a verificação do ajv-formats 3.0.1 do verificador de referência, que não é RFC 3339 estrito. Um membro com valor `undefined` conta como ausente, como na canonicalização. **Mudança de aceitação:** bundles inválidos pelo esquema que antes eram verificados agora são rejeitados. Não há API só de esquema. Veja o [mapa de cobertura](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary).
 
 <a id="bundle-optimization-v2"></a>
 

@@ -4,7 +4,7 @@
 
 # 变更日志
 
-> 本文是[英文版](../../CHANGELOG.md)的参考译文，更新于 30/10/2026。每个条目（包括 `[Unreleased]` 下的条目）描述的是当时所作的变更，并不保证当前行为；已发布的各版本是**带日期的历史记录**。如有出入，以英文版为准。
+> 本文是[英文版](../../CHANGELOG.md)的参考译文，更新于 02/11/2026。每个条目（包括 `[Unreleased]` 下的条目）描述的是当时所作的变更，并不保证当前行为；已发布的各版本是**带日期的历史记录**。如有出入，以英文版为准。
 
 **已发布版本（2026 年 10 月 26 日）。** npm（13 个软件包，包括 `@dcp-ai/sdk` 2.2.0）、Python `dcp-ai` 2.10.0、Go `v2.11.0` 和 Rust `dcp-ai` 2.11.0 均已发布，包含验证器修复、准入功能和实验性的选择启用 API；`dcp-jcs-v1` 仍是规范性默认值。见[已发布版本](../../docs/README.md#published-versions)。以下条目保留开发历史；`[Unreleased]` 不表示这些功能尚未发布。2026 年 10 月 28 日的六个修复版本见[单独的章节](#2026-10-28-sha3-patch-releases)。
 
@@ -60,6 +60,16 @@
 
 ### 安全
 
+- **接受范围变化：每个 SDK 验证器中的 V2-2 模式校验**（`main` 上的源代码，不在任何已发布版本中）。TypeScript、Python、
+  Go、Rust 和 WASM SDK 的 V2 验证器（`verifySignedBundleV2` 及其对应函数、先进行验证的组合准入 API 以及实验性候选验证器；
+  根据先前结果评估准入时不会执行）在策略和时钟检查之后、检查清单、载荷哈希、密钥和签名之前，按 `schemas/v2` 校验已签名
+  bundle 的封装和四个载荷。所有 SDK 都解释同一个由模式生成的表示（`tools/schema-ir/`），CI 会重新生成并比较。它们以前接受的
+  模式无效 bundle 现在返回 `verified: false`，其中包括封闭对象中有未知成员的 bundle，以及清单中会话时间为 `null` 的 bundle。
+  此时的错误是不含密码学细节的 `schema: <JSON pointer> <keyword>[ <member>]` 诊断（最多 16 条和一个截断标记），因此部分拒绝的
+  措辞会改变：CI 按判定评估证据目录中的 SDK 运行（`--assessment verdict`），已提交的 `error_contains` 字符串不变。
+  `date-time` 保持参考验证器的 ajv-formats 3.0.1 边界，这不是严格的 RFC 3339。公共 API、模式、配置文件、依赖和版本都不变。
+  在实验性的第 4 阶段矩阵中，`S09` 的 50 个结果现在是预期的拒绝。参见
+  [SECURITY_COVERAGE.md](docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)。
 - **TypeScript 的 `VerificationCache`（`main` 上的源代码，尚未发布；
   `@dcp-ai/sdk` 2.2.1 保持此前的行为）。** 对现有调用，缓存键仍是 bundle 哈希；
   由调用方选择的可选 `context` 用带标签的内部键分隔结果，旧式哈希无法与之冲突。

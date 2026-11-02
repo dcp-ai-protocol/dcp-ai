@@ -12,6 +12,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
+import { expectSchemaRejection, schemaFirstRow } from './schema-regression-map.js';
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -544,6 +545,10 @@ describe('Signed bundle verification (bundle_vectors.json)', () => {
         parent[path[path.length - 1]] = value;
       }
       const result = await verifySignedBundleV2(signed, registry, policyFor(mode));
+      // V2-2 now rejects the schema-invalid rows first, with exactly the oracles' schema errors; the deeper check
+      // their error_contains named stays covered where regression_map.json says (schema-v2.test.ts runs that part).
+      const row = schemaFirstRow('bundle_vectors.json', name);
+      if (row) return expectSchemaRejection(result, row);
       expect(result.verified).toBe(false);
       expect(result.errors.join('\n').toLowerCase()).toContain(error_contains);
     });
@@ -569,6 +574,8 @@ describe('Signed bundle verification (bundle_vectors.json)', () => {
     it.each(MODES)(`${name} is rejected under %s`, async (mode) => {
       const policy = { ...policyFor(mode), ...verifier_policy_overrides };
       const result = await verifySignedBundleV2(signed_bundle, registry, policy);
+      const row = schemaFirstRow('bundle_vectors.json', name);
+      if (row) return expectSchemaRejection(result, row);
       expect(result.verified).toBe(false);
       expect(result.errors.join('\n').toLowerCase()).toContain(error_contains);
     });

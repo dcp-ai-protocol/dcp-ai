@@ -29,6 +29,43 @@ const F = JSON.parse(readFileSync(new URL('tests/interop/candidate/gate7-v1-nega
 const P3 = JSON.parse(readFileSync(new URL('tests/interop/candidate/phase3-signed-vectors.json', root), 'utf8'));
 const dcp = await initDcp({ module_or_path: readFileSync(new URL('../pkg/dcp_ai_bg.wasm', import.meta.url)) });
 
+// ── V2-2 in the wasm build (old -> new), the fixture unchanged ──
+// wasm_verify_signed_bundle_v2 and the candidate verifier now run V2-2 first. These cases change their wasm expectation
+// (all four configurations) from the fixture's shape (was) to a V2-2 shape (now): a new member x at the root or in an
+// audit entry is a closed-object violation (the unsigned root member, accepted before, is the V2-2 gap closed: an
+// acceptance change), and an action_type or a risk_score outside its schema is rejected before the payload hash or the
+// canonicalizer that used to report it. Both routes still run the same verifier. The deeper checks stay covered:
+// payload hashes by schema-valid rows of bundle_vectors.json, fractions by deep_negatives.json (test/schema-v2.mjs).
+const V2_2_SHAPES = {
+  'wasm.v2_2.root_unknown_x': 'schema: / additionalProperties x',
+  'wasm.v2_2.intent_action_type': 'schema: /bundle/intent/payload/action_type enum',
+  'wasm.v2_2.policy_risk_score_type': 'schema: /bundle/policy_decision/payload/risk_score type',
+  'wasm.v2_2.policy_risk_score_maximum': 'schema: /bundle/policy_decision/payload/risk_score maximum',
+  'wasm.v2_2.audit_unknown_x': 'schema: /bundle/audit_entries/0 additionalProperties x',
+};
+for (const [name, diagnostic] of Object.entries(V2_2_SHAPES)) {
+  if (name in F.verification_shapes) throw new Error(`the fixture already has a shape ${name}`);
+  F.verification_shapes[name] = { verified: false, errors_contain: [diagnostic], error_count: 1, warnings: [],
+    fields: { manifest_valid: false, verification_mode: null, resolved_tier: null } };
+}
+// The 22 cases per configuration (11 per base): the fixture's wasm shape the map was written for, and the V2-2 shape.
+const V2_2_EXPECTED = {
+  M02: ['wasm.ok', 'wasm.v2_2.root_unknown_x'], M08: ['wasm.ok', 'wasm.v2_2.root_unknown_x'], M11: ['wasm.ok', 'wasm.v2_2.root_unknown_x'],
+  M14: ['wasm.ok', 'wasm.v2_2.root_unknown_x'], M16: ['wasm.ok', 'wasm.v2_2.root_unknown_x'],
+  M03: ['wasm.intent_mismatch', 'wasm.v2_2.intent_action_type'], M10: ['wasm.intent_mismatch', 'wasm.v2_2.intent_action_type'],
+  M12: ['wasm.policy_float', 'wasm.v2_2.policy_risk_score_type'], M13: ['wasm.audit_float', 'wasm.v2_2.audit_unknown_x'],
+  M15: ['wasm.policy_mismatch', 'wasm.v2_2.policy_risk_score_maximum'], M18: ['wasm.policy_mismatch', 'wasm.v2_2.policy_risk_score_type'],
+};
+/** The fixture's expectation for `cfg`, with the V2-2 shape where the map says so (only while the fixture still says
+ *  what the map was written for). */
+const expectedFor = (c, cfg) => {
+  const exp = c.expected[cfg];
+  const m = /^G7-(V1|AB)-(M\d\d)$/.exec(c.id) && V2_2_EXPECTED[c.id.slice(-3)];
+  if (!m || !cfg.startsWith('wasm.')) return exp;
+  if (exp.verification !== m[0]) throw new Error(`${c.id} ${cfg}: the fixture expects ${exp.verification}, the V2-2 map was written for ${m[0]}`);
+  return { ...exp, verification: m[1] };
+};
+
 const failures = [];
 let checks = 0;
 const check = (name, ok, detail) => {
@@ -243,7 +280,7 @@ function runCase(c, cfg) {
   const before = sha256(bytes);
   const t = today(cfg, bytes);
   const x = experimental(cfg, bytes);
-  const problems = judge(c.expected[cfg], t, x);
+  const problems = judge(expectedFor(c, cfg), t, x);
   if (sha256(bytes) !== before) problems.push('the input buffer was changed');
   if (Date.now !== REAL_NOW) problems.push('Date.now was not restored');
   return { problems, t, x };
@@ -289,7 +326,7 @@ function gate(results) {
     const bare = experimental(cfg, caseBytes(control));
     for (const c of F.boundary.cases) {
       const x = experimental(cfg, applyEdits(baseBytes(c.base), c.edits), 'envelope');
-      const problems = judge(c.expected[cfg], null, x, true);
+      const problems = judge(expectedFor(c, cfg), null, x, true);
       if (c.id === 'G7E-1' && x.outcome === 'returned' && bare.outcome === 'returned' && plain(x.value.verification) !== plain(bare.value.verification)) problems.push('G7E-1 differs from the bare control');
       check(`boundary ${cfg} ${c.id}`, problems.length === 0, problems);
       n++;
@@ -302,7 +339,7 @@ function gate(results) {
 {
   const cfg = 'wasm.w2TextDecoder';
   const control = byId('G7-V1-C00');
-  const exp = control.expected[cfg];
+  const exp = expectedFor(control, cfg);
   const has = (p, prefix) => p.some((m) => m.startsWith(prefix));
 
   // The clock: a binding call sees the instant; Date.now is restored after a call that throws.
@@ -324,7 +361,7 @@ function gate(results) {
   const r10 = runCase(m10, cfg);
   check('M10 passes before it is altered', r10.problems.length === 0, r10.problems);
   const altered = { ...r10.x, value: { ...r10.x.value, verification: { ...r10.x.value.verification, errors: ['intent: payload_hash mismatch (altered)'] } } };
-  check('one changed error entry is reported', has(judge(m10.expected[cfg], r10.t, altered), 'the routes differ'), null);
+  check('one changed error entry is reported', has(judge(expectedFor(m10, cfg), r10.t, altered), 'the routes differ'), null);
 
   // A verifier error, even on both sides.
   const boom = { outcome: 'verifier_error', message: 'provider exploded' };
@@ -339,7 +376,7 @@ function gate(results) {
   const g7e2 = F.boundary.cases.find((c) => c.id === 'G7E-2');
   const rejected = experimental(cfg, applyEdits(baseBytes(g7e2.base), g7e2.edits), 'envelope');
   check('G7E-2 enters no verifier', plain(rejected.entries) === '[]', rejected.entries);
-  check('an entry under G7E-2 is reported', has(judge(g7e2.expected[cfg], null, { ...rejected, entries: ['dcp-jcs-v1'] }, true), 'verifier entries'), null);
+  check('an entry under G7E-2 is reported', has(judge(expectedFor(g7e2, cfg), null, { ...rejected, entries: ['dcp-jcs-v1'] }, true), 'verifier entries'), null);
 
   // Binding calls that are counted are also checked: an extra verify or resume, or a delegation under entered: none.
   check('the control makes one verify, one resume and one delegation', plain(rc.x.binding) === '{"verify":1,"resume":1,"verifyBundle":1}', rc.x.binding);
@@ -347,11 +384,11 @@ function gate(results) {
   for (const [label, binding] of [['an extra verify', { ...rc.x.binding, verify: 2 }], ['an extra resume', { ...rc.x.binding, resume: 2 }], ['no delegation', { ...rc.x.binding, verifyBundle: 0 }]]) {
     check(`${label} is reported`, has(judge(exp, rc.t, { ...rc.x, binding }), 'binding '), binding);
   }
-  check('a delegation under entered: none is reported', has(judge(g7e2.expected[cfg], null, { ...rejected, binding: { ...rejected.binding, verifyBundle: 1 } }, true), 'binding verifyBundle'), null);
+  check('a delegation under entered: none is reported', has(judge(expectedFor(g7e2, cfg), null, { ...rejected, binding: { ...rejected.binding, verifyBundle: 1 } }, true), 'binding verifyBundle'), null);
   const m04 = byId('G7-V1-M04');
   const r04 = runCase(m04, cfg);
   check('a decoder refusal makes one resume and no delegation', r04.problems.length === 0 && plain(r04.x.binding) === '{"verify":1,"resume":1,"verifyBundle":0}', [r04.problems, r04.x.binding]);
-  check('a delegation after a decoder refusal is reported', has(judge(m04.expected[cfg], r04.t, { ...r04.x, binding: { ...r04.x.binding, verifyBundle: 1 } }), 'binding verifyBundle'), null);
+  check('a delegation after a decoder refusal is reported', has(judge(expectedFor(m04, cfg), r04.t, { ...r04.x, binding: { ...r04.x.binding, verifyBundle: 1 } }), 'binding verifyBundle'), null);
 
   // A missing control.
   check('a missing control never passes', plain(gate([{ id: 'G7-V1-M01', cfg, problems: [] }])[0].problems) === '["control_missing: G7-V1-C00"]', null);
@@ -372,12 +409,12 @@ function gate(results) {
   const rejectAll = gate(F.cases.map((c) => ({
     id: c.id,
     cfg,
-    problems: judge(c.expected[cfg], { outcome: 'host_decode_error', kind: 'SyntaxError' }, { outcome: 'returned', calls: 1, entries: [], binding: { verify: 1, resume: 1, verifyBundle: 0 }, value: { route: { outcome: 'reject', class: 'SYNTAX', offset: 0 }, entered: 'none', verification: null } }),
+    problems: judge(expectedFor(c, cfg), { outcome: 'host_decode_error', kind: 'SyntaxError' }, { outcome: 'returned', calls: 1, entries: [], binding: { verify: 1, resume: 1, verifyBundle: 0 }, value: { route: { outcome: 'reject', class: 'SYNTAX', offset: 0 }, entered: 'none', verification: null } }),
   })));
   check('a reject-everything fake passes nothing', rejectAll.every((o) => o.problems.length > 0), rejectAll.filter((o) => o.problems.length === 0).map((o) => o.id));
   check('a reject-everything fake fails its controls', rejectAll.filter((o) => o.problems[0]?.startsWith('control_failed')).length === 36, null);
-  const negatives = F.cases.filter((c) => c.expected[cfg].verification !== 'wasm.ok');
-  const acceptAll = negatives.filter((c) => judge(c.expected[cfg], rc.t, rc.x).length === 0).map((c) => c.id);
+  const negatives = F.cases.filter((c) => expectedFor(c, cfg).verification !== 'wasm.ok');
+  const acceptAll = negatives.filter((c) => judge(expectedFor(c, cfg), rc.t, rc.x).length === 0).map((c) => c.id);
   check('an accept-everything fake fails every negative', negatives.length > 10 && acceptAll.length === 0, acceptAll);
 }
 

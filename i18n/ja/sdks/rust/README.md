@@ -4,7 +4,7 @@
 
 **Rust の公開 (26/10/2026).** Rust `dcp-ai` 2.11.0 は crates.io で公開済みで、検証器の修正、受け入れ、実験的なオプトイン API を含みます。`dcp-jcs-v1` は引き続き規範かつデフォルトです。参照： [Rust 2.11.0](../../../../docs/RUST_RELEASE.md).
 
-> [英語版 README](../../../../sdks/rust/README.md)の参考訳です。更新日：2026年10月30日。検証済みの例を維持するため、識別子とコードブロック（コメントを含む）は原文のままにしています。
+> [英語版 README](../../../../sdks/rust/README.md)の参考訳です。更新日：02/11/2026。検証済みの例を維持するため、識別子とコードブロック（コメントを含む）は原文のままにしています。
 
 Digital Citizenship Protocol（DCP v2.0）向けの公式 Rust SDK。Serde ベースの型、ハイブリッド耐量子暗号（Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768）、`pq_over_classical` による結合を持つ複合署名、二重ハッシュチェーン、OpenTelemetry による可観測性、DCP-04..09 の動作、オプションの WebAssembly サポートを提供します。
 
@@ -201,6 +201,8 @@ V2 には、DCP-05 から DCP-09 までのすべてのアーティファクト�
 |----------|-------------|
 | `build_bundle_v2(&rpr, &passport, &intent, &policy, &audit_entries, session_nonce)` | 4 つの `SignedPayload` と監査証跡から V2 バンドルを構築する。各 `payload_hash` と、すべてのアーティファクトおよび監査エントリーの `session_nonce` を確認し、両方の監査 Merkle ルートをマニフェストに書き込む。証跡が空の場合、ルートは64個のゼロになる |
 | `sign_bundle_v2(bundle, &classical, &pq)` | `CTX_BUNDLE` の下でマニフェストに複合署名し、`{bundle, signature}` を返す。`signer.id` は RPR の `human_id`。署名前に `session_expires_at` または `intended_verifier` をマニフェストに設定する。`session_expires_at` があり `session_issued_at` がない場合、`session_issued_at` を署名時刻に設定する |
+
+**スキーマ検証（V2-2。`main` にあり、公開済みのバージョンには含まれない）。** `verify_signed_bundle_v2`、`…_with_policy`、`…_at`は、ポリシーと時計の確認の後、検証器がマニフェスト、ペイロードのハッシュ、鍵、署名を確認する前に、まず署名済み bundle のエンベロープと四つのペイロードを `schemas/v2` に照らして検証します。最初に検証を行う `admit_signed_bundle_v2` と実験的な候補の検証器も同じゲートを通りますが、`evaluate_admission_v2` は以前の結果を受け取り、このゲートを実行しません。失敗した bundle は `verified: false` と `schema: <JSON pointer> <keyword>[ <member>]` のエラー（最大 16 件、その後に `schema: further errors not listed`）を返し、暗号に関する詳細は返しません。閉じたオブジェクトの未知のメンバーは拒否されます。intent の `target` のような開いたオブジェクトでは、宣言されたメンバーは制約を保ち、追加のメンバーだけが検査されません。マニフェストの `session_issued_at` と `session_expires_at` は、存在する場合は `null` ではなく文字列でなければなりません。`date-time` は参照検証器の ajv-formats 3.0.1 による確認に従い、これは厳密な RFC 3339 ではありません。これらはパース済みの `serde_json::Value` を受け取るため、serde_json がパースを拒否するもの（孤立サロゲート、`1e400`）は呼び出し側のパースエラーです。**受理の変更：** 以前は検証に成功していたスキーマ上無効な bundle は、今は拒否されます。スキーマだけの API はありません。[カバレッジマップ](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)を参照してください。
 
 <a id="delegation-chains-dcp_aiv2delegation-dcp-09-35-unreleased"></a>
 <a id="delegation-chains-dcp_aiv2delegation-dcp-09-35"></a>

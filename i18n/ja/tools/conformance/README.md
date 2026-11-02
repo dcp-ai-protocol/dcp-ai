@@ -4,7 +4,7 @@
 
 # DCP-AI 適合性キット
 
-> [英語版](../../../../tools/conformance/README.md)の参考訳です（29/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../../tools/conformance/README.md)の参考訳です（02/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 `tools/conformance.js` は、[`catalog.json`](../../../../tools/conformance/catalog.json) で宣言されたスイートを、リポジトリにコミット済みの
 フィクスチャとベクターに対して実行します。カタログはバージョン管理され（`kit_version`）、スイートごとに
@@ -241,11 +241,11 @@ DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-native.test
 
 ```bash
 node tools/conformance-external.js --catalog evidence --list
-node tools/conformance-external.js --catalog evidence --report /tmp/evidence-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
-node tools/conformance-external.js --catalog evidence -- /path/to/python -I tools/conformance/wrappers/python_sdk.py
-node tools/conformance-external.js --catalog evidence -- tools/conformance/wrappers/.build/go-wrapper
-node tools/conformance-external.js --catalog evidence -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
-node tools/conformance-external.js --catalog evidence -- node tools/conformance/wrappers/wasm.mjs
+node tools/conformance-external.js --catalog evidence --assessment verdict --report /tmp/evidence-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
+node tools/conformance-external.js --catalog evidence --assessment verdict -- /path/to/python -I tools/conformance/wrappers/python_sdk.py
+node tools/conformance-external.js --catalog evidence --assessment verdict -- tools/conformance/wrappers/.build/go-wrapper
+node tools/conformance-external.js --catalog evidence --assessment verdict -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+node tools/conformance-external.js --catalog evidence --assessment verdict -- node tools/conformance/wrappers/wasm.mjs
 DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-evidence.test.mjs
 ```
 
@@ -292,12 +292,19 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
   そして例外の後に元に戻ることを示します。
 - **WASM 経由のマークル：** ラッパーはこのチェックアウトからビルドした `wasm_dual_merkle_root` を使い、これは Rust のコアに委譲します。
   `@dcp-ai/wasm` 2.1.1 以前で公開されたヘルパーは、複数の葉のケースで不合格になります（CHANGELOG を参照）。
+- **V2-2 とコミット済みの文言：** `main` の SDK 検証器は最初に V2-2 を実行するため、`error_contains` を持つ 146 の拒否のうち
+  16（署名エンコーディングの `must_reject` 7 行と `must_reject_bundles` 9 件）は、より深い検査の文言ではなくスキーマの診断を
+  受け取るようになりました。そのため `legacy` では、各 SDK ラッパーは 225 ケースに合格し、その 16 件を判定は正しいまま文言の
+  不一致として不合格にします。これは合格ではありません。`verdict` では 241 ケースすべてが合格し、130 件は文言が `matched`、
+  その 16 件は `differs` です。CI は五つの SDK ラッパーを `verdict` で評価します。フィクスチャ、その `error_contains` の文字列、
+  既定の評価は変わりません。
 - **セルフテスト：** `external-evidence.test.mjs` は 241 ケースを 5 つのラッパーで実行し、時刻の証明、不正な形のリクエスト、
   そして TypeScript ラッパーの実際の応答から作った偽の実装を実行します。偽の実装は、すべてを検証する、すべてを拒否する、
   矛盾した結果、誤ったエラーテキスト、順序を無視するか 16 進テキストをハッシュするマークル縮約、不合格になる基準、
   正しい場所と誤った場所での `missing_pq_signature`、陰性ケースでのエラーや `unsupported` を試します。
   改ざんしたフィクスチャとカタログはインフラのエラー（終了コード 3）です。このカタログの既定のタイムアウトは 300 000 ms です（`--timeout-ms`）。
-  2 つの `REQUIRE` 変数を設定すると、ラッパーがない場合はスキップではなく不合格になります。CI では 5 つすべてを実行します。
+  2 つの `REQUIRE` 変数を設定すると、ラッパーがない場合はスキップではなく不合格になります。CI では 5 つすべてを実行します。ラッパーを使う各実行では両方の評価を確認します。`legacy` は上記の 16 行だけを
+  文言の不一致として不合格にし、`verdict` は 241 ケースすべてに合格しなければなりません。
 - **制限：** 合格が示すのは、実行した argv がこれら 241 ケースに合格することだけです。ポリシーは、各ケースのコミット済みの
   `verifier_policy_overrides` を適用した `default_verifier_policy` と、古典署名のみのバンドルの 4 つのモードであり、それ以外のポリシーは試しません。`composite_verify` はバインディングと鍵を与えられたプリミティブであり、
   バンドルの判定は受け入れ、プリンシパルへの信頼、行為の認可のいずれでもありません。
@@ -352,7 +359,21 @@ node tools/conformance-external.js --catalog tools/conformance/external-schema-c
 node --test tools/conformance/external-schema.test.mjs
 ```
 
-SDK の既知のスキーマ検証不足は、許容された例外ではなく失敗ケースのままです。`schema-boundary.js` は、参照スキーマ検証、この有限コーパスに限定した整合性検査、コーパスの時刻でのスキーマと TypeScript SDK の組み合わせを別々に報告します。組み合わせの合格は SDK 単体が V2-2 を実施する証明ではなく、時刻を注入して参照 API を実行したものでもありません。整合性ヘルパーは汎用の規範検証器ではありません。自己テストは診断、その対照、期待値を確認します。その合格は SDK の適合性を認証しません。[カバレッジマップ](../../docs/conformance/SECURITY_COVERAGE.md)と[実装者ガイド](../../docs/conformance/IMPLEMENTER_GUIDE.md)を参照してください。
+`main` の SDK 検証器は V2-2 を実行し、五つの SDK ラッパーはこれら 15 ケースに合格します。不合格になる実装は失敗のままで、許容された例外にはなりません。`schema-boundary.js` は、参照スキーマ検証、この有限コーパスに限定した整合性検査、コーパスの時刻でのスキーマと TypeScript SDK の組み合わせを別々に報告します。組み合わせの合格は SDK 単体が V2-2 を実施する証明ではなく、時刻を注入して参照 API を実行したものでもありません。整合性ヘルパーは汎用の規範検証器ではありません。自己テストは診断、その対照、期待値を確認します。その合格は SDK の適合性を認証しません。[カバレッジマップ](../../docs/conformance/SECURITY_COVERAGE.md)と[実装者ガイド](../../docs/conformance/IMPLEMENTER_GUIDE.md)を参照してください。
+
+<a id="schema-validation-catalog-v2-2-opt-in"></a>
+
+#### スキーマ検証カタログ（V2-2、明示的選択）
+
+[`external-schema-validation-catalog.json`](../../../../tools/conformance/external-schema-validation-catalog.json) は、[`wiring_cases.json`](../../../../tests/interop/v2/schema_validation/wiring_cases.json) の署名済み 57 ケースに契約 `/2` を使います。各ケースは ID で固定され、肯定 13 件、否定 44 件です。各否定ケースは同じ実行で基準ケースが検証に成功した場合にだけ数えられ、各ケースは `spec/VERIFICATION.md` の手順（V2-1 から V2-14）を示します。テキストとして保存されたケースは、そのバイト列のまま送られます。判定だけを評価します。どのケースも `error_contains` を持たないため、`legacy` と `verdict` の評価は同じです。既定のカタログは変わりません。
+
+```bash
+node tools/conformance-external.js --catalog tools/conformance/external-schema-validation-catalog.json --assessment verdict --list
+node tools/conformance-external.js --catalog tools/conformance/external-schema-validation-catalog.json --assessment verdict --report /tmp/schema-validation.json -- ./my-implementation
+node --test tools/conformance/external-schema-validation.test.mjs
+```
+
+セルフテストは、キットが `tools/schema-ir/` のコーパス読み取りと同じ計画を作ること、カタログとコーパスの整合性（ID の欠落・余剰・重複、両方の形式で与えられたケース、肯定でない基準）、ランナーの対照を確認します。すべてを受理すると 44 の否定ケースだけが不合格になり、すべてを拒否するとどれも数えられず、一つの制約を無視する検証器はそのケースだけが不合格になり、欠落・重複・不正な形の結果はエラーになります。CI はセルフテストとカタログを五つの SDK ラッパーで実行し、すべてを必須とします。合格が示すのは、これら 57 ケースをそのポリシーと検証時刻で通ることだけで、V2 の完全な適合ではありません。
 
 <a id="verifier-policy-catalog-opt-in"></a>
 

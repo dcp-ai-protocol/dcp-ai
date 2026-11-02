@@ -28,6 +28,7 @@ import type {
   KeyEntry,
 } from '../types/v2.js';
 import { canonicalizeV2 } from './canonicalize.js';
+import { schemaDiagnostics, validateSignedBundleV2Schema } from './schema-v2.js';
 import { sha256Hex, sha3_256Hex } from './dual-hash.js';
 import { compositeVerify } from './composite-ops.js';
 import type { CompositeVerifyResult } from './composite-ops.js';
@@ -206,8 +207,10 @@ const VERIFICATION_MODES: readonly unknown[] = [
 /**
  * The policy's mode for a risk tier: only the policy's own overrides count,
  * and a value that is not a VerificationMode resolves to undefined.
+ * @internal Exported for the tests only (not by the package): with V2-2 in front, a risk_tier outside its enum
+ * no longer reaches it through verifySignedBundleV2, so its prototype-name guard is tested directly.
  */
-function resolveMode(policy: VerifierPolicy, riskTier?: RiskTier): VerificationMode | undefined {
+export function resolveMode(policy: VerifierPolicy, riskTier?: RiskTier): VerificationMode | undefined {
   const mode =
     riskTier && Object.hasOwn(policy.risk_overrides, riskTier)
       ? policy.risk_overrides[riskTier]
@@ -551,6 +554,11 @@ export async function verifySignedBundleV2WithProfile(
   // ...) fails verification instead of throwing, as in the Python, Go and
   // Rust verifiers (VERIFICATION.md V2-3, V2-5).
   try {
+    // V2-2 first: the envelope and the four payloads against their schemas, before any hash, key or signature.
+    // A schema failure returns the schema diagnostics alone (at most 16, then a marker) with no cryptographic
+    // details: no other check ran.
+    const schema = validateSignedBundleV2Schema(signedBundle, acceptedProfile);
+    if (!schema.valid) return { verified: false, errors: schemaDiagnostics(schema), warnings: [], details: {} };
     return await verifyV2(signedBundle, registry, policy, Math.floor(now), acceptedProfile);
   } catch (e) {
     const reason = e instanceof Error ? e.message : String(e);

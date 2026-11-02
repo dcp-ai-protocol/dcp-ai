@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -29,228 +31,195 @@ func (m *mockProvider) Verify(message []byte, signature []byte, publicKeyB64 str
 	return true, nil
 }
 
+// unitVerify verifies, at its verification time and under the given profile, the schema-valid signed base of
+// tests/interop/v2/schema_validation/wiring_cases.json after edit. Its registry holds mock providers that accept every
+// signature: each unit test below reaches one check past V2-2 over schema-valid input, next to a positive control;
+// the real signatures are the interop rows' (dcp/interop_test.go) and the 57 signed cases' (schema_v2_test.go).
+func unitVerify(t *testing.T, profile string, edit func(sb map[string]interface{})) *V2VerificationResult {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "tests", "interop", "v2", "schema_validation", "wiring_cases.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var w struct {
+		VerificationTime string `json:"verification_time"`
+		Cases            []struct {
+			Name         string                 `json:"name"`
+			SignedBundle map[string]interface{} `json:"signed_bundle"`
+		} `json:"cases"`
+	}
+	if err := json.Unmarshal(data, &w); err != nil {
+		t.Fatal(err)
+	}
+	now, err := time.Parse(time.RFC3339, w.VerificationTime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range w.Cases {
+		if c.Name != "base" {
+			continue
+		}
+		edit(c.SignedBundle)
+		raw, err := json.Marshal(c.SignedBundle)
+		if err != nil {
+			t.Fatal(err)
+		}
+		reg := NewAlgorithmRegistry()
+		reg.RegisterSigner(&mockProvider{alg: "ed25519", sigSize: 64})
+		reg.RegisterSigner(&mockProvider{alg: "ml-dsa-65", sigSize: 3309})
+		return verifySignedBundleV2AtProfile(reg, raw, DefaultVerifierPolicy(), now, profile)
+	}
+	t.Fatal("no base case in wiring_cases.json")
+	return nil
+}
+
+func at(sb map[string]interface{}, path ...string) map[string]interface{} {
+	node := sb
+	for _, k := range path {
+		node = node[k].(map[string]interface{})
+	}
+	return node
+}
+
+func unchanged(map[string]interface{}) {}
+
+// errorWith is the first error that starts with prefix, and whether some error is a V2-2 one.
+func errorWith(r *V2VerificationResult, prefix string) (found string, schema bool) {
+	for _, e := range r.Errors {
+		if found == "" && strings.HasPrefix(e, prefix) {
+			found = e
+		}
+		schema = schema || strings.HasPrefix(e, "schema: ")
+	}
+	return found, schema
+}
+
+func expectErrors(t *testing.T, r *V2VerificationResult, want ...string) {
+	t.Helper()
+	got := append([]string(nil), r.Errors...)
+	sort.Strings(got)
+	sort.Strings(want)
+	if r.Verified || !reflect.DeepEqual(got, want) {
+		t.Fatalf("verified %v, errors %q, want %q", r.Verified, got, want)
+	}
+}
+
+func TestVerifyBundleV2_UnitControl(t *testing.T) {
+	r := unitVerify(t, "dcp-jcs-v1", unchanged)
+	if !r.Verified || len(r.Errors) != 0 || !r.SessionBindingValid || !r.ManifestValid {
+		t.Fatalf("the unit base must verify: %+v", r)
+	}
+}
+
+// A missing bundle or signature is now a V2-2 error (required); "Missing bundle field" and "Missing signature field"
+// apply the same rule and are no longer reachable.
 func TestVerifyBundleV2_MissingBundle(t *testing.T) {
-	reg := NewAlgorithmRegistry()
-	result := VerifySignedBundleV2(reg, []byte(`{"signature":{}}`))
-	if result.Verified {
-		t.Fatal("expected verification to fail for missing bundle")
-	}
-	if len(result.Errors) == 0 {
-		t.Fatal("expected errors")
-	}
+	expectErrors(t, unitVerify(t, "dcp-jcs-v1", func(sb map[string]interface{}) { delete(sb, "bundle") }), "schema: / required bundle")
 }
 
 func TestVerifyBundleV2_MissingSignature(t *testing.T) {
-	reg := NewAlgorithmRegistry()
-	result := VerifySignedBundleV2(reg, []byte(`{"bundle":{}}`))
-	if result.Verified {
-		t.Fatal("expected verification to fail for missing signature")
-	}
+	expectErrors(t, unitVerify(t, "dcp-jcs-v1", func(sb map[string]interface{}) { delete(sb, "signature") }), "schema: / required signature")
 }
 
+// The parser contract is kept before V2-2.
 func TestVerifyBundleV2_InvalidJSON(t *testing.T) {
 	reg := NewAlgorithmRegistry()
 	result := VerifySignedBundleV2(reg, []byte(`not json`))
-	if result.Verified {
-		t.Fatal("expected verification to fail for invalid JSON")
+	if result.Verified || len(result.Errors) != 1 || !strings.HasPrefix(result.Errors[0], "JSON parse error: ") {
+		t.Fatalf("expected the JSON parse error alone: %v", result.Errors)
 	}
 }
 
+// dcp_bundle_version is const "2.0" in V2-2; "Invalid dcp_bundle_version" applies the same rule.
 func TestVerifyBundleV2_InvalidVersion(t *testing.T) {
-	reg := NewAlgorithmRegistry()
-	bundle := map[string]interface{}{
-		"bundle": map[string]interface{}{
-			"dcp_bundle_version": "1.0",
-			"manifest":           map[string]interface{}{"session_nonce": "abc"},
-		},
-		"signature": map[string]interface{}{},
-	}
-	data, _ := json.Marshal(bundle)
-	result := VerifySignedBundleV2(reg, data)
-	if result.Verified {
-		t.Fatal("expected verification to fail for wrong version")
-	}
-	found := false
-	for _, e := range result.Errors {
-		if e == "Invalid dcp_bundle_version" {
-			found = true
-		}
-	}
-	if !found {
-		t.Fatal("expected 'Invalid dcp_bundle_version' error")
-	}
+	r := unitVerify(t, "dcp-jcs-v1", func(sb map[string]interface{}) { at(sb, "bundle")["dcp_bundle_version"] = "1.0" })
+	expectErrors(t, r, "schema: /bundle/dcp_bundle_version const")
 }
 
 func TestVerifyBundleV2_SessionNonceMismatch(t *testing.T) {
-	reg := NewAlgorithmRegistry()
-	reg.RegisterSigner(&mockProvider{alg: "ed25519", sigSize: 64})
-
-	bundle := map[string]interface{}{
-		"bundle": map[string]interface{}{
-			"dcp_bundle_version": "2.0",
-			"manifest":           map[string]interface{}{"session_nonce": "nonce-a"},
-			"responsible_principal_record": map[string]interface{}{
-				"payload": map[string]interface{}{"session_nonce": "nonce-a"},
-			},
-			"agent_passport": map[string]interface{}{
-				"payload": map[string]interface{}{
-					"session_nonce": "nonce-b",
-					"keys":         []interface{}{},
-				},
-			},
-			"intent": map[string]interface{}{
-				"payload": map[string]interface{}{"session_nonce": "nonce-a"},
-			},
-			"policy_decision": map[string]interface{}{
-				"payload": map[string]interface{}{"session_nonce": "nonce-a"},
-			},
-		},
-		"signature": map[string]interface{}{
-			"composite_sig": map[string]interface{}{
-				"classical": map[string]interface{}{"alg": "ed25519", "kid": "k1", "sig_b64": "AAAA"},
-				"binding":   "classical_only",
-			},
-		},
-	}
-	data, _ := json.Marshal(bundle)
-	result := VerifySignedBundleV2(reg, data)
-	if result.SessionBindingValid {
-		t.Fatal("expected session binding to be invalid")
+	r := unitVerify(t, "dcp-jcs-v1", func(sb map[string]interface{}) {
+		at(sb, "bundle", "agent_passport", "payload")["session_nonce"] = strings.Repeat("f", 64)
+	})
+	if found, schema := errorWith(r, "Session nonce mismatch in agent_passport"); found == "" || schema || r.SessionBindingValid || r.Verified {
+		t.Fatalf("expected the V2-4 nonce mismatch past V2-2: binding %v, %v", r.SessionBindingValid, r.Errors)
 	}
 }
 
-// An audit entry with another session_nonce (V2-4) and a canonicalization_profile
-// that is not the string "dcp-jcs-v1" are rejected.
+// An audit entry with another session_nonce (V2-4) is rejected. A canonicalization_profile that is not "dcp-jcs-v1"
+// is now a V2-2 error (const) on this route; the profile check stays reachable on the candidate route, where an
+// absent field is not the accepted profile.
 func TestVerifyBundleV2_AuditNonceAndProfile(t *testing.T) {
-	reg := NewAlgorithmRegistry()
-	build := func(auditNonce string, profile interface{}) []byte {
-		manifest := map[string]interface{}{"session_nonce": "nonce-a"}
-		if profile != nil {
-			manifest["canonicalization_profile"] = profile
-		}
-		artifact := map[string]interface{}{"payload": map[string]interface{}{"session_nonce": "nonce-a"}}
-		data, _ := json.Marshal(map[string]interface{}{
-			"bundle": map[string]interface{}{
-				"dcp_bundle_version":           "2.0",
-				"manifest":                     manifest,
-				"responsible_principal_record": artifact,
-				"agent_passport":               artifact,
-				"intent":                       artifact,
-				"policy_decision":              artifact,
-				"audit_entries":                []interface{}{map[string]interface{}{"session_nonce": auditNonce}},
-			},
-			"signature": map[string]interface{}{},
-		})
-		return data
-	}
-	hasError := func(result *V2VerificationResult, want string) bool {
-		for _, e := range result.Errors {
-			if strings.HasPrefix(e, want) {
-				return true
-			}
-		}
-		return false
-	}
-	if r := VerifySignedBundleV2(reg, build("nonce-b", nil)); !hasError(r, "Session nonce mismatch in audit_entries[0]") || r.SessionBindingValid {
+	r := unitVerify(t, "dcp-jcs-v1", func(sb map[string]interface{}) {
+		sb["bundle"].(map[string]interface{})["audit_entries"].([]interface{})[0].(map[string]interface{})["session_nonce"] = strings.Repeat("f", 64)
+	})
+	if found, schema := errorWith(r, "Session nonce mismatch in audit_entries[0]"); found == "" || schema || r.SessionBindingValid {
 		t.Fatalf("audit entry nonce: %v", r.Errors)
 	}
-	if r := VerifySignedBundleV2(reg, build("nonce-a", nil)); hasError(r, "Session nonce mismatch in audit_entries[0]") {
-		t.Fatalf("same nonce reported as a mismatch: %v", r.Errors)
+	if found, _ := errorWith(unitVerify(t, "dcp-jcs-v1", unchanged), "Session nonce mismatch"); found != "" {
+		t.Fatalf("same nonce reported as a mismatch: %s", found)
 	}
-	for _, profile := range []interface{}{1, "dcp-jcs-v2", json.RawMessage("null")} {
-		r := VerifySignedBundleV2(reg, build("nonce-a", profile))
-		if !hasError(r, "Unknown canonicalization_profile: ") {
-			t.Fatalf("profile %v: %v", profile, r.Errors)
+	const where = "schema: /bundle/manifest/canonicalization_profile "
+	for _, c := range []struct {
+		profile interface{}
+		want    []string
+	}{
+		{1, []string{where + "const", where + "type"}},
+		{"dcp-jcs-v2", []string{where + "const"}},
+		{nil, []string{where + "const", where + "type"}},
+	} {
+		r := unitVerify(t, "dcp-jcs-v1", func(sb map[string]interface{}) { at(sb, "bundle", "manifest")["canonicalization_profile"] = c.profile })
+		expectErrors(t, r, c.want...)
+	}
+	for _, c := range []struct {
+		profile, accepted string
+		unknown           bool
+	}{{"", "dcp-jcs-v1", false}, {"dcp-jcs-v1", "dcp-jcs-v1", false}, {"", "dcp-jcs-v2", true}, {"dcp-jcs-v2", "dcp-jcs-v2", false}} {
+		r := unitVerify(t, c.accepted, func(sb map[string]interface{}) {
+			if c.profile == "" {
+				delete(at(sb, "bundle", "manifest"), "canonicalization_profile")
+			} else {
+				at(sb, "bundle", "manifest")["canonicalization_profile"] = c.profile
+			}
+		})
+		found, schema := errorWith(r, "Unknown canonicalization_profile: ")
+		if (found != "") != c.unknown || schema {
+			t.Fatalf("profile %q under %s: %v", c.profile, c.accepted, r.Errors)
 		}
-	}
-	if r := VerifySignedBundleV2(reg, build("nonce-a", "dcp-jcs-v1")); hasError(r, "Unknown canonicalization_profile: ") {
-		t.Fatalf("dcp-jcs-v1 rejected: %v", r.Errors)
 	}
 }
 
+// The four artifacts are required by V2-2; "Missing <artifact> in bundle" applies the same rule.
 func TestVerifyBundleV2_MissingArtifacts(t *testing.T) {
-	reg := NewAlgorithmRegistry()
-	bundle := map[string]interface{}{
-		"bundle": map[string]interface{}{
-			"dcp_bundle_version": "2.0",
-			"manifest":           map[string]interface{}{"session_nonce": "abc"},
-		},
-		"signature": map[string]interface{}{},
-	}
-	data, _ := json.Marshal(bundle)
-	result := VerifySignedBundleV2(reg, data)
-	if result.Verified {
-		t.Fatal("expected verification to fail for missing artifacts")
-	}
-	missingCount := 0
-	for _, e := range result.Errors {
-		if len(e) > 8 && e[:7] == "Missing" {
-			missingCount++
+	r := unitVerify(t, "dcp-jcs-v1", func(sb map[string]interface{}) {
+		for _, k := range []string{"responsible_principal_record", "agent_passport", "intent", "policy_decision"} {
+			delete(at(sb, "bundle"), k)
 		}
-	}
-	if missingCount < 4 {
-		t.Fatalf("expected at least 4 missing artifact errors, got %d", missingCount)
-	}
+	})
+	expectErrors(t, r, "schema: /bundle required agent_passport", "schema: /bundle required intent",
+		"schema: /bundle required policy_decision", "schema: /bundle required responsible_principal_record")
 }
 
 func TestVerifyBundleV2_AuditChainBroken(t *testing.T) {
-	reg := NewAlgorithmRegistry()
-	reg.RegisterSigner(&mockProvider{alg: "ed25519", sigSize: 64})
-
-	bundle := map[string]interface{}{
-		"bundle": map[string]interface{}{
-			"dcp_bundle_version": "2.0",
-			"manifest":           map[string]interface{}{"session_nonce": "n1"},
-			"responsible_principal_record": map[string]interface{}{
-				"payload": map[string]interface{}{"session_nonce": "n1"},
-			},
-			"agent_passport": map[string]interface{}{
-				"payload": map[string]interface{}{
-					"session_nonce": "n1",
-					"keys": []interface{}{
-						map[string]interface{}{"alg": "ed25519", "public_key_b64": "dGVzdA=="},
-					},
-				},
-			},
-			"intent": map[string]interface{}{
-				"payload": map[string]interface{}{"session_nonce": "n1"},
-			},
-			"policy_decision": map[string]interface{}{
-				"payload": map[string]interface{}{"session_nonce": "n1"},
-			},
-			"audit_entries": []interface{}{
-				map[string]interface{}{"audit_id": "a1", "prev_hash": "GENESIS"},
-				map[string]interface{}{"audit_id": "a2", "prev_hash": "sha256:wrong"},
-			},
-		},
-		"signature": map[string]interface{}{
-			"composite_sig": map[string]interface{}{
-				"classical": map[string]interface{}{"alg": "ed25519", "kid": "k1", "sig_b64": "AAAA"},
-				"binding":   "classical_only",
-			},
-		},
-	}
-	data, _ := json.Marshal(bundle)
-	result := VerifySignedBundleV2(reg, data)
-	found := false
-	for _, e := range result.Errors {
-		if strings.HasPrefix(e, "Audit hash chain broken at entry 1") {
-			found = true
-		}
-	}
-	if !found {
-		t.Fatalf("expected audit chain broken error, got: %v", result.Errors)
+	r := unitVerify(t, "dcp-jcs-v1", func(sb map[string]interface{}) {
+		sb["bundle"].(map[string]interface{})["audit_entries"].([]interface{})[1].(map[string]interface{})["prev_hash"] = "sha256:" + strings.Repeat("0", 64)
+	})
+	if found, schema := errorWith(r, "Audit hash chain broken at entry 1"); found == "" || schema || r.Verified {
+		t.Fatalf("expected audit chain broken error past V2-2, got: %v", r.Errors)
 	}
 }
 
+// An early V2-2 failure keeps the established result shape, with no signer observations.
 func TestVerifyBundleV2_ResultStructure(t *testing.T) {
 	reg := NewAlgorithmRegistry()
 	result := VerifySignedBundleV2(reg, []byte(`{}`))
 	if result.DCPVersion != "2.0" {
 		t.Fatal("expected dcp_version 2.0")
 	}
-	if result.Errors == nil {
-		t.Fatal("errors should not be nil")
+	if result.Verified || !reflect.DeepEqual(result.Errors, []string{"schema: / required bundle", "schema: / required signature"}) {
+		t.Fatalf("errors %v", result.Errors)
+	}
+	if result.Warnings == nil || len(result.Warnings) != 0 || result.SignerKeys == nil || len(result.SignerKeys) != 0 {
+		t.Fatalf("result shape: %+v", result)
 	}
 }
 

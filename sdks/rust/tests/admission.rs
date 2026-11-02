@@ -389,10 +389,18 @@ fn error_messages_are_bounded_and_carry_no_key_material() {
     let options = AdmitOptions { trust: Some(&trust), now_ms: Some(now()), ..Default::default() };
     check(&admit_signed_bundle_v2(&huge, &options).unwrap());
 
-    // A verifier error that repeats a long value is cut.
+    // V2-2 now refuses a long canonicalization_profile first, with a diagnostic that names no value.
     let mut long = bundle("base");
     long["bundle"]["manifest"]["canonicalization_profile"] = json!("y".repeat(100_000));
     let result = admit_signed_bundle_v2(&long, &options).unwrap();
+    assert_eq!(result.verification.result.errors, ["schema: /bundle/manifest/canonicalization_profile const"]);
+    check(&result);
+    // A verifier error that repeats a long value is cut: a schema-valid long value (a space-separated date-time with a
+    // long fraction, which the session parser refuses) still reaches one.
+    let mut long = bundle("base");
+    long["bundle"]["manifest"]["session_expires_at"] = json!(format!("2099-12-31 23:59:59.{}Z", "0".repeat(100_000)));
+    let result = admit_signed_bundle_v2(&long, &options).unwrap();
+    assert!(!result.verification.result.errors.iter().any(|e| e.starts_with("schema: ")), "{:?}", result.verification.result.errors);
     let first = &result.errors[0];
     assert_eq!(first.code, "VERIFICATION_FAILED");
     assert!(first.message.ends_with('…'), "{}", first.message.chars().take(120).collect::<String>());

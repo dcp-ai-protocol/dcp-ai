@@ -4,7 +4,7 @@
 
 # @dcp-ai/wasm — SDK WebAssembly v2.0
 
-> Tradução informativa do [README em inglês](../../../../sdks/wasm/README.md), atualizada em 30/10/2026. Os identificadores e os blocos de código, incluindo seus comentários, foram preservados para manter os exemplos testados.
+> Tradução informativa do [README em inglês](../../../../sdks/wasm/README.md), atualizada em 02/11/2026. Os identificadores e os blocos de código, incluindo seus comentários, foram preservados para manter os exemplos testados.
 
 Módulo WebAssembly para o Digital Citizenship Protocol (DCP) v2.0, compilado a partir do SDK de Rust. Oferece assinaturas compostas pós-quânticas, geração de chaves híbridas, encapsulamento de chaves ML-KEM-768, hashes duplos, construção e verificação de bundles e cálculo do nível de segurança. Tudo é executado diretamente no navegador ou no Node.js, sem servidor.
 
@@ -195,6 +195,8 @@ A verificação não concede confiança no principal, admissão ou autorização
 |--------|---------|-------------|
 | `compositeVerify(context, payload, sig, classicalPk, pqPk?)` | `CompositeVerifyResult` | Verificação criptográfica de uma assinatura composta |
 | `verifyBundle(signedBundle, policy?)` | `V2VerificationResult` | Verifica um bundle V2 —estrutura, criptografia e cadeia de hashes primária— usando o mais restritivo entre o modo da política e o do nível de segurança (spec §14.3); informa `resolved_tier` e `verification_mode`. `policy` só pode diferir dos padrões em `default_mode`, `risk_overrides`, nos campos da fase 3 (`advisory_rejected_algs`, `warn_classical_only_deprecated`, `allow_classical_fallback_disable`), em `max_session_duration_seconds` (medida desde o `session_issued_at` assinado, gravado por `signBundle` quando o manifesto contém `session_expires_at`), em `require_session_expiry` (rejeita um manifesto sem `session_expires_at`) e em `require_audience_binding` com `verifier_id` (rejeita um manifesto sem `intended_verifier` ou com valor diferente de `verifier_id`). Quando uma política é fornecida, bundles V1 são rejeitados |
+
+**Validação de esquemas (V2-2; na `main`, não em uma versão publicada).** `verifyBundle` e `wasm_verify_signed_bundle_v2` validam primeiro o envelope do bundle assinado e os quatro payloads contra `schemas/v2`, depois das verificações de política e de relógio e antes de o verificador conferir o manifesto, os hashes dos payloads, as chaves e as assinaturas; as exportações experimentais do candidato passam pela mesma barreira. Um bundle que falha retorna `verified: false` com erros `schema: <JSON pointer> <keyword>[ <member>]` (no máximo 16, depois `schema: further errors not listed`) e sem detalhes criptográficos. Membros desconhecidos de objetos fechados são rejeitados; em objetos abertos, como o `target` do intent, os membros declarados mantêm suas restrições e apenas os adicionais não são inspecionados. `session_issued_at` e `session_expires_at` do manifesto devem ser strings quando presentes, não `null`. `date-time` segue a verificação do ajv-formats 3.0.1 do verificador de referência, que não é RFC 3339 estrito. O erro de parsing da política, `JSON parse error` e a detecção de versão (`Unknown DCP version`) do binding continuam vindo antes da V2-2. **Mudança de aceitação:** bundles inválidos pelo esquema que antes eram verificados agora são rejeitados. Não há API só de esquema. Veja o [mapa de cobertura](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary).
 
 <a id="hash-operations"></a>
 

@@ -84,7 +84,7 @@ This prints values from your run; it does not validate the report or authenticat
 
 Inspect the process exit status and the report together. Confirm that the report belongs to this run, that its overall status passes, that every selected case ran, and that no required implementation was skipped. An old report file, partial results or agreement among several broken implementations is insufficient.
 
-Read the [security coverage map](SECURITY_COVERAGE.md) before claiming compatibility. Schema validation, cryptographic verification, principal trust and admission are distinct layers. In particular, a bare SDK verifier result does not by itself establish the full V2 schema gate.
+Read the [security coverage map](SECURITY_COVERAGE.md) before claiming compatibility. Schema validation, cryptographic verification, principal trust and admission are distinct layers. The V2 verifiers of the five SDKs on `main` run the V2-2 schema gate themselves, while published SDK versions do not; either way, a verified result says nothing about trust in the principal, admission or authorization.
 
 Negative cases need functioning positive controls. If a changed payload has an invalid signature as well as a semantic defect, its rejection does not isolate the semantic check. Preserve input bytes when reproducing parser or canonicalization discrepancies; parsing and rewriting them can remove the cause.
 

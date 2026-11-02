@@ -5,7 +5,7 @@
 
 # @dcp-ai/sdk — DCP-AI v2.0 的 TypeScript SDK
 
-> 本文是[英文版](../../../../sdks/typescript/README.md)的参考译文，更新于 28/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../../sdks/typescript/README.md)的参考译文，更新于 02/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 Digital Citizenship Protocol（DCP-AI）的官方 TypeScript SDK。使用后量子混合密码学（Ed25519 + ML-DSA-65）、复合签名、自适应安全等级、智能体间（A2A）通信、内置可观测性和面向生产的加固，创建、签署并验证 Citizenship Bundle。
 
@@ -239,6 +239,8 @@ console.log(result.verified, result.errors); // true []
 | `signBundleV2ClassicalOnly(bundle, options)` | V2 | 仅用经典签名签署 V2 bundle |
 | `verifySignedBundle(signedBundle, publicKeyB64)` | V1 | 验证已签名的 V1 bundle |
 | `verifySignedBundleV2(signedBundle, registry, policy?)` | V2 | 按策略模式与安全等级模式中较严格者验证已签名的 V2 bundle（复合或经典）；报告 `resolved_tier` |
+
+**模式校验（V2-2；在 `main` 上，不在已发布版本中）。** `verifySignedBundleV2` 和其他 V2 验证函数会在策略和时钟检查之后、验证器检查清单、载荷哈希、密钥和签名之前，先按 `schemas/v2` 校验已签名 bundle 的封装和四个载荷；先进行验证的 `admitSignedBundleV2` 和实验性候选验证器也经过同一关卡，而 `evaluateAdmissionV2` 接收先前的结果，不执行该关卡。校验失败的 bundle 返回 `verified: false` 和 `schema: <JSON pointer> <keyword>[ <member>]` 错误（最多 16 条，随后是 `schema: further errors not listed`），不含密码学细节。封闭对象中的未知成员会被拒绝；在开放对象中（例如 intent 的 `target`），已声明的成员保留其约束，只有附加成员不被检查。清单中的 `session_issued_at` 和 `session_expires_at` 存在时必须是字符串，不能是 `null`。`date-time` 遵循参考验证器的 ajv-formats 3.0.1 检查，这不是严格的 RFC 3339。值为 `undefined` 的成员按缺失处理，与规范化一致。**接受范围变化：** 以前能通过验证的模式无效 bundle 现在会被拒绝。没有仅做模式校验的 API。参见[覆盖映射](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)。
 
 <a id="bundle-optimization-v2"></a>
 

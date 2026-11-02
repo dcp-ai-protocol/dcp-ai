@@ -4,7 +4,7 @@
 
 # DCP-AI API 参考
 
-> 本文是[英文版](../../../docs/API_REFERENCE.md)的参考译文，更新于 28/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/API_REFERENCE.md)的参考译文，更新于 02/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 本文是 `main` 上的 TypeScript SDK `@dcp-ai/sdk`（软件包版本 2.2.1，协议 DCP v2.0）的参考文档。
 
@@ -813,7 +813,7 @@ interface VerifyV2Result {
 
 **验证流水线：**
 
-1. 版本和 schema 检查：只接受 v2.0 bundle，其他版本一律拒绝；把 v1.0 bundle 分流给 `verifySignedBundle` 是调用方的工作（[MIGRATION_V1_V2.md](../../../docs/MIGRATION_V1_V2.md#32-coexistence-strategy)）
+1. 版本和 schema 检查：只接受 v2.0 bundle，其他版本一律拒绝；把 v1.0 bundle 分流给 `verifySignedBundle` 是调用方的工作（[MIGRATION_V1_V2.md](../../../docs/MIGRATION_V1_V2.md#32-coexistence-strategy)）。在 `main` 上（不在已发布版本中），随后按 `schemas/v2` 校验封装和四个载荷（V2-2）：失败时返回 `verified: false` 和 `schema: <JSON pointer> <keyword>[ <member>]` 错误（最多 16 条，随后是 `schema: further errors not listed`），没有警告，也没有密码学细节（[覆盖映射](conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)）
 2. 验证所有已签名构件的载荷哈希
 3. 所有构件中会话 nonce 的一致性
 4. 清单完整性（重新计算所有构件哈希 + 审计 Merkle 根）

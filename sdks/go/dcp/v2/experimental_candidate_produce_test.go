@@ -11,6 +11,8 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"reflect"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -187,7 +189,9 @@ func p4ProduceAndVerify(t *testing.T, reg, verifyReg *v2.AlgorithmRegistry, s p4
 		t.Fatalf("phase 3 verification: %v %s %+v", err, r.Entered, r.Verification)
 	}
 	today := v2.VerifySignedBundleV2At(verifyReg, out.Bytes, v2.DefaultVerifierPolicy(), p4Now)
-	if today.Verified || !strings.Contains(strings.Join(today.Errors, "|"), "Unknown canonicalization_profile: dcp-jcs-v2") {
+	// The default path refuses the candidate identifier through V2-2 (canonicalization_profile const dcp-jcs-v1),
+	// before the profile check that used to report "Unknown canonicalization_profile: dcp-jcs-v2".
+	if today.Verified || !reflect.DeepEqual(today.Errors, []string{"schema: /bundle/manifest/canonicalization_profile const"}) {
 		t.Fatalf("today's API: %+v", today.Errors)
 	}
 	var unit map[string]any
@@ -432,7 +436,31 @@ func TestExperimentalCandidateProduce(t *testing.T) {
 		cp["composite_sig"] = map[string]any{"classical": map[string]any{"alg": cs.Classical.Alg, "kid": cs.Classical.Kid, "sig_b64": cs.Classical.SigB64},
 			"pq": map[string]any{"alg": cs.PQ.Alg, "kid": cs.PQ.Kid, "sig_b64": cs.PQ.SigB64}, "binding": cs.Binding}
 		s.parts.PQCheckpoints = []v2.ExperimentalCandidateInput{v2.ExperimentalCandidateHostValue(cp)}
-		unit := p4ProduceAndVerify(t, reg, verifyReg, s)
+		// Before V2-2 the candidate verifier accepted these members; the schemas close the audit entry, the checkpoint,
+		// the SignedPayload envelope and composite_sig, so the candidate path (one const changed, nothing else) now
+		// rejects them with exactly these four diagnostics, before the verifier checks payload hashes or signatures. The producer still keeps
+		// every member, and the open payload member alone still verifies (above, p4Opts.target).
+		out, err := v2.ExperimentalCandidateSignBundle(reg, s.parts, s.signer, s.options)
+		if err != nil {
+			t.Fatal(err)
+		}
+		verifier, _ := v2.NewExperimentalCandidateVerifier(v2.ExperimentalCandidateVerifierConfig{Transport: "bare", AcceptedProfiles: []string{"dcp-jcs-v2"}, Historical: "encoding_json"})
+		r, err := verifier.VerifyAt(verifyReg, out.Bytes, v2.DefaultVerifierPolicy(), p4Now)
+		got := append([]string(nil), r.Verification.Errors...)
+		sort.Strings(got)
+		want := []string{
+			"schema: /bundle/audit_entries/1 additionalProperties x_entry_ext",
+			"schema: /bundle/intent additionalProperties x_artifact_ext",
+			"schema: /bundle/intent/composite_sig additionalProperties x_sig_ext",
+			"schema: /bundle/pq_checkpoints/0 additionalProperties x_checkpoint_ext",
+		}
+		if err != nil || r.Entered != "dcp-jcs-v2" || r.Verification.Verified || !reflect.DeepEqual(got, want) || len(r.Verification.SignerKeys) != 0 {
+			t.Fatalf("phase 3 verification: %v %s %+v", err, r.Entered, r.Verification)
+		}
+		var unit map[string]any
+		if err := json.Unmarshal(out.Bytes, &unit); err != nil {
+			t.Fatal(err)
+		}
 		b := unit["bundle"].(map[string]any)
 		intent := b["intent"].(map[string]any)
 		checks := map[string]bool{

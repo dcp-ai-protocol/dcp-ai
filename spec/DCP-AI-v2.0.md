@@ -651,7 +651,8 @@ V2 verifiers MUST support V1 indefinitely. Migration is gradual.
 - **§17, backward compatibility.** The table describes outcomes, not one entry point. `verifySignedBundleV2` in the
   SDKs verifies V2 bundles only. `allow_v1_bundles` is read by the reference server and by the admission profile; the
   root `verifySignedBundle` (`lib/verify.js`) sends V1 bundles to the V1 checks without reading it.
-- **§18, pipeline.** `verifySignedBundleV2` does not run JSON Schema validation (step 2): `lib/verify.js` and the
-  server do it before calling it. It does not use the verification cache the TypeScript SDK exports (step 13), and
+- **§18, pipeline.** On `main`, `verifySignedBundleV2` and its counterparts in every SDK run JSON Schema validation
+  (step 2) themselves; published SDK versions do not, and `lib/verify.js` and the server also run it before calling
+  the SDK. It does not use the verification cache the TypeScript SDK exports (step 13), and
   step 12 reads the key status in the bundle; querying a revocation service belongs to admission
   ([docs/ADMISSION.md](../docs/ADMISSION.md)). Verification is not admission, trust or authorization.

@@ -13,6 +13,7 @@ import path from "path";
 import { spawnSync } from "child_process";
 import { fileURLToPath, pathToFileURL } from "url";
 import { ARTIFACTS } from "./wrappers/build.mjs";
+import { legacyV22Problem } from "./v2-2-wording-rows.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "..", "..");
@@ -60,12 +61,18 @@ const verifyAt = (time) => ({ id: "c", op: "verify_signed_bundle_v2", bundle_b64
 // ── The five wrappers ───────────────────────────────────────────
 
 for (const [name, w] of Object.entries(WRAPPERS)) {
-  test(`${name}: 241/241 evidence cases`, (t) => {
+  // V2-2 now decides 16 rejections first in every SDK: legacy fails exactly those on wording (their verdict right),
+  // verdict passes all 241 (v2-2-wording-rows.mjs).
+  test(`${name}: legacy 225/241, failing only the 16 V2-2 rows on wording; verdict 241/241`, (t) => {
     if (!available(t, w)) return;
     const r = run(["--catalog", "evidence", "--", ...w.argv]);
-    assert.equal(r.code, 0, r.stderr);
-    assert.deepEqual(r.report.totals, { cases: 241, executed: 241, pass: 241, fail: 0, error: 0 });
+    assert.equal(r.code, 1, r.stderr);
+    assert.deepEqual(r.report.totals, { cases: 241, executed: 241, pass: 225, fail: 16, error: 0 });
+    assert.equal(legacyV22Problem(r.report), null);
     assert.equal(r.report.kit.contract, "dcp-ai-conformance-external/2");
+    const v = run(["--catalog", "evidence", "--assessment", "verdict", "--", ...w.argv]);
+    assert.equal(v.code, 0, v.stderr);
+    assert.deepEqual(v.report.totals, { cases: 241, executed: 241, pass: 241, fail: 0, error: 0 });
   });
 
   test(`${name}: verification_time is pinned (2020 rejects, 2026 accepts, 2100 rejects)`, (t) => {
@@ -188,8 +195,11 @@ process.stdout.write(JSON.stringify(resp));
 const fake = (mode) => run(["--catalog", "evidence", "--", process.execPath, FAKE, mode]);
 const statuses = (report, prefix) => cases(report).filter((c) => c.id.startsWith(prefix)).map((c) => c.status);
 
-test("fake: unaltered answers pass 241/241 (the fake is sound)", () => {
-  assert.equal(fake("unaltered").report.totals.pass, 241);
+test("fake: unaltered answers are the TS wrapper's: legacy fails only the 16 V2-2 rows on wording, verdict 241/241 (the fake is sound)", () => {
+  const r = fake("unaltered");
+  assert.deepEqual(r.report.totals, { cases: 241, executed: 241, pass: 225, fail: 16, error: 0 });
+  assert.equal(legacyV22Problem(r.report), null);
+  assert.equal(run(["--catalog", "evidence", "--assessment", "verdict", "--", process.execPath, FAKE, "unaltered"]).report.totals.pass, 241);
 });
 
 test("fake: verifying everything fails every negative", () => {
@@ -257,10 +267,11 @@ test("fake: composites that are always valid fail every negative", () => {
 const STRIPPED = "external.signature.composite.attack.stripping_pq_removal";
 const composites = (r) => cases(r.report).filter((c) => c.op === "composite_verify");
 
-test("fake: missing_pq_signature on the stripped-PQ attack alone is the documented rejection (241/241)", () => {
+test("fake: missing_pq_signature on the stripped-PQ attack alone is the documented rejection (nothing but the 16 V2-2 wording rows fails)", () => {
   const r = fake("missing-pq-stripped-only");
-  assert.equal(r.code, 0);
-  assert.equal(r.report.totals.pass, 241);
+  assert.equal(r.code, 1);
+  assert.equal(r.report.totals.pass, 225);
+  assert.equal(legacyV22Problem(r.report), null);
   assert.equal(byId(r.report).get(STRIPPED).expect.missing_pq_rejection_allowed, true);
 });
 

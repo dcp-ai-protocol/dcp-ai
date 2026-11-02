@@ -170,6 +170,20 @@ fn n0_to_n4_raw_entries_never_repair_and_keep_errors() {
         // N1: every mutation breaks verification before any round trip.
         let before = verify(&mutated, &policy, time);
         assert!(!before.0 && !before.1.is_empty(), "{name}: the mutation alone must fail");
+        // V2-2 now decides five of them first (the audit entry is closed, its members typed and required), with
+        // exactly these errors; the three evidence mutations (an open object) still reach the hash checks.
+        let schema_first = match name {
+            "prev_hash_secondary_null" => Some("schema: /bundle/audit_entries/0/prev_hash_secondary type"),
+            "intent_hash_secondary_null" => Some("schema: /bundle/audit_entries/0/intent_hash_secondary type"),
+            "pq_checkpoint_ref_removed" => Some("schema: /bundle/audit_entries/0 required pq_checkpoint_ref"),
+            "unknown_entry_member_added" => Some("schema: /bundle/audit_entries/0 additionalProperties zz_unknown"),
+            "prev_hash_secondary_null_last_entry" => Some("schema: /bundle/audit_entries/1/prev_hash_secondary type"),
+            _ => None,
+        };
+        match schema_first {
+            Some(want) => assert_eq!(before.1, [want], "{name}"),
+            None => assert!(!before.1.iter().any(|e| e.starts_with("schema: ")), "{name}: {:?}", before.1),
+        }
         // N2: through RawAuditEventV2, exactly the same errors, never verified.
         assert_eq!(verify(&with_entries(&mutated, raw_roundtrip), &policy, time), before, "{name}: raw round trip");
         // N4 (observed, not required): the typed struct may restore the signed bytes.

@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -363,6 +364,20 @@ func TestRawAuditEventV2NeverRepairsAndKeepsErrors(t *testing.T) { // N0 to N4
 		before := verifyAt(t, mutated, policy, s.VerificationTime)
 		if before.verified || len(before.errors) == 0 {
 			t.Fatalf("%s: the mutation alone must fail", m.Name)
+		}
+		// V2-2 now decides five of them first (the audit entry is closed, its members typed and required), with
+		// exactly these errors; the three evidence mutations (an open object) still reach the hash checks.
+		schemaFirst := map[string][]string{
+			"prev_hash_secondary_null":            {"schema: /bundle/audit_entries/0/prev_hash_secondary type"},
+			"intent_hash_secondary_null":          {"schema: /bundle/audit_entries/0/intent_hash_secondary type"},
+			"pq_checkpoint_ref_removed":           {"schema: /bundle/audit_entries/0 required pq_checkpoint_ref"},
+			"unknown_entry_member_added":          {"schema: /bundle/audit_entries/0 additionalProperties zz_unknown"},
+			"prev_hash_secondary_null_last_entry": {"schema: /bundle/audit_entries/1/prev_hash_secondary type"},
+		}
+		if want, ok := schemaFirst[m.Name]; ok && !reflect.DeepEqual(before.errors, want) {
+			t.Fatalf("%s: %q, want %q", m.Name, before.errors, want)
+		} else if !ok && strings.HasPrefix(strings.Join(before.errors, "\n"), "schema: ") {
+			t.Fatalf("%s: a schema error %q where the hash checks were expected", m.Name, before.errors)
 		}
 		// N2: through RawAuditEventV2, exactly the same errors, never verified.
 		if after := verifyAt(t, withEntries(t, mutated, rawRoundtrip), policy, s.VerificationTime); !reflect.DeepEqual(after, before) {

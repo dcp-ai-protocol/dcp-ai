@@ -110,6 +110,12 @@ func g7Load(t *testing.T) *g7Fixture {
 	if p3.NowMs != f.NowMs {
 		t.Fatalf("now_ms %d is not the phase 3 instant %d", f.NowMs, p3.NowMs)
 	}
+	for name, shape := range g7V22Shapes {
+		if _, taken := f.Shapes[name]; taken {
+			t.Fatalf("the fixture already has a shape %s", name)
+		}
+		f.Shapes[name] = shape
+	}
 	f.bases = map[string][]byte{}
 	for name := range f.Bases {
 		f.bases[name] = []byte(p3.Bases[name].InputJSON)
@@ -118,6 +124,62 @@ func g7Load(t *testing.T) *g7Fixture {
 }
 
 func g7Sha(b []byte) string { s := sha256.Sum256(b); return hex.EncodeToString(s[:]) }
+
+// ── V2-2 in Go (old -> new), the fixture unchanged ──
+// VerifySignedBundleV2At now checks V2-2 first. These cases change their Go expectation from the fixture's shape
+// (was) to a V2-2 shape (now): a new member x at the root or in an audit entry is a closed-object violation (the
+// unsigned root member, accepted before, is the V2-2 gap closed: an acceptance change), and an action_type or a
+// risk_score outside its schema is rejected before the payload hash or the canonicalizer that used to report it. Both
+// routes still run the same verifier. The deeper checks stay covered: payload hashes by schema-valid rows of
+// bundle_vectors.json, fractions by deep_negatives.json (schema_v2_test.go).
+func g7V22(diagnostic string) g7Shape {
+	s := g7Shape{ErrorsContain: []string{diagnostic}, ErrorCount: 1, Warnings: &[]string{}}
+	s.Fields.ManifestValid = new(bool)
+	return s
+}
+
+var g7V22Shapes = map[string]g7Shape{
+	"go.v2_2.root_unknown_x":            g7V22("schema: / additionalProperties x"),
+	"go.v2_2.intent_action_type":        g7V22("schema: /bundle/intent/payload/action_type enum"),
+	"go.v2_2.policy_risk_score_type":    g7V22("schema: /bundle/policy_decision/payload/risk_score type"),
+	"go.v2_2.policy_risk_score_maximum": g7V22("schema: /bundle/policy_decision/payload/risk_score maximum"),
+	"go.v2_2.audit_unknown_x":           g7V22("schema: /bundle/audit_entries/0 additionalProperties x"),
+}
+
+// g7V22Expected: case -> the fixture's Go shape the map was written for, and the V2-2 shape now.
+var g7V22Expected = func() map[string][2]string {
+	m := map[string][2]string{}
+	for _, b := range []string{"V1", "AB"} {
+		for _, n := range []string{"M02", "M06", "M08", "M11", "M14", "M16", "M17"} {
+			m["G7-"+b+"-"+n] = [2]string{"go.ok", "go.v2_2.root_unknown_x"}
+		}
+		for _, n := range []string{"M03", "M07", "M10"} {
+			m["G7-"+b+"-"+n] = [2]string{"go.intent_mismatch", "go.v2_2.intent_action_type"}
+		}
+		m["G7-"+b+"-M12"] = [2]string{"go.policy_float", "go.v2_2.policy_risk_score_type"}
+		m["G7-"+b+"-M13"] = [2]string{"go.audit_float", "go.v2_2.audit_unknown_x"}
+		m["G7-"+b+"-M15"] = [2]string{"go.policy_mismatch", "go.v2_2.policy_risk_score_maximum"}
+		m["G7-"+b+"-M18"] = [2]string{"go.policy_mismatch", "go.v2_2.policy_risk_score_type"}
+	}
+	return m
+}()
+
+// g7Expected is the fixture's Go expectation for c, with the V2-2 shape where the map says so (and only while the
+// fixture still says what the map was written for).
+func g7Expected(t *testing.T, c g7Case) g7Expect {
+	t.Helper()
+	e := c.Expected[g7Config]
+	m, ok := g7V22Expected[c.ID]
+	if !ok {
+		return e
+	}
+	if e.Verification == nil || *e.Verification != m[0] {
+		t.Fatalf("%s: the fixture expects %v, the V2-2 map was written for %s", c.ID, e.Verification, m[0])
+	}
+	now := m[1]
+	e.Verification = &now
+	return e
+}
 
 // g7Apply is the fixture's edit grammar, written here independently of the Python checker.
 func g7Apply(t *testing.T, base []byte, edits []map[string]any) []byte {
@@ -424,7 +486,7 @@ func (f *g7Fixture) runCase(t *testing.T, reg *v2.AlgorithmRegistry, c g7Case, n
 	frozen := append([]byte{}, data...)
 	today := g7RunToday(reg, data, now)
 	x := g7RunExperimental(reg, data, "bare", now)
-	p := g7Judge(f, c.Expected[g7Config], &today, x, false)
+	p := g7Judge(f, g7Expected(t, c), &today, x, false)
 	if !bytes.Equal(data, frozen) {
 		p = append(p, "the input buffer was changed")
 	}
@@ -516,7 +578,7 @@ func TestGate7EnvelopeBoundary(t *testing.T) {
 	checks := 0
 	for _, c := range f.Boundary.Cases {
 		x := g7RunExperimental(reg, f.input(t, c), "envelope", now)
-		if p := g7Judge(f, c.Expected[g7Config], nil, x, true); len(p) > 0 {
+		if p := g7Judge(f, g7Expected(t, c), nil, x, true); len(p) > 0 {
 			t.Errorf("%s: %s", c.ID, strings.Join(p, " | "))
 		}
 		if c.ID == "G7E-1" && !reflect.DeepEqual(x.r.Verification, bare.r.Verification) {
@@ -534,7 +596,7 @@ func TestGate7JudgementCanFail(t *testing.T) {
 	reg := g7Registry()
 	now := time.UnixMilli(f.NowMs)
 	control := f.byID("G7-V1-C00")
-	exp := control.Expected[g7Config]
+	exp := g7Expected(t, control)
 	has := func(p []string, prefix string) bool {
 		for _, m := range p {
 			if strings.HasPrefix(m, prefix) {
@@ -562,7 +624,7 @@ func TestGate7JudgementCanFail(t *testing.T) {
 		altered.Errors = append([]string{}, altered.Errors...)
 		altered.Errors[0] += " (altered)"
 		x.r.Verification = &altered
-		if !has(g7Judge(f, m10.Expected[g7Config], &today, x, false), "the routes differ") {
+		if !has(g7Judge(f, g7Expected(t, m10), &today, x, false), "the routes differ") {
 			t.Error("not reported")
 		}
 	})
@@ -591,7 +653,7 @@ func TestGate7JudgementCanFail(t *testing.T) {
 			t.Fatal(rejected.entries)
 		}
 		rejected.entries = []string{"dcp-jcs-v1"}
-		if !has(g7Judge(f, g7e2.Expected[g7Config], nil, rejected, true), "verifier entries") {
+		if !has(g7Judge(f, g7Expected(t, g7e2), nil, rejected, true), "verifier entries") {
 			t.Error("an entry under G7E-2 not reported")
 		}
 	})
@@ -632,7 +694,7 @@ func TestGate7JudgementCanFail(t *testing.T) {
 		inBand := g7Today{outcome: "in_band_parse_error", kind: "JSON parse error", result: &v2.V2VerificationResult{}}
 		var out []g7Outcome
 		for _, c := range f.Cases {
-			out = append(out, g7Outcome{c.ID, g7Judge(f, c.Expected[g7Config], &inBand, reject, false)})
+			out = append(out, g7Outcome{c.ID, g7Judge(f, g7Expected(t, c), &inBand, reject, false)})
 		}
 		failedControls := 0
 		for _, o := range g7Gate(out) {
@@ -648,11 +710,11 @@ func TestGate7JudgementCanFail(t *testing.T) {
 		_, today, x := f.runCase(t, reg, control, now)
 		negatives := 0
 		for _, c := range f.Cases {
-			if v := c.Expected[g7Config].Verification; v != nil && *v == "go.ok" {
+			if v := g7Expected(t, c).Verification; v != nil && *v == "go.ok" {
 				continue
 			}
 			negatives++
-			if len(g7Judge(f, c.Expected[g7Config], &today, x, false)) == 0 {
+			if len(g7Judge(f, g7Expected(t, c), &today, x, false)) == 0 {
 				t.Errorf("%s passed an accept-everything fake", c.ID)
 			}
 		}

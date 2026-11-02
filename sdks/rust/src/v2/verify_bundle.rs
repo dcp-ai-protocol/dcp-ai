@@ -22,6 +22,7 @@ use crate::crypto::merkle_root_from_hex_leaves;
 use crate::v2::dual_hash;
 use crate::v2::lifecycle::unix_now_millis;
 use crate::v2::pq_checkpoint::audit_events_merkle_root;
+use crate::v2::schema_v2::{schema_diagnostics, validate_signed_bundle_v2_schema};
 use crate::v2::session_nonce::parse_rfc3339_millis;
 use crate::v2::security_tier::{compute_security_tier, effective_verification_mode};
 use crate::v2::types::VerifierPolicy;
@@ -156,6 +157,19 @@ fn verify(
                 .to_string(),
         );
         return r;
+    }
+
+    // V2-2 over the value, before any hash, key or signature work.
+    match validate_signed_bundle_v2_schema(signed_bundle, accepted_profile) {
+        Ok(schema) if schema.valid => {}
+        Ok(schema) => {
+            r.errors = schema_diagnostics(&schema);
+            return r;
+        }
+        Err(e) => {
+            r.errors.push(format!("schema: {}", e));
+            return r;
+        }
     }
 
     let bundle = match signed_bundle.get("bundle") {
@@ -1063,24 +1077,55 @@ mod tests {
         assert_eq!(session_nonce_errors(&json!({ "intent": { "payload": { "session_nonce": 1 } } }), "a").len(), 1);
     }
 
+    /// The schema-valid signed base of tests/interop/v2/schema_validation/wiring_cases.json and its verification
+    /// instant: a unit case that must reach a check past V2-2 starts from it.
+    fn wiring_base() -> (Value, i64) {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../tests/interop/v2/schema_validation/wiring_cases.json");
+        let w: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        let base = w["cases"].as_array().unwrap().iter().find(|c| c["name"] == "base").unwrap();
+        (base["signed_bundle"].clone(), parse_rfc3339_millis(w["verification_time"].as_str().unwrap()).unwrap())
+    }
+
     #[test]
     fn canonicalization_profile_must_be_dcp_jcs_v1() {
         let policy = VerifierPolicy::default();
-        let with_profile = |profile: Value| {
-            let mut manifest = json!({ "session_nonce": "a" });
-            manifest["canonicalization_profile"] = profile;
-            json!({ "bundle": { "dcp_bundle_version": "2.0", "manifest": manifest }, "signature": {} })
+        let (base, now) = wiring_base();
+        let control = verify_signed_bundle_v2_at(&base, &policy, now).result;
+        assert!(control.verified, "{:?}", control.errors);
+        let with_profile = |profile: Option<Value>| {
+            let mut b = base.clone();
+            let manifest = b["bundle"]["manifest"].as_object_mut().unwrap();
+            match profile {
+                Some(p) => manifest.insert("canonicalization_profile".into(), p),
+                None => manifest.remove("canonicalization_profile"),
+            };
+            b
         };
-        for profile in [json!("dcp-jcs-v2"), json!(1), Value::Null] {
-            let result = verify_signed_bundle_v2_with_policy(&with_profile(profile.clone()), &policy);
-            assert!(
-                result.errors.iter().any(|e| e.starts_with("Unknown canonicalization_profile: ")),
-                "{profile}: {:?}",
-                result.errors
-            );
+        // On the default route V2-2 (const dcp-jcs-v1) refuses any other value first.
+        let at = "schema: /bundle/manifest/canonicalization_profile";
+        for (profile, want) in [
+            (json!("dcp-jcs-v2"), vec![format!("{at} const")]),
+            (json!(1), vec![format!("{at} const"), format!("{at} type")]),
+            (Value::Null, vec![format!("{at} const"), format!("{at} type")]),
+        ] {
+            let mut errors = verify_signed_bundle_v2_at(&with_profile(Some(profile.clone())), &policy, now).result.errors;
+            errors.sort();
+            assert_eq!(errors, want, "{profile}");
         }
-        let result = verify_signed_bundle_v2_with_policy(&with_profile(json!("dcp-jcs-v1")), &policy);
-        assert!(!result.errors.iter().any(|e| e.contains("canonicalization_profile")), "{:?}", result.errors);
+        // The profile check itself stays reachable: under the candidate profile an absent field is not dcp-jcs-v2.
+        let r = verify_signed_bundle_v2_at_profile(&with_profile(None), &policy, now, "dcp-jcs-v2").result;
+        assert!(
+            r.errors.iter().any(|e| e == "Unknown canonicalization_profile: null")
+                && !r.errors.iter().any(|e| e.starts_with("schema: ")),
+            "{:?}",
+            r.errors
+        );
+        // dcp-jcs-v1, written or absent, is the default route's profile.
+        for profile in [Some(json!("dcp-jcs-v1")), None] {
+            let r = verify_signed_bundle_v2_at(&with_profile(profile.clone()), &policy, now).result;
+            assert!(!r.errors.iter().any(|e| e.contains("canonicalization_profile")), "{profile:?}: {:?}", r.errors);
+        }
     }
 
     #[test]

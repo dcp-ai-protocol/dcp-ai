@@ -572,9 +572,40 @@ function mutated(signed: any, mutations: { path: (string | number)[]; value: unk
   return out;
 }
 
+// V2-2 (spec/VERIFICATION.md): an @dcp-ai/sdk that enforces it refuses the schema-invalid rows of bundle_vectors.json
+// first, with exactly the schema errors of tests/interop/v2/schema_validation/regression_map.json, instead of the deeper
+// check each row's error_contains names. Which SDK these tests run against is declared, never inferred:
+// DCP_EXPECT_SDK_V2_2=1 for the workspace build (CI's second pass copies its packed build over the lockfile's copy), 0
+// or unset for the published 2.2.0 the lockfile installs (CI's first pass, npm ci), which does not enforce V2-2. The
+// first test checks the declaration against the installed SDK, so a regression either way fails.
+const EXPECT_SDK_V2_2 = (() => {
+  const v = process.env.DCP_EXPECT_SDK_V2_2 ?? '0';
+  if (v !== '0' && v !== '1') throw new Error(`DCP_EXPECT_SDK_V2_2 must be 0 or 1, not ${v}`);
+  return v === '1';
+})();
+const REGRESSION_MAP = JSON.parse(
+  readFileSync(new URL('../../../../tests/interop/v2/schema_validation/regression_map.json', import.meta.url), 'utf8'),
+);
+const schemaFirstRow = (name: string) =>
+  REGRESSION_MAP.rows.find((r: any) => r.fixture === 'tests/interop/v2/bundle_vectors.json' && r.name === name);
+const schemaDiagnostics = (row: any) =>
+  row.schema_errors.map((e: any) => `schema: ${e.instance || '/'} ${e.keyword}${e.member === undefined ? '' : ` ${e.member}`}`).sort();
+// The middleware's own envelope and version checks refuse these rows before any SDK verifier runs, so they keep their
+// historical assertion whatever the SDK (and the V2 verifier is not called).
+const MIDDLEWARE_FIRST = new Set([
+  'intent_null', 'policy_decision_not_an_object', 'rpr_null_in_agent_signed_bundle', 'intent_unsigned',
+  'agent_passport_unsigned', 'policy_decision_unsigned', 'dcp_bundle_version_1_0', 'dcp_bundle_version_3_0',
+]);
+
 describe('shared bundle vectors under the default verifier policy', () => {
   // Each case is verified under default_verifier_policy with its verifier_policy_overrides.
   const policy = VECTORS.default_verifier_policy;
+  it(`the installed @dcp-ai/sdk ${EXPECT_SDK_V2_2 ? 'enforces' : 'does not enforce'} V2-2, as DCP_EXPECT_SDK_V2_2 declares`, async () => {
+    // An unsigned unknown member at the root: accepted without V2-2, refused with exactly this one error with it.
+    const { res, next } = await run(dcpVerify({ verifierPolicy: policy }), headerReq({ ...VECTORS.signed_bundle, x_v2_2_probe: 1 }));
+    if (EXPECT_SDK_V2_2) expect(next.called ? undefined : res._body.errors).toEqual(['schema: / additionalProperties x_v2_2_probe']);
+    else expect(next.called, `the installed @dcp-ai/sdk refused an unknown root member (${res._body?.errors}): set DCP_EXPECT_SDK_V2_2=1 for the workspace build`).toBe(true);
+  });
   const accept = [
     ['signed_bundle', VECTORS.signed_bundle, undefined],
     ...VECTORS.must_accept_bundles.map((c: any) => [c.name, c.signed_bundle, c.verifier_policy_overrides]),
@@ -594,10 +625,14 @@ describe('shared bundle vectors under the default verifier policy', () => {
 
   for (const [name, signed, errorContains, step, overrides] of reject) {
     it(`rejects ${name} (${step})`, async () => {
+      const calls = v2VerifierCalls();
       const { res, next } = await run(dcpVerify({ verifierPolicy: { ...policy, ...overrides } }), headerReq(signed));
       expect(next.called).toBe(false);
       expect(res.status).toHaveBeenCalledWith(403);
-      expect(res._body.errors.join(' ').toLowerCase()).toContain(errorContains.toLowerCase());
+      if (MIDDLEWARE_FIRST.has(name)) expect(v2VerifierCalls()).toBe(calls);
+      const row = EXPECT_SDK_V2_2 && !MIDDLEWARE_FIRST.has(name) ? schemaFirstRow(name) : undefined;
+      if (row) expect([...res._body.errors].sort()).toEqual(schemaDiagnostics(row));
+      else expect(res._body.errors.join(' ').toLowerCase()).toContain(errorContains.toLowerCase());
     });
   }
 

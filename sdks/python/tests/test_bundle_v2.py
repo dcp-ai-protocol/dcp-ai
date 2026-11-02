@@ -229,7 +229,10 @@ class TestIntegrity:
     @pytest.mark.asyncio
     async def test_unknown_canonicalization_profile(self, registry, signed):
         signed["bundle"]["manifest"]["canonicalization_profile"] = "dcp-jcs-v2"
-        assert_error(await verify_signed_bundle_v2(signed, registry), "Unknown canonicalization_profile")
+        # V2-2 (const dcp-jcs-v1) refuses it before the profile check, which no input reaches on this path any more.
+        result = await verify_signed_bundle_v2(signed, registry)
+        assert result["verified"] is False
+        assert result["errors"] == ["schema: /bundle/manifest/canonicalization_profile const"]
 
     @pytest.mark.asyncio
     async def test_broken_prev_hash_chain(self, registry, signed, principal_keys):
@@ -254,17 +257,19 @@ class TestIntegrity:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
-        ("created_at", "warned"),
+        ("created_at", "warned", "schema_error"),
         [
-            ("2020-01-01T00:00:00Z", True),
-            ("2026-10-21t00:00:00z", False),  # lowercase separators
-            ("2016-12-31T23:59:60Z", False),  # a leap second
-            ("not a time", False),
-            (None, False),  # absent
+            ("2020-01-01T00:00:00Z", True, None),
+            ("2026-10-21t00:00:00z", False, None),  # lowercase separators
+            ("2016-12-31T23:59:60Z", False, None),  # a leap second
+            ("2020-01-01 00:00:00Z", False, None),  # a space separator: schema-valid, unreadable by the parser
+            # V2-2: key_entry.created_at is a required date-time, so these two no longer verify (acceptance change).
+            ("not a time", None, "schema: /bundle/agent_passport/payload/keys/0/created_at format"),
+            (None, None, "schema: /bundle/agent_passport/payload/keys/0 required created_at"),  # absent
         ],
     )
-    async def test_key_created_at_is_advisory(self, registry, signed, agent_keys, principal_keys, created_at, warned):
-        """The key-age warning reads created_at with the strict RFC 3339 parser; a value it
+    async def test_key_created_at_is_advisory(self, registry, signed, agent_keys, principal_keys, created_at, warned, schema_error):
+        """The key-age warning reads created_at with the strict RFC 3339 parser; a schema-valid value it
         cannot read gives no warning and never fails the bundle."""
         passport = signed["bundle"]["agent_passport"]["payload"]
         if created_at is None:
@@ -275,6 +280,10 @@ class TestIntegrity:
             registry, passport, DCP_CONTEXTS["AgentPassport"], agent_keys
         )
         result = await verify_signed_bundle_v2(await resign(registry, signed, principal_keys), registry)
+        if schema_error:
+            assert result["verified"] is False
+            assert result["errors"] == [schema_error]
+            return
         assert result["verified"] is True, result["errors"]
         assert any("exceeds max age" in w for w in result["warnings"]) is warned, result["warnings"]
 
@@ -308,7 +317,6 @@ class TestIntegrity:
         wrong_count = await create_pq_checkpoint(registry, entries[:2], nonce, *agent_keys)
         wrong_count["event_range"]["count"] = 3
         cases = [
-            (unsigned, "event_range does not match the audit entries"),
             (by_principal, "not found in passport keys"),
             (wrong_count, "event_range does not match the audit entries"),
         ]
@@ -317,12 +325,26 @@ class TestIntegrity:
             result = await verify_signed_bundle_v2(await resign(registry, signed, principal_keys), registry)
             assert_error(result, f"pq_checkpoints[{checkpoint['checkpoint_id']}]: ")
             assert_error(result, error)
+        # A checkpoint without its range, root and signature now fails V2-2 (required members) before V2-12.
+        bundle["pq_checkpoints"] = [unsigned]
+        result = await verify_signed_bundle_v2(await resign(registry, signed, principal_keys), registry)
+        assert result["verified"] is False
+        assert sorted(result["errors"]) == [
+            "schema: /bundle/pq_checkpoints/0 required composite_sig",
+            "schema: /bundle/pq_checkpoints/0 required event_range",
+            "schema: /bundle/pq_checkpoints/0 required merkle_root",
+        ]
 
     @pytest.mark.asyncio
     async def test_malformed_input_fails_without_raising(self, registry):
-        for bad in ({}, {"bundle": {"dcp_bundle_version": "2.0"}, "signature": {}}):
-            result = await verify_signed_bundle_v2(bad, registry)
-            assert_error(result, "Malformed signed bundle")
+        # V2-2 now rejects them as results (required members), before the code that used to raise and report
+        # "Malformed signed bundle"; nothing raises.
+        result = await verify_signed_bundle_v2({}, registry)
+        assert result["verified"] is False
+        assert result["errors"] == ["schema: / required bundle", "schema: / required signature"]
+        result = await verify_signed_bundle_v2({"bundle": {"dcp_bundle_version": "2.0"}, "signature": {}}, registry)
+        assert result["verified"] is False
+        assert result["errors"] and all(e.startswith("schema: ") for e in result["errors"]), result["errors"]
 
 
 class TestSignatures:
@@ -338,11 +360,15 @@ class TestSignatures:
 
     @pytest.mark.asyncio
     async def test_unsigned_artifact_is_named(self, registry, signed_medium):
-        # Without any composite_sig (V2-8) the error names the artifact, as in the other SDKs.
+        # Without any composite_sig the error names the artifact. V2-2 (composite_sig is required in the envelope and
+        # in the signature) now names it, before the V2-8 branch, which no input reaches any more.
         del signed_medium["bundle"]["intent"]["composite_sig"]
-        assert_error(await verify_signed_bundle_v2(signed_medium, registry), "intent: Missing composite signature")
+        result = await verify_signed_bundle_v2(signed_medium, registry)
+        assert result["verified"] is False
+        assert result["errors"] == ["schema: /bundle/intent required composite_sig"]
         del signed_medium["signature"]["composite_sig"]
-        assert_error(await verify_signed_bundle_v2(signed_medium, registry), "bundle: Missing composite signature")
+        result = await verify_signed_bundle_v2(signed_medium, registry)
+        assert sorted(result["errors"]) == ["schema: /bundle/intent required composite_sig", "schema: /signature required composite_sig"]
 
     @pytest.mark.asyncio
     async def test_invalid_artifact_pq_sig_rejected_under_hybrid_preferred(self, registry, signed_medium):
@@ -468,6 +494,12 @@ class TestSessionAndAudience:
                     bundle["signature"].pop("created_at", None)
                 else:
                     bundle["signature"]["created_at"] = created_at
+            if created_at is None:
+                # signature.created_at is required by V2-2, so an absent one is refused before any session check.
+                for bundle in (fresh, kept, short):
+                    result = await verify_signed_bundle_v2(bundle, registry, one_hour)
+                    assert result["errors"] == ["schema: /signature required created_at"], result["errors"]
+                continue
             assert_error(await verify_signed_bundle_v2(fresh, registry, one_hour), "Session duration")
             assert_error(await verify_signed_bundle_v2(kept, registry, one_hour), "Session duration")
             result = await verify_signed_bundle_v2(short, registry, one_hour)
@@ -517,7 +549,10 @@ class TestSessionAndAudience:
         """V2-4: session_issued_at is an RFC 3339 timestamp, at most 30 s ahead, not after the expiry."""
         now = datetime.now(timezone.utc)
         cases = [
-            ("2026-10-21", now + timedelta(hours=1), "Invalid session_issued_at"),
+            # Schema-valid (ajv-formats accepts lowercase t and z) but refused by the V2-4 parser: the check still runs.
+            ("2026-10-21t00:00:00z", now + timedelta(hours=1), "Invalid session_issued_at"),
+            # A date without a time fails V2-2 (format date-time) first.
+            ("2026-10-21", now + timedelta(hours=1), "schema: /bundle/manifest/session_issued_at format"),
             (iso(now + timedelta(minutes=5)), now + timedelta(hours=1), "is in the future"),
             (iso(now + timedelta(seconds=28)), now + timedelta(seconds=20), "session_issued_at is after session_expires_at"),
         ]

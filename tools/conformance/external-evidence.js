@@ -29,6 +29,7 @@ const SUITE_FIXTURES = {
   "external.v2.schema_closure": { schema: "tests/interop/v2/schema_closure_vectors.json" },
   "external.v2.verifier_policy": { policy: "tests/interop/v2/verifier_policy_vectors.json" },
   "external.v2.structural": { structural: "tests/interop/v2/structural_vectors.json" },
+  "external.v2.schema_validation": { wiring: "tests/interop/v2/schema_validation/wiring_cases.json" },
 };
 
 const need = (cond, msg) => { if (!cond) throw new InfraError(msg); };
@@ -219,6 +220,31 @@ const BUILDERS = {
     }
     return out;
   },
+  // Opt-in V2-2 suite (schema_validation/wiring_cases.json, spec/VERIFICATION.md V2-2): at the corpus verification_time
+  // under its verifier_policy the positive controls verify and every single-constraint negative is rejected although
+  // each of its hashes and signatures is valid; each negative counts only if the base passed in the same run. A case
+  // given as text (signed_bundle_text) is sent as exactly those bytes. The plan is the one tools/schema-ir/corpus.mjs
+  // builds for the phase-1 BEFORE sample (a self-test keeps the two equal).
+  "external.v2.schema_validation": ({ wiring: W }) => {
+    const rel = SUITE_FIXTURES["external.v2.schema_validation"].wiring;
+    need(isObj(W?.verifier_policy) && nonEmpty(W.verification_time) && Number.isFinite(Date.parse(W.verification_time)) && Array.isArray(W.cases) && W.cases.length > 0, `${rel}: malformed`);
+    need(W.cases.some((c) => c?.name === "base" && c.expect?.verified === true), `${rel}: the control "base" must exist and be a positive`);
+    const id = (n) => `external.v2.schema_validation.${n}`;
+    return W.cases.map((c) => {
+      need(isObj(c) && typeof c.name === "string" && /^[a-z0-9_]+$/.test(c.name) && typeof c.expect?.verified === "boolean" && typeof c.spec_step === "string" && /^V2-(?:[1-9]|1[0-4])$/.test(c.spec_step)
+        && ((isObj(c.signed_bundle) && c.signed_bundle_text === undefined) || (nonEmpty(c.signed_bundle_text) && c.signed_bundle === undefined)),
+        `schema_validation ${JSON.stringify(c?.name)}: needs a name of [a-z0-9_], expect.verified, a spec_step V2-1 to V2-14 and exactly one of signed_bundle and signed_bundle_text`);
+      return {
+        id: id(c.name),
+        source: `${rel}#${c.name} (${c.family}${c.target ? `; ${c.target.instance || "/"} ${c.target.keyword}` : ""})`,
+        op: "verify_signed_bundle_v2",
+        request: { bundle_b64: b64(c.signed_bundle_text ?? JSON.stringify(c.signed_bundle)), policy: W.verifier_policy, verification_time: W.verification_time },
+        expect: { verified: c.expect.verified },
+        ...(c.expect.verified ? {} : { controls: [id("base")] }),
+        anchor_source: { spec_step: c.spec_step },
+      };
+    });
+  },
   "external.v2.secondary_sha3": ({ secondary: V, bundles: B }) => {
     need(Array.isArray(V.cases) && isObj(V.base?.artifacts) && typeof V.verification_time === "string", `${FIXTURES.secondary}: malformed`);
     const assemble = (p) => ({ bundle: { dcp_bundle_version: "2.0", manifest: p.manifest, ...V.base.artifacts, audit_entries: p.audit_entries }, signature: p.signature });
@@ -380,6 +406,13 @@ export const VERDICT_TEXT = {
       limits: [
         "Only the verdict is judged. The corpus and its SDK-free checks show the violation each bundle is built to carry; they show neither which check of an implementation rejected it nor an exhaustive list of its defects (for the payload fraction the integrity layer stops at canonicalization). No wording, tier, mode or signer_keys output is compared (deferred, D2).",
         "The payload fraction cannot be signed under dcp-jcs-v1, so its stale hashes and signatures also reject it; the corpus records this and the other isolation limits.",
+      ],
+    },
+    "external.v2.schema_validation": {
+      claim: "Spec/VERIFICATION.md V2-2 through the verifier entry point, on tests/interop/v2/schema_validation/wiring_cases.json at its verification_time under its verifier_policy: the positive controls verify and every single-constraint negative is rejected (verified false) although each of its hashes and signatures is valid, counted only if the base passed in the same run; the two C4 cases (a null session_issued_at or session_expires_at) are rejected as the manifest schema stands. A verifier that accepts a negative shows a V2-2 gap, never conformance. Rejection messages are not judged (no error_contains).",
+      limits: [
+        "Representative: site-by-site coverage of every assertion is in schema_cases.json and coverage.json (the schema layer, run natively by each SDK); these cases show the gate through the actual verifier API, not every site.",
+        "Only the verdict is judged; diagnostics, signer_keys and the order of errors are not.",
       ],
     },
     "external.v2.secondary_sha3": {

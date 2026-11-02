@@ -4,7 +4,7 @@
 
 # DCP-AI v2.0 规范性规范
 
-> 本文是[英文规范](../../../spec/DCP-AI-v2.0.md)的参考译文，更新于 28/10/2026。**具有规范效力的是英文版**：本译文不具规范效力，如有出入，以英文版为准。标识符和代码块保持原文，不作翻译。
+> 本文是[英文规范](../../../spec/DCP-AI-v2.0.md)的参考译文，更新于 02/11/2026。**具有规范效力的是英文版**：本译文不具规范效力，如有出入，以英文版为准。标识符和代码块保持原文，不作翻译。
 
 **状态：** Final  
 **版本：** 2.0.0  
@@ -729,6 +729,6 @@ V2 验证方必须（MUST）无限期支持 V1。迁移是渐进的。
 - **§17，向后兼容。** 该表描述的是结果，而不是单一入口。SDK 中的 `verifySignedBundleV2` 只验证 V2 bundle。
   `allow_v1_bundles` 由参考服务器和准入配置文件读取；根目录的 `verifySignedBundle`（`lib/verify.js`）不读取它，
   直接把 V1 bundle 交给 V1 检查。
-- **§18，流水线。** `verifySignedBundleV2` 不执行 JSON Schema 验证（第 2 步）：`lib/verify.js` 和服务器会在调用它
-  之前执行。它不使用 TypeScript SDK 导出的验证缓存（第 13 步），第 12 步读取的是 bundle 中的密钥状态；查询撤销服务
+- **§18，流水线。** 在 `main` 上，所有 SDK 中的 `verifySignedBundleV2` 及其对应函数会自行执行 JSON Schema 验证（第 2 步）；
+  已发布的 SDK 版本不会，而 `lib/verify.js` 和服务器也会在调用 SDK 之前执行它。它不使用 TypeScript SDK 导出的验证缓存（第 13 步），第 12 步读取的是 bundle 中的密钥状态；查询撤销服务
   属于准入（[docs/ADMISSION.md](../../../docs/ADMISSION.md)）。验证不等于准入、信任或授权。

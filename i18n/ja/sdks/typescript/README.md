@@ -5,7 +5,7 @@
 
 # @dcp-ai/sdk — DCP-AI v2.0 用 TypeScript SDK
 
-> [英語版](../../../../sdks/typescript/README.md)の参考訳です（28/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../../sdks/typescript/README.md)の参考訳です（02/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 Digital Citizenship Protocol（DCP-AI）の公式 TypeScript SDK です。ポスト量子のハイブリッド暗号（Ed25519 + ML-DSA-65）、複合署名、適応型セキュリティティア、エージェント間（A2A）通信、組み込みのオブザーバビリティ、本番向けの堅牢化を備え、Citizenship Bundle の作成、署名、検証を行えます。
 
@@ -239,6 +239,8 @@ console.log(result.verified, result.errors); // true []
 | `signBundleV2ClassicalOnly(bundle, options)` | V2 | V2 バンドルにクラシカルな署名のみで署名する |
 | `verifySignedBundle(signedBundle, publicKeyB64)` | V1 | 署名済みの V1 バンドルを検証する |
 | `verifySignedBundleV2(signedBundle, registry, policy?)` | V2 | 署名済みの V2 バンドル（複合またはクラシカル）を、ポリシーのモードとセキュリティティアのモードのうち厳しいほうで検証し、`resolved_tier` を報告する |
+
+**スキーマ検証（V2-2。`main` にあり、公開済みのバージョンには含まれない）。** `verifySignedBundleV2` とほかの V2 検証関数は、ポリシーと時計の確認の後、検証器がマニフェスト、ペイロードのハッシュ、鍵、署名を確認する前に、まず署名済み bundle のエンベロープと四つのペイロードを `schemas/v2` に照らして検証します。最初に検証を行う `admitSignedBundleV2` と実験的な候補の検証器も同じゲートを通りますが、`evaluateAdmissionV2` は以前の結果を受け取り、このゲートを実行しません。失敗した bundle は `verified: false` と `schema: <JSON pointer> <keyword>[ <member>]` のエラー（最大 16 件、その後に `schema: further errors not listed`）を返し、暗号に関する詳細は返しません。閉じたオブジェクトの未知のメンバーは拒否されます。intent の `target` のような開いたオブジェクトでは、宣言されたメンバーは制約を保ち、追加のメンバーだけが検査されません。マニフェストの `session_issued_at` と `session_expires_at` は、存在する場合は `null` ではなく文字列でなければなりません。`date-time` は参照検証器の ajv-formats 3.0.1 による確認に従い、これは厳密な RFC 3339 ではありません。値が `undefined` のメンバーは、正規化と同じく欠落として扱われます。**受理の変更：** 以前は検証に成功していたスキーマ上無効な bundle は、今は拒否されます。スキーマだけの API はありません。[カバレッジマップ](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)を参照してください。
 
 <a id="bundle-optimization-v2"></a>
 

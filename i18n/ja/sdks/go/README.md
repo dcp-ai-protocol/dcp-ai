@@ -6,7 +6,7 @@
 
 **Go の公開 (26/10/2026).** Go SDK `v2.11.0` はモジュールタグ `sdks/go/v2.11.0` から利用でき、検証器の修正、受け入れ、実験的なオプトイン API を含みます。Rust の公開は別です。参照： [Go v2.11.0](../../../../docs/GO_RELEASE.md).
 
-> [英語版 README](../../../../sdks/go/README.md)の参考訳です。更新日：2026年10月30日。検証済みの例を維持するため、識別子とコードブロック（コメントを含む）は原文のままにしています。
+> [英語版 README](../../../../sdks/go/README.md)の参考訳です。更新日：02/11/2026。検証済みの例を維持するため、識別子とコードブロック（コメントを含む）は原文のままにしています。
 
 Digital Citizenship Protocol（DCP）v1.0 および v2.0 向けの公式 Go SDK。Ed25519、ML-DSA-65、SLH-DSA-192f、ML-KEM-768、複合署名、二重ハッシュチェーン、バンドル検証をサポートします。
 
@@ -203,6 +203,8 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 | `v2.VerifySignedBundleV2(reg, jsonBytes)` | `DefaultVerifierPolicy` の下で V2 バンドルを検証する（構造、ハッシュ、署名、主監査チェーン）。ポリシーモードとセキュリティ階層のモードのうち厳しい方を適用する（仕様 §14.3）。`ResolvedTier` と `VerificationMode` を報告する |
 | `v2.VerifySignedBundleV2WithPolicy(reg, jsonBytes, policy)` | 独自の `VerifierPolicy` を使う同等の処理。`DefaultVerifierPolicy()` から変更できるのは `DefaultMode`、`RiskOverrides`、`AcceptedClassicalAlgs`、`AcceptedPQAlgs`、`AllowV1Bundles`（ここでは V1 バンドルは検証に成功しない）、`MaxSessionDurationSeconds`、`RequireSessionExpiry`、`RequireAudienceBinding`、`VerifierID`、およびフェーズ3のフィールド（`AdvisoryRejectedAlgs`、`WarnClassicalOnlyDeprecated`、`AllowClassicalFallbackDisable`。TypeScript と同様）のみ。それ以外の変更は検証失敗となる |
 | `v2.VerifySignedBundleV2At(reg, jsonBytes, policy, now)` | 時刻 `now` での同等の処理。セッションウィンドウ、RPR の有効期限、鍵の有効期限を、その時刻とミリ秒精度で比較する。上の2関数は `time.Now()` を指定してこの関数を呼び出す |
+
+**スキーマ検証（V2-2。`main` にあり、公開済みのバージョンには含まれない）。** `v2.VerifySignedBundleV2`、`…WithPolicy`、`…At`は、ポリシーと時計の確認の後、検証器がマニフェスト、ペイロードのハッシュ、鍵、署名を確認する前に、まず署名済み bundle のエンベロープと四つのペイロードを `schemas/v2` に照らして検証します。最初に検証を行う `v2.AdmitSignedBundleV2` と実験的な候補の検証器も同じゲートを通りますが、`v2.EvaluateAdmissionV2` は以前の結果を受け取り、このゲートを実行しません。失敗した bundle は `verified: false` と `schema: <JSON pointer> <keyword>[ <member>]` のエラー（最大 16 件、その後に `schema: further errors not listed`）を返し、暗号に関する詳細は返しません。閉じたオブジェクトの未知のメンバーは拒否されます。intent の `target` のような開いたオブジェクトでは、宣言されたメンバーは制約を保ち、追加のメンバーだけが検査されません。マニフェストの `session_issued_at` と `session_expires_at` は、存在する場合は `null` ではなく文字列でなければなりません。`date-time` は参照検証器の ajv-formats 3.0.1 による確認に従い、これは厳密な RFC 3339 ではありません。JSON オブジェクトでないルートは、V2-2 の前に従来のパースエラーのままです。**受理の変更：** 以前は検証に成功していたスキーマ上無効な bundle は、今は拒否されます。スキーマだけの API はありません。[カバレッジマップ](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)を参照してください。
 
 各結果の `SignerKeys`（JSON では `signer_keys`）には、検査した複合署名（`bundle`、4つのアーティファクト、各 `pq_checkpoints[<id>]`）ごとに、検証器が各コンポーネント（`classical`、`pq`）用に解決した鍵エントリーと、そのコンポーネントの検証結果が列挙されます。
 

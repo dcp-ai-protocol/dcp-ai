@@ -4,7 +4,7 @@
 
 # Candidato de canonicalização `dcp-jcs-v2`
 
-> Tradução informativa da [versão em inglês](../../../../../docs/proposals/canonicalization-candidate/README.md), atualizada em 29/10/2026. Proposta experimental e não normativa; em caso de divergência, prevalece a versão em inglês. Identificadores e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../../../docs/proposals/canonicalization-candidate/README.md), atualizada em 02/11/2026. Proposta experimental e não normativa; em caso de divergência, prevalece a versão em inglês. Identificadores e blocos de código são mantidos sem tradução.
 
 As APIs candidatas experimentais e opt-in estão incluídas nas versões de SDK listadas em [Versões publicadas](../../../../../docs/README.md#published-versions).
 
@@ -792,6 +792,10 @@ execução e nunca são escritas fora do diretório da execução.
     número fora do intervalo, profundidade 65, erros de transporte, um perfil desconhecido e um perfil não aceito.
   - No caminho do candidato, falhando ali: uma carga útil alterada, um manifesto alterado e uma assinatura clássica ou
     PQ invertida.
+- **Desde a V2-2** (validação de esquema em todos os SDKs, na `main`, não publicada): os 50 resultados de `S09`, cujos membros
+  desconhecidos estão em objetos fechados, são rejeitados com diagnósticos de esquema exatos. Uma execução espera agora 525
+  resultados positivos e 450 negativos, 975 no total; 575 e 400 são as contagens no fechamento da fase 4. Veja
+  [o README da fase 4](../../../../../i18n/pt-BR/tests/interop/candidate/phase4/README.md#s09-under-v2-2).
 - **Verificações do executor:**
   - o conjunto exato de 975 resultados, passos e campos;
   - a atualidade: ID da execução, datas e horários dos arquivos;

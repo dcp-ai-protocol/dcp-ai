@@ -3,7 +3,9 @@
 // Go, Rust, WASM). Every producer signs the same input bytes with its public opt-in APIs; every consumer
 // verifies every output, and byte-level negatives made from the fresh outputs, with the phase 3 verifier,
 // reporting the verdict and the calls it observed to its historical decoder.
-// Expected: 575 positive results (115 units x 5 consumers) and 400 negative ones (16 x 5 x 5), 975 in all.
+// Expected: 975 results (115 units x 5 consumers, and 16 x 5 x 5 byte-level negatives): 525 positive and 450
+// negative, the 400 byte-level ones and the 50 of S09 that V2-2 refuses (V2_2_CLOSED_MEMBERS). Before V2-2 every
+// unit was positive: 575 and 400.
 //
 // The run is refused, never partly passed, when a step is missing or exits with an error (after writing
 // results too), when a result is missing, repeated, unknown or malformed, when anything comes from another
@@ -36,11 +38,43 @@ export function positiveCases(specs = SPECS) {
   return [...specs.cases.flatMap((c) => c.modes.map((m) => `${c.id}-${m}`)), 'R'];
 }
 
+/**
+ * V2-2, the schema gate of every SDK's verifier, closes the audit entry, the checkpoint, the SignedPayload envelope and
+ * its composite_sig. On the candidate path it runs after the parser and the profile policy, and before the verifier
+ * checks payload hashes and signatures. S09 puts a member the producer does not know in each of them, so its
+ * units (5 producers x 2 modes x 5 consumers: 50 results) are refused on the candidate path; phase4-specs.json and its
+ * bytes are unchanged. `diagnostics` are the four each SDK returns, in this order (each SDK's produce tests assert
+ * them); the adapters record the first three errors only, so a result is judged on that prefix. The member S09 adds to
+ * the intent target is open and raises none. Each refusal counts only when its control, the S04 unit (the checkpoint
+ * without those members) of the same producer and mode, is verified by the same consumer.
+ */
+export const V2_2_CLOSED_MEMBERS = Object.freeze({
+  controls: Object.freeze({ 'S09-bytes': 'S04-bytes', 'S09-value': 'S04-value' }),
+  diagnostics: Object.freeze([
+    'schema: /bundle/audit_entries/1 additionalProperties x_entry_ext',
+    'schema: /bundle/intent additionalProperties x_artifact_ext',
+    'schema: /bundle/intent/composite_sig additionalProperties x_sig_ext',
+    'schema: /bundle/pq_checkpoints/0 additionalProperties x_checkpoint_ext',
+  ]),
+});
+const ERRORS_RECORDED = 3;
+
 /** Every result expected, keyed producer|case|consumer. */
 export function expectedResults(specs = SPECS, sdks = SDKS) {
   const out = new Map();
+  const units = positiveCases(specs);
+  for (const [c, control] of Object.entries(V2_2_CLOSED_MEMBERS.controls)) {
+    if (!units.includes(c) || !units.includes(control)) throw new Error(`V2_2_CLOSED_MEMBERS: ${c} or ${control} is not a unit of the specifications`);
+  }
+  const refused = { outcome: 'candidate', class: null, entered: 'dcp-jcs-v2', verified: false, decoder_calls: 0,
+    errors_prefix: V2_2_CLOSED_MEMBERS.diagnostics.slice(0, ERRORS_RECORDED) };
   for (const producer of sdks) {
-    for (const c of positiveCases(specs)) for (const consumer of sdks) out.set(`${producer}|${c}|${consumer}`, specs.positive_expect);
+    for (const c of units) {
+      for (const consumer of sdks) {
+        const control = V2_2_CLOSED_MEMBERS.controls[c];
+        out.set(`${producer}|${c}|${consumer}`, control ? { ...refused, control: `${producer}|${control}|${consumer}` } : specs.positive_expect);
+      }
+    }
     for (const n of specs.negatives) for (const consumer of sdks) out.set(`${producer}|${n.id}|${consumer}`, n.expect);
   }
   return out;
@@ -96,10 +130,14 @@ export function aggregate({ results, exits, steps, runId, startedAt, now, deadli
     const ok = r.outcome === want.outcome && r.entered === want.entered && r.decoder_calls === want.decoder_calls
       && (want.class === undefined || r.class === want.class)
       && (want.verified === undefined || r.verified === want.verified)
+      && (want.errors_prefix === undefined || JSON.stringify(r.errors) === JSON.stringify(want.errors_prefix))
       && (r.entered === 'none') === (r.verified === null);
     if (!ok) problems.push(`${key}: got ${JSON.stringify({ outcome: r.outcome, class: r.class, entered: r.entered, verified: r.verified, decoder_calls: r.decoder_calls, errors: r.errors })}, want ${JSON.stringify(want)}`);
   }
   for (const key of expected.keys()) if (!seen.has(key)) problems.push(`missing result ${key}`);
+  for (const [key, want] of expected) {
+    if (want.control !== undefined && seen.has(key) && seen.get(want.control)?.verified !== true) problems.push(`${key}: its control ${want.control} was not verified`);
+  }
   return { ok: problems.length === 0, problems, counted: seen.size, expected: expected.size };
 }
 
@@ -463,7 +501,7 @@ async function selfTest() {
   const good = [...expected].map(([key, want]) => {
     const [producer, c, consumer] = key.split('|');
     return { run_id: runId, producer, case: c, consumer, created_at: '2026-10-25T00:01:00Z', outcome: want.outcome, class: want.class ?? null,
-      entered: want.entered, verified: want.verified ?? null, decoder_calls: want.decoder_calls, errors: [] };
+      entered: want.entered, verified: want.verified ?? null, decoder_calls: want.decoder_calls, errors: want.errors_prefix ?? [] };
   });
   const allOk = Object.fromEntries(steps.map((s) => [s, 0]));
   const verdict = (o) => aggregate({ results: good, exits: allOk, steps, runId, startedAt, now, deadlineHit: false, expected, ...o });
@@ -493,6 +531,33 @@ async function selfTest() {
   expect('created_at missing', verdict({ results: with0({ created_at: undefined }) }).ok, false);
   expect('the deadline passed', verdict({ deadlineHit: true }).ok, false);
   expect('a wrong verdict', verdict({ results: with0({ verified: false }) }).ok, false);
+
+  // V2-2: exactly the 50 S09 results expect its refusal, judged on the recorded prefix of its four diagnostics.
+  const refusals = [...expected].filter(([, w]) => w.control !== undefined).map(([key]) => key);
+  const at = (key, change) => good.map((r) => (`${r.producer}|${r.case}|${r.consumer}` === key ? { ...r, ...change } : r));
+  const prefix = V2_2_CLOSED_MEMBERS.diagnostics.slice(0, 3);
+  const s09 = 'go|S09-value|rust';
+  expect('525 positive and 450 negative results expected', good.filter((r) => r.verified === true).length === 525 && good.filter((r) => r.verified !== true).length === 450, true);
+  expect('exactly the 50 S09 results expect the V2-2 refusal, each with its S04 control', refusals.length === 50
+    && refusals.every((k) => /^(ts|py|go|rust|wasm)\|S09-(bytes|value)\|(ts|py|go|rust|wasm)$/.test(k) && expected.get(k).control === k.replace('|S09-', '|S04-')), true);
+  expect('an S09 result accepted', verdict({ results: at(s09, { verified: true, errors: [] }) }).ok, false);
+  expect('an S09 refusal with another diagnostic', verdict({ results: at(s09, { errors: [...prefix.slice(0, 2), 'schema: /bundle/intent additionalProperties other'] }) }).ok, false);
+  expect('an S09 refusal with a diagnostic missing', verdict({ results: at(s09, { errors: prefix.slice(1) }) }).ok, false);
+  expect('an S09 refusal in another order', verdict({ results: at(s09, { errors: [...prefix].reverse() }) }).ok, false);
+  expect('an S09 refusal before any verifier', verdict({ results: at(s09, { outcome: 'reject', class: 'SYNTAX', entered: 'none', verified: null, decoder_calls: 1 }) }).ok, false);
+  expect('an S09 refusal on the dcp-jcs-v1 path', verdict({ results: at(s09, { outcome: 'v1_path', entered: 'dcp-jcs-v1' }) }).ok, false);
+  expect('an S09 refusal with a decoder call', verdict({ results: at(s09, { decoder_calls: 1 }) }).ok, false);
+  expect('an S09 refusal whose S04 control was not verified', verdict({ results: at('go|S04-value|rust', { verified: false }) }).problems
+    .includes(`${s09}: its control go|S04-value|rust was not verified`), true);
+  expect('another positive refused with the S09 diagnostics', verdict({ results: at('go|S10-value|rust', { verified: false, errors: prefix }) }).ok, false);
+  expect('a map naming a unit the specifications lack', (() => {
+    try {
+      expectedResults({ ...SPECS, cases: SPECS.cases.filter((c) => c.id !== 'S04') });
+      return true;
+    } catch {
+      return false;
+    }
+  })(), false);
 
   // A cost report is refused when incomplete, failed, inconsistent, of another platform or run, or over budget.
   const samples = Array.from({ length: 20 }, (_, i) => i + 1);

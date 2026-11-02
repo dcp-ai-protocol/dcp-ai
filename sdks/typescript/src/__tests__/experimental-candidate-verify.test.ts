@@ -192,6 +192,19 @@ function checkRoute(r: ExperimentalCandidateVerifyResult, exp: Expected): void {
   }
 }
 
+/**
+ * The phase 3 vectors whose TypeScript expectation V2-2 changes (old errors_contain.ts -> new schema diagnostics). The
+ * fixture keeps its bytes and every other SDK's expectation; the deeper checks stay covered elsewhere: the intent
+ * payload hash by schema-valid rows of bundle_vectors.json (intent_payload_hash_wrong, manifest_intent_hash_mismatch),
+ * the fraction by deep_negatives.json; a V1 bundle and null on the V2 path are structural (no V2 check applies).
+ */
+const V2_2_TS: Record<string, { was: string[]; now: string[]; truncated?: boolean }> = {
+  F01: { was: ['intent: payload_hash mismatch'], now: ['schema: /bundle/intent/payload/action_type enum'] },
+  D07: { was: ['Unsupported bundle version'], now: ['schema: /bundle required dcp_bundle_version', 'schema: /bundle required manifest'], truncated: true },
+  D08: { was: ['Malformed signed bundle'], now: ['schema: /bundle/policy_decision/payload/risk_score type'] },
+  D09: { was: ['Malformed signed bundle'], now: ['schema: / type'] },
+};
+
 describe('phase 3 signed vectors', () => {
   it('the vectors carry exactly the approved case IDs; a missing, repeated or unknown one is refused', () => {
     const ids = cases.map((c) => c.id);
@@ -229,8 +242,19 @@ describe('phase 3 signed vectors', () => {
           const v = r.verification!;
           expect(v.verified, JSON.stringify(v.errors)).toBe(exp.verification.verified);
           if (exp.verification.verified) expect(v.errors).toEqual([]);
-          for (const s of exp.verification.errors_contain.ts) {
-            expect(v.errors.some((e) => e.includes(s)), `${s} in ${JSON.stringify(v.errors)}`).toBe(true);
+          const v22 = V2_2_TS[c.id];
+          if (v22) {
+            // V2-2 decides it first in TypeScript: the old wording is the check it no longer reaches.
+            expect(exp.verification.errors_contain.ts).toEqual(v22.was);
+            expect(v.errors.every((e) => e.startsWith('schema: ')), JSON.stringify(v.errors)).toBe(true);
+            if (v22.truncated) expect(v.errors.at(-1)).toBe('schema: further errors not listed');
+            else expect(v.errors.length).toBe(v22.now.length);
+            for (const e of v22.now) expect(v.errors).toContain(e);
+            expect(v.details).toEqual({});
+          } else {
+            for (const s of exp.verification.errors_contain.ts) {
+              expect(v.errors.some((e) => e.includes(s)), `${s} in ${JSON.stringify(v.errors)}`).toBe(true);
+            }
           }
         }
 
@@ -411,7 +435,8 @@ describe('controls', () => {
     expect(r.entered).toBe('dcp-jcs-v1');
     expect(entries).toEqual(['dcp-jcs-v1']);
     expect(r.verification?.verified).toBe(false);
-    expect(r.verification?.errors.join()).toContain('Malformed signed bundle');
+    // V2-2 rejects null as the root type before the verifier body that used to report "Malformed signed bundle".
+    expect(r.verification?.errors).toEqual(['schema: / type']);
     expect(r.verification).toEqual(await verifySignedBundleV2(null as never, registry, undefined, NOW));
   }, TIMEOUT_MS);
 
@@ -456,13 +481,14 @@ describe('controls', () => {
     const parsed = JSON.parse(Buffer.from(input(P01)).toString('utf8')) as SignedBundleV2;
     const r = await verifySignedBundleV2(parsed, registry, undefined, NOW);
     expect(r.verified).toBe(false);
-    expect(r.errors).toContain('Unknown canonicalization_profile: dcp-jcs-v2');
+    // The default path refuses the candidate identifier through V2-2 (const dcp-jcs-v1) before the profile check.
+    expect(r.errors).toEqual(['schema: /bundle/manifest/canonicalization_profile const']);
     const routed = await createExperimentalCandidateVerifier({ transport: 'bare', acceptedProfiles: ['dcp-jcs-v2'], historical: adapter })
       .verify(input(P01), registry, undefined, NOW);
     if (routed.route.outcome !== 'candidate') throw new Error(routed.route.outcome);
     const exact = await verifySignedBundleV2(routed.route.value as unknown as SignedBundleV2, registry, undefined, NOW);
     expect(exact.verified).toBe(false);
-    expect(exact.errors).toContain('Unknown canonicalization_profile: dcp-jcs-v2');
+    expect(exact.errors).toEqual(['schema: /bundle/manifest/canonicalization_profile const']);
   }, TIMEOUT_MS);
 
   it('the package entry point exports the verifier and nothing internal', () => {

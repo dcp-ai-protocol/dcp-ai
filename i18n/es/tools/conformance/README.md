@@ -4,7 +4,7 @@
 
 # Kit de conformidad de DCP-AI
 
-> Traducción informativa de [la versión en inglés](../../../../tools/conformance/README.md), actualizada el 29/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../../tools/conformance/README.md), actualizada el 02/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 `tools/conformance.js` ejecuta las suites declaradas en [`catalog.json`](../../../../tools/conformance/catalog.json) contra los fixtures y
 vectores del repositorio. El catálogo está versionado (`kit_version`) y fija, para cada suite, los IDs exactos
@@ -239,11 +239,11 @@ fixtures públicos versionados: no se genera ninguna clave ni se firma nada.
 
 ```bash
 node tools/conformance-external.js --catalog evidence --list
-node tools/conformance-external.js --catalog evidence --report /tmp/evidence-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
-node tools/conformance-external.js --catalog evidence -- /path/to/python -I tools/conformance/wrappers/python_sdk.py
-node tools/conformance-external.js --catalog evidence -- tools/conformance/wrappers/.build/go-wrapper
-node tools/conformance-external.js --catalog evidence -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
-node tools/conformance-external.js --catalog evidence -- node tools/conformance/wrappers/wasm.mjs
+node tools/conformance-external.js --catalog evidence --assessment verdict --report /tmp/evidence-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
+node tools/conformance-external.js --catalog evidence --assessment verdict -- /path/to/python -I tools/conformance/wrappers/python_sdk.py
+node tools/conformance-external.js --catalog evidence --assessment verdict -- tools/conformance/wrappers/.build/go-wrapper
+node tools/conformance-external.js --catalog evidence --assessment verdict -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+node tools/conformance-external.js --catalog evidence --assessment verdict -- node tools/conformance/wrappers/wasm.mjs
 DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-evidence.test.mjs
 ```
 
@@ -293,6 +293,12 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
 - **Merkle a través de WASM:** el wrapper usa el `wasm_dual_merkle_root` compilado desde este checkout, que delega
   en el núcleo de Rust; el helper publicado en `@dcp-ai/wasm` 2.1.1 y anteriores falla los casos multihoja (véase
   el CHANGELOG).
+- **V2-2 y la redacción comprometida:** los verificadores de los SDK en `main` ejecutan primero V2-2, así que 16 de los 146
+  rechazos que llevan un `error_contains` (7 filas `must_reject` de codificación de firmas y 9 `must_reject_bundles`) reciben
+  ahora un diagnóstico de esquema en lugar de la redacción de la comprobación más profunda. Con `legacy`, cada wrapper de SDK
+  supera por tanto 225 casos y falla esos 16 como discrepancias de redacción con el veredicto correcto, lo que no es un éxito;
+  con `verdict` superan los 241, 130 con redacción `matched` y esos 16 con `differs`. La CI evalúa los cinco wrappers de SDK
+  con `verdict`. Los fixtures, sus cadenas `error_contains` y la evaluación por defecto no cambian.
 - **Self-tests:** `external-evidence.test.mjs` ejecuta los 241 casos con los cinco wrappers, la prueba del reloj,
   peticiones malformadas y una implementación falsa construida a partir de las respuestas reales del wrapper de
   TypeScript: verificarlo todo, rechazarlo todo, resultados contradictorios, un texto de error incorrecto, una
@@ -300,7 +306,8 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
   `missing_pq_signature` en su sitio y fuera de él, y errores o `unsupported` en los negativos. Los fixtures y
   catálogos manipulados son errores de infraestructura (salida 3). El tiempo límite por defecto de este catálogo
   es de 300 000 ms (`--timeout-ms`). Con las dos variables `REQUIRE`, un wrapper ausente falla en lugar de
-  omitirse; CI ejecuta los cinco.
+  omitirse; CI ejecuta los cinco. En cada ejecución con los wrappers se comprueban las dos evaluaciones: `legacy` debe
+  fallar exactamente las 16 filas anteriores como discrepancias de redacción, y `verdict` debe superar las 241.
 - **Límites:** un pase muestra que el argv ejecutado pasa estos 241 casos, nada más. La política es
   `default_verifier_policy` con los `verifier_policy_overrides` versionados de cada caso, más los 4 modos del
   bundle solo clásico; no se prueba ninguna otra política. `composite_verify` es una primitiva con el
@@ -384,7 +391,21 @@ node tools/conformance-external.js --catalog tools/conformance/external-schema-c
 node --test tools/conformance/external-schema.test.mjs
 ```
 
-Los huecos conocidos de validación de esquemas de los SDK siguen siendo casos fallidos, no excepciones aceptadas. `schema-boundary.js` informa por separado la validación de esquemas de referencia, una comprobación de integridad limitada a este corpus finito y la composición de esquema con SDK TypeScript en el instante del corpus. Que pase la composición no demuestra que el SDK solo aplique V2-2; tampoco es la API de referencia ejecutada con un reloj inyectado. El helper de integridad no es un verificador normativo general. Las autopruebas ejercitan el diagnóstico, sus controles y expectativas; que pasen no certifica la conformidad de los SDK. Véanse el [mapa de cobertura](../../docs/conformance/SECURITY_COVERAGE.md) y la [guía del implementador](../../docs/conformance/IMPLEMENTER_GUIDE.md).
+Los verificadores de los SDK en `main` ejecutan V2-2, y los cinco wrappers de SDK superan estos 15 casos; una implementación que falla sigue siendo un fallo, nunca una excepción aceptada. `schema-boundary.js` informa por separado la validación de esquemas de referencia, una comprobación de integridad limitada a este corpus finito y la composición de esquema con SDK TypeScript en el instante del corpus. Que pase la composición no demuestra que el SDK solo aplique V2-2; tampoco es la API de referencia ejecutada con un reloj inyectado. El helper de integridad no es un verificador normativo general. Las autopruebas ejercitan el diagnóstico, sus controles y expectativas; que pasen no certifica la conformidad de los SDK. Véanse el [mapa de cobertura](../../docs/conformance/SECURITY_COVERAGE.md) y la [guía del implementador](../../docs/conformance/IMPLEMENTER_GUIDE.md).
+
+<a id="schema-validation-catalog-v2-2-opt-in"></a>
+
+#### Catálogo de validación de esquemas (V2-2, opt-in)
+
+[`external-schema-validation-catalog.json`](../../../../tools/conformance/external-schema-validation-catalog.json) usa el contrato `/2` para los 57 casos firmados de [`wiring_cases.json`](../../../../tests/interop/v2/schema_validation/wiring_cases.json), cada uno fijado por ID: 13 positivos y 44 negativos. Cada negativo cuenta solo cuando el caso base verifica en la misma ejecución, y cada caso indica su paso de `spec/VERIFICATION.md` (de V2-1 a V2-14). Un caso guardado como texto se envía exactamente con esos bytes. Solo se juzgan los veredictos: ningún caso lleva un `error_contains`, así que `legacy` y `verdict` los juzgan igual. Los catálogos por defecto no cambian.
+
+```bash
+node tools/conformance-external.js --catalog tools/conformance/external-schema-validation-catalog.json --assessment verdict --list
+node tools/conformance-external.js --catalog tools/conformance/external-schema-validation-catalog.json --assessment verdict --report /tmp/schema-validation.json -- ./my-implementation
+node --test tools/conformance/external-schema-validation.test.mjs
+```
+
+Las autopruebas comprueban que el kit construye el mismo plan que el lector del corpus de `tools/schema-ir/`, la integridad del catálogo y del corpus (un ID ausente, sobrante o duplicado, un caso dado en las dos formas, una base que no es positiva) y los controles del ejecutor: aceptarlo todo falla exactamente los 44 negativos, rechazarlo todo no cuenta ninguno, un verificador que ignora una restricción falla exactamente ese caso, y los resultados ausentes, duplicados o malformados son errores. La CI ejecuta las autopruebas y el catálogo con los cinco wrappers de SDK, todos obligatorios. Superarlo cubre estos 57 casos con su política e instante de verificación; no es la conformidad V2 completa.
 
 <a id="verifier-policy-catalog-opt-in"></a>
 

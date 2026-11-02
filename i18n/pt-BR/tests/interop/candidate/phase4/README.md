@@ -5,7 +5,7 @@
 
 # Matriz da fase 4: produtores × consumidores do candidato
 
-> Tradução informativa da [versão em inglês](../../../../../../tests/interop/candidate/phase4/README.md), atualizada em 25/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../../../../tests/interop/candidate/phase4/README.md), atualizada em 02/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Experimental e inativa. Estes testes são evidência para
 [o §18 do README do candidato](../../../../../../docs/proposals/canonicalization-candidate/README.md#18-experimental-sdk-producers-phase-4).
@@ -41,7 +41,9 @@ Não ativam `dcp-jcs-v2` nem mudam nenhum padrão.
 
 O veredito é tudo ou nada. Ele espera:
 
-- exatamente 975 resultados: 575 positivos (115 unidades × 5 consumidores) e 400 negativos (16 × 5 × 5);
+- exatamente 975 resultados (115 unidades × 5 consumidores, e 16 × 5 × 5 negativos no nível de bytes): 525 positivos e 450
+  negativos, os 400 no nível de bytes e os 50 resultados de `S09` que a V2-2 rejeita (abaixo). Antes da V2-2 todas as
+  unidades eram positivas: 575 e 400;
 - todas as etapas, e cada resultado recém-gerado nesta execução;
 - o mesmo `manifest_hash` de todos os produtores para cada especificação;
 - a mesma unidade de todos os produtores, exceto os valores das assinaturas ML-DSA, que são mascarados apenas nas suas
@@ -50,6 +52,31 @@ O veredito é tudo ou nada. Ele espera:
 - que a execução termine antes do prazo (`--deadline`, 1800 s por padrão). No prazo, todo o grupo de processos
   da etapa é encerrado: cada etapa começa destacada no seu próprio grupo de processos POSIX, então isso não é garantido no
   Windows.
+
+<a id="s09-under-v2-2"></a>
+
+### `S09` sob a V2-2
+
+A V2-2 é a validação de esquema do verificador de cada SDK. Na rota do candidato ela roda depois do parser e da política de
+perfis, e antes de o verificador conferir os hashes dos payloads e as assinaturas. Ela fecha a entrada de auditoria, o
+checkpoint, o envelope `SignedPayload` e o seu `composite_sig`. `S09` põe em cada um deles um membro que o produtor não conhece,
+então os seus 50 resultados (5 produtores × 2 modos × 5 consumidores) são rejeitados na rota do candidato. A especificação e os
+seus bytes não mudam; a expectativa está no executor (`V2_2_CLOSED_MEMBERS` em `run.mjs`):
+
+- rota `candidate`, entrada no verificador `dcp-jcs-v2`, `verified` falso, sem classe e sem chamadas ao decodificador;
+- estes quatro diagnósticos, nesta ordem, que todos os SDKs retornam:
+  - `schema: /bundle/audit_entries/1 additionalProperties x_entry_ext`
+  - `schema: /bundle/intent additionalProperties x_artifact_ext`
+  - `schema: /bundle/intent/composite_sig additionalProperties x_sig_ext`
+  - `schema: /bundle/pq_checkpoints/0 additionalProperties x_checkpoint_ext`
+
+  Os adaptadores registram apenas os três primeiros erros de um resultado, então a matriz compara exatamente esses três. Os
+  testes dos produtores (geração de bundles) de cada SDK afirmam os quatro;
+- cada rejeição só conta quando o mesmo consumidor verifica a unidade `S04` (o checkpoint sem esses membros) do mesmo
+  produtor e modo.
+
+O membro que `S09` adiciona ao target do intent é aberto e não gera nenhum diagnóstico. A execução falha se algum resultado de
+`S09` for aceito ou rejeitado de outra forma, ou se qualquer outro positivo for rejeitado.
 
 <a id="running-it"></a>
 

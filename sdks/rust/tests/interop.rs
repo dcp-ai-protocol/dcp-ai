@@ -15,6 +15,9 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
 
+mod schema_regression_map;
+use schema_regression_map::{assert_schema_diagnostics, assert_schema_rejection, schema_first_row};
+
 use dcp_ai::providers::ed25519::Ed25519Provider;
 use dcp_ai::providers::ml_dsa_65::MlDsa65Provider;
 use dcp_ai::v2::canonicalize::canonicalize_v2;
@@ -511,6 +514,11 @@ fn signed_bundle_vectors() {
     let vectors: Value = serde_json::from_str(&data).expect("parse bundle vectors");
     let signed = &vectors["signed_bundle"];
     let assert_rejected = |result: &V2VerificationResult, case: &Value, mode: &str| {
+        // V2-2 now rejects the schema-invalid rows first, with exactly the oracles' schema errors; the deeper check
+        // their error_contains named stays covered where regression_map.json says (tests/schema_v2.rs).
+        if let Some(row) = schema_first_row("bundle_vectors.json", case["name"].as_str().unwrap()) {
+            return assert_schema_rejection(result.verified, &result.errors, row);
+        }
         let want = case["error_contains"].as_str().expect("error_contains");
         assert!(!result.verified, "{mode}: {} must be rejected", case["name"]);
         assert!(
@@ -611,7 +619,11 @@ fn signed_bundle_vectors() {
 
 /// A bundle whose checkpoints, audit entries, artifacts, keys, session times,
 /// nonces or signature block have the wrong JSON type is rejected with errors,
-/// never a panic (V2-4, V2-12, V2-13, V2-14).
+/// never a panic (V2-4, V2-12, V2-13, V2-14). V2-2 now refuses 153 of the 155
+/// shapes first, with exactly the schema errors both phase-1 oracles report for
+/// them ("a | b" below, a failed oneOf once at its instance); the one still
+/// schema-valid ("deep") reaches the later checks, and "skip" is the value the
+/// bundle already holds.
 #[test]
 fn hostile_shapes_are_rejected() {
     let data = fs::read_to_string(vectors_path().with_file_name("bundle_vectors.json"))
@@ -663,6 +675,40 @@ fn hostile_shapes_are_rejected() {
         serde_json::json!([null]),
         serde_json::json!({}),
     ];
+    // Per pointer, what each of the five values gives.
+    let expected: [(&str, [&str; 5]); 31] = [
+        ("/bundle/pq_checkpoints", ["schema: /bundle/pq_checkpoints type", "schema: /bundle/pq_checkpoints type", "schema: /bundle/pq_checkpoints type", "schema: /bundle/pq_checkpoints/0 type", "schema: /bundle/pq_checkpoints type"]),
+        ("/bundle/pq_checkpoints/0", ["schema: /bundle/pq_checkpoints/0 type", "schema: /bundle/pq_checkpoints/0 type", "schema: /bundle/pq_checkpoints/0 type", "schema: /bundle/pq_checkpoints/0 type", "schema: /bundle/pq_checkpoints/0 required checkpoint_id | schema: /bundle/pq_checkpoints/0 required composite_sig | schema: /bundle/pq_checkpoints/0 required event_range | schema: /bundle/pq_checkpoints/0 required merkle_root | schema: /bundle/pq_checkpoints/0 required session_nonce"]),
+        ("/bundle/pq_checkpoints/0/checkpoint_id", ["schema: /bundle/pq_checkpoints/0/checkpoint_id type", "schema: /bundle/pq_checkpoints/0/checkpoint_id type", "schema: /bundle/pq_checkpoints/0/checkpoint_id minLength", "schema: /bundle/pq_checkpoints/0/checkpoint_id type", "schema: /bundle/pq_checkpoints/0/checkpoint_id type"]),
+        ("/bundle/pq_checkpoints/0/event_range", ["schema: /bundle/pq_checkpoints/0/event_range type", "schema: /bundle/pq_checkpoints/0/event_range type", "schema: /bundle/pq_checkpoints/0/event_range type", "schema: /bundle/pq_checkpoints/0/event_range type", "schema: /bundle/pq_checkpoints/0/event_range required count | schema: /bundle/pq_checkpoints/0/event_range required from_audit_id | schema: /bundle/pq_checkpoints/0/event_range required to_audit_id"]),
+        ("/bundle/pq_checkpoints/0/event_range/count", ["schema: /bundle/pq_checkpoints/0/event_range/count type", "schema: /bundle/pq_checkpoints/0/event_range/count minimum", "schema: /bundle/pq_checkpoints/0/event_range/count type", "schema: /bundle/pq_checkpoints/0/event_range/count type", "schema: /bundle/pq_checkpoints/0/event_range/count type"]),
+        ("/bundle/pq_checkpoints/0/composite_sig", ["schema: /bundle/pq_checkpoints/0/composite_sig type", "schema: /bundle/pq_checkpoints/0/composite_sig type", "schema: /bundle/pq_checkpoints/0/composite_sig type", "schema: /bundle/pq_checkpoints/0/composite_sig type", "schema: /bundle/pq_checkpoints/0/composite_sig required binding | schema: /bundle/pq_checkpoints/0/composite_sig required classical | schema: /bundle/pq_checkpoints/0/composite_sig required pq"]),
+        ("/bundle/manifest/pq_checkpoints", ["schema: /bundle/manifest/pq_checkpoints type", "schema: /bundle/manifest/pq_checkpoints type", "schema: /bundle/manifest/pq_checkpoints type", "schema: /bundle/manifest/pq_checkpoints/0 type", "schema: /bundle/manifest/pq_checkpoints type"]),
+        ("/bundle/audit_entries", ["schema: /bundle/audit_entries type", "schema: /bundle/audit_entries type", "schema: /bundle/audit_entries type", "schema: /bundle/audit_entries/0 type", "schema: /bundle/audit_entries type"]),
+        ("/bundle/audit_entries/0", ["schema: /bundle/audit_entries/0 type", "schema: /bundle/audit_entries/0 type", "schema: /bundle/audit_entries/0 type", "schema: /bundle/audit_entries/0 type", "schema: /bundle/audit_entries/0 required agent_id | schema: /bundle/audit_entries/0 required audit_id | schema: /bundle/audit_entries/0 required dcp_version | schema: /bundle/audit_entries/0 required evidence | schema: /bundle/audit_entries/0 required hash_alg | schema: /bundle/audit_entries/0 required human_id | schema: /bundle/audit_entries/0 required intent_hash | schema: /bundle/audit_entries/0 required intent_id | schema: /bundle/audit_entries/0 required outcome | schema: /bundle/audit_entries/0 required policy_decision | schema: /bundle/audit_entries/0 required pq_checkpoint_ref | schema: /bundle/audit_entries/0 required prev_hash | schema: /bundle/audit_entries/0 required session_nonce | schema: /bundle/audit_entries/0 required timestamp"]),
+        ("/bundle/audit_entries/0/intent_hash", ["schema: /bundle/audit_entries/0/intent_hash type", "schema: /bundle/audit_entries/0/intent_hash type", "schema: /bundle/audit_entries/0/intent_hash pattern", "schema: /bundle/audit_entries/0/intent_hash type", "schema: /bundle/audit_entries/0/intent_hash type"]),
+        ("/bundle/agent_passport/payload/status", ["schema: /bundle/agent_passport/payload/status enum | schema: /bundle/agent_passport/payload/status type", "schema: /bundle/agent_passport/payload/status enum | schema: /bundle/agent_passport/payload/status type", "schema: /bundle/agent_passport/payload/status enum", "schema: /bundle/agent_passport/payload/status enum | schema: /bundle/agent_passport/payload/status type", "schema: /bundle/agent_passport/payload/status enum | schema: /bundle/agent_passport/payload/status type"]),
+        ("/bundle/agent_passport/payload/keys", ["schema: /bundle/agent_passport/payload/keys type", "schema: /bundle/agent_passport/payload/keys type", "schema: /bundle/agent_passport/payload/keys type", "schema: /bundle/agent_passport/payload/keys/0 type", "schema: /bundle/agent_passport/payload/keys type"]),
+        ("/bundle/agent_passport/payload/keys/0/public_key_b64", ["schema: /bundle/agent_passport/payload/keys/0/public_key_b64 type", "schema: /bundle/agent_passport/payload/keys/0/public_key_b64 type", "schema: /bundle/agent_passport/payload/keys/0/public_key_b64 minLength", "schema: /bundle/agent_passport/payload/keys/0/public_key_b64 type", "schema: /bundle/agent_passport/payload/keys/0/public_key_b64 type"]),
+        ("/bundle/responsible_principal_record/payload/expires_at", ["skip", "schema: /bundle/responsible_principal_record/payload/expires_at type", "schema: /bundle/responsible_principal_record/payload/expires_at format", "schema: /bundle/responsible_principal_record/payload/expires_at type", "schema: /bundle/responsible_principal_record/payload/expires_at type"]),
+        ("/bundle/responsible_principal_record/payload/binding_keys", ["schema: /bundle/responsible_principal_record/payload/binding_keys type", "schema: /bundle/responsible_principal_record/payload/binding_keys type", "schema: /bundle/responsible_principal_record/payload/binding_keys type", "schema: /bundle/responsible_principal_record/payload/binding_keys/0 type", "schema: /bundle/responsible_principal_record/payload/binding_keys type"]),
+        ("/bundle/intent/payload", ["schema: /bundle/intent/payload type", "schema: /bundle/intent/payload type", "schema: /bundle/intent/payload type", "schema: /bundle/intent/payload type", "schema: /bundle/intent/payload required action_type | schema: /bundle/intent/payload required agent_id | schema: /bundle/intent/payload required data_classes | schema: /bundle/intent/payload required dcp_version | schema: /bundle/intent/payload required estimated_impact | schema: /bundle/intent/payload required human_id | schema: /bundle/intent/payload required intent_id | schema: /bundle/intent/payload required requires_consent | schema: /bundle/intent/payload required session_nonce | schema: /bundle/intent/payload required target | schema: /bundle/intent/payload required timestamp"]),
+        ("/bundle/manifest/session_issued_at", ["schema: /bundle/manifest/session_issued_at type", "schema: /bundle/manifest/session_issued_at type", "schema: /bundle/manifest/session_issued_at format", "schema: /bundle/manifest/session_issued_at type", "schema: /bundle/manifest/session_issued_at type"]),
+        ("/bundle/manifest/session_expires_at", ["schema: /bundle/manifest/session_expires_at type", "schema: /bundle/manifest/session_expires_at type", "schema: /bundle/manifest/session_expires_at format", "schema: /bundle/manifest/session_expires_at type", "schema: /bundle/manifest/session_expires_at type"]),
+        ("/bundle/audit_entries/0/policy_decision", ["schema: /bundle/audit_entries/0/policy_decision enum | schema: /bundle/audit_entries/0/policy_decision type", "schema: /bundle/audit_entries/0/policy_decision enum | schema: /bundle/audit_entries/0/policy_decision type", "schema: /bundle/audit_entries/0/policy_decision enum", "schema: /bundle/audit_entries/0/policy_decision enum | schema: /bundle/audit_entries/0/policy_decision type", "schema: /bundle/audit_entries/0/policy_decision enum | schema: /bundle/audit_entries/0/policy_decision type"]),
+        ("/bundle/policy_decision/payload/decision", ["schema: /bundle/policy_decision/payload/decision enum | schema: /bundle/policy_decision/payload/decision type", "schema: /bundle/policy_decision/payload/decision enum | schema: /bundle/policy_decision/payload/decision type", "schema: /bundle/policy_decision/payload/decision enum", "schema: /bundle/policy_decision/payload/decision enum | schema: /bundle/policy_decision/payload/decision type", "schema: /bundle/policy_decision/payload/decision enum | schema: /bundle/policy_decision/payload/decision type"]),
+        ("/signature/signer", ["schema: /signature/signer type", "schema: /signature/signer type", "schema: /signature/signer type", "schema: /signature/signer type", "schema: /signature/signer required id | schema: /signature/signer required kids | schema: /signature/signer required type"]),
+        ("/signature/signer/id", ["schema: /signature/signer/id type", "schema: /signature/signer/id type", "schema: /signature/signer/id minLength", "schema: /signature/signer/id type", "schema: /signature/signer/id type"]),
+        ("/signature/signer/kids", ["schema: /signature/signer/kids type", "schema: /signature/signer/kids type", "schema: /signature/signer/kids type", "schema: /signature/signer/kids/0 type", "schema: /signature/signer/kids type"]),
+        ("/signature/signer/kids/1", ["schema: /signature/signer/kids/1 type", "schema: /signature/signer/kids/1 type", "schema: /signature/signer/kids/1 pattern", "schema: /signature/signer/kids/1 type", "schema: /signature/signer/kids/1 type"]),
+        ("/signature/composite_sig/pq", ["deep", "schema: /signature/composite_sig/pq oneOf", "schema: /signature/composite_sig/pq oneOf", "schema: /signature/composite_sig/pq oneOf", "schema: /signature/composite_sig/pq oneOf"]),
+        ("/signature/manifest_hash", ["schema: /signature/manifest_hash type", "schema: /signature/manifest_hash type", "schema: /signature/manifest_hash pattern", "schema: /signature/manifest_hash type", "schema: /signature/manifest_hash type"]),
+        ("/signature/hash_alg", ["schema: /signature/hash_alg enum | schema: /signature/hash_alg type", "schema: /signature/hash_alg enum | schema: /signature/hash_alg type", "schema: /signature/hash_alg enum", "schema: /signature/hash_alg enum | schema: /signature/hash_alg type", "schema: /signature/hash_alg enum | schema: /signature/hash_alg type"]),
+        ("/bundle/policy_decision/payload/session_nonce", ["schema: /bundle/policy_decision/payload/session_nonce type", "schema: /bundle/policy_decision/payload/session_nonce type", "schema: /bundle/policy_decision/payload/session_nonce pattern", "schema: /bundle/policy_decision/payload/session_nonce type", "schema: /bundle/policy_decision/payload/session_nonce type"]),
+        ("/bundle/audit_entries/1/session_nonce", ["schema: /bundle/audit_entries/1/session_nonce type", "schema: /bundle/audit_entries/1/session_nonce type", "schema: /bundle/audit_entries/1/session_nonce pattern", "schema: /bundle/audit_entries/1/session_nonce type", "schema: /bundle/audit_entries/1/session_nonce type"]),
+        ("/bundle/pq_checkpoints/0/session_nonce", ["schema: /bundle/pq_checkpoints/0/session_nonce type", "schema: /bundle/pq_checkpoints/0/session_nonce type", "schema: /bundle/pq_checkpoints/0/session_nonce pattern", "schema: /bundle/pq_checkpoints/0/session_nonce type", "schema: /bundle/pq_checkpoints/0/session_nonce type"]),
+        ("/bundle/agent_passport/payload/keys/1/public_key_b64", ["schema: /bundle/agent_passport/payload/keys/1/public_key_b64 type", "schema: /bundle/agent_passport/payload/keys/1/public_key_b64 type", "schema: /bundle/agent_passport/payload/keys/1/public_key_b64 minLength", "schema: /bundle/agent_passport/payload/keys/1/public_key_b64 type", "schema: /bundle/agent_passport/payload/keys/1/public_key_b64 type"]),
+    ];
     // A maximum the unchanged bundle is within, so the session window is checked.
     let policy = VerifierPolicy {
         max_session_duration_seconds: Some(3_000_000_000),
@@ -670,21 +716,30 @@ fn hostile_shapes_are_rejected() {
     };
     let result = verify_signed_bundle_v2_with_policy(&base["signed_bundle"], &policy);
     assert!(result.verified, "{:?}", result.errors);
-    for pointer in pointers {
-        for value in &values {
+    assert_eq!(expected.map(|(p, _)| p), pointers);
+    for (pointer, outcomes) in expected {
+        for (value, want) in values.iter().zip(outcomes) {
             let mut signed = base["signed_bundle"].clone();
             let node = signed
                 .pointer_mut(pointer)
                 .unwrap_or_else(|| panic!("{pointer}"));
             if node == value {
+                assert_eq!(want, "skip", "{pointer} = {value}");
                 continue; // the bundle already holds it, as the RPR's null expires_at
             }
             *node = value.clone();
             let result = verify_signed_bundle_v2_with_policy(&signed, &policy);
-            assert!(
-                !result.verified && !result.errors.is_empty(),
-                "{pointer} = {value}"
-            );
+            let label = format!("{pointer} = {value}");
+            if want == "deep" {
+                assert!(
+                    !result.verified && !result.errors.is_empty() && !result.errors.iter().any(|e| e.starts_with("schema: ")),
+                    "{label}: {:?}",
+                    result.errors
+                );
+            } else {
+                let want: Vec<String> = want.split(" | ").map(String::from).collect();
+                assert_schema_diagnostics(&label, result.verified, &result.errors, &want);
+            }
         }
     }
 }
@@ -768,8 +823,10 @@ fn wasm_build_sign_verify_round_trip() {
     let agent: Value = serde_json::from_str(&wasm_generate_hybrid_keypair()).unwrap();
     let entries = |k: &Value| {
         json!([
-            {"kid": k["classical"]["kid"], "alg": "ed25519", "public_key_b64": k["classical"]["public_key_b64"], "status": "active"},
-            {"kid": k["pq"]["kid"], "alg": "ml-dsa-65", "public_key_b64": k["pq"]["public_key_b64"], "status": "active"},
+            {"kid": k["classical"]["kid"], "alg": "ed25519", "public_key_b64": k["classical"]["public_key_b64"], "status": "active",
+             "created_at": "2026-10-21T00:00:00Z", "expires_at": null},
+            {"kid": k["pq"]["kid"], "alg": "ml-dsa-65", "public_key_b64": k["pq"]["public_key_b64"], "status": "active",
+             "created_at": "2026-10-21T00:00:00Z", "expires_at": null},
         ])
     };
     let s = |k: &Value, slot: &str, field: &str| k[slot][field].as_str().unwrap().to_string();
@@ -785,9 +842,14 @@ fn wasm_build_sign_verify_round_trip() {
     };
 
     let nonce = "ab".repeat(32);
+    // Every member V2-2 requires, identifiers of at least the schemas' six code points.
     let intent = sign(
         CTX_INTENT,
-        json!({"intent_id": "i-1", "session_nonce": nonce, "agent_id": "a-1", "human_id": "h-1"}),
+        json!({
+            "dcp_version": "2.0", "intent_id": "intent-1", "session_nonce": nonce, "agent_id": "agent-1",
+            "human_id": "human-1", "timestamp": "2026-10-21T12:00:00Z", "action_type": "api_call",
+            "target": {"channel": "api"}, "data_classes": ["pii"], "estimated_impact": "low", "requires_consent": false,
+        }),
         &agent,
     );
     let intent_hash = serde_json::from_str::<Value>(&intent).unwrap()["payload_hash"].clone();
@@ -795,9 +857,10 @@ fn wasm_build_sign_verify_round_trip() {
     // principal, and record the policy decision (V2-14).
     let entry = |audit_id: &str, prev_hash: String| {
         json!({
-            "audit_id": audit_id, "session_nonce": nonce, "prev_hash": prev_hash,
-            "intent_id": "i-1", "intent_hash": intent_hash, "agent_id": "a-1", "human_id": "h-1",
-            "policy_decision": "approved",
+            "dcp_version": "2.0", "audit_id": audit_id, "session_nonce": nonce, "prev_hash": prev_hash,
+            "hash_alg": "sha256", "timestamp": "2026-10-21T12:01:00Z", "intent_id": "intent-1",
+            "intent_hash": intent_hash, "agent_id": "agent-1", "human_id": "human-1",
+            "policy_decision": "approved", "outcome": "done", "evidence": {}, "pq_checkpoint_ref": null,
         })
     };
     let audit1 = entry("audit-1", "GENESIS".into());
@@ -805,16 +868,27 @@ fn wasm_build_sign_verify_round_trip() {
     let audit2 = entry("audit-2", format!("sha256:{}", audit1_hash));
 
     let passport = json!({
-        "agent_id": "a-1", "session_nonce": nonce, "keys": entries(&agent),
-        "principal_binding_reference": "h-1", "status": "active",
+        "dcp_version": "2.0", "agent_id": "agent-1", "session_nonce": nonce, "keys": entries(&agent),
+        "principal_binding_reference": "human-1", "status": "active", "capabilities": ["api_call"],
+        "risk_tier": "medium", "created_at": "2026-10-21T00:00:00Z",
     });
     let decision = sign(
         CTX_POLICY_DECISION,
-        json!({"intent_id": "i-1", "session_nonce": nonce, "risk_score": 200, "decision": "approve"}),
+        json!({
+            "dcp_version": "2.0", "intent_id": "intent-1", "session_nonce": nonce, "risk_score": 200,
+            "decision": "approve", "reasons": ["test"], "required_confirmation": null,
+            "applied_policy_hash": format!("sha256:{}", "0".repeat(64)), "timestamp": "2026-10-21T12:00:01Z",
+        }),
         &agent,
     );
+    let rpr = json!({
+        "dcp_version": "2.0", "human_id": "human-1", "session_nonce": nonce, "binding_keys": entries(&principal),
+        "legal_name": "Test Principal", "entity_type": "natural_person", "jurisdiction": "US-CA",
+        "liability_mode": "owner_responsible", "override_rights": true, "issued_at": "2026-10-21T00:00:00Z",
+        "expires_at": null,
+    });
     let bundle = wasm_build_bundle(
-        &sign(CTX_RESPONSIBLE_PRINCIPAL, json!({"human_id": "h-1", "session_nonce": nonce, "binding_keys": entries(&principal)}), &principal),
+        &sign(CTX_RESPONSIBLE_PRINCIPAL, rpr, &principal),
         &sign(CTX_AGENT_PASSPORT, passport, &agent),
         &intent,
         &decision,
@@ -830,7 +904,7 @@ fn wasm_build_sign_verify_round_trip() {
     );
     let result: Value = serde_json::from_str(&wasm_verify_signed_bundle_v2(&signed, None)).unwrap();
     assert_eq!(result["verified"], true, "{}", result["errors"]);
-    // An intent without the schema fields is elevated, so the default policy's
+    // An intent with pii data is elevated, so the default policy's
     // hybrid_preferred is raised to hybrid_required.
     assert_eq!(result["verification_mode"], "hybrid_required");
 

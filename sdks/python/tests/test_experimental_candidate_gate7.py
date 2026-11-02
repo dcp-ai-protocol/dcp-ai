@@ -149,8 +149,52 @@ def undeclared(r: dict) -> list[str]:
     return out
 
 
+# ── V2-2 in Python (old -> new), the fixture unchanged ──
+# verify_signed_bundle_v2 now checks V2-2 first. These cases change their Python expectation from the fixture's shape
+# (was) to a V2-2 shape (now): a new member x at the root or in an audit entry is a closed-object violation (the
+# unsigned root member, accepted before, is the V2-2 gap closed: an acceptance change), and an action_type or a
+# risk_score outside its schema is rejected before the payload hash or the canonicalizer that used to report it (the
+# lone surrogate in action_type included). Both routes still run the same verifier. The deeper checks stay covered:
+# payload hashes by schema-valid rows of bundle_vectors.json, fractions by deep_negatives.json, the lone surrogate in a
+# committed open member by test_schema_v2.py.
+def _v22(error: str, why: str) -> dict:
+    return {"verified": False, "errors_contain": [error], "error_count": 1, "warnings": [],
+            "fields": {"manifest_valid": None, "verification_mode": None, "resolved_tier": None}, "why": why}
+
+
+V2_2_SHAPES = {
+    "py.v2_2.root_unknown_x": _v22("schema: / additionalProperties x", "V2-2: the signed bundle root is closed; the member x is unknown."),
+    "py.v2_2.intent_action_type": _v22("schema: /bundle/intent/payload/action_type enum", "V2-2: action_type outside its enum, before any payload hash."),
+    "py.v2_2.policy_risk_score_type": _v22("schema: /bundle/policy_decision/payload/risk_score type", "V2-2: risk_score is not an integer, before canonicalization."),
+    "py.v2_2.policy_risk_score_maximum": _v22("schema: /bundle/policy_decision/payload/risk_score maximum", "V2-2: risk_score above 1000, before any payload hash."),
+    "py.v2_2.audit_unknown_x": _v22("schema: /bundle/audit_entries/0 additionalProperties x", "V2-2: an audit entry is closed; the member x is unknown."),
+}
+SHAPES = {**F["verification_shapes"], **V2_2_SHAPES}
+V2_2_EXPECTED = {}
+for _b in ("V1", "AB"):
+    for _m in ("M06", "M08", "M11", "M14", "M16", "M17"):
+        V2_2_EXPECTED[f"G7-{_b}-{_m}"] = ("py.ok", "py.v2_2.root_unknown_x")
+    V2_2_EXPECTED[f"G7-{_b}-M07"] = ("py.malformed_intent_surrogate", "py.v2_2.intent_action_type")
+    V2_2_EXPECTED[f"G7-{_b}-M10"] = ("py.intent_mismatch", "py.v2_2.intent_action_type")
+    V2_2_EXPECTED[f"G7-{_b}-M12"] = ("py.malformed_policy_float", "py.v2_2.policy_risk_score_type")
+    V2_2_EXPECTED[f"G7-{_b}-M13"] = ("py.malformed_audit_float", "py.v2_2.audit_unknown_x")
+    V2_2_EXPECTED[f"G7-{_b}-M15"] = ("py.policy_mismatch", "py.v2_2.policy_risk_score_maximum")
+    V2_2_EXPECTED[f"G7-{_b}-M18"] = ("py.policy_mismatch", "py.v2_2.policy_risk_score_type")
+
+
+def expected_for(c: dict, cfg: str) -> dict:
+    """The fixture's expectation for Python, with the V2-2 shape where the map says so (and only if it still says "was")."""
+    exp = c["expected"][cfg]
+    m = V2_2_EXPECTED.get(c["id"])
+    if not m:
+        return exp
+    if exp["verification"] != m[0]:
+        raise AssertionError(f"{c['id']} {cfg}: the fixture expects {exp['verification']}, the V2-2 map was written for {m[0]}")
+    return {**exp, "verification": m[1]}
+
+
 def shape_problems(r: dict, name: str) -> list[str]:
-    s = F["verification_shapes"][name]
+    s = SHAPES[name]
     p = []
     if r.get("verified") is not s["verified"]:
         p.append(f"verified {r.get('verified')}, expected {s['verified']}")
@@ -220,7 +264,7 @@ async def run_case(c: dict, cfg: str) -> tuple[list[str], dict, dict]:
     frozen = bytes(data)
     t = await today(cfg, data)
     x = await experimental(cfg, data)
-    problems = judge(c["expected"][cfg], t, x)
+    problems = judge(expected_for(c, cfg), t, x)
     if data != frozen:
         problems.append("the input buffer was changed")
     return problems, t, x
@@ -318,7 +362,7 @@ def test_reports_one_changed_error_entry():
     problems, t, x = asyncio.run(run_case(c, CFG))
     assert problems == []
     altered = {**x, "verification": {**x["verification"], "errors": ["intent: payload_hash mismatch (altered)"]}}
-    assert any(m.startswith("the routes differ") for m in judge(c["expected"][CFG], t, altered))
+    assert any(m.startswith("the routes differ") for m in judge(expected_for(c, CFG), t, altered))
 
 
 def test_reports_a_verifier_exception_even_when_both_throw():
@@ -348,7 +392,7 @@ def test_fails_a_fake_in_which_both_routes_reject_everything():
 
     fake_t = {"outcome": "host_decode_error", "kind": "JSONDecodeError"}
     fake_x = {"outcome": "returned", "route": Reject(), "entered": "none", "verification": None, "calls": 1, "entries": []}
-    out = gate([{"id": c["id"], "cfg": CFG, "problems": judge(c["expected"][CFG], fake_t, fake_x)} for c in F["cases"]])
+    out = gate([{"id": c["id"], "cfg": CFG, "problems": judge(expected_for(c, CFG), fake_t, fake_x)} for c in F["cases"]])
     assert [o for o in out if not o["problems"]] == []
     assert len([o for o in out if o["problems"][0].startswith("control_failed")]) == 36
 
@@ -358,7 +402,7 @@ def test_fails_a_fake_in_which_both_routes_accept_everything():
     ok = t["result"]
     fake_t = {"outcome": "verified_result", "result": copy.deepcopy(ok)}
     fake_x = {**x, "verification": copy.deepcopy(ok)}
-    out = {c["id"]: judge(c["expected"][CFG], fake_t, fake_x) for c in F["cases"]}
-    negatives = [c["id"] for c in F["cases"] if c["expected"][CFG]["verification"] != "py.ok"]
+    out = {c["id"]: judge(expected_for(c, CFG), fake_t, fake_x) for c in F["cases"]}
+    negatives = [c["id"] for c in F["cases"] if expected_for(c, CFG)["verification"] != "py.ok"]
     assert len(negatives) > 10
     assert all(out[i] for i in negatives)

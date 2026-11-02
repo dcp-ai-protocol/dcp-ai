@@ -232,6 +232,23 @@ mod tests {
         .unwrap()
     }
 
+    /// The phase 3 vectors whose Rust expectation V2-2 changes (old errors_contain.rust -> new schema diagnostics).
+    /// The fixture keeps its bytes and every other SDK's expectation; the deeper checks stay covered elsewhere: the
+    /// intent payload hash by schema-valid rows of bundle_vectors.json; a V1 bundle and null on the V2 path are
+    /// structural (no V2 check applies). D08 (1e400) stays the parser rejection: serde_json refuses it before V2-2.
+    fn v2_2_rust(id: &str) -> Option<(&'static [&'static str], &'static [&'static str], bool)> {
+        match id {
+            "F01" => Some((&["intent: payload_hash mismatch"], &["schema: /bundle/intent/payload/action_type enum"], false)),
+            "D07" => Some((
+                &["Invalid dcp_bundle_version"],
+                &["schema: /bundle required dcp_bundle_version", "schema: /bundle required manifest"],
+                true,
+            )),
+            "D09" => Some((&["Missing bundle field"], &["schema: / type"], false)),
+            _ => None,
+        }
+    }
+
     fn check(id: &str, r: &CandidateVerification, exp: &Value) {
         let er = &exp["route"];
         let (outcome, class, detail, offset, profile) = match &r.route {
@@ -273,6 +290,20 @@ mod tests {
                 assert_eq!(v.result.verified, ev["verified"], "{id}: {:?}", v.result.errors);
                 if v.result.verified {
                     assert!(v.result.errors.is_empty(), "{id}: {:?}", v.result.errors);
+                }
+                if let Some((was, now, truncated)) = v2_2_rust(id) {
+                    // V2-2 decides it first in Rust: the old wording is the check it no longer reaches.
+                    let errs = &v.result.errors;
+                    assert_eq!(ev["errors_contain"]["rust"], serde_json::json!(was), "{id}: the fixture changed");
+                    assert!(errs.iter().all(|e| e.starts_with("schema: ")), "{id}: {errs:?}");
+                    if truncated {
+                        assert!(errs.len() == 17 && errs[16] == "schema: further errors not listed", "{id}: {errs:?}");
+                    } else {
+                        assert_eq!(errs.len(), now.len(), "{id}: {errs:?}");
+                    }
+                    assert!(now.iter().all(|w| errs.iter().any(|e| e == w)), "{id}: {errs:?}");
+                    assert!(v.signer_keys.is_empty(), "{id}: signer keys before any signature");
+                    return;
                 }
                 for s in ev["errors_contain"]["rust"].as_array().unwrap() {
                     let s = s.as_str().unwrap();
@@ -481,10 +512,12 @@ mod tests {
         let now = v["now_ms"].as_i64().unwrap();
         let parsed: Value = serde_json::from_slice(&input(&v, p01)).unwrap();
         let r = verify_signed_bundle_v2_at(&parsed, &VerifierPolicy::default(), now);
-        assert!(!r.result.verified && r.result.errors.iter().any(|e| e == "Unknown canonicalization_profile: dcp-jcs-v2"));
+        // The default path refuses the candidate identifier through V2-2 (const dcp-jcs-v1) before the profile check.
+        let refused = ["schema: /bundle/manifest/canonicalization_profile const"];
+        assert!(!r.result.verified && r.result.errors == refused, "{:?}", r.result.errors);
         let CandidateRoute::Candidate { value, .. } = router(p01, HistoricalAdapter::serde_json_from_slice()).route(&input(&v, p01)).unwrap() else { panic!() };
         let exact = verify_signed_bundle_v2_at(&value, &VerifierPolicy::default(), now);
-        assert!(!exact.result.verified && exact.result.errors.iter().any(|e| e == "Unknown canonicalization_profile: dcp-jcs-v2"));
+        assert!(!exact.result.verified && exact.result.errors == refused, "{:?}", exact.result.errors);
     }
 }
 

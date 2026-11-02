@@ -4,7 +4,7 @@
 
 # Guía de implementación y revisión independientes
 
-> Traducción informativa de [la versión en inglés](../../../../docs/conformance/IMPLEMENTER_GUIDE.md), actualizada el 31/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../../docs/conformance/IMPLEMENTER_GUIDE.md), actualizada el 02/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 DCP es un protocolo que se puede implementar de forma independiente. Esta guía prepara a implementadores y revisores para evaluar la misma evidencia sin adoptar las aplicaciones ni los servicios del repositorio. No constituye una auditoría, certificación ni recomendación.
 
@@ -98,7 +98,7 @@ Esto imprime valores de tu ejecución; no valida el informe ni autentica la impl
 
 Inspecciona juntos el estado de salida del proceso y el informe. Confirma que el informe pertenece a esta ejecución, que su estado global es satisfactorio, que se ejecutaron todos los casos seleccionados y que no se omitió ninguna implementación obligatoria. No bastan un informe antiguo, resultados parciales ni el acuerdo entre varias implementaciones defectuosas.
 
-Lee el [mapa de cobertura de seguridad](SECURITY_COVERAGE.md) antes de afirmar compatibilidad. Validación de esquemas, verificación criptográfica, confianza en el principal y admisión son capas distintas. En particular, el resultado aislado de un verificador SDK no acredita por sí solo la validación completa de los esquemas V2.
+Lee el [mapa de cobertura de seguridad](SECURITY_COVERAGE.md) antes de afirmar compatibilidad. Validación de esquemas, verificación criptográfica, confianza en el principal y admisión son capas distintas. Los verificadores V2 de los cinco SDK en `main` ejecutan por sí mismos la validación de esquemas V2-2, mientras que las versiones publicadas de los SDK no; en cualquier caso, un resultado verificado no dice nada sobre la confianza en el principal, la admisión ni la autorización.
 
 Los casos negativos necesitan controles positivos que funcionen. Si un payload modificado tiene una firma inválida además de un defecto semántico, su rechazo no aísla la comprobación semántica. Conserva los bytes de entrada al reproducir discrepancias de parsing o canonicalización: analizarlos y reescribirlos puede eliminar la causa.
 

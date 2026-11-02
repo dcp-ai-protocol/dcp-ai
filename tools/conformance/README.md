@@ -210,11 +210,11 @@ are used: no key is generated and nothing is signed.
 
 ```bash
 node tools/conformance-external.js --catalog evidence --list
-node tools/conformance-external.js --catalog evidence --report /tmp/evidence-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
-node tools/conformance-external.js --catalog evidence -- /path/to/python -I tools/conformance/wrappers/python_sdk.py
-node tools/conformance-external.js --catalog evidence -- tools/conformance/wrappers/.build/go-wrapper
-node tools/conformance-external.js --catalog evidence -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
-node tools/conformance-external.js --catalog evidence -- node tools/conformance/wrappers/wasm.mjs
+node tools/conformance-external.js --catalog evidence --assessment verdict --report /tmp/evidence-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
+node tools/conformance-external.js --catalog evidence --assessment verdict -- /path/to/python -I tools/conformance/wrappers/python_sdk.py
+node tools/conformance-external.js --catalog evidence --assessment verdict -- tools/conformance/wrappers/.build/go-wrapper
+node tools/conformance-external.js --catalog evidence --assessment verdict -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+node tools/conformance-external.js --catalog evidence --assessment verdict -- node tools/conformance/wrappers/wasm.mjs
 DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-evidence.test.mjs
 ```
 
@@ -262,13 +262,20 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
 - **Merkle through WASM:** the wrapper uses the `wasm_dual_merkle_root` built from this checkout, which delegates
   to the Rust core; the helper published in `@dcp-ai/wasm` 2.1.1 and earlier fails the multi-leaf cases (see
   the CHANGELOG).
+- **V2-2 and the committed wording:** the SDK verifiers on `main` run V2-2 first, so 16 of the 146 rejections that
+  carry an `error_contains` (7 `must_reject` signature-encoding rows and 9 `must_reject_bundles`) now get a schema
+  diagnostic instead of the deeper check's wording. Under `legacy` each SDK wrapper therefore passes 225 cases and
+  fails those 16 as wording discrepancies with the right verdict, which is not a pass; under `verdict` all 241 pass,
+  130 with `matched` wording and those 16 with `differs`. CI judges the five SDK wrappers under `verdict`. The
+  fixtures, their `error_contains` strings and the default assessment are unchanged.
 - **Self-tests:** `external-evidence.test.mjs` runs the 241 cases through the five wrappers, the clock proof,
   malformed requests, and a fake implementation built from the TypeScript wrapper's real answers: verifying
   everything, rejecting everything, contradictory results, the wrong error text, an order-blind or hex-text Merkle
   reduction, a failing base, `missing_pq_signature` in and out of place, and errors or `unsupported` on negatives.
   Tampered fixtures and catalogs are infrastructure errors (exit 3). The default timeout of this catalog is
   300 000 ms (`--timeout-ms`). With the two `REQUIRE` variables a missing wrapper fails instead of being skipped;
-  CI runs all five.
+  CI runs all five. Through the wrappers, each run is checked under both assessments: `legacy` must fail exactly the
+  16 rows above as wording discrepancies, and `verdict` must pass all 241.
 - **Limits:** a pass shows that the argv that was run passes these 241 cases, nothing more. The policy is
   `default_verifier_policy` with each case's committed `verifier_policy_overrides`, plus the 4 modes of the
   classical-only bundle; no other policy is tried. `composite_verify` is a primitive with
@@ -345,7 +352,19 @@ node tools/conformance-external.js --catalog tools/conformance/external-schema-c
 node --test tools/conformance/external-schema.test.mjs
 ```
 
-Known SDK schema-validation gaps remain failed cases, not accepted exceptions. `schema-boundary.js` separately reports reference schema validation, an integrity check limited to this finite corpus, and schema-plus-TypeScript-SDK composition at the corpus time. A passing composition does not prove that the SDK alone performs V2-2; this is not the reference API running with an injected clock. The integrity helper is not a general normative verifier. The self-tests exercise the diagnostic, its controls and its expectations; their passing does not certify SDK conformance. See the [coverage map](../../docs/conformance/SECURITY_COVERAGE.md) and [implementer guide](../../docs/conformance/IMPLEMENTER_GUIDE.md).
+The SDK verifiers on `main` run V2-2, and the five SDK wrappers pass these 15 cases; a failing implementation remains a failure, never an accepted exception. `schema-boundary.js` separately reports reference schema validation, an integrity check limited to this finite corpus, and schema-plus-TypeScript-SDK composition at the corpus time. A passing composition does not prove that the SDK alone performs V2-2; this is not the reference API running with an injected clock. The integrity helper is not a general normative verifier. The self-tests exercise the diagnostic, its controls and its expectations; their passing does not certify SDK conformance. See the [coverage map](../../docs/conformance/SECURITY_COVERAGE.md) and [implementer guide](../../docs/conformance/IMPLEMENTER_GUIDE.md).
+
+#### Schema-validation catalog (V2-2, opt-in)
+
+[`external-schema-validation-catalog.json`](external-schema-validation-catalog.json) uses contract `/2` for the 57 signed cases of [`wiring_cases.json`](../../tests/interop/v2/schema_validation/wiring_cases.json), each pinned by ID: 13 positives and 44 negatives. Each negative counts only when the base case verifies in the same run, and each case names its step of `spec/VERIFICATION.md` (V2-1 to V2-14). A case committed as text is sent as exactly those bytes. Only verdicts are judged: no case carries an `error_contains`, so `legacy` and `verdict` judge them alike. The default catalogs are unchanged.
+
+```bash
+node tools/conformance-external.js --catalog tools/conformance/external-schema-validation-catalog.json --assessment verdict --list
+node tools/conformance-external.js --catalog tools/conformance/external-schema-validation-catalog.json --assessment verdict --report /tmp/schema-validation.json -- ./my-implementation
+node --test tools/conformance/external-schema-validation.test.mjs
+```
+
+The self-tests check that the kit builds the same plan as the corpus reader of `tools/schema-ir/`, the integrity of the catalog and the corpus (a missing, extra or duplicate ID, a case given in both forms, a base that is not positive), and the runner controls: accepting everything fails exactly the 44 negatives, rejecting everything counts none, a verifier that ignores one constraint fails exactly that case, and missing, duplicate or malformed results are errors. CI runs the self-tests and the catalog through the five SDK wrappers, every one required. A pass covers these 57 cases under their policy and verification time; it is not complete V2 conformance.
 
 #### Verifier-policy catalog (opt-in)
 

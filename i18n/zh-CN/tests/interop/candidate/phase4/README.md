@@ -5,7 +5,7 @@
 
 # 第 4 阶段矩阵：候选的生产方 × 消费方
 
-> 本文是[英文版](../../../../../../tests/interop/candidate/phase4/README.md)的参考译文，更新于 25/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../../../../tests/interop/candidate/phase4/README.md)的参考译文，更新于 02/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 实验性且未启用。这些测试是
 [候选 README 第 18 节](../../../../../../docs/proposals/canonicalization-candidate/README.md#18-experimental-sdk-producers-phase-4)的证据。
@@ -41,7 +41,8 @@
 
 判定是全有或全无。它期望：
 
-- 恰好 975 个结果：575 个阳性（115 个单元 × 5 个消费方）和 400 个阴性（16 × 5 × 5）；
+- 恰好 975 个结果（115 个单元 × 5 个消费方，以及 16 × 5 × 5 个字节级阴性）：525 个阳性和 450 个阴性，即 400 个
+  字节级阴性和 V2-2 拒绝的 `S09` 的 50 个结果（见下文）。在 V2-2 之前，所有单元都是阳性：575 和 400；
 - 每个步骤，以及每个结果都来自本次运行；
 - 每个规格在所有生产方中的 `manifest_hash` 相同；
 - 所有生产方的单元相同，ML-DSA 签名值除外，它们只在已知
@@ -50,6 +51,28 @@
 - 运行在期限（`--deadline`，默认 1800 秒）之前结束。到期时，该步骤的整个进程组
   会被终止：每个步骤都在自己的 POSIX 进程组中以分离方式启动，因此在
   Windows 上不作此保证。
+
+<a id="s09-under-v2-2"></a>
+
+### V2-2 下的 `S09`
+
+V2-2 是每个 SDK 验证器中的模式验证。在候选路径上，它在解析器和配置文件策略之后、验证器检查载荷哈希和签名之前执行。
+它封闭了审计条目、检查点、`SignedPayload` 信封及其 `composite_sig`。
+`S09` 在其中每一处都放入了生产方不认识的成员，因此它的 50 个结果（5 个生产方 × 2 种模式 × 5 个消费方）在候选路径上被拒绝。
+规格及其字节不变；期望写在运行器中（`run.mjs` 中的 `V2_2_CLOSED_MEMBERS`）：
+
+- 路径 `candidate`，进入验证器 `dcp-jcs-v2`，`verified` 为 false，没有类别，也没有解码器调用；
+- 每个 SDK 都返回以下四条诊断，顺序如下：
+  - `schema: /bundle/audit_entries/1 additionalProperties x_entry_ext`
+  - `schema: /bundle/intent additionalProperties x_artifact_ext`
+  - `schema: /bundle/intent/composite_sig additionalProperties x_sig_ext`
+  - `schema: /bundle/pq_checkpoints/0 additionalProperties x_checkpoint_ext`
+
+  适配器只记录一个结果的前三个错误，因此矩阵精确比较这三个。每个 SDK 的生产方测试（bundle 生成）断言全部四条；
+- 只有当同一消费方验证了同一生产方、同一模式的 `S04` 单元（不含这些成员的检查点）时，每次拒绝才计入。
+
+`S09` 加入 intent 的 target 中的成员是开放的，不产生任何诊断。只要有任何 `S09` 结果被接受或以其他方式被拒绝，或者任何其他
+阳性被拒绝，运行就失败。
 
 <a id="running-it"></a>
 
