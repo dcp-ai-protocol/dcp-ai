@@ -33,6 +33,9 @@ pub mod advisory;
 pub mod blinded_rpr;
 pub mod multi_party_auth;
 pub mod error_codes;
+/// V2-2 (spec/VERIFICATION.md): the internal schema interpreter and its generated IR; nothing exported.
+mod schema_v2;
+mod schema_v2_generated;
 pub mod verify_bundle;
 pub mod admission;
 

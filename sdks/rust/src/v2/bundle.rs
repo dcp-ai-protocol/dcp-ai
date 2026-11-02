@@ -178,7 +178,10 @@ mod tests {
     fn entries(keys: &[&CompositeKeyInfo; 2]) -> Value {
         json!(keys
             .iter()
-            .map(|k| json!({"kid": k.kid, "alg": k.alg, "public_key_b64": k.public_key_b64, "status": "active"}))
+            .map(|k| json!({
+                "kid": k.kid, "alg": k.alg, "public_key_b64": k.public_key_b64, "status": "active",
+                "created_at": "2026-10-21T00:00:00Z", "expires_at": null,
+            }))
             .collect::<Vec<_>>())
     }
 
@@ -210,41 +213,57 @@ mod tests {
         );
         let (human, agent) = ([&hc, &hp], [&ac, &ap]);
         let nonce = "ab".repeat(32);
+        // Every member V2-2 requires, identifiers of at least the schemas' six code points.
         let rpr = sign(
             CTX_RESPONSIBLE_PRINCIPAL,
-            json!({"human_id": "human-1", "session_nonce": nonce, "binding_keys": entries(&human)}),
+            json!({
+                "dcp_version": "2.0", "human_id": "human-1", "session_nonce": nonce, "binding_keys": entries(&human),
+                "legal_name": "Test Principal", "entity_type": "natural_person", "jurisdiction": "US-CA",
+                "liability_mode": "owner_responsible", "override_rights": true,
+                "issued_at": "2026-10-21T00:00:00Z", "expires_at": null,
+            }),
             &human,
         );
         let passport = sign(
             CTX_AGENT_PASSPORT,
             json!({
-                "agent_id": "agent-1", "session_nonce": nonce, "keys": entries(&agent),
-                "principal_binding_reference": "human-1", "status": "active",
+                "dcp_version": "2.0", "agent_id": "agent-1", "session_nonce": nonce, "keys": entries(&agent),
+                "principal_binding_reference": "human-1", "status": "active", "capabilities": ["api_call"],
+                "risk_tier": "medium", "created_at": "2026-10-21T00:00:00Z",
             }),
             &agent,
         );
         let intent = sign(
             CTX_INTENT,
-            json!({"intent_id": "i-1", "session_nonce": nonce, "agent_id": "agent-1", "human_id": "human-1"}),
+            json!({
+                "dcp_version": "2.0", "intent_id": "intent-1", "session_nonce": nonce, "agent_id": "agent-1",
+                "human_id": "human-1", "timestamp": "2026-10-21T12:00:00Z", "action_type": "api_call",
+                "target": {"channel": "api"}, "data_classes": [], "estimated_impact": "low", "requires_consent": false,
+            }),
             &agent,
         );
         let policy = sign(
             CTX_POLICY_DECISION,
-            json!({"intent_id": "i-1", "session_nonce": nonce, "risk_score": 200, "decision": "approve"}),
+            json!({
+                "dcp_version": "2.0", "intent_id": "intent-1", "session_nonce": nonce, "risk_score": 200,
+                "decision": "approve", "reasons": ["test"], "required_confirmation": null,
+                "applied_policy_hash": format!("sha256:{}", "0".repeat(64)), "timestamp": "2026-10-21T12:00:01Z",
+            }),
             &agent,
         );
         // Audit entries name the intent, by id and payload hash, the agent and
         // the principal, and record the policy decision (V2-14).
         let entry = |audit_id: &str, prev_hash: String| {
             json!({
-                "audit_id": audit_id, "session_nonce": nonce, "prev_hash": prev_hash,
-                "intent_id": "i-1", "intent_hash": intent.payload_hash, "agent_id": "agent-1", "human_id": "human-1",
-                "policy_decision": "approved",
+                "dcp_version": "2.0", "audit_id": audit_id, "session_nonce": nonce, "prev_hash": prev_hash,
+                "hash_alg": "sha256", "timestamp": "2026-10-21T12:01:00Z", "intent_id": "intent-1",
+                "intent_hash": intent.payload_hash, "agent_id": "agent-1", "human_id": "human-1",
+                "policy_decision": "approved", "outcome": "done", "evidence": {}, "pq_checkpoint_ref": null,
             })
         };
-        let a1 = entry("a-1", "GENESIS".into());
+        let a1 = entry("audit-1", "GENESIS".into());
         let a1_hash = sha256_hex(canonicalize_v2(&a1).unwrap().as_bytes());
-        let a2 = entry("a-2", format!("sha256:{a1_hash}"));
+        let a2 = entry("audit-2", format!("sha256:{a1_hash}"));
         let trail = [a1, a2];
 
         let bundle = build_bundle_v2(&rpr, &passport, &intent, &policy, &trail, &nonce).unwrap();

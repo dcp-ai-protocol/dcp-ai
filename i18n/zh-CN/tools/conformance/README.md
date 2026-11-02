@@ -4,7 +4,7 @@
 
 # DCP-AI 一致性测试套件
 
-> 本文是[英文版](../../../../tools/conformance/README.md)的参考译文，更新于 29/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../../tools/conformance/README.md)的参考译文，更新于 02/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 `tools/conformance.js` 针对仓库中已提交的 fixture 和向量，运行 [`catalog.json`](../../../../tools/conformance/catalog.json) 中声明的各个
 测试集。目录带有版本（`kit_version`），并为每个测试集固定其必须产生的确切用例 ID。该套件只读取 fixture：
@@ -214,11 +214,11 @@ DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-native.test
 
 ```bash
 node tools/conformance-external.js --catalog evidence --list
-node tools/conformance-external.js --catalog evidence --report /tmp/evidence-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
-node tools/conformance-external.js --catalog evidence -- /path/to/python -I tools/conformance/wrappers/python_sdk.py
-node tools/conformance-external.js --catalog evidence -- tools/conformance/wrappers/.build/go-wrapper
-node tools/conformance-external.js --catalog evidence -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
-node tools/conformance-external.js --catalog evidence -- node tools/conformance/wrappers/wasm.mjs
+node tools/conformance-external.js --catalog evidence --assessment verdict --report /tmp/evidence-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
+node tools/conformance-external.js --catalog evidence --assessment verdict -- /path/to/python -I tools/conformance/wrappers/python_sdk.py
+node tools/conformance-external.js --catalog evidence --assessment verdict -- tools/conformance/wrappers/.build/go-wrapper
+node tools/conformance-external.js --catalog evidence --assessment verdict -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+node tools/conformance-external.js --catalog evidence --assessment verdict -- node tools/conformance/wrappers/wasm.mjs
 DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-evidence.test.mjs
 ```
 
@@ -260,11 +260,17 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
   自测表明每个包装器在 2020-01-01 拒绝基准 bundle、在 2026-10-22 接受、在 2100-01-01 拒绝，并表明异常之后的恢复。
 - **经 WASM 的 Merkle：** 包装器使用从本 checkout 构建的 `wasm_dual_merkle_root`，它委托给 Rust 核心；
   `@dcp-ai/wasm` 2.1.1 及更早版本中发布的辅助函数在多叶子用例上失败（见 CHANGELOG）。
+- **V2-2 与已提交的措辞：** `main` 上的 SDK 验证器先执行 V2-2，因此在带有 `error_contains` 的 146 个拒绝用例中，有 16 个
+  （7 个签名编码的 `must_reject` 行和 9 个 `must_reject_bundles`）现在得到的是模式诊断，而不是更深层检查的措辞。因此在
+  `legacy` 下，每个 SDK 包装器通过 225 个用例，并把这 16 个判为判定正确但措辞不符的失败，这不算通过；在 `verdict` 下全部
+  241 个用例通过，其中 130 个措辞为 `matched`，这 16 个为 `differs`。CI 以 `verdict` 评估五个 SDK 包装器。fixture、其中的
+  `error_contains` 字符串和默认评估都不变。
 - **自测：** `external-evidence.test.mjs` 用五个包装器运行 241 个用例、时间证明、格式错误的请求，以及一个由
   TypeScript 包装器真实回答构建的伪实现：全部验证通过、全部拒绝、矛盾结果、错误的错误文本、忽略顺序或对十六进制文本
   做哈希的 Merkle 归约、失败的基准、在正确与错误位置出现的 `missing_pq_signature`，以及反例上的错误或 `unsupported`。
   被篡改的 fixture 和目录属于基础设施错误（退出码 3）。该目录的默认超时为 300 000 ms（`--timeout-ms`）。
-  设置两个 `REQUIRE` 变量后，缺少包装器会判为失败而不是跳过；CI 运行全部五个。
+  设置两个 `REQUIRE` 变量后，缺少包装器会判为失败而不是跳过；CI 运行全部五个。通过包装器的每次运行都会在两种评估下检查：`legacy` 必须恰好让上述 16 行以措辞差异失败，
+  `verdict` 必须通过全部 241 个用例。
 - **局限：** 通过只表明所运行的 argv 通过这 241 个用例，仅此而已。策略为应用每个用例已提交的 `verifier_policy_overrides` 的
   `default_verifier_policy`，外加仅经典 bundle 的 4 种模式；不尝试其他策略。
   `composite_verify` 是给定绑定和密钥的原语，bundle 的结论不是准入、对委托人的信任或对行为的授权。
@@ -319,7 +325,21 @@ node tools/conformance-external.js --catalog tools/conformance/external-schema-c
 node --test tools/conformance/external-schema.test.mjs
 ```
 
-SDK 已知的模式验证缺口仍是失败用例，不是可接受的例外。`schema-boundary.js` 分别报告参考模式校验、仅限此有限语料的完整性检查，以及在语料时间下组合模式与 TypeScript SDK 的检查。组合通过不能证明 SDK 自身执行 V2-2，也不代表向参考 API 注入时钟后运行。完整性辅助函数不是通用规范验证器。自测检查诊断工具、对照和预期；自测通过不能认证 SDK 的一致性。参见[覆盖映射](../../docs/conformance/SECURITY_COVERAGE.md)和[实现者指南](../../docs/conformance/IMPLEMENTER_GUIDE.md)。
+`main` 上的 SDK 验证器执行 V2-2，五个 SDK 包装器都通过这 15 个用例；失败的实现仍是失败，绝不是可接受的例外。`schema-boundary.js` 分别报告参考模式校验、仅限此有限语料的完整性检查，以及在语料时间下组合模式与 TypeScript SDK 的检查。组合通过不能证明 SDK 自身执行 V2-2，也不代表向参考 API 注入时钟后运行。完整性辅助函数不是通用规范验证器。自测检查诊断工具、对照和预期；自测通过不能认证 SDK 的一致性。参见[覆盖映射](../../docs/conformance/SECURITY_COVERAGE.md)和[实现者指南](../../docs/conformance/IMPLEMENTER_GUIDE.md)。
+
+<a id="schema-validation-catalog-v2-2-opt-in"></a>
+
+#### 模式校验目录（V2-2，明确选择）
+
+[`external-schema-validation-catalog.json`](../../../../tools/conformance/external-schema-validation-catalog.json) 对 [`wiring_cases.json`](../../../../tests/interop/v2/schema_validation/wiring_cases.json) 中的 57 个已签名用例使用契约 `/2`，每个用例都按 ID 固定：13 个正向用例和 44 个负向用例。每个负向用例只有在同一次运行中基础用例通过验证时才计入，每个用例都注明其 `spec/VERIFICATION.md` 步骤（V2-1 到 V2-14）。以文本形式保存的用例会按原字节发送。只评估判定：没有用例带有 `error_contains`，因此 `legacy` 和 `verdict` 的评估相同。默认目录不变。
+
+```bash
+node tools/conformance-external.js --catalog tools/conformance/external-schema-validation-catalog.json --assessment verdict --list
+node tools/conformance-external.js --catalog tools/conformance/external-schema-validation-catalog.json --assessment verdict --report /tmp/schema-validation.json -- ./my-implementation
+node --test tools/conformance/external-schema-validation.test.mjs
+```
+
+自测检查套件构建的计划与 `tools/schema-ir/` 的语料读取器相同，检查目录和语料的完整性（缺失、多余或重复的 ID，同时以两种形式给出的用例，不是正向用例的基础用例），以及运行器的对照：全部接受恰好让 44 个负向用例失败，全部拒绝则一个也不计入，忽略某一约束的验证器恰好只在该用例上失败，缺失、重复或格式错误的结果都是错误。CI 用五个 SDK 包装器运行自测和该目录，每个包装器都是必需的。通过只覆盖这 57 个用例及其策略和验证时间，并不等于完整的 V2 符合性。
 
 <a id="verifier-policy-catalog-opt-in"></a>
 

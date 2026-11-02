@@ -99,7 +99,16 @@ function counted(c, adapter) {
 /** JSON with typed arrays as hex, to compare results. */
 const plain = (v) => JSON.stringify(v, (_k, x) => (x instanceof Uint8Array ? Buffer.from(x).toString('hex') : x));
 
-function checkCase(label, r, exp) {
+// The phase 3 vectors whose wasm expectation V2-2 changes (old errors_contain.wasm -> new schema diagnostics), per
+// adapter. The fixture keeps its bytes and every other expectation; the deeper checks stay covered elsewhere: the
+// payload hashes by schema-valid rows of bundle_vectors.json. D08 under the w1 adapters is JSON.parse's Infinity,
+// which reaches the binding as null (risk_score type); under w2 it stays the binding's JSON parse error.
+const V2_2_WASM = {
+  F01: { adapters: null, was: ['intent: payload_hash mismatch'], now: ['schema: /bundle/intent/payload/action_type enum'] },
+  D08: { adapters: ['w1.textDecoderJsonParse', 'w1.bufferUtf8JsonParse'], was: ['policy_decision: payload_hash mismatch'], now: ['schema: /bundle/policy_decision/payload/risk_score type'] },
+};
+
+function checkCase(label, r, exp, id, adapterName) {
   const er = exp.route;
   check(`${label} outcome`, r.route.outcome === er.outcome, [r.route.outcome, er.outcome]);
   for (const k of ['class', 'detail', 'offset', 'profile']) if (k in er) check(`${label} ${k}`, r.route[k] === er[k], [r.route[k], er[k]]);
@@ -114,6 +123,13 @@ function checkCase(label, r, exp) {
   const v = r.verification;
   check(`${label} verified`, v?.verified === exp.verification.verified, v?.errors);
   if (exp.verification.verified) check(`${label} no errors`, (v?.errors ?? []).length === 0, v?.errors);
+  const v22 = V2_2_WASM[id];
+  if (v22 && (v22.adapters === null || v22.adapters.includes(adapterName))) {
+    // V2-2 decides it first in the wasm build: the old wording is the check it no longer reaches.
+    check(`${label} the fixture still says what the V2-2 map was written for`, plain(exp.verification.errors_contain.wasm) === plain(v22.was), exp.verification.errors_contain.wasm);
+    check(`${label} V2-2 diagnostics`, plain(v?.errors) === plain(v22.now) && plain(v?.signer_keys) === '[]', v?.errors);
+    return;
+  }
   for (const s of exp.verification.errors_contain.wasm) check(`${label} error ${s}`, (v?.errors ?? []).some((e) => e.includes(s)), v?.errors);
 }
 
@@ -143,7 +159,7 @@ for (const c of vectors.cases) {
       check(`${label} no exception`, false, `${e?.name}: ${e?.message}`);
       continue;
     }
-    checkCase(label, r, exp);
+    checkCase(label, r, exp, c.id, adapter.name);
     check(`${label} one verify call`, calls.verify === 1, calls.verify);
     check(`${label} adapter calls`, calls.adapter === exp.adapter_calls, [calls.adapter, exp.adapter_calls]);
     check(`${label} resume only after the decoder`, calls.resume === calls.adapter, calls);
@@ -241,7 +257,8 @@ for (const acceptedProfiles of [undefined, null, [], ['dcp-jcs-v3'], ['dcp-jcs-v
 }
 {
   const today = JSON.parse(pkg.wasm_verify_signed_bundle_v2(Buffer.from(input(P01)).toString('utf8'), undefined));
-  check("today's binding still refuses dcp-jcs-v2", today.verified === false && today.errors.includes('Unknown canonicalization_profile: dcp-jcs-v2'), today.errors);
+  // The default binding refuses the candidate identifier through V2-2 (const dcp-jcs-v1) before the profile check.
+  check("today's binding still refuses dcp-jcs-v2", today.verified === false && plain(today.errors) === '["schema: /bundle/manifest/canonicalization_profile const"]', today.errors);
 }
 check('the entry point does not export the internal verifier', !('WasmCandidateVerifier' in entry) && typeof dcp.createExperimentalCandidateVerifier === 'function', Object.keys(entry));
 

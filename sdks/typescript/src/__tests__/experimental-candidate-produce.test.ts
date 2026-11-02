@@ -189,7 +189,9 @@ async function produceAndVerify(s: Scenario) {
   expect(r.verification?.verified).toBe(true);
   const today = await verifySignedBundleV2(JSON.parse(text(out.bytes)), verifyRegistry, undefined, NOW);
   expect(today.verified).toBe(false);
-  expect(today.errors).toContain('Unknown canonicalization_profile: dcp-jcs-v2');
+  // The default path refuses the candidate identifier through V2-2 (canonicalization_profile const dcp-jcs-v1),
+  // before the profile check that used to report "Unknown canonicalization_profile: dcp-jcs-v2".
+  expect(today.errors).toEqual(['schema: /bundle/manifest/canonicalization_profile const']);
   return { ...out, unit: JSON.parse(text(out.bytes)) };
 }
 
@@ -315,7 +317,15 @@ describe('signBundle: verified by the phase 3 verifier, refused by today\'s obje
     expect(unit.bundle.manifest.audit_merkle_root_secondary).toBe(`sha3-256:${'0'.repeat(64)}`);
   }, TIMEOUT_MS);
 
-  it('members it does not know are kept: in a payload, an entry, a checkpoint, an artifact and a composite_sig', async () => {
+  it('a member of an open payload object is kept and verifies', async () => {
+    const { unit } = await produceAndVerify(await scenario({ target: { x_payload_ext: { kept: 1 } } }));
+    expect(unit.bundle.intent.payload.target.x_payload_ext).toEqual({ kept: 1 });
+  }, TIMEOUT_MS);
+
+  // Before V2-2 the candidate verifier accepted these members; the schemas close the audit entry, the checkpoint, the
+  // SignedPayload envelope and composite_sig, so the candidate path (one const changed, nothing else) now rejects them
+  // with exactly these four diagnostics, before the verifier checks payload hashes or signatures. The producer still keeps every member.
+  it('members it does not know are kept: in a payload, an entry, a checkpoint, an artifact and a composite_sig; V2-2 rejects the closed ones', async () => {
     const s = await scenario({ target: { x_payload_ext: { kept: 1 } } });
     s.entries[1] = { ...s.entries[1], x_entry_ext: 'kept' };
     s.parts.auditEntries = s.entries.map((e) => ({ value: e }));
@@ -328,7 +338,18 @@ describe('signBundle: verified by the phase 3 verifier, refused by today\'s obje
     };
     const composite_sig = await compositeSign(registry, DCP_CONTEXTS.AuditEvent, preparePayload(checkpoint).canonicalBytes, agent);
     s.parts.pqCheckpoints = [{ value: { ...checkpoint, composite_sig } }];
-    const { unit } = await produceAndVerify(s);
+    const out = await experimentalCandidateSignBundle(registry, s.parts, s.signer, s.options);
+    const r = await verifier.verify(out.bytes, verifyRegistry, undefined, NOW);
+    expect(r.entered).toBe('dcp-jcs-v2');
+    expect(r.verification?.verified).toBe(false);
+    expect([...(r.verification?.errors ?? [])].sort()).toEqual([
+      'schema: /bundle/audit_entries/1 additionalProperties x_entry_ext',
+      'schema: /bundle/intent additionalProperties x_artifact_ext',
+      'schema: /bundle/intent/composite_sig additionalProperties x_sig_ext',
+      'schema: /bundle/pq_checkpoints/0 additionalProperties x_checkpoint_ext',
+    ]);
+    expect(r.verification?.details).toEqual({});
+    const unit = JSON.parse(text(out.bytes));
     expect(unit.bundle.intent.payload.target.x_payload_ext).toEqual({ kept: 1 });
     expect(unit.bundle.audit_entries[1].x_entry_ext).toBe('kept');
     expect(unit.bundle.pq_checkpoints[0].x_checkpoint_ext).toEqual([1, 2]);

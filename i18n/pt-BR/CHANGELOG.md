@@ -4,7 +4,7 @@
 
 # Registro de alterações
 
-> Tradução informativa da [versão em inglês](../../CHANGELOG.md), atualizada em 30/10/2026. Cada entrada, inclusive as de `[Unreleased]`, descreve uma mudança no momento em que foi feita e não garante o comportamento atual; as versões publicadas são **registro histórico datado**. Em caso de divergência, prevalece a versão em inglês.
+> Tradução informativa da [versão em inglês](../../CHANGELOG.md), atualizada em 02/11/2026. Cada entrada, inclusive as de `[Unreleased]`, descreve uma mudança no momento em que foi feita e não garante o comportamento atual; as versões publicadas são **registro histórico datado**. Em caso de divergência, prevalece a versão em inglês.
 
 **Versões publicadas (26/10/2026).** Estão publicados npm (13 pacotes, incluindo `@dcp-ai/sdk` 2.2.0), Python `dcp-ai` 2.10.0, Go `v2.11.0` e Rust `dcp-ai` 2.11.0, com as correções do verificador, a admissão e as APIs experimentais opt-in; `dcp-jcs-v1` continua sendo o padrão normativo. Veja [Versões publicadas](../../docs/README.md#published-versions). As entradas abaixo mantêm seu histórico de desenvolvimento; `[Unreleased]` não significa que essas funcionalidades não estejam publicadas. As seis publicações de correção de 28/10/2026 estão em [sua própria seção](#2026-10-28-sha3-patch-releases).
 
@@ -64,6 +64,20 @@ Publicado em 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 e `@dcp-ai/cl
 
 ### Segurança
 
+- **Mudança de aceitação: validação de esquemas V2-2 no verificador de cada SDK** (código-fonte de `main`, não está em
+  nenhuma versão publicada). Os verificadores V2 dos SDKs de TypeScript, Python, Go, Rust e WASM (`verifySignedBundleV2` e
+  seus equivalentes, a API combinada de admissão, que verifica primeiro, e o verificador experimental do candidato; avaliar a
+  admissão a partir de um resultado anterior não a executa) validam o envelope do bundle assinado e os quatro payloads contra
+  `schemas/v2` depois das verificações de política e de relógio e antes de conferir o manifesto, os hashes dos payloads, as
+  chaves e as assinaturas. Todos os SDKs interpretam a mesma representação gerada a partir dos esquemas (`tools/schema-ir/`),
+  que a CI regenera e compara. Bundles inválidos pelo esquema que antes eram aceitos agora retornam `verified: false`, entre
+  eles os que têm membros desconhecidos em objetos fechados e horários de sessão `null` no manifesto. Os erros passam a ser
+  diagnósticos `schema: <JSON pointer> <keyword>[ <member>]` (no máximo 16 e um marcador de truncamento) sem detalhes
+  criptográficos, então algumas rejeições mudam de redação: a CI avalia pelo veredito as execuções dos SDKs no catálogo de
+  evidências (`--assessment verdict`), e as strings `error_contains` comprometidas não mudam. `date-time` mantém a fronteira
+  do ajv-formats 3.0.1 do verificador de referência, que não é RFC 3339 estrito. Não mudam a API pública, os esquemas, os
+  perfis, as dependências nem as versões. Na matriz experimental da fase 4, os 50 resultados de `S09` passam a ser rejeições
+  esperadas. Veja [SECURITY_COVERAGE.md](docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary).
 - **`VerificationCache` do TypeScript (código-fonte de `main`, não publicado; o `@dcp-ai/sdk` 2.2.1
   mantém o comportamento anterior).** A chave do cache continua sendo o hash do bundle para as
   chamadas existentes, e um `context` opcional escolhido por quem chama separa os resultados com

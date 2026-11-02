@@ -555,7 +555,9 @@ mod tests {
         assert_eq!((r.entered, v.result.verified), ("dcp-jcs-v2", true), "{:?}", v.result.errors);
         let unit: Value = serde_json::from_slice(&out.bytes).unwrap();
         let today = verify_signed_bundle_v2_at(&unit, &VerifierPolicy::default(), NOW);
-        assert!(!today.result.verified && today.result.errors.iter().any(|e| e == "Unknown canonicalization_profile: dcp-jcs-v2"));
+        // The default path refuses the candidate identifier through V2-2 (canonicalization_profile const dcp-jcs-v1),
+        // before the profile check that used to report "Unknown canonicalization_profile: dcp-jcs-v2".
+        assert!(!today.result.verified && today.result.errors == ["schema: /bundle/manifest/canonicalization_profile const"], "{:?}", today.result.errors);
         unit
     }
 
@@ -647,6 +649,11 @@ mod tests {
         let (principal, agent) = (keys(true), keys(true));
         let mut s = scenario(&principal, &agent, Opts { target: Some(json!({"x_payload_ext": {"kept": 1}, "limits": {"max": 9007199254740991i64, "min": -9007199254740991i64},
             "keys": {"\u{1F600}": 2, "\u{E000}": 1}, "strings": ["\u{FEFF}start", "\u{FFFD}", "\u{2028}", "\u{0}"], "__proto__": "data"})), ..Default::default() });
+        // The open payload member alone verifies; its values and key order are kept.
+        let open = produce_and_verify(&s);
+        assert_eq!(open["bundle"]["intent"]["payload"]["target"]["x_payload_ext"], json!({"kept": 1}));
+        let text = canonicalize_v2(&open).unwrap();
+        assert!(text.find("\"\u{E000}\"").unwrap() < text.find("\"\u{1F600}\"").unwrap(), "code point order");
         s.entries[1]["x_entry_ext"] = json!("kept");
         s.parts.audit_entries = s.entries.iter().cloned().map(CandidateInput::Value).collect();
         let mut intent = sign_payload_with(&counting, CTX_INTENT, &CandidateInput::Value(s.intent.clone()), &agent).unwrap().signed_payload;
@@ -659,14 +666,30 @@ mod tests {
         let (bytes, _) = prepare_payload(&cp).unwrap();
         cp["composite_sig"] = sign_with(&counting, CTX_AUDIT_EVENT, &bytes, &agent).unwrap();
         s.parts.pq_checkpoints = vec![CandidateInput::Value(cp)];
-        let unit = produce_and_verify(&s);
+        // Before V2-2 the candidate verifier accepted these members; the schemas close the audit entry, the
+        // checkpoint, the SignedPayload envelope and composite_sig, so the candidate path (one const changed, nothing
+        // else) now rejects them with exactly these four diagnostics, before the verifier checks payload hashes or signatures. The producer
+        // still keeps every member.
+        let out = sign_bundle_with(&counting, &s.parts, &s.signer, &s.options).unwrap();
+        let verifier = CandidateVerifier::new(CandidateRouterConfig { transport: "bare".into(), accepted_profiles: json!(["dcp-jcs-v2"]),
+            historical: Some(HistoricalAdapter::serde_json_from_slice()) }).unwrap();
+        let r = verifier.verify_at(&out.bytes, &VerifierPolicy::default(), NOW).unwrap();
+        let v = r.verification.unwrap();
+        let mut errors = v.result.errors.clone();
+        errors.sort();
+        assert_eq!((r.entered, v.result.verified, v.signer_keys.len()), ("dcp-jcs-v2", false, 0));
+        assert_eq!(errors, [
+            "schema: /bundle/audit_entries/1 additionalProperties x_entry_ext",
+            "schema: /bundle/intent additionalProperties x_artifact_ext",
+            "schema: /bundle/intent/composite_sig additionalProperties x_sig_ext",
+            "schema: /bundle/pq_checkpoints/0 additionalProperties x_checkpoint_ext",
+        ]);
+        let unit: Value = serde_json::from_slice(&out.bytes).unwrap();
         let b = &unit["bundle"];
         assert_eq!(b["manifest"]["pq_checkpoints"], json!(["ckpt-1"]));
         assert_eq!(b["intent"]["payload"]["target"]["x_payload_ext"], json!({"kept": 1}));
         assert_eq!((b["audit_entries"][1]["x_entry_ext"].as_str(), b["pq_checkpoints"][0]["x_checkpoint_ext"].clone()), (Some("kept"), json!([1, 2])));
         assert_eq!((b["intent"]["x_artifact_ext"].as_str(), b["intent"]["composite_sig"]["x_sig_ext"].as_str()), (Some("unsigned"), Some("unsigned")));
-        let text = canonicalize_v2(&unit).unwrap();
-        assert!(text.find("\"\u{E000}\"").unwrap() < text.find("\"\u{1F600}\"").unwrap(), "code point order");
         produce_and_verify(&scenario(&principal, &agent, Opts { target: Some(json!({"d": nest(59, json!("deep"))})), ..Default::default() })); // unit 64
         let s = scenario(&principal, &agent, Opts { target: Some(json!({"d": nest(60, json!("deep"))})), ..Default::default() }); // unit 65
         let r = rejected(|| sign_bundle_with(&counting, &s.parts, &s.signer, &s.options).map(|_| ()), "DEPTH_EXCEEDED", "unit");

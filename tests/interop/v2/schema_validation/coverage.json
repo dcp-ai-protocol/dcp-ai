@@ -1,0 +1,1764 @@
+{
+  "_description": "Every assertion site of the IR (type, enum, const, pattern, format, minLength, maxLength, minItems, uniqueItems, minimum, maximum, oneOf, additionalProperties, and each required name) with the schema cases that break it; structural keywords (properties, items, $ref) with how they are covered; every location a $ref reaches and every closed-object location, with their cases.",
+  "_sources": {
+    "ir_sha256": "e9a3a806013c963890395f051fef0343f28bfa9f5a77eb4be251c7533cfe63fd",
+    "generator": "tests/interop/v2/generate-schema-validation-vectors.mjs"
+  },
+  "totals": {
+    "assertion_sites": 360,
+    "schema_cases": 468,
+    "wiring_cases": 57
+  },
+  "sites": {
+    "schemas/v2/signed_bundle.schema.json#/type": [
+      "type@/"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/additionalProperties": [
+      "additionalProperties@/"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/required/bundle": [
+      "required@/#bundle"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/required/signature": [
+      "required@/#signature"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties": "covered through the sites of each named member",
+    "schemas/v2/signed_bundle.schema.json#/properties/bundle/type": [
+      "type@/bundle"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/bundle/required/agent_passport": [
+      "required@/bundle#agent_passport"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/bundle/required/audit_entries": [
+      "required@/bundle#audit_entries"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/bundle/required/dcp_bundle_version": [
+      "required@/bundle#dcp_bundle_version"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/bundle/required/intent": [
+      "required@/bundle#intent"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/bundle/required/manifest": [
+      "required@/bundle#manifest"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/bundle/required/policy_decision": [
+      "required@/bundle#policy_decision"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/bundle/required/responsible_principal_record": [
+      "required@/bundle#responsible_principal_record"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/bundle/properties": "covered through the sites of each named member",
+    "schemas/v2/signed_bundle.schema.json#/properties/bundle/properties/agent_passport/$ref": "covered through the referenced schema at this location (see ref_sites)",
+    "schemas/v2/signed_payload.schema.json#/type": [
+      "type@/bundle/agent_passport"
+    ],
+    "schemas/v2/signed_payload.schema.json#/additionalProperties": [
+      "additionalProperties@/bundle/agent_passport",
+      "additionalProperties@/bundle/intent",
+      "additionalProperties@/bundle/policy_decision",
+      "additionalProperties@/bundle/responsible_principal_record"
+    ],
+    "schemas/v2/signed_payload.schema.json#/required/composite_sig": [
+      "required@/bundle/agent_passport#composite_sig"
+    ],
+    "schemas/v2/signed_payload.schema.json#/required/payload": [
+      "required@/bundle/agent_passport#payload"
+    ],
+    "schemas/v2/signed_payload.schema.json#/required/payload_hash": [
+      "required@/bundle/agent_passport#payload_hash"
+    ],
+    "schemas/v2/signed_payload.schema.json#/properties": "covered through the sites of each named member",
+    "schemas/v2/signed_payload.schema.json#/properties/composite_sig/$ref": "covered through the referenced schema at this location (see ref_sites)",
+    "schemas/v2/composite_signature.schema.json#/type": [
+      "type@/bundle/agent_passport/composite_sig"
+    ],
+    "schemas/v2/composite_signature.schema.json#/additionalProperties": [
+      "additionalProperties@/bundle/agent_passport/composite_sig",
+      "additionalProperties@/bundle/intent/composite_sig",
+      "additionalProperties@/bundle/policy_decision/composite_sig",
+      "additionalProperties@/bundle/pq_checkpoints/0/composite_sig",
+      "additionalProperties@/bundle/responsible_principal_record/composite_sig",
+      "additionalProperties@/signature/composite_sig"
+    ],
+    "schemas/v2/composite_signature.schema.json#/required/binding": [
+      "required@/bundle/agent_passport/composite_sig#binding"
+    ],
+    "schemas/v2/composite_signature.schema.json#/required/classical": [
+      "required@/bundle/agent_passport/composite_sig#classical"
+    ],
+    "schemas/v2/composite_signature.schema.json#/required/pq": [
+      "required@/bundle/agent_passport/composite_sig#pq"
+    ],
+    "schemas/v2/composite_signature.schema.json#/properties": "covered through the sites of each named member",
+    "schemas/v2/composite_signature.schema.json#/properties/binding/type": [
+      "type@/bundle/agent_passport/composite_sig/binding"
+    ],
+    "schemas/v2/composite_signature.schema.json#/properties/binding/enum": [
+      "enum@/bundle/agent_passport/composite_sig/binding"
+    ],
+    "schemas/v2/composite_signature.schema.json#/properties/classical/type": [
+      "type@/bundle/agent_passport/composite_sig/classical"
+    ],
+    "schemas/v2/composite_signature.schema.json#/properties/classical/additionalProperties": [
+      "additionalProperties@/bundle/agent_passport/composite_sig/classical",
+      "additionalProperties@/bundle/intent/composite_sig/classical",
+      "additionalProperties@/bundle/policy_decision/composite_sig/classical",
+      "additionalProperties@/bundle/pq_checkpoints/0/composite_sig/classical",
+      "additionalProperties@/bundle/responsible_principal_record/composite_sig/classical",
+      "additionalProperties@/signature/composite_sig/classical"
+    ],
+    "schemas/v2/composite_signature.schema.json#/properties/classical/required/alg": [
+      "required@/bundle/agent_passport/composite_sig/classical#alg"
+    ],
+    "schemas/v2/composite_signature.schema.json#/properties/classical/required/kid": [
+      "required@/bundle/agent_passport/composite_sig/classical#kid"
+    ],
+    "schemas/v2/composite_signature.schema.json#/properties/classical/required/sig_b64": [
+      "required@/bundle/agent_passport/composite_sig/classical#sig_b64"
+    ],
+    "schemas/v2/composite_signature.schema.json#/properties/classical/properties": "covered through the sites of each named member",
+    "schemas/v2/composite_signature.schema.json#/properties/classical/properties/alg/type": [
+      "type@/bundle/agent_passport/composite_sig/classical/alg"
+    ],
+    "schemas/v2/composite_signature.schema.json#/properties/classical/properties/kid/type": [
+      "type@/bundle/agent_passport/composite_sig/classical/kid"
+    ],
+    "schemas/v2/composite_signature.schema.json#/properties/classical/properties/kid/pattern": [
+      "pattern@/bundle/agent_passport/composite_sig/classical/kid",
+      "pattern:uppercase hex@/signature/composite_sig/classical/kid",
+      "pattern:one short@/signature/composite_sig/classical/kid",
+      "pattern:one long@/signature/composite_sig/classical/kid",
+      "pattern:leading space@/signature/composite_sig/classical/kid",
+      "pattern:non-ASCII digit@/signature/composite_sig/classical/kid",
+      "pattern:carriage return@/signature/composite_sig/classical/kid"
+    ],
+    "schemas/v2/composite_signature.schema.json#/properties/classical/properties/sig_b64/type": [
+      "type@/bundle/agent_passport/composite_sig/classical/sig_b64"
+    ],
+    "schemas/v2/composite_signature.schema.json#/properties/classical/properties/sig_b64/pattern": [
+      "pattern@/bundle/agent_passport/composite_sig/classical/sig_b64",
+      "pattern:padding inside@/signature/composite_sig/classical/sig_b64",
+      "pattern:three pads@/signature/composite_sig/classical/sig_b64",
+      "pattern:non-ASCII letter@/signature/composite_sig/classical/sig_b64"
+    ],
+    "schemas/v2/composite_signature.schema.json#/properties/classical/properties/sig_b64/minLength": [
+      "minLength@/bundle/agent_passport/composite_sig/classical/sig_b64"
+    ],
+    "schemas/v2/composite_signature.schema.json#/properties/classical/properties/sig_b64/maxLength": [
+      "maxLength@/bundle/agent_passport/composite_sig/classical/sig_b64"
+    ],
+    "schemas/v2/composite_signature.schema.json#/properties/pq/oneOf": [
+      "oneOf@/bundle/agent_passport/composite_sig/pq"
+    ],
+    "schemas/v2/composite_signature.schema.json#/properties/pq/oneOf/0/type": [
+      "type@/bundle/agent_passport/composite_sig/pq"
+    ],
+    "schemas/v2/composite_signature.schema.json#/properties/pq/oneOf/1/type": [
+      "type@/bundle/agent_passport/composite_sig/pq"
+    ],
+    "schemas/v2/composite_signature.schema.json#/properties/pq/oneOf/1/additionalProperties": [
+      "additionalProperties@/bundle/agent_passport/composite_sig/pq",
+      "additionalProperties@/bundle/intent/composite_sig/pq",
+      "additionalProperties@/bundle/policy_decision/composite_sig/pq",
+      "additionalProperties@/bundle/pq_checkpoints/0/composite_sig/pq",
+      "additionalProperties@/bundle/responsible_principal_record/composite_sig/pq",
+      "additionalProperties@/signature/composite_sig/pq"
+    ],
+    "schemas/v2/composite_signature.schema.json#/properties/pq/oneOf/1/required/alg": [
+      "required@/bundle/agent_passport/composite_sig/pq#alg"
+    ],
+    "schemas/v2/composite_signature.schema.json#/properties/pq/oneOf/1/required/kid": [
+      "required@/bundle/agent_passport/composite_sig/pq#kid"
+    ],
+    "schemas/v2/composite_signature.schema.json#/properties/pq/oneOf/1/required/sig_b64": [
+      "required@/bundle/agent_passport/composite_sig/pq#sig_b64"
+    ],
+    "schemas/v2/composite_signature.schema.json#/properties/pq/oneOf/1/properties": "covered through the sites of each named member",
+    "schemas/v2/composite_signature.schema.json#/properties/pq/oneOf/1/properties/alg/type": [
+      "type@/bundle/agent_passport/composite_sig/pq/alg"
+    ],
+    "schemas/v2/composite_signature.schema.json#/properties/pq/oneOf/1/properties/kid/type": [
+      "type@/bundle/agent_passport/composite_sig/pq/kid"
+    ],
+    "schemas/v2/composite_signature.schema.json#/properties/pq/oneOf/1/properties/kid/pattern": [
+      "pattern@/bundle/agent_passport/composite_sig/pq/kid"
+    ],
+    "schemas/v2/composite_signature.schema.json#/properties/pq/oneOf/1/properties/sig_b64/type": [
+      "type@/bundle/agent_passport/composite_sig/pq/sig_b64"
+    ],
+    "schemas/v2/composite_signature.schema.json#/properties/pq/oneOf/1/properties/sig_b64/pattern": [
+      "pattern@/bundle/agent_passport/composite_sig/pq/sig_b64"
+    ],
+    "schemas/v2/composite_signature.schema.json#/properties/pq/oneOf/1/properties/sig_b64/minLength": [
+      "minLength@/bundle/agent_passport/composite_sig/pq/sig_b64"
+    ],
+    "schemas/v2/composite_signature.schema.json#/properties/pq/oneOf/1/properties/sig_b64/maxLength": [
+      "maxLength@/bundle/agent_passport/composite_sig/pq/sig_b64"
+    ],
+    "schemas/v2/signed_payload.schema.json#/properties/payload/type": [
+      "type@/bundle/agent_passport/payload"
+    ],
+    "schemas/v2/signed_payload.schema.json#/properties/payload_hash/type": [
+      "type@/bundle/agent_passport/payload_hash"
+    ],
+    "schemas/v2/signed_payload.schema.json#/properties/payload_hash/pattern": [
+      "pattern@/bundle/agent_passport/payload_hash"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/bundle/properties/audit_entries/type": [
+      "type@/bundle/audit_entries"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/bundle/properties/audit_entries/items": "covered through the sites of the item schema",
+    "schemas/v2/signed_bundle.schema.json#/properties/bundle/properties/audit_entries/items/$ref": "covered through the referenced schema at this location (see ref_sites)",
+    "schemas/v2/audit_entry.schema.json#/type": [
+      "type@/bundle/audit_entries/0"
+    ],
+    "schemas/v2/audit_entry.schema.json#/additionalProperties": [
+      "additionalProperties@/bundle/audit_entries/0",
+      "additionalProperties@/bundle/audit_entries/1",
+      "additionalProperties@/bundle/audit_entries/2"
+    ],
+    "schemas/v2/audit_entry.schema.json#/required/agent_id": [
+      "required@/bundle/audit_entries/0#agent_id"
+    ],
+    "schemas/v2/audit_entry.schema.json#/required/audit_id": [
+      "required@/bundle/audit_entries/0#audit_id"
+    ],
+    "schemas/v2/audit_entry.schema.json#/required/dcp_version": [
+      "required@/bundle/audit_entries/0#dcp_version"
+    ],
+    "schemas/v2/audit_entry.schema.json#/required/evidence": [
+      "required@/bundle/audit_entries/0#evidence"
+    ],
+    "schemas/v2/audit_entry.schema.json#/required/hash_alg": [
+      "required@/bundle/audit_entries/0#hash_alg"
+    ],
+    "schemas/v2/audit_entry.schema.json#/required/human_id": [
+      "required@/bundle/audit_entries/0#human_id"
+    ],
+    "schemas/v2/audit_entry.schema.json#/required/intent_hash": [
+      "required@/bundle/audit_entries/0#intent_hash"
+    ],
+    "schemas/v2/audit_entry.schema.json#/required/intent_id": [
+      "required@/bundle/audit_entries/0#intent_id"
+    ],
+    "schemas/v2/audit_entry.schema.json#/required/outcome": [
+      "required@/bundle/audit_entries/0#outcome"
+    ],
+    "schemas/v2/audit_entry.schema.json#/required/policy_decision": [
+      "required@/bundle/audit_entries/0#policy_decision"
+    ],
+    "schemas/v2/audit_entry.schema.json#/required/pq_checkpoint_ref": [
+      "required@/bundle/audit_entries/0#pq_checkpoint_ref"
+    ],
+    "schemas/v2/audit_entry.schema.json#/required/prev_hash": [
+      "required@/bundle/audit_entries/0#prev_hash"
+    ],
+    "schemas/v2/audit_entry.schema.json#/required/session_nonce": [
+      "required@/bundle/audit_entries/0#session_nonce"
+    ],
+    "schemas/v2/audit_entry.schema.json#/required/timestamp": [
+      "required@/bundle/audit_entries/0#timestamp"
+    ],
+    "schemas/v2/audit_entry.schema.json#/properties": "covered through the sites of each named member",
+    "schemas/v2/audit_entry.schema.json#/properties/agent_id/type": [
+      "type@/bundle/audit_entries/0/agent_id"
+    ],
+    "schemas/v2/audit_entry.schema.json#/properties/agent_id/minLength": [
+      "minLength@/bundle/audit_entries/0/agent_id"
+    ],
+    "schemas/v2/audit_entry.schema.json#/properties/audit_id/type": [
+      "type@/bundle/audit_entries/0/audit_id"
+    ],
+    "schemas/v2/audit_entry.schema.json#/properties/audit_id/minLength": [
+      "minLength@/bundle/audit_entries/0/audit_id"
+    ],
+    "schemas/v2/audit_entry.schema.json#/properties/dcp_version/type": [
+      "type@/bundle/audit_entries/0/dcp_version"
+    ],
+    "schemas/v2/audit_entry.schema.json#/properties/dcp_version/const": [
+      "const@/bundle/audit_entries/0/dcp_version"
+    ],
+    "schemas/v2/audit_entry.schema.json#/properties/evidence/type": [
+      "type@/bundle/audit_entries/0/evidence"
+    ],
+    "schemas/v2/audit_entry.schema.json#/properties/evidence/properties": "covered through the sites of each named member",
+    "schemas/v2/audit_entry.schema.json#/properties/evidence/properties/evidence_hash/type": [
+      "type@/bundle/audit_entries/0/evidence/evidence_hash"
+    ],
+    "schemas/v2/audit_entry.schema.json#/properties/evidence/properties/result_ref/type": [
+      "type@/bundle/audit_entries/0/evidence/result_ref"
+    ],
+    "schemas/v2/audit_entry.schema.json#/properties/evidence/properties/tool/type": [
+      "type@/bundle/audit_entries/0/evidence/tool"
+    ],
+    "schemas/v2/audit_entry.schema.json#/properties/hash_alg/type": [
+      "type@/bundle/audit_entries/0/hash_alg"
+    ],
+    "schemas/v2/audit_entry.schema.json#/properties/hash_alg/enum": [
+      "enum@/bundle/audit_entries/0/hash_alg"
+    ],
+    "schemas/v2/audit_entry.schema.json#/properties/human_id/type": [
+      "type@/bundle/audit_entries/0/human_id"
+    ],
+    "schemas/v2/audit_entry.schema.json#/properties/human_id/minLength": [
+      "minLength@/bundle/audit_entries/0/human_id"
+    ],
+    "schemas/v2/audit_entry.schema.json#/properties/intent_hash/type": [
+      "type@/bundle/audit_entries/0/intent_hash"
+    ],
+    "schemas/v2/audit_entry.schema.json#/properties/intent_hash/pattern": [
+      "pattern@/bundle/audit_entries/0/intent_hash"
+    ],
+    "schemas/v2/audit_entry.schema.json#/properties/intent_hash_secondary/type": [
+      "type@/bundle/audit_entries/0/intent_hash_secondary"
+    ],
+    "schemas/v2/audit_entry.schema.json#/properties/intent_hash_secondary/pattern": [
+      "pattern@/bundle/audit_entries/0/intent_hash_secondary"
+    ],
+    "schemas/v2/audit_entry.schema.json#/properties/intent_id/type": [
+      "type@/bundle/audit_entries/0/intent_id"
+    ],
+    "schemas/v2/audit_entry.schema.json#/properties/intent_id/minLength": [
+      "minLength@/bundle/audit_entries/0/intent_id"
+    ],
+    "schemas/v2/audit_entry.schema.json#/properties/outcome/type": [
+      "type@/bundle/audit_entries/0/outcome"
+    ],
+    "schemas/v2/audit_entry.schema.json#/properties/policy_decision/type": [
+      "type@/bundle/audit_entries/0/policy_decision"
+    ],
+    "schemas/v2/audit_entry.schema.json#/properties/policy_decision/enum": [
+      "enum@/bundle/audit_entries/0/policy_decision"
+    ],
+    "schemas/v2/audit_entry.schema.json#/properties/pq_checkpoint_ref/type": [
+      "type@/bundle/audit_entries/0/pq_checkpoint_ref"
+    ],
+    "schemas/v2/audit_entry.schema.json#/properties/prev_hash/type": [
+      "type@/bundle/audit_entries/0/prev_hash"
+    ],
+    "schemas/v2/audit_entry.schema.json#/properties/prev_hash/pattern": [
+      "pattern@/bundle/audit_entries/0/prev_hash"
+    ],
+    "schemas/v2/audit_entry.schema.json#/properties/prev_hash_secondary/type": [
+      "type@/bundle/audit_entries/0/prev_hash_secondary"
+    ],
+    "schemas/v2/audit_entry.schema.json#/properties/prev_hash_secondary/pattern": [
+      "pattern@/bundle/audit_entries/0/prev_hash_secondary"
+    ],
+    "schemas/v2/audit_entry.schema.json#/properties/session_nonce/type": [
+      "type@/bundle/audit_entries/0/session_nonce"
+    ],
+    "schemas/v2/audit_entry.schema.json#/properties/session_nonce/pattern": [
+      "pattern@/bundle/audit_entries/0/session_nonce"
+    ],
+    "schemas/v2/audit_entry.schema.json#/properties/timestamp/type": [
+      "type@/bundle/audit_entries/0/timestamp"
+    ],
+    "schemas/v2/audit_entry.schema.json#/properties/timestamp/format": [
+      "format@/bundle/audit_entries/0/timestamp"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/bundle/properties/dcp_bundle_version/type": [
+      "type@/bundle/dcp_bundle_version"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/bundle/properties/dcp_bundle_version/const": [
+      "const@/bundle/dcp_bundle_version"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/bundle/properties/intent/$ref": "covered through the referenced schema at this location (see ref_sites)",
+    "schemas/v2/signed_bundle.schema.json#/properties/bundle/properties/manifest/$ref": "covered through the referenced schema at this location (see ref_sites)",
+    "schemas/v2/bundle_manifest.schema.json#/type": [
+      "type@/bundle/manifest"
+    ],
+    "schemas/v2/bundle_manifest.schema.json#/additionalProperties": [
+      "additionalProperties@/bundle/manifest"
+    ],
+    "schemas/v2/bundle_manifest.schema.json#/required/audit_count": [
+      "required@/bundle/manifest#audit_count"
+    ],
+    "schemas/v2/bundle_manifest.schema.json#/required/audit_merkle_root": [
+      "required@/bundle/manifest#audit_merkle_root"
+    ],
+    "schemas/v2/bundle_manifest.schema.json#/required/intent_hash": [
+      "required@/bundle/manifest#intent_hash"
+    ],
+    "schemas/v2/bundle_manifest.schema.json#/required/passport_hash": [
+      "required@/bundle/manifest#passport_hash"
+    ],
+    "schemas/v2/bundle_manifest.schema.json#/required/policy_hash": [
+      "required@/bundle/manifest#policy_hash"
+    ],
+    "schemas/v2/bundle_manifest.schema.json#/required/rpr_hash": [
+      "required@/bundle/manifest#rpr_hash"
+    ],
+    "schemas/v2/bundle_manifest.schema.json#/required/session_nonce": [
+      "required@/bundle/manifest#session_nonce"
+    ],
+    "schemas/v2/bundle_manifest.schema.json#/properties": "covered through the sites of each named member",
+    "schemas/v2/bundle_manifest.schema.json#/properties/audit_count/type": [
+      "type@/bundle/manifest/audit_count",
+      "type@/bundle/manifest/audit_count#fraction"
+    ],
+    "schemas/v2/bundle_manifest.schema.json#/properties/audit_count/minimum": [
+      "minimum@/bundle/manifest/audit_count"
+    ],
+    "schemas/v2/bundle_manifest.schema.json#/properties/audit_merkle_root/type": [
+      "type@/bundle/manifest/audit_merkle_root"
+    ],
+    "schemas/v2/bundle_manifest.schema.json#/properties/audit_merkle_root/pattern": [
+      "pattern@/bundle/manifest/audit_merkle_root"
+    ],
+    "schemas/v2/bundle_manifest.schema.json#/properties/audit_merkle_root_secondary/type": [
+      "type@/bundle/manifest/audit_merkle_root_secondary"
+    ],
+    "schemas/v2/bundle_manifest.schema.json#/properties/audit_merkle_root_secondary/pattern": [
+      "pattern@/bundle/manifest/audit_merkle_root_secondary"
+    ],
+    "schemas/v2/bundle_manifest.schema.json#/properties/canonicalization_profile/type": [
+      "type@/bundle/manifest/canonicalization_profile"
+    ],
+    "schemas/v2/bundle_manifest.schema.json#/properties/canonicalization_profile/const": [
+      "const@/bundle/manifest/canonicalization_profile"
+    ],
+    "schemas/v2/bundle_manifest.schema.json#/properties/intended_verifier/type": [
+      "type@/bundle/manifest/intended_verifier"
+    ],
+    "schemas/v2/bundle_manifest.schema.json#/properties/intended_verifier/maxLength": [
+      "maxLength@/bundle/manifest/intended_verifier"
+    ],
+    "schemas/v2/bundle_manifest.schema.json#/properties/intent_hash/type": [
+      "type@/bundle/manifest/intent_hash"
+    ],
+    "schemas/v2/bundle_manifest.schema.json#/properties/intent_hash/pattern": [
+      "pattern@/bundle/manifest/intent_hash"
+    ],
+    "schemas/v2/bundle_manifest.schema.json#/properties/passport_hash/type": [
+      "type@/bundle/manifest/passport_hash"
+    ],
+    "schemas/v2/bundle_manifest.schema.json#/properties/passport_hash/pattern": [
+      "pattern@/bundle/manifest/passport_hash"
+    ],
+    "schemas/v2/bundle_manifest.schema.json#/properties/policy_hash/type": [
+      "type@/bundle/manifest/policy_hash"
+    ],
+    "schemas/v2/bundle_manifest.schema.json#/properties/policy_hash/pattern": [
+      "pattern@/bundle/manifest/policy_hash"
+    ],
+    "schemas/v2/bundle_manifest.schema.json#/properties/pq_checkpoints/type": [
+      "type@/bundle/manifest/pq_checkpoints"
+    ],
+    "schemas/v2/bundle_manifest.schema.json#/properties/pq_checkpoints/items": "covered through the sites of the item schema",
+    "schemas/v2/bundle_manifest.schema.json#/properties/pq_checkpoints/items/type": [
+      "type@/bundle/manifest/pq_checkpoints/0"
+    ],
+    "schemas/v2/bundle_manifest.schema.json#/properties/rpr_hash/type": [
+      "type@/bundle/manifest/rpr_hash"
+    ],
+    "schemas/v2/bundle_manifest.schema.json#/properties/rpr_hash/pattern": [
+      "pattern@/bundle/manifest/rpr_hash"
+    ],
+    "schemas/v2/bundle_manifest.schema.json#/properties/session_expires_at/type": [
+      "type@/bundle/manifest/session_expires_at"
+    ],
+    "schemas/v2/bundle_manifest.schema.json#/properties/session_expires_at/format": [
+      "format@/bundle/manifest/session_expires_at"
+    ],
+    "schemas/v2/bundle_manifest.schema.json#/properties/session_issued_at/type": [
+      "type@/bundle/manifest/session_issued_at"
+    ],
+    "schemas/v2/bundle_manifest.schema.json#/properties/session_issued_at/format": [
+      "format@/bundle/manifest/session_issued_at"
+    ],
+    "schemas/v2/bundle_manifest.schema.json#/properties/session_nonce/type": [
+      "type@/bundle/manifest/session_nonce"
+    ],
+    "schemas/v2/bundle_manifest.schema.json#/properties/session_nonce/pattern": [
+      "pattern@/bundle/manifest/session_nonce"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/bundle/properties/policy_decision/$ref": "covered through the referenced schema at this location (see ref_sites)",
+    "schemas/v2/signed_bundle.schema.json#/properties/bundle/properties/pq_checkpoints/type": [
+      "type@/bundle/pq_checkpoints"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/bundle/properties/pq_checkpoints/items": "covered through the sites of the item schema",
+    "schemas/v2/signed_bundle.schema.json#/properties/bundle/properties/pq_checkpoints/items/$ref": "covered through the referenced schema at this location (see ref_sites)",
+    "schemas/v2/pq_checkpoint.schema.json#/type": [
+      "type@/bundle/pq_checkpoints/0"
+    ],
+    "schemas/v2/pq_checkpoint.schema.json#/additionalProperties": [
+      "additionalProperties@/bundle/pq_checkpoints/0"
+    ],
+    "schemas/v2/pq_checkpoint.schema.json#/required/checkpoint_id": [
+      "required@/bundle/pq_checkpoints/0#checkpoint_id"
+    ],
+    "schemas/v2/pq_checkpoint.schema.json#/required/composite_sig": [
+      "required@/bundle/pq_checkpoints/0#composite_sig"
+    ],
+    "schemas/v2/pq_checkpoint.schema.json#/required/event_range": [
+      "required@/bundle/pq_checkpoints/0#event_range"
+    ],
+    "schemas/v2/pq_checkpoint.schema.json#/required/merkle_root": [
+      "required@/bundle/pq_checkpoints/0#merkle_root"
+    ],
+    "schemas/v2/pq_checkpoint.schema.json#/required/session_nonce": [
+      "required@/bundle/pq_checkpoints/0#session_nonce"
+    ],
+    "schemas/v2/pq_checkpoint.schema.json#/properties": "covered through the sites of each named member",
+    "schemas/v2/pq_checkpoint.schema.json#/properties/checkpoint_id/type": [
+      "type@/bundle/pq_checkpoints/0/checkpoint_id"
+    ],
+    "schemas/v2/pq_checkpoint.schema.json#/properties/checkpoint_id/minLength": [
+      "minLength@/bundle/pq_checkpoints/0/checkpoint_id"
+    ],
+    "schemas/v2/pq_checkpoint.schema.json#/properties/composite_sig/$ref": "covered through the referenced schema at this location (see ref_sites)",
+    "schemas/v2/pq_checkpoint.schema.json#/properties/event_range/type": [
+      "type@/bundle/pq_checkpoints/0/event_range"
+    ],
+    "schemas/v2/pq_checkpoint.schema.json#/properties/event_range/additionalProperties": [
+      "additionalProperties@/bundle/pq_checkpoints/0/event_range"
+    ],
+    "schemas/v2/pq_checkpoint.schema.json#/properties/event_range/required/count": [
+      "required@/bundle/pq_checkpoints/0/event_range#count"
+    ],
+    "schemas/v2/pq_checkpoint.schema.json#/properties/event_range/required/from_audit_id": [
+      "required@/bundle/pq_checkpoints/0/event_range#from_audit_id"
+    ],
+    "schemas/v2/pq_checkpoint.schema.json#/properties/event_range/required/to_audit_id": [
+      "required@/bundle/pq_checkpoints/0/event_range#to_audit_id"
+    ],
+    "schemas/v2/pq_checkpoint.schema.json#/properties/event_range/properties": "covered through the sites of each named member",
+    "schemas/v2/pq_checkpoint.schema.json#/properties/event_range/properties/count/type": [
+      "type@/bundle/pq_checkpoints/0/event_range/count",
+      "type@/bundle/pq_checkpoints/0/event_range/count#fraction"
+    ],
+    "schemas/v2/pq_checkpoint.schema.json#/properties/event_range/properties/count/minimum": [
+      "minimum@/bundle/pq_checkpoints/0/event_range/count"
+    ],
+    "schemas/v2/pq_checkpoint.schema.json#/properties/event_range/properties/from_audit_id/type": [
+      "type@/bundle/pq_checkpoints/0/event_range/from_audit_id"
+    ],
+    "schemas/v2/pq_checkpoint.schema.json#/properties/event_range/properties/to_audit_id/type": [
+      "type@/bundle/pq_checkpoints/0/event_range/to_audit_id"
+    ],
+    "schemas/v2/pq_checkpoint.schema.json#/properties/merkle_root/type": [
+      "type@/bundle/pq_checkpoints/0/merkle_root"
+    ],
+    "schemas/v2/pq_checkpoint.schema.json#/properties/merkle_root/pattern": [
+      "pattern@/bundle/pq_checkpoints/0/merkle_root"
+    ],
+    "schemas/v2/pq_checkpoint.schema.json#/properties/session_nonce/type": [
+      "type@/bundle/pq_checkpoints/0/session_nonce"
+    ],
+    "schemas/v2/pq_checkpoint.schema.json#/properties/session_nonce/pattern": [
+      "pattern@/bundle/pq_checkpoints/0/session_nonce"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/bundle/properties/responsible_principal_record/$ref": "covered through the referenced schema at this location (see ref_sites)",
+    "schemas/v2/signed_bundle.schema.json#/properties/signature/type": [
+      "type@/signature"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/signature/additionalProperties": [
+      "additionalProperties@/signature"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/signature/required/composite_sig": [
+      "required@/signature#composite_sig"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/signature/required/created_at": [
+      "required@/signature#created_at"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/signature/required/hash_alg": [
+      "required@/signature#hash_alg"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/signature/required/manifest_hash": [
+      "required@/signature#manifest_hash"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/signature/required/signer": [
+      "required@/signature#signer"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/signature/properties": "covered through the sites of each named member",
+    "schemas/v2/signed_bundle.schema.json#/properties/signature/properties/composite_sig/$ref": "covered through the referenced schema at this location (see ref_sites)",
+    "schemas/v2/signed_bundle.schema.json#/properties/signature/properties/created_at/type": [
+      "type@/signature/created_at"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/signature/properties/created_at/format": [
+      "format@/signature/created_at",
+      "date-time:long fraction rounding to 60",
+      "date-time:offset hour 24",
+      "date-time:dangling colon",
+      "date-time:comma fraction",
+      "date-time:no zone",
+      "date-time:leap second at 22:59",
+      "date-time:two separators",
+      "date-time:zero-width space is not a separator",
+      "date-time:non-ASCII digit",
+      "date-time:trailing newline"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/signature/properties/hash_alg/type": [
+      "type@/signature/hash_alg"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/signature/properties/hash_alg/enum": [
+      "enum@/signature/hash_alg"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/signature/properties/manifest_hash/type": [
+      "type@/signature/manifest_hash"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/signature/properties/manifest_hash/pattern": [
+      "pattern@/signature/manifest_hash"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/signature/properties/signer/type": [
+      "type@/signature/signer"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/signature/properties/signer/additionalProperties": [
+      "additionalProperties@/signature/signer"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/signature/properties/signer/required/id": [
+      "required@/signature/signer#id"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/signature/properties/signer/required/kids": [
+      "required@/signature/signer#kids"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/signature/properties/signer/required/type": [
+      "required@/signature/signer#type"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/signature/properties/signer/properties": "covered through the sites of each named member",
+    "schemas/v2/signed_bundle.schema.json#/properties/signature/properties/signer/properties/id/type": [
+      "type@/signature/signer/id"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/signature/properties/signer/properties/id/minLength": [
+      "minLength@/signature/signer/id"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/signature/properties/signer/properties/kids/type": [
+      "type@/signature/signer/kids"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/signature/properties/signer/properties/kids/minItems": [
+      "minItems@/signature/signer/kids"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/signature/properties/signer/properties/kids/items": "covered through the sites of the item schema",
+    "schemas/v2/signed_bundle.schema.json#/properties/signature/properties/signer/properties/kids/items/type": [
+      "type@/signature/signer/kids/0"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/signature/properties/signer/properties/kids/items/pattern": [
+      "pattern@/signature/signer/kids/0"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/signature/properties/signer/properties/type/type": [
+      "type@/signature/signer/type"
+    ],
+    "schemas/v2/signed_bundle.schema.json#/properties/signature/properties/signer/properties/type/enum": [
+      "enum@/signature/signer/type"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/type": [
+      "type@/bundle/responsible_principal_record/payload"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/additionalProperties": [
+      "additionalProperties@/bundle/responsible_principal_record/payload"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/required/binding_keys": [
+      "required@/bundle/responsible_principal_record/payload#binding_keys"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/required/dcp_version": [
+      "required@/bundle/responsible_principal_record/payload#dcp_version"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/required/entity_type": [
+      "required@/bundle/responsible_principal_record/payload#entity_type"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/required/expires_at": [
+      "required@/bundle/responsible_principal_record/payload#expires_at"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/required/human_id": [
+      "required@/bundle/responsible_principal_record/payload#human_id"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/required/issued_at": [
+      "required@/bundle/responsible_principal_record/payload#issued_at"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/required/jurisdiction": [
+      "required@/bundle/responsible_principal_record/payload#jurisdiction"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/required/legal_name": [
+      "required@/bundle/responsible_principal_record/payload#legal_name"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/required/liability_mode": [
+      "required@/bundle/responsible_principal_record/payload#liability_mode"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/required/override_rights": [
+      "required@/bundle/responsible_principal_record/payload#override_rights"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/required/session_nonce": [
+      "required@/bundle/responsible_principal_record/payload#session_nonce"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/properties": "covered through the sites of each named member",
+    "schemas/v2/responsible_principal_record.schema.json#/properties/binding_keys/type": [
+      "type@/bundle/responsible_principal_record/payload/binding_keys"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/properties/binding_keys/minItems": [
+      "minItems@/bundle/responsible_principal_record/payload/binding_keys"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/properties/binding_keys/items": "covered through the sites of the item schema",
+    "schemas/v2/responsible_principal_record.schema.json#/properties/binding_keys/items/$ref": "covered through the referenced schema at this location (see ref_sites)",
+    "schemas/v2/key_entry.schema.json#/type": [
+      "type@/bundle/responsible_principal_record/payload/binding_keys/0"
+    ],
+    "schemas/v2/key_entry.schema.json#/additionalProperties": [
+      "additionalProperties@/bundle/responsible_principal_record/payload/binding_keys/0",
+      "additionalProperties@/bundle/responsible_principal_record/payload/binding_keys/1",
+      "additionalProperties@/bundle/agent_passport/payload/keys/0",
+      "additionalProperties@/bundle/agent_passport/payload/keys/1"
+    ],
+    "schemas/v2/key_entry.schema.json#/required/alg": [
+      "required@/bundle/responsible_principal_record/payload/binding_keys/0#alg"
+    ],
+    "schemas/v2/key_entry.schema.json#/required/created_at": [
+      "required@/bundle/responsible_principal_record/payload/binding_keys/0#created_at"
+    ],
+    "schemas/v2/key_entry.schema.json#/required/expires_at": [
+      "required@/bundle/responsible_principal_record/payload/binding_keys/0#expires_at"
+    ],
+    "schemas/v2/key_entry.schema.json#/required/kid": [
+      "required@/bundle/responsible_principal_record/payload/binding_keys/0#kid"
+    ],
+    "schemas/v2/key_entry.schema.json#/required/public_key_b64": [
+      "required@/bundle/responsible_principal_record/payload/binding_keys/0#public_key_b64"
+    ],
+    "schemas/v2/key_entry.schema.json#/required/status": [
+      "required@/bundle/responsible_principal_record/payload/binding_keys/0#status"
+    ],
+    "schemas/v2/key_entry.schema.json#/properties": "covered through the sites of each named member",
+    "schemas/v2/key_entry.schema.json#/properties/alg/type": [
+      "type@/bundle/responsible_principal_record/payload/binding_keys/0/alg"
+    ],
+    "schemas/v2/key_entry.schema.json#/properties/alg/enum": [
+      "enum@/bundle/responsible_principal_record/payload/binding_keys/0/alg"
+    ],
+    "schemas/v2/key_entry.schema.json#/properties/created_at/type": [
+      "type@/bundle/responsible_principal_record/payload/binding_keys/0/created_at"
+    ],
+    "schemas/v2/key_entry.schema.json#/properties/created_at/format": [
+      "format@/bundle/responsible_principal_record/payload/binding_keys/0/created_at"
+    ],
+    "schemas/v2/key_entry.schema.json#/properties/expires_at/type": [
+      "type@/bundle/responsible_principal_record/payload/binding_keys/0/expires_at"
+    ],
+    "schemas/v2/key_entry.schema.json#/properties/expires_at/format": [
+      "format@/bundle/responsible_principal_record/payload/binding_keys/0/expires_at"
+    ],
+    "schemas/v2/key_entry.schema.json#/properties/kid/type": [
+      "type@/bundle/responsible_principal_record/payload/binding_keys/0/kid"
+    ],
+    "schemas/v2/key_entry.schema.json#/properties/kid/pattern": [
+      "pattern@/bundle/responsible_principal_record/payload/binding_keys/0/kid"
+    ],
+    "schemas/v2/key_entry.schema.json#/properties/public_key_b64/type": [
+      "type@/bundle/responsible_principal_record/payload/binding_keys/0/public_key_b64"
+    ],
+    "schemas/v2/key_entry.schema.json#/properties/public_key_b64/pattern": [
+      "pattern@/bundle/responsible_principal_record/payload/binding_keys/0/public_key_b64"
+    ],
+    "schemas/v2/key_entry.schema.json#/properties/public_key_b64/minLength": [
+      "minLength@/bundle/responsible_principal_record/payload/binding_keys/0/public_key_b64"
+    ],
+    "schemas/v2/key_entry.schema.json#/properties/public_key_b64/maxLength": [
+      "maxLength@/bundle/responsible_principal_record/payload/binding_keys/0/public_key_b64"
+    ],
+    "schemas/v2/key_entry.schema.json#/properties/status/type": [
+      "type@/bundle/responsible_principal_record/payload/binding_keys/0/status"
+    ],
+    "schemas/v2/key_entry.schema.json#/properties/status/enum": [
+      "enum@/bundle/responsible_principal_record/payload/binding_keys/0/status"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/properties/contact/type": [
+      "type@/bundle/responsible_principal_record/payload/contact"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/properties/dcp_version/type": [
+      "type@/bundle/responsible_principal_record/payload/dcp_version"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/properties/dcp_version/const": [
+      "const@/bundle/responsible_principal_record/payload/dcp_version"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/properties/entity_type/type": [
+      "type@/bundle/responsible_principal_record/payload/entity_type"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/properties/entity_type/enum": [
+      "enum@/bundle/responsible_principal_record/payload/entity_type"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/properties/expires_at/type": [
+      "type@/bundle/responsible_principal_record/payload/expires_at"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/properties/expires_at/format": [
+      "format@/bundle/responsible_principal_record/payload/expires_at"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/properties/human_id/type": [
+      "type@/bundle/responsible_principal_record/payload/human_id"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/properties/human_id/minLength": [
+      "minLength@/bundle/responsible_principal_record/payload/human_id"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/properties/issued_at/type": [
+      "type@/bundle/responsible_principal_record/payload/issued_at"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/properties/issued_at/format": [
+      "format@/bundle/responsible_principal_record/payload/issued_at"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/properties/jurisdiction/type": [
+      "type@/bundle/responsible_principal_record/payload/jurisdiction"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/properties/jurisdiction/minLength": [
+      "minLength@/bundle/responsible_principal_record/payload/jurisdiction",
+      "raw:jurisdiction lone surrogate"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/properties/legal_name/type": [
+      "type@/bundle/responsible_principal_record/payload/legal_name"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/properties/legal_name/minLength": [
+      "minLength@/bundle/responsible_principal_record/payload/legal_name"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/properties/liability_mode/type": [
+      "type@/bundle/responsible_principal_record/payload/liability_mode"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/properties/liability_mode/enum": [
+      "enum@/bundle/responsible_principal_record/payload/liability_mode"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/properties/override_rights/type": [
+      "type@/bundle/responsible_principal_record/payload/override_rights"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/properties/pii_salt/type": [
+      "type@/bundle/responsible_principal_record/payload/pii_salt"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/properties/pii_salt/pattern": [
+      "pattern@/bundle/responsible_principal_record/payload/pii_salt"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/properties/session_nonce/type": [
+      "type@/bundle/responsible_principal_record/payload/session_nonce"
+    ],
+    "schemas/v2/responsible_principal_record.schema.json#/properties/session_nonce/pattern": [
+      "pattern@/bundle/responsible_principal_record/payload/session_nonce"
+    ],
+    "schemas/v2/agent_passport.schema.json#/type": [
+      "type@/bundle/agent_passport/payload"
+    ],
+    "schemas/v2/agent_passport.schema.json#/additionalProperties": [
+      "additionalProperties@/bundle/agent_passport/payload"
+    ],
+    "schemas/v2/agent_passport.schema.json#/required/agent_id": [
+      "required@/bundle/agent_passport/payload#agent_id"
+    ],
+    "schemas/v2/agent_passport.schema.json#/required/capabilities": [
+      "required@/bundle/agent_passport/payload#capabilities"
+    ],
+    "schemas/v2/agent_passport.schema.json#/required/created_at": [
+      "required@/bundle/agent_passport/payload#created_at"
+    ],
+    "schemas/v2/agent_passport.schema.json#/required/dcp_version": [
+      "required@/bundle/agent_passport/payload#dcp_version"
+    ],
+    "schemas/v2/agent_passport.schema.json#/required/keys": [
+      "required@/bundle/agent_passport/payload#keys"
+    ],
+    "schemas/v2/agent_passport.schema.json#/required/principal_binding_reference": [
+      "required@/bundle/agent_passport/payload#principal_binding_reference"
+    ],
+    "schemas/v2/agent_passport.schema.json#/required/risk_tier": [
+      "required@/bundle/agent_passport/payload#risk_tier"
+    ],
+    "schemas/v2/agent_passport.schema.json#/required/session_nonce": [
+      "required@/bundle/agent_passport/payload#session_nonce"
+    ],
+    "schemas/v2/agent_passport.schema.json#/required/status": [
+      "required@/bundle/agent_passport/payload#status"
+    ],
+    "schemas/v2/agent_passport.schema.json#/properties": "covered through the sites of each named member",
+    "schemas/v2/agent_passport.schema.json#/properties/agent_id/type": [
+      "type@/bundle/agent_passport/payload/agent_id"
+    ],
+    "schemas/v2/agent_passport.schema.json#/properties/agent_id/minLength": [
+      "minLength@/bundle/agent_passport/payload/agent_id"
+    ],
+    "schemas/v2/agent_passport.schema.json#/properties/capabilities/type": [
+      "type@/bundle/agent_passport/payload/capabilities"
+    ],
+    "schemas/v2/agent_passport.schema.json#/properties/capabilities/uniqueItems": [
+      "uniqueItems@/bundle/agent_passport/payload/capabilities"
+    ],
+    "schemas/v2/agent_passport.schema.json#/properties/capabilities/items": "covered through the sites of the item schema",
+    "schemas/v2/agent_passport.schema.json#/properties/capabilities/items/type": [
+      "type@/bundle/agent_passport/payload/capabilities/0"
+    ],
+    "schemas/v2/agent_passport.schema.json#/properties/capabilities/items/enum": [
+      "enum@/bundle/agent_passport/payload/capabilities/0"
+    ],
+    "schemas/v2/agent_passport.schema.json#/properties/created_at/type": [
+      "type@/bundle/agent_passport/payload/created_at"
+    ],
+    "schemas/v2/agent_passport.schema.json#/properties/created_at/format": [
+      "format@/bundle/agent_passport/payload/created_at"
+    ],
+    "schemas/v2/agent_passport.schema.json#/properties/dcp_version/type": [
+      "type@/bundle/agent_passport/payload/dcp_version"
+    ],
+    "schemas/v2/agent_passport.schema.json#/properties/dcp_version/const": [
+      "const@/bundle/agent_passport/payload/dcp_version"
+    ],
+    "schemas/v2/agent_passport.schema.json#/properties/emergency_revocation_token/type": [
+      "type@/bundle/agent_passport/payload/emergency_revocation_token"
+    ],
+    "schemas/v2/agent_passport.schema.json#/properties/emergency_revocation_token/pattern": [
+      "pattern@/bundle/agent_passport/payload/emergency_revocation_token"
+    ],
+    "schemas/v2/agent_passport.schema.json#/properties/keys/type": [
+      "type@/bundle/agent_passport/payload/keys"
+    ],
+    "schemas/v2/agent_passport.schema.json#/properties/keys/minItems": [
+      "minItems@/bundle/agent_passport/payload/keys"
+    ],
+    "schemas/v2/agent_passport.schema.json#/properties/keys/items": "covered through the sites of the item schema",
+    "schemas/v2/agent_passport.schema.json#/properties/keys/items/$ref": "covered through the referenced schema at this location (see ref_sites)",
+    "schemas/v2/agent_passport.schema.json#/properties/principal_binding_reference/type": [
+      "type@/bundle/agent_passport/payload/principal_binding_reference"
+    ],
+    "schemas/v2/agent_passport.schema.json#/properties/principal_binding_reference/minLength": [
+      "minLength@/bundle/agent_passport/payload/principal_binding_reference"
+    ],
+    "schemas/v2/agent_passport.schema.json#/properties/risk_tier/type": [
+      "type@/bundle/agent_passport/payload/risk_tier"
+    ],
+    "schemas/v2/agent_passport.schema.json#/properties/risk_tier/enum": [
+      "enum@/bundle/agent_passport/payload/risk_tier"
+    ],
+    "schemas/v2/agent_passport.schema.json#/properties/session_nonce/type": [
+      "type@/bundle/agent_passport/payload/session_nonce"
+    ],
+    "schemas/v2/agent_passport.schema.json#/properties/session_nonce/pattern": [
+      "pattern@/bundle/agent_passport/payload/session_nonce"
+    ],
+    "schemas/v2/agent_passport.schema.json#/properties/status/type": [
+      "type@/bundle/agent_passport/payload/status"
+    ],
+    "schemas/v2/agent_passport.schema.json#/properties/status/enum": [
+      "enum@/bundle/agent_passport/payload/status"
+    ],
+    "schemas/v2/intent.schema.json#/type": [
+      "type@/bundle/intent/payload"
+    ],
+    "schemas/v2/intent.schema.json#/additionalProperties": [
+      "additionalProperties@/bundle/intent/payload",
+      "layering:intent payload unknown member"
+    ],
+    "schemas/v2/intent.schema.json#/required/action_type": [
+      "required@/bundle/intent/payload#action_type"
+    ],
+    "schemas/v2/intent.schema.json#/required/agent_id": [
+      "required@/bundle/intent/payload#agent_id"
+    ],
+    "schemas/v2/intent.schema.json#/required/data_classes": [
+      "required@/bundle/intent/payload#data_classes"
+    ],
+    "schemas/v2/intent.schema.json#/required/dcp_version": [
+      "required@/bundle/intent/payload#dcp_version"
+    ],
+    "schemas/v2/intent.schema.json#/required/estimated_impact": [
+      "required@/bundle/intent/payload#estimated_impact"
+    ],
+    "schemas/v2/intent.schema.json#/required/human_id": [
+      "required@/bundle/intent/payload#human_id"
+    ],
+    "schemas/v2/intent.schema.json#/required/intent_id": [
+      "required@/bundle/intent/payload#intent_id"
+    ],
+    "schemas/v2/intent.schema.json#/required/requires_consent": [
+      "required@/bundle/intent/payload#requires_consent"
+    ],
+    "schemas/v2/intent.schema.json#/required/session_nonce": [
+      "required@/bundle/intent/payload#session_nonce"
+    ],
+    "schemas/v2/intent.schema.json#/required/target": [
+      "required@/bundle/intent/payload#target"
+    ],
+    "schemas/v2/intent.schema.json#/required/timestamp": [
+      "required@/bundle/intent/payload#timestamp"
+    ],
+    "schemas/v2/intent.schema.json#/properties": "covered through the sites of each named member",
+    "schemas/v2/intent.schema.json#/properties/action_type/type": [
+      "type@/bundle/intent/payload/action_type"
+    ],
+    "schemas/v2/intent.schema.json#/properties/action_type/enum": [
+      "enum@/bundle/intent/payload/action_type"
+    ],
+    "schemas/v2/intent.schema.json#/properties/agent_id/type": [
+      "type@/bundle/intent/payload/agent_id"
+    ],
+    "schemas/v2/intent.schema.json#/properties/agent_id/minLength": [
+      "minLength@/bundle/intent/payload/agent_id"
+    ],
+    "schemas/v2/intent.schema.json#/properties/data_classes/type": [
+      "type@/bundle/intent/payload/data_classes"
+    ],
+    "schemas/v2/intent.schema.json#/properties/data_classes/items": "covered through the sites of the item schema",
+    "schemas/v2/intent.schema.json#/properties/data_classes/items/type": [
+      "type@/bundle/intent/payload/data_classes/0"
+    ],
+    "schemas/v2/intent.schema.json#/properties/data_classes/items/enum": [
+      "enum@/bundle/intent/payload/data_classes/0"
+    ],
+    "schemas/v2/intent.schema.json#/properties/dcp_version/type": [
+      "type@/bundle/intent/payload/dcp_version"
+    ],
+    "schemas/v2/intent.schema.json#/properties/dcp_version/const": [
+      "const@/bundle/intent/payload/dcp_version"
+    ],
+    "schemas/v2/intent.schema.json#/properties/estimated_impact/type": [
+      "type@/bundle/intent/payload/estimated_impact"
+    ],
+    "schemas/v2/intent.schema.json#/properties/estimated_impact/enum": [
+      "enum@/bundle/intent/payload/estimated_impact"
+    ],
+    "schemas/v2/intent.schema.json#/properties/human_id/type": [
+      "type@/bundle/intent/payload/human_id"
+    ],
+    "schemas/v2/intent.schema.json#/properties/human_id/minLength": [
+      "minLength@/bundle/intent/payload/human_id"
+    ],
+    "schemas/v2/intent.schema.json#/properties/intent_id/type": [
+      "type@/bundle/intent/payload/intent_id"
+    ],
+    "schemas/v2/intent.schema.json#/properties/intent_id/minLength": [
+      "minLength@/bundle/intent/payload/intent_id"
+    ],
+    "schemas/v2/intent.schema.json#/properties/requires_consent/type": [
+      "type@/bundle/intent/payload/requires_consent"
+    ],
+    "schemas/v2/intent.schema.json#/properties/security_tier/type": [
+      "type@/bundle/intent/payload/security_tier"
+    ],
+    "schemas/v2/intent.schema.json#/properties/security_tier/enum": [
+      "enum@/bundle/intent/payload/security_tier"
+    ],
+    "schemas/v2/intent.schema.json#/properties/session_nonce/type": [
+      "type@/bundle/intent/payload/session_nonce"
+    ],
+    "schemas/v2/intent.schema.json#/properties/session_nonce/pattern": [
+      "pattern@/bundle/intent/payload/session_nonce"
+    ],
+    "schemas/v2/intent.schema.json#/properties/target/type": [
+      "type@/bundle/intent/payload/target"
+    ],
+    "schemas/v2/intent.schema.json#/properties/target/required/channel": [
+      "required@/bundle/intent/payload/target#channel"
+    ],
+    "schemas/v2/intent.schema.json#/properties/target/properties": "covered through the sites of each named member",
+    "schemas/v2/intent.schema.json#/properties/target/properties/channel/type": [
+      "type@/bundle/intent/payload/target/channel"
+    ],
+    "schemas/v2/intent.schema.json#/properties/target/properties/channel/enum": [
+      "enum@/bundle/intent/payload/target/channel"
+    ],
+    "schemas/v2/intent.schema.json#/properties/target/properties/domain/type": [
+      "type@/bundle/intent/payload/target/domain"
+    ],
+    "schemas/v2/intent.schema.json#/properties/target/properties/to/type": [
+      "type@/bundle/intent/payload/target/to"
+    ],
+    "schemas/v2/intent.schema.json#/properties/target/properties/url/type": [
+      "type@/bundle/intent/payload/target/url"
+    ],
+    "schemas/v2/intent.schema.json#/properties/timestamp/type": [
+      "type@/bundle/intent/payload/timestamp"
+    ],
+    "schemas/v2/intent.schema.json#/properties/timestamp/format": [
+      "format@/bundle/intent/payload/timestamp"
+    ],
+    "schemas/v2/policy_decision.schema.json#/type": [
+      "type@/bundle/policy_decision/payload"
+    ],
+    "schemas/v2/policy_decision.schema.json#/additionalProperties": [
+      "additionalProperties@/bundle/policy_decision/payload"
+    ],
+    "schemas/v2/policy_decision.schema.json#/required/applied_policy_hash": [
+      "required@/bundle/policy_decision/payload#applied_policy_hash"
+    ],
+    "schemas/v2/policy_decision.schema.json#/required/dcp_version": [
+      "required@/bundle/policy_decision/payload#dcp_version"
+    ],
+    "schemas/v2/policy_decision.schema.json#/required/decision": [
+      "required@/bundle/policy_decision/payload#decision"
+    ],
+    "schemas/v2/policy_decision.schema.json#/required/intent_id": [
+      "required@/bundle/policy_decision/payload#intent_id"
+    ],
+    "schemas/v2/policy_decision.schema.json#/required/reasons": [
+      "required@/bundle/policy_decision/payload#reasons"
+    ],
+    "schemas/v2/policy_decision.schema.json#/required/required_confirmation": [
+      "required@/bundle/policy_decision/payload#required_confirmation"
+    ],
+    "schemas/v2/policy_decision.schema.json#/required/risk_score": [
+      "required@/bundle/policy_decision/payload#risk_score"
+    ],
+    "schemas/v2/policy_decision.schema.json#/required/session_nonce": [
+      "required@/bundle/policy_decision/payload#session_nonce"
+    ],
+    "schemas/v2/policy_decision.schema.json#/required/timestamp": [
+      "required@/bundle/policy_decision/payload#timestamp"
+    ],
+    "schemas/v2/policy_decision.schema.json#/properties": "covered through the sites of each named member",
+    "schemas/v2/policy_decision.schema.json#/properties/applied_policy_hash/type": [
+      "type@/bundle/policy_decision/payload/applied_policy_hash"
+    ],
+    "schemas/v2/policy_decision.schema.json#/properties/applied_policy_hash/pattern": [
+      "pattern@/bundle/policy_decision/payload/applied_policy_hash"
+    ],
+    "schemas/v2/policy_decision.schema.json#/properties/dcp_version/type": [
+      "type@/bundle/policy_decision/payload/dcp_version"
+    ],
+    "schemas/v2/policy_decision.schema.json#/properties/dcp_version/const": [
+      "const@/bundle/policy_decision/payload/dcp_version"
+    ],
+    "schemas/v2/policy_decision.schema.json#/properties/decision/type": [
+      "type@/bundle/policy_decision/payload/decision"
+    ],
+    "schemas/v2/policy_decision.schema.json#/properties/decision/enum": [
+      "enum@/bundle/policy_decision/payload/decision"
+    ],
+    "schemas/v2/policy_decision.schema.json#/properties/intent_id/type": [
+      "type@/bundle/policy_decision/payload/intent_id"
+    ],
+    "schemas/v2/policy_decision.schema.json#/properties/intent_id/minLength": [
+      "minLength@/bundle/policy_decision/payload/intent_id"
+    ],
+    "schemas/v2/policy_decision.schema.json#/properties/reasons/type": [
+      "type@/bundle/policy_decision/payload/reasons"
+    ],
+    "schemas/v2/policy_decision.schema.json#/properties/reasons/items": "covered through the sites of the item schema",
+    "schemas/v2/policy_decision.schema.json#/properties/reasons/items/type": [
+      "type@/bundle/policy_decision/payload/reasons/0"
+    ],
+    "schemas/v2/policy_decision.schema.json#/properties/required_confirmation/oneOf": [
+      "oneOf@/bundle/policy_decision/payload/required_confirmation"
+    ],
+    "schemas/v2/policy_decision.schema.json#/properties/required_confirmation/oneOf/0/type": [
+      "type@/bundle/policy_decision/payload/required_confirmation"
+    ],
+    "schemas/v2/policy_decision.schema.json#/properties/required_confirmation/oneOf/1/type": [
+      "type@/bundle/policy_decision/payload/required_confirmation"
+    ],
+    "schemas/v2/policy_decision.schema.json#/properties/required_confirmation/oneOf/1/required/type": [
+      "required@/bundle/policy_decision/payload/required_confirmation#type"
+    ],
+    "schemas/v2/policy_decision.schema.json#/properties/required_confirmation/oneOf/1/properties": "covered through the sites of each named member",
+    "schemas/v2/policy_decision.schema.json#/properties/required_confirmation/oneOf/1/properties/fields/type": [
+      "type@/bundle/policy_decision/payload/required_confirmation/fields"
+    ],
+    "schemas/v2/policy_decision.schema.json#/properties/required_confirmation/oneOf/1/properties/fields/items": "covered through the sites of the item schema",
+    "schemas/v2/policy_decision.schema.json#/properties/required_confirmation/oneOf/1/properties/fields/items/type": [
+      "type@/bundle/policy_decision/payload/required_confirmation/fields/0"
+    ],
+    "schemas/v2/policy_decision.schema.json#/properties/required_confirmation/oneOf/1/properties/type/type": [
+      "type@/bundle/policy_decision/payload/required_confirmation/type"
+    ],
+    "schemas/v2/policy_decision.schema.json#/properties/required_confirmation/oneOf/1/properties/type/const": [
+      "const@/bundle/policy_decision/payload/required_confirmation/type"
+    ],
+    "schemas/v2/policy_decision.schema.json#/properties/resolved_tier/type": [
+      "type@/bundle/policy_decision/payload/resolved_tier"
+    ],
+    "schemas/v2/policy_decision.schema.json#/properties/resolved_tier/enum": [
+      "enum@/bundle/policy_decision/payload/resolved_tier"
+    ],
+    "schemas/v2/policy_decision.schema.json#/properties/risk_score/type": [
+      "type@/bundle/policy_decision/payload/risk_score",
+      "type@/bundle/policy_decision/payload/risk_score#fraction",
+      "raw:risk_score 450.5"
+    ],
+    "schemas/v2/policy_decision.schema.json#/properties/risk_score/minimum": [
+      "minimum@/bundle/policy_decision/payload/risk_score"
+    ],
+    "schemas/v2/policy_decision.schema.json#/properties/risk_score/maximum": [
+      "maximum@/bundle/policy_decision/payload/risk_score"
+    ],
+    "schemas/v2/policy_decision.schema.json#/properties/session_nonce/type": [
+      "type@/bundle/policy_decision/payload/session_nonce"
+    ],
+    "schemas/v2/policy_decision.schema.json#/properties/session_nonce/pattern": [
+      "pattern@/bundle/policy_decision/payload/session_nonce"
+    ],
+    "schemas/v2/policy_decision.schema.json#/properties/timestamp/type": [
+      "type@/bundle/policy_decision/payload/timestamp"
+    ],
+    "schemas/v2/policy_decision.schema.json#/properties/timestamp/format": [
+      "format@/bundle/policy_decision/payload/timestamp"
+    ]
+  },
+  "ref_sites": [
+    {
+      "site": "schemas/v2/signed_bundle.schema.json#/properties/bundle/properties/agent_passport/$ref",
+      "instance": "/bundle/agent_passport",
+      "cases": [
+        "type@/bundle/agent_passport",
+        "required@/bundle/agent_passport#composite_sig",
+        "required@/bundle/agent_passport#payload",
+        "required@/bundle/agent_passport#payload_hash",
+        "additionalProperties@/bundle/agent_passport",
+        "type@/bundle/agent_passport/composite_sig",
+        "required@/bundle/agent_passport/composite_sig#binding",
+        "required@/bundle/agent_passport/composite_sig#classical",
+        "required@/bundle/agent_passport/composite_sig#pq",
+        "additionalProperties@/bundle/agent_passport/composite_sig",
+        "type@/bundle/agent_passport/composite_sig/binding",
+        "enum@/bundle/agent_passport/composite_sig/binding",
+        "type@/bundle/agent_passport/composite_sig/classical",
+        "required@/bundle/agent_passport/composite_sig/classical#alg",
+        "required@/bundle/agent_passport/composite_sig/classical#kid",
+        "required@/bundle/agent_passport/composite_sig/classical#sig_b64",
+        "additionalProperties@/bundle/agent_passport/composite_sig/classical",
+        "type@/bundle/agent_passport/composite_sig/classical/alg",
+        "type@/bundle/agent_passport/composite_sig/classical/kid",
+        "pattern@/bundle/agent_passport/composite_sig/classical/kid",
+        "type@/bundle/agent_passport/composite_sig/classical/sig_b64",
+        "pattern@/bundle/agent_passport/composite_sig/classical/sig_b64",
+        "minLength@/bundle/agent_passport/composite_sig/classical/sig_b64",
+        "maxLength@/bundle/agent_passport/composite_sig/classical/sig_b64",
+        "oneOf@/bundle/agent_passport/composite_sig/pq",
+        "type@/bundle/agent_passport/composite_sig/pq",
+        "required@/bundle/agent_passport/composite_sig/pq#alg",
+        "required@/bundle/agent_passport/composite_sig/pq#kid",
+        "required@/bundle/agent_passport/composite_sig/pq#sig_b64",
+        "additionalProperties@/bundle/agent_passport/composite_sig/pq",
+        "type@/bundle/agent_passport/composite_sig/pq/alg",
+        "type@/bundle/agent_passport/composite_sig/pq/kid",
+        "pattern@/bundle/agent_passport/composite_sig/pq/kid",
+        "type@/bundle/agent_passport/composite_sig/pq/sig_b64",
+        "pattern@/bundle/agent_passport/composite_sig/pq/sig_b64",
+        "minLength@/bundle/agent_passport/composite_sig/pq/sig_b64",
+        "maxLength@/bundle/agent_passport/composite_sig/pq/sig_b64",
+        "type@/bundle/agent_passport/payload",
+        "type@/bundle/agent_passport/payload_hash",
+        "pattern@/bundle/agent_passport/payload_hash",
+        "additionalProperties@/bundle/agent_passport/payload/keys/0",
+        "additionalProperties@/bundle/agent_passport/payload/keys/1",
+        "required@/bundle/agent_passport/payload#agent_id",
+        "required@/bundle/agent_passport/payload#capabilities",
+        "required@/bundle/agent_passport/payload#created_at",
+        "required@/bundle/agent_passport/payload#dcp_version",
+        "required@/bundle/agent_passport/payload#keys",
+        "required@/bundle/agent_passport/payload#principal_binding_reference",
+        "required@/bundle/agent_passport/payload#risk_tier",
+        "required@/bundle/agent_passport/payload#session_nonce",
+        "required@/bundle/agent_passport/payload#status",
+        "additionalProperties@/bundle/agent_passport/payload",
+        "type@/bundle/agent_passport/payload/agent_id",
+        "minLength@/bundle/agent_passport/payload/agent_id",
+        "type@/bundle/agent_passport/payload/capabilities",
+        "uniqueItems@/bundle/agent_passport/payload/capabilities",
+        "type@/bundle/agent_passport/payload/capabilities/0",
+        "enum@/bundle/agent_passport/payload/capabilities/0",
+        "type@/bundle/agent_passport/payload/created_at",
+        "format@/bundle/agent_passport/payload/created_at",
+        "type@/bundle/agent_passport/payload/dcp_version",
+        "const@/bundle/agent_passport/payload/dcp_version",
+        "type@/bundle/agent_passport/payload/emergency_revocation_token",
+        "pattern@/bundle/agent_passport/payload/emergency_revocation_token",
+        "type@/bundle/agent_passport/payload/keys",
+        "minItems@/bundle/agent_passport/payload/keys",
+        "type@/bundle/agent_passport/payload/principal_binding_reference",
+        "minLength@/bundle/agent_passport/payload/principal_binding_reference",
+        "type@/bundle/agent_passport/payload/risk_tier",
+        "enum@/bundle/agent_passport/payload/risk_tier",
+        "type@/bundle/agent_passport/payload/session_nonce",
+        "pattern@/bundle/agent_passport/payload/session_nonce",
+        "type@/bundle/agent_passport/payload/status",
+        "enum@/bundle/agent_passport/payload/status"
+      ]
+    },
+    {
+      "site": "schemas/v2/signed_payload.schema.json#/properties/composite_sig/$ref",
+      "instance": "/bundle/agent_passport/composite_sig",
+      "cases": [
+        "type@/bundle/agent_passport/composite_sig",
+        "required@/bundle/agent_passport/composite_sig#binding",
+        "required@/bundle/agent_passport/composite_sig#classical",
+        "required@/bundle/agent_passport/composite_sig#pq",
+        "additionalProperties@/bundle/agent_passport/composite_sig",
+        "type@/bundle/agent_passport/composite_sig/binding",
+        "enum@/bundle/agent_passport/composite_sig/binding",
+        "type@/bundle/agent_passport/composite_sig/classical",
+        "required@/bundle/agent_passport/composite_sig/classical#alg",
+        "required@/bundle/agent_passport/composite_sig/classical#kid",
+        "required@/bundle/agent_passport/composite_sig/classical#sig_b64",
+        "additionalProperties@/bundle/agent_passport/composite_sig/classical",
+        "type@/bundle/agent_passport/composite_sig/classical/alg",
+        "type@/bundle/agent_passport/composite_sig/classical/kid",
+        "pattern@/bundle/agent_passport/composite_sig/classical/kid",
+        "type@/bundle/agent_passport/composite_sig/classical/sig_b64",
+        "pattern@/bundle/agent_passport/composite_sig/classical/sig_b64",
+        "minLength@/bundle/agent_passport/composite_sig/classical/sig_b64",
+        "maxLength@/bundle/agent_passport/composite_sig/classical/sig_b64",
+        "oneOf@/bundle/agent_passport/composite_sig/pq",
+        "type@/bundle/agent_passport/composite_sig/pq",
+        "required@/bundle/agent_passport/composite_sig/pq#alg",
+        "required@/bundle/agent_passport/composite_sig/pq#kid",
+        "required@/bundle/agent_passport/composite_sig/pq#sig_b64",
+        "additionalProperties@/bundle/agent_passport/composite_sig/pq",
+        "type@/bundle/agent_passport/composite_sig/pq/alg",
+        "type@/bundle/agent_passport/composite_sig/pq/kid",
+        "pattern@/bundle/agent_passport/composite_sig/pq/kid",
+        "type@/bundle/agent_passport/composite_sig/pq/sig_b64",
+        "pattern@/bundle/agent_passport/composite_sig/pq/sig_b64",
+        "minLength@/bundle/agent_passport/composite_sig/pq/sig_b64",
+        "maxLength@/bundle/agent_passport/composite_sig/pq/sig_b64"
+      ]
+    },
+    {
+      "site": "schemas/v2/signed_payload.schema.json#/properties/composite_sig/$ref",
+      "instance": "/bundle/intent/composite_sig",
+      "cases": [
+        "additionalProperties@/bundle/intent/composite_sig",
+        "additionalProperties@/bundle/intent/composite_sig/classical",
+        "additionalProperties@/bundle/intent/composite_sig/pq"
+      ]
+    },
+    {
+      "site": "schemas/v2/signed_payload.schema.json#/properties/composite_sig/$ref",
+      "instance": "/bundle/policy_decision/composite_sig",
+      "cases": [
+        "additionalProperties@/bundle/policy_decision/composite_sig",
+        "additionalProperties@/bundle/policy_decision/composite_sig/classical",
+        "additionalProperties@/bundle/policy_decision/composite_sig/pq"
+      ]
+    },
+    {
+      "site": "schemas/v2/signed_payload.schema.json#/properties/composite_sig/$ref",
+      "instance": "/bundle/responsible_principal_record/composite_sig",
+      "cases": [
+        "additionalProperties@/bundle/responsible_principal_record/composite_sig",
+        "additionalProperties@/bundle/responsible_principal_record/composite_sig/classical",
+        "additionalProperties@/bundle/responsible_principal_record/composite_sig/pq"
+      ]
+    },
+    {
+      "site": "schemas/v2/signed_bundle.schema.json#/properties/bundle/properties/audit_entries/items/$ref",
+      "instance": "/bundle/audit_entries/0",
+      "cases": [
+        "type@/bundle/audit_entries/0",
+        "required@/bundle/audit_entries/0#agent_id",
+        "required@/bundle/audit_entries/0#audit_id",
+        "required@/bundle/audit_entries/0#dcp_version",
+        "required@/bundle/audit_entries/0#evidence",
+        "required@/bundle/audit_entries/0#hash_alg",
+        "required@/bundle/audit_entries/0#human_id",
+        "required@/bundle/audit_entries/0#intent_hash",
+        "required@/bundle/audit_entries/0#intent_id",
+        "required@/bundle/audit_entries/0#outcome",
+        "required@/bundle/audit_entries/0#policy_decision",
+        "required@/bundle/audit_entries/0#pq_checkpoint_ref",
+        "required@/bundle/audit_entries/0#prev_hash",
+        "required@/bundle/audit_entries/0#session_nonce",
+        "required@/bundle/audit_entries/0#timestamp",
+        "additionalProperties@/bundle/audit_entries/0",
+        "type@/bundle/audit_entries/0/agent_id",
+        "minLength@/bundle/audit_entries/0/agent_id",
+        "type@/bundle/audit_entries/0/audit_id",
+        "minLength@/bundle/audit_entries/0/audit_id",
+        "type@/bundle/audit_entries/0/dcp_version",
+        "const@/bundle/audit_entries/0/dcp_version",
+        "type@/bundle/audit_entries/0/evidence",
+        "type@/bundle/audit_entries/0/evidence/evidence_hash",
+        "type@/bundle/audit_entries/0/evidence/result_ref",
+        "type@/bundle/audit_entries/0/evidence/tool",
+        "type@/bundle/audit_entries/0/hash_alg",
+        "enum@/bundle/audit_entries/0/hash_alg",
+        "type@/bundle/audit_entries/0/human_id",
+        "minLength@/bundle/audit_entries/0/human_id",
+        "type@/bundle/audit_entries/0/intent_hash",
+        "pattern@/bundle/audit_entries/0/intent_hash",
+        "type@/bundle/audit_entries/0/intent_hash_secondary",
+        "pattern@/bundle/audit_entries/0/intent_hash_secondary",
+        "type@/bundle/audit_entries/0/intent_id",
+        "minLength@/bundle/audit_entries/0/intent_id",
+        "type@/bundle/audit_entries/0/outcome",
+        "type@/bundle/audit_entries/0/policy_decision",
+        "enum@/bundle/audit_entries/0/policy_decision",
+        "type@/bundle/audit_entries/0/pq_checkpoint_ref",
+        "type@/bundle/audit_entries/0/prev_hash",
+        "pattern@/bundle/audit_entries/0/prev_hash",
+        "type@/bundle/audit_entries/0/prev_hash_secondary",
+        "pattern@/bundle/audit_entries/0/prev_hash_secondary",
+        "type@/bundle/audit_entries/0/session_nonce",
+        "pattern@/bundle/audit_entries/0/session_nonce",
+        "type@/bundle/audit_entries/0/timestamp",
+        "format@/bundle/audit_entries/0/timestamp"
+      ]
+    },
+    {
+      "site": "schemas/v2/signed_bundle.schema.json#/properties/bundle/properties/audit_entries/items/$ref",
+      "instance": "/bundle/audit_entries/1",
+      "cases": [
+        "additionalProperties@/bundle/audit_entries/1"
+      ]
+    },
+    {
+      "site": "schemas/v2/signed_bundle.schema.json#/properties/bundle/properties/audit_entries/items/$ref",
+      "instance": "/bundle/audit_entries/2",
+      "cases": [
+        "additionalProperties@/bundle/audit_entries/2"
+      ]
+    },
+    {
+      "site": "schemas/v2/signed_bundle.schema.json#/properties/bundle/properties/intent/$ref",
+      "instance": "/bundle/intent",
+      "cases": [
+        "additionalProperties@/bundle/intent",
+        "additionalProperties@/bundle/intent/composite_sig",
+        "additionalProperties@/bundle/intent/composite_sig/classical",
+        "additionalProperties@/bundle/intent/composite_sig/pq",
+        "type@/bundle/intent/payload",
+        "required@/bundle/intent/payload#action_type",
+        "required@/bundle/intent/payload#agent_id",
+        "required@/bundle/intent/payload#data_classes",
+        "required@/bundle/intent/payload#dcp_version",
+        "required@/bundle/intent/payload#estimated_impact",
+        "required@/bundle/intent/payload#human_id",
+        "required@/bundle/intent/payload#intent_id",
+        "required@/bundle/intent/payload#requires_consent",
+        "required@/bundle/intent/payload#session_nonce",
+        "required@/bundle/intent/payload#target",
+        "required@/bundle/intent/payload#timestamp",
+        "additionalProperties@/bundle/intent/payload",
+        "type@/bundle/intent/payload/action_type",
+        "enum@/bundle/intent/payload/action_type",
+        "type@/bundle/intent/payload/agent_id",
+        "minLength@/bundle/intent/payload/agent_id",
+        "type@/bundle/intent/payload/data_classes",
+        "type@/bundle/intent/payload/data_classes/0",
+        "enum@/bundle/intent/payload/data_classes/0",
+        "type@/bundle/intent/payload/dcp_version",
+        "const@/bundle/intent/payload/dcp_version",
+        "type@/bundle/intent/payload/estimated_impact",
+        "enum@/bundle/intent/payload/estimated_impact",
+        "type@/bundle/intent/payload/human_id",
+        "minLength@/bundle/intent/payload/human_id",
+        "type@/bundle/intent/payload/intent_id",
+        "minLength@/bundle/intent/payload/intent_id",
+        "type@/bundle/intent/payload/requires_consent",
+        "type@/bundle/intent/payload/security_tier",
+        "enum@/bundle/intent/payload/security_tier",
+        "type@/bundle/intent/payload/session_nonce",
+        "pattern@/bundle/intent/payload/session_nonce",
+        "type@/bundle/intent/payload/target",
+        "required@/bundle/intent/payload/target#channel",
+        "type@/bundle/intent/payload/target/channel",
+        "enum@/bundle/intent/payload/target/channel",
+        "type@/bundle/intent/payload/target/domain",
+        "type@/bundle/intent/payload/target/to",
+        "type@/bundle/intent/payload/target/url",
+        "type@/bundle/intent/payload/timestamp",
+        "format@/bundle/intent/payload/timestamp",
+        "layering:intent payload unknown member"
+      ]
+    },
+    {
+      "site": "schemas/v2/signed_bundle.schema.json#/properties/bundle/properties/manifest/$ref",
+      "instance": "/bundle/manifest",
+      "cases": [
+        "type@/bundle/manifest",
+        "required@/bundle/manifest#audit_count",
+        "required@/bundle/manifest#audit_merkle_root",
+        "required@/bundle/manifest#intent_hash",
+        "required@/bundle/manifest#passport_hash",
+        "required@/bundle/manifest#policy_hash",
+        "required@/bundle/manifest#rpr_hash",
+        "required@/bundle/manifest#session_nonce",
+        "additionalProperties@/bundle/manifest",
+        "type@/bundle/manifest/audit_count",
+        "type@/bundle/manifest/audit_count#fraction",
+        "minimum@/bundle/manifest/audit_count",
+        "type@/bundle/manifest/audit_merkle_root",
+        "pattern@/bundle/manifest/audit_merkle_root",
+        "type@/bundle/manifest/audit_merkle_root_secondary",
+        "pattern@/bundle/manifest/audit_merkle_root_secondary",
+        "type@/bundle/manifest/canonicalization_profile",
+        "const@/bundle/manifest/canonicalization_profile",
+        "type@/bundle/manifest/intended_verifier",
+        "maxLength@/bundle/manifest/intended_verifier",
+        "type@/bundle/manifest/intent_hash",
+        "pattern@/bundle/manifest/intent_hash",
+        "type@/bundle/manifest/passport_hash",
+        "pattern@/bundle/manifest/passport_hash",
+        "type@/bundle/manifest/policy_hash",
+        "pattern@/bundle/manifest/policy_hash",
+        "type@/bundle/manifest/pq_checkpoints",
+        "type@/bundle/manifest/pq_checkpoints/0",
+        "type@/bundle/manifest/rpr_hash",
+        "pattern@/bundle/manifest/rpr_hash",
+        "type@/bundle/manifest/session_expires_at",
+        "format@/bundle/manifest/session_expires_at",
+        "type@/bundle/manifest/session_issued_at",
+        "format@/bundle/manifest/session_issued_at",
+        "type@/bundle/manifest/session_nonce",
+        "pattern@/bundle/manifest/session_nonce",
+        "raw:audit_count 1e400 (non-finite after parsing)"
+      ]
+    },
+    {
+      "site": "schemas/v2/signed_bundle.schema.json#/properties/bundle/properties/policy_decision/$ref",
+      "instance": "/bundle/policy_decision",
+      "cases": [
+        "additionalProperties@/bundle/policy_decision",
+        "additionalProperties@/bundle/policy_decision/composite_sig",
+        "additionalProperties@/bundle/policy_decision/composite_sig/classical",
+        "additionalProperties@/bundle/policy_decision/composite_sig/pq",
+        "type@/bundle/policy_decision/payload",
+        "required@/bundle/policy_decision/payload#applied_policy_hash",
+        "required@/bundle/policy_decision/payload#dcp_version",
+        "required@/bundle/policy_decision/payload#decision",
+        "required@/bundle/policy_decision/payload#intent_id",
+        "required@/bundle/policy_decision/payload#reasons",
+        "required@/bundle/policy_decision/payload#required_confirmation",
+        "required@/bundle/policy_decision/payload#risk_score",
+        "required@/bundle/policy_decision/payload#session_nonce",
+        "required@/bundle/policy_decision/payload#timestamp",
+        "additionalProperties@/bundle/policy_decision/payload",
+        "type@/bundle/policy_decision/payload/applied_policy_hash",
+        "pattern@/bundle/policy_decision/payload/applied_policy_hash",
+        "type@/bundle/policy_decision/payload/dcp_version",
+        "const@/bundle/policy_decision/payload/dcp_version",
+        "type@/bundle/policy_decision/payload/decision",
+        "enum@/bundle/policy_decision/payload/decision",
+        "type@/bundle/policy_decision/payload/intent_id",
+        "minLength@/bundle/policy_decision/payload/intent_id",
+        "type@/bundle/policy_decision/payload/reasons",
+        "type@/bundle/policy_decision/payload/reasons/0",
+        "oneOf@/bundle/policy_decision/payload/required_confirmation",
+        "type@/bundle/policy_decision/payload/required_confirmation",
+        "required@/bundle/policy_decision/payload/required_confirmation#type",
+        "type@/bundle/policy_decision/payload/required_confirmation/fields",
+        "type@/bundle/policy_decision/payload/required_confirmation/fields/0",
+        "type@/bundle/policy_decision/payload/required_confirmation/type",
+        "const@/bundle/policy_decision/payload/required_confirmation/type",
+        "type@/bundle/policy_decision/payload/resolved_tier",
+        "enum@/bundle/policy_decision/payload/resolved_tier",
+        "type@/bundle/policy_decision/payload/risk_score",
+        "type@/bundle/policy_decision/payload/risk_score#fraction",
+        "minimum@/bundle/policy_decision/payload/risk_score",
+        "maximum@/bundle/policy_decision/payload/risk_score",
+        "type@/bundle/policy_decision/payload/session_nonce",
+        "pattern@/bundle/policy_decision/payload/session_nonce",
+        "type@/bundle/policy_decision/payload/timestamp",
+        "format@/bundle/policy_decision/payload/timestamp",
+        "raw:risk_score 450.5"
+      ]
+    },
+    {
+      "site": "schemas/v2/signed_bundle.schema.json#/properties/bundle/properties/pq_checkpoints/items/$ref",
+      "instance": "/bundle/pq_checkpoints/0",
+      "cases": [
+        "additionalProperties@/bundle/pq_checkpoints/0/composite_sig",
+        "additionalProperties@/bundle/pq_checkpoints/0/composite_sig/classical",
+        "additionalProperties@/bundle/pq_checkpoints/0/composite_sig/pq",
+        "type@/bundle/pq_checkpoints/0",
+        "required@/bundle/pq_checkpoints/0#checkpoint_id",
+        "required@/bundle/pq_checkpoints/0#composite_sig",
+        "required@/bundle/pq_checkpoints/0#event_range",
+        "required@/bundle/pq_checkpoints/0#merkle_root",
+        "required@/bundle/pq_checkpoints/0#session_nonce",
+        "additionalProperties@/bundle/pq_checkpoints/0",
+        "type@/bundle/pq_checkpoints/0/checkpoint_id",
+        "minLength@/bundle/pq_checkpoints/0/checkpoint_id",
+        "type@/bundle/pq_checkpoints/0/event_range",
+        "required@/bundle/pq_checkpoints/0/event_range#count",
+        "required@/bundle/pq_checkpoints/0/event_range#from_audit_id",
+        "required@/bundle/pq_checkpoints/0/event_range#to_audit_id",
+        "additionalProperties@/bundle/pq_checkpoints/0/event_range",
+        "type@/bundle/pq_checkpoints/0/event_range/count",
+        "type@/bundle/pq_checkpoints/0/event_range/count#fraction",
+        "minimum@/bundle/pq_checkpoints/0/event_range/count",
+        "type@/bundle/pq_checkpoints/0/event_range/from_audit_id",
+        "type@/bundle/pq_checkpoints/0/event_range/to_audit_id",
+        "type@/bundle/pq_checkpoints/0/merkle_root",
+        "pattern@/bundle/pq_checkpoints/0/merkle_root",
+        "type@/bundle/pq_checkpoints/0/session_nonce",
+        "pattern@/bundle/pq_checkpoints/0/session_nonce"
+      ]
+    },
+    {
+      "site": "schemas/v2/pq_checkpoint.schema.json#/properties/composite_sig/$ref",
+      "instance": "/bundle/pq_checkpoints/0/composite_sig",
+      "cases": [
+        "additionalProperties@/bundle/pq_checkpoints/0/composite_sig",
+        "additionalProperties@/bundle/pq_checkpoints/0/composite_sig/classical",
+        "additionalProperties@/bundle/pq_checkpoints/0/composite_sig/pq"
+      ]
+    },
+    {
+      "site": "schemas/v2/signed_bundle.schema.json#/properties/bundle/properties/responsible_principal_record/$ref",
+      "instance": "/bundle/responsible_principal_record",
+      "cases": [
+        "additionalProperties@/bundle/responsible_principal_record",
+        "additionalProperties@/bundle/responsible_principal_record/composite_sig",
+        "additionalProperties@/bundle/responsible_principal_record/composite_sig/classical",
+        "additionalProperties@/bundle/responsible_principal_record/composite_sig/pq",
+        "type@/bundle/responsible_principal_record/payload",
+        "required@/bundle/responsible_principal_record/payload#binding_keys",
+        "required@/bundle/responsible_principal_record/payload#dcp_version",
+        "required@/bundle/responsible_principal_record/payload#entity_type",
+        "required@/bundle/responsible_principal_record/payload#expires_at",
+        "required@/bundle/responsible_principal_record/payload#human_id",
+        "required@/bundle/responsible_principal_record/payload#issued_at",
+        "required@/bundle/responsible_principal_record/payload#jurisdiction",
+        "required@/bundle/responsible_principal_record/payload#legal_name",
+        "required@/bundle/responsible_principal_record/payload#liability_mode",
+        "required@/bundle/responsible_principal_record/payload#override_rights",
+        "required@/bundle/responsible_principal_record/payload#session_nonce",
+        "additionalProperties@/bundle/responsible_principal_record/payload",
+        "type@/bundle/responsible_principal_record/payload/binding_keys",
+        "minItems@/bundle/responsible_principal_record/payload/binding_keys",
+        "type@/bundle/responsible_principal_record/payload/binding_keys/0",
+        "required@/bundle/responsible_principal_record/payload/binding_keys/0#alg",
+        "required@/bundle/responsible_principal_record/payload/binding_keys/0#created_at",
+        "required@/bundle/responsible_principal_record/payload/binding_keys/0#expires_at",
+        "required@/bundle/responsible_principal_record/payload/binding_keys/0#kid",
+        "required@/bundle/responsible_principal_record/payload/binding_keys/0#public_key_b64",
+        "required@/bundle/responsible_principal_record/payload/binding_keys/0#status",
+        "additionalProperties@/bundle/responsible_principal_record/payload/binding_keys/0",
+        "additionalProperties@/bundle/responsible_principal_record/payload/binding_keys/1",
+        "type@/bundle/responsible_principal_record/payload/binding_keys/0/alg",
+        "enum@/bundle/responsible_principal_record/payload/binding_keys/0/alg",
+        "type@/bundle/responsible_principal_record/payload/binding_keys/0/created_at",
+        "format@/bundle/responsible_principal_record/payload/binding_keys/0/created_at",
+        "type@/bundle/responsible_principal_record/payload/binding_keys/0/expires_at",
+        "format@/bundle/responsible_principal_record/payload/binding_keys/0/expires_at",
+        "type@/bundle/responsible_principal_record/payload/binding_keys/0/kid",
+        "pattern@/bundle/responsible_principal_record/payload/binding_keys/0/kid",
+        "type@/bundle/responsible_principal_record/payload/binding_keys/0/public_key_b64",
+        "pattern@/bundle/responsible_principal_record/payload/binding_keys/0/public_key_b64",
+        "minLength@/bundle/responsible_principal_record/payload/binding_keys/0/public_key_b64",
+        "maxLength@/bundle/responsible_principal_record/payload/binding_keys/0/public_key_b64",
+        "type@/bundle/responsible_principal_record/payload/binding_keys/0/status",
+        "enum@/bundle/responsible_principal_record/payload/binding_keys/0/status",
+        "type@/bundle/responsible_principal_record/payload/contact",
+        "type@/bundle/responsible_principal_record/payload/dcp_version",
+        "const@/bundle/responsible_principal_record/payload/dcp_version",
+        "type@/bundle/responsible_principal_record/payload/entity_type",
+        "enum@/bundle/responsible_principal_record/payload/entity_type",
+        "type@/bundle/responsible_principal_record/payload/expires_at",
+        "format@/bundle/responsible_principal_record/payload/expires_at",
+        "type@/bundle/responsible_principal_record/payload/human_id",
+        "minLength@/bundle/responsible_principal_record/payload/human_id",
+        "type@/bundle/responsible_principal_record/payload/issued_at",
+        "format@/bundle/responsible_principal_record/payload/issued_at",
+        "type@/bundle/responsible_principal_record/payload/jurisdiction",
+        "minLength@/bundle/responsible_principal_record/payload/jurisdiction",
+        "type@/bundle/responsible_principal_record/payload/legal_name",
+        "minLength@/bundle/responsible_principal_record/payload/legal_name",
+        "type@/bundle/responsible_principal_record/payload/liability_mode",
+        "enum@/bundle/responsible_principal_record/payload/liability_mode",
+        "type@/bundle/responsible_principal_record/payload/override_rights",
+        "type@/bundle/responsible_principal_record/payload/pii_salt",
+        "pattern@/bundle/responsible_principal_record/payload/pii_salt",
+        "type@/bundle/responsible_principal_record/payload/session_nonce",
+        "pattern@/bundle/responsible_principal_record/payload/session_nonce",
+        "raw:jurisdiction lone surrogate"
+      ]
+    },
+    {
+      "site": "schemas/v2/signed_bundle.schema.json#/properties/signature/properties/composite_sig/$ref",
+      "instance": "/signature/composite_sig",
+      "cases": [
+        "additionalProperties@/signature/composite_sig",
+        "additionalProperties@/signature/composite_sig/classical",
+        "additionalProperties@/signature/composite_sig/pq",
+        "pattern:uppercase hex@/signature/composite_sig/classical/kid",
+        "pattern:one short@/signature/composite_sig/classical/kid",
+        "pattern:one long@/signature/composite_sig/classical/kid",
+        "pattern:leading space@/signature/composite_sig/classical/kid",
+        "pattern:non-ASCII digit@/signature/composite_sig/classical/kid",
+        "pattern:carriage return@/signature/composite_sig/classical/kid",
+        "pattern:padding inside@/signature/composite_sig/classical/sig_b64",
+        "pattern:three pads@/signature/composite_sig/classical/sig_b64",
+        "pattern:non-ASCII letter@/signature/composite_sig/classical/sig_b64"
+      ]
+    },
+    {
+      "site": "schemas/v2/responsible_principal_record.schema.json#/properties/binding_keys/items/$ref",
+      "instance": "/bundle/responsible_principal_record/payload/binding_keys/0",
+      "cases": [
+        "type@/bundle/responsible_principal_record/payload/binding_keys/0",
+        "required@/bundle/responsible_principal_record/payload/binding_keys/0#alg",
+        "required@/bundle/responsible_principal_record/payload/binding_keys/0#created_at",
+        "required@/bundle/responsible_principal_record/payload/binding_keys/0#expires_at",
+        "required@/bundle/responsible_principal_record/payload/binding_keys/0#kid",
+        "required@/bundle/responsible_principal_record/payload/binding_keys/0#public_key_b64",
+        "required@/bundle/responsible_principal_record/payload/binding_keys/0#status",
+        "additionalProperties@/bundle/responsible_principal_record/payload/binding_keys/0",
+        "type@/bundle/responsible_principal_record/payload/binding_keys/0/alg",
+        "enum@/bundle/responsible_principal_record/payload/binding_keys/0/alg",
+        "type@/bundle/responsible_principal_record/payload/binding_keys/0/created_at",
+        "format@/bundle/responsible_principal_record/payload/binding_keys/0/created_at",
+        "type@/bundle/responsible_principal_record/payload/binding_keys/0/expires_at",
+        "format@/bundle/responsible_principal_record/payload/binding_keys/0/expires_at",
+        "type@/bundle/responsible_principal_record/payload/binding_keys/0/kid",
+        "pattern@/bundle/responsible_principal_record/payload/binding_keys/0/kid",
+        "type@/bundle/responsible_principal_record/payload/binding_keys/0/public_key_b64",
+        "pattern@/bundle/responsible_principal_record/payload/binding_keys/0/public_key_b64",
+        "minLength@/bundle/responsible_principal_record/payload/binding_keys/0/public_key_b64",
+        "maxLength@/bundle/responsible_principal_record/payload/binding_keys/0/public_key_b64",
+        "type@/bundle/responsible_principal_record/payload/binding_keys/0/status",
+        "enum@/bundle/responsible_principal_record/payload/binding_keys/0/status"
+      ]
+    },
+    {
+      "site": "schemas/v2/responsible_principal_record.schema.json#/properties/binding_keys/items/$ref",
+      "instance": "/bundle/responsible_principal_record/payload/binding_keys/1",
+      "cases": [
+        "additionalProperties@/bundle/responsible_principal_record/payload/binding_keys/1"
+      ]
+    },
+    {
+      "site": "schemas/v2/agent_passport.schema.json#/properties/keys/items/$ref",
+      "instance": "/bundle/agent_passport/payload/keys/0",
+      "cases": [
+        "additionalProperties@/bundle/agent_passport/payload/keys/0"
+      ]
+    },
+    {
+      "site": "schemas/v2/agent_passport.schema.json#/properties/keys/items/$ref",
+      "instance": "/bundle/agent_passport/payload/keys/1",
+      "cases": [
+        "additionalProperties@/bundle/agent_passport/payload/keys/1"
+      ]
+    }
+  ],
+  "closed_object_locations": [
+    "",
+    "/bundle/agent_passport",
+    "/bundle/intent",
+    "/bundle/policy_decision",
+    "/bundle/responsible_principal_record",
+    "/bundle/agent_passport/composite_sig",
+    "/bundle/intent/composite_sig",
+    "/bundle/policy_decision/composite_sig",
+    "/bundle/pq_checkpoints/0/composite_sig",
+    "/bundle/responsible_principal_record/composite_sig",
+    "/signature/composite_sig",
+    "/bundle/agent_passport/composite_sig/classical",
+    "/bundle/intent/composite_sig/classical",
+    "/bundle/policy_decision/composite_sig/classical",
+    "/bundle/pq_checkpoints/0/composite_sig/classical",
+    "/bundle/responsible_principal_record/composite_sig/classical",
+    "/signature/composite_sig/classical",
+    "/bundle/agent_passport/composite_sig/pq",
+    "/bundle/intent/composite_sig/pq",
+    "/bundle/policy_decision/composite_sig/pq",
+    "/bundle/pq_checkpoints/0/composite_sig/pq",
+    "/bundle/responsible_principal_record/composite_sig/pq",
+    "/signature/composite_sig/pq",
+    "/bundle/audit_entries/0",
+    "/bundle/audit_entries/1",
+    "/bundle/audit_entries/2",
+    "/bundle/manifest",
+    "/bundle/pq_checkpoints/0",
+    "/bundle/pq_checkpoints/0/event_range",
+    "/signature",
+    "/signature/signer",
+    "/bundle/responsible_principal_record/payload",
+    "/bundle/responsible_principal_record/payload/binding_keys/0",
+    "/bundle/responsible_principal_record/payload/binding_keys/1",
+    "/bundle/agent_passport/payload/keys/0",
+    "/bundle/agent_passport/payload/keys/1",
+    "/bundle/agent_passport/payload",
+    "/bundle/intent/payload",
+    "/bundle/policy_decision/payload"
+  ]
+}

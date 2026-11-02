@@ -4,7 +4,7 @@
 
 # 安全保证与一致性测试覆盖
 
-> 本文是[英文版本](../../../../docs/conformance/SECURITY_COVERAGE.md)的参考译文，更新于 2026年10月31日。如有差异，以英文版本为准。标识符、命令和代码块保持原文。
+> 本文是[英文版本](../../../../docs/conformance/SECURITY_COVERAGE.md)的参考译文，更新于 02/11/2026。如有差异，以英文版本为准。标识符、命令和代码块保持原文。
 
 本文提供规范性要求与仓库可执行测试之间的信息性映射。它不是新配置文件、认证、已测试所有输入的声明，也不是某个部署通过测试的证据。测试结果仅适用于该次运行记录的准确实现、输入、策略、验证时间和工具版本。
 
@@ -49,7 +49,7 @@
 | 规范规则 | 选定的现有用例或套件 | 范围与剩余限制 |
 |---|---|---|
 | V2-1：选择版本 | M `dcp_bundle_version_1_0`, `dcp_bundle_version_3_0` | V2 入口拒绝；不测试所有 V1 要求 |
-| V2-2：校验封装与证据对象的模式 | 参考 `v2.signed_bundle.schema_invalid_payload_rejected`；模式套件 | 外部 SDK 验证器操作不是完整的模式关卡；见下文边界 |
+| V2-2：校验封装与证据对象的模式 | 参考 `v2.signed_bundle.schema_invalid_payload_rejected`；模式套件；需要明确选择的模式校验目录（57 个用例） | `main` 上的 SDK 验证器自行执行 V2-2；已发布的 SDK 版本不执行。见下文边界 |
 | V2-3：清单、载荷哈希与审计绑定 | M `intent_payload_hash_wrong`, `audit_entries_truncated`; R `manifest_intent_hash_mismatch`, `audit_chain_hash_wrong`; A `empty_audit_trail` | 哈希及链绑定样例；未隔离覆盖每个字段和畸形结构 |
 | V2-4：会话、时间与未签名元数据一致性 | R `intent_session_nonce_differs`, `session_expired_with_offset`, `session_longer_than_policy_max_with_late_created_at`; M `signature_signer_id_other`; A `session_duration_at_millisecond_precision` | 固定时间测试；必须区分请求策略与实际生效模式 |
 | V2-5：签名结构与规范编码 | M `bundle_classical_sig_b64_with_trailing_bits`, `intent_classical_sig_b64_unpadded`; R `classical_only_bundle_signature_without_pq` | 编码样例未覆盖所有签名位置和缺陷组合 |
@@ -69,13 +69,21 @@
 
 ### 模式与密码学 API 的边界
 
-V2-2 要求模式校验。SDK 的密码学 API 与执行模式校验的参考入口是不同的接口。例如，在未签名外层封装中加入未知属性，可能不破坏任何签名：模式通过 `additionalProperties: false` 封闭该对象，但单独的 TypeScript、Python、Go、Rust 和 WASM SDK 验证 API 仍可能返回 `verified: true`。这是验证边界缺口，不是伪造签名或受保护应用已准入该输入的证据。
+V2-2 要求模式校验。在 `main` 上，TypeScript、Python、Go、Rust 和 WASM SDK 的 V2 验证器自行执行它：`verifySignedBundleV2` 及其对应函数、先进行验证的组合准入 API，以及实验性候选验证器；根据先前的验证结果评估准入时不会再次执行它。已发布的 SDK 版本不包含它。该关卡按 `schemas/v2` 校验已签名 bundle 的封装和四个载荷（`responsible_principal_record`、`agent_passport`、`intent`、`policy_decision`）。它在验证器的策略和时钟检查之后、验证器检查清单、载荷哈希、密钥和签名之前执行。所有 SDK 都解释同一个由 `schemas/v2` 生成的表示（`tools/schema-ir/`）；CI 会重新生成它并比较各份副本。
 
-声称符合完整 V2 清单的实现，必须同时覆盖 V2-2 和密码学检查。不要为了让测试通过而放宽模式，或把局部 API 描述为完整关卡。套件必须分别报告这些层次。
+- **封闭对象与开放对象。** 封闭对象（`additionalProperties: false`，例如封装、`SignedPayload`、`composite_sig`、审计条目和检查点）中的未知成员会被拒绝，即使哈希和签名仍然有效。在开放对象中（例如 intent 的 `target` 或审计的 `evidence`），已声明的成员仍保留其约束（例如 `target.channel` 是必需的枚举值）；只有模式未描述的附加成员不会在这一层被检查，处于承诺之下的附加成员可能进入规范化。`bundle` 对象自身的附加成员会被接受：模式让 `bundle` 保持开放，该成员不受任何承诺覆盖（不同于 bundle 所含的已签名证据对象和清单），而且后续检查都不会读取它。
+- **缺失与 `null`。** 缺失的必需成员和模式期望其他类型之处的 `null` 都会被拒绝，诊断不同（`required`、`type`）。清单中的 `session_issued_at` 和 `session_expires_at` 存在时必须是字符串：`null` 会被拒绝。
+- **诊断。** 模式失败返回 `verified: false`，错误形式为 `schema: <JSON pointer> <keyword>[ <member>]`，最多 16 条，后接 `schema: further errors not listed`，从不包含输入值，也没有密码学细节。过去由更深层检查报告的拒绝，现在可能改为模式诊断；模式失败并不表明深层检查已经运行。
+- **候选叠加。** 在由调用方明确选择的实验性 `dcp-jcs-v2` 路径上，唯一的区别是清单的 `canonicalization_profile`，它必须是 `dcp-jcs-v2`。默认配置文件和已签名字节不变。
+- **`date-time`。** 格式检查就是参考验证器采用的检查，即 full 模式下的 ajv-formats 3.0.1，包括其特殊行为：任何 ECMAScript 空白字符或 `t` 都可作分隔符，接受 `+hh` 和 `+hhmm` 偏移，按偏移换算后为 23:59 时接受第 60 秒。这是模式层的兼容性边界，不是严格的 RFC 3339。V2-4、V2-13 和 V2-14 的时间解析器仍是独立的后续层，仍可能拒绝模式接受的时间。
+- **解析器在前。** JSON 解析器拒绝的内容永远不会到达 V2-2。Go 把非对象的根报告为其历史解析错误；Rust 的 API 接收已解析的 `serde_json::Value`，因此 serde_json 的拒绝（孤立代理项、`1e400`）属于调用方；WASM 绑定在 V2-2 之前保留其策略解析错误、`JSON parse error` 和版本分派。
+- **接受范围变化。** SDK 验证器以前接受的模式无效 bundle，现在返回 `verified: false`。没有新增仅做模式校验的 API，也没有修改任何模式或配置文件。
+
+声称符合完整 V2 清单的实现，必须同时覆盖 V2-2 和密码学检查。不要为了让测试通过而放宽模式，或把局部 API 描述为完整关卡。套件会分别报告这些层次。
 
 并非所有未知成员都被禁止。有些模式对象是开放的。模式接受已签名对象中的扩展，不会保留原签名的有效性：已签名内容变化后，必须重新计算哈希并重新签名。本文未定义任何新的必需扩展机制。
 
-需要明确选择的[模式诊断目录](../../../../tools/conformance/external-schema-catalog.json)使这一边界可以执行验证：基础数据和允许的扩展是正向对照；封闭对象扩展及枚举范围外的值仍保持规范要求的拒绝。失败的 SDK 用例仍是失败。独立的 `tools/conformance/schema-boundary.js` 报告区分模式校验、有限语料的完整性，以及在语料时间下组合模式与 SDK 的检查。组合通过不能证明 SDK 自身实现了 V2-2，完整性辅助函数也不是通用规范验证器。
+需要明确选择的[模式校验目录](../../../../tools/conformance/external-schema-validation-catalog.json)让一个实现运行 57 个已签名用例：13 个正向用例和 44 个负向用例，每个负向用例只有在同一次运行中基础用例通过验证时才计入。CI 通过五个 SDK 包装器运行它。需要明确选择的[模式诊断目录](../../../../tools/conformance/external-schema-catalog.json)保留 15 个封闭性用例：基础数据和允许的扩展是正向对照；封闭对象扩展及枚举范围外的值仍保持规范要求的拒绝。失败的 SDK 用例仍是失败，通过任一目录都只覆盖其自身的用例。独立的 `tools/conformance/schema-boundary.js` 报告区分模式校验、有限语料的完整性，以及在语料时间下组合模式与 SDK 的检查。组合通过不能证明 SDK 自身实现了 V2-2，完整性辅助函数也不是通用规范验证器。
 
 <a id="verifier-policy-samples"></a>
 

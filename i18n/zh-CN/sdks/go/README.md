@@ -6,7 +6,7 @@
 
 **Go 发布 (26/10/2026).** Go SDK `v2.11.0` 已通过模块标签 `sdks/go/v2.11.0` 发布，包含验证器修复、准入和实验性显式启用 API。Rust 仍独立发布。见 [Go v2.11.0](../../../../docs/GO_RELEASE.md).
 
-> 本文是[英文 README](../../../../sdks/go/README.md)的参考译文，更新于2026年10月30日。为保留经过验证的示例，标识符和代码块（包括注释）均保持原文。
+> 本文是[英文 README](../../../../sdks/go/README.md)的参考译文，更新于 02/11/2026。为保留经过验证的示例，标识符和代码块（包括注释）均保持原文。
 
 Digital Citizenship Protocol（DCP）v1.0 和 v2.0 的官方 Go SDK。支持 Ed25519、ML-DSA-65、SLH-DSA-192f、ML-KEM-768、复合签名、双哈希链和 bundle 验证。
 
@@ -203,6 +203,8 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 | `v2.VerifySignedBundleV2(reg, jsonBytes)` | 遵循 `DefaultVerifierPolicy` 验证 V2 bundle（结构、哈希、签名、主审计链），采用策略模式和安全等级模式中更严格的模式（规范 §14.3）；报告 `ResolvedTier` 和 `VerificationMode` |
 | `v2.VerifySignedBundleV2WithPolicy(reg, jsonBytes, policy)` | 使用自定义 `VerifierPolicy` 的相同操作；只有 `DefaultMode`、`RiskOverrides`、`AcceptedClassicalAlgs`、`AcceptedPQAlgs`、`AllowV1Bundles`（V1 bundle 在此始终无法通过验证）、`MaxSessionDurationSeconds`、`RequireSessionExpiry`、`RequireAudienceBinding`、`VerifierID` 以及阶段3字段（`AdvisoryRejectedAlgs`、`WarnClassicalOnlyDeprecated`、`AllowClassicalFallbackDisable`，与 TypeScript 一致）可以不同于 `DefaultVerifierPolicy()`；任何其他更改都会导致验证失败 |
 | `v2.VerifySignedBundleV2At(reg, jsonBytes, policy, now)` | 在时刻 `now` 执行相同操作：会话窗口、RPR 到期时间和密钥到期时间均以毫秒精度与它比较。上面两个函数以 `time.Now()` 调用此函数 |
+
+**模式校验（V2-2；在 `main` 上，不在已发布版本中）。** `v2.VerifySignedBundleV2`、`…WithPolicy` 和 `…At`会在策略和时钟检查之后、验证器检查清单、载荷哈希、密钥和签名之前，先按 `schemas/v2` 校验已签名 bundle 的封装和四个载荷；先进行验证的 `v2.AdmitSignedBundleV2` 和实验性候选验证器也经过同一关卡，而 `v2.EvaluateAdmissionV2` 接收先前的结果，不执行该关卡。校验失败的 bundle 返回 `verified: false` 和 `schema: <JSON pointer> <keyword>[ <member>]` 错误（最多 16 条，随后是 `schema: further errors not listed`），不含密码学细节。封闭对象中的未知成员会被拒绝；在开放对象中（例如 intent 的 `target`），已声明的成员保留其约束，只有附加成员不被检查。清单中的 `session_issued_at` 和 `session_expires_at` 存在时必须是字符串，不能是 `null`。`date-time` 遵循参考验证器的 ajv-formats 3.0.1 检查，这不是严格的 RFC 3339。非 JSON 对象的根仍是历史解析错误，发生在 V2-2 之前。**接受范围变化：** 以前能通过验证的模式无效 bundle 现在会被拒绝。没有仅做模式校验的 API。参见[覆盖映射](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)。
 
 每个结果在 `SignerKeys`（JSON 为 `signer_keys`）中，按每个已检查的复合签名（`bundle`、四个产物以及每个 `pq_checkpoints[<id>]`）列出验证器为各组件（`classical`、`pq`）解析得到的密钥条目，以及该组件是否验证通过。
 

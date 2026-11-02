@@ -549,22 +549,36 @@ func TestAdmissionMessagesAreBoundedWithoutKeyMaterial(t *testing.T) {
 	}
 	rpr := sb["bundle"].(map[string]interface{})["responsible_principal_record"].(map[string]interface{})
 	rpr["payload"].(map[string]interface{})["human_id"] = strings.Repeat("x", 100_000)
-	sb["bundle"].(map[string]interface{})["manifest"].(map[string]interface{})["intended_verifier"] = strings.Repeat("y", 100_000)
+	manifest := sb["bundle"].(map[string]interface{})["manifest"].(map[string]interface{})
+	manifest["intended_verifier"] = strings.Repeat("y", 100_000)
 	huge, _ := json.Marshal(sb)
+	// V2-2 bounds intended_verifier to 256 code points and refuses the huge one first; at its bound the bundle passes
+	// V2-2 and the huge human_id (no bound in its schema) reaches the checks past it.
+	manifest["intended_verifier"] = strings.Repeat("y", 256)
+	atBound, _ := json.Marshal(sb)
 
 	trust, _ := v2.NewPrincipalTrustStore(vecs.TrustSets["principal"])
 	profile, _ := v2.ResolveStrictV1Profile(vecs.Profiles["strict"])
 	now := mustInstant(t, "2026-11-02T10:01:00.000Z")
 	var all []v2.AdmissionError
-	for _, opts := range []v2.AdmitOptions{{Trust: trust, Now: now}, {Profile: profile, Trust: trust, Now: now}} {
-		r, err := v2.AdmitSignedBundleV2(reg, huge, opts)
-		if err != nil {
-			t.Fatal(err)
+	for _, input := range []struct {
+		data        []byte
+		schemaFirst bool
+	}{{huge, true}, {atBound, false}} {
+		for _, opts := range []v2.AdmitOptions{{Trust: trust, Now: now}, {Profile: profile, Trust: trust, Now: now}} {
+			r, err := v2.AdmitSignedBundleV2(reg, input.data, opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(r.Errors) == 0 {
+				t.Fatal("expected errors")
+			}
+			text, _ := json.Marshal(r.Errors)
+			if strings.Contains(string(text), "schema: ") != input.schemaFirst {
+				t.Errorf("schema first %v: %s", input.schemaFirst, text)
+			}
+			all = append(all, r.Errors...)
 		}
-		if len(r.Errors) == 0 {
-			t.Fatal("expected errors")
-		}
-		all = append(all, r.Errors...)
 	}
 	_, err := v2.NewPrincipalTrustStore([]byte(`{"trust_set_version":"v","principals":[{"human_id":"h","keys":[{"kid":"` + strings.Repeat("k", 10_000) + `"}]}],"` + strings.Repeat("z", 10_000) + `":1}`))
 	if err == nil {

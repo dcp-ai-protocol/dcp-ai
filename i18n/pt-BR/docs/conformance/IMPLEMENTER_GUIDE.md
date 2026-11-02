@@ -4,7 +4,7 @@
 
 # Guia de implementação e revisão independentes
 
-> Tradução informativa da [versão em inglês](../../../../docs/conformance/IMPLEMENTER_GUIDE.md), atualizada em 31/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são preservados sem tradução.
+> Tradução informativa da [versão em inglês](../../../../docs/conformance/IMPLEMENTER_GUIDE.md), atualizada em 02/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são preservados sem tradução.
 
 DCP é um protocolo que pode ser implementado de forma independente. Este guia prepara implementadores e revisores para avaliar as mesmas evidências sem adotar os aplicativos ou serviços do repositório. Não constitui auditoria, certificação ou endosso.
 
@@ -98,7 +98,7 @@ Isso imprime valores da sua execução; não valida o relatório nem autentica a
 
 Examine juntos o status de saída do processo e o relatório. Confirme que o relatório pertence à execução atual, que seu status geral é de aprovação, que todos os casos selecionados foram executados e que nenhuma implementação obrigatória foi ignorada. Um relatório antigo, resultados parciais ou o acordo entre várias implementações defeituosas não bastam.
 
-Leia o [mapa de cobertura de segurança](SECURITY_COVERAGE.md) antes de alegar compatibilidade. Validação de esquemas, verificação criptográfica, confiança no principal e admissão são camadas distintas. Em particular, um resultado isolado do verificador SDK não comprova por si só a validação completa dos esquemas V2.
+Leia o [mapa de cobertura de segurança](SECURITY_COVERAGE.md) antes de alegar compatibilidade. Validação de esquemas, verificação criptográfica, confiança no principal e admissão são camadas distintas. Os verificadores V2 dos cinco SDKs na `main` executam por conta própria a validação de esquemas V2-2, enquanto as versões publicadas dos SDKs não; em qualquer caso, um resultado verificado não diz nada sobre a confiança no principal, a admissão ou a autorização.
 
 Casos negativos precisam de controles positivos que funcionem. Se um payload alterado tem uma assinatura inválida e também um defeito semântico, sua rejeição não isola a verificação semântica. Preserve os bytes de entrada ao reproduzir discrepâncias de parsing ou canonicalização: analisá-los e reescrevê-los pode remover a causa.
 

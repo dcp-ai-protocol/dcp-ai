@@ -4,7 +4,7 @@
 
 # Especificação normativa do DCP-AI v2.0
 
-> Tradução informativa da [especificação em inglês](../../../spec/DCP-AI-v2.0.md), atualizada em 28/10/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
+> Tradução informativa da [especificação em inglês](../../../spec/DCP-AI-v2.0.md), atualizada em 02/11/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
 
 **Status:** Final  
 **Versão:** 2.0.0  
@@ -736,7 +736,8 @@ Os verificadores V2 devem (MUST) oferecer suporte à V1 indefinidamente. A migra
   `verifySignedBundleV2` dos SDKs só verifica bundles V2. `allow_v1_bundles` é lido pelo servidor de referência e pelo
   perfil de admissão; o `verifySignedBundle` raiz (`lib/verify.js`) envia os bundles V1 para as verificações V1 sem
   lê-lo.
-- **§18, pipeline.** `verifySignedBundleV2` não executa a validação com JSON Schema (passo 2): `lib/verify.js` e o
-  servidor a fazem antes de chamá-lo. Ele não usa o cache de verificação que o SDK de TypeScript exporta (passo 13), e
+- **§18, pipeline.** Na `main`, `verifySignedBundleV2` e seus equivalentes em todos os SDKs executam por conta própria
+  a validação com JSON Schema (passo 2); as versões publicadas dos SDKs não, e `lib/verify.js` e o servidor também a
+  fazem antes de chamar o SDK. Ele não usa o cache de verificação que o SDK de TypeScript exporta (passo 13), e
   o passo 12 lê o status das chaves que está no bundle; consultar um serviço de revogação cabe à admissão
   ([docs/ADMISSION.md](../../../docs/ADMISSION.md)). Verificar não é admitir, confiar nem autorizar.

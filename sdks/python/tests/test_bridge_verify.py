@@ -17,6 +17,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from tests.schema_regression_map import expected_diagnostics, schema_first_row
 from dcp_ai.crypto import canonicalize, generate_keypair, sign_object
 from dcp_ai.langchain import DCPTool
 from dcp_ai.merkle import hash_object, intent_hash, merkle_root_for_audit_entries
@@ -48,6 +49,13 @@ def _openai(signed_bundle, policy=None) -> tuple[bool, str]:
 BRIDGES = [pytest.param(_langchain, id="langchain"), pytest.param(_openai, id="openai")]
 
 
+def _expected(c):
+    # V2-2 now decides the schema-invalid rows first: the bridge must carry every schema diagnostic the
+    # oracles report (regression_map.json) instead of the historical error_contains.
+    row = schema_first_row("bundle_vectors.json", c["name"])
+    return ("schema", expected_diagnostics(row)) if row else c["error_contains"]
+
+
 def _vector_cases():
     """Each shared bundle vector: (signed bundle, error_contains or None to accept, policy overrides)."""
     v = BUNDLE_VECTORS
@@ -63,9 +71,9 @@ def _vector_cases():
             for key in mutation["path"][:-1]:
                 node = node[key]
             node[mutation["path"][-1]] = mutation["value"]
-        cases.append(pytest.param(signed, c["error_contains"], None, id=f"reject {c['name']}"))
+        cases.append(pytest.param(signed, _expected(c), None, id=f"reject {c['name']}"))
     cases += [
-        pytest.param(c["signed_bundle"], c["error_contains"], overrides(c), id=f"reject {c['name']}")
+        pytest.param(c["signed_bundle"], _expected(c), overrides(c), id=f"reject {c['name']}")
         for c in v["must_reject_bundles"]
     ]
     return cases
@@ -80,6 +88,10 @@ def test_shared_bundle_vectors(bridge, signed_bundle, error_contains, policy_ove
     verified, detail = bridge(signed_bundle, policy)
     if error_contains is None:
         assert verified, detail
+    elif isinstance(error_contains, tuple):
+        assert not verified, detail
+        for diag in error_contains[1]:
+            assert diag in detail, (diag, detail)
     else:
         assert not verified, detail
         assert error_contains in detail.lower(), detail

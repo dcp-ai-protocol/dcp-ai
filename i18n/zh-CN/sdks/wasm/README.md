@@ -2,7 +2,7 @@
 
 # @dcp-ai/wasm — WebAssembly SDK v2.0
 
-> 本文是[英文 README](../../../../sdks/wasm/README.md)的参考译文，更新于 2026年10月30日。为保留已测试的示例，标识符和代码块（包括注释）保持原样。
+> 本文是[英文 README](../../../../sdks/wasm/README.md)的参考译文，更新于 02/11/2026。为保留已测试的示例，标识符和代码块（包括注释）保持原样。
 
 这是用于 Digital Citizenship Protocol（DCP）v2.0 的 WebAssembly 模块，由 Rust SDK 编译而成。它提供后量子复合签名、混合密钥生成、ML-KEM-768 密钥封装、双哈希、bundle 构建与验证以及安全等级计算。所有功能都可直接在浏览器或 Node.js 中运行，无需服务器。
 
@@ -193,6 +193,8 @@ console.log(result.verified, result.classical_valid, result.pq_valid); // true t
 |--------|---------|-------------|
 | `compositeVerify(context, payload, sig, classicalPk, pqPk?)` | `CompositeVerifyResult` | 对复合签名进行密码学验证 |
 | `verifyBundle(signedBundle, policy?)` | `V2VerificationResult` | 使用策略模式与安全等级模式中较严格的一个，验证 V2 bundle 的结构、密码学内容和主哈希链（spec §14.3）；返回 `resolved_tier` 和 `verification_mode`。`policy` 只有以下字段可不同于默认值：`default_mode`、`risk_overrides`、阶段3字段（`advisory_rejected_algs`、`warn_classical_only_deprecated`、`allow_classical_fallback_disable`）、`max_session_duration_seconds`（从已签名的 `session_issued_at` 起算；清单含有 `session_expires_at` 时，`signBundle` 会写入该字段）、`require_session_expiry`（拒绝缺少 `session_expires_at` 的清单），以及与 `verifier_id` 配合使用的 `require_audience_binding`（拒绝缺少 `intended_verifier` 或其值与 `verifier_id` 不同的清单）。提供策略时，V1 bundle 会被拒绝 |
+
+**模式校验（V2-2；在 `main` 上，不在已发布版本中）。** `verifyBundle` 和 `wasm_verify_signed_bundle_v2`会在策略和时钟检查之后、验证器检查清单、载荷哈希、密钥和签名之前，先按 `schemas/v2` 校验已签名 bundle 的封装和四个载荷；实验性候选导出函数也经过同一关卡。校验失败的 bundle 返回 `verified: false` 和 `schema: <JSON pointer> <keyword>[ <member>]` 错误（最多 16 条，随后是 `schema: further errors not listed`），不含密码学细节。封闭对象中的未知成员会被拒绝；在开放对象中（例如 intent 的 `target`），已声明的成员保留其约束，只有附加成员不被检查。清单中的 `session_issued_at` 和 `session_expires_at` 存在时必须是字符串，不能是 `null`。`date-time` 遵循参考验证器的 ajv-formats 3.0.1 检查，这不是严格的 RFC 3339。绑定的策略解析错误、`JSON parse error` 和版本分派（`Unknown DCP version`）仍在 V2-2 之前。**接受范围变化：** 以前能通过验证的模式无效 bundle 现在会被拒绝。没有仅做模式校验的 API。参见[覆盖映射](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)。
 
 <a id="hash-operations"></a>
 

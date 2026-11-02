@@ -154,7 +154,9 @@ def produce_and_verify(s):
     assert r.entered == "dcp-jcs-v2"
     assert r.verification["errors"] == [] and r.verification["verified"] is True
     today = asyncio.run(verify_signed_bundle_v2(json.loads(out.bytes), VERIFY, None, now_ms=NOW))
-    assert today["verified"] is False and "Unknown canonicalization_profile: dcp-jcs-v2" in today["errors"]
+    # The default path refuses the candidate identifier through V2-2 (canonicalization_profile const dcp-jcs-v1),
+    # before the profile check that used to report "Unknown canonicalization_profile: dcp-jcs-v2".
+    assert today["verified"] is False and today["errors"] == ["schema: /bundle/manifest/canonicalization_profile const"]
     return json.loads(out.bytes)
 
 
@@ -281,6 +283,14 @@ def _checkpoint(s, extra=None):
     return {**cp, "composite_sig": sig}
 
 
+def test_bundle_open_payload_member_kept_and_verified():
+    unit = produce_and_verify(scenario(target={"x_payload_ext": {"kept": 1}}))
+    assert unit["bundle"]["intent"]["payload"]["target"]["x_payload_ext"] == {"kept": 1}
+
+
+# Before V2-2 the candidate verifier accepted these members; the schemas close the audit entry, the checkpoint, the
+# SignedPayload envelope and composite_sig, so the candidate path (one const changed, nothing else) now rejects them
+# with exactly these four diagnostics, before the verifier checks payload hashes or signatures. The producer still keeps every member.
 def test_bundle_checkpoint_and_extensions_kept():
     s = scenario(target={"x_payload_ext": {"kept": 1}})
     s["entries"][1] = {**s["entries"][1], "x_entry_ext": "kept"}
@@ -288,8 +298,17 @@ def test_bundle_checkpoint_and_extensions_kept():
     intent = s["parts"]["intent"]["value"]
     s["parts"]["intent"] = {"value": {**intent, "x_artifact_ext": "unsigned", "composite_sig": {**intent["composite_sig"], "x_sig_ext": "unsigned"}}}
     s["parts"]["pq_checkpoints"] = [{"value": _checkpoint(s, {"x_checkpoint_ext": [1, 2]})}]
-    unit = produce_and_verify(s)
-    b = unit["bundle"]
+    out = asyncio.run(sign_bundle(REGISTRY, s["parts"], s["signer"], s["options"]))
+    r = asyncio.run(VERIFIER.verify(out.bytes, VERIFY, None, now_ms=NOW))
+    assert r.entered == "dcp-jcs-v2" and r.verification["verified"] is False
+    assert sorted(r.verification["errors"]) == [
+        "schema: /bundle/audit_entries/1 additionalProperties x_entry_ext",
+        "schema: /bundle/intent additionalProperties x_artifact_ext",
+        "schema: /bundle/intent/composite_sig additionalProperties x_sig_ext",
+        "schema: /bundle/pq_checkpoints/0 additionalProperties x_checkpoint_ext",
+    ]
+    assert r.verification["details"] == {}
+    b = json.loads(out.bytes)["bundle"]
     assert b["manifest"]["pq_checkpoints"] == ["ckpt-1"]
     assert b["intent"]["payload"]["target"]["x_payload_ext"] == {"kept": 1}
     assert b["audit_entries"][1]["x_entry_ext"] == "kept" and b["pq_checkpoints"][0]["x_checkpoint_ext"] == [1, 2]

@@ -31,6 +31,35 @@ fn read(name: &str) -> Value {
     serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
 }
 
+// ── V2-2 in Rust (old -> new), the fixture unchanged ──
+// verify_signed_bundle_v2_at now checks V2-2 first. These cases change their Rust expectation from the fixture's shape
+// (was) to a V2-2 shape (now): a new member x at the root or in an audit entry is a closed-object violation (the
+// unsigned root member, accepted before, is the V2-2 gap closed: an acceptance change), and an action_type or a
+// risk_score outside its schema is rejected before the payload hash or the canonicalizer that used to report it. Both
+// routes still run the same verifier. The deeper checks stay covered: payload hashes by schema-valid rows of
+// bundle_vectors.json, fractions by deep_negatives.json (tests/schema_v2.rs).
+const V2_2_SHAPES: [(&str, &str); 5] = [
+    ("rust.v2_2.root_unknown_x", "schema: / additionalProperties x"),
+    ("rust.v2_2.intent_action_type", "schema: /bundle/intent/payload/action_type enum"),
+    ("rust.v2_2.policy_risk_score_type", "schema: /bundle/policy_decision/payload/risk_score type"),
+    ("rust.v2_2.policy_risk_score_maximum", "schema: /bundle/policy_decision/payload/risk_score maximum"),
+    ("rust.v2_2.audit_unknown_x", "schema: /bundle/audit_entries/0 additionalProperties x"),
+];
+
+/// The 18 cases (9 per base) the map changes: the fixture's Rust shape it was written for, and the V2-2 shape now.
+fn v2_2_expected(id: &str) -> Option<(&'static str, &'static str)> {
+    let m = id.strip_prefix("G7-V1-").or_else(|| id.strip_prefix("G7-AB-"))?;
+    Some(match m {
+        "M08" | "M11" | "M14" | "M16" => ("rust.ok", "rust.v2_2.root_unknown_x"),
+        "M10" => ("rust.intent_mismatch", "rust.v2_2.intent_action_type"),
+        "M12" => ("rust.policy_float", "rust.v2_2.policy_risk_score_type"),
+        "M13" => ("rust.audit_float", "rust.v2_2.audit_unknown_x"),
+        "M15" => ("rust.policy_mismatch", "rust.v2_2.policy_risk_score_maximum"),
+        "M18" => ("rust.policy_mismatch", "rust.v2_2.policy_risk_score_type"),
+        _ => return None,
+    })
+}
+
 struct Fixture {
     f: Value,
     p3: Value,
@@ -38,9 +67,29 @@ struct Fixture {
 
 impl Fixture {
     fn load() -> Self {
-        let (f, p3) = (read("gate7-v1-negatives.json"), read("phase3-signed-vectors.json"));
+        let (mut f, p3) = (read("gate7-v1-negatives.json"), read("phase3-signed-vectors.json"));
         assert_eq!(f["now_ms"], p3["now_ms"], "now_ms is the phase 3 instant");
+        let shapes = f["verification_shapes"].as_object_mut().unwrap();
+        for (name, diagnostic) in V2_2_SHAPES {
+            assert!(!shapes.contains_key(name), "the fixture already has a shape {name}");
+            let shape = serde_json::json!({
+                "verified": false, "errors_contain": [diagnostic], "error_count": 1, "warnings": [],
+                "fields": {"manifest_valid": false, "verification_mode": null, "resolved_tier": null},
+            });
+            shapes.insert(name.to_string(), shape);
+        }
         Self { f, p3 }
+    }
+    /// The fixture's Rust expectation for `c`, with the V2-2 shape where the map says so (and only while the fixture
+    /// still says what the map was written for).
+    fn expected(&self, c: &Value) -> Value {
+        let mut e = c["expected"][CFG].clone();
+        let id = c["id"].as_str().unwrap();
+        if let Some((was, now)) = v2_2_expected(id) {
+            assert_eq!(e["verification"], was, "{id}: the fixture expects {}, the V2-2 map was written for {was}", e["verification"]);
+            e["verification"] = now.into();
+        }
+        e
     }
     fn now(&self) -> i64 {
         self.f["now_ms"].as_i64().unwrap()
@@ -283,7 +332,7 @@ fn run_case(fx: &Fixture, c: &Value) -> (Vec<String>, Today, Exp) {
     let frozen = data.clone();
     let t = today(&data, fx.now());
     let x = experimental(&data, "bare", fx.now());
-    let mut p = judge(fx, &c["expected"][CFG], Some(&t), &x, false);
+    let mut p = judge(fx, &fx.expected(c), Some(&t), &x, false);
     if data != frozen {
         p.push("the input buffer was changed".into());
     }
@@ -354,7 +403,7 @@ fn gate7_envelope_boundary() {
     let mut checks = 0;
     for c in fx.f["boundary"]["cases"].as_array().unwrap() {
         let x = experimental(&fx.input(c), "envelope", fx.now());
-        let p = judge(&fx, &c["expected"][CFG], None, &x, true);
+        let p = judge(&fx, &fx.expected(c), None, &x, true);
         assert!(p.is_empty(), "{}: {p:?}", c["id"]);
         if c["id"] == "G7E-1" {
             let (Exp::Returned { verification: a, .. }, Exp::Returned { verification: b, .. }) = (&x, &bare) else { panic!() };
@@ -369,7 +418,7 @@ fn gate7_envelope_boundary() {
 fn gate7_judgement_can_fail() {
     let fx = Fixture::load();
     let control = fx.case("G7-V1-C00");
-    let exp = &control["expected"][CFG];
+    let exp = &fx.expected(control);
     let has = |p: &[String], prefix: &str| p.iter().any(|m| m.starts_with(prefix));
 
     // The experimental route outside the bundle window.
@@ -385,7 +434,7 @@ fn gate7_judgement_can_fail() {
     let Exp::Returned { route, entered, verification: Some(mut v), calls, entries } = x10.clone() else { panic!() };
     v["errors"][0] = json!("intent: payload_hash mismatch (altered)");
     let altered = Exp::Returned { route, entered, verification: Some(v), calls, entries };
-    assert!(has(&judge(&fx, &m10["expected"][CFG], Some(&t10), &altered, false), "the routes differ"));
+    assert!(has(&judge(&fx, &fx.expected(m10), Some(&t10), &altered, false), "the routes differ"));
 
     // A verifier error, even on both sides.
     let boom = Today::VerifierError("provider exploded".into());
@@ -403,7 +452,7 @@ fn gate7_judgement_can_fail() {
     let Exp::Returned { route, entered, verification, calls, entries } = experimental(&fx.input(g7e2), "envelope", fx.now()) else { panic!() };
     assert!(entries.is_empty());
     let y = Exp::Returned { route, entered, verification, calls, entries: vec!["dcp-jcs-v1"] };
-    assert!(has(&judge(&fx, &g7e2["expected"][CFG], None, &y, true), "verifier entries"));
+    assert!(has(&judge(&fx, &fx.expected(g7e2), None, &y, true), "verifier entries"));
 
     // A missing control.
     assert_eq!(gate(&[("G7-V1-M01".to_string(), vec![])])[0].1, vec!["control_missing: G7-V1-C00".to_string()]);
@@ -417,14 +466,14 @@ fn gate7_judgement_can_fail() {
         entries: vec![],
     };
     let refused = Today::HostDecode("Syntax".into());
-    let out: Vec<(String, Vec<String>)> = fx.f["cases"].as_array().unwrap().iter().map(|c| (c["id"].as_str().unwrap().to_string(), judge(&fx, &c["expected"][CFG], Some(&refused), &reject, false))).collect();
+    let out: Vec<(String, Vec<String>)> = fx.f["cases"].as_array().unwrap().iter().map(|c| (c["id"].as_str().unwrap().to_string(), judge(&fx, &fx.expected(c), Some(&refused), &reject, false))).collect();
     let gated = gate(&out);
     assert!(gated.iter().all(|(_, p)| !p.is_empty()), "a reject-everything fake passed a case");
     assert_eq!(gated.iter().filter(|(_, p)| p[0].starts_with("control_failed")).count(), 36);
     let (_, t_ok, x_ok) = run_case(&fx, control);
-    let negatives: Vec<&Value> = fx.f["cases"].as_array().unwrap().iter().filter(|c| c["expected"][CFG]["verification"] != "rust.ok").collect();
+    let negatives: Vec<&Value> = fx.f["cases"].as_array().unwrap().iter().filter(|c| fx.expected(c)["verification"] != "rust.ok").collect();
     assert!(negatives.len() > 10);
     for c in negatives {
-        assert!(!judge(&fx, &c["expected"][CFG], Some(&t_ok), &x_ok, false).is_empty(), "{} passed an accept-everything fake", c["id"]);
+        assert!(!judge(&fx, &fx.expected(c), Some(&t_ok), &x_ok, false).is_empty(), "{} passed an accept-everything fake", c["id"]);
     }
 }

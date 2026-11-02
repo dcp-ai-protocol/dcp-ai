@@ -3,6 +3,7 @@
 // v1 route, so the wasm verifier runs, not only compiles. Needs `npm run build:wasm` and `npm run build:ts` first.
 import { readFileSync } from 'node:fs';
 import { initDcp, experimentalWasmHistoricalAdapters } from '../dist/index.js';
+import { isSchemaRejection, schemaFirstRow } from './schema-regression-map.mjs';
 
 const V = JSON.parse(readFileSync(new URL('../../../tests/interop/v2/secondary_sha3_vectors.json', import.meta.url), 'utf8'));
 const dcp = await initDcp({ module_or_path: readFileSync(new URL('../pkg/dcp_ai_bg.wasm', import.meta.url)) });
@@ -32,8 +33,15 @@ const candidate = dcp.createExperimentalCandidateVerifier({
 for (const c of cases) {
   const ok = c.expect === 'accept';
   const r = dcp.verifyBundle(assemble(c));
+  const row = schemaFirstRow('secondary_sha3_vectors.json', c.name);
   if (ok) {
     check(`${c.name}: accepted`, r.verified === true && r.errors.length === 0, r.errors);
+  } else if (row) {
+    // V2-2 now rejects it first, with exactly the oracles' schema errors (regression_map.json), not by the
+    // error_contains its V2-11 check names; the control still verifies.
+    check(`${c.name}: rejected by V2-2`, isSchemaRejection(r, row), r.errors);
+    const ctl = dcp.verifyBundle(assemble(c.control));
+    check(`${c.name}: control accepted`, ctl.verified === true && ctl.errors.length === 0, ctl.errors);
   } else {
     check(`${c.name}: rejected with ${c.error_contains}`,
       r.verified === false && r.errors.some((e) => e.includes(c.error_contains)) && r.errors.every((e) => e.includes('secondary')), r.errors);

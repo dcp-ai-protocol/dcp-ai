@@ -135,6 +135,22 @@ func verifySignedBundleV2AtProfile(registry *AlgorithmRegistry, signedBundleJSON
 		return result
 	}
 
+	// V2-2 over the decoded value, before any hash, key or signature work. A top-level null leaves raw a nil map,
+	// which is validated as null.
+	var doc interface{}
+	if raw != nil {
+		doc = raw
+	}
+	schema, err := validateSignedBundleV2Schema(doc, acceptedProfile)
+	if err != nil {
+		result.Errors = append(result.Errors, fmt.Sprintf("schema: %s", err))
+		return result
+	}
+	if !schema.Valid {
+		result.Errors = append(result.Errors, schemaDiagnostics(schema)...)
+		return result
+	}
+
 	bundle, ok := raw["bundle"].(map[string]interface{})
 	if !ok {
 		result.Errors = append(result.Errors, "Missing bundle field")

@@ -2,7 +2,7 @@
 
 # dcp-ai — Python SDK
 
-> [英語版](../../../../sdks/python/README.md)の参考訳です（26/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../../sdks/python/README.md)の参考訳です（02/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 Digital Citizenship Protocol（DCP v2.0）の公式 Python SDK です。Pydantic v2 のモデル、ポスト量子のハイブリッド署名（Ed25519 + ML-DSA-65、および SLH-DSA-192f）、ML-KEM-768 の KEM プリミティブ、`pq_over_classical` バインディングを持つ複合署名、V1 と V2 のバンドルの署名と検証、OpenTelemetry によるオブザーバビリティ、DCP-04 から DCP-09 までの動作、そして充実した CLI を備えています。
 
@@ -267,6 +267,8 @@ verify_signed_bundle(
 ### V2 バンドル
 
 `BundleBuilderV2`、`sign_bundle_v2`、`verify_signed_bundle_v2`（`dcp_ai.v2` 内）は、TypeScript SDK の `builder-v2.ts`、`signer-v2.ts`、`verify-v2.ts` を移植したものです。アーティファクトは `SignedPayload` の dict（`{"payload", "payload_hash", "composite_sig"}`）で、バンドルの署名はマニフェストに対する複合署名です。
+
+**スキーマ検証（V2-2。`main` にあり、公開済みのバージョンには含まれない）。** `verify_signed_bundle_v2` とほかの V2 検証関数は、ポリシーと時計の確認の後、検証器がマニフェスト、ペイロードのハッシュ、鍵、署名を確認する前に、まず署名済み bundle のエンベロープと四つのペイロードを `schemas/v2` に照らして検証します。最初に検証を行う `admit_signed_bundle_v2` と実験的な候補の検証器も同じゲートを通りますが、`evaluate_admission_v2` は以前の結果を受け取り、このゲートを実行しません。失敗した bundle は `verified: false` と `schema: <JSON pointer> <keyword>[ <member>]` のエラー（最大 16 件、その後に `schema: further errors not listed`）を返し、暗号に関する詳細は返しません。閉じたオブジェクトの未知のメンバーは拒否されます。intent の `target` のような開いたオブジェクトでは、宣言されたメンバーは制約を保ち、追加のメンバーだけが検査されません。マニフェストの `session_issued_at` と `session_expires_at` は、存在する場合は `null` ではなく文字列でなければなりません。`date-time` は参照検証器の ajv-formats 3.0.1 による確認に従い、これは厳密な RFC 3339 ではありません。**受理の変更：** 以前は検証に成功していたスキーマ上無効な bundle は、今は拒否されます。スキーマだけの API はありません。[カバレッジマップ](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)を参照してください。
 
 ```python
 # Fragment, inside an async function: session_nonce, the signed artifacts (signed_rpr, signed_passport, signed_intent, signed_policy), audit_events, classical_key and pq_key come from your application.

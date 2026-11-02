@@ -4,7 +4,7 @@
 
 # Referência da API do DCP-AI
 
-> Tradução informativa da [versão em inglês](../../../docs/API_REFERENCE.md), atualizada em 28/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../docs/API_REFERENCE.md), atualizada em 02/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Referência do SDK TypeScript `@dcp-ai/sdk` como está em `main` (versão do pacote 2.2.1, protocolo DCP v2.0).
 
@@ -816,7 +816,7 @@ interface VerifyV2Result {
 
 **Pipeline de verificação:**
 
-1. Checagem de versão e de schema: só bundles v2.0 são aceitos e as demais versões são recusadas; encaminhar os bundles v1.0 para `verifySignedBundle` cabe a quem chama ([MIGRATION_V1_V2.md](../../../docs/MIGRATION_V1_V2.md#32-coexistence-strategy))
+1. Checagem de versão e de schema: só bundles v2.0 são aceitos e as demais versões são recusadas; encaminhar os bundles v1.0 para `verifySignedBundle` cabe a quem chama ([MIGRATION_V1_V2.md](../../../docs/MIGRATION_V1_V2.md#32-coexistence-strategy)). Na `main`, não em uma versão publicada, o envelope e os quatro payloads são então validados contra `schemas/v2` (V2-2): uma falha retorna `verified: false` com erros `schema: <JSON pointer> <keyword>[ <member>]` (no máximo 16, depois `schema: further errors not listed`), sem avisos e sem detalhes criptográficos ([mapa de cobertura](conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary))
 2. Verificação do hash do payload de todos os artefatos assinados
 3. Consistência do nonce de sessão em todos os artefatos
 4. Integridade do manifesto (recalcula todos os hashes dos artefatos + a raiz de Merkle da auditoria)

@@ -14,6 +14,8 @@ import json
 from pathlib import Path
 
 import pytest
+
+from tests.schema_regression_map import expected_diagnostics, schema_first_row
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, AsyncMock
 
@@ -797,6 +799,23 @@ class TestFastAPIMiddlewareHardening:
         assert policy["risk_overrides"] == dict.fromkeys(("low", "medium", "high"), "classical_only")
 
 
+# The middleware's own envelope pre-check (dcp_ai/fastapi) still rejects these rows before the verifier, with its own
+# wording, so their historical error_contains stays the assertion here.
+_MIDDLEWARE_FIRST = {
+    "intent_null", "policy_decision_not_an_object", "rpr_null_in_agent_signed_bundle",
+    "intent_unsigned", "agent_passport_unsigned", "policy_decision_unsigned",
+}
+
+
+def _expected(c):
+    # V2-2 now decides the other schema-invalid rows first: the response must carry exactly the schema diagnostics
+    # the oracles report (regression_map.json) instead of the historical error_contains.
+    row = schema_first_row("bundle_vectors.json", c["name"])
+    if row and c["name"] not in _MIDDLEWARE_FIRST:
+        return ("schema", expected_diagnostics(row))
+    return c["error_contains"]
+
+
 def _bundle_vector_cases():
     with open(_BUNDLE_VECTORS) as f:
         vectors = json.load(f)
@@ -813,9 +832,9 @@ def _bundle_vector_cases():
             for key in mutation["path"][:-1]:
                 node = node[key]
             node[mutation["path"][-1]] = mutation["value"]
-        cases.append(pytest.param(signed, c["error_contains"], None, id=f"reject {c['name']}"))
+        cases.append(pytest.param(signed, _expected(c), None, id=f"reject {c['name']}"))
     cases += [
-        pytest.param(c["signed_bundle"], c["error_contains"], overrides(c), id=f"reject {c['name']}")
+        pytest.param(c["signed_bundle"], _expected(c), overrides(c), id=f"reject {c['name']}")
         for c in vectors["must_reject_bundles"]
     ]
     return cases
@@ -830,6 +849,9 @@ def test_fastapi_middleware_on_the_shared_bundle_vectors(signed_bundle, error_co
     response = TestFastAPIMiddlewareV2._client(**kwargs).post("/action", json={"signed_bundle": signed_bundle})
     if error_contains is None:
         assert response.status_code == 200, response.json()
+    elif isinstance(error_contains, tuple):
+        assert response.status_code == 403
+        assert sorted(response.json()["errors"]) == sorted(error_contains[1]), response.json()["errors"]
     else:
         assert response.status_code == 403
         assert error_contains.lower() in " ".join(response.json()["errors"]).lower()

@@ -40,6 +40,7 @@ import re
 import time
 from typing import Any
 
+from dcp_ai.v2._schema_v2 import schema_diagnostics, validate_signed_bundle_v2_schema
 from dcp_ai.v2.canonicalize import canonicalize_v2
 from dcp_ai.v2.composite_ops import composite_verify
 from dcp_ai.v2.crypto_provider import derive_kid
@@ -552,6 +553,13 @@ async def _verify_signed_bundle_v2_with_profile(
     now = _clock(now_ms)
     result: dict[str, Any] = {"verified": False, "errors": [], "warnings": [], "details": {}}
     try:
+        # V2-2 first: the envelope and the four payloads against their schemas, before any hash, key or signature.
+        # A schema failure returns the schema diagnostics alone (at most 16, then a marker) with no cryptographic
+        # details: no other check ran.
+        schema = validate_signed_bundle_v2_schema(signed_bundle, accepted_profile)
+        if not schema.valid:
+            result["errors"].extend(schema_diagnostics(schema))
+            return result
         await _verify(signed_bundle, registry, resolved, result, now, accepted_profile)
     except (KeyError, TypeError, AttributeError, ValueError, IndexError) as exc:
         result["errors"].append(f"Malformed signed bundle: {exc!r}")

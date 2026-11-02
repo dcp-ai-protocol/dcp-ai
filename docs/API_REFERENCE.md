@@ -793,7 +793,7 @@ interface VerifyV2Result {
 
 **Verification pipeline:**
 
-1. Version and schema check: only v2.0 bundles are accepted and other versions are rejected; routing v1.0 bundles to `verifySignedBundle` is the caller's job ([MIGRATION_V1_V2.md](MIGRATION_V1_V2.md#32-coexistence-strategy))
+1. Version and schema check: only v2.0 bundles are accepted and other versions are rejected; routing v1.0 bundles to `verifySignedBundle` is the caller's job ([MIGRATION_V1_V2.md](MIGRATION_V1_V2.md#32-coexistence-strategy)). On `main`, not in a published version, the envelope and the four payloads are then validated against `schemas/v2` (V2-2): a failure returns `verified: false` with `schema: <JSON pointer> <keyword>[ <member>]` errors (at most 16, then `schema: further errors not listed`), no warnings and no cryptographic details ([coverage map](conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary))
 2. Payload hash verification for all signed artifacts
 3. Session nonce consistency across all artifacts
 4. Manifest integrity (recompute all artifact hashes + audit Merkle root)

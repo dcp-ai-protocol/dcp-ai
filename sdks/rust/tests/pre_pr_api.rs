@@ -14,18 +14,30 @@ use serde_json::Value;
 /// runs to 2099, so the system clock is no edge), and its first must_reject
 /// case, applied to it, does not.
 fn bundles() -> (Value, Value) {
+    let (valid, rejected, _) = bundles_with_a_signature_rejection();
+    (valid, rejected)
+}
+
+/// The signed bundle, its first must_reject row (now refused by V2-2 before any signature) and the schema-valid
+/// bundle_pq_signature_invalid row (refused at the bundle signature, with its signer keys).
+fn bundles_with_a_signature_rejection() -> (Value, Value, Value) {
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/interop/v2/bundle_vectors.json");
     let vectors: Value = serde_json::from_str(&std::fs::read_to_string(path).expect("read bundle vectors")).unwrap();
     let valid = vectors["signed_bundle"].clone();
-    let mut rejected = valid.clone();
-    for mutation in vectors["must_reject"][0]["mutations"].as_array().expect("mutations") {
-        let mut node = &mut rejected;
-        for key in mutation["path"].as_array().expect("path") {
-            node = &mut node[key.as_str().expect("path key")];
+    let mutated = |case: &Value| {
+        let mut rejected = valid.clone();
+        for mutation in case["mutations"].as_array().expect("mutations") {
+            let mut node = &mut rejected;
+            for key in mutation["path"].as_array().expect("path") {
+                node = &mut node[key.as_str().expect("path key")];
+            }
+            *node = mutation["value"].clone();
         }
-        *node = mutation["value"].clone();
-    }
-    (valid, rejected)
+        rejected
+    };
+    let cases = vectors["must_reject"].as_array().expect("must_reject");
+    let signature = cases.iter().find(|c| c["name"] == "bundle_pq_signature_invalid").expect("bundle_pq_signature_invalid");
+    (valid.clone(), mutated(&cases[0]), mutated(signature))
 }
 
 fn now_ms() -> i64 {
@@ -81,9 +93,13 @@ fn the_result_serializes_without_signer_keys() {
 /// `signer_keys`.
 #[test]
 fn the_details_are_the_same_verification_with_its_signer_keys() {
-    let (valid, rejected) = bundles();
+    let (valid, rejected, at_signature) = bundles_with_a_signature_rejection();
     let policy = VerifierPolicy::default();
-    for (bundle, verified) in [(&valid, true), (&rejected, false)] {
+    // V2-2 refuses `rejected` before any signature: no signer keys. `at_signature` reaches them.
+    assert!(verify_signed_bundle_v2_at(&rejected, &policy, now_ms()).signer_keys.is_empty());
+    let at = verify_signed_bundle_v2_at(&at_signature, &policy, now_ms());
+    assert!(!at.result.errors.iter().any(|e| e.starts_with("schema: ")) && !at.signer_keys.is_empty(), "{:?}", at.result.errors);
+    for (bundle, verified) in [(&valid, true), (&rejected, false), (&at_signature, false)] {
         let details = verify_signed_bundle_v2_at(bundle, &policy, now_ms());
         assert_eq!(details.result.verified, verified, "{:?}", details.result.errors);
         let result = serde_json::to_string(&details.result).unwrap();

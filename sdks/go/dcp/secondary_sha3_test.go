@@ -142,6 +142,13 @@ func TestSecondarySHA3Vectors(t *testing.T) {
 				if !r.Verified || len(r.Errors) != 0 {
 					t.Fatalf("expected acceptance, got %v", r.Errors)
 				}
+			} else if row := schemaFirstRow(t, "secondary_sha3_vectors.json", c.Name); row != nil {
+				// V2-2 now rejects it first, with exactly the oracles' schema errors (regression_map.json), not by
+				// the error_contains its V2-11 check names; the control still verifies.
+				expectSchemaRejection(t, r, row)
+				if ctl := v2.VerifySignedBundleV2At(reg, vecs.assemble(t, *c.Control), policy, now); !ctl.Verified || len(ctl.Errors) != 0 {
+					t.Fatalf("control rejected: %v", ctl.Errors)
+				}
 			} else {
 				if r.Verified {
 					t.Fatalf("expected rejection naming %q", c.ErrorContains)

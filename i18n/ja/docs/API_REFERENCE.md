@@ -4,7 +4,7 @@
 
 # DCP-AI API リファレンス
 
-> [英語版](../../../docs/API_REFERENCE.md)の参考訳です（28/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../docs/API_REFERENCE.md)の参考訳です（02/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 `main` にある TypeScript SDK `@dcp-ai/sdk`（パッケージのバージョン 2.2.1、プロトコル DCP v2.0）のリファレンスです。
 
@@ -815,7 +815,7 @@ interface VerifyV2Result {
 
 **検証のパイプライン：**
 
-1. バージョンとスキーマの確認：v2.0 のバンドルだけを受け付け、ほかのバージョンは拒否する。v1.0 のバンドルを `verifySignedBundle` に振り分けるのは呼び出し側の役割（[MIGRATION_V1_V2.md](../../../docs/MIGRATION_V1_V2.md#32-coexistence-strategy)）
+1. バージョンとスキーマの確認：v2.0 のバンドルだけを受け付け、ほかのバージョンは拒否する。v1.0 のバンドルを `verifySignedBundle` に振り分けるのは呼び出し側の役割（[MIGRATION_V1_V2.md](../../../docs/MIGRATION_V1_V2.md#32-coexistence-strategy)）。`main` では（公開済みのバージョンには含まれない）、続いてエンベロープと四つのペイロードを `schemas/v2` に照らして検証する（V2-2）。失敗すると `verified: false` と `schema: <JSON pointer> <keyword>[ <member>]` のエラー（最大 16 件、その後に `schema: further errors not listed`）を返し、警告も暗号に関する詳細も返さない（[カバレッジマップ](conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)）
 2. すべての署名済みアーティファクトのペイロードのハッシュの検証
 3. すべてのアーティファクトでのセッションの nonce の一貫性
 4. マニフェストの完全性（すべてのアーティファクトのハッシュ + 監査のマークルルートを再計算）

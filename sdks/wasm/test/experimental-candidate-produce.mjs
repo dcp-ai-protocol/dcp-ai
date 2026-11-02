@@ -120,7 +120,10 @@ function produceAndVerify(name, s) {
   const v = verifier.verify(r.value.bytes);
   check(`${name}: verified by phase 3`, v.entered === 'dcp-jcs-v2' && v.verification.verified === true, v.verification?.errors);
   const today = JSON.parse(pkg.wasm_verify_signed_bundle_v2(text(r.value.bytes), undefined));
-  check(`${name}: refused by today's binding`, today.verified === false && today.errors.includes('Unknown canonicalization_profile: dcp-jcs-v2'), today.errors);
+  // The default binding refuses the candidate identifier through V2-2 (canonicalization_profile const dcp-jcs-v1),
+  // before the profile check that used to report "Unknown canonicalization_profile: dcp-jcs-v2".
+  check(`${name}: refused by today's binding`, today.verified === false
+    && JSON.stringify(today.errors) === '["schema: /bundle/manifest/canonicalization_profile const"]', today.errors);
   return JSON.parse(text(r.value.bytes));
 }
 
@@ -234,6 +237,9 @@ function produceAndVerify(name, s) {
     && e?.bundle.manifest.audit_merkle_root_secondary === `sha3-256:${'0'.repeat(64)}`, e?.bundle.manifest);
 
   const ext = scenario({ target: { x_payload_ext: { kept: 1 } } });
+  // The open payload member alone verifies.
+  const open = produceAndVerify('open payload member', ext);
+  check('open payload member kept', open?.bundle.intent.payload.target.x_payload_ext?.kept === 1, open?.bundle.intent.payload.target);
   ext.entries[1] = { ...ext.entries[1], x_entry_ext: 'kept' };
   ext.parts.auditEntries = ext.entries.map((v) => ({ value: v }));
   const intent = ext.parts.intent.value;
@@ -243,7 +249,19 @@ function produceAndVerify(name, s) {
     event_range: { from_audit_id: ext.entries[0].audit_id, to_audit_id: ext.entries[1].audit_id, count: 2 } };
   const signedCheckpoint = dcp.experimentalCandidateSignPayload('DCP-AI.v2.AuditEvent', { value: checkpoint }, agent).signedPayload;
   ext.parts.pqCheckpoints = [{ value: { ...checkpoint, composite_sig: signedCheckpoint.composite_sig } }];
-  const x = produceAndVerify('checkpoint and extensions', ext);
+  // Before V2-2 the candidate verifier accepted these members; the schemas close the audit entry, the checkpoint, the
+  // SignedPayload envelope and composite_sig, so the candidate path (one const changed, nothing else) now rejects them
+  // with exactly these four diagnostics, before the verifier checks payload hashes or signatures. The producer still keeps every member.
+  const produced = dcp.experimentalCandidateSignBundle(ext.parts, ext.signer, ext.options);
+  const routed = verifier.verify(produced.bytes);
+  check('checkpoint and extensions: refused by V2-2 on the candidate route', routed.entered === 'dcp-jcs-v2' && routed.verification.verified === false
+    && JSON.stringify([...routed.verification.errors].sort()) === JSON.stringify([
+      'schema: /bundle/audit_entries/1 additionalProperties x_entry_ext',
+      'schema: /bundle/intent additionalProperties x_artifact_ext',
+      'schema: /bundle/intent/composite_sig additionalProperties x_sig_ext',
+      'schema: /bundle/pq_checkpoints/0 additionalProperties x_checkpoint_ext',
+    ]) && JSON.stringify(routed.verification.signer_keys) === '[]', routed.verification?.errors);
+  const x = JSON.parse(text(produced.bytes));
   check('extensions kept', x?.bundle.intent.payload.target.x_payload_ext?.kept === 1 && x?.bundle.audit_entries[1].x_entry_ext === 'kept'
     && x?.bundle.pq_checkpoints[0].x_checkpoint_ext?.length === 2 && x?.bundle.intent.x_artifact_ext === 'unsigned'
     && x?.bundle.intent.composite_sig.x_sig_ext === 'unsigned' && x?.bundle.manifest.pq_checkpoints?.[0] === 'ckpt-1', x?.bundle.manifest);

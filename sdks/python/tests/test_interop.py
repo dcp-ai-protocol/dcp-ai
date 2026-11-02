@@ -21,6 +21,7 @@ from pathlib import Path
 
 import pytest
 
+from tests.schema_regression_map import assert_schema_rejection, schema_first_row
 from dcp_ai.v2.crypto_provider import derive_kid
 from dcp_ai.v2.canonicalize import canonicalize_v2
 from dcp_ai.v2.blinded_rpr import blind_rpr, compute_pii_hash
@@ -484,6 +485,12 @@ class TestSignedBundleVectors:
         for name, signed, error_contains, overrides in cases:
             result = await verify_signed_bundle_v2(signed, registry, {**policy, **overrides})
             assert not result["verified"], name
+            # V2-2 now rejects the schema-invalid rows first, with exactly the oracles' schema errors; the deeper
+            # check their error_contains named stays covered where regression_map.json says (test_schema_v2.py).
+            row = schema_first_row("bundle_vectors.json", name)
+            if row:
+                assert_schema_rejection(result, row)
+                continue
             assert error_contains in "\n".join(result["errors"]).lower(), (name, result["errors"])
 
         for case in B["must_accept_bundles"]:

@@ -5,7 +5,7 @@
 
 # dcp-ai — SDK Python
 
-> Tradução informativa da [versão em inglês](../../../../sdks/python/README.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../../sdks/python/README.md), atualizada em 02/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 SDK oficial em Python para o Digital Citizenship Protocol (DCP v2.0). Modelos Pydantic v2, assinaturas híbridas pós-quânticas (Ed25519 + ML-DSA-65, além de SLH-DSA-192f), a primitiva KEM ML-KEM-768, assinaturas compostas com vinculação `pq_over_classical`, assinatura e verificação de bundles V1 e V2, observabilidade com OpenTelemetry, o comportamento do DCP-04 ao DCP-09 e uma CLI completa.
 
@@ -270,6 +270,8 @@ Verifica: esquema, assinatura Ed25519, `bundle_hash`, `merkle_root`, cadeia `int
 ### Bundles V2
 
 `BundleBuilderV2`, `sign_bundle_v2` e `verify_signed_bundle_v2` (em `dcp_ai.v2`) portam `builder-v2.ts`, `signer-v2.ts` e `verify-v2.ts` do SDK TypeScript. Os artefatos são dicionários `SignedPayload` (`{"payload", "payload_hash", "composite_sig"}`); a assinatura do bundle é uma assinatura composta sobre o manifesto.
+
+**Validação de esquemas (V2-2; na `main`, não em uma versão publicada).** `verify_signed_bundle_v2` e as demais funções de verificação V2 validam primeiro o envelope do bundle assinado e os quatro payloads contra `schemas/v2`, depois das verificações de política e de relógio e antes de o verificador conferir o manifesto, os hashes dos payloads, as chaves e as assinaturas; `admit_signed_bundle_v2`, que verifica primeiro, e o verificador experimental do candidato passam pela mesma barreira, enquanto `evaluate_admission_v2` recebe um resultado anterior e não a executa. Um bundle que falha retorna `verified: false` com erros `schema: <JSON pointer> <keyword>[ <member>]` (no máximo 16, depois `schema: further errors not listed`) e sem detalhes criptográficos. Membros desconhecidos de objetos fechados são rejeitados; em objetos abertos, como o `target` do intent, os membros declarados mantêm suas restrições e apenas os adicionais não são inspecionados. `session_issued_at` e `session_expires_at` do manifesto devem ser strings quando presentes, não `null`. `date-time` segue a verificação do ajv-formats 3.0.1 do verificador de referência, que não é RFC 3339 estrito. **Mudança de aceitação:** bundles inválidos pelo esquema que antes eram verificados agora são rejeitados. Não há API só de esquema. Veja o [mapa de cobertura](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary).
 
 ```python
 # Fragment, inside an async function: session_nonce, the signed artifacts (signed_rpr, signed_passport, signed_intent, signed_policy), audit_events, classical_key and pq_key come from your application.

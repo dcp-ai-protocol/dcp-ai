@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from tests.schema_regression_map import assert_schema_rejection, schema_first_row
 from dcp_ai.providers import Ed25519Provider, MlDsa65Provider
 from dcp_ai.v2.admission import admit_signed_bundle_v2
 from dcp_ai.v2.crypto_registry import AlgorithmRegistry
@@ -62,13 +63,21 @@ async def test_verifier(case, registry):
         assert result["errors"] == []
         assert result["verified"] is True
         return
-    assert result["verified"] is False
-    assert any(case["error_contains"] in e for e in result["errors"]), result["errors"]
-    assert all("secondary" in e for e in result["errors"]), result["errors"]
-    if case["group"] == "root":
-        assert result["details"].get("manifest_valid") is False
+    # A secondary field that is null, not a string or outside its pattern now fails V2-2 first, with exactly the
+    # oracles' schema errors and no cryptographic details (no other check ran); the inconsistent-value check stays
+    # covered by the schema-valid rejects of the same group (regression_map.json).
+    row = schema_first_row("secondary_sha3_vectors.json", case["name"])
+    if row:
+        assert_schema_rejection(result, row)
+        assert result["details"] == {}
     else:
-        assert result["details"].get("hash_chain_valid") is False
+        assert result["verified"] is False
+        assert any(case["error_contains"] in e for e in result["errors"]), result["errors"]
+        assert all("secondary" in e for e in result["errors"]), result["errors"]
+        if case["group"] == "root":
+            assert result["details"].get("manifest_valid") is False
+        else:
+            assert result["details"].get("hash_chain_valid") is False
     control = await verify_signed_bundle_v2(_assemble(case["control"]), registry, now_ms=NOW)
     assert control["errors"] == []
     assert control["verified"] is True

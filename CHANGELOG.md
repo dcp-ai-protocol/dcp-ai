@@ -47,6 +47,20 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Security
 
+- **Acceptance change: V2-2 schema validation in every SDK verifier** (source on `main`, not in a published
+  version). The V2 verifiers of the TypeScript, Python, Go, Rust and WASM SDKs (`verifySignedBundleV2` and its
+  counterparts, the combined admission API, which verifies first, and the experimental candidate verifier; evaluating
+  admission from an earlier result does not run it) validate the signed bundle envelope and the four
+  payloads against `schemas/v2` after the policy and clock checks and before checking the manifest, payload hashes,
+  keys and signatures. Every SDK interprets the same representation generated from the schemas (`tools/schema-ir/`),
+  which CI regenerates and compares. Schema-invalid bundles they accepted before now return `verified: false`, among
+  them unknown members in closed objects and `null` session times in the manifest. The errors are then
+  `schema: <JSON pointer> <keyword>[ <member>]` diagnostics (at most 16 and a truncation marker) without
+  cryptographic details, so some rejections change wording: CI judges the evidence catalog's SDK runs on the verdict
+  (`--assessment verdict`), and the committed `error_contains` strings are unchanged. `date-time` keeps the
+  ajv-formats 3.0.1 boundary of the reference verifier, which is not strict RFC 3339. No public API, schema,
+  profile, dependency or version changes. In the experimental phase 4 matrix the 50 results of `S09` are now
+  expected refusals. See [SECURITY_COVERAGE.md](docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary).
 - **TypeScript `VerificationCache` (source on `main`, not published; `@dcp-ai/sdk` 2.2.1 keeps the
   previous behaviour).** The cache key stays the bundle hash for existing calls, and an opt-in
   `context` chosen by the caller separates results under tagged internal keys that a legacy hash

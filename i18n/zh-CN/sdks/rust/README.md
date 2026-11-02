@@ -4,7 +4,7 @@
 
 **Rust 发布 (26/10/2026).** Rust `dcp-ai` 2.11.0 已在 crates.io 发布，包含验证器修复、准入和实验性显式启用 API。`dcp-jcs-v1` 仍是规范性默认配置。见 [Rust 2.11.0](../../../../docs/RUST_RELEASE.md).
 
-> 本文是[英文 README](../../../../sdks/rust/README.md)的参考译文，更新于2026年10月30日。为保留经过验证的示例，标识符和代码块（包括注释）均保持原文。
+> 本文是[英文 README](../../../../sdks/rust/README.md)的参考译文，更新于 02/11/2026。为保留经过验证的示例，标识符和代码块（包括注释）均保持原文。
 
 Digital Citizenship Protocol（DCP v2.0）的官方 Rust SDK。提供基于 Serde 的类型、混合后量子密码学（Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768）、使用 `pq_over_classical` 绑定的复合签名、双哈希链、OpenTelemetry 可观测性、DCP-04..09 行为以及可选的 WebAssembly 支持。
 
@@ -201,6 +201,8 @@ V2 为 DCP-05 至 DCP-09 的所有产物提供派生了 Serde trait 的结构体
 |----------|-------------|
 | `build_bundle_v2(&rpr, &passport, &intent, &policy, &audit_entries, session_nonce)` | 从四个 `SignedPayload` 和审计轨迹构建 V2 bundle。检查每个 `payload_hash` 以及每个产物和审计条目的 `session_nonce`，并将两个审计 Merkle 根写入清单；空轨迹的根为64个零 |
 | `sign_bundle_v2(bundle, &classical, &pq)` | 在 `CTX_BUNDLE` 域下对清单进行复合签名，返回 `{bundle, signature}`，其中 `signer.id` 为 RPR 的 `human_id`。在签名前将 `session_expires_at` 或 `intended_verifier` 放入清单；若存在 `session_expires_at` 而缺少 `session_issued_at`，则将 `session_issued_at` 设为签名时刻 |
+
+**模式校验（V2-2；在 `main` 上，不在已发布版本中）。** `verify_signed_bundle_v2`、`…_with_policy` 和 `…_at`会在策略和时钟检查之后、验证器检查清单、载荷哈希、密钥和签名之前，先按 `schemas/v2` 校验已签名 bundle 的封装和四个载荷；先进行验证的 `admit_signed_bundle_v2` 和实验性候选验证器也经过同一关卡，而 `evaluate_admission_v2` 接收先前的结果，不执行该关卡。校验失败的 bundle 返回 `verified: false` 和 `schema: <JSON pointer> <keyword>[ <member>]` 错误（最多 16 条，随后是 `schema: further errors not listed`），不含密码学细节。封闭对象中的未知成员会被拒绝；在开放对象中（例如 intent 的 `target`），已声明的成员保留其约束，只有附加成员不被检查。清单中的 `session_issued_at` 和 `session_expires_at` 存在时必须是字符串，不能是 `null`。`date-time` 遵循参考验证器的 ajv-formats 3.0.1 检查，这不是严格的 RFC 3339。它们接收已解析的 `serde_json::Value`：serde_json 拒绝解析的内容（孤立代理项、`1e400`）是调用方的解析错误。**接受范围变化：** 以前能通过验证的模式无效 bundle 现在会被拒绝。没有仅做模式校验的 API。参见[覆盖映射](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)。
 
 <a id="delegation-chains-dcp_aiv2delegation-dcp-09-35-unreleased"></a>
 <a id="delegation-chains-dcp_aiv2delegation-dcp-09-35"></a>

@@ -208,7 +208,9 @@ function makePolicyDecision(nonce: string, intentId: string): PolicyDecisionV2 {
     risk_score: 450,
     reasons: ['medium risk action'],
     required_confirmation: null,
-    applied_policy_hash: 'sha256:fakepolicyhash',
+    // A schema-valid placeholder: verifySignedBundleV2 checks V2-2 first, and 'sha256:fakepolicyhash' fails the
+    // pattern of applied_policy_hash, so every bundle built here would stop there instead of reaching its check.
+    applied_policy_hash: `sha256:${'f'.repeat(64)}`,
     timestamp: '2026-02-25T12:00:01Z',
   };
 }
@@ -853,7 +855,9 @@ describe('Unit: Verifier Policy (V2 Bundle Verification)', () => {
     (signed.bundle as any).dcp_bundle_version = '3.0';
     const result = await verifySignedBundleV2(signed, registry, DEFAULT_VERIFIER_POLICY);
     expect(result.verified).toBe(false);
-    expect(result.errors[0]).toContain('Unsupported bundle version');
+    // V2-2 (dcp_bundle_version const "2.0") now rejects it before the version branch of verifyV2, which no
+    // input can reach any more; the rejection is the schema's, and it names the member.
+    expect(result.errors).toEqual(['schema: /bundle/dcp_bundle_version const']);
   });
 
   it('enforces max_key_age_days with warning', async () => {

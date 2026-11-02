@@ -15,6 +15,9 @@ use dcp_ai::v2::types::VerifierPolicy;
 use dcp_ai::v2::verify_bundle::verify_signed_bundle_v2_at;
 use serde_json::{json, Value};
 
+mod schema_regression_map;
+use schema_regression_map::{assert_schema_rejection, schema_first_row};
+
 fn vectors() -> Value {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/interop/v2/secondary_sha3_vectors.json");
     serde_json::from_str(&fs::read_to_string(path).expect("read secondary vectors")).expect("parse secondary vectors")
@@ -69,6 +72,12 @@ fn secondary_sha3_vectors() {
         let r = verify_signed_bundle_v2_at(&signed, &policy, now).result;
         if ok {
             assert!(r.verified && r.errors.is_empty(), "{name}: {:?}", r.errors);
+        } else if let Some(row) = schema_first_row("secondary_sha3_vectors.json", name) {
+            // V2-2 now rejects it first, with exactly the oracles' schema errors (regression_map.json), not by the
+            // error_contains its V2-11 check names; the control still verifies.
+            assert_schema_rejection(r.verified, &r.errors, row);
+            let ctl = verify_signed_bundle_v2_at(&assemble(&v, &c["control"]), &policy, now).result;
+            assert!(ctl.verified && ctl.errors.is_empty(), "{name} control: {:?}", ctl.errors);
         } else {
             let token = c["error_contains"].as_str().unwrap();
             assert!(!r.verified, "{name}: accepted");

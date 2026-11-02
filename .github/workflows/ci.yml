@@ -29,6 +29,7 @@ jobs:
       wasm: ${{ steps.filter.outputs.wasm }}
       integrations: ${{ steps.filter.outputs.integrations }}
       cli: ${{ steps.filter.outputs.cli }}
+      schema_ir: ${{ steps.filter.outputs.schema_ir }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -88,6 +89,22 @@ jobs:
               - 'sdks/typescript/**'
               - 'schemas/**'
               - 'tests/**'
+              - '.github/workflows/ci.yml'
+            schema_ir:
+              - 'schemas/**'
+              - 'tools/schema-ir/**'
+              - 'sdks/typescript/src/core/schema-v2.generated.ts'
+              - 'sdks/python/dcp_ai/v2/_schema_v2_generated.py'
+              - 'sdks/go/dcp/v2/schema_v2_generated.go'
+              - 'sdks/rust/src/v2/schema_v2_generated.rs'
+              - 'tests/interop/v2/schema_validation/**'
+              - 'tests/interop/v2/generate-schema-validation-vectors.mjs'
+              - 'tests/interop/v2/generate-schema-regression-vectors.mjs'
+              - 'tools/conformance/external-schema-validation-catalog.json'
+              - 'tools/conformance/structural-checks.js'
+              - 'lib/verify.js'
+              - 'package.json'
+              - 'package-lock.json'
               - '.github/workflows/ci.yml'
 
   conformance:
@@ -163,6 +180,46 @@ jobs:
   # External implementations through the stdin/stdout contract (tools/conformance/README.md#external-implementations).
   # Both wrappers are required: DCP_EXTERNAL_REQUIRE_PYTHON turns a missing interpreter into a failure, not a skip.
   # The admission catalog (contract /3) runs here for TypeScript and Python, with the judge's self-tests.
+  # V2-2 (spec/VERIFICATION.md): the schema IR generated from schemas/v2 and its copies in the TypeScript, Python, Go
+  # and Rust SDKs must match (generate.mjs --check), and the generator, evaluator, oracles and shared corpus keep their
+  # self-tests. Fails closed: oracle 2 needs jsonschema and referencing, already dependencies of the Python SDK
+  # installed here, and a missing or failed oracle is a failure, never a pass.
+  schema-ir:
+    name: Schema IR (V2-2 generated artifacts)
+    needs: changes
+    if: ${{ needs.changes.outputs.schema_ir == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generated IR and SDK copies match the schemas
+        run: node tools/schema-ir/generate.mjs --check
+
+      - name: Build the workspace SDK
+        working-directory: sdks/typescript
+        run: |
+          npm install
+          npm run build
+
+      # Oracle 1 (ajv, ajv-formats) and lib/verify.js come from the locked root dependencies.
+      - name: Install locked root dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Install the Python SDK from the checkout (oracle 2)
+        run: pip install ./sdks/python
+
+      - name: Schema IR self-tests (both oracles required)
+        run: SCHEMA_IR_PYTHON="$(command -v python)" node --test tools/schema-ir/schema-ir.test.mjs
+
   conformance-external:
     name: External conformance (TypeScript and Python wrappers)
     runs-on: ubuntu-latest
@@ -201,11 +258,14 @@ jobs:
       - name: Python SDK wrapper (38 cases)
         run: node tools/conformance-external.js --report external-python.json -- "$(command -v python)" -I tools/conformance/wrappers/python_sdk.py
 
+      # The evidence catalog is judged on the verdict: V2-2 now decides 16 of its rejections first, with a schema
+      # diagnostic instead of the committed error_contains. --assessment legacy reports those 16 as wording discrepancies;
+      # its self-tests keep that, and no step presents legacy as a pass.
       - name: TypeScript SDK wrapper (evidence catalog, 241 cases)
-        run: node tools/conformance-external.js --catalog evidence --report evidence-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
+        run: node tools/conformance-external.js --catalog evidence --assessment verdict --report evidence-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
 
       - name: Python SDK wrapper (evidence catalog, 241 cases)
-        run: node tools/conformance-external.js --catalog evidence --report evidence-python.json -- "$(command -v python)" -I tools/conformance/wrappers/python_sdk.py
+        run: node tools/conformance-external.js --catalog evidence --assessment verdict --report evidence-python.json -- "$(command -v python)" -I tools/conformance/wrappers/python_sdk.py
 
       - name: Admission catalog self-tests (the judge, on synthetic answers)
         run: node --test tools/conformance/external-admission.test.mjs
@@ -286,8 +346,8 @@ jobs:
           DCP_EXTERNAL_REQUIRE_NATIVE: "1"
         run: DCP_EXTERNAL_PYTHON="$(command -v python)" node --test tools/conformance/external-evidence-assessment.test.mjs
 
-      # Tests the opt-in diagnostic's corpus, layers and runner controls. This is not a claim that SDK APIs
-      # satisfy V2-2: the diagnostic retains their known schema failures as failures.
+      # Tests the opt-in schema-closure diagnostic's corpus, layers and runner controls, on controlled implementations
+      # only. The SDKs' V2-2 claim is the schema-validation catalog below.
       - name: Schema-boundary diagnostic self-tests (not SDK conformance)
         run: node --test tools/conformance/external-schema.test.mjs
 
@@ -313,6 +373,19 @@ jobs:
           node tools/conformance-external.js --catalog tools/conformance/external-structural-catalog.json --assessment verdict --report structural-rust.json -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
           node tools/conformance-external.js --catalog tools/conformance/external-structural-catalog.json --assessment verdict --report structural-wasm.json -- node tools/conformance/wrappers/wasm.mjs
 
+      # V2-2 in every SDK: the 57 pinned cases of tests/interop/v2/schema_validation/wiring_cases.json (13 positives;
+      # each of the 44 negatives counts only when the base case is verified), every wrapper required.
+      - name: V2-2 schema-validation suite self-tests (controlled implementations)
+        run: node --test tools/conformance/external-schema-validation.test.mjs
+
+      - name: V2-2 schema-validation catalog (57 cases per SDK, five wrappers required)
+        run: |
+          node tools/conformance-external.js --catalog tools/conformance/external-schema-validation-catalog.json --assessment verdict --report schema-validation-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
+          node tools/conformance-external.js --catalog tools/conformance/external-schema-validation-catalog.json --assessment verdict --report schema-validation-python.json -- python -I tools/conformance/wrappers/python_sdk.py
+          node tools/conformance-external.js --catalog tools/conformance/external-schema-validation-catalog.json --assessment verdict --report schema-validation-go.json -- tools/conformance/wrappers/.build/go-wrapper
+          node tools/conformance-external.js --catalog tools/conformance/external-schema-validation-catalog.json --assessment verdict --report schema-validation-rust.json -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+          node tools/conformance-external.js --catalog tools/conformance/external-schema-validation-catalog.json --assessment verdict --report schema-validation-wasm.json -- node tools/conformance/wrappers/wasm.mjs
+
       - name: Go SDK wrapper (38 cases)
         run: node tools/conformance-external.js --report external-go.json -- tools/conformance/wrappers/.build/go-wrapper
 
@@ -323,13 +396,13 @@ jobs:
         run: node tools/conformance-external.js --report external-wasm.json -- node tools/conformance/wrappers/wasm.mjs
 
       - name: Go SDK wrapper (evidence catalog, 241 cases)
-        run: node tools/conformance-external.js --catalog evidence --report evidence-go.json -- tools/conformance/wrappers/.build/go-wrapper
+        run: node tools/conformance-external.js --catalog evidence --assessment verdict --report evidence-go.json -- tools/conformance/wrappers/.build/go-wrapper
 
       - name: Rust SDK wrapper (evidence catalog, 241 cases)
-        run: node tools/conformance-external.js --catalog evidence --report evidence-rust.json -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+        run: node tools/conformance-external.js --catalog evidence --assessment verdict --report evidence-rust.json -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
 
       - name: WASM build wrapper (evidence catalog, 241 cases, Node-hosted)
-        run: node tools/conformance-external.js --catalog evidence --report evidence-wasm.json -- node tools/conformance/wrappers/wasm.mjs
+        run: node tools/conformance-external.js --catalog evidence --assessment verdict --report evidence-wasm.json -- node tools/conformance/wrappers/wasm.mjs
 
       - name: Admission wrapper tests (four SDK wrappers required)
         env:
@@ -427,7 +500,56 @@ jobs:
       - name: Build
         run: npm run build --if-present
 
-      - name: Run tests
+      # The SDK the lock fixes (2.2.0 from npm) has no V2-2, and the Express and OpenClaw tests are told so; when the lock
+      # moves to an SDK with V2-2 this pass must declare "1", or it fails.
+      - name: Run tests (the locked SDK, without V2-2)
+        env:
+          DCP_EXPECT_SDK_V2_2: "0"
+        run: npx vitest run
+
+      # The same tests against the workspace SDK, which has V2-2: packed and copied over the locked copy (the same
+      # dependency ranges), checked byte for byte and by resolution, without touching package.json or package-lock.json.
+      - name: Copy the workspace SDK over the locked one
+        if: ${{ matrix.integration == 'express' || matrix.integration == 'openclaw' }}
+        run: |
+          tgz="$(cd ../../sdks/typescript && npm pack --ignore-scripts --silent --pack-destination "$RUNNER_TEMP")"
+          rm -rf node_modules/@dcp-ai/sdk
+          mkdir node_modules/@dcp-ai/sdk
+          tar -xzf "$RUNNER_TEMP/$tgz" -C node_modules/@dcp-ai/sdk --strip-components=1
+
+      - name: Check the tests resolve the workspace SDK, copied
+        if: ${{ matrix.integration == 'express' || matrix.integration == 'openclaw' }}
+        run: |
+          test ! -L node_modules/@dcp-ai/sdk
+          diff -r ../../sdks/typescript/dist node_modules/@dcp-ai/sdk/dist
+          git diff --exit-code -- package.json package-lock.json
+          node --input-type=module -e "
+            import { createHash } from 'node:crypto';
+            import { readFileSync, realpathSync } from 'node:fs';
+            import { createRequire } from 'node:module';
+            import { fileURLToPath } from 'node:url';
+            const copy = realpathSync('node_modules/@dcp-ai/sdk');
+            const ws = realpathSync('../../sdks/typescript');
+            const sha = (f) => createHash('sha256').update(readFileSync(f)).digest('hex');
+            const out = { version: JSON.parse(readFileSync(copy + '/package.json', 'utf8')).version };
+            if (out.version !== JSON.parse(readFileSync(ws + '/package.json', 'utf8')).version) throw new Error('SDK ' + out.version);
+            for (const [k, f] of [['cjs', createRequire(process.cwd() + '/').resolve('@dcp-ai/sdk')], ['esm', fileURLToPath(import.meta.resolve('@dcp-ai/sdk'))]]) {
+              const real = realpathSync(f);
+              if (!real.startsWith(copy + '/')) throw new Error(k + ' resolves outside the copy: ' + real);
+              if (sha(real) !== sha(ws + real.slice(copy.length))) throw new Error(k + ' differs from the workspace build: ' + real);
+              out[k] = { file: real.slice(copy.length + 1), sha256: sha(real) };
+            }
+            console.log(JSON.stringify(out));
+          "
+
+      - name: Build against the workspace SDK
+        if: ${{ matrix.integration == 'express' || matrix.integration == 'openclaw' }}
+        run: npm run build --if-present
+
+      - name: Run tests (the workspace SDK, with V2-2)
+        if: ${{ matrix.integration == 'express' || matrix.integration == 'openclaw' }}
+        env:
+          DCP_EXPECT_SDK_V2_2: "1"
         run: npx vitest run
 
   # @dcp-ai/cli runs its source regression tests against the checked-out workspace SDK. The
@@ -643,3 +765,8 @@ jobs:
       # Exact dual Merkle roots (tests/conformance/v2/merkle_vectors.json) through the real export and DcpClient.
       - name: Dual Merkle roots through the wasm build
         run: node test/dual-merkle-root.mjs
+
+      # V2-2 through the wasm build: the shared schema-validation cases and the deeper checks they used to reach, through
+      # the binding, DcpWasm.verifyBundle and the experimental candidate verifier.
+      - name: V2-2 schema validation through the wasm build
+        run: node test/schema-v2.mjs

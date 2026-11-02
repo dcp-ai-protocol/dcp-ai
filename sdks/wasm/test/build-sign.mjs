@@ -8,26 +8,42 @@ const dcp = await initDcp({ module_or_path: readFileSync(new URL('../pkg/dcp_ai_
 const human = dcp.generateHybridKeypair();
 const agent = dcp.generateHybridKeypair();
 const nonce = dcp.generateSessionNonce();
-const entries = (k) => [k.classical, k.pq].map((x) => ({ kid: x.kid, alg: x.alg, public_key_b64: x.public_key_b64, status: 'active' }));
+const entries = (k) => [k.classical, k.pq].map((x) => ({
+  kid: x.kid, alg: x.alg, public_key_b64: x.public_key_b64, status: 'active', created_at: '2026-10-21T00:00:00Z', expires_at: null,
+}));
 const sign = (context, payload, k) =>
   dcp.signPayload(context, { ...payload, session_nonce: nonce }, k.classical.secret_key_b64, k.classical.kid, k.pq.secret_key_b64, k.pq.kid);
 const [humanId, agentId] = ['human:build-sign', 'agent:build-sign'];
+// Every member V2-2 requires (spec/VERIFICATION.md V2-2).
 const artifacts = {
-  rpr: sign('DCP-AI.v2.ResponsiblePrincipal', { human_id: humanId, binding_keys: entries(human) }, human),
+  rpr: sign('DCP-AI.v2.ResponsiblePrincipal', {
+    dcp_version: '2.0', human_id: humanId, binding_keys: entries(human), legal_name: 'Build Sign Principal',
+    entity_type: 'natural_person', jurisdiction: 'US-CA', liability_mode: 'owner_responsible', override_rights: true,
+    issued_at: '2026-10-21T00:00:00Z', expires_at: null,
+  }, human),
   passport: sign(
     'DCP-AI.v2.AgentPassport',
-    { agent_id: agentId, keys: entries(agent), principal_binding_reference: humanId, status: 'active' },
+    {
+      dcp_version: '2.0', agent_id: agentId, keys: entries(agent), principal_binding_reference: humanId, status: 'active',
+      capabilities: ['api_call'], risk_tier: 'medium', created_at: '2026-10-21T00:00:00Z',
+    },
     agent,
   ),
-  intent: sign('DCP-AI.v2.Intent', { intent_id: 'intent-1', agent_id: agentId, human_id: humanId }, agent),
-  policy: sign('DCP-AI.v2.PolicyDecision', { intent_id: 'intent-1', risk_score: 200, decision: 'approve' }, agent),
+  intent: sign('DCP-AI.v2.Intent', {
+    dcp_version: '2.0', intent_id: 'intent-1', agent_id: agentId, human_id: humanId, timestamp: '2026-10-21T12:00:00Z',
+    action_type: 'api_call', target: { channel: 'api' }, data_classes: [], estimated_impact: 'low', requires_consent: false,
+  }, agent),
+  policy: sign('DCP-AI.v2.PolicyDecision', {
+    dcp_version: '2.0', intent_id: 'intent-1', risk_score: 200, decision: 'approve', reasons: ['test'],
+    required_confirmation: null, applied_policy_hash: `sha256:${'0'.repeat(64)}`, timestamp: '2026-10-21T12:00:01Z',
+  }, agent),
 };
 // The audit entry names the intent, by id and payload hash, the agent and the principal,
 // and records the policy decision (V2-14).
 const audit = {
-  audit_id: 'audit-1', session_nonce: nonce, prev_hash: 'GENESIS',
-  intent_id: 'intent-1', intent_hash: artifacts.intent.payload_hash, agent_id: agentId, human_id: humanId,
-  policy_decision: 'approved',
+  dcp_version: '2.0', audit_id: 'audit-1', session_nonce: nonce, prev_hash: 'GENESIS', hash_alg: 'sha256',
+  timestamp: '2026-10-21T12:01:00Z', intent_id: 'intent-1', intent_hash: artifacts.intent.payload_hash, agent_id: agentId,
+  human_id: humanId, policy_decision: 'approved', outcome: 'done', evidence: {}, pq_checkpoint_ref: null,
 };
 const signBundle = (bundle) =>
   dcp.signBundle(bundle, human.classical.secret_key_b64, human.classical.kid, human.pq.secret_key_b64, human.pq.kid);

@@ -226,6 +226,19 @@ func p3Registry() *v2.AlgorithmRegistry {
 	return reg
 }
 
+// The phase 3 vectors whose Go expectation V2-2 changes (old errors_contain.go -> new schema diagnostics). The fixture
+// keeps its bytes and every other SDK's expectation; the deeper checks stay covered elsewhere: the intent payload hash
+// by schema-valid rows of bundle_vectors.json; a V1 bundle and null on the V2 path are structural (no V2 check applies).
+// D08 (1e400) stays a JSON parse error: encoding/json refuses it before V2-2.
+var p3V22Go = map[string]struct {
+	was, now  []string
+	truncated bool
+}{
+	"F01": {was: []string{"intent: payload_hash mismatch"}, now: []string{"schema: /bundle/intent/payload/action_type enum"}},
+	"D07": {was: []string{"Invalid dcp_bundle_version"}, now: []string{"schema: /bundle required dcp_bundle_version", "schema: /bundle required manifest"}, truncated: true},
+	"D09": {was: []string{"Missing bundle field"}, now: []string{"schema: / type"}},
+}
+
 func p3Check(t *testing.T, label string, r v2.ExperimentalCandidateVerification, exp p3Expected) {
 	t.Helper()
 	er := exp.Route
@@ -288,6 +301,32 @@ func p3Check(t *testing.T, label string, r v2.ExperimentalCandidateVerification,
 	}
 	if exp.Verification.Verified && len(r.Verification.Errors) != 0 {
 		t.Errorf("%s: errors on a verified bundle: %v", label, r.Verification.Errors)
+	}
+	if m, ok := p3V22Go[label]; ok {
+		// V2-2 decides it first in Go: the old wording is the check it no longer reaches.
+		errs := r.Verification.Errors
+		if !reflect.DeepEqual(exp.Verification.ErrorsContain["go"], m.was) {
+			t.Errorf("%s: the fixture expects %q, the V2-2 map was written for %q", label, exp.Verification.ErrorsContain["go"], m.was)
+		}
+		for _, e := range errs {
+			if !strings.HasPrefix(e, "schema: ") {
+				t.Errorf("%s: %q is not a schema error: %q", label, e, errs)
+			}
+		}
+		if m.truncated && (len(errs) != 17 || errs[16] != "schema: further errors not listed") {
+			t.Errorf("%s: %d errors, want 16 and the marker: %q", label, len(errs), errs)
+		} else if !m.truncated && len(errs) != len(m.now) {
+			t.Errorf("%s: errors %q, want %q", label, errs, m.now)
+		}
+		for _, w := range m.now {
+			if !slices.Contains(errs, w) {
+				t.Errorf("%s: no error %q: %q", label, w, errs)
+			}
+		}
+		if len(r.Verification.SignerKeys) != 0 {
+			t.Errorf("%s: signer keys %v before any signature", label, r.Verification.SignerKeys)
+		}
+		return
 	}
 	for _, s := range exp.Verification.ErrorsContain["go"] {
 		found := false
@@ -603,7 +642,8 @@ func TestExperimentalCandidateVerifierMutatedBuffer(t *testing.T) {
 func TestExperimentalCandidateTodaysAPIStillRefusesV2(t *testing.T) {
 	v := p3Load(t)
 	r := v2.VerifySignedBundleV2At(p3Registry(), p3Input(t, v, p3Case_(t, v, "P01")), v2.DefaultVerifierPolicy(), time.UnixMilli(v.NowMs))
-	if r.Verified || !strings.Contains(fmt.Sprint(r.Errors), "Unknown canonicalization_profile: dcp-jcs-v2") {
+	// The default path refuses the candidate identifier through V2-2 (const dcp-jcs-v1) before the profile check.
+	if r.Verified || !reflect.DeepEqual(r.Errors, []string{"schema: /bundle/manifest/canonicalization_profile const"}) {
 		t.Errorf("%v %v", r.Verified, r.Errors)
 	}
 }

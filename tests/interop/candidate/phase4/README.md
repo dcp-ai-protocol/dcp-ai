@@ -30,7 +30,9 @@ They do not activate `dcp-jcs-v2` or change any default.
 
 The verdict is all or nothing. It expects:
 
-- exactly 975 results: 575 positive (115 units × 5 consumers) and 400 negative (16 × 5 × 5);
+- exactly 975 results (115 units × 5 consumers, and 16 × 5 × 5 byte-level negatives): 525 positive and 450
+  negative, the 400 byte-level ones and the 50 results of `S09` that V2-2 refuses (below). Before V2-2 every unit
+  was positive: 575 and 400;
 - every step, and each result fresh from this run;
 - the same `manifest_hash` from every producer for each specification;
 - the same unit from every producer, except for the ML-DSA signature values, which are masked only at their
@@ -39,6 +41,29 @@ The verdict is all or nothing. It expects:
 - the run finished before the deadline (`--deadline`, 1800 s by default). At the deadline the whole process group
   of the step is killed: each step starts detached in its own POSIX process group, so this is not promised on
   Windows.
+
+### `S09` under V2-2
+
+V2-2 is the schema validation in every SDK's verifier. On the candidate path it runs after the parser and the profile
+policy, and before the verifier checks payload hashes and signatures. It closes the audit entry, the checkpoint, the
+`SignedPayload` envelope and its `composite_sig`. `S09` puts a member the producer does not know in each of them,
+so its 50 results (5 producers × 2 modes × 5 consumers) are refused on the candidate path. The specification and its
+bytes are unchanged; the expectation is in the runner (`V2_2_CLOSED_MEMBERS` in `run.mjs`):
+
+- route `candidate`, verifier `dcp-jcs-v2` entered, `verified` false, no class and no decoder call;
+- these four diagnostics, in this order, which every SDK returns:
+  - `schema: /bundle/audit_entries/1 additionalProperties x_entry_ext`
+  - `schema: /bundle/intent additionalProperties x_artifact_ext`
+  - `schema: /bundle/intent/composite_sig additionalProperties x_sig_ext`
+  - `schema: /bundle/pq_checkpoints/0 additionalProperties x_checkpoint_ext`
+
+  The adapters record only the first three errors of a result, so the matrix compares exactly those three. Each
+  SDK's producer tests (bundle generation) assert all four;
+- each refusal counts only when the `S04` unit (the checkpoint without those members) of the same producer and mode
+  is verified by the same consumer.
+
+The member `S09` adds to the intent target is open and raises no diagnostic. The run fails if any `S09` result is
+accepted or refused in any other way, or if any other positive is refused.
 
 ## Running it
 

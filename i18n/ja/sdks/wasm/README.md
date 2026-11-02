@@ -2,7 +2,7 @@
 
 # @dcp-ai/wasm — WebAssembly SDK v2.0
 
-> [英語版 README](../../../../sdks/wasm/README.md)の参考訳です。更新日：2026年10月30日。検証済みの例を維持するため、識別子とコードブロック（コメントを含む）は原文のままにしています。
+> [英語版 README](../../../../sdks/wasm/README.md)の参考訳です。更新日：02/11/2026。検証済みの例を維持するため、識別子とコードブロック（コメントを含む）は原文のままにしています。
 
 Digital Citizenship Protocol（DCP）v2.0 向けの WebAssembly モジュールで、Rust SDK からコンパイルされます。耐量子複合署名、ハイブリッド鍵生成、ML-KEM-768 による鍵カプセル化、二重ハッシュ、バンドルの構築・検証、セキュリティ階層の算出を提供します。ブラウザーまたは Node.js で直接動作し、サーバーは不要です。
 
@@ -193,6 +193,8 @@ WASM モジュールを初期化します。各 API を使う前に一度呼び�
 |--------|---------|-------------|
 | `compositeVerify(context, payload, sig, classicalPk, pqPk?)` | `CompositeVerifyResult` | 複合署名の暗号学的検証 |
 | `verifyBundle(signedBundle, policy?)` | `V2VerificationResult` | ポリシーモードとセキュリティ階層のモードのうち厳しい方を用い、V2 バンドルの構造、暗号、主ハッシュチェーンを検証します（spec §14.3）。`resolved_tier` と `verification_mode` を返します。`policy` で既定値から変更できるのは、`default_mode`、`risk_overrides`、フェーズ3のフィールド（`advisory_rejected_algs`、`warn_classical_only_deprecated`、`allow_classical_fallback_disable`）、`max_session_duration_seconds`（署名された `session_issued_at` から測定。マニフェストに `session_expires_at` がある場合、`signBundle` がこのフィールドを書き込みます）、`require_session_expiry`（`session_expires_at` のないマニフェストを拒否）、および `verifier_id` と組み合わせた `require_audience_binding`（`intended_verifier` がない、または `verifier_id` と異なるマニフェストを拒否）のみです。ポリシーを渡した場合、V1 バンドルは拒否されます |
+
+**スキーマ検証（V2-2。`main` にあり、公開済みのバージョンには含まれない）。** `verifyBundle` と `wasm_verify_signed_bundle_v2`は、ポリシーと時計の確認の後、検証器がマニフェスト、ペイロードのハッシュ、鍵、署名を確認する前に、まず署名済み bundle のエンベロープと四つのペイロードを `schemas/v2` に照らして検証します。実験的な候補のエクスポートも同じゲートを通ります。失敗した bundle は `verified: false` と `schema: <JSON pointer> <keyword>[ <member>]` のエラー（最大 16 件、その後に `schema: further errors not listed`）を返し、暗号に関する詳細は返しません。閉じたオブジェクトの未知のメンバーは拒否されます。intent の `target` のような開いたオブジェクトでは、宣言されたメンバーは制約を保ち、追加のメンバーだけが検査されません。マニフェストの `session_issued_at` と `session_expires_at` は、存在する場合は `null` ではなく文字列でなければなりません。`date-time` は参照検証器の ajv-formats 3.0.1 による確認に従い、これは厳密な RFC 3339 ではありません。バインディングのポリシーのパースエラー、`JSON parse error`、バージョンの振り分け（`Unknown DCP version`）は、引き続き V2-2 の前に来ます。**受理の変更：** 以前は検証に成功していたスキーマ上無効な bundle は、今は拒否されます。スキーマだけの API はありません。[カバレッジマップ](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)を参照してください。
 
 <a id="hash-operations"></a>
 

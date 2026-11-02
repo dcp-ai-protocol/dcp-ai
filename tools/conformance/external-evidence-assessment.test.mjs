@@ -1,5 +1,6 @@
 // Self-tests of --assessment on the evidence catalog (contract /2): legacy (the default, unchanged) and verdict (the
-// 146 rejections that carry an error_contains judged on verified=false alone, their wording a diagnostic). A fake
+// 146 rejections that carry an error_contains judged on verified=false alone, their wording a diagnostic). With V2-2 in
+// every SDK, 16 of those 146 now carry a schema diagnostic (v2-2-wording-rows.mjs): legacy fails them on wording. A fake
 // implementation, written to a temporary directory, answers with the TypeScript wrapper's real answers (cached once
 // per test run) altered by mode; it finds each case by its content through the runner's own loader. The five real
 // wrappers run the verdict assessment too. No source file in the checkout is written.
@@ -16,6 +17,7 @@ import { fileURLToPath, pathToFileURL } from "url";
 import { ARTIFACTS } from "./wrappers/build.mjs";
 import { InfraError } from "./external.js";
 import { ASSESSMENT_SCHEMA, VERDICT_TEXT, assertVerdictPlan, loadEvidencePlan } from "./external-evidence.js";
+import { V2_2_WORDING_ROWS, legacyV22Problem } from "./v2-2-wording-rows.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "..", "..");
@@ -27,6 +29,12 @@ const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "dcp-assessment-"));
 process.on("exit", () => fs.rmSync(TMP, { recursive: true, force: true }));
 const CATALOG = JSON.parse(fs.readFileSync(path.join(HERE, "external-evidence-catalog.json"), "utf8"));
 const WORDING = 146;
+// V2-2 now decides 16 of the 146 first in every SDK; the real answers (and so the fake's unaltered ones) carry their
+// schema diagnostic: legacy fails exactly those on wording, verdict passes them with the wording reported as differs.
+const V22 = V2_2_WORDING_ROWS.length;
+const MATCHED = WORDING - V22;
+const V22_DIAGNOSTIC = { matched: MATCHED, differs: V22, no_message: 0, not_evaluated: 0 };
+const differsIds = (report) => cases(report).filter((c) => c.diagnostic?.wording === "differs").map((c) => c.id).sort();
 
 const WRAPPERS = {
   ts: { argv: TS, ready: () => fs.existsSync(TS_SDK), why: "sdks/typescript/dist is not built", required: true },
@@ -163,15 +171,28 @@ const checkTotals = (report) => {
 
 // ── T1–T10: one scenario per fake mode, in both assessments ─────
 
-test("T1 unaltered answers: 241/241 in both; verdict reports 146 matched", () => {
+test("T1 unaltered answers: legacy fails only the 16 V2-2 rows on wording; verdict 241/241, 130 matched and those 16 differ", () => {
   const legacy = fake("unaltered", "legacy");
-  assert.equal(legacy.code, 0, legacy.stderr);
-  assert.deepEqual(legacy.report.totals, { cases: 241, executed: 241, pass: 241, fail: 0, error: 0 });
+  assert.equal(legacy.code, 1, legacy.stderr);
+  assert.deepEqual(legacy.report.totals, { cases: 241, executed: 241, pass: 241 - V22, fail: V22, error: 0 });
+  assert.equal(legacyV22Problem(legacy.report), null);
   const verdict = fake("unaltered", "verdict");
   assert.equal(verdict.code, 0, verdict.stderr);
   assert.equal(verdict.report.totals.pass, 241);
-  assert.deepEqual(verdict.report.diagnostic_totals, { matched: WORDING, differs: 0, no_message: 0, not_evaluated: 0 });
+  assert.deepEqual(verdict.report.diagnostic_totals, V22_DIAGNOSTIC);
+  assert.deepEqual(differsIds(verdict.report), [...V2_2_WORDING_ROWS].sort());
   checkTotals(verdict.report);
+});
+
+test("T1b the 16 pinned V2-2 wording rows are exactly the schema-first rows whose diagnostic lacks their error_contains", () => {
+  const map = JSON.parse(fs.readFileSync(path.join(REPO, "tests/interop/v2/schema_validation/regression_map.json"), "utf8"));
+  const diag = (e) => `schema: ${e.instance || "/"} ${e.keyword}${e.member === undefined ? "" : ` ${e.member}`}`;
+  const plan = new Map(loadEvidencePlan().suites.find((s) => s.id === "external.v2.bundle_vectors").cases.map((c) => [c.id.split(".").pop(), c]));
+  const derived = map.rows.filter((r) => r.fixture === "tests/interop/v2/bundle_vectors.json").filter((r) => {
+    const c = plan.get(r.name);
+    return c?.expect.error_contains !== undefined && !r.schema_errors.map(diag).join("\n").toLowerCase().includes(c.expect.error_contains.toLowerCase());
+  }).map((r) => plan.get(r.name).id).sort();
+  assert.deepEqual(derived, [...V2_2_WORDING_ROWS].sort());
 });
 
 test("T2 right verdicts with a neutral message: legacy fails the 146, verdict passes them as differs", () => {
@@ -270,7 +291,7 @@ test("T8 a missing, duplicate, malformed or rejected result is not evaluated; an
   assert.equal(extra.code, 3);
   assert.equal(extra.report.status, "error");
   assert.ok(cases(extra.report).some((c) => c.id.endsWith("#extra") && c.kind === "extra"));
-  assert.equal(extra.report.diagnostic_totals.matched, WORDING);
+  assert.deepEqual(extra.report.diagnostic_totals, V22_DIAGNOSTIC);
   assert.match(extra.report.assessment.conformance, /only status pass/);
   assert.equal(fake("extra-result", "legacy").code, 3);
 });
@@ -308,16 +329,19 @@ test("T10 a fatal run (exit 1 or a real timeout) is an error in both; verdict ma
 test("T10b each suite selected alone: its controls are included, the counts and diagnostic totals are its own", () => {
   const expected = { "external.merkle.dual_root": [6, 0], "external.signature.composite": [24, 0], "external.v2.bundle_vectors": [131, 117], "external.v2.secondary_sha3": [80, 29] };
   for (const [suite, [count, wording]] of Object.entries(expected)) {
+    const v22 = V2_2_WORDING_ROWS.filter((id) => id.startsWith(`${suite}.`)).length;
     for (const assessment of ["legacy", "verdict"]) {
       const r = fake("unaltered", assessment, ["--suite", suite]);
-      assert.equal(r.code, 0, `${suite} ${assessment}: ${r.stderr}`);
+      const failing = assessment === "legacy" ? v22 : 0;
+      assert.equal(r.code, failing ? 1 : 0, `${suite} ${assessment}: ${r.stderr}`);
       assert.deepEqual(r.report.selection, [suite]);
-      assert.deepEqual(r.report.totals, { cases: count, executed: count, pass: count, fail: 0, error: 0 }, `${suite} ${assessment}`);
+      assert.deepEqual(r.report.totals, { cases: count, executed: count, pass: count - failing, fail: failing, error: 0 }, `${suite} ${assessment}`);
+      if (assessment === "legacy") assert.equal(legacyV22Problem(r.report), null, suite);
       const ids = new Set(cases(r.report).map((c) => c.id));
       assert.ok(cases(r.report).every((c) => (c.controls ?? []).every((k) => ids.has(k))), `${suite}: every control is in the selection`);
       if (assessment === "verdict") {
         assert.equal(r.report.assessment.wording_cases, wording, suite);
-        assert.deepEqual(r.report.diagnostic_totals, { matched: wording, differs: 0, no_message: 0, not_evaluated: 0 }, suite);
+        assert.deepEqual(r.report.diagnostic_totals, { matched: wording - v22, differs: v22, no_message: 0, not_evaluated: 0 }, suite);
       }
     }
   }
@@ -339,8 +363,11 @@ test("T11 the Merkle and missing-PQ modes are effective, the same in both assess
       const merkle = cases(fake(mode, assessment).report).filter((c) => c.op === "dual_merkle_root");
       assert.ok(merkle.some((c) => c.status === "fail") && merkle.some((c) => c.status === "pass"), `${mode} ${assessment}`);
     }
-    // The stripped-PQ attack alone may be rejected as missing_pq_signature (241/241); the same code on other negatives fails.
-    assert.equal(fake("missing-pq-stripped-only", assessment).report.totals.pass, 241, assessment);
+    // The stripped-PQ attack alone may be rejected as missing_pq_signature (nothing else changes: verdict 241/241, legacy
+    // only the 16 V2-2 wording rows); the same code on other negatives fails.
+    const stripped = fake("missing-pq-stripped-only", assessment).report;
+    assert.equal(stripped.totals.pass, assessment === "verdict" ? 241 : 241 - V22, assessment);
+    if (assessment === "legacy") assert.equal(legacyV22Problem(stripped), null);
     const onNegatives = cases(fake("missing-pq-on-negatives", assessment).report).filter((c) => c.op === "composite_verify" && c.expect.valid === false);
     assert.ok(onNegatives.some((c) => c.status === "pass") && onNegatives.some((c) => c.status === "fail"), assessment);
   }
@@ -378,7 +405,7 @@ function rootWith(edit) {
   return root;
 }
 
-test("T12 a fixture without a valid anchor: legacy still passes, verdict is an infrastructure error", () => {
+test("T12 a fixture without a valid anchor: legacy runs as before (only the 16 V2-2 wording rows fail), verdict is an infrastructure error", () => {
   for (const [label, edit] of [
     ["no spec_step", (rel, d) => { if (rel.endsWith("bundle_vectors.json")) delete d.must_reject[0].spec_step; }],
     ["spec_step V2-15", (rel, d) => { if (rel.endsWith("bundle_vectors.json")) d.must_reject_bundles[0].spec_step = "V2-15"; }],
@@ -386,7 +413,8 @@ test("T12 a fixture without a valid anchor: legacy still passes, verdict is an i
   ]) {
     const root = rootWith(edit);
     const legacy = cli(["--root", root, "--catalog", "evidence", "--", ...fakeArgv("unaltered")]);
-    assert.equal(legacy.code, 0, `${label}: ${legacy.stderr}`);
+    assert.equal(legacy.code, 1, `${label}: ${legacy.stderr}`);
+    assert.equal(legacyV22Problem(legacy.report), null, label);
     const verdict = cli(["--root", root, "--catalog", "evidence", "--assessment", "verdict", "--", ...fakeArgv("unaltered")]);
     assert.equal(verdict.code, 3, label);
     assert.equal(verdict.report.error.kind, "catalog", label);
@@ -492,7 +520,8 @@ test("T14 a custom /2 catalog by path works in both modes; its prose is kept apa
   const file = path.join(TMP, "custom-evidence.json");
   fs.writeFileSync(file, JSON.stringify(custom));
   const legacy = cli(["--catalog", file, "--", ...fakeArgv("unaltered")]);
-  assert.equal(legacy.code, 0, legacy.stderr);
+  assert.equal(legacy.code, 1, legacy.stderr);
+  assert.equal(legacyV22Problem(legacy.report), null);
   assert.equal(legacy.report.suites[2].claim, custom.suites[2].claim);
   const verdict = cli(["--catalog", file, "--assessment", "verdict", "--", ...fakeArgv("unaltered")]);
   assert.equal(verdict.code, 0, verdict.stderr);
@@ -518,11 +547,12 @@ test("T14 --list: unchanged without --assessment, states the mode with it", () =
 // ── T15: the five real wrappers under the verdict assessment ────
 
 for (const [name, w] of Object.entries(WRAPPERS)) {
-  test(`T15 ${name}: verdict 241/241, 146 matched`, (t) => {
+  test(`T15 ${name}: verdict 241/241, 130 matched and the 16 V2-2 rows differ`, (t) => {
     if (!available(t, w)) return;
     const r = cli(["--catalog", "evidence", "--assessment", "verdict", "--", ...w.argv]);
     assert.equal(r.code, 0, r.stderr);
     assert.deepEqual(r.report.totals, { cases: 241, executed: 241, pass: 241, fail: 0, error: 0 });
-    assert.deepEqual(r.report.diagnostic_totals, { matched: WORDING, differs: 0, no_message: 0, not_evaluated: 0 });
+    assert.deepEqual(r.report.diagnostic_totals, V22_DIAGNOSTIC);
+    assert.deepEqual(differsIds(r.report), [...V2_2_WORDING_ROWS].sort());
   });
 }

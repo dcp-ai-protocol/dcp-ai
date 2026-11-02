@@ -4,6 +4,7 @@
  * verifier, admission and the experimental candidate verifier (its v1 route on the vectors, its dcp-jcs-v2 route on a
  * bundle it produces).
  */
+import { expectSchemaRejection, schemaFirstRow } from './schema-regression-map.js';
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -63,13 +64,22 @@ describe('secondary SHA3-256 vectors', () => {
         expect(r.verified).toBe(true);
         return;
       }
-      expect(r.verified).toBe(false);
-      expect(r.errors.some((e) => e.includes(c.error_contains!)), r.errors.join(' | ')).toBe(true);
-      // The defect is the only one: no other check fails.
-      expect(r.errors.every((e) => e.includes('secondary')), r.errors.join(' | ')).toBe(true);
-      // The root lands in the manifest step, the chain and the intent in the audit step.
-      if (c.group === 'root') expect(r.details?.manifest_valid).toBe(false);
-      else expect(r.details?.hash_chain_valid).toBe(false);
+      // A secondary field that is null, not a string or outside its pattern now fails V2-2 first, with exactly the
+      // oracles' schema errors and no cryptographic details (no other check ran); the inconsistent-value check stays
+      // covered by the schema-valid rejects of the same group (regression_map.json).
+      const row = schemaFirstRow('secondary_sha3_vectors.json', c.name);
+      if (row) {
+        expectSchemaRejection(r, row);
+        expect(r.details).toEqual({});
+      } else {
+        expect(r.verified).toBe(false);
+        expect(r.errors.some((e) => e.includes(c.error_contains!)), r.errors.join(' | ')).toBe(true);
+        // The defect is the only one: no other check fails.
+        expect(r.errors.every((e) => e.includes('secondary')), r.errors.join(' | ')).toBe(true);
+        // The root lands in the manifest step, the chain and the intent in the audit step.
+        if (c.group === 'root') expect(r.details?.manifest_valid).toBe(false);
+        else expect(r.details?.hash_chain_valid).toBe(false);
+      }
       const control = await verifySignedBundleV2(assemble(c.control!), registry, undefined, NOW);
       expect(control.errors).toEqual([]);
       expect(control.verified).toBe(true);
