@@ -24,6 +24,7 @@ import { GossipManager, isWellFormedSTH } from "./gossip.js";
 import { isOperator, parseBody } from "../../lib/http.js";
 
 const PORT = Number(process.env.PORT) || 3002;
+const GOSSIP_INTERVAL_MS = Number(process.env.GOSSIP_INTERVAL_MS) || 30_000;
 const LOG_ID = process.env.LOG_ID || `log-${crypto.randomUUID().slice(0, 8)}`;
 
 // STHs are Ed25519-signed so anyone holding the public key can verify them.
@@ -259,6 +260,8 @@ async function handle(req, res) {
     }
 
     gossipManager.addPeer(body.peer_id, body.endpoint, body.public_key);
+    // A log started without GOSSIP_PEERS polls from its first added peer on; startPolling keeps one schedule.
+    gossipManager.startPolling(GOSSIP_INTERVAL_MS);
     send(res, 200, { added: body.peer_id, peers: gossipManager.getPeers().length });
     return;
   }
@@ -293,8 +296,7 @@ server.listen(PORT, () => {
   console.log("  POST /gossip/peers     — add gossip peer (operator token)");
   console.log("  GET  /gossip/alerts    — split-view security alerts");
 
-  const pollInterval = Number(process.env.GOSSIP_INTERVAL_MS) || 30_000;
   if (gossipManager.getPeers().length > 0) {
-    gossipManager.startPolling(pollInterval);
+    gossipManager.startPolling(GOSSIP_INTERVAL_MS);
   }
 });

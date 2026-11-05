@@ -564,3 +564,78 @@ test("gossip polls never overlap, and a peer that does not answer is given up on
   assert.ok(peak <= 2, `${peak} concurrent polls`);
   assert.ok(total >= 3, `only ${total} polls: a hung one blocked the rest`);
 });
+
+// ── Peers added after start ─────────────────────────────────────────
+
+test("a peer added by POST /gossip/peers after an empty start is polled, as one configured at start is", async () => {
+  const k = nacl.sign.keyPair();
+  const control = await fakePeer(() => signHead(k, "log-dynamic", null, 0));
+  const dynamic = await fakePeer(() => signHead(k, "log-dynamic", null, 0));
+  try {
+    const configured = await startLog({ GOSSIP_PEERS: `${control.url}#${b64(k.publicKey)}`, GOSSIP_INTERVAL_MS: "100" });
+    await waitFor(async () => (await configured.peers())[0].last_sth?.log_id === "log-dynamic", "the peer configured at start to be polled");
+    const log = await startLog({ GOSSIP_PEERS: "", GOSSIP_INTERVAL_MS: "100" });
+    assert.equal((await log.post("/gossip/peers", { peer_id: "dynamic", endpoint: dynamic.url, public_key: b64(k.publicKey) }, asOperator)).status, 200);
+    await waitFor(async () => (await log.peers()).find((p) => p.peer_id === "dynamic")?.last_sth?.log_id === "log-dynamic", "the added peer to be polled");
+    await waitFor(() => dynamic.requests() >= 3, "repeated polls of the added peer");
+  } finally {
+    control.close();
+    dynamic.close();
+  }
+});
+
+test("a refused POST /gossip/peers starts no polling; the first accepted one does", async () => {
+  const k = nacl.sign.keyPair();
+  const fake = await fakePeer(() => signHead(k, "log-refused", null, 0));
+  try {
+    const log = await startLog({ GOSSIP_PEERS: "", GOSSIP_INTERVAL_MS: "100" });
+    const body = { peer_id: "p", endpoint: fake.url, public_key: b64(k.publicKey) };
+    assert.equal((await log.post("/gossip/peers", body)).status, 401);
+    assert.equal((await log.post("/gossip/peers", body, { authorization: "Bearer not-the-token" })).status, 401);
+    assert.equal((await log.post("/gossip/peers", { ...body, public_key: "not-a-key" }, asOperator)).status, 400);
+    assert.equal((await log.post("/gossip/peers", { ...body, endpoint: "file:///etc/passwd" }, asOperator)).status, 400);
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    assert.equal(fake.requests(), 0, "no refused request added a peer or started polling");
+    assert.deepEqual(await log.peers(), []);
+    assert.equal((await log.post("/gossip/peers", body, asOperator)).status, 200);
+    await waitFor(() => fake.requests() >= 2, "polls after the accepted request");
+  } finally {
+    fake.close();
+  }
+});
+
+test("adding and re-adding peers keeps one schedule: polls do not multiply and never overlap", async () => {
+  const k = nacl.sign.keyPair();
+  let active = 0;
+  let peak = 0;
+  let total = 0;
+  const server = http.createServer((req, res) => {
+    total++;
+    peak = Math.max(peak, ++active);
+    // A slow answer, so overlapping schedules would show as concurrent polls.
+    setTimeout(() => {
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify(signHead(k, "log-schedule", null, 0)));
+      active--;
+    }, 40);
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  try {
+    const url = `http://127.0.0.1:${server.address().port}`;
+    const log = await startLog({ GOSSIP_PEERS: "", GOSSIP_INTERVAL_MS: "100" });
+    // The same alias added five times: each request replaces the entry and asks for polling.
+    for (let i = 0; i < 5; i++) assert.equal((await log.post("/gossip/peers", { peer_id: "p", endpoint: url, public_key: b64(k.publicKey) }, asOperator)).status, 200);
+    await waitFor(() => total >= 2, "the first polls");
+    const start = { at: performance.now(), total };
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const polls = total - start.total;
+    const intervals = (performance.now() - start.at) / 100;
+    // One schedule polls the one alias once per interval; five schedules would poll about five times as often.
+    assert.ok(polls >= 3 && polls <= intervals + 3, `${polls} polls in ${intervals.toFixed(1)} intervals`);
+    assert.ok(peak <= 1, `${peak} concurrent polls of one alias`);
+    assert.equal((await log.peers()).length, 1);
+  } finally {
+    server.closeAllConnections();
+    server.close();
+  }
+});

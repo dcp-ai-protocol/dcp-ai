@@ -714,6 +714,12 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Fixed
 
+- Transparency log: a peer added by `POST /gossip/peers` to a log started without `GOSSIP_PEERS` was never
+  polled (source on `main`, not in a published version). Polling started only at startup, and only with configured
+  peers. The first accepted addition now starts it. `startPolling` keeps one schedule, so repeated additions or
+  replacements do not multiply polls, and a refused request (401 or 400) starts nothing. Each poll still reads 16 KB
+  at most and times out after the interval or 10 s, whichever is shorter; cycles never overlap, and an answer whose
+  alias changed meanwhile is still discarded. The exchange, pinned keys, alerts and the other endpoints are unchanged.
 - **Acceptance change: Go `v2.VerifyPayloadHash` now checks the normative `payload_hash`** (source on
   `main`, not published; Go v2.11.1 keeps the defect). It compared the bare hex SHA-256 with
   `payload_hash`, so it returned `false` for `SignPayload` output and for every schema-valid value

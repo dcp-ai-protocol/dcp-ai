@@ -171,7 +171,7 @@ As cabeças de árvore de um par só contam quando são verificadas com a sua ch
 `<endpoint>#<base64 Ed25519 public key>` em `GOSSIP_PEERS`, ou como `public_key` em `POST /gossip/peers`. São
 ignoradas as cabeças de árvore consultadas a um par sem chave fixada, as malformadas e as que têm assinatura inválida.
 Uma consulta lê no máximo 16 KB, desiste após um intervalo (10 s no máximo) e nunca começa enquanto a anterior ainda
-está em andamento. `/gossip/exchange` é aberto, então só aceita uma STH bem formada (`root` de 64 hexadecimais ou nulo,
+está em andamento. A sondagem começa com o serviço quando `GOSSIP_PEERS` lista pares, ou com o primeiro par que um `POST /gossip/peers` aceito adiciona (uma requisição recusada não inicia nada). A partir daí, um único ciclo periódico, a cada `GOSSIP_INTERVAL_MS`, consulta os pares por vez; um tick é pulado enquanto o ciclo anterior ainda está em andamento, então com um ciclo lento ou muitos pares um par não é necessariamente consultado a cada intervalo. `/gossip/exchange` é aberto, então só aceita uma STH bem formada (`root` de 64 hexadecimais ou nulo,
 `size` inteiro) assinada por um par fixado, em um corpo de no máximo 16 KB (caso contrário, 400 ou 403). Qualquer pessoa pode lhe entregar a cabeça
 de um par fixado que lhe tenham mostrado.
 
