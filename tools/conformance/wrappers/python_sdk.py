@@ -10,7 +10,7 @@ canonicalize: strict UTF-8 decoding and ``json.loads`` with NaN/Infinity refused
 rejected/parse), then ONE call to ``canonicalize_v2``. Only the documented rejection (a ``TypeError``
 whose message starts "Non-integer number at" or "Non-finite number at"; the SDK has no stable error
 code) is reported as rejected/profile; any other exception is an error. digest: ``sha256_hex`` /
-``sha3_256_hex`` of the decoded bytes. Contracts /2 and /3 (opt-in) are described where they are handled below.
+``sha3_256_hex`` of the decoded bytes. Contracts /2, /3 and /4 (opt-in) are described where they are handled below.
 """
 
 from __future__ import annotations
@@ -158,7 +158,7 @@ def exact_now_ms(t: object) -> int | None:
 
 
 def fault() -> None:
-    # Self-tests only: DCP_CONFORMANCE_WRAPPER_FAULT=untyped replaces each /3 SDK call by a ValueError (the base class
+    # Self-tests only: DCP_CONFORMANCE_WRAPPER_FAULT=untyped replaces each /3 and /4 SDK call by a ValueError (the base class
     # of AdmissionConfigError, not that class) whose text carries a configuration code: it can only become an error.
     if os.environ.get("DCP_CONFORMANCE_WRAPPER_FAULT") == "untyped":
         raise ValueError("CONFIG_INVALID_VALUE: injected by DCP_CONFORMANCE_WRAPPER_FAULT")
@@ -211,11 +211,51 @@ def run_admission_case(c: dict) -> dict:
             "codes": [e["code"] for e in r["errors"]], "verification_verified": r["verification"]["verified"]}
 
 
-def run_case(c: dict, v2: bool = False, v3: bool = False) -> dict:
+CONTRACT_V4 = "dcp-ai-conformance-external/4"
+DELEGATION = {"verify_mandate_chain": ["id", "op", "chain_b64", "keys_b64", "revoked_mandate_ids", "verification_time"]}
+EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
+
+
+def run_delegation_case(c: dict) -> dict:
+    """Contract /4 (opt-in delegation, DCP-09 §3.5.2): one call per case to verify_mandate_chain, with the Ed25519 and
+    ML-DSA-65 providers, the request's keys and revoked ids, and its verification_time read by the SDK's
+    rfc3339_epoch_ms as an aware UTC datetime (never the system clock). The chain and the keys arrive as the fixture's
+    bytes and are read with json.loads, which keeps every digit of an integer. An exception is an error; a rejected
+    chain is ok with valid: false."""
+    from dcp_ai.v2 import verify_mandate_chain
+    from dcp_ai.v2.session_nonce import rfc3339_epoch_ms
+    if not exact_keys(c, DELEGATION[c["op"]]):
+        fail(f"case fields do not match op {c['op']}")
+
+    def text(b64: object) -> object:
+        data = decode_base64_strict(b64)
+        if data is None:
+            return None
+        try:
+            return json.loads(data.decode("utf-8"), parse_constant=refuse_constant)
+        except (UnicodeDecodeError, ValueError):
+            return None
+    chain, keys = text(c["chain_b64"]), text(c["keys_b64"])
+    ms = rfc3339_epoch_ms(c["verification_time"]) if isinstance(c["verification_time"], str) else None
+    try:
+        now = EPOCH + timedelta(milliseconds=ms) if ms is not None else None
+    except OverflowError:  # an instant outside the years datetime can hold: this API cannot take it
+        now = None
+    revoked = c["revoked_mandate_ids"]
+    if not isinstance(chain, list) or not isinstance(keys, dict) or not isinstance(revoked, list) or not all(isinstance(x, str) for x in revoked) or now is None:
+        fail(f"case {c['id']}: verify_mandate_chain fields have the wrong types")
+    fault()
+    r = asyncio.run(verify_mandate_chain(registry(), chain, set(revoked), keys, now=now))
+    return {"id": c["id"], "status": "ok", "valid": r["valid"], "errors": r["errors"], "effective_tier": r["effective_tier"], "depth": r["depth"]}
+
+
+def run_case(c: dict, v2: bool = False, v3: bool = False, v4: bool = False) -> dict:
     if v2 and isinstance(c, dict) and isinstance(c.get("id"), str) and c.get("op") in EVIDENCE:
         return run_evidence_case(c)
     if v3 and isinstance(c, dict) and isinstance(c.get("id"), str) and c.get("op") in ADMISSION:
         return run_admission_case(c)
+    if v4 and isinstance(c, dict) and isinstance(c.get("id"), str) and c.get("op") in DELEGATION:
+        return run_delegation_case(c)
     op = c.get("op") if isinstance(c, dict) else None
     known = {"canonicalize": ["id", "op", "profile", "input_b64"], "digest": ["id", "op", "alg", "input_b64"]}.get(op)
     if known is None:
@@ -253,13 +293,13 @@ def main() -> None:
         request = json.loads(sys.stdin.buffer.read().decode("utf-8"))
     except (UnicodeDecodeError, ValueError) as e:
         fail(f"the request is not UTF-8 JSON ({e})")
-    if (not exact_keys(request, ["contract", "run_id", "nonce", "cases"]) or request["contract"] not in (CONTRACT, CONTRACT_V2, CONTRACT_V3)
+    if (not exact_keys(request, ["contract", "run_id", "nonce", "cases"]) or request["contract"] not in (CONTRACT, CONTRACT_V2, CONTRACT_V3, CONTRACT_V4)
             or not isinstance(request["run_id"], str) or not isinstance(request["nonce"], str) or not isinstance(request["cases"], list)):
-        fail("the request needs exactly contract dcp-ai-conformance-external/1, /2 or /3, run_id, nonce and cases")
+        fail("the request needs exactly contract dcp-ai-conformance-external/1, /2, /3 or /4, run_id, nonce and cases")
     results = []
     for c in request["cases"]:
         try:
-            results.append(run_case(c, request["contract"] == CONTRACT_V2, request["contract"] == CONTRACT_V3))
+            results.append(run_case(c, request["contract"] == CONTRACT_V2, request["contract"] == CONTRACT_V3, request["contract"] == CONTRACT_V4))
         except Exception as e:  # an unexpected exception is the implementation's error, never a rejection
             results.append({"id": c.get("id") if isinstance(c, dict) else None, "status": "error", "message": f"{type(e).__name__}: {e}"[:500]})
     response = {

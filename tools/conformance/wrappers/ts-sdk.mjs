@@ -8,7 +8,7 @@
 // canonicalizeV2. Only the SDK's documented float rejection ("Float value prohibited in DCP v2.0 at ...",
 // a plain Error with no stable code) is reported as rejected/profile; any other exception is an error.
 // digest: sha256Hex / sha3_256Hex of the decoded bytes. Without --sdk, `@dcp-ai/sdk` is resolved from here.
-// Contract /2 and /3 (opt-in) are described where they are handled below.
+// Contracts /2, /3 and /4 (opt-in) are described where they are handled below.
 import fs from "fs";
 import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
@@ -54,9 +54,10 @@ try {
 }
 const V2 = request?.contract === "dcp-ai-conformance-external/2";
 const V3 = request?.contract === "dcp-ai-conformance-external/3";
-if (!exactKeys(request, ["contract", "run_id", "nonce", "cases"]) || (request.contract !== "dcp-ai-conformance-external/1" && !V2 && !V3) ||
+const V4 = request?.contract === "dcp-ai-conformance-external/4";
+if (!exactKeys(request, ["contract", "run_id", "nonce", "cases"]) || (request.contract !== "dcp-ai-conformance-external/1" && !V2 && !V3 && !V4) ||
     typeof request.run_id !== "string" || typeof request.nonce !== "string" || !Array.isArray(request.cases)) {
-  fail("the request needs exactly contract dcp-ai-conformance-external/1, /2 or /3, string run_id and nonce, and cases");
+  fail("the request needs exactly contract dcp-ai-conformance-external/1, /2, /3 or /4, string run_id and nonce, and cases");
 }
 
 // Contract /2 (opt-in evidence): one call per case to dualMerkleRoot, compositeVerify or verifySignedBundleV2,
@@ -107,7 +108,7 @@ async function runEvidenceCase(c) {
 // Contract /3 (opt-in admission, spec/profiles/admission): one call per case to admitSignedBundleV2 (the combined
 // function, at the request's now, never the system clock), createPrincipalTrustStore or resolveStrictV1Profile. Only
 // the SDK's AdmissionConfigError is a rejection, with its code; any other exception is an error.
-// DCP_CONFORMANCE_WRAPPER_FAULT=untyped (self-tests only) replaces each /3 SDK call by an Error that carries a
+// DCP_CONFORMANCE_WRAPPER_FAULT=untyped (self-tests only) replaces each /3 and /4 SDK call by an Error that carries a
 // configuration code but is not an AdmissionConfigError: it can only turn an answer into an error.
 const ADMISSION = {
   admit_signed_bundle_v2: ["id", "op", "bundle_b64", "now", "profile", "trust_set", "verifier_policy", "revocation"],
@@ -171,11 +172,35 @@ async function runAdmissionCase(c) {
   }
 }
 
+// Contract /4 (opt-in delegation, DCP-09 §3.5.2): one call per case to verifyMandateChain, with the Ed25519 and ML-DSA-65
+// providers, the request's keys and revoked ids, and its verification_time read by the SDK's parseRfc3339 (never the
+// system clock). The chain and the keys arrive as the fixture's bytes and are read with JSON.parse, as the SDK's own
+// corpus tests do. An exception is an error; a rejected chain is ok with valid: false.
+const DELEGATION = { verify_mandate_chain: ["id", "op", "chain_b64", "keys_b64", "revoked_mandate_ids", "verification_time"] };
+async function runDelegationCase(c) {
+  if (!exactKeys(c, DELEGATION[c.op])) fail(`case fields do not match op ${c.op}`);
+  const text = (b64) => {
+    const bytes = decodeBase64Strict(b64);
+    if (!bytes) return undefined;
+    try { return JSON.parse(new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes)); } catch { return undefined; }
+  };
+  const chain = text(c.chain_b64);
+  const keys = text(c.keys_b64);
+  const now = typeof c.verification_time === "string" ? sdk.parseRfc3339(c.verification_time) : undefined;
+  if (!Array.isArray(chain) || !isObj(keys) || !Array.isArray(c.revoked_mandate_ids) || !c.revoked_mandate_ids.every((x) => typeof x === "string") || now === undefined) {
+    fail(`case ${c.id}: verify_mandate_chain fields have the wrong types`);
+  }
+  fault();
+  const r = await sdk.verifyMandateChain(getRegistry(), chain, new Set(c.revoked_mandate_ids), keys, now);
+  return { id: c.id, status: "ok", valid: r.valid, errors: r.errors, effective_tier: r.effective_tier ?? null, depth: r.depth };
+}
+
 const isDocumentedRejection = (e) => e?.constructor === Error && /^Float value prohibited in DCP v2\.0 at /.test(e.message);
 
 function runCase(c) {
   if (V2 && isObj(c) && typeof c.id === "string" && Object.hasOwn(EVIDENCE, c.op)) return runEvidenceCase(c);
   if (V3 && isObj(c) && typeof c.id === "string" && Object.hasOwn(ADMISSION, c.op)) return runAdmissionCase(c);
+  if (V4 && isObj(c) && typeof c.id === "string" && Object.hasOwn(DELEGATION, c.op)) return runDelegationCase(c);
   const known = c.op === "canonicalize" ? ["id", "op", "profile", "input_b64"] : c.op === "digest" ? ["id", "op", "alg", "input_b64"] : null;
   if (!known) return isObj(c) && typeof c.id === "string" ? { id: c.id, status: "unsupported" } : fail("a case needs an id");
   if (!exactKeys(c, known) || typeof c.id !== "string") fail(`case fields do not match op ${c.op}`);

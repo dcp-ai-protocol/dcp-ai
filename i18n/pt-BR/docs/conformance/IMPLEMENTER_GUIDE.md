@@ -4,7 +4,7 @@
 
 # Guia de implementação e revisão independentes
 
-> Tradução informativa da [versão em inglês](../../../../docs/conformance/IMPLEMENTER_GUIDE.md), atualizada em 02/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são preservados sem tradução.
+> Tradução informativa da [versão em inglês](../../../../docs/conformance/IMPLEMENTER_GUIDE.md), atualizada em 05/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são preservados sem tradução.
 
 DCP é um protocolo que pode ser implementado de forma independente. Este guia prepara implementadores e revisores para avaliar as mesmas evidências sem adotar os aplicativos ou serviços do repositório. Não constitui auditoria, certificação ou endosso.
 
@@ -18,7 +18,8 @@ Leia a [visão geral do núcleo](../../spec/core/dcp-core.md) e depois os docume
 2. [Perfil de canonicalização](../../spec/CANONICALIZATION_PROFILE.md).
 3. [Especificação normativa V2](../../spec/DCP-AI-v2.0.md), incluindo algoritmos, vinculação entre componentes da assinatura composta e política do verificador.
 4. [Perfil de admissão](../../spec/profiles/admission/README.md), se implementar confiança no principal ou `strict-v1`.
-5. Os arquivos aplicáveis nos [esquemas V2](../../../../schemas/v2/) e as erratas citadas na especificação.
+5. [DCP-09 §3.5.2](../../spec/DCP-09.md), se cadeias de mandatos de delegação forem verificadas.
+6. Os arquivos aplicáveis nos [esquemas V2](../../../../schemas/v2/) e as erratas citadas na especificação.
 
 A divisão entre núcleo e perfis organiza a especificação; não isenta uma implementação V2 das verificações obrigatórias. Aplicativos, fontes de rede, caches e handlers protegidos pertencem às integrações. Mantenha as alegações sobre a aplicação de suas regras separadas da verificação do núcleo.
 
@@ -44,6 +45,7 @@ Na raiz do repositório, examine primeiro os casos disponíveis:
 node tools/conformance-external.js --list
 node tools/conformance-external.js --catalog evidence --list
 node tools/conformance-external.js --catalog admission --list
+node tools/conformance-external.js --catalog delegation --list
 ```
 
 Depois informe o executável e seus argumentos após `--`. Substitua `/path/to/implementation` pelo comando real:
@@ -52,9 +54,12 @@ Depois informe o executável e seus argumentos após `--`. Substitua `/path/to/i
 node tools/conformance-external.js --report /tmp/dcp-primitives.json -- /path/to/implementation
 node tools/conformance-external.js --catalog evidence --assessment verdict --report /tmp/dcp-evidence.json -- /path/to/implementation
 node tools/conformance-external.js --catalog admission --report /tmp/dcp-admission.json -- /path/to/implementation
+node tools/conformance-external.js --catalog delegation --report /tmp/dcp-delegation.json -- /path/to/implementation
 ```
 
-Esses comandos selecionam três contratos diferentes do executor. Uma implementação pode oferecer um subconjunto, mas seu relatório deve identificá-lo. WASM não tem API de admissão neste repositório. Não apresente uma operação não suportada como bem-sucedida.
+Esses comandos selecionam quatro contratos diferentes do executor. Uma implementação pode oferecer um subconjunto, mas seu relatório deve identificá-lo. WASM não tem API de admissão nem API de cadeias de mandatos neste repositório. Não apresente uma operação não suportada como bem-sucedida.
+
+O comando de delegação julga só os veredictos das cadeias de mandatos. Dez dos seus casos dependem de convenções que o DCP-09 não fixa (precisão de milissegundos, validade das chaves signatárias): um veredicto diferente num deles é informado à parte e não decide a conformidade normativa, mas uma resposta ausente, malformada, `error` ou `unsupported` a um deles ainda faz a execução falhar. As chaves e os ids revogados são dados na requisição, então um pass não é confiança no principal nem autorização de uma ação.
 
 O comando de evidências seleciona explicitamente `--assessment verdict`: avalia os veredictos normativos e preserva separadamente o texto de diagnóstico. A avaliação histórica continua disponível e mantém o padrão existente. A correspondência de uma mensagem de diagnóstico, por si só, não comprova a verificação pretendida.
 

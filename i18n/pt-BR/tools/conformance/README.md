@@ -4,7 +4,7 @@
 
 # Kit de conformidade do DCP-AI
 
-> Tradução informativa da [versão em inglês](../../../../tools/conformance/README.md), atualizada em 02/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../../tools/conformance/README.md), atualizada em 05/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 `tools/conformance.js` executa as suítes declaradas em [`catalog.json`](../../../../tools/conformance/catalog.json) contra os fixtures e
 vetores do repositório. O catálogo é versionado (`kit_version`) e fixa, para cada suíte, os IDs exatos dos
@@ -532,6 +532,83 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
     catálogo e não nos vetores.
   - **Fora deste catálogo.** Os adaptadores, as fontes de confiança e de revogação, TLS, os inquilinos, o cache e o uso
     único. O corpus são os vetores versionados e estas quatro composições, não qualquer entrada.
+
+<a id="delegation-catalog-dcp-09-mandate-chains"></a>
+
+### Catálogo de delegação: cadeias de mandatos do DCP-09
+
+`--catalog delegation` seleciona um terceiro catálogo opt-in, [`external-delegation-catalog.json`](../../../../tools/conformance/external-delegation-catalog.json)
+(contrato `dcp-ai-conformance-external/4`, 97 casos), executado contra o mesmo tipo de argv. Ele julga a verificação de
+cadeias de mandatos, [DCP-09 §3.5.2](../../../../spec/DCP-09.md), sobre três corpus versionados que o catálogo fixa por SHA-256.
+Os contratos `/1`, `/2` e `/3` e seus catálogos não mudam. Os wrappers de TypeScript, Python, Go e Rust respondem a
+`/4` por meio do seu SDK. A compilação WASM não exporta nenhuma função de cadeia de mandatos, então o seu wrapper
+recusa `/4` (exit 2), como faz com `/3`, e nada a emula.
+
+```bash
+node tools/conformance-external.js --catalog delegation --list
+node tools/conformance-external.js --catalog delegation --report /tmp/delegation-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
+node tools/conformance-external.js --catalog delegation -- /path/to/python -I tools/conformance/wrappers/python_sdk.py
+node tools/conformance-external.js --catalog delegation -- tools/conformance/wrappers/.build/go-wrapper
+node tools/conformance-external.js --catalog delegation -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+node --test tools/conformance/external-delegation.test.mjs
+DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-delegation-wrappers.test.mjs
+```
+
+| Suite | Casos | Fonte |
+|-------|-------|--------|
+| `external.delegation.chain` | 52 | [`mandate_chain_vectors.json`](../../../../tests/interop/v2/mandate_chain_vectors.json): assinaturas e papéis, vínculos, profundidade, atenuação, janelas, piso de nível, revogação |
+| `external.delegation.chain_time` | 22, 10 deles informativos | [`mandate_chain_time_vectors.json`](../../../../tests/interop/v2/mandate_chain_time_vectors.json): janelas da regra 4, seu aninhamento e o horário de verificação |
+| `external.delegation.domains` | 23 | [`mandate_domain_vectors.json`](../../../../tests/interop/v2/mandate_domain_vectors.json): um domínio repetido no mesmo mandato, em qualquer profundidade |
+
+- **Operação:** `verify_mandate_chain` recebe quatro campos.
+  - `chain_b64` e `keys_b64`: base64 dos bytes exatos que o fixture contém para a cadeia e para o seu `{human_keys, agent_keys}`.
+  - `revoked_mandate_ids`: um array de strings.
+  - `verification_time`: a string RFC 3339 exatamente como está versionada.
+
+  O runner nunca os analisa nem os volta a serializar. Os inteiros maiores que 2^53 (`9007199254740993`), a forma decimal `9007199254740991.0` e cada carimbo de tempo chegam à implementação como foram escritos.
+- **Respostas:**
+  - `ok` com exatamente `valid` (um booleano), `errors` (um array de strings), `effective_tier` (`routine`, `standard`, `elevated`, `maximum` ou `null`) e `depth` (um inteiro não negativo). Uma cadeia rejeitada é `ok` com `valid: false`.
+  - `error` com `message`, ou `unsupported`.
+
+  Uma requisição com outra forma faz o wrapper sair com 2.
+- **Julgamento:** só o veredicto é normativo. Um caso passa quando `valid` coincide e, numa cadeia aceita, também `effective_tier` (regra 6). `valid: true` com erros é um `contradictory_result`.
+  - Os textos de erro (`error_contains` ou os `errors` exatos dos corpus) e `depth` são diagnósticos dos SDKs. São informados (`matched`, `differs`, `no_message`) e nunca julgados.
+  - Uma rejeição não precisa de mensagem, nem de um `depth` específico, nem de um nível específico.
+  - `--assessment` não se aplica.
+- **Casos informativos:** dez casos de `chain_time` dependem de convenções que o DCP-09 §3.5.2 não fixa.
+  - Três dependem de comparar instantes em milissegundos (VERIFICATION.md V2-4, para bundles).
+  - Sete dependem da validade das chaves signatárias, `expires_at` (V2-13, para bundles).
+
+  O runner fixa essa lista. Esses casos são enviados e informados em `informative_totals` (`requested`, `completed`, `agrees`, `differs`, `error`) e nunca passam nem falham. Uma resposta ausente, malformada, `error` ou `unsupported` a um deles continua sendo um erro do run, e um run sem nenhum caso normativo executado nunca passa.
+- **Âncoras:** cada caso normativo nomeia a sua regra do §3.5.2: de `rule1` a `rule7`, `fail_closed` para uma entrada desconhecida, ausente ou não comparável, ou `all_rules` para uma cadeia aceita.
+- **Controles:** uma rejeição só conta se o seu controle passou no mesmo run. O controle é uma cadeia aceita normativa da mesma suite, e `control_scope` diz como os dois se relacionam:
+  - `same_chain`: os mesmos bytes de cadeia, com outros ids revogados, outro horário ou outras chaves;
+  - `single_mandate`: um mandato inteiro difere, o que pode mudar muitos campos e a sua assinatura;
+  - `same_shape`: o mesmo comprimento;
+  - `suite`: todas as cadeias aceitas da suite.
+
+  O runner verifica a relação sobre os bytes ao carregar o catálogo. Nenhuma delas afirma que os dois casos diferem por um único defeito. Uma suite selecionada leva os seus próprios controles.
+- **Catálogo:** `delegation-catalog.mjs --check` regenera o catálogo a partir dos corpus e da sua tabela de âncoras. O runner recusa, com exit 3, um catálogo que omite, repete ou reordena um caso do corpus, classifica de outro modo os casos informativos ou exagera um controle.
+- **Processo e wrappers:** como em `/1` a `/3`; o timeout padrão deste catálogo é de 300 000 ms. Os wrappers fazem uma chamada por caso com o horário da requisição, nunca com o relógio do sistema, e cada um lê a cadeia como o teste de corpus do seu próprio SDK faz:
+
+  | SDK | Cadeia | Horário |
+  |-----|-------|------|
+  | TypeScript | `JSON.parse` | `verifyMandateChain`, com o horário lido por `parseRfc3339` |
+  | Python | `json.loads` | `verify_mandate_chain`, com `rfc3339_epoch_ms` como datetime UTC com fuso |
+  | Go | `json.Unmarshal` (float64) | `VerifyMandateChain`, com `time.Parse(time.RFC3339Nano)`; o instante zero, que o SDK leria como o horário atual, é recusado |
+  | Rust | `serde_json` | `verify_mandate_chain`, com `parse_rfc3339_millis` |
+- **Autotestes:**
+  - `external-delegation.test.mjs` julga respostas sintéticas construídas a partir das expectativas do corpus, sem SDK, e verifica que os bytes enviados são fatias dos fixtures. Ele cobre:
+    - aceitar ou rejeitar tudo, um verificador que ignora uma regra e um nível errado;
+    - respostas contraditórias, malformadas, `error` e `unsupported`, e casos informativos que diferem ou falham;
+    - resultados ausentes, duplicados, extras e truncados, ids obsoletos, e processos que falham, morrem, travam ou terminam tarde;
+    - relatórios novos, a seleção, e catálogos e fixtures adulterados.
+  - `external-delegation-wrappers.test.mjs` executa os quatro wrappers por meio dos seus SDKs: os 97 casos, o relógio da requisição em três instantes, requisições malformadas e falhas injetadas. Também verifica a recusa do WASM e detecta dois SDKs de TypeScript alterados, um que ignora a revogação e outro com um relógio próprio. Ele chama os wrappers de forma assíncrona, fechando o stdin; com uma execução síncrona com entrada, viu-se um wrapper nativo esperando o fim do arquivo.
+
+  A CI executa ambos, com os quatro wrappers obrigatórios.
+- **Limites:** um pass mostra que o argv executado dá esses veredictos sobre essas cadeias versionadas, nada mais.
+  - As chaves e os ids revogados são dados na requisição. O kit não estabelece de quem são as chaves, e `valid` não é confiança no principal, nem admissão, nem autorização de uma ação.
+  - A função auxiliar de validade (`verifyMandateValidity`), `tier_floor` e os demais registros do DCP-09 ficam fora deste catálogo.
 
 <a id="performance-baseline"></a>
 

@@ -12,7 +12,8 @@ Read the [core overview](../../spec/core/dcp-core.md), then the applicable norma
 2. [Canonicalization profile](../../spec/CANONICALIZATION_PROFILE.md).
 3. [V2 normative specification](../../spec/DCP-AI-v2.0.md), including algorithms, composite binding and verifier policy.
 4. [Admission profile](../../spec/profiles/admission/README.md), if principal trust or `strict-v1` is implemented.
-5. The applicable files in [V2 schemas](../../schemas/v2/) and the specification's cited errata.
+5. [DCP-09 §3.5.2](../../spec/DCP-09.md), if delegation mandate chains are verified.
+6. The applicable files in [V2 schemas](../../schemas/v2/) and the specification's cited errata.
 
 The core/profile layout organizes the specification; it does not exempt a V2 implementation from its required checks. Applications, network sources, caches and protected handlers belong to integrations. Keep their enforcement claims separate from core verification.
 
@@ -34,6 +35,7 @@ From the repository root, first inspect the available cases:
 node tools/conformance-external.js --list
 node tools/conformance-external.js --catalog evidence --list
 node tools/conformance-external.js --catalog admission --list
+node tools/conformance-external.js --catalog delegation --list
 ```
 
 Then supply the executable and its arguments after `--`. Replace `/path/to/implementation` with your actual command:
@@ -42,9 +44,12 @@ Then supply the executable and its arguments after `--`. Replace `/path/to/imple
 node tools/conformance-external.js --report /tmp/dcp-primitives.json -- /path/to/implementation
 node tools/conformance-external.js --catalog evidence --assessment verdict --report /tmp/dcp-evidence.json -- /path/to/implementation
 node tools/conformance-external.js --catalog admission --report /tmp/dcp-admission.json -- /path/to/implementation
+node tools/conformance-external.js --catalog delegation --report /tmp/dcp-delegation.json -- /path/to/implementation
 ```
 
-These commands select three different runner contracts. An implementation may support a subset, but its report must name that subset. WASM in this repository has no admission API. Do not report an unsupported operation as successful.
+These commands select four different runner contracts. An implementation may support a subset, but its report must name that subset. WASM in this repository has no admission API and no mandate chain API. Do not report an unsupported operation as successful.
+
+The delegation command judges mandate chain verdicts only. Ten of its cases rest on conventions DCP-09 does not state (millisecond precision, signer key validity): a different verdict on one of them is reported apart and does not decide normative conformance, but a missing, malformed, `error` or `unsupported` answer to one still makes the run fail. The keys and revoked ids are given in the request, so a pass is not trust in the principal or authorization of an action.
 
 The evidence command explicitly selects `--assessment verdict`: it assesses normative verdicts and retains diagnostic wording separately. The legacy assessment remains available and keeps its existing default. A matching diagnostic string alone is not evidence of the intended check.
 

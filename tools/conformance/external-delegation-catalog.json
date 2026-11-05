@@ -1,0 +1,1119 @@
+{
+  "contract": "dcp-ai-conformance-external/4",
+  "catalog_version": "1.0.0",
+  "fixtures": {
+    "tests/interop/v2/mandate_chain_vectors.json": "ed89534bf6106851ad282073da4e3138535ce145e821403d0f441644bdd44fb4",
+    "tests/interop/v2/mandate_chain_time_vectors.json": "a1195ccead9e986eeb4ce613002caeaf68e82283304e5d755f7600fabcbf4077",
+    "tests/interop/v2/mandate_domain_vectors.json": "9e77b91b36f4269f100934492f78a1aeb5318000467f9bfb1f3355a8cef8457e"
+  },
+  "informative_bases": {
+    "millisecond_precision": {
+      "document": "spec/VERIFICATION.md (V2-4 timestamps); spec/DCP-09.md implementation notes (informative)",
+      "reason": "The expected verdict holds only if instants are compared in milliseconds, digits beyond them dropped. VERIFICATION.md states that for bundles; DCP-09 §3.5.2 says RFC 3339 instants, compared as instants, with no precision."
+    },
+    "signer_key_validity": {
+      "document": "spec/VERIFICATION.md (V2-13 key validity); spec/DCP-09.md implementation notes (informative)",
+      "reason": "The chain is rejected only because a signer key's expires_at is past or not an RFC 3339 instant. VERIFICATION.md V2-13 checks key validity for bundles; DCP-09 §3.5.2 does not state it for mandate signer keys."
+    }
+  },
+  "informative": {
+    "external.delegation.chain_time.nested_limits_equal_in_milliseconds_written_differently": "millisecond_precision",
+    "external.delegation.chain_time.windows_at_the_verification_time": "millisecond_precision",
+    "external.delegation.chain_time.verification_time_below_the_millisecond": "millisecond_precision",
+    "external.delegation.chain_time.human_classical_key_expired_one_millisecond_before": "signer_key_validity",
+    "external.delegation.chain_time.human_pq_key_expired_one_millisecond_before": "signer_key_validity",
+    "external.delegation.chain_time.agent_classical_key_expired_one_millisecond_before": "signer_key_validity",
+    "external.delegation.chain_time.agent_pq_key_expired_one_millisecond_before": "signer_key_validity",
+    "external.delegation.chain_time.key_expires_at_without_an_offset": "signer_key_validity",
+    "external.delegation.chain_time.key_expires_at_with_a_trailing_newline": "signer_key_validity",
+    "external.delegation.chain_time.key_expires_at_crossing_into_year_minus_1": "signer_key_validity"
+  },
+  "suites": [
+    {
+      "id": "external.delegation.chain",
+      "title": "DCP-09 §3.5.2 mandate chains: signatures and roles, links, depth, attenuation, windows, tier floor, revocation",
+      "source": "tests/interop/v2/mandate_chain_vectors.json",
+      "claim": "The verdict of each committed chain at the corpus verification time, with the keys and revoked ids it gives; for accepted chains, the effective tier (rule 6).",
+      "limits": [
+        "Only valid, and effective_tier on accepted chains, are judged. Error texts, their order and depth are diagnostics of the SDK APIs, not of DCP-09.",
+        "The keys and the revoked ids are given in the request, out of band: the kit does not establish whose keys they are, and valid is not trust in the principal, admission or the authorization of an action."
+      ],
+      "cases": [
+        {
+          "id": "external.delegation.chain.depth_1",
+          "name": "depth_1",
+          "list": "must_accept",
+          "index": 0,
+          "class": "normative",
+          "anchor": "all_rules"
+        },
+        {
+          "id": "external.delegation.chain.depth_2",
+          "name": "depth_2",
+          "list": "must_accept",
+          "index": 1,
+          "class": "normative",
+          "anchor": "all_rules"
+        },
+        {
+          "id": "external.delegation.chain.root_only",
+          "name": "root_only",
+          "list": "must_accept",
+          "index": 2,
+          "class": "normative",
+          "anchor": "all_rules"
+        },
+        {
+          "id": "external.delegation.chain.depth_1_without_tier_floor",
+          "name": "depth_1_without_tier_floor",
+          "list": "must_accept",
+          "index": 3,
+          "class": "normative",
+          "anchor": "all_rules"
+        },
+        {
+          "id": "external.delegation.chain.revoked_sibling_does_not_affect_the_chain",
+          "name": "revoked_sibling_does_not_affect_the_chain",
+          "list": "must_accept",
+          "index": 4,
+          "class": "normative",
+          "anchor": "all_rules"
+        },
+        {
+          "id": "external.delegation.chain.limits_at_the_safe_integer_bound",
+          "name": "limits_at_the_safe_integer_bound",
+          "list": "must_accept",
+          "index": 5,
+          "class": "normative",
+          "anchor": "all_rules"
+        },
+        {
+          "id": "external.delegation.chain.limits_written_in_decimal_form",
+          "name": "limits_written_in_decimal_form",
+          "list": "must_accept",
+          "index": 6,
+          "class": "normative",
+          "anchor": "all_rules"
+        },
+        {
+          "id": "external.delegation.chain.data_classes_narrowed_to_none",
+          "name": "data_classes_narrowed_to_none",
+          "list": "must_accept",
+          "index": 7,
+          "class": "normative",
+          "anchor": "all_rules"
+        },
+        {
+          "id": "external.delegation.chain.widened_actions_permitted",
+          "name": "widened_actions_permitted",
+          "list": "must_reject",
+          "index": 0,
+          "class": "normative",
+          "anchor": "rule5",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.added_data_classes",
+          "name": "added_data_classes",
+          "list": "must_reject",
+          "index": 1,
+          "class": "normative",
+          "anchor": "rule5",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.dropped_data_classes",
+          "name": "dropped_data_classes",
+          "list": "must_reject",
+          "index": 2,
+          "class": "normative",
+          "anchor": "rule5",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.data_classes_where_parent_has_none",
+          "name": "data_classes_where_parent_has_none",
+          "list": "must_reject",
+          "index": 3,
+          "class": "normative",
+          "anchor": "rule5",
+          "controls": [
+            "external.delegation.chain.depth_1_without_tier_floor"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.loosened_numeric_limit",
+          "name": "loosened_numeric_limit",
+          "list": "must_reject",
+          "index": 4,
+          "class": "normative",
+          "anchor": "rule5",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.changed_non_numeric_limit",
+          "name": "changed_non_numeric_limit",
+          "list": "must_reject",
+          "index": 5,
+          "class": "normative",
+          "anchor": "rule5",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.dropped_limit_key",
+          "name": "dropped_limit_key",
+          "list": "must_reject",
+          "index": 6,
+          "class": "normative",
+          "anchor": "rule5",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.limit_type_changed",
+          "name": "limit_type_changed",
+          "list": "must_reject",
+          "index": 7,
+          "class": "normative",
+          "anchor": "rule5",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.limit_of_2_53_is_not_comparable",
+          "name": "limit_of_2_53_is_not_comparable",
+          "list": "must_reject",
+          "index": 8,
+          "class": "normative",
+          "anchor": "rule5",
+          "controls": [
+            "external.delegation.chain.root_only"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.limit_of_2_53_plus_1_over_a_parent_at_the_bound",
+          "name": "limit_of_2_53_plus_1_over_a_parent_at_the_bound",
+          "list": "must_reject",
+          "index": 9,
+          "class": "normative",
+          "anchor": "rule5",
+          "controls": [
+            "external.delegation.chain.limits_at_the_safe_integer_bound"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.added_limit_of_2_53_plus_1",
+          "name": "added_limit_of_2_53_plus_1",
+          "list": "must_reject",
+          "index": 10,
+          "class": "normative",
+          "anchor": "rule5",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.unknown_domain",
+          "name": "unknown_domain",
+          "list": "must_reject",
+          "index": 11,
+          "class": "normative",
+          "anchor": "rule5",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.validity_extended_beyond_parent",
+          "name": "validity_extended_beyond_parent",
+          "list": "must_reject",
+          "index": 12,
+          "class": "normative",
+          "anchor": "rule4",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.validity_starts_before_parent",
+          "name": "validity_starts_before_parent",
+          "list": "must_reject",
+          "index": 13,
+          "class": "normative",
+          "anchor": "rule4",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.validity_offset_compared_as_text_would_pass",
+          "name": "validity_offset_compared_as_text_would_pass",
+          "list": "must_reject",
+          "index": 14,
+          "class": "normative",
+          "anchor": "rule4",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.depth_exceeded",
+          "name": "depth_exceeded",
+          "list": "must_reject",
+          "index": 15,
+          "class": "normative",
+          "anchor": "rule3",
+          "controls": [
+            "external.delegation.chain.depth_1",
+            "external.delegation.chain.depth_2",
+            "external.delegation.chain.root_only",
+            "external.delegation.chain.depth_1_without_tier_floor",
+            "external.delegation.chain.revoked_sibling_does_not_affect_the_chain",
+            "external.delegation.chain.limits_at_the_safe_integer_bound",
+            "external.delegation.chain.limits_written_in_decimal_form",
+            "external.delegation.chain.data_classes_narrowed_to_none"
+          ],
+          "control_scope": "suite"
+        },
+        {
+          "id": "external.delegation.chain.sub_delegation_not_permitted",
+          "name": "sub_delegation_not_permitted",
+          "list": "must_reject",
+          "index": 16,
+          "class": "normative",
+          "anchor": "rule3",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "same_shape"
+        },
+        {
+          "id": "external.delegation.chain.missing_parent_mandate_id",
+          "name": "missing_parent_mandate_id",
+          "list": "must_reject",
+          "index": 17,
+          "class": "normative",
+          "anchor": "rule2",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.wrong_parent_mandate_id",
+          "name": "wrong_parent_mandate_id",
+          "list": "must_reject",
+          "index": 18,
+          "class": "normative",
+          "anchor": "rule2",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.lowered_minimum_security_tier",
+          "name": "lowered_minimum_security_tier",
+          "list": "must_reject",
+          "index": 19,
+          "class": "normative",
+          "anchor": "rule6",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.dropped_minimum_security_tier",
+          "name": "dropped_minimum_security_tier",
+          "list": "must_reject",
+          "index": 20,
+          "class": "normative",
+          "anchor": "rule6",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.unknown_minimum_security_tier",
+          "name": "unknown_minimum_security_tier",
+          "list": "must_reject",
+          "index": 21,
+          "class": "normative",
+          "anchor": "fail_closed",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.revoked_root",
+          "name": "revoked_root",
+          "list": "must_reject",
+          "index": 22,
+          "class": "normative",
+          "anchor": "rule7",
+          "controls": [
+            "external.delegation.chain.depth_2"
+          ],
+          "control_scope": "same_chain"
+        },
+        {
+          "id": "external.delegation.chain.revoked_intermediate",
+          "name": "revoked_intermediate",
+          "list": "must_reject",
+          "index": 23,
+          "class": "normative",
+          "anchor": "rule7",
+          "controls": [
+            "external.delegation.chain.depth_2"
+          ],
+          "control_scope": "same_chain"
+        },
+        {
+          "id": "external.delegation.chain.sub_mandate_signed_by_wrong_agent",
+          "name": "sub_mandate_signed_by_wrong_agent",
+          "list": "must_reject",
+          "index": 24,
+          "class": "normative",
+          "anchor": "rule2",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.sub_mandate_signed_by_its_own_agent",
+          "name": "sub_mandate_signed_by_its_own_agent",
+          "list": "must_reject",
+          "index": 25,
+          "class": "normative",
+          "anchor": "rule2",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.sub_mandate_signed_by_the_human",
+          "name": "sub_mandate_signed_by_the_human",
+          "list": "must_reject",
+          "index": 26,
+          "class": "normative",
+          "anchor": "rule2",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.sub_mandate_tampered_after_signing",
+          "name": "sub_mandate_tampered_after_signing",
+          "list": "must_reject",
+          "index": 27,
+          "class": "normative",
+          "anchor": "rule2",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.root_tampered_after_signing",
+          "name": "root_tampered_after_signing",
+          "list": "must_reject",
+          "index": 28,
+          "class": "normative",
+          "anchor": "rule1",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.root_signed_by_an_agent",
+          "name": "root_signed_by_an_agent",
+          "list": "must_reject",
+          "index": 29,
+          "class": "normative",
+          "anchor": "rule1",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.both_signatures_present",
+          "name": "both_signatures_present",
+          "list": "must_reject",
+          "index": 30,
+          "class": "normative",
+          "anchor": "rule1",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.root_with_delegator_signature",
+          "name": "root_with_delegator_signature",
+          "list": "must_reject",
+          "index": 31,
+          "class": "normative",
+          "anchor": "rule1",
+          "controls": [
+            "external.delegation.chain.root_only"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.sub_mandate_with_human_signature_only",
+          "name": "sub_mandate_with_human_signature_only",
+          "list": "must_reject",
+          "index": 32,
+          "class": "normative",
+          "anchor": "rule2",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.sub_mandate_under_the_delegation_context",
+          "name": "sub_mandate_under_the_delegation_context",
+          "list": "must_reject",
+          "index": 33,
+          "class": "normative",
+          "anchor": "rule2",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.delegation_depth_wrong",
+          "name": "delegation_depth_wrong",
+          "list": "must_reject",
+          "index": 34,
+          "class": "normative",
+          "anchor": "rule2",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.delegation_depth_missing",
+          "name": "delegation_depth_missing",
+          "list": "must_reject",
+          "index": 35,
+          "class": "normative",
+          "anchor": "rule2",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.root_with_delegation_depth_1",
+          "name": "root_with_delegation_depth_1",
+          "list": "must_reject",
+          "index": 36,
+          "class": "normative",
+          "anchor": "rule1",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.root_with_parent_mandate_id",
+          "name": "root_with_parent_mandate_id",
+          "list": "must_reject",
+          "index": 37,
+          "class": "normative",
+          "anchor": "rule1",
+          "controls": [
+            "external.delegation.chain.root_only"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.human_id_changed",
+          "name": "human_id_changed",
+          "list": "must_reject",
+          "index": 38,
+          "class": "normative",
+          "anchor": "rule2",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.chain_out_of_order",
+          "name": "chain_out_of_order",
+          "list": "must_reject",
+          "index": 39,
+          "class": "normative",
+          "anchor": "rule1",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "same_shape"
+        },
+        {
+          "id": "external.delegation.chain.not_yet_valid_at_verification_time",
+          "name": "not_yet_valid_at_verification_time",
+          "list": "must_reject",
+          "index": 40,
+          "class": "normative",
+          "anchor": "rule4",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "same_chain"
+        },
+        {
+          "id": "external.delegation.chain.expired_at_verification_time",
+          "name": "expired_at_verification_time",
+          "list": "must_reject",
+          "index": 41,
+          "class": "normative",
+          "anchor": "rule4",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "same_chain"
+        },
+        {
+          "id": "external.delegation.chain.malformed_sub_delegation",
+          "name": "malformed_sub_delegation",
+          "list": "must_reject",
+          "index": 42,
+          "class": "normative",
+          "anchor": "fail_closed",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain.duplicate_domain_in_child",
+          "name": "duplicate_domain_in_child",
+          "list": "must_reject",
+          "index": 43,
+          "class": "normative",
+          "anchor": "rule5",
+          "controls": [
+            "external.delegation.chain.depth_1"
+          ],
+          "control_scope": "single_mandate"
+        }
+      ]
+    },
+    {
+      "id": "external.delegation.chain_time",
+      "title": "DCP-09 §3.5.2 rule 4 mandate chain times: windows, nesting and the verification time as RFC 3339 instants",
+      "source": "tests/interop/v2/mandate_chain_time_vectors.json",
+      "claim": "The verdict of each normative chain at its verification time; ten cases that rest on millisecond precision or on signer key validity are informative.",
+      "limits": [
+        "Only valid, and effective_tier on accepted chains, are judged. Error texts, their order and depth are diagnostics of the SDK APIs, not of DCP-09.",
+        "The keys and the revoked ids are given in the request, out of band: the kit does not establish whose keys they are, and valid is not trust in the principal, admission or the authorization of an action."
+      ],
+      "cases": [
+        {
+          "id": "external.delegation.chain_time.root_only",
+          "name": "root_only",
+          "list": "must_accept",
+          "index": 0,
+          "class": "normative",
+          "anchor": "all_rules"
+        },
+        {
+          "id": "external.delegation.chain_time.root_and_sub",
+          "name": "root_and_sub",
+          "list": "must_accept",
+          "index": 1,
+          "class": "normative",
+          "anchor": "all_rules"
+        },
+        {
+          "id": "external.delegation.chain_time.nested_limits_equal_in_milliseconds_written_differently",
+          "name": "nested_limits_equal_in_milliseconds_written_differently",
+          "list": "must_accept",
+          "index": 2,
+          "class": "informative",
+          "basis": "millisecond_precision"
+        },
+        {
+          "id": "external.delegation.chain_time.windows_at_the_verification_time",
+          "name": "windows_at_the_verification_time",
+          "list": "must_accept",
+          "index": 3,
+          "class": "informative",
+          "basis": "millisecond_precision"
+        },
+        {
+          "id": "external.delegation.chain_time.windows_from_year_0000_to_year_9999_offsets_crossing_both",
+          "name": "windows_from_year_0000_to_year_9999_offsets_crossing_both",
+          "list": "must_accept",
+          "index": 4,
+          "class": "normative",
+          "anchor": "all_rules"
+        },
+        {
+          "id": "external.delegation.chain_time.every_signer_key_expires_at_the_verification_time",
+          "name": "every_signer_key_expires_at_the_verification_time",
+          "list": "must_accept",
+          "index": 5,
+          "class": "normative",
+          "anchor": "all_rules"
+        },
+        {
+          "id": "external.delegation.chain_time.every_signer_key_expires_after_year_9999_with_an_offset",
+          "name": "every_signer_key_expires_after_year_9999_with_an_offset",
+          "list": "must_accept",
+          "index": 6,
+          "class": "normative",
+          "anchor": "all_rules"
+        },
+        {
+          "id": "external.delegation.chain_time.verification_time_with_an_offset",
+          "name": "verification_time_with_an_offset",
+          "list": "must_accept",
+          "index": 7,
+          "class": "normative",
+          "anchor": "all_rules"
+        },
+        {
+          "id": "external.delegation.chain_time.verification_time_below_the_millisecond",
+          "name": "verification_time_below_the_millisecond",
+          "list": "must_accept",
+          "index": 8,
+          "class": "informative",
+          "basis": "millisecond_precision"
+        },
+        {
+          "id": "external.delegation.chain_time.root_expired_by_one_millisecond",
+          "name": "root_expired_by_one_millisecond",
+          "list": "must_reject",
+          "index": 0,
+          "class": "normative",
+          "anchor": "rule4",
+          "controls": [
+            "external.delegation.chain_time.root_only"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain_time.sub_not_yet_valid_by_one_millisecond",
+          "name": "sub_not_yet_valid_by_one_millisecond",
+          "list": "must_reject",
+          "index": 1,
+          "class": "normative",
+          "anchor": "rule4",
+          "controls": [
+            "external.delegation.chain_time.root_and_sub"
+          ],
+          "control_scope": "same_shape"
+        },
+        {
+          "id": "external.delegation.chain_time.sub_starts_one_millisecond_before_the_parent",
+          "name": "sub_starts_one_millisecond_before_the_parent",
+          "list": "must_reject",
+          "index": 2,
+          "class": "normative",
+          "anchor": "rule4",
+          "controls": [
+            "external.delegation.chain_time.root_and_sub"
+          ],
+          "control_scope": "same_shape"
+        },
+        {
+          "id": "external.delegation.chain_time.sub_ends_one_millisecond_after_the_parent",
+          "name": "sub_ends_one_millisecond_after_the_parent",
+          "list": "must_reject",
+          "index": 3,
+          "class": "normative",
+          "anchor": "rule4",
+          "controls": [
+            "external.delegation.chain_time.root_and_sub"
+          ],
+          "control_scope": "same_shape"
+        },
+        {
+          "id": "external.delegation.chain_time.human_classical_key_expired_one_millisecond_before",
+          "name": "human_classical_key_expired_one_millisecond_before",
+          "list": "must_reject",
+          "index": 4,
+          "class": "informative",
+          "basis": "signer_key_validity"
+        },
+        {
+          "id": "external.delegation.chain_time.human_pq_key_expired_one_millisecond_before",
+          "name": "human_pq_key_expired_one_millisecond_before",
+          "list": "must_reject",
+          "index": 5,
+          "class": "informative",
+          "basis": "signer_key_validity"
+        },
+        {
+          "id": "external.delegation.chain_time.agent_classical_key_expired_one_millisecond_before",
+          "name": "agent_classical_key_expired_one_millisecond_before",
+          "list": "must_reject",
+          "index": 6,
+          "class": "informative",
+          "basis": "signer_key_validity"
+        },
+        {
+          "id": "external.delegation.chain_time.agent_pq_key_expired_one_millisecond_before",
+          "name": "agent_pq_key_expired_one_millisecond_before",
+          "list": "must_reject",
+          "index": 7,
+          "class": "informative",
+          "basis": "signer_key_validity"
+        },
+        {
+          "id": "external.delegation.chain_time.key_expires_at_without_an_offset",
+          "name": "key_expires_at_without_an_offset",
+          "list": "must_reject",
+          "index": 8,
+          "class": "informative",
+          "basis": "signer_key_validity"
+        },
+        {
+          "id": "external.delegation.chain_time.key_expires_at_with_a_trailing_newline",
+          "name": "key_expires_at_with_a_trailing_newline",
+          "list": "must_reject",
+          "index": 9,
+          "class": "informative",
+          "basis": "signer_key_validity"
+        },
+        {
+          "id": "external.delegation.chain_time.key_expires_at_crossing_into_year_minus_1",
+          "name": "key_expires_at_crossing_into_year_minus_1",
+          "list": "must_reject",
+          "index": 10,
+          "class": "informative",
+          "basis": "signer_key_validity"
+        },
+        {
+          "id": "external.delegation.chain_time.root_window_in_year_minus_1",
+          "name": "root_window_in_year_minus_1",
+          "list": "must_reject",
+          "index": 11,
+          "class": "normative",
+          "anchor": "rule4",
+          "controls": [
+            "external.delegation.chain_time.root_only"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.chain_time.sub_window_starting_in_year_10000",
+          "name": "sub_window_starting_in_year_10000",
+          "list": "must_reject",
+          "index": 12,
+          "class": "normative",
+          "anchor": "rule4",
+          "controls": [
+            "external.delegation.chain_time.root_and_sub"
+          ],
+          "control_scope": "same_shape"
+        }
+      ]
+    },
+    {
+      "id": "external.delegation.domains",
+      "title": "DCP-09 §3.5.2 rule 5: a domain that appears twice in one mandate, at every depth, compared as exact strings",
+      "source": "tests/interop/v2/mandate_domain_vectors.json",
+      "claim": "The verdict of each committed chain; the exact error lists of the corpus are the SDKs' diagnostics and are reported, never judged.",
+      "limits": [
+        "Only valid, and effective_tier on accepted chains, are judged. Error texts, their order and depth are diagnostics of the SDK APIs, not of DCP-09.",
+        "The keys and the revoked ids are given in the request, out of band: the kit does not establish whose keys they are, and valid is not trust in the principal, admission or the authorization of an action."
+      ],
+      "cases": [
+        {
+          "id": "external.delegation.domains.root_unique_domains",
+          "name": "root_unique_domains",
+          "list": "must_accept",
+          "index": 0,
+          "class": "normative",
+          "anchor": "all_rules"
+        },
+        {
+          "id": "external.delegation.domains.three_levels_unique_domains",
+          "name": "three_levels_unique_domains",
+          "list": "must_accept",
+          "index": 1,
+          "class": "normative",
+          "anchor": "all_rules"
+        },
+        {
+          "id": "external.delegation.domains.root_domains_differing_in_case",
+          "name": "root_domains_differing_in_case",
+          "list": "must_accept",
+          "index": 2,
+          "class": "normative",
+          "anchor": "all_rules"
+        },
+        {
+          "id": "external.delegation.domains.root_domains_differing_in_spaces",
+          "name": "root_domains_differing_in_spaces",
+          "list": "must_accept",
+          "index": 3,
+          "class": "normative",
+          "anchor": "all_rules"
+        },
+        {
+          "id": "external.delegation.domains.root_domains_differing_in_code_points",
+          "name": "root_domains_differing_in_code_points",
+          "list": "must_accept",
+          "index": 4,
+          "class": "normative",
+          "anchor": "all_rules"
+        },
+        {
+          "id": "external.delegation.domains.root_domains_named_like_prototype_members",
+          "name": "root_domains_named_like_prototype_members",
+          "list": "must_accept",
+          "index": 5,
+          "class": "normative",
+          "anchor": "all_rules"
+        },
+        {
+          "id": "external.delegation.domains.sub_takes_the_exact_entry_among_case_variants",
+          "name": "sub_takes_the_exact_entry_among_case_variants",
+          "list": "must_accept",
+          "index": 6,
+          "class": "normative",
+          "anchor": "all_rules"
+        },
+        {
+          "id": "external.delegation.domains.sub_narrows_domains_named_like_prototype_members",
+          "name": "sub_narrows_domains_named_like_prototype_members",
+          "list": "must_accept",
+          "index": 7,
+          "class": "normative",
+          "anchor": "all_rules"
+        },
+        {
+          "id": "external.delegation.domains.root_identical_duplicate",
+          "name": "root_identical_duplicate",
+          "list": "must_reject",
+          "index": 0,
+          "class": "normative",
+          "anchor": "rule5",
+          "controls": [
+            "external.delegation.domains.root_unique_domains"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.domains.root_conflicting_duplicate",
+          "name": "root_conflicting_duplicate",
+          "list": "must_reject",
+          "index": 1,
+          "class": "normative",
+          "anchor": "rule5",
+          "controls": [
+            "external.delegation.domains.root_unique_domains"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.domains.root_nonadjacent_duplicate",
+          "name": "root_nonadjacent_duplicate",
+          "list": "must_reject",
+          "index": 2,
+          "class": "normative",
+          "anchor": "rule5",
+          "controls": [
+            "external.delegation.domains.root_unique_domains"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.domains.root_each_duplicate_reported_once",
+          "name": "root_each_duplicate_reported_once",
+          "list": "must_reject",
+          "index": 3,
+          "class": "normative",
+          "anchor": "rule5",
+          "controls": [
+            "external.delegation.domains.root_unique_domains"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.domains.root_duplicate_with_a_sub",
+          "name": "root_duplicate_with_a_sub",
+          "list": "must_reject",
+          "index": 4,
+          "class": "normative",
+          "anchor": "rule5",
+          "controls": [
+            "external.delegation.domains.sub_takes_the_exact_entry_among_case_variants"
+          ],
+          "control_scope": "same_shape"
+        },
+        {
+          "id": "external.delegation.domains.root_duplicate_with_two_levels_below",
+          "name": "root_duplicate_with_two_levels_below",
+          "list": "must_reject",
+          "index": 5,
+          "class": "normative",
+          "anchor": "rule5",
+          "controls": [
+            "external.delegation.domains.three_levels_unique_domains"
+          ],
+          "control_scope": "same_shape"
+        },
+        {
+          "id": "external.delegation.domains.sub_duplicate",
+          "name": "sub_duplicate",
+          "list": "must_reject",
+          "index": 6,
+          "class": "normative",
+          "anchor": "rule5",
+          "controls": [
+            "external.delegation.domains.sub_takes_the_exact_entry_among_case_variants"
+          ],
+          "control_scope": "same_shape"
+        },
+        {
+          "id": "external.delegation.domains.third_level_duplicate",
+          "name": "third_level_duplicate",
+          "list": "must_reject",
+          "index": 7,
+          "class": "normative",
+          "anchor": "rule5",
+          "controls": [
+            "external.delegation.domains.three_levels_unique_domains"
+          ],
+          "control_scope": "same_shape"
+        },
+        {
+          "id": "external.delegation.domains.root_duplicate_named_proto",
+          "name": "root_duplicate_named_proto",
+          "list": "must_reject",
+          "index": 8,
+          "class": "normative",
+          "anchor": "rule5",
+          "controls": [
+            "external.delegation.domains.root_unique_domains"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.domains.root_duplicate_named_constructor",
+          "name": "root_duplicate_named_constructor",
+          "list": "must_reject",
+          "index": 9,
+          "class": "normative",
+          "anchor": "rule5",
+          "controls": [
+            "external.delegation.domains.root_unique_domains"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.domains.root_exact_unicode_duplicate_beside_its_nfd_form",
+          "name": "root_exact_unicode_duplicate_beside_its_nfd_form",
+          "list": "must_reject",
+          "index": 10,
+          "class": "normative",
+          "anchor": "rule5",
+          "controls": [
+            "external.delegation.domains.root_unique_domains"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.domains.root_duplicate_and_an_invalid_tier",
+          "name": "root_duplicate_and_an_invalid_tier",
+          "list": "must_reject",
+          "index": 11,
+          "class": "normative",
+          "anchor": "rule5",
+          "controls": [
+            "external.delegation.domains.root_unique_domains"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.domains.root_duplicate_beside_an_invalid_entry",
+          "name": "root_duplicate_beside_an_invalid_entry",
+          "list": "must_reject",
+          "index": 12,
+          "class": "normative",
+          "anchor": "fail_closed",
+          "controls": [
+            "external.delegation.domains.root_unique_domains"
+          ],
+          "control_scope": "single_mandate"
+        },
+        {
+          "id": "external.delegation.domains.sub_takes_a_case_variant_with_fewer_actions",
+          "name": "sub_takes_a_case_variant_with_fewer_actions",
+          "list": "must_reject",
+          "index": 13,
+          "class": "normative",
+          "anchor": "rule5",
+          "controls": [
+            "external.delegation.domains.sub_takes_the_exact_entry_among_case_variants"
+          ],
+          "control_scope": "same_shape"
+        },
+        {
+          "id": "external.delegation.domains.sub_domain_with_a_trailing_space",
+          "name": "sub_domain_with_a_trailing_space",
+          "list": "must_reject",
+          "index": 14,
+          "class": "normative",
+          "anchor": "rule5",
+          "controls": [
+            "external.delegation.domains.sub_takes_the_exact_entry_among_case_variants"
+          ],
+          "control_scope": "same_shape"
+        }
+      ]
+    }
+  ],
+  "limits": [
+    "A pass shows that the argv that was run gives these verdicts on these committed chains, nothing more.",
+    "Chains and keys are sent as the exact bytes of the fixtures; how an implementation reads JSON numbers past 2^53 is its own.",
+    "The informative cases rest on conventions DCP-09 §3.5.2 does not state; their results are reported apart and never make a run pass or fail, but a missing, malformed or failed answer to them is an error.",
+    "Controls relate a negative to a positive by the bytes both send (same chain, one different mandate, or the same length); none claims the two differ by a single defect.",
+    "The validity helper, tier_floor (computeSecurityTier) and every other DCP-09 record are outside this catalog."
+  ]
+}

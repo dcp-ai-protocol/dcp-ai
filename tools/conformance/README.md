@@ -486,6 +486,81 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
   - **Outside this catalog.** Adapters, trust and revocation sources, TLS, tenants, caching and single use. The corpus
     is the committed vectors and these four compositions, not every input.
 
+### Delegation catalog: DCP-09 mandate chains
+
+`--catalog delegation` selects a third opt-in catalog, [`external-delegation-catalog.json`](external-delegation-catalog.json)
+(contract `dcp-ai-conformance-external/4`, 97 cases), run against the same kind of argv. It judges mandate chain
+verification, [DCP-09 §3.5.2](../../spec/DCP-09.md), on three committed corpora the catalog pins by SHA-256. Contracts
+`/1`, `/2` and `/3` and their catalogs do not change. The TypeScript, Python, Go and Rust wrappers answer `/4` through
+their SDK. The WASM build exports no mandate chain function, so its wrapper refuses `/4` (exit 2), as it does `/3`, and
+nothing emulates it.
+
+```bash
+node tools/conformance-external.js --catalog delegation --list
+node tools/conformance-external.js --catalog delegation --report /tmp/delegation-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
+node tools/conformance-external.js --catalog delegation -- /path/to/python -I tools/conformance/wrappers/python_sdk.py
+node tools/conformance-external.js --catalog delegation -- tools/conformance/wrappers/.build/go-wrapper
+node tools/conformance-external.js --catalog delegation -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+node --test tools/conformance/external-delegation.test.mjs
+DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-delegation-wrappers.test.mjs
+```
+
+| Suite | Cases | Source |
+|-------|-------|--------|
+| `external.delegation.chain` | 52 | [`mandate_chain_vectors.json`](../../tests/interop/v2/mandate_chain_vectors.json): signatures and roles, links, depth, attenuation, windows, tier floor, revocation |
+| `external.delegation.chain_time` | 22, 10 of them informative | [`mandate_chain_time_vectors.json`](../../tests/interop/v2/mandate_chain_time_vectors.json): rule 4 windows, their nesting and the verification time |
+| `external.delegation.domains` | 23 | [`mandate_domain_vectors.json`](../../tests/interop/v2/mandate_domain_vectors.json): a domain repeated in one mandate, at every depth |
+
+- **Operation:** `verify_mandate_chain` takes four fields.
+  - `chain_b64` and `keys_b64`: base64 of the exact bytes the fixture holds for the chain and for its `{human_keys, agent_keys}`.
+  - `revoked_mandate_ids`: an array of strings.
+  - `verification_time`: the RFC 3339 string exactly as committed.
+
+  The runner never parses and re-serializes them. Integers past 2^53 (`9007199254740993`), the decimal form `9007199254740991.0` and every timestamp reach the implementation as written.
+- **Answers:**
+  - `ok` with exactly `valid` (a boolean), `errors` (an array of strings), `effective_tier` (`routine`, `standard`, `elevated`, `maximum` or `null`) and `depth` (a non-negative integer). A rejected chain is `ok` with `valid: false`.
+  - `error` with `message`, or `unsupported`.
+
+  A request of another shape makes the wrapper exit with 2.
+- **Judgement:** only the verdict is normative. A case passes when `valid` matches and, for an accepted chain, `effective_tier` matches too (rule 6). `valid: true` with errors is a `contradictory_result`.
+  - The error texts (the corpora's `error_contains` or exact `errors`) and `depth` are the SDKs' diagnostics. They are reported (`matched`, `differs`, `no_message`) and never judged.
+  - A rejection needs no message, no particular `depth` and no particular tier.
+  - `--assessment` does not apply.
+- **Informative cases:** ten `chain_time` cases rest on conventions DCP-09 §3.5.2 does not state.
+  - Three depend on comparing instants in milliseconds (VERIFICATION.md V2-4, for bundles).
+  - Seven depend on signer key validity, `expires_at` (V2-13, for bundles).
+
+  The runner fixes that list. These cases are sent and reported in `informative_totals` (`requested`, `completed`, `agrees`, `differs`, `error`) and never pass or fail. A missing, malformed, `error` or `unsupported` answer to one of them is still an error of the run, and a run with no normative case executed never passes.
+- **Anchors:** each normative case names its rule of §3.5.2: `rule1` to `rule7`, `fail_closed` for unknown, missing or not comparable input, or `all_rules` for an accepted chain.
+- **Controls:** a rejection counts only if its control passed in the same run. The control is a normative accepted chain of the same suite, and `control_scope` says how the two relate:
+  - `same_chain`: the same chain bytes, with other revoked ids, another time or other keys;
+  - `single_mandate`: one whole mandate differs, which can change many fields and its signature;
+  - `same_shape`: the same length;
+  - `suite`: every accepted chain of the suite.
+
+  The runner checks the relation on the bytes when the catalog loads. None of them claims the two differ by a single defect. A selected suite carries its own controls.
+- **Catalog:** `delegation-catalog.mjs --check` regenerates the catalog from the corpora and its table of anchors. The runner refuses, with exit 3, a catalog that drops, repeats or reorders a corpus case, classifies the informative cases otherwise, or overstates a control.
+- **Process and wrappers:** as with `/1` to `/3`; the default timeout of this catalog is 300 000 ms. Wrappers make one call per case with the request's time, never the system clock, and each reads the chain as its SDK's own corpus test does:
+
+  | SDK | Chain | Time |
+  |-----|-------|------|
+  | TypeScript | `JSON.parse` | `verifyMandateChain`, with the time read by `parseRfc3339` |
+  | Python | `json.loads` | `verify_mandate_chain`, with `rfc3339_epoch_ms` as an aware UTC datetime |
+  | Go | `json.Unmarshal` (float64) | `VerifyMandateChain`, with `time.Parse(time.RFC3339Nano)`; the zero time, which the SDK would read as now, is refused |
+  | Rust | `serde_json` | `verify_mandate_chain`, with `parse_rfc3339_millis` |
+- **Self-tests:**
+  - `external-delegation.test.mjs` judges synthetic answers built from the corpus expectations, with no SDK, and checks that the bytes sent are slices of the fixtures. It covers:
+    - accepting or rejecting everything, a verifier that ignores one rule, and a wrong tier;
+    - contradictory, malformed, `error` and `unsupported` answers, and informative cases that differ or fail;
+    - missing, duplicate, extra and truncated results, stale ids, and failing, killed, hung and late processes;
+    - fresh reports, selection, and tampered catalogs and fixtures.
+  - `external-delegation-wrappers.test.mjs` runs the four wrappers through their SDKs: the 97 cases, the request's clock at three instants, malformed requests and injected failures. It also checks the WASM refusal and catches two altered TypeScript SDKs, one that ignores revocation and one with a clock of its own. It calls the wrappers asynchronously, closing stdin; a synchronous spawn with an input was seen leaving a native wrapper waiting for end of file.
+
+  CI runs both, with the four wrappers required.
+- **Limits:** a pass shows that the argv that was run gives these verdicts on these committed chains, nothing more.
+  - The keys and revoked ids are given in the request. The kit does not establish whose keys they are, and `valid` is not trust in the principal, admission or the authorization of an action.
+  - The validity helper (`verifyMandateValidity`), `tier_floor` and the other DCP-09 records are outside this catalog.
+
 ## Performance baseline
 
 `tools/conformance-perf.js` measures the normative V2 verifier of the five SDKs of this checkout on the same input

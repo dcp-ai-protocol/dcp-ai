@@ -26,6 +26,7 @@ The [kit README](../../tools/conformance/README.md) defines the commands, contra
 - **External primitives:** contract `/1` exercises canonicalization and digests through a supplied implementation.
 - **External evidence:** contract `/2` exercises Merkle roots, composite signatures and V2 bundle verification. The repository supplies TypeScript, Python, Go, Rust and WASM wrappers.
 - **External admission:** contract `/3` exercises combined admission and configuration loading. The repository supplies TypeScript, Python, Go and Rust wrappers; WASM has no admission API.
+- **External delegation:** contract `/4` exercises DCP-09 §3.5.2 mandate chain verdicts. The repository supplies TypeScript, Python, Go and Rust wrappers; WASM has no mandate chain API.
 - **SDK and adapter suites:** separate tests, with their own entry points and scopes. An item in the kit's inventory is not a test executed by that kit.
 
 The numbered contracts are runner interfaces, not versions of the DCP protocol. Wrapper identity is self-declared. Five wrappers are not five independent external adopters: WASM shares Rust code, and all these wrappers belong to this repository.
@@ -106,6 +107,21 @@ The [shared admission vectors](../../tests/interop/v2/admission_vectors.json) an
 
 An evaluator that accepts a precomputed verification result trusts its caller to supply the result for the same bundle, policy and time. The external admission operation uses the combined API. A passing combined test does not make an arbitrary caller-supplied verification object safe.
 
+## Delegation map
+
+The [external delegation catalog](../../tools/conformance/external-delegation-catalog.json) runs the committed [mandate chain](../../tests/interop/v2/mandate_chain_vectors.json), [chain time](../../tests/interop/v2/mandate_chain_time_vectors.json) and [repeated domain](../../tests/interop/v2/mandate_domain_vectors.json) vectors through `verify_mandate_chain`. Each normative case names its rule of [DCP-09 §3.5.2](../../spec/DCP-09.md); the verdict and, for an accepted chain, the effective tier are judged.
+
+| Requirement | Exercised surface | Limit |
+|---|---|---|
+| Rules 1–2: root and sub-mandate signatures, signer roles and contexts, parent links, depth and `human_id` | `external.delegation.chain` | The keys are given in the request; the kit does not establish that they are the principal's or the agents' |
+| Rule 3: sub-delegation permission and maximum depth | `external.delegation.chain` | The committed chains, not every depth |
+| Rule 4: validity windows, their nesting and the verification time as RFC 3339 instants | `external.delegation.chain`, `external.delegation.chain_time` | Millisecond precision and signer key `expires_at` are conventions of the SDKs, not of §3.5.2: those ten cases are informative |
+| Rule 5: attenuation of actions, data classes and limits; limits within ±(2^53 − 1); a domain repeated in one mandate | `external.delegation.chain`, `external.delegation.domains` | Error texts are diagnostics; a rejection is judged on its verdict |
+| Rule 6: tier floor and effective tier | `external.delegation.chain` | The effective tier is judged on accepted chains; `tier_floor` (`computeSecurityTier`) is outside the catalog |
+| Rule 7: revocation of the root or an intermediate mandate | `external.delegation.chain` | Revocation is the local set of revoked ids in the request, not a revocation source |
+
+A rejection counts only with its control, a normative accepted chain whose relation to it (`same_chain`, `single_mandate`, `same_shape` or `suite`) is checked on the bytes. None of these relations shows that the two cases differ by a single defect. A verified chain is not admission or authorization.
+
 ## Claims for core and profiles
 
 | Surface | What can be reported from the kit | What must remain separate |
@@ -116,7 +132,8 @@ An evaluator that accepts a precomputed verification result trusts its caller to
 | `strict-v1` admission | Results for the selected admission/configuration cases | Deployment enforcement and action authorization |
 | V1 | Reference schema and integrity checks on committed fixtures | Independent third-party V1 conformance |
 | A2A and governance | Only the specific rules actually exercised by a named suite | Complete functional conformance of either profile |
-| DCP-05 to DCP-09 | The internal schema/wire suites' stated checks | Complete lifecycle, rights or delegation semantics |
+| DCP-05 to DCP-08 | The internal schema/wire suites' stated checks | Complete lifecycle, rights or other semantics of these documents |
+| DCP-09 | The internal schema/wire suites' stated checks, and the verdicts of the selected mandate chain cases of the external delegation catalog | Complete delegation semantics, the validity helper, trust in the keys, admission or action authorization |
 | Experimental `dcp-jcs-v2` | Its separately selected experimental tests | Normative/default status; `dcp-jcs-v1` remains unchanged |
 
 A subset result must name the subset and its limits. Do not turn `unsupported`, a missing case, a crash, a timeout or a skipped matrix into a passing case. A reserved SDK test that returns without running its matrix is not evidence that the matrix ran.

@@ -2,11 +2,12 @@
 // Runs the external conformance suites (tools/conformance/external-catalog.json) against an implementation
 // given as argv after `--`, through the contract dcp-ai-conformance-external/1 (tools/conformance/README.md).
 //
-//   node tools/conformance-external.js [--list] [--catalog evidence|admission|<file>] [--assessment legacy|verdict] [--suite <id>]... [--report <file>] [--timeout-ms <n>] -- <argv...>
+//   node tools/conformance-external.js [--list] [--catalog evidence|admission|delegation|<file>] [--assessment legacy|verdict] [--suite <id>]... [--report <file>] [--timeout-ms <n>] -- <argv...>
 //
 // Without --catalog, the default catalog (contract /1, 38 cases) runs exactly as before. --catalog evidence selects
 // the opt-in evidence catalog (contract /2: Merkle roots, composite signatures, V2 bundle verification), and
-// --catalog admission the opt-in admission catalog (contract /3: strict-v1 admission and its configuration).
+// --catalog admission the opt-in admission catalog (contract /3: strict-v1 admission and its configuration), and
+// --catalog delegation the opt-in delegation catalog (contract /4: DCP-09 mandate chain verdicts).
 // --assessment applies to a /2 catalog only: legacy (the default) judges as before; verdict judges the rejections that
 // carry an error_contains on verified=false alone and reports their wording as a diagnostic.
 //
@@ -23,6 +24,7 @@ import {
   EVIDENCE_CATALOG_PATH, EVIDENCE_CONTRACT, EVIDENCE_TIMEOUT_MS, ASSESSMENTS, ASSESSMENT_SCHEMA, loadEvidencePlan, runEvidence, assertVerdictPlan,
 } from "./conformance/external-evidence.js";
 import { ADMISSION_CATALOG_PATH, ADMISSION_CONTRACT, ADMISSION_TIMEOUT_MS, loadAdmissionPlan, runAdmission } from "./conformance/external-admission.js";
+import { DELEGATION_CATALOG_PATH, DELEGATION_CONTRACT, DELEGATION_TIMEOUT_MS, loadDelegationPlan, runDelegation } from "./conformance/external-delegation.js";
 
 function parseArgs(args) {
   const opts = { suites: [], list: false, report: undefined, timeoutMs: undefined, root: REPO_ROOT, catalog: EXTERNAL_CATALOG_PATH, assessment: undefined, argv: null };
@@ -43,7 +45,7 @@ function parseArgs(args) {
       opts.report = value();
     }
     else if (a === "--root") opts.root = path.resolve(value());
-    else if (a === "--catalog") { const v = value(); opts.catalog = v === "evidence" ? EVIDENCE_CATALOG_PATH : v === "admission" ? ADMISSION_CATALOG_PATH : path.resolve(v); }
+    else if (a === "--catalog") { const v = value(); opts.catalog = v === "evidence" ? EVIDENCE_CATALOG_PATH : v === "admission" ? ADMISSION_CATALOG_PATH : v === "delegation" ? DELEGATION_CATALOG_PATH : path.resolve(v); }
     // Not in VALUE_OPTIONS: every --assessment error comes after the placeholder, so it replaces an older report.
     else if (a === "--assessment") {
       if (opts.assessment !== undefined) throw new UsageError("--assessment given more than once");
@@ -107,14 +109,14 @@ async function main(args) {
   };
   let opts;
   try { opts = parseArgs(args); } catch (e) { return fail(2, "usage", e.message); }
-  // The catalog's contract decides the plan: /2 is the evidence catalog, /3 the admission catalog, anything else the
-  // /1 loader.
+  // The catalog's contract decides the plan: /2 is the evidence catalog, /3 the admission catalog, /4 the delegation
+  // catalog, anything else the /1 loader.
   let contract;
   try { contract = JSON.parse(fs.readFileSync(opts.catalog, "utf8")).contract; } catch { /* the loader reports it */ }
-  const kind = contract === EVIDENCE_CONTRACT ? "evidence" : contract === ADMISSION_CONTRACT ? "admission" : "default";
-  const load = { evidence: loadEvidencePlan, admission: loadAdmissionPlan, default: loadPlan }[kind];
-  const runner = { evidence: runEvidence, admission: runAdmission, default: runExternal }[kind];
-  const timeoutMs = opts.timeoutMs ?? { evidence: EVIDENCE_TIMEOUT_MS, admission: ADMISSION_TIMEOUT_MS, default: LIMITS.timeoutMs }[kind];
+  const kind = contract === EVIDENCE_CONTRACT ? "evidence" : contract === ADMISSION_CONTRACT ? "admission" : contract === DELEGATION_CONTRACT ? "delegation" : "default";
+  const load = { evidence: loadEvidencePlan, admission: loadAdmissionPlan, delegation: loadDelegationPlan, default: loadPlan }[kind];
+  const runner = { evidence: runEvidence, admission: runAdmission, delegation: runDelegation, default: runExternal }[kind];
+  const timeoutMs = opts.timeoutMs ?? { evidence: EVIDENCE_TIMEOUT_MS, admission: ADMISSION_TIMEOUT_MS, delegation: DELEGATION_TIMEOUT_MS, default: LIMITS.timeoutMs }[kind];
   let plan;
   try { plan = load({ root: opts.root, catalogFile: opts.catalog, select: opts.suites }); }
   catch (e) {
@@ -122,7 +124,8 @@ async function main(args) {
     if (e instanceof InfraError) return fail(3, "catalog", e.message);
     return fail(3, "exception", e.stack ?? String(e));
   }
-  // /1 and /3 have contract or normative codes, not wording: --assessment is refused there, legacy included.
+  // /1 and /3 have contract or normative codes, not wording, and /4 judges verdicts alone: --assessment is refused there,
+  // legacy included.
   if (opts.assessment !== undefined && kind !== "evidence") return fail(2, "usage", "--assessment applies only to an evidence catalog (contract /2)");
   const assessment = opts.assessment ?? "legacy";
   if (assessment === "verdict") {
@@ -133,7 +136,8 @@ async function main(args) {
   if (opts.list) {
     console.log(`dcp-ai-conformance-external, catalog ${plan.catalog.version} (sha256 ${plan.catalog.sha256})`);
     if (opts.assessment !== undefined) console.log(`assessment: ${assessment} (${ASSESSMENT_SCHEMA})`);
-    for (const s of plan.suites) console.log(`  ${s.id}  ${s.cases.length} cases  ${s.title}${assessment === "verdict" ? `  (${wordingCases(s)} rejections judged on the verdict alone, wording as a diagnostic)` : ""}`);
+    const informative = (s) => s.cases.filter((c) => c.class === "informative").length;
+    for (const s of plan.suites) console.log(`  ${s.id}  ${s.cases.length} cases${kind === "delegation" && informative(s) ? ` (${informative(s)} informative)` : ""}  ${s.title}${assessment === "verdict" ? `  (${wordingCases(s)} rejections judged on the verdict alone, wording as a diagnostic)` : ""}`);
     return 0;
   }
   let report;
@@ -143,7 +147,7 @@ async function main(args) {
     : c.diagnostic.wording === "matched" ? "" : ` — wording ${c.diagnostic.wording === "differs" ? "differs" : "absent"} (diagnostic)`;
   for (const s of report.suites) {
     console.log(`\n── ${s.id}: ${s.title} ──`);
-    for (const c of s.cases) console.log(`${c.status === "pass" ? "✔" : c.status === "fail" ? "✖" : "!"} ${c.id}${c.message ? ` — ${c.message}` : ""}${note(c)}`);
+    for (const c of s.cases) console.log(`${c.status === "pass" ? "✔" : c.status === "fail" ? "✖" : c.status === "informative" ? `i (${c.informative})` : "!"} ${c.id}${c.message ? ` — ${c.message}` : ""}${note(c)}`);
   }
   const o = report.implementation.observed;
   const who = report.implementation.self_declared;
@@ -151,6 +155,8 @@ async function main(args) {
   const d = report.diagnostic_totals;
   console.log(`${report.status.toUpperCase()}: ${report.totals.pass} pass, ${report.totals.fail} fail, ${report.totals.error} error of ${report.totals.cases}${d
     ? ` — verdict assessment (${ASSESSMENT_SCHEMA}): ${report.assessment.wording_cases} rejections judged on the verdict alone; wording matched ${d.matched}, differs ${d.differs}, no message ${d.no_message}, not evaluated ${d.not_evaluated}` : ""}`);
+  const i = report.informative_totals;
+  if (i) console.log(`informative (not counted above): ${i.requested} requested, ${i.completed} completed, ${i.agrees} agree, ${i.differs} differ, ${i.error} error`);
   if (reportFile !== undefined) {
     try { writeJson(reportFile, report); } catch (e) { console.error(`cannot write the report ${reportFile}: ${e.message}`); return 3; }
   }

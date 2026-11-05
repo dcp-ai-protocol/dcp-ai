@@ -4,7 +4,7 @@
 
 # 独立实现与审查指南
 
-> 本文是[英文版本](../../../../docs/conformance/IMPLEMENTER_GUIDE.md)的参考译文，更新于 02/11/2026。如有差异，以英文版本为准。标识符、命令和代码块保持原文。
+> 本文是[英文版本](../../../../docs/conformance/IMPLEMENTER_GUIDE.md)的参考译文，更新于 05/11/2026。如有差异，以英文版本为准。标识符、命令和代码块保持原文。
 
 DCP 是可以独立实现的协议。本指南帮助实现者和审查者在不采用本仓库应用或服务的情况下评估同一份证据。它不构成审计、认证或背书。
 
@@ -18,7 +18,8 @@ DCP 是可以独立实现的协议。本指南帮助实现者和审查者在不�
 2. [规范化配置文件](../../spec/CANONICALIZATION_PROFILE.md)。
 3. [V2 规范](../../spec/DCP-AI-v2.0.md)，包括算法、复合签名组件绑定和验证器策略。
 4. 如果实现了对责任主体的信任或 `strict-v1`，阅读[准入配置文件](../../spec/profiles/admission/README.md)。
-5. [V2 模式](../../../../schemas/v2/)中适用的文件，以及规范引用的勘误。
+5. 如果验证委托书链，阅读 [DCP-09 §3.5.2](../../spec/DCP-09.md)。
+6. [V2 模式](../../../../schemas/v2/)中适用的文件，以及规范引用的勘误。
 
 核心与配置文件的划分用于组织规范，并不免除 V2 实现的必需检查。应用、网络信息源、缓存和受保护的处理程序属于集成层。应将它们是否落实控制措施的主张与核心验证分开。
 
@@ -44,6 +45,7 @@ DCP 是可以独立实现的协议。本指南帮助实现者和审查者在不�
 node tools/conformance-external.js --list
 node tools/conformance-external.js --catalog evidence --list
 node tools/conformance-external.js --catalog admission --list
+node tools/conformance-external.js --catalog delegation --list
 ```
 
 然后在 `--` 后提供可执行文件及其参数。将 `/path/to/implementation` 替换为实际命令：
@@ -52,9 +54,12 @@ node tools/conformance-external.js --catalog admission --list
 node tools/conformance-external.js --report /tmp/dcp-primitives.json -- /path/to/implementation
 node tools/conformance-external.js --catalog evidence --assessment verdict --report /tmp/dcp-evidence.json -- /path/to/implementation
 node tools/conformance-external.js --catalog admission --report /tmp/dcp-admission.json -- /path/to/implementation
+node tools/conformance-external.js --catalog delegation --report /tmp/dcp-delegation.json -- /path/to/implementation
 ```
 
-这些命令选择三种不同的运行器契约。实现可以只支持其中一个子集，但报告必须明确说明该子集。本仓库的 WASM 没有准入 API。不要将不支持的操作报告为成功。
+这些命令选择四种不同的运行器契约。实现可以只支持其中一个子集，但报告必须明确说明该子集。本仓库的 WASM 没有准入 API，也没有委托书链 API。不要将不支持的操作报告为成功。
+
+委托命令只判定委托书链的判定结果。其中十个用例依赖 DCP-09 没有规定的约定（毫秒精度、签名密钥的有效性）：其中任何一个的判定结果不同会单独报告，不决定规范一致性；但对其中任何一个的应答缺失、格式错误、为 `error` 或 `unsupported`，仍会使运行失败。密钥和已吊销 ID 在请求中给出，因此通过不代表对责任主体的信任，也不代表对某个行为的授权。
 
 证据命令明确选择 `--assessment verdict`：它评估规范要求的判定，并单独保留诊断文字。历史评估方式仍然可用，且保持现有默认值。仅仅匹配诊断字符串，不能证明执行了预期的检查。
 
