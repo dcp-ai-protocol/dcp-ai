@@ -5,7 +5,7 @@
 
 # Guía del operador — ejecutar un servicio de verificación
 
-> Traducción informativa de [la versión en inglés](../../../docs/OPERATOR_GUIDE.md), actualizada el 28/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../docs/OPERATOR_GUIDE.md), actualizada el 05/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Esta guía es para **terceros** que quieran ejecutar un servicio de «agente verificado»: una API HTTP que verifica Signed Bundles de DCP (y, opcionalmente, ancla hashes en una blockchain). El protocolo **no** exige ningún servidor central; la verificación siempre puede hacerse localmente con `dcp verify-bundle`. Este servicio es **opcional** y lo ejecuta quien opere a su elección.
 
@@ -173,7 +173,7 @@ Para mantener la memoria acotada, los registros de identidades, claves y revocac
 | Revocación | 20 registros por cliente y hora (429) | `REGISTRATIONS_PER_HOUR` |
 | Revocación | 10.000 agentes registrados; a partir de ahí los nuevos reciben 507 | `MAX_AGENTS` |
 | Revocación | Campos de texto de 256 caracteres como máximo; 5 revocaciones de emergencia por cliente y minuto | — |
-| Registro de transparencia | Los intercambios de gossip necesitan una cabeza de árbol firmada por un par fijado (`GOSSIP_PEERS=<url>#<key>`); cuerpos de 16 KB; las últimas 100 alertas distintas; los sondeos leen 16 KB como máximo, agotan el tiempo tras un intervalo y nunca se solapan | `GOSSIP_PEERS` |
+| Registro de transparencia | Los intercambios de gossip necesitan una cabeza de árbol firmada por un par fijado (`GOSSIP_PEERS=<url>#<key>`); cuerpos de 16 KB; las últimas 100 alertas distintas; los sondeos leen 16 KB como máximo, agotan el tiempo tras un intervalo y nunca se solapan; por clave fijada, como máximo 8 registros observados de 256 tamaños de árbol cada uno, en memoria | `GOSSIP_PEERS` |
 | Endpoints que leen un cuerpo | Cuerpos de solicitud de 1 MB (413); `POST /v2/disputes/:id/escalate` y `POST /v2/delegation/mandate/:id/revoke` no leen el suyo | — |
 
 Dos partes de la pasarela se comportan de otra manera:

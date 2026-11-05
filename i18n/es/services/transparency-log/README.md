@@ -4,7 +4,7 @@
 
 # Servicio de registro de transparencia
 
-> Traducción informativa de [la versión en inglés](../../../../services/transparency-log/README.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../../services/transparency-log/README.md), actualizada el 05/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Servicio HTTP de registro de transparencia inspirado en Certificate Transparency (CT). Guarda hashes de bundles en un árbol de Merkle RFC 6962 de solo anexado, con pruebas de inclusión verificables y cabezas de árbol firmadas con Ed25519. El estado está en memoria: un reinicio empieza un árbol nuevo y vacío (véase [Persistencia](../../../../services/README.md#persistence)).
 
@@ -173,8 +173,46 @@ ignoran las cabezas de árbol consultadas a un par sin clave fijada, las mal for
 incorrecta. Una consulta lee como máximo 16 KB, desiste tras un intervalo (10 s como máximo) y nunca empieza mientras
 la anterior sigue en curso. `/gossip/exchange` está abierto, así que solo acepta una STH bien formada (`root` de 64
 hexadecimales o nulo, `size` entero) firmada por un par fijado, en un cuerpo de 16 KB como máximo (si no, 400 o 403).
-Las alertas se deduplican por par, tamaño del árbol y raíz, así que reenviar una cabeza de árbol firmada no añade
-nada, y solo se conservan las 100 últimas.
+Cualquiera puede entregarle la cabeza de un par fijado que le hayan mostrado.
+
+**Qué detecta el gossip.** Cada registro es testigo de las cabezas de los registros que fija. Un registro se identifica
+por la clave fijada con la que se verifican sus cabezas y por su `log_id` exacto (la cadena JSON decodificada); un id de
+par o un endpoint es solo una ruta hacia él. Una **vista dividida** es uno de esos registros firmando dos raíces
+distintas para el mismo tamaño de árbol, vistas al consultarlo, a través del intercambio o a través de dos alias del
+mismo registro. Las cabezas de registros distintos nunca se comparan, sean cuales sean sus tamaños o su `log_id`: dos
+registros independientes que se fijan mutuamente no generan alertas. Las cabezas de tamaños distintos no prueban nada
+aquí: los registros no se replican entre sí y no hay pruebas de consistencia. El árbol local solo se compara con
+cabezas de la clave y el `LOG_ID` del propio registro (si su operador fija su propia clave), en su tamaño actual.
+
+**Alertas.** Una alerta nombra el registro (`peer_log_id`, `peer_public_key`), `tree_size`, la raíz observada primero
+(`observed_root`) y la que entra en conflicto (`peer_root`), el alias por el que llegó (`peer_id`) y la ruta (`source`:
+`poll` o `exchange`). `evidence` contiene las dos cabezas tal como se observaron (los cuatro campos firmados y
+`signature`, sin ningún `public_key` ni otro miembro). Un auditor que haya confirmado `peer_public_key` frente a una
+clave en la que confía por un canal independiente, y no por lo que dice la alerta, puede comprobar que esa clave firmó
+ambas. `observed_root` es la raíz del árbol local solo cuando la cabeza en conflicto se comparó con el árbol local
+actual; si no, es la raíz observada antes. `local_root` se mantiene para los clientes existentes como nombre deprecado
+de `observed_root`, con ese mismo significado. Las alertas se deduplican por registro, tamaño del árbol y par de raíces
+frente a las 100 alertas conservadas, así que reenviar una cabeza de árbol firmada, por cualquier alias o ruta, no añade
+nada mientras su alerta siga entre ellas; cuando ya ha salido, la misma vista dividida puede volver a notificarse.
+
+**Límites.** Por cada registro del que es testigo, un registro guarda la primera cabeza de cada tamaño para los 256
+tamaños más grandes que ha visto. Las cabezas más antiguas y pequeñas que se reenvíen después no desplazan a las
+recientes. Sigue como máximo 8 `log_id` por clave fijada; las cabezas de cualquier otro `log_id` de esa clave se
+verifican, pero no se registran ni se comparan con lo conservado, sin aviso (las cabezas del propio registro se siguen
+comparando con su árbol actual). Estos límites son fijos: como máximo 256 × 8 cabezas por clave fijada, así que el
+total crece con el número de claves que fija el operador.
+
+- **Rotación y retirada.** Volver a fijar un alias con una clave nueva, o retirarlo, descarta lo observado con una clave
+  que ya no fija ningún alias. Una clave que sigue fijada por otro alias, o por el mismo alias con un endpoint nuevo u
+  otra escritura base64 de la misma clave, conserva su historial.
+- **Consultas en curso.** Una consulta cuyo alias se retira o se reconfigura mientras espera se descarta cuando
+  responde.
+- **Reinicios.** El historial y las alertas viven en memoria y se pierden al reiniciar, así que lo observado antes ya no
+  puede compararse. Un registro que reinicia con la misma `OPERATOR_KEY` y el mismo `LOG_ID` empieza un árbol vacío con
+  la misma identidad. Un par solo informa de una vista dividida si aún conserva una cabeza del árbol anterior en un
+  tamaño que el árbol nuevo también firma con otra raíz; un árbol nuevo con las mismas entradas en el mismo orden tiene
+  las mismas raíces y no genera nada. Un `LOG_ID` nuevo (sin definir, es aleatorio) es un registro nuevo: no continúa el
+  anterior, cuyo historial sus pares ya no relacionan con él.
 
 <a id="configuration"></a>
 

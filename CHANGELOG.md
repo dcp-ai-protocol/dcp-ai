@@ -47,6 +47,26 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Security
 
+- **Transparency log: split views are told apart from independent logs** (source on `main`, not in a
+  published version; `services/transparency-log/`). Gossip compared every pinned peer's tree head with
+  the local tree, so two independent logs that pin each other alerted as soon as they had the same size
+  and different entries. It kept no history of a peer's heads to compare one view of it with another;
+  a log showing two roots for one size could only trip that comparison by accident.
+  - **What changes:** a log is identified by its pinned key and exact `log_id`, and each log keeps,
+    per witnessed log, the first head of each size. An alert means that one log signed two roots for
+    one size, seen by polling, through `POST /gossip/exchange`, or through two aliases of it. Heads of
+    different logs are never compared, and the local tree only with this log's own heads. History is
+    bounded (256 sizes per log, 8 logs per pinned key), dropped when no alias pins the key any more,
+    and lost on a restart; a poll whose alias changed while it waited is discarded.
+  - **Alerts:** new fields `peer_public_key`, `observed_root`, `source` and `evidence` (both signed
+    heads, the signed fields and `signature` only). `local_root` is kept as a deprecated name of
+    `observed_root`. Deduplication is by log, size and pair of roots, among the 100 alerts kept.
+    `api/openapi.yaml` documents the alert and the evidence, types the roots as `[string, "null"]`, and
+    now describes the tree head signature as Ed25519 and `public_key` as the base64 Ed25519 key.
+  - **Unchanged:** the tree head format and signature, the endpoints and their status codes, the
+    pinned keys, the 16 KB and timeout limits, non-overlapping polls, the environment variables, the
+    SDKs, profiles and canonicalization. There is still no replication between logs and no consistency
+    proof.
 - **Acceptance change: a domain repeated in a root mandate** (source on `main`, not in a published version). The
   chain verifiers (`verifyMandateChain`, `verify_mandate_chain`, `VerifyMandateChain`) now apply the last sentence of
   DCP-09 §3.5.2 rule 5, a domain that appears twice in one mandate is not comparable, to every mandate of the chain,

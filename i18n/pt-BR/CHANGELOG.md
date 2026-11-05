@@ -64,6 +64,25 @@ Publicado em 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 e `@dcp-ai/cl
 
 ### Segurança
 
+- **Log de transparência: as visões divididas se distinguem dos logs independentes** (código-fonte de `main`, não está
+  em nenhuma versão publicada; `services/transparency-log/`). O gossip comparava a cabeça de árvore de cada par fixado
+  com a árvore local, então dois logs independentes que se fixam mutuamente geravam alertas assim que tinham o mesmo
+  tamanho e entradas diferentes. Ele não guardava histórico das cabeças de um par para comparar uma visão dele com
+  outra; um log que mostrava duas raízes para um tamanho só podia disparar essa comparação por acaso.
+  - **O que muda:** um log é identificado pela sua chave fixada e pelo seu `log_id` exato, e cada log guarda, por log
+    observado, a primeira cabeça de cada tamanho. Um alerta significa que um log assinou duas raízes para um tamanho,
+    vistas ao consultá-lo, via `POST /gossip/exchange` ou por dois aliases dele. As cabeças de logs diferentes nunca são
+    comparadas, e a árvore local só com as cabeças do próprio log. O histórico é limitado (256 tamanhos por log e 8 logs
+    por chave fixada), é descartado quando nenhum alias fixa mais a chave e se perde numa reinicialização; uma consulta
+    cujo alias mudou enquanto esperava é descartada.
+  - **Alertas:** novos campos `peer_public_key`, `observed_root`, `source` e `evidence` (as duas cabeças assinadas, só os
+    campos assinados e `signature`). `local_root` é mantido como nome obsoleto de `observed_root`. A deduplicação é por
+    log, tamanho e par de raízes, entre os 100 alertas mantidos. `api/openapi.yaml` documenta o alerta e a evidência,
+    tipa as raízes como `[string, "null"]` e agora descreve a assinatura da cabeça de árvore como Ed25519 e `public_key`
+    como a chave Ed25519 em base64.
+  - **Sem mudanças:** o formato e a assinatura da cabeça de árvore, os endpoints e os seus códigos de status, as chaves
+    fixadas, os limites de 16 KB e de tempo, as consultas sem sobreposição, as variáveis de ambiente, os SDKs, os perfis e
+    a canonicalização. Continua não havendo replicação entre logs nem prova de consistência.
 - **Mudança de aceitação: um domínio repetido em um mandato raiz** (código-fonte de `main`, não está em nenhuma versão
   publicada). Os verificadores de cadeias (`verifyMandateChain`, `verify_mandate_chain`, `VerifyMandateChain`) agora
   aplicam a última frase da regra 5 de DCP-09 §3.5.2, segundo a qual um domínio que aparece duas vezes no mesmo mandato

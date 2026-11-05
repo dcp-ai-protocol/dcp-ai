@@ -5,7 +5,7 @@
 
 # Docker — infraestructura de DCP
 
-> Traducción informativa de [la versión en inglés](../../../docker/README.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../docker/README.md), actualizada el 05/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Configuración de Docker Compose para desplegar todos los servicios de DCP como contenedores. Incluye verificación, anclaje, registro de transparencia y revocación.
 
@@ -139,7 +139,10 @@ docker compose -f docker/docker-compose.yml up
 ```
 
 Los registros guardan su árbol en memoria: una `OPERATOR_KEY` fija mantiene la misma clave de firma entre reinicios,
-pero un reinicio sigue empezando un árbol vacío.
+pero un reinicio sigue empezando un árbol vacío. Con los `LOG_ID` fijos de este archivo, un registro
+reiniciado tiene la misma identidad que antes. Si el otro registro aún conserva una de sus cabezas anteriores y el árbol
+nuevo firma otra raíz en ese tamaño, informa de una vista dividida, con razón: la misma clave y el mismo `log_id`
+firmaron dos raíces para un tamaño. Las mismas entradas en el mismo orden dan las mismas raíces.
 
 #### revocation
 

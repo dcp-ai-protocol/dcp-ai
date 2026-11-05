@@ -5,7 +5,7 @@
 
 # Docker — infraestrutura do DCP
 
-> Tradução informativa da [versão em inglês](../../../docker/README.md), atualizada em 25/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../docker/README.md), atualizada em 05/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Configuração do Docker Compose para implantar todos os serviços do DCP como contêineres. Inclui verificação, ancoragem, log de transparência e revogação.
 
@@ -139,7 +139,10 @@ docker compose -f docker/docker-compose.yml up
 ```
 
 Os logs guardam a árvore em memória: uma `OPERATOR_KEY` fixa mantém a mesma chave de assinatura entre reinicializações,
-mas uma reinicialização continua começando uma árvore vazia.
+mas uma reinicialização continua começando uma árvore vazia. Com os `LOG_ID` fixos deste arquivo, um log
+reiniciado tem a mesma identidade que antes. Se o outro log ainda guardar uma das suas cabeças anteriores e a árvore
+nova assinar outra raiz nesse tamanho, ele informa uma visão dividida, com razão: a mesma chave e o mesmo `log_id`
+assinaram duas raízes para um tamanho. As mesmas entradas na mesma ordem dão as mesmas raízes.
 
 #### revocation
 

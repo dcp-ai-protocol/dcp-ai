@@ -4,7 +4,7 @@
 
 # Serviço de log de transparência
 
-> Tradução informativa da [versão em inglês](../../../../services/transparency-log/README.md), atualizada em 25/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../../services/transparency-log/README.md), atualizada em 05/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Serviço HTTP de log de transparência inspirado no Certificate Transparency (CT). Guarda hashes de bundles em uma árvore de Merkle RFC 6962 só de anexação, com provas de inclusão verificáveis e cabeças de árvore assinadas com Ed25519. O estado fica em memória: uma reinicialização começa uma árvore nova e vazia (veja [Persistência](../../../../services/README.md#persistence)).
 
@@ -172,9 +172,48 @@ As cabeças de árvore de um par só contam quando são verificadas com a sua ch
 ignoradas as cabeças de árvore consultadas a um par sem chave fixada, as malformadas e as que têm assinatura inválida.
 Uma consulta lê no máximo 16 KB, desiste após um intervalo (10 s no máximo) e nunca começa enquanto a anterior ainda
 está em andamento. `/gossip/exchange` é aberto, então só aceita uma STH bem formada (`root` de 64 hexadecimais ou nulo,
-`size` inteiro) assinada por um par fixado, em um corpo de no máximo 16 KB (caso contrário, 400 ou 403). Os alertas
-são deduplicados por par, tamanho da árvore e raiz, então reenviar uma cabeça de árvore assinada não acrescenta nada,
-e só os 100 últimos são mantidos.
+`size` inteiro) assinada por um par fixado, em um corpo de no máximo 16 KB (caso contrário, 400 ou 403). Qualquer pessoa pode lhe entregar a cabeça
+de um par fixado que lhe tenham mostrado.
+
+**O que o gossip detecta.** Cada log é testemunha das cabeças dos logs que fixa. Um log é identificado pela chave
+fixada com que as suas cabeças são verificadas e pelo seu `log_id` exato (a string JSON decodificada); um id de par ou
+um endpoint é só uma rota até ele. Uma **visão dividida** é um desses logs assinando duas raízes diferentes para o mesmo
+tamanho de árvore, vistas ao consultá-lo, pela troca ou por dois aliases do mesmo log. As cabeças de logs diferentes
+nunca são comparadas, quaisquer que sejam os seus tamanhos ou o seu `log_id`: dois logs independentes que se fixam
+mutuamente não geram alertas. As cabeças de tamanhos diferentes não provam nada aqui: os logs não se replicam entre si e
+não há provas de consistência. A árvore local só é comparada com cabeças da chave e do `LOG_ID` do próprio log (se o seu
+operador fixar a própria chave), no seu tamanho atual.
+
+**Alertas.** Um alerta nomeia o log (`peer_log_id`, `peer_public_key`), `tree_size`, a raiz observada primeiro
+(`observed_root`) e a que entra em conflito (`peer_root`), o alias pelo qual chegou (`peer_id`) e a rota (`source`:
+`poll` ou `exchange`). `evidence` contém as duas cabeças como foram observadas (os quatro campos assinados e
+`signature`, sem nenhum `public_key` nem outro membro). Um auditor que tenha confirmado `peer_public_key` com uma chave
+em que confia por um canal independente, e não pelo que diz o alerta, pode verificar que essa chave assinou as duas.
+`observed_root` é a raiz da árvore local só quando a cabeça em conflito foi comparada com a árvore local atual; caso
+contrário, é a raiz observada antes. `local_root` é mantido para os clientes existentes como nome obsoleto de
+`observed_root`, com esse mesmo significado. Os alertas são deduplicados por log, tamanho da árvore e par de raízes em
+relação aos 100 alertas mantidos, então reenviar uma cabeça de árvore assinada, por qualquer alias ou rota, não
+acrescenta nada enquanto o seu alerta estiver entre eles; depois que ele sai, a mesma visão dividida pode voltar a ser
+informada.
+
+**Limites.** Para cada log de que é testemunha, um log guarda a primeira cabeça de cada tamanho para os 256 maiores
+tamanhos que viu. Cabeças mais antigas e menores reenviadas depois não empurram as recentes para fora. Ele acompanha no
+máximo 8 `log_id` por chave fixada; as cabeças de qualquer outro `log_id` dessa chave são verificadas, mas não são
+registradas nem comparadas com o que foi guardado, sem aviso (as cabeças do próprio log continuam sendo comparadas com a
+sua árvore atual). Esses limites são fixos: no máximo 256 × 8 cabeças por chave fixada, então o total cresce com o
+número de chaves que o operador fixa.
+
+- **Rotação e remoção.** Fixar de novo um alias com uma chave nova, ou removê-lo, descarta o que foi observado com uma
+  chave que nenhum alias fixa mais. Uma chave ainda fixada por outro alias, ou pelo mesmo alias com um endpoint novo ou
+  outra grafia base64 da mesma chave, mantém o seu histórico.
+- **Consultas em andamento.** Uma consulta cujo alias é removido ou reconfigurado enquanto espera é descartada quando
+  responde.
+- **Reinicializações.** O histórico e os alertas ficam em memória e se perdem numa reinicialização, então o que foi
+  observado antes já não pode ser comparado. Um log que reinicia com a mesma `OPERATOR_KEY` e o mesmo `LOG_ID` começa
+  uma árvore vazia com a mesma identidade. Um par só informa uma visão dividida se ainda guardar uma cabeça da árvore
+  anterior num tamanho que a árvore nova também assina com outra raiz; uma árvore nova com as mesmas entradas na mesma
+  ordem tem as mesmas raízes e não gera nada. Um `LOG_ID` novo (sem definir, é aleatório) é um log novo: não continua o
+  anterior, cujo histórico os seus pares já não associam a ele.
 
 <a id="configuration"></a>
 

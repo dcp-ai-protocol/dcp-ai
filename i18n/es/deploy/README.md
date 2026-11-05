@@ -4,7 +4,7 @@
 
 # Desplegar los servicios de DCP-AI
 
-> Traducción informativa de [la versión en inglés](../../../deploy/README.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../deploy/README.md), actualizada el 05/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Los cuatro servicios que incluye este repositorio —**verification**, **anchor**,
 **transparency-log**, **revocation**— se distribuyen como imágenes Docker
@@ -123,7 +123,7 @@ transparencia no tiene opción de persistencia.
 Define también `OPERATOR_TOKEN` en la aplicación de revocación, porque registrar un `agent_id` nuevo allí lo necesita,
 y en las aplicaciones de anclaje y de registro de transparencia si necesitas `POST /flush` o `POST /gossip/peers`.
 
-Para producción conviene tener **dos** instancias del registro de transparencia en regiones distintas, cada una con su propia `OPERATOR_KEY` y apuntando a la otra mediante `GOSSIP_PEERS` con la clave pública de la otra fijada. El gossip compara sus cabezas de árbol firmadas y emite una alerta cuando dos cabezas del mismo tamaño tienen raíces distintas (DCP-03 §4). Eso solo revela una vista dividida si ambos registros deben contener las mismas entradas en el mismo orden: los registros no se replican las entradas entre sí, así que dos registros que recibieron legítimamente entradas distintas también generan alertas, y las cabezas de tamaños distintos no se comparan (no hay prueba de consistencia).
+Para producción conviene tener **dos** instancias del registro de transparencia en regiones distintas, cada una con su propia `OPERATOR_KEY` y apuntando a la otra mediante `GOSSIP_PEERS` con la clave pública de la otra fijada. Cada registro es entonces testigo de las cabezas de árbol firmadas del otro, consultándolo y mediante `POST /gossip/exchange`, y emite una alerta cuando un registro (su clave fijada y su `log_id` exacto) ha firmado dos raíces distintas para el mismo tamaño de árbol, con las dos cabezas firmadas como evidencia. Los dos registros contienen entradas distintas y nunca se comparan entre sí. Los registros no se replican las entradas, y las cabezas de tamaños distintos no se comparan (no hay prueba de consistencia). Un registro reiniciado con la misma `OPERATOR_KEY` y el mismo `LOG_ID` empieza un árbol vacío con la misma identidad, y su par informa de una vista dividida si aún conserva una cabeza anterior en un tamaño que el árbol nuevo firma con otra raíz; véase [el README del registro de transparencia](../services/transparency-log/README.md#gossip).
 
 ---
 

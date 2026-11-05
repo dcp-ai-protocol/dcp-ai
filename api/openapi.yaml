@@ -519,8 +519,10 @@ paths:
       summary: Gossip STH exchange
       operationId: gossipExchange
       description: |
-        Exchange signed tree heads between log instances for cross-verification.
-        Detects split-view attacks when roots differ for the same tree size.
+        Exchange signed tree heads between log instances for cross-verification. The submitted head
+        must be well formed and signed by a pinned peer. It reports a split view when the same log
+        (pinned key and exact log_id) has signed another root for that tree size; heads of different
+        logs are never compared.
       requestBody:
         required: true
         content:
@@ -1810,8 +1812,7 @@ components:
       required: [root, size, timestamp, log_id, signature, public_key]
       properties:
         root:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: Hex-encoded SHA-256 Merkle root (null if log is empty).
         size:
           type: integer
@@ -1823,13 +1824,39 @@ components:
           type: string
         signature:
           type: string
-          description: HMAC-SHA256 signature over the STH payload, base64-encoded.
+          description: Ed25519 signature (base64) over the canonical JSON of { log_id, root, size, timestamp }.
         public_key:
           type: string
-          description: Hex-encoded SHA-256 hash of the operator key (for verification).
+          description: >-
+            The log operator's Ed25519 public key (base64), as the log publishes it. Verify the signature
+            against a key pinned out of band, never only against this one.
+
+    SignedTreeHeadEvidence:
+      type: object
+      description: >-
+        A copy of a signed tree head as observed: the four signed fields and the signature, without the
+        public_key a log attaches or any other member. It verifies against the alert's peer_public_key, which
+        an auditor confirms against a key it trusts out of band before relying on it.
+      required: [log_id, root, size, timestamp, signature]
+      additionalProperties: false
+      properties:
+        log_id:
+          type: string
+        root:
+          type: [string, "null"]
+        size:
+          type: integer
+          minimum: 0
+        timestamp:
+          type: string
+        signature:
+          type: string
 
     SplitViewAlert:
       type: object
+      description: >-
+        One log, identified by its pinned Ed25519 key and its exact log_id, signed two different roots
+        for the same tree size. Heads of different logs are never compared.
       required: [type, local_root, peer_root, tree_size, detected_at]
       properties:
         type:
@@ -1837,14 +1864,43 @@ components:
           const: split_view_detected
         peer_id:
           type: string
+          description: The peer alias the conflicting head came through (a route, not the log's identity).
         peer_log_id:
           type: string
+          description: The log_id both heads carry.
+        peer_public_key:
+          type: string
+          description: >-
+            The pinned Ed25519 public key (canonical base64) both heads verify against, as this log has it
+            pinned. An auditor confirms it against a key it trusts out of band, not on this field alone.
+        observed_root:
+          type: [string, "null"]
+          description: >-
+            The root this log observed first for that log and size, or the root of its current tree when
+            the conflicting head (one of the log's own) was compared with that tree.
         local_root:
-          type: string
+          type: [string, "null"]
+          deprecated: true
+          description: >-
+            Legacy name of observed_root, kept for existing clients, with the same meaning: the local tree's
+            root only when the conflicting head was compared with the current local tree.
         peer_root:
-          type: string
+          type: [string, "null"]
+          description: The conflicting root.
         tree_size:
           type: integer
+        source:
+          type: string
+          enum: [poll, exchange]
+          description: The route the conflicting head arrived by.
+        evidence:
+          type: object
+          required: [observed, conflicting]
+          properties:
+            observed:
+              $ref: "#/components/schemas/SignedTreeHeadEvidence"
+            conflicting:
+              $ref: "#/components/schemas/SignedTreeHeadEvidence"
         detected_at:
           type: string
           format: date-time

@@ -165,8 +165,48 @@ A peer's tree heads only count when they verify under its **pinned** public key:
 with a bad signature are ignored. A poll reads at most 16 KB, gives up after one interval
 (10 s at most), and never starts while the previous one is still running. `/gossip/exchange` is open, so it only accepts a well-formed
 STH (64-hex or null `root`, integer `size`) signed by a pinned peer, in a body of at most 16 KB
-(otherwise 400 or 403). Alerts are deduplicated by peer, tree size and root, so replaying a
-signed tree head adds nothing, and only the last 100 are kept.
+(otherwise 400 or 403). Anyone may hand it a pinned peer's head they were shown.
+
+**What gossip detects.** Each log witnesses the heads of the logs it pins. A log is identified by the
+pinned key its heads verify under and by their exact `log_id` (the decoded JSON string); a peer id or
+an endpoint is only a route to it. A **split view** is one such log signing two different roots for
+the same tree size, seen by polling, through the exchange, or through two aliases of the same log.
+Heads of different logs are never compared, whatever their sizes or `log_id`: two independent logs
+that pin each other do not alert. Heads of different sizes prove nothing here: the logs do not
+replicate each other and there are no consistency proofs. The local tree is only compared with heads
+of this log's own key and `LOG_ID` (if its operator pins its own key), at its current size.
+
+**Alerts.** An alert names the log (`peer_log_id`, `peer_public_key`), `tree_size`, the root observed
+first (`observed_root`) and the conflicting one (`peer_root`), the alias it came through (`peer_id`)
+and the route (`source`: `poll` or `exchange`). `evidence` holds both heads as observed (the four
+signed fields and `signature`, without any `public_key` or other member). An auditor who has
+confirmed `peer_public_key` against a key it trusts out of band, and not on the alert's word, can
+check that this key signed both. `observed_root` is the root of the local tree only when the
+conflicting head was compared with the current local tree; otherwise it is the root observed earlier.
+`local_root` is kept for existing clients as a deprecated name of `observed_root`, with that meaning.
+Alerts are deduplicated by log, tree size and the pair of roots against the 100 alerts kept, so
+replaying a signed tree head, through any alias or route, adds nothing while its alert is among
+them; once it has been pushed out, the same split view can be reported again.
+
+**Limits.** For each log a log witnesses, it keeps the first head of each size for the 256 largest
+sizes seen. Older, smaller heads replayed later do not push recent ones out. It tracks at most 8
+`log_id`s per pinned key; heads of any further `log_id` of that key are verified but neither recorded
+nor compared with what was retained, silently (the log's own heads are still compared with its
+current tree). These limits are fixed: at most 256 × 8 heads per pinned key, so the total grows with
+the number of keys the operator pins.
+
+- **Rotation and removal.** Re-pinning an alias with a new key, or removing it, drops what was
+  observed under a key no alias pins any more. A key still pinned by another alias, or by the same
+  alias with a new endpoint or another base64 spelling of the same key, keeps its history.
+- **Polls in flight.** A poll whose alias is removed or reconfigured while it waits is discarded when
+  it answers.
+- **Restarts.** History and alerts live in memory and are lost on a restart, so what was observed
+  before it can no longer be compared. A log that restarts with the same `OPERATOR_KEY` and `LOG_ID`
+  starts an empty tree under the same identity. A peer reports a split view only if it still holds a
+  head of the previous tree at a size the new tree also signs with a different root; a new tree with
+  the same entries in the same order has the same roots and raises nothing. A new `LOG_ID` (unset, it
+  is random) is a new log: it does not continue the previous one, whose history its peers no longer
+  link to it.
 
 ## Configuration
 

@@ -4,7 +4,7 @@
 
 # Implantar os serviços do DCP-AI
 
-> Tradução informativa da [versão em inglês](../../../deploy/README.md), atualizada em 25/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../deploy/README.md), atualizada em 05/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Os quatro serviços incluídos neste repositório — **verification**, **anchor**,
 **transparency-log**, **revocation** — são distribuídos como imagens Docker
@@ -123,7 +123,7 @@ tem opção de persistência.
 Defina `OPERATOR_TOKEN` também na aplicação de revogação, porque registrar um `agent_id` novo ali o exige, e nas
 aplicações de ancoragem e de log de transparência se você precisar de `POST /flush` ou `POST /gossip/peers`.
 
-Para produção, convém ter **duas** instâncias do log de transparência em regiões diferentes, cada uma com a sua própria `OPERATOR_KEY` e apontando para a outra via `GOSSIP_PEERS` com a chave pública da outra fixada. O gossip compara as suas cabeças de árvore assinadas e emite um alerta quando duas cabeças do mesmo tamanho têm raízes diferentes (DCP-03 §4). Isso só revela uma visão dividida se os dois logs devem conter as mesmas entradas na mesma ordem: os logs não replicam as entradas entre si, então dois logs que receberam legitimamente entradas diferentes também geram alertas, e cabeças de tamanhos diferentes não são comparadas (não há prova de consistência).
+Para produção, convém ter **duas** instâncias do log de transparência em regiões diferentes, cada uma com a sua própria `OPERATOR_KEY` e apontando para a outra via `GOSSIP_PEERS` com a chave pública da outra fixada. Cada log passa então a ser testemunha das cabeças de árvore assinadas do outro, consultando-o e via `POST /gossip/exchange`, e emite um alerta quando um log (a sua chave fixada e o seu `log_id` exato) assinou duas raízes diferentes para o mesmo tamanho de árvore, com as duas cabeças assinadas como evidência. Os dois logs contêm entradas diferentes e nunca são comparados entre si. Os logs não replicam as entradas, e cabeças de tamanhos diferentes não são comparadas (não há prova de consistência). Um log reiniciado com a mesma `OPERATOR_KEY` e o mesmo `LOG_ID` começa uma árvore vazia com a mesma identidade, e o seu par informa uma visão dividida se ainda guardar uma cabeça anterior num tamanho que a árvore nova assina com outra raiz; veja [o README do log de transparência](../services/transparency-log/README.md#gossip).
 
 ---
 

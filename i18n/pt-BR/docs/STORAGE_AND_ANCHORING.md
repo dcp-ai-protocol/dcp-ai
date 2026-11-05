@@ -5,7 +5,7 @@
 
 # Armazenamento e ancoragem — P2P, verificação local
 
-> Tradução informativa da [versão em inglês](../../../docs/STORAGE_AND_ANCHORING.md), atualizada em 28/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../docs/STORAGE_AND_ANCHORING.md), atualizada em 05/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 O protocolo não depende de nenhum serviço central. A verificação é local; a ancoragem opcional usa blockchains públicas **existentes** ou serviços **de terceiros**. O protocolo não aponta para nenhum «registro DCP» canônico nem para nenhuma URL «dcp.ai».
 
@@ -142,7 +142,7 @@ Uma jurisdição ou um operador credenciado pode operar um **log de transparênc
 
 **O que é preciso:** um servidor com armazenamento durável (SQLite ou PostgreSQL), a chave de assinatura do operador e auditores que comparem as raízes. O [Trillian](https://github.com/google/trillian), do Google, é uma implementação de código aberto desse padrão.
 
-**Implementação de referência:** este repositório traz `services/transparency-log/` (código-fonte) e a imagem Docker correspondente em `ghcr.io/dcp-ai-protocol/dcp-ai/transparency-log:latest`. Ele assina as cabeças de árvore com Ed25519 e inclui gossip entre logs irmãos para que ataques de visão dividida sejam detectáveis (DCP-03 §4). Ele mantém o log em memória, então um reinício o esvazia. Há uma configuração do Fly.io em `deploy/fly/transparency-log.toml`.
+**Implementação de referência:** este repositório traz `services/transparency-log/` (código-fonte) e a imagem Docker correspondente em `ghcr.io/dcp-ai-protocol/dcp-ai/transparency-log:latest`. Ele assina as cabeças de árvore com Ed25519 e inclui gossip entre logs que fixam as chaves uns dos outros. No código-fonte de `main` (ainda não numa imagem publicada), cada log é testemunha das cabeças assinadas dos outros e informa uma visão dividida quando um log assina duas raízes para o mesmo tamanho de árvore, com as duas cabeças como evidência. Ele mantém o log em memória, então um reinício o esvazia. Há uma configuração do Fly.io em `deploy/fly/transparency-log.toml`.
 
 <a id="comparison-anchoring-methods"></a>
 

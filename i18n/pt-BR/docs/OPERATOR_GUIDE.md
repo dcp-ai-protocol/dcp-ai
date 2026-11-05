@@ -5,7 +5,7 @@
 
 # Guia do operador — executar um serviço de verificação
 
-> Tradução informativa da [versão em inglês](../../../docs/OPERATOR_GUIDE.md), atualizada em 28/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../docs/OPERATOR_GUIDE.md), atualizada em 05/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Este guia é para **terceiros** que queiram executar um serviço de «agente verificado»: uma API HTTP que verifica Signed Bundles do DCP (e, opcionalmente, ancora hashes numa blockchain). O protocolo **não** exige nenhum servidor central; a verificação sempre pode ser feita localmente com `dcp verify-bundle`. Este serviço é **opcional** e executado por escolha do operador.
 
@@ -173,7 +173,7 @@ Para manter a memória limitada, os registros de identidades, chaves e revogaç�
 | Revogação | 20 registros por cliente por hora (429) | `REGISTRATIONS_PER_HOUR` |
 | Revogação | 10.000 agentes registrados; depois disso, os novos recebem 507 | `MAX_AGENTS` |
 | Revogação | Campos de texto de no máximo 256 caracteres; 5 revogações de emergência por cliente por minuto | — |
-| Log de transparência | As trocas de gossip exigem uma cabeça de árvore assinada por um par fixado (`GOSSIP_PEERS=<url>#<key>`); corpos de 16 KB; os últimos 100 alertas distintos; as sondagens leem no máximo 16 KB, expiram após um intervalo e nunca se sobrepõem | `GOSSIP_PEERS` |
+| Log de transparência | As trocas de gossip exigem uma cabeça de árvore assinada por um par fixado (`GOSSIP_PEERS=<url>#<key>`); corpos de 16 KB; os últimos 100 alertas distintos; as sondagens leem no máximo 16 KB, expiram após um intervalo e nunca se sobrepõem; por chave fixada, no máximo 8 logs observados de 256 tamanhos de árvore cada um, em memória | `GOSSIP_PEERS` |
 | Endpoints que leem um corpo | Corpos de requisição de 1 MB (413); `POST /v2/disputes/:id/escalate` e `POST /v2/delegation/mandate/:id/revoke` não leem o deles | — |
 
 Duas partes do gateway se comportam de outro jeito:
