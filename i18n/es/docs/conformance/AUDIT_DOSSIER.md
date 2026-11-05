@@ -142,7 +142,7 @@ Otros cambios posteriores a las versiones publicadas:
 - **Rust.** Le falta el cifrado de sesión A2A AES-256-GCM y su ventana de repetición ([RUST_RELEASE.md](../../../../docs/RUST_RELEASE.md)).
 - **Versiones publicadas.** No contienen los cambios de [Artefactos](#artifacts).
 - **Campañas diferenciales y de fuzzing.** Son finitas, no exhaustivas. Las entradas que el contrato `/4` no puede llevar a todos los SDK se miden aparte ([arneses diferenciales](../../../../tools/difffuzz/README.md#mandate-chains)).
-- **Rendimiento.** No se comprueba ningún requisito de velocidad. La [línea base de rendimiento](../../../../tools/conformance/README.md#performance-baseline) es una medición local.
+- **Rendimiento.** No se comprueba ningún requisito de velocidad. La [línea base de rendimiento](../../../../tools/conformance/README.md#performance-baseline) y el [escalado acotado de cargas](../../../../tools/conformance/README.md#bounded-workload-scaling) son mediciones locales del método, añadidas después del commit de base; ninguna de las dos es un resultado de auditoría.
 - **Sin cubrir.** Las imágenes de contenedor, los despliegues, los tokens de servicio y la configuración del operador.
 
 <a id="reporting"></a>

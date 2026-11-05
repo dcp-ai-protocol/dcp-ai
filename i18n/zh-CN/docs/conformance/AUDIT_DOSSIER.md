@@ -142,7 +142,7 @@ node tools/difffuzz/run-mandates.mjs --iterations 120 --report /tmp/mandates.jso
 - **Rust。** 缺少 A2A 的 AES-256-GCM 会话加密及其重放窗口（[RUST_RELEASE.md](../../../../docs/RUST_RELEASE.md)）。
 - **已发布版本。** 不包含[制品](#artifacts)中列出的更改。
 - **差分和模糊测试活动。** 它们是有限的，并非穷尽；契约 `/4` 无法传给所有 SDK 的输入另行测量（[差分测试工具](../../../../tools/difffuzz/README.md#mandate-chains)）。
-- **性能。** 未检查任何速度要求；[性能基准](../../../../tools/conformance/README.md#performance-baseline)是本地测量。
+- **性能。** 未检查任何速度要求；[性能基准](../../../../tools/conformance/README.md#performance-baseline)和[有界工作负载的规模变化](../../../../tools/conformance/README.md#bounded-workload-scaling)是在基准提交之后加入的、关于方法的本地测量；两者都不是审计结果。
 - **未涵盖。** 容器镜像、部署、服务令牌和运营方配置。
 
 <a id="reporting"></a>

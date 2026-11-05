@@ -307,6 +307,19 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Added
 
+- Bounded workload scaling (`tools/conformance-perf-scale.js`, report contract `dcp-ai-perf-scale/1`), developed on
+  05/11/2026; no SDK, manifest or lock changes, and `dcp-ai-perf/1` with its children is unchanged.
+  - It covers four dimensions with three sizes each (string bytes, nesting, audit entries, mandate chain length). Each
+    size has a re-signed valid control, a stale control and a schema control, with the category of each negative checked
+    in its first errors. Bundles run in five SDKs, mandate chains in four, through separate `dcp-ai-perf-mandate/1`
+    children.
+  - The corpus is generated once with TEST-ONLY keys, measured from its exact bytes, and checked before any child with
+    Ajv and the SDK-free integrity and signature checks.
+  - Memory is the kernel high-water RSS of a fresh child per observation (`tools/conformance/perf/rusage.py`); the heap
+    is not measured.
+  - A supervisor stops the run and every process it started at the deadline, and reports an incomplete cleanup as such.
+  - CI runs its self-tests and a smallest-size smoke run; they check verdicts, counts, units and cleanup, and set no speed or memory threshold.
+    [Conformance kit](tools/conformance/README.md#bounded-workload-scaling).
 - Differential testing (`tools/difffuzz`), developed on 05/11/2026; no SDK, manifest or lock changes.
   - `run-mandates.mjs` sends the same re-signed DCP-09 mandate chain to the TypeScript, Python, Go and Rust chain
     verifiers through contract `/4` (format `dcp-mandatefuzz/1`). Every run covers 73 variants in 11 families at every

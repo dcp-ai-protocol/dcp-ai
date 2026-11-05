@@ -257,6 +257,13 @@
 
 ### 新增
 
+- 有界工作负载的规模变化（`tools/conformance-perf-scale.js`，报告契约 `dcp-ai-perf-scale/1`），开发于 05/11/2026；SDK、清单和锁文件没有变化，`dcp-ai-perf/1` 及其子进程也不变。
+  - 它涵盖四个维度，每个维度三个大小（字符串字节数、嵌套、审计条目和授权书链长度）。每个大小有一个重新签名的有效对照、一个签名过期的对照和一个模式对照，并在首批错误中检查每个负对照的类别。bundle 在五个 SDK 中运行，授权书链在四个 SDK 中运行，通过独立的 `dcp-ai-perf-mandate/1` 子进程。
+  - 语料用 TEST-ONLY 密钥生成一次，从其确切字节测量，并在任何子进程之前用 Ajv 以及不依赖 SDK 的完整性和签名检查进行检查。
+  - 内存是每次观测一个新子进程的内核 RSS 最高值（`tools/conformance/perf/rusage.py`）；不测量堆。
+  - 监督进程在期限到达时停止运行及其启动的所有进程，并如实报告不完整的清理。
+  - CI 运行其自测和最小大小的冒烟运行；它们检查判定、计数、单位和清理，不设任何速度或内存阈值。
+    [一致性工具包](../../tools/conformance/README.md#bounded-workload-scaling)。
 - 差分测试（`tools/difffuzz`），于 05/11/2026 开发；SDK、清单和锁文件均无变更。
   - `run-mandates.mjs` 通过契约 `/4`（格式 `dcp-mandatefuzz/1`）把同一条重新签名的 DCP-09 委托书链发送给
     TypeScript、Python、Go 和 Rust 的链验证器。每次运行在 11 个类别中 73 个变体适用的每个深度上覆盖一遍（167 个

@@ -572,3 +572,29 @@ DCP_PERF_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUI
 - **自测：** `perf.test.mjs` 运行五个子进程的必需冒烟运行（W=1、N=2、R=1）；伪造子进程（缺失、重复或未知的结果、错误的计数、格式错误或不安全的样本、错误的标识、矛盾、accept-all、预热和样本中的失败、格式错误的失败、有效输出后非零退出、挂起）；给定错误正向预期的真实子进程；在旧的通过报告之上写入的新报告；伪造、过期和不完整的来源；临时目录树中的选择；以及忽略 SIGTERM 的构建步骤。
   CI 在原生 job 中运行它们，所有子进程均为必需。
 - **限制：** 单台机器、小样本：频率、热与电源状态以及后台负载不受控制（会记录 CPU 和操作系统）。每个 SDK 都按原样测量，包含其自身的密码库；Rust 的配置为默认 release。结果保留在本地：本节记录方法，而非数字。
+
+<a id="bounded-workload-scaling"></a>
+
+## 有界工作负载的规模变化
+
+`tools/conformance-perf-scale.js`（报告契约 `dcp-ai-perf-scale/1`）测量本检出中规范性验证器在一个小而有限的网格上如何随规模变化：四个维度各有三个大小，每个大小有三个对照。它是一个独立的工具：`dcp-ai-perf/1` 及其子进程和报告不变。它不是压力测试，不是寻找失败阈值，不是排名，也不是速度要求；CI 检查测试工具本身（判定、计数、单位和清理），不设任何速度或内存阈值。
+
+```bash
+node tools/conformance-perf-scale.js --list
+node tools/conformance-perf-scale.js --generate /tmp/scale-corpus
+node tools/conformance-perf-scale.js --corpus /tmp/scale-corpus --sizes small --warmup 1 --samples 2 --offline --python /path/to/python --report /tmp/scale-smoke.json
+node tools/conformance-perf-scale.js --corpus /tmp/scale-corpus --no-build --python /path/to/python --report /tmp/scale.json
+DCP_PERF_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/perf-scale.test.mjs
+```
+
+- **准备：** `--generate` 用 TypeScript `dist` 签名并导入根目录的包，因此需要先完成[审计资料](../../docs/conformance/AUDIT_DOSSIER.md#reproduce)中的本地准备：构建 TypeScript SDK，并用已提交的锁文件安装根目录依赖。之后的运行会自行构建它所测量的内容；使用 `--offline` 时，Go、Cargo 和 wasm-pack 的缓存中必须已有依赖。`--python`（或 `DCP_PERF_PYTHON`）指定一个带有 Python SDK 依赖和 pip 的解释器。
+- **维度：** 字节数（`intent.payload.target` 的开放成员中一个 ASCII 字符串，为 1、16 和 256 KiB）、嵌套（该成员中 4、16 和 64 个嵌套对象）、审计长度（1、16 和 256 个条目）以及授权书链长度（1、4 和 16 个 DCP-09 授权书；根的 `delegation_depth` 为 0）。bundle 通过未改动的 `dcp-ai-perf/1` 子进程在五个 SDK 中运行；链通过独立的 `dcp-ai-perf-mandate/1` 子进程在 TypeScript、Python、Go 和 Rust 中运行，因为 WASM 不提供授权书链 API。
+- **对照：** `valid` 在增长后重新签名，因此会到达完整的验证器；`stale` 是有效文档在签名后改动了增长部分中的一个字节；`schema` 是带有一个固定模式违规的有效文档（对于链，是根的形状错误）。负对照的首批错误必须显示其类别：模式对照中只有 `schema: …` 行；签名过期的对照中有 `intent: payload_hash mismatch`、`Manifest audit_merkle_root mismatch` 或 `mandate[i]: … does not verify`，且没有模式或形状错误。这是 SDK 报告的类别，并不证明只执行了某一条内部路径。
+- **语料：** 用 TEST-ONLY 密钥生成一次，并从其确切字节测量，这些字节及其哈希列在清单中。bundle 的 ML-DSA-65 签名是 hedged 的，因此重新生成会得到不同的字节。在启动任何子进程之前，工具检查语料：有上限的普通文件、恰好是代码所定义的计划条目、每个大小的量级、对照之间一个字节和一处改动的关系、用 Ajv 检查的模式，以及不依赖任何 SDK 的完整性和签名检查。期望值从不来自 SDK 之间的一致。
+- **延迟：** 与 `dcp-ai-perf/1` 相同，为进程内每次调用的时间（输入字节的解析和验证器）；生成、签名、构建、进程启动和请求解码不计在内。每个 SDK 和维度一个子进程，对其九个工作负载 round-robin；每个工作负载最多 10 次预热调用和 50 个样本，一轮。每次调用都会检查。
+- **内存：** 每个 SDK 和工作负载一个新的子进程（1 次预热调用和 3 个样本，全部检查），由 `tools/conformance/perf/rusage.py` 启动，它读取内核为该确切进程记录的 RSS 最高值（通过 `os.wait4` 读取 `ru_maxrss`：macOS 上为字节，Linux 上为 KiB，统一为字节；其他平台为带原因的 null，从不为 0）。这是整个进程在其生命周期内的峰值（运行时、import、请求副本、预热、验证和结果），不是验证器的分配，也不是采样值。不测量堆。内存从不与延迟比较。
+- **规模变化：** 仅在单个 SDK 内比较：每个大小的中位数与同一序列中最小大小相比，以及每个 RSS 峰值减去最小大小的峰值。不排名，不设阈值，不归因于某个原语。
+- **期限与进程：** 命令是一个监督进程。它以工作进程的形式在其自己的进程组中运行任务，到达 `--deadline-ms`（默认 60 分钟）时，停止工作进程及其启动的所有进程（通过 `/bin/ps` 找到，包括位于自己进程组中的子进程），然后写入错误报告。无法枚举进程时不启动任何东西；如果停止过程中枚举失败，仍会杀死已知的工作进程组，并在报告中说明清理不完整。在内部，工作进程遵守协作式预算：只有预留时间足够时才开始一个步骤。监督进程仅在 macOS 和 Linux 上测试过。`--generate` 写入本次运行自己创建的暂存目录，只有在语料检查之后才重命名。
+- **来源：** 五个 SDK 的 `dcp-ai-perf/1` 记录，加上从入口点传递找到的工具 JavaScript 模块、它们解析到的包、模式树、根目录的清单和锁文件、授权书子进程及其二进制文件，以及被测解释器的 `pip freeze`。在运行前后各计算一次；任何差异、缺失或语料字节的变化都是错误。构建与 `dcp-ai-perf/1` 共用。
+- **报告：** 只有在全部大小、两个阶段、通过且没有任何替换时，`baseline` 才为 true。`--child-argv`、`--launcher-argv` 以及任何 `DCP_PERF_SCALE_SELFTEST_*` 变量都会作为测试替换列出。退出码：0 通过，1 检查失败（判定或阶段），2 用法，3 基础设施、语料、构建、来源或期限。
+- **限制：** 单台机器、小样本；频率、热与电源状态以及后台负载不受控制。结果只留在本地：本节记录方法，而非数字。
