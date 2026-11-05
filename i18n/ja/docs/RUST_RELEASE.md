@@ -4,22 +4,22 @@
 
 > [英語原文](../../../docs/RUST_RELEASE.md)の参考訳。05/11/2026 更新。識別子とコード例は原文のままです。
 
-28/10/2026 確認：[`dcp-ai` 2.11.1](https://crates.io/crates/dcp-ai/2.11.1) は crates.io で公開済みです。前のリリース [2.11.0](https://crates.io/crates/dcp-ai/2.11.0) は 26/10/2026 に確認されており、その記述は以下に残しています。crate のバージョンは DCP のワイヤー形式・仕様バージョンとは独立しています。Rust crate は npm、Python、Go、コンテナーとは独立して公開されます。
+05/11/2026 確認：[`dcp-ai` 2.13.0](https://crates.io/crates/dcp-ai/2.13.0) は crates.io で公開済みです（[変更点](#what-changed-in-2130)）。以前のリリース [2.11.1](https://crates.io/crates/dcp-ai/2.11.1)（28/10/2026 確認）と [2.11.0](https://crates.io/crates/dcp-ai/2.11.0)（26/10/2026 確認）の記述は以下に残しています。crate のバージョンは DCP のワイヤー形式・仕様バージョンとは独立しています。Rust crate は npm、Python、Go、コンテナーとは独立して公開されます。
 
 <a id="install"></a>
 
 ## インストール
 
-現在の安定版 Rust ツールチェーンを使い、アプリケーションの crate から実行します。変更後の `Cargo.toml` と `Cargo.lock` をコミットしてください。この例は互換性のある 2.x 更新を許可します。完全固定が必要なら manifest で `=2.11.1` を指定します。
+現在の安定版 Rust ツールチェーンを使い、アプリケーションの crate から実行します。変更後の `Cargo.toml` と `Cargo.lock` をコミットしてください。この例は互換性のある 2.x 更新を許可します。完全固定が必要なら manifest で `=2.13.0` を指定します。
 
 ```bash
-cargo add dcp-ai@2.11.1
+cargo add dcp-ai@2.13.0
 cargo check --locked
 ```
 
 ```toml
 [dependencies]
-dcp-ai = "2.11.1"
+dcp-ai = "2.13.0"
 ```
 
 任意の OTLP エクスポートと WebAssembly バインディングは `otlp` と `wasm` で選択します。対象に必要な機能だけを有効にしてください。この Rust リリースで別の npm WASM パッケージは再公開しません。
@@ -42,28 +42,30 @@ dcp-ai = "2.11.1"
 
 ## 検証
 
+2.13.0 では、リリースワークフローが `main`（`46b142bd`）から crate を公開しました。レジストリの crate のファイルは、`.cargo_vcs_info.json` を除き、公開前にテストした成果物とすべて一致します。`.cargo_vcs_info.json` は候補のビルドコミットではなくそのコミットを記録しています。新しい Cargo home で、path 依存や patch なしに crates.io から 2.13.0 を解決した利用側は、外部適合性キット（7 カタログ、697 ケース）とデフォルトプロファイルの確認に合格しました。golden の `dcp-jcs-v1` バンドルは検証され、同じバンドルで `dcp-jcs-v2` を宣言したものは拒否されます。
+
 2.11.1 では、リリースのワークフローが crate を公開しました。レジストリの crate の全ファイルは、`main` のクリーンなコミットを記録する `.cargo_vcs_info.json` を除き、レビュー済みのものと一致します。crates.io から 2.11.1 を解決する外部利用側は 73 件のテストに合格しました。
 
 2.11.0（2026 年 10 月 26 日）では、既定スイートは 261 件、全機能スイートは 267 件に合格しました（doctest を含む）。WASM ライブラリとテストは `wasm32-unknown-unknown` 向けにコンパイル済みですが、これはブラウザー実行テストではありません。Cargo による 71 ファイルのパッケージ化・検証と公開 dry-run に合格しました。展開した crate に対する外部利用側の 72 件（受け入れ、互換性、候補入力・ルーター、検証器の回帰テスト）が合格し、反転した負の対照は期待どおり失敗しました。公開後、新規レジストリキャッシュからローカルパスや patch なしで正確に 2.11.0 を解決し、同じ 72 件に合格しました。公開アーカイブの checksum とソースのバイト列はレビュー済みリリースと一致しました。テスト用共有 fixture はリポジトリから取得します。アプリケーションには不要です。
 
-<a id="prepared-not-published-2130"></a>
+<a id="what-changed-in-2130"></a>
 
-## 準備済み・未公開: 2.13.0
+## 2.13.0 の変更点
 
-2.13.0 は 05/11/2026 にリポジトリで準備済みですが、crates.io では公開されていません。上記のインストールコマンドは 2.11.1 のままです。下記の 2.12.0 を置き換えます。2.12.0 は公開されませんでした。2.11.1 と比べて、2.13.0 は次のとおりです：
+2.13.0 は 05/11/2026 にリリースワークフローによって `main`（`46b142bd`）から crates.io に公開されました。下記の 2.12.0 を置き換えます。2.12.0 は公開されませんでした。2.11.1 と比べて、2.13.0 は次のとおりです：
 
 - **V2-2 のスキーマ検証を実行します（受け入れの変更）。** `verify_signed_bundle_v2`、`…_with_policy`、`…_at` は、WASM ビルドも含め、ハッシュ、鍵、署名を確認する前に、署名済みバンドルのエンベロープと 4 つのペイロードを `schemas/v2` に照らして検証します。以前は受け入れられていたスキーマ上無効なバンドルは、`schema: <pointer> <keyword>` 診断で失敗するようになりました。
 - **`RawAuditEventV2` と `RawAuditEventError` を追加します。** 下記の 2.12.0 と同じです。
 - **`wasm_dual_merkle_root` を修正します**（`wasm` フィーチャー使用時）。下記の 2.12.0 と同じです。以前の関数で算出したルートは記録されたまま保持されます。[`dualMerkleRoot` の結果の移行](../../../docs/NPM_RELEASES.md#migrating-dualmerkleroot-results)を参照してください。
 - **委任状の確認を揃えます。** `verify_mandate_validity` は期間を文字列ではなく瞬間として比較し、`verify_mandate_validity_at`（新規）は検証時刻を受け取ります。`verify_mandate_chain` はドメインを繰り返すルート委任状を拒否します。
 
-テレメトリーは `2.13.0` を報告します。ワイヤーフォーマット、署名、プロファイル、規範的なデフォルトとしての `dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API は変わらず、crate に Apache-2.0 の `LICENSE` が含まれるようになりました。この Rust のソースからビルドされる npm パッケージは `@dcp-ai/wasm` 2.1.3 で、これも準備済み・未公開です（[npm パッケージ](../../../docs/NPM_RELEASES.md)を参照）。[SDK README](../../../sdks/rust/README.md)と[変更履歴](../../../CHANGELOG.md#unreleased)を参照してください。
+テレメトリーは `2.13.0` を報告します。ワイヤーフォーマット、署名、プロファイル、規範的なデフォルトとしての `dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API は変わらず、crate に Apache-2.0 の `LICENSE` が含まれるようになりました。この Rust のソースからビルドされる npm パッケージは `@dcp-ai/wasm` 2.1.3 で、これも 05/11/2026 に公開されました（[npm パッケージ](../../../docs/NPM_RELEASES.md)を参照）。公開済みの crate に含まれる README は公開前に準備したもので、「prepared, not published」と記載しています。公開済みの crate は変更できません。[SDK README](../../../sdks/rust/README.md)と[変更履歴](../../../CHANGELOG.md#unreleased)を参照してください。
 
 <a id="prepared-not-published-2120"></a>
 
 ## 準備済み・未公開: 2.12.0
 
-2.12.0 は 30/10/2026 にリポジトリで準備済みですが、crates.io では公開されていません。上記のインストールコマンドは 2.11.1 のままです。2.11.1 と比べて、2.12.0 は次のとおりです。
+2.12.0 は 30/10/2026 にリポジトリで準備済みですが、crates.io では公開されていません。準備の時点では、インストールコマンドは 2.11.1 のままでした。現在のコマンドは上記のとおり 2.13.0 を指定しています。2.11.1 と比べて、2.12.0 は次のとおりです。
 
 - **`dcp_ai::v2::types::RawAuditEventV2` と `RawAuditEventError` を追加。** `RawAuditEventV2` は受信した監査エントリーをデコード済みの `serde_json::Value` として保持するため、未知のメンバーを含むすべてのメンバーが、存在するかどうかと `null` であるかどうかを保ちます。保持するのはデコード済みの値であり、元のテキストではありません。シリアライズしたり `dcp-jcs-v1` で正規化したりすると、その値のバイト列になります。`typed()` は情報が失われるビューです。`AuditEventV2` の動作は変わりません。バンドル全体の解析、検証、正規化は変わりません。
 - **`wasm_dual_merkle_root` を修正（`wasm` フィーチャー使用時）。** バンドル検証器が使う [VERIFICATION.md の V2-11](../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) の縮約（32 バイトの生のダイジェストを使い、奇数個の層では最後のノードを複製する）で二重 Merkle ルートを計算するようになりました。32 バイトの 16 進ダイジェストでない葉に対しては、不正な形式の入力を受け入れるのではなくエラーを返します。この crate から作られる npm パッケージは `@dcp-ai/wasm` 2.1.2 で、これも準備済み・未公開です（[npm パッケージ](../../../docs/NPM_RELEASES.md)を参照）。
@@ -76,4 +78,4 @@ dcp-ai = "2.11.1"
 
 ## 関連するリリース
 
-各レジストリの現在のバージョンは[公開済みバージョン](../../../docs/README.md#published-versions)にあります。その他のリリースノート：[npm パッケージ](../../../docs/NPM_RELEASES.md)、[Python 2.10.1](../../../docs/PYTHON_RELEASE.md)、[Go v2.11.1](../../../docs/GO_RELEASE.md)。
+各レジストリの現在のバージョンは[公開済みバージョン](../../../docs/README.md#published-versions)にあります。その他のリリースノート：[npm パッケージ](../../../docs/NPM_RELEASES.md)、[Python 2.10.2](../../../docs/PYTHON_RELEASE.md)、[Go v2.13.0](../../../docs/GO_RELEASE.md)。

@@ -97,39 +97,39 @@ node tools/difffuzz/run-mandates.mjs --iterations 120 --report /tmp/mandates.jso
 | 成果物 | バージョン | 含まれるもの |
 |---|---|---|
 | レビュー対象のソース | 基準時点の `main` | 以下のすべての修正 |
-| 準備済み・未公開（05/11/2026） | `@dcp-ai/sdk` 2.3.0、`dcp-ai` 2.10.2（PyPI）、Go v2.13.0、Rust `dcp-ai` 2.13.0、`@dcp-ai/wasm` 2.1.3 | 以下の SDK の変更すべて |
+| 公開（05/11/2026） | `@dcp-ai/sdk` 2.3.0、`@dcp-ai/wasm` 2.1.3、`dcp-ai` 2.10.2（PyPI）、Go v2.13.0、Rust `dcp-ai` 2.13.0 | 以下の SDK の変更すべて |
 | 30/10/2026 に準備（#114）、公開されずに置き換え | Go v2.12.0、Rust `dcp-ai` 2.12.0、`@dcp-ai/wasm` 2.1.2 | #106（WASM）、#107、#112。#103 と #116〜#119 は含みません |
-| 公開済み | `@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`@dcp-ai/cli` 2.1.1、`dcp-ai` 2.10.1（PyPI）、Go v2.11.1、Rust `dcp-ai` 2.11.1 | 26/10/2026 の検証器の修正と 28/10/2026 の二次 SHA3-256 の確認。以下の修正はどれも含みません |
+| 以前の公開（28/10/2026） | `@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`@dcp-ai/cli` 2.1.1、`dcp-ai` 2.10.1（PyPI）、Go v2.11.1、Rust `dcp-ai` 2.11.1 | 26/10/2026 の検証器の修正と 28/10/2026 の二次 SHA3-256 の確認。以下の修正はどれも含みません |
 
-バージョン番号だけでは成果物を特定できません。`main` のマニフェストには、どのレジストリにもない 05/11/2026 の候補の番号が記載されています。30/10/2026 の候補は、より少ない変更に対して Go と Rust の 2.12.0 と `@dcp-ai/wasm` 2.1.2 を使っており、これらの番号は再利用されません。以下のレジストリの識別子か、ビルドしたもののハッシュを使ってください。公開ではパッケージが再ビルドされるため、公開されるものはレビュー済みの候補と比較するか、改めてテストする必要があります。公開レジストリは 05/11/2026 に通常の TLS で読み取り、何も公開していません。最新バージョンは上記のとおりでした。
+バージョン番号だけでは成果物を特定できません。`main` のマニフェストには 05/11/2026 に公開された番号が記載されています。30/10/2026 の候補は、より少ない変更に対して Go と Rust の 2.12.0 と `@dcp-ai/wasm` 2.1.2 を使っており、これらの番号は再利用されません。以下のレジストリの識別子か、ビルドしたもののハッシュを使ってください。npm の tarball は公開前にテストしたファイルそのものです。PyPI のファイルと crate は `main` から再ビルドされ、テスト済みの成果物と同じファイルを含みます。例外は crate の `.cargo_vcs_info.json` で、`main` を示します。公開後の 05/11/2026 に公開レジストリを通常の TLS で改めて読み取りました。最新バージョンは上記のとおりで、識別子は以下のとおりです。
 
 | レジストリ | バージョン | 識別子 |
 |---|---|---|
-| npm `@dcp-ai/sdk` | 2.2.1 | `sha512-HsT/4BMomZ2QVDfxLWhejoZDzSo8OH8cLT6i6fBTAejt078SyTJRKoLVeIgZp0G29I5JIyoeOPfhebfa7+W9Lw==` |
-| npm `@dcp-ai/wasm` | 2.1.1 | `sha512-YUFEAMBnT0J0hZvg1MUS1yvXV0HPotijoj32kIhGDoMVaBhqZKTZvE8iV5h90WRv4duRzJav+PtlQ4fl3NcyQQ==` |
+| npm `@dcp-ai/sdk` | 2.3.0 | `sha512-5IsrDMKE3NM8e5jVLFIaigNFHIni/aIzD9Q4zNYZu6sTLfsPk/zqRxi9ccjtGSTiaftTba3LD/1JA4Gi0uS1bw==` |
+| npm `@dcp-ai/wasm` | 2.1.3 | `sha512-ToL7ZE+8mEvKJCO5DXxJm+GS2nrQ2tInHYJn+cWqLWxT+eMss9ka9MVp30LNmopO+MTqgwBs1hmAy6TOI5wDIA==` |
 | npm `@dcp-ai/cli` | 2.1.1 | `sha512-Qmuq5FiT+TUW3nZ4HCp/DUXdF6JVYB6vaCmNZL/qK8EWiSpP5gzgesSwK0zzlOQL20SJJditRR0h5YIQ7gxIMw==` |
-| PyPI `dcp-ai` | 2.10.1 | wheel `30a1e35bc275b20118ec3e786f3c58336fd72bd21849995bc44ac2e702400a9c`, sdist `e254091491867f122deaff6d6ccc6db6f021d721ff30b1182a4944902b8f2fc5` (SHA-256) |
-| crates.io `dcp-ai` | 2.11.1 | `dfb8440a50351491fd7aa81cb5585d8d4f7c130986e504210175b62251f1bc73` (checksum) |
-| Go module `sdks/go/v2` | v2.11.1 | tag `sdks/go/v2.11.1`, commit `6f9b453fbaaeb53ead225f77390bf683472be5fa` (28/10/2026) |
+| PyPI `dcp-ai` | 2.10.2 | wheel `825de9d6dce5ec2737d38534e7c3d357edbded437912605a549cde75518f198b`, sdist `6005f342a0a24bee331c30be2fb2bc89a1306a21de399051cd1cef3cc96297e4` (SHA-256) |
+| crates.io `dcp-ai` | 2.13.0 | `579f070ad23c531147ef91287d610c6dc317bef997e2791a24a5070a4c0c13a1` (checksum) |
+| Go module `sdks/go/v2` | v2.13.0 | tag `sdks/go/v2.13.0`, commit `46b142bd7e42601acd912f156bbfcd9f5204a4be` (05/11/2026), `h1:bRkqSUWHQ/qTywPmKWRdzg2bBWI0RG1ZZAlb6IafnyU=` |
 
-公開バージョンの後の `main` における SDK の変更：
+28/10/2026 のバージョンの後の SDK の変更（05/11/2026 に公開）：
 
 | 変更 | コミット | SDK | 公開 |
 |---|---|---|---|
-| `VerificationCache` のキーと分離（#103） | `e711179a` | TypeScript | 未公開、05/11 に準備済み |
-| WASM の `dualMerkleRoot` が V2-11 に従う（#106） | `cac0a5f6` | Rust（`wasm` フィーチャー）、WASM | 未公開、30/10 と 05/11 に準備済み |
-| `VerifyPayloadHash` が規範どおりの接頭辞付きハッシュを確認（#107） | `24e70d56` | Go | 未公開、30/10 と 05/11 に準備済み |
-| `RawAuditEventV2` が受け取った監査エントリーを保持（#112） | `6dc97d59` | Go、Rust | 未公開、30/10 と 05/11 に準備済み |
-| すべての V2 検証器内での V2-2 スキーマ検証（#116） | `0ebd2849` | TypeScript、Python、Go、Rust、WASM | 未公開、05/11 に準備済み |
-| 委任状の有効性ヘルパーの統一（#117） | `614b1c56` | TypeScript、Python、Go、Rust | 未公開、05/11 に準備済み |
-| 委任状チェーンの時刻確認の統一（#118） | `7619ff95` | TypeScript、Python、Go、Rust | 未公開、05/11 に準備済み |
-| 単独のルート委任状で繰り返されるドメインの拒否（#119） | `c154192f` | TypeScript、Python、Go、Rust | 未公開、05/11 に準備済み |
+| `VerificationCache` のキーと分離（#103） | `e711179a` | TypeScript | 公開済み、05/11/2026 |
+| WASM の `dualMerkleRoot` が V2-11 に従う（#106） | `cac0a5f6` | Rust（`wasm` フィーチャー）、WASM | 公開済み、05/11/2026（30/10/2026 に準備） |
+| `VerifyPayloadHash` が規範どおりの接頭辞付きハッシュを確認（#107） | `24e70d56` | Go | 公開済み、05/11/2026（30/10/2026 に準備） |
+| `RawAuditEventV2` が受け取った監査エントリーを保持（#112） | `6dc97d59` | Go、Rust | 公開済み、05/11/2026（30/10/2026 に準備） |
+| すべての V2 検証器内での V2-2 スキーマ検証（#116） | `0ebd2849` | TypeScript、Python、Go、Rust、WASM | 公開済み、05/11/2026 |
+| 委任状の有効性ヘルパーの統一（#117） | `614b1c56` | TypeScript、Python、Go、Rust | 公開済み、05/11/2026 |
+| 委任状チェーンの時刻確認の統一（#118） | `7619ff95` | TypeScript、Python、Go、Rust | 公開済み、05/11/2026 |
+| 単独のルート委任状で繰り返されるドメインの拒否（#119） | `c154192f` | TypeScript、Python、Go、Rust | 公開済み、05/11/2026 |
 
-公開バージョンの後のその他の変更：
+28/10/2026 のバージョンの後のその他の変更：
 
 - **参照用の透明性ログ。** #120（`c59ce5ba`）はゴシップの警告を目撃したログの識別に結び付け、#122（`d45c5a7b`）は実行中に追加されたピアをポーリングします。このサービスはパッケージとして配布されていません。
 - **仕様と適合性キット。** #121（`0dcbd8dc`）は委任カタログを追加します。#123（`45ac32f0`）は V2-10 と DCP-09 §3.5.2 の明確化、ポリシーカタログ 2.0、委任カタログ 2.0.0 を追加します。SDK の変更はありません。
-- **レジストリの利用者。** これらの変更を含むリリースが公開されるまで、どの変更も受け取りません。
+- **レジストリの利用者。** 上の表の SDK の変更は 05/11/2026 のバージョンで届きます。それ以前のバージョンにはここに挙げた制限が残ります。透明性ログ、仕様、適合性キットはそれらのパッケージには含まれず、リポジトリから利用します。
 
 <a id="known-limits-and-exclusions"></a>
 
@@ -141,7 +141,7 @@ node tools/difffuzz/run-mandates.mjs --iterations 120 --report /tmp/mandates.jso
 - **参照サーバー。** 勧告の署名の構造を確認しますが、署名そのものは確認しません（[server/README.md](../../../../server/README.md)）。
 - **WASM。** 委任状チェーンの検証を公開していません。
 - **Rust。** A2A の AES-256-GCM セッション暗号化とそのリプレイウィンドウがありません（[RUST_RELEASE.md](../../../../docs/RUST_RELEASE.md)）。
-- **公開バージョン。** [成果物](#artifacts)に挙げた変更を含みません。
+- **05/11/2026 より前の公開バージョン。** [成果物](#artifacts)に挙げた変更を含みません。
 - **差分とファジングのキャンペーン。** 有限であり、網羅的ではありません。契約 `/4` がすべての SDK に運べない入力は別に測定します（[差分ハーネス](../../../../tools/difffuzz/README.md#mandate-chains)）。
 - **性能。** 速度の要件は確認していません。[性能の基準値](../../../../tools/conformance/README.md#performance-baseline)と[上限のあるワークロードの規模変化](../../../../tools/conformance/README.md#bounded-workload-scaling)は、基準のコミットの後に追加した、方法についてのローカルでの測定です。どちらも監査の結果ではありません。
 - **対象外。** コンテナイメージ、デプロイ、サービストークン、運用者の設定。

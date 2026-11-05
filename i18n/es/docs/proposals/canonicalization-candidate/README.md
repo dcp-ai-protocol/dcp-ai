@@ -4,7 +4,7 @@
 
 # Candidato de canonicalización `dcp-jcs-v2`
 
-> Traducción informativa de [la versión en inglés](../../../../../docs/proposals/canonicalization-candidate/README.md), actualizada el 02/11/2026. Propuesta experimental y no normativa; si difieren, prevalece la versión en inglés. Los identificadores y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../../../docs/proposals/canonicalization-candidate/README.md), actualizada el 05/11/2026. Propuesta experimental y no normativa; si difieren, prevalece la versión en inglés. Los identificadores y bloques de código se conservan sin traducir.
 
 Las API candidatas experimentales y opt-in están incluidas en las versiones de SDK listadas en [Versiones publicadas](../../../../../docs/README.md#published-versions).
 
@@ -792,7 +792,7 @@ ejecución y nunca se escriben fuera del directorio de la ejecución.
     número fuera de rango, profundidad 65, errores de transporte, un perfil desconocido y un perfil no aceptado.
   - En la ruta del candidato, que falla allí: una carga útil cambiada, un manifiesto cambiado y una firma clásica o
     PQ invertida.
-- **Desde V2-2** (validación de esquema en todos los SDK, en `main`, sin publicar): los 50 resultados de `S09`, cuyos miembros
+- **Desde V2-2** (validación de esquema en todos los SDK, publicada el 05/11/2026): los 50 resultados de `S09`, cuyos miembros
   desconocidos están en objetos cerrados, se rechazan con diagnósticos de esquema exactos. Una ejecución espera ahora 525
   resultados positivos y 450 negativos, 975 en total; 575 y 400 son los recuentos al cierre de la fase 4. Véase
   [el README de la fase 4](../../../../../i18n/es/tests/interop/candidate/phase4/README.md#s09-under-v2-2).

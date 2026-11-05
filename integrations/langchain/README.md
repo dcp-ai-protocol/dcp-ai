@@ -16,7 +16,7 @@ through `DCPTool`. It does not implement them in full.
 Version 2.9.0 routes every bundle to V1. Version 2.10.0 verifies V2 with the normative verifier and enforces the configured policy for V1 and V2; the unsigned-record and callback limitations below remain.
 
 ```bash
-pip install "dcp-ai[langchain]>=2.10.1,<3"
+pip install "dcp-ai[langchain]>=2.10.2,<3"
 ```
 
 For source development:

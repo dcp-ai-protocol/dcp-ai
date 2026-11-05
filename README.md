@@ -150,10 +150,10 @@ Install one of the two:
   npm install /path/to/dcp-ai/sdks/typescript
   ```
 
-- or the published SDK 2.2.1, which includes these fixes and features:
+- or the published SDK 2.3.0, which includes these fixes and features:
 
   ```bash
-  npm install @dcp-ai/sdk@^2.2.1
+  npm install @dcp-ai/sdk@^2.3.0
   ```
 
 Verify a signed V2 bundle with the current V2 bundle verifier of `main` (signatures, hashes, session binding, the

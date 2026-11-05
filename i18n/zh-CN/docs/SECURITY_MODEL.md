@@ -4,7 +4,7 @@
 
 # 安全模型
 
-> 本文是[英文版](../../../docs/SECURITY_MODEL.md)的参考译文，更新于 31/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/SECURITY_MODEL.md)的参考译文，更新于 05/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 协议如何防范各种攻击，从伪造的 bundle 到协议分叉。
 
@@ -437,7 +437,7 @@ Layer 14: Delegation Control (DCP-09)
 | 限制 | 缓解措施 |
 |---|---|
 | `routine` 等级下的身份是自我声明的 | 对 `standard` 及以上等级要求证明，或按信任集合进行准入；验证器本身不会强制这一点 |
-| 验证缓存可能返回过时的结果 | 吊销列表更新时必须（MUST）使缓存失效。已发布的 `@dcp-ai/sdk` 2.2.1 及更早版本中，TypeScript 的 `VerificationCache` 只以 bundle 哈希为键，其 `invalidateByAgent` 不做任何事。`main` 上的源代码（尚未发布）增加了按智能体失效（也会删除所有未带 `agentIds` 存储的条目）和由调用方选择的可选 `context`，但不会自动使任何条目失效：信任或吊销变化时，请调用 `invalidateByKid`、`invalidateByAgent` 或 `clear()`，或改用新的上下文（[API_REFERENCE.md](../../../docs/API_REFERENCE.md#verificationcache)） |
+| 验证缓存可能返回过时的结果 | 吊销列表更新时必须（MUST）使缓存失效。已发布的 `@dcp-ai/sdk` 2.2.1 及更早版本中，TypeScript 的 `VerificationCache` 只以 bundle 哈希为键，其 `invalidateByAgent` 不做任何事。`@dcp-ai/sdk` 2.3.0 及更高版本增加了按智能体失效（也会删除所有未带 `agentIds` 存储的条目）和由调用方选择的可选 `context`，但不会自动使任何条目失效：信任或吊销变化时，请调用 `invalidateByKid`、`invalidateByAgent` 或 `clear()`，或改用新的上下文（[API_REFERENCE.md](../../../docs/API_REFERENCE.md#verificationcache)） |
 | 2026 年 10 月 28 日之前发布的 V2 验证器不检查可选的次级审计链或次级 Merkle 根；自 `@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`dcp-ai` 2.10.1（PyPI）、Go v2.11.1 和 Rust `dcp-ai` 2.11.1 起会检查存在的字段，不存在的不作要求 | 使用更早的版本时，只依赖实际执行的检查：主 SHA-256 承诺和签名，不要因验证成功就声称获得了 V2-11 中规定的额外保护。自这些版本起，验证成功覆盖的是存在的次级字段，而不是完整的次级链；实验性候选也复用这些检查（[STORAGE_AND_ANCHORING.md](../../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)） |
 | `agent_id` 的持久性使追踪成为可能 | 在高隐私场景中考虑轮换化名 |
 | BlindedRPR 暴露 `entity_type` 和 `jurisdiction` | 未来：基于 ZKP 的凭证出示 |

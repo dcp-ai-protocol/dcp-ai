@@ -97,39 +97,39 @@ São três coisas distintas; nunca leia uma como outra.
 | Artefato | Versões | O que contém |
 |---|---|---|
 | Código revisado | `main` na base | Todas as correções abaixo |
-| Preparadas, não publicadas (05/11/2026) | `@dcp-ai/sdk` 2.3.0, `dcp-ai` 2.10.2 (PyPI), Go v2.13.0, Rust `dcp-ai` 2.13.0, `@dcp-ai/wasm` 2.1.3 | Todas as mudanças dos SDKs abaixo |
+| Publicadas (05/11/2026) | `@dcp-ai/sdk` 2.3.0, `@dcp-ai/wasm` 2.1.3, `dcp-ai` 2.10.2 (PyPI), Go v2.13.0, Rust `dcp-ai` 2.13.0 | Todas as mudanças dos SDKs abaixo |
 | Preparadas em 30/10/2026 (#114), nunca publicadas, substituídas | Go v2.12.0, Rust `dcp-ai` 2.12.0, `@dcp-ai/wasm` 2.1.2 | #106 (WASM), #107 e #112; não #103 nem #116 a #119 |
-| Publicadas | `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `@dcp-ai/cli` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1, Rust `dcp-ai` 2.11.1 | As correções do verificador de 26/10/2026 e as verificações secundárias SHA3-256 de 28/10/2026; nenhuma das correções abaixo |
+| Publicadas antes (28/10/2026) | `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `@dcp-ai/cli` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1, Rust `dcp-ai` 2.11.1 | As correções do verificador de 26/10/2026 e as verificações secundárias SHA3-256 de 28/10/2026; nenhuma das correções abaixo |
 
-Um número de versão sozinho não identifica um artefato. Os manifestos da `main` levam os números do candidato de 05/11/2026, que nenhum registro tem; o candidato de 30/10/2026 usou Go e Rust 2.12.0 e `@dcp-ai/wasm` 2.1.2 para menos mudanças, e esses números não são reutilizados. Use os identificadores dos registros abaixo ou os hashes do que você compilou. Uma publicação recompila os pacotes, então o que ela distribuir deve ser comparado com o candidato revisado ou testado de novo. Os registros públicos foram lidos em 05/11/2026 com TLS normal, sem publicar nada; as últimas versões eram as acima.
+Um número de versão sozinho não identifica um artefato. Os manifestos da `main` levam os números publicados em 05/11/2026; o candidato de 30/10/2026 usou Go e Rust 2.12.0 e `@dcp-ai/wasm` 2.1.2 para menos mudanças, e esses números não são reutilizados. Use os identificadores dos registros abaixo ou os hashes do que você compilou. Os tarballs npm são os arquivos testados antes da publicação; os arquivos do PyPI e o crate foram recompilados a partir da `main` e contêm os mesmos arquivos que os artefatos testados, exceto o `.cargo_vcs_info.json` do crate, que indica `main`. Depois da publicação, em 05/11/2026, os registros públicos foram lidos de novo com TLS normal: as últimas versões eram as acima, com os identificadores abaixo.
 
 | Registro | Versão | Identificador |
 |---|---|---|
-| npm `@dcp-ai/sdk` | 2.2.1 | `sha512-HsT/4BMomZ2QVDfxLWhejoZDzSo8OH8cLT6i6fBTAejt078SyTJRKoLVeIgZp0G29I5JIyoeOPfhebfa7+W9Lw==` |
-| npm `@dcp-ai/wasm` | 2.1.1 | `sha512-YUFEAMBnT0J0hZvg1MUS1yvXV0HPotijoj32kIhGDoMVaBhqZKTZvE8iV5h90WRv4duRzJav+PtlQ4fl3NcyQQ==` |
+| npm `@dcp-ai/sdk` | 2.3.0 | `sha512-5IsrDMKE3NM8e5jVLFIaigNFHIni/aIzD9Q4zNYZu6sTLfsPk/zqRxi9ccjtGSTiaftTba3LD/1JA4Gi0uS1bw==` |
+| npm `@dcp-ai/wasm` | 2.1.3 | `sha512-ToL7ZE+8mEvKJCO5DXxJm+GS2nrQ2tInHYJn+cWqLWxT+eMss9ka9MVp30LNmopO+MTqgwBs1hmAy6TOI5wDIA==` |
 | npm `@dcp-ai/cli` | 2.1.1 | `sha512-Qmuq5FiT+TUW3nZ4HCp/DUXdF6JVYB6vaCmNZL/qK8EWiSpP5gzgesSwK0zzlOQL20SJJditRR0h5YIQ7gxIMw==` |
-| PyPI `dcp-ai` | 2.10.1 | wheel `30a1e35bc275b20118ec3e786f3c58336fd72bd21849995bc44ac2e702400a9c`, sdist `e254091491867f122deaff6d6ccc6db6f021d721ff30b1182a4944902b8f2fc5` (SHA-256) |
-| crates.io `dcp-ai` | 2.11.1 | `dfb8440a50351491fd7aa81cb5585d8d4f7c130986e504210175b62251f1bc73` (checksum) |
-| Go module `sdks/go/v2` | v2.11.1 | tag `sdks/go/v2.11.1`, commit `6f9b453fbaaeb53ead225f77390bf683472be5fa` (28/10/2026) |
+| PyPI `dcp-ai` | 2.10.2 | wheel `825de9d6dce5ec2737d38534e7c3d357edbded437912605a549cde75518f198b`, sdist `6005f342a0a24bee331c30be2fb2bc89a1306a21de399051cd1cef3cc96297e4` (SHA-256) |
+| crates.io `dcp-ai` | 2.13.0 | `579f070ad23c531147ef91287d610c6dc317bef997e2791a24a5070a4c0c13a1` (checksum) |
+| Go module `sdks/go/v2` | v2.13.0 | tag `sdks/go/v2.13.0`, commit `46b142bd7e42601acd912f156bbfcd9f5204a4be` (05/11/2026), `h1:bRkqSUWHQ/qTywPmKWRdzg2bBWI0RG1ZZAlb6IafnyU=` |
 
-Mudanças de SDK na `main` posteriores às versões publicadas:
+Mudanças de SDK posteriores às versões de 28/10/2026, publicadas em 05/11/2026:
 
 | Mudança | Commit | SDKs | Publicada |
 |---|---|---|---|
-| Chaves e isolamento do `VerificationCache` (#103) | `e711179a` | TypeScript | Não; preparada em 05/11 |
-| `dualMerkleRoot` do WASM segue o V2-11 (#106) | `cac0a5f6` | Rust (feature `wasm`), WASM | Não; preparada em 30/10 e 05/11 |
-| `VerifyPayloadHash` verifica o hash normativo com prefixo (#107) | `24e70d56` | Go | Não; preparada em 30/10 e 05/11 |
-| `RawAuditEventV2` mantém as entradas de auditoria recebidas (#112) | `6dc97d59` | Go, Rust | Não; preparada em 30/10 e 05/11 |
-| Validação de esquemas V2-2 dentro de cada verificador V2 (#116) | `0ebd2849` | TypeScript, Python, Go, Rust, WASM | Não; preparada em 05/11 |
-| Helpers de validade de mandatos alinhados (#117) | `614b1c56` | TypeScript, Python, Go, Rust | Não; preparada em 05/11 |
-| Verificações de tempo das cadeias de mandatos alinhadas (#118) | `7619ff95` | TypeScript, Python, Go, Rust | Não; preparada em 05/11 |
-| Domínios repetidos num mandato raiz isolado rejeitados (#119) | `c154192f` | TypeScript, Python, Go, Rust | Não; preparada em 05/11 |
+| Chaves e isolamento do `VerificationCache` (#103) | `e711179a` | TypeScript | Sim, 05/11/2026 |
+| `dualMerkleRoot` do WASM segue o V2-11 (#106) | `cac0a5f6` | Rust (feature `wasm`), WASM | Sim, 05/11/2026 (preparada em 30/10/2026) |
+| `VerifyPayloadHash` verifica o hash normativo com prefixo (#107) | `24e70d56` | Go | Sim, 05/11/2026 (preparada em 30/10/2026) |
+| `RawAuditEventV2` mantém as entradas de auditoria recebidas (#112) | `6dc97d59` | Go, Rust | Sim, 05/11/2026 (preparada em 30/10/2026) |
+| Validação de esquemas V2-2 dentro de cada verificador V2 (#116) | `0ebd2849` | TypeScript, Python, Go, Rust, WASM | Sim, 05/11/2026 |
+| Helpers de validade de mandatos alinhados (#117) | `614b1c56` | TypeScript, Python, Go, Rust | Sim, 05/11/2026 |
+| Verificações de tempo das cadeias de mandatos alinhadas (#118) | `7619ff95` | TypeScript, Python, Go, Rust | Sim, 05/11/2026 |
+| Domínios repetidos num mandato raiz isolado rejeitados (#119) | `c154192f` | TypeScript, Python, Go, Rust | Sim, 05/11/2026 |
 
-Outras mudanças posteriores às versões publicadas:
+Outras mudanças posteriores às versões de 28/10/2026:
 
 - **Log de transparência de referência.** O #120 (`c59ce5ba`) vincula os alertas de gossip à identidade do log testemunhado, e o #122 (`d45c5a7b`) sonda os peers adicionados em execução. Este serviço não é distribuído como pacote.
 - **Especificação e kit de conformidade.** O #121 (`0dcbd8dc`) acrescenta o catálogo de delegação. O #123 (`45ac32f0`) acrescenta os esclarecimentos de V2-10 e DCP-09 §3.5.2, o catálogo de políticas 2.0 e o catálogo de delegação 2.0.0. Sem mudanças nos SDKs.
-- **Usuários dos registros.** Não recebem nenhuma dessas mudanças até que se publique uma versão que as contenha.
+- **Usuários dos registros.** As mudanças dos SDKs da tabela acima chegam a eles com as versões de 05/11/2026; as versões anteriores mantêm os limites indicados aqui. O log de transparência, a especificação e o kit de conformidade não fazem parte desses pacotes: são usados a partir do repositório.
 
 <a id="known-limits-and-exclusions"></a>
 
@@ -141,7 +141,7 @@ Outras mudanças posteriores às versões publicadas:
 - **Servidor de referência.** Verifica a estrutura da assinatura de um aviso, não a assinatura ([server/README.md](../../../../server/README.md)).
 - **WASM.** Não exporta verificação de cadeias de mandatos.
 - **Rust.** Falta-lhe a cifragem de sessão A2A AES-256-GCM e a sua janela de repetição ([RUST_RELEASE.md](../../../../docs/RUST_RELEASE.md)).
-- **Versões publicadas.** Não contêm as mudanças de [Artefatos](#artifacts).
+- **Versões publicadas antes de 05/11/2026.** Não contêm as mudanças de [Artefatos](#artifacts).
 - **Campanhas diferenciais e de fuzzing.** São finitas, não exaustivas. As entradas que o contrato `/4` não consegue levar a todos os SDKs são medidas à parte ([harnesses diferenciais](../../../../tools/difffuzz/README.md#mandate-chains)).
 - **Desempenho.** Nenhum requisito de velocidade é verificado. A [linha de base de desempenho](../../../../tools/conformance/README.md#performance-baseline) e o [escalonamento limitado de cargas](../../../../tools/conformance/README.md#bounded-workload-scaling) são medições locais do método, adicionadas depois do commit de base; nenhuma delas é um resultado de auditoria.
 - **Sem cobertura.** Imagens de contêiner, implantações, tokens de serviço e configuração do operador.

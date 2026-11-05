@@ -81,39 +81,39 @@ Three things are distinct; never read one as another.
 | Artifact | Versions | What it contains |
 |---|---|---|
 | Reviewed source | `main` at the baseline | Every fix below |
-| Prepared, not published (05/11/2026) | `@dcp-ai/sdk` 2.3.0, `dcp-ai` 2.10.2 (PyPI), Go v2.13.0, Rust `dcp-ai` 2.13.0, `@dcp-ai/wasm` 2.1.3 | Every SDK change below |
+| Published (05/11/2026) | `@dcp-ai/sdk` 2.3.0, `@dcp-ai/wasm` 2.1.3, `dcp-ai` 2.10.2 (PyPI), Go v2.13.0, Rust `dcp-ai` 2.13.0 | Every SDK change below |
 | Prepared on 30/10/2026 (#114), never published, superseded | Go v2.12.0, Rust `dcp-ai` 2.12.0, `@dcp-ai/wasm` 2.1.2 | #106 (WASM), #107 and #112; not #103 or #116 to #119 |
-| Published | `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `@dcp-ai/cli` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1, Rust `dcp-ai` 2.11.1 | The verifier fixes of 26/10/2026 and the secondary SHA3-256 checks of 28/10/2026; none of the fixes below |
+| Published earlier (28/10/2026) | `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `@dcp-ai/cli` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1, Rust `dcp-ai` 2.11.1 | The verifier fixes of 26/10/2026 and the secondary SHA3-256 checks of 28/10/2026; none of the fixes below |
 
-A version number alone does not identify an artifact. The manifests on `main` carry the numbers of the candidate of 05/11/2026, which no registry has; the candidate of 30/10/2026 used Go and Rust 2.12.0 and `@dcp-ai/wasm` 2.1.2 for fewer changes, and those numbers are not reused. Use the registry identifiers below or the hashes of what you built. A publication rebuilds the packages, so what it ships must be compared with the reviewed candidate or tested again. The public registries were read on 05/11/2026 over normal TLS, without publishing anything; the latest versions were the ones above.
+A version number alone does not identify an artifact. The manifests on `main` carry the numbers published on 05/11/2026; the candidate of 30/10/2026 used Go and Rust 2.12.0 and `@dcp-ai/wasm` 2.1.2 for fewer changes, and those numbers are not reused. Use the registry identifiers below or the hashes of what you built. The npm tarballs are the files tested before publication; the PyPI files and the crate were rebuilt from `main` and contain the same files as the tested artifacts, except the crate's `.cargo_vcs_info.json`, which names `main`. After publication, on 05/11/2026, the public registries were read again over normal TLS: the latest versions were the ones above, with the identifiers below.
 
 | Registry | Version | Identifier |
 |---|---|---|
-| npm `@dcp-ai/sdk` | 2.2.1 | `sha512-HsT/4BMomZ2QVDfxLWhejoZDzSo8OH8cLT6i6fBTAejt078SyTJRKoLVeIgZp0G29I5JIyoeOPfhebfa7+W9Lw==` |
-| npm `@dcp-ai/wasm` | 2.1.1 | `sha512-YUFEAMBnT0J0hZvg1MUS1yvXV0HPotijoj32kIhGDoMVaBhqZKTZvE8iV5h90WRv4duRzJav+PtlQ4fl3NcyQQ==` |
+| npm `@dcp-ai/sdk` | 2.3.0 | `sha512-5IsrDMKE3NM8e5jVLFIaigNFHIni/aIzD9Q4zNYZu6sTLfsPk/zqRxi9ccjtGSTiaftTba3LD/1JA4Gi0uS1bw==` |
+| npm `@dcp-ai/wasm` | 2.1.3 | `sha512-ToL7ZE+8mEvKJCO5DXxJm+GS2nrQ2tInHYJn+cWqLWxT+eMss9ka9MVp30LNmopO+MTqgwBs1hmAy6TOI5wDIA==` |
 | npm `@dcp-ai/cli` | 2.1.1 | `sha512-Qmuq5FiT+TUW3nZ4HCp/DUXdF6JVYB6vaCmNZL/qK8EWiSpP5gzgesSwK0zzlOQL20SJJditRR0h5YIQ7gxIMw==` |
-| PyPI `dcp-ai` | 2.10.1 | wheel `30a1e35bc275b20118ec3e786f3c58336fd72bd21849995bc44ac2e702400a9c`, sdist `e254091491867f122deaff6d6ccc6db6f021d721ff30b1182a4944902b8f2fc5` (SHA-256) |
-| crates.io `dcp-ai` | 2.11.1 | `dfb8440a50351491fd7aa81cb5585d8d4f7c130986e504210175b62251f1bc73` (checksum) |
-| Go module `sdks/go/v2` | v2.11.1 | tag `sdks/go/v2.11.1`, commit `6f9b453fbaaeb53ead225f77390bf683472be5fa` (28/10/2026) |
+| PyPI `dcp-ai` | 2.10.2 | wheel `825de9d6dce5ec2737d38534e7c3d357edbded437912605a549cde75518f198b`, sdist `6005f342a0a24bee331c30be2fb2bc89a1306a21de399051cd1cef3cc96297e4` (SHA-256) |
+| crates.io `dcp-ai` | 2.13.0 | `579f070ad23c531147ef91287d610c6dc317bef997e2791a24a5070a4c0c13a1` (checksum) |
+| Go module `sdks/go/v2` | v2.13.0 | tag `sdks/go/v2.13.0`, commit `46b142bd7e42601acd912f156bbfcd9f5204a4be` (05/11/2026), `h1:bRkqSUWHQ/qTywPmKWRdzg2bBWI0RG1ZZAlb6IafnyU=` |
 
-SDK changes on `main` after the published versions:
+SDK changes after the versions of 28/10/2026, published on 05/11/2026:
 
 | Change | Commit | SDKs | Published |
 |---|---|---|---|
-| `VerificationCache` keys and isolation (#103) | `e711179a` | TypeScript | No; prepared on 05/11 |
-| WASM `dualMerkleRoot` follows V2-11 (#106) | `cac0a5f6` | Rust (`wasm` feature), WASM | No; prepared on 30/10 and 05/11 |
-| `VerifyPayloadHash` checks the normative prefixed hash (#107) | `24e70d56` | Go | No; prepared on 30/10 and 05/11 |
-| `RawAuditEventV2` keeps received audit entries (#112) | `6dc97d59` | Go, Rust | No; prepared on 30/10 and 05/11 |
-| V2-2 schema validation inside every V2 verifier (#116) | `0ebd2849` | TypeScript, Python, Go, Rust, WASM | No; prepared on 05/11 |
-| Mandate validity helpers aligned (#117) | `614b1c56` | TypeScript, Python, Go, Rust | No; prepared on 05/11 |
-| Mandate chain time checks aligned (#118) | `7619ff95` | TypeScript, Python, Go, Rust | No; prepared on 05/11 |
-| Repeated domains in a standalone root mandate rejected (#119) | `c154192f` | TypeScript, Python, Go, Rust | No; prepared on 05/11 |
+| `VerificationCache` keys and isolation (#103) | `e711179a` | TypeScript | Yes, 05/11/2026 |
+| WASM `dualMerkleRoot` follows V2-11 (#106) | `cac0a5f6` | Rust (`wasm` feature), WASM | Yes, 05/11/2026 (prepared on 30/10/2026) |
+| `VerifyPayloadHash` checks the normative prefixed hash (#107) | `24e70d56` | Go | Yes, 05/11/2026 (prepared on 30/10/2026) |
+| `RawAuditEventV2` keeps received audit entries (#112) | `6dc97d59` | Go, Rust | Yes, 05/11/2026 (prepared on 30/10/2026) |
+| V2-2 schema validation inside every V2 verifier (#116) | `0ebd2849` | TypeScript, Python, Go, Rust, WASM | Yes, 05/11/2026 |
+| Mandate validity helpers aligned (#117) | `614b1c56` | TypeScript, Python, Go, Rust | Yes, 05/11/2026 |
+| Mandate chain time checks aligned (#118) | `7619ff95` | TypeScript, Python, Go, Rust | Yes, 05/11/2026 |
+| Repeated domains in a standalone root mandate rejected (#119) | `c154192f` | TypeScript, Python, Go, Rust | Yes, 05/11/2026 |
 
-Other changes after the published versions:
+Other changes after the versions of 28/10/2026:
 
 - **Reference transparency log.** #120 (`c59ce5ba`) binds gossip alerts to the witnessed log identity, and #122 (`d45c5a7b`) polls peers added at run time. This service is not distributed as a package.
 - **Specification and conformance kit.** #121 (`0dcbd8dc`) adds the delegation catalog. #123 (`45ac32f0`) adds the clarifications of V2-10 and DCP-09 §3.5.2, policy catalog 2.0 and delegation catalog 2.0.0. No SDK changes.
-- **Registry users.** They receive none of these changes until a release that contains them is published.
+- **Registry users.** The SDK changes in the table above reach them with the versions of 05/11/2026; earlier versions keep the limits listed here. The transparency log, the specification and the conformance kit are not part of those packages: they are used from the repository.
 
 ## Known limits and exclusions
 
@@ -123,7 +123,7 @@ Other changes after the published versions:
 - **Reference server.** It checks the structure of an advisory's signature, not the signature itself ([server/README.md](../../server/README.md)).
 - **WASM.** It exports no mandate chain verification.
 - **Rust.** It lacks A2A AES-256-GCM session encryption and its replay window ([RUST_RELEASE.md](../RUST_RELEASE.md)).
-- **Published versions.** They lack the changes listed under [Artifacts](#artifacts).
+- **Versions published before 05/11/2026.** They lack the changes listed under [Artifacts](#artifacts).
 - **Differential and fuzz campaigns.** They are finite, not exhaustive. Inputs that contract `/4` cannot carry to every SDK are measured apart ([differential harnesses](../../tools/difffuzz/README.md#mandate-chains)).
 - **Performance.** No speed requirement is checked. The [performance baseline](../../tools/conformance/README.md#performance-baseline) and the [bounded workload scaling](../../tools/conformance/README.md#bounded-workload-scaling) are local measurements of method, added after the baseline commit; neither is an audit result.
 - **Not covered.** Container images, deployments, service tokens and operator configuration.

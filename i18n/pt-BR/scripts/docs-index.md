@@ -11,7 +11,7 @@ hide:
 
 # DCP-AI — Digital Citizenship Protocol para agentes de IA
 
-> Tradução informativa da [versão em inglês](../../../scripts/docs-index.md), atualizada em 28/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../scripts/docs-index.md), atualizada em 05/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 > Uma camada portátil de prestação de contas para agentes de IA em redes abertas.
 
@@ -34,7 +34,7 @@ Identidade verificável criptograficamente, intenção legível por máquina, tr
 === "Node.js"
 
     ```bash
-    npm install @dcp-ai/sdk@^2.2.1 @dcp-ai/cli
+    npm install @dcp-ai/sdk@^2.3.0 @dcp-ai/cli
     ```
 
 === "Python"
@@ -46,19 +46,19 @@ Identidade verificável criptograficamente, intenção legível por máquina, tr
 === "Go"
 
     ```bash
-    go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.1
+    go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.13.0
     ```
 
 === "Rust"
 
     ```bash
-    cargo add dcp-ai@2.11.1
+    cargo add dcp-ai@2.13.0
     ```
 
 === "WebAssembly"
 
     ```bash
-    npm install @dcp-ai/wasm@^2.1.1
+    npm install @dcp-ai/wasm@^2.1.3
     ```
 
 ---

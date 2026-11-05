@@ -2,7 +2,7 @@
 
 # @dcp-ai/wasm — WebAssembly SDK v2.0
 
-> [英語版 README](../../../../sdks/wasm/README.md)の参考訳です。更新日：04/11/2026。検証済みの例を維持するため、識別子とコードブロック（コメントを含む）は原文のままにしています。
+> [英語版 README](../../../../sdks/wasm/README.md)の参考訳です。更新日：05/11/2026。検証済みの例を維持するため、識別子とコードブロック（コメントを含む）は原文のままにしています。
 
 Digital Citizenship Protocol（DCP）v2.0 向けの WebAssembly モジュールで、Rust SDK からコンパイルされます。耐量子複合署名、ハイブリッド鍵生成、ML-KEM-768 による鍵カプセル化、二重ハッシュ、バンドルの構築・検証、セキュリティ階層の算出を提供します。ブラウザーまたは Node.js で直接動作し、サーバーは不要です。
 
@@ -12,20 +12,20 @@ Digital Citizenship Protocol（DCP）v2.0 向けの WebAssembly モジュール�
 
 **npm 公開済み（2026 年 10 月 26 日）。** この日、`@dcp-ai/wasm` 2.1.0 が `latest` として公開され、この文書の API と実験的な `dcp-jcs-v2` API を含んでいました。公開によって候補が有効になったわけではありません。候補は明示的な選択が必要な非規範的機能であり、`dcp-jcs-v1` は変更されません。Rust クレートのリリース周期は独立しています。
 
-**`@dcp-ai/wasm` 2.1.1。** このバージョンは、[VERIFICATION.md の V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) の二次の SHA3-256 フィールドが存在する場合、それらも検証します：`audit_merkle_root_secondary`、各 `prev_hash_secondary`、各 `intent_hash_secondary`。存在しないフィールドは要求されないため、検証済みのバンドルが完全な二次チェーンを持たないこともあります。存在するフィールドが `null`、文字列でない、または不整合の場合は拒否されます。API、結果のフィールド、`dcp-jcs-v1`、`hash_alg` の扱いは変わりません。2.1.0 はこれらのフィールドを確認しません。以下のインストールコマンドはこのバージョンを指定しています。レジストリでの提供状況は[公開済みバージョン](../../../../docs/README.md#published-versions)を参照してください。
+**`@dcp-ai/wasm` 2.1.1。** このバージョンは、[VERIFICATION.md の V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) の二次の SHA3-256 フィールドが存在する場合、それらも検証します：`audit_merkle_root_secondary`、各 `prev_hash_secondary`、各 `intent_hash_secondary`。存在しないフィールドは要求されないため、検証済みのバンドルが完全な二次チェーンを持たないこともあります。存在するフィールドが `null`、文字列でない、または不整合の場合は拒否されます。API、結果のフィールド、`dcp-jcs-v1`、`hash_alg` の扱いは変わりません。2.1.0 はこれらのフィールドを確認しません。
 
 ```bash
-npm install @dcp-ai/wasm@^2.1.1
+npm install @dcp-ai/wasm@^2.1.3
 ```
 
 全パッケージのバージョンは [npm リリース一覧](../../../../docs/NPM_RELEASES.md)を参照してください。
 
-**`@dcp-ai/wasm` 2.1.3（準備済み・未公開）。** リポジトリで準備済みですが npm にはないため、上記のコマンドは 2.1.1 のままです。30/10/2026 に準備した 2.1.2 は公開されず、置き換えられました。2.1.1 との違い：
+**`@dcp-ai/wasm` 2.1.3。** 05/11/2026 に npm で公開されました。上記のインストールコマンドはこのバージョンを指定しています。レジストリでの提供状況は[公開済みバージョン](../../../../docs/README.md#published-versions)を参照してください。30/10/2026 に準備した 2.1.2 は公開されず、置き換えられました。2.1.1 との違い：
 
 - **`dualMerkleRoot`** は V2-11 の二重 Merkle ルート（32 バイトの生のダイジェスト、奇数の層では最後のノードを複製）を算出します。2.1.1 以前は、2 個以上の葉に対して別のルートを返します（後述の「ハッシュ操作」を参照）。以前は受理されていた、32 バイトの 16 進ダイジェストでない葉はエラーになります。
 - **V2-2 スキーマ検証。** `verifyBundle` と `wasm_verify_signed_bundle_v2` は、ハッシュ、鍵、署名を確認する前に、署名済みバンドルのエンベロープと 4 つのペイロードを `schemas/v2` に照らして検証します。以前は受理されていたスキーマ上無効なバンドルは、`schema: <pointer> <keyword>` 診断で失敗するようになりました。
 
-JavaScript API は追加されません。ワイヤーフォーマット、署名、プロファイル、`dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API は変わりません。WebAssembly は、同じく準備済み・未公開の Rust `dcp-ai` 2.13.0 のソースから生成されます。[npm パッケージ](../../../../docs/NPM_RELEASES.md)を参照してください。
+JavaScript API は追加されません。ワイヤーフォーマット、署名、プロファイル、`dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API は変わりません。WebAssembly は、同じく 05/11/2026 に公開された Rust `dcp-ai` 2.13.0 のソースから生成されます。[npm パッケージ](../../../../docs/NPM_RELEASES.md)を参照してください。公開済みの tarballに含まれる README は公開前に準備したもので、「prepared, not published」と記載しています。公開済みの tarball は変更できません。
 
 チェックアウトしたソースで開発する場合は、ローカルのパッケージをビルドしてインストールします。
 
@@ -199,7 +199,7 @@ WASM モジュールを初期化します。各 API を使う前に一度呼び�
 | `compositeVerify(context, payload, sig, classicalPk, pqPk?)` | `CompositeVerifyResult` | 複合署名の暗号学的検証 |
 | `verifyBundle(signedBundle, policy?)` | `V2VerificationResult` | ポリシーモードとセキュリティ階層のモードのうち厳しい方を用い、V2 バンドルの構造、暗号、主ハッシュチェーンを検証します（spec §14.3）。`resolved_tier` と `verification_mode` を返します。`policy` で既定値から変更できるのは、`default_mode`、`risk_overrides`、フェーズ3のフィールド（`advisory_rejected_algs`、`warn_classical_only_deprecated`、`allow_classical_fallback_disable`）、`max_session_duration_seconds`（署名された `session_issued_at` から測定。マニフェストに `session_expires_at` がある場合、`signBundle` がこのフィールドを書き込みます）、`require_session_expiry`（`session_expires_at` のないマニフェストを拒否）、および `verifier_id` と組み合わせた `require_audience_binding`（`intended_verifier` がない、または `verifier_id` と異なるマニフェストを拒否）のみです。ポリシーを渡した場合、V1 バンドルは拒否されます |
 
-**スキーマ検証（V2-2。2.1.3 以降、準備済み・未公開）。** `verifyBundle` と `wasm_verify_signed_bundle_v2`は、ポリシーと時計の確認の後、検証器がマニフェスト、ペイロードのハッシュ、鍵、署名を確認する前に、まず署名済み bundle のエンベロープと四つのペイロードを `schemas/v2` に照らして検証します。実験的な候補のエクスポートも同じゲートを通ります。失敗した bundle は `verified: false` と `schema: <JSON pointer> <keyword>[ <member>]` のエラー（最大 16 件、その後に `schema: further errors not listed`）を返し、暗号に関する詳細は返しません。閉じたオブジェクトの未知のメンバーは拒否されます。intent の `target` のような開いたオブジェクトでは、宣言されたメンバーは制約を保ち、追加のメンバーだけが検査されません。マニフェストの `session_issued_at` と `session_expires_at` は、存在する場合は `null` ではなく文字列でなければなりません。`date-time` は参照検証器の ajv-formats 3.0.1 による確認に従い、これは厳密な RFC 3339 ではありません。バインディングのポリシーのパースエラー、`JSON parse error`、バージョンの振り分け（`Unknown DCP version`）は、引き続き V2-2 の前に来ます。**受理の変更：** 以前は検証に成功していたスキーマ上無効な bundle は、今は拒否されます。スキーマだけの API はありません。[カバレッジマップ](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)を参照してください。
+**スキーマ検証（V2-2。2.1.3 以降）。** `verifyBundle` と `wasm_verify_signed_bundle_v2`は、ポリシーと時計の確認の後、検証器がマニフェスト、ペイロードのハッシュ、鍵、署名を確認する前に、まず署名済み bundle のエンベロープと四つのペイロードを `schemas/v2` に照らして検証します。実験的な候補のエクスポートも同じゲートを通ります。失敗した bundle は `verified: false` と `schema: <JSON pointer> <keyword>[ <member>]` のエラー（最大 16 件、その後に `schema: further errors not listed`）を返し、暗号に関する詳細は返しません。閉じたオブジェクトの未知のメンバーは拒否されます。intent の `target` のような開いたオブジェクトでは、宣言されたメンバーは制約を保ち、追加のメンバーだけが検査されません。マニフェストの `session_issued_at` と `session_expires_at` は、存在する場合は `null` ではなく文字列でなければなりません。`date-time` は参照検証器の ajv-formats 3.0.1 による確認に従い、これは厳密な RFC 3339 ではありません。バインディングのポリシーのパースエラー、`JSON parse error`、バージョンの振り分け（`Unknown DCP version`）は、引き続き V2-2 の前に来ます。**受理の変更：** 以前は検証に成功していたスキーマ上無効な bundle は、今は拒否されます。スキーマだけの API はありません。[カバレッジマップ](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)を参照してください。
 
 <a id="hash-operations"></a>
 
@@ -210,7 +210,7 @@ WASM モジュールを初期化します。各 API を使う前に一度呼び�
 | `dualHash(data)` | `DualHash` | SHA-256 + SHA3-256 の二重ハッシュ |
 | `sha3_256(data)` | `string` | SHA3-256 ハッシュを16進数で返す |
 | `hashObject(obj)` | `string` | JSON オブジェクトの SHA-256 ハッシュ |
-| `dualMerkleRoot(leaves)` | `DualHash` | 空でない `DualHash` の葉（それぞれ 32 バイトの 16 進ダイジェスト）の配列から [VERIFICATION.md の V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) の二重 Merkle ルートを算出。空の配列や無効な葉では例外を投げる。ルートは小文字の 16 進。2.1.2 は準備済み・未公開：2.1.1 以前は 16 進テキストをハッシュするため、2 個以上の葉のルートが異なる |
+| `dualMerkleRoot(leaves)` | `DualHash` | 空でない `DualHash` の葉（それぞれ 32 バイトの 16 進ダイジェスト）の配列から [VERIFICATION.md の V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) の二重 Merkle ルートを算出。空の配列や無効な葉では例外を投げる。ルートは小文字の 16 進。2.1.3 以降：2.1.1 以前は 16 進テキストをハッシュするため、2 個以上の葉のルートが異なる |
 
 <a id="canonicalization-domain-separation"></a>
 

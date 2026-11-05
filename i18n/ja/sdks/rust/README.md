@@ -16,34 +16,34 @@ Digital Citizenship Protocol（DCP v2.0）向けの公式 Rust SDK。Serde ベ�
 
 **Rust SDK。** 2.11.0 以降、V2 バンドルの構築と署名、責任主体への明示的な信頼と `strict-v1` による受け入れ、委任チェーン、検証器の修正、実験的なオプトイン `dcp-jcs-v2` API を含みます。`dcp-jcs-v1` は引き続き規範かつデフォルトです。旧版で受理された不正な証拠が拒否される場合があります。Rust では A2A セッション暗号化とそのリプレイウィンドウは未実装です。検出とハンドシェイクの補助機能は利用できます。
 
-**Rust SDK 2.11.1。** このバージョンは、[VERIFICATION.md の V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) の二次の SHA3-256 フィールドが存在する場合、それらも検証します：`audit_merkle_root_secondary`、各 `prev_hash_secondary`、各 `intent_hash_secondary`。存在しないフィールドは要求されないため、検証済みのバンドルが完全な二次チェーンを持たないこともあります。存在するフィールドが `null`、文字列でない、または不整合の場合は拒否されます。API、結果のフィールド、`dcp-jcs-v1`、`hash_alg` の扱いは変わりません。2.11.0 はこれらのフィールドを確認しません。以下のインストールコマンドはこのバージョンを指定しています。レジストリでの提供状況は[公開済みバージョン](../../../../docs/README.md#published-versions)を参照してください。
+**Rust SDK 2.11.1。** このバージョンは、[VERIFICATION.md の V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) の二次の SHA3-256 フィールドが存在する場合、それらも検証します：`audit_merkle_root_secondary`、各 `prev_hash_secondary`、各 `intent_hash_secondary`。存在しないフィールドは要求されないため、検証済みのバンドルが完全な二次チェーンを持たないこともあります。存在するフィールドが `null`、文字列でない、または不整合の場合は拒否されます。API、結果のフィールド、`dcp-jcs-v1`、`hash_alg` の扱いは変わりません。2.11.0 はこれらのフィールドを確認しません。
 
-**Rust SDK 2.13.0（準備済み・未公開）。** リポジトリで準備済みですが crates.io にはないため、以下の例は 2.11.1 のままです。30/10/2026 に準備した 2.12.0 は公開されず、置き換えられました。2.11.1 との違い：
+**Rust SDK 2.13.0。** 05/11/2026 に crates.io で公開されました。以下のインストールコマンドはこのバージョンを指定しています。レジストリでの提供状況は[公開済みバージョン](../../../../docs/README.md#published-versions)を参照してください。30/10/2026 に準備した 2.12.0 は公開されず、置き換えられました。2.11.1 との違い：
 
 - **V2-2 スキーマ検証。** `verify_signed_bundle_v2`、`…_with_policy`、`…_at` は、WASM ビルドも含め、ハッシュ、鍵、署名を確認する前に、署名済みバンドルのエンベロープと 4 つのペイロードを `schemas/v2` に照らして検証します。以前は受理されていたスキーマ上無効なバンドルは、`schema: <pointer> <keyword>` 診断で失敗するようになりました。
 - **`RawAuditEventV2` と `RawAuditEventError`**（新規）は、受信した監査エントリーをデコードした値として保持します（後述の「受信した監査エントリー」を参照）。
 - **`wasm_dual_merkle_root`**（`wasm` フィーチャー使用時）は V2-11 の二重 Merkle ルートを算出し、32 バイトの 16 進ダイジェストでない葉にはエラーを返します。
 - **委任状。** `verify_mandate_validity` は期間を文字列ではなく瞬間として比較し、`verify_mandate_validity_at`（新規）は検証時刻を受け取ります。`verify_mandate_chain` はドメインを繰り返すルート委任状を拒否します。
 
-テレメトリーは `2.13.0` を報告します。ワイヤーフォーマット、署名、プロファイル、`dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API は変わりません。[変更履歴](../../../../CHANGELOG.md#unreleased)を参照してください。
+テレメトリーは `2.13.0` を報告します。ワイヤーフォーマット、署名、プロファイル、`dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API は変わりません。[変更履歴](../../../../CHANGELOG.md#unreleased)を参照してください。公開済みの crateに含まれる README は公開前に準備したもので、「prepared, not published」と記載しています。公開済みの crate は変更できません。
 
 ```toml
 [dependencies]
-dcp-ai = "2.11.1"
+dcp-ai = "2.13.0"
 ```
 
 OpenTelemetry/OTLP エクスポートを使用する場合：
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.11.1", features = ["otlp"] }
+dcp-ai = { version = "2.13.0", features = ["otlp"] }
 ```
 
 WebAssembly サポートを使用する場合：
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.11.1", features = ["wasm"] }
+dcp-ai = { version = "2.13.0", features = ["wasm"] }
 ```
 
 <a id="features"></a>
@@ -199,7 +199,7 @@ V2 には、DCP-05 から DCP-09 までのすべてのアーティファクト�
 
 すべての構造体は `Debug`、`Clone`、`Serialize`、`Deserialize` を導出します。列挙型は `#[serde(rename_all = "snake_case")]` を使用します。オプションのフィールドは `Option<T>` と `#[serde(skip_serializing_if = "Option::is_none")]` を使用します。
 
-**受信した監査エントリー（2.13.0 以降、準備済み・未公開）。** `AuditEventV2` と `AuditEvidenceV2` はエントリーを生成するためのものです。受信したエントリーをこれらにデコードして再びエンコードすると、明示的な `null`（`evidence`、`prev_hash_secondary`、`intent_hash_secondary` 内）と未知のメンバーが失われ、存在しない `pq_checkpoint_ref` は `null` になります。これはエントリーの正規化されたバイト列を変え、`prev_hash` のチェーンや監査のマークルルートを壊すことがあります。受信したエントリーを保持するには `RawAuditEventV2` を使用してください。デコードされた `serde_json::Value` を保持するため、未知のメンバーも含め、あらゆる深さの各メンバーの有無と `null` が保たれ、その値をそのままシリアライズします。JSON オブジェクトでないものだけを拒否します（`RawAuditEventError`）。保持するのは `serde_json` がデコードしたものであって元のテキストではなく、修復や再署名は決して行わず、無効な証拠もそのまま保持するため、検証器は同じ理由でそれを拒否します。`typed()` はフィールドを読むための、損失のあるビューです。受信したバンドルを保持するには、受信したまま保持し、それを検証してください。
+**受信した監査エントリー（2.13.0 以降）。** `AuditEventV2` と `AuditEvidenceV2` はエントリーを生成するためのものです。受信したエントリーをこれらにデコードして再びエンコードすると、明示的な `null`（`evidence`、`prev_hash_secondary`、`intent_hash_secondary` 内）と未知のメンバーが失われ、存在しない `pq_checkpoint_ref` は `null` になります。これはエントリーの正規化されたバイト列を変え、`prev_hash` のチェーンや監査のマークルルートを壊すことがあります。受信したエントリーを保持するには `RawAuditEventV2` を使用してください。デコードされた `serde_json::Value` を保持するため、未知のメンバーも含め、あらゆる深さの各メンバーの有無と `null` が保たれ、その値をそのままシリアライズします。JSON オブジェクトでないものだけを拒否します（`RawAuditEventError`）。保持するのは `serde_json` がデコードしたものであって元のテキストではなく、修復や再署名は決して行わず、無効な証拠もそのまま保持するため、検証器は同じ理由でそれを拒否します。`typed()` はフィールドを読むための、損失のあるビューです。受信したバンドルを保持するには、受信したまま保持し、それを検証してください。
 
 <a id="bundles-dcp_aiv2bundle-unreleased"></a>
 <a id="bundles-dcp_aiv2bundle"></a>
@@ -211,7 +211,7 @@ V2 には、DCP-05 から DCP-09 までのすべてのアーティファクト�
 | `build_bundle_v2(&rpr, &passport, &intent, &policy, &audit_entries, session_nonce)` | 4 つの `SignedPayload` と監査証跡から V2 バンドルを構築する。各 `payload_hash` と、すべてのアーティファクトおよび監査エントリーの `session_nonce` を確認し、両方の監査 Merkle ルートをマニフェストに書き込む。証跡が空の場合、ルートは64個のゼロになる |
 | `sign_bundle_v2(bundle, &classical, &pq)` | `CTX_BUNDLE` の下でマニフェストに複合署名し、`{bundle, signature}` を返す。`signer.id` は RPR の `human_id`。署名前に `session_expires_at` または `intended_verifier` をマニフェストに設定する。`session_expires_at` があり `session_issued_at` がない場合、`session_issued_at` を署名時刻に設定する |
 
-**スキーマ検証（V2-2。2.13.0 以降、準備済み・未公開）。** `verify_signed_bundle_v2`、`…_with_policy`、`…_at`は、ポリシーと時計の確認の後、検証器がマニフェスト、ペイロードのハッシュ、鍵、署名を確認する前に、まず署名済み bundle のエンベロープと四つのペイロードを `schemas/v2` に照らして検証します。最初に検証を行う `admit_signed_bundle_v2` と実験的な候補の検証器も同じゲートを通りますが、`evaluate_admission_v2` は以前の結果を受け取り、このゲートを実行しません。失敗した bundle は `verified: false` と `schema: <JSON pointer> <keyword>[ <member>]` のエラー（最大 16 件、その後に `schema: further errors not listed`）を返し、暗号に関する詳細は返しません。閉じたオブジェクトの未知のメンバーは拒否されます。intent の `target` のような開いたオブジェクトでは、宣言されたメンバーは制約を保ち、追加のメンバーだけが検査されません。マニフェストの `session_issued_at` と `session_expires_at` は、存在する場合は `null` ではなく文字列でなければなりません。`date-time` は参照検証器の ajv-formats 3.0.1 による確認に従い、これは厳密な RFC 3339 ではありません。これらはパース済みの `serde_json::Value` を受け取るため、serde_json がパースを拒否するもの（孤立サロゲート、`1e400`）は呼び出し側のパースエラーです。**受理の変更：** 以前は検証に成功していたスキーマ上無効な bundle は、今は拒否されます。スキーマだけの API はありません。[カバレッジマップ](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)を参照してください。
+**スキーマ検証（V2-2。2.13.0 以降）。** `verify_signed_bundle_v2`、`…_with_policy`、`…_at`は、ポリシーと時計の確認の後、検証器がマニフェスト、ペイロードのハッシュ、鍵、署名を確認する前に、まず署名済み bundle のエンベロープと四つのペイロードを `schemas/v2` に照らして検証します。最初に検証を行う `admit_signed_bundle_v2` と実験的な候補の検証器も同じゲートを通りますが、`evaluate_admission_v2` は以前の結果を受け取り、このゲートを実行しません。失敗した bundle は `verified: false` と `schema: <JSON pointer> <keyword>[ <member>]` のエラー（最大 16 件、その後に `schema: further errors not listed`）を返し、暗号に関する詳細は返しません。閉じたオブジェクトの未知のメンバーは拒否されます。intent の `target` のような開いたオブジェクトでは、宣言されたメンバーは制約を保ち、追加のメンバーだけが検査されません。マニフェストの `session_issued_at` と `session_expires_at` は、存在する場合は `null` ではなく文字列でなければなりません。`date-time` は参照検証器の ajv-formats 3.0.1 による確認に従い、これは厳密な RFC 3339 ではありません。これらはパース済みの `serde_json::Value` を受け取るため、serde_json がパースを拒否するもの（孤立サロゲート、`1e400`）は呼び出し側のパースエラーです。**受理の変更：** 以前は検証に成功していたスキーマ上無効な bundle は、今は拒否されます。スキーマだけの API はありません。[カバレッジマップ](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)を参照してください。
 
 <a id="delegation-chains-dcp_aiv2delegation-dcp-09-35-unreleased"></a>
 <a id="delegation-chains-dcp_aiv2delegation-dcp-09-35"></a>
@@ -222,8 +222,8 @@ V2 には、DCP-05 から DCP-09 までのすべてのアーティファクト�
 |----------|-------------|
 | `create_delegation_mandate_with_options(ed, pq, human_classical, human_pq, params, &MandateChainOptions)` | 人間が署名したルート委任状。オプションで `sub_delegation` と `minimum_security_tier` を指定する |
 | `create_sub_mandate(ed, pq, classical, pq_key, &parent, SubMandateParams { .. })` | 親委任状のエージェントが `DCP-AI.v2.SubMandate` コンテキストの下で署名した下位委任状 |
-| `verify_mandate_validity(&mandate, &revoked_ids)` / `verify_mandate_validity_at(&mandate, &revoked_ids, now_millis)` | 一つの委任状の `mandate_id`、ローカルな失効、`now` での有効期間（ミリ秒単位の RFC 3339 の瞬間、両端を含む）。欠落した、不正な形の、または逆転した期間は無効。署名、範囲、チェーンは確認せず、何も認可しない。2.13.0 以降、準備済み・未公開 |
-| `verify_mandate_chain(&chain, &revoked_ids, &MandateChainKeys { human_keys, agent_keys }, now_millis)` | ルートから順にオフラインでチェーンを検証する（人間に遡る署名、リンクと深さ、`sub_delegation`、入れ子の有効期間、行動・`data_classes`・`limits` の制限、最低階層、失効）。`MandateChainResult { valid, errors, depth, effective_tier }` を返す。時刻はほかの SDK と同じく整数ミリ秒の RFC 3339 の瞬間。`None` は現在時刻。1 つの委任状の `authority_scope` で繰り返されるドメインは、ルートでもチェーンを拒否させる。ドメインは文字列そのものとして比較され、大文字小文字の同一視、空白の除去、Unicode の正規化は行わない（2.13.0 以降、準備済み・未公開） |
+| `verify_mandate_validity(&mandate, &revoked_ids)` / `verify_mandate_validity_at(&mandate, &revoked_ids, now_millis)` | 一つの委任状の `mandate_id`、ローカルな失効、`now` での有効期間（ミリ秒単位の RFC 3339 の瞬間、両端を含む）。欠落した、不正な形の、または逆転した期間は無効。署名、範囲、チェーンは確認せず、何も認可しない。2.13.0 以降 |
+| `verify_mandate_chain(&chain, &revoked_ids, &MandateChainKeys { human_keys, agent_keys }, now_millis)` | ルートから順にオフラインでチェーンを検証する（人間に遡る署名、リンクと深さ、`sub_delegation`、入れ子の有効期間、行動・`data_classes`・`limits` の制限、最低階層、失効）。`MandateChainResult { valid, errors, depth, effective_tier }` を返す。時刻はほかの SDK と同じく整数ミリ秒の RFC 3339 の瞬間。`None` は現在時刻。1 つの委任状の `authority_scope` で繰り返されるドメインは、ルートでもチェーンを拒否させる。ドメインは文字列そのものとして比較され、大文字小文字の同一視、空白の除去、Unicode の正規化は行わない（2.13.0 以降） |
 
 <a id="admission-dcp_aiv2-specprofilesadmission-unreleased"></a>
 <a id="admission-dcp_aiv2-specprofilesadmission"></a>

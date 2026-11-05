@@ -4,11 +4,11 @@
 
 # 迁移指南：从 DCP-AI v1.0 到 v2.0
 
-> 本文是[英文版](../../../docs/MIGRATION_V1_V2.md)的参考译文，更新于 28/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/MIGRATION_V1_V2.md)的参考译文，更新于 05/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 **规范版本：** 2.0
 **最后更新：** 2026 年 10 月
-**适用于：** `main` 上的 SDK 和已发布的 `@dcp-ai/sdk` 2.2.1。npm 版本已于 2026 年 10 月 28 日核实；见 [NPM_RELEASES.md](../../../docs/NPM_RELEASES.md) 和 [SECURITY.md](../../../SECURITY.md#supported-versions)。其他 SDK 的版本见[已发布版本](../../../docs/README.md#published-versions)。
+**适用于：** `main` 上的 SDK 和已发布的 `@dcp-ai/sdk` 2.3.0。npm 版本已于 2026 年 11 月 5 日核实；见 [NPM_RELEASES.md](../../../docs/NPM_RELEASES.md) 和 [SECURITY.md](../../../SECURITY.md#supported-versions)。其他 SDK 的版本见[已发布版本](../../../docs/README.md#published-versions)。
 
 本指南带你把现有的 DCP-AI v1.0 集成迁移到 v2.0。迁移会引入后量子复合签名、双哈希链、会话绑定、自适应安全等级和智能体间通信；同时，有效的 v1.0 bundle 在验证器策略允许的情况下仍可通过验证（参见 1.2）。
 
@@ -69,12 +69,12 @@ v1.0 bundle 只有一个 Ed25519 签名，没有后量子签名，因此验证�
 
 ### 步骤 1：更新 SDK
 
-示例适用于已发布的 TypeScript SDK 2.2.1、Python `dcp-ai` 2.10.1、Go `v2.11.1` 和 Rust `dcp-ai` 2.11.1。见 [Python](../../../docs/PYTHON_RELEASE.md)、[Go](../../../docs/GO_RELEASE.md)、[Rust](../../../docs/RUST_RELEASE.md) 发布说明及各 SDK README 中记录的限制。
+示例适用于已发布的 TypeScript SDK 2.3.0、Python `dcp-ai` 2.10.2、Go `v2.13.0` 和 Rust `dcp-ai` 2.13.0。见 [Python](../../../docs/PYTHON_RELEASE.md)、[Go](../../../docs/GO_RELEASE.md)、[Rust](../../../docs/RUST_RELEASE.md) 发布说明及各 SDK README 中记录的限制。
 
-**TypeScript**（2026 年 10 月 28 日已发布：2.2.1）：
+**TypeScript**（2026 年 11 月 5 日已发布：2.3.0）：
 
 ```bash
-npm install @dcp-ai/sdk@^2.2.1
+npm install @dcp-ai/sdk@^2.3.0
 ```
 
 **Python：**
@@ -87,13 +87,13 @@ pip install -e /path/to/dcp-ai/sdks/python     # main
 **Go**（注意 Go 模块要求的主版本后缀 v2）：
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.1
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.13.0
 ```
 
 **Rust：**
 
 ```toml
-dcp-ai = "2.11.1"
+dcp-ai = "2.13.0"
 ```
 
 **WebAssembly：** 从检出副本构建 `sdks/wasm`（`npm run build`），然后执行 `npm install /path/to/dcp-ai/sdks/wasm`。

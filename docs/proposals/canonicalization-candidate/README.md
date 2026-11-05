@@ -732,7 +732,7 @@ run and are never written outside the run directory.
     number out of range, depth 65, transport errors, an unknown profile and a profile not accepted.
   - On the candidate path, failing there: a changed payload, a changed manifest, and a flipped classical or
     PQ signature.
-- **Since V2-2** (schema validation in every SDK, on `main`, unreleased): the 50 results of `S09`, whose unknown
+- **Since V2-2** (schema validation in every SDK, published on 05/11/2026): the 50 results of `S09`, whose unknown
   members sit in closed objects, are refused with exact schema diagnostics. A run now expects 525 positive and 450
   negative results, 975 in all; 575 and 400 are the counts at the closure of phase 4. See
   [the phase 4 README](../../../tests/interop/candidate/phase4/README.md#s09-under-v2-2).

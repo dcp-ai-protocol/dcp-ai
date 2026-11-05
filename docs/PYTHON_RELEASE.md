@@ -1,18 +1,18 @@
 # Published Python package
 
-Verified on 28/10/2026: [`dcp-ai` 2.10.1](https://pypi.org/project/dcp-ai/2.10.1/) is available on PyPI. This Python package version is independent of the DCP wire/specification version. The Python package is published independently of Go, Rust, npm packages and containers. The previous release, [2.10.0](https://pypi.org/project/dcp-ai/2.10.0/), was verified on 26/10/2026; its notes are kept below.
+Verified on 05/11/2026: [`dcp-ai` 2.10.2](https://pypi.org/project/dcp-ai/2.10.2/) is available on PyPI ([what changed](#what-changed-in-2102)). This Python package version is independent of the DCP wire/specification version. The Python package is published independently of Go, Rust, npm packages and containers. The previous releases, [2.10.1](https://pypi.org/project/dcp-ai/2.10.1/), verified on 28/10/2026, and [2.10.0](https://pypi.org/project/dcp-ai/2.10.0/), verified on 26/10/2026, keep their notes below.
 
 ## Install
 
 Python 3.10 or later is required. Update your environment or lockfile. Optional integration extras remain separate from the protocol core:
 
 ```bash
-pip install --upgrade "dcp-ai>=2.10.1,<3"
-pip install "dcp-ai[fastapi]>=2.10.1,<3"
-pip install "dcp-ai[langchain]>=2.10.1,<3"
-pip install "dcp-ai[openai]>=2.10.1,<3"
-pip install "dcp-ai[crewai]>=2.10.1,<3"
-pip install "dcp-ai[otlp]>=2.10.1,<3"
+pip install --upgrade "dcp-ai>=2.10.2,<3"
+pip install "dcp-ai[fastapi]>=2.10.2,<3"
+pip install "dcp-ai[langchain]>=2.10.2,<3"
+pip install "dcp-ai[openai]>=2.10.2,<3"
+pip install "dcp-ai[crewai]>=2.10.2,<3"
+pip install "dcp-ai[otlp]>=2.10.2,<3"
 ```
 
 ## What changed in 2.10.1
@@ -29,6 +29,8 @@ FastAPI in 2.9.0 accepts structurally valid V2 bundles without verifying their s
 
 ## Compatibility and verification
 
+For 2.10.2, the wheel and the source distribution published on PyPI by the release workflow, from `main` (`46b142bd`), contain the same files, byte for byte, as the artifacts tested before publication. Fresh installations from PyPI of the wheel and of the source distribution, outside the checkout, each passed the external conformance kit (697 cases in seven catalogs) and the 2.10.2 checks of the revoked-ID set and the verification time; the package files installed from the source distribution are, byte for byte, the files of the tested wheel.
+
 `dcp-jcs-v1` remains the only normative default. `dcp-jcs-v2` remains experimental, non-normative and explicitly opt-in. Verification, trust, admission and authorization are distinct; installing this release does not enable a trust policy for you. Stricter verification can reject evidence accepted by 2.9.0. Preserve historical evidence instead of rewriting it.
 
 For 2.10.1, the wheel and source distribution published on PyPI by the release workflow are byte-identical to the artifacts reviewed before publication, and their registry checksums were confirmed. Before publication, those artifacts, installed in fresh environments outside the checkout, passed the shared secondary SHA3-256 vectors (103 tests each) and an independent consumer suite (86 tests each).
@@ -39,15 +41,15 @@ For 2.10.0 (26/10/2026), the installed wheel passed 1,866 tests on Python 3.12; 
 
 The ML-DSA dependency can raise `ValueError` if its bounded signing attempts are exhausted. A CI fixture hit this failure while creating a signature; verification was not bypassed. Callers must handle signing failure as an error, never as signed evidence.
 
-## Prepared, not published: 2.10.2
+## What changed in 2.10.2
 
-2.10.2 is prepared in the repository on 05/11/2026 but not published on PyPI. The install commands above stay on 2.10.1. Compared with 2.10.1, 2.10.2:
+2.10.2 was published on PyPI on 05/11/2026 by the release workflow, from `main` (`46b142bd`). Compared with 2.10.1, 2.10.2:
 
 - **Runs V2-2 schema validation (acceptance change).** `verify_signed_bundle_v2` and the other V2 verification functions, and so the FastAPI middleware and the bridges, validate the signed bundle envelope and the four payloads against `schemas/v2` before any hash, key or signature check. Schema-invalid bundles accepted before now fail with `schema: <pointer> <keyword>` diagnostics.
 - **Aligns the mandate checks.** `verify_mandate_validity` applies one contract and returns a result instead of raising; `now=` must be an aware `datetime`. The revoked IDs, annotated `set[str]`, are now checked as a `collections.abc.Set` (a `set`, a `frozenset` or a dict keys view): a list or a string, tolerated before, is refused. `verify_mandate_chain` reads every time the same way and rejects a root mandate that repeats a domain.
 
-The wire format, the signatures, the profiles, `dcp-jcs-v1` as the normative default and the experimental opt-in `dcp-jcs-v2` APIs are unchanged, and the wheel and the sdist now include the Apache-2.0 `LICENSE`. Preserve historical evidence instead of rewriting it. See the [SDK README](../sdks/python/README.md) and the [changelog](../CHANGELOG.md#unreleased).
+The wire format, the signatures, the profiles, `dcp-jcs-v1` as the normative default and the experimental opt-in `dcp-jcs-v2` APIs are unchanged, and the wheel and the sdist now include the Apache-2.0 `LICENSE`. Preserve historical evidence instead of rewriting it. The README inside the published wheel and sdist is the one prepared before publication and reads "prepared, not published"; published files cannot change. See the [SDK README](../sdks/python/README.md) and the [changelog](../CHANGELOG.md#unreleased).
 
 ## Related releases
 
-The current versions in every registry are listed in [Published versions](README.md#published-versions). Other release notes: [npm packages](NPM_RELEASES.md), [Go v2.11.1](GO_RELEASE.md) and [Rust 2.11.1](RUST_RELEASE.md).
+The current versions in every registry are listed in [Published versions](README.md#published-versions). Other release notes: [npm packages](NPM_RELEASES.md), [Go v2.13.0](GO_RELEASE.md) and [Rust 2.13.0](RUST_RELEASE.md).

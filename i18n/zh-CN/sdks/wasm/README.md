@@ -2,7 +2,7 @@
 
 # @dcp-ai/wasm — WebAssembly SDK v2.0
 
-> 本文是[英文 README](../../../../sdks/wasm/README.md)的参考译文，更新于 04/11/2026。为保留已测试的示例，标识符和代码块（包括注释）保持原样。
+> 本文是[英文 README](../../../../sdks/wasm/README.md)的参考译文，更新于 05/11/2026。为保留已测试的示例，标识符和代码块（包括注释）保持原样。
 
 这是用于 Digital Citizenship Protocol（DCP）v2.0 的 WebAssembly 模块，由 Rust SDK 编译而成。它提供后量子复合签名、混合密钥生成、ML-KEM-768 密钥封装、双哈希、bundle 构建与验证以及安全等级计算。所有功能都可直接在浏览器或 Node.js 中运行，无需服务器。
 
@@ -12,20 +12,20 @@
 
 **已发布到 npm（2026 年 10 月 26 日）。** `@dcp-ai/wasm` 2.1.0 于该日以 `latest` 标签发布，包含本文描述的 API 及实验性的 `dcp-jcs-v2` API。发布这些 API 并未启用候选方案：它当时仍需显式启用且不具规范性，`dcp-jcs-v1` 保持不变。Rust crate 有独立的发布周期。
 
-**`@dcp-ai/wasm` 2.1.1。** 此版本还会在 [VERIFICATION.md 的 V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) 中的二级 SHA3-256 字段存在时验证它们：`audit_merkle_root_secondary`、每个 `prev_hash_secondary` 和每个 `intent_hash_secondary`。不存在的字段不作要求，因此已验证的 bundle 可能没有完整的二级链；存在的字段如果是 `null`、不是字符串或不一致，则被拒绝。API、结果字段、`dcp-jcs-v1` 和 `hash_alg` 的处理均不变。2.1.0 不检查这些字段。下面的安装命令指定的是此版本；它在注册表中的可用情况见[已发布版本](../../../../docs/README.md#published-versions)。
+**`@dcp-ai/wasm` 2.1.1。** 此版本还会在 [VERIFICATION.md 的 V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) 中的二级 SHA3-256 字段存在时验证它们：`audit_merkle_root_secondary`、每个 `prev_hash_secondary` 和每个 `intent_hash_secondary`。不存在的字段不作要求，因此已验证的 bundle 可能没有完整的二级链；存在的字段如果是 `null`、不是字符串或不一致，则被拒绝。API、结果字段、`dcp-jcs-v1` 和 `hash_alg` 的处理均不变。2.1.0 不检查这些字段。
 
 ```bash
-npm install @dcp-ai/wasm@^2.1.1
+npm install @dcp-ai/wasm@^2.1.3
 ```
 
 所有软件包版本见 [npm 发布清单](../../../../docs/NPM_RELEASES.md)。
 
-**`@dcp-ai/wasm` 2.1.3（已准备，尚未发布）。** 它已在仓库中准备好，但不在 npm 上：上面的命令仍为 2.1.1。30/10/2026 准备的 2.1.2 从未发布，已被取代。与 2.1.1 相比：
+**`@dcp-ai/wasm` 2.1.3。** 已于 05/11/2026 在 npm 上发布。上面的安装命令指定的是此版本；它在注册表中的可用情况见[已发布版本](../../../../docs/README.md#published-versions)。30/10/2026 准备的 2.1.2 从未发布，已被取代。与 2.1.1 相比：
 
 - **`dualMerkleRoot`** 计算 V2-11 的双 Merkle 根（原始 32 字节摘要，奇数层复制最后一个节点）；2.1.1 及更早版本在两个或更多叶节点时给出其他根（见下文“哈希操作”）。以前被接受的、不是 32 字节十六进制摘要的叶节点现在会报错。
 - **V2-2 模式校验。** `verifyBundle` 和 `wasm_verify_signed_bundle_v2` 在任何哈希、密钥或签名检查之前，先按 `schemas/v2` 校验已签名 bundle 的信封和四个载荷。以前被接受的模式无效 bundle 现在会以 `schema: <pointer> <keyword>` 诊断失败。
 
-不新增 JavaScript API。传输格式、签名、配置文件、`dcp-jcs-v1` 和实验性显式启用的 `dcp-jcs-v2` API 均不变。WebAssembly 来自同样已准备、尚未发布的 Rust `dcp-ai` 2.13.0 源代码。参见 [npm 包](../../../../docs/NPM_RELEASES.md)。
+不新增 JavaScript API。传输格式、签名、配置文件、`dcp-jcs-v1` 和实验性显式启用的 `dcp-jcs-v2` API 均不变。WebAssembly 来自同样于 05/11/2026 发布的 Rust `dcp-ai` 2.13.0 源代码。参见 [npm 包](../../../../docs/NPM_RELEASES.md)。已发布的 tarball中的 README 是发布前准备的版本，写着“prepared, not published”；已发布的 tarball 无法更改。
 
 如需使用检出源码进行开发，请构建并安装本地软件包：
 
@@ -199,7 +199,7 @@ console.log(result.verified, result.classical_valid, result.pq_valid); // true t
 | `compositeVerify(context, payload, sig, classicalPk, pqPk?)` | `CompositeVerifyResult` | 对复合签名进行密码学验证 |
 | `verifyBundle(signedBundle, policy?)` | `V2VerificationResult` | 使用策略模式与安全等级模式中较严格的一个，验证 V2 bundle 的结构、密码学内容和主哈希链（spec §14.3）；返回 `resolved_tier` 和 `verification_mode`。`policy` 只有以下字段可不同于默认值：`default_mode`、`risk_overrides`、阶段3字段（`advisory_rejected_algs`、`warn_classical_only_deprecated`、`allow_classical_fallback_disable`）、`max_session_duration_seconds`（从已签名的 `session_issued_at` 起算；清单含有 `session_expires_at` 时，`signBundle` 会写入该字段）、`require_session_expiry`（拒绝缺少 `session_expires_at` 的清单），以及与 `verifier_id` 配合使用的 `require_audience_binding`（拒绝缺少 `intended_verifier` 或其值与 `verifier_id` 不同的清单）。提供策略时，V1 bundle 会被拒绝 |
 
-**模式校验（V2-2；自 2.1.3 起，已准备、尚未发布）。** `verifyBundle` 和 `wasm_verify_signed_bundle_v2`会在策略和时钟检查之后、验证器检查清单、载荷哈希、密钥和签名之前，先按 `schemas/v2` 校验已签名 bundle 的封装和四个载荷；实验性候选导出函数也经过同一关卡。校验失败的 bundle 返回 `verified: false` 和 `schema: <JSON pointer> <keyword>[ <member>]` 错误（最多 16 条，随后是 `schema: further errors not listed`），不含密码学细节。封闭对象中的未知成员会被拒绝；在开放对象中（例如 intent 的 `target`），已声明的成员保留其约束，只有附加成员不被检查。清单中的 `session_issued_at` 和 `session_expires_at` 存在时必须是字符串，不能是 `null`。`date-time` 遵循参考验证器的 ajv-formats 3.0.1 检查，这不是严格的 RFC 3339。绑定的策略解析错误、`JSON parse error` 和版本分派（`Unknown DCP version`）仍在 V2-2 之前。**接受范围变化：** 以前能通过验证的模式无效 bundle 现在会被拒绝。没有仅做模式校验的 API。参见[覆盖映射](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)。
+**模式校验（V2-2；自 2.1.3 起）。** `verifyBundle` 和 `wasm_verify_signed_bundle_v2`会在策略和时钟检查之后、验证器检查清单、载荷哈希、密钥和签名之前，先按 `schemas/v2` 校验已签名 bundle 的封装和四个载荷；实验性候选导出函数也经过同一关卡。校验失败的 bundle 返回 `verified: false` 和 `schema: <JSON pointer> <keyword>[ <member>]` 错误（最多 16 条，随后是 `schema: further errors not listed`），不含密码学细节。封闭对象中的未知成员会被拒绝；在开放对象中（例如 intent 的 `target`），已声明的成员保留其约束，只有附加成员不被检查。清单中的 `session_issued_at` 和 `session_expires_at` 存在时必须是字符串，不能是 `null`。`date-time` 遵循参考验证器的 ajv-formats 3.0.1 检查，这不是严格的 RFC 3339。绑定的策略解析错误、`JSON parse error` 和版本分派（`Unknown DCP version`）仍在 V2-2 之前。**接受范围变化：** 以前能通过验证的模式无效 bundle 现在会被拒绝。没有仅做模式校验的 API。参见[覆盖映射](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)。
 
 <a id="hash-operations"></a>
 
@@ -210,7 +210,7 @@ console.log(result.verified, result.classical_valid, result.pq_valid); // true t
 | `dualHash(data)` | `DualHash` | SHA-256 + SHA3-256 双哈希 |
 | `sha3_256(data)` | `string` | SHA3-256 哈希，返回十六进制字符串 |
 | `hashObject(obj)` | `string` | JSON 对象的 SHA-256 哈希 |
-| `dualMerkleRoot(leaves)` | `DualHash` | 根据非空的 `DualHash` 叶节点数组（每个都是 32 字节十六进制摘要）计算 [VERIFICATION.md 的 V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) 双 Merkle 根；数组为空或叶节点无效时抛出异常。根为小写十六进制。2.1.2 已准备、尚未发布：2.1.1 及更早版本对十六进制文本做哈希，因此两个或更多叶节点的根不同 |
+| `dualMerkleRoot(leaves)` | `DualHash` | 根据非空的 `DualHash` 叶节点数组（每个都是 32 字节十六进制摘要）计算 [VERIFICATION.md 的 V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) 双 Merkle 根；数组为空或叶节点无效时抛出异常。根为小写十六进制。自 2.1.3 起：2.1.1 及更早版本对十六进制文本做哈希，因此两个或更多叶节点的根不同 |
 
 <a id="canonicalization-domain-separation"></a>
 

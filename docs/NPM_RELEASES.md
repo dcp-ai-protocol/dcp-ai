@@ -1,13 +1,13 @@
 # Published npm packages
 
-Verified on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/cli` 2.1.1 are published with the `latest` tag; the other ten packages below are unchanged. Package versions are separate from the DCP wire/specification version and repository tags.
+Verified on 05/11/2026: `@dcp-ai/sdk` 2.3.0 and `@dcp-ai/wasm` 2.1.3 are published with the `latest` tag; the other eleven packages below are unchanged ([what changed](#what-changed-on-05112026)). On 28/10/2026, `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/cli` 2.1.1 were published with the `latest` tag. Package versions are separate from the DCP wire/specification version and repository tags.
 
 On 26/10/2026, 13 versions were published with the `latest` tag: `@dcp-ai/sdk` 2.2.0, `@dcp-ai/wasm` 2.1.0, `@dcp-ai/cli` 2.1.0 and the ten packages still listed below. Their registry integrity matched the tested tarballs, and a fresh installation from npm passed 383 checks.
 
 | Package | Version |
 |---|---|
-| [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) | 2.2.1 |
-| [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) | 2.1.1 |
+| [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) | 2.3.0 |
+| [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) | 2.1.3 |
 | [`@dcp-ai/cli`](https://www.npmjs.com/package/@dcp-ai/cli) | 2.1.1 |
 | [`@dcp-ai/anthropic-mcp`](https://www.npmjs.com/package/@dcp-ai/anthropic-mcp) | 2.1.0 |
 | [`@dcp-ai/autogen`](https://www.npmjs.com/package/@dcp-ai/autogen) | 2.0.1 |
@@ -29,8 +29,8 @@ The three registry tarballs are byte-identical to the reviewed artifacts, with m
 ## Install the published versions
 
 ```bash
-npm install @dcp-ai/sdk@^2.2.1
-npm install @dcp-ai/wasm@^2.1.1
+npm install @dcp-ai/sdk@^2.3.0
+npm install @dcp-ai/wasm@^2.1.3
 npm install @dcp-ai/express@^2.1.0 express
 npx --package=@dcp-ai/cli@2.1.1 dcp-ai --help
 ```
@@ -41,9 +41,9 @@ Since 2.2.0, `@dcp-ai/sdk` includes principal trust, `strict-v1`, the verifier f
 
 In `@dcp-ai/sdk` 2.2.0 and later and `@dcp-ai/wasm` 2.1.0 and later, `dcp-jcs-v2` remains experimental, non-normative and opt-in. `dcp-jcs-v1` remains the only normative default. Scaffolders and bridge helpers keep the limitations stated in their READMEs; publishing them does not turn demo flows into production verifiers.
 
-## Prepared, not published: `@dcp-ai/sdk` 2.3.0 and `@dcp-ai/wasm` 2.1.3
+## What changed on 05/11/2026
 
-Prepared in the repository on 05/11/2026 and not published on npm. The table and the install commands above stay on the registry versions. They supersede the `@dcp-ai/wasm` 2.1.2 candidate of 30/10/2026 below, which was never published.
+`@dcp-ai/sdk` 2.3.0 and `@dcp-ai/wasm` 2.1.3 were published on 05/11/2026 from the tarballs tested before publication. They supersede the `@dcp-ai/wasm` 2.1.2 candidate of 30/10/2026 below, which was never published.
 
 `@dcp-ai/sdk` 2.3.0, compared with 2.2.1:
 
@@ -55,9 +55,11 @@ Prepared in the repository on 05/11/2026 and not published on npm. The table and
 
 - **`dualMerkleRoot` follows V2-11 (acceptance change).** It and the raw export `wasm_dual_merkle_root` compute the dual Merkle root with the reduction of [VERIFICATION.md V2-11](../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) that `verifyBundle` already used (raw 32-byte digests, the last node duplicated on an odd layer). 2.1.1 and earlier hash the hex text and carry an odd last node up unchanged, so their roots of two or more leaves differ. A leaf that is not a 32-byte hex digest is now an error, and roots are returned in lowercase.
 - **V2-2 schema validation (acceptance change).** `verifyBundle` and `wasm_verify_signed_bundle_v2` validate the envelope and the four payloads against `schemas/v2` before any hash, key or signature check.
-- **No JavaScript API is added.** The WebAssembly comes from the Rust `dcp-ai` 2.13.0 source, also prepared and not published (see [Rust](RUST_RELEASE.md)).
+- **No JavaScript API is added.** The WebAssembly comes from the Rust `dcp-ai` 2.13.0 source, also published on 05/11/2026 (see [Rust](RUST_RELEASE.md)).
 
-Both packages keep the wire format, the signatures, the profiles, `dcp-jcs-v1` as the normative default and the experimental opt-in `dcp-jcs-v2` APIs, and both now include the Apache-2.0 `LICENSE`. The README inside each package describes the same changes. In the WASM README, the `dualMerkleRoot` row of the Hash Operations table still reads "Prepared for 2.1.2": that row is historical, and the behaviour it describes is the one of 2.1.3.
+Both packages keep the wire format, the signatures, the profiles, `dcp-jcs-v1` as the normative default and the experimental opt-in `dcp-jcs-v2` APIs, and both include the Apache-2.0 `LICENSE`. The README inside each published tarball is the one prepared before publication: it reads "prepared, not published", and in the WASM README the `dualMerkleRoot` row of the Hash Operations table still reads "Prepared for 2.1.2". Published tarballs cannot change; this page and the READMEs in the repository describe the published versions.
+
+The registry tarballs of `@dcp-ai/sdk` 2.3.0 and `@dcp-ai/wasm` 2.1.3 are byte-identical to the tested artifacts, with the same `sha512` integrity. A fresh consumer installing them from npm, without overrides, passed the external conformance kit (697 cases in seven catalogs for the SDK, 460 in the five catalogs that `@dcp-ai/wasm` supports), and the WASM package served from that installation passed 14 checks in a browser.
 
 ### Migrating `dualMerkleRoot` results
 
@@ -69,14 +71,14 @@ The correction changes the roots that the helper computes, not the evidence you 
 
 ### CLI and adapters
 
-`@dcp-ai/cli` and the npm adapters get no new version. Their published ranges (`^2.2.1` for the CLI, `^2.2.0` for the adapters) accept `@dcp-ai/sdk` 2.3.0. Before publication, they were installed from npm with `@dcp-ai/sdk` resolved to the candidate:
+`@dcp-ai/cli` and the npm adapters get no new version. Their published ranges (`^2.2.1` for the CLI, `^2.2.0` for the adapters) accept `@dcp-ai/sdk` 2.3.0. They were checked twice: before publication, installed from npm with `@dcp-ai/sdk` resolved to the candidate through an override; after publication, installed from npm without any override, when their own ranges resolved one `@dcp-ai/sdk` 2.3.0 from the registry, with the tested integrity. Both times:
 
 - **Checked functionally:** `@dcp-ai/cli` 2.1.1 (`--version`, a valid V2 bundle, and a schema-invalid one, which the CLI's own schema check rejects before the SDK runs), and `@dcp-ai/express` and `@dcp-ai/openclaw` 2.1.0 (regression checks of their admission and verification fixes).
 - **Checked for installation only:** `@dcp-ai/anthropic-mcp` and `@dcp-ai/google-a2a` (one resolved `@dcp-ai/sdk` 2.3.0, the accepted range and the import of their entry point), and the packages that do not depend on the SDK (the entry point parses). This is not integration testing.
 
 ## Prepared, not published: `@dcp-ai/wasm` 2.1.2
 
-`@dcp-ai/wasm` 2.1.2 is prepared in the repository on 30/10/2026 but not published on npm. The table and the install commands above stay on the registry versions.
+`@dcp-ai/wasm` 2.1.2 is prepared in the repository on 30/10/2026 but not published on npm. At preparation time the table and the install commands stayed on the registry versions of then; the current ones are above.
 
 It corrects `dualMerkleRoot` and the raw export `wasm_dual_merkle_root`: they now compute the dual Merkle root with the reduction of [VERIFICATION.md V2-11](../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) that `verifyBundle` already used (raw 32-byte digests, the last node duplicated on an odd layer). 2.1.1 and earlier hash the hex text and carry an odd last node up unchanged, so their roots of two or more leaves differ from V2-11. Malformed leaves, which 2.1.1 and earlier accepted, are now an error: each leaf must be a 32-byte hex digest. Uppercase hex is accepted and the root is returned in lowercase. An empty array gives the same error as before (`dualMerkleRoot` throws), and the result keeps its two fields, `sha256` and `sha3_256`.
 
@@ -86,4 +88,4 @@ It corrects `dualMerkleRoot` and the raw export `wasm_dual_merkle_root`: they no
 
 ## Related releases
 
-The current versions in every registry are listed in [Published versions](README.md#published-versions). Other release notes: [Python 2.10.1](PYTHON_RELEASE.md), [Go v2.11.1](GO_RELEASE.md) and [Rust 2.11.1](RUST_RELEASE.md).
+The current versions in every registry are listed in [Published versions](README.md#published-versions). Other release notes: [Python 2.10.2](PYTHON_RELEASE.md), [Go v2.13.0](GO_RELEASE.md) and [Rust 2.13.0](RUST_RELEASE.md).

@@ -743,8 +743,8 @@ Los verificadores V2 deben (MUST) admitir V1 indefinidamente. La migración es g
   `verifySignedBundleV2` de los SDK solo verifica bundles V2. `allow_v1_bundles` lo leen el servidor de referencia y el
   perfil de admisión; el `verifySignedBundle` raíz (`lib/verify.js`) envía los bundles V1 a las comprobaciones V1 sin
   leerlo.
-- **§18, proceso.** En `main`, `verifySignedBundleV2` y sus equivalentes en todos los SDK ejecutan por sí mismos la
-  validación con JSON Schema (paso 2); las versiones publicadas de los SDK no, y `lib/verify.js` y el servidor también
+- **§18, proceso.** Desde las versiones del 05/11/2026 (`@dcp-ai/sdk` 2.3.0, `@dcp-ai/wasm` 2.1.3, `dcp-ai` 2.10.2, Go v2.13.0 y Rust `dcp-ai` 2.13.0), `verifySignedBundleV2` y sus equivalentes en todos los SDK ejecutan por sí mismos la
+  validación con JSON Schema (paso 2); las versiones anteriores no, y `lib/verify.js` y el servidor también
   la hacen antes de llamar al SDK. No usa la caché de verificación que exporta el SDK de TypeScript (paso 13), y el
   paso 12 lee el estado de las claves que hay en el bundle; consultar un servicio de revocación corresponde a la
   admisión ([docs/ADMISSION.md](../../../docs/ADMISSION.md)). Verificar no es admitir, confiar ni autorizar.

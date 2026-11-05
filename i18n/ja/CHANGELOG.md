@@ -6,7 +6,7 @@
 
 > [英語版](../../CHANGELOG.md)の参考訳です（05/11/2026 更新）。各エントリーは、`[Unreleased]` のものも含め、その時点での変更を記述したもので、現在の動作を保証するものではありません。公開済みの各バージョンは**日付のある過去の記録**です。内容が異なる場合は英語版が優先されます。
 
-**公開済みバージョン（2026 年 10 月 26 日）。** npm（`@dcp-ai/sdk` 2.2.0 を含む 13 パッケージ）、Python `dcp-ai` 2.10.0、Go `v2.11.0`、Rust `dcp-ai` 2.11.0 が、検証器の修正、受け入れ判定、実験的なオプトイン API を含めて公開済みです。`dcp-jcs-v1` は引き続き規範的なデフォルトです。[公開済みバージョン](../../docs/README.md#published-versions)を参照してください。以下の項目は開発履歴として保持しています。`[Unreleased]` はこれらの機能が未公開であることを意味しません。2026 年 10 月 28 日の 6 つの修正リリースは[専用のセクション](#2026-10-28-sha3-patch-releases)にあります。
+**公開済みバージョン（2026 年 10 月 26 日）。** npm（`@dcp-ai/sdk` 2.2.0 を含む 13 パッケージ）、Python `dcp-ai` 2.10.0、Go `v2.11.0`、Rust `dcp-ai` 2.11.0 が、検証器の修正、受け入れ判定、実験的なオプトイン API を含めて公開済みです。`dcp-jcs-v1` は引き続き規範的なデフォルトです。[公開済みバージョン](../../docs/README.md#published-versions)を参照してください。以下の項目は開発履歴として保持しています。`[Unreleased]` はこれらの機能が未公開であることを意味しません。2026 年 10 月 28 日の 6 つの修正リリースは[専用のセクション](#2026-10-28-sha3-patch-releases)にあります。05/11/2026 の五つのリリースは[独自のセクション](#2026-11-05-auditable-releases)にあります。
 
 このプロジェクトの重要な変更はすべてこのファイルに記録します。
 
@@ -18,13 +18,13 @@
 > ついては、[README](../../README.md)、[ドキュメント](../../docs/README.md)、[仕様](../../spec/README.md)、
 > [API リファレンス](../../docs/API_REFERENCE.md)を参照してください。
 
-<a id="prepared-not-published-auditable-candidate-of-05112026"></a>
+<a id="2026-11-05-auditable-releases"></a>
 
-## 準備済み・未公開: 05/11/2026 の監査可能な候補
+## [2026-11-05] 監査可能なリリース
 
-05/11/2026 にリポジトリで準備済みで、**公開されていません**。npm、PyPI、crates.io にはこれらのバージョンはなく、`sdks/go/v2.13.0` タグも存在しません。[公開済みバージョン](../../docs/README.md#published-versions)とインストールコマンドは、引き続きレジストリのバージョンを示します。
+監査可能な候補としてレビューした後、05/11/2026 に公開されました。npm の tarball は公開前にテストしたファイルそのものです。PyPI の wheel と sdist、および crate はリリースワークフローが `main` から再ビルドしたもので、テスト済みの成果物と同じファイルを含みます（crate の `.cargo_vcs_info.json` は `main` を示します）。Go モジュールは `main` 上のタグ `sdks/go/v2.13.0` です。[公開済みバージョン](../../docs/README.md#published-versions)を参照してください。
 
-| パッケージ | 準備済み | 公開済み |
+| パッケージ | 公開 | 以前 |
 |---|---|---|
 | `@dcp-ai/sdk` | 2.3.0 | 2.2.1 |
 | `dcp-ai` (PyPI) | 2.10.2 | 2.10.1 |
@@ -38,12 +38,13 @@
 - **パッケージング。** npm の tarball、wheel、sdist、crate に Apache-2.0 の `LICENSE` が含まれるようになりました。Go モジュールの zip にはすでに含まれていました。
 - **CLI とアダプター。** `@dcp-ai/cli` と npm アダプターには新しいバージョンはありません。`@dcp-ai/sdk` 2.3.0 に対して何を確認したかは [npm パッケージ](../../docs/NPM_RELEASES.md#cli-and-adapters)に記載しています。
 - **以前の候補。** これらのバージョンは、下記の 30/10/2026 の候補（Go v2.12.0、Rust 2.12.0、`@dcp-ai/wasm` 2.1.2）を置き換えます。これらは公開されず、その番号は再利用されません。
+- **パッケージの README。** 公開済みの各アーカイブに含まれる README は公開前に準備したもので、「prepared, not published」と記載しています。公開済みのアーカイブは変更できません。このリポジトリの README が公開済みのバージョンを説明します。
 
 <a id="prepared-not-published-go-v2120-rust-2120-and-dcp-aiwasm-212"></a>
 
 ## 準備済み・未公開: Go v2.12.0、Rust 2.12.0、`@dcp-ai/wasm` 2.1.2
 
-30/10/2026 にリポジトリで準備済みで、**公開されていません**。`sdks/go/v2.12.0` タグは存在せず、crates.io と npm にもこれらのバージョンはありません。[公開済みバージョン](../../docs/README.md#published-versions)とインストールコマンドは、引き続きレジストリのバージョン（Go `v2.11.1`、Rust `dcp-ai` 2.11.1、`@dcp-ai/wasm` 2.1.1）を示します。変更内容は `[Unreleased]` と、[Go](../../docs/GO_RELEASE.md)、[Rust](../../docs/RUST_RELEASE.md)、[npm](../../docs/NPM_RELEASES.md) のリリースノートに記載されています。
+30/10/2026 にリポジトリで準備済みで、**公開されていません**。`sdks/go/v2.12.0` タグは存在せず、crates.io と npm にもこれらのバージョンはありません。準備の時点では、[公開済みバージョン](../../docs/README.md#published-versions)とインストールコマンドは当時のレジストリのバージョン（Go `v2.11.1`、Rust `dcp-ai` 2.11.1、`@dcp-ai/wasm` 2.1.1）を示していました。現在のものは上記の [05/11/2026 のリリース](#2026-11-05-auditable-releases)にあります。変更内容は `[Unreleased]` と、[Go](../../docs/GO_RELEASE.md)、[Rust](../../docs/RUST_RELEASE.md)、[npm](../../docs/NPM_RELEASES.md) のリリースノートに記載されています。
 
 - **Go v2.12.0：** `v2.VerifyPayloadHash` の受け入れの変更（`SignPayload` の出力を受け入れ、接頭辞のないダイジェストを拒否する。確認するのはハッシュだけ）と、追加された `v2.RawAuditEventV2`。`SDKVersion` は `2.12.0` です。
 - **Rust `dcp-ai` 2.12.0：** 追加された `v2::types::RawAuditEventV2` と `RawAuditEventError`、および `wasm` フィーチャー使用時の修正済み `wasm_dual_merkle_root`。テレメトリーはパッケージのバージョンを読み取ります。
@@ -52,8 +53,8 @@
 
 > **注記（05/11/2026）。** これらの候補は 30/10/2026 のもので、公開されませんでした。`main` のその後の変更、つまり
 > すべての V2 検証器での V2-2 のスキーマ検証（#116）と委任状チェーンの確認（#117〜#119）は含みません。
-> [05/11/2026 の候補](#prepared-not-published-auditable-candidate-of-05112026)はこれらの変更を含み、これらの候補を
-> 置き換えます。`main` のマニフェストはその候補のバージョン番号を記載しており、2.12.0 と 2.1.2 は再利用されません。
+> [05/11/2026 のリリース](#2026-11-05-auditable-releases)はこれらの変更を含み、これらの候補を
+> 置き換えます。`main` のマニフェストはそのリリースのバージョン番号を記載しており、2.12.0 と 2.1.2 は再利用されません。
 > [監査資料](../../docs/conformance/AUDIT_DOSSIER.md#artifacts)を参照してください。
 
 <a id="2026-10-28-sha3-patch-releases"></a>

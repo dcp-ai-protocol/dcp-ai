@@ -5,7 +5,7 @@
 
 # DCP-AI 与欧盟《人工智能法》— 日志记录、人工监督和记录保存义务的对应
 
-> 本文是[英文版](../../../docs/EU_AI_ACT_MAPPING.md)的参考译文，更新于 28/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/EU_AI_ACT_MAPPING.md)的参考译文，更新于 05/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 **规范版本：** 2.0
 **最后更新：** 2026 年 10 月
@@ -245,7 +245,7 @@ DCP-AI 规范用“human”和“principal”称呼由 RPR 绑定的人。本文
 - [ ] 对于部署者希望由人批准的行为类型、数据类别和影响级别，策略规则返回带 `required_confirmation` 的 `escalate`；当 Human Confirmation 缺失或为 `deny` 时，应用会阻断。
 - [ ] 为重要的维度按授权书声明感知阈值，`action_if_triggered` 为 `escalate` 或 `block`；建议声明带有与 DCP-09 §5.3 一致的 `response_deadline`，并监测 `proceeded_without_response`。
 - [ ] 每个智能体都有紧急撤销秘密值，由责任委托人在智能体运行环境之外持有，并且应用有一个在撤销触发时停止进程的终止开关（仅靠撤销不会停止正在运行的进程）。
-- [ ] 验证器在其所服务的最高等级的传播延迟内检查撤销状态（[SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md)，“Revocation Propagation SLAs”），验证缓存的 TTL 遵循 core §14.5。在已发布的 `@dcp-ai/sdk` 2.2.1 及更早版本中，TypeScript 的 `VerificationCache` 仅以 bundle 哈希为键，其 `invalidateByAgent` 不起任何作用；`main` 上的源代码（尚未发布）增加了按智能体失效和可选的上下文，但不会自动使任何条目失效。无论哪种情况，在撤销或信任发生变化时都请使其失效或清空它（[API_REFERENCE.md](../../../docs/API_REFERENCE.md#verificationcache)）。
+- [ ] 验证器在其所服务的最高等级的传播延迟内检查撤销状态（[SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md)，“Revocation Propagation SLAs”），验证缓存的 TTL 遵循 core §14.5。在已发布的 `@dcp-ai/sdk` 2.2.1 及更早版本中，TypeScript 的 `VerificationCache` 仅以 bundle 哈希为键，其 `invalidateByAgent` 不起任何作用；`@dcp-ai/sdk` 2.3.0 及更高版本增加了按智能体失效和可选的上下文，但不会自动使任何条目失效。无论哪种情况，在撤销或信任发生变化时都请使其失效或清空它（[API_REFERENCE.md](../../../docs/API_REFERENCE.md#verificationcache)）。
 - [ ] 对于远程生物特征识别，第 14 条第 (5) 款的两人规则通过对意图的多方授权实现，并作为部署者的流程记录在案。
 
 <a id="54-key-custody-and-verifier-policy"></a>

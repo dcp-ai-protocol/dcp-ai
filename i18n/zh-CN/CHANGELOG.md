@@ -6,7 +6,7 @@
 
 > 本文是[英文版](../../CHANGELOG.md)的参考译文，更新于 05/11/2026。每个条目（包括 `[Unreleased]` 下的条目）描述的是当时所作的变更，并不保证当前行为；已发布的各版本是**带日期的历史记录**。如有出入，以英文版为准。
 
-**已发布版本（2026 年 10 月 26 日）。** npm（13 个软件包，包括 `@dcp-ai/sdk` 2.2.0）、Python `dcp-ai` 2.10.0、Go `v2.11.0` 和 Rust `dcp-ai` 2.11.0 均已发布，包含验证器修复、准入功能和实验性的选择启用 API；`dcp-jcs-v1` 仍是规范性默认值。见[已发布版本](../../docs/README.md#published-versions)。以下条目保留开发历史；`[Unreleased]` 不表示这些功能尚未发布。2026 年 10 月 28 日的六个修复版本见[单独的章节](#2026-10-28-sha3-patch-releases)。
+**已发布版本（2026 年 10 月 26 日）。** npm（13 个软件包，包括 `@dcp-ai/sdk` 2.2.0）、Python `dcp-ai` 2.10.0、Go `v2.11.0` 和 Rust `dcp-ai` 2.11.0 均已发布，包含验证器修复、准入功能和实验性的选择启用 API；`dcp-jcs-v1` 仍是规范性默认值。见[已发布版本](../../docs/README.md#published-versions)。以下条目保留开发历史；`[Unreleased]` 不表示这些功能尚未发布。2026 年 10 月 28 日的六个修复版本见[单独的章节](#2026-10-28-sha3-patch-releases)。05/11/2026 的五个版本见[其单独的章节](#2026-11-05-auditable-releases)。
 
 本项目的所有重要变更都会记录在此文件中。
 
@@ -17,13 +17,13 @@
 > 当前行为，请参阅 [README](../../README.md)、[文档](../../docs/README.md)、[规范](../../spec/README.md)和
 > [API 参考](../../docs/API_REFERENCE.md)。
 
-<a id="prepared-not-published-auditable-candidate-of-05112026"></a>
+<a id="2026-11-05-auditable-releases"></a>
 
-## 已准备，尚未发布：05/11/2026 的可审计候选版本
+## [2026-11-05] 可审计版本发布
 
-05/11/2026 在仓库中准备，**尚未发布**：npm、PyPI 和 crates.io 上没有这些版本，也不存在 `sdks/go/v2.13.0` 标签。[已发布版本](../../docs/README.md#published-versions)和安装命令仍然指向注册表中的版本。
+作为可审计候选版本经审查后，于 05/11/2026 发布。npm tarball 就是发布前测试过的文件；PyPI 的 wheel 和 sdist 以及 crate 由发布工作流从 `main` 重新构建，包含与测试过的制品相同的文件（crate 的 `.cargo_vcs_info.json` 指向 `main`）；Go 模块是 `main` 上的标签 `sdks/go/v2.13.0`。见[已发布版本](../../docs/README.md#published-versions)。
 
-| 包 | 已准备 | 已发布 |
+| 包 | 已发布 | 之前 |
 |---|---|---|
 | `@dcp-ai/sdk` | 2.3.0 | 2.2.1 |
 | `dcp-ai` (PyPI) | 2.10.2 | 2.10.1 |
@@ -37,12 +37,13 @@
 - **打包。** npm tarball、wheel、sdist 和 crate 现在都包含 Apache-2.0 `LICENSE`；Go 模块 zip 原本就包含。
 - **CLI 和适配器。** `@dcp-ai/cli` 和 npm 适配器没有新版本；针对 `@dcp-ai/sdk` 2.3.0 检查了什么，见 [npm 包](../../docs/NPM_RELEASES.md#cli-and-adapters)。
 - **早期候选版本。** 这些版本取代了下面 30/10/2026 的候选版本（Go v2.12.0、Rust 2.12.0、`@dcp-ai/wasm` 2.1.2），它们从未发布；这些版本号不再使用。
+- **软件包 README。** 每个已发布归档中的 README 是发布前准备的版本，写着“prepared, not published”；已发布的归档无法更改。本仓库中的 README 描述已发布的版本。
 
 <a id="prepared-not-published-go-v2120-rust-2120-and-dcp-aiwasm-212"></a>
 
 ## 已准备、尚未发布：Go v2.12.0、Rust 2.12.0 和 `@dcp-ai/wasm` 2.1.2
 
-已于 30/10/2026 在仓库中准备好，**尚未发布**：`sdks/go/v2.12.0` 标签不存在，crates.io 和 npm 上也没有这些版本。[已发布版本](../../docs/README.md#published-versions)和安装命令仍指向注册表中的版本（Go `v2.11.1`、Rust `dcp-ai` 2.11.1、`@dcp-ai/wasm` 2.1.1）。变更内容见 `[Unreleased]` 以及 [Go](../../docs/GO_RELEASE.md)、[Rust](../../docs/RUST_RELEASE.md) 和 [npm](../../docs/NPM_RELEASES.md) 的发布说明。
+已于 30/10/2026 在仓库中准备好，**尚未发布**：`sdks/go/v2.12.0` 标签不存在，crates.io 和 npm 上也没有这些版本。准备时，[已发布版本](../../docs/README.md#published-versions)和安装命令仍指向当时注册表中的版本（Go `v2.11.1`、Rust `dcp-ai` 2.11.1、`@dcp-ai/wasm` 2.1.1）；当前的版本见上面的 [05/11/2026 版本发布](#2026-11-05-auditable-releases)。变更内容见 `[Unreleased]` 以及 [Go](../../docs/GO_RELEASE.md)、[Rust](../../docs/RUST_RELEASE.md) 和 [npm](../../docs/NPM_RELEASES.md) 的发布说明。
 
 - **Go v2.12.0：** `v2.VerifyPayloadHash` 的接受范围变更（接受 `SignPayload` 的输出，拒绝不带前缀的摘要；只检查哈希），以及新增的 `v2.RawAuditEventV2`。`SDKVersion` 为 `2.12.0`。
 - **Rust `dcp-ai` 2.12.0：** 新增的 `v2::types::RawAuditEventV2` 和 `RawAuditEventError`，以及启用 `wasm` 特性时修正后的 `wasm_dual_merkle_root`。遥测读取软件包版本。
@@ -51,8 +52,8 @@
 
 > **说明（05/11/2026）。** 这些候选版本日期为 30/10/2026，从未发布。它们不包含 `main` 上之后的更改：
 > 每个 V2 验证器中的 V2-2 模式校验（#116）和授权书链检查（#117 至 #119）。
-> [05/11/2026 的候选版本](#prepared-not-published-auditable-candidate-of-05112026)包含这些更改并取代了这些候选版本；
-> `main` 上的清单文件带有它的版本号，2.12.0 和 2.1.2 不再使用。见[审计资料](../../docs/conformance/AUDIT_DOSSIER.md#artifacts)。
+> [05/11/2026 的版本](#2026-11-05-auditable-releases)包含这些更改并取代了这些候选版本；
+> `main` 上的清单文件带有它们的版本号，2.12.0 和 2.1.2 不再使用。见[审计资料](../../docs/conformance/AUDIT_DOSSIER.md#artifacts)。
 
 <a id="2026-10-28-sha3-patch-releases"></a>
 

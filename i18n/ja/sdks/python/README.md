@@ -12,17 +12,17 @@ Digital Citizenship Protocol（DCP v2.0）の公式 Python SDK です。Pydantic
 
 **Python SDK。** 2.10.0 以降、この SDK には V2 検証器の修正、プリンシパルの信頼と `strict-v1`、委任チェーン、A2A 受信ウィンドウ、上限付き失効ワーカー、実験的なオプトインの `dcp-jcs-v2` API が含まれます。修正済みの FastAPI、LangChain、OpenAI、CrewAI アダプターも含まれます。`dcp-jcs-v1` が規範的な既定のままです。インストールするには：
 
-**Python SDK 2.10.1。** このバージョンは、[VERIFICATION.md の V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) の二次の SHA3-256 フィールドが存在する場合、それらも検証します：`audit_merkle_root_secondary`、各 `prev_hash_secondary`、各 `intent_hash_secondary`。存在しないフィールドは要求されないため、検証済みのバンドルが完全な二次チェーンを持たないこともあります。存在するフィールドが `null`、文字列でない、または不整合の場合は拒否されます。API、結果のフィールド、`dcp-jcs-v1`、`hash_alg` の扱いは変わりません。2.10.0 はこれらのフィールドを確認しません。以下のインストールコマンドはこのバージョンを指定しています。レジストリでの提供状況は[公開済みバージョン](../../../../docs/README.md#published-versions)を参照してください。
+**Python SDK 2.10.1。** このバージョンは、[VERIFICATION.md の V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) の二次の SHA3-256 フィールドが存在する場合、それらも検証します：`audit_merkle_root_secondary`、各 `prev_hash_secondary`、各 `intent_hash_secondary`。存在しないフィールドは要求されないため、検証済みのバンドルが完全な二次チェーンを持たないこともあります。存在するフィールドが `null`、文字列でない、または不整合の場合は拒否されます。API、結果のフィールド、`dcp-jcs-v1`、`hash_alg` の扱いは変わりません。2.10.0 はこれらのフィールドを確認しません。
 
-**Python SDK 2.10.2（準備済み・未公開）。** リポジトリで準備済みですが PyPI にはないため、以下のコマンドは 2.10.1 のままです。2.10.1 との違い：
+**Python SDK 2.10.2。** 05/11/2026 に PyPI で公開されました。以下のインストールコマンドはこのバージョンを指定しています。レジストリでの提供状況は[公開済みバージョン](../../../../docs/README.md#published-versions)を参照してください。2.10.1 との違い：
 
 - **V2-2 スキーマ検証。** `verify_signed_bundle_v2` とその他の V2 検証関数は、したがって FastAPI ミドルウェアとブリッジも、ハッシュ、鍵、署名を確認する前に、署名済みバンドルのエンベロープと 4 つのペイロードを `schemas/v2` に照らして検証します。以前は受理されていたスキーマ上無効なバンドルは、`schema: <pointer> <keyword>` 診断で失敗するようになりました。
 - **委任状。** `verify_mandate_validity` は一つの契約を適用し、例外を送出せずに結果を返します。`now=` はタイムゾーン付きの `datetime` でなければなりません。`set[str]` と注釈された失効 ID は、`collections.abc.Set`（`set`、`frozenset`、または dict のキービュー）として確認されるようになりました。以前は許容されていたリストや文字列は拒否されます。`verify_mandate_chain` はすべての時刻を同じ方法で読み取り、ドメインを繰り返すルート委任状を拒否します。
 
-ワイヤーフォーマット、署名、プロファイル、`dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API は変わりません。[変更履歴](../../../../CHANGELOG.md#unreleased)を参照してください。
+ワイヤーフォーマット、署名、プロファイル、`dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API は変わりません。[変更履歴](../../../../CHANGELOG.md#unreleased)を参照してください。公開済みの wheel と sdistに含まれる README は公開前に準備したもので、「prepared, not published」と記載しています。公開済みのファイルは変更できません。
 
 ```bash
-pip install "dcp-ai>=2.10.1,<3"
+pip install "dcp-ai>=2.10.2,<3"
 ```
 
 **2.9.0 からの更新。** FastAPI は構造だけを受け入れるのではなく、V2 署名を検証します。FastAPI と LangChain/OpenAI アダプターでの V1 の受け入れは検証器のポリシーに従います。V2 は、以前のバージョンが受け入れた非正規な署名の表現や、不整合または誤って結び付けられた証拠も拒否します。過去の証拠と検証に使ったバージョンを保存し、黙って再署名しないでください。信頼、リソース予算、切断処理は引き続きオペレーターが明示的に選択します。検証や受け入れ判定は行為を認可しません。
@@ -40,14 +40,14 @@ pip install -e "dcp-ai/sdks/python"
 
 ### オプションの extras
 
-レジストリから（2.10.1 以降）。チェックアウトからでも同じ extras が使えます：`pip install -e "dcp-ai/sdks/python[fastapi]"`。
+レジストリから（2.10.2 以降）。チェックアウトからでも同じ extras が使えます：`pip install -e "dcp-ai/sdks/python[fastapi]"`。
 
 ```bash
-pip install "dcp-ai[fastapi]>=2.10.1,<3"    # FastAPI middleware
-pip install "dcp-ai[langchain]>=2.10.1,<3"  # LangChain integration
-pip install "dcp-ai[openai]>=2.10.1,<3"     # OpenAI wrapper
-pip install "dcp-ai[crewai]>=2.10.1,<3"     # CrewAI multi-agent
-pip install "dcp-ai[otlp]>=2.10.1,<3"       # OpenTelemetry OTLP exporter
+pip install "dcp-ai[fastapi]>=2.10.2,<3"    # FastAPI middleware
+pip install "dcp-ai[langchain]>=2.10.2,<3"  # LangChain integration
+pip install "dcp-ai[openai]>=2.10.2,<3"     # OpenAI wrapper
+pip install "dcp-ai[crewai]>=2.10.2,<3"     # CrewAI multi-agent
+pip install "dcp-ai[otlp]>=2.10.2,<3"       # OpenTelemetry OTLP exporter
 ```
 
 <a id="features"></a>
@@ -275,7 +275,7 @@ verify_signed_bundle(
 
 `BundleBuilderV2`、`sign_bundle_v2`、`verify_signed_bundle_v2`（`dcp_ai.v2` 内）は、TypeScript SDK の `builder-v2.ts`、`signer-v2.ts`、`verify-v2.ts` を移植したものです。アーティファクトは `SignedPayload` の dict（`{"payload", "payload_hash", "composite_sig"}`）で、バンドルの署名はマニフェストに対する複合署名です。
 
-**スキーマ検証（V2-2。2.10.2 以降、準備済み・未公開）。** `verify_signed_bundle_v2` とほかの V2 検証関数は、ポリシーと時計の確認の後、検証器がマニフェスト、ペイロードのハッシュ、鍵、署名を確認する前に、まず署名済み bundle のエンベロープと四つのペイロードを `schemas/v2` に照らして検証します。最初に検証を行う `admit_signed_bundle_v2` と実験的な候補の検証器も同じゲートを通りますが、`evaluate_admission_v2` は以前の結果を受け取り、このゲートを実行しません。失敗した bundle は `verified: false` と `schema: <JSON pointer> <keyword>[ <member>]` のエラー（最大 16 件、その後に `schema: further errors not listed`）を返し、暗号に関する詳細は返しません。閉じたオブジェクトの未知のメンバーは拒否されます。intent の `target` のような開いたオブジェクトでは、宣言されたメンバーは制約を保ち、追加のメンバーだけが検査されません。マニフェストの `session_issued_at` と `session_expires_at` は、存在する場合は `null` ではなく文字列でなければなりません。`date-time` は参照検証器の ajv-formats 3.0.1 による確認に従い、これは厳密な RFC 3339 ではありません。**受理の変更：** 以前は検証に成功していたスキーマ上無効な bundle は、今は拒否されます。スキーマだけの API はありません。[カバレッジマップ](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)を参照してください。
+**スキーマ検証（V2-2。2.10.2 以降）。** `verify_signed_bundle_v2` とほかの V2 検証関数は、ポリシーと時計の確認の後、検証器がマニフェスト、ペイロードのハッシュ、鍵、署名を確認する前に、まず署名済み bundle のエンベロープと四つのペイロードを `schemas/v2` に照らして検証します。最初に検証を行う `admit_signed_bundle_v2` と実験的な候補の検証器も同じゲートを通りますが、`evaluate_admission_v2` は以前の結果を受け取り、このゲートを実行しません。失敗した bundle は `verified: false` と `schema: <JSON pointer> <keyword>[ <member>]` のエラー（最大 16 件、その後に `schema: further errors not listed`）を返し、暗号に関する詳細は返しません。閉じたオブジェクトの未知のメンバーは拒否されます。intent の `target` のような開いたオブジェクトでは、宣言されたメンバーは制約を保ち、追加のメンバーだけが検査されません。マニフェストの `session_issued_at` と `session_expires_at` は、存在する場合は `null` ではなく文字列でなければなりません。`date-time` は参照検証器の ajv-formats 3.0.1 による確認に従い、これは厳密な RFC 3339 ではありません。**受理の変更：** 以前は検証に成功していたスキーマ上無効な bundle は、今は拒否されます。スキーマだけの API はありません。[カバレッジマップ](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)を参照してください。
 
 ```python
 # Fragment, inside an async function: session_nonce, the signed artifacts (signed_rpr, signed_passport, signed_intent, signed_policy), audit_events, classical_key and pq_key come from your application.
@@ -335,14 +335,14 @@ result = await admit_signed_bundle_v2(signed_bundle, registry, profile=profile, 
 入れ子になった有効期間、権限の縮小（アクション、`data_classes`、`limits` は狭まるのみ）、セキュリティティアの
 下限、失効。すべての時刻を、年 0000 や年 0000 と 9999 をまたぐオフセットも含めてミリ秒単位の RFC 3339 の瞬間として読み、
 `now` をミリ秒に切り捨てます。既定の `now=None` は現在時刻です。naive な `now` は以前と同じく UTC として読み（`verify_mandate_validity` とは
-異なる）、それ以外の `datetime` でない `now` は `verification time is not an instant` になります（2.10.2 以降、準備済み・未公開）。
+異なる）、それ以外の `datetime` でない `now` は `verification time is not an instant` になります（2.10.2 以降）。
 1 つの委任状の `authority_scope` で繰り返されるドメインは、ルートでもチェーンを拒否させます。ドメインは文字列そのもの
-として比較され、大文字小文字の同一視、空白の除去、Unicode の正規化は行いません（2.10.2 以降、準備済み・未公開）。
+として比較され、大文字小文字の同一視、空白の除去、Unicode の正規化は行いません（2.10.2 以降）。
 `verify_mandate_validity(mandate, revoked_ids, now=...)` は、aware な `now`（既定は現在時刻。naive な `datetime` は
 拒否）で一つの委任状の `mandate_id`、ローカルな失効、有効期間を確認します。ミリ秒単位の RFC 3339 の瞬間を使い、両端を
 含みます。欠落した、不正な形の、または逆転した期間は無効です。失効した ID は集合（`set`、`frozenset`、dict のキービュー）
 でなければならず、リストや文字列は拒否されます。例外を送出せずに結果を返し、署名、範囲、チェーンは確認せず、何も認可
-しません。これは 2.10.2 にあり、準備済み・未公開です。
+しません。これは 2.10.2 以降にあります。
 
 ```python
 # Fragment, inside an async function: registry as in V2 Bundles; orchestrator_classical, orchestrator_pq, root_mandate, nonce and the key entries come from your delegation setup; intent and policy_decision are V2 payloads.

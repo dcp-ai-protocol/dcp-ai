@@ -121,8 +121,8 @@ Fly.io 的预配置文件位于 [`deploy/fly/`](../../../deploy/fly/)；[部署�
 ```bash
 npm install @dcp-ai/sdk        # TypeScript / Node.js
 pip install dcp-ai             # Python
-cargo add dcp-ai@2.11.1
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.1
+cargo add dcp-ai@2.13.0
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.13.0
 ```
 
 确切的导入路径和 API 范围参见各 SDK 的 README，已发布版本缺少的内容参见其 *Release status*。在 `main` 上，TypeScript、Python、Go 和 Rust SDK 原生验证 V1 和 V2 bundle，`@dcp-ai/wasm` 公开了 Rust 的 V2 验证器。它们的 V2 验证器遵循 [VERIFICATION.md](../../../spec/VERIFICATION.md) 中的检查清单，包括每个构件的签名（步骤 V2-8）和 PQ 检查点（步骤 V2-12），并且自 `@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`dcp-ai` 2.10.1（PyPI）、Go v2.11.1 和 Rust `dcp-ai` 2.11.1 起还检查存在的步骤 V2-11 次级字段：更早的版本检查主审计链和 Merkle 根，但不检查可选的次级链或 `audit_merkle_root_secondary`（参见 [STORAGE_AND_ANCHORING.md](../../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)）。

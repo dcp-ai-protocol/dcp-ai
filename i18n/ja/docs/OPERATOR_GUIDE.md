@@ -121,8 +121,8 @@ Fly.io 用の設定済みの構成が [`deploy/fly/`](../../../deploy/fly/) に�
 ```bash
 npm install @dcp-ai/sdk        # TypeScript / Node.js
 pip install dcp-ai             # Python
-cargo add dcp-ai@2.11.1
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.1
+cargo add dcp-ai@2.13.0
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.13.0
 ```
 
 正確なインポートパスと API の範囲は各 SDK の README を、公開済みのバージョンに欠けているものはその *Release status* を参照してください。`main` では、TypeScript、Python、Go、Rust の SDK が V1 と V2 のバンドルをネイティブに検証し、`@dcp-ai/wasm` が Rust の V2 検証器を公開しています。それらの V2 検証器は、各アーティファクトの署名（ステップ V2-8）と PQ チェックポイント（ステップ V2-12）を含め、[VERIFICATION.md](../../../spec/VERIFICATION.md) のチェックリストに従い、`@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`dcp-ai` 2.10.1（PyPI）、Go v2.11.1、Rust `dcp-ai` 2.11.1 以降では、存在するステップ V2-11 の二次フィールドも確認します。それより前のバージョンは一次の監査チェーンとマークルルートを確認しますが、オプションの二次チェーンや `audit_merkle_root_secondary` は確認しません（[STORAGE_AND_ANCHORING.md](../../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains) を参照）。

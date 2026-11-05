@@ -4,11 +4,11 @@
 
 # 移行ガイド：DCP-AI v1.0 から v2.0 へ
 
-> [英語版](../../../docs/MIGRATION_V1_V2.md)の参考訳です（28/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../docs/MIGRATION_V1_V2.md)の参考訳です（05/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 **仕様バージョン：** 2.0
 **最終更新：** 2026 年 10 月
-**対象：** `main` の SDK と公開済み `@dcp-ai/sdk` 2.2.1。npm バージョンは 2026 年 10 月 28 日に確認済みです。[NPM_RELEASES.md](../../../docs/NPM_RELEASES.md) と [SECURITY.md](../../../SECURITY.md#supported-versions) を参照してください。他の SDK のバージョンは[公開済みバージョン](../../../docs/README.md#published-versions)にあります。
+**対象：** `main` の SDK と公開済み `@dcp-ai/sdk` 2.3.0。npm バージョンは 2026 年 11 月 5 日に確認済みです。[NPM_RELEASES.md](../../../docs/NPM_RELEASES.md) と [SECURITY.md](../../../SECURITY.md#supported-versions) を参照してください。他の SDK のバージョンは[公開済みバージョン](../../../docs/README.md#published-versions)にあります。
 
 このガイドでは、既存の DCP-AI v1.0 の統合を v2.0 に移行する手順を説明します。移行によって、ポスト量子の複合署名、二重ハッシュチェーン、セッションバインディング、適応型のセキュリティティア、エージェント間通信が導入されます。一方で、有効な v1.0 のバンドルは、検証器のポリシーが許す範囲で引き続き検証できます（1.2 を参照）。
 
@@ -69,12 +69,12 @@ v1.0 のバンドルには Ed25519 の署名が 1 つあるだけでポスト量
 
 ### ステップ 1：SDK を更新する
 
-例は公開済みの TypeScript SDK 2.2.1、Python `dcp-ai` 2.10.1、Go `v2.11.1`、Rust `dcp-ai` 2.11.1 で動作します。[Python](../../../docs/PYTHON_RELEASE.md)、[Go](../../../docs/GO_RELEASE.md)、[Rust](../../../docs/RUST_RELEASE.md) のリリースノートと各 SDK README の制限を参照してください。
+例は公開済みの TypeScript SDK 2.3.0、Python `dcp-ai` 2.10.2、Go `v2.13.0`、Rust `dcp-ai` 2.13.0 で動作します。[Python](../../../docs/PYTHON_RELEASE.md)、[Go](../../../docs/GO_RELEASE.md)、[Rust](../../../docs/RUST_RELEASE.md) のリリースノートと各 SDK README の制限を参照してください。
 
-**TypeScript**（2026 年 10 月 28 日公開：2.2.1）：
+**TypeScript**（2026 年 11 月 5 日公開：2.3.0）：
 
 ```bash
-npm install @dcp-ai/sdk@^2.2.1
+npm install @dcp-ai/sdk@^2.3.0
 ```
 
 **Python：**
@@ -87,13 +87,13 @@ pip install -e /path/to/dcp-ai/sdks/python     # main
 **Go**（Go モジュールが要求するメジャーバージョンの接尾辞 v2 に注意）：
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.1
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.13.0
 ```
 
 **Rust：**
 
 ```toml
-dcp-ai = "2.11.1"
+dcp-ai = "2.13.0"
 ```
 
 **WebAssembly：** チェックアウトから `sdks/wasm` をビルドし（`npm run build`）、その後 `npm install /path/to/dcp-ai/sdks/wasm` を実行します。

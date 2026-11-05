@@ -4,11 +4,11 @@
 
 # Guia de migração: do DCP-AI v1.0 para o v2.0
 
-> Tradução informativa da [versão em inglês](../../../docs/MIGRATION_V1_V2.md), atualizada em 28/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../docs/MIGRATION_V1_V2.md), atualizada em 05/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 **Versão da especificação:** 2.0
 **Última atualização:** outubro de 2026
-**Aplica-se a:** os SDKs de `main` e `@dcp-ai/sdk` 2.2.1 publicado. As versões npm foram verificadas em 28/10/2026; veja [NPM_RELEASES.md](../../../docs/NPM_RELEASES.md) e [SECURITY.md](../../../SECURITY.md#supported-versions). As versões dos outros SDKs estão em [Versões publicadas](../../../docs/README.md#published-versions).
+**Aplica-se a:** os SDKs de `main` e `@dcp-ai/sdk` 2.3.0 publicado. As versões npm foram verificadas em 05/11/2026; veja [NPM_RELEASES.md](../../../docs/NPM_RELEASES.md) e [SECURITY.md](../../../SECURITY.md#supported-versions). As versões dos outros SDKs estão em [Versões publicadas](../../../docs/README.md#published-versions).
 
 Este guia conduz você na migração de uma integração existente do DCP-AI v1.0 para o v2.0. A migração introduz assinaturas compostas pós-quânticas, cadeias de hash duplo, vinculação de sessão, níveis de segurança adaptativos e comunicação entre agentes, enquanto os bundles v1.0 válidos continuam sendo verificados onde a política do verificador os permitir (veja 1.2).
 
@@ -69,12 +69,12 @@ A migração é **aditiva**: a v2.0 introduz campos e estruturas novos ao lado d
 
 ### Etapa 1: atualizar o SDK
 
-Os exemplos funcionam com TypeScript SDK 2.2.1, Python `dcp-ai` 2.10.1, Go `v2.11.1` e Rust `dcp-ai` 2.11.1 publicados. Veja as notas de [Python](../../../docs/PYTHON_RELEASE.md), [Go](../../../docs/GO_RELEASE.md) e [Rust](../../../docs/RUST_RELEASE.md), e os limites documentados no README de cada SDK.
+Os exemplos funcionam com TypeScript SDK 2.3.0, Python `dcp-ai` 2.10.2, Go `v2.13.0` e Rust `dcp-ai` 2.13.0 publicados. Veja as notas de [Python](../../../docs/PYTHON_RELEASE.md), [Go](../../../docs/GO_RELEASE.md) e [Rust](../../../docs/RUST_RELEASE.md), e os limites documentados no README de cada SDK.
 
-**TypeScript** (publicado: 2.2.1 em 28/10/2026):
+**TypeScript** (publicado: 2.3.0 em 05/11/2026):
 
 ```bash
-npm install @dcp-ai/sdk@^2.2.1
+npm install @dcp-ai/sdk@^2.3.0
 ```
 
 **Python:**
@@ -87,13 +87,13 @@ pip install -e /path/to/dcp-ai/sdks/python     # main
 **Go** (observe o sufixo de versão maior v2 exigido pelos módulos Go):
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.1
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.13.0
 ```
 
 **Rust:**
 
 ```toml
-dcp-ai = "2.11.1"
+dcp-ai = "2.13.0"
 ```
 
 **WebAssembly:** compile `sdks/wasm` a partir de uma cópia do repositório (`npm run build`) e depois `npm install /path/to/dcp-ai/sdks/wasm`.

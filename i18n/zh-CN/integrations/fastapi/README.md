@@ -5,7 +5,7 @@
 
 # dcp_ai.fastapi — FastAPI 中间件
 
-> 本文是[英文版](../../../../integrations/fastapi/README.md)的参考译文，更新于 28/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../../integrations/fastapi/README.md)的参考译文，更新于 05/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 用于 FastAPI 的 DCP 验证中间件。它会自动验证 Signed Bundle，并为受保护的路由提供依赖注入。
 
@@ -24,7 +24,7 @@ DCP-01 至 DCP-09，部分支持：下文描述的 bundle 验证和准入，以�
 2.9.0 不验证 V2 签名，请勿用于 V2 验证。2.10.0 包含修复后的验证器、委托人信任、`strict-v1`、正文预算、信任/吊销来源监管及断开连接处理。准入不授权任何操作。
 
 ```bash
-pip install "dcp-ai[fastapi]>=2.10.1,<3"
+pip install "dcp-ai[fastapi]>=2.10.2,<3"
 ```
 
 源码开发：

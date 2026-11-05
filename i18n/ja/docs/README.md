@@ -14,24 +14,30 @@
 
 ## 公開済みバージョン
 
-28/10/2026 に確認済み。パッケージのバージョンは、DCP のワイヤーフォーマットと仕様のバージョン（2.0）とは独立しています。
+05/11/2026 に確認済み。パッケージのバージョンは、DCP のワイヤーフォーマットと仕様のバージョン（2.0）とは独立しています。
 
 | レジストリ | パッケージ | バージョン | リリースノート |
 |---|---|---|---|
-| npm | [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) (TypeScript SDK) | 2.2.1 | [npm パッケージ](../../../docs/NPM_RELEASES.md) |
-| npm | [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) | 2.1.1 | [npm パッケージ](../../../docs/NPM_RELEASES.md) |
+| npm | [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) (TypeScript SDK) | 2.3.0 | [npm パッケージ](../../../docs/NPM_RELEASES.md) |
+| npm | [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) | 2.1.3 | [npm パッケージ](../../../docs/NPM_RELEASES.md) |
 | npm | [`@dcp-ai/cli`](https://www.npmjs.com/package/@dcp-ai/cli) | 2.1.1 | [npm パッケージ](../../../docs/NPM_RELEASES.md) |
-| PyPI | [`dcp-ai`](https://pypi.org/project/dcp-ai/2.10.1/) (Python SDK) | 2.10.1 | [Python のリリース](../../../docs/PYTHON_RELEASE.md) |
-| Go modules | `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` | v2.11.1 | [Go のリリース](../../../docs/GO_RELEASE.md) |
-| crates.io | [`dcp-ai`](https://crates.io/crates/dcp-ai/2.11.1) (Rust SDK) | 2.11.1 | [Rust のリリース](../../../docs/RUST_RELEASE.md) |
+| PyPI | [`dcp-ai`](https://pypi.org/project/dcp-ai/2.10.2/) (Python SDK) | 2.10.2 | [Python のリリース](../../../docs/PYTHON_RELEASE.md) |
+| Go modules | `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` | v2.13.0 | [Go のリリース](../../../docs/GO_RELEASE.md) |
+| crates.io | [`dcp-ai`](https://crates.io/crates/dcp-ai/2.13.0) (Rust SDK) | 2.13.0 | [Rust のリリース](../../../docs/RUST_RELEASE.md) |
 
-- これらのバージョンは、V2-11 の任意の二次 SHA3-256 フィールドが存在する場合にそれらを検証します。存在しないフィールドは要求されないため、検証済みのバンドルが完全な二次チェーンを持たないこともあり、存在する不整合なフィールドは拒否されます。以前のバージョンはこれらを確認しません。 公開済みのアダプター `@dcp-ai/express`、`@dcp-ai/openclaw`、`@dcp-ai/anthropic-mcp`、`@dcp-ai/google-a2a` 2.1.0 は再公開していません。これらは `@dcp-ai/sdk` `^2.2.0` に依存しており、ロックファイルが `@dcp-ai/sdk` 2.2.1 以降を解決すると二次の確認が行われます。
-- 05/11/2026 に公開レジストリの API で改めて確認しました。これらは引き続き最新バージョンです。28/10/2026 以降に
-  `main` で行われた変更は含まれず、それらは[監査資料](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts)に記載しています。
-- 05/11/2026 に準備済みで、**公開されていません**：`@dcp-ai/sdk` 2.3.0、`@dcp-ai/wasm` 2.1.3、`dcp-ai` 2.10.2、Go
-  v2.13.0、Rust `dcp-ai` 2.13.0 はこれらの変更を含みます。どのレジストリにもなく、インストールコマンドは引き続き上記の
-  バージョンを示します。これらは 30/10/2026 の未公開の候補（Go と Rust の 2.12.0、`@dcp-ai/wasm` 2.1.2）を置き換えます。
-  [変更履歴](../../../CHANGELOG.md#prepared-not-published-auditable-candidate-of-05112026)とリリースノートを参照してください。
+- 05/11/2026 に公開：`@dcp-ai/sdk` 2.3.0、`@dcp-ai/wasm` 2.1.3、`dcp-ai` 2.10.2、Go v2.13.0、Rust `dcp-ai` 2.13.0 は、
+  すべての V2 検証器で V2-2 のスキーマ検証を実行し、[監査資料](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts)に記載したその他の SDK の変更を含みます。
+  28/10/2026 のバージョンと同じく、V2-11 の任意の二次 SHA3-256 フィールドが存在する場合にそれらを検証します。存在しない
+  フィールドは要求されないため、検証済みのバンドルが完全な二次チェーンを持たないこともあり、存在する不整合なフィールドは
+  拒否されます。
+- `@dcp-ai/cli` 2.1.1 と npm アダプターは再公開されていません。その範囲（CLI は `^2.2.1`、`@dcp-ai/express`、
+  `@dcp-ai/openclaw`、`@dcp-ai/anthropic-mcp`、`@dcp-ai/google-a2a` は `^2.2.0`）は `@dcp-ai/sdk` 2.3.0 を受け入れます。
+  05/11/2026 の確認が適用されるのはインストールがそれを解決した場合だけで、既存のロックファイルは更新するまで以前の解決を
+  保ちます。
+- 05/11/2026 の五つのバージョンは、30/10/2026 の未公開の候補（Go と Rust の 2.12.0、`@dcp-ai/wasm` 2.1.2）を置き換えます。
+  公開済みの各アーカイブに含まれる README は公開前に準備したもので、「prepared, not published」と記載しています。公開済みの
+  アーカイブは変更できず、このリポジトリの README が公開済みのバージョンを説明します。[変更履歴](../../../CHANGELOG.md#2026-11-05-auditable-releases)とリリースノートを
+  参照してください。
 - npm のアダプターとプロジェクト生成ツールは任意で、プロトコルのコアとは別です。正確なバージョンは、13 の npm パッケージ
   すべてを載せた [NPM_RELEASES.md](../../../docs/NPM_RELEASES.md) にあります。
 - 影響を受ける以前のバージョンと更新の注意は [SECURITY.md](../../../SECURITY.md#supported-versions) に、DCP v1.0 からの移行は

@@ -1,6 +1,6 @@
 <sub>[English](../../README.md) · [中文](../zh-CN/README.md) · [Español](../es/README.md) · [日本語](../ja/README.md) · **Português**</sub>
 
-> Tradução informativa da [versão em inglês](../../README.md), atualizada em 28/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../README.md), atualizada em 05/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 <div align="center">
 
@@ -173,10 +173,10 @@ Instale uma das duas:
   npm install /path/to/dcp-ai/sdks/typescript
   ```
 
-- ou o SDK 2.2.1 publicado, que inclui essas correções e funcionalidades:
+- ou o SDK 2.3.0 publicado, que inclui essas correções e funcionalidades:
 
   ```bash
-  npm install @dcp-ai/sdk@^2.2.1
+  npm install @dcp-ai/sdk@^2.3.0
   ```
 
 Verifique um bundle V2 assinado com o verificador de bundles V2 atual de `main` (assinaturas, hashes, vinculação de sessão,

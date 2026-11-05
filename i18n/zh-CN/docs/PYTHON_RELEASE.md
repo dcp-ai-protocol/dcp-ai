@@ -2,9 +2,9 @@
 
 # 已发布的 Python 软件包
 
-> [英文版](../../../docs/PYTHON_RELEASE.md)的参考译文，更新于 28/10/2026。如有差异，以英文版为准。
+> [英文版](../../../docs/PYTHON_RELEASE.md)的参考译文，更新于 05/11/2026。如有差异，以英文版为准。
 
-28/10/2026 已确认：[`dcp-ai` 2.10.1](https://pypi.org/project/dcp-ai/2.10.1/) 已在 PyPI 发布。Python 软件包版本与 DCP 线格式/规范版本独立。Python 软件包与 Go、Rust、npm 软件包和容器独立发布。上一个版本 [2.10.0](https://pypi.org/project/dcp-ai/2.10.0/) 于 26/10/2026 确认，其说明保留在下文。
+05/11/2026 已确认：[`dcp-ai` 2.10.2](https://pypi.org/project/dcp-ai/2.10.2/) 已在 PyPI 发布（[更新内容](#what-changed-in-2102)）。Python 软件包版本与 DCP 线格式/规范版本独立。Python 软件包与 Go、Rust、npm 软件包和容器独立发布。之前的版本 [2.10.1](https://pypi.org/project/dcp-ai/2.10.1/)（28/10/2026 确认）和 [2.10.0](https://pypi.org/project/dcp-ai/2.10.0/)（26/10/2026 确认）的说明保留在下文。
 
 <a id="install"></a>
 
@@ -13,12 +13,12 @@
 需要 Python 3.10 或更高版本。请更新环境或锁定文件。可选集成 extras 仍与协议核心分离：
 
 ```bash
-pip install --upgrade "dcp-ai>=2.10.1,<3"
-pip install "dcp-ai[fastapi]>=2.10.1,<3"
-pip install "dcp-ai[langchain]>=2.10.1,<3"
-pip install "dcp-ai[openai]>=2.10.1,<3"
-pip install "dcp-ai[crewai]>=2.10.1,<3"
-pip install "dcp-ai[otlp]>=2.10.1,<3"
+pip install --upgrade "dcp-ai>=2.10.2,<3"
+pip install "dcp-ai[fastapi]>=2.10.2,<3"
+pip install "dcp-ai[langchain]>=2.10.2,<3"
+pip install "dcp-ai[openai]>=2.10.2,<3"
+pip install "dcp-ai[crewai]>=2.10.2,<3"
+pip install "dcp-ai[otlp]>=2.10.2,<3"
 ```
 
 <a id="what-changed-in-2101"></a>
@@ -41,6 +41,8 @@ pip install "dcp-ai[otlp]>=2.10.1,<3"
 
 ## 兼容性与验证
 
+对于 2.10.2，发布工作流从 `main`（`46b142bd`）发布到 PyPI 的 wheel 和源代码分发包，与发布前测试过的制品包含逐字节相同的文件。在检出目录之外从 PyPI 全新安装的 wheel 和源代码分发包，各自通过了外部一致性套件（七个目录中的 697 个用例）以及 2.10.2 关于已吊销 ID 集合和验证时间的检查；从源代码分发包安装的软件包文件与测试过的 wheel 中的文件逐字节相同。
+
 `dcp-jcs-v1` 仍是唯一规范性默认值。`dcp-jcs-v2` 仍为实验性、非规范性且须显式启用。验证、信任、准入和授权各不相同；安装此版本不会自动配置你的信任策略。更严格的验证可能拒绝 2.9.0 接受的证据。请保留历史证据，不要重写。
 
 对于 2.10.1，发布工作流发布到 PyPI 的 wheel 和源码分发与发布前审核的产物逐字节一致，注册表中的 checksum 也已确认。发布前，这些产物在检出目录之外的新环境中安装后，通过了共享的二级 SHA3-256 向量（各 103 项测试）和一套独立的使用方测试（各 86 项测试）。
@@ -51,19 +53,19 @@ pip install "dcp-ai[otlp]>=2.10.1,<3"
 
 ML-DSA 依赖在有界签名尝试耗尽时可能抛出 `ValueError`。一个 CI fixture 在创建签名时遇到了此失败；验证并未被绕过。调用方须将失败视为错误，不得视为已签名证据。
 
-<a id="prepared-not-published-2102"></a>
+<a id="what-changed-in-2102"></a>
 
-## 已准备、尚未发布：2.10.2
+## 2.10.2 的更新内容
 
-2.10.2 已于 05/11/2026 在仓库中准备，但尚未在 PyPI 上发布。上面的安装命令仍为 2.10.1。与 2.10.1 相比，2.10.2：
+2.10.2 已于 05/11/2026 由发布工作流从 `main`（`46b142bd`）发布到 PyPI。与 2.10.1 相比，2.10.2：
 
 - **执行 V2-2 模式校验（接受范围变化）。** `verify_signed_bundle_v2` 和其他 V2 验证函数（因而也包括 FastAPI 中间件和桥接器）在任何哈希、密钥或签名检查之前，先按 `schemas/v2` 校验已签名 bundle 的信封和四个载荷。以前被接受的模式无效 bundle 现在会以 `schema: <pointer> <keyword>` 诊断失败。
 - **统一授权书检查。** `verify_mandate_validity` 采用统一的约定，返回结果而不是抛出异常；`now=` 必须是带时区的 `datetime`。注解为 `set[str]` 的已吊销 ID 现在按 `collections.abc.Set`（`set`、`frozenset` 或 dict 的键视图）检查：以前被容忍的列表或字符串会被拒绝。`verify_mandate_chain` 以同一方式读取所有时间，并拒绝重复某个领域的根授权书。
 
-传输格式、签名、配置文件、作为规范默认值的 `dcp-jcs-v1` 以及实验性显式启用的 `dcp-jcs-v2` API 均不变，wheel 和 sdist 现在包含 Apache-2.0 `LICENSE`。请保留历史证据，而不是改写它。见 [SDK README](../../../sdks/python/README.md) 和[变更日志](../../../CHANGELOG.md#unreleased)。
+传输格式、签名、配置文件、作为规范默认值的 `dcp-jcs-v1` 以及实验性显式启用的 `dcp-jcs-v2` API 均不变，wheel 和 sdist 现在包含 Apache-2.0 `LICENSE`。请保留历史证据，而不是改写它。已发布的 wheel 和 sdist 中的 README 是发布前准备的版本，写着“prepared, not published”；已发布的文件无法更改。见 [SDK README](../../../sdks/python/README.md) 和[变更日志](../../../CHANGELOG.md#unreleased)。
 
 <a id="related-releases"></a>
 
 ## 相关发布
 
-各注册表中的当前版本见[已发布版本](../../../docs/README.md#published-versions)。其他发布说明：[npm 软件包](../../../docs/NPM_RELEASES.md)、[Go v2.11.1](../../../docs/GO_RELEASE.md)、[Rust 2.11.1](../../../docs/RUST_RELEASE.md)。
+各注册表中的当前版本见[已发布版本](../../../docs/README.md#published-versions)。其他发布说明：[npm 软件包](../../../docs/NPM_RELEASES.md)、[Go v2.13.0](../../../docs/GO_RELEASE.md)、[Rust 2.13.0](../../../docs/RUST_RELEASE.md)。

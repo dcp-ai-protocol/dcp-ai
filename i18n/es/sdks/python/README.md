@@ -15,17 +15,17 @@ SDK oficial de Python para el Digital Citizenship Protocol (DCP v2.0). Modelos d
 
 **SDK Python.** Desde la 2.10.0, este SDK incluye las correcciones del verificador V2, confianza en el principal y `strict-v1`, cadenas de delegación, ventana de recepción A2A, trabajadores de revocación acotados y las API experimentales opt-in de `dcp-jcs-v2`. También incluye los adaptadores FastAPI, LangChain, OpenAI y CrewAI corregidos. `dcp-jcs-v1` sigue siendo el predeterminado normativo. Instala con:
 
-**SDK Python 2.10.1.** Esta versión también verifica los campos secundarios SHA3-256 de [VERIFICATION.md V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) cuando están presentes: `audit_merkle_root_secondary`, cada `prev_hash_secondary` y cada `intent_hash_secondary`. Los campos ausentes no se exigen, así que un bundle verificado puede no tener una cadena secundaria completa; un campo presente que sea `null`, no sea una cadena o sea incoherente se rechaza. No cambian las API, los campos de resultado, `dcp-jcs-v1` ni el tratamiento de `hash_alg`. La versión 2.10.0 no comprueba estos campos. Los comandos de instalación siguientes indican esta versión; para su disponibilidad en el registro, véase [Versiones publicadas](../../../../docs/README.md#published-versions).
+**SDK Python 2.10.1.** Esta versión también verifica los campos secundarios SHA3-256 de [VERIFICATION.md V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) cuando están presentes: `audit_merkle_root_secondary`, cada `prev_hash_secondary` y cada `intent_hash_secondary`. Los campos ausentes no se exigen, así que un bundle verificado puede no tener una cadena secundaria completa; un campo presente que sea `null`, no sea una cadena o sea incoherente se rechaza. No cambian las API, los campos de resultado, `dcp-jcs-v1` ni el tratamiento de `hash_alg`. La versión 2.10.0 no comprueba estos campos.
 
-**SDK Python 2.10.2 (preparada, no publicada).** Está preparada en el repositorio y no está en PyPI: el comando siguiente sigue en 2.10.1. Frente a 2.10.1:
+**SDK Python 2.10.2.** Publicada en PyPI el 05/11/2026. Los comandos de instalación siguientes indican esta versión; para su disponibilidad en el registro, véase [Versiones publicadas](../../../../docs/README.md#published-versions). Frente a 2.10.1:
 
 - **Validación de esquemas V2-2.** `verify_signed_bundle_v2` y las demás funciones de verificación V2, y por tanto el middleware de FastAPI y los puentes, validan el sobre del bundle firmado y los cuatro payloads contra `schemas/v2` antes de cualquier comprobación de hash, clave o firma. Los bundles inválidos por esquema que antes se aceptaban ahora fallan con diagnósticos `schema: <pointer> <keyword>`.
 - **Mandatos.** `verify_mandate_validity` aplica un único contrato y devuelve un resultado en lugar de lanzar una excepción; `now=` debe ser un `datetime` con zona horaria. Los IDs revocados, anotados como `set[str]`, ahora se comprueban como `collections.abc.Set` (un `set`, un `frozenset` o una vista de claves de un dict): una lista o una cadena, toleradas antes, se rechazan. `verify_mandate_chain` lee todos los instantes de la misma manera y rechaza un mandato raíz que repite un dominio.
 
-No cambian el formato de transmisión, las firmas, los perfiles, `dcp-jcs-v1` ni las API experimentales de activación explícita `dcp-jcs-v2`. Véase el [registro de cambios](../../../../CHANGELOG.md#unreleased).
+No cambian el formato de transmisión, las firmas, los perfiles, `dcp-jcs-v1` ni las API experimentales de activación explícita `dcp-jcs-v2`. Véase el [registro de cambios](../../../../CHANGELOG.md#unreleased). El README del wheel y del sdist publicados es el que se preparó antes de la publicación y dice «prepared, not published»; los archivos publicados no pueden cambiar.
 
 ```bash
-pip install "dcp-ai>=2.10.1,<3"
+pip install "dcp-ai>=2.10.2,<3"
 ```
 
 **Actualización desde 2.9.0.** FastAPI ahora verifica las firmas V2 en lugar de aceptar solo la estructura. La aceptación V1 en FastAPI y los adaptadores LangChain/OpenAI sigue la política del verificador. V2 también rechaza codificaciones no canónicas de firmas y evidencia inconsistente o vinculada incorrectamente que versiones anteriores aceptaban. Conserva la evidencia histórica y la versión que la verificó; no la vuelvas a firmar silenciosamente. La confianza, los presupuestos de recursos y la gestión de desconexiones siguen siendo decisiones explícitas del operador. Verificar o admitir no autoriza una acción.
@@ -43,14 +43,14 @@ pip install -e "dcp-ai/sdks/python"
 
 ### Extras opcionales
 
-Desde el registro (2.10.1 o posterior); desde una copia del repositorio se aplican los mismos extras: `pip install -e "dcp-ai/sdks/python[fastapi]"`.
+Desde el registro (2.10.2 o posterior); desde una copia del repositorio se aplican los mismos extras: `pip install -e "dcp-ai/sdks/python[fastapi]"`.
 
 ```bash
-pip install "dcp-ai[fastapi]>=2.10.1,<3"    # FastAPI middleware
-pip install "dcp-ai[langchain]>=2.10.1,<3"  # LangChain integration
-pip install "dcp-ai[openai]>=2.10.1,<3"     # OpenAI wrapper
-pip install "dcp-ai[crewai]>=2.10.1,<3"     # CrewAI multi-agent
-pip install "dcp-ai[otlp]>=2.10.1,<3"       # OpenTelemetry OTLP exporter
+pip install "dcp-ai[fastapi]>=2.10.2,<3"    # FastAPI middleware
+pip install "dcp-ai[langchain]>=2.10.2,<3"  # LangChain integration
+pip install "dcp-ai[openai]>=2.10.2,<3"     # OpenAI wrapper
+pip install "dcp-ai[crewai]>=2.10.2,<3"     # CrewAI multi-agent
+pip install "dcp-ai[otlp]>=2.10.2,<3"       # OpenTelemetry OTLP exporter
 ```
 
 <a id="features"></a>
@@ -278,7 +278,7 @@ Verifica: esquema, firma Ed25519, `bundle_hash`, `merkle_root`, cadena `intent_h
 
 `BundleBuilderV2`, `sign_bundle_v2` y `verify_signed_bundle_v2` (en `dcp_ai.v2`) portan `builder-v2.ts`, `signer-v2.ts` y `verify-v2.ts` del SDK de TypeScript. Los artefactos son diccionarios `SignedPayload` (`{"payload", "payload_hash", "composite_sig"}`); la firma del bundle es una firma compuesta sobre el manifiesto.
 
-**Validación de esquemas (V2-2; desde la 2.10.2, preparada y no publicada).** `verify_signed_bundle_v2` y las demás funciones de verificación V2 validan primero el sobre del bundle firmado y los cuatro payloads contra `schemas/v2`, después de las comprobaciones de política y reloj y antes de que el verificador compruebe el manifiesto, los hashes de los payloads, las claves y las firmas; `admit_signed_bundle_v2`, que verifica primero, y el verificador experimental del candidato pasan por la misma puerta, mientras que `evaluate_admission_v2` recibe un resultado anterior y no la ejecuta. Un bundle que falla devuelve `verified: false` con errores `schema: <JSON pointer> <keyword>[ <member>]` (como mucho 16, y luego `schema: further errors not listed`) y sin detalles criptográficos. Los miembros desconocidos de los objetos cerrados se rechazan; en los objetos abiertos, como el `target` del intent, los miembros declarados conservan sus restricciones y solo los adicionales quedan sin inspeccionar. `session_issued_at` y `session_expires_at` del manifiesto deben ser cadenas cuando están presentes, no `null`. `date-time` sigue la comprobación de ajv-formats 3.0.1 del verificador de referencia, que no es RFC 3339 estricto. **Cambio de aceptación:** los bundles inválidos por esquema que antes verificaban ahora se rechazan. No hay ninguna API solo de esquema. Véase el [mapa de cobertura](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary).
+**Validación de esquemas (V2-2; desde la 2.10.2).** `verify_signed_bundle_v2` y las demás funciones de verificación V2 validan primero el sobre del bundle firmado y los cuatro payloads contra `schemas/v2`, después de las comprobaciones de política y reloj y antes de que el verificador compruebe el manifiesto, los hashes de los payloads, las claves y las firmas; `admit_signed_bundle_v2`, que verifica primero, y el verificador experimental del candidato pasan por la misma puerta, mientras que `evaluate_admission_v2` recibe un resultado anterior y no la ejecuta. Un bundle que falla devuelve `verified: false` con errores `schema: <JSON pointer> <keyword>[ <member>]` (como mucho 16, y luego `schema: further errors not listed`) y sin detalles criptográficos. Los miembros desconocidos de los objetos cerrados se rechazan; en los objetos abiertos, como el `target` del intent, los miembros declarados conservan sus restricciones y solo los adicionales quedan sin inspeccionar. `session_issued_at` y `session_expires_at` del manifiesto deben ser cadenas cuando están presentes, no `null`. `date-time` sigue la comprobación de ajv-formats 3.0.1 del verificador de referencia, que no es RFC 3339 estricto. **Cambio de aceptación:** los bundles inválidos por esquema que antes verificaban ahora se rechazan. No hay ninguna API solo de esquema. Véase el [mapa de cobertura](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary).
 
 ```python
 # Fragment, inside an async function: session_nonce, the signed artifacts (signed_rpr, signed_passport, signed_intent, signed_policy), audit_events, classical_key and pq_key come from your application.
@@ -339,14 +339,14 @@ ventanas de validez anidadas, atenuación (acciones, `data_classes` y `limits` s
 mínimo y la revocación. Lee todos los tiempos como instantes RFC 3339 en milisegundos, incluidos el año 0000 y los offsets
 que cruzan el año 0000 o el 9999, y trunca `now` hacia abajo al milisegundo. `now=None`, el valor por defecto, es la hora actual. Un `now` naive se
 toma como UTC, como antes y a diferencia de `verify_mandate_validity`, y cualquier otro `now` que no sea un `datetime` da
-`verification time is not an instant` (desde la 2.10.2, preparada y no publicada). Un dominio repetido en el `authority_scope` de un mismo mandato,
+`verification time is not an instant` (desde la 2.10.2). Un dominio repetido en el `authority_scope` de un mismo mandato,
 también en la raíz, hace rechazar la cadena; los dominios se comparan como cadenas exactas, sin plegado de mayúsculas,
-recorte ni normalización Unicode (desde la 2.10.2, preparada y no publicada). `verify_mandate_validity(mandate, revoked_ids, now=...)` comprueba el `mandate_id`, la revocación local y la ventana
+recorte ni normalización Unicode (desde la 2.10.2). `verify_mandate_validity(mandate, revoked_ids, now=...)` comprueba el `mandate_id`, la revocación local y la ventana
 de validez de un mandato en un `now` aware (la hora actual por defecto; un `datetime` naive se rechaza). Usa instantes
 RFC 3339 en milisegundos, con los dos límites incluidos, y una ventana ausente, malformada o invertida no es válida.
 Los ID revocados deben ser un conjunto (un `set`, un `frozenset` o una vista de claves de dict); una lista o una cadena
 se rechazan. Devuelve un resultado en lugar de lanzar una excepción, no comprueba firma, ámbito ni cadena, y no autoriza
-nada. Esto está en la 2.10.2, preparada y no publicada.
+nada. Esto está en la 2.10.2 y posteriores.
 
 ```python
 # Fragment, inside an async function: registry as in V2 Bundles; orchestrator_classical, orchestrator_pq, root_mandate, nonce and the key entries come from your delegation setup; intent and policy_decision are V2 payloads.

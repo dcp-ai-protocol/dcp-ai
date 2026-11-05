@@ -6,9 +6,9 @@
 
 > [英語版](../../../docs/API_REFERENCE.md)の参考訳です（05/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
-`main` にある TypeScript SDK `@dcp-ai/sdk`（パッケージのバージョン 2.2.1、プロトコル DCP v2.0）のリファレンスです。
+`main` にある TypeScript SDK `@dcp-ai/sdk`（パッケージのバージョン 2.3.0、プロトコル DCP v2.0）のリファレンスです。
 
-> **npm バージョン（2026 年 10 月 28 日）。** この TypeScript リファレンスは公開済みの `@dcp-ai/sdk` 2.2.1 に適用され、プリンシパルの信頼、`strict-v1`、明示的な選択が必要な候補の実験的 API を含みます。[公開済み npm パッケージ](../../../docs/NPM_RELEASES.md)と SDK の[インストール手順](../../../sdks/typescript/README.md#installation)を参照してください。`dcp-jcs-v1` が規範的な既定のままです。
+> **npm バージョン（2026 年 11 月 5 日）。** この TypeScript リファレンスは公開済みの `@dcp-ai/sdk` 2.3.0 に適用され、プリンシパルの信頼、`strict-v1`、明示的な選択が必要な候補の実験的 API を含みます。[公開済み npm パッケージ](../../../docs/NPM_RELEASES.md)と SDK の[インストール手順](../../../sdks/typescript/README.md#installation)を参照してください。`dcp-jcs-v1` が規範的な既定のままです。
 
 このページのコードブロックは宣言や断片であり、完全なプログラムではありません。`registry`、`keys`、
 `payloadBytes`、`signedBundle` などの名前は、TypeScript SDK の
@@ -815,7 +815,7 @@ interface VerifyV2Result {
 
 **検証のパイプライン：**
 
-1. バージョンとスキーマの確認：v2.0 のバンドルだけを受け付け、ほかのバージョンは拒否する。v1.0 のバンドルを `verifySignedBundle` に振り分けるのは呼び出し側の役割（[MIGRATION_V1_V2.md](../../../docs/MIGRATION_V1_V2.md#32-coexistence-strategy)）。`main` では（公開済みのバージョンには含まれない）、続いてエンベロープと四つのペイロードを `schemas/v2` に照らして検証する（V2-2）。失敗すると `verified: false` と `schema: <JSON pointer> <keyword>[ <member>]` のエラー（最大 16 件、その後に `schema: further errors not listed`）を返し、警告も暗号に関する詳細も返さない（[カバレッジマップ](conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)）
+1. バージョンとスキーマの確認：v2.0 のバンドルだけを受け付け、ほかのバージョンは拒否する。v1.0 のバンドルを `verifySignedBundle` に振り分けるのは呼び出し側の役割（[MIGRATION_V1_V2.md](../../../docs/MIGRATION_V1_V2.md#32-coexistence-strategy)）。2.3.0 以降では、続いてエンベロープと四つのペイロードを `schemas/v2` に照らして検証する（V2-2）。失敗すると `verified: false` と `schema: <JSON pointer> <keyword>[ <member>]` のエラー（最大 16 件、その後に `schema: further errors not listed`）を返し、警告も暗号に関する詳細も返さない（[カバレッジマップ](conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)）
 2. すべての署名済みアーティファクトのペイロードのハッシュの検証
 3. すべてのアーティファクトでのセッションの nonce の一貫性
 4. マニフェストの完全性（すべてのアーティファクトのハッシュ + 監査のマークルルートを再計算）
@@ -1662,7 +1662,7 @@ function checkRightsCompliance(
 しません。Python（`now=`、aware な `datetime`。naive なものは拒否。失効した ID は `set`、`frozenset`、dict のキービューなどの
 `collections.abc.Set` でなければならず、リストや文字列は拒否）、Go（`VerifyMandateValidityAt`、`now` は与えられた
 とおり）、Rust（`verify_mandate_validity_at`、ミリ秒）は `tests/interop/v2/mandate_validity_vectors.json` で同じ結果を
-返します。これは `main` にあり、公開済みのバージョンには含まれません。公開済みのヘルパーは不正な形の期間を別の形で
+返します。これは `@dcp-ai/sdk` 2.3.0、`dcp-ai` 2.10.2、Go v2.13.0、Rust `dcp-ai` 2.13.0 以降で公開されています。それ以前のヘルパーは不正な形の期間を別の形で
 扱います。TypeScript と Go は欠落した日付や不正な形の日付を受け入れ、Python は例外を送出し、Rust は日付をテキストとして
 比較します。
 
@@ -1692,7 +1692,7 @@ interface AuthorityScopeEntry {
 ドメインごとに 1 回、`mandate[i]: authority_scope domain "…" is duplicated` として報告されます。ドメインは文字列
 そのものとして比較され、大文字小文字の同一視、空白の除去、Unicode の正規化は行いません。四つの SDK のスイートは
 `tests/interop/v2/mandate_domain_vectors.json` の署名済みチェーンを実行します。そのエラーの一覧はこれらの SDK の診断で
-あり、プロトコルの要件ではありません。これは `main` にあり、公開済みのバージョンには含まれません。
+あり、プロトコルの要件ではありません。これは `@dcp-ai/sdk` 2.3.0、`dcp-ai` 2.10.2、Go v2.13.0、Rust `dcp-ai` 2.13.0 以降で公開されています。
 
 読み取るすべての時刻は、SDK がすでに読む部分集合の RFC 3339 の瞬間で、テキストとしてではなくミリ秒で比較され、両端を
 含みます。対象は、各委任状の `valid_from` と `valid_until`、親の期間への入れ子、両方のスロットの署名鍵の `expires_at`
@@ -1701,8 +1701,7 @@ interface AuthorityScopeEntry {
 または別の型）は、例外ではなく `verification time is not an instant` になります。ほかの SDK は時計の慣例を保っており、
 それは上の有効性ヘルパーとは異なります。Python は既定の `None` を現在時刻とし、naive な `datetime` を UTC として読み、
 それ以外の `datetime` でない値を拒否します。Go はゼロの `time.Time` を現在時刻として読み、Rust はミリ秒を受け取ります（`None` は現在
-時刻）。四つの SDK のスイートは `tests/interop/v2/mandate_chain_time_vectors.json` の署名済みチェーンを実行します。これは
-`main` にあり、公開済みのバージョンには含まれません。
+時刻）。四つの SDK のスイートは `tests/interop/v2/mandate_chain_time_vectors.json` の署名済みチェーンを実行します。これは同じバージョン以降で公開されています。
 
 ```typescript
 interface MandateChainKeys { human_keys: KeyEntry[]; agent_keys: Record<string, KeyEntry[]> }
@@ -1936,7 +1935,7 @@ function computeBundleHash(bundle: SignedBundleV2): string;
 
 バンドルのハッシュをキーとし、セキュリティティアごとの TTL を持つ、検証結果のメモリー内のキャッシュです。
 
-> **バージョン（2026 年 10 月 28 日）。** この節は、公開されていない `main` のソースコードを説明します。公開済みの
+> **バージョン（2026 年 11 月 5 日）。** この節は `@dcp-ai/sdk` 2.3.0 以降を説明します。公開済みの
 > `@dcp-ai/sdk` 2.2.1 とそれ以前のバージョンは以前の動作のままです。キーはバンドルのハッシュだけで、`get` は保存した
 > オブジェクトそのものを返し、オプションは検証されず、期限は壁時計だけで判断し、`invalidateByAgent` は何も削除せずに
 > 0 を返します。

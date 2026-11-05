@@ -97,39 +97,39 @@ node tools/difffuzz/run-mandates.mjs --iterations 120 --report /tmp/mandates.jso
 | 制品 | 版本 | 包含 |
 |---|---|---|
 | 所审查的源码 | 基准处的 `main` | 下列所有修复 |
-| 已准备、未发布（05/11/2026） | `@dcp-ai/sdk` 2.3.0、`dcp-ai` 2.10.2（PyPI）、Go v2.13.0、Rust `dcp-ai` 2.13.0、`@dcp-ai/wasm` 2.1.3 | 下列所有 SDK 更改 |
+| 已发布（05/11/2026） | `@dcp-ai/sdk` 2.3.0、`@dcp-ai/wasm` 2.1.3、`dcp-ai` 2.10.2（PyPI）、Go v2.13.0、Rust `dcp-ai` 2.13.0 | 下列所有 SDK 更改 |
 | 30/10/2026 准备（#114），从未发布，已被取代 | Go v2.12.0、Rust `dcp-ai` 2.12.0、`@dcp-ai/wasm` 2.1.2 | #106（WASM）、#107、#112；不含 #103 和 #116 至 #119 |
-| 已发布 | `@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`@dcp-ai/cli` 2.1.1、`dcp-ai` 2.10.1（PyPI）、Go v2.11.1、Rust `dcp-ai` 2.11.1 | 26/10/2026 的验证器修复和 28/10/2026 的二级 SHA3-256 检查；不含下列任何修复 |
+| 此前发布（28/10/2026） | `@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`@dcp-ai/cli` 2.1.1、`dcp-ai` 2.10.1（PyPI）、Go v2.11.1、Rust `dcp-ai` 2.11.1 | 26/10/2026 的验证器修复和 28/10/2026 的二级 SHA3-256 检查；不含下列任何修复 |
 
-仅凭版本号无法确定制品。`main` 上的清单文件带有 05/11/2026 候选版本的版本号，任何注册表中都没有这些版本；30/10/2026 的候选版本针对较少的更改使用了 Go 和 Rust 2.12.0 以及 `@dcp-ai/wasm` 2.1.2，这些版本号不再使用。请使用下面的注册表标识符，或你所构建之物的哈希。发布会重新构建软件包，因此发布的内容必须与经审查的候选版本比较，或重新测试。公开注册表于 05/11/2026 通过普通 TLS 读取，未发布任何内容；最新版本即上文所列：
+仅凭版本号无法确定制品。`main` 上的清单文件带有 05/11/2026 发布的版本号；30/10/2026 的候选版本针对较少的更改使用了 Go 和 Rust 2.12.0 以及 `@dcp-ai/wasm` 2.1.2，这些版本号不再使用。请使用下面的注册表标识符，或你所构建之物的哈希。npm tarball 就是发布前测试过的文件；PyPI 文件和 crate 是从 `main` 重新构建的，包含与测试过的制品相同的文件，唯一例外是 crate 的 `.cargo_vcs_info.json`，它指向 `main`。发布之后，于 05/11/2026 通过普通 TLS 再次读取了公开注册表：最新版本即上文所列，标识符如下：
 
 | 注册表 | 版本 | 标识符 |
 |---|---|---|
-| npm `@dcp-ai/sdk` | 2.2.1 | `sha512-HsT/4BMomZ2QVDfxLWhejoZDzSo8OH8cLT6i6fBTAejt078SyTJRKoLVeIgZp0G29I5JIyoeOPfhebfa7+W9Lw==` |
-| npm `@dcp-ai/wasm` | 2.1.1 | `sha512-YUFEAMBnT0J0hZvg1MUS1yvXV0HPotijoj32kIhGDoMVaBhqZKTZvE8iV5h90WRv4duRzJav+PtlQ4fl3NcyQQ==` |
+| npm `@dcp-ai/sdk` | 2.3.0 | `sha512-5IsrDMKE3NM8e5jVLFIaigNFHIni/aIzD9Q4zNYZu6sTLfsPk/zqRxi9ccjtGSTiaftTba3LD/1JA4Gi0uS1bw==` |
+| npm `@dcp-ai/wasm` | 2.1.3 | `sha512-ToL7ZE+8mEvKJCO5DXxJm+GS2nrQ2tInHYJn+cWqLWxT+eMss9ka9MVp30LNmopO+MTqgwBs1hmAy6TOI5wDIA==` |
 | npm `@dcp-ai/cli` | 2.1.1 | `sha512-Qmuq5FiT+TUW3nZ4HCp/DUXdF6JVYB6vaCmNZL/qK8EWiSpP5gzgesSwK0zzlOQL20SJJditRR0h5YIQ7gxIMw==` |
-| PyPI `dcp-ai` | 2.10.1 | wheel `30a1e35bc275b20118ec3e786f3c58336fd72bd21849995bc44ac2e702400a9c`, sdist `e254091491867f122deaff6d6ccc6db6f021d721ff30b1182a4944902b8f2fc5` (SHA-256) |
-| crates.io `dcp-ai` | 2.11.1 | `dfb8440a50351491fd7aa81cb5585d8d4f7c130986e504210175b62251f1bc73` (checksum) |
-| Go module `sdks/go/v2` | v2.11.1 | tag `sdks/go/v2.11.1`, commit `6f9b453fbaaeb53ead225f77390bf683472be5fa` (28/10/2026) |
+| PyPI `dcp-ai` | 2.10.2 | wheel `825de9d6dce5ec2737d38534e7c3d357edbded437912605a549cde75518f198b`, sdist `6005f342a0a24bee331c30be2fb2bc89a1306a21de399051cd1cef3cc96297e4` (SHA-256) |
+| crates.io `dcp-ai` | 2.13.0 | `579f070ad23c531147ef91287d610c6dc317bef997e2791a24a5070a4c0c13a1` (checksum) |
+| Go module `sdks/go/v2` | v2.13.0 | tag `sdks/go/v2.13.0`, commit `46b142bd7e42601acd912f156bbfcd9f5204a4be` (05/11/2026), `h1:bRkqSUWHQ/qTywPmKWRdzg2bBWI0RG1ZZAlb6IafnyU=` |
 
-已发布版本之后 `main` 上的 SDK 更改：
+28/10/2026 版本之后的 SDK 更改（于 05/11/2026 发布）：
 
 | 更改 | 提交 | SDK | 发布 |
 |---|---|---|---|
-| `VerificationCache` 的键和隔离（#103） | `e711179a` | TypeScript | 未发布，05/11 已准备 |
-| WASM `dualMerkleRoot` 遵循 V2-11（#106） | `cac0a5f6` | Rust（`wasm` 特性）、WASM | 未发布，30/10 和 05/11 已准备 |
-| `VerifyPayloadHash` 检查规范的带前缀哈希（#107） | `24e70d56` | Go | 未发布，30/10 和 05/11 已准备 |
-| `RawAuditEventV2` 保留收到的审计条目（#112） | `6dc97d59` | Go、Rust | 未发布，30/10 和 05/11 已准备 |
-| 每个 V2 验证器内部的 V2-2 模式校验（#116） | `0ebd2849` | TypeScript、Python、Go、Rust、WASM | 未发布，05/11 已准备 |
-| 统一的授权书有效性辅助函数（#117） | `614b1c56` | TypeScript、Python、Go、Rust | 未发布，05/11 已准备 |
-| 统一的授权书链时间检查（#118） | `7619ff95` | TypeScript、Python、Go、Rust | 未发布，05/11 已准备 |
-| 拒绝单个根授权书中重复的域（#119） | `c154192f` | TypeScript、Python、Go、Rust | 未发布，05/11 已准备 |
+| `VerificationCache` 的键和隔离（#103） | `e711179a` | TypeScript | 已发布，05/11/2026 |
+| WASM `dualMerkleRoot` 遵循 V2-11（#106） | `cac0a5f6` | Rust（`wasm` 特性）、WASM | 已发布，05/11/2026（30/10/2026 已准备） |
+| `VerifyPayloadHash` 检查规范的带前缀哈希（#107） | `24e70d56` | Go | 已发布，05/11/2026（30/10/2026 已准备） |
+| `RawAuditEventV2` 保留收到的审计条目（#112） | `6dc97d59` | Go、Rust | 已发布，05/11/2026（30/10/2026 已准备） |
+| 每个 V2 验证器内部的 V2-2 模式校验（#116） | `0ebd2849` | TypeScript、Python、Go、Rust、WASM | 已发布，05/11/2026 |
+| 统一的授权书有效性辅助函数（#117） | `614b1c56` | TypeScript、Python、Go、Rust | 已发布，05/11/2026 |
+| 统一的授权书链时间检查（#118） | `7619ff95` | TypeScript、Python、Go、Rust | 已发布，05/11/2026 |
+| 拒绝单个根授权书中重复的域（#119） | `c154192f` | TypeScript、Python、Go、Rust | 已发布，05/11/2026 |
 
-已发布版本之后的其他更改：
+28/10/2026 版本之后的其他更改：
 
 - **参考透明日志。** #120（`c59ce5ba`）把 gossip 告警绑定到所见证日志的身份；#122（`d45c5a7b`）轮询运行时加入的对等节点。该服务不以软件包形式分发。
 - **规范和一致性工具包。** #121（`0dcbd8dc`）加入委托目录。#123（`45ac32f0`）加入 V2-10 和 DCP-09 §3.5.2 的澄清、策略目录 2.0 和委托目录 2.0.0；没有 SDK 更改。
-- **注册表用户。** 在包含这些更改的版本发布之前，用户收不到其中任何一项。
+- **注册表用户。** 上表中的 SDK 更改随 05/11/2026 的版本到达用户；更早的版本保留此处列出的限制。透明日志、规范和一致性套件不属于这些软件包，需从仓库使用。
 
 <a id="known-limits-and-exclusions"></a>
 
@@ -141,7 +141,7 @@ node tools/difffuzz/run-mandates.mjs --iterations 120 --report /tmp/mandates.jso
 - **参考服务器。** 它检查公告签名的结构，而不是签名本身（[server/README.md](../../../../server/README.md)）。
 - **WASM。** 不提供授权书链验证。
 - **Rust。** 缺少 A2A 的 AES-256-GCM 会话加密及其重放窗口（[RUST_RELEASE.md](../../../../docs/RUST_RELEASE.md)）。
-- **已发布版本。** 不包含[制品](#artifacts)中列出的更改。
+- **05/11/2026 之前发布的版本。** 不包含[制品](#artifacts)中列出的更改。
 - **差分和模糊测试活动。** 它们是有限的，并非穷尽；契约 `/4` 无法传给所有 SDK 的输入另行测量（[差分测试工具](../../../../tools/difffuzz/README.md#mandate-chains)）。
 - **性能。** 未检查任何速度要求；[性能基准](../../../../tools/conformance/README.md#performance-baseline)和[有界工作负载的规模变化](../../../../tools/conformance/README.md#bounded-workload-scaling)是在基准提交之后加入的、关于方法的本地测量；两者都不是审计结果。
 - **未涵盖。** 容器镜像、部署、服务令牌和运营方配置。

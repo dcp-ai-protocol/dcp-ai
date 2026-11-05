@@ -5,7 +5,7 @@
 
 # DCP-AI と EU AI 法 — ロギング、人間による監督、記録保存の義務との対応
 
-> [英語版](../../../docs/EU_AI_ACT_MAPPING.md)の参考訳です（28/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../docs/EU_AI_ACT_MAPPING.md)の参考訳です（05/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 **仕様のバージョン：** 2.0
 **最終更新：** 2026 年 10 月
@@ -245,7 +245,7 @@ DCP-AI の仕様は、RPR によって結び付けられた人を「human」や�
 - [ ] 導入者が人間に承認させたい行動の種類、データクラス、影響のレベルについて、ポリシーのルールが `required_confirmation` を伴う `escalate` を返す。アプリケーションは、Human Confirmation がない場合や `deny` の場合に処理を止める。
 - [ ] 重要な次元について、`action_if_triggered` を `escalate` または `block` にした認識の閾値がマンデートごとに宣言されている。アドバイザリー宣言は DCP-09 §5.3 と整合する `response_deadline` を持ち、`proceeded_without_response` が監視されている。
 - [ ] 各エージェントの緊急失効の秘密値が存在し、エージェントの実行環境の外で責任あるプリンシパルが保持している。そしてアプリケーションには、失効が発動したときにプロセスを止めるキルスイッチがある（失効だけでは実行中のプロセスは止まらない）。
-- [ ] 検証器が、自らが扱う最も高いティアの伝播レイテンシの範囲内で失効の状態を確認し（[SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md)、「Revocation Propagation SLAs」）、検証キャッシュの TTL が core §14.5 に従っている。公開済みの `@dcp-ai/sdk` 2.2.1 とそれ以前では、TypeScript の `VerificationCache` はバンドルのハッシュだけをキーにしており、その `invalidateByAgent` は何もしない。`main` のソースコード（未公開）はエージェント単位の無効化とオプトインのコンテキストを加えるが、自動的には何も無効化しない。いずれの場合も、失効や信頼が変わったときはキャッシュを無効化するか空にすること（[API_REFERENCE.md](../../../docs/API_REFERENCE.md#verificationcache)）。
+- [ ] 検証器が、自らが扱う最も高いティアの伝播レイテンシの範囲内で失効の状態を確認し（[SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md)、「Revocation Propagation SLAs」）、検証キャッシュの TTL が core §14.5 に従っている。公開済みの `@dcp-ai/sdk` 2.2.1 とそれ以前では、TypeScript の `VerificationCache` はバンドルのハッシュだけをキーにしており、その `invalidateByAgent` は何もしない。`@dcp-ai/sdk` 2.3.0 以降はエージェント単位の無効化とオプトインのコンテキストを加えるが、自動的には何も無効化しない。いずれの場合も、失効や信頼が変わったときはキャッシュを無効化するか空にすること（[API_REFERENCE.md](../../../docs/API_REFERENCE.md#verificationcache)）。
 - [ ] 遠隔生体識別について、第 14 条 (5) の 2 人ルールが意図に対するマルチパーティ承認で実装され、導入者のプロセスとして文書化されている。
 
 <a id="54-key-custody-and-verifier-policy"></a>

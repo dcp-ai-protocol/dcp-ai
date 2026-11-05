@@ -6,9 +6,9 @@
 
 > 本文是[英文版](../../../docs/API_REFERENCE.md)的参考译文，更新于 05/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
-本文是 `main` 上的 TypeScript SDK `@dcp-ai/sdk`（软件包版本 2.2.1，协议 DCP v2.0）的参考文档。
+本文是 `main` 上的 TypeScript SDK `@dcp-ai/sdk`（软件包版本 2.3.0，协议 DCP v2.0）的参考文档。
 
-> **npm 版本（2026 年 10 月 28 日）。** 本 TypeScript 参考文档适用于已发布的 `@dcp-ai/sdk` 2.2.1，包括委托人信任、`strict-v1` 和需显式启用的候选实验性 API。见[已发布的 npm 软件包](../../../docs/NPM_RELEASES.md)与 SDK [安装说明](../../../sdks/typescript/README.md#installation)。`dcp-jcs-v1` 仍是规范性默认配置。
+> **npm 版本（2026 年 11 月 5 日）。** 本 TypeScript 参考文档适用于已发布的 `@dcp-ai/sdk` 2.3.0，包括委托人信任、`strict-v1` 和需显式启用的候选实验性 API。见[已发布的 npm 软件包](../../../docs/NPM_RELEASES.md)与 SDK [安装说明](../../../sdks/typescript/README.md#installation)。`dcp-jcs-v1` 仍是规范性默认配置。
 
 本页的代码块是声明或片段，而不是完整的程序：`registry`、`keys`、
 `payloadBytes` 或 `signedBundle` 等名称代表按照 TypeScript SDK 的
@@ -813,7 +813,7 @@ interface VerifyV2Result {
 
 **验证流水线：**
 
-1. 版本和 schema 检查：只接受 v2.0 bundle，其他版本一律拒绝；把 v1.0 bundle 分流给 `verifySignedBundle` 是调用方的工作（[MIGRATION_V1_V2.md](../../../docs/MIGRATION_V1_V2.md#32-coexistence-strategy)）。在 `main` 上（不在已发布版本中），随后按 `schemas/v2` 校验封装和四个载荷（V2-2）：失败时返回 `verified: false` 和 `schema: <JSON pointer> <keyword>[ <member>]` 错误（最多 16 条，随后是 `schema: further errors not listed`），没有警告，也没有密码学细节（[覆盖映射](conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)）
+1. 版本和 schema 检查：只接受 v2.0 bundle，其他版本一律拒绝；把 v1.0 bundle 分流给 `verifySignedBundle` 是调用方的工作（[MIGRATION_V1_V2.md](../../../docs/MIGRATION_V1_V2.md#32-coexistence-strategy)）。自 2.3.0 起，随后按 `schemas/v2` 校验封装和四个载荷（V2-2）：失败时返回 `verified: false` 和 `schema: <JSON pointer> <keyword>[ <member>]` 错误（最多 16 条，随后是 `schema: further errors not listed`），没有警告，也没有密码学细节（[覆盖映射](conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)）
 2. 验证所有已签名构件的载荷哈希
 3. 所有构件中会话 nonce 的一致性
 4. 清单完整性（重新计算所有构件哈希 + 审计 Merkle 根）
@@ -1657,8 +1657,8 @@ function checkRightsCompliance(
 `Z` 为大写，日期必须是真实的日历日期，没有第 60 秒，毫秒以下的小数位被舍弃。它不检查任何签名、模式、`authority_scope` 或链（由 `verifyMandateChain` 检查），也不授权任何操作。Python（`now=`，
 一个 aware 的 `datetime`；naive 的会被拒绝；已吊销的 ID 必须是 `collections.abc.Set`，例如
 `set`、`frozenset` 或 dict 的键视图，列表或字符串会被拒绝）、Go（`VerifyMandateValidityAt`，`now` 按给定值使用）和 Rust
-（`verify_mandate_validity_at`，毫秒）在 `tests/interop/v2/mandate_validity_vectors.json` 上给出相同结果。这在 `main`
-上，不在已发布版本中。已发布的辅助函数对格式错误的窗口处理不同：TypeScript 和 Go 接受缺失或格式错误的日期，Python
+（`verify_mandate_validity_at`，毫秒）在 `tests/interop/v2/mandate_validity_vectors.json` 上给出相同结果。这已自 `@dcp-ai/sdk` 2.3.0、`dcp-ai` 2.10.2、Go v2.13.0 和 Rust `dcp-ai` 2.13.0 起发布。
+更早的辅助函数对格式错误的窗口处理不同：TypeScript 和 Go 接受缺失或格式错误的日期，Python
 抛出异常，Rust 把日期按文本比较。
 
 ```typescript
@@ -1687,7 +1687,7 @@ interface AuthorityScopeEntry {
 同一委托书的 `authority_scope` 中出现两次的领域，无论处于哪个深度、包括根，都不可比较并导致链被拒绝；每个领域报告
 一次，形式为 `mandate[i]: authority_scope domain "…" is duplicated`。领域按精确字符串比较，不做大小写折叠、去除空白或
 Unicode 规范化。四个 SDK 测试套件运行 `tests/interop/v2/mandate_domain_vectors.json` 中的已签名链，其错误列表是这些
-SDK 的诊断，而不是协议要求。这在 `main` 上，不在已发布版本中。
+SDK 的诊断，而不是协议要求。这已自 `@dcp-ai/sdk` 2.3.0、`dcp-ai` 2.10.2、Go v2.13.0 和 Rust `dcp-ai` 2.13.0 起发布。
 
 它读取的所有时间都是各 SDK 已经解析的子集中的 RFC 3339 时刻，以毫秒比较，从不按文本比较，两端都包含：每份委托书的
 `valid_from` 和 `valid_until`、它们在父级窗口中的嵌套，以及两个槽位签名密钥的 `expires_at`。年 0000 以及跨越年 0000 或
@@ -1695,8 +1695,7 @@ SDK 的诊断，而不是协议要求。这在 `main` 上，不在已发布版�
 （如 `NaN` 或 `Infinity` 这样的非有限数、无效的 `Date` 或其他类型）返回 `verification time is not an instant`，而不是抛出
 异常。其他 SDK 保留各自的时钟约定，与上面的有效性辅助函数不同：Python 把默认的 `None` 视为当前时间，把 naive 的
 `datetime` 视为 UTC，并拒绝其他任何不是 `datetime` 的值；Go 把零值 `time.Time` 视为当前时间；Rust 接收毫秒数（`None` 表示
-当前时间）。四个 SDK 测试套件都会运行 `tests/interop/v2/mandate_chain_time_vectors.json` 中的已签名链。这在 `main` 上，不在
-已发布版本中。
+当前时间）。四个 SDK 测试套件都会运行 `tests/interop/v2/mandate_chain_time_vectors.json` 中的已签名链。这已自相同版本起发布。
 
 ```typescript
 interface MandateChainKeys { human_keys: KeyEntry[]; agent_keys: Record<string, KeyEntry[]> }
@@ -1929,7 +1928,7 @@ function computeBundleHash(bundle: SignedBundleV2): string;
 
 内存中的验证结果缓存，以 bundle 哈希为键，并按安全等级设置 TTL。
 
-> **版本（2026 年 10 月 28 日）。** 本节描述 `main` 上尚未发布的源代码。已发布的 `@dcp-ai/sdk` 2.2.1 及更早版本
+> **版本（2026 年 11 月 5 日）。** 本节描述 `@dcp-ai/sdk` 2.3.0 及更高版本。已发布的 `@dcp-ai/sdk` 2.2.1 及更早版本
 > 保持此前的行为：键只是 bundle 哈希，`get` 返回所存储的对象本身，不校验选项，过期只看挂钟时间，`invalidateByAgent`
 > 不删除任何内容并返回 0。
 

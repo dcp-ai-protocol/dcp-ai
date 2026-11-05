@@ -5,7 +5,7 @@
 
 # dcp_ai.langchain — integração com o LangChain
 
-> Tradução informativa da [versão em inglês](../../../../integrations/langchain/README.md), atualizada em 28/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../../integrations/langchain/README.md), atualizada em 05/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Integração do DCP com o LangChain. Envolve um agente do LangChain para que cada chamada concluída deixe uma entrada em uma trilha de auditoria encadeada por hash no formato V2, e fornece uma ferramenta de verificação de bundles e um manipulador de callbacks.
 
@@ -27,7 +27,7 @@ bundles por meio do `DCPTool`. Não as implementa por completo.
 A versão 2.9.0 envia todos os bundles para V1. A 2.10.0 verifica V2 com o verificador normativo e aplica a política configurada a V1 e V2; permanecem as limitações sobre registros não assinados e callbacks descritas abaixo.
 
 ```bash
-pip install "dcp-ai[langchain]>=2.10.1,<3"
+pip install "dcp-ai[langchain]>=2.10.2,<3"
 ```
 
 Para desenvolvimento do código-fonte:
