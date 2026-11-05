@@ -102,7 +102,7 @@ O esclarecimento do passo V2-10 do [VERIFICATION.md](../../../../spec/VERIFICATI
 - **Q2.** Na assinatura do bundle, no passaporte e no checkpoint, um componente clássico que falha enquanto o componente PQ verifica sobre esses bytes clássicos é aceito sob `pq_only` e rejeitado nos outros três modos. Um `sig_b64` clássico não canônico e um kid clássico desconhecido são rejeitados sob `pq_only`.
 - **Q3.** As exclusões de listas e advisories PQ aceitam o bundle somente clássico sob `classical_only` e `hybrid_preferred`, e rejeitam o bundle híbrido sob a mesma política.
 
-`verifier_policy_vectors.json` conserva como histórico os seus casos Q1 omitidos. Os casos são uma amostra dessas regras: não cobrem todas as localizações, algoritmos ou estados de chave. Uma combinação não testada não demonstra, por si só, uma contradição na especificação. Essas amostras não fecham a lacuna de esquemas nem estabelecem conformidade V2 completa.
+`verifier_policy_vectors.json` conserva como histórico os seus casos Q1 omitidos. Os casos são uma amostra dessas regras: não cobrem todas as localizações, algoritmos ou estados de chave. Uma combinação não testada não demonstra, por si só, uma contradição na especificação. São amostras de política: a validação de esquemas (V2-2) tem o seu próprio catálogo e roda dentro dos verificadores dos SDKs na `main`, não nas versões publicadas. As amostras não estabelecem conformidade V2 completa.
 
 <a id="structural-samples"></a>
 
@@ -112,7 +112,7 @@ O [catálogo estrutural](../../../../tools/conformance/external-structural-catal
 
 Os quatro casos de codificação preservam os bytes decodificados da assinatura. Os intervalos dos checkpoints usam posições reais da trilha, com identificadores deliberadamente fora de ordem. As mutações do manifesto são assinadas novamente. A sessão invertida tem um gêmeo positivo separado dentro da tolerância do relógio. Cada negativo exige que seus controles passem na mesma execução.
 
-O isolamento tem limites explícitos: uma fração não tem representação `dcp-jcs-v1`, portanto seus hashes e assinaturas anteriores ficam obsoletos; um intervalo invertido não tem raiz válida para esse intervalo. As verificações dos componentes documentam os defeitos previstos, mas não identificam qual verificação do SDK causou a rejeição. Essas amostras não fecham a lacuna dos esquemas nem provam conformidade completa.
+O isolamento tem limites explícitos: uma fração não tem representação `dcp-jcs-v1`, portanto seus hashes e assinaturas anteriores ficam obsoletos; um intervalo invertido não tem raiz válida para esse intervalo. As verificações dos componentes documentam os defeitos previstos, mas não identificam qual verificação do SDK causou a rejeição. São amostras estruturais: a validação de esquemas (V2-2) tem o seu próprio catálogo e roda dentro dos verificadores dos SDKs na `main`, não nas versões publicadas. As amostras não provam conformidade completa.
 
 <a id="admission-map"></a>
 
@@ -184,6 +184,6 @@ O resultado de um subconjunto deve identificá-lo e explicar seus limites. Não 
 
 ## Validação adicional
 
-O [guia do implementador](IMPLEMENTER_GUIDE.md) descreve como reproduzir e relatar resultados de forma independente. Implementação externa e revisão independente de segurança são marcos adicionais; os testes deste repositório não os substituem.
+O [dossiê de auditoria](AUDIT_DOSSIER.md) dá a base da revisão, os comandos de reprodução, a proveniência dos artefatos e os limites conhecidos. O [guia do implementador](IMPLEMENTER_GUIDE.md) descreve como reproduzir e relatar resultados de forma independente. Implementação externa e revisão independente de segurança são marcos adicionais; os testes deste repositório não os substituem.
 
 As medições de desempenho usam seu próprio [executor documentado](../../tools/conformance/README.md#performance-baseline). Medir o tempo de ponta a ponta não atribui custo a uma primitiva criptográfica nem comprova a ausência de saídas antecipadas. Otimize somente após medir um custo específico, preservando as decisões de verificação e a compatibilidade.

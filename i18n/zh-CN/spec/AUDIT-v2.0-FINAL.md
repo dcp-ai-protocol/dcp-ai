@@ -5,20 +5,20 @@
 
 # DCP-AI v2.0 最终安全审计 — 13 个缺口全部确认关闭
 
-> 本文是[英文版](../../../spec/AUDIT-v2.0-FINAL.md)的参考译文，更新于 25/10/2026。**这是带日期的历史记录**，不代表当前状态。如有出入，以英文版为准。
+> 本文是[英文版](../../../spec/AUDIT-v2.0-FINAL.md)的参考译文，更新于 05/11/2026。**这是带日期的历史记录**，不代表当前状态。如有出入，以英文版为准。
 
 **审计日期：** 2026-02-26  
 **审计方：** DCP-AI Protocol Governance  
 **范围：** 对 DCP-AI v2.0 第 3 阶段缺口关闭情况的完整核查  
 **结果：** 13 个缺口全部关闭  
 
-> **历史记录，按原文保留。** 本审计的日期为 2026 年 2 月 26 日。后来的审查（2026 年 10 月）对其中一些结论作了限定；当前状态见此处链接的文档，而不是本记录：
+> **历史记录，按原样保留。** 这是项目治理方在 26/02/2026 完成的内部审查：它不是独立的外部审计，也不是当前的保证。之后的审查（2026 年 10 月和 11 月）对其部分结论作了限定；当前状态见此处链接的文档和[审计资料](../../../docs/conformance/AUDIT_DOSSIER.md)，而不是本记录：
 >
 > - **第 11 号缺口与 HSM 参考实现。** `HsmCryptoProvider` 和 `HsmProviderFactory` 是一个模拟的模式，而不是 HSM 集成。它们没有从 `@dcp-ai/sdk` 导出，也没有 PKCS#11 绑定；`sign` 返回的是哈希而不是签名，`verify` 接受任何长度正确的签名。不得将它们用于真实证据（[docs/NIST_CONFORMITY.md](../../../docs/NIST_CONFORMITY.md) §2.2）。
 > - **第 1 号缺口。** SDK 的密钥恢复和 `dcp recovery-setup` 会生成 Shamir 份额，但不会用混合 KEM 加密这些份额。
 > - **第 4 号缺口。** 参考服务器检查公告 `composite_sig` 的结构，而不检查其签名；保护它的是运营方令牌（[server/README.md](../../../server/README.md)）。
 > - **仅 PQ 模式。** SDK 验证器中的 `pq_only` 仍然需要经典签名字节：在 `pq_over_classical` 下 PQ 签名覆盖这些字节，因此这并不意味着可以省略经典组件。
-> - **第 6 号缺口。** 双哈希辅助函数存在，但验证器不会重新计算 `prev_hash_secondary` 或 `audit_merkle_root_secondary`（[VERIFICATION.md](../../../spec/VERIFICATION.md)，V2-11）。
+> - **缺口 #6。** 自 28/10/2026 起，已发布的验证器（`@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`dcp-ai` 2.10.1、Go v2.11.1、Rust `dcp-ai` 2.11.1）会在 `prev_hash_secondary`、`intent_hash_secondary` 和 `audit_merkle_root_secondary` 存在时检查它们（[VERIFICATION.md](../../../spec/VERIFICATION.md)，V2-11 及其勘误）；更早的版本不检查。这些可选字段不是必需的，因此已验证的 bundle 仍可能没有完整的二级链。
 > - **`dcp audit gaps`** 检查的是文件是否存在以及是否包含标记，而不是行为。在 2026 年 10 月 25 日，它把第 7 号缺口报告为未关闭，因为它查找的是 `integrations/fastapi/__init__.py`，而该文件现在是 `sdks/python/dcp_ai/fastapi/__init__.py`。
 
 ---

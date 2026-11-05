@@ -2,7 +2,7 @@
 
 # 已发布的 Rust crate
 
-> [英文原文](../../../docs/RUST_RELEASE.md)的参考译文。更新于 30/10/2026；标识符与代码示例保持原样。
+> [英文原文](../../../docs/RUST_RELEASE.md)的参考译文。更新于 05/11/2026；标识符与代码示例保持原样。
 
 28/10/2026 已确认：[`dcp-ai` 2.11.1](https://crates.io/crates/dcp-ai/2.11.1) 已在 crates.io 发布。上一个版本 [2.11.0](https://crates.io/crates/dcp-ai/2.11.0) 于 26/10/2026 确认，其说明保留在下文。crate 版本独立于 DCP 线格式/规范版本。Rust crate 与 npm、Python、Go 和容器独立发布。
 
@@ -56,6 +56,8 @@ dcp-ai = "2.11.1"
 - **修正 `wasm_dual_merkle_root`（启用 `wasm` 特性时）。** 它现在按 bundle 验证器使用的 [VERIFICATION.md 的 V2-11](../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) 归约计算双 Merkle 根（使用 32 字节原始摘要，奇数层复制最后一个节点）；对不是 32 字节十六进制摘要的叶节点返回错误，而不是接受格式错误的输入。由此 crate 构建的 npm 包是 `@dcp-ai/wasm` 2.1.2，同样已准备、尚未发布（见 [npm 包](../../../docs/NPM_RELEASES.md)）。
 
 其他 API、`dcp-jcs-v1` 以及实验性且需显式启用的 `dcp-jcs-v2` API 均不变；实验性候选的新测试不改变任何默认值。遥测报告 `2.12.0`。crate 不再包含翻译版 README，它们现在位于仓库的 `i18n/` 目录树中。参见 [SDK README](../../../sdks/rust/README.md) 和[变更日志](../../../CHANGELOG.md)。
+
+> **说明（05/11/2026）。** 上面的比较写于 30/10/2026，针对已准备的 2.12.0，该版本仍未发布。此后 `main` 改变了验证：所有 V2 验证器（包括 WASM 构建）都执行 V2-2 模式校验（#116，02/11/2026），授权书有效性辅助函数、链的时间检查和重复根域检查也已更改（#117 至 #119）。这些更改不在上述 2.12.0 中，因此在 `main` 上 bundle 验证并非不变。从之后的提交构建的版本会包含它们。`main` 上清单文件中的版本号不能确定这个候选版本：`main` 带着这些版本号以及之后的更改。见[审计资料](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts)。
 
 <a id="related-releases"></a>
 

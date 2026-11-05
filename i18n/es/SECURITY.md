@@ -4,7 +4,7 @@
 
 # Política de seguridad
 
-> Traducción informativa de [la versión en inglés](../../SECURITY.md), actualizada el 28/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../SECURITY.md), actualizada el 05/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 <a id="reporting-a-vulnerability"></a>
 
@@ -58,6 +58,7 @@ Incluye todo el detalle posible:
 - Integridad de la cadena de checkpoints PQ
 - Elusión de las etiquetas de separación de dominio
 - Repetición o empalme del nonce de sesión
+- Consumo desproporcionado de recursos o agotamiento algorítmico: una entrada que hace que un verificador, un SDK o un servicio de referencia use CPU, memoria o tiempo de forma desproporcionada a su tamaño, mostrada con una reproducción local acotada
 
 <a id="out-of-scope"></a>
 
@@ -65,27 +66,26 @@ Incluye todo el detalle posible:
 
 - Identidades autodeclaradas sin atestación jurisdiccional (por diseño; véase [docs/SECURITY_MODEL.md](../../docs/SECURITY_MODEL.md))
 - Operadores que ejecutan código de verificación modificado (cada operador es responsable de su propio despliegue)
-- Denegación de servicio (cuestión de infraestructura, no del protocolo)
+- Carga o inundación contra infraestructura en producción, o cualquier otra prueba disruptiva de servicios desplegados: no está autorizada
 - Ataques de ingeniería social contra las personas que custodian claves
 
 <a id="supported-versions"></a>
 
 ## Versiones soportadas
 
-Los paquetes no comparten un único número de versión; los paquetes npm `@dcp-ai/*` siguen sus propias líneas de versiones.
+Se reciben informes para cualquier versión publicada y para `main`. Recibir un informe no significa que una versión contenga su corrección ni que vaya a recibirla. Las correcciones se hacen en `main` y llegan a los usuarios solo en una versión posterior; no se promete ningún backport, versión de mantenimiento ni soporte a largo plazo. Los paquetes no comparten un único número de versión; los paquetes npm `@dcp-ai/*` siguen sus propias líneas de versiones.
 
-| Versión | Soportada |
-|---------|-----------|
-| 2.11.x (`github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2`, Rust `dcp-ai` on crates.io) | Sí |
-| 2.10.x (`dcp-ai` en PyPI / crates.io, módulo Go `sdks/go/v2`) | Sí |
-| 2.9.x (`dcp-ai` en PyPI y crates.io, módulo Go `sdks/go/v2`) | Sí |
-| 2.8.x (`dcp-ai` en PyPI y crates.io, módulo Go `sdks/go/v2`) | Sí |
-| 2.2.x (`@dcp-ai/sdk`) | Sí |
-| 2.1.x (`@dcp-ai/sdk`) | No: `verifySignedBundleV2` puede eludirse; la corrección está en 2.2.x (véase la nota siguiente) |
-| 2.1.x (`@dcp-ai/wasm`, `@dcp-ai/cli`, `@dcp-ai/express`, `@dcp-ai/openclaw`, `@dcp-ai/anthropic-mcp`, `@dcp-ai/google-a2a`) | Sí |
-| 2.0.x (`@dcp-ai/wasm`, `@dcp-ai/cli` y los demás paquetes npm `@dcp-ai/*`) | Sí |
-| 1.0.x   | Sí (mantenimiento) |
-| < 1.0   | No        |
+| Versión | Estado |
+|---------|--------|
+| Últimas publicadas: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `@dcp-ai/cli` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go `v2.11.1`, Rust `dcp-ai` 2.11.1 | Actuales. Incluyen las correcciones del verificador del 26/10/2026 y las comprobaciones secundarias SHA3-256 del 28/10/2026, no las correcciones posteriores de `main` que lista el [expediente de auditoría](../../docs/conformance/AUDIT_DOSSIER.md#artifacts) |
+| Versiones mínimas publicadas con las correcciones del verificador del 26/10/2026: `@dcp-ai/sdk` 2.2.0, `@dcp-ai/wasm` y `@dcp-ai/cli` 2.1.0, `dcp-ai` 2.10.0 (PyPI), Go `v2.11.0`, Rust `dcp-ai` 2.11.0 | Sustituidas: no comprueban los campos secundarios SHA3-256, que sí comprueban las últimas versiones; actualiza |
+| `@dcp-ai/sdk` 2.1.x | Afectadas: `verifySignedBundleV2` puede eludirse; corregido en 2.2.0 (véase la nota siguiente) |
+| `@dcp-ai/express` y `@dcp-ai/openclaw` 2.0.0 | Afectadas: aceptan bundles V2 con estructura válida sin verificar sus firmas; no las uses para verificar bundles V2. Corregido en 2.1.0 |
+| Integración FastAPI de `dcp-ai` 2.9.0 (PyPI) | Afectada para V2; corregida en 2.10.0 |
+| Otras versiones publicadas anteriores | No evaluadas frente a estas correcciones: no se declara ninguna cobertura para ellas. Se reciben informes |
+| Otros adaptadores y generadores npm: `@dcp-ai/anthropic-mcp` y `@dcp-ai/google-a2a` 2.1.0; `@dcp-ai/autogen`, `@dcp-ai/w3c-did` y los generadores `create-*` 2.0.1 | Opcionales y fuera del núcleo del protocolo; sus límites están en sus README y en el [inventario npm](../../docs/NPM_RELEASES.md) |
+| 1.0.x | Línea anterior: se reciben informes; no hay ninguna versión de mantenimiento programada ni prometida |
+| < 1.0 | Sin soporte |
 
 `@dcp-ai/sdk` 2.2.0 se publicó en npm el 26/10/2026 como `latest`, con las correcciones del verificador. Las versiones anteriores afectadas no reciben las correcciones automáticamente.
 
@@ -101,28 +101,21 @@ Los paquetes no comparten un único número de versión; los paquetes npm `@dcp-
 - Quienes notifiquen aparecerán en el aviso de seguridad (salvo que prefieran el anonimato).
 - No emprenderemos acciones legales contra investigadores que sigan esta política.
 
-<a id="bug-bounty"></a>
+<a id="rewards"></a>
 
-## Programa de recompensas
+## Recompensas
 
-DCP-AI tiene un programa de recompensas por vulnerabilidades de seguridad:
+No hay un programa de recompensas con importes fijos, y ninguna recompensa está garantizada. Los mantenedores pueden ofrecer una recompensa caso por caso por un informe; solo un acuerdo explícito con ellos la compromete. El reconocimiento en el aviso se describe en Política de divulgación.
 
-| Gravedad | Recompensa |
-|----------|--------|
-| Crítica (ruptura de la criptografía PQ, elusión de firmas) | $5,000 - $15,000 |
-| Alta (elusión de la verificación, fuga de claves) | $1,000 - $5,000 |
-| Media (rebaja del nivel, manipulación de la cadena) | $500 - $1,000 |
-| Baja (divulgación de información, DoS) | $100 - $500 |
+> **Nota (05/11/2026).** Hasta esta fecha esta sección listaba rangos fijos de recompensa por gravedad, marcados explícitamente como no confirmados porque [GOVERNANCE.md](../../GOVERNANCE.md) y [docs/EARLY_ADOPTERS.md](../../docs/EARLY_ADOPTERS.md) describían recompensas caso por caso. Esta página indica ahora recompensas caso por caso, como esos dos documentos.
 
-> **Nota (25/10/2026): los documentos no coinciden.** Esta tabla da rangos de recompensa fijos, mientras que [GOVERNANCE.md](../../GOVERNANCE.md) y [docs/EARLY_ADOPTERS.md](../../docs/EARLY_ADOPTERS.md) dicen que las recompensas se deciden caso por caso, sin tramos fijos. Los textos se mantienen tal como están hasta que un mantenedor confirme cuál se aplica; mientras tanto, considera cualquier recompensa como no confirmada y pregunta a los mantenedores.
-
-Consulta [docs/EARLY_ADOPTERS.md](../../docs/EARLY_ADOPTERS.md) para conocer todos los detalles del programa.
+Consulta [docs/EARLY_ADOPTERS.md](../../docs/EARLY_ADOPTERS.md#security-disclosure) para ver cómo encaja la divulgación de seguridad en el programa de primeros adoptantes.
 
 <a id="security-model"></a>
 
 ## Modelo de seguridad
 
-Para un análisis detallado de la arquitectura de seguridad del protocolo, sus vectores de ataque y sus capas de protección, véanse [docs/SECURITY_MODEL.md](../../docs/SECURITY_MODEL.md) y [docs/NIST_CONFORMITY.md](../../docs/NIST_CONFORMITY.md).
+Para un análisis detallado de la arquitectura de seguridad del protocolo, sus vectores de ataque y sus capas de protección, véanse [docs/SECURITY_MODEL.md](../../docs/SECURITY_MODEL.md) y [docs/NIST_CONFORMITY.md](../../docs/NIST_CONFORMITY.md). Para una revisión independiente, empieza por el [expediente de auditoría](../../docs/conformance/AUDIT_DOSSIER.md): su base, sus comandos de reproducción, sus artefactos y sus límites conocidos.
 
 <a id="protocol-integrity"></a>
 

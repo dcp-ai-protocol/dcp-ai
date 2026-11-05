@@ -49,6 +49,8 @@ It corrects `dualMerkleRoot` and the raw export `wasm_dual_merkle_root`: they no
 
 `verifyBundle`, the other APIs, `dcp-jcs-v1` and the experimental opt-in `dcp-jcs-v2` APIs are unchanged, and no JavaScript API is added. The tarball no longer contains the translated READMEs, which are now in the repository’s `i18n/` tree. The WebAssembly comes from Rust `dcp-ai` 2.12.0, also prepared and not published (see [Rust](RUST_RELEASE.md)).
 
+> **Note (05/11/2026).** The paragraphs above were written on 30/10/2026 for the prepared 2.1.2, which is still not published. Since #116 (02/11/2026), `verifyBundle` on `main` runs V2-2 schema validation in the Rust core it wraps; the prepared 2.1.2 does not contain that change, so on `main` `verifyBundle` is not unchanged. A WASM release built from a later commit would contain it. The version numbers in the manifests on `main` do not identify this candidate: `main` carries them with the later changes. See the [audit dossier](conformance/AUDIT_DOSSIER.md#artifacts).
+
 ## Related releases
 
 The current versions in every registry are listed in [Published versions](README.md#published-versions). Other release notes: [Python 2.10.1](PYTHON_RELEASE.md), [Go v2.11.1](GO_RELEASE.md) and [Rust 2.11.1](RUST_RELEASE.md).

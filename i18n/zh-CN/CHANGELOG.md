@@ -28,6 +28,11 @@
 - **`@dcp-ai/wasm` 2.1.2：** `dualMerkleRoot` 和 `wasm_dual_merkle_root` 计算 V2-11 的双 Merkle 根；没有新增 JavaScript API。
 - 实验性候选的新测试（gate 7）不改变任何默认值。`dcp-jcs-v1`、配置文件、传输格式、依赖和密码学均不变。三个软件包不再包含翻译版 README，它们位于 `i18n/` 中。
 
+> **说明（05/11/2026）。** 这些候选版本日期为 30/10/2026，仍未发布。它们不包含 `main` 上之后的更改：
+> 每个 V2 验证器中的 V2-2 模式校验（#116）和授权书链检查（#117 至 #119）。`main` 上清单文件中的版本号
+> 不能确定这些候选版本：`main` 带着这些版本号以及之后的更改。见
+> [审计资料](../../docs/conformance/AUDIT_DOSSIER.md#artifacts)。
+
 <a id="2026-10-28-sha3-patch-releases"></a>
 
 ## [2026-10-28] SHA3 修复版本

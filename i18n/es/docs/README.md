@@ -4,7 +4,7 @@
 
 # Documentación
 
-> Traducción informativa de [la versión en inglés](../../../docs/README.md), actualizada el 28/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../docs/README.md), actualizada el 05/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Este índice organiza la documentación de DCP-AI por tarea: primeros pasos, arquitectura y seguridad, pruebas, referencia,
 operaciones, especificaciones y propuestas. Las versiones actuales de los paquetes en cada registro están en
@@ -26,6 +26,9 @@ Verificadas el 28/10/2026. Las versiones de los paquetes son independientes de l
 | crates.io | [`dcp-ai`](https://crates.io/crates/dcp-ai/2.11.1) (SDK de Rust) | 2.11.1 | [publicación de Rust](../../../docs/RUST_RELEASE.md) |
 
 - Estas versiones verifican los campos secundarios SHA3-256 opcionales de V2-11 cuando están presentes; los ausentes no se exigen, así que un bundle verificado puede no tener una cadena secundaria completa, y un campo presente incoherente se rechaza. Las versiones anteriores no los comprueban. Los adaptadores publicados `@dcp-ai/express`, `@dcp-ai/openclaw`, `@dcp-ai/anthropic-mcp` y `@dcp-ai/google-a2a` 2.1.0 no se volvieron a publicar: dependen de `@dcp-ai/sdk` `^2.2.0` y obtienen las comprobaciones secundarias cuando tu lockfile resuelve `@dcp-ai/sdk` 2.2.1 o posterior.
+- Comprobado de nuevo el 05/11/2026 mediante las API públicas de los registros: siguen siendo las últimas versiones. No
+  contienen los cambios hechos en `main` después del 28/10/2026, que lista el
+  [expediente de auditoría](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts).
 - Los adaptadores y generadores de proyectos de npm son opcionales e independientes del núcleo del protocolo; sus versiones exactas
   están en [NPM_RELEASES.md](../../../docs/NPM_RELEASES.md), que lista los 13 paquetes npm.
 - Las versiones anteriores afectadas y las notas de actualización están en [SECURITY.md](../../../SECURITY.md#supported-versions); el paso

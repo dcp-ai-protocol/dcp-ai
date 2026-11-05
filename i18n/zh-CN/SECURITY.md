@@ -4,7 +4,7 @@
 
 # 安全策略
 
-> 本文是[英文版](../../SECURITY.md)的参考译文，更新于 28/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../SECURITY.md)的参考译文，更新于 05/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 <a id="reporting-a-vulnerability"></a>
 
@@ -58,6 +58,7 @@
 - PQ 检查点链的完整性
 - 绕过域分离标签
 - 会话 nonce 重放或拼接
+- 不成比例的资源消耗或算法性耗尽：使验证器、SDK 或参考服务所用的 CPU、内存或时间与输入大小不成比例的输入，并以有上限的本地复现展示
 
 <a id="out-of-scope"></a>
 
@@ -65,27 +66,26 @@
 
 - 没有司法辖区证明的自我声明身份（这是设计如此；参见 [docs/SECURITY_MODEL.md](../../docs/SECURITY_MODEL.md)）
 - 运行被修改过的验证代码的运营方（每个运营方对自己的部署负责）
-- 拒绝服务（属于基础设施问题，而非协议层面）
+- 针对在线基础设施的负载或洪泛测试，或对已部署服务的任何其他破坏性测试：未经授权
 - 针对持有密钥人员的社会工程攻击
 
 <a id="supported-versions"></a>
 
 ## 支持的版本
 
-各软件包不共用一个版本号；npm 上的 `@dcp-ai/*` 软件包各有自己的版本线。
+我们接收针对任何已发布版本和 `main` 的报告。接收报告并不意味着某个版本包含或将会获得相应修复。修复在 `main` 上完成，只会通过之后的版本到达用户；不承诺任何回移、维护版本或长期支持。各软件包不共用一个版本号；npm 上的 `@dcp-ai/*` 软件包各有自己的版本线。
 
-| 版本 | 是否支持 |
-|---------|-----------|
-| 2.11.x (`github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2`, Rust `dcp-ai` on crates.io) | 是 |
-| 2.10.x（PyPI / crates.io 上的 `dcp-ai`、Go 模块 `sdks/go/v2`） | 是 |
-| 2.9.x（PyPI 和 crates.io 上的 `dcp-ai`、Go 模块 `sdks/go/v2`） | 是 |
-| 2.8.x（PyPI 和 crates.io 上的 `dcp-ai`、Go 模块 `sdks/go/v2`） | 是 |
-| 2.2.x（`@dcp-ai/sdk`） | 是 |
-| 2.1.x（`@dcp-ai/sdk`） | 否：`verifySignedBundleV2` 可被绕过；修复在 2.2.x 中（见下方说明） |
-| 2.1.x（`@dcp-ai/wasm`、`@dcp-ai/openclaw`, `@dcp-ai/cli`, `@dcp-ai/express`, `@dcp-ai/anthropic-mcp`, `@dcp-ai/google-a2a`） | 是 |
-| 2.0.x（`@dcp-ai/wasm`、`@dcp-ai/cli` 以及其他 npm `@dcp-ai/*` 软件包） | 是 |
-| 1.0.x   | 是（仅维护） |
-| < 1.0   | 否        |
+| 版本 | 状态 |
+|---------|--------|
+| 最新发布：`@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`@dcp-ai/cli` 2.1.1、`dcp-ai` 2.10.1（PyPI）、Go `v2.11.1`、Rust `dcp-ai` 2.11.1 | 当前版本。包含 26/10/2026 的验证器修复和 28/10/2026 的二级 SHA3-256 检查，不含[审计资料](../../docs/conformance/AUDIT_DOSSIER.md#artifacts)列出的 `main` 上之后的修复 |
+| 包含 26/10/2026 验证器修复的最低发布版本：`@dcp-ai/sdk` 2.2.0、`@dcp-ai/wasm` 和 `@dcp-ai/cli` 2.1.0、`dcp-ai` 2.10.0（PyPI）、Go `v2.11.0`、Rust `dcp-ai` 2.11.0 | 已被取代：不检查最新版本会检查的二级 SHA3-256 字段；请升级 |
+| `@dcp-ai/sdk` 2.1.x | 受影响：`verifySignedBundleV2` 可被绕过；已在 2.2.0 修复（见下方说明） |
+| `@dcp-ai/express` 和 `@dcp-ai/openclaw` 2.0.0 | 受影响：在不验证签名的情况下接受结构有效的 V2 bundle；不要用它们验证 V2 bundle。已在 2.1.0 修复 |
+| `dcp-ai` 2.9.0（PyPI）中的 FastAPI 集成 | 对 V2 受影响；已在 2.10.0 修复 |
+| 其他更早的已发布版本 | 未针对这些修复进行评估：不对其声明任何覆盖。接收报告 |
+| 其他 npm 适配器和脚手架：`@dcp-ai/anthropic-mcp` 和 `@dcp-ai/google-a2a` 2.1.0；`@dcp-ai/autogen`、`@dcp-ai/w3c-did` 和 `create-*` 脚手架 2.0.1 | 可选，位于协议核心之外；其限制见各自的 README 和 [npm 清单](../../docs/NPM_RELEASES.md) |
+| 1.0.x | 较早的版本线：接收报告；没有计划或承诺任何维护版本 |
+| < 1.0 | 不支持 |
 
 `@dcp-ai/sdk` 2.2.0 已于 2026 年 10 月 26 日以 `latest` 标签发布到 npm，包含验证器修复。受影响的旧版本不会自动获得修复。
 
@@ -101,28 +101,21 @@
 - 报告者将在安全公告中获得致谢（除非其希望匿名）。
 - 对于遵守本政策的研究人员，我们不会采取法律行动。
 
-<a id="bug-bounty"></a>
+<a id="rewards"></a>
 
-## 漏洞赏金
+## 奖励
 
-DCP-AI 运营一个针对安全漏洞的赏金计划：
+没有固定奖励金额的漏洞赏金计划，也不保证任何奖励。维护者可能针对某份报告逐案提供奖励；只有与维护者的明确协议才构成对奖励的承诺。安全公告中的致谢见“披露政策”。
 
-| 严重程度 | 奖励 |
-|----------|--------|
-| 严重（PQ 密码学被攻破、签名被绕过） | $5,000 - $15,000 |
-| 高（验证被绕过、密钥泄露） | $1,000 - $5,000 |
-| 中（等级降级、篡改链） | $500 - $1,000 |
-| 低（信息泄露、DoS） | $100 - $500 |
+> **说明（05/11/2026）。** 在此日期之前，本节列出了按严重程度划分的固定奖励区间，并明确标注为未确认，因为 [GOVERNANCE.md](../../GOVERNANCE.md) 和 [docs/EARLY_ADOPTERS.md](../../docs/EARLY_ADOPTERS.md) 描述的是逐案决定的奖励。本页现在与这两份文档一样，说明奖励逐案决定。
 
-> **说明（2026 年 10 月 25 日）：各文档的表述不一致。** 本表给出固定的奖励区间，而 [GOVERNANCE.md](../../GOVERNANCE.md) 和 [docs/EARLY_ADOPTERS.md](../../docs/EARLY_ADOPTERS.md) 说奖励逐案决定，没有固定档位。在维护者确认以哪个为准之前，各处文字保持原样；在此之前，请将任何奖励视为未确认，并向维护者询问。
-
-计划的完整详情见 [docs/EARLY_ADOPTERS.md](../../docs/EARLY_ADOPTERS.md)。
+安全披露与早期采用者计划的关系见 [docs/EARLY_ADOPTERS.md](../../docs/EARLY_ADOPTERS.md#security-disclosure)。
 
 <a id="security-model"></a>
 
 ## 安全模型
 
-关于协议的安全架构、攻击向量和防护层的详细分析，参见 [docs/SECURITY_MODEL.md](../../docs/SECURITY_MODEL.md) 和 [docs/NIST_CONFORMITY.md](../../docs/NIST_CONFORMITY.md)。
+关于协议的安全架构、攻击向量和防护层的详细分析，参见 [docs/SECURITY_MODEL.md](../../docs/SECURITY_MODEL.md) 和 [docs/NIST_CONFORMITY.md](../../docs/NIST_CONFORMITY.md)。如需独立审查，请从[审计资料](../../docs/conformance/AUDIT_DOSSIER.md)开始：其中给出基准、复现命令、制品和已知限制。
 
 <a id="protocol-integrity"></a>
 

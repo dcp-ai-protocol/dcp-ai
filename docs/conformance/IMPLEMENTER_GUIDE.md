@@ -17,7 +17,7 @@ Read the [core overview](../../spec/core/dcp-core.md), then the applicable norma
 
 The core/profile layout organizes the specification; it does not exempt a V2 implementation from its required checks. Applications, network sources, caches and protected handlers belong to integrations. Keep their enforcement claims separate from core verification.
 
-The specification is authoritative. Rust/WASM and the other SDKs are implementation references, not alternative normative definitions. Reusing a reference library can be appropriate, but disclose that dependency rather than calling the result an independent implementation of its verification logic.
+For a security review, start with the [audit dossier](AUDIT_DOSSIER.md): its baseline, reproduction commands, artifacts and known limits. The specification is authoritative. Rust/WASM and the other SDKs are implementation references, not alternative normative definitions. Reusing a reference library can be appropriate, but disclose that dependency rather than calling the result an independent implementation of its verification logic.
 
 ## Freeze a reproducible input set
 

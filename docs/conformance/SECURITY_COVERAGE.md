@@ -88,7 +88,7 @@ The clarification of [VERIFICATION.md](../../spec/VERIFICATION.md) Step V2-10 (0
 - **Q2.** At the bundle signature, the passport and the checkpoint, a classical component that fails while the PQ component verifies over those classical bytes is accepted under `pq_only` and rejected in the three other modes. A non-canonical classical `sig_b64` and an unknown classical kid are rejected under `pq_only`.
 - **Q3.** PQ list and advisory exclusions accept the classical-only bundle under `classical_only` and `hybrid_preferred`, and reject the hybrid bundle under the same policy.
 
-`verifier_policy_vectors.json` keeps its omitted Q1 cases as history. The cases sample these rules: they are not every location, algorithm or key state. An untested combination does not by itself demonstrate a contradiction in the specification. These samples do not close the schema gap or establish complete V2 conformance.
+`verifier_policy_vectors.json` keeps its omitted Q1 cases as history. The cases sample these rules: they are not every location, algorithm or key state. An untested combination does not by itself demonstrate a contradiction in the specification. These are policy samples: schema validation (V2-2) has its own catalog and runs inside the SDK verifiers on `main`, not in the published releases. The samples do not establish complete V2 conformance.
 
 ### Structural samples
 
@@ -96,7 +96,7 @@ The opt-in [structural catalog](../../tools/conformance/external-structural-cata
 
 The four encoding cases preserve the decoded signature bytes. Checkpoint ranges use actual trail positions, with deliberately unsorted identifiers. Manifest mutations are signed again. A reversed session has a separate positive twin within the allowed clock skew. Every negative requires its controls to pass in the same run.
 
-Isolation has explicit limits: a fraction has no `dcp-jcs-v1` representation, so its old hashes and signatures remain stale; a backwards range has no valid root for that range. Component checks document the intended defects but do not identify which SDK check caused rejection. These samples do not close the schema gap or prove complete conformance.
+Isolation has explicit limits: a fraction has no `dcp-jcs-v1` representation, so its old hashes and signatures remain stale; a backwards range has no valid root for that range. Component checks document the intended defects but do not identify which SDK check caused rejection. These are structural samples: schema validation (V2-2) has its own catalog and runs inside the SDK verifiers on `main`, not in the published releases. The samples do not prove complete conformance.
 
 ## Admission map
 
@@ -158,6 +158,6 @@ A subset result must name the subset and its limits. Do not turn `unsupported`, 
 
 ## Further validation
 
-The [implementer guide](IMPLEMENTER_GUIDE.md) describes how to reproduce and report results independently. External implementation and independent security review are additional milestones; this repository's tests do not substitute for them.
+The [audit dossier](AUDIT_DOSSIER.md) gives the review baseline, reproduction commands, artifact provenance and known limits. The [implementer guide](IMPLEMENTER_GUIDE.md) describes how to reproduce and report results independently. External implementation and independent security review are additional milestones; this repository's tests do not substitute for them.
 
 Performance measurements use their own [documented harness](../../tools/conformance/README.md#performance-baseline). End-to-end timing does not attribute cost to a cryptographic primitive or prove the absence of early exits. Optimize only after measuring a specific cost and preserving verification decisions and compatibility.

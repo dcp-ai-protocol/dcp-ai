@@ -136,9 +136,9 @@ No dedicated Slack, Discord, or office-hours call exists at this time. The progr
 
 ## Security disclosure
 
-DCP-AI security issues are disclosed responsibly through GitHub's private vulnerability reporting. A monetary bug bounty may be offered on a case-by-case basis for high-impact findings; this is decided per-report based on severity and reproducibility, not a pre-committed tier. Researchers who prefer public credit are acknowledged in release notes.
+DCP-AI security issues are disclosed responsibly through GitHub's private vulnerability reporting. A monetary bug bounty may be offered on a case-by-case basis for high-impact findings; this is decided per-report based on severity and reproducibility, not a pre-committed tier. No reward is guaranteed, and only an explicit agreement with the maintainers commits one. Researchers who prefer public credit are acknowledged in release notes.
 
-> **Note (25/10/2026): the documents disagree.** [SECURITY.md](../SECURITY.md) lists fixed reward ranges per severity, while this page and [GOVERNANCE.md](../GOVERNANCE.md) say rewards are decided per report. Both texts are kept until a maintainer confirms which applies.
+> **Note (05/11/2026).** Until this date [SECURITY.md](../SECURITY.md) listed fixed reward ranges per severity, explicitly marked as unconfirmed; it now states case-by-case rewards, as this page and [GOVERNANCE.md](../GOVERNANCE.md) do.
 
 See [SECURITY_MODEL.md](SECURITY_MODEL.md) for the threat model and reporting guidance.
 

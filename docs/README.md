@@ -18,6 +18,9 @@ Verified on 28/10/2026. Package versions are independent of the DCP wire and spe
 | crates.io | [`dcp-ai`](https://crates.io/crates/dcp-ai/2.11.1) (Rust SDK) | 2.11.1 | [Rust release](RUST_RELEASE.md) |
 
 - These versions verify the optional secondary SHA3-256 fields of V2-11 when they are present; absent fields are not required, so a verified bundle may lack a complete secondary chain, and a present inconsistent field is rejected. Earlier versions do not check them. The published adapters `@dcp-ai/express`, `@dcp-ai/openclaw`, `@dcp-ai/anthropic-mcp` and `@dcp-ai/google-a2a` 2.1.0 were not republished: they depend on `@dcp-ai/sdk` `^2.2.0` and get the secondary checks once your lockfile resolves `@dcp-ai/sdk` 2.2.1 or later.
+- Checked again on 05/11/2026 through the public registry APIs: these are still the latest versions. They do not
+  contain the changes made on `main` after 28/10/2026, listed in the
+  [audit dossier](conformance/AUDIT_DOSSIER.md#artifacts).
 - The npm adapters and scaffolders are optional and separate from the protocol core; their exact versions are in
   [NPM_RELEASES.md](NPM_RELEASES.md), which lists all 13 npm packages.
 - Affected earlier versions and upgrade notes are in [SECURITY.md](../SECURITY.md#supported-versions); moving from

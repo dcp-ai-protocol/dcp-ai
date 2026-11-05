@@ -102,7 +102,7 @@ La aclaración del paso V2-10 de [VERIFICATION.md](../../../../spec/VERIFICATION
 - **Q2.** En la firma del bundle, el pasaporte y el checkpoint, un componente clásico que falla mientras el componente PQ verifica sobre esos bytes clásicos se acepta bajo `pq_only` y se rechaza en los otros tres modos. Un `sig_b64` clásico no canónico y un kid clásico desconocido se rechazan bajo `pq_only`.
 - **Q3.** Las exclusiones de listas y advisories PQ aceptan el bundle solo clásico bajo `classical_only` y `hybrid_preferred`, y rechazan el bundle híbrido bajo la misma política.
 
-`verifier_policy_vectors.json` conserva como historia sus casos Q1 omitidos. Los casos son una muestra de estas reglas: no cubren todas las ubicaciones, algoritmos o estados de clave. Una combinación no probada no demuestra por sí sola una contradicción en la especificación. Estas muestras no cierran el hueco de esquemas ni establecen conformidad V2 completa.
+`verifier_policy_vectors.json` conserva como historia sus casos Q1 omitidos. Los casos son una muestra de estas reglas: no cubren todas las ubicaciones, algoritmos o estados de clave. Una combinación no probada no demuestra por sí sola una contradicción en la especificación. Son muestras de política: la validación de esquemas (V2-2) tiene su propio catálogo y se ejecuta dentro de los verificadores de los SDK en `main`, no en las versiones publicadas. Las muestras no establecen conformidad V2 completa.
 
 <a id="structural-samples"></a>
 
@@ -112,7 +112,7 @@ El [catálogo estructural](../../../../tools/conformance/external-structural-cat
 
 Los cuatro casos de codificación conservan los bytes decodificados de la firma. Los rangos de checkpoints usan posiciones reales de la traza, con identificadores deliberadamente desordenados. Las mutaciones del manifiesto se vuelven a firmar. La sesión invertida tiene un gemelo positivo separado dentro de la tolerancia de reloj. Cada negativo exige que sus controles pasen en la misma ejecución.
 
-El aislamiento tiene límites explícitos: una fracción no tiene representación `dcp-jcs-v1`, por lo que sus hashes y firmas anteriores quedan obsoletos; un rango invertido no tiene una raíz válida para ese rango. Las comprobaciones de componentes documentan los defectos previstos, pero no identifican qué comprobación del SDK causó el rechazo. Estas muestras no cierran el hueco de esquemas ni prueban conformidad completa.
+El aislamiento tiene límites explícitos: una fracción no tiene representación `dcp-jcs-v1`, por lo que sus hashes y firmas anteriores quedan obsoletos; un rango invertido no tiene una raíz válida para ese rango. Las comprobaciones de componentes documentan los defectos previstos, pero no identifican qué comprobación del SDK causó el rechazo. Son muestras estructurales: la validación de esquemas (V2-2) tiene su propio catálogo y se ejecuta dentro de los verificadores de los SDK en `main`, no en las versiones publicadas. Las muestras no prueban conformidad completa.
 
 <a id="admission-map"></a>
 
@@ -184,6 +184,6 @@ El resultado de un subconjunto debe identificarlo y explicar sus límites. No co
 
 ## Validación adicional
 
-La [guía del implementador](IMPLEMENTER_GUIDE.md) explica cómo reproducir e informar resultados de forma independiente. Una implementación externa y una revisión independiente de seguridad son hitos adicionales; las pruebas de este repositorio no los sustituyen.
+El [expediente de auditoría](AUDIT_DOSSIER.md) da la base de la revisión, los comandos de reproducción, la procedencia de los artefactos y los límites conocidos. La [guía del implementador](IMPLEMENTER_GUIDE.md) explica cómo reproducir e informar resultados de forma independiente. Una implementación externa y una revisión independiente de seguridad son hitos adicionales; las pruebas de este repositorio no los sustituyen.
 
 Las mediciones de rendimiento usan su propio [ejecutor documentado](../../tools/conformance/README.md#performance-baseline). Medir el tiempo de extremo a extremo no atribuye el coste a una primitiva criptográfica ni demuestra la ausencia de salidas anticipadas. Optimiza solo tras medir un coste concreto y conservando las decisiones de verificación y la compatibilidad.

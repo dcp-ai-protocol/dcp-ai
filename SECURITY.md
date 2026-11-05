@@ -44,30 +44,30 @@ Include as much detail as possible:
 - PQ checkpoint chain integrity
 - Domain separation tag bypass
 - Session nonce replay or splicing
+- Disproportionate resource consumption or algorithmic exhaustion: input that makes a verifier, an SDK or a reference service use CPU, memory or time out of proportion to its size, shown with a bounded local reproduction
 
 ### Out of scope
 
 - Self-declared identities without jurisdiction attestation (by design; see [docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md))
 - Operators running modified verification code (each operator is responsible for their own deployment)
-- Denial of service (infrastructure concern, not protocol-level)
+- Load or flooding against live infrastructure, or any other disruptive testing of deployed services: not authorized
 - Social engineering attacks against human key holders
 
 ## Supported Versions
 
-The packages do not share one version number; the `@dcp-ai/*` npm packages follow their own version lines.
+Reports are received for every published version and for `main`. Receiving a report does not mean that a version contains, or will receive, its fix. Fixes are made on `main` and reach users only in a later release; no backport, maintenance release or long-term support is promised. The packages do not share one version number; the `@dcp-ai/*` npm packages follow their own version lines.
 
-| Version | Supported |
-|---------|-----------|
-| 2.11.x (`github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2`, Rust `dcp-ai` on crates.io) | Yes |
-| 2.10.x (`dcp-ai` on PyPI / crates.io, Go module `sdks/go/v2`) | Yes |
-| 2.9.x (`dcp-ai` on PyPI, crates.io, Go module `sdks/go/v2`) | Yes |
-| 2.8.x (`dcp-ai` on PyPI and crates.io, Go module `sdks/go/v2`) | Yes |
-| 2.2.x (`@dcp-ai/sdk`) | Yes |
-| 2.1.x (`@dcp-ai/sdk`) | No: `verifySignedBundleV2` can be bypassed; the fix is in 2.2.x (see the note below) |
-| 2.1.x (`@dcp-ai/wasm`, `@dcp-ai/cli`, `@dcp-ai/express`, `@dcp-ai/openclaw`, `@dcp-ai/anthropic-mcp`, `@dcp-ai/google-a2a`) | Yes |
-| 2.0.x (`@dcp-ai/wasm`, `@dcp-ai/cli` and the other `@dcp-ai/*` npm packages) | Yes |
-| 1.0.x   | Yes (maintenance) |
-| < 1.0   | No        |
+| Version | Status |
+|---------|--------|
+| Latest published: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `@dcp-ai/cli` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go `v2.11.1`, Rust `dcp-ai` 2.11.1 | Current. They include the verifier fixes of 26/10/2026 and the secondary SHA3-256 checks of 28/10/2026, not the later fixes on `main` listed in the [audit dossier](docs/conformance/AUDIT_DOSSIER.md#artifacts) |
+| Minimum published versions with the verifier fixes of 26/10/2026: `@dcp-ai/sdk` 2.2.0, `@dcp-ai/wasm` and `@dcp-ai/cli` 2.1.0, `dcp-ai` 2.10.0 (PyPI), Go `v2.11.0`, Rust `dcp-ai` 2.11.0 | Superseded: they do not check the secondary SHA3-256 fields, which the latest versions check; upgrade |
+| `@dcp-ai/sdk` 2.1.x | Affected: `verifySignedBundleV2` can be bypassed; fixed in 2.2.0 (see the note below) |
+| `@dcp-ai/express` and `@dcp-ai/openclaw` 2.0.0 | Affected: they accept structurally valid V2 bundles without verifying their signatures; do not use them to verify V2 bundles. Fixed in 2.1.0 |
+| FastAPI integration in `dcp-ai` 2.9.0 (PyPI) | Affected for V2; fixed in 2.10.0 |
+| Other earlier published versions | Not evaluated against these fixes: no coverage is claimed for them. Reports are received |
+| Other npm adapters and scaffolders: `@dcp-ai/anthropic-mcp` and `@dcp-ai/google-a2a` 2.1.0; `@dcp-ai/autogen`, `@dcp-ai/w3c-did` and the `create-*` scaffolders 2.0.1 | Optional and outside the protocol core; their limits are in their READMEs and in the [npm inventory](docs/NPM_RELEASES.md) |
+| 1.0.x | Earlier line: reports are received; no maintenance release is scheduled or promised |
+| < 1.0 | Unsupported |
 
 `@dcp-ai/sdk` 2.2.0 was published to npm on 26/10/2026 as `latest`, with the verifier fixes. Earlier affected versions do not gain the fixes automatically.
 
@@ -81,24 +81,17 @@ The packages do not share one version number; the `@dcp-ai/*` npm packages follo
 - Reporters will be credited in the advisory (unless they prefer anonymity).
 - We will not pursue legal action against researchers who follow this policy.
 
-## Bug Bounty
+## Rewards
 
-DCP-AI runs a bug bounty program for security vulnerabilities:
+There is no bug bounty with fixed rewards, and no reward is guaranteed. The maintainers may offer a reward for a report case by case; a reward is committed only by an explicit agreement with them. Credit in the advisory is described under Disclosure Policy.
 
-| Severity | Reward |
-|----------|--------|
-| Critical (PQ crypto break, signature bypass) | $5,000 - $15,000 |
-| High (verification bypass, key leakage) | $1,000 - $5,000 |
-| Medium (tier downgrade, chain manipulation) | $500 - $1,000 |
-| Low (information disclosure, DoS) | $100 - $500 |
+> **Note (05/11/2026).** Until this date this section listed fixed reward ranges per severity, explicitly marked as unconfirmed because [GOVERNANCE.md](GOVERNANCE.md) and [docs/EARLY_ADOPTERS.md](docs/EARLY_ADOPTERS.md) described case-by-case rewards. This page now states case-by-case rewards, as those two documents do.
 
-> **Note (25/10/2026): the documents disagree.** This table gives fixed reward ranges, while [GOVERNANCE.md](GOVERNANCE.md) and [docs/EARLY_ADOPTERS.md](docs/EARLY_ADOPTERS.md) say rewards are decided case by case, with no fixed tiers. The texts are kept as they are until a maintainer confirms which applies; until then, treat any reward as unconfirmed and ask the maintainers.
-
-See [docs/EARLY_ADOPTERS.md](docs/EARLY_ADOPTERS.md) for full program details.
+See [docs/EARLY_ADOPTERS.md](docs/EARLY_ADOPTERS.md#security-disclosure) for how security disclosure fits the early-adopter program.
 
 ## Security Model
 
-For a detailed analysis of the protocol's security architecture, attack vectors, and protection layers, see [docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md) and [docs/NIST_CONFORMITY.md](docs/NIST_CONFORMITY.md).
+For a detailed analysis of the protocol's security architecture, attack vectors, and protection layers, see [docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md) and [docs/NIST_CONFORMITY.md](docs/NIST_CONFORMITY.md). For an independent review, start with the [audit dossier](docs/conformance/AUDIT_DOSSIER.md): its baseline, reproduction commands, artifacts and known limits.
 
 ## Protocol Integrity
 

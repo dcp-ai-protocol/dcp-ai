@@ -87,9 +87,9 @@ If you discover a security vulnerability in DCP-AI:
 4. Maintainers acknowledge receipt within 48 hours and share an estimated timeline for the fix.
 5. A security advisory is published after the fix ships.
 
-For full details see [SECURITY.md](SECURITY.md), including the scope, SLA, and severity handling. Monetary rewards are handled case-by-case rather than as a fixed bounty tier.
+For full details see [SECURITY.md](SECURITY.md), including the scope, SLA, and severity handling. There is no fixed bounty tier and no guaranteed reward: the maintainers may offer a reward case by case, and only an explicit agreement with them commits one.
 
-> **Note (25/10/2026): the documents disagree.** [SECURITY.md](SECURITY.md) lists fixed reward ranges per severity, while this document and [docs/EARLY_ADOPTERS.md](docs/EARLY_ADOPTERS.md) say rewards are case by case. Both texts are kept until a maintainer confirms which applies.
+> **Note (05/11/2026).** Until this date [SECURITY.md](SECURITY.md) listed fixed reward ranges per severity, explicitly marked as unconfirmed; it now states case-by-case rewards, as this document and [docs/EARLY_ADOPTERS.md](docs/EARLY_ADOPTERS.md) do.
 
 ## Amendments
 

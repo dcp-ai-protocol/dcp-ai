@@ -199,6 +199,11 @@
       "site_path": "architecture/TECHNICAL_ARCHITECTURE.md"
     },
     {
+      "source": "docs/conformance/AUDIT_DOSSIER.md",
+      "class": "current",
+      "site_path": "guides/conformance/AUDIT_DOSSIER.md"
+    },
+    {
       "source": "docs/conformance/IMPLEMENTER_GUIDE.md",
       "class": "current",
       "site_path": "guides/conformance/IMPLEMENTER_GUIDE.md"

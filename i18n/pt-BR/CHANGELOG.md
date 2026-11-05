@@ -29,6 +29,11 @@ Preparadas no repositório em 30/10/2026 e **não publicadas**: a tag `sdks/go/v
 - **`@dcp-ai/wasm` 2.1.2:** `dualMerkleRoot` e `wasm_dual_merkle_root` calculam a raiz Merkle dupla da V2-11; nenhuma API JavaScript é adicionada.
 - Os novos testes do candidato experimental (gate 7) não mudam nenhum padrão. `dcp-jcs-v1`, os perfis, o formato de transmissão, as dependências e a criptografia não mudam. Os três pacotes não incluem mais os READMEs traduzidos, que ficam em `i18n/`.
 
+> **Nota (05/11/2026).** Estes candidatos são de 30/10/2026 e continuam sem publicação. Não incluem mudanças
+> posteriores da `main`: a validação de esquemas V2-2 em cada verificador V2 (#116) e as verificações das cadeias de
+> mandatos (#117 a #119). Os números de versão dos manifestos da `main` não identificam estes candidatos: a `main`
+> os leva com as mudanças posteriores. Veja o [dossiê de auditoria](../../docs/conformance/AUDIT_DOSSIER.md#artifacts).
+
 <a id="2026-10-28-sha3-patch-releases"></a>
 
 ## [2026-10-28] Publicações de correção SHA3

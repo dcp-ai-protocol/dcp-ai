@@ -2,7 +2,7 @@
 
 # Módulo Go publicado
 
-> Traducción informativa de [la versión en inglés](../../../docs/GO_RELEASE.md), actualizada el 30/10/2026. Si difieren, prevalece la versión en inglés.
+> Traducción informativa de [la versión en inglés](../../../docs/GO_RELEASE.md), actualizada el 05/11/2026. Si difieren, prevalece la versión en inglés.
 
 Verificado el 28/10/2026: el SDK Go `v2.11.1` está publicado mediante la [etiqueta `sdks/go/v2.11.1`](https://github.com/dcp-ai-protocol/dcp-ai/tree/sdks/go/v2.11.1/sdks/go), y el proxy público de módulos y la base de datos de checksums lo sirven. La publicación anterior, `v2.11.0` ([`sdks/go/v2.11.0`](https://github.com/dcp-ai-protocol/dcp-ai/tree/sdks/go/v2.11.0/sdks/go)), se verificó el 26/10/2026; sus notas se conservan abajo. El módulo y sus importaciones conservan `/v2`. La versión del SDK es independiente del formato/especificación DCP. Go no requiere un token de registro adicional: los consumidores resuelven la etiqueta del repositorio mediante el sistema de módulos Go.
 
@@ -49,6 +49,8 @@ La v2.12.0 está preparada en el repositorio desde el 30/10/2026, pero no public
 - **Añade `v2.RawAuditEventV2`.** Conserva los bytes literales de una entrada de auditoría recibida, de modo que los miembros `null` explícitos y los desconocidos sobreviven al reenvío; `Typed()` es una vista con pérdida. `AuditEventV2` y los demás structs tipados siguen siendo tipos para producir y conservan su comportamiento.
 
 Las demás API, la verificación de bundles, `dcp-jcs-v1` y las API experimentales opt-in `dcp-jcs-v2` no cambian; los nuevos tests del candidato experimental no cambian ningún valor predeterminado. La telemetría del SDK informa `2.12.0`. El módulo ya no contiene los README traducidos, que ahora están en el árbol `i18n/` del repositorio. Véanse el [README del SDK](../../../sdks/go/README.md) y el [changelog](../../../CHANGELOG.md).
+
+> **Nota (05/11/2026).** La comparación anterior se escribió el 30/10/2026 para la v2.12.0 preparada, que sigue sin publicarse. Desde entonces `main` ha cambiado la verificación: todos los verificadores V2 ejecutan la validación de esquemas V2-2 (#116, 02/11/2026), y cambiaron el helper de validez de mandatos, las comprobaciones de tiempo de las cadenas y la comprobación de dominios raíz repetidos (#117 a #119). Esos cambios no están en la v2.12.0 descrita arriba, así que en `main` la verificación de bundles no está sin cambios. Una versión construida desde un commit posterior los contendría. Los números de versión de los manifiestos de `main` no identifican este candidato: `main` los lleva con los cambios posteriores. Véase el [expediente de auditoría](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts).
 
 <a id="related-releases"></a>
 
