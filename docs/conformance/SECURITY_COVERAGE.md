@@ -131,6 +131,15 @@ A rejection counts only with its control, a normative accepted chain whose relat
 
 Version 1.0.0 of the catalog, archived byte for byte as [`external-delegation-catalog-1.0.0.json`](../../tools/conformance/external-delegation-catalog-1.0.0.json), judges 87 cases and reports ten informative ones apart; version 2.0.0 judges all 97. The runner pins the classification of each version, so a 1.0.0 report is evidence of 1.0.0 only.
 
+### Differential samples
+
+The [differential harnesses](../../tools/difffuzz/README.md) compare the SDKs on the same bytes; agreement is never the oracle.
+
+- **Mandate chains.** `run-mandates.mjs` sends re-signed DCP-09 chains to the four chain verifiers through contract `/4`: every run covers 73 variants at every depth they apply to (167 cases), then bounded random mutants. Only cases anchored in §3.5.2, the canonicalization profile or RFC 8259 count as rule evidence. Observations and cases whose attribution is limited by an unsignable value or by number representation are reported apart; a disagreement among them is still a finding.
+- **Bundles with WASM.** `run.mjs --sdks five` adds the Rust SDK compiled to WASM, run by Node, to the four bundle verifiers. Four-SDK findings are never read as five-SDK evidence.
+
+A finite campaign shows these cases agree or records where they do not; it is not exhaustive. WASM verifies no mandate chain, and inputs that contract `/4` cannot carry to every SDK (a `NaN` token, a byte order mark, `1e400`) are measured by a separate transport probe: a wrapper's refusal is never counted as an SDK rejection, and the rejection the TypeScript and Python SDKs return for `1e400` credits no semantic rule.
+
 ## Claims for core and profiles
 
 | Surface | What can be reported from the kit | What must remain separate |

@@ -504,3 +504,62 @@ test('the worst bounded answer to 256 cases with real request ids fits the defau
   assert.ok(py > 6 * 1000 * 1000 && js < py, `Python ${py}, JSON ${js}`);
   assert.equal(judgeResponse(Buffer.from(JSON.stringify(response)), okObserved, request).ok, true);
 });
+
+// ── Five SDKs (--sdks five): exact sets in runs, findings and replays; no omission reduces the coverage ──
+
+const five = (wasm = 'by-field', rest = 'by-field') => ({ ...shims(rest), wasm: fake(wasm) });
+
+test('--sdks takes four or five; a five-SDK run needs exactly five commands: WASM omitted, or added to four, is an error', async () => {
+  assert.deepEqual([parseArgs([]).sdks, parseArgs(['--sdks', 'five']).sdks, parseArgs(['--sdks', 'five']).sdksExplicit], ['four', 'five', true]);
+  assert.throws(() => parseArgs(['--sdks', 'three']), /--sdks takes/);
+  for (const [o, commands] of [[opts({ sdks: 'five' }), shims('by-field')], [opts({ sdks: 'five' }), { ...five(), extra: fake('by-field') }], [opts(), five()]]) {
+    const r = await runCampaign(o, { commands, seedsOverride: synthetic([bundle()]), log: quiet });
+    assert.equal(r.exit, 3);
+    assert.match(r.report.error.message, /commands must be exactly/);
+  }
+  const ok = await runCampaign(opts({ sdks: 'five' }), { commands: five(), seedsOverride: synthetic([bundle(), bundle({ ok: false })]), log: quiet });
+  assert.equal(ok.exit, 0, JSON.stringify(ok.report.error));
+  assert.deepEqual(ok.report.sdks, ['ts', 'py', 'go', 'rust', 'wasm']);
+});
+
+test('a WASM that disagrees, fails after a correct answer or answers outside the protocol never passes a five-SDK run', async () => {
+  const seeds = synthetic([bundle({ ok: false })]);
+  const dis = await runCampaign(opts({ sdks: 'five' }), { commands: five('accept-all'), seedsOverride: seeds, log: quiet });
+  assert.equal(dis.exit, 1);
+  assert.deepEqual(dis.report.findings.map((f) => f.classes), [['disagreement', 'expectation']]);
+  const after = await runCampaign(opts({ sdks: 'five' }), { commands: five('exit1'), seedsOverride: synthetic([bundle({ ok: 'n/a' })]), log: quiet });
+  assert.equal(after.exit, 1);
+  assert.deepEqual(after.report.findings.map((f) => f.classes), [['crash']]);
+  const outside = await runCampaign(opts({ sdks: 'five' }), { commands: five('missing'), seedsOverride: seeds, log: quiet });
+  assert.equal(outside.exit, 3);
+});
+
+test('a replay uses the exact SDK set of its finding: five stays five, a finding without a set is four, a conflict is refused', async () => {
+  const seeds = synthetic([bundle({ ok: false })]);
+  const out = tmpdir();
+  const r = await runCampaign(opts({ sdks: 'five', out }), { commands: five('accept-all'), seedsOverride: seeds, log: quiet });
+  const file = path.join(out, r.report.findings[0].file);
+  const saved = JSON.parse(fs.readFileSync(file, 'utf8'));
+  assert.deepEqual(saved.sdks, ['ts', 'py', 'go', 'rust', 'wasm']);
+  const replay = (f, commands, extra = {}) => {
+    const p = path.join(tmpdir(), 'finding.json');
+    fs.writeFileSync(p, JSON.stringify(f));
+    return replayFinding({ ...opts(extra), replay: p }, { commands, seedsOverride: seeds, log: quiet });
+  };
+  assert.equal((await replay(saved, five('accept-all'))).exit, 0);
+  assert.equal((await replay(saved, five('accept-all'), { sdks: 'five', sdksExplicit: true })).exit, 0);
+  const conflict = await replay(saved, five('accept-all'), { sdks: 'four', sdksExplicit: true });
+  assert.equal(conflict.exit, 3);
+  assert.match(conflict.report.error, /conflicts/);
+  assert.equal((await replay(saved, shims('by-field'))).exit, 3, 'four commands for a five-SDK finding');
+  const { sdks: _s, ...unset } = saved;
+  assert.equal((await replay(unset, five('accept-all'))).exit, 3, 'five outcomes without a set are not a four-SDK finding');
+  assert.equal((await replay({ ...saved, sdks: ['ts', 'py', 'go', 'rust'] }, shims('by-field'))).exit, 3, 'a set relabeled to four');
+  // A four-SDK finding written before sets existed (no sdks field) replays with exactly the four.
+  const out4 = tmpdir();
+  const r4 = await runCampaign(opts({ out: out4 }), { commands: shims('accept-all'), seedsOverride: seeds, log: quiet });
+  const { sdks: _t, ...historical } = JSON.parse(fs.readFileSync(path.join(out4, r4.report.findings[0].file), 'utf8'));
+  assert.equal((await replay(historical, shims('accept-all'))).exit, 0);
+  assert.equal((await replay(historical, five('accept-all'))).exit, 3, 'a historical finding never runs as five');
+  assert.equal((await replay(historical, shims('accept-all'), { sdks: 'five', sdksExplicit: true })).exit, 3);
+});

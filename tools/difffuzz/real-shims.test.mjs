@@ -1,8 +1,9 @@
 // Bounded test of the four REAL shims under protocol /3, apart from the self-tests (difffuzz.test.mjs never runs an
 // SDK). It builds the shims once with buildShims and needs: go and cargo with the locked dependencies (from the network,
 // or from the local caches with DIFFFUZZ_OFFLINE=1), a Python 3.10+ with the sdks/python dependencies (DIFFFUZZ_PYTHON,
-// default python3), and the built TypeScript SDK (sdks/typescript/dist). No campaign: a few fixed documents.
-//   DIFFFUZZ_PYTHON=<python> [DIFFFUZZ_OFFLINE=1] node --test tools/difffuzz/real-shims.test.mjs
+// default python3), and the built TypeScript SDK (sdks/typescript/dist). No campaign: a few fixed documents. With
+// DIFFFUZZ_SDKS=five it also builds the WASM shim (wasm-pack, into the run directory) and runs every test on five shims.
+//   DIFFFUZZ_PYTHON=<python> [DIFFFUZZ_OFFLINE=1] [DIFFFUZZ_SDKS=five] node --test tools/difffuzz/real-shims.test.mjs
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -10,12 +11,14 @@ import os from 'node:os';
 import path from 'node:path';
 import test, { after, before } from 'node:test';
 import { LIMITS as KIT_LIMITS, runProcess } from '../conformance/external.js';
-import { DEFAULTS, ERRORS_MAX, ERROR_CODEPOINTS_MAX, NOW_MS, ROOT, SDKS, buildShims, runBatch, validMarker } from './fuzz.mjs';
+import { DEFAULTS, ERRORS_MAX, ERROR_CODEPOINTS_MAX, NOW_MS, ROOT, SDK_SETS, buildShims, runBatch, validMarker } from './fuzz.mjs';
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'difffuzz-real-'));
+const SET = process.env.DIFFFUZZ_SDKS === 'five' ? 'five' : 'four';
+const SDKS = SDK_SETS[SET];
 let cmds;
 before(async () => {
-  ({ commands: cmds } = await buildShims({ offline: process.env.DIFFFUZZ_OFFLINE === '1', buildTimeoutMs: 600000, python: process.env.DIFFFUZZ_PYTHON || 'python3' }, tmp));
+  ({ commands: cmds } = await buildShims({ offline: process.env.DIFFFUZZ_OFFLINE === '1', buildTimeoutMs: 900000, python: process.env.DIFFFUZZ_PYTHON || 'python3', sdks: SET }, tmp));
 });
 after(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
@@ -123,4 +126,26 @@ test("Codex's small repro: a positive and eight 1 MiB classical.alg negatives in
     assert.equal(b.judged.ok, true, `${sdk}: ${b.judged.category} ${b.judged.detail}`);
     assert.deepEqual(jobs.map((j) => b.judged.results.get(j.wireId).verified), [true, ...Array(8).fill(false)], sdk);
   }
+});
+
+// The real WASM verifier: its clock is the request's now_ms, and a leading byte order mark reaches the export as U+FEFF
+// (the decoder never strips it), so the export's own JSON parser rejects the text. The historical TypeScript shim's
+// decoder strips it before JSON.parse: that is a boundary of the shim's parser, not a difference of the SDKs.
+test('wasm: the clock is now_ms, and a byte order mark reaches the export intact as a JSON parse rejection', async (t) => {
+  if (SET !== 'five') { t.skip('DIFFFUZZ_SDKS=five is not set: the WASM shim was NOT built'); return; }
+  const plain = job(B.signed_bundle, 0);
+  const bom = { ...job(B.signed_bundle, 1), bytes: Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(JSON.stringify(B.signed_bundle))]) };
+  const b = await runBatch(cmds.wasm, [plain, bom], limits, NOW_MS);
+  assert.equal(b.judged.ok, true, `${b.judged.category} ${b.judged.detail}`);
+  assert.deepEqual(b.judged.results.get(plain.wireId), { category: 'verdict', verified: true, errors: [] });
+  const r = b.judged.results.get(bom.wireId);
+  assert.equal(r.category, 'parse_rejected');
+  assert.match(r.message, /^JSON parse error: /);
+  for (const [when, verified] of [['2020-01-01T00:00:00Z', false], ['2100-01-01T00:00:00Z', false]]) {
+    const one = job(B.signed_bundle, 2);
+    const late = await runBatch(cmds.wasm, [one], limits, Date.parse(when));
+    assert.equal(late.judged.results.get(one.wireId).verified, verified, when);
+  }
+  const ts = await runBatch(cmds.ts, [bom], limits, NOW_MS);
+  assert.deepEqual(ts.judged.results.get(bom.wireId), { category: 'verdict', verified: true, errors: [] }, 'the TypeScript shim strips the mark before its parser');
 });
