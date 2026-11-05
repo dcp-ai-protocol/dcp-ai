@@ -86,7 +86,7 @@ node tools/difffuzz/run-mandates.mjs --iterations 120 --report /tmp/mandates.jso
 | Admisión y `strict-v1` | [Mapa de admisión](SECURITY_COVERAGE.md#admission-map) |
 | Cadenas de mandatos DCP-09 | [Mapa de delegación](SECURITY_COVERAGE.md#delegation-map) |
 | Acuerdo entre SDK | [Muestras diferenciales](SECURITY_COVERAGE.md#differential-samples) |
-| Algoritmos | [tests/nist-kat](../../../../tests/nist-kat/README.md): vectores RFC 8032 para Ed25519; pruebas de tamaño, ida y vuelta, clave incorrecta y entre SDK para ML-DSA-65; vectores NIST ACVP, con el SHA-256 de sus archivos de origen, para ML-KEM-768 y SLH-DSA-192f. Superarlas no es una validación NIST de un módulo criptográfico |
+| Algoritmos | [tests/nist-kat](../../../../tests/nist-kat/README.md): vectores RFC 8032 para Ed25519; pruebas de tamaño, ida y vuelta, clave incorrecta y entre SDK para ML-DSA-65, y 204 casos de verificación con contexto vacío (NIST ACVP tc39 y 203 casos de C2SP Wycheproof, que no es una fuente NIST) en los cuatro SDK y en wasm32; vectores NIST ACVP, con el SHA-256 de sus archivos de origen, para ML-KEM-768 y SLH-DSA-192f. Superarlas no es una validación NIST de un módulo criptográfico |
 
 <a id="artifacts"></a>
 

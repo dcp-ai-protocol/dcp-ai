@@ -171,6 +171,8 @@ tests/nist-kat/
     vectors.json    -- RFC 8032 Section 7.1 deterministic test vectors
   ml-dsa-65/
     vectors.json    -- FIPS 204 property test configuration
+    acvp_sigver_tg3.json                  -- NIST ACVP sigVer test group 3 (ML-DSA-65, external, pure)
+    wycheproof_mldsa_65_verify_test.json  -- C2SP Wycheproof ML-DSA-65 verification vectors (not NIST)
   ml-kem-768/
     vectors.json    -- FIPS 203 NIST ACVP decapsulation and key-check vectors
   slh-dsa-192f/
@@ -190,7 +192,7 @@ Ed25519 is deterministic. Test vectors are taken directly from RFC 8032 Section 
 
 ### 4.3 ML-DSA-65 (FIPS 204)
 
-ML-DSA-65 supports randomized and deterministic signing; the current SDK providers use different modes, as described in Section 2.2. Direct KAT comparison requires control of the signing randomness, which varies across cryptographic libraries. DCP-AI exercises the following properties; these checks do not amount to a full NIST algorithm or module validation:
+ML-DSA-65 supports randomized and deterministic signing; the current SDK providers use different modes, as described in Section 2.2. Reproducing signing KATs requires control of the signing randomness, which cryptographic libraries expose differently, so signing is covered by properties. Verification needs no such control, so the SDK providers also run verification vectors (last row). DCP-AI exercises the following; these checks do not amount to a full NIST algorithm or module validation:
 
 | Test | Description | Gate |
 |------|-------------|------|
@@ -201,6 +203,7 @@ ML-DSA-65 supports randomized and deterministic signing; the current SDK provide
 | Deterministic kid | `kid(alg, pk)` is identical across all SDKs | MUST pass |
 | Domain separation | Signature with context tag A does not verify under tag B | MUST pass |
 | Composite binding | Stripping classical sig invalidates PQ sig | MUST pass |
+| Verification vectors | 204 cases with an empty context, each with its expected verdict: NIST ACVP sigVer tc39 and 203 C2SP Wycheproof cases, in the four SDKs and on wasm32 ([sources, exclusions and limits](../tests/nist-kat/README.md#ml-dsa-65-verification-vectors)) | MUST pass |
 
 ### 4.4 SLH-DSA-192f (FIPS 205)
 
@@ -238,6 +241,10 @@ ML-DSA-65 supports randomized and deterministic signing; the current SDK provide
 
 # Rust SDK (dedicated integration test)
 (cd sdks/rust && cargo test --test nist_kat)
+
+# ML-DSA-65 verification vectors on wasm32 in Node (needs wasm-pack with its wasm-bindgen test runner and the
+# wasm32-unknown-unknown target; --mode no-install keeps wasm-pack from downloading the runner)
+(cd sdks/rust && wasm-pack test --node --mode no-install . --locked --features wasm --test wasm_mldsa65_vectors)
 ```
 
 ---
@@ -268,6 +275,7 @@ Use this checklist to verify that your DCP-AI implementation conforms to NIST PQ
 - [ ] Composite binding: PQ signature covers `context || 0x00 || payload || classical_sig`
 - [ ] kid derivation: `hex(SHA-256(UTF8("ml-dsa-65") || 0x00 || raw_pk))[0:32]`
 - [ ] KAT tests pass for size, round-trip, wrong-key, cross-SDK, and domain separation
+- [ ] The verification vectors of `tests/nist-kat/ml-dsa-65/` give the expected verdict for every case with an empty context
 
 ### 5.3 ML-DSA-87 (FIPS 204) Checklist
 

@@ -86,7 +86,7 @@ node tools/difffuzz/run-mandates.mjs --iterations 120 --report /tmp/mandates.jso
 | 受け入れ判定と `strict-v1` | [受け入れ判定マップ](SECURITY_COVERAGE.md#admission-map) |
 | DCP-09 の委任状チェーン | [委任マップ](SECURITY_COVERAGE.md#delegation-map) |
 | SDK 間の一致 | [差分サンプル](SECURITY_COVERAGE.md#differential-samples) |
-| アルゴリズム | [tests/nist-kat](../../../../tests/nist-kat/README.md)：Ed25519 は RFC 8032 のベクトル、ML-DSA-65 はサイズ、往復、誤った鍵、SDK 間のテスト、ML-KEM-768 と SLH-DSA-192f は取得元ファイルの SHA-256 付きの NIST ACVP ベクトル。合格しても暗号モジュールの NIST 検証にはなりません |
+| アルゴリズム | [tests/nist-kat](../../../../tests/nist-kat/README.md)：Ed25519 は RFC 8032 のベクトル、ML-DSA-65 はサイズ、往復、誤った鍵、SDK 間のテストと、コンテキストが空の 204 件の検証ケース（NIST ACVP tc39 と、NIST の出典ではない C2SP Wycheproof の 203 ケース。4 つの SDK と wasm32 で実行）、ML-KEM-768 と SLH-DSA-192f は取得元ファイルの SHA-256 付きの NIST ACVP ベクトル。合格しても暗号モジュールの NIST 検証にはなりません |
 
 <a id="artifacts"></a>
 

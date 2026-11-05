@@ -4,7 +4,7 @@
 
 # DCP-AI の NIST ポスト量子暗号への適合性声明
 
-> [英語版](../../../docs/NIST_CONFORMITY.md)の参考訳です（28/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../docs/NIST_CONFORMITY.md)の参考訳です（05/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 **仕様のバージョン：** 2.0
 **最終更新：** 2026 年 10 月 25 日
@@ -207,6 +207,8 @@ tests/nist-kat/
     vectors.json    -- RFC 8032 Section 7.1 deterministic test vectors
   ml-dsa-65/
     vectors.json    -- FIPS 204 property test configuration
+    acvp_sigver_tg3.json                  -- NIST ACVP sigVer test group 3 (ML-DSA-65, external, pure)
+    wycheproof_mldsa_65_verify_test.json  -- C2SP Wycheproof ML-DSA-65 verification vectors (not NIST)
   ml-kem-768/
     vectors.json    -- FIPS 203 NIST ACVP decapsulation and key-check vectors
   slh-dsa-192f/
@@ -229,7 +231,7 @@ Ed25519 は決定的です。テストベクターは RFC 8032 の 7.1 節から
 
 ### 4.3 ML-DSA-65（FIPS 204）
 
-ML-DSA-65 はランダム化署名と決定的署名の両方をサポートします。2.2 節で述べたとおり、現在の SDK のプロバイダーは異なる方式を使っています。KAT との直接比較には署名の乱数を制御する必要があり、それは暗号ライブラリごとに異なります。DCP-AI は次の性質を確認しますが、これらの確認は NIST によるアルゴリズムやモジュールの完全な検証に相当するものではありません。
+ML-DSA-65 はランダム化署名と決定的署名の両方をサポートします。2.2 節で述べたとおり、現在の SDK のプロバイダーは異なる方式を使っています。署名の KAT を再現するには署名の乱数を制御する必要があり、その手段は暗号ライブラリごとに異なるため、署名は性質の確認で扱います。検証にはこの制御が不要なため、SDK のプロバイダーは検証ベクトルも実行します（最終行）。DCP-AI は次の項目を確認しますが、これらの確認は NIST によるアルゴリズムやモジュールの完全な検証に相当するものではありません。
 
 | テスト | 説明 | 基準 |
 |------|-------------|------|
@@ -240,6 +242,7 @@ ML-DSA-65 はランダム化署名と決定的署名の両方をサポートし�
 | 決定的な kid | `kid(alg, pk)` がすべての SDK で同一 | 合格必須 |
 | ドメイン分離 | コンテキストタグ A の署名がタグ B では検証できない | 合格必須 |
 | 複合バインディング | クラシカルな署名を取り除くと PQ 署名が無効になる | 合格必須 |
+| 検証ベクトル | コンテキストが空の 204 ケースで、それぞれに期待される判定がある：NIST ACVP sigVer tc39 と C2SP Wycheproof の 203 ケース。4 つの SDK と wasm32 で実行（[出典、除外、制限](../../../tests/nist-kat/README.md#ml-dsa-65-verification-vectors)） | 合格必須 |
 
 <a id="44-slh-dsa-192f-fips-205"></a>
 
@@ -283,6 +286,10 @@ ML-DSA-65 はランダム化署名と決定的署名の両方をサポートし�
 
 # Rust SDK (dedicated integration test)
 (cd sdks/rust && cargo test --test nist_kat)
+
+# ML-DSA-65 verification vectors on wasm32 in Node (needs wasm-pack with its wasm-bindgen test runner and the
+# wasm32-unknown-unknown target; --mode no-install keeps wasm-pack from downloading the runner)
+(cd sdks/rust && wasm-pack test --node --mode no-install . --locked --features wasm --test wasm_mldsa65_vectors)
 ```
 
 ---
@@ -319,6 +326,7 @@ ML-DSA-65 はランダム化署名と決定的署名の両方をサポートし�
 - [ ] 複合バインディング：PQ 署名が `context || 0x00 || payload || classical_sig` を対象とする
 - [ ] kid の導出：`hex(SHA-256(UTF8("ml-dsa-65") || 0x00 || raw_pk))[0:32]`
 - [ ] サイズ、往復、別の鍵、SDK 間、ドメイン分離について KAT テストが合格する
+- [ ] `tests/nist-kat/ml-dsa-65/` の検証ベクトルが、コンテキストが空のすべてのケースで期待どおりの判定になる
 
 <a id="53-ml-dsa-87-fips-204-checklist"></a>
 

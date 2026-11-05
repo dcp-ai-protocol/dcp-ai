@@ -2,6 +2,7 @@
 //!
 //! Ed25519: RFC 8032 deterministic test vectors.
 //! ML-DSA-65: FIPS 204 property-based compliance.
+//! ML-DSA-65: independent verification vectors (NIST ACVP tc39 + Wycheproof), empty context.
 //!
 //! Phase 1 gate: no SDK ships V2 without passing all KAT tests.
 
@@ -16,6 +17,8 @@ use dcp_ai::providers::ed25519::Ed25519Provider;
 use dcp_ai::providers::ml_dsa_65::MlDsa65Provider;
 use dcp_ai::v2::crypto_provider::{derive_kid, CryptoProvider};
 use dcp_ai::v2::domain_separation::domain_separated_message;
+
+mod mldsa65_vectors;
 
 fn kat_path(algo: &str) -> PathBuf {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -218,4 +221,22 @@ fn ml_dsa_65_cross_sdk_verify() {
     let ml = MlDsa65Provider;
     let valid = ml.verify(&composite_msg, &pq_sig, pq_pk).unwrap();
     assert!(valid, "Cross-SDK ML-DSA-65 verification failed");
+}
+
+// ── ML-DSA-65 independent verification vectors (tests/mldsa65_vectors) ──
+
+#[test]
+fn ml_dsa_65_vector_corpus_integrity() {
+    mldsa65_vectors::check_corpus_integrity();
+}
+
+#[test]
+fn ml_dsa_65_vector_provider_is_sdk_provider() {
+    mldsa65_vectors::check_provider_identity();
+}
+
+#[test]
+fn ml_dsa_65_vector_verdicts() {
+    let errored = mldsa65_vectors::check_verdicts();
+    println!("executed 204, rejected by error {errored:?}");
 }

@@ -4,7 +4,7 @@
 
 # DCP-AI 与 NIST 后量子密码标准的符合性声明
 
-> 本文是[英文版](../../../docs/NIST_CONFORMITY.md)的参考译文，更新于 28/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/NIST_CONFORMITY.md)的参考译文，更新于 05/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 **规范版本：** 2.0
 **最后更新：** 2026 年 10 月 25 日
@@ -207,6 +207,8 @@ tests/nist-kat/
     vectors.json    -- RFC 8032 Section 7.1 deterministic test vectors
   ml-dsa-65/
     vectors.json    -- FIPS 204 property test configuration
+    acvp_sigver_tg3.json                  -- NIST ACVP sigVer test group 3 (ML-DSA-65, external, pure)
+    wycheproof_mldsa_65_verify_test.json  -- C2SP Wycheproof ML-DSA-65 verification vectors (not NIST)
   ml-kem-768/
     vectors.json    -- FIPS 203 NIST ACVP decapsulation and key-check vectors
   slh-dsa-192f/
@@ -228,7 +230,7 @@ Ed25519 是确定性的。测试向量直接取自 RFC 8032 第 7.1 节。对于
 
 ### 4.3 ML-DSA-65（FIPS 204）
 
-ML-DSA-65 支持随机化签名和确定性签名；如第 2.2 节所述，当前 SDK 的提供程序使用不同的方式。直接与 KAT 比较需要控制签名的随机性，而这在各个密码库之间并不相同。DCP-AI 检验以下性质；这些检查并不等同于 NIST 对算法或模块的完整验证：
+ML-DSA-65 支持随机化签名和确定性签名；如第 2.2 节所述，当前 SDK 的提供程序使用不同的方式。重现签名 KAT 需要控制签名的随机性，而各个密码库提供的控制方式各不相同，因此签名由性质检查覆盖。验证不需要这种控制，因此 SDK 提供程序还运行验证向量（最后一行）。DCP-AI 检验以下内容；这些检查并不等同于 NIST 对算法或模块的完整验证：
 
 | 测试 | 说明 | 要求 |
 |------|-------------|------|
@@ -239,6 +241,7 @@ ML-DSA-65 支持随机化签名和确定性签名；如第 2.2 节所述，当�
 | 确定性 kid | `kid(alg, pk)` 在所有 SDK 中都相同 | 必须通过 |
 | 域分离 | 使用上下文标签 A 的签名在标签 B 下无法验证 | 必须通过 |
 | 复合绑定 | 剥离经典签名会使 PQ 签名失效 | 必须通过 |
+| 验证向量 | 204 个上下文为空的用例，每个都有预期判定：NIST ACVP sigVer tc39 和 203 个 C2SP Wycheproof 用例，在四个 SDK 和 wasm32 上运行（[来源、排除和限制](../../../tests/nist-kat/README.md#ml-dsa-65-verification-vectors)） | 必须通过 |
 
 <a id="44-slh-dsa-192f-fips-205"></a>
 
@@ -282,6 +285,10 @@ ML-DSA-65 支持随机化签名和确定性签名；如第 2.2 节所述，当�
 
 # Rust SDK (dedicated integration test)
 (cd sdks/rust && cargo test --test nist_kat)
+
+# ML-DSA-65 verification vectors on wasm32 in Node (needs wasm-pack with its wasm-bindgen test runner and the
+# wasm32-unknown-unknown target; --mode no-install keeps wasm-pack from downloading the runner)
+(cd sdks/rust && wasm-pack test --node --mode no-install . --locked --features wasm --test wasm_mldsa65_vectors)
 ```
 
 ---
@@ -318,6 +325,7 @@ ML-DSA-65 支持随机化签名和确定性签名；如第 2.2 节所述，当�
 - [ ] 复合绑定：PQ 签名覆盖 `context || 0x00 || payload || classical_sig`
 - [ ] kid 派生：`hex(SHA-256(UTF8("ml-dsa-65") || 0x00 || raw_pk))[0:32]`
 - [ ] 大小、往返、其他密钥、跨 SDK 和域分离的 KAT 测试通过
+- [ ] `tests/nist-kat/ml-dsa-65/` 的验证向量对每个上下文为空的用例给出预期判定
 
 <a id="53-ml-dsa-87-fips-204-checklist"></a>
 

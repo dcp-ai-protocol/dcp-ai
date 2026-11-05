@@ -5,6 +5,8 @@ package dcp_test
 // Ed25519: RFC 8032 Section 7.1 deterministic test vectors.
 // ML-DSA-65: FIPS 204 property-based compliance (sizes, round-trip,
 // wrong-key / wrong-message rejection, deterministic kid).
+// ML-DSA-65: independent verification vectors (NIST ACVP tc39 + Wycheproof),
+// empty context.
 //
 // Fixtures live at tests/nist-kat/ (shared with the TypeScript, Python,
 // and Rust SDKs). This file closes the parity gap with test_nist_kat.py
@@ -259,5 +261,202 @@ func TestMlDsa65WrongMessageFails(t *testing.T) {
 	ok, _ := provider.Verify([]byte("message B"), sig, kp.PublicKeyB64)
 	if ok {
 		t.Fatalf("verify with tampered message must fail")
+	}
+}
+
+// ─── ML-DSA-65 — independent verification vectors (NIST ACVP tc39 + Wycheproof) ───
+//
+// The provider verifies with the empty FIPS 204 context, so only cases whose
+// context is empty go through it; the others are checked as excluded. Values
+// are copied verbatim from the pinned sources (tests/nist-kat/README.md).
+
+const mlDsa65Wycheproof = "wycheproof_mldsa_65_verify_test.json"
+const mlDsa65NistTG3 = "acvp_sigver_tg3.json"
+
+var mlDsa65VectorProvider mlDsa65Verifier = &providers.MlDsa65Provider{}
+
+// Wycheproof cases whose public key is not 1952 bytes, and the provider's error for them.
+var mlDsa65PkLengthIDs = map[int]bool{69: true, 70: true, 158: true, 159: true}
+
+const mlDsa65PkLengthError = "unmarshal ml-dsa-65 pk: packed public key must be of mldsa65.PublicKeySize bytes"
+
+type mlDsa65Verifier interface {
+	Verify(message []byte, signature []byte, publicKeyB64 string) (bool, error)
+}
+
+type mlDsa65VectorCase struct {
+	source       string
+	id           int
+	pk, msg, sig string
+	valid        bool
+}
+
+type mlDsa65Corpus struct {
+	wyBytes, nistBytes        []byte
+	wyAlgorithm               string
+	wyNumberOfTests           int
+	tgID                      int
+	parameterSet, iface, mode string
+	nistTests                 int
+	cases                     []mlDsa65VectorCase
+	excludedWy, excludedNist  []int
+}
+
+func loadMlDsa65Corpus(t *testing.T) mlDsa65Corpus {
+	t.Helper()
+	dir := filepath.Join(katDir(t), "ml-dsa-65")
+	var c mlDsa65Corpus
+	var err error
+	if c.wyBytes, err = os.ReadFile(filepath.Join(dir, mlDsa65Wycheproof)); err != nil {
+		t.Fatalf("read Wycheproof corpus: %v", err)
+	}
+	if c.nistBytes, err = os.ReadFile(filepath.Join(dir, mlDsa65NistTG3)); err != nil {
+		t.Fatalf("read NIST tg3 corpus: %v", err)
+	}
+	var wy struct {
+		Algorithm     string `json:"algorithm"`
+		NumberOfTests int    `json:"numberOfTests"`
+		TestGroups    []struct {
+			PublicKey string `json:"publicKey"`
+			Tests     []struct {
+				TcID   int     `json:"tcId"`
+				Msg    string  `json:"msg"`
+				Sig    string  `json:"sig"`
+				Ctx    *string `json:"ctx"`
+				Result string  `json:"result"`
+			} `json:"tests"`
+		} `json:"testGroups"`
+	}
+	if err := json.Unmarshal(c.wyBytes, &wy); err != nil {
+		t.Fatalf("parse Wycheproof corpus: %v", err)
+	}
+	var nist struct {
+		TestGroup struct {
+			TgID               int    `json:"tgId"`
+			ParameterSet       string `json:"parameterSet"`
+			SignatureInterface string `json:"signatureInterface"`
+			PreHash            string `json:"preHash"`
+			Tests              []struct {
+				TcID       int    `json:"tcId"`
+				TestPassed bool   `json:"testPassed"`
+				Pk         string `json:"pk"`
+				Message    string `json:"message"`
+				Context    string `json:"context"`
+				Signature  string `json:"signature"`
+			} `json:"tests"`
+		} `json:"testGroup"`
+	}
+	if err := json.Unmarshal(c.nistBytes, &nist); err != nil {
+		t.Fatalf("parse NIST tg3 corpus: %v", err)
+	}
+	c.wyAlgorithm, c.wyNumberOfTests = wy.Algorithm, wy.NumberOfTests
+	for _, g := range wy.TestGroups {
+		for _, tc := range g.Tests {
+			if tc.Ctx != nil && *tc.Ctx != "" {
+				c.excludedWy = append(c.excludedWy, tc.TcID)
+				continue
+			}
+			c.cases = append(c.cases, mlDsa65VectorCase{"wycheproof", tc.TcID, g.PublicKey, tc.Msg, tc.Sig, tc.Result == "valid"})
+		}
+	}
+	g := nist.TestGroup
+	c.tgID, c.parameterSet, c.iface, c.mode, c.nistTests = g.TgID, g.ParameterSet, g.SignatureInterface, g.PreHash, len(g.Tests)
+	for _, tc := range g.Tests {
+		if tc.Context != "" {
+			c.excludedNist = append(c.excludedNist, tc.TcID)
+			continue
+		}
+		c.cases = append(c.cases, mlDsa65VectorCase{"nist", tc.TcID, tc.Pk, tc.Message, tc.Signature, tc.TestPassed})
+	}
+	return c
+}
+
+func equalInts(a, b []int) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func TestMlDsa65VectorCorpusIntegrity(t *testing.T) {
+	c := loadMlDsa65Corpus(t)
+	if h := sha256.Sum256(c.wyBytes); hex.EncodeToString(h[:]) != "1ca235f61928421a173a171780beb00264ae9155dc33c52a11e1766cc7979034" {
+		t.Errorf("Wycheproof corpus sha256 = %x", h)
+	}
+	if h := sha256.Sum256(c.nistBytes); hex.EncodeToString(h[:]) != "bacf4ad8e55db0594d8bf2878ca3bd3cb80cfa680aaf05ca8e1788d896f63eb8" {
+		t.Errorf("NIST tg3 corpus sha256 = %x", h)
+	}
+	if c.wyAlgorithm != "ML-DSA-65" || c.wyNumberOfTests != 210 {
+		t.Errorf("Wycheproof header = %s/%d", c.wyAlgorithm, c.wyNumberOfTests)
+	}
+	if c.tgID != 3 || c.parameterSet != "ML-DSA-65" || c.iface != "external" || c.mode != "pure" || c.nistTests != 15 {
+		t.Errorf("NIST group = %d/%s/%s/%s/%d", c.tgID, c.parameterSet, c.iface, c.mode, c.nistTests)
+	}
+	valid, nistIDs := 0, []int{}
+	for _, tc := range c.cases {
+		if tc.valid {
+			valid++
+		}
+		if tc.source == "nist" {
+			nistIDs = append(nistIDs, tc.id)
+		}
+	}
+	if len(c.cases) != 204 || valid != 77 {
+		t.Errorf("applicable cases = %d (valid %d), want 204 (77)", len(c.cases), valid)
+	}
+	if !equalInts(c.excludedWy, []int{3, 4, 5, 153, 154, 155, 156}) {
+		t.Errorf("Wycheproof exclusions = %v", c.excludedWy)
+	}
+	if !equalInts(c.excludedNist, []int{31, 32, 33, 34, 35, 36, 37, 38, 40, 41, 42, 43, 44, 45}) {
+		t.Errorf("NIST exclusions = %v", c.excludedNist)
+	}
+	if !equalInts(nistIDs, []int{39}) {
+		t.Errorf("NIST applicable = %v", nistIDs)
+	}
+}
+
+func TestMlDsa65VectorProviderIsSDKProvider(t *testing.T) {
+	if _, ok := mlDsa65VectorProvider.(*providers.MlDsa65Provider); !ok {
+		t.Fatalf("vector provider is %T, want *providers.MlDsa65Provider", mlDsa65VectorProvider)
+	}
+}
+
+func TestMlDsa65VectorVerdicts(t *testing.T) {
+	c := loadMlDsa65Corpus(t)
+	executed, errored := 0, []int{}
+	for _, tc := range c.cases {
+		msg, err1 := hex.DecodeString(tc.msg)
+		sig, err2 := hex.DecodeString(tc.sig)
+		pk, err3 := hex.DecodeString(tc.pk)
+		if err1 != nil || err2 != nil || err3 != nil {
+			t.Fatalf("%s %d: hex decode", tc.source, tc.id)
+		}
+		got, err := mlDsa65VectorProvider.Verify(msg, sig, base64.StdEncoding.EncodeToString(pk))
+		executed++
+		if err != nil {
+			// An error is a rejection only for the Wycheproof cases whose public
+			// key is not 1952 bytes, and only with the expected length error.
+			if tc.valid || tc.source != "wycheproof" || !mlDsa65PkLengthIDs[tc.id] || len(pk) == 1952 ||
+				err.Error() != mlDsa65PkLengthError {
+				t.Errorf("%s %d: unexpected error %v", tc.source, tc.id, err)
+			}
+			errored = append(errored, tc.id)
+			continue
+		}
+		if got != tc.valid {
+			t.Errorf("%s %d: %v -> %v", tc.source, tc.id, tc.valid, got)
+		}
+	}
+	t.Logf("executed %d, rejected by error %v", executed, errored)
+	if !equalInts(errored, []int{69, 70, 158, 159}) {
+		t.Errorf("rejected by error %v, want [69 70 158 159]", errored)
+	}
+	if executed != 204 {
+		t.Fatalf("executed %d cases, want 204", executed)
 	}
 }
