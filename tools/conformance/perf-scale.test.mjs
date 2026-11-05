@@ -390,9 +390,20 @@ test("observer: absent, zombie, alive and failed observations are told apart; on
     assert.deepEqual([h.state, h.seen], ["error", ["error"]], `a ps that hangs and ignores SIGTERM is an error (${describe(h)})`);
     assert.ok(took <= 500 + PS_KILL_MARGIN_MS, `a hung ps is cut within the bound plus the margin (${Math.round(took)} ms)`);
   } finally { live.kill("SIGKILL"); }
-  const dying = spawn(process.execPath, ["-e", "setTimeout(() => {}, 1000)"], { stdio: "ignore" });
-  const d = await awaitStopped(dying.pid, { boundMs: 5000 });
-  assert.deepEqual([d.state, d.seen], ["absent", ["alive", "absent"]], "alive, then gone within the bound");
+  // A child that ends during the wait: it waits for its stdin, the first observation of awaitStopped runs synchronously
+  // (alive), and only then is it released. Between its exit and its parent's reaping it may be seen as a zombie: a
+  // legitimate transition. The end must be absent; no error, no process still running.
+  const dying = spawn(process.execPath, ["-e", "process.stdin.once('data', () => process.exit(0))"], { stdio: ["pipe", "ignore", "ignore"] });
+  try {
+    const pending = awaitStopped(dying.pid, { boundMs: 5000 });
+    dying.stdin.write("go\n");
+    const d = await pending;
+    assert.equal(d.state, "absent", `alive, then gone within the bound: ${describe(d)}`);
+    assert.ok(["alive>absent", "alive>zombie>absent"].includes(d.seen.join(">")), `alive, then gone within the bound: ${describe(d)}`);
+  } finally {
+    dying.stdin.destroy();
+    if (processState(dying.pid).state === "alive") dying.kill("SIGKILL");
+  }
   const done = spawn(process.execPath, ["-e", "0"], { stdio: "ignore" });
   await once(done, "exit");
   assert.equal(processState(done.pid).state, "absent", "exited and reaped by its parent");
