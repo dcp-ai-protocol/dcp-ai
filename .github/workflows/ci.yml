@@ -449,6 +449,16 @@ jobs:
           DCP_EXTERNAL_REQUIRE_NATIVE: "1"
         run: DCP_PERF_PYTHON="$(command -v python)" node --test tools/conformance/perf.test.mjs
 
+      # The bounded scaling tool (tools/conformance/README.md#bounded-workload-scaling): corpus, stage, memory-unit,
+      # deadline and supervisor controls, and a mandatory smoke run of the real children on the smallest size of each
+      # dimension (five SDKs, four for mandate chains) with the memory launcher. No campaign and no speed or memory
+      # threshold: it checks verdicts, counts, units and cleanup.
+      - name: Scaling harness self-tests and smallest-size smoke run (all required)
+        env:
+          DCP_EXTERNAL_REQUIRE_PYTHON: "1"
+          DCP_EXTERNAL_REQUIRE_NATIVE: "1"
+        run: DCP_PERF_PYTHON="$(command -v python)" node --test tools/conformance/perf-scale.test.mjs
+
   typescript-sdk:
     name: TypeScript SDK
     needs: changes

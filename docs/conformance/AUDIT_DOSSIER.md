@@ -124,7 +124,7 @@ Other changes after the published versions:
 - **Rust.** It lacks A2A AES-256-GCM session encryption and its replay window ([RUST_RELEASE.md](../RUST_RELEASE.md)).
 - **Published versions.** They lack the changes listed under [Artifacts](#artifacts).
 - **Differential and fuzz campaigns.** They are finite, not exhaustive. Inputs that contract `/4` cannot carry to every SDK are measured apart ([differential harnesses](../../tools/difffuzz/README.md#mandate-chains)).
-- **Performance.** No speed requirement is checked. The [performance baseline](../../tools/conformance/README.md#performance-baseline) is a local measurement.
+- **Performance.** No speed requirement is checked. The [performance baseline](../../tools/conformance/README.md#performance-baseline) and the [bounded workload scaling](../../tools/conformance/README.md#bounded-workload-scaling) are local measurements of method, added after the baseline commit; neither is an audit result.
 - **Not covered.** Container images, deployments, service tokens and operator configuration.
 
 ## Reporting

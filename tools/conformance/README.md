@@ -627,3 +627,62 @@ DCP_PERF_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUI
 - **Limits:** one machine and a small sample: frequency, thermal and power state and background load are not
   controlled (the CPU and OS are recorded). Each SDK is measured as it is, with its own cryptographic libraries; the
   Rust profile is the default release one. Results stay local: this section documents the method, not numbers.
+
+## Bounded workload scaling
+
+`tools/conformance-perf-scale.js` (report contract `dcp-ai-perf-scale/1`) measures how the normative verifiers of this
+checkout scale on a small, finite grid: three sizes in each of four dimensions, three controls per size. It is a
+separate tool: `dcp-ai-perf/1`, its children and its reports are unchanged. It is not a stress test, a search for
+failure thresholds, a ranking or a speed requirement; CI checks the harness (verdicts, counts, units, cleanup) and sets no speed or memory threshold.
+
+```bash
+node tools/conformance-perf-scale.js --list
+node tools/conformance-perf-scale.js --generate /tmp/scale-corpus
+node tools/conformance-perf-scale.js --corpus /tmp/scale-corpus --sizes small --warmup 1 --samples 2 --offline --python /path/to/python --report /tmp/scale-smoke.json
+node tools/conformance-perf-scale.js --corpus /tmp/scale-corpus --no-build --python /path/to/python --report /tmp/scale.json
+DCP_PERF_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/perf-scale.test.mjs
+```
+
+- **Preparation:** `--generate` signs with the TypeScript `dist` and imports the root packages, so it needs the local preparation of the [audit dossier](../../docs/conformance/AUDIT_DOSSIER.md#reproduce) first: the TypeScript SDK built and the root installed from the committed locks. A run then builds what it measures; with `--offline` the Go, Cargo and wasm-pack caches must already hold the dependencies. `--python` (or `DCP_PERF_PYTHON`) names an interpreter with the Python SDK's dependencies and pip.
+- **Dimensions:** bytes (1, 16 and 256 KiB of one ASCII string in an open member of `intent.payload.target`), nesting
+  (4, 16 and 64 nested objects in that member), audit length (1, 16 and 256 entries) and mandate chain length (1, 4
+  and 16 DCP-09 mandates; the root has `delegation_depth` 0). Bundles run in the five SDKs through the unchanged
+  `dcp-ai-perf/1` children; chains run in TypeScript, Python, Go and Rust through separate `dcp-ai-perf-mandate/1`
+  children, because WASM exposes no mandate chain API.
+- **Controls:** `valid` is signed again after it grows, so it reaches the whole verifier; `stale` is the valid document
+  with one byte of the grown part changed after signing; `schema` is the valid document with one fixed schema
+  violation (for a chain, a shape error of the root). The first errors of a negative must show its category: only
+  `schema: …` lines for a schema control; for a stale one, `intent: payload_hash mismatch`,
+  `Manifest audit_merkle_root mismatch` or `mandate[i]: … does not verify`, and no schema or shape error. That is the
+  category the SDK reports, not proof that one internal path ran alone.
+- **Corpus:** generated once with TEST-ONLY keys and measured from its exact bytes, listed with their hashes in a
+  manifest. Bundle ML-DSA-65 signatures are hedged, so a new generation gives other bytes. Before any child, the tool
+  checks the corpus: bounded regular files, exactly the planned entries as the code defines them, the magnitude of
+  each size, the one-byte and one-change relations of the controls, the schemas with Ajv, and the integrity and
+  signatures without any SDK. Expectations never come from agreement of the SDKs.
+- **Latency:** per call in process, as in `dcp-ai-perf/1` (parse of the input bytes and the verifier); generation,
+  signing, build, process start and request decoding are outside it. One child per SDK and dimension, round-robin over
+  its nine workloads; at most 10 warmup calls and 50 samples per workload, one round. Every call is checked.
+- **Memory:** a fresh child per SDK and workload (1 warmup call and 3 samples, all checked), started by
+  `tools/conformance/perf/rusage.py`, which reads the kernel high-water RSS of that exact process (`ru_maxrss` through
+  `os.wait4`: bytes on macOS, KiB on Linux, normalized to bytes; null with the reason elsewhere, never 0). It is the peak
+  of the whole process over its life (runtime, imports, request copies, warmup, verification, result), not the
+  verifier's allocation and not a sampled value. The heap is not measured. Memory is never compared with latency.
+- **Scaling:** within one SDK only: each size's median against the smallest size of the same series, and each peak
+  RSS minus that of the smallest size. No ranking, no threshold, no attribution to a primitive.
+- **Deadline and processes:** the command is a supervisor. It runs the work as a worker in its own process group and,
+  at `--deadline-ms` (60 minutes by default), stops the worker and every process it started, found through `/bin/ps`
+  including children in their own groups, then writes an error report. Without process enumeration nothing starts; if
+  enumeration fails during a stop, the known worker group is still killed and the report says that the cleanup is
+  incomplete. Inside, the worker keeps a cooperative budget: a step starts only if its reservation fits. The supervisor
+  is tested on macOS and Linux only. `--generate` writes into a staging directory the run creates, renamed only after
+  the corpus checks.
+- **Provenance:** the `dcp-ai-perf/1` record of the five SDKs, plus the tool's JavaScript modules found transitively
+  from its entry points, the packages they resolve, the schema tree, the root manifests and lock, the mandate children
+  and their binaries, and `pip freeze` of the measured interpreter. It is computed before and after the run; any
+  difference, gap or change of the corpus bytes is an error. The build is shared with `dcp-ai-perf/1`.
+- **Report:** `baseline` is true only for every size, both phases, a pass and no override. `--child-argv`,
+  `--launcher-argv` and any `DCP_PERF_SCALE_SELFTEST_*` variable are named as test overrides. Exit codes: 0 pass, 1 a
+  failed check (verdict or stage), 2 usage, 3 infrastructure, corpus, build, provenance or deadline.
+- **Limits:** one machine and a small sample; frequency, thermal and power state and background load are not
+  controlled. Results stay local: this section documents the method, not numbers.

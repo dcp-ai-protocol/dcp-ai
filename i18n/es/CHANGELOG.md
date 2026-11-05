@@ -334,6 +334,13 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
 
 ### Añadido
 
+- Escalado acotado de cargas (`tools/conformance-perf-scale.js`, contrato de informe `dcp-ai-perf-scale/1`), desarrollado el 05/11/2026; sin cambios en SDK, manifiestos ni locks, y `dcp-ai-perf/1` con sus hijos no cambia.
+  - Cubre cuatro dimensiones con tres tamaños cada una (bytes de una cadena, anidamiento, entradas de auditoría y longitud de la cadena de mandatos). Cada tamaño tiene un control válido vuelto a firmar, uno de firma obsoleta y uno de esquema, y se comprueba la categoría de cada negativo en sus primeros errores. Los bundles se ejecutan en cinco SDK y las cadenas de mandatos en cuatro, mediante hijos `dcp-ai-perf-mandate/1` separados.
+  - El corpus se genera una vez con claves TEST-ONLY, se mide a partir de sus bytes exactos y se comprueba antes de cualquier hijo con Ajv y con las comprobaciones de integridad y firmas sin SDK.
+  - La memoria es el máximo de RSS del núcleo de un hijo nuevo por observación (`tools/conformance/perf/rusage.py`); el heap no se mide.
+  - Un supervisor detiene la ejecución y todos los procesos que arrancó al llegar al plazo, e informa como tal una limpieza incompleta.
+  - CI ejecuta sus autopruebas y un smoke con el tamaño menor; comprueban veredictos, recuentos, unidades y limpieza, sin ningún umbral de velocidad ni de memoria.
+    [Kit de conformidad](../../tools/conformance/README.md#bounded-workload-scaling).
 - Pruebas diferenciales (`tools/difffuzz`), desarrolladas el 05/11/2026; sin cambios en SDK, manifiestos ni locks.
   - `run-mandates.mjs` envía la misma cadena de mandatos DCP-09 re-firmada a los verificadores de cadenas de
     TypeScript, Python, Go y Rust mediante el contrato `/4` (formato `dcp-mandatefuzz/1`). Cada ejecución cubre 73

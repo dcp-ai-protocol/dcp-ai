@@ -329,6 +329,13 @@ Publicado em 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 e `@dcp-ai/cl
 
 ### Adicionado
 
+- Escalonamento limitado de cargas (`tools/conformance-perf-scale.js`, contrato de relatório `dcp-ai-perf-scale/1`), desenvolvido em 05/11/2026; sem mudanças em SDKs, manifestos ou locks, e `dcp-ai-perf/1` com os seus filhos não muda.
+  - Cobre quatro dimensões com três tamanhos cada (bytes de uma string, aninhamento, entradas de auditoria e comprimento da cadeia de mandatos). Cada tamanho tem um controle válido assinado de novo, um de assinatura obsoleta e um de esquema, e a categoria de cada negativo é verificada nos seus primeiros erros. Os bundles rodam em cinco SDKs e as cadeias de mandatos em quatro, por filhos `dcp-ai-perf-mandate/1` separados.
+  - O corpus é gerado uma vez com chaves TEST-ONLY, medido a partir dos seus bytes exatos e verificado antes de qualquer filho com Ajv e com as verificações de integridade e assinaturas sem SDK.
+  - A memória é o máximo de RSS do kernel de um filho novo por observação (`tools/conformance/perf/rusage.py`); o heap não é medido.
+  - Um supervisor para a execução e todos os processos que ela iniciou ao chegar ao prazo, e informa como tal uma limpeza incompleta.
+  - A CI roda os seus autotestes e um smoke com o menor tamanho; verificam veredictos, contagens, unidades e limpeza, sem nenhum limiar de velocidade nem de memória.
+    [Kit de conformidade](../../tools/conformance/README.md#bounded-workload-scaling).
 - Testes diferenciais (`tools/difffuzz`), desenvolvidos em 05/11/2026; sem mudanças em SDKs, manifestos ou locks.
   - `run-mandates.mjs` envia a mesma cadeia de mandatos DCP-09 reassinada aos verificadores de cadeia de TypeScript,
     Python, Go e Rust pelo contrato `/4` (formato `dcp-mandatefuzz/1`). Cada execução cobre 73 variantes em 11 famílias

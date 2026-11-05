@@ -142,7 +142,7 @@ node tools/difffuzz/run-mandates.mjs --iterations 120 --report /tmp/mandates.jso
 - **Rust。** A2A の AES-256-GCM セッション暗号化とそのリプレイウィンドウがありません（[RUST_RELEASE.md](../../../../docs/RUST_RELEASE.md)）。
 - **公開バージョン。** [成果物](#artifacts)に挙げた変更を含みません。
 - **差分とファジングのキャンペーン。** 有限であり、網羅的ではありません。契約 `/4` がすべての SDK に運べない入力は別に測定します（[差分ハーネス](../../../../tools/difffuzz/README.md#mandate-chains)）。
-- **性能。** 速度の要件は確認していません。[性能の基準値](../../../../tools/conformance/README.md#performance-baseline)はローカルでの測定です。
+- **性能。** 速度の要件は確認していません。[性能の基準値](../../../../tools/conformance/README.md#performance-baseline)と[上限のあるワークロードの規模変化](../../../../tools/conformance/README.md#bounded-workload-scaling)は、基準のコミットの後に追加した、方法についてのローカルでの測定です。どちらも監査の結果ではありません。
 - **対象外。** コンテナイメージ、デプロイ、サービストークン、運用者の設定。
 
 <a id="reporting"></a>
