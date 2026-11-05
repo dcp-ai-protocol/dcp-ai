@@ -128,24 +128,39 @@ export async function createSubMandate(
 }
 
 /**
- * Verify a delegation mandate is still valid (not expired, not revoked).
+ * Whether a mandate is valid at `now` as far as time and local revocation go (DCP-09 §3.5.2 rule 4, §3.6): its own
+ * `mandate_id` is a non-empty string not in `revokedMandateIds` (exact match), its `valid_from` and `valid_until` are
+ * RFC 3339 instants (parseRfc3339, compared in milliseconds, never as text) with `valid_from` not after `valid_until`,
+ * and `now` lies within that window, both limits included. The first failing rule gives the reason; a JSON value or a
+ * value of the wrong type gives a result, not an exception. It verifies no signature, schema, scope or chain (see
+ * verifyMandateChain) and authorizes nothing. `now` is the verification time (default: the current time), as a Date
+ * or milliseconds since the epoch, truncated to milliseconds.
  */
 export function verifyMandateValidity(
   mandate: DelegationMandate,
   revokedMandateIds: Set<string>,
+  now: Date | number = Date.now(),
 ): { valid: boolean; reason?: string } {
-  if (revokedMandateIds.has(mandate.mandate_id)) {
-    return { valid: false, reason: 'Mandate has been revoked' };
-  }
+  const invalid = (reason: string) => ({ valid: false, reason });
+  const nowMs = typeof now === 'number' ? now : now instanceof Date ? now.getTime() : NaN;
+  if (!Number.isFinite(nowMs)) return invalid('Verification time is not an instant');
+  if (!(revokedMandateIds instanceof Set)) return invalid('Revoked mandate IDs are not a set');
+  const m: unknown = mandate;
+  if (!isObject(m)) return invalid('Mandate is not an object');
+  const own = (key: string): unknown => (hasOwn(m, key) ? m[key] : undefined);
 
-  const now = new Date();
-  if (new Date(mandate.valid_from) > now) {
-    return { valid: false, reason: 'Mandate is not yet valid' };
-  }
-  if (new Date(mandate.valid_until) < now) {
-    return { valid: false, reason: 'Mandate has expired' };
-  }
+  const id = own('mandate_id');
+  if (!isNonEmptyString(id)) return invalid('Mandate mandate_id is missing or invalid');
+  if (revokedMandateIds.has(id)) return invalid('Mandate has been revoked');
+  const from = parseRfc3339(own('valid_from'));
+  if (from === undefined) return invalid('Mandate valid_from is missing or invalid');
+  const until = parseRfc3339(own('valid_until'));
+  if (until === undefined) return invalid('Mandate valid_until is missing or invalid');
+  if (from > until) return invalid('Mandate valid_from is after valid_until');
 
+  const at = Math.floor(nowMs);
+  if (from > at) return invalid('Mandate is not yet valid');
+  if (until < at) return invalid('Mandate has expired');
   return { valid: true };
 }
 

@@ -5,7 +5,7 @@
 
 # @dcp-ai/sdk — DCP-AI v2.0 的 TypeScript SDK
 
-> 本文是[英文版](../../../../sdks/typescript/README.md)的参考译文，更新于 02/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../../sdks/typescript/README.md)的参考译文，更新于 04/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 Digital Citizenship Protocol（DCP-AI）的官方 TypeScript SDK。使用后量子混合密码学（Ed25519 + ML-DSA-65）、复合签名、自适应安全等级、智能体间（A2A）通信、内置可观测性和面向生产的加固，创建、签署并验证 Citizenship Bundle。
 
@@ -381,6 +381,7 @@ const result = await admitSignedBundleV2(signedBundle, registry, { profile, trus
 |----------|-------------|
 | `createDelegationMandate(registry, humanKeys, params)` | 由人类签署的根委托书（`human_composite_sig`）；`sub_delegation` 和 `minimum_security_tier` 为可选 |
 | `createSubMandate(registry, delegatorKeys, parent, params)` | 由父级的智能体签署的子委托书（`delegator_composite_sig`，`DCP-AI.v2.SubMandate` 上下文） |
+| `verifyMandateValidity(mandate, revokedIds, now?)` | 一份委托书的 `mandate_id`、本地吊销以及 `now` 时的有效期窗口（以毫秒计的 RFC 3339 时刻，两端都包含）；缺失、格式错误或颠倒的窗口无效。不检查签名、范围或链，也不授权任何操作。在 `main` 上，不在已发布版本中；返回 `{ valid, reason? }` |
 | `verifyMandateChain(registry, chain, revokedIds, keys, now?)` | 从根开始验证链：直到人类的签名、与父级的链接和深度、`sub_delegation`、嵌套的有效期窗口、权限收窄（操作、`data_classes` 和 `limits` 只能缩小）、安全等级下限以及吊销；返回 `{ valid, errors, depth, effective_tier }` |
 
 ```typescript

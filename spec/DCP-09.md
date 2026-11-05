@@ -871,8 +871,11 @@ An implementation is DCP-09 conformant if it:
   the keys passed in: `DCP-AI.v2.Awareness` for awareness thresholds and advisory declarations,
   `DCP-AI.v2.Delegation` for principal mirrors and interaction records. There is no agent acknowledgment of a mandate
   (§3.3) and no second, principal signature on a mirror (§6.3).
-- **What the helpers do.** `verifyMandateValidity` checks only a set of revoked IDs and the validity window, not the
-  signature or the scope. `revoke_delegation` (Python) adds the ID to a local set when the mandate is `revocable`; it
+- **What the helpers do.** `verifyMandateValidity` (`verify_mandate_validity`, `VerifyMandateValidityAt`,
+  `verify_mandate_validity_at`) checks only a non-empty `mandate_id`, a set of revoked IDs and the validity window at
+  a verification time: RFC 3339 instants as in §3.5.2, both limits included, and a missing, malformed or inverted
+  window is invalid. This contract is on `main`, not in a published version. It checks neither the signature nor the
+  scope and authorizes nothing. `revoke_delegation` (Python) adds the ID to a local set when the mandate is `revocable`; it
   produces no signed revocation record (§3.6). `generateMirror` hashes the audit entries it receives (SHA-256) and signs
   the narrative and summary the caller writes; it neither writes the narrative nor obtains approval. The `A2A_HELLO`
   and `A2A_WELCOME` types have optional `mandate_id` and `mandate_hash` fields, but no SDK verifies a mandate during the

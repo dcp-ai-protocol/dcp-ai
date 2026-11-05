@@ -245,6 +245,8 @@ The WASM SDK includes TypeScript interfaces for all DCP-05 through DCP-09 artifa
 
 Domain separation contexts available via `domainSeparatedMessage()`: `Lifecycle`, `Succession`, `Dispute`, `Rights`, `Delegation`, `Awareness`
 
+These are types only. The package exports no mandate validity or mandate chain function; `verify_mandate_validity_at` and `verify_mandate_chain` are in the Rust crate it is built from, and the other SDKs have their own.
+
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
 
 ## Experimental: Canonicalization Candidate `dcp-jcs-v2` (opt-in)

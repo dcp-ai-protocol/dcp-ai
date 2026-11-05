@@ -6,7 +6,7 @@
 
 **Publicação Rust (26/10/2026).** Rust `dcp-ai` 2.11.0 está publicado no crates.io, incluindo correções do verificador, admissão e APIs experimentais opt-in. `dcp-jcs-v1` continua sendo o perfil normativo padrão. Veja [Rust 2.11.0](../../../../docs/RUST_RELEASE.md).
 
-> Tradução informativa do [README em inglês](../../../../sdks/rust/README.md), atualizada em 02/11/2026. Identificadores e blocos de código, incluindo comentários, são preservados no idioma original para manter os exemplos verificados.
+> Tradução informativa do [README em inglês](../../../../sdks/rust/README.md), atualizada em 04/11/2026. Identificadores e blocos de código, incluindo comentários, são preservados no idioma original para manter os exemplos verificados.
 
 SDK oficial em Rust para o Digital Citizenship Protocol (DCP v2.0). Oferece tipos baseados em Serde, criptografia pós-quântica híbrida (Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768), assinaturas compostas com vinculação `pq_over_classical`, cadeias de hash duplas, observabilidade com OpenTelemetry, comportamento DCP-04..09 e suporte opcional a WebAssembly.
 
@@ -214,6 +214,7 @@ Todas as estruturas derivam `Debug`, `Clone`, `Serialize` e `Deserialize`. As en
 |----------|-------------|
 | `create_delegation_mandate_with_options(ed, pq, human_classical, human_pq, params, &MandateChainOptions)` | Mandato raiz assinado pela pessoa, com `sub_delegation` e `minimum_security_tier` opcionais |
 | `create_sub_mandate(ed, pq, classical, pq_key, &parent, SubMandateParams { .. })` | Submandato assinado pelo agente do mandato pai sob o contexto `DCP-AI.v2.SubMandate` |
+| `verify_mandate_validity(&mandate, &revoked_ids)` / `verify_mandate_validity_at(&mandate, &revoked_ids, now_millis)` | O `mandate_id`, a revogação local e a janela de validade de um mandato em `now` (instantes RFC 3339 em milissegundos, com os dois limites incluídos); uma janela ausente, malformada ou invertida não é válida. Não verifica assinatura, escopo nem cadeia, e não autoriza nada. Na `main`, não em uma versão publicada |
 | `verify_mandate_chain(&chain, &revoked_ids, &MandateChainKeys { human_keys, agent_keys }, now_millis)` | Verifica a cadeia offline, começando pela raiz (assinaturas até a pessoa, vínculos e profundidade, `sub_delegation`, validade aninhada, restrição de ações, `data_classes` e `limits`, nível mínimo e revogação); retorna `MandateChainResult { valid, errors, depth, effective_tier }` |
 
 <a id="admission-dcp_aiv2-specprofilesadmission-unreleased"></a>

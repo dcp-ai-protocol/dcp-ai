@@ -4,7 +4,7 @@
 
 # @dcp-ai/wasm — SDK WebAssembly v2.0
 
-> Tradução informativa do [README em inglês](../../../../sdks/wasm/README.md), atualizada em 02/11/2026. Os identificadores e os blocos de código, incluindo seus comentários, foram preservados para manter os exemplos testados.
+> Tradução informativa do [README em inglês](../../../../sdks/wasm/README.md), atualizada em 04/11/2026. Os identificadores e os blocos de código, incluindo seus comentários, foram preservados para manter os exemplos testados.
 
 Módulo WebAssembly para o Digital Citizenship Protocol (DCP) v2.0, compilado a partir do SDK de Rust. Oferece assinaturas compostas pós-quânticas, geração de chaves híbridas, encapsulamento de chaves ML-KEM-768, hashes duplos, construção e verificação de bundles e cálculo do nível de segurança. Tudo é executado diretamente no navegador ou no Node.js, sem servidor.
 
@@ -278,6 +278,8 @@ O SDK WASM inclui interfaces TypeScript para todos os artefatos DCP-05 a DCP-09,
 | DCP-09 Delegação | `DelegationMandate`, `AdvisoryDeclaration`, `PrincipalMirror`, `InteractionRecord`, `AwarenessThreshold`, `ThresholdRule`, `AuthorityScopeEntry`, `ThresholdOperator`, `ThresholdAction` |
 
 Contextos de separação de domínios disponíveis por `domainSeparatedMessage()`: `Lifecycle`, `Succession`, `Dispute`, `Rights`, `Delegation`, `Awareness`.
+
+São só tipos. O pacote não exporta nenhuma função de validade nem de cadeia de mandatos; `verify_mandate_validity_at` e `verify_mandate_chain` estão no crate Rust a partir do qual ele é compilado, e os outros SDKs têm as suas.
 
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in"></a>
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>

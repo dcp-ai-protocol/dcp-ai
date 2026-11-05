@@ -2,7 +2,7 @@
 
 # dcp-ai — Python SDK
 
-> [英語版](../../../../sdks/python/README.md)の参考訳です（02/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../../sdks/python/README.md)の参考訳です（04/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 Digital Citizenship Protocol（DCP v2.0）の公式 Python SDK です。Pydantic v2 のモデル、ポスト量子のハイブリッド署名（Ed25519 + ML-DSA-65、および SLH-DSA-192f）、ML-KEM-768 の KEM プリミティブ、`pq_over_classical` バインディングを持つ複合署名、V1 と V2 のバンドルの署名と検証、OpenTelemetry によるオブザーバビリティ、DCP-04 から DCP-09 までの動作、そして充実した CLI を備えています。
 
@@ -326,7 +326,11 @@ result = await admit_signed_bundle_v2(signed_bundle, registry, profile=profile, 
 サブ委任状を別のエージェントに発行できます（`create_sub_mandate`）。`verify_mandate_chain` は
 ルートから順に、オフラインでチェーンを確認します：人間までの署名、親とのリンクと深さ、`sub_delegation`、
 入れ子になった有効期間、権限の縮小（アクション、`data_classes`、`limits` は狭まるのみ）、セキュリティティアの
-下限、失効。
+下限、失効。`verify_mandate_validity(mandate, revoked_ids, now=...)` は、aware な `now`（既定は現在時刻。naive な `datetime` は
+拒否）で一つの委任状の `mandate_id`、ローカルな失効、有効期間を確認します。ミリ秒単位の RFC 3339 の瞬間を使い、両端を
+含みます。欠落した、不正な形の、または逆転した期間は無効です。失効した ID は集合（`set`、`frozenset`、dict のキービュー）
+でなければならず、リストや文字列は拒否されます。例外を送出せずに結果を返し、署名、範囲、チェーンは確認せず、何も認可
+しません。これは `main` にあり、公開済みのバージョンには含まれません。
 
 ```python
 # Fragment, inside an async function: registry as in V2 Bundles; orchestrator_classical, orchestrator_pq, root_mandate, nonce and the key entries come from your delegation setup; intent and policy_decision are V2 payloads.

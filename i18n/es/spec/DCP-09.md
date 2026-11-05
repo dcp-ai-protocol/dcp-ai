@@ -5,7 +5,7 @@
 
 # DCP-09: Delegación y representación
 
-> Traducción informativa de [la especificación en inglés](../../../spec/DCP-09.md), actualizada el 25/10/2026. **La versión normativa es la inglesa**: esta traducción no tiene valor normativo y, si difieren, prevalece el inglés. Los identificadores y bloques de código se conservan sin traducir.
+> Traducción informativa de [la especificación en inglés](../../../spec/DCP-09.md), actualizada el 04/11/2026. **La versión normativa es la inglesa**: esta traducción no tiene valor normativo y, si difieren, prevalece el inglés. Los identificadores y bloques de código se conservan sin traducir.
 
 <a id="status"></a>
 
@@ -988,8 +988,11 @@ Una implementación es conforme con DCP-09 si:
   tenga las claves que se pasan: `DCP-AI.v2.Awareness` para los umbrales de conciencia y las declaraciones de aviso,
   `DCP-AI.v2.Delegation` para los espejos del principal y los registros de interacción. No hay acuse de recibo del
   mandato por el agente (§3.3) ni segunda firma, del principal, en el espejo (§6.3).
-- **Lo que hacen las funciones auxiliares.** `verifyMandateValidity` solo comprueba un conjunto de ID revocados y la
-  ventana de validez, no la firma ni el ámbito. `revoke_delegation` (Python) añade el ID a un conjunto local cuando el
+- **Lo que hacen las funciones auxiliares.** `verifyMandateValidity` (`verify_mandate_validity`, `VerifyMandateValidityAt`,
+  `verify_mandate_validity_at`) solo comprueba un `mandate_id` no vacío, un conjunto de ID revocados y la ventana de
+  validez en una hora de verificación: instantes RFC 3339 como en §3.5.2, con los dos límites incluidos, y una ventana
+  ausente, malformada o invertida no es válida. Este contrato está en `main`, no en una versión publicada. No comprueba
+  la firma ni el ámbito y no autoriza nada. `revoke_delegation` (Python) añade el ID a un conjunto local cuando el
   mandato es `revocable`; no produce ningún registro de revocación firmado (§3.6). `generateMirror` calcula el hash
   (SHA-256) de las entradas de auditoría que recibe y firma la narrativa y el resumen que escribe quien llama; no escribe
   la narrativa ni obtiene ninguna aprobación. Los tipos `A2A_HELLO` y `A2A_WELCOME` tienen campos opcionales

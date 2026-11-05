@@ -138,22 +138,51 @@ type MandateValidity struct {
 	Reason string
 }
 
-// VerifyMandateValidity checks mandate expiry and revocation.
+// VerifyMandateValidity is VerifyMandateValidityAt at the current time.
 func VerifyMandateValidity(mandate map[string]interface{}, revokedMandateIDs map[string]bool) MandateValidity {
+	return VerifyMandateValidityAt(mandate, revokedMandateIDs, time.Now())
+}
+
+// VerifyMandateValidityAt reports whether a mandate is valid at now as far as
+// time and local revocation go (DCP-09 §3.5.2 rule 4, §3.6): its mandate_id is
+// a non-empty string not revoked in revokedMandateIDs, its valid_from and
+// valid_until are RFC 3339 instants (parseRFC3339, compared in milliseconds,
+// never as text) with valid_from not after valid_until, and now lies within
+// that window, both limits included. The first failing rule gives the reason;
+// a nil map is not a mandate. It verifies no signature, schema, scope or chain
+// (see VerifyMandateChain) and authorizes nothing. now is taken as given,
+// truncated to milliseconds and compared as a time.Time, so any year it holds
+// keeps its order: the zero time is the instant of year 1, never the current
+// time.
+func VerifyMandateValidityAt(mandate map[string]interface{}, revokedMandateIDs map[string]bool, now time.Time) MandateValidity {
+	invalid := func(reason string) MandateValidity { return MandateValidity{Valid: false, Reason: reason} }
+	if mandate == nil {
+		return invalid("Mandate is not an object")
+	}
 	id, _ := mandate["mandate_id"].(string)
+	if id == "" {
+		return invalid("Mandate mandate_id is missing or invalid")
+	}
 	if revokedMandateIDs[id] {
-		return MandateValidity{Valid: false, Reason: "Mandate has been revoked"}
+		return invalid("Mandate has been revoked")
 	}
-	validFrom, _ := mandate["valid_from"].(string)
-	validUntil, _ := mandate["valid_until"].(string)
-	now := time.Now().UTC()
-	vf, err := time.Parse(time.RFC3339, validFrom)
-	if err == nil && vf.After(now) {
-		return MandateValidity{Valid: false, Reason: "Mandate is not yet valid"}
+	from, ok := parseRFC3339(mandate["valid_from"])
+	if !ok {
+		return invalid("Mandate valid_from is missing or invalid")
 	}
-	vu, err := time.Parse(time.RFC3339, validUntil)
-	if err == nil && vu.Before(now) {
-		return MandateValidity{Valid: false, Reason: "Mandate has expired"}
+	until, ok := parseRFC3339(mandate["valid_until"])
+	if !ok {
+		return invalid("Mandate valid_until is missing or invalid")
+	}
+	if from.After(until) {
+		return invalid("Mandate valid_from is after valid_until")
+	}
+	at := truncateToMillis(now)
+	if from.After(at) {
+		return invalid("Mandate is not yet valid")
+	}
+	if until.Before(at) {
+		return invalid("Mandate has expired")
 	}
 	return MandateValidity{Valid: true}
 }

@@ -6,7 +6,7 @@
 
 **Go の公開 (26/10/2026).** Go SDK `v2.11.0` はモジュールタグ `sdks/go/v2.11.0` から利用でき、検証器の修正、受け入れ、実験的なオプトイン API を含みます。Rust の公開は別です。参照： [Go v2.11.0](../../../../docs/GO_RELEASE.md).
 
-> [英語版 README](../../../../sdks/go/README.md)の参考訳です。更新日：02/11/2026。検証済みの例を維持するため、識別子とコードブロック（コメントを含む）は原文のままにしています。
+> [英語版 README](../../../../sdks/go/README.md)の参考訳です。更新日：04/11/2026。検証済みの例を維持するため、識別子とコードブロック（コメントを含む）は原文のままにしています。
 
 Digital Citizenship Protocol（DCP）v1.0 および v2.0 向けの公式 Go SDK。Ed25519、ML-DSA-65、SLH-DSA-192f、ML-KEM-768、複合署名、二重ハッシュチェーン、バンドル検証をサポートします。
 
@@ -279,6 +279,7 @@ if !result.Admitted {
 |----------|-------------|
 | `v2.CreateDelegationMandate(reg, humanClassical, humanPQ, params)` | 人間が署名したルート委任状。`SubDelegation` と `MinimumSecurityTier` はオプション |
 | `v2.CreateSubMandate(reg, delegatorClassical, delegatorPQ, parent, v2.SubMandateParams{...})` | 親委任状のエージェントが `DCP-AI.v2.SubMandate` コンテキストの下で署名した下位委任状 |
+| `v2.VerifyMandateValidity(mandate, revokedIDs)` / `v2.VerifyMandateValidityAt(mandate, revokedIDs, now)` | 一つの委任状の `mandate_id`、ローカルな失効、`now` での有効期間（ミリ秒単位の RFC 3339 の瞬間、両端を含む）。欠落した、不正な形の、または逆転した期間は無効。署名、範囲、チェーンは確認せず、何も認可しない。`main` にあり、公開済みのバージョンには含まれない。`…At` は `now` を与えられたとおりに使う。ゼロ時刻は現在時刻ではなく 1 年 |
 | `v2.VerifyMandateChain(reg, chain, revokedIDs, v2.MandateChainKeys{HumanKeys, AgentKeys}, now)` | ルートから順にオフラインでチェーンを検証する（人間に遡る署名、リンクと深さ、`sub_delegation`、入れ子の有効期間、行動・`data_classes`・`limits` の制限、最低階層、失効）。`MandateChainResult{Valid, Errors, Depth, EffectiveTier}` を返す |
 
 `SecurityTierInput.MandateChainTier` はチェーンの `EffectiveTier` を最低値として扱い、階層を上げることしかできません。

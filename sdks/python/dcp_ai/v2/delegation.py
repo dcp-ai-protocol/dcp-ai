@@ -8,7 +8,8 @@ Delegation mandates (human → agent authority), sub-mandates and mandate chains
 from __future__ import annotations
 
 import math
-from datetime import datetime, timezone
+from collections.abc import Set as AbstractSet
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from dcp_ai.v2.canonicalize import canonicalize_v2
@@ -17,7 +18,7 @@ from dcp_ai.v2.crypto_registry import AlgorithmRegistry
 from dcp_ai.v2.domain_separation import DCP_CONTEXTS
 from dcp_ai.v2.lifecycle import _utc_now
 from dcp_ai.v2.security_tier import max_tier
-from dcp_ai.v2.session_nonce import parse_rfc3339
+from dcp_ai.v2.session_nonce import parse_rfc3339, rfc3339_epoch_ms
 
 
 def _chain_fields(sub_delegation: dict[str, Any] | None, minimum_security_tier: str | None) -> dict[str, Any]:
@@ -125,24 +126,63 @@ async def create_sub_mandate(
     return {**payload, "delegator_composite_sig": composite}
 
 
+_EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
+_MILLISECOND = timedelta(milliseconds=1)
+
+
 def verify_mandate_validity(
     mandate: dict[str, Any],
-    revoked_mandate_ids: set[str],
+    revoked_mandate_ids: AbstractSet[str],
     *,
     now: datetime | None = None,
 ) -> dict[str, Any]:
-    """Verify a delegation mandate is still valid (not expired, not revoked)."""
-    if mandate["mandate_id"] in revoked_mandate_ids:
-        return {"valid": False, "reason": "Mandate has been revoked"}
+    """Whether a mandate is valid at ``now`` as far as time and local revocation go
+    (DCP-09 §3.5.2 rule 4, §3.6).
 
-    current = now or datetime.now(timezone.utc)
-    valid_from = datetime.fromisoformat(mandate["valid_from"].replace("Z", "+00:00"))
-    valid_until = datetime.fromisoformat(mandate["valid_until"].replace("Z", "+00:00"))
+    Its ``mandate_id`` is a non-empty string not in ``revoked_mandate_ids`` (a
+    ``collections.abc.Set``, exact match), its ``valid_from`` and ``valid_until`` are
+    RFC 3339 instants (rfc3339_epoch_ms, compared in milliseconds, never as text) with
+    ``valid_from`` not after ``valid_until``, and ``now`` lies within that window, both
+    limits included. The first failing rule gives the reason; a JSON value or a value
+    of the wrong type gives a result, not an exception. It verifies no signature,
+    schema, scope or chain (see verify_mandate_chain) and authorizes nothing.
 
-    if valid_from > current:
-        return {"valid": False, "reason": "Mandate is not yet valid"}
-    if valid_until < current:
-        return {"valid": False, "reason": "Mandate has expired"}
+    ``now`` is the verification time (default: the current time), an aware datetime
+    truncated to milliseconds. A naive datetime is not an instant and is refused, unlike
+    verify_mandate_chain, which reads it as UTC.
+    """
+
+    def invalid(reason: str) -> dict[str, Any]:
+        return {"valid": False, "reason": reason}
+
+    if now is None:
+        now = datetime.now(timezone.utc)
+    elif not isinstance(now, datetime) or now.utcoffset() is None:
+        return invalid("Verification time is not an instant")
+    if not isinstance(revoked_mandate_ids, AbstractSet):
+        return invalid("Revoked mandate IDs are not a set")
+    if not isinstance(mandate, dict):
+        return invalid("Mandate is not an object")
+
+    mandate_id = dict.get(mandate, "mandate_id")
+    if not _is_str(mandate_id):
+        return invalid("Mandate mandate_id is missing or invalid")
+    if mandate_id in revoked_mandate_ids:
+        return invalid("Mandate has been revoked")
+    valid_from = rfc3339_epoch_ms(dict.get(mandate, "valid_from"))
+    if valid_from is None:
+        return invalid("Mandate valid_from is missing or invalid")
+    valid_until = rfc3339_epoch_ms(dict.get(mandate, "valid_until"))
+    if valid_until is None:
+        return invalid("Mandate valid_until is missing or invalid")
+    if valid_from > valid_until:
+        return invalid("Mandate valid_from is after valid_until")
+
+    at = (now - _EPOCH) // _MILLISECOND
+    if valid_from > at:
+        return invalid("Mandate is not yet valid")
+    if valid_until < at:
+        return invalid("Mandate has expired")
     return {"valid": True}
 
 

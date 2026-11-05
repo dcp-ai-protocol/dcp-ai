@@ -2,7 +2,7 @@
 
 # dcp-ai — Python SDK
 
-> 本文是[英文版](../../../../sdks/python/README.md)的参考译文，更新于 02/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../../sdks/python/README.md)的参考译文，更新于 04/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 Digital Citizenship Protocol（DCP v2.0）的官方 Python SDK。提供 Pydantic v2 模型、后量子混合签名（Ed25519 + ML-DSA-65，以及 SLH-DSA-192f）、ML-KEM-768 KEM 原语、带 `pq_over_classical` 绑定的复合签名、V1 和 V2 bundle 的签名与验证、OpenTelemetry 可观测性、DCP-04 至 DCP-09 的行为，以及功能完整的 CLI。
 
@@ -326,7 +326,10 @@ result = await admit_signed_bundle_v2(signed_bundle, registry, profile=profile, 
 子委托书（`create_sub_mandate`），用其自己的密钥签名。`verify_mandate_chain` 从根开始、离线地检查
 整条链：直到人类的签名、与父级的链接和深度、`sub_delegation`、
 嵌套的有效期窗口、权限收窄（操作、`data_classes` 和 `limits` 只能缩小）、安全等级
-下限以及吊销。
+下限以及吊销。`verify_mandate_validity(mandate, revoked_ids, now=...)` 在 aware 的 `now`（默认为当前时间；naive 的 `datetime` 会被
+拒绝）时检查一份委托书的 `mandate_id`、本地吊销和有效期窗口。它使用以毫秒计的 RFC 3339 时刻，两端都包含；缺失、格式
+错误或颠倒的窗口无效。已吊销的 ID 必须是集合（`set`、`frozenset` 或 dict 的键视图）；列表或字符串会被拒绝。它返回结果
+而不是抛出异常，不检查签名、范围或链，也不授权任何操作。这在 `main` 上，不在已发布版本中。
 
 ```python
 # Fragment, inside an async function: registry as in V2 Bundles; orchestrator_classical, orchestrator_pq, root_mandate, nonce and the key entries come from your delegation setup; intent and policy_decision are V2 payloads.

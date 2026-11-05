@@ -4,7 +4,7 @@
 
 # 变更日志
 
-> 本文是[英文版](../../CHANGELOG.md)的参考译文，更新于 02/11/2026。每个条目（包括 `[Unreleased]` 下的条目）描述的是当时所作的变更，并不保证当前行为；已发布的各版本是**带日期的历史记录**。如有出入，以英文版为准。
+> 本文是[英文版](../../CHANGELOG.md)的参考译文，更新于 04/11/2026。每个条目（包括 `[Unreleased]` 下的条目）描述的是当时所作的变更，并不保证当前行为；已发布的各版本是**带日期的历史记录**。如有出入，以英文版为准。
 
 **已发布版本（2026 年 10 月 26 日）。** npm（13 个软件包，包括 `@dcp-ai/sdk` 2.2.0）、Python `dcp-ai` 2.10.0、Go `v2.11.0` 和 Rust `dcp-ai` 2.11.0 均已发布，包含验证器修复、准入功能和实验性的选择启用 API；`dcp-jcs-v1` 仍是规范性默认值。见[已发布版本](../../docs/README.md#published-versions)。以下条目保留开发历史；`[Unreleased]` 不表示这些功能尚未发布。2026 年 10 月 28 日的六个修复版本见[单独的章节](#2026-10-28-sha3-patch-releases)。
 
@@ -60,6 +60,24 @@
 
 ### 安全
 
+- **接受范围变化：委托书有效性辅助函数**（`main` 上的源代码，不在任何已发布版本中）。`verifyMandateValidity`
+  （TypeScript）、`verify_mandate_validity`（Python）、`VerifyMandateValidity`（Go）和 `verify_mandate_validity`（Rust）
+  现在采用同一约定。委托书是一个带非空 `mandate_id` 的对象，吊销按精确匹配。`valid_from` 和 `valid_until` 是带 `Z` 或
+  `±hh:mm` 的 RFC 3339 时刻，由各 SDK 现有的严格解析器读取，以毫秒比较，从不按文本比较。`valid_from` 不得晚于
+  `valid_until`，验证时间位于窗口之内，两端都包含。第一个失败即为 `reason`，类型错误的值返回结果而不是异常。
+  - **变化：** TypeScript 和 Go 曾接受缺失或格式错误的日期。Python 曾抛出异常，并接受空格分隔符。Rust 曾把日期按文本
+    比较，因此偏移和小数部分可能在两个方向上被错误排序。输入约定也有变化：Python 要求已吊销的 ID 是
+    `collections.abc.Set`（`set`、`frozenset` 或 dict 的键视图），因此以前被容忍的列表或字符串现在会被拒绝（对字符串的
+    `in` 会匹配子串）。
+  - **日期格式：** 各 SDK 已经解析的子集（`tests/interop/v2/interop_vectors.json#rfc3339`），而不是完整的 RFC 3339：
+    `T` 和 `Z` 为大写，日期必须是真实的日历日期，没有第 60 秒，毫秒以下的小数位被舍弃。
+  - **时钟：** 可以注入验证时间：TypeScript 的 `now`（`Date` 或毫秒）、Python 的 `now=`（aware 的 `datetime`；naive
+    的会被拒绝）、Go 的 `VerifyMandateValidityAt`（`now` 按给定值使用）和 Rust 的 `verify_mandate_validity_at`（毫秒）。
+    现有调用仍使用当前时间。
+  - **共享向量：** `tests/interop/v2/mandate_validity_vectors.json`，94 个用例。TypeScript、Python 和 Rust 运行全部用例；
+    Go 运行 90 个，并按名称跳过 4 个：它们的委托书既不是 JSON 对象也不是 `null`，Go 的类型化映射无法接收。
+  - **WASM：** 只公开 `DelegationMandate` 类型，没有辅助函数。
+  - **范围：** 这些辅助函数不检查签名、模式、范围或链，也不授权任何操作。链验证器、准入、签名、配置文件、依赖和版本都不变。
 - **接受范围变化：每个 SDK 验证器中的 V2-2 模式校验**（`main` 上的源代码，不在任何已发布版本中）。TypeScript、Python、
   Go、Rust 和 WASM SDK 的 V2 验证器（`verifySignedBundleV2` 及其对应函数、先进行验证的组合准入 API 以及实验性候选验证器；
   根据先前结果评估准入时不会执行）在策略和时钟检查之后、检查清单、载荷哈希、密钥和签名之前，按 `schemas/v2` 校验已签名

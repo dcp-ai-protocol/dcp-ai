@@ -4,7 +4,7 @@
 
 # Registro de cambios
 
-> Traducción informativa de [la versión en inglés](../../CHANGELOG.md), actualizada el 02/11/2026. Cada entrada, también las de `[Unreleased]`, describe un cambio en su momento y no garantiza el comportamiento actual; las versiones publicadas son **registro histórico con fecha**. Si difieren, prevalece la versión en inglés.
+> Traducción informativa de [la versión en inglés](../../CHANGELOG.md), actualizada el 04/11/2026. Cada entrada, también las de `[Unreleased]`, describe un cambio en su momento y no garantiza el comportamiento actual; las versiones publicadas son **registro histórico con fecha**. Si difieren, prevalece la versión en inglés.
 
 **Versiones publicadas (26/10/2026).** Están publicados npm (13 paquetes, incluido `@dcp-ai/sdk` 2.2.0), Python `dcp-ai` 2.10.0, Go `v2.11.0` y Rust `dcp-ai` 2.11.0, con las correcciones del verificador, la admisión y las API experimentales opt-in; `dcp-jcs-v1` sigue siendo el valor normativo predeterminado. Véase [Versiones publicadas](../../docs/README.md#published-versions). Las entradas siguientes conservan su historial de desarrollo; `[Unreleased]` no significa que estas funciones no estén publicadas. Las seis publicaciones de corrección del 28/10/2026 están en [su propia sección](#2026-10-28-sha3-patch-releases).
 
@@ -64,6 +64,30 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
 
 ### Seguridad
 
+- **Cambio de aceptación: funciones auxiliares de vigencia de mandatos** (código fuente de `main`, no está en ninguna
+  versión publicada). `verifyMandateValidity` (TypeScript), `verify_mandate_validity` (Python), `VerifyMandateValidity`
+  (Go) y `verify_mandate_validity` (Rust) aplican ahora un mismo contrato. El mandato es un objeto con un `mandate_id`
+  no vacío, y la revocación es una coincidencia exacta. `valid_from` y `valid_until` son instantes RFC 3339 con `Z` o
+  `±hh:mm`, leídos por el parser estricto que ya tiene cada SDK, comparados en milisegundos y nunca como texto.
+  `valid_from` no puede ser posterior a `valid_until`, y la hora de verificación está dentro de la ventana, con los dos
+  límites incluidos. El primer fallo es el `reason`, y un valor de tipo erróneo da un resultado, no una excepción.
+  - **Qué cambia:** TypeScript y Go aceptaban una fecha ausente o malformada. Python lanzaba excepciones y aceptaba el
+    separador espacio. Rust comparaba las fechas como texto, así que los offsets y las fracciones podían ordenarse mal en
+    cualquiera de los dos sentidos. También cambia el contrato de entrada: Python exige que los ID revocados sean un
+    `collections.abc.Set` (un `set`, un `frozenset` o una vista de claves de dict), así que una lista o una cadena, antes
+    toleradas, se rechazan (`in` sobre una cadena compara subcadenas).
+  - **Formato de fecha:** el subconjunto que ya leen los SDK (`tests/interop/v2/interop_vectors.json#rfc3339`), no todo
+    RFC 3339: `T` y `Z` en mayúscula, una fecha de calendario real, sin segundo 60 y con los dígitos de fracción más allá
+    de los milisegundos descartados.
+  - **Reloj:** la hora de verificación se puede inyectar: TypeScript `now` (un `Date` o milisegundos), Python `now=` (un
+    `datetime` aware; uno naive se rechaza), Go `VerifyMandateValidityAt` (`now` tal como se da) y Rust
+    `verify_mandate_validity_at` (milisegundos). Las llamadas existentes siguen usando la hora actual.
+  - **Vectores compartidos:** `tests/interop/v2/mandate_validity_vectors.json`, 94 casos. TypeScript, Python y Rust los
+    ejecutan todos; Go ejecuta 90 y omite por nombre los 4 cuyo mandato no es un objeto JSON ni `null`, que su mapa
+    tipado no puede recibir.
+  - **WASM:** solo expone el tipo `DelegationMandate`, sin función auxiliar.
+  - **Alcance:** las funciones auxiliares no comprueban firma, esquema, ámbito ni cadena y no autorizan nada. El
+    verificador de cadenas, la admisión, las firmas, los perfiles, las dependencias y las versiones no cambian.
 - **Cambio de aceptación: validación de esquemas V2-2 en el verificador de cada SDK** (código fuente de `main`, no está en
   ninguna versión publicada). Los verificadores V2 de los SDK de TypeScript, Python, Go, Rust y WASM (`verifySignedBundleV2` y
   sus equivalentes, la API combinada de admisión, que verifica primero, y el verificador experimental del candidato; evaluar la

@@ -6,7 +6,7 @@
 
 **Publicación Rust (26/10/2026).** Rust `dcp-ai` 2.11.0 está publicado en crates.io, incluidas las correcciones del verificador, admisión y API experimentales opt-in. `dcp-jcs-v1` sigue siendo el perfil normativo predeterminado. Véase [Rust 2.11.0](../../../../docs/RUST_RELEASE.md).
 
-> Traducción informativa del [README en inglés](../../../../sdks/rust/README.md), actualizada el 02/11/2026. Los identificadores y los bloques de código, incluidos sus comentarios, se conservan en el idioma original para mantener los ejemplos verificados.
+> Traducción informativa del [README en inglés](../../../../sdks/rust/README.md), actualizada el 04/11/2026. Los identificadores y los bloques de código, incluidos sus comentarios, se conservan en el idioma original para mantener los ejemplos verificados.
 
 SDK oficial de Rust para el Digital Citizenship Protocol (DCP v2.0). Ofrece tipos basados en Serde, criptografía poscuántica híbrida (Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768), firmas compuestas con vinculación `pq_over_classical`, cadenas de hash duales, observabilidad con OpenTelemetry, comportamiento DCP-04..09 y soporte opcional para WebAssembly.
 
@@ -214,6 +214,7 @@ Todas las estructuras derivan `Debug`, `Clone`, `Serialize` y `Deserialize`. Las
 |----------|-------------|
 | `create_delegation_mandate_with_options(ed, pq, human_classical, human_pq, params, &MandateChainOptions)` | Mandato raíz firmado por la persona, con `sub_delegation` y `minimum_security_tier` opcionales |
 | `create_sub_mandate(ed, pq, classical, pq_key, &parent, SubMandateParams { .. })` | Submandato firmado por el agente del mandato padre bajo el contexto `DCP-AI.v2.SubMandate` |
+| `verify_mandate_validity(&mandate, &revoked_ids)` / `verify_mandate_validity_at(&mandate, &revoked_ids, now_millis)` | El `mandate_id`, la revocación local y la ventana de validez de un mandato en `now` (instantes RFC 3339 en milisegundos, con los dos límites incluidos); una ventana ausente, malformada o invertida no es válida. No comprueba firma, ámbito ni cadena, y no autoriza nada. En `main`, no en una versión publicada |
 | `verify_mandate_chain(&chain, &revoked_ids, &MandateChainKeys { human_keys, agent_keys }, now_millis)` | Verifica la cadena sin conexión, empezando por la raíz (firmas hasta la persona, enlaces y profundidad, `sub_delegation`, vigencia anidada, restricción de acciones, `data_classes` y `limits`, nivel mínimo y revocación); devuelve `MandateChainResult { valid, errors, depth, effective_tier }` |
 
 <a id="admission-dcp_aiv2-specprofilesadmission-unreleased"></a>
