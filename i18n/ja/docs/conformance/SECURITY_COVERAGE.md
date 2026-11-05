@@ -90,13 +90,19 @@ V2 チェックリスト全体への適合を主張する実装者は、暗号�
 
 ### 検証器ポリシーのサンプル
 
-明示的に選択する[ポリシーカタログ](../../../../tools/conformance/external-policy-catalog.json)は、既存の `/2` 契約で 74 ケースを追加します。内訳は肯定対照 10、存在する無効な PQ 署名 24、アルゴリズムリストとアドバイザリ 14、既に版管理されたティアケース 26 です。各リクエストには正確なポリシーと検証時刻が含まれます。既定の証拠カタログは変更しません。
+明示的に選択する[ポリシーカタログ](../../../../tools/conformance/external-policy-catalog.json)のバージョン 2.0 は、既存の `/2` 契約で 2 つのスイートに 108 ケースを追加します。最初のスイートはバージョン 1.1 の 74 ケースを保ちます。内訳は肯定対照 10、存在する無効な PQ 署名 24、アルゴリズムリストとアドバイザリ 14、既に版管理されたティアケース 26 です。2 つ目は V2-10 の明確化（下記）の 34 ケースを実行します。各リクエストには正確なポリシーと検証時刻が含まれます。既定の証拠カタログは変更せず、バージョン 1.1 は [`external-policy-catalog-1.1.json`](../../../../tools/conformance/external-policy-catalog-1.1.json) としてバイト単位で保管されます。
 
 新しい routine ティアのハイブリッド対照は、実効 `classical_only` と他の 3 モードを検査します。standard ティアのハイブリッド対照では、要求した `classical_only` が `hybrid_preferred` に引き上げられます。コーパスはこの導出を記録しますが、`/2` が評価するのは判定であり、実装が報告するティアや実効モードではありません。
 
 PQ の否定ケースでは bundle、パスポート、チェックポイントの PQ 署名だけを変更し、古典署名は有効なままです。アルゴリズムリストのケースでは同じ bundle のままポリシーだけを変更します。ティアケースは別々に署名された既存 bundle と、同じ要求モードの routine 対照を再利用するため、単一変更の対ではありません。各否定ケースには、同じ実行で肯定対照が成功することが必要です。
 
-`pq_only` での古典アルゴリズム除外は、解釈の明確化まで期待判定なしで除外します。未実施のケースと解釈上の質問はコーパスに記録します。未検査の組み合わせがあることだけでは、仕様の矛盾は証明できません。これらのサンプルはスキーマの不足を解消せず、完全な V2 適合性も確立しません。
+[VERIFICATION.md](../../../../spec/VERIFICATION.md) の手順 V2-10 の明確化（05/11/2026）は、コーパスの 3 つの質問を解決します。[`verifier_policy_clarification_vectors.json`](../../../../tests/interop/v2/verifier_policy_clarification_vectors.json) がそのケースを保持し、要求したモードがそのまま実効モードになるよう routine の基礎を使います。
+
+- **Q1.** `pq_only` では、古典のリストとアドバイザリによる除外はハイブリッドの bundle を受け入れます。`hybrid_required` では同じポリシーがそれを拒否します。
+- **Q2.** bundle の署名、パスポート、チェックポイントで、PQ の構成要素がその古典のバイトに対して検証される一方で失敗する古典の構成要素は、`pq_only` では受け入れられ、他の 3 つのモードでは拒否されます。正準でない古典の `sig_b64` と未知の古典の kid は `pq_only` で拒否されます。
+- **Q3.** PQ のリストとアドバイザリによる除外は、`classical_only` と `hybrid_preferred` で古典のみの bundle を受け入れ、同じポリシーでハイブリッドの bundle を拒否します。
+
+`verifier_policy_vectors.json` は除外した Q1 のケースを履歴として保ちます。これらのケースはこれらの規則のサンプルであり、すべての位置、アルゴリズム、鍵の状態を網羅するものではありません。未検査の組み合わせがあることだけでは、仕様の矛盾は証明できません。これらのサンプルはスキーマの不足を解消せず、完全な V2 適合性も確立しません。
 
 <a id="structural-samples"></a>
 
@@ -129,18 +135,21 @@ PQ の否定ケースでは bundle、パスポート、チェックポイント�
 
 ## 委任マップ
 
-[外部の委任カタログ](../../../../tools/conformance/external-delegation-catalog.json)は、コミット済みの[委任状チェーン](../../../../tests/interop/v2/mandate_chain_vectors.json)、[チェーンの時刻](../../../../tests/interop/v2/mandate_chain_time_vectors.json)、[繰り返されるドメイン](../../../../tests/interop/v2/mandate_domain_vectors.json)のベクトルを `verify_mandate_chain` で実行します。各規範ケースは [DCP-09 §3.5.2](../../../../spec/DCP-09.md) の規則を示し、判定結果と、受理されたチェーンでは実効の層を判定します。
+[外部の委任カタログ](../../../../tools/conformance/external-delegation-catalog.json)（バージョン 2.0.0）は、コミット済みの[委任状チェーン](../../../../tests/interop/v2/mandate_chain_vectors.json)、[チェーンの時刻](../../../../tests/interop/v2/mandate_chain_time_vectors.json)、[繰り返されるドメイン](../../../../tests/interop/v2/mandate_domain_vectors.json)のベクトルを `verify_mandate_chain` で実行します。各規範ケースは [DCP-09 §3.5.2](../../../../spec/DCP-09.md) の規則を示し、判定結果と、受理されたチェーンでは実効の層を判定します。
 
 | 要件 | テストする対象 | 制限 |
 |---|---|---|
 | 規則 1–2：ルートとサブ委任状の署名、署名者の役割とコンテキスト、親とのリンク、深さ、`human_id` | `external.delegation.chain` | 鍵はリクエストで与えられ、キットはそれがプリンシパルやエージェントの鍵であることを確認しない |
 | 規則 3：再委任の許可と最大の深さ | `external.delegation.chain` | コミット済みのチェーンであり、すべての深さではない |
-| 規則 4：有効期間、その入れ子、RFC 3339 の瞬間としての検証時刻 | `external.delegation.chain`、`external.delegation.chain_time` | ミリ秒の精度と署名鍵の `expires_at` は SDK の慣例で、§3.5.2 のものではない。その 10 ケースは参考 |
+| 規則 4：有効期間、その入れ子、RFC 3339 の瞬間としての検証時刻（ミリ秒で比較） | `external.delegation.chain`、`external.delegation.chain_time` | ミリ秒の精度は §3.5.2 の明確化（05/11/2026）以降規範的。保管されたカタログのバージョン 1.0.0 では、その 3 ケースは参考 |
+| 規則 1–2：各署名鍵が有効で、その `expires_at` が存在しないか `null` か検証時刻より前ではない（05/11/2026 の明確化） | `external.delegation.chain_time` | `expires_at` に関する 7 ケース。`status` が `active` でない鍵を持つケースはない。バージョン 1.0.0 ではこの 7 ケースは参考 |
 | 規則 5：アクション、データの分類、上限の縮小。±(2^53 − 1) の範囲の上限。1 つの委任状で繰り返されるドメイン | `external.delegation.chain`、`external.delegation.domains` | エラーの文言は診断で、拒否は判定結果で判定する |
 | 規則 6：層の下限と実効の層 | `external.delegation.chain` | 実効の層は受理されたチェーンで判定する。`tier_floor`（`computeSecurityTier`）はカタログの対象外 |
 | 規則 7：ルートまたは中間の委任状の失効 | `external.delegation.chain` | 失効はリクエスト内の失効 ID のローカルな集合であり、失効情報の提供元ではない |
 
 拒否は、そのコントロール、すなわち関係（`same_chain`、`single_mandate`、`same_shape` または `suite`）がバイトで確認された規範的に受理されるチェーンがある場合にだけ数えられます。これらの関係のどれも、2 つのケースの違いが 1 つの欠陥だけであることを示しません。検証されたチェーンは受け入れ判定でも承認でもありません。
+
+カタログのバージョン 1.0.0 は [`external-delegation-catalog-1.0.0.json`](../../../../tools/conformance/external-delegation-catalog-1.0.0.json) としてバイト単位で保管され、87 ケースを判定し、10 の参考ケースを別に報告します。バージョン 2.0.0 は 97 ケースすべてを判定します。ランナーは各バージョンの分類を固定するため、1.0.0 の報告は 1.0.0 だけの証拠です。
 
 <a id="claims-for-core-and-profiles"></a>
 

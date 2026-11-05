@@ -1,33 +1,13 @@
 {
   "contract": "dcp-ai-conformance-external/4",
-  "catalog_version": "1.0.0",
+  "catalog_version": "2.0.0",
   "fixtures": {
     "tests/interop/v2/mandate_chain_vectors.json": "ed89534bf6106851ad282073da4e3138535ce145e821403d0f441644bdd44fb4",
     "tests/interop/v2/mandate_chain_time_vectors.json": "a1195ccead9e986eeb4ce613002caeaf68e82283304e5d755f7600fabcbf4077",
     "tests/interop/v2/mandate_domain_vectors.json": "9e77b91b36f4269f100934492f78a1aeb5318000467f9bfb1f3355a8cef8457e"
   },
-  "informative_bases": {
-    "millisecond_precision": {
-      "document": "spec/VERIFICATION.md (V2-4 timestamps); spec/DCP-09.md implementation notes (informative)",
-      "reason": "The expected verdict holds only if instants are compared in milliseconds, digits beyond them dropped. VERIFICATION.md states that for bundles; DCP-09 §3.5.2 says RFC 3339 instants, compared as instants, with no precision."
-    },
-    "signer_key_validity": {
-      "document": "spec/VERIFICATION.md (V2-13 key validity); spec/DCP-09.md implementation notes (informative)",
-      "reason": "The chain is rejected only because a signer key's expires_at is past or not an RFC 3339 instant. VERIFICATION.md V2-13 checks key validity for bundles; DCP-09 §3.5.2 does not state it for mandate signer keys."
-    }
-  },
-  "informative": {
-    "external.delegation.chain_time.nested_limits_equal_in_milliseconds_written_differently": "millisecond_precision",
-    "external.delegation.chain_time.windows_at_the_verification_time": "millisecond_precision",
-    "external.delegation.chain_time.verification_time_below_the_millisecond": "millisecond_precision",
-    "external.delegation.chain_time.human_classical_key_expired_one_millisecond_before": "signer_key_validity",
-    "external.delegation.chain_time.human_pq_key_expired_one_millisecond_before": "signer_key_validity",
-    "external.delegation.chain_time.agent_classical_key_expired_one_millisecond_before": "signer_key_validity",
-    "external.delegation.chain_time.agent_pq_key_expired_one_millisecond_before": "signer_key_validity",
-    "external.delegation.chain_time.key_expires_at_without_an_offset": "signer_key_validity",
-    "external.delegation.chain_time.key_expires_at_with_a_trailing_newline": "signer_key_validity",
-    "external.delegation.chain_time.key_expires_at_crossing_into_year_minus_1": "signer_key_validity"
-  },
+  "informative_bases": {},
+  "informative": {},
   "suites": [
     {
       "id": "external.delegation.chain",
@@ -644,7 +624,7 @@
       "id": "external.delegation.chain_time",
       "title": "DCP-09 §3.5.2 rule 4 mandate chain times: windows, nesting and the verification time as RFC 3339 instants",
       "source": "tests/interop/v2/mandate_chain_time_vectors.json",
-      "claim": "The verdict of each normative chain at its verification time; ten cases that rest on millisecond precision or on signer key validity are informative.",
+      "claim": "The verdict of each chain at its verification time, instants compared in milliseconds and every signer key active and unexpired then (DCP-09 §3.5.2 and its clarification of 05/11/2026).",
       "limits": [
         "Only valid, and effective_tier on accepted chains, are judged. Error texts, their order and depth are diagnostics of the SDK APIs, not of DCP-09.",
         "The keys and the revoked ids are given in the request, out of band: the kit does not establish whose keys they are, and valid is not trust in the principal, admission or the authorization of an action."
@@ -671,16 +651,16 @@
           "name": "nested_limits_equal_in_milliseconds_written_differently",
           "list": "must_accept",
           "index": 2,
-          "class": "informative",
-          "basis": "millisecond_precision"
+          "class": "normative",
+          "anchor": "all_rules"
         },
         {
           "id": "external.delegation.chain_time.windows_at_the_verification_time",
           "name": "windows_at_the_verification_time",
           "list": "must_accept",
           "index": 3,
-          "class": "informative",
-          "basis": "millisecond_precision"
+          "class": "normative",
+          "anchor": "all_rules"
         },
         {
           "id": "external.delegation.chain_time.windows_from_year_0000_to_year_9999_offsets_crossing_both",
@@ -719,8 +699,8 @@
           "name": "verification_time_below_the_millisecond",
           "list": "must_accept",
           "index": 8,
-          "class": "informative",
-          "basis": "millisecond_precision"
+          "class": "normative",
+          "anchor": "all_rules"
         },
         {
           "id": "external.delegation.chain_time.root_expired_by_one_millisecond",
@@ -775,56 +755,84 @@
           "name": "human_classical_key_expired_one_millisecond_before",
           "list": "must_reject",
           "index": 4,
-          "class": "informative",
-          "basis": "signer_key_validity"
+          "class": "normative",
+          "anchor": "rule1",
+          "controls": [
+            "external.delegation.chain_time.root_and_sub"
+          ],
+          "control_scope": "same_shape"
         },
         {
           "id": "external.delegation.chain_time.human_pq_key_expired_one_millisecond_before",
           "name": "human_pq_key_expired_one_millisecond_before",
           "list": "must_reject",
           "index": 5,
-          "class": "informative",
-          "basis": "signer_key_validity"
+          "class": "normative",
+          "anchor": "rule1",
+          "controls": [
+            "external.delegation.chain_time.root_and_sub"
+          ],
+          "control_scope": "same_shape"
         },
         {
           "id": "external.delegation.chain_time.agent_classical_key_expired_one_millisecond_before",
           "name": "agent_classical_key_expired_one_millisecond_before",
           "list": "must_reject",
           "index": 6,
-          "class": "informative",
-          "basis": "signer_key_validity"
+          "class": "normative",
+          "anchor": "rule2",
+          "controls": [
+            "external.delegation.chain_time.root_and_sub"
+          ],
+          "control_scope": "same_shape"
         },
         {
           "id": "external.delegation.chain_time.agent_pq_key_expired_one_millisecond_before",
           "name": "agent_pq_key_expired_one_millisecond_before",
           "list": "must_reject",
           "index": 7,
-          "class": "informative",
-          "basis": "signer_key_validity"
+          "class": "normative",
+          "anchor": "rule2",
+          "controls": [
+            "external.delegation.chain_time.root_and_sub"
+          ],
+          "control_scope": "same_shape"
         },
         {
           "id": "external.delegation.chain_time.key_expires_at_without_an_offset",
           "name": "key_expires_at_without_an_offset",
           "list": "must_reject",
           "index": 8,
-          "class": "informative",
-          "basis": "signer_key_validity"
+          "class": "normative",
+          "anchor": "rule1",
+          "controls": [
+            "external.delegation.chain_time.root_and_sub"
+          ],
+          "control_scope": "same_shape"
         },
         {
           "id": "external.delegation.chain_time.key_expires_at_with_a_trailing_newline",
           "name": "key_expires_at_with_a_trailing_newline",
           "list": "must_reject",
           "index": 9,
-          "class": "informative",
-          "basis": "signer_key_validity"
+          "class": "normative",
+          "anchor": "rule1",
+          "controls": [
+            "external.delegation.chain_time.root_and_sub"
+          ],
+          "control_scope": "same_shape"
         },
         {
           "id": "external.delegation.chain_time.key_expires_at_crossing_into_year_minus_1",
           "name": "key_expires_at_crossing_into_year_minus_1",
           "list": "must_reject",
           "index": 10,
-          "class": "informative",
-          "basis": "signer_key_validity"
+          "class": "normative",
+          "anchor": "rule1",
+          "controls": [
+            "external.delegation.chain_time.root_and_sub"
+          ],
+          "control_scope": "same_shape"
         },
         {
           "id": "external.delegation.chain_time.root_window_in_year_minus_1",
@@ -1112,7 +1120,7 @@
   "limits": [
     "A pass shows that the argv that was run gives these verdicts on these committed chains, nothing more.",
     "Chains and keys are sent as the exact bytes of the fixtures; how an implementation reads JSON numbers past 2^53 is its own.",
-    "The informative cases rest on conventions DCP-09 §3.5.2 does not state; their results are reported apart and never make a run pass or fail, but a missing, malformed or failed answer to them is an error.",
+    "Version 2.0.0 judges all 97 cases. Catalog 1.0.0, archived byte for byte as external-delegation-catalog-1.0.0.json, kept ten chain_time cases informative (87 normative); the dated clarification of DCP-09 §3.5.2 (05/11/2026) settles them. A report names its catalog_version and is evidence of that version only.",
     "Controls relate a negative to a positive by the bytes both send (same chain, one different mandate, or the same length); none claims the two differ by a single defect.",
     "The validity helper, tier_floor (computeSecurityTier) and every other DCP-09 record are outside this catalog."
   ]

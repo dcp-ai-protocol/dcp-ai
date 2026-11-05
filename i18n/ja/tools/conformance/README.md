@@ -379,15 +379,25 @@ node --test tools/conformance/external-schema-validation.test.mjs
 
 #### 検証器ポリシーカタログ（明示的選択）
 
-[`external-policy-catalog.json`](../../../../tools/conformance/external-policy-catalog.json) は `/2` 契約で固定時刻の 74 ケースを扱います。肯定対照 10、4 要求モードにわたる存在する無効な PQ 署名 24、アルゴリズムリストとアドバイザリ 14、ティアケース 26 です。既定の証拠カタログは変更しません。各否定ケースには肯定対照の成功が必要で、診断文言は評価しません。
+[`external-policy-catalog.json`](../../../../tools/conformance/external-policy-catalog.json) は、バージョン `2026-11-05.verifier-policy-2.0` で、`/2` 契約により固定時刻の 108 ケースを 2 つのスイートで扱います。既定の証拠カタログは変更しません。各否定ケースには肯定対照の成功が必要で、診断文言は評価しません。
+
+- `external.v2.verifier_policy`：`verifier_policy_vectors.json` の 74 ケース。肯定対照 10、4 要求モードにわたる存在する無効な PQ 署名 24、アルゴリズムリストとアドバイザリ 14、ティアケース 26 です。
+- `external.v2.verifier_policy_clarification`：`verifier_policy_clarification_vectors.json` の 34 ケース。[VERIFICATION.md](../../../../spec/VERIFICATION.md) の手順 V2-10 の日付付きの明確化（05/11/2026）のためのものです。
+  - Q1：`pq_only` では、古典のリストとアドバイザリによる除外はハイブリッドの bundle を拒否しません。
+  - Q2：`pq_only` では、古典の構成要素が失敗し、PQ の構成要素がその古典のバイトに対して検証される bundle、パスポート、チェックポイントの署名を受け入れます。正準でない古典の `sig_b64` や未知の古典の kid は引き続き拒否されます。
+  - Q3：`classical_only` と `hybrid_preferred` では、PQ のリストは古典のみの bundle を拒否しません。同じポリシーでのハイブリッドの bundle は拒否されます。
+  - 他のモードでは、Q1 の除外と Q2 の署名は拒否されます。
+
+バージョン 1.1（74 ケース）は [`external-policy-catalog-1.1.json`](../../../../tools/conformance/external-policy-catalog-1.1.json) としてバイト単位で保管され、そのパスで引き続き実行できます。その報告はそのバージョンの証拠であり続けます。
 
 ```bash
 node tools/conformance-external.js --catalog tools/conformance/external-policy-catalog.json --assessment verdict --list
 node tools/conformance-external.js --catalog tools/conformance/external-policy-catalog.json --assessment verdict --report /tmp/policy-conformance.json -- ./my-implementation
+node tools/conformance-external.js --catalog tools/conformance/external-policy-catalog-1.1.json --assessment verdict --report /tmp/policy-1.1.json -- ./my-implementation
 node --test tools/conformance/external-policy.test.mjs
 ```
 
-routine のハイブリッド肯定例は実効 `classical_only` に到達しますが、standard の肯定例はその要求を `hybrid_preferred` に引き上げます。記録されたティア・モードの導出は説明であり、結果フィールドの評価ではありません。ティアケースは別々に署名された既存 bundle を使い、単一変更の対ではありません。`pq_only` での古典アルゴリズム除外は、解釈の明確化まで期待判定なしで除外します。残る範囲はコーパスの質問とカバレッジマップを参照してください。CI はコーパスとランナーの自己テスト、および 5 SDK ラッパーを通じたカタログ検査を実行します。合格が示すのはこれらのケースだけです。
+routine のハイブリッド肯定例は実効 `classical_only` に到達しますが、standard の肯定例はその要求を `hybrid_preferred` に引き上げます。記録されたティア・モードの導出は説明であり、結果フィールドの評価ではありません。ティアケースは別々に署名された既存 bundle を使い、単一変更の対ではありません。明確化のケースは 2 つの routine の基礎を使うため、要求したモードがそのまま実効モードになります。その Q2 の変種は、コミット済みの TEST-ONLY 鍵で PQ の構成要素だけを署名し直します。自己テストはカタログ 1.1 を元の不変条件で実行し、Q1、Q2、Q3 を誤って読む偽の実装も実行します。`pq_only` での古典のリスト、`pq_only` で拒否される無効な古典の構成要素、PQ のない bundle への PQ のリスト、モードの無視です。それぞれがちょうど自分のケースで失敗します。CI はコーパスとランナーの自己テスト、および 5 SDK ラッパーを通じたカタログ検査を実行します。合格が示すのはこれらのケースだけです。
 
 <a id="structural-catalog-opt-in"></a>
 
@@ -508,7 +518,7 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
 ### 委任のカタログ：DCP-09 の委任状チェーン
 
 `--catalog delegation` は 3 つ目のオプトインのカタログ [`external-delegation-catalog.json`](../../../../tools/conformance/external-delegation-catalog.json)
-（契約 `dcp-ai-conformance-external/4`、97 ケース）を選択し、同じ種類の argv に対して実行します。委任状チェーンの検証
+（契約 `dcp-ai-conformance-external/4`、バージョン 2.0.0、規範的な 97 ケース）を選択し、同じ種類の argv に対して実行します。委任状チェーンの検証
 （[DCP-09 §3.5.2](../../../../spec/DCP-09.md)）を、カタログが SHA-256 で固定する 3 つのコミット済みコーパスで判定します。
 契約 `/1`、`/2`、`/3` とそのカタログは変わりません。TypeScript、Python、Go、Rust のラッパーは SDK を通じて `/4` に
 応答します。WASM ビルドは委任状チェーンの関数をエクスポートしないため、そのラッパーは `/3` と同じく `/4` を拒否し
@@ -520,6 +530,7 @@ node tools/conformance-external.js --catalog delegation --report /tmp/delegation
 node tools/conformance-external.js --catalog delegation -- /path/to/python -I tools/conformance/wrappers/python_sdk.py
 node tools/conformance-external.js --catalog delegation -- tools/conformance/wrappers/.build/go-wrapper
 node tools/conformance-external.js --catalog delegation -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+node tools/conformance-external.js --catalog tools/conformance/external-delegation-catalog-1.0.0.json -- /path/to/implementation
 node --test tools/conformance/external-delegation.test.mjs
 DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-delegation-wrappers.test.mjs
 ```
@@ -527,7 +538,7 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
 | スイート | ケース | ソース |
 |-------|-------|--------|
 | `external.delegation.chain` | 52 | [`mandate_chain_vectors.json`](../../../../tests/interop/v2/mandate_chain_vectors.json)：署名と役割、リンク、深さ、権限の縮小、有効期間、層の下限、失効 |
-| `external.delegation.chain_time` | 22（うち 10 は参考） | [`mandate_chain_time_vectors.json`](../../../../tests/interop/v2/mandate_chain_time_vectors.json)：規則 4 の有効期間、その入れ子、検証時刻 |
+| `external.delegation.chain_time` | 22（バージョン 1.0.0 ではうち 10 が参考） | [`mandate_chain_time_vectors.json`](../../../../tests/interop/v2/mandate_chain_time_vectors.json)：規則 4 の有効期間、その入れ子、検証時刻 |
 | `external.delegation.domains` | 23 | [`mandate_domain_vectors.json`](../../../../tests/interop/v2/mandate_domain_vectors.json)：1 つの委任状で繰り返されるドメイン（どの深さでも） |
 
 - **操作：** `verify_mandate_chain` は 4 つのフィールドを受け取ります。
@@ -545,11 +556,10 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
   - エラーの文言（コーパスの `error_contains` または正確な `errors`）と `depth` は SDK の診断です。報告されますが（`matched`、`differs`、`no_message`）、判定には使われません。
   - 拒否にはメッセージも、特定の `depth` も、特定の層も必要ありません。
   - `--assessment` は適用されません。
-- **参考ケース：** `chain_time` の 10 ケースは、DCP-09 §3.5.2 が定めていない慣例に依存します。
-  - 3 ケースはミリ秒単位での瞬間の比較に依存します（VERIFICATION.md V2-4、バンドル向け）。
-  - 7 ケースは署名鍵の有効性 `expires_at` に依存します（V2-13、バンドル向け）。
-
-  この一覧はランナーが固定します。これらのケースは送信され、`informative_totals`（`requested`、`completed`、`agrees`、`differs`、`error`）で報告されますが、合格にも不合格にもなりません。そのいずれかへの応答の欠落、不正な形式、`error` または `unsupported` は依然として実行のエラーであり、規範ケースが 1 つも実行されなかった実行は合格になりません。
+- **バージョン：** 既定の 2.0.0 は、DCP-09 §3.5.2 の明確化（05/11/2026）が定めるとおり 97 ケースすべてを判定します。規則 4 の瞬間と署名鍵の `expires_at` はミリ秒で比較され、各署名鍵は検証時刻に有効で期限切れでないことが必要です。
+  - バージョン 1.0.0 は [`external-delegation-catalog-1.0.0.json`](../../../../tools/conformance/external-delegation-catalog-1.0.0.json) としてバイト単位で保管され、そのパスで実行されます。`chain_time` の 10 ケースを参考としていました。3 ケースはミリ秒での瞬間の比較に、7 ケースは署名鍵の `expires_at` に依存します。これらは送信され、`informative_totals`（`requested`、`completed`、`agrees`、`differs`、`error`）で報告され、合格にも不合格にもなりません。そのいずれかへの応答の欠落、不正な形式、`error` または `unsupported` は、引き続き実行のエラーです。
+  - ランナーは各バージョンの分類を固定し、1.0.0 のバイトを固定します。ラベルを付け替えた、再シリアライズした、または未知のバージョンは拒否されるため、どちらのバージョンも他方の分類で判定されることはありません。10 ケースのいずれかで結果が異なっていた実装は 1.0.0 に合格し、2.0.0 に不合格になります。1.0.0 の報告は 1.0.0 だけの証拠です。
+  - 規範ケースが 1 つも実行されなかった実行は合格になりません。
 - **アンカー：** 各規範ケースは §3.5.2 の規則を示します。`rule1` から `rule7`、未知・欠落・比較できない入力には `fail_closed`、受理されたチェーンには `all_rules` です。
 - **コントロール：** 拒否は、そのコントロールが同じ実行で合格した場合にだけ数えられます。コントロールは同じスイートの規範的に受理されるチェーンで、両者の関係は `control_scope` が示します。
   - `same_chain`：チェーンのバイトは同じで、失効した ID、時刻、または鍵が異なる。
@@ -558,7 +568,7 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
   - `suite`：スイートの受理されるすべてのチェーン。
 
   ランナーはカタログの読み込み時に、この関係をバイトで確認します。どれも、2 つのケースの違いが 1 つの欠陥だけだとは主張しません。選択したスイートは自身のコントロールを含みます。
-- **カタログ：** `delegation-catalog.mjs --check` は、コーパスとアンカーの表からカタログを再生成します。コーパスのケースを落とす、繰り返す、並べ替える、参考ケースを別に分類する、あるいはコントロールを誇張するカタログを、ランナーは exit 3 で拒否します。
+- **カタログ：** `delegation-catalog.mjs --check` は、コーパスとアンカーの表から 2.0.0 のカタログを再生成します。ルートの署名者の鍵には規則 1、委任するエージェントの鍵には規則 2 です。ランナーは、コーパスのケースを欠落、重複、並べ替えしたカタログ、ケースをそのバージョンと異なる分類にしたカタログ、またはコントロールを誇張したカタログを exit 3 で拒否します。
 - **プロセスとラッパー：** `/1` から `/3` と同じです。このカタログの既定のタイムアウトは 300 000 ms です。ラッパーはケースごとに 1 回、システムの時計ではなくリクエストの時刻で呼び出し、それぞれ自身の SDK のコーパステストと同じ方法でチェーンを読みます。
 
   | SDK | チェーン | 時刻 |
@@ -570,10 +580,10 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
 - **自己テスト：**
   - `external-delegation.test.mjs` は、SDK を使わず、コーパスの期待値から作った合成の応答を判定し、送信したバイトがフィクスチャの一部であることを確認します。対象は次のとおりです。
     - すべての受理または拒否、1 つの規則を無視する検証器、誤った層。
-    - 矛盾した、不正な形式の、`error` と `unsupported` の応答、異なる結果や失敗を返す参考ケース。
+    - 矛盾した、不正な形式の、`error` と `unsupported` の応答。1.0.0 では異なる結果や失敗を返す参考ケース、2.0.0 では同じ応答がちょうどそれらのケースで失敗すること。
     - 欠落、重複、余分、途中で切れた結果、古い ID、失敗・強制終了・停止・遅れて終了するプロセス。
-    - 新しいレポート、選択、改ざんされたカタログとフィクスチャ。
-  - `external-delegation-wrappers.test.mjs` は 4 つのラッパーを SDK 経由で実行します。97 ケース、3 つの瞬間でのリクエストの時計、不正な形式のリクエスト、注入した障害です。WASM の拒否も確認し、改変した TypeScript SDK 2 つ（失効を無視するもの、独自の時計を使うもの）を検出します。ラッパーは stdin を閉じて非同期に呼び出します。入力付きの同期実行では、ネイティブのラッパーがファイル終端を待ち続けることがありました。
+    - 新しいレポート、選択、改ざんされたカタログとフィクスチャ、ラベルを付け替えたまたは再シリアライズしたバージョン。
+  - `external-delegation-wrappers.test.mjs` は 4 つのラッパーを SDK 経由で実行します。97 ケース、3 つの瞬間でのリクエストの時計、不正な形式のリクエスト、注入した障害です。WASM の拒否も確認し、改変した TypeScript の SDK を 4 つ検出します。失効を無視するもの、独自の時計を使うもの、署名鍵の有効期限を無視するもの、有効期間をミリ秒より下の精度で比較するものです。2.0.0 で測定すると、3 つ目は 7 つの鍵のケースで、4 つ目は 3 つのミリ秒のケースのうち 2 つで失敗します（ラッパーは SDK に、すでにミリ秒の検証時刻を渡します）。1.0.0 ではどちらも合格し、それらのケースで結果が異なるだけです。ラッパーは stdin を閉じて非同期に呼び出します。入力付きの同期実行では、ネイティブのラッパーがファイル終端を待ち続けることがありました。
 
   CI は両方を、4 つのラッパーを必須として実行します。
 - **制限：** 合格が示すのは、実行した argv がこれらのコミット済みチェーンでこれらの判定を返すことだけです。

@@ -269,6 +269,27 @@ Un verificador que acepta una cadena de mandatos debe (MUST) recibir la cadena o
 6. **Nivel mínimo.** Cuando el padre tiene un `minimum_security_tier`, el submandato tiene uno que no es inferior (`routine` < `standard` < `elevated` < `maximum`). El nivel efectivo de la cadena es el mayor `minimum_security_tier` a lo largo de ella; un verificador que lo incorpore al cálculo del nivel de DCP-AI v2.0 §14.2 debe (MUST) permitir solo que eleve el nivel.
 7. **Revocación.** Ningún mandato de la cadena está revocado. Un ancestro revocado invalida a todos sus descendientes.
 
+> **Aclaración (05/11/2026, normativa).** Fija, como requisitos, dos puntos que las reglas anteriores dejaban abiertos.
+> No cambia ningún byte, ningún formato de firma ni ningún contexto.
+>
+> - **Precisión.** Todo instante de la regla 4 (cada `valid_from` y `valid_until`, y la hora de verificación) y todo
+>   `expires_at` del punto siguiente se comparan con precisión de milisegundos, descartando las cifras posteriores al
+>   milisegundo, como en los bundles ([VERIFICATION.md](../../../spec/VERIFICATION.md), paso V2-4).
+> - **Claves firmantes.** La entrada de clave que cada ranura de firma nombra por `kid` DEBE tener `status` `"active"` y
+>   un `expires_at` ausente, `null` o un instante RFC 3339 no anterior a la hora de verificación; si no, la cadena se
+>   rechaza. Es la clave del principal humano para la `human_composite_sig` de la raíz (regla 1) y la del agente que
+>   delega para la `delegator_composite_sig` de un submandato (regla 2). Es la validez de las claves de los bundles
+>   (paso V2-13 de VERIFICATION.md), a la hora de verificación; verificar una cadena en un instante anterior no está
+>   definido.
+>
+> No se infiere nada más: no se exige nada al `created_at` de una clave. Compatibilidad: los cuatro verificadores de
+> cadenas de este repositorio ya se comportan así, y ninguno cambia. La precisión de milisegundos y `expires_at` se
+> miden sobre `tests/interop/v2/mandate_chain_time_vectors.json`; la comprobación de `status` se verifica leyendo su
+> código, porque ningún vector tiene una clave cuyo `status` no sea `active`. Una implementación que compare estos
+> instantes por debajo del milisegundo, o que acepte una cadena firmada con una clave que no esté activa, haya
+> caducado o tenga un `expires_at` que no sea un instante RFC 3339, no es conforme en ese punto. Los diez casos que la
+> versión 1.0.0 del catálogo externo de delegación mantenía informativos son normativos desde su versión 2.0.0.
+
 Implementaciones de referencia: `verifyMandateChain` (TypeScript), `verify_mandate_chain` (Python y Rust) y `VerifyMandateChain` (Go). `tests/interop/v2/mandate_chain_vectors.json` contiene cadenas que toda implementación debe (MUST) aceptar y cadenas que debe (MUST) rechazar, y las cuatro suites de los SDK lo ejecutan.
 
 <a id="36-mandate-revocation"></a>
@@ -1003,7 +1024,8 @@ Una implementación es conforme con DCP-09 si:
   verificación hacia abajo al milisegundo; `tests/interop/v2/mandate_chain_time_vectors.json` contiene cadenas firmadas
   que ejecutan las cuatro suites de SDK. Sus relojes por defecto difieren de los de `verifyMandateValidity`: Python toma
   un `datetime` naive como UTC y Go toma el instante cero como la hora actual. Esto está en `main`, no en una versión
-  publicada.
+  publicada. La aclaración de § 3.5.2 (05/11/2026) hace normativas la precisión de milisegundos y las comprobaciones
+  de las claves firmantes.
 - **Dominios repetidos en los SDK.** Los verificadores de cadena aplican la última frase de la regla 5 a todos los
   mandatos de la cadena, también a la raíz, y comparan los dominios como cadenas exactas, sin plegado de mayúsculas,
   recorte ni normalización Unicode; antes se aceptaba una cadena formada solo por una raíz que repetía un dominio.

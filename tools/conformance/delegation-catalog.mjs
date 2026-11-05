@@ -1,18 +1,23 @@
 #!/usr/bin/env node
 // Writes or checks tools/conformance/external-delegation-catalog.json (contract dcp-ai-conformance-external/4) from
-// the committed mandate chain corpora. It decides nothing about verdicts: those stay in the corpora. It restates the
-// runner's fixed informative classification, assigns each normative negative the DCP-09 §3.5.2 rule written below by
-// hand, and picks its control by the bytes both cases send (the runner checks that relation again when it loads).
+// the committed mandate chain corpora, as version 2.0.0. It decides nothing about verdicts: those stay in the corpora. It
+// restates the runner's classification of 2.0.0 (no informative case: the dated clarification of DCP-09 §3.5.2 of
+// 05/11/2026 states millisecond precision and signer key validity), assigns each normative negative the §3.5.2 rule
+// written below by hand, and picks its control by the bytes both cases send (the runner checks that relation again when
+// it loads). Catalog 1.0.0 is not generated: it is archived byte for byte (external-delegation-catalog-1.0.0.json) and the
+// runner pins its sha256.
 //
 //   node tools/conformance/delegation-catalog.mjs --check    # exit 1 if the committed catalog differs
 //   node tools/conformance/delegation-catalog.mjs --write
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { SUITES, INFORMATIVE, BASES, DELEGATION_CONTRACT, DELEGATION_CATALOG_PATH, loadFixture, fixtureCase, scopeHolds } from "./external-delegation.js";
+import { SUITES, CLASSIFICATIONS, DELEGATION_CONTRACT, DELEGATION_CATALOG_PATH, loadFixture, fixtureCase, scopeHolds } from "./external-delegation.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "..", "..");
+const VERSION = "2.0.0";
+const { informative_bases: INFORMATIVE_BASES, informative: INFORMATIVE } = CLASSIFICATIONS[VERSION];
 
 // The rule of DCP-09 §3.5.2 each normative rejection exercises; fail_closed is its preamble (an unknown value, a field
 // missing for the depth or an input that is not comparable). Every accepted chain is all_rules.
@@ -38,6 +43,11 @@ const ANCHOR = {
   "external.delegation.chain_time": {
     root_expired_by_one_millisecond: "rule4", sub_not_yet_valid_by_one_millisecond: "rule4", sub_starts_one_millisecond_before_the_parent: "rule4",
     sub_ends_one_millisecond_after_the_parent: "rule4", root_window_in_year_minus_1: "rule4", sub_window_starting_in_year_10000: "rule4",
+    // Signer key validity (the clarification of 05/11/2026): a key of the root's signer slots belongs to rule 1, a key of
+    // a sub-mandate's delegator slots to rule 2.
+    human_classical_key_expired_one_millisecond_before: "rule1", human_pq_key_expired_one_millisecond_before: "rule1",
+    key_expires_at_without_an_offset: "rule1", key_expires_at_with_a_trailing_newline: "rule1", key_expires_at_crossing_into_year_minus_1: "rule1",
+    agent_classical_key_expired_one_millisecond_before: "rule2", agent_pq_key_expired_one_millisecond_before: "rule2",
   },
   "external.delegation.domains": {
     root_identical_duplicate: "rule5", root_conflicting_duplicate: "rule5", root_nonadjacent_duplicate: "rule5", root_each_duplicate_reported_once: "rule5",
@@ -55,7 +65,7 @@ const TEXT = {
   },
   "external.delegation.chain_time": {
     title: "DCP-09 §3.5.2 rule 4 mandate chain times: windows, nesting and the verification time as RFC 3339 instants",
-    claim: "The verdict of each normative chain at its verification time; ten cases that rest on millisecond precision or on signer key validity are informative.",
+    claim: "The verdict of each chain at its verification time, instants compared in milliseconds and every signer key active and unexpired then (DCP-09 §3.5.2 and its clarification of 05/11/2026).",
   },
   "external.delegation.domains": {
     title: "DCP-09 §3.5.2 rule 5: a domain that appears twice in one mandate, at every depth, compared as exact strings",
@@ -69,7 +79,7 @@ const SUITE_LIMITS = [
 const LIMITS = [
   "A pass shows that the argv that was run gives these verdicts on these committed chains, nothing more.",
   "Chains and keys are sent as the exact bytes of the fixtures; how an implementation reads JSON numbers past 2^53 is its own.",
-  "The informative cases rest on conventions DCP-09 §3.5.2 does not state; their results are reported apart and never make a run pass or fail, but a missing, malformed or failed answer to them is an error.",
+  "Version 2.0.0 judges all 97 cases. Catalog 1.0.0, archived byte for byte as external-delegation-catalog-1.0.0.json, kept ten chain_time cases informative (87 normative); the dated clarification of DCP-09 §3.5.2 (05/11/2026) settles them. A report names its catalog_version and is evidence of that version only.",
   "Controls relate a negative to a positive by the bytes both send (same chain, one different mandate, or the same length); none claims the two differ by a single defect.",
   "The validity helper, tier_floor (computeSecurityTier) and every other DCP-09 record are outside this catalog.",
 ];
@@ -105,7 +115,7 @@ export function buildCatalog(root = ROOT) {
     if (extra.length) throw new Error(`${id}: anchors for cases that are not normative rejections: ${extra.join(", ")}`);
     return { id, title: TEXT[id].title, source: file, claim: TEXT[id].claim, limits: SUITE_LIMITS, cases };
   });
-  return { contract: DELEGATION_CONTRACT, catalog_version: "1.0.0", fixtures, informative_bases: BASES, informative: INFORMATIVE, suites, limits: LIMITS };
+  return { contract: DELEGATION_CONTRACT, catalog_version: VERSION, fixtures, informative_bases: INFORMATIVE_BASES, informative: INFORMATIVE, suites, limits: LIMITS };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

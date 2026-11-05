@@ -368,15 +368,25 @@ The self-tests check that the kit builds the same plan as the corpus reader of `
 
 #### Verifier-policy catalog (opt-in)
 
-[`external-policy-catalog.json`](external-policy-catalog.json) uses contract `/2` for 74 fixed-time cases: 10 positive controls, 24 invalid-present-PQ cases across four requested modes, 14 algorithm-list/advisory cases and 26 tier cases. It leaves the default evidence catalog unchanged. Each negative requires its positive control to pass; diagnostic wording is not assessed.
+[`external-policy-catalog.json`](external-policy-catalog.json), version `2026-11-05.verifier-policy-2.0`, uses contract `/2` for 108 fixed-time cases in two suites. It leaves the default evidence catalog unchanged. Each negative requires its positive control to pass; diagnostic wording is not assessed.
+
+- `external.v2.verifier_policy`: 74 cases from `verifier_policy_vectors.json`. 10 positive controls, 24 invalid-present-PQ cases across four requested modes, 14 algorithm-list/advisory cases and 26 tier cases.
+- `external.v2.verifier_policy_clarification`: 34 cases from `verifier_policy_clarification_vectors.json`, for the dated clarification of [VERIFICATION.md](../../spec/VERIFICATION.md) Step V2-10 (05/11/2026).
+  - Q1: under `pq_only`, classical list and advisory exclusions do not reject a hybrid bundle.
+  - Q2: under `pq_only`, a bundle, passport or checkpoint signature is accepted when its classical component fails and its PQ component verifies over those classical bytes. A non-canonical classical `sig_b64` or an unknown classical kid is still rejected.
+  - Q3: PQ lists do not reject the classical-only bundle under `classical_only` or `hybrid_preferred`; the hybrid bundle under the same policy is rejected.
+  - Under the other modes, the Q1 exclusions and the Q2 signatures are rejected.
+
+Version 1.1 (74 cases) is archived byte for byte as [`external-policy-catalog-1.1.json`](external-policy-catalog-1.1.json) and still runs by its path; its reports remain the evidence of that version.
 
 ```bash
 node tools/conformance-external.js --catalog tools/conformance/external-policy-catalog.json --assessment verdict --list
 node tools/conformance-external.js --catalog tools/conformance/external-policy-catalog.json --assessment verdict --report /tmp/policy-conformance.json -- ./my-implementation
+node tools/conformance-external.js --catalog tools/conformance/external-policy-catalog-1.1.json --assessment verdict --report /tmp/policy-1.1.json -- ./my-implementation
 node --test tools/conformance/external-policy.test.mjs
 ```
 
-The routine hybrid positive reaches effective `classical_only`; the standard positive raises that request to `hybrid_preferred`. Recorded tier/mode derivation is explanatory, not an assessment of result fields. Tier cases use separately signed committed bundles, not single-change twins. Classical algorithm exclusions under `pq_only` remain omitted without an expected verdict pending clarification. See the corpus questions and the coverage map for the remaining scope. CI runs the corpus/runner self-tests and the catalog through all five SDK wrappers; a pass concerns these cases only.
+The routine hybrid positive reaches effective `classical_only`; the standard positive raises that request to `hybrid_preferred`. Recorded tier/mode derivation is explanatory, not an assessment of result fields. Tier cases use separately signed committed bundles, not single-change twins. The clarification cases use two routine bases, so each requested mode is the effective one; their Q2 variants re-sign only a PQ component with the committed TEST-ONLY key. The self-tests run catalog 1.1 with its original invariants, and fakes that each read Q1, Q2 or Q3 wrongly: classical lists under `pq_only`, an invalid classical component rejected under `pq_only`, PQ lists on a bundle without PQ, or the mode ignored. Each fails exactly its cases. CI runs the corpus/runner self-tests and the catalog through all five SDK wrappers; a pass concerns these cases only.
 
 #### Structural catalog (opt-in)
 
@@ -489,7 +499,7 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
 ### Delegation catalog: DCP-09 mandate chains
 
 `--catalog delegation` selects a third opt-in catalog, [`external-delegation-catalog.json`](external-delegation-catalog.json)
-(contract `dcp-ai-conformance-external/4`, 97 cases), run against the same kind of argv. It judges mandate chain
+(contract `dcp-ai-conformance-external/4`, version 2.0.0, 97 normative cases), run against the same kind of argv. It judges mandate chain
 verification, [DCP-09 §3.5.2](../../spec/DCP-09.md), on three committed corpora the catalog pins by SHA-256. Contracts
 `/1`, `/2` and `/3` and their catalogs do not change. The TypeScript, Python, Go and Rust wrappers answer `/4` through
 their SDK. The WASM build exports no mandate chain function, so its wrapper refuses `/4` (exit 2), as it does `/3`, and
@@ -501,6 +511,7 @@ node tools/conformance-external.js --catalog delegation --report /tmp/delegation
 node tools/conformance-external.js --catalog delegation -- /path/to/python -I tools/conformance/wrappers/python_sdk.py
 node tools/conformance-external.js --catalog delegation -- tools/conformance/wrappers/.build/go-wrapper
 node tools/conformance-external.js --catalog delegation -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+node tools/conformance-external.js --catalog tools/conformance/external-delegation-catalog-1.0.0.json -- /path/to/implementation
 node --test tools/conformance/external-delegation.test.mjs
 DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-delegation-wrappers.test.mjs
 ```
@@ -508,7 +519,7 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
 | Suite | Cases | Source |
 |-------|-------|--------|
 | `external.delegation.chain` | 52 | [`mandate_chain_vectors.json`](../../tests/interop/v2/mandate_chain_vectors.json): signatures and roles, links, depth, attenuation, windows, tier floor, revocation |
-| `external.delegation.chain_time` | 22, 10 of them informative | [`mandate_chain_time_vectors.json`](../../tests/interop/v2/mandate_chain_time_vectors.json): rule 4 windows, their nesting and the verification time |
+| `external.delegation.chain_time` | 22 (10 of them informative in version 1.0.0) | [`mandate_chain_time_vectors.json`](../../tests/interop/v2/mandate_chain_time_vectors.json): rule 4 windows, their nesting and the verification time |
 | `external.delegation.domains` | 23 | [`mandate_domain_vectors.json`](../../tests/interop/v2/mandate_domain_vectors.json): a domain repeated in one mandate, at every depth |
 
 - **Operation:** `verify_mandate_chain` takes four fields.
@@ -526,11 +537,10 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
   - The error texts (the corpora's `error_contains` or exact `errors`) and `depth` are the SDKs' diagnostics. They are reported (`matched`, `differs`, `no_message`) and never judged.
   - A rejection needs no message, no particular `depth` and no particular tier.
   - `--assessment` does not apply.
-- **Informative cases:** ten `chain_time` cases rest on conventions DCP-09 §3.5.2 does not state.
-  - Three depend on comparing instants in milliseconds (VERIFICATION.md V2-4, for bundles).
-  - Seven depend on signer key validity, `expires_at` (V2-13, for bundles).
-
-  The runner fixes that list. These cases are sent and reported in `informative_totals` (`requested`, `completed`, `agrees`, `differs`, `error`) and never pass or fail. A missing, malformed, `error` or `unsupported` answer to one of them is still an error of the run, and a run with no normative case executed never passes.
+- **Versions:** 2.0.0, the default, judges all 97 cases, as the clarification of DCP-09 §3.5.2 (05/11/2026) decides: the instants of rule 4 and the signer keys' `expires_at` are compared in milliseconds, and each signer key must be active and unexpired at the verification time.
+  - Version 1.0.0 is archived byte for byte as [`external-delegation-catalog-1.0.0.json`](external-delegation-catalog-1.0.0.json) and runs by that path. It kept ten `chain_time` cases informative: three depend on comparing instants in milliseconds, seven on signer key `expires_at`. They are sent and reported in `informative_totals` (`requested`, `completed`, `agrees`, `differs`, `error`) and never pass or fail; a missing, malformed, `error` or `unsupported` answer to one of them is still an error of the run.
+  - The runner fixes the classification of each version and pins the bytes of 1.0.0: a relabeled, re-serialized or unknown version is refused, so neither version is judged with the other's classification. An implementation that differed on one of the ten passed 1.0.0 and fails 2.0.0; a 1.0.0 report remains evidence of 1.0.0 only.
+  - A run with no normative case executed never passes.
 - **Anchors:** each normative case names its rule of §3.5.2: `rule1` to `rule7`, `fail_closed` for unknown, missing or not comparable input, or `all_rules` for an accepted chain.
 - **Controls:** a rejection counts only if its control passed in the same run. The control is a normative accepted chain of the same suite, and `control_scope` says how the two relate:
   - `same_chain`: the same chain bytes, with other revoked ids, another time or other keys;
@@ -539,7 +549,7 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
   - `suite`: every accepted chain of the suite.
 
   The runner checks the relation on the bytes when the catalog loads. None of them claims the two differ by a single defect. A selected suite carries its own controls.
-- **Catalog:** `delegation-catalog.mjs --check` regenerates the catalog from the corpora and its table of anchors. The runner refuses, with exit 3, a catalog that drops, repeats or reorders a corpus case, classifies the informative cases otherwise, or overstates a control.
+- **Catalog:** `delegation-catalog.mjs --check` regenerates the 2.0.0 catalog from the corpora and its table of anchors: rule 1 for a key of the root's signer, rule 2 for a key of a delegating agent. The runner refuses, with exit 3, a catalog that drops, repeats or reorders a corpus case, classifies a case otherwise than its version does, or overstates a control.
 - **Process and wrappers:** as with `/1` to `/3`; the default timeout of this catalog is 300 000 ms. Wrappers make one call per case with the request's time, never the system clock, and each reads the chain as its SDK's own corpus test does:
 
   | SDK | Chain | Time |
@@ -551,10 +561,10 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
 - **Self-tests:**
   - `external-delegation.test.mjs` judges synthetic answers built from the corpus expectations, with no SDK, and checks that the bytes sent are slices of the fixtures. It covers:
     - accepting or rejecting everything, a verifier that ignores one rule, and a wrong tier;
-    - contradictory, malformed, `error` and `unsupported` answers, and informative cases that differ or fail;
+    - contradictory, malformed, `error` and `unsupported` answers; under 1.0.0, informative cases that differ or fail, and under 2.0.0 the same answers failing exactly those cases;
     - missing, duplicate, extra and truncated results, stale ids, and failing, killed, hung and late processes;
-    - fresh reports, selection, and tampered catalogs and fixtures.
-  - `external-delegation-wrappers.test.mjs` runs the four wrappers through their SDKs: the 97 cases, the request's clock at three instants, malformed requests and injected failures. It also checks the WASM refusal and catches two altered TypeScript SDKs, one that ignores revocation and one with a clock of its own. It calls the wrappers asynchronously, closing stdin; a synchronous spawn with an input was seen leaving a native wrapper waiting for end of file.
+    - fresh reports, selection, tampered catalogs and fixtures, and relabeled or re-serialized versions.
+  - `external-delegation-wrappers.test.mjs` runs the four wrappers through their SDKs: the 97 cases, the request's clock at three instants, malformed requests and injected failures. It also checks the WASM refusal and catches four altered TypeScript SDKs: one that ignores revocation, one with a clock of its own, one that ignores signer key expiry and one that compares windows below the millisecond. Measured under 2.0.0, the third fails the seven key cases and the fourth two of the three millisecond cases (the wrapper hands the SDK a verification time already in milliseconds); under 1.0.0 both pass and only differ on those cases. It calls the wrappers asynchronously, closing stdin; a synchronous spawn with an input was seen leaving a native wrapper waiting for end of file.
 
   CI runs both, with the four wrappers required.
 - **Limits:** a pass shows that the argv that was run gives these verdicts on these committed chains, nothing more.

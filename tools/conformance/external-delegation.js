@@ -6,8 +6,10 @@
 // integers past 2^53 and every timestamp reach the implementation as written.
 //
 // Only the verdict is normative: valid, plus effective_tier on accepted chains (rule 6). The error texts and depth are
-// the SDKs' diagnostics, reported but never judged. Ten chain_time cases rest on conventions DCP-09 §3.5.2 does not
-// state (millisecond precision, signer key validity); they are informative: sent, reported, never pass or fail.
+// the SDKs' diagnostics, reported but never judged. Catalog 1.0.0, archived byte for byte, kept ten chain_time cases
+// informative (sent, reported, never pass or fail): they rested on conventions DCP-09 §3.5.2 did not state then
+// (millisecond precision, signer key validity). Its dated clarification of 05/11/2026 states both, so catalog 2.0.0, the
+// default, judges all 97. Each catalog is judged by the classification of its own version, fixed below.
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
@@ -19,6 +21,7 @@ import {
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const DELEGATION_CATALOG_PATH = path.join(HERE, "external-delegation-catalog.json");
+export const DELEGATION_CATALOG_1_PATH = path.join(HERE, "external-delegation-catalog-1.0.0.json");
 export const DELEGATION_CONTRACT = "dcp-ai-conformance-external/4";
 export const DELEGATION_TIMEOUT_MS = 300000;
 export const SUITES = [
@@ -34,8 +37,8 @@ export const ANCHORS = ["rule1", "rule2", "rule3", "rule4", "rule5", "rule6", "r
 // The relation a negative's control has to it, checked on the fixture bytes. None of them claims the two cases differ
 // by one defect only: a different mandate can differ in many fields and in its signature.
 export const SCOPES = ["same_chain", "single_mandate", "same_shape", "suite"];
-// The ten cases whose expected verdict rests on a convention DCP-09 §3.5.2 does not state. Fixed here: a catalog that
-// classifies otherwise is refused.
+// The ten cases of catalog 1.0.0 whose expected verdict rested on a convention DCP-09 §3.5.2 did not state before its
+// clarification of 05/11/2026. Fixed here: a 1.0.0 catalog that classifies otherwise is refused.
 export const BASES = {
   millisecond_precision: {
     document: "spec/VERIFICATION.md (V2-4 timestamps); spec/DCP-09.md implementation notes (informative)",
@@ -58,6 +61,12 @@ export const INFORMATIVE = {
   [`${T}key_expires_at_without_an_offset`]: "signer_key_validity",
   [`${T}key_expires_at_with_a_trailing_newline`]: "signer_key_validity",
   [`${T}key_expires_at_crossing_into_year_minus_1`]: "signer_key_validity",
+};
+// The classification of each catalog version. 1.0.0 is archived: only its exact bytes are that version, so its ten
+// informative cases can never be judged as normative, nor a 2.0.0 catalog read with the 1.0.0 classification.
+export const CLASSIFICATIONS = {
+  "1.0.0": { catalog_sha256: "e31de86f5834c1a394d3beed58f0901d265f5da560b7725aa73dcbf6948a8133", informative_bases: BASES, informative: INFORMATIVE },
+  "2.0.0": { catalog_sha256: null, informative_bases: {}, informative: {} },
 };
 
 const HEX64 = /^[0-9a-f]{64}$/;
@@ -240,9 +249,12 @@ export function loadDelegationPlan({ root = REPO_ROOT, catalogFile = DELEGATION_
   need(Array.isArray(cat.limits) && cat.limits.length > 0 && cat.limits.every(isText), "invalid catalog: limits must be non-empty strings");
   const files = SUITES.map((s) => s.file);
   need(exactKeys(cat.fixtures, files) && Object.values(cat.fixtures).every((h) => typeof h === "string" && HEX64.test(h)), `invalid catalog: fixtures must pin exactly ${files.join(", ")} by sha256`);
-  // The informative classification is fixed by this runner: the catalog restates it, it cannot change it.
-  need(isDeepStrictEqual(cat.informative_bases, BASES), "invalid catalog: informative_bases must be the runner's");
-  need(isDeepStrictEqual(cat.informative, INFORMATIVE), "invalid catalog: informative must be exactly the runner's ten cases and bases");
+  // The informative classification is fixed by this runner for each version: the catalog restates it, it cannot change it.
+  need(Object.hasOwn(CLASSIFICATIONS, cat.catalog_version), `invalid catalog: unknown catalog_version ${cat.catalog_version} (known: ${Object.keys(CLASSIFICATIONS).join(", ")})`);
+  const cls = CLASSIFICATIONS[cat.catalog_version];
+  need(cls.catalog_sha256 === null || sha256(raw) === cls.catalog_sha256, `invalid catalog: ${cat.catalog_version} is archived; only its exact bytes (sha256 ${cls.catalog_sha256}) are that version`);
+  need(isDeepStrictEqual(cat.informative_bases, cls.informative_bases), `invalid catalog: informative_bases must be the runner's for ${cat.catalog_version}`);
+  need(isDeepStrictEqual(cat.informative, cls.informative), `invalid catalog: informative must be exactly the runner's cases and bases for ${cat.catalog_version}`);
   need(Array.isArray(cat.suites) && isDeepStrictEqual(cat.suites.map((s) => s?.id), SUITES.map((s) => s.id)), `invalid catalog: suites must be ${SUITES.map((s) => s.id).join(", ")}, in that order`);
 
   const fixtures = {};
@@ -266,10 +278,10 @@ export function loadDelegationPlan({ root = REPO_ROOT, catalogFile = DELEGATION_
       const f = fixtureCase(fx, list, index, where);
       const id = `${spec.id}.${f.name}`;
       need(e.id === id && e.name === f.name, `${where}: id must be ${id}`);
-      const informative = Object.hasOwn(INFORMATIVE, id);
+      const informative = Object.hasOwn(cls.informative, id);
       need(e.class === (informative ? "informative" : "normative"), `${where}: class must be ${informative ? "informative" : "normative"}`);
       if (informative) {
-        need(exactKeys(e, ["id", "name", "list", "index", "class", "basis"]) && e.basis === INFORMATIVE[id], `${where}: an informative case has exactly id, name, list, index, class and its basis ${INFORMATIVE[id]}`);
+        need(exactKeys(e, ["id", "name", "list", "index", "class", "basis"]) && e.basis === cls.informative[id], `${where}: an informative case has exactly id, name, list, index, class and its basis ${cls.informative[id]}`);
       } else if (list === "must_accept") {
         need(exactKeys(e, ["id", "name", "list", "index", "class", "anchor"]) && e.anchor === "all_rules", `${where}: a normative positive has exactly id, name, list, index, class and anchor all_rules`);
       } else {

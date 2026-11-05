@@ -507,6 +507,26 @@
 
 ### 变更
 
+- 验证者策略，带日期的澄清（05/11/2026，规范性）：`spec/VERIFICATION.md` 步骤 V2-10 解决了策略语料留下的三个问题。
+  - Q1：在实际模式 `pq_only` 下，经典算法列表和安全通告不适用于经典组件。
+  - Q2：在 `pq_only` 下，未通过密码学验证的经典组件不会拒绝其 PQ 组件对这些经典字节验证通过的 bundle。规范
+    base64、上下文、kid 查找和密钥检查仍然适用。
+  - Q3：PQ 列表不会拒绝没有 PQ 组件的 bundle；只有实际模式决定接受还是拒绝其绑定。
+
+  `spec/DCP-AI-v2.0.md` § 7.3 取代了两项读起来好像 `pq_only` 接受没有 `pq_over_classical` 的签名、或带警告地接受
+  仅经典签名 bundle 的内容。五个 SDK 验证器已经给出这些判定结果，因此没有 SDK 改变。
+  `tests/interop/v2/verifier_policy_clarification_vectors.json`（34 个用例，附生成器）是新增的，
+  `verifier_policy_vectors.json` 不变。可选的策略目录现在是 `2026-11-05.verifier-policy-2.0` 版，带有第二个套件
+  `external.v2.verifier_policy_clarification`（共 108 个用例）。1.1 版（74 个用例）按字节原样存档为
+  `tools/conformance/external-policy-catalog-1.1.json`，仍可按其路径运行。
+- 委托，带日期的澄清（05/11/2026，规范性）：DCP-09 §3.5.2 以毫秒比较规则 4 的时刻和签名密钥的 `expires_at`，并要求
+  每个签名槽位指向的密钥在验证时间为 `active` 且未过期，与 bundle 相同（V2-4、V2-13）。对 `created_at` 没有任何
+  要求。四个链验证器已经如此运行，因此没有 SDK 改变。可选的委托目录现在是 2.0.0 版，判定全部 97 个用例：1.0.0 版
+  保留为参考性的十个 `chain_time` 用例现在是规范性的（签名密钥为规则 1 或 2，三个被接受的链为全部规则）。1.0.0 版
+  按字节原样存档为 `tools/conformance/external-delegation-catalog-1.0.0.json`，仍可按其路径运行，含 87 个规范性用例
+  和 10 个参考性用例。运行器固定每个版本的分类，因此任何版本都不会按另一版本的分类判定。在这十个用例之一上结果
+  不同的实现通过 1.0.0 版而在 2.0.0 版失败。
+
 - 翻译现位于 `i18n/<locale>/` 下，路径与其英文原文相同，英文原文不移动：对于 `es`、`pt-BR`、`ja` 和 `zh-CN`，
   `<dir>/<name>.<locale>.md` 现为 `i18n/<locale>/<dir>/<name>.md`（388 个文件）。此次迁移只改变了链接路径：
   即被移动文件中的链接，以及十份英文文档的语言链接。每个 SDK 的英文 README 以绝对 URL 链接其翻译，使其语言链接

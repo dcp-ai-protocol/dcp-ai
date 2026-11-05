@@ -4,7 +4,7 @@
 
 # Especificación normativa de DCP-AI v2.0
 
-> Traducción informativa de [la especificación en inglés](../../../spec/DCP-AI-v2.0.md), actualizada el 02/11/2026. **La versión normativa es la inglesa**: esta traducción no tiene valor normativo y, si difieren, prevalece el inglés. Los identificadores y bloques de código se conservan sin traducir.
+> Traducción informativa de [la especificación en inglés](../../../spec/DCP-AI-v2.0.md), actualizada el 05/11/2026. **La versión normativa es la inglesa**: esta traducción no tiene valor normativo y, si difieren, prevalece el inglés. Los identificadores y bloques de código se conservan sin traducir.
 
 **Estado:** Final  
 **Versión:** 2.0.0  
@@ -266,11 +266,17 @@ El nivel de seguridad (§14.3) solo puede hacer más estricto el modo que selecc
 
 Cuando `default_mode` es `pq_only`:
 
-- Las firmas clásicas se aceptan, pero no se exigen
+- La firma clásica sigue presente, como exige `pq_over_classical` (la firma PQ cubre sus bytes), pero no se exige que su verificación tenga éxito: las listas y avisos de algoritmos clásicos no se le aplican, y se tolera un componente clásico que no verifica cuando el componente PQ verifica sobre él ([VERIFICATION.md](../../../spec/VERIFICATION.md), paso V2-10, Q1 y Q2)
 - `min_classical` es 0 y `min_pq` es 1
-- No se exige la vinculación compuesta
+- Se exige una firma PQ, con la vinculación `pq_over_classical`, en la que la firma PQ cubre los bytes de la firma clásica (§ 5)
 - Los bundles V1 se rechazan
-- Los bundles solo clásicos emiten advertencias de obsolescencia
+- Una vinculación `classical_only` se rechaza; el aviso de obsolescencia de `warn_classical_only_deprecated` afecta a los otros modos y es un diagnóstico
+
+> **Aclaración (05/11/2026, normativa).** Los puntos tercero y quinto sustituyen a «No se exige la vinculación
+> compuesta» y «Los bundles solo clásicos emiten advertencias de obsolescencia». Se leían como si `pq_only` aceptara una
+> firma sin la vinculación `pq_over_classical`, o un bundle solo clásico con un aviso; § 7.1 y el paso V2-10 de
+> VERIFICATION.md exigen la firma PQ bajo `pq_only`, así que ninguno de los dos se aceptaba. El primer punto recoge lo
+> que resuelve la aclaración del paso V2-10 (Q1 y Q2).
 
 ---
 

@@ -28,6 +28,7 @@ const FIXTURES = {
 const SUITE_FIXTURES = {
   "external.v2.schema_closure": { schema: "tests/interop/v2/schema_closure_vectors.json" },
   "external.v2.verifier_policy": { policy: "tests/interop/v2/verifier_policy_vectors.json" },
+  "external.v2.verifier_policy_clarification": { clarification: "tests/interop/v2/verifier_policy_clarification_vectors.json", policy: "tests/interop/v2/verifier_policy_vectors.json" },
   "external.v2.structural": { structural: "tests/interop/v2/structural_vectors.json" },
   "external.v2.schema_validation": { wiring: "tests/interop/v2/schema_validation/wiring_cases.json" },
 };
@@ -196,6 +197,36 @@ const BUILDERS = {
       }
       const id = (n) => `external.v2.verifier_policy.${n}`;
       return { ...verifyCase(id(c.name), `${rel}#cases/${c.name} (requested ${c.requested_mode}, tier ${c.tier}, effective ${c.effective_mode})`, signed, c.policy, c.verification_time, { verified: c.expect.verified }, c.controls?.map(id)), anchor_source: { spec_step: c.spec_step } };
+    });
+  },
+  // Opt-in clarification suite (verifier_policy_clarification_vectors.json, the dated clarification of spec/VERIFICATION.md
+  // V2-10, Q1 to Q3): bases are taken from the committed corpora only if their recorded sha256 still matches; a variant is
+  // a base with its committed mutations applied. Only the verdict is judged.
+  "external.v2.verifier_policy_clarification": ({ clarification: Q, policy: P, bundles: B }) => {
+    const rel = SUITE_FIXTURES["external.v2.verifier_policy_clarification"].clarification;
+    need(isObj(Q?.bundles) && isObj(Q.variants) && Array.isArray(Q.cases) && Q.cases.length > 0, `${rel}: malformed`);
+    const SOURCES = {
+      "tests/interop/v2/verifier_policy_vectors.json#bundles/routine_hybrid": () => P?.bundles?.routine_hybrid?.signed_bundle,
+      "tests/interop/v2/bundle_vectors.json#classical_only_routine_bundle": () => B.classical_only_routine_bundle?.signed_bundle,
+    };
+    const base = (name) => {
+      const e = Q.bundles[name];
+      need(isObj(e) && Object.hasOwn(SOURCES, e.source), `${rel}: unknown bundle ${name}`);
+      const signed = SOURCES[e.source]();
+      need(isObj(signed) && sha256(JSON.stringify(signed)) === e.sha256, `${name}: ${e.source} is missing or differs from its recorded sha256`);
+      return signed;
+    };
+    const signedOf = (name) => {
+      if (!Object.hasOwn(Q.variants, name)) return base(name);
+      const v = Q.variants[name];
+      need(Array.isArray(v?.mutations) && v.mutations.length > 0 && v.mutations.every((m) => Array.isArray(m?.path) && typeof m.value === "string"), `${rel}: variant ${name} needs mutations`);
+      return mutated(base(v.of), v.mutations);
+    };
+    const id = (n) => `external.v2.verifier_policy_clarification.${n}`;
+    return Q.cases.map((c) => {
+      need(nonEmpty(c.name) && nonEmpty(c.question) && isObj(c.policy) && nonEmpty(c.verification_time) && typeof c.expect?.verified === "boolean" && nonEmpty(c.spec_step) && (c.expect.verified || c.controls?.length > 0),
+        `verifier_policy_clarification ${c.name}: needs a name, a question, a policy, a verification_time, expect.verified, a spec_step and, if negative, controls`);
+      return { ...verifyCase(id(c.name), `${rel}#cases/${c.name} (${c.question}, mode ${c.requested_mode})`, signedOf(c.bundle), c.policy, c.verification_time, { verified: c.expect.verified }, c.controls?.map(id)), anchor_source: { spec_step: c.spec_step } };
     });
   },
   // Opt-in structural suite (structural_vectors.json, spec/VERIFICATION.md V2-3, V2-4, V2-5, V2-6, V2-12): the base and
@@ -398,7 +429,14 @@ export const VERDICT_TEXT = {
       claim: `Each case of tests/interop/v2/verifier_policy_vectors.json is run under its exact policy and verification_time: hybrid positives verify under each requested mode; a present and invalid PQ signature of the bundle, the passport or a checkpoint is rejected in every mode; a policy whose accepted or advisory lists exclude an algorithm the bundle uses rejects it; and committed classical-only bundles whose tier demands hybrid_required are rejected under a requested classical_only or hybrid_preferred mode. Every negative counts only if its positive control, the same bundle or the committed classical-only routine bundle under the same requested mode, passed in the same run. Rejection messages are not judged (no error_contains).`,
       limits: [
         "Only the verdict is judged: the tier and effective mode in each case are derived for the reader (DCP-AI-v2.0.md § 14.2, VERIFICATION.md V2-9) and are not compared with any resolved tier or mode an implementation reports.",
-        "A classical list or advisory exclusion under pq_only is left out pending an interpretation (question Q1 of the corpus): no expectation, not run. The other questions of the corpus record coverage not built here.",
+        "A classical list or advisory exclusion under pq_only is not in this corpus (its omitted cases, question Q1). The dated clarification of spec/VERIFICATION.md V2-10 (05/11/2026) settles Q1, Q2 and Q3, and the suite external.v2.verifier_policy_clarification runs them.",
+      ],
+    },
+    "external.v2.verifier_policy_clarification": {
+      claim: "Each case of tests/interop/v2/verifier_policy_clarification_vectors.json runs under its exact policy and verification_time, as the dated clarification of spec/VERIFICATION.md V2-10 (05/11/2026) decides: under pq_only, classical lists and advisories that exclude ed25519 do not reject a hybrid bundle (Q1), and a bundle, passport or checkpoint signature whose classical component fails verification while its PQ component verifies over those classical bytes is accepted (Q2), but a classical sig_b64 that is not canonical base64 or a classical kid that names no key is rejected; in the other modes the same exclusions and signatures are rejected; under classical_only and hybrid_preferred, PQ lists and advisories do not reject a bundle without a PQ component, while the hybrid bundle under the same policy is rejected (Q3). Every negative counts only if its positive control, the same base under the same requested mode, passed in the same run. Rejection messages are not judged (no error_contains).",
+      limits: [
+        "Only the verdict is judged. Warnings are diagnostics: allow_classical_fallback_disable changes a warning, never a verdict, and none is compared.",
+        "Two routine bases, so each requested mode is also the effective mode. The Q2 variants re-sign only a PQ component, with the committed TEST-ONLY key; the scope variants keep every signature byte. A pass covers these cases, not every location, algorithm or key state.",
       ],
     },
     "external.v2.structural": {

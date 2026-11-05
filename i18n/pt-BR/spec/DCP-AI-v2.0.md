@@ -4,7 +4,7 @@
 
 # Especificação normativa do DCP-AI v2.0
 
-> Tradução informativa da [especificação em inglês](../../../spec/DCP-AI-v2.0.md), atualizada em 02/11/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
+> Tradução informativa da [especificação em inglês](../../../spec/DCP-AI-v2.0.md), atualizada em 05/11/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
 
 **Status:** Final  
 **Versão:** 2.0.0  
@@ -266,11 +266,17 @@ O nível de segurança (§14.3) só pode tornar mais rigoroso o modo que essa po
 
 Quando `default_mode` é `pq_only`:
 
-- As assinaturas clássicas são aceitas, mas não exigidas
+- A assinatura clássica continua presente, como exige `pq_over_classical` (a assinatura PQ cobre os seus bytes), mas não se exige que a sua verificação tenha êxito: as listas e os alertas de algoritmos clássicos não se aplicam a ela, e um componente clássico que não verifica é tolerado quando o componente PQ verifica sobre ele ([VERIFICATION.md](../../../spec/VERIFICATION.md), passo V2-10, Q1 e Q2)
 - `min_classical` é 0 e `min_pq` é 1
-- A vinculação composta não é exigida
+- Exige-se uma assinatura PQ, com a vinculação `pq_over_classical`, na qual a assinatura PQ cobre os bytes da assinatura clássica (§ 5)
 - Os bundles V1 são rejeitados
-- Os bundles somente clássicos emitem alertas de descontinuação
+- Uma vinculação `classical_only` é rejeitada; o alerta de descontinuação de `warn_classical_only_deprecated` diz respeito aos outros modos e é um diagnóstico
+
+> **Esclarecimento (05/11/2026, normativo).** O terceiro e o quinto itens substituem «A vinculação composta não é
+> exigida» e «Os bundles somente clássicos emitem alertas de descontinuação». Eles se liam como se `pq_only` aceitasse
+> uma assinatura sem a vinculação `pq_over_classical`, ou um bundle somente clássico com um alerta; o § 7.1 e o passo
+> V2-10 do VERIFICATION.md exigem a assinatura PQ sob `pq_only`, então nenhum dos dois era aceito. O primeiro item
+> registra o que o esclarecimento do passo V2-10 resolve (Q1 e Q2).
 
 ---
 
