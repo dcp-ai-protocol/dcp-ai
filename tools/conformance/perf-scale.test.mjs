@@ -11,8 +11,9 @@ import assert from "node:assert/strict";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { spawnSync } from "child_process";
+import { spawn, spawnSync } from "child_process";
 import { createHash } from "crypto";
+import { once } from "events";
 import { ENTRYPOINTS, REPO_ROOT } from "./perf.js";
 import {
   CONTROLS, DIMENSIONS, MANDATE_ENTRYPOINTS, DeadlineError, InfraError, SNAPSHOT_WORST_MS, corpusUnchanged, deadline, generateCorpus, judgeAny,
@@ -25,6 +26,75 @@ const REQUIRED = process.env.DCP_EXTERNAL_REQUIRE_PYTHON === "1" && process.env.
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "dcp-perf-scale-"));
 process.on("exit", () => fs.rmSync(TMP, { recursive: true, force: true }));
 const sha = (b) => createHash("sha256").update(b).digest("hex");
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+
+// ── Observing a process without signalling it (POSIX) ──────────
+// "absent": kill(pid, 0) gives ESRCH. "zombie": it still exists and ps reports state Z: it has terminated but its parent
+// (after an orphaning, init or a subreaper) has not reaped it yet, so its PID is not removed. "alive": it exists in any
+// other state. "error": the observation itself failed (EPERM, ps missing or failing, or ps not listing a PID that
+// kill still sees); a failing ps is never read as absence. kill(pid, 0) alone cannot tell a zombie from a live process.
+const PS = "/bin/ps";
+// Explicit outer margin of one observation: a ps still running at its timeout is killed (SIGKILL) and reaped.
+const PS_KILL_MARGIN_MS = 1000;
+// Below this much time left, no further ps is started: the last state seen is returned instead.
+const MIN_PS_MS = 100;
+function processState(pid, { ps = PS, timeoutMs = 5000 } = {}) {
+  const exists = () => { try { process.kill(pid, 0); return true; } catch (e) { if (e.code === "ESRCH") return false; throw e; } };
+  try { if (!exists()) return { state: "absent" }; } catch (e) { return { state: "error", detail: `kill(pid, 0): ${e.code}` }; }
+  const r = spawnSync(ps, ["-o", "stat=", "-p", String(pid)], { encoding: "utf8", timeout: Math.max(1, Math.floor(timeoutMs)), killSignal: "SIGKILL" });
+  if (r.error || r.signal) return { state: "error", detail: `${ps}: ${r.error?.code ?? r.error?.message ?? `killed by ${r.signal}`}` };
+  const stat = r.stdout.trim();
+  if (r.status === 0 && stat) return { state: stat.startsWith("Z") ? "zombie" : "alive", stat };
+  try { if (r.status === 1 && !stat && !exists()) return { state: "absent" }; } catch { /* reported below */ }
+  return { state: "error", detail: `${ps} exit ${r.status}${r.stderr.trim() ? `: ${r.stderr.trim()}` : ""} for a PID that kill(pid, 0) still sees` };
+}
+const STOPPED = new Set(["absent", "zombie"]);
+/**
+ * Observes a PID for at most `boundMs` (plus PS_KILL_MARGIN_MS for a ps killed at its timeout): each ps gets the time
+ * left as its timeout, the pause between observations never passes the bound, and no ps starts with less than
+ * MIN_PS_MS left. It returns as soon as the PID is absent or the observation fails, otherwise at the bound with the
+ * last state (alive or zombie). Every distinct state seen is kept, in order, for the diagnosis.
+ */
+async function awaitStopped(pid, { boundMs = 2000, stepMs = 25, ps = PS } = {}) {
+  const started = performance.now();
+  const left = () => boundMs - (performance.now() - started);
+  const seen = [];
+  for (;;) {
+    const s = processState(pid, { ps, timeoutMs: left() });
+    if (seen.at(-1) !== s.state) seen.push(s.state);
+    const out = { ...s, seen, waited_ms: Math.round(performance.now() - started) };
+    if (s.state === "absent" || s.state === "error" || left() <= MIN_PS_MS) return out;
+    await sleep(Math.min(stepMs, left() - MIN_PS_MS));
+  }
+}
+const describe = (s) => `${s.state} after ${s.waited_ms} ms (states seen: ${s.seen.join(" -> ")}${s.stat ? `; ps stat ${s.stat}` : ""}${s.detail ? `; ${s.detail}` : ""})`;
+/** A process must have stopped running (absent, or a zombie its parent has not reaped) within the bound. */
+async function assertStopped(pid, what) {
+  const s = await awaitStopped(pid);
+  assert.ok(STOPPED.has(s.state), `${what}: ${describe(s)}`);
+  return s;
+}
+/** Polls a deterministic condition at most `boundMs`; throws if it never holds. */
+async function until(cond, boundMs, what) {
+  const end = performance.now() + boundMs;
+  while (!cond()) {
+    if (performance.now() >= end) throw new Error(`not within ${boundMs} ms: ${what}`);
+    await sleep(10);
+  }
+}
+const commandOf = (pid, field = "command") => {
+  const r = spawnSync(PS, ["-o", `${field}=`, "-p", String(pid)], { encoding: "utf8", timeout: 5000, killSignal: "SIGKILL" });
+  return r.status === 0 ? r.stdout.trim() : "";
+};
+/** Kills a PID this test started, only if it still runs and its command line is still ours (a PID can be reused). */
+function killOwn(pid, marker) {
+  if (!Number.isSafeInteger(pid) || pid <= 1 || processState(pid).state !== "alive") return;
+  if (commandOf(pid).includes(marker)) { try { process.kill(pid, "SIGKILL"); } catch { /* it ended meanwhile */ } }
+}
+/** The PIDs a stalled worker recorded, or none if it never wrote them. */
+const recorded = (file) => { try { return JSON.parse(fs.readFileSync(file, "utf8")); } catch { return {}; } };
+const recordedPid = (file) => { try { return Number(fs.readFileSync(file, "utf8")); } catch { return undefined; } };
+const STALL_MARKER = "process.on('SIGTERM', () => {}); setInterval";
 const CORPUS = path.join(TMP, "corpus");
 await generateCorpus(CORPUS);
 const { policy: POLICY } = policy();
@@ -300,16 +370,69 @@ test("deadline: a step starts only if it fits; a child is capped by what is left
   assert.equal(late.counts.not_run, 5, "the children that could not start are counted, not dropped");
 });
 
-test("a slow snapshot step (pip freeze) is cut at what the deadline leaves, and its process group is gone", async () => {
+test("observer: absent, zombie, alive and failed observations are told apart; only absent or zombie counts as stopped", async () => {
+  const live = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore" });
+  try {
+    assert.equal(processState(live.pid).state, "alive");
+    const s = await awaitStopped(live.pid, { boundMs: 200 });
+    assert.deepEqual([s.state, STOPPED.has(s.state)], ["alive", false], "a process still running at the bound is rejected");
+    assert.ok(s.waited_ms <= 200 + PS_KILL_MARGIN_MS, `within the bound (${s.waited_ms} ms)`);
+    assert.equal(processState(live.pid, { ps: path.join(TMP, "no-such-ps") }).state, "error", "a missing ps is an error, not absence");
+    const silent = path.join(TMP, "silent-ps");
+    fs.writeFileSync(silent, "#!/bin/sh\nexit 1\n", { mode: 0o755 });
+    const e = await awaitStopped(live.pid, { ps: silent });
+    assert.deepEqual([e.state, e.seen], ["error", ["error"]], "ps failing silently while kill still sees the PID is an error, at once");
+    const hung = path.join(TMP, "hung-ps");
+    fs.writeFileSync(hung, "#!/bin/sh\ntrap '' TERM\nexec sleep 30\n", { mode: 0o755 }); // ignores SIGTERM, as sleep inherits
+    const started = performance.now();
+    const h = await awaitStopped(live.pid, { boundMs: 500, ps: hung });
+    const took = performance.now() - started;
+    assert.deepEqual([h.state, h.seen], ["error", ["error"]], `a ps that hangs and ignores SIGTERM is an error (${describe(h)})`);
+    assert.ok(took <= 500 + PS_KILL_MARGIN_MS, `a hung ps is cut within the bound plus the margin (${Math.round(took)} ms)`);
+  } finally { live.kill("SIGKILL"); }
+  const dying = spawn(process.execPath, ["-e", "setTimeout(() => {}, 1000)"], { stdio: "ignore" });
+  const d = await awaitStopped(dying.pid, { boundMs: 5000 });
+  assert.deepEqual([d.state, d.seen], ["absent", ["alive", "absent"]], "alive, then gone within the bound");
+  const done = spawn(process.execPath, ["-e", "0"], { stdio: "ignore" });
+  await once(done, "exit");
+  assert.equal(processState(done.pid).state, "absent", "exited and reaped by its parent");
+  // A zombie, made deterministically: the shell starts a child blocked on its stdin, prints its PID and replaces itself
+  // with sleep (which never reaps). Only once ps shows the parent running sleep is the child released; it then exits
+  // and stays unreaped.
+  const parent = spawn("/bin/sh", ["-c", "exec 3<&0; (read x <&3) & echo $!; exec sleep 30"], { stdio: ["pipe", "pipe", "ignore"] });
+  try {
+    const child = Number(String((await once(parent.stdout, "data"))[0]).trim());
+    await until(() => /(^|\/)sleep$/.test(commandOf(parent.pid, "comm")), 5000, "the parent has replaced the shell with sleep");
+    assert.equal(processState(child).state, "alive", "the child waits for its release");
+    parent.stdin.write("go\n");
+    await until(() => processState(child).state === "zombie", 5000, "the released child is a zombie");
+    const w = await awaitStopped(child, { boundMs: 200 });
+    assert.deepEqual([w.state, STOPPED.has(w.state)], ["zombie", true], "not running, although its PID is not removed");
+  } finally {
+    parent.stdin.end(); // a child still blocked on its stdin reads EOF and exits
+    parent.kill("SIGKILL");
+  }
+});
+
+test("a slow snapshot step (pip freeze) is cut at what the deadline leaves, and its process stops running", async () => {
   const pidFile = path.join(TMP, "slow.pid");
   const slow = path.join(TMP, "slow-python");
   fs.writeFileSync(slow, `#!${process.execPath}\nrequire("fs").writeFileSync(${JSON.stringify(pidFile)}, String(process.pid));\nprocess.on("SIGTERM", () => {});\nsetInterval(() => {}, 1000);\n`, { mode: 0o755 });
   const started = performance.now();
-  const r = await pipFreeze(slow, deadline(8000));
+  let r;
+  let observed;
+  try {
+    r = await pipFreeze(slow, deadline(8000));
+    // When the runner's pipes close, the killed process may not have been reaped yet: a zombie (its parent died first,
+    // so init or a subreaper reaps it) or still exiting. kill(pid, 0) succeeds in both cases; the state is observed.
+    observed = await awaitStopped(recordedPid(pidFile));
+  } finally {
+    killOwn(recordedPid(pidFile), slow);
+  }
+  const total = performance.now() - started;
   assert.equal(r, null, "a snapshot step that does not finish is missing, so the record is incomplete");
-  assert.ok(performance.now() - started < 12000, "bounded by min(cap, left - reserve) plus the kill grace");
-  const pid = Number(fs.readFileSync(pidFile, "utf8"));
-  assert.throws(() => process.kill(pid, 0), /ESRCH/, "no process is left behind");
+  assert.ok(STOPPED.has(observed.state), `the slow tool process: ${describe(observed)}`);
+  assert.ok(total < 12000, `bounded by min(cap, left - reserve), the kill grace, the observation and the cleanup (${Math.round(total)} ms)`);
 });
 
 // ── Provenance ─────────────────────────────────────────────────
@@ -396,14 +519,6 @@ test("usage: ambiguous or invalid commands write a fresh error or nothing", () =
 
 // ── The supervisor: real interruption of slow phases, and cleanup of every process ─
 
-const gone = async (pid) => {
-  for (let i = 0; i < 40; i++) {
-    const r = spawnSync("ps", ["-o", "stat=", "-p", String(pid)], { encoding: "utf8" });
-    if (r.status !== 0 || r.stdout.trim() === "" || r.stdout.trim().startsWith("Z")) return true;
-    await new Promise((res) => setTimeout(res, 50));
-  }
-  return false;
-};
 function supervised(args, env, reportFile) {
   const started = performance.now();
   const r = spawnSync(process.execPath, [CLI, ...(reportFile ? ["--report", reportFile] : []), ...args], { encoding: "utf8", timeout: 120000, env: { ...process.env, ...env } });
@@ -414,15 +529,21 @@ test("supervisor: a worker stuck in validation, with a detached child, is stoppe
   const pids = path.join(TMP, `stall-${++n}.json`);
   const file = path.join(TMP, `seeded-${++n}.json`);
   seed(file);
-  const r = supervised(["--corpus", CORPUS, "--python", process.execPath, "--deadline-ms", "5000"],
-    { DCP_PERF_SCALE_SELFTEST_STALL: "validate", DCP_PERF_SCALE_SELFTEST_PIDS: pids }, file);
-  assert.equal(r.code, 3, r.stderr);
-  assert.ok(r.elapsed < 15000, `stopped near the deadline (${Math.round(r.elapsed)} ms)`);
-  assert.deepEqual([r.report.status, r.report.baseline, r.report.error.kind, r.report.error.cleanup.alive, r.report.error.cleanup.complete], ["error", false, "deadline", [], true]);
-  assert.notEqual(r.report.run.id, "old-run");
-  const { worker, detached } = JSON.parse(fs.readFileSync(pids, "utf8"));
-  assert.ok(await gone(worker), "the worker is gone");
-  assert.ok(await gone(detached), "its detached child is gone");
+  try {
+    const r = supervised(["--corpus", CORPUS, "--python", process.execPath, "--deadline-ms", "5000"],
+      { DCP_PERF_SCALE_SELFTEST_STALL: "validate", DCP_PERF_SCALE_SELFTEST_PIDS: pids }, file);
+    assert.equal(r.code, 3, r.stderr);
+    assert.ok(r.elapsed < 15000, `stopped near the deadline (${Math.round(r.elapsed)} ms)`);
+    assert.deepEqual([r.report.status, r.report.baseline, r.report.error.kind, r.report.error.cleanup.alive, r.report.error.cleanup.complete], ["error", false, "deadline", [], true]);
+    assert.notEqual(r.report.run.id, "old-run");
+    const { worker, detached } = recorded(pids);
+    await assertStopped(worker, "the worker");
+    await assertStopped(detached, "its detached child");
+  } finally {
+    const { worker, detached } = recorded(pids);
+    killOwn(worker, CLI);
+    killOwn(detached, STALL_MARKER);
+  }
 });
 
 test("supervisor: a real snapshot hung in a detached tool subprocess is stopped, and the tool process is gone", async () => {
@@ -433,13 +554,17 @@ test("supervisor: a real snapshot hung in a detached tool subprocess is stopped,
   fs.writeFileSync(record, JSON.stringify({ record_version: 1, stable: {} }));
   const file = path.join(TMP, `seeded-${++n}.json`);
   seed(file);
-  const r = supervised(["--corpus", CORPUS, "--sizes", "small", "--no-build", "--record", record, "--python", fake, "--deadline-ms", "8000"],
-    { DCP_PERF_SCALE_SELFTEST_NO_RESERVATIONS: "1" }, file);
-  assert.equal(r.code, 3, r.stderr);
-  assert.ok(r.elapsed < 18000, `stopped near the deadline (${Math.round(r.elapsed)} ms)`);
-  assert.deepEqual([r.report.status, r.report.error.kind, r.report.error.cleanup.alive], ["error", "deadline", []]);
-  assert.ok(fs.existsSync(pidFile), "the snapshot reached the tool query");
-  assert.ok(await gone(Number(fs.readFileSync(pidFile, "utf8"))), "the hung tool process (its own process group) is gone");
+  try {
+    const r = supervised(["--corpus", CORPUS, "--sizes", "small", "--no-build", "--record", record, "--python", fake, "--deadline-ms", "8000"],
+      { DCP_PERF_SCALE_SELFTEST_NO_RESERVATIONS: "1" }, file);
+    assert.equal(r.code, 3, r.stderr);
+    assert.ok(r.elapsed < 18000, `stopped near the deadline (${Math.round(r.elapsed)} ms)`);
+    assert.deepEqual([r.report.status, r.report.error.kind, r.report.error.cleanup.alive], ["error", "deadline", []]);
+    assert.ok(fs.existsSync(pidFile), "the snapshot reached the tool query");
+    await assertStopped(recordedPid(pidFile), "the hung tool process (its own process group)");
+  } finally {
+    killOwn(recordedPid(pidFile), fake);
+  }
 });
 
 test("supervisor: a stopped generation leaves no corpus and no staging, and never touches a caller's directory", async () => {
@@ -447,14 +572,21 @@ test("supervisor: a stopped generation leaves no corpus and no staging, and neve
   const target = path.join(TMP, `gen-${n}`);
   fs.mkdirSync(`${target}.partial`);
   fs.writeFileSync(path.join(`${target}.partial`, "keep.txt"), "a caller's file");
-  const r = supervised(["--generate", target, "--deadline-ms", "5000"], { DCP_PERF_SCALE_SELFTEST_STALL: "generate", DCP_PERF_SCALE_SELFTEST_PIDS: pids });
-  assert.equal(r.code, 3, r.stderr);
-  assert.match(r.stderr, /deadline error/);
-  assert.equal(fs.existsSync(target), false);
-  assert.equal(fs.readFileSync(path.join(`${target}.partial`, "keep.txt"), "utf8"), "a caller's file", "a directory the run did not create is untouched");
-  assert.deepEqual(fs.readdirSync(TMP).filter((f) => f.startsWith(`.gen-${n}.staging-`)), [], "the run's own staging directory is removed");
-  const { worker, detached } = JSON.parse(fs.readFileSync(pids, "utf8"));
-  assert.ok(await gone(worker) && await gone(detached));
+  try {
+    const r = supervised(["--generate", target, "--deadline-ms", "5000"], { DCP_PERF_SCALE_SELFTEST_STALL: "generate", DCP_PERF_SCALE_SELFTEST_PIDS: pids });
+    assert.equal(r.code, 3, r.stderr);
+    assert.match(r.stderr, /deadline error/);
+    assert.equal(fs.existsSync(target), false);
+    assert.equal(fs.readFileSync(path.join(`${target}.partial`, "keep.txt"), "utf8"), "a caller's file", "a directory the run did not create is untouched");
+    assert.deepEqual(fs.readdirSync(TMP).filter((f) => f.startsWith(`.gen-${n}.staging-`)), [], "the run's own staging directory is removed");
+    const { worker, detached } = recorded(pids);
+    await assertStopped(worker, "the generating worker");
+    await assertStopped(detached, "its detached child");
+  } finally {
+    const { worker, detached } = recorded(pids);
+    killOwn(worker, CLI);
+    killOwn(detached, STALL_MARKER);
+  }
 });
 
 test("supervisor: without process enumeration nothing starts, and an older report is replaced by the error", () => {
@@ -484,18 +616,19 @@ process.exitCode = r.status; // not process.exit(): a pipe would lose the unflus
   const pids = path.join(TMP, `stall-${++n}.json`);
   const file = path.join(TMP, `seeded-${++n}.json`);
   seed(file);
-  const r = supervised(["--corpus", CORPUS, "--python", process.execPath, "--deadline-ms", "5000"],
-    { DCP_PERF_SCALE_SELFTEST_PS: fakePs, DCP_PERF_SCALE_SELFTEST_STALL: "validate", DCP_PERF_SCALE_SELFTEST_PIDS: pids }, file);
-  const { worker, detached } = JSON.parse(fs.readFileSync(pids, "utf8"));
   try {
+    const r = supervised(["--corpus", CORPUS, "--python", process.execPath, "--deadline-ms", "5000"],
+      { DCP_PERF_SCALE_SELFTEST_PS: fakePs, DCP_PERF_SCALE_SELFTEST_STALL: "validate", DCP_PERF_SCALE_SELFTEST_PIDS: pids }, file);
     assert.equal(r.code, 3, r.stderr);
     assert.deepEqual([r.report.status, r.report.error.kind, r.report.error.cleanup.complete, r.report.error.cleanup.alive], ["error", "deadline", false, null]);
     assert.ok(r.report.error.cleanup.errors.length > 0);
     assert.match(r.report.error.message, /cleanup incomplete.*still alive: unknown/);
     assert.notEqual(r.report.run.id, "old-run");
-    assert.ok(await gone(worker), "the worker's own group is killed by the fallback");
+    await assertStopped(recorded(pids).worker, "the worker (its own group, killed by the fallback)");
   } finally {
-    try { process.kill(detached, "SIGKILL"); } catch { /* already gone */ } // a detached child ps could not find: the test removes its own
+    const { worker, detached } = recorded(pids);
+    killOwn(worker, CLI);
+    killOwn(detached, STALL_MARKER); // a detached child the failing ps could not find: the test removes its own
   }
 });
 
