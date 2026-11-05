@@ -4,7 +4,7 @@
 
 # Garantias de segurança e cobertura de conformidade
 
-> Tradução informativa da [versão em inglês](../../../../docs/conformance/SECURITY_COVERAGE.md), atualizada em 02/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são preservados sem tradução.
+> Tradução informativa da [versão em inglês](../../../../docs/conformance/SECURITY_COVERAGE.md), atualizada em 05/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são preservados sem tradução.
 
 Este mapa informativo relaciona os requisitos normativos aos testes executáveis do repositório. Não é um novo perfil, uma certificação, uma alegação de que todas as entradas foram testadas ou evidência de aprovação de uma implantação específica. Um resultado se aplica à implementação, entradas, política, instante de verificação e versão da ferramenta exatos registrados naquela execução.
 
@@ -34,6 +34,7 @@ O [README do kit](../../tools/conformance/README.md) define comandos, contratos,
 - **Primitivas externas:** o contrato `/1` exercita canonicalização e resumos criptográficos por meio de uma implementação fornecida.
 - **Evidências externas:** o contrato `/2` exercita raízes Merkle, assinaturas compostas e verificação de bundles V2. O repositório fornece wrappers TypeScript, Python, Go, Rust e WASM.
 - **Admissão externa:** o contrato `/3` exercita admissão combinada e carregamento de configuração. O repositório fornece wrappers TypeScript, Python, Go e Rust; WASM não tem API de admissão.
+- **Delegação externa:** o contrato `/4` exercita veredictos de cadeias de mandatos do DCP-09 §3.5.2. O repositório fornece wrappers TypeScript, Python, Go e Rust; WASM não tem API de cadeias de mandatos.
 - **Suítes de SDKs e adaptadores:** são testes separados, com seus próprios pontos de entrada e escopos. Um item no inventário do kit não é um teste executado pelo kit.
 
 Os contratos numerados são interfaces do executor, não versões do protocolo DCP. A identidade do wrapper é autodeclarada. Cinco wrappers não são cinco adotantes externos independentes: WASM compartilha código com Rust, e todos esses wrappers pertencem ao repositório.
@@ -124,6 +125,23 @@ Os [vetores compartilhados de admissão](../../../../tests/interop/v2/admission_
 
 Um avaliador que aceita um resultado de verificação pré-calculado confia que seu chamador fornece o resultado para o mesmo bundle, política e instante. A operação externa de admissão usa a API combinada. Um teste combinado aprovado não torna seguro qualquer objeto de verificação fornecido por um chamador.
 
+<a id="delegation-map"></a>
+
+## Mapa de delegação
+
+O [catálogo externo de delegação](../../../../tools/conformance/external-delegation-catalog.json) executa os vetores versionados de [cadeias de mandatos](../../../../tests/interop/v2/mandate_chain_vectors.json), [tempos de cadeia](../../../../tests/interop/v2/mandate_chain_time_vectors.json) e [domínios repetidos](../../../../tests/interop/v2/mandate_domain_vectors.json) por meio de `verify_mandate_chain`. Cada caso normativo nomeia a sua regra do [DCP-09 §3.5.2](../../../../spec/DCP-09.md); são julgados o veredicto e, para uma cadeia aceita, o nível efetivo.
+
+| Requisito | Superfície exercitada | Limite |
+|---|---|---|
+| Regras 1–2: assinaturas da raiz e do submandato, papéis e contextos dos signatários, vínculos com o pai, profundidade e `human_id` | `external.delegation.chain` | As chaves são dadas na requisição; o kit não estabelece que sejam as do principal ou dos agentes |
+| Regra 3: permissão de subdelegação e profundidade máxima | `external.delegation.chain` | As cadeias versionadas, não todas as profundidades |
+| Regra 4: janelas de validade, seu aninhamento e o horário de verificação como instantes RFC 3339 | `external.delegation.chain`, `external.delegation.chain_time` | A precisão de milissegundos e o `expires_at` das chaves signatárias são convenções dos SDKs, não do §3.5.2: esses dez casos são informativos |
+| Regra 5: atenuação de ações, classes de dados e limites; limites dentro de ±(2^53 − 1); um domínio repetido no mesmo mandato | `external.delegation.chain`, `external.delegation.domains` | Os textos de erro são diagnósticos; uma rejeição é julgada pelo seu veredicto |
+| Regra 6: piso de nível e nível efetivo | `external.delegation.chain` | O nível efetivo é julgado nas cadeias aceitas; `tier_floor` (`computeSecurityTier`) fica fora do catálogo |
+| Regra 7: revogação da raiz ou de um mandato intermediário | `external.delegation.chain` | A revogação é o conjunto local de ids revogados da requisição, não uma fonte de revogação |
+
+Uma rejeição só conta com o seu controle, uma cadeia aceita normativa cuja relação com ela (`same_chain`, `single_mandate`, `same_shape` ou `suite`) é verificada sobre os bytes. Nenhuma dessas relações mostra que os dois casos diferem por um único defeito. Uma cadeia verificada não é admissão nem autorização.
+
 <a id="claims-for-core-and-profiles"></a>
 
 ## Alegações sobre o núcleo e os perfis
@@ -136,7 +154,8 @@ Um avaliador que aceita um resultado de verificação pré-calculado confia que 
 | Admissão `strict-v1` | Resultados dos casos selecionados de admissão e configuração | Aplicação das regras na implantação e autorização de ações |
 | V1 | Verificações de esquema e integridade de referência sobre fixtures versionados | Conformidade V1 independente de terceiros |
 | A2A e governança | Somente as regras específicas exercitadas por uma suíte identificada | Conformidade funcional completa de qualquer um dos perfis |
-| DCP-05 a DCP-09 | As verificações declaradas das suítes internas de esquemas e intercâmbio | Semântica completa de ciclo de vida, direitos ou delegação |
+| DCP-05 a DCP-08 | As verificações declaradas das suítes internas de esquemas e intercâmbio | Semântica completa de ciclo de vida, direitos ou outra destes documentos |
+| DCP-09 | As verificações declaradas das suítes internas de esquemas e intercâmbio, e os veredictos dos casos selecionados de cadeias de mandatos do catálogo externo de delegação | Semântica completa de delegação, a função auxiliar de validade, a confiança nas chaves, a admissão ou a autorização de ações |
 | `dcp-jcs-v2` experimental | Seus testes experimentais selecionados separadamente | Status normativo ou padrão; `dcp-jcs-v1` permanece inalterado |
 
 O resultado de um subconjunto deve identificá-lo e explicar seus limites. Não transforme `unsupported`, um caso ausente, uma queda, um timeout ou uma matriz ignorada em um caso aprovado. Um teste SDK reservado que retorna sem executar sua matriz não comprova que a matriz foi executada.

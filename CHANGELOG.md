@@ -302,6 +302,18 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Added
 
+- External conformance kit: an opt-in delegation catalog, `--catalog delegation` (contract
+  `dcp-ai-conformance-external/4`, `tools/conformance/external-delegation-catalog.json`, 97 cases from
+  `mandate_chain_vectors.json`, `mandate_chain_time_vectors.json` and `mandate_domain_vectors.json`, pinned by
+  SHA-256). Its one operation, `verify_mandate_chain`, sends the chain and the keys as the exact bytes of the
+  fixtures, with the revoked ids and the verification time. Only the verdict is judged: `valid`, and the effective
+  tier of an accepted chain (DCP-09 §3.5.2 rule 6); error texts and depth are reported as diagnostics. 87 cases are
+  normative. 10 `chain_time` cases rest on conventions DCP-09 does not state (millisecond precision, signer key
+  validity) and are informative: reported apart, never a pass or a fail, though a failed answer to one is an error.
+  Each rejection names its rule and counts only if its control passed; the runner checks on the bytes how the two
+  relate. The TypeScript, Python, Go and Rust wrappers answer through their SDK at the request's time; WASM exports
+  no chain function and refuses `/4`. CI runs the judge's self-tests (17), the wrapper tests (19, the four wrappers
+  required) and the 97 cases through each of the four wrappers. `/1`, `/2` and `/3` are unchanged.
 - A performance baseline tool for the external conformance kit, `tools/conformance-perf.js` (contract
   `dcp-ai-perf/1`): the normative V2 verifier of the five SDKs of this checkout on six committed workloads (a
   hybrid bundle, an invalid Ed25519 and an invalid ML-DSA-65 signature, and three secondary SHA3-256 cases), with

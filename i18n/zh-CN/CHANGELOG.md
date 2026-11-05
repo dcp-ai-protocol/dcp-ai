@@ -252,6 +252,16 @@
 
 ### 新增
 
+- 外部一致性工具包：选择性启用的委托目录 `--catalog delegation`（契约 `dcp-ai-conformance-external/4`，
+  `tools/conformance/external-delegation-catalog.json`，来自 `mandate_chain_vectors.json`、
+  `mandate_chain_time_vectors.json` 和 `mandate_domain_vectors.json` 的 97 个用例，以 SHA-256 固定）。其唯一操作
+  `verify_mandate_chain` 以 fixture 的原样字节发送链和密钥，并附上已吊销 ID 和验证时间。只判定判定结果：`valid`，
+  以及被接受的链的有效层级（DCP-09 §3.5.2 规则 6）；错误文本和深度作为诊断报告。87 个用例是规范性的。`chain_time`
+  中的 10 个用例依赖 DCP-09 没有规定的约定（毫秒精度、签名密钥的有效性），属于参考性用例：单独报告，从不通过或失败，
+  但对其中任何一个的失败应答都是错误。每个拒绝都标明其规则，只有当其对照通过时才计入；两者的关系由运行器按字节检查。
+  TypeScript、Python、Go 和 Rust 封装程序以请求的时间通过其 SDK 应答；WASM 不导出任何链函数并拒绝 `/4`。CI 运行
+  判定器的自测（17）、封装程序测试（19，四个封装程序均为必需），以及通过四个封装程序各运行的 97 个用例。`/1`、`/2`
+  和 `/3` 不变。
 - 为外部一致性工具包新增性能基线工具 `tools/conformance-perf.js`（契约 `dcp-ai-perf/1`）：用相同的输入字节、策略和验证时刻，在六个已提交的工作负载（一个混合 bundle、一个无效的 Ed25519 签名和一个无效的 ML-DSA-65 签名，以及三个二级 SHA3-256 用例）上测量本检出代码中五个 SDK 的规范性 V2 验证器。
   每个 SDK 通过其公开入口使用一个进程内子进程，预热和计时轮流执行，每次调用都会检查；保留所有样本，并给出最近秩统计。
   它构建所测量的内容，并按 SDK 记录源码、清单和锁文件、制品哈希和工具版本（`--no-build` 拒绝任何差异或缺口）。没有速度阈值、排名或归因百分比；结果保留在本地。CI 在原生 job 中运行其自测和五个 SDK 的冒烟运行。

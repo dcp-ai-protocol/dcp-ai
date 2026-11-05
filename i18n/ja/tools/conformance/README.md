@@ -4,7 +4,7 @@
 
 # DCP-AI 適合性キット
 
-> [英語版](../../../../tools/conformance/README.md)の参考訳です（02/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../../tools/conformance/README.md)の参考訳です（05/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 `tools/conformance.js` は、[`catalog.json`](../../../../tools/conformance/catalog.json) で宣言されたスイートを、リポジトリにコミット済みの
 フィクスチャとベクターに対して実行します。カタログはバージョン管理され（`kit_version`）、スイートごとに
@@ -502,6 +502,83 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
   - **より弱い保証。** スイートの単位の 19 の対照と、ベクトルではなくカタログに書いた 4 つの組み合わせの期待値です。
   - **このカタログの外。** アダプター、信頼と失効の情報源、TLS、テナント、キャッシュ、一度限りの使用。コーパスは
     コミット済みのベクトルとこの 4 つの組み合わせであり、あらゆる入力ではありません。
+
+<a id="delegation-catalog-dcp-09-mandate-chains"></a>
+
+### 委任のカタログ：DCP-09 の委任状チェーン
+
+`--catalog delegation` は 3 つ目のオプトインのカタログ [`external-delegation-catalog.json`](../../../../tools/conformance/external-delegation-catalog.json)
+（契約 `dcp-ai-conformance-external/4`、97 ケース）を選択し、同じ種類の argv に対して実行します。委任状チェーンの検証
+（[DCP-09 §3.5.2](../../../../spec/DCP-09.md)）を、カタログが SHA-256 で固定する 3 つのコミット済みコーパスで判定します。
+契約 `/1`、`/2`、`/3` とそのカタログは変わりません。TypeScript、Python、Go、Rust のラッパーは SDK を通じて `/4` に
+応答します。WASM ビルドは委任状チェーンの関数をエクスポートしないため、そのラッパーは `/3` と同じく `/4` を拒否し
+（exit 2）、何もそれをエミュレートしません。
+
+```bash
+node tools/conformance-external.js --catalog delegation --list
+node tools/conformance-external.js --catalog delegation --report /tmp/delegation-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
+node tools/conformance-external.js --catalog delegation -- /path/to/python -I tools/conformance/wrappers/python_sdk.py
+node tools/conformance-external.js --catalog delegation -- tools/conformance/wrappers/.build/go-wrapper
+node tools/conformance-external.js --catalog delegation -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+node --test tools/conformance/external-delegation.test.mjs
+DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-delegation-wrappers.test.mjs
+```
+
+| スイート | ケース | ソース |
+|-------|-------|--------|
+| `external.delegation.chain` | 52 | [`mandate_chain_vectors.json`](../../../../tests/interop/v2/mandate_chain_vectors.json)：署名と役割、リンク、深さ、権限の縮小、有効期間、層の下限、失効 |
+| `external.delegation.chain_time` | 22（うち 10 は参考） | [`mandate_chain_time_vectors.json`](../../../../tests/interop/v2/mandate_chain_time_vectors.json)：規則 4 の有効期間、その入れ子、検証時刻 |
+| `external.delegation.domains` | 23 | [`mandate_domain_vectors.json`](../../../../tests/interop/v2/mandate_domain_vectors.json)：1 つの委任状で繰り返されるドメイン（どの深さでも） |
+
+- **操作：** `verify_mandate_chain` は 4 つのフィールドを受け取ります。
+  - `chain_b64` と `keys_b64`：フィクスチャがチェーンとその `{human_keys, agent_keys}` について持つバイトそのものの base64。
+  - `revoked_mandate_ids`：文字列の配列。
+  - `verification_time`：コミットされたとおりの RFC 3339 の文字列。
+
+  ランナーはこれらを解析も再シリアライズもしません。2^53 を超える整数（`9007199254740993`）、10 進形式の `9007199254740991.0`、すべてのタイムスタンプが、書かれたとおりに実装へ届きます。
+- **応答：**
+  - `ok` は、ちょうど `valid`（真偽値）、`errors`（文字列の配列）、`effective_tier`（`routine`、`standard`、`elevated`、`maximum` または `null`）、`depth`（負でない整数）を持ちます。拒否されたチェーンは `valid: false` の `ok` です。
+  - `message` を持つ `error`、または `unsupported`。
+
+  別の形のリクエストでは、ラッパーは 2 で終了します。
+- **判定：** 規範となるのは判定結果だけです。`valid` が一致し、受理されたチェーンでは `effective_tier` も一致すると合格です（規則 6）。エラーを伴う `valid: true` は `contradictory_result` です。
+  - エラーの文言（コーパスの `error_contains` または正確な `errors`）と `depth` は SDK の診断です。報告されますが（`matched`、`differs`、`no_message`）、判定には使われません。
+  - 拒否にはメッセージも、特定の `depth` も、特定の層も必要ありません。
+  - `--assessment` は適用されません。
+- **参考ケース：** `chain_time` の 10 ケースは、DCP-09 §3.5.2 が定めていない慣例に依存します。
+  - 3 ケースはミリ秒単位での瞬間の比較に依存します（VERIFICATION.md V2-4、バンドル向け）。
+  - 7 ケースは署名鍵の有効性 `expires_at` に依存します（V2-13、バンドル向け）。
+
+  この一覧はランナーが固定します。これらのケースは送信され、`informative_totals`（`requested`、`completed`、`agrees`、`differs`、`error`）で報告されますが、合格にも不合格にもなりません。そのいずれかへの応答の欠落、不正な形式、`error` または `unsupported` は依然として実行のエラーであり、規範ケースが 1 つも実行されなかった実行は合格になりません。
+- **アンカー：** 各規範ケースは §3.5.2 の規則を示します。`rule1` から `rule7`、未知・欠落・比較できない入力には `fail_closed`、受理されたチェーンには `all_rules` です。
+- **コントロール：** 拒否は、そのコントロールが同じ実行で合格した場合にだけ数えられます。コントロールは同じスイートの規範的に受理されるチェーンで、両者の関係は `control_scope` が示します。
+  - `same_chain`：チェーンのバイトは同じで、失効した ID、時刻、または鍵が異なる。
+  - `single_mandate`：委任状 1 つ全体が異なり、多くのフィールドと署名が変わりうる。
+  - `same_shape`：長さが同じ。
+  - `suite`：スイートの受理されるすべてのチェーン。
+
+  ランナーはカタログの読み込み時に、この関係をバイトで確認します。どれも、2 つのケースの違いが 1 つの欠陥だけだとは主張しません。選択したスイートは自身のコントロールを含みます。
+- **カタログ：** `delegation-catalog.mjs --check` は、コーパスとアンカーの表からカタログを再生成します。コーパスのケースを落とす、繰り返す、並べ替える、参考ケースを別に分類する、あるいはコントロールを誇張するカタログを、ランナーは exit 3 で拒否します。
+- **プロセスとラッパー：** `/1` から `/3` と同じです。このカタログの既定のタイムアウトは 300 000 ms です。ラッパーはケースごとに 1 回、システムの時計ではなくリクエストの時刻で呼び出し、それぞれ自身の SDK のコーパステストと同じ方法でチェーンを読みます。
+
+  | SDK | チェーン | 時刻 |
+  |-----|-------|------|
+  | TypeScript | `JSON.parse` | `verifyMandateChain`、時刻は `parseRfc3339` で読む |
+  | Python | `json.loads` | `verify_mandate_chain`、`rfc3339_epoch_ms` を aware な UTC の datetime として |
+  | Go | `json.Unmarshal`（float64） | `VerifyMandateChain`、`time.Parse(time.RFC3339Nano)` で読む。SDK が現在時刻として読むゼロ時刻は拒否する |
+  | Rust | `serde_json` | `verify_mandate_chain`、`parse_rfc3339_millis` で読む |
+- **自己テスト：**
+  - `external-delegation.test.mjs` は、SDK を使わず、コーパスの期待値から作った合成の応答を判定し、送信したバイトがフィクスチャの一部であることを確認します。対象は次のとおりです。
+    - すべての受理または拒否、1 つの規則を無視する検証器、誤った層。
+    - 矛盾した、不正な形式の、`error` と `unsupported` の応答、異なる結果や失敗を返す参考ケース。
+    - 欠落、重複、余分、途中で切れた結果、古い ID、失敗・強制終了・停止・遅れて終了するプロセス。
+    - 新しいレポート、選択、改ざんされたカタログとフィクスチャ。
+  - `external-delegation-wrappers.test.mjs` は 4 つのラッパーを SDK 経由で実行します。97 ケース、3 つの瞬間でのリクエストの時計、不正な形式のリクエスト、注入した障害です。WASM の拒否も確認し、改変した TypeScript SDK 2 つ（失効を無視するもの、独自の時計を使うもの）を検出します。ラッパーは stdin を閉じて非同期に呼び出します。入力付きの同期実行では、ネイティブのラッパーがファイル終端を待ち続けることがありました。
+
+  CI は両方を、4 つのラッパーを必須として実行します。
+- **制限：** 合格が示すのは、実行した argv がこれらのコミット済みチェーンでこれらの判定を返すことだけです。
+  - 鍵と失効した ID はリクエストで与えられます。キットは誰の鍵かを確認せず、`valid` はプリンシパルへの信頼でも、受け入れ判定でも、行為の承認でもありません。
+  - 有効性ヘルパー（`verifyMandateValidity`）、`tier_floor`、その他の DCP-09 のレコードは、このカタログの対象外です。
 
 <a id="performance-baseline"></a>
 

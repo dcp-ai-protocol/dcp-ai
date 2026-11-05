@@ -328,6 +328,19 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
 
 ### Añadido
 
+- Kit de conformidad externa: un catálogo opt-in de delegación, `--catalog delegation` (contrato
+  `dcp-ai-conformance-external/4`, `tools/conformance/external-delegation-catalog.json`, 97 casos de
+  `mandate_chain_vectors.json`, `mandate_chain_time_vectors.json` y `mandate_domain_vectors.json`, fijados por
+  SHA-256). Su única operación, `verify_mandate_chain`, envía la cadena y las claves como los bytes exactos de los
+  fixtures, con los ids revocados y la hora de verificación. Solo se juzga el veredicto: `valid` y el nivel efectivo
+  de una cadena aceptada (DCP-09 §3.5.2 regla 6); los textos de error y la profundidad se informan como diagnósticos.
+  87 casos son normativos. 10 casos de `chain_time` dependen de convenios que DCP-09 no fija (precisión de
+  milisegundos, validez de las claves firmantes) y son informativos: se informan aparte y nunca son pase ni fallo,
+  aunque una respuesta fallida a uno de ellos es un error. Cada rechazo nombra su regla y cuenta solo si su control
+  pasó; el runner comprueba sobre los bytes cómo se relacionan. Los wrappers de TypeScript, Python, Go y Rust
+  responden mediante su SDK con la hora de la petición; WASM no exporta ninguna función de cadena y rechaza `/4`. La
+  CI ejecuta las autopruebas del juez (17), las pruebas de wrappers (19, los cuatro wrappers obligatorios) y los 97
+  casos por cada uno de los cuatro wrappers. `/1`, `/2` y `/3` no cambian.
 - Una herramienta de línea base de rendimiento para el kit de conformidad externa, `tools/conformance-perf.js`
   (contrato `dcp-ai-perf/1`): el verificador V2 normativo de los cinco SDK de este checkout sobre seis cargas
   versionadas (un bundle híbrido, una firma Ed25519 y una ML-DSA-65 inválidas, y tres casos secundarios SHA3-256),

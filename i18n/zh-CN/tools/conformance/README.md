@@ -4,7 +4,7 @@
 
 # DCP-AI 一致性测试套件
 
-> 本文是[英文版](../../../../tools/conformance/README.md)的参考译文，更新于 02/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../../tools/conformance/README.md)的参考译文，更新于 05/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 `tools/conformance.js` 针对仓库中已提交的 fixture 和向量，运行 [`catalog.json`](../../../../tools/conformance/catalog.json) 中声明的各个
 测试集。目录带有版本（`kit_version`），并为每个测试集固定其必须产生的确切用例 ID。该套件只读取 fixture：
@@ -455,6 +455,82 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
   - **较弱的保证。** 19 个套件层面的对照，以及写在目录而非向量中的 4 个组合期望值。
   - **此目录之外。** 适配器、信任与吊销来源、TLS、租户、缓存和一次性使用。语料是已提交的向量和这四个组合，而不是
     任意输入。
+
+<a id="delegation-catalog-dcp-09-mandate-chains"></a>
+
+### 委托目录：DCP-09 委托书链
+
+`--catalog delegation` 选择第三个选择性启用的目录 [`external-delegation-catalog.json`](../../../../tools/conformance/external-delegation-catalog.json)
+（契约 `dcp-ai-conformance-external/4`，97 个用例），针对同样形式的 argv 运行。它在目录以 SHA-256 固定的三个已提交语料上，
+判定委托书链的验证（[DCP-09 §3.5.2](../../../../spec/DCP-09.md)）。契约 `/1`、`/2` 和 `/3` 及其目录不变。TypeScript、Python、Go
+和 Rust 封装程序通过其 SDK 应答 `/4`。WASM 构建不导出任何委托书链函数，因此其封装程序像对 `/3` 一样拒绝 `/4`（exit 2），
+也没有任何东西模拟它。
+
+```bash
+node tools/conformance-external.js --catalog delegation --list
+node tools/conformance-external.js --catalog delegation --report /tmp/delegation-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
+node tools/conformance-external.js --catalog delegation -- /path/to/python -I tools/conformance/wrappers/python_sdk.py
+node tools/conformance-external.js --catalog delegation -- tools/conformance/wrappers/.build/go-wrapper
+node tools/conformance-external.js --catalog delegation -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+node --test tools/conformance/external-delegation.test.mjs
+DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-delegation-wrappers.test.mjs
+```
+
+| 套件 | 用例 | 来源 |
+|-------|-------|--------|
+| `external.delegation.chain` | 52 | [`mandate_chain_vectors.json`](../../../../tests/interop/v2/mandate_chain_vectors.json)：签名与角色、链接、深度、权限收窄、有效期窗口、层级下限、吊销 |
+| `external.delegation.chain_time` | 22，其中 10 个为参考性用例 | [`mandate_chain_time_vectors.json`](../../../../tests/interop/v2/mandate_chain_time_vectors.json)：规则 4 的有效期窗口、其嵌套与验证时间 |
+| `external.delegation.domains` | 23 | [`mandate_domain_vectors.json`](../../../../tests/interop/v2/mandate_domain_vectors.json)：同一委托书中重复的领域，任何深度 |
+
+- **操作：** `verify_mandate_chain` 接收四个字段。
+  - `chain_b64` 和 `keys_b64`：fixture 中该链及其 `{human_keys, agent_keys}` 原样字节的 base64。
+  - `revoked_mandate_ids`：字符串数组。
+  - `verification_time`：与提交内容完全相同的 RFC 3339 字符串。
+
+  运行器从不解析或重新序列化它们。大于 2^53 的整数（`9007199254740993`）、十进制形式 `9007199254740991.0` 以及每个时间戳，都按原样到达实现。
+- **应答：**
+  - `ok` 恰好带有 `valid`（布尔值）、`errors`（字符串数组）、`effective_tier`（`routine`、`standard`、`elevated`、`maximum` 或 `null`）和 `depth`（非负整数）。被拒绝的链是 `valid: false` 的 `ok`。
+  - 带 `message` 的 `error`，或 `unsupported`。
+
+  其他形式的请求会使封装程序以 2 退出。
+- **判定：** 只有判定结果是规范性的。`valid` 一致，且对于被接受的链 `effective_tier` 也一致时，用例通过（规则 6）。带有错误的 `valid: true` 是 `contradictory_result`。
+  - 错误文本（语料中的 `error_contains` 或精确的 `errors`）和 `depth` 是 SDK 的诊断。它们会被报告（`matched`、`differs`、`no_message`），但从不判定。
+  - 拒绝不需要消息，也不需要特定的 `depth` 或特定的层级。
+  - `--assessment` 不适用。
+- **参考性用例：** `chain_time` 中有十个用例依赖 DCP-09 §3.5.2 没有规定的约定。
+  - 三个依赖以毫秒比较时刻（VERIFICATION.md V2-4，针对 bundle）。
+  - 七个依赖签名密钥的有效性 `expires_at`（V2-13，针对 bundle）。
+
+  这份清单由运行器固定。这些用例会被发送，并在 `informative_totals`（`requested`、`completed`、`agrees`、`differs`、`error`）中报告，从不通过或失败。对其中任何一个的应答缺失、格式错误、为 `error` 或 `unsupported`，仍是本次运行的错误；没有执行任何规范性用例的运行永远不会通过。
+- **锚点：** 每个规范性用例都标明其 §3.5.2 规则：`rule1` 至 `rule7`，未知、缺失或不可比较的输入为 `fail_closed`，被接受的链为 `all_rules`。
+- **对照：** 只有当其对照在同一次运行中通过时，拒绝才计入。对照是同一套件中规范性地被接受的链，`control_scope` 说明两者的关系：
+  - `same_chain`：链的字节相同，已吊销 ID、时间或密钥不同；
+  - `single_mandate`：整个委托书有一个不同，可能改变许多字段及其签名；
+  - `same_shape`：长度相同；
+  - `suite`：套件中所有被接受的链。
+
+  运行器在加载目录时按字节检查这种关系。它们都不声称两个用例只相差一个缺陷。选定的套件自带其对照。
+- **目录：** `delegation-catalog.mjs --check` 根据语料及其锚点表重新生成目录。对于遗漏、重复或重排语料用例、对参考性用例作不同分类或夸大对照的目录，运行器以 exit 3 拒绝。
+- **进程与封装程序：** 与 `/1` 至 `/3` 相同；本目录的默认超时为 300 000 ms。封装程序对每个用例调用一次，使用请求的时间，从不使用系统时钟，并且各自按其 SDK 自身语料测试的方式读取链：
+
+  | SDK | 链 | 时间 |
+  |-----|-------|------|
+  | TypeScript | `JSON.parse` | `verifyMandateChain`，时间由 `parseRfc3339` 读取 |
+  | Python | `json.loads` | `verify_mandate_chain`，`rfc3339_epoch_ms` 作为带时区的 UTC datetime |
+  | Go | `json.Unmarshal`（float64） | `VerifyMandateChain`，使用 `time.Parse(time.RFC3339Nano)`；拒绝 SDK 会读作当前时间的零时间 |
+  | Rust | `serde_json` | `verify_mandate_chain`，使用 `parse_rfc3339_millis` |
+- **自测：**
+  - `external-delegation.test.mjs` 判定根据语料预期构造的合成应答，不使用 SDK，并检查发送的字节是 fixture 的片段。它覆盖：
+    - 全部接受或全部拒绝、忽略一条规则的验证器，以及错误的层级；
+    - 矛盾、格式错误、`error` 和 `unsupported` 的应答，以及结果不同或失败的参考性用例；
+    - 缺失、重复、多余和截断的结果，过期的 ID，以及失败、被终止、挂起或延迟退出的进程；
+    - 新的报告、选择，以及被篡改的目录和 fixture。
+  - `external-delegation-wrappers.test.mjs` 通过各自的 SDK 运行四个封装程序：97 个用例、请求时钟的三个时刻、格式错误的请求以及注入的故障。它还检查 WASM 的拒绝，并检测出两个被修改的 TypeScript SDK：一个忽略吊销，一个使用自己的时钟。它以异步方式调用封装程序并关闭 stdin；在带输入的同步执行中，曾观察到原生封装程序一直等待文件结束。
+
+  CI 运行这两者，四个封装程序均为必需。
+- **限制：** 通过只表明所运行的 argv 在这些已提交的链上给出这些判定，仅此而已。
+  - 密钥和已吊销 ID 在请求中给出。工具包不确认密钥属于谁，`valid` 也不代表对责任主体的信任、准入或对某个行为的授权。
+  - 有效性辅助函数（`verifyMandateValidity`）、`tier_floor` 以及其他 DCP-09 记录不在本目录范围内。
 
 <a id="performance-baseline"></a>
 

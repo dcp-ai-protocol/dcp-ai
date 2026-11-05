@@ -4,7 +4,7 @@
 
 # Guía de implementación y revisión independientes
 
-> Traducción informativa de [la versión en inglés](../../../../docs/conformance/IMPLEMENTER_GUIDE.md), actualizada el 02/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../../docs/conformance/IMPLEMENTER_GUIDE.md), actualizada el 05/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 DCP es un protocolo que se puede implementar de forma independiente. Esta guía prepara a implementadores y revisores para evaluar la misma evidencia sin adoptar las aplicaciones ni los servicios del repositorio. No constituye una auditoría, certificación ni recomendación.
 
@@ -18,7 +18,8 @@ Lee la [descripción del núcleo](../../spec/core/dcp-core.md) y después los do
 2. [Perfil de canonicalización](../../spec/CANONICALIZATION_PROFILE.md).
 3. [Especificación normativa de V2](../../spec/DCP-AI-v2.0.md), incluidos los algoritmos, el vínculo entre componentes de la firma compuesta y la política del verificador.
 4. [Perfil de admisión](../../spec/profiles/admission/README.md), si se implementa confianza en el principal o `strict-v1`.
-5. Los archivos aplicables de [esquemas V2](../../../../schemas/v2/) y las erratas citadas en la especificación.
+5. [DCP-09 §3.5.2](../../spec/DCP-09.md), si se verifican cadenas de mandatos de delegación.
+6. Los archivos aplicables de [esquemas V2](../../../../schemas/v2/) y las erratas citadas en la especificación.
 
 La división entre núcleo y perfiles organiza la especificación; no exime a una implementación V2 de sus comprobaciones obligatorias. Las aplicaciones, las fuentes de red, las cachés y los handlers protegidos pertenecen a las integraciones. Mantén sus garantías de aplicación de las reglas separadas de la verificación del núcleo.
 
@@ -44,6 +45,7 @@ Desde la raíz del repositorio, inspecciona primero los casos disponibles:
 node tools/conformance-external.js --list
 node tools/conformance-external.js --catalog evidence --list
 node tools/conformance-external.js --catalog admission --list
+node tools/conformance-external.js --catalog delegation --list
 ```
 
 Después indica el ejecutable y sus argumentos tras `--`. Sustituye `/path/to/implementation` por tu comando real:
@@ -52,9 +54,12 @@ Después indica el ejecutable y sus argumentos tras `--`. Sustituye `/path/to/im
 node tools/conformance-external.js --report /tmp/dcp-primitives.json -- /path/to/implementation
 node tools/conformance-external.js --catalog evidence --assessment verdict --report /tmp/dcp-evidence.json -- /path/to/implementation
 node tools/conformance-external.js --catalog admission --report /tmp/dcp-admission.json -- /path/to/implementation
+node tools/conformance-external.js --catalog delegation --report /tmp/dcp-delegation.json -- /path/to/implementation
 ```
 
-Estos comandos seleccionan tres contratos diferentes del ejecutor. Una implementación puede admitir un subconjunto, pero su informe debe identificarlo. WASM no tiene API de admisión en este repositorio. No informes una operación no admitida como exitosa.
+Estos comandos seleccionan cuatro contratos diferentes del ejecutor. Una implementación puede admitir un subconjunto, pero su informe debe identificarlo. WASM no tiene API de admisión ni API de cadenas de mandatos en este repositorio. No informes una operación no admitida como exitosa.
+
+El comando de delegación juzga solo los veredictos de las cadenas de mandatos. Diez de sus casos dependen de convenios que DCP-09 no fija (precisión de milisegundos, validez de las claves firmantes): un veredicto distinto en uno de ellos se informa aparte y no decide la conformidad normativa, pero una respuesta ausente, mal formada, `error` o `unsupported` a uno de ellos sigue haciendo fallar la ejecución. Las claves y los ids revocados se dan en la petición, así que un pase no es confianza en el principal ni autorización de una acción.
 
 El comando de evidencia selecciona explícitamente `--assessment verdict`: evalúa los veredictos normativos y conserva por separado el texto de diagnóstico. La evaluación histórica sigue disponible y mantiene su valor predeterminado. Que coincida un mensaje de diagnóstico no demuestra por sí solo la comprobación prevista.
 

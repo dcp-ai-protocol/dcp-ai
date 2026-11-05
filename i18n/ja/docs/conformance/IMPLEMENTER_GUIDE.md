@@ -4,7 +4,7 @@
 
 # 独立した実装とレビューのガイド
 
-> [英語版](../../../../docs/conformance/IMPLEMENTER_GUIDE.md)の参考訳です。更新日：02/11/2026。相違がある場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せず保持しています。
+> [英語版](../../../../docs/conformance/IMPLEMENTER_GUIDE.md)の参考訳です。更新日：05/11/2026。相違がある場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せず保持しています。
 
 DCP は独立して実装できるプロトコルです。本ガイドは、リポジトリ内のアプリケーションやサービスを採用せずに同じ証拠を評価するための、実装者やレビュー担当者の準備を支援します。監査、認証、推奨を意味するものではありません。
 
@@ -18,7 +18,8 @@ DCP は独立して実装できるプロトコルです。本ガイドは、リ�
 2. [正規化プロファイル](../../spec/CANONICALIZATION_PROFILE.md)。
 3. [V2 規範仕様](../../spec/DCP-AI-v2.0.md)。アルゴリズム、複合署名の構成要素間の結合、検証ポリシーを含みます。
 4. プリンシパルへの信頼または `strict-v1` を実装する場合は、[受け入れ判定プロファイル](../../spec/profiles/admission/README.md)。
-5. [V2 スキーマ](../../../../schemas/v2/)の該当ファイルと、仕様が参照する正誤表。
+5. 委任状チェーンを検証する場合は、[DCP-09 §3.5.2](../../spec/DCP-09.md)。
+6. [V2 スキーマ](../../../../schemas/v2/)の該当ファイルと、仕様が参照する正誤表。
 
 コアとプロファイルの区分は仕様を整理するためのものであり、V2 実装が必須の検査を省略できるわけではありません。アプリケーション、ネットワーク上の情報源、キャッシュ、保護対象のハンドラーは統合層に属します。それらによる制御の適用に関する主張は、コアの検証とは分けて扱ってください。
 
@@ -44,6 +45,7 @@ DCP は独立して実装できるプロトコルです。本ガイドは、リ�
 node tools/conformance-external.js --list
 node tools/conformance-external.js --catalog evidence --list
 node tools/conformance-external.js --catalog admission --list
+node tools/conformance-external.js --catalog delegation --list
 ```
 
 次に `--` の後に実行ファイルとその引数を指定します。`/path/to/implementation` は実際のコマンドに置き換えてください。
@@ -52,9 +54,12 @@ node tools/conformance-external.js --catalog admission --list
 node tools/conformance-external.js --report /tmp/dcp-primitives.json -- /path/to/implementation
 node tools/conformance-external.js --catalog evidence --assessment verdict --report /tmp/dcp-evidence.json -- /path/to/implementation
 node tools/conformance-external.js --catalog admission --report /tmp/dcp-admission.json -- /path/to/implementation
+node tools/conformance-external.js --catalog delegation --report /tmp/dcp-delegation.json -- /path/to/implementation
 ```
 
-これらのコマンドは、それぞれ異なる 3 種類の実行契約を選択します。実装が一部のみをサポートすることは可能ですが、レポートにはその範囲を明示する必要があります。このリポジトリの WASM には受け入れ判定 API がありません。未対応の操作を成功として報告しないでください。
+これらのコマンドは、それぞれ異なる 4 種類の実行契約を選択します。実装が一部のみをサポートすることは可能ですが、レポートにはその範囲を明示する必要があります。このリポジトリの WASM には受け入れ判定 API も委任状チェーンの API もありません。未対応の操作を成功として報告しないでください。
+
+委任のコマンドが判定するのは委任状チェーンの判定結果だけです。そのうち 10 ケースは DCP-09 が定めていない慣例（ミリ秒の精度、署名鍵の有効性）に依存します。そのいずれかで判定結果が異なっても別に報告され、規範への適合を決めませんが、そのいずれかへの応答の欠落、不正な形式、`error` または `unsupported` は実行を失敗させます。鍵と失効した ID はリクエストで与えられるため、合格はプリンシパルへの信頼でも行為の承認でもありません。
 
 証拠のコマンドは `--assessment verdict` を明示的に選択しています。規範に基づく判定を評価し、診断メッセージは別途保持します。従来の評価方式も引き続き利用でき、既存のデフォルトは変わりません。診断文字列の一致だけでは、意図した検査が行われた証拠にはなりません。
 

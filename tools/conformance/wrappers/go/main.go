@@ -5,7 +5,7 @@
 // invalid bytes), then json.Unmarshal into interface{} as the SDK's own interop test does (a failure is
 // rejected/parse), then ONE call to v2.CanonicalizeV2. Only its documented rejection ("non-integer float
 // at" / "non-finite float at", a plain error with no stable type or code) is rejected/profile; any other
-// error is an error. digest: v2.SHA256Hex / v2.SHA3256Hex of the decoded bytes. Contracts /2 and /3 (opt-in) are
+// error is an error. digest: v2.SHA256Hex / v2.SHA3256Hex of the decoded bytes. Contracts /2, /3 and /4 (opt-in) are
 // described where they are handled below.
 package main
 
@@ -31,6 +31,7 @@ import (
 const contract = "dcp-ai-conformance-external/1"
 const contractV2 = "dcp-ai-conformance-external/2"
 const contractV3 = "dcp-ai-conformance-external/3"
+const contractV4 = "dcp-ai-conformance-external/4"
 
 // evidence is set when the request is contract /2 (opt-in): dual_merkle_root, composite_verify and
 // verify_signed_bundle_v2 are then accepted, one call per case to v2.DualMerkleRoot, v2.CompositeVerify or
@@ -265,6 +266,58 @@ func runAdmissionCase(id, op string, c map[string]json.RawMessage) map[string]in
 		"recorded_decision": r.RecordedDecision, "trust_set_version": r.TrustSetVersion, "codes": codes, "verification_verified": r.Verification.Verified}
 }
 
+// delegation is set when the request is contract /4 (opt-in, DCP-09 §3.5.2): verify_mandate_chain is then accepted,
+// one call per case to v2.VerifyMandateChain with the Ed25519 and ML-DSA-65 providers, the request's keys and revoked
+// ids, and its verification_time read by time.Parse(time.RFC3339Nano), never the system clock (the zero time, which
+// the SDK would read as the current time, is refused). The chain and the keys arrive as the fixture's bytes and are
+// decoded with json.Unmarshal into []map[string]interface{} and v2.MandateChainKeys, as the SDK's own corpus test
+// does (numbers as float64). A rejected chain is ok with valid: false.
+var delegation bool
+
+func runDelegationCase(id string, c map[string]json.RawMessage) map[string]interface{} {
+	if !exactKeys(c, "id", "op", "chain_b64", "keys_b64", "revoked_mandate_ids", "verification_time") {
+		fail("case " + id + ": verify_mandate_chain fields do not match")
+	}
+	chainBytes, okChain := decodeBase64Strict(mustStr(c, "chain_b64", "case "+id))
+	keyBytes, okKeys := decodeBase64Strict(mustStr(c, "keys_b64", "case "+id))
+	var chain []map[string]interface{}
+	var keys v2.MandateChainKeys
+	if !okChain || !okKeys || !utf8.Valid(chainBytes) || !utf8.Valid(keyBytes) || jsonKind(chainBytes) != '[' || jsonKind(keyBytes) != '{' ||
+		json.Unmarshal(chainBytes, &chain) != nil || json.Unmarshal(keyBytes, &keys) != nil {
+		fail("case " + id + ": chain_b64 and keys_b64 must be canonical base64 of a UTF-8 JSON array and object")
+	}
+	// Each revoked id must be a JSON string: json.Unmarshal would read null into "".
+	var items []json.RawMessage
+	if jsonKind(c["revoked_mandate_ids"]) != '[' || json.Unmarshal(c["revoked_mandate_ids"], &items) != nil {
+		fail("case " + id + ": revoked_mandate_ids must be an array of strings")
+	}
+	revoked := map[string]bool{}
+	for _, item := range items {
+		var s string
+		if jsonKind(item) != '"' || json.Unmarshal(item, &s) != nil {
+			fail("case " + id + ": revoked_mandate_ids must be an array of strings")
+		}
+		revoked[s] = true
+	}
+	now, err := time.Parse(time.RFC3339Nano, mustStr(c, "verification_time", "case "+id))
+	if err != nil || now.IsZero() {
+		fail("case " + id + ": verification_time is not an RFC 3339 instant this API can take")
+	}
+	if err := fault(); err != nil {
+		return classify(id, err)
+	}
+	r := v2.VerifyMandateChain(registry(), chain, revoked, keys, now)
+	errs := r.Errors
+	if errs == nil {
+		errs = []string{}
+	}
+	var tier interface{}
+	if r.EffectiveTier != "" {
+		tier = r.EffectiveTier
+	}
+	return map[string]interface{}{"id": id, "status": "ok", "valid": r.Valid, "errors": errs, "effective_tier": tier, "depth": r.Depth}
+}
+
 var documentedRejection = regexp.MustCompile(`^non-(integer|finite) float at `)
 
 func fail(msg string) {
@@ -365,6 +418,9 @@ func runCase(raw json.RawMessage) map[string]interface{} {
 	if admission && (op == "admit_signed_bundle_v2" || op == "load_admission_config") {
 		return runAdmissionCase(id, op, c)
 	}
+	if delegation && op == "verify_mandate_chain" {
+		return runDelegationCase(id, c)
+	}
 	switch op {
 	case "canonicalize":
 		if !exactKeys(c, "id", "op", "profile", "input_b64") {
@@ -435,6 +491,8 @@ func main() {
 		evidence = true
 	case contractV3:
 		admission = true
+	case contractV4:
+		delegation = true
 	default:
 		fail("unknown contract")
 	}

@@ -5,9 +5,10 @@
 //! call to dcp_ai::v2::canonicalize::canonicalize_v2. Only its documented rejection ("Non-integer number
 //! in V2 canonical form:" / "Non-finite number in V2 canonical form:", possibly behind `key "…": ` and
 //! `array[i]: ` path prefixes; an Err(String) with no stable code) is rejected/profile; any other Err is
-//! an error. digest: dcp_ai::v2::dual_hash::sha256_hex / sha3_256_hex of the decoded bytes. Contracts /2 and /3
+//! an error. digest: dcp_ai::v2::dual_hash::sha256_hex / sha3_256_hex of the decoded bytes. Contracts /2, /3 and /4
 //! (opt-in) are described where they are handled below.
 
+use std::collections::HashSet;
 use std::io::{Read, Write};
 
 use base64::Engine;
@@ -18,6 +19,7 @@ use dcp_ai::providers::ml_dsa_65::MlDsa65Provider;
 use dcp_ai::v2::composite_ops::composite_verify;
 use dcp_ai::v2::composite_sig::CompositeSignature;
 use dcp_ai::v2::crypto_provider::CryptoProvider;
+use dcp_ai::v2::delegation::{verify_mandate_chain, MandateChainKeys};
 use dcp_ai::v2::dual_hash::{dual_merkle_root, sha256_hex, sha3_256_hex, DualHash};
 use dcp_ai::v2::session_nonce::parse_rfc3339_millis;
 use dcp_ai::v2::types::VerifierPolicy;
@@ -28,6 +30,7 @@ use serde_json::{json, Map, Value};
 const CONTRACT: &str = "dcp-ai-conformance-external/1";
 const CONTRACT_V2: &str = "dcp-ai-conformance-external/2";
 const CONTRACT_V3: &str = "dcp-ai-conformance-external/3";
+const CONTRACT_V4: &str = "dcp-ai-conformance-external/4";
 
 fn fail(msg: &str) -> ! {
     eprintln!("rust wrapper: {msg}");
@@ -249,7 +252,33 @@ fn run_admission_case(id: &str, op: &str, o: &Map<String, Value>) -> Value {
     }
 }
 
-fn run_case(c: &Value, v2: bool, v3: bool) -> Value {
+/// Contract /4 (opt-in delegation, DCP-09 §3.5.2): one call per case to verify_mandate_chain with the request's keys
+/// and revoked ids, and its verification_time read by parse_rfc3339_millis, never the system clock. The chain and the
+/// keys arrive as the fixture's bytes and are read with serde_json, as the SDK's own corpus test does. A rejected chain
+/// is ok with valid: false; anything unexpected is a panic, which ends the process (never a rejection).
+/// DCP_CONFORMANCE_WRAPPER_FAULT=panic (self-tests only) panics before each /4 SDK call.
+fn run_delegation_case(id: &str, o: &Map<String, Value>) -> Value {
+    if !exact_keys(o, &["id", "op", "chain_b64", "keys_b64", "revoked_mandate_ids", "verification_time"]) {
+        fail(&format!("case {id}: fields do not match op verify_mandate_chain"));
+    }
+    let json_of = |k: &str| -> Value {
+        o[k].as_str().and_then(decode_base64_strict).and_then(|b| String::from_utf8(b).ok()).and_then(|t| serde_json::from_str(&t).ok())
+            .unwrap_or_else(|| fail(&format!("case {id}: {k} is not canonical base64 of UTF-8 JSON")))
+    };
+    let chain = match json_of("chain_b64") { Value::Array(a) => a, _ => fail(&format!("case {id}: chain_b64 must hold a JSON array")) };
+    let keys: MandateChainKeys = serde_json::from_value(json_of("keys_b64")).unwrap_or_else(|e| fail(&format!("case {id}: keys_b64: {e}")));
+    let revoked: HashSet<String> = match o["revoked_mandate_ids"].as_array() {
+        Some(a) if a.iter().all(Value::is_string) => a.iter().filter_map(Value::as_str).map(str::to_string).collect(),
+        _ => fail(&format!("case {id}: revoked_mandate_ids must be an array of strings")),
+    };
+    let now = o["verification_time"].as_str().and_then(parse_rfc3339_millis)
+        .unwrap_or_else(|| fail(&format!("case {id}: verification_time is not an RFC 3339 instant")));
+    if std::env::var("DCP_CONFORMANCE_WRAPPER_FAULT").as_deref() == Ok("panic") { panic!("injected by DCP_CONFORMANCE_WRAPPER_FAULT"); }
+    let r = verify_mandate_chain(&chain, &revoked, &keys, Some(now));
+    json!({"id": id, "status": "ok", "valid": r.valid, "errors": r.errors, "effective_tier": r.effective_tier.map(|t| t.as_str()), "depth": r.depth})
+}
+
+fn run_case(c: &Value, v2: bool, v3: bool, v4: bool) -> Value {
     let o = c.as_object().unwrap_or_else(|| fail("a case must be an object"));
     let id = o.get("id").and_then(Value::as_str).unwrap_or_else(|| fail("a case needs a string id")).to_string();
     // A missing or non-string op, alg or profile is an invalid request (exit 2), never "unsupported".
@@ -260,6 +289,9 @@ fn run_case(c: &Value, v2: bool, v3: bool) -> Value {
     }
     if v3 && matches!(op, "admit_signed_bundle_v2" | "load_admission_config") {
         return run_admission_case(&id, op, o);
+    }
+    if v4 && op == "verify_mandate_chain" {
+        return run_delegation_case(&id, o);
     }
     let fields: &[&str] = match op {
         "canonicalize" => &["id", "op", "profile", "input_b64"],
@@ -305,14 +337,14 @@ fn main() {
     let req: Value = serde_json::from_str(text).unwrap_or_else(|e| fail(&format!("the request is not JSON: {e}")));
     let r = req.as_object().unwrap_or_else(|| fail("the request must be an object"));
     let contract = r.get("contract").and_then(Value::as_str).unwrap_or("");
-    if !exact_keys(r, &["contract", "run_id", "nonce", "cases"]) || ![CONTRACT, CONTRACT_V2, CONTRACT_V3].contains(&contract) {
-        fail("the request needs exactly contract dcp-ai-conformance-external/1, /2 or /3, run_id, nonce and cases");
+    if !exact_keys(r, &["contract", "run_id", "nonce", "cases"]) || ![CONTRACT, CONTRACT_V2, CONTRACT_V3, CONTRACT_V4].contains(&contract) {
+        fail("the request needs exactly contract dcp-ai-conformance-external/1, /2, /3 or /4, run_id, nonce and cases");
     }
-    let (v2, v3) = (contract == CONTRACT_V2, contract == CONTRACT_V3);
+    let (v2, v3, v4) = (contract == CONTRACT_V2, contract == CONTRACT_V3, contract == CONTRACT_V4);
     let (Some(run_id), Some(nonce), Some(cases)) = (r["run_id"].as_str(), r["nonce"].as_str(), r["cases"].as_array()) else {
         fail("run_id and nonce must be strings and cases an array");
     };
-    let results: Vec<Value> = cases.iter().map(|c| run_case(c, v2, v3)).collect();
+    let results: Vec<Value> = cases.iter().map(|c| run_case(c, v2, v3, v4)).collect();
     let resp = json!({
         "contract": contract,
         "run_id": run_id,
