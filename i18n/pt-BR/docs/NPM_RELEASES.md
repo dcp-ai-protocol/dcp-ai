@@ -49,6 +49,45 @@ Desde a 2.2.0, `@dcp-ai/sdk` inclui confiança no principal, `strict-v1`, as cor
 
 Em `@dcp-ai/sdk` 2.2.0 e posteriores e em `@dcp-ai/wasm` 2.1.0 e posteriores, `dcp-jcs-v2` continua experimental, não normativo e opt-in. `dcp-jcs-v1` continua sendo o único padrão normativo. Os geradores e auxiliares de integração mantêm as limitações de seus READMEs; publicá-los não transforma demonstrações em verificadores de produção.
 
+<a id="prepared-not-published-dcp-aisdk-230-and-dcp-aiwasm-213"></a>
+
+## Preparadas, não publicadas: `@dcp-ai/sdk` 2.3.0 e `@dcp-ai/wasm` 2.1.3
+
+Preparadas no repositório em 05/11/2026 e não publicadas no npm. A tabela e os comandos de instalação acima continuam nas versões do registro. Elas substituem o candidato `@dcp-ai/wasm` 2.1.2 de 30/10/2026 abaixo, que nunca foi publicado.
+
+`@dcp-ai/sdk` 2.3.0, em comparação com a 2.2.1:
+
+- **Validação de esquemas V2-2 (mudança de aceitação).** `verifySignedBundleV2`, a API combinada de admissão e o verificador candidato experimental validam o envelope do bundle assinado e os quatro payloads contra `schemas/v2` antes de qualquer verificação de hash, chave ou assinatura. Bundles inválidos pelo esquema que antes eram aceitos, como membros desconhecidos em objetos fechados ou horários de sessão `null` no manifesto, agora retornam `verified: false` com diagnósticos `schema: <pointer> <keyword>`.
+- **Mandatos.** `verifyMandateValidity` aplica um único contrato e aceita um `now` opcional; uma data ausente ou malformada, antes aceita, é inválida. `verifyMandateChain` lê todos os instantes da mesma forma e rejeita um mandato raiz que repete um domínio.
+- **`VerificationCache`.** Novas opções de adesão explícita `context` e `agentIds`. Opções inválidas lançam uma exceção, `set` e `get` copiam os resultados, uma entrada expira exatamente ao completar seu TTL no relógio monotônico, e `invalidateByAgent` agora remove entradas.
+
+`@dcp-ai/wasm` 2.1.3, em comparação com a 2.1.1:
+
+- **`dualMerkleRoot` segue a V2-11 (mudança de aceitação).** Ela e a exportação direta `wasm_dual_merkle_root` calculam a raiz Merkle dupla com a redução da [VERIFICATION.md V2-11](../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) que `verifyBundle` já usava (digests brutos de 32 bytes, com o último nó duplicado em uma camada ímpar). A 2.1.1 e anteriores fazem hash do texto hex e sobem um último nó ímpar sem mudança, então suas raízes de duas ou mais folhas diferem. Uma folha que não seja um digest hex de 32 bytes agora é um erro, e as raízes são retornadas em minúsculas.
+- **Validação de esquemas V2-2 (mudança de aceitação).** `verifyBundle` e `wasm_verify_signed_bundle_v2` validam o envelope e os quatro payloads contra `schemas/v2` antes de qualquer verificação de hash, chave ou assinatura.
+- **Nenhuma API JavaScript é adicionada.** O WebAssembly vem do código-fonte Rust `dcp-ai` 2.13.0, também preparado e não publicado (veja [Rust](../../../docs/RUST_RELEASE.md)).
+
+Os dois pacotes mantêm o formato de transmissão, as assinaturas, os perfis, `dcp-jcs-v1` como padrão normativo e as APIs experimentais de adesão explícita `dcp-jcs-v2`, e ambos agora incluem o `LICENSE` Apache-2.0. O README de cada pacote descreve as mesmas mudanças. No README do WASM, a linha de `dualMerkleRoot` da tabela de operações de hash ainda a apresenta como preparada para a 2.1.2: essa linha é histórica, e o comportamento que ela descreve é o da 2.1.3.
+
+<a id="migrating-dualmerkleroot-results"></a>
+
+### Migrar resultados de `dualMerkleRoot`
+
+A correção muda as raízes que a função calcula, não a evidência que você já tem:
+
+- **Mantenha a evidência histórica como está.** Raízes calculadas com `@dcp-ai/wasm` 2.1.1 ou anteriores, e qualquer bundle, assinatura, ancoragem ou entrada de log que as carregue, ficam como foram registradas. Não as recalcule com a 2.1.3 nem substitua os valores armazenados para que coincidam: isso reescreve evidência assinada ou ancorada e invalida suas assinaturas.
+- **Registre qual versão calculou cada raiz.** Uma raiz de duas ou mais folhas da 2.1.1 ou anteriores não é a raiz V2-11 das mesmas folhas. Para conferi-la, recalcule-a com a versão que a produziu, ou calcule a raiz V2-11 ao lado dela e guarde os dois valores.
+- **Raízes novas** vêm da 2.1.3 ou dos outros SDKs, que já seguem a V2-11. A redução Merkle usada pela verificação de bundles não muda; `verifyBundle` já usava a V2-11. As novas verificações de esquema V2-2 descritas acima mudam, sim, a aceitação.
+
+<a id="cli-and-adapters"></a>
+
+### CLI e adaptadores
+
+`@dcp-ai/cli` e os adaptadores npm não recebem nova versão. Seus intervalos publicados (`^2.2.1` para a CLI, `^2.2.0` para os adaptadores) aceitam `@dcp-ai/sdk` 2.3.0. Antes da publicação, eles foram instalados a partir do npm com `@dcp-ai/sdk` resolvido para o candidato:
+
+- **Verificados funcionalmente:** `@dcp-ai/cli` 2.1.1 (`--version`, um bundle V2 válido e um inválido pelo esquema, que a própria verificação de esquema da CLI rejeita antes de o SDK ser executado), e `@dcp-ai/express` e `@dcp-ai/openclaw` 2.1.0 (verificações de regressão de suas correções de admissão e verificação).
+- **Verificados só na instalação:** `@dcp-ai/anthropic-mcp` e `@dcp-ai/google-a2a` (um único `@dcp-ai/sdk` 2.3.0 resolvido, o intervalo aceito e a importação do ponto de entrada), e os pacotes que não dependem do SDK (o ponto de entrada é analisado sem erros). Isso não é teste de integração.
+
 <a id="prepared-not-published-dcp-aiwasm-212"></a>
 
 ## Preparada, não publicada: `@dcp-ai/wasm` 2.1.2
@@ -59,7 +98,7 @@ Corrige `dualMerkleRoot` e a exportação bruta `wasm_dual_merkle_root`: agora c
 
 `verifyBundle`, as demais APIs, `dcp-jcs-v1` e as APIs experimentais opt-in `dcp-jcs-v2` não mudam, e nenhuma API JavaScript é adicionada. O tarball não contém mais os READMEs traduzidos, que agora ficam na árvore `i18n/` do repositório. O WebAssembly vem do Rust `dcp-ai` 2.12.0, também preparado e não publicado (veja [Rust](../../../docs/RUST_RELEASE.md)).
 
-> **Nota (05/11/2026).** Os parágrafos acima foram escritos em 30/10/2026 para a 2.1.2 preparada, que continua sem publicação. Desde o #116 (02/11/2026), `verifyBundle` na `main` executa a validação de esquemas V2-2 no núcleo Rust que encapsula; a 2.1.2 preparada não contém essa mudança, então na `main` `verifyBundle` não está inalterado. Uma versão WASM construída a partir de um commit posterior a conteria. Os números de versão dos manifestos da `main` não identificam este candidato: a `main` os leva com as mudanças posteriores. Veja o [dossiê de auditoria](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts).
+> **Nota (05/11/2026).** Os parágrafos acima foram escritos em 30/10/2026 para a 2.1.2 preparada, que nunca foi publicada. Desde o #116 (02/11/2026), `verifyBundle` na `main` executa a validação de esquemas V2-2 no núcleo Rust que encapsula; a 2.1.2 não contém essa mudança, e a 2.1.3 acima contém. A 2.1.3 substitui a 2.1.2, e os manifestos da `main` levam a 2.1.3. Textos e tabelas que citam a 2.1.2, inclusive a linha de `dualMerkleRoot` do README do WASM, são históricos. Veja o [dossiê de auditoria](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts).
 
 <a id="related-releases"></a>
 

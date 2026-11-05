@@ -18,6 +18,27 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 > actual, consulta el [README](../../README.md), la [documentación](../../docs/README.md), las [especificaciones](../../spec/README.md)
 > y la [referencia de la API](../../docs/API_REFERENCE.md).
 
+<a id="prepared-not-published-auditable-candidate-of-05112026"></a>
+
+## Preparadas, no publicadas: candidato auditable del 05/11/2026
+
+Preparadas en el repositorio el 05/11/2026 y **no publicadas**: npm, PyPI y crates.io no tienen estas versiones, y no existe la etiqueta `sdks/go/v2.13.0`. [Versiones publicadas](../../docs/README.md#published-versions) y los comandos de instalación siguen nombrando las versiones del registro.
+
+| Paquete | Preparada | Publicada |
+|---|---|---|
+| `@dcp-ai/sdk` | 2.3.0 | 2.2.1 |
+| `dcp-ai` (PyPI) | 2.10.2 | 2.10.1 |
+| Go `sdks/go/v2` | v2.13.0 | v2.11.1 |
+| Rust `dcp-ai` | 2.13.0 | 2.11.1 |
+| `@dcp-ai/wasm` | 2.1.3 | 2.1.1 |
+
+- **Contenido.** Los cambios de los SDK hechos en `main` después de las versiones publicadas (#103, #106, #107, #112 y #116 a #119), descritos en `[Unreleased]`, en el README de cada paquete y en las notas de publicación de [npm](../../docs/NPM_RELEASES.md), [Python](../../docs/PYTHON_RELEASE.md), [Go](../../docs/GO_RELEASE.md) y [Rust](../../docs/RUST_RELEASE.md).
+- **Cambios de aceptación.** Todos los verificadores V2 ejecutan la validación de esquemas V2-2, así que los bundles inválidos por esquema que antes se aceptaban fallan con diagnósticos `schema: <pointer> <keyword>`. En Go, `v2.VerifyPayloadHash` solo acepta el hash con prefijo que escribe `SignPayload`. Las funciones auxiliares de validez de mandatos siguen un único contrato, y las cadenas de mandatos rechazan un mandato raíz que repite un dominio. En WASM, `dualMerkleRoot` sigue V2-11; las raíces calculadas antes se conservan tal como se registraron ([migración](../../docs/NPM_RELEASES.md#migrating-dualmerkleroot-results)).
+- **Sin cambios.** El formato de transmisión, las firmas, los perfiles, `dcp-jcs-v1` como valor predeterminado normativo y las API experimentales de activación explícita `dcp-jcs-v2`.
+- **Empaquetado.** Los tarballs de npm, el wheel, el sdist y el crate incluyen ahora el `LICENSE` Apache-2.0; el zip del módulo Go ya lo tenía.
+- **CLI y adaptadores.** `@dcp-ai/cli` y los adaptadores npm no reciben versión nueva; [paquetes npm](../../docs/NPM_RELEASES.md#cli-and-adapters) explica qué se comprobó con `@dcp-ai/sdk` 2.3.0.
+- **Candidatos anteriores.** Estas versiones sustituyen a los candidatos del 30/10/2026 de abajo (Go v2.12.0, Rust 2.12.0, `@dcp-ai/wasm` 2.1.2), que nunca se publicaron; esos números no se reutilizan.
+
 <a id="prepared-not-published-go-v2120-rust-2120-and-dcp-aiwasm-212"></a>
 
 ## Preparadas, no publicadas: Go v2.12.0, Rust 2.12.0 y `@dcp-ai/wasm` 2.1.2
@@ -29,11 +50,11 @@ Preparadas en el repositorio el 30/10/2026 y **no publicadas**: no existe la eti
 - **`@dcp-ai/wasm` 2.1.2:** `dualMerkleRoot` y `wasm_dual_merkle_root` calculan la raíz Merkle dual de V2-11; no se añade ninguna API JavaScript.
 - Los nuevos tests del candidato experimental (gate 7) no cambian ningún valor predeterminado. `dcp-jcs-v1`, los perfiles, el formato de transmisión, las dependencias y la criptografía no cambian. Los tres paquetes ya no incluyen los README traducidos, que están en `i18n/`.
 
-> **Nota (05/11/2026).** Estos candidatos son del 30/10/2026 y siguen sin publicarse. No incluyen cambios
+> **Nota (05/11/2026).** Estos candidatos son del 30/10/2026 y nunca se publicaron. No incluyen cambios
 > posteriores de `main`: la validación de esquemas V2-2 en cada verificador V2 (#116) y las comprobaciones de las
-> cadenas de mandatos (#117 a #119). Los números de versión de los manifiestos de `main` no identifican estos
-> candidatos: `main` los lleva con los cambios posteriores. Véase el
-> [expediente de auditoría](../../docs/conformance/AUDIT_DOSSIER.md#artifacts).
+> cadenas de mandatos (#117 a #119). El [candidato del 05/11/2026](#prepared-not-published-auditable-candidate-of-05112026)
+> contiene esos cambios y los sustituye; los manifiestos de `main` llevan sus números de versión, y 2.12.0 y 2.1.2 no se
+> reutilizan. Véase el [expediente de auditoría](../../docs/conformance/AUDIT_DOSSIER.md#artifacts).
 
 <a id="2026-10-28-sha3-patch-releases"></a>
 

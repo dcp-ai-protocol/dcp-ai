@@ -39,6 +39,15 @@ For 2.10.0 (26/10/2026), the installed wheel passed 1,866 tests on Python 3.12; 
 
 The ML-DSA dependency can raise `ValueError` if its bounded signing attempts are exhausted. A CI fixture hit this failure while creating a signature; verification was not bypassed. Callers must handle signing failure as an error, never as signed evidence.
 
+## Prepared, not published: 2.10.2
+
+2.10.2 is prepared in the repository on 05/11/2026 but not published on PyPI. The install commands above stay on 2.10.1. Compared with 2.10.1, 2.10.2:
+
+- **Runs V2-2 schema validation (acceptance change).** `verify_signed_bundle_v2` and the other V2 verification functions, and so the FastAPI middleware and the bridges, validate the signed bundle envelope and the four payloads against `schemas/v2` before any hash, key or signature check. Schema-invalid bundles accepted before now fail with `schema: <pointer> <keyword>` diagnostics.
+- **Aligns the mandate checks.** `verify_mandate_validity` applies one contract and returns a result instead of raising; `now=` must be an aware `datetime`. The revoked IDs, annotated `set[str]`, are now checked as a `collections.abc.Set` (a `set`, a `frozenset` or a dict keys view): a list or a string, tolerated before, is refused. `verify_mandate_chain` reads every time the same way and rejects a root mandate that repeats a domain.
+
+The wire format, the signatures, the profiles, `dcp-jcs-v1` as the normative default and the experimental opt-in `dcp-jcs-v2` APIs are unchanged, and the wheel and the sdist now include the Apache-2.0 `LICENSE`. Preserve historical evidence instead of rewriting it. See the [SDK README](../sdks/python/README.md) and the [changelog](../CHANGELOG.md#unreleased).
+
 ## Related releases
 
 The current versions in every registry are listed in [Published versions](README.md#published-versions). Other release notes: [npm packages](NPM_RELEASES.md), [Go v2.11.1](GO_RELEASE.md) and [Rust 2.11.1](RUST_RELEASE.md).

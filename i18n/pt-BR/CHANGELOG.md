@@ -18,6 +18,27 @@ O formato se baseia no [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 > atual, consulte o [README](../../README.md), a [documentação](../../docs/README.md), as [especificações](../../spec/README.md) e a
 > [referência da API](../../docs/API_REFERENCE.md).
 
+<a id="prepared-not-published-auditable-candidate-of-05112026"></a>
+
+## Preparadas, não publicadas: candidato auditável de 05/11/2026
+
+Preparadas no repositório em 05/11/2026 e **não publicadas**: npm, PyPI e crates.io não têm estas versões, e a tag `sdks/go/v2.13.0` não existe. [Versões publicadas](../../docs/README.md#published-versions) e os comandos de instalação continuam indicando as versões do registro.
+
+| Pacote | Preparada | Publicada |
+|---|---|---|
+| `@dcp-ai/sdk` | 2.3.0 | 2.2.1 |
+| `dcp-ai` (PyPI) | 2.10.2 | 2.10.1 |
+| Go `sdks/go/v2` | v2.13.0 | v2.11.1 |
+| Rust `dcp-ai` | 2.13.0 | 2.11.1 |
+| `@dcp-ai/wasm` | 2.1.3 | 2.1.1 |
+
+- **Conteúdo.** As mudanças dos SDKs feitas na `main` depois das versões publicadas (#103, #106, #107, #112 e #116 a #119), descritas em `[Unreleased]`, no README de cada pacote e nas notas de lançamento de [npm](../../docs/NPM_RELEASES.md), [Python](../../docs/PYTHON_RELEASE.md), [Go](../../docs/GO_RELEASE.md) e [Rust](../../docs/RUST_RELEASE.md).
+- **Mudanças de aceitação.** Todos os verificadores V2 executam a validação de esquemas V2-2, então bundles inválidos pelo esquema que antes eram aceitos falham com diagnósticos `schema: <pointer> <keyword>`. Em Go, `v2.VerifyPayloadHash` só aceita o hash com prefixo que `SignPayload` escreve. As funções auxiliares de validade de mandatos seguem um único contrato, e as cadeias de mandatos rejeitam um mandato raiz que repete um domínio. No WASM, `dualMerkleRoot` segue a V2-11; raízes calculadas antes ficam como foram registradas ([migração](../../docs/NPM_RELEASES.md#migrating-dualmerkleroot-results)).
+- **Sem mudanças.** O formato de transmissão, as assinaturas, os perfis, `dcp-jcs-v1` como padrão normativo e as APIs experimentais de adesão explícita `dcp-jcs-v2`.
+- **Empacotamento.** Os tarballs npm, o wheel, o sdist e o crate agora incluem o `LICENSE` Apache-2.0; o zip do módulo Go já o tinha.
+- **CLI e adaptadores.** `@dcp-ai/cli` e os adaptadores npm não recebem nova versão; [pacotes npm](../../docs/NPM_RELEASES.md#cli-and-adapters) diz o que foi verificado com `@dcp-ai/sdk` 2.3.0.
+- **Candidatos anteriores.** Estas versões substituem os candidatos de 30/10/2026 abaixo (Go v2.12.0, Rust 2.12.0, `@dcp-ai/wasm` 2.1.2), que nunca foram publicados; esses números não são reutilizados.
+
 <a id="prepared-not-published-go-v2120-rust-2120-and-dcp-aiwasm-212"></a>
 
 ## Preparadas, não publicadas: Go v2.12.0, Rust 2.12.0 e `@dcp-ai/wasm` 2.1.2
@@ -29,10 +50,11 @@ Preparadas no repositório em 30/10/2026 e **não publicadas**: a tag `sdks/go/v
 - **`@dcp-ai/wasm` 2.1.2:** `dualMerkleRoot` e `wasm_dual_merkle_root` calculam a raiz Merkle dupla da V2-11; nenhuma API JavaScript é adicionada.
 - Os novos testes do candidato experimental (gate 7) não mudam nenhum padrão. `dcp-jcs-v1`, os perfis, o formato de transmissão, as dependências e a criptografia não mudam. Os três pacotes não incluem mais os READMEs traduzidos, que ficam em `i18n/`.
 
-> **Nota (05/11/2026).** Estes candidatos são de 30/10/2026 e continuam sem publicação. Não incluem mudanças
+> **Nota (05/11/2026).** Estes candidatos são de 30/10/2026 e nunca foram publicados. Não incluem mudanças
 > posteriores da `main`: a validação de esquemas V2-2 em cada verificador V2 (#116) e as verificações das cadeias de
-> mandatos (#117 a #119). Os números de versão dos manifestos da `main` não identificam estes candidatos: a `main`
-> os leva com as mudanças posteriores. Veja o [dossiê de auditoria](../../docs/conformance/AUDIT_DOSSIER.md#artifacts).
+> mandatos (#117 a #119). O [candidato de 05/11/2026](#prepared-not-published-auditable-candidate-of-05112026) contém
+> essas mudanças e os substitui; os manifestos da `main` levam seus números de versão, e 2.12.0 e 2.1.2 não são
+> reutilizados. Veja o [dossiê de auditoria](../../docs/conformance/AUDIT_DOSSIER.md#artifacts).
 
 <a id="2026-10-28-sha3-patch-releases"></a>
 

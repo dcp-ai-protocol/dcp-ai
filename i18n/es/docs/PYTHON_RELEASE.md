@@ -51,6 +51,17 @@ Para la 2.10.0 (26/10/2026), el wheel instalado pasó 1.866 pruebas en Python 3.
 
 La dependencia ML-DSA puede lanzar `ValueError` si agota sus intentos acotados de firma. Un fixture de CI encontró este fallo al crear una firma; no se eludió la verificación. Los llamadores deben tratar el fallo como un error, nunca como evidencia firmada.
 
+<a id="prepared-not-published-2102"></a>
+
+## Preparada, no publicada: 2.10.2
+
+La 2.10.2 está preparada en el repositorio el 05/11/2026, pero no publicada en PyPI. Los comandos de instalación de arriba siguen en 2.10.1. Frente a 2.10.1, la 2.10.2:
+
+- **Ejecuta la validación de esquemas V2-2 (cambio de aceptación).** `verify_signed_bundle_v2` y las demás funciones de verificación V2, y por tanto el middleware de FastAPI y los puentes, validan el sobre del bundle firmado y los cuatro payloads contra `schemas/v2` antes de cualquier comprobación de hash, clave o firma. Los bundles inválidos por esquema que antes se aceptaban ahora fallan con diagnósticos `schema: <pointer> <keyword>`.
+- **Alinea las comprobaciones de mandatos.** `verify_mandate_validity` aplica un único contrato y devuelve un resultado en lugar de lanzar una excepción; `now=` debe ser un `datetime` con zona horaria. Los IDs revocados, anotados como `set[str]`, ahora se comprueban como `collections.abc.Set` (un `set`, un `frozenset` o una vista de claves de un dict): una lista o una cadena, toleradas antes, se rechazan. `verify_mandate_chain` lee todos los instantes de la misma manera y rechaza un mandato raíz que repite un dominio.
+
+No cambian el formato de transmisión, las firmas, los perfiles, `dcp-jcs-v1` como valor predeterminado normativo ni las API experimentales de activación explícita `dcp-jcs-v2`, y el wheel y el sdist incluyen ahora el `LICENSE` Apache-2.0. Conserva la evidencia histórica en lugar de reescribirla. Véanse el [README del SDK](../../../sdks/python/README.md) y el [changelog](../../../CHANGELOG.md#unreleased).
+
 <a id="related-releases"></a>
 
 ## Publicaciones relacionadas

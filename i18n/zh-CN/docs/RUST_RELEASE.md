@@ -46,6 +46,19 @@ dcp-ai = "2.11.1"
 
 对于 2.11.0（2026 年 10 月 26 日），默认套件通过 261 项测试，全功能套件通过 267 项（包含 doctest）。WASM 库和测试已针对 `wasm32-unknown-unknown` 编译；这不是浏览器运行测试。Cargo 成功打包并验证 71 个文件，发布 dry-run 通过。外部使用方针对解压 crate 通过 72 项测试，涵盖准入、兼容性、候选入口/路由器和验证器回归；反转的负对照按预期失败。发布后，新注册表缓存精确解析到 2.11.0，无本地路径或 patch，同样的 72 项测试通过。公开归档 checksum 和打包源码字节与审核版本一致。测试的共享 fixture 来自仓库，应用不需要这些 fixture。
 
+<a id="prepared-not-published-2130"></a>
+
+## 已准备、尚未发布：2.13.0
+
+2.13.0 已于 05/11/2026 在仓库中准备，但尚未在 crates.io 上发布。上面的安装命令仍为 2.11.1。它取代了下面从未发布的 2.12.0。与 2.11.1 相比，2.13.0：
+
+- **执行 V2-2 模式校验（接受范围变化）。** `verify_signed_bundle_v2`、`…_with_policy` 和 `…_at`（包括 WASM 构建）在任何哈希、密钥或签名检查之前，先按 `schemas/v2` 校验已签名 bundle 的信封和四个载荷。以前被接受的模式无效 bundle 现在会以 `schema: <pointer> <keyword>` 诊断失败。
+- **新增 `RawAuditEventV2` 和 `RawAuditEventError`**，与下面的 2.12.0 相同。
+- **修正 `wasm_dual_merkle_root`**（启用 `wasm` 特性时），与下面的 2.12.0 相同。用旧函数计算的根按记录保留；见[迁移 `dualMerkleRoot` 的结果](../../../docs/NPM_RELEASES.md#migrating-dualmerkleroot-results)。
+- **统一授权书检查。** `verify_mandate_validity` 将窗口作为时刻而不再作为文本比较，`verify_mandate_validity_at`（新增）接收验证时间。`verify_mandate_chain` 拒绝重复某个领域的根授权书。
+
+遥测报告 `2.13.0`。传输格式、签名、配置文件、作为规范默认值的 `dcp-jcs-v1` 以及实验性显式启用的 `dcp-jcs-v2` API 均不变，crate 现在包含 Apache-2.0 `LICENSE`。由这份 Rust 源代码构建的 npm 包是 `@dcp-ai/wasm` 2.1.3，同样已准备、尚未发布（见 [npm 包](../../../docs/NPM_RELEASES.md)）。见 [SDK README](../../../sdks/rust/README.md) 和[变更日志](../../../CHANGELOG.md#unreleased)。
+
 <a id="prepared-not-published-2120"></a>
 
 ## 已准备、尚未发布：2.12.0
@@ -57,7 +70,7 @@ dcp-ai = "2.11.1"
 
 其他 API、`dcp-jcs-v1` 以及实验性且需显式启用的 `dcp-jcs-v2` API 均不变；实验性候选的新测试不改变任何默认值。遥测报告 `2.12.0`。crate 不再包含翻译版 README，它们现在位于仓库的 `i18n/` 目录树中。参见 [SDK README](../../../sdks/rust/README.md) 和[变更日志](../../../CHANGELOG.md)。
 
-> **说明（05/11/2026）。** 上面的比较写于 30/10/2026，针对已准备的 2.12.0，该版本仍未发布。此后 `main` 改变了验证：所有 V2 验证器（包括 WASM 构建）都执行 V2-2 模式校验（#116，02/11/2026），授权书有效性辅助函数、链的时间检查和重复根域检查也已更改（#117 至 #119）。这些更改不在上述 2.12.0 中，因此在 `main` 上 bundle 验证并非不变。从之后的提交构建的版本会包含它们。`main` 上清单文件中的版本号不能确定这个候选版本：`main` 带着这些版本号以及之后的更改。见[审计资料](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts)。
+> **说明（05/11/2026）。** 上面的比较写于 30/10/2026，针对已准备的 2.12.0，该版本仍未发布。此后 `main` 改变了验证：所有 V2 验证器（包括 WASM 构建）都执行 V2-2 模式校验（#116，02/11/2026），授权书有效性辅助函数、链的时间检查和重复根域检查也已更改（#117 至 #119）。这些更改不在上述 2.12.0 中；2.12.0 从未发布，上面的 2.13.0 包含这些更改并取代了它，`main` 上的清单文件带有 2.13.0。见[审计资料](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts)。
 
 <a id="related-releases"></a>
 

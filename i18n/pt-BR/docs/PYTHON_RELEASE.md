@@ -51,6 +51,17 @@ Para a 2.10.0 (26/10/2026), o wheel instalado passou em 1.866 testes no Python 3
 
 A dependência ML-DSA pode lançar `ValueError` se esgotar suas tentativas limitadas de assinatura. Uma fixture de CI encontrou essa falha ao criar uma assinatura; a verificação não foi contornada. Chamadores devem tratar a falha como erro, nunca como evidência assinada.
 
+<a id="prepared-not-published-2102"></a>
+
+## Preparada, não publicada: 2.10.2
+
+A 2.10.2 está preparada no repositório em 05/11/2026, mas não publicada no PyPI. Os comandos de instalação acima continuam na 2.10.1. Em comparação com a 2.10.1, a 2.10.2:
+
+- **Executa a validação de esquemas V2-2 (mudança de aceitação).** `verify_signed_bundle_v2` e as demais funções de verificação V2, e portanto o middleware do FastAPI e as pontes, validam o envelope do bundle assinado e os quatro payloads contra `schemas/v2` antes de qualquer verificação de hash, chave ou assinatura. Bundles inválidos pelo esquema que antes eram aceitos agora falham com diagnósticos `schema: <pointer> <keyword>`.
+- **Alinha as verificações de mandatos.** `verify_mandate_validity` aplica um único contrato e retorna um resultado em vez de lançar uma exceção; `now=` deve ser um `datetime` com fuso horário. Os IDs revogados, anotados como `set[str]`, agora são verificados como `collections.abc.Set` (um `set`, um `frozenset` ou uma visão de chaves de um dict): uma lista ou uma string, toleradas antes, são recusadas. `verify_mandate_chain` lê todos os instantes da mesma forma e rejeita um mandato raiz que repete um domínio.
+
+Não mudam o formato de transmissão, as assinaturas, os perfis, `dcp-jcs-v1` como padrão normativo nem as APIs experimentais de adesão explícita `dcp-jcs-v2`, e o wheel e o sdist agora incluem o `LICENSE` Apache-2.0. Preserve a evidência histórica em vez de reescrevê-la. Veja o [README do SDK](../../../sdks/python/README.md) e o [changelog](../../../CHANGELOG.md#unreleased).
+
 <a id="related-releases"></a>
 
 ## Publicações relacionadas

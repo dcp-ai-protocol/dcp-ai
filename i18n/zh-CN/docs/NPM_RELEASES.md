@@ -49,6 +49,45 @@ npx --package=@dcp-ai/cli@2.1.1 dcp-ai --help
 
 在 `@dcp-ai/sdk` 2.2.0 及更高版本和 `@dcp-ai/wasm` 2.1.0 及更高版本中，`dcp-jcs-v2` 仍是实验性、非规范性且需显式启用的功能。`dcp-jcs-v1` 仍是唯一的规范性默认配置。生成器和桥接辅助函数保留 README 中的限制；发布它们不会把演示流程变成生产验证器。
 
+<a id="prepared-not-published-dcp-aisdk-230-and-dcp-aiwasm-213"></a>
+
+## 已准备、尚未发布：`@dcp-ai/sdk` 2.3.0 和 `@dcp-ai/wasm` 2.1.3
+
+05/11/2026 在仓库中准备，尚未在 npm 上发布。上面的表格和安装命令仍为注册表中的版本。它们取代了下面 30/10/2026 的 `@dcp-ai/wasm` 2.1.2 候选版本，该版本从未发布。
+
+`@dcp-ai/sdk` 2.3.0 与 2.2.1 相比：
+
+- **V2-2 模式校验（接受范围变化）。** `verifySignedBundleV2`、组合准入 API 和实验性候选验证器在任何哈希、密钥或签名检查之前，先按 `schemas/v2` 校验已签名 bundle 的信封和四个载荷。以前被接受的模式无效 bundle（例如封闭对象中的未知成员，或清单中为 `null` 的会话时间）现在会返回 `verified: false` 并附带 `schema: <pointer> <keyword>` 诊断。
+- **授权书。** `verifyMandateValidity` 采用统一的约定，并接受可选的 `now`；以前被接受的缺失或格式错误的日期现在无效。`verifyMandateChain` 以同一方式读取所有时间，并拒绝重复某个领域的根授权书。
+- **`VerificationCache`。** 新增显式启用的 `context` 和 `agentIds` 选项。无效选项会抛出异常；`set` 和 `get` 复制结果；条目在单调时钟上恰好到达其 TTL 时过期；`invalidateByAgent` 现在会删除条目。
+
+`@dcp-ai/wasm` 2.1.3 与 2.1.1 相比：
+
+- **`dualMerkleRoot` 遵循 V2-11（接受范围变化）。** 它和直接导出的 `wasm_dual_merkle_root` 使用 `verifyBundle` 已在使用的 [VERIFICATION.md V2-11](../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) 归约（原始 32 字节摘要，奇数层复制最后一个节点）计算双 Merkle 根。2.1.1 及更早版本对十六进制文本做哈希，并把奇数层的最后一个节点原样上移，因此两个或更多叶节点时的根不同。不是 32 字节十六进制摘要的叶节点现在会报错，根以小写形式返回。
+- **V2-2 模式校验（接受范围变化）。** `verifyBundle` 和 `wasm_verify_signed_bundle_v2` 在任何哈希、密钥或签名检查之前，先按 `schemas/v2` 校验信封和四个载荷。
+- **不新增 JavaScript API。** WebAssembly 来自同样已准备、尚未发布的 Rust `dcp-ai` 2.13.0 源代码（见 [Rust](../../../docs/RUST_RELEASE.md)）。
+
+两个包都保持传输格式、签名、配置文件、作为规范默认值的 `dcp-jcs-v1` 以及实验性显式启用的 `dcp-jcs-v2` API 不变，并且现在都包含 Apache-2.0 `LICENSE`。每个包内的 README 描述了相同的更改。在 WASM README 中，哈希操作表里 `dualMerkleRoot` 那一行仍写着为 2.1.2 准备：这一行属于历史记录，它描述的行为就是 2.1.3 的行为。
+
+<a id="migrating-dualmerkleroot-results"></a>
+
+### 迁移 `dualMerkleRoot` 的结果
+
+这项修正改变的是该函数计算出的根，而不是你已经持有的证据：
+
+- **按原样保留历史证据。** 用 `@dcp-ai/wasm` 2.1.1 或更早版本计算的根，以及携带这些根的任何 bundle、签名、锚定或日志条目，都按记录保留。不要用 2.1.3 重新计算并替换已存储的值以使其一致：那会改写已签名或已锚定的证据，并使其签名失效。
+- **记录每个根是由哪个版本计算的。** 2.1.1 或更早版本对两个或更多叶节点得出的根，不是相同叶节点的 V2-11 根。要检查它，请用生成它的版本重新计算，或在它旁边计算 V2-11 根并保留两个值。
+- **新的根**由 2.1.3 或其他已遵循 V2-11 的 SDK 计算。bundle 验证使用的 Merkle 归约没有变化；`verifyBundle` 本来就使用 V2-11。上面所述的新 V2-2 模式检查则确实改变了接受范围。
+
+<a id="cli-and-adapters"></a>
+
+### CLI 和适配器
+
+`@dcp-ai/cli` 和 npm 适配器没有新版本。它们已发布的版本范围（CLI 为 `^2.2.1`，适配器为 `^2.2.0`）接受 `@dcp-ai/sdk` 2.3.0。发布之前，它们从 npm 安装，并将 `@dcp-ai/sdk` 解析为候选版本：
+
+- **做了功能检查：** `@dcp-ai/cli` 2.1.1（`--version`、一个有效的 V2 bundle，以及一个模式无效的 bundle，后者在 SDK 运行之前就被 CLI 自己的模式检查拒绝），以及 `@dcp-ai/express` 和 `@dcp-ai/openclaw` 2.1.0（针对其准入和验证修复的回归检查）。
+- **只检查了安装：** `@dcp-ai/anthropic-mcp` 和 `@dcp-ai/google-a2a`（只解析出一个 `@dcp-ai/sdk` 2.3.0、接受的版本范围以及入口点的导入），以及不依赖 SDK 的包（入口点可以解析）。这不是集成测试。
+
 <a id="prepared-not-published-dcp-aiwasm-212"></a>
 
 ## 已准备、尚未发布：`@dcp-ai/wasm` 2.1.2
@@ -59,7 +98,7 @@ npx --package=@dcp-ai/cli@2.1.1 dcp-ai --help
 
 `verifyBundle`、其他 API、`dcp-jcs-v1` 以及实验性且需显式启用的 `dcp-jcs-v2` API 均不变，也没有新增 JavaScript API。tarball 不再包含翻译版 README，它们现在位于仓库的 `i18n/` 目录树中。其中的 WebAssembly 来自 Rust `dcp-ai` 2.12.0，同样已准备、尚未发布（见 [Rust](../../../docs/RUST_RELEASE.md)）。
 
-> **说明（05/11/2026）。** 上面几段写于 30/10/2026，针对已准备的 2.1.2，该版本仍未发布。自 #116（02/11/2026）起，`main` 上的 `verifyBundle` 在其封装的 Rust 核心中执行 V2-2 模式校验；已准备的 2.1.2 不包含这一更改，因此在 `main` 上 `verifyBundle` 并非不变。从之后的提交构建的 WASM 版本会包含它。`main` 上清单文件中的版本号不能确定这个候选版本：`main` 带着这些版本号以及之后的更改。见[审计资料](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts)。
+> **说明（05/11/2026）。** 上面几段写于 30/10/2026，针对已准备的 2.1.2，该版本从未发布。自 #116（02/11/2026）起，`main` 上的 `verifyBundle` 在其封装的 Rust 核心中执行 V2-2 模式校验；2.1.2 不包含这一更改，上面的 2.1.3 包含。2.1.3 取代 2.1.2，`main` 上的清单文件带有 2.1.3。提到 2.1.2 的文字和表格（包括 WASM README 中 `dualMerkleRoot` 那一行）属于历史记录。见[审计资料](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts)。
 
 <a id="related-releases"></a>
 

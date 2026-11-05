@@ -39,6 +39,19 @@ Para a v2.11.1, os 84 arquivos do zip do módulo servido pelo proxy são idênti
 
 Para a v2.11.0 (26/10/2026), a suíte padrão e a suíte `-race -tags otlp` passaram em 1.154 testes/subtestes cada; um teste é reservado intencionalmente para a matriz ao vivo de produtores/consumidores. Passaram `go mod tidy -diff`, compilação e vet. Um consumidor externo passou em 137 testes/subtestes e seu controle negativo falhou como esperado. O módulo publicado foi baixado em cache novo pelo proxy público com verificação de checksums; as fontes coincidiram com o commit revisado. Depois, o consumidor passou sem diretiva `replace` local. Para a publicação independente do Rust, veja [Rust](../../../docs/RUST_RELEASE.md).
 
+<a id="prepared-not-published-v2130"></a>
+
+## Preparada, não publicada: v2.13.0
+
+A v2.13.0 está preparada no repositório em 05/11/2026, mas não publicada: a tag `sdks/go/v2.13.0` não existe, então o proxy de módulos não serve esta versão e `go get` não consegue resolvê-la. O comando de instalação acima continua na v2.11.1. Ela substitui a v2.12.0 abaixo, que nunca recebeu tag. Em comparação com a v2.11.1, a v2.13.0:
+
+- **Executa a validação de esquemas V2-2 (mudança de aceitação).** `v2.VerifySignedBundleV2` e suas variantes validam o envelope do bundle assinado e os quatro payloads contra `schemas/v2` antes de qualquer verificação de hash, chave ou assinatura. Bundles inválidos pelo esquema que antes eram aceitos agora falham com diagnósticos `schema: <pointer> <keyword>`.
+- **Corrige `v2.VerifyPayloadHash` (mudança de aceitação)**, como a v2.12.0 abaixo: `true` somente para `"sha256:"` seguido do SHA-256 do payload canônico, como `SignPayload` o escreve; um digest sem prefixo é `false`.
+- **Adiciona `v2.RawAuditEventV2`**, como a v2.12.0 abaixo.
+- **Alinha as verificações de mandatos.** `v2.VerifyMandateValidity` aplica um único contrato e `v2.VerifyMandateValidityAt` (novo) recebe o instante da verificação; uma data ausente ou malformada, antes aceita, é inválida. `v2.VerifyMandateChain` lê todos os instantes da mesma forma e rejeita um mandato raiz que repete um domínio.
+
+`SDKVersion` é `2.13.0`. Não mudam o formato de transmissão, as assinaturas, os perfis, `dcp-jcs-v1` como padrão normativo nem as APIs experimentais de adesão explícita `dcp-jcs-v2`. Preserve a evidência histórica em vez de reescrevê-la: um bundle que as novas verificações rejeitam fica como foi recebido. No README do SDK empacotado com esta versão, a linha de `v2.VerifyPayloadHash` e o parágrafo de `v2.RawAuditEventV2` ainda dizem "prepared for v2.12.0": essas menções são históricas, e os dois estão na v2.13.0. Veja o [README do SDK](../../../sdks/go/README.md) e o [changelog](../../../CHANGELOG.md#unreleased).
+
 <a id="prepared-not-published-v2120"></a>
 
 ## Preparada, não publicada: v2.12.0
@@ -50,7 +63,7 @@ A v2.12.0 está preparada no repositório desde 30/10/2026, mas não publicada: 
 
 As demais APIs, a verificação de bundles, `dcp-jcs-v1` e as APIs experimentais opt-in `dcp-jcs-v2` não mudam; os novos testes do candidato experimental não mudam nenhum padrão. A telemetria do SDK informa `2.12.0`. O módulo não contém mais os READMEs traduzidos, que agora ficam na árvore `i18n/` do repositório. Veja o [README do SDK](../../../sdks/go/README.md) e o [changelog](../../../CHANGELOG.md).
 
-> **Nota (05/11/2026).** A comparação acima foi escrita em 30/10/2026 para a v2.12.0 preparada, que continua sem publicação. Desde então a `main` mudou a verificação: todos os verificadores V2 executam a validação de esquemas V2-2 (#116, 02/11/2026), e mudaram o helper de validade de mandatos, as verificações de tempo das cadeias e a verificação de domínios raiz repetidos (#117 a #119). Essas mudanças não estão na v2.12.0 descrita acima, então na `main` a verificação de bundles não está inalterada. Uma versão construída a partir de um commit posterior as conteria. Os números de versão dos manifestos da `main` não identificam este candidato: a `main` os leva com as mudanças posteriores. Veja o [dossiê de auditoria](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts).
+> **Nota (05/11/2026).** A comparação acima foi escrita em 30/10/2026 para a v2.12.0 preparada, que continua sem publicação. Desde então a `main` mudou a verificação: todos os verificadores V2 executam a validação de esquemas V2-2 (#116, 02/11/2026), e mudaram a função auxiliar de validade de mandatos, as verificações de tempo da cadeia e a verificação de domínios raiz repetidos (#117 a #119). Essas mudanças não estão na v2.12.0 descrita acima, que nunca recebeu tag; a v2.13.0 acima as contém e a substitui, e os manifestos da `main` levam a v2.13.0. Veja o [dossiê de auditoria](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts).
 
 <a id="related-releases"></a>
 

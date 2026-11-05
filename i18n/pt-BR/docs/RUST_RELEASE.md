@@ -46,6 +46,19 @@ Para a 2.11.1, o fluxo de publicação publicou o crate; todos os arquivos do cr
 
 Para a 2.11.0 (26/10/2026), a suíte padrão passou em 261 testes e a de todas as funcionalidades, em 267, incluindo doctests. A biblioteca e os testes WASM compilaram para `wasm32-unknown-unknown`; isso não é um teste de execução no navegador. O Cargo empacotou e verificou 71 arquivos, e a simulação de publicação passou. Um consumidor externo passou em 72 testes do crate extraído: admissão, compatibilidade, entrada/roteador candidato e regressões do verificador; o controle negativo invertido falhou como esperado. Após publicar, um cache novo do registro resolveu exatamente 2.11.0 sem caminhos locais nem patches, e os mesmos 72 testes passaram. O checksum do arquivo público e os bytes das fontes empacotadas coincidiram com a versão revisada. As fixtures compartilhadas desses testes vêm do repositório; as aplicações não precisam delas.
 
+<a id="prepared-not-published-2130"></a>
+
+## Preparada, não publicada: 2.13.0
+
+A 2.13.0 está preparada no repositório em 05/11/2026, mas não publicada no crates.io. Os comandos de instalação acima continuam na 2.11.1. Ela substitui a 2.12.0 abaixo, que nunca foi publicada. Em comparação com a 2.11.1, a 2.13.0:
+
+- **Executa a validação de esquemas V2-2 (mudança de aceitação).** `verify_signed_bundle_v2`, `…_with_policy` e `…_at`, incluindo o build WASM, validam o envelope do bundle assinado e os quatro payloads contra `schemas/v2` antes de qualquer verificação de hash, chave ou assinatura. Bundles inválidos pelo esquema que antes eram aceitos agora falham com diagnósticos `schema: <pointer> <keyword>`.
+- **Adiciona `RawAuditEventV2` e `RawAuditEventError`**, como a 2.12.0 abaixo.
+- **Corrige `wasm_dual_merkle_root`** (com a feature `wasm`), como a 2.12.0 abaixo. Raízes calculadas com a função antiga ficam como foram registradas; veja [Migrar resultados de `dualMerkleRoot`](../../../docs/NPM_RELEASES.md#migrating-dualmerkleroot-results).
+- **Alinha as verificações de mandatos.** `verify_mandate_validity` compara a janela como instantes, não mais como texto, e `verify_mandate_validity_at` (novo) recebe o instante da verificação. `verify_mandate_chain` rejeita um mandato raiz que repete um domínio.
+
+A telemetria informa `2.13.0`. Não mudam o formato de transmissão, as assinaturas, os perfis, `dcp-jcs-v1` como padrão normativo nem as APIs experimentais de adesão explícita `dcp-jcs-v2`, e o crate agora inclui o `LICENSE` Apache-2.0. O pacote npm construído a partir deste código-fonte Rust é `@dcp-ai/wasm` 2.1.3, também preparado e não publicado (veja os [pacotes npm](../../../docs/NPM_RELEASES.md)). Veja o [README do SDK](../../../sdks/rust/README.md) e o [changelog](../../../CHANGELOG.md#unreleased).
+
 <a id="prepared-not-published-2120"></a>
 
 ## Preparada, não publicada: 2.12.0
@@ -57,7 +70,7 @@ A 2.12.0 está preparada no repositório desde 30/10/2026, mas não publicada no
 
 As demais APIs, `dcp-jcs-v1` e as APIs experimentais opt-in `dcp-jcs-v2` não mudam; os novos testes do candidato experimental não mudam nenhum padrão. A telemetria informa `2.12.0`. O crate não contém mais os READMEs traduzidos, que agora ficam na árvore `i18n/` do repositório. Veja o [README do SDK](../../../sdks/rust/README.md) e o [changelog](../../../CHANGELOG.md).
 
-> **Nota (05/11/2026).** A comparação acima foi escrita em 30/10/2026 para a 2.12.0 preparada, que continua sem publicação. Desde então a `main` mudou a verificação: todos os verificadores V2, incluindo o build WASM, executam a validação de esquemas V2-2 (#116, 02/11/2026), e mudaram o helper de validade de mandatos, as verificações de tempo das cadeias e a verificação de domínios raiz repetidos (#117 a #119). Essas mudanças não estão na 2.12.0 descrita acima, então na `main` a verificação de bundles não está inalterada. Uma versão construída a partir de um commit posterior as conteria. Os números de versão dos manifestos da `main` não identificam este candidato: a `main` os leva com as mudanças posteriores. Veja o [dossiê de auditoria](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts).
+> **Nota (05/11/2026).** A comparação acima foi escrita em 30/10/2026 para a 2.12.0 preparada, que continua sem publicação. Desde então a `main` mudou a verificação: todos os verificadores V2, incluindo o build WASM, executam a validação de esquemas V2-2 (#116, 02/11/2026), e mudaram a função auxiliar de validade de mandatos, as verificações de tempo da cadeia e a verificação de domínios raiz repetidos (#117 a #119). Essas mudanças não estão na 2.12.0 descrita acima, que nunca foi publicada; a 2.13.0 acima as contém e a substitui, e os manifestos da `main` levam a 2.13.0. Veja o [dossiê de auditoria](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts).
 
 <a id="related-releases"></a>
 

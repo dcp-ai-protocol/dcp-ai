@@ -17,6 +17,14 @@ Digital Citizenship Protocol（DCP-AI）の公式 TypeScript SDK です。ポス
 
 **`@dcp-ai/sdk` 2.2.1。** このバージョンは、[VERIFICATION.md の V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) の二次の SHA3-256 フィールドが存在する場合、それらも検証します：`audit_merkle_root_secondary`、各 `prev_hash_secondary`、各 `intent_hash_secondary`。存在しないフィールドは要求されないため、検証済みのバンドルが完全な二次チェーンを持たないこともあります。存在するフィールドが `null`、文字列でない、または不整合の場合は拒否されます。API、結果のフィールド、`dcp-jcs-v1`、`hash_alg` の扱いは変わりません。2.2.0 はこれらのフィールドを確認しません。以下のインストールコマンドはこのバージョンを指定しています。レジストリでの提供状況は[公開済みバージョン](../../../../docs/README.md#published-versions)を参照してください。
 
+**`@dcp-ai/sdk` 2.3.0（準備済み・未公開）。** リポジトリで準備済みですが npm にはないため、以下のコマンドは 2.2.1 のままです。2.2.1 との違い：
+
+- **V2-2 スキーマ検証。** `verifySignedBundleV2`、統合されたアドミッション API、実験的な候補検証器は、ハッシュ、鍵、署名を確認する前に、署名済みバンドルのエンベロープと 4 つのペイロードを `schemas/v2` に照らして検証します。これらが受理していたスキーマ上無効なバンドル（閉じたオブジェクト内の未知のメンバーや、マニフェスト内の `null` のセッション時刻など）は、`schema: <pointer> <keyword>` 診断とともに `verified: false` を返すようになりました（後述の「スキーマ検証」を参照）。
+- **委任状。** `verifyMandateValidity` は一つの契約（空でない `mandate_id`、完全一致による失効、ミリ秒単位で比較する RFC 3339 の瞬間、`valid_until` より後でない `valid_from`、両端を含む）を適用し、省略可能な `now` を受け取ります。以前は受理されていた欠落した日付や不正な形式の日付は無効です。`verifyMandateChain` はすべての時刻を同じ方法で読み取り、ドメインを繰り返すルート委任状を拒否します。
+- **`VerificationCache`。** オプトインのオプション `context` と `agentIds`（`VerificationCacheSetOptions`、`VerificationCacheLookupOptions`）が加わりました。無効なオプションは有効期限や上限を無効にする代わりに例外を投げ、`set` と `get` は結果をコピーし、エントリーは単調時計でちょうど TTL に達した時点で期限切れになり、`invalidateByAgent` はエントリーを削除するようになりました。
+
+ワイヤーフォーマット、署名、プロファイル、`dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API は変わりません。[変更履歴](../../../../CHANGELOG.md#unreleased)を参照してください。
+
 ```bash
 npm install @dcp-ai/sdk@^2.2.1
 ```
@@ -240,7 +248,7 @@ console.log(result.verified, result.errors); // true []
 | `verifySignedBundle(signedBundle, publicKeyB64)` | V1 | 署名済みの V1 バンドルを検証する |
 | `verifySignedBundleV2(signedBundle, registry, policy?)` | V2 | 署名済みの V2 バンドル（複合またはクラシカル）を、ポリシーのモードとセキュリティティアのモードのうち厳しいほうで検証し、`resolved_tier` を報告する |
 
-**スキーマ検証（V2-2。`main` にあり、公開済みのバージョンには含まれない）。** `verifySignedBundleV2` とほかの V2 検証関数は、ポリシーと時計の確認の後、検証器がマニフェスト、ペイロードのハッシュ、鍵、署名を確認する前に、まず署名済み bundle のエンベロープと四つのペイロードを `schemas/v2` に照らして検証します。最初に検証を行う `admitSignedBundleV2` と実験的な候補の検証器も同じゲートを通りますが、`evaluateAdmissionV2` は以前の結果を受け取り、このゲートを実行しません。失敗した bundle は `verified: false` と `schema: <JSON pointer> <keyword>[ <member>]` のエラー（最大 16 件、その後に `schema: further errors not listed`）を返し、暗号に関する詳細は返しません。閉じたオブジェクトの未知のメンバーは拒否されます。intent の `target` のような開いたオブジェクトでは、宣言されたメンバーは制約を保ち、追加のメンバーだけが検査されません。マニフェストの `session_issued_at` と `session_expires_at` は、存在する場合は `null` ではなく文字列でなければなりません。`date-time` は参照検証器の ajv-formats 3.0.1 による確認に従い、これは厳密な RFC 3339 ではありません。値が `undefined` のメンバーは、正規化と同じく欠落として扱われます。**受理の変更：** 以前は検証に成功していたスキーマ上無効な bundle は、今は拒否されます。スキーマだけの API はありません。[カバレッジマップ](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)を参照してください。
+**スキーマ検証（V2-2。2.3.0 以降、準備済み・未公開）。** `verifySignedBundleV2` とほかの V2 検証関数は、ポリシーと時計の確認の後、検証器がマニフェスト、ペイロードのハッシュ、鍵、署名を確認する前に、まず署名済み bundle のエンベロープと四つのペイロードを `schemas/v2` に照らして検証します。最初に検証を行う `admitSignedBundleV2` と実験的な候補の検証器も同じゲートを通りますが、`evaluateAdmissionV2` は以前の結果を受け取り、このゲートを実行しません。失敗した bundle は `verified: false` と `schema: <JSON pointer> <keyword>[ <member>]` のエラー（最大 16 件、その後に `schema: further errors not listed`）を返し、暗号に関する詳細は返しません。閉じたオブジェクトの未知のメンバーは拒否されます。intent の `target` のような開いたオブジェクトでは、宣言されたメンバーは制約を保ち、追加のメンバーだけが検査されません。マニフェストの `session_issued_at` と `session_expires_at` は、存在する場合は `null` ではなく文字列でなければなりません。`date-time` は参照検証器の ajv-formats 3.0.1 による確認に従い、これは厳密な RFC 3339 ではありません。値が `undefined` のメンバーは、正規化と同じく欠落として扱われます。**受理の変更：** 以前は検証に成功していたスキーマ上無効な bundle は、今は拒否されます。スキーマだけの API はありません。[カバレッジマップ](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)を参照してください。
 
 <a id="bundle-optimization-v2"></a>
 
@@ -253,7 +261,7 @@ console.log(result.verified, result.errors); // true []
 | `presentCompact(bundle, pqCheckpointRef)` | コンパクトな提示：PQ 署名を省き、代わりに最も近い PQ チェックポイントを参照する |
 | `presentReference(bundle, verificationEndpoint)` | 参照のみの提示：バンドルのハッシュ、セッションの nonce、バンドル全体を検証または取得するためのエンドポイント |
 | `presentIncremental(baseBundle, updatedBundle, baseAuditCount)` | 検証済みのベースバンドルに対する増分の提示：新しい監査エントリ、PQ チェックポイント、更新されたマニフェストと署名 |
-| `VerificationCache` | 検証結果をバンドルのハッシュをキーにキャッシュする。ヒット時に信頼、失効、セッションを再確認せず、自動的に無効化されるものもないため、アドミッションには改めて検証すること。`main` のソースコード（未公開）では、呼び出し側が選ぶオプトインの `context` でテナントやポリシーを分け、`get` はコピーを返し、`invalidateByAgent` はそのエージェントのエントリと `agentIds` なしで保存したすべてのエントリを削除する。公開済みの 2.2.1 ではキーはハッシュだけで、`invalidateByAgent` は何も削除しないので、`invalidateByKid` か `clear()` を使う（[詳細](../../../../docs/API_REFERENCE.md#verificationcache)） |
+| `VerificationCache` | 検証結果をバンドルのハッシュをキーにキャッシュする。ヒット時に信頼、失効、セッションを再確認せず、自動的に無効化されるものもないため、アドミッションには改めて検証すること。2.3.0 以降（準備済み・未公開）では、呼び出し側が選ぶオプトインの `context` でテナントやポリシーを分け、`get` はコピーを返し、`invalidateByAgent` はそのエージェントのエントリと `agentIds` なしで保存したすべてのエントリを削除する。公開済みの 2.2.1 ではキーはハッシュだけで、`invalidateByAgent` は何も削除しないので、`invalidateByKid` か `clear()` を使う（[詳細](../../../../docs/API_REFERENCE.md#verificationcache)） |
 
 <a id="pq-checkpoints-v2"></a>
 
@@ -381,8 +389,8 @@ const result = await admitSignedBundleV2(signedBundle, registry, { profile, trus
 |----------|-------------|
 | `createDelegationMandate(registry, humanKeys, params)` | 人間が署名するルートの委任状（`human_composite_sig`）。`sub_delegation` と `minimum_security_tier` は省略可能 |
 | `createSubMandate(registry, delegatorKeys, parent, params)` | 親のエージェントが署名するサブ委任状（`delegator_composite_sig`、`DCP-AI.v2.SubMandate` コンテキスト） |
-| `verifyMandateValidity(mandate, revokedIds, now?)` | 一つの委任状の `mandate_id`、ローカルな失効、`now` での有効期間（ミリ秒単位の RFC 3339 の瞬間、両端を含む）。欠落した、不正な形の、または逆転した期間は無効。署名、範囲、チェーンは確認せず、何も認可しない。`main` にあり、公開済みのバージョンには含まれない。`{ valid, reason? }` を返す |
-| `verifyMandateChain(registry, chain, revokedIds, keys, now?)` | ルートから順にチェーンを検証する：人間までの署名、親とのリンクと深さ、`sub_delegation`、入れ子になった有効期間、権限の縮小（アクション、`data_classes`、`limits` は狭まるのみ）、セキュリティティアの下限、失効。`{ valid, errors, depth, effective_tier }` を返す。時刻はミリ秒単位の RFC 3339 の瞬間で、`now` はミリ秒に切り捨てられる。無効な時計の値（`NaN`、`Infinity`、無効な `Date`、または別の型）は `verification time is not an instant` になる（`main` にあり、公開済みのバージョンには含まれない）。1 つの委任状の `authority_scope` で繰り返されるドメインは、ルートでもチェーンを拒否させる。ドメインは文字列そのものとして比較され、大文字小文字の同一視、空白の除去、Unicode の正規化は行わない（`main` にあり、公開済みのバージョンには含まれない） |
+| `verifyMandateValidity(mandate, revokedIds, now?)` | 一つの委任状の `mandate_id`、ローカルな失効、`now` での有効期間（ミリ秒単位の RFC 3339 の瞬間、両端を含む）。欠落した、不正な形の、または逆転した期間は無効。署名、範囲、チェーンは確認せず、何も認可しない。2.3.0 以降、準備済み・未公開。`{ valid, reason? }` を返す |
+| `verifyMandateChain(registry, chain, revokedIds, keys, now?)` | ルートから順にチェーンを検証する：人間までの署名、親とのリンクと深さ、`sub_delegation`、入れ子になった有効期間、権限の縮小（アクション、`data_classes`、`limits` は狭まるのみ）、セキュリティティアの下限、失効。`{ valid, errors, depth, effective_tier }` を返す。時刻はミリ秒単位の RFC 3339 の瞬間で、`now` はミリ秒に切り捨てられる。無効な時計の値（`NaN`、`Infinity`、無効な `Date`、または別の型）は `verification time is not an instant` になる（2.3.0 以降、準備済み・未公開）。1 つの委任状の `authority_scope` で繰り返されるドメインは、ルートでもチェーンを拒否させる。ドメインは文字列そのものとして比較され、大文字小文字の同一視、空白の除去、Unicode の正規化は行わない（2.3.0 以降、準備済み・未公開） |
 
 ```typescript
 // Fragment, not a complete program: registry and nonce as in the V2 Quick Start; rootMandate, orchestratorKeys and the key entries come from your delegation setup; intent and policyDecision are the V2 payloads.

@@ -21,6 +21,11 @@ Verified on 28/10/2026. Package versions are independent of the DCP wire and spe
 - Checked again on 05/11/2026 through the public registry APIs: these are still the latest versions. They do not
   contain the changes made on `main` after 28/10/2026, listed in the
   [audit dossier](conformance/AUDIT_DOSSIER.md#artifacts).
+- Prepared on 05/11/2026 and **not published**: `@dcp-ai/sdk` 2.3.0, `@dcp-ai/wasm` 2.1.3, `dcp-ai` 2.10.2, Go
+  v2.13.0 and Rust `dcp-ai` 2.13.0 contain those changes. No registry has them, and the install commands keep naming
+  the versions above. They supersede the unpublished candidates of 30/10/2026 (Go and Rust 2.12.0, `@dcp-ai/wasm`
+  2.1.2). See the [changelog](../CHANGELOG.md#prepared-not-published-auditable-candidate-of-05112026) and the release
+  notes.
 - The npm adapters and scaffolders are optional and separate from the protocol core; their exact versions are in
   [NPM_RELEASES.md](NPM_RELEASES.md), which lists all 13 npm packages.
 - Affected earlier versions and upgrade notes are in [SECURITY.md](../SECURITY.md#supported-versions); moving from

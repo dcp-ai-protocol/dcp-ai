@@ -12,6 +12,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 **Published versions (26/10/2026).** npm (13 packages, including `@dcp-ai/sdk` 2.2.0), Python `dcp-ai` 2.10.0, Go `v2.11.0` and Rust `dcp-ai` 2.11.0 are published, including the verifier fixes, admission and the experimental opt-in APIs; `dcp-jcs-v1` remains the normative default. See [Published versions](docs/README.md#published-versions). Entries below retain their development history; `[Unreleased]` does not mean these features are unpublished. The six patch releases of 28/10/2026 are in [their own section](#2026-10-28-sha3-patch-releases).
 
+## Prepared, not published: auditable candidate of 05/11/2026
+
+Prepared in the repository on 05/11/2026 and **not published**: npm, PyPI and crates.io do not have these versions, and there is no `sdks/go/v2.13.0` tag. [Published versions](docs/README.md#published-versions) and the installation commands keep naming the registry versions.
+
+| Package | Prepared | Published |
+|---|---|---|
+| `@dcp-ai/sdk` | 2.3.0 | 2.2.1 |
+| `dcp-ai` (PyPI) | 2.10.2 | 2.10.1 |
+| Go `sdks/go/v2` | v2.13.0 | v2.11.1 |
+| Rust `dcp-ai` | 2.13.0 | 2.11.1 |
+| `@dcp-ai/wasm` | 2.1.3 | 2.1.1 |
+
+- **Contents.** The SDK changes made on `main` after the published versions (#103, #106, #107, #112 and #116 to #119), described in `[Unreleased]`, in each package README and in the release notes for [npm](docs/NPM_RELEASES.md), [Python](docs/PYTHON_RELEASE.md), [Go](docs/GO_RELEASE.md) and [Rust](docs/RUST_RELEASE.md).
+- **Acceptance changes.** Every V2 verifier runs V2-2 schema validation, so schema-invalid bundles accepted before fail with `schema: <pointer> <keyword>` diagnostics. Go `v2.VerifyPayloadHash` accepts only the prefixed hash that `SignPayload` writes. The mandate validity helpers follow one contract, and mandate chains reject a root mandate that repeats a domain. WASM `dualMerkleRoot` follows V2-11; roots computed before stay as recorded ([migration](docs/NPM_RELEASES.md#migrating-dualmerkleroot-results)).
+- **Unchanged.** The wire format, the signatures, the profiles, `dcp-jcs-v1` as the normative default and the experimental opt-in `dcp-jcs-v2` APIs.
+- **Packaging.** The npm tarballs, the wheel, the sdist and the crate now include the Apache-2.0 `LICENSE`; the Go module zip already had it.
+- **CLI and adapters.** `@dcp-ai/cli` and the npm adapters get no new version; [npm packages](docs/NPM_RELEASES.md#cli-and-adapters) says what was checked against `@dcp-ai/sdk` 2.3.0.
+- **Earlier candidates.** These versions supersede the candidates of 30/10/2026 below (Go v2.12.0, Rust 2.12.0, `@dcp-ai/wasm` 2.1.2), which were never published; those numbers are not reused.
+
 ## Prepared, not published: Go v2.12.0, Rust 2.12.0 and `@dcp-ai/wasm` 2.1.2
 
 Prepared in the repository on 30/10/2026 and **not published**: there is no `sdks/go/v2.12.0` tag, and crates.io and npm do not have these versions. [Published versions](docs/README.md#published-versions) and the installation commands keep naming the registry versions (Go `v2.11.1`, Rust `dcp-ai` 2.11.1, `@dcp-ai/wasm` 2.1.1). The changes are described in `[Unreleased]` and in the release notes for [Go](docs/GO_RELEASE.md), [Rust](docs/RUST_RELEASE.md) and [npm](docs/NPM_RELEASES.md).
@@ -21,10 +40,11 @@ Prepared in the repository on 30/10/2026 and **not published**: there is no `sdk
 - **`@dcp-ai/wasm` 2.1.2:** `dualMerkleRoot` and `wasm_dual_merkle_root` compute the V2-11 dual Merkle root; no JavaScript API is added.
 - New tests of the experimental candidate (gate 7) change no default. `dcp-jcs-v1`, the profiles, the wire format, the dependencies and the cryptography are unchanged. The three packages no longer include the translated READMEs, which are under `i18n/`.
 
-> **Note (05/11/2026).** These candidates date from 30/10/2026 and are still not published. Later changes on `main` are
+> **Note (05/11/2026).** These candidates date from 30/10/2026 and were never published. Later changes on `main` are
 > not part of them: V2-2 schema validation in every V2 verifier (#116) and the mandate chain checks (#117 to #119). The
-> version numbers in the manifests on `main` do not identify these candidates: `main` carries them with the later
-> changes. See the [audit dossier](docs/conformance/AUDIT_DOSSIER.md#artifacts).
+> [candidate of 05/11/2026](#prepared-not-published-auditable-candidate-of-05112026) contains those changes and
+> supersedes these; the manifests on `main` carry its version numbers, and 2.12.0 and 2.1.2 are not reused. See the
+> [audit dossier](docs/conformance/AUDIT_DOSSIER.md#artifacts).
 
 ## [2026-10-28] SHA3 patch releases
 

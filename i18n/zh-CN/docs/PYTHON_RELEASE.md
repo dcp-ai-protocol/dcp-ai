@@ -51,6 +51,17 @@ pip install "dcp-ai[otlp]>=2.10.1,<3"
 
 ML-DSA 依赖在有界签名尝试耗尽时可能抛出 `ValueError`。一个 CI fixture 在创建签名时遇到了此失败；验证并未被绕过。调用方须将失败视为错误，不得视为已签名证据。
 
+<a id="prepared-not-published-2102"></a>
+
+## 已准备、尚未发布：2.10.2
+
+2.10.2 已于 05/11/2026 在仓库中准备，但尚未在 PyPI 上发布。上面的安装命令仍为 2.10.1。与 2.10.1 相比，2.10.2：
+
+- **执行 V2-2 模式校验（接受范围变化）。** `verify_signed_bundle_v2` 和其他 V2 验证函数（因而也包括 FastAPI 中间件和桥接器）在任何哈希、密钥或签名检查之前，先按 `schemas/v2` 校验已签名 bundle 的信封和四个载荷。以前被接受的模式无效 bundle 现在会以 `schema: <pointer> <keyword>` 诊断失败。
+- **统一授权书检查。** `verify_mandate_validity` 采用统一的约定，返回结果而不是抛出异常；`now=` 必须是带时区的 `datetime`。注解为 `set[str]` 的已吊销 ID 现在按 `collections.abc.Set`（`set`、`frozenset` 或 dict 的键视图）检查：以前被容忍的列表或字符串会被拒绝。`verify_mandate_chain` 以同一方式读取所有时间，并拒绝重复某个领域的根授权书。
+
+传输格式、签名、配置文件、作为规范默认值的 `dcp-jcs-v1` 以及实验性显式启用的 `dcp-jcs-v2` API 均不变，wheel 和 sdist 现在包含 Apache-2.0 `LICENSE`。请保留历史证据，而不是改写它。见 [SDK README](../../../sdks/python/README.md) 和[变更日志](../../../CHANGELOG.md#unreleased)。
+
 <a id="related-releases"></a>
 
 ## 相关发布
