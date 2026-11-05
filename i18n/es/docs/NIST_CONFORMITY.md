@@ -4,7 +4,7 @@
 
 # Declaración de conformidad de DCP-AI con la criptografía poscuántica del NIST
 
-> Traducción informativa de [la versión en inglés](../../../docs/NIST_CONFORMITY.md), actualizada el 28/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../docs/NIST_CONFORMITY.md), actualizada el 05/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 **Versión de la especificación:** 2.0
 **Última actualización:** 25/10/2026
@@ -207,6 +207,8 @@ tests/nist-kat/
     vectors.json    -- RFC 8032 Section 7.1 deterministic test vectors
   ml-dsa-65/
     vectors.json    -- FIPS 204 property test configuration
+    acvp_sigver_tg3.json                  -- NIST ACVP sigVer test group 3 (ML-DSA-65, external, pure)
+    wycheproof_mldsa_65_verify_test.json  -- C2SP Wycheproof ML-DSA-65 verification vectors (not NIST)
   ml-kem-768/
     vectors.json    -- FIPS 203 NIST ACVP decapsulation and key-check vectors
   slh-dsa-192f/
@@ -226,7 +228,7 @@ Ed25519 es determinista. Los vectores de prueba se toman directamente de la secc
 
 ### 4.3 ML-DSA-65 (FIPS 204)
 
-ML-DSA-65 admite firma aleatorizada y determinista; los proveedores actuales de los SDK usan modos distintos, como se describe en la sección 2.2. Comparar directamente con los KAT requiere controlar la aleatoriedad de la firma, que varía entre bibliotecas criptográficas. DCP-AI ejercita las siguientes propiedades; estas comprobaciones no equivalen a una validación completa del algoritmo ni del módulo por el NIST:
+ML-DSA-65 admite firma aleatorizada y determinista; los proveedores actuales de los SDK usan modos distintos, como se describe en la sección 2.2. Reproducir KAT de firma requiere controlar la aleatoriedad de la firma, que cada biblioteca criptográfica expone de forma distinta, así que la firma se cubre con propiedades. La verificación no necesita ese control, así que los proveedores de los SDK también ejecutan vectores de verificación (última fila). DCP-AI ejercita lo siguiente; estas comprobaciones no equivalen a una validación completa del algoritmo ni del módulo por el NIST:
 
 | Prueba | Descripción | Requisito |
 |------|-------------|------|
@@ -237,6 +239,7 @@ ML-DSA-65 admite firma aleatorizada y determinista; los proveedores actuales de 
 | kid determinista | `kid(alg, pk)` es idéntico en todos los SDK | DEBE pasar |
 | Separación de dominios | Una firma con la etiqueta de contexto A no se verifica con la etiqueta B | DEBE pasar |
 | Vinculación compuesta | Quitar la firma clásica invalida la firma PQ | DEBE pasar |
+| Vectores de verificación | 204 casos con contexto vacío, cada uno con su veredicto esperado: NIST ACVP sigVer tc39 y 203 casos de C2SP Wycheproof, en los cuatro SDK y en wasm32 ([orígenes, exclusiones y límites](../../../tests/nist-kat/README.md#ml-dsa-65-verification-vectors)) | DEBE pasar |
 
 ### 4.4 SLH-DSA-192f (FIPS 205)
 
@@ -276,6 +279,10 @@ ML-DSA-65 admite firma aleatorizada y determinista; los proveedores actuales de 
 
 # Rust SDK (dedicated integration test)
 (cd sdks/rust && cargo test --test nist_kat)
+
+# ML-DSA-65 verification vectors on wasm32 in Node (needs wasm-pack with its wasm-bindgen test runner and the
+# wasm32-unknown-unknown target; --mode no-install keeps wasm-pack from downloading the runner)
+(cd sdks/rust && wasm-pack test --node --mode no-install . --locked --features wasm --test wasm_mldsa65_vectors)
 ```
 
 ---
@@ -312,6 +319,7 @@ Usa esta lista para verificar que tu implementación de DCP-AI es conforme con l
 - [ ] Vinculación compuesta: la firma PQ cubre `context || 0x00 || payload || classical_sig`
 - [ ] Derivación del kid: `hex(SHA-256(UTF8("ml-dsa-65") || 0x00 || raw_pk))[0:32]`
 - [ ] Las pruebas KAT pasan para tamaño, ida y vuelta, otra clave, entre SDK y separación de dominios
+- [ ] Los vectores de verificación de `tests/nist-kat/ml-dsa-65/` dan el veredicto esperado en todos los casos con contexto vacío
 
 <a id="53-ml-dsa-87-fips-204-checklist"></a>
 

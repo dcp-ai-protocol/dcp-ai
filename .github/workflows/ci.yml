@@ -804,3 +804,14 @@ jobs:
       # the binding, DcpWasm.verifyBundle and the experimental candidate verifier.
       - name: V2-2 schema validation through the wasm build
         run: node test/schema-v2.mjs
+
+      # ML-DSA-65 independent verification vectors (tests/nist-kat/README.md) through the Rust provider compiled to wasm32
+      # and run in Node. Test-only target: the npm package exposes no raw ML-DSA verification. The verdict test fails
+      # unless all 204 cases run; the other two check the corpus and the provider. pipefail keeps the exit status of
+      # wasm-pack through tee, and the grep fails the step unless the three tests passed.
+      - name: ML-DSA-65 verification vectors on wasm32 (Node)
+        working-directory: sdks/rust
+        run: |
+          set -euo pipefail
+          wasm-pack test --node . --locked --features wasm --test wasm_mldsa65_vectors 2>&1 | tee wasm-mldsa65-vectors.log
+          grep -E "test result: ok\. 3 passed; 0 failed" wasm-mldsa65-vectors.log

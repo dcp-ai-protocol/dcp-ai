@@ -279,6 +279,10 @@
 
 ### 新增
 
+- ML-DSA-65 验证向量（`tests/nist-kat/ml-dsa-65/`），开发于 05/11/2026；仅涉及测试、CI 和文档，SDK 代码、API、清单和锁文件没有变化。现有的 ML-DSA-65 属性测试不变。
+  - 204 个上下文为空的用例通过 TypeScript、Python、Go 和 Rust SDK 的真实提供程序运行，并通过编译为 wasm32 的 Rust 提供程序运行（CI 中为 Node，本地为浏览器）：NIST ACVP sigVer tc39（测试组 3，ML-DSA-65，外部接口，pure 模式，提交 `a7f283cd`）和 203 个 C2SP Wycheproof 用例（提交 `20b25694`，Apache-2.0，不是 NIST 来源）；77 个有效、127 个无效。会检查每个文件的 SHA-256。
+  - 提供程序使用 FIPS 204 的空上下文进行验证，因此上下文非空的用例（NIST tc31 至 tc45 中除 tc39 以外的用例；Wycheproof tc3 至 tc5 和 tc153 至 tc156）被排除并按 ID 检查。只有密钥和签名长度用例中的错误，且为提供程序的确切错误时，才算作拒绝。
+  - CI 的 WASM 任务运行 wasm32 目标，除非其三个测试全部通过，否则失败。通过这些用例不等于库或模块的 NIST 验证。[NIST KAT](../../tests/nist-kat/README.md#ml-dsa-65-verification-vectors)。
 - 有界工作负载的规模变化（`tools/conformance-perf-scale.js`，报告契约 `dcp-ai-perf-scale/1`），开发于 05/11/2026；SDK、清单和锁文件没有变化，`dcp-ai-perf/1` 及其子进程也不变。
   - 它涵盖四个维度，每个维度三个大小（字符串字节数、嵌套、审计条目和授权书链长度）。每个大小有一个重新签名的有效对照、一个签名过期的对照和一个模式对照，并在首批错误中检查每个负对照的类别。bundle 在五个 SDK 中运行，授权书链在四个 SDK 中运行，通过独立的 `dcp-ai-perf-mandate/1` 子进程。
   - 语料用 TEST-ONLY 密钥生成一次，从其确切字节测量，并在任何子进程之前用 Ajv 以及不依赖 SDK 的完整性和签名检查进行检查。

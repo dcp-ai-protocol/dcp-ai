@@ -4,7 +4,7 @@
 
 # Declaração de conformidade do DCP-AI com a criptografia pós-quântica do NIST
 
-> Tradução informativa da [versão em inglês](../../../docs/NIST_CONFORMITY.md), atualizada em 28/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../docs/NIST_CONFORMITY.md), atualizada em 05/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 **Versão da especificação:** 2.0
 **Última atualização:** 25/10/2026
@@ -207,6 +207,8 @@ tests/nist-kat/
     vectors.json    -- RFC 8032 Section 7.1 deterministic test vectors
   ml-dsa-65/
     vectors.json    -- FIPS 204 property test configuration
+    acvp_sigver_tg3.json                  -- NIST ACVP sigVer test group 3 (ML-DSA-65, external, pure)
+    wycheproof_mldsa_65_verify_test.json  -- C2SP Wycheproof ML-DSA-65 verification vectors (not NIST)
   ml-kem-768/
     vectors.json    -- FIPS 203 NIST ACVP decapsulation and key-check vectors
   slh-dsa-192f/
@@ -226,7 +228,7 @@ O Ed25519 é determinístico. Os vetores de teste vêm diretamente da seção 7.
 
 ### 4.3 ML-DSA-65 (FIPS 204)
 
-O ML-DSA-65 admite assinatura aleatorizada e determinística; os provedores atuais dos SDKs usam modos diferentes, como descrito na seção 2.2. A comparação direta com os KAT exige controlar a aleatoriedade da assinatura, que varia entre bibliotecas criptográficas. O DCP-AI exercita as propriedades a seguir; essas checagens não equivalem a uma validação completa do algoritmo ou do módulo pelo NIST:
+O ML-DSA-65 admite assinatura aleatorizada e determinística; os provedores atuais dos SDKs usam modos diferentes, como descrito na seção 2.2. Reproduzir KATs de assinatura exige controlar a aleatoriedade da assinatura, que cada biblioteca criptográfica expõe de forma diferente, por isso a assinatura é coberta por propriedades. A verificação não precisa desse controle, por isso os provedores dos SDKs também executam vetores de verificação (última linha). O DCP-AI exercita o seguinte; essas checagens não equivalem a uma validação completa do algoritmo ou do módulo pelo NIST:
 
 | Teste | Descrição | Requisito |
 |------|-------------|------|
@@ -237,6 +239,7 @@ O ML-DSA-65 admite assinatura aleatorizada e determinística; os provedores atua
 | kid determinístico | `kid(alg, pk)` é idêntico em todos os SDKs | DEVE passar |
 | Separação de domínios | Uma assinatura com a tag de contexto A não é verificada com a tag B | DEVE passar |
 | Vinculação composta | Remover a assinatura clássica invalida a assinatura PQ | DEVE passar |
+| Vetores de verificação | 204 casos com contexto vazio, cada um com seu veredicto esperado: NIST ACVP sigVer tc39 e 203 casos do C2SP Wycheproof, nos quatro SDKs e em wasm32 ([origens, exclusões e limites](../../../tests/nist-kat/README.md#ml-dsa-65-verification-vectors)) | DEVE passar |
 
 ### 4.4 SLH-DSA-192f (FIPS 205)
 
@@ -276,6 +279,10 @@ O ML-DSA-65 admite assinatura aleatorizada e determinística; os provedores atua
 
 # Rust SDK (dedicated integration test)
 (cd sdks/rust && cargo test --test nist_kat)
+
+# ML-DSA-65 verification vectors on wasm32 in Node (needs wasm-pack with its wasm-bindgen test runner and the
+# wasm32-unknown-unknown target; --mode no-install keeps wasm-pack from downloading the runner)
+(cd sdks/rust && wasm-pack test --node --mode no-install . --locked --features wasm --test wasm_mldsa65_vectors)
 ```
 
 ---
@@ -312,6 +319,7 @@ Use esta lista para verificar se a sua implementação do DCP-AI está em confor
 - [ ] Vinculação composta: a assinatura PQ cobre `context || 0x00 || payload || classical_sig`
 - [ ] Derivação do kid: `hex(SHA-256(UTF8("ml-dsa-65") || 0x00 || raw_pk))[0:32]`
 - [ ] Os testes KAT passam para tamanho, ida e volta, outra chave, entre SDKs e separação de domínios
+- [ ] Os vetores de verificação de `tests/nist-kat/ml-dsa-65/` dão o veredicto esperado em todos os casos com contexto vazio
 
 <a id="53-ml-dsa-87-fips-204-checklist"></a>
 

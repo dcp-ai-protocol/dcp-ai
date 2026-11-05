@@ -72,7 +72,7 @@ node tools/difffuzz/run-mandates.mjs --iterations 120 --report /tmp/mandates.jso
 | Admission and `strict-v1` | [Admission map](SECURITY_COVERAGE.md#admission-map) |
 | DCP-09 mandate chains | [Delegation map](SECURITY_COVERAGE.md#delegation-map) |
 | Agreement between SDKs | [Differential samples](SECURITY_COVERAGE.md#differential-samples) |
-| Algorithms | [tests/nist-kat](../../tests/nist-kat/README.md): RFC 8032 vectors for Ed25519; size, round-trip, wrong-key and cross-SDK tests for ML-DSA-65; NIST ACVP vectors, with the SHA-256 of their source files, for ML-KEM-768 and SLH-DSA-192f. Passing them is not NIST validation of a cryptographic module |
+| Algorithms | [tests/nist-kat](../../tests/nist-kat/README.md): RFC 8032 vectors for Ed25519; size, round-trip, wrong-key and cross-SDK tests for ML-DSA-65, and 204 verification cases with an empty context (NIST ACVP tc39 and 203 C2SP Wycheproof cases, which are not a NIST source) in the four SDKs and on wasm32; NIST ACVP vectors, with the SHA-256 of their source files, for ML-KEM-768 and SLH-DSA-192f. Passing them is not NIST validation of a cryptographic module |
 
 ## Artifacts
 

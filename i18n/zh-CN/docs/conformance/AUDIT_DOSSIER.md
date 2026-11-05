@@ -86,7 +86,7 @@ node tools/difffuzz/run-mandates.mjs --iterations 120 --report /tmp/mandates.jso
 | 准入与 `strict-v1` | [准入图](SECURITY_COVERAGE.md#admission-map) |
 | DCP-09 授权书链 | [委托图](SECURITY_COVERAGE.md#delegation-map) |
 | SDK 之间的一致 | [差分样例](SECURITY_COVERAGE.md#differential-samples) |
-| 算法 | [tests/nist-kat](../../../../tests/nist-kat/README.md)：Ed25519 使用 RFC 8032 向量；ML-DSA-65 使用大小、往返、错误密钥和跨 SDK 测试；ML-KEM-768 和 SLH-DSA-192f 使用 NIST ACVP 向量，并附源文件的 SHA-256。通过这些测试不等于密码模块的 NIST 验证 |
+| 算法 | [tests/nist-kat](../../../../tests/nist-kat/README.md)：Ed25519 使用 RFC 8032 向量；ML-DSA-65 使用大小、往返、错误密钥和跨 SDK 测试，以及 204 个上下文为空的验证用例（NIST ACVP tc39 和 203 个 C2SP Wycheproof 用例，后者不是 NIST 来源），在四个 SDK 和 wasm32 上运行；ML-KEM-768 和 SLH-DSA-192f 使用 NIST ACVP 向量，并附源文件的 SHA-256。通过这些测试不等于密码模块的 NIST 验证 |
 
 <a id="artifacts"></a>
 

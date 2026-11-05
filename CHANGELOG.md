@@ -328,6 +328,17 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Added
 
+- ML-DSA-65 verification vectors (`tests/nist-kat/ml-dsa-65/`), developed on 05/11/2026; tests, CI and documentation
+  only, with no SDK code, API, manifest or lock changes. The existing ML-DSA-65 property tests are unchanged.
+  - 204 cases with an empty context go through the real provider of the TypeScript, Python, Go and Rust SDKs, and
+    through the Rust provider compiled to wasm32 (Node in CI, a browser locally): NIST ACVP sigVer tc39 (test group 3,
+    ML-DSA-65, external interface, pure mode, commit `a7f283cd`) and 203 C2SP Wycheproof cases (commit `20b25694`,
+    Apache-2.0, not a NIST source); 77 are valid and 127 invalid. Each file's SHA-256 is checked.
+  - The providers verify with the empty FIPS 204 context, so the cases with a non-empty context (NIST tc31 to tc45
+    except tc39; Wycheproof tc3 to tc5 and tc153 to tc156) are excluded and checked by ID. An error counts as a
+    rejection only for the key and signature length cases, with the provider's exact error.
+  - The WASM CI job runs the wasm32 target and fails unless its three tests pass. Passing these cases is not NIST
+    validation of a library or module. [NIST KAT](tests/nist-kat/README.md#ml-dsa-65-verification-vectors).
 - Bounded workload scaling (`tools/conformance-perf-scale.js`, report contract `dcp-ai-perf-scale/1`), developed on
   05/11/2026; no SDK, manifest or lock changes, and `dcp-ai-perf/1` with its children is unchanged.
   - It covers four dimensions with three sizes each (string bytes, nesting, audit entries, mandate chain length). Each

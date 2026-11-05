@@ -3,11 +3,13 @@
  *
  * Ed25519: Property-based compliance + deterministic signing verification.
  * ML-DSA-65: FIPS 204 property-based compliance (size, round-trip, rejection).
+ * ML-DSA-65: independent verification vectors (NIST ACVP tc39 + Wycheproof), empty context.
  *
  * Phase 1 gate: no SDK ships V2 without passing all KAT tests.
  */
 
 import { describe, it, expect } from 'vitest';
+import { createHash } from 'crypto';
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -233,5 +235,98 @@ describe('ML-DSA-65 NIST KAT (FIPS 204 properties)', () => {
     const pqPkB64 = V.test_keys.ml_dsa_65.public_key_b64;
     const valid = await mlDsa65.verify(compositeMessage, pqSigBytes, pqPkB64);
     expect(valid).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ML-DSA-65 independent verification vectors (NIST ACVP tc39 + Wycheproof)
+// ---------------------------------------------------------------------------
+// The provider verifies with the empty FIPS 204 context, so only cases whose
+// context is empty go through it; the others are checked as excluded. Values
+// are copied verbatim from the pinned sources (tests/nist-kat/README.md).
+
+const ML_DSA_65_DIR = resolve(__dirname, '../../../../tests/nist-kat/ml-dsa-65');
+const ML_DSA_65_WYCHEPROOF = resolve(ML_DSA_65_DIR, 'wycheproof_mldsa_65_verify_test.json');
+const ML_DSA_65_NIST_TG3 = resolve(ML_DSA_65_DIR, 'acvp_sigver_tg3.json');
+const ML_DSA_65_VECTOR_PROVIDER = new MlDsa65Provider();
+
+interface MlDsa65VectorCase {
+  source: 'wycheproof' | 'nist';
+  id: number;
+  pk: string;
+  msg: string;
+  sig: string;
+  valid: boolean;
+}
+
+describe('ML-DSA-65 independent verification vectors (empty context)', () => {
+  const sha256 = (b: Buffer) => createHash('sha256').update(b).digest('hex');
+  const wyBytes = readFileSync(ML_DSA_65_WYCHEPROOF);
+  const nistBytes = readFileSync(ML_DSA_65_NIST_TG3);
+  const wy = JSON.parse(wyBytes.toString('utf-8'));
+  const nist = JSON.parse(nistBytes.toString('utf-8'));
+  const cases: MlDsa65VectorCase[] = [];
+  const excludedWycheproof: number[] = [];
+  const excludedNist: number[] = [];
+  for (const g of wy.testGroups) {
+    for (const t of g.tests) {
+      if (t.ctx) {
+        excludedWycheproof.push(t.tcId);
+        continue;
+      }
+      const valid = t.result === 'valid';
+      const pk = g.publicKey;
+      cases.push({ source: 'wycheproof', id: t.tcId, pk, msg: t.msg, sig: t.sig, valid });
+    }
+  }
+  for (const t of nist.testGroup.tests) {
+    if (t.context) {
+      excludedNist.push(t.tcId);
+      continue;
+    }
+    const valid = t.testPassed === true;
+    cases.push({ source: 'nist', id: t.tcId, pk: t.pk, msg: t.message, sig: t.signature, valid });
+  }
+
+  it('corpus integrity: pinned bytes, counts and exclusions', () => {
+    expect(sha256(wyBytes)).toBe('1ca235f61928421a173a171780beb00264ae9155dc33c52a11e1766cc7979034');
+    expect(sha256(nistBytes)).toBe('bacf4ad8e55db0594d8bf2878ca3bd3cb80cfa680aaf05ca8e1788d896f63eb8');
+    expect([wy.algorithm, wy.numberOfTests]).toEqual(['ML-DSA-65', 210]);
+    const g = nist.testGroup;
+    expect([g.tgId, g.parameterSet, g.signatureInterface, g.preHash, g.tests.length]).toEqual([
+      3,
+      'ML-DSA-65',
+      'external',
+      'pure',
+      15,
+    ]);
+    expect(cases.length).toBe(204);
+    expect(cases.filter((c) => c.valid).length).toBe(77);
+    expect(excludedWycheproof).toEqual([3, 4, 5, 153, 154, 155, 156]);
+    expect(excludedNist).toEqual([31, 32, 33, 34, 35, 36, 37, 38, 40, 41, 42, 43, 44, 45]);
+    expect(cases.filter((c) => c.source === 'nist').map((c) => c.id)).toEqual([39]);
+  });
+
+  it('the provider under test is the SDK MlDsa65Provider', () => {
+    expect(ML_DSA_65_VECTOR_PROVIDER).toBeInstanceOf(MlDsa65Provider);
+    expect(Object.getPrototypeOf(ML_DSA_65_VECTOR_PROVIDER)).toBe(MlDsa65Provider.prototype);
+    expect(Object.prototype.hasOwnProperty.call(ML_DSA_65_VECTOR_PROVIDER, 'verify')).toBe(false);
+  });
+
+  it('verdicts of the provider on the 204 cases', async () => {
+    const mismatches: string[] = [];
+    let executed = 0;
+    for (const c of cases) {
+      // No catch: the TypeScript provider returns a boolean, and any error fails the test.
+      const observed = await ML_DSA_65_VECTOR_PROVIDER.verify(
+        Buffer.from(c.msg, 'hex'),
+        Buffer.from(c.sig, 'hex'),
+        Buffer.from(c.pk, 'hex').toString('base64'),
+      );
+      executed++;
+      if (observed !== c.valid) mismatches.push(`${c.source} ${c.id}: ${c.valid} -> ${observed}`);
+    }
+    expect(mismatches).toEqual([]);
+    expect(executed).toBe(204);
   });
 });
