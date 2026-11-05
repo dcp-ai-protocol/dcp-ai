@@ -5,7 +5,7 @@
 
 # DCP-09：委托与代表
 
-> 本文是[英文规范](../../../spec/DCP-09.md)的参考译文，更新于 04/11/2026。**具有规范效力的是英文版**：本译文不具规范效力，如有出入，以英文版为准。标识符和代码块保持原文，不作翻译。
+> 本文是[英文规范](../../../spec/DCP-09.md)的参考译文，更新于 05/11/2026。**具有规范效力的是英文版**：本译文不具规范效力，如有出入，以英文版为准。标识符和代码块保持原文，不作翻译。
 
 <a id="status"></a>
 
@@ -986,5 +986,9 @@ A2A_HELLO 消息（DCP-04 第 3.2 节）扩展了一个可选的 `delegation` �
   并把验证时间向下截断到毫秒；`tests/interop/v2/mandate_chain_time_vectors.json` 包含四个 SDK 测试套件都会运行的已签名链。
   它们的默认时钟与 `verifyMandateValidity` 不同：Python 把 naive 的 `datetime` 视为 UTC，Go 把零时间视为当前时间。这在
   `main` 上，不在已发布版本中。
+- **SDK 中的重复领域。** 链验证器把规则 5 的最后一句应用于链中的每一个授权书，包括根，并按精确字符串比较领域，不做
+  大小写折叠、去除空白或 Unicode 规范化；以前，仅由一个重复某个领域的根组成的链会被接受。
+  `tests/interop/v2/mandate_domain_vectors.json` 包含四个 SDK 测试套件都会运行的已签名链；其错误列表是 SDK 的诊断，
+  而不是本规范的要求。这在 `main` 上，不在已发布版本中。
 - 示例是带有占位符的说明，而不是 fixtures。`"confidence": 0.95` 这样的小数值无法在 `dcp-jcs-v1` 下规范化，因此
   按原样书写的这些记录无法签名。SDK 类型请参阅 [docs/API_REFERENCE.md](../../../docs/API_REFERENCE.md)。

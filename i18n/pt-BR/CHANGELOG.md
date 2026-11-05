@@ -4,7 +4,7 @@
 
 # Registro de alterações
 
-> Tradução informativa da [versão em inglês](../../CHANGELOG.md), atualizada em 04/11/2026. Cada entrada, inclusive as de `[Unreleased]`, descreve uma mudança no momento em que foi feita e não garante o comportamento atual; as versões publicadas são **registro histórico datado**. Em caso de divergência, prevalece a versão em inglês.
+> Tradução informativa da [versão em inglês](../../CHANGELOG.md), atualizada em 05/11/2026. Cada entrada, inclusive as de `[Unreleased]`, descreve uma mudança no momento em que foi feita e não garante o comportamento atual; as versões publicadas são **registro histórico datado**. Em caso de divergência, prevalece a versão em inglês.
 
 **Versões publicadas (26/10/2026).** Estão publicados npm (13 pacotes, incluindo `@dcp-ai/sdk` 2.2.0), Python `dcp-ai` 2.10.0, Go `v2.11.0` e Rust `dcp-ai` 2.11.0, com as correções do verificador, a admissão e as APIs experimentais opt-in; `dcp-jcs-v1` continua sendo o padrão normativo. Veja [Versões publicadas](../../docs/README.md#published-versions). As entradas abaixo mantêm seu histórico de desenvolvimento; `[Unreleased]` não significa que essas funcionalidades não estejam publicadas. As seis publicações de correção de 28/10/2026 estão em [sua própria seção](#2026-10-28-sha3-patch-releases).
 
@@ -64,6 +64,25 @@ Publicado em 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 e `@dcp-ai/cl
 
 ### Segurança
 
+- **Mudança de aceitação: um domínio repetido em um mandato raiz** (código-fonte de `main`, não está em nenhuma versão
+  publicada). Os verificadores de cadeias (`verifyMandateChain`, `verify_mandate_chain`, `VerifyMandateChain`) agora
+  aplicam a última frase da regra 5 de DCP-09 §3.5.2, segundo a qual um domínio que aparece duas vezes no mesmo mandato
+  não é comparável, a todos os mandatos da cadeia, inclusive à raiz. Os domínios são comparados como as strings exatas
+  que resultam de decodificar o JSON, sem dobra de maiúsculas, recorte nem normalização Unicode, como antes.
+  - **O que muda:** uma cadeia formada só por um mandato raiz cujo `authority_scope` repete um domínio, com as mesmas
+    ações ou com outras, era aceita pelos quatro SDKs; agora é rejeitada. A aceitação só se restringe.
+  - **Diagnósticos:** um domínio repetido agora é informado entre os erros dos próprios campos desse mandato, uma vez por
+    domínio, como `mandate[i]: authority_scope domain "…" is duplicated`. Uma raiz que repete um domínio e tem
+    submandatos já era rejeitada, em `mandate[1]` com `… is duplicated in the parent`; agora é informada em `mandate[0]`
+    e essa mensagem não é mais produzida. Um submandato que repete um domínio já era rejeitado com a mesma mensagem, que
+    agora vem antes das suas verificações de vínculo, atenuação e assinatura, então os erros destas não são mais listados
+    com ela. Esses textos e a sua ordem são diagnósticos dos SDKs, não um requisito do protocolo.
+  - **Sem mudanças:** o formato de transmissão, a canonicalização, as assinaturas e os contextos, a política híbrida, a
+    confiança, a atenuação entre um mandato e o seu pai, a revogação, o piso de nível, as funções auxiliares de validade
+    e os tempos da cadeia. WASM não exporta nenhuma função de cadeia.
+  - **Vetores compartilhados:** `tests/interop/v2/mandate_domain_vectors.json`, 23 cadeias assinadas (8 a aceitar e 15 a
+    rejeitar), executadas pelas quatro suítes de SDK. Os veredictos seguem a regra 5; as listas exatas de erros são uma
+    regressão destes SDKs.
 - **Mudança de aceitação: tempos das cadeias de mandatos** (código-fonte de `main`, não está em nenhuma versão
   publicada). Os verificadores de cadeias (`verifyMandateChain`, `verify_mandate_chain`, `VerifyMandateChain`) agora
   leem todos os tempos da mesma forma. As janelas de validade, o seu aninhamento na janela do pai e o `expires_at` das

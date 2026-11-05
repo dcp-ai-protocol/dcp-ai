@@ -1651,6 +1651,11 @@ time; it checks every hop's signature back to the human, the parent link and dep
 validity windows, attenuation (actions, data classes and limits may only narrow: a child entry restates the
 parent's `data_classes` as a subset, and numeric limits compare only as integers within ±(2^53−1)), the `minimum_security_tier`
 floor and revocation (a revoked ancestor invalidates every descendant), failing closed on anything unknown.
+A domain that appears twice in one mandate's `authority_scope`, at any depth and the root included, is not comparable
+and rejects the chain, reported once per domain as `mandate[i]: authority_scope domain "…" is duplicated`; domains are
+compared as exact strings, with no case folding, trimming or Unicode normalization. The four SDK suites run the signed
+chains of `tests/interop/v2/mandate_domain_vectors.json`, whose error lists are these SDKs' diagnostics, not a protocol
+requirement. This is on `main`, not in a published version.
 
 Every time it reads is an RFC 3339 instant of the subset the SDKs already parse, compared in milliseconds and never as
 text, both limits included: each mandate's `valid_from` and `valid_until`, their nesting in the parent's window, and

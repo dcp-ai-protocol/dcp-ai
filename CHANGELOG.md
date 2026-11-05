@@ -47,6 +47,24 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Security
 
+- **Acceptance change: a domain repeated in a root mandate** (source on `main`, not in a published version). The
+  chain verifiers (`verifyMandateChain`, `verify_mandate_chain`, `VerifyMandateChain`) now apply the last sentence of
+  DCP-09 §3.5.2 rule 5, a domain that appears twice in one mandate is not comparable, to every mandate of the chain,
+  the root included. Domains are compared as the exact strings the JSON decodes to, with no case folding, trimming or
+  Unicode normalization, as before.
+  - **What changes:** a chain made of a root mandate alone whose `authority_scope` repeats a domain, with the same or
+    with different actions, was accepted by the four SDKs; it is now rejected. Acceptance only narrows.
+  - **Diagnostics:** a repeated domain is now reported among the errors of that mandate's own fields, once per domain,
+    as `mandate[i]: authority_scope domain "…" is duplicated`. A root that repeats a domain and has sub-mandates was
+    already rejected, at `mandate[1]` with `… is duplicated in the parent`; it is now reported at `mandate[0]`, and
+    that message is no longer produced. A sub-mandate that repeats a domain was already rejected with the same
+    message, which now comes before its link, attenuation and signature checks, so their errors are no longer listed
+    with it. These texts and their order are the SDKs' diagnostics, not a protocol requirement.
+  - **Unchanged:** the wire format, canonicalization, signatures and contexts, the hybrid policy, trust, attenuation
+    between a mandate and its parent, revocation, the tier floor, the validity helpers and the chain times. WASM
+    exports no chain function.
+  - **Shared vectors:** `tests/interop/v2/mandate_domain_vectors.json`, 23 signed chains (8 to accept, 15 to reject),
+    run by the four SDK suites. The verdicts follow rule 5; the exact error lists are a regression of these SDKs.
 - **Acceptance change: mandate chain times** (source on `main`, not in a published version). The chain verifiers
   (`verifyMandateChain`, `verify_mandate_chain`, `VerifyMandateChain`) now read every time the same way. Validity
   windows, their nesting in the parent's window and the `expires_at` of the signer keys of both slots are RFC 3339

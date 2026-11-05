@@ -885,6 +885,11 @@ An implementation is DCP-09 conformant if it:
   `tests/interop/v2/mandate_chain_time_vectors.json` holds signed chains that all four SDK suites run. Their default
   clocks differ from `verifyMandateValidity`: Python reads a naive `datetime` as UTC, and Go reads the zero time as
   the current time. This is on `main`, not in a published version.
+- **Repeated domains in the SDKs.** The chain verifiers apply the last sentence of rule 5 to every mandate of the
+  chain, the root included, and compare domains as exact strings, with no case folding, trimming or Unicode
+  normalization; a chain made of a root alone that repeated a domain was accepted before.
+  `tests/interop/v2/mandate_domain_vectors.json` holds signed chains that all four SDK suites run; its error lists are
+  the SDKs' diagnostics, not a requirement of this specification. This is on `main`, not in a published version.
 - The examples are illustrations with placeholders, not fixtures. Fractional values such as `"confidence": 0.95`
   cannot be canonicalized under `dcp-jcs-v1`, so those records cannot be signed as written. For the SDK types, see
   [docs/API_REFERENCE.md](../docs/API_REFERENCE.md).

@@ -471,7 +471,13 @@ func mandateShapeErrors(m map[string]interface{}) []string {
 	if scope, ok := parseScope(m["authority_scope"]); !ok {
 		errors = append(errors, "missing or invalid authority_scope")
 	} else {
+		// A domain twice in one mandate is not comparable, at any depth (rule 5). Domains are exact strings: no case
+		// folding, trimming or Unicode normalization. Each repeated domain is reported once, at its second entry.
+		count := make(map[string]int, len(scope))
 		for _, e := range scope {
+			if count[e.domain]++; count[e.domain] == 2 {
+				errors = append(errors, fmt.Sprintf("authority_scope domain %q is duplicated", e.domain))
+			}
 			for key, v := range e.limits {
 				if _, ok := comparableLimit(v); isNumber(v) && !ok {
 					errors = append(errors, fmt.Sprintf("limits.%s for domain %q is not comparable", key, e.domain))

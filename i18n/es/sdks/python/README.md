@@ -5,7 +5,7 @@
 
 # dcp-ai — SDK de Python
 
-> Traducción informativa de [la versión en inglés](../../../../sdks/python/README.md), actualizada el 04/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../../sdks/python/README.md), actualizada el 05/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 SDK oficial de Python para el Digital Citizenship Protocol (DCP v2.0). Modelos de Pydantic v2, firmas híbridas poscuánticas (Ed25519 + ML-DSA-65, además de SLH-DSA-192f), la primitiva KEM ML-KEM-768, firmas compuestas con vinculación `pq_over_classical`, firma y verificación de bundles V1 y V2, observabilidad con OpenTelemetry, el comportamiento de DCP-04 a DCP-09 y una CLI completa.
 
@@ -332,7 +332,9 @@ ventanas de validez anidadas, atenuación (acciones, `data_classes` y `limits` s
 mínimo y la revocación. Lee todos los tiempos como instantes RFC 3339 en milisegundos, incluidos el año 0000 y los offsets
 que cruzan el año 0000 o el 9999, y trunca `now` hacia abajo al milisegundo. `now=None`, el valor por defecto, es la hora actual. Un `now` naive se
 toma como UTC, como antes y a diferencia de `verify_mandate_validity`, y cualquier otro `now` que no sea un `datetime` da
-`verification time is not an instant` (en `main`, no en una versión publicada). `verify_mandate_validity(mandate, revoked_ids, now=...)` comprueba el `mandate_id`, la revocación local y la ventana
+`verification time is not an instant` (en `main`, no en una versión publicada). Un dominio repetido en el `authority_scope` de un mismo mandato,
+también en la raíz, hace rechazar la cadena; los dominios se comparan como cadenas exactas, sin plegado de mayúsculas,
+recorte ni normalización Unicode (en `main`, no en una versión publicada). `verify_mandate_validity(mandate, revoked_ids, now=...)` comprueba el `mandate_id`, la revocación local y la ventana
 de validez de un mandato en un `now` aware (la hora actual por defecto; un `datetime` naive se rechaza). Usa instantes
 RFC 3339 en milisegundos, con los dos límites incluidos, y una ventana ausente, malformada o invertida no es válida.
 Los ID revocados deben ser un conjunto (un `set`, un `frozenset` o una vista de claves de dict); una lista o una cadena
