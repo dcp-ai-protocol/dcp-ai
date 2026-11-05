@@ -5,7 +5,7 @@
 
 # Lista de verificação — Signed Bundle
 
-> Tradução informativa da [especificação em inglês](../../../spec/VERIFICATION.md), atualizada em 28/10/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
+> Tradução informativa da [especificação em inglês](../../../spec/VERIFICATION.md), atualizada em 05/11/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
 
 Todos os passos são **locais**; nenhuma chamada a uma API ou servidor é necessária. Um verificador precisa apenas do Signed Bundle (e, opcionalmente, de um conjunto de RevocationRecords assinados, vindos de um par, de um arquivo ou de uma lista ancorada).
 
@@ -154,6 +154,35 @@ Aplique o modo efetivo (passo V2-9) e a configuração da política do verificad
 - Confira `advisory_rejected_algs`: rejeite se o bundle usar um algoritmo bloqueado por um aviso ativo.
 
 Portanto, um bundle `classical_only` com uma intenção `initiate_payment` é rejeitado mesmo quando o seu passaporte declara `risk_tier: "low"`.
+
+> **Esclarecimento (05/11/2026, normativo).** Resolve três questões que este passo deixava em aberto. Não altera nenhum
+> hash, nenhuma canonicalização, nenhum formato de assinatura nem nenhum outro passo, e não exige nenhum alerta: um
+> alerta é um diagnóstico.
+>
+> - **Q1: listas clássicas sob `pq_only`.** Quando o modo efetivo é `pq_only`, não se exige que o componente clássico
+>   passe na verificação criptográfica; os seus bytes continuam obrigatórios por `pq_over_classical`
+>   ([DCP-AI-v2.0.md](../../../spec/DCP-AI-v2.0.md) § 7.1, § 7.3). `accepted_classical_algs` e as entradas clássicas de
+>   `advisory_rejected_algs` não se aplicam a ele: um verificador NÃO DEVE rejeitar um bundle sob `pq_only` só porque o
+>   seu algoritmo clássico está excluído por `accepted_classical_algs` ou bloqueado por uma entrada clássica de
+>   `advisory_rejected_algs`. As listas PQ se aplicam em todos os modos. Do contrário, a mudança
+>   para `pq_only` que o DCP-AI-v2.0.md § 13.3 prescreve quando todos os algoritmos clássicos são retirados rejeitaria
+>   todo bundle híbrido.
+> - **Q2: um componente clássico que falha sob `pq_only`.** Quando o modo efetivo é `pq_only`, um componente clássico
+>   que não passa na verificação criptográfica (passos V2-6 e V2-8, e V2-12 (3) para os checkpoints) não rejeita por si
+>   só o bundle, desde que o seu componente PQ verifique sobre a mensagem assinada seguida desses bytes da assinatura
+>   clássica (`pq_over_classical`, passo V2-7). Nada mais é relaxado: continuam a valer a estrutura e o base64 canônico
+>   do passo V2-5 (inclusive o `sig_b64` clássico), o contexto de cada assinatura, a busca de cada kid na sua lista de
+>   chaves (inclusive o kid clássico) e as verificações de chaves do passo V2-13. Um `sig_b64` clássico que não seja
+>   canônico, ou um kid clássico que não nomeie nenhuma chave, continua a rejeitar o bundle. Fora de `pq_only` o
+>   componente clássico é obrigatório e DEVE verificar. `allow_classical_fallback_disable` muda no máximo um alerta,
+>   nunca o veredicto. Isso não afirma que o componente clássico não possa ser falsificado.
+> - **Q3: listas PQ sobre um bundle sem componente PQ.** Uma vinculação `classical_only` não usa nenhum algoritmo PQ,
+>   então `accepted_pq_algs` e as entradas PQ de `advisory_rejected_algs` não a rejeitam. O modo efetivo decide se essa
+>   vinculação é aceitável: `classical_only` e `hybrid_preferred` a admitem; `hybrid_required` e `pq_only` a rejeitam.
+>
+> Compatibilidade: os cinco verificadores de SDK deste repositório já dão esses veredictos, medidos sobre
+> `tests/interop/v2/verifier_policy_clarification_vectors.json`, e nenhum muda. Uma implementação que rejeite um bundle
+> nos casos que Q1, Q2 ou Q3 aceitam não é conforme nesse ponto.
 
 <a id="step-v2-11-verify-dual-hash-audit-chain-if-present"></a>
 

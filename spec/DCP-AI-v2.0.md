@@ -216,11 +216,17 @@ The security tier (§14.3) can only make the mode this policy selects stricter.
 
 When `default_mode` is `pq_only`:
 
-- Classical signatures are accepted but not required
+- A classical signature is still present, as `pq_over_classical` requires (the PQ signature covers its bytes), but its successful verification is not required: the classical algorithm lists and advisories do not apply to it, and a classical component that fails verification is tolerated when the PQ component verifies over it ([VERIFICATION.md](VERIFICATION.md) Step V2-10, Q1 and Q2)
 - `min_classical` is 0, `min_pq` is 1
-- Composite binding is not required
+- A PQ signature is required, in the `pq_over_classical` binding, under which the PQ signature covers the classical signature bytes (§ 5)
 - V1 bundles are rejected
-- Classical-only bundles emit deprecation warnings
+- A `classical_only` binding is rejected; the deprecation warning of `warn_classical_only_deprecated` concerns the other modes and is a diagnostic
+
+> **Clarification (05/11/2026, normative).** The third and fifth items replace "Composite binding is not required" and
+> "Classical-only bundles emit deprecation warnings". Those read as if `pq_only` accepted a signature without the
+> `pq_over_classical` binding, or a classical-only bundle with a warning; § 7.1 and VERIFICATION.md Step V2-10 require
+> the PQ signature under `pq_only`, so neither was accepted. The first item states what the clarification of Step V2-10
+> settles (Q1 and Q2).
 
 ---
 

@@ -90,13 +90,19 @@ V2-2 要求模式校验。在 `main` 上，TypeScript、Python、Go、Rust 和 W
 
 ### 验证器策略样例
 
-显式选择的[策略目录](../../../../tools/conformance/external-policy-catalog.json)通过现有 `/2` 契约增加 74 个用例：10 个正向对照、24 个存在但无效的 PQ 签名用例、14 个算法列表及安全通告用例，以及 26 个已纳入版本控制的等级用例。每个请求携带准确的策略和验证时刻。默认的证据目录保持不变。
+显式选择的[策略目录](../../../../tools/conformance/external-policy-catalog.json) 2.0 版通过现有 `/2` 契约在两个套件中增加 108 个用例。第一个套件保留 1.1 版的 74 个用例：10 个正向对照、24 个存在但无效的 PQ 签名用例、14 个算法列表及安全通告用例，以及 26 个已纳入版本控制的等级用例。第二个运行 V2-10 澄清（见下文）的 34 个用例。每个请求携带准确的策略和验证时刻。默认的证据目录保持不变，1.1 版按字节原样存档为 [`external-policy-catalog-1.1.json`](../../../../tools/conformance/external-policy-catalog-1.1.json)。
 
 新的 routine 等级混合签名对照测试实际生效的 `classical_only` 及其他三种模式。standard 等级混合签名对照会将请求的 `classical_only` 提升为 `hybrid_preferred`。语料记录此推导；`/2` 评估判定，不比较实现报告的等级或实际生效模式。
 
 PQ 负向用例仅修改 bundle、护照或检查点中的 PQ 签名，经典签名仍然有效。算法列表用例保持相同 bundle，仅改变策略。等级用例复用分别签名的已版本控制 bundle，并在相同请求模式下使用 routine 对照；它们不是仅有一个变化的配对。每个负向用例都要求其正向对照在同次运行中通过。
 
-`pq_only` 下的经典算法排除仍待解释澄清，暂不运行且不指定预期判定。语料记录延后的用例与解释问题；未测试某个组合本身并不证明规范有矛盾。这些样例不解决模式校验缺口，也不证明完整的 V2 合规性。
+[VERIFICATION.md](../../../../spec/VERIFICATION.md) 步骤 V2-10 的澄清（05/11/2026）解决了语料中的三个问题。[`verifier_policy_clarification_vectors.json`](../../../../tests/interop/v2/verifier_policy_clarification_vectors.json) 包含其用例，使用 routine 基础 bundle，使每个请求模式就是实际模式：
+
+- **Q1.** 在 `pq_only` 下，经典列表和安全通告的排除接受混合 bundle；在 `hybrid_required` 下，同样的策略拒绝它。
+- **Q2.** 在 bundle 签名、护照和检查点处，当 PQ 组件对这些经典字节验证通过时，失败的经典组件在 `pq_only` 下被接受，在其他三种模式下被拒绝。不规范的经典 `sig_b64` 和未知的经典 kid 在 `pq_only` 下被拒绝。
+- **Q3.** PQ 列表和安全通告的排除在 `classical_only` 和 `hybrid_preferred` 下接受仅经典签名的 bundle，并在同一策略下拒绝混合 bundle。
+
+`verifier_policy_vectors.json` 把其省略的 Q1 用例作为历史保留。这些用例是这些规则的样例：并不覆盖每个位置、算法或密钥状态。未测试某个组合本身并不证明规范有矛盾。这些样例不解决模式校验缺口，也不证明完整的 V2 合规性。
 
 <a id="structural-samples"></a>
 
@@ -129,18 +135,21 @@ PQ 负向用例仅修改 bundle、护照或检查点中的 PQ 签名，经典签
 
 ## 委托映射
 
-[外部委托目录](../../../../tools/conformance/external-delegation-catalog.json)通过 `verify_mandate_chain` 运行已提交的[委托书链](../../../../tests/interop/v2/mandate_chain_vectors.json)、[链时间](../../../../tests/interop/v2/mandate_chain_time_vectors.json)和[重复领域](../../../../tests/interop/v2/mandate_domain_vectors.json)向量。每个规范性用例都标明其 [DCP-09 §3.5.2](../../../../spec/DCP-09.md) 规则；判定的是判定结果，以及被接受的链的有效层级。
+[外部委托目录](../../../../tools/conformance/external-delegation-catalog.json)（2.0.0 版）通过 `verify_mandate_chain` 运行已提交的[委托书链](../../../../tests/interop/v2/mandate_chain_vectors.json)、[链时间](../../../../tests/interop/v2/mandate_chain_time_vectors.json)和[重复领域](../../../../tests/interop/v2/mandate_domain_vectors.json)向量。每个规范性用例都标明其 [DCP-09 §3.5.2](../../../../spec/DCP-09.md) 规则；判定的是判定结果，以及被接受的链的有效层级。
 
 | 要求 | 测试的范围 | 限制 |
 |---|---|---|
 | 规则 1–2：根和子委托书的签名、签名者角色与上下文、与父级的链接、深度和 `human_id` | `external.delegation.chain` | 密钥在请求中给出；工具包不确认它们属于责任主体或代理 |
 | 规则 3：再委托许可与最大深度 | `external.delegation.chain` | 已提交的链，而非所有深度 |
-| 规则 4：有效期窗口、其嵌套，以及作为 RFC 3339 时刻的验证时间 | `external.delegation.chain`、`external.delegation.chain_time` | 毫秒精度和签名密钥的 `expires_at` 是 SDK 的约定，而非 §3.5.2 的规定：这十个用例是参考性的 |
+| 规则 4：有效期窗口、其嵌套，以及作为 RFC 3339 时刻的验证时间，以毫秒比较 | `external.delegation.chain`、`external.delegation.chain_time` | 自 §3.5.2 的澄清（05/11/2026）起，毫秒精度是规范性的；已存档的目录 1.0.0 版把这三个用例保留为参考性用例 |
+| 规则 1–2：每个签名密钥处于活动状态，其 `expires_at` 不存在、为 `null` 或不早于验证时间（05/11/2026 的澄清） | `external.delegation.chain_time` | 七个关于 `expires_at` 的用例；没有任何用例的密钥 `status` 不是 `active`。1.0.0 版把这七个保留为参考性用例 |
 | 规则 5：操作、数据类别和限额的收窄；±(2^53 − 1) 范围内的限额；同一委托书中重复的领域 | `external.delegation.chain`、`external.delegation.domains` | 错误文本是诊断；拒绝按其判定结果判定 |
 | 规则 6：层级下限与有效层级 | `external.delegation.chain` | 有效层级在被接受的链上判定；`tier_floor`（`computeSecurityTier`）不在目录范围内 |
 | 规则 7：根或中间委托书的吊销 | `external.delegation.chain` | 吊销是请求中已吊销 ID 的本地集合，而不是吊销来源 |
 
 只有当其对照存在时拒绝才计入：对照是规范性地被接受的链，其与拒绝用例的关系（`same_chain`、`single_mandate`、`same_shape` 或 `suite`）按字节检查。这些关系都不表明两个用例只相差一个缺陷。已验证的链既不是准入，也不是授权。
+
+目录 1.0.0 版按字节原样存档为 [`external-delegation-catalog-1.0.0.json`](../../../../tools/conformance/external-delegation-catalog-1.0.0.json)，判定 87 个用例，并单独报告十个参考性用例；2.0.0 版判定全部 97 个。运行器固定每个版本的分类，因此 1.0.0 版的报告只是 1.0.0 版的证据。
 
 <a id="claims-for-core-and-profiles"></a>
 

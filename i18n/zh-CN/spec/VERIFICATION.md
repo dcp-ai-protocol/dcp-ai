@@ -5,7 +5,7 @@
 
 # 验证清单 — Signed Bundle
 
-> 本文是[英文规范](../../../spec/VERIFICATION.md)的参考译文，更新于 28/10/2026。**具有规范效力的是英文版**：本译文不具规范效力，如有出入，以英文版为准。标识符和代码块保持原文，不作翻译。
+> 本文是[英文规范](../../../spec/VERIFICATION.md)的参考译文，更新于 05/11/2026。**具有规范效力的是英文版**：本译文不具规范效力，如有出入，以英文版为准。标识符和代码块保持原文，不作翻译。
 
 所有步骤都在**本地**完成；不需要调用任何 API 或服务器。验证器只需要 Signed Bundle（以及可选的一组已签名的 RevocationRecord，来自对等方、文件或已锚定的列表）。
 
@@ -154,6 +154,29 @@ bundle 的签名者是负责的委托人：只在 RPR 的 `binding_keys` 中查�
 - 检查 `advisory_rejected_algs` — 如果 bundle 使用了被有效公告禁用的算法则拒绝。
 
 因此，带有 `initiate_payment` 意图的 `classical_only` bundle 即使其护照声明 `risk_tier: "low"` 也会被拒绝。
+
+> **澄清（05/11/2026，规范性）。** 本澄清解决本步骤留下的三个问题。它不改变任何哈希、规范化、签名格式或其他步骤，
+> 也不要求任何警告：警告是诊断。
+>
+> - **Q1：`pq_only` 下的经典列表。** 当实际模式为 `pq_only` 时，不要求经典组件通过密码学验证；其字节仍为
+>   `pq_over_classical` 所必需（[DCP-AI-v2.0.md](../../../spec/DCP-AI-v2.0.md) § 7.1、§ 7.3）。`accepted_classical_algs` 和
+>   `advisory_rejected_algs` 中的经典条目不适用于它：验证者不得（MUST NOT）仅因为其经典算法被
+>   `accepted_classical_algs` 排除，或被 `advisory_rejected_algs` 的经典条目阻止，就拒绝 `pq_only` 下的 bundle。PQ 列表在所有模式
+>   下都适用。否则，DCP-AI-v2.0.md § 13.3 规定在移除所有经典算法后切换到 `pq_only`，会拒绝每一个混合 bundle。
+> - **Q2：`pq_only` 下验证失败的经典组件。** 当实际模式为 `pq_only` 时，未通过密码学验证的经典组件（步骤 V2-6 和
+>   V2-8，检查点为 V2-12 (3)）本身不会导致拒绝 bundle，前提是其 PQ 组件对“已签名消息后接这些经典签名字节”验证通过
+>   （`pq_over_classical`，步骤 V2-7）。其他一概不放宽：步骤 V2-5 的结构和规范 base64（包括经典的 `sig_b64`）、
+>   每个签名的上下文、在密钥列表中查找每个 kid（包括经典的 kid）以及步骤 V2-13 的密钥检查仍然适用。不规范的经典
+>   `sig_b64`，或不指向任何密钥的经典 kid，仍会导致拒绝 bundle。在 `pq_only` 之外，经典组件是必需的，并且必须
+>   （MUST）验证通过。`allow_classical_fallback_disable` 最多只改变一个警告，从不改变判定结果。这并不声称经典组件
+>   无法伪造。
+> - **Q3：没有 PQ 组件的 bundle 上的 PQ 列表。** `classical_only` 绑定不使用任何 PQ 算法，因此 `accepted_pq_algs`
+>   和 `advisory_rejected_algs` 中的 PQ 条目不会拒绝它。该绑定是否可接受由实际模式决定：`classical_only` 和
+>   `hybrid_preferred` 接受它，`hybrid_required` 和 `pq_only` 拒绝它。
+>
+> 兼容性：本仓库的五个 SDK 验证器已经给出这些判定结果（在
+> `tests/interop/v2/verifier_policy_clarification_vectors.json` 上测得），且都不改变。在 Q1、Q2 或 Q3 接受的用例中
+> 拒绝 bundle 的实现，在这一点上不符合规范。
 
 <a id="step-v2-11-verify-dual-hash-audit-chain-if-present"></a>
 

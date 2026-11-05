@@ -1,6 +1,8 @@
-// Tests of the opt-in verifier policy suite: the corpus (tests/interop/v2/verifier_policy_vectors.json), its builder in
-// external-evidence.js and its catalog (external-policy-catalog.json) through the runner, against controlled
-// implementations only. These test the suite; they say nothing of any SDK's conformance.
+// Tests of the opt-in verifier policy suites: the corpora (tests/interop/v2/verifier_policy_vectors.json and
+// verifier_policy_clarification_vectors.json), their builders in external-evidence.js and the catalogs through the
+// runner, against controlled implementations only: catalog 1.1, archived byte for byte (external-policy-catalog-1.1.json),
+// with its original invariants, then the current catalog 2.0 (external-policy-catalog.json). These test the suites; they
+// say nothing of any SDK's conformance.
 //   node --test tools/conformance/external-policy.test.mjs
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -18,12 +20,13 @@ import { loadPlan } from "./external.js";
 import { ROOT, canon } from "./schema-boundary.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
+const CATALOG1 = path.join(HERE, "external-policy-catalog-1.1.json");
 const CATALOG = path.join(HERE, "external-policy-catalog.json");
 const read = (rel) => JSON.parse(fs.readFileSync(path.join(ROOT, rel), "utf8"));
 const P = read("tests/interop/v2/verifier_policy_vectors.json");
 const BV = read("tests/interop/v2/bundle_vectors.json");
 const MODES = ["classical_only", "hybrid_preferred", "hybrid_required", "pq_only"];
-const plan = () => loadEvidencePlan({ catalogFile: CATALOG });
+const plan = () => loadEvidencePlan({ catalogFile: CATALOG1 });
 const decoded = (c) => JSON.parse(Buffer.from(c.request.bundle_b64, "base64").toString("utf8"));
 const byName = new Map(P.cases.map((c) => [c.name, c]));
 const planCase = (name) => plan().suites[0].cases.find((c) => c.id === `external.v2.verifier_policy.${name}`);
@@ -176,7 +179,7 @@ test("the builder refuses a committed bundle that no longer matches its sha256",
   const bv = structuredClone(BV);
   bv.classical_only_routine_bundle.signed_bundle.signature.created_at = "2026-10-21T12:04:00Z";
   fs.writeFileSync(path.join(dir, "tests/interop/v2/bundle_vectors.json"), JSON.stringify(bv));
-  assert.throws(() => loadEvidencePlan({ catalogFile: CATALOG, root: dir }), /differs from its recorded sha256/);
+  assert.throws(() => loadEvidencePlan({ catalogFile: CATALOG1, root: dir }), /differs from its recorded sha256/);
 });
 
 test("the opt-in catalog: ids match the corpus, controls under the same requested mode, no expectation or name in the request", () => {
@@ -230,7 +233,137 @@ test("runner controls: accept-all fails every negative, reject-all counts none, 
   assert.equal(right.status, "pass", JSON.stringify(right.suites[0].cases.filter((c) => c.status !== "pass").slice(0, 3)));
 });
 
-test("the CLI loads the opt-in catalog by path and keeps a failure a failure", () => {
-  const cli = spawnSync(process.execPath, [path.join(ROOT, "tools/conformance-external.js"), "--catalog", CATALOG, "--", ...fake("{ verified: true, errors: [] }")], { encoding: "utf8", timeout: 120000 });
+test("the CLI loads the archived catalog 1.1 by path and keeps a failure a failure", () => {
+  const cli = spawnSync(process.execPath, [path.join(ROOT, "tools/conformance-external.js"), "--catalog", CATALOG1, "--", ...fake("{ verified: true, errors: [] }")], { encoding: "utf8", timeout: 120000 });
   assert.equal(cli.status, 1, cli.stderr);
+});
+
+// ── Catalog 2.0: catalog 1.1 archived, the clarification of V2-10 added ──────
+
+const Q = read("tests/interop/v2/verifier_policy_clarification_vectors.json");
+const QID = "external.v2.verifier_policy_clarification.";
+const plan2 = () => loadEvidencePlan({ catalogFile: CATALOG });
+const plan2Case = (name) => plan2().suites[1].cases.find((c) => c.id === QID + name);
+const fileSha = (f) => crypto.createHash("sha256").update(fs.readFileSync(f)).digest("hex");
+
+test("catalog 1.1 is archived byte for byte; catalog 2.0 keeps its 74 cases unchanged and adds the clarification suite", () => {
+  assert.equal(fileSha(CATALOG1), "310ade61dcb39367cefe9284dce2cb2bd3d56dc97b9db91f48d804067f4c1719");
+  assert.match(fileSha(path.join(ROOT, "tests/interop/v2/verifier_policy_vectors.json")), /^674abbea/);
+  const one = JSON.parse(fs.readFileSync(CATALOG1, "utf8"));
+  const two = JSON.parse(fs.readFileSync(CATALOG, "utf8"));
+  assert.equal(one.catalog_version, "2026-10-31.verifier-policy-1.1 (opt-in)");
+  assert.equal(two.catalog_version, "2026-11-05.verifier-policy-2.0 (opt-in)");
+  assert.deepEqual(two.suites.map((s) => s.id), ["external.v2.verifier_policy", "external.v2.verifier_policy_clarification"]);
+  for (const k of ["id", "title", "claim", "expected_cases"]) assert.deepEqual(two.suites[0][k], one.suites[0][k], k);
+  const p2 = plan2();
+  assert.deepEqual(p2.suites[0].cases, plan().suites[0].cases, "same requests, expectations and controls as catalog 1.1");
+  assert.deepEqual(two.suites[1].expected_cases, Q.cases.map((c) => QID + c.name));
+  assert.equal(p2.suites[1].cases.length, 34);
+});
+
+test("clarification corpus: routine bases bound by sha256, exact policy and instant, the verdicts the clarification gives", () => {
+  assert.deepEqual(Q.base_policy, P.base_policy);
+  assert.equal(Q.verification_time, P.verification_time);
+  const bases = { routine_hybrid: P.bundles.routine_hybrid.signed_bundle, classical_only_routine: BV.classical_only_routine_bundle.signed_bundle };
+  assert.deepEqual(Object.keys(Q.bundles).sort(), Object.keys(bases).sort());
+  for (const [n, e] of Object.entries(Q.bundles)) assert.equal(crypto.createHash("sha256").update(JSON.stringify(bases[n])).digest("hex"), e.sha256, n);
+  // Written again here from the clarification of V2-10, case by case.
+  const expected = {};
+  for (const m of MODES) expected[`base.${m}.positive`] = true;
+  for (const l of ["classical_alg_not_accepted", "classical_alg_advisory_rejected"]) Object.assign(expected, { [`q1.pq_only.${l}`]: true, [`q1.hybrid_required.${l}`]: false });
+  for (const loc of ["bundle", "passport", "checkpoint"]) for (const m of MODES) expected[`q2.${loc}.${m}`] = m === "pq_only";
+  for (const loc of ["bundle", "passport"]) for (const x of ["noncanonical_classical_sig_b64", "unknown_classical_kid"]) expected[`q2_scope.${loc}.${x}`] = false;
+  for (const m of ["classical_only", "hybrid_preferred"]) {
+    expected[`q3.${m}.positive`] = true;
+    for (const l of ["pq_alg_not_accepted", "pq_alg_advisory_rejected"]) Object.assign(expected, { [`q3.${m}.${l}`]: true, [`q3_contrast.${m}.${l}`]: false });
+  }
+  assert.deepEqual(Object.fromEntries(Q.cases.map((c) => [c.name, c.expect.verified])), expected);
+  for (const c of Q.cases) {
+    assert.deepEqual(c.policy, { ...Q.base_policy, default_mode: c.requested_mode, risk_overrides: { low: c.requested_mode, medium: c.requested_mode, high: c.requested_mode }, ...c.policy_overrides }, c.name);
+    assert.equal(c.verification_time, Q.verification_time, c.name);
+    const b = decoded(plan2Case(c.name)).bundle;
+    assert.equal(tier(b.intent.payload, b.policy_decision.payload), "routine", c.name);
+    assert.equal(c.effective_mode, effective(c.requested_mode, "routine"), c.name);
+    if (c.expect.verified) assert.equal(c.controls, undefined, c.name);
+    else assert.deepEqual(c.controls, [`base.${c.requested_mode}.positive`], c.name);
+  }
+});
+
+test("clarification variants, without any SDK: Q2 re-signs only the PQ component over failing classical bytes; scope variants keep every signature byte", () => {
+  const routine = decoded(plan2Case("base.pq_only.positive"));
+  const sigPath = { bundle: "signature.composite_sig", passport: "bundle.agent_passport.composite_sig", checkpoint: "bundle.pq_checkpoints.0.composite_sig" };
+  for (const loc of Object.keys(sigPath)) {
+    const v = decoded(plan2Case(`q2.${loc}.pq_only`));
+    assert.deepEqual(diffPaths(routine, v).sort(), [`${sigPath[loc]}.classical.sig_b64`, `${sigPath[loc]}.pq.sig_b64`], loc);
+    assert.deepEqual(check(routine, loc), { classical: true, pq: true }, `${loc}: base`);
+    assert.deepEqual(check(v, loc), { classical: false, pq: true }, `${loc}: variant`);
+  }
+  for (const loc of ["bundle", "passport"]) {
+    const [cs] = LOC[loc](routine);
+    const nc = decoded(plan2Case(`q2_scope.${loc}.noncanonical_classical_sig_b64`));
+    const text = LOC[loc](nc)[0].classical.sig_b64;
+    assert.deepEqual(diffPaths(routine, nc), [`${sigPath[loc]}.classical.sig_b64`]);
+    assert.ok(Buffer.from(text, "base64").equals(Buffer.from(cs.classical.sig_b64, "base64")) && Buffer.from(text, "base64").toString("base64") !== text, `${loc}: same bytes, not canonical`);
+    const uk = decoded(plan2Case(`q2_scope.${loc}.unknown_classical_kid`));
+    const [ucs, , , keys] = LOC[loc](uk);
+    assert.deepEqual(diffPaths(routine, uk), [`${sigPath[loc]}.classical.kid`]);
+    assert.ok(!keys.some((k) => k.kid === ucs.classical.kid), `${loc}: the kid names no key`);
+  }
+});
+
+// Hostile controls: each fake answers every request of catalog 2.0 from the corpus expectations, except for one wrong
+// reading of the clarification, decided on the request alone, as a verifier would. Each must fail exactly its cases,
+// in either suite, and never lose a control.
+const runWith2 = (argv) => runEvidence({ plan: plan2(), argv, timeoutMs: 120000 });
+const failedIds = (report) => report.suites.flatMap((s) => s.cases).filter((c) => c.status === "fail").map((c) => c.id).sort();
+const table2 = (wrong = (_r, v) => v) => {
+  const t = {};
+  for (const c of plan2().suites.flatMap((s) => s.cases)) {
+    const k = keyOf(c.request);
+    const v = wrong(c.request, c.expect.verified);
+    assert.ok(!(k in t) || t[k] === v, `${c.id}: one request, two verdicts`);
+    t[k] = v;
+  }
+  return t;
+};
+const ANSWER = "(() => { const v = table[key(c)]; return { verified: v, errors: v ? [] : ['controlled rejection'] }; })()";
+
+test("hostile controls: each wrong reading of Q1, Q2 or Q3 fails exactly its cases; accept-all and reject-all are caught", async () => {
+  const q2 = new Set(["bundle", "passport", "checkpoint"].map((l) => plan2Case(`q2.${l}.pq_only`).request.bundle_b64));
+  const noPq = plan2Case("q3.classical_only.positive").request.bundle_b64;
+  const pqOnly = (r) => r.policy.default_mode === "pq_only";
+  const excludes = (p, alg, list) => !p[list].includes(alg) || p.advisory_rejected_algs.includes(alg);
+  const q = (...names) => names.map((n) => QID + n);
+  const old = (...names) => names.map((n) => `external.v2.verifier_policy.${n}`);
+  const LISTS = ["classical_alg_advisory_rejected", "classical_alg_not_accepted"];
+  const MUTANTS = [
+    ["classical lists applied under pq_only", (r, v) => (pqOnly(r) && excludes(r.policy, "ed25519", "accepted_classical_algs") ? false : v), q(...LISTS.map((l) => `q1.pq_only.${l}`))],
+    ["an invalid classical component rejected under pq_only", (r, v) => (pqOnly(r) && q2.has(r.bundle_b64) ? false : v), q("q2.bundle.pq_only", "q2.checkpoint.pq_only", "q2.passport.pq_only")],
+    ["PQ lists applied to a bundle without PQ", (r, v) => (r.bundle_b64 === noPq && excludes(r.policy, "ml-dsa-65", "accepted_pq_algs") ? false : v),
+      q(...["classical_only", "hybrid_preferred"].flatMap((m) => [`q3.${m}.pq_alg_advisory_rejected`, `q3.${m}.pq_alg_not_accepted`]))],
+    ["the mode ignored: what pq_only tolerates, tolerated in every mode", (r, v) => (q2.has(r.bundle_b64) || excludes(r.policy, "ed25519", "accepted_classical_algs") ? true : v), [
+      ...q(...LISTS.map((l) => `q1.hybrid_required.${l}`), ...["bundle", "checkpoint", "passport"].flatMap((loc) => ["classical_only", "hybrid_preferred", "hybrid_required"].map((m) => `q2.${loc}.${m}`))),
+      ...old(...["classical_only", "hybrid_preferred", "hybrid_required"].flatMap((m) => LISTS.map((l) => `routine_hybrid.${m}.${l}`))),
+    ]],
+  ];
+  for (const [what, wrong, expected] of MUTANTS) {
+    const report = await runWith2(fake(ANSWER, table2(wrong)));
+    assert.equal(report.status, "fail", what);
+    assert.deepEqual(failedIds(report), [...expected].sort(), what);
+    assert.ok(report.suites.flatMap((s) => s.cases).every((c) => c.kind !== "control_failed"), `${what}: a control was lost`);
+  }
+  const right = await runWith2(fake(ANSWER, table2()));
+  assert.equal(right.status, "pass");
+  const accept = await runWith2(fake("{ verified: true, errors: [] }"));
+  assert.deepEqual(failedIds(accept), plan2().suites.flatMap((s) => s.cases).filter((c) => !c.expect.verified).map((c) => c.id).sort());
+  const reject = await runWith2(fake("{ verified: false, errors: ['controlled rejection'] }"));
+  assert.equal(reject.status, "error");
+  assert.ok(reject.suites[1].cases.filter((c) => !c.expect.verified).every((c) => c.kind === "control_failed"));
+});
+
+test("the CLI runs catalog 2.0 by path, selects the clarification suite alone, and keeps a failure a failure", () => {
+  const cli = (argv, ...extra) => spawnSync(process.execPath, [path.join(ROOT, "tools/conformance-external.js"), "--catalog", CATALOG, ...extra, "--", ...argv], { encoding: "utf8", timeout: 120000 });
+  const select = ["--suite", "external.v2.verifier_policy_clarification", "--assessment", "verdict"];
+  assert.equal(cli(fake(ANSWER, table2()), ...select).status, 0);
+  assert.equal(cli(fake("{ verified: true, errors: [] }"), ...select).status, 1);
 });

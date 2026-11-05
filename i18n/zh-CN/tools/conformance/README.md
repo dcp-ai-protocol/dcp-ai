@@ -345,15 +345,25 @@ node --test tools/conformance/external-schema-validation.test.mjs
 
 #### 验证器策略目录（显式选择）
 
-[`external-policy-catalog.json`](../../../../tools/conformance/external-policy-catalog.json) 使用 `/2` 契约测试固定时刻的 74 个用例：10 个正向对照、覆盖四种请求模式的 24 个存在但无效的 PQ 签名用例、14 个算法列表及安全通告用例，以及 26 个等级用例。默认证据目录不变。每个负向用例要求其正向对照通过；不评估诊断措辞。
+[`external-policy-catalog.json`](../../../../tools/conformance/external-policy-catalog.json)（版本 `2026-11-05.verifier-policy-2.0`）使用 `/2` 契约，在两个套件中测试固定时刻的 108 个用例。默认证据目录不变。每个负向用例要求其正向对照通过；不评估诊断措辞。
+
+- `external.v2.verifier_policy`：来自 `verifier_policy_vectors.json` 的 74 个用例。10 个正向对照、覆盖四种请求模式的 24 个存在但无效的 PQ 签名用例、14 个算法列表及安全通告用例，以及 26 个等级用例。
+- `external.v2.verifier_policy_clarification`：来自 `verifier_policy_clarification_vectors.json` 的 34 个用例，对应 [VERIFICATION.md](../../../../spec/VERIFICATION.md) 步骤 V2-10 的带日期澄清（05/11/2026）。
+  - Q1：在 `pq_only` 下，经典列表和安全通告的排除不会拒绝混合 bundle。
+  - Q2：在 `pq_only` 下，接受经典组件失败、而 PQ 组件对这些经典字节验证通过的 bundle、护照或检查点签名。不规范的经典 `sig_b64` 或未知的经典 kid 仍被拒绝。
+  - Q3：在 `classical_only` 和 `hybrid_preferred` 下，PQ 列表不会拒绝仅经典签名的 bundle；同一策略下的混合 bundle 被拒绝。
+  - 在其他模式下，Q1 的排除和 Q2 的签名都被拒绝。
+
+1.1 版（74 个用例）按字节原样存档为 [`external-policy-catalog-1.1.json`](../../../../tools/conformance/external-policy-catalog-1.1.json)，仍可按其路径运行；其报告仍是该版本的证据。
 
 ```bash
 node tools/conformance-external.js --catalog tools/conformance/external-policy-catalog.json --assessment verdict --list
 node tools/conformance-external.js --catalog tools/conformance/external-policy-catalog.json --assessment verdict --report /tmp/policy-conformance.json -- ./my-implementation
+node tools/conformance-external.js --catalog tools/conformance/external-policy-catalog-1.1.json --assessment verdict --report /tmp/policy-1.1.json -- ./my-implementation
 node --test tools/conformance/external-policy.test.mjs
 ```
 
-routine 混合签名正向用例达到实际生效的 `classical_only`；standard 正向用例将该请求提升为 `hybrid_preferred`。记录的等级与模式推导用于说明，不评估结果字段。等级用例使用分别签名的已版本控制 bundle，不是单一变化的配对。`pq_only` 下的经典算法排除仍待澄清解释，暂不运行且不指定预期判定。剩余范围见语料问题和覆盖图。CI 执行语料及运行器自测，并通过五个 SDK 封装程序运行该目录；通过仅证明这些用例符合预期。
+routine 混合签名正向用例达到实际生效的 `classical_only`；standard 正向用例将该请求提升为 `hybrid_preferred`。记录的等级与模式推导用于说明，不评估结果字段。等级用例使用分别签名的已版本控制 bundle，不是单一变化的配对。澄清用例使用两个 routine 基础 bundle，因此每个请求模式就是实际模式；其 Q2 变体只用已提交的 TEST-ONLY 密钥重新签名一个 PQ 组件。自测按原有不变量运行 1.1 版目录，并运行错误解读 Q1、Q2 或 Q3 的伪实现：在 `pq_only` 下应用经典列表、在 `pq_only` 下拒绝无效的经典组件、对没有 PQ 的 bundle 应用 PQ 列表，或忽略模式。每个伪实现恰好在其用例上失败。CI 执行语料及运行器自测，并通过五个 SDK 封装程序运行该目录；通过仅证明这些用例符合预期。
 
 <a id="structural-catalog-opt-in"></a>
 
@@ -461,7 +471,7 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
 ### 委托目录：DCP-09 委托书链
 
 `--catalog delegation` 选择第三个选择性启用的目录 [`external-delegation-catalog.json`](../../../../tools/conformance/external-delegation-catalog.json)
-（契约 `dcp-ai-conformance-external/4`，97 个用例），针对同样形式的 argv 运行。它在目录以 SHA-256 固定的三个已提交语料上，
+（契约 `dcp-ai-conformance-external/4`，2.0.0 版，97 个规范性用例），针对同样形式的 argv 运行。它在目录以 SHA-256 固定的三个已提交语料上，
 判定委托书链的验证（[DCP-09 §3.5.2](../../../../spec/DCP-09.md)）。契约 `/1`、`/2` 和 `/3` 及其目录不变。TypeScript、Python、Go
 和 Rust 封装程序通过其 SDK 应答 `/4`。WASM 构建不导出任何委托书链函数，因此其封装程序像对 `/3` 一样拒绝 `/4`（exit 2），
 也没有任何东西模拟它。
@@ -472,6 +482,7 @@ node tools/conformance-external.js --catalog delegation --report /tmp/delegation
 node tools/conformance-external.js --catalog delegation -- /path/to/python -I tools/conformance/wrappers/python_sdk.py
 node tools/conformance-external.js --catalog delegation -- tools/conformance/wrappers/.build/go-wrapper
 node tools/conformance-external.js --catalog delegation -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+node tools/conformance-external.js --catalog tools/conformance/external-delegation-catalog-1.0.0.json -- /path/to/implementation
 node --test tools/conformance/external-delegation.test.mjs
 DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-delegation-wrappers.test.mjs
 ```
@@ -479,7 +490,7 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
 | 套件 | 用例 | 来源 |
 |-------|-------|--------|
 | `external.delegation.chain` | 52 | [`mandate_chain_vectors.json`](../../../../tests/interop/v2/mandate_chain_vectors.json)：签名与角色、链接、深度、权限收窄、有效期窗口、层级下限、吊销 |
-| `external.delegation.chain_time` | 22，其中 10 个为参考性用例 | [`mandate_chain_time_vectors.json`](../../../../tests/interop/v2/mandate_chain_time_vectors.json)：规则 4 的有效期窗口、其嵌套与验证时间 |
+| `external.delegation.chain_time` | 22（在 1.0.0 版中其中 10 个为参考性用例） | [`mandate_chain_time_vectors.json`](../../../../tests/interop/v2/mandate_chain_time_vectors.json)：规则 4 的有效期窗口、其嵌套与验证时间 |
 | `external.delegation.domains` | 23 | [`mandate_domain_vectors.json`](../../../../tests/interop/v2/mandate_domain_vectors.json)：同一委托书中重复的领域，任何深度 |
 
 - **操作：** `verify_mandate_chain` 接收四个字段。
@@ -497,11 +508,10 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
   - 错误文本（语料中的 `error_contains` 或精确的 `errors`）和 `depth` 是 SDK 的诊断。它们会被报告（`matched`、`differs`、`no_message`），但从不判定。
   - 拒绝不需要消息，也不需要特定的 `depth` 或特定的层级。
   - `--assessment` 不适用。
-- **参考性用例：** `chain_time` 中有十个用例依赖 DCP-09 §3.5.2 没有规定的约定。
-  - 三个依赖以毫秒比较时刻（VERIFICATION.md V2-4，针对 bundle）。
-  - 七个依赖签名密钥的有效性 `expires_at`（V2-13，针对 bundle）。
-
-  这份清单由运行器固定。这些用例会被发送，并在 `informative_totals`（`requested`、`completed`、`agrees`、`differs`、`error`）中报告，从不通过或失败。对其中任何一个的应答缺失、格式错误、为 `error` 或 `unsupported`，仍是本次运行的错误；没有执行任何规范性用例的运行永远不会通过。
+- **版本：** 默认的 2.0.0 版按 DCP-09 §3.5.2 的澄清（05/11/2026）判定全部 97 个用例：规则 4 的时刻和签名密钥的 `expires_at` 以毫秒比较，每个签名密钥在验证时间必须处于活动状态且未过期。
+  - 1.0.0 版按字节原样存档为 [`external-delegation-catalog-1.0.0.json`](../../../../tools/conformance/external-delegation-catalog-1.0.0.json)，按该路径运行。它把 `chain_time` 中的十个用例保留为参考性用例：三个依赖以毫秒比较时刻，七个依赖签名密钥的 `expires_at`。它们会被发送，并在 `informative_totals`（`requested`、`completed`、`agrees`、`differs`、`error`）中报告，从不通过也从不失败；对其中任何一个的应答缺失、格式错误、为 `error` 或 `unsupported`，仍是运行错误。
+  - 运行器固定每个版本的分类，并固定 1.0.0 版的字节：重新标注版本、重新序列化或未知版本的目录会被拒绝，因此任何版本都不会按另一版本的分类判定。在这十个用例之一上结果不同的实现通过 1.0.0 版而在 2.0.0 版失败；1.0.0 版的报告只是 1.0.0 版的证据。
+  - 没有执行任何规范性用例的运行永不通过。
 - **锚点：** 每个规范性用例都标明其 §3.5.2 规则：`rule1` 至 `rule7`，未知、缺失或不可比较的输入为 `fail_closed`，被接受的链为 `all_rules`。
 - **对照：** 只有当其对照在同一次运行中通过时，拒绝才计入。对照是同一套件中规范性地被接受的链，`control_scope` 说明两者的关系：
   - `same_chain`：链的字节相同，已吊销 ID、时间或密钥不同；
@@ -510,7 +520,7 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
   - `suite`：套件中所有被接受的链。
 
   运行器在加载目录时按字节检查这种关系。它们都不声称两个用例只相差一个缺陷。选定的套件自带其对照。
-- **目录：** `delegation-catalog.mjs --check` 根据语料及其锚点表重新生成目录。对于遗漏、重复或重排语料用例、对参考性用例作不同分类或夸大对照的目录，运行器以 exit 3 拒绝。
+- **目录：** `delegation-catalog.mjs --check` 根据语料及其锚点表重新生成 2.0.0 版目录：根签名者的密钥对应规则 1，委托代理的密钥对应规则 2。对于遗漏、重复或重排语料用例、以不同于其版本的方式分类用例，或夸大对照的目录，运行器以 exit 3 拒绝。
 - **进程与封装程序：** 与 `/1` 至 `/3` 相同；本目录的默认超时为 300 000 ms。封装程序对每个用例调用一次，使用请求的时间，从不使用系统时钟，并且各自按其 SDK 自身语料测试的方式读取链：
 
   | SDK | 链 | 时间 |
@@ -522,10 +532,10 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
 - **自测：**
   - `external-delegation.test.mjs` 判定根据语料预期构造的合成应答，不使用 SDK，并检查发送的字节是 fixture 的片段。它覆盖：
     - 全部接受或全部拒绝、忽略一条规则的验证器，以及错误的层级；
-    - 矛盾、格式错误、`error` 和 `unsupported` 的应答，以及结果不同或失败的参考性用例；
+    - 矛盾、格式错误、`error` 和 `unsupported` 的应答；在 1.0.0 版下，结果不同或失败的参考性用例，在 2.0.0 版下，同样的应答恰好使这些用例失败；
     - 缺失、重复、多余和截断的结果，过期的 ID，以及失败、被终止、挂起或延迟退出的进程；
-    - 新的报告、选择，以及被篡改的目录和 fixture。
-  - `external-delegation-wrappers.test.mjs` 通过各自的 SDK 运行四个封装程序：97 个用例、请求时钟的三个时刻、格式错误的请求以及注入的故障。它还检查 WASM 的拒绝，并检测出两个被修改的 TypeScript SDK：一个忽略吊销，一个使用自己的时钟。它以异步方式调用封装程序并关闭 stdin；在带输入的同步执行中，曾观察到原生封装程序一直等待文件结束。
+    - 新的报告、选择、被篡改的目录和 fixture，以及重新标注或重新序列化的版本。
+  - `external-delegation-wrappers.test.mjs` 通过各自的 SDK 运行四个封装程序：97 个用例、请求时钟的三个时刻、格式错误的请求以及注入的故障。它还检查 WASM 的拒绝，并检出四个被修改的 TypeScript SDK：一个忽略吊销，一个使用自己的时钟，一个忽略签名密钥的过期，一个以低于毫秒的精度比较有效期窗口。在 2.0.0 版下测得，第三个在七个密钥用例上失败，第四个在三个毫秒用例中的两个上失败（封装程序交给 SDK 的验证时间已经是毫秒）；在 1.0.0 版下两者都通过，只在这些用例上结果不同。它以异步方式调用封装程序并关闭 stdin；在带输入的同步执行中，曾观察到原生封装程序一直等待文件结束。
 
   CI 运行这两者，四个封装程序均为必需。
 - **限制：** 通过只表明所运行的 argv 在这些已提交的链上给出这些判定，仅此而已。

@@ -49,7 +49,7 @@ node tools/conformance-external.js --catalog delegation --report /tmp/dcp-delega
 
 These commands select four different runner contracts. An implementation may support a subset, but its report must name that subset. WASM in this repository has no admission API and no mandate chain API. Do not report an unsupported operation as successful.
 
-The delegation command judges mandate chain verdicts only. Ten of its cases rest on conventions DCP-09 does not state (millisecond precision, signer key validity): a different verdict on one of them is reported apart and does not decide normative conformance, but a missing, malformed, `error` or `unsupported` answer to one still makes the run fail. The keys and revoked ids are given in the request, so a pass is not trust in the principal or authorization of an action.
+The delegation command judges mandate chain verdicts only. Its current catalog, version 2.0.0, judges all 97 cases: since the clarification of DCP-09 §3.5.2 (05/11/2026), instants are compared in milliseconds and each signer key must be active and unexpired at the verification time. Version 1.0.0 is historical: archived as `tools/conformance/external-delegation-catalog-1.0.0.json`, it judged 87 cases and reported the other ten apart as informative, so a 1.0.0 report says nothing about those ten. Cite the catalog version with any result. The keys and revoked ids are given in the request, so a pass is not trust in the principal or authorization of an action.
 
 The evidence command explicitly selects `--assessment verdict`: it assesses normative verdicts and retains diagnostic wording separately. The legacy assessment remains available and keeps its existing default. A matching diagnostic string alone is not evidence of the intended check.
 

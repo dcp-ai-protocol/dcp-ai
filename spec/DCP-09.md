@@ -234,6 +234,26 @@ A verifier that accepts a mandate chain MUST take the ordered chain (root first)
 6. **Tier floor.** When the parent has a `minimum_security_tier`, the sub-mandate has one that is not below it (`routine` < `standard` < `elevated` < `maximum`). The chain's effective tier is the greatest `minimum_security_tier` along it; a verifier feeding it into the tier computation of DCP-AI v2.0 §14.2 MUST let it only raise the tier.
 7. **Revocation.** No mandate of the chain is revoked. A revoked ancestor invalidates every descendant.
 
+> **Clarification (05/11/2026, normative).** This states, as requirements, two points the rules above left open. It
+> changes no bytes, no signature format and no context.
+>
+> - **Precision.** Every instant of rule 4 (each `valid_from` and `valid_until`, and the verification time) and every
+>   `expires_at` below is compared at millisecond precision, digits beyond the millisecond dropped, as for bundles
+>   ([VERIFICATION.md](VERIFICATION.md) Step V2-4).
+> - **Signer keys.** The key entry each signature slot names by `kid` MUST have `status` `"active"` and an
+>   `expires_at` that is absent, `null` or an RFC 3339 instant not before the verification time; otherwise the chain
+>   is rejected. That is the human principal's key for the root's `human_composite_sig` (rule 1) and the delegating
+>   agent's for a sub-mandate's `delegator_composite_sig` (rule 2). It is the key validity of bundles (VERIFICATION.md
+>   Step V2-13), at the verification time; verifying a chain as of an earlier time is not defined.
+>
+> Nothing else is inferred: nothing is required of a key's `created_at`. Compatibility: the four chain verifiers of this
+> repository already behave so, and none of them changes. Millisecond precision and `expires_at` are measured on
+> `tests/interop/v2/mandate_chain_time_vectors.json`; the `status` check is verified by reading their code, since no
+> vector has a key whose `status` is not `active`. An implementation that compares these instants below the
+> millisecond, or accepts a chain signed with a key that is not active, has expired or has an `expires_at` that is not
+> an RFC 3339 instant, is not conformant on that point. The ten cases that version 1.0.0 of the external delegation
+> catalog kept informative are normative from its version 2.0.0.
+
 Reference implementations: `verifyMandateChain` (TypeScript), `verify_mandate_chain` (Python and Rust) and `VerifyMandateChain` (Go). `tests/interop/v2/mandate_chain_vectors.json` holds chains every implementation MUST accept and chains it MUST reject, and all four SDK suites run it.
 
 ### 3.6 Mandate Revocation
@@ -884,7 +904,8 @@ An implementation is DCP-09 conformant if it:
   as RFC 3339 instants of one subset, in milliseconds, and floor the verification time to the millisecond;
   `tests/interop/v2/mandate_chain_time_vectors.json` holds signed chains that all four SDK suites run. Their default
   clocks differ from `verifyMandateValidity`: Python reads a naive `datetime` as UTC, and Go reads the zero time as
-  the current time. This is on `main`, not in a published version.
+  the current time. This is on `main`, not in a published version. The clarification of § 3.5.2 (05/11/2026) makes the
+  millisecond precision and the signer key checks normative.
 - **Repeated domains in the SDKs.** The chain verifiers apply the last sentence of rule 5 to every mandate of the
   chain, the root included, and compare domains as exact strings, with no case folding, trimming or Unicode
   normalization; a chain made of a root alone that repeated a domain was accepted before.

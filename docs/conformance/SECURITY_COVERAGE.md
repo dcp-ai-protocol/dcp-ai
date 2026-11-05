@@ -76,13 +76,19 @@ The opt-in [schema-validation catalog](../../tools/conformance/external-schema-v
 
 ### Verifier policy samples
 
-The opt-in [policy catalog](../../tools/conformance/external-policy-catalog.json) adds 74 cases under the existing `/2` contract: 10 positive controls, 24 invalid-present-PQ cases, 14 algorithm-list/advisory cases and 26 committed tier cases. Each request carries its exact policy and verification time. The default evidence catalog remains unchanged.
+The opt-in [policy catalog](../../tools/conformance/external-policy-catalog.json), version 2.0, adds 108 cases in two suites under the existing `/2` contract. The first suite keeps the 74 cases of version 1.1: 10 positive controls, 24 invalid-present-PQ cases, 14 algorithm-list/advisory cases and 26 committed tier cases. The second runs the 34 cases of the clarification of V2-10 (below). Each request carries its exact policy and verification time. The default evidence catalog remains unchanged, and version 1.1 is archived byte for byte as [`external-policy-catalog-1.1.json`](../../tools/conformance/external-policy-catalog-1.1.json).
 
 The new routine hybrid control exercises effective `classical_only`, as well as the other three modes. The standard hybrid control raises a requested `classical_only` to `hybrid_preferred`. The corpus records this derivation; `/2` assesses the verdict, not the implementation's reported tier or effective mode.
 
 The PQ negatives alter only the PQ signature at the bundle, passport or checkpoint; the classical component remains valid. Algorithm-list cases keep the same bundle and change only policy. Tier cases reuse separately signed committed bundles and a routine control under the same requested mode: they are not single-change twins. Every negative requires its positive control to pass in the same run.
 
-Classical algorithm exclusions under `pq_only` remain omitted pending clarification, without an expected verdict. Deferred cases and interpretation questions are recorded in the corpus; an untested combination does not by itself demonstrate a contradiction in the specification. These samples do not close the schema gap or establish complete V2 conformance.
+The clarification of [VERIFICATION.md](../../spec/VERIFICATION.md) Step V2-10 (05/11/2026) settles the three questions of the corpus. [`verifier_policy_clarification_vectors.json`](../../tests/interop/v2/verifier_policy_clarification_vectors.json) holds their cases, with routine bases so that each requested mode is the effective one:
+
+- **Q1.** Under `pq_only`, classical list and advisory exclusions accept a hybrid bundle; under `hybrid_required` the same policies reject it.
+- **Q2.** At the bundle signature, the passport and the checkpoint, a classical component that fails while the PQ component verifies over those classical bytes is accepted under `pq_only` and rejected in the three other modes. A non-canonical classical `sig_b64` and an unknown classical kid are rejected under `pq_only`.
+- **Q3.** PQ list and advisory exclusions accept the classical-only bundle under `classical_only` and `hybrid_preferred`, and reject the hybrid bundle under the same policy.
+
+`verifier_policy_vectors.json` keeps its omitted Q1 cases as history. The cases sample these rules: they are not every location, algorithm or key state. An untested combination does not by itself demonstrate a contradiction in the specification. These samples do not close the schema gap or establish complete V2 conformance.
 
 ### Structural samples
 
@@ -109,18 +115,21 @@ An evaluator that accepts a precomputed verification result trusts its caller to
 
 ## Delegation map
 
-The [external delegation catalog](../../tools/conformance/external-delegation-catalog.json) runs the committed [mandate chain](../../tests/interop/v2/mandate_chain_vectors.json), [chain time](../../tests/interop/v2/mandate_chain_time_vectors.json) and [repeated domain](../../tests/interop/v2/mandate_domain_vectors.json) vectors through `verify_mandate_chain`. Each normative case names its rule of [DCP-09 §3.5.2](../../spec/DCP-09.md); the verdict and, for an accepted chain, the effective tier are judged.
+The [external delegation catalog](../../tools/conformance/external-delegation-catalog.json), version 2.0.0, runs the committed [mandate chain](../../tests/interop/v2/mandate_chain_vectors.json), [chain time](../../tests/interop/v2/mandate_chain_time_vectors.json) and [repeated domain](../../tests/interop/v2/mandate_domain_vectors.json) vectors through `verify_mandate_chain`. Each normative case names its rule of [DCP-09 §3.5.2](../../spec/DCP-09.md); the verdict and, for an accepted chain, the effective tier are judged.
 
 | Requirement | Exercised surface | Limit |
 |---|---|---|
 | Rules 1–2: root and sub-mandate signatures, signer roles and contexts, parent links, depth and `human_id` | `external.delegation.chain` | The keys are given in the request; the kit does not establish that they are the principal's or the agents' |
 | Rule 3: sub-delegation permission and maximum depth | `external.delegation.chain` | The committed chains, not every depth |
-| Rule 4: validity windows, their nesting and the verification time as RFC 3339 instants | `external.delegation.chain`, `external.delegation.chain_time` | Millisecond precision and signer key `expires_at` are conventions of the SDKs, not of §3.5.2: those ten cases are informative |
+| Rule 4: validity windows, their nesting and the verification time as RFC 3339 instants, compared in milliseconds | `external.delegation.chain`, `external.delegation.chain_time` | Millisecond precision is normative since the clarification of §3.5.2 (05/11/2026); version 1.0.0 of the catalog, archived, kept those three cases informative |
+| Rules 1–2: each signer key active, its `expires_at` absent, `null` or not before the verification time (clarification of 05/11/2026) | `external.delegation.chain_time` | Seven cases on `expires_at`; no case has a key whose `status` is not `active`. Version 1.0.0 kept these seven informative |
 | Rule 5: attenuation of actions, data classes and limits; limits within ±(2^53 − 1); a domain repeated in one mandate | `external.delegation.chain`, `external.delegation.domains` | Error texts are diagnostics; a rejection is judged on its verdict |
 | Rule 6: tier floor and effective tier | `external.delegation.chain` | The effective tier is judged on accepted chains; `tier_floor` (`computeSecurityTier`) is outside the catalog |
 | Rule 7: revocation of the root or an intermediate mandate | `external.delegation.chain` | Revocation is the local set of revoked ids in the request, not a revocation source |
 
 A rejection counts only with its control, a normative accepted chain whose relation to it (`same_chain`, `single_mandate`, `same_shape` or `suite`) is checked on the bytes. None of these relations shows that the two cases differ by a single defect. A verified chain is not admission or authorization.
+
+Version 1.0.0 of the catalog, archived byte for byte as [`external-delegation-catalog-1.0.0.json`](../../tools/conformance/external-delegation-catalog-1.0.0.json), judges 87 cases and reports ten informative ones apart; version 2.0.0 judges all 97. The runner pins the classification of each version, so a 1.0.0 report is evidence of 1.0.0 only.
 
 ## Claims for core and profiles
 

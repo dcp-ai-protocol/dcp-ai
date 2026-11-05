@@ -12,12 +12,13 @@ import path from "path";
 import crypto from "crypto";
 import { spawnSync } from "child_process";
 import { fileURLToPath } from "url";
-import { loadDelegationPlan, scanJson, INFORMATIVE, SUITES } from "./external-delegation.js";
+import { loadDelegationPlan, scanJson, INFORMATIVE, SUITES, CLASSIFICATIONS, DELEGATION_CATALOG_1_PATH } from "./external-delegation.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "..", "..");
 const CLI = path.join(REPO, "tools", "conformance-external.js");
 const CATALOG = path.join(HERE, "external-delegation-catalog.json");
+const CATALOG1 = DELEGATION_CATALOG_1_PATH;
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "dcp-delegation-"));
 process.on("exit", () => fs.rmSync(TMP, { recursive: true, force: true }));
 
@@ -26,6 +27,10 @@ const ALL = PLAN.suites.flatMap((s) => s.cases);
 const NORMATIVE = ALL.filter((c) => c.class === "normative");
 const NEGATIVES = NORMATIVE.filter((c) => !c.expect.valid);
 const POSITIVES = NORMATIVE.filter((c) => c.expect.valid);
+// The archived catalog 1.0.0: the same 97 requests, ten of them informative.
+const PLAN1 = loadDelegationPlan({ catalogFile: CATALOG1 });
+const ALL1 = PLAN1.suites.flatMap((s) => s.cases);
+const TEN = Object.keys(INFORMATIVE).sort();
 const sha = (s) => crypto.createHash("sha256").update(s).digest("hex");
 const fp = (c) => sha(JSON.stringify({ op: c.op, ...c.request }));
 
@@ -78,9 +83,9 @@ else {
 `);
 
 /** Runs the CLI against the fake and returns { code, report }. */
-function run(answersFile, { envelope = "ok", args = [], timeoutMs } = {}) {
+function run(answersFile, { envelope = "ok", args = [], timeoutMs, catalog = "delegation" } = {}) {
   const report = path.join(TMP, `report-${++n}.json`);
-  const r = spawnSync(process.execPath, [CLI, "--catalog", "delegation", ...args, "--report", report, ...(timeoutMs ? ["--timeout-ms", String(timeoutMs)] : []), "--", process.execPath, FAKE, answersFile, envelope], { encoding: "utf8", timeout: 120000 });
+  const r = spawnSync(process.execPath, [CLI, "--catalog", catalog, ...args, "--report", report, ...(timeoutMs ? ["--timeout-ms", String(timeoutMs)] : []), "--", process.execPath, FAKE, answersFile, envelope], { encoding: "utf8", timeout: 120000 });
   return { code: r.status, report: JSON.parse(fs.readFileSync(report, "utf8")), stdout: r.stdout, stderr: r.stderr };
 }
 const cases = (report) => report.suites.flatMap((s) => s.cases);
@@ -93,21 +98,34 @@ test("the committed catalog is what the corpora and the generator give", () => {
   assert.equal(r.status, 0, r.stderr);
 });
 
-test("the plan is a partition of the three corpora: 97 cases, 87 normative, the 10 fixed informative", () => {
-  assert.deepEqual(PLAN.suites.map((s) => s.id), SUITES.map((s) => s.id));
-  for (const s of PLAN.suites) {
-    const doc = JSON.parse(fs.readFileSync(path.join(REPO, SUITES.find((x) => x.id === s.id).file), "utf8"));
-    assert.deepEqual(s.cases.map((c) => c.name), [...doc.must_accept, ...doc.must_reject].map((c) => c.name), s.id);
+test("the plan is a partition of the three corpora: 97 cases, all normative in 2.0.0, 87 and the 10 fixed informative in 1.0.0", () => {
+  const scopesOf = (cases) => { const out = {}; for (const c of cases) out[c.control_scope] = (out[c.control_scope] ?? 0) + 1; return out; };
+  for (const plan of [PLAN, PLAN1]) {
+    assert.deepEqual(plan.suites.map((s) => s.id), SUITES.map((s) => s.id));
+    for (const s of plan.suites) {
+      const doc = JSON.parse(fs.readFileSync(path.join(REPO, SUITES.find((x) => x.id === s.id).file), "utf8"));
+      assert.deepEqual(s.cases.map((c) => c.name), [...doc.must_accept, ...doc.must_reject].map((c) => c.name), s.id);
+    }
   }
+  assert.equal(PLAN.catalog.version, "2.0.0");
   assert.equal(ALL.length, 97);
   assert.equal(new Set(ALL.map((c) => c.id)).size, 97);
-  assert.equal(NORMATIVE.length, 87);
-  assert.deepEqual(ALL.filter((c) => c.class === "informative").map((c) => c.id).sort(), Object.keys(INFORMATIVE).sort());
-  assert.equal(POSITIVES.length, 22);
-  assert.equal(NEGATIVES.length, 65);
-  const scopes = {};
-  for (const c of NEGATIVES) scopes[c.control_scope] = (scopes[c.control_scope] ?? 0) + 1;
-  assert.deepEqual(scopes, { single_mandate: 48, same_chain: 4, same_shape: 12, suite: 1 });
+  assert.equal(NORMATIVE.length, 97);
+  assert.equal(POSITIVES.length, 25);
+  assert.equal(NEGATIVES.length, 72);
+  assert.deepEqual(scopesOf(NEGATIVES), { single_mandate: 48, same_chain: 4, same_shape: 19, suite: 1 });
+  // The archive: its exact bytes, its classification, and the same requests and expectations.
+  assert.equal(PLAN1.catalog.version, "1.0.0");
+  assert.equal(PLAN1.catalog.sha256, CLASSIFICATIONS["1.0.0"].catalog_sha256);
+  assert.equal(PLAN1.catalog.sha256, "e31de86f5834c1a394d3beed58f0901d265f5da560b7725aa73dcbf6948a8133");
+  assert.deepEqual(ALL1.filter((c) => c.class === "informative").map((c) => c.id).sort(), TEN);
+  assert.equal(ALL1.filter((c) => c.class === "normative").length, 87);
+  assert.deepEqual(scopesOf(ALL1.filter((c) => c.class === "normative" && !c.expect.valid)), { single_mandate: 48, same_chain: 4, same_shape: 12, suite: 1 });
+  assert.deepEqual(ALL1.map((c) => [c.id, c.request, c.expect]), ALL.map((c) => [c.id, c.request, c.expect]));
+  // 2.0.0 changes the ten cases only: every other case keeps its anchor, controls and scope.
+  const before = new Map(ALL1.map((c) => [c.id, c]));
+  const changed = ALL.filter((c) => { const o = before.get(c.id); return o.class !== c.class || o.anchor !== c.anchor || o.control_scope !== c.control_scope || JSON.stringify(o.controls) !== JSON.stringify(c.controls); }).map((c) => c.id).sort();
+  assert.deepEqual(changed, TEN);
 });
 
 // ── The bytes sent ──────────────────────────────────────────────────
@@ -152,12 +170,18 @@ test("the scanner is strict: duplicate members, trailing data, bad escapes and b
 
 // ── Judgement ───────────────────────────────────────────────────────
 
-test("an honest implementation passes: 87 normative cases, 10 informative agree, wording and depth matched", () => {
+test("an honest implementation passes: 97 normative cases in 2.0.0, 87 and 10 informative that agree in 1.0.0, wording and depth matched", () => {
+  const one = run(answers(), { catalog: CATALOG1 });
+  assert.equal(one.code, 0, JSON.stringify(one.report.totals));
+  assert.deepEqual(one.report.totals, { cases: 87, executed: 87, pass: 87, fail: 0, error: 0 });
+  assert.deepEqual(one.report.informative_totals, { requested: 10, completed: 10, agrees: 10, differs: 0, error: 0 });
+  assert.equal(one.report.kit.catalog_version, "1.0.0");
   const { code, report } = run(answers());
   assert.equal(code, 0, JSON.stringify(report.totals));
   assert.equal(report.status, "pass");
-  assert.deepEqual(report.totals, { cases: 87, executed: 87, pass: 87, fail: 0, error: 0 });
-  assert.deepEqual(report.informative_totals, { requested: 10, completed: 10, agrees: 10, differs: 0, error: 0 });
+  assert.equal(report.kit.catalog_version, "2.0.0");
+  assert.deepEqual(report.totals, { cases: 97, executed: 97, pass: 97, fail: 0, error: 0 });
+  assert.deepEqual(report.informative_totals, { requested: 0, completed: 0, agrees: 0, differs: 0, error: 0 });
   for (const c of cases(report).filter((x) => x.class === "normative")) {
     if (c.expect.valid) assert.equal(c.diagnostic.depth, "matched", c.id);
     else assert.equal(c.diagnostic.wording, "matched", c.id);
@@ -166,13 +190,13 @@ test("an honest implementation passes: 87 normative cases, 10 informative agree,
   assert.ok(report.run.id && report.run.request_sha256);
 });
 
-test("accepting every chain fails exactly the 65 normative rejections", () => {
+test("accepting every chain fails exactly the 72 normative rejections", () => {
   const { code, report } = run(answers((c, a) => ({ ...a, valid: true, errors: [], effective_tier: c.expect.valid ? a.effective_tier : null })));
   assert.equal(code, 1);
   assert.equal(report.status, "fail");
   const failed = cases(report).filter((c) => c.status === "fail").map((c) => c.id).sort();
   assert.deepEqual(failed, NEGATIVES.map((c) => c.id).sort());
-  assert.equal(report.totals.pass, 22);
+  assert.equal(report.totals.pass, 25);
 });
 
 test("rejecting every chain fails the positives, and no rejection counts without its control", () => {
@@ -218,19 +242,30 @@ test("wording and depth are diagnostics: other messages, no message, other depth
   assert.ok(cases(report).filter((c) => c.class === "normative" && c.expect.valid).every((c) => c.diagnostic.depth === "differs"));
 });
 
-test("informative cases never decide the run: differing verdicts pass, a failed answer is an error", () => {
-  const flip = run(answers((c, a) => (c.class === "informative" ? { ...a, valid: !a.valid, errors: a.valid ? ["x"] : [], effective_tier: a.valid ? null : a.effective_tier } : a)));
+// The same wrong verdicts on the ten cases, judged by each version's own classification: never by the other's.
+const flipTen = (c, a) => (TEN.includes(c.id) ? { ...a, valid: !a.valid, errors: a.valid ? ["x"] : [], effective_tier: a.valid ? null : a.effective_tier } : a);
+
+test("1.0.0 (archived): its informative cases never decide the run: differing verdicts pass, a failed answer is an error", () => {
+  const flip = run(answers(flipTen), { catalog: CATALOG1 });
   assert.equal(flip.code, 0);
   assert.deepEqual(flip.report.informative_totals, { requested: 10, completed: 10, agrees: 0, differs: 10, error: 0 });
   assert.deepEqual(flip.report.totals, { cases: 87, executed: 87, pass: 87, fail: 0, error: 0 });
   for (const status of [{ status: "error", message: "boom" }, { status: "unsupported" }, { status: "ok", valid: "yes", errors: [], effective_tier: null, depth: 0 }]) {
     const one = Object.keys(INFORMATIVE)[0];
-    const { code, report } = run(answers((c, a) => (c.id === one ? status : a)));
+    const { code, report } = run(answers((c, a) => (c.id === one ? status : a)), { catalog: CATALOG1 });
     assert.equal(code, 3, JSON.stringify(status));
     assert.equal(report.status, "error");
     assert.equal(report.totals.error, 0, "the 87 normative cases still pass");
     assert.equal(report.informative_totals.error, 1);
   }
+});
+
+test("2.0.0: the ten cases are normative: the same differing verdicts fail exactly them", () => {
+  const { code, report } = run(answers(flipTen));
+  assert.equal(code, 1);
+  assert.deepEqual(cases(report).filter((c) => c.status === "fail").map((c) => c.id).sort(), TEN);
+  assert.deepEqual(report.informative_totals, { requested: 0, completed: 0, agrees: 0, differs: 0, error: 0 });
+  assert.ok(cases(report).every((c) => c.kind !== "control_failed"));
 });
 
 test("malformed, contradictory, rejected and unsupported answers are errors, never a verdict", () => {
@@ -311,9 +346,13 @@ test("a catalog that misclassifies, drops, repeats, reorders or overstates a cas
     ["an overstated control", (c) => { caseOf(c, sameShape).control_scope = "single_mandate"; return c; }],
     ["a same_chain claim on another chain", (c) => { caseOf(c, singleMandate).control_scope = "same_chain"; return c; }],
     ["a control that is a negative", (c) => { caseOf(c, singleMandate).controls = [sameShape]; return c; }],
-    ["an informative case made normative", (c) => { const x = caseOf(c, informative); delete x.basis; Object.assign(x, { class: "normative", anchor: "all_rules" }); return c; }],
+    ["the ten made informative again (the 1.0.0 classification)", (c) => {
+      for (const id of TEN) { const x = caseOf(c, id); for (const k of ["anchor", "controls", "control_scope"]) delete x[k]; Object.assign(x, { class: "informative", basis: INFORMATIVE[id] }); }
+      Object.assign(c, { informative_bases: CLASSIFICATIONS["1.0.0"].informative_bases, informative: INFORMATIVE });
+      return c;
+    }],
+    ["one case made informative", (c) => { c.informative[informative] = "signer_key_validity"; return c; }],
     ["a normative case made informative", (c) => { c.informative[NEGATIVES[0].id] = "millisecond_precision"; return c; }],
-    ["another basis", (c) => { c.informative[informative] = "signer_key_validity"; return c; }],
     ["a dropped case", (c) => { c.suites[0].cases.pop(); return c; }],
     ["a repeated case", (c) => { c.suites[2].cases.push(c.suites[2].cases[0]); return c; }],
     ["two cases swapped", (c) => { const s = c.suites[0].cases; [s[0], s[1]] = [s[1], s[0]]; return c; }],
@@ -325,6 +364,26 @@ test("a catalog that misclassifies, drops, repeats, reorders or overstates a cas
   ]) {
     const r = tampered({ catalog: edit });
     // Another contract routes to another loader, which refuses this catalog as well.
+    assert.equal(r.status, 3, `${what}: ${r.stderr}`);
+  }
+});
+
+test("each version keeps its own classification: a relabeled, re-serialized or unknown catalog is an infrastructure error", () => {
+  const list = (text) => {
+    const file = path.join(TMP, `catalog-${++n}.json`);
+    fs.writeFileSync(file, text);
+    return spawnSync(process.execPath, [CLI, "--catalog", file, "--list"], { encoding: "utf8" });
+  };
+  const archived = fs.readFileSync(CATALOG1, "utf8");
+  const current = JSON.parse(fs.readFileSync(CATALOG, "utf8"));
+  assert.equal(list(archived).status, 0, "the archived bytes load as 1.0.0");
+  for (const [what, text] of [
+    ["1.0.0 relabeled 2.0.0, its ten still informative", JSON.stringify({ ...JSON.parse(archived), catalog_version: "2.0.0" })],
+    ["2.0.0 relabeled 1.0.0, its ten normative", JSON.stringify({ ...current, catalog_version: "1.0.0" })],
+    ["1.0.0 re-serialized: the same JSON in other bytes", JSON.stringify(JSON.parse(archived))],
+    ["an unknown version", JSON.stringify({ ...current, catalog_version: "2.0.1" })],
+  ]) {
+    const r = list(text);
     assert.equal(r.status, 3, `${what}: ${r.stderr}`);
   }
 });

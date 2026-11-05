@@ -90,13 +90,19 @@ O [catálogo de validação de esquemas](../../../../tools/conformance/external-
 
 ### Amostras de política do verificador
 
-O [catálogo de políticas](../../../../tools/conformance/external-policy-catalog.json), de seleção explícita, acrescenta 74 casos pelo contrato `/2` existente: 10 controles positivos, 24 casos de PQ presente inválida, 14 casos de listas de algoritmos e advisories e 26 casos de tier já versionados. Cada solicitação leva sua política e seu instante de verificação exatos. O catálogo de evidências padrão permanece inalterado.
+O [catálogo de políticas](../../../../tools/conformance/external-policy-catalog.json), de seleção explícita, versão 2.0, acrescenta 108 casos em duas suítes pelo contrato `/2` existente. A primeira suíte mantém os 74 casos da versão 1.1: 10 controles positivos, 24 casos de PQ presente inválida, 14 casos de listas de algoritmos e advisories e 26 casos de tier já versionados. A segunda executa os 34 casos do esclarecimento de V2-10 (abaixo). Cada solicitação leva sua política e seu instante de verificação exatos. O catálogo de evidências padrão permanece inalterado, e a versão 1.1 está arquivada byte a byte como [`external-policy-catalog-1.1.json`](../../../../tools/conformance/external-policy-catalog-1.1.json).
 
 O novo controle híbrido de tier routine exercita `classical_only` efetivo e os outros três modos. O controle híbrido de tier standard eleva uma solicitação `classical_only` a `hybrid_preferred`. O corpus registra essa derivação; `/2` avalia o veredicto, não o tier nem o modo efetivo informado pela implementação.
 
 Os negativos PQ alteram somente a assinatura PQ do bundle, passaporte ou checkpoint; o componente clássico continua válido. Os casos de listas mantêm o mesmo bundle e alteram apenas a política. Os casos de tier reutilizam bundles versionados assinados separadamente e um controle routine sob o mesmo modo solicitado: não são pares de alteração única. Cada negativo exige que seu controle positivo passe na mesma execução.
 
-As exclusões de algoritmos clássicos sob `pq_only` continuam omitidas até esclarecer sua interpretação, sem veredicto esperado. O corpus registra casos adiados e questões de interpretação; uma combinação não testada não demonstra, por si só, uma contradição na especificação. Essas amostras não fecham a lacuna de esquemas nem estabelecem conformidade V2 completa.
+O esclarecimento do passo V2-10 do [VERIFICATION.md](../../../../spec/VERIFICATION.md) (05/11/2026) resolve as três questões do corpus. [`verifier_policy_clarification_vectors.json`](../../../../tests/interop/v2/verifier_policy_clarification_vectors.json) contém os seus casos, com bases routine para que cada modo solicitado seja o efetivo:
+
+- **Q1.** Sob `pq_only`, as exclusões de listas e advisories clássicos aceitam um bundle híbrido; sob `hybrid_required` as mesmas políticas o rejeitam.
+- **Q2.** Na assinatura do bundle, no passaporte e no checkpoint, um componente clássico que falha enquanto o componente PQ verifica sobre esses bytes clássicos é aceito sob `pq_only` e rejeitado nos outros três modos. Um `sig_b64` clássico não canônico e um kid clássico desconhecido são rejeitados sob `pq_only`.
+- **Q3.** As exclusões de listas e advisories PQ aceitam o bundle somente clássico sob `classical_only` e `hybrid_preferred`, e rejeitam o bundle híbrido sob a mesma política.
+
+`verifier_policy_vectors.json` conserva como histórico os seus casos Q1 omitidos. Os casos são uma amostra dessas regras: não cobrem todas as localizações, algoritmos ou estados de chave. Uma combinação não testada não demonstra, por si só, uma contradição na especificação. Essas amostras não fecham a lacuna de esquemas nem estabelecem conformidade V2 completa.
 
 <a id="structural-samples"></a>
 
@@ -129,18 +135,21 @@ Um avaliador que aceita um resultado de verificação pré-calculado confia que 
 
 ## Mapa de delegação
 
-O [catálogo externo de delegação](../../../../tools/conformance/external-delegation-catalog.json) executa os vetores versionados de [cadeias de mandatos](../../../../tests/interop/v2/mandate_chain_vectors.json), [tempos de cadeia](../../../../tests/interop/v2/mandate_chain_time_vectors.json) e [domínios repetidos](../../../../tests/interop/v2/mandate_domain_vectors.json) por meio de `verify_mandate_chain`. Cada caso normativo nomeia a sua regra do [DCP-09 §3.5.2](../../../../spec/DCP-09.md); são julgados o veredicto e, para uma cadeia aceita, o nível efetivo.
+O [catálogo externo de delegação](../../../../tools/conformance/external-delegation-catalog.json), versão 2.0.0, executa os vetores versionados de [cadeias de mandatos](../../../../tests/interop/v2/mandate_chain_vectors.json), [tempos de cadeia](../../../../tests/interop/v2/mandate_chain_time_vectors.json) e [domínios repetidos](../../../../tests/interop/v2/mandate_domain_vectors.json) por meio de `verify_mandate_chain`. Cada caso normativo nomeia a sua regra do [DCP-09 §3.5.2](../../../../spec/DCP-09.md); são julgados o veredicto e, para uma cadeia aceita, o nível efetivo.
 
 | Requisito | Superfície exercitada | Limite |
 |---|---|---|
 | Regras 1–2: assinaturas da raiz e do submandato, papéis e contextos dos signatários, vínculos com o pai, profundidade e `human_id` | `external.delegation.chain` | As chaves são dadas na requisição; o kit não estabelece que sejam as do principal ou dos agentes |
 | Regra 3: permissão de subdelegação e profundidade máxima | `external.delegation.chain` | As cadeias versionadas, não todas as profundidades |
-| Regra 4: janelas de validade, seu aninhamento e o horário de verificação como instantes RFC 3339 | `external.delegation.chain`, `external.delegation.chain_time` | A precisão de milissegundos e o `expires_at` das chaves signatárias são convenções dos SDKs, não do §3.5.2: esses dez casos são informativos |
+| Regra 4: janelas de validade, seu aninhamento e o horário de verificação como instantes RFC 3339, comparados em milissegundos | `external.delegation.chain`, `external.delegation.chain_time` | A precisão de milissegundos é normativa desde o esclarecimento do §3.5.2 (05/11/2026); a versão 1.0.0 do catálogo, arquivada, mantinha esses três casos informativos |
+| Regras 1–2: cada chave signatária ativa, com o seu `expires_at` ausente, `null` ou não anterior ao horário de verificação (esclarecimento de 05/11/2026) | `external.delegation.chain_time` | Sete casos sobre `expires_at`; nenhum caso tem uma chave cujo `status` não seja `active`. A versão 1.0.0 mantinha esses sete informativos |
 | Regra 5: atenuação de ações, classes de dados e limites; limites dentro de ±(2^53 − 1); um domínio repetido no mesmo mandato | `external.delegation.chain`, `external.delegation.domains` | Os textos de erro são diagnósticos; uma rejeição é julgada pelo seu veredicto |
 | Regra 6: piso de nível e nível efetivo | `external.delegation.chain` | O nível efetivo é julgado nas cadeias aceitas; `tier_floor` (`computeSecurityTier`) fica fora do catálogo |
 | Regra 7: revogação da raiz ou de um mandato intermediário | `external.delegation.chain` | A revogação é o conjunto local de ids revogados da requisição, não uma fonte de revogação |
 
 Uma rejeição só conta com o seu controle, uma cadeia aceita normativa cuja relação com ela (`same_chain`, `single_mandate`, `same_shape` ou `suite`) é verificada sobre os bytes. Nenhuma dessas relações mostra que os dois casos diferem por um único defeito. Uma cadeia verificada não é admissão nem autorização.
+
+A versão 1.0.0 do catálogo, arquivada byte a byte como [`external-delegation-catalog-1.0.0.json`](../../../../tools/conformance/external-delegation-catalog-1.0.0.json), julga 87 casos e informa à parte dez informativos; a versão 2.0.0 julga os 97. O runner fixa a classificação de cada versão, então um relatório 1.0.0 é evidência só da 1.0.0.
 
 <a id="claims-for-core-and-profiles"></a>
 

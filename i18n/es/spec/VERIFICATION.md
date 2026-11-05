@@ -5,7 +5,7 @@
 
 # Lista de verificación — Signed Bundle
 
-> Traducción informativa de [la especificación en inglés](../../../spec/VERIFICATION.md), actualizada el 28/10/2026. **La versión normativa es la inglesa**: esta traducción no tiene valor normativo y, si difieren, prevalece el inglés. Los identificadores y bloques de código se conservan sin traducir.
+> Traducción informativa de [la especificación en inglés](../../../spec/VERIFICATION.md), actualizada el 05/11/2026. **La versión normativa es la inglesa**: esta traducción no tiene valor normativo y, si difieren, prevalece el inglés. Los identificadores y bloques de código se conservan sin traducir.
 
 Todos los pasos son **locales**; no hace falta ninguna llamada a una API ni a un servidor. Un verificador solo necesita el Signed Bundle (y opcionalmente un conjunto de RevocationRecords firmados, procedentes de un par, de un archivo o de una lista anclada).
 
@@ -154,6 +154,36 @@ Aplica el modo efectivo (paso V2-9) y la configuración de la política del veri
 - Comprueba `advisory_rejected_algs`: rechaza si el bundle usa un algoritmo bloqueado por un aviso activo.
 
 Por tanto, un bundle `classical_only` con una intención `initiate_payment` se rechaza aunque su pasaporte declare `risk_tier: "low"`.
+
+> **Aclaración (05/11/2026, normativa).** Resuelve tres preguntas que este paso dejaba abiertas. No cambia ningún hash,
+> ninguna canonicalización, ningún formato de firma ni ningún otro paso, y no exige ningún aviso: un aviso es un
+> diagnóstico.
+>
+> - **Q1: listas clásicas bajo `pq_only`.** Cuando el modo efectivo es `pq_only`, no se exige que el componente
+>   clásico supere la verificación criptográfica; sus bytes siguen siendo obligatorios por `pq_over_classical`
+>   ([DCP-AI-v2.0.md](../../../spec/DCP-AI-v2.0.md) § 7.1, § 7.3). `accepted_classical_algs` y las entradas clásicas de
+>   `advisory_rejected_algs` no se le aplican: un verificador NO DEBE rechazar un bundle bajo `pq_only` solo porque su
+>   algoritmo clásico esté excluido por `accepted_classical_algs` o bloqueado por una entrada clásica de
+>   `advisory_rejected_algs`. Las listas PQ se aplican en todos los modos. De lo contrario, el paso a
+>   `pq_only` que DCP-AI-v2.0.md § 13.3 prescribe cuando se retiran todos los algoritmos clásicos rechazaría todo
+>   bundle híbrido.
+> - **Q2: un componente clásico que falla bajo `pq_only`.** Cuando el modo efectivo es `pq_only`, un componente clásico
+>   que no supera la verificación criptográfica (pasos V2-6 y V2-8, y V2-12 (3) para los checkpoints) no rechaza por sí
+>   solo el bundle, siempre que su componente PQ verifique sobre el mensaje firmado seguido de esos bytes de la firma
+>   clásica (`pq_over_classical`, paso V2-7). No se relaja nada más: siguen aplicándose la estructura y el base64
+>   canónico del paso V2-5 (incluido el `sig_b64` clásico), el contexto de cada firma, la búsqueda de cada kid en su
+>   lista de claves (incluido el kid clásico) y las comprobaciones de claves del paso V2-13. Un `sig_b64` clásico que no
+>   sea canónico, o un kid clásico que no nombre ninguna clave, sigue rechazando el bundle. Fuera de `pq_only` el
+>   componente clásico es obligatorio y DEBE verificar. `allow_classical_fallback_disable` cambia como mucho un aviso,
+>   nunca el veredicto. Esto no afirma que el componente clásico no pueda falsificarse.
+> - **Q3: listas PQ sobre un bundle sin componente PQ.** Una vinculación `classical_only` no usa ningún algoritmo PQ, así
+>   que `accepted_pq_algs` y las entradas PQ de `advisory_rejected_algs` no la rechazan. El modo efectivo decide si esa
+>   vinculación es aceptable: `classical_only` y `hybrid_preferred` la admiten; `hybrid_required` y `pq_only` la
+>   rechazan.
+>
+> Compatibilidad: los cinco verificadores de SDK de este repositorio ya dan estos veredictos, medidos sobre
+> `tests/interop/v2/verifier_policy_clarification_vectors.json`, y ninguno cambia. Una implementación que rechace un
+> bundle en los casos que Q1, Q2 o Q3 aceptan no es conforme en ese punto.
 
 <a id="step-v2-11-verify-dual-hash-audit-chain-if-present"></a>
 

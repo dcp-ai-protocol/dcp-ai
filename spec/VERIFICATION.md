@@ -124,6 +124,34 @@ Apply the effective mode (Step V2-9) and the verifier's policy configuration to 
 
 A `classical_only` bundle with an `initiate_payment` intent is therefore rejected even when its passport declares `risk_tier: "low"`.
 
+> **Clarification (05/11/2026, normative).** This settles three questions this step left open. It changes no hash, no
+> canonicalization, no signature format and no other step, and it requires no warning: a warning is a diagnostic.
+>
+> - **Q1: classical lists under `pq_only`.** When the effective mode is `pq_only`, successful cryptographic
+>   verification of the classical component is not required; its bytes remain required by `pq_over_classical`
+>   ([DCP-AI-v2.0.md](DCP-AI-v2.0.md) § 7.1, § 7.3). `accepted_classical_algs` and the classical entries of
+>   `advisory_rejected_algs` do not apply to it: a verifier MUST NOT reject a bundle under `pq_only` only because its
+>   classical algorithm is excluded by `accepted_classical_algs` or blocked by a classical entry of
+>   `advisory_rejected_algs`. The PQ lists apply in every mode. Otherwise the switch to `pq_only` that
+>   DCP-AI-v2.0.md § 13.3 prescribes once every classical algorithm is removed would reject every hybrid bundle.
+> - **Q2: a classical component that fails under `pq_only`.** When the effective mode is `pq_only`, a classical
+>   component that fails cryptographic verification (Steps V2-6 and V2-8, and V2-12 (3) for checkpoints) does not by
+>   itself reject the bundle, provided its PQ component verifies over the signed message followed by those classical
+>   signature bytes (`pq_over_classical`, Step V2-7). Nothing else is relaxed: the structure and canonical base64 of
+>   Step V2-5 (the classical `sig_b64` included), the context of each signature, the lookup of each kid in its key
+>   list (the classical kid included) and the key checks of Step V2-13 still apply. A classical `sig_b64` that is not
+>   canonical, or a classical kid that names no key, still rejects the bundle. Outside `pq_only` the classical
+>   component is required and MUST verify. `allow_classical_fallback_disable` changes a warning at most, never the
+>   verdict. This makes no claim that the classical component cannot be forged.
+> - **Q3: PQ lists on a bundle without a PQ component.** A `classical_only` binding uses no PQ algorithm, so
+>   `accepted_pq_algs` and the PQ entries of `advisory_rejected_algs` do not reject it. The effective mode decides
+>   whether that binding is acceptable: `classical_only` and `hybrid_preferred` admit it, `hybrid_required` and
+>   `pq_only` reject it.
+>
+> Compatibility: the five SDK verifiers of this repository already give these verdicts, measured on
+> `tests/interop/v2/verifier_policy_clarification_vectors.json`, and none of them changes. An implementation that
+> rejects a bundle in the cases Q1, Q2 or Q3 accept is not conformant on that point.
+
 ### Step V2-11: Verify dual-hash audit chain (if present)
 
 If audit entries include `prev_hash_secondary`, verify the secondary hash chain:

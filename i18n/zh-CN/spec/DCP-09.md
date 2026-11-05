@@ -267,6 +267,21 @@ Schema 参考：`schemas/v2/delegation_mandate.schema.json`
 6. **层级下限。** 父授权书有 `minimum_security_tier` 时，子授权书也有一个不低于它的值（`routine` < `standard` < `elevated` < `maximum`）。链的实际层级是链上最大的 `minimum_security_tier`；将其纳入 DCP-AI v2.0 §14.2 层级计算的验证方必须（MUST）只允许它提高层级。
 7. **撤销。** 链中没有任何授权书被撤销。被撤销的祖先会使其所有后代失效。
 
+> **澄清（05/11/2026，规范性）。** 本澄清把上述规则留下的两点规定为要求。它不改变任何字节、签名格式或上下文。
+>
+> - **精度。** 规则 4 的每个时刻（每个 `valid_from` 和 `valid_until`，以及验证时间）和下一项中的每个 `expires_at`
+>   都以毫秒精度比较，舍弃毫秒之后的数字，与 bundle 相同（[VERIFICATION.md](../../../spec/VERIFICATION.md) 步骤 V2-4）。
+> - **签名密钥。** 每个签名槽位通过 `kid` 指向的密钥条目必须（MUST）具有 `status` `"active"`，且其 `expires_at`
+>   不存在、为 `null`，或是不早于验证时间的 RFC 3339 时刻；否则拒绝该链。对于根的 `human_composite_sig`，这是人类
+>   委托人的密钥（规则 1）；对于子授权书的 `delegator_composite_sig`，这是委托代理的密钥（规则 2）。这就是 bundle 的
+>   密钥有效性（VERIFICATION.md 步骤 V2-13），在验证时间评估；以更早的时间验证链尚未定义。
+>
+> 不推断其他任何内容：对密钥的 `created_at` 没有任何要求。兼容性：本仓库的四个链验证器已经如此运行，且都不改变。
+> 毫秒精度和 `expires_at` 在 `tests/interop/v2/mandate_chain_time_vectors.json` 上测得；`status` 检查通过阅读其代码
+> 确认，因为没有任何向量的密钥 `status` 不是 `active`。以低于毫秒的精度比较这些时刻的实现，或
+> 接受由非活动、已过期或 `expires_at` 不是 RFC 3339 时刻的密钥签名的链的实现，在这一点上不符合规范。外部委托目录
+> 1.0.0 版作为参考性保留的十个用例，自其 2.0.0 版起为规范性用例。
+
 参考实现：`verifyMandateChain`（TypeScript）、`verify_mandate_chain`（Python 和 Rust）以及 `VerifyMandateChain`（Go）。`tests/interop/v2/mandate_chain_vectors.json` 包含每个实现都必须（MUST）接受的链和必须（MUST）拒绝的链，四个 SDK 的测试套件都会运行它。
 
 <a id="36-mandate-revocation"></a>
@@ -985,7 +1000,7 @@ A2A_HELLO 消息（DCP-04 第 3.2 节）扩展了一个可选的 `delegation` �
 - **SDK 中的链时间。** 链验证器把规则 4 的所有时间以及签名密钥的 `expires_at` 作为同一子集的 RFC 3339 时刻、以毫秒读取，
   并把验证时间向下截断到毫秒；`tests/interop/v2/mandate_chain_time_vectors.json` 包含四个 SDK 测试套件都会运行的已签名链。
   它们的默认时钟与 `verifyMandateValidity` 不同：Python 把 naive 的 `datetime` 视为 UTC，Go 把零时间视为当前时间。这在
-  `main` 上，不在已发布版本中。
+  `main` 上，不在已发布版本中。§ 3.5.2 的澄清（05/11/2026）使毫秒精度和签名密钥检查成为规范性要求。
 - **SDK 中的重复领域。** 链验证器把规则 5 的最后一句应用于链中的每一个授权书，包括根，并按精确字符串比较领域，不做
   大小写折叠、去除空白或 Unicode 规范化；以前，仅由一个重复某个领域的根组成的链会被接受。
   `tests/interop/v2/mandate_domain_vectors.json` 包含四个 SDK 测试套件都会运行的已签名链；其错误列表是 SDK 的诊断，

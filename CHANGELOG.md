@@ -661,6 +661,32 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Changed
 
+- Verifier policy, a dated clarification (05/11/2026, normative): `spec/VERIFICATION.md` Step V2-10 settles three
+  questions the policy corpus left open.
+  - Q1: under an effective `pq_only` mode, the classical algorithm lists and advisories do not apply to the classical
+    component.
+  - Q2: under `pq_only`, a classical component that fails cryptographic verification does not reject a bundle whose
+    PQ component verifies over those classical bytes. Canonical base64, contexts, kid lookup and key checks still
+    apply.
+  - Q3: PQ lists do not reject a bundle without a PQ component; the effective mode alone admits or rejects its binding.
+
+  `spec/DCP-AI-v2.0.md` § 7.3 replaces two items that read as if `pq_only` accepted a signature without
+  `pq_over_classical`, or a classical-only bundle with a warning. The five SDK verifiers already gave these verdicts,
+  so no SDK changes. `tests/interop/v2/verifier_policy_clarification_vectors.json` (34 cases, with its generator) is
+  new, and `verifier_policy_vectors.json` does not change. The opt-in policy catalog is now version
+  `2026-11-05.verifier-policy-2.0`, with a second suite, `external.v2.verifier_policy_clarification` (108 cases in
+  all). Version 1.1 (74 cases) is archived byte for byte as `tools/conformance/external-policy-catalog-1.1.json` and
+  still runs by its path.
+- Delegation, a dated clarification (05/11/2026, normative): DCP-09 §3.5.2 compares the instants of rule 4 and the
+  signer keys' `expires_at` in milliseconds, and requires the key each signature slot names to be `active` and
+  unexpired at the verification time, as for bundles (V2-4, V2-13). Nothing is required of `created_at`. The four
+  chain verifiers already behaved so, so no SDK changes. The opt-in delegation catalog is now version 2.0.0 and judges
+  all 97 cases: the ten `chain_time` cases version 1.0.0 kept informative are normative (rule 1 or 2 for the signer
+  keys, every rule for the three accepted chains). Version 1.0.0 is archived byte for byte as
+  `tools/conformance/external-delegation-catalog-1.0.0.json` and still runs by its path, with 87 normative and 10
+  informative cases. The runner pins each version's classification, so neither is judged with the other's. An
+  implementation that differed on one of the ten passed 1.0.0 and fails 2.0.0.
+
 - Translations now live under `i18n/<locale>/`, at the same path as their English source, which does not move:
   `<dir>/<name>.<locale>.md` is now `i18n/<locale>/<dir>/<name>.md` for `es`, `pt-BR`, `ja` and `zh-CN` (388
   files). The move changed only link paths: those in the moved files, and the language links of ten English

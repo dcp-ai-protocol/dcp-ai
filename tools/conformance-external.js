@@ -7,7 +7,8 @@
 // Without --catalog, the default catalog (contract /1, 38 cases) runs exactly as before. --catalog evidence selects
 // the opt-in evidence catalog (contract /2: Merkle roots, composite signatures, V2 bundle verification), and
 // --catalog admission the opt-in admission catalog (contract /3: strict-v1 admission and its configuration), and
-// --catalog delegation the opt-in delegation catalog (contract /4: DCP-09 mandate chain verdicts).
+// --catalog delegation the opt-in delegation catalog 2.0.0 (contract /4: DCP-09 mandate chain verdicts; the archived
+// 1.0.0 runs by its path, tools/conformance/external-delegation-catalog-1.0.0.json).
 // --assessment applies to a /2 catalog only: legacy (the default) judges as before; verdict judges the rejections that
 // carry an error_contains on verified=false alone and reports their wording as a diagnostic.
 //

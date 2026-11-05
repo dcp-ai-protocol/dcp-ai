@@ -1,6 +1,6 @@
 {
   "contract": "dcp-ai-conformance-external/2",
-  "catalog_version": "2026-10-31.verifier-policy-1.1 (opt-in)",
+  "catalog_version": "2026-11-05.verifier-policy-2.0 (opt-in)",
   "suites": [
     {
       "id": "external.v2.verifier_policy",
@@ -10,7 +10,7 @@
         "Opt-in: it does not change the default catalog (/1, 38 cases), the evidence catalog (/2, 241 cases), the admission catalog (/3, 140 cases) or the schema-closure diagnostic.",
         "Requested mode: default_mode and every risk_overrides entry of the case policy. The tier and the effective mode recorded with each case are derived from the signed intent and policy decision (DCP-AI-v2.0.md § 14.2, VERIFICATION.md V2-9) for the reader; contract /2 judges the verdict only and never compares a resolved tier or mode reported by an implementation.",
         "Effective classical_only is reached only by routine_hybrid, a bundle generated for this suite with the committed TEST-ONLY keys; the committed standard bundle raises a requested classical_only to hybrid_preferred.",
-        "Left out pending an interpretation, no expectation, not run: a classical exclusion (accepted_classical_algs or advisory_rejected_algs) under pq_only (question Q1 of the corpus). Future coverage, not built: an invalid classical component of the bundle or an artifact under pq_only (Q2; for a checkpoint V2-12 (3) already states the pq_only requirement) and lists on an absent PQ component (Q3).",
+        "Not in this suite: a classical exclusion (accepted_classical_algs or advisory_rejected_algs) under pq_only, kept in the corpus as omitted (question Q1), an invalid classical component under pq_only (Q2) and lists on an absent PQ component (Q3). The dated clarification of VERIFICATION.md V2-10 (05/11/2026) settles all three; external.v2.verifier_policy_clarification runs them.",
         "A negative counts only if its control passed: the same bundle under the same requested mode without the change, or, for the tier cases, the committed classical-only routine bundle under that mode, a per-mode control and not a single-change twin. Rejection messages are not judged."
       ],
       "expected_cases": [
@@ -89,9 +89,56 @@
         "external.v2.verifier_policy.classical_only_intent_estimated_impact_constructor.hybrid_preferred",
         "external.v2.verifier_policy.classical_only_intent_security_tier_constructor.hybrid_preferred"
       ]
+    },
+    {
+      "id": "external.v2.verifier_policy_clarification",
+      "title": "Verifier policy clarification: V2-10 Q1, Q2 and Q3 under exact policies and modes (verifier_policy_clarification_vectors.json)",
+      "claim": "Each case runs under its exact policy and verification_time, as the dated clarification of VERIFICATION.md V2-10 (05/11/2026) decides. Under pq_only, classical lists and advisories that exclude ed25519 do not reject a hybrid bundle (Q1); a bundle, passport or checkpoint signature whose classical component fails verification while its PQ component verifies over those classical bytes is accepted (Q2), but a classical sig_b64 that is not canonical base64, or a classical kid that names no key, is rejected. In the other modes the same exclusions and signatures are rejected. Under classical_only and hybrid_preferred, PQ lists and advisories do not reject a bundle without a PQ component, while the hybrid bundle under the same policy is rejected (Q3). Every negative counts only if its positive control passed in the same run.",
+      "limits": [
+        "Opt-in: it does not change the default catalog (/1, 38 cases), the evidence catalog (/2, 241 cases), the admission catalog (/3, 140 cases) or the 74 cases of external.v2.verifier_policy.",
+        "Two routine bases, routine_hybrid of verifier_policy_vectors.json and the classical-only routine bundle of bundle_vectors.json, bound by sha256: each requested mode is also the effective mode. The Q2 variants re-sign only a PQ component with the committed TEST-ONLY key; the scope variants change one value and keep every signature byte.",
+        "Only the verdict is judged. Warnings are diagnostics: allow_classical_fallback_disable changes a warning, never a verdict. Rejection messages are not judged."
+      ],
+      "expected_cases": [
+        "external.v2.verifier_policy_clarification.base.classical_only.positive",
+        "external.v2.verifier_policy_clarification.base.hybrid_preferred.positive",
+        "external.v2.verifier_policy_clarification.base.hybrid_required.positive",
+        "external.v2.verifier_policy_clarification.base.pq_only.positive",
+        "external.v2.verifier_policy_clarification.q1.pq_only.classical_alg_not_accepted",
+        "external.v2.verifier_policy_clarification.q1.hybrid_required.classical_alg_not_accepted",
+        "external.v2.verifier_policy_clarification.q1.pq_only.classical_alg_advisory_rejected",
+        "external.v2.verifier_policy_clarification.q1.hybrid_required.classical_alg_advisory_rejected",
+        "external.v2.verifier_policy_clarification.q2.bundle.classical_only",
+        "external.v2.verifier_policy_clarification.q2.bundle.hybrid_preferred",
+        "external.v2.verifier_policy_clarification.q2.bundle.hybrid_required",
+        "external.v2.verifier_policy_clarification.q2.bundle.pq_only",
+        "external.v2.verifier_policy_clarification.q2.passport.classical_only",
+        "external.v2.verifier_policy_clarification.q2.passport.hybrid_preferred",
+        "external.v2.verifier_policy_clarification.q2.passport.hybrid_required",
+        "external.v2.verifier_policy_clarification.q2.passport.pq_only",
+        "external.v2.verifier_policy_clarification.q2.checkpoint.classical_only",
+        "external.v2.verifier_policy_clarification.q2.checkpoint.hybrid_preferred",
+        "external.v2.verifier_policy_clarification.q2.checkpoint.hybrid_required",
+        "external.v2.verifier_policy_clarification.q2.checkpoint.pq_only",
+        "external.v2.verifier_policy_clarification.q2_scope.bundle.noncanonical_classical_sig_b64",
+        "external.v2.verifier_policy_clarification.q2_scope.bundle.unknown_classical_kid",
+        "external.v2.verifier_policy_clarification.q2_scope.passport.noncanonical_classical_sig_b64",
+        "external.v2.verifier_policy_clarification.q2_scope.passport.unknown_classical_kid",
+        "external.v2.verifier_policy_clarification.q3.classical_only.positive",
+        "external.v2.verifier_policy_clarification.q3.classical_only.pq_alg_not_accepted",
+        "external.v2.verifier_policy_clarification.q3_contrast.classical_only.pq_alg_not_accepted",
+        "external.v2.verifier_policy_clarification.q3.classical_only.pq_alg_advisory_rejected",
+        "external.v2.verifier_policy_clarification.q3_contrast.classical_only.pq_alg_advisory_rejected",
+        "external.v2.verifier_policy_clarification.q3.hybrid_preferred.positive",
+        "external.v2.verifier_policy_clarification.q3.hybrid_preferred.pq_alg_not_accepted",
+        "external.v2.verifier_policy_clarification.q3_contrast.hybrid_preferred.pq_alg_not_accepted",
+        "external.v2.verifier_policy_clarification.q3.hybrid_preferred.pq_alg_advisory_rejected",
+        "external.v2.verifier_policy_clarification.q3_contrast.hybrid_preferred.pq_alg_advisory_rejected"
+      ]
     }
   ],
   "limits": [
-    "Built only from tests/interop/v2/verifier_policy_vectors.json and the committed bundles of bundle_vectors.json it references by sha256; routine_hybrid is signed offline by its generator with the committed TEST-ONLY keys of interop_vectors.json#test_keys. Nothing is generated or signed by the runner."
+    "Built only from tests/interop/v2/verifier_policy_vectors.json, verifier_policy_clarification_vectors.json and the committed bundles they reference by sha256; routine_hybrid and the clarification variants are signed offline by their generators with the committed TEST-ONLY keys of interop_vectors.json#test_keys. Nothing is generated or signed by the runner.",
+    "Catalog 2026-10-31.verifier-policy-1.1 is archived byte for byte as external-policy-catalog-1.1.json and stays runnable: its 74 cases, their expectations and its reports remain the evidence of that version."
   ]
 }

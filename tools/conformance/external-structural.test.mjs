@@ -38,7 +38,7 @@ test("the default catalogs and the G1 and G2 corpora and catalogs are unchanged"
   assert.match(fileSha("tests/interop/v2/schema_closure_vectors.json"), /^79e1270d/);
   assert.match(fileSha("tools/conformance/external-schema-catalog.json"), /^79585454/);
   assert.match(fileSha("tests/interop/v2/verifier_policy_vectors.json"), /^674abbea/);
-  assert.match(fileSha("tools/conformance/external-policy-catalog.json"), /^310ade61/);
+  assert.match(fileSha("tools/conformance/external-policy-catalog-1.1.json"), /^310ade61/); // catalog 1.1, archived byte for byte when 2.0 added a suite
 });
 
 test("every bundle is schema-valid and the SDK-free checks give exactly its declared failures", () => {

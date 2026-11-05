@@ -698,6 +698,33 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
 
 ### Cambiado
 
+- Política del verificador, una aclaración fechada (05/11/2026, normativa): el paso V2-10 de `spec/VERIFICATION.md`
+  resuelve tres preguntas que el corpus de políticas dejaba abiertas.
+  - Q1: bajo un modo efectivo `pq_only`, las listas y advisories de algoritmos clásicos no se aplican al componente
+    clásico.
+  - Q2: bajo `pq_only`, un componente clásico que no supera la verificación criptográfica no rechaza un bundle cuyo
+    componente PQ verifica sobre esos bytes clásicos. Siguen aplicándose el base64 canónico, los contextos, la búsqueda
+    de kid y las comprobaciones de claves.
+  - Q3: las listas PQ no rechazan un bundle sin componente PQ; solo el modo efectivo admite o rechaza su vinculación.
+
+  `spec/DCP-AI-v2.0.md` § 7.3 sustituye dos puntos que se leían como si `pq_only` aceptara una firma sin
+  `pq_over_classical`, o un bundle solo clásico con un aviso. Los cinco verificadores de SDK ya daban estos veredictos,
+  así que ningún SDK cambia. `tests/interop/v2/verifier_policy_clarification_vectors.json` (34 casos, con su generador)
+  es nuevo, y `verifier_policy_vectors.json` no cambia. El catálogo opt-in de políticas es ahora la versión
+  `2026-11-05.verifier-policy-2.0`, con una segunda suite, `external.v2.verifier_policy_clarification` (108 casos en
+  total). La versión 1.1 (74 casos) está archivada byte a byte como `tools/conformance/external-policy-catalog-1.1.json`
+  y sigue ejecutándose por su ruta.
+- Delegación, una aclaración fechada (05/11/2026, normativa): DCP-09 §3.5.2 compara en milisegundos los instantes de
+  la regla 4 y el `expires_at` de las claves firmantes, y exige que la clave que nombra cada ranura de firma esté
+  `active` y sin caducar a la hora de verificación, como en los bundles (V2-4, V2-13). No se exige nada a
+  `created_at`. Los cuatro verificadores de cadenas ya se comportaban así, así que ningún SDK cambia. El catálogo opt-in
+  de delegación es ahora la versión 2.0.0 y juzga los 97 casos: los diez casos de `chain_time` que la versión 1.0.0
+  mantenía informativos son normativos (regla 1 o 2 para las claves firmantes, todas las reglas para las tres cadenas
+  aceptadas). La versión 1.0.0 está archivada byte a byte como
+  `tools/conformance/external-delegation-catalog-1.0.0.json` y sigue ejecutándose por su ruta, con 87 casos normativos
+  y 10 informativos. El runner fija la clasificación de cada versión, así que ninguna se juzga con la de la otra. Una
+  implementación que difería en uno de los diez pasaba la 1.0.0 y falla la 2.0.0.
+
 - Las traducciones están ahora bajo `i18n/<locale>/`, en la misma ruta que su fuente en inglés, que no se mueve:
   `<dir>/<name>.<locale>.md` pasa a ser `i18n/<locale>/<dir>/<name>.md` para `es`, `pt-BR`, `ja` y `zh-CN` (388
   archivos). El traslado solo cambió rutas de enlaces: las de los archivos movidos y los enlaces de idioma de diez
