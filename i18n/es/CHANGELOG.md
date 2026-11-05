@@ -328,6 +328,21 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
 
 ### Añadido
 
+- Pruebas diferenciales (`tools/difffuzz`), desarrolladas el 05/11/2026; sin cambios en SDK, manifiestos ni locks.
+  - `run-mandates.mjs` envía la misma cadena de mandatos DCP-09 re-firmada a los verificadores de cadenas de
+    TypeScript, Python, Go y Rust mediante el contrato `/4` (formato `dcp-mandatefuzz/1`). Cada ejecución cubre 73
+    variantes en 11 familias en cada profundidad a la que se aplican (167 casos) y después mutantes aleatorios acotados.
+    Mantiene controles positivos y de firma obsoleta en cada lote, escribe expectativas solo donde decide DCP-09
+    §3.5.2, el perfil de canonicalización o RFC 8259, y se detiene en el primer hallazgo para revisión. Su minimización
+    vuelve a firmar cada candidato y su replay está tipado y ligado por hashes.
+  - `--transport-probe` registra, por wrapper, qué hace el contrato `/4` con un token `NaN`, una marca de orden de
+    bytes y `1e400`: una observación. La negativa de un wrapper nunca cuenta como rechazo del SDK, y el rechazo que
+    devuelven los SDK de TypeScript y Python ante `1e400` no acredita ninguna regla semántica.
+  - El fuzzer de bundles admite `--sdks five` para añadir el SDK de Rust compilado a WASM (alojado en Node) como quinto
+    verificador. Los informes y los hallazgos nuevos registran su conjunto de SDK; los anteriores se reproducen con
+    exactamente cuatro.
+  - El job de CI diferencial ejecuta ambos arneses.
+
 - Kit de conformidad externa: un catálogo opt-in de delegación, `--catalog delegation` (contrato
   `dcp-ai-conformance-external/4`, `tools/conformance/external-delegation-catalog.json`, 97 casos de
   `mandate_chain_vectors.json`, `mandate_chain_time_vectors.json` y `mandate_domain_vectors.json`, fijados por

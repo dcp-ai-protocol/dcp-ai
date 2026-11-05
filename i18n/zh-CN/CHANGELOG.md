@@ -252,6 +252,18 @@
 
 ### 新增
 
+- 差分测试（`tools/difffuzz`），于 05/11/2026 开发；SDK、清单和锁文件均无变更。
+  - `run-mandates.mjs` 通过契约 `/4`（格式 `dcp-mandatefuzz/1`）把同一条重新签名的 DCP-09 委托书链发送给
+    TypeScript、Python、Go 和 Rust 的链验证器。每次运行在 11 个类别中 73 个变体适用的每个深度上覆盖一遍（167 个
+    用例），再执行有上限的随机变异体。每个批次都带有正向对照和过期签名对照，只有在 DCP-09 §3.5.2、规范化配置文件
+    或 RFC 8259 有规定时才写预期，并在第一个发现项处停止以供审查。其缩减会重新签名每个候选，其复现带类型并通过
+    哈希绑定。
+  - `--transport-probe` 按封装程序记录契约 `/4` 如何处理 `NaN` 标记、字节顺序标记和 `1e400`：这是观察。封装程序的
+    拒绝从不算作 SDK 的拒绝，TypeScript 和 Python 的 SDK 对 `1e400` 返回的拒绝也不作为任何语义规则的证据。
+  - bundle 模糊测试接受 `--sdks five`，把编译为 WASM 的 Rust SDK（由 Node 承载）作为第五个验证器加入。报告和新的
+    发现项记录其 SDK 集合；较早的发现项恰好用四个 SDK 复现。
+  - 差分测试的 CI 作业运行这两个工具。
+
 - 外部一致性工具包：选择性启用的委托目录 `--catalog delegation`（契约 `dcp-ai-conformance-external/4`，
   `tools/conformance/external-delegation-catalog.json`，来自 `mandate_chain_vectors.json`、
   `mandate_chain_time_vectors.json` 和 `mandate_domain_vectors.json` 的 97 个用例，以 SHA-256 固定）。其唯一操作

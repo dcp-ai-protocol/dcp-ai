@@ -22,6 +22,10 @@ export const ERROR_CODEPOINTS_MAX = 256;
 export const VERIFICATION_TIME = '2026-10-22T00:00:00Z';
 export const NOW_MS = Date.parse(VERIFICATION_TIME);
 export const SDKS = ['ts', 'py', 'go', 'rust'];
+// The SDK sets a run compares (--sdks). Every report and new finding records its set; a finding without one (every /2
+// and /3 file written before five existed) is four, and is replayed with exactly the four, never as five-SDK evidence.
+export const SDK_SETS = { four: SDKS, five: [...SDKS, 'wasm'] };
+export const sdkSetOf = (f) => (f.sdks === undefined ? 'four' : Object.keys(SDK_SETS).find((k) => JSON.stringify(SDK_SETS[k]) === JSON.stringify(f.sdks)));
 export const MODES = ['default', 'classical_only', 'hybrid_preferred', 'hybrid_required', 'pq_only'];
 
 export const DEFAULTS = {
@@ -29,6 +33,7 @@ export const DEFAULTS = {
   batchCases: 64, batchBytes: 16 << 20, caseBytes: 4 << 20, stdoutBytes: 8 << 20,
   maxFindings: 50, maxRetries: 200, minimizeSteps: 24, minimizeTotal: 96,
   python: process.env.DIFFFUZZ_PYTHON || 'python3', out: path.join(HERE, 'findings'), report: undefined, offline: false, replay: undefined,
+  sdks: 'four', sdksExplicit: false,
 };
 const INT_BOUNDS = {
   iterations: [0, 1_000_000], timeoutMs: [1000, KIT_LIMITS.maxTimeoutMs], buildTimeoutMs: [1000, 3_600_000],
@@ -86,7 +91,7 @@ export function validOutcome(o) {
     && (o.truncated === undefined || validMarker(o.errors, o.truncated));
   return exactKeys(o, ['category'], ['message']) && (o.message === undefined || typeof o.message === 'string');
 }
-const validOutcomes = (m) => isObj(m) && Object.keys(m).length === SDKS.length && SDKS.every((s) => validOutcome(m[s]));
+const validOutcomes = (m, sdks = SDKS) => isObj(m) && Object.keys(m).length === sdks.length && sdks.every((s) => validOutcome(m[s]));
 
 export class UsageError extends Error {}
 export class InfraError extends Error {}
@@ -96,7 +101,7 @@ const OPTION = {
   '--seed': 'seed', '--iterations': 'iterations', '--modes': 'modes', '--timeout': 'timeoutMs', '--timeout-ms': 'timeoutMs',
   '--build-timeout-ms': 'buildTimeoutMs', '--batch-cases': 'batchCases', '--batch-bytes': 'batchBytes', '--case-bytes': 'caseBytes',
   '--stdout-bytes': 'stdoutBytes', '--max-findings': 'maxFindings', '--max-retries': 'maxRetries', '--minimize-steps': 'minimizeSteps',
-  '--minimize-total': 'minimizeTotal', '--python': 'python', '--out': 'out', '--report': 'report', '--replay': 'replay',
+  '--minimize-total': 'minimizeTotal', '--python': 'python', '--out': 'out', '--report': 'report', '--replay': 'replay', '--sdks': 'sdks',
 };
 export function parseArgs(argv) {
   const o = { ...DEFAULTS, modes: [...DEFAULTS.modes] };
@@ -126,6 +131,10 @@ export function parseArgs(argv) {
     } else if (key === 'seed') {
       if (v === '' || v.length > 256) throw new UsageError('--seed must be 1 to 256 characters');
       o.seed = v;
+    } else if (key === 'sdks') {
+      if (!Object.hasOwn(SDK_SETS, v)) throw new UsageError(`--sdks takes ${Object.keys(SDK_SETS).join(' or ')}`);
+      o.sdks = v;
+      o.sdksExplicit = true;
     } else {
       if (v === '') throw new UsageError(`${m[1]} needs a value`);
       o[key] = v;
@@ -428,8 +437,8 @@ export async function runBatch(argv, cases, { timeoutMs, stdoutBytes, batchBytes
   return { request, observed, judged: judgeResponse(stdout, observed, request) };
 }
 
-/** Exactly the four shims, each a non-empty argv of strings, injected (tests) or built. */
-export function checkCommands(cmds) {
+/** Exactly the shims of the run's SDK set, each a non-empty argv of strings, injected (tests) or built. */
+export function checkCommands(cmds, SDKS = SDK_SETS.four) {
   const names = Object.keys(cmds ?? {});
   if (names.length !== SDKS.length || !SDKS.every((s) => names.includes(s))) throw new InfraError(`commands must be exactly ${SDKS.join(', ')}, got ${names.join(', ') || 'none'}`);
   for (const s of SDKS) if (!Array.isArray(cmds[s]) || !cmds[s].length || !cmds[s].every((x) => typeof x === 'string' && x !== '')) throw new InfraError(`the ${s} command is not a non-empty argv of strings`);
@@ -505,6 +514,7 @@ export const PROVENANCE_LIMITS = [
   'sdks/typescript/dist and sdks/typescript/src are both hashed; that the dist was built from that src is not verified.',
   'Only the directories of the direct runtime dependencies Node resolves for sdks/typescript are hashed; transitive dependencies are not recorded.',
   'The Python runtime is the interpreter version and five distribution versions it reports; its other modules are not recorded.',
+  'With --sdks five, wasm-pack builds sdks/rust (feature wasm, its Cargo.lock) in the run directory; the .wasm and its JavaScript glue are hashed with the wasm-pack version, but that the toolchain reproduces those bytes is not verified. It runs in Node, not in a browser.',
 ];
 
 /** Where Node finds a bare dependency of sdks/typescript/dist: the first node_modules/<name> going up from sdks/typescript. */
@@ -526,12 +536,21 @@ export function provenance(files, pythonRuntime) {
     ts_dependencies: Object.fromEntries(Object.keys(tsPkg.dependencies ?? {}).sort().map((d) => [d, nodeDependency(d)])),
     py_sdk_source: treeDigest(path.join(ROOT, 'sdks/python/dcp_ai')), py_runtime: pythonRuntime,
     go_sdk_source: treeDigest(path.join(ROOT, 'sdks/go')), rust_sdk_source: treeDigest(path.join(ROOT, 'sdks/rust/src')), rust_lock: fileSha(path.join(HERE, 'shims/rust/Cargo.lock')),
+    ...(files.wasm_pkg ? {
+      wasm_shim: fileSha(files.wasm_shim), wasm_binary: builtSha(path.join(files.wasm_pkg, 'dcp_ai_bg.wasm')), wasm_glue: builtSha(path.join(files.wasm_pkg, 'dcp_ai.js')),
+      wasm_pack: files.wasm_pack, rust_sdk_lock: fileSha(path.join(ROOT, 'sdks/rust/Cargo.lock')),
+    } : {}),
   };
 }
 
 export async function buildShims(o, tmp) {
   const deadline = performance.now() + o.buildTimeoutMs;
-  const left = () => Math.max(1000, Math.round(deadline - performance.now()));
+  // The deadline is checked before every step is launched, never extended to start one.
+  const left = () => {
+    const remaining = Math.floor(deadline - performance.now());
+    if (remaining < 1000) throw new InfraError(`the build deadline (--build-timeout-ms ${o.buildTimeoutMs}) leaves no time to start the next step`);
+    return remaining;
+  };
   const steps = [];
   const step = async (sdk, argv, cwd, env = {}, mode = 'log') => {
     const r = await bounded(argv, { cwd, env, timeoutMs: left(), mode });
@@ -552,10 +571,18 @@ export async function buildShims(o, tmp) {
   let pythonRuntime;
   try { pythonRuntime = JSON.parse(py); } catch { throw new InfraError(`the Python interpreter did not report its runtime: ${py.slice(0, 200)}`); }
   const files = { go_shim: goBin, rust_shim: path.join(rustTarget, 'release', 'difffuzz-rust-shim'), ts_shim: path.join(HERE, 'shims/ts/verify.mjs'), py_shim: path.join(HERE, 'shims/py/verify.py') };
-  return {
-    steps, files, artifacts: provenance(files, pythonRuntime), pythonRuntime,
-    commands: { ts: [process.execPath, files.ts_shim, '--batch'], py: [o.python, '-I', files.py_shim, '--batch'], go: [goBin, '--batch'], rust: [files.rust_shim, '--batch'] },
-  };
+  const commands = { ts: [process.execPath, files.ts_shim, '--batch'], py: [o.python, '-I', files.py_shim, '--batch'], go: [goBin, '--batch'], rust: [files.rust_shim, '--batch'] };
+  if ((o.sdks ?? 'four') === 'five') {
+    // The real public WASM verifier, built from this checkout into the run's own directory (never the shared
+    // tools/conformance/wrappers/.build), within the same build deadline.
+    files.wasm_pack = (await step('wasm', ['wasm-pack', '--version'], ROOT, {}, 'capture')).trim();
+    files.wasm_pkg = path.join(tmp, 'wasm-pkg');
+    await step('wasm', ['wasm-pack', 'build', path.join(ROOT, 'sdks/rust'), '--target', 'web', '--out-dir', files.wasm_pkg, '--mode', o.offline ? 'no-install' : 'normal',
+      '--', '--features', 'wasm', '--locked', ...(o.offline ? ['--offline'] : [])], ROOT, { CARGO_TARGET_DIR: path.join(tmp, 'wasm-target') });
+    files.wasm_shim = path.join(HERE, 'shims/wasm/verify.mjs');
+    commands.wasm = [process.execPath, files.wasm_shim, '--pkg', files.wasm_pkg, '--batch'];
+  }
+  return { steps, files, artifacts: provenance(files, pythonRuntime), pythonRuntime, commands };
 }
 
 // ── The campaign ──
@@ -565,7 +592,8 @@ export async function buildShims(o, tmp) {
  */
 export async function runCampaign(o, { commands: injected, seedsOverride, mutators: only, log = console.log } = {}) {
   const run = { id: crypto.randomUUID(), started_at: new Date().toISOString() };
-  const report = { tool: 'tools/difffuzz/run.mjs', protocol: PROTOCOL, run, status: 'incomplete', verification_time: VERIFICATION_TIME,
+  const SDKS = SDK_SETS[o.sdks ?? 'four'];
+  const report = { tool: 'tools/difffuzz/run.mjs', protocol: PROTOCOL, sdks: SDKS, run, status: 'incomplete', verification_time: VERIFICATION_TIME,
     sdk_campaign: !injected, injected_commands: Boolean(injected),
     options: { ...o, out: o.out && path.relative(ROOT, o.out) }, limits: { kit: KIT_LIMITS }, provenance_limits: PROVENANCE_LIMITS };
   const writeReport = () => { if (o.report) { fs.mkdirSync(path.dirname(path.resolve(o.report)), { recursive: true }); fs.writeFileSync(o.report, JSON.stringify(report, null, 2) + '\n'); } };
@@ -586,13 +614,13 @@ export async function runCampaign(o, { commands: injected, seedsOverride, mutato
   let exit = 0;
   let baselineComplete = false;
   try {
-    if (injected) checkCommands(injected);
+    if (injected) checkCommands(injected, SDKS);
     report.inputs = runInputs({ seedsOverride });
     const { seeds, basePolicy } = seedsOverride ?? loadSeeds();
     const seedBytes = seeds.map((s) => Buffer.from(serialize(s.doc)));
     if (!seeds.length) throw new InfraError('no V2 signed bundles found');
     built = injected ? { steps: [], artifacts: null, commands: injected } : await buildShims(o, tmp);
-    checkCommands(built.commands);
+    checkCommands(built.commands, SDKS);
     report.build = { steps: built.steps, artifacts: built.artifacts };
     const cmds = built.commands;
     fs.mkdirSync(o.out, { recursive: true });
@@ -645,7 +673,7 @@ export async function runCampaign(o, { commands: injected, seedsOverride, mutato
       const seed = seeds[job.seed];
       const file = `${o.seed}-${job.kind === 'baseline' ? 'baseline' : job.iteration}-${job.mode}-${findings.length + 1}.json`.replace(/[^\w.-]+/g, '_');
       const f = write({
-        file, classes, kind: job.kind, iteration: job.iteration ?? null, seed_name: seed.name, basis: seed.basis, mode: job.mode, expect: job.expect,
+        file, sdks: SDKS, classes, kind: job.kind, iteration: job.iteration ?? null, seed_name: seed.name, basis: seed.basis, mode: job.mode, expect: job.expect,
         policy: job.policy, now_ms: NOW_MS, mutations: job.mutations ?? [], outcomes, build_artifacts: built.artifacts, inputs: report.inputs,
         input_sha256: sha256(job.bytes), input_bytes: job.bytes.length, input_b64: job.bytes.toString('base64'),
         // The original control: the unmutated seed's own bytes, policy, declared expectation and baseline outcomes.
@@ -790,6 +818,7 @@ export async function runCampaign(o, { commands: injected, seedsOverride, mutato
 }
 
 async function minimize(job, finding, seeds, baselineOf, execute, o, stats) {
+  const SDKS = SDK_SETS[o.sdks ?? 'four'];
   const seedDoc = seeds[job.seed].doc;
   const control = { kind: 'control', seed: job.seed, mode: job.mode, policy: job.policy, bytes: Buffer.from(serialize(seedDoc)) };
   // The failure class and its distribution: each SDK keeps its decision (accept, reject or its non-definitive category).
@@ -845,7 +874,9 @@ export function checkFinding(f) {
   if (!isObj(f.policy) || !Number.isSafeInteger(f.now_ms) || typeof f.seed_name !== 'string' || !MODES.includes(f.mode)) bad('policy, now_ms, seed_name or mode missing or mistyped');
   if (!(f.expect === null || typeof f.expect === 'boolean') || (f.kind === 'mutant' && f.expect !== null)) bad('expect is not null or a boolean (always null for a mutant)');
   if (!Array.isArray(f.mutations) || !f.mutations.every((m) => exactKeys(m, ['mutator', 'detail']) && typeof m.mutator === 'string' && typeof m.detail === 'string')) bad('mutations are not {mutator, detail} strings');
-  if (!validOutcomes(f.outcomes)) bad('the outcomes are not exactly four typed SDK outcomes');
+  const set = sdkSetOf(f);
+  if (!set) bad(`sdks is not one of the sets ${Object.keys(SDK_SETS).join(', ')}`);
+  if (!validOutcomes(f.outcomes, SDK_SETS[set])) bad(`the outcomes are not exactly ${set === 'four' ? 'four' : 'five'} typed SDK outcomes`);
   const input = decode(f.input_b64, f.input_sha256, 'input_b64', bad);
   let minimized = null;
   if (f.minimization?.minimized_b64 !== undefined) minimized = decode(f.minimization.minimized_b64, f.minimization.minimized_sha256, 'minimized_b64', bad);
@@ -854,14 +885,14 @@ export function checkFinding(f) {
     const c = f.control;
     if (!exactKeys(c, ['seed_name', 'policy', 'expect', 'baseline_outcomes', 'input_sha256', 'input_b64'])) bad('a mutant finding records no original control');
     if (c.seed_name !== f.seed_name || JSON.stringify(c.policy) !== JSON.stringify(f.policy)) bad('the control names another seed or another policy');
-    if (!(c.expect === null || typeof c.expect === 'boolean') || !validOutcomes(c.baseline_outcomes)) bad('the control expectation or baseline outcomes are not typed');
+    if (!(c.expect === null || typeof c.expect === 'boolean') || !validOutcomes(c.baseline_outcomes, SDK_SETS[set])) bad('the control expectation or baseline outcomes are not typed');
     if (judgeJob({ expect: c.expect }, c.baseline_outcomes, () => null).length) bad('the recorded control did not pass its own baseline');
     control = { bytes: decode(c.input_b64, c.input_sha256, 'control.input_b64', bad), expect: c.expect, baseline: c.baseline_outcomes };
   } else if (f.control !== null && f.control !== undefined) bad('a baseline finding is its own seed and records no separate control');
   const reorderOnly = f.kind === 'mutant' && f.mutations.length > 0 && f.mutations.every((m) => m.mutator === 'reorder_keys');
   const derived = judgeJob({ expect: f.expect, reorderOnly }, f.outcomes, () => control?.baseline ?? null);
   if (!sameSet(derived, f.classes)) bad(`the recorded classes ${JSON.stringify(f.classes)} are not those of its own outcomes ${JSON.stringify(derived)}`);
-  return { input, minimized, control };
+  return { input, minimized, control, set };
 }
 
 /**
@@ -876,10 +907,14 @@ export async function replayFinding(o, { commands: injected, seedsOverride, log 
   const out = { replay: o.replay, run_id: crypto.randomUUID() };
   try {
     const f = JSON.parse(fs.readFileSync(o.replay, 'utf8'));
-    const { input, minimized, control } = checkFinding(f);
-    if (injected) checkCommands(injected);
-    const built = injected ? { commands: injected, artifacts: null } : await buildShims(o, tmp);
-    checkCommands(built.commands);
+    const { input, minimized, control, set } = checkFinding(f);
+    // The finding's own set, exactly: an explicit --sdks that names another set is refused, never a silent reduction.
+    if (o.sdksExplicit && o.sdks !== set) throw new InfraError(`the finding records the SDK set ${set}; --sdks ${o.sdks} conflicts with it`);
+    const SDKS = SDK_SETS[set];
+    out.sdks = SDKS;
+    if (injected) checkCommands(injected, SDKS);
+    const built = injected ? { commands: injected, artifacts: null } : await buildShims({ ...o, sdks: set }, tmp);
+    checkCommands(built.commands, SDKS);
     // Provenance differences are recorded, never repaired: the current fixture of the same name is not the control.
     const changed = [];
     const inputs = runInputs({ seedsOverride });

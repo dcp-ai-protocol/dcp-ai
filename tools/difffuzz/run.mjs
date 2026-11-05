@@ -6,6 +6,8 @@
 //     [--report FILE] [--offline] [--build-timeout-ms MS] [--batch-cases N] [--batch-bytes B] [--case-bytes B]
 //     [--stdout-bytes B] [--max-findings N] [--max-retries N] [--minimize-steps N] [--minimize-total N]
 //   node tools/difffuzz/run.mjs --replay findings/<file>.json [--python PATH] [--offline] [--report FILE]
+// --sdks four (default: TypeScript, Python, Go, Rust) or five (and the Rust SDK compiled to WASM, run by Node). A replay
+// uses the finding's own set; a finding without one is four, and an explicit --sdks that names another set is refused.
 //
 // Exit codes: 0 no finding, 1 at least one finding, 2 usage (checked before anything is built), 3 infrastructure or
 // harness fault (build, a shim outside the protocol, an exhausted retry budget, no declared-valid seed).

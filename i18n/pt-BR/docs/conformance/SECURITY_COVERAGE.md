@@ -151,6 +151,17 @@ Uma rejeição só conta com o seu controle, uma cadeia aceita normativa cuja re
 
 A versão 1.0.0 do catálogo, arquivada byte a byte como [`external-delegation-catalog-1.0.0.json`](../../../../tools/conformance/external-delegation-catalog-1.0.0.json), julga 87 casos e informa à parte dez informativos; a versão 2.0.0 julga os 97. O runner fixa a classificação de cada versão, então um relatório 1.0.0 é evidência só da 1.0.0.
 
+<a id="differential-samples"></a>
+
+### Amostras diferenciais
+
+Os [harnesses diferenciais](../../../../tools/difffuzz/README.md) comparam os SDKs sobre os mesmos bytes; a concordância nunca é o oráculo.
+
+- **Cadeias de mandatos.** `run-mandates.mjs` envia cadeias DCP-09 reassinadas aos quatro verificadores de cadeia pelo contrato `/4`: cada execução cobre 73 variantes em cada profundidade a que se aplicam (167 casos) e depois mutantes aleatórios limitados. Só os casos ancorados no §3.5.2, no perfil de canonicalização ou na RFC 8259 contam como evidência de regra. As observações e os casos cuja atribuição é limitada por um valor não assinável ou pela representação numérica são informados à parte; uma discordância entre eles continua a ser um achado.
+- **Bundles com WASM.** `run.mjs --sdks five` acrescenta aos quatro verificadores de bundles o SDK Rust compilado para WASM, executado pelo Node. Os achados de quatro SDKs nunca são lidos como evidência de cinco.
+
+Uma campanha finita mostra que esses casos concordam ou registra onde não concordam; não é exaustiva. O WASM não verifica cadeias de mandatos, e as entradas que o contrato `/4` não leva a todos os SDKs (um token `NaN`, uma marca de ordem de bytes, `1e400`) são medidas por uma sonda de transporte à parte: a recusa de um wrapper nunca conta como rejeição do SDK, e a rejeição que os SDKs de TypeScript e Python devolvem para `1e400` não credita nenhuma regra semântica.
+
 <a id="claims-for-core-and-profiles"></a>
 
 ## Alegações sobre o núcleo e os perfis

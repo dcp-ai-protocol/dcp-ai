@@ -305,6 +305,19 @@
 
 ### 追加
 
+- 差分テスト（`tools/difffuzz`）。05/11/2026 に開発。SDK、マニフェスト、ロックの変更はありません。
+  - `run-mandates.mjs` は、署名し直した同じ DCP-09 委任状チェーンを、契約 `/4`（形式 `dcp-mandatefuzz/1`）を通じて
+    TypeScript、Python、Go、Rust のチェーン検証器に送ります。各実行は、11 系統の 73 バリアントを適用できる各深さで
+    網羅し（167 ケース）、その後、上限のあるランダム変異体を実行します。各バッチに肯定対照と古い署名の対照を含め、
+    DCP-09 §3.5.2、正規化プロファイル、RFC 8259 が決める場合だけ期待値を書き、最初の検出事項でレビューのために
+    停止します。縮小は各候補を署名し直し、再現は型付きでハッシュに結び付けられています。
+  - `--transport-probe` は、契約 `/4` が `NaN` トークン、バイトオーダーマーク、`1e400` をどう扱うかをラッパーごとに
+    記録します。これは観察です。ラッパーの拒否が SDK の拒否として数えられることはなく、TypeScript と Python の SDK
+    が `1e400` に返す拒否も意味上の規則の証拠にはなりません。
+  - bundle のファザーは `--sdks five` で、WASM にコンパイルした Rust SDK（Node でホスト）を 5 番目の検証器として
+    加えます。レポートと新しい検出事項は SDK 集合を記録し、以前の検出事項はちょうど 4 SDK で再現します。
+  - 差分テストの CI ジョブが両方のハーネスを実行します。
+
 - 外部適合性キット：オプトインの委任カタログ `--catalog delegation`（契約 `dcp-ai-conformance-external/4`、
   `tools/conformance/external-delegation-catalog.json`、`mandate_chain_vectors.json`、`mandate_chain_time_vectors.json`、
   `mandate_domain_vectors.json` の 97 ケース、SHA-256 で固定）。唯一の操作 `verify_mandate_chain` は、チェーンと鍵を

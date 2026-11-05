@@ -1,6 +1,6 @@
-# Differential fuzzing of the four V2 bundle verifiers (tools/difffuzz).
-# The same mutated signed bundle goes through the TypeScript, Python, Go and
-# Rust SDKs; any disagreement, crash or timeout fails the job.
+# Differential testing (tools/difffuzz). The same mutated signed V2 bundle goes through the TypeScript, Python, Go and
+# Rust SDKs, and in a separate five-SDK run also through the Rust SDK compiled to WASM (Node-hosted); the same re-signed
+# DCP-09 mandate chain goes through the four SDKs that verify chains. Any disagreement, crash or timeout fails the job.
 
 name: Differential fuzzing
 
@@ -42,6 +42,11 @@ jobs:
           go-version-file: sdks/go/go.mod
 
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
       - name: Build the TypeScript SDK
         working-directory: sdks/typescript
@@ -49,10 +54,18 @@ jobs:
           npm install
           npm run build
 
+      # The mandate harness (tools/difffuzz) imports tweetnacl and @noble/post-quantum from the root manifest and lock,
+      # which sdks/typescript/node_modules does not provide in a clean checkout. No manifest or lock is changed.
+      - name: Install the root dependencies from the lock
+        run: npm ci --ignore-scripts
+
       # Controlled child processes test the harness, not SDK verdicts. Run after the build because
       # the provenance test also requires the actual TypeScript source and dist fingerprints.
       - name: Self-tests of the fuzzer
         run: node --test tools/difffuzz/difffuzz.test.mjs
+
+      - name: Self-tests of the mandate chain harness (no SDK)
+        run: node --test tools/difffuzz/mandate-fuzz.test.mjs
 
       - name: Install the Python SDK
         run: pip install -e sdks/python
@@ -61,7 +74,9 @@ jobs:
         working-directory: tools/difffuzz/shims/go
         run: go test -mod=readonly .
 
-      - name: Bounded diagnostic tests with the four SDKs
+      - name: Bounded diagnostic tests with the five shims (WASM built into the test's own directory)
+        env:
+          DIFFFUZZ_SDKS: five
         run: node --test tools/difffuzz/real-shims.test.mjs
 
       - name: Fuzz
@@ -69,6 +84,20 @@ jobs:
           ITERATIONS: ${{ github.event_name == 'schedule' && '3000' || github.event.inputs.iterations || '300' }}
           SEED: ${{ github.event.inputs.seed || github.run_id }}
         run: node tools/difffuzz/run.mjs --iterations "$ITERATIONS" --seed "$SEED" --report tools/difffuzz/findings/report.json
+
+      # The five-SDK run: a separate report and SDK set, so four-SDK findings are never read as five-SDK evidence.
+      - name: Fuzz with five SDKs (WASM included)
+        env:
+          ITERATIONS: ${{ github.event_name == 'schedule' && '1000' || '60' }}
+          SEED: ${{ github.event.inputs.seed || github.run_id }}
+        run: node tools/difffuzz/run.mjs --sdks five --iterations "$ITERATIONS" --seed "$SEED" --out tools/difffuzz/findings/five --report tools/difffuzz/findings/report-five.json
+
+      # Every variant at every depth once (the coverage sweep), then random re-signed mutants; stops at the first finding.
+      - name: Mandate chains through the four SDKs
+        env:
+          ITERATIONS: ${{ github.event_name == 'schedule' && '600' || '120' }}
+          SEED: ${{ github.event.inputs.seed || github.run_id }}
+        run: node tools/difffuzz/run-mandates.mjs --iterations "$ITERATIONS" --seed "$SEED" --report tools/difffuzz/findings/mandates-report.json
 
       - name: Upload findings
         if: failure()

@@ -151,6 +151,17 @@ PQ 负向用例仅修改 bundle、护照或检查点中的 PQ 签名，经典签
 
 目录 1.0.0 版按字节原样存档为 [`external-delegation-catalog-1.0.0.json`](../../../../tools/conformance/external-delegation-catalog-1.0.0.json)，判定 87 个用例，并单独报告十个参考性用例；2.0.0 版判定全部 97 个。运行器固定每个版本的分类，因此 1.0.0 版的报告只是 1.0.0 版的证据。
 
+<a id="differential-samples"></a>
+
+### 差分样例
+
+[差分测试工具](../../../../tools/difffuzz/README.md)在相同字节上比较各 SDK；一致从来不是判定依据。
+
+- **委托书链。** `run-mandates.mjs` 通过契约 `/4` 把重新签名的 DCP-09 链发送给四个链验证器：每次运行在 73 个变体适用的每个深度上覆盖一遍（167 个用例），再执行有上限的随机变异体。只有以 §3.5.2、规范化配置文件或 RFC 8259 为依据的用例才算作规则证据。观察以及归因受无法签名的值或数字表示限制的用例单独报告；它们之间的分歧仍然是发现项。
+- **含 WASM 的 bundle。** `run.mjs --sdks five` 把编译为 WASM、由 Node 运行的 Rust SDK 加入四个 bundle 验证器。四个 SDK 的发现项从不被当作五个 SDK 的证据。
+
+有限的活动只能表明这些用例一致，或记录不一致之处；它并非穷尽。WASM 不验证委托书链；契约 `/4` 不会送达每个 SDK 的输入（`NaN` 标记、字节顺序标记、`1e400`）由单独的传输探测测量：封装程序的拒绝从不算作 SDK 的拒绝，TypeScript 和 Python 的 SDK 对 `1e400` 返回的拒绝也不作为任何语义规则的证据。
+
 <a id="claims-for-core-and-profiles"></a>
 
 ## 核心与配置文件的声明范围
