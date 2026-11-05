@@ -370,8 +370,17 @@ fn shape_errors(m: &Map<String, Value>) -> Vec<String> {
     match scope {
         None => errors.push("missing or invalid authority_scope".into()),
         Some(scope) => {
+            // A domain twice in one mandate is not comparable, at any depth (rule 5). Domains
+            // are exact strings: no case folding, trimming or Unicode normalization. Each
+            // repeated domain is reported once, at its second entry.
+            let mut count: HashMap<&str, u32> = HashMap::new();
             for e in scope {
                 let domain = e["domain"].as_str().unwrap_or_default();
+                let seen = count.entry(domain).or_default();
+                *seen += 1;
+                if *seen == 2 {
+                    errors.push(format!("authority_scope domain \"{domain}\" is duplicated"));
+                }
                 let limits = e.get("limits").and_then(Value::as_object);
                 for (key, v) in limits.into_iter().flatten() {
                     if v.is_number() && comparable_limit(v).is_none() {

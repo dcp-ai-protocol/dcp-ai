@@ -257,7 +257,13 @@ def _shape_errors(m: dict[str, Any]) -> list[str]:
     if not isinstance(scope, list) or not scope or not all(_scope_entry_ok(e) for e in scope):
         errors.append("missing or invalid authority_scope")
     else:
+        # A domain twice in one mandate is not comparable, at any depth (rule 5). Domains are exact strings: no case
+        # folding, trimming or Unicode normalization. Each repeated domain is reported once, at its second entry.
+        count: dict[str, int] = {}
         for e in scope:
+            count[e["domain"]] = count.get(e["domain"], 0) + 1
+            if count[e["domain"]] == 2:
+                errors.append(f'authority_scope domain "{e["domain"]}" is duplicated')
             for key, v in e.get("limits", {}).items():
                 if _is_json_number(v) and not _is_comparable_number(v):
                     errors.append(f'limits.{key} for domain "{e["domain"]}" is not comparable')

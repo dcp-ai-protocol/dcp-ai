@@ -4,7 +4,7 @@
 
 # DCP-AI API 参考
 
-> 本文是[英文版](../../../docs/API_REFERENCE.md)的参考译文，更新于 04/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/API_REFERENCE.md)的参考译文，更新于 05/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 本文是 `main` 上的 TypeScript SDK `@dcp-ai/sdk`（软件包版本 2.2.1，协议 DCP v2.0）的参考文档。
 
@@ -1684,6 +1684,10 @@ interface AuthorityScopeEntry {
 有效期窗口、权限收窄（操作、数据类别和限额只能缩小：子条目以子集形式重述父级的
 `data_classes`，数值限额只作为 ±(2^53−1) 范围内的整数进行比较）、`minimum_security_tier`
 下限以及吊销（被吊销的祖先会使所有后代失效），遇到任何未知情况都以失败即关闭方式处理。
+同一委托书的 `authority_scope` 中出现两次的领域，无论处于哪个深度、包括根，都不可比较并导致链被拒绝；每个领域报告
+一次，形式为 `mandate[i]: authority_scope domain "…" is duplicated`。领域按精确字符串比较，不做大小写折叠、去除空白或
+Unicode 规范化。四个 SDK 测试套件运行 `tests/interop/v2/mandate_domain_vectors.json` 中的已签名链，其错误列表是这些
+SDK 的诊断，而不是协议要求。这在 `main` 上，不在已发布版本中。
 
 它读取的所有时间都是各 SDK 已经解析的子集中的 RFC 3339 时刻，以毫秒比较，从不按文本比较，两端都包含：每份委托书的
 `valid_from` 和 `valid_until`、它们在父级窗口中的嵌套，以及两个槽位签名密钥的 `expires_at`。年 0000 以及跨越年 0000 或

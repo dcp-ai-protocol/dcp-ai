@@ -300,7 +300,9 @@ nested validity windows, attenuation (actions, `data_classes` and `limits` only 
 floor and revocation. It reads every time as an RFC 3339 instant in milliseconds, year 0000 and offsets that cross
 year 0000 or 9999 included, and floors `now` to the millisecond. `now=None`, the default, is the current time. A naive `now` is read
 as UTC, as before and unlike `verify_mandate_validity`, and any other `now` that is not a `datetime` gives
-`verification time is not an instant` (on `main`, not in a published version). `verify_mandate_validity(mandate, revoked_ids, now=...)` checks one mandate's `mandate_id`,
+`verification time is not an instant` (on `main`, not in a published version). A domain repeated in one mandate's `authority_scope`, the root
+included, rejects the chain; domains are compared as exact strings, with no case folding, trimming or Unicode
+normalization (on `main`, not in a published version). `verify_mandate_validity(mandate, revoked_ids, now=...)` checks one mandate's `mandate_id`,
 local revocation and validity window at an aware `now` (the current time by default; a naive `datetime` is refused).
 It uses RFC 3339 instants in milliseconds, both limits included, and a missing, malformed or inverted window is
 invalid. The revoked IDs must be a set (a `set`, a `frozenset` or a dict keys view); a list or a string is refused.

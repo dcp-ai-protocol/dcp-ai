@@ -5,7 +5,7 @@
 
 # DCP-09: Delegação e representação
 
-> Tradução informativa da [especificação em inglês](../../../spec/DCP-09.md), atualizada em 04/11/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
+> Tradução informativa da [especificação em inglês](../../../spec/DCP-09.md), atualizada em 05/11/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
 
 ## Status
 Publicada — v2.0 (extensão; as revisões são acompanhadas conforme o retorno de quem a adota)
@@ -990,6 +990,12 @@ Uma implementação está em conformidade com o DCP-09 se:
   baixo no milissegundo; `tests/interop/v2/mandate_chain_time_vectors.json` contém cadeias assinadas que as quatro suítes
   de SDK executam. Os seus relógios padrão diferem dos de `verifyMandateValidity`: Python lê um `datetime` naive como UTC
   e Go lê o instante zero como o horário atual. Isso está na `main`, não em uma versão publicada.
+- **Domínios repetidos nos SDKs.** Os verificadores de cadeia aplicam a última frase da regra 5 a todos os mandatos da
+  cadeia, inclusive à raiz, e comparam os domínios como strings exatas, sem dobra de maiúsculas, recorte nem
+  normalização Unicode; antes era aceita uma cadeia formada só por uma raiz que repetia um domínio.
+  `tests/interop/v2/mandate_domain_vectors.json` contém cadeias assinadas que as quatro suítes de SDK executam; as suas
+  listas de erros são diagnósticos dos SDKs, não um requisito desta especificação. Isso está na `main`, não em uma versão
+  publicada.
 - Os exemplos são ilustrações com marcadores, não fixtures. Valores fracionários como `"confidence": 0.95` não podem
   ser canonicalizados com `dcp-jcs-v1`, então esses registros não podem ser assinados como estão escritos. Para os
   tipos do SDK, consulte [docs/API_REFERENCE.md](../../../docs/API_REFERENCE.md).

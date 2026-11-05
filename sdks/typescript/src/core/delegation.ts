@@ -234,7 +234,12 @@ function mandateShapeErrors(m: Record<string, unknown>): string[] {
   if (!Array.isArray(m.authority_scope) || m.authority_scope.length === 0 || !m.authority_scope.every(isScopeEntry)) {
     errors.push('missing or invalid authority_scope');
   } else {
+    // A domain twice in one mandate is not comparable, at any depth (rule 5). Domains are exact strings: no case
+    // folding, trimming or Unicode normalization. Each repeated domain is reported once, at its second entry.
+    const count = new Map<string, number>();
     for (const entry of m.authority_scope as AuthorityScopeEntry[]) {
+      count.set(entry.domain, (count.get(entry.domain) ?? 0) + 1);
+      if (count.get(entry.domain) === 2) errors.push(`authority_scope domain "${entry.domain}" is duplicated`);
       for (const [key, v] of Object.entries(entry.limits ?? {})) {
         if (typeof v === 'number' && !isComparableNumber(v)) errors.push(`limits.${key} for domain "${entry.domain}" is not comparable`);
       }

@@ -8,7 +8,7 @@
 
 **Publicação Go (26/10/2026).** O SDK Go `v2.11.0` está disponível pela tag `sdks/go/v2.11.0`, incluindo correções do verificador, admissão e APIs experimentais opt-in. A publicação Rust continua independente. Veja [Go v2.11.0](../../../../docs/GO_RELEASE.md).
 
-> Tradução informativa do [README em inglês](../../../../sdks/go/README.md), atualizada em 04/11/2026. Identificadores e blocos de código, incluindo comentários, são preservados no idioma original para manter os exemplos verificados.
+> Tradução informativa do [README em inglês](../../../../sdks/go/README.md), atualizada em 05/11/2026. Identificadores e blocos de código, incluindo comentários, são preservados no idioma original para manter os exemplos verificados.
 
 SDK oficial em Go para o Digital Citizenship Protocol (DCP) v1.0 e v2.0. Suporta Ed25519, ML-DSA-65, SLH-DSA-192f, ML-KEM-768, assinaturas compostas, cadeias de hash duplas e verificação de bundles.
 
@@ -282,7 +282,7 @@ if !result.Admitted {
 | `v2.CreateDelegationMandate(reg, humanClassical, humanPQ, params)` | Mandato raiz assinado pela pessoa; `SubDelegation` e `MinimumSecurityTier` são opcionais |
 | `v2.CreateSubMandate(reg, delegatorClassical, delegatorPQ, parent, v2.SubMandateParams{...})` | Submandato assinado pelo agente do mandato pai sob o contexto `DCP-AI.v2.SubMandate` |
 | `v2.VerifyMandateValidity(mandate, revokedIDs)` / `v2.VerifyMandateValidityAt(mandate, revokedIDs, now)` | O `mandate_id`, a revogação local e a janela de validade de um mandato em `now` (instantes RFC 3339 em milissegundos, com os dois limites incluídos); uma janela ausente, malformada ou invertida não é válida. Não verifica assinatura, escopo nem cadeia, e não autoriza nada. Na `main`, não em uma versão publicada. `…At` usa `now` tal como é dado: o instante zero é o ano 1, não o horário atual |
-| `v2.VerifyMandateChain(reg, chain, revokedIDs, v2.MandateChainKeys{HumanKeys, AgentKeys}, now)` | Verifica a cadeia offline, começando pela raiz (assinaturas até a pessoa, vínculos e profundidade, `sub_delegation`, validade aninhada, restrição de ações, `data_classes` e `limits`, nível mínimo e revogação); retorna `MandateChainResult{Valid, Errors, Depth, EffectiveTier}`. Os tempos são instantes RFC 3339 em milissegundos; `now` é truncado no milissegundo e comparado como `time.Time`, e o instante zero é o horário atual (na `main`, não em uma versão publicada) |
+| `v2.VerifyMandateChain(reg, chain, revokedIDs, v2.MandateChainKeys{HumanKeys, AgentKeys}, now)` | Verifica a cadeia offline, começando pela raiz (assinaturas até a pessoa, vínculos e profundidade, `sub_delegation`, validade aninhada, restrição de ações, `data_classes` e `limits`, nível mínimo e revogação); retorna `MandateChainResult{Valid, Errors, Depth, EffectiveTier}`. Os tempos são instantes RFC 3339 em milissegundos; `now` é truncado no milissegundo e comparado como `time.Time`, e o instante zero é o horário atual (na `main`, não em uma versão publicada). Um domínio repetido no `authority_scope` de um mesmo mandato, inclusive na raiz, faz a cadeia ser rejeitada; os domínios são comparados como strings exatas, sem dobra de maiúsculas, recorte nem normalização Unicode (na `main`, não em uma versão publicada) |
 
 `SecurityTierInput.MandateChainTier` usa o `EffectiveTier` da cadeia como um piso que só pode elevar o nível.
 

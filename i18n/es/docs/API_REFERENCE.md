@@ -4,7 +4,7 @@
 
 # Referencia de la API de DCP-AI
 
-> Traducción informativa de [la versión en inglés](../../../docs/API_REFERENCE.md), actualizada el 04/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../docs/API_REFERENCE.md), actualizada el 05/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Referencia del SDK de TypeScript `@dcp-ai/sdk` tal como está en `main` (versión del paquete 2.2.1, protocolo DCP v2.0).
 
@@ -1690,6 +1690,12 @@ verificación; comprueba la firma de cada salto hasta la persona, el enlace con 
 de validez anidadas, la atenuación (las acciones, las clases de datos y los límites solo pueden restringirse: una entrada hija repite los
 `data_classes` del padre como subconjunto, y los límites numéricos solo se comparan como enteros dentro de ±(2^53−1)), el nivel mínimo `minimum_security_tier`
 y la revocación (un ancestro revocado invalida a todos sus descendientes), y falla cerrado ante cualquier cosa desconocida.
+Un dominio que aparece dos veces en el `authority_scope` de un mismo mandato, a cualquier profundidad y también en la
+raíz, no es comparable y hace rechazar la cadena; se informa una vez por dominio como
+`mandate[i]: authority_scope domain "…" is duplicated`. Los dominios se comparan como cadenas exactas, sin plegado de
+mayúsculas, recorte ni normalización Unicode. Las cuatro suites de SDK ejecutan las cadenas firmadas de
+`tests/interop/v2/mandate_domain_vectors.json`, cuyas listas de errores son diagnósticos de estos SDK, no un requisito
+del protocolo. Esto está en `main`, no en una versión publicada.
 
 Todos los tiempos que lee son instantes RFC 3339 del subconjunto que ya leen los SDK, comparados en milisegundos y nunca
 como texto, con los dos límites incluidos: el `valid_from` y el `valid_until` de cada mandato, su anidamiento en la

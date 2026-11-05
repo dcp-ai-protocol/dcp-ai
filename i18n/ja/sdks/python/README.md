@@ -2,7 +2,7 @@
 
 # dcp-ai — Python SDK
 
-> [英語版](../../../../sdks/python/README.md)の参考訳です（04/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../../sdks/python/README.md)の参考訳です（05/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 Digital Citizenship Protocol（DCP v2.0）の公式 Python SDK です。Pydantic v2 のモデル、ポスト量子のハイブリッド署名（Ed25519 + ML-DSA-65、および SLH-DSA-192f）、ML-KEM-768 の KEM プリミティブ、`pq_over_classical` バインディングを持つ複合署名、V1 と V2 のバンドルの署名と検証、OpenTelemetry によるオブザーバビリティ、DCP-04 から DCP-09 までの動作、そして充実した CLI を備えています。
 
@@ -330,6 +330,9 @@ result = await admit_signed_bundle_v2(signed_bundle, registry, profile=profile, 
 `now` をミリ秒に切り捨てます。既定の `now=None` は現在時刻です。naive な `now` は以前と同じく UTC として読み（`verify_mandate_validity` とは
 異なる）、それ以外の `datetime` でない `now` は `verification time is not an instant` になります（`main` にあり、公開済みの
 バージョンには含まれない）。
+1 つの委任状の `authority_scope` で繰り返されるドメインは、ルートでもチェーンを拒否させます。ドメインは文字列そのもの
+として比較され、大文字小文字の同一視、空白の除去、Unicode の正規化は行いません（`main` にあり、公開済みのバージョンには
+含まれない）。
 `verify_mandate_validity(mandate, revoked_ids, now=...)` は、aware な `now`（既定は現在時刻。naive な `datetime` は
 拒否）で一つの委任状の `mandate_id`、ローカルな失効、有効期間を確認します。ミリ秒単位の RFC 3339 の瞬間を使い、両端を
 含みます。欠落した、不正な形の、または逆転した期間は無効です。失効した ID は集合（`set`、`frozenset`、dict のキービュー）

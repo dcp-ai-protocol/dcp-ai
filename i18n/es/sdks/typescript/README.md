@@ -5,7 +5,7 @@
 
 # @dcp-ai/sdk — SDK de TypeScript para DCP-AI v2.0
 
-> Traducción informativa de [la versión en inglés](../../../../sdks/typescript/README.md), actualizada el 04/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../../sdks/typescript/README.md), actualizada el 05/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 SDK oficial de TypeScript para el Digital Citizenship Protocol (DCP-AI). Crea, firma y verifica Citizenship Bundles con criptografía híbrida poscuántica (Ed25519 + ML-DSA-65), firmas compuestas, niveles de seguridad adaptativos, comunicación entre agentes (A2A), observabilidad integrada y refuerzo para producción.
 
@@ -382,7 +382,7 @@ se verifica sin conexión hasta llegar a la persona.
 | `createDelegationMandate(registry, humanKeys, params)` | Mandato raíz firmado por la persona (`human_composite_sig`); `sub_delegation` y `minimum_security_tier` son opcionales |
 | `createSubMandate(registry, delegatorKeys, parent, params)` | Submandato firmado por el agente del padre (`delegator_composite_sig`, contexto `DCP-AI.v2.SubMandate`) |
 | `verifyMandateValidity(mandate, revokedIds, now?)` | El `mandate_id`, la revocación local y la ventana de validez de un mandato en `now` (instantes RFC 3339 en milisegundos, con los dos límites incluidos); una ventana ausente, malformada o invertida no es válida. No comprueba firma, ámbito ni cadena, y no autoriza nada. En `main`, no en una versión publicada; devuelve `{ valid, reason? }` |
-| `verifyMandateChain(registry, chain, revokedIds, keys, now?)` | Verifica la cadena empezando por la raíz: firmas hasta la persona, enlaces con el padre y profundidad, `sub_delegation`, ventanas de validez anidadas, atenuación (acciones, `data_classes` y `limits` solo se restringen), el nivel de seguridad mínimo y la revocación; devuelve `{ valid, errors, depth, effective_tier }`. Los tiempos son instantes RFC 3339 en milisegundos y `now` se trunca hacia abajo al milisegundo; un valor de reloj inválido (`NaN`, `Infinity`, un `Date` inválido u otro tipo) da `verification time is not an instant` (en `main`, no en una versión publicada) |
+| `verifyMandateChain(registry, chain, revokedIds, keys, now?)` | Verifica la cadena empezando por la raíz: firmas hasta la persona, enlaces con el padre y profundidad, `sub_delegation`, ventanas de validez anidadas, atenuación (acciones, `data_classes` y `limits` solo se restringen), el nivel de seguridad mínimo y la revocación; devuelve `{ valid, errors, depth, effective_tier }`. Los tiempos son instantes RFC 3339 en milisegundos y `now` se trunca hacia abajo al milisegundo; un valor de reloj inválido (`NaN`, `Infinity`, un `Date` inválido u otro tipo) da `verification time is not an instant` (en `main`, no en una versión publicada). Un dominio repetido en el `authority_scope` de un mismo mandato, también en la raíz, hace rechazar la cadena; los dominios se comparan como cadenas exactas, sin plegado de mayúsculas, recorte ni normalización Unicode (en `main`, no en una versión publicada) |
 
 ```typescript
 // Fragment, not a complete program: registry and nonce as in the V2 Quick Start; rootMandate, orchestratorKeys and the key entries come from your delegation setup; intent and policyDecision are the V2 payloads.

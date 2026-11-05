@@ -5,7 +5,7 @@
 
 # DCP-09: Delegación y representación
 
-> Traducción informativa de [la especificación en inglés](../../../spec/DCP-09.md), actualizada el 04/11/2026. **La versión normativa es la inglesa**: esta traducción no tiene valor normativo y, si difieren, prevalece el inglés. Los identificadores y bloques de código se conservan sin traducir.
+> Traducción informativa de [la especificación en inglés](../../../spec/DCP-09.md), actualizada el 05/11/2026. **La versión normativa es la inglesa**: esta traducción no tiene valor normativo y, si difieren, prevalece el inglés. Los identificadores y bloques de código se conservan sin traducir.
 
 <a id="status"></a>
 
@@ -1004,6 +1004,12 @@ Una implementación es conforme con DCP-09 si:
   que ejecutan las cuatro suites de SDK. Sus relojes por defecto difieren de los de `verifyMandateValidity`: Python toma
   un `datetime` naive como UTC y Go toma el instante cero como la hora actual. Esto está en `main`, no en una versión
   publicada.
+- **Dominios repetidos en los SDK.** Los verificadores de cadena aplican la última frase de la regla 5 a todos los
+  mandatos de la cadena, también a la raíz, y comparan los dominios como cadenas exactas, sin plegado de mayúsculas,
+  recorte ni normalización Unicode; antes se aceptaba una cadena formada solo por una raíz que repetía un dominio.
+  `tests/interop/v2/mandate_domain_vectors.json` contiene cadenas firmadas que ejecutan las cuatro suites de SDK; sus
+  listas de errores son diagnósticos de los SDK, no un requisito de esta especificación. Esto está en `main`, no en una
+  versión publicada.
 - Los ejemplos son ilustraciones con marcadores, no fixtures. Los valores fraccionarios como `"confidence": 0.95` no
   pueden canonicalizarse con `dcp-jcs-v1`, así que esos registros no pueden firmarse tal como están escritos. Para los
   tipos del SDK, consulta [docs/API_REFERENCE.md](../../../docs/API_REFERENCE.md).
