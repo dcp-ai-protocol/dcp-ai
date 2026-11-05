@@ -163,7 +163,7 @@ A peer's tree heads only count when they verify under its **pinned** public key:
 `<endpoint>#<base64 Ed25519 public key>` in `GOSSIP_PEERS`, or `public_key` in
 `POST /gossip/peers`. Polled tree heads from a peer without a pinned key, malformed ones or ones
 with a bad signature are ignored. A poll reads at most 16 KB, gives up after one interval
-(10 s at most), and never starts while the previous one is still running. `/gossip/exchange` is open, so it only accepts a well-formed
+(10 s at most), and never starts while the previous one is still running. Polling starts with the service when `GOSSIP_PEERS` lists peers, or with the first peer an accepted `POST /gossip/peers` adds (a refused request starts nothing). Then one periodic cycle, every `GOSSIP_INTERVAL_MS`, polls the peers in turn; a tick is skipped while the previous cycle is still running, so a slow cycle or many peers mean a peer is not necessarily polled every interval. `/gossip/exchange` is open, so it only accepts a well-formed
 STH (64-hex or null `root`, integer `size`) signed by a pinned peer, in a body of at most 16 KB
 (otherwise 400 or 403). Anyone may hand it a pinned peer's head they were shown.
 

@@ -548,6 +548,11 @@
 
 ### 修复
 
+- 透明日志：对于未设置 `GOSSIP_PEERS` 而启动的日志，通过 `POST /gossip/peers` 添加的对等节点从未被轮询（`main`
+  上的源代码，不在任何已发布版本中）。轮询只在启动时开始，而且只针对已配置的对等节点。现在第一次被接受的添加会启动
+  轮询。`startPolling` 保持单一调度，因此重复添加或替换不会使轮询成倍增加，被拒绝的请求（401 或 400）也不会启动
+  任何轮询。每次轮询仍最多读取 16 KB，并在间隔与 10 秒中较短者之后超时；循环从不重叠，别名在此期间发生变化的应答仍会被丢弃。交换、已固定的
+  密钥、告警和其他端点均不变。
 - **接受范围变更：Go 的 `v2.VerifyPayloadHash` 现在检查规范的 `payload_hash`**（`main` 上的源代码，尚未发布；Go v2.11.1 仍有该缺陷）。
   它原先把不带前缀的十六进制 SHA-256 与 `payload_hash` 比较，因此对 `SignPayload` 的输出和所有符合 schema 的值（`sha256:<hex>`）返回 `false`，对不带前缀的摘要返回 `true`。
   现在只有当 `payload_hash` 恰好是 `"sha256:"` 后接 `dcp-jcs-v1` 字节的小写十六进制 SHA-256 时才返回 `true`，这正是 `SignPayload`、`schemas/v2/signed_payload.schema.json` 以及 TypeScript、Python 和 Rust 辅助函数使用的值。

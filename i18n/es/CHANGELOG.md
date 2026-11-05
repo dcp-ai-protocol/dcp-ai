@@ -752,6 +752,13 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
 
 ### Corregido
 
+- Registro de transparencia: un par añadido por `POST /gossip/peers` a un registro iniciado sin `GOSSIP_PEERS` nunca
+  se consultaba (código fuente de `main`, no está en ninguna versión publicada). El sondeo solo empezaba al arrancar,
+  y solo con pares configurados. Ahora lo inicia la primera alta aceptada. `startPolling` mantiene un único
+  calendario, así que las altas repetidas o los reemplazos no multiplican las consultas, y una petición rechazada
+  (401 o 400) no inicia nada. Cada consulta sigue leyendo 16 KB como máximo y agota el tiempo tras el intervalo o 10 s, lo
+  que sea menor; los ciclos nunca se solapan, y una respuesta cuyo alias cambió entretanto se sigue descartando. El intercambio, las claves
+  fijadas, las alertas y los demás endpoints no cambian.
 - **Cambio de aceptación: `v2.VerifyPayloadHash` de Go comprueba ahora el `payload_hash` normativo**
   (código fuente de `main`, no publicado; Go v2.11.1 conserva el defecto). Comparaba el SHA-256 en hex
   sin prefijo con `payload_hash`, así que devolvía `false` para la salida de `SignPayload` y para todo
