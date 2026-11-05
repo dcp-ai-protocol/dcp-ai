@@ -2,7 +2,7 @@
 
 # 已发布的 npm 软件包
 
-> [英文版](../../../docs/NPM_RELEASES.md)的参考译文，更新于 30/10/2026。如有差异，以英文版为准。
+> [英文版](../../../docs/NPM_RELEASES.md)的参考译文，更新于 05/11/2026。如有差异，以英文版为准。
 
 已于 2026 年 10 月 28 日核实：`@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1 和 `@dcp-ai/cli` 2.1.1 已使用 `latest` 标签发布；表中其他十个软件包不变。软件包版本与 DCP 线格式/规范版本及仓库标签相互独立。
 
@@ -58,6 +58,8 @@ npx --package=@dcp-ai/cli@2.1.1 dcp-ai --help
 它修正了 `dualMerkleRoot` 和原始导出 `wasm_dual_merkle_root`：它们现在按 `verifyBundle` 早已使用的 [VERIFICATION.md 的 V2-11](../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) 归约计算双 Merkle 根（使用 32 字节原始摘要，奇数层复制最后一个节点）。2.1.1 及更早版本对十六进制文本做哈希，并把奇数层的最后一个节点原样上移，因此两个或更多叶节点的根与 V2-11 不同。2.1.1 及更早版本接受的格式错误的叶节点现在会返回错误：每个叶节点都必须是 32 字节十六进制摘要。接受大写十六进制，根以小写返回。空数组给出与之前相同的错误（`dualMerkleRoot` 抛出异常），结果仍保留 `sha256` 和 `sha3_256` 两个字段。
 
 `verifyBundle`、其他 API、`dcp-jcs-v1` 以及实验性且需显式启用的 `dcp-jcs-v2` API 均不变，也没有新增 JavaScript API。tarball 不再包含翻译版 README，它们现在位于仓库的 `i18n/` 目录树中。其中的 WebAssembly 来自 Rust `dcp-ai` 2.12.0，同样已准备、尚未发布（见 [Rust](../../../docs/RUST_RELEASE.md)）。
+
+> **说明（05/11/2026）。** 上面几段写于 30/10/2026，针对已准备的 2.1.2，该版本仍未发布。自 #116（02/11/2026）起，`main` 上的 `verifyBundle` 在其封装的 Rust 核心中执行 V2-2 模式校验；已准备的 2.1.2 不包含这一更改，因此在 `main` 上 `verifyBundle` 并非不变。从之后的提交构建的 WASM 版本会包含它。`main` 上清单文件中的版本号不能确定这个候选版本：`main` 带着这些版本号以及之后的更改。见[审计资料](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts)。
 
 <a id="related-releases"></a>
 

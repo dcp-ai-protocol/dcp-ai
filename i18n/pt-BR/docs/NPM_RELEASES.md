@@ -2,7 +2,7 @@
 
 # Pacotes publicados no npm
 
-> Tradução informativa da [versão em inglês](../../../docs/NPM_RELEASES.md), atualizada em 30/10/2026. Em caso de divergência, prevalece a versão em inglês.
+> Tradução informativa da [versão em inglês](../../../docs/NPM_RELEASES.md), atualizada em 05/11/2026. Em caso de divergência, prevalece a versão em inglês.
 
 Verificado em 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 e `@dcp-ai/cli` 2.1.1 estão publicados com a tag `latest`; os outros dez pacotes da tabela não mudam. As versões dos pacotes são independentes da versão do formato/especificação DCP e das tags do repositório.
 
@@ -58,6 +58,8 @@ Em `@dcp-ai/sdk` 2.2.0 e posteriores e em `@dcp-ai/wasm` 2.1.0 e posteriores, `d
 Corrige `dualMerkleRoot` e a exportação bruta `wasm_dual_merkle_root`: agora calculam a raiz Merkle dupla com a redução da [VERIFICATION.md V2-11](../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) que `verifyBundle` já usava (digests brutos de 32 bytes; numa camada ímpar o último nó é duplicado). A 2.1.1 e anteriores fazem hash do texto hex e sobem sem alteração o último nó ímpar, então suas raízes de duas ou mais folhas diferem da V2-11. Folhas malformadas, que a 2.1.1 e anteriores aceitavam, agora são um erro: cada folha deve ser um digest hex de 32 bytes. Hex em maiúsculas é aceito e a raiz é devolvida em minúsculas. Um array vazio dá o mesmo erro de antes (`dualMerkleRoot` lança uma exceção), e o resultado mantém seus dois campos, `sha256` e `sha3_256`.
 
 `verifyBundle`, as demais APIs, `dcp-jcs-v1` e as APIs experimentais opt-in `dcp-jcs-v2` não mudam, e nenhuma API JavaScript é adicionada. O tarball não contém mais os READMEs traduzidos, que agora ficam na árvore `i18n/` do repositório. O WebAssembly vem do Rust `dcp-ai` 2.12.0, também preparado e não publicado (veja [Rust](../../../docs/RUST_RELEASE.md)).
+
+> **Nota (05/11/2026).** Os parágrafos acima foram escritos em 30/10/2026 para a 2.1.2 preparada, que continua sem publicação. Desde o #116 (02/11/2026), `verifyBundle` na `main` executa a validação de esquemas V2-2 no núcleo Rust que encapsula; a 2.1.2 preparada não contém essa mudança, então na `main` `verifyBundle` não está inalterado. Uma versão WASM construída a partir de um commit posterior a conteria. Os números de versão dos manifestos da `main` não identificam este candidato: a `main` os leva com as mudanças posteriores. Veja o [dossiê de auditoria](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts).
 
 <a id="related-releases"></a>
 

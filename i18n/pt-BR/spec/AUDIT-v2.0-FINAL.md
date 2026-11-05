@@ -5,20 +5,20 @@
 
 # Auditoria de segurança final do DCP-AI v2.0 — as 13 lacunas verificadas como fechadas
 
-> Tradução informativa da [versão em inglês](../../../spec/AUDIT-v2.0-FINAL.md), atualizada em 25/10/2026. **Registro histórico datado**: não descreve o estado atual. Em caso de divergência, prevalece a versão em inglês.
+> Tradução informativa da [versão em inglês](../../../spec/AUDIT-v2.0-FINAL.md), atualizada em 05/11/2026. **Registro histórico datado**: não descreve o estado atual. Em caso de divergência, prevalece a versão em inglês.
 
 **Data da auditoria:** 2026-02-26  
 **Auditor:** DCP-AI Protocol Governance  
 **Escopo:** Verificação completa do fechamento das lacunas do DCP-AI v2.0, fase 3  
 **Resultado:** AS 13 LACUNAS FECHADAS  
 
-> **Registro histórico, mantido como foi escrito.** Esta auditoria é datada de 26/02/2026. Revisões posteriores (outubro de 2026) ressalvam algumas das suas conclusões; o estado atual está nos documentos aqui vinculados, não neste registro:
+> **Registro histórico, mantido como foi escrito.** É uma revisão interna da governança do projeto, datada de 26/02/2026: não é uma auditoria externa independente nem uma garantia atual. Revisões posteriores (outubro e novembro de 2026) ressalvam algumas das suas conclusões; o estado atual está nos documentos vinculados aqui e no [dossiê de auditoria](../../../docs/conformance/AUDIT_DOSSIER.md), não neste registro:
 >
 > - **Lacuna nº 11 e a implementação de referência de HSM.** `HsmCryptoProvider` e `HsmProviderFactory` são um padrão simulado, não uma integração com HSM. Não são exportados por `@dcp-ai/sdk` e não têm vinculação PKCS#11; `sign` devolve um hash em vez de uma assinatura, e `verify` aceita qualquer assinatura do tamanho certo. Não devem ser usados para evidência real ([docs/NIST_CONFORMITY.md](../../../docs/NIST_CONFORMITY.md) §2.2).
 > - **Lacuna nº 1.** A recuperação de chaves do SDK e `dcp recovery-setup` produzem as partes de Shamir, mas não as cifram com o KEM híbrido.
 > - **Lacuna nº 4.** O servidor de referência confere a estrutura do `composite_sig` de um aviso, não a sua assinatura; o token de operador é a sua proteção ([server/README.md](../../../server/README.md)).
 > - **Modo apenas PQ.** `pq_only` continua precisando dos bytes da assinatura clássica nos verificadores dos SDKs: a assinatura PQ os cobre sob `pq_over_classical`, então isso não significa que o componente clássico possa ser omitido.
-> - **Lacuna nº 6.** Os auxiliares de hash duplo existem, mas os verificadores não recalculam `prev_hash_secondary` nem `audit_merkle_root_secondary` ([VERIFICATION.md](../../../spec/VERIFICATION.md), V2-11).
+> - **Lacuna #6.** Desde 28/10/2026, os verificadores publicados (`@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1, Go v2.11.1, Rust `dcp-ai` 2.11.1) verificam `prev_hash_secondary`, `intent_hash_secondary` e `audit_merkle_root_secondary` quando presentes ([VERIFICATION.md](../../../spec/VERIFICATION.md), V2-11 e a sua errata); as versões anteriores não. Esses campos opcionais não são obrigatórios, então um bundle verificado ainda pode não ter uma cadeia secundária completa.
 > - **`dcp audit gaps`** confere que arquivos existem e contêm marcadores, não o comportamento. Em 25/10/2026 ele informa a lacuna nº 7 como aberta, porque procura `integrations/fastapi/__init__.py`, que agora é `sdks/python/dcp_ai/fastapi/__init__.py`.
 
 ---

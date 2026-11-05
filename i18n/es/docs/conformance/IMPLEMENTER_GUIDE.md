@@ -23,7 +23,7 @@ Lee la [descripción del núcleo](../../spec/core/dcp-core.md) y después los do
 
 La división entre núcleo y perfiles organiza la especificación; no exime a una implementación V2 de sus comprobaciones obligatorias. Las aplicaciones, las fuentes de red, las cachés y los handlers protegidos pertenecen a las integraciones. Mantén sus garantías de aplicación de las reglas separadas de la verificación del núcleo.
 
-La especificación es la autoridad. Rust/WASM y los demás SDK son referencias de implementación, no definiciones normativas alternativas. Puede ser adecuado reutilizar una biblioteca de referencia, pero declara esa dependencia en vez de presentar el resultado como una implementación independiente de su lógica de verificación.
+Para una revisión de seguridad, empieza por el [expediente de auditoría](AUDIT_DOSSIER.md): su base, sus comandos de reproducción, sus artefactos y sus límites conocidos. La especificación es la autoridad. Rust/WASM y los demás SDK son referencias de implementación, no definiciones normativas alternativas. Puede ser adecuado reutilizar una biblioteca de referencia, pero declara esa dependencia en vez de presentar el resultado como una implementación independiente de su lógica de verificación.
 
 <a id="freeze-a-reproducible-input-set"></a>
 

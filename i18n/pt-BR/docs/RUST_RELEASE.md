@@ -2,7 +2,7 @@
 
 # Crate Rust publicado
 
-> Tradução informativa do [original em inglês](../../../docs/RUST_RELEASE.md), revisada em 30/10/2026. Os identificadores e exemplos de código são preservados sem tradução.
+> Tradução informativa do [original em inglês](../../../docs/RUST_RELEASE.md), revisada em 05/11/2026. Os identificadores e exemplos de código são preservados sem tradução.
 
 Verificado em 28/10/2026: [`dcp-ai` 2.11.1](https://crates.io/crates/dcp-ai/2.11.1) está disponível no crates.io. A publicação anterior, [2.11.0](https://crates.io/crates/dcp-ai/2.11.0), foi verificada em 26/10/2026; suas notas são mantidas abaixo. A versão do crate é independente da versão do formato/especificação DCP. O crate Rust é publicado de forma independente de npm, Python, Go e contêineres.
 
@@ -56,6 +56,8 @@ A 2.12.0 está preparada no repositório desde 30/10/2026, mas não publicada no
 - **Corrige `wasm_dual_merkle_root` (com a feature `wasm`).** Agora calcula a raiz Merkle dupla com a redução da [VERIFICATION.md V2-11](../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) que o verificador de bundles usa (digests brutos de 32 bytes; numa camada ímpar o último nó é duplicado), e devolve um erro para uma folha que não é um digest hex de 32 bytes em vez de aceitar uma entrada malformada. O pacote npm construído a partir deste crate é `@dcp-ai/wasm` 2.1.2, também preparado e não publicado (veja os [pacotes npm](../../../docs/NPM_RELEASES.md)).
 
 As demais APIs, `dcp-jcs-v1` e as APIs experimentais opt-in `dcp-jcs-v2` não mudam; os novos testes do candidato experimental não mudam nenhum padrão. A telemetria informa `2.12.0`. O crate não contém mais os READMEs traduzidos, que agora ficam na árvore `i18n/` do repositório. Veja o [README do SDK](../../../sdks/rust/README.md) e o [changelog](../../../CHANGELOG.md).
+
+> **Nota (05/11/2026).** A comparação acima foi escrita em 30/10/2026 para a 2.12.0 preparada, que continua sem publicação. Desde então a `main` mudou a verificação: todos os verificadores V2, incluindo o build WASM, executam a validação de esquemas V2-2 (#116, 02/11/2026), e mudaram o helper de validade de mandatos, as verificações de tempo das cadeias e a verificação de domínios raiz repetidos (#117 a #119). Essas mudanças não estão na 2.12.0 descrita acima, então na `main` a verificação de bundles não está inalterada. Uma versão construída a partir de um commit posterior as conteria. Os números de versão dos manifestos da `main` não identificam este candidato: a `main` os leva com as mudanças posteriores. Veja o [dossiê de auditoria](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts).
 
 <a id="related-releases"></a>
 

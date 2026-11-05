@@ -4,7 +4,7 @@
 
 # Programa de primeros usuarios de DCP-AI
 
-> Traducción informativa de [la versión en inglés](../../../docs/EARLY_ADOPTERS.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../docs/EARLY_ADOPTERS.md), actualizada el 05/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 **Estado:** Abierto — admisión continua
 **Licencia:** Apache-2.0 (participar no tiene coste)
@@ -176,9 +176,9 @@ Por ahora no hay un Slack, un Discord ni sesiones de consulta dedicados. El prog
 
 ## Divulgación de seguridad
 
-Los problemas de seguridad de DCP-AI se divulgan de forma responsable mediante la notificación privada de vulnerabilidades de GitHub. Puede ofrecerse una recompensa económica por errores, caso por caso, para los hallazgos de alto impacto; se decide en cada informe según la gravedad y la reproducibilidad, no con un nivel comprometido de antemano. Los investigadores que prefieran el reconocimiento público aparecen en las notas de la versión.
+Los problemas de seguridad de DCP-AI se divulgan de forma responsable mediante la notificación privada de vulnerabilidades de GitHub. Puede ofrecerse una recompensa económica por errores, caso por caso, para los hallazgos de alto impacto; se decide en cada informe según la gravedad y la reproducibilidad, no con un nivel comprometido de antemano. Ninguna recompensa está garantizada, y solo un acuerdo explícito con los mantenedores la compromete. Los investigadores que prefieran el reconocimiento público aparecen en las notas de la versión.
 
-> **Nota (25/10/2026): los documentos no coinciden.** [SECURITY.md](../../../SECURITY.md) enumera rangos de recompensa fijos por gravedad, mientras que esta página y [GOVERNANCE.md](../../../GOVERNANCE.md) dicen que las recompensas se deciden en cada informe. Se conservan ambos textos hasta que un mantenedor confirme cuál se aplica.
+> **Nota (05/11/2026).** Hasta esta fecha [SECURITY.md](../../../SECURITY.md) listaba rangos fijos de recompensa por gravedad, marcados explícitamente como no confirmados; ahora indica recompensas caso por caso, como esta página y [GOVERNANCE.md](../../../GOVERNANCE.md).
 
 Véase [SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md) para el modelo de amenazas y las indicaciones para notificar.
 

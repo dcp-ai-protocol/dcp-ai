@@ -4,7 +4,7 @@
 
 # Programa de adotantes iniciais do DCP-AI
 
-> Tradução informativa da [versão em inglês](../../../docs/EARLY_ADOPTERS.md), atualizada em 25/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../docs/EARLY_ADOPTERS.md), atualizada em 05/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 **Status:** Aberto — admissão contínua
 **Licença:** Apache-2.0 (participar não tem custo)
@@ -174,9 +174,9 @@ No momento não há Slack, Discord nem horários de atendimento dedicados. O pro
 
 ## Divulgação de segurança
 
-Os problemas de segurança do DCP-AI são divulgados de forma responsável pelo relato privado de vulnerabilidades do GitHub. Uma recompensa financeira por bugs pode ser oferecida, caso a caso, para achados de alto impacto; ela é decidida em cada relato com base na gravidade e na reprodutibilidade, não por uma faixa comprometida de antemão. Pesquisadores que preferem o reconhecimento público são citados nas notas de versão.
+Os problemas de segurança do DCP-AI são divulgados de forma responsável pelo relato privado de vulnerabilidades do GitHub. Uma recompensa financeira por bugs pode ser oferecida, caso a caso, para achados de alto impacto; ela é decidida em cada relato com base na gravidade e na reprodutibilidade, não por uma faixa comprometida de antemão. Nenhuma recompensa é garantida, e só um acordo explícito com os mantenedores a compromete. Pesquisadores que preferem o reconhecimento público são citados nas notas de versão.
 
-> **Nota (25/10/2026): os documentos divergem.** O [SECURITY.md](../../../SECURITY.md) lista faixas de recompensa fixas por gravidade, enquanto esta página e o [GOVERNANCE.md](../../../GOVERNANCE.md) dizem que as recompensas são decididas em cada relato. Os dois textos são mantidos até que um mantenedor confirme qual vale.
+> **Nota (05/11/2026).** Até esta data o [SECURITY.md](../../../SECURITY.md) listava faixas fixas de recompensa por gravidade, marcadas explicitamente como não confirmadas; agora indica recompensas caso a caso, como esta página e o [GOVERNANCE.md](../../../GOVERNANCE.md).
 
 Veja [SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md) para o modelo de ameaças e as orientações de relato.
 

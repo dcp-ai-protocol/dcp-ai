@@ -36,6 +36,8 @@ v2.12.0 is prepared in the repository on 30/10/2026 but not published: the `sdks
 
 The other APIs, bundle verification, `dcp-jcs-v1` and the experimental opt-in `dcp-jcs-v2` APIs are unchanged; new tests of the experimental candidate change no default. SDK telemetry reports `2.12.0`. The module no longer contains the translated READMEs, which are now in the repository’s `i18n/` tree. See the [SDK README](../sdks/go/README.md) and the [changelog](../CHANGELOG.md).
 
+> **Note (05/11/2026).** The comparison above was written on 30/10/2026 for the prepared v2.12.0, which is still not published. `main` has changed verification since then: every V2 verifier runs V2-2 schema validation (#116, 02/11/2026), and the mandate validity helper, the chain time checks and the check of repeated root domains changed (#117 to #119). These changes are not in the v2.12.0 described above, so on `main` bundle verification is not unchanged. A release built from a later commit would contain them. The version numbers in the manifests on `main` do not identify this candidate: `main` carries them with the later changes. See the [audit dossier](conformance/AUDIT_DOSSIER.md#artifacts).
+
 ## Related releases
 
 The current versions in every registry are listed in [Published versions](README.md#published-versions). Other release notes: [npm packages](NPM_RELEASES.md), [Python 2.10.1](PYTHON_RELEASE.md) and [Rust 2.11.1](RUST_RELEASE.md).

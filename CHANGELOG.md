@@ -21,6 +21,11 @@ Prepared in the repository on 30/10/2026 and **not published**: there is no `sdk
 - **`@dcp-ai/wasm` 2.1.2:** `dualMerkleRoot` and `wasm_dual_merkle_root` compute the V2-11 dual Merkle root; no JavaScript API is added.
 - New tests of the experimental candidate (gate 7) change no default. `dcp-jcs-v1`, the profiles, the wire format, the dependencies and the cryptography are unchanged. The three packages no longer include the translated READMEs, which are under `i18n/`.
 
+> **Note (05/11/2026).** These candidates date from 30/10/2026 and are still not published. Later changes on `main` are
+> not part of them: V2-2 schema validation in every V2 verifier (#116) and the mandate chain checks (#117 to #119). The
+> version numbers in the manifests on `main` do not identify these candidates: `main` carries them with the later
+> changes. See the [audit dossier](docs/conformance/AUDIT_DOSSIER.md#artifacts).
+
 ## [2026-10-28] SHA3 patch releases
 
 Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/cli` 2.1.1 on npm, `dcp-ai` 2.10.1 on PyPI, the Go module `v2.11.1` (tag `sdks/go/v2.11.1`) and Rust `dcp-ai` 2.11.1 on crates.io. The other ten npm packages are unchanged. See [Published versions](docs/README.md#published-versions) and the release notes for [npm](docs/NPM_RELEASES.md), [Python](docs/PYTHON_RELEASE.md), [Go](docs/GO_RELEASE.md) and [Rust](docs/RUST_RELEASE.md).

@@ -4,7 +4,7 @@
 
 # Gobernanza de DCP-AI
 
-> Traducción informativa de [la versión en inglés](../../GOVERNANCE.md), actualizada el 25/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../GOVERNANCE.md), actualizada el 05/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Este documento describe el modelo de gobernanza del proyecto DCP-AI (Digital Citizenship Protocol for AI Agents).
 
@@ -109,9 +109,9 @@ Si descubres una vulnerabilidad de seguridad en DCP-AI:
 4. Los mantenedores acusan recibo en 48 horas y comparten un plazo estimado para la corrección.
 5. Se publica un aviso de seguridad cuando la corrección está disponible.
 
-Para todos los detalles, véase [SECURITY.md](../../SECURITY.md), incluidos el alcance, el SLA y el tratamiento de la gravedad. Las recompensas económicas se deciden caso por caso, no como un nivel de recompensa fijo.
+Para todos los detalles, véase [SECURITY.md](../../SECURITY.md), incluidos el alcance, el SLA y el tratamiento de la gravedad. No hay un nivel fijo de recompensas ni una recompensa garantizada: los mantenedores pueden ofrecer una recompensa caso por caso, y solo un acuerdo explícito con ellos la compromete.
 
-> **Nota (25/10/2026): los documentos no coinciden.** [SECURITY.md](../../SECURITY.md) enumera rangos de recompensa fijos por gravedad, mientras que este documento y [docs/EARLY_ADOPTERS.md](../../docs/EARLY_ADOPTERS.md) dicen que las recompensas se deciden caso por caso. Se conservan ambos textos hasta que un mantenedor confirme cuál se aplica.
+> **Nota (05/11/2026).** Hasta esta fecha [SECURITY.md](../../SECURITY.md) listaba rangos fijos de recompensa por gravedad, marcados explícitamente como no confirmados; ahora indica recompensas caso por caso, como este documento y [docs/EARLY_ADOPTERS.md](../../docs/EARLY_ADOPTERS.md).
 
 <a id="amendments"></a>
 

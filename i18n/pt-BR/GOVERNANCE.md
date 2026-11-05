@@ -4,7 +4,7 @@
 
 # Governança do DCP-AI
 
-> Tradução informativa da [versão em inglês](../../GOVERNANCE.md), atualizada em 25/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../GOVERNANCE.md), atualizada em 05/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Este documento descreve o modelo de governança do projeto DCP-AI (Digital Citizenship Protocol for AI Agents).
 
@@ -111,9 +111,9 @@ Se você descobrir uma vulnerabilidade de segurança no DCP-AI:
 4. Os mantenedores confirmam o recebimento em até 48 horas e compartilham um prazo estimado para a correção.
 5. Um aviso de segurança é publicado depois que a correção é lançada.
 
-Para todos os detalhes, veja o [SECURITY.md](../../SECURITY.md), incluindo o escopo, o SLA e o tratamento da gravidade. As recompensas financeiras são tratadas caso a caso, e não como um nível fixo de recompensa.
+Para todos os detalhes, veja o [SECURITY.md](../../SECURITY.md), incluindo o escopo, o SLA e o tratamento da gravidade. Não há um nível fixo de recompensas nem uma recompensa garantida: os mantenedores podem oferecer uma recompensa caso a caso, e só um acordo explícito com eles a compromete.
 
-> **Nota (25/10/2026): os documentos não coincidem.** O [SECURITY.md](../../SECURITY.md) lista faixas de recompensa fixas por gravidade, enquanto este documento e o [docs/EARLY_ADOPTERS.md](../../docs/EARLY_ADOPTERS.md) dizem que as recompensas são decididas caso a caso. Os dois textos são mantidos até que um mantenedor confirme qual se aplica.
+> **Nota (05/11/2026).** Até esta data o [SECURITY.md](../../SECURITY.md) listava faixas fixas de recompensa por gravidade, marcadas explicitamente como não confirmadas; agora indica recompensas caso a caso, como este documento e o [docs/EARLY_ADOPTERS.md](../../docs/EARLY_ADOPTERS.md).
 
 <a id="amendments"></a>
 

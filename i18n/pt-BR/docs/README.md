@@ -4,7 +4,7 @@
 
 # Documentação
 
-> Tradução informativa da [versão em inglês](../../../docs/README.md), atualizada em 28/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../docs/README.md), atualizada em 05/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Este índice organiza a documentação do DCP-AI por tarefa: primeiros passos, arquitetura e segurança, testes, referência,
 operações, especificações e propostas. As versões atuais dos pacotes em cada registro estão em
@@ -26,6 +26,9 @@ Verificadas em 28/10/2026. As versões dos pacotes são independentes da versão
 | crates.io | [`dcp-ai`](https://crates.io/crates/dcp-ai/2.11.1) (SDK Rust) | 2.11.1 | [publicação Rust](../../../docs/RUST_RELEASE.md) |
 
 - Estas versões verificam os campos secundários SHA3-256 opcionais do V2-11 quando estão presentes; os ausentes não são exigidos, então um bundle verificado pode não ter uma cadeia secundária completa, e um campo presente inconsistente é rejeitado. As versões anteriores não os verificam. Os adaptadores publicados `@dcp-ai/express`, `@dcp-ai/openclaw`, `@dcp-ai/anthropic-mcp` e `@dcp-ai/google-a2a` 2.1.0 não foram republicados: dependem de `@dcp-ai/sdk` `^2.2.0` e obtêm as verificações secundárias quando seu lockfile resolve `@dcp-ai/sdk` 2.2.1 ou posterior.
+- Verificado novamente em 05/11/2026 pelas APIs públicas dos registros: continuam sendo as últimas versões. Não
+  contêm as mudanças feitas na `main` depois de 28/10/2026, listadas no
+  [dossiê de auditoria](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts).
 - Os adaptadores e geradores de projetos npm são opcionais e independentes do núcleo do protocolo; suas versões exatas
   estão em [NPM_RELEASES.md](../../../docs/NPM_RELEASES.md), que lista os 13 pacotes npm.
 - As versões anteriores afetadas e as notas de atualização estão em [SECURITY.md](../../../SECURITY.md#supported-versions); a migração
