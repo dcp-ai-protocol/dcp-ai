@@ -5,7 +5,7 @@
 
 # 存储与锚定 — P2P，本地验证
 
-> 本文是[英文版](../../../docs/STORAGE_AND_ANCHORING.md)的参考译文，更新于 28/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/STORAGE_AND_ANCHORING.md)的参考译文，更新于 05/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 协议不依赖任何中央服务。验证在本地进行；可选的锚定使用**现有的**公共区块链或**第三方**服务。协议并不指向任何规范的“DCP 注册中心”或“dcp.ai” URL。
 
@@ -142,7 +142,7 @@
 
 **需要什么：** 一台带持久化存储（SQLite 或 PostgreSQL）的服务器、运营方的签名密钥，以及比对根的审计者。Google 的 [Trillian](https://github.com/google/trillian) 是这种模式的一个开源实现。
 
-**参考实现：** 本仓库提供 `services/transparency-log/`（源码）以及对应的 Docker 镜像 `ghcr.io/dcp-ai-protocol/dcp-ai/transparency-log:latest`。它用 Ed25519 签署树头，并在兄弟日志之间提供 gossip，使分视图攻击可以被发现（DCP-03 §4）。它把日志保存在内存中，因此重启会清空日志。Fly.io 配置位于 `deploy/fly/transparency-log.toml`。
+**参考实现：** 本仓库提供 `services/transparency-log/`（源码）以及对应的 Docker 镜像 `ghcr.io/dcp-ai-protocol/dcp-ai/transparency-log:latest`。它用 Ed25519 签署树头，并在互相固定对方密钥的日志之间提供 gossip。在 `main` 上的源代码中（尚未进入已发布的镜像），每个日志见证其他日志的已签名树头，当某个日志为同一树大小签署两个根时报告分视图，并以两个树头作为证据。它把日志保存在内存中，因此重启会清空日志。Fly.io 配置位于 `deploy/fly/transparency-log.toml`。
 
 <a id="comparison-anchoring-methods"></a>
 

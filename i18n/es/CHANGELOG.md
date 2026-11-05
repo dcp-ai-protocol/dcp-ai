@@ -64,6 +64,26 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
 
 ### Seguridad
 
+- **Registro de transparencia: las vistas divididas se distinguen de los registros independientes** (código fuente de
+  `main`, no está en ninguna versión publicada; `services/transparency-log/`). El gossip comparaba la cabeza de árbol de
+  cada par fijado con el árbol local, así que dos registros independientes que se fijan mutuamente generaban alertas en
+  cuanto tenían el mismo tamaño y entradas distintas. No guardaba historial de las cabezas de un par para comparar una
+  vista suya con otra; un registro que mostraba dos raíces para un tamaño solo podía activar esa comparación por
+  casualidad.
+  - **Qué cambia:** un registro se identifica por su clave fijada y su `log_id` exacto, y cada registro guarda, por
+    registro observado, la primera cabeza de cada tamaño. Una alerta significa que un registro firmó dos raíces para un
+    tamaño, vistas al consultarlo, mediante `POST /gossip/exchange` o a través de dos alias suyos. Las cabezas de
+    registros distintos nunca se comparan, y el árbol local solo con las cabezas del propio registro. El historial está
+    acotado (256 tamaños por registro y 8 registros por clave fijada), se descarta cuando ningún alias fija ya la clave y
+    se pierde al reiniciar; una consulta cuyo alias cambió mientras esperaba se descarta.
+  - **Alertas:** campos nuevos `peer_public_key`, `observed_root`, `source` y `evidence` (las dos cabezas firmadas, solo
+    los campos firmados y `signature`). `local_root` se mantiene como nombre deprecado de `observed_root`. La
+    deduplicación es por registro, tamaño y par de raíces, entre las 100 alertas conservadas. `api/openapi.yaml`
+    documenta la alerta y la evidencia, tipa las raíces como `[string, "null"]` y ahora describe la firma de la cabeza
+    de árbol como Ed25519 y `public_key` como la clave Ed25519 en base64.
+  - **Sin cambios:** el formato y la firma de la cabeza de árbol, los endpoints y sus códigos de estado, las claves
+    fijadas, los límites de 16 KB y de tiempo, las consultas sin solapamiento, las variables de entorno, los SDK, los
+    perfiles y la canonicalización. Sigue sin haber replicación entre registros ni prueba de consistencia.
 - **Cambio de aceptación: un dominio repetido en un mandato raíz** (código fuente de `main`, no está en ninguna versión
   publicada). Los verificadores de cadenas (`verifyMandateChain`, `verify_mandate_chain`, `VerifyMandateChain`) aplican
   ahora la última frase de la regla 5 de DCP-09 §3.5.2, según la cual un dominio que aparece dos veces en un mismo

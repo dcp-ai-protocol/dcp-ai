@@ -4,7 +4,8 @@
  *
  * Certificate Transparency-style append-only log for DCP bundle hashes.
  * Provides Merkle inclusion proofs for any entry.
- * Supports gossip protocol for cross-log split-view detection.
+ * Gossip witnesses pinned peer logs and detects split views: the same log
+ * identity (pinned key and log_id) signing two roots for one tree size.
  *
  * Environment:
  *   PORT          — HTTP port (default 3002)
@@ -98,9 +99,10 @@ const gossipManager = new GossipManager({
   logId: LOG_ID,
   getLocalSTH,
   onInconsistency: (alert) => {
-    // Signed tree heads are public: a replayed one must not push older alerts out.
-    if (alerts.some((a) => a.peer_id === alert.peer_id && a.tree_size === alert.tree_size &&
-        a.peer_root === alert.peer_root)) return;
+    // Signed tree heads are public: replayed ones, through any alias or route, must not push older alerts out.
+    const roots = (a) => [a.observed_root, a.peer_root].sort().join();
+    if (alerts.some((a) => a.peer_public_key === alert.peer_public_key && a.peer_log_id === alert.peer_log_id &&
+        a.tree_size === alert.tree_size && roots(a) === roots(alert))) return;
     alerts.push(alert);
     if (alerts.length > MAX_ALERTS) alerts.shift();
   },

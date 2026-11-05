@@ -141,7 +141,7 @@ To keep memory bounded, the identity, key and revocation registries refuse work 
 | Revocation | 20 registrations per client per hour (429) | `REGISTRATIONS_PER_HOUR` |
 | Revocation | 10,000 registered agents; new ones then get 507 | `MAX_AGENTS` |
 | Revocation | Text fields of at most 256 characters; 5 emergency revocations per client per minute | — |
-| Transparency log | Gossip exchanges need a tree head signed by a pinned peer (`GOSSIP_PEERS=<url>#<key>`); 16 KB bodies; the last 100 distinct alerts; polls read 16 KB at most, time out after one interval and never overlap | `GOSSIP_PEERS` |
+| Transparency log | Gossip exchanges need a tree head signed by a pinned peer (`GOSSIP_PEERS=<url>#<key>`); 16 KB bodies; the last 100 distinct alerts; polls read 16 KB at most, time out after one interval and never overlap; per pinned key, at most 8 witnessed logs of 256 tree sizes each, in memory | `GOSSIP_PEERS` |
 | Endpoints that read a body | 1 MB request bodies (413); `POST /v2/disputes/:id/escalate` and `POST /v2/delegation/mandate/:id/revoke` do not read theirs | — |
 
 Two parts of the gateway behave differently:

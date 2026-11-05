@@ -113,7 +113,7 @@ A jurisdiction or accredited operator may run a **transparency log** — an appe
 
 **What it takes:** a server with a durable store (SQLite or PostgreSQL), the operator's signing key, and auditors who compare roots. Google's [Trillian](https://github.com/google/trillian) is an open-source implementation of this pattern.
 
-**Reference implementation:** this repo ships `services/transparency-log/` (source) and a matching Docker image at `ghcr.io/dcp-ai-protocol/dcp-ai/transparency-log:latest`. It signs its tree heads with Ed25519 and includes gossip between sibling logs so split-view attacks are detectable (DCP-03 §4). It keeps the log in memory, so a restart empties it. A Fly.io config is in `deploy/fly/transparency-log.toml`.
+**Reference implementation:** this repo ships `services/transparency-log/` (source) and a matching Docker image at `ghcr.io/dcp-ai-protocol/dcp-ai/transparency-log:latest`. It signs its tree heads with Ed25519 and includes gossip between logs that pin each other's keys. In the source on `main` (not yet in a published image), each log witnesses the others' signed heads and reports a split view when one log signs two roots for the same tree size, with both heads as evidence. It keeps the log in memory, so a restart empties it. A Fly.io config is in `deploy/fly/transparency-log.toml`.
 
 ## Comparison (anchoring methods)
 

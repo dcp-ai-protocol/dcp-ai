@@ -122,7 +122,10 @@ docker compose -f docker/docker-compose.yml up
 ```
 
 The logs keep their tree in memory: a fixed `OPERATOR_KEY` keeps the same signing key across
-restarts, but a restart still starts an empty tree.
+restarts, but a restart still starts an empty tree. With the fixed `LOG_ID`s of this file, a
+restarted log has the same identity as before. If the other log still holds one of its earlier heads
+and the new tree signs another root at that size, it reports a split view, accurately: the same key
+and `log_id` signed two roots for one size. The same entries in the same order give the same roots.
 
 #### revocation
 

@@ -5,7 +5,7 @@
 
 # Almacenamiento y anclaje — P2P, verificación local
 
-> Traducción informativa de [la versión en inglés](../../../docs/STORAGE_AND_ANCHORING.md), actualizada el 28/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../docs/STORAGE_AND_ANCHORING.md), actualizada el 05/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 El protocolo no depende de ningún servicio central. La verificación es local; el anclaje opcional usa blockchains públicas **existentes** o servicios **de terceros**. El protocolo no apunta a ningún «registro DCP» canónico ni a ninguna URL «dcp.ai».
 
@@ -142,7 +142,7 @@ Una jurisdicción o un operador acreditado puede gestionar un **registro de tran
 
 **Qué hace falta:** un servidor con un almacén duradero (SQLite o PostgreSQL), la clave de firma del operador y auditores que comparen las raíces. [Trillian](https://github.com/google/trillian) de Google es una implementación de código abierto de este patrón.
 
-**Implementación de referencia:** este repositorio incluye `services/transparency-log/` (código fuente) y la imagen Docker correspondiente en `ghcr.io/dcp-ai-protocol/dcp-ai/transparency-log:latest`. Firma sus cabezas de árbol con Ed25519 e incluye gossip entre registros hermanos para que los ataques de vista dividida sean detectables (DCP-03 §4). Guarda el registro en memoria, así que un reinicio lo vacía. Hay una configuración de Fly.io en `deploy/fly/transparency-log.toml`.
+**Implementación de referencia:** este repositorio incluye `services/transparency-log/` (código fuente) y la imagen Docker correspondiente en `ghcr.io/dcp-ai-protocol/dcp-ai/transparency-log:latest`. Firma sus cabezas de árbol con Ed25519 e incluye gossip entre registros que fijan las claves de los demás. En el código fuente de `main` (aún no en una imagen publicada), cada registro es testigo de las cabezas firmadas de los demás e informa de una vista dividida cuando un registro firma dos raíces para el mismo tamaño de árbol, con las dos cabezas como evidencia. Guarda el registro en memoria, así que un reinicio lo vacía. Hay una configuración de Fly.io en `deploy/fly/transparency-log.toml`.
 
 <a id="comparison-anchoring-methods"></a>
 
