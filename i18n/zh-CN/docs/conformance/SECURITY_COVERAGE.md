@@ -50,7 +50,7 @@
 | 规范规则 | 选定的现有用例或套件 | 范围与剩余限制 |
 |---|---|---|
 | V2-1：选择版本 | M `dcp_bundle_version_1_0`, `dcp_bundle_version_3_0` | V2 入口拒绝；不测试所有 V1 要求 |
-| V2-2：校验封装与证据对象的模式 | 参考 `v2.signed_bundle.schema_invalid_payload_rejected`；模式套件；需要明确选择的模式校验目录（57 个用例） | `main` 上的 SDK 验证器自行执行 V2-2；已发布的 SDK 版本不执行。见下文边界 |
+| V2-2：校验封装与证据对象的模式 | 参考 `v2.signed_bundle.schema_invalid_payload_rejected`；模式套件；需要明确选择的模式校验目录（57 个用例） | 自 `@dcp-ai/sdk` 2.3.0、`@dcp-ai/wasm` 2.1.3、`dcp-ai` 2.10.2（PyPI）、Go v2.13.0 和 Rust `dcp-ai` 2.13.0 起，SDK 验证器自行执行 V2-2；更早的版本不执行。见下文边界 |
 | V2-3：清单、载荷哈希与审计绑定 | M `intent_payload_hash_wrong`, `audit_entries_truncated`; R `manifest_intent_hash_mismatch`, `audit_chain_hash_wrong`; A `empty_audit_trail` | 哈希及链绑定样例；未隔离覆盖每个字段和畸形结构 |
 | V2-4：会话、时间与未签名元数据一致性 | R `intent_session_nonce_differs`, `session_expired_with_offset`, `session_longer_than_policy_max_with_late_created_at`; M `signature_signer_id_other`; A `session_duration_at_millisecond_precision` | 固定时间测试；必须区分请求策略与实际生效模式 |
 | V2-5：签名结构与规范编码 | M `bundle_classical_sig_b64_with_trailing_bits`, `intent_classical_sig_b64_unpadded`; R `classical_only_bundle_signature_without_pq` | 编码样例未覆盖所有签名位置和缺陷组合 |
@@ -70,7 +70,7 @@
 
 ### 模式与密码学 API 的边界
 
-V2-2 要求模式校验。在 `main` 上，TypeScript、Python、Go、Rust 和 WASM SDK 的 V2 验证器自行执行它：`verifySignedBundleV2` 及其对应函数、先进行验证的组合准入 API，以及实验性候选验证器；根据先前的验证结果评估准入时不会再次执行它。已发布的 SDK 版本不包含它。该关卡按 `schemas/v2` 校验已签名 bundle 的封装和四个载荷（`responsible_principal_record`、`agent_passport`、`intent`、`policy_decision`）。它在验证器的策略和时钟检查之后、验证器检查清单、载荷哈希、密钥和签名之前执行。所有 SDK 都解释同一个由 `schemas/v2` 生成的表示（`tools/schema-ir/`）；CI 会重新生成它并比较各份副本。
+V2-2 要求模式校验。自 `@dcp-ai/sdk` 2.3.0、`@dcp-ai/wasm` 2.1.3、`dcp-ai` 2.10.2（PyPI）、Go v2.13.0 和 Rust `dcp-ai` 2.13.0 起，TypeScript、Python、Go、Rust 和 WASM SDK 的 V2 验证器自行执行它：`verifySignedBundleV2` 及其对应函数、先进行验证的组合准入 API，以及实验性候选验证器；根据先前的验证结果评估准入时不会再次执行它。更早的 SDK 版本不包含它。该关卡按 `schemas/v2` 校验已签名 bundle 的封装和四个载荷（`responsible_principal_record`、`agent_passport`、`intent`、`policy_decision`）。它在验证器的策略和时钟检查之后、验证器检查清单、载荷哈希、密钥和签名之前执行。所有 SDK 都解释同一个由 `schemas/v2` 生成的表示（`tools/schema-ir/`）；CI 会重新生成它并比较各份副本。
 
 - **封闭对象与开放对象。** 封闭对象（`additionalProperties: false`，例如封装、`SignedPayload`、`composite_sig`、审计条目和检查点）中的未知成员会被拒绝，即使哈希和签名仍然有效。在开放对象中（例如 intent 的 `target` 或审计的 `evidence`），已声明的成员仍保留其约束（例如 `target.channel` 是必需的枚举值）；只有模式未描述的附加成员不会在这一层被检查，处于承诺之下的附加成员可能进入规范化。`bundle` 对象自身的附加成员会被接受：模式让 `bundle` 保持开放，该成员不受任何承诺覆盖（不同于 bundle 所含的已签名证据对象和清单），而且后续检查都不会读取它。
 - **缺失与 `null`。** 缺失的必需成员和模式期望其他类型之处的 `null` 都会被拒绝，诊断不同（`required`、`type`）。清单中的 `session_issued_at` 和 `session_expires_at` 存在时必须是字符串：`null` 会被拒绝。
@@ -102,7 +102,7 @@ PQ 负向用例仅修改 bundle、护照或检查点中的 PQ 签名，经典签
 - **Q2.** 在 bundle 签名、护照和检查点处，当 PQ 组件对这些经典字节验证通过时，失败的经典组件在 `pq_only` 下被接受，在其他三种模式下被拒绝。不规范的经典 `sig_b64` 和未知的经典 kid 在 `pq_only` 下被拒绝。
 - **Q3.** PQ 列表和安全通告的排除在 `classical_only` 和 `hybrid_preferred` 下接受仅经典签名的 bundle，并在同一策略下拒绝混合 bundle。
 
-`verifier_policy_vectors.json` 把其省略的 Q1 用例作为历史保留。这些用例是这些规则的样例：并不覆盖每个位置、算法或密钥状态。未测试某个组合本身并不证明规范有矛盾。这些是策略样例：模式校验（V2-2）有自己的目录，在 `main` 上的 SDK 验证器内部运行，而不是在已发布版本中。这些样例不证明完整的 V2 合规性。
+`verifier_policy_vectors.json` 把其省略的 Q1 用例作为历史保留。这些用例是这些规则的样例：并不覆盖每个位置、算法或密钥状态。未测试某个组合本身并不证明规范有矛盾。这些是策略样例：模式校验（V2-2）有自己的目录，自 05/11/2026 的版本起在 SDK 验证器内部运行，更早的版本中则不运行。这些样例不证明完整的 V2 合规性。
 
 <a id="structural-samples"></a>
 
@@ -112,7 +112,7 @@ PQ 负向用例仅修改 bundle、护照或检查点中的 PQ 签名，经典签
 
 4个编码案例保留解码后的签名字节。检查点范围使用审计序列中的实际位置，标识符有意不排序。修改后的清单会重新签名。时间顺序颠倒的会话有一个独立的正向对照，位于允许的时钟偏差内。每个负向案例都要求其对照在同一次运行中通过。
 
-缺陷隔离有明确限制：小数没有 `dcp-jcs-v1` 表示，因此原有哈希和签名不再对应修改后的内容；逆向范围也不存在该范围的有效根。组件检查记录预期缺陷，但不能确定SDK中的哪项检查导致了拒绝。这些是结构样例：模式校验（V2-2）有自己的目录，在 `main` 上的 SDK 验证器内部运行，而不是在已发布版本中。这些样例不证明完全符合规范。
+缺陷隔离有明确限制：小数没有 `dcp-jcs-v1` 表示，因此原有哈希和签名不再对应修改后的内容；逆向范围也不存在该范围的有效根。组件检查记录预期缺陷，但不能确定SDK中的哪项检查导致了拒绝。这些是结构样例：模式校验（V2-2）有自己的目录，自 05/11/2026 的版本起在 SDK 验证器内部运行，更早的版本中则不运行。这些样例不证明完全符合规范。
 
 <a id="admission-map"></a>
 

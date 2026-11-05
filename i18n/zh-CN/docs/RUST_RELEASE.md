@@ -4,22 +4,22 @@
 
 > [英文原文](../../../docs/RUST_RELEASE.md)的参考译文。更新于 05/11/2026；标识符与代码示例保持原样。
 
-28/10/2026 已确认：[`dcp-ai` 2.11.1](https://crates.io/crates/dcp-ai/2.11.1) 已在 crates.io 发布。上一个版本 [2.11.0](https://crates.io/crates/dcp-ai/2.11.0) 于 26/10/2026 确认，其说明保留在下文。crate 版本独立于 DCP 线格式/规范版本。Rust crate 与 npm、Python、Go 和容器独立发布。
+05/11/2026 已确认：[`dcp-ai` 2.13.0](https://crates.io/crates/dcp-ai/2.13.0) 已在 crates.io 发布（[更新内容](#what-changed-in-2130)）。之前的版本 [2.11.1](https://crates.io/crates/dcp-ai/2.11.1)（28/10/2026 确认）和 [2.11.0](https://crates.io/crates/dcp-ai/2.11.0)（26/10/2026 确认）的说明保留在下文。crate 版本独立于 DCP 线格式/规范版本。Rust crate 与 npm、Python、Go 和容器独立发布。
 
 <a id="install"></a>
 
 ## 安装
 
-请使用当前稳定版 Rust 工具链，在应用 crate 中运行，并提交更新后的 `Cargo.toml` 和 `Cargo.lock`。这些示例允许兼容的 2.x 更新；如需精确固定版本，请在 manifest 中使用 `=2.11.1`。
+请使用当前稳定版 Rust 工具链，在应用 crate 中运行，并提交更新后的 `Cargo.toml` 和 `Cargo.lock`。这些示例允许兼容的 2.x 更新；如需精确固定版本，请在 manifest 中使用 `=2.13.0`。
 
 ```bash
-cargo add dcp-ai@2.11.1
+cargo add dcp-ai@2.13.0
 cargo check --locked
 ```
 
 ```toml
 [dependencies]
-dcp-ai = "2.11.1"
+dcp-ai = "2.13.0"
 ```
 
 可选 OTLP 导出和 WebAssembly 绑定分别通过 `otlp` 和 `wasm` 启用。仅启用目标所需的功能。本次 Rust 发布不会重新发布独立的 npm WASM 包。
@@ -42,28 +42,30 @@ dcp-ai = "2.11.1"
 
 ## 验证
 
+对于 2.13.0，发布工作流从 `main`（`46b142bd`）发布了该 crate。注册表中 crate 的每个文件都与发布前测试过的制品一致，唯一例外是 `.cargo_vcs_info.json`，它记录的是该提交而不是候选版本的构建提交。在全新的 Cargo home 中、不使用 path 依赖或 patch、从 crates.io 解析 2.13.0 的使用方，通过了外部一致性套件（七个目录中的 697 个用例）和默认配置检查：golden `dcp-jcs-v1` bundle 验证通过，而声明 `dcp-jcs-v2` 的同一 bundle 被拒绝。
+
 对于 2.11.1，发布工作流发布了该 crate；注册表中的 crate 除记录 `main` 上干净提交的 `.cargo_vcs_info.json` 外，所有文件都与审核版本一致。一个从 crates.io 解析 2.11.1 的外部使用方通过了 73 项测试。
 
 对于 2.11.0（2026 年 10 月 26 日），默认套件通过 261 项测试，全功能套件通过 267 项（包含 doctest）。WASM 库和测试已针对 `wasm32-unknown-unknown` 编译；这不是浏览器运行测试。Cargo 成功打包并验证 71 个文件，发布 dry-run 通过。外部使用方针对解压 crate 通过 72 项测试，涵盖准入、兼容性、候选入口/路由器和验证器回归；反转的负对照按预期失败。发布后，新注册表缓存精确解析到 2.11.0，无本地路径或 patch，同样的 72 项测试通过。公开归档 checksum 和打包源码字节与审核版本一致。测试的共享 fixture 来自仓库，应用不需要这些 fixture。
 
-<a id="prepared-not-published-2130"></a>
+<a id="what-changed-in-2130"></a>
 
-## 已准备、尚未发布：2.13.0
+## 2.13.0 的更新内容
 
-2.13.0 已于 05/11/2026 在仓库中准备，但尚未在 crates.io 上发布。上面的安装命令仍为 2.11.1。它取代了下面从未发布的 2.12.0。与 2.11.1 相比，2.13.0：
+2.13.0 已于 05/11/2026 由发布工作流从 `main`（`46b142bd`）发布到 crates.io。它取代了下面从未发布的 2.12.0。与 2.11.1 相比，2.13.0：
 
 - **执行 V2-2 模式校验（接受范围变化）。** `verify_signed_bundle_v2`、`…_with_policy` 和 `…_at`（包括 WASM 构建）在任何哈希、密钥或签名检查之前，先按 `schemas/v2` 校验已签名 bundle 的信封和四个载荷。以前被接受的模式无效 bundle 现在会以 `schema: <pointer> <keyword>` 诊断失败。
 - **新增 `RawAuditEventV2` 和 `RawAuditEventError`**，与下面的 2.12.0 相同。
 - **修正 `wasm_dual_merkle_root`**（启用 `wasm` 特性时），与下面的 2.12.0 相同。用旧函数计算的根按记录保留；见[迁移 `dualMerkleRoot` 的结果](../../../docs/NPM_RELEASES.md#migrating-dualmerkleroot-results)。
 - **统一授权书检查。** `verify_mandate_validity` 将窗口作为时刻而不再作为文本比较，`verify_mandate_validity_at`（新增）接收验证时间。`verify_mandate_chain` 拒绝重复某个领域的根授权书。
 
-遥测报告 `2.13.0`。传输格式、签名、配置文件、作为规范默认值的 `dcp-jcs-v1` 以及实验性显式启用的 `dcp-jcs-v2` API 均不变，crate 现在包含 Apache-2.0 `LICENSE`。由这份 Rust 源代码构建的 npm 包是 `@dcp-ai/wasm` 2.1.3，同样已准备、尚未发布（见 [npm 包](../../../docs/NPM_RELEASES.md)）。见 [SDK README](../../../sdks/rust/README.md) 和[变更日志](../../../CHANGELOG.md#unreleased)。
+遥测报告 `2.13.0`。传输格式、签名、配置文件、作为规范默认值的 `dcp-jcs-v1` 以及实验性显式启用的 `dcp-jcs-v2` API 均不变，crate 现在包含 Apache-2.0 `LICENSE`。由这份 Rust 源代码构建的 npm 包是 `@dcp-ai/wasm` 2.1.3，同样于 05/11/2026 发布（见 [npm 包](../../../docs/NPM_RELEASES.md)）。已发布的 crate 中的 README 是发布前准备的版本，写着“prepared, not published”；已发布的 crate 无法更改。见 [SDK README](../../../sdks/rust/README.md) 和[变更日志](../../../CHANGELOG.md#unreleased)。
 
 <a id="prepared-not-published-2120"></a>
 
 ## 已准备、尚未发布：2.12.0
 
-2.12.0 已于 30/10/2026 在仓库中准备好，但尚未在 crates.io 发布。上面的安装命令仍为 2.11.1。与 2.11.1 相比，2.12.0：
+2.12.0 已于 30/10/2026 在仓库中准备好，但尚未在 crates.io 发布。准备时，安装命令仍为 2.11.1；当前的命令见上文，指定的是 2.13.0。与 2.11.1 相比，2.12.0：
 
 - **新增 `dcp_ai::v2::types::RawAuditEventV2` 和 `RawAuditEventError`。** `RawAuditEventV2` 以解码后的 `serde_json::Value` 保存收到的审计条目，因此每个成员（包括未知成员）都保持其是否存在以及是否为 `null`。它保存的是解码后的值，而不是原始文本：对它序列化或用 `dcp-jcs-v1` 规范化，得到的是该值的字节。`typed()` 是有损视图；`AuditEventV2` 的行为不变。整个 bundle 的解析、验证和规范化均不变。
 - **修正 `wasm_dual_merkle_root`（启用 `wasm` 特性时）。** 它现在按 bundle 验证器使用的 [VERIFICATION.md 的 V2-11](../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) 归约计算双 Merkle 根（使用 32 字节原始摘要，奇数层复制最后一个节点）；对不是 32 字节十六进制摘要的叶节点返回错误，而不是接受格式错误的输入。由此 crate 构建的 npm 包是 `@dcp-ai/wasm` 2.1.2，同样已准备、尚未发布（见 [npm 包](../../../docs/NPM_RELEASES.md)）。
@@ -76,4 +78,4 @@ dcp-ai = "2.11.1"
 
 ## 相关发布
 
-各注册表中的当前版本见[已发布版本](../../../docs/README.md#published-versions)。其他发布说明：[npm 软件包](../../../docs/NPM_RELEASES.md)、[Python 2.10.1](../../../docs/PYTHON_RELEASE.md)、[Go v2.11.1](../../../docs/GO_RELEASE.md)。
+各注册表中的当前版本见[已发布版本](../../../docs/README.md#published-versions)。其他发布说明：[npm 软件包](../../../docs/NPM_RELEASES.md)、[Python 2.10.2](../../../docs/PYTHON_RELEASE.md)、[Go v2.13.0](../../../docs/GO_RELEASE.md)。

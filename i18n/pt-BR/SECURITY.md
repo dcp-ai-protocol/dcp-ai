@@ -77,7 +77,9 @@ Relatórios são recebidos para qualquer versão publicada e para a `main`. Rece
 
 | Versão | Situação |
 |---------|--------|
-| Últimas publicadas: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `@dcp-ai/cli` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go `v2.11.1`, Rust `dcp-ai` 2.11.1 | Atuais. Incluem as correções do verificador de 26/10/2026 e as verificações secundárias SHA3-256 de 28/10/2026, não as correções posteriores da `main` listadas no [dossiê de auditoria](../../docs/conformance/AUDIT_DOSSIER.md#artifacts) |
+| Últimas publicadas (05/11/2026): `@dcp-ai/sdk` 2.3.0, `@dcp-ai/wasm` 2.1.3, `dcp-ai` 2.10.2 (PyPI), Go `v2.13.0`, Rust `dcp-ai` 2.13.0 | Atuais. Incluem as correções do verificador de 26/10/2026, as verificações secundárias SHA3-256 de 28/10/2026 e as correções listadas no [dossiê de auditoria](../../docs/conformance/AUDIT_DOSSIER.md#artifacts), entre elas a validação de esquemas V2-2 em todos os verificadores V2 |
+| `@dcp-ai/cli` 2.1.1 e os adaptadores que dependem do SDK (`@dcp-ai/express`, `@dcp-ai/openclaw`, `@dcp-ai/anthropic-mcp` e `@dcp-ai/google-a2a` 2.1.0) | Atuais, não republicados. Recebem as verificações de 05/11/2026 só quando a instalação resolve `@dcp-ai/sdk` 2.3.0; um lockfile que mantém a 2.2.1 não as recebe até ser atualizado |
+| Publicadas em 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go `v2.11.1`, Rust `dcp-ai` 2.11.1 | Substituídas: não executam a validação de esquemas V2-2, então aceitam bundles inválidos pelo esquema que as últimas versões rejeitam; atualize |
 | Versões mínimas publicadas com as correções do verificador de 26/10/2026: `@dcp-ai/sdk` 2.2.0, `@dcp-ai/wasm` e `@dcp-ai/cli` 2.1.0, `dcp-ai` 2.10.0 (PyPI), Go `v2.11.0`, Rust `dcp-ai` 2.11.0 | Substituídas: não verificam os campos secundários SHA3-256, que as últimas versões verificam; atualize |
 | `@dcp-ai/sdk` 2.1.x | Afetadas: `verifySignedBundleV2` pode ser contornado; corrigido em 2.2.0 (veja a nota a seguir) |
 | `@dcp-ai/express` e `@dcp-ai/openclaw` 2.0.0 | Afetadas: aceitam bundles V2 com estrutura válida sem verificar as suas assinaturas; não as use para verificar bundles V2. Corrigido em 2.1.0 |

@@ -4,7 +4,7 @@
 
 # Modelo de segurança
 
-> Tradução informativa da [versão em inglês](../../../docs/SECURITY_MODEL.md), atualizada em 31/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../docs/SECURITY_MODEL.md), atualizada em 05/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Como o protocolo protege contra ataques, de bundles forjados a bifurcações do protocolo.
 
@@ -437,7 +437,7 @@ Os operadores que implantam o DCP DEVEM:
 | Limitação | Mitigação |
 |---|---|
 | Identidade autodeclarada no nível `routine` | Exigir atestação, ou admissão diante de um conjunto de confiança, para os níveis `standard` e superiores; os verificadores não impõem isso por conta própria |
-| O cache de verificação pode servir resultados desatualizados | O cache DEVE ser invalidado quando a lista de revogações é atualizada. O `@dcp-ai/sdk` 2.2.1 publicado e as versões anteriores indexam o `VerificationCache` do TypeScript apenas pelo hash do bundle, e o `invalidateByAgent` deles não faz nada. O código-fonte de `main` (não publicado) adiciona a invalidação por agente (que também remove todas as entradas armazenadas sem `agentIds`) e um `context` opcional escolhido por quem chama, mas não invalida nada automaticamente: chame `invalidateByKid`, `invalidateByAgent` ou `clear()`, ou passe a um novo contexto, quando a confiança ou a revogação mudarem ([API_REFERENCE.md](../../../docs/API_REFERENCE.md#verificationcache)) |
+| O cache de verificação pode servir resultados desatualizados | O cache DEVE ser invalidado quando a lista de revogações é atualizada. O `@dcp-ai/sdk` 2.2.1 publicado e as versões anteriores indexam o `VerificationCache` do TypeScript apenas pelo hash do bundle, e o `invalidateByAgent` deles não faz nada. O `@dcp-ai/sdk` 2.3.0 e posteriores adicionam a invalidação por agente (que também remove todas as entradas armazenadas sem `agentIds`) e um `context` opcional escolhido por quem chama, mas não invalida nada automaticamente: chame `invalidateByKid`, `invalidateByAgent` ou `clear()`, ou passe a um novo contexto, quando a confiança ou a revogação mudarem ([API_REFERENCE.md](../../../docs/API_REFERENCE.md#verificationcache)) |
 | Os verificadores V2 publicados antes de 28/10/2026 não verificam a cadeia de auditoria secundária opcional nem a raiz de Merkle secundária; desde `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1 e Rust `dcp-ai` 2.11.1, os campos presentes são verificados e os ausentes não são exigidos | Com as versões anteriores, confie apenas nas verificações realmente feitas: os compromissos SHA-256 primários e as assinaturas, e não atribua a um resultado bem-sucedido a proteção adicional especificada em V2-11. A partir dessas versões, um resultado bem-sucedido cobre os campos secundários presentes, não uma cadeia secundária completa; o candidato experimental reutiliza essas verificações ([STORAGE_AND_ANCHORING.md](../../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)) |
 | A persistência do `agent_id` permite rastreamento | Considerar a rotação de pseudônimos em cenários de alta privacidade |
 | O BlindedRPR expõe `entity_type` e `jurisdiction` | Futuro: apresentação de credenciais baseada em ZKP |

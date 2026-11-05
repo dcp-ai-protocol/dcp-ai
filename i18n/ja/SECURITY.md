@@ -77,7 +77,9 @@ DCP-AI のプロトコル、SDK、サービス、スマートコントラクト�
 
 | バージョン | 状態 |
 |---------|--------|
-| 最新の公開版：`@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`@dcp-ai/cli` 2.1.1、`dcp-ai` 2.10.1（PyPI）、Go `v2.11.1`、Rust `dcp-ai` 2.11.1 | 現行版。26/10/2026 の検証器の修正と 28/10/2026 の二次 SHA3-256 の確認を含みますが、[監査資料](../../docs/conformance/AUDIT_DOSSIER.md#artifacts)に挙げた `main` のその後の修正は含みません |
+| 最新の公開版（05/11/2026）：`@dcp-ai/sdk` 2.3.0、`@dcp-ai/wasm` 2.1.3、`dcp-ai` 2.10.2（PyPI）、Go `v2.13.0`、Rust `dcp-ai` 2.13.0 | 現行版。26/10/2026 の検証器の修正、28/10/2026 の二次 SHA3-256 の確認、[監査資料](../../docs/conformance/AUDIT_DOSSIER.md#artifacts)に挙げた修正（すべての V2 検証器での V2-2 のスキーマ検証を含む）を含みます |
+| `@dcp-ai/cli` 2.1.1 と SDK に依存するアダプター（`@dcp-ai/express`、`@dcp-ai/openclaw`、`@dcp-ai/anthropic-mcp`、`@dcp-ai/google-a2a` 2.1.0） | 現行版、再公開なし。05/11/2026 の確認が適用されるのは、インストールが `@dcp-ai/sdk` 2.3.0 を解決した場合だけです。2.2.1 を保つロックファイルでは、更新するまで適用されません |
+| 28/10/2026 の公開版：`@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`dcp-ai` 2.10.1（PyPI）、Go `v2.11.1`、Rust `dcp-ai` 2.11.1 | 置き換え済み。V2-2 のスキーマ検証を実行しないため、最新バージョンが拒否するスキーマ上無効なバンドルを受け入れます。更新してください |
 | 26/10/2026 の検証器の修正を含む最小の公開版：`@dcp-ai/sdk` 2.2.0、`@dcp-ai/wasm` と `@dcp-ai/cli` 2.1.0、`dcp-ai` 2.10.0（PyPI）、Go `v2.11.0`、Rust `dcp-ai` 2.11.0 | 置き換え済み。最新版が確認する二次 SHA3-256 のフィールドを確認しません。更新してください |
 | `@dcp-ai/sdk` 2.1.x | 影響あり：`verifySignedBundleV2` を回避できます。2.2.0 で修正済み（次の注記を参照） |
 | `@dcp-ai/express` と `@dcp-ai/openclaw` 2.0.0 | 影響あり：構造が正しい V2 bundle を署名を検証せずに受け入れます。V2 bundle の検証には使わないでください。2.1.0 で修正済み |

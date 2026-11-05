@@ -4,7 +4,7 @@
 
 > Traducción informativa de [la versión en inglés](../../../docs/GO_RELEASE.md), actualizada el 05/11/2026. Si difieren, prevalece la versión en inglés.
 
-Verificado el 28/10/2026: el SDK Go `v2.11.1` está publicado mediante la [etiqueta `sdks/go/v2.11.1`](https://github.com/dcp-ai-protocol/dcp-ai/tree/sdks/go/v2.11.1/sdks/go), y el proxy público de módulos y la base de datos de checksums lo sirven. La publicación anterior, `v2.11.0` ([`sdks/go/v2.11.0`](https://github.com/dcp-ai-protocol/dcp-ai/tree/sdks/go/v2.11.0/sdks/go)), se verificó el 26/10/2026; sus notas se conservan abajo. El módulo y sus importaciones conservan `/v2`. La versión del SDK es independiente del formato/especificación DCP. Go no requiere un token de registro adicional: los consumidores resuelven la etiqueta del repositorio mediante el sistema de módulos Go.
+Verificado el 05/11/2026: el SDK Go `v2.13.0` está publicado mediante la [etiqueta `sdks/go/v2.13.0`](https://github.com/dcp-ai-protocol/dcp-ai/tree/sdks/go/v2.13.0/sdks/go), y el proxy público de módulos y la base de datos de checksums lo sirven ([qué cambió](#what-changed-in-v2130)). Las publicaciones anteriores, `v2.11.1` ([`sdks/go/v2.11.1`](https://github.com/dcp-ai-protocol/dcp-ai/tree/sdks/go/v2.11.1/sdks/go)), verificada el 28/10/2026, y `v2.11.0` ([`sdks/go/v2.11.0`](https://github.com/dcp-ai-protocol/dcp-ai/tree/sdks/go/v2.11.0/sdks/go)), verificada el 26/10/2026, conservan sus notas abajo. El módulo y sus importaciones conservan `/v2`. La versión del SDK es independiente del formato/especificación DCP. Go no requiere un token de registro adicional: los consumidores resuelven la etiqueta del repositorio mediante el sistema de módulos Go.
 
 <a id="install"></a>
 
@@ -13,7 +13,7 @@ Verificado el 28/10/2026: el SDK Go `v2.11.1` está publicado mediante la [etiqu
 Requiere Go 1.25+. Ejecuta desde el módulo de tu aplicación. Actualiza y guarda sus archivos `go.mod` y `go.sum`:
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.1
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.13.0
 go mod verify
 ```
 
@@ -35,28 +35,30 @@ La verificación es más estricta que en v2.10.0: puede rechazarse evidencia mal
 
 ## Validación
 
+Para la v2.13.0, el módulo que el proxy público sirve para la etiqueta `sdks/go/v2.13.0` (commit `46b142bd`) contiene los mismos 92 archivos que el módulo probado antes de la publicación, y la base de datos de checksums registra el hash del módulo probado, `h1:bRkqSUWHQ/qTywPmKWRdzg2bBWI0RG1ZZAlb6IafnyU=`. Los consumidores que resolvieron la v2.13.0 mediante `proxy.golang.org`, con la base de datos de checksums activa y sin un `replace` local, superaron el kit de conformidad externo (697 casos en siete catálogos), las comprobaciones de las API que cambian en la v2.13.0 y la comprobación del perfil predeterminado.
+
 Para la v2.11.1, los 84 archivos del zip del módulo que sirve el proxy son idénticos a `main` (Go añade al zip el `LICENSE` raíz del repositorio), y el proxy y la base de datos de checksums confirmaron la versión. Un consumidor externo que resuelve `v2.11.1` desde el proxy, sin `replace` local, pasó 189 pruebas.
 
 Para la v2.11.0 (26/10/2026), la suite predeterminada y la suite `-race -tags otlp` pasaron 1.154 pruebas/subpruebas cada una; una prueba se reserva intencionalmente para la matriz en vivo de productores/consumidores. Pasaron `go mod tidy -diff`, compilación y vet. Un consumidor externo pasó 137 pruebas/subpruebas y su control negativo falló como debía. El módulo publicado se descargó en una caché nueva mediante el proxy público y verificación de checksums; sus fuentes coincidieron con el commit revisado. Después, el consumidor pasó sin ninguna directiva `replace` local. Para la publicación independiente de Rust, véase [Rust](../../../docs/RUST_RELEASE.md).
 
-<a id="prepared-not-published-v2130"></a>
+<a id="what-changed-in-v2130"></a>
 
-## Preparada, no publicada: v2.13.0
+## Qué cambió en v2.13.0
 
-La v2.13.0 está preparada en el repositorio el 05/11/2026, pero no publicada: la etiqueta `sdks/go/v2.13.0` no existe, así que el proxy de módulos no sirve esta versión y `go get` no puede resolverla. El comando de instalación de arriba sigue en v2.11.1. Sustituye a la v2.12.0 de abajo, que nunca se etiquetó. Frente a v2.11.1, la v2.13.0:
+La v2.13.0 se publicó el 05/11/2026 mediante la etiqueta `sdks/go/v2.13.0` sobre `main` (`46b142bd`). Sustituye a la v2.12.0 de abajo, que nunca se etiquetó. Frente a v2.11.1, la v2.13.0:
 
 - **Ejecuta la validación de esquemas V2-2 (cambio de aceptación).** `v2.VerifySignedBundleV2` y sus variantes validan el sobre del bundle firmado y los cuatro payloads contra `schemas/v2` antes de cualquier comprobación de hash, clave o firma. Los bundles inválidos por esquema que antes se aceptaban ahora fallan con diagnósticos `schema: <pointer> <keyword>`.
 - **Corrige `v2.VerifyPayloadHash` (cambio de aceptación)**, como la v2.12.0 de abajo: `true` solo para `"sha256:"` seguido del SHA-256 del payload canónico, tal como lo escribe `SignPayload`; un digest sin prefijo es `false`.
 - **Añade `v2.RawAuditEventV2`**, como la v2.12.0 de abajo.
 - **Alinea las comprobaciones de mandatos.** `v2.VerifyMandateValidity` aplica un único contrato y `v2.VerifyMandateValidityAt` (nuevo) recibe el instante de verificación; una fecha ausente o mal formada, que antes se aceptaba, es inválida. `v2.VerifyMandateChain` lee todos los instantes de la misma manera y rechaza un mandato raíz que repite un dominio.
 
-`SDKVersion` es `2.13.0`. No cambian el formato de transmisión, las firmas, los perfiles, `dcp-jcs-v1` como valor predeterminado normativo ni las API experimentales de activación explícita `dcp-jcs-v2`. Conserva la evidencia histórica en lugar de reescribirla: un bundle que las nuevas comprobaciones rechazan se queda como se recibió. En el README del SDK empaquetado con esta versión, la fila de `v2.VerifyPayloadHash` y el párrafo de `v2.RawAuditEventV2` todavía dicen «prepared for v2.12.0»: esas menciones son históricas, y los dos están en la v2.13.0. Véanse el [README del SDK](../../../sdks/go/README.md) y el [changelog](../../../CHANGELOG.md#unreleased).
+`SDKVersion` es `2.13.0`. No cambian el formato de transmisión, las firmas, los perfiles, `dcp-jcs-v1` como valor predeterminado normativo ni las API experimentales de activación explícita `dcp-jcs-v2`. Conserva la evidencia histórica en lugar de reescribirla: un bundle que las nuevas comprobaciones rechazan se queda como se recibió. El README del SDK en el módulo publicado es el que se preparó antes de la publicación: dice «prepared, not published», y su fila de `v2.VerifyPayloadHash` y su párrafo de `v2.RawAuditEventV2` todavía dicen «prepared for v2.12.0». Un módulo publicado no puede cambiar; el README del repositorio describe la v2.13.0. Véanse el [README del SDK](../../../sdks/go/README.md) y el [changelog](../../../CHANGELOG.md#unreleased).
 
 <a id="prepared-not-published-v2120"></a>
 
 ## Preparada, no publicada: v2.12.0
 
-La v2.12.0 está preparada en el repositorio desde el 30/10/2026, pero no publicada: la etiqueta `sdks/go/v2.12.0` no existe, así que el proxy de módulos no sirve esta versión y `go get` no puede resolverla. El comando de instalación de arriba sigue en v2.11.1. Respecto a la v2.11.1, la v2.12.0:
+La v2.12.0 está preparada en el repositorio desde el 30/10/2026, pero no publicada: la etiqueta `sdks/go/v2.12.0` no existe, así que el proxy de módulos no sirve esta versión y `go get` no puede resolverla. En el momento de la preparación, el comando de instalación seguía en v2.11.1; el comando actual, arriba, indica v2.13.0. Respecto a la v2.11.1, la v2.12.0:
 
 - **Corrige `v2.VerifyPayloadHash` (cambio de aceptación).** Devuelve `true` solo cuando `payload_hash` es exactamente `"sha256:"` seguido del SHA-256 en hex minúscula del payload canónico `dcp-jcs-v1`. Ahora acepta la salida de `v2.SignPayload` y rechaza un digest sin prefijo; la v2.11.1 hacía lo contrario. La función solo comprueba la consistencia del hash, no la firma, las claves, la política, la confianza en el principal ni la admisión. La verificación de bundles nunca la usó y no cambia.
 - **Añade `v2.RawAuditEventV2`.** Conserva los bytes literales de una entrada de auditoría recibida, de modo que los miembros `null` explícitos y los desconocidos sobreviven al reenvío; `Typed()` es una vista con pérdida. `AuditEventV2` y los demás structs tipados siguen siendo tipos para producir y conservan su comportamiento.
@@ -69,4 +71,4 @@ Las demás API, la verificación de bundles, `dcp-jcs-v1` y las API experimental
 
 ## Publicaciones relacionadas
 
-Las versiones actuales en cada registro están en [Versiones publicadas](../../../docs/README.md#published-versions). Otras notas de publicación: [paquetes npm](../../../docs/NPM_RELEASES.md), [Python 2.10.1](../../../docs/PYTHON_RELEASE.md) y [Rust 2.11.1](../../../docs/RUST_RELEASE.md).
+Las versiones actuales en cada registro están en [Versiones publicadas](../../../docs/README.md#published-versions). Otras notas de publicación: [paquetes npm](../../../docs/NPM_RELEASES.md), [Python 2.10.2](../../../docs/PYTHON_RELEASE.md) y [Rust 2.13.0](../../../docs/RUST_RELEASE.md).

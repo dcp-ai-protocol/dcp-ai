@@ -2,9 +2,9 @@
 
 # 公開済み Python パッケージ
 
-> [英語版](../../../docs/PYTHON_RELEASE.md)の参考訳。28/10/2026 更新。相違がある場合は英語版が優先されます。
+> [英語版](../../../docs/PYTHON_RELEASE.md)の参考訳。05/11/2026 更新。相違がある場合は英語版が優先されます。
 
-28/10/2026 確認：[`dcp-ai` 2.10.1](https://pypi.org/project/dcp-ai/2.10.1/) は PyPI で公開済みです。Python パッケージのバージョンは DCP のワイヤー形式・仕様バージョンとは独立しています。Python パッケージは Go、Rust、npm パッケージ、コンテナーとは独立して公開されます。前のリリース [2.10.0](https://pypi.org/project/dcp-ai/2.10.0/) は 26/10/2026 に確認されており、その記述は以下に残しています。
+05/11/2026 確認：[`dcp-ai` 2.10.2](https://pypi.org/project/dcp-ai/2.10.2/) は PyPI で公開済みです（[変更点](#what-changed-in-2102)）。Python パッケージのバージョンは DCP のワイヤー形式・仕様バージョンとは独立しています。Python パッケージは Go、Rust、npm パッケージ、コンテナーとは独立して公開されます。以前のリリース [2.10.1](https://pypi.org/project/dcp-ai/2.10.1/)（28/10/2026 確認）と [2.10.0](https://pypi.org/project/dcp-ai/2.10.0/)（26/10/2026 確認）の記述は以下に残しています。
 
 <a id="install"></a>
 
@@ -13,12 +13,12 @@
 Python 3.10 以降が必要です。環境またはロックファイルを更新してください。任意の統合 extras はプロトコルのコアから分離されています。
 
 ```bash
-pip install --upgrade "dcp-ai>=2.10.1,<3"
-pip install "dcp-ai[fastapi]>=2.10.1,<3"
-pip install "dcp-ai[langchain]>=2.10.1,<3"
-pip install "dcp-ai[openai]>=2.10.1,<3"
-pip install "dcp-ai[crewai]>=2.10.1,<3"
-pip install "dcp-ai[otlp]>=2.10.1,<3"
+pip install --upgrade "dcp-ai>=2.10.2,<3"
+pip install "dcp-ai[fastapi]>=2.10.2,<3"
+pip install "dcp-ai[langchain]>=2.10.2,<3"
+pip install "dcp-ai[openai]>=2.10.2,<3"
+pip install "dcp-ai[crewai]>=2.10.2,<3"
+pip install "dcp-ai[otlp]>=2.10.2,<3"
 ```
 
 <a id="what-changed-in-2101"></a>
@@ -41,6 +41,8 @@ V2 検証器の修正、プリンシパルの信頼と `strict-v1`、オプト�
 
 ## 互換性と検証
 
+2.10.2 では、リリースワークフローが `main`（`46b142bd`）から PyPI に公開した wheel とソース配布物は、公開前にテストした成果物とバイト単位で同じファイルを含みます。チェックアウトの外で PyPI から新しくインストールした wheel とソース配布物は、それぞれ外部適合性キット（7 カタログ、697 ケース）と、失効 ID の集合と検証時刻に関する 2.10.2 の確認に合格しました。ソース配布物からインストールしたパッケージのファイルは、テスト済みの wheel のファイルとバイト単位で同じです。
+
 `dcp-jcs-v1` が唯一の規範的な既定値です。`dcp-jcs-v2` は引き続き実験的・非規範的で、明示的なオプトインが必要です。検証、信頼、受け入れ、認可は別であり、インストールだけで信頼ポリシーは設定されません。厳密化により 2.9.0 が受け入れた証拠を拒否する場合があります。過去の証拠は書き換えず保存してください。
 
 2.10.1 では、リリースのワークフローが PyPI に公開した wheel とソース配布は、公開前にレビューした成果物とバイト単位で同一で、レジストリの checksum も確認されました。公開前、これらの成果物はチェックアウト外の新しい環境にインストールされ、共有の二次 SHA3-256 ベクター（各 103 件）と独立した利用側スイート（各 86 件）に合格しました。
@@ -51,19 +53,19 @@ V2 検証器の修正、プリンシパルの信頼と `strict-v1`、オプト�
 
 ML-DSA 依存関係は、回数制限のある署名試行を使い切ると `ValueError` を返す場合があります。CI fixture が署名生成時にこのエラーに遭遇しましたが、検証を迂回したわけではありません。呼び出し側は失敗をエラーとして扱い、署名済み証拠として扱ってはいけません。
 
-<a id="prepared-not-published-2102"></a>
+<a id="what-changed-in-2102"></a>
 
-## 準備済み・未公開: 2.10.2
+## 2.10.2 の変更点
 
-2.10.2 は 05/11/2026 にリポジトリで準備済みですが、PyPI では公開されていません。上記のインストールコマンドは 2.10.1 のままです。2.10.1 と比べて、2.10.2 は次のとおりです：
+2.10.2 は 05/11/2026 にリリースワークフローによって `main`（`46b142bd`）から PyPI に公開されました。2.10.1 と比べて、2.10.2 は次のとおりです：
 
 - **V2-2 のスキーマ検証を実行します（受け入れの変更）。** `verify_signed_bundle_v2` とその他の V2 検証関数は、したがって FastAPI ミドルウェアとブリッジも、ハッシュ、鍵、署名を確認する前に、署名済みバンドルのエンベロープと 4 つのペイロードを `schemas/v2` に照らして検証します。以前は受け入れられていたスキーマ上無効なバンドルは、`schema: <pointer> <keyword>` 診断で失敗するようになりました。
 - **委任状の確認を揃えます。** `verify_mandate_validity` は一つの契約を適用し、例外を送出せずに結果を返します。`now=` はタイムゾーン付きの `datetime` でなければなりません。`set[str]` と注釈された失効 ID は、`collections.abc.Set`（`set`、`frozenset`、または dict のキービュー）として確認されるようになりました。以前は許容されていたリストや文字列は拒否されます。`verify_mandate_chain` はすべての時刻を同じ方法で読み取り、ドメインを繰り返すルート委任状を拒否します。
 
-ワイヤーフォーマット、署名、プロファイル、規範的なデフォルトとしての `dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API は変わらず、wheel と sdist に Apache-2.0 の `LICENSE` が含まれるようになりました。過去の証拠は書き換えずに保持してください。[SDK README](../../../sdks/python/README.md)と[変更履歴](../../../CHANGELOG.md#unreleased)を参照してください。
+ワイヤーフォーマット、署名、プロファイル、規範的なデフォルトとしての `dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API は変わらず、wheel と sdist に Apache-2.0 の `LICENSE` が含まれるようになりました。過去の証拠は書き換えずに保持してください。公開済みの wheel と sdist に含まれる README は公開前に準備したもので、「prepared, not published」と記載しています。公開済みのファイルは変更できません。[SDK README](../../../sdks/python/README.md)と[変更履歴](../../../CHANGELOG.md#unreleased)を参照してください。
 
 <a id="related-releases"></a>
 
 ## 関連するリリース
 
-各レジストリの現在のバージョンは[公開済みバージョン](../../../docs/README.md#published-versions)にあります。その他のリリースノート：[npm パッケージ](../../../docs/NPM_RELEASES.md)、[Go v2.11.1](../../../docs/GO_RELEASE.md)、[Rust 2.11.1](../../../docs/RUST_RELEASE.md)。
+各レジストリの現在のバージョンは[公開済みバージョン](../../../docs/README.md#published-versions)にあります。その他のリリースノート：[npm パッケージ](../../../docs/NPM_RELEASES.md)、[Go v2.13.0](../../../docs/GO_RELEASE.md)、[Rust 2.13.0](../../../docs/RUST_RELEASE.md)。

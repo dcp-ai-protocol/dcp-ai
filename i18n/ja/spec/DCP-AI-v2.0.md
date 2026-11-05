@@ -742,8 +742,8 @@ V2 の検証者は V1 に無期限に対応しなければなりません（MUST
   が検証するのは V2 の bundle だけです。`allow_v1_bundles` を読むのはリファレンスサーバーとアドミッションの
   プロファイルで、ルートの `verifySignedBundle`（`lib/verify.js`）はそれを読まずに V1 の bundle を V1 の確認に
   回します。
-- **§18、パイプライン。** `main` では、すべての SDK の `verifySignedBundleV2` とその対応関数が JSON Schema による
-  検証（ステップ 2）を自ら行います。公開済みの SDK バージョンは行わず、`lib/verify.js` とサーバーも SDK を呼び出す
+- **§18、パイプライン。** 05/11/2026 のリリース（`@dcp-ai/sdk` 2.3.0、`@dcp-ai/wasm` 2.1.3、`dcp-ai` 2.10.2、Go v2.13.0、Rust `dcp-ai` 2.13.0）以降では、すべての SDK の `verifySignedBundleV2` とその対応関数が JSON Schema による
+  検証（ステップ 2）を自ら行います。それ以前のバージョンは行わず、`lib/verify.js` とサーバーも SDK を呼び出す
   前にそれを行います。TypeScript SDK がエクスポートする検証キャッシュ
   （ステップ 13）も使わず、ステップ 12 は bundle にある鍵のステータスを読みます。失効サービスへの問い合わせは
   アドミッションの役割です（[docs/ADMISSION.md](../../../docs/ADMISSION.md)）。検証は、アドミッション、信頼、認可では

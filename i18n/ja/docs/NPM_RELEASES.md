@@ -4,14 +4,14 @@
 
 > [英語版](../../../docs/NPM_RELEASES.md)の参考訳です（05/11/2026 更新）。内容が異なる場合は英語版が優先されます。
 
-2026 年 10 月 28 日に確認しました：`@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`@dcp-ai/cli` 2.1.1 は `latest` タグで公開済みです。表のその他の 10 パッケージは変わりません。パッケージのバージョンは DCP のワイヤ形式・仕様のバージョンやリポジトリのタグとは独立しています。
+2026 年 11 月 5 日に確認しました：`@dcp-ai/sdk` 2.3.0 と `@dcp-ai/wasm` 2.1.3 は `latest` タグで公開済みです。表のその他の 11 パッケージは変わりません（[変更点](#what-changed-on-05112026)）。2026 年 10 月 28 日には `@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`@dcp-ai/cli` 2.1.1 が `latest` タグで公開されました。パッケージのバージョンは DCP のワイヤ形式・仕様のバージョンやリポジトリのタグとは独立しています。
 
 2026 年 10 月 26 日には、`@dcp-ai/sdk` 2.2.0、`@dcp-ai/wasm` 2.1.0、`@dcp-ai/cli` 2.1.0 と、表に残っている 10 パッケージの計 13 バージョンが `latest` タグで公開されました。レジストリの整合性値はテスト済み tarball と一致し、npm からの新規インストールで 383 項目の確認に合格しました。
 
 | パッケージ | バージョン |
 |---|---|
-| [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) | 2.2.1 |
-| [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) | 2.1.1 |
+| [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) | 2.3.0 |
+| [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) | 2.1.3 |
 | [`@dcp-ai/cli`](https://www.npmjs.com/package/@dcp-ai/cli) | 2.1.1 |
 | [`@dcp-ai/anthropic-mcp`](https://www.npmjs.com/package/@dcp-ai/anthropic-mcp) | 2.1.0 |
 | [`@dcp-ai/autogen`](https://www.npmjs.com/package/@dcp-ai/autogen) | 2.0.1 |
@@ -37,8 +37,8 @@
 ## 公開済みバージョンのインストール
 
 ```bash
-npm install @dcp-ai/sdk@^2.2.1
-npm install @dcp-ai/wasm@^2.1.1
+npm install @dcp-ai/sdk@^2.3.0
+npm install @dcp-ai/wasm@^2.1.3
 npm install @dcp-ai/express@^2.1.0 express
 npx --package=@dcp-ai/cli@2.1.1 dcp-ai --help
 ```
@@ -49,11 +49,11 @@ npm の各公開の対象は npm のみです。PyPI の Python パッケージ�
 
 `@dcp-ai/sdk` 2.2.0 以降と `@dcp-ai/wasm` 2.1.0 以降で、`dcp-jcs-v2` は実験的かつ非規範的で、明示的な選択が必要なままです。`dcp-jcs-v1` が唯一の規範的な既定です。生成ツールやブリッジの補助関数には README に記載された制限が残ります。公開によってデモが本番用検証器に変わるわけではありません。
 
-<a id="prepared-not-published-dcp-aisdk-230-and-dcp-aiwasm-213"></a>
+<a id="what-changed-on-05112026"></a>
 
-## 準備済み・未公開: `@dcp-ai/sdk` 2.3.0 と `@dcp-ai/wasm` 2.1.3
+## 2026 年 11 月 5 日の変更点
 
-05/11/2026 にリポジトリで準備済みで、npm では公開されていません。上記の表とインストールコマンドは、引き続きレジストリのバージョンです。これらは、下記の 30/10/2026 の `@dcp-ai/wasm` 2.1.2 の候補を置き換えます。2.1.2 は公開されませんでした。
+`@dcp-ai/sdk` 2.3.0 と `@dcp-ai/wasm` 2.1.3 は、公開前にテストした tarball から 05/11/2026 に公開されました。これらは、下記の 30/10/2026 の `@dcp-ai/wasm` 2.1.2 の候補を置き換えます。2.1.2 は公開されませんでした。
 
 `@dcp-ai/sdk` 2.3.0 の 2.2.1 との違い：
 
@@ -65,9 +65,11 @@ npm の各公開の対象は npm のみです。PyPI の Python パッケージ�
 
 - **`dualMerkleRoot` が V2-11 に従う（受け入れの変更）。** この関数と直接のエクスポート `wasm_dual_merkle_root` は、`verifyBundle` がすでに使っていた [VERIFICATION.md V2-11](../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) の縮約（32 バイトの生のダイジェスト、奇数の層では最後のノードを複製）で二重 Merkle ルートを算出します。2.1.1 以前は 16 進テキストをハッシュし、奇数の最後のノードを変えずに上の層へ送るため、2 個以上の葉のルートが異なります。32 バイトの 16 進ダイジェストでない葉はエラーになり、ルートは小文字で返されます。
 - **V2-2 スキーマ検証（受け入れの変更）。** `verifyBundle` と `wasm_verify_signed_bundle_v2` は、ハッシュ、鍵、署名を確認する前に、エンベロープと 4 つのペイロードを `schemas/v2` に照らして検証します。
-- **JavaScript API の追加はありません。** WebAssembly は、同じく準備済み・未公開の Rust `dcp-ai` 2.13.0 のソースから生成されます（[Rust](../../../docs/RUST_RELEASE.md) を参照）。
+- **JavaScript API の追加はありません。** WebAssembly は、同じく 05/11/2026 に公開された Rust `dcp-ai` 2.13.0 のソースから生成されます（[Rust](../../../docs/RUST_RELEASE.md) を参照）。
 
-どちらのパッケージも、ワイヤーフォーマット、署名、プロファイル、規範的なデフォルトとしての `dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API を維持し、Apache-2.0 の `LICENSE` を含むようになりました。各パッケージ内の README も同じ変更を説明しています。WASM の README では、ハッシュ操作の表の `dualMerkleRoot` の行がまだ 2.1.2 向けに準備済みと記載しています。この行は過去の記録であり、記載されている動作は 2.1.3 のものです。
+どちらのパッケージも、ワイヤーフォーマット、署名、プロファイル、規範的なデフォルトとしての `dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API を維持し、Apache-2.0 の `LICENSE` を含みます。公開済みの各 tarball に含まれる README は公開前に準備したもので、「prepared, not published」と記載しており、WASM の README ではハッシュ操作の表の `dualMerkleRoot` の行がまだ「Prepared for 2.1.2」と記載しています。公開済みの tarball は変更できません。このページとリポジトリの README が公開済みのバージョンを説明します。
+
+レジストリの `@dcp-ai/sdk` 2.3.0 と `@dcp-ai/wasm` 2.1.3 の tarball は、テスト済みの成果物とバイト単位で同一で、`sha512` の完全性も同じです。override なしで npm からそれらをインストールした新しい利用側は、外部適合性キット（SDK は 7 カタログ、697 ケース、`@dcp-ai/wasm` は対応する 5 カタログ、460 ケース）に合格し、そのインストールから配信した WASM パッケージはブラウザーで 14 の確認に合格しました。
 
 <a id="migrating-dualmerkleroot-results"></a>
 
@@ -83,7 +85,7 @@ npm の各公開の対象は npm のみです。PyPI の Python パッケージ�
 
 ### CLI とアダプター
 
-`@dcp-ai/cli` と npm アダプターには新しいバージョンはありません。公開済みの範囲（CLI は `^2.2.1`、アダプターは `^2.2.0`）は `@dcp-ai/sdk` 2.3.0 を受け入れます。公開前に、`@dcp-ai/sdk` を候補に解決させた状態で npm からインストールしました：
+`@dcp-ai/cli` と npm アダプターには新しいバージョンはありません。公開済みの範囲（CLI は `^2.2.1`、アダプターは `^2.2.0`）は `@dcp-ai/sdk` 2.3.0 を受け入れます。2 回確認しました。公開前は override で `@dcp-ai/sdk` を候補に解決させて npm からインストールし、公開後は override なしで npm からインストールして、それぞれの範囲がレジストリの `@dcp-ai/sdk` 2.3.0 を一つだけ、テスト済みの完全性で解決しました。どちらの場合も：
 
 - **機能を確認：** `@dcp-ai/cli` 2.1.1（`--version`、有効な V2 バンドル、スキーマ上無効なバンドル。後者は SDK の実行前に CLI 自身のスキーマ確認が拒否します）、`@dcp-ai/express` と `@dcp-ai/openclaw` 2.1.0（アドミッションと検証の修正に対する回帰確認）。
 - **インストールのみ確認：** `@dcp-ai/anthropic-mcp` と `@dcp-ai/google-a2a`（解決された `@dcp-ai/sdk` 2.3.0 が一つであること、受け入れられる範囲、エントリーポイントのインポート）、および SDK に依存しないパッケージ（エントリーポイントが構文解析できること）。これは統合テストではありません。
@@ -92,7 +94,7 @@ npm の各公開の対象は npm のみです。PyPI の Python パッケージ�
 
 ## 準備済み・未公開: `@dcp-ai/wasm` 2.1.2
 
-`@dcp-ai/wasm` 2.1.2 は 30/10/2026 にリポジトリで準備済みですが、npm では公開されていません。上記の表とインストールコマンドはレジストリのバージョンのままです。
+`@dcp-ai/wasm` 2.1.2 は 30/10/2026 にリポジトリで準備済みですが、npm では公開されていません。準備の時点では、表とインストールコマンドは当時のレジストリのバージョンのままでした。現在のものは上記のとおりです。
 
 `dualMerkleRoot` と生のエクスポート `wasm_dual_merkle_root` を修正します。`verifyBundle` がすでに使っていた [VERIFICATION.md の V2-11](../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) の縮約（32 バイトの生のダイジェストを使い、奇数個の層では最後のノードを複製する）で二重 Merkle ルートを計算するようになりました。2.1.1 以前は 16 進テキストをハッシュし、奇数個の層の最後のノードをそのまま上に渡すため、2 個以上の葉のルートが V2-11 と異なります。2.1.1 以前が受け入れていた不正な形式の葉は、エラーになりました。各葉は 32 バイトの 16 進ダイジェストでなければなりません。大文字の 16 進は受け入れられ、ルートは小文字で返されます。空の配列は以前と同じエラーになり（`dualMerkleRoot` は例外を投げます）、結果は `sha256` と `sha3_256` の 2 つのフィールドのままです。
 
@@ -104,4 +106,4 @@ npm の各公開の対象は npm のみです。PyPI の Python パッケージ�
 
 ## 関連するリリース
 
-各レジストリの現在のバージョンは[公開済みバージョン](../../../docs/README.md#published-versions)にあります。その他のリリースノート：[Python 2.10.1](../../../docs/PYTHON_RELEASE.md)、[Go v2.11.1](../../../docs/GO_RELEASE.md)、[Rust 2.11.1](../../../docs/RUST_RELEASE.md)。
+各レジストリの現在のバージョンは[公開済みバージョン](../../../docs/README.md#published-versions)にあります。その他のリリースノート：[Python 2.10.2](../../../docs/PYTHON_RELEASE.md)、[Go v2.13.0](../../../docs/GO_RELEASE.md)、[Rust 2.13.0](../../../docs/RUST_RELEASE.md)。

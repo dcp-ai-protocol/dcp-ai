@@ -894,7 +894,7 @@ An implementation is DCP-09 conformant if it:
 - **What the helpers do.** `verifyMandateValidity` (`verify_mandate_validity`, `VerifyMandateValidityAt`,
   `verify_mandate_validity_at`) checks only a non-empty `mandate_id`, a set of revoked IDs and the validity window at
   a verification time: RFC 3339 instants as in §3.5.2, both limits included, and a missing, malformed or inverted
-  window is invalid. This contract is on `main`, not in a published version. It checks neither the signature nor the
+  window is invalid. This contract is published from `@dcp-ai/sdk` 2.3.0, `dcp-ai` 2.10.2, Go v2.13.0 and Rust `dcp-ai` 2.13.0. It checks neither the signature nor the
   scope and authorizes nothing. `revoke_delegation` (Python) adds the ID to a local set when the mandate is `revocable`; it
   produces no signed revocation record (§3.6). `generateMirror` hashes the audit entries it receives (SHA-256) and signs
   the narrative and summary the caller writes; it neither writes the narrative nor obtains approval. The `A2A_HELLO`
@@ -904,13 +904,13 @@ An implementation is DCP-09 conformant if it:
   as RFC 3339 instants of one subset, in milliseconds, and floor the verification time to the millisecond;
   `tests/interop/v2/mandate_chain_time_vectors.json` holds signed chains that all four SDK suites run. Their default
   clocks differ from `verifyMandateValidity`: Python reads a naive `datetime` as UTC, and Go reads the zero time as
-  the current time. This is on `main`, not in a published version. The clarification of § 3.5.2 (05/11/2026) makes the
+  the current time. This is published from the same versions. The clarification of § 3.5.2 (05/11/2026) makes the
   millisecond precision and the signer key checks normative.
 - **Repeated domains in the SDKs.** The chain verifiers apply the last sentence of rule 5 to every mandate of the
   chain, the root included, and compare domains as exact strings, with no case folding, trimming or Unicode
   normalization; a chain made of a root alone that repeated a domain was accepted before.
   `tests/interop/v2/mandate_domain_vectors.json` holds signed chains that all four SDK suites run; its error lists are
-  the SDKs' diagnostics, not a requirement of this specification. This is on `main`, not in a published version.
+  the SDKs' diagnostics, not a requirement of this specification. This is published from the same versions.
 - The examples are illustrations with placeholders, not fixtures. Fractional values such as `"confidence": 0.95`
   cannot be canonicalized under `dcp-jcs-v1`, so those records cannot be signed as written. For the SDK types, see
   [docs/API_REFERENCE.md](../docs/API_REFERENCE.md).

@@ -1,19 +1,19 @@
 # Published Rust crate
 
-Verified on 28/10/2026: [`dcp-ai` 2.11.1](https://crates.io/crates/dcp-ai/2.11.1) is available on crates.io. The previous release, [2.11.0](https://crates.io/crates/dcp-ai/2.11.0), was verified on 26/10/2026; its notes are kept below. The crate version is independent of the DCP wire/specification version. The Rust crate is published independently of npm, Python, Go and containers.
+Verified on 05/11/2026: [`dcp-ai` 2.13.0](https://crates.io/crates/dcp-ai/2.13.0) is available on crates.io ([what changed](#what-changed-in-2130)). The previous releases, [2.11.1](https://crates.io/crates/dcp-ai/2.11.1), verified on 28/10/2026, and [2.11.0](https://crates.io/crates/dcp-ai/2.11.0), verified on 26/10/2026, keep their notes below. The crate version is independent of the DCP wire/specification version. The Rust crate is published independently of npm, Python, Go and containers.
 
 ## Install
 
-Run from your application crate using a current stable Rust toolchain. Commit the resulting `Cargo.toml` and `Cargo.lock`. These examples allow compatible 2.x updates; use `=2.11.1` in the manifest if an exact version is required.
+Run from your application crate using a current stable Rust toolchain. Commit the resulting `Cargo.toml` and `Cargo.lock`. These examples allow compatible 2.x updates; use `=2.13.0` in the manifest if an exact version is required.
 
 ```bash
-cargo add dcp-ai@2.11.1
+cargo add dcp-ai@2.13.0
 cargo check --locked
 ```
 
 ```toml
 [dependencies]
-dcp-ai = "2.11.1"
+dcp-ai = "2.13.0"
 ```
 
 Optional OTLP export and WebAssembly bindings are selected with `otlp` and `wasm`. Enable only the features your target needs. The separate npm WASM package is not republished by this Rust release.
@@ -30,24 +30,26 @@ Verification is stricter than 2.10.0: malformed or inconsistent evidence previou
 
 ## Validation
 
+For 2.13.0, the release workflow published the crate from `main` (`46b142bd`). Every file of the registry crate matches the artifact tested before publication except `.cargo_vcs_info.json`, which records that commit instead of the build commit of the candidate. A consumer resolving 2.13.0 from crates.io, in a fresh Cargo home and without a path dependency or patch, passed the external conformance kit (697 cases in seven catalogs) and the default-profile check: the golden `dcp-jcs-v1` bundle verifies, and the same bundle declaring `dcp-jcs-v2` is rejected.
+
 For 2.11.1, the release workflow published the crate; every file of the registry crate matches the reviewed one except `.cargo_vcs_info.json`, which records the clean commit on `main`. An external consumer resolving 2.11.1 from crates.io passed 73 tests.
 
 For 2.11.0 (26/10/2026), the default suite passed 261 tests and the all-features suite passed 267, including doctests. The WASM library and tests compiled for `wasm32-unknown-unknown`; this compilation is not a browser runtime test. Cargo packaged and verified 71 files, and publication dry-run passed. An external consumer passed 72 tests against the extracted crate, covering admission, compatibility, candidate ingress/router and verifier regressions; its inverted negative control failed as expected. After publication, a fresh registry cache resolved exactly 2.11.0 without a local path or patch, and the same 72 tests passed. The registry archive checksum and packaged source bytes matched the reviewed release. Shared fixtures for these tests come from the repository; applications do not need those fixtures.
 
-## Prepared, not published: 2.13.0
+## What changed in 2.13.0
 
-2.13.0 is prepared in the repository on 05/11/2026 but not published on crates.io. The install commands above stay on 2.11.1. It supersedes 2.12.0 below, which was never published. Compared with 2.11.1, 2.13.0:
+2.13.0 was published on crates.io on 05/11/2026 by the release workflow, from `main` (`46b142bd`). It supersedes 2.12.0 below, which was never published. Compared with 2.11.1, 2.13.0:
 
 - **Runs V2-2 schema validation (acceptance change).** `verify_signed_bundle_v2`, `…_with_policy` and `…_at`, the WASM build included, validate the signed bundle envelope and the four payloads against `schemas/v2` before any hash, key or signature check. Schema-invalid bundles accepted before now fail with `schema: <pointer> <keyword>` diagnostics.
 - **Adds `RawAuditEventV2` and `RawAuditEventError`**, as in 2.12.0 below.
 - **Corrects `wasm_dual_merkle_root`** (with the `wasm` feature), as in 2.12.0 below. Roots computed with the old helper stay as recorded; see [Migrating `dualMerkleRoot` results](NPM_RELEASES.md#migrating-dualmerkleroot-results).
 - **Aligns the mandate checks.** `verify_mandate_validity` compares the window as instants, no longer as text, and `verify_mandate_validity_at` (new) takes the verification time. `verify_mandate_chain` rejects a root mandate that repeats a domain.
 
-Telemetry reports `2.13.0`. The wire format, the signatures, the profiles, `dcp-jcs-v1` as the normative default and the experimental opt-in `dcp-jcs-v2` APIs are unchanged, and the crate now includes the Apache-2.0 `LICENSE`. The npm package built from this Rust source is `@dcp-ai/wasm` 2.1.3, also prepared and not published (see [npm packages](NPM_RELEASES.md)). See the [SDK README](../sdks/rust/README.md) and the [changelog](../CHANGELOG.md#unreleased).
+Telemetry reports `2.13.0`. The wire format, the signatures, the profiles, `dcp-jcs-v1` as the normative default and the experimental opt-in `dcp-jcs-v2` APIs are unchanged, and the crate now includes the Apache-2.0 `LICENSE`. The npm package built from this Rust source is `@dcp-ai/wasm` 2.1.3, also published on 05/11/2026 (see [npm packages](NPM_RELEASES.md)). The README inside the published crate is the one prepared before publication and reads "prepared, not published"; a published crate cannot change. See the [SDK README](../sdks/rust/README.md) and the [changelog](../CHANGELOG.md#unreleased).
 
 ## Prepared, not published: 2.12.0
 
-2.12.0 is prepared in the repository on 30/10/2026 but not published on crates.io. The install commands above stay on 2.11.1. Compared with 2.11.1, 2.12.0:
+2.12.0 is prepared in the repository on 30/10/2026 but not published on crates.io. At preparation time the install commands stayed on 2.11.1; the current ones, above, name 2.13.0. Compared with 2.11.1, 2.12.0:
 
 - **Adds `dcp_ai::v2::types::RawAuditEventV2` and `RawAuditEventError`.** `RawAuditEventV2` holds a received audit entry as the decoded `serde_json::Value`, so every member keeps its presence and `null`-ness, unknown members included. It keeps the decoded value, not the original text: serializing it or canonicalizing it with `dcp-jcs-v1` gives the bytes of that value. `typed()` is a lossy view; `AuditEventV2` keeps its behavior. Whole-bundle parsing, verification and canonicalization are unchanged.
 - **Corrects `wasm_dual_merkle_root` (with the `wasm` feature).** It now computes the dual Merkle root with the reduction of [VERIFICATION.md V2-11](../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) that the bundle verifier uses (raw 32-byte digests, the last node duplicated on an odd layer), and it returns an error for a leaf that is not a 32-byte hex digest instead of accepting malformed input. The npm package built from this crate is `@dcp-ai/wasm` 2.1.2, also prepared and not published (see [npm packages](NPM_RELEASES.md)).
@@ -58,4 +60,4 @@ The other APIs, `dcp-jcs-v1` and the experimental opt-in `dcp-jcs-v2` APIs are u
 
 ## Related releases
 
-The current versions in every registry are listed in [Published versions](README.md#published-versions). Other release notes: [npm packages](NPM_RELEASES.md), [Python 2.10.1](PYTHON_RELEASE.md) and [Go v2.11.1](GO_RELEASE.md).
+The current versions in every registry are listed in [Published versions](README.md#published-versions). Other release notes: [npm packages](NPM_RELEASES.md), [Python 2.10.2](PYTHON_RELEASE.md) and [Go v2.13.0](GO_RELEASE.md).

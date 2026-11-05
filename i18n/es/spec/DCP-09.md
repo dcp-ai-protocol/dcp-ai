@@ -1012,7 +1012,7 @@ Una implementación es conforme con DCP-09 si:
 - **Lo que hacen las funciones auxiliares.** `verifyMandateValidity` (`verify_mandate_validity`, `VerifyMandateValidityAt`,
   `verify_mandate_validity_at`) solo comprueba un `mandate_id` no vacío, un conjunto de ID revocados y la ventana de
   validez en una hora de verificación: instantes RFC 3339 como en §3.5.2, con los dos límites incluidos, y una ventana
-  ausente, malformada o invertida no es válida. Este contrato está en `main`, no en una versión publicada. No comprueba
+  ausente, malformada o invertida no es válida. Este contrato está publicado desde `@dcp-ai/sdk` 2.3.0, `dcp-ai` 2.10.2, Go v2.13.0 y Rust `dcp-ai` 2.13.0. No comprueba
   la firma ni el ámbito y no autoriza nada. `revoke_delegation` (Python) añade el ID a un conjunto local cuando el
   mandato es `revocable`; no produce ningún registro de revocación firmado (§3.6). `generateMirror` calcula el hash
   (SHA-256) de las entradas de auditoría que recibe y firma la narrativa y el resumen que escribe quien llama; no escribe
@@ -1023,15 +1023,13 @@ Una implementación es conforme con DCP-09 si:
   de las claves firmantes como instantes RFC 3339 de un mismo subconjunto, en milisegundos, y truncan la hora de
   verificación hacia abajo al milisegundo; `tests/interop/v2/mandate_chain_time_vectors.json` contiene cadenas firmadas
   que ejecutan las cuatro suites de SDK. Sus relojes por defecto difieren de los de `verifyMandateValidity`: Python toma
-  un `datetime` naive como UTC y Go toma el instante cero como la hora actual. Esto está en `main`, no en una versión
-  publicada. La aclaración de § 3.5.2 (05/11/2026) hace normativas la precisión de milisegundos y las comprobaciones
+  un `datetime` naive como UTC y Go toma el instante cero como la hora actual. Esto está publicado desde las mismas versiones. La aclaración de § 3.5.2 (05/11/2026) hace normativas la precisión de milisegundos y las comprobaciones
   de las claves firmantes.
 - **Dominios repetidos en los SDK.** Los verificadores de cadena aplican la última frase de la regla 5 a todos los
   mandatos de la cadena, también a la raíz, y comparan los dominios como cadenas exactas, sin plegado de mayúsculas,
   recorte ni normalización Unicode; antes se aceptaba una cadena formada solo por una raíz que repetía un dominio.
   `tests/interop/v2/mandate_domain_vectors.json` contiene cadenas firmadas que ejecutan las cuatro suites de SDK; sus
-  listas de errores son diagnósticos de los SDK, no un requisito de esta especificación. Esto está en `main`, no en una
-  versión publicada.
+  listas de errores son diagnósticos de los SDK, no un requisito de esta especificación. Esto está publicado desde las mismas versiones.
 - Los ejemplos son ilustraciones con marcadores, no fixtures. Los valores fraccionarios como `"confidence": 0.95` no
   pueden canonicalizarse con `dcp-jcs-v1`, así que esos registros no pueden firmarse tal como están escritos. Para los
   tipos del SDK, consulta [docs/API_REFERENCE.md](../../../docs/API_REFERENCE.md).

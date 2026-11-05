@@ -59,7 +59,9 @@ Reports are received for every published version and for `main`. Receiving a rep
 
 | Version | Status |
 |---------|--------|
-| Latest published: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `@dcp-ai/cli` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go `v2.11.1`, Rust `dcp-ai` 2.11.1 | Current. They include the verifier fixes of 26/10/2026 and the secondary SHA3-256 checks of 28/10/2026, not the later fixes on `main` listed in the [audit dossier](docs/conformance/AUDIT_DOSSIER.md#artifacts) |
+| Latest published (05/11/2026): `@dcp-ai/sdk` 2.3.0, `@dcp-ai/wasm` 2.1.3, `dcp-ai` 2.10.2 (PyPI), Go `v2.13.0`, Rust `dcp-ai` 2.13.0 | Current. They include the verifier fixes of 26/10/2026, the secondary SHA3-256 checks of 28/10/2026 and the fixes listed in the [audit dossier](docs/conformance/AUDIT_DOSSIER.md#artifacts), among them V2-2 schema validation in every V2 verifier |
+| `@dcp-ai/cli` 2.1.1 and the adapters that depend on the SDK (`@dcp-ai/express`, `@dcp-ai/openclaw`, `@dcp-ai/anthropic-mcp` and `@dcp-ai/google-a2a` 2.1.0) | Current, not republished. They get the checks of 05/11/2026 only when their installation resolves `@dcp-ai/sdk` 2.3.0; a lockfile that keeps 2.2.1 does not, until you update it |
+| Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go `v2.11.1`, Rust `dcp-ai` 2.11.1 | Superseded: they do not run V2-2 schema validation, so they accept schema-invalid bundles that the latest versions reject; upgrade |
 | Minimum published versions with the verifier fixes of 26/10/2026: `@dcp-ai/sdk` 2.2.0, `@dcp-ai/wasm` and `@dcp-ai/cli` 2.1.0, `dcp-ai` 2.10.0 (PyPI), Go `v2.11.0`, Rust `dcp-ai` 2.11.0 | Superseded: they do not check the secondary SHA3-256 fields, which the latest versions check; upgrade |
 | `@dcp-ai/sdk` 2.1.x | Affected: `verifySignedBundleV2` can be bypassed; fixed in 2.2.0 (see the note below) |
 | `@dcp-ai/express` and `@dcp-ai/openclaw` 2.0.0 | Affected: they accept structurally valid V2 bundles without verifying their signatures; do not use them to verify V2 bundles. Fixed in 2.1.0 |

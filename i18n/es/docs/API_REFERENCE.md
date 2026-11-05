@@ -6,9 +6,9 @@
 
 > Traducción informativa de [la versión en inglés](../../../docs/API_REFERENCE.md), actualizada el 05/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
-Referencia del SDK de TypeScript `@dcp-ai/sdk` tal como está en `main` (versión del paquete 2.2.1, protocolo DCP v2.0).
+Referencia del SDK de TypeScript `@dcp-ai/sdk` tal como está en `main` (versión del paquete 2.3.0, protocolo DCP v2.0).
 
-> **Versiones npm (28/10/2026).** Esta referencia de TypeScript se aplica a `@dcp-ai/sdk` 2.2.1 publicado, incluida la confianza en el principal, `strict-v1` y las API experimentales opt-in del candidato. Véanse los [paquetes npm publicados](../../../docs/NPM_RELEASES.md) y las [instrucciones de instalación](../../../sdks/typescript/README.md#installation). `dcp-jcs-v1` sigue siendo el predeterminado normativo.
+> **Versiones npm (05/11/2026).** Esta referencia de TypeScript se aplica a `@dcp-ai/sdk` 2.3.0 publicado, incluida la confianza en el principal, `strict-v1` y las API experimentales opt-in del candidato. Véanse los [paquetes npm publicados](../../../docs/NPM_RELEASES.md) y las [instrucciones de instalación](../../../sdks/typescript/README.md#installation). `dcp-jcs-v1` sigue siendo el predeterminado normativo.
 
 Los bloques de código de esta página son declaraciones o fragmentos, no programas completos: nombres como `registry`, `keys`,
 `payloadBytes` o `signedBundle` representan valores construidos como en el
@@ -816,7 +816,7 @@ interface VerifyV2Result {
 
 **Canal de verificación:**
 
-1. Comprobación de versión y esquema: solo se aceptan bundles v2.0 y se rechazan las demás versiones; dirigir los bundles v1.0 a `verifySignedBundle` corresponde a quien llama ([MIGRATION_V1_V2.md](../../../docs/MIGRATION_V1_V2.md#32-coexistence-strategy)). En `main`, no en una versión publicada, después se validan el sobre y los cuatro payloads contra `schemas/v2` (V2-2): un fallo devuelve `verified: false` con errores `schema: <JSON pointer> <keyword>[ <member>]` (como mucho 16, y luego `schema: further errors not listed`), sin avisos y sin detalles criptográficos ([mapa de cobertura](conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary))
+1. Comprobación de versión y esquema: solo se aceptan bundles v2.0 y se rechazan las demás versiones; dirigir los bundles v1.0 a `verifySignedBundle` corresponde a quien llama ([MIGRATION_V1_V2.md](../../../docs/MIGRATION_V1_V2.md#32-coexistence-strategy)). Desde la 2.3.0, después se validan el sobre y los cuatro payloads contra `schemas/v2` (V2-2): un fallo devuelve `verified: false` con errores `schema: <JSON pointer> <keyword>[ <member>]` (como mucho 16, y luego `schema: further errors not listed`), sin avisos y sin detalles criptográficos ([mapa de cobertura](conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary))
 2. Verificación del hash del payload de todos los artefactos firmados
 3. Coherencia del nonce de sesión en todos los artefactos
 4. Integridad del manifiesto (se recalculan todos los hashes de los artefactos + la raíz de Merkle de la auditoría)
@@ -1663,8 +1663,8 @@ allá de los milisegundos descartados. No comprueba ninguna firma, esquema, `aut
 ninguna acción. Python (`now=`, un `datetime` aware; uno naive se rechaza; los ID revocados deben ser un `collections.abc.Set`, como
 un `set`, un `frozenset` o una vista de claves de dict, y una lista o una cadena se rechazan), Go (`VerifyMandateValidityAt`, `now` tal
 como se da) y Rust (`verify_mandate_validity_at`, milisegundos) dan los mismos resultados en
-`tests/interop/v2/mandate_validity_vectors.json`. Esto está en `main`, no en una versión publicada. Los helpers
-publicados tratan de otra forma una ventana malformada: TypeScript y Go aceptan una fecha ausente o malformada, Python
+`tests/interop/v2/mandate_validity_vectors.json`. Esto está publicado desde `@dcp-ai/sdk` 2.3.0, `dcp-ai` 2.10.2, Go v2.13.0 y Rust `dcp-ai` 2.13.0. Los helpers
+anteriores tratan de otra forma una ventana malformada: TypeScript y Go aceptan una fecha ausente o malformada, Python
 lanza una excepción y Rust compara las fechas como texto.
 
 ```typescript
@@ -1695,7 +1695,7 @@ raíz, no es comparable y hace rechazar la cadena; se informa una vez por domini
 `mandate[i]: authority_scope domain "…" is duplicated`. Los dominios se comparan como cadenas exactas, sin plegado de
 mayúsculas, recorte ni normalización Unicode. Las cuatro suites de SDK ejecutan las cadenas firmadas de
 `tests/interop/v2/mandate_domain_vectors.json`, cuyas listas de errores son diagnósticos de estos SDK, no un requisito
-del protocolo. Esto está en `main`, no en una versión publicada.
+del protocolo. Esto está publicado desde `@dcp-ai/sdk` 2.3.0, `dcp-ai` 2.10.2, Go v2.13.0 y Rust `dcp-ai` 2.13.0.
 
 Todos los tiempos que lee son instantes RFC 3339 del subconjunto que ya leen los SDK, comparados en milisegundos y nunca
 como texto, con los dos límites incluidos: el `valid_from` y el `valid_until` de cada mandato, su anidamiento en la
@@ -1706,8 +1706,7 @@ trunca hacia abajo al milisegundo, también antes de la época; un valor de relo
 Los demás SDK conservan sus convenciones de reloj, que difieren de la función auxiliar de vigencia anterior: Python toma
 `None`, el valor por defecto, como la hora actual, toma un `datetime` naive como UTC y rechaza cualquier otro valor que
 no sea un `datetime`, Go toma el `time.Time` cero como la hora actual y Rust recibe milisegundos (`None` es la hora actual).
-Las cuatro suites de SDK ejecutan las cadenas firmadas de `tests/interop/v2/mandate_chain_time_vectors.json`. Esto está
-en `main`, no en una versión publicada.
+Las cuatro suites de SDK ejecutan las cadenas firmadas de `tests/interop/v2/mandate_chain_time_vectors.json`. Esto está publicado desde las mismas versiones.
 
 ```typescript
 interface MandateChainKeys { human_keys: KeyEntry[]; agent_keys: Record<string, KeyEntry[]> }
@@ -1941,7 +1940,7 @@ function computeBundleHash(bundle: SignedBundleV2): string;
 
 Caché en memoria de resultados de verificación, indexada por hash del bundle, con un TTL por nivel de seguridad.
 
-> **Versiones (28/10/2026).** Esta sección describe el código fuente de `main`, que no está publicado.
+> **Versiones (05/11/2026).** Esta sección describe `@dcp-ai/sdk` 2.3.0 y posteriores.
 > `@dcp-ai/sdk` 2.2.1 publicado y las versiones anteriores mantienen el comportamiento previo: la clave es solo el hash
 > del bundle, `get` devuelve el objeto guardado, las opciones no se validan, la expiración usa solo el reloj de pared e
 > `invalidateByAgent` no elimina nada y devuelve 0.

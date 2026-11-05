@@ -1000,7 +1000,7 @@ Uma implementação está em conformidade com o DCP-09 se:
 - **O que as funções auxiliares fazem.** `verifyMandateValidity` (`verify_mandate_validity`, `VerifyMandateValidityAt`,
   `verify_mandate_validity_at`) só verifica um `mandate_id` não vazio, um conjunto de IDs revogados e a janela de
   validade em um horário de verificação: instantes RFC 3339 como na §3.5.2, com os dois limites incluídos, e uma janela
-  ausente, malformada ou invertida não é válida. Esse contrato está na `main`, não em uma versão publicada. Não verifica
+  ausente, malformada ou invertida não é válida. Esse contrato está publicado a partir de `@dcp-ai/sdk` 2.3.0, `dcp-ai` 2.10.2, Go v2.13.0 e Rust `dcp-ai` 2.13.0. Não verifica
   a assinatura nem o escopo e não autoriza nada. `revoke_delegation` (Python) acrescenta o ID a um conjunto local quando o
   mandato é `revocable`; não produz nenhum registro de revogação assinado (§3.6). `generateMirror` calcula o hash
   (SHA-256) das entradas de auditoria que recebe e assina a narrativa e o resumo que quem chama escreve; não escreve a
@@ -1010,14 +1010,13 @@ Uma implementação está em conformidade com o DCP-09 se:
   signatárias como instantes RFC 3339 de um mesmo subconjunto, em milissegundos, e truncam o horário de verificação para
   baixo no milissegundo; `tests/interop/v2/mandate_chain_time_vectors.json` contém cadeias assinadas que as quatro suítes
   de SDK executam. Os seus relógios padrão diferem dos de `verifyMandateValidity`: Python lê um `datetime` naive como UTC
-  e Go lê o instante zero como o horário atual. Isso está na `main`, não em uma versão publicada. O esclarecimento do
+  e Go lê o instante zero como o horário atual. Isso está publicado a partir das mesmas versões. O esclarecimento do
   § 3.5.2 (05/11/2026) torna normativas a precisão de milissegundos e as verificações das chaves signatárias.
 - **Domínios repetidos nos SDKs.** Os verificadores de cadeia aplicam a última frase da regra 5 a todos os mandatos da
   cadeia, inclusive à raiz, e comparam os domínios como strings exatas, sem dobra de maiúsculas, recorte nem
   normalização Unicode; antes era aceita uma cadeia formada só por uma raiz que repetia um domínio.
   `tests/interop/v2/mandate_domain_vectors.json` contém cadeias assinadas que as quatro suítes de SDK executam; as suas
-  listas de erros são diagnósticos dos SDKs, não um requisito desta especificação. Isso está na `main`, não em uma versão
-  publicada.
+  listas de erros são diagnósticos dos SDKs, não um requisito desta especificação. Isso está publicado a partir das mesmas versões.
 - Os exemplos são ilustrações com marcadores, não fixtures. Valores fracionários como `"confidence": 0.95` não podem
   ser canonicalizados com `dcp-jcs-v1`, então esses registros não podem ser assinados como estão escritos. Para os
   tipos do SDK, consulte [docs/API_REFERENCE.md](../../../docs/API_REFERENCE.md).

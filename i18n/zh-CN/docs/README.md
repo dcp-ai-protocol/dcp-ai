@@ -13,23 +13,27 @@
 
 ## 已发布版本
 
-于 28/10/2026 核实。软件包版本独立于 DCP 传输格式和规范的版本（2.0）。
+于 05/11/2026 核实。软件包版本独立于 DCP 传输格式和规范的版本（2.0）。
 
 | 注册表 | 软件包 | 版本 | 发布说明 |
 |---|---|---|---|
-| npm | [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) (TypeScript SDK) | 2.2.1 | [npm 软件包](../../../docs/NPM_RELEASES.md) |
-| npm | [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) | 2.1.1 | [npm 软件包](../../../docs/NPM_RELEASES.md) |
+| npm | [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) (TypeScript SDK) | 2.3.0 | [npm 软件包](../../../docs/NPM_RELEASES.md) |
+| npm | [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) | 2.1.3 | [npm 软件包](../../../docs/NPM_RELEASES.md) |
 | npm | [`@dcp-ai/cli`](https://www.npmjs.com/package/@dcp-ai/cli) | 2.1.1 | [npm 软件包](../../../docs/NPM_RELEASES.md) |
-| PyPI | [`dcp-ai`](https://pypi.org/project/dcp-ai/2.10.1/) (Python SDK) | 2.10.1 | [Python 发布](../../../docs/PYTHON_RELEASE.md) |
-| Go modules | `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` | v2.11.1 | [Go 发布](../../../docs/GO_RELEASE.md) |
-| crates.io | [`dcp-ai`](https://crates.io/crates/dcp-ai/2.11.1) (Rust SDK) | 2.11.1 | [Rust 发布](../../../docs/RUST_RELEASE.md) |
+| PyPI | [`dcp-ai`](https://pypi.org/project/dcp-ai/2.10.2/) (Python SDK) | 2.10.2 | [Python 发布](../../../docs/PYTHON_RELEASE.md) |
+| Go modules | `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` | v2.13.0 | [Go 发布](../../../docs/GO_RELEASE.md) |
+| crates.io | [`dcp-ai`](https://crates.io/crates/dcp-ai/2.13.0) (Rust SDK) | 2.13.0 | [Rust 发布](../../../docs/RUST_RELEASE.md) |
 
-- 这些版本会在 V2-11 的可选二级 SHA3-256 字段存在时验证它们；不存在的字段不作要求，因此已验证的 bundle 可能没有完整的二级链，存在但不一致的字段会被拒绝。更早的版本不检查这些字段。 已发布的适配器 `@dcp-ai/express`、`@dcp-ai/openclaw`、`@dcp-ai/anthropic-mcp` 和 `@dcp-ai/google-a2a` 2.1.0 没有重新发布：它们依赖 `@dcp-ai/sdk` `^2.2.0`，当你的锁定文件解析到 `@dcp-ai/sdk` 2.2.1 或更高版本时即获得二级检查。
-- 05/11/2026 通过公开注册表 API 再次检查：这些仍是最新版本。它们不包含 28/10/2026 之后在 `main` 上所做的
-  更改，这些更改列于[审计资料](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts)。
-- 05/11/2026 已准备，**尚未发布**：`@dcp-ai/sdk` 2.3.0、`@dcp-ai/wasm` 2.1.3、`dcp-ai` 2.10.2、Go v2.13.0 和
-  Rust `dcp-ai` 2.13.0 包含这些更改。任何注册表中都没有它们，安装命令仍指向上述版本。它们取代了 30/10/2026
-  未发布的候选版本（Go 和 Rust 2.12.0、`@dcp-ai/wasm` 2.1.2）。见[变更日志](../../../CHANGELOG.md#prepared-not-published-auditable-candidate-of-05112026)和发布说明。
+- 05/11/2026 发布：`@dcp-ai/sdk` 2.3.0、`@dcp-ai/wasm` 2.1.3、`dcp-ai` 2.10.2、Go v2.13.0 和 Rust `dcp-ai` 2.13.0
+  在每个 V2 验证器中执行 V2-2 模式校验，并包含[审计资料](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts)列出的其他 SDK 更改。与 28/10/2026 的版本一样，
+  它们会在 V2-11 的可选二级 SHA3-256 字段存在时验证它们；不存在的字段不作要求，因此已验证的 bundle 可能没有完整的
+  二级链，存在但不一致的字段会被拒绝。
+- `@dcp-ai/cli` 2.1.1 和 npm 适配器没有重新发布。它们的版本范围（CLI 为 `^2.2.1`，`@dcp-ai/express`、`@dcp-ai/openclaw`、
+  `@dcp-ai/anthropic-mcp` 和 `@dcp-ai/google-a2a` 为 `^2.2.0`）接受 `@dcp-ai/sdk` 2.3.0；只有当安装解析到它时，它们才
+  获得 05/11/2026 的检查，已有的锁文件在更新之前保持原来的解析结果。
+- 05/11/2026 的五个版本取代了 30/10/2026 未发布的候选版本（Go 和 Rust 2.12.0、`@dcp-ai/wasm` 2.1.2）。每个已发布归档中的
+  README 是发布前准备的版本，写着“prepared, not published”；已发布的归档无法更改，本仓库中的 README 描述已发布的版本。
+  见[变更日志](../../../CHANGELOG.md#2026-11-05-auditable-releases)和发布说明。
 - npm 适配器和项目脚手架是可选的，独立于协议核心；它们的确切版本见列出全部 13 个 npm 软件包的
   [NPM_RELEASES.md](../../../docs/NPM_RELEASES.md)。
 - 受影响的早期版本和升级说明见 [SECURITY.md](../../../SECURITY.md#supported-versions)；从 DCP v1.0 迁移见

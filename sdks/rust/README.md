@@ -12,34 +12,34 @@ Verification checks integrity and signatures; it does not establish principal tr
 
 **Rust SDK.** Since 2.11.0 this SDK includes V2 bundle building and signing, admission with explicit principal trust and `strict-v1`, delegation chains, verifier corrections and experimental opt-in `dcp-jcs-v2` APIs. `dcp-jcs-v1` remains the normative default. Invalid evidence accepted by older versions may now be rejected. Rust A2A session encryption and its replay window are not implemented; discovery and handshake helpers remain available.
 
-**Rust SDK 2.11.1.** This version also verifies the secondary SHA3-256 fields of [VERIFICATION.md V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) when they are present: `audit_merkle_root_secondary`, each `prev_hash_secondary` and each `intent_hash_secondary`. Absent fields are not required, so a verified bundle may lack a complete secondary chain; a present field that is `null`, not a string or inconsistent is rejected. APIs, result fields, `dcp-jcs-v1` and `hash_alg` handling are unchanged. 2.11.0 does not check these fields. The installation commands below name this version; for its registry availability, see [Published versions](../../docs/README.md#published-versions).
+**Rust SDK 2.11.1.** This version also verifies the secondary SHA3-256 fields of [VERIFICATION.md V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) when they are present: `audit_merkle_root_secondary`, each `prev_hash_secondary` and each `intent_hash_secondary`. Absent fields are not required, so a verified bundle may lack a complete secondary chain; a present field that is `null`, not a string or inconsistent is rejected. APIs, result fields, `dcp-jcs-v1` and `hash_alg` handling are unchanged. 2.11.0 does not check these fields.
 
-**Rust SDK 2.13.0 (prepared, not published).** It is prepared in the repository and is not on crates.io: the examples below stay on 2.11.1. The 2.12.0 prepared on 30/10/2026 was never published and is superseded. Compared with 2.11.1:
+**Rust SDK 2.13.0.** Published on crates.io on 05/11/2026. The installation commands below name this version; for its registry availability, see [Published versions](../../docs/README.md#published-versions). The 2.12.0 prepared on 30/10/2026 was never published and is superseded. Compared with 2.11.1:
 
 - **V2-2 schema validation.** `verify_signed_bundle_v2`, `…_with_policy` and `…_at`, the WASM build included, validate the signed bundle envelope and the four payloads against `schemas/v2` before any hash, key or signature check. Schema-invalid bundles accepted before now fail with `schema: <pointer> <keyword>` diagnostics.
 - **`RawAuditEventV2` and `RawAuditEventError`** (new) keep a received audit entry as the decoded value (see Received audit entries below).
 - **`wasm_dual_merkle_root`** (with the `wasm` feature) computes the dual Merkle root of V2-11 and returns an error for a leaf that is not a 32-byte hex digest.
 - **Mandates.** `verify_mandate_validity` compares the window as instants, no longer as text, and `verify_mandate_validity_at` (new) takes the verification time. `verify_mandate_chain` rejects a root mandate that repeats a domain.
 
-Telemetry reports `2.13.0`. The wire format, the signatures, the profiles, `dcp-jcs-v1` and the experimental opt-in `dcp-jcs-v2` APIs are unchanged. See the [changelog](../../CHANGELOG.md#unreleased).
+Telemetry reports `2.13.0`. The wire format, the signatures, the profiles, `dcp-jcs-v1` and the experimental opt-in `dcp-jcs-v2` APIs are unchanged. See the [changelog](../../CHANGELOG.md#unreleased). The README inside the published crate is the one prepared before publication and reads "prepared, not published"; a published crate cannot change.
 
 ```toml
 [dependencies]
-dcp-ai = "2.11.1"
+dcp-ai = "2.13.0"
 ```
 
 With OpenTelemetry/OTLP export:
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.11.1", features = ["otlp"] }
+dcp-ai = { version = "2.13.0", features = ["otlp"] }
 ```
 
 For WebAssembly support:
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.11.1", features = ["wasm"] }
+dcp-ai = { version = "2.13.0", features = ["wasm"] }
 ```
 
 ## Features
@@ -179,7 +179,7 @@ Domain separation constants: `CTX_LIFECYCLE`, `CTX_SUCCESSION`, `CTX_DISPUTE`, `
 
 All structs derive `Debug`, `Clone`, `Serialize`, `Deserialize`. Enums use `#[serde(rename_all = "snake_case")]`. Optional fields use `Option<T>` with `#[serde(skip_serializing_if = "Option::is_none")]`.
 
-**Received audit entries (from 2.13.0, prepared and not published).** `AuditEventV2` and `AuditEvidenceV2` are for producing entries. Decoding a received entry into them and encoding it again loses an explicit `null` (in `evidence`, `prev_hash_secondary` and `intent_hash_secondary`) and any unknown member, and turns an absent `pq_checkpoint_ref` into `null`. That changes the entry's canonical bytes and may break the `prev_hash` chain or the audit Merkle root. To keep a received entry, use `RawAuditEventV2`: it holds the decoded `serde_json::Value`, so every member at every depth keeps its presence and `null`-ness, unknown members included, and it serializes that value as it is. It refuses only what is not a JSON object (`RawAuditEventError`). It keeps what `serde_json` decoded, not the original text, never repairs or re-signs, and keeps invalid evidence as it is, so a verifier rejects it for the same reason. `typed()` is a lossy view for reading fields. To keep a received bundle, keep it as received and verify that.
+**Received audit entries (from 2.13.0).** `AuditEventV2` and `AuditEvidenceV2` are for producing entries. Decoding a received entry into them and encoding it again loses an explicit `null` (in `evidence`, `prev_hash_secondary` and `intent_hash_secondary`) and any unknown member, and turns an absent `pq_checkpoint_ref` into `null`. That changes the entry's canonical bytes and may break the `prev_hash` chain or the audit Merkle root. To keep a received entry, use `RawAuditEventV2`: it holds the decoded `serde_json::Value`, so every member at every depth keeps its presence and `null`-ness, unknown members included, and it serializes that value as it is. It refuses only what is not a JSON object (`RawAuditEventError`). It keeps what `serde_json` decoded, not the original text, never repairs or re-signs, and keeps invalid evidence as it is, so a verifier rejects it for the same reason. `typed()` is a lossy view for reading fields. To keep a received bundle, keep it as received and verify that.
 
 <a id="bundles-dcp_aiv2bundle-unreleased"></a>
 
@@ -190,7 +190,7 @@ All structs derive `Debug`, `Clone`, `Serialize`, `Deserialize`. Enums use `#[se
 | `build_bundle_v2(&rpr, &passport, &intent, &policy, &audit_entries, session_nonce)` | Builds the V2 bundle from the four `SignedPayload`s and the audit trail. It checks each `payload_hash` and the `session_nonce` of every artifact and audit entry, and writes the manifest with both audit Merkle roots; an empty trail gets roots of 64 zeros |
 | `sign_bundle_v2(bundle, &classical, &pq)` | Composite-signs the manifest under `CTX_BUNDLE` and returns `{bundle, signature}`, with `signer.id` the RPR's `human_id`. Put `session_expires_at` or `intended_verifier` in the manifest before signing; with `session_expires_at` and no `session_issued_at`, it sets `session_issued_at` to the signing time |
 
-**Schema validation (V2-2; from 2.13.0, prepared and not published).** `verify_signed_bundle_v2`, `…_with_policy` and `…_at` first validate the signed bundle envelope and the four payloads against `schemas/v2`, after the policy and clock checks and before the verifier checks the manifest, payload hashes, keys and signatures; `admit_signed_bundle_v2`, which verifies first, and the experimental candidate verifier go through the same gate, while `evaluate_admission_v2` takes an earlier result and does not run it. A bundle that fails returns `verified: false` with `schema: <JSON pointer> <keyword>[ <member>]` errors (at most 16, then `schema: further errors not listed`) and no cryptographic details. Unknown members of closed objects are rejected; in open objects, such as the intent `target`, the declared members keep their constraints and only additional members are not inspected. The manifest's `session_issued_at` and `session_expires_at` must be strings when present, not `null`. `date-time` follows the ajv-formats 3.0.1 check of the reference verifier, which is not strict RFC 3339. They take a parsed `serde_json::Value`: what serde_json refuses to parse (a lone surrogate, `1e400`) is the caller's parse error. **Acceptance change:** schema-invalid bundles that verified before are now rejected. There is no schema-only API. See the [coverage map](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary).
+**Schema validation (V2-2; from 2.13.0).** `verify_signed_bundle_v2`, `…_with_policy` and `…_at` first validate the signed bundle envelope and the four payloads against `schemas/v2`, after the policy and clock checks and before the verifier checks the manifest, payload hashes, keys and signatures; `admit_signed_bundle_v2`, which verifies first, and the experimental candidate verifier go through the same gate, while `evaluate_admission_v2` takes an earlier result and does not run it. A bundle that fails returns `verified: false` with `schema: <JSON pointer> <keyword>[ <member>]` errors (at most 16, then `schema: further errors not listed`) and no cryptographic details. Unknown members of closed objects are rejected; in open objects, such as the intent `target`, the declared members keep their constraints and only additional members are not inspected. The manifest's `session_issued_at` and `session_expires_at` must be strings when present, not `null`. `date-time` follows the ajv-formats 3.0.1 check of the reference verifier, which is not strict RFC 3339. They take a parsed `serde_json::Value`: what serde_json refuses to parse (a lone surrogate, `1e400`) is the caller's parse error. **Acceptance change:** schema-invalid bundles that verified before are now rejected. There is no schema-only API. See the [coverage map](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary).
 
 <a id="delegation-chains-dcp_aiv2delegation-dcp-09-35-unreleased"></a>
 
@@ -200,8 +200,8 @@ All structs derive `Debug`, `Clone`, `Serialize`, `Deserialize`. Enums use `#[se
 |----------|-------------|
 | `create_delegation_mandate_with_options(ed, pq, human_classical, human_pq, params, &MandateChainOptions)` | Root mandate signed by the human, with optional `sub_delegation` and `minimum_security_tier` |
 | `create_sub_mandate(ed, pq, classical, pq_key, &parent, SubMandateParams { .. })` | Sub-mandate signed by the parent's agent under the `DCP-AI.v2.SubMandate` context |
-| `verify_mandate_validity(&mandate, &revoked_ids)` / `verify_mandate_validity_at(&mandate, &revoked_ids, now_millis)` | One mandate's `mandate_id`, local revocation and validity window at `now` (RFC 3339 instants in milliseconds, both limits included); a missing, malformed or inverted window is invalid. No signature, scope or chain check, and no authorization. From 2.13.0, prepared and not published |
-| `verify_mandate_chain(&chain, &revoked_ids, &MandateChainKeys { human_keys, agent_keys }, now_millis)` | Verifies the chain root first and offline (signatures back to the human, links and depth, `sub_delegation`, nested validity, attenuation of actions, `data_classes` and `limits`, tier floor, revocation); returns `MandateChainResult { valid, errors, depth, effective_tier }`. Times are RFC 3339 instants in whole milliseconds, as in the other SDKs; `None` is the current time. A domain repeated in one mandate's `authority_scope`, the root included, rejects the chain; domains are compared as exact strings, with no case folding, trimming or Unicode normalization (from 2.13.0, prepared and not published) |
+| `verify_mandate_validity(&mandate, &revoked_ids)` / `verify_mandate_validity_at(&mandate, &revoked_ids, now_millis)` | One mandate's `mandate_id`, local revocation and validity window at `now` (RFC 3339 instants in milliseconds, both limits included); a missing, malformed or inverted window is invalid. No signature, scope or chain check, and no authorization. From 2.13.0 |
+| `verify_mandate_chain(&chain, &revoked_ids, &MandateChainKeys { human_keys, agent_keys }, now_millis)` | Verifies the chain root first and offline (signatures back to the human, links and depth, `sub_delegation`, nested validity, attenuation of actions, `data_classes` and `limits`, tier floor, revocation); returns `MandateChainResult { valid, errors, depth, effective_tier }`. Times are RFC 3339 instants in whole milliseconds, as in the other SDKs; `None` is the current time. A domain repeated in one mandate's `authority_scope`, the root included, rejects the chain; domains are compared as exact strings, with no case folding, trimming or Unicode normalization (from 2.13.0) |
 
 <a id="admission-dcp_aiv2-specprofilesadmission-unreleased"></a>
 

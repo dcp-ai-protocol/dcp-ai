@@ -77,7 +77,9 @@
 
 | 版本 | 状态 |
 |---------|--------|
-| 最新发布：`@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`@dcp-ai/cli` 2.1.1、`dcp-ai` 2.10.1（PyPI）、Go `v2.11.1`、Rust `dcp-ai` 2.11.1 | 当前版本。包含 26/10/2026 的验证器修复和 28/10/2026 的二级 SHA3-256 检查，不含[审计资料](../../docs/conformance/AUDIT_DOSSIER.md#artifacts)列出的 `main` 上之后的修复 |
+| 最新发布（05/11/2026）：`@dcp-ai/sdk` 2.3.0、`@dcp-ai/wasm` 2.1.3、`dcp-ai` 2.10.2（PyPI）、Go `v2.13.0`、Rust `dcp-ai` 2.13.0 | 当前版本。包含 26/10/2026 的验证器修复、28/10/2026 的二级 SHA3-256 检查以及[审计资料](../../docs/conformance/AUDIT_DOSSIER.md#artifacts)列出的修复，其中包括每个 V2 验证器中的 V2-2 模式校验 |
+| `@dcp-ai/cli` 2.1.1 以及依赖 SDK 的适配器（`@dcp-ai/express`、`@dcp-ai/openclaw`、`@dcp-ai/anthropic-mcp` 和 `@dcp-ai/google-a2a` 2.1.0） | 当前版本，未重新发布。只有当安装解析到 `@dcp-ai/sdk` 2.3.0 时，它们才获得 05/11/2026 的检查；保留 2.2.1 的锁文件在更新之前不会获得 |
+| 28/10/2026 发布：`@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`dcp-ai` 2.10.1（PyPI）、Go `v2.11.1`、Rust `dcp-ai` 2.11.1 | 已被取代：它们不执行 V2-2 模式校验，因此会接受最新版本拒绝的模式无效 bundle；请升级 |
 | 包含 26/10/2026 验证器修复的最低发布版本：`@dcp-ai/sdk` 2.2.0、`@dcp-ai/wasm` 和 `@dcp-ai/cli` 2.1.0、`dcp-ai` 2.10.0（PyPI）、Go `v2.11.0`、Rust `dcp-ai` 2.11.0 | 已被取代：不检查最新版本会检查的二级 SHA3-256 字段；请升级 |
 | `@dcp-ai/sdk` 2.1.x | 受影响：`verifySignedBundleV2` 可被绕过；已在 2.2.0 修复（见下方说明） |
 | `@dcp-ai/express` 和 `@dcp-ai/openclaw` 2.0.0 | 受影响：在不验证签名的情况下接受结构有效的 V2 bundle；不要用它们验证 V2 bundle。已在 2.1.0 修复 |

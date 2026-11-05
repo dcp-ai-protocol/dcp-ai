@@ -4,14 +4,14 @@
 
 > [英文版](../../../docs/NPM_RELEASES.md)的参考译文，更新于 05/11/2026。如有差异，以英文版为准。
 
-已于 2026 年 10 月 28 日核实：`@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1 和 `@dcp-ai/cli` 2.1.1 已使用 `latest` 标签发布；表中其他十个软件包不变。软件包版本与 DCP 线格式/规范版本及仓库标签相互独立。
+已于 2026 年 11 月 5 日核实：`@dcp-ai/sdk` 2.3.0 和 `@dcp-ai/wasm` 2.1.3 已使用 `latest` 标签发布；表中其他十一个软件包不变（[更新内容](#what-changed-on-05112026)）。2026 年 10 月 28 日，`@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1 和 `@dcp-ai/cli` 2.1.1 已使用 `latest` 标签发布。软件包版本与 DCP 线格式/规范版本及仓库标签相互独立。
 
 2026 年 10 月 26 日，13 个版本使用 `latest` 标签发布：`@dcp-ai/sdk` 2.2.0、`@dcp-ai/wasm` 2.1.0、`@dcp-ai/cli` 2.1.0 以及仍列在表中的十个软件包。注册表中的完整性值与经过测试的 tarball 一致，从 npm 全新安装后通过了 383 项检查。
 
 | 软件包 | 版本 |
 |---|---|
-| [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) | 2.2.1 |
-| [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) | 2.1.1 |
+| [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) | 2.3.0 |
+| [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) | 2.1.3 |
 | [`@dcp-ai/cli`](https://www.npmjs.com/package/@dcp-ai/cli) | 2.1.1 |
 | [`@dcp-ai/anthropic-mcp`](https://www.npmjs.com/package/@dcp-ai/anthropic-mcp) | 2.1.0 |
 | [`@dcp-ai/autogen`](https://www.npmjs.com/package/@dcp-ai/autogen) | 2.0.1 |
@@ -37,8 +37,8 @@
 ## 安装已发布的版本
 
 ```bash
-npm install @dcp-ai/sdk@^2.2.1
-npm install @dcp-ai/wasm@^2.1.1
+npm install @dcp-ai/sdk@^2.3.0
+npm install @dcp-ai/wasm@^2.1.3
 npm install @dcp-ai/express@^2.1.0 express
 npx --package=@dcp-ai/cli@2.1.1 dcp-ai --help
 ```
@@ -49,11 +49,11 @@ npx --package=@dcp-ai/cli@2.1.1 dcp-ai --help
 
 在 `@dcp-ai/sdk` 2.2.0 及更高版本和 `@dcp-ai/wasm` 2.1.0 及更高版本中，`dcp-jcs-v2` 仍是实验性、非规范性且需显式启用的功能。`dcp-jcs-v1` 仍是唯一的规范性默认配置。生成器和桥接辅助函数保留 README 中的限制；发布它们不会把演示流程变成生产验证器。
 
-<a id="prepared-not-published-dcp-aisdk-230-and-dcp-aiwasm-213"></a>
+<a id="what-changed-on-05112026"></a>
 
-## 已准备、尚未发布：`@dcp-ai/sdk` 2.3.0 和 `@dcp-ai/wasm` 2.1.3
+## 2026 年 11 月 5 日的更新内容
 
-05/11/2026 在仓库中准备，尚未在 npm 上发布。上面的表格和安装命令仍为注册表中的版本。它们取代了下面 30/10/2026 的 `@dcp-ai/wasm` 2.1.2 候选版本，该版本从未发布。
+`@dcp-ai/sdk` 2.3.0 和 `@dcp-ai/wasm` 2.1.3 于 05/11/2026 发布，使用的是发布前测试过的 tarball。它们取代了下面 30/10/2026 的 `@dcp-ai/wasm` 2.1.2 候选版本，该版本从未发布。
 
 `@dcp-ai/sdk` 2.3.0 与 2.2.1 相比：
 
@@ -65,9 +65,11 @@ npx --package=@dcp-ai/cli@2.1.1 dcp-ai --help
 
 - **`dualMerkleRoot` 遵循 V2-11（接受范围变化）。** 它和直接导出的 `wasm_dual_merkle_root` 使用 `verifyBundle` 已在使用的 [VERIFICATION.md V2-11](../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) 归约（原始 32 字节摘要，奇数层复制最后一个节点）计算双 Merkle 根。2.1.1 及更早版本对十六进制文本做哈希，并把奇数层的最后一个节点原样上移，因此两个或更多叶节点时的根不同。不是 32 字节十六进制摘要的叶节点现在会报错，根以小写形式返回。
 - **V2-2 模式校验（接受范围变化）。** `verifyBundle` 和 `wasm_verify_signed_bundle_v2` 在任何哈希、密钥或签名检查之前，先按 `schemas/v2` 校验信封和四个载荷。
-- **不新增 JavaScript API。** WebAssembly 来自同样已准备、尚未发布的 Rust `dcp-ai` 2.13.0 源代码（见 [Rust](../../../docs/RUST_RELEASE.md)）。
+- **不新增 JavaScript API。** WebAssembly 来自同样于 05/11/2026 发布的 Rust `dcp-ai` 2.13.0 源代码（见 [Rust](../../../docs/RUST_RELEASE.md)）。
 
-两个包都保持传输格式、签名、配置文件、作为规范默认值的 `dcp-jcs-v1` 以及实验性显式启用的 `dcp-jcs-v2` API 不变，并且现在都包含 Apache-2.0 `LICENSE`。每个包内的 README 描述了相同的更改。在 WASM README 中，哈希操作表里 `dualMerkleRoot` 那一行仍写着为 2.1.2 准备：这一行属于历史记录，它描述的行为就是 2.1.3 的行为。
+两个包都保持传输格式、签名、配置文件、作为规范默认值的 `dcp-jcs-v1` 以及实验性显式启用的 `dcp-jcs-v2` API 不变，并且都包含 Apache-2.0 `LICENSE`。每个已发布 tarball 中的 README 是发布前准备的版本：写着“prepared, not published”，而且 WASM README 中哈希操作表里 `dualMerkleRoot` 那一行仍写着“Prepared for 2.1.2”。已发布的 tarball 无法更改；本页和仓库中的 README 描述已发布的版本。
+
+注册表中 `@dcp-ai/sdk` 2.3.0 和 `@dcp-ai/wasm` 2.1.3 的 tarball 与测试过的制品逐字节相同，`sha512` 完整性也相同。一个全新的使用方在不使用 override 的情况下从 npm 安装它们，通过了外部一致性套件（SDK 为七个目录中的 697 个用例，`@dcp-ai/wasm` 为其支持的五个目录中的 460 个用例），由该安装提供的 WASM 包在浏览器中通过了 14 项检查。
 
 <a id="migrating-dualmerkleroot-results"></a>
 
@@ -83,7 +85,7 @@ npx --package=@dcp-ai/cli@2.1.1 dcp-ai --help
 
 ### CLI 和适配器
 
-`@dcp-ai/cli` 和 npm 适配器没有新版本。它们已发布的版本范围（CLI 为 `^2.2.1`，适配器为 `^2.2.0`）接受 `@dcp-ai/sdk` 2.3.0。发布之前，它们从 npm 安装，并将 `@dcp-ai/sdk` 解析为候选版本：
+`@dcp-ai/cli` 和 npm 适配器没有新版本。它们已发布的版本范围（CLI 为 `^2.2.1`，适配器为 `^2.2.0`）接受 `@dcp-ai/sdk` 2.3.0。它们经过两次检查：发布之前，从 npm 安装，并通过 override 将 `@dcp-ai/sdk` 解析为候选版本；发布之后，从 npm 安装且不使用任何 override，它们自己的版本范围从注册表解析出唯一的 `@dcp-ai/sdk` 2.3.0，其完整性与测试时相同。两次检查的内容都是：
 
 - **做了功能检查：** `@dcp-ai/cli` 2.1.1（`--version`、一个有效的 V2 bundle，以及一个模式无效的 bundle，后者在 SDK 运行之前就被 CLI 自己的模式检查拒绝），以及 `@dcp-ai/express` 和 `@dcp-ai/openclaw` 2.1.0（针对其准入和验证修复的回归检查）。
 - **只检查了安装：** `@dcp-ai/anthropic-mcp` 和 `@dcp-ai/google-a2a`（只解析出一个 `@dcp-ai/sdk` 2.3.0、接受的版本范围以及入口点的导入），以及不依赖 SDK 的包（入口点可以解析）。这不是集成测试。
@@ -92,7 +94,7 @@ npx --package=@dcp-ai/cli@2.1.1 dcp-ai --help
 
 ## 已准备、尚未发布：`@dcp-ai/wasm` 2.1.2
 
-`@dcp-ai/wasm` 2.1.2 已于 30/10/2026 在仓库中准备好，但尚未在 npm 发布。上面的表格和安装命令仍为注册表中的版本。
+`@dcp-ai/wasm` 2.1.2 已于 30/10/2026 在仓库中准备好，但尚未在 npm 发布。准备时，表格和安装命令仍为当时注册表中的版本；当前的版本见上文。
 
 它修正了 `dualMerkleRoot` 和原始导出 `wasm_dual_merkle_root`：它们现在按 `verifyBundle` 早已使用的 [VERIFICATION.md 的 V2-11](../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) 归约计算双 Merkle 根（使用 32 字节原始摘要，奇数层复制最后一个节点）。2.1.1 及更早版本对十六进制文本做哈希，并把奇数层的最后一个节点原样上移，因此两个或更多叶节点的根与 V2-11 不同。2.1.1 及更早版本接受的格式错误的叶节点现在会返回错误：每个叶节点都必须是 32 字节十六进制摘要。接受大写十六进制，根以小写返回。空数组给出与之前相同的错误（`dualMerkleRoot` 抛出异常），结果仍保留 `sha256` 和 `sha3_256` 两个字段。
 
@@ -104,4 +106,4 @@ npx --package=@dcp-ai/cli@2.1.1 dcp-ai --help
 
 ## 相关发布
 
-各注册表中的当前版本见[已发布版本](../../../docs/README.md#published-versions)。其他发布说明：[Python 2.10.1](../../../docs/PYTHON_RELEASE.md)、[Go v2.11.1](../../../docs/GO_RELEASE.md)、[Rust 2.11.1](../../../docs/RUST_RELEASE.md)。
+各注册表中的当前版本见[已发布版本](../../../docs/README.md#published-versions)。其他发布说明：[Python 2.10.2](../../../docs/PYTHON_RELEASE.md)、[Go v2.13.0](../../../docs/GO_RELEASE.md)、[Rust 2.13.0](../../../docs/RUST_RELEASE.md)。

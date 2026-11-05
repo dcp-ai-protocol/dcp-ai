@@ -1,8 +1,8 @@
 # DCP-AI API Reference
 
-Reference for the `@dcp-ai/sdk` TypeScript SDK as it is on `main` (package version 2.2.1, protocol DCP v2.0).
+Reference for the `@dcp-ai/sdk` TypeScript SDK as it is on `main` (package version 2.3.0, protocol DCP v2.0).
 
-> **npm versions (28/10/2026).** This TypeScript reference applies to published `@dcp-ai/sdk` 2.2.1, including principal trust, `strict-v1` and the experimental opt-in candidate APIs. See [published npm packages](NPM_RELEASES.md) and the SDK [installation instructions](../sdks/typescript/README.md#installation). `dcp-jcs-v1` remains the normative default.
+> **npm versions (05/11/2026).** This TypeScript reference applies to published `@dcp-ai/sdk` 2.3.0, including principal trust, `strict-v1` and the experimental opt-in candidate APIs. See [published npm packages](NPM_RELEASES.md) and the SDK [installation instructions](../sdks/typescript/README.md#installation). `dcp-jcs-v1` remains the normative default.
 
 Code blocks here are declarations or fragments, not complete programs: names such as `registry`, `keys`,
 `payloadBytes` or `signedBundle` stand for values built as in the TypeScript SDK's
@@ -793,7 +793,7 @@ interface VerifyV2Result {
 
 **Verification pipeline:**
 
-1. Version and schema check: only v2.0 bundles are accepted and other versions are rejected; routing v1.0 bundles to `verifySignedBundle` is the caller's job ([MIGRATION_V1_V2.md](MIGRATION_V1_V2.md#32-coexistence-strategy)). On `main`, not in a published version, the envelope and the four payloads are then validated against `schemas/v2` (V2-2): a failure returns `verified: false` with `schema: <JSON pointer> <keyword>[ <member>]` errors (at most 16, then `schema: further errors not listed`), no warnings and no cryptographic details ([coverage map](conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary))
+1. Version and schema check: only v2.0 bundles are accepted and other versions are rejected; routing v1.0 bundles to `verifySignedBundle` is the caller's job ([MIGRATION_V1_V2.md](MIGRATION_V1_V2.md#32-coexistence-strategy)). From 2.3.0, the envelope and the four payloads are then validated against `schemas/v2` (V2-2): a failure returns `verified: false` with `schema: <JSON pointer> <keyword>[ <member>]` errors (at most 16, then `schema: further errors not listed`), no warnings and no cryptographic details ([coverage map](conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary))
 2. Payload hash verification for all signed artifacts
 3. Session nonce consistency across all artifacts
 4. Manifest integrity (recompute all artifact hashes + audit Merkle root)
@@ -1624,8 +1624,8 @@ dropped. It checks no signature, schema, `authority_scope` or chain (`verifyMand
 Python (`now=`, an aware `datetime`; a naive one is refused; the revoked IDs must be a `collections.abc.Set`, such as
 a `set`, a `frozenset` or a dict keys view, and a list or a string is refused), Go (`VerifyMandateValidityAt`, `now` taken as given)
 and Rust (`verify_mandate_validity_at`, milliseconds) give the same results on
-`tests/interop/v2/mandate_validity_vectors.json`. This is on `main`, not in a published version. The published
-helpers treat a malformed window differently: TypeScript and Go accept a missing or malformed date, Python raises,
+`tests/interop/v2/mandate_validity_vectors.json`. This is published from `@dcp-ai/sdk` 2.3.0, `dcp-ai` 2.10.2, Go v2.13.0 and Rust
+`dcp-ai` 2.13.0. Earlier helpers treat a malformed window differently: TypeScript and Go accept a missing or malformed date, Python raises,
 and Rust compares the dates as text.
 
 ```typescript
@@ -1655,7 +1655,7 @@ A domain that appears twice in one mandate's `authority_scope`, at any depth and
 and rejects the chain, reported once per domain as `mandate[i]: authority_scope domain "…" is duplicated`; domains are
 compared as exact strings, with no case folding, trimming or Unicode normalization. The four SDK suites run the signed
 chains of `tests/interop/v2/mandate_domain_vectors.json`, whose error lists are these SDKs' diagnostics, not a protocol
-requirement. This is on `main`, not in a published version.
+requirement. This is published from `@dcp-ai/sdk` 2.3.0, `dcp-ai` 2.10.2, Go v2.13.0 and Rust `dcp-ai` 2.13.0.
 
 Every time it reads is an RFC 3339 instant of the subset the SDKs already parse, compared in milliseconds and never as
 text, both limits included: each mandate's `valid_from` and `valid_until`, their nesting in the parent's window, and
@@ -1666,7 +1666,7 @@ another type) gives `verification time is not an instant` instead of an exceptio
 conventions, which differ from the validity helper above: Python takes `None`, the default, as the current time,
 reads a naive `datetime` as UTC and refuses any other value that is not a `datetime`, Go reads the zero `time.Time` as the current time,
 and Rust takes milliseconds (`None` is the current time). The four SDK suites run the signed chains of
-`tests/interop/v2/mandate_chain_time_vectors.json`. This is on `main`, not in a published version.
+`tests/interop/v2/mandate_chain_time_vectors.json`. This is published from the same versions.
 
 ```typescript
 interface MandateChainKeys { human_keys: KeyEntry[]; agent_keys: Record<string, KeyEntry[]> }
@@ -1888,7 +1888,7 @@ function computeBundleHash(bundle: SignedBundleV2): string;
 
 In-memory cache of verification results, keyed by bundle hash, with a TTL per security tier.
 
-> **Versions (28/10/2026).** This section describes the source on `main`, which is not published. Published
+> **Versions (05/11/2026).** This section describes `@dcp-ai/sdk` 2.3.0 and later. Published
 > `@dcp-ai/sdk` 2.2.1 and earlier keep the previous behaviour: the key is the bundle hash only, `get` returns the
 > stored object, options are not validated, expiry uses only the wall clock, and `invalidateByAgent` removes nothing
 > and returns 0.

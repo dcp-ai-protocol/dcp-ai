@@ -1,6 +1,6 @@
 <sub>[English](../../README.md) · [中文](../zh-CN/README.md) · [Español](../es/README.md) · **日本語** · [Português](../pt-BR/README.md)</sub>
 
-> [英語版](../../README.md)の参考訳です（28/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../README.md)の参考訳です（05/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 <div align="center">
 
@@ -173,10 +173,10 @@ node /path/to/dcp-ai/bin/dcp.js verify-bundle --policy hybrid_preferred bundle.s
   npm install /path/to/dcp-ai/sdks/typescript
   ```
 
-- または、これらの修正と機能を含む公開済み SDK 2.2.1：
+- または、これらの修正と機能を含む公開済み SDK 2.3.0：
 
   ```bash
-  npm install @dcp-ai/sdk@^2.2.1
+  npm install @dcp-ai/sdk@^2.3.0
   ```
 
 `main` の現行の V2 バンドル検証器（署名、ハッシュ、セッションバインディング、セキュリティティア）で、署名済みの V2 バンドルを

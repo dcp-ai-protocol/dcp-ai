@@ -5,7 +5,7 @@
 
 # DCP-AI e o Regulamento de IA da UE — correspondência das obrigações de registro, supervisão humana e manutenção de registros
 
-> Tradução informativa da [versão em inglês](../../../docs/EU_AI_ACT_MAPPING.md), atualizada em 28/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../docs/EU_AI_ACT_MAPPING.md), atualizada em 05/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 **Versão da especificação:** 2.0
 **Última atualização:** outubro de 2026
@@ -245,7 +245,7 @@ O que um responsável pela implantação ou um operador precisa configurar ou op
 - [ ] As regras da política retornam `escalate` com `required_confirmation` para os tipos de ação, classes de dados e níveis de impacto que o responsável pela implantação quer que uma pessoa aprove; a aplicação bloqueia diante de uma Human Confirmation ausente ou com `deny`.
 - [ ] São declarados limiares de atenção por mandato com `action_if_triggered` em `escalate` ou `block` para as dimensões que importam; as declarações de aconselhamento trazem um `response_deadline` coerente com DCP-09 §5.3, e `proceeded_without_response` é monitorado.
 - [ ] Existe um segredo de revogação de emergência para cada agente, em poder do principal responsável fora do ambiente de execução do agente, e a aplicação tem um interruptor de desligamento que interrompe o processo quando a revogação é acionada (a revogação por si só não interrompe um processo em execução).
-- [ ] Os verificadores checam o estado de revogação dentro da latência de propagação do nível mais alto que atendem ([SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md), «Revocation Propagation SLAs»), e o TTL do cache de verificação segue core §14.5. No `@dcp-ai/sdk` 2.2.1 publicado e anteriores, o `VerificationCache` do TypeScript é indexado só pelo hash do bundle e seu `invalidateByAgent` não faz nada; o código-fonte de `main` (não publicado) adiciona a invalidação por agente e um contexto opcional, mas nada é invalidado automaticamente. Em ambos os casos, invalide-o ou esvazie-o quando a revogação ou a confiança mudarem ([API_REFERENCE.md](../../../docs/API_REFERENCE.md#verificationcache)).
+- [ ] Os verificadores checam o estado de revogação dentro da latência de propagação do nível mais alto que atendem ([SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md), «Revocation Propagation SLAs»), e o TTL do cache de verificação segue core §14.5. No `@dcp-ai/sdk` 2.2.1 publicado e anteriores, o `VerificationCache` do TypeScript é indexado só pelo hash do bundle e seu `invalidateByAgent` não faz nada; o `@dcp-ai/sdk` 2.3.0 e posteriores adicionam a invalidação por agente e um contexto opcional, mas nada é invalidado automaticamente. Em ambos os casos, invalide-o ou esvazie-o quando a revogação ou a confiança mudarem ([API_REFERENCE.md](../../../docs/API_REFERENCE.md#verificationcache)).
 - [ ] Para a identificação biométrica à distância, a regra das duas pessoas do art. 14(5) é implementada com autorização multipartes sobre a intenção e documentada como um processo do responsável pela implantação.
 
 <a id="54-key-custody-and-verifier-policy"></a>

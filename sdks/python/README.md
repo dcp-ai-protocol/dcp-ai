@@ -8,17 +8,17 @@ Official Python SDK for the Digital Citizenship Protocol (DCP v2.0). Pydantic v2
 
 **Python SDK.** Since 2.10.0 this SDK includes the V2 verifier fixes, principal trust and `strict-v1`, delegation chains, the A2A receive window, bounded revocation workers and the experimental opt-in `dcp-jcs-v2` APIs. It also includes the corrected FastAPI, LangChain, OpenAI and CrewAI bridges. `dcp-jcs-v1` remains the normative default. Install with:
 
-**Python SDK 2.10.1.** This version also verifies the secondary SHA3-256 fields of [VERIFICATION.md V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) when they are present: `audit_merkle_root_secondary`, each `prev_hash_secondary` and each `intent_hash_secondary`. Absent fields are not required, so a verified bundle may lack a complete secondary chain; a present field that is `null`, not a string or inconsistent is rejected. APIs, result fields, `dcp-jcs-v1` and `hash_alg` handling are unchanged. 2.10.0 does not check these fields. The installation commands below name this version; for its registry availability, see [Published versions](../../docs/README.md#published-versions).
+**Python SDK 2.10.1.** This version also verifies the secondary SHA3-256 fields of [VERIFICATION.md V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) when they are present: `audit_merkle_root_secondary`, each `prev_hash_secondary` and each `intent_hash_secondary`. Absent fields are not required, so a verified bundle may lack a complete secondary chain; a present field that is `null`, not a string or inconsistent is rejected. APIs, result fields, `dcp-jcs-v1` and `hash_alg` handling are unchanged. 2.10.0 does not check these fields.
 
-**Python SDK 2.10.2 (prepared, not published).** It is prepared in the repository and is not on PyPI: the command below stays on 2.10.1. Compared with 2.10.1:
+**Python SDK 2.10.2.** Published on PyPI on 05/11/2026. The installation commands below name this version; for its registry availability, see [Published versions](../../docs/README.md#published-versions). Compared with 2.10.1:
 
 - **V2-2 schema validation.** `verify_signed_bundle_v2` and the other V2 verification functions, and so the FastAPI middleware and the bridges, validate the signed bundle envelope and the four payloads against `schemas/v2` before any hash, key or signature check. Schema-invalid bundles accepted before now fail with `schema: <pointer> <keyword>` diagnostics.
 - **Mandates.** `verify_mandate_validity` applies one contract and returns a result instead of raising; `now=` must be an aware `datetime`. The revoked IDs, annotated `set[str]`, are now checked as a `collections.abc.Set` (a `set`, a `frozenset` or a dict keys view): a list or a string, tolerated before, is refused. `verify_mandate_chain` reads every time the same way and rejects a root mandate that repeats a domain.
 
-The wire format, the signatures, the profiles, `dcp-jcs-v1` and the experimental opt-in `dcp-jcs-v2` APIs are unchanged. See the [changelog](../../CHANGELOG.md#unreleased).
+The wire format, the signatures, the profiles, `dcp-jcs-v1` and the experimental opt-in `dcp-jcs-v2` APIs are unchanged. See the [changelog](../../CHANGELOG.md#unreleased). The README inside the published wheel and sdist is the one prepared before publication and reads "prepared, not published"; published files cannot change.
 
 ```bash
-pip install "dcp-ai>=2.10.1,<3"
+pip install "dcp-ai>=2.10.2,<3"
 ```
 
 **Upgrade from 2.9.0.** FastAPI now verifies V2 signatures instead of accepting structure alone. V1 acceptance in FastAPI and the LangChain/OpenAI bridges follows the verifier policy. V2 also rejects non-canonical signature encodings and inconsistent or incorrectly bound evidence that older versions accepted. Preserve historical evidence and its verification version; do not silently re-sign it. Trust, resource budgets and disconnect handling remain explicit operator choices. Verification and admission do not authorize an action.
@@ -34,14 +34,14 @@ pip install -e "dcp-ai/sdks/python"
 
 ### Optional extras
 
-From the registry (2.10.1 or later); from a checkout, the same extras apply: `pip install -e "dcp-ai/sdks/python[fastapi]"`.
+From the registry (2.10.2 or later); from a checkout, the same extras apply: `pip install -e "dcp-ai/sdks/python[fastapi]"`.
 
 ```bash
-pip install "dcp-ai[fastapi]>=2.10.1,<3"    # FastAPI middleware
-pip install "dcp-ai[langchain]>=2.10.1,<3"  # LangChain integration
-pip install "dcp-ai[openai]>=2.10.1,<3"     # OpenAI wrapper
-pip install "dcp-ai[crewai]>=2.10.1,<3"     # CrewAI multi-agent
-pip install "dcp-ai[otlp]>=2.10.1,<3"       # OpenTelemetry OTLP exporter
+pip install "dcp-ai[fastapi]>=2.10.2,<3"    # FastAPI middleware
+pip install "dcp-ai[langchain]>=2.10.2,<3"  # LangChain integration
+pip install "dcp-ai[openai]>=2.10.2,<3"     # OpenAI wrapper
+pip install "dcp-ai[crewai]>=2.10.2,<3"     # CrewAI multi-agent
+pip install "dcp-ai[otlp]>=2.10.2,<3"       # OpenTelemetry OTLP exporter
 ```
 
 ## Features
@@ -248,7 +248,7 @@ Verifies: schema, Ed25519 signature, `bundle_hash`, `merkle_root`, `intent_hash`
 
 `BundleBuilderV2`, `sign_bundle_v2` and `verify_signed_bundle_v2` (in `dcp_ai.v2`) port the TypeScript SDK's `builder-v2.ts`, `signer-v2.ts` and `verify-v2.ts`. Artifacts are `SignedPayload` dicts (`{"payload", "payload_hash", "composite_sig"}`); the bundle signature is a composite signature over the manifest.
 
-**Schema validation (V2-2; from 2.10.2, prepared and not published).** `verify_signed_bundle_v2` and the other V2 verification functions first validate the signed bundle envelope and the four payloads against `schemas/v2`, after the policy and clock checks and before the verifier checks the manifest, payload hashes, keys and signatures; `admit_signed_bundle_v2`, which verifies first, and the experimental candidate verifier go through the same gate, while `evaluate_admission_v2` takes an earlier result and does not run it. A bundle that fails returns `verified: false` with `schema: <JSON pointer> <keyword>[ <member>]` errors (at most 16, then `schema: further errors not listed`) and no cryptographic details. Unknown members of closed objects are rejected; in open objects, such as the intent `target`, the declared members keep their constraints and only additional members are not inspected. The manifest's `session_issued_at` and `session_expires_at` must be strings when present, not `null`. `date-time` follows the ajv-formats 3.0.1 check of the reference verifier, which is not strict RFC 3339. **Acceptance change:** schema-invalid bundles that verified before are now rejected. There is no schema-only API. See the [coverage map](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary).
+**Schema validation (V2-2; from 2.10.2).** `verify_signed_bundle_v2` and the other V2 verification functions first validate the signed bundle envelope and the four payloads against `schemas/v2`, after the policy and clock checks and before the verifier checks the manifest, payload hashes, keys and signatures; `admit_signed_bundle_v2`, which verifies first, and the experimental candidate verifier go through the same gate, while `evaluate_admission_v2` takes an earlier result and does not run it. A bundle that fails returns `verified: false` with `schema: <JSON pointer> <keyword>[ <member>]` errors (at most 16, then `schema: further errors not listed`) and no cryptographic details. Unknown members of closed objects are rejected; in open objects, such as the intent `target`, the declared members keep their constraints and only additional members are not inspected. The manifest's `session_issued_at` and `session_expires_at` must be strings when present, not `null`. `date-time` follows the ajv-formats 3.0.1 check of the reference verifier, which is not strict RFC 3339. **Acceptance change:** schema-invalid bundles that verified before are now rejected. There is no schema-only API. See the [coverage map](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary).
 
 ```python
 # Fragment, inside an async function: session_nonce, the signed artifacts (signed_rpr, signed_passport, signed_intent, signed_policy), audit_events, classical_key and pq_key come from your application.
@@ -307,14 +307,14 @@ nested validity windows, attenuation (actions, `data_classes` and `limits` only 
 floor and revocation. It reads every time as an RFC 3339 instant in milliseconds, year 0000 and offsets that cross
 year 0000 or 9999 included, and floors `now` to the millisecond. `now=None`, the default, is the current time. A naive `now` is read
 as UTC, as before and unlike `verify_mandate_validity`, and any other `now` that is not a `datetime` gives
-`verification time is not an instant` (from 2.10.2, prepared and not published). A domain repeated in one mandate's `authority_scope`, the root
+`verification time is not an instant` (from 2.10.2). A domain repeated in one mandate's `authority_scope`, the root
 included, rejects the chain; domains are compared as exact strings, with no case folding, trimming or Unicode
-normalization (from 2.10.2, prepared and not published). `verify_mandate_validity(mandate, revoked_ids, now=...)` checks one mandate's `mandate_id`,
+normalization (from 2.10.2). `verify_mandate_validity(mandate, revoked_ids, now=...)` checks one mandate's `mandate_id`,
 local revocation and validity window at an aware `now` (the current time by default; a naive `datetime` is refused).
 It uses RFC 3339 instants in milliseconds, both limits included, and a missing, malformed or inverted window is
 invalid. The revoked IDs must be a set (a `set`, a `frozenset` or a dict keys view); a list or a string is refused.
 It returns a result instead of raising, checks no signature, scope or chain, and authorizes nothing. This
-is in 2.10.2, prepared and not published.
+is in 2.10.2 and later.
 
 ```python
 # Fragment, inside an async function: registry as in V2 Bundles; orchestrator_classical, orchestrator_pq, root_mandate, nonce and the key entries come from your delegation setup; intent and policy_decision are V2 payloads.

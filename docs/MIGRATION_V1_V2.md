@@ -2,7 +2,7 @@
 
 **Specification version:** 2.0
 **Last updated:** October 2026
-**Applies to:** the SDKs on `main` and published `@dcp-ai/sdk` 2.2.1. npm versions were verified on 28/10/2026; see [NPM_RELEASES.md](NPM_RELEASES.md) and [SECURITY.md](../SECURITY.md#supported-versions). The versions of the other SDKs are in [Published versions](README.md#published-versions).
+**Applies to:** the SDKs on `main` and published `@dcp-ai/sdk` 2.3.0. npm versions were verified on 05/11/2026; see [NPM_RELEASES.md](NPM_RELEASES.md) and [SECURITY.md](../SECURITY.md#supported-versions). The versions of the other SDKs are in [Published versions](README.md#published-versions).
 
 This guide walks you through migrating an existing DCP-AI v1.0 integration to v2.0. The migration introduces post-quantum composite signatures, dual-hash chains, session binding, adaptive security tiers, and agent-to-agent communication — while valid v1.0 bundles keep verifying where the verifier's policy allows them (see 1.2).
 
@@ -53,12 +53,12 @@ The migration is **additive**: v2.0 introduces new fields and structures alongsi
 
 ### Step 1: Update SDK
 
-The examples work with published TypeScript SDK 2.2.1, Python `dcp-ai` 2.10.1, Go `v2.11.1` and Rust `dcp-ai` 2.11.1. See the [Python](PYTHON_RELEASE.md), [Go](GO_RELEASE.md) and [Rust](RUST_RELEASE.md) release notes and each SDK README for its documented limits.
+The examples work with published TypeScript SDK 2.3.0, Python `dcp-ai` 2.10.2, Go `v2.13.0` and Rust `dcp-ai` 2.13.0. See the [Python](PYTHON_RELEASE.md), [Go](GO_RELEASE.md) and [Rust](RUST_RELEASE.md) release notes and each SDK README for its documented limits.
 
-**TypeScript** (published: 2.2.1 on 28/10/2026):
+**TypeScript** (published: 2.3.0 on 05/11/2026):
 
 ```bash
-npm install @dcp-ai/sdk@^2.2.1
+npm install @dcp-ai/sdk@^2.3.0
 ```
 
 **Python:**
@@ -71,13 +71,13 @@ pip install -e /path/to/dcp-ai/sdks/python     # main
 **Go** (note the v2 major suffix required by Go modules):
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.1
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.13.0
 ```
 
 **Rust:**
 
 ```toml
-dcp-ai = "2.11.1"
+dcp-ai = "2.13.0"
 ```
 
 **WebAssembly:** build `sdks/wasm` from a checkout (`npm run build`), then `npm install /path/to/dcp-ai/sdks/wasm`.

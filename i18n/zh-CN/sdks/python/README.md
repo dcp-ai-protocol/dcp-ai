@@ -12,17 +12,17 @@ Digital Citizenship Protocol（DCP v2.0）的官方 Python SDK。提供 Pydantic
 
 **Python SDK。** 自 2.10.0 起，此 SDK 包含 V2 验证器修复、委托人信任与 `strict-v1`、委托链、A2A 接收窗口、受限的吊销工作线程，以及实验性、需显式启用的 `dcp-jcs-v2` API。它还包含修复后的 FastAPI、LangChain、OpenAI 和 CrewAI 适配器。`dcp-jcs-v1` 仍是规范性默认配置。安装：
 
-**Python SDK 2.10.1。** 此版本还会在 [VERIFICATION.md 的 V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) 中的二级 SHA3-256 字段存在时验证它们：`audit_merkle_root_secondary`、每个 `prev_hash_secondary` 和每个 `intent_hash_secondary`。不存在的字段不作要求，因此已验证的 bundle 可能没有完整的二级链；存在的字段如果是 `null`、不是字符串或不一致，则被拒绝。API、结果字段、`dcp-jcs-v1` 和 `hash_alg` 的处理均不变。2.10.0 不检查这些字段。下面的安装命令指定的是此版本；它在注册表中的可用情况见[已发布版本](../../../../docs/README.md#published-versions)。
+**Python SDK 2.10.1。** 此版本还会在 [VERIFICATION.md 的 V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) 中的二级 SHA3-256 字段存在时验证它们：`audit_merkle_root_secondary`、每个 `prev_hash_secondary` 和每个 `intent_hash_secondary`。不存在的字段不作要求，因此已验证的 bundle 可能没有完整的二级链；存在的字段如果是 `null`、不是字符串或不一致，则被拒绝。API、结果字段、`dcp-jcs-v1` 和 `hash_alg` 的处理均不变。2.10.0 不检查这些字段。
 
-**Python SDK 2.10.2（已准备，尚未发布）。** 它已在仓库中准备好，但不在 PyPI 上：下面的命令仍为 2.10.1。与 2.10.1 相比：
+**Python SDK 2.10.2。** 已于 05/11/2026 在 PyPI 上发布。下面的安装命令指定的是此版本；它在注册表中的可用情况见[已发布版本](../../../../docs/README.md#published-versions)。与 2.10.1 相比：
 
 - **V2-2 模式校验。** `verify_signed_bundle_v2` 和其他 V2 验证函数（因而也包括 FastAPI 中间件和桥接器）在任何哈希、密钥或签名检查之前，先按 `schemas/v2` 校验已签名 bundle 的信封和四个载荷。以前被接受的模式无效 bundle 现在会以 `schema: <pointer> <keyword>` 诊断失败。
 - **委托书。** `verify_mandate_validity` 采用统一的约定，返回结果而不是抛出异常；`now=` 必须是带时区的 `datetime`。注解为 `set[str]` 的已吊销 ID 现在按 `collections.abc.Set`（`set`、`frozenset` 或 dict 的键视图）检查：以前被容忍的列表或字符串会被拒绝。`verify_mandate_chain` 以同一方式读取所有时间，并拒绝重复某个领域的根委托书。
 
-传输格式、签名、配置文件、`dcp-jcs-v1` 和实验性显式启用的 `dcp-jcs-v2` API 均不变。参见[变更日志](../../../../CHANGELOG.md#unreleased)。
+传输格式、签名、配置文件、`dcp-jcs-v1` 和实验性显式启用的 `dcp-jcs-v2` API 均不变。参见[变更日志](../../../../CHANGELOG.md#unreleased)。已发布的 wheel 和 sdist中的 README 是发布前准备的版本，写着“prepared, not published”；已发布的文件无法更改。
 
 ```bash
-pip install "dcp-ai>=2.10.1,<3"
+pip install "dcp-ai>=2.10.2,<3"
 ```
 
 **从 2.9.0 升级。** FastAPI 现在验证 V2 签名，而不是仅接受结构。FastAPI 和 LangChain/OpenAI 适配器对 V1 的接受遵循验证器策略。V2 还会拒绝旧版本曾接受的非规范签名编码、不一致或绑定错误的证据。请保留历史证据及其验证版本，不要静默重新签名。信任、资源预算和断开连接处理仍由运营方显式选择。验证或准入不授权任何操作。
@@ -40,14 +40,14 @@ pip install -e "dcp-ai/sdks/python"
 
 ### 可选 extras
 
-来自注册表（2.10.1 或更高版本）；从检出副本安装时同样适用这些 extras：`pip install -e "dcp-ai/sdks/python[fastapi]"`。
+来自注册表（2.10.2 或更高版本）；从检出副本安装时同样适用这些 extras：`pip install -e "dcp-ai/sdks/python[fastapi]"`。
 
 ```bash
-pip install "dcp-ai[fastapi]>=2.10.1,<3"    # FastAPI middleware
-pip install "dcp-ai[langchain]>=2.10.1,<3"  # LangChain integration
-pip install "dcp-ai[openai]>=2.10.1,<3"     # OpenAI wrapper
-pip install "dcp-ai[crewai]>=2.10.1,<3"     # CrewAI multi-agent
-pip install "dcp-ai[otlp]>=2.10.1,<3"       # OpenTelemetry OTLP exporter
+pip install "dcp-ai[fastapi]>=2.10.2,<3"    # FastAPI middleware
+pip install "dcp-ai[langchain]>=2.10.2,<3"  # LangChain integration
+pip install "dcp-ai[openai]>=2.10.2,<3"     # OpenAI wrapper
+pip install "dcp-ai[crewai]>=2.10.2,<3"     # CrewAI multi-agent
+pip install "dcp-ai[otlp]>=2.10.2,<3"       # OpenTelemetry OTLP exporter
 ```
 
 <a id="features"></a>
@@ -275,7 +275,7 @@ verify_signed_bundle(
 
 `BundleBuilderV2`、`sign_bundle_v2` 和 `verify_signed_bundle_v2`（位于 `dcp_ai.v2`）移植自 TypeScript SDK 的 `builder-v2.ts`、`signer-v2.ts` 和 `verify-v2.ts`。构件是 `SignedPayload` 字典（`{"payload", "payload_hash", "composite_sig"}`）；bundle 签名是针对清单的复合签名。
 
-**模式校验（V2-2；自 2.10.2 起，已准备、尚未发布）。** `verify_signed_bundle_v2` 和其他 V2 验证函数会在策略和时钟检查之后、验证器检查清单、载荷哈希、密钥和签名之前，先按 `schemas/v2` 校验已签名 bundle 的封装和四个载荷；先进行验证的 `admit_signed_bundle_v2` 和实验性候选验证器也经过同一关卡，而 `evaluate_admission_v2` 接收先前的结果，不执行该关卡。校验失败的 bundle 返回 `verified: false` 和 `schema: <JSON pointer> <keyword>[ <member>]` 错误（最多 16 条，随后是 `schema: further errors not listed`），不含密码学细节。封闭对象中的未知成员会被拒绝；在开放对象中（例如 intent 的 `target`），已声明的成员保留其约束，只有附加成员不被检查。清单中的 `session_issued_at` 和 `session_expires_at` 存在时必须是字符串，不能是 `null`。`date-time` 遵循参考验证器的 ajv-formats 3.0.1 检查，这不是严格的 RFC 3339。**接受范围变化：** 以前能通过验证的模式无效 bundle 现在会被拒绝。没有仅做模式校验的 API。参见[覆盖映射](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)。
+**模式校验（V2-2；自 2.10.2 起）。** `verify_signed_bundle_v2` 和其他 V2 验证函数会在策略和时钟检查之后、验证器检查清单、载荷哈希、密钥和签名之前，先按 `schemas/v2` 校验已签名 bundle 的封装和四个载荷；先进行验证的 `admit_signed_bundle_v2` 和实验性候选验证器也经过同一关卡，而 `evaluate_admission_v2` 接收先前的结果，不执行该关卡。校验失败的 bundle 返回 `verified: false` 和 `schema: <JSON pointer> <keyword>[ <member>]` 错误（最多 16 条，随后是 `schema: further errors not listed`），不含密码学细节。封闭对象中的未知成员会被拒绝；在开放对象中（例如 intent 的 `target`），已声明的成员保留其约束，只有附加成员不被检查。清单中的 `session_issued_at` 和 `session_expires_at` 存在时必须是字符串，不能是 `null`。`date-time` 遵循参考验证器的 ajv-formats 3.0.1 检查，这不是严格的 RFC 3339。**接受范围变化：** 以前能通过验证的模式无效 bundle 现在会被拒绝。没有仅做模式校验的 API。参见[覆盖映射](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)。
 
 ```python
 # Fragment, inside an async function: session_nonce, the signed artifacts (signed_rpr, signed_passport, signed_intent, signed_policy), audit_events, classical_key and pq_key come from your application.
@@ -335,11 +335,11 @@ result = await admit_signed_bundle_v2(signed_bundle, registry, profile=profile, 
 嵌套的有效期窗口、权限收窄（操作、`data_classes` 和 `limits` 只能缩小）、安全等级
 下限以及吊销。它把所有时间作为以毫秒计的 RFC 3339 时刻读取，包括年 0000 以及跨越年 0000 或 9999 的偏移，并把 `now`
 向下截断到毫秒。默认的 `now=None` 表示当前时间。naive 的 `now` 与以前一样视为 UTC（不同于
-`verify_mandate_validity`），其他任何不是 `datetime` 的 `now` 返回 `verification time is not an instant`（自 2.10.2 起，已准备、尚未发布）。同一委托书的 `authority_scope` 中重复的领域（包括根）会导致链被拒绝；领域按精确字符串比较，
-不做大小写折叠、去除空白或 Unicode 规范化（自 2.10.2 起，已准备、尚未发布）。`verify_mandate_validity(mandate, revoked_ids, now=...)` 在 aware 的 `now`（默认为当前时间；naive 的 `datetime` 会被
+`verify_mandate_validity`），其他任何不是 `datetime` 的 `now` 返回 `verification time is not an instant`（自 2.10.2 起）。同一委托书的 `authority_scope` 中重复的领域（包括根）会导致链被拒绝；领域按精确字符串比较，
+不做大小写折叠、去除空白或 Unicode 规范化（自 2.10.2 起）。`verify_mandate_validity(mandate, revoked_ids, now=...)` 在 aware 的 `now`（默认为当前时间；naive 的 `datetime` 会被
 拒绝）时检查一份委托书的 `mandate_id`、本地吊销和有效期窗口。它使用以毫秒计的 RFC 3339 时刻，两端都包含；缺失、格式
 错误或颠倒的窗口无效。已吊销的 ID 必须是集合（`set`、`frozenset` 或 dict 的键视图）；列表或字符串会被拒绝。它返回结果
-而不是抛出异常，不检查签名、范围或链，也不授权任何操作。这在 2.10.2 中，已准备、尚未发布。
+而不是抛出异常，不检查签名、范围或链，也不授权任何操作。这在 2.10.2 及之后的版本中。
 
 ```python
 # Fragment, inside an async function: registry as in V2 Bundles; orchestrator_classical, orchestrator_pq, root_mandate, nonce and the key entries come from your delegation setup; intent and policy_decision are V2 payloads.
