@@ -97,10 +97,11 @@ Son tres cosas distintas; nunca leas una como otra.
 | Artefacto | Versiones | Qué contiene |
 |---|---|---|
 | Código revisado | `main` en la base | Todas las correcciones de abajo |
-| Preparadas, no publicadas (30/10/2026, #114) | Go v2.12.0, Rust `dcp-ai` 2.12.0, `@dcp-ai/wasm` 2.1.2 | #106 (WASM), #107 y #112; no #116 a #119 |
+| Preparadas, no publicadas (05/11/2026) | `@dcp-ai/sdk` 2.3.0, `dcp-ai` 2.10.2 (PyPI), Go v2.13.0, Rust `dcp-ai` 2.13.0, `@dcp-ai/wasm` 2.1.3 | Todos los cambios de los SDK de abajo |
+| Preparadas el 30/10/2026 (#114), nunca publicadas, sustituidas | Go v2.12.0, Rust `dcp-ai` 2.12.0, `@dcp-ai/wasm` 2.1.2 | #106 (WASM), #107 y #112; no #103 ni #116 a #119 |
 | Publicadas | `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `@dcp-ai/cli` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1, Rust `dcp-ai` 2.11.1 | Las correcciones del verificador del 26/10/2026 y las comprobaciones secundarias SHA3-256 del 28/10/2026; ninguna de las correcciones de abajo |
 
-Un número de versión por sí solo no identifica un artefacto. Los manifiestos de `main` llevan `@dcp-ai/sdk` 2.2.1 y `dcp-ai` 2.10.1, los números publicados, y Go y Rust 2.12.0 y `@dcp-ai/wasm` 2.1.2, los números preparados, junto con cambios posteriores. Usa los identificadores de los registros de abajo o los hashes de lo que compilaste. Los registros públicos se leyeron el 05/11/2026 con TLS normal, sin publicar nada; las últimas versiones eran las de arriba.
+Un número de versión por sí solo no identifica un artefacto. Los manifiestos de `main` llevan los números del candidato del 05/11/2026, que ningún registro tiene; el candidato del 30/10/2026 usó Go y Rust 2.12.0 y `@dcp-ai/wasm` 2.1.2 para menos cambios, y esos números no se reutilizan. Usa los identificadores de los registros de abajo o los hashes de lo que compilaste. Una publicación vuelve a construir los paquetes, así que lo que publique debe compararse con el candidato revisado o probarse de nuevo. Los registros públicos se leyeron el 05/11/2026 con TLS normal, sin publicar nada; las últimas versiones eran las de arriba.
 
 | Registro | Versión | Identificador |
 |---|---|---|
@@ -115,14 +116,14 @@ Cambios de SDK en `main` posteriores a las versiones publicadas:
 
 | Cambio | Commit | SDK | Publicado |
 |---|---|---|---|
-| Claves y aislamiento de `VerificationCache` (#103) | `e711179a` | TypeScript | No |
-| `dualMerkleRoot` de WASM sigue V2-11 (#106) | `cac0a5f6` | Rust (feature `wasm`), WASM | No; preparado |
-| `VerifyPayloadHash` comprueba el hash normativo con prefijo (#107) | `24e70d56` | Go | No; preparado |
-| `RawAuditEventV2` conserva las entradas de auditoría recibidas (#112) | `6dc97d59` | Go, Rust | No; preparado |
-| Validación de esquemas V2-2 dentro de cada verificador V2 (#116) | `0ebd2849` | TypeScript, Python, Go, Rust, WASM | No |
-| Helpers de validez de mandatos alineados (#117) | `614b1c56` | TypeScript, Python, Go, Rust | No |
-| Comprobaciones de tiempo de las cadenas de mandatos alineadas (#118) | `7619ff95` | TypeScript, Python, Go, Rust | No |
-| Dominios repetidos en un mandato raíz aislado rechazados (#119) | `c154192f` | TypeScript, Python, Go, Rust | No |
+| Claves y aislamiento de `VerificationCache` (#103) | `e711179a` | TypeScript | No; preparado el 05/11 |
+| `dualMerkleRoot` de WASM sigue V2-11 (#106) | `cac0a5f6` | Rust (feature `wasm`), WASM | No; preparado el 30/10 y el 05/11 |
+| `VerifyPayloadHash` comprueba el hash normativo con prefijo (#107) | `24e70d56` | Go | No; preparado el 30/10 y el 05/11 |
+| `RawAuditEventV2` conserva las entradas de auditoría recibidas (#112) | `6dc97d59` | Go, Rust | No; preparado el 30/10 y el 05/11 |
+| Validación de esquemas V2-2 dentro de cada verificador V2 (#116) | `0ebd2849` | TypeScript, Python, Go, Rust, WASM | No; preparado el 05/11 |
+| Helpers de validez de mandatos alineados (#117) | `614b1c56` | TypeScript, Python, Go, Rust | No; preparado el 05/11 |
+| Comprobaciones de tiempo de las cadenas de mandatos alineadas (#118) | `7619ff95` | TypeScript, Python, Go, Rust | No; preparado el 05/11 |
+| Dominios repetidos en un mandato raíz aislado rechazados (#119) | `c154192f` | TypeScript, Python, Go, Rust | No; preparado el 05/11 |
 
 Otros cambios posteriores a las versiones publicadas:
 

@@ -97,10 +97,11 @@ São três coisas distintas; nunca leia uma como outra.
 | Artefato | Versões | O que contém |
 |---|---|---|
 | Código revisado | `main` na base | Todas as correções abaixo |
-| Preparadas, não publicadas (30/10/2026, #114) | Go v2.12.0, Rust `dcp-ai` 2.12.0, `@dcp-ai/wasm` 2.1.2 | #106 (WASM), #107 e #112; não #116 a #119 |
+| Preparadas, não publicadas (05/11/2026) | `@dcp-ai/sdk` 2.3.0, `dcp-ai` 2.10.2 (PyPI), Go v2.13.0, Rust `dcp-ai` 2.13.0, `@dcp-ai/wasm` 2.1.3 | Todas as mudanças dos SDKs abaixo |
+| Preparadas em 30/10/2026 (#114), nunca publicadas, substituídas | Go v2.12.0, Rust `dcp-ai` 2.12.0, `@dcp-ai/wasm` 2.1.2 | #106 (WASM), #107 e #112; não #103 nem #116 a #119 |
 | Publicadas | `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `@dcp-ai/cli` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1, Rust `dcp-ai` 2.11.1 | As correções do verificador de 26/10/2026 e as verificações secundárias SHA3-256 de 28/10/2026; nenhuma das correções abaixo |
 
-Um número de versão sozinho não identifica um artefato. Os manifestos da `main` levam `@dcp-ai/sdk` 2.2.1 e `dcp-ai` 2.10.1, os números publicados, e Go e Rust 2.12.0 e `@dcp-ai/wasm` 2.1.2, os números preparados, junto com mudanças posteriores. Use os identificadores dos registros abaixo ou os hashes do que você compilou. Os registros públicos foram lidos em 05/11/2026 com TLS normal, sem publicar nada; as últimas versões eram as acima.
+Um número de versão sozinho não identifica um artefato. Os manifestos da `main` levam os números do candidato de 05/11/2026, que nenhum registro tem; o candidato de 30/10/2026 usou Go e Rust 2.12.0 e `@dcp-ai/wasm` 2.1.2 para menos mudanças, e esses números não são reutilizados. Use os identificadores dos registros abaixo ou os hashes do que você compilou. Uma publicação recompila os pacotes, então o que ela distribuir deve ser comparado com o candidato revisado ou testado de novo. Os registros públicos foram lidos em 05/11/2026 com TLS normal, sem publicar nada; as últimas versões eram as acima.
 
 | Registro | Versão | Identificador |
 |---|---|---|
@@ -115,14 +116,14 @@ Mudanças de SDK na `main` posteriores às versões publicadas:
 
 | Mudança | Commit | SDKs | Publicada |
 |---|---|---|---|
-| Chaves e isolamento do `VerificationCache` (#103) | `e711179a` | TypeScript | Não |
-| `dualMerkleRoot` do WASM segue o V2-11 (#106) | `cac0a5f6` | Rust (feature `wasm`), WASM | Não; preparada |
-| `VerifyPayloadHash` verifica o hash normativo com prefixo (#107) | `24e70d56` | Go | Não; preparada |
-| `RawAuditEventV2` mantém as entradas de auditoria recebidas (#112) | `6dc97d59` | Go, Rust | Não; preparada |
-| Validação de esquemas V2-2 dentro de cada verificador V2 (#116) | `0ebd2849` | TypeScript, Python, Go, Rust, WASM | Não |
-| Helpers de validade de mandatos alinhados (#117) | `614b1c56` | TypeScript, Python, Go, Rust | Não |
-| Verificações de tempo das cadeias de mandatos alinhadas (#118) | `7619ff95` | TypeScript, Python, Go, Rust | Não |
-| Domínios repetidos num mandato raiz isolado rejeitados (#119) | `c154192f` | TypeScript, Python, Go, Rust | Não |
+| Chaves e isolamento do `VerificationCache` (#103) | `e711179a` | TypeScript | Não; preparada em 05/11 |
+| `dualMerkleRoot` do WASM segue o V2-11 (#106) | `cac0a5f6` | Rust (feature `wasm`), WASM | Não; preparada em 30/10 e 05/11 |
+| `VerifyPayloadHash` verifica o hash normativo com prefixo (#107) | `24e70d56` | Go | Não; preparada em 30/10 e 05/11 |
+| `RawAuditEventV2` mantém as entradas de auditoria recebidas (#112) | `6dc97d59` | Go, Rust | Não; preparada em 30/10 e 05/11 |
+| Validação de esquemas V2-2 dentro de cada verificador V2 (#116) | `0ebd2849` | TypeScript, Python, Go, Rust, WASM | Não; preparada em 05/11 |
+| Helpers de validade de mandatos alinhados (#117) | `614b1c56` | TypeScript, Python, Go, Rust | Não; preparada em 05/11 |
+| Verificações de tempo das cadeias de mandatos alinhadas (#118) | `7619ff95` | TypeScript, Python, Go, Rust | Não; preparada em 05/11 |
+| Domínios repetidos num mandato raiz isolado rejeitados (#119) | `c154192f` | TypeScript, Python, Go, Rust | Não; preparada em 05/11 |
 
 Outras mudanças posteriores às versões publicadas:
 

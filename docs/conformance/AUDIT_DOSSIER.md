@@ -81,10 +81,11 @@ Three things are distinct; never read one as another.
 | Artifact | Versions | What it contains |
 |---|---|---|
 | Reviewed source | `main` at the baseline | Every fix below |
-| Prepared, not published (30/10/2026, #114) | Go v2.12.0, Rust `dcp-ai` 2.12.0, `@dcp-ai/wasm` 2.1.2 | #106 (WASM), #107 and #112; not #116 to #119 |
+| Prepared, not published (05/11/2026) | `@dcp-ai/sdk` 2.3.0, `dcp-ai` 2.10.2 (PyPI), Go v2.13.0, Rust `dcp-ai` 2.13.0, `@dcp-ai/wasm` 2.1.3 | Every SDK change below |
+| Prepared on 30/10/2026 (#114), never published, superseded | Go v2.12.0, Rust `dcp-ai` 2.12.0, `@dcp-ai/wasm` 2.1.2 | #106 (WASM), #107 and #112; not #103 or #116 to #119 |
 | Published | `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `@dcp-ai/cli` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1, Rust `dcp-ai` 2.11.1 | The verifier fixes of 26/10/2026 and the secondary SHA3-256 checks of 28/10/2026; none of the fixes below |
 
-A version number alone does not identify an artifact. The manifests on `main` carry `@dcp-ai/sdk` 2.2.1 and `dcp-ai` 2.10.1, the published numbers, and Go and Rust 2.12.0 and `@dcp-ai/wasm` 2.1.2, the prepared numbers, together with later changes. Use the registry identifiers below or the hashes of what you built. The public registries were read on 05/11/2026 over normal TLS, without publishing anything; the latest versions were the ones above.
+A version number alone does not identify an artifact. The manifests on `main` carry the numbers of the candidate of 05/11/2026, which no registry has; the candidate of 30/10/2026 used Go and Rust 2.12.0 and `@dcp-ai/wasm` 2.1.2 for fewer changes, and those numbers are not reused. Use the registry identifiers below or the hashes of what you built. A publication rebuilds the packages, so what it ships must be compared with the reviewed candidate or tested again. The public registries were read on 05/11/2026 over normal TLS, without publishing anything; the latest versions were the ones above.
 
 | Registry | Version | Identifier |
 |---|---|---|
@@ -99,14 +100,14 @@ SDK changes on `main` after the published versions:
 
 | Change | Commit | SDKs | Published |
 |---|---|---|---|
-| `VerificationCache` keys and isolation (#103) | `e711179a` | TypeScript | No |
-| WASM `dualMerkleRoot` follows V2-11 (#106) | `cac0a5f6` | Rust (`wasm` feature), WASM | No; prepared |
-| `VerifyPayloadHash` checks the normative prefixed hash (#107) | `24e70d56` | Go | No; prepared |
-| `RawAuditEventV2` keeps received audit entries (#112) | `6dc97d59` | Go, Rust | No; prepared |
-| V2-2 schema validation inside every V2 verifier (#116) | `0ebd2849` | TypeScript, Python, Go, Rust, WASM | No |
-| Mandate validity helpers aligned (#117) | `614b1c56` | TypeScript, Python, Go, Rust | No |
-| Mandate chain time checks aligned (#118) | `7619ff95` | TypeScript, Python, Go, Rust | No |
-| Repeated domains in a standalone root mandate rejected (#119) | `c154192f` | TypeScript, Python, Go, Rust | No |
+| `VerificationCache` keys and isolation (#103) | `e711179a` | TypeScript | No; prepared on 05/11 |
+| WASM `dualMerkleRoot` follows V2-11 (#106) | `cac0a5f6` | Rust (`wasm` feature), WASM | No; prepared on 30/10 and 05/11 |
+| `VerifyPayloadHash` checks the normative prefixed hash (#107) | `24e70d56` | Go | No; prepared on 30/10 and 05/11 |
+| `RawAuditEventV2` keeps received audit entries (#112) | `6dc97d59` | Go, Rust | No; prepared on 30/10 and 05/11 |
+| V2-2 schema validation inside every V2 verifier (#116) | `0ebd2849` | TypeScript, Python, Go, Rust, WASM | No; prepared on 05/11 |
+| Mandate validity helpers aligned (#117) | `614b1c56` | TypeScript, Python, Go, Rust | No; prepared on 05/11 |
+| Mandate chain time checks aligned (#118) | `7619ff95` | TypeScript, Python, Go, Rust | No; prepared on 05/11 |
+| Repeated domains in a standalone root mandate rejected (#119) | `c154192f` | TypeScript, Python, Go, Rust | No; prepared on 05/11 |
 
 Other changes after the published versions:
 

@@ -22,6 +22,15 @@ Digital Citizenship Protocol（DCP）v1.0 和 v2.0 的官方 Go SDK。支持 Ed2
 
 **Go SDK v2.11.1。** 此版本还会在 [VERIFICATION.md 的 V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) 中的二级 SHA3-256 字段存在时验证它们：`audit_merkle_root_secondary`、每个 `prev_hash_secondary` 和每个 `intent_hash_secondary`。不存在的字段不作要求，因此已验证的 bundle 可能没有完整的二级链；存在的字段如果是 `null`、不是字符串或不一致，则被拒绝。API、结果字段、`dcp-jcs-v1` 和 `hash_alg` 的处理均不变。v2.11.0 不检查这些字段。下面的安装命令指定的是此版本；它在注册表中的可用情况见[已发布版本](../../../../docs/README.md#published-versions)。
 
+**Go SDK v2.13.0（已准备，尚未发布）。** 它已在仓库中准备好，但不存在 `sdks/go/v2.13.0` 标签：下面的命令仍为 v2.11.1。30/10/2026 准备的 v2.12.0 从未打标签，已被取代。与 v2.11.1 相比：
+
+- **V2-2 模式校验。** `v2.VerifySignedBundleV2` 及其变体在任何哈希、密钥或签名检查之前，先按 `schemas/v2` 校验已签名 bundle 的信封和四个载荷。以前被接受的模式无效 bundle 现在会以 `schema: <pointer> <keyword>` 诊断失败。
+- **`v2.VerifyPayloadHash`** 只有在值为 `"sha256:"` 后接规范载荷的 SHA-256（即 `SignPayload` 写入的形式）时才为 `true`；以前被接受的不带前缀的摘要现在为 `false`。
+- **`v2.RawAuditEventV2`**（新增）按解码结果保留收到的审计条目，因此每个成员的存在与否及其 `null` 值都得以保留。
+- **委托书。** `v2.VerifyMandateValidity` 采用统一的约定，`v2.VerifyMandateValidityAt`（新增）接收验证时间；以前被接受的缺失或格式错误的日期现在无效。`v2.VerifyMandateChain` 以同一方式读取所有时间，并拒绝重复某个领域的根委托书。
+
+`SDKVersion` 为 `2.13.0`。传输格式、签名、配置文件、`dcp-jcs-v1` 和实验性显式启用的 `dcp-jcs-v2` API 均不变。参见[变更日志](../../../../CHANGELOG.md#unreleased)。
+
 ```bash
 go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.1
 ```
@@ -204,7 +213,7 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 | `v2.VerifySignedBundleV2WithPolicy(reg, jsonBytes, policy)` | 使用自定义 `VerifierPolicy` 的相同操作；只有 `DefaultMode`、`RiskOverrides`、`AcceptedClassicalAlgs`、`AcceptedPQAlgs`、`AllowV1Bundles`（V1 bundle 在此始终无法通过验证）、`MaxSessionDurationSeconds`、`RequireSessionExpiry`、`RequireAudienceBinding`、`VerifierID` 以及阶段3字段（`AdvisoryRejectedAlgs`、`WarnClassicalOnlyDeprecated`、`AllowClassicalFallbackDisable`，与 TypeScript 一致）可以不同于 `DefaultVerifierPolicy()`；任何其他更改都会导致验证失败 |
 | `v2.VerifySignedBundleV2At(reg, jsonBytes, policy, now)` | 在时刻 `now` 执行相同操作：会话窗口、RPR 到期时间和密钥到期时间均以毫秒精度与它比较。上面两个函数以 `time.Now()` 调用此函数 |
 
-**模式校验（V2-2；在 `main` 上，不在已发布版本中）。** `v2.VerifySignedBundleV2`、`…WithPolicy` 和 `…At`会在策略和时钟检查之后、验证器检查清单、载荷哈希、密钥和签名之前，先按 `schemas/v2` 校验已签名 bundle 的封装和四个载荷；先进行验证的 `v2.AdmitSignedBundleV2` 和实验性候选验证器也经过同一关卡，而 `v2.EvaluateAdmissionV2` 接收先前的结果，不执行该关卡。校验失败的 bundle 返回 `verified: false` 和 `schema: <JSON pointer> <keyword>[ <member>]` 错误（最多 16 条，随后是 `schema: further errors not listed`），不含密码学细节。封闭对象中的未知成员会被拒绝；在开放对象中（例如 intent 的 `target`），已声明的成员保留其约束，只有附加成员不被检查。清单中的 `session_issued_at` 和 `session_expires_at` 存在时必须是字符串，不能是 `null`。`date-time` 遵循参考验证器的 ajv-formats 3.0.1 检查，这不是严格的 RFC 3339。非 JSON 对象的根仍是历史解析错误，发生在 V2-2 之前。**接受范围变化：** 以前能通过验证的模式无效 bundle 现在会被拒绝。没有仅做模式校验的 API。参见[覆盖映射](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)。
+**模式校验（V2-2；自 v2.13.0 起，已准备、尚未发布）。** `v2.VerifySignedBundleV2`、`…WithPolicy` 和 `…At`会在策略和时钟检查之后、验证器检查清单、载荷哈希、密钥和签名之前，先按 `schemas/v2` 校验已签名 bundle 的封装和四个载荷；先进行验证的 `v2.AdmitSignedBundleV2` 和实验性候选验证器也经过同一关卡，而 `v2.EvaluateAdmissionV2` 接收先前的结果，不执行该关卡。校验失败的 bundle 返回 `verified: false` 和 `schema: <JSON pointer> <keyword>[ <member>]` 错误（最多 16 条，随后是 `schema: further errors not listed`），不含密码学细节。封闭对象中的未知成员会被拒绝；在开放对象中（例如 intent 的 `target`），已声明的成员保留其约束，只有附加成员不被检查。清单中的 `session_issued_at` 和 `session_expires_at` 存在时必须是字符串，不能是 `null`。`date-time` 遵循参考验证器的 ajv-formats 3.0.1 检查，这不是严格的 RFC 3339。非 JSON 对象的根仍是历史解析错误，发生在 V2-2 之前。**接受范围变化：** 以前能通过验证的模式无效 bundle 现在会被拒绝。没有仅做模式校验的 API。参见[覆盖映射](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)。
 
 每个结果在 `SignerKeys`（JSON 为 `signer_keys`）中，按每个已检查的复合签名（`bundle`、四个产物以及每个 `pq_checkpoints[<id>]`）列出验证器为各组件（`classical`、`pq`）解析得到的密钥条目，以及该组件是否验证通过。
 
@@ -279,8 +288,8 @@ if !result.Admitted {
 |----------|-------------|
 | `v2.CreateDelegationMandate(reg, humanClassical, humanPQ, params)` | 由人类签署的根委托；`SubDelegation` 和 `MinimumSecurityTier` 可选 |
 | `v2.CreateSubMandate(reg, delegatorClassical, delegatorPQ, parent, v2.SubMandateParams{...})` | 由父委托的智能体在 `DCP-AI.v2.SubMandate` 域下签署的子委托 |
-| `v2.VerifyMandateValidity(mandate, revokedIDs)` / `v2.VerifyMandateValidityAt(mandate, revokedIDs, now)` | 一份委托书的 `mandate_id`、本地吊销以及 `now` 时的有效期窗口（以毫秒计的 RFC 3339 时刻，两端都包含）；缺失、格式错误或颠倒的窗口无效。不检查签名、范围或链，也不授权任何操作。在 `main` 上，不在已发布版本中。`…At` 按给定值使用 `now`：零时间是第 1 年，而不是当前时间 |
-| `v2.VerifyMandateChain(reg, chain, revokedIDs, v2.MandateChainKeys{HumanKeys, AgentKeys}, now)` | 从根开始离线验证委托链（追溯至人类的签名、链接与深度、`sub_delegation`、嵌套有效期、行动及 `data_classes` 和 `limits` 的权限收窄、最低等级、撤销状态）；返回 `MandateChainResult{Valid, Errors, Depth, EffectiveTier}`。时间是以毫秒计的 RFC 3339 时刻；`now` 截断到毫秒并按 `time.Time` 比较，零时间表示当前时间（在 `main` 上，不在已发布版本中）。同一委托书的 `authority_scope` 中重复的领域（包括根）会导致链被拒绝；领域按精确字符串比较，不做大小写折叠、去除空白或 Unicode 规范化（在 `main` 上，不在已发布版本中） |
+| `v2.VerifyMandateValidity(mandate, revokedIDs)` / `v2.VerifyMandateValidityAt(mandate, revokedIDs, now)` | 一份委托书的 `mandate_id`、本地吊销以及 `now` 时的有效期窗口（以毫秒计的 RFC 3339 时刻，两端都包含）；缺失、格式错误或颠倒的窗口无效。不检查签名、范围或链，也不授权任何操作。自 v2.13.0 起，已准备、尚未发布。`…At` 按给定值使用 `now`：零时间是第 1 年，而不是当前时间 |
+| `v2.VerifyMandateChain(reg, chain, revokedIDs, v2.MandateChainKeys{HumanKeys, AgentKeys}, now)` | 从根开始离线验证委托链（追溯至人类的签名、链接与深度、`sub_delegation`、嵌套有效期、行动及 `data_classes` 和 `limits` 的权限收窄、最低等级、撤销状态）；返回 `MandateChainResult{Valid, Errors, Depth, EffectiveTier}`。时间是以毫秒计的 RFC 3339 时刻；`now` 截断到毫秒并按 `time.Time` 比较，零时间表示当前时间（自 v2.13.0 起，已准备、尚未发布）。同一委托书的 `authority_scope` 中重复的领域（包括根）会导致链被拒绝；领域按精确字符串比较，不做大小写折叠、去除空白或 Unicode 规范化（自 v2.13.0 起，已准备、尚未发布） |
 
 `SecurityTierInput.MandateChainTier` 将委托链的 `EffectiveTier` 作为下限，只能提高等级。
 

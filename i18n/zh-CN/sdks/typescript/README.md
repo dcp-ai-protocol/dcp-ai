@@ -17,6 +17,14 @@ Digital Citizenship Protocol（DCP-AI）的官方 TypeScript SDK。使用后量�
 
 **`@dcp-ai/sdk` 2.2.1。** 此版本还会在 [VERIFICATION.md 的 V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) 中的二级 SHA3-256 字段存在时验证它们：`audit_merkle_root_secondary`、每个 `prev_hash_secondary` 和每个 `intent_hash_secondary`。不存在的字段不作要求，因此已验证的 bundle 可能没有完整的二级链；存在的字段如果是 `null`、不是字符串或不一致，则被拒绝。API、结果字段、`dcp-jcs-v1` 和 `hash_alg` 的处理均不变。2.2.0 不检查这些字段。下面的安装命令指定的是此版本；它在注册表中的可用情况见[已发布版本](../../../../docs/README.md#published-versions)。
 
+**`@dcp-ai/sdk` 2.3.0（已准备，尚未发布）。** 它已在仓库中准备好，但不在 npm 上：下面的命令仍为 2.2.1。与 2.2.1 相比：
+
+- **V2-2 模式校验。** `verifySignedBundleV2`、组合准入 API 和实验性候选验证器在任何哈希、密钥或签名检查之前，先按 `schemas/v2` 校验已签名 bundle 的信封和四个载荷。它们以前接受的模式无效 bundle（例如封闭对象中的未知成员，或清单中为 `null` 的会话时间）现在会返回 `verified: false` 并附带 `schema: <pointer> <keyword>` 诊断（见下文“模式校验”）。
+- **委托书。** `verifyMandateValidity` 采用统一的约定（非空的 `mandate_id`、精确吊销、按毫秒比较的 RFC 3339 时刻、`valid_from` 不晚于 `valid_until`、两端都包含），并接受可选的 `now`；以前被接受的缺失或格式错误的日期现在无效。`verifyMandateChain` 以同一方式读取所有时间，并拒绝重复某个领域的根委托书。
+- **`VerificationCache`。** 新增显式启用的 `context` 和 `agentIds` 选项（`VerificationCacheSetOptions`、`VerificationCacheLookupOptions`）。无效选项会抛出异常，而不是禁用过期或上限；`set` 和 `get` 复制结果；条目在单调时钟上恰好到达其 TTL 时过期；`invalidateByAgent` 现在会删除条目。
+
+传输格式、签名、配置文件、`dcp-jcs-v1` 和实验性显式启用的 `dcp-jcs-v2` API 均不变。参见[变更日志](../../../../CHANGELOG.md#unreleased)。
+
 ```bash
 npm install @dcp-ai/sdk@^2.2.1
 ```
@@ -240,7 +248,7 @@ console.log(result.verified, result.errors); // true []
 | `verifySignedBundle(signedBundle, publicKeyB64)` | V1 | 验证已签名的 V1 bundle |
 | `verifySignedBundleV2(signedBundle, registry, policy?)` | V2 | 按策略模式与安全等级模式中较严格者验证已签名的 V2 bundle（复合或经典）；报告 `resolved_tier` |
 
-**模式校验（V2-2；在 `main` 上，不在已发布版本中）。** `verifySignedBundleV2` 和其他 V2 验证函数会在策略和时钟检查之后、验证器检查清单、载荷哈希、密钥和签名之前，先按 `schemas/v2` 校验已签名 bundle 的封装和四个载荷；先进行验证的 `admitSignedBundleV2` 和实验性候选验证器也经过同一关卡，而 `evaluateAdmissionV2` 接收先前的结果，不执行该关卡。校验失败的 bundle 返回 `verified: false` 和 `schema: <JSON pointer> <keyword>[ <member>]` 错误（最多 16 条，随后是 `schema: further errors not listed`），不含密码学细节。封闭对象中的未知成员会被拒绝；在开放对象中（例如 intent 的 `target`），已声明的成员保留其约束，只有附加成员不被检查。清单中的 `session_issued_at` 和 `session_expires_at` 存在时必须是字符串，不能是 `null`。`date-time` 遵循参考验证器的 ajv-formats 3.0.1 检查，这不是严格的 RFC 3339。值为 `undefined` 的成员按缺失处理，与规范化一致。**接受范围变化：** 以前能通过验证的模式无效 bundle 现在会被拒绝。没有仅做模式校验的 API。参见[覆盖映射](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)。
+**模式校验（V2-2；自 2.3.0 起，已准备、尚未发布）。** `verifySignedBundleV2` 和其他 V2 验证函数会在策略和时钟检查之后、验证器检查清单、载荷哈希、密钥和签名之前，先按 `schemas/v2` 校验已签名 bundle 的封装和四个载荷；先进行验证的 `admitSignedBundleV2` 和实验性候选验证器也经过同一关卡，而 `evaluateAdmissionV2` 接收先前的结果，不执行该关卡。校验失败的 bundle 返回 `verified: false` 和 `schema: <JSON pointer> <keyword>[ <member>]` 错误（最多 16 条，随后是 `schema: further errors not listed`），不含密码学细节。封闭对象中的未知成员会被拒绝；在开放对象中（例如 intent 的 `target`），已声明的成员保留其约束，只有附加成员不被检查。清单中的 `session_issued_at` 和 `session_expires_at` 存在时必须是字符串，不能是 `null`。`date-time` 遵循参考验证器的 ajv-formats 3.0.1 检查，这不是严格的 RFC 3339。值为 `undefined` 的成员按缺失处理，与规范化一致。**接受范围变化：** 以前能通过验证的模式无效 bundle 现在会被拒绝。没有仅做模式校验的 API。参见[覆盖映射](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)。
 
 <a id="bundle-optimization-v2"></a>
 
@@ -253,7 +261,7 @@ console.log(result.verified, result.errors); // true []
 | `presentCompact(bundle, pqCheckpointRef)` | 紧凑呈现：去掉 PQ 签名，改为引用最近的 PQ 检查点 |
 | `presentReference(bundle, verificationEndpoint)` | 仅引用的呈现：bundle 哈希、会话 nonce，以及用于验证或获取完整 bundle 的端点 |
 | `presentIncremental(baseBundle, updatedBundle, baseAuditCount)` | 相对于已验证基础 bundle 的增量呈现：新的审计条目、PQ 检查点、更新后的清单和签名 |
-| `VerificationCache` | 按 bundle 哈希缓存验证结果。命中时不重新检查信任、吊销或会话，也不会自动使任何条目失效，因此准入时请重新验证。在 `main` 上的源代码（尚未发布）中，由调用方选择的可选 `context` 区分租户或策略，`get` 返回副本，`invalidateByAgent` 删除该智能体的条目以及所有未带 `agentIds` 存储的条目；在已发布的 2.2.1 中，键只是哈希，`invalidateByAgent` 不删除任何内容，因此请使用 `invalidateByKid` 或 `clear()`（[详情](../../../../docs/API_REFERENCE.md#verificationcache)） |
+| `VerificationCache` | 按 bundle 哈希缓存验证结果。命中时不重新检查信任、吊销或会话，也不会自动使任何条目失效，因此准入时请重新验证。自 2.3.0 起（已准备、尚未发布），由调用方选择的可选 `context` 区分租户或策略，`get` 返回副本，`invalidateByAgent` 删除该智能体的条目以及所有未带 `agentIds` 存储的条目；在已发布的 2.2.1 中，键只是哈希，`invalidateByAgent` 不删除任何内容，因此请使用 `invalidateByKid` 或 `clear()`（[详情](../../../../docs/API_REFERENCE.md#verificationcache)） |
 
 <a id="pq-checkpoints-v2"></a>
 
@@ -381,8 +389,8 @@ const result = await admitSignedBundleV2(signedBundle, registry, { profile, trus
 |----------|-------------|
 | `createDelegationMandate(registry, humanKeys, params)` | 由人类签署的根委托书（`human_composite_sig`）；`sub_delegation` 和 `minimum_security_tier` 为可选 |
 | `createSubMandate(registry, delegatorKeys, parent, params)` | 由父级的智能体签署的子委托书（`delegator_composite_sig`，`DCP-AI.v2.SubMandate` 上下文） |
-| `verifyMandateValidity(mandate, revokedIds, now?)` | 一份委托书的 `mandate_id`、本地吊销以及 `now` 时的有效期窗口（以毫秒计的 RFC 3339 时刻，两端都包含）；缺失、格式错误或颠倒的窗口无效。不检查签名、范围或链，也不授权任何操作。在 `main` 上，不在已发布版本中；返回 `{ valid, reason? }` |
-| `verifyMandateChain(registry, chain, revokedIds, keys, now?)` | 从根开始验证链：直到人类的签名、与父级的链接和深度、`sub_delegation`、嵌套的有效期窗口、权限收窄（操作、`data_classes` 和 `limits` 只能缩小）、安全等级下限以及吊销；返回 `{ valid, errors, depth, effective_tier }`。时间是以毫秒计的 RFC 3339 时刻，`now` 向下截断到毫秒；无效的时钟值（`NaN`、`Infinity`、无效的 `Date` 或其他类型）返回 `verification time is not an instant`（在 `main` 上，不在已发布版本中）。同一委托书的 `authority_scope` 中重复的领域（包括根）会导致链被拒绝；领域按精确字符串比较，不做大小写折叠、去除空白或 Unicode 规范化（在 `main` 上，不在已发布版本中） |
+| `verifyMandateValidity(mandate, revokedIds, now?)` | 一份委托书的 `mandate_id`、本地吊销以及 `now` 时的有效期窗口（以毫秒计的 RFC 3339 时刻，两端都包含）；缺失、格式错误或颠倒的窗口无效。不检查签名、范围或链，也不授权任何操作。自 2.3.0 起，已准备、尚未发布；返回 `{ valid, reason? }` |
+| `verifyMandateChain(registry, chain, revokedIds, keys, now?)` | 从根开始验证链：直到人类的签名、与父级的链接和深度、`sub_delegation`、嵌套的有效期窗口、权限收窄（操作、`data_classes` 和 `limits` 只能缩小）、安全等级下限以及吊销；返回 `{ valid, errors, depth, effective_tier }`。时间是以毫秒计的 RFC 3339 时刻，`now` 向下截断到毫秒；无效的时钟值（`NaN`、`Infinity`、无效的 `Date` 或其他类型）返回 `verification time is not an instant`（自 2.3.0 起，已准备、尚未发布）。同一委托书的 `authority_scope` 中重复的领域（包括根）会导致链被拒绝；领域按精确字符串比较，不做大小写折叠、去除空白或 Unicode 规范化（自 2.3.0 起，已准备、尚未发布） |
 
 ```typescript
 // Fragment, not a complete program: registry and nonce as in the V2 Quick Start; rootMandate, orchestratorKeys and the key entries come from your delegation setup; intent and policyDecision are the V2 payloads.

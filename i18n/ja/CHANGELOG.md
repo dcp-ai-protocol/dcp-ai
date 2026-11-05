@@ -18,6 +18,27 @@
 > ついては、[README](../../README.md)、[ドキュメント](../../docs/README.md)、[仕様](../../spec/README.md)、
 > [API リファレンス](../../docs/API_REFERENCE.md)を参照してください。
 
+<a id="prepared-not-published-auditable-candidate-of-05112026"></a>
+
+## 準備済み・未公開: 05/11/2026 の監査可能な候補
+
+05/11/2026 にリポジトリで準備済みで、**公開されていません**。npm、PyPI、crates.io にはこれらのバージョンはなく、`sdks/go/v2.13.0` タグも存在しません。[公開済みバージョン](../../docs/README.md#published-versions)とインストールコマンドは、引き続きレジストリのバージョンを示します。
+
+| パッケージ | 準備済み | 公開済み |
+|---|---|---|
+| `@dcp-ai/sdk` | 2.3.0 | 2.2.1 |
+| `dcp-ai` (PyPI) | 2.10.2 | 2.10.1 |
+| Go `sdks/go/v2` | v2.13.0 | v2.11.1 |
+| Rust `dcp-ai` | 2.13.0 | 2.11.1 |
+| `@dcp-ai/wasm` | 2.1.3 | 2.1.1 |
+
+- **内容。** 公開済みバージョンの後に `main` で行われた SDK の変更（#103、#106、#107、#112、#116〜#119）。`[Unreleased]`、各パッケージの README、[npm](../../docs/NPM_RELEASES.md)、[Python](../../docs/PYTHON_RELEASE.md)、[Go](../../docs/GO_RELEASE.md)、[Rust](../../docs/RUST_RELEASE.md) のリリースノートに記載されています。
+- **受け入れの変更。** すべての V2 検証器が V2-2 のスキーマ検証を実行するため、以前は受け入れられていたスキーマ上無効なバンドルは `schema: <pointer> <keyword>` 診断で失敗します。Go の `v2.VerifyPayloadHash` は、`SignPayload` が書き込む接頭辞付きのハッシュだけを受け入れます。委任状の有効性ヘルパーは一つの契約に従い、委任状チェーンはドメインを繰り返すルート委任状を拒否します。WASM の `dualMerkleRoot` は V2-11 に従います。以前に計算されたルートは記録されたまま保持されます（[移行](../../docs/NPM_RELEASES.md#migrating-dualmerkleroot-results)）。
+- **変更なし。** ワイヤーフォーマット、署名、プロファイル、規範的なデフォルトとしての `dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API。
+- **パッケージング。** npm の tarball、wheel、sdist、crate に Apache-2.0 の `LICENSE` が含まれるようになりました。Go モジュールの zip にはすでに含まれていました。
+- **CLI とアダプター。** `@dcp-ai/cli` と npm アダプターには新しいバージョンはありません。`@dcp-ai/sdk` 2.3.0 に対して何を確認したかは [npm パッケージ](../../docs/NPM_RELEASES.md#cli-and-adapters)に記載しています。
+- **以前の候補。** これらのバージョンは、下記の 30/10/2026 の候補（Go v2.12.0、Rust 2.12.0、`@dcp-ai/wasm` 2.1.2）を置き換えます。これらは公開されず、その番号は再利用されません。
+
 <a id="prepared-not-published-go-v2120-rust-2120-and-dcp-aiwasm-212"></a>
 
 ## 準備済み・未公開: Go v2.12.0、Rust 2.12.0、`@dcp-ai/wasm` 2.1.2
@@ -29,9 +50,10 @@
 - **`@dcp-ai/wasm` 2.1.2：** `dualMerkleRoot` と `wasm_dual_merkle_root` が V2-11 の二重マークルルートを計算します。JavaScript API の追加はありません。
 - 実験的候補の新しいテスト（ゲート 7）はどのデフォルトも変更しません。`dcp-jcs-v1`、プロファイル、ワイヤーフォーマット、依存関係、暗号は変わりません。3 つのパッケージには翻訳版 README が含まれなくなりました。これらは `i18n/` にあります。
 
-> **注記（05/11/2026）。** これらの候補は 30/10/2026 のもので、まだ公開されていません。`main` のその後の変更、つまり
-> すべての V2 検証器での V2-2 のスキーマ検証（#116）と委任状チェーンの確認（#117〜#119）は含みません。`main` の
-> マニフェストのバージョン番号はこれらの候補を特定しません。`main` はその番号をその後の変更とともに持っています。
+> **注記（05/11/2026）。** これらの候補は 30/10/2026 のもので、公開されませんでした。`main` のその後の変更、つまり
+> すべての V2 検証器での V2-2 のスキーマ検証（#116）と委任状チェーンの確認（#117〜#119）は含みません。
+> [05/11/2026 の候補](#prepared-not-published-auditable-candidate-of-05112026)はこれらの変更を含み、これらの候補を
+> 置き換えます。`main` のマニフェストはその候補のバージョン番号を記載しており、2.12.0 と 2.1.2 は再利用されません。
 > [監査資料](../../docs/conformance/AUDIT_DOSSIER.md#artifacts)を参照してください。
 
 <a id="2026-10-28-sha3-patch-releases"></a>

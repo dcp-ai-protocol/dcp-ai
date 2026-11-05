@@ -22,6 +22,15 @@ Digital Citizenship Protocol（DCP）v1.0 および v2.0 向けの公式 Go SDK�
 
 **Go SDK v2.11.1。** このバージョンは、[VERIFICATION.md の V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) の二次の SHA3-256 フィールドが存在する場合、それらも検証します：`audit_merkle_root_secondary`、各 `prev_hash_secondary`、各 `intent_hash_secondary`。存在しないフィールドは要求されないため、検証済みのバンドルが完全な二次チェーンを持たないこともあります。存在するフィールドが `null`、文字列でない、または不整合の場合は拒否されます。API、結果のフィールド、`dcp-jcs-v1`、`hash_alg` の扱いは変わりません。v2.11.0 はこれらのフィールドを確認しません。以下のインストールコマンドはこのバージョンを指定しています。レジストリでの提供状況は[公開済みバージョン](../../../../docs/README.md#published-versions)を参照してください。
 
+**Go SDK v2.13.0（準備済み・未公開）。** リポジトリで準備済みですが、`sdks/go/v2.13.0` タグは存在しないため、以下のコマンドは v2.11.1 のままです。30/10/2026 に準備した v2.12.0 はタグ付けされず、置き換えられました。v2.11.1 との違い：
+
+- **V2-2 スキーマ検証。** `v2.VerifySignedBundleV2` とその変種は、ハッシュ、鍵、署名を確認する前に、署名済みバンドルのエンベロープと 4 つのペイロードを `schemas/v2` に照らして検証します。以前は受理されていたスキーマ上無効なバンドルは、`schema: <pointer> <keyword>` 診断で失敗するようになりました。
+- **`v2.VerifyPayloadHash`** は、`SignPayload` が書き込むとおり `"sha256:"` の後に正規ペイロードの SHA-256 が続く場合にだけ `true` です。以前は受理されていた接頭辞のないダイジェストは `false` です。
+- **`v2.RawAuditEventV2`**（新規）は、受信した監査エントリーをデコードしたとおりに保持するため、各メンバーの有無と `null` が保たれます。
+- **委任状。** `v2.VerifyMandateValidity` は一つの契約を適用し、`v2.VerifyMandateValidityAt`（新規）は検証時刻を受け取ります。以前は受理されていた欠落した日付や不正な形式の日付は無効です。`v2.VerifyMandateChain` はすべての時刻を同じ方法で読み取り、ドメインを繰り返すルート委任状を拒否します。
+
+`SDKVersion` は `2.13.0` です。ワイヤーフォーマット、署名、プロファイル、`dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API は変わりません。[変更履歴](../../../../CHANGELOG.md#unreleased)を参照してください。
+
 ```bash
 go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.11.1
 ```
@@ -204,7 +213,7 @@ sharedSecret, _ := kem.Decapsulate(result.CiphertextB64, kp.SecretKeyB64)
 | `v2.VerifySignedBundleV2WithPolicy(reg, jsonBytes, policy)` | 独自の `VerifierPolicy` を使う同等の処理。`DefaultVerifierPolicy()` から変更できるのは `DefaultMode`、`RiskOverrides`、`AcceptedClassicalAlgs`、`AcceptedPQAlgs`、`AllowV1Bundles`（ここでは V1 バンドルは検証に成功しない）、`MaxSessionDurationSeconds`、`RequireSessionExpiry`、`RequireAudienceBinding`、`VerifierID`、およびフェーズ3のフィールド（`AdvisoryRejectedAlgs`、`WarnClassicalOnlyDeprecated`、`AllowClassicalFallbackDisable`。TypeScript と同様）のみ。それ以外の変更は検証失敗となる |
 | `v2.VerifySignedBundleV2At(reg, jsonBytes, policy, now)` | 時刻 `now` での同等の処理。セッションウィンドウ、RPR の有効期限、鍵の有効期限を、その時刻とミリ秒精度で比較する。上の2関数は `time.Now()` を指定してこの関数を呼び出す |
 
-**スキーマ検証（V2-2。`main` にあり、公開済みのバージョンには含まれない）。** `v2.VerifySignedBundleV2`、`…WithPolicy`、`…At`は、ポリシーと時計の確認の後、検証器がマニフェスト、ペイロードのハッシュ、鍵、署名を確認する前に、まず署名済み bundle のエンベロープと四つのペイロードを `schemas/v2` に照らして検証します。最初に検証を行う `v2.AdmitSignedBundleV2` と実験的な候補の検証器も同じゲートを通りますが、`v2.EvaluateAdmissionV2` は以前の結果を受け取り、このゲートを実行しません。失敗した bundle は `verified: false` と `schema: <JSON pointer> <keyword>[ <member>]` のエラー（最大 16 件、その後に `schema: further errors not listed`）を返し、暗号に関する詳細は返しません。閉じたオブジェクトの未知のメンバーは拒否されます。intent の `target` のような開いたオブジェクトでは、宣言されたメンバーは制約を保ち、追加のメンバーだけが検査されません。マニフェストの `session_issued_at` と `session_expires_at` は、存在する場合は `null` ではなく文字列でなければなりません。`date-time` は参照検証器の ajv-formats 3.0.1 による確認に従い、これは厳密な RFC 3339 ではありません。JSON オブジェクトでないルートは、V2-2 の前に従来のパースエラーのままです。**受理の変更：** 以前は検証に成功していたスキーマ上無効な bundle は、今は拒否されます。スキーマだけの API はありません。[カバレッジマップ](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)を参照してください。
+**スキーマ検証（V2-2。v2.13.0 以降、準備済み・未公開）。** `v2.VerifySignedBundleV2`、`…WithPolicy`、`…At`は、ポリシーと時計の確認の後、検証器がマニフェスト、ペイロードのハッシュ、鍵、署名を確認する前に、まず署名済み bundle のエンベロープと四つのペイロードを `schemas/v2` に照らして検証します。最初に検証を行う `v2.AdmitSignedBundleV2` と実験的な候補の検証器も同じゲートを通りますが、`v2.EvaluateAdmissionV2` は以前の結果を受け取り、このゲートを実行しません。失敗した bundle は `verified: false` と `schema: <JSON pointer> <keyword>[ <member>]` のエラー（最大 16 件、その後に `schema: further errors not listed`）を返し、暗号に関する詳細は返しません。閉じたオブジェクトの未知のメンバーは拒否されます。intent の `target` のような開いたオブジェクトでは、宣言されたメンバーは制約を保ち、追加のメンバーだけが検査されません。マニフェストの `session_issued_at` と `session_expires_at` は、存在する場合は `null` ではなく文字列でなければなりません。`date-time` は参照検証器の ajv-formats 3.0.1 による確認に従い、これは厳密な RFC 3339 ではありません。JSON オブジェクトでないルートは、V2-2 の前に従来のパースエラーのままです。**受理の変更：** 以前は検証に成功していたスキーマ上無効な bundle は、今は拒否されます。スキーマだけの API はありません。[カバレッジマップ](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)を参照してください。
 
 各結果の `SignerKeys`（JSON では `signer_keys`）には、検査した複合署名（`bundle`、4つのアーティファクト、各 `pq_checkpoints[<id>]`）ごとに、検証器が各コンポーネント（`classical`、`pq`）用に解決した鍵エントリーと、そのコンポーネントの検証結果が列挙されます。
 
@@ -279,8 +288,8 @@ if !result.Admitted {
 |----------|-------------|
 | `v2.CreateDelegationMandate(reg, humanClassical, humanPQ, params)` | 人間が署名したルート委任状。`SubDelegation` と `MinimumSecurityTier` はオプション |
 | `v2.CreateSubMandate(reg, delegatorClassical, delegatorPQ, parent, v2.SubMandateParams{...})` | 親委任状のエージェントが `DCP-AI.v2.SubMandate` コンテキストの下で署名した下位委任状 |
-| `v2.VerifyMandateValidity(mandate, revokedIDs)` / `v2.VerifyMandateValidityAt(mandate, revokedIDs, now)` | 一つの委任状の `mandate_id`、ローカルな失効、`now` での有効期間（ミリ秒単位の RFC 3339 の瞬間、両端を含む）。欠落した、不正な形の、または逆転した期間は無効。署名、範囲、チェーンは確認せず、何も認可しない。`main` にあり、公開済みのバージョンには含まれない。`…At` は `now` を与えられたとおりに使う。ゼロ時刻は現在時刻ではなく 1 年 |
-| `v2.VerifyMandateChain(reg, chain, revokedIDs, v2.MandateChainKeys{HumanKeys, AgentKeys}, now)` | ルートから順にオフラインでチェーンを検証する（人間に遡る署名、リンクと深さ、`sub_delegation`、入れ子の有効期間、行動・`data_classes`・`limits` の制限、最低階層、失効）。`MandateChainResult{Valid, Errors, Depth, EffectiveTier}` を返す。時刻はミリ秒単位の RFC 3339 の瞬間。`now` はミリ秒に切り捨てられて `time.Time` として比較され、ゼロ時刻は現在時刻（`main` にあり、公開済みのバージョンには含まれない）。1 つの委任状の `authority_scope` で繰り返されるドメインは、ルートでもチェーンを拒否させる。ドメインは文字列そのものとして比較され、大文字小文字の同一視、空白の除去、Unicode の正規化は行わない（`main` にあり、公開済みのバージョンには含まれない） |
+| `v2.VerifyMandateValidity(mandate, revokedIDs)` / `v2.VerifyMandateValidityAt(mandate, revokedIDs, now)` | 一つの委任状の `mandate_id`、ローカルな失効、`now` での有効期間（ミリ秒単位の RFC 3339 の瞬間、両端を含む）。欠落した、不正な形の、または逆転した期間は無効。署名、範囲、チェーンは確認せず、何も認可しない。v2.13.0 以降、準備済み・未公開。`…At` は `now` を与えられたとおりに使う。ゼロ時刻は現在時刻ではなく 1 年 |
+| `v2.VerifyMandateChain(reg, chain, revokedIDs, v2.MandateChainKeys{HumanKeys, AgentKeys}, now)` | ルートから順にオフラインでチェーンを検証する（人間に遡る署名、リンクと深さ、`sub_delegation`、入れ子の有効期間、行動・`data_classes`・`limits` の制限、最低階層、失効）。`MandateChainResult{Valid, Errors, Depth, EffectiveTier}` を返す。時刻はミリ秒単位の RFC 3339 の瞬間。`now` はミリ秒に切り捨てられて `time.Time` として比較され、ゼロ時刻は現在時刻（v2.13.0 以降、準備済み・未公開）。1 つの委任状の `authority_scope` で繰り返されるドメインは、ルートでもチェーンを拒否させる。ドメインは文字列そのものとして比較され、大文字小文字の同一視、空白の除去、Unicode の正規化は行わない（v2.13.0 以降、準備済み・未公開） |
 
 `SecurityTierInput.MandateChainTier` はチェーンの `EffectiveTier` を最低値として扱い、階層を上げることしかできません。
 

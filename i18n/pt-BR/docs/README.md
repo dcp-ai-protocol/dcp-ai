@@ -29,6 +29,10 @@ Verificadas em 28/10/2026. As versões dos pacotes são independentes da versão
 - Verificado novamente em 05/11/2026 pelas APIs públicas dos registros: continuam sendo as últimas versões. Não
   contêm as mudanças feitas na `main` depois de 28/10/2026, listadas no
   [dossiê de auditoria](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts).
+- Preparadas em 05/11/2026 e **não publicadas**: `@dcp-ai/sdk` 2.3.0, `@dcp-ai/wasm` 2.1.3, `dcp-ai` 2.10.2, Go
+  v2.13.0 e Rust `dcp-ai` 2.13.0 contêm essas mudanças. Nenhum registro as tem, e os comandos de instalação continuam
+  indicando as versões acima. Elas substituem os candidatos não publicados de 30/10/2026 (Go e Rust 2.12.0,
+  `@dcp-ai/wasm` 2.1.2). Veja o [changelog](../../../CHANGELOG.md#prepared-not-published-auditable-candidate-of-05112026) e as notas de lançamento.
 - Os adaptadores e geradores de projetos npm são opcionais e independentes do núcleo do protocolo; suas versões exatas
   estão em [NPM_RELEASES.md](../../../docs/NPM_RELEASES.md), que lista os 13 pacotes npm.
 - As versões anteriores afetadas e as notas de atualização estão em [SECURITY.md](../../../SECURITY.md#supported-versions); a migração

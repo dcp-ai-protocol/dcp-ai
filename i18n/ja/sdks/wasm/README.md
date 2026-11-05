@@ -20,7 +20,12 @@ npm install @dcp-ai/wasm@^2.1.1
 
 全パッケージのバージョンは [npm リリース一覧](../../../../docs/NPM_RELEASES.md)を参照してください。
 
-**`@dcp-ai/wasm` 2.1.2（準備済み・未公開）。** `dualMerkleRoot` を修正します。2.1.1 以前では、2 個以上の葉に対して V2-11 と異なるルートを返します（後述の「ハッシュ操作」を参照）。npm にはないため、上記のコマンドは 2.1.1 のままです。[npm パッケージ](../../../../docs/NPM_RELEASES.md)を参照してください。
+**`@dcp-ai/wasm` 2.1.3（準備済み・未公開）。** リポジトリで準備済みですが npm にはないため、上記のコマンドは 2.1.1 のままです。30/10/2026 に準備した 2.1.2 は公開されず、置き換えられました。2.1.1 との違い：
+
+- **`dualMerkleRoot`** は V2-11 の二重 Merkle ルート（32 バイトの生のダイジェスト、奇数の層では最後のノードを複製）を算出します。2.1.1 以前は、2 個以上の葉に対して別のルートを返します（後述の「ハッシュ操作」を参照）。以前は受理されていた、32 バイトの 16 進ダイジェストでない葉はエラーになります。
+- **V2-2 スキーマ検証。** `verifyBundle` と `wasm_verify_signed_bundle_v2` は、ハッシュ、鍵、署名を確認する前に、署名済みバンドルのエンベロープと 4 つのペイロードを `schemas/v2` に照らして検証します。以前は受理されていたスキーマ上無効なバンドルは、`schema: <pointer> <keyword>` 診断で失敗するようになりました。
+
+JavaScript API は追加されません。ワイヤーフォーマット、署名、プロファイル、`dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API は変わりません。WebAssembly は、同じく準備済み・未公開の Rust `dcp-ai` 2.13.0 のソースから生成されます。[npm パッケージ](../../../../docs/NPM_RELEASES.md)を参照してください。
 
 チェックアウトしたソースで開発する場合は、ローカルのパッケージをビルドしてインストールします。
 
@@ -194,7 +199,7 @@ WASM モジュールを初期化します。各 API を使う前に一度呼び�
 | `compositeVerify(context, payload, sig, classicalPk, pqPk?)` | `CompositeVerifyResult` | 複合署名の暗号学的検証 |
 | `verifyBundle(signedBundle, policy?)` | `V2VerificationResult` | ポリシーモードとセキュリティ階層のモードのうち厳しい方を用い、V2 バンドルの構造、暗号、主ハッシュチェーンを検証します（spec §14.3）。`resolved_tier` と `verification_mode` を返します。`policy` で既定値から変更できるのは、`default_mode`、`risk_overrides`、フェーズ3のフィールド（`advisory_rejected_algs`、`warn_classical_only_deprecated`、`allow_classical_fallback_disable`）、`max_session_duration_seconds`（署名された `session_issued_at` から測定。マニフェストに `session_expires_at` がある場合、`signBundle` がこのフィールドを書き込みます）、`require_session_expiry`（`session_expires_at` のないマニフェストを拒否）、および `verifier_id` と組み合わせた `require_audience_binding`（`intended_verifier` がない、または `verifier_id` と異なるマニフェストを拒否）のみです。ポリシーを渡した場合、V1 バンドルは拒否されます |
 
-**スキーマ検証（V2-2。`main` にあり、公開済みのバージョンには含まれない）。** `verifyBundle` と `wasm_verify_signed_bundle_v2`は、ポリシーと時計の確認の後、検証器がマニフェスト、ペイロードのハッシュ、鍵、署名を確認する前に、まず署名済み bundle のエンベロープと四つのペイロードを `schemas/v2` に照らして検証します。実験的な候補のエクスポートも同じゲートを通ります。失敗した bundle は `verified: false` と `schema: <JSON pointer> <keyword>[ <member>]` のエラー（最大 16 件、その後に `schema: further errors not listed`）を返し、暗号に関する詳細は返しません。閉じたオブジェクトの未知のメンバーは拒否されます。intent の `target` のような開いたオブジェクトでは、宣言されたメンバーは制約を保ち、追加のメンバーだけが検査されません。マニフェストの `session_issued_at` と `session_expires_at` は、存在する場合は `null` ではなく文字列でなければなりません。`date-time` は参照検証器の ajv-formats 3.0.1 による確認に従い、これは厳密な RFC 3339 ではありません。バインディングのポリシーのパースエラー、`JSON parse error`、バージョンの振り分け（`Unknown DCP version`）は、引き続き V2-2 の前に来ます。**受理の変更：** 以前は検証に成功していたスキーマ上無効な bundle は、今は拒否されます。スキーマだけの API はありません。[カバレッジマップ](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)を参照してください。
+**スキーマ検証（V2-2。2.1.3 以降、準備済み・未公開）。** `verifyBundle` と `wasm_verify_signed_bundle_v2`は、ポリシーと時計の確認の後、検証器がマニフェスト、ペイロードのハッシュ、鍵、署名を確認する前に、まず署名済み bundle のエンベロープと四つのペイロードを `schemas/v2` に照らして検証します。実験的な候補のエクスポートも同じゲートを通ります。失敗した bundle は `verified: false` と `schema: <JSON pointer> <keyword>[ <member>]` のエラー（最大 16 件、その後に `schema: further errors not listed`）を返し、暗号に関する詳細は返しません。閉じたオブジェクトの未知のメンバーは拒否されます。intent の `target` のような開いたオブジェクトでは、宣言されたメンバーは制約を保ち、追加のメンバーだけが検査されません。マニフェストの `session_issued_at` と `session_expires_at` は、存在する場合は `null` ではなく文字列でなければなりません。`date-time` は参照検証器の ajv-formats 3.0.1 による確認に従い、これは厳密な RFC 3339 ではありません。バインディングのポリシーのパースエラー、`JSON parse error`、バージョンの振り分け（`Unknown DCP version`）は、引き続き V2-2 の前に来ます。**受理の変更：** 以前は検証に成功していたスキーマ上無効な bundle は、今は拒否されます。スキーマだけの API はありません。[カバレッジマップ](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)を参照してください。
 
 <a id="hash-operations"></a>
 

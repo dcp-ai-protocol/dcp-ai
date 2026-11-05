@@ -27,6 +27,9 @@
 - 这些版本会在 V2-11 的可选二级 SHA3-256 字段存在时验证它们；不存在的字段不作要求，因此已验证的 bundle 可能没有完整的二级链，存在但不一致的字段会被拒绝。更早的版本不检查这些字段。 已发布的适配器 `@dcp-ai/express`、`@dcp-ai/openclaw`、`@dcp-ai/anthropic-mcp` 和 `@dcp-ai/google-a2a` 2.1.0 没有重新发布：它们依赖 `@dcp-ai/sdk` `^2.2.0`，当你的锁定文件解析到 `@dcp-ai/sdk` 2.2.1 或更高版本时即获得二级检查。
 - 05/11/2026 通过公开注册表 API 再次检查：这些仍是最新版本。它们不包含 28/10/2026 之后在 `main` 上所做的
   更改，这些更改列于[审计资料](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts)。
+- 05/11/2026 已准备，**尚未发布**：`@dcp-ai/sdk` 2.3.0、`@dcp-ai/wasm` 2.1.3、`dcp-ai` 2.10.2、Go v2.13.0 和
+  Rust `dcp-ai` 2.13.0 包含这些更改。任何注册表中都没有它们，安装命令仍指向上述版本。它们取代了 30/10/2026
+  未发布的候选版本（Go 和 Rust 2.12.0、`@dcp-ai/wasm` 2.1.2）。见[变更日志](../../../CHANGELOG.md#prepared-not-published-auditable-candidate-of-05112026)和发布说明。
 - npm 适配器和项目脚手架是可选的，独立于协议核心；它们的确切版本见列出全部 13 个 npm 软件包的
   [NPM_RELEASES.md](../../../docs/NPM_RELEASES.md)。
 - 受影响的早期版本和升级说明见 [SECURITY.md](../../../SECURITY.md#supported-versions)；从 DCP v1.0 迁移见

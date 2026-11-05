@@ -17,6 +17,27 @@
 > 当前行为，请参阅 [README](../../README.md)、[文档](../../docs/README.md)、[规范](../../spec/README.md)和
 > [API 参考](../../docs/API_REFERENCE.md)。
 
+<a id="prepared-not-published-auditable-candidate-of-05112026"></a>
+
+## 已准备，尚未发布：05/11/2026 的可审计候选版本
+
+05/11/2026 在仓库中准备，**尚未发布**：npm、PyPI 和 crates.io 上没有这些版本，也不存在 `sdks/go/v2.13.0` 标签。[已发布版本](../../docs/README.md#published-versions)和安装命令仍然指向注册表中的版本。
+
+| 包 | 已准备 | 已发布 |
+|---|---|---|
+| `@dcp-ai/sdk` | 2.3.0 | 2.2.1 |
+| `dcp-ai` (PyPI) | 2.10.2 | 2.10.1 |
+| Go `sdks/go/v2` | v2.13.0 | v2.11.1 |
+| Rust `dcp-ai` | 2.13.0 | 2.11.1 |
+| `@dcp-ai/wasm` | 2.1.3 | 2.1.1 |
+
+- **内容。** 已发布版本之后在 `main` 上进行的 SDK 更改（#103、#106、#107、#112 以及 #116 至 #119），见 `[Unreleased]`、各包的 README 以及 [npm](../../docs/NPM_RELEASES.md)、[Python](../../docs/PYTHON_RELEASE.md)、[Go](../../docs/GO_RELEASE.md) 和 [Rust](../../docs/RUST_RELEASE.md) 的发布说明。
+- **接受范围变化。** 每个 V2 验证器都执行 V2-2 模式校验，因此以前被接受的模式无效 bundle 会以 `schema: <pointer> <keyword>` 诊断失败。Go 的 `v2.VerifyPayloadHash` 只接受 `SignPayload` 写入的带前缀哈希。授权书有效性辅助函数遵循统一的约定，授权书链会拒绝重复某个领域的根授权书。WASM 的 `dualMerkleRoot` 遵循 V2-11；以前计算的根按记录保留（[迁移](../../docs/NPM_RELEASES.md#migrating-dualmerkleroot-results)）。
+- **不变。** 传输格式、签名、配置文件、作为规范默认值的 `dcp-jcs-v1`，以及实验性显式启用的 `dcp-jcs-v2` API。
+- **打包。** npm tarball、wheel、sdist 和 crate 现在都包含 Apache-2.0 `LICENSE`；Go 模块 zip 原本就包含。
+- **CLI 和适配器。** `@dcp-ai/cli` 和 npm 适配器没有新版本；针对 `@dcp-ai/sdk` 2.3.0 检查了什么，见 [npm 包](../../docs/NPM_RELEASES.md#cli-and-adapters)。
+- **早期候选版本。** 这些版本取代了下面 30/10/2026 的候选版本（Go v2.12.0、Rust 2.12.0、`@dcp-ai/wasm` 2.1.2），它们从未发布；这些版本号不再使用。
+
 <a id="prepared-not-published-go-v2120-rust-2120-and-dcp-aiwasm-212"></a>
 
 ## 已准备、尚未发布：Go v2.12.0、Rust 2.12.0 和 `@dcp-ai/wasm` 2.1.2
@@ -28,10 +49,10 @@
 - **`@dcp-ai/wasm` 2.1.2：** `dualMerkleRoot` 和 `wasm_dual_merkle_root` 计算 V2-11 的双 Merkle 根；没有新增 JavaScript API。
 - 实验性候选的新测试（gate 7）不改变任何默认值。`dcp-jcs-v1`、配置文件、传输格式、依赖和密码学均不变。三个软件包不再包含翻译版 README，它们位于 `i18n/` 中。
 
-> **说明（05/11/2026）。** 这些候选版本日期为 30/10/2026，仍未发布。它们不包含 `main` 上之后的更改：
-> 每个 V2 验证器中的 V2-2 模式校验（#116）和授权书链检查（#117 至 #119）。`main` 上清单文件中的版本号
-> 不能确定这些候选版本：`main` 带着这些版本号以及之后的更改。见
-> [审计资料](../../docs/conformance/AUDIT_DOSSIER.md#artifacts)。
+> **说明（05/11/2026）。** 这些候选版本日期为 30/10/2026，从未发布。它们不包含 `main` 上之后的更改：
+> 每个 V2 验证器中的 V2-2 模式校验（#116）和授权书链检查（#117 至 #119）。
+> [05/11/2026 的候选版本](#prepared-not-published-auditable-candidate-of-05112026)包含这些更改并取代了这些候选版本；
+> `main` 上的清单文件带有它的版本号，2.12.0 和 2.1.2 不再使用。见[审计资料](../../docs/conformance/AUDIT_DOSSIER.md#artifacts)。
 
 <a id="2026-10-28-sha3-patch-releases"></a>
 

@@ -34,6 +34,17 @@ For 2.11.1, the release workflow published the crate; every file of the registry
 
 For 2.11.0 (26/10/2026), the default suite passed 261 tests and the all-features suite passed 267, including doctests. The WASM library and tests compiled for `wasm32-unknown-unknown`; this compilation is not a browser runtime test. Cargo packaged and verified 71 files, and publication dry-run passed. An external consumer passed 72 tests against the extracted crate, covering admission, compatibility, candidate ingress/router and verifier regressions; its inverted negative control failed as expected. After publication, a fresh registry cache resolved exactly 2.11.0 without a local path or patch, and the same 72 tests passed. The registry archive checksum and packaged source bytes matched the reviewed release. Shared fixtures for these tests come from the repository; applications do not need those fixtures.
 
+## Prepared, not published: 2.13.0
+
+2.13.0 is prepared in the repository on 05/11/2026 but not published on crates.io. The install commands above stay on 2.11.1. It supersedes 2.12.0 below, which was never published. Compared with 2.11.1, 2.13.0:
+
+- **Runs V2-2 schema validation (acceptance change).** `verify_signed_bundle_v2`, `…_with_policy` and `…_at`, the WASM build included, validate the signed bundle envelope and the four payloads against `schemas/v2` before any hash, key or signature check. Schema-invalid bundles accepted before now fail with `schema: <pointer> <keyword>` diagnostics.
+- **Adds `RawAuditEventV2` and `RawAuditEventError`**, as in 2.12.0 below.
+- **Corrects `wasm_dual_merkle_root`** (with the `wasm` feature), as in 2.12.0 below. Roots computed with the old helper stay as recorded; see [Migrating `dualMerkleRoot` results](NPM_RELEASES.md#migrating-dualmerkleroot-results).
+- **Aligns the mandate checks.** `verify_mandate_validity` compares the window as instants, no longer as text, and `verify_mandate_validity_at` (new) takes the verification time. `verify_mandate_chain` rejects a root mandate that repeats a domain.
+
+Telemetry reports `2.13.0`. The wire format, the signatures, the profiles, `dcp-jcs-v1` as the normative default and the experimental opt-in `dcp-jcs-v2` APIs are unchanged, and the crate now includes the Apache-2.0 `LICENSE`. The npm package built from this Rust source is `@dcp-ai/wasm` 2.1.3, also prepared and not published (see [npm packages](NPM_RELEASES.md)). See the [SDK README](../sdks/rust/README.md) and the [changelog](../CHANGELOG.md#unreleased).
+
 ## Prepared, not published: 2.12.0
 
 2.12.0 is prepared in the repository on 30/10/2026 but not published on crates.io. The install commands above stay on 2.11.1. Compared with 2.11.1, 2.12.0:
@@ -43,7 +54,7 @@ For 2.11.0 (26/10/2026), the default suite passed 261 tests and the all-features
 
 The other APIs, `dcp-jcs-v1` and the experimental opt-in `dcp-jcs-v2` APIs are unchanged; new tests of the experimental candidate change no default. Telemetry reports `2.12.0`. The crate no longer contains the translated READMEs, which are now in the repository's `i18n/` tree. See the [SDK README](../sdks/rust/README.md) and the [changelog](../CHANGELOG.md).
 
-> **Note (05/11/2026).** The comparison above was written on 30/10/2026 for the prepared 2.12.0, which is still not published. `main` has changed verification since then: every V2 verifier, the WASM build included, runs V2-2 schema validation (#116, 02/11/2026), and the mandate validity helper, the chain time checks and the check of repeated root domains changed (#117 to #119). These changes are not in the 2.12.0 described above, so on `main` bundle verification is not unchanged. A release built from a later commit would contain them. The version numbers in the manifests on `main` do not identify this candidate: `main` carries them with the later changes. See the [audit dossier](conformance/AUDIT_DOSSIER.md#artifacts).
+> **Note (05/11/2026).** The comparison above was written on 30/10/2026 for the prepared 2.12.0, which is still not published. `main` has changed verification since then: every V2 verifier, the WASM build included, runs V2-2 schema validation (#116, 02/11/2026), and the mandate validity helper, the chain time checks and the check of repeated root domains changed (#117 to #119). These changes are not in the 2.12.0 described above, which was never published; 2.13.0 above contains them and supersedes it, and the manifests on `main` carry 2.13.0. See the [audit dossier](conformance/AUDIT_DOSSIER.md#artifacts).
 
 ## Related releases
 

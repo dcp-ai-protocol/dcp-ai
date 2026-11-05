@@ -18,6 +18,15 @@ Digital Citizenship Protocol（DCP v2.0）的官方 Rust SDK。提供基于 Serd
 
 **Rust SDK 2.11.1。** 此版本还会在 [VERIFICATION.md 的 V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) 中的二级 SHA3-256 字段存在时验证它们：`audit_merkle_root_secondary`、每个 `prev_hash_secondary` 和每个 `intent_hash_secondary`。不存在的字段不作要求，因此已验证的 bundle 可能没有完整的二级链；存在的字段如果是 `null`、不是字符串或不一致，则被拒绝。API、结果字段、`dcp-jcs-v1` 和 `hash_alg` 的处理均不变。2.11.0 不检查这些字段。下面的安装命令指定的是此版本；它在注册表中的可用情况见[已发布版本](../../../../docs/README.md#published-versions)。
 
+**Rust SDK 2.13.0（已准备，尚未发布）。** 它已在仓库中准备好，但不在 crates.io 上：下面的示例仍为 2.11.1。30/10/2026 准备的 2.12.0 从未发布，已被取代。与 2.11.1 相比：
+
+- **V2-2 模式校验。** `verify_signed_bundle_v2`、`…_with_policy` 和 `…_at`（包括 WASM 构建）在任何哈希、密钥或签名检查之前，先按 `schemas/v2` 校验已签名 bundle 的信封和四个载荷。以前被接受的模式无效 bundle 现在会以 `schema: <pointer> <keyword>` 诊断失败。
+- **`RawAuditEventV2` 和 `RawAuditEventError`**（新增）将收到的审计条目保留为解码后的值（见下文“收到的审计条目”）。
+- **`wasm_dual_merkle_root`**（启用 `wasm` 特性时）计算 V2-11 的双 Merkle 根，对不是 32 字节十六进制摘要的叶节点返回错误。
+- **委托书。** `verify_mandate_validity` 将窗口作为时刻而不再作为文本比较，`verify_mandate_validity_at`（新增）接收验证时间。`verify_mandate_chain` 拒绝重复某个领域的根委托书。
+
+遥测报告 `2.13.0`。传输格式、签名、配置文件、`dcp-jcs-v1` 和实验性显式启用的 `dcp-jcs-v2` API 均不变。参见[变更日志](../../../../CHANGELOG.md#unreleased)。
+
 ```toml
 [dependencies]
 dcp-ai = "2.11.1"
@@ -190,7 +199,7 @@ V2 为 DCP-05 至 DCP-09 的所有产物提供派生了 Serde trait 的结构体
 
 所有结构体均派生 `Debug`、`Clone`、`Serialize`、`Deserialize`。枚举使用 `#[serde(rename_all = "snake_case")]`。可选字段使用 `Option<T>` 并配合 `#[serde(skip_serializing_if = "Option::is_none")]`。
 
-**收到的审计条目（2.12.0 已准备，尚未发布）。** `AuditEventV2` 和 `AuditEvidenceV2` 用于生成条目。把收到的条目解码到它们中再重新编码，会丢失显式的 `null`（位于 `evidence`、`prev_hash_secondary` 和 `intent_hash_secondary` 中）和任何未知成员，并把缺失的 `pq_checkpoint_ref` 变成 `null`。这会改变条目的规范化字节，并可能破坏 `prev_hash` 链或审计 Merkle 根。要保留收到的条目，请使用 `RawAuditEventV2`：它保存解码得到的 `serde_json::Value`，因此任意深度的每个成员（包括未知成员）都保留其存在与否和 `null`，并按原样序列化该值。它只拒绝不是 JSON 对象的输入（`RawAuditEventError`）。它保留的是 `serde_json` 解码的结果而不是原始文本，从不修复或重新签名，并按原样保留无效证据，使验证器以相同原因拒绝它。`typed()` 是用于读取字段的有损视图。要保留收到的 bundle，请按收到时的样子保留并验证它。
+**收到的审计条目（自 2.13.0 起，已准备、尚未发布）。** `AuditEventV2` 和 `AuditEvidenceV2` 用于生成条目。把收到的条目解码到它们中再重新编码，会丢失显式的 `null`（位于 `evidence`、`prev_hash_secondary` 和 `intent_hash_secondary` 中）和任何未知成员，并把缺失的 `pq_checkpoint_ref` 变成 `null`。这会改变条目的规范化字节，并可能破坏 `prev_hash` 链或审计 Merkle 根。要保留收到的条目，请使用 `RawAuditEventV2`：它保存解码得到的 `serde_json::Value`，因此任意深度的每个成员（包括未知成员）都保留其存在与否和 `null`，并按原样序列化该值。它只拒绝不是 JSON 对象的输入（`RawAuditEventError`）。它保留的是 `serde_json` 解码的结果而不是原始文本，从不修复或重新签名，并按原样保留无效证据，使验证器以相同原因拒绝它。`typed()` 是用于读取字段的有损视图。要保留收到的 bundle，请按收到时的样子保留并验证它。
 
 <a id="bundles-dcp_aiv2bundle-unreleased"></a>
 <a id="bundles-dcp_aiv2bundle"></a>
@@ -202,7 +211,7 @@ V2 为 DCP-05 至 DCP-09 的所有产物提供派生了 Serde trait 的结构体
 | `build_bundle_v2(&rpr, &passport, &intent, &policy, &audit_entries, session_nonce)` | 从四个 `SignedPayload` 和审计轨迹构建 V2 bundle。检查每个 `payload_hash` 以及每个产物和审计条目的 `session_nonce`，并将两个审计 Merkle 根写入清单；空轨迹的根为64个零 |
 | `sign_bundle_v2(bundle, &classical, &pq)` | 在 `CTX_BUNDLE` 域下对清单进行复合签名，返回 `{bundle, signature}`，其中 `signer.id` 为 RPR 的 `human_id`。在签名前将 `session_expires_at` 或 `intended_verifier` 放入清单；若存在 `session_expires_at` 而缺少 `session_issued_at`，则将 `session_issued_at` 设为签名时刻 |
 
-**模式校验（V2-2；在 `main` 上，不在已发布版本中）。** `verify_signed_bundle_v2`、`…_with_policy` 和 `…_at`会在策略和时钟检查之后、验证器检查清单、载荷哈希、密钥和签名之前，先按 `schemas/v2` 校验已签名 bundle 的封装和四个载荷；先进行验证的 `admit_signed_bundle_v2` 和实验性候选验证器也经过同一关卡，而 `evaluate_admission_v2` 接收先前的结果，不执行该关卡。校验失败的 bundle 返回 `verified: false` 和 `schema: <JSON pointer> <keyword>[ <member>]` 错误（最多 16 条，随后是 `schema: further errors not listed`），不含密码学细节。封闭对象中的未知成员会被拒绝；在开放对象中（例如 intent 的 `target`），已声明的成员保留其约束，只有附加成员不被检查。清单中的 `session_issued_at` 和 `session_expires_at` 存在时必须是字符串，不能是 `null`。`date-time` 遵循参考验证器的 ajv-formats 3.0.1 检查，这不是严格的 RFC 3339。它们接收已解析的 `serde_json::Value`：serde_json 拒绝解析的内容（孤立代理项、`1e400`）是调用方的解析错误。**接受范围变化：** 以前能通过验证的模式无效 bundle 现在会被拒绝。没有仅做模式校验的 API。参见[覆盖映射](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)。
+**模式校验（V2-2；自 2.13.0 起，已准备、尚未发布）。** `verify_signed_bundle_v2`、`…_with_policy` 和 `…_at`会在策略和时钟检查之后、验证器检查清单、载荷哈希、密钥和签名之前，先按 `schemas/v2` 校验已签名 bundle 的封装和四个载荷；先进行验证的 `admit_signed_bundle_v2` 和实验性候选验证器也经过同一关卡，而 `evaluate_admission_v2` 接收先前的结果，不执行该关卡。校验失败的 bundle 返回 `verified: false` 和 `schema: <JSON pointer> <keyword>[ <member>]` 错误（最多 16 条，随后是 `schema: further errors not listed`），不含密码学细节。封闭对象中的未知成员会被拒绝；在开放对象中（例如 intent 的 `target`），已声明的成员保留其约束，只有附加成员不被检查。清单中的 `session_issued_at` 和 `session_expires_at` 存在时必须是字符串，不能是 `null`。`date-time` 遵循参考验证器的 ajv-formats 3.0.1 检查，这不是严格的 RFC 3339。它们接收已解析的 `serde_json::Value`：serde_json 拒绝解析的内容（孤立代理项、`1e400`）是调用方的解析错误。**接受范围变化：** 以前能通过验证的模式无效 bundle 现在会被拒绝。没有仅做模式校验的 API。参见[覆盖映射](../../docs/conformance/SECURITY_COVERAGE.md#schema-and-cryptographic-api-boundary)。
 
 <a id="delegation-chains-dcp_aiv2delegation-dcp-09-35-unreleased"></a>
 <a id="delegation-chains-dcp_aiv2delegation-dcp-09-35"></a>
@@ -213,8 +222,8 @@ V2 为 DCP-05 至 DCP-09 的所有产物提供派生了 Serde trait 的结构体
 |----------|-------------|
 | `create_delegation_mandate_with_options(ed, pq, human_classical, human_pq, params, &MandateChainOptions)` | 由人类签署的根委托，带有可选的 `sub_delegation` 和 `minimum_security_tier` |
 | `create_sub_mandate(ed, pq, classical, pq_key, &parent, SubMandateParams { .. })` | 由父委托的智能体在 `DCP-AI.v2.SubMandate` 域下签署的子委托 |
-| `verify_mandate_validity(&mandate, &revoked_ids)` / `verify_mandate_validity_at(&mandate, &revoked_ids, now_millis)` | 一份委托书的 `mandate_id`、本地吊销以及 `now` 时的有效期窗口（以毫秒计的 RFC 3339 时刻，两端都包含）；缺失、格式错误或颠倒的窗口无效。不检查签名、范围或链，也不授权任何操作。在 `main` 上，不在已发布版本中 |
-| `verify_mandate_chain(&chain, &revoked_ids, &MandateChainKeys { human_keys, agent_keys }, now_millis)` | 从根开始离线验证委托链（追溯至人类的签名、链接与深度、`sub_delegation`、嵌套有效期、行动及 `data_classes` 和 `limits` 的权限收窄、最低等级、撤销状态）；返回 `MandateChainResult { valid, errors, depth, effective_tier }`。时间与其他 SDK 一样是以整毫秒计的 RFC 3339 时刻；`None` 表示当前时间。同一委托书的 `authority_scope` 中重复的领域（包括根）会导致链被拒绝；领域按精确字符串比较，不做大小写折叠、去除空白或 Unicode 规范化（在 `main` 上，不在已发布版本中） |
+| `verify_mandate_validity(&mandate, &revoked_ids)` / `verify_mandate_validity_at(&mandate, &revoked_ids, now_millis)` | 一份委托书的 `mandate_id`、本地吊销以及 `now` 时的有效期窗口（以毫秒计的 RFC 3339 时刻，两端都包含）；缺失、格式错误或颠倒的窗口无效。不检查签名、范围或链，也不授权任何操作。自 2.13.0 起，已准备、尚未发布 |
+| `verify_mandate_chain(&chain, &revoked_ids, &MandateChainKeys { human_keys, agent_keys }, now_millis)` | 从根开始离线验证委托链（追溯至人类的签名、链接与深度、`sub_delegation`、嵌套有效期、行动及 `data_classes` 和 `limits` 的权限收窄、最低等级、撤销状态）；返回 `MandateChainResult { valid, errors, depth, effective_tier }`。时间与其他 SDK 一样是以整毫秒计的 RFC 3339 时刻；`None` 表示当前时间。同一委托书的 `authority_scope` 中重复的领域（包括根）会导致链被拒绝；领域按精确字符串比较，不做大小写折叠、去除空白或 Unicode 规范化（自 2.13.0 起，已准备、尚未发布） |
 
 <a id="admission-dcp_aiv2-specprofilesadmission-unreleased"></a>
 <a id="admission-dcp_aiv2-specprofilesadmission"></a>
