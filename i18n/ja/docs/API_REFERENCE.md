@@ -4,7 +4,7 @@
 
 # DCP-AI API リファレンス
 
-> [英語版](../../../docs/API_REFERENCE.md)の参考訳です（02/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../docs/API_REFERENCE.md)の参考訳です（04/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 `main` にある TypeScript SDK `@dcp-ai/sdk`（パッケージのバージョン 2.2.1、プロトコル DCP v2.0）のリファレンスです。
 
@@ -1644,8 +1644,30 @@ function checkRightsCompliance(
 `verifyMandateValidity` はそれ（と有効期間）を確認し、`revokeDelegation` は委任状が取り消し可能な場合に
 それをセットに追加します。
 
+`verifyMandateValidity` は一つの委任状を `now` で確認します。`now` は `Date` または紀元からのミリ秒で、ミリ秒に
+切り捨てられ、既定は現在時刻です。次の規則を順に適用し、最初の失敗を `reason` として報告します。
+
+1. `now` が瞬間である。
+2. `revokedMandateIds` が `Set` である。
+3. 委任状がオブジェクトである。
+4. 自身の `mandate_id` が空でない文字列である。
+5. その ID が失効していない（完全一致）。
+6. `valid_from` と `valid_until` が `Z` または `±hh:mm` を持つ RFC 3339 の瞬間であり、テキストとしてではなくミリ秒で
+   比較される。
+7. `valid_from` が `valid_until` より後ではない。
+8. `now` が両端を含む期間内にある。
+
+日付の形式は、すべての SDK がすでに読む部分集合（`tests/interop/v2/interop_vectors.json#rfc3339`）であり、RFC 3339 の
+すべてではありません。`T` と `Z` は大文字、実在する暦の日付、秒 60 はなし、ミリ秒より下の小数桁は切り捨てです。署名、スキーマ、`authority_scope`、チェーンは確認せず（それは `verifyMandateChain` が行います）、どの操作も認可
+しません。Python（`now=`、aware な `datetime`。naive なものは拒否。失効した ID は `set`、`frozenset`、dict のキービューなどの
+`collections.abc.Set` でなければならず、リストや文字列は拒否）、Go（`VerifyMandateValidityAt`、`now` は与えられた
+とおり）、Rust（`verify_mandate_validity_at`、ミリ秒）は `tests/interop/v2/mandate_validity_vectors.json` で同じ結果を
+返します。これは `main` にあり、公開済みのバージョンには含まれません。公開済みのヘルパーは不正な形の期間を別の形で
+扱います。TypeScript と Go は欠落した日付や不正な形の日付を受け入れ、Python は例外を送出し、Rust は日付をテキストとして
+比較します。
+
 ```typescript
-function verifyMandateValidity(mandate: DelegationMandate, revokedMandateIds: Set<string>): { valid: boolean; reason?: string };
+function verifyMandateValidity(mandate: DelegationMandate, revokedMandateIds: Set<string>, now?: Date | number): { valid: boolean; reason?: string };
 function revokeDelegation(mandate: DelegationMandate, revokedMandateIds: Set<string>): { revoked: boolean; reason?: string };
 ```
 

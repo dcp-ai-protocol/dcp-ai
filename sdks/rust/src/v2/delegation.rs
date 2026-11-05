@@ -204,42 +204,61 @@ pub struct MandateValidity {
     pub reason: Option<String>,
 }
 
-/// Check whether a mandate is currently valid (not expired, not revoked).
+/// [`verify_mandate_validity_at`] at the current time.
 pub fn verify_mandate_validity(
     mandate: &Value,
     revoked_mandate_ids: &HashSet<String>,
 ) -> MandateValidity {
-    let mandate_id = mandate
-        .get("mandate_id")
-        .and_then(Value::as_str)
-        .unwrap_or("");
-    if !mandate_id.is_empty() && revoked_mandate_ids.contains(mandate_id) {
-        return MandateValidity {
-            valid: false,
-            reason: Some("Mandate has been revoked".into()),
-        };
+    verify_mandate_validity_at(mandate, revoked_mandate_ids, unix_now_millis() as i64)
+}
+
+/// Whether a mandate is valid at `now_millis` (milliseconds since the Unix
+/// epoch) as far as time and local revocation go (DCP-09 §3.5.2 rule 4, §3.6):
+/// its `mandate_id` is a non-empty string not in `revoked_mandate_ids` (exact
+/// match), its `valid_from` and `valid_until` are RFC 3339 instants
+/// (`parse_rfc3339_millis`, compared in milliseconds, never as text) with
+/// `valid_from` not after `valid_until`, and `now_millis` lies within that
+/// window, both limits included. The first failing rule gives the reason; any
+/// JSON value gives a result, never a panic. It verifies no signature, schema,
+/// scope or chain (see [`verify_mandate_chain`]) and authorizes nothing.
+pub fn verify_mandate_validity_at(
+    mandate: &Value,
+    revoked_mandate_ids: &HashSet<String>,
+    now_millis: i64,
+) -> MandateValidity {
+    let invalid = |reason: &str| MandateValidity {
+        valid: false,
+        reason: Some(reason.into()),
+    };
+    let Some(m) = mandate.as_object() else {
+        return invalid("Mandate is not an object");
+    };
+    let mandate_id = match m.get("mandate_id").and_then(Value::as_str) {
+        Some(id) if !id.is_empty() => id,
+        _ => return invalid("Mandate mandate_id is missing or invalid"),
+    };
+    if revoked_mandate_ids.contains(mandate_id) {
+        return invalid("Mandate has been revoked");
     }
-    let valid_from = mandate
-        .get("valid_from")
-        .and_then(Value::as_str)
-        .unwrap_or("");
-    let valid_until = mandate
-        .get("valid_until")
-        .and_then(Value::as_str)
-        .unwrap_or("");
-    let now = utc_now_iso();
-    // Lexicographic comparison works for ISO-8601 UTC strings.
-    if valid_from > now.as_str() {
-        return MandateValidity {
-            valid: false,
-            reason: Some("Mandate is not yet valid".into()),
-        };
+    let instant = |field: &str| {
+        m.get(field)
+            .and_then(Value::as_str)
+            .and_then(parse_rfc3339_millis)
+    };
+    let Some(valid_from) = instant("valid_from") else {
+        return invalid("Mandate valid_from is missing or invalid");
+    };
+    let Some(valid_until) = instant("valid_until") else {
+        return invalid("Mandate valid_until is missing or invalid");
+    };
+    if valid_from > valid_until {
+        return invalid("Mandate valid_from is after valid_until");
     }
-    if valid_until < now.as_str() {
-        return MandateValidity {
-            valid: false,
-            reason: Some("Mandate has expired".into()),
-        };
+    if valid_from > now_millis {
+        return invalid("Mandate is not yet valid");
+    }
+    if valid_until < now_millis {
+        return invalid("Mandate has expired");
     }
     MandateValidity {
         valid: true,

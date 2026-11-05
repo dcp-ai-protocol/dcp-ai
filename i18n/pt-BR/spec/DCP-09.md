@@ -5,7 +5,7 @@
 
 # DCP-09: Delegação e representação
 
-> Tradução informativa da [especificação em inglês](../../../spec/DCP-09.md), atualizada em 25/10/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
+> Tradução informativa da [especificação em inglês](../../../spec/DCP-09.md), atualizada em 04/11/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
 
 ## Status
 Publicada — v2.0 (extensão; as revisões são acompanhadas conforme o retorno de quem a adota)
@@ -976,8 +976,11 @@ Uma implementação está em conformidade com o DCP-09 se:
   detém as chaves passadas: `DCP-AI.v2.Awareness` para limiares de consciência e declarações de alerta,
   `DCP-AI.v2.Delegation` para espelhos do principal e registros de interação. Não há confirmação de recebimento do
   mandato pelo agente (§3.3) nem uma segunda assinatura, do principal, no espelho (§6.3).
-- **O que as funções auxiliares fazem.** `verifyMandateValidity` só verifica um conjunto de IDs revogados e a janela de
-  validade, não a assinatura nem o escopo. `revoke_delegation` (Python) acrescenta o ID a um conjunto local quando o
+- **O que as funções auxiliares fazem.** `verifyMandateValidity` (`verify_mandate_validity`, `VerifyMandateValidityAt`,
+  `verify_mandate_validity_at`) só verifica um `mandate_id` não vazio, um conjunto de IDs revogados e a janela de
+  validade em um horário de verificação: instantes RFC 3339 como na §3.5.2, com os dois limites incluídos, e uma janela
+  ausente, malformada ou invertida não é válida. Esse contrato está na `main`, não em uma versão publicada. Não verifica
+  a assinatura nem o escopo e não autoriza nada. `revoke_delegation` (Python) acrescenta o ID a um conjunto local quando o
   mandato é `revocable`; não produz nenhum registro de revogação assinado (§3.6). `generateMirror` calcula o hash
   (SHA-256) das entradas de auditoria que recebe e assina a narrativa e o resumo que quem chama escreve; não escreve a
   narrativa nem obtém nenhuma aprovação. Os tipos `A2A_HELLO` e `A2A_WELCOME` têm campos opcionais `mandate_id` e

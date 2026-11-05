@@ -6,7 +6,7 @@
 
 **Go 发布 (26/10/2026).** Go SDK `v2.11.0` 已通过模块标签 `sdks/go/v2.11.0` 发布，包含验证器修复、准入和实验性显式启用 API。Rust 仍独立发布。见 [Go v2.11.0](../../../../docs/GO_RELEASE.md).
 
-> 本文是[英文 README](../../../../sdks/go/README.md)的参考译文，更新于 02/11/2026。为保留经过验证的示例，标识符和代码块（包括注释）均保持原文。
+> 本文是[英文 README](../../../../sdks/go/README.md)的参考译文，更新于 04/11/2026。为保留经过验证的示例，标识符和代码块（包括注释）均保持原文。
 
 Digital Citizenship Protocol（DCP）v1.0 和 v2.0 的官方 Go SDK。支持 Ed25519、ML-DSA-65、SLH-DSA-192f、ML-KEM-768、复合签名、双哈希链和 bundle 验证。
 
@@ -279,6 +279,7 @@ if !result.Admitted {
 |----------|-------------|
 | `v2.CreateDelegationMandate(reg, humanClassical, humanPQ, params)` | 由人类签署的根委托；`SubDelegation` 和 `MinimumSecurityTier` 可选 |
 | `v2.CreateSubMandate(reg, delegatorClassical, delegatorPQ, parent, v2.SubMandateParams{...})` | 由父委托的智能体在 `DCP-AI.v2.SubMandate` 域下签署的子委托 |
+| `v2.VerifyMandateValidity(mandate, revokedIDs)` / `v2.VerifyMandateValidityAt(mandate, revokedIDs, now)` | 一份委托书的 `mandate_id`、本地吊销以及 `now` 时的有效期窗口（以毫秒计的 RFC 3339 时刻，两端都包含）；缺失、格式错误或颠倒的窗口无效。不检查签名、范围或链，也不授权任何操作。在 `main` 上，不在已发布版本中。`…At` 按给定值使用 `now`：零时间是第 1 年，而不是当前时间 |
 | `v2.VerifyMandateChain(reg, chain, revokedIDs, v2.MandateChainKeys{HumanKeys, AgentKeys}, now)` | 从根开始离线验证委托链（追溯至人类的签名、链接与深度、`sub_delegation`、嵌套有效期、行动及 `data_classes` 和 `limits` 的权限收窄、最低等级、撤销状态）；返回 `MandateChainResult{Valid, Errors, Depth, EffectiveTier}` |
 
 `SecurityTierInput.MandateChainTier` 将委托链的 `EffectiveTier` 作为下限，只能提高等级。

@@ -47,6 +47,30 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Security
 
+- **Acceptance change: mandate validity helpers** (source on `main`, not in a published version).
+  `verifyMandateValidity` (TypeScript), `verify_mandate_validity` (Python), `VerifyMandateValidity` (Go) and
+  `verify_mandate_validity` (Rust) now apply one contract. The mandate is an object with a non-empty `mandate_id`,
+  and revocation is an exact match. `valid_from` and `valid_until` are RFC 3339 instants with `Z` or `±hh:mm`, read
+  by each SDK's existing strict parser, compared in milliseconds and never as text. `valid_from` must not be after
+  `valid_until`, and the verification time lies within the window, both limits included. The first failure is the
+  `reason`, and a value of the wrong type gives a result, not an exception.
+  - **What changes:** TypeScript and Go accepted a missing or malformed date. Python raised, and accepted a space
+    separator. Rust compared the dates as text, so offsets and fractions could be ordered wrongly in either
+    direction. The input contract changes too: Python requires the revoked IDs to be a `collections.abc.Set` (a
+    `set`, a `frozenset` or a dict keys view), so a list or a string, tolerated before, is refused (`in` on a string
+    matches substrings).
+  - **Date format:** the subset the SDKs already parse (`tests/interop/v2/interop_vectors.json#rfc3339`), not all of
+    RFC 3339: uppercase `T` and `Z`, a real calendar date, no second 60, and fraction digits beyond milliseconds
+    dropped.
+  - **Clock:** the verification time can be injected: TypeScript `now` (a `Date` or milliseconds), Python `now=` (an
+    aware `datetime`; a naive one is refused), Go `VerifyMandateValidityAt` (`now` taken as given) and Rust
+    `verify_mandate_validity_at` (milliseconds). The existing calls keep the current time.
+  - **Shared vectors:** `tests/interop/v2/mandate_validity_vectors.json`, 94 cases. TypeScript, Python and Rust run
+    all of them; Go runs 90 and skips by name the 4 whose mandate is neither a JSON object nor `null`, which its typed
+    map cannot take.
+  - **WASM:** it exposes the `DelegationMandate` type only, no helper.
+  - **Scope:** the helpers check no signature, schema, scope or chain and authorize nothing. The chain verifier,
+    admission, signatures, profiles, dependencies and versions are unchanged.
 - **Acceptance change: V2-2 schema validation in every SDK verifier** (source on `main`, not in a published
   version). The V2 verifiers of the TypeScript, Python, Go, Rust and WASM SDKs (`verifySignedBundleV2` and its
   counterparts, the combined admission API, which verifies first, and the experimental candidate verifier; evaluating

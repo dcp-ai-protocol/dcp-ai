@@ -2,7 +2,7 @@
 
 # @dcp-ai/wasm — WebAssembly SDK v2.0
 
-> [英語版 README](../../../../sdks/wasm/README.md)の参考訳です。更新日：02/11/2026。検証済みの例を維持するため、識別子とコードブロック（コメントを含む）は原文のままにしています。
+> [英語版 README](../../../../sdks/wasm/README.md)の参考訳です。更新日：04/11/2026。検証済みの例を維持するため、識別子とコードブロック（コメントを含む）は原文のままにしています。
 
 Digital Citizenship Protocol（DCP）v2.0 向けの WebAssembly モジュールで、Rust SDK からコンパイルされます。耐量子複合署名、ハイブリッド鍵生成、ML-KEM-768 による鍵カプセル化、二重ハッシュ、バンドルの構築・検証、セキュリティ階層の算出を提供します。ブラウザーまたは Node.js で直接動作し、サーバーは不要です。
 
@@ -276,6 +276,8 @@ WASM SDK には、DCP-05 から DCP-09 までのすべてのアーティファ�
 | DCP-09 委任 | `DelegationMandate`, `AdvisoryDeclaration`, `PrincipalMirror`, `InteractionRecord`, `AwarenessThreshold`, `ThresholdRule`, `AuthorityScopeEntry`, `ThresholdOperator`, `ThresholdAction` |
 
 `domainSeparatedMessage()` で利用できるドメイン分離コンテキスト：`Lifecycle`、`Succession`、`Dispute`、`Rights`、`Delegation`、`Awareness`。
+
+これらは型だけです。このパッケージは委任状の有効性やチェーンの関数をエクスポートしません。`verify_mandate_validity_at` と `verify_mandate_chain` はビルド元の Rust クレートにあり、ほかの SDK にはそれぞれの関数があります。
 
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in"></a>
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>

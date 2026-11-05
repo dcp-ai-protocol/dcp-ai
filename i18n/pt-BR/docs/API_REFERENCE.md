@@ -4,7 +4,7 @@
 
 # Referência da API do DCP-AI
 
-> Tradução informativa da [versão em inglês](../../../docs/API_REFERENCE.md), atualizada em 02/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../docs/API_REFERENCE.md), atualizada em 04/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Referência do SDK TypeScript `@dcp-ai/sdk` como está em `main` (versão do pacote 2.2.1, protocolo DCP v2.0).
 
@@ -1644,8 +1644,31 @@ Cria, valida e revoga delegações de autoridade de uma pessoa a um agente. Quem
 `verifyMandateValidity` o verifica (junto com a janela de validade), e `revokeDelegation` acrescenta o mandato a ele quando
 o mandato é revogável.
 
+`verifyMandateValidity` verifica um mandato em `now`: um `Date` ou milissegundos desde a época, truncado em
+milissegundos, o horário atual por padrão. Aplica estas regras em ordem e relata a primeira falha como `reason`:
+
+1. `now` é um instante.
+2. `revokedMandateIds` é um `Set`.
+3. O mandato é um objeto.
+4. Seu `mandate_id` próprio é uma string não vazia.
+5. Esse ID não está revogado (correspondência exata).
+6. `valid_from` e `valid_until` são instantes RFC 3339 com `Z` ou `±hh:mm`, comparados em milissegundos e nunca como
+   texto.
+7. `valid_from` não é posterior a `valid_until`.
+8. `now` está dentro da janela, com os dois limites incluídos.
+
+O formato de data é o subconjunto que todos os SDKs já leem (`tests/interop/v2/interop_vectors.json#rfc3339`), não
+todo o RFC 3339: `T` e `Z` maiúsculos, uma data de calendário real, sem segundo 60 e com os dígitos de fração além dos
+milissegundos descartados. Não verifica nenhuma assinatura, esquema, `authority_scope` nem cadeia (isso é feito por `verifyMandateChain`) e não
+autoriza nenhuma ação. Python (`now=`, um `datetime` aware; um naive é recusado; os IDs revogados devem ser um `collections.abc.Set`, como
+um `set`, um `frozenset` ou uma visão de chaves de dict, e uma lista ou uma string é recusada), Go (`VerifyMandateValidityAt`, `now`
+tal como é dado) e Rust (`verify_mandate_validity_at`, milissegundos) dão os mesmos resultados em
+`tests/interop/v2/mandate_validity_vectors.json`. Isso está na `main`, não em uma versão publicada. Os helpers
+publicados tratam uma janela malformada de outra forma: TypeScript e Go aceitam uma data ausente ou malformada, Python
+lança uma exceção e Rust compara as datas como texto.
+
 ```typescript
-function verifyMandateValidity(mandate: DelegationMandate, revokedMandateIds: Set<string>): { valid: boolean; reason?: string };
+function verifyMandateValidity(mandate: DelegationMandate, revokedMandateIds: Set<string>, now?: Date | number): { valid: boolean; reason?: string };
 function revokeDelegation(mandate: DelegationMandate, revokedMandateIds: Set<string>): { revoked: boolean; reason?: string };
 ```
 

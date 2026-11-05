@@ -342,6 +342,7 @@ verifies offline back to the human.
 |----------|-------------|
 | `createDelegationMandate(registry, humanKeys, params)` | Root mandate signed by the human (`human_composite_sig`); `sub_delegation` and `minimum_security_tier` are optional |
 | `createSubMandate(registry, delegatorKeys, parent, params)` | Sub-mandate signed by the parent's agent (`delegator_composite_sig`, `DCP-AI.v2.SubMandate` context) |
+| `verifyMandateValidity(mandate, revokedIds, now?)` | One mandate's `mandate_id`, local revocation and validity window at `now` (RFC 3339 instants in milliseconds, both limits included); a missing, malformed or inverted window is invalid. No signature, scope or chain check, and no authorization. On `main`, not in a published version; returns `{ valid, reason? }` |
 | `verifyMandateChain(registry, chain, revokedIds, keys, now?)` | Verifies the chain root first: signatures back to the human, parent links and depth, `sub_delegation`, nested validity windows, attenuation (actions, `data_classes` and `limits` only narrow), the security-tier floor and revocation; returns `{ valid, errors, depth, effective_tier }` |
 
 ```typescript

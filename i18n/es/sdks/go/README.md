@@ -8,7 +8,7 @@
 
 **Publicación Go (26/10/2026).** El SDK Go `v2.11.0` está disponible desde la etiqueta `sdks/go/v2.11.0`, incluidas las correcciones del verificador, admisión y API experimentales opt-in. La publicación Rust sigue siendo independiente. Véase [Go v2.11.0](../../../../docs/GO_RELEASE.md).
 
-> Traducción informativa del [README en inglés](../../../../sdks/go/README.md), actualizada el 02/11/2026. Los identificadores y los bloques de código, incluidos sus comentarios, se conservan en el idioma original para mantener los ejemplos verificados.
+> Traducción informativa del [README en inglés](../../../../sdks/go/README.md), actualizada el 04/11/2026. Los identificadores y los bloques de código, incluidos sus comentarios, se conservan en el idioma original para mantener los ejemplos verificados.
 
 SDK oficial de Go para el Digital Citizenship Protocol (DCP) v1.0 y v2.0. Admite Ed25519, ML-DSA-65, SLH-DSA-192f, ML-KEM-768, firmas compuestas, cadenas de hash duales y verificación de bundles.
 
@@ -281,6 +281,7 @@ if !result.Admitted {
 |----------|-------------|
 | `v2.CreateDelegationMandate(reg, humanClassical, humanPQ, params)` | Mandato raíz firmado por la persona; `SubDelegation` y `MinimumSecurityTier` son opcionales |
 | `v2.CreateSubMandate(reg, delegatorClassical, delegatorPQ, parent, v2.SubMandateParams{...})` | Submandato firmado por el agente del mandato padre bajo el contexto `DCP-AI.v2.SubMandate` |
+| `v2.VerifyMandateValidity(mandate, revokedIDs)` / `v2.VerifyMandateValidityAt(mandate, revokedIDs, now)` | El `mandate_id`, la revocación local y la ventana de validez de un mandato en `now` (instantes RFC 3339 en milisegundos, con los dos límites incluidos); una ventana ausente, malformada o invertida no es válida. No comprueba firma, ámbito ni cadena, y no autoriza nada. En `main`, no en una versión publicada. `…At` toma `now` tal como se da: el instante cero es el año 1, no la hora actual |
 | `v2.VerifyMandateChain(reg, chain, revokedIDs, v2.MandateChainKeys{HumanKeys, AgentKeys}, now)` | Verifica la cadena sin conexión, empezando por la raíz (firmas hasta la persona, enlaces y profundidad, `sub_delegation`, vigencia anidada, restricción de acciones, `data_classes` y `limits`, nivel mínimo y revocación); devuelve `MandateChainResult{Valid, Errors, Depth, EffectiveTier}` |
 
 `SecurityTierInput.MandateChainTier` toma el `EffectiveTier` de la cadena como un mínimo que solo puede elevar el nivel.

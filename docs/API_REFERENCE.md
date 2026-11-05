@@ -1604,8 +1604,32 @@ Create, validate, and revoke human-to-agent authority delegations. The caller ke
 `verifyMandateValidity` checks it (and the validity window), and `revokeDelegation` adds the mandate to it when
 the mandate is revocable.
 
+`verifyMandateValidity` checks one mandate at `now`: a `Date` or milliseconds since the epoch, truncated to
+milliseconds, the current time by default. It applies these rules in order and reports the first failure as
+`reason`:
+
+1. `now` is an instant.
+2. `revokedMandateIds` is a `Set`.
+3. The mandate is an object.
+4. Its own `mandate_id` is a non-empty string.
+5. That ID is not revoked (exact match).
+6. `valid_from` and `valid_until` are RFC 3339 instants with `Z` or `±hh:mm`, compared in milliseconds and never as
+   text.
+7. `valid_from` is not after `valid_until`.
+8. `now` lies within the window, both limits included.
+
+The date format is the subset every SDK already parses (`tests/interop/v2/interop_vectors.json#rfc3339`), not all
+of RFC 3339: uppercase `T` and `Z`, a real calendar date, no second 60, and fraction digits beyond milliseconds
+dropped. It checks no signature, schema, `authority_scope` or chain (`verifyMandateChain` does) and authorizes no action.
+Python (`now=`, an aware `datetime`; a naive one is refused; the revoked IDs must be a `collections.abc.Set`, such as
+a `set`, a `frozenset` or a dict keys view, and a list or a string is refused), Go (`VerifyMandateValidityAt`, `now` taken as given)
+and Rust (`verify_mandate_validity_at`, milliseconds) give the same results on
+`tests/interop/v2/mandate_validity_vectors.json`. This is on `main`, not in a published version. The published
+helpers treat a malformed window differently: TypeScript and Go accept a missing or malformed date, Python raises,
+and Rust compares the dates as text.
+
 ```typescript
-function verifyMandateValidity(mandate: DelegationMandate, revokedMandateIds: Set<string>): { valid: boolean; reason?: string };
+function verifyMandateValidity(mandate: DelegationMandate, revokedMandateIds: Set<string>, now?: Date | number): { valid: boolean; reason?: string };
 function revokeDelegation(mandate: DelegationMandate, revokedMandateIds: Set<string>): { revoked: boolean; reason?: string };
 ```
 

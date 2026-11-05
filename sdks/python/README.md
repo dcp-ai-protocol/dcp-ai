@@ -297,7 +297,12 @@ A root mandate is signed by the human (`create_delegation_mandate`); the agent h
 sub-mandate to another agent (`create_sub_mandate`), signed with its own keys. `verify_mandate_chain` checks
 the chain root first and offline: signatures back to the human, parent links and depth, `sub_delegation`,
 nested validity windows, attenuation (actions, `data_classes` and `limits` only narrow), the security-tier
-floor and revocation.
+floor and revocation. `verify_mandate_validity(mandate, revoked_ids, now=...)` checks one mandate's `mandate_id`,
+local revocation and validity window at an aware `now` (the current time by default; a naive `datetime` is refused).
+It uses RFC 3339 instants in milliseconds, both limits included, and a missing, malformed or inverted window is
+invalid. The revoked IDs must be a set (a `set`, a `frozenset` or a dict keys view); a list or a string is refused.
+It returns a result instead of raising, checks no signature, scope or chain, and authorizes nothing. This
+is on `main`, not in a published version.
 
 ```python
 # Fragment, inside an async function: registry as in V2 Bundles; orchestrator_classical, orchestrator_pq, root_mandate, nonce and the key entries come from your delegation setup; intent and policy_decision are V2 payloads.

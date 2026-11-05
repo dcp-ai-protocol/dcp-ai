@@ -4,7 +4,7 @@
 
 # DCP-AI API 参考
 
-> 本文是[英文版](../../../docs/API_REFERENCE.md)的参考译文，更新于 02/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/API_REFERENCE.md)的参考译文，更新于 04/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 本文是 `main` 上的 TypeScript SDK `@dcp-ai/sdk`（软件包版本 2.2.1，协议 DCP v2.0）的参考文档。
 
@@ -1640,8 +1640,29 @@ function checkRightsCompliance(
 `verifyMandateValidity` 会检查它（以及有效期窗口），当委托书可吊销时，`revokeDelegation` 会把委托书
 加入该集合。
 
+`verifyMandateValidity` 在 `now` 时检查一份委托书：`now` 是一个 `Date` 或自纪元起的毫秒数，截断到毫秒，默认为
+当前时间。它按顺序应用以下规则，并把第一个失败报告为 `reason`：
+
+1. `now` 是一个时刻。
+2. `revokedMandateIds` 是一个 `Set`。
+3. 委托书是一个对象。
+4. 它自身的 `mandate_id` 是非空字符串。
+5. 该 ID 未被吊销（精确匹配）。
+6. `valid_from` 和 `valid_until` 是带 `Z` 或 `±hh:mm` 的 RFC 3339 时刻，以毫秒比较，从不按文本
+   比较。
+7. `valid_from` 不晚于 `valid_until`。
+8. `now` 位于窗口之内，两端都包含。
+
+日期格式是所有 SDK 已经解析的子集（`tests/interop/v2/interop_vectors.json#rfc3339`），而不是完整的 RFC 3339：`T` 和
+`Z` 为大写，日期必须是真实的日历日期，没有第 60 秒，毫秒以下的小数位被舍弃。它不检查任何签名、模式、`authority_scope` 或链（由 `verifyMandateChain` 检查），也不授权任何操作。Python（`now=`，
+一个 aware 的 `datetime`；naive 的会被拒绝；已吊销的 ID 必须是 `collections.abc.Set`，例如
+`set`、`frozenset` 或 dict 的键视图，列表或字符串会被拒绝）、Go（`VerifyMandateValidityAt`，`now` 按给定值使用）和 Rust
+（`verify_mandate_validity_at`，毫秒）在 `tests/interop/v2/mandate_validity_vectors.json` 上给出相同结果。这在 `main`
+上，不在已发布版本中。已发布的辅助函数对格式错误的窗口处理不同：TypeScript 和 Go 接受缺失或格式错误的日期，Python
+抛出异常，Rust 把日期按文本比较。
+
 ```typescript
-function verifyMandateValidity(mandate: DelegationMandate, revokedMandateIds: Set<string>): { valid: boolean; reason?: string };
+function verifyMandateValidity(mandate: DelegationMandate, revokedMandateIds: Set<string>, now?: Date | number): { valid: boolean; reason?: string };
 function revokeDelegation(mandate: DelegationMandate, revokedMandateIds: Set<string>): { revoked: boolean; reason?: string };
 ```
 

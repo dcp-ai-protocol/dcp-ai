@@ -5,7 +5,7 @@
 
 # @dcp-ai/sdk — SDK TypeScript para o DCP-AI v2.0
 
-> Tradução informativa da [versão em inglês](../../../../sdks/typescript/README.md), atualizada em 02/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../../sdks/typescript/README.md), atualizada em 04/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 SDK oficial em TypeScript para o Digital Citizenship Protocol (DCP-AI). Crie, assine e verifique Citizenship Bundles com criptografia híbrida pós-quântica (Ed25519 + ML-DSA-65), assinaturas compostas, níveis de segurança adaptativos, comunicação entre agentes (A2A), observabilidade integrada e reforço para produção.
 
@@ -381,6 +381,7 @@ com um submandato que ele mesmo assina, e assim por diante. Cada salto só pode 
 |----------|-------------|
 | `createDelegationMandate(registry, humanKeys, params)` | Mandato raiz assinado pela pessoa (`human_composite_sig`); `sub_delegation` e `minimum_security_tier` são opcionais |
 | `createSubMandate(registry, delegatorKeys, parent, params)` | Submandato assinado pelo agente do pai (`delegator_composite_sig`, contexto `DCP-AI.v2.SubMandate`) |
+| `verifyMandateValidity(mandate, revokedIds, now?)` | O `mandate_id`, a revogação local e a janela de validade de um mandato em `now` (instantes RFC 3339 em milissegundos, com os dois limites incluídos); uma janela ausente, malformada ou invertida não é válida. Não verifica assinatura, escopo nem cadeia, e não autoriza nada. Na `main`, não em uma versão publicada; retorna `{ valid, reason? }` |
 | `verifyMandateChain(registry, chain, revokedIds, keys, now?)` | Verifica a cadeia a partir da raiz: assinaturas até a pessoa, vínculos com o pai e profundidade, `sub_delegation`, janelas de validade aninhadas, atenuação (ações, `data_classes` e `limits` só se restringem), o nível de segurança mínimo e a revogação; retorna `{ valid, errors, depth, effective_tier }` |
 
 ```typescript

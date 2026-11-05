@@ -5,7 +5,7 @@
 
 # @dcp-ai/sdk — SDK de TypeScript para DCP-AI v2.0
 
-> Traducción informativa de [la versión en inglés](../../../../sdks/typescript/README.md), actualizada el 02/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../../sdks/typescript/README.md), actualizada el 04/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 SDK oficial de TypeScript para el Digital Citizenship Protocol (DCP-AI). Crea, firma y verifica Citizenship Bundles con criptografía híbrida poscuántica (Ed25519 + ML-DSA-65), firmas compuestas, niveles de seguridad adaptativos, comunicación entre agentes (A2A), observabilidad integrada y refuerzo para producción.
 
@@ -381,6 +381,7 @@ se verifica sin conexión hasta llegar a la persona.
 |----------|-------------|
 | `createDelegationMandate(registry, humanKeys, params)` | Mandato raíz firmado por la persona (`human_composite_sig`); `sub_delegation` y `minimum_security_tier` son opcionales |
 | `createSubMandate(registry, delegatorKeys, parent, params)` | Submandato firmado por el agente del padre (`delegator_composite_sig`, contexto `DCP-AI.v2.SubMandate`) |
+| `verifyMandateValidity(mandate, revokedIds, now?)` | El `mandate_id`, la revocación local y la ventana de validez de un mandato en `now` (instantes RFC 3339 en milisegundos, con los dos límites incluidos); una ventana ausente, malformada o invertida no es válida. No comprueba firma, ámbito ni cadena, y no autoriza nada. En `main`, no en una versión publicada; devuelve `{ valid, reason? }` |
 | `verifyMandateChain(registry, chain, revokedIds, keys, now?)` | Verifica la cadena empezando por la raíz: firmas hasta la persona, enlaces con el padre y profundidad, `sub_delegation`, ventanas de validez anidadas, atenuación (acciones, `data_classes` y `limits` solo se restringen), el nivel de seguridad mínimo y la revocación; devuelve `{ valid, errors, depth, effective_tier }` |
 
 ```typescript

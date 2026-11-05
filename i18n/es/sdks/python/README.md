@@ -5,7 +5,7 @@
 
 # dcp-ai — SDK de Python
 
-> Traducción informativa de [la versión en inglés](../../../../sdks/python/README.md), actualizada el 02/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../../sdks/python/README.md), actualizada el 04/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 SDK oficial de Python para el Digital Citizenship Protocol (DCP v2.0). Modelos de Pydantic v2, firmas híbridas poscuánticas (Ed25519 + ML-DSA-65, además de SLH-DSA-192f), la primitiva KEM ML-KEM-768, firmas compuestas con vinculación `pq_over_classical`, firma y verificación de bundles V1 y V2, observabilidad con OpenTelemetry, el comportamiento de DCP-04 a DCP-09 y una CLI completa.
 
@@ -329,7 +329,12 @@ La persona firma un mandato raíz (`create_delegation_mandate`); el agente que l
 submandato a otro agente (`create_sub_mandate`), firmado con sus propias claves. `verify_mandate_chain` comprueba
 la cadena empezando por la raíz y sin conexión: firmas hasta la persona, enlaces con el padre y profundidad, `sub_delegation`,
 ventanas de validez anidadas, atenuación (acciones, `data_classes` y `limits` solo se restringen), el nivel de seguridad
-mínimo y la revocación.
+mínimo y la revocación. `verify_mandate_validity(mandate, revoked_ids, now=...)` comprueba el `mandate_id`, la revocación local y la ventana
+de validez de un mandato en un `now` aware (la hora actual por defecto; un `datetime` naive se rechaza). Usa instantes
+RFC 3339 en milisegundos, con los dos límites incluidos, y una ventana ausente, malformada o invertida no es válida.
+Los ID revocados deben ser un conjunto (un `set`, un `frozenset` o una vista de claves de dict); una lista o una cadena
+se rechazan. Devuelve un resultado en lugar de lanzar una excepción, no comprueba firma, ámbito ni cadena, y no autoriza
+nada. Esto está en `main`, no en una versión publicada.
 
 ```python
 # Fragment, inside an async function: registry as in V2 Bundles; orchestrator_classical, orchestrator_pq, root_mandate, nonce and the key entries come from your delegation setup; intent and policy_decision are V2 payloads.

@@ -5,7 +5,7 @@
 
 # DCP-09：委托与代表
 
-> 本文是[英文规范](../../../spec/DCP-09.md)的参考译文，更新于 25/10/2026。**具有规范效力的是英文版**：本译文不具规范效力，如有出入，以英文版为准。标识符和代码块保持原文，不作翻译。
+> 本文是[英文规范](../../../spec/DCP-09.md)的参考译文，更新于 04/11/2026。**具有规范效力的是英文版**：本译文不具规范效力，如有出入，以英文版为准。标识符和代码块保持原文，不作翻译。
 
 <a id="status"></a>
 
@@ -974,7 +974,10 @@ A2A_HELLO 消息（DCP-04 第 3.2 节）扩展了一个可选的 `delegation` �
   `delegator_composite_sig`（`DCP-AI.v2.SubMandate`）。其他每种记录只带一个 `composite_sig`，由持有所传入密钥的一方
   签署：认知阈值和建议声明使用 `DCP-AI.v2.Awareness`，主体镜像和交互记录使用 `DCP-AI.v2.Delegation`。没有代理对
   授权书的确认（§3.3），镜像上也没有主体的第二个签名（§6.3）。
-- **辅助函数做什么。** `verifyMandateValidity` 只检查已撤销 ID 集合和有效期窗口，不检查签名或范围。
+- **辅助函数做什么。** `verifyMandateValidity`（`verify_mandate_validity`、`VerifyMandateValidityAt`、
+  `verify_mandate_validity_at`）只检查非空的 `mandate_id`、已撤销 ID 集合以及验证时间点的有效期窗口：按 §3.5.2 作为
+  RFC 3339 时刻处理，两端都包含；缺失、格式错误或颠倒的窗口无效。此约定在 `main` 上，
+  不在已发布版本中。它不检查签名或范围，也不授权任何操作。
   `revoke_delegation`（Python）在授权书为 `revocable` 时把 ID 加入一个本地集合；它不会产生已签名的撤销记录（§3.6）。
   `generateMirror` 对收到的审计条目计算哈希（SHA-256），并签署调用方撰写的叙述和摘要；它既不撰写叙述，也不取得任何
   批准。`A2A_HELLO` 和 `A2A_WELCOME` 类型有可选的 `mandate_id` 和 `mandate_hash` 字段，但没有任何 SDK 在握手期间

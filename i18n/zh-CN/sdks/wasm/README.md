@@ -2,7 +2,7 @@
 
 # @dcp-ai/wasm — WebAssembly SDK v2.0
 
-> 本文是[英文 README](../../../../sdks/wasm/README.md)的参考译文，更新于 02/11/2026。为保留已测试的示例，标识符和代码块（包括注释）保持原样。
+> 本文是[英文 README](../../../../sdks/wasm/README.md)的参考译文，更新于 04/11/2026。为保留已测试的示例，标识符和代码块（包括注释）保持原样。
 
 这是用于 Digital Citizenship Protocol（DCP）v2.0 的 WebAssembly 模块，由 Rust SDK 编译而成。它提供后量子复合签名、混合密钥生成、ML-KEM-768 密钥封装、双哈希、bundle 构建与验证以及安全等级计算。所有功能都可直接在浏览器或 Node.js 中运行，无需服务器。
 
@@ -276,6 +276,8 @@ WASM SDK 为 DCP-05 到 DCP-09 的所有工件提供 TypeScript 接口，与 Rus
 | DCP-09 委托 | `DelegationMandate`, `AdvisoryDeclaration`, `PrincipalMirror`, `InteractionRecord`, `AwarenessThreshold`, `ThresholdRule`, `AuthorityScopeEntry`, `ThresholdOperator`, `ThresholdAction` |
 
 可通过 `domainSeparatedMessage()` 使用的域分离上下文：`Lifecycle`、`Succession`、`Dispute`、`Rights`、`Delegation`、`Awareness`。
+
+这些只是类型。该包不导出任何委托书有效性或委托链函数；`verify_mandate_validity_at` 和 `verify_mandate_chain` 位于构建它的 Rust crate 中，其他 SDK 也各有自己的函数。
 
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in"></a>
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
