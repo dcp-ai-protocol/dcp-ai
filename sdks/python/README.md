@@ -297,7 +297,10 @@ A root mandate is signed by the human (`create_delegation_mandate`); the agent h
 sub-mandate to another agent (`create_sub_mandate`), signed with its own keys. `verify_mandate_chain` checks
 the chain root first and offline: signatures back to the human, parent links and depth, `sub_delegation`,
 nested validity windows, attenuation (actions, `data_classes` and `limits` only narrow), the security-tier
-floor and revocation. `verify_mandate_validity(mandate, revoked_ids, now=...)` checks one mandate's `mandate_id`,
+floor and revocation. It reads every time as an RFC 3339 instant in milliseconds, year 0000 and offsets that cross
+year 0000 or 9999 included, and floors `now` to the millisecond. `now=None`, the default, is the current time. A naive `now` is read
+as UTC, as before and unlike `verify_mandate_validity`, and any other `now` that is not a `datetime` gives
+`verification time is not an instant` (on `main`, not in a published version). `verify_mandate_validity(mandate, revoked_ids, now=...)` checks one mandate's `mandate_id`,
 local revocation and validity window at an aware `now` (the current time by default; a naive `datetime` is refused).
 It uses RFC 3339 instants in milliseconds, both limits included, and a missing, malformed or inverted window is
 invalid. The revoked IDs must be a set (a `set`, a `frozenset` or a dict keys view); a list or a string is refused.

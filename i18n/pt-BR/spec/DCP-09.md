@@ -985,6 +985,11 @@ Uma implementação está em conformidade com o DCP-09 se:
   (SHA-256) das entradas de auditoria que recebe e assina a narrativa e o resumo que quem chama escreve; não escreve a
   narrativa nem obtém nenhuma aprovação. Os tipos `A2A_HELLO` e `A2A_WELCOME` têm campos opcionais `mandate_id` e
   `mandate_hash`, mas nenhum SDK verifica um mandato durante o handshake (§8.3) e nenhum envia `A2A_REJECT`.
+- **Tempos da cadeia nos SDKs.** Os verificadores de cadeia leem todos os tempos da regra 4 e o `expires_at` das chaves
+  signatárias como instantes RFC 3339 de um mesmo subconjunto, em milissegundos, e truncam o horário de verificação para
+  baixo no milissegundo; `tests/interop/v2/mandate_chain_time_vectors.json` contém cadeias assinadas que as quatro suítes
+  de SDK executam. Os seus relógios padrão diferem dos de `verifyMandateValidity`: Python lê um `datetime` naive como UTC
+  e Go lê o instante zero como o horário atual. Isso está na `main`, não em uma versão publicada.
 - Os exemplos são ilustrações com marcadores, não fixtures. Valores fracionários como `"confidence": 0.95` não podem
   ser canonicalizados com `dcp-jcs-v1`, então esses registros não podem ser assinados como estão escritos. Para os
   tipos do SDK, consulte [docs/API_REFERENCE.md](../../../docs/API_REFERENCE.md).

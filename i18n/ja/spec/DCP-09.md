@@ -996,6 +996,11 @@ A2A_HELLO メッセージ（DCP-04 のセクション 3.2）に、省略可能�
   ハッシュ（SHA-256）を計算し、呼び出し側が書いた叙述と要約に署名します。叙述を書くことも、承認を得ることも
   しません。`A2A_HELLO` と `A2A_WELCOME` の型には省略可能な `mandate_id` と `mandate_hash` のフィールドが
   ありますが、ハンドシェイク中にマンデートを検証する SDK（§8.3）も、`A2A_REJECT` を送る SDK もありません。
+- **SDK におけるチェーンの時刻。** チェーンの検証器は、規則 4 のすべての時刻と署名鍵の `expires_at` を、同じ部分集合の
+  RFC 3339 の瞬間としてミリ秒単位で読み、検証時刻をミリ秒に切り捨てます。`tests/interop/v2/mandate_chain_time_vectors.json`
+  には、四つの SDK のスイートすべてが実行する署名済みチェーンがあります。既定の時計は `verifyMandateValidity` と異なり、
+  Python は naive な `datetime` を UTC として読み、Go はゼロ時刻を現在時刻として読みます。これは `main` にあり、公開済みの
+  バージョンには含まれません。
 - 例はプレースホルダーを含む説明用のものであり、フィクスチャではありません。`"confidence": 0.95` のような小数の値は
   `dcp-jcs-v1` で正規化できないため、書かれたままの記録には署名できません。SDK の型については
   [docs/API_REFERENCE.md](../../../docs/API_REFERENCE.md) を参照してください。

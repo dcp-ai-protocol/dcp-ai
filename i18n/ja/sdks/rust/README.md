@@ -214,7 +214,7 @@ V2 には、DCP-05 から DCP-09 までのすべてのアーティファクト�
 | `create_delegation_mandate_with_options(ed, pq, human_classical, human_pq, params, &MandateChainOptions)` | 人間が署名したルート委任状。オプションで `sub_delegation` と `minimum_security_tier` を指定する |
 | `create_sub_mandate(ed, pq, classical, pq_key, &parent, SubMandateParams { .. })` | 親委任状のエージェントが `DCP-AI.v2.SubMandate` コンテキストの下で署名した下位委任状 |
 | `verify_mandate_validity(&mandate, &revoked_ids)` / `verify_mandate_validity_at(&mandate, &revoked_ids, now_millis)` | 一つの委任状の `mandate_id`、ローカルな失効、`now` での有効期間（ミリ秒単位の RFC 3339 の瞬間、両端を含む）。欠落した、不正な形の、または逆転した期間は無効。署名、範囲、チェーンは確認せず、何も認可しない。`main` にあり、公開済みのバージョンには含まれない |
-| `verify_mandate_chain(&chain, &revoked_ids, &MandateChainKeys { human_keys, agent_keys }, now_millis)` | ルートから順にオフラインでチェーンを検証する（人間に遡る署名、リンクと深さ、`sub_delegation`、入れ子の有効期間、行動・`data_classes`・`limits` の制限、最低階層、失効）。`MandateChainResult { valid, errors, depth, effective_tier }` を返す |
+| `verify_mandate_chain(&chain, &revoked_ids, &MandateChainKeys { human_keys, agent_keys }, now_millis)` | ルートから順にオフラインでチェーンを検証する（人間に遡る署名、リンクと深さ、`sub_delegation`、入れ子の有効期間、行動・`data_classes`・`limits` の制限、最低階層、失効）。`MandateChainResult { valid, errors, depth, effective_tier }` を返す。時刻はほかの SDK と同じく整数ミリ秒の RFC 3339 の瞬間。`None` は現在時刻 |
 
 <a id="admission-dcp_aiv2-specprofilesadmission-unreleased"></a>
 <a id="admission-dcp_aiv2-specprofilesadmission"></a>

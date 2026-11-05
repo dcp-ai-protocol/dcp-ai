@@ -880,6 +880,11 @@ An implementation is DCP-09 conformant if it:
   the narrative and summary the caller writes; it neither writes the narrative nor obtains approval. The `A2A_HELLO`
   and `A2A_WELCOME` types have optional `mandate_id` and `mandate_hash` fields, but no SDK verifies a mandate during the
   handshake (§8.3) and none sends `A2A_REJECT`.
+- **Chain times in the SDKs.** The chain verifiers read every time of rule 4 and the `expires_at` of the signer keys
+  as RFC 3339 instants of one subset, in milliseconds, and floor the verification time to the millisecond;
+  `tests/interop/v2/mandate_chain_time_vectors.json` holds signed chains that all four SDK suites run. Their default
+  clocks differ from `verifyMandateValidity`: Python reads a naive `datetime` as UTC, and Go reads the zero time as
+  the current time. This is on `main`, not in a published version.
 - The examples are illustrations with placeholders, not fixtures. Fractional values such as `"confidence": 0.95`
   cannot be canonicalized under `dcp-jcs-v1`, so those records cannot be signed as written. For the SDK types, see
   [docs/API_REFERENCE.md](../docs/API_REFERENCE.md).

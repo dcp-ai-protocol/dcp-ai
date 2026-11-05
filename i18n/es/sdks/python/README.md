@@ -329,7 +329,10 @@ La persona firma un mandato raíz (`create_delegation_mandate`); el agente que l
 submandato a otro agente (`create_sub_mandate`), firmado con sus propias claves. `verify_mandate_chain` comprueba
 la cadena empezando por la raíz y sin conexión: firmas hasta la persona, enlaces con el padre y profundidad, `sub_delegation`,
 ventanas de validez anidadas, atenuación (acciones, `data_classes` y `limits` solo se restringen), el nivel de seguridad
-mínimo y la revocación. `verify_mandate_validity(mandate, revoked_ids, now=...)` comprueba el `mandate_id`, la revocación local y la ventana
+mínimo y la revocación. Lee todos los tiempos como instantes RFC 3339 en milisegundos, incluidos el año 0000 y los offsets
+que cruzan el año 0000 o el 9999, y trunca `now` hacia abajo al milisegundo. `now=None`, el valor por defecto, es la hora actual. Un `now` naive se
+toma como UTC, como antes y a diferencia de `verify_mandate_validity`, y cualquier otro `now` que no sea un `datetime` da
+`verification time is not an instant` (en `main`, no en una versión publicada). `verify_mandate_validity(mandate, revoked_ids, now=...)` comprueba el `mandate_id`, la revocación local y la ventana
 de validez de un mandato en un `now` aware (la hora actual por defecto; un `datetime` naive se rechaza). Usa instantes
 RFC 3339 en milisegundos, con los dos límites incluidos, y una ventana ausente, malformada o invertida no es válida.
 Los ID revocados deben ser un conjunto (un `set`, un `frozenset` o una vista de claves de dict); una lista o una cadena

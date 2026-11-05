@@ -280,7 +280,7 @@ if !result.Admitted {
 | `v2.CreateDelegationMandate(reg, humanClassical, humanPQ, params)` | 由人类签署的根委托；`SubDelegation` 和 `MinimumSecurityTier` 可选 |
 | `v2.CreateSubMandate(reg, delegatorClassical, delegatorPQ, parent, v2.SubMandateParams{...})` | 由父委托的智能体在 `DCP-AI.v2.SubMandate` 域下签署的子委托 |
 | `v2.VerifyMandateValidity(mandate, revokedIDs)` / `v2.VerifyMandateValidityAt(mandate, revokedIDs, now)` | 一份委托书的 `mandate_id`、本地吊销以及 `now` 时的有效期窗口（以毫秒计的 RFC 3339 时刻，两端都包含）；缺失、格式错误或颠倒的窗口无效。不检查签名、范围或链，也不授权任何操作。在 `main` 上，不在已发布版本中。`…At` 按给定值使用 `now`：零时间是第 1 年，而不是当前时间 |
-| `v2.VerifyMandateChain(reg, chain, revokedIDs, v2.MandateChainKeys{HumanKeys, AgentKeys}, now)` | 从根开始离线验证委托链（追溯至人类的签名、链接与深度、`sub_delegation`、嵌套有效期、行动及 `data_classes` 和 `limits` 的权限收窄、最低等级、撤销状态）；返回 `MandateChainResult{Valid, Errors, Depth, EffectiveTier}` |
+| `v2.VerifyMandateChain(reg, chain, revokedIDs, v2.MandateChainKeys{HumanKeys, AgentKeys}, now)` | 从根开始离线验证委托链（追溯至人类的签名、链接与深度、`sub_delegation`、嵌套有效期、行动及 `data_classes` 和 `limits` 的权限收窄、最低等级、撤销状态）；返回 `MandateChainResult{Valid, Errors, Depth, EffectiveTier}`。时间是以毫秒计的 RFC 3339 时刻；`now` 截断到毫秒并按 `time.Time` 比较，零时间表示当前时间（在 `main` 上，不在已发布版本中） |
 
 `SecurityTierInput.MandateChainTier` 将委托链的 `EffectiveTier` 作为下限，只能提高等级。
 

@@ -64,6 +64,27 @@ Publicado em 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 e `@dcp-ai/cl
 
 ### Segurança
 
+- **Mudança de aceitação: tempos das cadeias de mandatos** (código-fonte de `main`, não está em nenhuma versão
+  publicada). Os verificadores de cadeias (`verifyMandateChain`, `verify_mandate_chain`, `VerifyMandateChain`) agora
+  leem todos os tempos da mesma forma. As janelas de validade, o seu aninhamento na janela do pai e o `expires_at` das
+  chaves signatárias dos dois slots são instantes RFC 3339 do subconjunto que os SDKs já leem, comparados em
+  milissegundos, com os dois limites incluídos. O horário de verificação é truncado para baixo no milissegundo, também
+  antes da época.
+  - **O que muda:** Python lia esses tempos como `datetime`, então rejeitava o ano 0000 e todo instante que um offset
+    tira dos anos 1 a 9999, que TypeScript, Go e Rust aceitam. Também os comparava com um `now` em microssegundos. Go
+    comparava com um `now` em nanossegundos e TypeScript com um `now` numérico sem truncar, então uma chave ou uma janela
+    que termina no mesmo milissegundo que o horário de verificação podia ser lida como vencida. Um `now` de outro tipo
+    fazia TypeScript e Python lançarem uma exceção; agora ambos retornam `verification time is not an instant`.
+  - **Aceitação:** amplia-se em dois pontos, segundo o contrato comum e sem mudança normativa. Com o truncamento para
+    baixo, um horário de verificação dentro do último milissegundo de uma janela ou da validade de uma chave, que um
+    relógio mais fino rejeitava, é aceito. Python agora aceita o ano 0000 e os offsets que cruzam o ano 1 ou o 9999,
+    como os outros SDKs.
+  - **Sem mudanças:** as convenções de relógio, que diferem das funções auxiliares de validade: Python lê um `datetime`
+    naive como UTC e Go lê o instante zero como o horário atual. Também não mudam as mensagens de erro, as assinaturas,
+    os contextos, a política híbrida, a confiança, a atenuação, a revogação nem as funções auxiliares de validade. Rust
+    já lia os tempos assim, e WASM não exporta nenhuma função de cadeia.
+  - **Vetores compartilhados:** `tests/interop/v2/mandate_chain_time_vectors.json`, 22 cadeias assinadas (9 a aceitar e
+    13 a rejeitar), executadas pelas quatro suítes de SDK.
 - **Mudança de aceitação: funções auxiliares de validade de mandatos** (código-fonte de `main`, não está em nenhuma
   versão publicada). `verifyMandateValidity` (TypeScript), `verify_mandate_validity` (Python), `VerifyMandateValidity`
   (Go) e `verify_mandate_validity` (Rust) agora aplicam um mesmo contrato. O mandato é um objeto com um `mandate_id` não

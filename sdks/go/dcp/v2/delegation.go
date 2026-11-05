@@ -649,11 +649,15 @@ func mandateSigError(registry *AlgorithmRegistry, context string, m map[string]i
 // narrows the parent's authority and never lowers its minimum_security_tier;
 // and no mandate is revoked, so a revoked ancestor invalidates every
 // descendant. Anything unknown, missing for the depth or not comparable fails
-// closed. `now` is the verification time; the zero time means the current time.
+// closed. `now` is the verification time; the zero time means the current time,
+// as before, unlike VerifyMandateValidityAt, which takes it as the year 1. It is
+// truncated to the millisecond the windows and key expiries are read at and
+// compared as a time.Time, so any year it holds keeps its order.
 func VerifyMandateChain(registry *AlgorithmRegistry, chain []map[string]interface{}, revokedMandateIDs map[string]bool, keys MandateChainKeys, now time.Time) MandateChainResult {
 	if now.IsZero() {
 		now = time.Now().UTC()
 	}
+	now = truncateToMillis(now)
 	invalid := func(errors []string) MandateChainResult {
 		return MandateChainResult{Valid: false, Errors: errors}
 	}

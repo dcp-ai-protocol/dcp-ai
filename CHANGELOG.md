@@ -47,6 +47,25 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Security
 
+- **Acceptance change: mandate chain times** (source on `main`, not in a published version). The chain verifiers
+  (`verifyMandateChain`, `verify_mandate_chain`, `VerifyMandateChain`) now read every time the same way. Validity
+  windows, their nesting in the parent's window and the `expires_at` of the signer keys of both slots are RFC 3339
+  instants of the subset the SDKs already parse, compared in milliseconds, both limits included. The verification
+  time is floored to the millisecond, also before the epoch.
+  - **What changes:** Python read these times as `datetime`, so it rejected year 0000 and any instant an offset moves
+    out of years 1 to 9999, which TypeScript, Go and Rust accept. It also compared them with a `now` in microseconds.
+    Go compared with a `now` in nanoseconds and TypeScript with an unfloored numeric `now`, so a key or window ending
+    in the same millisecond as the verification time could be read as expired. A `now` of another type made
+    TypeScript throw and Python raise; both now return `verification time is not an instant`.
+  - **Acceptance:** it widens in two places, under the common contract and without a normative change. With the
+    floor, a verification time inside the last millisecond of a window or of a key's validity, which a finer clock
+    rejected, is accepted. Python now accepts year 0000 and offsets that cross year 1 or 9999, as the other SDKs do.
+  - **Unchanged:** the clock conventions, which differ from the validity helpers: Python reads a naive `datetime` as
+    UTC, and Go reads the zero time as the current time. Also unchanged: the error messages, signatures, contexts,
+    hybrid policy, trust, attenuation, revocation and the validity helpers. Rust already read times this way, and
+    WASM exports no chain function.
+  - **Shared vectors:** `tests/interop/v2/mandate_chain_time_vectors.json`, 22 signed chains (9 to accept, 13 to
+    reject), run by the four SDK suites.
 - **Acceptance change: mandate validity helpers** (source on `main`, not in a published version).
   `verifyMandateValidity` (TypeScript), `verify_mandate_validity` (Python), `VerifyMandateValidity` (Go) and
   `verify_mandate_validity` (Rust) now apply one contract. The mandate is an object with a non-empty `mandate_id`,

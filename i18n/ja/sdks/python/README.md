@@ -326,7 +326,11 @@ result = await admit_signed_bundle_v2(signed_bundle, registry, profile=profile, 
 サブ委任状を別のエージェントに発行できます（`create_sub_mandate`）。`verify_mandate_chain` は
 ルートから順に、オフラインでチェーンを確認します：人間までの署名、親とのリンクと深さ、`sub_delegation`、
 入れ子になった有効期間、権限の縮小（アクション、`data_classes`、`limits` は狭まるのみ）、セキュリティティアの
-下限、失効。`verify_mandate_validity(mandate, revoked_ids, now=...)` は、aware な `now`（既定は現在時刻。naive な `datetime` は
+下限、失効。すべての時刻を、年 0000 や年 0000 と 9999 をまたぐオフセットも含めてミリ秒単位の RFC 3339 の瞬間として読み、
+`now` をミリ秒に切り捨てます。既定の `now=None` は現在時刻です。naive な `now` は以前と同じく UTC として読み（`verify_mandate_validity` とは
+異なる）、それ以外の `datetime` でない `now` は `verification time is not an instant` になります（`main` にあり、公開済みの
+バージョンには含まれない）。
+`verify_mandate_validity(mandate, revoked_ids, now=...)` は、aware な `now`（既定は現在時刻。naive な `datetime` は
 拒否）で一つの委任状の `mandate_id`、ローカルな失効、有効期間を確認します。ミリ秒単位の RFC 3339 の瞬間を使い、両端を
 含みます。欠落した、不正な形の、または逆転した期間は無効です。失効した ID は集合（`set`、`frozenset`、dict のキービュー）
 でなければならず、リストや文字列は拒否されます。例外を送出せずに結果を返し、署名、範囲、チェーンは確認せず、何も認可

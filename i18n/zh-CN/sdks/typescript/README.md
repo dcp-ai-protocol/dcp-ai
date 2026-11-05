@@ -382,7 +382,7 @@ const result = await admitSignedBundleV2(signedBundle, registry, { profile, trus
 | `createDelegationMandate(registry, humanKeys, params)` | 由人类签署的根委托书（`human_composite_sig`）；`sub_delegation` 和 `minimum_security_tier` 为可选 |
 | `createSubMandate(registry, delegatorKeys, parent, params)` | 由父级的智能体签署的子委托书（`delegator_composite_sig`，`DCP-AI.v2.SubMandate` 上下文） |
 | `verifyMandateValidity(mandate, revokedIds, now?)` | 一份委托书的 `mandate_id`、本地吊销以及 `now` 时的有效期窗口（以毫秒计的 RFC 3339 时刻，两端都包含）；缺失、格式错误或颠倒的窗口无效。不检查签名、范围或链，也不授权任何操作。在 `main` 上，不在已发布版本中；返回 `{ valid, reason? }` |
-| `verifyMandateChain(registry, chain, revokedIds, keys, now?)` | 从根开始验证链：直到人类的签名、与父级的链接和深度、`sub_delegation`、嵌套的有效期窗口、权限收窄（操作、`data_classes` 和 `limits` 只能缩小）、安全等级下限以及吊销；返回 `{ valid, errors, depth, effective_tier }` |
+| `verifyMandateChain(registry, chain, revokedIds, keys, now?)` | 从根开始验证链：直到人类的签名、与父级的链接和深度、`sub_delegation`、嵌套的有效期窗口、权限收窄（操作、`data_classes` 和 `limits` 只能缩小）、安全等级下限以及吊销；返回 `{ valid, errors, depth, effective_tier }`。时间是以毫秒计的 RFC 3339 时刻，`now` 向下截断到毫秒；无效的时钟值（`NaN`、`Infinity`、无效的 `Date` 或其他类型）返回 `verification time is not an instant`（在 `main` 上，不在已发布版本中） |
 
 ```typescript
 // Fragment, not a complete program: registry and nonce as in the V2 Quick Start; rootMandate, orchestratorKeys and the key entries come from your delegation setup; intent and policyDecision are the V2 payloads.

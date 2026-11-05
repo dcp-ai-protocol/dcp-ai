@@ -214,7 +214,7 @@ V2 为 DCP-05 至 DCP-09 的所有产物提供派生了 Serde trait 的结构体
 | `create_delegation_mandate_with_options(ed, pq, human_classical, human_pq, params, &MandateChainOptions)` | 由人类签署的根委托，带有可选的 `sub_delegation` 和 `minimum_security_tier` |
 | `create_sub_mandate(ed, pq, classical, pq_key, &parent, SubMandateParams { .. })` | 由父委托的智能体在 `DCP-AI.v2.SubMandate` 域下签署的子委托 |
 | `verify_mandate_validity(&mandate, &revoked_ids)` / `verify_mandate_validity_at(&mandate, &revoked_ids, now_millis)` | 一份委托书的 `mandate_id`、本地吊销以及 `now` 时的有效期窗口（以毫秒计的 RFC 3339 时刻，两端都包含）；缺失、格式错误或颠倒的窗口无效。不检查签名、范围或链，也不授权任何操作。在 `main` 上，不在已发布版本中 |
-| `verify_mandate_chain(&chain, &revoked_ids, &MandateChainKeys { human_keys, agent_keys }, now_millis)` | 从根开始离线验证委托链（追溯至人类的签名、链接与深度、`sub_delegation`、嵌套有效期、行动及 `data_classes` 和 `limits` 的权限收窄、最低等级、撤销状态）；返回 `MandateChainResult { valid, errors, depth, effective_tier }` |
+| `verify_mandate_chain(&chain, &revoked_ids, &MandateChainKeys { human_keys, agent_keys }, now_millis)` | 从根开始离线验证委托链（追溯至人类的签名、链接与深度、`sub_delegation`、嵌套有效期、行动及 `data_classes` 和 `limits` 的权限收窄、最低等级、撤销状态）；返回 `MandateChainResult { valid, errors, depth, effective_tier }`。时间与其他 SDK 一样是以整毫秒计的 RFC 3339 时刻；`None` 表示当前时间 |
 
 <a id="admission-dcp_aiv2-specprofilesadmission-unreleased"></a>
 <a id="admission-dcp_aiv2-specprofilesadmission"></a>

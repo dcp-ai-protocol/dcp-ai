@@ -18,7 +18,7 @@ from dcp_ai.v2.crypto_registry import AlgorithmRegistry
 from dcp_ai.v2.domain_separation import DCP_CONTEXTS
 from dcp_ai.v2.lifecycle import _utc_now
 from dcp_ai.v2.security_tier import max_tier
-from dcp_ai.v2.session_nonce import parse_rfc3339, rfc3339_epoch_ms
+from dcp_ai.v2.session_nonce import rfc3339_epoch_ms
 
 
 def _chain_fields(sub_delegation: dict[str, Any] | None, minimum_security_tier: str | None) -> dict[str, Any]:
@@ -252,7 +252,7 @@ def _canonical_equal(a: Any, b: Any) -> bool:
 def _shape_errors(m: dict[str, Any]) -> list[str]:
     """Errors in one mandate's own fields, whatever its position in the chain."""
     errors = [f"missing or invalid {f}" for f in ("mandate_id", "human_id", "agent_id") if not _is_str(m.get(f))]
-    errors += [f"missing or invalid {f}" for f in ("valid_from", "valid_until") if parse_rfc3339(m.get(f)) is None]
+    errors += [f"missing or invalid {f}" for f in ("valid_from", "valid_until") if rfc3339_epoch_ms(m.get(f)) is None]
     scope = m.get("authority_scope")
     if not isinstance(scope, list) or not scope or not all(_scope_entry_ok(e) for e in scope):
         errors.append("missing or invalid authority_scope")
@@ -314,8 +314,8 @@ def _attenuation_error(parent: list[dict[str, Any]], child: list[dict[str, Any]]
     return None
 
 
-def _signer_key(keys: list[Any], entry: Any, now: datetime) -> dict[str, Any] | str:
-    """The key entry a signature slot names, or why none can verify it."""
+def _signer_key(keys: list[Any], entry: Any, now: int) -> dict[str, Any] | str:
+    """The key entry a signature slot names, or why none can verify it; ``now`` in milliseconds."""
     if not isinstance(entry, dict) or not _is_str(entry.get("kid")) or not _is_str(entry.get("alg")) or not isinstance(entry.get("sig_b64"), str):
         return "malformed signature entry"
     kid = entry["kid"]
@@ -327,7 +327,7 @@ def _signer_key(keys: list[Any], entry: Any, now: datetime) -> dict[str, Any] | 
     if key.get("status") != "active":
         return f"signer key kid={kid} is {key.get('status')}"
     if key.get("expires_at") is not None:
-        expires = parse_rfc3339(key["expires_at"])
+        expires = rfc3339_epoch_ms(key["expires_at"])
         if expires is None or expires < now:
             return f"signer key kid={kid} has expired or has an invalid expires_at"
     return key
@@ -340,7 +340,7 @@ async def _mandate_sig_error(
     field: str,
     keys: Any,
     keys_label: str,
-    now: datetime,
+    now: int,
 ) -> str | None:
     """Verify ``field`` of ``mandate``, a pq_over_classical composite signature over the mandate without its signature fields."""
     sig = mandate.get(field)
@@ -394,19 +394,26 @@ async def verify_mandate_chain(
     authority and never lowers its ``minimum_security_tier``; and no mandate is
     revoked, so a revoked ancestor invalidates every descendant. Anything unknown,
     missing for the depth or not comparable fails closed. ``now`` is the verification
-    time (default: the current time).
+    time (default: the current time), a datetime floored to the millisecond the windows
+    and key expiries are read at (rfc3339_epoch_ms, years 0000 to 9999 and any offset);
+    a naive datetime is read as UTC, as before, unlike verify_mandate_validity, which
+    refuses it. Anything else is not an instant.
 
     Returns ``{"valid", "errors", "depth", "effective_tier"}``: ``depth`` is the leaf's
     ``delegation_depth`` when valid, and ``effective_tier`` the greatest
     ``minimum_security_tier`` along the chain, or None when no mandate sets one.
     """
-    if now is None:
-        now = datetime.now(timezone.utc)
-    elif now.tzinfo is None:
-        now = now.replace(tzinfo=timezone.utc)
-    # The chain is untrusted input: an exception the checks below did not foresee is a rejection, not a crash.
+    # The chain and the clock are untrusted input: an exception the checks below did not foresee is a rejection, not a crash.
     try:
-        return await _verify_mandate_chain(registry, chain, revoked_mandate_ids, keys, now)
+        if now is None:
+            now = datetime.now(timezone.utc)
+        elif not isinstance(now, datetime):
+            return {"valid": False, "errors": ["verification time is not an instant"], "depth": 0, "effective_tier": None}
+        elif now.utcoffset() is None:
+            now = now.replace(tzinfo=timezone.utc)
+        # timedelta floor division: exact for any year and offset, and a floor before the epoch too.
+        now_ms = (now - _EPOCH) // _MILLISECOND
+        return await _verify_mandate_chain(registry, chain, revoked_mandate_ids, keys, now_ms)
     except Exception as exc:  # noqa: BLE001
         return {"valid": False, "errors": [f"mandate chain verification error: {exc}"], "depth": 0, "effective_tier": None}
 
@@ -416,7 +423,7 @@ async def _verify_mandate_chain(
     chain: list[dict[str, Any]],
     revoked_mandate_ids: set[str],
     keys: dict[str, Any],
-    now: datetime,
+    now: int,
 ) -> dict[str, Any]:
     def invalid(errors: list[str]) -> dict[str, Any]:
         return {"valid": False, "errors": errors, "depth": 0, "effective_tier": None}
@@ -467,9 +474,9 @@ async def _verify_mandate_chain(
                 errors.append(at(f"delegation_depth {depth} exceeds sub_delegation.max_depth {int(max_depth)}"))
             if m["human_id"] != parent["human_id"]:
                 errors.append(at("human_id differs from the parent"))
-            if parse_rfc3339(m["valid_from"]) < parse_rfc3339(parent["valid_from"]):  # type: ignore[operator]
+            if rfc3339_epoch_ms(m["valid_from"]) < rfc3339_epoch_ms(parent["valid_from"]):  # type: ignore[operator]
                 errors.append(at("valid_from is before the parent valid_from"))
-            if parse_rfc3339(m["valid_until"]) > parse_rfc3339(parent["valid_until"]):  # type: ignore[operator]
+            if rfc3339_epoch_ms(m["valid_until"]) > rfc3339_epoch_ms(parent["valid_until"]):  # type: ignore[operator]
                 errors.append(at("valid_until is after the parent valid_until"))
             attenuation = _attenuation_error(parent["authority_scope"], m["authority_scope"])
             if attenuation:
@@ -481,9 +488,9 @@ async def _verify_mandate_chain(
 
         if m["mandate_id"] in revoked_mandate_ids:
             errors.append(at("revoked"))
-        if parse_rfc3339(m["valid_from"]) > now:  # type: ignore[operator]
+        if rfc3339_epoch_ms(m["valid_from"]) > now:  # type: ignore[operator]
             errors.append(at("not yet valid at the verification time"))
-        if parse_rfc3339(m["valid_until"]) < now:  # type: ignore[operator]
+        if rfc3339_epoch_ms(m["valid_until"]) < now:  # type: ignore[operator]
             errors.append(at("expired at the verification time"))
 
         # The signature is the costly check; only a mandate whose slots are right can have the right one.
