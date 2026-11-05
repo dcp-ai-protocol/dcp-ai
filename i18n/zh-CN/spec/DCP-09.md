@@ -982,5 +982,9 @@ A2A_HELLO 消息（DCP-04 第 3.2 节）扩展了一个可选的 `delegation` �
   `generateMirror` 对收到的审计条目计算哈希（SHA-256），并签署调用方撰写的叙述和摘要；它既不撰写叙述，也不取得任何
   批准。`A2A_HELLO` 和 `A2A_WELCOME` 类型有可选的 `mandate_id` 和 `mandate_hash` 字段，但没有任何 SDK 在握手期间
   验证授权书（§8.3），也没有任何 SDK 发送 `A2A_REJECT`。
+- **SDK 中的链时间。** 链验证器把规则 4 的所有时间以及签名密钥的 `expires_at` 作为同一子集的 RFC 3339 时刻、以毫秒读取，
+  并把验证时间向下截断到毫秒；`tests/interop/v2/mandate_chain_time_vectors.json` 包含四个 SDK 测试套件都会运行的已签名链。
+  它们的默认时钟与 `verifyMandateValidity` 不同：Python 把 naive 的 `datetime` 视为 UTC，Go 把零时间视为当前时间。这在
+  `main` 上，不在已发布版本中。
 - 示例是带有占位符的说明，而不是 fixtures。`"confidence": 0.95` 这样的小数值无法在 `dcp-jcs-v1` 下规范化，因此
   按原样书写的这些记录无法签名。SDK 类型请参阅 [docs/API_REFERENCE.md](../../../docs/API_REFERENCE.md)。

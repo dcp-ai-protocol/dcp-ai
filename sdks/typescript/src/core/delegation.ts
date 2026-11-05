@@ -358,7 +358,9 @@ async function mandateSigError(
  * parent's authority and never lowers its `minimum_security_tier`; and no
  * mandate is revoked, so a revoked ancestor invalidates every descendant.
  * Anything unknown, missing for the depth or not comparable fails closed.
- * `now` is the verification time (default: the current time).
+ * `now` is the verification time (default: the current time), a Date or
+ * milliseconds since the epoch, floored to the millisecond the windows and key
+ * expiries are read at; anything else is not an instant.
  */
 export async function verifyMandateChain(
   registry: AlgorithmRegistry,
@@ -367,7 +369,7 @@ export async function verifyMandateChain(
   keys: MandateChainKeys,
   now: Date | number = Date.now(),
 ): Promise<MandateChainResult> {
-  const nowMs = typeof now === 'number' ? now : now.getTime();
+  const nowMs = Math.floor(typeof now === 'number' ? now : now instanceof Date ? now.getTime() : NaN);
   const invalid = (errors: string[]): MandateChainResult => ({ valid: false, errors, depth: 0, effective_tier: null });
   if (!Array.isArray(chain) || chain.length === 0) return invalid(['chain must be a non-empty list of mandates']);
   if (!Number.isFinite(nowMs)) return invalid(['verification time is not an instant']);

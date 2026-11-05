@@ -1685,6 +1685,15 @@ interface AuthorityScopeEntry {
 `data_classes`，数值限额只作为 ±(2^53−1) 范围内的整数进行比较）、`minimum_security_tier`
 下限以及吊销（被吊销的祖先会使所有后代失效），遇到任何未知情况都以失败即关闭方式处理。
 
+它读取的所有时间都是各 SDK 已经解析的子集中的 RFC 3339 时刻，以毫秒比较，从不按文本比较，两端都包含：每份委托书的
+`valid_from` 和 `valid_until`、它们在父级窗口中的嵌套，以及两个槽位签名密钥的 `expires_at`。年 0000 以及跨越年 0000 或
+9999 的偏移与其他时刻一样。`now`（一个 `Date` 或毫秒数，默认为当前时间）向下截断到毫秒，纪元之前也一样；无效的时钟值
+（如 `NaN` 或 `Infinity` 这样的非有限数、无效的 `Date` 或其他类型）返回 `verification time is not an instant`，而不是抛出
+异常。其他 SDK 保留各自的时钟约定，与上面的有效性辅助函数不同：Python 把默认的 `None` 视为当前时间，把 naive 的
+`datetime` 视为 UTC，并拒绝其他任何不是 `datetime` 的值；Go 把零值 `time.Time` 视为当前时间；Rust 接收毫秒数（`None` 表示
+当前时间）。四个 SDK 测试套件都会运行 `tests/interop/v2/mandate_chain_time_vectors.json` 中的已签名链。这在 `main` 上，不在
+已发布版本中。
+
 ```typescript
 interface MandateChainKeys { human_keys: KeyEntry[]; agent_keys: Record<string, KeyEntry[]> }
 interface MandateChainResult { valid: boolean; errors: string[]; depth: number; effective_tier: SecurityTier | null }

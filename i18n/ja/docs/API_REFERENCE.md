@@ -1689,6 +1689,16 @@ interface AuthorityScopeEntry {
 データの分類、上限は狭まるのみ。子のエントリは親の `data_classes` をその部分集合として繰り返し、数値の上限は ±(2^53−1) の範囲の整数としてのみ比較される）、
 `minimum_security_tier` の下限、失効（失効した祖先はすべての子孫を無効にする）を確認し、不明なものがあればフェイルクローズします。
 
+読み取るすべての時刻は、SDK がすでに読む部分集合の RFC 3339 の瞬間で、テキストとしてではなくミリ秒で比較され、両端を
+含みます。対象は、各委任状の `valid_from` と `valid_until`、親の期間への入れ子、両方のスロットの署名鍵の `expires_at`
+です。年 0000 や、年 0000 と 9999 をまたぐオフセットも、ほかと同じ瞬間です。`now`（`Date` またはミリ秒、既定は現在時刻）
+は紀元より前でもミリ秒に切り捨てられます。無効な時計の値（`NaN` や `Infinity` のような有限でない数、無効な `Date`、
+または別の型）は、例外ではなく `verification time is not an instant` になります。ほかの SDK は時計の慣例を保っており、
+それは上の有効性ヘルパーとは異なります。Python は既定の `None` を現在時刻とし、naive な `datetime` を UTC として読み、
+それ以外の `datetime` でない値を拒否します。Go はゼロの `time.Time` を現在時刻として読み、Rust はミリ秒を受け取ります（`None` は現在
+時刻）。四つの SDK のスイートは `tests/interop/v2/mandate_chain_time_vectors.json` の署名済みチェーンを実行します。これは
+`main` にあり、公開済みのバージョンには含まれません。
+
 ```typescript
 interface MandateChainKeys { human_keys: KeyEntry[]; agent_keys: Record<string, KeyEntry[]> }
 interface MandateChainResult { valid: boolean; errors: string[]; depth: number; effective_tier: SecurityTier | null }

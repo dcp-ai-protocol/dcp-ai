@@ -382,7 +382,7 @@ const result = await admitSignedBundleV2(signedBundle, registry, { profile, trus
 | `createDelegationMandate(registry, humanKeys, params)` | 人間が署名するルートの委任状（`human_composite_sig`）。`sub_delegation` と `minimum_security_tier` は省略可能 |
 | `createSubMandate(registry, delegatorKeys, parent, params)` | 親のエージェントが署名するサブ委任状（`delegator_composite_sig`、`DCP-AI.v2.SubMandate` コンテキスト） |
 | `verifyMandateValidity(mandate, revokedIds, now?)` | 一つの委任状の `mandate_id`、ローカルな失効、`now` での有効期間（ミリ秒単位の RFC 3339 の瞬間、両端を含む）。欠落した、不正な形の、または逆転した期間は無効。署名、範囲、チェーンは確認せず、何も認可しない。`main` にあり、公開済みのバージョンには含まれない。`{ valid, reason? }` を返す |
-| `verifyMandateChain(registry, chain, revokedIds, keys, now?)` | ルートから順にチェーンを検証する：人間までの署名、親とのリンクと深さ、`sub_delegation`、入れ子になった有効期間、権限の縮小（アクション、`data_classes`、`limits` は狭まるのみ）、セキュリティティアの下限、失効。`{ valid, errors, depth, effective_tier }` を返す |
+| `verifyMandateChain(registry, chain, revokedIds, keys, now?)` | ルートから順にチェーンを検証する：人間までの署名、親とのリンクと深さ、`sub_delegation`、入れ子になった有効期間、権限の縮小（アクション、`data_classes`、`limits` は狭まるのみ）、セキュリティティアの下限、失効。`{ valid, errors, depth, effective_tier }` を返す。時刻はミリ秒単位の RFC 3339 の瞬間で、`now` はミリ秒に切り捨てられる。無効な時計の値（`NaN`、`Infinity`、無効な `Date`、または別の型）は `verification time is not an instant` になる（`main` にあり、公開済みのバージョンには含まれない） |
 
 ```typescript
 // Fragment, not a complete program: registry and nonce as in the V2 Quick Start; rootMandate, orchestratorKeys and the key entries come from your delegation setup; intent and policyDecision are the V2 payloads.

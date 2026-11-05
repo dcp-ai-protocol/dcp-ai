@@ -1652,6 +1652,17 @@ validity windows, attenuation (actions, data classes and limits may only narrow:
 parent's `data_classes` as a subset, and numeric limits compare only as integers within ±(2^53−1)), the `minimum_security_tier`
 floor and revocation (a revoked ancestor invalidates every descendant), failing closed on anything unknown.
 
+Every time it reads is an RFC 3339 instant of the subset the SDKs already parse, compared in milliseconds and never as
+text, both limits included: each mandate's `valid_from` and `valid_until`, their nesting in the parent's window, and
+the `expires_at` of the signer keys of both slots. Year 0000 and offsets that cross year 0000 or 9999 are instants
+like any other. `now` (a `Date` or milliseconds, the current time by default) is floored to the millisecond, also
+before the epoch; an invalid clock value (a non-finite number such as `NaN` or `Infinity`, an invalid `Date`, or
+another type) gives `verification time is not an instant` instead of an exception. The other SDKs keep their clock
+conventions, which differ from the validity helper above: Python takes `None`, the default, as the current time,
+reads a naive `datetime` as UTC and refuses any other value that is not a `datetime`, Go reads the zero `time.Time` as the current time,
+and Rust takes milliseconds (`None` is the current time). The four SDK suites run the signed chains of
+`tests/interop/v2/mandate_chain_time_vectors.json`. This is on `main`, not in a published version.
+
 ```typescript
 interface MandateChainKeys { human_keys: KeyEntry[]; agent_keys: Record<string, KeyEntry[]> }
 interface MandateChainResult { valid: boolean; errors: string[]; depth: number; effective_tier: SecurityTier | null }

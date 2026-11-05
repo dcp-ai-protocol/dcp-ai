@@ -1691,6 +1691,17 @@ de validade aninhadas, a atenuação (ações, classes de dados e limites só po
 `data_classes` do pai como subconjunto, e os limites numéricos só são comparados como inteiros dentro de ±(2^53−1)), o piso `minimum_security_tier`
 e a revogação (um ancestral revogado invalida todos os descendentes), falhando fechada diante de qualquer coisa desconhecida.
 
+Todos os tempos que lê são instantes RFC 3339 do subconjunto que os SDKs já leem, comparados em milissegundos e nunca
+como texto, com os dois limites incluídos: o `valid_from` e o `valid_until` de cada mandato, o seu aninhamento na janela
+do pai e o `expires_at` das chaves signatárias dos dois slots. O ano 0000 e os offsets que cruzam o ano 0000 ou o 9999
+são instantes como quaisquer outros. `now` (um `Date` ou milissegundos, o horário atual por padrão) é truncado para
+baixo no milissegundo, também antes da época; um valor de relógio inválido (um número não finito como `NaN` ou
+`Infinity`, um `Date` inválido ou outro tipo) dá `verification time is not an instant` em vez de uma exceção. Os outros
+SDKs mantêm as suas convenções de relógio, que diferem da função auxiliar de validade acima: Python toma `None`, o
+padrão, como o horário atual, lê um `datetime` naive como UTC e recusa qualquer outro valor que não seja um `datetime`, Go lê o `time.Time` zero como o
+horário atual e Rust recebe milissegundos (`None` é o horário atual). As quatro suítes de SDK executam as cadeias
+assinadas de `tests/interop/v2/mandate_chain_time_vectors.json`. Isso está na `main`, não em uma versão publicada.
+
 ```typescript
 interface MandateChainKeys { human_keys: KeyEntry[]; agent_keys: Record<string, KeyEntry[]> }
 interface MandateChainResult { valid: boolean; errors: string[]; depth: number; effective_tier: SecurityTier | null }

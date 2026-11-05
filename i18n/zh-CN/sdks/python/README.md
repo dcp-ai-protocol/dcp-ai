@@ -326,7 +326,10 @@ result = await admit_signed_bundle_v2(signed_bundle, registry, profile=profile, 
 子委托书（`create_sub_mandate`），用其自己的密钥签名。`verify_mandate_chain` 从根开始、离线地检查
 整条链：直到人类的签名、与父级的链接和深度、`sub_delegation`、
 嵌套的有效期窗口、权限收窄（操作、`data_classes` 和 `limits` 只能缩小）、安全等级
-下限以及吊销。`verify_mandate_validity(mandate, revoked_ids, now=...)` 在 aware 的 `now`（默认为当前时间；naive 的 `datetime` 会被
+下限以及吊销。它把所有时间作为以毫秒计的 RFC 3339 时刻读取，包括年 0000 以及跨越年 0000 或 9999 的偏移，并把 `now`
+向下截断到毫秒。默认的 `now=None` 表示当前时间。naive 的 `now` 与以前一样视为 UTC（不同于
+`verify_mandate_validity`），其他任何不是 `datetime` 的 `now` 返回 `verification time is not an instant`（在 `main` 上，不在
+已发布版本中）。`verify_mandate_validity(mandate, revoked_ids, now=...)` 在 aware 的 `now`（默认为当前时间；naive 的 `datetime` 会被
 拒绝）时检查一份委托书的 `mandate_id`、本地吊销和有效期窗口。它使用以毫秒计的 RFC 3339 时刻，两端都包含；缺失、格式
 错误或颠倒的窗口无效。已吊销的 ID 必须是集合（`set`、`frozenset` 或 dict 的键视图）；列表或字符串会被拒绝。它返回结果
 而不是抛出异常，不检查签名、范围或链，也不授权任何操作。这在 `main` 上，不在已发布版本中。

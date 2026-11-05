@@ -60,6 +60,20 @@
 
 ### 安全
 
+- **接受范围变化：委托链时间**（`main` 上的源代码，不在任何已发布版本中）。链验证器（`verifyMandateChain`、
+  `verify_mandate_chain`、`VerifyMandateChain`）现在以同一方式读取所有时间。有效期窗口、它们在父级窗口中的嵌套，以及两个
+  槽位签名密钥的 `expires_at`，都是各 SDK 已经解析的子集中的 RFC 3339 时刻，以毫秒比较，两端都包含。验证时间向下截断到
+  毫秒，纪元之前也一样。
+  - **变化：** Python 曾把这些时间读作 `datetime`，因此拒绝年 0000 以及被偏移移出年 1 至 9999 的任何时刻，而 TypeScript、
+    Go 和 Rust 都接受它们。它还用微秒精度的 `now` 比较。Go 用纳秒精度的 `now` 比较，TypeScript 用未截断的数值 `now` 比较，
+    因此在与验证时间同一毫秒内结束的密钥或窗口可能被读作已过期。其他类型的 `now` 曾使 TypeScript 和 Python 抛出异常；现在
+    两者都返回 `verification time is not an instant`。
+  - **接受范围：** 在两处扩大，遵循共同约定，没有规范变更。由于向下截断，位于窗口或密钥有效期最后一毫秒内的验证时间，
+    以前被更细的时钟拒绝，现在会被接受。Python 现在与其他 SDK 一样，接受年 0000 以及跨越年 1 或 9999 的偏移。
+  - **不变：** 时钟约定与有效性辅助函数不同：Python 把 naive 的 `datetime` 视为 UTC，Go 把零时间视为当前时间。错误消息、
+    签名、上下文、混合策略、信任、权限收窄、吊销和有效性辅助函数也都不变。Rust 早已这样读取时间，WASM 不导出任何链函数。
+  - **共享向量：** `tests/interop/v2/mandate_chain_time_vectors.json`，22 条已签名链（9 条应接受，13 条应拒绝），由四个 SDK
+    测试套件运行。
 - **接受范围变化：委托书有效性辅助函数**（`main` 上的源代码，不在任何已发布版本中）。`verifyMandateValidity`
   （TypeScript）、`verify_mandate_validity`（Python）、`VerifyMandateValidity`（Go）和 `verify_mandate_validity`（Rust）
   现在采用同一约定。委托书是一个带非空 `mandate_id` 的对象，吊销按精确匹配。`valid_from` 和 `valid_until` 是带 `Z` 或
