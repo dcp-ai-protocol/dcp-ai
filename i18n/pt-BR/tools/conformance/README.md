@@ -4,7 +4,7 @@
 
 # Kit de conformidade do DCP-AI
 
-> Tradução informativa da [versão em inglês](../../../../tools/conformance/README.md), atualizada em 05/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../../tools/conformance/README.md), atualizada em 07/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 `tools/conformance.js` executa as suítes declaradas em [`catalog.json`](../../../../tools/conformance/catalog.json) contra os fixtures e
 vetores do repositório. O catálogo é versionado (`kit_version`) e fixa, para cada suíte, os IDs exatos dos
@@ -426,7 +426,7 @@ node tools/conformance-external.js --catalog tools/conformance/external-policy-c
 node --test tools/conformance/external-policy.test.mjs
 ```
 
-O positivo híbrido routine alcança `classical_only` efetivo; o positivo standard eleva essa solicitação a `hybrid_preferred`. A derivação registrada de tier e modo é explicativa, não uma avaliação dos campos do resultado. Os casos de tier usam bundles versionados assinados separadamente, não pares de alteração única. Os casos do esclarecimento usam duas bases routine, então cada modo solicitado é o efetivo; as suas variantes Q2 reassinam só um componente PQ com a chave TEST-ONLY versionada. Os autotestes executam o catálogo 1.1 com os seus invariantes originais, e falsos que leem mal Q1, Q2 ou Q3: listas clássicas sob `pq_only`, um componente clássico inválido rejeitado sob `pq_only`, listas PQ sobre um bundle sem PQ, ou o modo ignorado. Cada um falha exatamente os seus casos. CI executa os autotestes do corpus e runner e o catálogo pelos cinco wrappers SDK; passar comprova somente esses casos.
+O positivo híbrido routine alcança `classical_only` efetivo; o positivo standard eleva essa solicitação a `hybrid_preferred`. A derivação registrada de tier e modo é explicativa, não uma avaliação dos campos do resultado; o [catálogo de política efetiva](#effective-policy-catalog-contract-5-opt-in) os avalia pelo contrato `/5`. Os casos de tier usam bundles versionados assinados separadamente, não pares de alteração única. Os casos do esclarecimento usam duas bases routine, então cada modo solicitado é o efetivo; as suas variantes Q2 reassinam só um componente PQ com a chave TEST-ONLY versionada. Os autotestes executam o catálogo 1.1 com os seus invariantes originais, e falsos que leem mal Q1, Q2 ou Q3: listas clássicas sob `pq_only`, um componente clássico inválido rejeitado sob `pq_only`, listas PQ sobre um bundle sem PQ, ou o modo ignorado. Cada um falha exatamente os seus casos. CI executa os autotestes do corpus e runner e o catálogo pelos cinco wrappers SDK; passar comprova somente esses casos.
 
 <a id="structural-catalog-opt-in"></a>
 
@@ -441,6 +441,38 @@ node --test tools/conformance/external-structural.test.mjs
 ```
 
 Apenas os veredictos são avaliados. O corpus registra a procedência das assinaturas e os limites de isolamento, especialmente a evidência obsoleta do payload com fração e a inexistência de raiz válida para um intervalo invertido. A CI executa os autotestes do corpus e runner e os cinco wrappers SDK. A aprovação se limita a esses casos e a essa política; não comprova conformidade V2 completa.
+
+<a id="effective-policy-catalog-contract-5-opt-in"></a>
+
+### Catálogo de política efetiva (contrato /5, opt-in)
+
+[`external-effective-policy-catalog.json`](../../../../tools/conformance/external-effective-policy-catalog.json) (contrato `dcp-ai-conformance-external/5`, versão `2026-11-07.effective-policy-1.0`) executa 130 verificações de bundles assinados. A solicitação é a de `verify_signed_bundle_v2` no `/2`, sua única operação; um resultado `ok` acrescenta `effective`: o modo de verificação e o tier de segurança que o verificador da implementação resolveu nessa mesma verificação, cada um `{"exposed": false}` ou `{"exposed": true, "value": <the JSON value as returned>}`. Os contratos `/1` a `/4`, seus catálogos e relatórios, e as respostas dos wrappers a eles não mudam.
+
+Um resultado `ok` tem exatamente as chaves `id`, `status`, `verified`, `errors` e `effective`, e `effective` tem exatamente as chaves `verification_mode` e `resolved_tier`. Dois resultados do wrapper TypeScript: um positivo de cobertura e um caso observacional rejeitado em V2-2 antes de qualquer resolução:
+
+```json
+{"id":"c1","status":"ok","verified":true,"errors":[],"effective":{"verification_mode":{"exposed":true,"value":"hybrid_required"},"resolved_tier":{"exposed":true,"value":"elevated"}}}
+{"id":"c2","status":"ok","verified":false,"errors":["schema: /bundle/agent_passport/payload/risk_tier enum"],"effective":{"verification_mode":{"exposed":false},"resolved_tier":{"exposed":false}}}
+```
+
+```bash
+node tools/conformance-external.js --catalog tools/conformance/external-effective-policy-catalog.json --list
+node tools/conformance-external.js --catalog tools/conformance/external-effective-policy-catalog.json --report /tmp/effective.json -- ./my-implementation
+DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-effective-policy.test.mjs
+```
+
+| Suíte | Casos | Fonte |
+|-------|-------|--------|
+| `external.v2.effective.verifier_policy` | 74: 60 obrigatórios, 14 observacionais | `verifier_policy_vectors.json`, seu `effective_mode` e seu `tier` |
+| `external.v2.effective.verifier_policy_clarification` | 34 obrigatórios | `verifier_policy_clarification_vectors.json`, seu `effective_mode` e o `tier` do seu bundle |
+| `external.v2.effective.coverage` | 17 obrigatórios | `effective_policy_vectors.json`: positivos elevated e maximum em cada modo solicitado, `risk_score` 200, 500, 799 e 800, um `security_tier` explícito e outro declarado, overrides do passaporte que substituem o padrão (um menor e outro maior) antes do piso do tier, e uma rejeição pelo modo que um override define |
+| `external.v2.effective.pre_resolution` | 5: 1 controle obrigatório, 4 anteriores à resolução | `bundle_vectors.json`: o bundle assinado e quatro de suas mutações rejeitadas em V2-1, V2-3 ou V2-4 |
+
+- **Julgamento:** o veredicto, como no `/2` (sem redação). Um caso obrigatório também precisa dos dois valores resolvidos, conhecidos, coerentes (nenhum modo abaixo do piso do seu tier, exceto `pq_only`) e iguais à expectativa: valores ausentes, parciais, desconhecidos, malformados (nem string nem `null`), contraditórios ou errados falham mesmo com o veredicto certo, e `verified: true` sem um par resolvido é contraditório. Um caso observacional (um bundle que falha em V2-2 nos seus bytes versionados) e um caso anterior à resolução podem deixar os dois valores sem resolver: ausentes, `null` ou `""`, cada um informado como é. Os valores informados ainda devem ser conhecidos e coerentes e, num caso observacional, iguais à expectativa. Um envelope `effective` malformado é um erro `malformed_result`. Os controles são positivos simples que devem passar na mesma execução.
+- **Expectativas:** tiradas dos vetores versionados, escritas à mão a partir de spec/DCP-AI-v2.0.md § 14.2 e § 14.3 e VERIFICATION.md V2-9: o override do `risk_tier` do passaporte substitui `default_mode` (pode ser menor) e depois o piso do tier o eleva. O kit nunca calcula um modo ou um tier a partir de uma resposta. `effective_policy_vectors.json` é assinado com as chaves TEST-ONLY versionadas; suas assinaturas ML-DSA-65 são hedged, então uma regeneração só difere nessas assinaturas, e o arquivo versionado é o artefato. `node tools/conformance/effective-policy-catalog.mjs --check` reconstrói o catálogo a partir dos fixtures.
+- **Wrappers:** cada um faz uma chamada de verificação por caso e copia os dois campos desse resultado: TypeScript e Python a partir de `details` (um `details` ausente ou que não é um objeto é um erro, nunca uma resposta não resolvida), Go e Rust a partir dos campos de texto do resultado (sempre expostos, `""` quando não resolvidos) e WASM a partir dos membros do JSON que `wasm_verify_signed_bundle_v2` devolve (omitidos quando vazios). No `/5`, qualquer outra operação é `unsupported`. Os SDKs diferem em resolver ou não o modo e o tier depois de uma falha anterior; a suíte anterior à resolução registra isso sem julgar.
+- **Autotestes:** `external-effective-policy.test.mjs` reconstrói o catálogo a partir dos fixtures, confere os casos observacionais com a validação de esquemas e a cobertura com regras independentes, e faz o carregador recusar IDs ausentes, a mais ou duplicados, resoluções erradas, expectativas incoerentes e controles que não são positivos simples. Implementações falsas construídas com as respostas reais do wrapper TypeScript falham cada uma exatamente nos seus casos: valores ausentes, `null`, `""`, parciais, desconhecidos, malformados, contraditórios e errados, erros do envelope, e wrappers que informam o modo solicitado, o modo padrão, só o piso do tier, o `security_tier` declarado ou `policy_decision.resolved_tier`. Erros de transporte, um tempo esgotado e um relatório anterior passam pelo despacho `/5` do runner. A CI executa os autotestes e o catálogo nos cinco wrappers, todos obrigatórios.
+- **Limites:** um pass cobre estes 130 casos sob estas políticas, não a conformidade V2 completa. Um modo ou tier informado para um bundle rejeitado é um diagnóstico, não uma admissão nem uma autorização. Não são cobertos o piso de tier da cadeia de delegação DCP-09 (nenhum campo do bundle carrega a cadeia), a API JavaScript de `@dcp-ai/wasm` (`DcpClient`) e os navegadores.
 
 <a id="admission-catalog-strict-v1-admission"></a>
 

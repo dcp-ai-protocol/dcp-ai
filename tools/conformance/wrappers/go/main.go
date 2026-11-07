@@ -5,8 +5,8 @@
 // invalid bytes), then json.Unmarshal into interface{} as the SDK's own interop test does (a failure is
 // rejected/parse), then ONE call to v2.CanonicalizeV2. Only its documented rejection ("non-integer float
 // at" / "non-finite float at", a plain error with no stable type or code) is rejected/profile; any other
-// error is an error. digest: v2.SHA256Hex / v2.SHA3256Hex of the decoded bytes. Contracts /2, /3 and /4 (opt-in) are
-// described where they are handled below.
+// error is an error. digest: v2.SHA256Hex / v2.SHA3256Hex of the decoded bytes. Contracts /2, /3, /4 and /5 (opt-in)
+// are described where they are handled below.
 package main
 
 import (
@@ -32,6 +32,7 @@ const contract = "dcp-ai-conformance-external/1"
 const contractV2 = "dcp-ai-conformance-external/2"
 const contractV3 = "dcp-ai-conformance-external/3"
 const contractV4 = "dcp-ai-conformance-external/4"
+const contractV5 = "dcp-ai-conformance-external/5"
 
 // evidence is set when the request is contract /2 (opt-in): dual_merkle_root, composite_verify and
 // verify_signed_bundle_v2 are then accepted, one call per case to v2.DualMerkleRoot, v2.CompositeVerify or
@@ -128,6 +129,43 @@ func runEvidenceCase(id, op string, c map[string]json.RawMessage) map[string]int
 		}
 		return map[string]interface{}{"id": id, "status": "ok", "verified": r.Verified, "errors": errs}
 	}
+}
+
+// effective is set when the request is contract /5 (opt-in effective policy): verify_signed_bundle_v2 is then
+// accepted, the /2 bundle verification with ONE v2.VerifySignedBundleV2At call per case, and the VerificationMode and
+// ResolvedTier fields of that same result, copied as they are and never derived. They are plain strings, so they are
+// always exposed; the SDK leaves them "" when it did not resolve them.
+var effective bool
+
+func runEffectiveCase(id string, c map[string]json.RawMessage) map[string]interface{} {
+	if !exactKeys(c, "id", "op", "bundle_b64", "policy", "verification_time") || jsonKind(c["policy"]) != '{' {
+		fail("case " + id + ": verify_signed_bundle_v2 fields do not match")
+	}
+	bundle, ok := decodeBase64Strict(mustStr(c, "bundle_b64", "case "+id))
+	if !ok {
+		fail("case " + id + ": bundle_b64 is not canonical base64")
+	}
+	t := mustStr(c, "verification_time", "case "+id)
+	now, err := time.Parse(time.RFC3339Nano, t)
+	if err != nil || !rfc3339.MatchString(t) {
+		fail("case " + id + ": verification_time is not RFC 3339")
+	}
+	var policy v2.VerifierPolicy
+	if err := json.Unmarshal(c["policy"], &policy); err != nil {
+		fail("case " + id + ": policy: " + err.Error())
+	}
+	if !utf8.Valid(bundle) || !json.Valid(bundle) {
+		return map[string]interface{}{"id": id, "status": "rejected", "code": "parse"}
+	}
+	r := v2.VerifySignedBundleV2At(registry(), bundle, policy, now)
+	errs := r.Errors
+	if errs == nil {
+		errs = []string{}
+	}
+	return map[string]interface{}{"id": id, "status": "ok", "verified": r.Verified, "errors": errs, "effective": map[string]interface{}{
+		"verification_mode": map[string]interface{}{"exposed": true, "value": r.VerificationMode},
+		"resolved_tier":     map[string]interface{}{"exposed": true, "value": r.ResolvedTier},
+	}}
 }
 
 // admission is set when the request is contract /3 (opt-in, spec/profiles/admission): admit_signed_bundle_v2 and
@@ -421,6 +459,12 @@ func runCase(raw json.RawMessage) map[string]interface{} {
 	if delegation && op == "verify_mandate_chain" {
 		return runDelegationCase(id, c)
 	}
+	if effective { // /5 has one operation; any other op is unsupported
+		if op == "verify_signed_bundle_v2" {
+			return runEffectiveCase(id, c)
+		}
+		return map[string]interface{}{"id": id, "status": "unsupported"}
+	}
 	switch op {
 	case "canonicalize":
 		if !exactKeys(c, "id", "op", "profile", "input_b64") {
@@ -493,6 +537,8 @@ func main() {
 		admission = true
 	case contractV4:
 		delegation = true
+	case contractV5:
+		effective = true
 	default:
 		fail("unknown contract")
 	}

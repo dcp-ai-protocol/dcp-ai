@@ -4,7 +4,7 @@
 
 # Guia de implementação e revisão independentes
 
-> Tradução informativa da [versão em inglês](../../../../docs/conformance/IMPLEMENTER_GUIDE.md), atualizada em 05/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são preservados sem tradução.
+> Tradução informativa da [versão em inglês](../../../../docs/conformance/IMPLEMENTER_GUIDE.md), atualizada em 07/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são preservados sem tradução.
 
 DCP é um protocolo que pode ser implementado de forma independente. Este guia prepara implementadores e revisores para avaliar as mesmas evidências sem adotar os aplicativos ou serviços do repositório. Não constitui auditoria, certificação ou endosso.
 
@@ -68,6 +68,8 @@ A solicitação contém IDs de casos e entradas das operações, não resultados
 O [contrato do kit](../../tools/conformance/README.md) define as regras exatas de codificação, limites, códigos de saída e estrutura do relatório. Não deduza um novo protocolo de intercâmbio a partir deste guia.
 
 Para o diagnóstico explícito de esquemas, substitua `--catalog evidence` no comando de evidências por `--catalog tools/conformance/external-schema-catalog.json`. Ele usa o mesmo contrato `/2` e mantém as falhas normativas como falhas; é separado do catálogo de evidências padrão. Consulte o mapa de cobertura antes de interpretar o resultado de uma API SDK isolada.
+
+Para o catálogo opt-in de política efetiva, use `--catalog tools/conformance/external-effective-policy-catalog.json`. Ele seleciona o contrato `/5`: a verificação de bundles do `/2`, cujo resultado `ok` também informa, como `effective`, o modo de verificação e o tier de segurança que o seu verificador resolveu nessa mesma verificação. Informe os valores que o seu verificador expõe, como são; não os calcule para a resposta. O [README do kit](../../tools/conformance/README.md#effective-policy-catalog-contract-5-opt-in) dá o formato exato e o critério de julgamento.
 
 <a id="inspect-a-generated-report"></a>
 

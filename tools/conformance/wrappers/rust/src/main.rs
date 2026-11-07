@@ -5,8 +5,8 @@
 //! call to dcp_ai::v2::canonicalize::canonicalize_v2. Only its documented rejection ("Non-integer number
 //! in V2 canonical form:" / "Non-finite number in V2 canonical form:", possibly behind `key "…": ` and
 //! `array[i]: ` path prefixes; an Err(String) with no stable code) is rejected/profile; any other Err is
-//! an error. digest: dcp_ai::v2::dual_hash::sha256_hex / sha3_256_hex of the decoded bytes. Contracts /2, /3 and /4
-//! (opt-in) are described where they are handled below.
+//! an error. digest: dcp_ai::v2::dual_hash::sha256_hex / sha3_256_hex of the decoded bytes. Contracts /2, /3, /4 and
+//! /5 (opt-in) are described where they are handled below.
 
 use std::collections::HashSet;
 use std::io::{Read, Write};
@@ -31,6 +31,7 @@ const CONTRACT: &str = "dcp-ai-conformance-external/1";
 const CONTRACT_V2: &str = "dcp-ai-conformance-external/2";
 const CONTRACT_V3: &str = "dcp-ai-conformance-external/3";
 const CONTRACT_V4: &str = "dcp-ai-conformance-external/4";
+const CONTRACT_V5: &str = "dcp-ai-conformance-external/5";
 
 fn fail(msg: &str) -> ! {
     eprintln!("rust wrapper: {msg}");
@@ -176,6 +177,29 @@ fn run_evidence_case(id: &str, op: &str, o: &Map<String, Value>) -> Value {
     }
 }
 
+/// Contract /5 (opt-in effective policy): the /2 bundle verification, ONE verify_signed_bundle_v2_at call per case,
+/// and the verification_mode and resolved_tier fields of that same result, copied as they are and never derived.
+/// They are Strings, so they are always exposed; the SDK leaves them "" when it did not resolve them.
+fn run_effective_case(id: &str, o: &Map<String, Value>) -> Value {
+    let need_str = |k: &str| -> &str { o.get(k).and_then(Value::as_str).unwrap_or_else(|| fail(&format!("case {id}: {k} must be a string"))) };
+    if !exact_keys(o, &["id", "op", "bundle_b64", "policy", "verification_time"]) || !o["policy"].is_object() {
+        fail(&format!("case {id}: fields do not match op verify_signed_bundle_v2"));
+    }
+    let bytes = decode_base64_strict(need_str("bundle_b64")).unwrap_or_else(|| fail(&format!("case {id}: bundle_b64 is not canonical base64")));
+    let t = need_str("verification_time");
+    let now = if is_rfc3339_with_zone(t) { parse_rfc3339_millis(t) } else { None }
+        .unwrap_or_else(|| fail(&format!("case {id}: verification_time is not RFC 3339 with an explicit zone")));
+    let policy: VerifierPolicy = serde_json::from_value(o["policy"].clone()).unwrap_or_else(|e| fail(&format!("case {id}: policy: {e}")));
+    let Some(signed) = std::str::from_utf8(&bytes).ok().and_then(|t| serde_json::from_str::<Value>(t).ok()) else {
+        return json!({"id": id, "status": "rejected", "code": "parse"});
+    };
+    let r = verify_signed_bundle_v2_at(&signed, &policy, now).result;
+    json!({"id": id, "status": "ok", "verified": r.verified, "errors": r.errors, "effective": {
+        "verification_mode": {"exposed": true, "value": r.verification_mode},
+        "resolved_tier": {"exposed": true, "value": r.resolved_tier},
+    }})
+}
+
 /// /3's now: exactly YYYY-MM-DDTHH:MM:SS.sssZ with a real calendar date and time (no leap second) in the years
 /// 0001-9999, in milliseconds.
 fn exact_now_ms(t: &str) -> Option<i64> {
@@ -278,7 +302,7 @@ fn run_delegation_case(id: &str, o: &Map<String, Value>) -> Value {
     json!({"id": id, "status": "ok", "valid": r.valid, "errors": r.errors, "effective_tier": r.effective_tier.map(|t| t.as_str()), "depth": r.depth})
 }
 
-fn run_case(c: &Value, v2: bool, v3: bool, v4: bool) -> Value {
+fn run_case(c: &Value, v2: bool, v3: bool, v4: bool, v5: bool) -> Value {
     let o = c.as_object().unwrap_or_else(|| fail("a case must be an object"));
     let id = o.get("id").and_then(Value::as_str).unwrap_or_else(|| fail("a case needs a string id")).to_string();
     // A missing or non-string op, alg or profile is an invalid request (exit 2), never "unsupported".
@@ -292,6 +316,10 @@ fn run_case(c: &Value, v2: bool, v3: bool, v4: bool) -> Value {
     }
     if v4 && op == "verify_mandate_chain" {
         return run_delegation_case(&id, o);
+    }
+    if v5 {
+        // /5 has one operation; any other op is unsupported.
+        return if op == "verify_signed_bundle_v2" { run_effective_case(&id, o) } else { json!({"id": id, "status": "unsupported"}) };
     }
     let fields: &[&str] = match op {
         "canonicalize" => &["id", "op", "profile", "input_b64"],
@@ -337,14 +365,14 @@ fn main() {
     let req: Value = serde_json::from_str(text).unwrap_or_else(|e| fail(&format!("the request is not JSON: {e}")));
     let r = req.as_object().unwrap_or_else(|| fail("the request must be an object"));
     let contract = r.get("contract").and_then(Value::as_str).unwrap_or("");
-    if !exact_keys(r, &["contract", "run_id", "nonce", "cases"]) || ![CONTRACT, CONTRACT_V2, CONTRACT_V3, CONTRACT_V4].contains(&contract) {
+    if !exact_keys(r, &["contract", "run_id", "nonce", "cases"]) || ![CONTRACT, CONTRACT_V2, CONTRACT_V3, CONTRACT_V4, CONTRACT_V5].contains(&contract) {
         fail("the request needs exactly contract dcp-ai-conformance-external/1, /2, /3 or /4, run_id, nonce and cases");
     }
-    let (v2, v3, v4) = (contract == CONTRACT_V2, contract == CONTRACT_V3, contract == CONTRACT_V4);
+    let (v2, v3, v4, v5) = (contract == CONTRACT_V2, contract == CONTRACT_V3, contract == CONTRACT_V4, contract == CONTRACT_V5);
     let (Some(run_id), Some(nonce), Some(cases)) = (r["run_id"].as_str(), r["nonce"].as_str(), r["cases"].as_array()) else {
         fail("run_id and nonce must be strings and cases an array");
     };
-    let results: Vec<Value> = cases.iter().map(|c| run_case(c, v2, v3, v4)).collect();
+    let results: Vec<Value> = cases.iter().map(|c| run_case(c, v2, v3, v4, v5)).collect();
     let resp = json!({
         "contract": contract,
         "run_id": run_id,

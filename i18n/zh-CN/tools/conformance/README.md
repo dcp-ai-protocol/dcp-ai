@@ -4,7 +4,7 @@
 
 # DCP-AI 一致性测试套件
 
-> 本文是[英文版](../../../../tools/conformance/README.md)的参考译文，更新于 05/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../../tools/conformance/README.md)的参考译文，更新于 07/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 `tools/conformance.js` 针对仓库中已提交的 fixture 和向量，运行 [`catalog.json`](../../../../tools/conformance/catalog.json) 中声明的各个
 测试集。目录带有版本（`kit_version`），并为每个测试集固定其必须产生的确切用例 ID。该套件只读取 fixture：
@@ -363,7 +363,7 @@ node tools/conformance-external.js --catalog tools/conformance/external-policy-c
 node --test tools/conformance/external-policy.test.mjs
 ```
 
-routine 混合签名正向用例达到实际生效的 `classical_only`；standard 正向用例将该请求提升为 `hybrid_preferred`。记录的等级与模式推导用于说明，不评估结果字段。等级用例使用分别签名的已版本控制 bundle，不是单一变化的配对。澄清用例使用两个 routine 基础 bundle，因此每个请求模式就是实际模式；其 Q2 变体只用已提交的 TEST-ONLY 密钥重新签名一个 PQ 组件。自测按原有不变量运行 1.1 版目录，并运行错误解读 Q1、Q2 或 Q3 的伪实现：在 `pq_only` 下应用经典列表、在 `pq_only` 下拒绝无效的经典组件、对没有 PQ 的 bundle 应用 PQ 列表，或忽略模式。每个伪实现恰好在其用例上失败。CI 执行语料及运行器自测，并通过五个 SDK 封装程序运行该目录；通过仅证明这些用例符合预期。
+routine 混合签名正向用例达到实际生效的 `classical_only`；standard 正向用例将该请求提升为 `hybrid_preferred`。记录的等级与模式推导用于说明，不评估结果字段；[实际生效策略目录](#effective-policy-catalog-contract-5-opt-in)通过契约 `/5` 评估这些字段。等级用例使用分别签名的已版本控制 bundle，不是单一变化的配对。澄清用例使用两个 routine 基础 bundle，因此每个请求模式就是实际模式；其 Q2 变体只用已提交的 TEST-ONLY 密钥重新签名一个 PQ 组件。自测按原有不变量运行 1.1 版目录，并运行错误解读 Q1、Q2 或 Q3 的伪实现：在 `pq_only` 下应用经典列表、在 `pq_only` 下拒绝无效的经典组件、对没有 PQ 的 bundle 应用 PQ 列表，或忽略模式。每个伪实现恰好在其用例上失败。CI 执行语料及运行器自测，并通过五个 SDK 封装程序运行该目录；通过仅证明这些用例符合预期。
 
 <a id="structural-catalog-opt-in"></a>
 
@@ -378,6 +378,38 @@ node --test tools/conformance/external-structural.test.mjs
 ```
 
 仅评估判定结果。语料记录签名来源和缺陷隔离限制，尤其是含小数载荷中的旧证据，以及逆向范围不存在有效根的情况。CI运行语料和运行器自测以及全部5个SDK包装器。通过仅适用于这些案例和此策略，不代表完全符合V2规范。
+
+<a id="effective-policy-catalog-contract-5-opt-in"></a>
+
+### 实际生效策略目录（契约 /5，选择性启用）
+
+[`external-effective-policy-catalog.json`](../../../../tools/conformance/external-effective-policy-catalog.json)（契约 `dcp-ai-conformance-external/5`，版本 `2026-11-07.effective-policy-1.0`）运行 130 次已签名 bundle 的验证。请求与 `/2` 中的 `verify_signed_bundle_v2` 相同，这是它唯一的操作；`ok` 结果增加 `effective`：实现的验证器在同一次验证中解析出的验证模式和安全等级，每个都是 `{"exposed": false}` 或 `{"exposed": true, "value": <the JSON value as returned>}`。`/1` 到 `/4` 契约、它们的目录和报告，以及封装程序对它们的应答都不变。
+
+`ok` 结果恰好有 `id`、`status`、`verified`、`errors` 和 `effective` 这些键，`effective` 恰好有 `verification_mode` 和 `resolved_tier` 两个键。下面是 TypeScript 封装程序的两个结果：一个覆盖正向用例，以及一个在解析任何值之前就在 V2-2 被拒绝的观察用例：
+
+```json
+{"id":"c1","status":"ok","verified":true,"errors":[],"effective":{"verification_mode":{"exposed":true,"value":"hybrid_required"},"resolved_tier":{"exposed":true,"value":"elevated"}}}
+{"id":"c2","status":"ok","verified":false,"errors":["schema: /bundle/agent_passport/payload/risk_tier enum"],"effective":{"verification_mode":{"exposed":false},"resolved_tier":{"exposed":false}}}
+```
+
+```bash
+node tools/conformance-external.js --catalog tools/conformance/external-effective-policy-catalog.json --list
+node tools/conformance-external.js --catalog tools/conformance/external-effective-policy-catalog.json --report /tmp/effective.json -- ./my-implementation
+DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-effective-policy.test.mjs
+```
+
+| 套件 | 用例 | 来源 |
+|-------|-------|--------|
+| `external.v2.effective.verifier_policy` | 74：60 个必需，14 个观察 | `verifier_policy_vectors.json`，其 `effective_mode` 和 `tier` |
+| `external.v2.effective.verifier_policy_clarification` | 34 个必需 | `verifier_policy_clarification_vectors.json`，其 `effective_mode` 及其 bundle 的 `tier` |
+| `external.v2.effective.coverage` | 17 个必需 | `effective_policy_vectors.json`：在每种请求模式下 elevated 和 maximum 的正向用例，`risk_score` 200、500、799 和 800，一个显式的和一个声明的 `security_tier`，在等级下限之前替换默认值的护照覆盖（一个更低，一个更高），以及一个因覆盖设定的模式而被拒绝的用例 |
+| `external.v2.effective.pre_resolution` | 5：1 个必需对照，4 个解析前用例 | `bundle_vectors.json`：已签名 bundle 及其在 V2-1、V2-3 或 V2-4 被拒绝的四个变体 |
+
+- **判定：** 判定结果与 `/2` 相同（不评估措辞）。必需用例还要求两个值都已解析、已知、一致（除 `pq_only` 外，模式不得低于其等级的下限），并等于期望值：缺失、部分、未知、格式错误（既不是字符串也不是 `null`）、矛盾或错误的值，即使判定结果正确也会失败；没有已解析值对的 `verified: true` 属于矛盾。观察用例（在已提交字节上未通过 V2-2 的 bundle）和解析前用例可以让两个值都保持未解析：缺失、`null` 或 `""`，各自按原样报告。报告的值仍必须已知且一致，并且在观察用例中等于期望值。格式错误的 `effective` 信封属于 `malformed_result` 错误。对照是简单的正向用例，必须在同一次运行中通过。
+- **期望值：** 取自已提交的向量，依据 spec/DCP-AI-v2.0.md § 14.2 和 § 14.3 以及 VERIFICATION.md V2-9 手工编写：护照 `risk_tier` 的覆盖替换 `default_mode`（可以更低），然后由等级下限提升。测试套件从不根据应答计算模式或等级。`effective_policy_vectors.json` 使用已提交的 TEST-ONLY 密钥签名；其 ML-DSA-65 签名带有随机性（hedged），因此重新生成只在这些签名上不同，已提交的文件就是成品。`node tools/conformance/effective-policy-catalog.mjs --check` 根据测试数据重建目录。
+- **封装程序：** 每个封装程序对每个用例调用一次验证，并复制该结果的两个字段：TypeScript 和 Python 来自 `details`（`details` 缺失或不是对象属于错误，绝不是未解析的应答），Go 和 Rust 来自结果的字符串字段（始终公开，未解析时为 `""`），WASM 来自 `wasm_verify_signed_bundle_v2` 返回的 JSON 的成员（为空时省略）。在 `/5` 下，任何其他操作都是 `unsupported`。各 SDK 在先前失败后是否解析模式和等级上有所不同；解析前套件记录这一点但不作判定。
+- **自测：** `external-effective-policy.test.mjs` 根据测试数据重建目录，用模式校验核对观察用例，用独立规则核对覆盖范围，并让加载器拒绝缺失、多余或重复的 ID、错误的解析分类、不一致的期望值，以及不是简单正向用例的对照。根据 TypeScript 封装程序真实应答构造的伪实现各自恰好在其用例上失败：缺失、`null`、`""`、部分、未知、格式错误、矛盾和错误的值，信封错误，以及报告请求模式、默认模式、仅等级下限、声明的 `security_tier` 或 `policy_decision.resolved_tier` 的封装程序。传输错误、超时和旧报告都经过运行器的 `/5` 分派。CI 通过五个封装程序运行自测和目录，每一个都是必需的。
+- **限制：** 通过只证明这些策略下的这 130 个用例，不是完整的 V2 符合性。为被拒绝的 bundle 报告的模式或等级只是诊断，不是准入或授权。不覆盖：DCP-09 委托链的等级下限（没有 bundle 字段携带该链）、`@dcp-ai/wasm` 的 JavaScript API（`DcpClient`）和浏览器。
 
 <a id="admission-catalog-strict-v1-admission"></a>
 

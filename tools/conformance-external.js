@@ -26,6 +26,7 @@ import {
 } from "./conformance/external-evidence.js";
 import { ADMISSION_CATALOG_PATH, ADMISSION_CONTRACT, ADMISSION_TIMEOUT_MS, loadAdmissionPlan, runAdmission } from "./conformance/external-admission.js";
 import { DELEGATION_CATALOG_PATH, DELEGATION_CONTRACT, DELEGATION_TIMEOUT_MS, loadDelegationPlan, runDelegation } from "./conformance/external-delegation.js";
+import { EFFECTIVE_CONTRACT, EFFECTIVE_TIMEOUT_MS, loadEffectivePlan, runEffective } from "./conformance/external-effective.js";
 
 function parseArgs(args) {
   const opts = { suites: [], list: false, report: undefined, timeoutMs: undefined, root: REPO_ROOT, catalog: EXTERNAL_CATALOG_PATH, assessment: undefined, argv: null };
@@ -111,13 +112,13 @@ async function main(args) {
   let opts;
   try { opts = parseArgs(args); } catch (e) { return fail(2, "usage", e.message); }
   // The catalog's contract decides the plan: /2 is the evidence catalog, /3 the admission catalog, /4 the delegation
-  // catalog, anything else the /1 loader.
+  // catalog, /5 the effective-policy catalog (opt-in, by its path), anything else the /1 loader.
   let contract;
   try { contract = JSON.parse(fs.readFileSync(opts.catalog, "utf8")).contract; } catch { /* the loader reports it */ }
-  const kind = contract === EVIDENCE_CONTRACT ? "evidence" : contract === ADMISSION_CONTRACT ? "admission" : contract === DELEGATION_CONTRACT ? "delegation" : "default";
-  const load = { evidence: loadEvidencePlan, admission: loadAdmissionPlan, delegation: loadDelegationPlan, default: loadPlan }[kind];
-  const runner = { evidence: runEvidence, admission: runAdmission, delegation: runDelegation, default: runExternal }[kind];
-  const timeoutMs = opts.timeoutMs ?? { evidence: EVIDENCE_TIMEOUT_MS, admission: ADMISSION_TIMEOUT_MS, delegation: DELEGATION_TIMEOUT_MS, default: LIMITS.timeoutMs }[kind];
+  const kind = contract === EVIDENCE_CONTRACT ? "evidence" : contract === ADMISSION_CONTRACT ? "admission" : contract === DELEGATION_CONTRACT ? "delegation" : contract === EFFECTIVE_CONTRACT ? "effective" : "default";
+  const load = { evidence: loadEvidencePlan, admission: loadAdmissionPlan, delegation: loadDelegationPlan, effective: loadEffectivePlan, default: loadPlan }[kind];
+  const runner = { evidence: runEvidence, admission: runAdmission, delegation: runDelegation, effective: runEffective, default: runExternal }[kind];
+  const timeoutMs = opts.timeoutMs ?? { evidence: EVIDENCE_TIMEOUT_MS, admission: ADMISSION_TIMEOUT_MS, delegation: DELEGATION_TIMEOUT_MS, effective: EFFECTIVE_TIMEOUT_MS, default: LIMITS.timeoutMs }[kind];
   let plan;
   try { plan = load({ root: opts.root, catalogFile: opts.catalog, select: opts.suites }); }
   catch (e) {
@@ -138,7 +139,8 @@ async function main(args) {
     console.log(`dcp-ai-conformance-external, catalog ${plan.catalog.version} (sha256 ${plan.catalog.sha256})`);
     if (opts.assessment !== undefined) console.log(`assessment: ${assessment} (${ASSESSMENT_SCHEMA})`);
     const informative = (s) => s.cases.filter((c) => c.class === "informative").length;
-    for (const s of plan.suites) console.log(`  ${s.id}  ${s.cases.length} cases${kind === "delegation" && informative(s) ? ` (${informative(s)} informative)` : ""}  ${s.title}${assessment === "verdict" ? `  (${wordingCases(s)} rejections judged on the verdict alone, wording as a diagnostic)` : ""}`);
+    const resolutions = (s) => ["required", "observational", "pre_resolution"].map((r) => `${s.cases.filter((c) => c.resolution === r).length} ${r.replace("_", "-")}`).join(", ");
+    for (const s of plan.suites) console.log(`  ${s.id}  ${s.cases.length} cases${kind === "delegation" && informative(s) ? ` (${informative(s)} informative)` : ""}${kind === "effective" ? ` (${resolutions(s)})` : ""}  ${s.title}${assessment === "verdict" ? `  (${wordingCases(s)} rejections judged on the verdict alone, wording as a diagnostic)` : ""}`);
     return 0;
   }
   let report;
@@ -157,6 +159,8 @@ async function main(args) {
   console.log(`${report.status.toUpperCase()}: ${report.totals.pass} pass, ${report.totals.fail} fail, ${report.totals.error} error of ${report.totals.cases}${d
     ? ` — verdict assessment (${ASSESSMENT_SCHEMA}): ${report.assessment.wording_cases} rejections judged on the verdict alone; wording matched ${d.matched}, differs ${d.differs}, no message ${d.no_message}, not evaluated ${d.not_evaluated}` : ""}`);
   const i = report.informative_totals;
+  const t = report.effective_totals;
+  if (t) console.log(`reported mode and tier: ${t.resolved} resolved, ${t.unresolved} unresolved, ${t.partial} partial, ${t.unknown} unknown, ${t.malformed} malformed, ${t.not_received} not received`);
   if (i) console.log(`informative (not counted above): ${i.requested} requested, ${i.completed} completed, ${i.agrees} agree, ${i.differs} differ, ${i.error} error`);
   if (reportFile !== undefined) {
     try { writeJson(reportFile, report); } catch (e) { console.error(`cannot write the report ${reportFile}: ${e.message}`); return 3; }

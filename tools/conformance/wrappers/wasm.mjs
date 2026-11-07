@@ -14,7 +14,8 @@
 // ambiguous error. Otherwise it is rejected/parse when the message starts "JSON parse: ",
 // rejected/profile when it is the documented number rejection, and an ambiguous error otherwise. digest: the export takes text,
 // so the bytes must be UTF-8 (otherwise an error, never a substitute); sha256 from wasm_dual_hash,
-// sha3-256 from wasm_sha3_256.
+// sha3-256 from wasm_sha3_256. Contracts /2 and /5 (opt-in) are described where they are handled below; /3 and /4 are
+// refused (exit 2).
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
@@ -101,7 +102,8 @@ try { const p = JSON.parse(fs.readFileSync(path.join(pkg, "package.json"), "utf8
 let request;
 try { request = JSON.parse(utf8(fs.readFileSync(0))); } catch (e) { fail(`the request is not UTF-8 JSON (${e.message})`); }
 const V2 = request?.contract === "dcp-ai-conformance-external/2";
-if (!exactKeys(request, ["contract", "run_id", "nonce", "cases"]) || (request.contract !== CONTRACT && !V2) ||
+const V5 = request?.contract === "dcp-ai-conformance-external/5";
+if (!exactKeys(request, ["contract", "run_id", "nonce", "cases"]) || (request.contract !== CONTRACT && !V2 && !V5) ||
     typeof request.run_id !== "string" || typeof request.nonce !== "string" || !Array.isArray(request.cases)) {
   fail("the request needs exactly contract dcp-ai-conformance-external/1, string run_id and nonce, and a cases array");
 }
@@ -186,10 +188,32 @@ function runEvidenceCase(c) {
   return { id: c.id, status: "ok", verified: r.verified, errors: r.errors };
 }
 
+// Contract /5 (opt-in effective policy): the /2 bundle verification, ONE wasm_verify_signed_bundle_v2 call per case
+// (same clock shim), and the verification_mode and resolved_tier members of that same call's JSON result, copied as
+// they are and never derived: the export omits them when they are empty, which is reported as {"exposed": false}.
+const EFFECTIVE = { verify_signed_bundle_v2: ["id", "op", "bundle_b64", "policy", "verification_time"] };
+const exposed = (r, k) => (Object.hasOwn(r, k) ? { exposed: true, value: r[k] } : { exposed: false });
+function runEffectiveCase(c) {
+  if (!exactKeys(c, EFFECTIVE[c.op])) fail(`case ${c.id}: fields do not match op ${c.op}`);
+  const bytes = decodeBase64Strict(c.bundle_b64);
+  if (!bytes || !isObj(c.policy) || typeof c.verification_time !== "string" || !RFC3339.test(c.verification_time)) fail(`case ${c.id}: verify_signed_bundle_v2 fields have the wrong types`);
+  const ms = Date.parse(c.verification_time);
+  if (!Number.isFinite(ms)) fail(`case ${c.id}: verification_time is not a valid instant`);
+  let text;
+  try { text = utf8(bytes); JSON.parse(text); } catch { return { id: c.id, status: "rejected", code: "parse" }; }
+  const out = atHostTime(ms, () => mod.wasm_verify_signed_bundle_v2(text, JSON.stringify(c.policy)));
+  const err = inBandError(out);
+  if (err !== null) return { id: c.id, status: "error", message: err.slice(0, 500) };
+  const r = JSON.parse(out);
+  if (!isObj(r)) return { id: c.id, status: "error", message: "wasm_verify_signed_bundle_v2 returned JSON that is not an object" };
+  return { id: c.id, status: "ok", verified: r.verified, errors: r.errors, effective: { verification_mode: exposed(r, "verification_mode"), resolved_tier: exposed(r, "resolved_tier") } };
+}
+
 function runCase(c) {
   if (!isObj(c) || typeof c.id !== "string") fail("a case must be an object with a string id");
   if (typeof c.op !== "string") fail(`case ${c.id}: op must be a string`);
   if (V2 && Object.hasOwn(EVIDENCE, c.op)) return runEvidenceCase(c);
+  if (V5) return Object.hasOwn(EFFECTIVE, c.op) ? runEffectiveCase(c) : { id: c.id, status: "unsupported" }; // /5 has one operation
   const fields = c.op === "canonicalize" ? ["id", "op", "profile", "input_b64"] : c.op === "digest" ? ["id", "op", "alg", "input_b64"] : null;
   if (!fields) return { id: c.id, status: "unsupported" };
   if (!exactKeys(c, fields)) fail(`case ${c.id}: fields do not match op ${c.op}`);
@@ -221,7 +245,7 @@ process.stdout.write(JSON.stringify({
     name: "dcp-ai Rust SDK compiled to WASM (wasm-bindgen, --target web) via tools/conformance/wrappers/wasm.mjs",
     version,
     resolved_from: `${wasmFile} (sha256 ${crypto.createHash("sha256").update(wasmBytes).digest("hex")})`,
-    runtime: `node ${process.version} (Node-hosted WebAssembly, not a browser${V2 ? "; host clock (Date.now) substituted by verification_time during each verification call" : ""})`,
+    runtime: `node ${process.version} (Node-hosted WebAssembly, not a browser${V2 || V5 ? "; host clock (Date.now) substituted by verification_time during each verification call" : ""})`,
   },
   results,
 }) + "\n");

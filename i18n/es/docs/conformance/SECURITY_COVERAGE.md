@@ -4,7 +4,7 @@
 
 # Garantías de seguridad y cobertura de conformidad
 
-> Traducción informativa de [la versión en inglés](../../../../docs/conformance/SECURITY_COVERAGE.md), actualizada el 05/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../../docs/conformance/SECURITY_COVERAGE.md), actualizada el 07/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Este mapa informativo relaciona los requisitos normativos con las pruebas ejecutables del repositorio. No es un perfil nuevo, una certificación, una afirmación de que se han probado todas las entradas ni evidencia de que un despliegue concreto haya aprobado. Cada resultado corresponde a la implementación, entradas, política, instante de verificación y versión de la herramienta exactos registrados en esa ejecución.
 
@@ -35,6 +35,7 @@ El [README del kit](../../tools/conformance/README.md) define los comandos, cont
 - **Evidencia externa:** el contrato `/2` ejercita raíces Merkle, firmas compuestas y verificación de bundles V2. El repositorio ofrece wrappers TypeScript, Python, Go, Rust y WASM.
 - **Admisión externa:** el contrato `/3` ejercita admisión combinada y carga de configuración. El repositorio ofrece wrappers TypeScript, Python, Go y Rust; WASM no tiene API de admisión.
 - **Delegación externa:** el contrato `/4` ejercita veredictos de cadenas de mandatos de DCP-09 §3.5.2. El repositorio ofrece wrappers TypeScript, Python, Go y Rust; WASM no tiene API de cadenas de mandatos.
+- **Política efectiva externa:** el contrato `/5` (opt-in) ejercita la verificación de bundles V2 con el modo de verificación y el tier de seguridad que el verificador resolvió en esa misma verificación. El repositorio ofrece wrappers TypeScript, Python, Go, Rust y WASM.
 - **Suites de SDK y adaptadores:** son pruebas separadas, con sus propias entradas y alcances. Que un elemento figure en el inventario del kit no significa que el kit lo ejecute.
 
 Los contratos numerados son interfaces del ejecutor, no versiones del protocolo DCP. La identidad del wrapper es autodeclarada. Cinco wrappers no son cinco adoptantes externos independientes: WASM comparte código con Rust y todos estos wrappers pertenecen al repositorio.
@@ -57,7 +58,7 @@ Los nombres siguientes corresponden a los [vectores de bundles](../../../../test
 | V2-6: el principal firma el manifiesto | R `bundle_signed_by_agent_keys`; referencia `v2.signed_bundle.forged_classical_signature_rejected` | Muestras de firmas y vínculo de roles; no establecen confianza en un principal autodeclarado |
 | V2-7: verificar firmas PQ presentes | M `bundle_pq_signature_invalid`, `bundle_pq_slot_holds_ed25519` | El catálogo histórico de evidencia las ejecuta con su política seleccionada; afirmar todos los modos efectivos exige sus controles correspondientes |
 | V2-8: verificar cada artefacto con su contexto y rol firmante | M `rpr_classical_signature_invalid`, `intent_signed_by_principal`, `policy_decision_signed_under_intent_context` | Muestras de artefactos y roles; no todas las combinaciones de componente, contexto y clave |
-| V2-9: derivar el nivel sin que una declaración pueda reducirlo | R `classical_only_intent_action_type_constructor`, `classical_only_intent_security_tier_constructor` | Muestras de veredictos; la operación externa de bundle no evalúa el nivel resuelto informado |
+| V2-9: derivar el nivel sin que una declaración pueda reducirlo | R `classical_only_intent_action_type_constructor`, `classical_only_intent_security_tier_constructor` | Muestras de veredictos; la operación de bundle de `/2` no evalúa el nivel resuelto informado; el catálogo de política efectiva de `/5` sí lo evalúa |
 | V2-10: exigir el modo efectivo y la política de algoritmos | R `classical_only_payment_from_low_risk_passport`; `classical_only_routine` en cuatro modos | Muestras de modos; el catálogo histórico de evidencia no tiene una matriz específica de listas de algoritmos permitidos y advisories |
 | V2-11: verificar campos secundarios presentes | `external.v2.secondary_sha3`, de los [vectores secundarios](../../../../tests/interop/v2/secondary_sha3_vectors.json) | Controles positivos y campos malformados o no coincidentes; los enlaces ausentes son opcionales, así que aceptar no implica una cadena secundaria completa |
 | V2-12: vincular y verificar checkpoints | A `pq_checkpoint_over_the_trail`; R `pq_checkpoint_listed_but_missing`, `pq_checkpoint_event_range_count_wrong`, `pq_checkpoint_pq_signature_invalid` | Muestras de pertenencia, rango y firmas; no todas las combinaciones de rangos o componentes malformados |
@@ -92,7 +93,7 @@ El [catálogo de validación de esquemas](../../../../tools/conformance/external
 
 El [catálogo de políticas](../../../../tools/conformance/external-policy-catalog.json), de selección explícita, versión 2.0, añade 108 casos en dos suites mediante el contrato `/2` existente. La primera suite mantiene los 74 casos de la versión 1.1: 10 controles positivos, 24 casos de PQ presente inválida, 14 casos de listas de algoritmos y advisories y 26 casos de tier ya versionados. La segunda ejecuta los 34 casos de la aclaración de V2-10 (abajo). Cada solicitud lleva su política e instante de verificación exactos. El catálogo de evidencia predeterminado no cambia, y la versión 1.1 está archivada byte a byte como [`external-policy-catalog-1.1.json`](../../../../tools/conformance/external-policy-catalog-1.1.json).
 
-El nuevo control híbrido de tier routine ejercita `classical_only` efectivo y los otros tres modos. El control híbrido de tier standard eleva una solicitud `classical_only` a `hybrid_preferred`. El corpus registra esta derivación; `/2` evalúa el veredicto, no el tier ni el modo efectivo que reporte la implementación.
+El nuevo control híbrido de tier routine ejercita `classical_only` efectivo y los otros tres modos. El control híbrido de tier standard eleva una solicitud `classical_only` a `hybrid_preferred`. El corpus registra esta derivación; `/2` evalúa el veredicto, no el tier ni el modo efectivo que reporte la implementación. El catálogo opt-in de política efectiva (más abajo) los evalúa con el contrato `/5`.
 
 Los negativos PQ alteran solo la firma PQ del bundle, pasaporte o checkpoint; el componente clásico sigue siendo válido. Los casos de listas de algoritmos mantienen el mismo bundle y cambian únicamente la política. Los casos de tier reutilizan bundles versionados firmados por separado y un control routine bajo el mismo modo solicitado: no son gemelos de un solo cambio. Cada negativo exige que su control positivo pase en la misma ejecución.
 
@@ -113,6 +114,12 @@ El [catálogo estructural](../../../../tools/conformance/external-structural-cat
 Los cuatro casos de codificación conservan los bytes decodificados de la firma. Los rangos de checkpoints usan posiciones reales de la traza, con identificadores deliberadamente desordenados. Las mutaciones del manifiesto se vuelven a firmar. La sesión invertida tiene un gemelo positivo separado dentro de la tolerancia de reloj. Cada negativo exige que sus controles pasen en la misma ejecución.
 
 El aislamiento tiene límites explícitos: una fracción no tiene representación `dcp-jcs-v1`, por lo que sus hashes y firmas anteriores quedan obsoletos; un rango invertido no tiene una raíz válida para ese rango. Las comprobaciones de componentes documentan los defectos previstos, pero no identifican qué comprobación del SDK causó el rechazo. Son muestras estructurales: la validación de esquemas (V2-2) tiene su propio catálogo y se ejecuta dentro de los verificadores de los SDK desde las versiones del 05/11/2026, no en las anteriores. Las muestras no prueban conformidad completa.
+
+<a id="effective-mode-and-tier"></a>
+
+### Modo y tier efectivos
+
+El [catálogo de política efectiva](../../../../tools/conformance/external-effective-policy-catalog.json), opt-in, ejecuta 130 casos con el contrato `/5`: el veredicto, y el modo de verificación y el tier de seguridad que el verificador de la implementación resolvió en esa misma verificación, tal como se devuelven y sin que el kit los recalcule nunca. 112 casos exigen ambos valores: los 94 casos de política del verificador y de la aclaración cuyos bundles pasan V2-2, 17 casos firmados que añaden positivos válidos en los tiers elevated y maximum bajo cada modo solicitado, fronteras de `risk_score`, suelos de `security_tier` explícito y declarado y overrides del pasaporte que sustituyen al valor por defecto, y un control. En 14 casos cuyos bundles fallan V2-2, y en 4 rechazos anteriores, los valores pueden faltar; los valores informados deben seguir siendo conocidos y coherentes. Los SDK difieren en si resuelven los valores después de un fallo anterior, y ambas conductas se admiten. Implementaciones controladas muestran que el juez hace fallar a un wrapper que informa el modo solicitado o el modo por defecto, solo el suelo del tier, un tier declarado o el `resolved_tier` de la decisión de política. No se cubren el suelo de la cadena DCP-09, la API JavaScript de `@dcp-ai/wasm` ni los navegadores, y un pase cubre solo estos casos.
 
 <a id="admission-map"></a>
 

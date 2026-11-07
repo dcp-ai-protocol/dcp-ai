@@ -336,6 +336,16 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Added
 
+- **Effective-policy catalog (contract `/5`, opt-in)** (kit and tests on `main`, not a package release;
+  `tools/conformance/`). `external-effective-policy-catalog.json` judges 130 signed-bundle verifications on the
+  verdict and on the verification mode and security tier that each implementation's verifier resolved in that same
+  verification: 112 cases require both values; in 14 bundles that fail V2-2 and 4 earlier rejections they may be
+  absent, and reported values must be known and consistent. `tests/interop/v2/effective_policy_vectors.json` adds 17
+  cases signed with the committed TEST-ONLY keys: elevated and maximum positives under each requested mode,
+  `risk_score` boundaries, `security_tier` floors and passport overrides that replace the default. The five wrappers
+  answer `/5` from their SDK's own result fields; `/1` to `/4`, their catalogs, the SDKs and their APIs are unchanged.
+  CI runs the self-tests and the catalog through the five wrappers.
+
 - ML-DSA-65 verification vectors (`tests/nist-kat/ml-dsa-65/`), developed on 05/11/2026; tests, CI and documentation
   only, with no SDK code, API, manifest or lock changes. The existing ML-DSA-65 property tests are unchanged.
   - 204 cases with an empty context go through the real provider of the TypeScript, Python, Go and Rust SDKs, and

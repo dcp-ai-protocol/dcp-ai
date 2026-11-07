@@ -59,6 +59,8 @@ The [kit contract](../../tools/conformance/README.md) gives the exact encoding r
 
 For the opt-in schema diagnostic, replace `--catalog evidence` in the evidence command with `--catalog tools/conformance/external-schema-catalog.json`. It uses the same `/2` contract and keeps normative failures as failures; it is separate from the default evidence catalog. Consult the coverage map before interpreting a result from an SDK API alone.
 
+For the opt-in effective-policy catalog, use `--catalog tools/conformance/external-effective-policy-catalog.json`. It selects contract `/5`: the `/2` bundle verification, whose `ok` result also reports, as `effective`, the verification mode and security tier your verifier resolved in that same verification. Report the values your verifier exposes, as they are; do not compute them for the response. The [kit README](../../tools/conformance/README.md#effective-policy-catalog-contract-5-opt-in) gives the exact format and judgement.
+
 ### Inspect a generated report
 
 The kit README includes a [minimal request and response](../../tools/conformance/README.md#external-implementations) and runnable [TypeScript](../../tools/conformance/wrappers/ts-sdk.mjs) and [Python](../../tools/conformance/wrappers/python_sdk.py) wrapper examples. Start with the digest exchange to check the transport contract before implementing bundle verification. Reusing these wrappers does not make their SDK verification logic independent.

@@ -386,7 +386,7 @@ node tools/conformance-external.js --catalog tools/conformance/external-policy-c
 node --test tools/conformance/external-policy.test.mjs
 ```
 
-The routine hybrid positive reaches effective `classical_only`; the standard positive raises that request to `hybrid_preferred`. Recorded tier/mode derivation is explanatory, not an assessment of result fields. Tier cases use separately signed committed bundles, not single-change twins. The clarification cases use two routine bases, so each requested mode is the effective one; their Q2 variants re-sign only a PQ component with the committed TEST-ONLY key. The self-tests run catalog 1.1 with its original invariants, and fakes that each read Q1, Q2 or Q3 wrongly: classical lists under `pq_only`, an invalid classical component rejected under `pq_only`, PQ lists on a bundle without PQ, or the mode ignored. Each fails exactly its cases. CI runs the corpus/runner self-tests and the catalog through all five SDK wrappers; a pass concerns these cases only.
+The routine hybrid positive reaches effective `classical_only`; the standard positive raises that request to `hybrid_preferred`. Recorded tier/mode derivation is explanatory, not an assessment of result fields; the [effective-policy catalog](#effective-policy-catalog-contract-5-opt-in) assesses them under contract `/5`. Tier cases use separately signed committed bundles, not single-change twins. The clarification cases use two routine bases, so each requested mode is the effective one; their Q2 variants re-sign only a PQ component with the committed TEST-ONLY key. The self-tests run catalog 1.1 with its original invariants, and fakes that each read Q1, Q2 or Q3 wrongly: classical lists under `pq_only`, an invalid classical component rejected under `pq_only`, PQ lists on a bundle without PQ, or the mode ignored. Each fails exactly its cases. CI runs the corpus/runner self-tests and the catalog through all five SDK wrappers; a pass concerns these cases only.
 
 #### Structural catalog (opt-in)
 
@@ -399,6 +399,36 @@ node --test tools/conformance/external-structural.test.mjs
 ```
 
 Only verdicts are assessed. The corpus records its signing provenance and isolation limits, especially stale evidence for a fractional payload and the nonexistent valid root of a backwards range. CI runs the corpus/runner self-tests and all five SDK wrappers. A pass applies to these cases and this policy; it is not complete V2 conformance.
+
+### Effective-policy catalog (contract /5, opt-in)
+
+[`external-effective-policy-catalog.json`](external-effective-policy-catalog.json) (contract `dcp-ai-conformance-external/5`, version `2026-11-07.effective-policy-1.0`) runs 130 signed-bundle verifications. The request is that of `verify_signed_bundle_v2` under `/2`, its only operation; an `ok` result adds `effective`: the verification mode and the security tier that the implementation's verifier resolved in that same verification, each `{"exposed": false}` or `{"exposed": true, "value": <the JSON value as returned>}`. The `/1` to `/4` contracts, their catalogs and reports, and the wrappers' answers to them are unchanged.
+
+An `ok` result has exactly the keys `id`, `status`, `verified`, `errors` and `effective`, and `effective` has exactly the keys `verification_mode` and `resolved_tier`. Two results of the TypeScript wrapper: a coverage positive, and an observational case rejected at V2-2 before anything was resolved:
+
+```json
+{"id":"c1","status":"ok","verified":true,"errors":[],"effective":{"verification_mode":{"exposed":true,"value":"hybrid_required"},"resolved_tier":{"exposed":true,"value":"elevated"}}}
+{"id":"c2","status":"ok","verified":false,"errors":["schema: /bundle/agent_passport/payload/risk_tier enum"],"effective":{"verification_mode":{"exposed":false},"resolved_tier":{"exposed":false}}}
+```
+
+```bash
+node tools/conformance-external.js --catalog tools/conformance/external-effective-policy-catalog.json --list
+node tools/conformance-external.js --catalog tools/conformance/external-effective-policy-catalog.json --report /tmp/effective.json -- ./my-implementation
+DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-effective-policy.test.mjs
+```
+
+| Suite | Cases | Source |
+|-------|-------|--------|
+| `external.v2.effective.verifier_policy` | 74: 60 required, 14 observational | `verifier_policy_vectors.json`, its `effective_mode` and `tier` |
+| `external.v2.effective.verifier_policy_clarification` | 34 required | `verifier_policy_clarification_vectors.json`, its `effective_mode` and its bundle's `tier` |
+| `external.v2.effective.coverage` | 17 required | `effective_policy_vectors.json`: elevated and maximum positives under each requested mode, `risk_score` 200, 500, 799 and 800, an explicit and a declared `security_tier`, passport overrides that replace the default (one lower, one higher) before the tier floor, and a rejection for the mode an override sets |
+| `external.v2.effective.pre_resolution` | 5: 1 required control, 4 pre-resolution | `bundle_vectors.json`: the signed bundle and four of its mutations rejected at V2-1, V2-3 or V2-4 |
+
+- **Judgement:** the verdict, as in `/2` (no wording). A required case also needs both values resolved, known, consistent (no mode below its tier's floor, except `pq_only`) and equal to the expectation: missing, partial, unknown, malformed (not a string or `null`), contradictory and wrong values fail even with the right verdict, and `verified: true` without a resolved pair is contradictory. An observational case (a bundle that fails V2-2 on its committed bytes) and a pre-resolution case may leave both values unresolved: absent, `null` or `""`, each reported as it is. Reported values must still be known and consistent and, in an observational case, equal to the expectation. A malformed `effective` envelope is a `malformed_result` error. Controls are plain positives that must pass in the same run.
+- **Expectations:** taken from the committed vectors, written by hand from spec/DCP-AI-v2.0.md § 14.2 and § 14.3 and VERIFICATION.md V2-9: the override for the passport `risk_tier` replaces `default_mode` (it may be lower), then the tier floor raises it. The kit never computes a mode or a tier from an answer. `effective_policy_vectors.json` is signed with the committed TEST-ONLY keys; its ML-DSA-65 signatures are hedged, so a regeneration differs in those signatures only, and the committed file is the artifact. `node tools/conformance/effective-policy-catalog.mjs --check` rebuilds the catalog from the fixtures.
+- **Wrappers:** each makes one verification call per case and copies the two fields of that result: TypeScript and Python from `details` (a missing or non-object `details` is an error, never an unresolved answer), Go and Rust from the result's string fields (always exposed, `""` when unresolved), WASM from the members of the JSON that `wasm_verify_signed_bundle_v2` returns (omitted when empty). Under `/5` any other operation is `unsupported`. The SDKs differ on whether they resolve the mode and tier after an earlier failure; the pre-resolution suite records that without judging it.
+- **Self-tests:** `external-effective-policy.test.mjs` rebuilds the catalog from the fixtures, checks the observational cases against schema validation and the coverage against independent rules, and has the loader refuse missing, extra and duplicate ids, wrong resolutions, inconsistent expectations and controls that are not plain positives. Fakes built from the TypeScript wrapper's real answers each fail exactly their cases: absent, `null`, `""`, partial, unknown, malformed, contradictory and wrong values, envelope errors, and wrappers that report the requested mode, the default mode, the tier floor alone, the declared `security_tier` or `policy_decision.resolved_tier`. Transport errors, a timeout and an older report go through the runner's `/5` dispatch. CI runs the self-tests and the catalog through the five wrappers, every one required.
+- **Limits:** a pass covers these 130 cases under these policies, not complete V2 conformance. A mode or tier reported for a rejected bundle is a diagnostic, not admission or authorization. Not covered: the DCP-09 delegation-chain tier floor (no bundle field carries the chain), the `@dcp-ai/wasm` JavaScript API (`DcpClient`) and browsers.
 
 ### Admission catalog: strict-v1 admission
 
