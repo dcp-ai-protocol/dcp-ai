@@ -4,7 +4,7 @@
 
 # DCP-AI 与 NIST 后量子密码标准的符合性声明
 
-> 本文是[英文版](../../../docs/NIST_CONFORMITY.md)的参考译文，更新于 05/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/NIST_CONFORMITY.md)的参考译文，更新于 06/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 **规范版本：** 2.0
 **最后更新：** 2026 年 10 月 25 日
@@ -104,7 +104,7 @@ DCP-AI 把 ML-DSA-65 作为与 Ed25519 复合绑定的主要后量子签名算�
 
 ML-DSA-87 保留供将来的高保证用途使用。`ml-dsa-87` 是密钥 schema 中 `alg` 的可接受值，下面的大小来自 FIPS 204，但没有 SDK 能用它生成密钥、签名或验证，参考 CLI 也拒绝生成它的密钥。
 
-TypeScript SDK 源码中有 `HsmCryptoProvider`（`sdks/typescript/src/providers/hsm-provider.ts`），其中列出了 `ml-dsa-87`。它是一个**模拟模式**，而不是 HSM 集成：它没有被导出或注册，没有 PKCS#11 绑定，生成随机的“公钥”，在应有签名的位置生成一个哈希，而且它的 `verify` 会接受任何长度正确的签名。不得用它来签署或验证真实的证据。
+在2026 年 11 月 6 日之前，TypeScript SDK 源码中有 `HsmCryptoProvider`（`sdks/typescript/src/providers/hsm-provider.ts`），其中列出了 `ml-dsa-87`。它是一个**模拟模式**，而不是 HSM 集成：它没有从包的入口点导出，也没有被注册，没有 PKCS#11 绑定，生成随机的“公钥”，在应有签名的位置生成一个哈希，而且它的 `verify` 会接受任何长度正确的签名。它已于2026 年 11 月 6 日移除，因此直接导入该文件的代码将无法再导入；`@dcp-ai/sdk` 的公开 API 不变。没有任何 SDK 提供 HSM 提供程序。
 
 | 参数 | FIPS 204 的值 | DCP-AI 的值 | 说明 |
 |-----------|---------------|-------------|-------|
@@ -471,7 +471,7 @@ DCP-AI 与 NIST 发布的后量子密码过渡指南保持一致：
 | 为算法弃用做好计划 | 由治理签名并带自动响应的通告 |
 | 保护长期数据 | 哈希链接的审计轨迹；会生成双哈希链，自 `@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`dcp-ai` 2.10.1（PyPI）、Go v2.11.1 和 Rust `dcp-ai` 2.11.1 起，V2 验证器会检查存在的次级字段（更早的版本不检查）（[STORAGE_AND_ANCHORING.md](../../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)） |
 | 过渡期间使用混合构造 | `pq_over_classical` 复合绑定 |
-| 用硬件安全模块存储密钥 | 未实现：没有 HSM/TPM 集成；源码中的 `HsmCryptoProvider` 是模拟实现（§2.2） |
+| 用硬件安全模块存储密钥 | 未实现：没有 HSM/TPM 集成；模拟的 `HsmCryptoProvider` 已于2026 年 11 月 6 日从源码中移除（§2.2） |
 | 测试互操作性 | 跨 SDK 的 KAT 验证、符合性测试套件 |
 
 ---

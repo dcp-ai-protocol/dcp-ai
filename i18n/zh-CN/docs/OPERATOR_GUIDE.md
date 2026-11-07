@@ -5,7 +5,7 @@
 
 # 运营方指南 — 运行验证服务
 
-> 本文是[英文版](../../../docs/OPERATOR_GUIDE.md)的参考译文，更新于 05/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/OPERATOR_GUIDE.md)的参考译文，更新于 06/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 本指南面向希望运行“智能体已验证”服务的**第三方**：一个验证 DCP Signed Bundle 的 HTTP API（还可以选择把哈希锚定到区块链上）。协议**不**要求任何中央服务器；验证随时都可以用 `dcp verify-bundle` 在本地完成。此服务是**可选的**，由运营方自行决定是否运行。
 
@@ -353,7 +353,7 @@ V2 服务公开 `GET /.well-known/dcp-capabilities.json`。参考服务器的响
     "pq_only_mode": true,
     "advisory_auto_response": true,
     "governance_keys": true,
-    "hsm_provider": true,
+    "hsm_provider": false,
     "agent_lifecycle": true,
     "succession": true,
     "dispute_resolution": true,
@@ -365,7 +365,7 @@ V2 服务公开 `GET /.well-known/dcp-capabilities.json`。参考服务器的响
 }
 ```
 
-这是服务器所声明的内容，而不是经过检查的保证清单。虽然列出了 `application/cbor`，但其端点只读取 JSON 请求体。声明了 `hsm_provider: true`，但仓库中的 HSM 提供者是一个没有硬件支撑的模拟实现（[SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md)）。
+这是服务器所声明的内容，而不是经过检查的保证清单。虽然列出了 `application/cbor`，但其端点只读取 JSON 请求体。自 06/11/2026 起，它声明 `hsm_provider: false`：仓库中没有 HSM 提供者（[SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md)）。
 
 <a id="observability"></a>
 

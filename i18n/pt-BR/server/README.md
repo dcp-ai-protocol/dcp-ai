@@ -4,7 +4,7 @@
 
 # Gateway de referência do DCP
 
-> Tradução informativa da [versão em inglês](../../../server/README.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../server/README.md), atualizada em 06/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Serviço HTTP de verificação que implementa a V1, a V2 e a fase 3 (PQ primeiro) do Digital Citizenship Protocol. **Armazenamento em memória**: não precisa de nenhum banco de dados externo, e nada sobrevive a uma reinicialização (veja [Persistência](#persistence)). Projetado para ser executado por qualquer terceiro; o protocolo não exige um servidor central.
 
@@ -32,7 +32,7 @@ Porta padrão: `3000`. Altere com `PORT=4000 node server/index.js`. Defina `OPER
 | Método | Caminho | Descrição |
 |--------|------|-------------|
 | GET | `/` , `/health` | Checagem de saúde: `{ ok, service, supported_versions, registered_agents, registered_keys }` |
-| GET | `/.well-known/dcp-capabilities.json` | Descoberta das capacidades do protocolo (algoritmos, funcionalidades, formatos de transmissão). É o que o servidor anuncia, não garantias checadas: lista `hsm_provider: true` e `application/cbor`, mas não há nenhum HSM e os corpos só são lidos como JSON |
+| GET | `/.well-known/dcp-capabilities.json` | Descoberta das capacidades do protocolo (algoritmos, funcionalidades, formatos de transmissão). É o que o servidor anuncia, não garantias checadas: lista `application/cbor`, mas os corpos só são lidos como JSON; `hsm_provider` é `false`, pois não há nenhum HSM |
 | POST | `/verify` | Verifica um bundle assinado (detecta V1 ou V2; a V2 é checada contra `VERIFIER_POLICY`) |
 | POST | `/v2/admit` | Admissão em relação aos principais confiáveis do operador, e strict-v1 quando configurado (`docs/ADMISSION.md`). Do corpo, só lê `signed_bundle`. 501 quando não está configurada |
 | POST | `/anchor` | Esboço: retorna 501 (cada operador implementa) |

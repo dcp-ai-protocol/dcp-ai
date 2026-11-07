@@ -259,7 +259,7 @@ const DCP_CAPABILITIES = {
     pq_only_mode: true,
     advisory_auto_response: true,
     governance_keys: true,
-    hsm_provider: true,
+    hsm_provider: false,         // no HSM backend in this repository
     agent_lifecycle: true,       // DCP-05
     succession: true,            // DCP-06
     dispute_resolution: true,    // DCP-07

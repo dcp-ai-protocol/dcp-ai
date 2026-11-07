@@ -5,7 +5,7 @@
 
 # DCP-AI e o Regulamento de IA da UE — correspondência das obrigações de registro, supervisão humana e manutenção de registros
 
-> Tradução informativa da [versão em inglês](../../../docs/EU_AI_ACT_MAPPING.md), atualizada em 05/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../docs/EU_AI_ACT_MAPPING.md), atualizada em 06/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 **Versão da especificação:** 2.0
 **Última atualização:** outubro de 2026
@@ -252,7 +252,7 @@ O que um responsável pela implantação ou um operador precisa configurar ou op
 
 ### 5.4 Custódia de chaves e política do verificador
 
-- [ ] As chaves privadas são guardadas segundo os requisitos do nível de [SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md) («Private Key Storage»): HSM ou TPM DEVERIA para `elevated`, DEVE para `maximum`. Este repositório não fornece integração com HSM nem TPM (o `HsmCryptoProvider` do código TypeScript é uma simulação); portanto, essa custódia vem da infraestrutura própria da organização.
+- [ ] As chaves privadas são guardadas segundo os requisitos do nível de [SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md) («Private Key Storage»): HSM ou TPM DEVERIA para `elevated`, DEVE para `maximum`. Este repositório não fornece integração com HSM nem TPM (o `HsmCryptoProvider` simulado foi removido do código TypeScript em 06/11/2026); portanto, essa custódia vem da infraestrutura própria da organização.
 - [ ] A política do verificador (`VerifierPolicy`, `VERIFIER_MODE`) usa pelo menos `hybrid_preferred`, com `risk_overrides` que nunca fiquem abaixo do modo do nível; `ALLOW_V1_BUNDLES=false` depois de concluída a migração.
 - [ ] Os endpoints do operador estão bloqueados com `OPERATOR_TOKEN`; `TRUST_PROXY` é definido só atrás de um proxy que acrescenta o IP do cliente.
 - [ ] Os endpoints DCP-05–09 do gateway de referência, que `OPERATOR_TOKEN` não protege e que não verificam assinaturas, não são expostos a clientes não confiáveis ([OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)); os registros que eles guardam não são tratados como evidência verificada.

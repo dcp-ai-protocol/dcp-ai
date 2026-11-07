@@ -307,7 +307,7 @@ V2 services expose `GET /.well-known/dcp-capabilities.json`. The reference serve
     "pq_only_mode": true,
     "advisory_auto_response": true,
     "governance_keys": true,
-    "hsm_provider": true,
+    "hsm_provider": false,
     "agent_lifecycle": true,
     "succession": true,
     "dispute_resolution": true,
@@ -319,7 +319,7 @@ V2 services expose `GET /.well-known/dcp-capabilities.json`. The reference serve
 }
 ```
 
-This is what the server advertises, not a list of checked guarantees. Its endpoints read JSON bodies only, although `application/cbor` is listed. `hsm_provider: true` is advertised, but the repository's HSM provider is a simulation with no hardware backend ([SECURITY_MODEL.md](SECURITY_MODEL.md)).
+This is what the server advertises, not a list of checked guarantees. Its endpoints read JSON bodies only, although `application/cbor` is listed. Since 06/11/2026 it advertises `hsm_provider: false`: the repository has no HSM provider ([SECURITY_MODEL.md](SECURITY_MODEL.md)).
 
 ### Observability
 

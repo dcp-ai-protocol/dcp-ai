@@ -4,7 +4,7 @@
 
 # Modelo de seguridad
 
-> Traducción informativa de [la versión en inglés](../../../docs/SECURITY_MODEL.md), actualizada el 05/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../docs/SECURITY_MODEL.md), actualizada el 06/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Cómo protege el protocolo frente a los ataques, desde los bundles falsificados hasta las bifurcaciones del protocolo.
 
@@ -383,7 +383,7 @@ Para migrar desde el modelo de seguridad de V1.0, véase [MIGRATION_V1_V2.md](..
 | **Elevated** | Integración con HSM/TPM (DEBERÍA). Integración con el llavero del sistema operativo |
 | **Maximum** | Integración con HSM/TPM (DEBE). Ceremonia aislada (air-gapped) para la generación de claves |
 
-Este repositorio no tiene integración con HSM/TPM: el `HsmCryptoProvider` del código TypeScript es un patrón simulado que no debe usarse para evidencias reales ([NIST_CONFORMITY.md](../../../docs/NIST_CONFORMITY.md) §2.2). Las filas elevated y maximum necesitan una integración propia.
+Este repositorio no tiene integración con HSM/TPM; el `HsmCryptoProvider` simulado que el código TypeScript contenía hasta el 06/11/2026 se retiró ([NIST_CONFORMITY.md](../../../docs/NIST_CONFORMITY.md) §2.2). Las filas elevated y maximum necesitan una integración propia.
 
 La CLI de referencia (`bin/dcp.js`) y la CLI del SDK de Python escriben los archivos de claves secretas con modo `0600` (lectura y escritura para el propietario, sin permisos para el grupo ni para otros). El `@dcp-ai/cli init` interactivo no lo hace: los escribe con los permisos por defecto (`0644` con la umask habitual `022`), así que ejecuta `chmod 600 .dcp/keys/*_secret.key`. Los operadores NO DEBEN relajar estos permisos.
 
@@ -442,7 +442,7 @@ Los operadores que despliegan DCP DEBEN:
 | La persistencia del `agent_id` permite el rastreo | Considerar la rotación de seudónimos en escenarios de alta privacidad |
 | BlindedRPR expone `entity_type` y `jurisdiction` | Futuro: presentación de credenciales basada en ZKP |
 | Ningún SDK ejecuta el intercambio X25519 + ML-KEM-768 de DCP-04 | Quien llama deriva la clave de sesión A2A. Python, Go, Rust y WASM exponen ML-KEM-768 como primitiva; los proveedores KEM de TypeScript son internos |
-| ML-DSA-87 no está implementado | El identificador está reservado en el esquema de claves; ningún SDK puede usarlo, y el patrón HSM simulado que lo enumera no es una implementación |
+| ML-DSA-87 no está implementado | El identificador está reservado en el esquema de claves; ningún SDK puede usarlo (el patrón HSM simulado que lo enumeraba no era una implementación y se retiró el 06/11/2026) |
 | Los endpoints de DCP-05–09 del servidor de referencia no tienen autenticación y no verifican firmas | No los expongas a clientes que no sean de confianza ([OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)) |
 
 Las siguientes limitaciones, que aparecían en borradores anteriores, se han **cerrado**:

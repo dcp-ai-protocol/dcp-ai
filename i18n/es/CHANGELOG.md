@@ -4,7 +4,7 @@
 
 # Registro de cambios
 
-> Traducción informativa de [la versión en inglés](../../CHANGELOG.md), actualizada el 05/11/2026. Cada entrada, también las de `[Unreleased]`, describe un cambio en su momento y no garantiza el comportamiento actual; las versiones publicadas son **registro histórico con fecha**. Si difieren, prevalece la versión en inglés.
+> Traducción informativa de [la versión en inglés](../../CHANGELOG.md), actualizada el 06/11/2026. Cada entrada, también las de `[Unreleased]`, describe un cambio en su momento y no garantiza el comportamiento actual; las versiones publicadas son **registro histórico con fecha**. Si difieren, prevalece la versión en inglés.
 
 **Versiones publicadas (26/10/2026).** Están publicados npm (13 paquetes, incluido `@dcp-ai/sdk` 2.2.0), Python `dcp-ai` 2.10.0, Go `v2.11.0` y Rust `dcp-ai` 2.11.0, con las correcciones del verificador, la admisión y las API experimentales opt-in; `dcp-jcs-v1` sigue siendo el valor normativo predeterminado. Véase [Versiones publicadas](../../docs/README.md#published-versions). Las entradas siguientes conservan su historial de desarrollo; `[Unreleased]` no significa que estas funciones no estén publicadas. Las seis publicaciones de corrección del 28/10/2026 están en [su propia sección](#2026-10-28-sha3-patch-releases). Las cinco publicaciones del 05/11/2026 están en [la suya](#2026-11-05-auditable-releases).
 
@@ -91,6 +91,14 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
 <a id="security"></a>
 
 ### Seguridad
+
+- **Retirado el proveedor HSM simulado** (código fuente de `main`, no está en ninguna versión publicada). `HsmCryptoProvider`
+  y `HsmProviderFactory` (`sdks/typescript/src/providers/hsm-provider.ts`) no tenían respaldo de hardware: `initialize()`
+  indicaba una sesión autenticada sin cargar nada, y `verify` aceptaba cualquier firma de la longitud correcta. No se
+  exportaban desde el punto de entrada del paquete ni se registraban; el código que importaba el archivo directamente ya
+  no puede hacerlo, y la API pública de `@dcp-ai/sdk` no cambia. `dcp audit gaps` daba por cerrada la carencia n.º 11
+  porque el archivo existía; ahora la informa como abierta, existan los archivos que existan. El
+  `/.well-known/dcp-capabilities.json` del servidor de referencia anuncia `hsm_provider: false`.
 
 - **Registro de transparencia: las vistas divididas se distinguen de los registros independientes** (código fuente de
   `main`, no está en ninguna versión publicada; `services/transparency-log/`). El gossip comparaba la cabeza de árbol de

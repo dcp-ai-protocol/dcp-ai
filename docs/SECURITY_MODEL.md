@@ -331,7 +331,7 @@ For migration from V1.0 security model, see [MIGRATION_V1_V2.md](MIGRATION_V1_V2
 | **Elevated** | HSM/TPM integration (SHOULD). OS keychain integration |
 | **Maximum** | HSM/TPM integration (MUST). Air-gapped ceremony for key generation |
 
-This repository has no HSM/TPM integration: the `HsmCryptoProvider` in the TypeScript source is a simulated pattern that must not be used for real evidence ([NIST_CONFORMITY.md](NIST_CONFORMITY.md) §2.2). The elevated and maximum rows need an integration of your own.
+This repository has no HSM/TPM integration; the simulated `HsmCryptoProvider` that the TypeScript source contained until 06/11/2026 was removed ([NIST_CONFORMITY.md](NIST_CONFORMITY.md) §2.2). The elevated and maximum rows need an integration of your own.
 
 The reference CLI (`bin/dcp.js`) and the Python SDK's CLI write secret key files with mode `0600` (owner read and write, no permissions for group or others). The interactive `@dcp-ai/cli init` does not: it writes them with default permissions (`0644` with the usual umask `022`), so run `chmod 600 .dcp/keys/*_secret.key`. Operators MUST NOT relax these permissions.
 
@@ -380,7 +380,7 @@ Operators deploying DCP MUST:
 | `agent_id` persistence enables tracking | Consider pseudonym rotation for high-privacy scenarios |
 | BlindedRPR exposes `entity_type` and `jurisdiction` | Future: ZKP-based credential presentation |
 | No SDK runs the X25519 + ML-KEM-768 exchange of DCP-04 | The caller derives the A2A session key. Python, Go, Rust and WASM expose ML-KEM-768 as a primitive; the TypeScript KEM providers are internal |
-| ML-DSA-87 is not implemented | The identifier is reserved in the key schema; no SDK can use it, and the simulated HSM pattern that lists it is not an implementation |
+| ML-DSA-87 is not implemented | The identifier is reserved in the key schema; no SDK can use it (the simulated HSM pattern that listed it was not an implementation and was removed on 06/11/2026) |
 | The reference server's DCP-05–09 endpoints have no authentication and do not verify signatures | Do not expose them to untrusted clients ([OPERATOR_GUIDE.md](OPERATOR_GUIDE.md#dcp-0509-service-endpoints)) |
 
 The following limitations that appeared in earlier drafts have been **closed**:

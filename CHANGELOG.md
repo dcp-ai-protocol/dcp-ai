@@ -73,6 +73,14 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Security
 
+- **Simulated HSM provider removed** (source on `main`, not in a published version). `HsmCryptoProvider` and
+  `HsmProviderFactory` (`sdks/typescript/src/providers/hsm-provider.ts`) had no hardware backend: `initialize()`
+  reported an authenticated session without loading anything, and `verify` accepted any signature of the right
+  length. They were not exported from the package entry point or registered; code that imported the file directly
+  no longer can, and the public API of `@dcp-ai/sdk` does not change. `dcp audit gaps` counted Gap #11 closed
+  because the file existed; it now reports it as open whatever files exist. The reference server's
+  `/.well-known/dcp-capabilities.json` advertises `hsm_provider: false`.
+
 - **Transparency log: split views are told apart from independent logs** (source on `main`, not in a
   published version; `services/transparency-log/`). Gossip compared every pinned peer's tree head with
   the local tree, so two independent logs that pin each other alerted as soon as they had the same size

@@ -4,7 +4,7 @@
 
 # Declaração de conformidade do DCP-AI com a criptografia pós-quântica do NIST
 
-> Tradução informativa da [versão em inglês](../../../docs/NIST_CONFORMITY.md), atualizada em 05/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../docs/NIST_CONFORMITY.md), atualizada em 06/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 **Versão da especificação:** 2.0
 **Última atualização:** 25/10/2026
@@ -104,7 +104,7 @@ O DCP-AI usa ML-DSA-65 como algoritmo principal de assinatura pós-quântica em 
 
 ML-DSA-87 está reservado para uso futuro de alta garantia. `ml-dsa-87` é um valor aceito de `alg` no schema de chaves, e os tamanhos abaixo são os da FIPS 204, mas nenhum SDK consegue gerar chaves, assinar ou verificar com ele, e a CLI de referência se recusa a gerar suas chaves.
 
-O código-fonte do SDK TypeScript contém `HsmCryptoProvider` (`sdks/typescript/src/providers/hsm-provider.ts`), que lista `ml-dsa-87`. É um **padrão simulado**, não uma integração com HSM: não é exportado nem registrado, não tem vínculo PKCS#11, gera «chaves públicas» aleatórias, produz um hash onde deveria haver uma assinatura e seu `verify` aceita qualquer assinatura com o comprimento certo. Não deve ser usado para assinar nem para verificar evidência real.
+Até 06/11/2026, o código-fonte do SDK TypeScript continha `HsmCryptoProvider` (`sdks/typescript/src/providers/hsm-provider.ts`), que listava `ml-dsa-87`. Era um **padrão simulado**, não uma integração com HSM: não era exportado pelo ponto de entrada do pacote nem registrado, não tinha vínculo PKCS#11, gerava «chaves públicas» aleatórias, produzia um hash onde deveria haver uma assinatura e seu `verify` aceitava qualquer assinatura com o comprimento certo. Foi removido em 06/11/2026, então o código que importava esse arquivo diretamente não consegue mais; a API pública de `@dcp-ai/sdk` não muda. Nenhum SDK tem um provedor HSM.
 
 | Parâmetro | Valor da FIPS 204 | Valor do DCP-AI | Notas |
 |-----------|---------------|-------------|-------|
@@ -467,7 +467,7 @@ O DCP-AI se alinha às diretrizes de transição publicadas pelo NIST para a cri
 | Planejar a obsolescência de algoritmos | Avisos assinados pela governança com resposta automática |
 | Proteger dados de longa duração | Trilhas de auditoria encadeadas por hash; as cadeias de hash duplo são produzidas, e os verificadores V2 desde `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1 e Rust `dcp-ai` 2.11.1 verificam os campos secundários presentes (as versões anteriores não) ([STORAGE_AND_ANCHORING.md](../../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)) |
 | Usar construções híbridas durante a transição | Vinculação composta `pq_over_classical` |
-| Módulos de segurança de hardware para guardar as chaves | Não implementado: não há integração com HSM/TPM; o `HsmCryptoProvider` do código-fonte é uma simulação (§2.2) |
+| Módulos de segurança de hardware para guardar as chaves | Não implementado: não há integração com HSM/TPM; o `HsmCryptoProvider` simulado foi removido do código-fonte em 06/11/2026 (§2.2) |
 | Testar a interoperabilidade | Validação KAT entre SDKs, suíte de testes de conformidade |
 
 ---

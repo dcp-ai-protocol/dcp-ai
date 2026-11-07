@@ -5,7 +5,7 @@
 
 # Arquitetura técnica — DCP em escala global
 
-> Tradução informativa da [versão em inglês](../../../docs/TECHNICAL_ARCHITECTURE.md), atualizada em 25/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../docs/TECHNICAL_ARCHITECTURE.md), atualizada em 06/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Este documento é a planta técnica para implantar o Digital Citizenship Protocol no mundo todo. Ele descreve as camadas, os componentes e as escolhas tecnológicas que permitem a qualquer governo, organização ou desenvolvedor adotar o protocolo sem depender de nenhuma autoridade central nem dos autores do protocolo.
 
@@ -314,7 +314,7 @@ AlgorithmRegistry
 └── Maps algorithm names → provider instances (runtime selection)
 ```
 
-Os provedores são registrados na inicialização via `registerDefaultProviders()`. Provedores personalizados implementam a mesma interface. Um provedor real apoiado em HSM seria um deles; o repositório não tem nenhum. O `HsmCryptoProvider` do código-fonte TypeScript é um padrão simulado, não exportado e não utilizável para evidência real ([NIST_CONFORMITY.md](../../../docs/NIST_CONFORMITY.md) §2.2).
+Os provedores são registrados na inicialização via `registerDefaultProviders()`. Provedores personalizados implementam a mesma interface. Um provedor real apoiado em HSM seria um deles; o repositório não tem nenhum. O `HsmCryptoProvider` simulado que o código-fonte TypeScript continha até 06/11/2026 foi removido ([NIST_CONFORMITY.md](../../../docs/NIST_CONFORMITY.md) §2.2).
 
 <a id="a2a-infrastructure-dcp-04"></a>
 

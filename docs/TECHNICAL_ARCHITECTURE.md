@@ -265,7 +265,7 @@ AlgorithmRegistry
 └── Maps algorithm names → provider instances (runtime selection)
 ```
 
-Providers are registered at startup via `registerDefaultProviders()`. Custom providers implement the same interface. A real HSM-backed provider would be one of them; the repository has none. The `HsmCryptoProvider` in the TypeScript source is a simulated pattern, not exported and not usable for real evidence ([NIST_CONFORMITY.md](NIST_CONFORMITY.md) §2.2).
+Providers are registered at startup via `registerDefaultProviders()`. Custom providers implement the same interface. A real HSM-backed provider would be one of them; the repository has none. The simulated `HsmCryptoProvider` that the TypeScript source contained until 06/11/2026 was removed ([NIST_CONFORMITY.md](NIST_CONFORMITY.md) §2.2).
 
 ### A2A Infrastructure (DCP-04)
 

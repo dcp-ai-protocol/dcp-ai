@@ -22,7 +22,7 @@ Default port: `3000`. Override with `PORT=4000 node server/index.js`. Set `OPERA
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/` , `/health` | Health check — `{ ok, service, supported_versions, registered_agents, registered_keys }` |
-| GET | `/.well-known/dcp-capabilities.json` | Protocol capability discovery (algorithms, features, wire formats). What the server advertises, not checked guarantees: it lists `hsm_provider: true` and `application/cbor`, but there is no HSM and bodies are read as JSON only |
+| GET | `/.well-known/dcp-capabilities.json` | Protocol capability discovery (algorithms, features, wire formats). What the server advertises, not checked guarantees: it lists `application/cbor`, but bodies are read as JSON only; `hsm_provider` is `false`, since there is no HSM |
 | POST | `/verify` | Verify a signed bundle (auto-detects V1 or V2; V2 is checked against `VERIFIER_POLICY`) |
 | POST | `/v2/admit` | Admission against the operator's trusted principals, and strict-v1 when configured (`docs/ADMISSION.md`). Reads only `signed_bundle` from the body. 501 when not configured |
 | POST | `/anchor` | Stub — returns 501 (implement per operator) |

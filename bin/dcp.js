@@ -178,7 +178,7 @@ Usage:
     dcp governance ceremony --threshold <M> --parties <N> [out_dir]   Governance key ceremony
     dcp governance sign-advisory <advisory.json> --key-dir <dir>      Sign advisory as governance
     dcp governance verify-advisory <advisory.json> --keys <gov_keys>  Verify governance sigs
-    dcp audit gaps                                        Verify all 13 gaps are closed
+    dcp audit gaps                                        File checks for the 13 v2.0 gaps (Gap #11 stays open)
 `);
 }
 
@@ -1355,7 +1355,8 @@ if (cmd === "audit" && args[1] === "gaps") {
     { id: 8,  name: "gRPC/Protobuf V2 Messages", file: "api/proto/dcp.proto" },
     { id: 9,  name: "CLI V2 Commands", file: "bin/dcp.js" },
     { id: 10, name: "NIST KAT Validation", file: "sdks/typescript/src/providers/ml-dsa-65.ts" },
-    { id: 11, name: "Secure Memory / HSM Provider", file: "sdks/typescript/src/providers/hsm-provider.ts" },
+    // No file can close this one: the repository has no HSM backend.
+    { id: 11, name: "Secure Memory / HSM Provider", open: "no HSM backend in this repository" },
     { id: 12, name: "Version & Capability Negotiation", file: "server/index.js" },
     { id: 13, name: "Emergency Revocation (Panic Button)", file: "sdks/typescript/src/core/emergency-revocation.ts" },
   ];
@@ -1363,6 +1364,12 @@ if (cmd === "audit" && args[1] === "gaps") {
   let allClosed = true;
 
   for (const gap of gaps) {
+    if (gap.open) {
+      console.log(`  ❌ Gap #${String(gap.id).padStart(2, " ")}: ${gap.name}`);
+      console.log(`     Open: ${gap.open}`);
+      allClosed = false;
+      continue;
+    }
     const filePath = path.join(process.cwd(), gap.file);
     const exists = existsConfined(filePath);
 
@@ -1383,7 +1390,6 @@ if (cmd === "audit" && args[1] === "gaps") {
 
   const phase3Files = [
     { name: "pq_only verifier mode", file: "sdks/typescript/src/core/verify-v2.ts", marker: "pq_only" },
-    { name: "HsmCryptoProvider", file: "sdks/typescript/src/providers/hsm-provider.ts", marker: "HsmCryptoProvider" },
     { name: "Governance ceremony", file: "sdks/typescript/src/core/governance.ts", marker: "executeGovernanceCeremony" },
     { name: "Advisory auto-response", file: "sdks/typescript/src/core/algorithm-advisory.ts", marker: "autoApplyAdvisoriesToPolicy" },
     { name: "Key rotation ceremony CLI", file: "bin/dcp.js", marker: "Key Rotation Ceremony" },

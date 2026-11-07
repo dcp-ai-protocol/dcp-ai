@@ -4,7 +4,7 @@
 
 # DCP 参考网关
 
-> 本文是[英文版](../../../server/README.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../server/README.md)的参考译文，更新于 06/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 实现 Digital Citizenship Protocol 的 V1、V2 和第 3 阶段（PQ 优先）的 HTTP 验证服务。**内存存储**：不需要外部数据库，重启后什么都不会保留（参见[持久化](#persistence)）。设计为可由任何第三方运行；协议不需要中央服务器。
 
@@ -34,7 +34,7 @@ node server/index.js
 | 方法 | 路径 | 说明 |
 |--------|------|-------------|
 | GET | `/` , `/health` | 健康检查：`{ ok, service, supported_versions, registered_agents, registered_keys }` |
-| GET | `/.well-known/dcp-capabilities.json` | 协议能力发现（算法、功能、线上格式）。这是服务器声明的内容，并非经过检查的保证：它列出了 `hsm_provider: true` 和 `application/cbor`，但并没有 HSM，请求体也只按 JSON 读取 |
+| GET | `/.well-known/dcp-capabilities.json` | 协议能力发现（算法、功能、线上格式）。这是服务器声明的内容，并非经过检查的保证：它列出了 `application/cbor`，但请求体只按 JSON 读取；由于没有 HSM，`hsm_provider` 为 `false` |
 | POST | `/verify` | 验证已签名的 bundle（自动识别 V1 或 V2；V2 按 `VERIFIER_POLICY` 检查） |
 | POST | `/v2/admit` | 依据运营方信任的委托人进行准入，配置后还会执行 strict-v1（`docs/ADMISSION.md`）。只读取请求体中的 `signed_bundle`。未配置时返回 501 |
 | POST | `/anchor` | 桩实现：返回 501（由各运营方实现） |

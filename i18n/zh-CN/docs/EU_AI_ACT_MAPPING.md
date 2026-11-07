@@ -5,7 +5,7 @@
 
 # DCP-AI 与欧盟《人工智能法》— 日志记录、人工监督和记录保存义务的对应
 
-> 本文是[英文版](../../../docs/EU_AI_ACT_MAPPING.md)的参考译文，更新于 05/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/EU_AI_ACT_MAPPING.md)的参考译文，更新于 06/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 **规范版本：** 2.0
 **最后更新：** 2026 年 10 月
@@ -252,7 +252,7 @@ DCP-AI 规范用“human”和“principal”称呼由 RPR 绑定的人。本文
 
 ### 5.4 密钥保管与验证器策略
 
-- [ ] 私钥按 [SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md) 的等级要求（“Private Key Storage”）存放：`elevated` 应当（SHOULD）使用 HSM 或 TPM，`maximum` 必须（MUST）使用。本仓库不提供 HSM 或 TPM 集成（TypeScript 代码中的 `HsmCryptoProvider` 是模拟实现），因此这种保管来自组织自己的基础设施。
+- [ ] 私钥按 [SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md) 的等级要求（“Private Key Storage”）存放：`elevated` 应当（SHOULD）使用 HSM 或 TPM，`maximum` 必须（MUST）使用。本仓库不提供 HSM 或 TPM 集成（模拟的 `HsmCryptoProvider` 已于2026 年 11 月 6 日从 TypeScript 代码中移除），因此这种保管来自组织自己的基础设施。
 - [ ] 验证器策略（`VerifierPolicy`、`VERIFIER_MODE`）至少使用 `hybrid_preferred`，`risk_overrides` 永远不低于等级对应的模式；迁移完成后设置 `ALLOW_V1_BUNDLES=false`。
 - [ ] 运营方端点用 `OPERATOR_TOKEN` 锁定；只有在会追加客户端 IP 的代理之后才设置 `TRUST_PROXY`。
 - [ ] 参考网关的 DCP-05–09 端点不受 `OPERATOR_TOKEN` 保护，也不验证签名，因此不向不受信任的客户端开放（[OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)）；它们保存的记录不被当作已验证的证据。

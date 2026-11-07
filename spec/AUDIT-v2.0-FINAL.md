@@ -7,12 +7,12 @@
 
 > **Historical record, kept as written.** This is an internal review by the project's governance, dated 26/02/2026: it is not an independent external audit and not a current guarantee. Later reviews (October and November 2026) qualify some of its conclusions; the current state is in the documents linked here and in the [audit dossier](../docs/conformance/AUDIT_DOSSIER.md), not in this record:
 >
-> - **Gap #11 and the HSM reference implementation.** `HsmCryptoProvider` and `HsmProviderFactory` are a simulated pattern, not an HSM integration. They are not exported from `@dcp-ai/sdk` and have no PKCS#11 binding; `sign` returns a hash rather than a signature, and `verify` accepts any signature of the right length. They must not be used for real evidence ([docs/NIST_CONFORMITY.md](../docs/NIST_CONFORMITY.md) §2.2).
+> - **Gap #11 and the HSM reference implementation.** `HsmCryptoProvider` and `HsmProviderFactory` were a simulated pattern, not an HSM integration. They were not exported from `@dcp-ai/sdk` and had no PKCS#11 binding; `sign` returned a hash rather than a signature, and `verify` accepted any signature of the right length. They were removed from the source on 06/11/2026: the repository has no HSM provider, and Gap #11 is not closed ([docs/NIST_CONFORMITY.md](../docs/NIST_CONFORMITY.md) §2.2).
 > - **Gap #1.** The SDK's key recovery and `dcp recovery-setup` produce the Shamir shares but do not encrypt them with the hybrid KEM.
 > - **Gap #4.** The reference server checks the structure of an advisory's `composite_sig`, not its signature; the operator token is its guard ([server/README.md](../server/README.md)).
 > - **PQ-only mode.** `pq_only` still needs the classical signature bytes in the SDK verifiers: the PQ signature covers them under `pq_over_classical`, so it does not mean the classical component can be left out.
 > - **Gap #6.** Since 28/10/2026 the published verifiers (`@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1, Go v2.11.1, Rust `dcp-ai` 2.11.1) check `prev_hash_secondary`, `intent_hash_secondary` and `audit_merkle_root_secondary` when they are present ([VERIFICATION.md](VERIFICATION.md), V2-11 and its erratum); earlier versions do not. These optional fields are not required, so a verified bundle may still lack a complete secondary chain.
-> - **`dcp audit gaps`** checks that files exist and contain markers, not behaviour. On 25/10/2026 it reports Gap #7 as open, because it looks for `integrations/fastapi/__init__.py`, which is now `sdks/python/dcp_ai/fastapi/__init__.py`.
+> - **`dcp audit gaps`** checks that files exist and contain markers, not behaviour. On 25/10/2026 it reports Gap #7 as open, because it looks for `integrations/fastapi/__init__.py`, which is now `sdks/python/dcp_ai/fastapi/__init__.py`. Since 06/11/2026 it reports Gap #11 as open whatever files exist, so it no longer prints that all 13 gaps are closed.
 
 ---
 
