@@ -4,7 +4,7 @@
 
 # 变更日志
 
-> 本文是[英文版](../../CHANGELOG.md)的参考译文，更新于 06/11/2026。每个条目（包括 `[Unreleased]` 下的条目）描述的是当时所作的变更，并不保证当前行为；已发布的各版本是**带日期的历史记录**。如有出入，以英文版为准。
+> 本文是[英文版](../../CHANGELOG.md)的参考译文，更新于 07/11/2026。每个条目（包括 `[Unreleased]` 下的条目）描述的是当时所作的变更，并不保证当前行为；已发布的各版本是**带日期的历史记录**。如有出入，以英文版为准。
 
 **已发布版本（2026 年 10 月 26 日）。** npm（13 个软件包，包括 `@dcp-ai/sdk` 2.2.0）、Python `dcp-ai` 2.10.0、Go `v2.11.0` 和 Rust `dcp-ai` 2.11.0 均已发布，包含验证器修复、准入功能和实验性的选择启用 API；`dcp-jcs-v1` 仍是规范性默认值。见[已发布版本](../../docs/README.md#published-versions)。以下条目保留开发历史；`[Unreleased]` 不表示这些功能尚未发布。2026 年 10 月 28 日的六个修复版本见[单独的章节](#2026-10-28-sha3-patch-releases)。05/11/2026 的五个版本见[其单独的章节](#2026-11-05-auditable-releases)。
 
@@ -284,6 +284,14 @@
 <a id="added"></a>
 
 ### 新增
+
+- **实际生效策略目录（契约 `/5`，选择性启用）**（`main` 上的测试套件和测试，不是软件包发布；`tools/conformance/`）。
+  `external-effective-policy-catalog.json` 按判定结果，以及各实现的验证器在同一次验证中解析出的验证模式和安全等级，
+  判定 130 次已签名 bundle 的验证：112 个用例要求这两个值；在未通过 V2-2 的 14 个 bundle 和更早的 4 个拒绝中，这些值
+  可以缺失，报告的值必须已知且一致。`tests/interop/v2/effective_policy_vectors.json` 增加 17 个用已提交的 TEST-ONLY
+  密钥签名的用例：每种请求模式下 elevated 和 maximum 的正向用例、`risk_score` 边界、`security_tier` 下限，以及替换默认值
+  的护照覆盖。五个封装程序用各自 SDK 的结果字段应答 `/5`；`/1` 到 `/4`、它们的目录、各 SDK 及其 API 都不变。CI 通过
+  五个封装程序运行自测和目录。
 
 - ML-DSA-65 验证向量（`tests/nist-kat/ml-dsa-65/`），开发于 05/11/2026；仅涉及测试、CI 和文档，SDK 代码、API、清单和锁文件没有变化。现有的 ML-DSA-65 属性测试不变。
   - 204 个上下文为空的用例通过 TypeScript、Python、Go 和 Rust SDK 的真实提供程序运行，并通过编译为 wasm32 的 Rust 提供程序运行（CI 中为 Node，本地为浏览器）：NIST ACVP sigVer tc39（测试组 3，ML-DSA-65，外部接口，pure 模式，提交 `a7f283cd`）和 203 个 C2SP Wycheproof 用例（提交 `20b25694`，Apache-2.0，不是 NIST 来源）；77 个有效、127 个无效。会检查每个文件的 SHA-256。

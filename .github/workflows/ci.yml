@@ -374,6 +374,19 @@ jobs:
           node tools/conformance-external.js --catalog tools/conformance/external-policy-catalog.json --assessment verdict --report policy-rust.json -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
           node tools/conformance-external.js --catalog tools/conformance/external-policy-catalog.json --assessment verdict --report policy-wasm.json -- node tools/conformance/wrappers/wasm.mjs
 
+      # Contract /5: the verdict and the verification mode and security tier each SDK resolved in that same verification.
+      - name: Effective-policy corpus, judge, transport and wrapper self-tests (every wrapper required)
+        run: DCP_EXTERNAL_PYTHON="$(command -v python)" DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-effective-policy.test.mjs
+
+      - name: Effective-policy catalog (130 cases per SDK, five wrappers required)
+        run: |
+          node tools/conformance/effective-policy-catalog.mjs --check
+          node tools/conformance-external.js --catalog tools/conformance/external-effective-policy-catalog.json --report effective-ts.json -- node tools/conformance/wrappers/ts-sdk.mjs --sdk sdks/typescript/dist/index.js
+          node tools/conformance-external.js --catalog tools/conformance/external-effective-policy-catalog.json --report effective-python.json -- python -I tools/conformance/wrappers/python_sdk.py
+          node tools/conformance-external.js --catalog tools/conformance/external-effective-policy-catalog.json --report effective-go.json -- tools/conformance/wrappers/.build/go-wrapper
+          node tools/conformance-external.js --catalog tools/conformance/external-effective-policy-catalog.json --report effective-rust.json -- tools/conformance/wrappers/.build/rust-target/debug/dcp-ai-conformance-wrapper
+          node tools/conformance-external.js --catalog tools/conformance/external-effective-policy-catalog.json --report effective-wasm.json -- node tools/conformance/wrappers/wasm.mjs
+
       - name: Opt-in structural corpus and runner self-tests
         run: node --test tools/conformance/external-structural.test.mjs
 

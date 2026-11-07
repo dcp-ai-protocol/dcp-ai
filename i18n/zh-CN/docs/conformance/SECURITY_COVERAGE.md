@@ -4,7 +4,7 @@
 
 # 安全保证与一致性测试覆盖
 
-> 本文是[英文版本](../../../../docs/conformance/SECURITY_COVERAGE.md)的参考译文，更新于 05/11/2026。如有差异，以英文版本为准。标识符、命令和代码块保持原文。
+> 本文是[英文版本](../../../../docs/conformance/SECURITY_COVERAGE.md)的参考译文，更新于 07/11/2026。如有差异，以英文版本为准。标识符、命令和代码块保持原文。
 
 本文提供规范性要求与仓库可执行测试之间的信息性映射。它不是新配置文件、认证、已测试所有输入的声明，也不是某个部署通过测试的证据。测试结果仅适用于该次运行记录的准确实现、输入、策略、验证时间和工具版本。
 
@@ -35,6 +35,7 @@
 - **外部证据：** 契约 `/2` 测试 Merkle 根、复合签名和 V2 bundle 验证。仓库提供 TypeScript、Python、Go、Rust 和 WASM 封装程序。
 - **外部准入：** 契约 `/3` 测试组合准入与配置加载。仓库提供 TypeScript、Python、Go 和 Rust 封装程序；WASM 没有准入 API。
 - **外部委托：** 契约 `/4` 测试 DCP-09 §3.5.2 委托书链的判定结果。仓库提供 TypeScript、Python、Go 和 Rust 封装程序；WASM 没有委托书链 API。
+- **外部实际生效策略：** 契约 `/5`（选择性启用）测试 V2 bundle 验证，以及验证器在同一次验证中解析出的验证模式和安全等级。仓库提供 TypeScript、Python、Go、Rust 和 WASM 封装程序。
 - **SDK 与适配器测试套件：** 它们是独立测试，具有自己的入口和范围。出现在套件清单中的条目，不等于该套件执行了相应测试。
 
 编号契约是运行器接口，不是 DCP 协议版本。封装程序身份由其自行声明。五个封装程序不代表五个独立外部采用者：WASM 与 Rust 共享代码，且这些封装程序都属于本仓库。
@@ -57,7 +58,7 @@
 | V2-6：责任主体签署清单 | R `bundle_signed_by_agent_keys`; 参考 `v2.signed_bundle.forged_classical_signature_rejected` | 角色绑定与签名样例；不建立对自行声明的责任主体的信任 |
 | V2-7：验证存在的 PQ 签名 | M `bundle_pq_signature_invalid`, `bundle_pq_slot_holds_ed25519` | 历史证据目录在所选策略下测试；声明覆盖全部实际生效模式需要相应对照 |
 | V2-8：依据上下文与签名者角色验证每项证据 | M `rpr_classical_signature_invalid`, `intent_signed_by_principal`, `policy_decision_signed_under_intent_context` | 证据对象与角色样例；未覆盖组件、上下文和密钥的所有组合 |
-| V2-9：推导等级，且声明不能降低它 | R `classical_only_intent_action_type_constructor`, `classical_only_intent_security_tier_constructor` | 判定样例；外部 bundle 操作不评估报告的已解析等级 |
+| V2-9：推导等级，且声明不能降低它 | R `classical_only_intent_action_type_constructor`, `classical_only_intent_security_tier_constructor` | 判定样例；`/2` 的 bundle 操作不评估报告的已解析等级；`/5` 的实际生效策略目录会评估 |
 | V2-10：执行实际生效模式与算法策略 | R `classical_only_payment_from_low_risk_passport`; 四种模式下的 `classical_only_routine` | 模式样例；历史证据目录没有专门的算法允许列表及安全通告矩阵 |
 | V2-11：验证存在的次级字段 | 来自[次级向量](../../../../tests/interop/v2/secondary_sha3_vectors.json)的 `external.v2.secondary_sha3` | 正向对照及畸形或不匹配字段；缺失的链接可选，因此接受不意味着存在完整次级链 |
 | V2-12：绑定并验证检查点 | A `pq_checkpoint_over_the_trail`; R `pq_checkpoint_listed_but_missing`, `pq_checkpoint_event_range_count_wrong`, `pq_checkpoint_pq_signature_invalid` | 成员关系、范围及签名样例；未覆盖所有畸形范围或组件组合 |
@@ -92,7 +93,7 @@ V2-2 要求模式校验。自 `@dcp-ai/sdk` 2.3.0、`@dcp-ai/wasm` 2.1.3、`dcp-
 
 显式选择的[策略目录](../../../../tools/conformance/external-policy-catalog.json) 2.0 版通过现有 `/2` 契约在两个套件中增加 108 个用例。第一个套件保留 1.1 版的 74 个用例：10 个正向对照、24 个存在但无效的 PQ 签名用例、14 个算法列表及安全通告用例，以及 26 个已纳入版本控制的等级用例。第二个运行 V2-10 澄清（见下文）的 34 个用例。每个请求携带准确的策略和验证时刻。默认的证据目录保持不变，1.1 版按字节原样存档为 [`external-policy-catalog-1.1.json`](../../../../tools/conformance/external-policy-catalog-1.1.json)。
 
-新的 routine 等级混合签名对照测试实际生效的 `classical_only` 及其他三种模式。standard 等级混合签名对照会将请求的 `classical_only` 提升为 `hybrid_preferred`。语料记录此推导；`/2` 评估判定，不比较实现报告的等级或实际生效模式。
+新的 routine 等级混合签名对照测试实际生效的 `classical_only` 及其他三种模式。standard 等级混合签名对照会将请求的 `classical_only` 提升为 `hybrid_preferred`。语料记录此推导；`/2` 评估判定，不比较实现报告的等级或实际生效模式。选择性启用的实际生效策略目录（见下文）通过契约 `/5` 评估它们。
 
 PQ 负向用例仅修改 bundle、护照或检查点中的 PQ 签名，经典签名仍然有效。算法列表用例保持相同 bundle，仅改变策略。等级用例复用分别签名的已版本控制 bundle，并在相同请求模式下使用 routine 对照；它们不是仅有一个变化的配对。每个负向用例都要求其正向对照在同次运行中通过。
 
@@ -113,6 +114,12 @@ PQ 负向用例仅修改 bundle、护照或检查点中的 PQ 签名，经典签
 4个编码案例保留解码后的签名字节。检查点范围使用审计序列中的实际位置，标识符有意不排序。修改后的清单会重新签名。时间顺序颠倒的会话有一个独立的正向对照，位于允许的时钟偏差内。每个负向案例都要求其对照在同一次运行中通过。
 
 缺陷隔离有明确限制：小数没有 `dcp-jcs-v1` 表示，因此原有哈希和签名不再对应修改后的内容；逆向范围也不存在该范围的有效根。组件检查记录预期缺陷，但不能确定SDK中的哪项检查导致了拒绝。这些是结构样例：模式校验（V2-2）有自己的目录，自 05/11/2026 的版本起在 SDK 验证器内部运行，更早的版本中则不运行。这些样例不证明完全符合规范。
+
+<a id="effective-mode-and-tier"></a>
+
+### 实际生效的模式与等级
+
+选择性启用的[实际生效策略目录](../../../../tools/conformance/external-effective-policy-catalog.json)通过契约 `/5` 运行 130 个用例：判定结果，以及实现的验证器在同一次验证中解析出的验证模式和安全等级，按返回的原样使用，测试套件从不重新计算。112 个用例要求这两个值：bundle 通过 V2-2 的 94 个验证器策略和澄清用例，17 个已签名用例（在每种请求模式下增加 elevated 和 maximum 等级的有效正向用例、`risk_score` 边界、显式和声明的 `security_tier` 下限，以及替换默认值的护照覆盖），以及一个对照。在 bundle 未通过 V2-2 的 14 个用例和更早的 4 个拒绝中，这些值可以缺失；报告的值仍必须已知且一致。各 SDK 在先前失败后是否解析这些值上有所不同，两种行为都允许。受控实现表明，判定会让报告请求模式或默认模式、仅等级下限、声明的等级或策略决定的 `resolved_tier` 的封装程序失败。DCP-09 链的下限、`@dcp-ai/wasm` 的 JavaScript API 和浏览器不在覆盖范围内，通过只证明这些用例。
 
 <a id="admission-map"></a>
 

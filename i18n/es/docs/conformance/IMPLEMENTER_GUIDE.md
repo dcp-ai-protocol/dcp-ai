@@ -4,7 +4,7 @@
 
 # Guía de implementación y revisión independientes
 
-> Traducción informativa de [la versión en inglés](../../../../docs/conformance/IMPLEMENTER_GUIDE.md), actualizada el 05/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../../docs/conformance/IMPLEMENTER_GUIDE.md), actualizada el 07/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 DCP es un protocolo que se puede implementar de forma independiente. Esta guía prepara a implementadores y revisores para evaluar la misma evidencia sin adoptar las aplicaciones ni los servicios del repositorio. No constituye una auditoría, certificación ni recomendación.
 
@@ -68,6 +68,8 @@ La solicitud contiene IDs de casos y entradas de operaciones, no resultados espe
 El [contrato del kit](../../tools/conformance/README.md) define las reglas exactas de codificación, los límites, los códigos de salida y la estructura del informe. No deduzcas un protocolo de intercambio nuevo a partir de esta guía.
 
 Para el diagnóstico explícito de esquemas, sustituye `--catalog evidence` en el comando de evidencia por `--catalog tools/conformance/external-schema-catalog.json`. Usa el mismo contrato `/2` y conserva los fallos normativos como fallos; está separado del catálogo de evidencia predeterminado. Consulta el mapa de cobertura antes de interpretar el resultado de una API SDK aislada.
+
+Para el catálogo opt-in de política efectiva, usa `--catalog tools/conformance/external-effective-policy-catalog.json`. Selecciona el contrato `/5`: la verificación de bundles de `/2`, cuyo resultado `ok` informa además, como `effective`, el modo de verificación y el tier de seguridad que tu verificador resolvió en esa misma verificación. Informa los valores que expone tu verificador, tal como son; no los calcules para la respuesta. El [README del kit](../../tools/conformance/README.md#effective-policy-catalog-contract-5-opt-in) da el formato exacto y el criterio de juicio.
 
 <a id="inspect-a-generated-report"></a>
 

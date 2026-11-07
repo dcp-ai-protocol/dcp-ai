@@ -4,7 +4,7 @@
 
 # 独立实现与审查指南
 
-> 本文是[英文版本](../../../../docs/conformance/IMPLEMENTER_GUIDE.md)的参考译文，更新于 05/11/2026。如有差异，以英文版本为准。标识符、命令和代码块保持原文。
+> 本文是[英文版本](../../../../docs/conformance/IMPLEMENTER_GUIDE.md)的参考译文，更新于 07/11/2026。如有差异，以英文版本为准。标识符、命令和代码块保持原文。
 
 DCP 是可以独立实现的协议。本指南帮助实现者和审查者在不采用本仓库应用或服务的情况下评估同一份证据。它不构成审计、认证或背书。
 
@@ -68,6 +68,8 @@ node tools/conformance-external.js --catalog delegation --report /tmp/dcp-delega
 [套件契约](../../tools/conformance/README.md)规定了准确的编码规则、限制、退出码和报告结构。不要从本指南推导出新的传输协议。
 
 如需明确选择模式诊断，将证据命令中的 `--catalog evidence` 替换为 `--catalog tools/conformance/external-schema-catalog.json`。它使用相同的 `/2` 契约，并将规范性失败保持为失败；它独立于默认的证据目录。解读单独 SDK API 的结果前，请查阅覆盖映射。
+
+对于选择性启用的实际生效策略目录，使用 `--catalog tools/conformance/external-effective-policy-catalog.json`。它选择契约 `/5`：`/2` 的 bundle 验证，其 `ok` 结果还以 `effective` 报告你的验证器在同一次验证中解析出的验证模式和安全等级。按原样报告你的验证器公开的值；不要为了应答而计算它们。[测试套件 README](../../tools/conformance/README.md#effective-policy-catalog-contract-5-opt-in) 给出确切的格式和判定方式。
 
 <a id="inspect-a-generated-report"></a>
 

@@ -4,7 +4,7 @@
 
 # DCP-AI 適合性キット
 
-> [英語版](../../../../tools/conformance/README.md)の参考訳です（05/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../../tools/conformance/README.md)の参考訳です（07/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 `tools/conformance.js` は、[`catalog.json`](../../../../tools/conformance/catalog.json) で宣言されたスイートを、リポジトリにコミット済みの
 フィクスチャとベクターに対して実行します。カタログはバージョン管理され（`kit_version`）、スイートごとに
@@ -397,7 +397,7 @@ node tools/conformance-external.js --catalog tools/conformance/external-policy-c
 node --test tools/conformance/external-policy.test.mjs
 ```
 
-routine のハイブリッド肯定例は実効 `classical_only` に到達しますが、standard の肯定例はその要求を `hybrid_preferred` に引き上げます。記録されたティア・モードの導出は説明であり、結果フィールドの評価ではありません。ティアケースは別々に署名された既存 bundle を使い、単一変更の対ではありません。明確化のケースは 2 つの routine の基礎を使うため、要求したモードがそのまま実効モードになります。その Q2 の変種は、コミット済みの TEST-ONLY 鍵で PQ の構成要素だけを署名し直します。自己テストはカタログ 1.1 を元の不変条件で実行し、Q1、Q2、Q3 を誤って読む偽の実装も実行します。`pq_only` での古典のリスト、`pq_only` で拒否される無効な古典の構成要素、PQ のない bundle への PQ のリスト、モードの無視です。それぞれがちょうど自分のケースで失敗します。CI はコーパスとランナーの自己テスト、および 5 SDK ラッパーを通じたカタログ検査を実行します。合格が示すのはこれらのケースだけです。
+routine のハイブリッド肯定例は実効 `classical_only` に到達しますが、standard の肯定例はその要求を `hybrid_preferred` に引き上げます。記録されたティア・モードの導出は説明であり、結果フィールドの評価ではありません。[実効ポリシーのカタログ](#effective-policy-catalog-contract-5-opt-in)は、契約 `/5` でそれらを評価します。ティアケースは別々に署名された既存 bundle を使い、単一変更の対ではありません。明確化のケースは 2 つの routine の基礎を使うため、要求したモードがそのまま実効モードになります。その Q2 の変種は、コミット済みの TEST-ONLY 鍵で PQ の構成要素だけを署名し直します。自己テストはカタログ 1.1 を元の不変条件で実行し、Q1、Q2、Q3 を誤って読む偽の実装も実行します。`pq_only` での古典のリスト、`pq_only` で拒否される無効な古典の構成要素、PQ のない bundle への PQ のリスト、モードの無視です。それぞれがちょうど自分のケースで失敗します。CI はコーパスとランナーの自己テスト、および 5 SDK ラッパーを通じたカタログ検査を実行します。合格が示すのはこれらのケースだけです。
 
 <a id="structural-catalog-opt-in"></a>
 
@@ -412,6 +412,38 @@ node --test tools/conformance/external-structural.test.mjs
 ```
 
 評価対象は判定結果のみです。コーパスには署名の出所と分離の限界を記録しています。特に、小数を含むペイロードの古い証拠と、逆向きの範囲に有効なルートが存在しない点を明示しています。CIはコーパスとランナーの自己テスト、および5つのSDKラッパーを実行します。合格はこれらのケースとポリシーに限られ、V2の完全な適合性を示しません。
+
+<a id="effective-policy-catalog-contract-5-opt-in"></a>
+
+### 実効ポリシーのカタログ（契約 /5、オプトイン）
+
+[`external-effective-policy-catalog.json`](../../../../tools/conformance/external-effective-policy-catalog.json)（契約 `dcp-ai-conformance-external/5`、バージョン `2026-11-07.effective-policy-1.0`）は、署名済み bundle の検証を 130 件実行します。リクエストは `/2` の `verify_signed_bundle_v2` と同じで、これが唯一の操作です。`ok` の結果には `effective` が加わります。これは、実装の検証器が同じ検証の中で解決した検証モードとセキュリティティアで、それぞれ `{"exposed": false}` または `{"exposed": true, "value": <the JSON value as returned>}` です。`/1` から `/4` の契約、そのカタログとレポート、それらへのラッパーの応答は変わりません。
+
+`ok` の結果のキーはちょうど `id`、`status`、`verified`、`errors`、`effective` で、`effective` のキーはちょうど `verification_mode` と `resolved_tier` です。以下は TypeScript ラッパーの 2 つの結果で、カバレッジの肯定例と、何も解決される前に V2-2 で拒否された観察ケースです。
+
+```json
+{"id":"c1","status":"ok","verified":true,"errors":[],"effective":{"verification_mode":{"exposed":true,"value":"hybrid_required"},"resolved_tier":{"exposed":true,"value":"elevated"}}}
+{"id":"c2","status":"ok","verified":false,"errors":["schema: /bundle/agent_passport/payload/risk_tier enum"],"effective":{"verification_mode":{"exposed":false},"resolved_tier":{"exposed":false}}}
+```
+
+```bash
+node tools/conformance-external.js --catalog tools/conformance/external-effective-policy-catalog.json --list
+node tools/conformance-external.js --catalog tools/conformance/external-effective-policy-catalog.json --report /tmp/effective.json -- ./my-implementation
+DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-effective-policy.test.mjs
+```
+
+| スイート | ケース | 出典 |
+|-------|-------|--------|
+| `external.v2.effective.verifier_policy` | 74：必須 60、観察 14 | `verifier_policy_vectors.json` の `effective_mode` と `tier` |
+| `external.v2.effective.verifier_policy_clarification` | 必須 34 | `verifier_policy_clarification_vectors.json` の `effective_mode` と、その bundle の `tier` |
+| `external.v2.effective.coverage` | 必須 17 | `effective_policy_vectors.json`：要求した各モードでの elevated と maximum の肯定例、`risk_score` 200、500、799、800、明示した `security_tier` と宣言した `security_tier`、ティアの下限の前にデフォルトを置き換えるパスポートのオーバーライド（低いものと高いもの）、オーバーライドが定めるモードによる拒否 |
+| `external.v2.effective.pre_resolution` | 5：必須の対照 1、解決前 4 | `bundle_vectors.json`：署名済み bundle と、V2-1、V2-3、V2-4 で拒否されるその 4 つの変異 |
+
+- **判定：** 判定結果は `/2` と同じです（文言は評価しません）。必須ケースでは、さらに 2 つの値がどちらも解決済み、既知、整合的（`pq_only` を除き、ティアの下限より弱いモードはない）で、期待値と等しい必要があります。欠落、部分的、未知、不正な形式（文字列でも `null` でもない）、矛盾、誤りの値は、判定結果が正しくても失敗になります。解決済みの組がない `verified: true` は矛盾です。観察ケース（コミット済みのバイトで V2-2 に失敗する bundle）と解決前のケースでは、2 つの値が未解決のままでも構いません。欠落、`null`、`""` のいずれも、そのまま報告されます。報告された値は、それでも既知で整合的であり、観察ケースでは期待値と等しくなければなりません。不正な形式の `effective` エンベロープは `malformed_result` エラーです。対照は単純な肯定例で、同じ実行で合格する必要があります。
+- **期待値：** コミット済みのベクトルから取り、spec/DCP-AI-v2.0.md § 14.2・§ 14.3 と VERIFICATION.md V2-9 から手で書いたものです。パスポートの `risk_tier` に対するオーバーライドが `default_mode` を置き換え（低くてもよい）、その後ティアの下限がそれを引き上げます。キットは応答からモードやティアを計算しません。`effective_policy_vectors.json` はコミット済みの TEST-ONLY 鍵で署名されています。その ML-DSA-65 署名はヘッジ付きなので、再生成で異なるのはその署名だけで、コミット済みのファイルが成果物です。`node tools/conformance/effective-policy-catalog.mjs --check` はフィクスチャからカタログを再構築します。
+- **ラッパー：** 各ラッパーはケースごとに 1 回検証を呼び出し、その結果の 2 つのフィールドをコピーします。TypeScript と Python は `details` から（`details` が欠けている、またはオブジェクトでない場合はエラーであり、未解決の応答ではありません）、Go と Rust は結果の文字列フィールドから（常に公開され、未解決なら `""`）、WASM は `wasm_verify_signed_bundle_v2` が返す JSON のメンバーから（空のときは省略）コピーします。`/5` では、ほかの操作はすべて `unsupported` です。先行する失敗の後にモードとティアを解決するかどうかは SDK ごとに異なり、解決前のスイートはそれを判定せずに記録します。
+- **自己テスト：** `external-effective-policy.test.mjs` は、フィクスチャからカタログを再構築し、観察ケースをスキーマ検証と、カバレッジを独立した規則と照合し、欠落・余分・重複した ID、誤った解決区分、整合しない期待値、単純な肯定例でない対照をローダーが拒否することを確かめます。TypeScript ラッパーの実際の応答から作った偽の実装は、それぞれちょうど自分のケースで失敗します。欠落、`null`、`""`、部分的、未知、不正な形式、矛盾、誤りの値、エンベロープのエラー、そして要求したモード、デフォルトのモード、ティアの下限だけ、宣言した `security_tier`、`policy_decision.resolved_tier` を報告するラッパーです。転送のエラー、タイムアウト、古いレポートは、ランナーの `/5` のディスパッチを通ります。CI は自己テストとカタログを 5 つのラッパーで実行し、どれも必須です。
+- **限界：** 合格が示すのは、これらのポリシーでのこの 130 ケースだけで、V2 への完全な適合ではありません。拒否された bundle について報告されたモードやティアは診断であり、受け入れや認可ではありません。対象外：DCP-09 の委任チェーンによるティアの下限（チェーンを運ぶ bundle のフィールドはない）、`@dcp-ai/wasm` の JavaScript API（`DcpClient`）、ブラウザ。
 
 <a id="admission-catalog-strict-v1-admission"></a>
 

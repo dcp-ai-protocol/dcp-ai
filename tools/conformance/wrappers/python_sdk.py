@@ -10,7 +10,7 @@ canonicalize: strict UTF-8 decoding and ``json.loads`` with NaN/Infinity refused
 rejected/parse), then ONE call to ``canonicalize_v2``. Only the documented rejection (a ``TypeError``
 whose message starts "Non-integer number at" or "Non-finite number at"; the SDK has no stable error
 code) is reported as rejected/profile; any other exception is an error. digest: ``sha256_hex`` /
-``sha3_256_hex`` of the decoded bytes. Contracts /2, /3 and /4 (opt-in) are described where they are handled below.
+``sha3_256_hex`` of the decoded bytes. Contracts /2, /3, /4 and /5 (opt-in) are described where they are handled below.
 """
 
 from __future__ import annotations
@@ -133,6 +133,44 @@ def run_evidence_case(c: dict) -> dict:
     return {"id": c["id"], "status": "ok", "verified": r["verified"], "errors": r["errors"]}
 
 
+CONTRACT_V5 = "dcp-ai-conformance-external/5"
+EFFECTIVE = {"verify_signed_bundle_v2": ["id", "op", "bundle_b64", "policy", "verification_time"]}
+
+
+def _exposed(details: dict, key: str) -> dict:
+    """{"exposed": False} when details has no such key, else {"exposed": True, "value": <the value as it is>}."""
+    return {"exposed": True, "value": details[key]} if key in details else {"exposed": False}
+
+
+def run_effective_case(c: dict) -> dict:
+    """Contract /5 (opt-in effective policy): one operation, verify_signed_bundle_v2 (any other op is unsupported):
+    the /2 bundle verification, ONE verify_signed_bundle_v2 call per case, and the verification_mode and resolved_tier
+    of that same call's details, copied as they are and never derived. The SDK returns a details dict even on a
+    rejection; a result without one is an error, never read as "not resolved"."""
+    if not exact_keys(c, EFFECTIVE[c["op"]]):
+        fail(f"case fields do not match op {c['op']}")
+    data = decode_base64_strict(c["bundle_b64"])
+    try:
+        t = c["verification_time"]
+        now_ms = round(datetime.fromisoformat(t.replace("Z", "+00:00")).timestamp() * 1000) if isinstance(t, str) and RFC3339.fullmatch(t) else None
+    except ValueError:
+        now_ms = None
+    if data is None or not isinstance(c["policy"], dict) or now_ms is None:
+        fail(f"case {c['id']}: verify_signed_bundle_v2 fields have the wrong types")
+    try:
+        signed = json.loads(data.decode("utf-8"), parse_constant=refuse_constant)
+    except (UnicodeDecodeError, ValueError):
+        return {"id": c["id"], "status": "rejected", "code": "parse"}
+    from dcp_ai.v2.verify import verify_signed_bundle_v2
+    r = asyncio.run(verify_signed_bundle_v2(signed, registry(), c["policy"], now_ms=now_ms))
+    details = r.get("details") if isinstance(r, dict) else None
+    if not isinstance(details, dict):
+        kind = "a result that is not a dict" if not isinstance(r, dict) else "no details" if "details" not in r else f"details of type {type(details).__name__}"
+        return {"id": c["id"], "status": "error", "message": f"verify_signed_bundle_v2 returned {kind}, not a details dict"}
+    return {"id": c["id"], "status": "ok", "verified": r["verified"], "errors": r["errors"],
+            "effective": {"verification_mode": _exposed(details, "verification_mode"), "resolved_tier": _exposed(details, "resolved_tier")}}
+
+
 CONTRACT_V3 = "dcp-ai-conformance-external/3"
 ADMISSION = {
     "admit_signed_bundle_v2": ["id", "op", "bundle_b64", "now", "profile", "trust_set", "verifier_policy", "revocation"],
@@ -249,13 +287,15 @@ def run_delegation_case(c: dict) -> dict:
     return {"id": c["id"], "status": "ok", "valid": r["valid"], "errors": r["errors"], "effective_tier": r["effective_tier"], "depth": r["depth"]}
 
 
-def run_case(c: dict, v2: bool = False, v3: bool = False, v4: bool = False) -> dict:
+def run_case(c: dict, v2: bool = False, v3: bool = False, v4: bool = False, v5: bool = False) -> dict:
     if v2 and isinstance(c, dict) and isinstance(c.get("id"), str) and c.get("op") in EVIDENCE:
         return run_evidence_case(c)
     if v3 and isinstance(c, dict) and isinstance(c.get("id"), str) and c.get("op") in ADMISSION:
         return run_admission_case(c)
     if v4 and isinstance(c, dict) and isinstance(c.get("id"), str) and c.get("op") in DELEGATION:
         return run_delegation_case(c)
+    if v5 and isinstance(c, dict) and isinstance(c.get("id"), str):
+        return run_effective_case(c) if c.get("op") in EFFECTIVE else {"id": c["id"], "status": "unsupported"}
     op = c.get("op") if isinstance(c, dict) else None
     known = {"canonicalize": ["id", "op", "profile", "input_b64"], "digest": ["id", "op", "alg", "input_b64"]}.get(op)
     if known is None:
@@ -293,13 +333,13 @@ def main() -> None:
         request = json.loads(sys.stdin.buffer.read().decode("utf-8"))
     except (UnicodeDecodeError, ValueError) as e:
         fail(f"the request is not UTF-8 JSON ({e})")
-    if (not exact_keys(request, ["contract", "run_id", "nonce", "cases"]) or request["contract"] not in (CONTRACT, CONTRACT_V2, CONTRACT_V3, CONTRACT_V4)
+    if (not exact_keys(request, ["contract", "run_id", "nonce", "cases"]) or request["contract"] not in (CONTRACT, CONTRACT_V2, CONTRACT_V3, CONTRACT_V4, CONTRACT_V5)
             or not isinstance(request["run_id"], str) or not isinstance(request["nonce"], str) or not isinstance(request["cases"], list)):
         fail("the request needs exactly contract dcp-ai-conformance-external/1, /2, /3 or /4, run_id, nonce and cases")
     results = []
     for c in request["cases"]:
         try:
-            results.append(run_case(c, request["contract"] == CONTRACT_V2, request["contract"] == CONTRACT_V3, request["contract"] == CONTRACT_V4))
+            results.append(run_case(c, request["contract"] == CONTRACT_V2, request["contract"] == CONTRACT_V3, request["contract"] == CONTRACT_V4, request["contract"] == CONTRACT_V5))
         except Exception as e:  # an unexpected exception is the implementation's error, never a rejection
             results.append({"id": c.get("id") if isinstance(c, dict) else None, "status": "error", "message": f"{type(e).__name__}: {e}"[:500]})
     response = {

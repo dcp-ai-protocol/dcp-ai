@@ -8,7 +8,7 @@
 // canonicalizeV2. Only the SDK's documented float rejection ("Float value prohibited in DCP v2.0 at ...",
 // a plain Error with no stable code) is reported as rejected/profile; any other exception is an error.
 // digest: sha256Hex / sha3_256Hex of the decoded bytes. Without --sdk, `@dcp-ai/sdk` is resolved from here.
-// Contracts /2, /3 and /4 (opt-in) are described where they are handled below.
+// Contracts /2, /3, /4 and /5 (opt-in) are described where they are handled below.
 import fs from "fs";
 import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
@@ -55,7 +55,8 @@ try {
 const V2 = request?.contract === "dcp-ai-conformance-external/2";
 const V3 = request?.contract === "dcp-ai-conformance-external/3";
 const V4 = request?.contract === "dcp-ai-conformance-external/4";
-if (!exactKeys(request, ["contract", "run_id", "nonce", "cases"]) || (request.contract !== "dcp-ai-conformance-external/1" && !V2 && !V3 && !V4) ||
+const V5 = request?.contract === "dcp-ai-conformance-external/5";
+if (!exactKeys(request, ["contract", "run_id", "nonce", "cases"]) || (request.contract !== "dcp-ai-conformance-external/1" && !V2 && !V3 && !V4 && !V5) ||
     typeof request.run_id !== "string" || typeof request.nonce !== "string" || !Array.isArray(request.cases)) {
   fail("the request needs exactly contract dcp-ai-conformance-external/1, /2, /3 or /4, string run_id and nonce, and cases");
 }
@@ -103,6 +104,25 @@ async function runEvidenceCase(c) {
   try { signed = JSON.parse(new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes)); } catch { return { id: c.id, status: "rejected", code: "parse" }; }
   const r = await sdk.verifySignedBundleV2(signed, getRegistry(), c.policy, { now });
   return { id: c.id, status: "ok", verified: r.verified, errors: r.errors };
+}
+
+// Contract /5 (opt-in effective policy): one operation, verify_signed_bundle_v2 (any other op is unsupported): the /2
+// bundle verification, ONE verifySignedBundleV2 call per case, and the verification_mode and resolved_tier of that
+// same call's details, copied as they are and never derived. The SDK returns a details object even on a rejection; a
+// result without one is an error, never read as "not resolved". In that object, a field that is not an own property
+// (or holds undefined) is {"exposed": false}; any other value is {"exposed": true, "value": <the value>}.
+const EFFECTIVE = { verify_signed_bundle_v2: ["id", "op", "bundle_b64", "policy", "verification_time"] };
+const exposed = (d, k) => (Object.hasOwn(d, k) && d[k] !== undefined ? { exposed: true, value: d[k] } : { exposed: false });
+async function runEffectiveCase(c) {
+  if (!exactKeys(c, EFFECTIVE[c.op])) fail(`case fields do not match op ${c.op}`);
+  const bytes = decodeBase64Strict(c.bundle_b64);
+  const now = typeof c.verification_time === "string" && RFC3339.test(c.verification_time) ? Date.parse(c.verification_time) : NaN;
+  if (!bytes || !isObj(c.policy) || !Number.isFinite(now)) fail(`case ${c.id}: verify_signed_bundle_v2 fields have the wrong types`);
+  let signed;
+  try { signed = JSON.parse(new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes)); } catch { return { id: c.id, status: "rejected", code: "parse" }; }
+  const r = await sdk.verifySignedBundleV2(signed, getRegistry(), c.policy, { now });
+  if (!isObj(r) || !isObj(r.details)) return { id: c.id, status: "error", message: `verifySignedBundleV2 returned ${isObj(r) ? `details ${Array.isArray(r.details) ? "array" : r.details === null ? "null" : typeof r.details}` : "a result that is not an object"}, not a details object` };
+  return { id: c.id, status: "ok", verified: r.verified, errors: r.errors, effective: { verification_mode: exposed(r.details, "verification_mode"), resolved_tier: exposed(r.details, "resolved_tier") } };
 }
 
 // Contract /3 (opt-in admission, spec/profiles/admission): one call per case to admitSignedBundleV2 (the combined
@@ -201,6 +221,7 @@ function runCase(c) {
   if (V2 && isObj(c) && typeof c.id === "string" && Object.hasOwn(EVIDENCE, c.op)) return runEvidenceCase(c);
   if (V3 && isObj(c) && typeof c.id === "string" && Object.hasOwn(ADMISSION, c.op)) return runAdmissionCase(c);
   if (V4 && isObj(c) && typeof c.id === "string" && Object.hasOwn(DELEGATION, c.op)) return runDelegationCase(c);
+  if (V5 && isObj(c) && typeof c.id === "string") return Object.hasOwn(EFFECTIVE, c.op) ? runEffectiveCase(c) : { id: c.id, status: "unsupported" };
   const known = c.op === "canonicalize" ? ["id", "op", "profile", "input_b64"] : c.op === "digest" ? ["id", "op", "alg", "input_b64"] : null;
   if (!known) return isObj(c) && typeof c.id === "string" ? { id: c.id, status: "unsupported" } : fail("a case needs an id");
   if (!exactKeys(c, known) || typeof c.id !== "string") fail(`case fields do not match op ${c.op}`);

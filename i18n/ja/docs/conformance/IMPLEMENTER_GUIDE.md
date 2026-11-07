@@ -4,7 +4,7 @@
 
 # 独立した実装とレビューのガイド
 
-> [英語版](../../../../docs/conformance/IMPLEMENTER_GUIDE.md)の参考訳です。更新日：05/11/2026。相違がある場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せず保持しています。
+> [英語版](../../../../docs/conformance/IMPLEMENTER_GUIDE.md)の参考訳です。更新日：07/11/2026。相違がある場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せず保持しています。
 
 DCP は独立して実装できるプロトコルです。本ガイドは、リポジトリ内のアプリケーションやサービスを採用せずに同じ証拠を評価するための、実装者やレビュー担当者の準備を支援します。監査、認証、推奨を意味するものではありません。
 
@@ -68,6 +68,8 @@ node tools/conformance-external.js --catalog delegation --report /tmp/dcp-delega
 [キットの契約](../../tools/conformance/README.md)には、正確なエンコード規則、制限、終了コード、レポート構造が記載されています。このガイドから新しい通信プロトコルを推測しないでください。
 
 明示的にスキーマ診断を選ぶ場合は、証拠コマンドの `--catalog evidence` を `--catalog tools/conformance/external-schema-catalog.json` に置き換えます。同じ `/2` 契約を使い、規範上の失敗は失敗のまま扱います。デフォルトの証拠カタログとは別です。SDK API 単体の結果を解釈する前にカバレッジマップを確認してください。
+
+オプトインの実効ポリシーのカタログには `--catalog tools/conformance/external-effective-policy-catalog.json` を使います。これは契約 `/5` を選びます。`/2` の bundle 検証で、`ok` の結果は、検証器が同じ検証の中で解決した検証モードとセキュリティティアも `effective` として報告します。検証器が公開する値をそのまま報告し、応答のために計算しないでください。正確な形式と判定は[キットの README](../../tools/conformance/README.md#effective-policy-catalog-contract-5-opt-in) にあります。
 
 <a id="inspect-a-generated-report"></a>
 

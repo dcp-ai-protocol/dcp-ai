@@ -4,7 +4,7 @@
 
 # Registro de cambios
 
-> Traducción informativa de [la versión en inglés](../../CHANGELOG.md), actualizada el 06/11/2026. Cada entrada, también las de `[Unreleased]`, describe un cambio en su momento y no garantiza el comportamiento actual; las versiones publicadas son **registro histórico con fecha**. Si difieren, prevalece la versión en inglés.
+> Traducción informativa de [la versión en inglés](../../CHANGELOG.md), actualizada el 07/11/2026. Cada entrada, también las de `[Unreleased]`, describe un cambio en su momento y no garantiza el comportamiento actual; las versiones publicadas son **registro histórico con fecha**. Si difieren, prevalece la versión en inglés.
 
 **Versiones publicadas (26/10/2026).** Están publicados npm (13 paquetes, incluido `@dcp-ai/sdk` 2.2.0), Python `dcp-ai` 2.10.0, Go `v2.11.0` y Rust `dcp-ai` 2.11.0, con las correcciones del verificador, la admisión y las API experimentales opt-in; `dcp-jcs-v1` sigue siendo el valor normativo predeterminado. Véase [Versiones publicadas](../../docs/README.md#published-versions). Las entradas siguientes conservan su historial de desarrollo; `[Unreleased]` no significa que estas funciones no estén publicadas. Las seis publicaciones de corrección del 28/10/2026 están en [su propia sección](#2026-10-28-sha3-patch-releases). Las cinco publicaciones del 05/11/2026 están en [la suya](#2026-11-05-auditable-releases).
 
@@ -363,6 +363,16 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
 <a id="added"></a>
 
 ### Añadido
+
+- **Catálogo de política efectiva (contrato `/5`, opt-in)** (kit y pruebas en `main`, no una versión de paquete;
+  `tools/conformance/`). `external-effective-policy-catalog.json` juzga 130 verificaciones de bundles firmados por el
+  veredicto y por el modo de verificación y el tier de seguridad que el verificador de cada implementación resolvió en esa
+  misma verificación: 112 casos exigen ambos valores; en 14 bundles que fallan V2-2 y 4 rechazos anteriores pueden faltar,
+  y los valores informados deben ser conocidos y coherentes. `tests/interop/v2/effective_policy_vectors.json` añade 17
+  casos firmados con las claves TEST-ONLY versionadas: positivos elevated y maximum bajo cada modo solicitado, fronteras
+  de `risk_score`, suelos de `security_tier` y overrides del pasaporte que sustituyen al valor por defecto. Los cinco
+  wrappers responden a `/5` con los campos del resultado de su propio SDK; `/1` a `/4`, sus catálogos, los SDK y sus API
+  no cambian. CI ejecuta las autopruebas y el catálogo con los cinco wrappers.
 
 - Vectores de verificación ML-DSA-65 (`tests/nist-kat/ml-dsa-65/`), desarrollados el 05/11/2026; solo pruebas, CI y documentación, sin cambios en el código de los SDK, las API, los manifiestos ni los locks. Las pruebas de propiedades ML-DSA-65 existentes no cambian.
   - 204 casos con contexto vacío pasan por el proveedor real de los SDK TypeScript, Python, Go y Rust, y por el proveedor Rust compilado a wasm32 (Node en CI, un navegador en local): NIST ACVP sigVer tc39 (grupo de pruebas 3, ML-DSA-65, interfaz externa, modo puro, commit `a7f283cd`) y 203 casos de C2SP Wycheproof (commit `20b25694`, Apache-2.0, no es una fuente NIST); 77 son válidos y 127 inválidos. Se comprueba el SHA-256 de cada archivo.
