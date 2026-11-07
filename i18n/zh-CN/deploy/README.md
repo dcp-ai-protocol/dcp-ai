@@ -4,7 +4,7 @@
 
 # 部署 DCP-AI 服务
 
-> 本文是[英文版](../../../deploy/README.md)的参考译文，更新于 05/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../deploy/README.md)的参考译文，更新于 07/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 本仓库提供的四个服务——**verification**、**anchor**、**transparency-log**、
 **revocation**——以预构建的 Docker 镜像形式发布在 GitHub Container Registry（GHCR）上。
@@ -21,9 +21,10 @@
 | 透明日志 | `ghcr.io/dcp-ai-protocol/dcp-ai/transparency-log` | 3002 |
 | 撤销 | `ghcr.io/dcp-ai-protocol/dcp-ai/revocation` | 3003 |
 
-标签（参见 [`publish-docker.yml`](../../../.github/workflows/publish-docker.yml)）：触发该工作流的 `main` 推送会发布 `:latest`、
-`:main` 和 `:sha-xxxxxxx`；已发布的版本会添加其 semver 标签（`:<major>.<minor>.<patch>`、`:<major>.<minor>`、`:<major>`），
-也可能移动可变的 `:latest`。`linux/amd64` 和 `linux/arm64` 都会构建。
+标签（参见 [`publish-docker.yml`](../../../.github/workflows/publish-docker.yml)）：改动服务代码或 Dockerfile 的 `main` 推送只构建镜像，
+不发布。已发布的版本会发布其标签、semver 标签（`:<major>.<minor>.<patch>`、`:<major>.<minor>`、`:<major>`）和
+`:sha-xxxxxxx`，也可能移动可变的 `:latest`；手动运行会发布其所在分支或标签对应的标签（在 `main` 上为 `:latest`、`:main` 和
+`:sha-xxxxxxx`）。`linux/amd64` 和 `linux/arm64` 都会构建。
 
 在你的笔记本电脑上快速冒烟测试：
 
@@ -106,7 +107,7 @@ fly launch --config revocation.toml      --no-deploy
 fly deploy --config revocation.toml
 ```
 
-每个服务都会得到一个公开的 HTTPS URL，例如 `https://dcp-ai-verification.fly.dev`。对验证应用而言，这也会公开其 DCP-05 至 DCP-09 端点，这些端点不需要令牌，也不验证签名（参见运维说明）。
+每个服务都会得到一个公开的 HTTPS URL，例如 `https://dcp-ai-verification.fly.dev`。这些配置运行已发布的 `:latest` 镜像，且没有设置 `DCP_DEMO_ENDPOINTS`。只有用包含 DCP-05 至 DCP-09 防护的源代码构建的服务器，才会默认关闭这些演示端点；用不含此变更的源代码构建的镜像中，它们处于开启状态且不需要令牌（参见运维说明）。
 
 没有 `#<public key>` 的 gossip 对等节点会被轮询，但其树头会被忽略。
 
@@ -156,7 +157,7 @@ gcloud run deploy dcp-ai-verification \
 - **透明日志**：仅在内存中，没有持久化选项：重启会从一棵新的空树开始，使用卷也改变不了这一点。固定的 `OPERATOR_KEY` 可以在重启之间保持同一个签名密钥。
 - **撤销**：只有当你策略中的每个验证器都指向*这个* URL 时，该注册表才具有权威性。请在你的 `.well-known/dcp-capabilities.json` 中公布该 URL。如果没有把 `REVOCATION_STATE_PATH` 放在持久存储上，重启会遗忘所有登记和撤销。
 - **验证**：并非无状态。它在内存中保存护照、密钥、审计链以及 DCP-05–09 的记录，而且不同实例之间不共享这些内容，因此负载均衡器后面的多个实例会给出不同的应答。请只运行一个实例。
-- **验证，DCP-05 至 DCP-09 端点**：它们不需要令牌，也不验证签名，`OPERATOR_TOKEN` 也不保护它们，因此任何能访问公开部署（Fly，或带 `--allow-unauthenticated` 的 Cloud Run）的人都可以更改生命周期、争议和委托授权书的状态。请在它们前面加上你自己的授权，或者不要路由它们（[docs/OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)）。
+- **验证，DCP-05 至 DCP-09 端点**：在用当前源代码构建的服务器中，它们默认关闭（404）；`DCP_DEMO_ENDPOINTS=dcp-05-09` 会让它们应答持有运营方令牌的人，此时该令牌必须至少 32 个字符，而且它们仍然不验证签名。用不含此变更的源代码构建的镜像（`:latest` 可能仍是这样的镜像）中，它们处于开启状态且不需要令牌，因此任何能访问公开部署（Fly，或带 `--allow-unauthenticated` 的 Cloud Run）的人都可以更改生命周期、争议和委托授权书的状态：在运行用这些源代码构建的镜像之前，请在它们前面加上你自己的授权，或者不要路由它们（[docs/OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)）。
 
 ---
 

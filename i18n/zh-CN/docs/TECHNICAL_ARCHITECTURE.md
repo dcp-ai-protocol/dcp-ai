@@ -5,7 +5,7 @@
 
 # 技术架构 — 全球规模的 DCP
 
-> 本文是[英文版](../../../docs/TECHNICAL_ARCHITECTURE.md)的参考译文，更新于 06/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/TECHNICAL_ARCHITECTURE.md)的参考译文，更新于 07/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 本文档是在全球部署 Digital Citizenship Protocol 的技术蓝图。它描述各层、各组件以及技术选型，使任何政府、组织或开发者都能采用该协议，而不依赖任何中央机构，也不依赖协议作者。
 
@@ -128,7 +128,7 @@ SDK 不依赖文件系统。它接收对象并返回结构化结果。schema 以
 - **无状态验证：** `POST /verify` 不需要数据库。服务器的其他注册表在内存中，重启后丢失（[OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#reference-services-keep-state-in-memory-only)）。
 - **健康检查 + 能力：** `/health`、`/.well-known/dcp-capabilities.json`。
 - **API：** POST `/verify`（请求体：`signed_bundle`，可选 `public_key_b64`；响应：`{ verified, dcp_version, errors, … }`）。其他 V2 端点列在 [OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md) 中。
-- **托管部署：** `deploy/fly/verification.toml` 中的 Fly.io 配置（先 `fly launch --config deploy/fly/verification.toml`，再 `fly deploy --config deploy/fly/verification.toml`）。公开部署也会暴露 DCP-05–09 端点，这些端点没有身份验证，也不验证签名：请先对它们加以限制（[OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)）。
+- **托管部署：** `deploy/fly/verification.toml` 中的 Fly.io 配置（先 `fly launch --config deploy/fly/verification.toml`，再 `fly deploy --config deploy/fly/verification.toml`）。该配置运行已发布的 `:latest` 镜像。用当前源代码构建的服务器会让 DCP-05–09 演示端点保持关闭，除非设置 `DCP_DEMO_ENDPOINTS=dcp-05-09`，此时需要运营方令牌；用不含此变更的源代码构建的镜像中，它们处于开启状态，没有身份验证，也不验证签名，因此除非确知镜像包含此变更，否则请加以限制（[OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)）。
 
 参见 [OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md)、[server/README.md](../../../server/README.md) 和 [deploy/README.md](../../../deploy/README.md)。
 

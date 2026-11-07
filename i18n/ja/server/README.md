@@ -4,7 +4,7 @@
 
 # DCP のリファレンスゲートウェイ
 
-> [英語版](../../../server/README.md)の参考訳です（06/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../server/README.md)の参考訳です（07/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 Digital Citizenship Protocol の V1、V2、フェーズ 3（PQ 優先）を実装する HTTP の検証サービスです。**メモリ上のストレージ**：外部のデータベースは不要で、再起動の後には何も残りません（[永続化](#persistence)を参照）。どの第三者でも運用できるように設計されており、プロトコルは中央のサーバーを必要としません。
 
@@ -34,7 +34,7 @@ node server/index.js
 | メソッド | パス | 説明 |
 |--------|------|-------------|
 | GET | `/` , `/health` | ヘルスチェック：`{ ok, service, supported_versions, registered_agents, registered_keys }` |
-| GET | `/.well-known/dcp-capabilities.json` | プロトコルのケイパビリティの発見（アルゴリズム、機能、ワイヤ形式）。サーバーが宣伝している内容であり、確認済みの保証ではありません。`application/cbor` を挙げていますが、ボディは JSON としてしか読みません。HSM はないため、`hsm_provider` は `false` です |
+| GET | `/.well-known/dcp-capabilities.json` | プロトコルのケイパビリティの発見（アルゴリズム、機能、ワイヤ形式）。サーバーが宣伝している内容であり、確認済みの保証ではありません。`application/cbor` を挙げていますが、ボディは JSON としてしか読みません。HSM はないため、`hsm_provider` は `false` です。DCP-05 から DCP-09 の機能は `false` で、`demo_endpoints` が後述のデモのエンドポイントを説明します |
 | POST | `/verify` | 署名付きバンドルを検証する（V1 か V2 かを自動判別し、V2 は `VERIFIER_POLICY` に照らして確認） |
 | POST | `/v2/admit` | オペレーターが信頼するプリンシパルに対するアドミッション、設定されていれば strict-v1 も（`docs/ADMISSION.md`）。ボディからは `signed_bundle` だけを読みます。未設定なら 501 |
 | POST | `/anchor` | スタブ：501 を返す（オペレーターごとに実装） |
@@ -94,7 +94,7 @@ node server/index.js
 
 ### DCP-05 から DCP-09
 
-ライフサイクル、承継、紛争、権利、委任の記録のための 31 のエンドポイントで、[docs/OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints) に一覧があります。各記録をそのスキーマで検証しますが、**署名は一切検証せず、トークンも不要**で、`OPERATOR_TOKEN` でも保護されません。サーバーに到達できる人なら誰でも、エージェントを廃止または再稼働させ、取り消し可能なマンデートを取り消し、紛争を解決済みにできます。信頼できないクライアントに公開しないでください。
+ライフサイクル、承継、紛争、権利、委任の記録のための 31 のデモのエンドポイントで、[docs/OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints) に一覧があります。**デフォルトでオフ：** 12 のパスのファミリー（`/v2/lifecycle`, `/v2/succession`, `/v2/disputes`, `/v2/objections`, `/v2/jurisprudence`, `/v2/rights`, `/v2/obligations`, `/v2/delegation`, `/v2/agent-advisory`, `/v2/mirror`, `/v2/interactions`, `/v2/awareness`）の下のリクエストは、オペレーターのトークンがあってもすべて 404 です。`DCP_DEMO_ENDPOINTS=dcp-05-09` で有効になり、そのときサーバーは RFC 6750 の b64token で 32 文字以上の `OPERATOR_TOKEN` を必要とし、なければ起動しません。これらのファミリーには `Authorization: Bearer <OPERATOR_TOKEN>`（スキームは大文字小文字を問わず、空白は 1 つ）の場合だけ応答し、それ以外は GET も含めて、ボディを読む前に 401 を返します。トークンがあっても、記録はスキーマで確認されるだけです。**署名は検証されず**、プリンシパルの権限も確立されません。2026 年 11 月 7 日からは、そこでの稼働終了が登録済みのパスポートを変更しなくなりました。クライアントごとに毎分 100 の POST リクエストというグローバルな制限が先に適用されるため、404 や 401 の前に 429 が返ることがあります。
 
 <a id="environment-variables"></a>
 
@@ -106,6 +106,7 @@ node server/index.js
 | `OPERATOR_TOKEN` | — | オペレーターのエンドポイントと、新しい `agent_id` の登録のための Bearer トークン。未設定なら両方ともロックされます |
 | `VERIFIER_MODE` | `hybrid_required` | 起動時の検証モード：`classical_only`、`hybrid_preferred`、`hybrid_required`、`pq_only` のいずれか。無効な値ではサーバーが停止します |
 | `ALLOW_V1_BUNDLES` | `true` | `false` にすると `POST /verify` が V1 のバンドルを拒否します（`pq_only` では常に拒否） |
+| `DCP_DEMO_ENDPOINTS` | `off` | `dcp-05-09` で DCP-05 から DCP-09 のデモのエンドポイントが有効になり、オペレーターのトークン（32 文字以上）が必要になります。未設定、`off`、`dcp-05-09` 以外の値ではサーバーが停止します |
 | `TRUST_PROXY` | — | クライアントの IP を `X-Forwarded-For` に付け加えるプロキシ（Fly、nginx）の背後でだけ `true`。そのときレート制限はその最後のホップを基準にし、そうでなければソケットのアドレスを基準にします。クライアントはヘッダーを偽造できるからです |
 | `REGISTRATIONS_PER_HOUR` | `20` | クライアントごと 1 時間あたりの `POST /v2/passport/register` の呼び出し回数。超えると 429 |
 | `MAX_REGISTERED_KEYS` | `10000` | レジストリの鍵の数。それ以降の新しいエージェントとローテーションには 507 が返ります（何も追い出されません） |
@@ -376,7 +377,7 @@ curl -s http://localhost:3000/.well-known/dcp-capabilities.json | jq .
 ## 制限
 
 - **メモリ上のストレージ**：すべての状態（パスポート、鍵、監査チェーン、アドバイザリー）は再起動で失われます。[永続化](#persistence)を参照してください。
-- **バンドルの検証以外での署名**：バンドルの検証、パスポートの登録、鍵のローテーション、マルチパーティ承認は、本物の Ed25519 と ML-DSA-65 / SLH-DSA の署名を確認します。`/v2/advisory/publish` と `/v2/governance/register` は確認せず（オペレーターのトークンが唯一の保護です）、`/v2/intent/declare`、`/v2/audit/*`、DCP-05 から DCP-09 のエンドポイントも確認しません。これらはトークンも不要です（[DCP-05 から DCP-09](#dcp-05-to-dcp-09) を参照）。
+- **バンドルの検証以外での署名**：バンドルの検証、パスポートの登録、鍵のローテーション、マルチパーティ承認は、本物の Ed25519 と ML-DSA-65 / SLH-DSA の署名を確認します。`/v2/advisory/publish` と `/v2/governance/register` は確認せず（オペレーターのトークンが唯一の保護です）、`/v2/intent/declare` と `/v2/audit/*` も確認せず、これらはトークンも不要です。DCP-05 から DCP-09 のデモのエンドポイントも確認しませんが、これらはデフォルトでオフで、有効にしたときはオペレーターだけが使えます（[DCP-05 から DCP-09](#dcp-05-to-dcp-09) を参照）。
 - **アンカリング**：`POST /anchor` は 501 を返します。あなたのブロックチェーン（Ethereum、Bitcoin）または透明性ログを使って実装してください。
 
 <a id="persistence"></a>

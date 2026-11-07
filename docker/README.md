@@ -83,7 +83,7 @@ Each service is configured via environment variables in `docker-compose.yml`:
 | `ALLOW_V1_BUNDLES` | `true` | Accept V1 format bundles |
 | `REQUIRE_SESSION_BINDING`, `REQUIRE_COMPOSITE_BINDING`, `MAX_KEY_AGE_DAYS`, `PQ_CHECKPOINT_INTERVAL`, `ADVISORY_POLL_INTERVAL_MS` | set in the image and here | **Not read by the server yet.** Its built-in policy applies (session and composite binding required, 365-day key age); `GET /v2/policy` shows it |
 
-The gateway's DCP-05 to DCP-09 endpoints need no token and do not verify signatures; do not publish port 3000 to untrusted clients without your own authorization in front ([docs/OPERATOR_GUIDE.md](../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)).
+In an image built from these sources, as `docker-compose.yml` builds from your checkout, the gateway's DCP-05 to DCP-09 demo endpoints are off unless the server gets `DCP_DEMO_ENDPOINTS=dcp-05-09`, which `docker-compose.yml` does not pass; enabled, they need the operator token and still verify no signature. An image built from sources without this change has them on without a token ([docs/OPERATOR_GUIDE.md](../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)).
 
 #### anchor
 

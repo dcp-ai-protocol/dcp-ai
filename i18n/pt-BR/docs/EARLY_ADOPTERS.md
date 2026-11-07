@@ -4,7 +4,7 @@
 
 # Programa de adotantes iniciais do DCP-AI
 
-> Tradução informativa da [versão em inglês](../../../docs/EARLY_ADOPTERS.md), atualizada em 05/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../docs/EARLY_ADOPTERS.md), atualizada em 07/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 **Status:** Aberto — admissão contínua
 **Licença:** Apache-2.0 (participar não tem custo)
@@ -203,7 +203,7 @@ Se você integrar o DCP-AI e estiver disposto a compartilhar a história — dec
 **P: O DCP-AI está pronto para produção?**
 R: A especificação v2.0 está completa e os 5 SDKs estão publicados e em uso. O DCP-04 ao DCP-09 trazem nos cabeçalhos o rótulo «Published — v2.0 (extension; revisions tracked via adopter feedback)»; o formato de transmissão é estável e testado, e as revisões de versões menores serão guiadas pelo feedback dos adotantes, não por mudanças incompatíveis. Se está pronto para a sua implantação depende das partes que você usa:
 
-- os verificadores dos SDKs são o caminho de produção; os serviços de referência guardam o estado em memória, e os endpoints do DCP-05–09 do gateway de referência não têm autenticação ([OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md));
+- os verificadores dos SDKs são o caminho de produção; os serviços de referência guardam o estado em memória, e os endpoints do DCP-05–09 do gateway de referência são uma demo sem verificação, desligada por padrão e só para o operador quando ativada ([OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md));
 - o repositório não tem integração com HSM, e o assistente `@dcp-ai/cli init` é uma demonstração ([SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md), «Known Limitations and Mitigations»).
 
 A auditoria de segurança final da v2.0 de 26/02/2026 ([spec/AUDIT-v2.0-FINAL.md](../../../spec/AUDIT-v2.0-FINAL.md)) é um registro datado: revisões posteriores encontraram limites que ela não relatou, como o fato de que a lacuna de HSM dela foi fechada apenas por um provedor simulado.

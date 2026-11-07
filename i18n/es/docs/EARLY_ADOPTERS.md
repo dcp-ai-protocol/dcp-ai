@@ -4,7 +4,7 @@
 
 # Programa de primeros usuarios de DCP-AI
 
-> Traducción informativa de [la versión en inglés](../../../docs/EARLY_ADOPTERS.md), actualizada el 05/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../docs/EARLY_ADOPTERS.md), actualizada el 07/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 **Estado:** Abierto — admisión continua
 **Licencia:** Apache-2.0 (participar no tiene coste)
@@ -205,7 +205,7 @@ Si integras DCP-AI y estás dispuesto a compartir la historia —decisiones de a
 **P: ¿DCP-AI está listo para producción?**
 R: La especificación v2.0 está completa y los 5 SDK están publicados y en uso. DCP-04 a DCP-09 llevan en sus cabeceras la etiqueta «Published — v2.0 (extension; revisions tracked via adopter feedback)»; el formato de transmisión es estable y está probado, y las revisiones de versiones menores las guiarán los comentarios de los usuarios, no cambios incompatibles. Que esté listo para tu despliegue depende de las partes que uses:
 
-- los verificadores de los SDK son la ruta de producción; los servicios de referencia guardan su estado en memoria, y los endpoints de DCP-05–09 de la pasarela de referencia no tienen autenticación ([OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md));
+- los verificadores de los SDK son la ruta de producción; los servicios de referencia guardan su estado en memoria, y los endpoints de DCP-05–09 de la pasarela de referencia son una demo sin verificación, apagada por defecto y solo para el operador cuando se activa ([OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md));
 - el repositorio no tiene integración con HSM, y el asistente `@dcp-ai/cli init` es una demo ([SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md), «Known Limitations and Mitigations»).
 
 La auditoría de seguridad final de v2.0 del 26/02/2026 ([spec/AUDIT-v2.0-FINAL.md](../../../spec/AUDIT-v2.0-FINAL.md)) es un registro con fecha: revisiones posteriores encontraron límites que no recogía, como que su carencia de HSM solo se cerró con un proveedor simulado.

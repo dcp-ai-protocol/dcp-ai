@@ -4,7 +4,7 @@
 
 # Modelo de seguridad
 
-> Traducción informativa de [la versión en inglés](../../../docs/SECURITY_MODEL.md), actualizada el 06/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../docs/SECURITY_MODEL.md), actualizada el 07/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Cómo protege el protocolo frente a los ataques, desde los bundles falsificados hasta las bifurcaciones del protocolo.
 
@@ -281,7 +281,7 @@ El nonce no impide que el mismo bundle vuelva a presentarse: un bundle completo 
 - **Registros del ciclo de vida firmados:** cada transición de estado (certificado de puesta en servicio, informe de vitalidad, registro de retirada) lleva una firma compuesta, y los informes de vitalidad están encadenados por hash.
 - **Retirada definitiva:** una vez que un agente llega a `decommissioned`, no hay más transiciones posibles. El registro de retirada indica la disposición de los datos.
 
-**En el servidor de referencia:** los endpoints del ciclo de vida rechazan las transiciones no válidas (409), pero no verifican las firmas de los registros y no necesitan autenticación; un nuevo certificado de puesta en servicio para un agente retirado lo restablece a `commissioned` ([OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)).
+**En el servidor de referencia:** los endpoints del ciclo de vida rechazan las transiciones no válidas (409), pero no verifican las firmas de los registros; están apagados por defecto y, cuando se activan, solo necesitan el token del operador, que no establece autoridad del principal; un nuevo certificado de puesta en servicio para un agente retirado lo restablece a `commissioned` ([OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)).
 
 **Solidez:** donde se verifican las firmas de los registros (con las funciones del SDK o con un servicio que las llame), la máquina de estados más el rastro firmado. El servidor de referencia por sí solo no da ninguna de las dos.
 
@@ -443,7 +443,7 @@ Los operadores que despliegan DCP DEBEN:
 | BlindedRPR expone `entity_type` y `jurisdiction` | Futuro: presentación de credenciales basada en ZKP |
 | Ningún SDK ejecuta el intercambio X25519 + ML-KEM-768 de DCP-04 | Quien llama deriva la clave de sesión A2A. Python, Go, Rust y WASM exponen ML-KEM-768 como primitiva; los proveedores KEM de TypeScript son internos |
 | ML-DSA-87 no está implementado | El identificador está reservado en el esquema de claves; ningún SDK puede usarlo (el patrón HSM simulado que lo enumeraba no era una implementación y se retiró el 06/11/2026) |
-| Los endpoints de DCP-05–09 del servidor de referencia no tienen autenticación y no verifican firmas | No los expongas a clientes que no sean de confianza ([OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)) |
+| Los endpoints de DCP-05–09 del servidor de referencia son una demo: apagados por defecto, solo con el token del operador cuando se activan, sin verificación de firmas | Déjalos apagados o actívalos solo para operadores ([OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)) |
 
 Las siguientes limitaciones, que aparecían en borradores anteriores, se han **cerrado**:
 

@@ -92,6 +92,17 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
 
 ### Seguridad
 
+- **Endpoints demo de DCP-05 a DCP-09 apagados por defecto y solo para el operador cuando se activan** (código fuente de
+  `main`, no está en ninguna versión publicada; `server/`). Los 31 endpoints del servidor de referencia que solo comprueban
+  esquemas, para registros de ciclo de vida, sucesión, disputas, derechos y delegación, no necesitaban token. Ahora toda
+  petición bajo sus doce familias de rutas recibe 404 salvo que el servidor arranque con `DCP_DEMO_ENDPOINTS=dcp-05-09`,
+  que necesita un `OPERATOR_TOKEN` de al menos 32 caracteres b64token de RFC 6750 (una configuración no válida detiene el
+  servidor); activados, cada petición, GET incluidos, necesita exactamente `Authorization: Bearer <OPERATOR_TOKEN>`,
+  comprobado antes de leer el cuerpo. Los endpoints siguen sin verificar firmas ni establecer autoridad del principal.
+  Retirar un agente ya no cambia el estado de un pasaporte registrado. Las capacidades informan las funciones de DCP-05 a
+  DCP-09 como `false` y describen la demo en `features.dcp05_09_demo_endpoints` y `demo_endpoints`. **Migración:** fija
+  `DCP_DEMO_ENDPOINTS=dcp-05-09` y un `OPERATOR_TOKEN` largo, y envía el token bearer en cada petición.
+
 - **Retirado el proveedor HSM simulado** (código fuente de `main`, no está en ninguna versión publicada). `HsmCryptoProvider`
   y `HsmProviderFactory` (`sdks/typescript/src/providers/hsm-provider.ts`) no tenían respaldo de hardware: `initialize()`
   indicaba una sesión autenticada sin cargar nada, y `verify` aceptaba cualquier firma de la longitud correcta. No se

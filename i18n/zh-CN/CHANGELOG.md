@@ -87,6 +87,15 @@
 
 ### 安全
 
+- **DCP-05 至 DCP-09 演示端点默认关闭，启用后仅限运营方**（`main` 上的源代码，不在任何已发布版本中；`server/`）。
+  参考服务器中只校验 schema 的 31 个端点（用于生命周期、继承、争议、权利和委托记录）原本不需要令牌。现在，除非服务器以
+  `DCP_DEMO_ENDPOINTS=dcp-05-09` 启动，它们十二个路径族下的任何请求都返回 404；该设置需要至少 32 个字符的 RFC 6750
+  b64token 形式的 `OPERATOR_TOKEN`（无效配置会让服务器停止）；启用后，每个请求（包括 GET）都必须恰好带有
+  `Authorization: Bearer <OPERATOR_TOKEN>`，并在读取请求体之前检查。这些端点仍然不验证签名，也不确立责任主体的权限。
+  停用智能体不再更改已登记护照的状态。能力声明把 DCP-05 至 DCP-09 的功能报告为 `false`，并在
+  `features.dcp05_09_demo_endpoints` 和 `demo_endpoints` 中说明该演示。**迁移：** 设置 `DCP_DEMO_ENDPOINTS=dcp-05-09` 和一个
+  足够长的 `OPERATOR_TOKEN`，并在每个请求中发送 bearer 令牌。
+
 - **移除模拟的 HSM 提供程序**（`main` 上的源代码，不在任何已发布版本中）。`HsmCryptoProvider` 和 `HsmProviderFactory`
   （`sdks/typescript/src/providers/hsm-provider.ts`）没有硬件支撑：`initialize()` 不加载任何东西就报告已认证的会话，
   `verify` 接受任何长度正确的签名。它们没有从包的入口点导出，也没有被注册；直接导入该文件的代码将无法再导入，

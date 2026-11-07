@@ -92,6 +92,17 @@ Publicado em 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 e `@dcp-ai/cl
 
 ### Segurança
 
+- **Endpoints demo do DCP-05 ao DCP-09 desligados por padrão e só para o operador quando ativados** (código-fonte de
+  `main`, não está em nenhuma versão publicada; `server/`). Os 31 endpoints do servidor de referência que só conferem
+  schemas, para registros de ciclo de vida, sucessão, disputas, direitos e delegação, não precisavam de token. Agora toda
+  solicitação sob as suas doze famílias de rotas recebe 404, a menos que o servidor inicie com `DCP_DEMO_ENDPOINTS=dcp-05-09`,
+  que precisa de um `OPERATOR_TOKEN` de pelo menos 32 caracteres b64token da RFC 6750 (uma configuração inválida impede o
+  servidor de iniciar); ativados, cada solicitação, GET incluídos, precisa exatamente de `Authorization: Bearer <OPERATOR_TOKEN>`,
+  conferido antes de ler o corpo. Os endpoints continuam sem verificar assinaturas nem estabelecer autoridade do principal.
+  Descomissionar não altera mais o status de um passaporte registrado. As capacidades informam as funcionalidades do DCP-05
+  ao DCP-09 como `false` e descrevem a demo em `features.dcp05_09_demo_endpoints` e `demo_endpoints`. **Migração:** defina
+  `DCP_DEMO_ENDPOINTS=dcp-05-09` e um `OPERATOR_TOKEN` longo, e envie o token bearer em cada solicitação.
+
 - **Provedor HSM simulado removido** (código-fonte de `main`, não está em nenhuma versão publicada). `HsmCryptoProvider`
   e `HsmProviderFactory` (`sdks/typescript/src/providers/hsm-provider.ts`) não tinham suporte de hardware: `initialize()`
   informava uma sessão autenticada sem carregar nada, e `verify` aceitava qualquer assinatura do comprimento certo. Não

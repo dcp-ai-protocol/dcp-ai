@@ -5,7 +5,7 @@
 
 # Arquitetura técnica — DCP em escala global
 
-> Tradução informativa da [versão em inglês](../../../docs/TECHNICAL_ARCHITECTURE.md), atualizada em 06/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../docs/TECHNICAL_ARCHITECTURE.md), atualizada em 07/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Este documento é a planta técnica para implantar o Digital Citizenship Protocol no mundo todo. Ele descreve as camadas, os componentes e as escolhas tecnológicas que permitem a qualquer governo, organização ou desenvolvedor adotar o protocolo sem depender de nenhuma autoridade central nem dos autores do protocolo.
 
@@ -128,7 +128,7 @@ Para implantação em produção:
 - **Verificação sem estado:** `POST /verify` não precisa de banco de dados. Os outros registros do servidor ficam em memória e se perdem ao reiniciar ([OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#reference-services-keep-state-in-memory-only)).
 - **Saúde + capacidades:** `/health`, `/.well-known/dcp-capabilities.json`.
 - **API:** POST `/verify` (corpo: `signed_bundle`, `public_key_b64` opcional; resposta: `{ verified, dcp_version, errors, … }`). Os endpoints V2 adicionais estão listados em [OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md).
-- **Implantação gerenciada:** configuração do Fly.io em `deploy/fly/verification.toml` (`fly launch --config deploy/fly/verification.toml` e depois `fly deploy --config deploy/fly/verification.toml`). Uma implantação pública também expõe os endpoints do DCP-05–09, que não têm autenticação e não verificam assinaturas: restrinja-os antes ([OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)).
+- **Implantação gerenciada:** configuração do Fly.io em `deploy/fly/verification.toml` (`fly launch --config deploy/fly/verification.toml` e depois `fly deploy --config deploy/fly/verification.toml`). Essa configuração executa a imagem publicada `:latest`. Um servidor construído com as fontes atuais mantém desligados os endpoints demo do DCP-05–09, a menos que se defina `DCP_DEMO_ENDPOINTS=dcp-05-09`, e então precisa do token do operador; uma imagem construída com fontes sem esta mudança os tem ativos sem autenticação nem verificação de assinaturas, então restrinja-os, a menos que saiba que a imagem a inclui ([OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)).
 
 Consulte [OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md), [server/README.md](../../../server/README.md) e [deploy/README.md](../../../deploy/README.md).
 

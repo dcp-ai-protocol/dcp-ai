@@ -5,7 +5,7 @@
 
 # 运营方指南 — 运行验证服务
 
-> 本文是[英文版](../../../docs/OPERATOR_GUIDE.md)的参考译文，更新于 06/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/OPERATOR_GUIDE.md)的参考译文，更新于 07/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 本指南面向希望运行“智能体已验证”服务的**第三方**：一个验证 DCP Signed Bundle 的 HTTP API（还可以选择把哈希锚定到区块链上）。协议**不**要求任何中央服务器；验证随时都可以用 `dcp verify-bundle` 在本地完成。此服务是**可选的**，由运营方自行决定是否运行。
 
@@ -191,6 +191,7 @@ go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.13.0
 - `OPERATOR_TOKEN` — 用于管理端点（策略、公告、治理）以及注册新 `agent_id` 的 bearer 令牌；不设置时这些功能保持锁定
 - `VERIFIER_MODE` — `classical_only` | `hybrid_preferred` | `hybrid_required` | `pq_only`
 - `ALLOW_V1_BUNDLES` — `false` 会拒绝 V1 bundle
+- `DCP_DEMO_ENDPOINTS` — `off`（默认）或 `dcp-05-09`，后者启用 [DCP-05–09 演示端点](#dcp-0509-service-endpoints)，并需要至少 32 个字符的 RFC 6750 b64token 形式的 `OPERATOR_TOKEN`；任何其他值都会让服务器停止
 - `TRUST_PROXY`、`REGISTRATIONS_PER_HOUR`、`MAX_REGISTERED_KEYS`、`MAX_KEYS_PER_AGENT` — 见上文
 - `DCP_TRUSTED_PRINCIPALS_FILE`、`DCP_ADMISSION_PROFILE_FILE`、`DCP_REVOCATION_LIST_URL`、`DCP_REVOCATION_LIST_AUTHORIZATION`、`DCP_REVOCATION_TIMEOUT_MS` — 用于 `POST /v2/admit` 的准入，参见 [ADMISSION.md](../../../docs/ADMISSION.md)
 - `REQUIRE_SESSION_BINDING`、`REQUIRE_COMPOSITE_BINDING`、`MAX_KEY_AGE_DAYS` 和 `PQ_CHECKPOINT_INTERVAL` 出现在部署配置中，但尚未被读取
@@ -354,18 +355,22 @@ V2 服务公开 `GET /.well-known/dcp-capabilities.json`。参考服务器的响
     "advisory_auto_response": true,
     "governance_keys": true,
     "hsm_provider": false,
-    "agent_lifecycle": true,
-    "succession": true,
-    "dispute_resolution": true,
-    "rights_obligations": true,
-    "delegation": true
+    "agent_lifecycle": false,
+    "succession": false,
+    "dispute_resolution": false,
+    "rights_obligations": false,
+    "delegation": false,
+    "dcp05_09_demo_endpoints": false
+  },
+  "demo_endpoints": {
+    "dcp-05-09": { "enabled": false, "normative": false, "verifies_signatures": false, "access": "operator_token" }
   },
   "verifier_policy_hash": "sha256:...",
   "min_accepted_version": "1.0"
 }
 ```
 
-这是服务器所声明的内容，而不是经过检查的保证清单。虽然列出了 `application/cbor`，但其端点只读取 JSON 请求体。自 06/11/2026 起，它声明 `hsm_provider: false`：仓库中没有 HSM 提供者（[SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md)）。
+这是服务器所声明的内容，而不是经过检查的保证清单。虽然列出了 `application/cbor`，但其端点只读取 JSON 请求体。自 06/11/2026 起，它声明 `hsm_provider: false`：仓库中没有 HSM 提供者（[SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md)）。自 07/11/2026 起，DCP-05 至 DCP-09 的功能为 `false`：服务器没有规范性地实现其中任何一项。`dcp05_09_demo_endpoints` 和 `demo_endpoints` 说明[演示端点](#dcp-0509-service-endpoints)是否已启用；它们不具规范性，不验证签名，并需要运营方令牌。
 
 <a id="observability"></a>
 
@@ -399,9 +404,11 @@ V2 服务应当公开用于监控的指标：
 
 ## DCP-05–09 服务端点
 
-DCP v2.0 为验证服务器扩展了 31 个端点，用于生命周期管理、数字继承、争议解决、权利框架和个人代理。
+验证服务器有 31 个演示端点，用于生命周期管理、数字继承、争议解决、权利框架和个人代理，默认关闭。
 
-> **未认证且未验证。** 这些端点只对照模式及 ID 的格式检查每条记录。它们不验证任何 `composite_sig`，也不需要运营方令牌。任何能访问服务器的人都可以，例如，停用或重新启用一个智能体、吊销一份可吊销的委托书，或把一个争议标记为已解决。设置 `OPERATOR_TOKEN` 并不能保护它们：它只保护管理路由和新 `agent_id` 的注册。不要把它们暴露给不受信任的客户端：请把它们放在你自己的授权机制之后，或者完全不暴露，并把它们存储的内容视为未经验证的记录。
+> **默认关闭，仅限运营方，未经验证。** 除非服务器以 `DCP_DEMO_ENDPOINTS=dcp-05-09` 启动，这些端点十二个路径族下的任何请求都返回 404；该设置需要至少 32 个字符的 RFC 6750 b64token 形式的 `OPERATOR_TOKEN`（否则服务器不会启动）。启用后，每个请求（包括 GET）都必须恰好带有 `Authorization: Bearer <OPERATOR_TOKEN>`：否则返回 401，在读取请求体之前应答，并带有 `Connection: close`。令牌只是让运营方进入：这些端点只对照 schema 和 ID 的格式检查每条记录，不验证任何 `composite_sig`，也不确立责任主体的权限，因此请把它们保存的内容当作未经验证的记录。它们的存储与身份登记处在同一进程中；自 07/11/2026 起，停用智能体不再更改已登记的护照。每个客户端每分钟 100 个 POST 请求的全局限制先生效（429）。
+>
+> **迁移（07/11/2026）。** 在此变更之前，这些端点处于开启状态且不需要令牌。若要继续使用，请以 `DCP_DEMO_ENDPOINTS=dcp-05-09` 和一个足够长的 `OPERATOR_TOKEN`（`openssl rand -hex 32`）启动服务器，并在每个请求（包括 GET）中发送 `Authorization: Bearer <OPERATOR_TOKEN>`。
 
 每个 POST 都在表中所列的键下接收记录（例如 `{ "commissioning_certificate": { ... } }`）。`:agent_id` 和 `:id` 需进行 URL 编码。
 
@@ -413,7 +420,7 @@ DCP v2.0 为验证服务器扩展了 31 个端点，用于生命周期管理、�
 |--------|----------|----------|-------------|
 | POST | `/v2/lifecycle/commission` | `commissioning_certificate` | 把智能体置于 `commissioned` 状态；对已知的智能体，会重置其状态和历史 |
 | POST | `/v2/lifecycle/vitality` | `vitality_report` | 存储一份活力报告；报告中不同的 `state` 即为一次生命周期转换 |
-| POST | `/v2/lifecycle/decommission` | `decommissioning_record` | 把智能体转为 `decommissioned`，并把已注册的护照标记为 `decommissioned` |
+| POST | `/v2/lifecycle/decommission` | `decommissioning_record` | 把智能体转为 `decommissioned` |
 | GET | `/v2/lifecycle/:agent_id` | — | 当前状态、历史和活力报告数量 |
 
 服务器接受的生命周期转换：`commissioned → active`、`active → declining`、`active → decommissioned`、`declining → decommissioned`。SDK 的状态机还允许 `commissioned → decommissioned` 和 `declining → active`。
@@ -492,7 +499,7 @@ DCP-05–09 端点具备：
 - **有界存储** — 每个内存存储最多保留 10,000 条，并逐出最旧的条目（FIFO）：被逐出的记录会消失。身份注册表则改为拒绝（507）；参见[参考服务只在内存中保存状态](#reference-services-keep-state-in-memory-only)
 - **安全头** — X-Content-Type-Options、X-Frame-Options、Strict-Transport-Security、Cache-Control
 
-它们**不**包括对记录的签名验证，也不包括任何认证（参见本节开头的说明）。
+它们**不**包括对记录的签名验证，也不确立任何责任主体的权限；启用时，运营方令牌是唯一的访问控制（参见本节开头的说明）。
 
 <a id="reference"></a>
 

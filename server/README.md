@@ -22,7 +22,7 @@ Default port: `3000`. Override with `PORT=4000 node server/index.js`. Set `OPERA
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/` , `/health` | Health check — `{ ok, service, supported_versions, registered_agents, registered_keys }` |
-| GET | `/.well-known/dcp-capabilities.json` | Protocol capability discovery (algorithms, features, wire formats). What the server advertises, not checked guarantees: it lists `application/cbor`, but bodies are read as JSON only; `hsm_provider` is `false`, since there is no HSM |
+| GET | `/.well-known/dcp-capabilities.json` | Protocol capability discovery (algorithms, features, wire formats). What the server advertises, not checked guarantees: it lists `application/cbor`, but bodies are read as JSON only; `hsm_provider` is `false`, since there is no HSM; the DCP-05 to DCP-09 features are `false`, and `demo_endpoints` describes the demo endpoints below |
 | POST | `/verify` | Verify a signed bundle (auto-detects V1 or V2; V2 is checked against `VERIFIER_POLICY`) |
 | POST | `/v2/admit` | Admission against the operator's trusted principals, and strict-v1 when configured (`docs/ADMISSION.md`). Reads only `signed_bundle` from the body. 501 when not configured |
 | POST | `/anchor` | Stub — returns 501 (implement per operator) |
@@ -70,7 +70,7 @@ Default port: `3000`. Override with `PORT=4000 node server/index.js`. Set `OPERA
 
 ### DCP-05 to DCP-09
 
-31 endpoints for lifecycle, succession, disputes, rights and delegation records; they are listed in [docs/OPERATOR_GUIDE.md](../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints). They validate each record against its schema, but **they do not verify any signature and need no token**, and `OPERATOR_TOKEN` does not protect them: anyone who can reach the server can decommission or re-commission an agent, revoke a revocable mandate or mark a dispute resolved. Do not expose them to untrusted clients.
+31 demo endpoints for lifecycle, succession, disputes, rights and delegation records, listed in [docs/OPERATOR_GUIDE.md](../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints). **Off by default:** every request under their twelve path families (`/v2/lifecycle`, `/v2/succession`, `/v2/disputes`, `/v2/objections`, `/v2/jurisprudence`, `/v2/rights`, `/v2/obligations`, `/v2/delegation`, `/v2/agent-advisory`, `/v2/mirror`, `/v2/interactions`, `/v2/awareness`) gets 404, even with the operator token. `DCP_DEMO_ENDPOINTS=dcp-05-09` enables them; the server then needs an `OPERATOR_TOKEN` of at least 32 RFC 6750 b64token characters, does not start otherwise, and answers those families only with `Authorization: Bearer <OPERATOR_TOKEN>` (the scheme in any case, one space), with 401 otherwise, GET included, before it reads the body. With the token, the records are still only checked against their schemas: **no signature is verified** and no principal authority is established. Since 07/11/2026 decommissioning there no longer changes a registered passport. The global limit of 100 POST requests per minute per client applies first, so a 429 can come before the 404 or 401.
 
 ## Environment Variables
 
@@ -80,6 +80,7 @@ Default port: `3000`. Override with `PORT=4000 node server/index.js`. Set `OPERA
 | `OPERATOR_TOKEN` | — | Bearer token for the operator endpoints and for registering new `agent_id`s. Unset: both stay locked |
 | `VERIFIER_MODE` | `hybrid_required` | Startup verification mode: `classical_only`, `hybrid_preferred`, `hybrid_required` or `pq_only`. An invalid value stops the server |
 | `ALLOW_V1_BUNDLES` | `true` | `false` makes `POST /verify` reject V1 bundles (`pq_only` always does) |
+| `DCP_DEMO_ENDPOINTS` | `off` | `dcp-05-09` enables the DCP-05 to DCP-09 demo endpoints, which then need the operator token (at least 32 characters); any value other than unset, `off` or `dcp-05-09` stops the server |
 | `TRUST_PROXY` | — | `true` only behind a proxy that appends the client IP to `X-Forwarded-For` (Fly, nginx). Rate limits then key on its last hop; otherwise on the socket address, since clients can forge the header |
 | `REGISTRATIONS_PER_HOUR` | `20` | `POST /v2/passport/register` calls per client per hour; more get 429 |
 | `MAX_REGISTERED_KEYS` | `10000` | Keys in the registry; new agents and rotations then get 507 (nothing is evicted) |
@@ -345,7 +346,7 @@ curl -s http://localhost:3000/.well-known/dcp-capabilities.json | jq .
 ## Limitations
 
 - **In-memory storage**: all state (passports, keys, audit chains, advisories) is lost on restart. See [Persistence](#persistence).
-- **Signatures outside bundle verification**: bundle verification, passport registration, key rotation and multi-party authorization check real Ed25519 and ML-DSA-65 / SLH-DSA signatures. `/v2/advisory/publish` and `/v2/governance/register` do not (the operator token is their only guard), and neither do `/v2/intent/declare`, `/v2/audit/*` or the DCP-05 to DCP-09 endpoints, which also need no token (see [DCP-05 to DCP-09](#dcp-05-to-dcp-09)).
+- **Signatures outside bundle verification**: bundle verification, passport registration, key rotation and multi-party authorization check real Ed25519 and ML-DSA-65 / SLH-DSA signatures. `/v2/advisory/publish` and `/v2/governance/register` do not (the operator token is their only guard), and neither do `/v2/intent/declare` and `/v2/audit/*`, which also need no token, or the DCP-05 to DCP-09 demo endpoints, off by default and operator-only when enabled (see [DCP-05 to DCP-09](#dcp-05-to-dcp-09)).
 - **Anchoring**: `POST /anchor` returns 501. Implement using your blockchain (Ethereum, Bitcoin) or transparency log.
 
 ## Persistence

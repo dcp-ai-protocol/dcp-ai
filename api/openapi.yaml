@@ -1711,6 +1711,23 @@ components:
             type: string
         features:
           type: object
+        demo_endpoints:
+          type: object
+          description: >-
+            Informative. The reference server's DCP-05–09 demo endpoints: schema checks only, no signature
+            verification, each request needing the operator token, and off unless DCP_DEMO_ENDPOINTS=dcp-05-09.
+          properties:
+            dcp-05-09:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                normative:
+                  type: boolean
+                verifies_signatures:
+                  type: boolean
+                access:
+                  type: string
         verifier_policy_hash:
           type: string
         min_accepted_version:

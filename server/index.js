@@ -34,6 +34,9 @@
  *     POST /v2/admit; re-read when the file changes
  *   DCP_ADMISSION_PROFILE_FILE — strict-v1 profile (schemas/v2/admission_profile.schema.json);
  *     needs DCP_TRUSTED_PRINCIPALS_FILE and DCP_REVOCATION_LIST_URL
+ *   DCP_DEMO_ENDPOINTS — "off" (the default) or "dcp-05-09": the 31 DCP-05–09 demo endpoints
+ *     (schema checks only, no signature verification), each request needing the operator token;
+ *     "dcp-05-09" needs an OPERATOR_TOKEN of at least 32 RFC 6750 b64token characters (server/demo-gate.js)
  *   DCP_REVOCATION_LIST_URL — complete deny list in the revocation service's
  *     /.well-known/dcp-revocations.json format; DCP_REVOCATION_LIST_AUTHORIZATION — optional
  *     Authorization header for it; DCP_REVOCATION_TIMEOUT_MS — default 5000
@@ -53,6 +56,7 @@ import {
   admitSignedBundle, denyListRevocationSource,
 } from "../lib/verify.js";
 import { parseBody, getClientIp, isOperator, rateLimiter } from "../lib/http.js";
+import { DEMO_FAMILIES, demoEnabled, isDemoOperator } from "./demo-gate.js";
 import { computeSecurityTier } from "../lib/security-tier.js";
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -172,6 +176,10 @@ if (process.env.VERIFIER_MODE) {
 }
 if (process.env.ALLOW_V1_BUNDLES === "false") VERIFIER_POLICY.allow_v1_bundles = false;
 
+// DCP-05–09 demo endpoints: off unless DCP_DEMO_ENDPOINTS=dcp-05-09 with a usable OPERATOR_TOKEN; any other
+// value stops the server here (server/demo-gate.js).
+const DEMO_ENABLED = demoEnabled(process.env);
+
 // ── Admission (spec/profiles/admission): operator files and URLs only, checked at startup ──
 
 const ADMISSION = loadAdmission();
@@ -260,11 +268,17 @@ const DCP_CAPABILITIES = {
     advisory_auto_response: true,
     governance_keys: true,
     hsm_provider: false,         // no HSM backend in this repository
-    agent_lifecycle: true,       // DCP-05
-    succession: true,            // DCP-06
-    dispute_resolution: true,    // DCP-07
-    rights_obligations: true,    // DCP-08
-    delegation: true,            // DCP-09
+    // DCP-05 to DCP-09 are not implemented normatively here: the only endpoints are the schema-only demo below.
+    agent_lifecycle: false,      // DCP-05
+    succession: false,           // DCP-06
+    dispute_resolution: false,   // DCP-07
+    rights_obligations: false,   // DCP-08
+    delegation: false,           // DCP-09
+    dcp05_09_demo_endpoints: DEMO_ENABLED,
+  },
+  // Informative: what the DCP-05–09 demo endpoints are, whether or not they are enabled.
+  demo_endpoints: {
+    "dcp-05-09": { enabled: DEMO_ENABLED, normative: false, verifies_signatures: false, access: "operator_token" },
   },
   get verifier_policy_hash() { return computePolicyHash(); },
   min_accepted_version: "1.0",
@@ -479,6 +493,18 @@ const server = http.createServer(async (req, res) => {
     if (!checkGlobalRateLimit(ip)) {
       return send(res, 429, { error: "Rate limit exceeded. Max 100 requests per minute." });
     }
+  }
+
+  // DCP-05–09 demo endpoints (server/demo-gate.js): before any body is read or store touched. Off, the whole
+  // namespace of their twelve families is not found; on, it needs exactly "Bearer <OPERATOR_TOKEN>".
+  if (DEMO_FAMILIES.test(req.url ?? "")) {
+    res.setHeader("Connection", "close"); // a body still arriving is not waited for
+    if (!DEMO_ENABLED) return send(res, 404, { error: "Not found" });
+    if (!isDemoOperator(req.headers.authorization, process.env.OPERATOR_TOKEN)) {
+      res.setHeader("WWW-Authenticate", "Bearer");
+      return send(res, 401, { error: "Operator token required (Authorization: Bearer <OPERATOR_TOKEN>)" });
+    }
+    res.removeHeader("Connection");
   }
 
   if (req.method === "POST" && ADMIN_ROUTES.has(req.url) && !isOperator(req)) {
@@ -1621,11 +1647,8 @@ const server = http.createServer(async (req, res) => {
     lifecycle.state = "decommissioned";
     lifecycle.history.push({ state: "decommissioned", timestamp: record.timestamp || new Date().toISOString(), termination_mode: record.termination_mode });
 
-    // Update passport status if registered
-    const passport = passportRegistry.get(record.agent_id);
-    if (passport) {
-      passport.status = "decommissioned";
-    }
+    // The demo stores stay apart from the identity registries: decommissioning here no longer touches a
+    // registered passport (it used to set a status that no core route reads).
 
     send(res, 200, {
       status: "decommissioned",
@@ -2316,42 +2339,47 @@ server.listen(PORT, () => {
   console.log("    POST /v2/policy/mode                      — switch verifier mode (pq_only etc.)");
   console.log("    POST /v2/advisory/auto-apply              — auto-apply advisories to policy");
   console.log("    POST /v2/governance/register              — register governance key set");
-  console.log("  DCP-05 Lifecycle:");
-  console.log("    POST /v2/lifecycle/commission              — commission agent");
-  console.log("    POST /v2/lifecycle/vitality                — submit vitality report");
-  console.log("    POST /v2/lifecycle/decommission            — decommission agent");
-  console.log("    GET  /v2/lifecycle/:agentId                — lifecycle status");
-  console.log("  DCP-06 Succession:");
-  console.log("    POST /v2/succession/testament              — create/update testament");
-  console.log("    GET  /v2/succession/testament/:agentId     — get testament");
-  console.log("    POST /v2/succession/execute                — execute succession");
-  console.log("    POST /v2/succession/memory-transfer        — record memory transfer");
-  console.log("    GET  /v2/succession/:agentId               — succession history");
-  console.log("  DCP-07 Disputes:");
-  console.log("    POST /v2/disputes/create                   — create dispute");
-  console.log("    POST /v2/disputes/:id/escalate             — escalate dispute");
-  console.log("    POST /v2/disputes/:id/resolve              — resolve dispute");
-  console.log("    GET  /v2/disputes/:id                      — get dispute");
-  console.log("    POST /v2/objections/create                 — create objection");
-  console.log("    GET  /v2/jurisprudence                     — list jurisprudence");
-  console.log("    POST /v2/jurisprudence                     — add jurisprudence");
-  console.log("  DCP-08 Rights:");
-  console.log("    POST /v2/rights/declare                    — declare rights");
-  console.log("    GET  /v2/rights/:agentId                   — get rights");
-  console.log("    POST /v2/obligations/record                — record obligation");
-  console.log("    GET  /v2/obligations/:agentId              — get obligations");
-  console.log("    POST /v2/rights/violation                  — report violation");
-  console.log("  DCP-09 Delegation:");
-  console.log("    POST /v2/delegation/mandate                — create mandate");
-  console.log("    GET  /v2/delegation/mandate/:id            — get mandate");
-  console.log("    POST /v2/delegation/mandate/:id/revoke     — revoke mandate");
-  console.log("    POST /v2/agent-advisory/declare            — advisory declaration");
-  console.log("    GET  /v2/agent-advisory/:id                — get advisory");
-  console.log("    POST /v2/mirror/generate                   — generate mirror");
-  console.log("    GET  /v2/mirror/:agentId                   — get mirrors");
-  console.log("    POST /v2/interactions/record               — record interaction");
-  console.log("    POST /v2/awareness/threshold               — set threshold");
-  console.log("    GET  /v2/awareness/threshold/:agentId      — get threshold");
+  if (!DEMO_ENABLED) {
+    console.log("  DCP-05–09 demo endpoints: disabled (DCP_DEMO_ENDPOINTS=dcp-05-09 with OPERATOR_TOKEN to enable)");
+  } else {
+    console.log("  DCP-05–09 demo endpoints (operator token; schema checks only, no signature verification):");
+    console.log("  DCP-05 Lifecycle:");
+    console.log("    POST /v2/lifecycle/commission              — commission agent");
+    console.log("    POST /v2/lifecycle/vitality                — submit vitality report");
+    console.log("    POST /v2/lifecycle/decommission            — decommission agent");
+    console.log("    GET  /v2/lifecycle/:agentId                — lifecycle status");
+    console.log("  DCP-06 Succession:");
+    console.log("    POST /v2/succession/testament              — create/update testament");
+    console.log("    GET  /v2/succession/testament/:agentId     — get testament");
+    console.log("    POST /v2/succession/execute                — execute succession");
+    console.log("    POST /v2/succession/memory-transfer        — record memory transfer");
+    console.log("    GET  /v2/succession/:agentId               — succession history");
+    console.log("  DCP-07 Disputes:");
+    console.log("    POST /v2/disputes/create                   — create dispute");
+    console.log("    POST /v2/disputes/:id/escalate             — escalate dispute");
+    console.log("    POST /v2/disputes/:id/resolve              — resolve dispute");
+    console.log("    GET  /v2/disputes/:id                      — get dispute");
+    console.log("    POST /v2/objections/create                 — create objection");
+    console.log("    GET  /v2/jurisprudence                     — list jurisprudence");
+    console.log("    POST /v2/jurisprudence                     — add jurisprudence");
+    console.log("  DCP-08 Rights:");
+    console.log("    POST /v2/rights/declare                    — declare rights");
+    console.log("    GET  /v2/rights/:agentId                   — get rights");
+    console.log("    POST /v2/obligations/record                — record obligation");
+    console.log("    GET  /v2/obligations/:agentId              — get obligations");
+    console.log("    POST /v2/rights/violation                  — report violation");
+    console.log("  DCP-09 Delegation:");
+    console.log("    POST /v2/delegation/mandate                — create mandate");
+    console.log("    GET  /v2/delegation/mandate/:id            — get mandate");
+    console.log("    POST /v2/delegation/mandate/:id/revoke     — revoke mandate");
+    console.log("    POST /v2/agent-advisory/declare            — advisory declaration");
+    console.log("    GET  /v2/agent-advisory/:id                — get advisory");
+    console.log("    POST /v2/mirror/generate                   — generate mirror");
+    console.log("    GET  /v2/mirror/:agentId                   — get mirrors");
+    console.log("    POST /v2/interactions/record               — record interaction");
+    console.log("    POST /v2/awareness/threshold               — set threshold");
+    console.log("    GET  /v2/awareness/threshold/:agentId      — get threshold");
+  }
 });
 
 // ── Process-level error handling ──

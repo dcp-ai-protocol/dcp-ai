@@ -5,7 +5,7 @@
 
 # 规范 — DCP-AI 规范性文档
 
-> 本文是[英文版](../../../spec/README.md)的参考译文，更新于 27/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../spec/README.md)的参考译文，更新于 07/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 Digital Citizenship Protocol for AI Agents 的规范性规范。格式以 `schemas/v1/` 和 `schemas/v2/` 中的 JSON Schema 为准；这些文档定义范围、工件以及如何校验。[V2-WIRE-COMPATIBILITY.md](../../../spec/V2-WIRE-COMPATIBILITY.md) 列出了使 DCP-05、DCP-08 和 DCP-09 的名称、签名上下文和示例与该格式一致的勘误，以及分别判断的四个层次（可表示、符合模式、已验证、合规）。
 
@@ -61,7 +61,7 @@ Digital Citizenship Protocol for AI Agents 的规范性规范。格式以 `schem
 | [DCP-09](../../../spec/DCP-09.md) | 个人代表与委托 | DelegationMandate、AdvisoryDeclaration、PrincipalMirror、AwarenessThreshold |
 
 **Schema：** `schemas/v2/` 中的 18 个 JSON Schema，覆盖 DCP-05–09 的所有工件。
-**服务器端点：** 参考验证服务器中的 31 个 REST 端点，没有身份验证，也不验证签名（见 [OPERATOR_GUIDE](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)）。
+**服务器端点：** 参考验证服务器中的 31 个演示 REST 端点，默认关闭，启用后只凭运营方令牌访问，不验证签名（见 [OPERATOR_GUIDE](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)）。
 **域分离：** 7 个新上下文 — `Lifecycle`、`Succession`、`Dispute`、`Rights`、`Delegation`、`Awareness`、`SubMandate`。
 
 ---

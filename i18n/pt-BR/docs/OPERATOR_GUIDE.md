@@ -5,7 +5,7 @@
 
 # Guia do operador — executar um serviço de verificação
 
-> Tradução informativa da [versão em inglês](../../../docs/OPERATOR_GUIDE.md), atualizada em 06/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../docs/OPERATOR_GUIDE.md), atualizada em 07/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Este guia é para **terceiros** que queiram executar um serviço de «agente verificado»: uma API HTTP que verifica Signed Bundles do DCP (e, opcionalmente, ancora hashes numa blockchain). O protocolo **não** exige nenhum servidor central; a verificação sempre pode ser feita localmente com `dcp verify-bundle`. Este serviço é **opcional** e executado por escolha do operador.
 
@@ -191,6 +191,7 @@ Os limites contam por IP de cliente. Atrás de um proxy que acrescenta o IP do c
 - `OPERATOR_TOKEN` — token bearer para os endpoints de administração (política, avisos, governança) e para registrar `agent_id` novos; sem defini-lo, eles continuam bloqueados
 - `VERIFIER_MODE` — `classical_only` | `hybrid_preferred` | `hybrid_required` | `pq_only`
 - `ALLOW_V1_BUNDLES` — `false` rejeita bundles V1
+- `DCP_DEMO_ENDPOINTS` — `off` (o padrão) ou `dcp-05-09`, que ativa os [endpoints demo do DCP-05–09](#dcp-0509-service-endpoints) e precisa de um `OPERATOR_TOKEN` de pelo menos 32 caracteres b64token da RFC 6750; qualquer outro valor impede o servidor de iniciar
 - `TRUST_PROXY`, `REGISTRATIONS_PER_HOUR`, `MAX_REGISTERED_KEYS`, `MAX_KEYS_PER_AGENT` — veja acima
 - `DCP_TRUSTED_PRINCIPALS_FILE`, `DCP_ADMISSION_PROFILE_FILE`, `DCP_REVOCATION_LIST_URL`, `DCP_REVOCATION_LIST_AUTHORIZATION`, `DCP_REVOCATION_TIMEOUT_MS` — admissão para `POST /v2/admit`, veja [ADMISSION.md](../../../docs/ADMISSION.md)
 - `REQUIRE_SESSION_BINDING`, `REQUIRE_COMPOSITE_BINDING`, `MAX_KEY_AGE_DAYS` e `PQ_CHECKPOINT_INTERVAL` aparecem nas configurações de implantação, mas ainda não são lidas
@@ -352,18 +353,22 @@ Os serviços V2 expõem `GET /.well-known/dcp-capabilities.json`. O servidor de 
     "advisory_auto_response": true,
     "governance_keys": true,
     "hsm_provider": false,
-    "agent_lifecycle": true,
-    "succession": true,
-    "dispute_resolution": true,
-    "rights_obligations": true,
-    "delegation": true
+    "agent_lifecycle": false,
+    "succession": false,
+    "dispute_resolution": false,
+    "rights_obligations": false,
+    "delegation": false,
+    "dcp05_09_demo_endpoints": false
+  },
+  "demo_endpoints": {
+    "dcp-05-09": { "enabled": false, "normative": false, "verifies_signatures": false, "access": "operator_token" }
   },
   "verifier_policy_hash": "sha256:...",
   "min_accepted_version": "1.0"
 }
 ```
 
-Isso é o que o servidor anuncia, não uma lista de garantias verificadas. Os endpoints dele só leem corpos JSON, embora `application/cbor` seja listado. Desde 06/11/2026 ele anuncia `hsm_provider: false`: o repositório não tem nenhum provedor HSM ([SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md)).
+Isso é o que o servidor anuncia, não uma lista de garantias verificadas. Os endpoints dele só leem corpos JSON, embora `application/cbor` seja listado. Desde 06/11/2026 ele anuncia `hsm_provider: false`: o repositório não tem nenhum provedor HSM ([SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md)). Desde 07/11/2026 as funcionalidades do DCP-05 ao DCP-09 são `false`: o servidor não implementa nenhuma de forma normativa. `dcp05_09_demo_endpoints` e `demo_endpoints` dizem se os [endpoints demo](#dcp-0509-service-endpoints) estão ativados; não são normativos, não verificam assinaturas e precisam do token do operador.
 
 <a id="observability"></a>
 
@@ -397,9 +402,11 @@ Veja [MIGRATION_V1_V2.md](../../../docs/MIGRATION_V1_V2.md) para as etapas detal
 
 ## Endpoints de serviço do DCP-05–09
 
-O DCP v2.0 estende o servidor de verificação com 31 endpoints para gestão do ciclo de vida, sucessão digital, resolução de disputas, marco de direitos e representação pessoal.
+O servidor de verificação tem 31 endpoints demo para gestão do ciclo de vida, sucessão digital, resolução de disputas, estrutura de direitos e representação pessoal, desligados por padrão.
 
-> **Sem autenticação e sem verificação.** Estes endpoints conferem cada registro contra o esquema dele e o formato dos IDs. Eles não verificam nenhum `composite_sig` e não exigem token do operador. Qualquer pessoa que alcance o servidor pode, por exemplo, descomissionar ou recomissionar um agente, revogar um mandato revogável ou marcar uma disputa como resolvida. Definir `OPERATOR_TOKEN` não os protege: ele só protege as rotas de administração e os registros de `agent_id` novos. Não os exponha a clientes não confiáveis: coloque-os atrás da sua própria autorização, ou não os exponha de forma alguma, e trate o que eles armazenam como registros não verificados.
+> **Desligados por padrão, só para o operador, sem verificação.** Toda solicitação sob as doze famílias de rotas destes endpoints recebe 404, a menos que o servidor inicie com `DCP_DEMO_ENDPOINTS=dcp-05-09`, que precisa de um `OPERATOR_TOKEN` de pelo menos 32 caracteres b64token da RFC 6750 (senão o servidor não inicia). Ativados, cada solicitação, GET incluídos, precisa exatamente de `Authorization: Bearer <OPERATOR_TOKEN>`: senão, 401, respondido antes de ler o corpo e com `Connection: close`. O token só deixa o operador entrar: os endpoints conferem cada registro contra o seu schema e o formato dos seus IDs, não verificam nenhum `composite_sig` nem estabelecem autoridade do principal, então trate o que guardam como registros não verificados. Os seus armazenamentos ficam no mesmo processo que os registros de identidade; desde 07/11/2026, descomissionar não altera mais um passaporte registrado. O limite global de 100 solicitações POST por minuto e cliente vem antes (429).
+>
+> **Migração (07/11/2026).** Antes desta mudança estes endpoints estavam ativos e não precisavam de token. Para continuar a usá-los, inicie o servidor com `DCP_DEMO_ENDPOINTS=dcp-05-09` e um `OPERATOR_TOKEN` longo (`openssl rand -hex 32`), e envie `Authorization: Bearer <OPERATOR_TOKEN>` em cada solicitação, GET incluídos.
 
 Cada POST recebe o registro sob a chave indicada na tabela (por exemplo, `{ "commissioning_certificate": { ... } }`). `:agent_id` e `:id` são codificados para URL.
 
@@ -411,7 +418,7 @@ Cada POST recebe o registro sob a chave indicada na tabela (por exemplo, `{ "com
 |--------|----------|----------|-------------|
 | POST | `/v2/lifecycle/commission` | `commissioning_certificate` | Coloca o agente no estado `commissioned`; para um agente já conhecido, redefine o estado e o histórico dele |
 | POST | `/v2/lifecycle/vitality` | `vitality_report` | Armazena um relatório de vitalidade; um `state` diferente no relatório é uma transição do ciclo de vida |
-| POST | `/v2/lifecycle/decommission` | `decommissioning_record` | Passa o agente para `decommissioned` e marca como `decommissioned` um passaporte registrado |
+| POST | `/v2/lifecycle/decommission` | `decommissioning_record` | Passa o agente para `decommissioned` |
 | GET | `/v2/lifecycle/:agent_id` | — | Estado atual, histórico e número de relatórios de vitalidade |
 
 Transições do ciclo de vida que o servidor aceita: `commissioned → active`, `active → declining`, `active → decommissioned`, `declining → decommissioned`. A máquina de estados do SDK também permite `commissioned → decommissioned` e `declining → active`.
@@ -490,7 +497,7 @@ Os endpoints do DCP-05–09 têm:
 - **Armazenamento limitado** — cada armazenamento em memória guarda no máximo 10.000 entradas e descarta as mais antigas (FIFO): um registro descartado se perde. Os registros de identidades, por outro lado, recusam (507); veja [Os serviços de referência guardam o estado só em memória](#reference-services-keep-state-in-memory-only)
 - **Cabeçalhos de segurança** — X-Content-Type-Options, X-Frame-Options, Strict-Transport-Security, Cache-Control
 
-Eles **não** incluem verificação de assinatura dos registros nem qualquer autenticação (veja a nota no início desta seção).
+Eles **não** incluem verificação de assinatura dos registros nem qualquer autoridade do principal; quando ativados, o token do operador é o seu único controle de acesso (veja a nota no início desta seção).
 
 <a id="reference"></a>
 

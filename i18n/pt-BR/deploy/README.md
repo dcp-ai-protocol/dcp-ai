@@ -4,7 +4,7 @@
 
 # Implantar os serviços do DCP-AI
 
-> Tradução informativa da [versão em inglês](../../../deploy/README.md), atualizada em 05/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../deploy/README.md), atualizada em 07/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Os quatro serviços incluídos neste repositório — **verification**, **anchor**,
 **transparency-log**, **revocation** — são distribuídos como imagens Docker
@@ -22,10 +22,11 @@ qualquer host de contêineres. Abaixo estão os fluxos mais comuns.
 | Log de transparência | `ghcr.io/dcp-ai-protocol/dcp-ai/transparency-log` | 3002 |
 | Revogação | `ghcr.io/dcp-ai-protocol/dcp-ai/revocation` | 3003 |
 
-Tags (veja [`publish-docker.yml`](../../../.github/workflows/publish-docker.yml)): um push para `main` que dispara o fluxo
-publica `:latest`, `:main` e `:sha-xxxxxxx`; uma versão publicada acrescenta as suas tags semver
-(`:<major>.<minor>.<patch>`, `:<major>.<minor>`, `:<major>`) e também pode mover `:latest`, que é mutável. São
-construídas tanto `linux/amd64` quanto `linux/arm64`.
+Tags (veja [`publish-docker.yml`](../../../.github/workflows/publish-docker.yml)): um push para `main` que altera o código dos
+serviços ou o Dockerfile constrói as imagens sem publicá-las. Uma versão publicada publica a sua tag, as suas tags semver
+(`:<major>.<minor>.<patch>`, `:<major>.<minor>`, `:<major>`) e `:sha-xxxxxxx`, e também pode mover `:latest`, que é
+mutável; uma execução manual publica as tags do branch ou da tag em que roda (em `main`: `:latest`, `:main` e
+`:sha-xxxxxxx`). São construídas tanto `linux/amd64` quanto `linux/arm64`.
 
 Teste rápido no seu notebook:
 
@@ -110,7 +111,7 @@ fly launch --config revocation.toml      --no-deploy
 fly deploy --config revocation.toml
 ```
 
-Cada serviço recebe uma URL HTTPS pública como `https://dcp-ai-verification.fly.dev`. Na aplicação de verificação, isso também torna públicos os seus endpoints do DCP-05 ao DCP-09, que não precisam de token e não verificam assinaturas (veja as notas de operação).
+Cada serviço recebe uma URL HTTPS pública como `https://dcp-ai-verification.fly.dev`. Estas configurações executam a imagem publicada `:latest` e não definem `DCP_DEMO_ENDPOINTS`. Só um servidor construído com fontes que incluam a guarda do DCP-05 ao DCP-09 mantém esses endpoints demo desligados por padrão; uma imagem construída com fontes sem esta mudança os tem ativos e sem token (veja as notas de operação).
 
 Um par de gossip sem o seu `#<public key>` é consultado, mas as suas cabeças de árvore são ignoradas.
 
@@ -163,7 +164,7 @@ Crie um projeto novo a partir de uma imagem Docker. Para cada serviço, cole a U
 - **Log de transparência**: só em memória, sem opção de persistência: uma reinicialização começa uma árvore nova e vazia, e um volume não muda isso. Uma `OPERATOR_KEY` fixa mantém a mesma chave de assinatura entre reinicializações.
 - **Revogação**: o registro só é autoritativo se todos os verificadores da sua política apontarem para *esta* URL. Publique a URL no seu `.well-known/dcp-capabilities.json`. Sem `REVOCATION_STATE_PATH` em um armazenamento persistente, uma reinicialização esquece todos os registros e revogações.
 - **Verificação**: não é sem estado. Ela guarda passaportes, chaves, cadeias de auditoria e os registros do DCP-05–09 em memória, e instâncias separadas não os compartilham, então várias instâncias atrás de um balanceador de carga responderiam de forma diferente. Execute uma única instância.
-- **Verificação, endpoints do DCP-05 ao DCP-09**: não precisam de token e não verificam assinaturas, e `OPERATOR_TOKEN` não os protege, então qualquer pessoa que alcance uma implantação pública (Fly, ou Cloud Run com `--allow-unauthenticated`) pode alterar o estado do ciclo de vida, das disputas e dos mandatos. Coloque a sua própria autorização na frente deles, ou não os roteie ([docs/OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)).
+- **Verificação, endpoints do DCP-05 ao DCP-09**: num servidor construído com as fontes atuais, ficam desligados por padrão (404); `DCP_DEMO_ENDPOINTS=dcp-05-09` faz com que respondam a quem tiver o token do operador, que então precisa ter pelo menos 32 caracteres, e continuam sem verificar assinaturas. Uma imagem construída com fontes sem esta mudança, como `:latest` ainda pode ser, os tem ativos sem token, então qualquer pessoa que alcance uma implantação pública (Fly, ou Cloud Run com `--allow-unauthenticated`) pode alterar o estado do ciclo de vida, das disputas e dos mandatos: até executar uma imagem construída com estas fontes, coloque a sua própria autorização na frente deles ou não os roteie ([docs/OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)).
 
 ---
 
