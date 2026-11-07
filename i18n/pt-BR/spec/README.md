@@ -5,7 +5,7 @@
 
 # Especificações — DCP-AI normativo
 
-> Tradução informativa da [versão em inglês](../../../spec/README.md), atualizada em 27/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../spec/README.md), atualizada em 07/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Especificações normativas do Digital Citizenship Protocol for AI Agents. A fonte da verdade dos formatos é o JSON Schema em `schemas/v1/` e `schemas/v2/`; estes documentos definem o escopo, os artefatos e como validá-los. [V2-WIRE-COMPATIBILITY.md](../../../spec/V2-WIRE-COMPATIBILITY.md) lista as erratas que alinham os nomes, os contextos de assinatura e os exemplos do DCP-05, DCP-08 e DCP-09 com esse formato, e as quatro camadas (representável, válido segundo o schema, verificado, conforme) que são julgadas separadamente.
 
@@ -61,7 +61,7 @@ Especificações que regem o ciclo de vida do agente, a sucessão, a resolução
 | [DCP-09](../../../spec/DCP-09.md) | Representação pessoal e delegação | DelegationMandate, AdvisoryDeclaration, PrincipalMirror, AwarenessThreshold |
 
 **Schemas:** 18 JSON Schemas em `schemas/v2/` que cobrem todos os artefatos do DCP-05–09.
-**Endpoints do servidor:** 31 endpoints REST no servidor de verificação de referência, sem autenticação nem verificação de assinaturas (veja [OPERATOR_GUIDE](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)).
+**Endpoints do servidor:** 31 endpoints REST demo no servidor de verificação de referência, desligados por padrão, só com o token do operador quando ativados e sem verificação de assinaturas (veja [OPERATOR_GUIDE](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)).
 **Separação de domínios:** 7 contextos novos — `Lifecycle`, `Succession`, `Dispute`, `Rights`, `Delegation`, `Awareness`, `SubMandate`.
 
 ---

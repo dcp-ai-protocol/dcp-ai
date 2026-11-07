@@ -159,7 +159,7 @@ If you integrate DCP-AI and are willing to share the story — architectural dec
 **Q: Is DCP-AI production-ready?**
 A: The v2.0 specification is complete and the 5 SDKs are published and used. DCP-04 through DCP-09 are labelled "Published — v2.0 (extension; revisions tracked via adopter feedback)" in their headers; the wire format is stable and tested, and point-release revisions will be driven by adopter feedback rather than by breaking changes. Whether it is ready for your deployment depends on the parts you use:
 
-- the SDK verifiers are the production path; the reference services keep their state in memory, and the reference gateway's DCP-05–09 endpoints have no authentication ([OPERATOR_GUIDE.md](OPERATOR_GUIDE.md));
+- the SDK verifiers are the production path; the reference services keep their state in memory, and the reference gateway's DCP-05–09 endpoints are an unverified demo, off by default and operator-only when enabled ([OPERATOR_GUIDE.md](OPERATOR_GUIDE.md));
 - the repository has no HSM integration, and the `@dcp-ai/cli init` wizard is a demo ([SECURITY_MODEL.md](SECURITY_MODEL.md), "Known Limitations and Mitigations").
 
 The v2.0 final security audit of 26/02/2026 ([spec/AUDIT-v2.0-FINAL.md](../spec/AUDIT-v2.0-FINAL.md)) is a dated record: later reviews found limits it did not report, such as its HSM gap being closed only by a simulated provider.

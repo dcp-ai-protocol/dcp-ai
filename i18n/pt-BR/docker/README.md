@@ -5,7 +5,7 @@
 
 # Docker — infraestrutura do DCP
 
-> Tradução informativa da [versão em inglês](../../../docker/README.md), atualizada em 05/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../docker/README.md), atualizada em 07/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Configuração do Docker Compose para implantar todos os serviços do DCP como contêineres. Inclui verificação, ancoragem, log de transparência e revogação.
 
@@ -100,7 +100,7 @@ Cada serviço é configurado por variáveis de ambiente em `docker-compose.yml`:
 | `ALLOW_V1_BUNDLES` | `true` | Aceita bundles no formato V1 |
 | `REQUIRE_SESSION_BINDING`, `REQUIRE_COMPOSITE_BINDING`, `MAX_KEY_AGE_DAYS`, `PQ_CHECKPOINT_INTERVAL`, `ADVISORY_POLL_INTERVAL_MS` | definidas na imagem e aqui | **O servidor ainda não as lê.** Vale a sua política embutida (vinculação de sessão e composta obrigatórias, idade de chave de 365 dias); `GET /v2/policy` a mostra |
 
-Os endpoints do DCP-05 ao DCP-09 do gateway não precisam de token e não verificam assinaturas; não publique a porta 3000 para clientes não confiáveis sem a sua própria autorização na frente ([docs/OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)).
+Numa imagem construída com estas fontes, como a que o `docker-compose.yml` constrói a partir do seu checkout, os endpoints demo do DCP-05 ao DCP-09 do gateway ficam desligados, a menos que o servidor receba `DCP_DEMO_ENDPOINTS=dcp-05-09`, que o `docker-compose.yml` não repassa; ativados, precisam do token do operador e continuam sem verificar assinaturas. Uma imagem construída com fontes sem esta mudança os tem ativos sem token ([docs/OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)).
 
 #### anchor
 

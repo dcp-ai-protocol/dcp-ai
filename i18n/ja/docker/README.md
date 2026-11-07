@@ -5,7 +5,7 @@
 
 # Docker — DCP のインフラストラクチャ
 
-> [英語版](../../../docker/README.md)の参考訳です（05/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../docker/README.md)の参考訳です（07/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 DCP のすべてのサービスをコンテナとしてデプロイするための Docker Compose の設定です。検証、アンカリング、透明性ログ、失効を含みます。
 
@@ -100,7 +100,7 @@ curl http://localhost:3000/.well-known/dcp-capabilities.json
 | `ALLOW_V1_BUNDLES` | `true` | V1 形式のバンドルを受け入れる |
 | `REQUIRE_SESSION_BINDING`、`REQUIRE_COMPOSITE_BINDING`、`MAX_KEY_AGE_DAYS`、`PQ_CHECKPOINT_INTERVAL`、`ADVISORY_POLL_INTERVAL_MS` | イメージとここで設定 | **サーバーはまだ読みません。** 組み込みのポリシー（セッションの結び付けと複合バインディングが必須、鍵の経過日数の閾値は 365 日）が適用され、`GET /v2/policy` で確認できます |
 
-ゲートウェイの DCP-05 から DCP-09 のエンドポイントはトークン不要で、署名も検証しません。前段に独自の認可を置かずに、信頼できないクライアントにポート 3000 を公開しないでください（[docs/OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)）。
+これらのソースからビルドしたイメージ（`docker-compose.yml` はチェックアウトからビルドします）では、ゲートウェイの DCP-05 から DCP-09 のデモのエンドポイントは、サーバーが `DCP_DEMO_ENDPOINTS=dcp-05-09` を受け取らない限りオフで、`docker-compose.yml` はこれを渡しません。有効にすると、オペレーターのトークンが必要で、署名は引き続き検証しません。この変更を含まないソースからビルドしたイメージでは、トークン不要で有効です（[docs/OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)）。
 
 #### anchor
 

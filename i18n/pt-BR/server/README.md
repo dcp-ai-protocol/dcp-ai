@@ -4,7 +4,7 @@
 
 # Gateway de referência do DCP
 
-> Tradução informativa da [versão em inglês](../../../server/README.md), atualizada em 06/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../server/README.md), atualizada em 07/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Serviço HTTP de verificação que implementa a V1, a V2 e a fase 3 (PQ primeiro) do Digital Citizenship Protocol. **Armazenamento em memória**: não precisa de nenhum banco de dados externo, e nada sobrevive a uma reinicialização (veja [Persistência](#persistence)). Projetado para ser executado por qualquer terceiro; o protocolo não exige um servidor central.
 
@@ -32,7 +32,7 @@ Porta padrão: `3000`. Altere com `PORT=4000 node server/index.js`. Defina `OPER
 | Método | Caminho | Descrição |
 |--------|------|-------------|
 | GET | `/` , `/health` | Checagem de saúde: `{ ok, service, supported_versions, registered_agents, registered_keys }` |
-| GET | `/.well-known/dcp-capabilities.json` | Descoberta das capacidades do protocolo (algoritmos, funcionalidades, formatos de transmissão). É o que o servidor anuncia, não garantias checadas: lista `application/cbor`, mas os corpos só são lidos como JSON; `hsm_provider` é `false`, pois não há nenhum HSM |
+| GET | `/.well-known/dcp-capabilities.json` | Descoberta das capacidades do protocolo (algoritmos, funcionalidades, formatos de transmissão). É o que o servidor anuncia, não garantias checadas: lista `application/cbor`, mas os corpos só são lidos como JSON; `hsm_provider` é `false`, pois não há nenhum HSM; as funcionalidades do DCP-05 ao DCP-09 são `false`, e `demo_endpoints` descreve os endpoints demo abaixo |
 | POST | `/verify` | Verifica um bundle assinado (detecta V1 ou V2; a V2 é checada contra `VERIFIER_POLICY`) |
 | POST | `/v2/admit` | Admissão em relação aos principais confiáveis do operador, e strict-v1 quando configurado (`docs/ADMISSION.md`). Do corpo, só lê `signed_bundle`. 501 quando não está configurada |
 | POST | `/anchor` | Esboço: retorna 501 (cada operador implementa) |
@@ -93,7 +93,7 @@ permanecem bloqueados.
 
 ### Do DCP-05 ao DCP-09
 
-31 endpoints para registros de ciclo de vida, sucessão, disputas, direitos e delegação; estão listados em [docs/OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints). Eles validam cada registro contra o seu schema, mas **não verificam nenhuma assinatura nem precisam de token**, e `OPERATOR_TOKEN` não os protege: qualquer pessoa que alcance o servidor pode desativar ou recomissionar um agente, revogar um mandato revogável ou marcar uma disputa como resolvida. Não os exponha a clientes não confiáveis.
+31 endpoints demo para registros de ciclo de vida, sucessão, disputas, direitos e delegação, listados em [docs/OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints). **Desligados por padrão:** toda solicitação sob as suas doze famílias de rotas (`/v2/lifecycle`, `/v2/succession`, `/v2/disputes`, `/v2/objections`, `/v2/jurisprudence`, `/v2/rights`, `/v2/obligations`, `/v2/delegation`, `/v2/agent-advisory`, `/v2/mirror`, `/v2/interactions`, `/v2/awareness`) recebe 404, mesmo com o token do operador. `DCP_DEMO_ENDPOINTS=dcp-05-09` os ativa; o servidor então precisa de um `OPERATOR_TOKEN` de pelo menos 32 caracteres b64token da RFC 6750, não inicia caso contrário, e só responde nessas famílias com `Authorization: Bearer <OPERATOR_TOKEN>` (o esquema em maiúsculas ou minúsculas, um espaço); senão, 401, GET incluídos, antes de ler o corpo. Com o token, os registros continuam só conferidos contra os seus schemas: **nenhuma assinatura é verificada** e nenhuma autoridade do principal é estabelecida. Desde 07/11/2026, descomissionar ali não altera mais um passaporte registrado. O limite global de 100 solicitações POST por minuto e cliente vem antes, então um 429 pode chegar antes do 404 ou do 401.
 
 <a id="environment-variables"></a>
 
@@ -105,6 +105,7 @@ permanecem bloqueados.
 | `OPERATOR_TOKEN` | — | Token Bearer para os endpoints de operador e para registrar `agent_id`s novos. Sem definir: ambos ficam bloqueados |
 | `VERIFIER_MODE` | `hybrid_required` | Modo de verificação na inicialização: `classical_only`, `hybrid_preferred`, `hybrid_required` ou `pq_only`. Um valor inválido interrompe o servidor |
 | `ALLOW_V1_BUNDLES` | `true` | `false` faz `POST /verify` recusar bundles V1 (`pq_only` sempre recusa) |
+| `DCP_DEMO_ENDPOINTS` | `off` | `dcp-05-09` ativa os endpoints demo do DCP-05 ao DCP-09, que então precisam do token do operador (pelo menos 32 caracteres); qualquer valor diferente de indefinido, `off` ou `dcp-05-09` impede o servidor de iniciar |
 | `TRUST_PROXY` | — | `true` só atrás de um proxy que acrescenta o IP do cliente a `X-Forwarded-For` (Fly, nginx). Os limites de taxa passam a usar o seu último salto; caso contrário, o endereço do socket, porque os clientes podem forjar o cabeçalho |
 | `REGISTRATIONS_PER_HOUR` | `20` | Chamadas a `POST /v2/passport/register` por cliente por hora; as demais recebem 429 |
 | `MAX_REGISTERED_KEYS` | `10000` | Chaves no registro; a partir daí, agentes novos e rotações recebem 507 (nada é removido) |
@@ -381,7 +382,7 @@ curl -s http://localhost:3000/.well-known/dcp-capabilities.json | jq .
 ## Limitações
 
 - **Armazenamento em memória**: todo o estado (passaportes, chaves, cadeias de auditoria, avisos) se perde ao reiniciar. Veja [Persistência](#persistence).
-- **Assinaturas fora da verificação de bundles**: a verificação de bundles, o registro de passaportes, a rotação de chaves e a autorização multipartes checam assinaturas Ed25519 e ML-DSA-65 / SLH-DSA reais. `/v2/advisory/publish` e `/v2/governance/register` não checam (o token do operador é a sua única proteção), nem `/v2/intent/declare`, `/v2/audit/*` ou os endpoints do DCP-05 ao DCP-09, que também não precisam de token (veja [Do DCP-05 ao DCP-09](#dcp-05-to-dcp-09)).
+- **Assinaturas fora da verificação de bundles**: a verificação de bundles, o registro de passaportes, a rotação de chaves e a autorização multipartes checam assinaturas Ed25519 e ML-DSA-65 / SLH-DSA reais. `/v2/advisory/publish` e `/v2/governance/register` não checam (o token do operador é a sua única proteção), nem `/v2/intent/declare` e `/v2/audit/*`, que também não precisam de token, ou os endpoints demo do DCP-05 ao DCP-09, desligados por padrão e só para o operador quando ativados (veja [Do DCP-05 ao DCP-09](#dcp-05-to-dcp-09)).
 - **Ancoragem**: `POST /anchor` retorna 501. Implemente com a sua blockchain (Ethereum, Bitcoin) ou o seu log de transparência.
 
 <a id="persistence"></a>

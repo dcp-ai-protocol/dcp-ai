@@ -5,7 +5,7 @@
 
 # Especificaciones — DCP-AI normativo
 
-> Traducción informativa de [la versión en inglés](../../../spec/README.md), actualizada el 27/10/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../spec/README.md), actualizada el 07/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Especificaciones normativas del Digital Citizenship Protocol for AI Agents. La fuente de verdad de los formatos es el JSON Schema de `schemas/v1/` y `schemas/v2/`; estos documentos definen el alcance, los artefactos y cómo validarlos. [V2-WIRE-COMPATIBILITY.md](../../../spec/V2-WIRE-COMPATIBILITY.md) enumera las erratas que alinean los nombres, los contextos de firma y los ejemplos de DCP-05, DCP-08 y DCP-09 con ese formato, y las cuatro capas (representable, válido según el esquema, verificado, conforme) que se juzgan por separado.
 
@@ -61,7 +61,7 @@ Especificaciones que rigen el ciclo de vida del agente, la sucesión, la resoluc
 | [DCP-09](../../../spec/DCP-09.md) | Representación personal y delegación | DelegationMandate, AdvisoryDeclaration, PrincipalMirror, AwarenessThreshold |
 
 **Esquemas:** 18 JSON Schemas en `schemas/v2/` que cubren todos los artefactos de DCP-05–09.
-**Endpoints del servidor:** 31 endpoints REST en el servidor de verificación de referencia, sin autenticación ni verificación de firmas (véase [OPERATOR_GUIDE](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)).
+**Endpoints del servidor:** 31 endpoints REST demo en el servidor de verificación de referencia, apagados por defecto, solo con el token del operador cuando se activan y sin verificación de firmas (véase [OPERATOR_GUIDE](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)).
 **Separación de dominios:** 7 contextos nuevos — `Lifecycle`, `Succession`, `Dispute`, `Rights`, `Delegation`, `Awareness`, `SubMandate`.
 
 ---

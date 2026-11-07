@@ -157,6 +157,7 @@ The limits count per client IP. Behind a proxy that appends the client IP to `X-
 - `OPERATOR_TOKEN` — bearer token for the admin endpoints (policy, advisories, governance) and for registering new `agent_id`s; unset keeps them locked
 - `VERIFIER_MODE` — `classical_only` | `hybrid_preferred` | `hybrid_required` | `pq_only`
 - `ALLOW_V1_BUNDLES` — `false` rejects V1 bundles
+- `DCP_DEMO_ENDPOINTS` — `off` (the default) or `dcp-05-09`, which enables the [DCP-05–09 demo endpoints](#dcp-0509-service-endpoints) and needs an `OPERATOR_TOKEN` of at least 32 RFC 6750 b64token characters; any other value stops the server
 - `TRUST_PROXY`, `REGISTRATIONS_PER_HOUR`, `MAX_REGISTERED_KEYS`, `MAX_KEYS_PER_AGENT` — see above
 - `DCP_TRUSTED_PRINCIPALS_FILE`, `DCP_ADMISSION_PROFILE_FILE`, `DCP_REVOCATION_LIST_URL`, `DCP_REVOCATION_LIST_AUTHORIZATION`, `DCP_REVOCATION_TIMEOUT_MS` — admission for `POST /v2/admit`, see [ADMISSION.md](ADMISSION.md)
 - `REQUIRE_SESSION_BINDING`, `REQUIRE_COMPOSITE_BINDING`, `MAX_KEY_AGE_DAYS` and `PQ_CHECKPOINT_INTERVAL` appear in the deploy configs but are not read yet
@@ -308,18 +309,22 @@ V2 services expose `GET /.well-known/dcp-capabilities.json`. The reference serve
     "advisory_auto_response": true,
     "governance_keys": true,
     "hsm_provider": false,
-    "agent_lifecycle": true,
-    "succession": true,
-    "dispute_resolution": true,
-    "rights_obligations": true,
-    "delegation": true
+    "agent_lifecycle": false,
+    "succession": false,
+    "dispute_resolution": false,
+    "rights_obligations": false,
+    "delegation": false,
+    "dcp05_09_demo_endpoints": false
+  },
+  "demo_endpoints": {
+    "dcp-05-09": { "enabled": false, "normative": false, "verifies_signatures": false, "access": "operator_token" }
   },
   "verifier_policy_hash": "sha256:...",
   "min_accepted_version": "1.0"
 }
 ```
 
-This is what the server advertises, not a list of checked guarantees. Its endpoints read JSON bodies only, although `application/cbor` is listed. Since 06/11/2026 it advertises `hsm_provider: false`: the repository has no HSM provider ([SECURITY_MODEL.md](SECURITY_MODEL.md)).
+This is what the server advertises, not a list of checked guarantees. Its endpoints read JSON bodies only, although `application/cbor` is listed. Since 06/11/2026 it advertises `hsm_provider: false`: the repository has no HSM provider ([SECURITY_MODEL.md](SECURITY_MODEL.md)). Since 07/11/2026 the DCP-05 to DCP-09 features are `false`: the server implements none of them normatively. `dcp05_09_demo_endpoints` and `demo_endpoints` say whether the [demo endpoints](#dcp-0509-service-endpoints) are enabled; they are not normative, verify no signature and need the operator token.
 
 ### Observability
 
@@ -347,9 +352,11 @@ See [MIGRATION_V1_V2.md](MIGRATION_V1_V2.md) for detailed migration steps.
 
 ## DCP-05–09 Service Endpoints
 
-DCP v2.0 extends the verification server with 31 endpoints for lifecycle management, digital succession, dispute resolution, rights framework, and personal representation.
+The verification server has 31 demo endpoints for lifecycle management, digital succession, dispute resolution, rights framework, and personal representation, off by default.
 
-> **Unauthenticated and unverified.** These endpoints check each record against its schema and the format of its IDs. They do not verify any `composite_sig`, and they need no operator token. Anyone who can reach the server can, for example, decommission or re-commission an agent, revoke a revocable mandate, or mark a dispute resolved. Setting `OPERATOR_TOKEN` does not protect them: it guards only the admin routes and new `agent_id` registrations. Do not expose them to untrusted clients: put them behind your own authorization, or do not expose them at all, and treat what they store as unverified records.
+> **Off by default, operator-only, unverified.** Every request under the twelve path families of these endpoints gets 404 unless the server starts with `DCP_DEMO_ENDPOINTS=dcp-05-09`, which needs an `OPERATOR_TOKEN` of at least 32 RFC 6750 b64token characters (the server does not start otherwise). Enabled, each request, GET included, needs exactly `Authorization: Bearer <OPERATOR_TOKEN>`: 401 otherwise, answered before the body is read, with `Connection: close`. The token only lets the operator in: the endpoints check each record against its schema and the format of its IDs, verify no `composite_sig` and establish no principal authority, so treat what they store as unverified records. Their stores live in the same process as the identity registries; since 07/11/2026 decommissioning no longer changes a registered passport. The global limit of 100 POST requests per minute per client applies first (429).
+>
+> **Migration (07/11/2026).** Before this change these endpoints were on and needed no token. To keep using them, start the server with `DCP_DEMO_ENDPOINTS=dcp-05-09` and a long `OPERATOR_TOKEN` (`openssl rand -hex 32`), and send `Authorization: Bearer <OPERATOR_TOKEN>` with every request, GET included.
 
 Each POST takes the record under the key named in the table (for example `{ "commissioning_certificate": { ... } }`). `:agent_id` and `:id` are URL-encoded.
 
@@ -359,7 +366,7 @@ Each POST takes the record under the key named in the table (for example `{ "com
 |--------|----------|----------|-------------|
 | POST | `/v2/lifecycle/commission` | `commissioning_certificate` | Puts the agent in state `commissioned`; for an agent already known, this resets its state and history |
 | POST | `/v2/lifecycle/vitality` | `vitality_report` | Stores a vitality report; a different `state` in the report is a lifecycle transition |
-| POST | `/v2/lifecycle/decommission` | `decommissioning_record` | Moves the agent to `decommissioned`, and marks a registered passport `decommissioned` |
+| POST | `/v2/lifecycle/decommission` | `decommissioning_record` | Moves the agent to `decommissioned` |
 | GET | `/v2/lifecycle/:agent_id` | — | Current state, history and number of vitality reports |
 
 Lifecycle transitions the server accepts: `commissioned → active`, `active → declining`, `active → decommissioned`, `declining → decommissioned`. The SDK's state machine also allows `commissioned → decommissioned` and `declining → active`.
@@ -424,7 +431,7 @@ The DCP-05–09 endpoints have:
 - **Bounded storage** — each in-memory store keeps at most 10,000 entries and evicts the oldest (FIFO): an evicted record is gone. The identity registries refuse instead (507); see [Reference services keep state in memory only](#reference-services-keep-state-in-memory-only)
 - **Security headers** — X-Content-Type-Options, X-Frame-Options, Strict-Transport-Security, Cache-Control
 
-They do **not** include signature verification of the records or any authentication (see the note at the top of this section).
+They do **not** include signature verification of the records or any principal authority; when enabled, the operator token is their only access control (see the note at the top of this section).
 
 ## Reference
 

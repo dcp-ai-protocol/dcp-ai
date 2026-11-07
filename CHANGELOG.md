@@ -73,6 +73,17 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Security
 
+- **DCP-05 to DCP-09 demo endpoints off by default, operator-only when enabled** (source on `main`, not in a published
+  version; `server/`). The reference server's 31 schema-only endpoints for lifecycle, succession, disputes, rights and
+  delegation records needed no token. Every request under their twelve path families now gets 404 unless the server
+  starts with `DCP_DEMO_ENDPOINTS=dcp-05-09`, which needs an `OPERATOR_TOKEN` of at least 32 RFC 6750 b64token
+  characters (an invalid setting stops the server); enabled, each request, GET included, needs exactly
+  `Authorization: Bearer <OPERATOR_TOKEN>`, checked before the body is read. The endpoints still verify no signature
+  and establish no principal authority. Decommissioning no longer changes a registered passport's status. The
+  capabilities report the DCP-05 to DCP-09 features as `false` and describe the demo in
+  `features.dcp05_09_demo_endpoints` and `demo_endpoints`. **Migration:** set `DCP_DEMO_ENDPOINTS=dcp-05-09` and a long
+  `OPERATOR_TOKEN`, and send the bearer token with every request.
+
 - **Simulated HSM provider removed** (source on `main`, not in a published version). `HsmCryptoProvider` and
   `HsmProviderFactory` (`sdks/typescript/src/providers/hsm-provider.ts`) had no hardware backend: `initialize()`
   reported an authenticated session without loading anything, and `verify` accepted any signature of the right

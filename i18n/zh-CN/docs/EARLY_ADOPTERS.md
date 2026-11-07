@@ -4,7 +4,7 @@
 
 # DCP-AI 早期采用者计划
 
-> 本文是[英文版](../../../docs/EARLY_ADOPTERS.md)的参考译文，更新于 05/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/EARLY_ADOPTERS.md)的参考译文，更新于 07/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 **状态：** 开放 — 滚动接收
 **许可证：** Apache-2.0（参与无需任何费用）
@@ -205,7 +205,7 @@ DCP-AI 的安全问题通过 GitHub 的私密漏洞报告进行负责任的披�
 **问：DCP-AI 可以用于生产了吗？**
 答：v2.0 规范已经完成，5 个 SDK 已经发布并在使用。DCP-04 至 DCP-09 的文件头中标注为“Published — v2.0 (extension; revisions tracked via adopter feedback)”；线上格式稳定且经过测试，小版本修订将由采用者的反馈驱动，而不是由破坏性变更驱动。它是否适合你的部署，取决于你使用的部分：
 
-- SDK 验证器是生产路径；参考服务把状态保存在内存中，参考网关的 DCP-05–09 端点没有认证（[OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md)）；
+- SDK 验证器是生产路径；参考服务把状态保存在内存中，参考网关的 DCP-05–09 端点是未经验证的演示，默认关闭，启用后只供运营方使用（[OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md)）；
 - 仓库中没有 HSM 集成，`@dcp-ai/cli init` 向导只是演示（[SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md)，“Known Limitations and Mitigations”）。
 
 2026 年 2 月 26 日的 v2.0 最终安全审计（[spec/AUDIT-v2.0-FINAL.md](../../../spec/AUDIT-v2.0-FINAL.md)）是一份带日期的记录：之后的审查发现了它没有报告的限制，例如其 HSM 缺口只是用一个模拟的提供者填补的。

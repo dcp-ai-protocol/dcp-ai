@@ -240,7 +240,7 @@ The nonce does not stop the same bundle from being presented again: a whole bund
 - **Signed lifecycle records:** Every state transition (commissioning certificate, vitality report, decommissioning record) carries a composite signature, and vitality reports are hash-chained.
 - **Final decommissioning:** Once an agent reaches `decommissioned`, no further transitions are possible. The decommissioning record states the data disposition.
 
-**In the reference server:** the lifecycle endpoints refuse invalid transitions (409), but they do not verify the records' signatures and need no authentication; a new commissioning certificate for a decommissioned agent resets it to `commissioned` ([OPERATOR_GUIDE.md](OPERATOR_GUIDE.md#dcp-0509-service-endpoints)).
+**In the reference server:** the lifecycle endpoints refuse invalid transitions (409), but they do not verify the records' signatures; they are off by default and, when enabled, need only the operator token, which establishes no principal authority; a new commissioning certificate for a decommissioned agent resets it to `commissioned` ([OPERATOR_GUIDE.md](OPERATOR_GUIDE.md#dcp-0509-service-endpoints)).
 
 **Strength:** where the records' signatures are verified (by the SDK functions, or by a service that calls them), the state machine plus the signed trail. The reference server alone gives neither.
 
@@ -381,7 +381,7 @@ Operators deploying DCP MUST:
 | BlindedRPR exposes `entity_type` and `jurisdiction` | Future: ZKP-based credential presentation |
 | No SDK runs the X25519 + ML-KEM-768 exchange of DCP-04 | The caller derives the A2A session key. Python, Go, Rust and WASM expose ML-KEM-768 as a primitive; the TypeScript KEM providers are internal |
 | ML-DSA-87 is not implemented | The identifier is reserved in the key schema; no SDK can use it (the simulated HSM pattern that listed it was not an implementation and was removed on 06/11/2026) |
-| The reference server's DCP-05–09 endpoints have no authentication and do not verify signatures | Do not expose them to untrusted clients ([OPERATOR_GUIDE.md](OPERATOR_GUIDE.md#dcp-0509-service-endpoints)) |
+| The reference server's DCP-05–09 endpoints are a demo: off by default, operator token only when enabled, no signature verification | Leave them off, or enable them for operators only ([OPERATOR_GUIDE.md](OPERATOR_GUIDE.md#dcp-0509-service-endpoints)) |
 
 The following limitations that appeared in earlier drafts have been **closed**:
 

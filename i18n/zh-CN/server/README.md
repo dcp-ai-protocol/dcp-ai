@@ -4,7 +4,7 @@
 
 # DCP 参考网关
 
-> 本文是[英文版](../../../server/README.md)的参考译文，更新于 06/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../server/README.md)的参考译文，更新于 07/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 实现 Digital Citizenship Protocol 的 V1、V2 和第 3 阶段（PQ 优先）的 HTTP 验证服务。**内存存储**：不需要外部数据库，重启后什么都不会保留（参见[持久化](#persistence)）。设计为可由任何第三方运行；协议不需要中央服务器。
 
@@ -34,7 +34,7 @@ node server/index.js
 | 方法 | 路径 | 说明 |
 |--------|------|-------------|
 | GET | `/` , `/health` | 健康检查：`{ ok, service, supported_versions, registered_agents, registered_keys }` |
-| GET | `/.well-known/dcp-capabilities.json` | 协议能力发现（算法、功能、线上格式）。这是服务器声明的内容，并非经过检查的保证：它列出了 `application/cbor`，但请求体只按 JSON 读取；由于没有 HSM，`hsm_provider` 为 `false` |
+| GET | `/.well-known/dcp-capabilities.json` | 协议能力发现（算法、功能、线上格式）。这是服务器声明的内容，并非经过检查的保证：它列出了 `application/cbor`，但请求体只按 JSON 读取；由于没有 HSM，`hsm_provider` 为 `false`；DCP-05 至 DCP-09 的功能为 `false`，`demo_endpoints` 描述下文的演示端点 |
 | POST | `/verify` | 验证已签名的 bundle（自动识别 V1 或 V2；V2 按 `VERIFIER_POLICY` 检查） |
 | POST | `/v2/admit` | 依据运营方信任的委托人进行准入，配置后还会执行 strict-v1（`docs/ADMISSION.md`）。只读取请求体中的 `signed_bundle`。未配置时返回 501 |
 | POST | `/anchor` | 桩实现：返回 501（由各运营方实现） |
@@ -94,7 +94,7 @@ node server/index.js
 
 ### DCP-05 至 DCP-09
 
-用于生命周期、继承、争议、权利和委托记录的 31 个端点；它们列在 [docs/OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints) 中。它们会按 schema 校验每条记录，但**不验证任何签名，也不需要令牌**，`OPERATOR_TOKEN` 也不保护它们：任何能访问服务器的人都可以让智能体停用或重新投入使用、撤销可撤销的委托授权书，或把争议标记为已解决。不要把它们暴露给不受信任的客户端。
+用于生命周期、继承、争议、权利和委托记录的 31 个演示端点，列在 [docs/OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints) 中。**默认关闭：** 它们十二个路径族（`/v2/lifecycle`, `/v2/succession`, `/v2/disputes`, `/v2/objections`, `/v2/jurisprudence`, `/v2/rights`, `/v2/obligations`, `/v2/delegation`, `/v2/agent-advisory`, `/v2/mirror`, `/v2/interactions`, `/v2/awareness`）下的任何请求都返回 404，即使带有运营方令牌。`DCP_DEMO_ENDPOINTS=dcp-05-09` 会启用它们；此时服务器需要一个至少 32 个字符的 RFC 6750 b64token 形式的 `OPERATOR_TOKEN`，否则不会启动；对这些路径族只在带有 `Authorization: Bearer <OPERATOR_TOKEN>`（方案不区分大小写，一个空格）时应答，否则在读取请求体之前返回 401，GET 也一样。即使带有令牌，记录也只按其 schema 校验：**不验证任何签名**，也不确立责任主体的权限。自 07/11/2026 起，在那里停用智能体不再更改已登记的护照。每个客户端每分钟 100 个 POST 请求的全局限制先生效，所以 429 可能先于 404 或 401 出现。
 
 <a id="environment-variables"></a>
 
@@ -106,6 +106,7 @@ node server/index.js
 | `OPERATOR_TOKEN` | — | 用于运营方端点和登记新 `agent_id` 的 Bearer 令牌。未设置：两者都保持锁定 |
 | `VERIFIER_MODE` | `hybrid_required` | 启动时的验证模式：`classical_only`、`hybrid_preferred`、`hybrid_required` 或 `pq_only`。无效值会使服务器停止 |
 | `ALLOW_V1_BUNDLES` | `true` | 设为 `false` 时 `POST /verify` 拒绝 V1 bundle（`pq_only` 总是拒绝） |
+| `DCP_DEMO_ENDPOINTS` | `off` | `dcp-05-09` 启用 DCP-05 至 DCP-09 演示端点，此时它们需要运营方令牌（至少 32 个字符）；除未设置、`off` 或 `dcp-05-09` 之外的任何值都会让服务器停止 |
 | `TRUST_PROXY` | — | 仅在会把客户端 IP 追加到 `X-Forwarded-For` 的代理（Fly、nginx）之后设为 `true`。此时限流以其最后一跳为准；否则以套接字地址为准，因为客户端可以伪造该请求头 |
 | `REGISTRATIONS_PER_HOUR` | `20` | 每个客户端每小时的 `POST /v2/passport/register` 调用次数；超出的会得到 429 |
 | `MAX_REGISTERED_KEYS` | `10000` | 注册表中的密钥数；达到后新智能体和轮换会得到 507（不会逐出任何内容） |
@@ -365,7 +366,7 @@ curl -s http://localhost:3000/.well-known/dcp-capabilities.json | jq .
 ## 限制
 
 - **内存存储**：所有状态（护照、密钥、审计链、通告）在重启后都会丢失。参见[持久化](#persistence)。
-- **bundle 验证之外的签名**：bundle 验证、护照登记、密钥轮换和多方授权会检查真实的 Ed25519 和 ML-DSA-65 / SLH-DSA 签名。`/v2/advisory/publish` 和 `/v2/governance/register` 不检查（运营方令牌是它们唯一的保护），`/v2/intent/declare`、`/v2/audit/*` 以及 DCP-05 至 DCP-09 端点也不检查，而且后者还不需要令牌（参见 [DCP-05 至 DCP-09](#dcp-05-to-dcp-09)）。
+- **bundle 验证之外的签名**：bundle 验证、护照登记、密钥轮换和多方授权会检查真实的 Ed25519 和 ML-DSA-65 / SLH-DSA 签名。`/v2/advisory/publish` 和 `/v2/governance/register` 不检查（运营方令牌是它们唯一的保护），`/v2/intent/declare` 和 `/v2/audit/*` 也不检查，而且不需要令牌；DCP-05 至 DCP-09 演示端点同样不检查签名，它们默认关闭，启用后只供运营方使用（参见 [DCP-05 至 DCP-09](#dcp-05-to-dcp-09)）。
 - **锚定**：`POST /anchor` 返回 501。请用你的区块链（Ethereum、Bitcoin）或透明日志来实现。
 
 <a id="persistence"></a>

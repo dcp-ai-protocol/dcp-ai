@@ -104,7 +104,7 @@ For production deployment:
 - **Stateless verification:** `POST /verify` needs no database. The server's other registries are in memory and lost on restart ([OPERATOR_GUIDE.md](OPERATOR_GUIDE.md#reference-services-keep-state-in-memory-only)).
 - **Health + capabilities:** `/health`, `/.well-known/dcp-capabilities.json`.
 - **API:** POST `/verify` (body: `signed_bundle`, optional `public_key_b64`; response: `{ verified, dcp_version, errors, … }`). Additional V2 endpoints listed in [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md).
-- **Managed deploy:** Fly.io config in `deploy/fly/verification.toml` (`fly launch --config deploy/fly/verification.toml`, then `fly deploy --config deploy/fly/verification.toml`). A public deployment also exposes the DCP-05–09 endpoints, which have no authentication and do not verify signatures: restrict them first ([OPERATOR_GUIDE.md](OPERATOR_GUIDE.md#dcp-0509-service-endpoints)).
+- **Managed deploy:** Fly.io config in `deploy/fly/verification.toml` (`fly launch --config deploy/fly/verification.toml`, then `fly deploy --config deploy/fly/verification.toml`). That configuration runs the published `:latest` image. A server built from current sources keeps the DCP-05–09 demo endpoints off unless `DCP_DEMO_ENDPOINTS=dcp-05-09` is set, and then needs the operator token; an image built from sources without this change has them on with no authentication and no signature verification, so restrict them unless you know the image includes it ([OPERATOR_GUIDE.md](OPERATOR_GUIDE.md#dcp-0509-service-endpoints)).
 
 See [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md), [server/README.md](../server/README.md), and [deploy/README.md](../deploy/README.md).
 

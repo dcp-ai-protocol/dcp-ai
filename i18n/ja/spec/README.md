@@ -5,7 +5,7 @@
 
 # 仕様 — DCP-AI の規範
 
-> [英語版](../../../spec/README.md)の参考訳です（27/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../spec/README.md)の参考訳です（07/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 Digital Citizenship Protocol for AI Agents の規範的な仕様です。形式の正となるのは `schemas/v1/` と `schemas/v2/` の JSON Schema で、これらの文書は範囲、アーティファクト、検証の仕方を定義します。[V2-WIRE-COMPATIBILITY.md](../../../spec/V2-WIRE-COMPATIBILITY.md) は、DCP-05、DCP-08、DCP-09 の名前、署名のコンテキスト、例をその形式に合わせる正誤と、別々に判断される 4 つの層（表現可能、スキーマ上有効、検証済み、適合）を示します。
 
@@ -61,7 +61,7 @@ Digital Citizenship Protocol for AI Agents の規範的な仕様です。形式�
 | [DCP-09](../../../spec/DCP-09.md) | 個人の代理と委任 | DelegationMandate、AdvisoryDeclaration、PrincipalMirror、AwarenessThreshold |
 
 **スキーマ：** DCP-05–09 のすべてのアーティファクトを扱う、`schemas/v2/` の 18 の JSON Schema。
-**サーバーのエンドポイント：** リファレンスの検証サーバーの 31 の REST エンドポイントで、認証も署名の検証もありません（[OPERATOR_GUIDE](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints) を参照）。
+**サーバーのエンドポイント：** リファレンスの検証サーバーの 31 のデモの REST エンドポイントで、デフォルトでオフ、有効にしたときはオペレーターのトークンのみ、署名の検証はありません（[OPERATOR_GUIDE](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints) を参照）。
 **ドメインの分離：** 7 つの新しいコンテキスト — `Lifecycle`、`Succession`、`Dispute`、`Rights`、`Delegation`、`Awareness`、`SubMandate`。
 
 ---

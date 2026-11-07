@@ -47,7 +47,7 @@ Specifications governing agent lifecycle, succession, dispute resolution, rights
 | [DCP-09](DCP-09.md) | Personal Representation & Delegation | DelegationMandate, AdvisoryDeclaration, PrincipalMirror, AwarenessThreshold |
 
 **Schemas:** 18 JSON Schemas in `schemas/v2/` covering all DCP-05–09 artifacts.
-**Server endpoints:** 31 REST endpoints in the reference verification server, without authentication or signature verification (see [OPERATOR_GUIDE](../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)).
+**Server endpoints:** 31 demo REST endpoints in the reference verification server, off by default, operator-token only when enabled and without signature verification (see [OPERATOR_GUIDE](../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)).
 **Domain separation:** 7 new contexts — `Lifecycle`, `Succession`, `Dispute`, `Rights`, `Delegation`, `Awareness`, `SubMandate`.
 
 ---

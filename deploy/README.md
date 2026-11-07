@@ -15,9 +15,11 @@ any container host. Below are the most common flows.
 | Revocation | `ghcr.io/dcp-ai-protocol/dcp-ai/revocation` | 3003 |
 
 Tags (see [`publish-docker.yml`](../.github/workflows/publish-docker.yml)): a push to `main` that
-triggers the workflow publishes `:latest`, `:main` and `:sha-xxxxxxx`; a published release adds its
-semver tags (`:<major>.<minor>.<patch>`, `:<major>.<minor>`, `:<major>`) and can also move `:latest`,
-which is mutable. Both `linux/amd64` and `linux/arm64` are built.
+touches the service code or the Dockerfile builds the images without publishing them. A published release
+publishes its tag, its semver tags (`:<major>.<minor>.<patch>`, `:<major>.<minor>`, `:<major>`) and
+`:sha-xxxxxxx`, and can also move `:latest`, which is mutable; a manual run publishes the tags of the
+branch or tag it runs on (on `main`: `:latest`, `:main` and `:sha-xxxxxxx`). Both `linux/amd64` and
+`linux/arm64` are built.
 
 Quick smoke test on your laptop:
 
@@ -97,7 +99,7 @@ fly launch --config revocation.toml      --no-deploy
 fly deploy --config revocation.toml
 ```
 
-Each service gets a public HTTPS URL like `https://dcp-ai-verification.fly.dev`. On the verification app that also makes public its DCP-05 to DCP-09 endpoints, which need no token and do not verify signatures (see the operating notes).
+Each service gets a public HTTPS URL like `https://dcp-ai-verification.fly.dev`. These configurations run the published `:latest` image and do not set `DCP_DEMO_ENDPOINTS`. Only a server built from sources that include the DCP-05 to DCP-09 gate keeps those demo endpoints off by default; an image built from sources without this change has them on and without a token (see the operating notes).
 
 A gossip peer without its `#<public key>` is polled but its tree heads are ignored.
 
@@ -142,7 +144,7 @@ Create a new project from Docker image. For each service paste the GHCR image UR
 - **Transparency log**: in memory only, with no persistence option: a restart starts a new, empty tree, and a volume does not change that. A fixed `OPERATOR_KEY` keeps the same signing key across restarts.
 - **Revocation**: the registry is authoritative only if every verifier in your policy points at *this* URL. Publish the URL in your `.well-known/dcp-capabilities.json`. Without `REVOCATION_STATE_PATH` on persistent storage, a restart forgets every registration and revocation.
 - **Verification**: not stateless. It keeps passports, keys, audit chains and the DCP-05–09 records in memory, and separate instances do not share them, so instances behind a load balancer would answer differently. Run one instance.
-- **Verification, DCP-05 to DCP-09 endpoints**: they need no token and do not verify signatures, and `OPERATOR_TOKEN` does not protect them, so anyone who reaches a public deployment (Fly, or Cloud Run with `--allow-unauthenticated`) can change lifecycle, dispute and mandate state. Put your own authorization in front of them, or do not route them ([docs/OPERATOR_GUIDE.md](../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)).
+- **Verification, DCP-05 to DCP-09 endpoints**: in a server built from current sources they are off by default (404); `DCP_DEMO_ENDPOINTS=dcp-05-09` makes them answer whoever holds the operator token, which must then be at least 32 characters, and they still verify no signature. An image built from sources without this change, as `:latest` may still be, has them on without a token, so anyone who reaches a public deployment (Fly, or Cloud Run with `--allow-unauthenticated`) can change lifecycle, dispute and mandate state: until you run an image built from these sources, put your own authorization in front of them or do not route them ([docs/OPERATOR_GUIDE.md](../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)).
 
 ---
 

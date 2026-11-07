@@ -5,7 +5,7 @@
 
 # オペレーターガイド — 検証サービスの運用
 
-> [英語版](../../../docs/OPERATOR_GUIDE.md)の参考訳です（06/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../docs/OPERATOR_GUIDE.md)の参考訳です（07/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 このガイドは、「エージェント検証済み」サービス、つまり DCP の Signed Bundle を検証する（オプションでハッシュをブロックチェーンにアンカーする）HTTP API を運用したい**第三者**のためのものです。プロトコルは中央のサーバーを**必要としません**。検証はいつでも `dcp verify-bundle` でローカルに行えます。このサービスは**オプション**であり、オペレーターの判断で運用されます。
 
@@ -191,6 +191,7 @@ go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.13.0
 - `OPERATOR_TOKEN` — 管理用エンドポイント（ポリシー、勧告、ガバナンス）と新しい `agent_id` の登録のための bearer トークン。未設定ならそれらはロックされたまま
 - `VERIFIER_MODE` — `classical_only` | `hybrid_preferred` | `hybrid_required` | `pq_only`
 - `ALLOW_V1_BUNDLES` — `false` で V1 バンドルを拒否
+- `DCP_DEMO_ENDPOINTS` — `off`（デフォルト）または `dcp-05-09`。後者は [DCP-05–09 のデモのエンドポイント](#dcp-0509-service-endpoints) を有効にし、RFC 6750 の b64token で 32 文字以上の `OPERATOR_TOKEN` を必要とします。ほかの値ではサーバーが停止します
 - `TRUST_PROXY`、`REGISTRATIONS_PER_HOUR`、`MAX_REGISTERED_KEYS`、`MAX_KEYS_PER_AGENT` — 上記を参照
 - `DCP_TRUSTED_PRINCIPALS_FILE`、`DCP_ADMISSION_PROFILE_FILE`、`DCP_REVOCATION_LIST_URL`、`DCP_REVOCATION_LIST_AUTHORIZATION`、`DCP_REVOCATION_TIMEOUT_MS` — `POST /v2/admit` のアドミッション。[ADMISSION.md](../../../docs/ADMISSION.md) を参照
 - `REQUIRE_SESSION_BINDING`、`REQUIRE_COMPOSITE_BINDING`、`MAX_KEY_AGE_DAYS`、`PQ_CHECKPOINT_INTERVAL` はデプロイの設定に現れるが、まだ読み込まれない
@@ -354,18 +355,22 @@ V2 のサービスは `GET /.well-known/dcp-capabilities.json` を公開しま�
     "advisory_auto_response": true,
     "governance_keys": true,
     "hsm_provider": false,
-    "agent_lifecycle": true,
-    "succession": true,
-    "dispute_resolution": true,
-    "rights_obligations": true,
-    "delegation": true
+    "agent_lifecycle": false,
+    "succession": false,
+    "dispute_resolution": false,
+    "rights_obligations": false,
+    "delegation": false,
+    "dcp05_09_demo_endpoints": false
+  },
+  "demo_endpoints": {
+    "dcp-05-09": { "enabled": false, "normative": false, "verifies_signatures": false, "access": "operator_token" }
   },
   "verifier_policy_hash": "sha256:...",
   "min_accepted_version": "1.0"
 }
 ```
 
-これはサーバーが宣伝している内容であって、確認済みの保証の一覧ではありません。`application/cbor` が挙げられていますが、そのエンドポイントが読むのは JSON のボディだけです。06/11/2026 からは `hsm_provider: false` と宣伝しています。リポジトリには HSM プロバイダーがありません（[SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md)）。
+これはサーバーが宣伝している内容であって、確認済みの保証の一覧ではありません。`application/cbor` が挙げられていますが、そのエンドポイントが読むのは JSON のボディだけです。06/11/2026 からは `hsm_provider: false` と宣伝しています。リポジトリには HSM プロバイダーがありません（[SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md)）。2026 年 11 月 7 日からは、DCP-05 から DCP-09 の機能は `false` です。サーバーはどれも規範どおりには実装していません。`dcp05_09_demo_endpoints` と `demo_endpoints` は[デモのエンドポイント](#dcp-0509-service-endpoints)が有効かどうかを示します。これらは規範的ではなく、署名を検証せず、オペレーターのトークンを必要とします。
 
 <a id="observability"></a>
 
@@ -399,9 +404,11 @@ V2 のサービスは、監視のためのメトリクスを公開すべきで�
 
 ## DCP-05–09 のサービスエンドポイント
 
-DCP v2.0 は、ライフサイクル管理、デジタル継承、紛争解決、権利の枠組み、個人の代理のための 31 のエンドポイントで検証サーバーを拡張します。
+検証サーバーには、ライフサイクル管理、デジタル継承、紛争解決、権利の枠組み、個人の代理のための 31 のデモのエンドポイントがあり、デフォルトでオフです。
 
-> **認証なし、検証なし。** これらのエンドポイントは、各レコードをそのスキーマと ID の形式に照らして確認します。`composite_sig` は一切検証せず、オペレーターのトークンも不要です。サーバーに到達できる人なら誰でも、たとえばエージェントの稼働を終了・再開させたり、取り消し可能な委任状を失効させたり、紛争を解決済みにしたりできます。`OPERATOR_TOKEN` を設定してもこれらは保護されません。保護されるのは管理用のルートと新しい `agent_id` の登録だけです。信頼できないクライアントには公開しないでください。独自の認可の背後に置くか、まったく公開しないようにし、保存される内容は未検証のレコードとして扱ってください。
+> **デフォルトでオフ、オペレーター専用、検証なし。** これらのエンドポイントの 12 のパスのファミリーの下のリクエストは、サーバーが `DCP_DEMO_ENDPOINTS=dcp-05-09` で起動しない限りすべて 404 です。この設定には RFC 6750 の b64token で 32 文字以上の `OPERATOR_TOKEN` が必要です（なければサーバーは起動しません）。有効なときは、GET も含めて各リクエストにちょうど `Authorization: Bearer <OPERATOR_TOKEN>` が必要で、それ以外はボディを読む前に `Connection: close` 付きで 401 になります。トークンはオペレーターを通すだけです。エンドポイントは各レコードをそのスキーマと ID の形式で確認しますが、`composite_sig` は検証せず、プリンシパルの権限も確立しないため、保存される内容は検証されていないレコードとして扱ってください。その保存先は ID のレジストリと同じプロセスにあります。2026 年 11 月 7 日からは、稼働終了が登録済みのパスポートを変更しなくなりました。クライアントごとに毎分 100 の POST リクエストというグローバルな制限が先に適用されます（429）。
+>
+> **移行（2026 年 11 月 7 日）。** この変更の前は、これらのエンドポイントは有効でトークンも不要でした。引き続き使うには、`DCP_DEMO_ENDPOINTS=dcp-05-09` と長い `OPERATOR_TOKEN`（`openssl rand -hex 32`）でサーバーを起動し、GET も含めてすべてのリクエストで `Authorization: Bearer <OPERATOR_TOKEN>` を送ってください。
 
 各 POST は、表に示したキーのもとでレコードを受け取ります（例：`{ "commissioning_certificate": { ... } }`）。`:agent_id` と `:id` は URL エンコードします。
 
@@ -413,7 +420,7 @@ DCP v2.0 は、ライフサイクル管理、デジタル継承、紛争解決�
 |--------|----------|----------|-------------|
 | POST | `/v2/lifecycle/commission` | `commissioning_certificate` | エージェントを `commissioned` 状態にする。既知のエージェントの場合は、状態と履歴をリセットする |
 | POST | `/v2/lifecycle/vitality` | `vitality_report` | 稼働状況レポートを保存する。レポートの `state` が異なれば、ライフサイクルの遷移になる |
-| POST | `/v2/lifecycle/decommission` | `decommissioning_record` | エージェントを `decommissioned` に移し、登録済みのパスポートを `decommissioned` にする |
+| POST | `/v2/lifecycle/decommission` | `decommissioning_record` | エージェントを `decommissioned` に移す |
 | GET | `/v2/lifecycle/:agent_id` | — | 現在の状態、履歴、稼働状況レポートの数 |
 
 サーバーが受け付けるライフサイクルの遷移：`commissioned → active`、`active → declining`、`active → decommissioned`、`declining → decommissioned`。SDK の状態機械は、さらに `commissioned → decommissioned` と `declining → active` も許します。
@@ -492,7 +499,7 @@ DCP-05–09 のエンドポイントには次のものがあります。
 - **上限付きのストレージ** — メモリー内の各ストアは最大 10,000 件を保持し、古いものから追い出す（FIFO）。追い出されたレコードは消える。アイデンティティのレジストリは代わりに拒否する（507）。[リファレンスサービスは状態をメモリーにしか保持しない](#reference-services-keep-state-in-memory-only)を参照
 - **セキュリティヘッダー** — X-Content-Type-Options、X-Frame-Options、Strict-Transport-Security、Cache-Control
 
-レコードの署名の検証や認証は**含まれていません**（このセクションの冒頭の注記を参照）。
+レコードの署名の検証やプリンシパルの権限は**含まれていません**。有効なときは、オペレーターのトークンが唯一のアクセス制御です（このセクションの冒頭の注記を参照）。
 
 <a id="reference"></a>
 

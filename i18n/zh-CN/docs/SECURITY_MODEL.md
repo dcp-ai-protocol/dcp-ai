@@ -4,7 +4,7 @@
 
 # 安全模型
 
-> 本文是[英文版](../../../docs/SECURITY_MODEL.md)的参考译文，更新于 06/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/SECURITY_MODEL.md)的参考译文，更新于 07/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 协议如何防范各种攻击，从伪造的 bundle 到协议分叉。
 
@@ -281,7 +281,7 @@ nonce 并不能阻止同一个 bundle 被再次出示：整个 bundle 会原样�
 - **已签名的生命周期记录：** 每次状态转换（启用证书、活力报告、停用记录）都带有复合签名，活力报告以哈希相互链接。
 - **最终停用：** 智能体一旦到达 `decommissioned`，就不能再进行任何转换。停用记录会说明数据的处置方式。
 
-**在参考服务器中：** 生命周期端点会拒绝无效的转换（409），但不验证记录的签名，也不需要认证；为已停用的智能体提交新的启用证书会把它重置为 `commissioned`（[OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)）。
+**在参考服务器中：** 生命周期端点会拒绝无效的转换（409），但不验证记录的签名；它们默认关闭，启用后只需要运营方令牌，而该令牌不确立责任主体的权限；为已停用的智能体提交新的启用证书会把它重置为 `commissioned`（[OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)）。
 
 **强度：** 在验证记录签名的地方（由 SDK 函数，或由调用这些函数的服务验证），提供状态机加已签名轨迹。仅靠参考服务器，二者都得不到。
 
@@ -443,7 +443,7 @@ Layer 14: Delegation Control (DCP-09)
 | BlindedRPR 暴露 `entity_type` 和 `jurisdiction` | 未来：基于 ZKP 的凭证出示 |
 | 没有任何 SDK 执行 DCP-04 的 X25519 + ML-KEM-768 交换 | 由调用方导出 A2A 会话密钥。Python、Go、Rust 和 WASM 把 ML-KEM-768 作为原语公开；TypeScript 的 KEM 提供者是内部的 |
 | ML-DSA-87 未实现 | 该标识符在密钥模式中被保留；没有 SDK 能使用它（曾列出它的模拟 HSM 模式并不是实现，已于2026 年 11 月 6 日移除） |
-| 参考服务器的 DCP-05–09 端点没有认证，也不验证签名 | 不要把它们暴露给不受信任的客户端（[OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)） |
+| 参考服务器的 DCP-05–09 端点是演示：默认关闭，启用后只凭运营方令牌，不验证签名 | 保持关闭，或只为运营方启用（[OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)） |
 
 以下在早期草稿中出现的限制已经**解决**：
 

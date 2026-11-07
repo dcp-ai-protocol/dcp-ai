@@ -5,7 +5,7 @@
 
 # Docker — DCP 基础设施
 
-> 本文是[英文版](../../../docker/README.md)的参考译文，更新于 05/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docker/README.md)的参考译文，更新于 07/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 用于把所有 DCP 服务部署为容器的 Docker Compose 配置。包括验证、锚定、透明日志和撤销。
 
@@ -99,7 +99,7 @@ curl http://localhost:3000/.well-known/dcp-capabilities.json
 | `ALLOW_V1_BUNDLES` | `true` | 接受 V1 格式的 bundle |
 | `REQUIRE_SESSION_BINDING`、`REQUIRE_COMPOSITE_BINDING`、`MAX_KEY_AGE_DAYS`、`PQ_CHECKPOINT_INTERVAL`、`ADVISORY_POLL_INTERVAL_MS` | 在镜像中和此处设置 | **服务器目前还不会读取。** 适用的是其内置策略（要求会话绑定和复合绑定，密钥年龄阈值为 365 天）；可以通过 `GET /v2/policy` 查看 |
 
-网关的 DCP-05 至 DCP-09 端点不需要令牌，也不验证签名；在前面没有你自己的授权时，不要把 3000 端口暴露给不受信任的客户端（[docs/OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)）。
+在用这些源代码构建的镜像中（`docker-compose.yml` 从你的检出构建），除非服务器收到 `DCP_DEMO_ENDPOINTS=dcp-05-09`，网关的 DCP-05 至 DCP-09 演示端点保持关闭，而 `docker-compose.yml` 不会传递它；启用后，它们需要运营方令牌，并且仍然不验证签名。用不含此变更的源代码构建的镜像中，它们处于开启状态且不需要令牌（[docs/OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)）。
 
 #### anchor
 

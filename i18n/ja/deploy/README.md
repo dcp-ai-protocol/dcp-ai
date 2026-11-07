@@ -4,7 +4,7 @@
 
 # DCP-AI のサービスのデプロイ
 
-> [英語版](../../../deploy/README.md)の参考訳です（05/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../deploy/README.md)の参考訳です（07/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 このリポジトリに含まれる 4 つのサービス — **verification**、**anchor**、
 **transparency-log**、**revocation** — は、GitHub Container Registry（GHCR）上の
@@ -22,10 +22,11 @@
 | 透明性ログ | `ghcr.io/dcp-ai-protocol/dcp-ai/transparency-log` | 3002 |
 | 失効 | `ghcr.io/dcp-ai-protocol/dcp-ai/revocation` | 3003 |
 
-タグ（[`publish-docker.yml`](../../../.github/workflows/publish-docker.yml) を参照）：ワークフローを起動する `main` への push は
-`:latest`、`:main`、`:sha-xxxxxxx` を公開します。公開されたリリースは、その semver のタグ（`:<major>.<minor>.<patch>`、
-`:<major>.<minor>`、`:<major>`）を加え、可変の `:latest` を動かすこともあります。`linux/amd64` と `linux/arm64` の両方が
-ビルドされます。
+タグ（[`publish-docker.yml`](../../../.github/workflows/publish-docker.yml) を参照）：サービスのコードまたは Dockerfile に触れる
+`main` への push は、イメージをビルドしますが公開しません。公開されたリリースは、そのタグ、semver のタグ
+（`:<major>.<minor>.<patch>`、`:<major>.<minor>`、`:<major>`）、`:sha-xxxxxxx` を公開し、可変の `:latest` を動かすことも
+あります。手動の実行は、実行したブランチまたはタグのタグを公開します（`main` では `:latest`、`:main`、`:sha-xxxxxxx`）。
+`linux/amd64` と `linux/arm64` の両方がビルドされます。
 
 ノート PC での簡単な動作確認：
 
@@ -109,7 +110,7 @@ fly launch --config revocation.toml      --no-deploy
 fly deploy --config revocation.toml
 ```
 
-各サービスには `https://dcp-ai-verification.fly.dev` のような公開の HTTPS の URL が割り当てられます。検証のアプリでは、これによりトークン不要で署名も検証しない DCP-05 から DCP-09 のエンドポイントも公開されます（運用上の注意を参照）。
+各サービスには `https://dcp-ai-verification.fly.dev` のような公開の HTTPS の URL が割り当てられます。これらの設定は公開済みの `:latest` イメージを実行し、`DCP_DEMO_ENDPOINTS` を設定しません。DCP-05 から DCP-09 のガードを含むソースからビルドしたサーバーだけが、これらのデモのエンドポイントをデフォルトでオフにします。この変更を含まないソースからビルドしたイメージでは、トークン不要で有効のままです（運用上の注意を参照）。
 
 `#<public key>` のないゴシップのピアは問い合わせを受けますが、そのツリーヘッドは無視されます。
 
@@ -161,7 +162,7 @@ Docker イメージから新しいプロジェクトを作成します。各サ�
 - **透明性ログ**：メモリ上のみで、永続化の選択肢はありません。再起動すると新しい空のツリーから始まり、ボリュームを使っても変わりません。固定の `OPERATOR_KEY` を使えば、再起動をまたいで同じ署名鍵を保てます。
 - **失効**：レジストリが権威を持つのは、あなたのポリシーのすべての検証器が*この* URL を指す場合だけです。その URL を `.well-known/dcp-capabilities.json` で公開してください。永続的なストレージ上の `REVOCATION_STATE_PATH` がなければ、再起動ですべての登録と失効が忘れられます。
 - **検証**：ステートレスではありません。パスポート、鍵、監査チェーン、DCP-05–09 の記録をメモリに保持し、別々のインスタンスはそれらを共有しないため、ロードバランサーの背後に複数のインスタンスを置くと応答が食い違います。インスタンスは 1 つだけで動かしてください。
-- **検証、DCP-05 から DCP-09 のエンドポイント**：トークン不要で署名も検証せず、`OPERATOR_TOKEN` でも保護されないため、公開デプロイ（Fly、または `--allow-unauthenticated` を付けた Cloud Run）に到達できる人なら誰でも、ライフサイクル、紛争、マンデートの状態を変更できます。その前段に独自の認可を置くか、ルーティングしないでください（[docs/OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)）。
+- **検証、DCP-05 から DCP-09 のエンドポイント**：現在のソースからビルドしたサーバーではデフォルトでオフ（404）です。`DCP_DEMO_ENDPOINTS=dcp-05-09` にすると、オペレーターのトークンを持つ人に応答し、そのトークンは 32 文字以上でなければなりません。署名は引き続き検証しません。この変更を含まないソースからビルドしたイメージ（`:latest` がまだそうである可能性があります）では、トークン不要で有効なため、公開デプロイ（Fly、または `--allow-unauthenticated` を付けた Cloud Run）に到達できる人なら誰でも、ライフサイクル、紛争、マンデートの状態を変更できます。これらのソースからビルドしたイメージを実行するまでは、その前段に独自の認可を置くか、ルーティングしないでください（[docs/OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)）。
 
 ---
 

@@ -5,7 +5,7 @@
 
 # 技術アーキテクチャ — 世界規模の DCP
 
-> [英語版](../../../docs/TECHNICAL_ARCHITECTURE.md)の参考訳です（06/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../docs/TECHNICAL_ARCHITECTURE.md)の参考訳です（07/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 この文書は、Digital Citizenship Protocol を世界中にデプロイするための技術的な設計図です。どの政府、組織、開発者も、中央の権威にもプロトコルの作者にも依存せずにプロトコルを採用できるようにする、レイヤー、コンポーネント、技術の選択を説明します。
 
@@ -128,7 +128,7 @@ SDK はファイルシステムに依存しません。オブジェクトを受�
 - **ステートレスな検証：** `POST /verify` にデータベースは不要です。サーバーのほかのレジストリはメモリ上にあり、再起動で失われます（[OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#reference-services-keep-state-in-memory-only)）。
 - **ヘルス + ケイパビリティ：** `/health`、`/.well-known/dcp-capabilities.json`。
 - **API：** POST `/verify`（ボディ：`signed_bundle`、任意の `public_key_b64`。レスポンス：`{ verified, dcp_version, errors, … }`）。追加の V2 エンドポイントは [OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md) に一覧があります。
-- **マネージドなデプロイ：** `deploy/fly/verification.toml` の Fly.io の設定（`fly launch --config deploy/fly/verification.toml`、続いて `fly deploy --config deploy/fly/verification.toml`）。公開デプロイでは DCP-05–09 のエンドポイントも公開されますが、これらには認証がなく、署名も検証しません。先に制限してください（[OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)）。
+- **マネージドなデプロイ：** `deploy/fly/verification.toml` の Fly.io の設定（`fly launch --config deploy/fly/verification.toml`、続いて `fly deploy --config deploy/fly/verification.toml`）。この設定は公開済みの `:latest` イメージを実行します。現在のソースからビルドしたサーバーは、`DCP_DEMO_ENDPOINTS=dcp-05-09` を設定しない限り DCP-05–09 のデモのエンドポイントをオフにし、設定するとオペレーターのトークンを必要とします。この変更を含まないソースからビルドしたイメージでは、認証も署名の検証もなしに有効なため、イメージがこの変更を含むと分かっていない限り制限してください（[OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)）。
 
 [OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md)、[server/README.md](../../../server/README.md)、[deploy/README.md](../../../deploy/README.md) を参照してください。
 
