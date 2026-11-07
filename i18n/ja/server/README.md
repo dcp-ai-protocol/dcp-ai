@@ -4,7 +4,7 @@
 
 # DCP のリファレンスゲートウェイ
 
-> [英語版](../../../server/README.md)の参考訳です（26/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../server/README.md)の参考訳です（06/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 Digital Citizenship Protocol の V1、V2、フェーズ 3（PQ 優先）を実装する HTTP の検証サービスです。**メモリ上のストレージ**：外部のデータベースは不要で、再起動の後には何も残りません（[永続化](#persistence)を参照）。どの第三者でも運用できるように設計されており、プロトコルは中央のサーバーを必要としません。
 
@@ -34,7 +34,7 @@ node server/index.js
 | メソッド | パス | 説明 |
 |--------|------|-------------|
 | GET | `/` , `/health` | ヘルスチェック：`{ ok, service, supported_versions, registered_agents, registered_keys }` |
-| GET | `/.well-known/dcp-capabilities.json` | プロトコルのケイパビリティの発見（アルゴリズム、機能、ワイヤ形式）。サーバーが宣伝している内容であり、確認済みの保証ではありません。`hsm_provider: true` と `application/cbor` を挙げていますが、HSM はなく、ボディは JSON としてしか読みません |
+| GET | `/.well-known/dcp-capabilities.json` | プロトコルのケイパビリティの発見（アルゴリズム、機能、ワイヤ形式）。サーバーが宣伝している内容であり、確認済みの保証ではありません。`application/cbor` を挙げていますが、ボディは JSON としてしか読みません。HSM はないため、`hsm_provider` は `false` です |
 | POST | `/verify` | 署名付きバンドルを検証する（V1 か V2 かを自動判別し、V2 は `VERIFIER_POLICY` に照らして確認） |
 | POST | `/v2/admit` | オペレーターが信頼するプリンシパルに対するアドミッション、設定されていれば strict-v1 も（`docs/ADMISSION.md`）。ボディからは `signed_bundle` だけを読みます。未設定なら 501 |
 | POST | `/anchor` | スタブ：501 を返す（オペレーターごとに実装） |

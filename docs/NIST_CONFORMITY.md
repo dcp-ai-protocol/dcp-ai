@@ -83,7 +83,7 @@ DCP-AI uses ML-DSA-65 as the primary post-quantum signature algorithm in composi
 
 ML-DSA-87 is reserved for future high-assurance use. `ml-dsa-87` is an accepted value of `alg` in the key schema, and the sizes below are those of FIPS 204, but no SDK can generate, sign or verify with it, and the reference CLI refuses to generate its keys.
 
-The TypeScript SDK source contains `HsmCryptoProvider` (`sdks/typescript/src/providers/hsm-provider.ts`), which lists `ml-dsa-87`. It is a **simulated pattern**, not an HSM integration: it is not exported or registered, has no PKCS#11 binding, makes random "public keys", produces a hash where a signature should be, and its `verify` accepts any signature of the right length. It must not be used to sign or to verify real evidence.
+Until 06/11/2026 the TypeScript SDK source contained `HsmCryptoProvider` (`sdks/typescript/src/providers/hsm-provider.ts`), which listed `ml-dsa-87`. It was a **simulated pattern**, not an HSM integration: it was not exported from the package entry point or registered, had no PKCS#11 binding, made random "public keys", produced a hash where a signature should be, and its `verify` accepted any signature of the right length. It was removed on 06/11/2026, so code that imported that file directly no longer can; the public API of `@dcp-ai/sdk` does not change. No SDK has an HSM provider.
 
 | Parameter | FIPS 204 Value | DCP-AI Value | Notes |
 |-----------|---------------|-------------|-------|
@@ -405,7 +405,7 @@ DCP-AI aligns with NIST's published transition guidance for post-quantum cryptog
 | Plan for algorithm deprecation | Governance-signed advisories with auto-response |
 | Protect long-lived data | Hash-chained audit trails; dual-hash chains are produced, and the V2 verifiers from `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1 and Rust `dcp-ai` 2.11.1 check the secondary fields that are present (earlier versions do not) ([STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)) |
 | Use hybrid constructions during transition | `pq_over_classical` composite binding |
-| Hardware security modules for key storage | Not implemented: no HSM/TPM integration; the `HsmCryptoProvider` in the source is a simulation (§2.2) |
+| Hardware security modules for key storage | Not implemented: no HSM/TPM integration; the simulated `HsmCryptoProvider` was removed from the source on 06/11/2026 (§2.2) |
 | Test interoperability | Cross-SDK KAT validation, conformance test suite |
 
 ---

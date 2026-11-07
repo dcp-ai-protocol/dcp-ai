@@ -5,7 +5,7 @@
 
 # DCP-AI y el Reglamento de IA de la UE — correspondencia de las obligaciones de registro, supervisión humana y conservación de registros
 
-> Traducción informativa de [la versión en inglés](../../../docs/EU_AI_ACT_MAPPING.md), actualizada el 05/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../docs/EU_AI_ACT_MAPPING.md), actualizada el 06/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 **Versión de la especificación:** 2.0
 **Última actualización:** octubre de 2026
@@ -252,7 +252,7 @@ Lo que un responsable del despliegue o un operador debe configurar o hacer funci
 
 ### 5.4 Custodia de claves y política del verificador
 
-- [ ] Las claves privadas se guardan según los requisitos del nivel de [SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md) («Private Key Storage»): HSM o TPM DEBERÍA para `elevated`, DEBE para `maximum`. Este repositorio no proporciona integración con HSM ni TPM (el `HsmCryptoProvider` del código TypeScript es una simulación), así que esa custodia procede de la infraestructura propia de la organización.
+- [ ] Las claves privadas se guardan según los requisitos del nivel de [SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md) («Private Key Storage»): HSM o TPM DEBERÍA para `elevated`, DEBE para `maximum`. Este repositorio no proporciona integración con HSM ni TPM (el `HsmCryptoProvider` simulado se retiró del código TypeScript el 06/11/2026), así que esa custodia procede de la infraestructura propia de la organización.
 - [ ] La política del verificador (`VerifierPolicy`, `VERIFIER_MODE`) usa al menos `hybrid_preferred`, con unos `risk_overrides` que nunca bajen del modo del nivel; `ALLOW_V1_BUNDLES=false` una vez completada la migración.
 - [ ] Los endpoints del operador están bloqueados con `OPERATOR_TOKEN`; `TRUST_PROXY` se define solo detrás de un proxy que añade la IP del cliente.
 - [ ] Los endpoints de DCP-05–09 de la pasarela de referencia, que `OPERATOR_TOKEN` no protege y que no verifican firmas, no se exponen a clientes que no sean de confianza ([OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)); los registros que guardan no se tratan como evidencia verificada.

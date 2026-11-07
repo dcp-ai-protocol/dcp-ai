@@ -5,7 +5,7 @@
 
 # Auditoría de seguridad final de DCP-AI v2.0 — las 13 carencias verificadas como cerradas
 
-> Traducción informativa de [la versión en inglés](../../../spec/AUDIT-v2.0-FINAL.md), actualizada el 05/11/2026. **Registro histórico con fecha**: no describe el estado actual. Si difieren, prevalece la versión en inglés.
+> Traducción informativa de [la versión en inglés](../../../spec/AUDIT-v2.0-FINAL.md), actualizada el 06/11/2026. **Registro histórico con fecha**: no describe el estado actual. Si difieren, prevalece la versión en inglés.
 
 **Fecha de la auditoría:** 2026-02-26  
 **Auditor:** DCP-AI Protocol Governance  
@@ -14,12 +14,12 @@
 
 > **Registro histórico, conservado tal como se escribió.** Es una revisión interna de la gobernanza del proyecto, fechada el 26/02/2026: no es una auditoría externa independiente ni una garantía actual. Revisiones posteriores (octubre y noviembre de 2026) matizan algunas de sus conclusiones; el estado actual está en los documentos enlazados aquí y en el [expediente de auditoría](../../../docs/conformance/AUDIT_DOSSIER.md), no en este registro:
 >
-> - **Carencia n.º 11 y la implementación de referencia de HSM.** `HsmCryptoProvider` y `HsmProviderFactory` son un patrón simulado, no una integración con un HSM. No se exportan desde `@dcp-ai/sdk` y no tienen vinculación PKCS#11; `sign` devuelve un hash en lugar de una firma, y `verify` acepta cualquier firma de la longitud adecuada. No deben usarse para evidencia real ([docs/NIST_CONFORMITY.md](../../../docs/NIST_CONFORMITY.md) §2.2).
+> - **Carencia n.º 11 y la implementación de referencia de HSM.** `HsmCryptoProvider` y `HsmProviderFactory` eran un patrón simulado, no una integración con un HSM. No se exportaban desde `@dcp-ai/sdk` y no tenían vinculación PKCS#11; `sign` devolvía un hash en lugar de una firma, y `verify` aceptaba cualquier firma de la longitud adecuada. Se retiraron del código fuente el 06/11/2026: el repositorio no tiene ningún proveedor HSM y la carencia n.º 11 no está cerrada ([docs/NIST_CONFORMITY.md](../../../docs/NIST_CONFORMITY.md) §2.2).
 > - **Carencia n.º 1.** La recuperación de claves del SDK y `dcp recovery-setup` producen las partes de Shamir, pero no las cifran con el KEM híbrido.
 > - **Carencia n.º 4.** El servidor de referencia comprueba la estructura del `composite_sig` de un aviso, no su firma; lo protege el token de operador ([server/README.md](../../../server/README.md)).
 > - **Modo solo PQ.** `pq_only` sigue necesitando los bytes de la firma clásica en los verificadores de los SDK: la firma PQ los cubre bajo `pq_over_classical`, así que no significa que pueda omitirse el componente clásico.
 > - **Brecha #6.** Desde el 28/10/2026, los verificadores publicados (`@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1, Go v2.11.1, Rust `dcp-ai` 2.11.1) comprueban `prev_hash_secondary`, `intent_hash_secondary` y `audit_merkle_root_secondary` cuando están presentes ([VERIFICATION.md](../../../spec/VERIFICATION.md), V2-11 y su errata); las versiones anteriores no. Estos campos opcionales no son obligatorios, así que un bundle verificado puede seguir sin una cadena secundaria completa.
-> - **`dcp audit gaps`** comprueba que existen archivos y que contienen marcadores, no el comportamiento. El 25/10/2026 informa de que la carencia n.º 7 está abierta, porque busca `integrations/fastapi/__init__.py`, que ahora es `sdks/python/dcp_ai/fastapi/__init__.py`.
+> - **`dcp audit gaps`** comprueba que existen archivos y que contienen marcadores, no el comportamiento. El 25/10/2026 informa de que la carencia n.º 7 está abierta, porque busca `integrations/fastapi/__init__.py`, que ahora es `sdks/python/dcp_ai/fastapi/__init__.py`. Desde el 06/11/2026 informa de que la carencia n.º 11 está abierta, existan los archivos que existan, así que ya no anuncia que las 13 carencias están cerradas.
 
 ---
 

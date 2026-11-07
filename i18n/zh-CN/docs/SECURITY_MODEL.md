@@ -4,7 +4,7 @@
 
 # 安全模型
 
-> 本文是[英文版](../../../docs/SECURITY_MODEL.md)的参考译文，更新于 05/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/SECURITY_MODEL.md)的参考译文，更新于 06/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 协议如何防范各种攻击，从伪造的 bundle 到协议分叉。
 
@@ -383,7 +383,7 @@ Layer 14: Delegation Control (DCP-09)
 | **Elevated** | 集成 HSM/TPM（SHOULD）。集成操作系统钥匙串 |
 | **Maximum** | 集成 HSM/TPM（MUST）。在气隙隔离的仪式中生成密钥 |
 
-本仓库没有 HSM/TPM 集成：TypeScript 源码中的 `HsmCryptoProvider` 是一个模拟模式，不得用于真实的证据（[NIST_CONFORMITY.md](../../../docs/NIST_CONFORMITY.md) §2.2）。elevated 和 maximum 两行需要你自己的集成。
+本仓库没有 HSM/TPM 集成；TypeScript 源码中直到2026 年 11 月 6 日都存在的模拟 `HsmCryptoProvider` 已被移除（[NIST_CONFORMITY.md](../../../docs/NIST_CONFORMITY.md) §2.2）。elevated 和 maximum 两行需要你自己的集成。
 
 参考 CLI（`bin/dcp.js`）和 Python SDK 的 CLI 以 `0600` 模式（所有者可读写，组和其他用户没有权限）写出私钥文件。交互式的 `@dcp-ai/cli init` 不会这样做：它以默认权限写出（在常见的 umask `022` 下为 `0644`），因此请运行 `chmod 600 .dcp/keys/*_secret.key`。运营方不得（MUST NOT）放宽这些权限。
 
@@ -442,7 +442,7 @@ Layer 14: Delegation Control (DCP-09)
 | `agent_id` 的持久性使追踪成为可能 | 在高隐私场景中考虑轮换化名 |
 | BlindedRPR 暴露 `entity_type` 和 `jurisdiction` | 未来：基于 ZKP 的凭证出示 |
 | 没有任何 SDK 执行 DCP-04 的 X25519 + ML-KEM-768 交换 | 由调用方导出 A2A 会话密钥。Python、Go、Rust 和 WASM 把 ML-KEM-768 作为原语公开；TypeScript 的 KEM 提供者是内部的 |
-| ML-DSA-87 未实现 | 该标识符在密钥模式中被保留；没有 SDK 能使用它，列出它的模拟 HSM 模式也不是实现 |
+| ML-DSA-87 未实现 | 该标识符在密钥模式中被保留；没有 SDK 能使用它（曾列出它的模拟 HSM 模式并不是实现，已于2026 年 11 月 6 日移除） |
 | 参考服务器的 DCP-05–09 端点没有认证，也不验证签名 | 不要把它们暴露给不受信任的客户端（[OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)） |
 
 以下在早期草稿中出现的限制已经**解决**：

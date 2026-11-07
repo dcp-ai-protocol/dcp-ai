@@ -5,7 +5,7 @@
 
 # 技术架构 — 全球规模的 DCP
 
-> 本文是[英文版](../../../docs/TECHNICAL_ARCHITECTURE.md)的参考译文，更新于 25/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/TECHNICAL_ARCHITECTURE.md)的参考译文，更新于 06/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 本文档是在全球部署 Digital Citizenship Protocol 的技术蓝图。它描述各层、各组件以及技术选型，使任何政府、组织或开发者都能采用该协议，而不依赖任何中央机构，也不依赖协议作者。
 
@@ -314,7 +314,7 @@ AlgorithmRegistry
 └── Maps algorithm names → provider instances (runtime selection)
 ```
 
-提供程序在启动时通过 `registerDefaultProviders()` 注册。自定义提供程序实现相同的接口。真正由 HSM 支持的提供程序会是其中之一；本仓库没有这样的提供程序。TypeScript 源码中的 `HsmCryptoProvider` 是一个模拟模式，没有导出，也不能用于真实证据（[NIST_CONFORMITY.md](../../../docs/NIST_CONFORMITY.md) §2.2）。
+提供程序在启动时通过 `registerDefaultProviders()` 注册。自定义提供程序实现相同的接口。真正由 HSM 支持的提供程序会是其中之一；本仓库没有这样的提供程序。TypeScript 源码中直到 06/11/2026 都存在的模拟 `HsmCryptoProvider` 已被移除（[NIST_CONFORMITY.md](../../../docs/NIST_CONFORMITY.md) §2.2）。
 
 <a id="a2a-infrastructure-dcp-04"></a>
 

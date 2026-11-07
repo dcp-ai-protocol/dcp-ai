@@ -4,7 +4,7 @@
 
 # 变更日志
 
-> 本文是[英文版](../../CHANGELOG.md)的参考译文，更新于 05/11/2026。每个条目（包括 `[Unreleased]` 下的条目）描述的是当时所作的变更，并不保证当前行为；已发布的各版本是**带日期的历史记录**。如有出入，以英文版为准。
+> 本文是[英文版](../../CHANGELOG.md)的参考译文，更新于 06/11/2026。每个条目（包括 `[Unreleased]` 下的条目）描述的是当时所作的变更，并不保证当前行为；已发布的各版本是**带日期的历史记录**。如有出入，以英文版为准。
 
 **已发布版本（2026 年 10 月 26 日）。** npm（13 个软件包，包括 `@dcp-ai/sdk` 2.2.0）、Python `dcp-ai` 2.10.0、Go `v2.11.0` 和 Rust `dcp-ai` 2.11.0 均已发布，包含验证器修复、准入功能和实验性的选择启用 API；`dcp-jcs-v1` 仍是规范性默认值。见[已发布版本](../../docs/README.md#published-versions)。以下条目保留开发历史；`[Unreleased]` 不表示这些功能尚未发布。2026 年 10 月 28 日的六个修复版本见[单独的章节](#2026-10-28-sha3-patch-releases)。05/11/2026 的五个版本见[其单独的章节](#2026-11-05-auditable-releases)。
 
@@ -86,6 +86,12 @@
 <a id="security"></a>
 
 ### 安全
+
+- **移除模拟的 HSM 提供程序**（`main` 上的源代码，不在任何已发布版本中）。`HsmCryptoProvider` 和 `HsmProviderFactory`
+  （`sdks/typescript/src/providers/hsm-provider.ts`）没有硬件支撑：`initialize()` 不加载任何东西就报告已认证的会话，
+  `verify` 接受任何长度正确的签名。它们没有从包的入口点导出，也没有被注册；直接导入该文件的代码将无法再导入，
+  `@dcp-ai/sdk` 的公开 API 不变。`dcp audit gaps` 过去因为该文件存在就把第 11 号缺口算作已关闭；现在无论存在哪些文件，
+  它都把该缺口报告为未关闭。参考服务器的 `/.well-known/dcp-capabilities.json` 声明 `hsm_provider: false`。
 
 - **透明日志：分叉视图与独立日志区分开来**（`main` 上的源代码，不在任何已发布版本中；`services/transparency-log/`）。
   gossip 曾把每个已固定对等节点的树头与本地树比较，因此两个互相固定的独立日志只要大小相同、条目不同就会告警。它不保存

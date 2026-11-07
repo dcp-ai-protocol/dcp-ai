@@ -5,7 +5,7 @@
 
 # Guía del operador — ejecutar un servicio de verificación
 
-> Traducción informativa de [la versión en inglés](../../../docs/OPERATOR_GUIDE.md), actualizada el 05/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../docs/OPERATOR_GUIDE.md), actualizada el 06/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Esta guía es para **terceros** que quieran ejecutar un servicio de «agente verificado»: una API HTTP que verifica Signed Bundles de DCP (y, opcionalmente, ancla hashes en una blockchain). El protocolo **no** exige ningún servidor central; la verificación siempre puede hacerse localmente con `dcp verify-bundle`. Este servicio es **opcional** y lo ejecuta quien opere a su elección.
 
@@ -351,7 +351,7 @@ Los servicios V2 exponen `GET /.well-known/dcp-capabilities.json`. El servidor d
     "pq_only_mode": true,
     "advisory_auto_response": true,
     "governance_keys": true,
-    "hsm_provider": true,
+    "hsm_provider": false,
     "agent_lifecycle": true,
     "succession": true,
     "dispute_resolution": true,
@@ -363,7 +363,7 @@ Los servicios V2 exponen `GET /.well-known/dcp-capabilities.json`. El servidor d
 }
 ```
 
-Esto es lo que el servidor anuncia, no una lista de garantías comprobadas. Sus endpoints solo leen cuerpos JSON, aunque se enumera `application/cbor`. Se anuncia `hsm_provider: true`, pero el proveedor HSM del repositorio es una simulación sin respaldo de hardware ([SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md)).
+Esto es lo que el servidor anuncia, no una lista de garantías comprobadas. Sus endpoints solo leen cuerpos JSON, aunque se enumera `application/cbor`. Desde el 06/11/2026 anuncia `hsm_provider: false`: el repositorio no tiene ningún proveedor HSM ([SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md)).
 
 <a id="observability"></a>
 

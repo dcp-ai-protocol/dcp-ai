@@ -315,7 +315,7 @@ Pre-registered `revocation_token = SHA-256(revocation_secret)`. Revealing the pr
 
 Private keys SHOULD be stored in hardware security modules. The `CryptoProvider` interface supports `HsmCryptoProvider` that delegates all operations to the HSM via PKCS#11.
 
-> *Informative note (25/10/2026), not part of the normative text:* the `HsmCryptoProvider` in the TypeScript SDK source is a simulated pattern, not an HSM integration: it is not exported, has no PKCS#11 binding, and must not be used to sign or verify real evidence. No hardware backend is implemented in this repository, and no FIPS 140 validation is claimed ([docs/NIST_CONFORMITY.md](../docs/NIST_CONFORMITY.md) §2.2).
+> *Informative note (25/10/2026, updated 06/11/2026), not part of the normative text:* no `HsmCryptoProvider` exists in this repository. The simulated pattern of that name in the TypeScript SDK source, which was not exported and had no PKCS#11 binding, was removed on 06/11/2026. No hardware backend is implemented in this repository, and no FIPS 140 validation is claimed ([docs/NIST_CONFORMITY.md](../docs/NIST_CONFORMITY.md) §2.2).
 
 ---
 

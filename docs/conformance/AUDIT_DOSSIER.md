@@ -118,7 +118,7 @@ Other changes after the versions of 28/10/2026:
 ## Known limits and exclusions
 
 - **Audit record.** [AUDIT-v2.0-FINAL.md](../../spec/AUDIT-v2.0-FINAL.md) is an internal historical record of 26/02/2026, with a current context note. It is not an external audit.
-- **Simulated HSM provider.** `HsmCryptoProvider` is a simulated pattern and must not be used for real evidence ([NIST_CONFORMITY.md](../NIST_CONFORMITY.md)).
+- **No HSM provider.** The simulated `HsmCryptoProvider` was removed from the TypeScript source on 06/11/2026; no SDK has an HSM provider, the reference server advertises `hsm_provider: false` and `dcp audit gaps` keeps Gap #11 open ([NIST_CONFORMITY.md](../NIST_CONFORMITY.md)).
 - **Key recovery.** The shares are not encrypted with the hybrid KEM.
 - **Reference server.** It checks the structure of an advisory's signature, not the signature itself ([server/README.md](../../server/README.md)).
 - **WASM.** It exports no mandate chain verification.

@@ -4,7 +4,7 @@
 
 # Expediente de auditoría
 
-> Traducción informativa de [la versión en inglés](../../../../docs/conformance/AUDIT_DOSSIER.md), actualizada el 05/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../../docs/conformance/AUDIT_DOSSIER.md), actualizada el 06/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Este es el punto de entrada para una revisión de seguridad independiente de DCP-AI. Indica qué revisar, cómo reproducir la evidencia del repositorio, qué muestra esa evidencia y qué deja fuera. No es una especificación, ni una certificación, ni un informe de auditoría. El repositorio no contiene ningún informe de una auditoría externa independiente, y no certifica trabajos hechos fuera de él.
 
@@ -136,7 +136,7 @@ Otros cambios posteriores a las versiones del 28/10/2026:
 ## Límites y exclusiones conocidos
 
 - **Registro de auditoría.** [AUDIT-v2.0-FINAL.md](../../../../spec/AUDIT-v2.0-FINAL.md) es un registro histórico interno del 26/02/2026, con una nota de contexto actual. No es una auditoría externa.
-- **Proveedor HSM simulado.** `HsmCryptoProvider` es un patrón simulado y no debe usarse para evidencia real ([NIST_CONFORMITY.md](../../../../docs/NIST_CONFORMITY.md)).
+- **Sin proveedor HSM.** El `HsmCryptoProvider` simulado se retiró del código TypeScript el 06/11/2026; ningún SDK tiene un proveedor HSM, el servidor de referencia anuncia `hsm_provider: false` y `dcp audit gaps` mantiene abierta la carencia n.º 11 ([NIST_CONFORMITY.md](../../../../docs/NIST_CONFORMITY.md)).
 - **Recuperación de claves.** Las partes no se cifran con el KEM híbrido.
 - **Servidor de referencia.** Comprueba la estructura de la firma de un aviso, no la firma ([server/README.md](../../../../server/README.md)).
 - **WASM.** No exporta verificación de cadenas de mandatos.

@@ -207,7 +207,7 @@ What a deployer or operator must configure or operate for the `supports` rows of
 
 ### 5.4 Key custody and verifier policy
 
-- [ ] Private keys are stored per the tier requirements in [SECURITY_MODEL.md](SECURITY_MODEL.md) ("Private Key Storage"): HSM or TPM SHOULD for `elevated`, MUST for `maximum`. This repository provides no HSM or TPM integration (the `HsmCryptoProvider` in the TypeScript source is a simulation), so that custody comes from the organisation's own infrastructure.
+- [ ] Private keys are stored per the tier requirements in [SECURITY_MODEL.md](SECURITY_MODEL.md) ("Private Key Storage"): HSM or TPM SHOULD for `elevated`, MUST for `maximum`. This repository provides no HSM or TPM integration (the simulated `HsmCryptoProvider` was removed from the TypeScript source on 06/11/2026), so that custody comes from the organisation's own infrastructure.
 - [ ] The verifier policy (`VerifierPolicy`, `VERIFIER_MODE`) uses at least `hybrid_preferred`, with `risk_overrides` that never fall below the tier's mode; `ALLOW_V1_BUNDLES=false` once migration is complete.
 - [ ] Operator endpoints are locked with `OPERATOR_TOKEN`; `TRUST_PROXY` is set only behind a proxy that appends the client IP.
 - [ ] The reference gateway's DCP-05–09 endpoints, which `OPERATOR_TOKEN` does not protect and which do not verify signatures, are not exposed to untrusted clients ([OPERATOR_GUIDE.md](OPERATOR_GUIDE.md#dcp-0509-service-endpoints)); records they hold are not treated as verified evidence.

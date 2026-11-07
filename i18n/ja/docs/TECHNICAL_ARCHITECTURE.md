@@ -5,7 +5,7 @@
 
 # 技術アーキテクチャ — 世界規模の DCP
 
-> [英語版](../../../docs/TECHNICAL_ARCHITECTURE.md)の参考訳です（25/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../docs/TECHNICAL_ARCHITECTURE.md)の参考訳です（06/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 この文書は、Digital Citizenship Protocol を世界中にデプロイするための技術的な設計図です。どの政府、組織、開発者も、中央の権威にもプロトコルの作者にも依存せずにプロトコルを採用できるようにする、レイヤー、コンポーネント、技術の選択を説明します。
 
@@ -314,7 +314,7 @@ AlgorithmRegistry
 └── Maps algorithm names → provider instances (runtime selection)
 ```
 
-プロバイダーは起動時に `registerDefaultProviders()` で登録されます。カスタムのプロバイダーも同じインターフェースを実装します。HSM を基盤とする本物のプロバイダーはその一つになるはずですが、リポジトリには一つもありません。TypeScript のソースにある `HsmCryptoProvider` はシミュレーションのパターンで、エクスポートされず、実際の証拠には使えません（[NIST_CONFORMITY.md](../../../docs/NIST_CONFORMITY.md) §2.2）。
+プロバイダーは起動時に `registerDefaultProviders()` で登録されます。カスタムのプロバイダーも同じインターフェースを実装します。HSM を基盤とする本物のプロバイダーはその一つになるはずですが、リポジトリには一つもありません。TypeScript のソースに 06/11/2026 まであったシミュレーションの `HsmCryptoProvider` は削除されました（[NIST_CONFORMITY.md](../../../docs/NIST_CONFORMITY.md) §2.2）。
 
 <a id="a2a-infrastructure-dcp-04"></a>
 

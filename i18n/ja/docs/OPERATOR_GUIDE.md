@@ -5,7 +5,7 @@
 
 # オペレーターガイド — 検証サービスの運用
 
-> [英語版](../../../docs/OPERATOR_GUIDE.md)の参考訳です（05/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../docs/OPERATOR_GUIDE.md)の参考訳です（06/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 このガイドは、「エージェント検証済み」サービス、つまり DCP の Signed Bundle を検証する（オプションでハッシュをブロックチェーンにアンカーする）HTTP API を運用したい**第三者**のためのものです。プロトコルは中央のサーバーを**必要としません**。検証はいつでも `dcp verify-bundle` でローカルに行えます。このサービスは**オプション**であり、オペレーターの判断で運用されます。
 
@@ -353,7 +353,7 @@ V2 のサービスは `GET /.well-known/dcp-capabilities.json` を公開しま�
     "pq_only_mode": true,
     "advisory_auto_response": true,
     "governance_keys": true,
-    "hsm_provider": true,
+    "hsm_provider": false,
     "agent_lifecycle": true,
     "succession": true,
     "dispute_resolution": true,
@@ -365,7 +365,7 @@ V2 のサービスは `GET /.well-known/dcp-capabilities.json` を公開しま�
 }
 ```
 
-これはサーバーが宣伝している内容であって、確認済みの保証の一覧ではありません。`application/cbor` が挙げられていますが、そのエンドポイントが読むのは JSON のボディだけです。`hsm_provider: true` と宣伝されていますが、リポジトリの HSM プロバイダーはハードウェアの裏付けのないシミュレーションです（[SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md)）。
+これはサーバーが宣伝している内容であって、確認済みの保証の一覧ではありません。`application/cbor` が挙げられていますが、そのエンドポイントが読むのは JSON のボディだけです。06/11/2026 からは `hsm_provider: false` と宣伝しています。リポジトリには HSM プロバイダーがありません（[SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md)）。
 
 <a id="observability"></a>
 

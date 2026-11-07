@@ -4,7 +4,7 @@
 
 # 审计资料
 
-> 本文是[英文版](../../../../docs/conformance/AUDIT_DOSSIER.md)的参考译文，更新于 05/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../../docs/conformance/AUDIT_DOSSIER.md)的参考译文，更新于 06/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 这是对 DCP-AI 进行独立安全审查的入口。它说明要审查什么、如何复现仓库中的证据，以及这些证据能说明什么、不涵盖什么。它不是规范，不是认证，也不是审计报告：仓库中没有独立外部审计的报告，也不为仓库之外完成的工作提供认证。
 
@@ -136,7 +136,7 @@ node tools/difffuzz/run-mandates.mjs --iterations 120 --report /tmp/mandates.jso
 ## 已知限制与排除项
 
 - **审计记录。** [AUDIT-v2.0-FINAL.md](../../../../spec/AUDIT-v2.0-FINAL.md) 是日期为 26/02/2026 的内部历史记录，附有当前的背景说明；它不是外部审计。
-- **模拟的 HSM 提供者。** `HsmCryptoProvider` 是模拟模式，不得用于真实证据（[NIST_CONFORMITY.md](../../../../docs/NIST_CONFORMITY.md)）。
+- **没有 HSM 提供者。** 模拟的 `HsmCryptoProvider` 已于 06/11/2026 从 TypeScript 源码中移除；没有任何 SDK 提供 HSM 提供者，参考服务器声明 `hsm_provider: false`，`dcp audit gaps` 始终把第 11 号缺口报告为未关闭（[NIST_CONFORMITY.md](../../../../docs/NIST_CONFORMITY.md)）。
 - **密钥恢复。** 份额不使用混合 KEM 加密。
 - **参考服务器。** 它检查公告签名的结构，而不是签名本身（[server/README.md](../../../../server/README.md)）。
 - **WASM。** 不提供授权书链验证。

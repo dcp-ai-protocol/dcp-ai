@@ -120,6 +120,29 @@ test("the CLI runs its own tools, not a tools/ directory planted in the working 
   assert.equal(fs.existsSync(marker), false);
 });
 
+test("audit gaps never counts Gap #11 (HSM) as closed, whatever files exist", () => {
+  const { work } = sandbox();
+  // Every file `audit gaps` looks for, the removed hsm-provider.ts included, each with every marker.
+  const markers = "pq_only HsmCryptoProvider executeGovernanceCeremony autoApplyAdvisoriesToPolicy Key Rotation Ceremony Normative Specification";
+  for (const file of [
+    "sdks/typescript/src/core/key-recovery.ts", "sdks/typescript/src/core/blinded-rpr.ts",
+    "schemas/v2/jurisdiction_attestation.schema.json", "sdks/typescript/src/core/algorithm-advisory.ts",
+    "sdks/typescript/src/core/multi-party-auth.ts", "sdks/typescript/src/core/dual-hash.ts",
+    "integrations/fastapi/__init__.py", "api/proto/dcp.proto", "bin/dcp.js",
+    "sdks/typescript/src/providers/ml-dsa-65.ts", "sdks/typescript/src/providers/hsm-provider.ts", "server/index.js",
+    "sdks/typescript/src/core/emergency-revocation.ts", "sdks/typescript/src/core/verify-v2.ts",
+    "sdks/typescript/src/core/governance.ts", "spec/DCP-AI-v2.0.md",
+  ]) {
+    fs.mkdirSync(path.dirname(path.join(work, file)), { recursive: true });
+    fs.writeFileSync(path.join(work, file), markers);
+  }
+  const r = run(work, "audit", "gaps");
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stdout, /❌ Gap #11: Secure Memory \/ HSM Provider\n\s+Open: no HSM backend in this repository\n/);
+  assert.equal(r.stdout.match(/✅ Gap #/g).length, 12);
+  assert.doesNotMatch(r.stdout, /ALL 13 GAPS|HsmCryptoProvider/);
+});
+
 test("the working directory or another directory is not a file to write", () => {
   const { root, work } = sandbox();
   fs.mkdirSync(path.join(work, "kk"));

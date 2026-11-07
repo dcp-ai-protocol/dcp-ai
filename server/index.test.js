@@ -491,3 +491,9 @@ test("admission: the server refuses to start with a contradictory or invalid con
     await assert.rejects(startService(SERVER, env), /exited/, JSON.stringify(Object.keys(env)));
   }
 });
+
+test("capabilities do not advertise an HSM provider", async () => {
+  const res = await fetch(`${base}/.well-known/dcp-capabilities.json`);
+  assert.equal(res.status, 200);
+  assert.equal((await res.json()).features.hsm_provider, false);
+});

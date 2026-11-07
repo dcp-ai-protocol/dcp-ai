@@ -4,7 +4,7 @@
 
 # Especificação normativa do DCP-AI v2.0
 
-> Tradução informativa da [especificação em inglês](../../../spec/DCP-AI-v2.0.md), atualizada em 05/11/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
+> Tradução informativa da [especificação em inglês](../../../spec/DCP-AI-v2.0.md), atualizada em 06/11/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
 
 **Status:** Final  
 **Versão:** 2.0.0  
@@ -386,7 +386,7 @@ O segredo mestre é dividido com o compartilhamento de segredos de Shamir. As pa
 
 As chaves privadas deveriam (SHOULD) ser armazenadas em módulos de segurança de hardware. A interface `CryptoProvider` aceita `HsmCryptoProvider`, que delega todas as operações ao HSM via PKCS#11.
 
-> *Nota informativa (25/10/2026), não faz parte do texto normativo:* o `HsmCryptoProvider` do código-fonte do SDK de TypeScript é um padrão simulado, não uma integração com HSM: não é exportado, não tem vínculo PKCS#11 e não deve ser usado para assinar ou verificar evidências reais. Este repositório não implementa nenhum backend de hardware nem declara nenhuma validação FIPS 140 ([docs/NIST_CONFORMITY.md](../../../docs/NIST_CONFORMITY.md) §2.2).
+> *Nota informativa (25/10/2026, atualizada em 06/11/2026), não faz parte do texto normativo:* não existe nenhum `HsmCryptoProvider` neste repositório. O padrão simulado com esse nome no código-fonte do SDK de TypeScript, que não era exportado e não tinha vínculo PKCS#11, foi removido em 06/11/2026. Este repositório não implementa nenhum backend de hardware nem declara nenhuma validação FIPS 140 ([docs/NIST_CONFORMITY.md](../../../docs/NIST_CONFORMITY.md) §2.2).
 
 ---
 

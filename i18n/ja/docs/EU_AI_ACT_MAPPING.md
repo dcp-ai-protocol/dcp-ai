@@ -5,7 +5,7 @@
 
 # DCP-AI と EU AI 法 — ロギング、人間による監督、記録保存の義務との対応
 
-> [英語版](../../../docs/EU_AI_ACT_MAPPING.md)の参考訳です（05/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../docs/EU_AI_ACT_MAPPING.md)の参考訳です（06/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 **仕様のバージョン：** 2.0
 **最終更新：** 2026 年 10 月
@@ -252,7 +252,7 @@ DCP-AI の仕様は、RPR によって結び付けられた人を「human」や�
 
 ### 5.4 鍵の保管と検証器のポリシー
 
-- [ ] 秘密鍵が、[SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md) のティアの要件（「Private Key Storage」）に従って保管されている。`elevated` では HSM または TPM を使うべきであり（SHOULD）、`maximum` では使わなければならない（MUST）。このリポジトリは HSM や TPM との統合を提供しない（TypeScript のコードにある `HsmCryptoProvider` はシミュレーション）ため、その保管は組織自身のインフラが担う。
+- [ ] 秘密鍵が、[SECURITY_MODEL.md](../../../docs/SECURITY_MODEL.md) のティアの要件（「Private Key Storage」）に従って保管されている。`elevated` では HSM または TPM を使うべきであり（SHOULD）、`maximum` では使わなければならない（MUST）。このリポジトリは HSM や TPM との統合を提供しない（シミュレーションの `HsmCryptoProvider` は2026 年 11 月 6 日に TypeScript のコードから削除された）ため、その保管は組織自身のインフラが担う。
 - [ ] 検証器のポリシー（`VerifierPolicy`、`VERIFIER_MODE`）が少なくとも `hybrid_preferred` を使い、`risk_overrides` がティアのモードを下回ることはない。移行が完了したら `ALLOW_V1_BUNDLES=false`。
 - [ ] オペレーターのエンドポイントが `OPERATOR_TOKEN` で保護されている。`TRUST_PROXY` は、クライアントの IP を付け加えるプロキシの背後でのみ設定する。
 - [ ] リファレンスのゲートウェイの DCP-05–09 のエンドポイントは、`OPERATOR_TOKEN` で保護されず、署名も検証しないため、信頼できないクライアントに公開されない（[OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md#dcp-0509-service-endpoints)）。それらが保持する記録は、検証済みの証拠として扱われない。
