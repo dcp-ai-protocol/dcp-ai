@@ -135,15 +135,21 @@ describe('the floor reaches the verification (design 1.4)', () => {
     expect(floored.details?.resolved_tier).toBe('elevated');
   });
 
-  it('with no floor, the internal step gives the public result for every fixture', async () => {
-    for (const [name, bundle] of Object.entries(V.signed_bundles)) {
-      for (const policy of [DEFAULT_VERIFIER_POLICY, weak, PQ_ONLY_VERIFIER_POLICY]) {
+  // Each real-crypto pair has its own deadline and failure label; the complete
+  // corpus must not share Vitest's single-test timeout on slower CI runners.
+  for (const [name, bundle] of Object.entries(V.signed_bundles)) {
+    for (const [policyName, policy] of [
+      ['default', DEFAULT_VERIFIER_POLICY],
+      ['weak', weak],
+      ['pq_only', PQ_ONLY_VERIFIER_POLICY],
+    ] as const) {
+      it(`with no floor, ${name} under ${policyName} matches the public result`, async () => {
         const pub = await verifySignedBundleV2(clone(bundle) as SignedBundleV2, registry, clone(policy), { now: NOW });
         const internal = await verifySignedBundleV2WithProfile(clone(bundle) as SignedBundleV2, registry, clone(policy), { now: NOW }, 'dcp-jcs-v1', null);
         expect(JSON.stringify(internal), name).toBe(JSON.stringify(pub));
-      }
+      });
     }
-  });
+  }
 });
 
 describe('snapshot (design 1.3 step 0)', () => {

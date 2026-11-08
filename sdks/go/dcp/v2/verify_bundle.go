@@ -402,7 +402,7 @@ func verifyAudience(manifest map[string]interface{}, policy VerifierPolicy, resu
 	case intended == "":
 		result.Errors = append(result.Errors, "Policy requires audience binding but manifest does not include intended_verifier")
 	case policy.VerifierID != "" && intended != policy.VerifierID:
-		result.Errors = append(result.Errors, fmt.Sprintf("Bundle intended for verifier '%s', not '%s'", intended, policy.VerifierID))
+		result.Errors = append(result.Errors, fmt.Sprintf("Bundle intended for verifier %q, not %q", intended, policy.VerifierID))
 	}
 }
 
