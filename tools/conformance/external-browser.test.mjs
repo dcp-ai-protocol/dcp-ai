@@ -1,7 +1,8 @@
 // Self-tests of the browser harness (wrappers/wasm-browser.mjs, wrappers/browser/*): a positive control through the
 // runner, the clock shim, a bundle the page cannot parse, the direct sections, and the controls that must never pass:
-// faults injected through DCP_CONFORMANCE_WRAPPER_FAULT (self-tests only), an unwritable record, a missing Chrome, and
-// requests the loopback server must refuse (sent in manual mode, where no browser starts).
+// faults injected through DCP_CONFORMANCE_WRAPPER_FAULT (self-tests only), an unwritable record, a missing Chrome, the
+// temporary profile's cleanup (with a stand-in for Chrome), and requests the loopback server must refuse (sent in manual
+// mode, where no browser starts).
 //
 //   DCP_BROWSER_ROOT=sdks/wasm DCP_EXTERNAL_REQUIRE_BROWSER=1 node --test tools/conformance/external-browser.test.mjs
 //
@@ -81,6 +82,7 @@ function cleanRun(rec) {
   assert.equal(rec.browser.profile_removed, true, "the temporary profile is removed");
   assert.notEqual(rec.browser.exit, undefined, "this run's own Chrome exit is recorded");
   assert.notEqual(rec.browser.exit, "not observed", "this run's own Chrome exited");
+  assert.deepEqual(rec.browser.cleanup?.incomplete, [], "nothing of the cleanup is incomplete");
 }
 
 // ── Positive ──
@@ -252,6 +254,58 @@ test("no Chrome: exit 1 through the wrapper, every case an error through the run
   const x = spawnSync(process.execPath, [CLI, "--report", report, "--", process.execPath, WRAPPER, "--root", ROOT, "--chrome", path.join(TMP, "no-chrome")], { encoding: "utf8", timeout: 60000 });
   assert.notEqual(x.status, 0);
   assert.equal(JSON.parse(fs.readFileSync(report, "utf8")).totals.pass, 0);
+});
+
+// ── The temporary profile, with a stand-in for Chrome (external-browser-fake-chrome.mjs) so that its state is fixed ──
+
+const FAKE = path.join(HERE, "external-browser-fake-chrome.mjs");
+function fakeChrome(mode) {
+  const pids = path.join(TMP, `pids-${++n}.json`);
+  const exe = path.join(TMP, `fake-chrome-${n}`);
+  fs.writeFileSync(exe, `#!/bin/sh\nexec "${process.execPath}" "${FAKE}" ${mode} "${pids}" "$@"\n`, { mode: 0o755 });
+  return { exe, pids };
+}
+const alive = (pid) => { try { process.kill(pid, 0); return true; } catch (e) { return e.code === "EPERM"; } };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+test("cleanup: a process left in this run's Chrome group is waited for and signalled, one that left the group is not", { timeout: 60000 }, async (t) => {
+  if (!available(t, { browser: false })) return;
+  const fake = fakeChrome("lingering");
+  const r = wrap(V2([merkle("m")]), { args: ["--chrome", fake.exe] });
+  const { writer, sleeper } = JSON.parse(fs.readFileSync(fake.pids, "utf8"));
+  try {
+    assert.equal(r.code, 0, r.stderr);
+    assert.equal(r.record.outcome, "responded");
+    cleanRun(r.record);
+    assert.equal(r.record.browser.cleanup.group, "drained after SIGTERM to the group");
+    assert.deepEqual(r.record.browser.cleanup.removal_errors, []);
+    for (let i = 0; i < 40 && alive(writer); i++) await sleep(50); // reaped by its new parent
+    assert.equal(alive(writer), false, "the writer in the group is gone");
+    assert.equal(alive(sleeper), true, "the process outside the group was not signalled");
+  } finally {
+    for (const pid of [writer, sleeper]) try { process.kill(pid, "SIGKILL"); } catch { /* gone */ }
+  }
+});
+
+test("cleanup fails closed: a profile left behind fails a run that otherwise responded, with each removal error kept", { timeout: 60000 }, (t) => {
+  if (!available(t, { browser: false })) return;
+  if (process.getuid?.() === 0) return t.skip("root removes a directory without write permission: NOT run");
+  const r = wrap(V2([merkle("m")]), { args: ["--chrome", fakeChrome("locked").exe] });
+  const locked = path.join(r.record.browser.profile, "locked");
+  try {
+    assert.equal(r.code, 1, r.stderr);
+    assert.equal(r.stdout, "", "no response");
+    assert.equal(r.record.outcome, "failed");
+    assert.equal(r.record.browser.profile_removed, false);
+    assert.equal(r.record.failure, `the temporary profile ${r.record.browser.profile} was not removed (EACCES unlink ${path.join(locked, "file")})`);
+    assert.deepEqual(r.record.browser.cleanup.incomplete, [r.record.failure]);
+    assert.deepEqual(r.record.browser.cleanup.removal_errors.map((e) => [e.code, e.syscall, e.path]), Array(5).fill(["EACCES", "unlink", path.join(locked, "file")]));
+    assert.deepEqual(r.record.browser.cleanup.left_in_profile, ["locked", path.join("locked", "file")]);
+    assert.equal(r.record.browser.cleanup.group, "drained");
+  } finally {
+    fs.chmodSync(locked, 0o755);
+    fs.rmSync(r.record.browser.profile, { recursive: true, force: true });
+  }
 });
 
 // ── Controls the runner must judge as not passing ──

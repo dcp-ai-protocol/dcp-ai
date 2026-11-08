@@ -236,7 +236,9 @@ DCP_BROWSER_ROOT=sdks/wasm DCP_EXTERNAL_REQUIRE_BROWSER=1 node --test tools/conf
   - 结果不属于本次运行，或到达两次；
   - 本次运行路径下的请求超出允许列表，或带有其他 Host 或 Origin；
   - Chrome 先行退出，或超过期限；
-  - 无法写入所请求的 `--browser-report`。
+  - 无法写入所请求的 `--browser-report`；
+  - 清理不完整：本次运行的 Chrome 没有退出、其进程组在 SIGKILL 之后仍未清空，或其临时配置文件没有删除。即使其他一切都
+    通过也是如此。
 
   `--manifest <SHA256SUMS>` 还会把提供的工件固定到一个哈希列表。
 - **时间：** `verifyBundle` 读取 `Date.now`。页面只在那一次调用期间把它设为用例的 `verification_time`，之后恢复，调用
@@ -252,13 +254,15 @@ DCP_BROWSER_ROOT=sdks/wasm DCP_EXTERNAL_REQUIRE_BROWSER=1 node --test tools/conf
   共 103 个用例，独立于目录的 590 个用例。
 - **手动运行：** 使用 `--manual --url-file <file>` 时，包装器不启动浏览器。它把 URL 写入文件，等待有人打开；为此请
   调大 `--deadline-ms` 和运行器的 `--timeout-ms`。运行器以同样方式评判结果。
-- **自检：** `external-browser.test.mjs` 有 21 项测试：
+- **自检：** `external-browser.test.mjs` 有 23 项测试：
   - 一个正向对照；
   - 三个时刻的时钟；
   - 一个无法解析的 bundle；
   - 直接部分及其评判器自身的反例；
   - 绝不能通过的对照：通过 `DCP_CONFORMANCE_WRAPPER_FAULT` 注入的故障（仅用于自检；注入故障的响应会注明这一点），
-    以及服务器必须拒绝的请求。
+    以及服务器必须拒绝的请求；
+  - 清理（使用 Chrome 的替身 `external-browser-fake-chrome.mjs`）：留在本次运行自身进程组中的进程会收到信号，
+    已离开该组的进程不会；清理不完整（Chrome 的退出、其进程组或临时配置文件）时，即使其他方面已响应，运行也会失败。
 
   设置 `DCP_EXTERNAL_REQUIRE_BROWSER=1` 时，缺少 Chrome 或构建会导致失败而不是跳过。CI 在它构建的包上运行目录、直接
   部分和自检。

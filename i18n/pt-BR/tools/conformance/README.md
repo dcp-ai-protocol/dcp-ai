@@ -260,7 +260,9 @@ DCP_BROWSER_ROOT=sdks/wasm DCP_EXTERNAL_REQUIRE_BROWSER=1 node --test tools/conf
   - o resultado não é desta execução, ou chega duas vezes;
   - uma requisição sob o caminho da execução está fora da lista de permitidos, ou traz outro Host ou Origin;
   - o Chrome termina antes, ou o prazo se esgota;
-  - um `--browser-report` pedido não pode ser escrito.
+  - um `--browser-report` pedido não pode ser escrito;
+  - a limpeza fica incompleta: o Chrome da execução não terminou, seu grupo de processos não se esvaziou após SIGKILL
+    ou seu perfil temporário não foi removido. Vale também quando todo o resto passou.
 
   `--manifest <SHA256SUMS>` também fixa os artefatos servidos a uma lista de hashes.
 - **Tempo:** `verifyBundle` lê `Date.now`. A página o fixa no `verification_time` do caso durante essa única chamada, e
@@ -278,13 +280,16 @@ DCP_BROWSER_ROOT=sdks/wasm DCP_EXTERNAL_REQUIRE_BROWSER=1 node --test tools/conf
 - **Execuções manuais:** com `--manual --url-file <file>` o wrapper não inicia nenhum navegador. Escreve a URL no
   arquivo e espera que uma pessoa a abra; para isso, aumente `--deadline-ms` e o `--timeout-ms` do runner. O runner
   julga o resultado da mesma forma.
-- **Autotestes:** `external-browser.test.mjs` tem 21 testes:
+- **Autotestes:** `external-browser.test.mjs` tem 23 testes:
   - um controle positivo;
   - o relógio em três instantes;
   - um bundle que não pode ser analisado;
   - as seções diretas, e os negativos do seu juiz;
   - os controles que nunca devem passar: falhas injetadas por `DCP_CONFORMANCE_WRAPPER_FAULT` (só para os
-    autotestes; uma resposta com falha injetada o diz) e requisições que o servidor deve recusar.
+    autotestes; uma resposta com falha injetada o diz) e requisições que o servidor deve recusar;
+  - a limpeza, com um substituto do Chrome (`external-browser-fake-chrome.mjs`): um processo que fica no grupo de
+    processos da própria execução recebe o sinal e um que saiu dele não, e uma limpeza incompleta (a saída do Chrome,
+    seu grupo de processos ou o perfil temporário) faz falhar uma execução que de resto respondeu.
 
   Com `DCP_EXTERNAL_REQUIRE_BROWSER=1`, a falta do Chrome ou da build é uma falha em vez de um salto. A CI executa os
   catálogos, as seções diretas e os autotestes sobre o pacote que compila.

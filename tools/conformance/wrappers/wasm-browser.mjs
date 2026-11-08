@@ -17,8 +17,9 @@
 // the URL to --url-file for a person to open. The run fails (exit 1, no response) when the page reports an
 // infrastructure failure, its exports differ from browser/expected-api.json, a fetched artifact's digest differs from
 // the served bytes, the clock shim was not restored, the result's run_id or nonce differ, a second result arrives, a
-// request under the token is outside the allowlist, a Host, Origin, method or size check fails, Chrome exits first, or
-// the deadline passes. --manifest additionally pins the served artifacts to a SHA256SUMS file.
+// request under the token is outside the allowlist, a Host, Origin, method or size check fails, Chrome exits first, the
+// deadline passes, or the cleanup is incomplete (Chrome's exit not observed, its process group not drained, the temporary
+// profile not removed). --manifest additionally pins the served artifacts to a SHA256SUMS file.
 //
 // DCP_CONFORMANCE_WRAPPER_FAULT is for the self-tests only; a faulted response says so in implementation.runtime.
 import fs from "fs";
@@ -358,32 +359,81 @@ function launchChrome(url) {
     process.platform === "darwin" ? "--use-mock-keychain" : "--password-store=basic",
     url,
   ];
-  chrome = spawn(exe, args, { stdio: ["ignore", "ignore", "ignore"] });
+  // A process group of its own (setsid), so that this run can wait for, and signal, its own Chrome's processes and nothing
+  // else: whatever leaves the group is never signalled.
+  chrome = spawn(exe, args, { stdio: ["ignore", "ignore", "ignore"], detached: true });
   chrome.on("error", (e) => settle({ failure: `cannot start Chrome: ${e.message}` }));
   chromeExited = new Promise((resolve) => chrome.on("exit", (code, signal) => resolve({ code, signal })));
   chromeExited.then(({ code, signal }) => settle({ failure: `Chrome exited before a result (code ${code}, signal ${signal})` }));
 }
 
-async function stopChrome() {
-  if (chrome && chrome.exitCode === null && chrome.signalCode === null) {
-    chrome.kill("SIGTERM");
-    const t = new Promise((r) => setTimeout(() => r("timeout"), 5000));
-    if ((await Promise.race([chromeExited, t])) === "timeout") {
-      chrome.kill("SIGKILL");
-      await Promise.race([chromeExited, new Promise((r) => setTimeout(r, 2000))]);
-    }
-  }
-  // Only this run's own child is ever signalled; its exit is recorded so that the cleanup can be checked.
-  if (chrome) record.browser.exit = chrome.exitCode !== null || chrome.signalCode !== null ? { code: chrome.exitCode, signal: chrome.signalCode } : "not observed";
-  if (profile) {
-    try { fs.rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); } catch { /* reported below */ }
-    record.browser.profile_removed = !fs.existsSync(profile);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// Signal 0 only asks whether any process of the group is left (EPERM: one is, and cannot be signalled). A zombie counts.
+function groupLeft() {
+  try { process.kill(-chrome.pid, 0); return true; } catch (e) { return e.code === "EPERM"; }
+}
+async function groupDrained(ms) {
+  // A monotonic deadline: a change of the wall clock neither shortens nor stretches the wait.
+  for (const end = performance.now() + ms; groupLeft(); await sleep(50)) if (performance.now() > end) return false;
+  return true;
+}
+// Who is left, with the process state, so that a zombie (stat Z) is told apart from a process still running.
+function groupMembers() {
+  try {
+    return execFileSync("ps", ["-A", "-o", "pid=,pgid=,stat=,comm="], { encoding: "utf8" }).split("\n").map((l) => l.trim().split(/\s+/))
+      .filter(([, pgid]) => Number(pgid) === chrome.pid).map(([pid, , stat, ...comm]) => `${pid} ${stat} ${comm.join(" ")}`).join(", ") || "none listed";
+  } catch (e) {
+    return `not listed (ps: ${e.message})`;
   }
 }
 
-// Stopped from outside, or a defect of this harness: this run's own Chrome and profile go, and the run fails.
+// Recorded as observed, never assumed: how the group ended, every removal error (code, syscall, path), and what was left
+// in the profile. Anything in cleanup.incomplete fails the run (below), whatever else happened.
+async function stopChrome() {
+  const cleanup = (record.browser.cleanup = { group: null, removal_errors: [], left_in_profile: null, incomplete: [] });
+  if (chrome?.pid) {
+    if (chrome.exitCode === null && chrome.signalCode === null) {
+      chrome.kill("SIGTERM");
+      const t = new Promise((r) => setTimeout(() => r("timeout"), 5000));
+      if ((await Promise.race([chromeExited, t])) === "timeout") {
+        chrome.kill("SIGKILL");
+        await Promise.race([chromeExited, sleep(2000)]);
+      }
+    }
+    record.browser.exit = chrome.exitCode !== null || chrome.signalCode !== null ? { code: chrome.exitCode, signal: chrome.signalCode } : "not observed";
+    if (record.browser.exit === "not observed") cleanup.incomplete.push("this run's Chrome did not exit after SIGKILL");
+    // The main process can exit before the rest of its group; the profile is removed only once the group is empty.
+    if (await groupDrained(3000)) cleanup.group = "drained";
+    for (const sig of ["SIGTERM", "SIGKILL"]) {
+      if (cleanup.group) break;
+      try { process.kill(-chrome.pid, sig); } catch { /* drained meanwhile */ }
+      if (await groupDrained(2000)) cleanup.group = `drained after ${sig} to the group`;
+    }
+    if (!cleanup.group) {
+      cleanup.group = `left after SIGKILL to the group (pid stat command): ${groupMembers()}`;
+      cleanup.incomplete.push(`this run's Chrome group did not drain: ${cleanup.group}`);
+    }
+  }
+  if (!profile) return;
+  // Each attempt removes the whole tree again: with maxRetries, rmSync lists the children once and then retries only the
+  // final rmdir, so one entry created after that listing fails every retry.
+  for (let i = 0; i < 5 && fs.existsSync(profile); i++) {
+    if (i) await sleep(250 * i);
+    try { fs.rmSync(profile, { recursive: true, force: true }); } catch (e) {
+      cleanup.removal_errors.push({ code: e.code ?? null, syscall: e.syscall ?? null, path: e.path === undefined ? null : String(e.path), message: e.message });
+    }
+  }
+  record.browser.profile_removed = !fs.existsSync(profile);
+  if (!record.browser.profile_removed) {
+    try { cleanup.left_in_profile = fs.readdirSync(profile, { recursive: true }).map(String).sort().slice(0, 100); } catch (e) { cleanup.left_in_profile = `not listed: ${e.code ?? e.message}`; }
+    const e = cleanup.removal_errors.at(-1);
+    cleanup.incomplete.push(`the temporary profile ${profile} was not removed (${e ? `${e.code} ${e.syscall} ${e.path}` : "no removal error"})`);
+  }
+}
+
+// Stopped from outside, or a defect of this harness: this run's own Chrome group and profile go, and the run fails.
 function abort(why) {
-  try { chrome?.kill("SIGKILL"); } catch { /* gone */ }
+  try { if (chrome?.pid) process.kill(-chrome.pid, "SIGKILL"); } catch { /* gone */ }
   try { if (profile) fs.rmSync(profile, { recursive: true, force: true }); } catch { /* best effort */ }
   record.outcome = "failed";
   record.failure = why;
@@ -449,6 +499,8 @@ server.listen(0, "127.0.0.1", async () => {
   let failure = outcome.failure ?? null;
   if (!failure && outcome.result !== null) failure = checkResult(outcome.result);
   if (!failure && record.server.refused.length) failure = `refused requests: ${JSON.stringify(record.server.refused)}`;
+  // Fail closed: an incomplete cleanup fails a run that otherwise responded, and is added to any other failure.
+  if (record.browser.cleanup.incomplete.length) failure = [failure, ...record.browser.cleanup.incomplete].filter(Boolean).join("; ");
   if (failure) {
     record.outcome = "failed";
     record.failure = failure;

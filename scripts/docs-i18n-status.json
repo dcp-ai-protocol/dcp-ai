@@ -1913,23 +1913,23 @@
       }
     },
     "tools/conformance/README.md": {
-      "source_sha256": "c355579132c15acbc5b2d4b7ea02804423005c4fcd827f6adc306179066ab0ad",
+      "source_sha256": "c0749f0a458efc08a022a7c1b23429e8c58eb95e58dbcc4e8e9b3783f66f2802",
       "translations": {
         "es": {
-          "source_sha256": "c355579132c15acbc5b2d4b7ea02804423005c4fcd827f6adc306179066ab0ad",
-          "sha256": "82b326ddaf52bfa48f4e88aaada285d875fd2fe6a98e2a4fbc35e2dc454b60d6"
+          "source_sha256": "c0749f0a458efc08a022a7c1b23429e8c58eb95e58dbcc4e8e9b3783f66f2802",
+          "sha256": "cff6f65f212bc5ab348145362b026ceda0656a43ddf6dc5defca3b11d3c7f4b9"
         },
         "pt-BR": {
-          "source_sha256": "c355579132c15acbc5b2d4b7ea02804423005c4fcd827f6adc306179066ab0ad",
-          "sha256": "70bc984bfebb0b98710c73b8dc01fbd3e4654df979a7574fec2e45a58362ccf8"
+          "source_sha256": "c0749f0a458efc08a022a7c1b23429e8c58eb95e58dbcc4e8e9b3783f66f2802",
+          "sha256": "3e198b8c080ba161adaac7bc24e82206cadea2bb8cefd2b595d2ee2a63fe1940"
         },
         "ja": {
-          "source_sha256": "c355579132c15acbc5b2d4b7ea02804423005c4fcd827f6adc306179066ab0ad",
-          "sha256": "6e858a10d119ebd84f66e8b68d02738ea7595c84d63955af5e60b82fd9938514"
+          "source_sha256": "c0749f0a458efc08a022a7c1b23429e8c58eb95e58dbcc4e8e9b3783f66f2802",
+          "sha256": "92e1a449265bfd01da6af39207136747c295069bc106f5fbbd84efdf309b106a"
         },
         "zh-CN": {
-          "source_sha256": "c355579132c15acbc5b2d4b7ea02804423005c4fcd827f6adc306179066ab0ad",
-          "sha256": "95fa37fcafc3cb547f2cb8b926b63712ae25fba9fc6fd6c79f454d5eb8f9c6d0"
+          "source_sha256": "c0749f0a458efc08a022a7c1b23429e8c58eb95e58dbcc4e8e9b3783f66f2802",
+          "sha256": "04a210b3094a7174d57a5e2ebca383afaf1fa1e1cc2a3cdb5ae04e16794f26f5"
         }
       }
     },

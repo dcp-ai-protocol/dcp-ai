@@ -232,7 +232,9 @@ DCP_BROWSER_ROOT=sdks/wasm DCP_EXTERNAL_REQUIRE_BROWSER=1 node --test tools/conf
   - the result is not this run's, or arrives twice;
   - a request under the run's path is outside the allowlist, or carries another Host or Origin;
   - Chrome exits first, or the deadline passes;
-  - a requested `--browser-report` cannot be written.
+  - a requested `--browser-report` cannot be written;
+  - the cleanup is incomplete: this run's Chrome did not exit, its process group did not drain after SIGKILL, or its
+    temporary profile was not removed. This holds even when everything else passed.
 
   `--manifest <SHA256SUMS>` also pins the served artifacts to a list of hashes.
 - **Time:** `verifyBundle` reads `Date.now`. The page sets it to the case's `verification_time` during the one call,
@@ -250,13 +252,16 @@ DCP_BROWSER_ROOT=sdks/wasm DCP_EXTERNAL_REQUIRE_BROWSER=1 node --test tools/conf
 - **Manual runs:** with `--manual --url-file <file>` the wrapper starts no browser. It writes the URL to the file and
   waits for a person to open it; raise `--deadline-ms` and the runner's `--timeout-ms` for that. The runner judges the
   result the same way.
-- **Self-tests:** `external-browser.test.mjs` has 21 tests:
+- **Self-tests:** `external-browser.test.mjs` has 23 tests:
   - a positive control;
   - the clock at three instants;
   - a bundle that does not parse;
   - the direct sections, and the negatives of their judge;
   - the controls that must never pass: faults injected through `DCP_CONFORMANCE_WRAPPER_FAULT` (for the self-tests
-    only; a faulted response says so), and requests the server must refuse.
+    only; a faulted response says so), and requests the server must refuse;
+  - the cleanup, with a stand-in for Chrome (`external-browser-fake-chrome.mjs`): a process left in the run's own
+    process group is signalled and one that left it is not, and an incomplete cleanup (Chrome's exit, its process
+    group or the temporary profile) fails a run that otherwise responded.
 
   With `DCP_EXTERNAL_REQUIRE_BROWSER=1`, a missing Chrome or build fails instead of skipping. CI runs the catalogs,
   the direct sections and the self-tests on the package it builds.

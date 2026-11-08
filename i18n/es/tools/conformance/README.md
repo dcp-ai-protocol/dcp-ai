@@ -261,7 +261,9 @@ DCP_BROWSER_ROOT=sdks/wasm DCP_EXTERNAL_REQUIRE_BROWSER=1 node --test tools/conf
   - el resultado no es de esta corrida, o llega dos veces;
   - una petición bajo la ruta de la corrida está fuera de la lista de permitidos, o lleva otro Host u Origin;
   - Chrome termina antes, o vence el plazo;
-  - no se puede escribir un `--browser-report` pedido.
+  - no se puede escribir un `--browser-report` pedido;
+  - la limpieza queda incompleta: el Chrome de la corrida no terminó, su grupo de procesos no se vació tras SIGKILL o
+    su perfil temporal no se borró. Vale también cuando todo lo demás pasó.
 
   `--manifest <SHA256SUMS>` fija además los artefactos servidos a una lista de hashes.
 - **Tiempo:** `verifyBundle` lee `Date.now`. La página lo fija al `verification_time` del caso durante esa única
@@ -279,13 +281,16 @@ DCP_BROWSER_ROOT=sdks/wasm DCP_EXTERNAL_REQUIRE_BROWSER=1 node --test tools/conf
 - **Corridas manuales:** con `--manual --url-file <file>` el wrapper no arranca ningún navegador. Escribe la URL en el
   fichero y espera a que una persona la abra; para eso sube `--deadline-ms` y el `--timeout-ms` del runner. El runner
   juzga el resultado de la misma manera.
-- **Autopruebas:** `external-browser.test.mjs` tiene 21 pruebas:
+- **Autopruebas:** `external-browser.test.mjs` tiene 23 pruebas:
   - un control positivo;
   - el reloj en tres instantes;
   - un bundle que no se puede parsear;
   - las secciones directas, y los negativos de su juez;
   - los controles que nunca deben pasar: fallos inyectados mediante `DCP_CONFORMANCE_WRAPPER_FAULT` (solo para las
-    autopruebas; una respuesta con fallo inyectado lo dice) y peticiones que el servidor debe rechazar.
+    autopruebas; una respuesta con fallo inyectado lo dice) y peticiones que el servidor debe rechazar;
+  - la limpieza, con un sustituto de Chrome (`external-browser-fake-chrome.mjs`): un proceso que queda en el grupo de
+    procesos propio de la corrida recibe la señal y uno que salió de él no, y una limpieza incompleta (la salida de
+    Chrome, su grupo de procesos o el perfil temporal) hace fallar una corrida que por lo demás respondió.
 
   Con `DCP_EXTERNAL_REQUIRE_BROWSER=1`, la falta de Chrome o de la build es un fallo en vez de un salto. La CI ejecuta
   los catálogos, las secciones directas y las autopruebas sobre el paquete que compila.

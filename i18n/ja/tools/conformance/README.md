@@ -264,6 +264,8 @@ DCP_BROWSER_ROOT=sdks/wasm DCP_EXTERNAL_REQUIRE_BROWSER=1 node --test tools/conf
   - 実行のパスの下のリクエストが許可リストの外にあるか、別の Host や Origin を持つ
   - Chrome が先に終了するか、期限が切れる
   - 要求された `--browser-report` を書き込めない
+  - クリーンアップが不完全である：この実行の Chrome が終了しない、そのプロセスグループが SIGKILL の後も空にならない、
+    または一時プロファイルが削除されない。ほかがすべて合格していても同じ
 
   `--manifest <SHA256SUMS>` は、配信するアーティファクトをハッシュのリストにも固定します。
 - **時刻：** `verifyBundle` は `Date.now` を読みます。ページは、その 1 回の呼び出しの間だけ、それをケースの
@@ -281,13 +283,16 @@ DCP_BROWSER_ROOT=sdks/wasm DCP_EXTERNAL_REQUIRE_BROWSER=1 node --test tools/conf
 - **手動実行：** `--manual --url-file <file>` では、ラッパーはブラウザーを起動しません。URL をファイルに書き、人が
   それを開くのを待ちます。そのために `--deadline-ms` とランナーの `--timeout-ms` を大きくしてください。ランナーは
   同じ方法で結果を判定します。
-- **セルフテスト：** `external-browser.test.mjs` には 21 のテストがあります：
+- **セルフテスト：** `external-browser.test.mjs` には 23 のテストがあります：
   - 肯定の対照
   - 3 つの時点での時計
   - パースできないバンドル
   - 直接セクションと、その判定器の否定例
   - 決して合格してはならない対照：`DCP_CONFORMANCE_WRAPPER_FAULT` で注入した障害（セルフテスト専用。障害を注入した
     応答はそのことを示します）と、サーバーが拒否すべきリクエスト
+  - クリーンアップ（Chrome の代役 `external-browser-fake-chrome.mjs` を使用）：実行自身のプロセスグループに残った
+    プロセスにはシグナルを送り、グループを離れたプロセスには送らないこと。また、クリーンアップが不完全な場合（Chrome
+    の終了、そのプロセスグループ、一時プロファイル）は、ほかの点では応答した実行も失敗になること
 
   `DCP_EXTERNAL_REQUIRE_BROWSER=1` では、Chrome やビルドがないことはスキップではなく失敗になります。CI は、ビルドした
   パッケージに対してカタログ、直接セクション、セルフテストを実行します。
