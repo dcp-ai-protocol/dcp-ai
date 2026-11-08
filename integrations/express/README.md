@@ -149,7 +149,7 @@ interface DCPAgent {
   kids?: string[];          // V2: key identifiers of the passport keys
   sessionNonce?: string;    // V2: session nonce of the bundle
   lifecycleState?: string;  // DCP-05 lifecycle state
-  mandateId?: string;       // DCP-09 delegation mandate ID
+  mandateId?: string;       // the manifest's mandate_id, copied as is: no mandate chain is verified
   warnings?: string[];      // V2: warnings of the SDK verifier (e.g. classical-only signature)
   verificationMode?: string; // V2: the mode the bundle was verified in
   securityTier?: string;     // V2: security tier of its intent and policy decision (spec §14.2)
@@ -280,6 +280,10 @@ app.use("/api/agents", dcpVerify({
 ### Cache
 
 When `cacheTtlSeconds > 0`, each middleware keeps its own cache of verified bundles, keyed by the SHA-256 of the signed bundle's canonical form (`canonicalizeV2`), the fingerprint of the verifier policy and the tenant: a cached verdict is only reused for the same bundle, under the same policy, for the same tenant, and a bundle without a canonical form (a non-integer number such as `1e999`, or nesting too deep) is verified but not cached. An entry expires after `cacheTtlSeconds`, or earlier when the bundle's session (`manifest.session_expires_at`), the RPR, a passport key or an RPR binding key expires; a bundle with an expiry timestamp that is not RFC 3339 is not cached. The cache holds at most `cacheMaxEntries` bundles, evicting expired entries and then the least recently used. With `checkRevocation`, revocation is checked again on every cache hit. With `trustedPrincipals`, the cache holds only the cryptographic verification: principal trust, the profile checks and revocation are evaluated on every request, so a principal removed from the trust set or a key revoked is refused on the next request.
+
+### Operational limits
+
+Body budget, source deadlines and capacity, client disconnection, the cache, delegation (this middleware does not verify mandate chains) and what you set as the operator: see [Operational limits](../../docs/OPERATIONAL_LIMITS.md).
 
 ## Advanced Example — Selectively Protected Routes
 

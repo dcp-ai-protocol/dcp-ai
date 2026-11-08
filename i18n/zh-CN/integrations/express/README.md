@@ -5,7 +5,7 @@
 
 # @dcp-ai/express — Express 中间件
 
-> 本文是[英文版](../../../../integrations/express/README.md)的参考译文，更新于 28/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../../integrations/express/README.md)的参考译文，更新于 08/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 面向 Express.js 的 DCP 验证中间件。在每个请求上自动验证 Signed Bundle，并注入已验证的智能体数据。
 
@@ -165,7 +165,7 @@ interface DCPAgent {
   kids?: string[];          // V2: key identifiers of the passport keys
   sessionNonce?: string;    // V2: session nonce of the bundle
   lifecycleState?: string;  // DCP-05 lifecycle state
-  mandateId?: string;       // DCP-09 delegation mandate ID
+  mandateId?: string;       // the manifest's mandate_id, copied as is: no mandate chain is verified
   warnings?: string[];      // V2: warnings of the SDK verifier (e.g. classical-only signature)
   verificationMode?: string; // V2: the mode the bundle was verified in
   securityTier?: string;     // V2: security tier of its intent and policy decision (spec §14.2)
@@ -310,6 +310,12 @@ app.use("/api/agents", dcpVerify({
 ### 缓存
 
 当 `cacheTtlSeconds > 0` 时，每个中间件都维护自己的已验证 bundle 缓存，键由已签名 bundle 规范形式（`canonicalizeV2`）的 SHA-256、验证器策略的指纹和租户组成：缓存的判定只会在同一个 bundle、同一策略、同一租户下被复用；没有规范形式的 bundle（例如 `1e999` 这样的非整数，或嵌套过深）会被验证但不会被缓存。条目在 `cacheTtlSeconds` 后过期，或者在 bundle 的会话（`manifest.session_expires_at`）、RPR、某个护照密钥或某个 RPR 绑定密钥过期时更早过期；过期时间戳不符合 RFC 3339 的 bundle 不会被缓存。缓存最多保存 `cacheMaxEntries` 个 bundle，先逐出已过期的条目，再逐出最久未使用的条目。使用 `checkRevocation` 时，每次缓存命中都会重新检查撤销。使用 `trustedPrincipals` 时，缓存只保存密码学验证的结果：委托人信任、配置检查和撤销在每个请求上都会重新评估，因此从信任集中移除的委托人或已撤销的密钥会在下一个请求上被拒绝。
+
+<a id="operational-limits"></a>
+
+### 运行限制
+
+请求体预算、来源的截止时间与容量、客户端断开、缓存、委托（此中间件不验证授权链），以及你作为运营方需要设置的内容：参见[运行限制](../../../../docs/OPERATIONAL_LIMITS.md)。
 
 <a id="advanced-example--selectively-protected-routes"></a>
 <a id="advanced-example-selectively-protected-routes"></a>

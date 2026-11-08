@@ -4,7 +4,7 @@
 
 # Admissão: principais confiáveis e o perfil strict-v1
 
-> Tradução informativa da [versão em inglês](../../../docs/ADMISSION.md), atualizada em 07/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../docs/ADMISSION.md), atualizada em 08/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Um bundle verificado prova sua integridade e que foi assinado pelas chaves que lista. Qualquer pessoa pode criar um registro de principal responsável com qualquer `human_id` e chaves próprias, então a verificação sozinha não diz **quem** é o principal.
 
@@ -204,3 +204,4 @@ Nomes das funções em cada SDK: [referência da API](../../../docs/API_REFERENC
 - **A identidade** é tão boa quanto o conjunto de confiança e o processo que o mantém.
 - **A revogação** é tão recente quanto o snapshot: uma revogação posterior a `checked_at` é vista com o próximo snapshot.
 - **A delegação** é verificada só em `now`, precisa de um bundle atual e admitido de cada delegador, e recusa uma cadeia em que um agente se repete. A ativação não avalia nem `authority_scope` nem `threshold_rules`.
+- **Os limites operacionais** (orçamentos de entrada, prazos e capacidade das fontes, desconexão do cliente, o cache de veredictos, a delegação nos adaptadores e o que o operador define) estão em [Limites operacionais](../../../docs/OPERATIONAL_LIMITS.md).

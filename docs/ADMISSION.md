@@ -182,3 +182,5 @@ Function names in each SDK: [API reference](API_REFERENCE.md#admission-trusted-p
 - **Revocation** is as fresh as the snapshot: a revocation after `checked_at` is seen with the next snapshot.
 - **Delegation** is checked at `now` only, needs a current admitted bundle of each delegator, and refuses a chain in
   which an agent repeats. Activation evaluates neither `authority_scope` nor `threshold_rules`.
+- **Operational limits** (input budgets, source deadlines and capacity, client disconnection, the verdict cache,
+  delegation in the adapters, and what the operator sets) are in [Operational limits](OPERATIONAL_LIMITS.md).

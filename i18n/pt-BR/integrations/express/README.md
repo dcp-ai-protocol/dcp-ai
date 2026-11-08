@@ -5,7 +5,7 @@
 
 # @dcp-ai/express — middleware para Express
 
-> Tradução informativa da [versão em inglês](../../../../integrations/express/README.md), atualizada em 28/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../../integrations/express/README.md), atualizada em 08/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Middleware de verificação do DCP para Express.js. Verifica automaticamente os Signed Bundles em cada requisição e injeta os dados do agente verificado.
 
@@ -168,7 +168,7 @@ interface DCPAgent {
   kids?: string[];          // V2: key identifiers of the passport keys
   sessionNonce?: string;    // V2: session nonce of the bundle
   lifecycleState?: string;  // DCP-05 lifecycle state
-  mandateId?: string;       // DCP-09 delegation mandate ID
+  mandateId?: string;       // the manifest's mandate_id, copied as is: no mandate chain is verified
   warnings?: string[];      // V2: warnings of the SDK verifier (e.g. classical-only signature)
   verificationMode?: string; // V2: the mode the bundle was verified in
   securityTier?: string;     // V2: security tier of its intent and policy decision (spec §14.2)
@@ -311,6 +311,12 @@ app.use("/api/agents", dcpVerify({
 ### Cache
 
 Quando `cacheTtlSeconds > 0`, cada middleware mantém o seu próprio cache de bundles verificados, com a chave formada pelo SHA-256 da forma canônica do bundle assinado (`canonicalizeV2`), a impressão digital da política do verificador e o inquilino: um veredito em cache só é reutilizado para o mesmo bundle, com a mesma política e para o mesmo inquilino, e um bundle sem forma canônica (um número não inteiro como `1e999`, ou um aninhamento profundo demais) é verificado, mas não vai para o cache. Uma entrada expira depois de `cacheTtlSeconds`, ou antes, quando expiram a sessão do bundle (`manifest.session_expires_at`), o RPR, uma chave do passaporte ou uma chave de vinculação do RPR; um bundle com um carimbo de data/hora de expiração que não é RFC 3339 não vai para o cache. O cache mantém no máximo `cacheMaxEntries` bundles, removendo primeiro as entradas expiradas e depois as usadas menos recentemente. Com `checkRevocation`, a revogação é checada de novo a cada acerto do cache. Com `trustedPrincipals`, o cache só guarda a verificação criptográfica: a confiança no principal, as checagens do perfil e a revogação são avaliadas a cada requisição, então um principal removido do conjunto de confiança ou uma chave revogada são recusados na requisição seguinte.
+
+<a id="operational-limits"></a>
+
+### Limites operacionais
+
+Orçamento de corpo, prazos e capacidade das fontes, desconexão do cliente, o cache, a delegação (este middleware não verifica cadeias de mandatos) e o que você define como operador: veja [Limites operacionais](../../../../docs/OPERATIONAL_LIMITS.md).
 
 <a id="advanced-example--selectively-protected-routes"></a>
 <a id="advanced-example-selectively-protected-routes"></a>

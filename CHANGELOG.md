@@ -1098,6 +1098,12 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Documentation
 
+- **Operational limits** (new [docs/OPERATIONAL_LIMITS.md](docs/OPERATIONAL_LIMITS.md); no code, default, profile or
+  wire change). What bounds inputs, trust and revocation sources, concurrency, client disconnection and the Express
+  verdict cache, which layer sets each limit, what the operator has to set, and a sample pilot configuration that is
+  neither a default nor normative. Linked from `docs/ADMISSION.md` and the Express and FastAPI READMEs; the Express
+  README now says that `req.dcpAgent.mandateId` is the manifest's value, with no mandate chain verified.
+
 - `spec/profiles/admission/README.md` (admission profile): editorial precisions, with no change to
   any vector, schema or SDK behaviour; the four SDKs already behave as they say. §5.1 step 2
   verifies the bundle as a V2 signed bundle: a bundle that is not V2 is not verified, whatever

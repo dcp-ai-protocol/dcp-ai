@@ -5,7 +5,7 @@
 
 # dcp_ai.fastapi — middleware para FastAPI
 
-> Traducción informativa de [la versión en inglés](../../../../integrations/fastapi/README.md), actualizada el 05/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../../integrations/fastapi/README.md), actualizada el 08/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Middleware de verificación de DCP para FastAPI. Verifica automáticamente los Signed Bundles y proporciona inyección de dependencias para las rutas protegidas.
 
@@ -364,6 +364,12 @@ Dependencia de FastAPI que exige un mandato de delegación (DCP-09 §3.1), pero 
 async def delegated(agent: DCPAgentContext = Depends(require_dcp_mandated)):
     return {"agent_id": agent.agent_id, "mandate_id": agent.mandate_id}
 ```
+
+<a id="operational-limits"></a>
+
+### Límites operacionales
+
+Presupuesto de cuerpo, plazos y capacidad de las fuentes, desconexión del cliente, la delegación (este middleware no verifica cadenas de mandatos) y lo que fijas como operador: véase [Límites operacionales](../../../../docs/OPERATIONAL_LIMITS.md).
 
 <a id="advanced-example--global-middleware--selective-routes"></a>
 <a id="advanced-example-global-middleware-selective-routes"></a>

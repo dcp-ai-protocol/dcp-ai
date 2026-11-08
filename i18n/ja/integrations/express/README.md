@@ -5,7 +5,7 @@
 
 # @dcp-ai/express — Express のミドルウェア
 
-> [英語版](../../../../integrations/express/README.md)の参考訳です（28/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../../integrations/express/README.md)の参考訳です（08/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 Express.js 向けの DCP の検証ミドルウェアです。リクエストごとに Signed Bundle を自動で検証し、検証済みのエージェントのデータを挿入します。
 
@@ -167,7 +167,7 @@ interface DCPAgent {
   kids?: string[];          // V2: key identifiers of the passport keys
   sessionNonce?: string;    // V2: session nonce of the bundle
   lifecycleState?: string;  // DCP-05 lifecycle state
-  mandateId?: string;       // DCP-09 delegation mandate ID
+  mandateId?: string;       // the manifest's mandate_id, copied as is: no mandate chain is verified
   warnings?: string[];      // V2: warnings of the SDK verifier (e.g. classical-only signature)
   verificationMode?: string; // V2: the mode the bundle was verified in
   securityTier?: string;     // V2: security tier of its intent and policy decision (spec §14.2)
@@ -312,6 +312,12 @@ app.use("/api/agents", dcpVerify({
 ### キャッシュ
 
 `cacheTtlSeconds > 0` のとき、各ミドルウェアは検証済みのバンドルのキャッシュを独自に保持します。キーは、署名付きバンドルの正規の形（`canonicalizeV2`）の SHA-256、検証器のポリシーのフィンガープリント、テナントです。キャッシュした判定は、同じバンドル、同じポリシー、同じテナントに対してだけ再利用され、正規の形を持たないバンドル（`1e999` のような整数でない数、または深すぎる入れ子）は検証されてもキャッシュされません。エントリは `cacheTtlSeconds` の後、またはバンドルのセッション（`manifest.session_expires_at`）、RPR、パスポートの鍵、RPR の結び付けの鍵が期限切れになったときに、それより早く失効します。期限のタイムスタンプが RFC 3339 でないバンドルはキャッシュされません。キャッシュは最大 `cacheMaxEntries` 個のバンドルを保持し、期限切れのエントリから、次に最も長く使われていないものから追い出します。`checkRevocation` を使うと、キャッシュにヒットするたびに失効がもう一度確認されます。`trustedPrincipals` を使うと、キャッシュが保持するのは暗号の検証だけで、プリンシパルの信頼、プロファイルの確認、失効はリクエストのたびに評価されるため、信頼セットから外されたプリンシパルや失効した鍵は、次のリクエストで拒否されます。
+
+<a id="operational-limits"></a>
+
+### 運用上の上限
+
+ボディの予算、ソースの期限と容量、クライアントの切断、キャッシュ、委任（このミドルウェアはマンデートのチェーンを検証しません）、そしてオペレーターとして設定するものについては、[運用上の上限](../../../../docs/OPERATIONAL_LIMITS.md)を参照してください。
 
 <a id="advanced-example--selectively-protected-routes"></a>
 <a id="advanced-example-selectively-protected-routes"></a>

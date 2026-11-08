@@ -4,7 +4,7 @@
 
 # Documentación
 
-> Traducción informativa de [la versión en inglés](../../../docs/README.md), actualizada el 05/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../docs/README.md), actualizada el 08/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Este índice organiza la documentación de DCP-AI por tarea: primeros pasos, arquitectura y seguridad, pruebas, referencia,
 operaciones, especificaciones y propuestas. Las versiones actuales de los paquetes en cada registro están en
@@ -93,6 +93,7 @@ Verificadas el 05/11/2026. Las versiones de los paquetes son independientes de l
 
 - [OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md) — Ejecutar un servicio de verificación DCP
 - [ADMISSION.md](../../../docs/ADMISSION.md) — Aceptar bundles solo de principales de confianza, y el perfil strict-v1
+- [OPERATIONAL_LIMITS.md](../../../docs/OPERATIONAL_LIMITS.md) — Qué acota las entradas, las fuentes, la concurrencia, la desconexión y la caché, y qué fija el operador
 - [AGENT_CREATION_AND_CERTIFICATION.md](../../../docs/AGENT_CREATION_AND_CERTIFICATION.md) — Flujo de creación y certificación de agentes
 
 <a id="specifications"></a>
