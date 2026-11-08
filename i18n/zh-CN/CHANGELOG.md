@@ -87,6 +87,18 @@
 
 ### 安全
 
+- **Ed25519 接受准则 P-ED-1**（TypeScript、Python、Go 和 Rust SDK 的本地源代码，不在任何已发布版本中；不改版本号）。
+  V1 的 `verifyObject` 及其对应函数，以及 V2 默认的 Ed25519 提供方，除 S >= L 外，现在还拒绝公钥或 R 不是规范编码、
+  或属于阶整除 8 的 8 个点之一（包括单位元）的签名。各库仍会确保点有效，并确保 k 按 mod L 约简、不带余因子的
+  [S]B = R + [k]A 成立（对于 R，有些库通过将 [S]B − [k]A 的规范编码与收到的字节比较来做到）；新增检查在此之前比较
+  字节。带有挠分量但不属于小阶的点仍被接受。这是一次有意的接受变更：TypeScript、Go 和 Rust 以前接受其中一些签名，
+  PyNaCl 官方构建则已经拒绝它们。检查不通过时返回 `false`；以前会抛出错误的输入仍抛出同样的错误。签名方、格式、
+  上下文、`dcp-jcs-v1`、模式和 API 都不变，`pq_only` 也不会验证以前未验证的组件。**迁移：** 按原样保留不满足它的
+  证据，绝不重新编码或约简已签名的字节；密钥满足 P-ED-1 时用同一密钥重新签名，轮换非规范编码的公钥，替换小阶密钥。
+  参考 V1 验证器、CLI 的 V1 副本和 playground 尚未应用它（只检查 S < L）；参考 V2 验证器、服务器和 CLI 只有在 SDK
+  重新构建并重新安装后才会改变；WASM 由同一份 Rust 代码编译而来，但未运行。规范：`spec/profiles/crypto/README.md`；
+  向量：`tests/interop/v2/ed25519_ped1_vectors.json`。
+
 - **DCP-05 至 DCP-09 演示端点默认关闭，启用后仅限运营方**（`main` 上的源代码，不在任何已发布版本中；`server/`）。
   参考服务器中只校验 schema 的 31 个端点（用于生命周期、继承、争议、权利和委托记录）原本不需要令牌。现在，除非服务器以
   `DCP_DEMO_ENDPOINTS=dcp-05-09` 启动，它们十二个路径族下的任何请求都返回 404；该设置需要至少 32 个字符的 RFC 6750
@@ -293,6 +305,21 @@
 <a id="added"></a>
 
 ### 新增
+
+- **委托准入、从字节准入和授权书确认（选择性启用）**（TypeScript、Python、Go 和 Rust SDK 的本地源代码，不在任何已
+  发布版本中；不改版本号）。默认情况下没有任何地方调用它们，现有的函数、结果、代码和向量都不变。WASM、CLI、
+  playground、参考服务器、适配器和工具包都不公开它们。
+  - `admitDelegatedBundleV2` 及其对应函数把叶端 bundle 与其 DCP-09 授权书链以及每个委托代理各一个 bundle 一起，在同一个
+    `now`，按运营方的信任集合、配置文件或策略以及代理、密钥和授权书的吊销快照进行准入（`spec/profiles/admission`
+    § 10、`DELEGATION_*` 代码、`tests/interop/v2/delegated_admission_vectors.json`）。
+  - `admitSignedBundleV2FromBytes` 及其对应函数以字节形式接收已签名 bundle，在任何解析器之前拒绝实验性扫描器拒绝的
+    内容以及不是简单整数的数字（`NUMBER_NOT_PORTABLE`），并要求 SDK 解析器重现扫描器的规范字节
+    （`INGRESS_PARSER_MISMATCH`）；§ 11、`tests/interop/v2/v1_ingress_vectors.json`。`dcp-jcs-v1` 不变。
+  - 一种新记录 `schemas/v2/mandate_acknowledgment.schema.json`（`dcp09-mandate-ack-v1`），在新上下文
+    `DCP-AI.v2.MandateAcknowledgment` 下签名，配有 `createMandateAcknowledgment` 和
+    `evaluateDelegationActivationV2` 及其对应函数（DCP-09 § 3.3.1、准入配置文件 § 12、有序的 `ACK_*` 代码、
+    `tests/interop/v2/mandate_acknowledgment_vectors.json`）。TypeScript 和 Python 的 `DCP_CONTEXTS` 映射保留其 19 个
+    条目；该上下文是单独的常量。激活不授权任何行为，也不表明代理理解了授权书。
 
 - **实际生效策略目录（契约 `/5`，选择性启用）**（`main` 上的测试套件和测试，不是软件包发布；`tools/conformance/`）。
   `external-effective-policy-catalog.json` 按判定结果，以及各实现的验证器在同一次验证中解析出的验证模式和安全等级，
@@ -640,6 +667,11 @@
 <a id="fixed"></a>
 
 ### 修复
+
+- **Go：读取 SLH-DSA-192f 密钥时不再 panic**（本地源代码，不在任何已发布版本中；
+  `sdks/go/dcp/providers/slh_dsa_192f_provider.go`）。该提供方在没有参数集（`ID` 为零）的情况下读取私钥和公钥，
+  circl 在读取时会 panic；现在先设置 `slhdsa.SHA2_192f`，因此使用 SLH-DSA-192f 密钥签名和验证可以正常工作，尺寸
+  错误的输入会得到错误或拒绝，而不是 panic。格式和 API 都不变。
 
 - 透明日志：对于未设置 `GOSSIP_PEERS` 而启动的日志，通过 `POST /gossip/peers` 添加的对等节点从未被轮询（`main`
   上的源代码，不在任何已发布版本中）。轮询只在启动时开始，而且只针对已配置的对等节点。现在第一次被接受的添加会启动

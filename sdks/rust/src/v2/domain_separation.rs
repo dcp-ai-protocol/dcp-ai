@@ -17,6 +17,9 @@ pub const CTX_RIGHTS: &str = "DCP-AI.v2.Rights";
 pub const CTX_DELEGATION: &str = "DCP-AI.v2.Delegation";
 pub const CTX_AWARENESS: &str = "DCP-AI.v2.Awareness";
 pub const CTX_SUB_MANDATE: &str = "DCP-AI.v2.SubMandate";
+/// The delegate agent's acknowledgment of a mandate (DCP-09 § 3.3; MP-02 F4, opt-in). A valid context kept apart
+/// from the constants above, which the interoperability fixtures enumerate, and from the experimental producer's list.
+pub const CTX_MANDATE_ACKNOWLEDGMENT: &str = "DCP-AI.v2.MandateAcknowledgment";
 
 const VALID_CONTEXTS: &[&str] = &[
     CTX_AGENT_PASSPORT,
@@ -38,6 +41,7 @@ const VALID_CONTEXTS: &[&str] = &[
     CTX_DELEGATION,
     CTX_AWARENESS,
     CTX_SUB_MANDATE,
+    CTX_MANDATE_ACKNOWLEDGMENT,
 ];
 
 pub fn is_valid_context(ctx: &str) -> bool {

@@ -1379,7 +1379,7 @@ func TestBuildSignVerifyBundleV2(t *testing.T) {
 			"Policy requires audience binding but manifest does not include intended_verifier"},
 		{"audience is this verifier", &bound, func(p *v2.VerifierPolicy) { p.RequireAudienceBinding, p.VerifierID = true, "verifier:acme" }, ""},
 		{"audience is another verifier", &bound, func(p *v2.VerifierPolicy) { p.RequireAudienceBinding, p.VerifierID = true, "verifier:other" },
-			"Bundle intended for verifier 'verifier:acme', not 'verifier:other'"},
+			`Bundle intended for verifier "verifier:acme", not "verifier:other"`},
 		{"verifier id alone binds nothing", bundle, func(p *v2.VerifierPolicy) { p.VerifierID = "verifier:other" }, ""},
 	} {
 		policy := v2.DefaultVerifierPolicy()

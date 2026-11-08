@@ -5,7 +5,7 @@
 
 # 验证清单 — Signed Bundle
 
-> 本文是[英文规范](../../../spec/VERIFICATION.md)的参考译文，更新于 05/11/2026。**具有规范效力的是英文版**：本译文不具规范效力，如有出入，以英文版为准。标识符和代码块保持原文，不作翻译。
+> 本文是[英文规范](../../../spec/VERIFICATION.md)的参考译文，更新于 07/11/2026。**具有规范效力的是英文版**：本译文不具规范效力，如有出入，以英文版为准。标识符和代码块保持原文，不作翻译。
 
 所有步骤都在**本地**完成；不需要调用任何 API 或服务器。验证器只需要 Signed Bundle（以及可选的一组已签名的 RevocationRecord，来自对等方、文件或已锚定的列表）。
 
@@ -21,6 +21,7 @@
    - 重新计算 `bundle_hash` = SHA-256(canonical(bundle))；与 `signature.bundle_hash` 比较（必须一致，例如 `sha256:<hex>`）。  
    - 在规范 bundle 上用 `signature.signer.public_key_b64` 验证 `signature.sig_b64`（Ed25519 分离签名）。  
    - 用 `dcp verify-bundle <signed.json> <public_key.txt>` 执行此步骤。
+   - Ed25519 签名按照[密码学配置文件](../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion)的 P-ED-1 接受。SDK 验证器会应用它；参考实现 `dcp verify-bundle` 目前只检查 S < L（[SECURITY_COVERAGE.md](../../../docs/conformance/SECURITY_COVERAGE.md)）。
 
 3. **验证 RPR：** 未过期 — `responsible_principal_record.expires_at` 为 `null` 或未来的 ISO 8601 日期时间。可选：如果该记录以签名形式保存，则验证 RPR 签名。
 
@@ -109,7 +110,7 @@ bundle 签名、工件签名和检查点签名中的每个 `sig_b64` 都必须�
 
 ### 步骤 V2-6：验证经典签名
 
-重建被签名的消息：`context_tag || 0x00 || canonical(manifest)`，其中 `context_tag` 为 `"DCP-AI.v2.Bundle"`。用 `composite_sig.classical.kid` 标识的公钥、按 `composite_sig.classical.alg` 指定的算法（通常为 Ed25519）验证 `composite_sig.classical.sig_b64`。
+重建被签名的消息：`context_tag || 0x00 || canonical(manifest)`，其中 `context_tag` 为 `"DCP-AI.v2.Bundle"`。用 `composite_sig.classical.kid` 标识的公钥、按 `composite_sig.classical.alg` 指定的算法（通常为 Ed25519）验证 `composite_sig.classical.sig_b64`。`ed25519` 组件无论在何处被验证，都按照[密码学配置文件](../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion)的 P-ED-1 接受；这不改变实际生效模式（第 V2-9 步）要求哪些组件。
 
 bundle 的签名者是负责的委托人：只在 RPR 的 `binding_keys` 中查找该 kid。委托人对清单的签名（清单承诺了 `passport_hash`）把这个代理及其密钥绑定到委托人；代理自己签名自己的护照，因此只出现在护照中的密钥不得（MUST NOT）验证 bundle 签名。否则任何人都可以把一份已发布、已签名的 RPR 与自己的护照和密钥配对。
 

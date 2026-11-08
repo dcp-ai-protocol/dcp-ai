@@ -32,9 +32,16 @@ export const DCP_CONTEXTS = {
   SubMandate: 'DCP-AI.v2.SubMandate',
 } as const;
 
-export type DcpContext = (typeof DCP_CONTEXTS)[keyof typeof DCP_CONTEXTS];
+/**
+ * DCP-09 § 3.3: the delegate agent's acknowledgment of a mandate (MP-02 F4, opt-in). A valid context kept out
+ * of DCP_CONTEXTS, whose entries a frozen interoperability fixture enumerates and the experimental producers
+ * derive their contexts from.
+ */
+export const MANDATE_ACKNOWLEDGMENT_CONTEXT = 'DCP-AI.v2.MandateAcknowledgment' as const;
 
-const VALID_CONTEXTS = new Set<string>(Object.values(DCP_CONTEXTS));
+export type DcpContext = (typeof DCP_CONTEXTS)[keyof typeof DCP_CONTEXTS] | typeof MANDATE_ACKNOWLEDGMENT_CONTEXT;
+
+const VALID_CONTEXTS = new Set<string>([...Object.values(DCP_CONTEXTS), MANDATE_ACKNOWLEDGMENT_CONTEXT]);
 
 /**
  * Build the domain-separated message that gets signed.

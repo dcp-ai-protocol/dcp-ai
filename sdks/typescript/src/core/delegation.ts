@@ -297,8 +297,8 @@ function attenuationError(parent: AuthorityScopeEntry[], child: AuthorityScopeEn
   return undefined;
 }
 
-/** The key entry a signature slot names, or why none can verify it. */
-function signerKey(keys: KeyEntry[], entry: SignatureEntry, nowMs: number): KeyEntry | string {
+/** The key entry a signature slot names, or why none can verify it. @internal Also used by the mandate acknowledgment. */
+export function signerKey(keys: KeyEntry[], entry: SignatureEntry, nowMs: number): KeyEntry | string {
   if (!isNonEmptyString(entry.kid) || !isNonEmptyString(entry.alg) || typeof entry.sig_b64 !== 'string') {
     return 'malformed signature entry';
   }

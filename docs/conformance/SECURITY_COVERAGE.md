@@ -145,6 +145,26 @@ The [differential harnesses](../../tools/difffuzz/README.md) compare the SDKs on
 
 A finite campaign shows these cases agree or records where they do not; it is not exhaustive. WASM verifies no mandate chain, and inputs that contract `/4` cannot carry to every SDK (a `NaN` token, a byte order mark, `1e400`) are measured by a separate transport probe: a wrapper's refusal is never counted as an SDK rejection, and the rejection the TypeScript and Python SDKs return for `1e400` credits no semantic rule.
 
+## Local-source additions (07/11/2026)
+
+These rows describe the local source of the TypeScript, Python, Go and Rust SDKs, not a published package. Each is
+exercised by shared vectors that the four SDK suites run; the external kit has no contract for them yet, so a kit result
+says nothing about these rules. None of them is a claim of complete conformance or of enterprise readiness.
+
+**Optional surfaces.** Used only by code that calls them.
+
+| Requirement | Exercised surface | Limit |
+|---|---|---|
+| Delegated admission ([admission profile § 10](../../spec/profiles/admission/README.md#10-delegated-admission-opt-in)) | [`delegated_admission_vectors.json`](../../tests/interop/v2/delegated_admission_vectors.json): 71 cases and 6 configuration cases | Checked at `now` only; `delegation_active` and `action_authorized` are `false`; no WASM API |
+| Admission from bytes (§ 11) | [`v1_ingress_vectors.json`](../../tests/interop/v2/v1_ingress_vectors.json): 26 cases and 30 domain differences | Size and time budgets are out of scope; the functions on parsed values cannot recover what their parser lost |
+| Mandate acknowledgment and activation ([DCP-09 § 3.3.1](../../spec/DCP-09.md#331-mandate-acknowledgment-opt-in), § 12) | [`mandate_acknowledgment_vectors.json`](../../tests/interop/v2/mandate_acknowledgment_vectors.json): 93 cases in TypeScript and Python; 89 in Go and Rust, which exclude explicitly the 4 cases whose containers are not lists, since their typed API cannot carry them | Signed declarations, not proof of chronology or of understanding; no authorization; no global replay check; no activation from bytes; no WASM API |
+
+**Ed25519 verification (Crypto Profile).** Applies to every Ed25519 signature the SDK verifiers check.
+
+| Requirement | Exercised surface | Limit |
+|---|---|---|
+| [P-ED-1](../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion) on V1 objects and the default V2 provider | [`ed25519_ped1_vectors.json`](../../tests/interop/v2/ed25519_ped1_vectors.json) and its checker, in the four SDK suites; the Rust code compiled for `wasm32` | WASM is compiled only, not run in a WASM runtime or a browser. Not applied yet by the reference V1 verifier (`lib/verify.js` with `tools/crypto.js`), the V1 CLI copy or the playground, which check S < L only. The reference V2 verifier, the server and the V2 CLI use the installed `@dcp-ai/sdk` and change only when it is rebuilt and reinstalled. Adapters and the kit are not updated by this change. A custom provider is the operator's |
+
 ## Claims for core and profiles
 
 | Surface | What can be reported from the kit | What must remain separate |

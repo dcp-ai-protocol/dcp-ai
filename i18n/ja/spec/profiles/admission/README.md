@@ -4,7 +4,7 @@
 
 # アドミッションのプロファイル：プリンシパルへの信頼と `strict-v1`
 
-> [英語の仕様](../../../../../spec/profiles/admission/README.md)の参考訳です（29/10/2026 更新）。**規範となるのは英語版です**。この翻訳に規範的な効力はなく、内容が異なる場合は英語版が優先されます。識別子とコードブロックは翻訳せずにそのまま掲載しています。
+> [英語の仕様](../../../../../spec/profiles/admission/README.md)の参考訳です（07/11/2026 更新）。**規範となるのは英語版です**。この翻訳に規範的な効力はなく、内容が異なる場合は英語版が優先されます。識別子とコードブロックは翻訳せずにそのまま掲載しています。
 
 **状態：** 草案、v1
 **範囲：** 運用者が定めるプロファイルのもとで、検証器が V2 の署名付きバンドルを、すでに信頼しているプリンシパルからの証拠として受け入れるかどうか
@@ -312,6 +312,139 @@ P2 と P3 は、プロファイルのポリシーが V2-4 に適用させるも�
 ## 9. テストベクター
 
 [`tests/interop/v2/admission_vectors.json`](../../../../../tests/interop/v2/admission_vectors.json) は共有のケースを持ちます。署名付きバンドル、信頼セット、プロファイル、失効のスナップショット、`now`、そして各ケースについて、期待される `verified`、`principal_trust`、`profile_compliance`、`admitted` とコードの集合を、確認する規則とともに持ちます。設定のケースは、設定と期待されるエラーのコードを示します。すべての SDK がそれらを実行します。基準は SDK の間の一致ではなく、期待値です。
+
+<a id="10-delegated-admission-opt-in"></a>
+
+## 10. 委任付きアドミッション（オプトイン）
+
+追加の関数が、末端のバンドルを、そのエージェントへ委任する [DCP-09](../../../../../spec/DCP-09.md) のマンデートチェーン、および
+委任する各エージェントのバンドル 1 つずつと一緒にアドミッションします。オプトインです。既定でこれを呼ぶものはなく、
+§1〜§9、`strict-v1`、そのコード、そのベクターは変わりません。
+
+**入力。** 証拠はリクエストから来てもかまいません。末端の署名付きバンドル、マンデートチェーン（ルートが先頭）、委任する
+エージェントごとの署名付きバンドル 1 つです。残りは運用者が与え、リクエストが与えることはありません（A2）。
+
+- 信頼セット、または読み込み済みの信頼ストア（必須）。
+- `strict-v1` プロファイルまたは検証者ポリシーのどちらか一方。両方は不可。
+- 構成のエージェントと鍵の失効のスナップショット、およびマンデートの失効のスナップショット
+  `{ checked_at, mandates: { <mandate_id>: status } }`（スナップショットがないことは、ソースが応答できなかったことを
+  意味し、失効の確認がそれを報告します）。
+- プロファイルがなければ `max_revocation_age_seconds`（1〜300 の整数）。プロファイルがあればプロファイルの値が適用され、
+  両方を渡すと `CONFIG_PROFILE_CONTRADICTION` です。
+- `now`。1 回だけ読みます。
+
+**手順。** すべては、開始時に取った入力のスナップショットに対して、その 1 つの `now` で評価します。証拠は JSON の文書で、
+各 SDK の JSON の表現によります。TypeScript と Python は JSON の値、Go は JSON のテキストをバイトで、Rust は
+`serde_json::Value` を受け取ります。その表現で JSON でないものは `DELEGATION_INPUT_INVALID` です。たとえば
+TypeScript では `Map`、`Date`、クラスのインスタンス、アクセサー、`undefined`、Python ではタプル、dict のサブクラス、
+その他のオブジェクト、Go では解析できないテキストや配列でないチェーンです。
+
+1. **形式。** チェーンは空でなく、その中で `mandate_id` もエージェントも重複しません（`DELEGATION_REPEATED_ID`）。
+2. **下限。** チェーンの最大の `minimum_security_tier`（未知の値は `elevated` とみなす）は階層を引き上げるだけです。
+   チェーンが検証を通った場合、その実効的な階層はそれと等しくなければなりません（`DELEGATION_FLOOR_MISMATCH`）。
+3. **バンドル。** 末端と各委任者は、その下限で、同じ `now`、同じプロファイルまたはポリシーのもとで検証され、その後
+   アドミッションされます（§5）。末端自身のアドミッションのコードはそのまま報告されます。ただし `REVOCATION_*` は除き、
+   これは手順 10 が各対象について 1 回だけ評価します。アドミッションされない委任者は
+   `DELEGATION_DELEGATOR_NOT_ADMITTED` となり、その委任者自身のコードは入れ子の結果に残ります。
+4. **結び付き。** チェーンの `human_id` は各バンドルのプリンシパルです（`DELEGATION_PRINCIPAL_MISMATCH`）。最後の
+   マンデートは末端のエージェントを指します（`DELEGATION_LEAF_MISMATCH`）。委任する各エージェントにちょうど 1 つの
+   バンドルがあります（`DELEGATION_DELEGATOR_MISSING`、`DELEGATION_DELEGATOR_UNEXPECTED`）。
+5. **鍵。** プリンシパルの鍵は末端の RPR の `binding_keys`、各エージェントの鍵はその検証済みバンドルのパスポートの
+   `keys` です。使われるすべての鍵は、導出された `kid` と正準な base64 を持ちます（V2-13）。2 つの主体のリストに同じ
+   鍵がある場合、または 1 つのリストで `kid` が重複する場合は `DELEGATION_KEY_AMBIGUOUS` です。
+6. **チェーン。** それらの鍵と、状態が `revoked` のマンデートを使った
+   [DCP-09 §3.5.2](../../../../../spec/DCP-09.md#352-chain-verification)（`DELEGATION_CHAIN_INVALID`）。
+7. **チェーンへのアルゴリズムポリシー。** 検証者のポリシーは、V2-10 がバンドルに適用するのと同じように、末端の実効モード
+   のもとで、チェーンが使うすべての署名の構成要素に適用されます。`pq_only` では古典的なリストを参照しませんが、各
+   マンデートの両方の構成要素が検証を通らなければなりません（DCP-09 §3.5.1）。そうでなければ
+   `DELEGATION_ALGORITHM_REJECTED` です。
+8. **ルートの固定。** ルートの `human_composite_sig` の各構成要素は、信頼セットがそのプリンシパルについて挙げ、`now`
+   において有効で有効期間内にある鍵で署名されていなければなりません（§3）。鍵が RPR にあるだけでは足りません。
+   そうでなければ `TRUST_KEY_*` のコードです。
+9. **`session_nonce`。** マンデートとバンドルの間でも、マンデート同士の間でも一致は求めません。マンデートのノンスは、
+   それを発行したセッションのものです。各バンドルの中では引き続き V2-4 が適用されます。
+10. **失効。** §4.3 を、同じ `now`、同じ最大経過時間で、チェーンの各エージェントと、バンドルまたはマンデートが使う
+    各鍵に適用します。マンデートのスナップショットは各 `mandate_id` に適用されます。
+
+**結果。** どの手順もコードを追加しなかったときの `admitted`、`delegation_verified`、常に `not_evaluated` の
+`activation` と常に `false` の `delegation_active`（アクティベーションは §12 が評価します）、常に `false` の
+`action_authorized`、末端の `security_tier` と `verification_mode`、`chain`（`depth`、`mandate_ids`、
+`effective_floor`、評価されない `leaf_authority_scope` のコピー）、末端と各委任者のアドミッションの結果、`inputs`、
+`errors` です。構成のエラーは、何かを検証する前に、§5.3 の `AdmissionConfigError` になります。
+
+**制限。** すべては `now` で確認します。過去の時点での検証は定義されていません。各委任者について、現在の、アドミッション
+済みのバンドルが必要です。DCP-09 が禁止していないエージェントの重複（A → B → A）は拒否されます。レジストリと暗号
+プロバイダーは運用者のものであり、信頼されます。Go では、入力のコピー中に別の goroutine から入力を変更する呼び出し元は
+データ競合を起こします。WASM には委任付きアドミッションがありません。
+
+| SDK | 関数 |
+|---|---|
+| TypeScript | `admitDelegatedBundleV2(evidence, registry, operator)` |
+| Python | `admit_delegated_bundle_v2(evidence, registry, operator)`（async） |
+| Go | `AdmitDelegatedBundleV2(registry, evidence, operator)` |
+| Rust | `admit_delegated_bundle_v2(&evidence, &operator)` |
+
+ベクター：[`tests/interop/v2/delegated_admission_vectors.json`](../../../../../tests/interop/v2/delegated_admission_vectors.json)。
+71 件のケースと 6 件の構成のケースです。
+
+<a id="11-admission-from-bytes-opt-in"></a>
+
+## 11. バイトからのアドミッション（オプトイン）
+
+追加の関数が、署名付きバンドルをバイトとして受け取り、どのパーサーもそれを読む前にそのバイトについて判定します。§5 の
+オプションを伴えばアドミッション、信頼セットもプロファイルもなければ検証です。
+
+1. **スナップショット。** バイトをコピーし、解析の前にそのコピーについて `unit_sha256` を計算します。
+2. **スキャナー。** 実験的な候補プロファイルの入口のスキャナーを、変更せずに使います。拒否はそのクラスとオフセットを
+   保持します（層 `scanner`）。
+3. **可搬なドメイン。** 文字列の外では、すべての数値リテラルが `-?(0|[1-9][0-9]*)` でなければなりません。小数部、
+   指数、`-0` はいずれも不可です。そうでなければ、リテラルのオフセットを伴って `NUMBER_NOT_PORTABLE` です（層
+   `domain`）。これは追加の拒否で、すべての SDK で同じです。署名者が `100` と書いたところを `100.0` と書く伝送路は、
+   署名がまだ検証を通るとしても拒否されます。
+4. **パーサー。** SDK 自身のデコーダーがコピーを解析します。その値を `dcp-jcs-v1` で正準化したものは、スキャナーの正準
+   なバイトと等しくなければなりません。違いや解析の失敗は `INGRESS_PARSER_MISMATCH` です（層 `parser`）。これはその
+   パーサーの局所的な不具合であり、データについての規則ではありません。
+5. **アドミッション**（§5）を、まさにその値に対して行い、結果はその値を返します。呼び出し元の入力は再び解析されません。
+
+結果には `ingress`（`accepted`、`layer`、`class`、`offset`、`unit_sha256`、`canonical_sha256`）、`admission`
+（入口で拒否された場合は何も検証されていないため null）、`value` があります。`dcp-jcs-v1`、候補プロファイル、
+`strict-v1`、既定値、解析済みの値を受け取る関数は変わりません。それらの関数は、重複したキーや単独のサロゲートの
+ように、パーサーがすでに失ったものを取り戻すことはできません。サイズと時間の予算はこの関数の対象外です。
+
+| SDK | 関数 |
+|---|---|
+| TypeScript | `admitSignedBundleV2FromBytes(bytes, registry, options)` |
+| Python | `admit_signed_bundle_v2_from_bytes(data, registry, *, …)`（async。§5 のオプションはキーワード引数） |
+| Go | `AdmitSignedBundleV2FromBytes(registry, signedBundleJSON, opts)` |
+| Rust | `admit_signed_bundle_v2_from_bytes(bytes, &options)` |
+
+ベクター：[`tests/interop/v2/v1_ingress_vectors.json`](../../../../../tests/interop/v2/v1_ingress_vectors.json)。
+
+<a id="12-delegation-activation-opt-in"></a>
+
+## 12. 委任のアクティベーション（オプトイン）
+
+アクティベーションは、§10 に加えて、各マンデートに対する受任エージェントの署名付き確認応答を評価します。確認応答は
+[DCP-09 §3.3.1](../../../../../spec/DCP-09.md#331-mandate-acknowledgment-opt-in) で定義されています。この関数は、証拠、確認応答、
+認識しきい値、構成のスナップショットを 1 つ取り、`now` を 1 つ固定し、そのスナップショットに対して §10 を実行し、
+構成がアドミッションされ入力が有効な場合にだけ、構成が検証したエージェント、鍵、ポリシー、モード、失効の
+スナップショットを使って確認応答を評価します。証拠は署名付きの記録を、それが署名するハッシュとともに運び、運用者は
+信頼セットと §10 の構成を与えます。この関数は、事前に計算された構成の結果も鍵のマップも、権威としては受け付けません。
+エージェントの鍵は構成が検証したパスポートの鍵であり、マンデート、チェーン、しきい値のハッシュは成果物から再計算され、
+確認応答と比較されます。
+
+結果は `composition` を入れ子にします。これは同じスナップショットに対する §10 の結果そのものです（その中の
+`activation` は `not_evaluated` のままです）。さらに `activation`（`evaluated` または `not_evaluated`）、
+`delegation_active`（構成がアドミッションされ、チェーンの各マンデートにちょうど 1 つの有効な確認応答がある場合にだけ
+true）、`action_authorized`（常に `false`）、`acknowledgments` の下のマンデートごとのエントリー、`inputs`、および
+DCP-09 §3.3.1 のコードを持つ `errors` を加えます。`admitDelegatedBundleV2` とその対応関数は変わりません。
+
+| SDK | 関数 |
+|---|---|
+| TypeScript | `evaluateDelegationActivationV2(evidence, registry, operator)` |
+| Python | `evaluate_delegation_activation_v2(evidence, registry, operator)`（async） |
+| Go | `EvaluateDelegationActivationV2(registry, evidence, operator)` |
+| Rust | `evaluate_delegation_activation_v2(&evidence, &operator)` |
 
 <a id="implementation-notes-informative"></a>
 

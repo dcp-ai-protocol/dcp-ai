@@ -4,7 +4,7 @@
 
 # Especificación normativa de DCP-AI v2.0
 
-> Traducción informativa de [la especificación en inglés](../../../spec/DCP-AI-v2.0.md), actualizada el 06/11/2026. **La versión normativa es la inglesa**: esta traducción no tiene valor normativo y, si difieren, prevalece el inglés. Los identificadores y bloques de código se conservan sin traducir.
+> Traducción informativa de [la especificación en inglés](../../../spec/DCP-AI-v2.0.md), actualizada el 07/11/2026. **La versión normativa es la inglesa**: esta traducción no tiene valor normativo y, si difieren, prevalece el inglés. Los identificadores y bloques de código se conservan sin traducir.
 
 **Estado:** Final  
 **Versión:** 2.0.0  
@@ -59,6 +59,8 @@ El Digital Citizenship Protocol for AI (DCP-AI) v2.0 define un marco resistente 
 | `slh-dsa-256f` | FIPS 205 | 64 B | 49856 B | NIST nivel 5 PQ | RESERVED |
 
 > *Nota informativa (25/10/2026), no forma parte del texto normativo:* ningún SDK de DCP-AI implementa todavía `ml-dsa-87`; los SDK firman y verifican con `ed25519`, `ml-dsa-65` y `slh-dsa-192f` ([docs/NIST_CONFORMITY.md](../../../docs/NIST_CONFORMITY.md)).
+
+> *Nota (07/11/2026):* una firma `ed25519` se acepta según el criterio de aceptación P-ED-1 del [perfil criptográfico](../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion).
 
 <a id="22-kem-algorithms"></a>
 
@@ -156,8 +158,11 @@ signed_bytes = UTF8(context_tag) || 0x00 || canonical_payload_bytes
 | `DCP-AI.v2.Delegation` | Mandato de delegación raíz (firma de la persona), espejos del principal y registros de interacción (DCP-09) |
 | `DCP-AI.v2.Awareness` | Umbrales de conciencia y declaraciones de aviso (DCP-09) |
 | `DCP-AI.v2.SubMandate` | Submandato firmado por el agente que delega (DCP-09 §3.5) |
+| `DCP-AI.v2.MandateAcknowledgment` | Acuse del mandato firmado por el agente delegado, opt-in (DCP-09 §3.3.1) |
 
 > **Errata E1 (25/10/2026, normativa):** las filas `MultiPartyAuth`, `Lifecycle`, `Succession`, `Dispute`, `Rights` y `Awareness`, y los espejos del principal en la fila `Delegation`, documentan contextos que ya usan los SDK y `tests/interop/v2/interop_vectors.json#domain_separation_all_contexts`; no añaden ninguna etiqueta. Véase [V2-WIRE-COMPATIBILITY.md](../../../spec/V2-WIRE-COMPATIBILITY.md).
+
+> *Nota (07/11/2026):* la fila `MandateAcknowledgment` añade una etiqueta, para el registro opt-in de [DCP-09 §3.3.1](../../../spec/DCP-09.md#331-mandate-acknowledgment-opt-in). Ningún registro existente se firma con ella. Las 19 etiquetas anteriores y el vector `domain_separation_all_contexts` no cambian. Los cuatro SDK que firman aceptan la etiqueta nueva para la separación de dominio y la exponen como constante; en TypeScript y Python esa constante está junto al mapa `DCP_CONTEXTS` de 19 entradas, que no la incluye.
 
 ---
 
@@ -502,7 +507,7 @@ function computeSecurityTier(intent, policy_decision):
   return tier
 ```
 
-El nivel efectivo de una cadena de delegación verificada, el mayor `minimum_security_tier` a lo largo de ella, es una entrada opcional de este cálculo que solo puede elevar el resultado, nunca rebajarlo. Ningún campo del bundle lleva todavía la cadena, así que el mínimo se aplica cuando al verificador se le entrega una cadena verificada junto con el bundle; los verificadores de bundles de §18 no la leen.
+El nivel efectivo de una cadena de delegación verificada, el mayor `minimum_security_tier` a lo largo de ella, es una entrada opcional de este cálculo que solo puede elevar el resultado, nunca rebajarlo. Ningún campo del bundle lleva todavía la cadena, así que el mínimo se aplica cuando al verificador se le entrega una cadena verificada junto con el bundle; los verificadores de bundles de §18 no la leen. La admisión delegada opt-in del [perfil de admisión §10](../../../spec/profiles/admission/README.md#10-delegated-admission-opt-in) es uno de esos verificadores.
 
 `ACTION_TYPES` y `DATA_CLASSES` son los enumerados `action_type` y `data_classes` de `schemas/v2/intent.schema.json`. Un valor ausente, de tipo incorrecto o desconocido falla de forma cerrada a, como mínimo, `elevated`, de modo que un valor que el verificador no conoce nunca reduce el escrutinio que recibe un bundle, haya o no validación de esquema. Sin decisión de política la puntuación es 0. En una decisión de política, una `risk_score` que falte o que no sea un entero de 0 a 1000 (una cadena, una fracción, un número negativo, un número mayor que 1000) es desconocida del mismo modo, y las comparaciones de puntuación anteriores la tratan como 0. Un número sin parte fraccionaria, como `200.0`, cuenta como ese entero.
 

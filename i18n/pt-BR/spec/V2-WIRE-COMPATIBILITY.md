@@ -4,7 +4,7 @@
 
 # Compatibilidade do formato de transmissão do DCP-AI v2.0: erratas do DCP-05, DCP-08 e DCP-09
 
-> Tradução informativa da [especificação em inglês](../../../spec/V2-WIRE-COMPATIBILITY.md), atualizada em 25/10/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
+> Tradução informativa da [especificação em inglês](../../../spec/V2-WIRE-COMPATIBILITY.md), atualizada em 07/11/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
 
 ## Status
 
@@ -165,7 +165,8 @@ registro ou um conjunto fechado de valores, então esses registros não represen
 helpers dos SDKs, por si sós, não os cumprem. Se um mecanismo externo a esses registros pode cumpri-los depende de
 demonstrar os próprios requisitos funcionais; estas erratas não o estabelecem nem o pressupõem. Representá-los dentro
 dos registros requer um projeto explícito e versionado (uma nova versão de schema ou um perfil); estas erratas não
-definem nem ativam nenhum.
+definem nem ativam nenhum. Desde 07/11/2026, a confirmação do agente de DCP-09 §3.3 tem um, como registro
+separado (veja a nota abaixo da tabela); os demais requisitos continuam sem nenhum.
 
 | Requisito | Por que o registro V2.0 não o carrega |
 |-----------|---------------------------------------|
@@ -175,6 +176,12 @@ definem nem ativam nenhum.
 | Direitos da organização em notação de domínio reverso do DCP-08 §4.3 | `right_type` é um enum fechado dos quatro direitos fundamentais |
 | DCP-08 §9.1: assinatura da autoridade de entrada em serviço | O registro não identifica o papel de quem assina; os helpers não o verificam |
 | DCP-09 §3.3: confirmação do agente; §6.3: assinatura do principal em um espelho | Uma assinatura por registro |
+
+> *Nota (07/11/2026):* a confirmação do agente de DCP-09 §3.3 tem agora um projeto explícito, versionado e opt-in:
+> um registro separado, [DCP-09 §3.3.1](../../../spec/DCP-09.md#331-mandate-acknowledgment-opt-in)
+> (`schemas/v2/mandate_acknowledgment.schema.json`, vetores `tests/interop/v2/mandate_acknowledgment_vectors.json`).
+> O schema do mandato, sua única assinatura e seu contexto não mudam, e um verificador que não o ativa lê os mesmos
+> registros de antes. A assinatura do principal em um espelho (§6.3) continua sem representação.
 
 Os helpers de pontuação de vitalidade dos SDKs também diferem entre si nos empates quando recebem entradas
 fracionárias (para `task_completion_rate` 0, `error_rate` 1, `human_satisfaction` 0.002 e `policy_alignment` 0, o

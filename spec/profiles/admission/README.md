@@ -269,6 +269,133 @@ Result fields keep the names of §5.2 in every SDK's JSON form.
 
 [`tests/interop/v2/admission_vectors.json`](../../../tests/interop/v2/admission_vectors.json) holds the shared cases: signed bundles, trust sets, profiles, revocation snapshots, `now`, and for each case the expected `verified`, `principal_trust`, `profile_compliance`, `admitted` and set of codes, with the rule it checks. Configuration cases give the configuration and the expected error code. Every SDK runs them; agreement between SDKs is not the criterion, the expected values are.
 
+## 10. Delegated admission (opt-in)
+
+An additional function admits a leaf bundle together with the [DCP-09](../../DCP-09.md) mandate chain that delegates
+to its agent and one bundle per delegating agent. It is opt-in: no default calls it, and §1–§9, `strict-v1`, its codes
+and its vectors do not change.
+
+**Inputs.** The evidence may come from the request: the leaf signed bundle, the mandate chain (root first) and one
+signed bundle per delegating agent. The operator supplies the rest, never the request (A2):
+
+- the trust set or a loaded trust store (required);
+- a `strict-v1` profile or a verifier policy, not both;
+- a revocation snapshot for the agents and keys of the composition, and a mandate revocation snapshot
+  `{ checked_at, mandates: { <mandate_id>: status } }` (an absent snapshot means the source could not answer, and
+  the revocation checks report it);
+- without a profile, `max_revocation_age_seconds`, an integer from 1 to 300; with a profile, the profile's applies, and
+  passing both is `CONFIG_PROFILE_CONTRADICTION`;
+- `now`, read once.
+
+**Procedure.** Everything is evaluated on a snapshot of the inputs taken at the start, at that single `now`. The
+evidence is JSON documents, in each SDK's representation of JSON: TypeScript and Python take JSON values, Go the JSON
+text as bytes, Rust `serde_json::Value`. What is not JSON in that representation is `DELEGATION_INPUT_INVALID`: in
+TypeScript, for example, a `Map`, a `Date`, a class instance, an accessor or `undefined`; in Python a tuple, a dict
+subclass or another object; in Go text that does not parse, or a chain that is not an array.
+
+1. **Form.** The chain is not empty, and neither a `mandate_id` nor an agent repeats in it (`DELEGATION_REPEATED_ID`).
+2. **Floor.** The chain's highest `minimum_security_tier` (an unknown value counts as `elevated`) only raises the tier.
+   If the chain verifies, its effective tier must equal it (`DELEGATION_FLOOR_MISMATCH`).
+3. **Bundles.** The leaf and each delegator are verified with that floor, at the same `now` and under the same profile
+   or policy, and then admitted (§5). The leaf's own admission codes are reported as they are, except `REVOCATION_*`,
+   which step 10 evaluates once for every subject. A delegator that is not admitted is
+   `DELEGATION_DELEGATOR_NOT_ADMITTED`, and its own codes stay in its nested result.
+4. **Bindings.** The chain's `human_id` is the principal of every bundle (`DELEGATION_PRINCIPAL_MISMATCH`). The last
+   mandate names the leaf agent (`DELEGATION_LEAF_MISMATCH`). There is exactly one bundle for each delegating agent
+   (`DELEGATION_DELEGATOR_MISSING`, `DELEGATION_DELEGATOR_UNEXPECTED`).
+5. **Keys.** The principal's keys are the leaf RPR's `binding_keys`, and each agent's keys are the `keys` of the
+   passport in its verified bundle. Every key used has a derived `kid` and canonical base64 (V2-13). The same key in the
+   lists of two actors, or a `kid` repeated in one list, is `DELEGATION_KEY_AMBIGUOUS`.
+6. **Chain.** [DCP-09 §3.5.2](../../DCP-09.md#352-chain-verification), with those keys and the mandates whose state is
+   `revoked` (`DELEGATION_CHAIN_INVALID`).
+7. **Algorithm policy on the chain.** The verifier policy applies to every signature component the chain uses, as V2-10
+   applies it to a bundle, under the leaf's effective mode. Under `pq_only` the classical lists are not consulted, but
+   both components of every mandate must verify (DCP-09 §3.5.1). Otherwise `DELEGATION_ALGORITHM_REJECTED`.
+8. **Root anchoring.** Each component of the root's `human_composite_sig` must be signed with a key the trust set lists
+   for that principal, active and within its validity at `now` (§3). That the key is in the RPR is not enough. Otherwise
+   the `TRUST_KEY_*` codes.
+9. **`session_nonce`.** Equality is not required between a mandate and a bundle or between mandates: a mandate's nonce
+   is that of its issuing session. V2-4 still applies inside each bundle.
+10. **Revocation.** §4.3, at the same `now` and with the same maximum age, over every agent of the chain and every key
+    used by a bundle or a mandate; the mandate snapshot applies to every `mandate_id`.
+
+**Result.** `admitted` when no step added a code; `delegation_verified`; `activation`, always `not_evaluated`, and
+`delegation_active`, always `false` (§12 evaluates activation); `action_authorized`, always `false`; the leaf's
+`security_tier` and `verification_mode`; `chain` (`depth`, `mandate_ids`, `effective_floor` and a copy of
+`leaf_authority_scope`, not evaluated); the admission results of the leaf and of each delegator; `inputs`; and
+`errors`. A configuration error is the `AdmissionConfigError` of §5.3, before anything is verified.
+
+**Limits.** Everything is checked at `now`; verifying in the past is not defined. A current admitted bundle of each
+delegator is required. A repeated agent (A → B → A), which DCP-09 does not forbid, is refused. The registry and the
+crypto providers are the operator's and are trusted. In Go, a caller that changes its inputs from another goroutine
+while they are copied has a data race. WASM has no delegated admission.
+
+| SDK | Function |
+|---|---|
+| TypeScript | `admitDelegatedBundleV2(evidence, registry, operator)` |
+| Python | `admit_delegated_bundle_v2(evidence, registry, operator)` (async) |
+| Go | `AdmitDelegatedBundleV2(registry, evidence, operator)` |
+| Rust | `admit_delegated_bundle_v2(&evidence, &operator)` |
+
+Vectors: [`tests/interop/v2/delegated_admission_vectors.json`](../../../tests/interop/v2/delegated_admission_vectors.json),
+71 cases and 6 configuration cases.
+
+## 11. Admission from bytes (opt-in)
+
+An additional function takes the signed bundle as bytes and decides on those bytes before any parser reads them. With
+the options of §5 it is admission; without a trust set or a profile it is verification.
+
+1. **Snapshot.** The bytes are copied, and `unit_sha256` is computed over the copy before any parsing.
+2. **Scanner.** The ingress scanner of the experimental candidate profile, unchanged. A rejection keeps its class and
+   offset (layer `scanner`).
+3. **Portable domain.** Outside strings, every numeric literal must be `-?(0|[1-9][0-9]*)`: no fraction, no exponent and
+   no `-0`. Otherwise `NUMBER_NOT_PORTABLE`, with the literal's offset (layer `domain`). This is an additional
+   rejection, the same in every SDK: a transport that writes `100.0` where the signer wrote `100` is rejected even
+   though the signature still verifies.
+4. **Parser.** The SDK's own decoder parses the copy; the value, canonicalized with `dcp-jcs-v1`, must equal the
+   scanner's canonical bytes. A difference or a parse failure is `INGRESS_PARSER_MISMATCH` (layer `parser`): a local
+   fault of that parser, not a rule on the data.
+5. **Admission** (§5) of exactly that value, which the result returns. The caller's input is not parsed again.
+
+The result has `ingress` (`accepted`, `layer`, `class`, `offset`, `unit_sha256`, `canonical_sha256`), `admission` (null
+when ingress rejects, since nothing was verified) and `value`. `dcp-jcs-v1`, the candidate profile, `strict-v1`, the
+defaults and the functions that take an already parsed value do not change; those functions cannot recover what their
+parser already lost, such as a repeated key or a lone surrogate. Size and time budgets are not part of this function.
+
+| SDK | Function |
+|---|---|
+| TypeScript | `admitSignedBundleV2FromBytes(bytes, registry, options)` |
+| Python | `admit_signed_bundle_v2_from_bytes(data, registry, *, …)` (async; the options of §5 as keywords) |
+| Go | `AdmitSignedBundleV2FromBytes(registry, signedBundleJSON, opts)` |
+| Rust | `admit_signed_bundle_v2_from_bytes(bytes, &options)` |
+
+Vectors: [`tests/interop/v2/v1_ingress_vectors.json`](../../../tests/interop/v2/v1_ingress_vectors.json).
+
+## 12. Delegation activation (opt-in)
+
+Activation evaluates, on top of §10, the delegate agent's signed acknowledgment of each mandate, defined in
+[DCP-09 §3.3.1](../../DCP-09.md#331-mandate-acknowledgment-opt-in). The function takes one snapshot of the evidence,
+the acknowledgments, the awareness thresholds and the configuration, fixes one `now`, runs §10 on that snapshot, and
+evaluates the acknowledgments only when the composition is admitted and the inputs are valid, with the agents, keys,
+policy, mode and revocation snapshot the composition verified. The evidence carries signed records, with the hashes
+they sign, and the operator supplies the trust set and the configuration of §10. The function accepts neither a
+precomputed composition result nor a key map as authority: the agents' keys are those of the passports the
+composition verified, and the mandate, chain and threshold hashes are recomputed from the artifacts and compared with
+the acknowledgments.
+
+The result nests `composition`, exactly §10's result for the same snapshot (its own `activation` stays
+`not_evaluated`), and adds `activation` (`evaluated` or `not_evaluated`), `delegation_active` (true only when the
+composition is admitted and every mandate of the chain has exactly one valid acknowledgment), `action_authorized`
+(always `false`), one entry per mandate under `acknowledgments`, `inputs` and `errors` with the codes of DCP-09 §3.3.1.
+`admitDelegatedBundleV2` and its counterparts do not change.
+
+| SDK | Function |
+|---|---|
+| TypeScript | `evaluateDelegationActivationV2(evidence, registry, operator)` |
+| Python | `evaluate_delegation_activation_v2(evidence, registry, operator)` (async) |
+| Go | `EvaluateDelegationActivationV2(registry, evidence, operator)` |
+| Rust | `evaluate_delegation_activation_v2(&evidence, &operator)` |
+
 ## Implementation notes (informative)
 
 > **Added 25/10/2026. Not normative.** These notes add no requirement and change nothing above: they describe how

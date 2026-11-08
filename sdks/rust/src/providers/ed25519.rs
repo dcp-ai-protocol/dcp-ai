@@ -59,6 +59,10 @@ impl CryptoProvider for Ed25519Provider {
             .map_err(|_| CryptoError::SignatureError("invalid signature length (expected 64 bytes)".into()))?;
         let verifying_key = VerifyingKey::from_bytes(&pk_array)
             .map_err(|e| CryptoError::KeyError(e.to_string()))?;
+        // P-ED-1, after the key decodes (its error is kept) and before ed25519-dalek's verify.
+        if crate::ed25519_ped1::rejects(&sig_array, &pk_array) {
+            return Ok(false);
+        }
         let sig = Signature::from_bytes(&sig_array);
         Ok(verifying_key.verify(message, &sig).is_ok())
     }

@@ -527,7 +527,7 @@ fn attenuation_error(parent: &[Value], child: &[Value]) -> Option<String> {
 }
 
 /// The public key of the entry a signature slot names, or why none can verify it.
-fn signer_key<'a>(keys: &'a [Value], entry: &SignatureEntry, now: i64) -> Result<&'a str, String> {
+pub(crate) fn signer_key<'a>(keys: &'a [Value], entry: &SignatureEntry, now: i64) -> Result<&'a str, String> {
     if entry.kid.is_empty() || entry.alg.is_empty() {
         return Err("malformed signature entry".into());
     }

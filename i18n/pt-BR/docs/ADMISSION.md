@@ -4,7 +4,7 @@
 
 # Admissão: principais confiáveis e o perfil strict-v1
 
-> Tradução informativa da [versão em inglês](../../../docs/ADMISSION.md), atualizada em 26/10/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../docs/ADMISSION.md), atualizada em 07/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Um bundle verificado prova sua integridade e que foi assinado pelas chaves que lista. Qualquer pessoa pode criar um registro de principal responsável com qualquer `human_id` e chaves próprias, então a verificação sozinha não diz **quem** é o principal.
 
@@ -159,12 +159,38 @@ O servidor de verificação (`npm run server`) expõe `POST /v2/admit` quando o 
 node /path/to/dcp-ai/bin/dcp.js admit-bundle bundle.signed.json --trust trust.json --profile profile.json --revocation snapshot.json
 ```
 
+<a id="delegation-bytes-and-acknowledgments-opt-in"></a>
+
+## Delegação, bytes e confirmações (opt-in)
+
+> **Status (07/11/2026).** No código-fonte local dos SDKs de TypeScript, Python, Go e Rust, não em um pacote publicado.
+> O WASM, o servidor e a CLI de referência, o playground, os adaptadores e o kit não expõem estas funções.
+
+- **Admissão delegada** ([especificação § 10](../../../spec/profiles/admission/README.md#10-delegated-admission-opt-in)). Admite um bundle folha junto com a
+  cadeia de mandatos do [DCP-09](../../../spec/DCP-09.md) sob a qual ele atua e um bundle por agente que delega, em um único
+  `now`, com o conjunto de confiança, o perfil ou a política do operador, e os snapshots de revogação dos agentes, das
+  chaves e dos mandatos. O mandato raiz deve ser assinado com chaves que o conjunto de confiança lista para o principal.
+  O resultado informa `admitted` e `delegation_verified`; `delegation_active` e `action_authorized` são sempre `false`.
+- **Admissão a partir de bytes** ([especificação § 11](../../../spec/profiles/admission/README.md#11-admission-from-bytes-opt-in)). Recebe o bundle assinado
+  como bytes e decide sobre eles antes de qualquer parser: o scanner de ingresso experimental, depois números só na forma
+  inteira simples (`NUMBER_NOT_PORTABLE`), e depois o parser próprio do SDK, que deve dar os bytes canônicos do scanner
+  (`INGRESS_PARSER_MISMATCH`). `dcp-jcs-v1` não muda, e as funções que recebem um valor já analisado não podem recuperar
+  uma chave repetida nem um surrogate isolado que seu parser perdeu.
+- **Ativação** ([especificação § 12](../../../spec/profiles/admission/README.md#12-delegation-activation-opt-in),
+  [DCP-09 § 3.3.1](../../../spec/DCP-09.md#331-mandate-acknowledgment-opt-in)). Acrescenta as confirmações assinadas dos
+  agentes delegados para cada mandato, um novo registro opt-in (`mandate_acknowledgment`). `delegation_active` é `true`
+  só quando a composição é admitida e cada mandato tem exatamente uma confirmação válida. A ativação não autoriza
+  nenhuma ação, e uma confirmação não mostra que o agente entendeu o mandato.
+
+Nomes das funções em cada SDK: [referência da API](../../../docs/API_REFERENCE.md#admission-trusted-principals-and-strict-v1-unreleased).
+
 <a id="compatibility"></a>
 
 ## Compatibilidade
 
 - **API de verificação.** `verifySignedBundleV2` / `verify_signed_bundle_v2` / `VerifySignedBundleV2WithPolicy` / `verify_signed_bundle_v2_with_policy` mantêm as suas assinaturas. As chaves de assinatura são `details.signer_keys` em TypeScript e Python e o novo campo `SignerKeys` em Go. Em Rust, `V2VerificationResult` mantém seus dez campos, então o código que o constrói por inteiro ou o desestrutura sem `..` continua compilando; as chaves de assinatura vêm do novo `verify_signed_bundle_v2_at`, que retorna `V2VerificationDetails` (`result` e `signer_keys`) e é o que a admissão recebe. O código escrito contra a API de admissão antes da sua publicação lê `verification.result.verified` em vez de `verification.verified`.
 - **Comportamento da verificação.** As mesmas mudanças alteram o comportamento da verificação, à parte da admissão. Assinaturas Ed25519 com S >= L agora são rejeitadas. Separadamente, os verificadores Go e Rust agora aplicam `accepted_classical_algs` e `accepted_pq_algs` de uma política, que antes recusavam por não serem aplicados: sob uma política assim, um bundle fora das listas falha, e um dentro delas agora pode ser verificado. O [CHANGELOG](../../../CHANGELOG.md) lista todas as mudanças.
+- **Aceitação do Ed25519, P-ED-1 (código-fonte local, 07/11/2026).** Além de S >= L, o código-fonte dos SDKs agora também rejeita uma chave pública ou uma R não canônica, e uma chave pública ou uma R de ordem que divide 8 ([perfil criptográfico](../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion)). É uma mudança de aceitação intencional; os signatários e os formatos não mudam. A evidência que não o atende é assinada de novo ou tem sua chave substituída, nunca reescrita.
 - **Bundles.** Nenhuma mudança no formato de transmissão. strict-v1 precisa de bundles assinados com `session_issued_at`, `session_expires_at` e `intended_verifier` no manifesto, que todos os assinantes dos SDKs gravam quando recebem uma expiração e uma audiência.
 - **Com um conjunto de confiança, bundles V1 são recusados**: eles não trazem nenhuma assinatura de principal para ancorar.
 - **Opções das integrações.** Novas e opcionais. Com principais confiáveis, `requireBundle: false` (Express) e `require_bundle=False` (FastAPI) são erros de configuração: uma requisição sem bundle chegaria à rota. Sob o perfil, também o são `verifierPolicy`, `requireHybrid: false` e as opções `checkRevocation` (Express), `verifier_policy` (FastAPI) e `verifierPolicy` (OpenClaw).
@@ -177,3 +203,4 @@ node /path/to/dcp-ai/bin/dcp.js admit-bundle bundle.signed.json --trust trust.js
 - **Autorização.** `action_authorized` é sempre `false`. Vincular uma autorização externa a uma ferramenta, aos seus argumentos e à sua execução é uma fase posterior.
 - **A identidade** é tão boa quanto o conjunto de confiança e o processo que o mantém.
 - **A revogação** é tão recente quanto o snapshot: uma revogação posterior a `checked_at` é vista com o próximo snapshot.
+- **A delegação** é verificada só em `now`, precisa de um bundle atual e admitido de cada delegador, e recusa uma cadeia em que um agente se repete. A ativação não avalia nem `authority_scope` nem `threshold_rules`.

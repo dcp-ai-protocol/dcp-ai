@@ -44,6 +44,8 @@ The Digital Citizenship Protocol for AI (DCP-AI) v2.0 defines a post-quantum-res
 
 > *Informative note (25/10/2026), not part of the normative text:* no DCP-AI SDK implements `ml-dsa-87` yet; the SDKs sign and verify with `ed25519`, `ml-dsa-65` and `slh-dsa-192f` ([docs/NIST_CONFORMITY.md](../docs/NIST_CONFORMITY.md)).
 
+> *Note (07/11/2026):* an `ed25519` signature is accepted under the acceptance criterion P-ED-1 of the [Crypto Profile](profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion).
+
 ### 2.2 KEM Algorithms
 
 | Identifier | Standard | PubKey Size | Ciphertext Size | Security Level |
@@ -124,8 +126,11 @@ signed_bytes = UTF8(context_tag) || 0x00 || canonical_payload_bytes
 | `DCP-AI.v2.Delegation` | Root delegation mandate (human signature), principal mirrors and interaction records (DCP-09) |
 | `DCP-AI.v2.Awareness` | Awareness thresholds and advisory declarations (DCP-09) |
 | `DCP-AI.v2.SubMandate` | Sub-mandate signed by the delegating agent (DCP-09 §3.5) |
+| `DCP-AI.v2.MandateAcknowledgment` | Mandate acknowledgment signed by the delegate agent, opt-in (DCP-09 §3.3.1) |
 
 > **Erratum E1 (25/10/2026, normative):** the rows `MultiPartyAuth`, `Lifecycle`, `Succession`, `Dispute`, `Rights` and `Awareness`, and principal mirrors in the `Delegation` row, document contexts already used by the SDKs and by `tests/interop/v2/interop_vectors.json#domain_separation_all_contexts`; they add no tag. See [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md).
+
+> *Note (07/11/2026):* the `MandateAcknowledgment` row adds a tag, for the opt-in record of [DCP-09 §3.3.1](DCP-09.md#331-mandate-acknowledgment-opt-in). No existing record is signed under it. The 19 earlier tags and the `domain_separation_all_contexts` vector do not change. All four signing SDKs accept the new tag for domain separation and expose it as a constant; in TypeScript and Python that constant stands beside the 19-entry `DCP_CONTEXTS` map, which does not include it.
 
 ---
 
@@ -421,7 +426,9 @@ The effective tier of a verified delegation chain, the greatest
 `minimum_security_tier` along it, is an optional input to this computation
 that can only raise the result, never lower it. No bundle field carries the
 chain yet, so the floor applies where the verifier is handed a verified chain
-alongside the bundle; the bundle verifiers of §18 do not read one.
+alongside the bundle; the bundle verifiers of §18 do not read one. The opt-in
+delegated admission of the [admission profile §10](profiles/admission/README.md#10-delegated-admission-opt-in)
+is such a verifier.
 
 `ACTION_TYPES` and `DATA_CLASSES` are the `action_type` and `data_classes`
 enums of `schemas/v2/intent.schema.json`. A missing, mistyped or unknown

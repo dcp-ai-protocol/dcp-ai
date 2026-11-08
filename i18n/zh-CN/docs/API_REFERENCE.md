@@ -4,7 +4,7 @@
 
 # DCP-AI API 参考
 
-> 本文是[英文版](../../../docs/API_REFERENCE.md)的参考译文，更新于 05/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/API_REFERENCE.md)的参考译文，更新于 07/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 本文是 `main` 上的 TypeScript SDK `@dcp-ai/sdk`（软件包版本 2.3.0，协议 DCP v2.0）的参考文档。
 
@@ -544,6 +544,10 @@ function verifyObject(obj: unknown, signatureB64: string, publicKeyB64: string):
 **返回：** 签名验证通过时为 `true`，未通过时为 `false`。对于格式错误的输入，它可能抛出异常而不是返回 `false`：无法规范化的对象、
 不是有效 base64 的签名或密钥，或者解码后长度不正确的签名或密钥。
 
+在本地源代码中（07/11/2026，未发布），`verifyObject` 和 V2 默认的 Ed25519 提供方应用
+[密码学配置文件](../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion)的 P-ED-1：S >= L、非规范编码的
+密钥或 R、或阶整除 8 的密钥或 R 都返回 `false`。会抛出异常的输入与以前相同。
+
 ```typescript
 const valid = verifyObject({ action: 'transfer', amount: 100 }, sig, keys.publicKeyB64);
 ```
@@ -859,6 +863,16 @@ if (result.verified) {
 | `revocationSnapshotFromDenyList(document, subjects)` | 根据完整的拒绝列表（吊销服务的 `/.well-known/dcp-revocations.json`）生成的快照 |
 
 结果包括：`verified`、`verification`、`principal_trust`、`profile`、`profile_compliance`、`admitted`、`action_authorized`（始终为 `false`）、`recorded_decision`、`trust_set_version`、`errors: [{ code, message }]`。
+
+选择性启用，位于四个 SDK 的本地源代码中，不在已发布的包中（07/11/2026）：
+
+| 函数 | 说明 |
+|----------|-------------|
+| `admitDelegatedBundleV2(evidence, registry, operator)` | 把叶端 bundle 与其 DCP-09 授权书链以及每个委托代理各一个 bundle 一起准入 ([§ 10](../../../spec/profiles/admission/README.md#10-delegated-admission-opt-in)) |
+| `admitSignedBundleV2FromBytes(bytes, registry, options)` | 对以字节形式给出的已签名 bundle 进行准入，在任何解析器读取之前作出判定 ([§ 11](../../../spec/profiles/admission/README.md#11-admission-from-bytes-opt-in)) |
+| `evaluateDelegationActivationV2(evidence, registry, operator)` | 委托准入，再加上代理对每个授权书的确认 ([§ 12](../../../spec/profiles/admission/README.md#12-delegation-activation-opt-in)) |
+
+Python：`admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `evaluate_delegation_activation_v2`（均为 async）；Go：`AdmitDelegatedBundleV2`, `AdmitSignedBundleV2FromBytes`, `EvaluateDelegationActivationV2`；Rust：`admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `evaluate_delegation_activation_v2`。WASM 不导出它们。
 
 ### `DEFAULT_VERIFIER_POLICY`
 
@@ -1706,6 +1720,18 @@ interface MandateChainResult { valid: boolean; errors: string[]; depth: number; 
 只能提高等级的下限（规范 §14.2）。Python：`create_sub_mandate`、`verify_mandate_chain`；Go：
 `CreateSubMandate`、`VerifyMandateChain`；Rust：`create_sub_mandate`、`verify_mandate_chain`。
 
+### `createMandateAcknowledgment(registry, keys, params)` / `evaluateDelegationActivationV2(evidence, registry, operator)`
+
+[DCP-09 § 3.3.1](../../../spec/DCP-09.md#331-mandate-acknowledgment-opt-in) 中选择性启用的授权书确认，位于四个 SDK 的本地
+源代码中，不在已发布的包中（07/11/2026）。`createMandateAcknowledgment` 以 `params.mandateChain` 最后一个授权书的
+代理身份，在 `MANDATE_ACKNOWLEDGMENT_CONTEXT` 下签署一条 `mandate_acknowledgment` 记录（`dcp09-mandate-ack-v1`）；
+`params` 为 `{ mandateChain, awarenessThreshold, acknowledgmentId, acknowledgedAt? }`，不接受任何哈希。
+`evaluateDelegationActivationV2` 接收委托准入的证据以及 `acknowledgments` 和 `awarenessThresholds`，返回
+`composition`、`activation`、`delegation_active`、`action_authorized`（始终为 `false`）、`acknowledgments`、`inputs`
+以及带有有序 `ACK_*` 代码的 `errors`。Python：`create_mandate_acknowledgment`、`evaluate_delegation_activation_v2`；
+Go：`CreateMandateAcknowledgment`、`EvaluateDelegationActivationV2`；Rust：`create_mandate_acknowledgment`、
+`evaluate_delegation_activation_v2`。
+
 ### `evaluateSignificance(context)` / `shouldNotifyHuman(significance, thresholds)`
 
 评估操作的重要性，并确定是否应通知人类。
@@ -1745,6 +1771,10 @@ const DCP_CONTEXTS: Record<string, DcpContext>;
 // Lifecycle (DCP-05), Succession (DCP-06), Dispute (DCP-07),
 // Rights (DCP-08), Delegation (DCP-09), Awareness (DCP-09), SubMandate (DCP-09)
 ```
+
+`MANDATE_ACKNOWLEDGMENT_CONTEXT`（`DCP-AI.v2.MandateAcknowledgment`，本地源代码，未发布）是该映射旁边的一个单独
+常量，映射本身保留其 19 个条目；`domainSeparatedMessage` 接受它。Python 有同样的常量，Go 为
+`CtxMandateAcknowledgment`，Rust 为 `CTX_MANDATE_ACKNOWLEDGMENT`。
 
 ### `domainSeparatedMessage(context, canonicalPayloadBytes)`
 

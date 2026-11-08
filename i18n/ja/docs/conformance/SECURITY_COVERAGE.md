@@ -169,6 +169,29 @@ PQ の否定ケースでは bundle、パスポート、チェックポイント�
 
 有限のキャンペーンは、これらのケースが一致することを示すか、一致しない箇所を記録します。網羅的ではありません。WASM は委任状チェーンを検証しません。また、契約 `/4` がすべての SDK に運ばない入力（`NaN` トークン、バイトオーダーマーク、`1e400`）は、別のトランスポートのプローブで測定します。ラッパーの拒否が SDK の拒否として数えられることはなく、TypeScript と Python の SDK が `1e400` に返す拒否も意味上の規則の証拠にはなりません。
 
+<a id="local-source-additions-07112026"></a>
+
+## ローカルのソースでの追加（07/11/2026）
+
+これらの行は、公開されたパッケージではなく、TypeScript、Python、Go、Rust の SDK のローカルのソースを記述します。
+それぞれは 4 つの SDK のテストスイートが実行する共有ベクターで確認されます。外部キットにはまだこれらのための契約が
+ないため、キットの結果はこれらの規則について何も示しません。いずれも完全な適合やエンタープライズでの準備完了を主張する
+ものではありません。
+
+**オプションの領域。** それを呼び出すコードだけが使います。
+
+| 要件 | 確認している対象 | 制限 |
+|---|---|---|
+| 委任付きアドミッション（[アドミッションプロファイル § 10](../../../../spec/profiles/admission/README.md#10-delegated-admission-opt-in)） | [`delegated_admission_vectors.json`](../../../../tests/interop/v2/delegated_admission_vectors.json)：71 件のケースと 6 件の構成のケース | `now` でのみ確認。`delegation_active` と `action_authorized` は `false`。WASM の API なし |
+| バイトからのアドミッション（§ 11） | [`v1_ingress_vectors.json`](../../../../tests/interop/v2/v1_ingress_vectors.json)：26 件のケースと 30 件のドメインの差異 | サイズと時間の予算は対象外。解析済みの値を受け取る関数は、パーサーが失ったものを取り戻せない |
+| マンデートの確認応答とアクティベーション（[DCP-09 § 3.3.1](../../../../spec/DCP-09.md#331-mandate-acknowledgment-opt-in)、§ 12） | [`mandate_acknowledgment_vectors.json`](../../../../tests/interop/v2/mandate_acknowledgment_vectors.json)：TypeScript と Python では 93 件。Go と Rust では 89 件で、コンテナーがリストでない 4 件を、型付きの API では運べないため明示的に除外 | 署名付きの宣言であり、時系列や理解の証明ではない。認可なし。全体的なリプレイの確認なし。バイトからのアクティベーションなし。WASM の API なし |
+
+**Ed25519 の検証（暗号プロファイル）。** SDK の検証器が確認するすべての Ed25519 署名に適用されます。
+
+| 要件 | 確認している対象 | 制限 |
+|---|---|---|
+| V1 のオブジェクトと V2 の既定のプロバイダーでの [P-ED-1](../../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion) | [`ed25519_ped1_vectors.json`](../../../../tests/interop/v2/ed25519_ped1_vectors.json) とその確認ツールを 4 つの SDK のテストスイートで実行。`wasm32` 向けにコンパイルした Rust のコード | WASM はコンパイルのみで、WASM のランタイムやブラウザーでは実行していない。リファレンスの V1 検証器（`lib/verify.js` と `tools/crypto.js`）、CLI の V1 のコピー、playground はまだ適用せず、S < L だけを確認する。リファレンスの V2 検証器、サーバー、V2 の CLI はインストール済みの `@dcp-ai/sdk` を使い、それを再ビルドして再インストールしたときにだけ変わる。この変更はアダプターとキットを更新しない。独自のプロバイダーは運用者の責任 |
+
 <a id="claims-for-core-and-profiles"></a>
 
 ## コアとプロファイルについて主張できる範囲

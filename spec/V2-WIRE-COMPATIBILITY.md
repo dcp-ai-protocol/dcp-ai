@@ -132,7 +132,9 @@ These requirements stay normative. The V2.0 schemas of the records listed below 
 or a closed value set, so those records do not represent these requirements directly, and the SDK helpers on their
 own do not meet them. Whether a mechanism outside these records can meet them depends on showing the functional
 requirements themselves; these errata neither establish nor assume it. Representing them inside the records needs an
-explicit, versioned design (a new schema version or a profile); none is defined or enabled by these errata.
+explicit, versioned design (a new schema version or a profile); these errata define or enable none. Since 07/11/2026
+the DCP-09 §3.3 agent acknowledgment has one, as a separate record (see the note below the table); the other
+requirements still have none.
 
 | Requirement | Why the V2.0 record does not carry it |
 |-------------|--------------------------------------|
@@ -142,6 +144,12 @@ explicit, versioned design (a new schema version or a profile); none is defined 
 | DCP-08 §4.3 organizational rights in reverse-domain notation | `right_type` is a closed enum of the four foundational rights |
 | DCP-08 §9.1 signature by the commissioning authority | The record does not identify its signer's role; the helpers do not check it |
 | DCP-09 §3.3 agent acknowledgment; §6.3 principal signature on a mirror | One signature per record |
+
+> *Note (07/11/2026):* the agent acknowledgment of DCP-09 §3.3 now has an explicit, versioned and opt-in design: a
+> separate record, [DCP-09 §3.3.1](DCP-09.md#331-mandate-acknowledgment-opt-in)
+> (`schemas/v2/mandate_acknowledgment.schema.json`, vectors `tests/interop/v2/mandate_acknowledgment_vectors.json`).
+> The mandate schema, its single signature and its context do not change, and a verifier that does not opt in reads
+> the same records as before. The principal signature on a mirror (§6.3) is still not represented.
 
 The vitality score helpers of the SDKs also differ from one another on ties when given fractional inputs (for
 `task_completion_rate` 0, `error_rate` 1, `human_satisfaction` 0.002 and `policy_alignment` 0, the TypeScript helper

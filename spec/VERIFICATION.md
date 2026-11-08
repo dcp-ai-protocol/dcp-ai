@@ -12,6 +12,7 @@ When verifying a Signed Bundle, perform the following in order:
    - Recompute `bundle_hash` = SHA-256(canonical(bundle)); compare with `signature.bundle_hash` (must match, e.g. `sha256:<hex>`).  
    - Verify `signature.sig_b64` with `signature.signer.public_key_b64` over the canonical bundle (Ed25519 detached).  
    - Use `dcp verify-bundle <signed.json> <public_key.txt>` to perform this step.
+   - The Ed25519 signature is accepted under P-ED-1 of the [Crypto Profile](profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion). The SDK verifiers apply it; the reference `dcp verify-bundle` checks only S < L so far ([SECURITY_COVERAGE.md](../docs/conformance/SECURITY_COVERAGE.md)).
 
 3. **Verify RPR:** Not expired — `responsible_principal_record.expires_at` is `null` or a future ISO 8601 date-time. Optional: verify RPR signature if the record is stored signed.
 
@@ -86,7 +87,7 @@ Every `sig_b64`, in the bundle signature, the artifacts' and the checkpoints', M
 
 ### Step V2-6: Verify classical signature
 
-Reconstruct the signed message: `context_tag || 0x00 || canonical(manifest)` where `context_tag` is `"DCP-AI.v2.Bundle"`. Verify `composite_sig.classical.sig_b64` against the public key identified by `composite_sig.classical.kid` using the algorithm specified in `composite_sig.classical.alg` (typically Ed25519).
+Reconstruct the signed message: `context_tag || 0x00 || canonical(manifest)` where `context_tag` is `"DCP-AI.v2.Bundle"`. Verify `composite_sig.classical.sig_b64` against the public key identified by `composite_sig.classical.kid` using the algorithm specified in `composite_sig.classical.alg` (typically Ed25519). An `ed25519` component is accepted under P-ED-1 of the [Crypto Profile](profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion), wherever it is verified; this does not change which components the effective mode (Step V2-9) requires.
 
 The bundle signer is the responsible principal: look the kid up in the RPR `binding_keys` only. The principal's signature over the manifest, which commits to `passport_hash`, is what binds this agent and its keys to the principal; the agent signs its own passport, so a key that only the passport lists MUST NOT verify the bundle signature. Otherwise anyone could pair a published, signed RPR with a passport and keys of their own.
 

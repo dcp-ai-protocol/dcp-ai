@@ -196,7 +196,109 @@ Schema reference: `schemas/v2/delegation_mandate.schema.json`
 6. The acknowledged mandate becomes active
 7. An `delegation_mandate_issued` audit entry is created in both the principal's and agent's audit chains
 
-> *Informative note (25/10/2026):* the V2.0 `delegation_mandate` schema has no field for the agent's acknowledgment of step 5; see [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md#4-requirements-the-v20-structures-do-not-represent-directly).
+> *Informative note (25/10/2026):* the V2.0 `delegation_mandate` schema has no field for the agent's acknowledgment of step 5; see [V2-WIRE-COMPATIBILITY.md](V2-WIRE-COMPATIBILITY.md#4-requirements-the-v20-structures-do-not-represent-directly). A separate, versioned and opt-in record now represents it: §3.3.1.
+
+#### 3.3.1 Mandate acknowledgment (opt-in)
+
+Steps 4 to 6 are represented by a separate record, carried apart from the mandate. It is opt-in and changes no byte of
+any existing record: the mandate, the awareness threshold, their schemas and their contexts stay as they are.
+
+**Record.** [`schemas/v2/mandate_acknowledgment.schema.json`](../schemas/v2/mandate_acknowledgment.schema.json), format
+`dcp09-mandate-ack-v1`, one record per mandate of the chain. Its fields are `dcp_version` (`"2.0"`),
+`acknowledgment_format`, `acknowledgment_id`, `mandate_id`, `mandate_hash`, `chain_hash`, `session_nonce`, `human_id`,
+`agent_id`, `awareness_threshold_id`, `awareness_threshold_hash`, `acknowledged_at` and `composite_sig`; no other
+member is allowed. The ids are the exact strings of the mandate and of the threshold; each hash is `sha256:` followed by
+64 lowercase hex digits, over `dcp-jcs-v1` bytes:
+
+| Field | SHA-256 of |
+|---|---|
+| `mandate_hash` | The mandate without `human_composite_sig` and `delegator_composite_sig`, the payload its signer signs (§3.4) |
+| `chain_hash` | The JSON array of the `mandate_hash` values from the root to the acknowledged mandate inclusive (for the root, `["sha256:…"]`) |
+| `awareness_threshold_hash` | The awareness threshold (§4) without its `composite_sig` |
+
+**Signature.** The agent of the acknowledged mandate signs with a `pq_over_classical` composite signature under the
+context `DCP-AI.v2.MandateAcknowledgment`: the classical component signs `UTF8(context) || 0x00 ||
+dcp-jcs-v1(record without composite_sig)`, and the PQ component signs that message followed by the classical signature.
+Both components are required and both are verified, in every verification mode, as for mandates (§3.5.1). The awareness
+threshold the record names must also be `pq_over_classical`. The verifier policy applies to the four components as
+delegated admission applies it to the mandates: the PQ algorithm must always be accepted, and the classical one unless
+the leaf's mode is `pq_only`.
+
+**Bindings.** The record's `session_nonce`, `human_id` and `agent_id` are the acknowledged mandate's, and so are those
+of the threshold it names. Within one evaluation, that is one set of inputs, each acknowledgment names one threshold
+and a threshold is named by one acknowledgment. Nothing is registered or consumed across calls: this is not a global
+replay check.
+
+**Domain.** In the activation and creation operations below, every `threshold_rules[].value` is an integer within
+±(2^53 − 1) (an integral float such as `5.0` is accepted, a boolean is not), every string of the record and of the
+threshold is a sequence of Unicode scalar values, and `minLength` counts code points. These rules apply only to these two
+operations; they are not a change of `dcp-jcs-v1` or of the threshold schema.
+
+**Time.** Instants are RFC 3339 and compared as instants. Equal bounds are accepted.
+
+| Rule | Condition |
+|---|---|
+| T1 | `acknowledged_at` ≥ the acknowledged mandate's `timestamp` |
+| T2 | `acknowledged_at` ≥ the threshold's `timestamp` |
+| T3 | `acknowledged_at` ≤ the acknowledged mandate's `valid_until` |
+| T4 | `acknowledged_at` ≤ the verification time plus 30 seconds |
+| T5 | For each sub-mandate i ≥ 1, the acknowledgment of mandate i − 1 is not after the `timestamp` of mandate i: an agent acknowledges before it sub-delegates |
+
+These instants are declared in signed records: they are a consistency check, not proof of the real chronology. An
+acknowledgment re-signed with an old `acknowledged_at` cannot be told apart from one made at that time.
+
+**Activation.** An implementation that evaluates activation MUST do it on one snapshot of the inputs and at one
+verification time, after admitting the delegation ([admission profile §10 and §12](profiles/admission/README.md#12-delegation-activation-opt-in)),
+and MUST take the agents' keys from the passports of the bundles that admission verified, not from a key map supplied
+with the request; the three hashes of each acknowledgment are recomputed from the chain and the threshold. The
+delegation is active when the composition is admitted and every mandate of the chain has exactly one valid
+acknowledgment. Activation authorizes no action: `action_authorized` is always `false`, and neither `authority_scope`
+nor `threshold_rules` is evaluated. A valid acknowledgment shows that the agent's key signed this record; it does not
+show that the agent understood the mandate.
+
+**Keys and rotation.** Only the keys in the agent's current, verified passport count; no historical key is recovered.
+Adding a new key while the old one stays active in the current passport invalidates nothing by itself. When an old key
+is withdrawn from the current passport, what it signed no longer verifies: each sub-mandate it signed is re-issued with
+a current key, and each acknowledgment and awareness threshold it signed is made again. A new acknowledgment carries the time it is made; when
+that time is after the `timestamp` of the sub-mandate below, T5 requires re-issuing that sub-mandate as well, which
+changes its `mandate_hash` and the `chain_hash` of the acknowledgments below it, so those are made again too. The leaf
+agent, with no sub-mandate below it, only acknowledges again. When a key was rotated is not inferred from any source.
+
+**Codes and order.** `errors` is an ordered list. The codes and their order are normative and the same in every
+implementation; the messages are not.
+
+1. `ACK_INPUT_INVALID`: the acknowledgments or the thresholds are not a list of JSON values (TypeScript and Python; in
+   Go and Rust the types already carry a list of records). Activation is then not evaluated.
+2. Form, acknowledgments then thresholds, in input order: `ACK_FORM_INVALID`, `ACK_THRESHOLD_INVALID` (in Go, which
+   takes each record as bytes, also `ACK_PARSER_MISMATCH`, a local parser fault). Evaluation stops here if any.
+3. Cardinality: `ACK_MISSING` or `ACK_DUPLICATE` per mandate in chain order; `ACK_UNEXPECTED`; a repeated
+   `acknowledgment_id` (`ACK_DUPLICATE`); `ACK_THRESHOLD_DUPLICATE`, `ACK_THRESHOLD_MISSING`, `ACK_THRESHOLD_REUSED` and
+   `ACK_THRESHOLD_UNEXPECTED`. Evaluation stops here if any.
+4. Per mandate, in chain order, four phases; a phase that adds a code skips the following ones for that mandate:
+   bindings (`ACK_MANDATE_MISMATCH`, `ACK_CHAIN_MISMATCH`, `ACK_THRESHOLD_MISMATCH`); keys and policy (`ACK_KEY_UNKNOWN`,
+   `ACK_KEY_INVALID`, `ACK_ALGORITHM_REJECTED`); signatures (`ACK_THRESHOLD_SIGNATURE_INVALID`, then
+   `ACK_SIGNATURE_INVALID`); and T1 to T4 (`ACK_TIME_INVALID`).
+5. T5 (`ACK_TIME_INVALID`), for each link whose parent passed step 4.
+6. Revocation of the keys that only acknowledgments and thresholds valid in steps 4 and 5 use, by `kid` in ascending
+   order: `ACK_KEY_REVOKED`, `ACK_KEY_REVOCATION_UNKNOWN`.
+
+**Creation.** A helper creates the record from the mandate chain (root first, ending with the acknowledged mandate),
+the signed threshold, an id, an optional instant and the agent's signing keys. It computes the three hashes itself and
+takes no hash as a parameter. Before signing, it refuses a record that could never verify: a threshold of another
+agent, principal or session, an `acknowledged_at` outside T1 to T3, or a value outside the domain above.
+
+| SDK | Evaluate | Create | Context constant |
+|---|---|---|---|
+| TypeScript | `evaluateDelegationActivationV2` | `createMandateAcknowledgment` | `MANDATE_ACKNOWLEDGMENT_CONTEXT` |
+| Python | `evaluate_delegation_activation_v2` | `create_mandate_acknowledgment` | `MANDATE_ACKNOWLEDGMENT_CONTEXT` |
+| Go | `EvaluateDelegationActivationV2` | `CreateMandateAcknowledgment` | `CtxMandateAcknowledgment` |
+| Rust | `evaluate_delegation_activation_v2` | `create_mandate_acknowledgment` | `CTX_MANDATE_ACKNOWLEDGMENT` |
+
+Vectors: [`tests/interop/v2/mandate_acknowledgment_vectors.json`](../tests/interop/v2/mandate_acknowledgment_vectors.json),
+93 cases, 3 text cases and 1 Go bytes case. TypeScript and Python run the 93 cases; Go and Rust run 89, and exclude
+explicitly the 4 cases whose containers are not lists, which their typed API cannot carry. There is no activation from
+bytes, and WASM does not export it. The context is valid for domain separation in every SDK; the `DCP_CONTEXTS` maps of
+TypeScript and Python keep their 19 historical entries, and the new constant stands beside them.
 
 ### 3.4 Mandate Hash
 
@@ -255,6 +357,8 @@ A verifier that accepts a mandate chain MUST take the ordered chain (root first)
 > catalog kept informative are normative from its version 2.0.0.
 
 Reference implementations: `verifyMandateChain` (TypeScript), `verify_mandate_chain` (Python and Rust) and `VerifyMandateChain` (Go). `tests/interop/v2/mandate_chain_vectors.json` holds chains every implementation MUST accept and chains it MUST reject, and all four SDK suites run it.
+
+Admitting a bundle together with the chain it acts under, with the operator's trust set and policy applied to the chain, is the opt-in delegated admission of the [admission profile §10](profiles/admission/README.md#10-delegated-admission-opt-in).
 
 ### 3.6 Mandate Revocation
 

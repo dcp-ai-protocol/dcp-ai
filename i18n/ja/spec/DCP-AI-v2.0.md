@@ -4,7 +4,7 @@
 
 # DCP-AI v2.0 規範仕様
 
-> [英語の仕様](../../../spec/DCP-AI-v2.0.md)の参考訳です（06/11/2026 更新）。**規範となるのは英語版です**。この翻訳に規範的な効力はなく、内容が異なる場合は英語版が優先されます。識別子とコードブロックは翻訳せずにそのまま掲載しています。
+> [英語の仕様](../../../spec/DCP-AI-v2.0.md)の参考訳です（07/11/2026 更新）。**規範となるのは英語版です**。この翻訳に規範的な効力はなく、内容が異なる場合は英語版が優先されます。識別子とコードブロックは翻訳せずにそのまま掲載しています。
 
 **ステータス:** Final  
 **バージョン:** 2.0.0  
@@ -59,6 +59,8 @@ Digital Citizenship Protocol for AI（DCP-AI）v2.0 は、エージェントの�
 | `slh-dsa-256f` | FIPS 205 | 64 B | 49856 B | NIST レベル 5 PQ | RESERVED |
 
 > *参考の注記（2026 年 10 月 25 日）、規範的な本文の一部ではありません：* `ml-dsa-87` を実装している DCP-AI の SDK はまだありません。SDK は `ed25519`、`ml-dsa-65`、`slh-dsa-192f` で署名し検証します（[docs/NIST_CONFORMITY.md](../../../docs/NIST_CONFORMITY.md)）。
+
+> *注記（07/11/2026）：* `ed25519` の署名は、[暗号プロファイル](../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion)の受理基準 P-ED-1 に従って受理されます。
 
 <a id="22-kem-algorithms"></a>
 
@@ -156,8 +158,11 @@ signed_bytes = UTF8(context_tag) || 0x00 || canonical_payload_bytes
 | `DCP-AI.v2.Delegation` | ルートの委任マンデート（人間の署名）、プリンシパルミラー、やり取りの記録（DCP-09） |
 | `DCP-AI.v2.Awareness` | 認識しきい値と助言の宣言（DCP-09） |
 | `DCP-AI.v2.SubMandate` | 委任するエージェントが署名したサブマンデート（DCP-09 §3.5） |
+| `DCP-AI.v2.MandateAcknowledgment` | 受任エージェントが署名するマンデートの確認応答、オプトイン（DCP-09 §3.3.1） |
 
 > **正誤 E1（25/10/2026、規範的）：** `MultiPartyAuth`、`Lifecycle`、`Succession`、`Dispute`、`Rights`、`Awareness` の行と、`Delegation` の行のプリンシパルミラーは、SDK と `tests/interop/v2/interop_vectors.json#domain_separation_all_contexts` がすでに使っているコンテキストを記載するもので、タグを追加するものではありません。[V2-WIRE-COMPATIBILITY.md](../../../spec/V2-WIRE-COMPATIBILITY.md) を参照してください。
+
+> *注記（07/11/2026）：* `MandateAcknowledgment` の行はタグを 1 つ追加します。[DCP-09 §3.3.1](../../../spec/DCP-09.md#331-mandate-acknowledgment-opt-in) のオプトインの記録のためのものです。既存の記録はこのタグでは署名されません。従来の 19 のタグと `domain_separation_all_contexts` のベクターは変わりません。署名を行う 4 つの SDK はすべて、新しいタグをドメイン分離に受け入れ、定数として公開します。TypeScript と Python では、その定数は 19 項目の `DCP_CONTEXTS` マップの横に置かれ、マップには含まれません。
 
 ---
 
@@ -502,7 +507,7 @@ function computeSecurityTier(intent, policy_decision):
   return tier
 ```
 
-検証済みの委任チェーンの実効的な階層、すなわちチェーン上の `minimum_security_tier` の最大値は、この計算への省略可能な入力であり、結果を引き上げることしかできず、引き下げることは決してありません。チェーンを運ぶ bundle のフィールドはまだないため、この下限が適用されるのは、検証者が bundle と一緒に検証済みのチェーンを渡された場合です。§18 の bundle の検証者はチェーンを読みません。
+検証済みの委任チェーンの実効的な階層、すなわちチェーン上の `minimum_security_tier` の最大値は、この計算への省略可能な入力であり、結果を引き上げることしかできず、引き下げることは決してありません。チェーンを運ぶ bundle のフィールドはまだないため、この下限が適用されるのは、検証者が bundle と一緒に検証済みのチェーンを渡された場合です。§18 の bundle の検証者はチェーンを読みません。オプトインの[アドミッションプロファイル §10](../../../spec/profiles/admission/README.md#10-delegated-admission-opt-in)の委任付きアドミッションは、そのような検証者の 1 つです。
 
 `ACTION_TYPES` と `DATA_CLASSES` は、`schemas/v2/intent.schema.json` の `action_type` と `data_classes` の列挙値です。値が欠けている、型が誤っている、または未知の場合は、少なくとも `elevated` にフェイルクローズします。これにより、スキーマ検証の有無にかかわらず、検証者が知らない値によって bundle が受ける精査が弱まることはありません。ポリシー決定がない場合、スコアは 0 です。ポリシー決定の中で、`risk_score` が欠けているか、0 から 1000 の整数でない（文字列、小数、負の数、1000 を超える数）場合は、同じく未知として扱われ、上のスコアの比較では 0 とみなされます。`200.0` のように小数部のない数は、その整数として数えます。
 

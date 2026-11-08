@@ -24,7 +24,7 @@ use crate::v2::lifecycle::unix_now_millis;
 use crate::v2::pq_checkpoint::audit_events_merkle_root;
 use crate::v2::schema_v2::{schema_diagnostics, validate_signed_bundle_v2_schema};
 use crate::v2::session_nonce::parse_rfc3339_millis;
-use crate::v2::security_tier::{compute_security_tier, effective_verification_mode};
+use crate::v2::security_tier::{compute_security_tier_with_floor, effective_verification_mode};
 use crate::v2::types::VerifierPolicy;
 
 /// Outcome of a V2 signed bundle verification.
@@ -121,9 +121,39 @@ pub(crate) fn verify_signed_bundle_v2_at_profile(
     now_ms: i64,
     accepted_profile: &str,
 ) -> V2VerificationDetails {
+    verify_signed_bundle_v2_at_floor(signed_bundle, policy, now_ms, accepted_profile, None, false)
+}
+
+/// [`verify_signed_bundle_v2_at_profile`] with `tier_floor`, the effective tier of a mandate chain, fed to the
+/// tier computation (spec § 14.2), where it can only raise the tier and so the mode every signature is verified
+/// in. `contract_checked` says the policy passed the composition's policy contract
+/// (`delegated_admission::check_policy_contract`), or is a strict-v1 profile's, which lies within it: the gate
+/// below then also takes, as the policy gives them and without rewriting it, the values of fields this verifier
+/// does not read that the contract admits (`accepted_hash_algs` as the same set in another order;
+/// `min_classical` 0 and `require_composite_binding` false when every mode is pq_only). Only
+/// admit_delegated_bundle_v2 passes a floor or true; None and false give the public verifier's result.
+pub(crate) fn verify_signed_bundle_v2_at_floor(
+    signed_bundle: &Value,
+    policy: &VerifierPolicy,
+    now_ms: i64,
+    accepted_profile: &str,
+    tier_floor: Option<&str>,
+    contract_checked: bool,
+) -> V2VerificationDetails {
     let mut signer_keys = Vec::new();
-    let result = verify(signed_bundle, policy, now_ms, &mut signer_keys, accepted_profile);
+    let result = verify(signed_bundle, policy, now_ms, &mut signer_keys, accepted_profile, tier_floor, contract_checked);
     V2VerificationDetails { result, signer_keys }
+}
+
+/// Exactly sha256 and sha384, in any order, each once.
+pub(crate) fn is_default_hash_set(hashes: &[String]) -> bool {
+    hashes.len() == 2 && hashes.iter().any(|h| h == "sha256") && hashes.iter().any(|h| h == "sha384")
+}
+
+/// The policy's default mode and every risk override are pq_only.
+pub(crate) fn all_modes_pq_only(policy: &VerifierPolicy) -> bool {
+    policy.default_mode == "pq_only"
+        && ["low", "medium", "high"].iter().all(|t| policy.risk_overrides.get(*t).map(String::as_str) == Some("pq_only"))
 }
 
 /// The verification itself; the keys of each signature that reached the
@@ -134,9 +164,11 @@ fn verify(
     now_ms: i64,
     signer_keys: &mut Vec<SignerKeyUse>,
     accepted_profile: &str,
+    tier_floor: Option<&str>,
+    contract_checked: bool,
 ) -> V2VerificationResult {
     let mut r = V2VerificationResult { dcp_version: "2.0".into(), ..Default::default() };
-    let enforced = VerifierPolicy {
+    let mut enforced = VerifierPolicy {
         default_mode: policy.default_mode.clone(),
         risk_overrides: policy.risk_overrides.clone(),
         accepted_classical_algs: policy.accepted_classical_algs.clone(),
@@ -151,6 +183,19 @@ fn verify(
         verifier_id: policy.verifier_id.clone(),
         ..VerifierPolicy::default()
     };
+    if contract_checked {
+        if is_default_hash_set(&policy.accepted_hash_algs) {
+            enforced.accepted_hash_algs = policy.accepted_hash_algs.clone();
+        }
+        if all_modes_pq_only(policy) {
+            if policy.min_classical == 0 {
+                enforced.min_classical = 0;
+            }
+            if !policy.require_composite_binding {
+                enforced.require_composite_binding = false;
+            }
+        }
+    }
     if *policy != enforced {
         r.errors.push(
             "Verifier policy sets fields this verifier does not enforce: only default_mode, risk_overrides, accepted_classical_algs, accepted_pq_algs, allow_v1_bundles, the Phase 3 fields, max_session_duration_seconds, require_session_expiry, require_audience_binding and verifier_id may differ from the default"
@@ -252,7 +297,7 @@ fn verify(
         r.errors.push("Unknown verification mode in verifier policy".to_string());
         return r;
     }
-    let tier = compute_security_tier(payload_of("intent").unwrap_or(&Value::Null), payload_of("policy_decision"));
+    let tier = compute_security_tier_with_floor(payload_of("intent").unwrap_or(&Value::Null), payload_of("policy_decision"), tier_floor);
     let mode = effective_verification_mode(policy_mode, tier);
     r.resolved_tier = tier.as_str().to_string();
     r.verification_mode = mode.to_string();

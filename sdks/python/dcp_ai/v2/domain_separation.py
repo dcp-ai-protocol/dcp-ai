@@ -26,7 +26,12 @@ DCP_CONTEXTS: dict[str, str] = {
     "SubMandate": "DCP-AI.v2.SubMandate",
 }
 
-_VALID_CONTEXTS = frozenset(DCP_CONTEXTS.values())
+# DCP-09 § 3.3: the delegate agent's acknowledgment of a mandate (MP-02 F4, opt-in). A valid context kept out of
+# DCP_CONTEXTS, whose entries a frozen interoperability fixture enumerates and the experimental producer derives its
+# contexts from.
+MANDATE_ACKNOWLEDGMENT_CONTEXT = "DCP-AI.v2.MandateAcknowledgment"
+
+_VALID_CONTEXTS = frozenset({*DCP_CONTEXTS.values(), MANDATE_ACKNOWLEDGMENT_CONTEXT})
 
 
 def domain_separated_message(context: str, canonical_payload_bytes: bytes) -> bytes:

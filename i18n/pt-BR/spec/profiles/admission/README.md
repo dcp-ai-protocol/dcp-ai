@@ -4,7 +4,7 @@
 
 # Perfil de admissão: confiança no principal e `strict-v1`
 
-> Tradução informativa da [especificação em inglês](../../../../../spec/profiles/admission/README.md), atualizada em 29/10/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
+> Tradução informativa da [especificação em inglês](../../../../../spec/profiles/admission/README.md), atualizada em 07/11/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
 
 **Estado:** Rascunho, v1
 **Escopo:** Se um verificador admite um bundle V2 assinado como evidência vinda de um principal em que já confia, sob um perfil definido pelo operador
@@ -312,6 +312,142 @@ Os campos do resultado mantêm os nomes do §5.2 na forma JSON de cada SDK.
 ## 9. Vetores de teste
 
 [`tests/interop/v2/admission_vectors.json`](../../../../../tests/interop/v2/admission_vectors.json) contém os casos compartilhados: bundles assinados, conjuntos de confiança, perfis, snapshots de revogação, `now` e, para cada caso, os valores esperados de `verified`, `principal_trust`, `profile_compliance`, `admitted` e o conjunto de códigos, com a regra que ele verifica. Os casos de configuração dão a configuração e o código de erro esperado. Todos os SDKs os executam; o critério não é a concordância entre os SDKs, mas os valores esperados.
+
+<a id="10-delegated-admission-opt-in"></a>
+
+## 10. Admissão delegada (opt-in)
+
+Uma função adicional admite um bundle folha junto com a cadeia de mandatos do [DCP-09](../../../../../spec/DCP-09.md) que delega
+ao seu agente e um bundle por agente que delega. É opt-in: nada a chama por padrão, e §1–§9, `strict-v1`, seus códigos
+e seus vetores não mudam.
+
+**Entradas.** A evidência pode vir da requisição: o bundle assinado da folha, a cadeia de mandatos (raiz primeiro) e
+um bundle assinado por agente que delega. O operador fornece o restante, nunca a requisição (A2):
+
+- o conjunto de confiança ou um armazenamento de confiança já carregado (obrigatório);
+- um perfil `strict-v1` ou uma política de verificador, não ambos;
+- um snapshot de revogação dos agentes e das chaves da composição, e um snapshot de revogação de mandatos
+  `{ checked_at, mandates: { <mandate_id>: status } }` (um snapshot ausente significa que a fonte não pôde responder,
+  e as verificações de revogação o informam);
+- sem perfil, `max_revocation_age_seconds`, um inteiro de 1 a 300; com perfil, aplica-se o do perfil, e passar ambos é
+  `CONFIG_PROFILE_CONTRADICTION`;
+- `now`, lido uma vez.
+
+**Procedimento.** Tudo é avaliado sobre um snapshot das entradas tirado no início, nesse único `now`. A evidência são
+documentos JSON, na representação de JSON de cada SDK: TypeScript e Python recebem valores JSON, Go o texto JSON como
+bytes, Rust `serde_json::Value`. O que não é JSON nessa representação é `DELEGATION_INPUT_INVALID`: em TypeScript, por
+exemplo, um `Map`, um `Date`, uma instância de classe, um acessor ou `undefined`; em Python uma tupla, uma subclasse de
+dict ou outro objeto; em Go um texto que não pode ser analisado, ou uma cadeia que não é um array.
+
+1. **Forma.** A cadeia não está vazia, e nela não se repete nenhum `mandate_id` nem nenhum agente
+   (`DELEGATION_REPEATED_ID`).
+2. **Piso.** O maior `minimum_security_tier` da cadeia (um valor desconhecido conta como `elevated`) só eleva o nível.
+   Se a cadeia verifica, seu nível efetivo deve ser igual a ele (`DELEGATION_FLOOR_MISMATCH`).
+3. **Bundles.** A folha e cada delegador são verificados com esse piso, no mesmo `now` e sob o mesmo perfil ou
+   política, e depois admitidos (§5). Os códigos de admissão próprios da folha são informados como estão, exceto
+   `REVOCATION_*`, que o passo 10 avalia uma única vez para cada sujeito. Um delegador que não é admitido é
+   `DELEGATION_DELEGATOR_NOT_ADMITTED`, e seus próprios códigos ficam no seu resultado aninhado.
+4. **Vínculos.** O `human_id` da cadeia é o principal de cada bundle (`DELEGATION_PRINCIPAL_MISMATCH`). O último mandato
+   nomeia o agente da folha (`DELEGATION_LEAF_MISMATCH`). Há exatamente um bundle por agente que delega
+   (`DELEGATION_DELEGATOR_MISSING`, `DELEGATION_DELEGATOR_UNEXPECTED`).
+5. **Chaves.** As chaves do principal são as `binding_keys` do RPR da folha, e as de cada agente são as `keys` do
+   passaporte do seu bundle verificado. Toda chave usada tem um `kid` derivado e base64 canônico (V2-13). A mesma chave
+   nas listas de dois atores, ou um `kid` repetido em uma lista, é `DELEGATION_KEY_AMBIGUOUS`.
+6. **Cadeia.** [DCP-09 §3.5.2](../../../../../spec/DCP-09.md#352-chain-verification), com essas chaves e os mandatos cujo estado é
+   `revoked` (`DELEGATION_CHAIN_INVALID`).
+7. **Política de algoritmos sobre a cadeia.** A política do verificador se aplica a cada componente de assinatura que a
+   cadeia usa, como V2-10 a aplica a um bundle, sob o modo efetivo da folha. Com `pq_only` as listas clássicas não são
+   consultadas, mas os dois componentes de cada mandato devem verificar (DCP-09 §3.5.1). Caso contrário,
+   `DELEGATION_ALGORITHM_REJECTED`.
+8. **Ancoragem da raiz.** Cada componente da `human_composite_sig` da raiz deve ser assinado com uma chave que o
+   conjunto de confiança lista para esse principal, ativa e dentro da sua validade em `now` (§3). Que a chave esteja no
+   RPR não basta. Caso contrário, os códigos `TRUST_KEY_*`.
+9. **`session_nonce`.** Não se exige igualdade entre um mandato e um bundle nem entre mandatos: o nonce de um mandato é
+   o da sessão que o emitiu. V2-4 continua se aplicando dentro de cada bundle.
+10. **Revogação.** §4.3, no mesmo `now` e com a mesma idade máxima, sobre cada agente da cadeia e cada chave usada por
+    um bundle ou um mandato; o snapshot de mandatos se aplica a cada `mandate_id`.
+
+**Resultado.** `admitted` quando nenhum passo acrescentou um código; `delegation_verified`; `activation`, sempre
+`not_evaluated`, e `delegation_active`, sempre `false` (§12 avalia a ativação); `action_authorized`, sempre `false`; o
+`security_tier` e o `verification_mode` da folha; `chain` (`depth`, `mandate_ids`, `effective_floor` e uma cópia de
+`leaf_authority_scope`, não avaliada); os resultados de admissão da folha e de cada delegador; `inputs`; e `errors`. Um
+erro de configuração é o `AdmissionConfigError` de §5.3, antes de verificar qualquer coisa.
+
+**Limites.** Tudo é verificado em `now`; verificar no passado não está definido. É preciso um bundle atual e admitido
+de cada delegador. Um agente repetido (A → B → A), que o DCP-09 não proíbe, é recusado. O registro e os provedores
+criptográficos são do operador e considerados confiáveis. Em Go, quem chama e altera suas entradas a partir de outra
+goroutine enquanto são copiadas provoca uma condição de corrida. O WASM não tem admissão delegada.
+
+| SDK | Função |
+|---|---|
+| TypeScript | `admitDelegatedBundleV2(evidence, registry, operator)` |
+| Python | `admit_delegated_bundle_v2(evidence, registry, operator)` (async) |
+| Go | `AdmitDelegatedBundleV2(registry, evidence, operator)` |
+| Rust | `admit_delegated_bundle_v2(&evidence, &operator)` |
+
+Vetores: [`tests/interop/v2/delegated_admission_vectors.json`](../../../../../tests/interop/v2/delegated_admission_vectors.json),
+71 casos e 6 casos de configuração.
+
+<a id="11-admission-from-bytes-opt-in"></a>
+
+## 11. Admissão a partir de bytes (opt-in)
+
+Uma função adicional recebe o bundle assinado como bytes e decide sobre esses bytes antes que qualquer parser os leia.
+Com as opções de §5 é admissão; sem conjunto de confiança nem perfil é verificação.
+
+1. **Snapshot.** Os bytes são copiados, e `unit_sha256` é calculado sobre a cópia antes de qualquer análise.
+2. **Scanner.** O scanner de ingresso do perfil candidato experimental, sem mudanças. Uma rejeição conserva sua classe e
+   seu deslocamento (camada `scanner`).
+3. **Domínio portável.** Fora das strings, todo literal numérico deve ser `-?(0|[1-9][0-9]*)`: sem fração, sem expoente
+   e sem `-0`. Caso contrário, `NUMBER_NOT_PORTABLE`, com o deslocamento do literal (camada `domain`). É uma rejeição
+   adicional, igual em todos os SDKs: um transporte que escreve `100.0` onde o signatário escreveu `100` é rejeitado
+   mesmo que a assinatura continue verificando.
+4. **Parser.** O decodificador próprio do SDK analisa a cópia; o valor, canonicalizado com `dcp-jcs-v1`, deve ser
+   igual aos bytes canônicos do scanner. Uma diferença ou uma falha de análise é `INGRESS_PARSER_MISMATCH` (camada
+   `parser`): uma falha local desse parser, não uma regra sobre os dados.
+5. **Admissão** (§5) exatamente desse valor, que o resultado devolve. A entrada de quem chama não é analisada de novo.
+
+O resultado tem `ingress` (`accepted`, `layer`, `class`, `offset`, `unit_sha256`, `canonical_sha256`), `admission`
+(null quando o ingresso rejeita, porque nada foi verificado) e `value`. `dcp-jcs-v1`, o perfil candidato, `strict-v1`,
+os padrões e as funções que recebem um valor já analisado não mudam; essas funções não podem recuperar o que seu parser
+já perdeu, como uma chave repetida ou um surrogate isolado. Os orçamentos de tamanho e de tempo não fazem parte desta
+função.
+
+| SDK | Função |
+|---|---|
+| TypeScript | `admitSignedBundleV2FromBytes(bytes, registry, options)` |
+| Python | `admit_signed_bundle_v2_from_bytes(data, registry, *, …)` (async; as opções de §5 como argumentos nomeados) |
+| Go | `AdmitSignedBundleV2FromBytes(registry, signedBundleJSON, opts)` |
+| Rust | `admit_signed_bundle_v2_from_bytes(bytes, &options)` |
+
+Vetores: [`tests/interop/v2/v1_ingress_vectors.json`](../../../../../tests/interop/v2/v1_ingress_vectors.json).
+
+<a id="12-delegation-activation-opt-in"></a>
+
+## 12. Ativação da delegação (opt-in)
+
+A ativação avalia, sobre §10, a confirmação assinada do agente delegado para cada mandato, definida em
+[DCP-09 §3.3.1](../../../../../spec/DCP-09.md#331-mandate-acknowledgment-opt-in). A função tira um snapshot da evidência, das
+confirmações, dos limiares de consciência e da configuração, fixa um `now`, executa §10 sobre esse snapshot e avalia as
+confirmações só quando a composição é admitida e as entradas são válidas, com os agentes, as chaves, a política, o modo
+e o snapshot de revogação que a composição verificou. A evidência traz registros assinados, com os hashes que assinam,
+e o operador fornece o conjunto de confiança e a configuração de §10. A função não aceita como autoridade nem um
+resultado de composição pré-calculado nem um mapa de chaves: as chaves dos agentes são as dos passaportes que a
+composição verificou, e os hashes do mandato, da cadeia e do limiar são recalculados a partir dos artefatos e
+comparados com as confirmações.
+
+O resultado aninha `composition`, exatamente o resultado de §10 para o mesmo snapshot (seu próprio `activation`
+continua `not_evaluated`), e acrescenta `activation` (`evaluated` ou `not_evaluated`), `delegation_active` (verdadeiro
+só quando a composição é admitida e cada mandato da cadeia tem exatamente uma confirmação válida), `action_authorized`
+(sempre `false`), uma entrada por mandato em `acknowledgments`, `inputs` e `errors` com os códigos de DCP-09 §3.3.1.
+`admitDelegatedBundleV2` e seus equivalentes não mudam.
+
+| SDK | Função |
+|---|---|
+| TypeScript | `evaluateDelegationActivationV2(evidence, registry, operator)` |
+| Python | `evaluate_delegation_activation_v2(evidence, registry, operator)` (async) |
+| Go | `EvaluateDelegationActivationV2(registry, evidence, operator)` |
+| Rust | `evaluate_delegation_activation_v2(&evidence, &operator)` |
 
 <a id="implementation-notes-informative"></a>
 

@@ -96,6 +96,10 @@ pub fn verify_object(obj: &Value, signature_b64: &str, public_key_b64: &str) -> 
             sig_bytes.try_into().map_err(|_| "invalid signature length".to_string())?;
 
         let verifying_key = VerifyingKey::from_bytes(&pk_array).map_err(|e| e.to_string())?;
+        // P-ED-1, after the key decodes (its error is kept) and before ed25519-dalek's verify.
+        if crate::ed25519_ped1::rejects(&sig_array, &pk_array) {
+            return Ok(false);
+        }
         let signature = Signature::from_bytes(&sig_array);
 
         Ok(verifying_key.verify(canon.as_bytes(), &signature).is_ok())

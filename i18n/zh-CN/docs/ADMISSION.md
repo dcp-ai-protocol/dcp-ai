@@ -4,7 +4,7 @@
 
 # 准入：受信任的委托人与 strict-v1 配置
 
-> 本文是[英文版](../../../docs/ADMISSION.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/ADMISSION.md)的参考译文，更新于 07/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 已验证的 bundle 证明其完整性，以及它是由其列出的密钥签署的。任何人都可以用任意 `human_id` 和自己的密钥创建责任委托人记录，因此仅凭验证无法知道委托人是**谁**。
 
@@ -167,12 +167,35 @@ configureVerifier({ trustedPrincipals, profile: { profile: 'strict-v1', verifier
 node /path/to/dcp-ai/bin/dcp.js admit-bundle bundle.signed.json --trust trust.json --profile profile.json --revocation snapshot.json
 ```
 
+<a id="delegation-bytes-and-acknowledgments-opt-in"></a>
+
+## 委托、字节与确认（选择性启用）
+
+> **状态（07/11/2026）。** 位于 TypeScript、Python、Go 和 Rust SDK 的本地源代码中，不在已发布的包中。WASM、参考
+> 服务器和 CLI、playground、适配器和工具包都不公开这些函数。
+
+- **委托准入**（[规范 § 10](../../../spec/profiles/admission/README.md#10-delegated-admission-opt-in)）。把叶端 bundle 与其所依据的
+  [DCP-09](../../../spec/DCP-09.md) 授权书链、以及每个委托代理各一个 bundle 一起，在同一个 `now`，使用运营方的信任集合、
+  配置文件或策略，以及代理、密钥和授权书的吊销快照进行准入。根授权书必须用信任集合为该委托人列出的密钥签名。结果报告
+  `admitted` 和 `delegation_verified`；`delegation_active` 和 `action_authorized` 始终为 `false`。
+- **从字节准入**（[规范 § 11](../../../spec/profiles/admission/README.md#11-admission-from-bytes-opt-in)）。以字节形式接收已签名 bundle，并在任何解析器之前
+  就这些字节作出判定：先是实验性的入口扫描器，然后只接受简单整数形式的数字（`NUMBER_NOT_PORTABLE`），再由 SDK 自己的
+  解析器解析，其结果必须与扫描器的规范字节相同（`INGRESS_PARSER_MISMATCH`）。`dcp-jcs-v1` 不变，接收已解析值的函数
+  无法恢复其解析器丢失的重复键或孤立代理项。
+- **激活**（[规范 § 12](../../../spec/profiles/admission/README.md#12-delegation-activation-opt-in)、
+  [DCP-09 § 3.3.1](../../../spec/DCP-09.md#331-mandate-acknowledgment-opt-in)）。加入受托代理对每个授权书的已签名确认，
+  这是一种新的选择性启用记录（`mandate_acknowledgment`）。只有当组合被准入且每个授权书恰好有一个有效确认时，
+  `delegation_active` 才为 `true`。激活不授权任何行为，确认也不表明代理理解了授权书。
+
+各 SDK 中的函数名：[API 参考](../../../docs/API_REFERENCE.md#admission-trusted-principals-and-strict-v1-unreleased)。
+
 <a id="compatibility"></a>
 
 ## 兼容性
 
 - **验证 API。** `verifySignedBundleV2` / `verify_signed_bundle_v2` / `VerifySignedBundleV2WithPolicy` / `verify_signed_bundle_v2_with_policy` 保持原有签名。签名密钥在 TypeScript 和 Python 中为 `details.signer_keys`，在 Go 中为新的 `SignerKeys` 字段。在 Rust 中，`V2VerificationResult` 保留其十个字段，因此完整构造它或不带 `..` 解构它的代码仍可编译；签名密钥来自新的 `verify_signed_bundle_v2_at`，它返回 `V2VerificationDetails`（`result` 和 `signer_keys`），准入接受的正是它。在准入 API 发布之前针对它编写的代码读取的是 `verification.result.verified`，而不是 `verification.verified`。
 - **验证行为。** 同一批改动在准入之外也改变了验证行为。S >= L 的 Ed25519 签名现在会被拒绝。另外，Go 和 Rust 验证器现在会应用策略中的 `accepted_classical_algs` 和 `accepted_pq_algs`，而以前它们以“未强制执行”为由拒绝这些字段：在这样的策略下，列表之外的 bundle 会失败，列表之内的 bundle 现在可以通过验证。[CHANGELOG](../../../CHANGELOG.md) 列出了全部改动。
+- **Ed25519 接受准则 P-ED-1（本地源代码，07/11/2026）。** 除 S >= L 外，SDK 源代码现在还拒绝非规范编码的公钥或 R，以及阶整除 8 的公钥或 R（[密码学配置文件](../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion)）。这是一次有意的接受变更；签名方和格式不变。不满足它的证据应重新签名或替换其密钥，绝不改写。
 - **bundle。** 线上格式没有变化。strict-v1 需要在清单中带有 `session_issued_at`、`session_expires_at` 和 `intended_verifier` 并签名的 bundle；只要提供了过期时间和受众，每个 SDK 的签名器都会写入它们。
 - **有信任集合时，V1 bundle 会被拒绝**：它们不带可供锚定的委托人签名。
 - **集成选项。** 新增且可选。使用受信任的委托人时，`requireBundle: false`（Express）和 `require_bundle=False`（FastAPI）属于配置错误：没有 bundle 的请求会到达路由。在配置之下，`verifierPolicy`、`requireHybrid: false` 和 `checkRevocation` 选项（Express）、`verifier_policy`（FastAPI）以及 `verifierPolicy`（OpenClaw）同样如此。
@@ -185,3 +208,4 @@ node /path/to/dcp-ai/bin/dcp.js admit-bundle bundle.signed.json --trust trust.js
 - **授权。** `action_authorized` 始终为 `false`。把外部授权绑定到某个工具、其参数及其执行，是后续阶段的工作。
 - **身份**的可靠程度取决于信任集合以及维护它的流程。
 - **吊销**的新近程度取决于快照：`checked_at` 之后发生的吊销会在下一个快照中体现。
+- **委托**只在 `now` 检查，需要每个委托方当前的、已准入的 bundle，并拒绝代理重复的链。激活既不评估 `authority_scope`，也不评估 `threshold_rules`。

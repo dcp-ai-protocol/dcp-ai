@@ -73,6 +73,22 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Security
 
+- **Ed25519 acceptance criterion P-ED-1** (local source of the TypeScript, Python, Go and Rust SDKs, not in a
+  published version; no version bump). V1 `verifyObject` and its counterparts, and the default V2 Ed25519 provider,
+  now also reject a signature whose public key or R is not a canonical encoding, or is one of the 8 points of order
+  dividing 8 (the identity included), besides S >= L. The libraries still ensure valid points and
+  [S]B = R + [k]A with k reduced mod L, without cofactor (for R, some by comparing the canonical encoding of
+  [S]B − [k]A with the received bytes); the new checks compare bytes before them. Points with a
+  torsion component that are not of small order are still accepted. This is an intentional change of acceptance:
+  TypeScript, Go and Rust accepted some of these signatures before, and the official PyNaCl build already rejected
+  them. A failed check returns `false`; inputs that raised an error still raise the same one. Signers, formats,
+  contexts, `dcp-jcs-v1`, schemas and APIs do not change, and `pq_only` verifies no component it did not verify
+  before. **Migration:** keep failing evidence as it is, never re-encode or reduce signed bytes; sign again with the
+  same key when the key meets P-ED-1, rotate a non-canonical public key, and replace a key of small order. Not yet
+  applied by the reference V1 verifier, the V1 CLI copy or the playground (S < L only); the reference V2 verifier,
+  server and CLI change only when the SDK is rebuilt and reinstalled; WASM is compiled from the same Rust code but
+  not run. Spec: `spec/profiles/crypto/README.md`; vectors: `tests/interop/v2/ed25519_ped1_vectors.json`.
+
 - **DCP-05 to DCP-09 demo endpoints off by default, operator-only when enabled** (source on `main`, not in a published
   version; `server/`). The reference server's 31 schema-only endpoints for lifecycle, succession, disputes, rights and
   delegation records needed no token. Every request under their twelve path families now gets 404 unless the server
@@ -346,6 +362,25 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
   and `canonicalization_profile_not_a_string`.
 
 ### Added
+
+- **Delegated admission, admission from bytes and mandate acknowledgment (opt-in)** (local source of the
+  TypeScript, Python, Go and Rust SDKs, not in a published version; no version bump). No default calls them, and
+  existing functions, results, codes and vectors do not change. WASM, the CLI, the playground, the reference server,
+  the adapters and the kit do not expose them.
+  - `admitDelegatedBundleV2` and its counterparts admit a leaf bundle with its DCP-09 mandate chain and one bundle per
+    delegating agent, at one `now`, under the operator's trust set, profile or policy and revocation snapshots of
+    agents, keys and mandates (`spec/profiles/admission` § 10, `DELEGATION_*` codes,
+    `tests/interop/v2/delegated_admission_vectors.json`).
+  - `admitSignedBundleV2FromBytes` and its counterparts take the signed bundle as bytes, reject before any parser what
+    the experimental scanner rejects and numbers that are not plain integers (`NUMBER_NOT_PORTABLE`), and require the
+    SDK parser to reproduce the scanner's canonical bytes (`INGRESS_PARSER_MISMATCH`); § 11,
+    `tests/interop/v2/v1_ingress_vectors.json`. `dcp-jcs-v1` does not change.
+  - A new record, `schemas/v2/mandate_acknowledgment.schema.json` (`dcp09-mandate-ack-v1`), signed under the new
+    context `DCP-AI.v2.MandateAcknowledgment`, with `createMandateAcknowledgment` and
+    `evaluateDelegationActivationV2` and their counterparts (DCP-09 § 3.3.1, admission profile § 12, ordered `ACK_*`
+    codes, `tests/interop/v2/mandate_acknowledgment_vectors.json`). The `DCP_CONTEXTS` maps of TypeScript and
+    Python keep their 19 entries; the context is a separate constant. Activation authorizes no action and does not
+    show that the agent understood the mandate.
 
 - **Effective-policy catalog (contract `/5`, opt-in)** (kit and tests on `main`, not a package release;
   `tools/conformance/`). `external-effective-policy-catalog.json` judges 130 signed-bundle verifications on the
@@ -832,6 +867,12 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
   after the first, which still compiles).
 
 ### Fixed
+
+- **Go: SLH-DSA-192f keys are read without a panic** (local source, not in a published version;
+  `sdks/go/dcp/providers/slh_dsa_192f_provider.go`). The provider read secret and public keys with no parameter set
+  (a zero `ID`), and circl panicked on reading them; it now sets `slhdsa.SHA2_192f` first, so signing and verifying
+  with SLH-DSA-192f keys work, and an input of the wrong size gives an error or a rejection, not a panic. No format or
+  API changes.
 
 - Transparency log: a peer added by `POST /gossip/peers` to a log started without `GOSSIP_PEERS` was never
   polled (source on `main`, not in a published version). Polling started only at startup, and only with configured

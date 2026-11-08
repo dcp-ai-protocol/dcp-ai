@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dcp-ai.org/schemas/v2/mandate_acknowledgment.schema.json",
+  "title": "MandateAcknowledgment",
+  "description": "DCP-09 §3.3 step 5: the delegate agent's signed acknowledgment of one mandate of a chain, linked to its awareness threshold (format dcp09-mandate-ack-v1, context DCP-AI.v2.MandateAcknowledgment). Carried apart from the mandate; it changes no mandate bytes. mandate_id and awareness_threshold_id are the exact texts; their digests are the sha256: fields.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dcp_version", "acknowledgment_format", "acknowledgment_id", "mandate_id", "mandate_hash", "chain_hash",
+    "session_nonce", "human_id", "agent_id", "awareness_threshold_id", "awareness_threshold_hash",
+    "acknowledged_at", "composite_sig"
+  ],
+  "properties": {
+    "dcp_version": { "type": "string", "const": "2.0" },
+    "acknowledgment_format": { "type": "string", "const": "dcp09-mandate-ack-v1" },
+    "acknowledgment_id": { "type": "string", "minLength": 6 },
+    "mandate_id": { "type": "string", "minLength": 6 },
+    "mandate_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "chain_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "session_nonce": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "human_id": { "type": "string", "minLength": 6 },
+    "agent_id": { "type": "string", "minLength": 6 },
+    "awareness_threshold_id": { "type": "string", "minLength": 6 },
+    "awareness_threshold_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "acknowledged_at": { "type": "string", "format": "date-time" },
+    "composite_sig": { "$ref": "composite_signature.schema.json" }
+  }
+}

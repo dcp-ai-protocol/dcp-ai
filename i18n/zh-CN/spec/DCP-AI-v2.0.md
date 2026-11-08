@@ -4,7 +4,7 @@
 
 # DCP-AI v2.0 规范性规范
 
-> 本文是[英文规范](../../../spec/DCP-AI-v2.0.md)的参考译文，更新于 06/11/2026。**具有规范效力的是英文版**：本译文不具规范效力，如有出入，以英文版为准。标识符和代码块保持原文，不作翻译。
+> 本文是[英文规范](../../../spec/DCP-AI-v2.0.md)的参考译文，更新于 07/11/2026。**具有规范效力的是英文版**：本译文不具规范效力，如有出入，以英文版为准。标识符和代码块保持原文，不作翻译。
 
 **状态：** Final  
 **版本：** 2.0.0  
@@ -59,6 +59,8 @@ Digital Citizenship Protocol for AI（DCP-AI）v2.0 定义了一个抗量子框�
 | `slh-dsa-256f` | FIPS 205 | 64 B | 49856 B | NIST 5 级 PQ | RESERVED |
 
 > *参考性说明（2026 年 10 月 25 日），不属于规范性文本：* 目前还没有任何 DCP-AI SDK 实现 `ml-dsa-87`；SDK 使用 `ed25519`、`ml-dsa-65` 和 `slh-dsa-192f` 签名和验证（[docs/NIST_CONFORMITY.md](../../../docs/NIST_CONFORMITY.md)）。
+
+> *说明（07/11/2026）：* `ed25519` 签名按照[密码学配置文件](../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion)的接受准则 P-ED-1 接受。
 
 <a id="22-kem-algorithms"></a>
 
@@ -156,8 +158,11 @@ signed_bytes = UTF8(context_tag) || 0x00 || canonical_payload_bytes
 | `DCP-AI.v2.Delegation` | 根委托授权书（人类签名）、主体镜像和交互记录（DCP-09） |
 | `DCP-AI.v2.Awareness` | 认知阈值和建议声明（DCP-09） |
 | `DCP-AI.v2.SubMandate` | 由委托代理签署的子授权书（DCP-09 §3.5） |
+| `DCP-AI.v2.MandateAcknowledgment` | 由受托代理签署的授权书确认，选择性启用（DCP-09 §3.3.1） |
 
 > **勘误 E1（25/10/2026，规范性）：** `MultiPartyAuth`、`Lifecycle`、`Succession`、`Dispute`、`Rights` 和 `Awareness` 这几行，以及 `Delegation` 行中的主体镜像，记录的是 SDK 和 `tests/interop/v2/interop_vectors.json#domain_separation_all_contexts` 已在使用的上下文；它们不新增任何标签。见 [V2-WIRE-COMPATIBILITY.md](../../../spec/V2-WIRE-COMPATIBILITY.md)。
+
+> *说明（07/11/2026）：* `MandateAcknowledgment` 一行新增了一个标签，用于 [DCP-09 §3.3.1](../../../spec/DCP-09.md#331-mandate-acknowledgment-opt-in) 中选择性启用的记录。没有任何现有记录以它签名。原有的 19 个标签和 `domain_separation_all_contexts` 向量不变。四个签名 SDK 都在域分离中接受这个新标签，并将其作为常量公开；在 TypeScript 和 Python 中，该常量位于 19 项的 `DCP_CONTEXTS` 映射旁边，映射本身不包含它。
 
 ---
 
@@ -501,7 +506,7 @@ function computeSecurityTier(intent, policy_decision):
   return tier
 ```
 
-经验证的委托链的实际层级，即链上最大的 `minimum_security_tier`，是该计算的一个可选输入，只能提高结果，绝不能降低结果。目前还没有任何 bundle 字段携带该链，因此只有当验证方与 bundle 一起拿到一条经验证的链时，该下限才适用；§18 的 bundle 验证方不会读取它。
+经验证的委托链的实际层级，即链上最大的 `minimum_security_tier`，是该计算的一个可选输入，只能提高结果，绝不能降低结果。目前还没有任何 bundle 字段携带该链，因此只有当验证方与 bundle 一起拿到一条经验证的链时，该下限才适用；§18 的 bundle 验证方不会读取它。选择性启用的[准入配置文件 §10](../../../spec/profiles/admission/README.md#10-delegated-admission-opt-in)中的委托准入就是这样的验证方。
 
 `ACTION_TYPES` 和 `DATA_CLASSES` 是 `schemas/v2/intent.schema.json` 中 `action_type` 和 `data_classes` 的枚举。缺失、类型错误或未知的值会失败关闭到至少 `elevated`，因此无论是否进行 schema 验证，验证方不认识的值都不会降低 bundle 受到的审查力度。没有策略决定时分数为 0。在策略决定中，缺失或不是 0 到 1000 之间整数的 `risk_score`（字符串、小数、负数、大于 1000 的数）同样视为未知，上面的分数比较将其视为 0。没有小数部分的数，例如 `200.0`，按相应整数计算。
 
