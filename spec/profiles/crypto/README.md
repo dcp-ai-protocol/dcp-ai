@@ -52,6 +52,67 @@ Verifier-authoritative policy that determines which signature components are req
 
 See [DCP-AI v2.0](../../DCP-AI-v2.0.md) Section 7 for verification modes and verifier policy format.
 
+### P-ED-1: Ed25519 acceptance criterion
+
+An `ed25519` signature `sig = R ‖ S` (64 bytes) by a public key `A` (32 bytes) over a message `M` is accepted if and
+only if all four conditions hold:
+
+1. **Scalar.** S < L, with S read as a 256-bit little-endian integer and L = 2^252 + 27742317777372353535851937790883648493.
+2. **Canonical encodings.** A and R are canonical: with `y` the 32 bytes read little-endian with bit 255 cleared, `s`
+   bit 255 and p = 2^255 − 19, `y < p`, and not `s = 1` with `y ∈ {1, p − 1}`.
+3. **Order.** Neither A nor R is one of the 8 encodings of E[8], the points whose order divides 8 (the identity
+   included):
+
+   ```
+   0000000000000000000000000000000000000000000000000000000000000000
+   0000000000000000000000000000000000000000000000000000000000000080
+   0100000000000000000000000000000000000000000000000000000000000000
+   26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05
+   26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc85
+   c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a
+   c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa
+   ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f
+   ```
+
+4. **Decoding and equation.** A and R decode to points of the curve, and [S]B = R + [k]A, without cofactor, between
+   those points, with k = SHA-512(R ‖ A ‖ M) mod L computed over the original bytes of R and A.
+
+P-ED-1 is a DCP criterion, not one of the options of RFC 8032, whose §5.1.7 uses the unreduced challenge. For A and R
+in the prime-order subgroup its equation gives the same result as the RFC's equations; the criterion also rejects the
+identity and the other points of E[8]. An A or an R with a torsion component that is not of small order is accepted when
+the equation holds: P-ED-1 does not require torsion-free points.
+
+**Implementation.** The SDKs keep their library's check of the equation (TweetNaCl, PyNaCl with libsodium, Go
+`crypto/ed25519`, `ed25519-dalek`) and check conditions 1 to 3 on the bytes before calling it: comparisons with
+constants, no new curve arithmetic. The library still ensures that A and R are valid points and that the equation holds;
+some libraries do it for R by computing the canonical encoding of [S]B − [k]A and comparing it with the received bytes,
+an equivalent check that does not decode R. A failed condition is a
+rejection (`false`), never an error, and an input that gave an error before (a length, invalid base64) gives the same
+error; a public key that does not decode is still `false` in TypeScript, Python and Go and an error in Rust. The checks apply to V1
+signed objects and to the default V2 Ed25519 provider, wherever an `ed25519` component is verified. They do not change
+which components a mode verifies: under `pq_only` they apply only where the classical component is still verified, such
+as the DCP-09 mandates and acknowledgments, which verify both components in every mode. The provider registry is the
+operator's: P-ED-1 is the criterion of the default providers, not a guarantee about a custom one.
+
+**Compatibility.** This is an intentional change of acceptance: a signature with S ≥ L, a non-canonical A or R, or A
+or R in E[8] is rejected, including where the TypeScript, Go and Rust libraries accepted it before (the official PyNaCl build, with
+libsodium 1.0.20, already rejected these inputs, by its code and in the sample observed). Signers do not change: a key from their key generation and the
+signatures they produce meet P-ED-1, except a nonce with r ≡ 0 mod L, which gives the identity as R and is rejected
+with no exception. Formats, contexts, `dcp-jcs-v1`, schemas, the experimental candidate profile and the earlier APIs do
+not change.
+
+**Migration.** Only evidence that fails P-ED-1 is affected. Keep it as it is, and never normalize signed bytes:
+re-encoding A or R changes k (and, for A, the `kid`), and reducing S changes the signature bytes and the message of the
+PQ component, which signs the classical signature too.
+
+- S ≥ L, or R non-canonical or in E[8]: sign again with the same key, if that key meets P-ED-1.
+- A non-canonical: its canonical encoding is another key for DCP, with another `kid`, so rotate the key and sign again.
+- A in E[8]: replace the key; signing again with it does not help.
+
+Vectors: [`tests/interop/v2/ed25519_ped1_vectors.json`](../../../tests/interop/v2/ed25519_ped1_vectors.json), checked by
+`tools/ed25519-review/check_ped1_vectors.py`. Which verifiers apply P-ED-1 and which do not yet is listed in
+[SECURITY_COVERAGE.md](../../../docs/conformance/SECURITY_COVERAGE.md).
+
 ### Crypto-Agility
 
 The Algorithm Advisory System that allows governance authorities to deprecate or revoke algorithms via signed advisories, with automated verifier response.

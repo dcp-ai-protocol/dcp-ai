@@ -48,12 +48,12 @@ impl fmt::Display for AdmissionConfigError {
 
 impl std::error::Error for AdmissionConfigError {}
 
-fn fail<T>(code: &'static str, message: impl Into<String>) -> Result<T, AdmissionConfigError> {
+pub(crate) fn fail<T>(code: &'static str, message: impl Into<String>) -> Result<T, AdmissionConfigError> {
     Err(AdmissionConfigError { code, message: bounded(message.into()) })
 }
 
 /// At most [`MAX_MESSAGE`] characters, the last one `…` when the message was cut.
-fn bounded(message: String) -> String {
+pub(crate) fn bounded(message: String) -> String {
     match message.char_indices().nth(MAX_MESSAGE) {
         None => message,
         Some(_) => {
@@ -65,7 +65,7 @@ fn bounded(message: String) -> String {
 
 /// A short printable form of an untrusted value: a string quoted and cut at 80
 /// characters, the type of an array or object.
-fn printable(value: Option<&Value>) -> String {
+pub(crate) fn printable(value: Option<&Value>) -> String {
     match value {
         None => "absent".to_string(),
         Some(Value::String(s)) => match s.char_indices().nth(80) {
@@ -78,7 +78,7 @@ fn printable(value: Option<&Value>) -> String {
     }
 }
 
-fn printable_str(value: &str) -> String {
+pub(crate) fn printable_str(value: &str) -> String {
     printable(Some(&Value::String(value.to_string())))
 }
 
@@ -92,7 +92,7 @@ fn reject_unknown_fields(value: &Map<String, Value>, allowed: &[&str], at: &str)
 /// The value of a JSON number with an integer value: `300`, `300.0` and `3e2`
 /// are integers, `120.5` and `"300"` are not. Values beyond the range of i64
 /// saturate, which keeps them outside every bound checked here.
-fn integer(value: &Value) -> Option<i64> {
+pub(crate) fn integer(value: &Value) -> Option<i64> {
     if let Some(i) = value.as_i64() {
         return Some(i);
     }
@@ -103,7 +103,7 @@ fn integer(value: &Value) -> Option<i64> {
     (f.is_finite() && f.fract() == 0.0).then_some(f as i64)
 }
 
-fn string_list(value: &Value) -> Option<Vec<String>> {
+pub(crate) fn string_list(value: &Value) -> Option<Vec<String>> {
     value.as_array()?.iter().map(|s| s.as_str().map(str::to_string)).collect()
 }
 
@@ -565,12 +565,12 @@ pub struct RevocationSubjects {
 const PRINCIPAL_SIGNATURES: [&str; 2] = ["bundle", "responsible_principal_record"];
 
 /// A field of an artifact's payload, when the artifact and its payload are objects.
-fn payload_field<'a>(bundle: Option<&'a Value>, artifact: &str, field: &str) -> Option<&'a Value> {
+pub(crate) fn payload_field<'a>(bundle: Option<&'a Value>, artifact: &str, field: &str) -> Option<&'a Value> {
     bundle?.get(artifact)?.get("payload")?.as_object()?.get(field)
 }
 
 /// The bundle of a signed bundle, when both are objects.
-fn bundle_of(signed_bundle: &Value) -> Option<&Value> {
+pub(crate) fn bundle_of(signed_bundle: &Value) -> Option<&Value> {
     signed_bundle.get("bundle").filter(|bundle| bundle.is_object())
 }
 
@@ -814,28 +814,45 @@ fn principal_trust(
     }
     for used in uses {
         let at = format!("{} {} key {}", used.signature, used.component, used.kid);
-        let key = trusted.get(&used.kid);
-        let bytes = canonical_b64(&used.public_key_b64);
-        let rejection = match key {
-            Some(key) if key.alg == used.alg && bytes.as_deref() == Some(key.bytes.as_slice()) => {
-                if key.status == KeyStatus::Revoked {
-                    Some(("TRUST_KEY_REVOKED", "is revoked in the trust set"))
-                } else if key.status == KeyStatus::Expired || key.expires_at.is_some_and(|t| t < now) {
-                    Some(("TRUST_KEY_EXPIRED", "has expired in the trust set"))
-                } else if key.not_before.is_some_and(|t| t > now) {
-                    Some(("TRUST_KEY_NOT_YET_VALID", "is not valid yet in the trust set"))
-                } else {
-                    None
-                }
-            }
-            _ => Some(("TRUST_KEY_NOT_ANCHORED", "is not a trusted key of the principal")),
-        };
-        if let Some((code, why)) = rejection {
+        if let Some((code, why)) = key_rejection(trusted.get(&used.kid), &used.alg, &used.public_key_b64, now) {
             codes.add(code, format!("{} {}", at, why));
             ok = false;
         }
     }
     ok
+}
+
+/// T2 (§ 3) for one key that verified a principal signature component: None when it is a trusted key of the
+/// principal at `now`, else the code and why.
+fn key_rejection(key: Option<&TrustedKey>, alg: &str, public_key_b64: &str, now: i64) -> Option<(&'static str, &'static str)> {
+    let bytes = canonical_b64(public_key_b64);
+    match key {
+        Some(key) if key.alg == alg && bytes.as_deref() == Some(key.bytes.as_slice()) => {
+            if key.status == KeyStatus::Revoked {
+                Some(("TRUST_KEY_REVOKED", "is revoked in the trust set"))
+            } else if key.status == KeyStatus::Expired || key.expires_at.is_some_and(|t| t < now) {
+                Some(("TRUST_KEY_EXPIRED", "has expired in the trust set"))
+            } else if key.not_before.is_some_and(|t| t > now) {
+                Some(("TRUST_KEY_NOT_YET_VALID", "is not valid yet in the trust set"))
+            } else {
+                None
+            }
+        }
+        _ => Some(("TRUST_KEY_NOT_ANCHORED", "is not a trusted key of the principal")),
+    }
+}
+
+impl PrincipalTrustStore {
+    /// Whether the trust set lists the principal. Shared with admit_delegated_bundle_v2.
+    pub(crate) fn knows_principal(&self, human_id: &str) -> bool {
+        self.principals.contains_key(human_id)
+    }
+
+    /// T2 for a key of the principal `human_id` (which the store must know): None when the store anchors it at
+    /// `now`. Shared with admit_delegated_bundle_v2, for each component of a mandate chain's root.
+    pub(crate) fn key_error(&self, human_id: &str, kid: &str, alg: &str, public_key_b64: &str, now: i64) -> Option<(&'static str, &'static str)> {
+        key_rejection(self.principals.get(human_id).and_then(|keys| keys.get(kid)), alg, public_key_b64, now)
+    }
 }
 
 /// § 4.3.

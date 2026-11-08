@@ -103,7 +103,7 @@ export interface PrincipalTrustSet {
   principals: Array<{ human_id: string; keys: TrustedPrincipalKey[] }>;
 }
 
-interface TrustedKey {
+export interface TrustedKey {
   readonly alg: string;
   /** Canonical base64: one encoding per key, so equal strings are equal bytes. */
   readonly publicKeyB64: string;
@@ -632,20 +632,35 @@ function principalTrust(
   const uses = signerKeysOf(verification).filter((k) => PRINCIPAL_SIGNATURES.has(k.signature) && k.verified);
   if (uses.length === 0) reject('TRUST_KEY_NOT_ANCHORED', 'no principal signature component verified');
   for (const use of uses) {
-    const where = `${use.signature} ${use.component} key ${use.kid}`;
-    const key = trusted.get(use.kid);
-    // Both are canonical base64 (V2-13 for the verifier's key, § 2.2 for the trust set's).
-    if (!key || key.alg !== use.alg || !canonicalB64Bytes(use.public_key_b64) || use.public_key_b64 !== key.publicKeyB64) {
-      reject('TRUST_KEY_NOT_ANCHORED', `${where} is not a trusted key of the principal`);
-    } else if (key.status === 'revoked') {
-      reject('TRUST_KEY_REVOKED', `${where} is revoked in the trust set`);
-    } else if (key.status === 'expired' || (key.expiresAt !== undefined && key.expiresAt < now)) {
-      reject('TRUST_KEY_EXPIRED', `${where} has expired in the trust set`);
-    } else if (key.notBefore !== undefined && key.notBefore > now) {
-      reject('TRUST_KEY_NOT_YET_VALID', `${where} is not valid yet in the trust set`);
-    }
+    const error = trustedKeyError(trusted, use, `${use.signature} ${use.component} key ${use.kid}`, now);
+    if (error) reject(error.code, error.message);
   }
   return ok;
+}
+
+/**
+ * T2 (§ 3) for one key that verified a principal signature component: undefined when the principal's
+ * trusted keys anchor it at `now`. @internal Shared with admitDelegatedBundleV2; not exported by the package.
+ */
+export function trustedKeyError(
+  trusted: ReadonlyMap<string, TrustedKey>,
+  use: Pick<SignerKeyUse, 'kid' | 'alg' | 'public_key_b64'>,
+  where: string,
+  now: number,
+): AdmissionError | undefined {
+  const key = trusted.get(use.kid);
+  // Both are canonical base64 (V2-13 for the verifier's key, § 2.2 for the trust set's).
+  if (!key || key.alg !== use.alg || !canonicalB64Bytes(use.public_key_b64) || use.public_key_b64 !== key.publicKeyB64) {
+    return { code: 'TRUST_KEY_NOT_ANCHORED', message: `${where} is not a trusted key of the principal` };
+  }
+  if (key.status === 'revoked') return { code: 'TRUST_KEY_REVOKED', message: `${where} is revoked in the trust set` };
+  if (key.status === 'expired' || (key.expiresAt !== undefined && key.expiresAt < now)) {
+    return { code: 'TRUST_KEY_EXPIRED', message: `${where} has expired in the trust set` };
+  }
+  if (key.notBefore !== undefined && key.notBefore > now) {
+    return { code: 'TRUST_KEY_NOT_YET_VALID', message: `${where} is not valid yet in the trust set` };
+  }
+  return undefined;
 }
 
 /** § 4.3. */

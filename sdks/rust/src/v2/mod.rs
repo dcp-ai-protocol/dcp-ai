@@ -38,6 +38,9 @@ mod schema_v2;
 mod schema_v2_generated;
 pub mod verify_bundle;
 pub mod admission;
+pub mod delegated_admission;
+pub mod v1_ingress;
+pub mod mandate_acknowledgment;
 
 // Verification at a given instant and admission (spec/profiles/admission § 8).
 pub use admission::{
@@ -45,6 +48,19 @@ pub use admission::{
     AdmissionConfigError, AdmissionError, AdmissionOptions, AdmissionResult, AdmitOptions, PrincipalTrust,
     PrincipalTrustStore, ProfileCompliance, RevocationSubjects, StrictV1Profile, STRICT_V1, STRICT_V1_MAX_SECONDS,
 };
+// Delegated admission (opt-in): a leaf bundle with its mandate chain and delegators, at one instant.
+pub use delegated_admission::{
+    admit_delegated_bundle_v2, DelegatedAdmissionResult, DelegatedChain, DelegatedEvidence, DelegatedInputs,
+    DelegatedOperator,
+};
+// Admission from bytes (opt-in): candidate scanner, portable integers, parser comparison, admission.
+pub use v1_ingress::{admit_signed_bundle_v2_from_bytes, IngressAdmissionResult, IngressError, IngressOutcome};
+// Mandate acknowledgment (opt-in, DCP-09 § 3.3): creation, and the activation evaluated over the delegated admission.
+pub use mandate_acknowledgment::{
+    create_mandate_acknowledgment, evaluate_delegation_activation_v2, AcknowledgmentEntry, ActivationEvidence, ActivationInputs,
+    DelegationActivationResult, MandateAcknowledgmentError, MandateAcknowledgmentParams, MANDATE_ACKNOWLEDGMENT_FORMAT,
+};
+pub use domain_separation::CTX_MANDATE_ACKNOWLEDGMENT;
 pub use verify_bundle::{
     verify_signed_bundle_v2, verify_signed_bundle_v2_at, verify_signed_bundle_v2_with_policy, SignerKeyUse,
     V2VerificationDetails, V2VerificationResult,

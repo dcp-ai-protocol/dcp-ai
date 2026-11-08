@@ -4,7 +4,7 @@
 
 # Referencia de la API de DCP-AI
 
-> Traducción informativa de [la versión en inglés](../../../docs/API_REFERENCE.md), actualizada el 05/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../docs/API_REFERENCE.md), actualizada el 07/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Referencia del SDK de TypeScript `@dcp-ai/sdk` tal como está en `main` (versión del paquete 2.3.0, protocolo DCP v2.0).
 
@@ -546,6 +546,10 @@ function verifyObject(obj: unknown, signatureB64: string, publicKeyB64: string):
 lugar de devolver `false`: un objeto que no se puede canonicalizar, una firma o clave que no es base64 válido, o una firma
 o clave decodificada con una longitud incorrecta.
 
+En el código fuente local (07/11/2026, no publicado), `verifyObject` y el proveedor Ed25519 V2 por defecto aplican P-ED-1 del
+[perfil criptográfico](../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion): S >= L, una clave o R no
+canónica, o una clave o R de orden que divide a 8 devuelven `false`. Las entradas que lanzan una excepción son las mismas que antes.
+
 ```typescript
 const valid = verifyObject({ action: 'transfer', amount: 100 }, sig, keys.publicKeyB64);
 ```
@@ -862,6 +866,16 @@ Definida en [`spec/profiles/admission`](../../../spec/profiles/admission/README.
 | `revocationSnapshotFromDenyList(document, subjects)` | Una instantánea a partir de una lista de denegación completa (el `/.well-known/dcp-revocations.json` del servicio de revocación) |
 
 El resultado: `verified`, `verification`, `principal_trust`, `profile`, `profile_compliance`, `admitted`, `action_authorized` (siempre `false`), `recorded_decision`, `trust_set_version`, `errors: [{ code, message }]`.
+
+Opt-in, en el código fuente local de los cuatro SDK y no en un paquete publicado (07/11/2026):
+
+| Función | Descripción |
+|----------|-------------|
+| `admitDelegatedBundleV2(evidence, registry, operator)` | Un bundle hoja admitido con su cadena de mandatos de DCP-09 y un bundle por cada agente que delega ([§ 10](../../../spec/profiles/admission/README.md#10-delegated-admission-opt-in)) |
+| `admitSignedBundleV2FromBytes(bytes, registry, options)` | Admisión de un bundle firmado dado como bytes, decidida antes de que ningún parser los lea ([§ 11](../../../spec/profiles/admission/README.md#11-admission-from-bytes-opt-in)) |
+| `evaluateDelegationActivationV2(evidence, registry, operator)` | Admisión delegada más los acuses de los agentes para cada mandato ([§ 12](../../../spec/profiles/admission/README.md#12-delegation-activation-opt-in)) |
+
+Python: `admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `evaluate_delegation_activation_v2` (todas async); Go: `AdmitDelegatedBundleV2`, `AdmitSignedBundleV2FromBytes`, `EvaluateDelegationActivationV2`; Rust: `admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `evaluate_delegation_activation_v2`. WASM no las exporta.
 
 ### `DEFAULT_VERIFIER_POLICY`
 
@@ -1717,6 +1731,18 @@ interface MandateChainResult { valid: boolean; errors: string[]; depth: number; 
 que solo puede elevar el nivel (spec §14.2). Python: `create_sub_mandate`, `verify_mandate_chain`; Go:
 `CreateSubMandate`, `VerifyMandateChain`; Rust: `create_sub_mandate`, `verify_mandate_chain`.
 
+### `createMandateAcknowledgment(registry, keys, params)` / `evaluateDelegationActivationV2(evidence, registry, operator)`
+
+El acuse de mandato opt-in de [DCP-09 § 3.3.1](../../../spec/DCP-09.md#331-mandate-acknowledgment-opt-in), en el código
+fuente local de los cuatro SDK y no en un paquete publicado (07/11/2026). `createMandateAcknowledgment` firma, como
+agente del último mandato de `params.mandateChain`, un registro `mandate_acknowledgment` (`dcp09-mandate-ack-v1`) bajo
+`MANDATE_ACKNOWLEDGMENT_CONTEXT`; `params` es `{ mandateChain, awarenessThreshold, acknowledgmentId, acknowledgedAt? }`
+y no toma ningún hash. `evaluateDelegationActivationV2` toma la evidencia de la admisión delegada más
+`acknowledgments` y `awarenessThresholds`, y devuelve `composition`, `activation`, `delegation_active`,
+`action_authorized` (siempre `false`), `acknowledgments`, `inputs` y `errors` con los códigos `ACK_*` ordenados.
+Python: `create_mandate_acknowledgment`, `evaluate_delegation_activation_v2`; Go: `CreateMandateAcknowledgment`,
+`EvaluateDelegationActivationV2`; Rust: `create_mandate_acknowledgment`, `evaluate_delegation_activation_v2`.
+
 ### `evaluateSignificance(context)` / `shouldNotifyHuman(significance, thresholds)`
 
 Evalúa la relevancia de una acción y determina si debe notificarse a la persona.
@@ -1756,6 +1782,10 @@ const DCP_CONTEXTS: Record<string, DcpContext>;
 // Lifecycle (DCP-05), Succession (DCP-06), Dispute (DCP-07),
 // Rights (DCP-08), Delegation (DCP-09), Awareness (DCP-09), SubMandate (DCP-09)
 ```
+
+`MANDATE_ACKNOWLEDGMENT_CONTEXT` (`DCP-AI.v2.MandateAcknowledgment`, código fuente local, no publicado) es una
+constante separada junto al mapa, que conserva sus 19 entradas; `domainSeparatedMessage` la acepta. Python tiene la
+misma constante, Go `CtxMandateAcknowledgment` y Rust `CTX_MANDATE_ACKNOWLEDGMENT`.
 
 ### `domainSeparatedMessage(context, canonicalPayloadBytes)`
 

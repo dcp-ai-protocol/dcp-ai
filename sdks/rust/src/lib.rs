@@ -11,6 +11,7 @@ pub mod v2;
 pub mod providers;
 pub mod observability;
 mod clock;
+mod ed25519_ped1;
 
 pub use types::*;
 pub use crypto::{

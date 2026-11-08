@@ -4,7 +4,7 @@
 
 # アドミッション：信頼済みのプリンシパルと strict-v1 プロファイル
 
-> [英語版](../../../docs/ADMISSION.md)の参考訳です（26/10/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../docs/ADMISSION.md)の参考訳です（07/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 検証済みのバンドルは、その完全性と、列挙された鍵で署名されたことを証明します。誰でも任意の `human_id` と自分の鍵で責任あるプリンシパルのレコードを作れるので、検証だけではプリンシパルが**誰**なのかはわかりません。
 
@@ -167,12 +167,39 @@ configureVerifier({ trustedPrincipals, profile: { profile: 'strict-v1', verifier
 node /path/to/dcp-ai/bin/dcp.js admit-bundle bundle.signed.json --trust trust.json --profile profile.json --revocation snapshot.json
 ```
 
+<a id="delegation-bytes-and-acknowledgments-opt-in"></a>
+
+## 委任、バイト、確認応答（オプトイン）
+
+> **状態（07/11/2026）。** TypeScript、Python、Go、Rust の SDK のローカルのソースにあり、公開されたパッケージには
+> ありません。WASM、リファレンスのサーバーと CLI、playground、アダプター、キットはこれらの関数を公開しません。
+
+- **委任付きアドミッション**（[仕様 § 10](../../../spec/profiles/admission/README.md#10-delegated-admission-opt-in)）。末端のバンドルを、それが従う
+  [DCP-09](../../../spec/DCP-09.md) のマンデートチェーン、および委任する各エージェントのバンドル 1 つずつと一緒に、1 つの
+  `now` で、運用者の信頼セット、プロファイルまたはポリシー、エージェント・鍵・マンデートの失効のスナップショットを
+  使ってアドミッションします。ルートのマンデートは、信頼セットがそのプリンシパルについて挙げる鍵で署名されていなければ
+  なりません。結果は `admitted` と `delegation_verified` を報告し、`delegation_active` と `action_authorized` は常に
+  `false` です。
+- **バイトからのアドミッション**（[仕様 § 11](../../../spec/profiles/admission/README.md#11-admission-from-bytes-opt-in)）。署名付きバンドルをバイトとして
+  受け取り、どのパーサーよりも前にそれについて判定します。実験的な入口のスキャナー、次に単純な整数の形の数値だけ
+  （`NUMBER_NOT_PORTABLE`）、次に SDK 自身のパーサーで、これはスキャナーの正準なバイトを再現しなければなりません
+  （`INGRESS_PARSER_MISMATCH`）。`dcp-jcs-v1` は変わらず、解析済みの値を受け取る関数は、パーサーが失った重複キーや
+  単独のサロゲートを取り戻せません。
+- **アクティベーション**（[仕様 § 12](../../../spec/profiles/admission/README.md#12-delegation-activation-opt-in)、
+  [DCP-09 § 3.3.1](../../../spec/DCP-09.md#331-mandate-acknowledgment-opt-in)）。各マンデートに対する受任エージェントの
+  署名付き確認応答を加えます。これは新しいオプトインの記録（`mandate_acknowledgment`）です。`delegation_active` が
+  `true` になるのは、構成がアドミッションされ、各マンデートにちょうど 1 つの有効な確認応答がある場合だけです。
+  アクティベーションはどの行為も認可せず、確認応答はエージェントがマンデートを理解したことを示しません。
+
+各 SDK での関数名：[API リファレンス](../../../docs/API_REFERENCE.md#admission-trusted-principals-and-strict-v1-unreleased)。
+
 <a id="compatibility"></a>
 
 ## 互換性
 
 - **検証 API。** `verifySignedBundleV2` / `verify_signed_bundle_v2` / `VerifySignedBundleV2WithPolicy` / `verify_signed_bundle_v2_with_policy` のシグネチャは変わりません。署名鍵は、TypeScript と Python では `details.signer_keys`、Go では新しい `SignerKeys` フィールドです。Rust では `V2VerificationResult` が 10 個のフィールドを保つので、それを全フィールド指定で構築したり `..` なしで分割代入したりするコードも引き続きコンパイルできます。署名鍵は新しい `verify_signed_bundle_v2_at` から得られ、これは `V2VerificationDetails`（`result` と `signer_keys`）を返し、アドミッションが受け取るのもこれです。リリース前のアドミッション API に対して書かれたコードは、`verification.verified` ではなく `verification.result.verified` を読みます。
 - **検証の動作。** 同じ変更は、アドミッションとは別に検証の動作も変えます。S >= L の Ed25519 署名は拒否されるようになりました。また、Go と Rust の検証器は、ポリシーの `accepted_classical_algs` と `accepted_pq_algs` を適用するようになりました。以前は、強制されないとしてこれらを拒否していました。そのようなポリシーのもとでは、リストにないバンドルは失敗し、リストにあるバンドルは検証できるようになります。すべての変更は [CHANGELOG](../../../CHANGELOG.md) に挙げられています。
+- **Ed25519 の受理、P-ED-1（ローカルのソース、07/11/2026）。** S >= L に加えて、SDK のソースは、正準でない公開鍵や R、位数が 8 を割り切る公開鍵や R も拒否するようになりました（[暗号プロファイル](../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion)）。これは意図的な受理の変更で、署名者とフォーマットは変わりません。これを満たさない証拠は署名し直すか鍵を置き換え、書き換えることはしません。
 - **バンドル。** ワイヤ形式の変更はありません。strict-v1 には、マニフェストに `session_issued_at`、`session_expires_at`、`intended_verifier` を含めて署名したバンドルが必要です。すべての SDK の署名器は、有効期限とオーディエンスを与えられればこれらを書き込みます。
 - **信頼セットがある場合、V1 バンドルは拒否されます**。アンカーすべきプリンシパルの署名を持たないからです。
 - **統合のオプション。** 新しく、オプションです。信頼済みのプリンシパルを使う場合、`requireBundle: false`（Express）と `require_bundle=False`（FastAPI）は設定エラーです。バンドルのないリクエストがルートに届いてしまうからです。プロファイルのもとでは、`verifierPolicy`、`requireHybrid: false`、`checkRevocation` のオプション（Express）、`verifier_policy`（FastAPI）、`verifierPolicy`（OpenClaw）も同様です。
@@ -185,3 +212,4 @@ node /path/to/dcp-ai/bin/dcp.js admit-bundle bundle.signed.json --trust trust.js
 - **承認。** `action_authorized` は常に `false` です。外部の承認をツール、その引数、その実行に結び付けることは、後のフェーズで扱います。
 - **アイデンティティ**の確かさは、信頼セットとそれを維持するプロセスの確かさで決まります。
 - **失効**の新しさはスナップショットの新しさで決まります。`checked_at` の後の失効は、次のスナップショットで反映されます。
+- **委任**は `now` でのみ確認され、各委任者の現在のアドミッション済みのバンドルを必要とし、エージェントが重複するチェーンを拒否します。アクティベーションは `authority_scope` も `threshold_rules` も評価しません。

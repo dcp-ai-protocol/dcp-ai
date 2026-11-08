@@ -5,7 +5,7 @@
 
 # DCP-09：委托与代表
 
-> 本文是[英文规范](../../../spec/DCP-09.md)的参考译文，更新于 05/11/2026。**具有规范效力的是英文版**：本译文不具规范效力，如有出入，以英文版为准。标识符和代码块保持原文，不作翻译。
+> 本文是[英文规范](../../../spec/DCP-09.md)的参考译文，更新于 07/11/2026。**具有规范效力的是英文版**：本译文不具规范效力，如有出入，以英文版为准。标识符和代码块保持原文，不作翻译。
 
 <a id="status"></a>
 
@@ -221,7 +221,99 @@ Schema 参考：`schemas/v2/delegation_mandate.schema.json`
 6. 经确认的授权书生效
 7. 在主体和代理双方的审计链中都创建一条 `delegation_mandate_issued` 审计条目
 
-> *参考说明（25/10/2026）：* V2.0 `delegation_mandate` 模式没有用于第 5 步代理确认的字段；见 [V2-WIRE-COMPATIBILITY.md](../../../spec/V2-WIRE-COMPATIBILITY.md#4-requirements-the-v20-structures-do-not-represent-directly)。
+> *参考说明（25/10/2026）：* V2.0 `delegation_mandate` 模式没有用于第 5 步代理确认的字段；见 [V2-WIRE-COMPATIBILITY.md](../../../spec/V2-WIRE-COMPATIBILITY.md#4-requirements-the-v20-structures-do-not-represent-directly)。现在由一条单独的、有版本的、选择性启用的记录表示它：见 §3.3.1。
+
+<a id="331-mandate-acknowledgment-opt-in"></a>
+
+#### 3.3.1 授权书确认（选择性启用）
+
+第 4 至 6 步由一条单独的记录表示，与授权书分开传递。它是选择性启用的，不改变任何现有记录的任何字节：授权书、认知
+阈值、它们的模式和上下文都保持原样。
+
+**记录。** [`schemas/v2/mandate_acknowledgment.schema.json`](../../../schemas/v2/mandate_acknowledgment.schema.json)，格式
+`dcp09-mandate-ack-v1`，链中每个授权书一条记录。其字段为 `dcp_version`（`"2.0"`）、`acknowledgment_format`、
+`acknowledgment_id`、`mandate_id`、`mandate_hash`、`chain_hash`、`session_nonce`、`human_id`、`agent_id`、
+`awareness_threshold_id`、`awareness_threshold_hash`、`acknowledged_at` 和 `composite_sig`；不允许其他成员。id 是授权书
+和阈值的确切字符串；每个哈希都是 `sha256:` 后接 64 个小写十六进制数字，基于 `dcp-jcs-v1` 字节计算：
+
+| 字段 | SHA-256 的对象 |
+|---|---|
+| `mandate_hash` | 去掉 `human_composite_sig` 和 `delegator_composite_sig` 的授权书，即其签名方所签名的载荷（§3.4） |
+| `chain_hash` | 从根到被确认授权书（含）的 `mandate_hash` 值组成的 JSON 数组（对根而言为 `["sha256:…"]`） |
+| `awareness_threshold_hash` | 去掉 `composite_sig` 的认知阈值（§4） |
+
+**签名。** 被确认授权书的代理在上下文 `DCP-AI.v2.MandateAcknowledgment` 下用 `pq_over_classical` 复合签名签署：经典
+组件签署 `UTF8(context) || 0x00 ||
+dcp-jcs-v1(record without composite_sig)`，PQ 组件签署该消息后接经典签名。与授权书相同（§3.5.1），两个组件都是必需的，
+并且在任何验证模式下都验证两者。记录所指的认知阈值也必须是 `pq_over_classical`。验证方策略对这四个组件的适用方式，
+与委托准入对授权书的适用方式相同：PQ 算法必须始终被接受，经典算法则除非叶端模式为 `pq_only`，否则也必须被接受。
+
+**绑定。** 记录的 `session_nonce`、`human_id` 和 `agent_id` 就是被确认授权书的对应值，它所指阈值的对应值也是如此。
+在一次评估（即一组输入）之内，每个确认指向一个阈值，每个阈值被一个确认指向。调用之间不登记也不消耗任何内容：这不是
+全局的重放检查。
+
+**域。** 在下文的激活和创建操作中，每个 `threshold_rules[].value` 都是 ±(2^53 − 1) 范围内的整数（接受 `5.0` 这样
+值为整数的浮点数，不接受布尔值），记录和阈值的每个字符串都是 Unicode 标量值序列，`minLength` 按码位计数。这些规则只
+适用于这两种操作；它们不是对 `dcp-jcs-v1` 或阈值模式的修改。
+
+**时间。** 时刻采用 RFC 3339，并作为时刻比较。相等的边界被接受。
+
+| 规则 | 条件 |
+|---|---|
+| T1 | `acknowledged_at` ≥ 被确认授权书的 `timestamp` |
+| T2 | `acknowledged_at` ≥ 阈值的 `timestamp` |
+| T3 | `acknowledged_at` ≤ 被确认授权书的 `valid_until` |
+| T4 | `acknowledged_at` ≤ 验证时刻加 30 秒 |
+| T5 | 对每个子授权书 i ≥ 1，授权书 i − 1 的确认不晚于授权书 i 的 `timestamp`：代理先确认，再转委托 |
+
+这些时刻是在已签名记录中声明的：它们是一致性检查，而不是真实时间顺序的证明。用旧的 `acknowledged_at` 重新签名的
+确认，无法与当时作出的确认区分开。
+
+**激活。** 评估激活的实现必须（MUST）在准入委托之后
+（[准入配置文件 §10 和 §12](../../../spec/profiles/admission/README.md#12-delegation-activation-opt-in)），在输入的一个快照上、
+以一个验证时刻进行评估，并且必须（MUST）从准入所验证的 bundle 的护照中获取代理的密钥，而不是从随请求提供的密钥映射
+中获取；每个确认的三个哈希都根据链和阈值重新计算。当组合被准入且链中每个授权书恰好有一个有效确认时，委托处于激活
+状态。激活不授权任何行为：`action_authorized` 始终为 `false`，`authority_scope` 和 `threshold_rules` 都不作评估。有效
+的确认表明代理的密钥签署了这条记录；它并不表明代理理解了授权书。
+
+**密钥与轮换。** 只计入代理当前已验证护照中的密钥；不恢复任何历史密钥。在旧密钥仍在当前护照中处于有效状态时添加新
+密钥，本身不会使任何内容失效。当旧密钥从当前护照中撤下时，它所签署的内容不再通过验证：它签署的每个子授权书都要用
+现行密钥重新签发，它签署的每个确认和每个认知阈值都要重新制作。新的确认带有其制作时刻；如果该时刻晚于下方子授权书的
+`timestamp`，T5 要求该子授权书也重新签发，这会改变其 `mandate_hash` 以及其下方确认的 `chain_hash`，因此这些确认也要
+重新制作。叶端代理下方没有子授权书，只需重新确认。密钥何时轮换不从任何来源推断。
+
+**代码与顺序。** `errors` 是有序列表。代码及其顺序是规范性的，在所有实现中都相同；消息则不然。
+
+1. `ACK_INPUT_INVALID`：确认或阈值不是 JSON 值的列表（TypeScript 和 Python；在 Go 和 Rust 中，类型本身已携带记录
+   列表）。此时不评估激活。
+2. 形式，先确认后阈值，按输入顺序：`ACK_FORM_INVALID`、`ACK_THRESHOLD_INVALID`（在以字节接收每条记录的 Go 中，还有
+   `ACK_PARSER_MISMATCH`，这是解析器的本地故障）。只要出现任何一个，评估就在此停止。
+3. 数量：按链的顺序，每个授权书的 `ACK_MISSING` 或 `ACK_DUPLICATE`；`ACK_UNEXPECTED`；重复的 `acknowledgment_id`
+   （`ACK_DUPLICATE`）；`ACK_THRESHOLD_DUPLICATE`、`ACK_THRESHOLD_MISSING`、`ACK_THRESHOLD_REUSED` 和
+   `ACK_THRESHOLD_UNEXPECTED`。只要出现任何一个，评估就在此停止。
+4. 按链的顺序，每个授权书四个阶段；某个阶段一旦添加代码，该授权书就跳过后续阶段：绑定（`ACK_MANDATE_MISMATCH`、
+   `ACK_CHAIN_MISMATCH`、`ACK_THRESHOLD_MISMATCH`）；密钥与策略（`ACK_KEY_UNKNOWN`、`ACK_KEY_INVALID`、
+   `ACK_ALGORITHM_REJECTED`）；签名（`ACK_THRESHOLD_SIGNATURE_INVALID`，然后是 `ACK_SIGNATURE_INVALID`）；以及 T1 至
+   T4（`ACK_TIME_INVALID`）。
+5. 对父项通过第 4 步的每个链接执行 T5（`ACK_TIME_INVALID`）。
+6. 对只被第 4 步和第 5 步中有效的确认和阈值使用的密钥，按 `kid` 升序检查吊销：`ACK_KEY_REVOKED`、
+   `ACK_KEY_REVOCATION_UNKNOWN`。
+
+**创建。** 一个辅助函数根据授权书链（根在前，以被确认授权书结束）、已签名阈值、一个 id、一个可选时刻和代理的签名
+密钥创建记录。它自己计算三个哈希，不接受任何哈希作为参数。在签名之前，它会拒绝永远无法通过验证的记录：属于其他
+代理、委托人或会话的阈值，超出 T1 至 T3 的 `acknowledged_at`，或超出上述域的值。
+
+| SDK | 评估 | 创建 | 上下文常量 |
+|---|---|---|---|
+| TypeScript | `evaluateDelegationActivationV2` | `createMandateAcknowledgment` | `MANDATE_ACKNOWLEDGMENT_CONTEXT` |
+| Python | `evaluate_delegation_activation_v2` | `create_mandate_acknowledgment` | `MANDATE_ACKNOWLEDGMENT_CONTEXT` |
+| Go | `EvaluateDelegationActivationV2` | `CreateMandateAcknowledgment` | `CtxMandateAcknowledgment` |
+| Rust | `evaluate_delegation_activation_v2` | `create_mandate_acknowledgment` | `CTX_MANDATE_ACKNOWLEDGMENT` |
+
+向量：[`tests/interop/v2/mandate_acknowledgment_vectors.json`](../../../tests/interop/v2/mandate_acknowledgment_vectors.json)，
+93 个用例、3 个文本用例和 1 个 Go 字节用例。TypeScript 和 Python 运行全部 93 个用例；Go 和 Rust 运行 89 个，并明确
+排除容器不是列表的 4 个用例，因为它们的类型化 API 无法携带这类输入。没有从字节进行的激活，WASM 也不导出它。该上下文
+在所有 SDK 中都可用于域分离；TypeScript 和 Python 的 `DCP_CONTEXTS` 映射保留其 19 个历史条目，新常量位于其旁边。
 
 <a id="34-mandate-hash"></a>
 
@@ -283,6 +375,8 @@ Schema 参考：`schemas/v2/delegation_mandate.schema.json`
 > 1.0.0 版作为参考性保留的十个用例，自其 2.0.0 版起为规范性用例。
 
 参考实现：`verifyMandateChain`（TypeScript）、`verify_mandate_chain`（Python 和 Rust）以及 `VerifyMandateChain`（Go）。`tests/interop/v2/mandate_chain_vectors.json` 包含每个实现都必须（MUST）接受的链和必须（MUST）拒绝的链，四个 SDK 的测试套件都会运行它。
+
+将 bundle 与其所依据的链一起准入、并对链应用运营方的信任集和策略，就是[准入配置文件 §10](../../../spec/profiles/admission/README.md#10-delegated-admission-opt-in)中选择性启用的委托准入。
 
 <a id="36-mandate-revocation"></a>
 

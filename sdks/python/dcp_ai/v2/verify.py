@@ -543,12 +543,18 @@ async def _verify_signed_bundle_v2_with_profile(
     policy: Any,
     now_ms: int | None,
     accepted_profile: str,
+    *,
+    tier_floor: str | None = None,
 ) -> dict[str, Any]:
     """Internal: verify_signed_bundle_v2 with the canonicalization profile the manifest must name.
     "dcp-jcs-v1" (the field absent or dcp-jcs-v1) is verify_signed_bundle_v2; "dcp-jcs-v2" (exactly
     that value) is reached only from the original bytes, through experimental_candidate_verify. Every
     hash and signature is computed as for dcp-jcs-v1: the candidate keeps its output rules, so on the
-    values it accepts the same canonicalizer gives its bytes."""
+    values it accepts the same canonicalizer gives its bytes.
+
+    `tier_floor` is the effective tier of a mandate chain, fed to the tier computation (spec § 14.2), where it
+    can only raise the tier and so the mode every signature is verified in. Only admit_delegated_bundle_v2
+    passes one, from the chain it verifies itself; None gives verify_signed_bundle_v2's result."""
     resolved = _resolve_policy(policy)
     now = _clock(now_ms)
     result: dict[str, Any] = {"verified": False, "errors": [], "warnings": [], "details": {}}
@@ -560,7 +566,7 @@ async def _verify_signed_bundle_v2_with_profile(
         if not schema.valid:
             result["errors"].extend(schema_diagnostics(schema))
             return result
-        await _verify(signed_bundle, registry, resolved, result, now, accepted_profile)
+        await _verify(signed_bundle, registry, resolved, result, now, accepted_profile, tier_floor)
     except (KeyError, TypeError, AttributeError, ValueError, IndexError) as exc:
         result["errors"].append(f"Malformed signed bundle: {exc!r}")
     result["verified"] = not result["errors"]
@@ -574,6 +580,7 @@ async def _verify(
     result: dict[str, Any],
     now: int,
     accepted_profile: str,
+    tier_floor: str | None = None,
 ) -> None:
     errors: list[str] = result["errors"]
     warnings: list[str] = result["warnings"]
@@ -716,7 +723,7 @@ async def _verify(
     if policy_mode not in _VERIFICATION_MODES:
         errors.append("Unknown verification mode in verifier policy")
         return
-    tier = compute_security_tier(bundle["intent"]["payload"], bundle["policy_decision"]["payload"])
+    tier = compute_security_tier(bundle["intent"]["payload"], bundle["policy_decision"]["payload"], tier_floor)
     mode = effective_verification_mode(policy_mode, tier)
     details["resolved_tier"] = tier
     details["verification_mode"] = mode

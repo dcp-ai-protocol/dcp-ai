@@ -227,6 +227,14 @@ from dcp_ai.v2.admission import (
     revocation_subjects,
 )
 from dcp_ai.v2.revocation_source import DenyListWorkers, deny_list_revocation_source
+from dcp_ai.v2.delegated_admission import admit_delegated_bundle_v2
+from dcp_ai.v2.v1_ingress import admit_signed_bundle_v2_from_bytes
+from dcp_ai.v2.mandate_acknowledgment import (
+    MANDATE_ACKNOWLEDGMENT_CONTEXT,
+    MANDATE_ACKNOWLEDGMENT_FORMAT,
+    create_mandate_acknowledgment,
+    evaluate_delegation_activation_v2,
+)
 
 __all__ = [
     "assert_no_floats",
@@ -425,4 +433,13 @@ __all__ = [
     "RevocationSourceError",
     "DenyListWorkers",
     "deny_list_revocation_source",
+    # Delegated admission (opt-in): a leaf bundle with its mandate chain and delegators, at one instant
+    "admit_delegated_bundle_v2",
+    # Admission from bytes (opt-in): copy, candidate scanner, portable integers, parser comparison, admission
+    "admit_signed_bundle_v2_from_bytes",
+    # Mandate acknowledgment (opt-in, DCP-09 § 3.3): creation, and the activation evaluated over the delegated admission
+    "MANDATE_ACKNOWLEDGMENT_CONTEXT",
+    "MANDATE_ACKNOWLEDGMENT_FORMAT",
+    "create_mandate_acknowledgment",
+    "evaluate_delegation_activation_v2",
 ]

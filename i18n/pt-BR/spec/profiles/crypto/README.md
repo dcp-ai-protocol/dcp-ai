@@ -4,7 +4,7 @@
 
 # Perfil Crypto
 
-> Tradução informativa da [especificação em inglês](../../../../../spec/profiles/crypto/README.md), atualizada em 28/10/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
+> Tradução informativa da [especificação em inglês](../../../../../spec/profiles/crypto/README.md), atualizada em 07/11/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
 
 **Estado:** Publicado — v2.0  
 **Escopo:** Seleção de algoritmos criptográficos, assinaturas compostas, agilidade criptográfica e política de verificador  
@@ -69,6 +69,70 @@ Política decidida pelo verificador, que determina quais componentes de assinatu
 - `pq_only` — apenas assinaturas PQ são exigidas (fase 3)
 
 Veja a seção 7 do [DCP-AI v2.0](../../../../../spec/DCP-AI-v2.0.md) para os modos de verificação e o formato da política de verificador.
+
+<a id="p-ed-1-ed25519-acceptance-criterion"></a>
+
+### P-ED-1: critério de aceitação do Ed25519
+
+Uma assinatura `ed25519` `sig = R ‖ S` (64 bytes) de uma chave pública `A` (32 bytes) sobre uma mensagem `M` é aceita
+se e somente se as quatro condições forem atendidas:
+
+1. **Escalar.** S < L, lendo S como inteiro little-endian de 256 bits e com L = 2^252 + 27742317777372353535851937790883648493.
+2. **Codificações canônicas.** A e R são canônicas: com `y` os 32 bytes lidos em little-endian com o bit 255 zerado,
+   `s` o bit 255 e p = 2^255 − 19, `y < p`, e não ocorre `s = 1` com `y ∈ {1, p − 1}`.
+3. **Ordem.** Nem A nem R é uma das 8 codificações de E[8], os pontos cuja ordem divide 8 (identidade incluída):
+
+   ```
+   0000000000000000000000000000000000000000000000000000000000000000
+   0000000000000000000000000000000000000000000000000000000000000080
+   0100000000000000000000000000000000000000000000000000000000000000
+   26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05
+   26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc85
+   c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a
+   c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa
+   ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f
+   ```
+
+4. **Decodificação e equação.** A e R decodificam para pontos da curva, e [S]B = R + [k]A, sem cofator, entre esses
+   pontos, com k = SHA-512(R ‖ A ‖ M) mod L calculado sobre os bytes originais de R e A.
+
+P-ED-1 é um critério do DCP, não uma das opções da RFC 8032, cujo §5.1.7 usa o desafio não reduzido. Para A e R do
+subgrupo de ordem prima, sua equação dá o mesmo resultado que as equações da RFC; o critério rejeita além disso a
+identidade e os demais pontos de E[8]. Uma A ou uma R com componente de torção que não seja de ordem pequena é aceita se
+a equação for satisfeita: P-ED-1 não exige pontos livres de torção.
+
+**Implementação.** Os SDKs mantêm a verificação da equação da sua biblioteca (TweetNaCl, PyNaCl com libsodium,
+`crypto/ed25519` do Go, `ed25519-dalek`) e verificam as condições 1 a 3 sobre os bytes antes de chamá-la: comparações
+com constantes, sem aritmética de curva nova. A biblioteca continua garantindo que A e R são pontos válidos e que a
+equação é satisfeita; algumas o fazem para R calculando a codificação canônica de [S]B − [k]A e comparando-a com os
+bytes recebidos, uma verificação equivalente que não decodifica R. Uma
+condição não atendida é uma rejeição (`false`), nunca um erro, e uma entrada que antes dava um erro (um tamanho, base64
+inválido) dá o mesmo erro; uma chave pública que não decodifica continua sendo `false` em TypeScript, Python e Go e um
+erro em Rust. As verificações se aplicam aos objetos assinados V1 e ao provedor Ed25519 V2 padrão, onde quer que um
+componente `ed25519` seja verificado. Não mudam quais componentes um modo verifica: com `pq_only` só se aplicam onde o
+componente clássico continua sendo verificado, como nos mandatos e confirmações do DCP-09, que verificam os dois
+componentes em todo modo. O registro de provedores é do operador: P-ED-1 é o critério dos provedores padrão, não uma
+garantia sobre um provedor próprio.
+
+**Compatibilidade.** É uma mudança de aceitação intencional: rejeita-se uma assinatura com S ≥ L, com A ou R não
+canônica, ou com A ou R em E[8], inclusive onde as bibliotecas de TypeScript, Go e Rust a aceitavam (o build oficial do
+PyNaCl, com libsodium 1.0.20, já rejeitava essas entradas, segundo seu código e a amostra observada). Os signatários não
+mudam: uma chave da sua geração de chaves e as assinaturas que produzem atendem P-ED-1, exceto um nonce com r ≡ 0 mod L,
+que dá a identidade como R e é rejeitado sem exceção. Os formatos, os contextos, `dcp-jcs-v1`, os schemas, o perfil
+candidato experimental e as APIs anteriores não mudam.
+
+**Migração.** Só afeta a evidência que não atende P-ED-1. Conserve-a como está e nunca normalize bytes assinados:
+codificar de novo A ou R muda k (e, no caso de A, o `kid`), e reduzir S muda os bytes da assinatura e a mensagem do
+componente PQ, que assina também a assinatura clássica.
+
+- S ≥ L, ou R não canônica ou em E[8]: assinar de novo com a mesma chave, se essa chave atender P-ED-1.
+- A não canônica: sua codificação canônica é outra chave para o DCP, com outro `kid`, então é preciso rotacionar a chave
+  e assinar de novo.
+- A em E[8]: substituir a chave; assinar de novo com ela não adianta.
+
+Vetores: [`tests/interop/v2/ed25519_ped1_vectors.json`](../../../../../tests/interop/v2/ed25519_ped1_vectors.json), verificados por
+`tools/ed25519-review/check_ped1_vectors.py`. Quais verificadores aplicam P-ED-1 e quais ainda não está em
+[SECURITY_COVERAGE.md](../../../../../docs/conformance/SECURITY_COVERAGE.md).
 
 <a id="crypto-agility"></a>
 

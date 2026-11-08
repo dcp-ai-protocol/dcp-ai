@@ -5,7 +5,7 @@
 
 # 検証のチェックリスト — Signed Bundle
 
-> [英語の仕様](../../../spec/VERIFICATION.md)の参考訳です（05/11/2026 更新）。**規範となるのは英語版です**。この翻訳に規範的な効力はなく、内容が異なる場合は英語版が優先されます。識別子とコードブロックは翻訳せずにそのまま掲載しています。
+> [英語の仕様](../../../spec/VERIFICATION.md)の参考訳です（07/11/2026 更新）。**規範となるのは英語版です**。この翻訳に規範的な効力はなく、内容が異なる場合は英語版が優先されます。識別子とコードブロックは翻訳せずにそのまま掲載しています。
 
 すべての手順は**ローカル**で、API やサーバーの呼び出しは必要ありません。検証器に必要なのは Signed Bundle だけです（省略可能ですが、ピア、ファイル、アンカーされたリストから得た、署名された RevocationRecord の集合も使えます）。
 
@@ -21,6 +21,7 @@ Signed Bundle を検証するときは、次を順に行います：
    - `bundle_hash` = SHA-256(canonical(bundle)) を再計算し、`signature.bundle_hash` と比べます（一致しなければならない。たとえば `sha256:<hex>`）。  
    - 正規のバンドルに対して、`signature.signer.public_key_b64` で `signature.sig_b64` を検証します（Ed25519 の分離署名）。  
    - この手順には `dcp verify-bundle <signed.json> <public_key.txt>` を使います。
+   - Ed25519 の署名は[暗号プロファイル](../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion)の P-ED-1 に従って受理されます。SDK の検証器はこれを適用しますが、リファレンスの `dcp verify-bundle` は今のところ S < L しか確認しません（[SECURITY_COVERAGE.md](../../../docs/conformance/SECURITY_COVERAGE.md)）。
 
 3. **RPR を検証します：** 期限切れでないこと — `responsible_principal_record.expires_at` が `null` か、未来の ISO 8601 の日時であること。省略可能：記録が署名付きで保存されていれば、RPR の署名を検証します。
 
@@ -109,7 +110,7 @@ Signed Bundle を `schemas/v2/signed_bundle.schema.json` に照らして検証�
 
 ### 手順 V2-6：クラシカルの署名を検証する
 
-署名されたメッセージを再構成します：`context_tag || 0x00 || canonical(manifest)`。ここで `context_tag` は `"DCP-AI.v2.Bundle"` です。`composite_sig.classical.sig_b64` を、`composite_sig.classical.kid` で特定される公開鍵に照らし、`composite_sig.classical.alg` で指定されたアルゴリズム（通常は Ed25519）で検証します。
+署名されたメッセージを再構成します：`context_tag || 0x00 || canonical(manifest)`。ここで `context_tag` は `"DCP-AI.v2.Bundle"` です。`composite_sig.classical.sig_b64` を、`composite_sig.classical.kid` で特定される公開鍵に照らし、`composite_sig.classical.alg` で指定されたアルゴリズム（通常は Ed25519）で検証します。`ed25519` の構成要素は、検証される箇所ではどこでも[暗号プロファイル](../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion)の P-ED-1 に従って受理されます。これによって、実効モード（ステップ V2-9）が要求する構成要素は変わりません。
 
 バンドルの署名者は責任を負うプリンシパルです。kid は RPR の `binding_keys` の中だけで探します。`passport_hash` を約束するマニフェストに対するプリンシパルの署名が、このエージェントとその鍵をプリンシパルに結び付けます。エージェントは自分のパスポートに自分で署名するため、パスポートにだけ挙げられた鍵がバンドルの署名を検証してはなりません（MUST NOT）。さもなければ、誰でも、公開された署名付きの RPR を、自分のパスポートと鍵と組み合わせることができてしまいます。
 

@@ -5,7 +5,7 @@
 
 # DCP-09: 委任と代理
 
-> [英語の仕様](../../../spec/DCP-09.md)の参考訳です（05/11/2026 更新）。**規範となるのは英語版です**。この翻訳に規範的な効力はなく、内容が異なる場合は英語版が優先されます。識別子とコードブロックは翻訳せずにそのまま掲載しています。
+> [英語の仕様](../../../spec/DCP-09.md)の参考訳です（07/11/2026 更新）。**規範となるのは英語版です**。この翻訳に規範的な効力はなく、内容が異なる場合は英語版が優先されます。識別子とコードブロックは翻訳せずにそのまま掲載しています。
 
 <a id="status"></a>
 
@@ -223,7 +223,111 @@ DCP-09 は、相互に関連する 5 つの問題に取り組みます。
 6. 受領確認済みのマンデートが有効になる
 7. プリンシパルとエージェントの両方の監査チェーンに `delegation_mandate_issued` の監査エントリーが作成される
 
-> *参考注記（25/10/2026）：* V2.0 の `delegation_mandate` スキーマには、ステップ 5 のエージェントの確認応答のためのフィールドがありません。[V2-WIRE-COMPATIBILITY.md](../../../spec/V2-WIRE-COMPATIBILITY.md#4-requirements-the-v20-structures-do-not-represent-directly) を参照してください。
+> *参考注記（25/10/2026）：* V2.0 の `delegation_mandate` スキーマには、ステップ 5 のエージェントの確認応答のためのフィールドがありません。[V2-WIRE-COMPATIBILITY.md](../../../spec/V2-WIRE-COMPATIBILITY.md#4-requirements-the-v20-structures-do-not-represent-directly) を参照してください。現在は、別の、バージョン管理されたオプトインの記録がこれを表現します。§3.3.1 を参照してください。
+
+<a id="331-mandate-acknowledgment-opt-in"></a>
+
+#### 3.3.1 マンデートの確認応答（オプトイン）
+
+手順 4〜6 は、マンデートとは別に運ばれる別の記録で表現されます。これはオプトインであり、既存のどの記録のバイトも
+変えません。マンデート、認識しきい値、それらのスキーマとコンテキストはそのままです。
+
+**記録。** [`schemas/v2/mandate_acknowledgment.schema.json`](../../../schemas/v2/mandate_acknowledgment.schema.json)、
+フォーマット `dcp09-mandate-ack-v1`、チェーンのマンデートごとに 1 つの記録です。フィールドは `dcp_version`（`"2.0"`）、
+`acknowledgment_format`、`acknowledgment_id`、`mandate_id`、`mandate_hash`、`chain_hash`、`session_nonce`、`human_id`、
+`agent_id`、`awareness_threshold_id`、`awareness_threshold_hash`、`acknowledged_at`、`composite_sig` で、ほかのメンバーは
+認められません。id はマンデートとしきい値の正確な文字列です。各ハッシュは `sha256:` に続く小文字の 16 進数 64 桁で、
+`dcp-jcs-v1` のバイトに対して計算します。
+
+| フィールド | SHA-256 の対象 |
+|---|---|
+| `mandate_hash` | `human_composite_sig` と `delegator_composite_sig` を除いたマンデート。署名者が署名するペイロードです（§3.4） |
+| `chain_hash` | ルートから確認応答の対象のマンデートまで（それを含む）の `mandate_hash` の値の JSON 配列（ルートでは `["sha256:…"]`） |
+| `awareness_threshold_hash` | `composite_sig` を除いた認識しきい値（§4） |
+
+**署名。** 確認応答の対象のマンデートのエージェントが、コンテキスト `DCP-AI.v2.MandateAcknowledgment` のもとで
+`pq_over_classical` の複合署名により署名します。古典的な構成要素は `UTF8(context) || 0x00 ||
+dcp-jcs-v1(record without composite_sig)` に署名し、PQ の構成要素はそのメッセージに古典的な署名を続けたものに署名
+します。マンデートと同じく（§3.5.1）、両方の構成要素が必須で、どの検証モードでも両方を検証します。記録が指す認識
+しきい値も `pq_over_classical` でなければなりません。検証者のポリシーは、委任付きアドミッションがマンデートに適用する
+のと同じように 4 つの構成要素に適用されます。PQ のアルゴリズムは常に受け入れられていなければならず、古典的な
+アルゴリズムは末端のモードが `pq_only` でない限り受け入れられていなければなりません。
+
+**結び付き。** 記録の `session_nonce`、`human_id`、`agent_id` は確認応答の対象のマンデートのものであり、記録が指す
+しきい値のものも同じです。1 回の評価、つまり 1 組の入力の中では、各確認応答が 1 つのしきい値を指し、各しきい値は
+1 つの確認応答から指されます。呼び出しをまたいで記録したり消費したりするものはなく、これは全体的なリプレイの確認では
+ありません。
+
+**ドメイン。** 以下のアクティベーションと作成の操作では、各 `threshold_rules[].value` は ±(2^53 − 1) の範囲の整数
+（`5.0` のような整数値の浮動小数点数は受け入れ、真偽値は受け入れません）であり、記録としきい値の各文字列は Unicode
+スカラー値の列であり、`minLength` はコードポイントを数えます。これらの規則はこの 2 つの操作にだけ適用され、
+`dcp-jcs-v1` やしきい値のスキーマの変更ではありません。
+
+**時刻。** 時点は RFC 3339 で、時点として比較します。等しい境界は受け入れます。
+
+| 規則 | 条件 |
+|---|---|
+| T1 | `acknowledged_at` ≥ 確認応答の対象のマンデートの `timestamp` |
+| T2 | `acknowledged_at` ≥ しきい値の `timestamp` |
+| T3 | `acknowledged_at` ≤ 確認応答の対象のマンデートの `valid_until` |
+| T4 | `acknowledged_at` ≤ 検証時刻に 30 秒を加えたもの |
+| T5 | 各サブマンデート i ≥ 1 について、マンデート i − 1 の確認応答はマンデート i の `timestamp` より後ではない。エージェントは再委任する前に確認応答する |
+
+これらの時点は署名付きの記録で宣言されたものです。整合性の確認であって、実際の時系列の証明ではありません。古い
+`acknowledged_at` で署名し直された確認応答は、その時点で行われたものと区別できません。
+
+**アクティベーション。** アクティベーションを評価する実装は、委任をアドミッションした後で
+（[アドミッションプロファイル §10 と §12](../../../spec/profiles/admission/README.md#12-delegation-activation-opt-in)）、入力の
+1 つのスナップショットに対して 1 つの検証時刻で評価しなければならず（MUST）、エージェントの鍵を、リクエストとともに
+与えられた鍵のマップからではなく、アドミッションが検証したバンドルのパスポートから取らなければなりません（MUST）。
+各確認応答の 3 つのハッシュは、チェーンとしきい値から再計算されます。構成がアドミッションされ、チェーンの各マンデートに
+ちょうど 1 つの有効な確認応答があるとき、委任はアクティブです。アクティベーションはどの行為も認可しません。
+`action_authorized` は常に `false` で、`authority_scope` も `threshold_rules` も評価されません。有効な確認応答は、
+エージェントの鍵がこの記録に署名したことを示しますが、エージェントがマンデートを理解したことは示しません。
+
+**鍵とローテーション。** 数えるのはエージェントの現在の検証済みパスポートにある鍵だけで、過去の鍵は復元しません。
+古い鍵が現在のパスポートで有効なまま新しい鍵を追加しても、それだけでは何も無効になりません。古い鍵が現在の
+パスポートから外されると、その鍵が署名したものは検証を通らなくなります。その鍵が署名した各サブマンデートは現行の鍵で
+再発行され、その鍵が署名した各確認応答と各認識しきい値は作り直されます。新しい確認応答には作成した時刻が入ります。
+その時刻が下のサブマンデートの `timestamp` より後であれば、T5 によりそのサブマンデートも再発行が必要になり、その
+`mandate_hash` と、その下の確認応答の `chain_hash` が変わるため、それらも作り直されます。下にサブマンデートのない末端の
+エージェントは、確認応答し直すだけです。鍵がいつローテーションされたかは、どの情報源からも推測しません。
+
+**コードと順序。** `errors` は順序付きのリストです。コードとその順序は規範的で、すべての実装で同じです。メッセージは
+そうではありません。
+
+1. `ACK_INPUT_INVALID`：確認応答またはしきい値が JSON の値のリストではない（TypeScript と Python。Go と Rust では
+   型がすでに記録のリストを運びます）。このときアクティベーションは評価されません。
+2. 形式。確認応答、次にしきい値を入力の順に：`ACK_FORM_INVALID`、`ACK_THRESHOLD_INVALID`（各記録をバイトで受け取る
+   Go では `ACK_PARSER_MISMATCH` も。これはパーサーの局所的な不具合です）。いずれかがあれば、評価はここで止まります。
+3. 個数：チェーンの順にマンデートごとの `ACK_MISSING` または `ACK_DUPLICATE`、`ACK_UNEXPECTED`、重複した
+   `acknowledgment_id`（`ACK_DUPLICATE`）、`ACK_THRESHOLD_DUPLICATE`、`ACK_THRESHOLD_MISSING`、
+   `ACK_THRESHOLD_REUSED`、`ACK_THRESHOLD_UNEXPECTED`。いずれかがあれば、評価はここで止まります。
+4. マンデートごとに、チェーンの順に 4 つの段階。コードを追加した段階があれば、そのマンデートの以降の段階は飛ばします。
+   結び付き（`ACK_MANDATE_MISMATCH`、`ACK_CHAIN_MISMATCH`、`ACK_THRESHOLD_MISMATCH`）、鍵とポリシー
+   （`ACK_KEY_UNKNOWN`、`ACK_KEY_INVALID`、`ACK_ALGORITHM_REJECTED`）、署名（`ACK_THRESHOLD_SIGNATURE_INVALID`、次に
+   `ACK_SIGNATURE_INVALID`）、T1〜T4（`ACK_TIME_INVALID`）です。
+5. 親が手順 4 を通過した各リンクについての T5（`ACK_TIME_INVALID`）。
+6. 手順 4 と 5 で有効だった確認応答としきい値だけが使う鍵の失効を、`kid` の昇順に：`ACK_KEY_REVOKED`、
+   `ACK_KEY_REVOCATION_UNKNOWN`。
+
+**作成。** ヘルパーが、マンデートチェーン（ルートが先頭で、確認応答の対象のマンデートで終わる）、署名付きのしきい値、
+id、省略可能な時点、エージェントの署名鍵から記録を作成します。3 つのハッシュは自分で計算し、ハッシュを引数として
+受け取りません。署名の前に、決して検証を通らない記録を拒否します。別のエージェント、プリンシパル、セッションの
+しきい値、T1〜T3 の範囲外の `acknowledged_at`、上記のドメイン外の値です。
+
+| SDK | 評価 | 作成 | コンテキストの定数 |
+|---|---|---|---|
+| TypeScript | `evaluateDelegationActivationV2` | `createMandateAcknowledgment` | `MANDATE_ACKNOWLEDGMENT_CONTEXT` |
+| Python | `evaluate_delegation_activation_v2` | `create_mandate_acknowledgment` | `MANDATE_ACKNOWLEDGMENT_CONTEXT` |
+| Go | `EvaluateDelegationActivationV2` | `CreateMandateAcknowledgment` | `CtxMandateAcknowledgment` |
+| Rust | `evaluate_delegation_activation_v2` | `create_mandate_acknowledgment` | `CTX_MANDATE_ACKNOWLEDGMENT` |
+
+ベクター：[`tests/interop/v2/mandate_acknowledgment_vectors.json`](../../../tests/interop/v2/mandate_acknowledgment_vectors.json)。
+93 件のケース、3 件のテキストのケース、1 件の Go のバイトのケースです。TypeScript と Python は 93 件を実行し、Go と
+Rust は 89 件を実行して、コンテナーがリストでない 4 件を明示的に除外します。それらは型付きの API では運べないためです。
+バイトからのアクティベーションはなく、WASM はこれを公開しません。このコンテキストはすべての SDK でドメイン分離に
+有効です。TypeScript と Python の `DCP_CONTEXTS` マップは従来の 19 項目を保ち、新しい定数はその横に置かれます。
 
 <a id="34-mandate-hash"></a>
 
@@ -291,6 +395,8 @@ DCP-09 は、相互に関連する 5 つの問題に取り組みます。
 > としていた 10 ケースは、そのバージョン 2.0.0 から規範的です。
 
 リファレンス実装: `verifyMandateChain`（TypeScript）、`verify_mandate_chain`（Python と Rust）、`VerifyMandateChain`（Go）。`tests/interop/v2/mandate_chain_vectors.json` には、すべての実装が受け入れなければならない（MUST）チェーンと拒否しなければならない（MUST）チェーンが含まれ、4 つの SDK のテストスイートすべてがこれを実行します。
+
+バンドルを、それが従うチェーンと一緒に、運用者の信頼セットとポリシーをチェーンに適用してアドミッションするのは、[アドミッションプロファイル §10](../../../spec/profiles/admission/README.md#10-delegated-admission-opt-in) のオプトインの委任付きアドミッションです。
 
 <a id="36-mandate-revocation"></a>
 

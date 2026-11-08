@@ -5,7 +5,7 @@
 
 # DCP-09: Delegação e representação
 
-> Tradução informativa da [especificação em inglês](../../../spec/DCP-09.md), atualizada em 05/11/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
+> Tradução informativa da [especificação em inglês](../../../spec/DCP-09.md), atualizada em 07/11/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
 
 ## Status
 Publicada — v2.0 (extensão; as revisões são acompanhadas conforme o retorno de quem a adota)
@@ -219,7 +219,117 @@ Referência do schema: `schemas/v2/delegation_mandate.schema.json`
 6. O mandato confirmado passa a estar ativo
 7. Uma entrada de auditoria `delegation_mandate_issued` é criada nas cadeias de auditoria do principal e do agente
 
-> *Nota informativa (25/10/2026):* o schema V2.0 `delegation_mandate` não tem nenhum campo para a confirmação do agente do passo 5; veja [V2-WIRE-COMPATIBILITY.md](../../../spec/V2-WIRE-COMPATIBILITY.md#4-requirements-the-v20-structures-do-not-represent-directly).
+> *Nota informativa (25/10/2026):* o schema V2.0 `delegation_mandate` não tem nenhum campo para a confirmação do agente do passo 5; veja [V2-WIRE-COMPATIBILITY.md](../../../spec/V2-WIRE-COMPATIBILITY.md#4-requirements-the-v20-structures-do-not-represent-directly). Um registro separado, versionado e opt-in o representa agora: §3.3.1.
+
+<a id="331-mandate-acknowledgment-opt-in"></a>
+
+#### 3.3.1 Confirmação do mandato (opt-in)
+
+Os passos 4 a 6 são representados por um registro separado, transportado à parte do mandato. É opt-in e não muda
+nenhum byte de nenhum registro existente: o mandato, o limiar de consciência, seus schemas e seus contextos ficam como
+estão.
+
+**Registro.** [`schemas/v2/mandate_acknowledgment.schema.json`](../../../schemas/v2/mandate_acknowledgment.schema.json),
+formato `dcp09-mandate-ack-v1`, um registro por mandato da cadeia. Seus campos são `dcp_version` (`"2.0"`),
+`acknowledgment_format`, `acknowledgment_id`, `mandate_id`, `mandate_hash`, `chain_hash`, `session_nonce`, `human_id`,
+`agent_id`, `awareness_threshold_id`, `awareness_threshold_hash`, `acknowledged_at` e `composite_sig`; nenhum outro
+membro é admitido. Os ids são as strings exatas do mandato e do limiar; cada hash é `sha256:` seguido de 64 dígitos
+hexadecimais em minúsculas, sobre bytes `dcp-jcs-v1`:
+
+| Campo | SHA-256 de |
+|---|---|
+| `mandate_hash` | O mandato sem `human_composite_sig` e `delegator_composite_sig`, o payload que seu signatário assina (§3.4) |
+| `chain_hash` | O array JSON dos valores `mandate_hash` da raiz até o mandato confirmado inclusive (para a raiz, `["sha256:…"]`) |
+| `awareness_threshold_hash` | O limiar de consciência (§4) sem seu `composite_sig` |
+
+**Assinatura.** O agente do mandato confirmado assina com uma assinatura composta `pq_over_classical` sob o contexto
+`DCP-AI.v2.MandateAcknowledgment`: o componente clássico assina `UTF8(context) || 0x00 ||
+dcp-jcs-v1(record without composite_sig)`, e o componente PQ assina essa mensagem seguida da assinatura clássica. Os
+dois componentes são obrigatórios e os dois são verificados, em todo modo de verificação, como nos mandatos (§3.5.1). O
+limiar de consciência que o registro nomeia também deve ser `pq_over_classical`. A política do verificador se aplica aos
+quatro componentes como a admissão delegada a aplica aos mandatos: o algoritmo PQ sempre deve ser aceito, e o clássico a
+menos que o modo da folha seja `pq_only`.
+
+**Vínculos.** O `session_nonce`, o `human_id` e o `agent_id` do registro são os do mandato confirmado, e também os do
+limiar que ele nomeia. Dentro de uma avaliação, isto é, um conjunto de entradas, cada confirmação nomeia um limiar e
+cada limiar é nomeado por uma confirmação. Nada é registrado nem consumido entre chamadas: não é uma verificação global
+contra repetição.
+
+**Domínio.** Nas operações de ativação e de criação abaixo, cada `threshold_rules[].value` é um inteiro dentro de
+±(2^53 − 1) (aceita-se um float inteiro como `5.0`, não um booleano), cada string do registro e do limiar é uma
+sequência de valores escalares Unicode, e `minLength` conta pontos de código. Essas regras valem só para essas duas
+operações; não são uma mudança de `dcp-jcs-v1` nem do schema do limiar.
+
+**Tempo.** Os instantes são RFC 3339 e comparados como instantes. Limites iguais são aceitos.
+
+| Regra | Condição |
+|---|---|
+| T1 | `acknowledged_at` ≥ o `timestamp` do mandato confirmado |
+| T2 | `acknowledged_at` ≥ o `timestamp` do limiar |
+| T3 | `acknowledged_at` ≤ o `valid_until` do mandato confirmado |
+| T4 | `acknowledged_at` ≤ o momento da verificação mais 30 segundos |
+| T5 | Para cada submandato i ≥ 1, a confirmação do mandato i − 1 não é posterior ao `timestamp` do mandato i: um agente confirma antes de subdelegar |
+
+Esses instantes são declarados em registros assinados: são uma verificação de coerência, não uma prova da cronologia
+real. Uma confirmação assinada de novo com um `acknowledged_at` antigo não pode ser distinguida de uma feita naquele
+momento.
+
+**Ativação.** Uma implementação que avalia a ativação deve (MUST) fazê-lo sobre um snapshot das entradas e em um único
+momento de verificação, depois de admitir a delegação
+([perfil de admissão §10 e §12](../../../spec/profiles/admission/README.md#12-delegation-activation-opt-in)), e deve (MUST)
+tomar as chaves dos agentes dos passaportes dos bundles que a admissão verificou, não de um mapa de chaves fornecido com
+a requisição; os três hashes de cada confirmação são recalculados a partir da cadeia e do limiar. A delegação está ativa
+quando a composição é admitida e cada mandato da cadeia tem exatamente uma confirmação válida. A ativação não autoriza
+nenhuma ação: `action_authorized` é sempre `false`, e nem `authority_scope` nem `threshold_rules` são avaliados. Uma
+confirmação válida mostra que a chave do agente assinou este registro; não mostra que o agente entendeu o mandato.
+
+**Chaves e rotação.** Só contam as chaves do passaporte atual e verificado do agente; nenhuma chave histórica é
+recuperada. Acrescentar uma chave nova enquanto a antiga continua ativa no passaporte atual não invalida nada por si
+só. Quando uma chave antiga é retirada do passaporte atual, o que ela assinou deixa de verificar: cada submandato que ela
+assinou é reemitido com uma chave vigente, e cada confirmação e cada limiar de consciência que ela assinou é refeito.
+Uma confirmação nova traz o momento em que é feita; quando esse momento é posterior ao `timestamp` do submandato abaixo,
+T5 exige reemitir também esse submandato, o que muda seu `mandate_hash` e o `chain_hash` das confirmações abaixo dele,
+então também essas são refeitas. O agente folha, sem submandato abaixo, só confirma de novo. O momento de uma rotação
+não é inferido de nenhuma fonte.
+
+**Códigos e ordem.** `errors` é uma lista ordenada. Os códigos e sua ordem são normativos e iguais em todas as
+implementações; as mensagens não.
+
+1. `ACK_INPUT_INVALID`: as confirmações ou os limiares não são uma lista de valores JSON (TypeScript e Python; em Go e
+   Rust os tipos já carregam uma lista de registros). A ativação não é avaliada.
+2. Forma, primeiro as confirmações e depois os limiares, na ordem de entrada: `ACK_FORM_INVALID`,
+   `ACK_THRESHOLD_INVALID` (em Go, que recebe cada registro como bytes, também `ACK_PARSER_MISMATCH`, uma falha local do
+   parser). Se houver algum, a avaliação para aqui.
+3. Cardinalidade: `ACK_MISSING` ou `ACK_DUPLICATE` por mandato na ordem da cadeia; `ACK_UNEXPECTED`; um
+   `acknowledgment_id` repetido (`ACK_DUPLICATE`); `ACK_THRESHOLD_DUPLICATE`, `ACK_THRESHOLD_MISSING`,
+   `ACK_THRESHOLD_REUSED` e `ACK_THRESHOLD_UNEXPECTED`. Se houver algum, a avaliação para aqui.
+4. Por mandato, na ordem da cadeia, quatro fases; uma fase que acrescenta um código faz pular as seguintes para esse
+   mandato: vínculos (`ACK_MANDATE_MISMATCH`, `ACK_CHAIN_MISMATCH`, `ACK_THRESHOLD_MISMATCH`); chaves e política
+   (`ACK_KEY_UNKNOWN`, `ACK_KEY_INVALID`, `ACK_ALGORITHM_REJECTED`); assinaturas (`ACK_THRESHOLD_SIGNATURE_INVALID` e
+   depois `ACK_SIGNATURE_INVALID`); e T1 a T4 (`ACK_TIME_INVALID`).
+5. T5 (`ACK_TIME_INVALID`), para cada elo cujo pai passou pelo passo 4.
+6. Revogação das chaves que só confirmações e limiares válidos nos passos 4 e 5 usam, por `kid` em ordem crescente:
+   `ACK_KEY_REVOKED`, `ACK_KEY_REVOCATION_UNKNOWN`.
+
+**Criação.** Um helper cria o registro a partir da cadeia de mandatos (raiz primeiro, terminando no mandato
+confirmado), do limiar assinado, de um id, de um instante opcional e das chaves de assinatura do agente. Ele mesmo
+calcula os três hashes e não recebe nenhum hash como parâmetro. Antes de assinar, recusa um registro que nunca poderia
+verificar: um limiar de outro agente, principal ou sessão, um `acknowledged_at` fora de T1 a T3, ou um valor fora do
+domínio acima.
+
+| SDK | Avaliar | Criar | Constante de contexto |
+|---|---|---|---|
+| TypeScript | `evaluateDelegationActivationV2` | `createMandateAcknowledgment` | `MANDATE_ACKNOWLEDGMENT_CONTEXT` |
+| Python | `evaluate_delegation_activation_v2` | `create_mandate_acknowledgment` | `MANDATE_ACKNOWLEDGMENT_CONTEXT` |
+| Go | `EvaluateDelegationActivationV2` | `CreateMandateAcknowledgment` | `CtxMandateAcknowledgment` |
+| Rust | `evaluate_delegation_activation_v2` | `create_mandate_acknowledgment` | `CTX_MANDATE_ACKNOWLEDGMENT` |
+
+Vetores: [`tests/interop/v2/mandate_acknowledgment_vectors.json`](../../../tests/interop/v2/mandate_acknowledgment_vectors.json),
+93 casos, 3 casos de texto e 1 caso de bytes do Go. TypeScript e Python executam os 93 casos; Go e Rust executam 89 e
+excluem explicitamente os 4 casos cujos contêineres não são listas, que sua API tipada não pode carregar. Não há
+ativação a partir de bytes, e o WASM não a exporta. O contexto é válido para a separação de domínio em todos os SDKs; os
+mapas `DCP_CONTEXTS` de TypeScript e Python conservam suas 19 entradas históricas, e a nova constante fica ao lado
+deles.
 
 <a id="34-mandate-hash"></a>
 
@@ -287,6 +397,8 @@ Um verificador que aceita uma cadeia de mandatos deve (MUST) receber a cadeia or
 > versão 1.0.0 do catálogo externo de delegação mantinha informativos são normativos a partir da sua versão 2.0.0.
 
 Implementações de referência: `verifyMandateChain` (TypeScript), `verify_mandate_chain` (Python e Rust) e `VerifyMandateChain` (Go). `tests/interop/v2/mandate_chain_vectors.json` contém cadeias que toda implementação deve (MUST) aceitar e cadeias que deve (MUST) rejeitar, e as quatro suítes dos SDKs o executam.
+
+Admitir um bundle junto com a cadeia sob a qual ele atua, aplicando à cadeia o conjunto de confiança e a política do operador, é a admissão delegada opt-in do [perfil de admissão §10](../../../spec/profiles/admission/README.md#10-delegated-admission-opt-in).
 
 <a id="36-mandate-revocation"></a>
 

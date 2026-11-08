@@ -92,6 +92,23 @@ Publicado em 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 e `@dcp-ai/cl
 
 ### Segurança
 
+- **Critério de aceitação do Ed25519 P-ED-1** (código-fonte local dos SDKs de TypeScript, Python, Go e Rust, não está
+  em nenhuma versão publicada; sem mudança de versão). `verifyObject` do V1 e seus equivalentes, e o provedor Ed25519 V2
+  padrão, agora também rejeitam uma assinatura cuja chave pública ou R não é uma codificação canônica, ou é um dos 8
+  pontos de ordem que divide 8 (identidade incluída), além de S >= L. As bibliotecas continuam garantindo pontos válidos
+  e [S]B = R + [k]A com k reduzido mod L, sem cofator (para R, algumas comparando a codificação canônica de
+  [S]B − [k]A com os bytes recebidos); as novas verificações comparam bytes antes delas. Os pontos com componente de
+  torção que não são de ordem pequena continuam aceitos. É uma mudança de aceitação intencional: TypeScript, Go e Rust
+  aceitavam antes algumas dessas assinaturas, e o build oficial do PyNaCl já as rejeitava. Uma verificação não atendida
+  devolve `false`; as entradas que lançavam um erro continuam lançando o mesmo. Os signatários, os formatos, os
+  contextos, `dcp-jcs-v1`, os schemas e as APIs não mudam, e `pq_only` não verifica nenhum componente que não
+  verificasse antes. **Migração:** conserve como está a evidência que não o atende e nunca codifique de novo nem reduza
+  bytes assinados; assine de novo com a mesma chave quando a chave atende P-ED-1, rotacione uma chave pública não
+  canônica e substitua uma chave de ordem pequena. Ainda não o aplicam o verificador V1 de referência, a cópia V1 da CLI
+  nem o playground (só S < L); o verificador V2 de referência, o servidor e a CLI só mudam quando o SDK é recompilado e
+  reinstalado; o WASM é compilado a partir do mesmo código Rust, mas não é executado. Especificação:
+  `spec/profiles/crypto/README.md`; vetores: `tests/interop/v2/ed25519_ped1_vectors.json`.
+
 - **Endpoints demo do DCP-05 ao DCP-09 desligados por padrão e só para o operador quando ativados** (código-fonte de
   `main`, não está em nenhuma versão publicada; `server/`). Os 31 endpoints do servidor de referência que só conferem
   schemas, para registros de ciclo de vida, sucessão, disputas, direitos e delegação, não precisavam de token. Agora toda
@@ -370,6 +387,25 @@ Publicado em 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 e `@dcp-ai/cl
 <a id="added"></a>
 
 ### Adicionado
+
+- **Admissão delegada, admissão a partir de bytes e confirmação de mandato (opt-in)** (código-fonte local dos SDKs de
+  TypeScript, Python, Go e Rust, não está em nenhuma versão publicada; sem mudança de versão). Nada as chama por
+  padrão, e as funções, os resultados, os códigos e os vetores existentes não mudam. O WASM, a CLI, o playground, o
+  servidor de referência, os adaptadores e o kit não as expõem.
+  - `admitDelegatedBundleV2` e seus equivalentes admitem um bundle folha com sua cadeia de mandatos do DCP-09 e um
+    bundle por agente que delega, em um único `now`, sob o conjunto de confiança, o perfil ou a política do operador e
+    os snapshots de revogação de agentes, chaves e mandatos (`spec/profiles/admission` § 10, códigos `DELEGATION_*`,
+    `tests/interop/v2/delegated_admission_vectors.json`).
+  - `admitSignedBundleV2FromBytes` e seus equivalentes recebem o bundle assinado como bytes, rejeitam antes de qualquer
+    parser o que o scanner experimental rejeita e os números que não são inteiros simples (`NUMBER_NOT_PORTABLE`), e
+    exigem que o parser do SDK reproduza os bytes canônicos do scanner (`INGRESS_PARSER_MISMATCH`); § 11,
+    `tests/interop/v2/v1_ingress_vectors.json`. `dcp-jcs-v1` não muda.
+  - Um novo registro, `schemas/v2/mandate_acknowledgment.schema.json` (`dcp09-mandate-ack-v1`), assinado sob o novo
+    contexto `DCP-AI.v2.MandateAcknowledgment`, com `createMandateAcknowledgment` e
+    `evaluateDelegationActivationV2` e seus equivalentes (DCP-09 § 3.3.1, perfil de admissão § 12, códigos `ACK_*`
+    ordenados, `tests/interop/v2/mandate_acknowledgment_vectors.json`). Os mapas `DCP_CONTEXTS` de TypeScript e
+    Python conservam suas 19 entradas; o contexto é uma constante à parte. A ativação não autoriza nenhuma ação e não
+    mostra que o agente entendeu o mandato.
 
 - **Catálogo de política efetiva (contrato `/5`, opt-in)** (kit e testes em `main`, não uma versão de pacote;
   `tools/conformance/`). `external-effective-policy-catalog.json` julga 130 verificações de bundles assinados pelo
@@ -854,6 +890,12 @@ Publicado em 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 e `@dcp-ai/cl
 <a id="fixed"></a>
 
 ### Corrigido
+
+- **Go: as chaves SLH-DSA-192f são lidas sem pânico** (código-fonte local, não está em nenhuma versão publicada;
+  `sdks/go/dcp/providers/slh_dsa_192f_provider.go`). O provedor lia as chaves secretas e públicas sem conjunto de
+  parâmetros (um `ID` zero), e o circl entrava em pânico ao lê-las; agora define antes `slhdsa.SHA2_192f`, então assinar
+  e verificar com chaves SLH-DSA-192f funciona, e uma entrada de tamanho errado dá um erro ou uma rejeição, não um
+  pânico. Formatos e APIs não mudam.
 
 - Log de transparência: um par adicionado por `POST /gossip/peers` a um log iniciado sem `GOSSIP_PEERS` nunca era
   consultado (código-fonte de `main`, não está em nenhuma versão publicada). A sondagem só começava na inicialização,

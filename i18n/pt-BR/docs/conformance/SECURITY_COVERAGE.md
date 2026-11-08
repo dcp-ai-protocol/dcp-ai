@@ -169,6 +169,29 @@ Os [harnesses diferenciais](../../../../tools/difffuzz/README.md) comparam os SD
 
 Uma campanha finita mostra que esses casos concordam ou registra onde não concordam; não é exaustiva. O WASM não verifica cadeias de mandatos, e as entradas que o contrato `/4` não leva a todos os SDKs (um token `NaN`, uma marca de ordem de bytes, `1e400`) são medidas por uma sonda de transporte à parte: a recusa de um wrapper nunca conta como rejeição do SDK, e a rejeição que os SDKs de TypeScript e Python devolvem para `1e400` não credita nenhuma regra semântica.
 
+<a id="local-source-additions-07112026"></a>
+
+## Acréscimos do código-fonte local (07/11/2026)
+
+Estas linhas descrevem o código-fonte local dos SDKs de TypeScript, Python, Go e Rust, não um pacote publicado. Cada uma é
+exercitada por vetores compartilhados que as quatro suítes dos SDKs executam; o kit externo ainda não tem um contrato para
+elas, então um resultado do kit não diz nada sobre estas regras. Nenhuma é uma afirmação de conformidade completa nem de
+prontidão empresarial.
+
+**Superfícies opcionais.** Só são usadas pelo código que as chama.
+
+| Requisito | Superfície exercitada | Limite |
+|---|---|---|
+| Admissão delegada ([perfil de admissão § 10](../../../../spec/profiles/admission/README.md#10-delegated-admission-opt-in)) | [`delegated_admission_vectors.json`](../../../../tests/interop/v2/delegated_admission_vectors.json): 71 casos e 6 casos de configuração | Verificada só em `now`; `delegation_active` e `action_authorized` são `false`; sem API no WASM |
+| Admissão a partir de bytes (§ 11) | [`v1_ingress_vectors.json`](../../../../tests/interop/v2/v1_ingress_vectors.json): 26 casos e 30 diferenças de domínio | Os orçamentos de tamanho e de tempo ficam fora; as funções sobre valores já analisados não podem recuperar o que seu parser perdeu |
+| Confirmação de mandato e ativação ([DCP-09 § 3.3.1](../../../../spec/DCP-09.md#331-mandate-acknowledgment-opt-in), § 12) | [`mandate_acknowledgment_vectors.json`](../../../../tests/interop/v2/mandate_acknowledgment_vectors.json): 93 casos em TypeScript e Python; 89 em Go e Rust, que excluem explicitamente os 4 casos cujos contêineres não são listas, porque sua API tipada não pode carregá-los | Declarações assinadas, não prova de cronologia nem de compreensão; sem autorização; sem verificação global contra repetição; sem ativação a partir de bytes; sem API no WASM |
+
+**Verificação Ed25519 (perfil criptográfico).** Aplica-se a toda assinatura Ed25519 que os verificadores dos SDKs verificam.
+
+| Requisito | Superfície exercitada | Limite |
+|---|---|---|
+| [P-ED-1](../../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion) em objetos V1 e no provedor V2 padrão | [`ed25519_ped1_vectors.json`](../../../../tests/interop/v2/ed25519_ped1_vectors.json) e seu verificador, nas quatro suítes dos SDKs; o código Rust compilado para `wasm32` | O WASM só é compilado, não executado em um runtime WASM nem em um navegador. Ainda não o aplicam o verificador V1 de referência (`lib/verify.js` com `tools/crypto.js`), a cópia V1 da CLI nem o playground, que só verificam S < L. O verificador V2 de referência, o servidor e a CLI V2 usam o `@dcp-ai/sdk` instalado e só mudam quando ele é recompilado e reinstalado. Esta mudança não atualiza os adaptadores nem o kit. Um provedor próprio é responsabilidade do operador |
+
 <a id="claims-for-core-and-profiles"></a>
 
 ## Alegações sobre o núcleo e os perfis

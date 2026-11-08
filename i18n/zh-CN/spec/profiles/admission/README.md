@@ -4,7 +4,7 @@
 
 # 准入配置文件：委托人信任与 `strict-v1`
 
-> 本文是[英文规范](../../../../../spec/profiles/admission/README.md)的参考译文，更新于 29/10/2026。**具有规范效力的是英文版**：本译文不具规范效力，如有出入，以英文版为准。标识符和代码块保持原文，不作翻译。
+> 本文是[英文规范](../../../../../spec/profiles/admission/README.md)的参考译文，更新于 07/11/2026。**具有规范效力的是英文版**：本译文不具规范效力，如有出入，以英文版为准。标识符和代码块保持原文，不作翻译。
 
 **状态：** 草案，v1
 **范围：** 在运营方固定的配置文件下，验证器是否把 V2 已签名 bundle 作为来自其已信任委托人的证据予以准入
@@ -312,6 +312,125 @@ P2 和 P3 以代码的形式重复了配置文件策略让 V2-4 执行的内容�
 ## 9. 测试向量
 
 [`tests/interop/v2/admission_vectors.json`](../../../../../tests/interop/v2/admission_vectors.json) 包含共享用例：已签名 bundle、信任集、配置文件、吊销快照、`now`，并为每个用例给出预期的 `verified`、`principal_trust`、`profile_compliance`、`admitted` 以及代码集合，同时注明所检查的规则。配置用例给出配置和预期的错误代码。每个 SDK 都会运行它们；标准不是 SDK 之间是否一致，而是预期值。
+
+<a id="10-delegated-admission-opt-in"></a>
+
+## 10. 委托准入（选择性启用）
+
+一个附加函数把叶端 bundle 与向其代理委托的 [DCP-09](../../../../../spec/DCP-09.md) 授权书链、以及每个委托代理各一个 bundle 一起
+准入。它是选择性启用的：默认情况下没有任何地方调用它，§1–§9、`strict-v1`、其代码和其向量都不变。
+
+**输入。** 证据可以来自请求：叶端的已签名 bundle、授权书链（根在前）以及每个委托代理各一个已签名 bundle。其余内容由
+运营方提供，绝不来自请求（A2）：
+
+- 信任集或已加载的信任存储（必需）；
+- 一个 `strict-v1` 配置文件或一个验证方策略，不能两者都有；
+- 该组合中代理和密钥的吊销快照，以及授权书吊销快照 `{ checked_at, mandates: { <mandate_id>: status } }`（快照缺失
+  表示来源无法应答，吊销检查会报告这一点）；
+- 没有配置文件时，`max_revocation_age_seconds`，取值为 1 至 300 的整数；有配置文件时适用配置文件的值，两者都传入则为
+  `CONFIG_PROFILE_CONTRADICTION`；
+- `now`，只读取一次。
+
+**流程。** 一切都在开始时获取的输入快照上、以那唯一的 `now` 进行评估。证据是 JSON 文档，采用各 SDK 的 JSON 表示：
+TypeScript 和 Python 接收 JSON 值，Go 以字节接收 JSON 文本，Rust 接收 `serde_json::Value`。在该表示中不是 JSON 的
+内容为 `DELEGATION_INPUT_INVALID`：例如在 TypeScript 中是 `Map`、`Date`、类实例、访问器属性或 `undefined`；在
+Python 中是元组、dict 的子类或其他对象；在 Go 中是无法解析的文本，或不是数组的链。
+
+1. **形式。** 链不为空，且其中既没有重复的 `mandate_id`，也没有重复的代理（`DELEGATION_REPEATED_ID`）。
+2. **下限。** 链中最高的 `minimum_security_tier`（未知值按 `elevated` 计）只会提高层级。如果链通过验证，其实际层级
+   必须与之相等（`DELEGATION_FLOOR_MISMATCH`）。
+3. **Bundle。** 叶端和每个委托方都按该下限、在同一 `now`、同一配置文件或策略下验证，然后进行准入（§5）。叶端自身的
+   准入代码按原样报告，但 `REVOCATION_*` 除外，第 10 步对每个对象只评估一次。未被准入的委托方为
+   `DELEGATION_DELEGATOR_NOT_ADMITTED`，其自身的代码保留在其嵌套结果中。
+4. **绑定。** 链的 `human_id` 是每个 bundle 的委托人（`DELEGATION_PRINCIPAL_MISMATCH`）。最后一个授权书指向叶端代理
+   （`DELEGATION_LEAF_MISMATCH`）。每个委托代理恰好有一个 bundle（`DELEGATION_DELEGATOR_MISSING`、
+   `DELEGATION_DELEGATOR_UNEXPECTED`）。
+5. **密钥。** 委托人的密钥是叶端 RPR 的 `binding_keys`，每个代理的密钥是其已验证 bundle 中护照的 `keys`。所用的每个
+   密钥都有派生的 `kid` 和规范的 base64（V2-13）。同一密钥出现在两个参与方的列表中，或一个列表中 `kid` 重复，为
+   `DELEGATION_KEY_AMBIGUOUS`。
+6. **链。** 使用这些密钥以及状态为 `revoked` 的授权书执行 [DCP-09 §3.5.2](../../../../../spec/DCP-09.md#352-chain-verification)
+   （`DELEGATION_CHAIN_INVALID`）。
+7. **链上的算法策略。** 验证方策略在叶端的实际生效模式下，适用于链所用的每个签名组件，与 V2-10 对 bundle 的适用方式
+   相同。在 `pq_only` 下不查询经典算法列表，但每个授权书的两个组件都必须通过验证（DCP-09 §3.5.1）。否则为
+   `DELEGATION_ALGORITHM_REJECTED`。
+8. **根的锚定。** 根的 `human_composite_sig` 的每个组件都必须用信任集为该委托人列出的、在 `now` 时有效且处于有效期内的
+   密钥签名（§3）。密钥出现在 RPR 中并不足够。否则为 `TRUST_KEY_*` 代码。
+9. **`session_nonce`。** 不要求授权书与 bundle 之间或授权书之间相等：授权书的随机数是签发它的会话的随机数。V2-4 在
+   每个 bundle 内部仍然适用。
+10. **吊销。** 在同一 `now`、以同一最大时长，对链中的每个代理以及 bundle 或授权书所用的每个密钥执行 §4.3；授权书快照
+    适用于每个 `mandate_id`。
+
+**结果。** 没有任何步骤添加代码时的 `admitted`；`delegation_verified`；始终为 `not_evaluated` 的 `activation` 和
+始终为 `false` 的 `delegation_active`（激活由 §12 评估）；始终为 `false` 的 `action_authorized`；叶端的
+`security_tier` 和 `verification_mode`；`chain`（`depth`、`mandate_ids`、`effective_floor` 以及
+`leaf_authority_scope` 的副本，不作评估）；叶端和每个委托方的准入结果；`inputs`；以及 `errors`。配置错误在验证
+任何内容之前即为 §5.3 的 `AdmissionConfigError`。
+
+**限制。** 一切都在 `now` 检查；在过去时刻验证没有定义。需要每个委托方当前的、已准入的 bundle。DCP-09 并不禁止的
+重复代理（A → B → A）会被拒绝。注册表和密码学提供方属于运营方，并被视为可信。在 Go 中，调用方若在输入被复制期间从
+另一个 goroutine 修改输入，会造成数据竞争。WASM 没有委托准入。
+
+| SDK | 函数 |
+|---|---|
+| TypeScript | `admitDelegatedBundleV2(evidence, registry, operator)` |
+| Python | `admit_delegated_bundle_v2(evidence, registry, operator)`（async） |
+| Go | `AdmitDelegatedBundleV2(registry, evidence, operator)` |
+| Rust | `admit_delegated_bundle_v2(&evidence, &operator)` |
+
+向量：[`tests/interop/v2/delegated_admission_vectors.json`](../../../../../tests/interop/v2/delegated_admission_vectors.json)，
+71 个用例和 6 个配置用例。
+
+<a id="11-admission-from-bytes-opt-in"></a>
+
+## 11. 从字节准入（选择性启用）
+
+一个附加函数以字节形式接收已签名 bundle，并在任何解析器读取之前就这些字节作出判定。带有 §5 的选项时是准入；没有
+信任集也没有配置文件时是验证。
+
+1. **快照。** 复制这些字节，并在任何解析之前对副本计算 `unit_sha256`。
+2. **扫描器。** 使用实验性候选配置文件的入口扫描器，不作改动。拒绝会保留其类别和偏移量（层 `scanner`）。
+3. **可移植域。** 在字符串之外，每个数字字面量都必须是 `-?(0|[1-9][0-9]*)`：没有小数部分、没有指数，也没有 `-0`。
+   否则为 `NUMBER_NOT_PORTABLE`，并给出该字面量的偏移量（层 `domain`）。这是一项附加的拒绝，在所有 SDK 中相同：在
+   签名方写 `100` 的地方写成 `100.0` 的传输会被拒绝，即使签名仍能通过验证。
+4. **解析器。** SDK 自己的解码器解析副本；该值用 `dcp-jcs-v1` 规范化后，必须等于扫描器的规范字节。出现差异或解析
+   失败为 `INGRESS_PARSER_MISMATCH`（层 `parser`）：这是该解析器的本地故障，而不是关于数据的规则。
+5. 对恰好该值进行**准入**（§5），结果返回该值。调用方的输入不会被再次解析。
+
+结果包含 `ingress`（`accepted`、`layer`、`class`、`offset`、`unit_sha256`、`canonical_sha256`）、`admission`（入口
+拒绝时为 null，因为没有验证任何内容）和 `value`。`dcp-jcs-v1`、候选配置文件、`strict-v1`、默认值以及接收已解析值的
+函数都不变；这些函数无法恢复其解析器已经丢失的内容，例如重复的键或孤立的代理项。大小和时间预算不属于此函数的范围。
+
+| SDK | 函数 |
+|---|---|
+| TypeScript | `admitSignedBundleV2FromBytes(bytes, registry, options)` |
+| Python | `admit_signed_bundle_v2_from_bytes(data, registry, *, …)`（async；§5 的选项作为关键字参数） |
+| Go | `AdmitSignedBundleV2FromBytes(registry, signedBundleJSON, opts)` |
+| Rust | `admit_signed_bundle_v2_from_bytes(bytes, &options)` |
+
+向量：[`tests/interop/v2/v1_ingress_vectors.json`](../../../../../tests/interop/v2/v1_ingress_vectors.json)。
+
+<a id="12-delegation-activation-opt-in"></a>
+
+## 12. 委托激活（选择性启用）
+
+激活在 §10 之上，评估受托代理对每个授权书的已签名确认，确认定义见
+[DCP-09 §3.3.1](../../../../../spec/DCP-09.md#331-mandate-acknowledgment-opt-in)。该函数对证据、确认、认知阈值和配置获取一个
+快照，固定一个 `now`，在该快照上运行 §10，并且只有在组合被准入且输入有效时，才使用组合所验证的代理、密钥、策略、
+模式和吊销快照来评估确认。证据携带已签名的记录及其所签名的哈希，运营方提供信任集和 §10 的配置。该函数既不接受预先
+计算的组合结果，也不接受密钥映射作为权威依据：代理的密钥是组合所验证的护照中的密钥，授权书、链和阈值的哈希都从
+工件重新计算，并与确认进行比较。
+
+结果嵌套 `composition`，它正是 §10 对同一快照的结果（其自身的 `activation` 仍为 `not_evaluated`），并增加
+`activation`（`evaluated` 或 `not_evaluated`）、`delegation_active`（仅当组合被准入且链中每个授权书恰好有一个有效
+确认时为 true）、`action_authorized`（始终为 `false`）、`acknowledgments` 下每个授权书一项、`inputs`，以及带有
+DCP-09 §3.3.1 代码的 `errors`。`admitDelegatedBundleV2` 及其对应函数不变。
+
+| SDK | 函数 |
+|---|---|
+| TypeScript | `evaluateDelegationActivationV2(evidence, registry, operator)` |
+| Python | `evaluate_delegation_activation_v2(evidence, registry, operator)`（async） |
+| Go | `EvaluateDelegationActivationV2(registry, evidence, operator)` |
+| Rust | `evaluate_delegation_activation_v2(&evidence, &operator)` |
 
 <a id="implementation-notes-informative"></a>
 

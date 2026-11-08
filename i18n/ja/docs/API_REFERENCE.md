@@ -4,7 +4,7 @@
 
 # DCP-AI API リファレンス
 
-> [英語版](../../../docs/API_REFERENCE.md)の参考訳です（05/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../docs/API_REFERENCE.md)の参考訳です（07/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 `main` にある TypeScript SDK `@dcp-ai/sdk`（パッケージのバージョン 2.3.0、プロトコル DCP v2.0）のリファレンスです。
 
@@ -545,6 +545,10 @@ function verifyObject(obj: unknown, signatureB64: string, publicKeyB64: string):
 **戻り値：** 署名が検証できれば `true`、できなければ `false`。不正な形式の入力では、`false` を返す代わりに例外を投げることが
 あります。正規化できないオブジェクト、有効な base64 でない署名や鍵、デコード後の長さが正しくない署名や鍵などです。
 
+ローカルのソース（07/11/2026、未公開）では、`verifyObject` と V2 の既定の Ed25519 プロバイダーが
+[暗号プロファイル](../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion)の P-ED-1 を適用します。S >= L、
+正準でない鍵や R、位数が 8 を割り切る鍵や R は `false` を返します。例外を投げる入力は以前と同じです。
+
 ```typescript
 const valid = verifyObject({ action: 'transfer', amount: 100 }, sig, keys.publicKeyB64);
 ```
@@ -861,6 +865,16 @@ if (result.verified) {
 | `revocationSnapshotFromDenyList(document, subjects)` | 完全な拒否リスト（失効サービスの `/.well-known/dcp-revocations.json`）から作るスナップショット |
 
 結果：`verified`、`verification`、`principal_trust`、`profile`、`profile_compliance`、`admitted`、`action_authorized`（常に `false`）、`recorded_decision`、`trust_set_version`、`errors: [{ code, message }]`。
+
+オプトイン。4 つの SDK のローカルのソースにあり、公開されたパッケージにはありません（07/11/2026）。
+
+| 関数 | 説明 |
+|----------|-------------|
+| `admitDelegatedBundleV2(evidence, registry, operator)` | 末端のバンドルを、その DCP-09 のマンデートチェーンと、委任する各エージェントのバンドル 1 つずつと一緒にアドミッションします ([§ 10](../../../spec/profiles/admission/README.md#10-delegated-admission-opt-in)) |
+| `admitSignedBundleV2FromBytes(bytes, registry, options)` | バイトとして与えられた署名付きバンドルのアドミッション。どのパーサーもそれを読む前に判定します ([§ 11](../../../spec/profiles/admission/README.md#11-admission-from-bytes-opt-in)) |
+| `evaluateDelegationActivationV2(evidence, registry, operator)` | 委任付きアドミッションに、各マンデートに対するエージェントの確認応答を加えたもの ([§ 12](../../../spec/profiles/admission/README.md#12-delegation-activation-opt-in)) |
+
+Python：`admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `evaluate_delegation_activation_v2`（すべて async）。Go：`AdmitDelegatedBundleV2`, `AdmitSignedBundleV2FromBytes`, `EvaluateDelegationActivationV2`。Rust：`admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `evaluate_delegation_activation_v2`。WASM はこれらを公開しません。
 
 ### `DEFAULT_VERIFIER_POLICY`
 
@@ -1712,6 +1726,19 @@ interface MandateChainResult { valid: boolean; errors: string[]; depth: number; 
 ティアを引き上げることしかできない下限として受け取ります（仕様 §14.2）。Python：`create_sub_mandate`、`verify_mandate_chain`、Go：
 `CreateSubMandate`、`VerifyMandateChain`、Rust：`create_sub_mandate`、`verify_mandate_chain`。
 
+### `createMandateAcknowledgment(registry, keys, params)` / `evaluateDelegationActivationV2(evidence, registry, operator)`
+
+[DCP-09 § 3.3.1](../../../spec/DCP-09.md#331-mandate-acknowledgment-opt-in) のオプトインのマンデートの確認応答です。4 つの
+SDK のローカルのソースにあり、公開されたパッケージにはありません（07/11/2026）。`createMandateAcknowledgment` は、
+`params.mandateChain` の最後のマンデートのエージェントとして、`MANDATE_ACKNOWLEDGMENT_CONTEXT` のもとで
+`mandate_acknowledgment` の記録（`dcp09-mandate-ack-v1`）に署名します。`params` は
+`{ mandateChain, awarenessThreshold, acknowledgmentId, acknowledgedAt? }` で、ハッシュは受け取りません。
+`evaluateDelegationActivationV2` は、委任付きアドミッションの証拠に `acknowledgments` と `awarenessThresholds` を加えて
+受け取り、`composition`、`activation`、`delegation_active`、`action_authorized`（常に `false`）、`acknowledgments`、
+`inputs`、順序付きの `ACK_*` コードを持つ `errors` を返します。Python：`create_mandate_acknowledgment`、
+`evaluate_delegation_activation_v2`。Go：`CreateMandateAcknowledgment`、`EvaluateDelegationActivationV2`。Rust：
+`create_mandate_acknowledgment`、`evaluate_delegation_activation_v2`。
+
 ### `evaluateSignificance(context)` / `shouldNotifyHuman(significance, thresholds)`
 
 アクションの重要度を評価し、人間に通知すべきかを判断します。
@@ -1751,6 +1778,10 @@ const DCP_CONTEXTS: Record<string, DcpContext>;
 // Lifecycle (DCP-05), Succession (DCP-06), Dispute (DCP-07),
 // Rights (DCP-08), Delegation (DCP-09), Awareness (DCP-09), SubMandate (DCP-09)
 ```
+
+`MANDATE_ACKNOWLEDGMENT_CONTEXT`（`DCP-AI.v2.MandateAcknowledgment`、ローカルのソース、未公開）は、19 項目を保つ
+このマップの横にある別の定数で、`domainSeparatedMessage` はこれを受け入れます。Python には同じ定数があり、Go では
+`CtxMandateAcknowledgment`、Rust では `CTX_MANDATE_ACKNOWLEDGMENT` です。
 
 ### `domainSeparatedMessage(context, canonicalPayloadBytes)`
 

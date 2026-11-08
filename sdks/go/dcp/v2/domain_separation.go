@@ -45,7 +45,13 @@ var validContexts = map[string]bool{
 	CtxDelegation:              true,
 	CtxAwareness:               true,
 	CtxSubMandate:              true,
+	CtxMandateAcknowledgment:   true,
 }
+
+// CtxMandateAcknowledgment is the context of the delegate agent's acknowledgment of a mandate (DCP-09 § 3.3;
+// MP-02 F4, opt-in). It is a valid context, kept apart from the constants above, which the interoperability
+// fixtures enumerate, and from the experimental producer's list.
+const CtxMandateAcknowledgment = "DCP-AI.v2.MandateAcknowledgment"
 
 // MaxMessageBytes caps the combined size of a domain-separated / composite
 // message. DCP artifacts are orders of magnitude smaller than this in practice;

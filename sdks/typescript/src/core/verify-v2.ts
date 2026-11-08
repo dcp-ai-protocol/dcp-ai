@@ -539,6 +539,10 @@ export async function verifySignedBundleV2(
  * 'dcp-jcs-v2' (exactly that value) is reached only from the original bytes, through the experimental
  * candidate verifier. Every hash and signature is computed as for dcp-jcs-v1: the candidate keeps its
  * output rules, so on the values it accepts the same canonicalizer gives its bytes.
+ *
+ * `tierFloor` is the effective tier of a mandate chain, fed to the tier computation (spec § 14.2), where it
+ * can only raise the tier and so the mode every signature is verified in. Only admitDelegatedBundleV2 passes
+ * one, from the chain it verifies itself; absent or null, the result is verifySignedBundleV2's.
  */
 export async function verifySignedBundleV2WithProfile(
   signedBundle: SignedBundleV2,
@@ -546,6 +550,7 @@ export async function verifySignedBundleV2WithProfile(
   policy: VerifierPolicy = DEFAULT_VERIFIER_POLICY,
   options: VerifyV2Options = {},
   acceptedProfile: 'dcp-jcs-v1' | 'dcp-jcs-v2',
+  tierFloor: SecurityTier | null = null,
 ): Promise<VerifyV2Result> {
   const now = options.now ?? Date.now();
   if (!Number.isFinite(now)) throw new TypeError('verifySignedBundleV2: options.now must be a finite number of milliseconds');
@@ -559,7 +564,7 @@ export async function verifySignedBundleV2WithProfile(
     // details: no other check ran.
     const schema = validateSignedBundleV2Schema(signedBundle, acceptedProfile);
     if (!schema.valid) return { verified: false, errors: schemaDiagnostics(schema), warnings: [], details: {} };
-    return await verifyV2(signedBundle, registry, policy, Math.floor(now), acceptedProfile);
+    return await verifyV2(signedBundle, registry, policy, Math.floor(now), acceptedProfile, tierFloor);
   } catch (e) {
     const reason = e instanceof Error ? e.message : String(e);
     return {
@@ -577,6 +582,7 @@ async function verifyV2(
   policy: VerifierPolicy,
   now: number,
   acceptedProfile: 'dcp-jcs-v1' | 'dcp-jcs-v2',
+  tierFloor: SecurityTier | null,
 ): Promise<VerifyV2Result> {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -793,6 +799,7 @@ async function verifyV2(
   const tier = computeSecurityTier(
     bundle.intent.payload as IntentV2,
     bundle.policy_decision.payload as PolicyDecisionV2,
+    tierFloor,
   );
   const mode = effectiveVerificationMode(policyMode, tier);
   details.resolved_tier = tier;

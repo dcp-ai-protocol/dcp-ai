@@ -662,17 +662,28 @@ def _principal_trust(
     for use in uses:
         kid = use.get("kid")
         where = f"{use['signature']} {_name(use.get('component'))} key {_name(kid)}"
-        key = trusted.get(kid) if isinstance(kid, str) else None
-        raw = _canonical_b64_bytes(use.get("public_key_b64"))
-        if key is None or key.alg != use.get("alg") or raw is None or raw != key.key_bytes:
-            reject("TRUST_KEY_NOT_ANCHORED", f"{where} is not a trusted key of the principal")
-        elif key.status == "revoked":
-            reject("TRUST_KEY_REVOKED", f"{where} is revoked in the trust set")
-        elif key.status == "expired" or (key.expires_at is not None and key.expires_at < now):
-            reject("TRUST_KEY_EXPIRED", f"{where} has expired in the trust set")
-        elif key.not_before is not None and key.not_before > now:
-            reject("TRUST_KEY_NOT_YET_VALID", f"{where} is not valid yet in the trust set")
+        error = _trusted_key_error(trusted, kid, use.get("alg"), use.get("public_key_b64"), where, now)
+        if error is not None:
+            reject(*error)
     return ok
+
+
+def _trusted_key_error(
+    trusted: Mapping[str, TrustedKey], kid: Any, alg: Any, public_key_b64: Any, where: str, now: float
+) -> tuple[str, str] | None:
+    """T2 (§ 3) for one key that verified a principal signature component: None when the principal's
+    trusted keys anchor it at `now`. Internal; shared with admit_delegated_bundle_v2."""
+    key = trusted.get(kid) if isinstance(kid, str) else None
+    raw = _canonical_b64_bytes(public_key_b64)
+    if key is None or key.alg != alg or raw is None or raw != key.key_bytes:
+        return "TRUST_KEY_NOT_ANCHORED", f"{where} is not a trusted key of the principal"
+    if key.status == "revoked":
+        return "TRUST_KEY_REVOKED", f"{where} is revoked in the trust set"
+    if key.status == "expired" or (key.expires_at is not None and key.expires_at < now):
+        return "TRUST_KEY_EXPIRED", f"{where} has expired in the trust set"
+    if key.not_before is not None and key.not_before > now:
+        return "TRUST_KEY_NOT_YET_VALID", f"{where} is not valid yet in the trust set"
+    return None
 
 
 def _revocation_checks(

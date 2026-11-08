@@ -107,6 +107,21 @@ func VerifySignedBundleV2At(registry *AlgorithmRegistry, signedBundleJSON []byte
 // computed as for dcp-jcs-v1: the candidate keeps its output rules, so on the values it accepts the
 // same canonicalizer gives its bytes.
 func verifySignedBundleV2AtProfile(registry *AlgorithmRegistry, signedBundleJSON []byte, policy VerifierPolicy, now time.Time, acceptedProfile string) *V2VerificationResult {
+	return verifySignedBundleV2AtFloor(registry, signedBundleJSON, policy, now, acceptedProfile, "", false)
+}
+
+// verifySignedBundleV2AtFloor is verifySignedBundleV2AtProfile with tierFloor, the effective tier of a mandate
+// chain, fed to the tier computation (spec § 14.2), where it can only raise the tier and so the mode every
+// signature is verified in. Only AdmitDelegatedBundleV2 passes one, from the chain it verifies itself; ""
+// gives verifySignedBundleV2AtProfile's result.
+//
+// contractChecked says the policy passed the composition's policy contract (checkPolicyContract), or is a
+// strict-v1 profile's, which lies within it. Then the gate below also takes, as the policy gives them and
+// without rewriting it, the values of fields this verifier does not read that the contract admits:
+// accepted_hash_algs as the same set in another order, and min_classical 0 and require_composite_binding
+// false when every mode is pq_only. Only AdmitDelegatedBundleV2 passes true; the gate of the public and
+// experimental verifiers is unchanged.
+func verifySignedBundleV2AtFloor(registry *AlgorithmRegistry, signedBundleJSON []byte, policy VerifierPolicy, now time.Time, acceptedProfile string, tierFloor string, contractChecked bool) *V2VerificationResult {
 	now = truncateToMillis(now.Round(0))
 	result := &V2VerificationResult{
 		DCPVersion: "2.0",
@@ -124,6 +139,19 @@ func verifySignedBundleV2AtProfile(registry *AlgorithmRegistry, signedBundleJSON
 	enforced.MaxSessionDurationSeconds = policy.MaxSessionDurationSeconds
 	enforced.RequireSessionExpiry = policy.RequireSessionExpiry
 	enforced.RequireAudienceBinding, enforced.VerifierID = policy.RequireAudienceBinding, policy.VerifierID
+	if contractChecked {
+		if isDefaultHashSet(policy.AcceptedHashAlgs) {
+			enforced.AcceptedHashAlgs = policy.AcceptedHashAlgs
+		}
+		if allModesPQOnly(policy) {
+			if policy.MinClassical == 0 {
+				enforced.MinClassical = 0
+			}
+			if !policy.RequireCompositeBinding {
+				enforced.RequireCompositeBinding = false
+			}
+		}
+	}
 	if !reflect.DeepEqual(policy, enforced) {
 		result.Errors = append(result.Errors, "Verifier policy sets fields this verifier does not enforce: only DefaultMode, RiskOverrides, AcceptedClassicalAlgs, AcceptedPQAlgs, AllowV1Bundles, MaxSessionDurationSeconds, RequireSessionExpiry, RequireAudienceBinding, VerifierID and the Phase 3 fields may differ from DefaultVerifierPolicy")
 		return result
@@ -205,7 +233,7 @@ func verifySignedBundleV2AtProfile(registry *AlgorithmRegistry, signedBundleJSON
 	verifySessionTimes(manifest, policy, now, result)
 	verifyAudience(manifest, policy, result)
 	verifyConsistency(bundle, now, result)
-	mode := resolveVerificationMode(bundle, policy, result)
+	mode := resolveVerificationModeFloor(bundle, policy, result, tierFloor)
 	if mode == "" {
 		result.Errors = append(result.Errors, "Unknown verification mode in verifier policy")
 		return result
@@ -505,6 +533,11 @@ func verifySessionNonceConsistency(bundle map[string]interface{}, manifestNonce 
 // but never take it below the tier's mode. It returns "" for a policy mode that
 // is not a verification mode.
 func resolveVerificationMode(bundle map[string]interface{}, policy VerifierPolicy, result *V2VerificationResult) string {
+	return resolveVerificationModeFloor(bundle, policy, result, "")
+}
+
+// resolveVerificationModeFloor is resolveVerificationMode with a mandate chain's tier floor ("" for none).
+func resolveVerificationModeFloor(bundle map[string]interface{}, policy VerifierPolicy, result *V2VerificationResult, tierFloor string) string {
 	policyMode := policy.DefaultMode
 	riskTier, _ := artifactPayload(bundle, "agent_passport")["risk_tier"].(string)
 	if override, ok := policy.RiskOverrides[riskTier]; ok && riskTier != "" {
@@ -513,7 +546,9 @@ func resolveVerificationMode(bundle map[string]interface{}, policy VerifierPolic
 	if policyMode != "pq_only" && !slices.Contains(modeStrictness, policyMode) {
 		return ""
 	}
-	tier := ComputeSecurityTier(SecurityTierInputFromPayloads(artifactPayload(bundle, "intent"), artifactPayload(bundle, "policy_decision")))
+	input := SecurityTierInputFromPayloads(artifactPayload(bundle, "intent"), artifactPayload(bundle, "policy_decision"))
+	input.MandateChainTier = tierFloor
+	tier := ComputeSecurityTier(input)
 	result.ResolvedTier = tier.Tier
 	result.VerificationMode = EffectiveVerificationMode(policyMode, tier.Tier)
 	if result.VerificationMode == "classical_only" && policy.WarnClassicalOnlyDeprecated {

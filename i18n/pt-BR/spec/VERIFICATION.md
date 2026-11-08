@@ -5,7 +5,7 @@
 
 # Lista de verificação — Signed Bundle
 
-> Tradução informativa da [especificação em inglês](../../../spec/VERIFICATION.md), atualizada em 05/11/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
+> Tradução informativa da [especificação em inglês](../../../spec/VERIFICATION.md), atualizada em 07/11/2026. **A versão normativa é a inglesa**: esta tradução não tem valor normativo e, em caso de divergência, prevalece o inglês. Identificadores e blocos de código são mantidos sem tradução.
 
 Todos os passos são **locais**; nenhuma chamada a uma API ou servidor é necessária. Um verificador precisa apenas do Signed Bundle (e, opcionalmente, de um conjunto de RevocationRecords assinados, vindos de um par, de um arquivo ou de uma lista ancorada).
 
@@ -21,6 +21,7 @@ Ao verificar um Signed Bundle, faça o seguinte, nesta ordem:
    - Recalcule `bundle_hash` = SHA-256(canonical(bundle)); compare com `signature.bundle_hash` (devem coincidir, por exemplo `sha256:<hex>`).  
    - Verifique `signature.sig_b64` com `signature.signer.public_key_b64` sobre o bundle canônico (Ed25519 destacada).  
    - Use `dcp verify-bundle <signed.json> <public_key.txt>` para executar este passo.
+   - A assinatura Ed25519 é aceita segundo P-ED-1 do [perfil criptográfico](../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion). Os verificadores dos SDKs o aplicam; a referência `dcp verify-bundle` só verifica S < L por enquanto ([SECURITY_COVERAGE.md](../../../docs/conformance/SECURITY_COVERAGE.md)).
 
 3. **Verifique o RPR:** não expirado — `responsible_principal_record.expires_at` é `null` ou uma data e hora ISO 8601 futura. Opcional: verifique a assinatura do RPR se o registro for guardado assinado.
 
@@ -109,7 +110,7 @@ Cada `sig_b64`, na assinatura do bundle, nas dos artefatos e nas dos checkpoints
 
 ### Passo V2-6: Verificar a assinatura clássica
 
-Reconstrua a mensagem assinada: `context_tag || 0x00 || canonical(manifest)`, onde `context_tag` é `"DCP-AI.v2.Bundle"`. Verifique `composite_sig.classical.sig_b64` contra a chave pública identificada por `composite_sig.classical.kid` usando o algoritmo especificado em `composite_sig.classical.alg` (normalmente Ed25519).
+Reconstrua a mensagem assinada: `context_tag || 0x00 || canonical(manifest)`, onde `context_tag` é `"DCP-AI.v2.Bundle"`. Verifique `composite_sig.classical.sig_b64` contra a chave pública identificada por `composite_sig.classical.kid` usando o algoritmo especificado em `composite_sig.classical.alg` (normalmente Ed25519). Um componente `ed25519` é aceito segundo P-ED-1 do [perfil criptográfico](../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion), onde quer que seja verificado; isso não muda quais componentes o modo efetivo (passo V2-9) exige.
 
 O assinante do bundle é o principal responsável: procure o kid apenas nas `binding_keys` do RPR. A assinatura do principal sobre o manifesto, que se compromete com `passport_hash`, é o que vincula este agente e as suas chaves ao principal; o agente assina o seu próprio passaporte, então uma chave que só o passaporte lista não deve (MUST NOT) verificar a assinatura do bundle. Caso contrário, qualquer pessoa poderia juntar um RPR publicado e assinado a um passaporte e chaves próprios.
 

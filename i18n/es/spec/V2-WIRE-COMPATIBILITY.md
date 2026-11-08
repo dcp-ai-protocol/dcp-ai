@@ -4,7 +4,7 @@
 
 # Compatibilidad del formato de intercambio de DCP-AI v2.0: erratas de DCP-05, DCP-08 y DCP-09
 
-> Traducción informativa de [la especificación en inglés](../../../spec/V2-WIRE-COMPATIBILITY.md), actualizada el 25/10/2026. **La versión normativa es la inglesa**: esta traducción no tiene valor normativo y, si difieren, prevalece el inglés. Los identificadores y bloques de código se conservan sin traducir.
+> Traducción informativa de [la especificación en inglés](../../../spec/V2-WIRE-COMPATIBILITY.md), actualizada el 07/11/2026. **La versión normativa es la inglesa**: esta traducción no tiene valor normativo y, si difieren, prevalece el inglés. Los identificadores y bloques de código se conservan sin traducir.
 
 <a id="status"></a>
 
@@ -168,7 +168,9 @@ por registro o un conjunto cerrado de valores, así que esos registros no repres
 los helpers de los SDK por sí solos no los cumplen. Que un mecanismo externo a estos registros pueda cumplirlos depende
 de demostrar los propios requisitos funcionales; estas erratas ni lo establecen ni lo presuponen. Representarlos
 dentro de los registros requiere un diseño explícito y versionado (una nueva versión de esquema o un perfil); estas
-erratas no definen ni activan ninguno.
+erratas no definen ni activan ninguno. Desde el 07/11/2026,
+el acuse del agente de DCP-09 §3.3 tiene uno, como registro separado (véase la nota bajo la tabla); los demás
+requisitos siguen sin ninguno.
 
 | Requisito | Por qué el registro V2.0 no lo lleva |
 |-----------|--------------------------------------|
@@ -178,6 +180,12 @@ erratas no definen ni activan ninguno.
 | Derechos de la organización con notación de dominio inverso de DCP-08 §4.3 | `right_type` es un enum cerrado de los cuatro derechos fundamentales |
 | DCP-08 §9.1: firma de la autoridad de puesta en servicio | El registro no identifica el papel de quien firma; los helpers no lo comprueban |
 | DCP-09 §3.3: acuse del agente; §6.3: firma del principal en un espejo | Una firma por registro |
+
+> *Nota (07/11/2026):* el acuse del agente de DCP-09 §3.3 tiene ahora un diseño explícito, versionado y opt-in: un
+> registro separado, [DCP-09 §3.3.1](../../../spec/DCP-09.md#331-mandate-acknowledgment-opt-in)
+> (`schemas/v2/mandate_acknowledgment.schema.json`, vectores `tests/interop/v2/mandate_acknowledgment_vectors.json`).
+> El esquema del mandato, su única firma y su contexto no cambian, y un verificador que no lo activa lee los mismos
+> registros que antes. La firma del principal en un espejo (§6.3) sigue sin representarse.
 
 Los helpers de puntuación de vitalidad de los SDK también difieren entre sí en los empates cuando reciben entradas
 fraccionarias (para `task_completion_rate` 0, `error_rate` 1, `human_satisfaction` 0.002 y `policy_alignment` 0, el

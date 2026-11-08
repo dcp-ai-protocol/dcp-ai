@@ -37,7 +37,8 @@ const ks = (sig: Uint8Array) => [...new Set([1n, 2n, (2n ** 256n - 1n - scalarOf
 
 const ed = new Ed25519Provider();
 
-// A = the identity (accepted today: weak keys are E4), so [S]B = R for any message.
+// A = the identity, so [S]B = R for any message. P-ED-1 (MP-02 F5) rejects it as a point of order dividing 8:
+// raw TweetNaCl still verifies these equations (the baseline), the DCP provider returns false.
 const IDENTITY = hex('01' + '00'.repeat(31));
 const MINUS_B = hex('58' + '66'.repeat(30) + 'e6');
 
@@ -66,13 +67,20 @@ describe('provider: RFC 8032 vectors as raw bytes', () => {
 describe('provider: the bound is S < L, compared on every byte', () => {
   const msg = new TextEncoder().encode('dcp-ed25519-review/s-range-boundary');
   const pk = b64(IDENTITY);
+  // Under P-ED-1 these two limits no longer show the SDK accepting the range on its own: the identity key is
+  // rejected whatever S is. Raw TweetNaCl shows that the equation holds; the S < L check alone is tested on
+  // scalarBelowL in ed25519-ped1.test.ts.
 
-  it('S = L - 1 (same top byte as L) with R = -B: accepted', async () => {
-    expect(await ed.verify(msg, withScalar(new Uint8Array([...MINUS_B, ...new Uint8Array(32)]), L - 1n), pk)).toBe(true);
+  it('S = L - 1 (same top byte as L) with R = -B: equation holds, rejected under P-ED-1 (A is the identity)', async () => {
+    const sig = withScalar(new Uint8Array([...MINUS_B, ...new Uint8Array(32)]), L - 1n);
+    expect(nacl.sign.detached.verify(msg, sig, IDENTITY)).toBe(true);
+    expect(await ed.verify(msg, sig, pk)).toBe(false);
   });
 
-  it('S = 0 with R = identity: accepted', async () => {
-    expect(await ed.verify(msg, new Uint8Array([...IDENTITY, ...new Uint8Array(32)]), pk)).toBe(true);
+  it('S = 0 with R = identity: equation holds, rejected under P-ED-1 (A and R are the identity)', async () => {
+    const sig = new Uint8Array([...IDENTITY, ...new Uint8Array(32)]);
+    expect(nacl.sign.detached.verify(msg, sig, IDENTITY)).toBe(true);
+    expect(await ed.verify(msg, sig, pk)).toBe(false);
   });
 
   for (const k of [1n, 2n, 15n]) {
@@ -129,19 +137,22 @@ describe('provider: what TweetNaCl rejects keeps its error', () => {
   });
 });
 
-describe('provider: decoding and weak keys are unchanged (E3, E4)', () => {
-  const cases: [string, string, string, string, boolean][] = [
-    // [case, public key, signature, message, verdict today]
-    ['public key not on the curve', '02' + '00'.repeat(31), kat[0].signature_hex, '', false],
+describe('provider: decoding and weak keys (E3, E4) under P-ED-1', () => {
+  const cases: [string, string, string, string, boolean, boolean][] = [
+    // [case, public key, signature, message, raw TweetNaCl (the equation baseline), DCP provider under P-ED-1]
+    ['public key not on the curve', '02' + '00'.repeat(31), kat[0].signature_hex, '', false, false],
+    // Accepted before P-ED-1; now rejected: a non-canonical encoding of the identity.
     ['identity public key with y = p + 1', 'ee' + 'ff'.repeat(30) + '7f', '01' + '00'.repeat(63),
-      Buffer.from('dcp-ed25519-review/a-not-reduced').toString('hex'), true],
+      Buffer.from('dcp-ed25519-review/a-not-reduced').toString('hex'), true, false],
+    // Accepted before P-ED-1; now rejected: a non-canonical encoding of the identity.
     ['identity public key with the x sign bit set', '01' + '00'.repeat(30) + '80', '01' + '00'.repeat(63),
-      Buffer.from('dcp-ed25519-review/a-sign-bit').toString('hex'), true],
+      Buffer.from('dcp-ed25519-review/a-sign-bit').toString('hex'), true, false],
     ['identity R with y = p + 1', '01' + '00'.repeat(31), 'ee' + 'ff'.repeat(30) + '7f' + '00'.repeat(32),
-      Buffer.from('dcp-ed25519-review/r-not-reduced').toString('hex'), false],
+      Buffer.from('dcp-ed25519-review/r-not-reduced').toString('hex'), false, false],
   ];
-  for (const [name, pk, sig, msg, verdict] of cases) {
-    it(`${name}: ${verdict ? 'accepted' : 'rejected'}, as today`, async () => {
+  for (const [name, pk, sig, msg, raw, verdict] of cases) {
+    it(`${name}: raw TweetNaCl ${raw}, DCP provider ${verdict ? 'accepted' : 'rejected'}`, async () => {
+      expect(nacl.sign.detached.verify(hex(msg), hex(sig), hex(pk))).toBe(raw);
       expect(await ed.verify(hex(msg), hex(sig), b64(hex(pk)))).toBe(verdict);
     });
   }

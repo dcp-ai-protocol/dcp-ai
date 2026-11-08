@@ -139,10 +139,37 @@ The verification server (`npm run server`) exposes `POST /v2/admit` when the ope
 node /path/to/dcp-ai/bin/dcp.js admit-bundle bundle.signed.json --trust trust.json --profile profile.json --revocation snapshot.json
 ```
 
+## Delegation, bytes and acknowledgments (opt-in)
+
+> **Status (07/11/2026).** In the local source of the TypeScript, Python, Go and Rust SDKs, not in a published package.
+> WASM, the reference server and CLI, the playground, the adapters and the kit do not expose these functions.
+
+- **Delegated admission** ([spec § 10](../spec/profiles/admission/README.md#10-delegated-admission-opt-in)). Admits a
+  leaf bundle together with the [DCP-09](../spec/DCP-09.md) mandate chain it acts under and one bundle per delegating
+  agent, at one `now`, with the operator's trust set, profile or policy, and revocation snapshots of the agents, the
+  keys and the mandates. The root mandate must be signed with keys the trust set lists for the principal. The result
+  reports `admitted` and `delegation_verified`; `delegation_active` and `action_authorized` are always `false`.
+- **Admission from bytes** ([spec § 11](../spec/profiles/admission/README.md#11-admission-from-bytes-opt-in)). Takes
+  the signed bundle as bytes and decides on them before any parser: the experimental ingress scanner, then numbers in
+  plain integer form only (`NUMBER_NOT_PORTABLE`), then the SDK's own parser, which must give the scanner's canonical
+  bytes (`INGRESS_PARSER_MISMATCH`). `dcp-jcs-v1` does not change, and the functions that take an already parsed value
+  cannot recover a repeated key or a lone surrogate their parser lost.
+- **Activation** ([spec § 12](../spec/profiles/admission/README.md#12-delegation-activation-opt-in),
+  [DCP-09 § 3.3.1](../spec/DCP-09.md#331-mandate-acknowledgment-opt-in)). Adds the delegate agents' signed
+  acknowledgments of each mandate, a new opt-in record (`mandate_acknowledgment`). `delegation_active` is `true` only
+  when the composition is admitted and every mandate has exactly one valid acknowledgment. Activation authorizes no
+  action, and an acknowledgment does not show that the agent understood the mandate.
+
+Function names in each SDK: [API reference](API_REFERENCE.md#admission-trusted-principals-and-strict-v1-unreleased).
+
 ## Compatibility
 
 - **Verification API.** `verifySignedBundleV2` / `verify_signed_bundle_v2` / `VerifySignedBundleV2WithPolicy` / `verify_signed_bundle_v2_with_policy` keep their signatures. The signer keys are `details.signer_keys` in TypeScript and Python and the new `SignerKeys` field in Go. In Rust, `V2VerificationResult` keeps its ten fields, so code that builds it in full or destructures it without `..` still compiles; the signer keys come from the new `verify_signed_bundle_v2_at`, which returns `V2VerificationDetails` (`result` and `signer_keys`) and is what admission takes. Code written against the admission API before its release reads `verification.result.verified` instead of `verification.verified`.
 - **Verification behaviour.** The same changes alter verification behaviour, apart from admission. Ed25519 signatures with S >= L are now rejected. Separately, the Go and Rust verifiers now apply a policy's `accepted_classical_algs` and `accepted_pq_algs`, which they used to refuse as not enforced: under such a policy a bundle outside the lists fails, and one inside them can now verify. The [CHANGELOG](../CHANGELOG.md) lists every change.
+- **Ed25519 acceptance, P-ED-1 (local source, 07/11/2026).** Beyond S >= L, the SDK sources now also reject a
+  non-canonical public key or R, and a public key or R of order dividing 8 ([Crypto Profile](../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion)).
+  This is an intentional change of acceptance; signers and formats do not change. Evidence that fails it is signed again
+  or its key replaced, never rewritten.
 - **Bundles.** No wire change. strict-v1 needs bundles signed with `session_issued_at`, `session_expires_at` and `intended_verifier` in the manifest, which every SDK signer writes when given an expiry and an audience.
 - **With a trust set, V1 bundles are refused**: they carry no principal signature to anchor.
 - **Integration options.** New and optional. With trusted principals, `requireBundle: false` (Express) and `require_bundle=False` (FastAPI) are configuration errors: a request without a bundle would reach the route. Under the profile, so are `verifierPolicy`, `requireHybrid: false` and the `checkRevocation` options (Express), `verifier_policy` (FastAPI) and `verifierPolicy` (OpenClaw).
@@ -153,3 +180,5 @@ node /path/to/dcp-ai/bin/dcp.js admit-bundle bundle.signed.json --trust trust.js
 - **Authorization.** `action_authorized` is always `false`. Binding an external authorization to a tool, its arguments and its execution is a later phase.
 - **Identity** is as good as the trust set and the process that maintains it.
 - **Revocation** is as fresh as the snapshot: a revocation after `checked_at` is seen with the next snapshot.
+- **Delegation** is checked at `now` only, needs a current admitted bundle of each delegator, and refuses a chain in
+  which an agent repeats. Activation evaluates neither `authority_scope` nor `threshold_rules`.

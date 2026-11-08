@@ -899,20 +899,30 @@ func (a *admission) principalTrust(bundle map[string]interface{}, v *V2Verificat
 	}
 	for _, use := range uses {
 		where := fmt.Sprintf("%s %s key %s", use.Signature, use.Component, use.Kid)
-		key, found := trusted[use.Kid]
-		keyBytes, canonical := canonicalB64Bytes(use.PublicKeyB64)
-		switch {
-		case !found || key.alg != use.Alg || !canonical || !bytes.Equal(keyBytes, key.bytes):
-			reject("TRUST_KEY_NOT_ANCHORED", "%s is not a trusted key of the principal", where)
-		case key.status == "revoked":
-			reject("TRUST_KEY_REVOKED", "%s is revoked in the trust set", where)
-		case key.status == "expired" || (key.expiresAt != nil && key.expiresAt.Before(now)):
-			reject("TRUST_KEY_EXPIRED", "%s has expired in the trust set", where)
-		case key.notBefore != nil && key.notBefore.After(now):
-			reject("TRUST_KEY_NOT_YET_VALID", "%s is not valid yet in the trust set", where)
+		if code, message := trustedKeyError(trusted, use.Kid, use.Alg, use.PublicKeyB64, where, now); code != "" {
+			reject(code, "%s", message)
 		}
 	}
 	return ok
+}
+
+// trustedKeyError is T2 (§ 3) for one key that verified a principal signature
+// component: "" when the principal's trusted keys anchor it at now. Shared with
+// AdmitDelegatedBundleV2.
+func trustedKeyError(trusted map[string]trustedKey, kid, alg string, publicKeyB64 interface{}, where string, now time.Time) (code, message string) {
+	key, found := trusted[kid]
+	keyBytes, canonical := canonicalB64Bytes(publicKeyB64)
+	switch {
+	case !found || key.alg != alg || !canonical || !bytes.Equal(keyBytes, key.bytes):
+		return "TRUST_KEY_NOT_ANCHORED", where + " is not a trusted key of the principal"
+	case key.status == "revoked":
+		return "TRUST_KEY_REVOKED", where + " is revoked in the trust set"
+	case key.status == "expired" || (key.expiresAt != nil && key.expiresAt.Before(now)):
+		return "TRUST_KEY_EXPIRED", where + " has expired in the trust set"
+	case key.notBefore != nil && key.notBefore.After(now):
+		return "TRUST_KEY_NOT_YET_VALID", where + " is not valid yet in the trust set"
+	}
+	return "", ""
 }
 
 // revocationChecks is § 4.3.

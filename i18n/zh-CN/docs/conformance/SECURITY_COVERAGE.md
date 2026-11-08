@@ -169,6 +169,28 @@ PQ 负向用例仅修改 bundle、护照或检查点中的 PQ 签名，经典签
 
 有限的活动只能表明这些用例一致，或记录不一致之处；它并非穷尽。WASM 不验证委托书链；契约 `/4` 不会送达每个 SDK 的输入（`NaN` 标记、字节顺序标记、`1e400`）由单独的传输探测测量：封装程序的拒绝从不算作 SDK 的拒绝，TypeScript 和 Python 的 SDK 对 `1e400` 返回的拒绝也不作为任何语义规则的证据。
 
+<a id="local-source-additions-07112026"></a>
+
+## 本地源代码中的新增内容（07/11/2026）
+
+这些行描述的是 TypeScript、Python、Go 和 Rust SDK 的本地源代码，而不是已发布的包。每一项都由四个 SDK 测试套件
+运行的共享向量来检验；外部工具包尚无针对它们的契约，因此工具包的结果对这些规则不说明任何问题。其中任何一项都不是
+完全符合或企业就绪的声明。
+
+**可选部分。** 只有调用它们的代码才会使用。
+
+| 要求 | 检验的对象 | 限制 |
+|---|---|---|
+| 委托准入（[准入配置文件 § 10](../../../../spec/profiles/admission/README.md#10-delegated-admission-opt-in)） | [`delegated_admission_vectors.json`](../../../../tests/interop/v2/delegated_admission_vectors.json)：71 个用例和 6 个配置用例 | 只在 `now` 检查；`delegation_active` 和 `action_authorized` 为 `false`；WASM 没有 API |
+| 从字节准入（§ 11） | [`v1_ingress_vectors.json`](../../../../tests/interop/v2/v1_ingress_vectors.json)：26 个用例和 30 个域差异 | 大小和时间预算不在范围内；接收已解析值的函数无法恢复其解析器丢失的内容 |
+| 授权书确认与激活（[DCP-09 § 3.3.1](../../../../spec/DCP-09.md#331-mandate-acknowledgment-opt-in)、§ 12） | [`mandate_acknowledgment_vectors.json`](../../../../tests/interop/v2/mandate_acknowledgment_vectors.json)：TypeScript 和 Python 中 93 个用例；Go 和 Rust 中 89 个，它们明确排除容器不是列表的 4 个用例，因为其类型化 API 无法携带这类输入 | 已签名的声明，不是时间顺序或理解的证明；不授权；没有全局重放检查；没有从字节进行的激活；WASM 没有 API |
+
+**Ed25519 验证（密码学配置文件）。** 适用于 SDK 验证器检查的每个 Ed25519 签名。
+
+| 要求 | 检验的对象 | 限制 |
+|---|---|---|
+| V1 对象和 V2 默认提供方上的 [P-ED-1](../../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion) | [`ed25519_ped1_vectors.json`](../../../../tests/interop/v2/ed25519_ped1_vectors.json) 及其检查工具，在四个 SDK 测试套件中运行；为 `wasm32` 编译的 Rust 代码 | WASM 只经过编译，未在 WASM 运行时或浏览器中运行。参考 V1 验证器（`lib/verify.js` 与 `tools/crypto.js`）、CLI 的 V1 副本和 playground 尚未应用它，只检查 S < L。参考 V2 验证器、服务器和 V2 CLI 使用已安装的 `@dcp-ai/sdk`，只有在重新构建并重新安装后才会改变。此变更不更新适配器和工具包。自定义提供方由运营方负责 |
+
 <a id="claims-for-core-and-profiles"></a>
 
 ## 核心与配置文件的声明范围

@@ -191,7 +191,7 @@ export { secureZero, SecureKeyGuard } from './core/secure-memory.js';
 export { registerDefaultProviders } from './core/register-providers.js';
 
 // ── V2 Domain Separation ──
-export { DCP_CONTEXTS, domainSeparatedMessage } from './core/domain-separation.js';
+export { DCP_CONTEXTS, MANDATE_ACKNOWLEDGMENT_CONTEXT, domainSeparatedMessage } from './core/domain-separation.js';
 export type { DcpContext } from './core/domain-separation.js';
 
 // ── V2 Canonicalization ──
@@ -533,6 +533,31 @@ export {
   generateInteractionRecord,
 } from './core/delegation.js';
 export type { MandateChainKeys, MandateChainResult } from './core/delegation.js';
+
+// Delegated admission (opt-in): a leaf bundle with its mandate chain and delegators, verified at one instant.
+export { admitDelegatedBundleV2 } from './core/delegated-admission.js';
+export type {
+  DelegatedAdmissionResult,
+  DelegatedEvidence,
+  DelegatedOperator,
+  DelegationCode,
+  DelegationError,
+  MandateRevocationSnapshot,
+} from './core/delegated-admission.js';
+
+// Admission from bytes (opt-in): copy, candidate scanner, portable integers, parser comparison, admission.
+export { admitSignedBundleV2FromBytes, type IngressAdmissionResult, type IngressOutcome } from './core/v1-ingress.js';
+
+// Mandate acknowledgment (opt-in, DCP-09 § 3.3): creation, and the activation evaluated over the delegated admission.
+export { MANDATE_ACKNOWLEDGMENT_FORMAT, createMandateAcknowledgment, evaluateDelegationActivationV2 } from './core/mandate-acknowledgment.js';
+export type {
+  AcknowledgmentCode,
+  AcknowledgmentError,
+  ActivationEvidence,
+  DelegationActivationResult,
+  MandateAcknowledgment,
+  MandateAcknowledgmentParams,
+} from './core/mandate-acknowledgment.js';
 
 export {
   evaluateSignificance,
