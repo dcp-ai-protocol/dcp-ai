@@ -134,6 +134,11 @@
       "site_path": "reference/docs/OBSERVABILITY.md"
     },
     {
+      "source": "docs/OPERATIONAL_LIMITS.md",
+      "class": "current",
+      "site_path": "guides/OPERATIONAL_LIMITS.md"
+    },
+    {
       "source": "docs/OPERATOR_GUIDE.md",
       "class": "current",
       "site_path": "guides/OPERATOR_GUIDE.md"

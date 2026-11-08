@@ -4,7 +4,7 @@
 
 # 文档
 
-> 本文是[英文版](../../../docs/README.md)的参考译文，更新于 05/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/README.md)的参考译文，更新于 08/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 本索引按任务整理 DCP-AI 文档：入门、架构与安全、测试、参考、运维、规范和提案。各注册表中软件包的当前版本见
 [已发布版本](#published-versions)。
@@ -89,6 +89,7 @@
 
 - [OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md) — 运行 DCP 验证服务
 - [ADMISSION.md](../../../docs/ADMISSION.md) — 只接受来自受信任委托人的 bundle，以及 strict-v1 配置
+- [OPERATIONAL_LIMITS.md](../../../docs/OPERATIONAL_LIMITS.md) — 什么在限制输入、来源、并发、断开和缓存，以及运营方需要设置什么
 - [AGENT_CREATION_AND_CERTIFICATION.md](../../../docs/AGENT_CREATION_AND_CERTIFICATION.md) — 智能体的创建和认证流程
 
 <a id="specifications"></a>

@@ -330,6 +330,10 @@ async def delegated(agent: DCPAgentContext = Depends(require_dcp_mandated)):
     return {"agent_id": agent.agent_id, "mandate_id": agent.mandate_id}
 ```
 
+### Operational limits
+
+Body budget, source deadlines and capacity, client disconnection, delegation (this middleware does not verify mandate chains) and what you set as the operator: see [Operational limits](../../docs/OPERATIONAL_LIMITS.md).
+
 ## Advanced Example — Global Middleware + Selective Routes
 
 ```python

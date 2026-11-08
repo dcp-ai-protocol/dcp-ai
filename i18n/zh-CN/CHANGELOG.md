@@ -840,6 +840,8 @@
 
 ### 文档
 
+- **运行限制**（新增 [docs/OPERATIONAL_LIMITS.md](../../docs/OPERATIONAL_LIMITS.md)；不改变代码、默认值、配置或线格式）。说明什么在限制输入、信任来源与撤销来源、并发、客户端断开以及 Express 的判定缓存，每个限制由哪一层设定，运营方需要设置什么，以及一份既不是默认值也不具规范性的试点示例配置。已从 `docs/ADMISSION.md` 以及 Express 和 FastAPI 的 README 链接；Express 的 README 现在说明 `req.dcpAgent.mandateId` 是清单中的值，不验证任何授权链。
+
 - `spec/profiles/admission/README.md`（准入配置文件）：编辑性澄清，不改变任何向量、schema 或 SDK 行为；四个 SDK 已经按这些内容运行。
   第 5.1 节第 2 步将 bundle 作为 V2 已签名 bundle 验证：不是 V2 的 bundle 无论 `allow_v1_bundles` 如何设置都不会通过验证，
   在配置文件下 P1 会在验证之前停止，并将 bundle 报告为未通过验证。配置文件需要信任集：组合函数和单独的第 3 步会以

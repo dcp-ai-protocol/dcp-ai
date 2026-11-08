@@ -1138,6 +1138,8 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
 
 ### Documentación
 
+- **Límites operacionales** (nuevo [docs/OPERATIONAL_LIMITS.md](../../docs/OPERATIONAL_LIMITS.md); sin cambios de código, valores por defecto, perfiles ni wire). Qué acota las entradas, las fuentes de confianza y de revocación, la concurrencia, la desconexión del cliente y la caché de veredictos de Express, qué capa fija cada límite, qué tiene que fijar el operador, y una configuración de muestra para un piloto que no es un valor por defecto ni normativa. Enlazado desde `docs/ADMISSION.md` y los README de Express y FastAPI; el README de Express indica ahora que `req.dcpAgent.mandateId` es el valor del manifiesto, sin ninguna cadena de mandatos verificada.
+
 - `spec/profiles/admission/README.md` (perfil de admisión): precisiones editoriales, sin cambiar
   ningún vector, esquema ni comportamiento de los SDK; los cuatro SDK ya se comportan como dicen. El
   paso 2 de §5.1 verifica el bundle como bundle V2 firmado: un bundle que no es V2 no se verifica,

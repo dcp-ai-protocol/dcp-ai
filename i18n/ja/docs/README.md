@@ -4,7 +4,7 @@
 
 # ドキュメント
 
-> [英語版](../../../docs/README.md)の参考訳です（05/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../docs/README.md)の参考訳です（08/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 この索引は、DCP-AI のドキュメントを作業別（はじめに、アーキテクチャとセキュリティ、テスト、リファレンス、運用、仕様、
 提案）に整理したものです。各レジストリのパッケージの現在のバージョンは
@@ -93,6 +93,7 @@
 
 - [OPERATOR_GUIDE.md](../../../docs/OPERATOR_GUIDE.md) — DCP 検証サービスの運用
 - [ADMISSION.md](../../../docs/ADMISSION.md) — 信頼できるプリンシパルからのバンドルだけを受け入れる方法と strict-v1 プロファイル
+- [OPERATIONAL_LIMITS.md](../../../docs/OPERATIONAL_LIMITS.md) — 入力、ソース、並行性、切断、キャッシュを何が制限し、オペレーターが何を設定するか
 - [AGENT_CREATION_AND_CERTIFICATION.md](../../../docs/AGENT_CREATION_AND_CERTIFICATION.md) — エージェントの作成と認証の流れ
 
 <a id="specifications"></a>

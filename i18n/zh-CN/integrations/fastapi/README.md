@@ -5,7 +5,7 @@
 
 # dcp_ai.fastapi — FastAPI 中间件
 
-> 本文是[英文版](../../../../integrations/fastapi/README.md)的参考译文，更新于 05/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../../integrations/fastapi/README.md)的参考译文，更新于 08/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 用于 FastAPI 的 DCP 验证中间件。它会自动验证 Signed Bundle，并为受保护的路由提供依赖注入。
 
@@ -364,6 +364,12 @@ async def active_only(agent: DCPAgentContext = Depends(require_dcp_commissioned)
 async def delegated(agent: DCPAgentContext = Depends(require_dcp_mandated)):
     return {"agent_id": agent.agent_id, "mandate_id": agent.mandate_id}
 ```
+
+<a id="operational-limits"></a>
+
+### 运行限制
+
+请求体预算、来源的截止时间与容量、客户端断开、委托（此中间件不验证授权链），以及你作为运营方需要设置的内容：参见[运行限制](../../../../docs/OPERATIONAL_LIMITS.md)。
 
 <a id="advanced-example--global-middleware--selective-routes"></a>
 <a id="advanced-example-global-middleware-selective-routes"></a>

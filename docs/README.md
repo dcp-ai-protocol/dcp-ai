@@ -72,6 +72,7 @@ Verified on 05/11/2026. Package versions are independent of the DCP wire and spe
 
 - [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md) — Running a DCP verification service
 - [ADMISSION.md](ADMISSION.md) — Accepting bundles only from trusted principals, and the strict-v1 profile
+- [OPERATIONAL_LIMITS.md](OPERATIONAL_LIMITS.md) — What bounds inputs, sources, concurrency, disconnection and the cache, and what the operator sets
 - [AGENT_CREATION_AND_CERTIFICATION.md](AGENT_CREATION_AND_CERTIFICATION.md) — Agent creation flow and certification
 
 ## Specifications

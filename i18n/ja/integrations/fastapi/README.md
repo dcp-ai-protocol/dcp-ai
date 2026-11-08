@@ -5,7 +5,7 @@
 
 # dcp_ai.fastapi — FastAPI のミドルウェア
 
-> [英語版](../../../../integrations/fastapi/README.md)の参考訳です（05/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../../integrations/fastapi/README.md)の参考訳です（08/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 FastAPI 向けの DCP の検証ミドルウェアです。Signed Bundle を自動で検証し、保護するルートのための依存性注入を提供します。
 
@@ -364,6 +364,12 @@ async def active_only(agent: DCPAgentContext = Depends(require_dcp_commissioned)
 async def delegated(agent: DCPAgentContext = Depends(require_dcp_mandated)):
     return {"agent_id": agent.agent_id, "mandate_id": agent.mandate_id}
 ```
+
+<a id="operational-limits"></a>
+
+### 運用上の上限
+
+ボディの予算、ソースの期限と容量、クライアントの切断、委任（このミドルウェアはマンデートのチェーンを検証しません）、そしてオペレーターとして設定するものについては、[運用上の上限](../../../../docs/OPERATIONAL_LIMITS.md)を参照してください。
 
 <a id="advanced-example--global-middleware--selective-routes"></a>
 <a id="advanced-example-global-middleware-selective-routes"></a>
