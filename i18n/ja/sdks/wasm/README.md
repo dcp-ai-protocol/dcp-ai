@@ -2,7 +2,7 @@
 
 # @dcp-ai/wasm — WebAssembly SDK v2.0
 
-> [英語版 README](../../../../sdks/wasm/README.md)の参考訳です。更新日：05/11/2026。検証済みの例を維持するため、識別子とコードブロック（コメントを含む）は原文のままにしています。
+> [英語版 README](../../../../sdks/wasm/README.md)の参考訳です。更新日：08/11/2026。検証済みの例を維持するため、識別子とコードブロック（コメントを含む）は原文のままにしています。
 
 Digital Citizenship Protocol（DCP）v2.0 向けの WebAssembly モジュールで、Rust SDK からコンパイルされます。耐量子複合署名、ハイブリッド鍵生成、ML-KEM-768 による鍵カプセル化、二重ハッシュ、バンドルの構築・検証、セキュリティ階層の算出を提供します。ブラウザーまたは Node.js で直接動作し、サーバーは不要です。
 
@@ -155,7 +155,7 @@ console.log(result.verified, result.classical_valid, result.pq_valid); // true t
 
 #### `initDcp(wasmUrl?: string): Promise<DcpWasm>`
 
-WASM モジュールを初期化します。各 API を使う前に一度呼び出す必要があります。任意で `.wasm` ファイルの URL を渡せます。Node.js では `data:` URL として渡してください（[初期化](#initialization-browser-and-nodejs)を参照）。
+WASM モジュールを初期化します。各 API を使う前に一度呼び出す必要があります。任意で `.wasm` ファイルの URL を渡せます。Node.js では `data:` URL として渡してください（[初期化](#initialization-browser-and-nodejs)を参照）。 引数は wasm-bindgen の初期化関数に渡されます。文字列も引き続き使えますが、このビルドの初期化関数は、その形式が非推奨であるという警告をログに出します。`.wasm` の URL かバイトを持つ `{ module_or_path }` も受け付け、リポジトリのテストはこの形で渡しています。TypeScript の型は文字列だけを宣言しています。
 
 <a id="keypair-generation"></a>
 
@@ -209,7 +209,7 @@ WASM モジュールを初期化します。各 API を使う前に一度呼び�
 |--------|---------|-------------|
 | `dualHash(data)` | `DualHash` | SHA-256 + SHA3-256 の二重ハッシュ |
 | `sha3_256(data)` | `string` | SHA3-256 ハッシュを16進数で返す |
-| `hashObject(obj)` | `string` | JSON オブジェクトの SHA-256 ハッシュ |
+| `hashObject(obj)` | `string` | JSON オブジェクトの SHA-256 ハッシュ。常に小文字の 16 進 64 文字です。ローカルのソース（2.1.3 にはない）では、たとえば孤立サロゲートのようにバインディングが値を読めないとき `Error` を投げます。2.1.3 はその場合、エラーの封筒をハッシュであるかのように返します |
 | `dualMerkleRoot(leaves)` | `DualHash` | 空でない `DualHash` の葉（それぞれ 32 バイトの 16 進ダイジェスト）の配列から [VERIFICATION.md の V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) の二重 Merkle ルートを算出。空の配列や無効な葉では例外を投げる。ルートは小文字の 16 進。2.1.3 以降：2.1.1 以前は 16 進テキストをハッシュするため、2 個以上の葉のルートが異なる |
 
 <a id="canonicalization-domain-separation"></a>
@@ -218,9 +218,9 @@ WASM モジュールを初期化します。各 API を使う前に一度呼び�
 
 | メソッド | 戻り値 | 説明 |
 |--------|---------|-------------|
-| `canonicalize(value)` | `string` | RFC 8785 JCS に基づく `dcp-jcs-v1` 正規化 |
+| `canonicalize(value)` | `string` | `JSON.stringify` が書いたとおりの値の `dcp-jcs-v1` 正規化（RFC 8785 JCS に基づく）。そのため `NaN` と `±Infinity` は `null` になり、`BigInt` や循環参照では `JSON.stringify` が自身の `TypeError` を投げます。小数や、孤立サロゲートのようにバインディングが読めない値では `Error`（`canonicalize: …`）を投げます。ローカルのソース（2.1.3 にはない）ではタグ付きのエクスポートを読むため、`{ error: 'x' }` のように正準形が `error` メンバーで始まる値も正規化されます。2.1.3 はその値で例外を投げます |
 | `domainSeparatedMessage(context, payloadHex)` | `string` | ドメイン分離されたメッセージを16進数で返す |
-| `deriveKid(alg, publicKeyB64)` | `string` | アルゴリズムと公開鍵から決定的に鍵 ID を導出 |
+| `deriveKid(alg, publicKeyB64)` | `string` | アルゴリズムと公開鍵から決定的に鍵 ID を導出。常に小文字の 16 進 32 文字です。ローカルのソース（2.1.3 にはない）では無効な base64 で `Error` を投げます。2.1.3 はその場合、エラーの封筒を鍵 ID であるかのように返します |
 
 <a id="session-security"></a>
 
@@ -280,9 +280,14 @@ WASM SDK には、DCP-05 から DCP-09 までのすべてのアーティファ�
 | DCP-08 権利 | `RightsDeclaration`, `RightEntry`, `ObligationRecord`, `RightsViolationReport`, `RightType`, `ComplianceStatus` |
 | DCP-09 委任 | `DelegationMandate`, `AdvisoryDeclaration`, `PrincipalMirror`, `InteractionRecord`, `AwarenessThreshold`, `ThresholdRule`, `AuthorityScopeEntry`, `ThresholdOperator`, `ThresholdAction` |
 
-`domainSeparatedMessage()` で利用できるドメイン分離コンテキスト：`Lifecycle`、`Succession`、`Dispute`、`Rights`、`Delegation`、`Awareness`。
+`domainSeparatedMessage()`、`compositeSign()`、`compositeVerify()` は、パッケージのビルド元である Rust のレジストリが
+知っているコンテキストの完全な名前を受け取ります。その数は 20 です：interop ベクターの 19（その中に
+`DCP-AI.v2.Lifecycle`、`…Succession`、`…Dispute`、`…Rights`、`…Delegation`、`…Awareness` があります）と
+`DCP-AI.v2.MandateAcknowledgment` です。[v2.0 § 4.1](../../../../spec/DCP-AI-v2.0.md) の表にある 2 つのコンテキストは含まれません：
+`DCP-AI.v2.AlgorithmAdvisory` と `DCP-AI.v2.Governance` です。確認応答のコンテキストで署名や検証をしても、確認応答や
+アクティベーションは評価されません。
 
-これらは型だけです。このパッケージは委任状の有効性やチェーンの関数をエクスポートしません。`verify_mandate_validity_at` と `verify_mandate_chain` はビルド元の Rust クレートにあり、ほかの SDK にはそれぞれの関数があります。
+これらは型だけです。このパッケージは、委任状の有効性、委任状チェーン、アドミッション、アクティベーションの関数をエクスポートしません。これは試験運用の範囲であって、ブラウザーの限界ではありません。ブラウザーアプリケーションのバックエンドが 4 つの SDK のいずれかを使い、クライアントが制御する入力からブラウザーで計算したアドミッションは、サーバー上の何も認可しません。`verify_mandate_validity_at` と `verify_mandate_chain` はパッケージのビルド元である Rust のクレートにあり、他の SDK にはそれぞれ独自のものがあります。
 
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in"></a>
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
@@ -348,8 +353,16 @@ import init, {
 await init();
 
 const keys = JSON.parse(wasm_generate_hybrid_keypair());
-// ... use raw functions, all return JSON strings
+// ... raw functions return JSON text, or a plain string for a hash, a key id, a nonce,
+// a domain-separated message (hex) or a canonical form
 ```
+
+生の関数はエラーを帯域内で `{"error": "<message>"}` として報告します。ローカルのソース（2.1.3 にはない）では、この
+封筒はエスケープされた JSON です。以前は、たとえば鍵の名前に由来する、バックスラッシュや制御文字を含むメッセージが、
+無効な JSON になったり、別のテキストとしてデコードされたりすることがありました。`wasm_canonicalize_v2` は正準形か
+その封筒を返すため、自身のエラーと、正準形が `{"error": …}` である値とを区別できません。ローカルのソースは
+`wasm_canonicalize_v2_result` を追加し、これは `{"ok": true, "canonical": …}` か `{"ok": false, "error": …}` を返します。
+`canonicalize()` はこれを使います。
 
 ブラウザーで動作する完全な対話型デモは [example.html](../../../../sdks/wasm/example.html) を参照してください。
 
@@ -403,6 +416,14 @@ rustup target add wasm32-unknown-unknown
 cd ../rust
 wasm-pack test --headless --chrome -- --features wasm
 ```
+
+<a id="conformance-in-a-browser"></a>
+
+### ブラウザーでの適合性
+
+キットの[ブラウザーラッパー](../../tools/conformance/README.md#browser-wrapper-dcpwasm-in-chrome)は、このパッケージの
+ビルドに対して、適合性カタログと `DcpWasm` の直接呼び出しを Chrome で実行します。各実行が何を扱うかは
+[カバレッジマップ](../../docs/conformance/SECURITY_COVERAGE.md#public-interfaces-mp-03-08112026)にあります。
 
 <a id="license"></a>
 

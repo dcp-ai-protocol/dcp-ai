@@ -4,7 +4,7 @@
 
 # セキュリティ保証と適合性テストのカバレッジ
 
-> [英語版](../../../../docs/conformance/SECURITY_COVERAGE.md)の参考訳です。更新日：07/11/2026。相違がある場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せず保持しています。
+> [英語版](../../../../docs/conformance/SECURITY_COVERAGE.md)の参考訳です。更新日：08/11/2026。相違がある場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せず保持しています。
 
 本書は規範要件とリポジトリの実行可能なテストを対応付けた参考情報です。新しいプロファイル、認証、全入力をテストしたという主張、特定のデプロイ環境が合格した証拠ではありません。テスト結果は、その実行で記録した正確な実装、入力、ポリシー、検証時刻、ツールバージョンに適用されます。
 
@@ -190,7 +190,80 @@ PQ の否定ケースでは bundle、パスポート、チェックポイント�
 
 | 要件 | 確認している対象 | 制限 |
 |---|---|---|
-| V1 のオブジェクトと V2 の既定のプロバイダーでの [P-ED-1](../../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion) | [`ed25519_ped1_vectors.json`](../../../../tests/interop/v2/ed25519_ped1_vectors.json) とその確認ツールを 4 つの SDK のテストスイートで実行。`wasm32` 向けにコンパイルした Rust のコード | WASM はコンパイルのみで、WASM のランタイムやブラウザーでは実行していない。リファレンスの V1 検証器（`lib/verify.js` と `tools/crypto.js`）、CLI の V1 のコピー、playground はまだ適用せず、S < L だけを確認する。リファレンスの V2 検証器、サーバー、V2 の CLI はインストール済みの `@dcp-ai/sdk` を使い、それを再ビルドして再インストールしたときにだけ変わる。この変更はアダプターとキットを更新しない。独自のプロバイダーは運用者の責任 |
+| V1 のオブジェクトと V2 の既定のプロバイダーでの [P-ED-1](../../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion) | [`ed25519_ped1_vectors.json`](../../../../tests/interop/v2/ed25519_ped1_vectors.json) とその検査器（4 つの SDK のスイート内）、`wasm32` で実行した Rust のプロバイダー | 08/11/2026 以降は、参照検証器、CLI の V1 経路、playground、そして Node と Chrome 上の WASM も対象です。インストールされた SDK からこれを受け継ぐものは[公開インターフェース](#public-interfaces-mp-03-08112026)を参照してください。独自のプロバイダーはオペレーターの責任です |
+
+<a id="public-interfaces-mp-03-08112026"></a>
+
+## 公開インターフェース（MP-03、08/11/2026）
+
+この節も、公開パッケージではなくローカルのソースを説明します。各機能について、それが通る公開関数と、そこで
+その機能に届く証拠を示します。
+
+- **WASM** は `@dcp-ai/wasm` の `DcpWasm` クラスです。
+- **生**は、Node で実行するその wasm-bindgen のエクスポート（`@dcp-ai/wasm/pkg`）を指します。
+- **Chrome** での実行は、キットの[ブラウザーラッパー](../../tools/conformance/README.md#browser-wrapper-dcpwasm-in-chrome)を通ります。
+
+| 機能 | TypeScript、Python、Go、Rust | WASM | 主張しないこと |
+|---|---|---|---|
+| `dcp-jcs-v1` の正準バイトとダイジェスト | キット `/1`（38） | 生で `/1`（38）。Chrome では `/1`（38）：正準化は `JSON.parse` の後に `DcpWasm.canonicalize`、ダイジェストはテキストに対して `dualHash` と `sha3_256` | パーサーがすでに変更したバイト（後述のパース表を参照） |
+| V2 検証：バンドル、Merkle ルート、複合署名 | キット `/2`（241：バンドル 211、複合 24、Merkle 6 ケース）、ポリシー（108）、構造（16）、スキーマ（57）、`/5`（130） | 同じカタログを生で（552 ケース。`/1` を含めて 590）。Chrome ではそれぞれ専用の `DcpWasm` メソッドで：バンドルは `verifyBundle`、複合ケースは `compositeVerify`、Merkle ケースは `dualMerkleRoot` | アドミッション、信頼、認可 |
+| 複合署名、ドメイン分離、セキュリティティア | キット `/2` の複合ケース（24）、SDK スイート内の interop ベクター | Chrome での直接呼び出し（103）：`domainSeparatedMessage` 20（interop ベクターの 19 コンテキストと `MandateAcknowledgment`）、`computeSecurityTier` 79、ペイロード・コンテキスト・署名の否定例を伴う 2 つのハイブリッド署名・検証の往復、そして P-ED-1 の 2 つの複合原像 | `/5` は `computeSecurityTier` を使いません。`verifyBundle` が報告するモードとティアを読みます |
+| P-ED-1 | 4 つの SDK スイート内のコーパス | Node 上の `wasm32` で Rust のプロバイダー：プロバイダー 67 ケース、V1 オブジェクト 4 件、実際の ML-DSA-65 鍵を使う複合 2 ケース。Chrome では、`classical_only` のバインディングで `compositeVerify` を通した 2 つの複合原像 | 生の Ed25519 メソッドを持たない `DcpWasm` を通したコーパス全体 |
+| `strict-v1` のアドミッション | キット `/3`（140） | 非対応 | — |
+| 委任状チェーン | キット `/4`（97） | 非対応 | — |
+| 委任アドミッション、バイトからのアドミッション、アクティベーション | 上記の SDK スイートと、バイト関数とアクティベーション関数の設定エラー | 非対応 | キットの契約 |
+
+WASM には、委任状チェーン、アドミッション、アクティベーションの API がありません。これは試験運用（D-04）の範囲で
+あって、ブラウザーの限界ではありません。ブラウザーアプリケーションのバックエンドが、4 つの SDK のいずれかで委任を
+検査し、アドミッションを行います。クライアントが制御する入力からブラウザーで計算したアドミッションは、サーバー上の
+何も認可しません。
+
+**SDK 以外での P-ED-1。** TweetNaCl で自ら Ed25519 を計算する検証器は、まず P-ED-1 を検査します。その際、バイト用
+ヘルパーの 3 つの同一コピーのいずれかを使います：`tools/`、`cli/lib/`、`playground/js/core/ed25519-ped1.js`。その他の
+検証器は、読み込む SDK からのみ P-ED-1 を得ます。
+
+| 検証器 | Ed25519 の経路 | P-ED-1 |
+|---|---|---|
+| 参照 V1（`tools/crypto.js` の `verifyObject`）：`lib/verify.js` と `bin/dcp.js` の V1、transparency log の gossip、失効サービス | 自前の検査、その後 TweetNaCl | ソースにあり。`tools/ed25519-ped1-consumers.test.mjs` |
+| V1 ファイルに対する `dcp-ai verify` | 自前の検査（`cli/lib/ed25519-ped1.js`） | ソースにあり。公開済みの `@dcp-ai/cli` にはない |
+| V2 ファイルに対する `dcp-ai verify`、参照 V2、サーバー | インストールされた `@dcp-ai/sdk` | それを持つ SDK でのみ。CI はワークスペースの SDK をビルドしてインストールします。公開済みのどの `@dcp-ai/sdk`（2.3.0 以前）にもなく、それらからインストールしたコピーにもありません |
+| Playground（PQ 署名がシミュレーションのデモ） | 自前の検査 | ソースにあり |
+| Express、OpenClaw | 2.2.0 に固定された `@dcp-ai/sdk` | ロックでは適用されません。CI はワークスペースの SDK でもそれらのテストを実行します |
+| Anthropic MCP、Google A2A | 2.2.0 に固定された `@dcp-ai/sdk` | 適用されません（記録済みの限界） |
+| FastAPI、LangChain、OpenAI、CrewAI | このツリーの Python SDK | 適用されます |
+
+**エラー、拒否、結果の欠如。** 各公開関数は独自のエラー契約を保ち、どれも正規化しません。P-ED-1 が拒否するのは、
+その関数の型・サイズ・デコードの先行検査を通過した入力だけです。エラーだったものはエラーのままです。キットと
+ブラウザーハーネスでは、`error`、`unsupported`、欠けたケース、クラッシュ、タイムアウトが、期待される拒否を満たす
+ことはありません。
+
+| 関数 | 拒否 | エラー |
+|---|---|---|
+| Ed25519 プロバイダー、V1 の `verifyObject`（SDK、参照、CLI、playground） | `false`：S >= L、P-ED-1、または方程式 | それぞれ独自です。無効な base64 は、その関数が base64 をデコードする箇所（プロバイダーの鍵、`verifyObject` の署名と鍵）だけです。TypeScript と参照検証器は、無効な base64 と、デコードした署名や鍵のサイズ誤りで例外を投げます。playground の `verifyDetached` はバイトを受け取り、サイズ誤りと `Uint8Array` でない値で例外を投げます。Python はサイズ誤りで PyNaCl の `ValueError` を送出します。Go は署名長の誤りで `false` を、鍵長の誤りでエラーを返します。Rust はどちらの長さの誤りでも、展開できない鍵でもエラーを返します。CLI は INVALID とエラーで 1、VALID の場合だけ 0 で終了します |
+| `compositeVerify` | `valid: false` と各コンポーネントの判定 | `pq_over_classical` で PQ 署名がないことは、Rust と WASM 経由ではエラーで、TypeScript、Python、Go はブール値を返します |
+| バンドル検証 | 診断付きの `verified: false`。不正な入力でも同じ | WASM の `verifyBundle` は、自身の JSON とポリシーのパースエラーも同じ形で報告します |
+| `strict-v1` のアドミッション（`admitSignedBundleV2`） | `admitted: false` とコード。`action_authorized` は常に `false` | `AdmissionConfigError`（Go では `*AdmissionConfigError`）。無効なプロファイル、または検証者ポリシーと一緒に渡されたプロファイルは、バンドルを検証する前に拒否されます。その他の設定エラーがどこで見つかるかは SDK によります。たとえばトラストセットのないプロファイルは、TypeScript では検証後のアドミッション中（`evaluateAdmissionV2`）に、Rust では検証前に見つかります。いずれの場合もエラーとなり、結果はありません |
+| 委任アドミッション、アクティベーション | 委任アドミッション：`admitted: false` とコード。アクティベーション：`composition`（委任アドミッションの結果）、`activation`、`delegation_active`、`ACK_*` コード。`action_authorized` は常に `false` | オペレーターの設定が無効なときは、どの証拠も読む前に `AdmissionConfigError` |
+| バイトからのアドミッション | イングレスの拒否は結果です：`ingress.accepted: false` とその層・クラス、アドミッションなし | まずイングレスが判定し、受け入れられたバイトはその後 `admitSignedBundleV2` と同じようにアドミッションされ、その設定エラーを伴います（Rust では `IngressError::Config`）。バイトでない入力は、TypeScript と Python では `TypeError` です |
+| `DcpWasm` のメソッド | バインディングの報告どおり | `Error('<method>: …')`。`canonicalize` はタグ付きの `wasm_canonicalize_v2_result` を読み、`hashObject` と `deriveKid` は 16 進形式の値だけを返します。生のエクスポートは `{"error": …}` を帯域内に保ち、`wasm_canonicalize_v2` はそれを、正準形がそのオブジェクトである値と区別できません |
+
+この表を裏付けるテスト：
+
+- 各 SDK の P-ED-1 コーパスのテスト
+- `sdks/wasm/test/interface-errors.mjs` と `sdks/wasm/test/schema-v2.mjs`
+- 設定エラーのテスト `e5-config-errors.test.ts`、`test_e5_config_errors.py`、`e5_config_errors_test.go`、
+  `tests/e5_config_errors.rs`
+
+**誰がパースするか。** どの関数も、他の関数のために入力を修復しません。それぞれ自分のパーサーが生成したものを読みます。
+
+| 関数 | パーサー | パーサーの前の検査 |
+|---|---|---|
+| `verifySignedBundleV2`、`admitSignedBundleV2` と、その Python と Rust の対応関数 | 呼び出し側のもの（`JSON.parse`、`json.loads`、`serde_json`） | なし |
+| Go の `VerifySignedBundleV2At`、`AdmitSignedBundleV2` | SDK の `encoding/json`（`[]byte` に対して） | なし。バイトを受け取ることは[アドミッション § 11](../../../../spec/profiles/admission/README.md#11-admission-from-bytes-opt-in)のイングレスではありません |
+| 各 SDK の `FromBytes` アドミッション関数 | SDK | イングレス：スキャナー、ポータブルなドメイン、その後パーサーの照合。アドミッションの前 |
+| `DcpWasm` のメソッド | 呼び出し側の `JSON.parse`、その後 `JSON.stringify` が書いたものに対する `serde_json` | なし。また不可能です：JavaScript の値はすでにパース済みです |
+| WASM の生のエクスポート | テキストに対する `serde_json` | なし |
+| `experimentalCandidateIngress` とその対応関数 | 実験的な候補自身のもの | そのスキャナー。§ 11 のイングレスではなく、`dcp-jcs-v1` を何も変えません |
 
 <a id="claims-for-core-and-profiles"></a>
 

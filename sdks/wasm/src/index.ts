@@ -70,6 +70,30 @@ function wasm(): WasmModule {
   return wasmModule;
 }
 
+/** JSON from a binding; text that is not JSON is the binding's failure, reported as an Error of the method. */
+function parseBinding(json: string, label: string): Record<string, unknown> {
+  try {
+    return JSON.parse(json);
+  } catch {
+    throw new Error(`${label}: the wasm binding returned text that is not JSON`);
+  }
+}
+
+function hasExactKeys(o: unknown, keys: string[]): o is Record<string, unknown> {
+  return o !== null && typeof o === 'object' && !Array.isArray(o) && Object.keys(o).sort().join() === [...keys].sort().join();
+}
+
+/**
+ * A binding that returns a bare string on success and `{"error": …}` on failure: a success has a fixed format
+ * (lowercase hex of one length), which an error envelope can never match.
+ */
+function checkedFormat(result: string, format: RegExp, label: string): string {
+  if (format.test(result)) return result;
+  const r = parseBinding(result, label);
+  if (hasExactKeys(r, ['error']) && typeof r.error === 'string') throw new Error(`${label}: ${r.error}`);
+  throw new Error(`${label}: unexpected result from the wasm binding`);
+}
+
 function parseOrThrow<T>(json: string, label: string): T {
   const parsed = JSON.parse(json);
   if (parsed && typeof parsed === 'object' && 'error' in parsed) {
@@ -239,7 +263,7 @@ export class DcpWasm {
   }
 
   hashObject(obj: unknown): string {
-    return wasm().wasm_hash_object(JSON.stringify(obj));
+    return checkedFormat(wasm().wasm_hash_object(JSON.stringify(obj)), /^[0-9a-f]{64}$/, 'hashObject');
   }
 
   dualMerkleRoot(leaves: DualHash[]): DualHash {
@@ -251,12 +275,14 @@ export class DcpWasm {
 
   // ── Canonicalization & Domain Separation ────────────────────────────
 
+  /** dcp-jcs-v1 of the value as JSON.stringify writes it. Throws an Error when the binding reports one. */
   canonicalize(value: unknown): string {
-    const result = wasm().wasm_canonicalize_v2(JSON.stringify(value));
-    if (result.startsWith('{"error"')) {
-      throw new Error(`canonicalize: ${JSON.parse(result).error}`);
-    }
-    return result;
+    // The tagged export: the outcome is read from its tag, never from the canonical text, which can itself be
+    // an {"error": …} object.
+    const r = parseBinding(wasm().wasm_canonicalize_v2_result(JSON.stringify(value)), 'canonicalize');
+    if (hasExactKeys(r, ['ok', 'canonical']) && r.ok === true && typeof r.canonical === 'string') return r.canonical;
+    if (hasExactKeys(r, ['ok', 'error']) && r.ok === false && typeof r.error === 'string') throw new Error(`canonicalize: ${r.error}`);
+    throw new Error('canonicalize: unexpected result from the wasm binding');
   }
 
   /**
@@ -385,7 +411,7 @@ export class DcpWasm {
   }
 
   deriveKid(alg: string, publicKeyB64: string): string {
-    return wasm().wasm_derive_kid(alg, publicKeyB64);
+    return checkedFormat(wasm().wasm_derive_kid(alg, publicKeyB64), /^[0-9a-f]{32}$/, 'deriveKid');
   }
 
   // ── Session & Security ─────────────────────────────────────────────

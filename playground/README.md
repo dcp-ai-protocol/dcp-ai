@@ -24,6 +24,7 @@ playground/
   js/
     core/
       crypto.js                 # Ed25519 keygen, signing, verification, kid
+      ed25519-ped1.js           # P-ED-1 byte checks before TweetNaCl
       hash.js                   # SHA-256 (Web Crypto), canonicalize (JCS), Merkle root
       state.js                  # Central state (keypairs, agents, session)
       signature.js              # Composite signature builder (classical + PQ simulated)
@@ -107,6 +108,7 @@ All cryptographic operations run **entirely in the browser**:
 - Merkle root computation uses simplified concatenation
 - No CBOR wire format (JSON only)
 - Signature verification limited to Ed25519 keys in the bundle's passport
+- Ed25519 verification applies P-ED-1 of the [Crypto Profile](../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion) before TweetNaCl, in the source of this repository (08/11/2026): S < L, and a key and R that are canonical encodings and not of order dividing 8. The check is `js/core/ed25519-ped1.js`, identical to the reference verifier's copy; it is the playground's own code, not an SDK, and what the playground builds is still not evidence
 - Session binding across tabs uses shared state (not persisted to storage)
 
 ## Dependencies

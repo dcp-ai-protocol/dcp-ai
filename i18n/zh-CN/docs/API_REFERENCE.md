@@ -4,7 +4,7 @@
 
 # DCP-AI API 参考
 
-> 本文是[英文版](../../../docs/API_REFERENCE.md)的参考译文，更新于 07/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/API_REFERENCE.md)的参考译文，更新于 08/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 本文是 `main` 上的 TypeScript SDK `@dcp-ai/sdk`（软件包版本 2.3.0，协议 DCP v2.0）的参考文档。
 
@@ -546,7 +546,9 @@ function verifyObject(obj: unknown, signatureB64: string, publicKeyB64: string):
 
 在本地源代码中（07/11/2026，未发布），`verifyObject` 和 V2 默认的 Ed25519 提供方应用
 [密码学配置文件](../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion)的 P-ED-1：S >= L、非规范编码的
-密钥或 R、或阶整除 8 的密钥或 R 都返回 `false`。会抛出异常的输入与以前相同。
+密钥或 R、或阶整除 8 的密钥或 R 都返回 `false`。会抛出异常的输入与以前相同。自 08/11/2026 起，
+参考验证器（`tools/crypto.js`）、`dcp-ai verify` 的 V1 路径和 playground 在本地源代码中执行同样的检查；
+不含此变更的已发布包不会执行。
 
 ```typescript
 const valid = verifyObject({ action: 'transfer', amount: 100 }, sig, keys.publicKeyB64);
@@ -869,10 +871,20 @@ if (result.verified) {
 | 函数 | 说明 |
 |----------|-------------|
 | `admitDelegatedBundleV2(evidence, registry, operator)` | 把叶端 bundle 与其 DCP-09 授权书链以及每个委托代理各一个 bundle 一起准入 ([§ 10](../../../spec/profiles/admission/README.md#10-delegated-admission-opt-in)) |
-| `admitSignedBundleV2FromBytes(bytes, registry, options)` | 对以字节形式给出的已签名 bundle 进行准入，在任何解析器读取之前作出判定 ([§ 11](../../../spec/profiles/admission/README.md#11-admission-from-bytes-opt-in)) |
+| `admitSignedBundleV2FromBytes(bytes, registry, options)` | 对以字节形式给出的已签名 bundle 进行准入：在解析器读取之前检查这些字节，并将解析器的结果与之比对，之后才进行准入 ([§ 11](../../../spec/profiles/admission/README.md#11-admission-from-bytes-opt-in)) |
 | `evaluateDelegationActivationV2(evidence, registry, operator)` | 委托准入，再加上代理对每个授权书的确认 ([§ 12](../../../spec/profiles/admission/README.md#12-delegation-activation-opt-in)) |
 
-Python：`admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `evaluate_delegation_activation_v2`（均为 async）；Go：`AdmitDelegatedBundleV2`, `AdmitSignedBundleV2FromBytes`, `EvaluateDelegationActivationV2`；Rust：`admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `evaluate_delegation_activation_v2`。WASM 不导出它们。
+Python：`admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `evaluate_delegation_activation_v2`（均为 async）；Go：`AdmitDelegatedBundleV2`, `AdmitSignedBundleV2FromBytes`, `EvaluateDelegationActivationV2`；Rust：`admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `evaluate_delegation_activation_v2`。WASM 不导出它们：浏览器应用程序的后端调用四个 SDK 之一。
+
+**错误：**
+
+- 当操作员配置无效时，`admitDelegatedBundleV2` 和 `evaluateDelegationActivationV2` 在读取任何证据之前抛出
+  `AdmissionConfigError`。在 Go 中它是 `*AdmissionConfigError`，用 `errors.As` 检测。
+- 在 `admitSignedBundleV2FromBytes` 中，入口检查先作出判定。被拒绝的字节给出一个 `ingress.accepted: false` 且没有
+  `admission` 的结果，绝不是错误。被接受的字节随后按 `admitSignedBundleV2` 的方式准入，带有相同的配置错误
+  （Rust：`IngressError::Config`）。
+- 不是字节的输入在 TypeScript 和 Python 中是 `TypeError`。
+- 每个函数的约定见[覆盖图](conformance/SECURITY_COVERAGE.md#public-interfaces-mp-03-08112026)。
 
 ### `DEFAULT_VERIFIER_POLICY`
 

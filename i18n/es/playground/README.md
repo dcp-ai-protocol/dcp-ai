@@ -4,7 +4,7 @@
 
 # Playground de DCP-AI
 
-> Traducción informativa de [la versión en inglés](../../../playground/README.md), actualizada el 25/10/2026. Si hay diferencias, prevalece el original inglés. Los identificadores y los bloques de código, incluidos los comentarios, se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../playground/README.md), actualizada el 08/11/2026. Si hay diferencias, prevalece el original inglés. Los identificadores y los bloques de código, incluidos los comentarios, se conservan sin traducir.
 
 Demostración interactiva en el navegador del Digital Citizenship Protocol (DCP-01 a DCP-09), alojada en [docs.dcp-ai.org/playground/](https://docs.dcp-ai.org/playground/).
 
@@ -34,6 +34,7 @@ playground/
   js/
     core/
       crypto.js                 # Ed25519 keygen, signing, verification, kid
+      ed25519-ped1.js           # P-ED-1 byte checks before TweetNaCl
       hash.js                   # SHA-256 (Web Crypto), canonicalize (JCS), Merkle root
       state.js                  # Central state (keypairs, agents, session)
       signature.js              # Composite signature builder (classical + PQ simulated)
@@ -129,6 +130,7 @@ Todas las operaciones criptográficas se ejecutan **íntegramente en el navegado
 - El cálculo de la raíz Merkle utiliza concatenación simplificada
 - No hay formato de transmisión CBOR (solo JSON)
 - La verificación de firmas se limita a claves Ed25519 del pasaporte del bundle
+- La verificación Ed25519 aplica P-ED-1 del [perfil criptográfico](../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion) antes de TweetNaCl, en el código fuente de este repositorio (08/11/2026): S < L, y una clave y una R que son codificaciones canónicas y cuyo orden no divide a 8. La comprobación es `js/core/ed25519-ped1.js`, idéntica a la copia del verificador de referencia; es código propio del playground, no un SDK, y lo que construye el playground sigue sin ser evidencia
 - La vinculación de sesión entre pestañas utiliza estado compartido (sin persistencia en almacenamiento)
 
 <a id="dependencies"></a>

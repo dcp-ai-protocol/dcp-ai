@@ -4,7 +4,7 @@
 
 # Garantias de segurança e cobertura de conformidade
 
-> Tradução informativa da [versão em inglês](../../../../docs/conformance/SECURITY_COVERAGE.md), atualizada em 07/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são preservados sem tradução.
+> Tradução informativa da [versão em inglês](../../../../docs/conformance/SECURITY_COVERAGE.md), atualizada em 08/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são preservados sem tradução.
 
 Este mapa informativo relaciona os requisitos normativos aos testes executáveis do repositório. Não é um novo perfil, uma certificação, uma alegação de que todas as entradas foram testadas ou evidência de aprovação de uma implantação específica. Um resultado se aplica à implementação, entradas, política, instante de verificação e versão da ferramenta exatos registrados naquela execução.
 
@@ -190,7 +190,79 @@ prontidão empresarial.
 
 | Requisito | Superfície exercitada | Limite |
 |---|---|---|
-| [P-ED-1](../../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion) em objetos V1 e no provedor V2 padrão | [`ed25519_ped1_vectors.json`](../../../../tests/interop/v2/ed25519_ped1_vectors.json) e seu verificador, nas quatro suítes dos SDKs; o código Rust compilado para `wasm32` | O WASM só é compilado, não executado em um runtime WASM nem em um navegador. Ainda não o aplicam o verificador V1 de referência (`lib/verify.js` com `tools/crypto.js`), a cópia V1 da CLI nem o playground, que só verificam S < L. O verificador V2 de referência, o servidor e a CLI V2 usam o `@dcp-ai/sdk` instalado e só mudam quando ele é recompilado e reinstalado. Esta mudança não atualiza os adaptadores nem o kit. Um provedor próprio é responsabilidade do operador |
+| [P-ED-1](../../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion) em objetos V1 e no provedor V2 padrão | [`ed25519_ped1_vectors.json`](../../../../tests/interop/v2/ed25519_ped1_vectors.json) e seu verificador, nas quatro suítes dos SDKs; o provedor de Rust executado em `wasm32` | Desde 08/11/2026, também o verificador de referência, o caminho V1 da CLI e o playground, e WASM no Node e no Chrome: veja [Interfaces públicas](#public-interfaces-mp-03-08112026), que indica quem o herda de um SDK instalado. Um provedor próprio é responsabilidade do operador |
+
+<a id="public-interfaces-mp-03-08112026"></a>
+
+## Interfaces públicas (MP-03, 08/11/2026)
+
+Esta seção também descreve o código-fonte local, não pacotes publicados. Para cada capacidade, nomeia a função pública
+pela qual ela passa e a evidência que a alcança ali.
+
+- **WASM** é a classe `DcpWasm` de `@dcp-ai/wasm`.
+- **Cru** se refere aos seus exports do wasm-bindgen (`@dcp-ai/wasm/pkg`), executados no Node.
+- As execuções no **Chrome** passam pelo [wrapper de navegador](../../tools/conformance/README.md#browser-wrapper-dcpwasm-in-chrome) do kit.
+
+| Capacidade | TypeScript, Python, Go, Rust | WASM | Não se afirma |
+|---|---|---|---|
+| Bytes canônicos `dcp-jcs-v1` e digests | Kit `/1` (38) | `/1` cru (38). No Chrome, `/1` (38): a canonicalização por `DcpWasm.canonicalize` após `JSON.parse`, os digests por `dualHash` e `sha3_256` sobre o texto | Bytes que um parser já mudou (veja a tabela de parsing abaixo) |
+| Verificação V2: bundles, raízes Merkle, assinaturas compostas | Kit `/2` (241: 211 casos de bundle, 24 compostos e 6 Merkle), política (108), estrutura (16), esquema (57), `/5` (130) | Os mesmos catálogos crus (552 casos; 590 com `/1`). No Chrome, cada um pelo seu próprio método de `DcpWasm`: os bundles por `verifyBundle`, os casos compostos por `compositeVerify`, os casos Merkle por `dualMerkleRoot` | Admissão, confiança, autorização |
+| Assinaturas compostas, separação de domínio, nível de segurança | Casos compostos do kit `/2` (24); vetores de interop nas suítes dos SDKs | Chamadas diretas no Chrome (103): `domainSeparatedMessage` 20 (os 19 contextos dos vetores de interop e `MandateAcknowledgment`), `computeSecurityTier` 79, 2 ciclos híbridos de assinatura e verificação com negativos de payload, contexto e assinatura, e as 2 pré-imagens compostas de P-ED-1 | `/5` não exercita `computeSecurityTier`: lê o modo e o nível que `verifyBundle` informa |
+| P-ED-1 | O corpus nas quatro suítes dos SDKs | O provedor de Rust em `wasm32` no Node: 67 casos de provedor, 4 objetos V1 e 2 casos compostos com uma chave ML-DSA-65 real. No Chrome: as 2 pré-imagens compostas por `compositeVerify`, com um binding `classical_only` | O corpus completo por `DcpWasm`, que não tem um método Ed25519 cru |
+| Admissão `strict-v1` | Kit `/3` (140) | Sem suporte | — |
+| Cadeias de mandatos | Kit `/4` (97) | Sem suporte | — |
+| Admissão delegada, admissão a partir de bytes, ativação | As suítes dos SDKs acima, e os erros de configuração das funções de bytes e de ativação | Sem suporte | Um contrato do kit |
+
+WASM não tem API de cadeias de mandatos, de admissão ou de ativação. É o escopo do piloto (D-04), não um limite dos
+navegadores: o backend de uma aplicação de navegador verifica as delegações e admite com um dos quatro SDKs. Uma
+admissão calculada num navegador a partir de entradas que o cliente controla não autoriza nada num servidor.
+
+**P-ED-1 fora dos SDKs.** Um verificador que calcula Ed25519 ele mesmo com o TweetNaCl verifica primeiro P-ED-1. Usa
+uma de três cópias idênticas de um helper de bytes: `tools/`, `cli/lib/` e `playground/js/core/ed25519-ped1.js`. Todos os
+outros verificadores obtêm P-ED-1 apenas do SDK que carregam.
+
+| Verificador | Caminho Ed25519 | P-ED-1 |
+|---|---|---|
+| V1 de referência (`verifyObject` de `tools/crypto.js`): V1 de `lib/verify.js` e `bin/dcp.js`, gossip do transparency log, serviço de revogação | Sua própria verificação e depois o TweetNaCl | No código-fonte; `tools/ed25519-ped1-consumers.test.mjs` |
+| `dcp-ai verify` sobre arquivos V1 | Sua própria verificação (`cli/lib/ed25519-ped1.js`) | No código-fonte; não no `@dcp-ai/cli` publicado |
+| `dcp-ai verify` sobre arquivos V2, V2 de referência, servidor | O `@dcp-ai/sdk` instalado | Só com um SDK que o tenha. A CI compila e instala o SDK do workspace. Nenhum `@dcp-ai/sdk` publicado o tem (2.3.0 e anteriores), nem as cópias instaladas a partir deles |
+| Playground (uma demo cujas assinaturas PQ são simuladas) | Sua própria verificação | No código-fonte |
+| Express, OpenClaw | `@dcp-ai/sdk` fixado em 2.2.0 | Não com o lock; a CI também executa seus testes com o SDK do workspace |
+| Anthropic MCP, Google A2A | `@dcp-ai/sdk` fixado em 2.2.0 | Não se aplica (um limite registrado) |
+| FastAPI, LangChain, OpenAI, CrewAI | O SDK de Python desta árvore | Aplica-se |
+
+**Erros, rejeições e resultados ausentes.** Cada função pública mantém seu próprio contrato de erros; nenhum é
+normalizado. P-ED-1 só rejeita entradas que passaram pelas verificações anteriores de tipo, tamanho e decodificação da
+função: o que era um erro continua sendo. No kit e no harness de navegador, um `error`, `unsupported`, um caso
+ausente, uma queda ou um prazo esgotado nunca satisfazem uma rejeição esperada.
+
+| Função | Rejeitado | Erro |
+|---|---|---|
+| Provedor Ed25519, `verifyObject` de V1 (SDKs, referência, CLI, playground) | `false`: S >= L, P-ED-1 ou a equação | Cada um o seu, e base64 inválido só onde a função decodifica base64 (a chave de um provedor, a assinatura e a chave de `verifyObject`). TypeScript e o verificador de referência lançam um erro diante de base64 inválido e de uma assinatura ou chave decodificadas de tamanho incorreto; o `verifyDetached` do playground recebe bytes e lança um erro diante de um tamanho incorreto ou de um valor que não é um `Uint8Array`. Python lança o `ValueError` do PyNaCl diante de um tamanho incorreto. Go devolve `false` diante de um comprimento de assinatura incorreto e um erro diante de um comprimento de chave incorreto. Rust devolve erros diante de qualquer um dos dois comprimentos e de uma chave que não se descomprime. A CLI sai com 1 diante de INVALID e de erros, e com 0 só diante de VALID |
+| `compositeVerify` | `valid: false`, com o veredito de cada componente | A falta de assinatura PQ com `pq_over_classical` é um erro em Rust e por WASM; TypeScript, Python e Go devolvem booleanos |
+| Verificação de bundles | `verified: false` com diagnósticos, também para entradas malformadas | O `verifyBundle` de WASM informa da mesma forma seus próprios erros de parsing do JSON e da política |
+| Admissão `strict-v1` (`admitSignedBundleV2`) | `admitted: false` e códigos; `action_authorized` é sempre `false` | `AdmissionConfigError` (em Go, `*AdmissionConfigError`). Um perfil inválido, ou um perfil passado junto com uma política de verificador, é recusado antes de verificar o bundle. Onde os demais erros de configuração são detectados depende do SDK: um perfil sem trust set, por exemplo, durante a admissão após a verificação em TypeScript (`evaluateAdmissionV2`), e antes dela em Rust. Em qualquer caso, um erro e nenhum resultado |
+| Admissão delegada, ativação | Admissão delegada: `admitted: false` e códigos. Ativação: `composition` (o resultado da admissão delegada), `activation`, `delegation_active` e os códigos `ACK_*`. `action_authorized` é sempre `false` | `AdmissionConfigError` diante de uma configuração do operador inválida, antes de ler qualquer evidência |
+| Admissão a partir de bytes | A rejeição do ingresso é um resultado: `ingress.accepted: false`, com sua camada e sua classe, e sem admissão | O ingresso decide primeiro, e os bytes aceitos são depois admitidos como em `admitSignedBundleV2`, com seus erros de configuração (em Rust, `IngressError::Config`). Uma entrada que não são bytes é um `TypeError` em TypeScript e Python |
+| Métodos de `DcpWasm` | Conforme o binding informa | `Error('<method>: …')`. `canonicalize` lê o `wasm_canonicalize_v2_result` rotulado; `hashObject` e `deriveKid` só devolvem seu formato hexadecimal. Os exports crus mantêm `{"error": …}` em banda, e `wasm_canonicalize_v2` não consegue distingui-lo de um valor cuja forma canônica é esse objeto |
+
+Os testes que sustentam esta tabela:
+
+- os testes do corpus P-ED-1 de cada SDK;
+- `sdks/wasm/test/interface-errors.mjs` e `sdks/wasm/test/schema-v2.mjs`;
+- os testes de erros de configuração `e5-config-errors.test.ts`, `test_e5_config_errors.py`, `e5_config_errors_test.go` e
+  `tests/e5_config_errors.rs`.
+
+**Quem faz o parsing.** Nenhuma função repara a entrada de outra: cada uma lê o que seu parser produziu.
+
+| Função | Parser | Verificações antes do parser |
+|---|---|---|
+| `verifySignedBundleV2`, `admitSignedBundleV2` e seus equivalentes de Python e Rust | O de quem chama (`JSON.parse`, `json.loads`, `serde_json`) | Nenhuma |
+| `VerifySignedBundleV2At` e `AdmitSignedBundleV2` de Go | O `encoding/json` do SDK, sobre `[]byte` | Nenhuma: receber bytes não é o ingresso da [admissão § 11](../../../../spec/profiles/admission/README.md#11-admission-from-bytes-opt-in) |
+| A função de admissão `FromBytes` de cada SDK | O SDK | O ingresso: scanner, domínio portável e depois a comparação do parser, antes da admissão |
+| Métodos de `DcpWasm` | O `JSON.parse` de quem chama, e depois `serde_json` sobre o que `JSON.stringify` escreve | Nenhuma, e nenhuma é possível: o valor de JavaScript já passou pelo parsing |
+| Exports crus de WASM | `serde_json` sobre o texto | Nenhuma |
+| `experimentalCandidateIngress` e seus equivalentes | O do próprio candidato experimental | Seu scanner. Não é o ingresso do § 11 e não muda nada em `dcp-jcs-v1` |
 
 <a id="claims-for-core-and-profiles"></a>
 

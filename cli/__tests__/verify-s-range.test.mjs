@@ -41,7 +41,8 @@ const plusL = (sig) => withScalar(sig, scalarOf(sig) + L);
 const ks = (sig) => [...new Set([1n, 2n, (2n ** 256n - 1n - scalarOf(sig)) / L])];
 const flipR = (sig) => { const s = new Uint8Array(sig); s[0] ^= 1; return s; };
 
-// A = the identity, so [S]B = R for any message (weak keys are E4, unchanged).
+// A = the identity, so [S]B = R for any message. P-ED-1 rejects it (E[8]): on V1 the two cases below that verified
+// before P-ED-1 are now INVALID for that reason only (verify-ped1.test.mjs covers P-ED-1 itself).
 const IDENTITY = hex('01' + '00'.repeat(31));
 const MINUS_B = hex('58' + '66'.repeat(30) + 'e6');
 const sigOf = (r, s) => withScalar(new Uint8Array([...r, ...new Uint8Array(32)]), s);
@@ -129,11 +130,11 @@ for (const [name, p] of Object.entries(paths)) {
     }
   }
 
-  test(`${name}: S = L - 1 with R = -B, A = identity (same top byte as L): ${says(want(valid))}`, () => {
-    check(verify(p.file(bundle, b64(sigOf(MINUS_B, L - 1n)), b64(IDENTITY))), want(valid));
+  test(`${name}: S = L - 1 with R = -B, A = identity (P-ED-1): ${says(want(invalid))}`, () => {
+    check(verify(p.file(bundle, b64(sigOf(MINUS_B, L - 1n)), b64(IDENTITY))), want(invalid));
   });
-  test(`${name}: S = 0 with R = A = identity: ${says(want(valid))}`, () => {
-    check(verify(p.file(bundle, b64(sigOf(IDENTITY, 0n)), b64(IDENTITY))), want(valid));
+  test(`${name}: S = 0 with R = A = identity (P-ED-1): ${says(want(invalid))}`, () => {
+    check(verify(p.file(bundle, b64(sigOf(IDENTITY, 0n)), b64(IDENTITY))), want(invalid));
   });
   for (const k of [1n, 2n, 15n]) {
     test(`${name}: S = ${k}·L with R = A = identity, where the equation holds: ${says(want(invalid))}`, () => {

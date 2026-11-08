@@ -4,7 +4,7 @@
 
 # Kit de conformidade do DCP-AI
 
-> Tradução informativa da [versão em inglês](../../../../tools/conformance/README.md), atualizada em 07/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../../tools/conformance/README.md), atualizada em 08/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 `tools/conformance.js` executa as suítes declaradas em [`catalog.json`](../../../../tools/conformance/catalog.json) contra os fixtures e
 vetores do repositório. O catálogo é versionado (`kit_version`) e fixa, para cada suíte, os IDs exatos dos
@@ -222,9 +222,86 @@ DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-native.test
   a falta de uma ferramenta ou de um artefato é uma falha. A CI compila os três wrappers a partir do checkout e
   executa os 38 casos com cada um, então lá os cinco wrappers são obrigatórios.
 - **Limites:** o wrapper WASM chama as exportações cruas do wasm-bindgen hospedadas no Node: não cobre a API
-  JavaScript do pacote `@dcp-ai/wasm` (como `DcpClient`) nem um navegador. A classificação das rejeições depende do
+  JavaScript do pacote `@dcp-ai/wasm` (`DcpWasm`) nem um navegador, que o [wrapper de navegador](#browser-wrapper-dcpwasm-in-chrome) cobre. A classificação das rejeições depende do
   texto das mensagens, porque os SDKs não têm códigos de erro estáveis, e, via WASM, uma entrada raiz `{"error": …}` de uma única chave só é
   um erro ambíguo quando a exportação devolve o envelope `{"error": string}` (`{"error":5}` continua `ok`). Um sucesso mostra que estes 38 casos passam com cada wrapper, nada mais.
+
+<a id="browser-wrapper-dcpwasm-in-chrome"></a>
+
+### Wrapper de navegador: DcpWasm no Chrome
+
+`wrappers/wasm-browser.mjs` responde ao contrato `/1`, ao contrato `/2` com os catálogos que o usam e ao contrato
+`/5`. Passa pela API JavaScript pública de `@dcp-ai/wasm` (`initDcp` e `DcpWasm`) no Chrome, não pelos exports crus.
+Recusa `/3` e `/4` (exit 2), porque o pacote não tem API de admissão nem de cadeia de mandatos. Não instala nada:
+precisa de uma build do pacote (`dist/` e `pkg/`, de `wasm-pack --target web` e `tsc`) e de um Chrome já instalado.
+
+```bash
+node tools/conformance-external.js -- node tools/conformance/wrappers/wasm-browser.mjs --root sdks/wasm --browser-report /tmp/browser-1.json
+node tools/conformance-external.js --catalog evidence --assessment verdict -- node tools/conformance/wrappers/wasm-browser.mjs --root sdks/wasm
+node tools/conformance/wrappers/browser/direct-sections.mjs --report /tmp/direct.json --root sdks/wasm
+DCP_BROWSER_ROOT=sdks/wasm DCP_EXTERNAL_REQUIRE_BROWSER=1 node --test tools/conformance/external-browser.test.mjs
+```
+
+- **Como é executado:**
+  - O wrapper valida a requisição como o wrapper WASM faz.
+  - Serve a página e os artefatos a partir da memória em 127.0.0.1, sob um caminho aleatório para cada execução, com uma
+    lista de permitidos exata, sem CORS e com uma política de segurança de conteúdo que não carrega nada de outra origem.
+  - Inicia o Chrome headless com um perfil temporário, e o fecha no final.
+  - A página chama `initDcp()` e responde cada caso pelo método de `DcpWasm` correspondente: `canonicalize`,
+    `dualHash`, `sha3_256`, `dualMerkleRoot`, `compositeVerify` ou `verifyBundle`. Os casos de canonicalização, os
+    bundles e os payloads compostos passam antes por `JSON.parse` dos seus bytes; os digests usam o texto do caso, e os
+    casos Merkle suas folhas em hexadecimal. Publica os resultados uma única vez, e o runner os julga como os de
+    qualquer wrapper.
+- **O que faz uma execução falhar** (exit 1, sem resposta):
+  - a página informa uma falha de inicialização, ou `done` junto com um erro;
+  - seus exports diferem de `browser/expected-api.json`, que é derivado das fontes;
+  - um artefato que a página baixou difere dos bytes servidos;
+  - o relógio não foi restaurado;
+  - o resultado não é desta execução, ou chega duas vezes;
+  - uma requisição sob o caminho da execução está fora da lista de permitidos, ou traz outro Host ou Origin;
+  - o Chrome termina antes, ou o prazo se esgota;
+  - um `--browser-report` pedido não pode ser escrito;
+  - a limpeza fica incompleta: o Chrome da execução não terminou, seu grupo de processos não se esvaziou após SIGKILL
+    ou seu perfil temporário não foi removido. Vale também quando todo o resto passou.
+
+  `--manifest <SHA256SUMS>` também fixa os artefatos servidos a uma lista de hashes.
+- **Tempo:** `verifyBundle` lê `Date.now`. A página o fixa no `verification_time` do caso durante essa única chamada, e
+  depois o restaura, também quando a chamada lança um erro. Um bundle que a página não consegue analisar recebe
+  `rejected`/`parse` sem a chamada, e a página o identifica.
+- **Seções diretas:** `wrappers/browser/direct-sections.mjs` envia uma requisição interna (`dcp-ai-browser-direct/1`,
+  que não é um contrato do kit). Julga as observações cruas da página com base em fixtures existentes:
+  - `domainSeparatedMessage` (20);
+  - `computeSecurityTier` (79);
+  - as 2 pré-imagens compostas de P-ED-1, por `compositeVerify` com um binding `classical_only`;
+  - 2 ciclos híbridos (`generateHybridKeypair`, `compositeSign`, `compositeVerify`), com negativos de payload,
+    contexto e assinatura. As chaves são geradas na página e nunca saem dela.
+
+  São 103 casos, à parte dos 590 dos catálogos.
+- **Execuções manuais:** com `--manual --url-file <file>` o wrapper não inicia nenhum navegador. Escreve a URL no
+  arquivo e espera que uma pessoa a abra; para isso, aumente `--deadline-ms` e o `--timeout-ms` do runner. O runner
+  julga o resultado da mesma forma.
+- **Autotestes:** `external-browser.test.mjs` tem 23 testes:
+  - um controle positivo;
+  - o relógio em três instantes;
+  - um bundle que não pode ser analisado;
+  - as seções diretas, e os negativos do seu juiz;
+  - os controles que nunca devem passar: falhas injetadas por `DCP_CONFORMANCE_WRAPPER_FAULT` (só para os
+    autotestes; uma resposta com falha injetada o diz) e requisições que o servidor deve recusar;
+  - a limpeza, com um substituto do Chrome (`external-browser-fake-chrome.mjs`): um processo que fica no grupo de
+    processos da própria execução recebe o sinal e um que saiu dele não, e uma limpeza incompleta (a saída do Chrome,
+    seu grupo de processos ou o perfil temporário) faz falhar uma execução que de resto respondeu.
+
+  Com `DCP_EXTERNAL_REQUIRE_BROWSER=1`, a falta do Chrome ou da build é uma falha em vez de um salto. A CI executa os
+  catálogos, as seções diretas e os autotestes sobre o pacote que compila.
+- **Fora deste wrapper:** `sdks/rust/tests/wasm_ped1_vectors.rs` executa o corpus P-ED-1 no nível do provedor, em
+  wasm32 no Node, não pela API do pacote. Tem 3 testes: 67 casos de provedor, 4 objetos V1 e 2 casos compostos com
+  uma chave ML-DSA-65 real.
+- **Limites:**
+  - Um só motor, o Chrome, e nenhuma medida de desempenho.
+  - Os casos de canonicalização, os bundles e os payloads compostos passam por `JSON.parse` na página, então um pass
+    não diz nada sobre seus bytes originais nem sobre o ingresso da
+    [admissão § 11](../../../../spec/profiles/admission/README.md#11-admission-from-bytes-opt-in).
+  - Um pass mostra estes casos por esta API neste navegador, e nada mais.
 
 <a id="evidence-catalog-merkle-and-signature-verification"></a>
 
@@ -472,7 +549,7 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
 - **Expectativas:** tiradas dos vetores versionados, escritas à mão a partir de spec/DCP-AI-v2.0.md § 14.2 e § 14.3 e VERIFICATION.md V2-9: o override do `risk_tier` do passaporte substitui `default_mode` (pode ser menor) e depois o piso do tier o eleva. O kit nunca calcula um modo ou um tier a partir de uma resposta. `effective_policy_vectors.json` é assinado com as chaves TEST-ONLY versionadas; suas assinaturas ML-DSA-65 são hedged, então uma regeneração só difere nessas assinaturas, e o arquivo versionado é o artefato. `node tools/conformance/effective-policy-catalog.mjs --check` reconstrói o catálogo a partir dos fixtures.
 - **Wrappers:** cada um faz uma chamada de verificação por caso e copia os dois campos desse resultado: TypeScript e Python a partir de `details` (um `details` ausente ou que não é um objeto é um erro, nunca uma resposta não resolvida), Go e Rust a partir dos campos de texto do resultado (sempre expostos, `""` quando não resolvidos) e WASM a partir dos membros do JSON que `wasm_verify_signed_bundle_v2` devolve (omitidos quando vazios). No `/5`, qualquer outra operação é `unsupported`. Os SDKs diferem em resolver ou não o modo e o tier depois de uma falha anterior; a suíte anterior à resolução registra isso sem julgar.
 - **Autotestes:** `external-effective-policy.test.mjs` reconstrói o catálogo a partir dos fixtures, confere os casos observacionais com a validação de esquemas e a cobertura com regras independentes, e faz o carregador recusar IDs ausentes, a mais ou duplicados, resoluções erradas, expectativas incoerentes e controles que não são positivos simples. Implementações falsas construídas com as respostas reais do wrapper TypeScript falham cada uma exatamente nos seus casos: valores ausentes, `null`, `""`, parciais, desconhecidos, malformados, contraditórios e errados, erros do envelope, e wrappers que informam o modo solicitado, o modo padrão, só o piso do tier, o `security_tier` declarado ou `policy_decision.resolved_tier`. Erros de transporte, um tempo esgotado e um relatório anterior passam pelo despacho `/5` do runner. A CI executa os autotestes e o catálogo nos cinco wrappers, todos obrigatórios.
-- **Limites:** um pass cobre estes 130 casos sob estas políticas, não a conformidade V2 completa. Um modo ou tier informado para um bundle rejeitado é um diagnóstico, não uma admissão nem uma autorização. Não são cobertos o piso de tier da cadeia de delegação DCP-09 (nenhum campo do bundle carrega a cadeia), a API JavaScript de `@dcp-ai/wasm` (`DcpClient`) e os navegadores.
+- **Limites:** um pass cobre estes 130 casos sob estas políticas, não a conformidade V2 completa. Um modo ou tier informado para um bundle rejeitado é um diagnóstico, não uma admissão nem uma autorização. Não é coberto o piso de tier da cadeia de delegação DCP-09 (nenhum campo do bundle carrega a cadeia). A API JavaScript de `@dcp-ai/wasm` (`DcpWasm`) executa este catálogo no Chrome pelo [wrapper de navegador](#browser-wrapper-dcpwasm-in-chrome); `computeSecurityTier`, que este catálogo não chama, é uma das suas seções diretas.
 
 <a id="admission-catalog-strict-v1-admission"></a>
 

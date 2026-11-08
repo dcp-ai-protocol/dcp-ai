@@ -4,7 +4,7 @@
 
 # DCP-AI 適合性キット
 
-> [英語版](../../../../tools/conformance/README.md)の参考訳です（07/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../../tools/conformance/README.md)の参考訳です（08/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 `tools/conformance.js` は、[`catalog.json`](../../../../tools/conformance/catalog.json) で宣言されたスイートを、リポジトリにコミット済みの
 フィクスチャとベクターに対して実行します。カタログはバージョン管理され（`kit_version`）、スイートごとに
@@ -223,11 +223,88 @@ DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-native.test
   ないことは失敗になります。CI はチェックアウトから 3 つのラッパーをビルドし、それぞれで 38 ケースを実行するため、
   そこでは 5 つのラッパーすべてが必須です。
 - **制限：** WASM のラッパーは、Node 上で wasm-bindgen の生のエクスポートを呼びます。`@dcp-ai/wasm`
-  パッケージの JavaScript API（`DcpClient` など）やブラウザーは対象外です。SDK に安定したエラーコードがないため、拒否の判別は
+  パッケージの JavaScript API（`DcpWasm`）やブラウザーは対象外で、それらは[ブラウザーラッパー](#browser-wrapper-dcpwasm-in-chrome)が扱います。SDK に安定したエラーコードがないため、拒否の判別は
   メッセージの文字列に依存します。また、WASM では、ルートが単一キーの `{"error": …}` の入力は、
   エクスポートが `{"error": string}` の封筒を返した場合にだけ曖昧なエラーになります（`{"error":5}` は `ok` の
   ままです）。
   合格が示すのは、これら 38 ケースが各ラッパーで合格することだけです。
+
+<a id="browser-wrapper-dcpwasm-in-chrome"></a>
+
+### ブラウザーラッパー：Chrome での DcpWasm
+
+`wrappers/wasm-browser.mjs` は、契約 `/1`、契約 `/2` とそれを使うカタログ、契約 `/5` に応答します。生のエクスポート
+ではなく、Chrome 上で `@dcp-ai/wasm` の公開 JavaScript API（`initDcp` と `DcpWasm`）を通ります。パッケージには
+アドミッションや委任状チェーンの API がないため、`/3` と `/4` は拒否します（exit 2）。何もインストールしません。
+必要なのは、パッケージのビルド（`wasm-pack --target web` と `tsc` による `dist/` と `pkg/`）と、すでにインストール
+されている Chrome です。
+
+```bash
+node tools/conformance-external.js -- node tools/conformance/wrappers/wasm-browser.mjs --root sdks/wasm --browser-report /tmp/browser-1.json
+node tools/conformance-external.js --catalog evidence --assessment verdict -- node tools/conformance/wrappers/wasm-browser.mjs --root sdks/wasm
+node tools/conformance/wrappers/browser/direct-sections.mjs --report /tmp/direct.json --root sdks/wasm
+DCP_BROWSER_ROOT=sdks/wasm DCP_EXTERNAL_REQUIRE_BROWSER=1 node --test tools/conformance/external-browser.test.mjs
+```
+
+- **実行の流れ：**
+  - ラッパーは、WASM ラッパーと同じようにリクエストを検証します。
+  - ページとアーティファクトを、メモリから 127.0.0.1 で、実行ごとのランダムなパスの下に配信します。許可リストは
+    厳密で、CORS はなく、他のオリジンから何も読み込まないコンテンツセキュリティポリシーを使います。
+  - 一時プロファイルで Chrome をヘッドレスで起動し、最後に閉じます。
+  - ページは `initDcp()` を呼び、各ケースに対応する `DcpWasm` のメソッドで応答します：`canonicalize`、`dualHash`、
+    `sha3_256`、`dualMerkleRoot`、`compositeVerify`、`verifyBundle`。正準化のケース、バンドル、複合ペイロードは、
+    先にそのバイトを `JSON.parse` に通します。ダイジェストはケースのテキストを、Merkle ケースは 16 進の葉を使います。
+    結果を一度だけ送信し、ランナーは他のラッパーと同じように判定します。
+- **実行を失敗させるもの**（exit 1、応答なし）：
+  - ページが初期化の失敗を報告するか、`done` と同時にエラーを報告する
+  - エクスポートが、ソースから導出した `browser/expected-api.json` と異なる
+  - ページが取得したアーティファクトが、配信したバイトと異なる
+  - 時計が復元されなかった
+  - 結果がこの実行のものでないか、2 回届く
+  - 実行のパスの下のリクエストが許可リストの外にあるか、別の Host や Origin を持つ
+  - Chrome が先に終了するか、期限が切れる
+  - 要求された `--browser-report` を書き込めない
+  - クリーンアップが不完全である：この実行の Chrome が終了しない、そのプロセスグループが SIGKILL の後も空にならない、
+    または一時プロファイルが削除されない。ほかがすべて合格していても同じ
+
+  `--manifest <SHA256SUMS>` は、配信するアーティファクトをハッシュのリストにも固定します。
+- **時刻：** `verifyBundle` は `Date.now` を読みます。ページは、その 1 回の呼び出しの間だけ、それをケースの
+  `verification_time` に設定し、呼び出しが例外を投げた場合も含めて、その後に復元します。ページがパースできない
+  バンドルは、呼び出しをせずに `rejected`/`parse` と応答され、ページはそのケースを示します。
+- **直接セクション：** `wrappers/browser/direct-sections.mjs` は内部リクエスト（`dcp-ai-browser-direct/1`、キットの
+  契約ではない）を送ります。ページの生の観測結果を、既存の fixture と照らして判定します：
+  - `domainSeparatedMessage`（20）
+  - `computeSecurityTier`（79）
+  - P-ED-1 の 2 つの複合原像（`classical_only` のバインディングで `compositeVerify` を通す）
+  - ペイロード・コンテキスト・署名の否定例を伴う 2 つのハイブリッドの往復（`generateHybridKeypair`、
+    `compositeSign`、`compositeVerify`）。鍵はページ内で生成され、外に出ません。
+
+  合計 103 ケースで、カタログの 590 とは別です。
+- **手動実行：** `--manual --url-file <file>` では、ラッパーはブラウザーを起動しません。URL をファイルに書き、人が
+  それを開くのを待ちます。そのために `--deadline-ms` とランナーの `--timeout-ms` を大きくしてください。ランナーは
+  同じ方法で結果を判定します。
+- **セルフテスト：** `external-browser.test.mjs` には 23 のテストがあります：
+  - 肯定の対照
+  - 3 つの時点での時計
+  - パースできないバンドル
+  - 直接セクションと、その判定器の否定例
+  - 決して合格してはならない対照：`DCP_CONFORMANCE_WRAPPER_FAULT` で注入した障害（セルフテスト専用。障害を注入した
+    応答はそのことを示します）と、サーバーが拒否すべきリクエスト
+  - クリーンアップ（Chrome の代役 `external-browser-fake-chrome.mjs` を使用）：実行自身のプロセスグループに残った
+    プロセスにはシグナルを送り、グループを離れたプロセスには送らないこと。また、クリーンアップが不完全な場合（Chrome
+    の終了、そのプロセスグループ、一時プロファイル）は、ほかの点では応答した実行も失敗になること
+
+  `DCP_EXTERNAL_REQUIRE_BROWSER=1` では、Chrome やビルドがないことはスキップではなく失敗になります。CI は、ビルドした
+  パッケージに対してカタログ、直接セクション、セルフテストを実行します。
+- **このラッパーの対象外：** `sdks/rust/tests/wasm_ped1_vectors.rs` は、P-ED-1 コーパスをプロバイダーのレベルで、
+  Node 上の wasm32 で実行し、パッケージの API は通りません。テストは 3 つです：プロバイダー 67 ケース、V1 オブジェクト
+  4 件、実際の ML-DSA-65 鍵を使う複合 2 ケース。
+- **限界：**
+  - エンジンは Chrome の一つだけで、性能は測定しません。
+  - 正準化のケース、バンドル、複合ペイロードはページで `JSON.parse` を通るため、合格は、それらの元のバイトや
+    [アドミッション § 11](../../../../spec/profiles/admission/README.md#11-admission-from-bytes-opt-in)のイングレスについて何も
+    示しません。
+  - 合格が示すのは、このブラウザーでこの API を通したこれらのケースだけです。
 
 <a id="evidence-catalog-merkle-and-signature-verification"></a>
 
@@ -443,7 +520,7 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
 - **期待値：** コミット済みのベクトルから取り、spec/DCP-AI-v2.0.md § 14.2・§ 14.3 と VERIFICATION.md V2-9 から手で書いたものです。パスポートの `risk_tier` に対するオーバーライドが `default_mode` を置き換え（低くてもよい）、その後ティアの下限がそれを引き上げます。キットは応答からモードやティアを計算しません。`effective_policy_vectors.json` はコミット済みの TEST-ONLY 鍵で署名されています。その ML-DSA-65 署名はヘッジ付きなので、再生成で異なるのはその署名だけで、コミット済みのファイルが成果物です。`node tools/conformance/effective-policy-catalog.mjs --check` はフィクスチャからカタログを再構築します。
 - **ラッパー：** 各ラッパーはケースごとに 1 回検証を呼び出し、その結果の 2 つのフィールドをコピーします。TypeScript と Python は `details` から（`details` が欠けている、またはオブジェクトでない場合はエラーであり、未解決の応答ではありません）、Go と Rust は結果の文字列フィールドから（常に公開され、未解決なら `""`）、WASM は `wasm_verify_signed_bundle_v2` が返す JSON のメンバーから（空のときは省略）コピーします。`/5` では、ほかの操作はすべて `unsupported` です。先行する失敗の後にモードとティアを解決するかどうかは SDK ごとに異なり、解決前のスイートはそれを判定せずに記録します。
 - **自己テスト：** `external-effective-policy.test.mjs` は、フィクスチャからカタログを再構築し、観察ケースをスキーマ検証と、カバレッジを独立した規則と照合し、欠落・余分・重複した ID、誤った解決区分、整合しない期待値、単純な肯定例でない対照をローダーが拒否することを確かめます。TypeScript ラッパーの実際の応答から作った偽の実装は、それぞれちょうど自分のケースで失敗します。欠落、`null`、`""`、部分的、未知、不正な形式、矛盾、誤りの値、エンベロープのエラー、そして要求したモード、デフォルトのモード、ティアの下限だけ、宣言した `security_tier`、`policy_decision.resolved_tier` を報告するラッパーです。転送のエラー、タイムアウト、古いレポートは、ランナーの `/5` のディスパッチを通ります。CI は自己テストとカタログを 5 つのラッパーで実行し、どれも必須です。
-- **限界：** 合格が示すのは、これらのポリシーでのこの 130 ケースだけで、V2 への完全な適合ではありません。拒否された bundle について報告されたモードやティアは診断であり、受け入れや認可ではありません。対象外：DCP-09 の委任チェーンによるティアの下限（チェーンを運ぶ bundle のフィールドはない）、`@dcp-ai/wasm` の JavaScript API（`DcpClient`）、ブラウザ。
+- **限界：** 合格が示すのは、これらのポリシーでのこの 130 ケースだけで、V2 への完全な適合ではありません。拒否された bundle について報告されたモードやティアは診断であり、受け入れや認可ではありません。対象外：DCP-09 の委任チェーンによるティアの下限（チェーンを運ぶ bundle のフィールドはない）。`@dcp-ai/wasm` の JavaScript API（`DcpWasm`）は、[ブラウザーラッパー](#browser-wrapper-dcpwasm-in-chrome)を通じて Chrome でこのカタログを実行します。このカタログが呼び出さない `computeSecurityTier` は、その直接セクションの一つです。
 
 <a id="admission-catalog-strict-v1-admission"></a>
 

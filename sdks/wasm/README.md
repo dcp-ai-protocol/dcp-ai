@@ -147,7 +147,10 @@ console.log(result.verified, result.classical_valid, result.pq_valid); // true t
 #### `initDcp(wasmUrl?: string): Promise<DcpWasm>`
 
 Initialize the WASM module. Must be called once before using any API. Optionally pass a URL for the `.wasm`
-file; in Node.js, pass it as a `data:` URL (see [Initialization](#initialization-browser-and-nodejs)).
+file; in Node.js, pass it as a `data:` URL (see [Initialization](#initialization-browser-and-nodejs)). The argument goes
+to the wasm-bindgen initializer. A string still works, but the initializer of this build logs a warning that the form
+is deprecated. It also accepts `{ module_or_path }` with a URL or the bytes of the `.wasm`, as the repository's tests
+pass it; the TypeScript type declares only a string.
 
 ### Keypair Generation
 
@@ -191,16 +194,16 @@ Verification does not grant principal trust, admission or action authorization. 
 |--------|---------|-------------|
 | `dualHash(data)` | `DualHash` | SHA-256 + SHA3-256 dual hash |
 | `sha3_256(data)` | `string` | SHA3-256 hash (hex) |
-| `hashObject(obj)` | `string` | SHA-256 hash of a JSON object |
+| `hashObject(obj)` | `string` | SHA-256 hash of a JSON object, always 64 lowercase hex characters. In the local source (not in 2.1.3) it throws an `Error` when the binding cannot read the value, for instance a lone surrogate, where 2.1.3 returns the error envelope as if it were the hash |
 | `dualMerkleRoot(leaves)` | `DualHash` | Dual Merkle root of [VERIFICATION.md V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) from a non-empty array of `DualHash` leaves, each a 32-byte hex digest; throws on an empty array or an invalid leaf. The root is lowercase hex. From 2.1.3: 2.1.1 and earlier hash the hex text, so their roots of two or more leaves differ |
 
 ### Canonicalization & Domain Separation
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `canonicalize(value)` | `string` | `dcp-jcs-v1` canonicalization (based on RFC 8785 JCS) |
+| `canonicalize(value)` | `string` | `dcp-jcs-v1` canonicalization (based on RFC 8785 JCS) of the value as `JSON.stringify` writes it, so `NaN` and `±Infinity` become `null` and a `BigInt` or a cycle makes `JSON.stringify` throw its own `TypeError`. Throws an `Error` (`canonicalize: …`) for a fraction or a value the binding cannot read, such as a lone surrogate. In the local source (not in 2.1.3) it reads the tagged export, so a value whose canonical form begins with an `error` member, such as `{ error: 'x' }`, is canonicalized; 2.1.3 throws for it |
 | `domainSeparatedMessage(context, payloadHex)` | `string` | Domain-separated message (hex) |
-| `deriveKid(alg, publicKeyB64)` | `string` | Deterministic key ID from algorithm + public key |
+| `deriveKid(alg, publicKeyB64)` | `string` | Deterministic key ID from algorithm + public key, always 32 lowercase hex characters. In the local source (not in 2.1.3) it throws an `Error` for invalid base64, where 2.1.3 returns the error envelope as if it were the key id |
 
 ### Session & Security
 
@@ -248,9 +251,14 @@ The WASM SDK includes TypeScript interfaces for all DCP-05 through DCP-09 artifa
 | DCP-08 Rights | `RightsDeclaration`, `RightEntry`, `ObligationRecord`, `RightsViolationReport`, `RightType`, `ComplianceStatus` |
 | DCP-09 Delegation | `DelegationMandate`, `AdvisoryDeclaration`, `PrincipalMirror`, `InteractionRecord`, `AwarenessThreshold`, `ThresholdRule`, `AuthorityScopeEntry`, `ThresholdOperator`, `ThresholdAction` |
 
-Domain separation contexts available via `domainSeparatedMessage()`: `Lifecycle`, `Succession`, `Dispute`, `Rights`, `Delegation`, `Awareness`
+`domainSeparatedMessage()`, `compositeSign()` and `compositeVerify()` take the full name of a context known to the Rust
+registry the package is built from. There are 20: the 19 of the interop vectors, `DCP-AI.v2.Lifecycle`,
+`…Succession`, `…Dispute`, `…Rights`, `…Delegation` and `…Awareness` among them, and
+`DCP-AI.v2.MandateAcknowledgment`. Two contexts of the [v2.0 § 4.1](../../spec/DCP-AI-v2.0.md) table are not among
+them: `DCP-AI.v2.AlgorithmAdvisory` and `DCP-AI.v2.Governance`. Signing or verifying under the acknowledgment context
+evaluates no acknowledgment or activation.
 
-These are types only. The package exports no mandate validity or mandate chain function; `verify_mandate_validity_at` and `verify_mandate_chain` are in the Rust crate it is built from, and the other SDKs have their own.
+These are types only. The package exports no mandate validity, mandate chain, admission or activation function. That is the scope of the pilot, not a limit of browsers: a browser application's backend uses one of the four SDKs, and an admission computed in a browser from inputs the client controls authorizes nothing on a server. `verify_mandate_validity_at` and `verify_mandate_chain` are in the Rust crate the package is built from, and the other SDKs have their own.
 
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
 
@@ -317,8 +325,16 @@ import init, {
 await init();
 
 const keys = JSON.parse(wasm_generate_hybrid_keypair());
-// ... use raw functions, all return JSON strings
+// ... raw functions return JSON text, or a plain string for a hash, a key id, a nonce,
+// a domain-separated message (hex) or a canonical form
 ```
+
+The raw functions report errors in band, as `{"error": "<message>"}`. In the local source (not in 2.1.3) that envelope
+is escaped JSON. Before, a message with a backslash or a control character, from a key name for instance, could be
+invalid JSON or decode to other text. `wasm_canonicalize_v2` returns the canonical form or that envelope, so it
+cannot tell its error from a value whose canonical form is `{"error": …}`. The local source adds
+`wasm_canonicalize_v2_result`, which returns `{"ok": true, "canonical": …}` or `{"ok": false, "error": …}`;
+`canonicalize()` uses it.
 
 See [example.html](./example.html) for a complete interactive browser demo.
 
@@ -362,6 +378,13 @@ rustup target add wasm32-unknown-unknown
 cd ../rust
 wasm-pack test --headless --chrome -- --features wasm
 ```
+
+### Conformance in a browser
+
+The kit's [browser wrapper](../../tools/conformance/README.md#browser-wrapper-dcpwasm-in-chrome) runs the conformance
+catalogs, and direct calls of `DcpWasm`, in Chrome, against a build of this package. The
+[coverage map](../../docs/conformance/SECURITY_COVERAGE.md#public-interfaces-mp-03-08112026) says what each run
+covers.
 
 ## License
 

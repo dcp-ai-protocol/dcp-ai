@@ -4,7 +4,7 @@
 
 # Registro de cambios
 
-> Traducción informativa de [la versión en inglés](../../CHANGELOG.md), actualizada el 07/11/2026. Cada entrada, también las de `[Unreleased]`, describe un cambio en su momento y no garantiza el comportamiento actual; las versiones publicadas son **registro histórico con fecha**. Si difieren, prevalece la versión en inglés.
+> Traducción informativa de [la versión en inglés](../../CHANGELOG.md), actualizada el 08/11/2026. Cada entrada, también las de `[Unreleased]`, describe un cambio en su momento y no garantiza el comportamiento actual; las versiones publicadas son **registro histórico con fecha**. Si difieren, prevalece la versión en inglés.
 
 **Versiones publicadas (26/10/2026).** Están publicados npm (13 paquetes, incluido `@dcp-ai/sdk` 2.2.0), Python `dcp-ai` 2.10.0, Go `v2.11.0` y Rust `dcp-ai` 2.11.0, con las correcciones del verificador, la admisión y las API experimentales opt-in; `dcp-jcs-v1` sigue siendo el valor normativo predeterminado. Véase [Versiones publicadas](../../docs/README.md#published-versions). Las entradas siguientes conservan su historial de desarrollo; `[Unreleased]` no significa que estas funciones no estén publicadas. Las seis publicaciones de corrección del 28/10/2026 están en [su propia sección](#2026-10-28-sha3-patch-releases). Las cinco publicaciones del 05/11/2026 están en [la suya](#2026-11-05-auditable-releases).
 
@@ -91,6 +91,17 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
 <a id="security"></a>
 
 ### Seguridad
+
+- **P-ED-1 en el verificador de referencia, la CLI y el playground** (código fuente local, no está en ninguna versión
+  publicada; sin cambio de versión). `verifyObject` en `tools/crypto.js` comprueba ahora P-ED-1 antes de TweetNaCl, como
+  los SDK. A través de él también lo hacen la ruta V1 de referencia de `lib/verify.js` y `bin/dcp.js`, el gossip del
+  transparency log y la comprobación Ed25519 del servicio de revocación. `dcp-ai verify` sobre ficheros V1 y el
+  `verifyDetached` del playground también lo comprueban. Cada uno usa una de tres copias idénticas de un helper de bytes:
+  `tools/`, `cli/lib/` y `playground/js/core/ed25519-ped1.js`. **Cambio de aceptación:** una clave o una R que no es una
+  codificación canónica, o cuyo orden divide a 8, se aceptaba antes y ahora devuelve `false`; la CLI imprime INVALID y
+  sale con 1. Los errores y su orden no cambian. Tres pruebas anteriores solo cambiaron sus expectativas para la clave
+  identidad. El `@dcp-ai/cli` publicado no incluye esto, ni ningún `@dcp-ai/sdk` publicado (2.3.0 y anteriores), así que
+  tampoco las copias instaladas a partir de ellos.
 
 - **Criterio de aceptación de Ed25519 P-ED-1** (código fuente local de los SDK de TypeScript, Python, Go y Rust, no está
   en ninguna versión publicada; sin cambio de versión). `verifyObject` de V1 y sus equivalentes, y el proveedor Ed25519
@@ -391,6 +402,18 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
 <a id="added"></a>
 
 ### Añadido
+
+- **Conformidad a través de las interfaces públicas** (código fuente local; ninguna regla, esquema ni perfil nuevos, y
+  `dcp-jcs-v1` no cambia; el único export nuevo es la corrección de WASM más abajo).
+  `tools/conformance/wrappers/wasm-browser.mjs` ejecuta catálogos del kit a través de la clase pública `DcpWasm` en
+  Chrome: `/1`, `/2`, política, estructura, esquema y `/5`, 590 casos. Unas secciones directas aparte añaden 103 casos:
+  separación de dominio, nivel de seguridad, ciclos híbridos de firma y verificación y las preimágenes compuestas de
+  P-ED-1. El runner tiene autopruebas.
+  - `sdks/rust/tests/wasm_ped1_vectors.rs` ejecuta el corpus P-ED-1 a nivel de proveedor en wasm32 sobre Node.
+  - Cada uno de los cuatro SDK añade pruebas de los errores de configuración de la admisión desde bytes y de la
+    activación de la delegación.
+  - La CI ejecuta todo esto.
+  - WASM sigue sin API de admisión, de cadena de mandatos ni de activación.
 
 - **Admisión delegada, admisión desde bytes y acuse de mandato (opt-in)** (código fuente local de los SDK de
   TypeScript, Python, Go y Rust, no está en ninguna versión publicada; sin cambio de versión). Nada las llama por
@@ -897,6 +920,16 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
 <a id="fixed"></a>
 
 ### Corregido
+
+- **WASM: los resultados de error se distinguen de los valores** (código fuente local, no está en `@dcp-ai/wasm` 2.1.3).
+  - `DcpWasm.canonicalize` lanzaba un error para un valor cuya forma canónica empieza por un miembro `error`, como
+    `{ error: 'x' }`. Ahora lee `wasm_canonicalize_v2_result`, un export crudo nuevo (aditivo) que devuelve un
+    resultado etiquetado.
+  - El `{"error": …}` que devuelven los exports de wasm es ahora JSON escapado. Un mensaje con una barra invertida o un
+    carácter de control, por ejemplo de un nombre de clave, podía ser JSON inválido o decodificarse como otro texto. Los
+    mensajes sin esos caracteres conservan sus bytes, con las comillas dobles todavía mostradas como apóstrofos.
+  - `hashObject` y `deriveKid` lanzan un `Error` en vez de devolver ese sobre como si fuera un hash o un id de clave.
+  - `wasm_canonicalize_v2` no cambia: sigue sin poder distinguir su error de un valor cuya forma canónica es ese objeto.
 
 - **Go: las claves SLH-DSA-192f se leen sin pánico** (código fuente local, no está en ninguna versión publicada;
   `sdks/go/dcp/providers/slh_dsa_192f_provider.go`). El proveedor leía las claves secretas y públicas sin conjunto de

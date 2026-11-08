@@ -4,7 +4,7 @@
 
 # DCP-AI プレイグラウンド
 
-> [英語版](../../../playground/README.md)の参考訳です。更新日：2026年10月25日。相違がある場合は英語の原文が優先されます。識別子とコードブロック（コメントを含む）は原文のままです。
+> [英語版](../../../playground/README.md)の参考訳です。更新日：2026年11月8日。相違がある場合は英語の原文が優先されます。識別子とコードブロック（コメントを含む）は原文のままです。
 
 Digital Citizenship Protocol（DCP-01 から DCP-09）のブラウザー上の対話型デモです。[docs.dcp-ai.org/playground/](https://docs.dcp-ai.org/playground/) で公開しています。
 
@@ -34,6 +34,7 @@ playground/
   js/
     core/
       crypto.js                 # Ed25519 keygen, signing, verification, kid
+      ed25519-ped1.js           # P-ED-1 byte checks before TweetNaCl
       hash.js                   # SHA-256 (Web Crypto), canonicalize (JCS), Merkle root
       state.js                  # Central state (keypairs, agents, session)
       signature.js              # Composite signature builder (classical + PQ simulated)
@@ -129,6 +130,7 @@ JS モジュールは20個（2026年10月25日時点で約2700行）です。
 - Merkle ルートの計算は簡略化した連結を使用
 - CBOR ワイヤ形式には非対応（JSON のみ）
 - 署名検証はバンドルのパスポートに含まれる Ed25519 鍵に限定
+- Ed25519 の検証は、このリポジトリのソース（08/11/2026）で、TweetNaCl の前に[暗号プロファイル](../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion)の P-ED-1 を適用します：S < L、そして鍵と R が正準なエンコードで、位数が 8 を割り切らないこと。検査は `js/core/ed25519-ped1.js` で、参照検証器のコピーと同一です。これは SDK ではなく playground 自身のコードであり、playground が作るものは引き続き証拠ではありません
 - タブ間のセッションバインディングは共有状態を使用（ストレージには永続化しない）
 
 <a id="dependencies"></a>

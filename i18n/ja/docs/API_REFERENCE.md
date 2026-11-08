@@ -4,7 +4,7 @@
 
 # DCP-AI API リファレンス
 
-> [英語版](../../../docs/API_REFERENCE.md)の参考訳です（07/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../docs/API_REFERENCE.md)の参考訳です（08/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 `main` にある TypeScript SDK `@dcp-ai/sdk`（パッケージのバージョン 2.3.0、プロトコル DCP v2.0）のリファレンスです。
 
@@ -547,7 +547,9 @@ function verifyObject(obj: unknown, signatureB64: string, publicKeyB64: string):
 
 ローカルのソース（07/11/2026、未公開）では、`verifyObject` と V2 の既定の Ed25519 プロバイダーが
 [暗号プロファイル](../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion)の P-ED-1 を適用します。S >= L、
-正準でない鍵や R、位数が 8 を割り切る鍵や R は `false` を返します。例外を投げる入力は以前と同じです。
+正準でない鍵や R、位数が 8 を割り切る鍵や R は `false` を返します。例外を投げる入力は以前と同じです。08/11/2026 以降、
+参照検証器（`tools/crypto.js`）、`dcp-ai verify` の V1 経路、playground も、ローカルのソースで同じ検査を行います。
+この変更を含まない公開パッケージは行いません。
 
 ```typescript
 const valid = verifyObject({ action: 'transfer', amount: 100 }, sig, keys.publicKeyB64);
@@ -871,10 +873,20 @@ if (result.verified) {
 | 関数 | 説明 |
 |----------|-------------|
 | `admitDelegatedBundleV2(evidence, registry, operator)` | 末端のバンドルを、その DCP-09 のマンデートチェーンと、委任する各エージェントのバンドル 1 つずつと一緒にアドミッションします ([§ 10](../../../spec/profiles/admission/README.md#10-delegated-admission-opt-in)) |
-| `admitSignedBundleV2FromBytes(bytes, registry, options)` | バイトとして与えられた署名付きバンドルのアドミッション。どのパーサーもそれを読む前に判定します ([§ 11](../../../spec/profiles/admission/README.md#11-admission-from-bytes-opt-in)) |
+| `admitSignedBundleV2FromBytes(bytes, registry, options)` | バイトとして与えられた署名付きバンドルのアドミッション。パーサーが読む前にバイトを検査し、パーサーの結果をそのバイトと照合したうえで、アドミッションを行います ([§ 11](../../../spec/profiles/admission/README.md#11-admission-from-bytes-opt-in)) |
 | `evaluateDelegationActivationV2(evidence, registry, operator)` | 委任付きアドミッションに、各マンデートに対するエージェントの確認応答を加えたもの ([§ 12](../../../spec/profiles/admission/README.md#12-delegation-activation-opt-in)) |
 
-Python：`admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `evaluate_delegation_activation_v2`（すべて async）。Go：`AdmitDelegatedBundleV2`, `AdmitSignedBundleV2FromBytes`, `EvaluateDelegationActivationV2`。Rust：`admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `evaluate_delegation_activation_v2`。WASM はこれらを公開しません。
+Python：`admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `evaluate_delegation_activation_v2`（すべて async）。Go：`AdmitDelegatedBundleV2`, `AdmitSignedBundleV2FromBytes`, `EvaluateDelegationActivationV2`。Rust：`admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `evaluate_delegation_activation_v2`。WASM はこれらを公開しません。ブラウザーアプリケーションのバックエンドが 4 つの SDK のいずれかを呼び出します。
+
+**エラー：**
+
+- `admitDelegatedBundleV2` と `evaluateDelegationActivationV2` は、オペレーターの設定が無効なとき、どの証拠も
+  読む前に `AdmissionConfigError` を投げます。Go では `*AdmissionConfigError` で、`errors.As` で検出します。
+- `admitSignedBundleV2FromBytes` では、まずイングレスが判定します。拒否されたバイトは `ingress.accepted: false` で
+  `admission` のない結果になり、エラーにはなりません。受け入れられたバイトはその後 `admitSignedBundleV2` と同じように
+  アドミッションされ、同じ設定エラーを伴います（Rust：`IngressError::Config`）。
+- バイトでない入力は、TypeScript と Python では `TypeError` です。
+- 各関数の契約は[カバレッジマップ](conformance/SECURITY_COVERAGE.md#public-interfaces-mp-03-08112026)にあります。
 
 ### `DEFAULT_VERIFIER_POLICY`
 
