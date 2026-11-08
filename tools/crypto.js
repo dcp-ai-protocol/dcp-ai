@@ -2,6 +2,7 @@ import nacl from "tweetnacl";
 import naclUtil from "tweetnacl-util";
 const { decodeUTF8, encodeBase64, decodeBase64 } = naclUtil;
 import stringify from "json-stable-stringify";
+import { rejectedByPed1 } from "./ed25519-ped1.js";
 
 // V2 artifacts are signed and verified with @dcp-ai/sdk (see lib/verify.js).
 
@@ -26,26 +27,14 @@ export function signObject(obj, secretKeyB64) {
   return encodeBase64(sig);
 }
 
-// RFC 8032 §5.1.7 requires S < L, which TweetNaCl does not check. Copy of
-// verifyDetached in sdks/typescript/src/core/ed25519-scalar.ts: the range is
-// checked only on input TweetNaCl accepts, so its errors stay the same.
-const L = [
-  0xed, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58, 0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde, 0x14,
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10
-];
-
-function scalarBelowL(sig) {
-  for (let i = 31; i >= 0; i--) {
-    if (sig[32 + i] !== L[i]) return sig[32 + i] < L[i];
-  }
-  return false; // S = L
-}
-
+// P-ED-1 (spec/profiles/crypto/README.md): S < L, A and R canonical and not of order dividing 8, then TweetNaCl's
+// equation. As verifyDetached in sdks/typescript/src/core/ed25519-scalar.ts, the checks run only on input TweetNaCl
+// accepts (Uint8Array arguments, a 64-byte signature, a 32-byte key), so its errors and their order stay the same.
 function verifyDetached(msg, sig, pk) {
   if (
     msg instanceof Uint8Array && sig instanceof Uint8Array && pk instanceof Uint8Array &&
     sig.length === nacl.sign.signatureLength && pk.length === nacl.sign.publicKeyLength &&
-    !scalarBelowL(sig)
+    rejectedByPed1(sig, pk)
   ) {
     return false;
   }

@@ -4,7 +4,7 @@
 
 # Playground do DCP-AI
 
-> Tradução informativa da [versão em inglês](../../../playground/README.md), atualizada em 25/10/2026. Em caso de diferença, prevalece o original em inglês. Identificadores e blocos de código, incluindo comentários, são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../playground/README.md), atualizada em 08/11/2026. Em caso de diferença, prevalece o original em inglês. Identificadores e blocos de código, incluindo comentários, são mantidos sem tradução.
 
 Demonstração interativa no navegador do Digital Citizenship Protocol (DCP-01 a DCP-09), hospedada em [docs.dcp-ai.org/playground/](https://docs.dcp-ai.org/playground/).
 
@@ -34,6 +34,7 @@ playground/
   js/
     core/
       crypto.js                 # Ed25519 keygen, signing, verification, kid
+      ed25519-ped1.js           # P-ED-1 byte checks before TweetNaCl
       hash.js                   # SHA-256 (Web Crypto), canonicalize (JCS), Merkle root
       state.js                  # Central state (keypairs, agents, session)
       signature.js              # Composite signature builder (classical + PQ simulated)
@@ -129,6 +130,7 @@ Todas as operações criptográficas rodam **inteiramente no navegador**:
 - O cálculo da raiz Merkle usa concatenação simplificada
 - Não há formato de transmissão CBOR (apenas JSON)
 - A verificação de assinaturas se limita às chaves Ed25519 no passaporte do bundle
+- A verificação Ed25519 aplica P-ED-1 do [perfil criptográfico](../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion) antes do TweetNaCl, no código-fonte deste repositório (08/11/2026): S < L, e uma chave e um R que são codificações canônicas e cuja ordem não divide 8. A verificação é `js/core/ed25519-ped1.js`, idêntica à cópia do verificador de referência; é código próprio do playground, não um SDK, e o que o playground constrói continua não sendo evidência
 - A vinculação de sessão entre abas usa estado compartilhado (sem persistência no armazenamento)
 
 <a id="dependencies"></a>

@@ -61,14 +61,16 @@ for (const [i, t] of kat.entries()) {
   });
 }
 
-test("the bound is S < L, compared on every byte", () => {
-  // A = the identity (accepted today: weak keys are E4), so [S]B = R for any object.
+test("A = identity: S = L - 1 and S = 0 rejected by P-ED-1; S = k·L stays rejected", () => {
+  // A = the identity, so [S]B = R for any object. Before P-ED-1 the reference accepted the first two (weak keys were
+  // open, E4); P-ED-1 rejects A in E[8], so they are now false, for that reason. S < L compared on every byte is
+  // checked on the helper (tools/ed25519-ped1-consumers.test.mjs) and, through verifyObject, with the KAT keys above.
   const identity = hex("01" + "00".repeat(31));
   const minusB = hex("58" + "66".repeat(30) + "e6");
   const obj = { probe: "dcp-ed25519-review/s-range-boundary" };
   const sig = (r, s) => b64(withScalar(new Uint8Array([...r, ...new Uint8Array(32)]), s));
-  assert.equal(verifyObject(obj, sig(minusB, L - 1n), b64(identity)), true, "S = L - 1, R = -B");
-  assert.equal(verifyObject(obj, sig(identity, 0n), b64(identity)), true, "S = 0, R = identity");
+  assert.equal(verifyObject(obj, sig(minusB, L - 1n), b64(identity)), false, "S = L - 1, R = -B: A is the identity");
+  assert.equal(verifyObject(obj, sig(identity, 0n), b64(identity)), false, "S = 0, R = identity: A and R are the identity");
   for (const k of [1n, 2n, 15n]) {
     assert.equal(verifyObject(obj, sig(identity, k * L), b64(identity)), false, `S = ${k}·L, R = identity`);
   }

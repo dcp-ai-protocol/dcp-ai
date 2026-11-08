@@ -4,7 +4,7 @@
 
 # Referência da API do DCP-AI
 
-> Tradução informativa da [versão em inglês](../../../docs/API_REFERENCE.md), atualizada em 07/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../docs/API_REFERENCE.md), atualizada em 08/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Referência do SDK TypeScript `@dcp-ai/sdk` como está em `main` (versão do pacote 2.3.0, protocolo DCP v2.0).
 
@@ -548,7 +548,9 @@ uma assinatura ou chave decodificada com comprimento incorreto.
 
 No código-fonte local (07/11/2026, não publicado), `verifyObject` e o provedor Ed25519 V2 padrão aplicam P-ED-1 do
 [perfil criptográfico](../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion): S >= L, uma chave ou R não
-canônica, ou uma chave ou R de ordem que divide 8 devolvem `false`. As entradas que lançam exceção são as mesmas de antes.
+canônica, ou uma chave ou R de ordem que divide 8 devolvem `false`. As entradas que lançam exceção são as mesmas de antes. Desde 08/11/2026,
+o verificador de referência (`tools/crypto.js`), o caminho V1 de `dcp-ai verify` e o playground aplicam as mesmas
+verificações no código-fonte local; um pacote publicado sem essa mudança não as aplica.
 
 ```typescript
 const valid = verifyObject({ action: 'transfer', amount: 100 }, sig, keys.publicKeyB64);
@@ -872,10 +874,21 @@ Opt-in, no código-fonte local dos quatro SDKs e não em um pacote publicado (07
 | Função | Descrição |
 |----------|-------------|
 | `admitDelegatedBundleV2(evidence, registry, operator)` | Um bundle folha admitido com sua cadeia de mandatos do DCP-09 e um bundle por agente que delega ([§ 10](../../../spec/profiles/admission/README.md#10-delegated-admission-opt-in)) |
-| `admitSignedBundleV2FromBytes(bytes, registry, options)` | Admissão de um bundle assinado recebido como bytes, decidida antes que qualquer parser os leia ([§ 11](../../../spec/profiles/admission/README.md#11-admission-from-bytes-opt-in)) |
+| `admitSignedBundleV2FromBytes(bytes, registry, options)` | Admissão de um bundle assinado recebido como bytes: os bytes são verificados antes que um parser os leia, o resultado do parser é comparado com eles e a admissão vem depois ([§ 11](../../../spec/profiles/admission/README.md#11-admission-from-bytes-opt-in)) |
 | `evaluateDelegationActivationV2(evidence, registry, operator)` | Admissão delegada mais as confirmações dos agentes para cada mandato ([§ 12](../../../spec/profiles/admission/README.md#12-delegation-activation-opt-in)) |
 
-Python: `admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `evaluate_delegation_activation_v2` (todas async); Go: `AdmitDelegatedBundleV2`, `AdmitSignedBundleV2FromBytes`, `EvaluateDelegationActivationV2`; Rust: `admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `evaluate_delegation_activation_v2`. O WASM não as exporta.
+Python: `admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `evaluate_delegation_activation_v2` (todas async); Go: `AdmitDelegatedBundleV2`, `AdmitSignedBundleV2FromBytes`, `EvaluateDelegationActivationV2`; Rust: `admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `evaluate_delegation_activation_v2`. O WASM não as exporta: o backend de uma aplicação de navegador chama um dos quatro SDKs.
+
+**Erros:**
+
+- `admitDelegatedBundleV2` e `evaluateDelegationActivationV2` lançam `AdmissionConfigError` diante de uma configuração
+  do operador inválida, antes de ler qualquer evidência. Em Go é `*AdmissionConfigError`, detectado com `errors.As`.
+- Em `admitSignedBundleV2FromBytes` o ingresso decide primeiro. Bytes rejeitados dão um resultado com
+  `ingress.accepted: false` e sem `admission`, nunca um erro. Bytes aceitos são depois admitidos como em
+  `admitSignedBundleV2`, com os mesmos erros de configuração (Rust: `IngressError::Config`).
+- Uma entrada que não são bytes é um `TypeError` em TypeScript e Python.
+- O [mapa de cobertura](conformance/SECURITY_COVERAGE.md#public-interfaces-mp-03-08112026) traz o contrato de cada
+  função.
 
 ### `DEFAULT_VERIFIER_POLICY`
 

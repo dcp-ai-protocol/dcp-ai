@@ -4,7 +4,7 @@
 
 # @dcp-ai/wasm — SDK WebAssembly v2.0
 
-> Traducción informativa del [README en inglés](../../../../sdks/wasm/README.md), actualizada el 05/11/2026. Los identificadores y los bloques de código, incluidos sus comentarios, se conservan para mantener los ejemplos probados.
+> Traducción informativa del [README en inglés](../../../../sdks/wasm/README.md), actualizada el 08/11/2026. Los identificadores y los bloques de código, incluidos sus comentarios, se conservan para mantener los ejemplos probados.
 
 Módulo WebAssembly para el Digital Citizenship Protocol (DCP) v2.0, compilado a partir del SDK de Rust. Ofrece firmas compuestas poscuánticas, generación de claves híbridas, encapsulación de claves ML-KEM-768, hashes duales, construcción y verificación de bundles y cálculo del nivel de seguridad. Se ejecuta directamente en el navegador o en Node.js, sin servidor.
 
@@ -157,7 +157,7 @@ console.log(result.verified, result.classical_valid, result.pq_valid); // true t
 
 #### `initDcp(wasmUrl?: string): Promise<DcpWasm>`
 
-Inicializa el módulo WASM. Debe llamarse una vez antes de utilizar cualquier API. Opcionalmente acepta la URL del archivo `.wasm`; en Node.js, pásala como URL `data:` (véase [Inicialización](#initialization-browser-and-nodejs)).
+Inicializa el módulo WASM. Debe llamarse una vez antes de utilizar cualquier API. Opcionalmente acepta la URL del archivo `.wasm`; en Node.js, pásala como URL `data:` (véase [Inicialización](#initialization-browser-and-nodejs)). El argumento va al inicializador de wasm-bindgen. Un string sigue funcionando, pero el inicializador de esta build registra un aviso de que esa forma está obsoleta. También acepta `{ module_or_path }` con una URL o los bytes del `.wasm`, como lo pasan las pruebas del repositorio; el tipo de TypeScript solo declara un string.
 
 <a id="keypair-generation"></a>
 
@@ -211,7 +211,7 @@ La verificación no otorga confianza en el principal, admisión ni autorización
 |--------|---------|-------------|
 | `dualHash(data)` | `DualHash` | Hash dual SHA-256 + SHA3-256 |
 | `sha3_256(data)` | `string` | Hash SHA3-256 en hexadecimal |
-| `hashObject(obj)` | `string` | Hash SHA-256 de un objeto JSON |
+| `hashObject(obj)` | `string` | Hash SHA-256 de un objeto JSON, siempre de 64 caracteres hexadecimales en minúsculas. En el código fuente local (no en 2.1.3) lanza un `Error` cuando el binding no puede leer el valor, por ejemplo un surrogate solitario, donde 2.1.3 devuelve el sobre de error como si fuera el hash |
 | `dualMerkleRoot(leaves)` | `DualHash` | Raíz Merkle dual de [VERIFICATION.md V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) a partir de un arreglo no vacío de hojas `DualHash`, cada una un digest hex de 32 bytes; lanza una excepción con un arreglo vacío o con una hoja no válida. La raíz va en hex en minúsculas. Desde la 2.1.3: 2.1.1 y anteriores hashean el texto hex, así que sus raíces de dos o más hojas difieren |
 
 <a id="canonicalization-domain-separation"></a>
@@ -220,9 +220,9 @@ La verificación no otorga confianza en el principal, admisión ni autorización
 
 | Método | Devuelve | Descripción |
 |--------|---------|-------------|
-| `canonicalize(value)` | `string` | Canonicalización `dcp-jcs-v1`, basada en RFC 8785 JCS |
+| `canonicalize(value)` | `string` | Canonicalización `dcp-jcs-v1` (basada en JCS de RFC 8785) del valor tal como lo escribe `JSON.stringify`, así que `NaN` y `±Infinity` pasan a `null`, y un `BigInt` o un ciclo hacen que `JSON.stringify` lance su propio `TypeError`. Lanza un `Error` (`canonicalize: …`) ante una fracción o un valor que el binding no puede leer, como un surrogate solitario. En el código fuente local (no en 2.1.3) lee el export etiquetado, así que un valor cuya forma canónica empieza por un miembro `error`, como `{ error: 'x' }`, se canonicaliza; 2.1.3 lanza un error para él |
 | `domainSeparatedMessage(context, payloadHex)` | `string` | Mensaje con separación de dominios, en hexadecimal |
-| `deriveKid(alg, publicKeyB64)` | `string` | Identificador de clave determinista a partir del algoritmo y la clave pública |
+| `deriveKid(alg, publicKeyB64)` | `string` | Identificador de clave determinista a partir del algoritmo y la clave pública, siempre de 32 caracteres hexadecimales en minúsculas. En el código fuente local (no en 2.1.3) lanza un `Error` ante base64 inválido, donde 2.1.3 devuelve el sobre de error como si fuera el id de clave |
 
 <a id="session-security"></a>
 
@@ -282,9 +282,14 @@ El SDK WASM incluye interfaces de TypeScript para todos los artefactos DCP-05 a 
 | DCP-08 Derechos | `RightsDeclaration`, `RightEntry`, `ObligationRecord`, `RightsViolationReport`, `RightType`, `ComplianceStatus` |
 | DCP-09 Delegación | `DelegationMandate`, `AdvisoryDeclaration`, `PrincipalMirror`, `InteractionRecord`, `AwarenessThreshold`, `ThresholdRule`, `AuthorityScopeEntry`, `ThresholdOperator`, `ThresholdAction` |
 
-Contextos de separación de dominios disponibles mediante `domainSeparatedMessage()`: `Lifecycle`, `Succession`, `Dispute`, `Rights`, `Delegation`, `Awareness`.
+`domainSeparatedMessage()`, `compositeSign()` y `compositeVerify()` reciben el nombre completo de un contexto que conoce
+el registro de Rust a partir del cual se compila el paquete. Son 20: los 19 de los vectores de interop, entre ellos
+`DCP-AI.v2.Lifecycle`, `…Succession`, `…Dispute`, `…Rights`, `…Delegation` y `…Awareness`, y
+`DCP-AI.v2.MandateAcknowledgment`. Dos contextos de la tabla de [v2.0 § 4.1](../../../../spec/DCP-AI-v2.0.md) no están entre
+ellos: `DCP-AI.v2.AlgorithmAdvisory` y `DCP-AI.v2.Governance`. Firmar o verificar con el contexto del acuse no evalúa
+ningún acuse ni ninguna activación.
 
-Son solo tipos. El paquete no exporta ninguna función de vigencia ni de cadena de mandatos; `verify_mandate_validity_at` y `verify_mandate_chain` están en el crate Rust a partir del que se compila, y los demás SDK tienen las suyas.
+Son solo tipos. El paquete no exporta ninguna función de vigencia, de cadena de mandatos, de admisión ni de activación. Es el alcance del piloto, no un límite de los navegadores: el backend de una aplicación de navegador usa uno de los cuatro SDK, y una admisión calculada en un navegador a partir de entradas que controla el cliente no autoriza nada en un servidor. `verify_mandate_validity_at` y `verify_mandate_chain` están en el crate de Rust a partir del cual se compila el paquete, y los demás SDK tienen los suyos.
 
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in"></a>
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
@@ -350,8 +355,16 @@ import init, {
 await init();
 
 const keys = JSON.parse(wasm_generate_hybrid_keypair());
-// ... use raw functions, all return JSON strings
+// ... raw functions return JSON text, or a plain string for a hash, a key id, a nonce,
+// a domain-separated message (hex) or a canonical form
 ```
+
+Las funciones crudas informan de los errores en banda, como `{"error": "<message>"}`. En el código fuente local (no en
+2.1.3) ese sobre es JSON escapado. Antes, un mensaje con una barra invertida o un carácter de control, por ejemplo de
+un nombre de clave, podía ser JSON inválido o decodificarse como otro texto. `wasm_canonicalize_v2` devuelve la forma
+canónica o ese sobre, así que no puede distinguir su error de un valor cuya forma canónica es `{"error": …}`. El
+código fuente local añade `wasm_canonicalize_v2_result`, que devuelve `{"ok": true, "canonical": …}` o
+`{"ok": false, "error": …}`; `canonicalize()` lo usa.
 
 Véase [example.html](../../../../sdks/wasm/example.html) para una demostración interactiva completa en el navegador.
 
@@ -405,6 +418,15 @@ rustup target add wasm32-unknown-unknown
 cd ../rust
 wasm-pack test --headless --chrome -- --features wasm
 ```
+
+<a id="conformance-in-a-browser"></a>
+
+### Conformidad en un navegador
+
+El [wrapper de navegador](../../tools/conformance/README.md#browser-wrapper-dcpwasm-in-chrome) del kit ejecuta en Chrome
+los catálogos de conformidad, y llamadas directas de `DcpWasm`, contra una build de este paquete. El
+[mapa de cobertura](../../docs/conformance/SECURITY_COVERAGE.md#public-interfaces-mp-03-08112026) indica qué cubre cada
+corrida.
 
 <a id="license"></a>
 

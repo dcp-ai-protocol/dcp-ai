@@ -2,7 +2,7 @@
 
 # DCP-AI Playground
 
-> 本文是[英文版本](../../../playground/README.md)的参考译文，更新于2026年10月25日。如有差异，以英文原文为准。标识符和代码块（包括注释）均保留原文。
+> 本文是[英文版本](../../../playground/README.md)的参考译文，更新于2026年11月8日。如有差异，以英文原文为准。标识符和代码块（包括注释）均保留原文。
 
 Digital Citizenship Protocol（DCP-01 至 DCP-09）的浏览器交互式演示，托管于 [docs.dcp-ai.org/playground/](https://docs.dcp-ai.org/playground/)。
 
@@ -32,6 +32,7 @@ playground/
   js/
     core/
       crypto.js                 # Ed25519 keygen, signing, verification, kid
+      ed25519-ped1.js           # P-ED-1 byte checks before TweetNaCl
       hash.js                   # SHA-256 (Web Crypto), canonicalize (JCS), Merkle root
       state.js                  # Central state (keypairs, agents, session)
       signature.js              # Composite signature builder (classical + PQ simulated)
@@ -127,6 +128,7 @@ playground/
 - Merkle 根计算使用简化拼接
 - 不支持 CBOR 传输格式（仅 JSON）
 - 签名验证仅限于 bundle 护照中的 Ed25519 密钥
+- Ed25519 验证在本仓库的源代码中（08/11/2026）于 TweetNaCl 之前应用[密码学配置文件](../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion)的 P-ED-1：S < L，且密钥和 R 都是规范编码、阶不整除 8。检查位于 `js/core/ed25519-ped1.js`，与参考验证器的副本相同；它是 playground 自己的代码，不是 SDK，playground 构建的内容仍然不是证据
 - 标签页之间的会话绑定使用共享状态（不会持久化到存储中）
 
 <a id="dependencies"></a>

@@ -4,7 +4,7 @@
 
 # Referencia de la API de DCP-AI
 
-> Traducción informativa de [la versión en inglés](../../../docs/API_REFERENCE.md), actualizada el 07/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../docs/API_REFERENCE.md), actualizada el 08/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Referencia del SDK de TypeScript `@dcp-ai/sdk` tal como está en `main` (versión del paquete 2.3.0, protocolo DCP v2.0).
 
@@ -548,7 +548,9 @@ o clave decodificada con una longitud incorrecta.
 
 En el código fuente local (07/11/2026, no publicado), `verifyObject` y el proveedor Ed25519 V2 por defecto aplican P-ED-1 del
 [perfil criptográfico](../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion): S >= L, una clave o R no
-canónica, o una clave o R de orden que divide a 8 devuelven `false`. Las entradas que lanzan una excepción son las mismas que antes.
+canónica, o una clave o R de orden que divide a 8 devuelven `false`. Las entradas que lanzan una excepción son las mismas que antes. Desde el 08/11/2026,
+el verificador de referencia (`tools/crypto.js`), la ruta V1 de `dcp-ai verify` y el playground aplican las mismas
+comprobaciones en el código fuente local; un paquete publicado sin este cambio no lo hace.
 
 ```typescript
 const valid = verifyObject({ action: 'transfer', amount: 100 }, sig, keys.publicKeyB64);
@@ -872,10 +874,21 @@ Opt-in, en el código fuente local de los cuatro SDK y no en un paquete publicad
 | Función | Descripción |
 |----------|-------------|
 | `admitDelegatedBundleV2(evidence, registry, operator)` | Un bundle hoja admitido con su cadena de mandatos de DCP-09 y un bundle por cada agente que delega ([§ 10](../../../spec/profiles/admission/README.md#10-delegated-admission-opt-in)) |
-| `admitSignedBundleV2FromBytes(bytes, registry, options)` | Admisión de un bundle firmado dado como bytes, decidida antes de que ningún parser los lea ([§ 11](../../../spec/profiles/admission/README.md#11-admission-from-bytes-opt-in)) |
+| `admitSignedBundleV2FromBytes(bytes, registry, options)` | Admisión de un bundle firmado dado como bytes: los bytes se comprueban antes de que un parser los lea, el resultado del parser se contrasta con ellos y la admisión viene después ([§ 11](../../../spec/profiles/admission/README.md#11-admission-from-bytes-opt-in)) |
 | `evaluateDelegationActivationV2(evidence, registry, operator)` | Admisión delegada más los acuses de los agentes para cada mandato ([§ 12](../../../spec/profiles/admission/README.md#12-delegation-activation-opt-in)) |
 
-Python: `admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `evaluate_delegation_activation_v2` (todas async); Go: `AdmitDelegatedBundleV2`, `AdmitSignedBundleV2FromBytes`, `EvaluateDelegationActivationV2`; Rust: `admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `evaluate_delegation_activation_v2`. WASM no las exporta.
+Python: `admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `evaluate_delegation_activation_v2` (todas async); Go: `AdmitDelegatedBundleV2`, `AdmitSignedBundleV2FromBytes`, `EvaluateDelegationActivationV2`; Rust: `admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `evaluate_delegation_activation_v2`. WASM no las exporta: el backend de una aplicación de navegador llama a uno de los cuatro SDK.
+
+**Errores:**
+
+- `admitDelegatedBundleV2` y `evaluateDelegationActivationV2` lanzan `AdmissionConfigError` ante una configuración del
+  operador inválida, antes de leer ninguna evidencia. En Go es `*AdmissionConfigError`, que se detecta con `errors.As`.
+- En `admitSignedBundleV2FromBytes` decide primero el ingreso. Los bytes rechazados dan un resultado con
+  `ingress.accepted: false` y sin `admission`, nunca un error. Los bytes aceptados se admiten después como en
+  `admitSignedBundleV2`, con los mismos errores de configuración (Rust: `IngressError::Config`).
+- Una entrada que no son bytes es un `TypeError` en TypeScript y Python.
+- El [mapa de cobertura](conformance/SECURITY_COVERAGE.md#public-interfaces-mp-03-08112026) recoge el contrato de cada
+  función.
 
 ### `DEFAULT_VERIFIER_POLICY`
 

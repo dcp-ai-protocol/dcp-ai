@@ -73,6 +73,16 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Security
 
+- **P-ED-1 in the reference verifier, the CLI and the playground** (local source, not in a published version; no
+  version bump). `verifyObject` in `tools/crypto.js` now checks P-ED-1 before TweetNaCl, as the SDKs do. Through it, so
+  do the reference V1 path of `lib/verify.js` and `bin/dcp.js`, the transparency-log gossip and the revocation
+  service's Ed25519 check. `dcp-ai verify` on V1 files and the playground's `verifyDetached` check it too. Each uses one
+  of three identical copies of a byte helper: `tools/`, `cli/lib/` and `playground/js/core/ed25519-ped1.js`. **Acceptance
+  change:** a key or R that is not a canonical encoding, or is of order dividing 8, was accepted before and now returns
+  `false`; the CLI prints INVALID and exits 1. Errors and their order do not change. Three earlier tests changed only
+  their expectations for the identity key. The published `@dcp-ai/cli` does not include this, nor does any published
+  `@dcp-ai/sdk` (2.3.0 and earlier), so the copies installed from them do not either.
+
 - **Ed25519 acceptance criterion P-ED-1** (local source of the TypeScript, Python, Go and Rust SDKs, not in a
   published version; no version bump). V1 `verifyObject` and its counterparts, and the default V2 Ed25519 provider,
   now also reject a signature whose public key or R is not a canonical encoding, or is one of the 8 points of order
@@ -362,6 +372,17 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
   and `canonicalization_profile_not_a_string`.
 
 ### Added
+
+- **Conformance through the public interfaces** (local source; no new rule, schema or profile, and `dcp-jcs-v1` is
+  unchanged; the one new export is the WASM fix below).
+  `tools/conformance/wrappers/wasm-browser.mjs` runs kit catalogs through the public `DcpWasm` class in Chrome:
+  `/1`, `/2`, policy, structural, schema and `/5`, 590 cases. Separate direct sections add 103 cases: domain
+  separation, security tier, hybrid sign-verify round trips and the P-ED-1 composite preimages. The runner has
+  self-tests.
+  - `sdks/rust/tests/wasm_ped1_vectors.rs` runs the P-ED-1 corpus at the provider level on wasm32 in Node.
+  - Each of the four SDKs adds tests of the configuration errors of admission from bytes and of delegation activation.
+  - CI runs all of these.
+  - WASM still has no admission, mandate chain or activation API.
 
 - **Delegated admission, admission from bytes and mandate acknowledgment (opt-in)** (local source of the
   TypeScript, Python, Go and Rust SDKs, not in a published version; no version bump). No default calls them, and
@@ -867,6 +888,17 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
   after the first, which still compiles).
 
 ### Fixed
+
+- **WASM: error results told apart from values** (local source, not in `@dcp-ai/wasm` 2.1.3).
+  - `DcpWasm.canonicalize` threw for a value whose canonical form begins with an `error` member, such as
+    `{ error: 'x' }`. It now reads `wasm_canonicalize_v2_result`, a new raw export (additive) that returns a tagged
+    result.
+  - The `{"error": …}` the wasm exports return is now escaped JSON. A message with a backslash or a control character,
+    from a key name for instance, could be invalid JSON or decode to other text. Messages without such characters keep
+    their bytes, double quotes still shown as apostrophes.
+  - `hashObject` and `deriveKid` throw an `Error` instead of returning that envelope as a hash or a key id.
+  - `wasm_canonicalize_v2` is unchanged: it still cannot tell its error from a value whose canonical form is that
+    object.
 
 - **Go: SLH-DSA-192f keys are read without a panic** (local source, not in a published version;
   `sdks/go/dcp/providers/slh_dsa_192f_provider.go`). The provider read secret and public keys with no parameter set

@@ -532,7 +532,9 @@ the wrong length.
 
 In the local source (07/11/2026, not published), `verifyObject` and the default V2 Ed25519 provider apply P-ED-1 of the
 [Crypto Profile](../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion): S >= L, a non-canonical key
-or R, or a key or R of order dividing 8 return `false`. The inputs that throw are the same as before.
+or R, or a key or R of order dividing 8 return `false`. The inputs that throw are the same as before. Since 08/11/2026
+the reference verifier (`tools/crypto.js`), the V1 path of `dcp-ai verify` and the playground apply the same checks in
+the local source; a published package without this change does not.
 
 ```typescript
 const valid = verifyObject({ action: 'transfer', amount: 100 }, sig, keys.publicKeyB64);
@@ -848,10 +850,21 @@ Opt-in, in the local source of the four SDKs and not in a published package (07/
 | Function | Description |
 |----------|-------------|
 | `admitDelegatedBundleV2(evidence, registry, operator)` | A leaf bundle admitted with its DCP-09 mandate chain and one bundle per delegating agent ([spec § 10](../spec/profiles/admission/README.md#10-delegated-admission-opt-in)) |
-| `admitSignedBundleV2FromBytes(bytes, registry, options)` | Admission of a signed bundle given as bytes, decided before any parser reads them ([spec § 11](../spec/profiles/admission/README.md#11-admission-from-bytes-opt-in)) |
+| `admitSignedBundleV2FromBytes(bytes, registry, options)` | Admission of a signed bundle given as bytes: the bytes are checked before a parser reads them, the parser's result is compared with them, and admission comes after ([spec § 11](../spec/profiles/admission/README.md#11-admission-from-bytes-opt-in)) |
 | `evaluateDelegationActivationV2(evidence, registry, operator)` | Delegated admission plus the agents' acknowledgments of each mandate ([spec § 12](../spec/profiles/admission/README.md#12-delegation-activation-opt-in)) |
 
-Python: `admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `evaluate_delegation_activation_v2` (all async); Go: `AdmitDelegatedBundleV2`, `AdmitSignedBundleV2FromBytes`, `EvaluateDelegationActivationV2`; Rust: `admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `evaluate_delegation_activation_v2`. WASM does not export them.
+Python: `admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `evaluate_delegation_activation_v2` (all async); Go: `AdmitDelegatedBundleV2`, `AdmitSignedBundleV2FromBytes`, `EvaluateDelegationActivationV2`; Rust: `admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `evaluate_delegation_activation_v2`. WASM does not export them: a browser application's backend calls one of the four SDKs.
+
+**Errors:**
+
+- `admitDelegatedBundleV2` and `evaluateDelegationActivationV2` raise `AdmissionConfigError` for an invalid operator
+  configuration, before any evidence is read. In Go it is `*AdmissionConfigError`, found with `errors.As`.
+- In `admitSignedBundleV2FromBytes` the ingress decides first. Rejected bytes give a result with
+  `ingress.accepted: false` and no `admission`, never an error. Accepted bytes are then admitted as by
+  `admitSignedBundleV2`, with the same configuration errors (Rust: `IngressError::Config`).
+- An input that is not bytes is a `TypeError` in TypeScript and Python.
+- The [coverage map](conformance/SECURITY_COVERAGE.md#public-interfaces-mp-03-08112026) lists the contract of each
+  function.
 
 ### `DEFAULT_VERIFIER_POLICY`
 

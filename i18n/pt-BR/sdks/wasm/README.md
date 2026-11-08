@@ -4,7 +4,7 @@
 
 # @dcp-ai/wasm — SDK WebAssembly v2.0
 
-> Tradução informativa do [README em inglês](../../../../sdks/wasm/README.md), atualizada em 05/11/2026. Os identificadores e os blocos de código, incluindo seus comentários, foram preservados para manter os exemplos testados.
+> Tradução informativa do [README em inglês](../../../../sdks/wasm/README.md), atualizada em 08/11/2026. Os identificadores e os blocos de código, incluindo seus comentários, foram preservados para manter os exemplos testados.
 
 Módulo WebAssembly para o Digital Citizenship Protocol (DCP) v2.0, compilado a partir do SDK de Rust. Oferece assinaturas compostas pós-quânticas, geração de chaves híbridas, encapsulamento de chaves ML-KEM-768, hashes duplos, construção e verificação de bundles e cálculo do nível de segurança. Tudo é executado diretamente no navegador ou no Node.js, sem servidor.
 
@@ -157,7 +157,7 @@ console.log(result.verified, result.classical_valid, result.pq_valid); // true t
 
 #### `initDcp(wasmUrl?: string): Promise<DcpWasm>`
 
-Inicializa o módulo WASM. Deve ser chamada uma vez antes de usar qualquer API. Opcionalmente, recebe uma URL para o arquivo `.wasm`; no Node.js, passe-a como URL `data:` (consulte [Inicialização](#initialization-browser-and-nodejs)).
+Inicializa o módulo WASM. Deve ser chamada uma vez antes de usar qualquer API. Opcionalmente, recebe uma URL para o arquivo `.wasm`; no Node.js, passe-a como URL `data:` (consulte [Inicialização](#initialization-browser-and-nodejs)). O argumento vai para o inicializador do wasm-bindgen. Uma string ainda funciona, mas o inicializador desta build registra um aviso de que essa forma está obsoleta. Ele também aceita `{ module_or_path }` com uma URL ou os bytes do `.wasm`, como os testes do repositório o passam; o tipo de TypeScript só declara uma string.
 
 <a id="keypair-generation"></a>
 
@@ -211,7 +211,7 @@ A verificação não concede confiança no principal, admissão ou autorização
 |--------|---------|-------------|
 | `dualHash(data)` | `DualHash` | Hash duplo SHA-256 + SHA3-256 |
 | `sha3_256(data)` | `string` | Hash SHA3-256 em hexadecimal |
-| `hashObject(obj)` | `string` | Hash SHA-256 de um objeto JSON |
+| `hashObject(obj)` | `string` | Hash SHA-256 de um objeto JSON, sempre com 64 caracteres hexadecimais minúsculos. No código-fonte local (não em 2.1.3) lança um `Error` quando o binding não consegue ler o valor, por exemplo um surrogate isolado, onde 2.1.3 devolve o envelope de erro como se fosse o hash |
 | `dualMerkleRoot(leaves)` | `DualHash` | Raiz Merkle dupla da [VERIFICATION.md V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) de um array não vazio de folhas `DualHash`, cada uma um digest hex de 32 bytes; lança exceção com um array vazio ou uma folha inválida. A raiz é hex em minúsculas. A partir da 2.1.3: a 2.1.1 e anteriores fazem hash do texto hex, então suas raízes de duas ou mais folhas diferem |
 
 <a id="canonicalization-domain-separation"></a>
@@ -220,9 +220,9 @@ A verificação não concede confiança no principal, admissão ou autorização
 
 | Método | Retorno | Descrição |
 |--------|---------|-------------|
-| `canonicalize(value)` | `string` | Canonicalização `dcp-jcs-v1`, baseada na RFC 8785 JCS |
+| `canonicalize(value)` | `string` | Canonicalização `dcp-jcs-v1` (baseada na JCS da RFC 8785) do valor tal como `JSON.stringify` o escreve, de modo que `NaN` e `±Infinity` viram `null`, e um `BigInt` ou um ciclo fazem `JSON.stringify` lançar seu próprio `TypeError`. Lança um `Error` (`canonicalize: …`) diante de uma fração ou de um valor que o binding não consegue ler, como um surrogate isolado. No código-fonte local (não em 2.1.3) lê o export rotulado, de modo que um valor cuja forma canônica começa com um membro `error`, como `{ error: 'x' }`, é canonicalizado; 2.1.3 lança um erro para ele |
 | `domainSeparatedMessage(context, payloadHex)` | `string` | Mensagem com separação de domínios, em hexadecimal |
-| `deriveKid(alg, publicKeyB64)` | `string` | Identificador de chave determinístico a partir do algoritmo e da chave pública |
+| `deriveKid(alg, publicKeyB64)` | `string` | Identificador de chave determinístico a partir do algoritmo e da chave pública, sempre com 32 caracteres hexadecimais minúsculos. No código-fonte local (não em 2.1.3) lança um `Error` diante de base64 inválido, onde 2.1.3 devolve o envelope de erro como se fosse o id de chave |
 
 <a id="session-security"></a>
 
@@ -282,9 +282,14 @@ O SDK WASM inclui interfaces TypeScript para todos os artefatos DCP-05 a DCP-09,
 | DCP-08 Direitos | `RightsDeclaration`, `RightEntry`, `ObligationRecord`, `RightsViolationReport`, `RightType`, `ComplianceStatus` |
 | DCP-09 Delegação | `DelegationMandate`, `AdvisoryDeclaration`, `PrincipalMirror`, `InteractionRecord`, `AwarenessThreshold`, `ThresholdRule`, `AuthorityScopeEntry`, `ThresholdOperator`, `ThresholdAction` |
 
-Contextos de separação de domínios disponíveis por `domainSeparatedMessage()`: `Lifecycle`, `Succession`, `Dispute`, `Rights`, `Delegation`, `Awareness`.
+`domainSeparatedMessage()`, `compositeSign()` e `compositeVerify()` recebem o nome completo de um contexto que o
+registro de Rust a partir do qual o pacote é compilado conhece. São 20: os 19 dos vetores de interop, entre eles
+`DCP-AI.v2.Lifecycle`, `…Succession`, `…Dispute`, `…Rights`, `…Delegation` e `…Awareness`, e
+`DCP-AI.v2.MandateAcknowledgment`. Dois contextos da tabela de [v2.0 § 4.1](../../../../spec/DCP-AI-v2.0.md) não estão entre
+eles: `DCP-AI.v2.AlgorithmAdvisory` e `DCP-AI.v2.Governance`. Assinar ou verificar com o contexto do reconhecimento não
+avalia nenhum reconhecimento nem nenhuma ativação.
 
-São só tipos. O pacote não exporta nenhuma função de validade nem de cadeia de mandatos; `verify_mandate_validity_at` e `verify_mandate_chain` estão no crate Rust a partir do qual ele é compilado, e os outros SDKs têm as suas.
+São só tipos. O pacote não exporta nenhuma função de validade, de cadeia de mandatos, de admissão ou de ativação. É o escopo do piloto, não um limite dos navegadores: o backend de uma aplicação de navegador usa um dos quatro SDKs, e uma admissão calculada num navegador a partir de entradas que o cliente controla não autoriza nada num servidor. `verify_mandate_validity_at` e `verify_mandate_chain` estão no crate de Rust a partir do qual o pacote é compilado, e os demais SDKs têm os seus.
 
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in"></a>
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
@@ -350,8 +355,16 @@ import init, {
 await init();
 
 const keys = JSON.parse(wasm_generate_hybrid_keypair());
-// ... use raw functions, all return JSON strings
+// ... raw functions return JSON text, or a plain string for a hash, a key id, a nonce,
+// a domain-separated message (hex) or a canonical form
 ```
+
+As funções cruas informam os erros em banda, como `{"error": "<message>"}`. No código-fonte local (não em 2.1.3) esse
+envelope é JSON escapado. Antes, uma mensagem com uma barra invertida ou um caractere de controle, por exemplo de um nome
+de chave, podia ser JSON inválido ou ser decodificada como outro texto. `wasm_canonicalize_v2` devolve a forma canônica
+ou esse envelope, de modo que não consegue distinguir seu erro de um valor cuja forma canônica é `{"error": …}`. O
+código-fonte local adiciona `wasm_canonicalize_v2_result`, que devolve `{"ok": true, "canonical": …}` ou
+`{"ok": false, "error": …}`; `canonicalize()` o usa.
 
 Consulte [example.html](../../../../sdks/wasm/example.html) para uma demonstração interativa completa no navegador.
 
@@ -405,6 +418,15 @@ rustup target add wasm32-unknown-unknown
 cd ../rust
 wasm-pack test --headless --chrome -- --features wasm
 ```
+
+<a id="conformance-in-a-browser"></a>
+
+### Conformidade num navegador
+
+O [wrapper de navegador](../../tools/conformance/README.md#browser-wrapper-dcpwasm-in-chrome) do kit executa no Chrome
+os catálogos de conformidade, e chamadas diretas de `DcpWasm`, contra uma build deste pacote. O
+[mapa de cobertura](../../docs/conformance/SECURITY_COVERAGE.md#public-interfaces-mp-03-08112026) indica o que cada
+execução cobre.
 
 <a id="license"></a>
 

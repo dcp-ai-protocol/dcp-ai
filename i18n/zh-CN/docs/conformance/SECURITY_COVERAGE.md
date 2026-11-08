@@ -4,7 +4,7 @@
 
 # 安全保证与一致性测试覆盖
 
-> 本文是[英文版本](../../../../docs/conformance/SECURITY_COVERAGE.md)的参考译文，更新于 07/11/2026。如有差异，以英文版本为准。标识符、命令和代码块保持原文。
+> 本文是[英文版本](../../../../docs/conformance/SECURITY_COVERAGE.md)的参考译文，更新于 08/11/2026。如有差异，以英文版本为准。标识符、命令和代码块保持原文。
 
 本文提供规范性要求与仓库可执行测试之间的信息性映射。它不是新配置文件、认证、已测试所有输入的声明，也不是某个部署通过测试的证据。测试结果仅适用于该次运行记录的准确实现、输入、策略、验证时间和工具版本。
 
@@ -189,7 +189,75 @@ PQ 负向用例仅修改 bundle、护照或检查点中的 PQ 签名，经典签
 
 | 要求 | 检验的对象 | 限制 |
 |---|---|---|
-| V1 对象和 V2 默认提供方上的 [P-ED-1](../../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion) | [`ed25519_ped1_vectors.json`](../../../../tests/interop/v2/ed25519_ped1_vectors.json) 及其检查工具，在四个 SDK 测试套件中运行；为 `wasm32` 编译的 Rust 代码 | WASM 只经过编译，未在 WASM 运行时或浏览器中运行。参考 V1 验证器（`lib/verify.js` 与 `tools/crypto.js`）、CLI 的 V1 副本和 playground 尚未应用它，只检查 S < L。参考 V2 验证器、服务器和 V2 CLI 使用已安装的 `@dcp-ai/sdk`，只有在重新构建并重新安装后才会改变。此变更不更新适配器和工具包。自定义提供方由运营方负责 |
+| V1 对象和 V2 默认提供方上的 [P-ED-1](../../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion) | [`ed25519_ped1_vectors.json`](../../../../tests/interop/v2/ed25519_ped1_vectors.json) 及其检查器（在四个 SDK 的测试套件中）；在 `wasm32` 上运行的 Rust 提供方 | 自 08/11/2026 起，也包括参考验证器、CLI 的 V1 路径和 playground，以及 Node 和 Chrome 中的 WASM：见[公开接口](#public-interfaces-mp-03-08112026)，其中列出了从已安装 SDK 继承它的部分。自定义提供方由操作员负责 |
+
+<a id="public-interfaces-mp-03-08112026"></a>
+
+## 公开接口（MP-03，08/11/2026）
+
+本节同样描述本地源代码，而不是已发布的包。对每项能力，它说明该能力经过的公开函数，以及在那里到达它的证据。
+
+- **WASM** 指 `@dcp-ai/wasm` 的 `DcpWasm` 类。
+- **原始**指它的 wasm-bindgen 导出（`@dcp-ai/wasm/pkg`），在 Node 中运行。
+- **Chrome** 中的运行通过套件的[浏览器包装器](../../tools/conformance/README.md#browser-wrapper-dcpwasm-in-chrome)。
+
+| 能力 | TypeScript、Python、Go、Rust | WASM | 不作主张 |
+|---|---|---|---|
+| `dcp-jcs-v1` 规范字节与摘要 | 套件 `/1`（38） | 原始 `/1`（38）。在 Chrome 中 `/1`（38）：规范化在 `JSON.parse` 之后经 `DcpWasm.canonicalize`，摘要对文本经 `dualHash` 和 `sha3_256` | 解析器已经改变的字节（见下方的解析表） |
+| V2 验证：bundle、Merkle 根、复合签名 | 套件 `/2`（241：211 个 bundle 用例、24 个复合用例、6 个 Merkle 用例）、策略（108）、结构（16）、模式（57）、`/5`（130） | 原始运行相同的目录（552 个用例；含 `/1` 为 590）。在 Chrome 中各自经由对应的 `DcpWasm` 方法：bundle 经 `verifyBundle`，复合用例经 `compositeVerify`，Merkle 用例经 `dualMerkleRoot` | 准入、信任、授权 |
+| 复合签名、域分离、安全等级 | 套件 `/2` 的复合用例（24）；SDK 测试套件中的 interop 向量 | Chrome 中的直接调用（103）：`domainSeparatedMessage` 20（interop 向量的 19 个上下文和 `MandateAcknowledgment`）、`computeSecurityTier` 79、2 次带有负载、上下文和签名反例的混合签名与验证往返，以及 P-ED-1 的 2 个复合原像 | `/5` 不调用 `computeSecurityTier`：它读取 `verifyBundle` 报告的模式和等级 |
+| P-ED-1 | 四个 SDK 测试套件中的语料库 | Node 上 `wasm32` 中的 Rust 提供方：67 个提供方用例、4 个 V1 对象，以及使用真实 ML-DSA-65 密钥的 2 个复合用例。在 Chrome 中：以 `classical_only` 绑定经 `compositeVerify` 的 2 个复合原像 | 经 `DcpWasm` 的完整语料库，因为它没有原始 Ed25519 方法 |
+| `strict-v1` 准入 | 套件 `/3`（140） | 不支持 | — |
+| 授权书链 | 套件 `/4`（97） | 不支持 | — |
+| 委托准入、从字节准入、激活 | 上述 SDK 测试套件，以及字节函数和激活函数的配置错误 | 不支持 | 套件的约定 |
+
+WASM 没有授权书链、准入或激活的 API。这是试点的范围（D-04），而不是浏览器的限制：浏览器应用程序的后端用四个 SDK
+之一检查委托并进行准入。在浏览器中根据客户端控制的输入计算出的准入，不会授权服务器上的任何操作。
+
+**SDK 之外的 P-ED-1。** 自己用 TweetNaCl 计算 Ed25519 的验证器会先检查 P-ED-1。它使用一个字节辅助模块三份相同副本中
+的一份：`tools/`、`cli/lib/` 和 `playground/js/core/ed25519-ped1.js`。其他所有验证器只从其加载的 SDK 获得 P-ED-1。
+
+| 验证器 | Ed25519 路径 | P-ED-1 |
+|---|---|---|
+| 参考 V1（`tools/crypto.js` 的 `verifyObject`）：`lib/verify.js` 和 `bin/dcp.js` 的 V1、透明日志的 gossip、撤销服务 | 自己的检查，然后是 TweetNaCl | 在源代码中；`tools/ed25519-ped1-consumers.test.mjs` |
+| 对 V1 文件执行的 `dcp-ai verify` | 自己的检查（`cli/lib/ed25519-ped1.js`） | 在源代码中；已发布的 `@dcp-ai/cli` 中没有 |
+| 对 V2 文件执行的 `dcp-ai verify`、参考 V2、服务器 | 已安装的 `@dcp-ai/sdk` | 只有在 SDK 包含它时才有。CI 会构建并安装工作区的 SDK。任何已发布的 `@dcp-ai/sdk`（2.3.0 及更早版本）都没有，从它们安装的副本也没有 |
+| Playground（PQ 签名为模拟的演示） | 自己的检查 | 在源代码中 |
+| Express、OpenClaw | 锁定在 2.2.0 的 `@dcp-ai/sdk` | 按锁定版本不适用；CI 也用工作区的 SDK 运行它们的测试 |
+| Anthropic MCP、Google A2A | 锁定在 2.2.0 的 `@dcp-ai/sdk` | 不适用（已记录的限制） |
+| FastAPI、LangChain、OpenAI、CrewAI | 本代码树中的 Python SDK | 适用 |
+
+**错误、拒绝与缺失的结果。** 每个公开函数保留自己的错误约定，均不做统一。P-ED-1 只拒绝通过了该函数先前的类型、
+大小和解码检查的输入：原本是错误的仍然是错误。在套件和浏览器测试框架中，`error`、`unsupported`、缺失的用例、崩溃
+或超时都不能满足预期的拒绝。
+
+| 函数 | 拒绝 | 错误 |
+|---|---|---|
+| Ed25519 提供方、V1 的 `verifyObject`（SDK、参考、CLI、playground） | `false`：S >= L、P-ED-1 或方程 | 各有各的约定，且无效 base64 只出现在函数解码 base64 的地方（提供方的密钥，`verifyObject` 的签名和密钥）。TypeScript 和参考验证器对无效 base64 以及解码后大小错误的签名或密钥抛出异常；playground 的 `verifyDetached` 接收字节，对大小错误或不是 `Uint8Array` 的值抛出异常。Python 对大小错误抛出 PyNaCl 的 `ValueError`。Go 对签名长度错误返回 `false`，对密钥长度错误返回错误。Rust 对任一长度错误以及无法解压的密钥都返回错误。CLI 对 INVALID 和错误以 1 退出，只有 VALID 才以 0 退出 |
+| `compositeVerify` | `valid: false`，并给出每个组件的判定 | 在 `pq_over_classical` 下缺少 PQ 签名，在 Rust 和经由 WASM 时是错误；TypeScript、Python 和 Go 返回布尔值 |
+| bundle 验证 | 带诊断信息的 `verified: false`，对格式错误的输入也是如此 | WASM 的 `verifyBundle` 以同样方式报告它自己的 JSON 和策略解析错误 |
+| `strict-v1` 准入（`admitSignedBundleV2`） | `admitted: false` 和代码；`action_authorized` 始终为 `false` | `AdmissionConfigError`（Go 中为 `*AdmissionConfigError`）。无效的配置文件，或与验证者策略一起传入的配置文件，会在验证 bundle 之前被拒绝。其他配置错误在何处被发现取决于 SDK：例如没有信任集的配置文件，在 TypeScript 中于验证之后的准入阶段（`evaluateAdmissionV2`）发现，在 Rust 中于验证之前发现。无论哪种情况，都是错误且没有结果 |
+| 委托准入、激活 | 委托准入：`admitted: false` 和代码。激活：`composition`（委托准入的结果）、`activation`、`delegation_active` 和 `ACK_*` 代码。`action_authorized` 始终为 `false` | 操作员配置无效时，在读取任何证据之前抛出 `AdmissionConfigError` |
+| 从字节准入 | 入口检查的拒绝是一个结果：`ingress.accepted: false`，带有其层和类别，且没有准入 | 入口检查先作出判定，被接受的字节随后按 `admitSignedBundleV2` 的方式准入，带有它的配置错误（Rust 中为 `IngressError::Config`）。不是字节的输入在 TypeScript 和 Python 中是 `TypeError` |
+| `DcpWasm` 的方法 | 按绑定的报告 | `Error('<method>: …')`。`canonicalize` 读取带标签的 `wasm_canonicalize_v2_result`；`hashObject` 和 `deriveKid` 只返回其十六进制格式。原始导出把 `{"error": …}` 保留在带内，`wasm_canonicalize_v2` 无法把它与规范形式就是该对象的值区分开 |
+
+支撑此表的测试：
+
+- 各 SDK 的 P-ED-1 语料库测试；
+- `sdks/wasm/test/interface-errors.mjs` 和 `sdks/wasm/test/schema-v2.mjs`；
+- 配置错误测试 `e5-config-errors.test.ts`、`test_e5_config_errors.py`、`e5_config_errors_test.go` 和
+  `tests/e5_config_errors.rs`。
+
+**由谁解析。** 没有任何函数为另一个函数修复输入：每个函数读取其解析器产生的结果。
+
+| 函数 | 解析器 | 解析器之前的检查 |
+|---|---|---|
+| `verifySignedBundleV2`、`admitSignedBundleV2` 及其 Python 和 Rust 对应函数 | 调用方的解析器（`JSON.parse`、`json.loads`、`serde_json`） | 无 |
+| Go 的 `VerifySignedBundleV2At`、`AdmitSignedBundleV2` | SDK 的 `encoding/json`，作用于 `[]byte` | 无：接收字节并不是[准入 § 11](../../../../spec/profiles/admission/README.md#11-admission-from-bytes-opt-in)的入口检查 |
+| 各 SDK 的 `FromBytes` 准入函数 | SDK | 入口检查：扫描器、可移植域，然后是解析器比对，在准入之前 |
+| `DcpWasm` 的方法 | 调用方的 `JSON.parse`，然后对 `JSON.stringify` 写出的内容使用 `serde_json` | 无，也不可能有：JavaScript 值已经解析过 |
+| WASM 的原始导出 | 对文本使用 `serde_json` | 无 |
+| `experimentalCandidateIngress` 及其对应函数 | 实验性候选自己的解析器 | 它的扫描器。它不是 § 11 的入口检查，也不改变 `dcp-jcs-v1` 的任何内容 |
 
 <a id="claims-for-core-and-profiles"></a>
 

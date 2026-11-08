@@ -75,8 +75,10 @@ pub mod wasm {
         PopChallenge, generate_registration_pop, verify_registration_pop,
     };
 
+    /// The in-band error `{"error": "<msg>"}`, escaped by serde_json. Double quotes still become apostrophes, as they
+    /// always have, so a message without a backslash or a control character keeps its exact former bytes.
     fn json_err(msg: &str) -> String {
-        format!("{{\"error\":\"{}\"}}", msg.replace('"', "'"))
+        json!({ "error": msg.replace('"', "'") }).to_string()
     }
 
     // ── V1 Compatibility ──────────────────────────────────────────────────
@@ -720,15 +722,28 @@ pub mod wasm {
         crate::v2::crypto_provider::derive_kid(alg, &pk_bytes)
     }
 
+    fn canonicalize_v2_text(json_str: &str) -> Result<String, String> {
+        let val: Value = serde_json::from_str(json_str).map_err(|e| format!("JSON parse: {}", e))?;
+        canonicalize_v2(&val)
+    }
+
+    /// The canonical form, or `{"error": …}`, which a valid input whose canonical form is that object also gives:
+    /// kept as it is for existing callers. `wasm_canonicalize_v2_result` tells the two apart.
     #[wasm_bindgen]
     pub fn wasm_canonicalize_v2(json_str: &str) -> String {
-        let val: Value = match serde_json::from_str(json_str) {
-            Ok(v) => v,
-            Err(e) => return json_err(&format!("JSON parse: {}", e)),
-        };
-        match canonicalize_v2(&val) {
+        match canonicalize_v2_text(json_str) {
             Ok(s) => s,
             Err(e) => json_err(&e),
+        }
+    }
+
+    /// `{"ok": true, "canonical": "<canonical form>"}` or `{"ok": false, "error": "<message>"}`, with the messages
+    /// of `wasm_canonicalize_v2`: the outcome is the tag, never read from the canonical text.
+    #[wasm_bindgen]
+    pub fn wasm_canonicalize_v2_result(json_str: &str) -> String {
+        match canonicalize_v2_text(json_str) {
+            Ok(s) => json!({ "ok": true, "canonical": s }).to_string(),
+            Err(e) => json!({ "ok": false, "error": e.replace('"', "'") }).to_string(),
         }
     }
 
@@ -1042,6 +1057,44 @@ pub mod wasm {
         match verify_registration_pop(provider.as_ref(), &challenge, &pop, pk_b64) {
             Ok(valid) => serde_json::to_string(&json!({ "valid": valid })).unwrap(),
             Err(e) => json_err(&e.to_string()),
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn json_err_keeps_former_bytes_and_escapes_the_rest() {
+            // The former format!, for messages it wrote as valid JSON.
+            let former = |m: &str| format!("{{\"error\":\"{}\"}}", m.replace('"', "'"));
+            for m in ["key 'a': Non-integer number in V2 canonical form: 0.5", "say \"hi\"", "ñandú", ""] {
+                assert_eq!(json_err(m), former(m), "{m:?}");
+            }
+            for m in ["line\nbreak", "slash\\q", "bs\\nkey", "tab\t", "nul\0", "us\u{1f}", "end\\"] {
+                let v: Value = serde_json::from_str(&json_err(m)).expect("valid JSON");
+                assert_eq!(v, json!({ "error": m }), "{m:?}");
+            }
+        }
+
+        #[test]
+        fn canonicalize_result_is_tagged() {
+            let parse = |s: &str| serde_json::from_str::<Value>(&wasm_canonicalize_v2_result(s)).unwrap();
+            assert_eq!(parse(r#"{"error":"x"}"#), json!({ "ok": true, "canonical": r#"{"error":"x"}"# }));
+            assert_eq!(parse(r#"{"z":1,"error":4}"#), json!({ "ok": true, "canonical": r#"{"error":4,"z":1}"# }));
+            assert_eq!(
+                parse("{\"line\\nbreak\":0.5}"),
+                json!({ "ok": false, "error": "key 'line\nbreak': Non-integer number in V2 canonical form: 0.5" })
+            );
+            let e = parse("{");
+            assert_eq!(e["ok"], json!(false));
+            assert!(e["error"].as_str().unwrap().starts_with("JSON parse: "));
+            // The historical export is unchanged where it was valid, ambiguity included.
+            assert_eq!(wasm_canonicalize_v2(r#"{"error":"x"}"#), r#"{"error":"x"}"#);
+            assert_eq!(
+                wasm_canonicalize_v2(r#"{"a":0.5}"#),
+                r#"{"error":"key 'a': Non-integer number in V2 canonical form: 0.5"}"#
+            );
         }
     }
 }

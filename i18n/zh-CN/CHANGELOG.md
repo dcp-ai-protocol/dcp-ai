@@ -4,7 +4,7 @@
 
 # 变更日志
 
-> 本文是[英文版](../../CHANGELOG.md)的参考译文，更新于 07/11/2026。每个条目（包括 `[Unreleased]` 下的条目）描述的是当时所作的变更，并不保证当前行为；已发布的各版本是**带日期的历史记录**。如有出入，以英文版为准。
+> 本文是[英文版](../../CHANGELOG.md)的参考译文，更新于 08/11/2026。每个条目（包括 `[Unreleased]` 下的条目）描述的是当时所作的变更，并不保证当前行为；已发布的各版本是**带日期的历史记录**。如有出入，以英文版为准。
 
 **已发布版本（2026 年 10 月 26 日）。** npm（13 个软件包，包括 `@dcp-ai/sdk` 2.2.0）、Python `dcp-ai` 2.10.0、Go `v2.11.0` 和 Rust `dcp-ai` 2.11.0 均已发布，包含验证器修复、准入功能和实验性的选择启用 API；`dcp-jcs-v1` 仍是规范性默认值。见[已发布版本](../../docs/README.md#published-versions)。以下条目保留开发历史；`[Unreleased]` 不表示这些功能尚未发布。2026 年 10 月 28 日的六个修复版本见[单独的章节](#2026-10-28-sha3-patch-releases)。05/11/2026 的五个版本见[其单独的章节](#2026-11-05-auditable-releases)。
 
@@ -86,6 +86,14 @@
 <a id="security"></a>
 
 ### 安全
+
+- **参考验证器、CLI 和 playground 中的 P-ED-1**（仅本地源代码，不在任何已发布版本中；版本号不变）。
+  `tools/crypto.js` 中的 `verifyObject` 现在与各 SDK 一样，在 TweetNaCl 之前检查 P-ED-1。通过它，`lib/verify.js` 和
+  `bin/dcp.js` 的参考 V1 路径、透明日志的 gossip 以及撤销服务的 Ed25519 检查也会检查。对 V1 文件执行的 `dcp-ai verify`
+  和 playground 的 `verifyDetached` 也会检查。它们各自使用一个字节辅助模块三份相同副本中的一份：`tools/`、`cli/lib/`
+  和 `playground/js/core/ed25519-ped1.js`。**接受方式的变更：**不是规范编码、或阶整除 8 的密钥或 R，以前会被接受，现在
+  返回 `false`；CLI 输出 INVALID 并以 1 退出。错误及其顺序不变。之前的三项测试只改变了对单位元密钥的预期。已发布的
+  `@dcp-ai/cli` 不包含此项，任何已发布的 `@dcp-ai/sdk`（2.3.0 及更早版本）也不包含，因此从它们安装的副本同样不包含。
 
 - **Ed25519 接受准则 P-ED-1**（TypeScript、Python、Go 和 Rust SDK 的本地源代码，不在任何已发布版本中；不改版本号）。
   V1 的 `verifyObject` 及其对应函数，以及 V2 默认的 Ed25519 提供方，除 S >= L 外，现在还拒绝公钥或 R 不是规范编码、
@@ -305,6 +313,15 @@
 <a id="added"></a>
 
 ### 新增
+
+- **通过公开接口的符合性**（本地源代码；没有新的规则、模式或配置文件，`dcp-jcs-v1` 不变；唯一的新导出是下面
+  的 WASM 修复）。`tools/conformance/wrappers/wasm-browser.mjs` 在 Chrome 中通过公开类 `DcpWasm` 运行套件的目录：
+  `/1`、`/2`、策略、结构、模式和 `/5`，共 590 个用例。另有直接部分增加 103 个用例：域分离、安全等级、混合签名与验证
+  往返，以及 P-ED-1 的复合原像。运行器带有自检。
+  - `sdks/rust/tests/wasm_ped1_vectors.rs` 在 Node 上的 wasm32 中，以提供方层级运行 P-ED-1 语料库。
+  - 四个 SDK 各自增加了对从字节准入和委托激活的配置错误的测试。
+  - CI 会运行以上全部内容。
+  - WASM 仍然没有准入、授权书链或激活的 API。
 
 - **委托准入、从字节准入和授权书确认（选择性启用）**（TypeScript、Python、Go 和 Rust SDK 的本地源代码，不在任何已
   发布版本中；不改版本号）。默认情况下没有任何地方调用它们，现有的函数、结果、代码和向量都不变。WASM、CLI、
@@ -667,6 +684,14 @@
 <a id="fixed"></a>
 
 ### 修复
+
+- **WASM：区分错误结果与值**（仅本地源代码，不在 `@dcp-ai/wasm` 2.1.3 中）。
+  - 对于规范形式以 `error` 成员开头的值（例如 `{ error: 'x' }`），`DcpWasm.canonicalize` 以前会抛出异常。现在它读取
+    `wasm_canonicalize_v2_result`，这是一个返回带标签结果的新原始导出（仅新增）。
+  - wasm 导出返回的 `{"error": …}` 现在是经过转义的 JSON。含有反斜杠或控制字符的消息（例如来自键名）以前可能是无效
+    JSON，或被解码成其他文本。不含这些字符的消息保持其字节不变，双引号仍显示为撇号。
+  - `hashObject` 和 `deriveKid` 会抛出 `Error`，而不是把该封装当作哈希或密钥 ID 返回。
+  - `wasm_canonicalize_v2` 不变：它仍然无法区分自身的错误和规范形式就是该对象的值。
 
 - **Go：读取 SLH-DSA-192f 密钥时不再 panic**（本地源代码，不在任何已发布版本中；
   `sdks/go/dcp/providers/slh_dsa_192f_provider.go`）。该提供方在没有参数集（`ID` 为零）的情况下读取私钥和公钥，

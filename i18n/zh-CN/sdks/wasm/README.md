@@ -2,7 +2,7 @@
 
 # @dcp-ai/wasm — WebAssembly SDK v2.0
 
-> 本文是[英文 README](../../../../sdks/wasm/README.md)的参考译文，更新于 05/11/2026。为保留已测试的示例，标识符和代码块（包括注释）保持原样。
+> 本文是[英文 README](../../../../sdks/wasm/README.md)的参考译文，更新于 08/11/2026。为保留已测试的示例，标识符和代码块（包括注释）保持原样。
 
 这是用于 Digital Citizenship Protocol（DCP）v2.0 的 WebAssembly 模块，由 Rust SDK 编译而成。它提供后量子复合签名、混合密钥生成、ML-KEM-768 密钥封装、双哈希、bundle 构建与验证以及安全等级计算。所有功能都可直接在浏览器或 Node.js 中运行，无需服务器。
 
@@ -155,7 +155,7 @@ console.log(result.verified, result.classical_valid, result.pq_valid); // true t
 
 #### `initDcp(wasmUrl?: string): Promise<DcpWasm>`
 
-初始化 WASM 模块。使用任何 API 前必须调用一次。可选传入 `.wasm` 文件的 URL；在 Node.js 中应传入 `data:` URL（参见[初始化](#initialization-browser-and-nodejs)）。
+初始化 WASM 模块。使用任何 API 前必须调用一次。可选传入 `.wasm` 文件的 URL；在 Node.js 中应传入 `data:` URL（参见[初始化](#initialization-browser-and-nodejs)）。参数会传给 wasm-bindgen 的初始化函数。字符串仍然可用，但此构建的初始化函数会记录一条该形式已弃用的警告。它也接受带有 URL 或 `.wasm` 字节的 `{ module_or_path }`，仓库的测试就是这样传入的；TypeScript 类型只声明了字符串。
 
 <a id="keypair-generation"></a>
 
@@ -209,7 +209,7 @@ console.log(result.verified, result.classical_valid, result.pq_valid); // true t
 |--------|---------|-------------|
 | `dualHash(data)` | `DualHash` | SHA-256 + SHA3-256 双哈希 |
 | `sha3_256(data)` | `string` | SHA3-256 哈希，返回十六进制字符串 |
-| `hashObject(obj)` | `string` | JSON 对象的 SHA-256 哈希 |
+| `hashObject(obj)` | `string` | JSON 对象的 SHA-256 哈希，始终为 64 个小写十六进制字符。在本地源代码中（2.1.3 中没有），当绑定无法读取该值（例如孤立代理项）时抛出 `Error`，而 2.1.3 会把错误封装当作哈希返回 |
 | `dualMerkleRoot(leaves)` | `DualHash` | 根据非空的 `DualHash` 叶节点数组（每个都是 32 字节十六进制摘要）计算 [VERIFICATION.md 的 V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) 双 Merkle 根；数组为空或叶节点无效时抛出异常。根为小写十六进制。自 2.1.3 起：2.1.1 及更早版本对十六进制文本做哈希，因此两个或更多叶节点的根不同 |
 
 <a id="canonicalization-domain-separation"></a>
@@ -218,9 +218,9 @@ console.log(result.verified, result.classical_valid, result.pq_valid); // true t
 
 | 方法 | 返回值 | 描述 |
 |--------|---------|-------------|
-| `canonicalize(value)` | `string` | 基于 RFC 8785 JCS 的 `dcp-jcs-v1` 规范化 |
+| `canonicalize(value)` | `string` | 对 `JSON.stringify` 写出的值进行 `dcp-jcs-v1` 规范化（基于 RFC 8785 JCS），因此 `NaN` 和 `±Infinity` 会变成 `null`，`BigInt` 或循环引用会让 `JSON.stringify` 抛出它自己的 `TypeError`。对小数或绑定无法读取的值（例如孤立代理项）抛出 `Error`（`canonicalize: …`）。在本地源代码中（2.1.3 中没有）它读取带标签的导出，因此规范形式以 `error` 成员开头的值（例如 `{ error: 'x' }`）也会被规范化；2.1.3 会对它抛出异常 |
 | `domainSeparatedMessage(context, payloadHex)` | `string` | 域分离后的消息，返回十六进制字符串 |
-| `deriveKid(alg, publicKeyB64)` | `string` | 根据算法和公钥确定性地派生密钥 ID |
+| `deriveKid(alg, publicKeyB64)` | `string` | 根据算法和公钥确定性地派生密钥 ID，始终为 32 个小写十六进制字符。在本地源代码中（2.1.3 中没有），对无效 base64 抛出 `Error`，而 2.1.3 会把错误封装当作密钥 ID 返回 |
 
 <a id="session-security"></a>
 
@@ -280,9 +280,13 @@ WASM SDK 为 DCP-05 到 DCP-09 的所有工件提供 TypeScript 接口，与 Rus
 | DCP-08 权利 | `RightsDeclaration`, `RightEntry`, `ObligationRecord`, `RightsViolationReport`, `RightType`, `ComplianceStatus` |
 | DCP-09 委托 | `DelegationMandate`, `AdvisoryDeclaration`, `PrincipalMirror`, `InteractionRecord`, `AwarenessThreshold`, `ThresholdRule`, `AuthorityScopeEntry`, `ThresholdOperator`, `ThresholdAction` |
 
-可通过 `domainSeparatedMessage()` 使用的域分离上下文：`Lifecycle`、`Succession`、`Dispute`、`Rights`、`Delegation`、`Awareness`。
+`domainSeparatedMessage()`、`compositeSign()` 和 `compositeVerify()` 接收构建该包的 Rust 注册表所知的上下文全名。
+共有 20 个：interop 向量中的 19 个（其中包括 `DCP-AI.v2.Lifecycle`、`…Succession`、`…Dispute`、`…Rights`、
+`…Delegation` 和 `…Awareness`），以及 `DCP-AI.v2.MandateAcknowledgment`。[v2.0 § 4.1](../../../../spec/DCP-AI-v2.0.md)
+表中有两个上下文不在其中：`DCP-AI.v2.AlgorithmAdvisory` 和 `DCP-AI.v2.Governance`。在授权书确认的上下文下签名或
+验证，不会评估任何确认或激活。
 
-这些只是类型。该包不导出任何委托书有效性或委托链函数；`verify_mandate_validity_at` 和 `verify_mandate_chain` 位于构建它的 Rust crate 中，其他 SDK 也各有自己的函数。
+这些只是类型。该包不导出任何授权书有效性、授权书链、准入或激活函数。这是试点的范围，而不是浏览器的限制：浏览器应用程序的后端使用四个 SDK 之一，而在浏览器中根据客户端控制的输入计算出的准入，不会授权服务器上的任何操作。`verify_mandate_validity_at` 和 `verify_mandate_chain` 位于构建该包的 Rust crate 中，其他 SDK 各有自己的实现。
 
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in"></a>
 <a id="experimental-canonicalization-candidate-dcp-jcs-v2-opt-in-unreleased"></a>
@@ -348,8 +352,14 @@ import init, {
 await init();
 
 const keys = JSON.parse(wasm_generate_hybrid_keypair());
-// ... use raw functions, all return JSON strings
+// ... raw functions return JSON text, or a plain string for a hash, a key id, a nonce,
+// a domain-separated message (hex) or a canonical form
 ```
+
+原始函数在带内以 `{"error": "<message>"}` 报告错误。在本地源代码中（2.1.3 中没有），该封装是经过转义的 JSON。以前，
+含有反斜杠或控制字符的消息（例如来自键名）可能是无效 JSON，或被解码成其他文本。`wasm_canonicalize_v2` 返回规范形式
+或该封装，因此无法区分自身的错误和规范形式为 `{"error": …}` 的值。本地源代码新增了 `wasm_canonicalize_v2_result`，
+它返回 `{"ok": true, "canonical": …}` 或 `{"ok": false, "error": …}`；`canonicalize()` 使用它。
 
 完整的浏览器交互演示请参见 [example.html](../../../../sdks/wasm/example.html)。
 
@@ -403,6 +413,14 @@ rustup target add wasm32-unknown-unknown
 cd ../rust
 wasm-pack test --headless --chrome -- --features wasm
 ```
+
+<a id="conformance-in-a-browser"></a>
+
+### 在浏览器中的符合性
+
+套件的[浏览器包装器](../../tools/conformance/README.md#browser-wrapper-dcpwasm-in-chrome)针对本包的一个构建，在
+Chrome 中运行符合性目录以及对 `DcpWasm` 的直接调用。每次运行覆盖的内容见
+[覆盖图](../../docs/conformance/SECURITY_COVERAGE.md#public-interfaces-mp-03-08112026)。
 
 <a id="license"></a>
 

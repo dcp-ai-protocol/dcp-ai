@@ -74,6 +74,8 @@ jobs:
               - 'schemas/**'
               - 'spec/**'
               - 'tests/**'
+              - 'tools/conformance-external.js'
+              - 'tools/conformance/**'
               - '.github/workflows/ci.yml'
             integrations:
               - 'integrations/anthropic-mcp/**'
@@ -86,6 +88,7 @@ jobs:
               - '.github/workflows/ci.yml'
             cli:
               - 'cli/**'
+              - 'tools/ed25519-ped1.js'
               - 'sdks/typescript/**'
               - 'schemas/**'
               - 'tests/**'
@@ -151,9 +154,11 @@ jobs:
           python3 -I tests/interop/candidate/test_gate7_v1_negatives.py
 
       # Ed25519 S < L (RFC 8032 §5.1.7) in the reference verifier (tools/crypto.js, lib/verify.js,
-      # the transparency-log gossip) and in the playground's verifyDetached.
-      - name: Ed25519 S range regressions (reference and playground)
-        run: node --test tools/crypto-s-range.test.mjs tools/playground-s-range.test.mjs
+      # the transparency-log gossip) and in the playground's verifyDetached; P-ED-1 in the same verifiers and the
+      # three identical copies of its helper (tools/, cli/lib/, playground/js/core/ed25519-ped1.js), against the frozen
+      # corpus tests/interop/v2/ed25519_ped1_vectors.json.
+      - name: Ed25519 S range and P-ED-1 (reference and playground)
+        run: node --test tools/crypto-s-range.test.mjs tools/playground-s-range.test.mjs tools/ed25519-ped1-consumers.test.mjs
 
       - name: Generate V2 examples
         run: npm run examples:generate:v2
@@ -645,6 +650,11 @@ jobs:
       - name: Run the CLI tests
         run: npm test
 
+      # P-ED-1 on V1 files (lib/ed25519-ped1.js, the corpus's object cases, the identity forgery, KAT keys, the packed
+      # helper), run explicitly: the package's test script is unchanged.
+      - name: P-ED-1 in dcp-ai verify
+        run: node --test __tests__/verify-ped1.test.mjs
+
       # Each suite inverts one positive case: the run must fail on exactly those, on assertions.
       - name: Negative control
         run: npm run test:negative-control
@@ -654,7 +664,7 @@ jobs:
           npm pack --dry-run --json --ignore-scripts --offline > "$RUNNER_TEMP/pack.json"
           node -e "
             const files = require(process.env.RUNNER_TEMP + '/pack.json')[0].files.map((f) => f.path);
-            const need = ['bin/dcp-ai.js', 'lib/verify-v2.js', 'lib/schemas/v2/signed_bundle.schema.json'];
+            const need = ['bin/dcp-ai.js', 'lib/verify-v2.js', 'lib/ed25519-ped1.js', 'lib/schemas/v2/signed_bundle.schema.json'];
             const missing = need.filter((f) => !files.includes(f));
             const tests = files.filter((f) => f.startsWith('__tests__/'));
             const schemas = files.filter((f) => f.startsWith('lib/schemas/v2/'));
@@ -828,3 +838,62 @@ jobs:
           set -euo pipefail
           wasm-pack test --node . --locked --features wasm --test wasm_mldsa65_vectors 2>&1 | tee wasm-mldsa65-vectors.log
           grep -E "test result: ok\. 3 passed; 0 failed" wasm-mldsa65-vectors.log
+
+      # P-ED-1 (tests/interop/v2/ed25519_ped1_vectors.json, frozen) at the provider level, compiled to wasm32 and run in
+      # Node: the 67 provider cases, the 4 V1 objects and the 2 composite preimages with a real ML-DSA-65 key. Not the
+      # npm package's API; the browser harness below covers the public composite path apart.
+      - name: P-ED-1 vectors on wasm32 (Node, provider level)
+        working-directory: sdks/rust
+        run: |
+          set -euo pipefail
+          wasm-pack test --node . --locked --features wasm --test wasm_ped1_vectors 2>&1 | tee wasm-ped1-vectors.log
+          grep -E "test result: ok\. 3 passed; 0 failed" wasm-ped1-vectors.log
+
+      # MP-03 P1: the error contract of DcpWasm.canonicalize, hashObject, deriveKid and the wasm error envelope, against
+      # this build (60 cases, public and raw apart).
+      - name: DcpWasm interface error contract through the wasm build
+        run: node test/interface-errors.mjs
+
+      # The public JavaScript API (initDcp, DcpWasm) in a real browser: Chrome as installed on the runner image, headless,
+      # with a temporary profile and no flag that weakens its sandbox; a missing Chrome fails the step. The served
+      # artifacts are pinned to SHA256SUMS written right after this job's build. tools/conformance/README.md lists the
+      # catalogs; /3 and /4 are refused (DcpWasm has no admission or mandate chain API, D-04 = A).
+      - name: Chrome for the browser harness
+        run: |
+          set -euo pipefail
+          command -v google-chrome
+          google-chrome --version
+          (find dist pkg -type f -name '*.js' -o -type f -name '*.wasm' | LC_ALL=C sort | sed 's|^|./|' | xargs shasum -a 256) > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: External catalogs through DcpWasm in Chrome
+        working-directory: .
+        run: |
+          set -euo pipefail
+          mkdir -p browser-reports
+          W="node tools/conformance/wrappers/wasm-browser.mjs --root sdks/wasm --manifest sdks/wasm/SHA256SUMS"
+          node tools/conformance-external.js --report browser-reports/external-1.json -- $W --browser-report browser-reports/external-1.browser.json
+          node tools/conformance-external.js --catalog evidence --assessment verdict --report browser-reports/evidence-2.json -- $W --browser-report browser-reports/evidence-2.browser.json
+          node tools/conformance-external.js --catalog tools/conformance/external-policy-catalog.json --assessment verdict --report browser-reports/policy.json -- $W --browser-report browser-reports/policy.browser.json
+          node tools/conformance-external.js --catalog tools/conformance/external-structural-catalog.json --assessment verdict --report browser-reports/structural.json -- $W --browser-report browser-reports/structural.browser.json
+          node tools/conformance-external.js --catalog tools/conformance/external-schema-validation-catalog.json --assessment verdict --report browser-reports/schema-validation.json -- $W --browser-report browser-reports/schema-validation.browser.json
+          node tools/conformance-external.js --catalog tools/conformance/external-effective-policy-catalog.json --report browser-reports/effective-5.json -- $W --browser-report browser-reports/effective-5.browser.json
+          node tools/conformance/wrappers/browser/direct-sections.mjs --report browser-reports/direct.json --root sdks/wasm --manifest sdks/wasm/SHA256SUMS --browser-report browser-reports/direct.browser.json
+
+      # The runner reports and browser records (artifact hashes, Chrome version, user agent), kept also when a run fails.
+      - name: Keep the browser reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-reports
+          path: |
+            browser-reports/
+            sdks/wasm/SHA256SUMS
+          if-no-files-found: warn
+
+      - name: Browser harness self-tests (Chrome required)
+        working-directory: .
+        env:
+          DCP_BROWSER_ROOT: sdks/wasm
+          DCP_EXTERNAL_REQUIRE_BROWSER: "1"
+        run: node --test tools/conformance/external-browser.test.mjs

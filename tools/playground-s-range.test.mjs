@@ -28,7 +28,8 @@ const withScalar = (sig, s) =>
 /** k = 1, 2 and the largest k for which S + k·L still fits in 32 bytes. */
 const ks = (sig) => [...new Set([1n, 2n, (2n ** 256n - 1n - scalarOf(sig)) / L])];
 
-// A = the identity, so [S]B = R for any message (weak keys are E4, unchanged).
+// A = the identity, so [S]B = R for any message. P-ED-1 rejects it (E[8]): the cases below with it are now rejected,
+// two of them for that reason only (tools/ed25519-ped1-consumers.test.mjs covers P-ED-1 itself).
 const IDENTITY = hex("01" + "00".repeat(31));
 const MINUS_B = hex("58" + "66".repeat(30) + "e6");
 const sigOf = (r, s) => withScalar(new Uint8Array([...r, ...new Uint8Array(32)]), s);
@@ -65,12 +66,13 @@ for (const [i, t] of kat.entries()) {
   }
 }
 
-test("S = L - 1 with R = -B, A = identity: verifies (same top byte as L)", () => {
-  assert.equal(verifyDetached(payload, CONTEXT, sigOf(MINUS_B, L - 1n), IDENTITY), true);
+// Before P-ED-1 these two verified; A (and, in the second, R) is the identity, so they no longer do.
+test("S = L - 1 with R = -B, A = identity: does not verify (P-ED-1: A in E[8])", () => {
+  assert.equal(verifyDetached(payload, CONTEXT, sigOf(MINUS_B, L - 1n), IDENTITY), false);
 });
 
-test("S = 0 with R = A = identity: verifies", () => {
-  assert.equal(verifyDetached(payload, CONTEXT, sigOf(IDENTITY, 0n), IDENTITY), true);
+test("S = 0 with R = A = identity: does not verify (P-ED-1: A and R in E[8])", () => {
+  assert.equal(verifyDetached(payload, CONTEXT, sigOf(IDENTITY, 0n), IDENTITY), false);
 });
 
 for (const k of [1n, 2n, 15n]) {

@@ -4,7 +4,7 @@
 
 # DCP-AI 一致性测试套件
 
-> 本文是[英文版](../../../../tools/conformance/README.md)的参考译文，更新于 07/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../../tools/conformance/README.md)的参考译文，更新于 08/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 `tools/conformance.js` 针对仓库中已提交的 fixture 和向量，运行 [`catalog.json`](../../../../tools/conformance/catalog.json) 中声明的各个
 测试集。目录带有版本（`kit_version`），并为每个测试集固定其必须产生的确切用例 ID。该套件只读取 fixture：
@@ -200,8 +200,75 @@ DCP_EXTERNAL_REQUIRE_NATIVE=1 node --test tools/conformance/external-native.test
   会跳过未构建的部分并加以说明；设置后，缺少工具或产物即为失败。CI 从检出副本构建这三个包装器，并用每个包装器
   运行 38 个用例，因此在 CI 中五个包装器都是必需的。
 - **限制：** WASM 包装器在 Node 中调用 wasm-bindgen 的原始导出函数：它不覆盖 `@dcp-ai/wasm` 软件包的
-  JavaScript API（例如 `DcpClient`），也不覆盖浏览器。由于 SDK 没有稳定的错误码，拒绝的判定依赖消息文本；通过 WASM 时，根为单键的 `{"error": …}` 输入只有在导出
+  JavaScript API（`DcpWasm`），也不覆盖浏览器，二者由[浏览器包装器](#browser-wrapper-dcpwasm-in-chrome)覆盖。由于 SDK 没有稳定的错误码，拒绝的判定依赖消息文本；通过 WASM 时，根为单键的 `{"error": …}` 输入只有在导出
   函数返回 `{"error": string}` 封装时才是有歧义的错误（`{"error":5}` 仍为 `ok`）。通过只表明这 38 个用例在每个包装器上通过，仅此而已。
+
+<a id="browser-wrapper-dcpwasm-in-chrome"></a>
+
+### 浏览器包装器：Chrome 中的 DcpWasm
+
+`wrappers/wasm-browser.mjs` 响应约定 `/1`、约定 `/2` 及使用它的目录，以及约定 `/5`。它在 Chrome 中经过
+`@dcp-ai/wasm` 的公开 JavaScript API（`initDcp` 和 `DcpWasm`），而不是原始导出。由于该包没有准入或授权书链的 API，
+它拒绝 `/3` 和 `/4`（exit 2）。它不安装任何东西：需要该包的一个构建（由 `wasm-pack --target web` 和 `tsc` 生成的
+`dist/` 和 `pkg/`）以及已经安装的 Chrome。
+
+```bash
+node tools/conformance-external.js -- node tools/conformance/wrappers/wasm-browser.mjs --root sdks/wasm --browser-report /tmp/browser-1.json
+node tools/conformance-external.js --catalog evidence --assessment verdict -- node tools/conformance/wrappers/wasm-browser.mjs --root sdks/wasm
+node tools/conformance/wrappers/browser/direct-sections.mjs --report /tmp/direct.json --root sdks/wasm
+DCP_BROWSER_ROOT=sdks/wasm DCP_EXTERNAL_REQUIRE_BROWSER=1 node --test tools/conformance/external-browser.test.mjs
+```
+
+- **运行方式：**
+  - 包装器像 WASM 包装器一样验证请求。
+  - 它从内存在 127.0.0.1 上提供页面和工件，每次运行使用一个随机路径，允许列表严格，没有 CORS，且内容安全策略不从
+    其他来源加载任何内容。
+  - 它用临时配置文件以无头模式启动 Chrome，并在结束时关闭。
+  - 页面调用 `initDcp()`，并用每个用例对应的 `DcpWasm` 方法作答：`canonicalize`、`dualHash`、`sha3_256`、
+    `dualMerkleRoot`、`compositeVerify` 或 `verifyBundle`。规范化用例、bundle 和复合负载会先对其字节执行
+    `JSON.parse`；摘要使用用例的文本，Merkle 用例使用其十六进制叶子。页面只提交一次结果，运行器像对待任何包装器一样
+    评判它们。
+- **导致运行失败的情况**（exit 1，无响应）：
+  - 页面报告初始化失败，或同时报告 `done` 和错误；
+  - 它的导出与由源代码推导出的 `browser/expected-api.json` 不同；
+  - 页面获取的工件与提供的字节不同；
+  - 时钟没有恢复；
+  - 结果不属于本次运行，或到达两次；
+  - 本次运行路径下的请求超出允许列表，或带有其他 Host 或 Origin；
+  - Chrome 先行退出，或超过期限；
+  - 无法写入所请求的 `--browser-report`。
+
+  `--manifest <SHA256SUMS>` 还会把提供的工件固定到一个哈希列表。
+- **时间：** `verifyBundle` 读取 `Date.now`。页面只在那一次调用期间把它设为用例的 `verification_time`，之后恢复，调用
+  抛出异常时也会恢复。页面无法解析的 bundle 不经调用就答复 `rejected`/`parse`，页面会指明是哪一个。
+- **直接部分：** `wrappers/browser/direct-sections.mjs` 发送一个内部请求（`dcp-ai-browser-direct/1`，不是套件的约定）。
+  它对照现有夹具评判页面的原始观察结果：
+  - `domainSeparatedMessage`（20）；
+  - `computeSecurityTier`（79）；
+  - P-ED-1 的 2 个复合原像，以 `classical_only` 绑定经 `compositeVerify`；
+  - 2 次混合往返（`generateHybridKeypair`、`compositeSign`、`compositeVerify`），带有负载、上下文和签名反例。密钥在
+    页面中生成，从不离开页面。
+
+  共 103 个用例，独立于目录的 590 个用例。
+- **手动运行：** 使用 `--manual --url-file <file>` 时，包装器不启动浏览器。它把 URL 写入文件，等待有人打开；为此请
+  调大 `--deadline-ms` 和运行器的 `--timeout-ms`。运行器以同样方式评判结果。
+- **自检：** `external-browser.test.mjs` 有 21 项测试：
+  - 一个正向对照；
+  - 三个时刻的时钟；
+  - 一个无法解析的 bundle；
+  - 直接部分及其评判器自身的反例；
+  - 绝不能通过的对照：通过 `DCP_CONFORMANCE_WRAPPER_FAULT` 注入的故障（仅用于自检；注入故障的响应会注明这一点），
+    以及服务器必须拒绝的请求。
+
+  设置 `DCP_EXTERNAL_REQUIRE_BROWSER=1` 时，缺少 Chrome 或构建会导致失败而不是跳过。CI 在它构建的包上运行目录、直接
+  部分和自检。
+- **不属于本包装器：** `sdks/rust/tests/wasm_ped1_vectors.rs` 在 Node 上的 wasm32 中以提供方层级运行 P-ED-1 语料库，
+  不经过包的 API。它有 3 项测试：67 个提供方用例、4 个 V1 对象，以及使用真实 ML-DSA-65 密钥的 2 个复合用例。
+- **限制：**
+  - 只有一个引擎，即 Chrome，且不测量性能。
+  - 规范化用例、bundle 和复合负载在页面中经过 `JSON.parse`，因此通过不能说明它们的原始字节，也不能说明
+    [准入 § 11](../../../../spec/profiles/admission/README.md#11-admission-from-bytes-opt-in)的入口检查。
+  - 通过只表明这些用例在此浏览器中经由此 API 通过，仅此而已。
 
 <a id="evidence-catalog-merkle-and-signature-verification"></a>
 
@@ -409,7 +476,7 @@ DCP_EXTERNAL_PYTHON=/path/to/python DCP_EXTERNAL_REQUIRE_PYTHON=1 DCP_EXTERNAL_R
 - **期望值：** 取自已提交的向量，依据 spec/DCP-AI-v2.0.md § 14.2 和 § 14.3 以及 VERIFICATION.md V2-9 手工编写：护照 `risk_tier` 的覆盖替换 `default_mode`（可以更低），然后由等级下限提升。测试套件从不根据应答计算模式或等级。`effective_policy_vectors.json` 使用已提交的 TEST-ONLY 密钥签名；其 ML-DSA-65 签名带有随机性（hedged），因此重新生成只在这些签名上不同，已提交的文件就是成品。`node tools/conformance/effective-policy-catalog.mjs --check` 根据测试数据重建目录。
 - **封装程序：** 每个封装程序对每个用例调用一次验证，并复制该结果的两个字段：TypeScript 和 Python 来自 `details`（`details` 缺失或不是对象属于错误，绝不是未解析的应答），Go 和 Rust 来自结果的字符串字段（始终公开，未解析时为 `""`），WASM 来自 `wasm_verify_signed_bundle_v2` 返回的 JSON 的成员（为空时省略）。在 `/5` 下，任何其他操作都是 `unsupported`。各 SDK 在先前失败后是否解析模式和等级上有所不同；解析前套件记录这一点但不作判定。
 - **自测：** `external-effective-policy.test.mjs` 根据测试数据重建目录，用模式校验核对观察用例，用独立规则核对覆盖范围，并让加载器拒绝缺失、多余或重复的 ID、错误的解析分类、不一致的期望值，以及不是简单正向用例的对照。根据 TypeScript 封装程序真实应答构造的伪实现各自恰好在其用例上失败：缺失、`null`、`""`、部分、未知、格式错误、矛盾和错误的值，信封错误，以及报告请求模式、默认模式、仅等级下限、声明的 `security_tier` 或 `policy_decision.resolved_tier` 的封装程序。传输错误、超时和旧报告都经过运行器的 `/5` 分派。CI 通过五个封装程序运行自测和目录，每一个都是必需的。
-- **限制：** 通过只证明这些策略下的这 130 个用例，不是完整的 V2 符合性。为被拒绝的 bundle 报告的模式或等级只是诊断，不是准入或授权。不覆盖：DCP-09 委托链的等级下限（没有 bundle 字段携带该链）、`@dcp-ai/wasm` 的 JavaScript API（`DcpClient`）和浏览器。
+- **限制：** 通过只证明这些策略下的这 130 个用例，不是完整的 V2 符合性。为被拒绝的 bundle 报告的模式或等级只是诊断，不是准入或授权。不覆盖：DCP-09 委托链的等级下限（没有 bundle 字段携带该链）。`@dcp-ai/wasm` 的 JavaScript API（`DcpWasm`）通过[浏览器包装器](#browser-wrapper-dcpwasm-in-chrome)在 Chrome 中运行本目录；本目录不调用的 `computeSecurityTier` 是其直接部分之一。
 
 <a id="admission-catalog-strict-v1-admission"></a>
 
