@@ -71,6 +71,7 @@
 
 - [tools/interop-matrix](../../../tools/interop-matrix/README.md) — 四个 SDK 上的真实智能体相互签署并验证彼此的 bundle，包括原样的和在传输中被篡改的
 - [tools/difffuzz](../../../tools/difffuzz/README.md) — 对四个 V2 验证器进行差分模糊测试
+- [tools/enterprise-rehearsal](../../../tools/enterprise-rehearsal/README.md) — 可选的企业集成演练：从同一个提交构建的软件包、一个 Express 应用和一个 FastAPI 应用，以及运行前写好的预期结果
 - [tests/interop/v2](../../../tests/interop/v2/) — 每个 SDK 都必须接受或拒绝的共享向量
 - [tests/interop/candidate/phase4](../../../tests/interop/candidate/phase4/README.md) — 实验性 `dcp-jcs-v2` 生成方的交叉矩阵（五个 SDK）
 

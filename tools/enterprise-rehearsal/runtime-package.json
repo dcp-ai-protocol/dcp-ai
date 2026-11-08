@@ -1,0 +1,14 @@
+{
+  "name": "dcp-enterprise-rehearsal",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@dcp-ai/sdk": "file:sdk.tgz",
+    "@dcp-ai/express": "file:express.tgz",
+    "express": "5.2.1"
+  },
+  "overrides": {
+    "@dcp-ai/sdk": "$@dcp-ai/sdk"
+  }
+}

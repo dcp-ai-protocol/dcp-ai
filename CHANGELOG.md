@@ -373,6 +373,15 @@ Published on 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/
 
 ### Added
 
+- **Enterprise integration rehearsal** (new [tools/enterprise-rehearsal/README.md](tools/enterprise-rehearsal/README.md);
+  an optional kit outside the protocol, the SDKs and the adapters, with no SDK, adapter, profile, default or wire
+  change, `dcp-jcs-v1` unchanged, and nothing published). It builds the TypeScript SDK, the Express adapter and the
+  Python SDK from one commit, installs them into a new consumer, and runs an Express and a FastAPI application on
+  loopback against expectations written before the run, under a supervisor that owns every process. Keys, tokens
+  and tenants are synthetic and marked TEST ONLY, and the run deletes the secrets. The guide also states what the
+  rehearsal does not show: Go, Rust or WASM end to end, production TLS, PKI or OIDC, KMS or HSM, exactly-once
+  execution, or anything about the published packages.
+
 - **Conformance through the public interfaces** (local source; no new rule, schema or profile, and `dcp-jcs-v1` is
   unchanged; the one new export is the WASM fix below).
   `tools/conformance/wrappers/wasm-browser.mjs` runs kit catalogs through the public `DcpWasm` class in Chrome:

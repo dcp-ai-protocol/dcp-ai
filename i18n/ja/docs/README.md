@@ -75,6 +75,7 @@
 
 - [tools/interop-matrix](../../../tools/interop-matrix/README.md) — 4 つの SDK 上の実際のエージェントが、互いのバンドルを、そのままの状態と転送中に改ざんした状態で署名・検証します
 - [tools/difffuzz](../../../tools/difffuzz/README.md) — 4 つの V2 検証器の差分ファジング
+- [tools/enterprise-rehearsal](../../../tools/enterprise-rehearsal/README.md) — 任意のエンタープライズ統合リハーサル：1 つのコミットからビルドしたパッケージ、Express と FastAPI のアプリケーション、実行前に書かれた期待値
 - [tests/interop/v2](../../../tests/interop/v2/) — すべての SDK が受理または拒否しなければならない共通ベクター
 - [tests/interop/candidate/phase4](../../../tests/interop/candidate/phase4/README.md) — 実験的な `dcp-jcs-v2` の生成側のクロスマトリクス（5 つの SDK）
 

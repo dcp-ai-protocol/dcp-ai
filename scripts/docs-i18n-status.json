@@ -359,23 +359,23 @@
       }
     },
     "docs/README.md": {
-      "source_sha256": "b10da300fd3673fb8a0adc0cb21f4fed98096a7c8c769c084157447934595ae2",
+      "source_sha256": "47f58c9476bcf40f7ce835c9517553d1d0f85f19619ecd86b0c15a8a76058dff",
       "translations": {
         "es": {
-          "source_sha256": "b10da300fd3673fb8a0adc0cb21f4fed98096a7c8c769c084157447934595ae2",
-          "sha256": "5ba982cc12fe08913da50a2904176bd0be7992ea046c45cf36f311b6f3379871"
+          "source_sha256": "47f58c9476bcf40f7ce835c9517553d1d0f85f19619ecd86b0c15a8a76058dff",
+          "sha256": "5c1e6026f4bb0ceb286abe9d165422ab4414bb2d586e26443a86ac648b824031"
         },
         "pt-BR": {
-          "source_sha256": "b10da300fd3673fb8a0adc0cb21f4fed98096a7c8c769c084157447934595ae2",
-          "sha256": "659858615df60af06718b7499186417085d1db8a0169cc53e4db9b35cb888978"
+          "source_sha256": "47f58c9476bcf40f7ce835c9517553d1d0f85f19619ecd86b0c15a8a76058dff",
+          "sha256": "afb9fd737a96a06238bfd77ffbb8c46489e0fc19625c442e0f6c9da332fa3d45"
         },
         "ja": {
-          "source_sha256": "b10da300fd3673fb8a0adc0cb21f4fed98096a7c8c769c084157447934595ae2",
-          "sha256": "8c6863336f4232bb9f6e73705e08626f3a52c54f0e4ad8c98de3b4f7b4fbe60b"
+          "source_sha256": "47f58c9476bcf40f7ce835c9517553d1d0f85f19619ecd86b0c15a8a76058dff",
+          "sha256": "40c517650274dc2c05619d4410f83da130e443b55c668b7b33c6520789591a04"
         },
         "zh-CN": {
-          "source_sha256": "b10da300fd3673fb8a0adc0cb21f4fed98096a7c8c769c084157447934595ae2",
-          "sha256": "21c342de079d9b0b690706b0adb4e0fbedeae4bfb0f0746e231551443ba271d6"
+          "source_sha256": "47f58c9476bcf40f7ce835c9517553d1d0f85f19619ecd86b0c15a8a76058dff",
+          "sha256": "6655af3460607dd3323c9bcf5b6c129c76d4e9be077be115ee66954d5393cf8e"
         }
       }
     },
@@ -1892,23 +1892,23 @@
       }
     },
     "CHANGELOG.md": {
-      "source_sha256": "0f434cf0db24b92a18114f2547be9ca1dc2cf09f18568f55f6a65ae4d1c26b8b",
+      "source_sha256": "9cdc8fafba22309c15b51030e791c352886f912b3a936241dd85fc3ea774497a",
       "translations": {
         "es": {
-          "source_sha256": "0f434cf0db24b92a18114f2547be9ca1dc2cf09f18568f55f6a65ae4d1c26b8b",
-          "sha256": "49f866b8a00ba99a80e00bc8590ae6a69d7110a7076ec7baeb291f9a1944c62b"
+          "source_sha256": "9cdc8fafba22309c15b51030e791c352886f912b3a936241dd85fc3ea774497a",
+          "sha256": "5ff8f94323d978acfc84ba9ae711c719932d4a0cda2b65eca5e85ac31f89126f"
         },
         "pt-BR": {
-          "source_sha256": "0f434cf0db24b92a18114f2547be9ca1dc2cf09f18568f55f6a65ae4d1c26b8b",
-          "sha256": "388cf7f74b1ee2de2daea0ac12a7fcce07d87eb4b02bbcf173f38950c6dcd374"
+          "source_sha256": "9cdc8fafba22309c15b51030e791c352886f912b3a936241dd85fc3ea774497a",
+          "sha256": "5abb701ca8e805c6198f7c2c9acb6b6a10c5161bffd9f602d2561766be2b04f8"
         },
         "ja": {
-          "source_sha256": "0f434cf0db24b92a18114f2547be9ca1dc2cf09f18568f55f6a65ae4d1c26b8b",
-          "sha256": "4df50f6bae2b95ac50d28a3853969d16e6d4e28eb5e9abbdfa074ecbacfa27e6"
+          "source_sha256": "9cdc8fafba22309c15b51030e791c352886f912b3a936241dd85fc3ea774497a",
+          "sha256": "fb1b824156bf69cc206f2ba0f8bd8ef94cd72466f1e4a836aa243407422e61dc"
         },
         "zh-CN": {
-          "source_sha256": "0f434cf0db24b92a18114f2547be9ca1dc2cf09f18568f55f6a65ae4d1c26b8b",
-          "sha256": "0e4d3225b8f17034e50e9595ff5ab2255a74483ceb69b78a38b8cccec5732ff4"
+          "source_sha256": "9cdc8fafba22309c15b51030e791c352886f912b3a936241dd85fc3ea774497a",
+          "sha256": "a5ba0df142424d313f402ac424c1a3e3ee2be69d14a521cd1c0328dce9bbef1d"
         }
       }
     },
@@ -2119,6 +2119,27 @@
         "zh-CN": {
           "source_sha256": "43523a6816e6cc5335eb0b51b9dda68f1fdc9af92d2cc9b72b71970fff637fc1",
           "sha256": "a04ef1a83f766f705e639e141223036951e822675d44dc69fb8f53d983ca5773"
+        }
+      }
+    },
+    "tools/enterprise-rehearsal/README.md": {
+      "source_sha256": "04e2d0e85372f57c7b7f34846faa44de74b27321ad5de7299d446c75f6c2f532",
+      "translations": {
+        "es": {
+          "source_sha256": "04e2d0e85372f57c7b7f34846faa44de74b27321ad5de7299d446c75f6c2f532",
+          "sha256": "e456666dc806db65418daa561e9b26d4a758b76846390c55f08a81f81acc3dc7"
+        },
+        "pt-BR": {
+          "source_sha256": "04e2d0e85372f57c7b7f34846faa44de74b27321ad5de7299d446c75f6c2f532",
+          "sha256": "ce0bb12a8652c6da2637561727881f1b7b8381a3c202b93f6b7111faf4704fbd"
+        },
+        "ja": {
+          "source_sha256": "04e2d0e85372f57c7b7f34846faa44de74b27321ad5de7299d446c75f6c2f532",
+          "sha256": "8caa45e69f9808433efaa63d47aef9f2640ab731812134a4cd36916d82d9497d"
+        },
+        "zh-CN": {
+          "source_sha256": "04e2d0e85372f57c7b7f34846faa44de74b27321ad5de7299d446c75f6c2f532",
+          "sha256": "81af0526fe282714af2257953d4033f634b20b778c8c32d843b454be42c6d52c"
         }
       }
     }
