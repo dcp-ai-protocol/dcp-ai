@@ -58,6 +58,14 @@ The other APIs, `dcp-jcs-v1` and the experimental opt-in `dcp-jcs-v2` APIs are u
 
 > **Note (05/11/2026).** The comparison above was written on 30/10/2026 for the prepared 2.12.0, which is still not published. `main` has changed verification since then: every V2 verifier, the WASM build included, runs V2-2 schema validation (#116, 02/11/2026), and the mandate validity helper, the chain time checks and the check of repeated root domains changed (#117 to #119). These changes are not in the 2.12.0 described above, which was never published; 2.13.0 above contains them and supersedes it, and the manifests on `main` carry 2.13.0. See the [audit dossier](conformance/AUDIT_DOSSIER.md#artifacts).
 
+## Prepared, not published: 2.14.0
+
+Prepared on 08/11/2026 and not published; the installation commands above stay on 2.13.0 until 2.14.0 is published and checked.
+
+- **Added (opt-in).** `admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `create_mandate_acknowledgment` and `evaluate_delegation_activation_v2` ([changelog](../CHANGELOG.md#unreleased)).
+- **Acceptance change.** P-ED-1 in V1 object verification and the default V2 Ed25519 provider; with the `wasm` feature, the raw export `wasm_canonicalize_v2_result`.
+- **`otlp` feature.** It requires `anyhow` 1.0.103 or later and `tokio` 1.53.3 or later (RUSTSEC-2026-0190, RUSTSEC-2026-0386), which the exporter brings into the graph; the default and `wasm` builds select neither. A crate's own `Cargo.lock` does not bind its consumers: a project with a lock that enables `otlp` runs `cargo update -p anyhow -p tokio`. The minimum also leaves out the fixed tokio 1.51.x line (1.51.6 or later) when `otlp` is enabled; that does not make 1.51.6 vulnerable, Cargo just cannot allow both lines.
+
 ## Related releases
 
 The current versions in every registry are listed in [Published versions](README.md#published-versions). Other release notes: [npm packages](NPM_RELEASES.md), [Python 2.10.2](PYTHON_RELEASE.md) and [Go v2.13.0](GO_RELEASE.md).

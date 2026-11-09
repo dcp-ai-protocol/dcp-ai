@@ -7,10 +7,13 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const CLI = fileURLToPath(new URL('..', import.meta.url));
-const SUITES = ['__tests__/verify-s-range.test.mjs', '__tests__/verify-v2-normative.test.mjs'];
+const SUITES = ['__tests__/verify-s-range.test.mjs', '__tests__/verify-v2-normative.test.mjs',
+  '__tests__/verify-ped1.test.mjs', '__tests__/version.test.mjs'];
 const INVERTED = [
   'v1, rfc8032_test1 key: a signature over its bytes: VALID',
   'signed_bundle (hybrid, pq_over_classical): VALID, exit 0',
+  "the corpus's object/normal-key as a V1 file: VALID, exit 0",
+  '--version prints the package.json version from another working directory',
 ];
 
 const run = spawnSync(process.execPath, ['--test', '--test-reporter=tap', ...SUITES], {

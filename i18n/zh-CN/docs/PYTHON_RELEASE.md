@@ -2,7 +2,7 @@
 
 # 已发布的 Python 软件包
 
-> [英文版](../../../docs/PYTHON_RELEASE.md)的参考译文，更新于 05/11/2026。如有差异，以英文版为准。
+> [英文版](../../../docs/PYTHON_RELEASE.md)的参考译文，更新于 09/11/2026。如有差异，以英文版为准。
 
 05/11/2026 已确认：[`dcp-ai` 2.10.2](https://pypi.org/project/dcp-ai/2.10.2/) 已在 PyPI 发布（[更新内容](#what-changed-in-2102)）。Python 软件包版本与 DCP 线格式/规范版本独立。Python 软件包与 Go、Rust、npm 软件包和容器独立发布。之前的版本 [2.10.1](https://pypi.org/project/dcp-ai/2.10.1/)（28/10/2026 确认）和 [2.10.0](https://pypi.org/project/dcp-ai/2.10.0/)（26/10/2026 确认）的说明保留在下文。
 
@@ -63,6 +63,16 @@ ML-DSA 依赖在有界签名尝试耗尽时可能抛出 `ValueError`。一个 CI
 - **统一授权书检查。** `verify_mandate_validity` 采用统一的约定，返回结果而不是抛出异常；`now=` 必须是带时区的 `datetime`。注解为 `set[str]` 的已吊销 ID 现在按 `collections.abc.Set`（`set`、`frozenset` 或 dict 的键视图）检查：以前被容忍的列表或字符串会被拒绝。`verify_mandate_chain` 以同一方式读取所有时间，并拒绝重复某个领域的根授权书。
 
 传输格式、签名、配置文件、作为规范默认值的 `dcp-jcs-v1` 以及实验性显式启用的 `dcp-jcs-v2` API 均不变，wheel 和 sdist 现在包含 Apache-2.0 `LICENSE`。请保留历史证据，而不是改写它。已发布的 wheel 和 sdist 中的 README 是发布前准备的版本，写着“prepared, not published”；已发布的文件无法更改。见 [SDK README](../../../sdks/python/README.md) 和[变更日志](../../../CHANGELOG.md#unreleased)。
+
+<a id="prepared-not-published-2110"></a>
+
+## 已准备、未发布：2.11.0
+
+于 08/11/2026 准备，未发布；在 2.11.0 发布并核对之前，上面的安装命令仍指向 2.10.2。
+
+- **新增（显式启用）。** `admit_delegated_bundle_v2`、`admit_signed_bundle_v2_from_bytes`、`create_mandate_acknowledgment` 和 `evaluate_delegation_activation_v2`（[变更日志](../../../CHANGELOG.md#unreleased)）。
+- **接受范围变化。** V1 对象验证和默认的 V2 Ed25519 提供方中的 P-ED-1；官方 PyNaCl 构建此前已拒绝这些签名。
+- 传输格式、签名、配置文件和 `dcp-jcs-v1` 均不变。
 
 <a id="related-releases"></a>
 

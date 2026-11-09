@@ -6,6 +6,7 @@
 // bytes. V2 files keep their path (verify-v2-normative.test.mjs); the helper ships in the package (checked below).
 //
 //   node --test cli/__tests__/verify-ped1.test.mjs
+//   DCP_NEGATIVE_CONTROL=1 node --test cli/__tests__/verify-ped1.test.mjs   # must fail once
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -18,6 +19,7 @@ import nacl from 'tweetnacl';
 import stringify from 'json-stable-stringify';
 import { findConfigDir } from '../lib/config.js';
 
+const NEGATIVE_CONTROL = process.env.DCP_NEGATIVE_CONTROL === '1';
 const CLI = fileURLToPath(new URL('..', import.meta.url));
 const BIN = join(CLI, 'bin', 'dcp-ai.js');
 const raw = readFileSync(new URL('../../tests/interop/v2/ed25519_ped1_vectors.json', import.meta.url));
@@ -59,7 +61,9 @@ for (const c of V.objects.cases) {
   test(`the corpus's ${c.id} as a V1 file: ${c.accept ? 'VALID, exit 0' : 'INVALID, exit 1'}`, () => {
     assert.equal(Buffer.from(stringify(V.objects.object)).toString('hex'), c.message_hex, 'the bytes the CLI checks');
     if (!c.accept) assert.equal(nacl.sign.detached.verify(hex(c.message_hex), hex(c.signature_hex), hex(c.public_key_hex)), true, 'TweetNaCl alone accepts');
-    expect(verify(file(V.objects.object, b64(hex(c.signature_hex)), b64(hex(c.public_key_hex)))), c.accept ? 'VALID' : 'INVALID');
+    // The negative control inverts the one accepted case.
+    const want = c.accept !== (NEGATIVE_CONTROL && c.id === 'object/normal-key') ? 'VALID' : 'INVALID';
+    expect(verify(file(V.objects.object, b64(hex(c.signature_hex)), b64(hex(c.public_key_hex)))), want);
   });
 }
 

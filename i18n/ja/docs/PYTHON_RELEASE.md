@@ -2,7 +2,7 @@
 
 # 公開済み Python パッケージ
 
-> [英語版](../../../docs/PYTHON_RELEASE.md)の参考訳。05/11/2026 更新。相違がある場合は英語版が優先されます。
+> [英語版](../../../docs/PYTHON_RELEASE.md)の参考訳。09/11/2026 更新。相違がある場合は英語版が優先されます。
 
 05/11/2026 確認：[`dcp-ai` 2.10.2](https://pypi.org/project/dcp-ai/2.10.2/) は PyPI で公開済みです（[変更点](#what-changed-in-2102)）。Python パッケージのバージョンは DCP のワイヤー形式・仕様バージョンとは独立しています。Python パッケージは Go、Rust、npm パッケージ、コンテナーとは独立して公開されます。以前のリリース [2.10.1](https://pypi.org/project/dcp-ai/2.10.1/)（28/10/2026 確認）と [2.10.0](https://pypi.org/project/dcp-ai/2.10.0/)（26/10/2026 確認）の記述は以下に残しています。
 
@@ -63,6 +63,16 @@ ML-DSA 依存関係は、回数制限のある署名試行を使い切ると `Va
 - **委任状の確認を揃えます。** `verify_mandate_validity` は一つの契約を適用し、例外を送出せずに結果を返します。`now=` はタイムゾーン付きの `datetime` でなければなりません。`set[str]` と注釈された失効 ID は、`collections.abc.Set`（`set`、`frozenset`、または dict のキービュー）として確認されるようになりました。以前は許容されていたリストや文字列は拒否されます。`verify_mandate_chain` はすべての時刻を同じ方法で読み取り、ドメインを繰り返すルート委任状を拒否します。
 
 ワイヤーフォーマット、署名、プロファイル、規範的なデフォルトとしての `dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API は変わらず、wheel と sdist に Apache-2.0 の `LICENSE` が含まれるようになりました。過去の証拠は書き換えずに保持してください。公開済みの wheel と sdist に含まれる README は公開前に準備したもので、「prepared, not published」と記載しています。公開済みのファイルは変更できません。[SDK README](../../../sdks/python/README.md)と[変更履歴](../../../CHANGELOG.md#unreleased)を参照してください。
+
+<a id="prepared-not-published-2110"></a>
+
+## 準備済み・未公開：2.11.0
+
+08/11/2026 に準備し、公開していません。上記のインストールコマンドは、2.11.0 が公開されて確認されるまで 2.10.2 のままです。
+
+- **追加（オプトイン）。** `admit_delegated_bundle_v2`、`admit_signed_bundle_v2_from_bytes`、`create_mandate_acknowledgment`、`evaluate_delegation_activation_v2`（[変更履歴](../../../CHANGELOG.md#unreleased)）。
+- **受理の変更。** V1 オブジェクトの検証とデフォルトの V2 Ed25519 プロバイダーにおける P-ED-1。公式の PyNaCl ビルドはすでにこれらの署名を拒否していました。
+- ワイヤーフォーマット、署名、プロファイル、`dcp-jcs-v1` は変わりません。
 
 <a id="related-releases"></a>
 

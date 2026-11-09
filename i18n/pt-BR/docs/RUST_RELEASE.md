@@ -2,7 +2,7 @@
 
 # Crate Rust publicado
 
-> Tradução informativa do [original em inglês](../../../docs/RUST_RELEASE.md), revisada em 05/11/2026. Os identificadores e exemplos de código são preservados sem tradução.
+> Tradução informativa do [original em inglês](../../../docs/RUST_RELEASE.md), revisada em 09/11/2026. Os identificadores e exemplos de código são preservados sem tradução.
 
 Verificado em 05/11/2026: [`dcp-ai` 2.13.0](https://crates.io/crates/dcp-ai/2.13.0) está disponível no crates.io ([o que mudou](#what-changed-in-2130)). As publicações anteriores, [2.11.1](https://crates.io/crates/dcp-ai/2.11.1), verificada em 28/10/2026, e [2.11.0](https://crates.io/crates/dcp-ai/2.11.0), verificada em 26/10/2026, mantêm suas notas abaixo. A versão do crate é independente da versão do formato/especificação DCP. O crate Rust é publicado de forma independente de npm, Python, Go e contêineres.
 
@@ -73,6 +73,16 @@ A 2.12.0 está preparada no repositório desde 30/10/2026, mas não publicada no
 As demais APIs, `dcp-jcs-v1` e as APIs experimentais opt-in `dcp-jcs-v2` não mudam; os novos testes do candidato experimental não mudam nenhum padrão. A telemetria informa `2.12.0`. O crate não contém mais os READMEs traduzidos, que agora ficam na árvore `i18n/` do repositório. Veja o [README do SDK](../../../sdks/rust/README.md) e o [changelog](../../../CHANGELOG.md).
 
 > **Nota (05/11/2026).** A comparação acima foi escrita em 30/10/2026 para a 2.12.0 preparada, que continua sem publicação. Desde então a `main` mudou a verificação: todos os verificadores V2, incluindo o build WASM, executam a validação de esquemas V2-2 (#116, 02/11/2026), e mudaram a função auxiliar de validade de mandatos, as verificações de tempo da cadeia e a verificação de domínios raiz repetidos (#117 a #119). Essas mudanças não estão na 2.12.0 descrita acima, que nunca foi publicada; a 2.13.0 acima as contém e a substitui, e os manifestos da `main` levam a 2.13.0. Veja o [dossiê de auditoria](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts).
+
+<a id="prepared-not-published-2140"></a>
+
+## Preparada, não publicada: 2.14.0
+
+Preparada em 08/11/2026 e não publicada; os comandos de instalação acima continuam na 2.13.0 até que a 2.14.0 seja publicada e verificada.
+
+- **Adicionado (adesão explícita).** `admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `create_mandate_acknowledgment` e `evaluate_delegation_activation_v2` ([changelog](../../../CHANGELOG.md#unreleased)).
+- **Mudança de aceitação.** P-ED-1 na verificação de objetos V1 e no provedor Ed25519 V2 padrão; com a feature `wasm`, o export cru `wasm_canonicalize_v2_result`.
+- **Feature `otlp`.** Exige `anyhow` 1.0.103 ou posterior e `tokio` 1.53.3 ou posterior (RUSTSEC-2026-0190, RUSTSEC-2026-0386), que o exportador traz para o grafo; os builds padrão e `wasm` não selecionam nenhum dos dois. O `Cargo.lock` próprio de um crate não obriga os consumidores dele: um projeto com um lock que ativa `otlp` executa `cargo update -p anyhow -p tokio`. O mínimo também deixa de fora a linha corrigida 1.51.x do tokio (1.51.6 ou posterior) ao ativar `otlp`; isso não significa que a 1.51.6 seja vulnerável: o Cargo não consegue aceitar as duas linhas.
 
 <a id="related-releases"></a>
 

@@ -50,6 +50,14 @@ The ML-DSA dependency can raise `ValueError` if its bounded signing attempts are
 
 The wire format, the signatures, the profiles, `dcp-jcs-v1` as the normative default and the experimental opt-in `dcp-jcs-v2` APIs are unchanged, and the wheel and the sdist now include the Apache-2.0 `LICENSE`. Preserve historical evidence instead of rewriting it. The README inside the published wheel and sdist is the one prepared before publication and reads "prepared, not published"; published files cannot change. See the [SDK README](../sdks/python/README.md) and the [changelog](../CHANGELOG.md#unreleased).
 
+## Prepared, not published: 2.11.0
+
+Prepared on 08/11/2026 and not published; the installation commands above stay on 2.10.2 until 2.11.0 is published and checked.
+
+- **Added (opt-in).** `admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `create_mandate_acknowledgment` and `evaluate_delegation_activation_v2` ([changelog](../CHANGELOG.md#unreleased)).
+- **Acceptance change.** P-ED-1 in V1 object verification and the default V2 Ed25519 provider; the official PyNaCl build already rejected these signatures.
+- The wire format, the signatures, the profiles and `dcp-jcs-v1` are unchanged.
+
 ## Related releases
 
 The current versions in every registry are listed in [Published versions](README.md#published-versions). Other release notes: [npm packages](NPM_RELEASES.md), [Go v2.13.0](GO_RELEASE.md) and [Rust 2.13.0](RUST_RELEASE.md).

@@ -14,32 +14,41 @@ Verification checks integrity and signatures; it does not establish principal tr
 
 **Rust SDK 2.11.1.** This version also verifies the secondary SHA3-256 fields of [VERIFICATION.md V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) when they are present: `audit_merkle_root_secondary`, each `prev_hash_secondary` and each `intent_hash_secondary`. Absent fields are not required, so a verified bundle may lack a complete secondary chain; a present field that is `null`, not a string or inconsistent is rejected. APIs, result fields, `dcp-jcs-v1` and `hash_alg` handling are unchanged. 2.11.0 does not check these fields.
 
-**Rust SDK 2.13.0.** Published on crates.io on 05/11/2026. The installation commands below name this version; for its registry availability, see [Published versions](../../docs/README.md#published-versions). The 2.12.0 prepared on 30/10/2026 was never published and is superseded. Compared with 2.11.1:
+**Rust SDK 2.13.0.** Published on crates.io on 05/11/2026. The 2.12.0 prepared on 30/10/2026 was never published and is superseded. Compared with 2.11.1:
 
 - **V2-2 schema validation.** `verify_signed_bundle_v2`, `…_with_policy` and `…_at`, the WASM build included, validate the signed bundle envelope and the four payloads against `schemas/v2` before any hash, key or signature check. Schema-invalid bundles accepted before now fail with `schema: <pointer> <keyword>` diagnostics.
 - **`RawAuditEventV2` and `RawAuditEventError`** (new) keep a received audit entry as the decoded value (see Received audit entries below).
 - **`wasm_dual_merkle_root`** (with the `wasm` feature) computes the dual Merkle root of V2-11 and returns an error for a leaf that is not a 32-byte hex digest.
 - **Mandates.** `verify_mandate_validity` compares the window as instants, no longer as text, and `verify_mandate_validity_at` (new) takes the verification time. `verify_mandate_chain` rejects a root mandate that repeats a domain.
 
-Telemetry reports `2.13.0`. The wire format, the signatures, the profiles, `dcp-jcs-v1` and the experimental opt-in `dcp-jcs-v2` APIs are unchanged. See the [changelog](../../CHANGELOG.md#unreleased). The README inside the published crate is the one prepared before publication and reads "prepared, not published"; a published crate cannot change.
+In 2.13.0, telemetry reports `2.13.0`. The wire format, the signatures, the profiles, `dcp-jcs-v1` and the experimental opt-in `dcp-jcs-v2` APIs are unchanged. See the [changelog](../../CHANGELOG.md#unreleased). The README inside the 2.13.0 crate is the one prepared before its publication and reads "prepared, not published"; a published crate cannot change.
+
+**Rust SDK 2.14.0.** The installation commands below name this version; for its registry availability, see [Published versions](../../docs/README.md#published-versions). Compared with 2.13.0:
+
+- **Added (opt-in).** `admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `create_mandate_acknowledgment` and `evaluate_delegation_activation_v2` in `dcp_ai::v2`; no default calls them (see [ADMISSION.md](../../docs/ADMISSION.md#delegation-bytes-and-acknowledgments-opt-in)).
+- **Acceptance change: Ed25519 P-ED-1.** V1 object verification and the default V2 Ed25519 provider also reject a public key or R that is not a canonical encoding or is of order dividing 8. Keep failing evidence as it is; sign again with the same key when it meets P-ED-1, rotate a non-canonical public key and replace a key of small order.
+- **`wasm` feature.** The new raw export `wasm_canonicalize_v2_result` returns a tagged result, and the `{"error": …}` the exports return is escaped JSON.
+- **`otlp` feature.** It requires `anyhow` 1.0.103 or later and `tokio` 1.53.3 or later (RUSTSEC-2026-0190, RUSTSEC-2026-0386); the default and `wasm` builds select neither crate. A project whose own `Cargo.lock` enables `otlp` updates them with `cargo update -p anyhow -p tokio`. The minimum also leaves out the fixed tokio 1.51.x line (1.51.6 or later) when `otlp` is enabled; that does not make 1.51.6 vulnerable, Cargo just cannot allow both lines.
+
+Telemetry reports `2.14.0`. The wire format, the signatures, the profiles, `dcp-jcs-v1` and the experimental opt-in `dcp-jcs-v2` APIs are unchanged.
 
 ```toml
 [dependencies]
-dcp-ai = "2.13.0"
+dcp-ai = "2.14.0"
 ```
 
 With OpenTelemetry/OTLP export:
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.13.0", features = ["otlp"] }
+dcp-ai = { version = "2.14.0", features = ["otlp"] }
 ```
 
 For WebAssembly support:
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.13.0", features = ["wasm"] }
+dcp-ai = { version = "2.14.0", features = ["wasm"] }
 ```
 
 ## Features

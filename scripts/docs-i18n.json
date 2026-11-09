@@ -49,6 +49,11 @@
       "site_path": "reference/api/README.md"
     },
     {
+      "source": "cli/README.md",
+      "class": "current",
+      "site_path": "reference/cli/README.md"
+    },
+    {
       "source": "cli/TESTING.md",
       "class": "contributor",
       "site_path": "reference/cli/TESTING.md"

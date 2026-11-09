@@ -2,7 +2,7 @@
 
 # 已发布的 Rust crate
 
-> [英文原文](../../../docs/RUST_RELEASE.md)的参考译文。更新于 05/11/2026；标识符与代码示例保持原样。
+> [英文原文](../../../docs/RUST_RELEASE.md)的参考译文。更新于 09/11/2026；标识符与代码示例保持原样。
 
 05/11/2026 已确认：[`dcp-ai` 2.13.0](https://crates.io/crates/dcp-ai/2.13.0) 已在 crates.io 发布（[更新内容](#what-changed-in-2130)）。之前的版本 [2.11.1](https://crates.io/crates/dcp-ai/2.11.1)（28/10/2026 确认）和 [2.11.0](https://crates.io/crates/dcp-ai/2.11.0)（26/10/2026 确认）的说明保留在下文。crate 版本独立于 DCP 线格式/规范版本。Rust crate 与 npm、Python、Go 和容器独立发布。
 
@@ -73,6 +73,16 @@ dcp-ai = "2.13.0"
 其他 API、`dcp-jcs-v1` 以及实验性且需显式启用的 `dcp-jcs-v2` API 均不变；实验性候选的新测试不改变任何默认值。遥测报告 `2.12.0`。crate 不再包含翻译版 README，它们现在位于仓库的 `i18n/` 目录树中。参见 [SDK README](../../../sdks/rust/README.md) 和[变更日志](../../../CHANGELOG.md)。
 
 > **说明（05/11/2026）。** 上面的比较写于 30/10/2026，针对已准备的 2.12.0，该版本仍未发布。此后 `main` 改变了验证：所有 V2 验证器（包括 WASM 构建）都执行 V2-2 模式校验（#116，02/11/2026），授权书有效性辅助函数、链的时间检查和重复根域检查也已更改（#117 至 #119）。这些更改不在上述 2.12.0 中；2.12.0 从未发布，上面的 2.13.0 包含这些更改并取代了它，`main` 上的清单文件带有 2.13.0。见[审计资料](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts)。
+
+<a id="prepared-not-published-2140"></a>
+
+## 已准备、未发布：2.14.0
+
+于 08/11/2026 准备，未发布；在 2.14.0 发布并核对之前，上面的安装命令仍指向 2.13.0。
+
+- **新增（显式启用）。** `admit_delegated_bundle_v2`、`admit_signed_bundle_v2_from_bytes`、`create_mandate_acknowledgment` 和 `evaluate_delegation_activation_v2`（[变更日志](../../../CHANGELOG.md#unreleased)）。
+- **接受范围变化。** V1 对象验证和默认的 V2 Ed25519 提供方中的 P-ED-1；启用 `wasm` 特性时，提供原始导出 `wasm_canonicalize_v2_result`。
+- **`otlp` 特性。** 它要求导出器带入依赖图的 `anyhow` 1.0.103 或更高版本以及 `tokio` 1.53.3 或更高版本（RUSTSEC-2026-0190、RUSTSEC-2026-0386）；默认构建和 `wasm` 构建都不会选择这两个 crate。crate 自身的 `Cargo.lock` 不约束其使用方：锁文件启用了 `otlp` 的项目需运行 `cargo update -p anyhow -p tokio`。启用 `otlp` 时，该最低版本也会排除已修复的 tokio 1.51.x 分支（1.51.6 或更高版本）；这并不意味着 1.51.6 存在漏洞，只是 Cargo 无法同时允许两个分支。
 
 <a id="related-releases"></a>
 

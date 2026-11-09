@@ -4,7 +4,7 @@
 
 **Rust の公開 (26/10/2026).** Rust `dcp-ai` 2.11.0 は crates.io で公開済みで、検証器の修正、受け入れ、実験的なオプトイン API を含みます。`dcp-jcs-v1` は引き続き規範かつデフォルトです。参照： [Rust 2.11.0](../../../../docs/RUST_RELEASE.md).
 
-> [英語版 README](../../../../sdks/rust/README.md)の参考訳です。更新日：05/11/2026。検証済みの例を維持するため、識別子とコードブロック（コメントを含む）は原文のままにしています。
+> [英語版 README](../../../../sdks/rust/README.md)の参考訳です。更新日：09/11/2026。検証済みの例を維持するため、識別子とコードブロック（コメントを含む）は原文のままにしています。
 
 Digital Citizenship Protocol（DCP v2.0）向けの公式 Rust SDK。Serde ベースの型、ハイブリッド耐量子暗号（Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768）、`pq_over_classical` による結合を持つ複合署名、二重ハッシュチェーン、OpenTelemetry による可観測性、DCP-04..09 の動作、オプションの WebAssembly サポートを提供します。
 
@@ -18,32 +18,41 @@ Digital Citizenship Protocol（DCP v2.0）向けの公式 Rust SDK。Serde ベ�
 
 **Rust SDK 2.11.1。** このバージョンは、[VERIFICATION.md の V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) の二次の SHA3-256 フィールドが存在する場合、それらも検証します：`audit_merkle_root_secondary`、各 `prev_hash_secondary`、各 `intent_hash_secondary`。存在しないフィールドは要求されないため、検証済みのバンドルが完全な二次チェーンを持たないこともあります。存在するフィールドが `null`、文字列でない、または不整合の場合は拒否されます。API、結果のフィールド、`dcp-jcs-v1`、`hash_alg` の扱いは変わりません。2.11.0 はこれらのフィールドを確認しません。
 
-**Rust SDK 2.13.0。** 05/11/2026 に crates.io で公開されました。以下のインストールコマンドはこのバージョンを指定しています。レジストリでの提供状況は[公開済みバージョン](../../../../docs/README.md#published-versions)を参照してください。30/10/2026 に準備した 2.12.0 は公開されず、置き換えられました。2.11.1 との違い：
+**Rust SDK 2.13.0。** 05/11/2026 に crates.io で公開されました。30/10/2026 に準備した 2.12.0 は公開されず、置き換えられました。2.11.1 との違い：
 
 - **V2-2 スキーマ検証。** `verify_signed_bundle_v2`、`…_with_policy`、`…_at` は、WASM ビルドも含め、ハッシュ、鍵、署名を確認する前に、署名済みバンドルのエンベロープと 4 つのペイロードを `schemas/v2` に照らして検証します。以前は受理されていたスキーマ上無効なバンドルは、`schema: <pointer> <keyword>` 診断で失敗するようになりました。
 - **`RawAuditEventV2` と `RawAuditEventError`**（新規）は、受信した監査エントリーをデコードした値として保持します（後述の「受信した監査エントリー」を参照）。
 - **`wasm_dual_merkle_root`**（`wasm` フィーチャー使用時）は V2-11 の二重 Merkle ルートを算出し、32 バイトの 16 進ダイジェストでない葉にはエラーを返します。
 - **委任状。** `verify_mandate_validity` は期間を文字列ではなく瞬間として比較し、`verify_mandate_validity_at`（新規）は検証時刻を受け取ります。`verify_mandate_chain` はドメインを繰り返すルート委任状を拒否します。
 
-テレメトリーは `2.13.0` を報告します。ワイヤーフォーマット、署名、プロファイル、`dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API は変わりません。[変更履歴](../../../../CHANGELOG.md#unreleased)を参照してください。公開済みの crateに含まれる README は公開前に準備したもので、「prepared, not published」と記載しています。公開済みの crate は変更できません。
+2.13.0 では、テレメトリーは `2.13.0` を報告します。ワイヤーフォーマット、署名、プロファイル、`dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API は変わりません。[変更履歴](../../../../CHANGELOG.md#unreleased)を参照してください。2.13.0 の crate に含まれる README は、その公開前に準備したもので、「prepared, not published」と記載しています。公開済みの crate は変更できません。
+
+**Rust SDK 2.14.0。** 以下のインストールコマンドはこのバージョンを指定しています。レジストリでの提供状況は[公開済みバージョン](../../../../docs/README.md#published-versions)を参照してください。2.13.0 との違い：
+
+- **追加（オプトイン）。** `admit_delegated_bundle_v2`、`admit_signed_bundle_v2_from_bytes`、`create_mandate_acknowledgment`、`evaluate_delegation_activation_v2` (`dcp_ai::v2`)。デフォルトの処理からは呼び出されません（[ADMISSION.md](../../docs/ADMISSION.md#delegation-bytes-and-acknowledgments-opt-in)を参照）。
+- **受理の変更：Ed25519 P-ED-1。** V1 オブジェクトの検証とデフォルトの V2 Ed25519 プロバイダーは、正準なエンコーディングでない公開鍵や R、または位数が 8 を割り切る点である公開鍵や R も拒否します。失敗する証拠はそのまま保管してください。鍵が P-ED-1 を満たす場合は同じ鍵で署名し直し、正準でない公開鍵はローテーションし、小さい位数の鍵は置き換えてください。
+- **`wasm` フィーチャー。** 新しい生のエクスポート `wasm_canonicalize_v2_result` はタグ付きの結果を返し、エクスポートが返す `{"error": …}` はエスケープされた JSON です。
+- **`otlp` フィーチャー。** `anyhow` 1.0.103 以降と `tokio` 1.53.3 以降を必要とします（RUSTSEC-2026-0190、RUSTSEC-2026-0386）。デフォルトと `wasm` のビルドはどちらも選択しません。自身の `Cargo.lock` で `otlp` を有効にするプロジェクトは `cargo update -p anyhow -p tokio` で更新します。`otlp` を有効にすると、この最小バージョンは修正済みの tokio 1.51.x 系（1.51.6 以降）も除外します。これは 1.51.6 が脆弱であることを意味しません。Cargo では両方の系列を許可できないだけです。
+
+テレメトリーは `2.14.0` を報告します。ワイヤーフォーマット、署名、プロファイル、`dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API は変わりません。
 
 ```toml
 [dependencies]
-dcp-ai = "2.13.0"
+dcp-ai = "2.14.0"
 ```
 
 OpenTelemetry/OTLP エクスポートを使用する場合：
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.13.0", features = ["otlp"] }
+dcp-ai = { version = "2.14.0", features = ["otlp"] }
 ```
 
 WebAssembly サポートを使用する場合：
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.13.0", features = ["wasm"] }
+dcp-ai = { version = "2.14.0", features = ["wasm"] }
 ```
 
 <a id="features"></a>

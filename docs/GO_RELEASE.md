@@ -51,6 +51,14 @@ The other APIs, bundle verification, `dcp-jcs-v1` and the experimental opt-in `d
 
 > **Note (05/11/2026).** The comparison above was written on 30/10/2026 for the prepared v2.12.0, which is still not published. `main` has changed verification since then: every V2 verifier runs V2-2 schema validation (#116, 02/11/2026), and the mandate validity helper, the chain time checks and the check of repeated root domains changed (#117 to #119). These changes are not in the v2.12.0 described above, which was never tagged; v2.13.0 above contains them and supersedes it, and the manifests on `main` carry v2.13.0. See the [audit dossier](conformance/AUDIT_DOSSIER.md#artifacts).
 
+## Prepared, not published: v2.14.0
+
+Prepared on 08/11/2026 and not published; there is no `sdks/go/v2.14.0` tag yet, and the installation commands above stay on v2.13.0 until the tag is published and the module proxy checked.
+
+- **Added (opt-in).** `v2.AdmitDelegatedBundleV2`, `v2.AdmitSignedBundleV2FromBytes`, `v2.CreateMandateAcknowledgment` and `v2.EvaluateDelegationActivationV2` ([changelog](../CHANGELOG.md#unreleased)).
+- **Acceptance change.** P-ED-1 in V1 object verification and the default V2 Ed25519 provider.
+- **Fix.** The SLH-DSA-192f provider reads keys without a panic. `SDKVersion` is `2.14.0`.
+
 ## Related releases
 
 The current versions in every registry are listed in [Published versions](README.md#published-versions). Other release notes: [npm packages](NPM_RELEASES.md), [Python 2.10.2](PYTHON_RELEASE.md) and [Rust 2.13.0](RUST_RELEASE.md).

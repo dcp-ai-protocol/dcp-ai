@@ -11,17 +11,25 @@ Full-featured WebAssembly module for the Digital Citizenship Protocol (DCP) v2.0
 **`@dcp-ai/wasm` 2.1.1.** This version also verifies the secondary SHA3-256 fields of [VERIFICATION.md V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) when they are present: `audit_merkle_root_secondary`, each `prev_hash_secondary` and each `intent_hash_secondary`. Absent fields are not required, so a verified bundle may lack a complete secondary chain; a present field that is `null`, not a string or inconsistent is rejected. APIs, result fields, `dcp-jcs-v1` and `hash_alg` handling are unchanged. 2.1.0 does not check these fields.
 
 ```bash
-npm install @dcp-ai/wasm@^2.1.3
+npm install @dcp-ai/wasm@^2.2.0
 ```
 
 See the [npm release inventory](../../docs/NPM_RELEASES.md) for all package versions.
 
-**`@dcp-ai/wasm` 2.1.3.** Published on npm on 05/11/2026. The installation command above names this version; for its registry availability, see [Published versions](../../docs/README.md#published-versions). The 2.1.2 prepared on 30/10/2026 was never published and is superseded. Compared with 2.1.1:
+**`@dcp-ai/wasm` 2.1.3.** Published on npm on 05/11/2026. The 2.1.2 prepared on 30/10/2026 was never published and is superseded. Compared with 2.1.1:
 
 - **`dualMerkleRoot`** computes the dual Merkle root of V2-11 (raw 32-byte digests, the last node duplicated on an odd layer); 2.1.1 and earlier give other roots for two or more leaves (see Hash Operations below). A leaf that is not a 32-byte hex digest, accepted before, is an error.
 - **V2-2 schema validation.** `verifyBundle` and `wasm_verify_signed_bundle_v2` validate the signed bundle envelope and the four payloads against `schemas/v2` before any hash, key or signature check. Schema-invalid bundles accepted before now fail with `schema: <pointer> <keyword>` diagnostics.
 
-No JavaScript API is added. The wire format, the signatures, the profiles, `dcp-jcs-v1` and the experimental opt-in `dcp-jcs-v2` APIs are unchanged. The WebAssembly comes from the Rust `dcp-ai` 2.13.0 source, also published on 05/11/2026. See [npm packages](../../docs/NPM_RELEASES.md). The README inside the published tarball is the one prepared before publication and reads "prepared, not published"; published tarballs cannot change.
+2.1.3 adds no JavaScript API. The wire format, the signatures, the profiles, `dcp-jcs-v1` and the experimental opt-in `dcp-jcs-v2` APIs are unchanged. The WebAssembly comes from the Rust `dcp-ai` 2.13.0 source, also published on 05/11/2026. See [npm packages](../../docs/NPM_RELEASES.md). The README inside the 2.1.3 tarball is the one prepared before its publication and reads "prepared, not published"; published tarballs cannot change.
+
+**`@dcp-ai/wasm` 2.2.0.** The installation command above names this version; for its registry availability, see [Published versions](../../docs/README.md#published-versions). Compared with 2.1.3:
+
+- **Errors told apart from values.** `canonicalize` reads the new raw export `wasm_canonicalize_v2_result`, so a value such as `{ error: 'x' }` is canonicalized instead of thrown; `hashObject` and `deriveKid` throw an `Error` instead of returning an error envelope as a hash or a key ID; the `{"error": …}` of the raw exports is escaped JSON.
+- **Acceptance change: Ed25519 P-ED-1.** `compositeVerify` and `verifyBundle` use the Rust provider, which also rejects a public key or R that is not a canonical encoding or is of order dividing 8.
+- **Packaging.** `pkg/dcp_ai_bg.wasm` is built without the builder's local paths, and a release gate checks the packed files.
+
+No admission, mandate chain or activation API is added. The wire format, the signatures, the profiles, `dcp-jcs-v1` and the experimental opt-in `dcp-jcs-v2` APIs are unchanged. The WebAssembly comes from the Rust `dcp-ai` 2.14.0 source.
 
 For development against a source checkout, build and install the local package instead:
 
@@ -194,16 +202,16 @@ Verification does not grant principal trust, admission or action authorization. 
 |--------|---------|-------------|
 | `dualHash(data)` | `DualHash` | SHA-256 + SHA3-256 dual hash |
 | `sha3_256(data)` | `string` | SHA3-256 hash (hex) |
-| `hashObject(obj)` | `string` | SHA-256 hash of a JSON object, always 64 lowercase hex characters. In the local source (not in 2.1.3) it throws an `Error` when the binding cannot read the value, for instance a lone surrogate, where 2.1.3 returns the error envelope as if it were the hash |
+| `hashObject(obj)` | `string` | SHA-256 hash of a JSON object, always 64 lowercase hex characters. Since 2.2.0 it throws an `Error` when the binding cannot read the value, for instance a lone surrogate, where 2.1.3 returns the error envelope as if it were the hash |
 | `dualMerkleRoot(leaves)` | `DualHash` | Dual Merkle root of [VERIFICATION.md V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) from a non-empty array of `DualHash` leaves, each a 32-byte hex digest; throws on an empty array or an invalid leaf. The root is lowercase hex. From 2.1.3: 2.1.1 and earlier hash the hex text, so their roots of two or more leaves differ |
 
 ### Canonicalization & Domain Separation
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `canonicalize(value)` | `string` | `dcp-jcs-v1` canonicalization (based on RFC 8785 JCS) of the value as `JSON.stringify` writes it, so `NaN` and `±Infinity` become `null` and a `BigInt` or a cycle makes `JSON.stringify` throw its own `TypeError`. Throws an `Error` (`canonicalize: …`) for a fraction or a value the binding cannot read, such as a lone surrogate. In the local source (not in 2.1.3) it reads the tagged export, so a value whose canonical form begins with an `error` member, such as `{ error: 'x' }`, is canonicalized; 2.1.3 throws for it |
+| `canonicalize(value)` | `string` | `dcp-jcs-v1` canonicalization (based on RFC 8785 JCS) of the value as `JSON.stringify` writes it, so `NaN` and `±Infinity` become `null` and a `BigInt` or a cycle makes `JSON.stringify` throw its own `TypeError`. Throws an `Error` (`canonicalize: …`) for a fraction or a value the binding cannot read, such as a lone surrogate. Since 2.2.0 it reads the tagged export, so a value whose canonical form begins with an `error` member, such as `{ error: 'x' }`, is canonicalized; 2.1.3 throws for it |
 | `domainSeparatedMessage(context, payloadHex)` | `string` | Domain-separated message (hex) |
-| `deriveKid(alg, publicKeyB64)` | `string` | Deterministic key ID from algorithm + public key, always 32 lowercase hex characters. In the local source (not in 2.1.3) it throws an `Error` for invalid base64, where 2.1.3 returns the error envelope as if it were the key id |
+| `deriveKid(alg, publicKeyB64)` | `string` | Deterministic key ID from algorithm + public key, always 32 lowercase hex characters. Since 2.2.0 it throws an `Error` for invalid base64, where 2.1.3 returns the error envelope as if it were the key id |
 
 ### Session & Security
 
@@ -329,10 +337,10 @@ const keys = JSON.parse(wasm_generate_hybrid_keypair());
 // a domain-separated message (hex) or a canonical form
 ```
 
-The raw functions report errors in band, as `{"error": "<message>"}`. In the local source (not in 2.1.3) that envelope
+The raw functions report errors in band, as `{"error": "<message>"}`. Since 2.2.0 that envelope
 is escaped JSON. Before, a message with a backslash or a control character, from a key name for instance, could be
 invalid JSON or decode to other text. `wasm_canonicalize_v2` returns the canonical form or that envelope, so it
-cannot tell its error from a value whose canonical form is `{"error": …}`. The local source adds
+cannot tell its error from a value whose canonical form is `{"error": …}`. 2.2.0 adds
 `wasm_canonicalize_v2_result`, which returns `{"ok": true, "canonical": …}` or `{"ok": false, "error": …}`;
 `canonicalize()` uses it.
 

@@ -4,7 +4,7 @@
 
 **Rust 发布 (26/10/2026).** Rust `dcp-ai` 2.11.0 已在 crates.io 发布，包含验证器修复、准入和实验性显式启用 API。`dcp-jcs-v1` 仍是规范性默认配置。见 [Rust 2.11.0](../../../../docs/RUST_RELEASE.md).
 
-> 本文是[英文 README](../../../../sdks/rust/README.md)的参考译文，更新于 05/11/2026。为保留经过验证的示例，标识符和代码块（包括注释）均保持原文。
+> 本文是[英文 README](../../../../sdks/rust/README.md)的参考译文，更新于 09/11/2026。为保留经过验证的示例，标识符和代码块（包括注释）均保持原文。
 
 Digital Citizenship Protocol（DCP v2.0）的官方 Rust SDK。提供基于 Serde 的类型、混合后量子密码学（Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768）、使用 `pq_over_classical` 绑定的复合签名、双哈希链、OpenTelemetry 可观测性、DCP-04..09 行为以及可选的 WebAssembly 支持。
 
@@ -18,32 +18,41 @@ Digital Citizenship Protocol（DCP v2.0）的官方 Rust SDK。提供基于 Serd
 
 **Rust SDK 2.11.1。** 此版本还会在 [VERIFICATION.md 的 V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) 中的二级 SHA3-256 字段存在时验证它们：`audit_merkle_root_secondary`、每个 `prev_hash_secondary` 和每个 `intent_hash_secondary`。不存在的字段不作要求，因此已验证的 bundle 可能没有完整的二级链；存在的字段如果是 `null`、不是字符串或不一致，则被拒绝。API、结果字段、`dcp-jcs-v1` 和 `hash_alg` 的处理均不变。2.11.0 不检查这些字段。
 
-**Rust SDK 2.13.0。** 已于 05/11/2026 在 crates.io 上发布。下面的安装命令指定的是此版本；它在注册表中的可用情况见[已发布版本](../../../../docs/README.md#published-versions)。30/10/2026 准备的 2.12.0 从未发布，已被取代。与 2.11.1 相比：
+**Rust SDK 2.13.0。** 已于 05/11/2026 在 crates.io 上发布。30/10/2026 准备的 2.12.0 从未发布，已被取代。与 2.11.1 相比：
 
 - **V2-2 模式校验。** `verify_signed_bundle_v2`、`…_with_policy` 和 `…_at`（包括 WASM 构建）在任何哈希、密钥或签名检查之前，先按 `schemas/v2` 校验已签名 bundle 的信封和四个载荷。以前被接受的模式无效 bundle 现在会以 `schema: <pointer> <keyword>` 诊断失败。
 - **`RawAuditEventV2` 和 `RawAuditEventError`**（新增）将收到的审计条目保留为解码后的值（见下文“收到的审计条目”）。
 - **`wasm_dual_merkle_root`**（启用 `wasm` 特性时）计算 V2-11 的双 Merkle 根，对不是 32 字节十六进制摘要的叶节点返回错误。
 - **委托书。** `verify_mandate_validity` 将窗口作为时刻而不再作为文本比较，`verify_mandate_validity_at`（新增）接收验证时间。`verify_mandate_chain` 拒绝重复某个领域的根委托书。
 
-遥测报告 `2.13.0`。传输格式、签名、配置文件、`dcp-jcs-v1` 和实验性显式启用的 `dcp-jcs-v2` API 均不变。参见[变更日志](../../../../CHANGELOG.md#unreleased)。已发布的 crate中的 README 是发布前准备的版本，写着“prepared, not published”；已发布的 crate 无法更改。
+在 2.13.0 中，遥测报告 `2.13.0`。传输格式、签名、配置文件、`dcp-jcs-v1` 和实验性显式启用的 `dcp-jcs-v2` API 均不变。参见[变更日志](../../../../CHANGELOG.md#unreleased)。2.13.0 的 crate 中的 README 是其发布前准备的版本，写着“prepared, not published”；已发布的 crate 无法更改。
+
+**Rust SDK 2.14.0。** 下面的安装命令指定的是此版本；它在注册表中的可用情况见[已发布版本](../../../../docs/README.md#published-versions)。与 2.13.0 相比：
+
+- **新增（显式启用）。** `admit_delegated_bundle_v2`、`admit_signed_bundle_v2_from_bytes`、`create_mandate_acknowledgment` 和 `evaluate_delegation_activation_v2` (`dcp_ai::v2`)；默认流程不会调用它们（参见[ADMISSION.md](../../docs/ADMISSION.md#delegation-bytes-and-acknowledgments-opt-in)）。
+- **接受范围变化：Ed25519 P-ED-1。** V1 对象验证和默认的 V2 Ed25519 提供方还会拒绝非规范编码的公钥或 R，以及阶整除 8 的公钥或 R。请保持验证失败的证据原样；密钥符合 P-ED-1 时用同一密钥重新签名，轮换非规范公钥，替换小阶密钥。
+- **`wasm` 特性。** 新的原始导出 `wasm_canonicalize_v2_result` 返回带标签的结果，各导出返回的 `{"error": …}` 是经过转义的 JSON。
+- **`otlp` 特性。** 它要求 `anyhow` 1.0.103 或更高版本以及 `tokio` 1.53.3 或更高版本（RUSTSEC-2026-0190、RUSTSEC-2026-0386）；默认构建和 `wasm` 构建都不会选择这两个 crate。自身的 `Cargo.lock` 启用了 `otlp` 的项目用 `cargo update -p anyhow -p tokio` 更新它们。启用 `otlp` 时，该最低版本也会排除已修复的 tokio 1.51.x 分支（1.51.6 或更高版本）；这并不意味着 1.51.6 存在漏洞，只是 Cargo 无法同时允许两个分支。
+
+遥测报告 `2.14.0`。传输格式、签名、配置文件、`dcp-jcs-v1` 和实验性显式启用的 `dcp-jcs-v2` API 均不变。
 
 ```toml
 [dependencies]
-dcp-ai = "2.13.0"
+dcp-ai = "2.14.0"
 ```
 
 启用 OpenTelemetry/OTLP 导出：
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.13.0", features = ["otlp"] }
+dcp-ai = { version = "2.14.0", features = ["otlp"] }
 ```
 
 启用 WebAssembly 支持：
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.13.0", features = ["wasm"] }
+dcp-ai = { version = "2.14.0", features = ["wasm"] }
 ```
 
 <a id="features"></a>

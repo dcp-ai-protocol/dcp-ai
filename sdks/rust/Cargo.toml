@@ -1,6 +1,6 @@
 [package]
 name = "dcp-ai"
-version = "2.13.0"
+version = "2.14.0"
 edition = "2021"
 description = "Rust SDK for the Digital Citizenship Protocol for AI Agents"
 license = "Apache-2.0"
@@ -39,11 +39,17 @@ wasm-bindgen = { version = "0.2", optional = true }
 opentelemetry = { version = "0.32", optional = true }
 opentelemetry_sdk = { version = "0.32.1", optional = true }
 opentelemetry-otlp = { version = "0.32", default-features = false, features = ["http-proto", "reqwest-blocking-client", "trace", "metrics"], optional = true }
+# Version floors only, never used in code: the OTLP exporter brings anyhow (through prost-derive) and tokio (through
+# reqwest and hyper) into the graph. These minimums keep a consumer's resolution off RUSTSEC-2026-0190 (anyhow) and
+# RUSTSEC-2026-0386 (tokio). Cargo has no "or" ranges, so tokio's fixed 1.51.x line is not allowed. Only `otlp`
+# enables them; the default and `wasm` builds select neither crate.
+anyhow = { version = "1.0.103", optional = true, default-features = false }
+tokio = { version = "1.53.3", optional = true, default-features = false }
 
 [features]
 default = []
 wasm = ["wasm-bindgen", "getrandom/js"]
-otlp = ["opentelemetry", "opentelemetry_sdk", "opentelemetry-otlp"]
+otlp = ["opentelemetry", "opentelemetry_sdk", "opentelemetry-otlp", "dep:anyhow", "dep:tokio"]
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"

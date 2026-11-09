@@ -5,7 +5,7 @@
 
 # @dcp-ai/sdk — SDK TypeScript para o DCP-AI v2.0
 
-> Tradução informativa da [versão em inglês](../../../../sdks/typescript/README.md), atualizada em 05/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../../sdks/typescript/README.md), atualizada em 09/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 SDK oficial em TypeScript para o Digital Citizenship Protocol (DCP-AI). Crie, assine e verifique Citizenship Bundles com criptografia híbrida pós-quântica (Ed25519 + ML-DSA-65), assinaturas compostas, níveis de segurança adaptativos, comunicação entre agentes (A2A), observabilidade integrada e reforço para produção.
 
@@ -17,16 +17,23 @@ SDK oficial em TypeScript para o Digital Citizenship Protocol (DCP-AI). Crie, as
 
 **`@dcp-ai/sdk` 2.2.1.** Esta versão também verifica os campos secundários SHA3-256 do [VERIFICATION.md V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) quando estão presentes: `audit_merkle_root_secondary`, cada `prev_hash_secondary` e cada `intent_hash_secondary`. Os campos ausentes não são exigidos, então um bundle verificado pode não ter uma cadeia secundária completa; um campo presente que seja `null`, não seja uma string ou seja inconsistente é rejeitado. Não mudam as APIs, os campos de resultado, `dcp-jcs-v1` nem o tratamento de `hash_alg`. A versão 2.2.0 não verifica esses campos.
 
-**`@dcp-ai/sdk` 2.3.0.** Publicada no npm em 05/11/2026. Os comandos de instalação abaixo indicam esta versão; para a disponibilidade dela no registro, veja [Versões publicadas](../../../../docs/README.md#published-versions). Em comparação com a 2.2.1:
+**`@dcp-ai/sdk` 2.3.0.** Publicada no npm em 05/11/2026. Em comparação com a 2.2.1:
 
 - **Validação de esquemas V2-2.** `verifySignedBundleV2`, a API combinada de admissão e o verificador candidato experimental validam o envelope do bundle assinado e os quatro payloads contra `schemas/v2` antes de qualquer verificação de hash, chave ou assinatura. Bundles inválidos pelo esquema que eles aceitavam, como membros desconhecidos em objetos fechados ou horários de sessão `null` no manifesto, agora retornam `verified: false` com diagnósticos `schema: <pointer> <keyword>` (veja Validação de esquemas abaixo).
 - **Mandatos.** `verifyMandateValidity` aplica um único contrato (um `mandate_id` não vazio, revogação exata, instantes RFC 3339 comparados em milissegundos, `valid_from` não posterior a `valid_until`, com os dois limites incluídos) e aceita um `now` opcional; uma data ausente ou malformada, antes aceita, é inválida. `verifyMandateChain` lê todos os instantes da mesma forma e rejeita um mandato raiz que repete um domínio.
 - **`VerificationCache`.** Novas opções de adesão explícita `context` e `agentIds` (`VerificationCacheSetOptions`, `VerificationCacheLookupOptions`). Opções inválidas lançam uma exceção em vez de desativar a expiração ou o limite, `set` e `get` copiam os resultados, uma entrada expira exatamente ao completar seu TTL no relógio monotônico, e `invalidateByAgent` agora remove entradas.
 
-Não mudam o formato de transmissão, as assinaturas, os perfis, `dcp-jcs-v1` nem as APIs experimentais de adesão explícita `dcp-jcs-v2`. Veja o [changelog](../../../../CHANGELOG.md#unreleased). O README do tarball publicado é o que foi preparado antes da publicação e diz "prepared, not published"; tarballs publicados não podem mudar.
+Não mudam o formato de transmissão, as assinaturas, os perfis, `dcp-jcs-v1` nem as APIs experimentais de adesão explícita `dcp-jcs-v2`. Veja o [changelog](../../../../CHANGELOG.md#unreleased). O README do tarball da 2.3.0 é o que foi preparado antes da publicação dela e diz "prepared, not published"; tarballs publicados não podem mudar.
+
+**`@dcp-ai/sdk` 2.4.0.** Os comandos de instalação abaixo indicam esta versão; para a disponibilidade dela no registro, veja [Versões publicadas](../../../../docs/README.md#published-versions). Em comparação com a 2.3.0:
+
+- **Adicionado (adesão explícita).** `admitDelegatedBundleV2`, `admitSignedBundleV2FromBytes`, `createMandateAcknowledgment` e `evaluateDelegationActivationV2`; nenhum padrão as chama (veja [ADMISSION.md](../../docs/ADMISSION.md#delegation-bytes-and-acknowledgments-opt-in)).
+- **Mudança de aceitação: Ed25519 P-ED-1.** A verificação de objetos V1 e o provedor Ed25519 V2 padrão também rejeitam uma chave pública ou um R que não seja uma codificação canônica ou que seja de ordem divisora de 8. Mantenha a evidência que falha como está; assine de novo com a mesma chave quando ela cumprir P-ED-1, faça a rotação de uma chave pública não canônica e substitua uma chave de ordem pequena.
+
+Não mudam o formato de transmissão, as assinaturas, os perfis, `dcp-jcs-v1` nem as APIs experimentais de adesão explícita `dcp-jcs-v2`.
 
 ```bash
-npm install @dcp-ai/sdk@^2.3.0
+npm install @dcp-ai/sdk@^2.4.0
 ```
 
 Veja o [inventário de publicações npm](../../../../docs/NPM_RELEASES.md) para todas as versões.

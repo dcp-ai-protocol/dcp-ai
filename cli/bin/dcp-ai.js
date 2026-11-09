@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { readFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import crypto from 'node:crypto';
 import chalk from 'chalk';
@@ -9,7 +9,8 @@ import { loadConfig, findConfigDir } from '../lib/config.js';
 import { rejectedByPed1 } from '../lib/ed25519-ped1.js';
 
 const VERSION = '2.0';
-const CLI_VERSION = '2.1.1';
+// Read from the package.json next to this file (Node 18 or later, any working directory), so it cannot go stale.
+const CLI_VERSION = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
 
 const HELP = `
 ${chalk.bold('dcp-ai')} — DCP Digital Citizenship Protocol CLI

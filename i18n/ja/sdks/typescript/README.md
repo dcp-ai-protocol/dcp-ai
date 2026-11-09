@@ -5,7 +5,7 @@
 
 # @dcp-ai/sdk — DCP-AI v2.0 用 TypeScript SDK
 
-> [英語版](../../../../sdks/typescript/README.md)の参考訳です（05/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../../sdks/typescript/README.md)の参考訳です（09/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 Digital Citizenship Protocol（DCP-AI）の公式 TypeScript SDK です。ポスト量子のハイブリッド暗号（Ed25519 + ML-DSA-65）、複合署名、適応型セキュリティティア、エージェント間（A2A）通信、組み込みのオブザーバビリティ、本番向けの堅牢化を備え、Citizenship Bundle の作成、署名、検証を行えます。
 
@@ -17,16 +17,23 @@ Digital Citizenship Protocol（DCP-AI）の公式 TypeScript SDK です。ポス
 
 **`@dcp-ai/sdk` 2.2.1。** このバージョンは、[VERIFICATION.md の V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) の二次の SHA3-256 フィールドが存在する場合、それらも検証します：`audit_merkle_root_secondary`、各 `prev_hash_secondary`、各 `intent_hash_secondary`。存在しないフィールドは要求されないため、検証済みのバンドルが完全な二次チェーンを持たないこともあります。存在するフィールドが `null`、文字列でない、または不整合の場合は拒否されます。API、結果のフィールド、`dcp-jcs-v1`、`hash_alg` の扱いは変わりません。2.2.0 はこれらのフィールドを確認しません。
 
-**`@dcp-ai/sdk` 2.3.0。** 05/11/2026 に npm で公開されました。以下のインストールコマンドはこのバージョンを指定しています。レジストリでの提供状況は[公開済みバージョン](../../../../docs/README.md#published-versions)を参照してください。2.2.1 との違い：
+**`@dcp-ai/sdk` 2.3.0。** 05/11/2026 に npm で公開されました。2.2.1 との違い：
 
 - **V2-2 スキーマ検証。** `verifySignedBundleV2`、統合されたアドミッション API、実験的な候補検証器は、ハッシュ、鍵、署名を確認する前に、署名済みバンドルのエンベロープと 4 つのペイロードを `schemas/v2` に照らして検証します。これらが受理していたスキーマ上無効なバンドル（閉じたオブジェクト内の未知のメンバーや、マニフェスト内の `null` のセッション時刻など）は、`schema: <pointer> <keyword>` 診断とともに `verified: false` を返すようになりました（後述の「スキーマ検証」を参照）。
 - **委任状。** `verifyMandateValidity` は一つの契約（空でない `mandate_id`、完全一致による失効、ミリ秒単位で比較する RFC 3339 の瞬間、`valid_until` より後でない `valid_from`、両端を含む）を適用し、省略可能な `now` を受け取ります。以前は受理されていた欠落した日付や不正な形式の日付は無効です。`verifyMandateChain` はすべての時刻を同じ方法で読み取り、ドメインを繰り返すルート委任状を拒否します。
 - **`VerificationCache`。** オプトインのオプション `context` と `agentIds`（`VerificationCacheSetOptions`、`VerificationCacheLookupOptions`）が加わりました。無効なオプションは有効期限や上限を無効にする代わりに例外を投げ、`set` と `get` は結果をコピーし、エントリーは単調時計でちょうど TTL に達した時点で期限切れになり、`invalidateByAgent` はエントリーを削除するようになりました。
 
-ワイヤーフォーマット、署名、プロファイル、`dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API は変わりません。[変更履歴](../../../../CHANGELOG.md#unreleased)を参照してください。公開済みの tarballに含まれる README は公開前に準備したもので、「prepared, not published」と記載しています。公開済みの tarball は変更できません。
+ワイヤーフォーマット、署名、プロファイル、`dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API は変わりません。[変更履歴](../../../../CHANGELOG.md#unreleased)を参照してください。2.3.0 の tarball に含まれる README は、その公開前に準備したもので、「prepared, not published」と記載しています。公開済みの tarball は変更できません。
+
+**`@dcp-ai/sdk` 2.4.0。** 以下のインストールコマンドはこのバージョンを指定しています。レジストリでの提供状況は[公開済みバージョン](../../../../docs/README.md#published-versions)を参照してください。2.3.0 との違い：
+
+- **追加（オプトイン）。** `admitDelegatedBundleV2`、`admitSignedBundleV2FromBytes`、`createMandateAcknowledgment`、`evaluateDelegationActivationV2`。デフォルトの処理からは呼び出されません（[ADMISSION.md](../../docs/ADMISSION.md#delegation-bytes-and-acknowledgments-opt-in)を参照）。
+- **受理の変更：Ed25519 P-ED-1。** V1 オブジェクトの検証とデフォルトの V2 Ed25519 プロバイダーは、正準なエンコーディングでない公開鍵や R、または位数が 8 を割り切る点である公開鍵や R も拒否します。失敗する証拠はそのまま保管してください。鍵が P-ED-1 を満たす場合は同じ鍵で署名し直し、正準でない公開鍵はローテーションし、小さい位数の鍵は置き換えてください。
+
+ワイヤーフォーマット、署名、プロファイル、`dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API は変わりません。
 
 ```bash
-npm install @dcp-ai/sdk@^2.3.0
+npm install @dcp-ai/sdk@^2.4.0
 ```
 
 全パッケージのバージョンは [npm リリース一覧](../../../../docs/NPM_RELEASES.md)を参照してください。

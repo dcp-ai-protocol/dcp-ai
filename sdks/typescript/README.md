@@ -10,16 +10,23 @@ Official TypeScript SDK for the Digital Citizenship Protocol (DCP-AI). Create, s
 
 **`@dcp-ai/sdk` 2.2.1.** This version also verifies the secondary SHA3-256 fields of [VERIFICATION.md V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) when they are present: `audit_merkle_root_secondary`, each `prev_hash_secondary` and each `intent_hash_secondary`. Absent fields are not required, so a verified bundle may lack a complete secondary chain; a present field that is `null`, not a string or inconsistent is rejected. APIs, result fields, `dcp-jcs-v1` and `hash_alg` handling are unchanged. 2.2.0 does not check these fields.
 
-**`@dcp-ai/sdk` 2.3.0.** Published on npm on 05/11/2026. The installation commands below name this version; for its registry availability, see [Published versions](../../docs/README.md#published-versions). Compared with 2.2.1:
+**`@dcp-ai/sdk` 2.3.0.** Published on npm on 05/11/2026. Compared with 2.2.1:
 
 - **V2-2 schema validation.** `verifySignedBundleV2`, the combined admission API and the experimental candidate verifier validate the signed bundle envelope and the four payloads against `schemas/v2` before any hash, key or signature check. Schema-invalid bundles they accepted, such as unknown members in closed objects or `null` session times in the manifest, now return `verified: false` with `schema: <pointer> <keyword>` diagnostics (see Schema validation below).
 - **Mandates.** `verifyMandateValidity` applies one contract (a non-empty `mandate_id`, exact revocation, RFC 3339 instants compared in milliseconds, `valid_from` not after `valid_until`, both limits included) and takes an optional `now`; a missing or malformed date, accepted before, is invalid. `verifyMandateChain` reads every time the same way and rejects a root mandate that repeats a domain.
 - **`VerificationCache`.** New opt-in `context` and `agentIds` options (`VerificationCacheSetOptions`, `VerificationCacheLookupOptions`). Invalid options throw instead of disabling expiry or the bound, `set` and `get` copy results, an entry expires at exactly its TTL on the monotonic clock, and `invalidateByAgent` now removes entries.
 
-The wire format, the signatures, the profiles, `dcp-jcs-v1` and the experimental opt-in `dcp-jcs-v2` APIs are unchanged. See the [changelog](../../CHANGELOG.md#unreleased). The README inside the published tarball is the one prepared before publication and reads "prepared, not published"; published tarballs cannot change.
+The wire format, the signatures, the profiles, `dcp-jcs-v1` and the experimental opt-in `dcp-jcs-v2` APIs are unchanged. See the [changelog](../../CHANGELOG.md#unreleased). The README inside the 2.3.0 tarball is the one prepared before its publication and reads "prepared, not published"; published tarballs cannot change.
+
+**`@dcp-ai/sdk` 2.4.0.** The installation commands below name this version; for its registry availability, see [Published versions](../../docs/README.md#published-versions). Compared with 2.3.0:
+
+- **Added (opt-in).** `admitDelegatedBundleV2`, `admitSignedBundleV2FromBytes`, `createMandateAcknowledgment` and `evaluateDelegationActivationV2`; no default calls them (see [ADMISSION.md](../../docs/ADMISSION.md#delegation-bytes-and-acknowledgments-opt-in)).
+- **Acceptance change: Ed25519 P-ED-1.** V1 object verification and the default V2 Ed25519 provider also reject a public key or R that is not a canonical encoding or is of order dividing 8. Keep failing evidence as it is; sign again with the same key when it meets P-ED-1, rotate a non-canonical public key and replace a key of small order.
+
+The wire format, the signatures, the profiles, `dcp-jcs-v1` and the experimental opt-in `dcp-jcs-v2` APIs are unchanged.
 
 ```bash
-npm install @dcp-ai/sdk@^2.3.0
+npm install @dcp-ai/sdk@^2.4.0
 ```
 
 See the [npm release inventory](../../docs/NPM_RELEASES.md) for all package versions.

@@ -2,7 +2,7 @@
 
 # dcp-ai — Python SDK
 
-> 本文是[英文版](../../../../sdks/python/README.md)的参考译文，更新于 05/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../../sdks/python/README.md)的参考译文，更新于 09/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 Digital Citizenship Protocol（DCP v2.0）的官方 Python SDK。提供 Pydantic v2 模型、后量子混合签名（Ed25519 + ML-DSA-65，以及 SLH-DSA-192f）、ML-KEM-768 KEM 原语、带 `pq_over_classical` 绑定的复合签名、V1 和 V2 bundle 的签名与验证、OpenTelemetry 可观测性、DCP-04 至 DCP-09 的行为，以及功能完整的 CLI。
 
@@ -14,15 +14,22 @@ Digital Citizenship Protocol（DCP v2.0）的官方 Python SDK。提供 Pydantic
 
 **Python SDK 2.10.1。** 此版本还会在 [VERIFICATION.md 的 V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) 中的二级 SHA3-256 字段存在时验证它们：`audit_merkle_root_secondary`、每个 `prev_hash_secondary` 和每个 `intent_hash_secondary`。不存在的字段不作要求，因此已验证的 bundle 可能没有完整的二级链；存在的字段如果是 `null`、不是字符串或不一致，则被拒绝。API、结果字段、`dcp-jcs-v1` 和 `hash_alg` 的处理均不变。2.10.0 不检查这些字段。
 
-**Python SDK 2.10.2。** 已于 05/11/2026 在 PyPI 上发布。下面的安装命令指定的是此版本；它在注册表中的可用情况见[已发布版本](../../../../docs/README.md#published-versions)。与 2.10.1 相比：
+**Python SDK 2.10.2。** 已于 05/11/2026 在 PyPI 上发布。与 2.10.1 相比：
 
 - **V2-2 模式校验。** `verify_signed_bundle_v2` 和其他 V2 验证函数（因而也包括 FastAPI 中间件和桥接器）在任何哈希、密钥或签名检查之前，先按 `schemas/v2` 校验已签名 bundle 的信封和四个载荷。以前被接受的模式无效 bundle 现在会以 `schema: <pointer> <keyword>` 诊断失败。
 - **委托书。** `verify_mandate_validity` 采用统一的约定，返回结果而不是抛出异常；`now=` 必须是带时区的 `datetime`。注解为 `set[str]` 的已吊销 ID 现在按 `collections.abc.Set`（`set`、`frozenset` 或 dict 的键视图）检查：以前被容忍的列表或字符串会被拒绝。`verify_mandate_chain` 以同一方式读取所有时间，并拒绝重复某个领域的根委托书。
 
-传输格式、签名、配置文件、`dcp-jcs-v1` 和实验性显式启用的 `dcp-jcs-v2` API 均不变。参见[变更日志](../../../../CHANGELOG.md#unreleased)。已发布的 wheel 和 sdist中的 README 是发布前准备的版本，写着“prepared, not published”；已发布的文件无法更改。
+传输格式、签名、配置文件、`dcp-jcs-v1` 和实验性显式启用的 `dcp-jcs-v2` API 均不变。参见[变更日志](../../../../CHANGELOG.md#unreleased)。2.10.2 的 wheel 和 sdist 中的 README 是其发布前准备的版本，写着“prepared, not published”；已发布的文件无法更改。
+
+**Python SDK 2.11.0。** 下面的安装命令指定的是此版本；它在注册表中的可用情况见[已发布版本](../../../../docs/README.md#published-versions)。与 2.10.2 相比：
+
+- **新增（显式启用）。** `admit_delegated_bundle_v2`、`admit_signed_bundle_v2_from_bytes`、`create_mandate_acknowledgment` 和 `evaluate_delegation_activation_v2`；默认流程不会调用它们（参见[ADMISSION.md](../../docs/ADMISSION.md#delegation-bytes-and-acknowledgments-opt-in)）。
+- **接受范围变化：Ed25519 P-ED-1。** V1 对象验证和默认的 V2 Ed25519 提供方还会拒绝非规范编码的公钥或 R，以及阶整除 8 的公钥或 R。官方 PyNaCl 构建此前已拒绝这些签名。请保持验证失败的证据原样；密钥符合 P-ED-1 时用同一密钥重新签名，轮换非规范公钥，替换小阶密钥。
+
+传输格式、签名、配置文件、`dcp-jcs-v1` 和实验性显式启用的 `dcp-jcs-v2` API 均不变。
 
 ```bash
-pip install "dcp-ai>=2.10.2,<3"
+pip install "dcp-ai>=2.11.0,<3"
 ```
 
 **从 2.9.0 升级。** FastAPI 现在验证 V2 签名，而不是仅接受结构。FastAPI 和 LangChain/OpenAI 适配器对 V1 的接受遵循验证器策略。V2 还会拒绝旧版本曾接受的非规范签名编码、不一致或绑定错误的证据。请保留历史证据及其验证版本，不要静默重新签名。信任、资源预算和断开连接处理仍由运营方显式选择。验证或准入不授权任何操作。
@@ -40,14 +47,14 @@ pip install -e "dcp-ai/sdks/python"
 
 ### 可选 extras
 
-来自注册表（2.10.2 或更高版本）；从检出副本安装时同样适用这些 extras：`pip install -e "dcp-ai/sdks/python[fastapi]"`。
+来自注册表（2.11.0 或更高版本）；从检出副本安装时同样适用这些 extras：`pip install -e "dcp-ai/sdks/python[fastapi]"`。
 
 ```bash
-pip install "dcp-ai[fastapi]>=2.10.2,<3"    # FastAPI middleware
-pip install "dcp-ai[langchain]>=2.10.2,<3"  # LangChain integration
-pip install "dcp-ai[openai]>=2.10.2,<3"     # OpenAI wrapper
-pip install "dcp-ai[crewai]>=2.10.2,<3"     # CrewAI multi-agent
-pip install "dcp-ai[otlp]>=2.10.2,<3"       # OpenTelemetry OTLP exporter
+pip install "dcp-ai[fastapi]>=2.11.0,<3"    # FastAPI middleware
+pip install "dcp-ai[langchain]>=2.11.0,<3"  # LangChain integration
+pip install "dcp-ai[openai]>=2.11.0,<3"     # OpenAI wrapper
+pip install "dcp-ai[crewai]>=2.11.0,<3"     # CrewAI multi-agent
+pip install "dcp-ai[otlp]>=2.11.0,<3"       # OpenTelemetry OTLP exporter
 ```
 
 <a id="features"></a>

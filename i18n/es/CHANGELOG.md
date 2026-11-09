@@ -4,7 +4,7 @@
 
 # Registro de cambios
 
-> Traducción informativa de [la versión en inglés](../../CHANGELOG.md), actualizada el 08/11/2026. Cada entrada, también las de `[Unreleased]`, describe un cambio en su momento y no garantiza el comportamiento actual; las versiones publicadas son **registro histórico con fecha**. Si difieren, prevalece la versión en inglés.
+> Traducción informativa de [la versión en inglés](../../CHANGELOG.md), actualizada el 09/11/2026. Cada entrada, también las de `[Unreleased]`, describe un cambio en su momento y no garantiza el comportamiento actual; las versiones publicadas son **registro histórico con fecha**. Si difieren, prevalece la versión en inglés.
 
 **Versiones publicadas (26/10/2026).** Están publicados npm (13 paquetes, incluido `@dcp-ai/sdk` 2.2.0), Python `dcp-ai` 2.10.0, Go `v2.11.0` y Rust `dcp-ai` 2.11.0, con las correcciones del verificador, la admisión y las API experimentales opt-in; `dcp-jcs-v1` sigue siendo el valor normativo predeterminado. Véase [Versiones publicadas](../../docs/README.md#published-versions). Las entradas siguientes conservan su historial de desarrollo; `[Unreleased]` no significa que estas funciones no estén publicadas. Las seis publicaciones de corrección del 28/10/2026 están en [su propia sección](#2026-10-28-sha3-patch-releases). Las cinco publicaciones del 05/11/2026 están en [la suya](#2026-11-05-auditable-releases).
 
@@ -17,6 +17,27 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 > el comportamiento actual ni que una versión de un paquete esté disponible en un registro. Para el comportamiento
 > actual, consulta el [README](../../README.md), la [documentación](../../docs/README.md), las [especificaciones](../../spec/README.md)
 > y la [referencia de la API](../../docs/API_REFERENCE.md).
+
+<a id="prepared-not-published-dcp-aisdk-240-dcp-ai-2110-go-v2140-rust-dcp-ai-2140-dcp-aiwasm-220-and-dcp-aicli-220"></a>
+
+## Preparadas, no publicadas: `@dcp-ai/sdk` 2.4.0, `dcp-ai` 2.11.0, Go v2.14.0, Rust `dcp-ai` 2.14.0, `@dcp-ai/wasm` 2.2.0 y `@dcp-ai/cli` 2.2.0
+
+Preparadas en el repositorio el 08/11/2026 y **no publicadas**. [Versiones publicadas](../../docs/README.md#published-versions) sigue nombrando las versiones del registro hasta que cada paquete se publique y se compruebe su registro.
+
+| Paquete | Preparada | Publicada ahora |
+|---|---|---|
+| `@dcp-ai/sdk` | 2.4.0 | 2.3.0 |
+| `dcp-ai` (PyPI) | 2.11.0 | 2.10.2 |
+| Go `sdks/go/v2` | v2.14.0 | v2.13.0 |
+| Rust `dcp-ai` | 2.14.0 | 2.13.0 |
+| `@dcp-ai/wasm` | 2.2.0 | 2.1.3 |
+| `@dcp-ai/cli` | 2.2.0 | 2.1.1 |
+
+- **Añadido (activación explícita).** La admisión delegada, la admisión desde bytes y el acuse de mandato en los SDK de TypeScript, Python, Go y Rust, y la exportación cruda de WASM `wasm_canonicalize_v2_result`; véase `[Unreleased]`.
+- **Cambio de aceptación.** Ed25519 P-ED-1 en los cuatro SDK, el build de WASM y `dcp-ai verify`: se rechaza una clave pública o una R que no sea una codificación canónica o que sea de orden divisor de 8. Conserva la evidencia que falla tal como está; vuelve a firmar con la misma clave si cumple P-ED-1, rota una clave pública no canónica y sustituye una clave de orden pequeño.
+- **Correcciones.** En WASM, `hashObject` y `deriveKid` lanzan un error en lugar de devolver un sobre de error como valor, y `canonicalize` distingue un valor `{ error: … }` de un error; Go lee claves SLH-DSA-192f sin pánico.
+- **Empaquetado y dependencias.** El binario de `@dcp-ai/wasm` se compila sin las rutas locales de quien compila, y una puerta de publicación revisa los archivos empaquetados. `@dcp-ai/cli` incluye `LICENSE`, exige `@dcp-ai/sdk` `^2.4.0` y lee su versión de `package.json`. La feature `otlp` de Rust exige `anyhow` 1.0.103 y `tokio` 1.53.3 o posteriores (RUSTSEC-2026-0190, RUSTSEC-2026-0386); los builds predeterminado y `wasm` no seleccionan ninguno de los dos.
+- **Sin cambios.** El formato de transmisión, las firmas, los perfiles, `dcp-jcs-v1` y las API experimentales de activación explícita `dcp-jcs-v2`. Los adaptadores npm no reciben versión nueva: `@dcp-ai/express` 2.1.0 conserva sus archivos publicados, y una instalación nueva resuelve `@dcp-ai/sdk` 2.4.0 mediante su rango `^2.2.0`. `integrations/express` gana un archivo `LICENSE` solo en el repositorio.
 
 <a id="2026-11-05-auditable-releases"></a>
 

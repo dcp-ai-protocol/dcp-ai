@@ -814,6 +814,14 @@ jobs:
           npm install
           npm run build:ts
 
+      # Release gate of the built package (sdks/wasm/test/release-artifact.mjs): packed members, LICENSE, the
+      # ajv-formats notice and no absolute local path in any member. Its negative controls must each fail.
+      - name: Release artifact gate and its negative controls
+        run: |
+          npm run release-check
+          npm run release-check:negative
+          npm run test:build-script
+
       # Runs verifyBundle over tests/interop/v2/bundle_vectors.json in Node, so the
       # wasm verifier runs; the Rust job only compiles the wasm32 tests.
       - name: Verify the bundle vectors through the wasm build

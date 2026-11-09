@@ -6,7 +6,7 @@
 
 **Go 发布 (26/10/2026).** Go SDK `v2.11.0` 已通过模块标签 `sdks/go/v2.11.0` 发布，包含验证器修复、准入和实验性显式启用 API。Rust 仍独立发布。见 [Go v2.11.0](../../../../docs/GO_RELEASE.md).
 
-> 本文是[英文 README](../../../../sdks/go/README.md)的参考译文，更新于 05/11/2026。为保留经过验证的示例，标识符和代码块（包括注释）均保持原文。
+> 本文是[英文 README](../../../../sdks/go/README.md)的参考译文，更新于 09/11/2026。为保留经过验证的示例，标识符和代码块（包括注释）均保持原文。
 
 Digital Citizenship Protocol（DCP）v1.0 和 v2.0 的官方 Go SDK。支持 Ed25519、ML-DSA-65、SLH-DSA-192f、ML-KEM-768、复合签名、双哈希链和 bundle 验证。
 
@@ -22,17 +22,25 @@ Digital Citizenship Protocol（DCP）v1.0 和 v2.0 的官方 Go SDK。支持 Ed2
 
 **Go SDK v2.11.1。** 此版本还会在 [VERIFICATION.md 的 V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) 中的二级 SHA3-256 字段存在时验证它们：`audit_merkle_root_secondary`、每个 `prev_hash_secondary` 和每个 `intent_hash_secondary`。不存在的字段不作要求，因此已验证的 bundle 可能没有完整的二级链；存在的字段如果是 `null`、不是字符串或不一致，则被拒绝。API、结果字段、`dcp-jcs-v1` 和 `hash_alg` 的处理均不变。v2.11.0 不检查这些字段。
 
-**Go SDK v2.13.0。** 已于 05/11/2026 通过 `sdks/go/v2.13.0` 标签发布。下面的安装命令指定的是此版本；它在注册表中的可用情况见[已发布版本](../../../../docs/README.md#published-versions)。30/10/2026 准备的 v2.12.0 从未打标签，已被取代。与 v2.11.1 相比：
+**Go SDK v2.13.0。** 已于 05/11/2026 通过 `sdks/go/v2.13.0` 标签发布。30/10/2026 准备的 v2.12.0 从未打标签，已被取代。与 v2.11.1 相比：
 
 - **V2-2 模式校验。** `v2.VerifySignedBundleV2` 及其变体在任何哈希、密钥或签名检查之前，先按 `schemas/v2` 校验已签名 bundle 的信封和四个载荷。以前被接受的模式无效 bundle 现在会以 `schema: <pointer> <keyword>` 诊断失败。
 - **`v2.VerifyPayloadHash`** 只有在值为 `"sha256:"` 后接规范载荷的 SHA-256（即 `SignPayload` 写入的形式）时才为 `true`；以前被接受的不带前缀的摘要现在为 `false`。
 - **`v2.RawAuditEventV2`**（新增）按解码结果保留收到的审计条目，因此每个成员的存在与否及其 `null` 值都得以保留。
 - **委托书。** `v2.VerifyMandateValidity` 采用统一的约定，`v2.VerifyMandateValidityAt`（新增）接收验证时间；以前被接受的缺失或格式错误的日期现在无效。`v2.VerifyMandateChain` 以同一方式读取所有时间，并拒绝重复某个领域的根委托书。
 
-`SDKVersion` 为 `2.13.0`。传输格式、签名、配置文件、`dcp-jcs-v1` 和实验性显式启用的 `dcp-jcs-v2` API 均不变。参见[变更日志](../../../../CHANGELOG.md#unreleased)。已发布的模块中的 README 是发布前准备的版本，写着“prepared, not published”；已发布的模块无法更改。
+在 v2.13.0 中，`SDKVersion` 为 `2.13.0`。传输格式、签名、配置文件、`dcp-jcs-v1` 和实验性显式启用的 `dcp-jcs-v2` API 均不变。参见[变更日志](../../../../CHANGELOG.md#unreleased)。v2.13.0 的模块中的 README 是其发布前准备的版本，写着“prepared, not published”；已发布的模块无法更改。
+
+**Go SDK v2.14.0。** 下面的安装命令指定的是此版本；它在注册表中的可用情况见[已发布版本](../../../../docs/README.md#published-versions)。与 v2.13.0 相比：
+
+- **新增（显式启用）。** `v2.AdmitDelegatedBundleV2`、`v2.AdmitSignedBundleV2FromBytes`、`v2.CreateMandateAcknowledgment` 和 `v2.EvaluateDelegationActivationV2`；默认流程不会调用它们（参见[ADMISSION.md](../../docs/ADMISSION.md#delegation-bytes-and-acknowledgments-opt-in)）。
+- **接受范围变化：Ed25519 P-ED-1。** V1 对象验证和默认的 V2 Ed25519 提供方还会拒绝非规范编码的公钥或 R，以及阶整除 8 的公钥或 R。请保持验证失败的证据原样；密钥符合 P-ED-1 时用同一密钥重新签名，轮换非规范公钥，替换小阶密钥。
+- **SLH-DSA-192f。** 提供方读取私钥和公钥时不再 panic；大小错误的输入会产生错误或拒绝。
+
+`SDKVersion` 为 `2.14.0`。传输格式、签名、配置文件、`dcp-jcs-v1` 和实验性显式启用的 `dcp-jcs-v2` API 均不变。
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.13.0
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.14.0
 ```
 
 从 v2.10.0 升级后验证更严格，之前接受的格式错误或不一致证据可能被拒绝。V1 公钥长度无效时返回错误而非 panic。请保留历史证据。`dcp-jcs-v1` 仍是规范性默认值；候选 API 仍为实验性且须显式启用。准入仍需运营方配置信任，不授权任何操作。

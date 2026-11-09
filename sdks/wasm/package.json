@@ -1,6 +1,6 @@
 {
   "name": "@dcp-ai/wasm",
-  "version": "2.1.3",
+  "version": "2.2.0",
   "description": "WebAssembly module for DCP-AI v2.0 — post-quantum crypto, composite signatures, and full verification in the browser",
   "type": "module",
   "main": "./dist/index.js",
@@ -13,10 +13,13 @@
   },
   "files": ["dist", "pkg"],
   "scripts": {
-    "build:wasm": "cd ../rust && wasm-pack build --target web --out-dir ../wasm/pkg -- --features wasm && rm -f ../wasm/pkg/.gitignore",
-    "build:wasm:node": "cd ../rust && wasm-pack build --target nodejs --out-dir ../wasm/pkg -- --features wasm && rm -f ../wasm/pkg/.gitignore",
+    "build:wasm": "node scripts/build-wasm.mjs web",
+    "build:wasm:node": "node scripts/build-wasm.mjs nodejs",
     "build:ts": "tsc",
     "build": "npm run build:wasm && npm run build:ts",
+    "release-check": "node test/release-artifact.mjs",
+    "release-check:negative": "node --test test/release-artifact.test.mjs",
+    "test:build-script": "node --test test/build-wasm.test.mjs",
     "test": "npm run build:ts && node test/verify-vectors.mjs && node test/secondary-sha3.mjs && node test/build-sign.mjs && node test/experimental-candidate-ingress.mjs && node test/experimental-candidate-router.mjs && node test/v1-verify.mjs && node test/experimental-candidate-verify.mjs && node test/experimental-candidate-produce.mjs && node test/experimental-candidate-gate7.mjs && node test/packlist.mjs"
   },
   "keywords": ["dcp", "ai", "wasm", "verification", "post-quantum", "browser", "cryptography"],
