@@ -2081,23 +2081,23 @@
       }
     },
     "docs/conformance/AUDIT_DOSSIER.md": {
-      "source_sha256": "0775107e160aa8308877f0fe674d7a3de381f1659e1d8f8a87b09a0e87da70c7",
+      "source_sha256": "5cb0b25fe33d041832c0c371d2fcee3d768b695d840bb1111b5e4329a7be1989",
       "translations": {
         "es": {
-          "source_sha256": "0775107e160aa8308877f0fe674d7a3de381f1659e1d8f8a87b09a0e87da70c7",
-          "sha256": "c2b34a4b96e015ea16d5b1e3252103d63cd0d9c4a1a2c9cb81e4a4d43cf9d57a"
+          "source_sha256": "5cb0b25fe33d041832c0c371d2fcee3d768b695d840bb1111b5e4329a7be1989",
+          "sha256": "50a0399eee8dc5cb948bab5d72dba20fafed6267caeba54b3ae27d5308258eac"
         },
         "pt-BR": {
-          "source_sha256": "0775107e160aa8308877f0fe674d7a3de381f1659e1d8f8a87b09a0e87da70c7",
-          "sha256": "af197ed7272a6e620b5560f75fb051d4712f7503f41454d1492f1948eb4bfb7a"
+          "source_sha256": "5cb0b25fe33d041832c0c371d2fcee3d768b695d840bb1111b5e4329a7be1989",
+          "sha256": "74f5374f328d160f93f13ea01e205f9210939bef510c44343e81d39835906b9b"
         },
         "ja": {
-          "source_sha256": "0775107e160aa8308877f0fe674d7a3de381f1659e1d8f8a87b09a0e87da70c7",
-          "sha256": "f5dcf290515fd8f8ea7fd33be2743a1582a795fcf7e8678e6e930b8be7171c53"
+          "source_sha256": "5cb0b25fe33d041832c0c371d2fcee3d768b695d840bb1111b5e4329a7be1989",
+          "sha256": "d682373573a934d2ce4734f9f7e35466044f36ab9b234e2ea9f7c43a04374db1"
         },
         "zh-CN": {
-          "source_sha256": "0775107e160aa8308877f0fe674d7a3de381f1659e1d8f8a87b09a0e87da70c7",
-          "sha256": "74a31dbf5ffcf231b1c0b6ccab4bc24af47c157d8d68ae3de6e93c812ba405db"
+          "source_sha256": "5cb0b25fe33d041832c0c371d2fcee3d768b695d840bb1111b5e4329a7be1989",
+          "sha256": "df0963606d47faa417ff968f57f0a0cee39905639f9ab4ab94a89fa0a799cbd8"
         }
       }
     },

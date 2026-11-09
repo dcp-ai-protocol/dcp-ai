@@ -14,6 +14,39 @@ This is the entry point for an independent security review of DCP-AI. It says wh
 - **Later commits:** the mandate chain differential harness and the five-SDK bundle comparison (#124) came after the baseline, and so did this dossier. A document cannot name its own final commit. Record the exact commit you review and use this file as a guide to it, not as evidence about it.
 - **Outside the baseline:** container images, deployments and operator configuration.
 
+## Pilot validation freeze (MP-06)
+
+This later snapshot is separate from the review baseline above. **Source:** `7dd8293d6f6c3d328fc0ff3906978200e55139db` (PR #138); tree `de40444aa1fc1bafef6ab7cf3b772664427b43dc`. It is an internal validation for bounded pilots, not an external audit, a deployment or a new registry release. `dcp-jcs-v1` and existing defaults are unchanged.
+
+The scope covers hybrid evidence verification, explicit principal trust, strict admission, opt-in delegated admission and the separate mandate acknowledgment in TypeScript, Python, Go and Rust. WASM covers verification and primitives through its installed browser API; it does **not** support mandate chains, admission or activation. Express and FastAPI are optional adapters. Action authorization, tenant configuration, revocation freshness, TLS and key custody remain application/operator responsibilities. The [operational limits](../OPERATIONAL_LIMITS.md) and [optional rehearsal](../../tools/enterprise-rehearsal/README.md) describe that boundary.
+
+### Evidence and artifact identity
+
+The [CI of the frozen revision](https://github.com/dcp-ai-protocol/dcp-ai/actions/runs/42539293814) passed its selected jobs. SDK/integration jobs skipped by path filters are covered by the successful MP-03 revision `df2df0de103777bb9e28cf70cc64d52f8df7d4b4`, with identical production subtrees and relevant build/test inputs. These are reused runs, not new executions. Locally installed artifacts were tested separately, including the Python sdist and the WASM tarball in a browser. The eight public catalogs passed for each full SDK; WASM passed only the six catalogs it supports. Focused composition, acknowledgment and byte-ingress controls, the original F1–F4 and principal-trust regressions, and provider evidence remain linked to their actual tested objects. The unchanged MP-05 HTTP rehearsal (200/200 steps) is reused.
+
+The artifacts below are **local, unpublished bytes**, even though their embedded version numbers match existing releases. The TS, Express and Python artifacts originated at `b3d41bd0`; all 256 source files recorded by their preparation manifest match the frozen revision. Go, Rust and WASM were built from the frozen export. Do not substitute registry packages by matching the version number.
+
+| Artifact | Local version | SHA-256 |
+|---|---|---|
+| `Go module zip` | `v2.13.0` | `a2e113c663b791c3b0908e135f2a1e2433ffea1301b1be2540a2fa3539c6ca41` |
+| `Rust .crate` | `2.13.0` | `192d58c182e9c115b5fa7e6af17dd790eaa37a68a4501e4985dc11ae5b157d39` |
+| `@dcp-ai/wasm tarball` | `2.1.3` | `501d24d7ae9a2923931edf4e9e8df902f353a87ff911906901f34b33d1ac052d` |
+| `@dcp-ai/sdk tarball` | `2.3.0` | `1e4b27bb82c70ab327227f5bb029eb2b01b0cdc643aeec206327bdaf5a94dd9c` |
+| `@dcp-ai/express tarball` | `2.1.0` | `bf2b6de539b9e3687ffd272c7015d9ff0a6288fdd65f86ce7662838b50ead969` |
+| `Python wheel` | `2.10.2` | `e20473aecf6f75ff6e01db4a9ce12bd33ef59000607b9cba47f197b4b2e8d317` |
+| `Python sdist` | `2.10.2` | `ad0e17c7850916777a5df379c6217e16eb1fcc82b2b465b53624c9eb985919fa` |
+
+
+Go was consumed through a local file proxy without `replace`; Rust through a path dependency on the extracted `.crate`; npm/Python through installed packages. Go validation used the patched 1.26.10 toolchain, without changing the module or dependencies. Retain the exact artifacts, dependency inventory, commands and reports for a pilot: a hash identifies bytes but does not make temporary artifacts downloadable. A rebuild must be checked and retested; WASM byte reproducibility was not established. Public reproduction starts with the [conformance kit](../../tools/conformance/README.md) and the [rehearsal instructions](../../tools/enterprise-rehearsal/README.md), using an explicit revision and installed package paths. This page summarizes internal evidence; it does not claim every local probe is a published test tool.
+
+### Limits and remaining release work
+
+- The frozen Express tarball lacks `LICENSE`; include the license before distributing it. The local WASM binary contains a build-cache path; remap paths and review rebuilt bytes before publication. Neither artifact is offered here as a release download.
+- Dependency review is a dated snapshot, not a guarantee. The optional Rust OTLP graph selects `anyhow`/`tokio` versions with advisories [RUSTSEC-2026-0190](https://osv.dev/vulnerability/RUSTSEC-2026-0190) and [RUSTSEC-2026-0386](https://osv.dev/vulnerability/RUSTSEC-2026-0386); default and WASM builds do not select those crates. OTLP is not validated by this freeze and needs separate dependency remediation before use.
+- CodeQL alerts #58/#59 remain open in a conformance self-test; triage found interpolation of a fixed-corpus hexadecimal hash, not a demonstrated remote production path. Dependabot reported no open alerts. The secret-scanning API was unavailable; that is missing coverage, not zero findings.
+- The prior dossier exclusions remain: unresolved specification contradictions, optional extensions, operator infrastructure and untested environments do not become supported through this freeze. Finite tests do not establish absence of vulnerabilities.
+- Packaging fixes, new versions, registry-installed checks and explicit publication authorization are still required before releasing the post-baseline changes. Images and deployments need their own validation. Documentation integration does not publish packages.
+
 ## Reproduce
 
 From a checkout of the commit under review, with Node 22, Python 3.10+, Go (the version in `sdks/go/go.mod`) and a stable Rust toolchain (with `wasm32-unknown-unknown` and wasm-pack for WASM). The installs use the committed locks where they exist. The Python SDK has none: `pip install -e ".[dev]"` resolves the versions available when you install.
