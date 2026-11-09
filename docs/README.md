@@ -58,6 +58,7 @@ Verified on 05/11/2026. Package versions are independent of the DCP wire and spe
 
 - [tools/interop-matrix](../tools/interop-matrix/README.md) — Live agents on the four SDKs sign and verify each other's bundles, untouched and tampered with in transit
 - [tools/difffuzz](../tools/difffuzz/README.md) — Differential fuzzing of the four V2 verifiers
+- [tools/enterprise-rehearsal](../tools/enterprise-rehearsal/README.md) — Optional enterprise integration rehearsal: packages built from one commit, an Express and a FastAPI application, expectations written before the run
 - [tests/interop/v2](../tests/interop/v2/) — Shared vectors every SDK must accept or reject
 - [tests/interop/candidate/phase4](../tests/interop/candidate/phase4/README.md) — Cross matrix of the experimental `dcp-jcs-v2` producers (five SDKs)
 

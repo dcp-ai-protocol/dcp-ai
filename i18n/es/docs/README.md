@@ -75,6 +75,7 @@ Verificadas el 05/11/2026. Las versiones de los paquetes son independientes de l
 
 - [tools/interop-matrix](../../../tools/interop-matrix/README.md) — Agentes reales en los cuatro SDK firman y verifican los bundles de los demás, intactos y manipulados en tránsito
 - [tools/difffuzz](../../../tools/difffuzz/README.md) — Fuzzing diferencial de los cuatro verificadores V2
+- [tools/enterprise-rehearsal](../../../tools/enterprise-rehearsal/README.md) — Ensayo opcional de integración empresarial: paquetes construidos desde un commit, una aplicación Express y otra FastAPI, expectativas escritas antes de la ejecución
 - [tests/interop/v2](../../../tests/interop/v2/) — Vectores compartidos que cada SDK debe aceptar o rechazar
 - [tests/interop/candidate/phase4](../../../tests/interop/candidate/phase4/README.md) — Matriz cruzada de los productores experimentales de `dcp-jcs-v2` (cinco SDK)
 

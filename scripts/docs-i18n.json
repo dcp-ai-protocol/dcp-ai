@@ -510,6 +510,11 @@
       "site_path": "reference/tools/difffuzz/README.md"
     },
     {
+      "source": "tools/enterprise-rehearsal/README.md",
+      "class": "contributor",
+      "site_path": "reference/tools/enterprise-rehearsal/README.md"
+    },
+    {
       "source": "tools/interop-matrix/README.md",
       "class": "contributor",
       "site_path": "reference/tools/interop-matrix/README.md"

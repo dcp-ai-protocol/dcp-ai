@@ -1,0 +1,28 @@
+{
+  "scenario": "dcp-ai-mp05-rehearsal-operator",
+  "scenario_version": 1,
+  "test_only": true,
+  "note": "Synthetic identities only. T1 and T2 have the same policy; only their trust sets differ (T1 enrols P, T2 enrols Q). T3 is authenticated but has no trust set.",
+  "principals": { "P": "human:mp05-principal-p", "Q": "human:mp05-principal-q" },
+  "agents": { "A0": "agent:mp05-a0", "A1": "agent:mp05-a1", "A2": "agent:mp05-a2" },
+  "tenants": {
+    "T1": {
+      "trust_set": true,
+      "direct_agents": { "agent:mp05-a0": ["quote", "order"] },
+      "delegated_principals": { "human:mp05-principal-p": ["quote", "order"] },
+      "max_amount": { "quote": 10000, "order": 10000 }
+    },
+    "T2": {
+      "trust_set": true,
+      "direct_agents": { "agent:mp05-a0": ["quote", "order"] },
+      "delegated_principals": { "human:mp05-principal-p": ["quote", "order"] },
+      "max_amount": { "quote": 10000, "order": 10000 }
+    },
+    "T3": {
+      "trust_set": false,
+      "direct_agents": { "agent:mp05-a0": ["quote", "order"] },
+      "delegated_principals": { "human:mp05-principal-p": ["quote", "order"] },
+      "max_amount": { "quote": 10000, "order": 10000 }
+    }
+  }
+}

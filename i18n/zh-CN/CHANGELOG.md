@@ -314,6 +314,13 @@
 
 ### 新增
 
+- **企业集成演练**（新增 [tools/enterprise-rehearsal/README.md](../../tools/enterprise-rehearsal/README.md)；
+  一个位于协议、SDK 和适配器之外的可选套件，不改变 SDK、适配器、配置文件、默认值或线格式，`dcp-jcs-v1` 不变，
+  也不发布任何内容）。它从同一个提交构建 TypeScript SDK、Express 适配器和 Python SDK，安装到新的使用方环境中，并在
+  掌管所有进程的监督器下，通过回环接口运行一个 Express 应用和一个 FastAPI 应用，对照运行前写好的预期结果。密钥、
+  令牌和租户都是合成的，并标注 TEST ONLY，运行结束时会删除这些机密。指南也说明了演练不能证明的内容：Go、Rust 或
+  WASM 的端到端流程，生产环境的 TLS、PKI 或 OIDC、KMS 或 HSM，恰好一次执行，以及关于已发布软件包的任何结论。
+
 - **通过公开接口的符合性**（本地源代码；没有新的规则、模式或配置文件，`dcp-jcs-v1` 不变；唯一的新导出是下面
   的 WASM 修复）。`tools/conformance/wrappers/wasm-browser.mjs` 在 Chrome 中通过公开类 `DcpWasm` 运行套件的目录：
   `/1`、`/2`、策略、结构、模式和 `/5`，共 590 个用例。另有直接部分增加 103 个用例：域分离、安全等级、混合签名与验证
