@@ -4,11 +4,11 @@
 
 # Guia de migração: do DCP-AI v1.0 para o v2.0
 
-> Tradução informativa da [versão em inglês](../../../docs/MIGRATION_V1_V2.md), atualizada em 05/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../docs/MIGRATION_V1_V2.md), atualizada em 09/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 **Versão da especificação:** 2.0
-**Última atualização:** outubro de 2026
-**Aplica-se a:** os SDKs de `main` e `@dcp-ai/sdk` 2.3.0 publicado. As versões npm foram verificadas em 05/11/2026; veja [NPM_RELEASES.md](../../../docs/NPM_RELEASES.md) e [SECURITY.md](../../../SECURITY.md#supported-versions). As versões dos outros SDKs estão em [Versões publicadas](../../../docs/README.md#published-versions).
+**Última atualização:** 09/11/2026
+**Aplica-se a:** os SDKs de `main` e `@dcp-ai/sdk` 2.4.0 publicado. As versões npm foram verificadas em 09/11/2026; veja [NPM_RELEASES.md](../../../docs/NPM_RELEASES.md) e [SECURITY.md](../../../SECURITY.md#supported-versions). As versões dos outros SDKs estão em [Versões publicadas](../../../docs/README.md#published-versions).
 
 Este guia conduz você na migração de uma integração existente do DCP-AI v1.0 para o v2.0. A migração introduz assinaturas compostas pós-quânticas, cadeias de hash duplo, vinculação de sessão, níveis de segurança adaptativos e comunicação entre agentes, enquanto os bundles v1.0 válidos continuam sendo verificados onde a política do verificador os permitir (veja 1.2).
 
@@ -51,7 +51,9 @@ O formato v1.0 continua válido, com estes limites:
   (o padrão) e o modo efetivo tolera uma assinatura somente clássica (abaixo). O próprio `verifySignedBundleV2`
   aceita somente a v2.0: encaminhe os bundles v1.0 ao verificador V1 (veja 3.2).
 - A aceitação é mais estrita do que em versões anteriores: por exemplo, agora é rejeitada uma assinatura Ed25519 cujo `S` não seja menor que a
-  ordem do grupo `L` (veja [`[Unreleased]`](../../../CHANGELOG.md#unreleased) do changelog), então um
+  ordem do grupo `L` (veja [`[Unreleased]`](../../../CHANGELOG.md#unreleased) do changelog), e desde as versões de 09/11/2026, P-ED-1 exige também
+  uma chave pública e um R canônicos que não sejam pontos de ordem pequena (veja
+  [SECURITY.md](../../../SECURITY.md#supported-versions)), então um
   bundle v1.0 armazenado que um verificador anterior aceitava pode deixar de ser verificado.
 - Os verificadores v1.0 rejeitam bundles v2.0 (`"unsupported dcp_version 2.0"`).
 
@@ -69,12 +71,12 @@ A migração é **aditiva**: a v2.0 introduz campos e estruturas novos ao lado d
 
 ### Etapa 1: atualizar o SDK
 
-Os exemplos funcionam com TypeScript SDK 2.3.0, Python `dcp-ai` 2.10.2, Go `v2.13.0` e Rust `dcp-ai` 2.13.0 publicados. Veja as notas de [Python](../../../docs/PYTHON_RELEASE.md), [Go](../../../docs/GO_RELEASE.md) e [Rust](../../../docs/RUST_RELEASE.md), e os limites documentados no README de cada SDK.
+Os exemplos funcionam com TypeScript SDK 2.4.0, Python `dcp-ai` 2.11.0, Go `v2.14.0` e Rust `dcp-ai` 2.14.0 publicados. Veja as notas de [Python](../../../docs/PYTHON_RELEASE.md), [Go](../../../docs/GO_RELEASE.md) e [Rust](../../../docs/RUST_RELEASE.md), e os limites documentados no README de cada SDK.
 
-**TypeScript** (publicado: 2.3.0 em 05/11/2026):
+**TypeScript** (publicado: 2.4.0 em 09/11/2026):
 
 ```bash
-npm install @dcp-ai/sdk@^2.3.0
+npm install @dcp-ai/sdk@^2.4.0
 ```
 
 **Python:**
@@ -87,16 +89,16 @@ pip install -e /path/to/dcp-ai/sdks/python     # main
 **Go** (observe o sufixo de versão maior v2 exigido pelos módulos Go):
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.13.0
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.14.0
 ```
 
 **Rust:**
 
 ```toml
-dcp-ai = "2.13.0"
+dcp-ai = "2.14.0"
 ```
 
-**WebAssembly:** compile `sdks/wasm` a partir de uma cópia do repositório (`npm run build`) e depois `npm install /path/to/dcp-ai/sdks/wasm`.
+**WebAssembly:** instale o `@dcp-ai/wasm` 2.2.0 publicado (`npm install @dcp-ai/wasm@^2.2.0`) ou compile `sdks/wasm` a partir de uma cópia do repositório (`npm run build`) e depois `npm install /path/to/dcp-ai/sdks/wasm`.
 
 <a id="step-2-generate-hybrid-key-pairs"></a>
 

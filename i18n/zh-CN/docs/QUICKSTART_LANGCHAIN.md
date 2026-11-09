@@ -5,7 +5,7 @@
 
 # DCP-AI + LangChain 快速开始
 
-> 本文是[英文版](../../../docs/QUICKSTART_LANGCHAIN.md)的参考译文，更新于 05/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/QUICKSTART_LANGCHAIN.md)的参考译文，更新于 09/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 将 Digital Citizenship Protocol 集成到你的 LangChain 智能体中，加入密码学身份、策略管控和审计轨迹。
 
@@ -18,10 +18,10 @@
 本指南使用 **LangChain.js v1**（TypeScript/Node，Node.js 22 或更高版本）。如果你使用的是 **Python 版 LangChain**，
 请跳到末尾的 Python 一节。
 
-从注册表安装使用 `@dcp-ai/sdk` 2.3.0。以下 DCP 示例可使用该已发布 SDK 运行；检出源码是开发时的可选方式。见 TypeScript SDK 的[发布状态](../../../sdks/typescript/README.md#installation)。
+从注册表安装使用 `@dcp-ai/sdk` 2.4.0。以下 DCP 示例可使用该已发布 SDK 运行；检出源码是开发时的可选方式。见 TypeScript SDK 的[发布状态](../../../sdks/typescript/README.md#installation)。
 
 ```bash
-npm install @dcp-ai/sdk@^2.3.0 langchain @langchain/core @langchain/openai zod
+npm install @dcp-ai/sdk@^2.4.0 langchain @langchain/core @langchain/openai zod
 ```
 
 <a id="zero-config-scaffold-alternative"></a>
@@ -216,7 +216,7 @@ const registry = getDefaultRegistry();
 如果你的 LangChain 技术栈是 Python 而不是 Node，请改用 Python SDK 内置的桥接：
 
 ```bash
-pip install "dcp-ai[langchain]>=2.10.2,<3"
+pip install "dcp-ai[langchain]>=2.11.0,<3"
 ```
 
 ```python

@@ -4,7 +4,7 @@
 
 # 审计资料
 
-> 本文是[英文版](../../../../docs/conformance/AUDIT_DOSSIER.md)的参考译文，更新于 08/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../../docs/conformance/AUDIT_DOSSIER.md)的参考译文，更新于 09/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 这是对 DCP-AI 进行独立安全审查的入口。它说明要审查什么、如何复现仓库中的证据，以及这些证据能说明什么、不涵盖什么。它不是规范，不是认证，也不是审计报告：仓库中没有独立外部审计的报告，也不为仓库之外完成的工作提供认证。
 
@@ -58,6 +58,28 @@ Go 通过不含 `replace` 的本地文件代理消费；Rust 通过指向已解�
 - CodeQL #58/#59 在符合性自测中仍未关闭；分诊发现的是固定语料的十六进制哈希插值，而非已经证明的远程生产攻击路径。Dependabot 未报告开放告警。secret scanning API 不可用；这是覆盖缺失，不代表零发现。
 - 本资料此前的排除范围继续有效：尚未解决的规范矛盾、可选扩展、运营方基础设施和未经测试的环境，不会因本次冻结而成为受支持范围。有限测试不能证明不存在漏洞。
 - 发布基线之后的变更前，仍需完成打包修复、新版本安排、从注册表安装的验证，并取得明确发布授权。镜像和部署需要各自验证。合并文档不会发布包。
+
+> **注（09/11/2026）。** 上述各项描述的是 MP-06 快照及其本地制品，它们保持不变。对于 09/11/2026 发布的版本，WASM 路径重映射、CLI 的 `LICENSE` 和 OTLP 最低版本都已就位；参见[09/11/2026 的发布](#publication-of-09112026)。`@dcp-ai/express` 2.1.0 没有重新发布。
+
+<a id="publication-of-09112026"></a>
+
+## 09/11/2026 的发布
+
+**来源：** `main` 上的 `cdb7099b8b6dc2a78b54928250752fd0bbd9c770`（[PR #140](https://github.com/dcp-ai-protocol/dcp-ai/pull/140)），树 `af69307b663381ce776ad3115f76fe82f225a789`，即候选版本经审查的导出所对应的树。[该提交的 CI](https://github.com/dcp-ai-protocol/dcp-ai/actions/runs/42557635924) 已通过，重新构建并发布 [PyPI](https://github.com/dcp-ai-protocol/dcp-ai/actions/runs/42559171389) 和 [crates.io](https://github.com/dcp-ai-protocol/dcp-ai/actions/runs/42559174109) 文件的发布工作流也已成功；这些运行是项目自身的检查，不是外部审计。由此发布了六个版本：npm 上的 `@dcp-ai/sdk` 2.4.0、`@dcp-ai/wasm` 2.2.0 和 `@dcp-ai/cli` 2.2.0，PyPI 上的 `dcp-ai` 2.11.0，crates.io 上的 Rust `dcp-ai` 2.14.0，以及 Go 模块 v2.14.0。这是内部验证之后的注册表发布，不是外部审计或认证。`@dcp-ai/express` 2.1.0 和其他 npm 适配器没有重新发布。
+
+| 注册表 | 版本 | 标识符 |
+|---|---|---|
+| npm `@dcp-ai/sdk` | 2.4.0 | `sha512-4IsY/ctFqLf5vvOS6bWUdN63NCbMoi6N0qnAceYG8AINnqm7+cRyG5stO+P4ZM8ROM2uyhI09AlcQDhdJVhIeQ==` |
+| npm `@dcp-ai/wasm` | 2.2.0 | `sha512-eu9NiNXl99hCKz/xpUPteaZGF+ea0+WTQ/6mZu2RIkuP2eTMsym0Bbp7gTbqB1LaaGMGuRFYAjK8wSVIGt/AAA==` |
+| npm `@dcp-ai/cli` | 2.2.0 | `sha512-/UR5K7/PctZX8Do6CULz1ua1eEwt19Jo/Q/adkMq806uRjZ2gh10W0FnfrzJVJPjskadK/tma2aXisU+z1Hx7Q==` |
+| PyPI `dcp-ai` | 2.11.0 | wheel `2e7776e1c3675f9f4a3c088d6115b728d6e33c72c69a2e624b1771ab9fa45f53`，sdist `9d4a545376e2a9a0afa61b0845ef5bf992b9c92ac5390da95a35333327397da7`（SHA-256） |
+| crates.io `dcp-ai` | 2.14.0 | `704028282d977973fc84e6fbaa495159e43ecec5951cf2f1b5ea9d3e70515424`（校验和） |
+| Go 模块 `sdks/go/v2` | v2.14.0 | 标签 `sdks/go/v2.14.0`，提交 `cdb7099b8b6dc2a78b54928250752fd0bbd9c770`，`h1:9O4n7vn3YqOhKlyUg/cm0OnouQi4QbU7mHbIh1BM5Z8=` |
+
+- **与测试过的制品一致。** npm tarball 就是发布前测试过的文件，`sha512` 完整性相同。PyPI 的 wheel 和 sdist 以及 crate 由发布工作流从 `main` 重新构建，包含与测试过的制品相同的源文件；Python 文件只在元数据上不同（Metadata-Version 2.5 和 hatchling 1.33.0，之前为 2.4 和 1.27.0，并重新计算了 RECORD），crate 增加了指向 `main` 的 `.cargo_vcs_info.json`。代理提供的 Go 模块与测试过的模块具有相同的 106 个文件和相同的 `h1`；只有 zip 压缩不同。
+- **从注册表安装。** 全新的使用方按名称和版本安装了每个包，没有使用 `file:`、路径依赖、`replace`、`[patch]` 或 overrides：PyPI 的 wheel 和 sdist（sdist 由 pip 构建）、启用默认和 `otlp` feature 的 crate、与 `@dcp-ai/express` 2.1.0 一起安装的 npm SDK、CLI 和 WASM（解析到同一个 `@dcp-ai/sdk` 2.4.0），以及在启用校验和数据库的情况下用 Go 1.26.10 通过 `proxy.golang.org` 获取的 Go 模块。组合、确认、入口和 P-ED-1 检查、CLI 测试套件以及 WASM 检查的结果与在测试过的制品上相同。
+- **MP-06 冻结中的打包事项。** 对于这些版本，WASM 二进制文件在构建时不含本地构建路径，并由发布门禁检查打包的文件；`@dcp-ai/cli` 包含 `LICENSE`；Rust 的 `otlp` feature 要求 `anyhow` 1.0.103 和 `tokio` 1.53.3 或更高版本，默认和 `wasm` 构建都不选择它们。添加到 `integrations/express` 的 `LICENSE` 仅存在于仓库中：已发布的 `@dcp-ai/express` 2.1.0 tarball 中仍然没有。
+- **未覆盖。** 上述 MP-06 冻结以及[已知限制和排除项](#known-limits-and-exclusions)中的排除项仍然适用，但此处已为这些版本关闭的打包和依赖事项除外：WASM 构建路径、CLI 的 `LICENSE` 和 OTLP 最低版本。上述 MP-06 快照按记录时的样子保留。有限的检查不能证明不存在漏洞。
 
 <a id="reproduce"></a>
 
@@ -136,11 +158,12 @@ node tools/difffuzz/run-mandates.mjs --iterations 120 --report /tmp/mandates.jso
 | 制品 | 版本 | 包含 |
 |---|---|---|
 | 所审查的源码 | 基准处的 `main` | 下列所有修复 |
+| 已发布（09/11/2026） | `@dcp-ai/sdk` 2.4.0、`@dcp-ai/wasm` 2.2.0、`@dcp-ai/cli` 2.2.0、`dcp-ai` 2.11.0（PyPI）、Go v2.14.0、Rust `dcp-ai` 2.14.0 | 下列所有 SDK 变更，以及 P-ED-1 和显式启用的委托准入 API（[09/11/2026 的发布](#publication-of-09112026)） |
 | 已发布（05/11/2026） | `@dcp-ai/sdk` 2.3.0、`@dcp-ai/wasm` 2.1.3、`dcp-ai` 2.10.2（PyPI）、Go v2.13.0、Rust `dcp-ai` 2.13.0 | 下列所有 SDK 更改 |
 | 30/10/2026 准备（#114），从未发布，已被取代 | Go v2.12.0、Rust `dcp-ai` 2.12.0、`@dcp-ai/wasm` 2.1.2 | #106（WASM）、#107、#112；不含 #103 和 #116 至 #119 |
 | 此前发布（28/10/2026） | `@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`@dcp-ai/cli` 2.1.1、`dcp-ai` 2.10.1（PyPI）、Go v2.11.1、Rust `dcp-ai` 2.11.1 | 26/10/2026 的验证器修复和 28/10/2026 的二级 SHA3-256 检查；不含下列任何修复 |
 
-仅凭版本号无法确定制品。`main` 上的清单文件带有 05/11/2026 发布的版本号；30/10/2026 的候选版本针对较少的更改使用了 Go 和 Rust 2.12.0 以及 `@dcp-ai/wasm` 2.1.2，这些版本号不再使用。请使用下面的注册表标识符，或你所构建之物的哈希。npm tarball 就是发布前测试过的文件；PyPI 文件和 crate 是从 `main` 重新构建的，包含与测试过的制品相同的文件，唯一例外是 crate 的 `.cargo_vcs_info.json`，它指向 `main`。发布之后，于 05/11/2026 通过普通 TLS 再次读取了公开注册表：最新版本即上文所列，标识符如下：
+仅凭版本号无法确定制品。`main` 上的清单文件带有 09/11/2026 发布的版本号；30/10/2026 的候选版本针对较少的更改使用了 Go 和 Rust 2.12.0 以及 `@dcp-ai/wasm` 2.1.2，这些版本号不再使用。请使用下面的注册表标识符，或你所构建之物的哈希。对于 05/11/2026 的版本，npm tarball 就是发布前测试过的文件；PyPI 文件和 crate 是从 `main` 重新构建的，包含与测试过的制品相同的文件，唯一例外是 crate 的 `.cargo_vcs_info.json`，它指向 `main`。发布之后，于 05/11/2026 通过普通 TLS 再次读取了公开注册表：最新版本即上文所列，标识符如下：
 
 | 注册表 | 版本 | 标识符 |
 |---|---|---|
@@ -181,6 +204,7 @@ node tools/difffuzz/run-mandates.mjs --iterations 120 --report /tmp/mandates.jso
 - **WASM。** 不提供授权书链验证。
 - **Rust。** 缺少 A2A 的 AES-256-GCM 会话加密及其重放窗口（[RUST_RELEASE.md](../../../../docs/RUST_RELEASE.md)）。
 - **05/11/2026 之前发布的版本。** 不包含[制品](#artifacts)中列出的更改。
+- **09/11/2026 之前发布的版本。** 不包含 P-ED-1（Python SDK 所用的官方 PyNaCl 构建原本就拒绝这些签名的情况除外），也不包含显式启用的委托准入 API。
 - **差分和模糊测试活动。** 它们是有限的，并非穷尽；契约 `/4` 无法传给所有 SDK 的输入另行测量（[差分测试工具](../../../../tools/difffuzz/README.md#mandate-chains)）。
 - **性能。** 未检查任何速度要求；[性能基准](../../../../tools/conformance/README.md#performance-baseline)和[有界工作负载的规模变化](../../../../tools/conformance/README.md#bounded-workload-scaling)是在基准提交之后加入的、关于方法的本地测量；两者都不是审计结果。
 - **未涵盖。** 容器镜像、部署、服务令牌和运营方配置。

@@ -6,7 +6,7 @@
 
 > 本文是[英文版](../../CHANGELOG.md)的参考译文，更新于 09/11/2026。每个条目（包括 `[Unreleased]` 下的条目）描述的是当时所作的变更，并不保证当前行为；已发布的各版本是**带日期的历史记录**。如有出入，以英文版为准。
 
-**已发布版本（2026 年 10 月 26 日）。** npm（13 个软件包，包括 `@dcp-ai/sdk` 2.2.0）、Python `dcp-ai` 2.10.0、Go `v2.11.0` 和 Rust `dcp-ai` 2.11.0 均已发布，包含验证器修复、准入功能和实验性的选择启用 API；`dcp-jcs-v1` 仍是规范性默认值。见[已发布版本](../../docs/README.md#published-versions)。以下条目保留开发历史；`[Unreleased]` 不表示这些功能尚未发布。2026 年 10 月 28 日的六个修复版本见[单独的章节](#2026-10-28-sha3-patch-releases)。05/11/2026 的五个版本见[其单独的章节](#2026-11-05-auditable-releases)。
+**已发布版本（2026 年 10 月 26 日）。** npm（13 个软件包，包括 `@dcp-ai/sdk` 2.2.0）、Python `dcp-ai` 2.10.0、Go `v2.11.0` 和 Rust `dcp-ai` 2.11.0 均已发布，包含验证器修复、准入功能和实验性的选择启用 API；`dcp-jcs-v1` 仍是规范性默认值。见[已发布版本](../../docs/README.md#published-versions)。以下条目保留开发历史；`[Unreleased]` 不表示这些功能尚未发布。2026 年 10 月 28 日的六个修复版本见[单独的章节](#2026-10-28-sha3-patch-releases)。05/11/2026 的五个版本见[其单独的章节](#2026-11-05-auditable-releases)。09/11/2026 的六个版本见[其单独的章节](#2026-11-09-six-releases)。
 
 本项目的所有重要变更都会记录在此文件中。
 
@@ -17,13 +17,13 @@
 > 当前行为，请参阅 [README](../../README.md)、[文档](../../docs/README.md)、[规范](../../spec/README.md)和
 > [API 参考](../../docs/API_REFERENCE.md)。
 
-<a id="prepared-not-published-dcp-aisdk-240-dcp-ai-2110-go-v2140-rust-dcp-ai-2140-dcp-aiwasm-220-and-dcp-aicli-220"></a>
+<a id="2026-11-09-six-releases"></a>
 
-## 已准备、未发布：`@dcp-ai/sdk` 2.4.0、`dcp-ai` 2.11.0、Go v2.14.0、Rust `dcp-ai` 2.14.0、`@dcp-ai/wasm` 2.2.0 和 `@dcp-ai/cli` 2.2.0
+## [2026-11-09] 六个版本发布
 
-于 08/11/2026 在仓库中准备，**未发布**。在每个包发布并核对其注册表之前，[已发布版本](../../docs/README.md#published-versions)仍列出注册表中的版本。
+于 09/11/2026 从 `main`（`cdb7099b`，#140）发布。npm tarball 就是发布前测试过的文件，`sha512` 完整性相同；PyPI 的 wheel 和 sdist 以及 crate 由发布工作流从 `main` 重新构建，包含与测试过的制品相同的源文件（Python 文件只在元数据上不同：Metadata-Version 2.5、hatchling 1.33.0 和重新计算的 RECORD；crate 增加了指向 `main` 的 `.cargo_vcs_info.json`）；Go 模块是 `main` 上的标签 `sdks/go/v2.14.0`，其文件和 `h1` 与测试过的模块相同。参见[已发布版本](../../docs/README.md#published-versions)。
 
-| 包 | 已准备 | 当前已发布 |
+| 包 | 已发布 | 之前 |
 |---|---|---|
 | `@dcp-ai/sdk` | 2.4.0 | 2.3.0 |
 | `dcp-ai` (PyPI) | 2.11.0 | 2.10.2 |
@@ -36,7 +36,7 @@
 - **接受范围变化。** 四个 SDK、WASM 构建和 `dcp-ai verify` 中的 Ed25519 P-ED-1：非规范编码或阶整除 8 的公钥或 R 会被拒绝。请保持验证失败的证据原样；密钥符合 P-ED-1 时用同一密钥重新签名，轮换非规范公钥，替换小阶密钥。
 - **修复。** WASM 的 `hashObject` 和 `deriveKid` 会抛出异常，不再把错误封装当作值返回；`canonicalize` 能区分 `{ error: … }` 这样的值与错误；Go 读取 SLH-DSA-192f 密钥时不再 panic。
 - **打包与依赖。** `@dcp-ai/wasm` 的二进制文件在构建时不包含构建者的本地路径，并由发布关卡检查打包的文件。`@dcp-ai/cli` 包含 `LICENSE`，要求 `@dcp-ai/sdk` `^2.4.0`，并从 `package.json` 读取自身版本。Rust 的 `otlp` 特性要求 `anyhow` 1.0.103 和 `tokio` 1.53.3 或更高版本（RUSTSEC-2026-0190、RUSTSEC-2026-0386）；默认构建和 `wasm` 构建都不会选择这两个 crate。
-- **不变。** 传输格式、签名、配置文件、`dcp-jcs-v1` 和实验性显式启用的 `dcp-jcs-v2` API。npm 适配器没有新版本：`@dcp-ai/express` 2.1.0 保留其已发布的文件，新安装会通过其 `^2.2.0` 范围解析到 `@dcp-ai/sdk` 2.4.0。`integrations/express` 仅在仓库中新增 `LICENSE` 文件。
+- **不变。** 传输格式、签名、配置文件、`dcp-jcs-v1` 和实验性显式启用的 `dcp-jcs-v2` API。npm 适配器没有新版本：`@dcp-ai/express` 2.1.0 保留其已发布的文件，其中不含 `LICENSE`；新安装会通过其 `^2.2.0` 范围解析到 `@dcp-ai/sdk` 2.4.0。添加到 `integrations/express` 的 `LICENSE` 文件仅存在于仓库中。
 
 <a id="2026-11-05-auditable-releases"></a>
 
@@ -64,7 +64,7 @@
 
 ## 已准备、尚未发布：Go v2.12.0、Rust 2.12.0 和 `@dcp-ai/wasm` 2.1.2
 
-已于 30/10/2026 在仓库中准备好，**尚未发布**：`sdks/go/v2.12.0` 标签不存在，crates.io 和 npm 上也没有这些版本。准备时，[已发布版本](../../docs/README.md#published-versions)和安装命令仍指向当时注册表中的版本（Go `v2.11.1`、Rust `dcp-ai` 2.11.1、`@dcp-ai/wasm` 2.1.1）；当前的版本见上面的 [05/11/2026 版本发布](#2026-11-05-auditable-releases)。变更内容见 `[Unreleased]` 以及 [Go](../../docs/GO_RELEASE.md)、[Rust](../../docs/RUST_RELEASE.md) 和 [npm](../../docs/NPM_RELEASES.md) 的发布说明。
+已于 30/10/2026 在仓库中准备好，**尚未发布**：`sdks/go/v2.12.0` 标签不存在，crates.io 和 npm 上也没有这些版本。准备时，[已发布版本](../../docs/README.md#published-versions)和安装命令仍指向当时注册表中的版本（Go `v2.11.1`、Rust `dcp-ai` 2.11.1、`@dcp-ai/wasm` 2.1.1）；当前的版本见[已发布版本](../../docs/README.md#published-versions)。变更内容见 `[Unreleased]` 以及 [Go](../../docs/GO_RELEASE.md)、[Rust](../../docs/RUST_RELEASE.md) 和 [npm](../../docs/NPM_RELEASES.md) 的发布说明。
 
 - **Go v2.12.0：** `v2.VerifyPayloadHash` 的接受范围变更（接受 `SignPayload` 的输出，拒绝不带前缀的摘要；只检查哈希），以及新增的 `v2.RawAuditEventV2`。`SDKVersion` 为 `2.12.0`。
 - **Rust `dcp-ai` 2.12.0：** 新增的 `v2::types::RawAuditEventV2` 和 `RawAuditEventError`，以及启用 `wasm` 特性时修正后的 `wasm_dual_merkle_root`。遥测读取软件包版本。

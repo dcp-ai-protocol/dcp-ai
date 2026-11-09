@@ -4,7 +4,7 @@
 
 > [英語版](../../../docs/GO_RELEASE.md)の参考訳。09/11/2026 更新。相違がある場合は英語版が優先されます。
 
-05/11/2026 確認：Go SDK `v2.13.0` は[タグ `sdks/go/v2.13.0`](https://github.com/dcp-ai-protocol/dcp-ai/tree/sdks/go/v2.13.0/sdks/go)で公開済みで、公開モジュール proxy と checksum データベースから提供されています（[変更点](#what-changed-in-v2130)）。以前のリリース `v2.11.1`（[`sdks/go/v2.11.1`](https://github.com/dcp-ai-protocol/dcp-ai/tree/sdks/go/v2.11.1/sdks/go)、28/10/2026 確認）と `v2.11.0`（[`sdks/go/v2.11.0`](https://github.com/dcp-ai-protocol/dcp-ai/tree/sdks/go/v2.11.0/sdks/go)、26/10/2026 確認）の記述は以下に残しています。モジュールとインポートパスは `/v2` を維持します。SDK バージョンは DCP のワイヤー形式・仕様バージョンと独立しています。別のレジストリトークンは不要で、利用側は Go モジュールシステムでリポジトリのタグを解決します。
+09/11/2026 に確認：Go SDK `v2.14.0` は [`sdks/go/v2.14.0` タグ](https://github.com/dcp-ai-protocol/dcp-ai/tree/sdks/go/v2.14.0/sdks/go)で公開され、公開モジュールプロキシとチェックサムデータベースがそれを提供しています（[変更点](#what-changed-in-v2140)）。以前のリリースである `v2.13.0`（[`sdks/go/v2.13.0`](https://github.com/dcp-ai-protocol/dcp-ai/tree/sdks/go/v2.13.0/sdks/go)、05/11/2026 に確認）、`v2.11.1`（[`sdks/go/v2.11.1`](https://github.com/dcp-ai-protocol/dcp-ai/tree/sdks/go/v2.11.1/sdks/go)、28/10/2026 に確認）、`v2.11.0`（[`sdks/go/v2.11.0`](https://github.com/dcp-ai-protocol/dcp-ai/tree/sdks/go/v2.11.0/sdks/go)、26/10/2026 に確認）の注記は下に残しています。モジュールとそのインポートパスは `/v2` を維持します。SDK のバージョンは DCP のワイヤー／仕様のバージョンとは独立しています。Go には別のレジストリトークンは不要で、利用側は Go モジュールシステムを通じてリポジトリのタグを解決します。
 
 <a id="install"></a>
 
@@ -13,7 +13,7 @@
 Go 1.25 以降が必要です。アプリケーションのモジュールで実行し、その `go.mod` と `go.sum` を更新して保存してください。
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.13.0
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.14.0
 go mod verify
 ```
 
@@ -58,7 +58,7 @@ v2.13.0 は 05/11/2026 に `main`（`46b142bd`）上のタグ `sdks/go/v2.13.0` 
 
 ## 準備済み・未公開: v2.12.0
 
-v2.12.0 は 30/10/2026 にリポジトリで準備済みですが、公開されていません。`sdks/go/v2.12.0` タグが存在しないため、モジュールプロキシはこのバージョンを配信せず、`go get` でも解決できません。準備の時点では、インストールコマンドは v2.11.1 のままでした。現在のコマンドは上記のとおり v2.13.0 を指定しています。v2.11.1 と比べて、v2.12.0 は次のとおりです。
+v2.12.0 は 30/10/2026 にリポジトリで準備済みですが、公開されていません。`sdks/go/v2.12.0` タグが存在しないため、モジュールプロキシはこのバージョンを配信せず、`go get` でも解決できません。準備の時点では、インストールコマンドは v2.11.1 のままでした。現在のバージョンは[公開済みバージョン](../../../docs/README.md#published-versions)にあります。v2.11.1 と比べて、v2.12.0 は次のとおりです。
 
 - **`v2.VerifyPayloadHash` を修正（受け入れの変更）。** `payload_hash` が `"sha256:"` の後に `dcp-jcs-v1` 正規ペイロードの SHA-256（小文字の 16 進）を続けた値と完全に一致する場合にだけ `true` を返します。`v2.SignPayload` の出力は受け入れられるようになり、接頭辞のないダイジェストは拒否されるようになりました。v2.11.1 はその逆でした。この関数が確認するのはハッシュの整合性だけで、署名、鍵、ポリシー、プリンシパルへの信頼、受け入れは確認しません。バンドル検証はこの関数を使用したことがなく、変わりません。
 - **`v2.RawAuditEventV2` を追加。** 受信した監査エントリーのバイト列をそのまま保持するため、明示的な `null` と未知のメンバーは転送後も残ります。`Typed()` は情報が失われるビューです。`AuditEventV2` などの型付き構造体は生成用の型のままで、動作は変わりません。
@@ -67,11 +67,11 @@ v2.12.0 は 30/10/2026 にリポジトリで準備済みですが、公開され
 
 > **注記（05/11/2026）。** 上の比較は、準備済みの v2.12.0 について 30/10/2026 に書いたもので、v2.12.0 はまだ公開されていません。その後 `main` は検証を変更しました。すべての V2 検証器が V2-2 のスキーマ検証を実行し（#116、02/11/2026）、委任状の有効性ヘルパー、チェーンの時刻確認、繰り返されるルートドメインの確認が変わりました（#117〜#119）。これらの変更は上記の v2.12.0 には含まれません。v2.12.0 はタグ付けされず、上の v2.13.0 がこれらの変更を含んで置き換えており、`main` のマニフェストは v2.13.0 を記載しています。[監査資料](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts)を参照してください。
 
-<a id="prepared-not-published-v2140"></a>
+<a id="what-changed-in-v2140"></a>
 
-## 準備済み・未公開：v2.14.0
+## v2.14.0 の変更点
 
-08/11/2026 に準備し、公開していません。`sdks/go/v2.14.0` タグはまだなく、上記のインストールコマンドは、タグが公開されてモジュールプロキシが確認されるまで v2.13.0 のままです。
+v2.14.0 は 09/11/2026 に、`main`（`cdb7099b`）上の `sdks/go/v2.14.0` タグで公開されました。プロキシが提供するモジュールは、公開前にテストしたモジュールと同じ 106 ファイル、同じハッシュ `h1:9O4n7vn3YqOhKlyUg/cm0OnouQi4QbU7mHbIh1BM5Z8=` を持ち、異なるのは zip の圧縮だけです。チェックサムデータベースを有効にし、ローカルの `replace` なしで、Go 1.26.10 を使って `proxy.golang.org` から v2.14.0 を解決した利用側は、そのモジュールをインストールし、テスト済みのものと同じ API の結果を出しました。v2.13.0 との比較：
 
 - **追加（オプトイン）。** `v2.AdmitDelegatedBundleV2`、`v2.AdmitSignedBundleV2FromBytes`、`v2.CreateMandateAcknowledgment`、`v2.EvaluateDelegationActivationV2`（[変更履歴](../../../CHANGELOG.md#unreleased)）。
 - **受理の変更。** V1 オブジェクトの検証とデフォルトの V2 Ed25519 プロバイダーにおける P-ED-1。
@@ -81,4 +81,4 @@ v2.12.0 は 30/10/2026 にリポジトリで準備済みですが、公開され
 
 ## 関連するリリース
 
-各レジストリの現在のバージョンは[公開済みバージョン](../../../docs/README.md#published-versions)にあります。その他のリリースノート：[npm パッケージ](../../../docs/NPM_RELEASES.md)、[Python 2.10.2](../../../docs/PYTHON_RELEASE.md)、[Rust 2.13.0](../../../docs/RUST_RELEASE.md)。
+各レジストリの現在のバージョンは[公開済みバージョン](../../../docs/README.md#published-versions)にあります。その他のリリースノート：[npm パッケージ](../../../docs/NPM_RELEASES.md)、[Python 2.11.0](../../../docs/PYTHON_RELEASE.md)、[Rust 2.14.0](../../../docs/RUST_RELEASE.md)。

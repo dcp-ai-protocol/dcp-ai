@@ -141,7 +141,7 @@ node /path/to/dcp-ai/bin/dcp.js admit-bundle bundle.signed.json --trust trust.js
 
 ## Delegation, bytes and acknowledgments (opt-in)
 
-> **Status (07/11/2026).** In the local source of the TypeScript, Python, Go and Rust SDKs, not in a published package.
+> **Status (09/11/2026).** Published, opt-in, in `@dcp-ai/sdk` 2.4.0, `dcp-ai` 2.11.0, Go v2.14.0 and Rust `dcp-ai` 2.14.0.
 > WASM, the reference server and CLI, the playground, the adapters and the kit do not expose these functions.
 
 - **Delegated admission** ([spec § 10](../spec/profiles/admission/README.md#10-delegated-admission-opt-in)). Admits a
@@ -166,7 +166,7 @@ Function names in each SDK: [API reference](API_REFERENCE.md#admission-trusted-p
 
 - **Verification API.** `verifySignedBundleV2` / `verify_signed_bundle_v2` / `VerifySignedBundleV2WithPolicy` / `verify_signed_bundle_v2_with_policy` keep their signatures. The signer keys are `details.signer_keys` in TypeScript and Python and the new `SignerKeys` field in Go. In Rust, `V2VerificationResult` keeps its ten fields, so code that builds it in full or destructures it without `..` still compiles; the signer keys come from the new `verify_signed_bundle_v2_at`, which returns `V2VerificationDetails` (`result` and `signer_keys`) and is what admission takes. Code written against the admission API before its release reads `verification.result.verified` instead of `verification.verified`.
 - **Verification behaviour.** The same changes alter verification behaviour, apart from admission. Ed25519 signatures with S >= L are now rejected. Separately, the Go and Rust verifiers now apply a policy's `accepted_classical_algs` and `accepted_pq_algs`, which they used to refuse as not enforced: under such a policy a bundle outside the lists fails, and one inside them can now verify. The [CHANGELOG](../CHANGELOG.md) lists every change.
-- **Ed25519 acceptance, P-ED-1 (local source, 07/11/2026).** Beyond S >= L, the SDK sources now also reject a
+- **Ed25519 acceptance, P-ED-1 (published on 09/11/2026).** Beyond S >= L, `@dcp-ai/sdk` 2.4.0, `dcp-ai` 2.11.0, Go v2.14.0 and Rust `dcp-ai` 2.14.0 also reject a
   non-canonical public key or R, and a public key or R of order dividing 8 ([Crypto Profile](../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion)).
   This is an intentional change of acceptance; signers and formats do not change. Evidence that fails it is signed again
   or its key replaced, never rewritten.

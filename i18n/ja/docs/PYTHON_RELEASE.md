@@ -4,7 +4,7 @@
 
 > [英語版](../../../docs/PYTHON_RELEASE.md)の参考訳。09/11/2026 更新。相違がある場合は英語版が優先されます。
 
-05/11/2026 確認：[`dcp-ai` 2.10.2](https://pypi.org/project/dcp-ai/2.10.2/) は PyPI で公開済みです（[変更点](#what-changed-in-2102)）。Python パッケージのバージョンは DCP のワイヤー形式・仕様バージョンとは独立しています。Python パッケージは Go、Rust、npm パッケージ、コンテナーとは独立して公開されます。以前のリリース [2.10.1](https://pypi.org/project/dcp-ai/2.10.1/)（28/10/2026 確認）と [2.10.0](https://pypi.org/project/dcp-ai/2.10.0/)（26/10/2026 確認）の記述は以下に残しています。
+09/11/2026 に確認：[`dcp-ai` 2.11.0](https://pypi.org/project/dcp-ai/2.11.0/) が PyPI で利用できます（[変更点](#what-changed-in-2110)）。この Python パッケージのバージョンは、DCP のワイヤー／仕様のバージョンとは独立しています。Python パッケージは Go、Rust、npm パッケージ、コンテナとは別に公開されます。以前のリリースである [2.10.2](https://pypi.org/project/dcp-ai/2.10.2/)（05/11/2026 に確認）、[2.10.1](https://pypi.org/project/dcp-ai/2.10.1/)（28/10/2026 に確認）、[2.10.0](https://pypi.org/project/dcp-ai/2.10.0/)（26/10/2026 に確認）の注記は下に残しています。
 
 <a id="install"></a>
 
@@ -13,12 +13,12 @@
 Python 3.10 以降が必要です。環境またはロックファイルを更新してください。任意の統合 extras はプロトコルのコアから分離されています。
 
 ```bash
-pip install --upgrade "dcp-ai>=2.10.2,<3"
-pip install "dcp-ai[fastapi]>=2.10.2,<3"
-pip install "dcp-ai[langchain]>=2.10.2,<3"
-pip install "dcp-ai[openai]>=2.10.2,<3"
-pip install "dcp-ai[crewai]>=2.10.2,<3"
-pip install "dcp-ai[otlp]>=2.10.2,<3"
+pip install --upgrade "dcp-ai>=2.11.0,<3"
+pip install "dcp-ai[fastapi]>=2.11.0,<3"
+pip install "dcp-ai[langchain]>=2.11.0,<3"
+pip install "dcp-ai[openai]>=2.11.0,<3"
+pip install "dcp-ai[crewai]>=2.11.0,<3"
+pip install "dcp-ai[otlp]>=2.11.0,<3"
 ```
 
 <a id="what-changed-in-2101"></a>
@@ -64,11 +64,11 @@ ML-DSA 依存関係は、回数制限のある署名試行を使い切ると `Va
 
 ワイヤーフォーマット、署名、プロファイル、規範的なデフォルトとしての `dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API は変わらず、wheel と sdist に Apache-2.0 の `LICENSE` が含まれるようになりました。過去の証拠は書き換えずに保持してください。公開済みの wheel と sdist に含まれる README は公開前に準備したもので、「prepared, not published」と記載しています。公開済みのファイルは変更できません。[SDK README](../../../sdks/python/README.md)と[変更履歴](../../../CHANGELOG.md#unreleased)を参照してください。
 
-<a id="prepared-not-published-2110"></a>
+<a id="what-changed-in-2110"></a>
 
-## 準備済み・未公開：2.11.0
+## 2.11.0 の変更点
 
-08/11/2026 に準備し、公開していません。上記のインストールコマンドは、2.11.0 が公開されて確認されるまで 2.10.2 のままです。
+2.11.0 は 09/11/2026 に、リリースワークフローにより `main`（`cdb7099b`）から PyPI に公開されました。wheel とソース配布物は、公開前にテストした成果物と同じソースファイルを含み、異なるのはメタデータだけです（Metadata-Version 2.5 と hatchling 1.33.0。以前は 2.4 と 1.27.0 で、RECORD は再計算されています）。チェックアウトの外で PyPI から wheel とソース配布物を新たにインストールすると、テスト済みのパッケージファイルがインストールされ、テスト済みの成果物と同じ API の結果が得られました。2.10.2 との比較：
 
 - **追加（オプトイン）。** `admit_delegated_bundle_v2`、`admit_signed_bundle_v2_from_bytes`、`create_mandate_acknowledgment`、`evaluate_delegation_activation_v2`（[変更履歴](../../../CHANGELOG.md#unreleased)）。
 - **受理の変更。** V1 オブジェクトの検証とデフォルトの V2 Ed25519 プロバイダーにおける P-ED-1。公式の PyNaCl ビルドはすでにこれらの署名を拒否していました。
@@ -78,4 +78,4 @@ ML-DSA 依存関係は、回数制限のある署名試行を使い切ると `Va
 
 ## 関連するリリース
 
-各レジストリの現在のバージョンは[公開済みバージョン](../../../docs/README.md#published-versions)にあります。その他のリリースノート：[npm パッケージ](../../../docs/NPM_RELEASES.md)、[Go v2.13.0](../../../docs/GO_RELEASE.md)、[Rust 2.13.0](../../../docs/RUST_RELEASE.md)。
+各レジストリの現在のバージョンは[公開済みバージョン](../../../docs/README.md#published-versions)にあります。その他のリリースノート：[npm パッケージ](../../../docs/NPM_RELEASES.md)、[Go v2.14.0](../../../docs/GO_RELEASE.md)、[Rust 2.14.0](../../../docs/RUST_RELEASE.md)。

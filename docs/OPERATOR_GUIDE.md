@@ -93,8 +93,8 @@ If you want verification inside your existing application (no separate HTTP serv
 ```bash
 npm install @dcp-ai/sdk        # TypeScript / Node.js
 pip install dcp-ai             # Python
-cargo add dcp-ai@2.13.0
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.13.0
+cargo add dcp-ai@2.14.0
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.14.0
 ```
 
 See each SDK's README for the exact import path and API surface, and its *Release status* for what the published version lacks. On `main`, the TypeScript, Python, Go and Rust SDKs verify V1 and V2 bundles natively, and `@dcp-ai/wasm` exposes the Rust V2 verifier. Their V2 verifiers follow the checklist in [VERIFICATION.md](../spec/VERIFICATION.md), including each artifact's signature (Step V2-8) and the PQ checkpoints (Step V2-12), and, from `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1 and Rust `dcp-ai` 2.11.1, the secondary fields of Step V2-11 that are present: earlier versions check the primary audit chain and Merkle root but not the optional secondary chain or `audit_merkle_root_secondary` (see [STORAGE_AND_ANCHORING.md](STORAGE_AND_ANCHORING.md#dual-hash-chains)).

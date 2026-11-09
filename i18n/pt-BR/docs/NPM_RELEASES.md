@@ -4,15 +4,15 @@
 
 > Tradução informativa da [versão em inglês](../../../docs/NPM_RELEASES.md), atualizada em 09/11/2026. Em caso de divergência, prevalece a versão em inglês.
 
-Verificado em 05/11/2026: `@dcp-ai/sdk` 2.3.0 e `@dcp-ai/wasm` 2.1.3 estão publicados com a tag `latest`; os outros onze pacotes da tabela não mudam ([o que mudou](#what-changed-on-05112026)). Em 28/10/2026, `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 e `@dcp-ai/cli` 2.1.1 foram publicados com a tag `latest`. As versões dos pacotes são independentes da versão do formato/especificação DCP e das tags do repositório.
+Verificado em 09/11/2026: `@dcp-ai/sdk` 2.4.0, `@dcp-ai/wasm` 2.2.0 e `@dcp-ai/cli` 2.2.0 estão publicados com a tag `latest`; os outros dez pacotes abaixo não mudaram ([o que mudou](#what-changed-on-09112026)). Em 05/11/2026, `@dcp-ai/sdk` 2.3.0 e `@dcp-ai/wasm` 2.1.3 foram publicados com a tag `latest` ([o que mudou](#what-changed-on-05112026)), e em 28/10/2026, `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 e `@dcp-ai/cli` 2.1.1. As versões dos pacotes são separadas da versão do formato de transmissão e da especificação do DCP e das tags do repositório.
 
 Em 26/10/2026, 13 versões foram publicadas com a tag `latest`: `@dcp-ai/sdk` 2.2.0, `@dcp-ai/wasm` 2.1.0, `@dcp-ai/cli` 2.1.0 e os dez pacotes que continuam na tabela. A integridade no registro correspondeu aos tarballs testados, e uma instalação nova pelo npm passou em 383 verificações.
 
 | Pacote | Versão |
 |---|---|
-| [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) | 2.3.0 |
-| [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) | 2.1.3 |
-| [`@dcp-ai/cli`](https://www.npmjs.com/package/@dcp-ai/cli) | 2.1.1 |
+| [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) | 2.4.0 |
+| [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) | 2.2.0 |
+| [`@dcp-ai/cli`](https://www.npmjs.com/package/@dcp-ai/cli) | 2.2.0 |
 | [`@dcp-ai/anthropic-mcp`](https://www.npmjs.com/package/@dcp-ai/anthropic-mcp) | 2.1.0 |
 | [`@dcp-ai/autogen`](https://www.npmjs.com/package/@dcp-ai/autogen) | 2.0.1 |
 | [`@dcp-ai/express`](https://www.npmjs.com/package/@dcp-ai/express) | 2.1.0 |
@@ -37,10 +37,10 @@ Os três tarballs do registro são idênticos byte a byte aos artefatos revisado
 ## Instalar as versões publicadas
 
 ```bash
-npm install @dcp-ai/sdk@^2.3.0
-npm install @dcp-ai/wasm@^2.1.3
+npm install @dcp-ai/sdk@^2.4.0
+npm install @dcp-ai/wasm@^2.2.0
 npm install @dcp-ai/express@^2.1.0 express
-npx --package=@dcp-ai/cli@2.1.1 dcp-ai --help
+npx --package=@dcp-ai/cli@2.2.0 dcp-ai --help
 ```
 
 Cada publicação npm abrange apenas o npm. Não publica um pacote Python no PyPI, um crate Rust no crates.io, uma tag de módulo Go nem uma imagem de contêiner. Confira o estado de publicação de cada SDK antes de usar exemplos do código-fonte nesses ecossistemas. A raiz do repositório continua usando um SDK local para testar o código do checkout; é uma escolha de desenvolvimento, não uma limitação de disponibilidade no npm.
@@ -102,19 +102,19 @@ Corrige `dualMerkleRoot` e a exportação bruta `wasm_dual_merkle_root`: agora c
 
 > **Nota (05/11/2026).** Os parágrafos acima foram escritos em 30/10/2026 para a 2.1.2 preparada, que nunca foi publicada. Desde o #116 (02/11/2026), `verifyBundle` na `main` executa a validação de esquemas V2-2 no núcleo Rust que encapsula; a 2.1.2 não contém essa mudança, e a 2.1.3 acima contém. A 2.1.3 substitui a 2.1.2, e os manifestos da `main` levam a 2.1.3. Textos e tabelas que citam a 2.1.2, inclusive a linha de `dualMerkleRoot` do README do WASM, são históricos. Veja o [dossiê de auditoria](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts).
 
-<a id="prepared-not-published-dcp-aisdk-240-dcp-aiwasm-220-and-dcp-aicli-220"></a>
+<a id="what-changed-on-09112026"></a>
 
-## Preparadas, não publicadas: `@dcp-ai/sdk` 2.4.0, `@dcp-ai/wasm` 2.2.0 e `@dcp-ai/cli` 2.2.0
+## O que mudou em 09/11/2026
 
-Preparadas em 08/11/2026 e não publicadas; as versões acima continuam sendo as do registro até que cada pacote seja publicado e verificado.
+`@dcp-ai/sdk` 2.4.0, `@dcp-ai/wasm` 2.2.0 e `@dcp-ai/cli` 2.2.0 foram publicados em 09/11/2026 a partir dos tarballs testados antes da publicação, construídos a partir da `main` (`cdb7099b`); a integridade `sha512` deles no registro é a testada. Um consumidor novo que instalou os três por nome e versão a partir do npm, com `@dcp-ai/express` 2.1.0 e sem `file:` nem overrides, resolveu um único `@dcp-ai/sdk` 2.4.0 para a CLI e o adaptador e deu os mesmos resultados de API, CLI e WASM que os tarballs testados.
 
 - **`@dcp-ai/sdk` 2.4.0:** admissão delegada, admissão a partir de bytes e confirmação de mandato, de adesão explícita; a mudança de aceitação Ed25519 P-ED-1 ([changelog](../../../CHANGELOG.md#unreleased)).
 - **`@dcp-ai/wasm` 2.2.0:** erros distinguidos dos valores (`canonicalize`, `hashObject`, `deriveKid`), P-ED-1 no provedor Rust e um binário compilado sem os caminhos locais de quem compila; sem API de admissão nem de cadeias de mandatos.
 - **`@dcp-ai/cli` 2.2.0:** P-ED-1 em `dcp-ai verify`, `@dcp-ai/sdk` `^2.4.0`, `LICENSE` no pacote e a versão lida do `package.json`; veja [o guia da CLI](../cli/README.md).
-- Os adaptadores não recebem versão nova; os intervalos `^2.2.0` deles resolvem `@dcp-ai/sdk` 2.4.0 numa instalação nova, e com ele P-ED-1.
+- Os adaptadores não recebem versão nova; os intervalos `^2.2.0` deles resolvem `@dcp-ai/sdk` 2.4.0 numa instalação nova, e com ele P-ED-1. `@dcp-ai/express` 2.1.0 mantém os arquivos publicados, que não incluem `LICENSE`; o arquivo adicionado a `integrations/express` está apenas no repositório.
 
 <a id="related-releases"></a>
 
 ## Publicações relacionadas
 
-As versões atuais em cada registro estão em [Versões publicadas](../../../docs/README.md#published-versions). Outras notas de publicação: [Python 2.10.2](../../../docs/PYTHON_RELEASE.md), [Go v2.13.0](../../../docs/GO_RELEASE.md) e [Rust 2.13.0](../../../docs/RUST_RELEASE.md).
+As versões atuais em cada registro estão em [Versões publicadas](../../../docs/README.md#published-versions). Outras notas de publicação: [Python 2.11.0](../../../docs/PYTHON_RELEASE.md), [Go v2.14.0](../../../docs/GO_RELEASE.md) e [Rust 2.14.0](../../../docs/RUST_RELEASE.md).

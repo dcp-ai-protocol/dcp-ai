@@ -4,7 +4,7 @@
 
 # アドミッション：信頼済みのプリンシパルと strict-v1 プロファイル
 
-> [英語版](../../../docs/ADMISSION.md)の参考訳です（08/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../docs/ADMISSION.md)の参考訳です（09/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 検証済みのバンドルは、その完全性と、列挙された鍵で署名されたことを証明します。誰でも任意の `human_id` と自分の鍵で責任あるプリンシパルのレコードを作れるので、検証だけではプリンシパルが**誰**なのかはわかりません。
 
@@ -171,8 +171,8 @@ node /path/to/dcp-ai/bin/dcp.js admit-bundle bundle.signed.json --trust trust.js
 
 ## 委任、バイト、確認応答（オプトイン）
 
-> **状態（07/11/2026）。** TypeScript、Python、Go、Rust の SDK のローカルのソースにあり、公開されたパッケージには
-> ありません。WASM、リファレンスのサーバーと CLI、playground、アダプター、キットはこれらの関数を公開しません。
+> **状態（09/11/2026）。** オプトインの関数として、`@dcp-ai/sdk` 2.4.0、`dcp-ai` 2.11.0、Go v2.14.0、Rust `dcp-ai` 2.14.0 で公開されています。
+> WASM、リファレンスのサーバーと CLI、playground、アダプター、キットはこれらの関数を公開しません。
 
 - **委任付きアドミッション**（[仕様 § 10](../../../spec/profiles/admission/README.md#10-delegated-admission-opt-in)）。末端のバンドルを、それが従う
   [DCP-09](../../../spec/DCP-09.md) のマンデートチェーン、および委任する各エージェントのバンドル 1 つずつと一緒に、1 つの
@@ -199,7 +199,7 @@ node /path/to/dcp-ai/bin/dcp.js admit-bundle bundle.signed.json --trust trust.js
 
 - **検証 API。** `verifySignedBundleV2` / `verify_signed_bundle_v2` / `VerifySignedBundleV2WithPolicy` / `verify_signed_bundle_v2_with_policy` のシグネチャは変わりません。署名鍵は、TypeScript と Python では `details.signer_keys`、Go では新しい `SignerKeys` フィールドです。Rust では `V2VerificationResult` が 10 個のフィールドを保つので、それを全フィールド指定で構築したり `..` なしで分割代入したりするコードも引き続きコンパイルできます。署名鍵は新しい `verify_signed_bundle_v2_at` から得られ、これは `V2VerificationDetails`（`result` と `signer_keys`）を返し、アドミッションが受け取るのもこれです。リリース前のアドミッション API に対して書かれたコードは、`verification.verified` ではなく `verification.result.verified` を読みます。
 - **検証の動作。** 同じ変更は、アドミッションとは別に検証の動作も変えます。S >= L の Ed25519 署名は拒否されるようになりました。また、Go と Rust の検証器は、ポリシーの `accepted_classical_algs` と `accepted_pq_algs` を適用するようになりました。以前は、強制されないとしてこれらを拒否していました。そのようなポリシーのもとでは、リストにないバンドルは失敗し、リストにあるバンドルは検証できるようになります。すべての変更は [CHANGELOG](../../../CHANGELOG.md) に挙げられています。
-- **Ed25519 の受理、P-ED-1（ローカルのソース、07/11/2026）。** S >= L に加えて、SDK のソースは、正準でない公開鍵や R、位数が 8 を割り切る公開鍵や R も拒否するようになりました（[暗号プロファイル](../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion)）。これは意図的な受理の変更で、署名者とフォーマットは変わりません。これを満たさない証拠は署名し直すか鍵を置き換え、書き換えることはしません。
+- **Ed25519 の受理、P-ED-1（09/11/2026 公開）。** S >= L に加えて、`@dcp-ai/sdk` 2.4.0、`dcp-ai` 2.11.0、Go v2.14.0、Rust `dcp-ai` 2.14.0 は、正準でない公開鍵や R、位数が 8 を割り切る公開鍵や R も拒否します（[暗号プロファイル](../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion)）。これは意図的な受理の変更で、署名者とフォーマットは変わりません。これを満たさない証拠は署名し直すか鍵を置き換え、書き換えることはしません。
 - **バンドル。** ワイヤ形式の変更はありません。strict-v1 には、マニフェストに `session_issued_at`、`session_expires_at`、`intended_verifier` を含めて署名したバンドルが必要です。すべての SDK の署名器は、有効期限とオーディエンスを与えられればこれらを書き込みます。
 - **信頼セットがある場合、V1 バンドルは拒否されます**。アンカーすべきプリンシパルの署名を持たないからです。
 - **統合のオプション。** 新しく、オプションです。信頼済みのプリンシパルを使う場合、`requireBundle: false`（Express）と `require_bundle=False`（FastAPI）は設定エラーです。バンドルのないリクエストがルートに届いてしまうからです。プロファイルのもとでは、`verifierPolicy`、`requireHybrid: false`、`checkRevocation` のオプション（Express）、`verifier_policy`（FastAPI）、`verifierPolicy`（OpenClaw）も同様です。

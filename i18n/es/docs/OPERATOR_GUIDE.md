@@ -5,7 +5,7 @@
 
 # Guía del operador — ejecutar un servicio de verificación
 
-> Traducción informativa de [la versión en inglés](../../../docs/OPERATOR_GUIDE.md), actualizada el 07/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../docs/OPERATOR_GUIDE.md), actualizada el 09/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Esta guía es para **terceros** que quieran ejecutar un servicio de «agente verificado»: una API HTTP que verifica Signed Bundles de DCP (y, opcionalmente, ancla hashes en una blockchain). El protocolo **no** exige ningún servidor central; la verificación siempre puede hacerse localmente con `dcp verify-bundle`. Este servicio es **opcional** y lo ejecuta quien opere a su elección.
 
@@ -121,8 +121,8 @@ Si quieres la verificación dentro de tu aplicación actual (sin un servicio HTT
 ```bash
 npm install @dcp-ai/sdk        # TypeScript / Node.js
 pip install dcp-ai             # Python
-cargo add dcp-ai@2.13.0
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.13.0
+cargo add dcp-ai@2.14.0
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.14.0
 ```
 
 Consulta el README de cada SDK para la ruta de importación exacta y la superficie de la API, y su *Release status* para lo que le falta a la versión publicada. En `main`, los SDK de TypeScript, Python, Go y Rust verifican de forma nativa bundles V1 y V2, y `@dcp-ai/wasm` expone el verificador V2 de Rust. Sus verificadores V2 siguen la lista de comprobación de [VERIFICATION.md](../../../spec/VERIFICATION.md), incluida la firma de cada artefacto (paso V2-8) y los checkpoints PQ (paso V2-12), y, desde `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1 y Rust `dcp-ai` 2.11.1, los campos secundarios del paso V2-11 que estén presentes: las versiones anteriores comprueban la cadena de auditoría primaria y la raíz de Merkle, pero no la cadena secundaria opcional ni `audit_merkle_root_secondary` (véase [STORAGE_AND_ANCHORING.md](../../../docs/STORAGE_AND_ANCHORING.md#dual-hash-chains)).

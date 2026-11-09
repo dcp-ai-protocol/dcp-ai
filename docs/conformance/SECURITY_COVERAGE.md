@@ -147,7 +147,7 @@ A finite campaign shows these cases agree or records where they do not; it is no
 
 ## Local-source additions (07/11/2026)
 
-These rows describe the local source of the TypeScript, Python, Go and Rust SDKs, not a published package. Each is
+These rows were written for the local source of 07/11/2026; they are published, unchanged, in `@dcp-ai/sdk` 2.4.0, `dcp-ai` 2.11.0, Go v2.14.0 and Rust `dcp-ai` 2.14.0 (09/11/2026). Each is
 exercised by shared vectors that the four SDK suites run; the external kit has no contract for them yet, so a kit result
 says nothing about these rules. None of them is a claim of complete conformance or of enterprise readiness.
 
@@ -167,7 +167,7 @@ says nothing about these rules. None of them is a claim of complete conformance 
 
 ## Public interfaces (MP-03, 08/11/2026)
 
-This section also describes local source, not published packages. For each capability it names the public function
+It was written for the local source of 08/11/2026: the SDKs, `@dcp-ai/wasm` 2.2.0 and `@dcp-ai/cli` 2.2.0 published on 09/11/2026 contain what it describes, while the reference verifier, the server, the playground and the kit are used from the repository. For each capability it names the public function
 the capability goes through, and the evidence that reaches it there.
 
 - **WASM** is the `DcpWasm` class of `@dcp-ai/wasm`.
@@ -195,12 +195,14 @@ verifier gets P-ED-1 only from the SDK it loads.
 | Verifier | Ed25519 path | P-ED-1 |
 |---|---|---|
 | Reference V1 (`tools/crypto.js` `verifyObject`): `lib/verify.js` and `bin/dcp.js` V1, transparency-log gossip, revocation service | Its own check, then TweetNaCl | In the source; `tools/ed25519-ped1-consumers.test.mjs` |
-| `dcp-ai verify` on V1 files | Its own check (`cli/lib/ed25519-ped1.js`) | In the source; not in the published `@dcp-ai/cli` |
-| `dcp-ai verify` on V2 files, reference V2, server | The installed `@dcp-ai/sdk` | Only with an SDK that has it. CI builds and installs the workspace SDK. No published `@dcp-ai/sdk` has it (2.3.0 and earlier), nor do copies installed from them |
+| `dcp-ai verify` on V1 files | Its own check (`cli/lib/ed25519-ped1.js`) | In the source and in `@dcp-ai/cli` 2.2.0; not in 2.1.1 and earlier |
+| `dcp-ai verify` on V2 files, reference V2, server | The installed `@dcp-ai/sdk` | Only with an SDK that has it: `@dcp-ai/sdk` 2.4.0, not 2.3.0 and earlier nor copies installed from them. CI builds and installs the workspace SDK |
 | Playground (a demo whose PQ signatures are simulated) | Its own check | In the source |
 | Express, OpenClaw | `@dcp-ai/sdk` locked at 2.2.0 | Not with the lock; CI also runs their tests on the workspace SDK |
 | Anthropic MCP, Google A2A | `@dcp-ai/sdk` locked at 2.2.0 | Not applied (a recorded limit) |
 | FastAPI, LangChain, OpenAI, CrewAI | The Python SDK of this tree | Applied |
+
+The locks above are the repository's. An installation of the published adapters from npm resolves `@dcp-ai/sdk` 2.4.0 through their `^2.2.0` range unless a lockfile keeps an earlier version, and gets P-ED-1 with it; that resolution was checked for `@dcp-ai/express` 2.1.0.
 
 **Errors, rejections and missing results.** Each public function keeps its own error contract; none is normalized.
 P-ED-1 rejects only inputs that passed the earlier type, size and decoding checks of the function: what was an error

@@ -4,11 +4,11 @@
 
 # DCP-AI API 参考
 
-> 本文是[英文版](../../../docs/API_REFERENCE.md)的参考译文，更新于 08/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/API_REFERENCE.md)的参考译文，更新于 09/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
-本文是 `main` 上的 TypeScript SDK `@dcp-ai/sdk`（软件包版本 2.3.0，协议 DCP v2.0）的参考文档。
+本文是 `main` 上的 TypeScript SDK `@dcp-ai/sdk`（软件包版本 2.4.0，协议 DCP v2.0）的参考文档。
 
-> **npm 版本（2026 年 11 月 5 日）。** 本 TypeScript 参考文档适用于已发布的 `@dcp-ai/sdk` 2.3.0，包括委托人信任、`strict-v1` 和需显式启用的候选实验性 API。见[已发布的 npm 软件包](../../../docs/NPM_RELEASES.md)与 SDK [安装说明](../../../sdks/typescript/README.md#installation)。`dcp-jcs-v1` 仍是规范性默认配置。
+> **npm 版本（2026 年 11 月 9 日）。** 本 TypeScript 参考文档适用于已发布的 `@dcp-ai/sdk` 2.4.0，包括委托人信任、`strict-v1` 和需显式启用的候选实验性 API。见[已发布的 npm 软件包](../../../docs/NPM_RELEASES.md)与 SDK [安装说明](../../../sdks/typescript/README.md#installation)。`dcp-jcs-v1` 仍是规范性默认配置。
 
 本页的代码块是声明或片段，而不是完整的程序：`registry`、`keys`、
 `payloadBytes` 或 `signedBundle` 等名称代表按照 TypeScript SDK 的
@@ -544,11 +544,11 @@ function verifyObject(obj: unknown, signatureB64: string, publicKeyB64: string):
 **返回：** 签名验证通过时为 `true`，未通过时为 `false`。对于格式错误的输入，它可能抛出异常而不是返回 `false`：无法规范化的对象、
 不是有效 base64 的签名或密钥，或者解码后长度不正确的签名或密钥。
 
-在本地源代码中（07/11/2026，未发布），`verifyObject` 和 V2 默认的 Ed25519 提供方应用
+自 `@dcp-ai/sdk` 2.4.0（09/11/2026 发布）起，`verifyObject` 和 V2 默认的 Ed25519 提供方应用
 [密码学配置文件](../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion)的 P-ED-1：S >= L、非规范编码的
-密钥或 R、或阶整除 8 的密钥或 R 都返回 `false`。会抛出异常的输入与以前相同。自 08/11/2026 起，
-参考验证器（`tools/crypto.js`）、`dcp-ai verify` 的 V1 路径和 playground 在本地源代码中执行同样的检查；
-不含此变更的已发布包不会执行。
+密钥或 R、或阶整除 8 的密钥或 R 都返回 `false`。会抛出异常的输入与以前相同。
+仓库中的参考验证器（`tools/crypto.js`）和 playground 执行同样的检查，`@dcp-ai/cli` 2.2.0 起 `dcp-ai verify` 的 V1 路径也是如此；
+`@dcp-ai/sdk` 2.3.0 及更早版本和 `@dcp-ai/cli` 2.1.1 及更早版本不执行。
 
 ```typescript
 const valid = verifyObject({ action: 'transfer', amount: 100 }, sig, keys.publicKeyB64);
@@ -866,7 +866,7 @@ if (result.verified) {
 
 结果包括：`verified`、`verification`、`principal_trust`、`profile`、`profile_compliance`、`admitted`、`action_authorized`（始终为 `false`）、`recorded_decision`、`trust_set_version`、`errors: [{ code, message }]`。
 
-选择性启用，位于四个 SDK 的本地源代码中，不在已发布的包中（07/11/2026）：
+选择性启用，已于 09/11/2026 在 `@dcp-ai/sdk` 2.4.0、`dcp-ai` 2.11.0、Go v2.14.0 和 Rust `dcp-ai` 2.14.0 中发布：
 
 | 函数 | 说明 |
 |----------|-------------|
@@ -1734,8 +1734,8 @@ interface MandateChainResult { valid: boolean; errors: string[]; depth: number; 
 
 ### `createMandateAcknowledgment(registry, keys, params)` / `evaluateDelegationActivationV2(evidence, registry, operator)`
 
-[DCP-09 § 3.3.1](../../../spec/DCP-09.md#331-mandate-acknowledgment-opt-in) 中选择性启用的授权书确认，位于四个 SDK 的本地
-源代码中，不在已发布的包中（07/11/2026）。`createMandateAcknowledgment` 以 `params.mandateChain` 最后一个授权书的
+[DCP-09 § 3.3.1](../../../spec/DCP-09.md#331-mandate-acknowledgment-opt-in) 中选择性启用的授权书确认，已于 09/11/2026 在四个 SDK
+（`@dcp-ai/sdk` 2.4.0 及其对应版本）中发布。`createMandateAcknowledgment` 以 `params.mandateChain` 最后一个授权书的
 代理身份，在 `MANDATE_ACKNOWLEDGMENT_CONTEXT` 下签署一条 `mandate_acknowledgment` 记录（`dcp09-mandate-ack-v1`）；
 `params` 为 `{ mandateChain, awarenessThreshold, acknowledgmentId, acknowledgedAt? }`，不接受任何哈希。
 `evaluateDelegationActivationV2` 接收委托准入的证据以及 `acknowledgments` 和 `awarenessThresholds`，返回
@@ -1784,7 +1784,7 @@ const DCP_CONTEXTS: Record<string, DcpContext>;
 // Rights (DCP-08), Delegation (DCP-09), Awareness (DCP-09), SubMandate (DCP-09)
 ```
 
-`MANDATE_ACKNOWLEDGMENT_CONTEXT`（`DCP-AI.v2.MandateAcknowledgment`，本地源代码，未发布）是该映射旁边的一个单独
+`MANDATE_ACKNOWLEDGMENT_CONTEXT`（`DCP-AI.v2.MandateAcknowledgment`，自 `@dcp-ai/sdk` 2.4.0 起）是该映射旁边的一个单独
 常量，映射本身保留其 19 个条目；`domainSeparatedMessage` 接受它。Python 有同样的常量，Go 为
 `CtxMandateAcknowledgment`，Rust 为 `CTX_MANDATE_ACKNOWLEDGMENT`。
 

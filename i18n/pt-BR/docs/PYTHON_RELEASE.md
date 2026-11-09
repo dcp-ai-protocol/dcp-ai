@@ -4,7 +4,7 @@
 
 > Tradução informativa da [versão em inglês](../../../docs/PYTHON_RELEASE.md), atualizada em 09/11/2026. Em caso de divergência, prevalece a versão em inglês.
 
-Verificado em 05/11/2026: [`dcp-ai` 2.10.2](https://pypi.org/project/dcp-ai/2.10.2/) está disponível no PyPI ([o que mudou](#what-changed-in-2102)). A versão deste pacote Python é independente da versão do formato/especificação DCP. O pacote Python é publicado de forma independente de Go, Rust, pacotes npm e contêineres. As publicações anteriores, [2.10.1](https://pypi.org/project/dcp-ai/2.10.1/), verificada em 28/10/2026, e [2.10.0](https://pypi.org/project/dcp-ai/2.10.0/), verificada em 26/10/2026, mantêm suas notas abaixo.
+Verificado em 09/11/2026: [`dcp-ai` 2.11.0](https://pypi.org/project/dcp-ai/2.11.0/) está disponível no PyPI ([o que mudou](#what-changed-in-2110)). Esta versão do pacote Python é independente da versão do formato de transmissão e da especificação do DCP. O pacote Python é publicado independentemente de Go, Rust, pacotes npm e contêineres. As versões anteriores, [2.10.2](https://pypi.org/project/dcp-ai/2.10.2/), verificada em 05/11/2026, [2.10.1](https://pypi.org/project/dcp-ai/2.10.1/), verificada em 28/10/2026, e [2.10.0](https://pypi.org/project/dcp-ai/2.10.0/), verificada em 26/10/2026, mantêm suas notas abaixo.
 
 <a id="install"></a>
 
@@ -13,12 +13,12 @@ Verificado em 05/11/2026: [`dcp-ai` 2.10.2](https://pypi.org/project/dcp-ai/2.10
 Requer Python 3.10 ou posterior. Atualize seu ambiente ou arquivo de lock. Os extras opcionais de integração continuam separados do núcleo do protocolo:
 
 ```bash
-pip install --upgrade "dcp-ai>=2.10.2,<3"
-pip install "dcp-ai[fastapi]>=2.10.2,<3"
-pip install "dcp-ai[langchain]>=2.10.2,<3"
-pip install "dcp-ai[openai]>=2.10.2,<3"
-pip install "dcp-ai[crewai]>=2.10.2,<3"
-pip install "dcp-ai[otlp]>=2.10.2,<3"
+pip install --upgrade "dcp-ai>=2.11.0,<3"
+pip install "dcp-ai[fastapi]>=2.11.0,<3"
+pip install "dcp-ai[langchain]>=2.11.0,<3"
+pip install "dcp-ai[openai]>=2.11.0,<3"
+pip install "dcp-ai[crewai]>=2.11.0,<3"
+pip install "dcp-ai[otlp]>=2.11.0,<3"
 ```
 
 <a id="what-changed-in-2101"></a>
@@ -64,11 +64,11 @@ A 2.10.2 foi publicada no PyPI em 05/11/2026 pelo workflow de publicação, a pa
 
 Não mudam o formato de transmissão, as assinaturas, os perfis, `dcp-jcs-v1` como padrão normativo nem as APIs experimentais de adesão explícita `dcp-jcs-v2`, e o wheel e o sdist agora incluem o `LICENSE` Apache-2.0. Preserve a evidência histórica em vez de reescrevê-la. O README do wheel e do sdist publicados é o que foi preparado antes da publicação e diz "prepared, not published"; arquivos publicados não podem mudar. Veja o [README do SDK](../../../sdks/python/README.md) e o [changelog](../../../CHANGELOG.md#unreleased).
 
-<a id="prepared-not-published-2110"></a>
+<a id="what-changed-in-2110"></a>
 
-## Preparada, não publicada: 2.11.0
+## O que mudou na 2.11.0
 
-Preparada em 08/11/2026 e não publicada; os comandos de instalação acima continuam na 2.10.2 até que a 2.11.0 seja publicada e verificada.
+A 2.11.0 foi publicada no PyPI em 09/11/2026 pelo workflow de publicação, a partir da `main` (`cdb7099b`). O wheel e a distribuição de código-fonte contêm os mesmos arquivos-fonte que os artefatos testados antes da publicação; só os metadados diferem (Metadata-Version 2.5 e hatchling 1.33.0 em vez de 2.4 e 1.27.0, com o RECORD recalculado). Instalações novas a partir do PyPI do wheel e da distribuição de código-fonte, fora do checkout, instalaram os arquivos do pacote testado e deram os mesmos resultados de API que os artefatos testados. Em comparação com a 2.10.2:
 
 - **Adicionado (adesão explícita).** `admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `create_mandate_acknowledgment` e `evaluate_delegation_activation_v2` ([changelog](../../../CHANGELOG.md#unreleased)).
 - **Mudança de aceitação.** P-ED-1 na verificação de objetos V1 e no provedor Ed25519 V2 padrão; a build oficial do PyNaCl já rejeitava essas assinaturas.
@@ -78,4 +78,4 @@ Preparada em 08/11/2026 e não publicada; os comandos de instalação acima cont
 
 ## Publicações relacionadas
 
-As versões atuais em cada registro estão em [Versões publicadas](../../../docs/README.md#published-versions). Outras notas de publicação: [pacotes npm](../../../docs/NPM_RELEASES.md), [Go v2.13.0](../../../docs/GO_RELEASE.md) e [Rust 2.13.0](../../../docs/RUST_RELEASE.md).
+As versões atuais em cada registro estão em [Versões publicadas](../../../docs/README.md#published-versions). Outras notas de publicação: [pacotes npm](../../../docs/NPM_RELEASES.md), [Go v2.14.0](../../../docs/GO_RELEASE.md) e [Rust 2.14.0](../../../docs/RUST_RELEASE.md).

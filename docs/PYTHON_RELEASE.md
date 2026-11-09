@@ -1,18 +1,18 @@
 # Published Python package
 
-Verified on 05/11/2026: [`dcp-ai` 2.10.2](https://pypi.org/project/dcp-ai/2.10.2/) is available on PyPI ([what changed](#what-changed-in-2102)). This Python package version is independent of the DCP wire/specification version. The Python package is published independently of Go, Rust, npm packages and containers. The previous releases, [2.10.1](https://pypi.org/project/dcp-ai/2.10.1/), verified on 28/10/2026, and [2.10.0](https://pypi.org/project/dcp-ai/2.10.0/), verified on 26/10/2026, keep their notes below.
+Verified on 09/11/2026: [`dcp-ai` 2.11.0](https://pypi.org/project/dcp-ai/2.11.0/) is available on PyPI ([what changed](#what-changed-in-2110)). This Python package version is independent of the DCP wire/specification version. The Python package is published independently of Go, Rust, npm packages and containers. The previous releases, [2.10.2](https://pypi.org/project/dcp-ai/2.10.2/), verified on 05/11/2026, [2.10.1](https://pypi.org/project/dcp-ai/2.10.1/), verified on 28/10/2026, and [2.10.0](https://pypi.org/project/dcp-ai/2.10.0/), verified on 26/10/2026, keep their notes below.
 
 ## Install
 
 Python 3.10 or later is required. Update your environment or lockfile. Optional integration extras remain separate from the protocol core:
 
 ```bash
-pip install --upgrade "dcp-ai>=2.10.2,<3"
-pip install "dcp-ai[fastapi]>=2.10.2,<3"
-pip install "dcp-ai[langchain]>=2.10.2,<3"
-pip install "dcp-ai[openai]>=2.10.2,<3"
-pip install "dcp-ai[crewai]>=2.10.2,<3"
-pip install "dcp-ai[otlp]>=2.10.2,<3"
+pip install --upgrade "dcp-ai>=2.11.0,<3"
+pip install "dcp-ai[fastapi]>=2.11.0,<3"
+pip install "dcp-ai[langchain]>=2.11.0,<3"
+pip install "dcp-ai[openai]>=2.11.0,<3"
+pip install "dcp-ai[crewai]>=2.11.0,<3"
+pip install "dcp-ai[otlp]>=2.11.0,<3"
 ```
 
 ## What changed in 2.10.1
@@ -50,9 +50,9 @@ The ML-DSA dependency can raise `ValueError` if its bounded signing attempts are
 
 The wire format, the signatures, the profiles, `dcp-jcs-v1` as the normative default and the experimental opt-in `dcp-jcs-v2` APIs are unchanged, and the wheel and the sdist now include the Apache-2.0 `LICENSE`. Preserve historical evidence instead of rewriting it. The README inside the published wheel and sdist is the one prepared before publication and reads "prepared, not published"; published files cannot change. See the [SDK README](../sdks/python/README.md) and the [changelog](../CHANGELOG.md#unreleased).
 
-## Prepared, not published: 2.11.0
+## What changed in 2.11.0
 
-Prepared on 08/11/2026 and not published; the installation commands above stay on 2.10.2 until 2.11.0 is published and checked.
+2.11.0 was published on PyPI on 09/11/2026 by the release workflow, from `main` (`cdb7099b`). The wheel and the source distribution contain the same source files as the artifacts tested before publication; only metadata differ (Metadata-Version 2.5 and hatchling 1.33.0 instead of 2.4 and 1.27.0, with the RECORD recomputed). Fresh installations from PyPI of the wheel and of the source distribution, outside the checkout, installed the tested package files and gave the same API results as the tested artifacts. Compared with 2.10.2:
 
 - **Added (opt-in).** `admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `create_mandate_acknowledgment` and `evaluate_delegation_activation_v2` ([changelog](../CHANGELOG.md#unreleased)).
 - **Acceptance change.** P-ED-1 in V1 object verification and the default V2 Ed25519 provider; the official PyNaCl build already rejected these signatures.
@@ -60,4 +60,4 @@ Prepared on 08/11/2026 and not published; the installation commands above stay o
 
 ## Related releases
 
-The current versions in every registry are listed in [Published versions](README.md#published-versions). Other release notes: [npm packages](NPM_RELEASES.md), [Go v2.13.0](GO_RELEASE.md) and [Rust 2.13.0](RUST_RELEASE.md).
+The current versions in every registry are listed in [Published versions](README.md#published-versions). Other release notes: [npm packages](NPM_RELEASES.md), [Go v2.14.0](GO_RELEASE.md) and [Rust 2.14.0](RUST_RELEASE.md).

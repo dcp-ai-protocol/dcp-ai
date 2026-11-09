@@ -4,7 +4,7 @@
 
 # 准入：受信任的委托人与 strict-v1 配置
 
-> 本文是[英文版](../../../docs/ADMISSION.md)的参考译文，更新于 08/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/ADMISSION.md)的参考译文，更新于 09/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 已验证的 bundle 证明其完整性，以及它是由其列出的密钥签署的。任何人都可以用任意 `human_id` 和自己的密钥创建责任委托人记录，因此仅凭验证无法知道委托人是**谁**。
 
@@ -171,7 +171,7 @@ node /path/to/dcp-ai/bin/dcp.js admit-bundle bundle.signed.json --trust trust.js
 
 ## 委托、字节与确认（选择性启用）
 
-> **状态（07/11/2026）。** 位于 TypeScript、Python、Go 和 Rust SDK 的本地源代码中，不在已发布的包中。WASM、参考
+> **状态（09/11/2026）。** 已作为显式启用的函数在 `@dcp-ai/sdk` 2.4.0、`dcp-ai` 2.11.0、Go v2.14.0 和 Rust `dcp-ai` 2.14.0 中发布。WASM、参考
 > 服务器和 CLI、playground、适配器和工具包都不公开这些函数。
 
 - **委托准入**（[规范 § 10](../../../spec/profiles/admission/README.md#10-delegated-admission-opt-in)）。把叶端 bundle 与其所依据的
@@ -195,7 +195,7 @@ node /path/to/dcp-ai/bin/dcp.js admit-bundle bundle.signed.json --trust trust.js
 
 - **验证 API。** `verifySignedBundleV2` / `verify_signed_bundle_v2` / `VerifySignedBundleV2WithPolicy` / `verify_signed_bundle_v2_with_policy` 保持原有签名。签名密钥在 TypeScript 和 Python 中为 `details.signer_keys`，在 Go 中为新的 `SignerKeys` 字段。在 Rust 中，`V2VerificationResult` 保留其十个字段，因此完整构造它或不带 `..` 解构它的代码仍可编译；签名密钥来自新的 `verify_signed_bundle_v2_at`，它返回 `V2VerificationDetails`（`result` 和 `signer_keys`），准入接受的正是它。在准入 API 发布之前针对它编写的代码读取的是 `verification.result.verified`，而不是 `verification.verified`。
 - **验证行为。** 同一批改动在准入之外也改变了验证行为。S >= L 的 Ed25519 签名现在会被拒绝。另外，Go 和 Rust 验证器现在会应用策略中的 `accepted_classical_algs` 和 `accepted_pq_algs`，而以前它们以“未强制执行”为由拒绝这些字段：在这样的策略下，列表之外的 bundle 会失败，列表之内的 bundle 现在可以通过验证。[CHANGELOG](../../../CHANGELOG.md) 列出了全部改动。
-- **Ed25519 接受准则 P-ED-1（本地源代码，07/11/2026）。** 除 S >= L 外，SDK 源代码现在还拒绝非规范编码的公钥或 R，以及阶整除 8 的公钥或 R（[密码学配置文件](../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion)）。这是一次有意的接受变更；签名方和格式不变。不满足它的证据应重新签名或替换其密钥，绝不改写。
+- **Ed25519 接受准则 P-ED-1（09/11/2026 发布）。** 除 S >= L 外，`@dcp-ai/sdk` 2.4.0、`dcp-ai` 2.11.0、Go v2.14.0 和 Rust `dcp-ai` 2.14.0 还拒绝非规范编码的公钥或 R，以及阶整除 8 的公钥或 R（[密码学配置文件](../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion)）。这是一次有意的接受变更；签名方和格式不变。不满足它的证据应重新签名或替换其密钥，绝不改写。
 - **bundle。** 线上格式没有变化。strict-v1 需要在清单中带有 `session_issued_at`、`session_expires_at` 和 `intended_verifier` 并签名的 bundle；只要提供了过期时间和受众，每个 SDK 的签名器都会写入它们。
 - **有信任集合时，V1 bundle 会被拒绝**：它们不带可供锚定的委托人签名。
 - **集成选项。** 新增且可选。使用受信任的委托人时，`requireBundle: false`（Express）和 `require_bundle=False`（FastAPI）属于配置错误：没有 bundle 的请求会到达路由。在配置之下，`verifierPolicy`、`requireHybrid: false` 和 `checkRevocation` 选项（Express）、`verifier_policy`（FastAPI）以及 `verifierPolicy`（OpenClaw）同样如此。

@@ -5,7 +5,7 @@
 
 # DCP-AI + CrewAI: início rápido
 
-> Tradução informativa da [versão em inglês](../../../docs/QUICKSTART_CREWAI.md), atualizada em 05/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../docs/QUICKSTART_CREWAI.md), atualizada em 09/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Adicione identidade criptográfica, controle por política e trilhas de auditoria às suas equipes multiagente do CrewAI.
 
@@ -16,7 +16,7 @@ Adicione identidade criptográfica, controle por política e trilhas de auditori
 ## Instalação
 
 ```bash
-pip install "dcp-ai[crewai]>=2.10.2,<3"
+pip install "dcp-ai[crewai]>=2.11.0,<3"
 ```
 
 O extra `[crewai]` instala o runtime do `crewai`. Os exemplos abaixo usam diretamente o SDK principal; os utilitários de CrewAI do próprio SDK, `DCPCrewAgent` e `DCPCrew` em `dcp_ai.crewai`, são descritos em [integrations/crewai](../../../integrations/crewai/README.md).
@@ -284,7 +284,7 @@ O DCP v2.0 acrescenta às equipes do CrewAI assinaturas compostas pós-quântica
 ### Instalação (V2)
 
 ```bash
-pip install "dcp-ai[crewai]>=2.10.2,<3"
+pip install "dcp-ai[crewai]>=2.11.0,<3"
 ```
 
 <a id="v2-crew-setup-with-security-tiers"></a>

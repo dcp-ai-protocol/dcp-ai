@@ -4,7 +4,7 @@
 
 # 安全策略
 
-> 本文是[英文版](../../SECURITY.md)的参考译文，更新于 05/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../SECURITY.md)的参考译文，更新于 09/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 <a id="reporting-a-vulnerability"></a>
 
@@ -77,8 +77,9 @@
 
 | 版本 | 状态 |
 |---------|--------|
-| 最新发布（05/11/2026）：`@dcp-ai/sdk` 2.3.0、`@dcp-ai/wasm` 2.1.3、`dcp-ai` 2.10.2（PyPI）、Go `v2.13.0`、Rust `dcp-ai` 2.13.0 | 当前版本。包含 26/10/2026 的验证器修复、28/10/2026 的二级 SHA3-256 检查以及[审计资料](../../docs/conformance/AUDIT_DOSSIER.md#artifacts)列出的修复，其中包括每个 V2 验证器中的 V2-2 模式校验 |
-| `@dcp-ai/cli` 2.1.1 以及依赖 SDK 的适配器（`@dcp-ai/express`、`@dcp-ai/openclaw`、`@dcp-ai/anthropic-mcp` 和 `@dcp-ai/google-a2a` 2.1.0） | 当前版本，未重新发布。只有当安装解析到 `@dcp-ai/sdk` 2.3.0 时，它们才获得 05/11/2026 的检查；保留 2.2.1 的锁文件在更新之前不会获得 |
+| 最新发布（09/11/2026）：`@dcp-ai/sdk` 2.4.0、`@dcp-ai/wasm` 2.2.0、`@dcp-ai/cli` 2.2.0、`dcp-ai` 2.11.0（PyPI）、Go `v2.14.0`、Rust `dcp-ai` 2.14.0 | 当前版本。包含 26/10/2026 的验证器修复、28/10/2026 的二级 SHA3-256 检查、[审计资料](../../docs/conformance/AUDIT_DOSSIER.md#artifacts)中列出的修复，以及 Ed25519 接受范围变化 P-ED-1（见下方说明） |
+| 依赖 SDK 的适配器（`@dcp-ai/express`、`@dcp-ai/openclaw`、`@dcp-ai/anthropic-mcp` 和 `@dcp-ai/google-a2a` 2.1.0） | 当前版本，未重新发布。只有在安装解析到 `@dcp-ai/sdk` 2.4.0 时才会获得 09/11/2026 的检查；保留更早 SDK 的 lockfile 在你更新之前不会获得 |
+| 之前的版本（05/11/2026 时的当前版本）：`@dcp-ai/sdk` 2.3.0、`@dcp-ai/wasm` 2.1.3、`dcp-ai` 2.10.2（PyPI）、Go `v2.13.0` 和 Rust `dcp-ai` 2.13.0（05/11/2026 发布），以及 `@dcp-ai/cli` 2.1.1（28/10/2026 发布） | 已被取代：它们不应用 P-ED-1，因此其 TypeScript、Go、Rust、WASM 和 CLI 验证会接受最新版本拒绝的 Ed25519 签名（Python SDK 所用的官方 PyNaCl 构建原本就会拒绝）；请升级 |
 | 28/10/2026 发布：`@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`dcp-ai` 2.10.1（PyPI）、Go `v2.11.1`、Rust `dcp-ai` 2.11.1 | 已被取代：它们不执行 V2-2 模式校验，因此会接受最新版本拒绝的模式无效 bundle；请升级 |
 | 包含 26/10/2026 验证器修复的最低发布版本：`@dcp-ai/sdk` 2.2.0、`@dcp-ai/wasm` 和 `@dcp-ai/cli` 2.1.0、`dcp-ai` 2.10.0（PyPI）、Go `v2.11.0`、Rust `dcp-ai` 2.11.0 | 已被取代：不检查最新版本会检查的二级 SHA3-256 字段；请升级 |
 | `@dcp-ai/sdk` 2.1.x | 受影响：`verifySignedBundleV2` 可被绕过；已在 2.2.0 修复（见下方说明） |
@@ -90,6 +91,8 @@
 | < 1.0 | 不支持 |
 
 `@dcp-ai/sdk` 2.2.0 已于 2026 年 10 月 26 日以 `latest` 标签发布到 npm，包含验证器修复。受影响的旧版本不会自动获得修复。
+
+**Ed25519 P-ED-1（09/11/2026）。** `@dcp-ai/sdk` 2.4.0、`@dcp-ai/wasm` 2.2.0、`@dcp-ai/cli` 2.2.0、`dcp-ai` 2.11.0（PyPI）、Go v2.14.0 和 Rust `dcp-ai` 2.14.0 会拒绝公钥或 R 不是规范编码、或是阶整除 8 的点的 Ed25519 签名，以及 S ≥ L 的签名。这改变了被接受的签名范围：请保持验证失败的证据原样；密钥符合 P-ED-1 时用同一密钥重新签名，轮换非规范公钥，替换小阶密钥。请用 `npm install @dcp-ai/sdk@^2.4.0` 或你所用生态系统中的等效命令升级，并刷新 lockfile；当 lockfile 解析到 `@dcp-ai/sdk` 2.4.0 时，2.1.0 版适配器即获得 P-ED-1。Rust 2.14.0 的 `otlp` feature 要求 `anyhow` 1.0.103 和 `tokio` 1.53.3 或更高版本（RUSTSEC-2026-0190、RUSTSEC-2026-0386）；默认和 `wasm` 构建都不选择它们，启用 `otlp` 的 lock 会保留其版本，直到你运行 `cargo update -p anyhow -p tokio`。
 
 **二级 SHA3-256 字段（2026 年 10 月 28 日）。** `@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`dcp-ai` 2.10.1（PyPI）、Go v2.11.1 和 Rust `dcp-ai` 2.11.1 会在 [V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) 的可选二级 SHA3-256 字段存在时验证它们；更早的版本（包括 2.2.0、2.1.0、2.10.0 和 2.11.0）不验证。请使用 `npm install @dcp-ai/sdk@^2.2.1` 或你所用生态的等效方式升级，并更新 lockfile。已发布的适配器 `@dcp-ai/express`、`@dcp-ai/openclaw`、`@dcp-ai/anthropic-mcp` 和 `@dcp-ai/google-a2a` 2.1.0 没有重新发布：它们依赖 `@dcp-ai/sdk` `^2.2.0`，当你的锁定文件解析到 `@dcp-ai/sdk` 2.2.1 或更高版本时即获得二级检查。见[已发布的 npm 软件包清单](../../docs/NPM_RELEASES.md)和[已发布版本](../../docs/README.md#published-versions)。
 

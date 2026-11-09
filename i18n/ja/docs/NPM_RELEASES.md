@@ -4,15 +4,15 @@
 
 > [英語版](../../../docs/NPM_RELEASES.md)の参考訳です（09/11/2026 更新）。内容が異なる場合は英語版が優先されます。
 
-2026 年 11 月 5 日に確認しました：`@dcp-ai/sdk` 2.3.0 と `@dcp-ai/wasm` 2.1.3 は `latest` タグで公開済みです。表のその他の 11 パッケージは変わりません（[変更点](#what-changed-on-05112026)）。2026 年 10 月 28 日には `@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`@dcp-ai/cli` 2.1.1 が `latest` タグで公開されました。パッケージのバージョンは DCP のワイヤ形式・仕様のバージョンやリポジトリのタグとは独立しています。
+09/11/2026 に確認：`@dcp-ai/sdk` 2.4.0、`@dcp-ai/wasm` 2.2.0、`@dcp-ai/cli` 2.2.0 が `latest` タグで公開されています。下のほかの 10 パッケージは変わりません（[変更点](#what-changed-on-09112026)）。05/11/2026 には `@dcp-ai/sdk` 2.3.0 と `@dcp-ai/wasm` 2.1.3 が `latest` タグで公開され（[変更点](#what-changed-on-05112026)）、28/10/2026 には `@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`@dcp-ai/cli` 2.1.1 が公開されました。パッケージのバージョンは、DCP のワイヤー／仕様のバージョンやリポジトリのタグとは別のものです。
 
 2026 年 10 月 26 日には、`@dcp-ai/sdk` 2.2.0、`@dcp-ai/wasm` 2.1.0、`@dcp-ai/cli` 2.1.0 と、表に残っている 10 パッケージの計 13 バージョンが `latest` タグで公開されました。レジストリの整合性値はテスト済み tarball と一致し、npm からの新規インストールで 383 項目の確認に合格しました。
 
 | パッケージ | バージョン |
 |---|---|
-| [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) | 2.3.0 |
-| [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) | 2.1.3 |
-| [`@dcp-ai/cli`](https://www.npmjs.com/package/@dcp-ai/cli) | 2.1.1 |
+| [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) | 2.4.0 |
+| [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) | 2.2.0 |
+| [`@dcp-ai/cli`](https://www.npmjs.com/package/@dcp-ai/cli) | 2.2.0 |
 | [`@dcp-ai/anthropic-mcp`](https://www.npmjs.com/package/@dcp-ai/anthropic-mcp) | 2.1.0 |
 | [`@dcp-ai/autogen`](https://www.npmjs.com/package/@dcp-ai/autogen) | 2.0.1 |
 | [`@dcp-ai/express`](https://www.npmjs.com/package/@dcp-ai/express) | 2.1.0 |
@@ -37,10 +37,10 @@
 ## 公開済みバージョンのインストール
 
 ```bash
-npm install @dcp-ai/sdk@^2.3.0
-npm install @dcp-ai/wasm@^2.1.3
+npm install @dcp-ai/sdk@^2.4.0
+npm install @dcp-ai/wasm@^2.2.0
 npm install @dcp-ai/express@^2.1.0 express
-npx --package=@dcp-ai/cli@2.1.1 dcp-ai --help
+npx --package=@dcp-ai/cli@2.2.0 dcp-ai --help
 ```
 
 npm の各公開の対象は npm のみです。PyPI の Python パッケージ、crates.io の Rust クレート、Go モジュールのタグ、コンテナイメージは公開していません。それらの環境でチェックアウトの例を使う前に、各 SDK のリリース状況を確認してください。リポジトリのルートではチェックアウトしたソースのテストにローカル SDK を使い続けます。これは開発上の選択であり、npm での提供に関する制限ではありません。
@@ -102,19 +102,19 @@ npm の各公開の対象は npm のみです。PyPI の Python パッケージ�
 
 > **注記（05/11/2026）。** 上の段落は、準備済みの 2.1.2 について 30/10/2026 に書いたもので、2.1.2 は公開されませんでした。#116（02/11/2026）以降、`main` の `verifyBundle` はラップしている Rust のコアで V2-2 のスキーマ検証を実行します。2.1.2 はこの変更を含まず、上の 2.1.3 は含みます。2.1.3 は 2.1.2 を置き換え、`main` のマニフェストは 2.1.3 を記載しています。2.1.2 を挙げている記述や表（WASM の README の `dualMerkleRoot` の行を含む）は過去の記録です。[監査資料](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts)を参照してください。
 
-<a id="prepared-not-published-dcp-aisdk-240-dcp-aiwasm-220-and-dcp-aicli-220"></a>
+<a id="what-changed-on-09112026"></a>
 
-## 準備済み・未公開：`@dcp-ai/sdk` 2.4.0、`@dcp-ai/wasm` 2.2.0、`@dcp-ai/cli` 2.2.0
+## 2026 年 11 月 9 日の変更点
 
-08/11/2026 に準備し、公開していません。上記のバージョンは、各パッケージが公開されて確認されるまでレジストリのものです。
+`@dcp-ai/sdk` 2.4.0、`@dcp-ai/wasm` 2.2.0、`@dcp-ai/cli` 2.2.0 は、`main`（`cdb7099b`）からビルドし公開前にテストした tarball から 09/11/2026 に公開されました。レジストリ上の `sha512` の完全性はテストしたものと同じです。3 つを名前とバージョンで npm から、`@dcp-ai/express` 2.1.0 とともに `file:` やオーバーライドなしでインストールした新しい利用側は、CLI とアダプターに対して一つの `@dcp-ai/sdk` 2.4.0 を解決し、テスト済みの tarball と同じ API、CLI、WASM の結果を出しました。
 
 - **`@dcp-ai/sdk` 2.4.0：** オプトインの委任アドミッション、バイトからのアドミッション、委任状の確認応答と、Ed25519 の受理の変更 P-ED-1（[変更履歴](../../../CHANGELOG.md#unreleased)）。
 - **`@dcp-ai/wasm` 2.2.0：** エラーと値の区別（`canonicalize`、`hashObject`、`deriveKid`）、Rust のプロバイダーにおける P-ED-1、ビルドした人のローカルパスを含まないバイナリ。アドミッションや委任状チェーンの API はありません。
 - **`@dcp-ai/cli` 2.2.0：** `dcp-ai verify` における P-ED-1、`@dcp-ai/sdk` `^2.4.0`、パッケージ内の `LICENSE`、`package.json` から読むバージョン。[CLI のガイド](../cli/README.md)を参照してください。
-- アダプターには新しいバージョンはありません。`^2.2.0` の範囲は新しいインストールで `@dcp-ai/sdk` 2.4.0 を解決し、それとともに P-ED-1 も適用されます。
+- アダプターには新しいバージョンはありません。その `^2.2.0` の範囲は新しいインストールで `@dcp-ai/sdk` 2.4.0 を解決し、それとともに P-ED-1 も適用されます。`@dcp-ai/express` 2.1.0 は公開済みのファイルのままで、そこに `LICENSE` は含まれません。`integrations/express` に追加したファイルはリポジトリ内にだけあります。
 
 <a id="related-releases"></a>
 
 ## 関連するリリース
 
-各レジストリの現在のバージョンは[公開済みバージョン](../../../docs/README.md#published-versions)にあります。その他のリリースノート：[Python 2.10.2](../../../docs/PYTHON_RELEASE.md)、[Go v2.13.0](../../../docs/GO_RELEASE.md)、[Rust 2.13.0](../../../docs/RUST_RELEASE.md)。
+各レジストリの現在のバージョンは[公開済みバージョン](../../../docs/README.md#published-versions)にあります。その他のリリースノート：[Python 2.11.0](../../../docs/PYTHON_RELEASE.md)、[Go v2.14.0](../../../docs/GO_RELEASE.md)、[Rust 2.14.0](../../../docs/RUST_RELEASE.md)。

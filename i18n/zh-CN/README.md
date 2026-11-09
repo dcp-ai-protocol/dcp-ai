@@ -1,6 +1,6 @@
 <sub>[English](../../README.md) · **中文** · [Español](../es/README.md) · [日本語](../ja/README.md) · [Português](../pt-BR/README.md)</sub>
 
-> 本文是[英文版](../../README.md)的参考译文，更新于 05/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../README.md)的参考译文，更新于 09/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 <div align="center">
 
@@ -173,10 +173,10 @@ node /path/to/dcp-ai/bin/dcp.js verify-bundle --policy hybrid_preferred bundle.s
   npm install /path/to/dcp-ai/sdks/typescript
   ```
 
-- 或已发布的 SDK 2.3.0，其中包含这些修复和功能：
+- 或已发布的 SDK 2.4.0，其中包含这些修复和功能：
 
   ```bash
-  npm install @dcp-ai/sdk@^2.3.0
+  npm install @dcp-ai/sdk@^2.4.0
   ```
 
 用 `main` 当前的 V2 bundle 验证器（签名、哈希、会话绑定、安全

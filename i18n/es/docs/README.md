@@ -4,7 +4,7 @@
 
 # Documentación
 
-> Traducción informativa de [la versión en inglés](../../../docs/README.md), actualizada el 08/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../docs/README.md), actualizada el 09/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Este índice organiza la documentación de DCP-AI por tarea: primeros pasos, arquitectura y seguridad, pruebas, referencia,
 operaciones, especificaciones y propuestas. Las versiones actuales de los paquetes en cada registro están en
@@ -14,30 +14,30 @@ operaciones, especificaciones y propuestas. Las versiones actuales de los paquet
 
 ## Versiones publicadas
 
-Verificadas el 05/11/2026. Las versiones de los paquetes son independientes de la versión del formato de intercambio y de la especificación de DCP (2.0).
+Verificadas el 09/11/2026. Las versiones de los paquetes son independientes de la versión del formato de intercambio y de la especificación de DCP (2.0).
 
 | Registro | Paquete | Versión | Notas de publicación |
 |---|---|---|---|
-| npm | [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) (SDK de TypeScript) | 2.3.0 | [paquetes npm](../../../docs/NPM_RELEASES.md) |
-| npm | [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) | 2.1.3 | [paquetes npm](../../../docs/NPM_RELEASES.md) |
-| npm | [`@dcp-ai/cli`](https://www.npmjs.com/package/@dcp-ai/cli) | 2.1.1 | [paquetes npm](../../../docs/NPM_RELEASES.md) |
-| PyPI | [`dcp-ai`](https://pypi.org/project/dcp-ai/2.10.2/) (SDK de Python) | 2.10.2 | [publicación de Python](../../../docs/PYTHON_RELEASE.md) |
-| Go modules | `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` | v2.13.0 | [publicación de Go](../../../docs/GO_RELEASE.md) |
-| crates.io | [`dcp-ai`](https://crates.io/crates/dcp-ai/2.13.0) (SDK de Rust) | 2.13.0 | [publicación de Rust](../../../docs/RUST_RELEASE.md) |
+| npm | [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) (SDK de TypeScript) | 2.4.0 | [paquetes npm](../../../docs/NPM_RELEASES.md) |
+| npm | [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) | 2.2.0 | [paquetes npm](../../../docs/NPM_RELEASES.md) |
+| npm | [`@dcp-ai/cli`](https://www.npmjs.com/package/@dcp-ai/cli) | 2.2.0 | [paquetes npm](../../../docs/NPM_RELEASES.md) |
+| PyPI | [`dcp-ai`](https://pypi.org/project/dcp-ai/2.11.0/) (SDK de Python) | 2.11.0 | [publicación de Python](../../../docs/PYTHON_RELEASE.md) |
+| Go modules | `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` | v2.14.0 | [publicación de Go](../../../docs/GO_RELEASE.md) |
+| crates.io | [`dcp-ai`](https://crates.io/crates/dcp-ai/2.14.0) (SDK de Rust) | 2.14.0 | [publicación de Rust](../../../docs/RUST_RELEASE.md) |
 
-- Publicadas el 05/11/2026: `@dcp-ai/sdk` 2.3.0, `@dcp-ai/wasm` 2.1.3, `dcp-ai` 2.10.2, Go v2.13.0 y Rust `dcp-ai` 2.13.0
-  ejecutan la validación de esquemas V2-2 en todos los verificadores V2 e incluyen los demás cambios de los SDK que lista
-  el [expediente de auditoría](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts). Como las versiones del 28/10/2026, verifican los campos secundarios SHA3-256
-  opcionales de V2-11 cuando están presentes; los ausentes no se exigen, así que un bundle verificado puede no tener una
-  cadena secundaria completa, y un campo presente incoherente se rechaza.
-- `@dcp-ai/cli` 2.1.1 y los adaptadores npm no se republicaron. Sus rangos (`^2.2.1` para la CLI, `^2.2.0` para
-  `@dcp-ai/express`, `@dcp-ai/openclaw`, `@dcp-ai/anthropic-mcp` y `@dcp-ai/google-a2a`) aceptan `@dcp-ai/sdk` 2.3.0;
-  obtienen las comprobaciones del 05/11/2026 solo cuando la instalación lo resuelve, y un lockfile existente mantiene su
-  resolución anterior hasta que lo actualices.
-- Las cinco versiones del 05/11/2026 sustituyen a los candidatos no publicados del 30/10/2026 (Go y Rust 2.12.0,
-  `@dcp-ai/wasm` 2.1.2). El README de cada archivo publicado es el que se preparó antes de la publicación y dice
-  «prepared, not published»; los archivos publicados no pueden cambiar, y los README de este repositorio describen las
-  versiones publicadas. Véanse el [registro de cambios](../../../CHANGELOG.md#2026-11-05-auditable-releases) y las notas de publicación.
+- Publicadas el 09/11/2026 desde `main` (`cdb7099b`): `@dcp-ai/sdk` 2.4.0, `@dcp-ai/wasm` 2.2.0, `@dcp-ai/cli` 2.2.0,
+  `dcp-ai` 2.11.0, Go v2.14.0 y Rust `dcp-ai` 2.14.0. Los cuatro SDK añaden la admisión delegada, la admisión desde
+  bytes y el acuse de mandato, de activación explícita, y todos los verificadores Ed25519 aplican P-ED-1, un cambio de
+  aceptación que rechaza las codificaciones no canónicas y los puntos de orden pequeño. Conservan la validación de
+  esquemas V2-2 del 05/11/2026 y, como las versiones desde el 28/10/2026, verifican los campos secundarios SHA3-256
+  opcionales de V2-11 cuando están presentes. Véanse el [registro de cambios](../../../CHANGELOG.md#2026-11-09-six-releases) y las notas de publicación.
+- `@dcp-ai/cli` 2.2.0 requiere `@dcp-ai/sdk` `^2.4.0`. Los adaptadores npm no se republicaron: sus rangos `^2.2.0`
+  (`@dcp-ai/express`, `@dcp-ai/openclaw`, `@dcp-ai/anthropic-mcp` y `@dcp-ai/google-a2a`) aceptan `@dcp-ai/sdk`
+  2.4.0, y obtienen sus comprobaciones, P-ED-1 incluido, solo cuando la instalación lo resuelve; un lockfile existente
+  mantiene su resolución anterior hasta que lo actualices.
+- El README de cada archivo del 09/11/2026 indica su propia versión y remite a esta tabla para su disponibilidad en el
+  registro. Las versiones del 05/11/2026 y anteriores conservan sus notas en el
+  [registro de cambios](../../../CHANGELOG.md#2026-11-05-auditable-releases) y en las notas de publicación.
 - Los adaptadores y generadores de proyectos de npm son opcionales e independientes del núcleo del protocolo; sus versiones exactas
   están en [NPM_RELEASES.md](../../../docs/NPM_RELEASES.md), que lista los 13 paquetes npm.
 - Las versiones anteriores afectadas y las notas de actualización están en [SECURITY.md](../../../SECURITY.md#supported-versions); el paso

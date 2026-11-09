@@ -4,7 +4,7 @@
 
 # ドキュメント
 
-> [英語版](../../../docs/README.md)の参考訳です（08/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../docs/README.md)の参考訳です（09/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 この索引は、DCP-AI のドキュメントを作業別（はじめに、アーキテクチャとセキュリティ、テスト、リファレンス、運用、仕様、
 提案）に整理したものです。各レジストリのパッケージの現在のバージョンは
@@ -14,30 +14,28 @@
 
 ## 公開済みバージョン
 
-05/11/2026 に確認済み。パッケージのバージョンは、DCP のワイヤーフォーマットと仕様のバージョン（2.0）とは独立しています。
+09/11/2026 に確認済み。パッケージのバージョンは、DCP のワイヤーフォーマットと仕様のバージョン（2.0）とは独立しています。
 
 | レジストリ | パッケージ | バージョン | リリースノート |
 |---|---|---|---|
-| npm | [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) (TypeScript SDK) | 2.3.0 | [npm パッケージ](../../../docs/NPM_RELEASES.md) |
-| npm | [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) | 2.1.3 | [npm パッケージ](../../../docs/NPM_RELEASES.md) |
-| npm | [`@dcp-ai/cli`](https://www.npmjs.com/package/@dcp-ai/cli) | 2.1.1 | [npm パッケージ](../../../docs/NPM_RELEASES.md) |
-| PyPI | [`dcp-ai`](https://pypi.org/project/dcp-ai/2.10.2/) (Python SDK) | 2.10.2 | [Python のリリース](../../../docs/PYTHON_RELEASE.md) |
-| Go modules | `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` | v2.13.0 | [Go のリリース](../../../docs/GO_RELEASE.md) |
-| crates.io | [`dcp-ai`](https://crates.io/crates/dcp-ai/2.13.0) (Rust SDK) | 2.13.0 | [Rust のリリース](../../../docs/RUST_RELEASE.md) |
+| npm | [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) (TypeScript SDK) | 2.4.0 | [npm パッケージ](../../../docs/NPM_RELEASES.md) |
+| npm | [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) | 2.2.0 | [npm パッケージ](../../../docs/NPM_RELEASES.md) |
+| npm | [`@dcp-ai/cli`](https://www.npmjs.com/package/@dcp-ai/cli) | 2.2.0 | [npm パッケージ](../../../docs/NPM_RELEASES.md) |
+| PyPI | [`dcp-ai`](https://pypi.org/project/dcp-ai/2.11.0/) (Python SDK) | 2.11.0 | [Python のリリース](../../../docs/PYTHON_RELEASE.md) |
+| Go modules | `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` | v2.14.0 | [Go のリリース](../../../docs/GO_RELEASE.md) |
+| crates.io | [`dcp-ai`](https://crates.io/crates/dcp-ai/2.14.0) (Rust SDK) | 2.14.0 | [Rust のリリース](../../../docs/RUST_RELEASE.md) |
 
-- 05/11/2026 に公開：`@dcp-ai/sdk` 2.3.0、`@dcp-ai/wasm` 2.1.3、`dcp-ai` 2.10.2、Go v2.13.0、Rust `dcp-ai` 2.13.0 は、
-  すべての V2 検証器で V2-2 のスキーマ検証を実行し、[監査資料](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts)に記載したその他の SDK の変更を含みます。
-  28/10/2026 のバージョンと同じく、V2-11 の任意の二次 SHA3-256 フィールドが存在する場合にそれらを検証します。存在しない
-  フィールドは要求されないため、検証済みのバンドルが完全な二次チェーンを持たないこともあり、存在する不整合なフィールドは
-  拒否されます。
-- `@dcp-ai/cli` 2.1.1 と npm アダプターは再公開されていません。その範囲（CLI は `^2.2.1`、`@dcp-ai/express`、
-  `@dcp-ai/openclaw`、`@dcp-ai/anthropic-mcp`、`@dcp-ai/google-a2a` は `^2.2.0`）は `@dcp-ai/sdk` 2.3.0 を受け入れます。
-  05/11/2026 の確認が適用されるのはインストールがそれを解決した場合だけで、既存のロックファイルは更新するまで以前の解決を
-  保ちます。
-- 05/11/2026 の五つのバージョンは、30/10/2026 の未公開の候補（Go と Rust の 2.12.0、`@dcp-ai/wasm` 2.1.2）を置き換えます。
-  公開済みの各アーカイブに含まれる README は公開前に準備したもので、「prepared, not published」と記載しています。公開済みの
-  アーカイブは変更できず、このリポジトリの README が公開済みのバージョンを説明します。[変更履歴](../../../CHANGELOG.md#2026-11-05-auditable-releases)とリリースノートを
-  参照してください。
+- 09/11/2026 に `main`（`cdb7099b`）から公開：`@dcp-ai/sdk` 2.4.0、`@dcp-ai/wasm` 2.2.0、`@dcp-ai/cli` 2.2.0、
+  `dcp-ai` 2.11.0、Go v2.14.0、Rust `dcp-ai` 2.14.0。四つの SDK はオプトインの委任アドミッション、バイトからの
+  アドミッション、委任状の確認応答を追加し、すべての Ed25519 検証器が P-ED-1 を適用します。これは受け入れの変更で、
+  正準でないエンコーディングと小さい位数の点を拒否します。05/11/2026 の V2-2 スキーマ検証はそのままで、28/10/2026
+  以降のバージョンと同様に、V2-11 の任意の副 SHA3-256 フィールドが存在すれば検証します。[変更履歴](../../../CHANGELOG.md#2026-11-09-six-releases)と各リリースノートを参照してください。
+- `@dcp-ai/cli` 2.2.0 は `@dcp-ai/sdk` `^2.4.0` を必要とします。npm アダプターは再公開されていません。その `^2.2.0`
+  の範囲（`@dcp-ai/express`、`@dcp-ai/openclaw`、`@dcp-ai/anthropic-mcp`、`@dcp-ai/google-a2a`）は `@dcp-ai/sdk`
+  2.4.0 を受け入れ、インストールがそれを解決したときにだけ、P-ED-1 を含むその検査が適用されます。既存の lockfile は、
+  更新するまで以前の解決を保ちます。
+- 09/11/2026 の各アーカイブ内の README は自身のバージョンを示し、レジストリでの提供状況はこの表を参照するよう案内します。
+  05/11/2026 以前のバージョンの注記は[変更履歴](../../../CHANGELOG.md#2026-11-05-auditable-releases)と各リリースノートに残っています。
 - npm のアダプターとプロジェクト生成ツールは任意で、プロトコルのコアとは別です。正確なバージョンは、13 の npm パッケージ
   すべてを載せた [NPM_RELEASES.md](../../../docs/NPM_RELEASES.md) にあります。
 - 影響を受ける以前のバージョンと更新の注意は [SECURITY.md](../../../SECURITY.md#supported-versions) に、DCP v1.0 からの移行は

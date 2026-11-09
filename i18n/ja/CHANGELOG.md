@@ -6,7 +6,7 @@
 
 > [英語版](../../CHANGELOG.md)の参考訳です（09/11/2026 更新）。各エントリーは、`[Unreleased]` のものも含め、その時点での変更を記述したもので、現在の動作を保証するものではありません。公開済みの各バージョンは**日付のある過去の記録**です。内容が異なる場合は英語版が優先されます。
 
-**公開済みバージョン（2026 年 10 月 26 日）。** npm（`@dcp-ai/sdk` 2.2.0 を含む 13 パッケージ）、Python `dcp-ai` 2.10.0、Go `v2.11.0`、Rust `dcp-ai` 2.11.0 が、検証器の修正、受け入れ判定、実験的なオプトイン API を含めて公開済みです。`dcp-jcs-v1` は引き続き規範的なデフォルトです。[公開済みバージョン](../../docs/README.md#published-versions)を参照してください。以下の項目は開発履歴として保持しています。`[Unreleased]` はこれらの機能が未公開であることを意味しません。2026 年 10 月 28 日の 6 つの修正リリースは[専用のセクション](#2026-10-28-sha3-patch-releases)にあります。05/11/2026 の五つのリリースは[独自のセクション](#2026-11-05-auditable-releases)にあります。
+**公開済みバージョン（2026 年 10 月 26 日）。** npm（`@dcp-ai/sdk` 2.2.0 を含む 13 パッケージ）、Python `dcp-ai` 2.10.0、Go `v2.11.0`、Rust `dcp-ai` 2.11.0 が、検証器の修正、受け入れ判定、実験的なオプトイン API を含めて公開済みです。`dcp-jcs-v1` は引き続き規範的なデフォルトです。[公開済みバージョン](../../docs/README.md#published-versions)を参照してください。以下の項目は開発履歴として保持しています。`[Unreleased]` はこれらの機能が未公開であることを意味しません。2026 年 10 月 28 日の 6 つの修正リリースは[専用のセクション](#2026-10-28-sha3-patch-releases)にあります。05/11/2026 の五つのリリースは[独自のセクション](#2026-11-05-auditable-releases)にあります。09/11/2026 の六つのリリースは[独自のセクション](#2026-11-09-six-releases)にあります。
 
 このプロジェクトの重要な変更はすべてこのファイルに記録します。
 
@@ -18,13 +18,13 @@
 > ついては、[README](../../README.md)、[ドキュメント](../../docs/README.md)、[仕様](../../spec/README.md)、
 > [API リファレンス](../../docs/API_REFERENCE.md)を参照してください。
 
-<a id="prepared-not-published-dcp-aisdk-240-dcp-ai-2110-go-v2140-rust-dcp-ai-2140-dcp-aiwasm-220-and-dcp-aicli-220"></a>
+<a id="2026-11-09-six-releases"></a>
 
-## 準備済み・未公開：`@dcp-ai/sdk` 2.4.0、`dcp-ai` 2.11.0、Go v2.14.0、Rust `dcp-ai` 2.14.0、`@dcp-ai/wasm` 2.2.0、`@dcp-ai/cli` 2.2.0
+## [2026-11-09] 六つのリリース
 
-08/11/2026 にリポジトリで準備し、**公開していません**。[公開済みバージョン](../../docs/README.md#published-versions)は、各パッケージが公開されてレジストリが確認されるまで、レジストリのバージョンを示し続けます。
+09/11/2026 に `main`（`cdb7099b`、#140）から公開されました。npm の tarball は公開前にテストしたファイルそのもので、`sha512` の完全性も同じです。PyPI の wheel と sdist、および crate はリリースワークフローが `main` から再ビルドしたもので、テスト済みの成果物と同じソースファイルを含みます（Python のファイルが異なるのはメタデータだけで、Metadata-Version 2.5、hatchling 1.33.0、再計算された RECORD です。crate には `main` を示す `.cargo_vcs_info.json` が加わります）。Go モジュールは `main` 上のタグ `sdks/go/v2.14.0` で、テスト済みのモジュールと同じファイル、同じ `h1` を持ちます。[公開済みバージョン](../../docs/README.md#published-versions)を参照してください。
 
-| パッケージ | 準備済み | 現在の公開版 |
+| パッケージ | 公開 | 以前 |
 |---|---|---|
 | `@dcp-ai/sdk` | 2.4.0 | 2.3.0 |
 | `dcp-ai` (PyPI) | 2.11.0 | 2.10.2 |
@@ -37,7 +37,7 @@
 - **受理の変更。** 4 つの SDK、WASM のビルド、`dcp-ai verify` における Ed25519 P-ED-1：正準なエンコーディングでない、または位数が 8 を割り切る公開鍵や R は拒否されます。失敗する証拠はそのまま保管してください。鍵が P-ED-1 を満たす場合は同じ鍵で署名し直し、正準でない公開鍵はローテーションし、小さい位数の鍵は置き換えてください。
 - **修正。** WASM の `hashObject` と `deriveKid` は、エラーの封筒を値として返す代わりに例外を投げ、`canonicalize` は `{ error: … }` という値をエラーと区別します。Go は SLH-DSA-192f の鍵をパニックなしで読み込みます。
 - **パッケージングと依存関係。** `@dcp-ai/wasm` のバイナリはビルドした人のローカルパスを含まずにビルドされ、公開前のゲートがパッケージ内のファイルを確認します。`@dcp-ai/cli` は `LICENSE` を含み、`@dcp-ai/sdk` `^2.4.0` を必要とし、自身のバージョンを `package.json` から読みます。Rust の `otlp` フィーチャーは `anyhow` 1.0.103 以降と `tokio` 1.53.3 以降を必要とします（RUSTSEC-2026-0190、RUSTSEC-2026-0386）。デフォルトと `wasm` のビルドはどちらも選択しません。
-- **変更なし。** ワイヤーフォーマット、署名、プロファイル、`dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API。npm アダプターには新しいバージョンはありません。`@dcp-ai/express` 2.1.0 は公開済みのファイルのままで、新しいインストールでは `^2.2.0` の範囲により `@dcp-ai/sdk` 2.4.0 が解決されます。`integrations/express` はリポジトリ内でのみ `LICENSE` ファイルを得ます。
+- **変更なし。** ワイヤーフォーマット、署名、プロファイル、`dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API。npm アダプターには新しいバージョンはありません。`@dcp-ai/express` 2.1.0 は公開済みのファイルのままで、そこに `LICENSE` は含まれません。新しいインストールでは `^2.2.0` の範囲により `@dcp-ai/sdk` 2.4.0 が解決されます。`integrations/express` に追加した `LICENSE` ファイルはリポジトリ内にだけあります。
 
 <a id="2026-11-05-auditable-releases"></a>
 
@@ -65,7 +65,7 @@
 
 ## 準備済み・未公開: Go v2.12.0、Rust 2.12.0、`@dcp-ai/wasm` 2.1.2
 
-30/10/2026 にリポジトリで準備済みで、**公開されていません**。`sdks/go/v2.12.0` タグは存在せず、crates.io と npm にもこれらのバージョンはありません。準備の時点では、[公開済みバージョン](../../docs/README.md#published-versions)とインストールコマンドは当時のレジストリのバージョン（Go `v2.11.1`、Rust `dcp-ai` 2.11.1、`@dcp-ai/wasm` 2.1.1）を示していました。現在のものは上記の [05/11/2026 のリリース](#2026-11-05-auditable-releases)にあります。変更内容は `[Unreleased]` と、[Go](../../docs/GO_RELEASE.md)、[Rust](../../docs/RUST_RELEASE.md)、[npm](../../docs/NPM_RELEASES.md) のリリースノートに記載されています。
+30/10/2026 にリポジトリで準備済みで、**公開されていません**。`sdks/go/v2.12.0` タグは存在せず、crates.io と npm にもこれらのバージョンはありません。準備の時点では、[公開済みバージョン](../../docs/README.md#published-versions)とインストールコマンドは当時のレジストリのバージョン（Go `v2.11.1`、Rust `dcp-ai` 2.11.1、`@dcp-ai/wasm` 2.1.1）を示していました。現在のものは[公開済みバージョン](../../docs/README.md#published-versions)にあります。変更内容は `[Unreleased]` と、[Go](../../docs/GO_RELEASE.md)、[Rust](../../docs/RUST_RELEASE.md)、[npm](../../docs/NPM_RELEASES.md) のリリースノートに記載されています。
 
 - **Go v2.12.0：** `v2.VerifyPayloadHash` の受け入れの変更（`SignPayload` の出力を受け入れ、接頭辞のないダイジェストを拒否する。確認するのはハッシュだけ）と、追加された `v2.RawAuditEventV2`。`SDKVersion` は `2.12.0` です。
 - **Rust `dcp-ai` 2.12.0：** 追加された `v2::types::RawAuditEventV2` と `RawAuditEventError`、および `wasm` フィーチャー使用時の修正済み `wasm_dual_merkle_root`。テレメトリーはパッケージのバージョンを読み取ります。

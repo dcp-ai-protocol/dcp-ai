@@ -4,7 +4,7 @@
 
 > [英文版](../../../docs/PYTHON_RELEASE.md)的参考译文，更新于 09/11/2026。如有差异，以英文版为准。
 
-05/11/2026 已确认：[`dcp-ai` 2.10.2](https://pypi.org/project/dcp-ai/2.10.2/) 已在 PyPI 发布（[更新内容](#what-changed-in-2102)）。Python 软件包版本与 DCP 线格式/规范版本独立。Python 软件包与 Go、Rust、npm 软件包和容器独立发布。之前的版本 [2.10.1](https://pypi.org/project/dcp-ai/2.10.1/)（28/10/2026 确认）和 [2.10.0](https://pypi.org/project/dcp-ai/2.10.0/)（26/10/2026 确认）的说明保留在下文。
+于 09/11/2026 核实：[`dcp-ai` 2.11.0](https://pypi.org/project/dcp-ai/2.11.0/) 已在 PyPI 上提供（[更新内容](#what-changed-in-2110)）。此 Python 包版本独立于 DCP 传输格式/规范版本。Python 包独立于 Go、Rust、npm 包和容器发布。之前的版本 [2.10.2](https://pypi.org/project/dcp-ai/2.10.2/)（05/11/2026 核实）、[2.10.1](https://pypi.org/project/dcp-ai/2.10.1/)（28/10/2026 核实）和 [2.10.0](https://pypi.org/project/dcp-ai/2.10.0/)（26/10/2026 核实）的说明保留在下方。
 
 <a id="install"></a>
 
@@ -13,12 +13,12 @@
 需要 Python 3.10 或更高版本。请更新环境或锁定文件。可选集成 extras 仍与协议核心分离：
 
 ```bash
-pip install --upgrade "dcp-ai>=2.10.2,<3"
-pip install "dcp-ai[fastapi]>=2.10.2,<3"
-pip install "dcp-ai[langchain]>=2.10.2,<3"
-pip install "dcp-ai[openai]>=2.10.2,<3"
-pip install "dcp-ai[crewai]>=2.10.2,<3"
-pip install "dcp-ai[otlp]>=2.10.2,<3"
+pip install --upgrade "dcp-ai>=2.11.0,<3"
+pip install "dcp-ai[fastapi]>=2.11.0,<3"
+pip install "dcp-ai[langchain]>=2.11.0,<3"
+pip install "dcp-ai[openai]>=2.11.0,<3"
+pip install "dcp-ai[crewai]>=2.11.0,<3"
+pip install "dcp-ai[otlp]>=2.11.0,<3"
 ```
 
 <a id="what-changed-in-2101"></a>
@@ -64,11 +64,11 @@ ML-DSA 依赖在有界签名尝试耗尽时可能抛出 `ValueError`。一个 CI
 
 传输格式、签名、配置文件、作为规范默认值的 `dcp-jcs-v1` 以及实验性显式启用的 `dcp-jcs-v2` API 均不变，wheel 和 sdist 现在包含 Apache-2.0 `LICENSE`。请保留历史证据，而不是改写它。已发布的 wheel 和 sdist 中的 README 是发布前准备的版本，写着“prepared, not published”；已发布的文件无法更改。见 [SDK README](../../../sdks/python/README.md) 和[变更日志](../../../CHANGELOG.md#unreleased)。
 
-<a id="prepared-not-published-2110"></a>
+<a id="what-changed-in-2110"></a>
 
-## 已准备、未发布：2.11.0
+## 2.11.0 的更新内容
 
-于 08/11/2026 准备，未发布；在 2.11.0 发布并核对之前，上面的安装命令仍指向 2.10.2。
+2.11.0 于 09/11/2026 由发布工作流从 `main`（`cdb7099b`）发布到 PyPI。wheel 和源码分发包含与发布前测试过的制品相同的源文件，只有元数据不同（Metadata-Version 2.5 和 hatchling 1.33.0，之前为 2.4 和 1.27.0，并重新计算了 RECORD）。在检出代码之外从 PyPI 全新安装 wheel 和源码分发，安装的是测试过的包文件，API 结果与测试过的制品相同。与 2.10.2 相比：
 
 - **新增（显式启用）。** `admit_delegated_bundle_v2`、`admit_signed_bundle_v2_from_bytes`、`create_mandate_acknowledgment` 和 `evaluate_delegation_activation_v2`（[变更日志](../../../CHANGELOG.md#unreleased)）。
 - **接受范围变化。** V1 对象验证和默认的 V2 Ed25519 提供方中的 P-ED-1；官方 PyNaCl 构建此前已拒绝这些签名。
@@ -78,4 +78,4 @@ ML-DSA 依赖在有界签名尝试耗尽时可能抛出 `ValueError`。一个 CI
 
 ## 相关发布
 
-各注册表中的当前版本见[已发布版本](../../../docs/README.md#published-versions)。其他发布说明：[npm 软件包](../../../docs/NPM_RELEASES.md)、[Go v2.13.0](../../../docs/GO_RELEASE.md)、[Rust 2.13.0](../../../docs/RUST_RELEASE.md)。
+各注册表中的当前版本见[已发布版本](../../../docs/README.md#published-versions)。其他发布说明：[npm 软件包](../../../docs/NPM_RELEASES.md)、[Go v2.14.0](../../../docs/GO_RELEASE.md)、[Rust 2.14.0](../../../docs/RUST_RELEASE.md)。
