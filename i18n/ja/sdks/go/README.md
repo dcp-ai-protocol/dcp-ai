@@ -6,7 +6,7 @@
 
 **Go の公開 (26/10/2026).** Go SDK `v2.11.0` はモジュールタグ `sdks/go/v2.11.0` から利用でき、検証器の修正、受け入れ、実験的なオプトイン API を含みます。Rust の公開は別です。参照： [Go v2.11.0](../../../../docs/GO_RELEASE.md).
 
-> [英語版 README](../../../../sdks/go/README.md)の参考訳です。更新日：05/11/2026。検証済みの例を維持するため、識別子とコードブロック（コメントを含む）は原文のままにしています。
+> [英語版 README](../../../../sdks/go/README.md)の参考訳です。更新日：09/11/2026。検証済みの例を維持するため、識別子とコードブロック（コメントを含む）は原文のままにしています。
 
 Digital Citizenship Protocol（DCP）v1.0 および v2.0 向けの公式 Go SDK。Ed25519、ML-DSA-65、SLH-DSA-192f、ML-KEM-768、複合署名、二重ハッシュチェーン、バンドル検証をサポートします。
 
@@ -22,17 +22,25 @@ Digital Citizenship Protocol（DCP）v1.0 および v2.0 向けの公式 Go SDK�
 
 **Go SDK v2.11.1。** このバージョンは、[VERIFICATION.md の V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) の二次の SHA3-256 フィールドが存在する場合、それらも検証します：`audit_merkle_root_secondary`、各 `prev_hash_secondary`、各 `intent_hash_secondary`。存在しないフィールドは要求されないため、検証済みのバンドルが完全な二次チェーンを持たないこともあります。存在するフィールドが `null`、文字列でない、または不整合の場合は拒否されます。API、結果のフィールド、`dcp-jcs-v1`、`hash_alg` の扱いは変わりません。v2.11.0 はこれらのフィールドを確認しません。
 
-**Go SDK v2.13.0。** 05/11/2026 に `sdks/go/v2.13.0` タグで公開されました。以下のインストールコマンドはこのバージョンを指定しています。レジストリでの提供状況は[公開済みバージョン](../../../../docs/README.md#published-versions)を参照してください。30/10/2026 に準備した v2.12.0 はタグ付けされず、置き換えられました。v2.11.1 との違い：
+**Go SDK v2.13.0。** 05/11/2026 に `sdks/go/v2.13.0` タグで公開されました。30/10/2026 に準備した v2.12.0 はタグ付けされず、置き換えられました。v2.11.1 との違い：
 
 - **V2-2 スキーマ検証。** `v2.VerifySignedBundleV2` とその変種は、ハッシュ、鍵、署名を確認する前に、署名済みバンドルのエンベロープと 4 つのペイロードを `schemas/v2` に照らして検証します。以前は受理されていたスキーマ上無効なバンドルは、`schema: <pointer> <keyword>` 診断で失敗するようになりました。
 - **`v2.VerifyPayloadHash`** は、`SignPayload` が書き込むとおり `"sha256:"` の後に正規ペイロードの SHA-256 が続く場合にだけ `true` です。以前は受理されていた接頭辞のないダイジェストは `false` です。
 - **`v2.RawAuditEventV2`**（新規）は、受信した監査エントリーをデコードしたとおりに保持するため、各メンバーの有無と `null` が保たれます。
 - **委任状。** `v2.VerifyMandateValidity` は一つの契約を適用し、`v2.VerifyMandateValidityAt`（新規）は検証時刻を受け取ります。以前は受理されていた欠落した日付や不正な形式の日付は無効です。`v2.VerifyMandateChain` はすべての時刻を同じ方法で読み取り、ドメインを繰り返すルート委任状を拒否します。
 
-`SDKVersion` は `2.13.0` です。ワイヤーフォーマット、署名、プロファイル、`dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API は変わりません。[変更履歴](../../../../CHANGELOG.md#unreleased)を参照してください。公開済みのモジュールに含まれる README は公開前に準備したもので、「prepared, not published」と記載しています。公開済みのモジュールは変更できません。
+v2.13.0 では `SDKVersion` は `2.13.0` です。ワイヤーフォーマット、署名、プロファイル、`dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API は変わりません。[変更履歴](../../../../CHANGELOG.md#unreleased)を参照してください。v2.13.0 のモジュールに含まれる README は、その公開前に準備したもので、「prepared, not published」と記載しています。公開済みのモジュールは変更できません。
+
+**Go SDK v2.14.0。** 以下のインストールコマンドはこのバージョンを指定しています。レジストリでの提供状況は[公開済みバージョン](../../../../docs/README.md#published-versions)を参照してください。v2.13.0 との違い：
+
+- **追加（オプトイン）。** `v2.AdmitDelegatedBundleV2`、`v2.AdmitSignedBundleV2FromBytes`、`v2.CreateMandateAcknowledgment`、`v2.EvaluateDelegationActivationV2`。デフォルトの処理からは呼び出されません（[ADMISSION.md](../../docs/ADMISSION.md#delegation-bytes-and-acknowledgments-opt-in)を参照）。
+- **受理の変更：Ed25519 P-ED-1。** V1 オブジェクトの検証とデフォルトの V2 Ed25519 プロバイダーは、正準なエンコーディングでない公開鍵や R、または位数が 8 を割り切る点である公開鍵や R も拒否します。失敗する証拠はそのまま保管してください。鍵が P-ED-1 を満たす場合は同じ鍵で署名し直し、正準でない公開鍵はローテーションし、小さい位数の鍵は置き換えてください。
+- **SLH-DSA-192f。** プロバイダーは秘密鍵と公開鍵をパニックなしで読み込みます。サイズの誤った入力はエラーか拒否になります。
+
+`SDKVersion` は `2.14.0` です。ワイヤーフォーマット、署名、プロファイル、`dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API は変わりません。
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.13.0
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.14.0
 ```
 
 v2.10.0 から更新すると検証が厳密になり、以前受け入れられた不正形式や不整合の証拠が拒否される場合があります。V1 公開鍵の長さが不正な場合は panic せずエラーを返します。過去の証拠は保存してください。`dcp-jcs-v1` は規範的な既定値のままで、候補 API は実験的かつオプトインです。受け入れにはオペレーターの信頼設定が必要であり、行為を認可しません。

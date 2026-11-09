@@ -8,7 +8,7 @@
 
 **Publicação Go (26/10/2026).** O SDK Go `v2.11.0` está disponível pela tag `sdks/go/v2.11.0`, incluindo correções do verificador, admissão e APIs experimentais opt-in. A publicação Rust continua independente. Veja [Go v2.11.0](../../../../docs/GO_RELEASE.md).
 
-> Tradução informativa do [README em inglês](../../../../sdks/go/README.md), atualizada em 05/11/2026. Identificadores e blocos de código, incluindo comentários, são preservados no idioma original para manter os exemplos verificados.
+> Tradução informativa do [README em inglês](../../../../sdks/go/README.md), atualizada em 09/11/2026. Identificadores e blocos de código, incluindo comentários, são preservados no idioma original para manter os exemplos verificados.
 
 SDK oficial em Go para o Digital Citizenship Protocol (DCP) v1.0 e v2.0. Suporta Ed25519, ML-DSA-65, SLH-DSA-192f, ML-KEM-768, assinaturas compostas, cadeias de hash duplas e verificação de bundles.
 
@@ -24,17 +24,25 @@ A verificação confere a integridade e as assinaturas; não estabelece confian�
 
 **SDK Go v2.11.1.** Esta versão também verifica os campos secundários SHA3-256 do [VERIFICATION.md V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) quando estão presentes: `audit_merkle_root_secondary`, cada `prev_hash_secondary` e cada `intent_hash_secondary`. Os campos ausentes não são exigidos, então um bundle verificado pode não ter uma cadeia secundária completa; um campo presente que seja `null`, não seja uma string ou seja inconsistente é rejeitado. Não mudam as APIs, os campos de resultado, `dcp-jcs-v1` nem o tratamento de `hash_alg`. A versão v2.11.0 não verifica esses campos.
 
-**SDK Go v2.13.0.** Publicada em 05/11/2026 pela tag `sdks/go/v2.13.0`. Os comandos de instalação abaixo indicam esta versão; para a disponibilidade dela no registro, veja [Versões publicadas](../../../../docs/README.md#published-versions). A v2.12.0 preparada em 30/10/2026 nunca recebeu tag e foi substituída. Em comparação com a v2.11.1:
+**SDK Go v2.13.0.** Publicada em 05/11/2026 pela tag `sdks/go/v2.13.0`. A v2.12.0 preparada em 30/10/2026 nunca recebeu tag e foi substituída. Em comparação com a v2.11.1:
 
 - **Validação de esquemas V2-2.** `v2.VerifySignedBundleV2` e suas variantes validam o envelope do bundle assinado e os quatro payloads contra `schemas/v2` antes de qualquer verificação de hash, chave ou assinatura. Bundles inválidos pelo esquema que antes eram aceitos agora falham com diagnósticos `schema: <pointer> <keyword>`.
 - **`v2.VerifyPayloadHash`** é `true` somente para `"sha256:"` seguido do SHA-256 do payload canônico, como `SignPayload` o escreve; um digest sem prefixo, antes aceito, é `false`.
 - **`v2.RawAuditEventV2`** (novo) guarda uma entrada de auditoria recebida como foi decodificada, de modo que cada membro mantém sua presença e seu valor `null`.
 - **Mandatos.** `v2.VerifyMandateValidity` aplica um único contrato e `v2.VerifyMandateValidityAt` (novo) recebe o instante da verificação; uma data ausente ou malformada, antes aceita, é inválida. `v2.VerifyMandateChain` lê todos os instantes da mesma forma e rejeita um mandato raiz que repete um domínio.
 
-`SDKVersion` é `2.13.0`. Não mudam o formato de transmissão, as assinaturas, os perfis, `dcp-jcs-v1` nem as APIs experimentais de adesão explícita `dcp-jcs-v2`. Veja o [changelog](../../../../CHANGELOG.md#unreleased). O README do módulo publicado é o que foi preparado antes da publicação e diz "prepared, not published"; um módulo publicado não pode mudar.
+Na v2.13.0, `SDKVersion` é `2.13.0`. Não mudam o formato de transmissão, as assinaturas, os perfis, `dcp-jcs-v1` nem as APIs experimentais de adesão explícita `dcp-jcs-v2`. Veja o [changelog](../../../../CHANGELOG.md#unreleased). O README do módulo da v2.13.0 é o que foi preparado antes da publicação dele e diz "prepared, not published"; um módulo publicado não pode mudar.
+
+**SDK Go v2.14.0.** Os comandos de instalação abaixo indicam esta versão; para a disponibilidade dela no registro, veja [Versões publicadas](../../../../docs/README.md#published-versions). Em comparação com a v2.13.0:
+
+- **Adicionado (adesão explícita).** `v2.AdmitDelegatedBundleV2`, `v2.AdmitSignedBundleV2FromBytes`, `v2.CreateMandateAcknowledgment` e `v2.EvaluateDelegationActivationV2`; nenhum padrão as chama (veja [ADMISSION.md](../../docs/ADMISSION.md#delegation-bytes-and-acknowledgments-opt-in)).
+- **Mudança de aceitação: Ed25519 P-ED-1.** A verificação de objetos V1 e o provedor Ed25519 V2 padrão também rejeitam uma chave pública ou um R que não seja uma codificação canônica ou que seja de ordem divisora de 8. Mantenha a evidência que falha como está; assine de novo com a mesma chave quando ela cumprir P-ED-1, faça a rotação de uma chave pública não canônica e substitua uma chave de ordem pequena.
+- **SLH-DSA-192f.** O provedor lê chaves secretas e públicas sem pânico; uma entrada de tamanho errado dá um erro ou uma rejeição.
+
+`SDKVersion` é `2.14.0`. Não mudam o formato de transmissão, as assinaturas, os perfis, `dcp-jcs-v1` nem as APIs experimentais de adesão explícita `dcp-jcs-v2`.
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.13.0
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.14.0
 ```
 
 Atualizar da v2.10.0 torna a verificação mais rigorosa: evidências malformadas ou inconsistentes antes aceitas podem ser rejeitadas. Comprimentos inválidos de chave pública V1 retornam erro em vez de provocar panic. Preserve as evidências históricas. `dcp-jcs-v1` continua como padrão normativo; as APIs candidatas continuam experimentais e opt-in. A admissão exige configuração de confiança pelo operador e não autoriza ações.

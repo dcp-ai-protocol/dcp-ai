@@ -2,7 +2,7 @@
 
 # Módulo Go publicado
 
-> Tradução informativa da [versão em inglês](../../../docs/GO_RELEASE.md), atualizada em 05/11/2026. Em caso de divergência, prevalece a versão em inglês.
+> Tradução informativa da [versão em inglês](../../../docs/GO_RELEASE.md), atualizada em 09/11/2026. Em caso de divergência, prevalece a versão em inglês.
 
 Verificado em 05/11/2026: o SDK Go `v2.13.0` está publicado pela [tag `sdks/go/v2.13.0`](https://github.com/dcp-ai-protocol/dcp-ai/tree/sdks/go/v2.13.0/sdks/go), e o proxy público de módulos e a base de dados de checksums o servem ([o que mudou](#what-changed-in-v2130)). As publicações anteriores, `v2.11.1` ([`sdks/go/v2.11.1`](https://github.com/dcp-ai-protocol/dcp-ai/tree/sdks/go/v2.11.1/sdks/go)), verificada em 28/10/2026, e `v2.11.0` ([`sdks/go/v2.11.0`](https://github.com/dcp-ai-protocol/dcp-ai/tree/sdks/go/v2.11.0/sdks/go)), verificada em 26/10/2026, mantêm suas notas abaixo. O módulo e suas importações mantêm `/v2`. A versão do SDK é independente do formato/especificação DCP. Go não exige token adicional de registro: os consumidores resolvem a tag do repositório pelo sistema de módulos Go.
 
@@ -66,6 +66,16 @@ A v2.12.0 está preparada no repositório desde 30/10/2026, mas não publicada: 
 As demais APIs, a verificação de bundles, `dcp-jcs-v1` e as APIs experimentais opt-in `dcp-jcs-v2` não mudam; os novos testes do candidato experimental não mudam nenhum padrão. A telemetria do SDK informa `2.12.0`. O módulo não contém mais os READMEs traduzidos, que agora ficam na árvore `i18n/` do repositório. Veja o [README do SDK](../../../sdks/go/README.md) e o [changelog](../../../CHANGELOG.md).
 
 > **Nota (05/11/2026).** A comparação acima foi escrita em 30/10/2026 para a v2.12.0 preparada, que continua sem publicação. Desde então a `main` mudou a verificação: todos os verificadores V2 executam a validação de esquemas V2-2 (#116, 02/11/2026), e mudaram a função auxiliar de validade de mandatos, as verificações de tempo da cadeia e a verificação de domínios raiz repetidos (#117 a #119). Essas mudanças não estão na v2.12.0 descrita acima, que nunca recebeu tag; a v2.13.0 acima as contém e a substitui, e os manifestos da `main` levam a v2.13.0. Veja o [dossiê de auditoria](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts).
+
+<a id="prepared-not-published-v2140"></a>
+
+## Preparada, não publicada: v2.14.0
+
+Preparada em 08/11/2026 e não publicada; ainda não existe a tag `sdks/go/v2.14.0`, e os comandos de instalação acima continuam na v2.13.0 até que a tag seja publicada e o proxy de módulos verificado.
+
+- **Adicionado (adesão explícita).** `v2.AdmitDelegatedBundleV2`, `v2.AdmitSignedBundleV2FromBytes`, `v2.CreateMandateAcknowledgment` e `v2.EvaluateDelegationActivationV2` ([changelog](../../../CHANGELOG.md#unreleased)).
+- **Mudança de aceitação.** P-ED-1 na verificação de objetos V1 e no provedor Ed25519 V2 padrão.
+- **Correção.** O provedor SLH-DSA-192f lê as chaves sem pânico. `SDKVersion` é `2.14.0`.
 
 <a id="related-releases"></a>
 

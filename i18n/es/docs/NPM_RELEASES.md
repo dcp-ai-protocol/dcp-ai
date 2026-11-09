@@ -2,7 +2,7 @@
 
 # Paquetes publicados en npm
 
-> Traducción informativa de [la versión en inglés](../../../docs/NPM_RELEASES.md), actualizada el 05/11/2026. Si difieren, prevalece la versión en inglés.
+> Traducción informativa de [la versión en inglés](../../../docs/NPM_RELEASES.md), actualizada el 09/11/2026. Si difieren, prevalece la versión en inglés.
 
 Verificado el 05/11/2026: `@dcp-ai/sdk` 2.3.0 y `@dcp-ai/wasm` 2.1.3 están publicados con la etiqueta `latest`; los otros once paquetes de la tabla no cambian ([qué cambió](#what-changed-on-05112026)). El 28/10/2026 se publicaron `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cli` 2.1.1 con la etiqueta `latest`. Las versiones de los paquetes son independientes de la versión del formato/especificación DCP y de las etiquetas del repositorio.
 
@@ -101,6 +101,17 @@ Corrige `dualMerkleRoot` y la exportación cruda `wasm_dual_merkle_root`: ahora 
 `verifyBundle`, las demás API, `dcp-jcs-v1` y las API experimentales opt-in `dcp-jcs-v2` no cambian, y no se añade ninguna API JavaScript. El tarball ya no contiene los README traducidos, que ahora están en el árbol `i18n/` del repositorio. El WebAssembly procede de Rust `dcp-ai` 2.12.0, también preparado y sin publicar (véase [Rust](../../../docs/RUST_RELEASE.md)).
 
 > **Nota (05/11/2026).** Los párrafos anteriores se escribieron el 30/10/2026 para la 2.1.2 preparada, que nunca se publicó. Desde #116 (02/11/2026), `verifyBundle` en `main` ejecuta la validación de esquemas V2-2 en el núcleo Rust que envuelve; la 2.1.2 no contiene ese cambio, y la 2.1.3 de arriba sí. La 2.1.3 sustituye a la 2.1.2, y los manifiestos de `main` llevan 2.1.3. Los textos y tablas que nombran 2.1.2, incluida la fila de `dualMerkleRoot` del README de WASM, son históricos. Véase el [expediente de auditoría](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts).
+
+<a id="prepared-not-published-dcp-aisdk-240-dcp-aiwasm-220-and-dcp-aicli-220"></a>
+
+## Preparadas, no publicadas: `@dcp-ai/sdk` 2.4.0, `@dcp-ai/wasm` 2.2.0 y `@dcp-ai/cli` 2.2.0
+
+Preparadas el 08/11/2026 y no publicadas; las versiones de arriba siguen siendo las del registro hasta que cada paquete se publique y se compruebe.
+
+- **`@dcp-ai/sdk` 2.4.0:** admisión delegada, admisión desde bytes y acuse de mandato, de activación explícita; el cambio de aceptación Ed25519 P-ED-1 ([registro de cambios](../../../CHANGELOG.md#unreleased)).
+- **`@dcp-ai/wasm` 2.2.0:** errores distinguidos de los valores (`canonicalize`, `hashObject`, `deriveKid`), P-ED-1 en el proveedor de Rust y un binario compilado sin las rutas locales de quien compila; sin API de admisión ni de cadenas de mandatos.
+- **`@dcp-ai/cli` 2.2.0:** P-ED-1 en `dcp-ai verify`, `@dcp-ai/sdk` `^2.4.0`, `LICENSE` en el paquete y la versión leída de `package.json`; véase [la guía de la CLI](../cli/README.md).
+- Los adaptadores no reciben versión nueva; sus rangos `^2.2.0` resuelven `@dcp-ai/sdk` 2.4.0 en una instalación nueva, y con él P-ED-1.
 
 <a id="related-releases"></a>
 

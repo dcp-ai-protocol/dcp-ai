@@ -4,7 +4,7 @@
 
 # 变更日志
 
-> 本文是[英文版](../../CHANGELOG.md)的参考译文，更新于 08/11/2026。每个条目（包括 `[Unreleased]` 下的条目）描述的是当时所作的变更，并不保证当前行为；已发布的各版本是**带日期的历史记录**。如有出入，以英文版为准。
+> 本文是[英文版](../../CHANGELOG.md)的参考译文，更新于 09/11/2026。每个条目（包括 `[Unreleased]` 下的条目）描述的是当时所作的变更，并不保证当前行为；已发布的各版本是**带日期的历史记录**。如有出入，以英文版为准。
 
 **已发布版本（2026 年 10 月 26 日）。** npm（13 个软件包，包括 `@dcp-ai/sdk` 2.2.0）、Python `dcp-ai` 2.10.0、Go `v2.11.0` 和 Rust `dcp-ai` 2.11.0 均已发布，包含验证器修复、准入功能和实验性的选择启用 API；`dcp-jcs-v1` 仍是规范性默认值。见[已发布版本](../../docs/README.md#published-versions)。以下条目保留开发历史；`[Unreleased]` 不表示这些功能尚未发布。2026 年 10 月 28 日的六个修复版本见[单独的章节](#2026-10-28-sha3-patch-releases)。05/11/2026 的五个版本见[其单独的章节](#2026-11-05-auditable-releases)。
 
@@ -16,6 +16,27 @@
 > 如此；其中较晚的条目可能细化或取代较早的条目。条目既不保证当前行为，也不保证某个包版本可在注册表中获取。关于
 > 当前行为，请参阅 [README](../../README.md)、[文档](../../docs/README.md)、[规范](../../spec/README.md)和
 > [API 参考](../../docs/API_REFERENCE.md)。
+
+<a id="prepared-not-published-dcp-aisdk-240-dcp-ai-2110-go-v2140-rust-dcp-ai-2140-dcp-aiwasm-220-and-dcp-aicli-220"></a>
+
+## 已准备、未发布：`@dcp-ai/sdk` 2.4.0、`dcp-ai` 2.11.0、Go v2.14.0、Rust `dcp-ai` 2.14.0、`@dcp-ai/wasm` 2.2.0 和 `@dcp-ai/cli` 2.2.0
+
+于 08/11/2026 在仓库中准备，**未发布**。在每个包发布并核对其注册表之前，[已发布版本](../../docs/README.md#published-versions)仍列出注册表中的版本。
+
+| 包 | 已准备 | 当前已发布 |
+|---|---|---|
+| `@dcp-ai/sdk` | 2.4.0 | 2.3.0 |
+| `dcp-ai` (PyPI) | 2.11.0 | 2.10.2 |
+| Go `sdks/go/v2` | v2.14.0 | v2.13.0 |
+| Rust `dcp-ai` | 2.14.0 | 2.13.0 |
+| `@dcp-ai/wasm` | 2.2.0 | 2.1.3 |
+| `@dcp-ai/cli` | 2.2.0 | 2.1.1 |
+
+- **新增（显式启用）。** TypeScript、Python、Go 和 Rust SDK 中的委托准入、从字节准入和委托书确认，以及 WASM 的原始导出 `wasm_canonicalize_v2_result`；参见 `[Unreleased]`。
+- **接受范围变化。** 四个 SDK、WASM 构建和 `dcp-ai verify` 中的 Ed25519 P-ED-1：非规范编码或阶整除 8 的公钥或 R 会被拒绝。请保持验证失败的证据原样；密钥符合 P-ED-1 时用同一密钥重新签名，轮换非规范公钥，替换小阶密钥。
+- **修复。** WASM 的 `hashObject` 和 `deriveKid` 会抛出异常，不再把错误封装当作值返回；`canonicalize` 能区分 `{ error: … }` 这样的值与错误；Go 读取 SLH-DSA-192f 密钥时不再 panic。
+- **打包与依赖。** `@dcp-ai/wasm` 的二进制文件在构建时不包含构建者的本地路径，并由发布关卡检查打包的文件。`@dcp-ai/cli` 包含 `LICENSE`，要求 `@dcp-ai/sdk` `^2.4.0`，并从 `package.json` 读取自身版本。Rust 的 `otlp` 特性要求 `anyhow` 1.0.103 和 `tokio` 1.53.3 或更高版本（RUSTSEC-2026-0190、RUSTSEC-2026-0386）；默认构建和 `wasm` 构建都不会选择这两个 crate。
+- **不变。** 传输格式、签名、配置文件、`dcp-jcs-v1` 和实验性显式启用的 `dcp-jcs-v2` API。npm 适配器没有新版本：`@dcp-ai/express` 2.1.0 保留其已发布的文件，新安装会通过其 `^2.2.0` 范围解析到 `@dcp-ai/sdk` 2.4.0。`integrations/express` 仅在仓库中新增 `LICENSE` 文件。
 
 <a id="2026-11-05-auditable-releases"></a>
 

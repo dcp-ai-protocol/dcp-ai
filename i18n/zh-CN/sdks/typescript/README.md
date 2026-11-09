@@ -5,7 +5,7 @@
 
 # @dcp-ai/sdk — DCP-AI v2.0 的 TypeScript SDK
 
-> 本文是[英文版](../../../../sdks/typescript/README.md)的参考译文，更新于 05/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../../sdks/typescript/README.md)的参考译文，更新于 09/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 Digital Citizenship Protocol（DCP-AI）的官方 TypeScript SDK。使用后量子混合密码学（Ed25519 + ML-DSA-65）、复合签名、自适应安全等级、智能体间（A2A）通信、内置可观测性和面向生产的加固，创建、签署并验证 Citizenship Bundle。
 
@@ -17,16 +17,23 @@ Digital Citizenship Protocol（DCP-AI）的官方 TypeScript SDK。使用后量�
 
 **`@dcp-ai/sdk` 2.2.1。** 此版本还会在 [VERIFICATION.md 的 V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) 中的二级 SHA3-256 字段存在时验证它们：`audit_merkle_root_secondary`、每个 `prev_hash_secondary` 和每个 `intent_hash_secondary`。不存在的字段不作要求，因此已验证的 bundle 可能没有完整的二级链；存在的字段如果是 `null`、不是字符串或不一致，则被拒绝。API、结果字段、`dcp-jcs-v1` 和 `hash_alg` 的处理均不变。2.2.0 不检查这些字段。
 
-**`@dcp-ai/sdk` 2.3.0。** 已于 05/11/2026 在 npm 上发布。下面的安装命令指定的是此版本；它在注册表中的可用情况见[已发布版本](../../../../docs/README.md#published-versions)。与 2.2.1 相比：
+**`@dcp-ai/sdk` 2.3.0。** 已于 05/11/2026 在 npm 上发布。与 2.2.1 相比：
 
 - **V2-2 模式校验。** `verifySignedBundleV2`、组合准入 API 和实验性候选验证器在任何哈希、密钥或签名检查之前，先按 `schemas/v2` 校验已签名 bundle 的信封和四个载荷。它们以前接受的模式无效 bundle（例如封闭对象中的未知成员，或清单中为 `null` 的会话时间）现在会返回 `verified: false` 并附带 `schema: <pointer> <keyword>` 诊断（见下文“模式校验”）。
 - **委托书。** `verifyMandateValidity` 采用统一的约定（非空的 `mandate_id`、精确吊销、按毫秒比较的 RFC 3339 时刻、`valid_from` 不晚于 `valid_until`、两端都包含），并接受可选的 `now`；以前被接受的缺失或格式错误的日期现在无效。`verifyMandateChain` 以同一方式读取所有时间，并拒绝重复某个领域的根委托书。
 - **`VerificationCache`。** 新增显式启用的 `context` 和 `agentIds` 选项（`VerificationCacheSetOptions`、`VerificationCacheLookupOptions`）。无效选项会抛出异常，而不是禁用过期或上限；`set` 和 `get` 复制结果；条目在单调时钟上恰好到达其 TTL 时过期；`invalidateByAgent` 现在会删除条目。
 
-传输格式、签名、配置文件、`dcp-jcs-v1` 和实验性显式启用的 `dcp-jcs-v2` API 均不变。参见[变更日志](../../../../CHANGELOG.md#unreleased)。已发布的 tarball中的 README 是发布前准备的版本，写着“prepared, not published”；已发布的 tarball 无法更改。
+传输格式、签名、配置文件、`dcp-jcs-v1` 和实验性显式启用的 `dcp-jcs-v2` API 均不变。参见[变更日志](../../../../CHANGELOG.md#unreleased)。2.3.0 的 tarball 中的 README 是其发布前准备的版本，写着“prepared, not published”；已发布的 tarball 无法更改。
+
+**`@dcp-ai/sdk` 2.4.0。** 下面的安装命令指定的是此版本；它在注册表中的可用情况见[已发布版本](../../../../docs/README.md#published-versions)。与 2.3.0 相比：
+
+- **新增（显式启用）。** `admitDelegatedBundleV2`、`admitSignedBundleV2FromBytes`、`createMandateAcknowledgment` 和 `evaluateDelegationActivationV2`；默认流程不会调用它们（参见[ADMISSION.md](../../docs/ADMISSION.md#delegation-bytes-and-acknowledgments-opt-in)）。
+- **接受范围变化：Ed25519 P-ED-1。** V1 对象验证和默认的 V2 Ed25519 提供方还会拒绝非规范编码的公钥或 R，以及阶整除 8 的公钥或 R。请保持验证失败的证据原样；密钥符合 P-ED-1 时用同一密钥重新签名，轮换非规范公钥，替换小阶密钥。
+
+传输格式、签名、配置文件、`dcp-jcs-v1` 和实验性显式启用的 `dcp-jcs-v2` API 均不变。
 
 ```bash
-npm install @dcp-ai/sdk@^2.3.0
+npm install @dcp-ai/sdk@^2.4.0
 ```
 
 所有软件包版本见 [npm 发布清单](../../../../docs/NPM_RELEASES.md)。

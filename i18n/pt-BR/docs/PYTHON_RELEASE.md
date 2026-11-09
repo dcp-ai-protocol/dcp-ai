@@ -2,7 +2,7 @@
 
 # Pacote Python publicado
 
-> Tradução informativa da [versão em inglês](../../../docs/PYTHON_RELEASE.md), atualizada em 05/11/2026. Em caso de divergência, prevalece a versão em inglês.
+> Tradução informativa da [versão em inglês](../../../docs/PYTHON_RELEASE.md), atualizada em 09/11/2026. Em caso de divergência, prevalece a versão em inglês.
 
 Verificado em 05/11/2026: [`dcp-ai` 2.10.2](https://pypi.org/project/dcp-ai/2.10.2/) está disponível no PyPI ([o que mudou](#what-changed-in-2102)). A versão deste pacote Python é independente da versão do formato/especificação DCP. O pacote Python é publicado de forma independente de Go, Rust, pacotes npm e contêineres. As publicações anteriores, [2.10.1](https://pypi.org/project/dcp-ai/2.10.1/), verificada em 28/10/2026, e [2.10.0](https://pypi.org/project/dcp-ai/2.10.0/), verificada em 26/10/2026, mantêm suas notas abaixo.
 
@@ -63,6 +63,16 @@ A 2.10.2 foi publicada no PyPI em 05/11/2026 pelo workflow de publicação, a pa
 - **Alinha as verificações de mandatos.** `verify_mandate_validity` aplica um único contrato e retorna um resultado em vez de lançar uma exceção; `now=` deve ser um `datetime` com fuso horário. Os IDs revogados, anotados como `set[str]`, agora são verificados como `collections.abc.Set` (um `set`, um `frozenset` ou uma visão de chaves de um dict): uma lista ou uma string, toleradas antes, são recusadas. `verify_mandate_chain` lê todos os instantes da mesma forma e rejeita um mandato raiz que repete um domínio.
 
 Não mudam o formato de transmissão, as assinaturas, os perfis, `dcp-jcs-v1` como padrão normativo nem as APIs experimentais de adesão explícita `dcp-jcs-v2`, e o wheel e o sdist agora incluem o `LICENSE` Apache-2.0. Preserve a evidência histórica em vez de reescrevê-la. O README do wheel e do sdist publicados é o que foi preparado antes da publicação e diz "prepared, not published"; arquivos publicados não podem mudar. Veja o [README do SDK](../../../sdks/python/README.md) e o [changelog](../../../CHANGELOG.md#unreleased).
+
+<a id="prepared-not-published-2110"></a>
+
+## Preparada, não publicada: 2.11.0
+
+Preparada em 08/11/2026 e não publicada; os comandos de instalação acima continuam na 2.10.2 até que a 2.11.0 seja publicada e verificada.
+
+- **Adicionado (adesão explícita).** `admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `create_mandate_acknowledgment` e `evaluate_delegation_activation_v2` ([changelog](../../../CHANGELOG.md#unreleased)).
+- **Mudança de aceitação.** P-ED-1 na verificação de objetos V1 e no provedor Ed25519 V2 padrão; a build oficial do PyNaCl já rejeitava essas assinaturas.
+- Não mudam o formato de transmissão, as assinaturas, os perfis nem `dcp-jcs-v1`.
 
 <a id="related-releases"></a>
 

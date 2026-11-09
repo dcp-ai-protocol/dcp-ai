@@ -2,7 +2,7 @@
 
 # dcp-ai — Python SDK
 
-> [英語版](../../../../sdks/python/README.md)の参考訳です（05/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../../sdks/python/README.md)の参考訳です（09/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 Digital Citizenship Protocol（DCP v2.0）の公式 Python SDK です。Pydantic v2 のモデル、ポスト量子のハイブリッド署名（Ed25519 + ML-DSA-65、および SLH-DSA-192f）、ML-KEM-768 の KEM プリミティブ、`pq_over_classical` バインディングを持つ複合署名、V1 と V2 のバンドルの署名と検証、OpenTelemetry によるオブザーバビリティ、DCP-04 から DCP-09 までの動作、そして充実した CLI を備えています。
 
@@ -14,15 +14,22 @@ Digital Citizenship Protocol（DCP v2.0）の公式 Python SDK です。Pydantic
 
 **Python SDK 2.10.1。** このバージョンは、[VERIFICATION.md の V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) の二次の SHA3-256 フィールドが存在する場合、それらも検証します：`audit_merkle_root_secondary`、各 `prev_hash_secondary`、各 `intent_hash_secondary`。存在しないフィールドは要求されないため、検証済みのバンドルが完全な二次チェーンを持たないこともあります。存在するフィールドが `null`、文字列でない、または不整合の場合は拒否されます。API、結果のフィールド、`dcp-jcs-v1`、`hash_alg` の扱いは変わりません。2.10.0 はこれらのフィールドを確認しません。
 
-**Python SDK 2.10.2。** 05/11/2026 に PyPI で公開されました。以下のインストールコマンドはこのバージョンを指定しています。レジストリでの提供状況は[公開済みバージョン](../../../../docs/README.md#published-versions)を参照してください。2.10.1 との違い：
+**Python SDK 2.10.2。** 05/11/2026 に PyPI で公開されました。2.10.1 との違い：
 
 - **V2-2 スキーマ検証。** `verify_signed_bundle_v2` とその他の V2 検証関数は、したがって FastAPI ミドルウェアとブリッジも、ハッシュ、鍵、署名を確認する前に、署名済みバンドルのエンベロープと 4 つのペイロードを `schemas/v2` に照らして検証します。以前は受理されていたスキーマ上無効なバンドルは、`schema: <pointer> <keyword>` 診断で失敗するようになりました。
 - **委任状。** `verify_mandate_validity` は一つの契約を適用し、例外を送出せずに結果を返します。`now=` はタイムゾーン付きの `datetime` でなければなりません。`set[str]` と注釈された失効 ID は、`collections.abc.Set`（`set`、`frozenset`、または dict のキービュー）として確認されるようになりました。以前は許容されていたリストや文字列は拒否されます。`verify_mandate_chain` はすべての時刻を同じ方法で読み取り、ドメインを繰り返すルート委任状を拒否します。
 
-ワイヤーフォーマット、署名、プロファイル、`dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API は変わりません。[変更履歴](../../../../CHANGELOG.md#unreleased)を参照してください。公開済みの wheel と sdistに含まれる README は公開前に準備したもので、「prepared, not published」と記載しています。公開済みのファイルは変更できません。
+ワイヤーフォーマット、署名、プロファイル、`dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API は変わりません。[変更履歴](../../../../CHANGELOG.md#unreleased)を参照してください。2.10.2 の wheel と sdist に含まれる README は、その公開前に準備したもので、「prepared, not published」と記載しています。公開済みのファイルは変更できません。
+
+**Python SDK 2.11.0。** 以下のインストールコマンドはこのバージョンを指定しています。レジストリでの提供状況は[公開済みバージョン](../../../../docs/README.md#published-versions)を参照してください。2.10.2 との違い：
+
+- **追加（オプトイン）。** `admit_delegated_bundle_v2`、`admit_signed_bundle_v2_from_bytes`、`create_mandate_acknowledgment`、`evaluate_delegation_activation_v2`。デフォルトの処理からは呼び出されません（[ADMISSION.md](../../docs/ADMISSION.md#delegation-bytes-and-acknowledgments-opt-in)を参照）。
+- **受理の変更：Ed25519 P-ED-1。** V1 オブジェクトの検証とデフォルトの V2 Ed25519 プロバイダーは、正準なエンコーディングでない公開鍵や R、または位数が 8 を割り切る点である公開鍵や R も拒否します。公式の PyNaCl ビルドはすでにこれらの署名を拒否していました。失敗する証拠はそのまま保管してください。鍵が P-ED-1 を満たす場合は同じ鍵で署名し直し、正準でない公開鍵はローテーションし、小さい位数の鍵は置き換えてください。
+
+ワイヤーフォーマット、署名、プロファイル、`dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API は変わりません。
 
 ```bash
-pip install "dcp-ai>=2.10.2,<3"
+pip install "dcp-ai>=2.11.0,<3"
 ```
 
 **2.9.0 からの更新。** FastAPI は構造だけを受け入れるのではなく、V2 署名を検証します。FastAPI と LangChain/OpenAI アダプターでの V1 の受け入れは検証器のポリシーに従います。V2 は、以前のバージョンが受け入れた非正規な署名の表現や、不整合または誤って結び付けられた証拠も拒否します。過去の証拠と検証に使ったバージョンを保存し、黙って再署名しないでください。信頼、リソース予算、切断処理は引き続きオペレーターが明示的に選択します。検証や受け入れ判定は行為を認可しません。
@@ -40,14 +47,14 @@ pip install -e "dcp-ai/sdks/python"
 
 ### オプションの extras
 
-レジストリから（2.10.2 以降）。チェックアウトからでも同じ extras が使えます：`pip install -e "dcp-ai/sdks/python[fastapi]"`。
+レジストリから（2.11.0 以降）。チェックアウトからでも同じ extras が使えます：`pip install -e "dcp-ai/sdks/python[fastapi]"`。
 
 ```bash
-pip install "dcp-ai[fastapi]>=2.10.2,<3"    # FastAPI middleware
-pip install "dcp-ai[langchain]>=2.10.2,<3"  # LangChain integration
-pip install "dcp-ai[openai]>=2.10.2,<3"     # OpenAI wrapper
-pip install "dcp-ai[crewai]>=2.10.2,<3"     # CrewAI multi-agent
-pip install "dcp-ai[otlp]>=2.10.2,<3"       # OpenTelemetry OTLP exporter
+pip install "dcp-ai[fastapi]>=2.11.0,<3"    # FastAPI middleware
+pip install "dcp-ai[langchain]>=2.11.0,<3"  # LangChain integration
+pip install "dcp-ai[openai]>=2.11.0,<3"     # OpenAI wrapper
+pip install "dcp-ai[crewai]>=2.11.0,<3"     # CrewAI multi-agent
+pip install "dcp-ai[otlp]>=2.11.0,<3"       # OpenTelemetry OTLP exporter
 ```
 
 <a id="features"></a>

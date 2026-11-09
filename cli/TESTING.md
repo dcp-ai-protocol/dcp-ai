@@ -1,12 +1,12 @@
 # Testing `@dcp-ai/cli`
 
-The published CLI 2.1.0 requires `@dcp-ai/sdk` `^2.2.0`, available on npm. These repository tests deliberately use the SDK built from the same checkout to cover source changes before a future release.
+CLI 2.2.0 requires `@dcp-ai/sdk` `^2.4.0`. These repository tests deliberately use the SDK built from the same checkout to cover source changes before a release.
 
 ```bash
 cd sdks/typescript && npm install && npm run build
 cd ../../cli
 npm install --no-save --package-lock=false --ignore-scripts --install-links ../sdks/typescript
-npm test                        # both suites
+npm test                        # the four suites
 npm run test:negative-control   # must print "failed as required"
 ```
 
@@ -15,12 +15,14 @@ npm run test:negative-control   # must print "failed as required"
 ## Suites
 
 - `__tests__/verify-s-range.test.mjs`: V1 verification, the Ed25519 S range (RFC 8032 §5.1.7), exit codes, and the rejection of the historical V2 format.
+- `__tests__/verify-ped1.test.mjs`: V1 verification under Ed25519 P-ED-1 against the frozen corpus `tests/interop/v2/ed25519_ped1_vectors.json`.
+- `__tests__/version.test.mjs`: `--version` prints the version of `package.json` from another working directory.
 - `__tests__/verify-v2-normative.test.mjs`: V2 bundles with the normative verifier (the cross-SDK vectors, the pre-normative envelope, the `.dcp` key pin), the schema copies in `lib/schemas/v2`, and the packaged files run on their own. Its child processes run with `Date.now` fixed, so the result does not depend on the date.
 
 Each case runs `bin/dcp-ai.js` in a child process, in a fresh temporary directory with no `.dcp/` above it.
 
 ## Negative control
 
-With `DCP_NEGATIVE_CONTROL=1` each suite inverts one positive case. `__tests__/negative-control.mjs` runs both suites that way. It passes only when the run exits 1 with exactly those two cases failing, each on an assertion, and every other test passing, none cancelled or skipped. Any other result fails it, including a suite that does not load.
+With `DCP_NEGATIVE_CONTROL=1` each suite inverts one positive case. `__tests__/negative-control.mjs` runs the four suites that way. It passes only when the run exits 1 with exactly those four cases failing, each on an assertion, and every other test passing, none cancelled or skipped. Any other result fails it, including a suite that does not load.
 
 The reference verifier and the playground have their own S range tests (`tools/crypto-s-range.test.mjs`, `tools/playground-s-range.test.mjs`), which the `conformance` job runs.

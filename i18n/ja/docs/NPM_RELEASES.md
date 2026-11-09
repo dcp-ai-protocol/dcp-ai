@@ -2,7 +2,7 @@
 
 # 公開済み npm パッケージ
 
-> [英語版](../../../docs/NPM_RELEASES.md)の参考訳です（05/11/2026 更新）。内容が異なる場合は英語版が優先されます。
+> [英語版](../../../docs/NPM_RELEASES.md)の参考訳です（09/11/2026 更新）。内容が異なる場合は英語版が優先されます。
 
 2026 年 11 月 5 日に確認しました：`@dcp-ai/sdk` 2.3.0 と `@dcp-ai/wasm` 2.1.3 は `latest` タグで公開済みです。表のその他の 11 パッケージは変わりません（[変更点](#what-changed-on-05112026)）。2026 年 10 月 28 日には `@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`@dcp-ai/cli` 2.1.1 が `latest` タグで公開されました。パッケージのバージョンは DCP のワイヤ形式・仕様のバージョンやリポジトリのタグとは独立しています。
 
@@ -101,6 +101,17 @@ npm の各公開の対象は npm のみです。PyPI の Python パッケージ�
 `verifyBundle`、その他の API、`dcp-jcs-v1`、実験的でオプトインの `dcp-jcs-v2` API は変わらず、JavaScript API の追加もありません。tarball には翻訳版 README が含まれなくなりました。これらは現在、リポジトリの `i18n/` ツリーにあります。WebAssembly は Rust の `dcp-ai` 2.12.0 から作られ、これも準備済み・未公開です（[Rust](../../../docs/RUST_RELEASE.md) を参照）。
 
 > **注記（05/11/2026）。** 上の段落は、準備済みの 2.1.2 について 30/10/2026 に書いたもので、2.1.2 は公開されませんでした。#116（02/11/2026）以降、`main` の `verifyBundle` はラップしている Rust のコアで V2-2 のスキーマ検証を実行します。2.1.2 はこの変更を含まず、上の 2.1.3 は含みます。2.1.3 は 2.1.2 を置き換え、`main` のマニフェストは 2.1.3 を記載しています。2.1.2 を挙げている記述や表（WASM の README の `dualMerkleRoot` の行を含む）は過去の記録です。[監査資料](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts)を参照してください。
+
+<a id="prepared-not-published-dcp-aisdk-240-dcp-aiwasm-220-and-dcp-aicli-220"></a>
+
+## 準備済み・未公開：`@dcp-ai/sdk` 2.4.0、`@dcp-ai/wasm` 2.2.0、`@dcp-ai/cli` 2.2.0
+
+08/11/2026 に準備し、公開していません。上記のバージョンは、各パッケージが公開されて確認されるまでレジストリのものです。
+
+- **`@dcp-ai/sdk` 2.4.0：** オプトインの委任アドミッション、バイトからのアドミッション、委任状の確認応答と、Ed25519 の受理の変更 P-ED-1（[変更履歴](../../../CHANGELOG.md#unreleased)）。
+- **`@dcp-ai/wasm` 2.2.0：** エラーと値の区別（`canonicalize`、`hashObject`、`deriveKid`）、Rust のプロバイダーにおける P-ED-1、ビルドした人のローカルパスを含まないバイナリ。アドミッションや委任状チェーンの API はありません。
+- **`@dcp-ai/cli` 2.2.0：** `dcp-ai verify` における P-ED-1、`@dcp-ai/sdk` `^2.4.0`、パッケージ内の `LICENSE`、`package.json` から読むバージョン。[CLI のガイド](../cli/README.md)を参照してください。
+- アダプターには新しいバージョンはありません。`^2.2.0` の範囲は新しいインストールで `@dcp-ai/sdk` 2.4.0 を解決し、それとともに P-ED-1 も適用されます。
 
 <a id="related-releases"></a>
 

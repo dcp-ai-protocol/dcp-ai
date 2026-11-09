@@ -16,17 +16,25 @@ Verification checks integrity and signatures; it does not establish principal tr
 
 **Go SDK v2.11.1.** This version also verifies the secondary SHA3-256 fields of [VERIFICATION.md V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) when they are present: `audit_merkle_root_secondary`, each `prev_hash_secondary` and each `intent_hash_secondary`. Absent fields are not required, so a verified bundle may lack a complete secondary chain; a present field that is `null`, not a string or inconsistent is rejected. APIs, result fields, `dcp-jcs-v1` and `hash_alg` handling are unchanged. v2.11.0 does not check these fields.
 
-**Go SDK v2.13.0.** Published on 05/11/2026 through the `sdks/go/v2.13.0` tag. The installation commands below name this version; for its registry availability, see [Published versions](../../docs/README.md#published-versions). The v2.12.0 prepared on 30/10/2026 was never tagged and is superseded. Compared with v2.11.1:
+**Go SDK v2.13.0.** Published on 05/11/2026 through the `sdks/go/v2.13.0` tag. The v2.12.0 prepared on 30/10/2026 was never tagged and is superseded. Compared with v2.11.1:
 
 - **V2-2 schema validation.** `v2.VerifySignedBundleV2` and its variants validate the signed bundle envelope and the four payloads against `schemas/v2` before any hash, key or signature check. Schema-invalid bundles accepted before now fail with `schema: <pointer> <keyword>` diagnostics.
 - **`v2.VerifyPayloadHash`** is `true` only for `"sha256:"` followed by the SHA-256 of the canonical payload, as `SignPayload` writes it; a bare digest, accepted before, is `false`.
 - **`v2.RawAuditEventV2`** (new) keeps a received audit entry as decoded, so every member keeps its presence and `null`-ness.
 - **Mandates.** `v2.VerifyMandateValidity` applies one contract and `v2.VerifyMandateValidityAt` (new) takes the verification time; a missing or malformed date, accepted before, is invalid. `v2.VerifyMandateChain` reads every time the same way and rejects a root mandate that repeats a domain.
 
-`SDKVersion` is `2.13.0`. The wire format, the signatures, the profiles, `dcp-jcs-v1` and the experimental opt-in `dcp-jcs-v2` APIs are unchanged. See the [changelog](../../CHANGELOG.md#unreleased). The README inside the published module is the one prepared before publication and reads "prepared, not published"; a published module cannot change.
+In v2.13.0, `SDKVersion` is `2.13.0`. The wire format, the signatures, the profiles, `dcp-jcs-v1` and the experimental opt-in `dcp-jcs-v2` APIs are unchanged. See the [changelog](../../CHANGELOG.md#unreleased). The README inside the v2.13.0 module is the one prepared before its publication and reads "prepared, not published"; a published module cannot change.
+
+**Go SDK v2.14.0.** The installation commands below name this version; for its registry availability, see [Published versions](../../docs/README.md#published-versions). Compared with v2.13.0:
+
+- **Added (opt-in).** `v2.AdmitDelegatedBundleV2`, `v2.AdmitSignedBundleV2FromBytes`, `v2.CreateMandateAcknowledgment` and `v2.EvaluateDelegationActivationV2`; no default calls them (see [ADMISSION.md](../../docs/ADMISSION.md#delegation-bytes-and-acknowledgments-opt-in)).
+- **Acceptance change: Ed25519 P-ED-1.** V1 object verification and the default V2 Ed25519 provider also reject a public key or R that is not a canonical encoding or is of order dividing 8. Keep failing evidence as it is; sign again with the same key when it meets P-ED-1, rotate a non-canonical public key and replace a key of small order.
+- **SLH-DSA-192f.** The provider reads secret and public keys without a panic; an input of the wrong size gives an error or a rejection.
+
+`SDKVersion` is `2.14.0`. The wire format, the signatures, the profiles, `dcp-jcs-v1` and the experimental opt-in `dcp-jcs-v2` APIs are unchanged.
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.13.0
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.14.0
 ```
 
 Upgrading from v2.10.0 makes verification stricter: malformed or inconsistent evidence previously accepted may now be rejected. Invalid V1 public-key lengths return an error instead of panicking. Preserve historical evidence. `dcp-jcs-v1` remains the normative default; candidate APIs stay experimental and opt-in. Admission still requires operator trust configuration and does not authorize actions.

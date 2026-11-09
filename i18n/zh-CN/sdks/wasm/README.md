@@ -2,7 +2,7 @@
 
 # @dcp-ai/wasm — WebAssembly SDK v2.0
 
-> 本文是[英文 README](../../../../sdks/wasm/README.md)的参考译文，更新于 08/11/2026。为保留已测试的示例，标识符和代码块（包括注释）保持原样。
+> 本文是[英文 README](../../../../sdks/wasm/README.md)的参考译文，更新于 09/11/2026。为保留已测试的示例，标识符和代码块（包括注释）保持原样。
 
 这是用于 Digital Citizenship Protocol（DCP）v2.0 的 WebAssembly 模块，由 Rust SDK 编译而成。它提供后量子复合签名、混合密钥生成、ML-KEM-768 密钥封装、双哈希、bundle 构建与验证以及安全等级计算。所有功能都可直接在浏览器或 Node.js 中运行，无需服务器。
 
@@ -15,17 +15,25 @@
 **`@dcp-ai/wasm` 2.1.1。** 此版本还会在 [VERIFICATION.md 的 V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) 中的二级 SHA3-256 字段存在时验证它们：`audit_merkle_root_secondary`、每个 `prev_hash_secondary` 和每个 `intent_hash_secondary`。不存在的字段不作要求，因此已验证的 bundle 可能没有完整的二级链；存在的字段如果是 `null`、不是字符串或不一致，则被拒绝。API、结果字段、`dcp-jcs-v1` 和 `hash_alg` 的处理均不变。2.1.0 不检查这些字段。
 
 ```bash
-npm install @dcp-ai/wasm@^2.1.3
+npm install @dcp-ai/wasm@^2.2.0
 ```
 
 所有软件包版本见 [npm 发布清单](../../../../docs/NPM_RELEASES.md)。
 
-**`@dcp-ai/wasm` 2.1.3。** 已于 05/11/2026 在 npm 上发布。上面的安装命令指定的是此版本；它在注册表中的可用情况见[已发布版本](../../../../docs/README.md#published-versions)。30/10/2026 准备的 2.1.2 从未发布，已被取代。与 2.1.1 相比：
+**`@dcp-ai/wasm` 2.1.3。** 已于 05/11/2026 在 npm 上发布。30/10/2026 准备的 2.1.2 从未发布，已被取代。与 2.1.1 相比：
 
 - **`dualMerkleRoot`** 计算 V2-11 的双 Merkle 根（原始 32 字节摘要，奇数层复制最后一个节点）；2.1.1 及更早版本在两个或更多叶节点时给出其他根（见下文“哈希操作”）。以前被接受的、不是 32 字节十六进制摘要的叶节点现在会报错。
 - **V2-2 模式校验。** `verifyBundle` 和 `wasm_verify_signed_bundle_v2` 在任何哈希、密钥或签名检查之前，先按 `schemas/v2` 校验已签名 bundle 的信封和四个载荷。以前被接受的模式无效 bundle 现在会以 `schema: <pointer> <keyword>` 诊断失败。
 
-不新增 JavaScript API。传输格式、签名、配置文件、`dcp-jcs-v1` 和实验性显式启用的 `dcp-jcs-v2` API 均不变。WebAssembly 来自同样于 05/11/2026 发布的 Rust `dcp-ai` 2.13.0 源代码。参见 [npm 包](../../../../docs/NPM_RELEASES.md)。已发布的 tarball中的 README 是发布前准备的版本，写着“prepared, not published”；已发布的 tarball 无法更改。
+2.1.3 不新增 JavaScript API。传输格式、签名、配置文件、`dcp-jcs-v1` 和实验性显式启用的 `dcp-jcs-v2` API 均不变。WebAssembly 来自同样于 05/11/2026 发布的 Rust `dcp-ai` 2.13.0 源代码。参见 [npm 包](../../../../docs/NPM_RELEASES.md)。2.1.3 的 tarball 中的 README 是其发布前准备的版本，写着“prepared, not published”；已发布的 tarball 无法更改。
+
+**`@dcp-ai/wasm` 2.2.0。** 上面的安装命令指定的是此版本；它在注册表中的可用情况见[已发布版本](../../../../docs/README.md#published-versions)。与 2.1.3 相比：
+
+- **区分错误与值。** `canonicalize` 读取新的原始导出 `wasm_canonicalize_v2_result`，因此 `{ error: 'x' }` 这样的值会被规范化，而不是抛出异常；`hashObject` 和 `deriveKid` 会抛出 `Error`，不再把错误封装当作哈希或密钥 ID 返回；原始导出的 `{"error": …}` 是经过转义的 JSON。
+- **接受范围变化：Ed25519 P-ED-1。** `compositeVerify` 和 `verifyBundle` 使用 Rust 提供方，它还会拒绝非规范编码的公钥或 R，以及阶整除 8 的公钥或 R。
+- **打包。** 构建 `pkg/dcp_ai_bg.wasm` 时不包含构建者的本地路径，并由发布关卡检查打包的文件。
+
+不新增准入、委托书链或激活 API。传输格式、签名、配置文件、`dcp-jcs-v1` 和实验性显式启用的 `dcp-jcs-v2` API 均不变。WebAssembly 来自 Rust `dcp-ai` 2.14.0 源代码。
 
 如需使用检出源码进行开发，请构建并安装本地软件包：
 
@@ -209,7 +217,7 @@ console.log(result.verified, result.classical_valid, result.pq_valid); // true t
 |--------|---------|-------------|
 | `dualHash(data)` | `DualHash` | SHA-256 + SHA3-256 双哈希 |
 | `sha3_256(data)` | `string` | SHA3-256 哈希，返回十六进制字符串 |
-| `hashObject(obj)` | `string` | JSON 对象的 SHA-256 哈希，始终为 64 个小写十六进制字符。在本地源代码中（2.1.3 中没有），当绑定无法读取该值（例如孤立代理项）时抛出 `Error`，而 2.1.3 会把错误封装当作哈希返回 |
+| `hashObject(obj)` | `string` | JSON 对象的 SHA-256 哈希，始终为 64 个小写十六进制字符。自 2.2.0 起，当绑定无法读取该值（例如孤立代理项）时抛出 `Error`，而 2.1.3 会把错误封装当作哈希返回 |
 | `dualMerkleRoot(leaves)` | `DualHash` | 根据非空的 `DualHash` 叶节点数组（每个都是 32 字节十六进制摘要）计算 [VERIFICATION.md 的 V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) 双 Merkle 根；数组为空或叶节点无效时抛出异常。根为小写十六进制。自 2.1.3 起：2.1.1 及更早版本对十六进制文本做哈希，因此两个或更多叶节点的根不同 |
 
 <a id="canonicalization-domain-separation"></a>
@@ -218,9 +226,9 @@ console.log(result.verified, result.classical_valid, result.pq_valid); // true t
 
 | 方法 | 返回值 | 描述 |
 |--------|---------|-------------|
-| `canonicalize(value)` | `string` | 对 `JSON.stringify` 写出的值进行 `dcp-jcs-v1` 规范化（基于 RFC 8785 JCS），因此 `NaN` 和 `±Infinity` 会变成 `null`，`BigInt` 或循环引用会让 `JSON.stringify` 抛出它自己的 `TypeError`。对小数或绑定无法读取的值（例如孤立代理项）抛出 `Error`（`canonicalize: …`）。在本地源代码中（2.1.3 中没有）它读取带标签的导出，因此规范形式以 `error` 成员开头的值（例如 `{ error: 'x' }`）也会被规范化；2.1.3 会对它抛出异常 |
+| `canonicalize(value)` | `string` | 对 `JSON.stringify` 写出的值进行 `dcp-jcs-v1` 规范化（基于 RFC 8785 JCS），因此 `NaN` 和 `±Infinity` 会变成 `null`，`BigInt` 或循环引用会让 `JSON.stringify` 抛出它自己的 `TypeError`。对小数或绑定无法读取的值（例如孤立代理项）抛出 `Error`（`canonicalize: …`）。自 2.2.0 起它读取带标签的导出，因此规范形式以 `error` 成员开头的值（例如 `{ error: 'x' }`）也会被规范化；2.1.3 会对它抛出异常 |
 | `domainSeparatedMessage(context, payloadHex)` | `string` | 域分离后的消息，返回十六进制字符串 |
-| `deriveKid(alg, publicKeyB64)` | `string` | 根据算法和公钥确定性地派生密钥 ID，始终为 32 个小写十六进制字符。在本地源代码中（2.1.3 中没有），对无效 base64 抛出 `Error`，而 2.1.3 会把错误封装当作密钥 ID 返回 |
+| `deriveKid(alg, publicKeyB64)` | `string` | 根据算法和公钥确定性地派生密钥 ID，始终为 32 个小写十六进制字符。自 2.2.0 起，对无效 base64 抛出 `Error`，而 2.1.3 会把错误封装当作密钥 ID 返回 |
 
 <a id="session-security"></a>
 
@@ -356,9 +364,9 @@ const keys = JSON.parse(wasm_generate_hybrid_keypair());
 // a domain-separated message (hex) or a canonical form
 ```
 
-原始函数在带内以 `{"error": "<message>"}` 报告错误。在本地源代码中（2.1.3 中没有），该封装是经过转义的 JSON。以前，
+原始函数在带内以 `{"error": "<message>"}` 报告错误。自 2.2.0 起，该封装是经过转义的 JSON。以前，
 含有反斜杠或控制字符的消息（例如来自键名）可能是无效 JSON，或被解码成其他文本。`wasm_canonicalize_v2` 返回规范形式
-或该封装，因此无法区分自身的错误和规范形式为 `{"error": …}` 的值。本地源代码新增了 `wasm_canonicalize_v2_result`，
+或该封装，因此无法区分自身的错误和规范形式为 `{"error": …}` 的值。2.2.0 新增了 `wasm_canonicalize_v2_result`，
 它返回 `{"ok": true, "canonical": …}` 或 `{"ok": false, "error": …}`；`canonicalize()` 使用它。
 
 完整的浏览器交互演示请参见 [example.html](../../../../sdks/wasm/example.html)。

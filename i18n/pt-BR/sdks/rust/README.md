@@ -6,7 +6,7 @@
 
 **Publicação Rust (26/10/2026).** Rust `dcp-ai` 2.11.0 está publicado no crates.io, incluindo correções do verificador, admissão e APIs experimentais opt-in. `dcp-jcs-v1` continua sendo o perfil normativo padrão. Veja [Rust 2.11.0](../../../../docs/RUST_RELEASE.md).
 
-> Tradução informativa do [README em inglês](../../../../sdks/rust/README.md), atualizada em 05/11/2026. Identificadores e blocos de código, incluindo comentários, são preservados no idioma original para manter os exemplos verificados.
+> Tradução informativa do [README em inglês](../../../../sdks/rust/README.md), atualizada em 09/11/2026. Identificadores e blocos de código, incluindo comentários, são preservados no idioma original para manter os exemplos verificados.
 
 SDK oficial em Rust para o Digital Citizenship Protocol (DCP v2.0). Oferece tipos baseados em Serde, criptografia pós-quântica híbrida (Ed25519 + ML-DSA-65 + SLH-DSA-192f + ML-KEM-768), assinaturas compostas com vinculação `pq_over_classical`, cadeias de hash duplas, observabilidade com OpenTelemetry, comportamento DCP-04..09 e suporte opcional a WebAssembly.
 
@@ -20,32 +20,41 @@ A verificação confere a integridade e as assinaturas; não estabelece confian�
 
 **SDK Rust 2.11.1.** Esta versão também verifica os campos secundários SHA3-256 do [VERIFICATION.md V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) quando estão presentes: `audit_merkle_root_secondary`, cada `prev_hash_secondary` e cada `intent_hash_secondary`. Os campos ausentes não são exigidos, então um bundle verificado pode não ter uma cadeia secundária completa; um campo presente que seja `null`, não seja uma string ou seja inconsistente é rejeitado. Não mudam as APIs, os campos de resultado, `dcp-jcs-v1` nem o tratamento de `hash_alg`. A versão 2.11.0 não verifica esses campos.
 
-**SDK Rust 2.13.0.** Publicada no crates.io em 05/11/2026. Os comandos de instalação abaixo indicam esta versão; para a disponibilidade dela no registro, veja [Versões publicadas](../../../../docs/README.md#published-versions). A 2.12.0 preparada em 30/10/2026 nunca foi publicada e foi substituída. Em comparação com a 2.11.1:
+**SDK Rust 2.13.0.** Publicada no crates.io em 05/11/2026. A 2.12.0 preparada em 30/10/2026 nunca foi publicada e foi substituída. Em comparação com a 2.11.1:
 
 - **Validação de esquemas V2-2.** `verify_signed_bundle_v2`, `…_with_policy` e `…_at`, incluindo o build WASM, validam o envelope do bundle assinado e os quatro payloads contra `schemas/v2` antes de qualquer verificação de hash, chave ou assinatura. Bundles inválidos pelo esquema que antes eram aceitos agora falham com diagnósticos `schema: <pointer> <keyword>`.
 - **`RawAuditEventV2` e `RawAuditEventError`** (novos) guardam uma entrada de auditoria recebida como o valor decodificado (veja Entradas de auditoria recebidas abaixo).
 - **`wasm_dual_merkle_root`** (com a feature `wasm`) calcula a raiz Merkle dupla da V2-11 e retorna um erro para uma folha que não seja um digest hex de 32 bytes.
 - **Mandatos.** `verify_mandate_validity` compara a janela como instantes, não mais como texto, e `verify_mandate_validity_at` (novo) recebe o instante da verificação. `verify_mandate_chain` rejeita um mandato raiz que repete um domínio.
 
-A telemetria informa `2.13.0`. Não mudam o formato de transmissão, as assinaturas, os perfis, `dcp-jcs-v1` nem as APIs experimentais de adesão explícita `dcp-jcs-v2`. Veja o [changelog](../../../../CHANGELOG.md#unreleased). O README do crate publicado é o que foi preparado antes da publicação e diz "prepared, not published"; um crate publicado não pode mudar.
+Na 2.13.0, a telemetria informa `2.13.0`. Não mudam o formato de transmissão, as assinaturas, os perfis, `dcp-jcs-v1` nem as APIs experimentais de adesão explícita `dcp-jcs-v2`. Veja o [changelog](../../../../CHANGELOG.md#unreleased). O README do crate da 2.13.0 é o que foi preparado antes da publicação dele e diz "prepared, not published"; um crate publicado não pode mudar.
+
+**SDK Rust 2.14.0.** Os comandos de instalação abaixo indicam esta versão; para a disponibilidade dela no registro, veja [Versões publicadas](../../../../docs/README.md#published-versions). Em comparação com a 2.13.0:
+
+- **Adicionado (adesão explícita).** `admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `create_mandate_acknowledgment` e `evaluate_delegation_activation_v2` (`dcp_ai::v2`); nenhum padrão as chama (veja [ADMISSION.md](../../docs/ADMISSION.md#delegation-bytes-and-acknowledgments-opt-in)).
+- **Mudança de aceitação: Ed25519 P-ED-1.** A verificação de objetos V1 e o provedor Ed25519 V2 padrão também rejeitam uma chave pública ou um R que não seja uma codificação canônica ou que seja de ordem divisora de 8. Mantenha a evidência que falha como está; assine de novo com a mesma chave quando ela cumprir P-ED-1, faça a rotação de uma chave pública não canônica e substitua uma chave de ordem pequena.
+- **Feature `wasm`.** O novo export cru `wasm_canonicalize_v2_result` devolve um resultado rotulado, e o `{"error": …}` que os exports devolvem é JSON escapado.
+- **Feature `otlp`.** Exige `anyhow` 1.0.103 ou posterior e `tokio` 1.53.3 ou posterior (RUSTSEC-2026-0190, RUSTSEC-2026-0386); os builds padrão e `wasm` não selecionam nenhum dos dois. Um projeto cujo próprio `Cargo.lock` ativa `otlp` os atualiza com `cargo update -p anyhow -p tokio`. O mínimo também deixa de fora a linha corrigida 1.51.x do tokio (1.51.6 ou posterior) ao ativar `otlp`; isso não significa que a 1.51.6 seja vulnerável: o Cargo não consegue aceitar as duas linhas.
+
+A telemetria informa `2.14.0`. Não mudam o formato de transmissão, as assinaturas, os perfis, `dcp-jcs-v1` nem as APIs experimentais de adesão explícita `dcp-jcs-v2`.
 
 ```toml
 [dependencies]
-dcp-ai = "2.13.0"
+dcp-ai = "2.14.0"
 ```
 
 Com exportação OpenTelemetry/OTLP:
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.13.0", features = ["otlp"] }
+dcp-ai = { version = "2.14.0", features = ["otlp"] }
 ```
 
 Para suporte a WebAssembly:
 
 ```toml
 [dependencies]
-dcp-ai = { version = "2.13.0", features = ["wasm"] }
+dcp-ai = { version = "2.14.0", features = ["wasm"] }
 ```
 
 <a id="features"></a>

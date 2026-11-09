@@ -5,7 +5,7 @@
 
 # dcp-ai — SDK de Python
 
-> Traducción informativa de [la versión en inglés](../../../../sdks/python/README.md), actualizada el 05/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../../sdks/python/README.md), actualizada el 09/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 SDK oficial de Python para el Digital Citizenship Protocol (DCP v2.0). Modelos de Pydantic v2, firmas híbridas poscuánticas (Ed25519 + ML-DSA-65, además de SLH-DSA-192f), la primitiva KEM ML-KEM-768, firmas compuestas con vinculación `pq_over_classical`, firma y verificación de bundles V1 y V2, observabilidad con OpenTelemetry, el comportamiento de DCP-04 a DCP-09 y una CLI completa.
 
@@ -17,15 +17,22 @@ SDK oficial de Python para el Digital Citizenship Protocol (DCP v2.0). Modelos d
 
 **SDK Python 2.10.1.** Esta versión también verifica los campos secundarios SHA3-256 de [VERIFICATION.md V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) cuando están presentes: `audit_merkle_root_secondary`, cada `prev_hash_secondary` y cada `intent_hash_secondary`. Los campos ausentes no se exigen, así que un bundle verificado puede no tener una cadena secundaria completa; un campo presente que sea `null`, no sea una cadena o sea incoherente se rechaza. No cambian las API, los campos de resultado, `dcp-jcs-v1` ni el tratamiento de `hash_alg`. La versión 2.10.0 no comprueba estos campos.
 
-**SDK Python 2.10.2.** Publicada en PyPI el 05/11/2026. Los comandos de instalación siguientes indican esta versión; para su disponibilidad en el registro, véase [Versiones publicadas](../../../../docs/README.md#published-versions). Frente a 2.10.1:
+**SDK Python 2.10.2.** Publicada en PyPI el 05/11/2026. Frente a 2.10.1:
 
 - **Validación de esquemas V2-2.** `verify_signed_bundle_v2` y las demás funciones de verificación V2, y por tanto el middleware de FastAPI y los puentes, validan el sobre del bundle firmado y los cuatro payloads contra `schemas/v2` antes de cualquier comprobación de hash, clave o firma. Los bundles inválidos por esquema que antes se aceptaban ahora fallan con diagnósticos `schema: <pointer> <keyword>`.
 - **Mandatos.** `verify_mandate_validity` aplica un único contrato y devuelve un resultado en lugar de lanzar una excepción; `now=` debe ser un `datetime` con zona horaria. Los IDs revocados, anotados como `set[str]`, ahora se comprueban como `collections.abc.Set` (un `set`, un `frozenset` o una vista de claves de un dict): una lista o una cadena, toleradas antes, se rechazan. `verify_mandate_chain` lee todos los instantes de la misma manera y rechaza un mandato raíz que repite un dominio.
 
-No cambian el formato de transmisión, las firmas, los perfiles, `dcp-jcs-v1` ni las API experimentales de activación explícita `dcp-jcs-v2`. Véase el [registro de cambios](../../../../CHANGELOG.md#unreleased). El README del wheel y del sdist publicados es el que se preparó antes de la publicación y dice «prepared, not published»; los archivos publicados no pueden cambiar.
+No cambian el formato de transmisión, las firmas, los perfiles, `dcp-jcs-v1` ni las API experimentales de activación explícita `dcp-jcs-v2`. Véase el [registro de cambios](../../../../CHANGELOG.md#unreleased). El README del wheel y del sdist de la 2.10.2 es el que se preparó antes de su publicación y dice «prepared, not published»; los archivos publicados no pueden cambiar.
+
+**SDK Python 2.11.0.** Los comandos de instalación siguientes indican esta versión; para su disponibilidad en el registro, véase [Versiones publicadas](../../../../docs/README.md#published-versions). Frente a 2.10.2:
+
+- **Añadido (activación explícita).** `admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `create_mandate_acknowledgment` y `evaluate_delegation_activation_v2`; ningún valor predeterminado las llama (véase [ADMISSION.md](../../docs/ADMISSION.md#delegation-bytes-and-acknowledgments-opt-in)).
+- **Cambio de aceptación: Ed25519 P-ED-1.** La verificación de objetos V1 y el proveedor Ed25519 V2 predeterminado rechazan además una clave pública o una R que no sea una codificación canónica o que sea de orden divisor de 8. La compilación oficial de PyNaCl ya rechazaba estas firmas. Conserva la evidencia que falla tal como está; vuelve a firmar con la misma clave si cumple P-ED-1, rota una clave pública no canónica y sustituye una clave de orden pequeño.
+
+No cambian el formato de transmisión, las firmas, los perfiles, `dcp-jcs-v1` ni las API experimentales de activación explícita `dcp-jcs-v2`.
 
 ```bash
-pip install "dcp-ai>=2.10.2,<3"
+pip install "dcp-ai>=2.11.0,<3"
 ```
 
 **Actualización desde 2.9.0.** FastAPI ahora verifica las firmas V2 en lugar de aceptar solo la estructura. La aceptación V1 en FastAPI y los adaptadores LangChain/OpenAI sigue la política del verificador. V2 también rechaza codificaciones no canónicas de firmas y evidencia inconsistente o vinculada incorrectamente que versiones anteriores aceptaban. Conserva la evidencia histórica y la versión que la verificó; no la vuelvas a firmar silenciosamente. La confianza, los presupuestos de recursos y la gestión de desconexiones siguen siendo decisiones explícitas del operador. Verificar o admitir no autoriza una acción.
@@ -43,14 +50,14 @@ pip install -e "dcp-ai/sdks/python"
 
 ### Extras opcionales
 
-Desde el registro (2.10.2 o posterior); desde una copia del repositorio se aplican los mismos extras: `pip install -e "dcp-ai/sdks/python[fastapi]"`.
+Desde el registro (2.11.0 o posterior); desde una copia del repositorio se aplican los mismos extras: `pip install -e "dcp-ai/sdks/python[fastapi]"`.
 
 ```bash
-pip install "dcp-ai[fastapi]>=2.10.2,<3"    # FastAPI middleware
-pip install "dcp-ai[langchain]>=2.10.2,<3"  # LangChain integration
-pip install "dcp-ai[openai]>=2.10.2,<3"     # OpenAI wrapper
-pip install "dcp-ai[crewai]>=2.10.2,<3"     # CrewAI multi-agent
-pip install "dcp-ai[otlp]>=2.10.2,<3"       # OpenTelemetry OTLP exporter
+pip install "dcp-ai[fastapi]>=2.11.0,<3"    # FastAPI middleware
+pip install "dcp-ai[langchain]>=2.11.0,<3"  # LangChain integration
+pip install "dcp-ai[openai]>=2.11.0,<3"     # OpenAI wrapper
+pip install "dcp-ai[crewai]>=2.11.0,<3"     # CrewAI multi-agent
+pip install "dcp-ai[otlp]>=2.11.0,<3"       # OpenTelemetry OTLP exporter
 ```
 
 <a id="features"></a>

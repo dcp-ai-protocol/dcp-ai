@@ -2,7 +2,7 @@
 
 # @dcp-ai/wasm — WebAssembly SDK v2.0
 
-> [英語版 README](../../../../sdks/wasm/README.md)の参考訳です。更新日：08/11/2026。検証済みの例を維持するため、識別子とコードブロック（コメントを含む）は原文のままにしています。
+> [英語版 README](../../../../sdks/wasm/README.md)の参考訳です。更新日：09/11/2026。検証済みの例を維持するため、識別子とコードブロック（コメントを含む）は原文のままにしています。
 
 Digital Citizenship Protocol（DCP）v2.0 向けの WebAssembly モジュールで、Rust SDK からコンパイルされます。耐量子複合署名、ハイブリッド鍵生成、ML-KEM-768 による鍵カプセル化、二重ハッシュ、バンドルの構築・検証、セキュリティ階層の算出を提供します。ブラウザーまたは Node.js で直接動作し、サーバーは不要です。
 
@@ -15,17 +15,25 @@ Digital Citizenship Protocol（DCP）v2.0 向けの WebAssembly モジュール�
 **`@dcp-ai/wasm` 2.1.1。** このバージョンは、[VERIFICATION.md の V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) の二次の SHA3-256 フィールドが存在する場合、それらも検証します：`audit_merkle_root_secondary`、各 `prev_hash_secondary`、各 `intent_hash_secondary`。存在しないフィールドは要求されないため、検証済みのバンドルが完全な二次チェーンを持たないこともあります。存在するフィールドが `null`、文字列でない、または不整合の場合は拒否されます。API、結果のフィールド、`dcp-jcs-v1`、`hash_alg` の扱いは変わりません。2.1.0 はこれらのフィールドを確認しません。
 
 ```bash
-npm install @dcp-ai/wasm@^2.1.3
+npm install @dcp-ai/wasm@^2.2.0
 ```
 
 全パッケージのバージョンは [npm リリース一覧](../../../../docs/NPM_RELEASES.md)を参照してください。
 
-**`@dcp-ai/wasm` 2.1.3。** 05/11/2026 に npm で公開されました。上記のインストールコマンドはこのバージョンを指定しています。レジストリでの提供状況は[公開済みバージョン](../../../../docs/README.md#published-versions)を参照してください。30/10/2026 に準備した 2.1.2 は公開されず、置き換えられました。2.1.1 との違い：
+**`@dcp-ai/wasm` 2.1.3。** 05/11/2026 に npm で公開されました。30/10/2026 に準備した 2.1.2 は公開されず、置き換えられました。2.1.1 との違い：
 
 - **`dualMerkleRoot`** は V2-11 の二重 Merkle ルート（32 バイトの生のダイジェスト、奇数の層では最後のノードを複製）を算出します。2.1.1 以前は、2 個以上の葉に対して別のルートを返します（後述の「ハッシュ操作」を参照）。以前は受理されていた、32 バイトの 16 進ダイジェストでない葉はエラーになります。
 - **V2-2 スキーマ検証。** `verifyBundle` と `wasm_verify_signed_bundle_v2` は、ハッシュ、鍵、署名を確認する前に、署名済みバンドルのエンベロープと 4 つのペイロードを `schemas/v2` に照らして検証します。以前は受理されていたスキーマ上無効なバンドルは、`schema: <pointer> <keyword>` 診断で失敗するようになりました。
 
-JavaScript API は追加されません。ワイヤーフォーマット、署名、プロファイル、`dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API は変わりません。WebAssembly は、同じく 05/11/2026 に公開された Rust `dcp-ai` 2.13.0 のソースから生成されます。[npm パッケージ](../../../../docs/NPM_RELEASES.md)を参照してください。公開済みの tarballに含まれる README は公開前に準備したもので、「prepared, not published」と記載しています。公開済みの tarball は変更できません。
+2.1.3 は JavaScript API を追加しません。ワイヤーフォーマット、署名、プロファイル、`dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API は変わりません。WebAssembly は、同じく 05/11/2026 に公開された Rust `dcp-ai` 2.13.0 のソースから生成されます。[npm パッケージ](../../../../docs/NPM_RELEASES.md)を参照してください。2.1.3 の tarball に含まれる README は、その公開前に準備したもので、「prepared, not published」と記載しています。公開済みの tarball は変更できません。
+
+**`@dcp-ai/wasm` 2.2.0。** 上記のインストールコマンドはこのバージョンを指定しています。レジストリでの提供状況は[公開済みバージョン](../../../../docs/README.md#published-versions)を参照してください。2.1.3 との違い：
+
+- **エラーと値の区別。** `canonicalize` は新しい生のエクスポート `wasm_canonicalize_v2_result` を読むため、`{ error: 'x' }` のような値は例外にならず正規化されます。`hashObject` と `deriveKid` は、エラーの封筒をハッシュや鍵 ID として返す代わりに `Error` を投げます。生のエクスポートの `{"error": …}` はエスケープされた JSON です。
+- **受理の変更：Ed25519 P-ED-1。** `compositeVerify` と `verifyBundle` は Rust のプロバイダーを使い、正準なエンコーディングでない公開鍵や R、または位数が 8 を割り切る点である公開鍵や R も拒否します。
+- **パッケージング。** `pkg/dcp_ai_bg.wasm` はビルドした人のローカルパスを含まずにビルドされ、公開前のゲートがパッケージ内のファイルを確認します。
+
+アドミッション、委任状チェーン、アクティベーションの API は追加されません。ワイヤーフォーマット、署名、プロファイル、`dcp-jcs-v1`、実験的なオプトイン `dcp-jcs-v2` API は変わりません。WebAssembly は Rust `dcp-ai` 2.14.0 のソースから生成されます。
 
 チェックアウトしたソースで開発する場合は、ローカルのパッケージをビルドしてインストールします。
 
@@ -209,7 +217,7 @@ WASM モジュールを初期化します。各 API を使う前に一度呼び�
 |--------|---------|-------------|
 | `dualHash(data)` | `DualHash` | SHA-256 + SHA3-256 の二重ハッシュ |
 | `sha3_256(data)` | `string` | SHA3-256 ハッシュを16進数で返す |
-| `hashObject(obj)` | `string` | JSON オブジェクトの SHA-256 ハッシュ。常に小文字の 16 進 64 文字です。ローカルのソース（2.1.3 にはない）では、たとえば孤立サロゲートのようにバインディングが値を読めないとき `Error` を投げます。2.1.3 はその場合、エラーの封筒をハッシュであるかのように返します |
+| `hashObject(obj)` | `string` | JSON オブジェクトの SHA-256 ハッシュ。常に小文字の 16 進 64 文字です。2.2.0 以降では、たとえば孤立サロゲートのようにバインディングが値を読めないとき `Error` を投げます。2.1.3 はその場合、エラーの封筒をハッシュであるかのように返します |
 | `dualMerkleRoot(leaves)` | `DualHash` | 空でない `DualHash` の葉（それぞれ 32 バイトの 16 進ダイジェスト）の配列から [VERIFICATION.md の V2-11](../../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) の二重 Merkle ルートを算出。空の配列や無効な葉では例外を投げる。ルートは小文字の 16 進。2.1.3 以降：2.1.1 以前は 16 進テキストをハッシュするため、2 個以上の葉のルートが異なる |
 
 <a id="canonicalization-domain-separation"></a>
@@ -218,9 +226,9 @@ WASM モジュールを初期化します。各 API を使う前に一度呼び�
 
 | メソッド | 戻り値 | 説明 |
 |--------|---------|-------------|
-| `canonicalize(value)` | `string` | `JSON.stringify` が書いたとおりの値の `dcp-jcs-v1` 正規化（RFC 8785 JCS に基づく）。そのため `NaN` と `±Infinity` は `null` になり、`BigInt` や循環参照では `JSON.stringify` が自身の `TypeError` を投げます。小数や、孤立サロゲートのようにバインディングが読めない値では `Error`（`canonicalize: …`）を投げます。ローカルのソース（2.1.3 にはない）ではタグ付きのエクスポートを読むため、`{ error: 'x' }` のように正準形が `error` メンバーで始まる値も正規化されます。2.1.3 はその値で例外を投げます |
+| `canonicalize(value)` | `string` | `JSON.stringify` が書いたとおりの値の `dcp-jcs-v1` 正規化（RFC 8785 JCS に基づく）。そのため `NaN` と `±Infinity` は `null` になり、`BigInt` や循環参照では `JSON.stringify` が自身の `TypeError` を投げます。小数や、孤立サロゲートのようにバインディングが読めない値では `Error`（`canonicalize: …`）を投げます。2.2.0 以降ではタグ付きのエクスポートを読むため、`{ error: 'x' }` のように正準形が `error` メンバーで始まる値も正規化されます。2.1.3 はその値で例外を投げます |
 | `domainSeparatedMessage(context, payloadHex)` | `string` | ドメイン分離されたメッセージを16進数で返す |
-| `deriveKid(alg, publicKeyB64)` | `string` | アルゴリズムと公開鍵から決定的に鍵 ID を導出。常に小文字の 16 進 32 文字です。ローカルのソース（2.1.3 にはない）では無効な base64 で `Error` を投げます。2.1.3 はその場合、エラーの封筒を鍵 ID であるかのように返します |
+| `deriveKid(alg, publicKeyB64)` | `string` | アルゴリズムと公開鍵から決定的に鍵 ID を導出。常に小文字の 16 進 32 文字です。2.2.0 以降では無効な base64 で `Error` を投げます。2.1.3 はその場合、エラーの封筒を鍵 ID であるかのように返します |
 
 <a id="session-security"></a>
 
@@ -357,10 +365,10 @@ const keys = JSON.parse(wasm_generate_hybrid_keypair());
 // a domain-separated message (hex) or a canonical form
 ```
 
-生の関数はエラーを帯域内で `{"error": "<message>"}` として報告します。ローカルのソース（2.1.3 にはない）では、この
+生の関数はエラーを帯域内で `{"error": "<message>"}` として報告します。2.2.0 以降では、この
 封筒はエスケープされた JSON です。以前は、たとえば鍵の名前に由来する、バックスラッシュや制御文字を含むメッセージが、
 無効な JSON になったり、別のテキストとしてデコードされたりすることがありました。`wasm_canonicalize_v2` は正準形か
-その封筒を返すため、自身のエラーと、正準形が `{"error": …}` である値とを区別できません。ローカルのソースは
+その封筒を返すため、自身のエラーと、正準形が `{"error": …}` である値とを区別できません。2.2.0 は
 `wasm_canonicalize_v2_result` を追加し、これは `{"ok": true, "canonical": …}` か `{"ok": false, "error": …}` を返します。
 `canonicalize()` はこれを使います。
 

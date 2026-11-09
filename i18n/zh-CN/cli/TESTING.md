@@ -4,15 +4,15 @@
 
 # 测试 `@dcp-ai/cli`
 
-> 本文是[英文版](../../../cli/TESTING.md)的参考译文，更新于 26/10/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../cli/TESTING.md)的参考译文，更新于 09/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
-已发布的 CLI 2.1.0 需要 npm 上的 `@dcp-ai/sdk` `^2.2.0`。本仓库测试有意使用从同一检出代码构建的 SDK，以在未来发布前覆盖源码变更。
+CLI 2.2.0 需要 `@dcp-ai/sdk` `^2.4.0`。本仓库测试有意使用从同一检出代码构建的 SDK，以在发布前覆盖源码变更。
 
 ```bash
 cd sdks/typescript && npm install && npm run build
 cd ../../cli
 npm install --no-save --package-lock=false --ignore-scripts --install-links ../sdks/typescript
-npm test                        # both suites
+npm test                        # the four suites
 npm run test:negative-control   # must print "failed as required"
 ```
 
@@ -23,6 +23,8 @@ npm run test:negative-control   # must print "failed as required"
 ## 测试套件
 
 - `__tests__/verify-s-range.test.mjs`：V1 验证、Ed25519 的 S 范围（RFC 8032 §5.1.7）、退出码，以及对历史 V2 格式的拒绝。
+- `__tests__/verify-ped1.test.mjs`：按冻结语料 `tests/interop/v2/ed25519_ped1_vectors.json` 在 Ed25519 P-ED-1 下进行 V1 验证。
+- `__tests__/version.test.mjs`：从另一个工作目录运行时，`--version` 打印 `package.json` 中的版本。
 - `__tests__/verify-v2-normative.test.mjs`：使用规范验证器的 V2 bundle（跨 SDK 向量、规范之前的封装、`.dcp` 密钥固定）、`lib/schemas/v2` 中的 schema 副本，以及单独运行的打包文件。其子进程在固定的 `Date.now` 下运行，因此结果不依赖日期。
 
 每个用例都在一个新的临时目录中（其上层没有 `.dcp/`），以子进程运行 `bin/dcp-ai.js`。
@@ -31,6 +33,6 @@ npm run test:negative-control   # must print "failed as required"
 
 ## 阴性对照
 
-设置 `DCP_NEGATIVE_CONTROL=1` 时，每个套件会反转一个阳性用例。`__tests__/negative-control.mjs` 以这种方式运行两个套件。只有当运行以 1 退出、恰好这两个用例失败（各自因断言失败）、其他所有测试都通过且没有被取消或跳过时，它才会通过。任何其他结果都会使它失败，包括无法加载的套件。
+设置 `DCP_NEGATIVE_CONTROL=1` 时，每个套件会反转一个阳性用例。`__tests__/negative-control.mjs` 以这种方式运行四个套件。只有当运行以 1 退出、恰好这四个用例失败（各自因断言失败）、其他所有测试都通过且没有被取消或跳过时，它才会通过。任何其他结果都会使它失败，包括无法加载的套件。
 
 参考验证器和 playground 有各自的 S 范围测试（`tools/crypto-s-range.test.mjs`、`tools/playground-s-range.test.mjs`），由 `conformance` 作业运行。
