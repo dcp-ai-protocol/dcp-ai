@@ -1,8 +1,8 @@
 # DCP-AI API Reference
 
-Reference for the `@dcp-ai/sdk` TypeScript SDK as it is on `main` (package version 2.3.0, protocol DCP v2.0).
+Reference for the `@dcp-ai/sdk` TypeScript SDK as it is on `main` (package version 2.4.0, protocol DCP v2.0).
 
-> **npm versions (05/11/2026).** This TypeScript reference applies to published `@dcp-ai/sdk` 2.3.0, including principal trust, `strict-v1` and the experimental opt-in candidate APIs. See [published npm packages](NPM_RELEASES.md) and the SDK [installation instructions](../sdks/typescript/README.md#installation). `dcp-jcs-v1` remains the normative default.
+> **npm versions (09/11/2026).** This TypeScript reference applies to published `@dcp-ai/sdk` 2.4.0, including principal trust, `strict-v1` and the experimental opt-in candidate APIs. See [published npm packages](NPM_RELEASES.md) and the SDK [installation instructions](../sdks/typescript/README.md#installation). `dcp-jcs-v1` remains the normative default.
 
 Code blocks here are declarations or fragments, not complete programs: names such as `registry`, `keys`,
 `payloadBytes` or `signedBundle` stand for values built as in the TypeScript SDK's
@@ -530,11 +530,11 @@ function verifyObject(obj: unknown, signatureB64: string, publicKeyB64: string):
 object that cannot be canonicalized, a signature or key that is not valid base64, or a decoded signature or key of
 the wrong length.
 
-In the local source (07/11/2026, not published), `verifyObject` and the default V2 Ed25519 provider apply P-ED-1 of the
+From `@dcp-ai/sdk` 2.4.0 (published on 09/11/2026), `verifyObject` and the default V2 Ed25519 provider apply P-ED-1 of the
 [Crypto Profile](../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion): S >= L, a non-canonical key
-or R, or a key or R of order dividing 8 return `false`. The inputs that throw are the same as before. Since 08/11/2026
-the reference verifier (`tools/crypto.js`), the V1 path of `dcp-ai verify` and the playground apply the same checks in
-the local source; a published package without this change does not.
+or R, or a key or R of order dividing 8 return `false`. The inputs that throw are the same as before. The reference
+verifier (`tools/crypto.js`) and the playground of the repository apply the same checks, and so does the V1 path of
+`dcp-ai verify` from `@dcp-ai/cli` 2.2.0; `@dcp-ai/sdk` 2.3.0 and earlier and `@dcp-ai/cli` 2.1.1 and earlier do not.
 
 ```typescript
 const valid = verifyObject({ action: 'transfer', amount: 100 }, sig, keys.publicKeyB64);
@@ -845,7 +845,7 @@ Defined in [`spec/profiles/admission`](../spec/profiles/admission/README.md); gu
 
 The result: `verified`, `verification`, `principal_trust`, `profile`, `profile_compliance`, `admitted`, `action_authorized` (always `false`), `recorded_decision`, `trust_set_version`, `errors: [{ code, message }]`.
 
-Opt-in, in the local source of the four SDKs and not in a published package (07/11/2026):
+Opt-in, published on 09/11/2026 in `@dcp-ai/sdk` 2.4.0, `dcp-ai` 2.11.0, Go v2.14.0 and Rust `dcp-ai` 2.14.0:
 
 | Function | Description |
 |----------|-------------|
@@ -1706,8 +1706,8 @@ that can only raise the tier (spec §14.2). Python: `create_sub_mandate`, `verif
 
 ### `createMandateAcknowledgment(registry, keys, params)` / `evaluateDelegationActivationV2(evidence, registry, operator)`
 
-The opt-in mandate acknowledgment of [DCP-09 § 3.3.1](../spec/DCP-09.md#331-mandate-acknowledgment-opt-in), in the
-local source of the four SDKs and not in a published package (07/11/2026). `createMandateAcknowledgment` signs, as the
+The opt-in mandate acknowledgment of [DCP-09 § 3.3.1](../spec/DCP-09.md#331-mandate-acknowledgment-opt-in), published
+on 09/11/2026 in the four SDKs (`@dcp-ai/sdk` 2.4.0 and its counterparts). `createMandateAcknowledgment` signs, as the
 agent of the last mandate of `params.mandateChain`, a `mandate_acknowledgment` record (`dcp09-mandate-ack-v1`) under
 `MANDATE_ACKNOWLEDGMENT_CONTEXT`; `params` is `{ mandateChain, awarenessThreshold, acknowledgmentId, acknowledgedAt? }`
 and takes no hash. `evaluateDelegationActivationV2` takes the delegated admission evidence plus `acknowledgments` and
@@ -1754,7 +1754,7 @@ const DCP_CONTEXTS: Record<string, DcpContext>;
 // Rights (DCP-08), Delegation (DCP-09), Awareness (DCP-09), SubMandate (DCP-09)
 ```
 
-`MANDATE_ACKNOWLEDGMENT_CONTEXT` (`DCP-AI.v2.MandateAcknowledgment`, local source, not published) is a separate
+`MANDATE_ACKNOWLEDGMENT_CONTEXT` (`DCP-AI.v2.MandateAcknowledgment`, from `@dcp-ai/sdk` 2.4.0) is a separate
 constant beside the map, which keeps its 19 entries; `domainSeparatedMessage` accepts it. Python has the same
 constant, Go `CtxMandateAcknowledgment` and Rust `CTX_MANDATE_ACKNOWLEDGMENT`.
 

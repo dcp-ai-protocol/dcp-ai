@@ -4,7 +4,7 @@
 
 # Expediente de auditoría
 
-> Traducción informativa de [la versión en inglés](../../../../docs/conformance/AUDIT_DOSSIER.md), actualizada el 08/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../../docs/conformance/AUDIT_DOSSIER.md), actualizada el 09/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Este es el punto de entrada para una revisión de seguridad independiente de DCP-AI. Indica qué revisar, cómo reproducir la evidencia del repositorio, qué muestra esa evidencia y qué deja fuera. No es una especificación, ni una certificación, ni un informe de auditoría. El repositorio no contiene ningún informe de una auditoría externa independiente, y no certifica trabajos hechos fuera de él.
 
@@ -58,6 +58,28 @@ Go se consumió mediante un proxy local de archivos sin `replace`; Rust mediante
 - Las alertas CodeQL #58/#59 siguen abiertas en una autoprueba de conformidad; el triage encontró interpolación de un hash hexadecimal de un corpus fijo, no una ruta remota de producción demostrada. Dependabot no mostró alertas abiertas. La API de secret scanning no estuvo disponible: es cobertura faltante, no cero hallazgos.
 - Se mantienen las exclusiones previas del expediente: contradicciones de especificación sin resolver, extensiones opcionales, infraestructura del operador y entornos sin probar no pasan a estar soportados por esta congelación. Las pruebas finitas no demuestran ausencia de vulnerabilidades.
 - Antes de publicar los cambios posteriores a la base, faltan corregir el empaquetado, asignar nuevas versiones, comprobar instalaciones desde registros y obtener autorización explícita de publicación. Imágenes y despliegues requieren validación propia. Integrar documentación no publica paquetes.
+
+> **Nota (09/11/2026).** Los puntos anteriores describen la instantánea de MP-06 y sus artefactos locales, que no cambian. Para las versiones publicadas el 09/11/2026, el remapeo de rutas de WASM, el `LICENSE` de la CLI y los mínimos de OTLP ya están resueltos; véase [Publicación del 09/11/2026](#publication-of-09112026). `@dcp-ai/express` 2.1.0 no se republicó.
+
+<a id="publication-of-09112026"></a>
+
+## Publicación del 09/11/2026
+
+**Fuente:** `main` en `cdb7099b8b6dc2a78b54928250752fd0bbd9c770` ([PR #140](https://github.com/dcp-ai-protocol/dcp-ai/pull/140)), árbol `af69307b663381ce776ad3115f76fe82f225a789`, el árbol del export revisado de los candidatos. El [CI de ese commit](https://github.com/dcp-ai-protocol/dcp-ai/actions/runs/42557635924) pasó, y también los workflows de publicación que reconstruyeron y publicaron los archivos de [PyPI](https://github.com/dcp-ai-protocol/dcp-ai/actions/runs/42559171389) y de [crates.io](https://github.com/dcp-ai-protocol/dcp-ai/actions/runs/42559174109); estas ejecuciones son comprobaciones propias del proyecto, no una auditoría externa. Desde él se publicaron seis versiones: `@dcp-ai/sdk` 2.4.0, `@dcp-ai/wasm` 2.2.0 y `@dcp-ai/cli` 2.2.0 en npm, `dcp-ai` 2.11.0 en PyPI, Rust `dcp-ai` 2.14.0 en crates.io y el módulo Go v2.14.0. Es una publicación en registros tras una validación interna, no una auditoría externa ni una certificación. `@dcp-ai/express` 2.1.0 y los demás adaptadores npm no se republicaron.
+
+| Registro | Versión | Identificador |
+|---|---|---|
+| npm `@dcp-ai/sdk` | 2.4.0 | `sha512-4IsY/ctFqLf5vvOS6bWUdN63NCbMoi6N0qnAceYG8AINnqm7+cRyG5stO+P4ZM8ROM2uyhI09AlcQDhdJVhIeQ==` |
+| npm `@dcp-ai/wasm` | 2.2.0 | `sha512-eu9NiNXl99hCKz/xpUPteaZGF+ea0+WTQ/6mZu2RIkuP2eTMsym0Bbp7gTbqB1LaaGMGuRFYAjK8wSVIGt/AAA==` |
+| npm `@dcp-ai/cli` | 2.2.0 | `sha512-/UR5K7/PctZX8Do6CULz1ua1eEwt19Jo/Q/adkMq806uRjZ2gh10W0FnfrzJVJPjskadK/tma2aXisU+z1Hx7Q==` |
+| PyPI `dcp-ai` | 2.11.0 | wheel `2e7776e1c3675f9f4a3c088d6115b728d6e33c72c69a2e624b1771ab9fa45f53`, sdist `9d4a545376e2a9a0afa61b0845ef5bf992b9c92ac5390da95a35333327397da7` (SHA-256) |
+| crates.io `dcp-ai` | 2.14.0 | `704028282d977973fc84e6fbaa495159e43ecec5951cf2f1b5ea9d3e70515424` (checksum) |
+| Módulo Go `sdks/go/v2` | v2.14.0 | etiqueta `sdks/go/v2.14.0`, commit `cdb7099b8b6dc2a78b54928250752fd0bbd9c770`, `h1:9O4n7vn3YqOhKlyUg/cm0OnouQi4QbU7mHbIh1BM5Z8=` |
+
+- **Identidad con los artefactos probados.** Los tarballs de npm son los archivos probados antes de la publicación, con la misma integridad `sha512`. El wheel y el sdist de PyPI y el crate los reconstruyeron desde `main` los workflows de publicación y contienen los mismos archivos fuente que los artefactos probados; los archivos de Python solo difieren en metadatos (Metadata-Version 2.5 y hatchling 1.33.0 en lugar de 2.4 y 1.27.0, con el RECORD recalculado), y el crate añade `.cargo_vcs_info.json`, que nombra `main`. El módulo Go que sirve el proxy tiene los mismos 106 archivos y el mismo `h1` que el módulo probado; solo difiere la compresión del zip.
+- **Instalado desde los registros.** Consumidores nuevos instalaron cada paquete por nombre y versión, sin `file:`, dependencias por ruta, `replace`, `[patch]` ni overrides: el wheel y el sdist de PyPI (el sdist compilado por pip), el crate con sus features predeterminada y `otlp`, el SDK, la CLI y el WASM de npm con `@dcp-ai/express` 2.1.0, que resolvió el único `@dcp-ai/sdk` 2.4.0, y el módulo Go mediante `proxy.golang.org` con la base de datos de checksums activa y Go 1.26.10. Las comprobaciones de composición, acuse, ingreso y P-ED-1, las suites de la CLI y las comprobaciones de WASM dieron los mismos resultados que sobre los artefactos probados.
+- **Puntos de empaquetado de la congelación MP-06.** Para estas versiones, el binario de WASM se compila sin rutas de compilación locales y una puerta de publicación revisa los archivos empaquetados, `@dcp-ai/cli` incluye `LICENSE`, y la feature `otlp` de Rust exige `anyhow` 1.0.103 y `tokio` 1.53.3 o posteriores; los builds predeterminado y `wasm` no seleccionan ninguno de los dos. El `LICENSE` añadido a `integrations/express` está solo en el repositorio: el tarball publicado de `@dcp-ai/express` 2.1.0 sigue sin él.
+- **No cubierto.** Siguen vigentes las exclusiones de la congelación MP-06 de arriba y de [Límites y exclusiones conocidos](#known-limits-and-exclusions), salvo los puntos de empaquetado y dependencias cerrados aquí para estas versiones: las rutas de compilación de WASM, el `LICENSE` de la CLI y los mínimos de OTLP. La instantánea de MP-06 de arriba se conserva tal como se registró. Las comprobaciones finitas no establecen la ausencia de vulnerabilidades.
 
 <a id="reproduce"></a>
 
@@ -136,11 +158,12 @@ Son tres cosas distintas; nunca leas una como otra.
 | Artefacto | Versiones | Qué contiene |
 |---|---|---|
 | Código revisado | `main` en la base | Todas las correcciones de abajo |
+| Publicadas (09/11/2026) | `@dcp-ai/sdk` 2.4.0, `@dcp-ai/wasm` 2.2.0, `@dcp-ai/cli` 2.2.0, `dcp-ai` 2.11.0 (PyPI), Go v2.14.0, Rust `dcp-ai` 2.14.0 | Todos los cambios de los SDK de abajo, más P-ED-1 y las API de admisión delegada de activación explícita ([Publicación del 09/11/2026](#publication-of-09112026)) |
 | Publicadas (05/11/2026) | `@dcp-ai/sdk` 2.3.0, `@dcp-ai/wasm` 2.1.3, `dcp-ai` 2.10.2 (PyPI), Go v2.13.0, Rust `dcp-ai` 2.13.0 | Todos los cambios de los SDK de abajo |
 | Preparadas el 30/10/2026 (#114), nunca publicadas, sustituidas | Go v2.12.0, Rust `dcp-ai` 2.12.0, `@dcp-ai/wasm` 2.1.2 | #106 (WASM), #107 y #112; no #103 ni #116 a #119 |
 | Publicadas antes (28/10/2026) | `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `@dcp-ai/cli` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1, Rust `dcp-ai` 2.11.1 | Las correcciones del verificador del 26/10/2026 y las comprobaciones secundarias SHA3-256 del 28/10/2026; ninguna de las correcciones de abajo |
 
-Un número de versión por sí solo no identifica un artefacto. Los manifiestos de `main` llevan los números publicados el 05/11/2026; el candidato del 30/10/2026 usó Go y Rust 2.12.0 y `@dcp-ai/wasm` 2.1.2 para menos cambios, y esos números no se reutilizan. Usa los identificadores de los registros de abajo o los hashes de lo que compilaste. Los tarballs de npm son los archivos probados antes de la publicación; los archivos de PyPI y el crate se reconstruyeron desde `main` y contienen los mismos archivos que los artefactos probados, salvo el `.cargo_vcs_info.json` del crate, que nombra `main`. Tras la publicación, el 05/11/2026, se volvieron a leer los registros públicos con TLS normal: las últimas versiones eran las de arriba, con los identificadores de abajo.
+Un número de versión por sí solo no identifica un artefacto. Los manifiestos de `main` llevan los números publicados el 09/11/2026; el candidato del 30/10/2026 usó Go y Rust 2.12.0 y `@dcp-ai/wasm` 2.1.2 para menos cambios, y esos números no se reutilizan. Usa los identificadores de los registros de abajo o los hashes de lo que compilaste. Para las versiones del 05/11/2026, los tarballs de npm son los archivos probados antes de la publicación; los archivos de PyPI y el crate se reconstruyeron desde `main` y contienen los mismos archivos que los artefactos probados, salvo el `.cargo_vcs_info.json` del crate, que nombra `main`. Tras la publicación, el 05/11/2026, se volvieron a leer los registros públicos con TLS normal: las últimas versiones eran las de arriba, con los identificadores de abajo.
 
 | Registro | Versión | Identificador |
 |---|---|---|
@@ -181,6 +204,7 @@ Otros cambios posteriores a las versiones del 28/10/2026:
 - **WASM.** No exporta verificación de cadenas de mandatos.
 - **Rust.** Le falta el cifrado de sesión A2A AES-256-GCM y su ventana de repetición ([RUST_RELEASE.md](../../../../docs/RUST_RELEASE.md)).
 - **Versiones publicadas antes del 05/11/2026.** No contienen los cambios de [Artefactos](#artifacts).
+- **Versiones publicadas antes del 09/11/2026.** No contienen P-ED-1 (salvo donde la compilación oficial de PyNaCl que usa el SDK de Python ya rechazaba esas firmas) ni las API de admisión delegada de activación explícita.
 - **Campañas diferenciales y de fuzzing.** Son finitas, no exhaustivas. Las entradas que el contrato `/4` no puede llevar a todos los SDK se miden aparte ([arneses diferenciales](../../../../tools/difffuzz/README.md#mandate-chains)).
 - **Rendimiento.** No se comprueba ningún requisito de velocidad. La [línea base de rendimiento](../../../../tools/conformance/README.md#performance-baseline) y el [escalado acotado de cargas](../../../../tools/conformance/README.md#bounded-workload-scaling) son mediciones locales del método, añadidas después del commit de base; ninguna de las dos es un resultado de auditoría.
 - **Sin cubrir.** Las imágenes de contenedor, los despliegues, los tokens de servicio y la configuración del operador.

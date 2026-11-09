@@ -4,11 +4,11 @@
 
 # DCP-AI API リファレンス
 
-> [英語版](../../../docs/API_REFERENCE.md)の参考訳です（08/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../docs/API_REFERENCE.md)の参考訳です（09/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
-`main` にある TypeScript SDK `@dcp-ai/sdk`（パッケージのバージョン 2.3.0、プロトコル DCP v2.0）のリファレンスです。
+`main` にある TypeScript SDK `@dcp-ai/sdk`（パッケージのバージョン 2.4.0、プロトコル DCP v2.0）のリファレンスです。
 
-> **npm バージョン（2026 年 11 月 5 日）。** この TypeScript リファレンスは公開済みの `@dcp-ai/sdk` 2.3.0 に適用され、プリンシパルの信頼、`strict-v1`、明示的な選択が必要な候補の実験的 API を含みます。[公開済み npm パッケージ](../../../docs/NPM_RELEASES.md)と SDK の[インストール手順](../../../sdks/typescript/README.md#installation)を参照してください。`dcp-jcs-v1` が規範的な既定のままです。
+> **npm バージョン（2026 年 11 月 9 日）。** この TypeScript リファレンスは公開済みの `@dcp-ai/sdk` 2.4.0 に適用され、プリンシパルの信頼、`strict-v1`、明示的な選択が必要な候補の実験的 API を含みます。[公開済み npm パッケージ](../../../docs/NPM_RELEASES.md)と SDK の[インストール手順](../../../sdks/typescript/README.md#installation)を参照してください。`dcp-jcs-v1` が規範的な既定のままです。
 
 このページのコードブロックは宣言や断片であり、完全なプログラムではありません。`registry`、`keys`、
 `payloadBytes`、`signedBundle` などの名前は、TypeScript SDK の
@@ -545,11 +545,11 @@ function verifyObject(obj: unknown, signatureB64: string, publicKeyB64: string):
 **戻り値：** 署名が検証できれば `true`、できなければ `false`。不正な形式の入力では、`false` を返す代わりに例外を投げることが
 あります。正規化できないオブジェクト、有効な base64 でない署名や鍵、デコード後の長さが正しくない署名や鍵などです。
 
-ローカルのソース（07/11/2026、未公開）では、`verifyObject` と V2 の既定の Ed25519 プロバイダーが
+`@dcp-ai/sdk` 2.4.0（09/11/2026 公開）以降、`verifyObject` と V2 の既定の Ed25519 プロバイダーが
 [暗号プロファイル](../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion)の P-ED-1 を適用します。S >= L、
-正準でない鍵や R、位数が 8 を割り切る鍵や R は `false` を返します。例外を投げる入力は以前と同じです。08/11/2026 以降、
-参照検証器（`tools/crypto.js`）、`dcp-ai verify` の V1 経路、playground も、ローカルのソースで同じ検査を行います。
-この変更を含まない公開パッケージは行いません。
+正準でない鍵や R、位数が 8 を割り切る鍵や R は `false` を返します。例外を投げる入力は以前と同じです。
+リポジトリの参照検証器（`tools/crypto.js`）と playground も同じ検査を行い、`@dcp-ai/cli` 2.2.0 以降の `dcp-ai verify` の
+V1 経路も同様です。`@dcp-ai/sdk` 2.3.0 以前と `@dcp-ai/cli` 2.1.1 以前は行いません。
 
 ```typescript
 const valid = verifyObject({ action: 'transfer', amount: 100 }, sig, keys.publicKeyB64);
@@ -868,7 +868,7 @@ if (result.verified) {
 
 結果：`verified`、`verification`、`principal_trust`、`profile`、`profile_compliance`、`admitted`、`action_authorized`（常に `false`）、`recorded_decision`、`trust_set_version`、`errors: [{ code, message }]`。
 
-オプトイン。4 つの SDK のローカルのソースにあり、公開されたパッケージにはありません（07/11/2026）。
+オプトイン。09/11/2026 に `@dcp-ai/sdk` 2.4.0、`dcp-ai` 2.11.0、Go v2.14.0、Rust `dcp-ai` 2.14.0 で公開されました。
 
 | 関数 | 説明 |
 |----------|-------------|
@@ -1740,8 +1740,8 @@ interface MandateChainResult { valid: boolean; errors: string[]; depth: number; 
 
 ### `createMandateAcknowledgment(registry, keys, params)` / `evaluateDelegationActivationV2(evidence, registry, operator)`
 
-[DCP-09 § 3.3.1](../../../spec/DCP-09.md#331-mandate-acknowledgment-opt-in) のオプトインのマンデートの確認応答です。4 つの
-SDK のローカルのソースにあり、公開されたパッケージにはありません（07/11/2026）。`createMandateAcknowledgment` は、
+[DCP-09 § 3.3.1](../../../spec/DCP-09.md#331-mandate-acknowledgment-opt-in) のオプトインのマンデートの確認応答です。09/11/2026 に 4 つの
+SDK（`@dcp-ai/sdk` 2.4.0 とその対応版）で公開されました。`createMandateAcknowledgment` は、
 `params.mandateChain` の最後のマンデートのエージェントとして、`MANDATE_ACKNOWLEDGMENT_CONTEXT` のもとで
 `mandate_acknowledgment` の記録（`dcp09-mandate-ack-v1`）に署名します。`params` は
 `{ mandateChain, awarenessThreshold, acknowledgmentId, acknowledgedAt? }` で、ハッシュは受け取りません。
@@ -1791,7 +1791,7 @@ const DCP_CONTEXTS: Record<string, DcpContext>;
 // Rights (DCP-08), Delegation (DCP-09), Awareness (DCP-09), SubMandate (DCP-09)
 ```
 
-`MANDATE_ACKNOWLEDGMENT_CONTEXT`（`DCP-AI.v2.MandateAcknowledgment`、ローカルのソース、未公開）は、19 項目を保つ
+`MANDATE_ACKNOWLEDGMENT_CONTEXT`（`DCP-AI.v2.MandateAcknowledgment`、`@dcp-ai/sdk` 2.4.0 以降）は、19 項目を保つ
 このマップの横にある別の定数で、`domainSeparatedMessage` はこれを受け入れます。Python には同じ定数があり、Go では
 `CtxMandateAcknowledgment`、Rust では `CTX_MANDATE_ACKNOWLEDGMENT` です。
 

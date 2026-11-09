@@ -5,7 +5,7 @@
 
 # DCP-AI + LangChain: inicio rápido
 
-> Traducción informativa de [la versión en inglés](../../../docs/QUICKSTART_LANGCHAIN.md), actualizada el 05/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../docs/QUICKSTART_LANGCHAIN.md), actualizada el 09/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Integra el Digital Citizenship Protocol en tus agentes de LangChain para añadir identidad criptográfica, control por política y rastros de auditoría.
 
@@ -18,10 +18,10 @@ Integra el Digital Citizenship Protocol en tus agentes de LangChain para añadir
 Esta guía usa **LangChain.js v1** (TypeScript/Node, Node.js 22 o posterior). Si usas **LangChain para Python**,
 salta a la sección de Python al final.
 
-La instalación desde el registro usa `@dcp-ai/sdk` 2.3.0. Los ejemplos DCP siguientes funcionan con ese SDK publicado; el checkout es opcional para desarrollar. Véase el [estado de publicación](../../../sdks/typescript/README.md#installation) del SDK TypeScript.
+La instalación desde el registro usa `@dcp-ai/sdk` 2.4.0. Los ejemplos DCP siguientes funcionan con ese SDK publicado; el checkout es opcional para desarrollar. Véase el [estado de publicación](../../../sdks/typescript/README.md#installation) del SDK TypeScript.
 
 ```bash
-npm install @dcp-ai/sdk@^2.3.0 langchain @langchain/core @langchain/openai zod
+npm install @dcp-ai/sdk@^2.4.0 langchain @langchain/core @langchain/openai zod
 ```
 
 <a id="zero-config-scaffold-alternative"></a>
@@ -216,7 +216,7 @@ const registry = getDefaultRegistry();
 Si tu stack de LangChain es Python en lugar de Node, usa en su lugar el puente integrado del SDK de Python:
 
 ```bash
-pip install "dcp-ai[langchain]>=2.10.2,<3"
+pip install "dcp-ai[langchain]>=2.11.0,<3"
 ```
 
 ```python

@@ -5,7 +5,7 @@
 
 # dcp_ai.langchain — LangChain 集成
 
-> 本文是[英文版](../../../../integrations/langchain/README.md)的参考译文，更新于 05/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../../integrations/langchain/README.md)的参考译文，更新于 09/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 DCP 与 LangChain 的集成。它包装 LangChain 代理，使每次完成的调用都在 V2 形式、以哈希链连接的审计轨迹中留下一个条目，并提供 bundle 验证工具和回调处理器。
 
@@ -27,7 +27,7 @@ DCP-01 至 DCP-09，部分支持：采用这些规范形式的未签名记录，
 2.9.0 将所有 bundle 发送到 V1。2.10.0 使用规范性验证器验证 V2，并对 V1 和 V2 强制执行所配置的策略；下文的未签名记录和回调限制保持不变。
 
 ```bash
-pip install "dcp-ai[langchain]>=2.10.2,<3"
+pip install "dcp-ai[langchain]>=2.11.0,<3"
 ```
 
 源码开发：

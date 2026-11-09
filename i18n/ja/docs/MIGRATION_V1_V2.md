@@ -4,11 +4,11 @@
 
 # 移行ガイド：DCP-AI v1.0 から v2.0 へ
 
-> [英語版](../../../docs/MIGRATION_V1_V2.md)の参考訳です（05/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../docs/MIGRATION_V1_V2.md)の参考訳です（09/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 **仕様バージョン：** 2.0
-**最終更新：** 2026 年 10 月
-**対象：** `main` の SDK と公開済み `@dcp-ai/sdk` 2.3.0。npm バージョンは 2026 年 11 月 5 日に確認済みです。[NPM_RELEASES.md](../../../docs/NPM_RELEASES.md) と [SECURITY.md](../../../SECURITY.md#supported-versions) を参照してください。他の SDK のバージョンは[公開済みバージョン](../../../docs/README.md#published-versions)にあります。
+**最終更新：** 09/11/2026
+**対象：** `main` の SDK と公開済み `@dcp-ai/sdk` 2.4.0。npm バージョンは 2026 年 11 月 9 日に確認済みです。[NPM_RELEASES.md](../../../docs/NPM_RELEASES.md) と [SECURITY.md](../../../SECURITY.md#supported-versions) を参照してください。他の SDK のバージョンは[公開済みバージョン](../../../docs/README.md#published-versions)にあります。
 
 このガイドでは、既存の DCP-AI v1.0 の統合を v2.0 に移行する手順を説明します。移行によって、ポスト量子の複合署名、二重ハッシュチェーン、セッションバインディング、適応型のセキュリティティア、エージェント間通信が導入されます。一方で、有効な v1.0 のバンドルは、検証器のポリシーが許す範囲で引き続き検証できます（1.2 を参照）。
 
@@ -51,7 +51,8 @@ v1.0 の形式は引き続き有効ですが、次の制限があります。
   許容する場合（下記）に、有効な v1.0 のバンドルを受け入れます。`verifySignedBundleV2` 自体は
   v2.0 しか受け付けないので、v1.0 のバンドルは V1 の検証器に回してください（3.2 を参照）。
 - 受け入れは以前のバージョンより厳しくなっています。たとえば、`S` が群の位数 `L` 未満でない Ed25519 署名は
-  拒否されるようになりました（変更履歴の [`[Unreleased]`](../../../CHANGELOG.md#unreleased) を参照）。そのため、
+  拒否されるようになりました（変更履歴の [`[Unreleased]`](../../../CHANGELOG.md#unreleased) を参照）。さらに 09/11/2026 のバージョンからは、P-ED-1 により、公開鍵と R が正準で、小さい位数の点でないことも
+  求められます（[SECURITY.md](../../../SECURITY.md#supported-versions) を参照）。そのため、
   以前の検証器が受け入れていた保存済みの v1.0 のバンドルが、検証に通らなくなることがあります。
 - v1.0 の検証器は v2.0 のバンドルを拒否します（`"unsupported dcp_version 2.0"`）。
 
@@ -69,12 +70,12 @@ v1.0 のバンドルには Ed25519 の署名が 1 つあるだけでポスト量
 
 ### ステップ 1：SDK を更新する
 
-例は公開済みの TypeScript SDK 2.3.0、Python `dcp-ai` 2.10.2、Go `v2.13.0`、Rust `dcp-ai` 2.13.0 で動作します。[Python](../../../docs/PYTHON_RELEASE.md)、[Go](../../../docs/GO_RELEASE.md)、[Rust](../../../docs/RUST_RELEASE.md) のリリースノートと各 SDK README の制限を参照してください。
+例は公開済みの TypeScript SDK 2.4.0、Python `dcp-ai` 2.11.0、Go `v2.14.0`、Rust `dcp-ai` 2.14.0 で動作します。[Python](../../../docs/PYTHON_RELEASE.md)、[Go](../../../docs/GO_RELEASE.md)、[Rust](../../../docs/RUST_RELEASE.md) のリリースノートと各 SDK README の制限を参照してください。
 
-**TypeScript**（2026 年 11 月 5 日公開：2.3.0）：
+**TypeScript**（2026 年 11 月 9 日公開：2.4.0）：
 
 ```bash
-npm install @dcp-ai/sdk@^2.3.0
+npm install @dcp-ai/sdk@^2.4.0
 ```
 
 **Python：**
@@ -87,16 +88,16 @@ pip install -e /path/to/dcp-ai/sdks/python     # main
 **Go**（Go モジュールが要求するメジャーバージョンの接尾辞 v2 に注意）：
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.13.0
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.14.0
 ```
 
 **Rust：**
 
 ```toml
-dcp-ai = "2.13.0"
+dcp-ai = "2.14.0"
 ```
 
-**WebAssembly：** チェックアウトから `sdks/wasm` をビルドし（`npm run build`）、その後 `npm install /path/to/dcp-ai/sdks/wasm` を実行します。
+**WebAssembly：** 公開済みの `@dcp-ai/wasm` 2.2.0 をインストールする（`npm install @dcp-ai/wasm@^2.2.0`）か、チェックアウトから `sdks/wasm` をビルドし（`npm run build`）、その後 `npm install /path/to/dcp-ai/sdks/wasm` を実行します。
 
 <a id="step-2-generate-hybrid-key-pairs"></a>
 

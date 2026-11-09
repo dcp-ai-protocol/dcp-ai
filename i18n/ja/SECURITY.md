@@ -4,7 +4,7 @@
 
 # セキュリティポリシー
 
-> [英語版](../../SECURITY.md)の参考訳です（05/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../SECURITY.md)の参考訳です（09/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 <a id="reporting-a-vulnerability"></a>
 
@@ -77,8 +77,9 @@ DCP-AI のプロトコル、SDK、サービス、スマートコントラクト�
 
 | バージョン | 状態 |
 |---------|--------|
-| 最新の公開版（05/11/2026）：`@dcp-ai/sdk` 2.3.0、`@dcp-ai/wasm` 2.1.3、`dcp-ai` 2.10.2（PyPI）、Go `v2.13.0`、Rust `dcp-ai` 2.13.0 | 現行版。26/10/2026 の検証器の修正、28/10/2026 の二次 SHA3-256 の確認、[監査資料](../../docs/conformance/AUDIT_DOSSIER.md#artifacts)に挙げた修正（すべての V2 検証器での V2-2 のスキーマ検証を含む）を含みます |
-| `@dcp-ai/cli` 2.1.1 と SDK に依存するアダプター（`@dcp-ai/express`、`@dcp-ai/openclaw`、`@dcp-ai/anthropic-mcp`、`@dcp-ai/google-a2a` 2.1.0） | 現行版、再公開なし。05/11/2026 の確認が適用されるのは、インストールが `@dcp-ai/sdk` 2.3.0 を解決した場合だけです。2.2.1 を保つロックファイルでは、更新するまで適用されません |
+| 最新の公開版（09/11/2026）：`@dcp-ai/sdk` 2.4.0、`@dcp-ai/wasm` 2.2.0、`@dcp-ai/cli` 2.2.0、`dcp-ai` 2.11.0（PyPI）、Go `v2.14.0`、Rust `dcp-ai` 2.14.0 | 現行。26/10/2026 の検証器の修正、28/10/2026 の副 SHA3-256 の検査、[監査資料](../../docs/conformance/AUDIT_DOSSIER.md#artifacts)に挙げた修正、Ed25519 の受け入れの変更 P-ED-1（下の注記を参照）を含みます |
+| SDK に依存するアダプター（`@dcp-ai/express`、`@dcp-ai/openclaw`、`@dcp-ai/anthropic-mcp`、`@dcp-ai/google-a2a` 2.1.0） | 現行、再公開なし。インストールが `@dcp-ai/sdk` 2.4.0 を解決したときにだけ 09/11/2026 の検査を得ます。以前の SDK を保つ lockfile は、更新するまで得ません |
+| 以前のリリース（05/11/2026 時点の現行）：`@dcp-ai/sdk` 2.3.0、`@dcp-ai/wasm` 2.1.3、`dcp-ai` 2.10.2（PyPI）、Go `v2.13.0`、Rust `dcp-ai` 2.13.0（05/11/2026 公開）と `@dcp-ai/cli` 2.1.1（28/10/2026 公開） | 置き換え済み：P-ED-1 を適用しないため、TypeScript、Go、Rust、WASM、CLI での検証は、最新のバージョンが拒否する Ed25519 署名を受け入れます（Python SDK が使う公式の PyNaCl ビルドはすでに拒否していました）。更新してください |
 | 28/10/2026 の公開版：`@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`dcp-ai` 2.10.1（PyPI）、Go `v2.11.1`、Rust `dcp-ai` 2.11.1 | 置き換え済み。V2-2 のスキーマ検証を実行しないため、最新バージョンが拒否するスキーマ上無効なバンドルを受け入れます。更新してください |
 | 26/10/2026 の検証器の修正を含む最小の公開版：`@dcp-ai/sdk` 2.2.0、`@dcp-ai/wasm` と `@dcp-ai/cli` 2.1.0、`dcp-ai` 2.10.0（PyPI）、Go `v2.11.0`、Rust `dcp-ai` 2.11.0 | 置き換え済み。最新版が確認する二次 SHA3-256 のフィールドを確認しません。更新してください |
 | `@dcp-ai/sdk` 2.1.x | 影響あり：`verifySignedBundleV2` を回避できます。2.2.0 で修正済み（次の注記を参照） |
@@ -90,6 +91,8 @@ DCP-AI のプロトコル、SDK、サービス、スマートコントラクト�
 | < 1.0 | サポート対象外 |
 
 `@dcp-ai/sdk` 2.2.0 は、検証器の修正を含めて 2026 年 10 月 26 日に `latest` として npm に公開されました。問題のある旧バージョンに修正が自動適用されるわけではありません。
+
+**Ed25519 P-ED-1（09/11/2026）。** `@dcp-ai/sdk` 2.4.0、`@dcp-ai/wasm` 2.2.0、`@dcp-ai/cli` 2.2.0、`dcp-ai` 2.11.0（PyPI）、Go v2.14.0、Rust `dcp-ai` 2.14.0 は、公開鍵や R が正準なエンコーディングでない、または位数が 8 を割り切る点である Ed25519 署名を、S ≥ L の署名とともに拒否します。これは受け入れる署名を変える変更です。失敗する証拠はそのまま保管し、鍵が P-ED-1 を満たす場合は同じ鍵で署名し直し、正準でない公開鍵はローテーションし、小さい位数の鍵は置き換えてください。`npm install @dcp-ai/sdk@^2.4.0` またはお使いのエコシステムの同等の手順で更新し、lockfile を更新してください。アダプター 2.1.0 は、lockfile が `@dcp-ai/sdk` 2.4.0 を解決すると P-ED-1 を得ます。Rust 2.14.0 の `otlp` feature は `anyhow` 1.0.103 以上と `tokio` 1.53.3 以上を必要とします（RUSTSEC-2026-0190、RUSTSEC-2026-0386）。デフォルトと `wasm` のビルドはどちらも選ばず、`otlp` を有効にした lock は `cargo update -p anyhow -p tokio` を実行するまでそのバージョンを保ちます。
 
 **二次 SHA3-256 フィールド（2026 年 10 月 28 日）。** `@dcp-ai/sdk` 2.2.1、`@dcp-ai/wasm` 2.1.1、`dcp-ai` 2.10.1（PyPI）、Go v2.11.1、Rust `dcp-ai` 2.11.1 は、[V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) の任意の二次 SHA3-256 フィールドが存在する場合にそれらを検証します。2.2.0、2.1.0、2.10.0、2.11.0 を含む以前のバージョンは検証しません。`npm install @dcp-ai/sdk@^2.2.1` または各環境の同等の方法で更新し、lockfile も更新してください。公開済みのアダプター `@dcp-ai/express`、`@dcp-ai/openclaw`、`@dcp-ai/anthropic-mcp`、`@dcp-ai/google-a2a` 2.1.0 は再公開していません。これらは `@dcp-ai/sdk` `^2.2.0` に依存しており、ロックファイルが `@dcp-ai/sdk` 2.2.1 以降を解決すると二次の確認が行われます。[公開済み npm パッケージの一覧](../../docs/NPM_RELEASES.md)と[公開済みバージョン](../../docs/README.md#published-versions)を参照してください。
 

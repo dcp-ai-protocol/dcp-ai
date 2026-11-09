@@ -4,7 +4,7 @@
 
 # Política de segurança
 
-> Tradução informativa da [versão em inglês](../../SECURITY.md), atualizada em 05/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../SECURITY.md), atualizada em 09/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 <a id="reporting-a-vulnerability"></a>
 
@@ -77,8 +77,9 @@ Relatórios são recebidos para qualquer versão publicada e para a `main`. Rece
 
 | Versão | Situação |
 |---------|--------|
-| Últimas publicadas (05/11/2026): `@dcp-ai/sdk` 2.3.0, `@dcp-ai/wasm` 2.1.3, `dcp-ai` 2.10.2 (PyPI), Go `v2.13.0`, Rust `dcp-ai` 2.13.0 | Atuais. Incluem as correções do verificador de 26/10/2026, as verificações secundárias SHA3-256 de 28/10/2026 e as correções listadas no [dossiê de auditoria](../../docs/conformance/AUDIT_DOSSIER.md#artifacts), entre elas a validação de esquemas V2-2 em todos os verificadores V2 |
-| `@dcp-ai/cli` 2.1.1 e os adaptadores que dependem do SDK (`@dcp-ai/express`, `@dcp-ai/openclaw`, `@dcp-ai/anthropic-mcp` e `@dcp-ai/google-a2a` 2.1.0) | Atuais, não republicados. Recebem as verificações de 05/11/2026 só quando a instalação resolve `@dcp-ai/sdk` 2.3.0; um lockfile que mantém a 2.2.1 não as recebe até ser atualizado |
+| Últimas publicadas (09/11/2026): `@dcp-ai/sdk` 2.4.0, `@dcp-ai/wasm` 2.2.0, `@dcp-ai/cli` 2.2.0, `dcp-ai` 2.11.0 (PyPI), Go `v2.14.0`, Rust `dcp-ai` 2.14.0 | Atuais. Incluem as correções do verificador de 26/10/2026, as verificações secundárias SHA3-256 de 28/10/2026, as correções listadas no [dossiê de auditoria](../../docs/conformance/AUDIT_DOSSIER.md#artifacts) e a mudança de aceitação Ed25519 P-ED-1 (veja a nota abaixo) |
+| Os adaptadores que dependem do SDK (`@dcp-ai/express`, `@dcp-ai/openclaw`, `@dcp-ai/anthropic-mcp` e `@dcp-ai/google-a2a` 2.1.0) | Atuais, não republicados. Recebem as verificações de 09/11/2026 somente quando a instalação resolve `@dcp-ai/sdk` 2.4.0; um lockfile que mantém um SDK anterior não as recebe até que você o atualize |
+| Publicações anteriores, vigentes em 05/11/2026: `@dcp-ai/sdk` 2.3.0, `@dcp-ai/wasm` 2.1.3, `dcp-ai` 2.10.2 (PyPI), Go `v2.13.0` e Rust `dcp-ai` 2.13.0, publicadas em 05/11/2026, e `@dcp-ai/cli` 2.1.1, publicada em 28/10/2026 | Substituídas: não aplicam P-ED-1, então a verificação delas em TypeScript, Go, Rust, WASM e na CLI aceita assinaturas Ed25519 que as últimas versões rejeitam (a build oficial do PyNaCl usada pelo SDK Python já as rejeitava); atualize |
 | Publicadas em 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go `v2.11.1`, Rust `dcp-ai` 2.11.1 | Substituídas: não executam a validação de esquemas V2-2, então aceitam bundles inválidos pelo esquema que as últimas versões rejeitam; atualize |
 | Versões mínimas publicadas com as correções do verificador de 26/10/2026: `@dcp-ai/sdk` 2.2.0, `@dcp-ai/wasm` e `@dcp-ai/cli` 2.1.0, `dcp-ai` 2.10.0 (PyPI), Go `v2.11.0`, Rust `dcp-ai` 2.11.0 | Substituídas: não verificam os campos secundários SHA3-256, que as últimas versões verificam; atualize |
 | `@dcp-ai/sdk` 2.1.x | Afetadas: `verifySignedBundleV2` pode ser contornado; corrigido em 2.2.0 (veja a nota a seguir) |
@@ -90,6 +91,8 @@ Relatórios são recebidos para qualquer versão publicada e para a `main`. Rece
 | < 1.0 | Sem suporte |
 
 `@dcp-ai/sdk` 2.2.0 foi publicado no npm em 26/10/2026 como `latest`, com as correções do verificador. As versões anteriores afetadas não recebem as correções automaticamente.
+
+**Ed25519 P-ED-1 (09/11/2026).** `@dcp-ai/sdk` 2.4.0, `@dcp-ai/wasm` 2.2.0, `@dcp-ai/cli` 2.2.0, `dcp-ai` 2.11.0 (PyPI), Go v2.14.0 e Rust `dcp-ai` 2.14.0 rejeitam uma assinatura Ed25519 cuja chave pública ou R não seja uma codificação canônica ou seja um ponto de ordem divisora de 8, além de uma com S ≥ L. Isso muda quais assinaturas são aceitas: mantenha a evidência que falha como está; assine de novo com a mesma chave quando ela cumprir P-ED-1, faça a rotação de uma chave pública não canônica e substitua uma chave de ordem pequena. Atualize com `npm install @dcp-ai/sdk@^2.4.0` ou o equivalente do seu ecossistema e atualize seu lockfile; os adaptadores 2.1.0 recebem P-ED-1 quando o lockfile resolve `@dcp-ai/sdk` 2.4.0. A feature `otlp` do Rust 2.14.0 exige `anyhow` 1.0.103 e `tokio` 1.53.3 ou posteriores (RUSTSEC-2026-0190, RUSTSEC-2026-0386); os builds padrão e `wasm` não selecionam nenhum dos dois, e um lock que ativa `otlp` mantém suas versões até que você execute `cargo update -p anyhow -p tokio`.
 
 **Campos secundários SHA3-256 (28/10/2026).** `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1 e Rust `dcp-ai` 2.11.1 verificam os campos secundários SHA3-256 opcionais do [V2-11](../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) quando estão presentes; as versões anteriores, incluindo 2.2.0, 2.1.0, 2.10.0 e 2.11.0, não o fazem. Atualize com `npm install @dcp-ai/sdk@^2.2.1` ou o equivalente do seu ecossistema, e renove o lockfile. Os adaptadores publicados `@dcp-ai/express`, `@dcp-ai/openclaw`, `@dcp-ai/anthropic-mcp` e `@dcp-ai/google-a2a` 2.1.0 não foram republicados: dependem de `@dcp-ai/sdk` `^2.2.0` e obtêm as verificações secundárias quando seu lockfile resolve `@dcp-ai/sdk` 2.2.1 ou posterior. Veja o [inventário de pacotes npm publicados](../../docs/NPM_RELEASES.md) e [Versões publicadas](../../docs/README.md#published-versions).
 

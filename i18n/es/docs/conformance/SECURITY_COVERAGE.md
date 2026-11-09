@@ -4,7 +4,7 @@
 
 # Garantías de seguridad y cobertura de conformidad
 
-> Traducción informativa de [la versión en inglés](../../../../docs/conformance/SECURITY_COVERAGE.md), actualizada el 08/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../../docs/conformance/SECURITY_COVERAGE.md), actualizada el 09/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
 Este mapa informativo relaciona los requisitos normativos con las pruebas ejecutables del repositorio. No es un perfil nuevo, una certificación, una afirmación de que se han probado todas las entradas ni evidencia de que un despliegue concreto haya aprobado. Cada resultado corresponde a la implementación, entradas, política, instante de verificación y versión de la herramienta exactos registrados en esa ejecución.
 
@@ -173,7 +173,7 @@ Una campaña finita muestra que estos casos coinciden o registra dónde no; no e
 
 ## Añadidos del código fuente local (07/11/2026)
 
-Estas filas describen el código fuente local de los SDK de TypeScript, Python, Go y Rust, no un paquete publicado. Cada una se
+Estas filas se escribieron para el código fuente local del 07/11/2026; están publicadas, sin cambios, en `@dcp-ai/sdk` 2.4.0, `dcp-ai` 2.11.0, Go v2.14.0 y Rust `dcp-ai` 2.14.0 (09/11/2026). Cada una se
 ejercita con vectores compartidos que ejecutan las cuatro suites de los SDK; el kit externo todavía no tiene un contrato para
 ellas, así que un resultado del kit no dice nada sobre estas reglas. Ninguna es una afirmación de conformidad completa ni
 de preparación empresarial.
@@ -196,7 +196,7 @@ de preparación empresarial.
 
 ## Interfaces públicas (MP-03, 08/11/2026)
 
-Esta sección también describe el código fuente local, no paquetes publicados. Para cada capacidad nombra la función
+Se escribió para el código fuente local del 08/11/2026: los SDK, `@dcp-ai/wasm` 2.2.0 y `@dcp-ai/cli` 2.2.0 publicados el 09/11/2026 contienen lo que describe, mientras que el verificador de referencia, el servidor, el playground y el kit se usan desde el repositorio. Para cada capacidad nombra la función
 pública por la que pasa y la evidencia que la alcanza en ella.
 
 - **WASM** es la clase `DcpWasm` de `@dcp-ai/wasm`.
@@ -225,12 +225,14 @@ los demás verificadores obtienen P-ED-1 solo del SDK que cargan.
 | Verificador | Ruta Ed25519 | P-ED-1 |
 |---|---|---|
 | V1 de referencia (`verifyObject` de `tools/crypto.js`): V1 de `lib/verify.js` y `bin/dcp.js`, gossip del transparency log, servicio de revocación | Su propia comprobación y después TweetNaCl | En el código fuente; `tools/ed25519-ped1-consumers.test.mjs` |
-| `dcp-ai verify` sobre ficheros V1 | Su propia comprobación (`cli/lib/ed25519-ped1.js`) | En el código fuente; no en el `@dcp-ai/cli` publicado |
-| `dcp-ai verify` sobre ficheros V2, V2 de referencia, servidor | El `@dcp-ai/sdk` instalado | Solo con un SDK que lo tenga. La CI compila e instala el SDK del workspace. Ningún `@dcp-ai/sdk` publicado lo tiene (2.3.0 y anteriores), ni las copias instaladas a partir de ellos |
+| `dcp-ai verify` sobre ficheros V1 | Su propia comprobación (`cli/lib/ed25519-ped1.js`) | En el código fuente y en `@dcp-ai/cli` 2.2.0; no en 2.1.1 ni anteriores |
+| `dcp-ai verify` sobre ficheros V2, V2 de referencia, servidor | El `@dcp-ai/sdk` instalado | Solo con un SDK que lo tenga: `@dcp-ai/sdk` 2.4.0, no 2.3.0 ni anteriores ni las copias instaladas desde ellas. CI compila e instala el SDK del workspace |
 | Playground (una demo cuyas firmas PQ son simuladas) | Su propia comprobación | En el código fuente |
 | Express, OpenClaw | `@dcp-ai/sdk` fijado en 2.2.0 | No con el lock; la CI también ejecuta sus pruebas con el SDK del workspace |
 | Anthropic MCP, Google A2A | `@dcp-ai/sdk` fijado en 2.2.0 | No se aplica (un límite registrado) |
 | FastAPI, LangChain, OpenAI, CrewAI | El SDK de Python de este árbol | Se aplica |
+
+Los locks de arriba son los del repositorio. Una instalación de los adaptadores publicados desde npm resuelve `@dcp-ai/sdk` 2.4.0 mediante su rango `^2.2.0`, salvo que un lockfile mantenga una versión anterior, y obtiene P-ED-1 con él; esa resolución se comprobó para `@dcp-ai/express` 2.1.0.
 
 **Errores, rechazos y resultados ausentes.** Cada función pública conserva su propio contrato de errores; ninguno se
 normaliza. P-ED-1 solo rechaza entradas que superaron las comprobaciones previas de tipo, tamaño y decodificación de la

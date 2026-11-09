@@ -5,7 +5,7 @@
 
 # dcp_ai.fastapi — middleware para FastAPI
 
-> Tradução informativa da [versão em inglês](../../../../integrations/fastapi/README.md), atualizada em 08/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../../integrations/fastapi/README.md), atualizada em 09/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Middleware de verificação do DCP para FastAPI. Verifica automaticamente os Signed Bundles e fornece injeção de dependências para as rotas protegidas.
 
@@ -24,7 +24,7 @@ Do DCP-01 ao DCP-09, de forma parcial: a verificação de bundles e a admissão 
 A versão 2.9.0 não verifica assinaturas V2; não a use para verificar V2. A 2.10.0 inclui o verificador corrigido, confiança no principal, `strict-v1`, orçamentos de corpo, supervisão de fontes de confiança/revogação e tratamento de desconexões. A admissão não autoriza uma ação.
 
 ```bash
-pip install "dcp-ai[fastapi]>=2.10.2,<3"
+pip install "dcp-ai[fastapi]>=2.11.0,<3"
 ```
 
 Para desenvolvimento do código-fonte:

@@ -4,7 +4,7 @@
 
 # 文档
 
-> 本文是[英文版](../../../docs/README.md)的参考译文，更新于 08/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/README.md)的参考译文，更新于 09/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 本索引按任务整理 DCP-AI 文档：入门、架构与安全、测试、参考、运维、规范和提案。各注册表中软件包的当前版本见
 [已发布版本](#published-versions)。
@@ -13,27 +13,26 @@
 
 ## 已发布版本
 
-于 05/11/2026 核实。软件包版本独立于 DCP 传输格式和规范的版本（2.0）。
+于 09/11/2026 核实。软件包版本独立于 DCP 传输格式和规范的版本（2.0）。
 
 | 注册表 | 软件包 | 版本 | 发布说明 |
 |---|---|---|---|
-| npm | [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) (TypeScript SDK) | 2.3.0 | [npm 软件包](../../../docs/NPM_RELEASES.md) |
-| npm | [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) | 2.1.3 | [npm 软件包](../../../docs/NPM_RELEASES.md) |
-| npm | [`@dcp-ai/cli`](https://www.npmjs.com/package/@dcp-ai/cli) | 2.1.1 | [npm 软件包](../../../docs/NPM_RELEASES.md) |
-| PyPI | [`dcp-ai`](https://pypi.org/project/dcp-ai/2.10.2/) (Python SDK) | 2.10.2 | [Python 发布](../../../docs/PYTHON_RELEASE.md) |
-| Go modules | `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` | v2.13.0 | [Go 发布](../../../docs/GO_RELEASE.md) |
-| crates.io | [`dcp-ai`](https://crates.io/crates/dcp-ai/2.13.0) (Rust SDK) | 2.13.0 | [Rust 发布](../../../docs/RUST_RELEASE.md) |
+| npm | [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) (TypeScript SDK) | 2.4.0 | [npm 软件包](../../../docs/NPM_RELEASES.md) |
+| npm | [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) | 2.2.0 | [npm 软件包](../../../docs/NPM_RELEASES.md) |
+| npm | [`@dcp-ai/cli`](https://www.npmjs.com/package/@dcp-ai/cli) | 2.2.0 | [npm 软件包](../../../docs/NPM_RELEASES.md) |
+| PyPI | [`dcp-ai`](https://pypi.org/project/dcp-ai/2.11.0/) (Python SDK) | 2.11.0 | [Python 发布](../../../docs/PYTHON_RELEASE.md) |
+| Go modules | `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` | v2.14.0 | [Go 发布](../../../docs/GO_RELEASE.md) |
+| crates.io | [`dcp-ai`](https://crates.io/crates/dcp-ai/2.14.0) (Rust SDK) | 2.14.0 | [Rust 发布](../../../docs/RUST_RELEASE.md) |
 
-- 05/11/2026 发布：`@dcp-ai/sdk` 2.3.0、`@dcp-ai/wasm` 2.1.3、`dcp-ai` 2.10.2、Go v2.13.0 和 Rust `dcp-ai` 2.13.0
-  在每个 V2 验证器中执行 V2-2 模式校验，并包含[审计资料](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts)列出的其他 SDK 更改。与 28/10/2026 的版本一样，
-  它们会在 V2-11 的可选二级 SHA3-256 字段存在时验证它们；不存在的字段不作要求，因此已验证的 bundle 可能没有完整的
-  二级链，存在但不一致的字段会被拒绝。
-- `@dcp-ai/cli` 2.1.1 和 npm 适配器没有重新发布。它们的版本范围（CLI 为 `^2.2.1`，`@dcp-ai/express`、`@dcp-ai/openclaw`、
-  `@dcp-ai/anthropic-mcp` 和 `@dcp-ai/google-a2a` 为 `^2.2.0`）接受 `@dcp-ai/sdk` 2.3.0；只有当安装解析到它时，它们才
-  获得 05/11/2026 的检查，已有的锁文件在更新之前保持原来的解析结果。
-- 05/11/2026 的五个版本取代了 30/10/2026 未发布的候选版本（Go 和 Rust 2.12.0、`@dcp-ai/wasm` 2.1.2）。每个已发布归档中的
-  README 是发布前准备的版本，写着“prepared, not published”；已发布的归档无法更改，本仓库中的 README 描述已发布的版本。
-  见[变更日志](../../../CHANGELOG.md#2026-11-05-auditable-releases)和发布说明。
+- 于 09/11/2026 从 `main`（`cdb7099b`）发布：`@dcp-ai/sdk` 2.4.0、`@dcp-ai/wasm` 2.2.0、`@dcp-ai/cli` 2.2.0、
+  `dcp-ai` 2.11.0、Go v2.14.0 和 Rust `dcp-ai` 2.14.0。四个 SDK 增加了显式启用的委托准入、从字节准入和委托书确认，
+  所有 Ed25519 验证器都应用 P-ED-1：这是接受范围的变化，会拒绝非规范编码和小阶点。它们保留 05/11/2026 的 V2-2 模式
+  验证，并且与 28/10/2026 以来的版本一样，在 V2-11 的可选辅助 SHA3-256 字段存在时对其进行验证。参见[变更日志](../../../CHANGELOG.md#2026-11-09-six-releases)和各发布说明。
+- `@dcp-ai/cli` 2.2.0 要求 `@dcp-ai/sdk` `^2.4.0`。npm 适配器没有重新发布：它们的 `^2.2.0` 范围（`@dcp-ai/express`、
+  `@dcp-ai/openclaw`、`@dcp-ai/anthropic-mcp` 和 `@dcp-ai/google-a2a`）接受 `@dcp-ai/sdk` 2.4.0，只有在安装解析到它时，
+  才会获得其检查（包括 P-ED-1）；现有的 lockfile 在你更新之前会保留原来的解析结果。
+- 09/11/2026 各归档中的 README 标明其自身版本，并指向此表了解注册表中的可用情况。05/11/2026 及更早版本的说明保留在
+  [变更日志](../../../CHANGELOG.md#2026-11-05-auditable-releases)和各发布说明中。
 - npm 适配器和项目脚手架是可选的，独立于协议核心；它们的确切版本见列出全部 13 个 npm 软件包的
   [NPM_RELEASES.md](../../../docs/NPM_RELEASES.md)。
 - 受影响的早期版本和升级说明见 [SECURITY.md](../../../SECURITY.md#supported-versions)；从 DCP v1.0 迁移见

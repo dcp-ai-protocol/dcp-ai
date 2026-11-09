@@ -1,14 +1,14 @@
 # Published npm packages
 
-Verified on 05/11/2026: `@dcp-ai/sdk` 2.3.0 and `@dcp-ai/wasm` 2.1.3 are published with the `latest` tag; the other eleven packages below are unchanged ([what changed](#what-changed-on-05112026)). On 28/10/2026, `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/cli` 2.1.1 were published with the `latest` tag. Package versions are separate from the DCP wire/specification version and repository tags.
+Verified on 09/11/2026: `@dcp-ai/sdk` 2.4.0, `@dcp-ai/wasm` 2.2.0 and `@dcp-ai/cli` 2.2.0 are published with the `latest` tag; the other ten packages below are unchanged ([what changed](#what-changed-on-09112026)). On 05/11/2026, `@dcp-ai/sdk` 2.3.0 and `@dcp-ai/wasm` 2.1.3 were published with the `latest` tag ([what changed](#what-changed-on-05112026)), and on 28/10/2026, `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 and `@dcp-ai/cli` 2.1.1. Package versions are separate from the DCP wire/specification version and repository tags.
 
 On 26/10/2026, 13 versions were published with the `latest` tag: `@dcp-ai/sdk` 2.2.0, `@dcp-ai/wasm` 2.1.0, `@dcp-ai/cli` 2.1.0 and the ten packages still listed below. Their registry integrity matched the tested tarballs, and a fresh installation from npm passed 383 checks.
 
 | Package | Version |
 |---|---|
-| [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) | 2.3.0 |
-| [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) | 2.1.3 |
-| [`@dcp-ai/cli`](https://www.npmjs.com/package/@dcp-ai/cli) | 2.1.1 |
+| [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) | 2.4.0 |
+| [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) | 2.2.0 |
+| [`@dcp-ai/cli`](https://www.npmjs.com/package/@dcp-ai/cli) | 2.2.0 |
 | [`@dcp-ai/anthropic-mcp`](https://www.npmjs.com/package/@dcp-ai/anthropic-mcp) | 2.1.0 |
 | [`@dcp-ai/autogen`](https://www.npmjs.com/package/@dcp-ai/autogen) | 2.0.1 |
 | [`@dcp-ai/express`](https://www.npmjs.com/package/@dcp-ai/express) | 2.1.0 |
@@ -29,10 +29,10 @@ The three registry tarballs are byte-identical to the reviewed artifacts, with m
 ## Install the published versions
 
 ```bash
-npm install @dcp-ai/sdk@^2.3.0
-npm install @dcp-ai/wasm@^2.1.3
+npm install @dcp-ai/sdk@^2.4.0
+npm install @dcp-ai/wasm@^2.2.0
 npm install @dcp-ai/express@^2.1.0 express
-npx --package=@dcp-ai/cli@2.1.1 dcp-ai --help
+npx --package=@dcp-ai/cli@2.2.0 dcp-ai --help
 ```
 
 Each npm publication covers npm only. It does not publish a Python package to PyPI, a Rust crate to crates.io, a Go module tag or a container image. Check each SDK’s release status before using source-checkout examples in those ecosystems. The repository root still uses a local SDK to test the checked-out source; this is a development choice, not an npm availability limitation.
@@ -86,15 +86,15 @@ It corrects `dualMerkleRoot` and the raw export `wasm_dual_merkle_root`: they no
 
 > **Note (05/11/2026).** The paragraphs above were written on 30/10/2026 for the prepared 2.1.2, which was never published. Since #116 (02/11/2026), `verifyBundle` on `main` runs V2-2 schema validation in the Rust core it wraps; 2.1.2 does not contain that change, and 2.1.3 above does. 2.1.3 supersedes 2.1.2, and the manifests on `main` carry 2.1.3. Text and tables that name 2.1.2, including the `dualMerkleRoot` row of the WASM README, are historical. See the [audit dossier](conformance/AUDIT_DOSSIER.md#artifacts).
 
-## Prepared, not published: `@dcp-ai/sdk` 2.4.0, `@dcp-ai/wasm` 2.2.0 and `@dcp-ai/cli` 2.2.0
+## What changed on 09/11/2026
 
-Prepared on 08/11/2026 and not published; the versions above stay the registry's until each package is published and checked.
+`@dcp-ai/sdk` 2.4.0, `@dcp-ai/wasm` 2.2.0 and `@dcp-ai/cli` 2.2.0 were published on 09/11/2026 from the tarballs tested before publication, built from `main` (`cdb7099b`); their registry `sha512` integrity is the tested one. A fresh consumer installing the three by name and version from npm, with `@dcp-ai/express` 2.1.0 and without `file:` or overrides, resolved one `@dcp-ai/sdk` 2.4.0 for the CLI and the adapter, and gave the same API, CLI and WASM results as the tested tarballs.
 
 - **`@dcp-ai/sdk` 2.4.0:** opt-in delegated admission, admission from bytes and mandate acknowledgment; the Ed25519 acceptance change P-ED-1 ([changelog](../CHANGELOG.md#unreleased)).
 - **`@dcp-ai/wasm` 2.2.0:** errors told apart from values (`canonicalize`, `hashObject`, `deriveKid`), P-ED-1 in the Rust provider, and a binary built without the builder's local paths; no admission or mandate chain API.
 - **`@dcp-ai/cli` 2.2.0:** P-ED-1 in `dcp-ai verify`, `@dcp-ai/sdk` `^2.4.0`, `LICENSE` in the package, and the version read from `package.json`; see [the CLI guide](../cli/README.md).
-- The adapters get no new version; their `^2.2.0` ranges resolve `@dcp-ai/sdk` 2.4.0 on a new installation, and P-ED-1 with it.
+- The adapters get no new version; their `^2.2.0` ranges resolve `@dcp-ai/sdk` 2.4.0 on a new installation, and P-ED-1 with it. `@dcp-ai/express` 2.1.0 keeps its published files, which include no `LICENSE`; the file added to `integrations/express` is in the repository only.
 
 ## Related releases
 
-The current versions in every registry are listed in [Published versions](README.md#published-versions). Other release notes: [Python 2.10.2](PYTHON_RELEASE.md), [Go v2.13.0](GO_RELEASE.md) and [Rust 2.13.0](RUST_RELEASE.md).
+The current versions in every registry are listed in [Published versions](README.md#published-versions). Other release notes: [Python 2.11.0](PYTHON_RELEASE.md), [Go v2.14.0](GO_RELEASE.md) and [Rust 2.14.0](RUST_RELEASE.md).

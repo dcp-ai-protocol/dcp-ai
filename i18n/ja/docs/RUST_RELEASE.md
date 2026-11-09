@@ -4,22 +4,22 @@
 
 > [英語原文](../../../docs/RUST_RELEASE.md)の参考訳。09/11/2026 更新。識別子とコード例は原文のままです。
 
-05/11/2026 確認：[`dcp-ai` 2.13.0](https://crates.io/crates/dcp-ai/2.13.0) は crates.io で公開済みです（[変更点](#what-changed-in-2130)）。以前のリリース [2.11.1](https://crates.io/crates/dcp-ai/2.11.1)（28/10/2026 確認）と [2.11.0](https://crates.io/crates/dcp-ai/2.11.0)（26/10/2026 確認）の記述は以下に残しています。crate のバージョンは DCP のワイヤー形式・仕様バージョンとは独立しています。Rust crate は npm、Python、Go、コンテナーとは独立して公開されます。
+09/11/2026 に確認：[`dcp-ai` 2.14.0](https://crates.io/crates/dcp-ai/2.14.0) が crates.io で利用できます（[変更点](#what-changed-in-2140)）。以前のリリースである [2.13.0](https://crates.io/crates/dcp-ai/2.13.0)（05/11/2026 に確認）、[2.11.1](https://crates.io/crates/dcp-ai/2.11.1)（28/10/2026 に確認）、[2.11.0](https://crates.io/crates/dcp-ai/2.11.0)（26/10/2026 に確認）の注記は下に残しています。crate のバージョンは DCP のワイヤー／仕様のバージョンとは独立しています。Rust crate は npm、Python、Go、コンテナとは別に公開されます。
 
 <a id="install"></a>
 
 ## インストール
 
-現在の安定版 Rust ツールチェーンを使い、アプリケーションの crate から実行します。変更後の `Cargo.toml` と `Cargo.lock` をコミットしてください。この例は互換性のある 2.x 更新を許可します。完全固定が必要なら manifest で `=2.13.0` を指定します。
+現在の安定版 Rust ツールチェーンを使い、アプリケーションの crate から実行します。変更後の `Cargo.toml` と `Cargo.lock` をコミットしてください。この例は互換性のある 2.x 更新を許可します。完全固定が必要なら manifest で `=2.14.0` を指定します。
 
 ```bash
-cargo add dcp-ai@2.13.0
+cargo add dcp-ai@2.14.0
 cargo check --locked
 ```
 
 ```toml
 [dependencies]
-dcp-ai = "2.13.0"
+dcp-ai = "2.14.0"
 ```
 
 任意の OTLP エクスポートと WebAssembly バインディングは `otlp` と `wasm` で選択します。対象に必要な機能だけを有効にしてください。この Rust リリースで別の npm WASM パッケージは再公開しません。
@@ -65,7 +65,7 @@ dcp-ai = "2.13.0"
 
 ## 準備済み・未公開: 2.12.0
 
-2.12.0 は 30/10/2026 にリポジトリで準備済みですが、crates.io では公開されていません。準備の時点では、インストールコマンドは 2.11.1 のままでした。現在のコマンドは上記のとおり 2.13.0 を指定しています。2.11.1 と比べて、2.12.0 は次のとおりです。
+2.12.0 は 30/10/2026 にリポジトリで準備済みですが、crates.io では公開されていません。準備の時点では、インストールコマンドは 2.11.1 のままでした。現在のバージョンは[公開済みバージョン](../../../docs/README.md#published-versions)にあります。2.11.1 と比べて、2.12.0 は次のとおりです。
 
 - **`dcp_ai::v2::types::RawAuditEventV2` と `RawAuditEventError` を追加。** `RawAuditEventV2` は受信した監査エントリーをデコード済みの `serde_json::Value` として保持するため、未知のメンバーを含むすべてのメンバーが、存在するかどうかと `null` であるかどうかを保ちます。保持するのはデコード済みの値であり、元のテキストではありません。シリアライズしたり `dcp-jcs-v1` で正規化したりすると、その値のバイト列になります。`typed()` は情報が失われるビューです。`AuditEventV2` の動作は変わりません。バンドル全体の解析、検証、正規化は変わりません。
 - **`wasm_dual_merkle_root` を修正（`wasm` フィーチャー使用時）。** バンドル検証器が使う [VERIFICATION.md の V2-11](../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) の縮約（32 バイトの生のダイジェストを使い、奇数個の層では最後のノードを複製する）で二重 Merkle ルートを計算するようになりました。32 バイトの 16 進ダイジェストでない葉に対しては、不正な形式の入力を受け入れるのではなくエラーを返します。この crate から作られる npm パッケージは `@dcp-ai/wasm` 2.1.2 で、これも準備済み・未公開です（[npm パッケージ](../../../docs/NPM_RELEASES.md)を参照）。
@@ -74,11 +74,11 @@ dcp-ai = "2.13.0"
 
 > **注記（05/11/2026）。** 上の比較は、準備済みの 2.12.0 について 30/10/2026 に書いたもので、2.12.0 はまだ公開されていません。その後 `main` は検証を変更しました。WASM ビルドを含むすべての V2 検証器が V2-2 のスキーマ検証を実行し（#116、02/11/2026）、委任状の有効性ヘルパー、チェーンの時刻確認、繰り返されるルートドメインの確認が変わりました（#117〜#119）。これらの変更は上記の 2.12.0 には含まれません。2.12.0 は公開されず、上の 2.13.0 がこれらの変更を含んで置き換えており、`main` のマニフェストは 2.13.0 を記載しています。[監査資料](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts)を参照してください。
 
-<a id="prepared-not-published-2140"></a>
+<a id="what-changed-in-2140"></a>
 
-## 準備済み・未公開：2.14.0
+## 2.14.0 の変更点
 
-08/11/2026 に準備し、公開していません。上記のインストールコマンドは、2.14.0 が公開されて確認されるまで 2.13.0 のままです。
+2.14.0 は 09/11/2026 に、リリースワークフローにより `main`（`cdb7099b`）から crates.io に公開されました。公開前にテストした候補の 92 ファイルはレジストリの crate でも同一で、crate はその commit を示す `.cargo_vcs_info.json` を追加するだけです。新しい Cargo home で、パス依存や patch なしに crates.io から 2.14.0 を解決した利用側は、デフォルトと `otlp` の feature をビルドし、テスト済みの crate と同じ API の結果を出しました。`otlp` では、リゾルバーは下の最小値以上の `anyhow` と `tokio` を選びました。2.13.0 との比較：
 
 - **追加（オプトイン）。** `admit_delegated_bundle_v2`、`admit_signed_bundle_v2_from_bytes`、`create_mandate_acknowledgment`、`evaluate_delegation_activation_v2`（[変更履歴](../../../CHANGELOG.md#unreleased)）。
 - **受理の変更。** V1 オブジェクトの検証とデフォルトの V2 Ed25519 プロバイダーにおける P-ED-1。`wasm` フィーチャーでは、生のエクスポート `wasm_canonicalize_v2_result`。
@@ -88,4 +88,4 @@ dcp-ai = "2.13.0"
 
 ## 関連するリリース
 
-各レジストリの現在のバージョンは[公開済みバージョン](../../../docs/README.md#published-versions)にあります。その他のリリースノート：[npm パッケージ](../../../docs/NPM_RELEASES.md)、[Python 2.10.2](../../../docs/PYTHON_RELEASE.md)、[Go v2.13.0](../../../docs/GO_RELEASE.md)。
+各レジストリの現在のバージョンは[公開済みバージョン](../../../docs/README.md#published-versions)にあります。その他のリリースノート：[npm パッケージ](../../../docs/NPM_RELEASES.md)、[Python 2.11.0](../../../docs/PYTHON_RELEASE.md)、[Go v2.14.0](../../../docs/GO_RELEASE.md)。

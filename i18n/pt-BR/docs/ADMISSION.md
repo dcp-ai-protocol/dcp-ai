@@ -4,7 +4,7 @@
 
 # Admissão: principais confiáveis e o perfil strict-v1
 
-> Tradução informativa da [versão em inglês](../../../docs/ADMISSION.md), atualizada em 08/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../docs/ADMISSION.md), atualizada em 09/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 Um bundle verificado prova sua integridade e que foi assinado pelas chaves que lista. Qualquer pessoa pode criar um registro de principal responsável com qualquer `human_id` e chaves próprias, então a verificação sozinha não diz **quem** é o principal.
 
@@ -163,7 +163,7 @@ node /path/to/dcp-ai/bin/dcp.js admit-bundle bundle.signed.json --trust trust.js
 
 ## Delegação, bytes e confirmações (opt-in)
 
-> **Status (07/11/2026).** No código-fonte local dos SDKs de TypeScript, Python, Go e Rust, não em um pacote publicado.
+> **Status (09/11/2026).** Publicadas, de adesão explícita, em `@dcp-ai/sdk` 2.4.0, `dcp-ai` 2.11.0, Go v2.14.0 e Rust `dcp-ai` 2.14.0.
 > O WASM, o servidor e a CLI de referência, o playground, os adaptadores e o kit não expõem estas funções.
 
 - **Admissão delegada** ([especificação § 10](../../../spec/profiles/admission/README.md#10-delegated-admission-opt-in)). Admite um bundle folha junto com a
@@ -190,7 +190,7 @@ Nomes das funções em cada SDK: [referência da API](../../../docs/API_REFERENC
 
 - **API de verificação.** `verifySignedBundleV2` / `verify_signed_bundle_v2` / `VerifySignedBundleV2WithPolicy` / `verify_signed_bundle_v2_with_policy` mantêm as suas assinaturas. As chaves de assinatura são `details.signer_keys` em TypeScript e Python e o novo campo `SignerKeys` em Go. Em Rust, `V2VerificationResult` mantém seus dez campos, então o código que o constrói por inteiro ou o desestrutura sem `..` continua compilando; as chaves de assinatura vêm do novo `verify_signed_bundle_v2_at`, que retorna `V2VerificationDetails` (`result` e `signer_keys`) e é o que a admissão recebe. O código escrito contra a API de admissão antes da sua publicação lê `verification.result.verified` em vez de `verification.verified`.
 - **Comportamento da verificação.** As mesmas mudanças alteram o comportamento da verificação, à parte da admissão. Assinaturas Ed25519 com S >= L agora são rejeitadas. Separadamente, os verificadores Go e Rust agora aplicam `accepted_classical_algs` e `accepted_pq_algs` de uma política, que antes recusavam por não serem aplicados: sob uma política assim, um bundle fora das listas falha, e um dentro delas agora pode ser verificado. O [CHANGELOG](../../../CHANGELOG.md) lista todas as mudanças.
-- **Aceitação do Ed25519, P-ED-1 (código-fonte local, 07/11/2026).** Além de S >= L, o código-fonte dos SDKs agora também rejeita uma chave pública ou uma R não canônica, e uma chave pública ou uma R de ordem que divide 8 ([perfil criptográfico](../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion)). É uma mudança de aceitação intencional; os signatários e os formatos não mudam. A evidência que não o atende é assinada de novo ou tem sua chave substituída, nunca reescrita.
+- **Aceitação do Ed25519, P-ED-1 (publicada em 09/11/2026).** Além de S >= L, `@dcp-ai/sdk` 2.4.0, `dcp-ai` 2.11.0, Go v2.14.0 e Rust `dcp-ai` 2.14.0 também rejeitam uma chave pública ou uma R não canônica, e uma chave pública ou uma R de ordem que divide 8 ([perfil criptográfico](../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion)). É uma mudança de aceitação intencional; os signatários e os formatos não mudam. A evidência que não o atende é assinada de novo ou tem sua chave substituída, nunca reescrita.
 - **Bundles.** Nenhuma mudança no formato de transmissão. strict-v1 precisa de bundles assinados com `session_issued_at`, `session_expires_at` e `intended_verifier` no manifesto, que todos os assinantes dos SDKs gravam quando recebem uma expiração e uma audiência.
 - **Com um conjunto de confiança, bundles V1 são recusados**: eles não trazem nenhuma assinatura de principal para ancorar.
 - **Opções das integrações.** Novas e opcionais. Com principais confiáveis, `requireBundle: false` (Express) e `require_bundle=False` (FastAPI) são erros de configuração: uma requisição sem bundle chegaria à rota. Sob o perfil, também o são `verifierPolicy`, `requireHybrid: false` e as opções `checkRevocation` (Express), `verifier_policy` (FastAPI) e `verifierPolicy` (OpenClaw).

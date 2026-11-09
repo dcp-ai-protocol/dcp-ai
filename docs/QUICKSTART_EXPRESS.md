@@ -6,10 +6,10 @@ Verify DCP signed bundles in your Express.js APIs using the `@dcp-ai/express` mi
 
 ## Installation
 
-> **Versions (05/11/2026).** Use published `@dcp-ai/express` 2.1.0 with `@dcp-ai/sdk` 2.3.0. They include the corrected verifier and admission with trusted principals and `strict-v1`; building a checkout is not required. See the [Express README](../integrations/express/README.md).
+> **Versions (09/11/2026).** Use published `@dcp-ai/express` 2.1.0 with `@dcp-ai/sdk` 2.4.0. They include the corrected verifier and admission with trusted principals and `strict-v1`; building a checkout is not required. See the [Express README](../integrations/express/README.md).
 
 ```bash
-npm install @dcp-ai/express@^2.1.0 @dcp-ai/sdk@^2.3.0 express
+npm install @dcp-ai/express@^2.1.0 @dcp-ai/sdk@^2.4.0 express
 ```
 
 ### Zero-config scaffold (alternative)
@@ -26,10 +26,10 @@ structure of a bundle only: it verifies no signature, so a forged or altered bun
 
 ### Python equivalent (FastAPI)
 
-For FastAPI services, install the Python bridge from PyPI 2.10.2. It includes V2 signature verification and the admission/resource controls documented in the [FastAPI README](../integrations/fastapi/README.md). The older 2.9.0 middleware checks V2 structure without verifying signatures; upgrade before relying on it for V2.
+For FastAPI services, install the Python bridge from PyPI 2.11.0. It includes V2 signature verification and the admission/resource controls documented in the [FastAPI README](../integrations/fastapi/README.md). The older 2.9.0 middleware checks V2 structure without verifying signatures; upgrade before relying on it for V2.
 
 ```bash
-pip install "dcp-ai[fastapi]>=2.10.2,<3"
+pip install "dcp-ai[fastapi]>=2.11.0,<3"
 ```
 
 ```python

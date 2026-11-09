@@ -6,28 +6,29 @@ operations, specifications and proposals. The current package versions for every
 
 ## Published versions
 
-Verified on 05/11/2026. Package versions are independent of the DCP wire and specification version (2.0).
+Verified on 09/11/2026. Package versions are independent of the DCP wire and specification version (2.0).
 
 | Registry | Package | Version | Release notes |
 |---|---|---|---|
-| npm | [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) (TypeScript SDK) | 2.3.0 | [npm packages](NPM_RELEASES.md) |
-| npm | [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) | 2.1.3 | [npm packages](NPM_RELEASES.md) |
-| npm | [`@dcp-ai/cli`](https://www.npmjs.com/package/@dcp-ai/cli) | 2.1.1 | [npm packages](NPM_RELEASES.md) |
-| PyPI | [`dcp-ai`](https://pypi.org/project/dcp-ai/2.10.2/) (Python SDK) | 2.10.2 | [Python release](PYTHON_RELEASE.md) |
-| Go modules | `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` | v2.13.0 | [Go release](GO_RELEASE.md) |
-| crates.io | [`dcp-ai`](https://crates.io/crates/dcp-ai/2.13.0) (Rust SDK) | 2.13.0 | [Rust release](RUST_RELEASE.md) |
+| npm | [`@dcp-ai/sdk`](https://www.npmjs.com/package/@dcp-ai/sdk) (TypeScript SDK) | 2.4.0 | [npm packages](NPM_RELEASES.md) |
+| npm | [`@dcp-ai/wasm`](https://www.npmjs.com/package/@dcp-ai/wasm) | 2.2.0 | [npm packages](NPM_RELEASES.md) |
+| npm | [`@dcp-ai/cli`](https://www.npmjs.com/package/@dcp-ai/cli) | 2.2.0 | [npm packages](NPM_RELEASES.md) |
+| PyPI | [`dcp-ai`](https://pypi.org/project/dcp-ai/2.11.0/) (Python SDK) | 2.11.0 | [Python release](PYTHON_RELEASE.md) |
+| Go modules | `github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2` | v2.14.0 | [Go release](GO_RELEASE.md) |
+| crates.io | [`dcp-ai`](https://crates.io/crates/dcp-ai/2.14.0) (Rust SDK) | 2.14.0 | [Rust release](RUST_RELEASE.md) |
 
-- Published on 05/11/2026: `@dcp-ai/sdk` 2.3.0, `@dcp-ai/wasm` 2.1.3, `dcp-ai` 2.10.2, Go v2.13.0 and Rust `dcp-ai` 2.13.0 run
-  V2-2 schema validation in every V2 verifier and include the other SDK changes listed in the [audit dossier](conformance/AUDIT_DOSSIER.md#artifacts). Like the versions of 28/10/2026, they
-  verify the optional secondary SHA3-256 fields of V2-11 when they are present; absent fields are not required, so a
-  verified bundle may lack a complete secondary chain, and a present inconsistent field is rejected.
-- `@dcp-ai/cli` 2.1.1 and the npm adapters were not republished. Their ranges (`^2.2.1` for the CLI, `^2.2.0` for
-  `@dcp-ai/express`, `@dcp-ai/openclaw`, `@dcp-ai/anthropic-mcp` and `@dcp-ai/google-a2a`) accept `@dcp-ai/sdk` 2.3.0;
-  they get the checks of 05/11/2026 only when the installation resolves it, and an existing lockfile keeps its older
-  resolution until you update it.
-- The five versions of 05/11/2026 supersede the unpublished candidates of 30/10/2026 (Go and Rust 2.12.0, `@dcp-ai/wasm` 2.1.2). The
-  README inside each published archive is the one prepared before publication and reads "prepared, not published";
-  published archives cannot change, and the READMEs in this repository describe the published versions. See the
+- Published on 09/11/2026 from `main` (`cdb7099b`): `@dcp-ai/sdk` 2.4.0, `@dcp-ai/wasm` 2.2.0, `@dcp-ai/cli` 2.2.0,
+  `dcp-ai` 2.11.0, Go v2.14.0 and Rust `dcp-ai` 2.14.0. The four SDKs add opt-in delegated admission, admission from
+  bytes and mandate acknowledgment, and every Ed25519 verifier applies P-ED-1, an acceptance change that rejects
+  non-canonical encodings and points of small order. They keep the V2-2 schema validation of 05/11/2026 and, like the
+  versions since 28/10/2026, verify the optional secondary SHA3-256 fields of V2-11 when they are present. See the
+  [changelog](../CHANGELOG.md#2026-11-09-six-releases) and the release notes.
+- `@dcp-ai/cli` 2.2.0 requires `@dcp-ai/sdk` `^2.4.0`. The npm adapters were not republished: their `^2.2.0` ranges
+  (`@dcp-ai/express`, `@dcp-ai/openclaw`, `@dcp-ai/anthropic-mcp` and `@dcp-ai/google-a2a`) accept `@dcp-ai/sdk`
+  2.4.0, and they get its checks, P-ED-1 included, only when the installation resolves it; an existing lockfile keeps
+  its older resolution until you update it.
+- The README inside each archive of 09/11/2026 names its own version and points to this table for registry
+  availability. The versions of 05/11/2026 and earlier keep their notes in the
   [changelog](../CHANGELOG.md#2026-11-05-auditable-releases) and the release notes.
 - The npm adapters and scaffolders are optional and separate from the protocol core; their exact versions are in
   [NPM_RELEASES.md](NPM_RELEASES.md), which lists all 13 npm packages.

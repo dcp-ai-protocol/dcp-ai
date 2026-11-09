@@ -4,22 +4,22 @@
 
 > Traducción informativa del [original en inglés](../../../docs/RUST_RELEASE.md), revisada el 09/11/2026. Los identificadores y ejemplos de código se conservan sin traducir.
 
-Verificado el 05/11/2026: [`dcp-ai` 2.13.0](https://crates.io/crates/dcp-ai/2.13.0) está disponible en crates.io ([qué cambió](#what-changed-in-2130)). Las publicaciones anteriores, [2.11.1](https://crates.io/crates/dcp-ai/2.11.1), verificada el 28/10/2026, y [2.11.0](https://crates.io/crates/dcp-ai/2.11.0), verificada el 26/10/2026, conservan sus notas abajo. La versión del crate es independiente de la versión del formato/especificación DCP. El crate Rust se publica de forma independiente de npm, Python, Go y los contenedores.
+Verificado el 09/11/2026: [`dcp-ai` 2.14.0](https://crates.io/crates/dcp-ai/2.14.0) está disponible en crates.io ([qué cambió](#what-changed-in-2140)). Las versiones anteriores, [2.13.0](https://crates.io/crates/dcp-ai/2.13.0), verificada el 05/11/2026, [2.11.1](https://crates.io/crates/dcp-ai/2.11.1), verificada el 28/10/2026, y [2.11.0](https://crates.io/crates/dcp-ai/2.11.0), verificada el 26/10/2026, conservan sus notas más abajo. La versión del crate es independiente de la versión del formato de intercambio y de la especificación de DCP. El crate de Rust se publica de forma independiente de npm, Python, Go y los contenedores.
 
 <a id="install"></a>
 
 ## Instalación
 
-Ejecuta desde el crate de tu aplicación con una herramienta Rust estable actual. Guarda los cambios en `Cargo.toml` y `Cargo.lock`. Estos ejemplos permiten actualizaciones compatibles 2.x; usa `=2.13.0` en el manifest si necesitas fijar la versión exacta.
+Ejecuta desde el crate de tu aplicación con una herramienta Rust estable actual. Guarda los cambios en `Cargo.toml` y `Cargo.lock`. Estos ejemplos permiten actualizaciones compatibles 2.x; usa `=2.14.0` en el manifest si necesitas fijar la versión exacta.
 
 ```bash
-cargo add dcp-ai@2.13.0
+cargo add dcp-ai@2.14.0
 cargo check --locked
 ```
 
 ```toml
 [dependencies]
-dcp-ai = "2.13.0"
+dcp-ai = "2.14.0"
 ```
 
 La exportación OTLP y los bindings WebAssembly opcionales se seleccionan con `otlp` y `wasm`. Activa solo lo que necesite tu destino. Esta versión Rust no vuelve a publicar el paquete WASM independiente de npm.
@@ -65,7 +65,7 @@ La telemetría informa `2.13.0`. No cambian el formato de transmisión, las firm
 
 ## Preparada, no publicada: 2.12.0
 
-La 2.12.0 está preparada en el repositorio desde el 30/10/2026, pero no publicada en crates.io. En el momento de la preparación, los comandos de instalación seguían en 2.11.1; los actuales, arriba, indican 2.13.0. Respecto a la 2.11.1, la 2.12.0:
+La 2.12.0 está preparada en el repositorio desde el 30/10/2026, pero no publicada en crates.io. En el momento de la preparación, los comandos de instalación seguían en 2.11.1; la versión actual está en [Versiones publicadas](../../../docs/README.md#published-versions). Respecto a la 2.11.1, la 2.12.0:
 
 - **Añade `dcp_ai::v2::types::RawAuditEventV2` y `RawAuditEventError`.** `RawAuditEventV2` guarda una entrada de auditoría recibida como el `serde_json::Value` decodificado, de modo que cada miembro conserva su presencia y su condición de `null`, incluidos los desconocidos. Conserva el valor decodificado, no el texto original: serializarlo o canonicalizarlo con `dcp-jcs-v1` da los bytes de ese valor. `typed()` es una vista con pérdida; `AuditEventV2` conserva su comportamiento. El parseo, la verificación y la canonicalización del bundle completo no cambian.
 - **Corrige `wasm_dual_merkle_root` (con la feature `wasm`).** Ahora calcula la raíz Merkle dual con la reducción de [VERIFICATION.md V2-11](../../../spec/VERIFICATION.md#step-v2-11-verify-dual-hash-audit-chain-if-present) que usa el verificador de bundles (digests crudos de 32 bytes; en una capa impar se duplica el último nodo), y devuelve un error para una hoja que no es un digest hex de 32 bytes en lugar de aceptar una entrada malformada. El paquete npm construido a partir de este crate es `@dcp-ai/wasm` 2.1.2, también preparado y sin publicar (véanse los [paquetes npm](../../../docs/NPM_RELEASES.md)).
@@ -74,11 +74,11 @@ Las demás API, `dcp-jcs-v1` y las API experimentales opt-in `dcp-jcs-v2` no cam
 
 > **Nota (05/11/2026).** La comparación anterior se escribió el 30/10/2026 para la 2.12.0 preparada, que sigue sin publicarse. Desde entonces `main` ha cambiado la verificación: todos los verificadores V2, incluida la compilación WASM, ejecutan la validación de esquemas V2-2 (#116, 02/11/2026), y cambiaron la función auxiliar de validez de mandatos, las comprobaciones de tiempo de la cadena y la comprobación de dominios raíz repetidos (#117 a #119). Estos cambios no están en la 2.12.0 descrita arriba, que nunca se publicó; la 2.13.0 de arriba los contiene y la sustituye, y los manifiestos de `main` llevan 2.13.0. Véase el [expediente de auditoría](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts).
 
-<a id="prepared-not-published-2140"></a>
+<a id="what-changed-in-2140"></a>
 
-## Preparada, no publicada: 2.14.0
+## Qué cambió en 2.14.0
 
-Preparada el 08/11/2026 y no publicada; los comandos de instalación de arriba siguen en la 2.13.0 hasta que la 2.14.0 se publique y se compruebe.
+La 2.14.0 se publicó en crates.io el 09/11/2026 mediante el workflow de publicación, desde `main` (`cdb7099b`). Los 92 archivos del candidato probado antes de la publicación son idénticos en el crate del registro, que solo añade `.cargo_vcs_info.json`, con el nombre de ese commit. Consumidores que resolvieron la 2.14.0 desde crates.io, en un Cargo home nuevo y sin dependencia por ruta ni patch, compilaron las features predeterminada y `otlp` y dieron los mismos resultados de API que el crate probado; con `otlp`, el resolvedor seleccionó `anyhow` y `tokio` en los mínimos de abajo o por encima de ellos. Frente a 2.13.0:
 
 - **Añadido (activación explícita).** `admit_delegated_bundle_v2`, `admit_signed_bundle_v2_from_bytes`, `create_mandate_acknowledgment` y `evaluate_delegation_activation_v2` ([registro de cambios](../../../CHANGELOG.md#unreleased)).
 - **Cambio de aceptación.** P-ED-1 en la verificación de objetos V1 y en el proveedor Ed25519 V2 predeterminado; con la feature `wasm`, la exportación cruda `wasm_canonicalize_v2_result`.
@@ -88,4 +88,4 @@ Preparada el 08/11/2026 y no publicada; los comandos de instalación de arriba s
 
 ## Publicaciones relacionadas
 
-Las versiones actuales en cada registro están en [Versiones publicadas](../../../docs/README.md#published-versions). Otras notas de publicación: [paquetes npm](../../../docs/NPM_RELEASES.md), [Python 2.10.2](../../../docs/PYTHON_RELEASE.md) y [Go v2.13.0](../../../docs/GO_RELEASE.md).
+Las versiones actuales en cada registro están en [Versiones publicadas](../../../docs/README.md#published-versions). Otras notas de publicación: [paquetes npm](../../../docs/NPM_RELEASES.md), [Python 2.11.0](../../../docs/PYTHON_RELEASE.md) y [Go v2.14.0](../../../docs/GO_RELEASE.md).

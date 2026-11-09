@@ -4,7 +4,7 @@
 
 > Tradução informativa da [versão em inglês](../../../docs/GO_RELEASE.md), atualizada em 09/11/2026. Em caso de divergência, prevalece a versão em inglês.
 
-Verificado em 05/11/2026: o SDK Go `v2.13.0` está publicado pela [tag `sdks/go/v2.13.0`](https://github.com/dcp-ai-protocol/dcp-ai/tree/sdks/go/v2.13.0/sdks/go), e o proxy público de módulos e a base de dados de checksums o servem ([o que mudou](#what-changed-in-v2130)). As publicações anteriores, `v2.11.1` ([`sdks/go/v2.11.1`](https://github.com/dcp-ai-protocol/dcp-ai/tree/sdks/go/v2.11.1/sdks/go)), verificada em 28/10/2026, e `v2.11.0` ([`sdks/go/v2.11.0`](https://github.com/dcp-ai-protocol/dcp-ai/tree/sdks/go/v2.11.0/sdks/go)), verificada em 26/10/2026, mantêm suas notas abaixo. O módulo e suas importações mantêm `/v2`. A versão do SDK é independente do formato/especificação DCP. Go não exige token adicional de registro: os consumidores resolvem a tag do repositório pelo sistema de módulos Go.
+Verificado em 09/11/2026: o SDK Go `v2.14.0` está publicado pela [tag `sdks/go/v2.14.0`](https://github.com/dcp-ai-protocol/dcp-ai/tree/sdks/go/v2.14.0/sdks/go), e o proxy público de módulos e o banco de dados de checksums o servem ([o que mudou](#what-changed-in-v2140)). As versões anteriores, `v2.13.0` ([`sdks/go/v2.13.0`](https://github.com/dcp-ai-protocol/dcp-ai/tree/sdks/go/v2.13.0/sdks/go)), verificada em 05/11/2026, `v2.11.1` ([`sdks/go/v2.11.1`](https://github.com/dcp-ai-protocol/dcp-ai/tree/sdks/go/v2.11.1/sdks/go)), verificada em 28/10/2026, e `v2.11.0` ([`sdks/go/v2.11.0`](https://github.com/dcp-ai-protocol/dcp-ai/tree/sdks/go/v2.11.0/sdks/go)), verificada em 26/10/2026, mantêm suas notas abaixo. O módulo e seus caminhos de importação mantêm `/v2`. A versão do SDK é independente da versão do formato de transmissão e da especificação do DCP. Go não exige um token de registro separado: os consumidores resolvem a tag do repositório pelo sistema de módulos do Go.
 
 <a id="install"></a>
 
@@ -13,7 +13,7 @@ Verificado em 05/11/2026: o SDK Go `v2.13.0` está publicado pela [tag `sdks/go/
 Requer Go 1.25+. Execute no módulo da sua aplicação. Atualize e versione seus arquivos `go.mod` e `go.sum`:
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.13.0
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.14.0
 go mod verify
 ```
 
@@ -58,7 +58,7 @@ A v2.13.0 foi publicada em 05/11/2026 pela tag `sdks/go/v2.13.0` na `main` (`46b
 
 ## Preparada, não publicada: v2.12.0
 
-A v2.12.0 está preparada no repositório desde 30/10/2026, mas não publicada: a tag `sdks/go/v2.12.0` não existe, então o proxy de módulos não serve esta versão e o `go get` não consegue resolvê-la. Na época da preparação, o comando de instalação continuava na v2.11.1; o comando atual, acima, indica a v2.13.0. Em relação à v2.11.1, a v2.12.0:
+A v2.12.0 está preparada no repositório desde 30/10/2026, mas não publicada: a tag `sdks/go/v2.12.0` não existe, então o proxy de módulos não serve esta versão e o `go get` não consegue resolvê-la. Na época da preparação, o comando de instalação continuava na v2.11.1; a versão atual está em [Versões publicadas](../../../docs/README.md#published-versions). Em relação à v2.11.1, a v2.12.0:
 
 - **Corrige `v2.VerifyPayloadHash` (mudança de aceitação).** Retorna `true` somente quando `payload_hash` é exatamente `"sha256:"` seguido do SHA-256 em hex minúsculo do payload canônico `dcp-jcs-v1`. A saída de `v2.SignPayload` passa a ser aceita e um digest sem prefixo passa a ser rejeitado; a v2.11.1 fazia o contrário. A função só confere a consistência do hash, não a assinatura, as chaves, a política, a confiança no principal nem a admissão. A verificação de bundles nunca a usou e não muda.
 - **Adiciona `v2.RawAuditEventV2`.** Ele mantém os bytes literais de uma entrada de auditoria recebida, de modo que membros `null` explícitos e membros desconhecidos sobrevivem ao reenvio; `Typed()` é uma visão com perda. `AuditEventV2` e os demais structs tipados continuam sendo tipos para produzir e mantêm seu comportamento.
@@ -67,11 +67,11 @@ As demais APIs, a verificação de bundles, `dcp-jcs-v1` e as APIs experimentais
 
 > **Nota (05/11/2026).** A comparação acima foi escrita em 30/10/2026 para a v2.12.0 preparada, que continua sem publicação. Desde então a `main` mudou a verificação: todos os verificadores V2 executam a validação de esquemas V2-2 (#116, 02/11/2026), e mudaram a função auxiliar de validade de mandatos, as verificações de tempo da cadeia e a verificação de domínios raiz repetidos (#117 a #119). Essas mudanças não estão na v2.12.0 descrita acima, que nunca recebeu tag; a v2.13.0 acima as contém e a substitui, e os manifestos da `main` levam a v2.13.0. Veja o [dossiê de auditoria](../../../docs/conformance/AUDIT_DOSSIER.md#artifacts).
 
-<a id="prepared-not-published-v2140"></a>
+<a id="what-changed-in-v2140"></a>
 
-## Preparada, não publicada: v2.14.0
+## O que mudou na v2.14.0
 
-Preparada em 08/11/2026 e não publicada; ainda não existe a tag `sdks/go/v2.14.0`, e os comandos de instalação acima continuam na v2.13.0 até que a tag seja publicada e o proxy de módulos verificado.
+A v2.14.0 foi publicada em 09/11/2026 pela tag `sdks/go/v2.14.0` na `main` (`cdb7099b`). O módulo que o proxy serve tem os mesmos 106 arquivos e o mesmo hash, `h1:9O4n7vn3YqOhKlyUg/cm0OnouQi4QbU7mHbIh1BM5Z8=`, que o módulo testado antes da publicação; só a compressão do zip difere. Consumidores que resolveram a v2.14.0 por `proxy.golang.org`, com o banco de dados de checksums ativo, sem um `replace` local e com Go 1.26.10, instalaram esse módulo e deram os mesmos resultados de API que o testado. Em comparação com a v2.13.0:
 
 - **Adicionado (adesão explícita).** `v2.AdmitDelegatedBundleV2`, `v2.AdmitSignedBundleV2FromBytes`, `v2.CreateMandateAcknowledgment` e `v2.EvaluateDelegationActivationV2` ([changelog](../../../CHANGELOG.md#unreleased)).
 - **Mudança de aceitação.** P-ED-1 na verificação de objetos V1 e no provedor Ed25519 V2 padrão.
@@ -81,4 +81,4 @@ Preparada em 08/11/2026 e não publicada; ainda não existe a tag `sdks/go/v2.14
 
 ## Publicações relacionadas
 
-As versões atuais em cada registro estão em [Versões publicadas](../../../docs/README.md#published-versions). Outras notas de publicação: [pacotes npm](../../../docs/NPM_RELEASES.md), [Python 2.10.2](../../../docs/PYTHON_RELEASE.md) e [Rust 2.13.0](../../../docs/RUST_RELEASE.md).
+As versões atuais em cada registro estão em [Versões publicadas](../../../docs/README.md#published-versions). Outras notas de publicação: [pacotes npm](../../../docs/NPM_RELEASES.md), [Python 2.11.0](../../../docs/PYTHON_RELEASE.md) e [Rust 2.14.0](../../../docs/RUST_RELEASE.md).

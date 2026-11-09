@@ -4,11 +4,11 @@
 
 # Referencia de la API de DCP-AI
 
-> Traducción informativa de [la versión en inglés](../../../docs/API_REFERENCE.md), actualizada el 08/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
+> Traducción informativa de [la versión en inglés](../../../docs/API_REFERENCE.md), actualizada el 09/11/2026. Si difieren, prevalece la versión en inglés. Los identificadores, comandos y bloques de código se conservan sin traducir.
 
-Referencia del SDK de TypeScript `@dcp-ai/sdk` tal como está en `main` (versión del paquete 2.3.0, protocolo DCP v2.0).
+Referencia del SDK de TypeScript `@dcp-ai/sdk` tal como está en `main` (versión del paquete 2.4.0, protocolo DCP v2.0).
 
-> **Versiones npm (05/11/2026).** Esta referencia de TypeScript se aplica a `@dcp-ai/sdk` 2.3.0 publicado, incluida la confianza en el principal, `strict-v1` y las API experimentales opt-in del candidato. Véanse los [paquetes npm publicados](../../../docs/NPM_RELEASES.md) y las [instrucciones de instalación](../../../sdks/typescript/README.md#installation). `dcp-jcs-v1` sigue siendo el predeterminado normativo.
+> **Versiones npm (09/11/2026).** Esta referencia de TypeScript se aplica a `@dcp-ai/sdk` 2.4.0 publicado, incluida la confianza en el principal, `strict-v1` y las API experimentales opt-in del candidato. Véanse los [paquetes npm publicados](../../../docs/NPM_RELEASES.md) y las [instrucciones de instalación](../../../sdks/typescript/README.md#installation). `dcp-jcs-v1` sigue siendo el predeterminado normativo.
 
 Los bloques de código de esta página son declaraciones o fragmentos, no programas completos: nombres como `registry`, `keys`,
 `payloadBytes` o `signedBundle` representan valores construidos como en el
@@ -546,11 +546,11 @@ function verifyObject(obj: unknown, signatureB64: string, publicKeyB64: string):
 lugar de devolver `false`: un objeto que no se puede canonicalizar, una firma o clave que no es base64 válido, o una firma
 o clave decodificada con una longitud incorrecta.
 
-En el código fuente local (07/11/2026, no publicado), `verifyObject` y el proveedor Ed25519 V2 por defecto aplican P-ED-1 del
+Desde `@dcp-ai/sdk` 2.4.0 (publicado el 09/11/2026), `verifyObject` y el proveedor Ed25519 V2 por defecto aplican P-ED-1 del
 [perfil criptográfico](../../../spec/profiles/crypto/README.md#p-ed-1-ed25519-acceptance-criterion): S >= L, una clave o R no
-canónica, o una clave o R de orden que divide a 8 devuelven `false`. Las entradas que lanzan una excepción son las mismas que antes. Desde el 08/11/2026,
-el verificador de referencia (`tools/crypto.js`), la ruta V1 de `dcp-ai verify` y el playground aplican las mismas
-comprobaciones en el código fuente local; un paquete publicado sin este cambio no lo hace.
+canónica, o una clave o R de orden que divide a 8 devuelven `false`. Las entradas que lanzan una excepción son las mismas que antes.
+El verificador de referencia (`tools/crypto.js`) y el playground del repositorio aplican las mismas comprobaciones, y también
+la ruta V1 de `dcp-ai verify` desde `@dcp-ai/cli` 2.2.0; `@dcp-ai/sdk` 2.3.0 y anteriores y `@dcp-ai/cli` 2.1.1 y anteriores no lo hacen.
 
 ```typescript
 const valid = verifyObject({ action: 'transfer', amount: 100 }, sig, keys.publicKeyB64);
@@ -869,7 +869,7 @@ Definida en [`spec/profiles/admission`](../../../spec/profiles/admission/README.
 
 El resultado: `verified`, `verification`, `principal_trust`, `profile`, `profile_compliance`, `admitted`, `action_authorized` (siempre `false`), `recorded_decision`, `trust_set_version`, `errors: [{ code, message }]`.
 
-Opt-in, en el código fuente local de los cuatro SDK y no en un paquete publicado (07/11/2026):
+Opt-in, publicado el 09/11/2026 en `@dcp-ai/sdk` 2.4.0, `dcp-ai` 2.11.0, Go v2.14.0 y Rust `dcp-ai` 2.14.0:
 
 | Función | Descripción |
 |----------|-------------|
@@ -1746,8 +1746,8 @@ que solo puede elevar el nivel (spec §14.2). Python: `create_sub_mandate`, `ver
 
 ### `createMandateAcknowledgment(registry, keys, params)` / `evaluateDelegationActivationV2(evidence, registry, operator)`
 
-El acuse de mandato opt-in de [DCP-09 § 3.3.1](../../../spec/DCP-09.md#331-mandate-acknowledgment-opt-in), en el código
-fuente local de los cuatro SDK y no en un paquete publicado (07/11/2026). `createMandateAcknowledgment` firma, como
+El acuse de mandato opt-in de [DCP-09 § 3.3.1](../../../spec/DCP-09.md#331-mandate-acknowledgment-opt-in), publicado
+el 09/11/2026 en los cuatro SDK (`@dcp-ai/sdk` 2.4.0 y sus equivalentes). `createMandateAcknowledgment` firma, como
 agente del último mandato de `params.mandateChain`, un registro `mandate_acknowledgment` (`dcp09-mandate-ack-v1`) bajo
 `MANDATE_ACKNOWLEDGMENT_CONTEXT`; `params` es `{ mandateChain, awarenessThreshold, acknowledgmentId, acknowledgedAt? }`
 y no toma ningún hash. `evaluateDelegationActivationV2` toma la evidencia de la admisión delegada más
@@ -1796,7 +1796,7 @@ const DCP_CONTEXTS: Record<string, DcpContext>;
 // Rights (DCP-08), Delegation (DCP-09), Awareness (DCP-09), SubMandate (DCP-09)
 ```
 
-`MANDATE_ACKNOWLEDGMENT_CONTEXT` (`DCP-AI.v2.MandateAcknowledgment`, código fuente local, no publicado) es una
+`MANDATE_ACKNOWLEDGMENT_CONTEXT` (`DCP-AI.v2.MandateAcknowledgment`, desde `@dcp-ai/sdk` 2.4.0) es una
 constante separada junto al mapa, que conserva sus 19 entradas; `domainSeparatedMessage` la acepta. Python tiene la
 misma constante, Go `CtxMandateAcknowledgment` y Rust `CTX_MANDATE_ACKNOWLEDGMENT`.
 

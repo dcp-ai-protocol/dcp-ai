@@ -5,7 +5,7 @@
 
 # DCP-AI + OpenAI クイックスタート
 
-> [英語版](../../../docs/QUICKSTART_OPENAI.md)の参考訳です（05/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../docs/QUICKSTART_OPENAI.md)の参考訳です（09/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 OpenAI の関数呼び出しエージェントに、暗号学的なアイデンティティ、ポリシーによる制御、監査証跡を追加します。
 
@@ -17,10 +17,10 @@ OpenAI の関数呼び出しエージェントに、暗号学的なアイデン�
 
 このガイドは **OpenAI の Node SDK** を使います。Python を使う場合は、末尾の Python のセクションに進んでください。
 
-レジストリからのインストールでは V1 と V2 の両方の例に `@dcp-ai/sdk` 2.3.0 を使います。チェックアウトは任意です（[インストール](../../../sdks/typescript/README.md#installation)を参照）。例は OpenAI Node SDK の Chat Completions API を使います（`openai` v4 以降。最近のバージョンにはカスタムツール呼び出しが追加されていますが、このループでは拒否します）。実行時には OpenAI API を呼び出し、`OPENAI_API_KEY` が必要です。
+レジストリからのインストールでは V1 と V2 の両方の例に `@dcp-ai/sdk` 2.4.0 を使います。チェックアウトは任意です（[インストール](../../../sdks/typescript/README.md#installation)を参照）。例は OpenAI Node SDK の Chat Completions API を使います（`openai` v4 以降。最近のバージョンにはカスタムツール呼び出しが追加されていますが、このループでは拒否します）。実行時には OpenAI API を呼び出し、`OPENAI_API_KEY` が必要です。
 
 ```bash
-npm install @dcp-ai/sdk@^2.3.0 openai
+npm install @dcp-ai/sdk@^2.4.0 openai
 ```
 
 <a id="zero-config-scaffold-alternative"></a>
@@ -233,7 +233,7 @@ const intent: Intent = {
 
 ## V2.0 へのアップグレード
 
-DCP v2.0 はポスト量子複合署名、適応型セキュリティティア、セッションバインディングを追加します。このセクションは公開済みの `@dcp-ai/sdk` 2.3.0 で動作します（インストールを参照）。
+DCP v2.0 はポスト量子複合署名、適応型セキュリティティア、セッションバインディングを追加します。このセクションは公開済みの `@dcp-ai/sdk` 2.4.0 で動作します（インストールを参照）。
 
 <a id="v2-identity"></a>
 
@@ -327,7 +327,7 @@ console.log(await sealCallV2('get_weather', 'approve')); // { tier: 'routine', v
 `pip install -e "/path/to/dcp-ai/sdks/python[openai]"`）。
 
 ```bash
-pip install "dcp-ai[openai]>=2.10.2,<3"
+pip install "dcp-ai[openai]>=2.11.0,<3"
 ```
 
 ```python

@@ -47,6 +47,26 @@ Go was consumed through a local file proxy without `replace`; Rust through a pat
 - The prior dossier exclusions remain: unresolved specification contradictions, optional extensions, operator infrastructure and untested environments do not become supported through this freeze. Finite tests do not establish absence of vulnerabilities.
 - Packaging fixes, new versions, registry-installed checks and explicit publication authorization are still required before releasing the post-baseline changes. Images and deployments need their own validation. Documentation integration does not publish packages.
 
+> **Note (09/11/2026).** The items above describe the MP-06 snapshot and its local artifacts, which are unchanged. For the versions published on 09/11/2026, the WASM path remapping, the CLI `LICENSE` and the OTLP minimums are in place; see [Publication of 09/11/2026](#publication-of-09112026). `@dcp-ai/express` 2.1.0 was not republished.
+
+## Publication of 09/11/2026
+
+**Source:** `main` at `cdb7099b8b6dc2a78b54928250752fd0bbd9c770` ([PR #140](https://github.com/dcp-ai-protocol/dcp-ai/pull/140)), tree `af69307b663381ce776ad3115f76fe82f225a789`, the tree of the reviewed export of the candidates. The [CI of that commit](https://github.com/dcp-ai-protocol/dcp-ai/actions/runs/42557635924) passed, and so did the release workflows that rebuilt and published the [PyPI](https://github.com/dcp-ai-protocol/dcp-ai/actions/runs/42559171389) and [crates.io](https://github.com/dcp-ai-protocol/dcp-ai/actions/runs/42559174109) files; these runs are the project's own checks, not an external audit. Six versions were published from it: `@dcp-ai/sdk` 2.4.0, `@dcp-ai/wasm` 2.2.0 and `@dcp-ai/cli` 2.2.0 on npm, `dcp-ai` 2.11.0 on PyPI, Rust `dcp-ai` 2.14.0 on crates.io and the Go module v2.14.0. It is a registry release after internal validation, not an external audit or a certification. `@dcp-ai/express` 2.1.0 and the other npm adapters were not republished.
+
+| Registry | Version | Identifier |
+|---|---|---|
+| npm `@dcp-ai/sdk` | 2.4.0 | `sha512-4IsY/ctFqLf5vvOS6bWUdN63NCbMoi6N0qnAceYG8AINnqm7+cRyG5stO+P4ZM8ROM2uyhI09AlcQDhdJVhIeQ==` |
+| npm `@dcp-ai/wasm` | 2.2.0 | `sha512-eu9NiNXl99hCKz/xpUPteaZGF+ea0+WTQ/6mZu2RIkuP2eTMsym0Bbp7gTbqB1LaaGMGuRFYAjK8wSVIGt/AAA==` |
+| npm `@dcp-ai/cli` | 2.2.0 | `sha512-/UR5K7/PctZX8Do6CULz1ua1eEwt19Jo/Q/adkMq806uRjZ2gh10W0FnfrzJVJPjskadK/tma2aXisU+z1Hx7Q==` |
+| PyPI `dcp-ai` | 2.11.0 | wheel `2e7776e1c3675f9f4a3c088d6115b728d6e33c72c69a2e624b1771ab9fa45f53`, sdist `9d4a545376e2a9a0afa61b0845ef5bf992b9c92ac5390da95a35333327397da7` (SHA-256) |
+| crates.io `dcp-ai` | 2.14.0 | `704028282d977973fc84e6fbaa495159e43ecec5951cf2f1b5ea9d3e70515424` (checksum) |
+| Go module `sdks/go/v2` | v2.14.0 | tag `sdks/go/v2.14.0`, commit `cdb7099b8b6dc2a78b54928250752fd0bbd9c770`, `h1:9O4n7vn3YqOhKlyUg/cm0OnouQi4QbU7mHbIh1BM5Z8=` |
+
+- **Identity with the tested artifacts.** The npm tarballs are the files tested before publication, with the same `sha512` integrity. The PyPI wheel and sdist and the crate were rebuilt from `main` by the release workflows and contain the same source files as the tested artifacts; the Python files differ only in metadata (Metadata-Version 2.5 and hatchling 1.33.0 instead of 2.4 and 1.27.0, with the RECORD recomputed), and the crate adds `.cargo_vcs_info.json`, which names `main`. The Go module the proxy serves has the same 106 files and the same `h1` as the tested module; only the zip compression differs.
+- **Installed from the registries.** Fresh consumers installed each package by name and version, without `file:`, path dependencies, `replace`, `[patch]` or overrides: the PyPI wheel and sdist (the sdist built by pip), the crate with its default and `otlp` features, the npm SDK, CLI and WASM with `@dcp-ai/express` 2.1.0, which resolved the one `@dcp-ai/sdk` 2.4.0, and the Go module through `proxy.golang.org` with the checksum database on and Go 1.26.10. The composition, acknowledgment, ingress and P-ED-1 checks, the CLI suites and the WASM checks gave the same results as on the tested artifacts.
+- **Packaging items of the MP-06 freeze.** For these versions, the WASM binary is built without local build paths and a release gate checks the packed files, `@dcp-ai/cli` ships `LICENSE`, and the Rust `otlp` feature requires `anyhow` 1.0.103 and `tokio` 1.53.3 or later; the default and `wasm` builds select neither. The `LICENSE` added to `integrations/express` is in the repository only: the published `@dcp-ai/express` 2.1.0 tarball still has none.
+- **Not covered.** The exclusions of the MP-06 freeze above and of [Known limits and exclusions](#known-limits-and-exclusions) still apply, except the packaging and dependency items closed here for these versions: the WASM build paths, the CLI `LICENSE` and the OTLP minimums. The MP-06 snapshot above is kept as it was recorded. Finite checks do not establish the absence of vulnerabilities.
+
 ## Reproduce
 
 From a checkout of the commit under review, with Node 22, Python 3.10+, Go (the version in `sdks/go/go.mod`) and a stable Rust toolchain (with `wasm32-unknown-unknown` and wasm-pack for WASM). The installs use the committed locks where they exist. The Python SDK has none: `pip install -e ".[dev]"` resolves the versions available when you install.
@@ -114,11 +134,12 @@ Three things are distinct; never read one as another.
 | Artifact | Versions | What it contains |
 |---|---|---|
 | Reviewed source | `main` at the baseline | Every fix below |
+| Published (09/11/2026) | `@dcp-ai/sdk` 2.4.0, `@dcp-ai/wasm` 2.2.0, `@dcp-ai/cli` 2.2.0, `dcp-ai` 2.11.0 (PyPI), Go v2.14.0, Rust `dcp-ai` 2.14.0 | Every SDK change below, plus P-ED-1 and the opt-in delegated admission APIs ([Publication of 09/11/2026](#publication-of-09112026)) |
 | Published (05/11/2026) | `@dcp-ai/sdk` 2.3.0, `@dcp-ai/wasm` 2.1.3, `dcp-ai` 2.10.2 (PyPI), Go v2.13.0, Rust `dcp-ai` 2.13.0 | Every SDK change below |
 | Prepared on 30/10/2026 (#114), never published, superseded | Go v2.12.0, Rust `dcp-ai` 2.12.0, `@dcp-ai/wasm` 2.1.2 | #106 (WASM), #107 and #112; not #103 or #116 to #119 |
 | Published earlier (28/10/2026) | `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1, `@dcp-ai/cli` 2.1.1, `dcp-ai` 2.10.1 (PyPI), Go v2.11.1, Rust `dcp-ai` 2.11.1 | The verifier fixes of 26/10/2026 and the secondary SHA3-256 checks of 28/10/2026; none of the fixes below |
 
-A version number alone does not identify an artifact. The manifests on `main` carry the numbers published on 05/11/2026; the candidate of 30/10/2026 used Go and Rust 2.12.0 and `@dcp-ai/wasm` 2.1.2 for fewer changes, and those numbers are not reused. Use the registry identifiers below or the hashes of what you built. The npm tarballs are the files tested before publication; the PyPI files and the crate were rebuilt from `main` and contain the same files as the tested artifacts, except the crate's `.cargo_vcs_info.json`, which names `main`. After publication, on 05/11/2026, the public registries were read again over normal TLS: the latest versions were the ones above, with the identifiers below.
+A version number alone does not identify an artifact. The manifests on `main` carry the numbers published on 09/11/2026; the candidate of 30/10/2026 used Go and Rust 2.12.0 and `@dcp-ai/wasm` 2.1.2 for fewer changes, and those numbers are not reused. Use the registry identifiers below or the hashes of what you built. For the versions of 05/11/2026, the npm tarballs are the files tested before publication; the PyPI files and the crate were rebuilt from `main` and contain the same files as the tested artifacts, except the crate's `.cargo_vcs_info.json`, which names `main`. After publication, on 05/11/2026, the public registries were read again over normal TLS: the latest versions were the ones above, with the identifiers below.
 
 | Registry | Version | Identifier |
 |---|---|---|
@@ -157,6 +178,7 @@ Other changes after the versions of 28/10/2026:
 - **WASM.** It exports no mandate chain verification.
 - **Rust.** It lacks A2A AES-256-GCM session encryption and its replay window ([RUST_RELEASE.md](../RUST_RELEASE.md)).
 - **Versions published before 05/11/2026.** They lack the changes listed under [Artifacts](#artifacts).
+- **Versions published before 09/11/2026.** They lack P-ED-1 (except where the official PyNaCl build behind the Python SDK already rejected those signatures) and the opt-in delegated admission APIs.
 - **Differential and fuzz campaigns.** They are finite, not exhaustive. Inputs that contract `/4` cannot carry to every SDK are measured apart ([differential harnesses](../../tools/difffuzz/README.md#mandate-chains)).
 - **Performance.** No speed requirement is checked. The [performance baseline](../../tools/conformance/README.md#performance-baseline) and the [bounded workload scaling](../../tools/conformance/README.md#bounded-workload-scaling) are local measurements of method, added after the baseline commit; neither is an audit result.
 - **Not covered.** Container images, deployments, service tokens and operator configuration.

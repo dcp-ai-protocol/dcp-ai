@@ -5,7 +5,7 @@
 
 # DCP-AI + LangChain クイックスタート
 
-> [英語版](../../../docs/QUICKSTART_LANGCHAIN.md)の参考訳です（05/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
+> [英語版](../../../docs/QUICKSTART_LANGCHAIN.md)の参考訳です（09/11/2026 更新）。内容が異なる場合は英語版が優先されます。識別子、コマンド、コードブロックは翻訳せずにそのまま掲載しています。
 
 Digital Citizenship Protocol を LangChain のエージェントに統合し、暗号学的なアイデンティティ、ポリシーによる制御、監査証跡を追加します。
 
@@ -18,10 +18,10 @@ Digital Citizenship Protocol を LangChain のエージェントに統合し、�
 このガイドは **LangChain.js v1**（TypeScript/Node、Node.js 22 以降）を使います。**Python 版の LangChain** を使う場合は、
 末尾の Python のセクションに進んでください。
 
-レジストリからのインストールには `@dcp-ai/sdk` 2.3.0 を使います。以下の DCP の例はその公開済み SDK で動作し、ソースのチェックアウトは開発時の選択肢です。TypeScript SDK の[リリース状況](../../../sdks/typescript/README.md#installation)を参照してください。
+レジストリからのインストールには `@dcp-ai/sdk` 2.4.0 を使います。以下の DCP の例はその公開済み SDK で動作し、ソースのチェックアウトは開発時の選択肢です。TypeScript SDK の[リリース状況](../../../sdks/typescript/README.md#installation)を参照してください。
 
 ```bash
-npm install @dcp-ai/sdk@^2.3.0 langchain @langchain/core @langchain/openai zod
+npm install @dcp-ai/sdk@^2.4.0 langchain @langchain/core @langchain/openai zod
 ```
 
 <a id="zero-config-scaffold-alternative"></a>
@@ -216,7 +216,7 @@ const registry = getDefaultRegistry();
 LangChain のスタックが Node ではなく Python の場合は、代わりに Python SDK の組み込みのブリッジを使います。
 
 ```bash
-pip install "dcp-ai[langchain]>=2.10.2,<3"
+pip install "dcp-ai[langchain]>=2.11.0,<3"
 ```
 
 ```python

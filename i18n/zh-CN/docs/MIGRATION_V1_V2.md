@@ -4,11 +4,11 @@
 
 # 迁移指南：从 DCP-AI v1.0 到 v2.0
 
-> 本文是[英文版](../../../docs/MIGRATION_V1_V2.md)的参考译文，更新于 05/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../docs/MIGRATION_V1_V2.md)的参考译文，更新于 09/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 **规范版本：** 2.0
-**最后更新：** 2026 年 10 月
-**适用于：** `main` 上的 SDK 和已发布的 `@dcp-ai/sdk` 2.3.0。npm 版本已于 2026 年 11 月 5 日核实；见 [NPM_RELEASES.md](../../../docs/NPM_RELEASES.md) 和 [SECURITY.md](../../../SECURITY.md#supported-versions)。其他 SDK 的版本见[已发布版本](../../../docs/README.md#published-versions)。
+**最后更新：** 09/11/2026
+**适用于：** `main` 上的 SDK 和已发布的 `@dcp-ai/sdk` 2.4.0。npm 版本已于 2026 年 11 月 9 日核实；见 [NPM_RELEASES.md](../../../docs/NPM_RELEASES.md) 和 [SECURITY.md](../../../SECURITY.md#supported-versions)。其他 SDK 的版本见[已发布版本](../../../docs/README.md#published-versions)。
 
 本指南带你把现有的 DCP-AI v1.0 集成迁移到 v2.0。迁移会引入后量子复合签名、双哈希链、会话绑定、自适应安全等级和智能体间通信；同时，有效的 v1.0 bundle 在验证器策略允许的情况下仍可通过验证（参见 1.2）。
 
@@ -51,7 +51,8 @@ v1.0 格式仍然有效，但有以下限制：
   （见下文），会接受有效的 v1.0 bundle。`verifySignedBundleV2` 本身
   只接受 v2.0：请把 v1.0 bundle 交给 V1 验证器（参见 3.2）。
 - 接受条件比以前的版本更严格：例如，`S` 不小于群阶 `L` 的 Ed25519 签名现在会被拒绝
-  （参见变更日志的 [`[Unreleased]`](../../../CHANGELOG.md#unreleased)），因此以前的验证器接受过的
+  （参见变更日志的 [`[Unreleased]`](../../../CHANGELOG.md#unreleased)）；自 09/11/2026 的版本起，P-ED-1 还要求公钥和 R 采用规范编码且不是小阶点
+  （参见 [SECURITY.md](../../../SECURITY.md#supported-versions)），因此以前的验证器接受过的
   已存储 v1.0 bundle 可能不再通过验证。
 - v1.0 验证器会拒绝 v2.0 bundle（`"unsupported dcp_version 2.0"`）。
 
@@ -69,12 +70,12 @@ v1.0 bundle 只有一个 Ed25519 签名，没有后量子签名，因此验证�
 
 ### 步骤 1：更新 SDK
 
-示例适用于已发布的 TypeScript SDK 2.3.0、Python `dcp-ai` 2.10.2、Go `v2.13.0` 和 Rust `dcp-ai` 2.13.0。见 [Python](../../../docs/PYTHON_RELEASE.md)、[Go](../../../docs/GO_RELEASE.md)、[Rust](../../../docs/RUST_RELEASE.md) 发布说明及各 SDK README 中记录的限制。
+示例适用于已发布的 TypeScript SDK 2.4.0、Python `dcp-ai` 2.11.0、Go `v2.14.0` 和 Rust `dcp-ai` 2.14.0。见 [Python](../../../docs/PYTHON_RELEASE.md)、[Go](../../../docs/GO_RELEASE.md)、[Rust](../../../docs/RUST_RELEASE.md) 发布说明及各 SDK README 中记录的限制。
 
-**TypeScript**（2026 年 11 月 5 日已发布：2.3.0）：
+**TypeScript**（2026 年 11 月 9 日已发布：2.4.0）：
 
 ```bash
-npm install @dcp-ai/sdk@^2.3.0
+npm install @dcp-ai/sdk@^2.4.0
 ```
 
 **Python：**
@@ -87,16 +88,16 @@ pip install -e /path/to/dcp-ai/sdks/python     # main
 **Go**（注意 Go 模块要求的主版本后缀 v2）：
 
 ```bash
-go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.13.0
+go get github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2@v2.14.0
 ```
 
 **Rust：**
 
 ```toml
-dcp-ai = "2.13.0"
+dcp-ai = "2.14.0"
 ```
 
-**WebAssembly：** 从检出副本构建 `sdks/wasm`（`npm run build`），然后执行 `npm install /path/to/dcp-ai/sdks/wasm`。
+**WebAssembly：** 安装已发布的 `@dcp-ai/wasm` 2.2.0（`npm install @dcp-ai/wasm@^2.2.0`），或从检出副本构建 `sdks/wasm`（`npm run build`），然后执行 `npm install /path/to/dcp-ai/sdks/wasm`。
 
 <a id="step-2-generate-hybrid-key-pairs"></a>
 

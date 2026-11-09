@@ -13,7 +13,7 @@ DCP-01 through DCP-09, partially: bundle verification and admission as described
 Version 2.9.0 does not verify V2 signatures; do not use it for V2 verification. Version 2.10.0 includes the corrected verifier, principal trust, `strict-v1`, body budgets, supervised trust/revocation sources and disconnect handling. Admission does not authorize an action.
 
 ```bash
-pip install "dcp-ai[fastapi]>=2.10.2,<3"
+pip install "dcp-ai[fastapi]>=2.11.0,<3"
 ```
 
 For source development:
