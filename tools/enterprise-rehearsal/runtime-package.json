@@ -6,7 +6,8 @@
   "dependencies": {
     "@dcp-ai/sdk": "file:sdk.tgz",
     "@dcp-ai/express": "file:express.tgz",
-    "express": "5.2.1"
+    "express": "5.2.1",
+    "express-rate-limit": "8.7.1"
   },
   "overrides": {
     "@dcp-ai/sdk": "$@dcp-ai/sdk"

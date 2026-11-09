@@ -56,6 +56,8 @@ node tools/enterprise-rehearsal/node/rehearse.mjs \
 
 終了コード `0` には、選択した計画の完了、期待どおりの結果、秘密情報スキャンの成功、クリーンなシャットダウンが必要です。エラー、観測の欠落、想定外のコード、余分な効果、残留したプロセス、クリーンアップの失敗があると、コマンドは失敗します。呼び出しごとに新しい作業ディレクトリが必要で、以前に成功したレポートが新しい実行の条件を満たすことはありません。`--lanes node` または `--lanes python` は診断用の一部を選ぶもので、2 レーンすべての受け入れ実行ではありません。
 
+Express のサンプルは、認証、本文の解析、DCP の前に、接続元ごとのリクエストを 60 秒のウィンドウで 600 件に制限します。オペレーターの読み取りも含み、超過時は `429 APP_RATE_LIMITED` を返します。転送ヘッダーで接続元を選ぶことはできません。このローカルなメモリ内の予算は Express リハーサルのもので、プロトコルの規則ではなく、FastAPI レーンに同等のレート制限があることも示しません。
+
 <a id="scenarios-and-expected-decisions"></a>
 
 ## シナリオと期待される判断
@@ -101,6 +103,7 @@ python3 tools/enterprise-rehearsal/negative_controls.py \
   --manifest "$MP05_TMP/build/artifacts.json" --work "$MP05_TMP/consumer"
 node --test tools/enterprise-rehearsal/process.test.mjs tools/enterprise-rehearsal/secrets.test.mjs
 REHEARSAL_PYTHON="$MP05_TMP/consumer/python/bin/python" \
+REHEARSAL_VERIFY_REPORT="$MP05_TMP/run/verify.json" \
 REHEARSAL_WORK="$MP05_TMP/helper-tests" \
   node --test "$MP05_TMP/consumer/node/rehearsal/node/test/"*.test.mjs
 "$MP05_TMP/consumer/python/bin/python" -I -m unittest discover \

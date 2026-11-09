@@ -56,6 +56,8 @@ El lanzador controla el runner y los servidores mediante IPC, de modo que un run
 
 La salida `0` exige completar el plan seleccionado, obtener los resultados esperados, aprobar el escaneo de secretos y cerrar limpiamente. Los errores, observaciones ausentes, códigos inesperados, efectos adicionales, procesos retenidos o fallos de limpieza hacen fallar el comando. Cada invocación exige un directorio de trabajo nuevo; un reporte exitoso anterior no satisface una nueva ejecución. `--lanes node` o `--lanes python` selecciona un subconjunto de diagnóstico, no la aceptación completa de ambos carriles.
 
+La muestra Express también limita cada origen de red a 600 peticiones por ventana de 60 segundos, antes de autenticar, leer el cuerpo o llamar a DCP. Incluye las lecturas del operador y devuelve `429 APP_RATE_LIMITED`; las cabeceras reenviadas no seleccionan el origen. Este presupuesto local en memoria pertenece al ensayo Express, no al protocolo, y no afirma una limitación de tasa equivalente en el carril FastAPI.
+
 <a id="scenarios-and-expected-decisions"></a>
 
 ## Escenarios y decisiones esperadas
@@ -101,6 +103,7 @@ python3 tools/enterprise-rehearsal/negative_controls.py \
   --manifest "$MP05_TMP/build/artifacts.json" --work "$MP05_TMP/consumer"
 node --test tools/enterprise-rehearsal/process.test.mjs tools/enterprise-rehearsal/secrets.test.mjs
 REHEARSAL_PYTHON="$MP05_TMP/consumer/python/bin/python" \
+REHEARSAL_VERIFY_REPORT="$MP05_TMP/run/verify.json" \
 REHEARSAL_WORK="$MP05_TMP/helper-tests" \
   node --test "$MP05_TMP/consumer/node/rehearsal/node/test/"*.test.mjs
 "$MP05_TMP/consumer/python/bin/python" -I -m unittest discover \

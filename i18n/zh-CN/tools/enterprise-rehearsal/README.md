@@ -56,6 +56,8 @@ node tools/enterprise-rehearsal/node/rehearse.mjs \
 
 退出码 `0` 要求所选计划全部完成、结果符合预期、机密扫描成功并且干净关闭。出现错误、缺失观测、意外代码、额外效果、残留进程或清理失败，都会使命令失败。每次调用都需要新的工作目录；旧的成功报告不能满足新的运行。`--lanes node` 或 `--lanes python` 只选择用于诊断的子集，而不是完整的双通道验收运行。
 
+Express 示例还会在认证、解析请求体或调用 DCP 之前，将每个网络对端限制为每个 60 秒窗口 600 个请求。该限制包含运营方读取，超限返回 `429 APP_RATE_LIMITED`；转发请求头不能选择对端。这个本地内存预算属于 Express 演练而非协议，也不表示 FastAPI 通道具备同等的速率限制。
+
 <a id="scenarios-and-expected-decisions"></a>
 
 ## 场景与预期决定
@@ -101,6 +103,7 @@ python3 tools/enterprise-rehearsal/negative_controls.py \
   --manifest "$MP05_TMP/build/artifacts.json" --work "$MP05_TMP/consumer"
 node --test tools/enterprise-rehearsal/process.test.mjs tools/enterprise-rehearsal/secrets.test.mjs
 REHEARSAL_PYTHON="$MP05_TMP/consumer/python/bin/python" \
+REHEARSAL_VERIFY_REPORT="$MP05_TMP/run/verify.json" \
 REHEARSAL_WORK="$MP05_TMP/helper-tests" \
   node --test "$MP05_TMP/consumer/node/rehearsal/node/test/"*.test.mjs
 "$MP05_TMP/consumer/python/bin/python" -I -m unittest discover \

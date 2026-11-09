@@ -6,7 +6,7 @@
 // application then authorizes the action (operator policy and, delegated, every mandate) and reserves single-use
 // actions in the ledger. action_authorized from DCP is always false; application_authorized is this application's.
 //
-// Order of a request: X-DCP-Bundle refused (the adapter would prefer that header to the body, so the evidence admitted
+// Order of a request: per-peer request budget -> X-DCP-Bundle refused (the adapter would prefer that header to the body, so the evidence admitted
 // would not be the evidence authorized) -> JSON content type -> bearer token (the only source of the tenant) -> body
 // read with the route budget, counted while it arrives -> ingress policy (../ingress-node.mjs) -> envelope ->
 // admission -> authorization -> reservation -> effect.
@@ -16,6 +16,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import express from 'express';
+import { rateLimit } from 'express-rate-limit';
 import { createSourceSupervisor, dcpVerify, denyListRevocationSource } from '@dcp-ai/express';
 import { createPrincipalTrustStore, evaluateDelegationActivationV2, revocationSnapshotFromDenyList } from '@dcp-ai/sdk';
 import { IngressError, parseRequest } from '../ingress-node.mjs';
@@ -231,6 +232,16 @@ async function delegated(req, res) {
 const app = express();
 app.disable('x-powered-by');
 app.disable('etag');
+app.set('trust proxy', false);
+// Bound requests before authentication, body reading or cryptography. This per-peer, in-memory
+// rehearsal budget includes operator observations; it is not a protocol or adapter default.
+app.use(rateLimit({
+  windowMs: 60_000,
+  limit: 600,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: { ok: false, code: 'APP_RATE_LIMITED' },
+}));
 app.get('/v1/operator/state', (req, res) => {
   if (tokenOwner(req.headers.authorization, { operator: tokens.operator }) !== 'operator') {
     return res.status(401).json({ ok: false, code: 'APP_UNAUTHENTICATED' });

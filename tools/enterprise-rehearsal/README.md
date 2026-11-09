@@ -46,6 +46,8 @@ The launcher owns the runner and servers through IPC, so a blocked runner cannot
 
 Exit `0` requires the complete selected plan, expected results, a successful secret scan and clean shutdown. Errors, missing observations, unexpected codes, extra effects, retained processes or failed cleanup make the command fail. Each invocation requires a new work directory; an old successful report cannot satisfy a new run. `--lanes node` or `--lanes python` selects a diagnostic subset, not the full two-lane acceptance run.
 
+The Express sample also limits each network peer to 600 requests per 60-second window, before authentication, body parsing or DCP. This includes operator reads and returns `429 APP_RATE_LIMITED`; forwarded headers do not select the peer. This local, in-memory budget belongs to the Express rehearsal, not the protocol, and does not claim equivalent rate limiting for the FastAPI lane.
+
 ## Scenarios and expected decisions
 
 The full plan has 100 steps per lane, 200 total. Expectations are written before requests and include HTTP status, DCP/application codes, authenticated tenant, real DCP outcomes, source calls, reservations and effects. Every group includes positive and negative controls.
@@ -85,6 +87,7 @@ python3 tools/enterprise-rehearsal/negative_controls.py \
   --manifest "$MP05_TMP/build/artifacts.json" --work "$MP05_TMP/consumer"
 node --test tools/enterprise-rehearsal/process.test.mjs tools/enterprise-rehearsal/secrets.test.mjs
 REHEARSAL_PYTHON="$MP05_TMP/consumer/python/bin/python" \
+REHEARSAL_VERIFY_REPORT="$MP05_TMP/run/verify.json" \
 REHEARSAL_WORK="$MP05_TMP/helper-tests" \
   node --test "$MP05_TMP/consumer/node/rehearsal/node/test/"*.test.mjs
 "$MP05_TMP/consumer/python/bin/python" -I -m unittest discover \

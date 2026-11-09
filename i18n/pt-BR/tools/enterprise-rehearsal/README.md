@@ -56,6 +56,8 @@ O lançador é dono do runner e dos servidores via IPC, de modo que um runner bl
 
 A saída `0` exige o plano selecionado completo, os resultados esperados, uma varredura de segredos bem-sucedida e um encerramento limpo. Erros, observações ausentes, códigos inesperados, efeitos extras, processos retidos ou falhas na limpeza fazem o comando falhar. Cada invocação exige um diretório de trabalho novo; um relatório antigo bem-sucedido não pode satisfazer uma nova execução. `--lanes node` ou `--lanes python` seleciona um subconjunto de diagnóstico, não a execução de aceitação completa com as duas trilhas.
 
+A amostra Express também limita cada par de rede a 600 requisições por janela de 60 segundos, antes da autenticação, da leitura do corpo ou do DCP. Isso inclui as leituras do operador e retorna `429 APP_RATE_LIMITED`; cabeçalhos encaminhados não selecionam o par. Esse orçamento local em memória pertence ao ensaio Express, não ao protocolo, e não afirma uma limitação de taxa equivalente na trilha FastAPI.
+
 <a id="scenarios-and-expected-decisions"></a>
 
 ## Cenários e decisões esperadas
@@ -101,6 +103,7 @@ python3 tools/enterprise-rehearsal/negative_controls.py \
   --manifest "$MP05_TMP/build/artifacts.json" --work "$MP05_TMP/consumer"
 node --test tools/enterprise-rehearsal/process.test.mjs tools/enterprise-rehearsal/secrets.test.mjs
 REHEARSAL_PYTHON="$MP05_TMP/consumer/python/bin/python" \
+REHEARSAL_VERIFY_REPORT="$MP05_TMP/run/verify.json" \
 REHEARSAL_WORK="$MP05_TMP/helper-tests" \
   node --test "$MP05_TMP/consumer/node/rehearsal/node/test/"*.test.mjs
 "$MP05_TMP/consumer/python/bin/python" -I -m unittest discover \
