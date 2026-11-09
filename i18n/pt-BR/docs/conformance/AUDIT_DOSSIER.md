@@ -4,7 +4,7 @@
 
 # Dossiê de auditoria
 
-> Tradução informativa da [versão em inglês](../../../../docs/conformance/AUDIT_DOSSIER.md), atualizada em 06/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são preservados sem tradução.
+> Tradução informativa da [versão em inglês](../../../../docs/conformance/AUDIT_DOSSIER.md), atualizada em 08/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são preservados sem tradução.
 
 Este é o ponto de entrada para uma revisão de segurança independente do DCP-AI. Diz o que revisar, como reproduzir a evidência do repositório, o que essa evidência mostra e o que deixa de fora. Não é uma especificação, uma certificação nem um relatório de auditoria. O repositório não contém nenhum relatório de uma auditoria externa independente e não certifica trabalhos feitos fora dele.
 
@@ -19,6 +19,45 @@ Este é o ponto de entrada para uma revisão de segurança independente do DCP-A
 - **Base do código:** o commit `45ac32f07f004e858e11dcc23ff72c3e5c7762b8` da `main`, de 05/11/2026 (#123). Contém todas as correções listadas em [Artefatos](#artifacts) e os esclarecimentos dessa data ao passo V2-10 do [VERIFICATION.md](../../../../spec/VERIFICATION.md) e ao [DCP-09](../../../../spec/DCP-09.md) §3.5.2.
 - **Commits posteriores:** o harness diferencial de cadeias de mandatos e a comparação de bundles com cinco SDKs (#124) vieram depois da base, assim como este dossiê. Um documento não pode nomear o seu próprio commit final. Registre o commit exato que revisa e use este arquivo como guia para ele, não como evidência sobre ele.
 - **Fora da base:** imagens de contêiner, implantações e configuração do operador.
+
+<a id="pilot-validation-freeze-mp-06"></a>
+
+## Congelamento da validação para pilotos (MP-06)
+
+Este retrato posterior é separado da base de revisão acima. **Fonte:** `7dd8293d6f6c3d328fc0ff3906978200e55139db` (PR #138); árvore `de40444aa1fc1bafef6ab7cf3b772664427b43dc`. É uma validação interna para pilotos delimitados, não uma auditoria externa, uma implantação ou uma nova publicação em registros. `dcp-jcs-v1` e os padrões existentes permanecem inalterados.
+
+O escopo inclui verificação de evidência híbrida, confiança explícita no principal, admissão estrita, admissão delegada opt-in e o reconhecimento separado do mandato em TypeScript, Python, Go e Rust. WASM cobre verificação e primitivas pela API instalada no navegador; **não** oferece cadeias de mandatos, admissão ou ativação. Express e FastAPI são adaptadores opcionais. Autorização de ações, configuração de tenants, atualidade da revogação, TLS e custódia de chaves continuam sob responsabilidade da aplicação ou do operador. Os [limites operacionais](../OPERATIONAL_LIMITS.md) e o [ensaio opcional](../../../../tools/enterprise-rehearsal/README.md) descrevem essa separação.
+
+<a id="evidence-and-artifact-identity"></a>
+
+### Evidência e identidade dos artefatos
+
+O [CI da revisão congelada](https://github.com/dcp-ai-protocol/dcp-ai/actions/runs/42539293814) aprovou os jobs selecionados. Os jobs de SDK e integrações omitidos por filtros de caminhos são cobertos pela revisão MP-03 aprovada `df2df0de103777bb9e28cf70cc64d52f8df7d4b4`, com subárvores de produção e entradas pertinentes de compilação e testes idênticas. São execuções reutilizadas, não novas. Os artefatos instalados localmente foram testados separadamente, incluindo o sdist Python e o tarball WASM no navegador. Os oito catálogos públicos passaram em cada SDK completo; WASM passou somente nos seis que suporta. Os controles específicos de composição, reconhecimento e ingresso de bytes, as regressões originais F1–F4 e de confiança no principal, e a evidência dos provedores mantêm o vínculo com os objetos realmente testados. O ensaio HTTP MP-05 inalterado (200/200 etapas) é reutilizado.
+
+Os artefatos abaixo são **bytes locais não publicados**, embora suas versões internas coincidam com versões existentes. Os de TS, Express e Python vieram de `b3d41bd0`; os 256 arquivos-fonte registrados no manifesto de preparação coincidem com a revisão congelada. Go, Rust e WASM foram construídos a partir da exportação congelada. Não os substitua por pacotes do registro com o mesmo número de versão.
+
+| Artefato | Versão local | SHA-256 |
+|---|---|---|
+| `Go module zip` | `v2.13.0` | `a2e113c663b791c3b0908e135f2a1e2433ffea1301b1be2540a2fa3539c6ca41` |
+| `Rust .crate` | `2.13.0` | `192d58c182e9c115b5fa7e6af17dd790eaa37a68a4501e4985dc11ae5b157d39` |
+| `@dcp-ai/wasm tarball` | `2.1.3` | `501d24d7ae9a2923931edf4e9e8df902f353a87ff911906901f34b33d1ac052d` |
+| `@dcp-ai/sdk tarball` | `2.3.0` | `1e4b27bb82c70ab327227f5bb029eb2b01b0cdc643aeec206327bdaf5a94dd9c` |
+| `@dcp-ai/express tarball` | `2.1.0` | `bf2b6de539b9e3687ffd272c7015d9ff0a6288fdd65f86ce7662838b50ead969` |
+| `Python wheel` | `2.10.2` | `e20473aecf6f75ff6e01db4a9ce12bd33ef59000607b9cba47f197b4b2e8d317` |
+| `Python sdist` | `2.10.2` | `ad0e17c7850916777a5df379c6217e16eb1fcc82b2b465b53624c9eb985919fa` |
+
+
+Go foi consumido por um proxy local de arquivos sem `replace`; Rust por uma dependência de caminho ao `.crate` extraído; npm e Python por pacotes instalados. A validação Go usou o toolchain corrigido 1.26.10, sem alterar o módulo ou as dependências. Para um piloto, preserve os artefatos exatos, inventário de dependências, comandos e relatórios: um hash identifica bytes, mas não torna artefatos temporários disponíveis para download. Uma reconstrução exige verificação e novos testes; a reprodutibilidade dos bytes WASM não foi estabelecida. A reprodução pública começa no [kit de conformidade](../../../../tools/conformance/README.md) e nas [instruções do ensaio](../../../../tools/enterprise-rehearsal/README.md), com revisão explícita e caminhos dos pacotes instalados. Esta página resume evidência interna; não afirma que cada sonda local seja uma ferramenta de testes publicada.
+
+<a id="limits-and-remaining-release-work"></a>
+
+### Limites e trabalho antes da publicação
+
+- O tarball Express congelado não contém `LICENSE`; inclua a licença antes de distribuí-lo. O binário WASM local contém um caminho do cache de compilação; remapeie os caminhos e revise os bytes reconstruídos antes da publicação. Nenhum dos dois é oferecido aqui como download de uma versão publicada.
+- A revisão de dependências é um retrato datado, não uma garantia. O grafo OTLP opcional de Rust seleciona versões de `anyhow`/`tokio` com os avisos [RUSTSEC-2026-0190](https://osv.dev/vulnerability/RUSTSEC-2026-0190) e [RUSTSEC-2026-0386](https://osv.dev/vulnerability/RUSTSEC-2026-0386); as compilações padrão e WASM não selecionam esses crates. Este congelamento não valida OTLP, que exige correção separada das dependências antes do uso.
+- Os alertas CodeQL #58/#59 continuam abertos em um autoteste de conformidade; a triagem encontrou interpolação de um hash hexadecimal de corpus fixo, não um caminho remoto de produção demonstrado. Dependabot não mostrou alertas abertos. A API de secret scanning estava indisponível: isso é falta de cobertura, não zero achados.
+- As exclusões anteriores do dossiê permanecem: contradições não resolvidas da especificação, extensões opcionais, infraestrutura do operador e ambientes não testados não passam a ter suporte por este congelamento. Testes finitos não demonstram ausência de vulnerabilidades.
+- Correções de empacotamento, novas versões, verificações de instalação pelos registros e autorização explícita de publicação ainda são necessárias para lançar as mudanças posteriores à base. Imagens e implantações exigem validação própria. Integrar documentação não publica pacotes.
 
 <a id="reproduce"></a>
 
