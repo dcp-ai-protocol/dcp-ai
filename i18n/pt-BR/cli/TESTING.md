@@ -4,7 +4,7 @@
 
 # Testes do `@dcp-ai/cli`
 
-> Tradução informativa da [versão em inglês](../../../cli/TESTING.md), atualizada em 09/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
+> Tradução informativa da [versão em inglês](../../../cli/TESTING.md), atualizada em 10/11/2026. Em caso de divergência, prevalece a versão em inglês. Identificadores, comandos e blocos de código são mantidos sem tradução.
 
 A CLI 2.2.0 requer `@dcp-ai/sdk` `^2.4.0`. Estes testes do repositório usam deliberadamente o SDK compilado do mesmo checkout para cobrir mudanças de código antes de uma publicação.
 
@@ -34,3 +34,17 @@ Cada caso executa `bin/dcp-ai.js` em um processo filho, em um diretório tempor�
 Com `DCP_NEGATIVE_CONTROL=1`, cada suíte inverte um caso positivo. `__tests__/negative-control.mjs` executa as quatro suítes dessa forma. Ele só passa quando a execução sai com 1, exatamente esses quatro casos falham, cada um em uma asserção, e todos os outros testes passam, nenhum cancelado ou pulado. Qualquer outro resultado o faz falhar, inclusive uma suíte que não carrega.
 
 O verificador de referência e o playground têm os seus próprios testes do intervalo S (`tools/crypto-s-range.test.mjs`, `tools/playground-s-range.test.mjs`), que o job `conformance` executa.
+
+<a id="against-an-installed-package"></a>
+
+## Contra um pacote instalado
+
+`DCP_CLI_ROOT` aponta as mesmas quatro suítes e o controle negativo para um `@dcp-ai/cli` instalado, em vez do `cli/` deste checkout:
+
+```bash
+cd cli
+DCP_CLI_ROOT="/path/to/consumer/node_modules/@dcp-ai/cli" npm test
+DCP_CLI_ROOT="/path/to/consumer/node_modules/@dcp-ai/cli" npm run test:negative-control
+```
+
+O binário, `lib/` e as dependências vêm então desse pacote tal como foi instalado: `__tests__/cli-under-test.mjs` os resolve a partir dele e recusa um caminho ou uma dependência dentro deste checkout. Os fixtures e as expectativas continuam aqui. Dois casos se adaptam: a cópia independente usa as dependências do diretório `node_modules` em que o pacote foi instalado, e o teste de empacotamento verifica que os dois arquivos estão no pacote instalado em vez de consultar `npm pack --dry-run`, que descreve uma árvore de código-fonte. Sem a variável nada muda. A [validação de publicações](../../../tools/release-validation/README.md) executa as suítes desse modo contra o pacote publicado.

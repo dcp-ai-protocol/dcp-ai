@@ -231,8 +231,10 @@ export function loadPlan({ root = REPO_ROOT, catalogFile = EXTERNAL_CATALOG_PATH
  * Runs argv once with `input` on stdin. Ends when the process has exited and its pipes have closed;
  * on the deadline or the stdout limit it signals the process group (SIGTERM, then SIGKILL), waits a
  * bounded time for close, and otherwise destroys the pipes and reports cleanup_incomplete.
+ * `cwd` and `env` are optional and go to spawn as given: left out, the process inherits both, as before;
+ * a given `env` is the whole environment of the process, nothing is merged into it.
  */
-export function runProcess(argv, input, { timeoutMs = LIMITS.timeoutMs, limits = LIMITS } = {}) {
+export function runProcess(argv, input, { timeoutMs = LIMITS.timeoutMs, limits = LIMITS, cwd, env } = {}) {
   return new Promise((resolve) => {
     const posix = process.platform !== "win32";
     const started = performance.now();
@@ -286,7 +288,7 @@ export function runProcess(argv, input, { timeoutMs = LIMITS.timeoutMs, limits =
     };
 
     try {
-      child = spawn(argv[0], argv.slice(1), { shell: false, detached: posix, stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
+      child = spawn(argv[0], argv.slice(1), { shell: false, detached: posix, stdio: ["pipe", "pipe", "pipe"], windowsHide: true, cwd, env });
     } catch (e) {
       observed.spawn_error = e.code ?? e.message;
       finish();

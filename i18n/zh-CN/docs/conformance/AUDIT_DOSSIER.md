@@ -4,7 +4,7 @@
 
 # 审计资料
 
-> 本文是[英文版](../../../../docs/conformance/AUDIT_DOSSIER.md)的参考译文，更新于 09/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
+> 本文是[英文版](../../../../docs/conformance/AUDIT_DOSSIER.md)的参考译文，更新于 10/11/2026。如有出入，以英文版为准。标识符、命令和代码块保持原文，不作翻译。
 
 这是对 DCP-AI 进行独立安全审查的入口。它说明要审查什么、如何复现仓库中的证据，以及这些证据能说明什么、不涵盖什么。它不是规范，不是认证，也不是审计报告：仓库中没有独立外部审计的报告，也不为仓库之外完成的工作提供认证。
 
@@ -78,6 +78,7 @@ Go 通过不含 `replace` 的本地文件代理消费；Rust 通过指向已解�
 
 - **与测试过的制品一致。** npm tarball 就是发布前测试过的文件，`sha512` 完整性相同。PyPI 的 wheel 和 sdist 以及 crate 由发布工作流从 `main` 重新构建，包含与测试过的制品相同的源文件；Python 文件只在元数据上不同（Metadata-Version 2.5 和 hatchling 1.33.0，之前为 2.4 和 1.27.0，并重新计算了 RECORD），crate 增加了指向 `main` 的 `.cargo_vcs_info.json`。代理提供的 Go 模块与测试过的模块具有相同的 106 个文件和相同的 `h1`；只有 zip 压缩不同。
 - **从注册表安装。** 全新的使用方按名称和版本安装了每个包，没有使用 `file:`、路径依赖、`replace`、`[patch]` 或 overrides：PyPI 的 wheel 和 sdist（sdist 由 pip 构建）、启用默认和 `otlp` feature 的 crate、与 `@dcp-ai/express` 2.1.0 一起安装的 npm SDK、CLI 和 WASM（解析到同一个 `@dcp-ai/sdk` 2.4.0），以及在启用校验和数据库的情况下用 Go 1.26.10 通过 `proxy.golang.org` 获取的 Go 模块。组合、确认、入口和 P-ED-1 检查、CLI 测试套件以及 WASM 检查的结果与在测试过的制品上相同。
+- **发布验证。** [RELEASE_VALIDATION.md](../../../../docs/conformance/RELEASE_VALIDATION.md) 介绍了重复执行这一从注册表安装的过程、并针对已安装的包运行外部目录的工具，并记录了10/11/2026 在本地 macOS 和 GitHub Ubuntu 24.04 上完成的完整验证。这是项目自身的检查，不是外部审计。
 - **MP-06 冻结中的打包事项。** 对于这些版本，WASM 二进制文件在构建时不含本地构建路径，并由发布门禁检查打包的文件；`@dcp-ai/cli` 包含 `LICENSE`；Rust 的 `otlp` feature 要求 `anyhow` 1.0.103 和 `tokio` 1.53.3 或更高版本，默认和 `wasm` 构建都不选择它们。添加到 `integrations/express` 的 `LICENSE` 仅存在于仓库中：已发布的 `@dcp-ai/express` 2.1.0 tarball 中仍然没有。
 - **未覆盖。** 上述 MP-06 冻结以及[已知限制和排除项](#known-limits-and-exclusions)中的排除项仍然适用，但此处已为这些版本关闭的打包和依赖事项除外：WASM 构建路径、CLI 的 `LICENSE` 和 OTLP 最低版本。上述 MP-06 快照按记录时的样子保留。有限的检查不能证明不存在漏洞。
 

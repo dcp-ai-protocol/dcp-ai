@@ -10,18 +10,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import nacl from 'tweetnacl';
-import stringify from 'json-stable-stringify';
-import { findConfigDir } from '../lib/config.js';
+import { CLI, BIN, INSTALLED, dependency, findConfigDir } from './cli-under-test.mjs';
+
+const nacl = await dependency('tweetnacl');
+const stringify = await dependency('json-stable-stringify');
 
 const NEGATIVE_CONTROL = process.env.DCP_NEGATIVE_CONTROL === '1';
-const CLI = fileURLToPath(new URL('..', import.meta.url));
-const BIN = join(CLI, 'bin', 'dcp-ai.js');
 const raw = readFileSync(new URL('../../tests/interop/v2/ed25519_ped1_vectors.json', import.meta.url));
 const V = JSON.parse(raw);
 const kat = JSON.parse(readFileSync(new URL('../../tests/nist-kat/ed25519/vectors.json', import.meta.url), 'utf8')).test_vectors;
@@ -88,6 +86,16 @@ test('KAT keys: their signature VALID, another bundle or R INVALID', () => {
 });
 
 test('the packed CLI ships the helper next to the binary', () => {
+  if (INSTALLED) {
+    // An installed package is the packed CLI: the two files are in it. (`npm pack --dry-run` below asks what the
+    // source tree would pack, which says nothing about an artifact that already exists.)
+    const { files: shipped } = JSON.parse(readFileSync(join(CLI, 'package.json'), 'utf8'));
+    for (const f of ['bin/dcp-ai.js', 'lib/ed25519-ped1.js']) {
+      assert.ok(shipped.includes(f.split('/')[0]), `${f.split('/')[0]} is in package.json files`);
+      assert.ok(statSync(join(CLI, f)).isFile(), f);
+    }
+    return;
+  }
   const r = spawnSync('npm', ['pack', '--dry-run', '--json', '--ignore-scripts', '--offline'], { cwd: CLI, encoding: 'utf8', timeout: 60000 });
   assert.equal(r.status, 0, r.stderr);
   const files = JSON.parse(r.stdout)[0].files.map((f) => f.path);

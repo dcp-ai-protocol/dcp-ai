@@ -219,6 +219,11 @@
       "site_path": "guides/conformance/IMPLEMENTER_GUIDE.md"
     },
     {
+      "source": "docs/conformance/RELEASE_VALIDATION.md",
+      "class": "current",
+      "site_path": "guides/conformance/RELEASE_VALIDATION.md"
+    },
+    {
       "source": "docs/conformance/SECURITY_COVERAGE.md",
       "class": "current",
       "site_path": "guides/conformance/SECURITY_COVERAGE.md"
@@ -523,6 +528,11 @@
       "source": "tools/interop-matrix/README.md",
       "class": "contributor",
       "site_path": "reference/tools/interop-matrix/README.md"
+    },
+    {
+      "source": "tools/release-validation/README.md",
+      "class": "contributor",
+      "site_path": "reference/tools/release-validation/README.md"
     }
   ],
   "copies": [
