@@ -26,3 +26,15 @@ Each case runs `bin/dcp-ai.js` in a child process, in a fresh temporary director
 With `DCP_NEGATIVE_CONTROL=1` each suite inverts one positive case. `__tests__/negative-control.mjs` runs the four suites that way. It passes only when the run exits 1 with exactly those four cases failing, each on an assertion, and every other test passing, none cancelled or skipped. Any other result fails it, including a suite that does not load.
 
 The reference verifier and the playground have their own S range tests (`tools/crypto-s-range.test.mjs`, `tools/playground-s-range.test.mjs`), which the `conformance` job runs.
+
+## Against an installed package
+
+`DCP_CLI_ROOT` points the same four suites and the negative control at an installed `@dcp-ai/cli` instead of this checkout's `cli/`:
+
+```bash
+cd cli
+DCP_CLI_ROOT="/path/to/consumer/node_modules/@dcp-ai/cli" npm test
+DCP_CLI_ROOT="/path/to/consumer/node_modules/@dcp-ai/cli" npm run test:negative-control
+```
+
+The binary, `lib/` and the dependencies then come from that package as it was installed: `__tests__/cli-under-test.mjs` resolves them from it and refuses a path or a dependency inside this checkout. The fixtures and the expectations stay here. Two cases adapt: the standalone copy takes the dependencies from the `node_modules` directory the package was installed into, and the packaging test checks that the two files are in the installed package instead of asking `npm pack --dry-run`, which describes a source tree. Without the variable nothing changes. The [release validation](../tools/release-validation/README.md) runs the suites this way against the published package.

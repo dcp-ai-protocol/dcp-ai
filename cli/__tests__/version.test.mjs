@@ -10,12 +10,9 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { findConfigDir } from '../lib/config.js';
+import { CLI, BIN, findConfigDir } from './cli-under-test.mjs';
 
 const NEGATIVE_CONTROL = process.env.DCP_NEGATIVE_CONTROL === '1';
-const CLI = fileURLToPath(new URL('..', import.meta.url));
-const BIN = join(CLI, 'bin', 'dcp-ai.js');
 const { version } = JSON.parse(readFileSync(join(CLI, 'package.json'), 'utf8'));
 
 test('--version prints the package.json version from another working directory', () => {

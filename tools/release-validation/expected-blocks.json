@@ -1,0 +1,666 @@
+{
+  "note": "The ids the blocks must report, each exactly once. cli.tests: the top-level tests of the four CLI suites (cli/__tests__), cli.inverted: the four cases cli/__tests__/negative-control.mjs inverts. direct.cases: the cases of tools/conformance/wrappers/browser/direct-sections.mjs. A change of the kit's suites or sections must change this file too.",
+  "cli": {
+    "suites": [
+      "cli/__tests__/verify-s-range.test.mjs",
+      "cli/__tests__/verify-v2-normative.test.mjs",
+      "cli/__tests__/verify-ped1.test.mjs",
+      "cli/__tests__/version.test.mjs"
+    ],
+    "negative_control": "cli/__tests__/negative-control.mjs",
+    "inverted": [
+      "v1, rfc8032_test1 key: a signature over its bytes: VALID",
+      "signed_bundle (hybrid, pq_over_classical): VALID, exit 0",
+      "the corpus's object/normal-key as a V1 file: VALID, exit 0",
+      "--version prints the package.json version from another working directory"
+    ],
+    "tests": [
+      "--version prints the package.json version from another working directory",
+      ".dcp/ key = an empty file: INVALID, exit 1",
+      ".dcp/ key = another key: INVALID, exit 1",
+      ".dcp/ key = the agent key: INVALID, exit 1",
+      ".dcp/ key = the principal key: VALID with the pin, exit 0",
+      "KAT keys: their signature VALID, another bundle or R INVALID",
+      "V1 bundle + signature.binding composite: pre-normative envelope rejected, exit 1",
+      "V1 bundle + top-level bundle_manifest: pre-normative envelope rejected, exit 1",
+      "V1 bundle + top-level dcp_version 2.0: pre-normative envelope rejected, exit 1",
+      "V1 conformance example: Ed25519 VALID, exit 0; altered or S + L: INVALID, exit 1",
+      "a .dcp/ key and no signature: no public key warning, exit 1",
+      "a missing argument, a missing file or invalid JSON: exit 1, no verdict",
+      "a root array: not a signed bundle warning, exit 1",
+      "a root number: not a signed bundle warning, exit 1",
+      "a root string: not a signed bundle warning, exit 1",
+      "an object without a bundle: not a signed bundle warning, exit 1",
+      "bundle: \"\": not a signed bundle warning, exit 1",
+      "bundle: 0: not a signed bundle warning, exit 1",
+      "bundle: false: not a signed bundle warning, exit 1",
+      "bundle: null: not a signed bundle warning, exit 1",
+      "classical_only_routine_bundle under the default policy: VALID, exit 0",
+      "classical_only_routine_bundle with S + L: INVALID, exit 1",
+      "cli/lib/schemas/v2 are byte-identical copies of schemas/v2",
+      "historical classical V2 file: pre-normative envelope rejected, exit 1",
+      "must_accept blocked_action_recorded: VALID, exit 0",
+      "must_accept empty_audit_trail: VALID, exit 0",
+      "must_accept escalated_action_recorded: VALID, exit 0",
+      "must_accept passport_status_declining: VALID, exit 0",
+      "must_accept pq_checkpoint_over_the_trail: VALID, exit 0",
+      "must_accept rpr_expires_in_the_future: VALID, exit 0",
+      "must_accept session_duration_at_millisecond_precision: VALID, exit 0",
+      "must_accept session_issued_at_year_0000: VALID, exit 0",
+      "must_accept session_within_policy_max: VALID, exit 0",
+      "must_reject agent_passport_unsigned: INVALID, exit 1",
+      "must_reject audit_entries_replaced: INVALID, exit 1",
+      "must_reject audit_entries_truncated: INVALID, exit 1",
+      "must_reject bundle_classical_sig_b64_unpadded: INVALID, exit 1",
+      "must_reject bundle_classical_sig_b64_with_a_newline: INVALID, exit 1",
+      "must_reject bundle_classical_sig_b64_with_extra_padding: INVALID, exit 1",
+      "must_reject bundle_classical_sig_b64_with_junk_after: INVALID, exit 1",
+      "must_reject bundle_classical_sig_b64_with_trailing_bits: INVALID, exit 1",
+      "must_reject bundle_pq_sig_b64_with_a_newline: INVALID, exit 1",
+      "must_reject bundle_pq_sig_b64_with_extra_padding: INVALID, exit 1",
+      "must_reject bundle_pq_sig_b64_with_junk_after: INVALID, exit 1",
+      "must_reject bundle_pq_signature_invalid: INVALID, exit 1",
+      "must_reject bundle_pq_slot_holds_ed25519: INVALID, exit 1",
+      "must_reject dcp_bundle_version_1_0: INVALID, exit 1",
+      "must_reject dcp_bundle_version_3_0: INVALID, exit 1",
+      "must_reject intent_classical_sig_b64_unpadded: INVALID, exit 1",
+      "must_reject intent_classical_sig_b64_with_a_newline: INVALID, exit 1",
+      "must_reject intent_classical_sig_b64_with_extra_padding: INVALID, exit 1",
+      "must_reject intent_classical_sig_b64_with_junk_after: INVALID, exit 1",
+      "must_reject intent_classical_sig_b64_with_trailing_bits: INVALID, exit 1",
+      "must_reject intent_null: INVALID, exit 1",
+      "must_reject intent_payload_hash_wrong: INVALID, exit 1",
+      "must_reject intent_pq_slot_holds_ed25519: INVALID, exit 1",
+      "must_reject intent_signatures_zeroed: INVALID, exit 1",
+      "must_reject intent_signed_by_principal: INVALID, exit 1",
+      "must_reject intent_unsigned: INVALID, exit 1",
+      "must_reject passport_classical_slot_holds_ml_dsa: INVALID, exit 1",
+      "must_reject passport_pq_signature_invalid: INVALID, exit 1",
+      "must_reject policy_decision_kid_names_another_algorithm: INVALID, exit 1",
+      "must_reject policy_decision_not_an_object: INVALID, exit 1",
+      "must_reject policy_decision_signed_under_intent_context: INVALID, exit 1",
+      "must_reject policy_decision_unsigned: INVALID, exit 1",
+      "must_reject rpr_classical_signature_invalid: INVALID, exit 1",
+      "must_reject rpr_null_in_agent_signed_bundle: INVALID, exit 1",
+      "must_reject signature_hash_alg_unknown: INVALID, exit 1",
+      "must_reject signature_manifest_hash_other: INVALID, exit 1",
+      "must_reject signature_signer_id_other: INVALID, exit 1",
+      "must_reject signature_signer_kids_other: INVALID, exit 1",
+      "must_reject_bundles audit_chain_hash_wrong: INVALID, exit 1",
+      "must_reject_bundles audit_chain_not_starting_at_genesis: INVALID, exit 1",
+      "must_reject_bundles audit_entry_agent_id_other: INVALID, exit 1",
+      "must_reject_bundles audit_entry_human_id_other: INVALID, exit 1",
+      "must_reject_bundles audit_entry_intent_hash_other: INVALID, exit 1",
+      "must_reject_bundles audit_entry_intent_id_other: INVALID, exit 1",
+      "must_reject_bundles audit_entry_policy_decision_other: INVALID, exit 1",
+      "must_reject_bundles audit_entry_session_nonce_differs: INVALID, exit 1",
+      "must_reject_bundles audit_entry_without_session_nonce: INVALID, exit 1",
+      "must_reject_bundles bundle_signed_by_agent_keys: INVALID, exit 1",
+      "must_reject_bundles canonicalization_profile_not_a_string: INVALID, exit 1",
+      "must_reject_bundles canonicalization_profile_unknown: INVALID, exit 1",
+      "must_reject_bundles classical_only_bundle_signature_without_pq: INVALID, exit 1",
+      "must_reject_bundles classical_only_estimated_impact_high: INVALID, exit 1",
+      "must_reject_bundles classical_only_explicit_security_tier_elevated: INVALID, exit 1",
+      "must_reject_bundles classical_only_intent_action_type_constructor: INVALID, exit 1",
+      "must_reject_bundles classical_only_intent_estimated_impact_constructor: INVALID, exit 1",
+      "must_reject_bundles classical_only_intent_security_tier_constructor: INVALID, exit 1",
+      "must_reject_bundles classical_only_payment_declaring_security_tier_routine: INVALID, exit 1",
+      "must_reject_bundles classical_only_payment_from_low_risk_passport: INVALID, exit 1",
+      "must_reject_bundles classical_only_payment_from_passport_risk_tier_constructor: INVALID, exit 1",
+      "must_reject_bundles classical_only_payment_from_passport_risk_tier_hasOwnProperty: INVALID, exit 1",
+      "must_reject_bundles classical_only_payment_from_passport_risk_tier_proto: INVALID, exit 1",
+      "must_reject_bundles classical_only_payment_from_passport_risk_tier_toString: INVALID, exit 1",
+      "must_reject_bundles classical_only_policy_risk_score_900: INVALID, exit 1",
+      "must_reject_bundles classical_only_policy_risk_score_900_declaring_security_tier_routine: INVALID, exit 1",
+      "must_reject_bundles empty_audit_trail_with_another_root: INVALID, exit 1",
+      "must_reject_bundles intent_agent_id_other: INVALID, exit 1",
+      "must_reject_bundles intent_human_id_other: INVALID, exit 1",
+      "must_reject_bundles intent_session_nonce_differs: INVALID, exit 1",
+      "must_reject_bundles manifest_audit_merkle_root_mismatch: INVALID, exit 1",
+      "must_reject_bundles manifest_intent_hash_mismatch: INVALID, exit 1",
+      "must_reject_bundles manifest_session_nonce_differs_from_artifacts: INVALID, exit 1",
+      "must_reject_bundles manifest_without_rpr_hash: INVALID, exit 1",
+      "must_reject_bundles passport_key_expired: INVALID, exit 1",
+      "must_reject_bundles passport_key_expired_with_offset: INVALID, exit 1",
+      "must_reject_bundles passport_key_expires_at_date_only: INVALID, exit 1",
+      "must_reject_bundles passport_key_expires_at_impossible_date: INVALID, exit 1",
+      "must_reject_bundles passport_key_expires_at_no_offset: INVALID, exit 1",
+      "must_reject_bundles passport_key_expires_at_not_a_string: INVALID, exit 1",
+      "must_reject_bundles passport_key_expires_at_not_a_timestamp: INVALID, exit 1",
+      "must_reject_bundles passport_key_kid_not_derived: INVALID, exit 1",
+      "must_reject_bundles passport_key_public_key_with_trailing_bits: INVALID, exit 1",
+      "must_reject_bundles passport_key_revoked: INVALID, exit 1",
+      "must_reject_bundles passport_key_status_expired: INVALID, exit 1",
+      "must_reject_bundles passport_pq_key_public_key_unpadded: INVALID, exit 1",
+      "must_reject_bundles passport_principal_binding_reference_other: INVALID, exit 1",
+      "must_reject_bundles passport_status_commissioned: INVALID, exit 1",
+      "must_reject_bundles passport_status_decommissioned: INVALID, exit 1",
+      "must_reject_bundles passport_status_revoked: INVALID, exit 1",
+      "must_reject_bundles passport_status_suspended: INVALID, exit 1",
+      "must_reject_bundles policy_decision_intent_id_other: INVALID, exit 1",
+      "must_reject_bundles policy_decision_without_session_nonce: INVALID, exit 1",
+      "must_reject_bundles pq_checkpoint_carried_but_not_listed: INVALID, exit 1",
+      "must_reject_bundles pq_checkpoint_event_range_count_wrong: INVALID, exit 1",
+      "must_reject_bundles pq_checkpoint_listed_but_missing: INVALID, exit 1",
+      "must_reject_bundles pq_checkpoint_merkle_root_other: INVALID, exit 1",
+      "must_reject_bundles pq_checkpoint_pq_signature_invalid: INVALID, exit 1",
+      "must_reject_bundles pq_checkpoint_session_nonce_differs: INVALID, exit 1",
+      "must_reject_bundles pq_checkpoint_signed_by_principal: INVALID, exit 1",
+      "must_reject_bundles rpr_binding_key_expired: INVALID, exit 1",
+      "must_reject_bundles rpr_binding_key_expires_at_impossible_date: INVALID, exit 1",
+      "must_reject_bundles rpr_binding_key_kid_not_derived: INVALID, exit 1",
+      "must_reject_bundles rpr_binding_key_revoked: INVALID, exit 1",
+      "must_reject_bundles rpr_binding_key_status_expired: INVALID, exit 1",
+      "must_reject_bundles rpr_expired: INVALID, exit 1",
+      "must_reject_bundles rpr_expires_at_impossible_date: INVALID, exit 1",
+      "must_reject_bundles session_expired: INVALID, exit 1",
+      "must_reject_bundles session_expired_with_offset: INVALID, exit 1",
+      "must_reject_bundles session_expires_at_date_only: INVALID, exit 1",
+      "must_reject_bundles session_expires_at_empty: INVALID, exit 1",
+      "must_reject_bundles session_expires_at_not_a_string: INVALID, exit 1",
+      "must_reject_bundles session_expires_at_not_a_timestamp: INVALID, exit 1",
+      "must_reject_bundles session_issued_at_date_only: INVALID, exit 1",
+      "must_reject_bundles session_issued_at_in_the_future: INVALID, exit 1",
+      "must_reject_bundles session_issued_at_not_a_timestamp: INVALID, exit 1",
+      "normative V2 bundle + signature.binding composite: pre-normative envelope rejected, exit 1",
+      "normative V2 bundle + top-level dcp_version 2.0: pre-normative envelope rejected, exit 1",
+      "root false: not a signed bundle warning, exit 1",
+      "root null: an error, exit 1, as before",
+      "root true: not a signed bundle warning, exit 1",
+      "signed_bundle (hybrid, pq_over_classical): VALID, exit 0",
+      "the bundle signature with S + L: INVALID, exit 1",
+      "the children run with Date.now fixed at 2026-10-24T00:00:00.000Z",
+      "the corpus's object/a-small-order as a V1 file: INVALID, exit 1",
+      "the corpus's object/normal-key as a V1 file: VALID, exit 0",
+      "the corpus's object/r-identity as a V1 file: INVALID, exit 1",
+      "the corpus's object/r-small-order as a V1 file: INVALID, exit 1",
+      "the frozen corpus; the CLI helper is the reference copy",
+      "the identity forgery: INVALID, with the embedded key and with the .dcp/ key; TweetNaCl alone accepts it",
+      "the packaged files alone verify V2 and V1 bundles",
+      "the packed CLI ships the helper next to the binary",
+      "top-level bundle_manifest: pre-normative envelope rejected, exit 1",
+      "v1 with a key and an empty sig_b64: no public key warning, exit 1",
+      "v1 with a key and no signature: no public key warning, exit 1",
+      "v1 without a key: no public key warning, exit 1",
+      "v1, rfc8032_test1 key: S + 15·L: INVALID",
+      "v1, rfc8032_test1 key: S + 1·L: INVALID",
+      "v1, rfc8032_test1 key: S + 2·L: INVALID",
+      "v1, rfc8032_test1 key: S = L: INVALID",
+      "v1, rfc8032_test1 key: a signature over its bytes: VALID",
+      "v1, rfc8032_test2 key: S + 15·L: INVALID",
+      "v1, rfc8032_test2 key: S + 1·L: INVALID",
+      "v1, rfc8032_test2 key: S + 2·L: INVALID",
+      "v1, rfc8032_test2 key: S = L: INVALID",
+      "v1, rfc8032_test2 key: a signature over its bytes: VALID",
+      "v1, rfc8032_test3 key: S + 15·L: INVALID",
+      "v1, rfc8032_test3 key: S + 1·L: INVALID",
+      "v1, rfc8032_test3 key: S + 2·L: INVALID",
+      "v1, rfc8032_test3 key: S = L: INVALID",
+      "v1, rfc8032_test3 key: a signature over its bytes: VALID",
+      "v1: S = 0 with R = A = identity (P-ED-1): INVALID",
+      "v1: S = 15·L with R = A = identity, where the equation holds: INVALID",
+      "v1: S = 1·L with R = A = identity, where the equation holds: INVALID",
+      "v1: S = 2·L with R = A = identity, where the equation holds: INVALID",
+      "v1: S = L - 1 with R = -B, A = identity (P-ED-1): INVALID",
+      "v1: a 31- or 33-byte key with an S + L signature: bad public key size, exit 1",
+      "v1: a 63- or 65-byte S + L signature, also with a 31-byte key: bad signature size, exit 1",
+      "v1: another bundle, another R or another key: INVALID",
+      "v1: invalid base64 in the S + L signature or in the key: invalid encoding, exit 1",
+      "v1: the key in .dcp/keys/ed25519_public.key wins over the embedded one",
+      "v2-classical without a key, or with a key and no classical value: rejected as pre-normative V2",
+      "v2-classical, rfc8032_test1 key: S + 15·L: rejected as pre-normative V2",
+      "v2-classical, rfc8032_test1 key: S + 1·L: rejected as pre-normative V2",
+      "v2-classical, rfc8032_test1 key: S + 2·L: rejected as pre-normative V2",
+      "v2-classical, rfc8032_test1 key: S = L: rejected as pre-normative V2",
+      "v2-classical, rfc8032_test1 key: a signature over its bytes: rejected as pre-normative V2",
+      "v2-classical, rfc8032_test2 key: S + 15·L: rejected as pre-normative V2",
+      "v2-classical, rfc8032_test2 key: S + 1·L: rejected as pre-normative V2",
+      "v2-classical, rfc8032_test2 key: S + 2·L: rejected as pre-normative V2",
+      "v2-classical, rfc8032_test2 key: S = L: rejected as pre-normative V2",
+      "v2-classical, rfc8032_test2 key: a signature over its bytes: rejected as pre-normative V2",
+      "v2-classical, rfc8032_test3 key: S + 15·L: rejected as pre-normative V2",
+      "v2-classical, rfc8032_test3 key: S + 1·L: rejected as pre-normative V2",
+      "v2-classical, rfc8032_test3 key: S + 2·L: rejected as pre-normative V2",
+      "v2-classical, rfc8032_test3 key: S = L: rejected as pre-normative V2",
+      "v2-classical, rfc8032_test3 key: a signature over its bytes: rejected as pre-normative V2",
+      "v2-classical: S = 0 with R = A = identity (P-ED-1): rejected as pre-normative V2",
+      "v2-classical: S = 15·L with R = A = identity, where the equation holds: rejected as pre-normative V2",
+      "v2-classical: S = 1·L with R = A = identity, where the equation holds: rejected as pre-normative V2",
+      "v2-classical: S = 2·L with R = A = identity, where the equation holds: rejected as pre-normative V2",
+      "v2-classical: S = L - 1 with R = -B, A = identity (P-ED-1): rejected as pre-normative V2",
+      "v2-classical: a 31- or 33-byte key with an S + L signature: rejected as pre-normative V2, exit 1",
+      "v2-classical: a 63- or 65-byte S + L signature, also with a 31-byte key: rejected as pre-normative V2, exit 1",
+      "v2-classical: another bundle, another R or another key: rejected as pre-normative V2",
+      "v2-classical: invalid base64 in the S + L signature or in the key: rejected as pre-normative V2, exit 1",
+      "v2-classical: with or without domain_sep, honest or S + L: rejected as pre-normative V2"
+    ]
+  },
+  "direct": {
+    "script": "tools/conformance/wrappers/browser/direct-sections.mjs",
+    "fixtures": [
+      "tests/interop/v2/interop_vectors.json",
+      "tests/interop/v2/mandate_acknowledgment_vectors.json",
+      "tests/interop/v2/ed25519_ped1_vectors.json"
+    ],
+    "sections": {
+      "domain_separation": 20,
+      "security_tier": 79,
+      "ped1_classical_only": 2,
+      "hybrid_roundtrip": 2
+    },
+    "cases": [
+      {
+        "id": "domain_separation/0",
+        "section": "domain_separation"
+      },
+      {
+        "id": "domain_separation/1",
+        "section": "domain_separation"
+      },
+      {
+        "id": "domain_separation/2",
+        "section": "domain_separation"
+      },
+      {
+        "id": "domain_separation/3",
+        "section": "domain_separation"
+      },
+      {
+        "id": "domain_separation/4",
+        "section": "domain_separation"
+      },
+      {
+        "id": "domain_separation/5",
+        "section": "domain_separation"
+      },
+      {
+        "id": "domain_separation/6",
+        "section": "domain_separation"
+      },
+      {
+        "id": "domain_separation/7",
+        "section": "domain_separation"
+      },
+      {
+        "id": "domain_separation/8",
+        "section": "domain_separation"
+      },
+      {
+        "id": "domain_separation/9",
+        "section": "domain_separation"
+      },
+      {
+        "id": "domain_separation/10",
+        "section": "domain_separation"
+      },
+      {
+        "id": "domain_separation/11",
+        "section": "domain_separation"
+      },
+      {
+        "id": "domain_separation/12",
+        "section": "domain_separation"
+      },
+      {
+        "id": "domain_separation/13",
+        "section": "domain_separation"
+      },
+      {
+        "id": "domain_separation/14",
+        "section": "domain_separation"
+      },
+      {
+        "id": "domain_separation/15",
+        "section": "domain_separation"
+      },
+      {
+        "id": "domain_separation/16",
+        "section": "domain_separation"
+      },
+      {
+        "id": "domain_separation/17",
+        "section": "domain_separation"
+      },
+      {
+        "id": "domain_separation/18",
+        "section": "domain_separation"
+      },
+      {
+        "id": "domain_separation/19",
+        "section": "domain_separation"
+      },
+      {
+        "id": "security_tier/20",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/21",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/22",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/23",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/24",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/25",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/26",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/27",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/28",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/29",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/30",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/31",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/32",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/33",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/34",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/35",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/36",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/37",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/38",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/39",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/40",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/41",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/42",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/43",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/44",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/45",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/46",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/47",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/48",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/49",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/50",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/51",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/52",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/53",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/54",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/55",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/56",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/57",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/58",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/59",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/60",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/61",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/62",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/63",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/64",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/65",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/66",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/67",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/68",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/69",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/70",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/71",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/72",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/73",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/74",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/75",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/76",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/77",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/78",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/79",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/80",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/81",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/82",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/83",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/84",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/85",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/86",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/87",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/88",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/89",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/90",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/91",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/92",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/93",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/94",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/95",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/96",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/97",
+        "section": "security_tier"
+      },
+      {
+        "id": "security_tier/98",
+        "section": "security_tier"
+      },
+      {
+        "id": "ped1_classical_only/99",
+        "section": "ped1_classical_only"
+      },
+      {
+        "id": "ped1_classical_only/100",
+        "section": "ped1_classical_only"
+      },
+      {
+        "id": "hybrid_roundtrip/101",
+        "section": "hybrid_roundtrip"
+      },
+      {
+        "id": "hybrid_roundtrip/102",
+        "section": "hybrid_roundtrip"
+      }
+    ]
+  }
+}

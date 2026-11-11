@@ -21,12 +21,10 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import nacl from 'tweetnacl';
-import stringify from 'json-stable-stringify';
-import { findConfigDir } from '../lib/config.js';
+import { BIN, dependency, findConfigDir } from './cli-under-test.mjs';
 
-const BIN = fileURLToPath(new URL('../bin/dcp-ai.js', import.meta.url));
+const nacl = await dependency('tweetnacl');
+const stringify = await dependency('json-stable-stringify');
 const kat = JSON.parse(readFileSync(new URL('../../tests/nist-kat/ed25519/vectors.json', import.meta.url), 'utf8')).test_vectors;
 const NEGATIVE_CONTROL = process.env.DCP_NEGATIVE_CONTROL === '1';
 

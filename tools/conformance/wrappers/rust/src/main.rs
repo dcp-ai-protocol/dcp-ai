@@ -380,7 +380,9 @@ fn main() {
         "implementation": {
             "name": "dcp-ai Rust SDK via tools/conformance/wrappers/rust",
             "version": dcp_ai::observability::DCP_SDK_VERSION,
-            "resolved_from": "path dependency ../../../../sdks/rust",
+            // A registry consumer sets DCP_CONFORMANCE_SDK_SOURCE at compile time; without it, this checkout's path
+            // dependency, as before. A declared label either way: it proves no origin.
+            "resolved_from": option_env!("DCP_CONFORMANCE_SDK_SOURCE").unwrap_or("path dependency ../../../../sdks/rust"),
             "runtime": format!("native {}-{}", std::env::consts::ARCH, std::env::consts::OS),
         },
         "results": results,

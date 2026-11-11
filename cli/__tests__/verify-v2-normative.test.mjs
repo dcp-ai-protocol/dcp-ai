@@ -15,11 +15,9 @@ import { spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { findConfigDir } from '../lib/config.js';
+import { basename } from 'node:path';
+import { CLI, BIN, REPO, INSTALLED, dependencyDirs, findConfigDir } from './cli-under-test.mjs';
 
-const CLI = fileURLToPath(new URL('..', import.meta.url));
-const BIN = join(CLI, 'bin', 'dcp-ai.js');
 const read = (p) => JSON.parse(readFileSync(new URL(`../../${p}`, import.meta.url), 'utf8'));
 const vectors = read('tests/interop/v2/bundle_vectors.json');
 const v1Bundle = read('tests/conformance/examples/citizenship_bundle.signed.json');
@@ -195,7 +193,7 @@ test('cli/lib/schemas/v2 are byte-identical copies of schemas/v2', () => {
     'policy_decision', 'pq_checkpoint', 'responsible_principal_record', 'signed_bundle', 'signed_payload',
   ].map((n) => `${n}.schema.json`));
   for (const f of files) {
-    assert.ok(readFileSync(join(dir, f)).equals(readFileSync(join(CLI, '..', 'schemas', 'v2', f))), f);
+    assert.ok(readFileSync(join(dir, f)).equals(readFileSync(join(REPO, 'schemas', 'v2', f))), f);
   }
 });
 
@@ -209,7 +207,11 @@ test('the packaged files alone verify V2 and V1 bundles', () => {
     }
     const { files } = JSON.parse(readFileSync(join(CLI, 'package.json'), 'utf8'));
     for (const f of ['package.json', ...files]) cpSync(join(CLI, f), join(pkg, f), { recursive: true });
-    cpSync(join(CLI, 'node_modules'), join(pkg, 'node_modules'), { recursive: true });
+    // The dependencies as they are installed for this CLI: its own node_modules here; for an installed package,
+    // the node_modules npm hoisted them into (without its .bin links), then its own if it has one.
+    for (const dir of dependencyDirs()) {
+      cpSync(dir, join(pkg, 'node_modules'), { recursive: true, ...(INSTALLED ? { filter: (src) => basename(src) !== '.bin' } : {}) });
+    }
     const bin = join(pkg, 'bin', 'dcp-ai.js');
     expectV2(verify(base, { bin }), 'VALID');
     expectV2(verify(vectors.must_reject_bundles[0].signed_bundle, { bin }), 'INVALID');

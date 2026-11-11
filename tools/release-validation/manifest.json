@@ -1,0 +1,135 @@
+{
+  "schema": "dcp-ai-release-validation-manifest/1",
+  "source": "docs/conformance/AUDIT_DOSSIER.md, Publication of 09/11/2026",
+  "packages": {
+    "npm-sdk": {
+      "ecosystem": "npm",
+      "registry": "https://registry.npmjs.org/",
+      "name": "@dcp-ai/sdk",
+      "version": "2.4.0",
+      "integrity": "sha512-4IsY/ctFqLf5vvOS6bWUdN63NCbMoi6N0qnAceYG8AINnqm7+cRyG5stO+P4ZM8ROM2uyhI09AlcQDhdJVhIeQ=="
+    },
+    "npm-wasm": {
+      "ecosystem": "npm",
+      "registry": "https://registry.npmjs.org/",
+      "name": "@dcp-ai/wasm",
+      "version": "2.2.0",
+      "integrity": "sha512-eu9NiNXl99hCKz/xpUPteaZGF+ea0+WTQ/6mZu2RIkuP2eTMsym0Bbp7gTbqB1LaaGMGuRFYAjK8wSVIGt/AAA==",
+      "inner": {
+        "file": "pkg/package.json",
+        "name": "dcp-ai",
+        "version": "2.14.0",
+        "meaning": "Metadata of the Rust crate the WebAssembly build was compiled from, as wasm-pack wrote it. It is not the npm identity and is not expected to equal the npm version."
+      }
+    },
+    "npm-cli": {
+      "ecosystem": "npm",
+      "registry": "https://registry.npmjs.org/",
+      "name": "@dcp-ai/cli",
+      "version": "2.2.0",
+      "integrity": "sha512-/UR5K7/PctZX8Do6CULz1ua1eEwt19Jo/Q/adkMq806uRjZ2gh10W0FnfrzJVJPjskadK/tma2aXisU+z1Hx7Q=="
+    },
+    "pypi-wheel": {
+      "ecosystem": "pypi",
+      "registry": "https://pypi.org/simple/",
+      "name": "dcp-ai",
+      "version": "2.11.0",
+      "files": "https://files.pythonhosted.org/",
+      "file": "dcp_ai-2.11.0-py3-none-any.whl",
+      "sha256": "2e7776e1c3675f9f4a3c088d6115b728d6e33c72c69a2e624b1771ab9fa45f53"
+    },
+    "pypi-sdist": {
+      "ecosystem": "pypi",
+      "registry": "https://pypi.org/simple/",
+      "name": "dcp-ai",
+      "version": "2.11.0",
+      "files": "https://files.pythonhosted.org/",
+      "file": "dcp_ai-2.11.0.tar.gz",
+      "sha256": "9d4a545376e2a9a0afa61b0845ef5bf992b9c92ac5390da95a35333327397da7"
+    },
+    "crates": {
+      "ecosystem": "crates.io",
+      "registry": "https://crates.io/",
+      "name": "dcp-ai",
+      "version": "2.14.0",
+      "sha256": "704028282d977973fc84e6fbaa495159e43ecec5951cf2f1b5ea9d3e70515424"
+    },
+    "go": {
+      "ecosystem": "go",
+      "registry": "https://proxy.golang.org/",
+      "name": "github.com/dcp-ai-protocol/dcp-ai/sdks/go/v2",
+      "version": "v2.14.0",
+      "h1": "h1:9O4n7vn3YqOhKlyUg/cm0OnouQi4QbU7mHbIh1BM5Z8="
+    }
+  },
+  "catalogs": {
+    "default": {
+      "file": "tools/conformance/external-catalog.json"
+    },
+    "evidence": {
+      "file": "tools/conformance/external-evidence-catalog.json",
+      "assessment": "verdict"
+    },
+    "admission": {
+      "file": "tools/conformance/external-admission-catalog.json"
+    },
+    "delegation": {
+      "file": "tools/conformance/external-delegation-catalog.json"
+    },
+    "policy": {
+      "file": "tools/conformance/external-policy-catalog.json",
+      "assessment": "verdict"
+    },
+    "effective-policy": {
+      "file": "tools/conformance/external-effective-policy-catalog.json"
+    },
+    "structural": {
+      "file": "tools/conformance/external-structural-catalog.json",
+      "assessment": "verdict"
+    },
+    "schema-validation": {
+      "file": "tools/conformance/external-schema-validation-catalog.json",
+      "assessment": "verdict"
+    }
+  },
+  "lanes": {
+    "npm-sdk": {
+      "package": "npm-sdk",
+      "catalogs": ["default", "evidence", "admission", "delegation", "policy", "effective-policy", "structural", "schema-validation"]
+    },
+    "npm-wasm-node": {
+      "package": "npm-wasm",
+      "catalogs": ["default", "evidence", "policy", "effective-policy", "structural", "schema-validation"]
+    },
+    "npm-wasm-browser": {
+      "package": "npm-wasm",
+      "catalogs": ["default", "evidence", "policy", "effective-policy", "structural", "schema-validation"],
+      "blocks": ["direct-sections"]
+    },
+    "npm-cli": {
+      "package": "npm-cli",
+      "catalogs": [],
+      "blocks": ["cli-suites", "cli-negative-control"]
+    },
+    "pypi-wheel": {
+      "package": "pypi-wheel",
+      "catalogs": ["default", "evidence", "admission", "delegation", "policy", "effective-policy", "structural", "schema-validation"]
+    },
+    "pypi-sdist": {
+      "package": "pypi-sdist",
+      "catalogs": ["default", "evidence", "admission", "delegation", "policy", "effective-policy", "structural", "schema-validation"]
+    },
+    "go": {
+      "package": "go",
+      "catalogs": ["default", "evidence", "admission", "delegation", "policy", "effective-policy", "structural", "schema-validation"]
+    },
+    "crates-default": {
+      "package": "crates",
+      "catalogs": ["default", "evidence", "admission", "delegation", "policy", "effective-policy", "structural", "schema-validation"]
+    },
+    "crates-otlp": {
+      "package": "crates",
+      "catalogs": ["default", "evidence", "admission", "delegation", "policy", "effective-policy", "structural", "schema-validation"]
+    }
+  }
+}

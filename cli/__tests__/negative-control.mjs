@@ -46,7 +46,8 @@ const checks = {
   nothing_cancelled_or_skipped: totals.cancelled === 0 && totals.skipped === 0 && totals.todo === 0,
 };
 const ok = Object.values(checks).every(Boolean);
-console.log(JSON.stringify({ exit_code: run.status, signal: run.signal, error: run.error?.message ?? null, totals,
+// cli_root: the installed package the suites ran (DCP_CLI_ROOT, inherited by them), or null for this checkout's CLI.
+console.log(JSON.stringify({ cli_root: process.env.DCP_CLI_ROOT || null, exit_code: run.status, signal: run.signal, error: run.error?.message ?? null, totals,
   failures, checks }, null, 2));
 console.log(ok ? 'NEGATIVE CONTROL: failed as required' : 'NEGATIVE CONTROL: DID NOT FAIL AS REQUIRED');
 if (!ok) process.stderr.write(run.stderr ?? '');
