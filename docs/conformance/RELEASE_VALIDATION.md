@@ -75,9 +75,21 @@ Also run, and not a campaign: the two Python lanes with the first catalog in a L
 (Ubuntu 24.04, CPython 3.12.3, emulated on the same host), in `fresh` and in `locked` mode. That is
 where the Linux lock comes from.
 
-**The CI workflow has not been run.** `.github/workflows/release-validation.yml` runs the same
-campaign on `ubuntu-24.04` on demand; no run of it exists yet, and nothing here claims a Linux
-campaign.
+**The complete GitHub campaign passed.** On 10/11/2026 (America/Santiago), the workflow ran all nine lanes in `locked` mode on an Ubuntu 24.04 x86_64 GitHub-hosted runner. The retained evidence was independently checked: all 60 cells (6142 cases), 103 direct browser cases, 218 CLI tests, the exact four-failure negative control and 58 controls passed; the tool tests passed 37/37 with no skips.
+
+| Item | Observed |
+|---|---|
+| GitHub | [Release validation #42936377966](https://github.com/dcp-ai-protocol/dcp-ai/actions/runs/42936377966) |
+| Run | `29adf7d3-14a9-4ad8-b57b-d3f3e5bcc628` |
+| UTC | `2026-11-11T01:06:03.656Z` – `2026-11-11T01:12:52.962Z` |
+| Node / npm | 22.23.4 / 10.9.9 |
+| Python / pip | CPython 3.12.16 x86_64 / 25.0.1 |
+| Go | 1.26.10 linux/amd64 |
+| Rust | cargo / rustc 1.99.1, x86_64-unknown-linux-gnu |
+| Chrome | Google Chrome 156.0.8078.79 |
+| `report.json` SHA-256 | `d0b5da90f06b204ae46677a8fbaeb54d6f3b1620c204f8aea2d33a7efedac84f` |
+
+The workflow runs on relevant pull requests and on demand, with read-only repository access and no publishing step. Its artifacts are retained for 30 days. The archives were rehashed independently and their source-tree digests matched the installed-tree checks recorded before `--clean` removed the consumers; this does not claim a second inspection of those removed files.
 
 ## Running it
 
@@ -101,7 +113,7 @@ other interpreter or platform the Python lanes need `fresh`.
 - Any version other than the six above, and anything not published to those registries: the framework
   integrations, the Docker images, the project templates, the services and the contracts.
 - Operating systems, architectures, interpreters and browsers that were not run. In particular: no
-  Windows, no complete campaign on Linux, no Go binary for arm64, no browser other than Chrome.
+  Windows, no Go binary for arm64, no browser other than Chrome.
 - The host's own tools. npm, pip, Go, cargo, rustc, the C compiler and Chrome are used as found and
   recorded, not pinned.
 - The properties the catalogs themselves do not cover. Their limits are in the

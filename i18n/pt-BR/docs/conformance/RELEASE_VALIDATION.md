@@ -66,7 +66,21 @@ O relatório e seus arquivos são mantidos pelos mantenedores; não estão no re
 
 Também foi executado, e não é uma campanha: os dois lanes de Python com o primeiro catálogo em um contêiner Linux x86_64 (Ubuntu 24.04, CPython 3.12.3, emulado no mesmo host), em modo `fresh` e em modo `locked`. É daí que vem o lock de Linux.
 
-**O workflow de CI não foi executado.** `.github/workflows/release-validation.yml` executa a mesma campanha em `ubuntu-24.04` sob demanda; ainda não existe nenhuma execução dele, e nada aqui afirma uma campanha em Linux.
+**A campanha completa no GitHub passou.** Em 10/11/2026 (America/Santiago), o workflow executou os nove lanes em modo `locked` em um runner do GitHub com Ubuntu 24.04 x86_64. A evidência preservada foi conferida de forma independente: passaram as 60 células (6142 casos), 103 casos diretos no navegador, 218 testes CLI, o controle negativo com exatamente quatro falhas e os 58 controles; os testes da ferramenta passaram 37/37 sem omissões.
+
+| Item | Observado |
+|---|---|
+| GitHub | [Release validation #42936377966](https://github.com/dcp-ai-protocol/dcp-ai/actions/runs/42936377966) |
+| Run | `29adf7d3-14a9-4ad8-b57b-d3f3e5bcc628` |
+| UTC | `2026-11-11T01:06:03.656Z` – `2026-11-11T01:12:52.962Z` |
+| Node / npm | 22.23.4 / 10.9.9 |
+| Python / pip | CPython 3.12.16 x86_64 / 25.0.1 |
+| Go | 1.26.10 linux/amd64 |
+| Rust | cargo / rustc 1.99.1, x86_64-unknown-linux-gnu |
+| Chrome | Google Chrome 156.0.8078.79 |
+| `report.json` SHA-256 | `d0b5da90f06b204ae46677a8fbaeb54d6f3b1620c204f8aea2d33a7efedac84f` |
+
+O workflow é executado nos PRs pertinentes e sob demanda, com acesso de leitura ao repositório e sem etapas de publicação. Seus artefatos são mantidos por 30 dias. Os hashes dos arquivos baixados foram recalculados de forma independente e os hashes das árvores-fonte coincidiram com as verificações das árvores instaladas registradas antes de `--clean` remover os consumidores; isso não afirma uma segunda inspeção dos arquivos removidos.
 
 <a id="running-it"></a>
 
@@ -86,6 +100,6 @@ As dependências de terceiros vêm de locks versionados (`locked`, o padrão) ou
 ## O que não é coberto
 
 - Nenhuma versão além das seis acima, nem nada que não esteja publicado nesses registros: as integrações com frameworks, as imagens Docker, os templates de projeto, os serviços e os contratos.
-- Sistemas operacionais, arquiteturas, interpretadores e navegadores que não foram executados. Em particular: nem Windows, nem uma campanha completa em Linux, nem um binário Go para arm64, nem nenhum navegador além do Chrome.
+- Sistemas operacionais, arquiteturas, interpretadores e navegadores que não foram executados. Em particular: nem Windows, nem um binário Go para arm64, nem nenhum navegador além do Chrome.
 - As ferramentas do próprio host. npm, pip, Go, cargo, rustc, o compilador C e o Chrome são usados como estão e registrados, não fixados.
 - As propriedades que os próprios catálogos não cobrem. Seus limites estão no [kit de conformidade](../../../../tools/conformance/README.md) e no [dossiê de auditoria](../../../../docs/conformance/AUDIT_DOSSIER.md#known-limits-and-exclusions).

@@ -66,7 +66,21 @@
 
 另外还运行过以下内容，但它不是一次完整的验证：在 Linux x86_64 容器（Ubuntu 24.04，CPython 3.12.3，在同一台主机上模拟运行）中，以 `fresh` 和 `locked` 两种模式对两条 Python 通道运行了第一个目录。Linux 的锁文件即来源于此。
 
-**CI 工作流尚未运行过。** `.github/workflows/release-validation.yml` 可按需在 `ubuntu-24.04` 上运行同样的验证；目前还没有它的任何一次运行，这里的内容也不声称在 Linux 上完成过完整的验证。
+**GitHub 上的完整验证已通过。** 10/11/2026（America/Santiago），工作流在 GitHub 的 Ubuntu 24.04 x86_64 运行器上以 `locked` 模式运行了全部九条通道。独立核对保存的证据后，确认全部 60 个单元（6142 个用例）、103 个浏览器直接用例、218 个 CLI 测试、要求恰好四个失败的阴性对照以及 58 个对照均通过；工具测试也全部通过，37/37，无跳过。
+
+| 项目 | 观测结果 |
+|---|---|
+| GitHub | [Release validation #42936377966](https://github.com/dcp-ai-protocol/dcp-ai/actions/runs/42936377966) |
+| Run | `29adf7d3-14a9-4ad8-b57b-d3f3e5bcc628` |
+| UTC | `2026-11-11T01:06:03.656Z` – `2026-11-11T01:12:52.962Z` |
+| Node / npm | 22.23.4 / 10.9.9 |
+| Python / pip | CPython 3.12.16 x86_64 / 25.0.1 |
+| Go | 1.26.10 linux/amd64 |
+| Rust | cargo / rustc 1.99.1, x86_64-unknown-linux-gnu |
+| Chrome | Google Chrome 156.0.8078.79 |
+| `report.json` SHA-256 | `d0b5da90f06b204ae46677a8fbaeb54d6f3b1620c204f8aea2d33a7efedac84f` |
+
+工作流在相关 PR 中运行，也支持手动运行；仅有仓库读取权限，没有发布步骤。制品保留 30 天。独立重新计算了下载文件的哈希，其源文件树摘要与 `--clean` 删除消费者之前记录的已安装文件树检查结果一致；这不表示再次直接检查了已经删除的文件。
 
 <a id="running-it"></a>
 
@@ -86,6 +100,6 @@ node tools/release-validation/run.mjs --python "/path/to/python3.12" --go "/path
 ## 不涵盖的内容
 
 - 上述六个版本之外的任何版本，以及任何未发布到这些注册表的内容：框架集成、Docker 镜像、项目模板、服务和合约。
-- 未运行过的操作系统、架构、解释器和浏览器。具体来说：没有 Windows，没有在 Linux 上的完整验证，没有 arm64 的 Go 二进制文件，没有 Chrome 之外的浏览器。
+- 未运行过的操作系统、架构、解释器和浏览器。具体来说：没有 Windows，没有 arm64 的 Go 二进制文件，没有 Chrome 之外的浏览器。
 - 主机自身的工具。npm、pip、Go、cargo、rustc、C 编译器和 Chrome 都按主机上现有的版本使用并加以记录，不作固定。
 - 目录本身不涵盖的性质。它们的限制见[一致性工具包](../../../../tools/conformance/README.md)和[审计档案](../../../../docs/conformance/AUDIT_DOSSIER.md#known-limits-and-exclusions)。

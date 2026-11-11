@@ -66,7 +66,21 @@ El informe y sus archivos los conservan los mantenedores; no están en el reposi
 
 También se ejecutó, y no es una campaña: los dos lanes de Python con el primer catálogo en un contenedor Linux x86_64 (Ubuntu 24.04, CPython 3.12.3, emulado en el mismo host), en modo `fresh` y en modo `locked`. De ahí sale el lock de Linux.
 
-**El workflow de CI no se ha ejecutado.** `.github/workflows/release-validation.yml` ejecuta la misma campaña en `ubuntu-24.04` bajo demanda; todavía no existe ninguna ejecución suya, y nada aquí afirma una campaña en Linux.
+**La campaña completa en GitHub pasó.** El 10/11/2026 (America/Santiago), el workflow ejecutó los nueve lanes en modo `locked` en un runner de GitHub con Ubuntu 24.04 x86_64. La evidencia conservada se contrastó independientemente: pasaron las 60 celdas (6142 casos), 103 casos directos de navegador, 218 pruebas CLI, el control negativo con exactamente cuatro fallos y los 58 controles; las pruebas de la herramienta pasaron 37/37 sin omisiones.
+
+| Elemento | Observado |
+|---|---|
+| GitHub | [Release validation #42936377966](https://github.com/dcp-ai-protocol/dcp-ai/actions/runs/42936377966) |
+| Run | `29adf7d3-14a9-4ad8-b57b-d3f3e5bcc628` |
+| UTC | `2026-11-11T01:06:03.656Z` – `2026-11-11T01:12:52.962Z` |
+| Node / npm | 22.23.4 / 10.9.9 |
+| Python / pip | CPython 3.12.16 x86_64 / 25.0.1 |
+| Go | 1.26.10 linux/amd64 |
+| Rust | cargo / rustc 1.99.1, x86_64-unknown-linux-gnu |
+| Chrome | Google Chrome 156.0.8078.79 |
+| `report.json` SHA-256 | `d0b5da90f06b204ae46677a8fbaeb54d6f3b1620c204f8aea2d33a7efedac84f` |
+
+El workflow se ejecuta en los PR pertinentes y bajo demanda, con acceso de lectura al repositorio y sin pasos de publicación. Sus artefactos se conservan 30 días. Se recalcularon independientemente los hashes de los archivos descargados y los de sus árboles fuente coincidieron con las comprobaciones de los árboles instalados registradas antes de que `--clean` eliminara los consumidores; esto no afirma una segunda inspección de esos archivos eliminados.
 
 <a id="running-it"></a>
 
@@ -86,6 +100,6 @@ Las dependencias de terceros salen de locks versionados (`locked`, el valor por 
 ## Qué no cubre
 
 - Ninguna versión distinta de las seis anteriores, ni nada que no esté publicado en esos registros: las integraciones con frameworks, las imágenes Docker, las plantillas de proyecto, los servicios y los contratos.
-- Sistemas operativos, arquitecturas, intérpretes y navegadores que no se ejecutaron. En particular: ni Windows, ni una campaña completa en Linux, ni un binario de Go para arm64, ni ningún navegador distinto de Chrome.
+- Sistemas operativos, arquitecturas, intérpretes y navegadores que no se ejecutaron. En particular: ni Windows, ni un binario de Go para arm64, ni ningún navegador distinto de Chrome.
 - Las herramientas propias del host. npm, pip, Go, cargo, rustc, el compilador de C y Chrome se usan tal como están y se registran, no se fijan.
 - Las propiedades que los propios catálogos no cubren. Sus límites están en el [kit de conformidad](../../../../tools/conformance/README.md) y en el [dossier de auditoría](../../../../docs/conformance/AUDIT_DOSSIER.md#known-limits-and-exclusions).
