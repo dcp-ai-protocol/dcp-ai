@@ -18,7 +18,7 @@ import { EXIT, CONTROL_LANE, REQUIRED_CONTROLS, processProblems, scanNpm, compar
 import { createSupervisor, supervised, descendantsOf, processTable } from './supervise.mjs';
 import http from 'node:http';
 import { HERE, IMPLEMENTED, expectedPlan, createWorkDir, cleanConsumers, isolatedEnv, treeOf, checkDeclared, findTool, Stop } from './lanes.mjs';
-import { installPython, pythonLockKey, pythonLockKeys } from './lanes-python.mjs';
+import { installPython, pythonLockKey, pythonLockKeys, pythonEnv } from './lanes-python.mjs';
 import { RUST_FEATURES } from './lanes-rust.mjs';
 import { parseArgs } from './run.mjs';
 import { ciOutcome, ciArgs } from './ci.mjs';
@@ -672,6 +672,30 @@ test('Python locks: one per platform, chosen by the interpreter; only pinned, ha
   bad({ build: '' }, 'no build dependencies');
   bad({ build: `${lock.build}dcp-ai==2.11.0 --hash=sha256:${w.sha256}\n` }, 'dcp-ai as a build dependency');
   assert.deepEqual(parseRequirements(`# c\n\nA_b.C==1.0 --hash=sha256:${h} --hash=sha256:${'b'.repeat(64)}\n`, 'f').entries, [{ name: 'a-b-c', version: '1.0', hashes: [h, 'b'.repeat(64)] }]);
+});
+
+test('Python disables real pip configuration files, including site config, rather than omitting PIP_CONFIG_FILE', async (t) => {
+  let python;
+  try { python = findTool('python3', process.env.DCP_RELEASE_VALIDATION_TEST_PYTHON, '--python'); }
+  catch (e) { assert.ok(e instanceof Stop); t.skip('no Python on the isolated PATH'); return; }
+  const base = tmp();
+  try {
+    for (const d of ['home', 'tmp']) fs.mkdirSync(path.join(base, d));
+    const venv = path.join(base, 'venv');
+    const made = await runProcess([python, '-I', '-B', '-m', 'venv', venv], Buffer.alloc(0), { env: isolatedEnv(base), timeoutMs: 30000 });
+    assert.equal(made.observed.exit_code, 0, made.observed.stderr_excerpt);
+    fs.writeFileSync(path.join(venv, 'pip.conf'), '[global]\nindex-url = https://must-not-be-used.invalid/simple\nbreak-system-packages = true\n');
+    const command = [path.join(venv, 'bin', 'python'), '-I', '-B', '-m', 'pip', '--isolated', 'config', 'list'];
+    const control = await runProcess(command, Buffer.alloc(0), { env: isolatedEnv(base) });
+    assert.equal(control.observed.exit_code, 0, control.observed.stderr_excerpt);
+    assert.match(control.stdout.toString(), /must-not-be-used\.invalid/);
+    const env = pythonEnv(base);
+    assert.equal(env.PIP_CONFIG_FILE, os.devNull);
+    assert.equal(typeof env.PIP_CONFIG_FILE, 'string');
+    const isolated = await runProcess(command, Buffer.alloc(0), { env });
+    assert.equal(isolated.observed.exit_code, 0, isolated.observed.stderr_excerpt);
+    assert.equal(isolated.stdout.toString().trim(), '');
+  } finally { fs.rmSync(base, { recursive: true }); }
 });
 
 test('Python trees: only what pip adds or rewrites is left out of the comparison', () => {

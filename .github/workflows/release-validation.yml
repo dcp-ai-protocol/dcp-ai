@@ -100,6 +100,8 @@ jobs:
           google-chrome --version
 
       - name: Tests of the tool (no external network)
+        env:
+          DCP_RELEASE_VALIDATION_TEST_PYTHON: ${{ steps.python.outputs.python-path }}
         run: node --test tools/release-validation/release-validation.test.mjs
 
       - name: Validate the published packages

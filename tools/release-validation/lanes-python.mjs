@@ -19,6 +19,9 @@ export const pythonLockKeys = () => fs.readdirSync(PYTHON_LOCKS, { withFileTypes
 const read = (f) => fs.readFileSync(f, 'utf8');
 const requirementLine = (e) => `${e.name}==${e.version} --hash=sha256:${e.sha256}`;
 
+// Node spells this devNull, unlike Python's os.devnull. An undefined value is omitted by spawn.
+export const pythonEnv = (run) => isolatedEnv(run, { PIP_CONFIG_FILE: os.devNull });
+
 /** kind: 'wheel' or 'sdist'. Returns the installation result (see createInstall). */
 export async function installPython({ kind, run, sup, manifest, resolution, remainingMs, tools }) {
   const id = `pypi-${kind}`;
@@ -28,8 +31,8 @@ export async function installPython({ kind, run, sup, manifest, resolution, rema
   const consumer = path.join(run, 'consumers', id);
   const artifacts = path.join(run, 'artifacts', id);
   const extracted = path.join(run, 'extracted', id);
-  // PIP_CONFIG_FILE=os.devnull stops pip from loading any configuration file; --isolated drops the rest.
-  const env = isolatedEnv(run, { PIP_CONFIG_FILE: os.devnull });
+  // PIP_CONFIG_FILE stops pip from loading files, including the host's global config; --isolated drops the rest.
+  const env = pythonEnv(run);
   const { result, phase, exec, untar, settle } = createInstall({ run, sup, remainingMs, resolution });
   const locked = resolution === 'locked';
   const venvPython = (name) => path.join(consumer, name, 'bin', 'python');
@@ -48,7 +51,7 @@ export async function installPython({ kind, run, sup, manifest, resolution, rema
   const makeVenv = async (name, base) => {
     await py(`venv-${name}`, base, ['-m', 'venv', path.join(consumer, name)]);
     const python = venvPython(name);
-    const config = (await py(`pip-config-${name}`, python, ['-m', 'pip', 'config', 'list'])).trim();
+    const config = (await py(`pip-config-${name}`, python, ['-m', 'pip', '--isolated', 'config', 'list'])).trim();
     if (config !== '') throw new Stop('identity', [`pip would read configuration: ${config.slice(0, 200)}`]);
     return python;
   };
