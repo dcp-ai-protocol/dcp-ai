@@ -433,6 +433,21 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
   `"dcp-jcs-v1"`, como hacen TypeScript y Python. Vectores compartidos `canonicalization_profile_unknown`
   y `canonicalization_profile_not_a_string`.
 
+- **Workflows de publicación en npm preparados para trusted publishing (OIDC)** (CI en `main`; sin cambios de paquetes
+  ni de versiones; todavía sin ejercitar). `publish.yml`, `publish-integrations.yml` y `publish-templates.yml` dejan
+  que npm se autentique con trusted publishing, que necesita un trusted publisher configurado en npmjs.com para cada
+  paquete con el nombre de archivo del workflow. Hasta que eso esté hecho y verificado, y siempre que npm no consiga
+  el intercambio, `NPM_TOKEN` es el respaldo y la publicación no lleva declaración de procedencia; ninguna publicación
+  ha pasado aún por OIDC. El permiso OIDC lo tienen únicamente jobs que no instalan nada ni ejecutan scripts de
+  paquetes: los paquetes que necesitan instalación o compilación (`@dcp-ai/sdk`, `@dcp-ai/wasm`, `@dcp-ai/cli` y las
+  integraciones `anthropic-mcp`, `google-a2a`, `express` y `openclaw`) se empaquetan en un job de solo lectura, y un
+  segundo job publica el tarball después de comprobar su SHA-256 con el del job de compilación y el nombre y la
+  versión que npm lee de él. La comprobación de versión ya publicada falla de forma cerrada
+  (`tools/publish/npm-version-check.mjs`): solo una respuesta del registro que diga que la versión existe, o que no
+  existe, deja continuar al job. `tools/publish/test_publish_workflows.py` comprueba los tres archivos de workflow en
+  CI sin permisos de publicación. Fusionar no publica nada: los workflows solo se ejecutan con una GitHub Release
+  publicada o una ejecución manual. crates.io sigue publicando con un token.
+
 <a id="added"></a>
 
 ### Añadido
@@ -1176,6 +1191,9 @@ Publicado el 28/10/2026: `@dcp-ai/sdk` 2.2.1, `@dcp-ai/wasm` 2.1.1 y `@dcp-ai/cl
   codificador rechaza los sustitutos (surrogates) aislados en lugar de reemplazarlos. Esto refuerza el tratamiento de
   la entrada del decodificador; no es un decodificador CBOR canónico completo ni añade ningún perfil de
   canonicalización.
+
+- **`@dcp-ai/wasm` declara su repositorio** (código fuente en `main`, no está en ninguna versión publicada).
+  `package.json` incorpora el campo `repository`, que la procedencia de npm exige.
 
 <a id="documentation"></a>
 

@@ -7,6 +7,18 @@ name: Publish Integrations
 # Every job pre-checks whether the manifest version is already on npm
 # and, if so, exits green with a skip notice. That keeps the Actions
 # tab free of red ghosts when a release only bumps one integration.
+#
+# npm authentication: as in publish.yml, the publish jobs let npm use trusted publishing
+# (OIDC) and NPM_TOKEN stays as the fallback; no publish has gone through OIDC yet. The
+# trusted publishers are configured per package on npmjs.com with the workflow filename
+# `publish-integrations.yml`.
+#
+# autogen and w3c-did have nothing to build and are published straight from the checkout
+# with `--ignore-scripts`. anthropic-mcp, google-a2a, express and openclaw need an install
+# and a build, so they are built and packed in a read-only build-* job and published by a
+# separate publish-* job that only downloads the tarball, checks it and publishes it (see
+# publish.yml for why). Merging a change to this file publishes nothing: it runs only for a
+# published GitHub Release or a manual dispatch.
 
 on:
   release:
@@ -30,10 +42,18 @@ permissions:
   contents: read
 
 jobs:
-  publish-anthropic-mcp:
-    name: Publish @dcp-ai/anthropic-mcp
+  build-anthropic-mcp:
+    name: Build @dcp-ai/anthropic-mcp
     runs-on: ubuntu-latest
     if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'anthropic-mcp'
+    # Read-only: this job installs dependencies and runs build scripts, so it never
+    # gets `id-token: write`. It hands a packed tarball to publish-anthropic-mcp.
+    permissions:
+      contents: read
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
+      version: ${{ steps.check.outputs.version }}
+      sha256: ${{ steps.pack.outputs.sha256 }}
     defaults:
       run:
         working-directory: integrations/anthropic-mcp
@@ -45,15 +65,9 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - name: Check if version already published
         id: check
-        run: |
-          LOCAL=$(node -p "require('./package.json').version")
-          REMOTE=$(npm view @dcp-ai/anthropic-mcp@$LOCAL version 2>/dev/null || true)
-          if [ -n "$REMOTE" ]; then
-            echo "@dcp-ai/anthropic-mcp@$LOCAL is already on npm — skipping publish."
-            echo "skip=true" >> $GITHUB_OUTPUT
-          else
-            echo "skip=false" >> $GITHUB_OUTPUT
-          fi
+        # Fails closed: only a registry answer that this version exists, or that it does not, lets the
+        # job go on. First-party script without dependencies; it reads the name from ./package.json.
+        run: node "$GITHUB_WORKSPACE/tools/publish/npm-version-check.mjs"
       - if: steps.check.outputs.skip != 'true'
         name: Refuse a dependency on a local path
         # Published packages must resolve dependencies from the registry, never local paths.
@@ -71,14 +85,74 @@ jobs:
       - if: steps.check.outputs.skip != 'true'
         run: npm run build
       - if: steps.check.outputs.skip != 'true'
-        run: npm publish --access public
+        name: Pack the tarball
+        id: pack
+        # npm does not create the destination. The hash lets the publish job check it got this file.
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/pkg"
+          npm pack --pack-destination "$RUNNER_TEMP/pkg"
+          echo "sha256=$(sha256sum "$RUNNER_TEMP"/pkg/*.tgz | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+      - if: steps.check.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-anthropic-mcp
+          path: ${{ runner.temp }}/pkg/*.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-anthropic-mcp:
+    name: Publish @dcp-ai/anthropic-mcp
+    needs: build-anthropic-mcp
+    runs-on: ubuntu-latest
+    if: needs.build-anthropic-mcp.result == 'success' && needs.build-anthropic-mcp.outputs.skip != 'true'
+    # Only downloads the tarball built above and publishes it: no checkout, no install,
+    # no package script, so no third-party code can use the OIDC token.
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: npm-anthropic-mcp
+          path: pkg
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Check the tarball before publishing
+        # The build job ran third-party code, and npm publishes whatever package is named inside the
+        # tarball. Accept only the file that build job packed, and only if npm reads this package at
+        # the version that job checked against the registry. The values arrive through env, so the
+        # shell compares them and never evaluates them.
         env:
+          EXPECTED_NAME: '@dcp-ai/anthropic-mcp'
+          EXPECTED_VERSION: ${{ needs.build-anthropic-mcp.outputs.version }}
+          EXPECTED_SHA256: ${{ needs.build-anthropic-mcp.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          files=(./pkg/*.tgz)
+          [ "${#files[@]}" -eq 1 ] || { echo "::error::expected one tarball, found ${#files[@]}"; exit 1; }
+          [[ "$EXPECTED_SHA256" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::the build job reported no SHA-256"; exit 1; }
+          [[ "$EXPECTED_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || { echo "::error::the build job reported no version"; exit 1; }
+          actual=$(sha256sum "${files[0]}" | cut -d' ' -f1)
+          [ "$actual" = "$EXPECTED_SHA256" ] || { echo "::error::the tarball is not the one the build job packed"; exit 1; }
+          found=$(npm pack "${files[0]}" --dry-run --json --ignore-scripts | node -p 'const p = JSON.parse(require("fs").readFileSync(0, "utf8"))[0]; p.name + "@" + p.version')
+          [ "$found" = "$EXPECTED_NAME@$EXPECTED_VERSION" ] || { echo "::error::the tarball is $found, not $EXPECTED_NAME@$EXPECTED_VERSION"; exit 1; }
+      - run: npm publish ./pkg/*.tgz --access public --ignore-scripts
+        env:
+          # Transitional fallback: npm tries trusted publishing (OIDC) first. Delete this
+          # env block, and the NPM_TOKEN secret, once the trusted publishers are verified.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   publish-autogen:
     name: Publish @dcp-ai/autogen
     runs-on: ubuntu-latest
     if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'autogen'
+    # Nothing is installed and no package script runs here, so no third-party code
+    # can use the OIDC token this job is allowed to mint.
+    permissions:
+      contents: read
+      id-token: write
     defaults:
       run:
         working-directory: integrations/autogen
@@ -86,19 +160,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
       - name: Check if version already published
         id: check
-        run: |
-          LOCAL=$(node -p "require('./package.json').version")
-          REMOTE=$(npm view @dcp-ai/autogen@$LOCAL version 2>/dev/null || true)
-          if [ -n "$REMOTE" ]; then
-            echo "@dcp-ai/autogen@$LOCAL is already on npm — skipping publish."
-            echo "skip=true" >> $GITHUB_OUTPUT
-          else
-            echo "skip=false" >> $GITHUB_OUTPUT
-          fi
+        # Fails closed: only a registry answer that this version exists, or that it does not, lets the
+        # job go on. First-party script without dependencies; it reads the name from ./package.json.
+        run: node "$GITHUB_WORKSPACE/tools/publish/npm-version-check.mjs"
       - if: steps.check.outputs.skip != 'true'
         name: Refuse a dependency on a local path
         # Published packages must resolve dependencies from the registry, never local paths.
@@ -111,14 +179,24 @@ jobs:
             process.exit(local.length > 0 ? 1 : 0);
           '
       - if: steps.check.outputs.skip != 'true'
-        run: npm publish --access public
+        run: npm publish --access public --ignore-scripts
         env:
+          # Transitional fallback: npm tries trusted publishing (OIDC) first. Delete this
+          # env block, and the NPM_TOKEN secret, once the trusted publishers are verified.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-  publish-google-a2a:
-    name: Publish @dcp-ai/google-a2a
+  build-google-a2a:
+    name: Build @dcp-ai/google-a2a
     runs-on: ubuntu-latest
     if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'google-a2a'
+    # Read-only: this job installs dependencies and runs build scripts, so it never
+    # gets `id-token: write`. It hands a packed tarball to publish-google-a2a.
+    permissions:
+      contents: read
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
+      version: ${{ steps.check.outputs.version }}
+      sha256: ${{ steps.pack.outputs.sha256 }}
     defaults:
       run:
         working-directory: integrations/google-a2a
@@ -130,15 +208,9 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - name: Check if version already published
         id: check
-        run: |
-          LOCAL=$(node -p "require('./package.json').version")
-          REMOTE=$(npm view @dcp-ai/google-a2a@$LOCAL version 2>/dev/null || true)
-          if [ -n "$REMOTE" ]; then
-            echo "@dcp-ai/google-a2a@$LOCAL is already on npm — skipping publish."
-            echo "skip=true" >> $GITHUB_OUTPUT
-          else
-            echo "skip=false" >> $GITHUB_OUTPUT
-          fi
+        # Fails closed: only a registry answer that this version exists, or that it does not, lets the
+        # job go on. First-party script without dependencies; it reads the name from ./package.json.
+        run: node "$GITHUB_WORKSPACE/tools/publish/npm-version-check.mjs"
       - if: steps.check.outputs.skip != 'true'
         name: Refuse a dependency on a local path
         # Published packages must resolve dependencies from the registry, never local paths.
@@ -156,14 +228,74 @@ jobs:
       - if: steps.check.outputs.skip != 'true'
         run: npm run build
       - if: steps.check.outputs.skip != 'true'
-        run: npm publish --access public
+        name: Pack the tarball
+        id: pack
+        # npm does not create the destination. The hash lets the publish job check it got this file.
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/pkg"
+          npm pack --pack-destination "$RUNNER_TEMP/pkg"
+          echo "sha256=$(sha256sum "$RUNNER_TEMP"/pkg/*.tgz | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+      - if: steps.check.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-google-a2a
+          path: ${{ runner.temp }}/pkg/*.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-google-a2a:
+    name: Publish @dcp-ai/google-a2a
+    needs: build-google-a2a
+    runs-on: ubuntu-latest
+    if: needs.build-google-a2a.result == 'success' && needs.build-google-a2a.outputs.skip != 'true'
+    # Only downloads the tarball built above and publishes it: no checkout, no install,
+    # no package script, so no third-party code can use the OIDC token.
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: npm-google-a2a
+          path: pkg
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Check the tarball before publishing
+        # The build job ran third-party code, and npm publishes whatever package is named inside the
+        # tarball. Accept only the file that build job packed, and only if npm reads this package at
+        # the version that job checked against the registry. The values arrive through env, so the
+        # shell compares them and never evaluates them.
         env:
+          EXPECTED_NAME: '@dcp-ai/google-a2a'
+          EXPECTED_VERSION: ${{ needs.build-google-a2a.outputs.version }}
+          EXPECTED_SHA256: ${{ needs.build-google-a2a.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          files=(./pkg/*.tgz)
+          [ "${#files[@]}" -eq 1 ] || { echo "::error::expected one tarball, found ${#files[@]}"; exit 1; }
+          [[ "$EXPECTED_SHA256" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::the build job reported no SHA-256"; exit 1; }
+          [[ "$EXPECTED_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || { echo "::error::the build job reported no version"; exit 1; }
+          actual=$(sha256sum "${files[0]}" | cut -d' ' -f1)
+          [ "$actual" = "$EXPECTED_SHA256" ] || { echo "::error::the tarball is not the one the build job packed"; exit 1; }
+          found=$(npm pack "${files[0]}" --dry-run --json --ignore-scripts | node -p 'const p = JSON.parse(require("fs").readFileSync(0, "utf8"))[0]; p.name + "@" + p.version')
+          [ "$found" = "$EXPECTED_NAME@$EXPECTED_VERSION" ] || { echo "::error::the tarball is $found, not $EXPECTED_NAME@$EXPECTED_VERSION"; exit 1; }
+      - run: npm publish ./pkg/*.tgz --access public --ignore-scripts
+        env:
+          # Transitional fallback: npm tries trusted publishing (OIDC) first. Delete this
+          # env block, and the NPM_TOKEN secret, once the trusted publishers are verified.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   publish-w3c-did:
     name: Publish @dcp-ai/w3c-did
     runs-on: ubuntu-latest
     if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'w3c-did'
+    # Nothing is installed and no package script runs here, so no third-party code
+    # can use the OIDC token this job is allowed to mint.
+    permissions:
+      contents: read
+      id-token: write
     defaults:
       run:
         working-directory: integrations/w3c-did
@@ -171,19 +303,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
       - name: Check if version already published
         id: check
-        run: |
-          LOCAL=$(node -p "require('./package.json').version")
-          REMOTE=$(npm view @dcp-ai/w3c-did@$LOCAL version 2>/dev/null || true)
-          if [ -n "$REMOTE" ]; then
-            echo "@dcp-ai/w3c-did@$LOCAL is already on npm — skipping publish."
-            echo "skip=true" >> $GITHUB_OUTPUT
-          else
-            echo "skip=false" >> $GITHUB_OUTPUT
-          fi
+        # Fails closed: only a registry answer that this version exists, or that it does not, lets the
+        # job go on. First-party script without dependencies; it reads the name from ./package.json.
+        run: node "$GITHUB_WORKSPACE/tools/publish/npm-version-check.mjs"
       - if: steps.check.outputs.skip != 'true'
         name: Refuse a dependency on a local path
         # Published packages must resolve dependencies from the registry, never local paths.
@@ -196,14 +322,24 @@ jobs:
             process.exit(local.length > 0 ? 1 : 0);
           '
       - if: steps.check.outputs.skip != 'true'
-        run: npm publish --access public
+        run: npm publish --access public --ignore-scripts
         env:
+          # Transitional fallback: npm tries trusted publishing (OIDC) first. Delete this
+          # env block, and the NPM_TOKEN secret, once the trusted publishers are verified.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-  publish-express:
-    name: Publish @dcp-ai/express
+  build-express:
+    name: Build @dcp-ai/express
     runs-on: ubuntu-latest
     if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'express'
+    # Read-only: this job installs dependencies and runs build scripts, so it never
+    # gets `id-token: write`. It hands a packed tarball to publish-express.
+    permissions:
+      contents: read
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
+      version: ${{ steps.check.outputs.version }}
+      sha256: ${{ steps.pack.outputs.sha256 }}
     defaults:
       run:
         working-directory: integrations/express
@@ -215,15 +351,9 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - name: Check if version already published
         id: check
-        run: |
-          LOCAL=$(node -p "require('./package.json').version")
-          REMOTE=$(npm view @dcp-ai/express@$LOCAL version 2>/dev/null || true)
-          if [ -n "$REMOTE" ]; then
-            echo "@dcp-ai/express@$LOCAL is already on npm — skipping publish."
-            echo "skip=true" >> $GITHUB_OUTPUT
-          else
-            echo "skip=false" >> $GITHUB_OUTPUT
-          fi
+        # Fails closed: only a registry answer that this version exists, or that it does not, lets the
+        # job go on. First-party script without dependencies; it reads the name from ./package.json.
+        run: node "$GITHUB_WORKSPACE/tools/publish/npm-version-check.mjs"
       - if: steps.check.outputs.skip != 'true'
         name: Refuse a dependency on a local path
         # Published packages must resolve dependencies from the registry, never local paths.
@@ -241,14 +371,77 @@ jobs:
       - if: steps.check.outputs.skip != 'true'
         run: npm run build
       - if: steps.check.outputs.skip != 'true'
-        run: npm publish --access public
+        name: Pack the tarball
+        id: pack
+        # npm does not create the destination. The hash lets the publish job check it got this file.
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/pkg"
+          npm pack --pack-destination "$RUNNER_TEMP/pkg"
+          echo "sha256=$(sha256sum "$RUNNER_TEMP"/pkg/*.tgz | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+      - if: steps.check.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-express
+          path: ${{ runner.temp }}/pkg/*.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-express:
+    name: Publish @dcp-ai/express
+    needs: build-express
+    runs-on: ubuntu-latest
+    if: needs.build-express.result == 'success' && needs.build-express.outputs.skip != 'true'
+    # Only downloads the tarball built above and publishes it: no checkout, no install,
+    # no package script, so no third-party code can use the OIDC token.
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: npm-express
+          path: pkg
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Check the tarball before publishing
+        # The build job ran third-party code, and npm publishes whatever package is named inside the
+        # tarball. Accept only the file that build job packed, and only if npm reads this package at
+        # the version that job checked against the registry. The values arrive through env, so the
+        # shell compares them and never evaluates them.
         env:
+          EXPECTED_NAME: '@dcp-ai/express'
+          EXPECTED_VERSION: ${{ needs.build-express.outputs.version }}
+          EXPECTED_SHA256: ${{ needs.build-express.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          files=(./pkg/*.tgz)
+          [ "${#files[@]}" -eq 1 ] || { echo "::error::expected one tarball, found ${#files[@]}"; exit 1; }
+          [[ "$EXPECTED_SHA256" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::the build job reported no SHA-256"; exit 1; }
+          [[ "$EXPECTED_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || { echo "::error::the build job reported no version"; exit 1; }
+          actual=$(sha256sum "${files[0]}" | cut -d' ' -f1)
+          [ "$actual" = "$EXPECTED_SHA256" ] || { echo "::error::the tarball is not the one the build job packed"; exit 1; }
+          found=$(npm pack "${files[0]}" --dry-run --json --ignore-scripts | node -p 'const p = JSON.parse(require("fs").readFileSync(0, "utf8"))[0]; p.name + "@" + p.version')
+          [ "$found" = "$EXPECTED_NAME@$EXPECTED_VERSION" ] || { echo "::error::the tarball is $found, not $EXPECTED_NAME@$EXPECTED_VERSION"; exit 1; }
+      - run: npm publish ./pkg/*.tgz --access public --ignore-scripts
+        env:
+          # Transitional fallback: npm tries trusted publishing (OIDC) first. Delete this
+          # env block, and the NPM_TOKEN secret, once the trusted publishers are verified.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-  publish-openclaw:
-    name: Publish @dcp-ai/openclaw
+  build-openclaw:
+    name: Build @dcp-ai/openclaw
     runs-on: ubuntu-latest
     if: github.event_name == 'release' || github.event.inputs.package == 'all' || github.event.inputs.package == 'openclaw'
+    # Read-only: this job installs dependencies and runs build scripts, so it never
+    # gets `id-token: write`. It hands a packed tarball to publish-openclaw.
+    permissions:
+      contents: read
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
+      version: ${{ steps.check.outputs.version }}
+      sha256: ${{ steps.pack.outputs.sha256 }}
     defaults:
       run:
         working-directory: integrations/openclaw
@@ -260,15 +453,9 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - name: Check if version already published
         id: check
-        run: |
-          LOCAL=$(node -p "require('./package.json').version")
-          REMOTE=$(npm view @dcp-ai/openclaw@$LOCAL version 2>/dev/null || true)
-          if [ -n "$REMOTE" ]; then
-            echo "@dcp-ai/openclaw@$LOCAL is already on npm — skipping publish."
-            echo "skip=true" >> $GITHUB_OUTPUT
-          else
-            echo "skip=false" >> $GITHUB_OUTPUT
-          fi
+        # Fails closed: only a registry answer that this version exists, or that it does not, lets the
+        # job go on. First-party script without dependencies; it reads the name from ./package.json.
+        run: node "$GITHUB_WORKSPACE/tools/publish/npm-version-check.mjs"
       - if: steps.check.outputs.skip != 'true'
         name: Refuse a dependency on a local path
         # Published packages must resolve dependencies from the registry, never local paths.
@@ -286,6 +473,61 @@ jobs:
       - if: steps.check.outputs.skip != 'true'
         run: npm run build
       - if: steps.check.outputs.skip != 'true'
-        run: npm publish --access public
+        name: Pack the tarball
+        id: pack
+        # npm does not create the destination. The hash lets the publish job check it got this file.
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/pkg"
+          npm pack --pack-destination "$RUNNER_TEMP/pkg"
+          echo "sha256=$(sha256sum "$RUNNER_TEMP"/pkg/*.tgz | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+      - if: steps.check.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-openclaw
+          path: ${{ runner.temp }}/pkg/*.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-openclaw:
+    name: Publish @dcp-ai/openclaw
+    needs: build-openclaw
+    runs-on: ubuntu-latest
+    if: needs.build-openclaw.result == 'success' && needs.build-openclaw.outputs.skip != 'true'
+    # Only downloads the tarball built above and publishes it: no checkout, no install,
+    # no package script, so no third-party code can use the OIDC token.
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: npm-openclaw
+          path: pkg
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Check the tarball before publishing
+        # The build job ran third-party code, and npm publishes whatever package is named inside the
+        # tarball. Accept only the file that build job packed, and only if npm reads this package at
+        # the version that job checked against the registry. The values arrive through env, so the
+        # shell compares them and never evaluates them.
         env:
+          EXPECTED_NAME: '@dcp-ai/openclaw'
+          EXPECTED_VERSION: ${{ needs.build-openclaw.outputs.version }}
+          EXPECTED_SHA256: ${{ needs.build-openclaw.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          files=(./pkg/*.tgz)
+          [ "${#files[@]}" -eq 1 ] || { echo "::error::expected one tarball, found ${#files[@]}"; exit 1; }
+          [[ "$EXPECTED_SHA256" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::the build job reported no SHA-256"; exit 1; }
+          [[ "$EXPECTED_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || { echo "::error::the build job reported no version"; exit 1; }
+          actual=$(sha256sum "${files[0]}" | cut -d' ' -f1)
+          [ "$actual" = "$EXPECTED_SHA256" ] || { echo "::error::the tarball is not the one the build job packed"; exit 1; }
+          found=$(npm pack "${files[0]}" --dry-run --json --ignore-scripts | node -p 'const p = JSON.parse(require("fs").readFileSync(0, "utf8"))[0]; p.name + "@" + p.version')
+          [ "$found" = "$EXPECTED_NAME@$EXPECTED_VERSION" ] || { echo "::error::the tarball is $found, not $EXPECTED_NAME@$EXPECTED_VERSION"; exit 1; }
+      - run: npm publish ./pkg/*.tgz --access public --ignore-scripts
+        env:
+          # Transitional fallback: npm tries trusted publishing (OIDC) first. Delete this
+          # env block, and the NPM_TOKEN secret, once the trusted publishers are verified.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

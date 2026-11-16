@@ -341,6 +341,18 @@
   `"dcp-jcs-v1"` 以外的任何值，与 TypeScript 和 Python 一致。共享向量为 `canonicalization_profile_unknown`
   和 `canonicalization_profile_not_a_string`。
 
+- **npm 发布工作流已为 trusted publishing（OIDC）做好准备**（仅 `main` 上的 CI；软件包和版本号不变；尚未实际
+  运行）。`publish.yml`、`publish-integrations.yml` 和 `publish-templates.yml` 允许 npm 通过 trusted publishing
+  进行认证，这需要在 npmjs.com 上为每个软件包配置 trusted publisher，并填写工作流文件名。在完成配置并验证之前，
+  以及 npm 的令牌交换被拒绝时，`NPM_TOKEN` 作为回退，这样的发布不带来源证明（provenance）；目前还没有任何一次
+  发布经过 OIDC。只有不安装任何内容、也不运行软件包脚本的作业才持有 OIDC 权限：需要安装或构建的软件包
+  （`@dcp-ai/sdk`、`@dcp-ai/wasm`、`@dcp-ai/cli`，以及 `anthropic-mcp`、`google-a2a`、`express` 和 `openclaw`
+  集成）在只读作业中打包；另一个作业先核对 tarball 的 SHA-256 与构建作业给出的值是否一致，并核对 npm 从中读到的
+  名称和版本，然后才发布。对“版本是否已发布”的检查采用失败关闭的方式
+  （`tools/publish/npm-version-check.mjs`）：只有注册表明确回答该版本存在或不存在时，作业才会继续。
+  `tools/publish/test_publish_workflows.py` 在没有发布权限的 CI 中检查这三个工作流文件。合并不会发布任何内容：
+  这些工作流只在 GitHub Release 发布或手动触发时运行。crates.io 仍然使用令牌发布。
+
 <a id="added"></a>
 
 ### 新增
@@ -873,6 +885,9 @@
   超出安全整数范围的整数和长度。它把 U+FEFF 作为文本数据保留，把 `__proto__` 键定义为自有属性而不是调用其
   setter，编码器会拒绝未配对的代理项而不是替换它们。这加强了解码器对输入的处理；它不是完整的规范 CBOR 解码器，
   也没有增加任何规范化配置文件。
+
+- **`@dcp-ai/wasm` 声明其仓库**（仅 `main` 上的源代码，不在任何已发布版本中）。`package.json` 新增 npm 来源证明
+  （provenance）所要求的 `repository` 字段。
 
 <a id="documentation"></a>
 
